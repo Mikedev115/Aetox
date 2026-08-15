@@ -474,6 +474,14 @@ export interface CockpitState {
    * this way. Carries the *kind* because it came from the roster — Settings
    * must never re-derive it from a file. Consumed and cleared on arrival. */
   settingsIntent: { section: string; agent?: string; createAgent?: boolean } | null
+  /** Background shell commands the agent has running/finished (background:changed event). */
+  backgroundTasks: BackgroundTask[]
+  /** Date.now() when backgroundTasks was captured — live elapsed for a running
+   * row is its elapsedMs plus what the local clock has added since. */
+  backgroundTasksAt: number
+  /** Finished task ids the user cleared from the panel. UI-only: the Go
+   * registry keeps the job so the model's shell_output handle still works. */
+  backgroundCleared: string[]
 }
 
 /** One suggested side task from the agent (suggest_task tool). */
@@ -483,6 +491,16 @@ export interface TaskChip {
   tldr: string
   prompt: string
   createdAt: string
+}
+
+/** One background shell command (BackgroundTasks binding). */
+export interface BackgroundTask {
+  id: string
+  command: string
+  running: boolean
+  killed: boolean
+  exitError: string
+  elapsedMs: number
 }
 
 /** A blank, well-formed state so the UI renders before the source hydrates. */
@@ -513,6 +531,9 @@ export function emptyCockpitState(): CockpitState {
     ask: null,
     todos: [],
     taskChips: [],
+    backgroundTasks: [],
+    backgroundTasksAt: 0,
+    backgroundCleared: [],
     pendingLearned: 0,
     settingsIntent: null,
     pendingImage: null,

@@ -1,8 +1,11 @@
 package skill
 
 import (
+	"context"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Mike0165115321/Aetox/internal/model"
 )
@@ -32,6 +35,75 @@ func TestNewDefaultRegistryRegistersAllBuiltins(t *testing.T) {
 
 func TestRegisterDefaultsNilRegistryIsSafe(t *testing.T) {
 	RegisterDefaults(nil, RegistryOptions{}) // must not panic
+}
+
+// The host's window onto background commands: Registry.BackgroundJobs and
+// StopBackgroundJob reach the same job registry the shell tools share, so
+// what a panel shows and stops is exactly what the model started.
+func TestRegistryBackgroundJobsReachTheShellTools(t *testing.T) {
+	isolateAuditLog(t)
+	registry := NewDefaultRegistry(RegistryOptions{SandboxRoot: t.TempDir()})
+
+	shellTool, _ := registry.Get("shell")
+	command := `ping -n 60 127.0.0.1 >nul`
+	if runtime.GOOS != "windows" {
+		command = `sleep 60`
+	}
+	out, err := shellTool.(Tool).ExecuteTool(context.Background(), map[string]any{
+		"command":           command,
+		"run_in_background": true,
+	})
+	if err != nil {
+		t.Fatalf("starting the background command: %v", err)
+	}
+	id := backgroundIDRe.FindString(out.Content)
+	if id == "" {
+		t.Fatalf("no handle in %q", out.Content)
+	}
+
+	jobs := registry.BackgroundJobs()
+	if len(jobs) != 1 || jobs[0].ID != id || jobs[0].Command != command || jobs[0].Done {
+		t.Fatalf("BackgroundJobs() = %+v, want %s running %q", jobs, id, command)
+	}
+
+	if err := registry.StopBackgroundJob(id); err != nil {
+		t.Fatalf("StopBackgroundJob(%s): %v", id, err)
+	}
+	// Wait for the process to actually die — on Windows t.TempDir cleanup fails
+	// while a surviving child still holds the working directory open.
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		jobs = registry.BackgroundJobs()
+		if len(jobs) == 1 && jobs[0].Done {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("job never died after StopBackgroundJob: %+v", jobs)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !jobs[0].Killed {
+		t.Errorf("a stopped job must read as killed: %+v", jobs[0])
+	}
+}
+
+// Registries without the shell tools — and nil ones — answer emptily rather
+// than panicking: the desktop calls these on whatever registry it holds.
+func TestRegistryBackgroundJobsWithoutShellTools(t *testing.T) {
+	var nilReg *Registry
+	if got := nilReg.BackgroundJobs(); got != nil {
+		t.Errorf("nil registry: BackgroundJobs() = %v, want nil", got)
+	}
+	if err := nilReg.StopBackgroundJob("bg_1"); err == nil {
+		t.Error("nil registry: stopping must report there is nothing to stop")
+	}
+	bare := NewRegistry()
+	if got := bare.BackgroundJobs(); got != nil {
+		t.Errorf("bare registry: BackgroundJobs() = %v, want nil", got)
+	}
+	if err := bare.StopBackgroundJob("bg_1"); err == nil {
+		t.Error("bare registry: stopping must report there is nothing to stop")
+	}
 }
 
 // A tool description that claims a word — "use this whenever the user wants

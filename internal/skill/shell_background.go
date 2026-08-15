@@ -50,6 +50,22 @@ type backgroundShells struct {
 	mu   sync.Mutex
 	seq  int
 	jobs map[string]*backgroundJob
+
+	// notify fires after the set or state of jobs changes: a start, an exit, a
+	// kill (which is an exit). Set once by RegisterDefaults before any job can
+	// exist, never during use. It exists for a host UI that mirrors this
+	// registry — a finished process is not a tool call, so without a push
+	// there is nothing for a panel to subscribe to but a clock.
+	notify func()
+}
+
+// changed announces a state change to whoever is mirroring the registry.
+// Called without any lock held: notify re-enters through Jobs(), which takes
+// b.mu and every job's mu.
+func (b *backgroundShells) changed() {
+	if b.notify != nil {
+		b.notify()
+	}
 }
 
 func newBackgroundShells() *backgroundShells {
@@ -111,6 +127,79 @@ func (j *backgroundJob) status() (done, killed bool, exitErr error, since time.D
 	return false, false, nil, time.Since(j.started)
 }
 
+// kill marks the job killed and cancels it. cancel is what proc.KillOnCancel
+// watches, so this takes the whole process tree — npm and the node it spawned,
+// not just the shell in front of them. The mark comes first: the Wait
+// goroutine can observe the death at any moment after cancel, and a job that
+// reads as "exited with an error" for that instant would tell whoever asked
+// that the command failed on its own.
+func (j *backgroundJob) kill() {
+	j.mu.Lock()
+	j.killed = true
+	j.mu.Unlock()
+	j.cancel()
+}
+
+// BackgroundJob is the snapshot of one job that leaves the package: enough to
+// draw a row in a panel and address the job by handle, and nothing that could
+// be misused — no pid, no process, no buffer. Same rule the model lives
+// under: the handle is what callers hold.
+type BackgroundJob struct {
+	ID      string
+	Command string
+	Done    bool
+	Killed  bool
+	// ExitError is the failure of a job that ended on its own with a non-zero
+	// exit, "" for one still running, killed, or finished clean.
+	ExitError string
+	// Elapsed is how long the job has been running, or ran: it stops growing
+	// when the job ends, exactly as status() reports it.
+	Elapsed time.Duration
+}
+
+// Jobs snapshots every job still remembered — running and finished both,
+// oldest first. Finished jobs stay listed until forgetFinishedLocked reclaims
+// them, which is the same window shell_output has to read them.
+func (b *backgroundShells) Jobs() []BackgroundJob {
+	b.mu.Lock()
+	jobs := make([]*backgroundJob, 0, len(b.jobs))
+	for _, j := range b.jobs {
+		jobs = append(jobs, j)
+	}
+	b.mu.Unlock()
+	// Start order, not map order or lexical id order — bg_10 belongs after
+	// bg_9, and started is the one field that says so without parsing ids.
+	sort.Slice(jobs, func(i, k int) bool { return jobs[i].started.Before(jobs[k].started) })
+	out := make([]BackgroundJob, 0, len(jobs))
+	for _, j := range jobs {
+		done, killed, exitErr, elapsed := j.status()
+		snap := BackgroundJob{ID: j.id, Command: j.command, Done: done, Killed: killed, Elapsed: elapsed}
+		// A killed process reports a Wait error too, but that death was asked
+		// for — "killed" is the whole story, same precedence shell_output's
+		// header uses.
+		if exitErr != nil && !killed {
+			snap.ExitError = exitErr.Error()
+		}
+		out = append(out, snap)
+	}
+	return out
+}
+
+// stop ends one job by handle, the same path shell_kill takes. A job that
+// already finished is a success, not an error: the caller asked for a state —
+// "not running" — and that state holds.
+func (b *backgroundShells) stop(id string) error {
+	job, ok := b.get(id)
+	if !ok {
+		return fmt.Errorf("no background command %q — %s", id, describeRunning(b))
+	}
+	if done, _, _, _ := job.status(); done {
+		return nil
+	}
+	job.kill()
+	return nil
+}
+
 // start launches the command detached from the turn.
 //
 // context.Background, deliberately: the turn's context is cancelled the moment
@@ -153,6 +242,7 @@ func (b *backgroundShells) start(backend proc.Backend, workDir, commandLine stri
 	b.mu.Lock()
 	b.jobs[id] = job
 	b.mu.Unlock()
+	b.changed()
 
 	go func() {
 		err := cmd.Wait()
@@ -160,6 +250,7 @@ func (b *backgroundShells) start(backend proc.Backend, workDir, commandLine stri
 		job.mu.Lock()
 		job.done, job.exitErr, job.ended = true, err, time.Now()
 		job.mu.Unlock()
+		b.changed()
 	}()
 	return job, nil
 }
@@ -365,12 +456,7 @@ func (s *shellKillSkill) ExecuteTool(_ context.Context, args map[string]any) (Ou
 		return newToolOutput("shell_kill", command,
 			fmt.Sprintf("[%s] had already finished, after %s", id, elapsed.Round(time.Second)), start, false, nil), nil
 	}
-	job.mu.Lock()
-	job.killed = true
-	job.mu.Unlock()
-	// cancel is what proc.KillOnCancel watches, so this takes the whole process
-	// tree — npm and the node it spawned, not just the shell in front of them.
-	job.cancel()
+	job.kill()
 	return newToolOutput("shell_kill", command, "["+id+"] killed: "+job.command, start, false, nil), nil
 }
 

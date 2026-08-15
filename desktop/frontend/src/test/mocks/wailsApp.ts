@@ -13,6 +13,8 @@ const boolFn = (v: boolean) => vi.fn(async (..._args: any[]) => v)
 const noop = () => vi.fn(async (..._args: any[]) => undefined)
 
 export const AddMCPServer = noop()
+export const BackgroundTasks = arr()
+export const StopBackgroundTask = noop()
 export const BrowserBack = noop()
 export const BrowserClickRef = noop()
 export const BrowserClose = noop()

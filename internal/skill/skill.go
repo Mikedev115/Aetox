@@ -98,6 +98,14 @@ type registryEntry struct {
 type Registry struct {
 	mu      sync.RWMutex
 	entries map[string]registryEntry
+
+	// background is the registry of background shell commands this registry's
+	// shell tools share, set by RegisterDefaults. Held here so a host — the
+	// desktop's background-tasks panel — can see and stop exactly what the
+	// model started through this registry: one set of jobs, two viewers, no
+	// second truth. Nil on a registry that never got the shell tools, and both
+	// accessors are written for that.
+	background *backgroundShells
 }
 
 func NewRegistry() *Registry {
@@ -120,6 +128,39 @@ func (r *Registry) Register(skill Skill, source Source) error {
 	}
 	r.entries[name] = registryEntry{skill: skill, source: source}
 	return nil
+}
+
+// BackgroundJobs reports the background commands this registry's shell tools
+// know about, oldest first — a read-only snapshot for a host UI. The caller
+// gets handles and status, never a pid or a process.
+func (r *Registry) BackgroundJobs() []BackgroundJob {
+	if r == nil {
+		return nil
+	}
+	r.mu.RLock()
+	shells := r.background
+	r.mu.RUnlock()
+	if shells == nil {
+		return nil
+	}
+	return shells.Jobs()
+}
+
+// StopBackgroundJob ends one background command by handle — the same path
+// shell_kill takes, so the whole process tree dies with it. A job that has
+// already finished is a success; an unknown handle is an error that names
+// what is running.
+func (r *Registry) StopBackgroundJob(id string) error {
+	if r == nil {
+		return fmt.Errorf("no background command %q — nothing is running in the background", id)
+	}
+	r.mu.RLock()
+	shells := r.background
+	r.mu.RUnlock()
+	if shells == nil {
+		return fmt.Errorf("no background command %q — nothing is running in the background", id)
+	}
+	return shells.stop(id)
 }
 
 func (r *Registry) Get(name string) (Skill, bool) {

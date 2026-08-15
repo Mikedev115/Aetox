@@ -10,7 +10,7 @@ import {
 import type { main, ooxml } from '../../../wailsjs/go/models'
 import { t } from '../i18n.svelte'
 
-export type WorkbenchTabKind = 'terminal' | 'browser' | 'files' | 'file' | 'tools'
+export type WorkbenchTabKind = 'terminal' | 'browser' | 'files' | 'file' | 'tools' | 'background'
 
 export type WorkbenchTab = {
   id: string
@@ -105,6 +105,15 @@ export function openToolsTab(): void {
     workbench.tabs.push({ id: 'tools', kind: 'tools', name: t('workbench.toolsTab') })
   }
   workbench.activeId = 'tools'
+}
+
+/** Singleton tab: the agent's background shell commands (dev servers, watch
+ *  builds), with a stop button the model does not have to be asked for. */
+export function openBackgroundTab(): void {
+  if (!workbench.tabs.some((t) => t.kind === 'background')) {
+    workbench.tabs.push({ id: 'background', kind: 'background', name: t('bgTasks.tab') })
+  }
+  workbench.activeId = 'background'
 }
 
 export function openBrowserTab(): string {
@@ -406,6 +415,7 @@ async function restoreWorkbench(sessionId: string): Promise<void> {
     // session's tabs must still come back.
     if (s.kind === 'files') openFilesTab()
     else if (s.kind === 'tools') openToolsTab()
+    else if (s.kind === 'background') openBackgroundTab()
     else if (s.kind === 'file' && s.path) await openFileTab(s.path, s.name)
     else if (s.kind === 'browser') {
       const id = openBrowserTab()

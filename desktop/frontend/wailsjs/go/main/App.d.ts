@@ -28,6 +28,8 @@ export function ApprovePendingChange(arg1:number):Promise<void>;
 
 export function ArtifactPreview(arg1:string):Promise<main.ArtifactPreview>;
 
+export function BackgroundTasks():Promise<Array<main.BackgroundTask>>;
+
 export function BrowserBack(arg1:string):Promise<void>;
 
 export function BrowserClickRef(arg1:string,arg2:number):Promise<void>;
@@ -355,6 +357,8 @@ export function SpeechModelDirs():Promise<Array<main.SpeechDirInfo>>;
 export function SpeechStatus():Promise<string>;
 
 export function StartSignIn(arg1:string):Promise<main.SignInPrompt>;
+
+export function StopBackgroundTask(arg1:string):Promise<void>;
 
 export function SupportedProviders():Promise<Array<string>>;
 

@@ -2491,23 +2491,23 @@ func (a *App) applyConfig(cfg config.Config) {
 		// assistant. Resolved fresh from disk on every bootstrap so an edited
 		// profile takes effect the next time its chair is sat at, like every
 		// other manifest.
-		Chair:            a.chairProfile(),
-		Approve:          a.approveToolCall,
-		Manager:          a.mcp,
-		ExtraSkills:      workbenchTools,
-		OutputSubdir:     a.outputSubdir,
+		Chair:        a.chairProfile(),
+		Approve:      a.approveToolCall,
+		Manager:      a.mcp,
+		ExtraSkills:  workbenchTools,
+		OutputSubdir: a.outputSubdir,
 		// The session's whole reach, in two fields and no third: unfocused mode
 		// roams the machine (minus credential stores), and a focused project
 		// sees itself plus the folders the user added to it. See unfocusedRoot
 		// and desktop/workspace.go.
-		OpenSandbox:      !a.projectFocused,
-		ExtraRoots:       a.extraRoots,
+		OpenSandbox: !a.projectFocused,
+		ExtraRoots:  a.extraRoots,
 		// The project this chat is being held inside, and the names of the
 		// files it keeps — read fresh on every bootstrap, like every other
 		// manifest, so a file dropped into the folder is known to the next
 		// session without restarting anything.
-		Space:            a.space,
-		SpaceContext:     a.spaceContextForPrompt(),
+		Space:        a.space,
+		SpaceContext: a.spaceContextForPrompt(),
 		// Which shell the agent's commands and the user's hooks run in. Read
 		// per call so the composer's picker takes effect on the next command
 		// rather than on the next restart.
@@ -2519,6 +2519,10 @@ func (a *App) applyConfig(cfg config.Config) {
 		OnContentPreview: a.previewAnswer,
 		OnContentReset:   a.discardAnswerPreview,
 		OnUsage:          a.recordTokenUsage,
+		// The background-tasks panel's push feed: a job starting or ending
+		// re-emits the list. Reads a.registry at fire time, so a job from a
+		// superseded registry that dies late just re-lists the current one.
+		OnBackgroundChange: a.emitBackgroundTasks,
 	})
 	if bootErr == nil {
 		// Fallback outlives a successful boot: the engine is up, but on the

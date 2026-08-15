@@ -212,6 +212,80 @@ func TestBackgroundShellCapsConcurrentJobs(t *testing.T) {
 	}
 }
 
+// The panel's half of the arrangement (Jobs/stop/notify): a host UI mirrors
+// the same registry the model holds handles into, and stopping from the panel
+// is the same kill shell_kill performs.
+func TestBackgroundJobsSnapshotStopAndNotify(t *testing.T) {
+	s, _, _ := backgroundShellTools(t)
+	notified := make(chan struct{}, 16)
+	s.shells.notify = func() {
+		select {
+		case notified <- struct{}{}:
+		default:
+		}
+	}
+
+	command := `ping -n 60 127.0.0.1 >nul`
+	if runtime.GOOS != "windows" {
+		command = `sleep 60`
+	}
+	id := startBackground(t, s, command)
+
+	jobs := s.shells.Jobs()
+	if len(jobs) != 1 {
+		t.Fatalf("Jobs() = %d entries, want the one just started", len(jobs))
+	}
+	j := jobs[0]
+	if j.ID != id || j.Command != command {
+		t.Errorf("snapshot = %+v, want id %s running %q", j, id, command)
+	}
+	if j.Done || j.Killed || j.ExitError != "" {
+		t.Errorf("a job just started reads as ended: %+v", j)
+	}
+	select {
+	case <-notified:
+	default:
+		t.Error("starting a job never fired notify — a panel would not hear it")
+	}
+
+	if err := s.shells.stop("bg_999"); err == nil || !strings.Contains(err.Error(), "currently running") {
+		t.Errorf("stop on an unknown handle: err = %v, want it to name what IS running", err)
+	}
+
+	if err := s.shells.stop(id); err != nil {
+		t.Fatalf("stop(%s): %v", id, err)
+	}
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		j = s.shells.Jobs()[0]
+		if j.Done {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("job never reported done after stop: %+v", j)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !j.Killed {
+		t.Errorf("a stopped job must read as killed: %+v", j)
+	}
+	if j.ExitError != "" {
+		t.Errorf("a deliberate kill must not read as the command failing on its own: %+v", j)
+	}
+	// The exit fired notify again — that push is how a panel learns a process
+	// died, since no tool call announces it.
+	select {
+	case <-notified:
+	case <-time.After(5 * time.Second):
+		t.Error("the job ending never fired notify")
+	}
+
+	// Stopping a job that already ended asks for a state that already holds.
+	if err := s.shells.stop(id); err != nil {
+		t.Errorf("stop on a finished job must succeed quietly: %v", err)
+	}
+}
+
 func firstLineOf(s string) string {
 	if i := strings.IndexByte(s, '\n'); i >= 0 {
 		return s[:i]

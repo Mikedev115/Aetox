@@ -171,6 +171,28 @@ export namespace main {
 	        this.sheet = source["sheet"];
 	    }
 	}
+	export class BackgroundTask {
+	    id: string;
+	    command: string;
+	    running: boolean;
+	    killed: boolean;
+	    exitError: string;
+	    elapsedMs: number;
+
+	    static createFrom(source: any = {}) {
+	        return new BackgroundTask(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.command = source["command"];
+	        this.running = source["running"];
+	        this.killed = source["killed"];
+	        this.exitError = source["exitError"];
+	        this.elapsedMs = source["elapsedMs"];
+	    }
+	}
 	export class Chair {
 	    name: string;
 	    description: string;

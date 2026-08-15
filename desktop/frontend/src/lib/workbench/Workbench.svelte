@@ -5,16 +5,17 @@
   import FilesPane from './FilesPane.svelte'
   import BrowserPane from './BrowserPane.svelte'
   import ToolsPane from './ToolsPane.svelte'
+  import BackgroundPane from './BackgroundPane.svelte'
   import ExternalFilePane from './ExternalFilePane.svelte'
   import SheetPane from './SheetPane.svelte'
   import ImagePane from './ImagePane.svelte'
   import MediaPane from './MediaPane.svelte'
   import PdfPane from './PdfPane.svelte'
   import { fileURL } from '../fileUrl'
-  import { cockpit } from '../stores/cockpit.svelte'
+  import { cockpit, runningBackgroundCount } from '../stores/cockpit.svelte'
   import {
     workbench, activateTab, closeTab, removeTab,
-    openFilesTab, openBrowserTab, openTerminalTab, openToolsTab, openFileTab, reportDeskTabs,
+    openFilesTab, openBrowserTab, openTerminalTab, openToolsTab, openBackgroundTab, openFileTab, reportDeskTabs,
     openUrlInWorkbench, saveWorkbenchSnapshot, normalizeUrl, labelForUrl,
     setTabDragPayload, TAB_DRAG_MIME,
     type WorkbenchTab,
@@ -25,7 +26,7 @@
   import Icon from '../Icon.svelte'
   import type { IconName } from '../icons'
 
-  const tabIcon: Record<string, IconName> = { terminal: 'keyboard', browser: 'globe', files: 'copy', file: 'fileText', tools: 'wrench' }
+  const tabIcon: Record<string, IconName> = { terminal: 'keyboard', browser: 'globe', files: 'copy', file: 'fileText', tools: 'wrench', background: 'timer' }
 
   // Chrome DevTools' default device presets. CSS viewport sizes — BrowserPane
   // turns one into a real window of that aspect + a matching page zoom.
@@ -46,6 +47,7 @@
 
   const activeTab = $derived(workbench.tabs.find((t) => t.id === workbench.activeId))
   const hasActiveTask = $derived(cockpit.task.steps.some((s) => s.status === 'active'))
+  const bgRunning = $derived(runningBackgroundCount())
 
   $effect(() => {
     urlDraft = activeTab?.url ?? ''
@@ -272,6 +274,13 @@
         ><Icon name="x" size={12} /></span>
       </button>
     {/each}
+    {#if bgRunning > 0}
+      <!-- Alive whenever anything runs in the background, even with the tab
+           closed — the chip is both the badge and the door to the panel. -->
+      <button class="bg-chip" aria-label={t('bgTasks.runningCount', { n: bgRunning })} title={t('bgTasks.runningCount', { n: bgRunning })} onclick={openBackgroundTab}>
+        <span class="bg-dot"></span><Icon name="timer" size={12} /> {bgRunning}
+      </button>
+    {/if}
     <div class="plus-menu-wrap">
       <button class="icobtn tiny plus-btn" aria-label={t('workbench.addTab')} data-tip={t('workbench.addTab')} onclick={() => (menuOpen = !menuOpen)}><Icon name="plus" size={14} /></button>
       {#if menuOpen}
@@ -280,6 +289,7 @@
           <button class="plus-menu-item" onclick={() => pick(openBrowserTab)}><span class="ic"><Icon name="globe" size={14} /></span> {t('workbench.browserMenu')} <span class="kbd">Ctrl+T</span></button>
           <button class="plus-menu-item" onclick={() => pick(openFilesTab)}><span class="ic"><Icon name="copy" size={14} /></span> {t('workbench.filesTab')} <span class="kbd">Ctrl+P</span></button>
           <button class="plus-menu-item" onclick={() => pick(openToolsTab)}><span class="ic"><Icon name="wrench" size={14} /></span> {t('workbench.toolsTab')}</button>
+          <button class="plus-menu-item" onclick={() => pick(openBackgroundTab)}><span class="ic"><Icon name="timer" size={14} /></span> {t('bgTasks.tab')}{#if bgRunning > 0} <span class="kbd">{bgRunning}</span>{/if}</button>
         </div>
       {/if}
     </div>
@@ -321,6 +331,7 @@
         <button class="plus-menu-item" onclick={() => openBrowserTab()}><span class="ic"><Icon name="globe" size={14} /></span> {t('workbench.browserMenu')} <span class="kbd">Ctrl+T</span></button>
         <button class="plus-menu-item" onclick={openFilesTab}><span class="ic"><Icon name="copy" size={14} /></span> {t('workbench.filesTab')} <span class="kbd">Ctrl+P</span></button>
         <button class="plus-menu-item" onclick={openToolsTab}><span class="ic"><Icon name="wrench" size={14} /></span> {t('workbench.toolsTab')}</button>
+        <button class="plus-menu-item" onclick={openBackgroundTab}><span class="ic"><Icon name="timer" size={14} /></span> {t('bgTasks.tab')}{#if bgRunning > 0} <span class="kbd">{bgRunning}</span>{/if}</button>
       </div>
     {/if}
     {#each workbench.tabs as tab (tab.id)}
@@ -331,6 +342,8 @@
           <FilesPane />
         {:else if tab.kind === 'tools'}
           <ToolsPane />
+        {:else if tab.kind === 'background'}
+          <BackgroundPane />
         {:else if tab.kind === 'file'}
           <!-- Keyed on rev so a re-read actually lands on screen: FileEditor
                copies `content` into its own state once and this pane never
@@ -413,4 +426,31 @@
   .wb-drop.over .wb-drop-card { color: var(--text-primary); }
   .wb-drop-title { font-size: var(--fs-md); }
   .wb-drop-sub { font-size: var(--fs-xs); color: var(--text-dim); max-width: 30ch; }
+
+  /* Running-background-tasks chip in the tab strip: badge + door in one. */
+  .bg-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    align-self: center;
+    padding: 2px 8px;
+    border: 1px solid var(--border-default);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: var(--fs-xs);
+    cursor: pointer;
+  }
+  .bg-chip:hover { color: var(--text-primary); border-color: var(--accent); }
+  .bg-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: bg-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes bg-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
 </style>

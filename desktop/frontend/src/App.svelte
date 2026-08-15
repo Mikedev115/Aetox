@@ -17,6 +17,7 @@
     applyAgentChunk, applyReasoningChunk, attachImageFromPath,
     applyAskUser, applyAskDone, applyTodos, applyMissedInterjections, applyTaskChips,
     applyPendingLearned, refreshPendingLearned, applyAgentDone,
+    applyBackgroundTasks, refreshBackgroundTasks,
   } from './lib/stores/cockpit.svelte'
   import { RelativizePath, CloseAllBrowserTabs } from '../wailsjs/go/main/App'
   import { OnFileDrop, OnFileDropOff, EventsOn } from '../wailsjs/runtime/runtime'
@@ -127,6 +128,11 @@
     // is still undecided and nothing would emit for it.
     const offLearning = EventsOn('learning:changed', applyPendingLearned)
     void refreshPendingLearned()
+    // The agent's background shell commands (dev servers, watch builds). The
+    // engine pushes on every start/exit; fetched once here too, because a job
+    // started before this webview loaded emits nothing until it changes.
+    const offBackground = EventsOn('background:changed', applyBackgroundTasks)
+    void refreshBackgroundTasks()
 
     for (const panel of Object.values(panels)) {
       const stored = localStorage.getItem(panel.storageKey)
@@ -181,6 +187,7 @@
       offMissed()
       offTaskChips()
       offLearning()
+      offBackground()
     }
   })
 

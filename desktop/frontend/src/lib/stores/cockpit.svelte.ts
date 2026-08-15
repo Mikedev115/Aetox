@@ -16,6 +16,7 @@ import {
   AnswerUserQuestion, Interject, RetryActiveProvider, PendingUndo, UndoLastTurn,
   CompleteSignIn, SignOut, ImportSignIn,
   ListTaskChips, DismissTaskChip,
+  BackgroundTasks,
   RateTurn, PendingLearnedCount,
   WorkspaceFolders, AddWorkspaceFolder, RemoveWorkspaceFolder,
   RetryFailedTurn, RegenerateReply, ResendEdited, SwitchVariant,
@@ -1025,6 +1026,48 @@ export async function refreshTaskChips(): Promise<void> {
   } catch {
     // Engine not ready yet — the tasks:changed event will bring them later.
   }
+}
+
+/** background:changed event: the agent's background shell commands, replaced
+ *  wholesale. Stamps when the list was captured so a running row's elapsed can
+ *  keep counting between pushes (live = elapsedMs + local clock since). */
+export function applyBackgroundTasks(tasks: CockpitState['backgroundTasks']): void {
+  cockpit.backgroundTasks = Array.isArray(tasks) ? tasks : []
+  cockpit.backgroundTasksAt = Date.now()
+  // A cleared id can only ever name a finished job. One that comes back
+  // running is a fresh engine (re-bootstrap) reusing the id; one that is gone
+  // was forgotten by the registry. Either way the tombstone has expired —
+  // keeping it would hide a brand-new job the moment it finished.
+  const finished = new Set(cockpit.backgroundTasks.filter((t) => !t.running).map((t) => t.id))
+  cockpit.backgroundCleared = cockpit.backgroundCleared.filter((id) => finished.has(id))
+}
+
+/** Jobs started before this view mounted — fetch what the backend holds. */
+export async function refreshBackgroundTasks(): Promise<void> {
+  try {
+    applyBackgroundTasks((await BackgroundTasks()) as CockpitState['backgroundTasks'])
+  } catch {
+    // Engine not ready yet — the background:changed event will bring them later.
+  }
+}
+
+/** "Clear finished": hide every finished row from the panel. UI-only — the Go
+ *  registry keeps the job, because the model may still redeem its handle with
+ *  shell_output; forgetting it there would break a read the model is owed. */
+export function clearFinishedBackgroundTasks(): void {
+  const finished = cockpit.backgroundTasks.filter((t) => !t.running).map((t) => t.id)
+  cockpit.backgroundCleared = [...new Set([...cockpit.backgroundCleared, ...finished])]
+}
+
+/** The rows the panel draws: everything the user has not cleared. */
+export function visibleBackgroundTasks(): CockpitState['backgroundTasks'] {
+  return cockpit.backgroundTasks.filter((t) => !cockpit.backgroundCleared.includes(t.id))
+}
+
+/** Running jobs, for the badge. Clearing never hides a running job, so this
+ *  deliberately counts the full list. */
+export function runningBackgroundCount(): number {
+  return cockpit.backgroundTasks.filter((t) => t.running).length
 }
 
 /** How many proposals are waiting for the user to decide on them.

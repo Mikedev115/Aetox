@@ -75,6 +75,12 @@ type RegistryOptions struct {
 	// caller with no opinion gets, and what the tool did before it was
 	// selectable.
 	Shell func() proc.Backend
+	// OnBackgroundChange fires whenever a background shell command starts or
+	// ends, so a host UI can mirror Registry.BackgroundJobs by push instead of
+	// by clock — a process exiting is not a tool call, and without this there
+	// is no event to hear it by. Called from the job's own goroutines; nil —
+	// the CLI, every test with no opinion — means no one is watching.
+	OnBackgroundChange func()
 }
 
 func NewDefaultRegistry(opts RegistryOptions) *Registry {
@@ -93,8 +99,14 @@ func RegisterDefaults(registry *Registry, opts RegistryOptions) {
 	// the engine, not on the next restart.
 	setSandboxPolicy(opts.SandboxRoot, opts.OpenSandbox, opts.ExtraRoots)
 	// One registry of background commands, shared by the three tools that see
-	// them: shell starts, shell_output reads, shell_kill ends.
+	// them: shell starts, shell_output reads, shell_kill ends. Handed to the
+	// Registry too, so the host's background-tasks panel watches the same jobs
+	// the model holds handles to (Registry.BackgroundJobs).
 	shells := newBackgroundShells()
+	shells.notify = opts.OnBackgroundChange
+	registry.mu.Lock()
+	registry.background = shells
+	registry.mu.Unlock()
 	defaults := []Skill{
 		&helpSkill{registry: registry},
 		&echoSkill{},

@@ -153,6 +153,11 @@ type Options struct {
 	OnContentReset   func()
 	OnUsage          func(model.Usage)
 
+	// OnBackgroundChange fires whenever a background shell command starts or
+	// ends (skill.RegistryOptions.OnBackgroundChange). The desktop's
+	// background-tasks panel listens; nil hosts simply have no panel.
+	OnBackgroundChange func()
+
 	// Proposer is the approval door for anything an agent wants to learn. Only
 	// the desktop supplies one — it owns the store that holds the queue — and a
 	// nil one means delegates simply have no `memory` tool, which is the honest
@@ -274,10 +279,11 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 		digest = Digester(bootstrapResult.Provider, cfg.ModelName)
 	}
 	registry := skill.NewDefaultRegistry(skill.RegistryOptions{
-		SandboxRoot:  cfg.SandboxRoot,
-		OutputSubdir: opts.OutputSubdir,
-		OpenSandbox:  scope.Open,
-		ExtraRoots:   scope.Extra,
+		SandboxRoot:        cfg.SandboxRoot,
+		OutputSubdir:       opts.OutputSubdir,
+		OpenSandbox:        scope.Open,
+		ExtraRoots:         scope.Extra,
+		OnBackgroundChange: opts.OnBackgroundChange,
 		// Empty ModelPath keeps the original behaviour — auto-discover — so a
 		// user who never opens the picker sees no change.
 		Speech: stt.Options{ModelPath: cfg.SpeechModelPath},

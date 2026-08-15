@@ -34,6 +34,10 @@ export function ArtifactPreview(arg1) {
   return window['go']['main']['App']['ArtifactPreview'](arg1);
 }
 
+export function BackgroundTasks() {
+  return window['go']['main']['App']['BackgroundTasks']();
+}
+
 export function BrowserBack(arg1) {
   return window['go']['main']['App']['BrowserBack'](arg1);
 }
@@ -688,6 +692,10 @@ export function SpeechStatus() {
 
 export function StartSignIn(arg1) {
   return window['go']['main']['App']['StartSignIn'](arg1);
+}
+
+export function StopBackgroundTask(arg1) {
+  return window['go']['main']['App']['StopBackgroundTask'](arg1);
 }
 
 export function SupportedProviders() {
