@@ -27,9 +27,9 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"image"
-	"io"
 	"image/color"
 	"image/png"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -45,6 +45,7 @@ import (
 	"github.com/Mike0165115321/Aetox/internal/lsp"
 	"github.com/Mike0165115321/Aetox/internal/skill"
 	"github.com/Mike0165115321/Aetox/internal/stt"
+	"github.com/Mike0165115321/Aetox/internal/testpdf"
 )
 
 // cliOnlySkills are registered but have no ToolDefinition, so the model is
@@ -660,20 +661,6 @@ func firstLine(s string) string {
 
 // --- fixtures ---------------------------------------------------------------
 
-// tinyPDFDoc is the same hand-written minimal PDF the pdf_read unit test uses:
-// one text-drawing operator, no xref table (poppler rebuilds one).
-const tinyPDFDoc = `%PDF-1.4
-1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
-2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
-3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj
-4 0 obj<</Length 46>>stream
-BT /F1 18 Tf 20 100 Td (AETOX PDF OK) Tj ET
-endstream
-endobj
-5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
-trailer<</Root 1 0 R>>
-`
-
 func writeToolFixtures(t *testing.T, root string) {
 	t.Helper()
 	write := func(rel, body string) {
@@ -689,7 +676,11 @@ func writeToolFixtures(t *testing.T, root string) {
 	write("victim.txt", "delete me\n")
 	write("main.go", "package main\n\nfunc main() {}\n")
 	write(filepath.Join("sub", "inner.txt"), "alpha inside\n")
-	write("doc.pdf", tinyPDFDoc)
+	// A structurally complete PDF, xref table and all — see internal/testpdf for
+	// why the shortcut version is worse than it looks.
+	if err := os.WriteFile(filepath.Join(root, "doc.pdf"), testpdf.Minimal("AETOX PDF OK"), 0o644); err != nil {
+		t.Fatalf("fixture doc.pdf: %v", err)
+	}
 	// A minimal but genuine nbformat 4 notebook — notebook_edit parses it as
 	// JSON and writes it back, so a hand-waved fixture would fail for the wrong
 	// reason.
