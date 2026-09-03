@@ -1,6 +1,6 @@
 ---
 name: video-templates
-description: ฉากวิดีโอที่ก๊อปไปใช้ได้เลย 51 ฉาก ไม่ใช่คำอธิบายว่าฉากควรหน้าตาแบบไหน แบ่งเป็นฉากเคลื่อนไหว 26 แบบสำหรับเรนเดอร์เป็นคลิป (รวมเด็คนักลงทุนและพิตช์เด็คแบบเต็มเรื่อง) และฉากนิ่ง 25 แบบสำหรับปก อินโฟกราฟิก สไลด์ข้อมูล ไดอะแกรมอธิบาย และหน้าจอจำลอง ส่วนใหญ่เป็น HTML ไฟล์เดียวจบ อีก 13 ฉากเป็นโฟลเดอร์เพราะมีฉากย่อยกับไฟล์ประกอบของตัวเอง ใช้ตอนกำลังจะทำฉากขึ้นใหม่แล้วไม่อยากประดิษฐ์เองทุกครั้ง
+description: ฉากวิดีโอที่ก๊อปไปใช้ได้เลย 55 ฉาก ไม่ใช่คำอธิบายว่าฉากควรหน้าตาแบบไหน แบ่งเป็นฉากเคลื่อนไหว 30 แบบสำหรับเรนเดอร์เป็นคลิป (รวมเด็คนักลงทุนและพิตช์เด็คแบบเต็มเรื่อง กับอีก 4 ฉากในภาษาโฆษณาโปรดักต์ที่ถอดจากสเปกมาตรวจสอบได้ และเป็นสี่ฉากแรกบนชั้นที่ตัวอักษรไทยมีฟอนต์ที่เลือกไว้จริง) และฉากนิ่ง 25 แบบสำหรับปก อินโฟกราฟิก สไลด์ข้อมูล ไดอะแกรมอธิบาย และหน้าจอจำลอง ส่วนใหญ่เป็น HTML ไฟล์เดียวจบ อีก 13 ฉากเป็นโฟลเดอร์เพราะมีฉากย่อยกับไฟล์ประกอบของตัวเอง ใช้ตอนกำลังจะทำฉากขึ้นใหม่แล้วไม่อยากประดิษฐ์เองทุกครั้ง
 ---
 
 # Video scene templates
@@ -20,40 +20,49 @@ file it copies and the text inside each one.
 
 `GUIDE.md` beside this file carries the why and the measurements behind every
 line. Read the line here; open the guide's section only when you are about to
-work against one.
+work against one. `references/google-register.md` is narrower: the house style
+the four product-ad scenes share, and the only file you need if you are writing
+a fifth one in it.
 
 - **Replace all the sample copy.** No `{{ }}` anywhere — every line is real
   copy, and one left in is the most visible unfinished work. Keep roughly its
   length: a headline three times longer silently overflows the frame.
-- **ไทย: no scene here has a Thai typeface.** Thai copy renders in a system
-  font — readable, chosen by nobody. Say so before rendering, or put a Thai
-  family (`Noto Sans Thai`, `IBM Plex Sans Thai`) first in the stack.
-- **13 motion scenes are folders** (the rows whose path ends `/index.html`).
+- **ไทย: 51 of the 55 scenes have no Thai typeface.** Thai copy renders in a
+  system font — readable, chosen by nobody. Say so before rendering, or put a
+  Thai family (`Noto Sans Thai`, `IBM Plex Sans Thai`) first in the stack. The
+  four exceptions are the product-ad scenes, which carry `Anuphan` behind their
+  Latin face and need nothing said.
+- **13 of the 30 motion scenes are folders** (the rows whose path ends
+  `/index.html`); the other 17 are one file each.
   `video new` copies the whole folder; by hand, never take the host alone — it
   renders an empty frame that looks like a working render.
 - **6 scenes carry baked Tailwind CSS** (`bar-chart-counter`,
   `cinematic-light-leak`, `glitch-title`, `liquid-gradient-hero`, `logo-outro`,
   `typewriter-cursor`): a class not already in use does nothing, silently.
   Write plain CSS for anything new.
-- **`Length` is what a real render produced**, safe to quote to a user. In the
-  13 flat scenes it is `data-duration` on `<body>` — change that number to
+- **`Length` is what a real render produced**, safe to quote to a user — with
+  four exceptions, marked *designed* in the table: the product-ad scenes were
+  built so the last keyframe lands on the stated number, but nobody has rendered
+  one yet, so quote those as intended rather than as measured until someone has.
+  In the 17 flat scenes the number is `data-duration` on `<body>` — change it to
   change the clip. Header-comment timelines state the order, not the length.
 - **The frame is declared in every file** and the renderer never guesses it.
   "fluid CSS" rows re-aspect by changing the two `data-` numbers; the rest
   also draw their own 1920x1080 box in CSS that has to move with them.
-- **Google Fonts is fetched at render time** (21 of 26 motion scenes). A failed
+- **Google Fonts is fetched at render time** (25 of 30 motion scenes). A failed
   fetch is not an error — it is a wrong-looking scene. Check the render.
 - **`__VIDEO_SRC__` / `__VIDEO_DURATION__` are engine slots**, not broken
   markup. Leave them in the library; `video new` fills or strips them.
-- **`CREDITS.md` travels with the work** — licence and lineage of all 51 files
-  (Apache-2.0 and MIT, attribution required). A scene copied elsewhere takes
-  its line along.
+- **`CREDITS.md` travels with the work** — licence and lineage of all 55 files
+  (Apache-2.0 and MIT for the 51 vendored, ours for the 4 written here;
+  attribution required either way). A scene copied elsewhere takes its line
+  along.
 - **A scene built by hand gets no rewrites.** `video new` is what points GSAP
   at the local `vendor/gsap.min.js`; a project you write from scratch keeps
   whatever CDN address you typed and needs the network at render time. Start
   from `video new` even for a wholly new design, then replace its markup.
 
-## motion/ — 26 animated scenes
+## motion/ — 30 animated scenes
 
 These are the ones that become video. Four folders say *as asked*: they carry
 `__VIDEO_DURATION__`, so the `seconds` given to `video new` is their length and
@@ -87,6 +96,30 @@ the number beside it is the fallback. Every other length is fixed by the scene.
 | `motion/startup-pitch/index.html` | Pitch deck in motion: cover, problem, product, market with a drill-down, ask | 84s | 1920x1080 |
 | `motion/slideshow-demo/index.html` | Slideshow with branching scenes and a CTA, mounted from one host | 32s | 1920x1080 |
 | `motion/motion-blur/index.html` | Title card with real per-frame motion blur; the word drifting through frame IS the design (check reports its overflow on purpose) | 4.0s | 1920x1080 |
+| `motion/search-query-reveal.html` | A question typed into a search field, suggestions dropping, then the field itself growing into the answer card. **The one scene where anything types** | 6.0s, designed | 1920x1080 |
+| `motion/dot-loader-morph.html` | Four dots bounce, close ranks into one four-coloured bar, and the bar becomes the rule under the headline. A title card wearing a loader's clothes | 4.0s, designed | 1920x1080 |
+| `motion/card-expand-hero.html` | Dark stage, a rail of cards lit from behind, and one of them grows into the whole frame. The only true container transform on the shelf | 5.0s, designed | 1920x1080 |
+| `motion/caption-montage.html` | Five questions hard-cutting every 1.2s over colour fields, then one answer held for two seconds. Ships footage-free on purpose — the file says why | 8.0s, designed | 1920x1080 |
+
+### The four in the product-ad register
+
+The four rows above are one house style and were written together, 4 ก.ย. 2569.
+They are the answer to "make it look like a real product ad", which the rest of
+this shelf — editorial, film stock, Swiss grid — has no scene for.
+
+They are not an impression of anybody's film. Their motion is Material Design
+3's published easing and duration tokens; their cross-fades use the 6/20 – 14/20
+– scale-0.92 split from Google's own Flutter implementation; `card-expand-hero`'s
+dark surface is measured off a public page on a stated date. What is *not* taken
+— the marks, the brand hues, and the blue-red-yellow-green sequence, which reads
+as a trademark whatever the hex values under it are — is listed in
+`references/google-register.md` along with every number above, so a fifth scene
+in this register can be written without re-deriving any of it.
+
+Two of them are light (`search-query-reveal`, `dot-loader-morph`), one is dark
+(`card-expand-hero`), and `caption-montage` is neither — it is six colour fields.
+Pick a surface and stay on it across a piece; the light and dark halves of this
+register do not cut together.
 
 ## The 25 still scenes
 

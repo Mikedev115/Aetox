@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Dot Loader Morph · four dots that become the sentence</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * dot-loader-morph — the waiting indicator IS the title card. Four dots bounce, close
+   * ranks into one four-coloured bar, the bar stretches into a rule, and the headline
+   * opens outward from it.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569. The easing and duration values are Material
+   * Design 3's published tokens (material-components-android/docs/theming/Motion.md).
+   * The dots are ours: four hues, not Google's four hues, because the hues are the mark.
+   *
+   * Timeline (4.0s @ 60fps): dots bounce 0.9s staggered -> close ranks and flatten into a
+   * bar 1.2-1.8s -> bar drops and stretches into a rule 1.8-2.3s -> headline opens out of
+   * the rule -> subline -> held.
+   *
+   * Why one long keyframe per element instead of four short ones: each element's phases
+   * touch the SAME properties (width, gap, height), and two animations that both write
+   * `width` fight over it — the later declaration simply wins for its whole run, including
+   * the seconds before its own first keyframe. Percentage stops inside one timeline can't
+   * do that to each other. The per-phase feel is kept by declaring
+   * `animation-timing-function` inside the keyframe blocks, which sets the curve for the
+   * segment that FOLLOWS each stop.
+   */
+
+  :root {
+    /* Emphasized is two joined cubic segments in the spec, not one cubic-bezier:
+       M 0,0 C 0.05,0 0.133333,0.06 0.166666,0.4 C 0.208333,0.82 0.25,1 1,1.
+       These 25 stops are that path sampled at even x, which is the only way to spend it
+       in CSS. It reaches 40% of the distance in the first 17% of the time — that early
+       snap is the whole character. */
+    --e-emphasized: linear(0, 0.0141, 0.0616, 0.1622, 0.4, 0.6686, 0.7728, 0.8315, 0.8706, 0.8989, 0.9204, 0.9372, 0.9506, 0.9614, 0.9701, 0.9773, 0.983, 0.9877, 0.9914, 0.9943, 0.9965, 0.9981, 0.9992, 0.9998, 1);
+    --e-standard-decel: cubic-bezier(0, 0, 0, 1);
+    --e-emph-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --d-medium4: 400ms; --d-long2: 500ms;
+
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+    --ink: #16181D; --ink-2: #5B6070;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden; position: relative;
+    background: #F7F8FC;
+    background-image: radial-gradient(1000px 620px at 50% 46%, #FFFFFF 0%, #F5F6FB 70%);
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: var(--ink);
+  }
+
+  /* ---- the dots, then the bar, then the rule ---- */
+  .bar {
+    position: absolute; left: 50%; top: 525px; transform: translateX(-50%);
+    display: flex; align-items: center; justify-content: center;
+    gap: 26px; height: 30px;
+    animation: barMerge 4s linear forwards;
+  }
+  @keyframes barMerge {
+    0%, 30%   { gap: 26px; height: 30px; top: 525px; animation-timing-function: var(--e-emphasized); }
+    45%       { gap: 0;    height: 30px; top: 525px; animation-timing-function: var(--e-emph-decel); }
+    57.5%, 100% { gap: 0;  height: 10px; top: 651px; }
+  }
+
+  .seg {
+    width: 30px; height: 100%; flex: none; border-radius: 50%;
+    animation: bounce 450ms var(--e-emphasized) 2, segMerge 4s linear forwards;
+  }
+  @keyframes bounce { 0%, 100% { transform: translateY(0); } 45% { transform: translateY(-44px); } }
+  @keyframes segMerge {
+    0%, 30%   { width: 30px;  border-radius: 50%; animation-timing-function: var(--e-emphasized); }
+    45%       { width: 56px;  border-radius: var(--r-merged); animation-timing-function: var(--e-emph-decel); }
+    57.5%, 100% { width: 145px; border-radius: var(--r-merged); }
+  }
+  /* border-radius is not interpolable through a raw var(), but var() resolves at
+     computed-value time — by the time the animation runs each keyframe holds a real
+     four-corner value, and those interpolate. The end caps stay round, the joints go
+     square, so four pills read as one bar rather than a row with notches in it. */
+  /* The ORDER is deliberate and is not the obvious one. Four dots reading blue, red,
+     yellow, green is a trademark on sight, whatever the hex values underneath say — and
+     at 30px, bouncing, nobody reads hex values. Indigo, teal, amber, coral keeps the
+     four-hue grammar and drops the resemblance. If you reorder these, reorder them away
+     from that sequence, not back toward it. */
+  .seg:nth-child(1) { background: var(--a1); --r-merged: 999px 0 0 999px; animation-delay: 0s,    0s; }
+  .seg:nth-child(2) { background: var(--a4); --r-merged: 0;               animation-delay: 90ms,  0s; }
+  .seg:nth-child(3) { background: var(--a3); --r-merged: 0;               animation-delay: 180ms, 0s; }
+  .seg:nth-child(4) { background: var(--a2); --r-merged: 0 999px 999px 0; animation-delay: 270ms, 0s; }
+
+  /* ---- the headline, opened out of the rule ---- */
+  .head {
+    position: absolute; left: 0; right: 0; top: 372px; text-align: center;
+    font-size: 116px; font-weight: 700; line-height: 1.04; letter-spacing: -3.2px;
+    clip-path: inset(0 50% 0 50%); opacity: 0;
+    animation: openOut 720ms var(--e-emph-decel) 2.15s forwards;
+  }
+  @keyframes openOut { to { clip-path: inset(0 0 0 0); opacity: 1; } }
+
+  .sub {
+    position: absolute; left: 0; right: 0; top: 712px; text-align: center;
+    font-size: 34px; font-weight: 400; color: var(--ink-2); letter-spacing: -.2px;
+    opacity: 0; transform: translateY(18px);
+    animation: rise var(--d-long2) var(--e-standard-decel) 2.9s forwards;
+  }
+  @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+
+  .mark {
+    position: absolute; left: 0; right: 0; bottom: 84px; text-align: center;
+    font-size: 22px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: var(--ink-2);
+    opacity: 0; animation: rise var(--d-medium4) var(--e-standard-decel) 3.3s forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* The end state carries the meaning on its own: a four-coloured rule under a headline.
+       Nothing has to have moved for that to read. */
+    * { animation: none !important; }
+    .bar { top: 651px; gap: 0; height: 10px; }
+    .seg { width: 145px; border-radius: var(--r-merged); transform: none; }
+    .head { clip-path: inset(0 0 0 0); opacity: 1; }
+    .sub, .mark { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<!-- Frame and length are stated because the renderer guesses neither: with no
+     data-width/data-height it renders 1080x1920 and crops this silently, and with no
+     data-duration `video check` reports the scene as having none. 4.0s is the last
+     keyframe (mark ends 3.7s) plus a held beat. -->
+<body data-composition-id="scene" data-no-timeline data-width="1920" data-height="1080" data-start="0" data-duration="4.0">
+
+  <div class="head">Still loading?<br>No. Still deciding.</div>
+
+  <div class="bar">
+    <span class="seg"></span><span class="seg"></span><span class="seg"></span><span class="seg"></span>
+  </div>
+
+  <div class="sub">Four templates rendered before you opened the brief.</div>
+  <div class="mark">Aetox · video templates</div>
+</body>
+</html>

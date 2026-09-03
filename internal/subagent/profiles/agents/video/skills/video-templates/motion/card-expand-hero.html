@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Card Expand Hero · one card in the rail becomes the whole frame</title>
+<!-- Google Sans Flex is the display face and Google Sans the fallback weight-for-weight.
+     Separate <link>s: a failed font fetch is a wrong-looking scene rather than an error,
+     and one request for three families means one failure costs all three. -->
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@400..700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * card-expand-hero — a rail of cards on a dark stage, one of them lit from behind, and
+   * that one grows into the whole frame while the rest clear out. A container transform:
+   * the hero card is never replaced, it is the same box the whole way through.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569. Two published sources, no copied footage:
+   *
+   *   Motion — Material Design 3's easing and duration tokens
+   *   (material-components-android/docs/theming/Motion.md), and the cross-fade split from
+   *   Google's own Flutter `animations` package (fade_through_transition.dart): outgoing
+   *   content over 6/20 of the run, incoming over 14/20, incoming scaled 0.92 -> 1.
+   *
+   *   Surface — measured off aistudio.google.com on 4 ก.ย. 2569, because that page is the
+   *   register this scene is in and guessing at it would have been guessing:
+   *   stage rgb(18,19,23); card fill linear-gradient(135deg, rgb(28,30,35), rgb(42,45,53))
+   *   at 20px radius; the radius ladder in use is 8/12/16/20/28/36; the primary button is
+   *   a WHITE pill, #0E0F12 text, 12px radius; the h1 is Google Sans Flex at weight 450
+   *   with -1.44px tracking on 64px, i.e. -0.0225em, which is what the headline below
+   *   scales up.
+   *
+   * The bloom hue is ours. Everything above is a specification or a measurement; a brand's
+   * colours are neither, and copying those is the line this file does not cross.
+   *
+   * Timeline (5.0s @ 60fps): rail rises staggered with the bloom -> 1.2s the flanking cards
+   * clear and the hero card expands to full frame (800ms, emphasized) -> its thumbnail
+   * cross-fades to the hero content -> headline, subline, white pill -> held.
+   */
+
+  :root {
+    /* Emphasized is not expressible as one cubic-bezier: the spec draws it as two joined
+       cubic segments. These 25 stops are that path sampled at even x. */
+    --e-emphasized: linear(0, 0.0141, 0.0616, 0.1622, 0.4, 0.6686, 0.7728, 0.8315, 0.8706, 0.8989, 0.9204, 0.9372, 0.9506, 0.9614, 0.9701, 0.9773, 0.983, 0.9877, 0.9914, 0.9943, 0.9965, 0.9981, 0.9992, 0.9998, 1);
+    --e-standard-decel: cubic-bezier(0, 0, 0, 1);
+    --e-standard-accel: cubic-bezier(0.3, 0, 1, 1);
+    --e-emph-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --e-emph-accel: cubic-bezier(0.3, 0, 0.8, 0.15);
+    --d-short4: 200ms; --d-medium2: 300ms; --d-medium4: 400ms;
+    --d-long2: 500ms; --d-xlong2: 800ms;
+
+    --stage: #121317;                 /* measured */
+    --card-a: #1C1E23; --card-b: #2A2D35;   /* measured */
+    --hair: rgba(255,255,255,.09);
+    --paper: #FFFFFF; --paper-ink: #0E0F12; /* measured: the white pill */
+    --dim: #9AA0AE;
+    --bloom: #3B4AE0;                 /* ours */
+    --bloom-2: #1F9D74;               /* ours */
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden; position: relative;
+    background: var(--stage);
+    font-family: 'Google Sans Flex', 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: #fff;
+  }
+
+  /* faint field texture, so the near-black is a surface and not a void */
+  .grain { position: absolute; inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.035) 1px, transparent 0);
+    background-size: 44px 44px; }
+
+  /* the light behind the hero card. It grows with the card and then settles back. */
+  .bloom { position: absolute; left: 50%; top: 300px; width: 1200px; height: 620px;
+    transform: translateX(-50%) scale(.7); opacity: 0; filter: blur(90px);
+    background: radial-gradient(ellipse at center, var(--bloom) 0%, color-mix(in srgb, var(--bloom-2) 60%, transparent) 42%, transparent 72%);
+    animation: bloomIn 900ms var(--e-emph-decel) .35s forwards,
+               bloomSpread var(--d-xlong2) var(--e-emphasized) 1.2s forwards; }
+  @keyframes bloomIn { to { opacity: .55; transform: translateX(-50%) scale(1); } }
+  @keyframes bloomSpread { to { opacity: .32; transform: translateX(-50%) scale(1.5) translateY(60px); } }
+
+  /* ---- the rail ---- */
+  .flank { position: absolute; top: 336px; width: 300px; height: 408px; border-radius: 20px;
+    background: linear-gradient(135deg, var(--card-a), var(--card-b));
+    border: 1px solid var(--hair); opacity: 0; transform: translateY(44px) scale(.96);
+    animation: cardIn var(--d-long2) var(--e-emph-decel) forwards,
+               cardOut 240ms var(--e-emph-accel) 1.2s forwards; }
+  @keyframes cardIn  { to { opacity: 1; transform: translateY(0) scale(1); } }
+  /* Flanking cards leave over 240ms — 6/20 of the 800ms transform, the fade-through split.
+     They drift further out as they go so the hero is not merely revealed, it is given room. */
+  @keyframes cardOut { to { opacity: 0; } }
+  .flank.f1 { left: 156px;  animation-delay: .10s, 1.2s; }
+  .flank.f2 { left: 500px;  animation-delay: .18s, 1.2s; }
+  .flank.f3 { right: 500px; animation-delay: .26s, 1.2s; }
+  .flank.f4 { right: 156px; animation-delay: .34s, 1.2s; }
+  .flank .ph { position: absolute; left: 26px; right: 26px; bottom: 26px; }
+  .flank .ph i { display: block; height: 12px; border-radius: 6px; background: rgba(255,255,255,.13); margin-top: 12px; }
+  .flank .ph i:first-child { width: 62%; }
+  .flank .ph i:last-child  { width: 38%; }
+
+  /* ---- the hero card: one box, from thumbnail to full frame ---- */
+  /* left/top/width/height rather than a transform, on purpose. A scaled card scales its
+     corner radius, its border and its padding with it, and a container transform must not:
+     the radius travels 20px -> 28px on its own while the box grows sixfold. The renderer
+     steps the clock frame by frame, so a full relayout per frame costs nothing here. */
+  .hero { position: absolute; left: 660px; top: 300px; width: 600px; height: 480px;
+    border-radius: 20px; overflow: hidden;
+    /* The card carries its own glow, layered over the measured fill. The .bloom behind the
+       rail is covered the moment this box reaches full frame, and without this the resolved
+       frame — the one held longest — would be the flattest thing in the scene. Its ellipse
+       is sized in px, so it grows with the card rather than being scaled with it. */
+    background: radial-gradient(1400px 820px at 76% 116%, color-mix(in srgb, var(--bloom) 34%, transparent) 0%, transparent 62%),
+                linear-gradient(135deg, var(--card-a), var(--card-b));
+    border: 1px solid var(--hair);
+    box-shadow: 0 30px 90px rgba(0,0,0,.55);
+    opacity: 0; transform: translateY(44px) scale(.96);
+    animation: cardIn var(--d-long2) var(--e-emph-decel) .22s forwards,
+               heroExpand var(--d-xlong2) var(--e-emphasized) 1.2s forwards; }
+  @keyframes heroExpand {
+    to { left: 0; top: 0; width: 1920px; height: 1080px; border-radius: 28px;
+         box-shadow: 0 0 0 rgba(0,0,0,0); }
+  }
+
+  /* thumbnail contents: out over the first 6/20 */
+  .thumb { position: absolute; inset: 0; padding: 44px; display: flex; flex-direction: column; justify-content: flex-end;
+    animation: outFast 240ms var(--e-standard-accel) 1.2s forwards; }
+  @keyframes outFast { to { opacity: 0; } }
+  .thumb .badge { position: absolute; top: 40px; left: 44px; font-size: 20px; font-weight: 500;
+    letter-spacing: 1.6px; text-transform: uppercase; color: var(--dim); }
+  .thumb .tt { font-size: 40px; font-weight: 500; letter-spacing: -.9px; }
+  .thumb .ts { font-size: 24px; color: var(--dim); margin-top: 12px; }
+
+  /* hero contents: in over the last 14/20, scaled 0.92 -> 1 */
+  .full { position: absolute; inset: 0; padding: 132px 150px; display: flex; flex-direction: column; justify-content: center;
+    opacity: 0; transform: scale(.92); transform-origin: 30% 50%;
+    animation: inSlow 560ms var(--e-standard-decel) 1.44s forwards; }
+  @keyframes inSlow { to { opacity: 1; transform: scale(1); } }
+
+  .kicker { display: flex; align-items: center; gap: 16px; font-size: 22px; font-weight: 500;
+    letter-spacing: 2.2px; text-transform: uppercase; color: var(--dim); }
+  .kicker .pip { width: 12px; height: 12px; border-radius: 50%; background: var(--bloom); box-shadow: 0 0 22px var(--bloom); }
+
+  /* -0.0225em is the measured tracking on aistudio.google.com's h1, carried up to size */
+  .h1 { font-size: 118px; font-weight: 500; line-height: 1.02; letter-spacing: -0.0225em;
+    margin-top: 40px; max-width: 1360px; }
+  .h1 em { font-style: normal; color: color-mix(in srgb, var(--bloom) 45%, #fff); }
+  .lede { font-size: 34px; line-height: 1.5; color: var(--dim); margin-top: 34px; max-width: 980px; }
+
+  .rise { opacity: 0; transform: translateY(26px); animation: rise var(--d-long2) var(--e-emph-decel) forwards; }
+  .h1.rise   { animation-delay: 1.90s; }
+  .lede.rise { animation-delay: 2.06s; }
+  @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+
+  .cta { display: inline-flex; align-items: center; gap: 14px; align-self: flex-start;
+    margin-top: 56px; padding: 22px 40px; border-radius: 12px;
+    background: var(--paper); color: var(--paper-ink); font-size: 26px; font-weight: 500;
+    opacity: 0; transform: translateY(20px) scale(.97);
+    animation: ctaIn var(--d-medium4) var(--e-emph-decel) 2.34s forwards; }
+  @keyframes ctaIn { to { opacity: 1; transform: translateY(0) scale(1); } }
+  .cta svg { width: 22px; height: 22px; }
+
+  .foot { position: absolute; left: 150px; bottom: 84px; font-size: 21px; font-weight: 500;
+    letter-spacing: 2px; text-transform: uppercase; color: #6B7280;
+    opacity: 0; animation: ctaIn var(--d-medium4) var(--e-standard-decel) 2.7s forwards; }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* The resolved frame says the whole thing: the card has become the page. The rail and
+       the thumbnail only ever existed to be left behind, so they are simply not shown. */
+    * { animation: none !important; }
+    .bloom { opacity: .32; transform: translateX(-50%) scale(1.5) translateY(60px); }
+    .flank { opacity: 0; }
+    .hero { left: 0; top: 0; width: 1920px; height: 1080px; border-radius: 28px; opacity: 1; transform: none; }
+    .thumb { opacity: 0; }
+    .full { opacity: 1; transform: none; }
+    .rise, .cta, .foot { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<!-- Stated here because the renderer reads neither off the CSS: without the frame it
+     renders 1080x1920 and crops a design drawn 1920 wide without saying so, and without
+     the duration `video check` cannot sample the layout at all. 5.0s is the last keyframe
+     (footer ends 3.1s) plus a long held beat, which this one wants — the resolved frame is
+     the end card. -->
+<body data-composition-id="scene" data-no-timeline data-width="1920" data-height="1080" data-start="0" data-duration="5.0">
+  <div class="grain"></div>
+  <div class="bloom"></div>
+
+  <div class="flank f1"><div class="ph"><i></i><i></i></div></div>
+  <div class="flank f2"><div class="ph"><i></i><i></i></div></div>
+  <div class="flank f3"><div class="ph"><i></i><i></i></div></div>
+  <div class="flank f4"><div class="ph"><i></i><i></i></div></div>
+
+  <div class="hero">
+    <div class="thumb">
+      <div class="badge">Template 07</div>
+      <div class="tt">Launch film, 30s</div>
+      <div class="ts">Eight scenes · four tracks</div>
+    </div>
+
+    <div class="full">
+      <div class="kicker"><span class="pip"></span> Aetox video templates</div>
+      <div class="h1 rise">Pick the one that has <em>already been rendered.</em></div>
+      <div class="lede rise">Fifty-five scenes on the shelf, each with timing somebody argued about. Change the words. Keep the seconds.</div>
+      <a class="cta">Open the shelf
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <div class="foot">Aetox · video templates</div>
+</body>
+</html>

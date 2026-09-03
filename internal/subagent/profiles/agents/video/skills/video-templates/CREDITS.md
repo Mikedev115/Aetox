@@ -1,5 +1,9 @@
 # Where these came from
 
+51 of the 55 scenes here were vendored from somewhere; the other 4 were written
+for Aetox and are at the bottom of this file. What follows first is the vendored
+haul.
+
 47 scenes in 105 files, renamed from studio/brand names to plain descriptions of
 what each one actually is — the same reason `aetox-slide-templates` never named
 a slide after where its inventory was cross-checked. Originals are untouched
@@ -155,3 +159,37 @@ more registry examples were inspected and NOT taken: `product-promo` and
 `playful-bounce` already on this shelf (via hyperframes-student-kit), and
 `vscode-theme-visualizer` was deferred because it needs its own build scripts,
 which breaks this shelf's copy-and-edit contract.
+
+## motion/ — 4 scenes written here, not vendored (4 ก.ย. 2569)
+
+`search-query-reveal`, `dot-loader-morph`, `card-expand-hero`, `caption-montage`.
+No upstream repository, no licence to carry, no attribution owed to anyone —
+these are Aetox's own files, and they are recorded here because a credits file
+that lists only what was borrowed leaves a reader guessing about the rest.
+
+They are written in a house style derived from Google's, and the whole point of
+that sentence is which half of "derived" applies. Nothing was copied from any
+advertisement — no shot, no line of copy, no edit. What was used:
+
+| What | From | How it was obtained |
+|:--|:--|:--|
+| Easing tokens, duration tokens | Material Design 3 | Read off [material-components-android `docs/theming/Motion.md`](https://github.com/material-components/material-components-android/blob/master/docs/theming/Motion.md) (Apache-2.0), cross-checked against [mdui](https://www.mdui.org/en/docs/2/styles/design-tokens), which agrees value for value |
+| The Emphasized curve, sampled to CSS `linear()` | The same spec | The spec states it as a two-segment path; it was sampled at 25 even points because no `cubic-bezier()` can express it |
+| Cross-fade split (6/20 out, 14/20 in, scale 0.92) | Google's Flutter `animations` package | Read off [`fade_through_transition.dart`](https://github.com/flutter/packages/blob/main/packages/animations/lib/src/fade_through_transition.dart) (BSD-3-Clause) |
+| Dark surface values in `card-expand-hero` | `aistudio.google.com` | Measured in a browser on 4 ก.ย. 2569 — computed styles, not sampled pixels: stage `rgb(18,19,23)`, card `linear-gradient(135deg, rgb(28,30,35), rgb(42,45,53))` at 20px, white pill CTA at 12px, h1 Google Sans Flex weight 450 at -1.44px/64px |
+| `Google Sans`, `Google Sans Flex` | Google, SIL Open Font License since 10 ธ.ค. 2025 | Fetched at render time from `fonts.googleapis.com`, like every other face on this shelf |
+| `Anuphan` | Cadson Demak, SIL OFL, via Google Fonts | The Thai coverage; see GUIDE.md, "ไทย" |
+
+Specifications and computed styles are facts about published work, and an OFL
+face is licensed for exactly this. A company's identity is neither, so none of it
+is here: no mark, no wordmark, no product name, and not the four brand hues — the
+palette is indigo `#3B4AE0`, coral `#E8543F`, amber `#F2B33D`, teal `#1F9D74`.
+
+One line of that deserves singling out, because the first draft of these scenes
+got it wrong. The **sequence** blue → red → yellow → green identifies a company
+on sight regardless of the hex values underneath, and `dot-loader-morph` had it
+before anyone looked twice. It now runs indigo → teal → amber → coral, and the
+file says why in a comment so the next person does not helpfully "fix" it back.
+
+Full reasoning, and every number above with its date, in
+`references/google-register.md`.

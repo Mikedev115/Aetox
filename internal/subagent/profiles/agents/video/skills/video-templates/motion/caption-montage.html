@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Caption Montage · six beats, hard cuts, one resolve</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * caption-montage — five questions cut on the beat, then one answer held. The montage
+   * form: no transition between panels at all, a hard cut every 1.2s, and the only thing
+   * that moves inside a panel is the caption arriving and a slow push on the field behind
+   * it. The rhythm is the design; a crossfade would kill it.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569. Easing and duration values are Material Design 3
+   * tokens (material-components-android/docs/theming/Motion.md). The progress ticker uses
+   * `linear` deliberately — it is tied to real elapsed time, which is the one case
+   * aetox-design-system's motion reference allows a constant-speed curve.
+   *
+   * Timeline (8.0s @ 60fps): six panels at 0.0 / 1.2 / 2.4 / 3.6 / 4.8 / 6.0. Each cuts in
+   * on one frame, its caption rises over 400ms, its field pushes in slowly for 1.4s. The
+   * sixth is the resolve and gets 2.0s instead of 1.2s.
+   *
+   * ---- Putting real footage behind the captions ----
+   * This ships as colour fields, and that is a decision rather than an omission. The
+   * obvious version of this scene puts <video src="__VIDEO_SRC__"> in each panel, and the
+   * engine rejects it: a <video> inside an element that carries its own data-duration
+   * trips `video_nested_in_timed_element`, and the composition roots that DO hold footage
+   * on this shelf (bold-portrait-title, grain-texture-hero) keep their A-roll as a direct
+   * child of the root for exactly that reason — which a single-file scene, whose root is
+   * <body>, cannot do for six separate panels.
+   * So: to use footage, replace a panel's `background` with `background-image: url(...)`
+   * on a still frame, which needs nothing from the engine. If you need moving footage
+   * under all six, this scene is the wrong shape and `structured-grid` is the right one.
+   */
+
+  :root {
+    --e-emph-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --e-standard-decel: cubic-bezier(0, 0, 0, 1);
+    --d-medium4: 400ms; --d-long2: 500ms;
+
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+    --ink: #16181D; --resolve: #0E0F12;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden; position: relative; background: var(--resolve);
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: #fff;
+  }
+
+  /* ---- panels. Each cuts in on a single frame and stays; the next one covers it. ---- */
+  .beat { position: absolute; inset: 0; opacity: 0; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    animation: cut 1ms linear forwards; }
+  @keyframes cut { to { opacity: 1; } }
+  .beat:nth-child(1) { z-index: 1; animation-delay: 0s;   }
+  .beat:nth-child(2) { z-index: 2; animation-delay: 1.2s; }
+  .beat:nth-child(3) { z-index: 3; animation-delay: 2.4s; }
+  .beat:nth-child(4) { z-index: 4; animation-delay: 3.6s; }
+  .beat:nth-child(5) { z-index: 5; animation-delay: 4.8s; }
+  .beat:nth-child(6) { z-index: 6; animation-delay: 6.0s; }
+
+  /* the field behind the caption — this is the layer to swap for a still frame */
+  .bg { position: absolute; inset: -4%; transform: scale(1);
+    animation: push 1.6s linear forwards; }
+  @keyframes push { to { transform: scale(1.07); } }
+  .beat:nth-child(1) .bg { background: var(--a1); animation-delay: 0s;   }
+  .beat:nth-child(2) .bg { background: var(--ink); animation-delay: 1.2s; }
+  .beat:nth-child(3) .bg { background: var(--a2); animation-delay: 2.4s; }
+  .beat:nth-child(4) .bg { background: var(--a4); animation-delay: 3.6s; }
+  .beat:nth-child(5) .bg { background: var(--a3); animation-delay: 4.8s; }
+  .beat:nth-child(6) .bg { background: var(--resolve); animation-delay: 6.0s; }
+
+  /* a soft floor gradient so a caption at the bottom of a bright field stays readable */
+  .beat .veil { position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.17) 0%, transparent 34%); }
+
+  .cap { position: relative; text-align: center; padding: 0 180px;
+    font-size: 128px; font-weight: 700; line-height: 1.02; letter-spacing: -3.6px;
+    opacity: 0; transform: translateY(30px);
+    animation: capIn var(--d-medium4) var(--e-emph-decel) forwards; }
+  @keyframes capIn { to { opacity: 1; transform: translateY(0); } }
+  .beat:nth-child(1) .cap { animation-delay: 0.06s; }
+  .beat:nth-child(2) .cap { animation-delay: 1.26s; }
+  .beat:nth-child(3) .cap { animation-delay: 2.46s; }
+  .beat:nth-child(4) .cap { animation-delay: 3.66s; }
+  .beat:nth-child(5) .cap { animation-delay: 4.86s; color: var(--ink); }
+  .beat:nth-child(6) .cap { animation-delay: 6.10s; font-size: 104px; letter-spacing: -2.8px; }
+
+  /* the resolve carries a mark under its line; the five questions carry nothing */
+  .resolve-mark { position: relative; margin-top: 54px; display: flex; align-items: center;
+    justify-content: center; gap: 22px;
+    font-size: 24px; font-weight: 500; letter-spacing: 2.4px; text-transform: uppercase; color: #7E8593;
+    opacity: 0; animation: capIn var(--d-long2) var(--e-standard-decel) 6.62s forwards; }
+  .resolve-mark .pips { display: flex; gap: 9px; }
+  .resolve-mark .pips i { width: 15px; height: 15px; border-radius: 50%; display: block; }
+  .beat:nth-child(6) { flex-direction: column; }
+
+  /* ---- the beat ticker: six segments, each filling over its own 1.2s in real time ---- */
+  .ticker { position: absolute; z-index: 20; left: 120px; right: 120px; bottom: 68px;
+    display: flex; gap: 12px; }
+  .ticker span { flex: 1; height: 5px; border-radius: 3px; background: rgba(255,255,255,.22); overflow: hidden; }
+  .ticker span::after { content: ""; display: block; height: 100%; width: 0; background: #fff;
+    animation: fill 1.2s linear forwards; }
+  .ticker span:nth-child(1)::after { animation-delay: 0s;   }
+  .ticker span:nth-child(2)::after { animation-delay: 1.2s; }
+  .ticker span:nth-child(3)::after { animation-delay: 2.4s; }
+  .ticker span:nth-child(4)::after { animation-delay: 3.6s; }
+  .ticker span:nth-child(5)::after { animation-delay: 4.8s; }
+  .ticker span:nth-child(6)::after { animation-delay: 6.0s; animation-duration: 2s; }
+  @keyframes fill { to { width: 100%; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* A montage cannot be shown without cuts, so what survives is its destination: the
+       resolve panel, whole, with the ticker complete behind it. */
+    * { animation: none !important; }
+    .beat { opacity: 0; }
+    .beat:nth-child(6) { opacity: 1; }
+    .bg { transform: none; }
+    .cap, .resolve-mark { opacity: 1; transform: none; }
+    .ticker span::after { width: 100%; }
+  }
+</style>
+</head>
+<!-- Frame and length stated here, not derived: with no data-width/data-height the renderer
+     produces 1080x1920 and crops this silently, and with no data-duration `video check`
+     reports no duration at all. 8.0s is five beats of 1.2s plus a 2.0s resolve, which is
+     the whole point of the last panel — the questions cut, the answer is held. -->
+<body data-composition-id="scene" data-no-timeline data-width="1920" data-height="1080" data-start="0" data-duration="8.0">
+
+  <div class="beat"><div class="bg"></div><div class="veil"></div><div class="cap">where do I start</div></div>
+  <div class="beat"><div class="bg"></div><div class="veil"></div><div class="cap">what will it cost me</div></div>
+  <div class="beat"><div class="bg"></div><div class="veil"></div><div class="cap">will it still work next year</div></div>
+  <div class="beat"><div class="bg"></div><div class="veil"></div><div class="cap">has anyone done this before</div></div>
+  <div class="beat"><div class="bg"></div><div class="veil"></div><div class="cap">just show me the file</div></div>
+
+  <div class="beat">
+    <div class="bg"></div>
+    <div class="cap">Every one of those was already answered on the shelf.</div>
+    <div class="resolve-mark">
+      <span class="pips"><i style="background:var(--a1)"></i><i style="background:var(--a4)"></i><i style="background:var(--a3)"></i><i style="background:var(--a2)"></i></span>
+      Aetox · video templates
+    </div>
+  </div>
+
+  <div class="ticker"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+</body>
+</html>

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Search Query Reveal · a question typed, an answer unfolding</title>
+<!-- Two separate <link>s on purpose. The renderer fetches these at render time and a
+     failed fetch is a wrong-looking scene, not an error; asking for the two families in
+     one request means one failure loses both. Split, the Thai face survives on its own. -->
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * search-query-reveal — the search field is the subject: a question is typed into it,
+   * suggestions drop, then the field itself grows into the answer.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569. Nothing is copied from anyone's film. What is
+   * borrowed is published specification: the easing and duration tokens below are
+   * Material Design 3's, from material-components-android/docs/theming/Motion.md, and the
+   * cross-fade split is Google's own Flutter animations package (fade_through_transition.dart:
+   * 6/20 out, 14/20 in, incoming scale 0.92).
+   *
+   * Timeline (6.0s @ 60fps): field rests -> query types 1.6s -> suggestions drop staggered
+   * -> suggestions clear -> the FIELD becomes the answer card (container transform, 800ms
+   * emphasized) -> answer lines rise -> chips -> held.
+   */
+
+  :root {
+    /* M3 easing. --e-emphasized is a linear() because Emphasized is not a cubic-bezier
+       at all — the spec draws it as two joined cubic segments,
+       M 0,0 C 0.05,0 0.133333,0.06 0.166666,0.4 C 0.208333,0.82 0.25,1 1,1 — which no
+       single cubic-bezier() can express. These 25 stops are that path sampled at even x. */
+    --e-emphasized: linear(0, 0.0141, 0.0616, 0.1622, 0.4, 0.6686, 0.7728, 0.8315, 0.8706, 0.8989, 0.9204, 0.9372, 0.9506, 0.9614, 0.9701, 0.9773, 0.983, 0.9877, 0.9914, 0.9943, 0.9965, 0.9981, 0.9992, 0.9998, 1);
+    --e-standard: cubic-bezier(0.2, 0, 0, 1);
+    --e-standard-decel: cubic-bezier(0, 0, 0, 1);
+    --e-standard-accel: cubic-bezier(0.3, 0, 1, 1);
+    --e-emph-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+
+    /* M3 duration tokens, only the ones this scene spends */
+    --d-short4: 200ms; --d-medium2: 300ms; --d-medium4: 400ms;
+    --d-long2: 500ms; --d-xlong2: 800ms;
+
+    /* Four accents, deliberately NOT Google's. The four-hue rotation is the grammar;
+       the hues are ours, because the hues are the trademark. */
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+    --ink: #16181D; --ink-2: #5B6070; --line: #E1E4EC; --surface: #FFFFFF;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden; position: relative;
+    background: #F7F8FC;
+    background-image: radial-gradient(1200px 700px at 50% 18%, #FFFFFF 0%, #F7F8FC 62%);
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: var(--ink);
+  }
+
+  /* ---- the morphing container: it is the field first, the answer card after ---- */
+  /* Geometry is animated as left/top/width/height rather than a transform, because a
+     transform scales the corner radius and the padding with it and a container transform
+     must not — the radius travels on its own curve. The renderer steps the clock frame by
+     frame, so laying out every frame costs nothing here that it would cost live. */
+  .morph {
+    position: absolute; left: 400px; top: 470px; width: 1120px; height: 104px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 52px;
+    box-shadow: 0 2px 6px rgba(20,24,40,.05), 0 16px 40px rgba(20,24,40,.06);
+    animation: morphOpen var(--d-xlong2) var(--e-emphasized) 2.9s forwards;
+    overflow: hidden;
+  }
+  @keyframes morphOpen {
+    to { left: 260px; top: 168px; width: 1400px; height: 744px; border-radius: 44px;
+         box-shadow: 0 4px 10px rgba(20,24,40,.05), 0 40px 90px rgba(20,24,40,.10); }
+  }
+
+  /* ---- beat A: the field ---- */
+  .field { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 40px; gap: 24px;
+    animation: fadeThroughOut 240ms var(--e-standard-accel) 2.9s forwards; }
+  .glass { width: 34px; height: 34px; flex: none; opacity: .55; }
+  .q { font-size: 34px; font-weight: 400; letter-spacing: -.2px; white-space: nowrap;
+    overflow: hidden; width: 0; border-right: 3px solid var(--a1);
+    animation: type 1.6s steps(37, end) .35s forwards, blink 1s steps(1, end) .35s 6; }
+  /* 589px is the measured width of the sample query in Google Sans at 34px, taken
+     off a Range over the text rather than guessed. steps() must match the character
+     count, and the width must match the TEXT, not the field: overshoot either and the
+     caret parks in empty space after the last letter for the rest of the scene.
+     Change the copy and both numbers move with it. */
+  @keyframes type { to { width: 589px; } }
+  @keyframes blink { 0%, 49% { border-right-color: var(--a1); } 50%, 100% { border-right-color: transparent; } }
+  .mic { position: absolute; right: 40px; top: 50%; margin-top: -17px; width: 34px; height: 34px; opacity: .35; }
+
+  /* ---- beat A: the suggestions, a panel of their own under the field ---- */
+  .suggest { position: absolute; left: 400px; top: 596px; width: 1120px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 28px;
+    padding: 14px 0; box-shadow: 0 24px 60px rgba(20,24,40,.08);
+    opacity: 0; transform: translateY(-14px);
+    animation: dropIn var(--d-medium4) var(--e-emph-decel) 2.1s forwards,
+               fadeThroughOut 240ms var(--e-standard-accel) 2.75s forwards; }
+  @keyframes dropIn { to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeThroughOut { to { opacity: 0; } }
+  .srow { display: flex; align-items: center; gap: 22px; padding: 15px 40px;
+    font-size: 26px; color: var(--ink-2); opacity: 0;
+    animation: rowIn var(--d-medium2) var(--e-standard-decel) forwards; }
+  .srow:nth-child(1) { animation-delay: 2.24s; }
+  .srow:nth-child(2) { animation-delay: 2.32s; }
+  .srow:nth-child(3) { animation-delay: 2.40s; }
+  .srow b { color: var(--ink); font-weight: 500; }
+  .srow .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  @keyframes rowIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+
+  /* ---- beat B: the answer, cross-faded in over the last 70% at 0.92 scale ---- */
+  .answer { position: absolute; inset: 0; padding: 72px 80px; display: flex; flex-direction: column;
+    opacity: 0; transform: scale(.92); transform-origin: 50% 40%;
+    animation: fadeThroughIn 560ms var(--e-standard-decel) 3.14s forwards; }
+  @keyframes fadeThroughIn { to { opacity: 1; transform: scale(1); } }
+  .eyebrow { display: flex; align-items: center; gap: 16px; font-size: 22px; font-weight: 500;
+    letter-spacing: .4px; color: var(--ink-2); text-transform: uppercase; }
+  .eyebrow .bar { width: 44px; height: 4px; border-radius: 2px; background: var(--a1); }
+  .atitle { font-size: 86px; font-weight: 700; line-height: 1.06; letter-spacing: -2.4px; margin-top: 34px; max-width: 1120px; }
+  .abody { font-size: 32px; line-height: 1.55; color: var(--ink-2); margin-top: 30px; max-width: 1060px; }
+
+  /* answer lines rise after the card has arrived, not with it */
+  .lift { opacity: 0; transform: translateY(22px); animation: lift var(--d-long2) var(--e-emph-decel) forwards; }
+  .atitle.lift { animation-delay: 3.44s; }
+  .abody.lift { animation-delay: 3.60s; }
+  @keyframes lift { to { opacity: 1; transform: translateY(0); } }
+
+  .chips { display: flex; gap: 18px; margin-top: auto; }
+  .chip { padding: 18px 34px; border-radius: 999px; border: 1px solid var(--line);
+    font-size: 24px; font-weight: 500; color: var(--ink); background: #FBFCFF;
+    opacity: 0; transform: translateY(16px) scale(.96);
+    animation: chipIn var(--d-medium4) var(--e-emph-decel) forwards; }
+  .chip:nth-child(1) { animation-delay: 3.92s; border-color: color-mix(in srgb, var(--a1) 38%, var(--line)); }
+  .chip:nth-child(2) { animation-delay: 4.02s; border-color: color-mix(in srgb, var(--a4) 38%, var(--line)); }
+  .chip:nth-child(3) { animation-delay: 4.12s; border-color: color-mix(in srgb, var(--a2) 38%, var(--line)); }
+  @keyframes chipIn { to { opacity: 1; transform: translateY(0) scale(1); } }
+
+  /* ---- the standing footer, outside the morph ---- */
+  .foot { position: absolute; left: 260px; bottom: 76px; display: flex; align-items: center; gap: 18px;
+    font-size: 22px; font-weight: 500; letter-spacing: 1.6px; text-transform: uppercase; color: var(--ink-2);
+    opacity: 0; animation: dropIn var(--d-long2) var(--e-standard-decel) 4.4s forwards; }
+  .foot .swatches { display: flex; gap: 7px; }
+  .foot .swatches i { width: 13px; height: 13px; border-radius: 50%; display: block; }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Meaning survives with no motion: the card is open, the answer is legible, the
+       suggestions — which only ever existed to be replaced — are simply gone. */
+    * { animation: none !important; }
+    .morph { left: 260px; top: 168px; width: 1400px; height: 744px; border-radius: 44px; }
+    .field, .suggest { opacity: 0; }
+    .answer { opacity: 1; transform: none; }
+    .lift, .chip, .foot { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<!-- The frame and the length live here because the renderer reads neither off the CSS.
+     With no data-width/data-height it renders 1080x1920 and crops a design drawn 1920
+     wide, silently; with no data-duration `video check` reports no duration at all.
+     6.0s is where the last keyframe lands (chips end 4.52s) plus a beat of held frame. -->
+<body data-composition-id="scene" data-no-timeline data-width="1920" data-height="1080" data-start="0" data-duration="6.0">
+
+  <div class="morph">
+    <div class="field">
+      <svg class="glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="11" cy="11" r="7"></circle><path d="M16.5 16.5 21 21"></path>
+      </svg>
+      <span class="q">how do I make a 30-second launch film</span>
+      <svg class="mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path>
+      </svg>
+    </div>
+
+    <div class="answer">
+      <div class="eyebrow"><span class="bar"></span> Answer</div>
+      <div class="atitle lift">Eight scenes, four tracks, one file you can still open in a browser.</div>
+      <div class="abody lift">Start from a template that has already been rendered. Change the words, keep the timing — the thirty seconds were argued about before you got here.</div>
+      <div class="chips">
+        <span class="chip">See the timeline</span>
+        <span class="chip">Swap the footage</span>
+        <span class="chip">Render at 60fps</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="suggest">
+    <div class="srow"><span class="dot" style="background:var(--a1)"></span> how do I make a <b>30-second launch film</b></div>
+    <div class="srow"><span class="dot" style="background:var(--a4)"></span> how do I make a <b>product promo from a template</b></div>
+    <div class="srow"><span class="dot" style="background:var(--a2)"></span> how do I make a <b>vertical cut of the same scene</b></div>
+  </div>
+
+  <div class="foot">
+    <span class="swatches"><i style="background:var(--a1)"></i><i style="background:var(--a4)"></i><i style="background:var(--a3)"></i><i style="background:var(--a2)"></i></span>
+    Aetox · video templates
+  </div>
+</body>
+</html>
