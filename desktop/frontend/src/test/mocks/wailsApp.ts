@@ -133,6 +133,14 @@ export const CancelSignIn = noop()
 export const ImportableSignIns = arr()
 export const ImportSignIn = vi.fn(async (..._args: any[]) => modelInfo())
 export const SignOut = vi.fn(async (..._args: any[]) => modelInfo())
+// The MCP-server sign-in quartet (desktop/mcp_oauth.go) — separate bindings
+// from the AI-provider ones above, and signed-out by default for the same
+// reason SignInStatus is: a test that wants the already-connected fast path
+// says so itself.
+export const MCPSignInStatus = vi.fn(async (provider: string) => ({ provider, signed_in: false }))
+export const StartMCPSignIn = vi.fn(async (provider: string) => ({ provider, kind: 'browser', url: '' }))
+export const CompleteMCPSignIn = noop()
+export const CancelMCPSignIn = noop()
 // Connections: the catalog with nothing connected and no token in the
 // environment, so the page renders the connect form unless a test says
 // otherwise. `for: []` with configured:false is what an unplaced connection

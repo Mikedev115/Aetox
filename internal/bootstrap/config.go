@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"os"
 	"regexp"
 	"strings"
@@ -87,6 +88,26 @@ func agentsOnly(for_ []string) bool {
 // read "Bearer" with nothing after it, because the paste never happened).
 var secretRef = regexp.MustCompile(`\$\{(env|connect):([A-Za-z_][A-Za-z0-9_-]*)\}`)
 
+// HasSecretRef reports whether any header value resolves through
+// resolveSecretRefs — the thing desktop's TestMCPServer needs to know before
+// deciding how hard a "test this connection" click has to work.
+//
+// A client.go Client's resolved headers are frozen at construction: Close()
+// followed by a reconnect reuses the exact same (possibly now-stale) map, so
+// it can never notice a rotated key or a freshly-refreshed OAuth token. A
+// server with no reference in its headers does not have that problem —
+// Close()+reconnect is enough — so the caller only pays for a full
+// rebuildMCP() (which reloads every server, not just this one) when it would
+// actually change something.
+func HasSecretRef(headers map[string]string) bool {
+	for _, v := range headers {
+		if secretRef.MatchString(v) {
+			return true
+		}
+	}
+	return false
+}
+
 // resolveSecretRefs expands ${env:NAME} inside an MCP server's environment and
 // headers, at the moment the server is connected.
 //
@@ -114,6 +135,12 @@ func resolveSecretRefs(in map[string]string) map[string]string {
 	if len(in) == 0 {
 		return in
 	}
+	// Bounded rather than context.Background() forever: this runs at connect
+	// time, on the same goroutine that is about to build the MCP client, and
+	// a hung token endpoint must not hang that indefinitely.
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
 	out := make(map[string]string, len(in))
 	for k, v := range in {
 		out[k] = secretRef.ReplaceAllStringFunc(v, func(match string) string {
@@ -126,8 +153,15 @@ func resolveSecretRefs(in map[string]string) map[string]string {
 				// different requests, and a connect reference that silently
 				// answered from a variable exported months ago in a shell
 				// profile would be the app guessing which secret was meant.
-				if cred, ok := oauth.Get(parts[2]); ok {
-					value = strings.TrimSpace(cred.Key)
+				//
+				// oauth.Token rather than oauth.Get+.Key: a credential of
+				// type "api" (a github PAT) still comes back as .Key exactly
+				// as before, but a credential of type "oauth" (anything
+				// StartMCPOAuth minted — mcpauth.go) is refreshed here if it
+				// has expired, instead of resolving to an empty string
+				// forever the moment its access token's hour runs out.
+				if token, err := oauth.Token(ctx, parts[2]); err == nil {
+					value = token
 				}
 			default:
 				value = os.Getenv(parts[2])

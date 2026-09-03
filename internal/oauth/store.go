@@ -42,6 +42,15 @@ type Credential struct {
 	Endpoint string `json:"endpoint,omitempty"`
 	// Label is what the user sees in Settings ("GitHub Copilot · mike").
 	Label string `json:"label,omitempty"`
+	// TokenEndpoint and ClientID are set only for a credential StartMCPOAuth
+	// minted (mcpauth.go): a generic sign-in discovers a different
+	// authorization server per MCP server rather than the one fixed endpoint
+	// every other flow in this package is written against, so the endpoint
+	// and the client id this account registered under have to travel with
+	// the credential itself — refreshMCPOAuth has nothing else to read them
+	// from. Empty for every other provider.
+	TokenEndpoint string `json:"token_endpoint,omitempty"`
+	ClientID      string `json:"client_id,omitempty"`
 }
 
 // expiryGrace refreshes a token slightly before it dies. Some providers hand

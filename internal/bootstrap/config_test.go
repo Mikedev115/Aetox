@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"testing"
+	"time"
 
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/oauth"
@@ -101,7 +102,7 @@ func TestAgentOnlyServersAreLeftForTheAgentThatNeedsThem(t *testing.T) {
 // never happened. The token was already in the app the whole time.
 func TestAConnectReferenceResolvesFromTheStoredConnection(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
-	if err := oauth.Set("github", oauth.Credential{Key: "ghp_from_the_connection"}); err != nil {
+	if err := oauth.Set("github", oauth.Credential{Type: "api", Key: "ghp_from_the_connection"}); err != nil {
 		t.Fatalf("seed the connection store: %v", err)
 	}
 
@@ -115,6 +116,55 @@ func TestAConnectReferenceResolvesFromTheStoredConnection(t *testing.T) {
 	}
 	if want := "Bearer ghp_from_the_connection"; got[0].Headers["Authorization"] != want {
 		t.Errorf("Authorization = %q, want %q", got[0].Headers["Authorization"], want)
+	}
+}
+
+// A credential StartMCPOAuth minted (mcpauth.go) is type "oauth", not "api" —
+// resolveSecretRefs has to go through oauth.Token rather than reading .Key
+// directly, or every such credential resolves to empty forever. A fresh
+// (unexpired) one is the easy half of that: no refresh call should even be
+// needed.
+func TestAConnectReferenceResolvesAnUnexpiredOAuthCredential(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	cred := oauth.Credential{
+		Type: "oauth", Access: "at_fresh",
+		ExpiresAt: time.Now().Add(time.Hour).UnixMilli(),
+	}
+	if err := oauth.Set("semgrep", cred); err != nil {
+		t.Fatalf("seed the connection store: %v", err)
+	}
+
+	got := MCPServers([]config.MCPServerConfig{{
+		Name:    "semgrep",
+		URL:     "https://mcp.semgrep.ai/mcp",
+		Headers: map[string]string{"Authorization": "Bearer ${connect:semgrep}"},
+	}})
+	if want := "Bearer at_fresh"; got[0].Headers["Authorization"] != want {
+		t.Errorf("Authorization = %q, want %q", got[0].Headers["Authorization"], want)
+	}
+}
+
+// An oauth credential that has expired and carries no way to refresh itself
+// (no compiled-in refresher, no TokenEndpoint) must resolve to empty rather
+// than to a stale access token — the same "fail diagnosably" rule
+// TestAnUnmadeConnectionResolvesToEmpty documents below.
+func TestAConnectReferenceResolvesExpiredOAuthCredentialWithNoRefresherToEmpty(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	cred := oauth.Credential{
+		Type: "oauth", Access: "at_stale",
+		ExpiresAt: time.Now().Add(-time.Hour).UnixMilli(),
+	}
+	if err := oauth.Set("some-server", cred); err != nil {
+		t.Fatalf("seed the connection store: %v", err)
+	}
+
+	got := MCPServers([]config.MCPServerConfig{{
+		Name:    "some-server",
+		URL:     "https://example.invalid/mcp",
+		Headers: map[string]string{"Authorization": "Bearer ${connect:some-server}"},
+	}})
+	if v := got[0].Headers["Authorization"]; v != "Bearer " {
+		t.Errorf("Authorization = %q, want the stale token dropped rather than sent", v)
 	}
 }
 

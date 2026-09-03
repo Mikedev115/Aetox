@@ -152,7 +152,15 @@ func Token(ctx context.Context, provider string) (string, error) {
 
 	refresh, ok := refreshers[canonical]
 	if !ok {
-		return "", fmt.Errorf("%s sign-in expired and cannot be renewed — sign in again", canonical)
+		// No compiled-in refresher for this name — but a credential
+		// StartMCPOAuth minted (mcpauth.go) carries its own token endpoint
+		// and client id, discovered at sign-in time rather than known ahead
+		// of like openrouter/codex above, so it can still refresh itself
+		// through the generic path.
+		if cred.TokenEndpoint == "" {
+			return "", fmt.Errorf("%s sign-in expired and cannot be renewed — sign in again", canonical)
+		}
+		refresh = refreshMCPOAuth
 	}
 	next, err := refresh(ctx, cred)
 	if err != nil {

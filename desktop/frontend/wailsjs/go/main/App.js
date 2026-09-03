@@ -170,6 +170,10 @@ export function CancelAccountSignIn() {
   return window['go']['main']['App']['CancelAccountSignIn']();
 }
 
+export function CancelMCPSignIn(arg1) {
+  return window['go']['main']['App']['CancelMCPSignIn'](arg1);
+}
+
 export function CancelSignIn(arg1) {
   return window['go']['main']['App']['CancelSignIn'](arg1);
 }
@@ -220,6 +224,10 @@ export function CommandHistory() {
 
 export function CompleteAccountSignIn() {
   return window['go']['main']['App']['CompleteAccountSignIn']();
+}
+
+export function CompleteMCPSignIn(arg1) {
+  return window['go']['main']['App']['CompleteMCPSignIn'](arg1);
 }
 
 export function CompleteSignIn(arg1, arg2) {
@@ -568,6 +576,10 @@ export function LoadSessionAnyProject(arg1) {
 
 export function MCPConfigPath() {
   return window['go']['main']['App']['MCPConfigPath']();
+}
+
+export function MCPSignInStatus(arg1) {
+  return window['go']['main']['App']['MCPSignInStatus'](arg1);
 }
 
 export function MarkIssueReported(arg1) {
@@ -1132,6 +1144,10 @@ export function StartAccountSignIn(arg1) {
 
 export function StartConnectionServer(arg1) {
   return window['go']['main']['App']['StartConnectionServer'](arg1);
+}
+
+export function StartMCPSignIn(arg1, arg2) {
+  return window['go']['main']['App']['StartMCPSignIn'](arg1, arg2);
 }
 
 export function StartMobileRemote() {

@@ -10,10 +10,10 @@ import {model} from '../models';
 import {skill} from '../models';
 import {mode} from '../models';
 import {command} from '../models';
+import {oauth} from '../models';
 import {github} from '../models';
 import {ooxml} from '../models';
 import {config} from '../models';
-import {oauth} from '../models';
 
 export function APIKeyHint(arg1:string):Promise<string>;
 
@@ -99,6 +99,8 @@ export function BusySignal():Promise<Array<main.BusyLayer>>;
 
 export function CancelAccountSignIn():Promise<void>;
 
+export function CancelMCPSignIn(arg1:string):Promise<void>;
+
 export function CancelSignIn(arg1:string):Promise<void>;
 
 export function CancelTurn():Promise<void>;
@@ -124,6 +126,8 @@ export function CloseAllBrowserTabs():Promise<void>;
 export function CommandHistory():Promise<Array<string>>;
 
 export function CompleteAccountSignIn():Promise<main.AccountState>;
+
+export function CompleteMCPSignIn(arg1:string):Promise<void>;
 
 export function CompleteSignIn(arg1:string,arg2:string):Promise<main.ModelInfo>;
 
@@ -298,6 +302,8 @@ export function LoadSession(arg1:string):Promise<Array<main.SessionMessage>>;
 export function LoadSessionAnyProject(arg1:string):Promise<Array<main.SessionMessage>>;
 
 export function MCPConfigPath():Promise<string>;
+
+export function MCPSignInStatus(arg1:string):Promise<oauth.Status>;
 
 export function MarkIssueReported(arg1:number):Promise<void>;
 
@@ -580,6 +586,8 @@ export function Stances():Promise<Array<string>>;
 export function StartAccountSignIn(arg1:string):Promise<string>;
 
 export function StartConnectionServer(arg1:string):Promise<void>;
+
+export function StartMCPSignIn(arg1:string,arg2:string):Promise<main.SignInPrompt>;
 
 export function StartMobileRemote():Promise<main.RemoteStatus>;
 

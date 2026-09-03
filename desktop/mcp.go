@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Mikedev115/Aetox/internal/bootstrap"
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/mcp"
@@ -395,6 +396,21 @@ func (a *App) RemoveMCPServer(name string) error {
 // and reports the resulting status, so the user can retry a server they just
 // fixed without restarting the app.
 func (a *App) TestMCPServer(name string) MCPServerInfo {
+	// A server whose header resolves ${env:...}/${connect:...} cannot be
+	// helped by Close() alone: the Client this app is holding had that
+	// reference resolved once, at construction, and a plain reconnect reuses
+	// the exact same (possibly now-expired) value. rebuildMCP() reloads the
+	// saved config and re-resolves it fresh — the only way a rotated key or a
+	// refreshed OAuth token this Client predates ever reaches the wire.
+	if servers, err := config.LoadMCPServers(); err == nil {
+		for _, s := range servers {
+			if strings.EqualFold(s.Name, name) && bootstrap.HasSecretRef(s.Headers) {
+				a.rebuildMCP()
+				break
+			}
+		}
+	}
+
 	c := a.findMCPClient(name)
 	if c == nil {
 		return MCPServerInfo{Name: name, Status: string(mcp.StatusFailed), Err: "server not found"}
