@@ -63,6 +63,24 @@ export interface MCPPreset {
 //      paragraph below was written about.
 //   3. **The endpoint was answered by the provider, not remembered.**
 //
+// *From 3 ก.ย.:* **rule 2 changed, and it changed because its reason expired
+// rather than because anyone argued with it.** The rule never said OAuth was
+// bad — it said the client could not do OAuth, so a button promising one
+// click would have been a lie. internal/oauth/mcpauth.go now walks the whole
+// discovery chain itself (RFC 9728 → RFC 8414 → RFC 7591 → PKCE) on the
+// loopback listener and encrypted credential store that already existed, so
+// for a server that supports dynamic client registration the promise is true:
+// press เพิ่ม, a browser opens, come back and it is connected.
+//
+// So the bar is now *"one click, sign-in included"* — and the half of rule 2
+// that survives is the sharper half. A server WITHOUT a
+// `registration_endpoint` still cannot be one click, because the user would
+// have to go and register an OAuth app with the provider first. Probed on
+// 3 ก.ย.: of six OAuth-only servers, semgrep / grafana / netlify register
+// dynamically and are on the shelf; elevenlabs / vercel / shopify do not and
+// are held in mcpCandidates.ts. That is the same rule, applied to a client
+// that can now do more — not a relaxation of it.
+//
 // Every URL below was verified on 2026-08-14 by sending a real MCP
 // `initialize` and reading the reply: the unauthenticated ones returned a
 // protocol handshake, and github returned 401 naming the header it wants.

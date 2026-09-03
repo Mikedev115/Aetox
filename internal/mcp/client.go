@@ -2,8 +2,15 @@
 //
 // Two transports: local/stdio (a subprocess speaking MCP over stdin/stdout,
 // e.g. npx/uvx-based servers) and remote streamable HTTP (URL + optional
-// static headers). OAuth stays deferred until a real need appears — see
-// MCP-SUPPORT-PLAN.md.
+// static headers).
+//
+// This package still knows only about static headers, and that is now a
+// division of labour rather than a limitation: OAuth arrived on 2026-09-03
+// (internal/oauth/mcpauth.go) and lands here as an ordinary
+// `Authorization: Bearer ${connect:name}` header whose value resolveSecretRefs
+// fetches — refreshing the token when it is close to expiry — before the
+// connection is built. So a server that signs in and one that carries a pasted
+// key reach this file looking identical, which is the point.
 //
 // The transport, JSON-RPC framing, and initialize handshake come from the
 // official github.com/modelcontextprotocol/go-sdk; this package owns only

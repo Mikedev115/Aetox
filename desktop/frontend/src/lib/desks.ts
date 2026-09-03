@@ -55,6 +55,36 @@ export interface NavEntry {
 
 export const NAV: NavEntry[] = [
   { id: 'assistant', kind: 'desk', labelKey: 'desk.assistant', blurbKey: 'desk.assistantBlurb', icon: 'sparkles', shell: 'assistant' },
+  // ความสามารถ (2026-09-03). What the assistant is made of — the tools that came
+  // with it, the MCP servers you connected, and the skills that taught it how a
+  // job is done — with the shelf of servers it does not have yet shown first.
+  //
+  // **Second in the column, directly under ผู้ช่วย, and the position is the
+  // feature.** The owner asked for a room to fix a discoverability problem: a
+  // person using Aetox had no way to learn that it connects to MCP at all,
+  // because the register was three levels inside Settings and the word appeared
+  // nowhere else. My first placement was last in the list, on "work rooms
+  // first, capability rooms after" — which is the right order for a column being
+  // *organised* and the wrong one for a column that has to *announce*. Slot two
+  // is the most-seen row after the room the app opens on. Owner's call, and it
+  // also reads as a sentence: ผู้ช่วย, then what ผู้ช่วย is made of, then the
+  // rooms you walk into to work.
+  //
+  // **A `page`, and one row rather than a group with children.** The first
+  // sketch had it expanding into MCP / สกิล / เอเจน / ซับเอเจน. A submenu that
+  // has to be opened announces nothing — it saves a click for the person who
+  // already knows, who is not the person this room is for — and an always-open
+  // one puts four configuration rows in a six-row column. It also would have
+  // meant a fourth `DeskKind`, which is a word the whole app reads (§2) bought
+  // for a tree the sidebar does not otherwise draw.
+  //
+  // **เอเจน is deliberately not one of its tabs.** เอเจนเฉพาะทาง has a row four
+  // lines below this one, and a second door into the same page is exactly what
+  // ระบบออโตเมชั่น was removed for. ซับเอเจน is not a tab either, for a
+  // different reason: the user cannot add, edit or talk to one, so a tab for it
+  // would be an announcement with nothing behind it. Both are a link and a
+  // paragraph inside the room instead.
+  { id: 'capability', kind: 'page', labelKey: 'desk.capability', blurbKey: 'desk.capabilityBlurb', icon: 'plug', shell: 'assistant' },
   // A project groups chats and carries a few files into every session held
   // inside it, so the assistant starts each one already knowing the context.
   // It is a folder for conversations, NOT a fence: the assistant keeps the

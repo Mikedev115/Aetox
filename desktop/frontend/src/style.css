@@ -295,6 +295,14 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    it appears. */
 .desk-btn.soon { color:var(--text-dim); cursor:default; }
 .soon-tag { flex:none; font-size:var(--fs-2xs); color:var(--text-dim); border:1px solid var(--border-subtle); border-radius:999px; padding:1px 7px; white-space:nowrap; }
+/* The opposite badge, and it shares .soon-tag's shape on purpose: one says a
+   room is not built, this says how much is inside one. ความสามารถ is the only
+   row that carries it — a count is what makes that row read as something with
+   state rather than a link to a settings page, which is the whole reason it
+   sits second in the column. Lit on the active row, because a number that goes
+   dim exactly when you are standing in the room has the emphasis backwards. */
+.room-count { flex:none; font-size:var(--fs-2xs); font-variant-numeric:tabular-nums; color:var(--text-muted); background:var(--surface-app); border:1px solid var(--border-subtle); border-radius:999px; padding:1px 7px; white-space:nowrap; }
+.desk-btn.active .room-count { color:var(--accent); border-color:var(--border-default); }
 
 /* Search and new-session, above the list and outside the scroller — a row that
    scrolls away is a row you go looking for.
@@ -3554,7 +3562,7 @@ button.phase-head:hover { color:var(--text-muted); }
 
 /* The lock veil was cut to sit below an 8px identity band that this card no
    longer has, so it starts at the top edge and follows the tighter corner. */
-.agc .chair-lock { inset:0; border-radius:var(--r-md); }
+.agc .chair-lock { border-radius:var(--r-md); }
 
 /* The two bands the roster is split into — whether the main assistant may hand
    this agent work. A heading and a hairline on the page's own background, not
@@ -3609,22 +3617,44 @@ button.phase-head:hover { color:var(--text-muted); }
    legible through the veil so the reader still sees which teammate they are
    being told about. */
 .chair-card { position:relative; }
-.chair-card.locked > .chair-body { visibility:hidden; }
+/* `display:none`, not `visibility:hidden`, and the veil below is in flow rather
+   than laid over the top. **This is the fix for a card that scrolled inside
+   itself** (owner, 3 ก.ย.: *"มัน เลื่อนๆ แบบเกิน"*).
+
+   As an overlay the veil could not make its card any taller, so the card was
+   sized by the description underneath — which nobody can read, because the veil
+   is opaque — and a gate naming two missing services (automation: "n8n,
+   Windmill") stood 20px taller than the space it was given. What that bought
+   was an inner scrollbar on a card with five short lines on it: the reader had
+   to scroll a business card to reach the button.
+
+   Hidden-but-present body is what made the height wrong, so the body goes, and
+   the veil sizes the card the way any other content would. Nothing is lost by
+   removing it from layout: on the roster the veil covers the card edge to edge
+   (`.agc .chair-lock`), and in ห้องงานวิดีโอ everything above it — the 8px
+   identity band — is a sibling that stays exactly where it was.
+
+   The cards do not shrink: both decks are grids, so a row is as tall as its
+   tallest card and a lock shorter than its neighbours is stretched to match. */
+.chair-card.locked > .chair-body,
+.chair-card.locked > .chair-foot { display:none; }
 /* Below the 8px band, which is the card's identity colour and the one thing
    worth keeping. Opaque rather than a wash: a translucent veil left the card's
    own title and description legible underneath its message and the two
    collided. */
-/* `safe center` and a scroll, not plain centring. A lock naming two missing
-   pieces instead of one grew taller than the card, and a centred flex column
-   that overflows spills out of BOTH ends — so the teammate's name went off the
-   top and the install button off the bottom, leaving a veil that said what was
-   wrong without saying whose card it was or offering the fix. `safe` stops
-   centring at the start edge once the content no longer fits. */
-.chair-lock { position:absolute; inset:8px 0 0; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:safe center; gap:9px; padding:16px 14px; text-align:center; background:var(--surface-raised); overflow-y:auto; }
+/* `safe center` and a scroll are kept as the guard rather than as the mechanism.
+   Sizing the card (above) is what stops the overflow in every gate that ships;
+   this is what happens if a future one is longer than any card in its row —
+   a centred flex column that overflows spills out of BOTH ends, so the
+   teammate's name would go off the top and the install button off the bottom,
+   leaving a veil that said what was wrong without saying whose card it was or
+   offering the fix. `safe` stops centring at the start edge once the content no
+   longer fits. */
+.chair-lock { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:safe center; gap:8px; padding:14px 12px; text-align:center; background:var(--surface-raised); overflow-y:auto; }
 .chair-lock > * { flex:none; }
 .chair-lock > svg { color:var(--text-muted); }
 .chair-lock-who { font-size:var(--fs-lg); font-weight:600; color:var(--text-primary); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.chair-lock-say { margin:0; font-size:var(--fs-xs); line-height:1.5; color:var(--text-secondary); max-width:22ch; }
+.chair-lock-say { margin:0; font-size:var(--fs-xs); line-height:1.5; color:var(--text-secondary); max-width:26ch; }
 .chair-lock-what { margin:-4px 0 0; font-size:var(--fs-xs); color:var(--text-muted); font-family:var(--mono); max-width:24ch; overflow-wrap:anywhere; }
 .focus-item.locked .t { color:var(--text-muted); }
 .focus-locked { flex:none; margin-left:auto; display:inline-flex; color:var(--status-warn); }
@@ -4585,14 +4615,49 @@ button.phase-head:hover { color:var(--text-muted); }
 .reg-caret.open { transform:rotate(90deg); }
 /* Connected and pointed at nobody is the one state worth interrupting for: it
    looks healthy on the row and reaches no one. */
-.mcp-badge-warn { color:var(--status-warning, #d29922); border-color:var(--status-warning, #d29922); }
+.mcp-badge-warn { color:var(--status-warn); border-color:var(--status-warn); }
 .mcp-targets { flex:1 0 100%; margin-top:10px; padding:10px 12px; border-radius:var(--r-md); background:var(--surface-sunken); border:1px solid var(--border-subtle); }
 .mcp-targets-hint { margin-bottom:8px; }
-.mcp-targets-group { margin:8px 0 4px; }
+/* The group's own line: what these chips are, how many are on, and the switch
+   that does all of them. The count is the thing the collapsed row's badge
+   promises and the open panel used to make you count by eye. */
+.mcp-targets-group { display:flex; align-items:center; gap:8px; margin:14px 0 7px; }
 .mcp-targets-group:first-of-type { margin-top:0; }
-.mcp-target { display:flex; align-items:center; gap:8px; padding:3px 0; cursor:pointer; font-size:var(--fs-sm); }
-.mcp-target input { cursor:pointer; }
-.mcp-target input:disabled { cursor:not-allowed; }
+.mcp-group-count { font-family:var(--mono); font-size:var(--fs-xs); color:var(--text-dim); }
+.mcp-group-all { margin-left:auto; background:none; border:0; padding:0; font:inherit; font-size:var(--fs-xs); color:var(--text-muted); cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+.mcp-group-all:hover:not(:disabled) { color:var(--interactive); }
+.mcp-group-all:disabled { opacity:.5; cursor:not-allowed; text-decoration:none; }
+/* The placement rows. Same shape as the chair list in the agent menu — face,
+   name, and the pill every switch in this app wears — because they are the same
+   people, and a target drawn as a tick box here and as a person over there is
+   two vocabularies for one roster.
+
+   A grid, not a column: this panel is the full width of the settings page, and
+   three desks plus eight agents stacked one per line is a wall you scroll past
+   to reach the next server. Two or three per line at the widths this card
+   actually gets. */
+.mcp-places { display:grid; grid-template-columns:repeat(auto-fill, minmax(215px, 1fr)); gap:4px 10px; }
+.mcp-place {
+  display:flex; align-items:center; gap:9px; width:100%;
+  padding:5px 8px; border:1px solid transparent; border-radius:var(--r-sm);
+  background:none; color:var(--text-muted); font:inherit; font-size:var(--fs-sm);
+  text-align:left; cursor:pointer; transition:background .12s, color .12s, border-color .12s;
+}
+.mcp-place:hover:not(:disabled) { background:var(--surface-raised); color:var(--text-primary); }
+.mcp-place[aria-checked="true"] { color:var(--text-primary); }
+.mcp-place:disabled { opacity:.55; cursor:not-allowed; }
+.mcp-place:focus-visible { outline:2px solid var(--interactive); outline-offset:1px; }
+.mcp-place .t { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* A desk is a room, not a person, so it gets its own nav glyph rather than a
+   face — the one distinction this list has to keep. */
+.mcp-place-ic { flex:none; display:grid; place-items:center; width:22px; height:22px; border-radius:var(--r-xs); background:var(--surface-raised); color:var(--text-muted); }
+.mcp-place[aria-checked="true"] .mcp-place-ic { color:var(--interactive); }
+/* The wrench the chair list already uses for "short of the tool it needs". */
+.mcp-place-need { flex:none; display:inline-flex; color:var(--text-dim); }
+.mcp-place-need.short { color:var(--status-warn); }
+.mcp-need-warn { display:flex; align-items:center; gap:8px; margin-bottom:10px; padding:7px 10px; border-radius:var(--r-sm); border:1px solid var(--status-warn); background:color-mix(in srgb, var(--status-warn) 10%, transparent); color:var(--text-primary); font-size:var(--fs-sm); }
+.mcp-need-warn > svg { flex:none; color:var(--status-warn); }
+.mcp-need-txt { flex:1 1 auto; min-width:0; }
 .mcp-lines { resize:vertical; font-family:var(--mono); font-size:var(--fs-sm); }
 .mswitch { position:relative; display:inline-block; width:34px; height:19px; flex:0 0 auto; }
 .mswitch input { position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; }

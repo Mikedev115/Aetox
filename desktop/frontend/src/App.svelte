@@ -9,6 +9,7 @@
   import VideoWork from './lib/VideoWork.svelte'
   import Artifacts from './lib/Artifacts.svelte'
   import Projects from './lib/Projects.svelte'
+  import Capability from './lib/Capability.svelte'
   import Onboarding from './lib/Onboarding.svelte'
   import Updater from './lib/Updater.svelte'
   import CapabilityProgress from './lib/CapabilityProgress.svelte'
@@ -523,6 +524,10 @@
 {:else if cockpit.activeView === 'projects'}
   <div class="settings-overlay">
     <Projects onClose={closeOverlay} />
+  </div>
+{:else if cockpit.activeView === 'capability'}
+  <div class="settings-overlay">
+    <Capability onClose={closeOverlay} />
   </div>
 {/if}
 

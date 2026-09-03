@@ -19,13 +19,17 @@
   import { scopeLabel } from './memoryScope'
   import { setShell } from './shell.svelte'
   import type { IconName } from './icons'
+  import { NAV } from './desks'
+  // The shelf and everything that turns one of its entries into a saved server.
+  // It used to be written out in this file; ห้องความสามารถ reads the same list,
+  // and a preset table with two copies goes stale on one of them (mcpShelf.ts).
+  import { MCP_PRESETS, needsPaste, presetConfig, presetFor, type MCPPreset } from './mcpShelf'
   import {
     SupportedProviders, HasAPIKey, APIKeyHint, RequiresAPIKey, AcceptsAPIKey, ProviderAccountFor, TerminalShells,
     ListModelsForProvider, ProviderBaseURL, ProviderBaseURLIsCustom, ProviderAPIKeyURL, ProviderReady, PriceModels,
     ProviderWireFormats, TestProviderConnection,
     EnabledProviders, SetProviderEnabled,
     ListMCPServers, SaveMCPServer, RemoveMCPServer, TestMCPServer, ToggleMCPServer,
-    VideoEditorCommand, VideoEditorEnvironment, VideoEditorTools,
     DelegateSwitches, SetDelegateOff, SetAgentOff,
     PlacementTargets, SetMCPServerTargets,
     ListExternalSkills, ListTools, InstallSkillFromGitHub, RemoveExternalSkill, RefreshSkills,
@@ -1142,12 +1146,78 @@
   // Flipping one switch sends the whole list back, because that is what the
   // engine stores — a per-target call would need the engine to merge, and two
   // places deciding what the list is now is how one of them ends up wrong.
-  const toggleMCPTarget = (s: MCPRow, id: string) => runMCP('target:' + s.name + ':' + id, async () => {
-    const current = mcpTargetsOf(s)
-    const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id]
+  //
+  // One writer for all three ways the list changes (a chip, a group's เลือกทั้งหมด,
+  // the "switch on the agents that asked" fix): each of them is "here is the
+  // whole new list", and spelling that out three times is three chances for one
+  // of them to forget the reload that makes the panel agree with disk.
+  const putMCPTargets = (s: MCPRow, label: string, next: string[]) => runMCP(label, async () => {
     await SetMCPServerTargets(s.name, next)
     await loadMCP()
   })
+
+  const toggleMCPTarget = (s: MCPRow, id: string) => {
+    const current = mcpTargetsOf(s)
+    return putMCPTargets(s, 'target:' + s.name + ':' + id,
+      current.includes(id) ? current.filter((x) => x !== id) : [...current, id])
+  }
+
+  // A group's own switch. Eleven chips is eleven clicks to say "everywhere",
+  // and "everywhere" is what a person adding a general-purpose server actually
+  // wants — the per-chip list is for the exceptions.
+  const mcpGroupIds = (kind: string) => mcpTargets.filter((x) => x.kind === kind).map((x) => x.id)
+  const mcpGroupOn = (s: MCPRow, kind: string) =>
+    mcpGroupIds(kind).filter((id) => mcpTargetsOf(s).includes(id)).length
+  const toggleMCPGroup = (s: MCPRow, kind: string) => {
+    const ids = mcpGroupIds(kind)
+    const current = mcpTargetsOf(s)
+    const allOn = ids.every((id) => current.includes(id))
+    return putMCPTargets(s, 'group:' + s.name + ':' + kind,
+      allOn ? current.filter((id) => !ids.includes(id))
+            : [...current, ...ids.filter((id) => !current.includes(id))])
+  }
+
+  // The agents that declare `needs: mcp:<this server>`, as placement ids.
+  //
+  // agentsNeeding answers in agent NAMES because that is what a profile writes;
+  // the switches are keyed by placement id. Mapped through mcpTargets rather
+  // than by pasting the "agent:" prefix in here — the prefix is Go's
+  // (config.MCPAgentPrefix), and a second copy of it in the page is a rename
+  // away from silently matching nothing.
+  //
+  // This is the same fact the แนะนำ shelf prints under a preset ("เอเจนที่ขอไว้"),
+  // finally shown on the panel where it is actionable. A server can be
+  // connected, healthy, and switched off for the one agent whose own file says
+  // it cannot work without it, and nothing on this row used to say so.
+  // The glyphs those rows wear, taken from where each kind already keeps its
+  // own. A desk's is the one the sidebar draws for that room (NAV) — the office
+  // desk is `specialized` in the engine and has no nav button of its own, so it
+  // borrows the office page's. An agent's is the `icon:` its profile declares,
+  // which is what AgentFace builds a face out of; PlacementTarget does not carry
+  // it and should not, since the roster this page has already loaded does.
+  const deskIcon = (id: string): IconName =>
+    NAV.find((n) => n.id === id)?.icon ?? (id === 'specialized' ? 'bot' : 'layoutList')
+  const agentIcon = (name: string): string | undefined =>
+    subagents.find((a) => a.name === name)?.icon
+
+  const mcpNeededIds = (s: MCPRow): string[] =>
+    agentsNeeding(s.name)
+      .map((name) => mcpTargets.find((x) => x.kind === 'agent' && x.name === name)?.id)
+      .filter((id): id is string => !!id)
+
+  const mcpNeedMissing = (s: MCPRow): MCPTargetRow[] => {
+    const on = mcpTargetsOf(s)
+    return mcpNeededIds(s)
+      .filter((id) => !on.includes(id))
+      .map((id) => mcpTargets.find((x) => x.id === id))
+      .filter((x): x is MCPTargetRow => !!x)
+  }
+
+  const attachNeeded = (s: MCPRow) => {
+    const current = mcpTargetsOf(s)
+    return putMCPTargets(s, 'needed:' + s.name,
+      [...current, ...mcpNeededIds(s).filter((id) => !current.includes(id))])
+  }
 
   async function runMCP(label: string, fn: () => Promise<void>) {
     mcpBusy = label
@@ -1306,135 +1376,8 @@
     await loadMCP()
   })
 
-  // What the shelf is for. **The rule changed on 2026-08-14 and both halves of
-  // it are recorded here, because the older one is still good reasoning and the
-  // next person deserves to see why it was set aside rather than forgotten.**
-  //
-  // *Until 12 ส.ค.:* only the servers this product's own agents declare they
-  // need. It had carried five general-purpose picks (context7,
-  // sequential-thinking, memory, js-repl, exa) and none of the things a bundled
-  // agent asks for by name, which was backwards in both directions — the github
-  // agent ships `needs: mcp:github` in its own file and sent the user to a page
-  // with nothing on it, while recommending a server Aetox does not depend on is
-  // a recommendation it has no standing to make.
-  //
-  // *From 14 ส.ค. (owner: "เพิ่มมาเลยครับ พวกที่ต้อง OAuth ตัดออกก็ได้"):* also
-  // the hosted servers that add something Aetox genuinely cannot do itself and
-  // work on one click. The standing objection is answered by the second half of
-  // that sentence rather than by dropping it — what made the old five a bad
-  // shelf was not that they were popular, it was that a list is a promise, and
-  // an entry that cannot connect breaks it. So the bar is now:
-  //
-  //   1. **It reaches something Aetox has no tool for.** No preset for a
-  //      filesystem, a fetcher or a browser — those already exist here, and a
-  //      second one is a slower path to the same place plus a tool-block bill.
-  //   2. **It works with one click.** Static-header auth at worst. Anything
-  //      that wants OAuth is left off: internal/mcp/client.go carries only
-  //      static headers ("OAuth stays deferred until a real need appears"), so
-  //      a Notion or Linear entry would be a button leading to a form asking
-  //      for a token the user has no way to obtain — the exact failure the
-  //      paragraph below was written about.
-  //   3. **The endpoint was answered by the provider, not remembered.**
-  //
-  // Every URL below was verified on 2026-08-14 by sending a real MCP
-  // `initialize` and reading the reply: the unauthenticated ones returned a
-  // protocol handshake, and github returned 401 naming the header it wants.
-  // firecrawl was added the same day and probed the same way — it answered
-  // twice, once bare and once with a deliberately invalid bearer token, and
-  // served the same tool set both times, which is what established that the key
-  // is optional rather than merely unchecked on the handshake.
-  // Notion, Linear, Sentry and Atlassian all answered `invalid_token` — real
-  // servers, all four blocked by rule 2 until the client learns OAuth. Stripe
-  // takes a static key and is a one-line addition whenever it is wanted.
-  //
-  // A first pass had four of those reading 403 and nearly went in the notes as
-  // "needs auth". It was Cloudflare's bot check refusing the probe's own user
-  // agent. **A verification that can fail for its own reasons has to be read
-  // twice**, which is the whole argument for rule 3.
-  //
-  // `headers` names what the server cannot work without, and an entry may carry
-  // the value's prefix after a colon — GitHub wants `Authorization: Bearer
-  // <token>`, and a form pre-filled with only the header name is one a token
-  // gets pasted into raw. A preset that needs a key used to be saved straight
-  // to disk with none, so one click produced a server that could never connect
-  // and the page never said which header it wanted — it knew, and did not tell.
-  // `why` is rule 1 said out loud, per entry: what this reaches that Aetox has
-  // no tool for. It is on screen because the shelf never answered the question
-  // a user actually has in front of it — not "what is this" but "why is it
-  // being recommended to me". An entry whose `why` cannot be written without
-  // hedging is an entry that does not pass rule 1 and should not be here.
-  const mcpPresets: { name: string; desc: string; why: string; command?: string[]; url?: string; headers?: string[]; tools?: string[] }[] = [
-    // The only local preset, and the only one that is a program rather than an
-    // endpoint: `kino --mcp` is a subprocess, so unlike the seven below it can
-    // be added while the thing it names is not installed. That is said on the
-    // card rather than hidden, and ห้องงานวิดีโอ has the install button — which
-    // writes this entry itself when the download lands (connectVideoEditor), so
-    // this card is for the person who removed it, or who wants to see what was
-    // written on their behalf.
-    //
-    // Its command, environment AND tool allowlist all come from Go
-    // (presetCommand / presetEnvironment / presetTools): the first two are
-    // absolute paths only Go knows, and the allowlist is the measured 54-tool
-    // bill (desktop/videotooling.go videoEditorTools) that must not exist
-    // twice.
-    { name: 'kinocut', desc: 'Cut, subtitle and render video, on this machine', why: 'Aetox reads video and produces none. This is the half that cuts and renders. Install it from ห้องงานวิดีโอ, which fetches it the same way ffmpeg and Tesseract are fetched; this entry is the connection.', command: [] },
-    { name: 'github', desc: 'Repos, pull requests, issues, CI', why: "Aetox's own github tool only reads. This is the half that acts — opening a pull request, commenting, moving an issue.", url: 'https://api.githubcopilot.com/mcp/', headers: ['Authorization: Bearer ${connect:github}'] },
-    // Second because it is the other one a bundled agent asks for by name — the
-    // research agent ships `needs: mcp:firecrawl`, and the 12 ส.ค. half of the
-    // rule above is exactly this case.
-    //
-    // **No `headers` entry, and that is the finding rather than an omission.**
-    // Probed 2026-08-14: this endpoint answers a full handshake with no
-    // credential at all (firecrawl-fastmcp 3.24.0, protocol 2025-06-18) and
-    // serves search, scrape and parse under a usage limit — so it clears rule 2
-    // more cleanly than github, which cannot connect until a token exists. A
-    // key raises the limits and unlocks the account tools, and it goes in as
-    // `Authorization: Bearer ${env:FIRECRAWL_API_KEY}` through แก้ไข. Listing
-    // the header here instead would make needsPaste open the form and demand a
-    // key for a server that works without one.
-    //
-    // Rule 1 is the judgment call, and it is a split: scrape overlaps web_fetch
-    // and is not why this is here. `firecrawl_map` (enumerate every URL under a
-    // site) and `firecrawl_agent` (multi-source research, collected later via
-    // firecrawl_agent_status) are both things Aetox has no tool for — web_fetch
-    // reads one page and web_search returns eight results.
-    { name: 'firecrawl', desc: 'Crawl a whole site, and multi-source research', why: 'Aetox reads one page at a time and gets eight search results. This walks a whole site and researches across many sources at once.', url: 'https://mcp.firecrawl.dev/v2/mcp' },
-    { name: 'context7', desc: 'Up-to-date docs for a library, by version', why: 'Docs for the version actually installed. Fetching a documentation page cannot tell you which release it describes.', url: 'https://mcp.context7.com/mcp' },
-    { name: 'deepwiki', desc: 'Ask questions about any public GitHub repository', why: 'Answers about a repository without cloning it first — reading one that size through file tools costs a whole context.', url: 'https://mcp.deepwiki.com/mcp' },
-    { name: 'exa', desc: 'Web search built for models to read', why: 'Results returned as text to read rather than as pages to open, so an answer costs one call instead of a search and five fetches.', url: 'https://mcp.exa.ai/mcp' },
-    { name: 'huggingface', desc: 'Search models, datasets and spaces', why: 'Aetox has no index of models, datasets or spaces, and a web search finds blog posts about them rather than the things.', url: 'https://huggingface.co/mcp' },
-    { name: 'cloudflare-docs', desc: "Search Cloudflare's documentation", why: "Cloudflare's own index of its own docs, which is a different thing from a web search that happens to land there.", url: 'https://docs.mcp.cloudflare.com/mcp' },
-  ]
 
   const presetTaken = (name: string) => mcpServers.some((s) => s.name.toLowerCase() === name.toLowerCase())
-
-  // What to spawn, for the one preset that is a program rather than an endpoint.
-  //
-  // The table above cannot spell it: it is an absolute path into this user's
-  // own data folder, which only Go knows. Every other preset keeps its literal,
-  // and an empty `command` on a stdio entry is what marks the one that has to
-  // ask (VideoEditorCommand answers where Aetox installs to even before the
-  // download has landed, so the order of installing and connecting does not
-  // matter).
-  const presetCommand = async (p: (typeof mcpPresets)[number]): Promise<string[]> =>
-    isLocalPreset(p) ? await VideoEditorCommand() : (p.command ?? [])
-
-  // The editor is told where its ffmpeg is, in its own vocabulary
-  // (KINOCUT_FFMPEG_EXECUTABLE), rather than by anything being put on the
-  // machine's PATH. Same reason the command is resolved in Go: these are
-  // absolute paths into this user's own data folder.
-  const presetEnvironment = async (p: (typeof mcpPresets)[number]): Promise<Record<string, string>> =>
-    isLocalPreset(p) ? await VideoEditorEnvironment() : {}
-
-  // And its allowlist, for the same reason: the measured bill lives in Go and
-  // nowhere else. Every other preset takes everything, and says so with [].
-  const presetTools = async (p: (typeof mcpPresets)[number]): Promise<string[]> =>
-    isLocalPreset(p) ? await VideoEditorTools() : (p.tools ?? [])
-
-  // A stdio preset with no command written in the table is the one that has to
-  // ask Go for both.
-  const isLocalPreset = (p: (typeof mcpPresets)[number]) =>
-    (p.command?.length ?? 0) === 0 && !p.url
 
   // Which agents declare they need this server, **read off their own files**
   // rather than written beside the preset.
@@ -1453,13 +1396,7 @@
         entry.split('|').some((alt: string) => alt.trim().toLowerCase() === 'mcp:' + id.toLowerCase())))
       .map((p) => p.name)
 
-  // A header entry that already carries a ${...} reference needs nothing from
-  // the user: the value resolves at connect time from a secret the app already
-  // holds. Only a header still waiting for a paste opens the form.
-  const needsPaste = (headers?: string[]) =>
-    (headers ?? []).some((h) => !/\$\{(env|connect):[^}]+\}/.test(h))
-
-  const addPreset = (p: (typeof mcpPresets)[number]) => runMCP('preset:' + p.name, async () => {
+  const addPreset = (p: MCPPreset) => runMCP('preset:' + p.name, async () => {
     if (p.headers?.length && needsPaste(p.headers)) {
       // Hand it to the form with the header names already in, rather than
       // saving something that cannot connect. Nothing is written until the key
@@ -1477,15 +1414,7 @@
       openMCPForm()
       return
     }
-    await SaveMCPServer('', new config.MCPServerConfig({
-      name: p.name, command: await presetCommand(p), url: p.url ?? '',
-      environment: await presetEnvironment(p),
-      headers: Object.fromEntries((p.headers ?? []).map((h) => {
-        const at = h.indexOf(':')
-        return [h.slice(0, at).trim(), h.slice(at + 1).trim()]
-      })),
-      tools: await presetTools(p),
-    }))
+    await SaveMCPServer('', await presetConfig(p))
     await loadMCP()
   })
 
@@ -1510,21 +1439,10 @@
   // Only for a preset that connects with no key. One that wants a token pasted
   // cannot be finished in one press, so it keeps the door to the page, where the
   // form is waiting with the header names already filled in.
-  const presetFor = (id: string) =>
-    mcpPresets.find((p) => p.name.toLowerCase() === id.toLowerCase() && !needsPaste(p.headers))
-
   const installNeeded = (o: subagent.Need) => runMCP('need:' + o.id, async () => {
     const p = presetFor(o.id)
     if (!p) return
-    await SaveMCPServer('', new config.MCPServerConfig({
-      name: p.name, command: await presetCommand(p), url: p.url ?? '',
-      environment: await presetEnvironment(p),
-      headers: Object.fromEntries((p.headers ?? []).map((h) => {
-        const at = h.indexOf(':')
-        return [h.slice(0, at).trim(), h.slice(at + 1).trim()]
-      })),
-      tools: await presetTools(p),
-    }))
+    await SaveMCPServer('', await presetConfig(p))
     await loadMCP()
     // Placing it is the half that makes the need met — installing alone leaves
     // the card saying "unplaced", which from the user's side is the same button
@@ -6014,25 +5932,89 @@
               </div>
 
               {#if mcpOpen === s.name}
+                {@const needed = mcpNeededIds(s)}
+                {@const missing = mcpNeedMissing(s)}
                 <div class="mcp-targets">
                   <div class="d muted mcp-targets-hint">{t('settings.mcpForHint')}</div>
+                  <!-- The one thing this panel could not say before. An agent
+                       states in its own file which server it cannot work
+                       without; until now that was printed on the แนะนำ shelf,
+                       which is the screen you have already left by the time the
+                       server is installed and pointed at nobody. Here it is
+                       actionable, so it comes with the button that acts. -->
+                  {#if missing.length > 0 && !s.disabled}
+                    <div class="mcp-need-warn">
+                      <Icon name="alertTriangle" size={13} />
+                      <span class="mcp-need-txt">
+                        {t('settings.mcpNeedMissing', { names: missing.map((m) => m.name).join(', ') })}
+                      </span>
+                      <button class="ctrl" disabled={mcpBusy !== ''} onclick={() => attachNeeded(s)}>
+                        {t('settings.mcpNeedFix')}
+                      </button>
+                    </div>
+                  {/if}
                   {#each ['desk', 'agent'] as kind}
                     {@const rows = mcpTargets.filter((x) => x.kind === kind)}
                     {#if rows.length > 0}
-                      <div class="eyebrow mcp-targets-group">
-                        {kind === 'desk' ? t('settings.mcpForDesks') : t('settings.mcpForAgents')}
+                      {@const on = mcpGroupOn(s, kind)}
+                      <div class="mcp-targets-group">
+                        <span class="eyebrow">
+                          {kind === 'desk' ? t('settings.mcpForDesks') : t('settings.mcpForAgents')}
+                        </span>
+                        <span class="mcp-group-count">{on}/{rows.length}</span>
+                        <!-- Eleven chips is eleven clicks to say "everywhere",
+                             and "everywhere" is the common answer. -->
+                        <button
+                          class="mcp-group-all"
+                          disabled={mcpBusy !== '' || s.disabled}
+                          onclick={() => toggleMCPGroup(s, kind)}
+                        >
+                          {on === rows.length ? t('settings.mcpForNone') : t('settings.mcpForAll')}
+                        </button>
                       </div>
-                      {#each rows as target (target.id)}
-                        <label class="mcp-target">
-                          <input
-                            type="checkbox"
-                            checked={mcpTargetsOf(s).includes(target.id)}
+                      <!-- The roster's own row, not a control invented for
+                           this panel: the face the office page draws, the name,
+                           and the pill the settings rows wear. An agent shown
+                           one way here and another way over there is two people
+                           to whoever is reading (the same argument Chat.svelte's
+                           agent menu makes for using AgentFace at 20px).
+
+                           A grid rather than a column, because this panel is as
+                           wide as the settings page and eleven full-width rows
+                           between one server and the next is a wall. -->
+                      <div class="mcp-places">
+                        {#each rows as target (target.id)}
+                          {@const isOn = mcpTargetsOf(s).includes(target.id)}
+                          {@const asked = needed.includes(target.id)}
+                          <button
+                            class="mcp-place"
+                            role="switch"
+                            aria-checked={isOn}
+                            title={target.detail ?? ''}
                             disabled={mcpBusy !== '' || s.disabled}
-                            onchange={() => toggleMCPTarget(s, target.id)}
-                          />
-                          <span>{target.name}</span>
-                        </label>
-                      {/each}
+                            onclick={() => toggleMCPTarget(s, target.id)}
+                          >
+                            {#if kind === 'agent'}
+                              <AgentFace name={target.name} icon={agentIcon(target.name)} size={22} off={!isOn} />
+                            {:else}
+                              <span class="mcp-place-ic"><Icon name={deskIcon(target.id)} size={14} /></span>
+                            {/if}
+                            <span class="t">{target.name}</span>
+                            {#if asked}
+                              <!-- The same wrench the chair list wears for an
+                                   agent short of the tool it needs, and it is
+                                   the same fact: this profile's own file names
+                                   this server. Amber while it is switched off,
+                                   because that is the one flip on this panel
+                                   that leaves an agent unable to work. -->
+                              <span class="mcp-place-need" class:short={!isOn} title={t('settings.mcpTargetNeedsTip')}>
+                                <Icon name="wrench" size={12} />
+                              </span>
+                            {/if}
+                            <span class="mswitch-face"></span>
+                          </button>
+                        {/each}
+                      </div>
                     {/if}
                   {/each}
                 </div>
@@ -6128,7 +6110,7 @@
         <div class="card-form">
           <div class="eyebrow">{t('settings.mcpPresets')}</div>
         </div>
-        {#each mcpPresets as p (p.name)}
+        {#each MCP_PRESETS as p (p.name)}
           {@const wanted = agentsNeeding(p.name)}
           <div class="set-row">
             <div class="set-txt">

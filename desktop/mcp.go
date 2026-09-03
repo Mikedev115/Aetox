@@ -170,7 +170,13 @@ func (a *App) PlacementTargets() []PlacementTarget {
 		if p.Desk == "" || p.Invalid != "" {
 			continue // the helpers are part of the system; a sick file is not a target
 		}
-		out = append(out, PlacementTarget{ID: config.MCPAgentPrefix + p.Name, Name: p.Name, Kind: "agent"})
+		// An agent carries a one-line description of what it is for, and the
+		// placement chips have exactly the same question to answer as the desk
+		// ones do — "what am I switching this on for". Leaving it empty meant
+		// the desk chips had a tooltip and the agent chips beside them did not.
+		out = append(out, PlacementTarget{
+			ID: config.MCPAgentPrefix + p.Name, Name: p.Name, Detail: p.Description, Kind: "agent",
+		})
 	}
 	return out
 }

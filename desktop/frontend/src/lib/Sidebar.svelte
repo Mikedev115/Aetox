@@ -9,7 +9,7 @@
   import type { Session, SpaceRow } from './types'
   import {
     UserName, SetUserName, ListModes, ProviderAccountFor,
-    AccountStatus, AccountRefresh,
+    AccountStatus, AccountRefresh, ListTools,
   } from '../../wailsjs/go/main/App'
   import ProviderAccount from './ProviderAccount.svelte'
   import { navFor, deskLabelKey, type NavEntry } from './desks'
@@ -278,11 +278,28 @@
   // edits a mode file sees the change on the button that opens it. Failing to
   // load is not worth an error: the built-in blurb is the fallback.
   let deskBlurbs = $state<Record<string, string>>({})
+  // How many tools the assistant can actually run, printed on ความสามารถ's row.
+  //
+  // A written-out special case rather than a `badge` field on NavEntry, and
+  // deliberately: one room wants a number and the registry is the product's
+  // shape, not a component API to generalise ahead of a second caller. What the
+  // number buys is the row reading as something with state instead of a link to
+  // a settings page — the room was put in the column to announce that Aetox
+  // connects to things, and a bare word announces less than a word and a count.
+  //
+  // Silent on failure, like the blurbs above: no badge is the honest rendering
+  // of "not answered yet", and a zero would be a claim.
+  let toolCount = $state(0)
   onMount(async () => {
     try {
       for (const m of await ListModes()) deskBlurbs[m.name] = m.description
     } catch {
       /* engine not up yet — the built-in blurbs stand in */
+    }
+    try {
+      toolCount = (await ListTools()).length
+    } catch {
+      /* engine not up yet — the row shows no count rather than a wrong one */
     }
   })
 
@@ -550,6 +567,7 @@
       >
         <span class="ic"><Icon name={entry.icon} size={15} /></span>
         <span class="t">{t(entry.labelKey)}</span>
+        {#if entry.id === 'capability' && toolCount > 0}<span class="room-count">{toolCount}</span>{/if}
         {#if entry.kind === 'soon'}<span class="soon-tag">{t('desk.soon')}</span>{/if}
       </button>
     {/each}

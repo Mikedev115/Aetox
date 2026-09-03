@@ -32,13 +32,14 @@
   // do its job.
   import { onMount } from 'svelte'
   import {
-    ListMCPServers, SaveMCPServer, ListExternalSkills, ListTools,
+    ListMCPServers, SaveMCPServer, ListExternalSkills, ListTools, PlacementTargets,
     StartMCPSignIn, CompleteMCPSignIn, CancelMCPSignIn, MCPSignInStatus,
   } from '../../wailsjs/go/main/App'
   import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
   import { setActiveView, openSettingsAt, startChatWith } from './stores/cockpit.svelte'
   import { t, type TKey } from './i18n.svelte'
   import Icon from './Icon.svelte'
+  import { coverHue } from './coverHue'
   import { MCP_PRESETS, needsPaste, presetConfig, type MCPPreset } from './mcpShelf'
 
   let { onClose }: { onClose: () => void } = $props()
@@ -57,9 +58,12 @@
   type SkillRow = { name: string; description: string; dir: string; bundled?: boolean }
   type ToolRow = { name: string; description: string; source: string; category: string }
 
+  type TargetRow = { id: string; name: string; detail?: string; kind: string }
+
   let servers = $state<MCPRow[]>([])
   let skills = $state<SkillRow[]>([])
   let tools = $state<ToolRow[]>([])
+  let targets = $state<TargetRow[]>([])
   let busy = $state('')
   let error = $state('')
   // The preset an OAuth sign-in is in flight for, and the URL it is
@@ -78,9 +82,17 @@
   // the user sees and the one the engine knows have to be one list.
   const TOOL_CATEGORIES = ['files', 'shell', 'deliverables', 'media', 'web', 'code', 'agent'] as const
 
+  // **The built-in tab must not count MCP tools, and it did.** Every tool a
+  // server bridges in arrives with an empty category, so `|| 'agent'` swept all
+  // of them into การทำงานของผู้ช่วย — 43 of them on the owner's machine, which
+  // made that one bucket read 56 while the six real ones totalled 24. A tab
+  // whose question is "with nothing added, what can it already do" was
+  // answering it with the things that were added.
+  const builtinTools = $derived(tools.filter((s) => s.source !== 'mcp'))
+
   const toolGroups = $derived(
     TOOL_CATEGORIES
-      .map((key) => ({ key, items: tools.filter((s) => (s.category || 'agent') === key) }))
+      .map((key) => ({ key, items: builtinTools.filter((s) => (s.category || 'agent') === key) }))
       .filter((g) => g.items.length > 0),
   )
 
@@ -91,11 +103,33 @@
   const taken = (name: string) => servers.some((s) => s.name.toLowerCase() === name.toLowerCase())
   const targetsOf = (s: MCPRow) => s.for ?? []
 
+  // What a placement id is called. The chips printed the raw id — `agent:editor`,
+  // `agent:research` — which is the engine's address for a thing, not its name.
+  // Settings' register has always resolved these through PlacementTargets; the
+  // room was showing the same rows in a different vocabulary.
+  const targetName = (id: string) => targets.find((x) => x.id === id)?.name ?? id
+
+  // A server that has not been reached yet reports `tools: 0`, and a bare 0 in
+  // a column headed เครื่องมือ reads as "this server offers nothing" rather
+  // than "nobody has asked it yet". The dash says the second thing, which is
+  // the true one.
+  //
+  // Keyed off the count and NOT off `status`: gating on `status === 'ok'` hid
+  // notion's real 41, because a server can have answered a tool list on a
+  // previous run and still not be reading `ok` right now. A number that was
+  // actually reported is a fact worth printing; only the absence of one is
+  // what the dash is for.
+  const toolLabel = (s: MCPRow) => (s.tools > 0 ? String(s.tools) : '—')
+  const isUp = (s: MCPRow) => !s.disabled && s.status === 'ok'
+
   async function load() {
-    const [m, k, tl] = await Promise.all([ListMCPServers(), ListExternalSkills(), ListTools()])
+    const [m, k, tl, tg] = await Promise.all([
+      ListMCPServers(), ListExternalSkills(), ListTools(), PlacementTargets(),
+    ])
     servers = m as MCPRow[]
     skills = k as SkillRow[]
     tools = tl as ToolRow[]
+    targets = tg as TargetRow[]
     loaded = true
   }
 
@@ -216,6 +250,13 @@
   <div class="page-body">
     <div class="settings-inner">
 
+      <!-- Two controls, and they have to LOOK like two.
+           Drawn as a matched pair of segments they read as one bar of five
+           buttons — the owner's first look at the real page bounced off exactly
+           that. They are not siblings: the first picks the subject, the second
+           picks which half of that subject you are looking at, so the second is
+           subordinate and is drawn that way — pushed to the far end, quieter,
+           and underlined rather than boxed. -->
       <div class="cap-bar">
         <div class="seg" role="tablist" aria-label={t('capability.kindsLabel')}>
           {#each KINDS as k (k.id)}
@@ -227,7 +268,7 @@
              built-in tools to browse, so the pair steps out of the way rather
              than offering a choice where one half leads nowhere. -->
         {#if kind !== 'builtin'}
-          <div class="seg" role="tablist" aria-label={t('capability.viewsLabel')}>
+          <div class="subseg" role="tablist" aria-label={t('capability.viewsLabel')}>
             <button type="button" role="tab" aria-selected={view === 'shelf'}
               class:on={view === 'shelf'} onclick={() => (view = 'shelf')}>{t('capability.shelf')}</button>
             <button type="button" role="tab" aria-selected={view === 'mine'}
@@ -248,6 +289,16 @@
             {@const have = taken(p.name)}
             <article class="cap-card" class:have>
               <div class="cap-card-head">
+                <!-- The mark. Not a fetched brand logo — that would mean a file
+                     per server, kept alive forever, and somebody else's
+                     trademark in our binary. coverHue is the app's answer to
+                     "a named thing in a gallery needs a face", already used by
+                     โปรเจกต์, ชุดคำสั่ง and the roster; this is the fourth
+                     gallery, so it wears the same mark rather than inventing a
+                     fifth idea. Same hash, so a server keeps its colour. -->
+                <span class="cap-mark" style="--h:{coverHue(p.name)}" aria-hidden="true">
+                  {p.name.slice(0, 2)}
+                </span>
                 <span class="cap-id">{p.name}</span>
                 {#if p.headers?.length && needsPaste(p.headers)}
                   <span class="cap-tag">{t('capability.needsKey')}</span>
@@ -301,15 +352,18 @@
             {#each servers as s (s.name)}
               <div class="cap-row">
                 <span class="cap-who">
-                  <span class="dot" class:up={!s.disabled && s.status === 'ok'} class:off={s.disabled}></span>
+                  <span class="cap-mark sm" style="--h:{coverHue(s.name)}" aria-hidden="true">
+                    {s.name.slice(0, 2)}
+                  </span>
+                  <span class="dot" class:up={isUp(s)} class:off={s.disabled}></span>
                   <span class="cap-id">{s.name}</span>
                 </span>
                 <span class="cap-chips">
-                  {#each targetsOf(s) as id (id)}<span class="cap-chip">{id}</span>{:else}
+                  {#each targetsOf(s) as id (id)}<span class="cap-chip">{targetName(id)}</span>{:else}
                     <span class="cap-chip none">{t('settings.mcpForNobody')}</span>
                   {/each}
                 </span>
-                <span class="num">{s.tools}</span>
+                <span class="num">{toolLabel(s)}</span>
               </div>
             {/each}
           </div>
@@ -354,8 +408,18 @@
             {#each skills as s (s.name)}
               <article class="cap-card">
                 <div class="cap-card-head">
+                  <span class="cap-mark" style="--h:{coverHue(s.name)}" aria-hidden="true">
+                    {s.name.replace(/^aetox-/, '').slice(0, 2)}
+                  </span>
                   <span class="cap-id">{s.name}</span>
-                  {#if s.bundled}<span class="cap-tag">{t('settings.skillBundled')}</span>{/if}
+                  <!-- A LABEL, not the explanation. `settings.skillBundled` is a
+                       three-clause sentence about overriding a bundled skill —
+                       correct in the register where it sits under one row, and
+                       absurd here, where it drew a bordered paragraph on all
+                       twenty-five cards saying the same thing twenty-five
+                       times. The chip says which kind of skill this is; the
+                       register is where the sentence belongs. -->
+                  {#if s.bundled}<span class="cap-tag">{t('capability.bundled')}</span>{/if}
                 </div>
                 <p class="cap-why">{s.description || '—'}</p>
               </article>
@@ -370,17 +434,36 @@
 
       <!-- ================= เครื่องมือในตัว ================= -->
       {#if kind === 'builtin'}
-        <p class="cap-note">{t('capability.builtinNote')}</p>
-        <div class="cap-inv">
+        <!-- **Names, not counts.** This drew seven boxes with a number in each,
+             and the owner's reaction to the real page was that he could not
+             read it — "ขนาดผู้สร้างแม่งยังงง". He was right, and the fault was
+             the form: the tab asks "with nothing added, what can it already
+             do", and a count answers "how many", which is a question nobody
+             walked in with. The names are short, there are thirty-seven of
+             them, and reading `read` `web_fetch` `doc_write` under a heading IS
+             the answer. The count stays as a quiet total per group, where it is
+             context rather than the content. -->
+        <p class="cap-note">{t('capability.builtinNote', { n: String(builtinTools.length) })}</p>
+        <div class="cap-cats">
           {#each toolGroups as g (g.key)}
-            <div class="cap-cell">
-              <span class="g">{t(('settings.toolGroup_' + g.key) as TKey)}</span>
-              <span class="num">{g.items.length}</span>
-            </div>
+            <section class="cap-cat">
+              <h3>
+                {t(('settings.toolGroup_' + g.key) as TKey)}
+                <span class="num">{g.items.length}</span>
+              </h3>
+              <div class="cap-tools">
+                {#each g.items as it (it.name)}
+                  <span class="cap-tool" title={it.description}>{it.name}</span>
+                {/each}
+              </div>
+            </section>
           {/each}
         </div>
+        <!-- NOT registerNote. That sentence offers editing, deleting and
+             choosing who carries a server — none of which is true of a tool
+             that ships inside the binary, so on this tab it was simply false. -->
         <p class="cap-foot">
-          {t('capability.registerNote')}
+          {t('capability.builtinFoot')}
           <button class="linkish" onclick={() => toRegister('tools')}>{t('capability.openTools')}</button>
         </p>
       {/if}
@@ -434,6 +517,59 @@
     font-weight: 500;
   }
   .seg button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+  /* Neither segment may stretch: .cap-bar is a flex row, and a .seg allowed to
+     grow left a slab of empty chrome after เครื่องมือในตัว that made the two
+     controls look like one wide bar with a gap in it. */
+  .seg { flex: none; }
+
+  /* The subordinate control (see the markup note): pushed to the far end, no
+     box of its own, and the choice marked by an underline. Different enough
+     that the eye reads two questions rather than five buttons. */
+  .subseg {
+    flex: none;
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+  }
+  .subseg button {
+    border: 0;
+    background: none;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 13px;
+    padding: 5px 4px 6px;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+  }
+  .subseg button:hover { color: var(--text-primary); }
+  .subseg button.on {
+    color: var(--text-primary);
+    font-weight: 500;
+    border-bottom-color: var(--accent);
+  }
+  .subseg button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+
+  /* The mark a named thing wears, same gradient formula as .pp-cover in
+     style.css so the four galleries agree — only smaller and square, because a
+     104px banner on a shelf card would be the loudest thing on the page. */
+  .cap-mark {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-mono, monospace);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: -.02em;
+    text-transform: lowercase;
+    color: hsl(var(--h) 60% 84%);
+    background:
+      radial-gradient(120% 120% at 20% 0%, hsl(var(--h) 70% 42% / .55), transparent 60%),
+      linear-gradient(135deg, hsl(var(--h) 45% 22%), hsl(calc(var(--h) + 40) 45% 15%));
+  }
+  .cap-mark.sm { width: 20px; height: 20px; border-radius: 6px; font-size: 9.5px; }
 
   .cap-note {
     margin: 0 0 12px;
@@ -585,21 +721,42 @@
   .cap-empty p { margin: 0; max-width: 62ch; color: var(--text-muted); font-size: 13px; }
   .cap-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 
-  .cap-inv {
+  /* The inventory, as names under headings. Columns rather than one long list:
+     seven short groups side by side is a page you take in at a glance, which a
+     single 37-row column is not. */
+  .cap-cats {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 8px;
-  }
-  .cap-cell {
-    display: flex;
-    align-items: center;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 10px;
+    align-items: start;
+  }
+  .cap-cat {
     background: var(--surface-panel);
     border: 1px solid var(--border-subtle);
-    border-radius: 9px;
-    padding: 11px 13px;
+    border-radius: 10px;
+    padding: 12px 13px 13px;
   }
-  .cap-cell .g { flex: 1; font-size: 13px; color: var(--text-primary); }
+  .cap-cat h3 {
+    margin: 0 0 9px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .cap-cat h3 .num { margin-left: auto; color: var(--text-dim); font-size: 12px; }
+  .cap-tools { display: flex; flex-wrap: wrap; gap: 5px; }
+  .cap-tool {
+    font-family: var(--font-mono, monospace);
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border-subtle);
+    border-radius: 5px;
+    padding: 1px 7px;
+    line-height: 19px;
+  }
 
   .cap-elsewhere {
     margin-top: 26px;
