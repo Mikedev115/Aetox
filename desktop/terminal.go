@@ -270,9 +270,15 @@ func (a *App) TerminalClose(sessionID string) error {
 
 // shutdown is the Wails OnShutdown hook (wired in main.go) — closes the local
 // store and MCP servers, then sweeps every live terminal session so shell and
-// server processes never orphan when the app quits. (Chat turns are persisted
-// as they happen.)
+// server processes never orphan when the app quits.
+//
+// Chat turns are persisted as they happen, which is only half of it: a turn
+// still running when the app closes has a question stored and no ending.
+// beforeClose (shutdown.go) is where that ending gets written, before the
+// window goes; the call below is the same act again, for a close that reached
+// here without it, and it is over at once when there is nothing running.
 func (a *App) shutdown(_ context.Context) {
+	a.finishTurnsForClose(closeGrace)
 	// Before the store closes: the phone's door reads it on every request, and
 	// a listener still answering after the database is gone would serve errors
 	// to a phone that has no way to know the desktop is quitting.

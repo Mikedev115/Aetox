@@ -1325,10 +1325,25 @@ const EMPTY_COMPLETION = 'response has empty text'
  * happened.
  */
 function wasStopped(err: unknown): boolean {
-  return /context canceled/i.test(String(err))
+  return wasInterrupted(err) || /context canceled/i.test(String(err))
 }
+/**
+ * The app itself was closed while this turn ran (§219). Go writes the marker
+ * (desktop/sessions.go interruptedTurnMarker) in front of the cancel when the
+ * close had time to stop the turn, and alone when the next launch found the
+ * question still waiting — one string either way, so this is the one place
+ * that has to know it. Counted as stopped above: the chat was ended by the
+ * user's own act, not by something breaking, so the chip under it is drawn in
+ * the ordinary colour — but it gets its own sentence, because "you pressed
+ * Stop" is not what happened.
+ */
+function wasInterrupted(err: unknown): boolean {
+  return String(err).includes(APP_CLOSED_MID_TURN)
+}
+const APP_CLOSED_MID_TURN = 'aetox: app closed mid-turn'
 function endingFor(err: unknown): string {
   const text = String(err)
+  if (wasInterrupted(text)) return t('cockpit.turnInterrupted')
   if (wasStopped(text)) return t('cockpit.turnStopped')
   if (text.includes(DROPPED_CONNECTION)) return t('cockpit.connectionLost')
   if (text.includes(EMPTY_COMPLETION)) return t('cockpit.emptyAnswer')
@@ -2777,7 +2792,7 @@ export const activeViewStorageKey = 'aetox.activeView'
 // two places — โปรเจกต์ was missed when it opened, and ระบบออโตเมชั่น the day
 // after. File tabs are deliberately absent: they do not persist, so a stored
 // path would point at nothing.
-export const RESTORABLE_VIEWS = ['chat', 'settings', 'office', 'videowork', 'artifacts', 'projects', 'lines']
+export const RESTORABLE_VIEWS = ['chat', 'settings', 'office', 'videowork', 'artifacts', 'projects', 'lines', 'capability']
 
 /** Where each door lands, as a set. `chat` for the two doors you talk to,
  *  `lines` for the one you do not (§158.3).

@@ -56,7 +56,12 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 11, G: 15, B: 22, A: 1},
 		OnStartup:        app.startup,
-		OnShutdown:       app.shutdown,
+		// The X, Quit and the self-update's restart all pass here first: the
+		// work in flight is stopped and written down before the window goes
+		// (shutdown.go). OnShutdown runs after the window is gone, which is
+		// too late for a turn to say how it ended.
+		OnBeforeClose: app.beforeClose,
+		OnShutdown:    app.shutdown,
 		Bind: []interface{}{
 			app,
 		},

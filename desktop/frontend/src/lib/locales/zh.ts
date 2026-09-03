@@ -244,7 +244,9 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'capability.noSkillShelf': '技能还没有货架',
   'capability.noSkillShelfBody': '目前装技能只有一条路：先知道它在哪。还没有像 MCP 那样挑好的清单可以逛。在那之前，可以让助手去找一个 —— 它会先问你有哪些活是反复在做的。',
   'capability.noSkillsBody': '技能是教助手怎么做这类活的文档。它是知识，不是它能运行的工具。',
-  'capability.builtinNote': 'Aetox 自带的，什么都不用接。这回答的是同一个问题的另一半：什么都不加，它已经能做什么？',
+  'capability.builtinNote': 'Aetox 自带的 {n} 个工具，什么都不用接就能用。这回答的是同一个问题的另一半：什么都不加，它已经能做什么？',
+  'capability.builtinFoot': '关掉某个工具，或者看每个工具具体做什么，都在设置的工具页。',
+  'capability.bundled': '随应用附带',
   'capability.agentsElsewhere': '专员不在这个房间里，因为它们已经有自己的房间了。',
   'capability.subagentsNote': '子专员是助手自己调用的内部帮手。你没法跟它对话，也不能添加或修改，所以没有管理页面。',
 
@@ -305,6 +307,7 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'cockpit.attachPageNotOpen': '这个页面还没有打开。先点开标签页让它加载，然后再拖进来',
   'cockpit.turnBusy': '智能体还在工作。等它完成，或者按停止。',
   'cockpit.turnStopped': '已停止',
+  'cockpit.turnInterrupted': '应用在此任务运行中被关闭。之前完成的工作仍保留在此对话中，按重试即可继续。',
   'cockpit.regenerateError': '无法重新回答：{err}',
   'cockpit.rewindDone': '已回退。{count} 个文件已还原：',
   'cockpit.undoDone': '已撤销上一轮。{count} 个文件已还原：',

@@ -2,9 +2,12 @@ package main
 
 // Chat-session persistence in the local SQLite store (see db.go), separated
 // per project via project_key — the sidebar only ever lists the history of
-// the project that's open. Turns are written incrementally as they happen, so
-// nothing is lost on crash. Loading a session also restores the agent's
-// context (RestoreHistory) so the AI remembers the conversation.
+// the project that's open. Turns are written incrementally as they happen —
+// the question when it is sent, the ending when it comes — and a turn the
+// process did not live to finish gets its ending on close (shutdown.go) or
+// at the next launch (closeInterruptedTurns), so nothing is lost on crash.
+// Loading a session also restores the agent's context (RestoreHistory) so
+// the AI remembers the conversation.
 
 import (
 	"database/sql"
@@ -432,6 +435,54 @@ func (a *App) appendFailedTurn(conv *conversation, agentMsg SessionMessage, caus
 		time.Now().Format(time.RFC3339), sessionID)
 	id, _ := res.LastInsertId()
 	return id
+}
+
+// interruptedTurnMarker is the error_text of a turn the app's own closing
+// ended — written by the closing app when it had time (closeReason, in front
+// of the cancel) and by the next launch when it did not (closeInterruptedTurns,
+// alone). The window reads it and nothing else to say "the app was closed
+// while this was running" (cockpit.svelte.ts, wasInterrupted): one string,
+// same shape as model.DroppedConnectionMarker, and the words are the identity.
+const interruptedTurnMarker = "aetox: app closed mid-turn"
+
+// closeInterruptedTurns writes the ending of every turn the previous run never
+// finished: a question in the store with no answer under it. Returns how many
+// it closed. Called once, from startup, before any turn can begin.
+//
+// openTurn stores the question the moment it is sent, so a crash, a kill or a
+// close that ran out of grace (shutdown.go) leaves exactly that row as the
+// last one in its session. Reopened, the chat showed the question and nothing
+// — not that it stopped, not why, no chip to ask again — and the pairing every
+// reader downstream assumes (regenerate, edit-and-resend, the context rebuild)
+// was broken on that session for good. The answer is the row appendFailedTurn
+// would have written had the process lived: an agent row with no text and the
+// marker as its reason, at the question's own time. The row is inserted, not
+// the question deleted, for the reason openTurn gives — the turn that was
+// interrupted is the one the user has not finished with.
+//
+// Every project's sessions, not the open one's: a turn dies with the process
+// wherever its chat lived. Refuses to run while a turn is in flight, because
+// the one honest "question with no answer yet" is a turn still answering.
+func (a *App) closeInterruptedTurns() int {
+	if a.turnBusy() {
+		return 0
+	}
+	db, err := a.database()
+	if err != nil {
+		return 0
+	}
+	res, err := db.Exec(`
+		INSERT INTO messages(session_id, role, text, time, reasoning, think_secs, parts, error_text)
+		SELECT m.session_id, 'agent', '', m.time, '', 0, '', ?
+		FROM messages m
+		WHERE m.role = 'user'
+		  AND m.id = (SELECT MAX(id) FROM messages WHERE session_id = m.session_id)`,
+		interruptedTurnMarker)
+	if err != nil {
+		return 0
+	}
+	n, _ := res.RowsAffected()
+	return int(n)
 }
 
 // startNewSession opens a fresh chat and puts it on screen.

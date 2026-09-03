@@ -501,6 +501,7 @@ export const en: Record<keyof typeof th, string> = {
   // and the running turn is using it.
   'cockpit.turnBusy': 'The agent is still working. Wait for it to finish, or press stop.',
   'cockpit.turnStopped': 'Stopped',
+  'cockpit.turnInterrupted': 'The app was closed while this was running. What was done before that is still in this chat — press retry to carry on.',
   'cockpit.emptyAnswer': 'The provider answered with nothing several times in a row, through the retries and a nudge. The work done before that is still in this chat, so press retry to carry on. If it keeps happening, try another model or provider.',
   'cockpit.connectionLost': 'The connection to the provider dropped while the model was answering, and reconnecting did not get it back. Try again, and if it keeps happening check your network or switch provider.',
   // Reading another chat mid-turn is allowed; typing in it is not, because the
@@ -858,6 +859,11 @@ export const en: Record<keyof typeof th, string> = {
   'settings.mcpForHint': 'Choose where this server’s tools show up. Anything unchecked never sees them.',
   'settings.mcpForDesks': 'Desks',
   'settings.mcpForAgents': 'Agents',
+  'settings.mcpForAll': 'all of them',
+  'settings.mcpForNone': 'none of them',
+  'settings.mcpTargetNeedsTip': 'This agent’s own file says it cannot work without this server.',
+  'settings.mcpNeedMissing': 'Asked for by {names}, and still switched off for them.',
+  'settings.mcpNeedFix': 'Switch on',
   'settings.mcpConfigured': 'Configured servers',
   'settings.mcpHeaderNoValue': 'Header "{header}" has no value yet. Paste the token after it, then save.',
   'settings.mcpCwd': 'Working directory',
@@ -1454,7 +1460,9 @@ Check your own work before answering; say so plainly if unsure.
   'capability.noSkillShelf': 'No skill shelf yet',
   'capability.noSkillShelfBody': 'A skill can only be installed today by knowing where it lives — there is no curated list to browse the way there is for MCP. In the meantime the assistant can go and find one, starting by asking what work you do over and over.',
   'capability.noSkillsBody': 'A skill is a document that teaches the assistant how a job is done. It is knowledge, not a tool it runs.',
-  'capability.builtinNote': 'What comes with Aetox, nothing to connect. This is the other half of the same question: with nothing added, what can it already do?',
+  'capability.builtinNote': '{n} tools that ship with Aetox, working with nothing connected. This is the other half of the same question: with nothing added, what can it already do?',
+  'capability.builtinFoot': 'Turning a tool off, or reading what each one does, happens on the tools page in Settings.',
+  'capability.bundled': 'ships with Aetox',
   'capability.agentsElsewhere': 'Agents are not in this room, because they already have one of their own.',
   'capability.subagentsNote': 'Subagents are internal helpers the assistant calls on its own. You cannot talk to one, add one or edit one, so there is no page to manage them from.',
 

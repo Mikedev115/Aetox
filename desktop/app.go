@@ -171,6 +171,11 @@ type App struct {
 	// Under turnMu throughout: a switch door reads it from a binding goroutine
 	// while a turn goroutine writes it.
 	turns map[string]*liveTurn
+	// closing is raised by beforeClose (shutdown.go) before it cancels the
+	// turns, and never lowered: a turn that ends by cancellation while it is
+	// up was ended by the app closing, not by the user's Stop, and its row
+	// says so (closeReason).
+	closing atomic.Bool
 
 	// files is what this app last saw each file on disk as (skill.FileState),
 	// shared by every conversation's tools and by the editor's own save path.
@@ -1876,6 +1881,12 @@ func (a *App) startup(ctx context.Context) {
 	// Engine placements written before the HomeAgent lock (2026-08-10) may
 	// still point at desks; repaired before the first session builds a cut.
 	connect.EnforceHomes()
+	// Questions the last run left without an answer — a crash, a kill, a
+	// close that ran out of grace — get their ending now, before any turn can
+	// begin and make a waiting question legitimate again (sessions.go, §219).
+	if closed := a.closeInterruptedTurns(); closed > 0 {
+		debuglog.Msg("startup: closed %d turn(s) the previous run left unfinished", closed)
+	}
 	a.focusNone()
 	a.startNewSession()
 	a.openAtRememberedDesk()
@@ -2333,6 +2344,9 @@ func (a *App) SendMessage(text, to string) (TurnReply, error) {
 
 	userMsg, agentMsg, err := a.runTurn(conv, text, to)
 	if err != nil {
+		// A cancel that came from the app closing is recorded as that, not as
+		// a Stop the user never pressed (shutdown.go).
+		err = a.closeReason(err)
 		// The turn ends here, and it is written down. It used to end without a
 		// row: the question openTurn had already stored sat alone forever, and
 		// the red box with its ลองใหม่ button lived in the window and died with
