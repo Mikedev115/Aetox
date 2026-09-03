@@ -1118,6 +1118,10 @@ export function SpeechModelDirs() {
   return window['go']['main']['App']['SpeechModelDirs']();
 }
 
+export function SpeechPlaying(arg1, arg2) {
+  return window['go']['main']['App']['SpeechPlaying'](arg1, arg2);
+}
+
 export function SpeechStatus() {
   return window['go']['main']['App']['SpeechStatus']();
 }
@@ -1158,6 +1162,10 @@ export function StartSignIn(arg1) {
   return window['go']['main']['App']['StartSignIn'](arg1);
 }
 
+export function StartSpeech(arg1) {
+  return window['go']['main']['App']['StartSpeech'](arg1);
+}
+
 export function StopBackgroundRun(arg1) {
   return window['go']['main']['App']['StopBackgroundRun'](arg1);
 }
@@ -1172,6 +1180,10 @@ export function StopMobileRemote() {
 
 export function StopQueuedTasks() {
   return window['go']['main']['App']['StopQueuedTasks']();
+}
+
+export function StopSpeech(arg1) {
+  return window['go']['main']['App']['StopSpeech'](arg1);
 }
 
 export function SupportedProviders() {

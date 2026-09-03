@@ -296,6 +296,9 @@ func (a *App) shutdown(_ context.Context) {
 	// the Windows job object reaps them — off Windows there is no job object
 	// and they orphan for good.
 	lsp.CloseShared()
+	// A read-aloud in flight owns a temp folder and a synthesizer. Neither
+	// survives the process, but the folder would (speak.go).
+	a.stopAllSpeech()
 	a.terminalsMu.Lock()
 	ids := make([]string, 0, len(a.terminals))
 	for id := range a.terminals {

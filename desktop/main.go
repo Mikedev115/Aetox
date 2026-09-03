@@ -51,8 +51,10 @@ func main() {
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 			// Files from the open project reach the panes as URLs under
-			// /aetox-file/ rather than as values across a binding — see filehost.go.
-			Middleware: app.fileHost,
+			// /aetox-file/, and synthesized speech reaches the player under
+			// /aetox-tts/ — both as URLs rather than as values across a
+			// binding. See filehost.go and ttshost.go.
+			Middleware: app.assetMiddleware,
 		},
 		BackgroundColour: &options.RGBA{R: 11, G: 15, B: 22, A: 1},
 		OnStartup:        app.startup,

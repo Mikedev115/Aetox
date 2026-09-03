@@ -218,9 +218,17 @@ func (a *App) TTSStatus() string {
 	return ""
 }
 
-// SpeakText reads text aloud: synthesizes with the configured engine and
-// voice, and hands back a data: URL the webview plays directly. The WAV never
-// touches the workspace — it is a rendering of the reply, not a deliverable.
+// SpeakText synthesizes a SHORT, fixed phrase in one call and hands back a
+// data: URL the webview plays directly. The audio never touches the workspace
+// — it is a rendering, not a deliverable.
+//
+// This used to read replies too, and that is what made a long answer take
+// forever to start: nothing was heard until the whole thing had been
+// synthesized and base64'd across the binding. Replies go through StartSpeech
+// now (desktop/speak.go), which cuts them into pieces and streams them as
+// URLs. What is left here is the one case the old shape is right for — ลองฟัง
+// on ตั้งค่า > เสียง, one sentence of preview text, where a queue would be
+// machinery around a single piece.
 func (a *App) SpeakText(text string) (string, error) {
 	cfg := a.cur().cfg
 	voice := strings.TrimSpace(cfg.TTSVoice)
@@ -355,7 +363,7 @@ func (a *App) ttsVoices(engineID string) ([]tts.Voice, error) {
 	if hit {
 		return cached, nil
 	}
-	engine, err := tts.New(tts.Options{Engine: desc.ID})
+	engine, err := newTTSEngine(tts.Options{Engine: desc.ID})
 	if err != nil {
 		return nil, err
 	}

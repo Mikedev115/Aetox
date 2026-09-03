@@ -1,0 +1,226 @@
+package tts
+
+// The second half of reading a long reply aloud: turning the pieces Segment
+// cut into a stream of audio files, one at a time, in order.
+//
+// This sits ABOVE Engine and does not change its contract. An engine still
+// takes text and writes one file; it has no idea it is being fed a paragraph
+// at a time, which is what let all eight vendors get this for free.
+//
+// What this file deliberately does NOT hold is how far ahead to run. A look-
+// ahead window is a judgement about a listener — how much work is worth
+// spending on audio nobody has asked to hear yet — and the listener lives in
+// the UI. So the channel below is buffered by exactly one: one finished piece
+// may park while the caller decides whether to take the next, and the caller's
+// read rate is the throttle. desktop/speak.go is where the window is set,
+// against what the webview reports it is actually playing. Same division as
+// the voice-for-the-locale rule at the top of tts.go.
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync/atomic"
+	"time"
+)
+
+// PieceTimeout bounds ONE piece, not the read. The old whole-message call had
+// three minutes because SAPI on a wedged audio driver sits forever and the
+// button had no other way home; the same reasoning applies per piece, where
+// three minutes is now enormously generous rather than barely enough.
+const PieceTimeout = 3 * time.Minute
+
+// cacheBudget caps the shared chunk cache. Speech is disposable — the cache
+// exists so a second press of ฟัง is instant, not so audio is kept — and a
+// folder that grows without a ceiling is a bug that takes months to show up.
+const cacheBudget = 512 << 20
+
+// Piece is one synthesized chunk of a read. Err set means the read stopped
+// there: the caller shows it and nothing further arrives.
+type Piece struct {
+	Seq  int
+	Text string
+	// Path is the audio file. It is NOT always inside ReadOptions.Dir — a
+	// cache hit points straight at the cached file rather than copying it, so
+	// the caller must serve the path it is given and must not assume it owns
+	// what it is deleting.
+	Path string
+	Last bool
+	Err  error
+}
+
+// ReadOptions configures one read.
+type ReadOptions struct {
+	// Dir is where uncached pieces are written. The caller creates it and
+	// deletes it when the read is over.
+	Dir string
+	// CacheDir, when set, is a shared folder of finished pieces so pressing
+	// ฟัง on the same reply twice synthesizes nothing the second time. Empty
+	// disables the cache.
+	CacheDir string
+	// CacheKey is everything about the engine's configuration that changes how
+	// a given text sounds — vendor, voice, model. This package cannot derive
+	// it: Engine deliberately does not expose the Options it was built from,
+	// so the caller that built it passes the key. A wrong key here is the one
+	// way to hear the previous voice speaking.
+	CacheKey string
+}
+
+// partSeq keeps two reads that start on the same millisecond from choosing the
+// same temporary filename in the shared cache folder.
+var partSeq atomic.Uint64
+
+// Read segments text and synthesizes it piece by piece, sending each finished
+// piece on the returned channel and closing it when the last one is through.
+//
+// Cancelling ctx stops it where it stands — mid-synthesis, not at the next
+// piece boundary — which is what makes a stop button mean stop rather than
+// "stop after the rest of this finishes".
+func Read(ctx context.Context, eng Engine, text string, opts ReadOptions) <-chan Piece {
+	out := make(chan Piece, 1)
+	go func() {
+		defer close(out)
+		chunks := Segment(text)
+		if len(chunks) == 0 {
+			send(ctx, out, Piece{Last: true, Err: fmt.Errorf("ไม่มีข้อความให้อ่าน")})
+			return
+		}
+		if opts.CacheDir != "" {
+			if err := os.MkdirAll(opts.CacheDir, 0o755); err != nil {
+				opts.CacheDir = "" // an unusable cache is not a reason to stay silent
+			} else {
+				go pruneCache(opts.CacheDir, cacheBudget)
+			}
+		}
+		ext := extForMime(eng.Mime())
+		for i, chunk := range chunks {
+			p := Piece{Seq: i, Text: chunk, Last: i == len(chunks)-1}
+			p.Path, p.Err = synthesizePiece(ctx, eng, chunk, ext, i, opts)
+			if !send(ctx, out, p) || p.Err != nil {
+				return
+			}
+		}
+	}()
+	return out
+}
+
+func send(ctx context.Context, out chan<- Piece, p Piece) bool {
+	select {
+	case out <- p:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+// synthesizePiece writes one piece, through the cache when there is one.
+//
+// A cache hit returns the cached path directly rather than copying it into the
+// job folder: the copy would be the same bytes under a second name, and the
+// only reason to want one is an assumption — "everything I serve lives in my
+// own folder" — that the caller is better off not making.
+func synthesizePiece(ctx context.Context, eng Engine, text, ext string, seq int, opts ReadOptions) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, PieceTimeout)
+	defer cancel()
+
+	if opts.CacheDir == "" || opts.CacheKey == "" {
+		path := filepath.Join(opts.Dir, fmt.Sprintf("%04d%s", seq, ext))
+		if err := eng.Synthesize(ctx, text, path); err != nil {
+			return "", err
+		}
+		return path, nil
+	}
+
+	final := filepath.Join(opts.CacheDir, pieceHash(opts.CacheKey, text)+ext)
+	if info, err := os.Stat(final); err == nil && info.Size() > 0 {
+		// Touch it so a piece that keeps being played is not the one the
+		// pruner decides is coldest.
+		now := time.Now()
+		_ = os.Chtimes(final, now, now)
+		return final, nil
+	}
+	// Synthesize to a private name and rename into place, so a half-written
+	// file is never visible under the name a cache hit trusts.
+	part := filepath.Join(opts.CacheDir, fmt.Sprintf("part-%d-%d%s", os.Getpid(), partSeq.Add(1), ext))
+	if err := eng.Synthesize(ctx, text, part); err != nil {
+		_ = os.Remove(part)
+		return "", err
+	}
+	if err := os.Rename(part, final); err != nil {
+		// Losing the rename loses the cache entry, not the audio.
+		return part, nil
+	}
+	return final, nil
+}
+
+func pieceHash(key, text string) string {
+	sum := sha256.Sum256([]byte(key + "\x00" + text))
+	return hex.EncodeToString(sum[:16])
+}
+
+// extForMime names the file after what the engine actually wrote. The local
+// engines write WAV and the cloud ones mostly write MP3; a .wav holding MP3 is
+// the kind of thing that plays everywhere until the one place it does not.
+func extForMime(mime string) string {
+	switch strings.ToLower(strings.TrimSpace(strings.SplitN(mime, ";", 2)[0])) {
+	case "audio/wav", "audio/x-wav", "audio/wave":
+		return ".wav"
+	case "audio/mpeg", "audio/mp3":
+		return ".mp3"
+	case "audio/ogg":
+		return ".ogg"
+	case "audio/opus":
+		return ".opus"
+	case "audio/flac":
+		return ".flac"
+	case "audio/aac", "audio/mp4", "audio/m4a":
+		return ".m4a"
+	default:
+		return ".audio"
+	}
+}
+
+// pruneCache deletes the coldest files until the folder is back under budget.
+// Best-effort throughout: a cache that cannot be tidied is still a cache, and
+// this runs on a goroutine nobody waits for.
+func pruneCache(dir string, budget int64) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	type item struct {
+		path string
+		size int64
+		at   time.Time
+	}
+	var files []item
+	var total int64
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		files = append(files, item{filepath.Join(dir, e.Name()), info.Size(), info.ModTime()})
+		total += info.Size()
+	}
+	if total <= budget {
+		return
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].at.Before(files[j].at) })
+	for _, f := range files {
+		if total <= budget {
+			return
+		}
+		if os.Remove(f.path) == nil {
+			total -= f.size
+		}
+	}
+}

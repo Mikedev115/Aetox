@@ -102,6 +102,17 @@ type App struct {
 	// that is acceptable, a second of extra latency on every ฟัง press is not.
 	ttsVoiceCache map[string][]tts.Voice
 
+	// speakMu guards speakJobs — StartSpeech, StopSpeech, the reader goroutine
+	// and the asset-server handler all reach it, and the handler runs on the
+	// webview's own thread.
+	speakMu sync.Mutex
+	// speakJobs is every read-aloud in flight, by job id. Normally at most one
+	// (a second press of ฟัง stops the first), but the map is the registry the
+	// URL host authorizes against, so it is keyed rather than a single field:
+	// a stopped job must become unfindable the instant it stops, and deleting
+	// a key is that. See desktop/speak.go.
+	speakJobs map[string]*speechJob
+
 	// quotasMu guards quotas, which the model clients write from whatever
 	// goroutine a turn is running on.
 	quotasMu sync.RWMutex

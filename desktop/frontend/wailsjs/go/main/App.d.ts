@@ -573,6 +573,8 @@ export function SpeakText(arg1:string):Promise<string>;
 
 export function SpeechModelDirs():Promise<Array<main.SpeechDirInfo>>;
 
+export function SpeechPlaying(arg1:string,arg2:number):Promise<void>;
+
 export function SpeechStatus():Promise<string>;
 
 export function StageUpdate():Promise<void>;
@@ -593,6 +595,8 @@ export function StartMobileRemote():Promise<main.RemoteStatus>;
 
 export function StartSignIn(arg1:string):Promise<main.SignInPrompt>;
 
+export function StartSpeech(arg1:string):Promise<string>;
+
 export function StopBackgroundRun(arg1:string):Promise<number>;
 
 export function StopBackgroundTask(arg1:string):Promise<boolean>;
@@ -600,6 +604,8 @@ export function StopBackgroundTask(arg1:string):Promise<boolean>;
 export function StopMobileRemote():Promise<main.RemoteStatus>;
 
 export function StopQueuedTasks():Promise<number>;
+
+export function StopSpeech(arg1:string):Promise<void>;
 
 export function SupportedProviders():Promise<Array<string>>;
 
