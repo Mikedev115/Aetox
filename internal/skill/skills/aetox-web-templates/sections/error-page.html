@@ -4,7 +4,12 @@
      can do next, and a way out that always works. The status code is small and
      last, because it is for whoever they report it to, not for them.
 
-     Never blame the visitor. A 404 is usually a link that rotted. -->
+     Never blame the visitor. A 404 is usually a link that rotted.
+
+     Like every other section here, this pastes inside page-shell's own
+     <main id="main"> rather than defining its own: HTML forbids nesting
+     <main> inside <main>, and a screen reader has no use for two "main
+     content" landmarks on one page. -->
 <style>
   .w-error{ min-height:70dvh; display:grid; place-items:center; text-align:center;
             padding:var(--pad) }
@@ -14,7 +19,7 @@
   .w-error .code{ margin-top:30px; font-family:var(--mono); font-size:13px; color:var(--muted) }
 </style>
 
-<main class="w-error">
+<div class="w-error">
   <div>
     <h1>ไม่พบหน้านี้</h1>
     <p>ลิงก์อาจเปลี่ยนไปแล้วหรือพิมพ์ผิด ลองเริ่มจากหน้าแรก หรือค้นหาสิ่งที่ต้องการ</p>
@@ -24,4 +29,4 @@
     </div>
     <p class="code">404</p>
   </div>
-</main>
+</div>

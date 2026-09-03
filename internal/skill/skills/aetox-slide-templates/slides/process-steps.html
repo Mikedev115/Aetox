@@ -1,0 +1,25 @@
+<!-- Process steps. Vertical, for five steps at most, one line of description
+     each — more rows than that, or longer lines, is two slides. Four or fewer
+     with one short line and no room needed for detail is the timeline layout
+     instead; this is the same idea uncapped in one direction, capped in the
+     other. -->
+<style>
+  .l-proc .rail{ margin-top:32px; max-width:920px }
+  .l-proc .s{ position:relative; padding:0 0 26px 54px; border-left:2px solid var(--line,rgba(255,255,255,.14)) }
+  .l-proc .s:last-child{ border-color:transparent; padding-bottom:0 }
+  .l-proc .dot{ position:absolute; left:-15px; top:0; width:30px; height:30px; border-radius:50%;
+                background:var(--stage); border:2px solid var(--accent); color:var(--accent);
+                font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:center }
+  .l-proc h3{ font-size:22px }
+  .l-proc p{ font-size:19px; margin-top:6px; max-width:760px; color:var(--body) }
+</style>
+
+<section class="slide l-proc">
+  <div class="kicker rise">ลำดับ</div>
+  <h1 class="rise" style="font-size:52px">ขั้นตอนทั้งหมด</h1>
+  <div class="rail rise">
+    <div class="s"><div class="dot">1</div><h3>ขั้นแรก</h3><p>สิ่งที่เกิดขึ้นในขั้นนี้</p></div>
+    <div class="s"><div class="dot">2</div><h3>ขั้นสอง</h3><p>สิ่งที่เกิดขึ้นในขั้นนี้</p></div>
+    <div class="s"><div class="dot">3</div><h3>ขั้นสาม</h3><p>สิ่งที่เกิดขึ้นในขั้นนี้</p></div>
+  </div>
+</section>

@@ -1,6 +1,6 @@
 ---
 name: aetox-slide-templates
-description: เทมเพลตจริงที่ก๊อปไปใช้ได้เลย ไม่ใช่คำอธิบายว่าควรหน้าตาแบบไหน เริ่มที่เลย์เอาต์สไลด์ 14 แบบ กล่อง 1280x720 ไฟล์เดียวจบ ไม่มี CSS ภายนอก ไม่มีสคริปต์ ไม่มีกราฟจาก CDN ใช้ตอนกำลังจะเขียนสไลด์หรือหน้าจอแล้วไม่อยากประดิษฐ์องค์ประกอบขึ้นใหม่ทุกครั้ง
+description: เทมเพลตจริงที่ก๊อปไปใช้ได้เลย ไม่ใช่คำอธิบายว่าควรหน้าตาแบบไหน เริ่มที่เลย์เอาต์สไลด์ 23 แบบ กล่อง 1280x720 ไฟล์เดียวจบ ไม่มี CSS ภายนอก ไม่มีสคริปต์ ไม่มีกราฟจาก CDN ใช้ตอนกำลังจะเขียนสไลด์หรือหน้าจอแล้วไม่อยากประดิษฐ์องค์ประกอบขึ้นใหม่ทุกครั้ง
 ---
 
 # Slide templates
@@ -63,15 +63,22 @@ you know which layout the slide wants. Then open only that file here. Each is a
 | Big number | `slides/big-number.html` | One number that is the whole slide. |
 | Metrics | `slides/metrics.html` | Three or four numbers that belong together. |
 | Timeline | `slides/timeline.html` | Steps where the order is the message. |
-| Before after | `slides/before-after.html` | Two states of one thing. |
-| Comparison table | `slides/comparison.html` | Options against criteria. Three columns at most. |
+| Before after | `slides/before-after.html` | Two states of one thing. Four lines a side at most. |
+| Comparison table | `slides/comparison.html` | Options against criteria. Three columns, five rows at most. |
 | Chart | `slides/chart-bars.html` | A quantity comparison, drawn in CSS. |
 | Quote | `slides/quote.html` | Somebody's words, attributed. |
 | Full bleed image | `slides/full-bleed.html` | The picture is the slide. |
 | Feature grid | `slides/feature-grid.html` | Three or six parts of one thing. |
 | Code | `slides/code.html` | A command or an excerpt, one screen, never scrolled. |
+| Terminal | `slides/terminal.html` | A session: commands and the real output they produced. |
+| Diff | `slides/diff.html` | Lines that changed. What was removed, what replaced it. |
+| Process steps | `slides/process-steps.html` | More than four steps, or a step that needs more than a line. |
+| Team grid | `slides/team-grid.html` | The people. A photo, a name, one line each. |
+| Roadmap | `slides/roadmap.html` | A plan with dates. Where things stand today, what comes after. |
+| Architecture | `slides/architecture.html` | How the parts connect. Boxes and the lines between them. |
 | Synthesis | `slides/synthesis.html` | Second to last. What the middle added up to. |
 | Close | `slides/close.html` | Last. The one thing to do, remember or decide. |
+| Q&A | `slides/qa.html` | Inviting questions. Sometimes last, sometimes not — check the strategy. |
 
 Synthesis and close are not optional and are the two most often missing: a deck
 that stops on its final step has not concluded, only stopped. See
@@ -120,3 +127,24 @@ Its markup was **not** taken, and could not have been. Its slides are `100vw` by
 switch between, and each of its layout files is a fragment depending on four
 external stylesheets and a script. Under the contract above that deck exports as
 one slide and a run of blank rectangles. Structure borrowed, ornament not.
+
+Terminal, Diff and Process steps, the three named above and left out at the
+time, were built on 3 ก.ย. against the same test the rest of this file exists
+to enforce: a deck that could not be told with the other 16, not a layout
+added because a catalogue elsewhere had a name for it. Team grid the same
+week closed a gap `aetox-design-system`'s own tables already named and never
+delivered on — `data/slide-layouts.csv` row 8 and the `avatar-ring` card style
+in `data/slide-color-logic.csv` both predate this file by longer than anyone
+would guess. Roadmap and Architecture answer two the tables never named at
+all: a plan with dates, which Timeline cannot carry because it orders steps
+with no calendar attached, and a system's parts and the lines between them,
+which no chart in this folder draws because a chart compares quantities and
+a relationship is not one.
+
+Q&A followed the same day, closing a gap `slide-layouts.csv` had named at row
+25 since before any of this existed and never got a file. `slide-strategies.csv`
+names it as the literal last slide in two of its fifteen structures, Conference
+Talk and Workshop Training, and neither Synthesis nor Close could carry it:
+an invitation to ask is not a recap and not a single action, and it does not
+share their fixed place at the end, either — some structures run it before
+Close, not after.

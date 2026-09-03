@@ -13,25 +13,40 @@
 <meta name="description" content="ประโยคเดียวที่บอกว่าหน้านี้เกี่ยวกับอะไร">
 <style>
   :root{
+    color-scheme:light dark;
     --bg:#ffffff; --surface:#f6f7f9; --text:#0d1117; --muted:#5b6472;
     --line:#e3e6ea; --accent:#c8321f; --accent-ink:#ffffff;
+    --success:#1a7f4b; --warning:#8a5a00; --danger:#b4291c;
     --radius:14px; --maxw:1120px; --gap:clamp(16px,2.5vw,28px);
     --pad:clamp(20px,5vw,48px);
     --sans:"Prompt","Leelawadee UI",system-ui,-apple-system,Segoe UI,sans-serif;
     --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
   }
   @media (prefers-color-scheme:dark){
-    :root{ --bg:#0c0e12; --surface:#14171d; --text:#f2f4f7; --muted:#98a1b0;
-           --line:#232830; --accent:#ff5a45; --accent-ink:#0c0e12 }
+    :root:not([data-theme="light"]){ color-scheme:dark;
+           --bg:#0c0e12; --surface:#14171d; --text:#f2f4f7; --muted:#98a1b0;
+           --line:#232830; --accent:#ff5a45; --accent-ink:#0c0e12;
+           --success:#4fd18b; --warning:#ffb648; --danger:#ff7a68 }
   }
+  /* Same values again, gated on an explicit choice rather than the OS
+     setting: sections/theme-toggle.html flips this attribute and remembers
+     it, for a page that wants a switch instead of only following the system. */
+  :root[data-theme="light"]{ color-scheme:light }
+  :root[data-theme="dark"]{ color-scheme:dark;
+         --bg:#0c0e12; --surface:#14171d; --text:#f2f4f7; --muted:#98a1b0;
+         --line:#232830; --accent:#ff5a45; --accent-ink:#0c0e12;
+         --success:#4fd18b; --warning:#ffb648; --danger:#ff7a68 }
   *,*::before,*::after{ box-sizing:border-box }
   body,h1,h2,h3,h4,p,figure,blockquote,ul,ol,dl,dd{ margin:0 }
   /* Lists inside a w- component are structure, not prose, so they lose their
      markers. Scoped to the namespace rather than written as `ul[class]`: the
      lists in these templates are plain <ul> inside a classed parent, and the
      `ul[class]` idiom missed every one of them, which put bullet points down
-     the middle of the nav and the logo row the first time it was rendered. */
-  [class*="w-"] :where(ul,ol){ list-style:none; padding:0 }
+     the middle of the nav and the logo row the first time it was rendered.
+     Matched by prefix, not substring: `[class*="w-"]` alone would also catch
+     an unrelated class like `show-panel` or `arrow-nav` (both contain "w-")
+     and strip bullets from a list that has nothing to do with this skill. */
+  :is([class^="w-"],[class*=" w-"]) :where(ul,ol){ list-style:none; padding:0 }
   /* Prose is the exception and asks for its markers back, because there a list
      IS the content. */
   .w-article .prose :where(ul,ol),.w-docs .body :where(ul,ol){
@@ -51,6 +66,14 @@
           background:var(--accent); color:var(--accent-ink); text-decoration:none;
           font:600 16px/1 var(--sans); padding:14px 22px; border-radius:10px }
   .w-btn--ghost{ background:transparent; color:var(--text); border-color:var(--line) }
+  /* For the rare label a sighted user does not need to see but a screen
+     reader must have — a compact search box, an icon-only control. Stays in
+     the tab order and the accessibility tree, unlike display:none. Prefer a
+     visible label over this one first; most fields in this library use one. */
+  .w-sr-only{
+    position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
+    clip-path:inset(50%); overflow:hidden; white-space:nowrap;
+  }
   .w-skip{ position:absolute; left:-9999px }
   .w-skip:focus{ left:12px; top:12px; z-index:99; background:var(--bg); padding:10px 14px }
   @media (prefers-reduced-motion:no-preference){

@@ -1,15 +1,18 @@
-<!-- Timeline. Steps in order, when the order is the message. Horizontal for four or fewer. -->
+<!-- Timeline. Steps in order, when the order is the message. Flexes for four
+     or fewer; a fifth step, or a step whose description needs more than a
+     line, wants the vertical process-steps layout instead of being forced
+     into a cramped fourth column. -->
 <style>
-  .l-flow .rail{ display:grid; grid-template-columns:repeat(4,1fr); margin-top:46px }
-  .l-flow .s{ position:relative; padding:0 22px 0 0 }
+  .l-flow .rail{ display:flex; margin-top:46px }
+  .l-flow .s{ position:relative; flex:1; padding:0 22px 0 0 }
   .l-flow .s::before{ content:''; position:absolute; left:0; top:17px; right:0;
-                      height:2px; background:rgba(255,255,255,.12) }
+                      height:2px; background:var(--line,rgba(255,255,255,.12)) }
   .l-flow .s:last-child::before{ display:none }
   .l-flow .dot{ width:36px; height:36px; border-radius:50%; background:var(--stage);
                 border:2px solid var(--accent); color:var(--accent); font-weight:700;
                 display:flex; align-items:center; justify-content:center; position:relative; z-index:1 }
   .l-flow .s h3{ font-size:21px; margin-top:20px }
-  .l-flow .s p{ font-size:16px; margin-top:8px }
+  .l-flow .s p{ font-size:19px; margin-top:8px }
 </style>
 
 <section class="slide l-flow">

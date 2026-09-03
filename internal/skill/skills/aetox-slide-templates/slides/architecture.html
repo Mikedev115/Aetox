@@ -1,0 +1,40 @@
+<!-- Architecture. How the parts connect: boxes and the lines between them, not
+     a quantity to compare. Drawn in SVG per the export rule, nothing fetched.
+     Three or four nodes; relabel the boxes and redraw the lines, this is a
+     starting composition, not a wiring diagram to fill in. -->
+<style>
+  .l-arch .diagram{ margin-top:38px }
+  .l-arch .lbl{ font-family:"Prompt","Leelawadee UI",Tahoma,sans-serif; font-size:19px; fill:var(--text) }
+  .l-arch .sub{ font-family:"Prompt","Leelawadee UI",Tahoma,sans-serif; font-size:14px; fill:var(--muted) }
+</style>
+
+<section class="slide l-arch">
+  <div class="kicker rise">โครงสร้าง</div>
+  <h1 class="rise" style="font-size:56px">ส่วนต่าง ๆ ต่อกันยังไง</h1>
+  <svg class="diagram rise" viewBox="0 0 1040 340" width="1040" height="340">
+    <defs>
+      <marker id="arch-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6 Z" fill="var(--accent)"/>
+      </marker>
+    </defs>
+    <line x1="230" y1="80" x2="380" y2="80" stroke="var(--accent)" stroke-width="2" marker-end="url(#arch-arrow)"/>
+    <line x1="610" y1="80" x2="760" y2="80" stroke="var(--accent)" stroke-width="2" marker-end="url(#arch-arrow)"/>
+    <line x1="495" y1="140" x2="495" y2="220" stroke="var(--line,rgba(255,255,255,.35))" stroke-width="2" marker-end="url(#arch-arrow)"/>
+
+    <rect x="20" y="20" width="210" height="120" rx="16" fill="none" stroke="var(--line,rgba(255,255,255,.35))" stroke-width="2"/>
+    <text x="125" y="75" text-anchor="middle" class="lbl">ส่วนแรก</text>
+    <text x="125" y="98" text-anchor="middle" class="sub">รับเข้า</text>
+
+    <rect x="380" y="20" width="230" height="120" rx="16" fill="none" stroke="var(--accent)" stroke-width="2"/>
+    <text x="495" y="75" text-anchor="middle" class="lbl">ส่วนกลาง</text>
+    <text x="495" y="98" text-anchor="middle" class="sub">ประมวลผล</text>
+
+    <rect x="760" y="20" width="210" height="120" rx="16" fill="none" stroke="var(--line,rgba(255,255,255,.35))" stroke-width="2"/>
+    <text x="865" y="75" text-anchor="middle" class="lbl">ส่วนที่สาม</text>
+    <text x="865" y="98" text-anchor="middle" class="sub">ส่งออก</text>
+
+    <rect x="380" y="220" width="230" height="100" rx="16" fill="none" stroke="var(--line,rgba(255,255,255,.35))" stroke-width="2" stroke-dasharray="6 6"/>
+    <text x="495" y="265" text-anchor="middle" class="lbl">ที่เก็บข้อมูล</text>
+    <text x="495" y="288" text-anchor="middle" class="sub">เก็บสถานะ</text>
+  </svg>
+</section>

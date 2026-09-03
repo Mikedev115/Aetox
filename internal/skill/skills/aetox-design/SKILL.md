@@ -64,6 +64,32 @@ Unsplash, Pexels, Wikimedia Commons, a government or museum open collection
 and tell the user where each one came from. Never present a picture found by
 image search on an unknown page as cleared for use.
 
+## Third-party brand logos
+
+A different case from either road above: an integration list, a "used by"
+wall, or a tech-stack badge needs *someone else's* mark, exact — not this
+app's approximation of it. Drawn from scratch (road 1) it drifts from the
+real thing; found by ordinary image search (road 2) it usually arrives as a
+raster screenshot, not the clean vector a logo bar needs.
+
+**[svgl.app](https://svgl.app)** ([github.com/pheralb/svgl](https://github.com/pheralb/svgl),
+MIT) is a searchable library of pre-vectorized, web-optimized SVG logos for
+software, AI, and platform brands. Search it by name and use `web_fetch` +
+`media_fetch` on the entry's file under `static/library/` the same way as any
+other found asset. `sections/logo-bar.html` in `aetox-web-templates` is built
+to take exactly this — drop the file in as `imgs/logo-*.svg`.
+
+**The MIT licence covers svgl's own site and code, not the logos in it** —
+each mark stays the trademark of the company it names; svgl's own
+contributor rules say as much ("ensure you have the right to use it and that
+its licence permits it"). Naming a real integration, dependency, or a real
+customer's logo with their consent is the ordinary use these marks exist
+for; implying endorsement, using a competitor's mark, or folding one into
+your own identity is not. When it's unclear, follow the entry's own
+`brandUrl` (svgl links it) to that company's brand guidelines. This is about
+sourcing *other* companies' marks — for rules on using this project's own
+logo, see `aetox-brand/references/logo-usage-rules.md`.
+
 ## Drawing it instead
 
 `write` produces the file directly, and for these that is the whole job:

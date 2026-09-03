@@ -6,7 +6,12 @@
 
      On a narrow screen the sidebar becomes a horizontal scroller at the top
      rather than a drawer, because a drawer needs script and state and a nav of
-     six links does not earn either. -->
+     six links does not earn either.
+
+     Like every other section here, this pastes inside page-shell's own
+     <main id="main"> and keeps its content well a <div>, not a second <main>:
+     HTML forbids nesting <main> inside <main>, and a screen reader has no use
+     for two "main content" landmarks on one page. -->
 <style>
   .w-app{ display:grid; grid-template-columns:248px 1fr; min-height:100dvh }
   .w-app .side{ border-right:1px solid var(--line); background:var(--surface);
@@ -47,8 +52,8 @@
       <h1>ภาพรวม</h1>
       <div class="right"><a class="w-btn" href="#">สร้างใหม่</a></div>
     </header>
-    <main class="well">
+    <div class="well">
       <!-- stat-cards.html, data-table.html here -->
-    </main>
+    </div>
   </div>
 </div>

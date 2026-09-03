@@ -16,14 +16,10 @@
   .w-form label{ font-size:14px; font-weight:600 }
   .w-form input{ font:400 16px/1.4 var(--sans); color:var(--text); background:var(--bg);
                  border:1px solid var(--line); border-radius:10px; padding:13px 14px }
-  .w-form input[aria-invalid="true"]{ border-color:#b4291c }
-  .w-form .err{ color:#b4291c; font-size:13px }
+  .w-form input[aria-invalid="true"]{ border-color:var(--danger) }
+  .w-form .err{ color:var(--danger); font-size:13px }
   .w-form .w-btn{ justify-content:center }
   .w-form .alt{ text-align:center; font-size:14px; color:var(--muted); margin-top:18px }
-  @media (prefers-color-scheme:dark){
-    .w-form input[aria-invalid="true"]{ border-color:#ff7a68 }
-    .w-form .err{ color:#ff7a68 }
-  }
 </style>
 
 <div class="w-form">
@@ -36,9 +32,12 @@
     </div>
     <div class="field">
       <label for="f-pass">รหัสผ่าน</label>
-      <input id="f-pass" name="password" type="password" autocomplete="current-password"
-             required aria-invalid="true" aria-describedby="f-pass-err">
+      <input id="f-pass" name="password" type="password" autocomplete="current-password" required>
+      <!-- On a failed attempt, mark the field and describe what to do next,
+           not what went wrong — this pair is the pattern, not the default:
+      <input id="f-pass" ... aria-invalid="true" aria-describedby="f-pass-err">
       <p class="err" id="f-pass-err">รหัสผ่านไม่ถูกต้อง ลองใหม่หรือกดลืมรหัสผ่าน</p>
+      -->
     </div>
     <button class="w-btn" type="submit">เข้าสู่ระบบ</button>
   </form>

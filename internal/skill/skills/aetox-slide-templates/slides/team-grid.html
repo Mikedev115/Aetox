@@ -1,0 +1,21 @@
+<!-- Team grid. The people: a photo, a name, one line each. Three or four
+     across; a fifth forces every photo smaller than a face reads at, so it
+     is two slides, not a fifth column. -->
+<style>
+  .l-team .cells{ display:grid; grid-template-columns:repeat(4,1fr); gap:30px; margin-top:40px }
+  .l-team .ring{ width:128px; height:128px; border-radius:50%; overflow:hidden;
+                 border:3px solid var(--accent); padding:4px }
+  .l-team .ring img{ width:100%; height:100%; object-fit:cover; border-radius:50% }
+  .l-team b{ display:block; margin-top:16px; font-size:20px }
+  .l-team span{ display:block; margin-top:4px; color:var(--muted); font-size:16px }
+</style>
+
+<section class="slide l-team">
+  <div class="kicker rise">ทีม</div>
+  <h1 class="rise" style="font-size:56px">คนที่อยู่เบื้องหลัง</h1>
+  <div class="cells rise">
+    <div><div class="ring"><img src="imgs/คนที่หนึ่ง.jpg" alt="ชื่อ"></div><b>ชื่อ</b><span>ตำแหน่ง</span></div>
+    <div><div class="ring"><img src="imgs/คนที่สอง.jpg" alt="ชื่อ"></div><b>ชื่อ</b><span>ตำแหน่ง</span></div>
+    <div><div class="ring"><img src="imgs/คนที่สาม.jpg" alt="ชื่อ"></div><b>ชื่อ</b><span>ตำแหน่ง</span></div>
+  </div>
+</section>

@@ -1,0 +1,53 @@
+<!-- Theme toggle. A manual light/dark switch that does not wait for the OS
+     setting and remembers the choice across visits.
+
+     The one section in this library that needs real script: unlike the FAQ's
+     <details> or the nav's checkbox menu, a theme choice that resets on every
+     reload has no script-free equivalent worth calling a feature, so this
+     does not try to fake one. It is still small, inline, and has no
+     dependency of its own.
+
+     Requires page-shell.html's [data-theme] hook (added alongside its
+     prefers-color-scheme handling) — paste this after page-shell, anywhere
+     in the page, commonly in the nav's action row or a corner of the page. -->
+<style>
+  .w-theme-btn{
+    display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line);
+    background:var(--surface); color:var(--text); border-radius:999px;
+    padding:8px 14px; font:600 14px/1 var(--sans); cursor:pointer;
+  }
+  .w-theme-btn .dot{ width:12px; height:12px; border-radius:50%; background:var(--accent); flex:none }
+</style>
+
+<button type="button" class="w-theme-btn" id="w-theme-toggle" aria-pressed="false">
+  <span class="dot" aria-hidden="true"></span>
+  <span data-w-theme-label>โหมดมืด</span>
+</button>
+
+<script>
+(function(){
+  var KEY = "aetox-theme";
+  var root = document.documentElement;
+  var btn = document.getElementById("w-theme-toggle");
+  if(!btn) return;
+  var label = btn.querySelector("[data-w-theme-label]");
+
+  function apply(theme){
+    if(theme){ root.setAttribute("data-theme", theme) }
+    else{ root.removeAttribute("data-theme") }
+    var isDark = theme === "dark" ||
+      (!theme && window.matchMedia("(prefers-color-scheme:dark)").matches);
+    btn.setAttribute("aria-pressed", String(isDark));
+    label.textContent = isDark ? "โหมดสว่าง" : "โหมดมืด";
+  }
+
+  apply(localStorage.getItem(KEY));
+
+  btn.addEventListener("click", function(){
+    var current = root.getAttribute("data-theme") === "dark";
+    var next = current ? "light" : "dark";
+    localStorage.setItem(KEY, next);
+    apply(next);
+  });
+})();
+</script>

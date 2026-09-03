@@ -1,5 +1,15 @@
 <!-- Logo bar. Social proof that names names. An unnamed logo row is decoration;
-     if the logos cannot be named, cut the section rather than blur them. -->
+     if the logos cannot be named, cut the section rather than blur them.
+
+     Real company marks, not drawn or approximated: svgl.app (github.com/pheralb/svgl,
+     MIT) has clean pre-vectorized SVGs for most software/platform brands — see
+     aetox-design's "Third-party brand logos" section for how to source one and
+     the licensing caveat (svgl's MIT licence covers its own code, not the marks).
+
+     The dark-mode invert() below only works for a monochrome black mark: it
+     flips a coloured logo (a red mark becomes cyan) rather than adapting it.
+     A logo with real brand colour needs its own light/dark file swapped via
+     <picture>/prefers-color-scheme instead of this filter. -->
 <style>
   .w-logos{ padding-block:clamp(24px,4vw,44px); border-block:1px solid var(--line) }
   .w-logos p{ text-align:center; color:var(--muted); font-size:14px }

@@ -10,8 +10,22 @@
   .w-nav a{ text-decoration:none; color:var(--muted); font-size:15px }
   .w-nav a:hover,.w-nav a[aria-current="page"]{ color:var(--text) }
   .w-nav .w-btn{ padding:10px 16px; font-size:15px }
-  .w-nav .toggle,.w-nav .burger{ display:none }
+  /* Visually hidden, not display:none: the checkbox must stay in the tab
+     order and the accessibility tree so a keyboard user can reach it. It
+     drops out of both on desktop (visibility:hidden, nothing to open), then
+     comes back at the mobile breakpoint where the burger appears. Its own
+     focus ring is redirected onto the burger label below, since the ring
+     drawn on a 1px clipped box would be invisible. */
+  .w-nav .toggle{
+    position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
+    clip-path:inset(50%); overflow:hidden; white-space:nowrap; visibility:hidden;
+  }
+  .w-nav .toggle:focus-visible{ outline:none }
+  .w-nav .burger{ display:none }
   @media (max-width:760px){
+    .w-nav .toggle{ visibility:visible }
+    .w-nav .toggle:focus-visible ~ .burger{
+      outline:2px solid var(--accent); outline-offset:3px; border-radius:6px }
     .w-nav .burger{ display:block; margin-left:auto; border:1px solid var(--line);
                     background:none; color:inherit; border-radius:8px; padding:8px 12px; cursor:pointer }
     .w-nav ul{ display:none; position:absolute; inset:64px 0 auto; flex-direction:column;
@@ -25,7 +39,7 @@
 <nav class="w-nav" aria-label="หลัก">
   <div class="w-wrap bar">
     <a class="mark" href="#">แบรนด์</a>
-    <input class="toggle" type="checkbox" id="nav-open" hidden>
+    <input class="toggle" type="checkbox" id="nav-open">
     <label class="burger" for="nav-open">เมนู</label>
     <ul>
       <li><a href="#features">ความสามารถ</a></li>

@@ -1,0 +1,24 @@
+<!-- Terminal. A session, not one excerpt: prompts and the output they produced,
+     told in order. .prompt marks what was typed, .out marks what came back,
+     never the reverse. Same one-screen rule as Code: four or five lines
+     total, prompt and output together, or it is the wrong excerpt. -->
+<style>
+  .l-term pre{ background:#0b0d11; border:1px solid var(--line,rgba(255,255,255,.09)); border-radius:14px;
+               padding:26px 30px; font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;
+               font-size:19px; line-height:1.85; color:#e3e9ef; white-space:pre; overflow:hidden;
+               margin-top:30px }
+  .l-term .prompt{ color:#5fd0ff; font-weight:700 }
+  .l-term .out{ color:#6d7982 }
+  .l-term .hl{ background:rgba(76,141,255,.16); border-radius:4px; padding:0 4px }
+  .l-term .note{ margin-top:20px; font-size:18px; color:var(--body) }
+</style>
+
+<section class="slide l-term">
+  <div class="kicker rise">เทอร์มินัล</div>
+  <h1 class="rise" style="font-size:52px">รันแล้วเกิดอะไรขึ้น</h1>
+  <pre class="rise"><span class="prompt">$</span> <span class="hl">คำสั่งที่พิมพ์</span>
+<span class="out">บรรทัดผลลัพธ์ที่ได้กลับมา</span>
+<span class="prompt">$</span> คำสั่งถัดไป
+<span class="out">ผลลัพธ์ถัดไป</span></pre>
+  <p class="note rise">สิ่งที่ผลลัพธ์นี้บอกคนดู</p>
+</section>

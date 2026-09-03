@@ -1,0 +1,31 @@
+<!-- Roadmap. A plan with dates: where things stand today, what comes after.
+     Different from Timeline, which orders steps with no calendar attached —
+     this one carries a "today" marker and a phase label an ordinal number
+     does not. Four phases at most, horizontal. -->
+<style>
+  .l-road .rail{ display:flex; margin-top:46px; position:relative }
+  .l-road .rail::before{ content:''; position:absolute; left:0; right:0; top:11px; height:2px;
+                          background:var(--line,rgba(255,255,255,.12)) }
+  .l-road .ph{ flex:1; padding-right:28px; position:relative }
+  .l-road .dot{ width:22px; height:22px; border-radius:50%; border:2px solid var(--muted);
+                background:var(--stage); position:relative; z-index:1 }
+  .l-road .ph.done .dot{ background:var(--accent); border-color:var(--accent) }
+  .l-road .ph.now .dot{ border-color:var(--accent);
+                        box-shadow:0 0 0 4px rgba(255,59,48,.18);
+                        box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent) }
+  .l-road .when{ margin-top:16px; font-size:14px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted) }
+  .l-road .ph.now .when{ color:var(--accent) }
+  .l-road h3{ font-size:20px; margin-top:8px }
+  .l-road p{ font-size:18px; margin-top:6px; color:var(--body) }
+</style>
+
+<section class="slide l-road">
+  <div class="kicker rise">แผนงาน</div>
+  <h1 class="rise" style="font-size:56px">วันนี้อยู่ตรงไหน</h1>
+  <div class="rail rise">
+    <div class="ph done"><div class="dot"></div><div class="when">ไตรมาส 1</div><h3>เสร็จแล้ว</h3><p>สิ่งที่ทำไปแล้ว</p></div>
+    <div class="ph now"><div class="dot"></div><div class="when">ไตรมาส 2 · ตอนนี้</div><h3>กำลังทำ</h3><p>สิ่งที่ทำอยู่</p></div>
+    <div class="ph"><div class="dot"></div><div class="when">ไตรมาส 3</div><h3>ถัดไป</h3><p>สิ่งที่จะทำ</p></div>
+    <div class="ph"><div class="dot"></div><div class="when">ไตรมาส 4</div><h3>ต่อจากนั้น</h3><p>สิ่งที่วางแผนไว้</p></div>
+  </div>
+</section>

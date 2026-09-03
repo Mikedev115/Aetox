@@ -1,0 +1,23 @@
+<!-- Diff. What changed, line by line. Changed lines only, one line of context
+     on each side at most — a wall of unchanged code around a single red/green
+     pair is a code slide wearing a diff's colors, not a diff. -->
+<style>
+  .l-diff pre{ background:#0b0d11; border:1px solid var(--line,rgba(255,255,255,.09)); border-radius:14px;
+               padding:22px 0; font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;
+               font-size:19px; line-height:1.9; white-space:pre; overflow:hidden; margin-top:30px }
+  .l-diff .line{ display:block; padding:2px 30px }
+  .l-diff .ctx{ color:#6d7982 }
+  .l-diff .del{ color:#ff8b85; background:rgba(255,80,70,.1) }
+  .l-diff .add{ color:#8ee7a8; background:rgba(80,220,120,.1) }
+  .l-diff .note{ margin-top:20px; font-size:18px; color:var(--body) }
+</style>
+
+<section class="slide l-diff">
+  <div class="kicker rise">ที่เปลี่ยน</div>
+  <h1 class="rise" style="font-size:52px">บรรทัดที่แก้</h1>
+  <pre class="rise"><span class="line ctx">  บรรทัดบริบทที่ไม่เปลี่ยน</span>
+<span class="line del">- บรรทัดเดิมที่ถูกลบ</span>
+<span class="line add">+ บรรทัดใหม่ที่แทนที่</span>
+<span class="line ctx">  บรรทัดบริบทที่ไม่เปลี่ยน</span></pre>
+  <p class="note rise">ทำไมการเปลี่ยนนี้ถึงสำคัญ</p>
+</section>

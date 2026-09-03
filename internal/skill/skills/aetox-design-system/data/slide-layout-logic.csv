@@ -14,3 +14,9 @@ demo,interest,split-demo,visual-left,60-visual,false,false
 vision,hope,full-bleed-hero,centered,100-visual,true,true
 timeline,narrative,timeline-flow,horizontal,balanced,false,false
 features,clarity,feature-grid,centered,balanced,false,false
+walkthrough,interest,terminal-session,left,60-text,false,false
+change,clarity,diff-view,side-by-side,balanced,false,false
+process,clarity,process-steps,vertical,balanced,false,false
+roadmap,narrative,roadmap-phased,horizontal,balanced,false,false
+architecture,clarity,architecture-diagram,centered,diagram-dominant,false,false
+qa,connection,qa-slide,centered,minimal,false,false

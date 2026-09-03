@@ -6,7 +6,12 @@
      the dashboard shell uses and for the same reason: no script, no state.
 
      position:sticky on both rails, with their own overflow, so a long page of
-     prose scrolls past a nav that stays put. -->
+     prose scrolls past a nav that stays put.
+
+     Like every other section here, this pastes inside page-shell's own
+     <main id="main"> and keeps its prose column a <div>, not a second <main>:
+     HTML forbids nesting <main> inside <main>, and a screen reader has no use
+     for two "main content" landmarks on one page. -->
 <style>
   .w-docs{ display:grid; grid-template-columns:240px minmax(0,1fr) 200px;
            gap:clamp(20px,3vw,42px); align-items:start;
@@ -59,7 +64,7 @@
     </ul>
   </nav>
 
-  <main class="body">
+  <div class="body">
     <h1>ติดตั้ง</h1>
     <p>ประโยคเดียวว่าหน้านี้ทำให้ทำอะไรได้ แล้วค่อยลงรายละเอียด</p>
     <h2 id="requirements">สิ่งที่ต้องมีก่อน</h2>
@@ -68,7 +73,7 @@
     <pre><code>winget install aetox</code></pre>
     <h2 id="verify">ตรวจว่าติดตั้งสำเร็จ</h2>
     <p>เนื้อหา</p>
-  </main>
+  </div>
 
   <nav class="rail toc" aria-label="หัวข้อในหน้านี้">
     <h3>ในหน้านี้</h3>
