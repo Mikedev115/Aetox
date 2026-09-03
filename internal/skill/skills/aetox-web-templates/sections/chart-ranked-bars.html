@@ -1,0 +1,94 @@
+<!-- Ranked horizontal bars. อันดับที่ต้องอ่านให้จบในสองวินาที
+
+     ชื่ออยู่ซ้าย ค่าอยู่ปลายแท่ง ไม่มีแกนให้ไล่สายตา และไม่ต้องมี legend เพราะ
+     ทุกแท่งมีชื่อของตัวเองติดอยู่แล้ว นี่คือทางออกเมื่อของที่จะเทียบมีเกินห้า
+     ก้อนจน chart-donut.html อ่านไม่ออก
+
+     ใช้แท่งแนวนอนไม่ใช่แนวตั้ง เพราะชื่อไทยยาวกว่าที่หัวคอลัมน์แนวตั้งรับไหว
+     พอชื่อยาวแล้วเอียงสี่สิบห้าองศา กราฟนั้นก็อ่านยากกว่าตารางไปแล้ว
+
+     ความเข้มไล่ตามอันดับ ไม่ใช่ให้แต่ละแท่งเป็นคนละสี เพราะทั้งหมดคือของ
+     ชนิดเดียวกัน สีที่ต่างกันจะหลอกให้คิดว่ามันคนละชุดข้อมูล -->
+<style>
+  .w-rank .bars{ display:grid; gap:10px; margin-top:24px }
+  .w-rank .bar{ display:grid; grid-template-columns:minmax(90px,150px) 1fr auto;
+                align-items:center; gap:14px }
+  .w-rank .name{ font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+  .w-rank .track{ height:26px; border-radius:6px; background:var(--surface); min-width:0 }
+  .w-rank .fill{ display:block; height:100%; border-radius:6px; background:var(--viz-2,#2563eb) }
+  .w-rank .val{ font-family:var(--mono); font-size:13.5px; font-variant-numeric:tabular-nums;
+                min-width:74px; text-align:end }
+  .w-rank .foot{ margin-top:16px; color:var(--muted); font-size:12.5px }
+  .w-rank details{ margin-top:20px; border:1px solid var(--line); border-radius:var(--radius) }
+  .w-rank summary{ cursor:pointer; padding:12px 16px; font-size:14px; font-weight:500 }
+  .w-rank .scroll{ overflow-x:auto; padding:0 16px 16px }
+  .w-rank table{ width:100%; border-collapse:collapse; font-size:13.5px }
+  .w-rank th,.w-rank td{ text-align:start; padding:8px 12px; border-top:1px solid var(--line); white-space:nowrap }
+  .w-rank td{ font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--muted) }
+  .w-rank th{ font-weight:500 }
+  @media (max-width:520px){
+    .w-rank .bar{ grid-template-columns:1fr auto; row-gap:4px }
+    .w-rank .track{ grid-column:1 / -1; height:20px }
+  }
+</style>
+
+<section class="w-section w-rank" aria-labelledby="rank-title">
+  <div class="w-wrap">
+    <p class="w-eyebrow">30 วันล่าสุด</p>
+    <h2 id="rank-title" style="font-size:clamp(24px,3vw,32px);letter-spacing:-.025em;margin-top:6px">สินค้าที่ขายดีที่สุด</h2>
+
+    <div class="bars">
+      <div class="bar">
+        <span class="name">เสื้อยืดคอกลม</span>
+        <span class="track"><span class="fill" style="width:100%" title="เสื้อยืดคอกลม 1,204 ชิ้น"></span></span>
+        <span class="val">1,204</span>
+      </div>
+      <div class="bar">
+        <span class="name">กระเป๋าผ้า</span>
+        <span class="track"><span class="fill" style="width:77.6%;opacity:.85" title="กระเป๋าผ้า 934 ชิ้น"></span></span>
+        <span class="val">934</span>
+      </div>
+      <div class="bar">
+        <span class="name">รองเท้าผ้าใบ</span>
+        <span class="track"><span class="fill" style="width:60.3%;opacity:.72" title="รองเท้าผ้าใบ 726 ชิ้น"></span></span>
+        <span class="val">726</span>
+      </div>
+      <div class="bar">
+        <span class="name">หมวกแก๊ป</span>
+        <span class="track"><span class="fill" style="width:37.8%;opacity:.6" title="หมวกแก๊ป 455 ชิ้น"></span></span>
+        <span class="val">455</span>
+      </div>
+      <div class="bar">
+        <span class="name">ถุงเท้าข้อสั้น</span>
+        <span class="track"><span class="fill" style="width:20.9%;opacity:.48" title="ถุงเท้าข้อสั้น 252 ชิ้น"></span></span>
+        <span class="val">252</span>
+      </div>
+      <div class="bar">
+        <span class="name">อื่น ๆ รวมกัน</span>
+        <span class="track"><span class="fill" style="width:14.1%;opacity:.36" title="สินค้าอื่นรวมกัน 170 ชิ้น"></span></span>
+        <span class="val">170</span>
+      </div>
+    </div>
+
+    <p class="foot">แท่งยาวที่สุดคือ 100% ของสเกล ไม่ใช่ 100% ของยอดรวม อย่าอ่านความยาวเป็นสัดส่วนของทั้งหมด</p>
+
+    <details>
+      <summary>ดูเป็นตาราง</summary>
+      <div class="scroll">
+        <table>
+          <caption class="w-sr-only">ยอดขายรายสินค้า 30 วันล่าสุด</caption>
+          <thead><tr><th scope="col">สินค้า</th><th scope="col">จำนวน</th><th scope="col">รายได้</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">เสื้อยืดคอกลม</th><td>1,204</td><td>฿361,200</td></tr>
+            <tr><th scope="row">กระเป๋าผ้า</th><td>934</td><td>฿186,800</td></tr>
+            <tr><th scope="row">รองเท้าผ้าใบ</th><td>726</td><td>฿943,800</td></tr>
+            <tr><th scope="row">หมวกแก๊ป</th><td>455</td><td>฿113,750</td></tr>
+            <tr><th scope="row">ถุงเท้าข้อสั้น</th><td>252</td><td>฿17,640</td></tr>
+            <tr><th scope="row">อื่น ๆ รวมกัน</th><td>170</td><td>฿41,300</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+  </div>
+</section>

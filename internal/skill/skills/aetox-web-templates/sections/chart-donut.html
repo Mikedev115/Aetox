@@ -1,0 +1,97 @@
+<!-- Donut chart. ส่วนแบ่งของทั้งหมด ใช้ได้เมื่อสองเงื่อนไขเป็นจริงพร้อมกัน:
+     ทุกก้อนรวมกันได้ 100% จริง ๆ และมีไม่เกินห้าก้อน
+
+     เกินห้าก้อนเมื่อไหร่ให้ไปใช้ chart-ranked-bars.html แทน เพราะตาคนเทียบ
+     ความยาวเก่งกว่าเทียบมุมมาก โดนัทที่มีสิบก้อนคือวงกลมที่อ่านไม่ออก
+
+     ทุกก้อนมีตัวเลขกำกับใน legend ไม่ใช่ให้กะเอาจากขนาดมุม สีจึงทำหน้าที่
+     "อันไหนคืออันไหน" อย่างเดียว ไม่ได้แบกหน้าที่บอกปริมาณไว้ด้วย
+
+     วาดด้วย stroke-dasharray บนวงกลมเดียว ไม่ใช่ path ห้าเส้น: ตัวเลขที่ต้อง
+     แก้เวลาเปลี่ยนข้อมูลจึงเป็นความยาวเส้นตรง ๆ ไม่ใช่พิกัดโค้งที่คำนวณมือ
+     เส้นรอบวง = 2πr = 2 × 3.14159 × 80 = 502.65 ความยาวของก้อน = % × 502.65
+     ลบช่องว่าง 3 หน่วย และ dashoffset ของก้อนถัดไปคือผลรวมสะสมติดลบ -->
+<style>
+  .w-donut .layout{ display:flex; flex-wrap:wrap; align-items:center; gap:clamp(20px,4vw,52px) }
+  .w-donut figure{ flex:0 1 300px; min-width:220px }
+  .w-donut svg{ display:block; width:100%; height:auto }
+  .w-donut .total{ font-size:30px; font-weight:600; letter-spacing:-.01em; fill:var(--text);
+                   font-variant-numeric:tabular-nums }
+  .w-donut .totlabel{ font-size:13px; fill:var(--muted) }
+  .w-donut .legend{ flex:1 1 260px; min-width:0; display:grid; gap:2px }
+  .w-donut .legend > div{ display:flex; align-items:center; gap:12px; padding:11px 0;
+                          border-bottom:1px solid var(--line); font-size:15px }
+  .w-donut .legend > div:last-child{ border-bottom:0 }
+  .w-donut .swatch{ width:12px; height:12px; border-radius:4px; background:var(--k); flex:none }
+  .w-donut .pct{ margin-inline-start:auto; font-weight:500; font-variant-numeric:tabular-nums }
+  .w-donut .amt{ color:var(--muted); font-size:13px; font-variant-numeric:tabular-nums;
+                 min-width:86px; text-align:end }
+  .w-donut details{ margin-top:22px; border:1px solid var(--line); border-radius:var(--radius) }
+  .w-donut summary{ cursor:pointer; padding:12px 16px; font-size:14px; font-weight:500 }
+  .w-donut .scroll{ overflow-x:auto; padding:0 16px 16px }
+  .w-donut table{ width:100%; border-collapse:collapse; font-size:13.5px }
+  .w-donut th,.w-donut td{ text-align:start; padding:8px 12px; border-top:1px solid var(--line); white-space:nowrap }
+  .w-donut td{ font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--muted) }
+  .w-donut th{ font-weight:500 }
+  @media (max-width:560px){ .w-donut .amt{ display:none } }
+</style>
+
+<section class="w-section w-donut" aria-labelledby="donut-title">
+  <div class="w-wrap">
+    <p class="w-eyebrow">ไตรมาสนี้</p>
+    <h2 id="donut-title" style="font-size:clamp(24px,3vw,32px);letter-spacing:-.025em;margin-top:6px">รายได้มาจากช่องทางไหน</h2>
+
+    <div class="layout" style="margin-top:26px">
+      <figure>
+        <svg viewBox="0 0 240 240" role="img"
+             aria-label="สัดส่วนรายได้ ออนไลน์ 42 เปอร์เซ็นต์ หน้าร้าน 27 ตัวแทน 19 อื่น ๆ 12">
+          <g transform="rotate(-90 120 120)" fill="none" stroke-width="34">
+            <circle cx="120" cy="120" r="80" stroke="var(--viz-2,#2563eb)"
+                    stroke-dasharray="208.1 294.5" stroke-dashoffset="0">
+              <title>ออนไลน์ 42% — ฿520,800</title>
+            </circle>
+            <circle cx="120" cy="120" r="80" stroke="var(--viz-3,#16a34a)"
+                    stroke-dasharray="132.7 369.9" stroke-dashoffset="-211.1">
+              <title>หน้าร้าน 27% — ฿334,800</title>
+            </circle>
+            <circle cx="120" cy="120" r="80" stroke="var(--viz-5,#d97706)"
+                    stroke-dasharray="92.5 410.1" stroke-dashoffset="-346.8">
+              <title>ตัวแทนจำหน่าย 19% — ฿235,600</title>
+            </circle>
+            <circle cx="120" cy="120" r="80" stroke="var(--viz-4,#7c3aed)"
+                    stroke-dasharray="57.3 445.3" stroke-dashoffset="-442.3">
+              <title>อื่น ๆ 12% — ฿148,800</title>
+            </circle>
+          </g>
+          <text class="total" x="120" y="116" text-anchor="middle">฿1.24 ล.</text>
+          <text class="totlabel" x="120" y="138" text-anchor="middle">รวมทั้งไตรมาส</text>
+        </svg>
+      </figure>
+
+      <div class="legend">
+        <div style="--k:var(--viz-2,#2563eb)"><span class="swatch"></span> ออนไลน์ <span class="amt">฿520,800</span> <span class="pct">42%</span></div>
+        <div style="--k:var(--viz-3,#16a34a)"><span class="swatch"></span> หน้าร้าน <span class="amt">฿334,800</span> <span class="pct">27%</span></div>
+        <div style="--k:var(--viz-5,#d97706)"><span class="swatch"></span> ตัวแทนจำหน่าย <span class="amt">฿235,600</span> <span class="pct">19%</span></div>
+        <div style="--k:var(--viz-4,#7c3aed)"><span class="swatch"></span> อื่น ๆ <span class="amt">฿148,800</span> <span class="pct">12%</span></div>
+      </div>
+    </div>
+
+    <details>
+      <summary>ดูเป็นตาราง</summary>
+      <div class="scroll">
+        <table>
+          <caption class="w-sr-only">รายได้แยกตามช่องทาง ไตรมาสนี้</caption>
+          <thead><tr><th scope="col">ช่องทาง</th><th scope="col">รายได้</th><th scope="col">สัดส่วน</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">ออนไลน์</th><td>฿520,800</td><td>42%</td></tr>
+            <tr><th scope="row">หน้าร้าน</th><td>฿334,800</td><td>27%</td></tr>
+            <tr><th scope="row">ตัวแทนจำหน่าย</th><td>฿235,600</td><td>19%</td></tr>
+            <tr><th scope="row">อื่น ๆ</th><td>฿148,800</td><td>12%</td></tr>
+            <tr><th scope="row">รวม</th><td>฿1,240,000</td><td>100%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+  </div>
+</section>

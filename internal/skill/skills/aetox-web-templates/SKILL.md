@@ -1,6 +1,6 @@
 ---
 name: aetox-web-templates
-description: เทมเพลตหน้าเว็บจริงที่ก๊อปไปใช้ได้เลย 30 ส่วน ตั้งแต่ nav hero ราคา FAQ ไปจนถึงแดชบอร์ด แดชบอร์ดวิเคราะห์พร้อมกราฟ ตาราง ฟอร์ม แจ้งเตือน สลับธีม กริดสื่อ โปรไฟล์ หน้า 404 บทความ และหน้าเอกสาร ไฟล์เดียวจบ responsive ไม่มี framework ไม่มี CDN ไม่ต้อง build ใช้ตอนกำลังจะสร้างหน้าเว็บหรือหน้าจอแล้วไม่อยากประดิษฐ์โครงขึ้นใหม่ทุกครั้ง
+description: เทมเพลตหน้าเว็บจริงที่ก๊อปไปใช้ได้เลย 36 ส่วน ตั้งแต่ nav hero ราคา FAQ ไปจนถึงแดชบอร์ด แดชบอร์ดวิเคราะห์ กราฟ 6 ชนิดที่วาดด้วย SVG ล้วน ตาราง ฟอร์ม แจ้งเตือน สลับธีม กริดสื่อ โปรไฟล์ หน้า 404 บทความ และหน้าเอกสาร ไฟล์เดียวจบ responsive ไม่มี framework ไม่มี CDN ไม่ต้อง build ใช้ตอนกำลังจะสร้างหน้าเว็บหรือหน้าจอแล้วไม่อยากประดิษฐ์โครงขึ้นใหม่ทุกครั้ง
 ---
 
 # Web templates
@@ -53,6 +53,12 @@ and dark mode that every section below assumes. Then paste sections into its
 | Dashboard shell | `sections/dashboard-shell.html` | Sidebar, topbar, content well for an app. |
 | Analytics overview | `sections/analytics-overview.html` | A finished analytics home rather than an empty frame: funnel, totals, retention, distributions, one insight. Frosted chrome over an ambient ground. |
 | Stat cards | `sections/stat-cards.html` | The number row at the top of a dashboard. |
+| Stat cards + sparkline | `sections/stat-sparkline-row.html` | The same number row when the shape of the last eight weeks matters as much as the number. |
+| Area price chart | `sections/chart-area-price.html` | One series over time, for the question "up or down". Latest value labelled at the end of the line. |
+| Multi-series line | `sections/chart-multi-line.html` | Three series that share one unit, compared on one axis. Never two axes. |
+| Stacked bars | `sections/chart-stacked-bars.html` | Totals over time, and what the totals are made of. Three series is the ceiling. |
+| Ranked bars | `sections/chart-ranked-bars.html` | A ranking read in two seconds. Use it wherever a donut would have more than five slices. |
+| Donut | `sections/chart-donut.html` | Share of a whole that genuinely sums to 100%, in at most five slices. |
 | Data table | `sections/data-table.html` | Tabular data that scrolls on a narrow screen. |
 | Form card | `sections/form-card.html` | Sign in, sign up, any short form. |
 | Alert | `sections/alert.html` | An inline status message, or a grouped error summary for a multi-field form. |
@@ -96,6 +102,17 @@ because each section answers the question the one before it raises.
   able to reach into each other.
 - **Light and dark from tokens**, defined once in the shell. No template hard
   codes a colour.
+- **Charts are SVG and CSS in the file.** No charting library, no CDN, for the
+  same reason as everything else here: a page whose picture arrives from
+  somewhere else is a page with a hole in it when that somewhere else is down.
+  Series colours come from `--viz-1` … `--viz-6` in the shell, in that fixed
+  order, never cycled; the ramp `--viz-s1` … `--viz-s5` carries magnitude. Those
+  six ran through the `dataviz` skill's validator in both modes — lightness
+  band, chroma floor, colour-blind separation of adjacent pairs, contrast
+  against the surface. Change a value and run it again rather than eyeballing.
+  Every mark carries its own `<title>`, so the browser draws the tooltip and a
+  screen reader reads the number without a line of script, and every chart ships
+  the same numbers as a table inside `<details>`.
 - **Accessible by construction.** Visible focus ring, a skip link, labels that
   stay visible when the field is filled, `prefers-reduced-motion` respected, and
   status never carried by colour alone.

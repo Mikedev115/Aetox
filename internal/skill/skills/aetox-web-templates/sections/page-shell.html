@@ -21,12 +21,29 @@
     --pad:clamp(20px,5vw,48px);
     --sans:"Prompt","Leelawadee UI",system-ui,-apple-system,Segoe UI,sans-serif;
     --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+    /* สีสำหรับข้อมูล แยกจากสีสถานะข้างบนโดยตั้งใจ: สถานะบอกว่าเรื่องนี้ดีหรือแย่
+       ข้อมูลบอกแค่ว่านี่คนละชุดกับชุดนั้น ปนกันเมื่อไหร่กราฟจะพูดสิ่งที่ไม่ได้
+       ตั้งใจพูด ลำดับตายตัว ห้ามวนกลับ ชุดที่เจ็ดคือรวมเป็น "อื่น ๆ" ไม่ใช่สร้าง
+       สีใหม่ ทั้งหกค่านี้รันผ่าน validator ของสกิล dataviz แล้วทั้งสองโหมด —
+       แถบความสว่าง ความอิ่มสี ระยะห่างของคู่ที่ติดกันเมื่อมองด้วยตาบอดสี และ
+       คอนทราสต์กับพื้น ถ้าจะเปลี่ยนค่า ให้รัน validator ใหม่ อย่ากะด้วยตา */
+    --viz-1:#db2777; --viz-2:#2563eb; --viz-3:#16a34a;
+    --viz-4:#7c3aed; --viz-5:#d97706; --viz-6:#0d9488;
+    /* ไล่เฉดสีเดียวสำหรับปริมาณ อ่อนไปเข้ม ไม่ใช่รุ้ง */
+    --viz-s1:#dbeafe; --viz-s2:#bfdbfe; --viz-s3:#93b4f7;
+    --viz-s4:#4f83ee; --viz-s5:#1d4ed8;
+    /* ขึ้นกับลง เป็นสถานะ ไม่ใช่ชุดข้อมูล จึงยืมจาก success/danger */
+    --viz-up:var(--success); --viz-down:var(--danger);
   }
   @media (prefers-color-scheme:dark){
     :root:not([data-theme="light"]){ color-scheme:dark;
            --bg:#0c0e12; --surface:#14171d; --text:#f2f4f7; --muted:#98a1b0;
            --line:#232830; --accent:#ff5a45; --accent-ink:#0c0e12;
-           --success:#4fd18b; --warning:#ffb648; --danger:#ff7a68 }
+           --success:#4fd18b; --warning:#ffb648; --danger:#ff7a68;
+           --viz-1:#e0538f; --viz-2:#4f7fe8; --viz-3:#25a463;
+           --viz-4:#8a6bea; --viz-5:#c1862c; --viz-6:#1ba38f;
+           --viz-s1:#182a4a; --viz-s2:#1e3a6b; --viz-s3:#2a539b;
+           --viz-s4:#3a6ecb; --viz-s5:#5b8cf7 }
   }
   /* Same values again, gated on an explicit choice rather than the OS
      setting: sections/theme-toggle.html flips this attribute and remembers
@@ -35,7 +52,11 @@
   :root[data-theme="dark"]{ color-scheme:dark;
          --bg:#0c0e12; --surface:#14171d; --text:#f2f4f7; --muted:#98a1b0;
          --line:#232830; --accent:#ff5a45; --accent-ink:#0c0e12;
-         --success:#4fd18b; --warning:#ffb648; --danger:#ff7a68 }
+         --success:#4fd18b; --warning:#ffb648; --danger:#ff7a68;
+         --viz-1:#e0538f; --viz-2:#4f7fe8; --viz-3:#25a463;
+         --viz-4:#8a6bea; --viz-5:#c1862c; --viz-6:#1ba38f;
+         --viz-s1:#182a4a; --viz-s2:#1e3a6b; --viz-s3:#2a539b;
+         --viz-s4:#3a6ecb; --viz-s5:#5b8cf7 }
   *,*::before,*::after{ box-sizing:border-box }
   body,h1,h2,h3,h4,p,figure,blockquote,ul,ol,dl,dd{ margin:0 }
   /* Lists inside a w- component are structure, not prose, so they lose their
