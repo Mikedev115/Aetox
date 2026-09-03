@@ -1,6 +1,6 @@
 ---
 name: aetox-web-templates
-description: เทมเพลตหน้าเว็บจริงที่ก๊อปไปใช้ได้เลย 29 ส่วน ตั้งแต่ nav hero ราคา FAQ ไปจนถึงแดชบอร์ด ตาราง ฟอร์ม แจ้งเตือน สลับธีม กริดสื่อ โปรไฟล์ หน้า 404 บทความ และหน้าเอกสาร ไฟล์เดียวจบ responsive ไม่มี framework ไม่มี CDN ไม่ต้อง build ใช้ตอนกำลังจะสร้างหน้าเว็บหรือหน้าจอแล้วไม่อยากประดิษฐ์โครงขึ้นใหม่ทุกครั้ง
+description: เทมเพลตหน้าเว็บจริงที่ก๊อปไปใช้ได้เลย 30 ส่วน ตั้งแต่ nav hero ราคา FAQ ไปจนถึงแดชบอร์ด แดชบอร์ดวิเคราะห์พร้อมกราฟ ตาราง ฟอร์ม แจ้งเตือน สลับธีม กริดสื่อ โปรไฟล์ หน้า 404 บทความ และหน้าเอกสาร ไฟล์เดียวจบ responsive ไม่มี framework ไม่มี CDN ไม่ต้อง build ใช้ตอนกำลังจะสร้างหน้าเว็บหรือหน้าจอแล้วไม่อยากประดิษฐ์โครงขึ้นใหม่ทุกครั้ง
 ---
 
 # Web templates
@@ -51,6 +51,7 @@ and dark mode that every section below assumes. Then paste sections into its
 | Newsletter | `sections/newsletter.html` | Email capture or short contact form. |
 | Footer | `sections/footer.html` | Closure and the alternative paths. |
 | Dashboard shell | `sections/dashboard-shell.html` | Sidebar, topbar, content well for an app. |
+| Analytics overview | `sections/analytics-overview.html` | A finished analytics home rather than an empty frame: funnel, totals, retention, distributions, one insight. Frosted chrome over an ambient ground. |
 | Stat cards | `sections/stat-cards.html` | The number row at the top of a dashboard. |
 | Data table | `sections/data-table.html` | Tabular data that scrolls on a narrow screen. |
 | Form card | `sections/form-card.html` | Sign in, sign up, any short form. |

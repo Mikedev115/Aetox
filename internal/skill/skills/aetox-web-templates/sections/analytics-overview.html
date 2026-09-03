@@ -1,0 +1,511 @@
+<!-- Analytics overview. หน้าแรกของแอปวิเคราะห์: แถบนำทางบนสุด หัวเรื่องพร้อมช่วงเวลา
+     ที่เทียบกันได้ แล้วกระดานวิดเจ็ตที่ตัวเลขสำคัญที่สุดกินพื้นที่มากที่สุด
+
+     ต่างจาก dashboard-shell.html ตรงที่อันนั้นเป็นโครงว่างให้เอาอะไรก็ได้ไปใส่
+     (ไซด์บาร์ + ทอปบาร์ + พื้นที่เนื้อหา) อันนี้คือหน้าที่ถูกจัดเสร็จแล้ว: ลำดับ
+     ของวิดเจ็ตคือสารของหน้า — กรวยการชำระเงินมาก่อน เพราะทุกอย่างที่เหลือคือ
+     ผลของมัน
+
+     กราฟทั้งหมดเป็น CSS กับ SVG ในไฟล์ ไม่มีไลบรารี ไม่มี CDN ตามสัญญาของคลัง
+     เหตุผลเดิม: หน้าที่พึ่งสคริปต์ภายนอกคือหน้าที่ว่างเปล่าเมื่อสคริปต์ไม่มา
+
+     สีของกราฟเป็นโทเคนของคอมโพเนนต์เอง (--viz-*) ไม่ใช่สีลอย ๆ ในกฎ เพราะ
+     page-shell ไม่มีชุดสีข้อมูลให้ และชุดสีข้อมูลไม่ควรไปปนกับสีสถานะของระบบ
+     ประกาศครบสามสถานะเหมือนที่ shell ทำ: bare, ตาม OS, และตามที่ผู้ใช้เลือกเอง -->
+<style>
+  .w-ao{
+    --viz-1:#2563eb; --viz-1-soft:#93b4f7; --viz-1-face:#dbe6fd;
+    --viz-2:#16a34a; --viz-3:#db2777; --viz-4:#f97316;
+    --app:#ffffff; --well:#f4f5f7; --chip:#ffffff;
+    --glass:78%; --glass-card:70%; --glass-chip:62%;
+    --rim:rgb(255 255 255/.75); --sheen:rgb(255 255 255/.62);
+    --shadow:0 1px 2px rgb(16 18 24/.05), 0 8px 24px -12px rgb(16 18 24/.18);
+    --blur:saturate(180%) blur(22px);
+    padding-block:clamp(20px,4vw,44px);
+    background:
+      radial-gradient(70% 55% at 12% 0%, color-mix(in srgb,var(--viz-1) 16%,transparent) 0, transparent 60%),
+      radial-gradient(60% 50% at 92% 8%, color-mix(in srgb,var(--viz-4) 15%,transparent) 0, transparent 62%),
+      radial-gradient(80% 60% at 78% 100%, color-mix(in srgb,var(--viz-3) 11%,transparent) 0, transparent 60%),
+      var(--bg);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]) .w-ao{
+      --viz-1:#5b8cf7; --viz-1-soft:#2f4d8f; --viz-1-face:#1b2740;
+      --viz-2:#34d17f; --viz-3:#f472b6; --viz-4:#fb923c;
+      --app:#15181e; --well:#1b1f26; --chip:#20252d;
+      --glass:62%; --glass-card:58%; --glass-chip:52%;
+      --rim:rgb(255 255 255/.12); --sheen:rgb(255 255 255/.09);
+      --shadow:0 1px 2px rgb(0 0 0/.4), 0 10px 30px -14px rgb(0 0 0/.7);
+    }
+  }
+  :root[data-theme="dark"] .w-ao{
+    --viz-1:#5b8cf7; --viz-1-soft:#2f4d8f; --viz-1-face:#1b2740;
+    --viz-2:#34d17f; --viz-3:#f472b6; --viz-4:#fb923c;
+    --app:#15181e; --well:#1b1f26; --chip:#20252d;
+    --glass:62%; --glass-card:58%; --glass-chip:52%;
+    --rim:rgb(255 255 255/.12); --sheen:rgb(255 255 255/.09);
+    --shadow:0 1px 2px rgb(0 0 0/.4), 0 10px 30px -14px rgb(0 0 0/.7);
+  }
+
+  /* หน้าต่างแอป */
+  .w-ao .app{ max-width:1240px; margin-inline:auto; overflow:hidden;
+              background:color-mix(in srgb,var(--app) var(--glass),transparent);
+              -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
+              border:1px solid var(--rim); border-radius:clamp(14px,2vw,26px);
+              box-shadow:inset 0 1px 0 var(--sheen),
+                         0 1px 2px rgb(16 18 24/.06), 0 30px 60px -30px rgb(16 18 24/.35) }
+
+  /* แถบนำทาง */
+  .w-ao .bar{ display:flex; align-items:center; gap:clamp(12px,2vw,28px);
+              padding:14px clamp(14px,2vw,24px);
+              background:linear-gradient(180deg,var(--sheen),transparent) }
+  .w-ao .brand{ display:flex; align-items:center; gap:10px; font-weight:600; font-size:19px }
+  .w-ao .mark{ width:30px; height:30px; border-radius:9px; background:var(--viz-4);
+               display:grid; place-items:center; color:#fff; flex:none }
+  .w-ao .mark svg{ width:16px; height:16px }
+  .w-ao .menu{ display:flex; gap:2px; overflow:auto; scrollbar-width:none }
+  .w-ao .menu::-webkit-scrollbar{ display:none }
+  .w-ao .menu a{ text-decoration:none; color:var(--muted); font-size:14.5px; white-space:nowrap;
+                 padding:9px 14px; border-radius:9px }
+  .w-ao .menu a:hover{ color:var(--text) }
+  .w-ao .menu a[aria-current="page"]{ background:var(--text); color:var(--bg); font-weight:500 }
+  .w-ao .tools{ margin-inline-start:auto; display:flex; align-items:center; gap:8px }
+  .w-ao .icon{ width:36px; height:36px; display:grid; place-items:center; flex:none;
+               border:1px solid var(--rim); border-radius:50%;
+               background:color-mix(in srgb,var(--chip) var(--glass-chip),transparent);
+               -webkit-backdrop-filter:saturate(160%) blur(12px);
+               backdrop-filter:saturate(160%) blur(12px);
+               box-shadow:inset 0 1px 0 var(--sheen);
+               color:var(--muted); cursor:pointer; position:relative }
+  .w-ao .icon svg{ width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.8 }
+  .w-ao .icon .dot{ position:absolute; top:6px; inset-inline-end:7px; width:7px; height:7px;
+                    border-radius:50%; background:var(--viz-4); border:1.5px solid var(--chip) }
+  .w-ao .avatar{ width:36px; height:36px; border-radius:50%; flex:none; object-fit:cover;
+                 border:2px solid var(--line) }
+
+  /* หัวเรื่อง + ช่วงเวลา */
+  .w-ao .head{ display:flex; flex-wrap:wrap; align-items:center; gap:12px;
+               padding:6px clamp(14px,2vw,24px) 18px }
+  .w-ao .head h2{ font-size:clamp(30px,4vw,44px); letter-spacing:-.035em; font-weight:600; line-height:1 }
+  .w-ao .head .permalink{ width:28px; height:28px; align-self:flex-start; margin-top:2px }
+  .w-ao .head .permalink svg{ width:13px; height:13px }
+  .w-ao .range{ margin-inline-start:auto; display:flex; flex-wrap:wrap; align-items:center; gap:8px }
+  .w-ao .pill{ display:inline-flex; align-items:center; gap:8px;
+               background:color-mix(in srgb,var(--chip) var(--glass-chip),transparent);
+               -webkit-backdrop-filter:saturate(160%) blur(12px);
+               backdrop-filter:saturate(160%) blur(12px);
+               box-shadow:inset 0 1px 0 var(--sheen);
+               border:1px solid var(--rim); border-radius:11px; padding:9px 13px;
+               font-size:13.5px; color:var(--text); cursor:pointer; white-space:nowrap }
+  .w-ao .pill svg{ width:15px; height:15px; fill:none; stroke:var(--muted); stroke-width:1.7 }
+  .w-ao .vs{ font-size:13px; color:var(--muted) }
+
+  /* กระดานวิดเจ็ต */
+  .w-ao .board{ background:color-mix(in srgb,var(--well) 55%,transparent);
+                border-top:1px solid var(--rim);
+                padding:clamp(12px,1.6vw,18px); display:grid; gap:clamp(12px,1.6vw,18px);
+                grid-template-columns:repeat(12,1fr) }
+  .w-ao .w-card{ background:color-mix(in srgb,var(--app) var(--glass-card),transparent);
+                 -webkit-backdrop-filter:saturate(160%) blur(16px);
+                 backdrop-filter:saturate(160%) blur(16px);
+                 border:1px solid var(--rim); border-radius:16px;
+                 box-shadow:inset 0 1px 0 var(--sheen), var(--shadow);
+                 padding:clamp(14px,1.8vw,20px); min-width:0 }
+  .w-ao .w-card > h3{ font-size:17px; font-weight:600 }
+  .w-ao .cardhead{ display:flex; align-items:center; gap:10px; margin-bottom:14px }
+  .w-ao .more{ margin-inline-start:auto; width:30px; height:30px; border-radius:50%;
+               border:1px solid var(--rim);
+               background:color-mix(in srgb,var(--chip) var(--glass-chip),transparent);
+               -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); color:var(--muted);
+               cursor:pointer; font-size:15px; line-height:1 }
+  .w-ao .funnel{ grid-column:span 8; position:relative;
+                 padding-bottom:clamp(104px,11vw,128px) }
+  .w-ao .gross{ grid-column:span 4 }
+  .w-ao .retention{ grid-column:span 3 }
+  .w-ao .stack{ grid-column:span 5; display:grid; gap:clamp(12px,1.6vw,18px); align-content:start }
+  .w-ao .insight{ grid-column:span 4 }
+  @media (max-width:1080px){
+    .w-ao .funnel,.w-ao .gross,.w-ao .stack,.w-ao .insight{ grid-column:span 12 }
+    .w-ao .retention{ grid-column:span 6 }
+  }
+  @media (max-width:680px){ .w-ao .retention{ grid-column:span 12 } }
+
+  /* กรวยการชำระเงิน */
+  .w-ao .steps{ margin-inline-start:4.86%; display:grid; grid-template-columns:repeat(5,1fr); border-block:1px solid var(--line);
+                border-color:color-mix(in srgb,var(--line) 70%,transparent) }
+  .w-ao .steps > div{ padding:10px 12px; border-inline-start:1px solid var(--line);
+                      border-color:color-mix(in srgb,var(--line) 70%,transparent) }
+  .w-ao .steps > div:first-child{ border-inline-start:0 }
+  .w-ao .steps .on{ background:color-mix(in srgb,var(--viz-1) 7%,transparent) }
+  .w-ao .steps dt{ font-size:12.5px; color:var(--muted); white-space:nowrap; overflow:hidden;
+                   text-overflow:ellipsis }
+  .w-ao .steps .on dt{ color:var(--text) }
+  .w-ao .steps dd{ margin:2px 0 0; font-size:clamp(19px,2.4vw,28px); letter-spacing:-.03em;
+                   font-weight:500; color:var(--muted); font-variant-numeric:tabular-nums }
+  .w-ao .steps .on dd{ color:var(--text) }
+  .w-ao .plot{ position:relative; margin-top:-1px }
+  .w-ao .plot svg{ display:block; width:100%; height:auto }
+  .w-ao .tip{ position:absolute; inset-inline-start:47%; top:40%;
+              background:color-mix(in srgb,var(--chip) 68%,transparent);
+              -webkit-backdrop-filter:saturate(180%) blur(14px);
+              backdrop-filter:saturate(180%) blur(14px);
+              border:1px solid var(--rim); border-radius:10px; padding:7px 11px; font-size:12.5px;
+              color:var(--muted); box-shadow:var(--shadow); white-space:nowrap }
+  .w-ao .tip b{ color:var(--text); font-weight:500 }
+  @media (max-width:560px){ .w-ao .tip{ display:none } }
+
+  /* แถบถามต่อ */
+  .w-ao .ask{ position:absolute; inset-inline:clamp(10px,1.4vw,16px); bottom:clamp(10px,1.4vw,16px);
+              border:1px solid var(--rim); border-radius:14px; padding:12px;
+              -webkit-backdrop-filter:saturate(180%) blur(20px);
+              backdrop-filter:saturate(180%) blur(20px);
+              box-shadow:inset 0 1px 0 var(--sheen), 0 -12px 34px -24px rgb(16 18 24/.55);
+              background:linear-gradient(180deg,
+                color-mix(in srgb,var(--viz-1) 22%,transparent),
+                color-mix(in srgb,var(--app) 52%,transparent)) }
+  .w-ao .ask label{ display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:500 }
+  .w-ao .ask label svg{ width:15px; height:15px; fill:var(--viz-1) }
+  .w-ao .ask .field{ margin-top:9px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+                     background:color-mix(in srgb,var(--app) 88%,transparent);
+                     -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+                     border:1px solid var(--rim); border-radius:10px; padding:10px 12px }
+  .w-ao .ask input{ flex:1 1 200px; min-width:120px; border:0; background:none; color:var(--text);
+                    font:inherit; font-size:14px; padding:0 }
+  .w-ao .ask input:focus{ outline:0 }
+  .w-ao .ask .field:focus-within{ border-color:var(--accent) }
+  .w-ao .token{ font-size:13px; color:var(--warning); background:color-mix(in srgb,var(--warning) 14%,transparent);
+                border:1px solid color-mix(in srgb,var(--warning) 35%,transparent);
+                border-radius:6px; padding:2px 7px; font-family:var(--mono) }
+
+  /* ปริมาณรวม */
+  .w-ao .big{ font-size:clamp(34px,4.4vw,52px); letter-spacing:-.025em; font-weight:600; line-height:1;
+              font-variant-numeric:tabular-nums }
+  .w-ao .delta{ display:inline-flex; align-items:center; gap:4px; font-size:13px; font-weight:500;
+                color:var(--success); background:color-mix(in srgb,var(--success) 12%,transparent);
+                border-radius:99px; padding:4px 9px; vertical-align:middle; margin-inline-start:10px }
+  .w-ao .split{ margin-top:18px; padding-top:16px; border-top:1px solid var(--line);
+                display:grid; gap:15px }
+  .w-ao .split .row{ display:flex; align-items:baseline; gap:10px; font-size:14px }
+  .w-ao .split .row b{ margin-inline-start:auto; font-weight:500; font-variant-numeric:tabular-nums }
+  .w-ao .track{ margin-top:7px; height:10px; border-radius:99px; background:var(--well);
+                border:1px solid var(--line); overflow:hidden }
+  .w-ao .track span{ display:block; height:100%; border-radius:99px;
+                     background-image:repeating-linear-gradient(115deg,
+                       rgb(255 255 255/.55) 0 2px, transparent 2px 6px) }
+
+  /* คงอยู่ */
+  .w-ao .retention .chart{ position:relative; margin-top:6px }
+  .w-ao .retention svg{ display:block; width:100%; height:auto }
+  .w-ao .marker{ position:absolute; inset-inline-start:34%; top:-2px; transform:translateX(-50%);
+                 background:color-mix(in srgb,var(--chip) 68%,transparent);
+                 -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
+                 border:1px solid var(--rim); border-radius:99px;
+                 padding:3px 9px; font-size:12.5px; font-weight:500; box-shadow:var(--shadow) }
+  .w-ao .months{ display:flex; justify-content:space-between; margin-top:8px;
+                 font-size:11.5px; color:var(--muted) }
+
+  /* ธุรกรรม / ลูกค้า */
+  .w-ao .figure{ display:flex; align-items:center; gap:clamp(12px,2vw,22px); flex-wrap:wrap }
+  .w-ao .figure .n{ font-size:clamp(28px,3.4vw,40px); letter-spacing:-.035em; font-weight:600;
+                    line-height:1; font-variant-numeric:tabular-nums }
+  .w-ao .dots{ display:flex; align-items:flex-end; gap:5px; margin-inline:auto }
+  .w-ao .dots div{ display:flex; flex-direction:column-reverse; gap:5px }
+  .w-ao .dots i{ width:7px; height:7px; border-radius:50%; background:var(--c,var(--viz-2));
+                 opacity:.35 }
+  .w-ao .dots .peak i{ opacity:1 }
+  .w-ao .dots div:nth-child(n+4):nth-child(-n+10) i{ opacity:.6 }
+  .w-ao .dots .peak{ position:relative }
+  .w-ao .against{ text-align:end; font-size:12.5px; color:var(--muted) }
+  .w-ao .against b{ display:block; font-size:15px; color:var(--text); font-weight:500;
+                    font-variant-numeric:tabular-nums }
+  .w-ao .peaktag{ display:block; width:max-content; margin:0 auto 10px; font-size:12px;
+                  background:color-mix(in srgb,var(--chip) 62%,transparent);
+                  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+                  border:1px solid var(--rim); border-radius:99px;
+                  padding:3px 10px; color:var(--muted) }
+  .w-ao .peaktag b{ color:var(--text); font-weight:500 }
+
+  /* ข้อสังเกต */
+  .w-ao .insight{ color:#fff; border:0; position:relative; overflow:hidden; isolation:isolate;
+    background:
+      radial-gradient(120% 90% at 88% 6%, #f7a25b 0, transparent 46%),
+      radial-gradient(90% 70% at 96% 40%, #f2d06b 0, transparent 55%),
+      radial-gradient(120% 110% at 8% 96%, #1d4ed8 0, transparent 62%),
+      linear-gradient(160deg,#8fa7c7 0,#2b4f9e 45%,#123a86 100%) }
+  .w-ao .insight .tagline{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px;
+                           background:rgb(255 255 255/.18); border:1px solid rgb(255 255 255/.3);
+                           border-radius:99px; padding:4px 11px; backdrop-filter:blur(6px) }
+  .w-ao .insight .tagline svg{ width:13px; height:13px; fill:none; stroke:currentColor; stroke-width:1.8 }
+  .w-ao .insight .pct{ font-size:clamp(44px,6vw,72px); font-weight:600; letter-spacing:-.045em;
+                       line-height:1; margin-top:clamp(24px,4vw,52px) }
+  .w-ao .insight h4{ margin:14px 0 0; font-size:16.5px; font-weight:600; line-height:1.4; max-width:26ch }
+  .w-ao .insight p{ margin-top:8px; font-size:13.5px; color:rgb(255 255 255/.82); max-width:34ch }
+  .w-ao .segs{ display:flex; gap:6px; margin-top:20px }
+  .w-ao .segs span{ height:4px; flex:1; border-radius:99px; background:rgb(255 255 255/.28) }
+  .w-ao .segs span:first-child{ background:#fff }
+
+  @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+    .w-ao .app,.w-ao .w-card,.w-ao .pill,.w-ao .icon,.w-ao .more,
+    .w-ao .tip,.w-ao .marker,.w-ao .peaktag,.w-ao .ask .field{ background:var(--app) }
+    .w-ao .board{ background:var(--well) }
+    .w-ao .ask{ background:color-mix(in srgb,var(--viz-1) 12%,var(--app)) }
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .w-ao .pill,.w-ao .icon,.w-ao .more{ transition:border-color .15s, color .15s }
+  }
+</style>
+
+<section class="w-section w-ao" aria-labelledby="ao-title">
+  <div class="app">
+
+    <header class="bar">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M5 5h14L5 19h14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/></svg>
+        </span>
+        แบรนด์
+      </div>
+      <nav class="menu" aria-label="ส่วนหลักของแอป">
+        <a href="#ao-title" aria-current="page">หน้าหลัก</a>
+        <a href="#payments">ชำระเงิน</a>
+        <a href="#balances">ยอดคงเหลือ</a>
+        <a href="#customers">ลูกค้า</a>
+        <a href="#products">สินค้า</a>
+        <a href="#billing">วางบิล</a>
+        <a href="#reports">รายงาน</a>
+        <a href="#connect">เชื่อมต่อ</a>
+      </nav>
+      <div class="tools">
+        <button class="icon" type="button"><span class="w-sr-only">ค้นหา</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
+        </button>
+        <button class="icon" type="button"><span class="w-sr-only">การแจ้งเตือน มี 1 รายการใหม่</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 1.5 5.5h-15S6 13 6 9Z"/><path d="M10 18a2 2 0 0 0 4 0"/></svg>
+          <span class="dot" aria-hidden="true"></span>
+        </button>
+        <img class="avatar" src="imgs/ฉัน.jpg" alt="บัญชีของคุณ" width="72" height="72">
+      </div>
+    </header>
+
+    <div class="head">
+      <h2 id="ao-title">ภาพรวม</h2>
+      <button class="icon permalink" type="button"><span class="w-sr-only">ก๊อปลิงก์ของมุมมองนี้</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 6 .5l2-2a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-6-.5l-2 2A4 4 0 0 0 11.7 17l1-1"/></svg>
+      </button>
+      <div class="range">
+        <button class="pill" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3.5v3M16 3.5v3"/></svg>
+          1 ม.ค. – 31 ก.ค.
+        </button>
+        <span class="vs">เทียบกับ</span>
+        <button class="pill" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3.5v3M16 3.5v3"/></svg>
+          1 ส.ค. – 31 ธ.ค.
+        </button>
+        <button class="pill" type="button">รายวัน
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+        </button>
+        <button class="pill" type="button">เพิ่มวิดเจ็ต
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="board">
+
+      <article class="w-card funnel" id="payments">
+        <div class="cardhead">
+          <h3>การชำระเงิน</h3>
+          <button class="more" type="button"><span class="w-sr-only">ตัวเลือกของวิดเจ็ตการชำระเงิน</span>…</button>
+        </div>
+
+        <dl class="steps">
+          <div><dt>เริ่มรายการ</dt><dd>65.2k</dd></div>
+          <div><dt>อนุมัติแล้ว</dt><dd>54.8k</dd></div>
+          <div class="on"><dt>สำเร็จ</dt><dd>48.6k</dd></div>
+          <div><dt>โอนให้ร้านค้า</dt><dd>38.3k</dd></div>
+          <div><dt>ปิดรายการ</dt><dd>32.9k</dd></div>
+        </dl>
+
+        <div class="plot">
+          <svg viewBox="0 0 946 320" role="img"
+               aria-label="กรวยการชำระเงิน เริ่มรายการ 65.2k อนุมัติแล้ว 54.8k สำเร็จ 48.6k โอนให้ร้านค้า 38.3k ปิดรายการ 32.9k">
+            <defs>
+              <linearGradient id="ao-face" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="var(--viz-1)"/>
+                <stop offset="1" stop-color="var(--viz-1-soft)"/>
+              </linearGradient>
+              <linearGradient id="ao-live" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="var(--viz-1)"/>
+                <stop offset="1" stop-color="#1e40af"/>
+              </linearGradient>
+              <pattern id="ao-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+                <rect width="8" height="8" fill="url(#ao-face)"/>
+                <rect width="3" height="8" fill="#fff" fill-opacity=".55"/>
+              </pattern>
+            </defs>
+
+            <g stroke="var(--line)" stroke-width="1">
+              <path d="M46 52h900M46 111h900M46 170h900M46 229h900M46 288h900"/>
+            </g>
+            <g fill="var(--muted)" font-size="13" font-family="var(--sans)">
+              <text x="4" y="48">70k</text><text x="4" y="107">60k</text><text x="4" y="166">50k</text>
+              <text x="4" y="225">40k</text><text x="4" y="284">30k</text>
+            </g>
+
+            <rect x="406" y="0" width="180" height="300" fill="var(--viz-1)" fill-opacity=".06"/>
+
+            <!-- หน้ากรวยแต่ละขั้น กับหน้าลาดที่พาไปขั้นถัดไป -->
+            <g>
+              <polygon points="196,80 226,142 226,300 196,300" fill="var(--viz-1-soft)" fill-opacity=".55"/>
+              <rect x="46" y="80" width="150" height="220" fill="url(#ao-hatch)"/>
+
+              <polygon points="376,142 406,178 406,300 376,300" fill="var(--viz-1-soft)" fill-opacity=".55"/>
+              <rect x="226" y="142" width="150" height="158" fill="url(#ao-hatch)"/>
+
+              <polygon points="556,178 586,239 586,300 556,300" fill="var(--viz-1)" fill-opacity=".45"/>
+              <rect x="406" y="178" width="150" height="122" fill="url(#ao-live)"/>
+
+              <polygon points="736,239 766,271 766,300 736,300" fill="var(--viz-1-soft)" fill-opacity=".55"/>
+              <rect x="586" y="239" width="150" height="61" fill="url(#ao-hatch)"/>
+
+              <rect x="766" y="271" width="150" height="29" fill="url(#ao-hatch)"/>
+            </g>
+
+            <g fill="var(--viz-1)">
+              <rect x="108" y="72" width="26" height="6" rx="3"/>
+              <rect x="288" y="134" width="26" height="6" rx="3"/>
+              <rect x="468" y="170" width="26" height="6" rx="3"/>
+              <rect x="648" y="231" width="26" height="6" rx="3"/>
+              <rect x="828" y="263" width="26" height="6" rx="3"/>
+            </g>
+          </svg>
+          <p class="tip"><b>48.6k</b> รายการ · แปลงได้ <b>89%</b> · หลุด <b>-11%</b></p>
+        </div>
+
+        <form class="ask" action="#" method="get">
+          <label for="ao-ask">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 6 6 2-6 2-2 6-2-6-6-2 6-2Z"/></svg>
+            อยากดูอะไรต่อ
+          </label>
+          <div class="field">
+            <input id="ao-ask" name="q" type="text" placeholder="พิมพ์คำถามถึงข้อมูลชุดนี้"
+                   value="อยากรู้ว่าอะไรทำให้หลุดระหว่างอนุมัติแล้วกับ">
+            <span class="token">/สำเร็จ</span>
+          </div>
+        </form>
+      </article>
+
+      <article class="w-card gross" id="balances">
+        <div class="cardhead">
+          <h3>ปริมาณรวม</h3>
+          <button class="more" type="button"><span class="w-sr-only">ตัวเลือกของวิดเจ็ตปริมาณรวม</span>…</button>
+        </div>
+        <p><span class="big">฿41,540</span><span class="delta">▲ 15%</span></p>
+
+        <div class="split">
+          <div>
+            <p class="row">ชำระออนไลน์ <b>฿26,800</b></p>
+            <div class="track"><span style="width:76%;background-color:var(--viz-2)"></span></div>
+          </div>
+          <div>
+            <p class="row">สมาชิกรายเดือน <b>฿10,400</b></p>
+            <div class="track"><span style="width:44%;background-color:var(--viz-1)"></span></div>
+          </div>
+          <div>
+            <p class="row">ขายหน้าร้าน <b>฿4,340</b></p>
+            <div class="track"><span style="width:19%;background-color:var(--viz-3)"></span></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="w-card retention">
+        <div class="cardhead">
+          <h3>อัตราคงอยู่</h3>
+          <button class="more" type="button"><span class="w-sr-only">ตัวเลือกของวิดเจ็ตอัตราคงอยู่</span>…</button>
+        </div>
+        <div class="chart">
+          <p class="marker">42%</p>
+          <svg viewBox="0 0 300 190" role="img" aria-label="อัตราคงอยู่รายเดือน ม.ค. ถึง มิ.ย. สูงสุด 42% ในเดือน มี.ค.">
+            <defs>
+              <pattern id="ao-vert" width="5" height="5" patternUnits="userSpaceOnUse">
+                <rect width="1.6" height="5" fill="var(--viz-3)" fill-opacity=".45"/>
+              </pattern>
+            </defs>
+            <path fill="url(#ao-vert)" d="M0 150h25v-22h25v-38h25v-16h25v-30h25v-18h25v26h25v34h25v-20h25v40h25v22h25v-14h25v36H0Z"/>
+            <path fill="none" stroke="var(--viz-3)" stroke-width="3" stroke-linejoin="round"
+                  d="M0 150h25v-22h25v-38h25v-16h25v-30h25v-18h25v26h25v34h25v-20h25v40h25v22h25v-14h25v36"/>
+            <circle cx="125" cy="26" r="4.5" fill="var(--viz-3)"/>
+          </svg>
+        </div>
+        <p class="months"><span>ม.ค.</span><span>ก.พ.</span><span>มี.ค.</span><span>เม.ย.</span><span>พ.ค.</span><span>มิ.ย.</span></p>
+      </article>
+
+      <div class="stack">
+        <article class="w-card">
+          <div class="cardhead">
+            <h3>ธุรกรรม</h3>
+            <button class="more" type="button"><span class="w-sr-only">ตัวเลือกของวิดเจ็ตธุรกรรม</span>…</button>
+          </div>
+          <div class="figure">
+            <p class="n">106k</p>
+            <div>
+              <span class="peaktag">สูงสุด <b>พุธ</b></span>
+              <div class="dots" role="img" aria-label="การกระจายรายวัน สูงสุดวันพุธ" style="--c:var(--viz-2)">
+                <div><i></i></div>
+                <div><i></i><i></i></div>
+                <div><i></i><i></i></div>
+                <div><i></i><i></i><i></i></div>
+                <div class="peak"><i></i><i></i><i></i><i></i><i></i></div>
+                <div><i></i><i></i><i></i></div>
+                <div><i></i><i></i></div>
+                <div><i></i></div>
+                <div><i></i><i></i></div>
+                <div><i></i></div>
+              </div>
+            </div>
+            <p class="against">เทียบรอบก่อน <b>+34,002</b></p>
+          </div>
+        </article>
+
+        <article class="w-card" id="customers">
+          <div class="cardhead">
+            <h3>ลูกค้า</h3>
+            <button class="more" type="button"><span class="w-sr-only">ตัวเลือกของวิดเจ็ตลูกค้า</span>…</button>
+          </div>
+          <div class="figure">
+            <p class="n">1,284</p>
+            <div>
+              <span class="peaktag">สูงสุด <b>พฤหัส</b></span>
+              <div class="dots" role="img" aria-label="การกระจายรายวัน สูงสุดวันพฤหัสบดี" style="--c:var(--viz-1)">
+                <div><i></i></div>
+                <div><i></i><i></i></div>
+                <div><i></i><i></i><i></i></div>
+                <div><i></i><i></i></div>
+                <div class="peak"><i></i><i></i><i></i><i></i></div>
+                <div><i></i><i></i><i></i></div>
+                <div><i></i><i></i></div>
+                <div><i></i><i></i></div>
+                <div><i></i></div>
+                <div><i></i></div>
+              </div>
+            </div>
+            <p class="against">เทียบรอบก่อน <b>+320</b></p>
+          </div>
+        </article>
+      </div>
+
+      <article class="w-card insight" id="reports">
+        <span class="tagline">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 1 4 10.5V16H8v-2.5A6 6 0 0 1 12 3Z"/></svg>
+          ข้อสังเกต
+        </span>
+        <p class="pct">75%</p>
+        <h4>อัตราอนุมัติเพิ่มขึ้น 4% เทียบกับสัปดาห์ก่อน</h4>
+        <p>ทำให้รายการที่ล้มเหลวลดลง 950 รายการ และคาดว่าจะได้เงินกลับมาราว ฿12,400</p>
+        <div class="segs" aria-hidden="true"><span></span><span></span><span></span></div>
+      </article>
+
+    </div>
+  </div>
+</section>
