@@ -1,0 +1,92 @@
+<!-- Morphing button. ปุ่มที่ขยายกลายเป็นแผง
+
+     ปุ่มที่กดแล้วยืดออกเป็นกล่องเนื้อหาในที่เดิม ไม่ใช่เปิดกล่องใหม่ทับ ใช้กับการกระทำที่ต้องกรอกอีกนิดเดียว
+
+     ที่มา: gui-challenges ของ Adam Argyle (Apache License 2.0) โฟลเดอร์ `morphing-button`
+     สำเนาอยู่ที่ third_party/gui-challenges พร้อมไฟล์ LICENSE และ ATTRIBUTION.md
+
+     สิ่งที่เปลี่ยนจากต้นฉบับ ตามข้อผูกพันของ Apache 2.0 ที่ต้องระบุการแก้ไข:
+     1. ต้นฉบับใช้ at-import ดึง open-props/style ซึ่งดึงจาก npm — ไฟล์นี้เปิดจากดิสก์
+        ต้องรันได้ จึงไล่หาตัวแปรที่โค้ดนี้ใช้จริง 1 ตัว (ไล่ซ้ำจนครบสายโซ่
+        ที่ตัวแปรอ้างตัวแปรต่อกัน) แล้วฝังมาเฉพาะที่ใช้ ไม่ได้ยกมาทั้ง 607 ตัว
+        Open Props เป็น MIT ของผู้เขียนคนเดียวกัน สำเนาอยู่ที่ third_party/open-props
+     2. คีย์เฟรมของ Open Props ที่อนิเมชันอ้างถึงอีก 0 ชุด ฝังมาด้วยด้วยเหตุผลเดียวกัน
+     3. ครอบทุกกฎด้วยคลาสราก `.w-morph` ตามสัญญาของคลังนี้ สองเทมเพลตใน
+        เอกสารเดียวกันจะได้เอื้อมถึงกันไม่ได้
+     4. ตัดส่วนหัวและท้ายของหน้าเดโมเขาออก เหลือเฉพาะตัวคอมโพเนนต์ -->
+<style>
+  .w-morph {
+    --size-5: 1.5rem;
+  }
+
+
+@layer demo {
+@media (prefers-reduced-motion: no-preference) {
+.w-morph button {
+      view-transition-name: buy-btn;
+    }
+.w-morph ::view-transition-old(buy-btn), .w-morph ::view-transition-new(buy-btn) {
+      height: 100%;
+      width: 100%;
+    }
+
+  
+}
+
+
+}
+@layer demo.support {
+.w-morph {
+    display: grid;
+    place-content: center;
+    padding: var(--size-5);
+  }
+
+
+}
+</style>
+
+<section class="w-section w-morph">
+  <div class="w-wrap">
+    <svg style="display: none">
+          <symbol id="icon.spinner">
+            <g>
+              <circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><animate attributeName="stroke-dasharray" dur="1.5s" calcMode="spline" values="0 150;42 150;42 150;42 150" keyTimes="0;0.475;0.95;1" keySplines="0.42,0,0.58,1;0.42,0,0.58,1;0.42,0,0.58,1" repeatCount="indefinite"/><animate attributeName="stroke-dashoffset" dur="1.5s" calcMode="spline" values="0;-16;-59;-59" keyTimes="0;0.475;0.95;1" keySplines="0.42,0,0.58,1;0.42,0,0.58,1;0.42,0,0.58,1" repeatCount="indefinite"/></circle><animateTransform attributeName="transform" type="rotate" dur="2s" values="0 12 12;360 12 12" repeatCount="indefinite"/>
+            </g>
+          </symbol>
+        </svg>
+
+        <button id="demo">Do some hard work</button> 
+
+        <a href="https://github.com/argyleink/gui-challenges" class="github-corner" aria-label="View source on GitHub" style="color: CanvasText">
+          <svg width="80" height="80" viewBox="0 0 250 250" style="position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true">
+            <path fill="Canvas" d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+            <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+            <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path>
+          </svg>
+        </a>
+  </div>
+</section>
+<script>
+const spinner = '<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24"><use href="#icon.spinner"></use></svg>'
+
+const states = {
+  idle: 'Do some hard work',
+  sending: `${spinner} working...`,
+  done: 'Done!',
+}
+
+demo.onclick = () => {
+  setState('sending')
+  setTimeout(() => setState('done'), 4000)
+  setTimeout(() => setState('idle'), 6000)
+}
+
+function setState(state) {
+  if (!document.startViewTransition)
+    demo.innerHTML = states[state]
+  else
+    document.startViewTransition(() => 
+      demo.innerHTML = states[state])
+}
+</script>

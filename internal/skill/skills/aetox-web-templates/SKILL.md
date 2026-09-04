@@ -1,6 +1,6 @@
 ---
 name: aetox-web-templates
-description: เทมเพลตหน้าเว็บจริงที่ก๊อปไปใช้ได้เลย 46 ส่วน ตั้งแต่ nav hero ราคา FAQ ไปจนถึงแดชบอร์ด แดชบอร์ดวิเคราะห์ กราฟ 6 ชนิดที่วาดด้วย SVG ล้วน ตาราง ฟอร์ม แจ้งเตือน สลับธีม กริดสื่อ โปรไฟล์ หน้า 404 บทความ และหน้าเอกสาร ไฟล์เดียวจบ responsive ไม่มี framework ไม่มี CDN ไม่ต้อง build ใช้ตอนกำลังจะสร้างหน้าเว็บหรือหน้าจอแล้วไม่อยากประดิษฐ์โครงขึ้นใหม่ทุกครั้ง
+description: เทมเพลตหน้าเว็บจริงที่ก๊อปไปใช้ได้เลย 53 ส่วน ตั้งแต่ nav hero ราคา FAQ ไปจนถึงแดชบอร์ด แดชบอร์ดวิเคราะห์ กราฟ 6 ชนิดที่วาดด้วย SVG ล้วน ตาราง ฟอร์ม แจ้งเตือน สลับธีม กริดสื่อ โปรไฟล์ หน้า 404 บทความ และหน้าเอกสาร ไฟล์เดียวจบ responsive ไม่มี framework ไม่มี CDN ไม่ต้อง build ใช้ตอนกำลังจะสร้างหน้าเว็บหรือหน้าจอแล้วไม่อยากประดิษฐ์โครงขึ้นใหม่ทุกครั้ง
 ---
 
 # Web templates
@@ -72,6 +72,13 @@ and dark mode that every section below assumes. Then paste sections into its
 | Breadcrumbs (collapsing) | `sections/breadcrumbs.html` | The path back up when it is too long for the space — the middle folds into an ellipsis. |
 | Split button | `sections/split-buttons.html` | One obvious action with the rest behind an arrow beside it. |
 | Card stack | `sections/card-stack.html` | Several things in a small space, fanning open on hover. |
+| Tabs | `sections/tabs.html` | Panels you scroll between rather than show and hide, with the underline tracking the real scroll position and arrow keys working per ARIA. |
+| Sidenav | `sections/sidenav.html` | A side menu that becomes a drawer on a narrow screen with no script — `:target` and scroll-snap do it. |
+| Settings | `sections/settings.html` | A finished settings page: labels in one column, controls in the other, every row on the same grid. |
+| Page transitions | `sections/transitions.html` | View Transitions — a circle that grows, or a wipe. Browsers without it just change the page. |
+| FAB | `sections/FAB.html` | The floating primary action that fans open into labelled choices. |
+| Switch group | `sections/switch-group.html` | One switch that controls a group, showing the in-between state when the children disagree. |
+| Morphing button | `sections/morphing-button.html` | A button that stretches into a panel in place, for an action that needs one more field. |
 | Empty state | `sections/empty-state.html` | A list with nothing in it yet. |
 | Error page | `sections/error-page.html` | 404, 500, anything that went wrong. |
 | Article index | `sections/article-index.html` | The list of posts that links into Article. |
