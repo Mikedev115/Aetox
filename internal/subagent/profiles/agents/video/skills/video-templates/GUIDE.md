@@ -9,7 +9,7 @@ not the whole file.
 **Most of these are CSS `@keyframes` and nothing else** — no library, no build
 step, no bundler, which is why they open in a browser as fast as they render.
 
-**17 of the 30 motion scenes hold to that.** The other **13** —
+**22 of the 35 motion scenes hold to that.** The other **13** —
 `bold-portrait-title`, `decision-flowchart`, `editorial-chart`,
 `grain-texture-hero`, `kinetic-type`, `playful-bounce`, `product-launch-30s`,
 `product-showcase`, `structured-grid`, and since 1 ก.ย. `airbnb-deck`,
@@ -81,7 +81,7 @@ of its keyframes: an animation that finishes in 2 seconds inside a 6 second
 scene leaves 4 seconds of a held frame, and one still moving at the end is cut
 off mid-move.
 
-**All 17 single-file scenes state their length on `<body>`**, beside the
+**All 22 single-file scenes state their length on `<body>`**, beside the
 frame, on the same composition root:
 
 ```html
@@ -89,7 +89,7 @@ frame, on the same composition root:
       data-width="1920" data-height="1080" data-start="0" data-duration="3.0">
 ```
 
-That is the one place the length lives in those 17; change the number to change
+That is the one place the length lives in those 22; change the number to change
 the clip. It is stated rather than derived for two reasons. Four of them —
 `glitch-title`, `typewriter-cursor`, `liquid-gradient-hero` and
 `cinematic-light-leak` — have no end to derive: the first three loop for ever
@@ -104,12 +104,16 @@ The numbers in those 13 are measured, not intended — each is what a real rende
 produced on the owner's machine, rounded up to a tenth of a second so nothing is
 cut mid-move.
 
-**The four added 4 ก.ย. 2569 are the exception, and SKILL.md marks them
+**The nine added 4 ก.ย. 2569 are the exception, and SKILL.md marks them
 *designed* rather than quoting them flat.** `search-query-reveal`,
-`dot-loader-morph`, `card-expand-hero` and `caption-montage` were written the
-other way round — the last keyframe was placed *on* the number the scene wanted,
-so 6.0 / 4.0 / 5.0 / 8.0 are where the animation ends by construction rather than
-where a render was observed to stop. Each was stepped frame by frame in a browser
+`dot-loader-morph`, `card-expand-hero`, `caption-montage`, `aurora-prompt-box`,
+`ship-it-toolbar`, `spring-stat-tiles`, `shared-axis-steps` and `device-reveal`
+were written the other way round — the last keyframe was placed *on* the number
+the scene wanted, so 6.0 / 4.0 / 5.0 / 8.0 / 8.0 / 6.0 / 5.0 / 6.4 / 7.0 are where
+the animation ends by construction rather than where a render was observed to
+stop. `aurora-prompt-box`
+is the strictest of the eight: its 8.0s is exactly one turn of the border glow,
+so shortening it leaves the hue stopped mid-rotation. Each was stepped frame by frame in a browser
 at several times on the clock and looks right at each, which is not the same
 evidence and should not be quoted as if it were. First person to render one:
 replace the word *designed* in the table with what came back.
@@ -126,11 +130,11 @@ and it is the one to quote to a user.
 
 ## Google Fonts is the one thing still fetched at render time
 
-25 of the 30 motion scenes pull typefaces over a `<link>` — every one except
+30 of the 35 motion scenes pull typefaces over a `<link>` — every one except
 `bold-portrait-title`, `structured-grid`, `startup-pitch`, `slideshow-demo`
 and `motion-blur`; counted 31 ส.ค., recounted 1 ก.ย. when four scenes
 arrived from the hyperframes registry (only `airbnb-deck` among them fetches),
-and again 4 ก.ย. when the four product-ad scenes landed, all of which fetch,
+and again 4 ก.ย. when the nine product-ad scenes landed, all of which fetch,
 rather than estimated, because the number here said 17 for a while and was
 wrong. Unlike
 Tailwind and GSAP this one cannot be cured by putting a file on the machine: the
@@ -142,7 +146,7 @@ If the request fails the frames record the fallback face. That is not a crash
 and not an error message: it is a scene that came out looking wrong for a reason
 nothing in the output explains. Check the render, do not assume it.
 
-## ไทย: 51 of the 55 scenes have no Thai typeface
+## ไทย: 51 of the 60 scenes have no Thai typeface
 
 Counted 31 ส.ค. over the original 47 scenes: 26 font families between them and
 not one covers Thai; the four scenes vendored 1 ก.ย. add only `Nunito Sans`
@@ -159,9 +163,10 @@ chosen. It looks wrong in a way that is obvious to a person and invisible to
 every check in this pipeline. `video check` passes it. `video_ocr` reads the
 letters back correctly and says nothing.
 
-**The four product-ad scenes added 4 ก.ย. 2569 are the exception**, and they are
+**The nine product-ad scenes added 4 ก.ย. 2569 are the exception**, and they are
 the first on this shelf that are. `search-query-reveal`, `dot-loader-morph`,
-`card-expand-hero` and `caption-montage` each name `Anuphan` — Thai and Latin,
+`card-expand-hero`, `caption-montage`, `aurora-prompt-box`, `ship-it-toolbar`,
+`spring-stat-tiles`, `shared-axis-steps` and `device-reveal` each name `Anuphan` — Thai and Latin,
 geometric — immediately after their Latin display face, with `IBM Plex Sans Thai`
 behind it. Per-glyph fallback does the rest: Latin resolves to Google Sans, Thai
 resolves to Anuphan, and nothing lands in Leelawadee by accident. Nothing needs
@@ -177,8 +182,8 @@ already uses. Do not quietly render and hand it over.
 
 ## Frame size is stated in every file, and has to be
 
-Every scene declares its frame on its composition root: on `<body>` for the 17
-single-file scenes, on the root `<div>` for the 13 folders. 29 of the 30 say
+Every scene declares its frame on its composition root: on `<body>` for the 22
+single-file scenes, on the root `<div>` for the 13 folders. 34 of the 35 say
 `data-width="1920" data-height="1080"`; `bold-portrait-title` says 1080x1920 and
 is the only one drawn portrait from the start.
 
@@ -191,7 +196,7 @@ written into them.
 Changing the aspect is those two numbers, plus whatever the scene's own CSS
 pins. Six of them — `glitch-title`, `typewriter-cursor`, `bar-chart-counter`,
 `logo-outro`, `liquid-gradient-hero`, `cinematic-light-leak` — lay themselves
-out fluidly, so for those it is only the two numbers. The other 19 draw their own
+out fluidly, so for those it is only the two numbers. The other 24 draw their own
 1920x1080 box in CSS as well, and moving the frame without editing that rule
 leaves the scene drawing its old box inside the new one. The `Frame` column in
 SKILL.md's table says which is which.
@@ -226,8 +231,8 @@ and applies here rather than being decided again per scene.
 ## Where these came from
 
 `CREDITS.md` beside this file records the source repository, the licence and the
-upstream design lineage of every one of the 55 files, including six that were
-themselves derived from other design skills and four that were written here. The licences are Apache-2.0 and
+upstream design lineage of every one of the 60 files, including six that were
+themselves derived from other design skills and nine that were written here. The licences are Apache-2.0 and
 MIT. Both allow commercial use and both require the attribution to travel with
 the work.
 

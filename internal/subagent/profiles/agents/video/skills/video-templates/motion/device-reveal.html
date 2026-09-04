@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Device Reveal · the thing you built, held up to the light</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@400..700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * device-reveal — a portrait screen rises into a near-black frame and the whole stage
+   * brightens with it; then it steps aside and lets a second panel in under warm light.
+   * The brightening is the point, and it is measured, not styled by feel.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569. See references/google-register.md.
+   *
+   * MEASURED, NOT GUESSED. The same 31.4s Google for Developers film the other two dark
+   * scenes came from, but this time every frame was captured rather than a handful:
+   * 1,250 samples, one every 25ms, taken by playing the video and drawing each frame to a
+   * 64x36 canvas. From that:
+   *
+   *   Mean luminance, 0-14s ................. L2 to L15 out of 255
+   *   Mean luminance, 16-18s ................ L53 to L55        <- the device shot
+   *   Mean luminance, 19-21s ................ L55 to L48, hue swinging 96deg -> 29deg
+   *   Mean luminance, 29-31s ................ L5, saturation 0.00
+   *
+   * The film spends its first fourteen seconds almost black and then jumps by a factor of
+   * three and a half in one cut, on the shot where the built thing is finally shown. This
+   * scene does that on purpose: `.lift` raises the stage from a measured near-black to a
+   * measured mid-grey as the device arrives, and nothing else in the scene is allowed to
+   * be that bright before it.
+   *
+   * The composition is the film's too: a PORTRAIT screen standing in a LANDSCAPE frame,
+   * centred and alone for its first beat, then displaced left so a second panel can enter.
+   * The film's own screen content is not reproduced; this one shows this library.
+   *
+   *
+   * CORRECTED 4 ก.ย. 2569, after the film was finally seen properly. The first pass read
+   * it off 64x36 average-colour samples and a browser pane 470px wide, which was not
+   * enough to read a layout from. Cropping half a frame into a full-viewport canvas gave
+   * 1.6x native and settled several things that had been guessed:
+   *
+   *   - the lit stage is not a centred glow. In the film's device shot the field runs
+   *     across the frame, one hue to another (green on the left to orange on the right),
+   *     with the dark panel floating on it. `.lift` is a horizontal two-hue field for
+   *     that reason, not the radial the first draft used.
+   *
+   * This scene needed the least correcting of the four, because its panel was already
+   * inset and it has no filled buttons to undo.
+   *
+   * Timeline (7.0s @ 60fps): near-black -> device rises on a spring and the stage lifts
+   * with it -> screen wakes -> 3.6s device steps left, panel arrives on the shared axis,
+   * warm light washes the top edge -> caption -> held.
+   */
+
+  :root {
+    /* M3 Expressive springs, simulated from AOSP damping/stiffness (mass 1) */
+    /* spatial default 0.8/380, settles 382ms, peak 1.0151 */
+    --sp-default: linear(0, 0.0239, 0.0843, 0.1671, 0.2617, 0.3601, 0.4567, 0.5478, 0.6309, 0.7047, 0.7689, 0.8236, 0.8692, 0.9065, 0.9364, 0.9599, 0.9779, 0.9913, 1.0009, 1.0075, 1.0117, 1.0141, 1.0151, 1.0151, 1.0144, 1.0133, 1.0119, 1.0105, 1.009, 1.0075, 1.0062, 1.005, 1);
+    /* spatial fast 0.6/800, settles 330ms, overshoots to 1.0939 */
+    --sp-fast: linear(0, 0.0377, 0.1329, 0.2618, 0.4052, 0.5487, 0.6819, 0.7985, 0.895, 0.9705, 1.0258, 1.0629, 1.0846, 1.0939, 1.0937, 1.0869, 1.0759, 1.0627, 1.049, 1.0358, 1.024, 1.0139, 1.0059, 0.9998, 0.9955, 0.9928, 0.9914, 0.991, 0.9914, 0.9923, 0.9935, 0.9948, 1);
+    /* effects default 1.0/1600, settles 193ms, critically damped */
+    --sp-effects: linear(0, 0.0248, 0.0849, 0.1641, 0.2514, 0.3396, 0.4245, 0.5033, 0.5747, 0.6384, 0.6943, 0.7428, 0.7846, 0.8203, 0.8506, 0.8761, 0.8976, 0.9156, 0.9305, 0.943, 0.9532, 0.9617, 0.9688, 0.9745, 0.9792, 0.9831, 0.9863, 0.9889, 0.991, 0.9927, 0.9941, 0.9952, 1);
+    --t-fast: 330ms; --t-default: 382ms; --t-effects: 193ms;
+    /* shared axis, Google's own implementation: a 30dp nudge, here scaled to the frame */
+    --axis: 160px;
+    --legacy-dec: cubic-bezier(0, 0, 0.2, 1);
+    --legacy:     cubic-bezier(0.4, 0, 0.2, 1);
+
+    --stage: #0A0B0D;            /* the film's opening luminance, near-black */
+    --surface: #1C1E23; --surface-2: #2A2D35;   /* measured, AI Studio */
+    --hair: rgba(255,255,255,.10);
+    --dim: #9AA0AE;
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden; position: relative; background: var(--stage);
+    font-family: 'Google Sans Flex', 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: #fff;
+  }
+
+  /* The stage lift. Two layers so the arc has a shape: a cool rise with the device, then
+     a warm one over it when the second panel lands. Both are `opacity` and therefore get
+     the EFFECTS spring, which never overshoots — a stage that overshot its brightness and
+     came back would read as a flicker. */
+  .lift { position: absolute; inset: -12%; opacity: 0; filter: blur(80px);
+    background: linear-gradient(102deg, var(--a4) 0%, #2F5F62 32%, #4A4468 64%, var(--a1) 100%);
+    animation: liftIn 900ms var(--sp-effects) .55s forwards; }
+  @keyframes liftIn { to { opacity: .42; } }
+
+  .warm { position: absolute; inset: -12%; opacity: 0; filter: blur(70px);
+    background: radial-gradient(1400px 720px at 56% -8%, var(--a3) 0%, var(--a2) 36%, transparent 68%);
+    animation: warmIn 620ms var(--sp-effects) 3.75s forwards; }
+  @keyframes warmIn { to { opacity: .34; } }
+
+  .grain { position: absolute; inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.035) 1px, transparent 0);
+    background-size: 44px 44px; }
+
+  /* ---- the device ---- */
+  /* A portrait screen standing in a landscape frame, which is the film's composition and
+     not an accident: it is why the sides stay empty long enough for the panel to enter. */
+  .phone { position: absolute; left: 50%; top: 96px; width: 452px; height: 900px;
+    margin-left: -226px; border-radius: 52px; padding: 13px;
+    background: linear-gradient(160deg, #3A3E48, #1A1C21);
+    box-shadow: 0 50px 120px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.07);
+    opacity: 0; transform: translateY(160px) scale(.94);
+    animation: fade var(--t-effects) var(--sp-effects) .55s forwards,
+               riseIn var(--t-fast) var(--sp-fast) .55s forwards,
+               stepAside 620ms var(--sp-default) 3.60s forwards; }
+  @keyframes fade   { to { opacity: 1; } }
+  @keyframes riseIn { to { transform: translateY(0) scale(1); } }
+  /* The device does not shrink out of the way — it moves and scales as one spatial change,
+     which is why this is a single keyframe and gets a spatial spring. */
+  @keyframes stepAside { to { transform: translate(-402px, 34px) scale(.9); } }
+
+  .screen { position: absolute; inset: 13px; border-radius: 40px; overflow: hidden;
+    background: #0E1013;
+    animation: wake 420ms var(--sp-effects) 1.05s forwards; }
+  /* The screen wakes as a background change, not a fade of the whole device: a device that
+     fades in with a lit screen has never been off. */
+  @keyframes wake { to { background: #F4F6FB; } }
+
+  .ui { position: absolute; inset: 0; padding: 46px 34px 0; opacity: 0; color: #16181D;
+    animation: fade 320ms var(--sp-effects) 1.30s forwards; }
+  .ui .bar { height: 54px; border-radius: 27px; background: #E7EAF2; display: flex; align-items: center;
+    padding: 0 20px; gap: 12px; font-size: 19px; color: #5B6070; }
+  .ui .bar .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--a1); flex: none; }
+  .ui .big { font-size: 96px; font-weight: 500; letter-spacing: -3.4px; margin-top: 52px; line-height: 1; }
+  .ui .sub { font-size: 24px; color: #5B6070; margin-top: 12px; }
+  .ui .rows { margin-top: 44px; display: flex; flex-direction: column; gap: 14px; }
+  .ui .rows i { display: block; height: 58px; border-radius: 14px; background: #E7EAF2; }
+  .ui .rows i:nth-child(2) { width: 84%; }
+  .ui .rows i:nth-child(3) { width: 66%; }
+  /* the film's phone carries a full-width spectrum bar along its bottom edge; this is that
+     shape in this library's four hues, which are not that film's */
+  .ui .spectrum { position: absolute; left: 0; right: 0; bottom: 0; height: 16px;
+    background: linear-gradient(90deg, var(--a1), var(--a4), var(--a3), var(--a2)); }
+
+  /* ---- the panel that enters on the shared axis ---- */
+  .panel { position: absolute; right: 150px; top: 236px; width: 720px;
+    background: linear-gradient(135deg, var(--surface), var(--surface-2));
+    border: 1px solid var(--hair); border-radius: 24px; padding: 46px 48px;
+    opacity: 0; transform: translateX(var(--axis));
+    animation: axisMove 500ms var(--legacy-dec) 3.60s forwards,
+               fade 350ms var(--legacy) 3.75s forwards; }
+  @keyframes axisMove { to { transform: translateX(0); } }
+  .panel .k { font-size: 21px; font-weight: 500; letter-spacing: 2.2px; text-transform: uppercase; color: var(--dim); }
+  .panel .h { font-size: 62px; font-weight: 500; letter-spacing: -0.0225em; line-height: 1.06; margin-top: 24px; }
+  .panel .p { font-size: 27px; line-height: 1.5; color: var(--dim); margin-top: 26px; }
+  .panel .meta { display: flex; gap: 30px; margin-top: 40px; }
+  .panel .meta div { flex: 1; }
+  .panel .meta b { display: block; font-size: 44px; font-weight: 500; letter-spacing: -1.4px; }
+  .panel .meta span { font-size: 19px; color: var(--dim); letter-spacing: 1.4px; text-transform: uppercase; }
+
+  .cap { position: absolute; left: 150px; bottom: 92px; font-size: 22px; font-weight: 500;
+    letter-spacing: 2px; text-transform: uppercase; color: #7E8593;
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 4.6s forwards; }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* The settled frame: device aside, panel in, stage lit. The dark opening is a beat in
+       time, and a still cannot show a beat in time. */
+    * { animation: none !important; }
+    .lift { opacity: .42; } .warm { opacity: .34; }
+    .phone { opacity: 1; transform: translate(-402px, 34px) scale(.9); }
+    .screen { background: #F4F6FB; }
+    .ui, .panel, .cap { opacity: 1; }
+    .panel { transform: translateX(0); }
+  }
+</style>
+</head>
+<!-- Frame and length stated because the renderer reads neither off the CSS: with no
+     data-width/data-height it renders 1080x1920 and crops a design drawn 1920 wide with
+     nothing saying so, and with no data-duration `video check` reports none. 7.0s is the
+     caption settling at 4.79s plus a long hold, which this scene needs more than most:
+     the held frame is the whole payoff and the film holds its own ending for 3.06s. -->
+<body data-composition-id="scene" data-no-timeline data-width="1920" data-height="1080" data-start="0" data-duration="7.0">
+  <div class="lift"></div>
+  <div class="grain"></div>
+
+  <div class="phone">
+    <div class="screen">
+      <div class="ui">
+        <div class="bar"><span class="dot"></span> launch-film · 30s</div>
+        <div class="big">8 scenes</div>
+        <div class="sub">Rendered at 60fps · 4 audio tracks</div>
+        <div class="rows"><i></i><i></i><i></i></div>
+        <div class="spectrum"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="warm"></div>
+
+  <div class="panel">
+    <div class="k">Built from the shelf</div>
+    <div class="h">You did not start from an empty file.</div>
+    <div class="p">Sixty scenes, each with timing somebody already argued about. You changed the words.</div>
+    <div class="meta">
+      <div><b>31s</b><span>Runtime</span></div>
+      <div><b>0</b><span>Build steps</span></div>
+      <div><b>1</b><span>File</span></div>
+    </div>
+  </div>
+
+  <div class="cap">Aetox · video templates</div>
+</body>
+</html>

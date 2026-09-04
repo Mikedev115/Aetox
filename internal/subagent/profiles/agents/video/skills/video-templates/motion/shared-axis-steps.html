@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Shared Axis Steps · four steps advancing on one axis</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * shared-axis-steps — four steps, each replacing the last by moving along the same
+   * horizontal axis: the old one leaves to the left as the new one arrives from the right.
+   * The direction is the meaning. Reverse it and the scene reads as going back.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569. See references/google-register.md.
+   *
+   * WHY THIS SCENE EXISTS. Material 3 names four transition patterns. Two are already on
+   * this shelf — container transform in `card-expand-hero`, fade through in
+   * `search-query-reveal` — and shared axis was the one nothing here could do. A step
+   * sequence is what it is for.
+   *
+   * THE NUMBER EVERYONE GETS WRONG. Read off Google's own implementation,
+   * `shared_axis_transition.dart` in the Flutter animations package, 4 ก.ย. 2569:
+   *
+   *     outgoing:  translate 0 -> -30, opacity 1 -> 0 over Interval(0.0, 0.3), legacyAccelerate
+   *     incoming:  translate +30 -> 0, opacity 0 -> 1 over Interval(0.3, 1.0), legacyDecelerate
+   *
+   * Thirty. Not a screen width, not half a frame — **30 logical pixels**, which on a 360dp
+   * phone is 8.3% of the width. A shared axis is a nudge that says "same track, next
+   * item", not a slide. Almost every hand-built version of this is a full-width slide, and
+   * a full-width slide is a different pattern that means something else.
+   * Scaled honestly to this frame: 8.3% of 1920 = 160px, which is what `--axis` holds
+   * below. That conversion is stated rather than hidden because it is the one number here
+   * that is ours rather than Google's.
+   *
+   * The three easings are the legacy set the same file names, from Flutter's Easing class:
+   * legacy cubic-bezier(0.4,0,0.2,1), legacyDecelerate (0,0,0.2,1), legacyAccelerate
+   * (0.4,0,1,1). They are not the M3 standard curves and are not a mistake — shared axis
+   * is specified against these.
+   *
+   * Timeline (6.4s @ 60fps): step 1 arrives, then a step every 1.5s at 1.5 / 3.0 / 4.5,
+   * each a 500ms shared-axis handover; the rail above tracks it; step 4 is held.
+   */
+
+  :root {
+    --axis: 160px;             /* Google's 30dp, converted to this frame — see above */
+    --legacy:      cubic-bezier(0.4, 0, 0.2, 1);
+    --legacy-dec:  cubic-bezier(0, 0, 0.2, 1);
+    --legacy-acc:  cubic-bezier(0.4, 0, 1, 1);
+    --t-axis: 500ms;           /* the handover; opacity splits it 150ms / 350ms */
+
+    /* M3 Expressive spatial default spring, damping 0.8 / stiffness 380, settles 382ms.
+       Only the rail uses it: the panels are shared axis, which is a bezier pattern. */
+    --sp-default: linear(0, 0.0239, 0.0843, 0.1671, 0.2617, 0.3601, 0.4567, 0.5478, 0.6309, 0.7047, 0.7689, 0.8236, 0.8692, 0.9065, 0.9364, 0.9599, 0.9779, 0.9913, 1.0009, 1.0075, 1.0117, 1.0141, 1.0151, 1.0151, 1.0144, 1.0133, 1.0119, 1.0105, 1.009, 1.0075, 1.0062, 1.005, 1);
+
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+    --ink: #16181D; --ink-2: #5B6070; --line: #E1E4EC;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden; position: relative;
+    background: #F7F8FC;
+    background-image: radial-gradient(1300px 800px at 62% 44%, #FFFFFF 0%, #F5F6FB 74%);
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: var(--ink);
+  }
+
+  /* ---- the rail: four segments, the active one filled and wider ---- */
+  .rail { position: absolute; left: 150px; top: 168px; display: flex; gap: 16px; align-items: center; }
+  .rail .seg { width: 84px; height: 8px; border-radius: 4px; background: #D9DDE7;
+    transform-origin: left center; }
+  /* A segment is grey until its step arrives, then widens on the spring and fills. Two
+     animations rather than one because the fill is an effect and the widening is spatial:
+     the spring that overshoots belongs on the transform and must not touch the colour. */
+  @keyframes segGrow { from { transform: scaleX(.35); } to { transform: scaleX(1); } }
+  .rail .seg.on { background: #D9DDE7; animation: segGrow 382ms var(--sp-default) forwards,
+                              segFill 193ms linear forwards; }
+  @keyframes segFill { to { background: var(--a1); } }
+  .rail .seg:nth-child(1).on { animation-delay: .10s, .10s; }
+  .rail .seg:nth-child(2).on { animation-delay: 1.50s, 1.50s; }
+  .rail .seg:nth-child(3).on { animation-delay: 3.00s, 3.00s; }
+  .rail .seg:nth-child(4).on { animation-delay: 4.50s, 4.50s; }
+
+  .rail .of { margin-left: 22px; font-size: 21px; font-weight: 500; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--ink-2); }
+
+  /* ---- the panels ---- */
+  .deck { position: absolute; left: 150px; right: 150px; top: 268px; height: 560px; }
+  .step { position: absolute; inset: 0; opacity: 0; }
+
+  /* FOUR animations per panel, listed in one declaration, and it has to be one: a second
+     `animation` rule for the exit would replace the entrance outright rather than add to
+     it, and the panel would sit invisible until its exit fired. (It did, on the first
+     draft — step one never appeared at all.) Listed together, the pair that has not
+     reached its delay yet contributes nothing, because `forwards` fills only after an
+     animation's active period, never before it.
+     The transform runs the whole 500ms and the opacity runs a 30/70 slice of it. That
+     split IS the pattern; a shared axis where both run the full duration is just a slide
+     with a crossfade on it. */
+  @keyframes axisInMove  { from { transform: translateX(var(--axis)); } to { transform: translateX(0); } }
+  @keyframes axisInFade  { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes axisOutMove { from { transform: translateX(0); } to { transform: translateX(calc(-1 * var(--axis))); } }
+  @keyframes axisOutFade { from { opacity: 1; } to { opacity: 0; } }
+
+  /* Each entrance fades 150ms after it starts moving — the 0.3 of Interval(0.3, 1.0) —
+     so the incoming panel starts appearing exactly as the outgoing one finishes leaving. */
+  .s1 { animation: axisInMove  var(--t-axis) var(--legacy-dec)  .10s forwards,
+                   axisInFade  350ms         var(--legacy)      .25s forwards,
+                   axisOutMove var(--t-axis) var(--legacy-acc) 1.50s forwards,
+                   axisOutFade 150ms         var(--legacy)     1.50s forwards; }
+  .s2 { animation: axisInMove  var(--t-axis) var(--legacy-dec) 1.50s forwards,
+                   axisInFade  350ms         var(--legacy)     1.65s forwards,
+                   axisOutMove var(--t-axis) var(--legacy-acc) 3.00s forwards,
+                   axisOutFade 150ms         var(--legacy)     3.00s forwards; }
+  .s3 { animation: axisInMove  var(--t-axis) var(--legacy-dec) 3.00s forwards,
+                   axisInFade  350ms         var(--legacy)     3.15s forwards,
+                   axisOutMove var(--t-axis) var(--legacy-acc) 4.50s forwards,
+                   axisOutFade 150ms         var(--legacy)     4.50s forwards; }
+  .s4 { animation: axisInMove  var(--t-axis) var(--legacy-dec) 4.50s forwards,
+                   axisInFade  350ms         var(--legacy)     4.65s forwards; }
+
+  .num { font-size: 26px; font-weight: 500; letter-spacing: 3px; text-transform: uppercase; color: var(--ink-2); }
+  .num b { color: var(--ink); font-weight: 700; }
+  .title { font-size: 104px; font-weight: 700; line-height: 1.04; letter-spacing: -3px;
+    margin-top: 30px; max-width: 1340px; }
+  .body { font-size: 33px; line-height: 1.5; color: var(--ink-2); margin-top: 32px; max-width: 1080px; }
+
+  .foot { position: absolute; left: 150px; bottom: 88px; display: flex; align-items: center; gap: 18px;
+    font-size: 21px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: var(--ink-2); }
+  .foot .pips { display: flex; gap: 8px; }
+  .foot .pips i { width: 13px; height: 13px; border-radius: 50%; display: block; }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Only the last step survives, whole. The first three exist to be replaced, and a
+       still frame showing four stacked steps would say something the scene does not. */
+    * { animation: none !important; }
+    .step { opacity: 0; transform: none; }
+    .s4 { opacity: 1; }
+    .rail .seg.on { background: var(--a1); transform: none; }
+  }
+</style>
+</head>
+<!-- Frame and length stated because the renderer reads neither off the CSS: with no
+     data-width/data-height it renders 1080x1920 and crops this silently, and with no
+     data-duration `video check` reports no duration. 6.4s is three handovers at 1.5s
+     apart, the fourth step landing at 5.0s, and 1.4s of held frame to read it in. -->
+<body data-composition-id="scene" data-no-timeline data-width="1920" data-height="1080" data-start="0" data-duration="6.4">
+
+  <div class="rail">
+    <span class="seg on"></span><span class="seg on"></span><span class="seg on"></span><span class="seg on"></span>
+    <span class="of">How a scene gets made</span>
+  </div>
+
+  <div class="deck">
+    <div class="step s1">
+      <div class="num">Step <b>01</b></div>
+      <div class="title">Pick from the table, not from a blank file.</div>
+      <div class="body">Fifty-five scenes, each with a length somebody measured. Reading the row takes ten seconds; inventing the layout takes an afternoon.</div>
+    </div>
+
+    <div class="step s2">
+      <div class="num">Step <b>02</b></div>
+      <div class="title">Take it with <span style="color:var(--a1)">video new</span>, never by hand.</div>
+      <div class="body">That is what points the copy at the local GSAP and fills the engine slots. A file dragged out by hand keeps a CDN address and needs the network at render time.</div>
+    </div>
+
+    <div class="step s3">
+      <div class="num">Step <b>03</b></div>
+      <div class="title">Replace every line of the sample copy.</div>
+      <div class="body">All of it is real writing, not placeholders, so nothing flags what you missed. Keep roughly the length it was drawn for — a headline three times longer overflows silently.</div>
+    </div>
+
+    <div class="step s4">
+      <div class="num">Step <b>04</b></div>
+      <div class="title">Render it, then read the render back.</div>
+      <div class="body">A failed font fetch is not an error, it is a scene that came out wrong with nothing in the output saying so. Check the frames, do not assume them.</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span class="pips"><i style="background:var(--a1)"></i><i style="background:var(--a4)"></i><i style="background:var(--a3)"></i><i style="background:var(--a2)"></i></span>
+    Aetox · video templates
+  </div>
+</body>
+</html>

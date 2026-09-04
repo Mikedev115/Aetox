@@ -1,6 +1,6 @@
 # Where these came from
 
-51 of the 55 scenes here were vendored from somewhere; the other 4 were written
+51 of the 60 scenes here were vendored from somewhere; the other 9 were written
 for Aetox and are at the bottom of this file. What follows first is the vendored
 haul.
 
@@ -160,9 +160,11 @@ more registry examples were inspected and NOT taken: `product-promo` and
 `vscode-theme-visualizer` was deferred because it needs its own build scripts,
 which breaks this shelf's copy-and-edit contract.
 
-## motion/ — 4 scenes written here, not vendored (4 ก.ย. 2569)
+## motion/ — 9 scenes written here, not vendored (4 ก.ย. 2569)
 
-`search-query-reveal`, `dot-loader-morph`, `card-expand-hero`, `caption-montage`.
+`search-query-reveal`, `dot-loader-morph`, `card-expand-hero`, `caption-montage`,
+`aurora-prompt-box`, `ship-it-toolbar`, `spring-stat-tiles`, `shared-axis-steps`,
+`device-reveal`.
 No upstream repository, no licence to carry, no attribution owed to anyone —
 these are Aetox's own files, and they are recorded here because a credits file
 that lists only what was borrowed leaves a reader guessing about the rest.
@@ -193,3 +195,45 @@ file says why in a comment so the next person does not helpfully "fix" it back.
 
 Full reasoning, and every number above with its date, in
 `references/google-register.md`.
+
+### The second four, and two sources the first four did not use
+
+`aurora-prompt-box`, `ship-it-toolbar`, `spring-stat-tiles` and
+`shared-axis-steps` were written later the same day and reach further back into
+Google's published work. Same licence position: specifications and source code
+are facts about published work, an OFL face is licensed for use, and an identity
+is neither.
+
+| What | From | How it was obtained |
+|:--|:--|:--|
+| Spring tokens — `SpringDefaultSpatial` 0.8/380, `SpringFastSpatial` 0.6/800, `SpringSlowSpatial` 0.8/200, and the effects springs at damping 1.0 / 1600, 3800, 800 | Material 3 Expressive, via AOSP (Apache-2.0) | Read off `compose/material3/.../tokens/ExpressiveMotionTokens.kt` and `StandardMotionTokens.kt`, version v0_14_0, on 4 ก.ย. 2569 |
+| The CSS `linear()` curves those became | — | Ours. Each token integrated as a unit step response with mass 1, which is what androidx's `SpringSimulation` uses, and sampled at 33 even points |
+| Shared axis: 30dp translate, opacity split `Interval(0.0,0.3)` out and `Interval(0.3,1.0)` in, legacy easing set | Google's Flutter `animations` package (BSD-3-Clause) | Read off `shared_axis_transition.dart`, cross-checked against Flutter's `Easing` class in `material/motion.dart` |
+| The observation that a film's border glow rotates hue, that the shipping beat is lit warm, and that the outro is a mark alone on black | "Build Android Apps From A Text Prompt with Google AI Studio", Google for Developers, 31.4s | Opened in a browser 4 ก.ย. 2569, paused and stepped frame by frame; frames drawn to a canvas and saturated pixels bucketed by hue for the colour readings. Not read from its title or description |
+
+**The colour readings are recorded and not used.** The sampled hues were
+`#0AC67C` at t=3s, `#347C4A`/`#827A27` at t=12s, `#75A6C5`/`#658AB5` at t=18s,
+`#977017`/`#9C4326` across ~48,000px at t=21s, and `#36A853` at t=25s. That last
+one is within rounding of a brand colour and the first is a platform green. What
+was taken is the *behaviour* those numbers reveal — that the hue travels, and
+that the payoff beat is lit warmer than the work — not the values. The scenes
+run indigo / teal / amber / coral like the other four.
+
+Nothing from the film's audio, script, edit or footage is reproduced anywhere in
+these files, and no frame of it was saved.
+
+### The third pass: every frame, not a sample
+
+`device-reveal` came from going back to the same film a third time and taking
+**all** of it rather than thirteen stills. Method, 4 ก.ย. 2569: the video was
+played at 1.5x with each frame drawn to a 64x36 canvas on `requestAnimationFrame`
+and reduced to a mean RGB plus a per-pixel difference against the frame before
+it. That produced **1,250 samples, one every 25ms of runtime**, from which the
+cut list and the luminance curve in `references/google-register.md` were
+computed.
+
+Nothing was saved. The samples are 64x36 averages held in memory for the length
+of one analysis, no frame was written to disk, and the only things kept are the
+derived numbers — ten cut timestamps, nine gap lengths, and a per-second
+luminance and hue table. Those numbers describe the film; they do not reproduce
+it, and no image, audio, or line of its script exists anywhere in this library.

@@ -1,6 +1,6 @@
 ---
 name: video-templates
-description: ฉากวิดีโอที่ก๊อปไปใช้ได้เลย 55 ฉาก ไม่ใช่คำอธิบายว่าฉากควรหน้าตาแบบไหน แบ่งเป็นฉากเคลื่อนไหว 30 แบบสำหรับเรนเดอร์เป็นคลิป (รวมเด็คนักลงทุนและพิตช์เด็คแบบเต็มเรื่อง กับอีก 4 ฉากในภาษาโฆษณาโปรดักต์ที่ถอดจากสเปกมาตรวจสอบได้ และเป็นสี่ฉากแรกบนชั้นที่ตัวอักษรไทยมีฟอนต์ที่เลือกไว้จริง) และฉากนิ่ง 25 แบบสำหรับปก อินโฟกราฟิก สไลด์ข้อมูล ไดอะแกรมอธิบาย และหน้าจอจำลอง ส่วนใหญ่เป็น HTML ไฟล์เดียวจบ อีก 13 ฉากเป็นโฟลเดอร์เพราะมีฉากย่อยกับไฟล์ประกอบของตัวเอง ใช้ตอนกำลังจะทำฉากขึ้นใหม่แล้วไม่อยากประดิษฐ์เองทุกครั้ง
+description: ฉากวิดีโอที่ก๊อปไปใช้ได้เลย 60 ฉาก ไม่ใช่คำอธิบายว่าฉากควรหน้าตาแบบไหน แบ่งเป็นฉากเคลื่อนไหว 35 แบบสำหรับเรนเดอร์เป็นคลิป (รวมเด็คนักลงทุนและพิตช์เด็คแบบเต็มเรื่อง กับอีก 9 ฉากในภาษาโฆษณาโปรดักต์ที่ถอดจากสเปกและจากการหยุดเฟรมดูคลิปจริง สี่ในนั้นเคลื่อนด้วยสปริงจริงของ Material 3 Expressive และทั้งแปดเป็นฉากเดียวบนชั้นที่ตัวอักษรไทยมีฟอนต์ที่เลือกไว้) และฉากนิ่ง 25 แบบสำหรับปก อินโฟกราฟิก สไลด์ข้อมูล ไดอะแกรมอธิบาย และหน้าจอจำลอง ส่วนใหญ่เป็น HTML ไฟล์เดียวจบ อีก 13 ฉากเป็นโฟลเดอร์เพราะมีฉากย่อยกับไฟล์ประกอบของตัวเอง ใช้ตอนกำลังจะทำฉากขึ้นใหม่แล้วไม่อยากประดิษฐ์เองทุกครั้ง
 ---
 
 # Video scene templates
@@ -21,19 +21,20 @@ file it copies and the text inside each one.
 `GUIDE.md` beside this file carries the why and the measurements behind every
 line. Read the line here; open the guide's section only when you are about to
 work against one. `references/google-register.md` is narrower: the house style
-the four product-ad scenes share, and the only file you need if you are writing
-a fifth one in it.
+the nine product-ad scenes share, and the only file you need if you are writing
+a tenth one in it — and, under "The edit, measured", the only guidance anywhere
+here on cutting several of them into one piece.
 
 - **Replace all the sample copy.** No `{{ }}` anywhere — every line is real
   copy, and one left in is the most visible unfinished work. Keep roughly its
   length: a headline three times longer silently overflows the frame.
-- **ไทย: 51 of the 55 scenes have no Thai typeface.** Thai copy renders in a
+- **ไทย: 51 of the 60 scenes have no Thai typeface.** Thai copy renders in a
   system font — readable, chosen by nobody. Say so before rendering, or put a
   Thai family (`Noto Sans Thai`, `IBM Plex Sans Thai`) first in the stack. The
-  four exceptions are the product-ad scenes, which carry `Anuphan` behind their
+  nine exceptions are the product-ad scenes, which carry `Anuphan` behind their
   Latin face and need nothing said.
-- **13 of the 30 motion scenes are folders** (the rows whose path ends
-  `/index.html`); the other 17 are one file each.
+- **13 of the 35 motion scenes are folders** (the rows whose path ends
+  `/index.html`); the other 22 are one file each.
   `video new` copies the whole folder; by hand, never take the host alone — it
   renders an empty frame that looks like a working render.
 - **6 scenes carry baked Tailwind CSS** (`bar-chart-counter`,
@@ -41,20 +42,20 @@ a fifth one in it.
   `typewriter-cursor`): a class not already in use does nothing, silently.
   Write plain CSS for anything new.
 - **`Length` is what a real render produced**, safe to quote to a user — with
-  four exceptions, marked *designed* in the table: the product-ad scenes were
+  nine exceptions, marked *designed* in the table: the product-ad scenes were
   built so the last keyframe lands on the stated number, but nobody has rendered
   one yet, so quote those as intended rather than as measured until someone has.
-  In the 17 flat scenes the number is `data-duration` on `<body>` — change it to
+  In the 22 flat scenes the number is `data-duration` on `<body>` — change it to
   change the clip. Header-comment timelines state the order, not the length.
 - **The frame is declared in every file** and the renderer never guesses it.
   "fluid CSS" rows re-aspect by changing the two `data-` numbers; the rest
   also draw their own 1920x1080 box in CSS that has to move with them.
-- **Google Fonts is fetched at render time** (25 of 30 motion scenes). A failed
+- **Google Fonts is fetched at render time** (30 of 35 motion scenes). A failed
   fetch is not an error — it is a wrong-looking scene. Check the render.
 - **`__VIDEO_SRC__` / `__VIDEO_DURATION__` are engine slots**, not broken
   markup. Leave them in the library; `video new` fills or strips them.
-- **`CREDITS.md` travels with the work** — licence and lineage of all 55 files
-  (Apache-2.0 and MIT for the 51 vendored, ours for the 4 written here;
+- **`CREDITS.md` travels with the work** — licence and lineage of all 60 files
+  (Apache-2.0 and MIT for the 51 vendored, ours for the 9 written here;
   attribution required either way). A scene copied elsewhere takes its line
   along.
 - **A scene built by hand gets no rewrites.** `video new` is what points GSAP
@@ -62,7 +63,7 @@ a fifth one in it.
   whatever CDN address you typed and needs the network at render time. Start
   from `video new` even for a wholly new design, then replace its markup.
 
-## motion/ — 30 animated scenes
+## motion/ — 35 animated scenes
 
 These are the ones that become video. Four folders say *as asked*: they carry
 `__VIDEO_DURATION__`, so the `seconds` given to `video new` is their length and
@@ -100,12 +101,47 @@ the number beside it is the fallback. Every other length is fixed by the scene.
 | `motion/dot-loader-morph.html` | Four dots bounce, close ranks into one four-coloured bar, and the bar becomes the rule under the headline. A title card wearing a loader's clothes | 4.0s, designed | 1920x1080 |
 | `motion/card-expand-hero.html` | Dark stage, a rail of cards lit from behind, and one of them grows into the whole frame. The only true container transform on the shelf | 5.0s, designed | 1920x1080 |
 | `motion/caption-montage.html` | Five questions hard-cutting every 1.2s over colour fields, then one answer held for two seconds. Ships footage-free on purpose — the file says why | 8.0s, designed | 1920x1080 |
+| `motion/aurora-prompt-box.html` | A prompt box whose border glow rotates hue over the whole scene, a cursor that picks a chip, and the chip becoming a tag inside the box. **The one scene with a pointer in it** | 8.0s, designed | 1920x1080 |
+| `motion/ship-it-toolbar.html` | The finished thing under its toolbar, a cursor pressing Install, warm light flooding the frame, then a hard cut to a mark alone on black. Pairs with `aurora-prompt-box` as the closing half | 6.0s, designed | 1920x1080 |
+| `motion/spring-stat-tiles.html` | Four figures on tiles that overshoot and settle on real simulated springs, counting up in pure CSS. **The one scene whose motion is physics, not a drawn curve** | 5.0s, designed | 1920x1080 |
+| `motion/shared-axis-steps.html` | Four steps handing over along one axis, old leaving left as new arrives from right. The M3 pattern nothing else here could do | 6.4s, designed | 1920x1080 |
+| `motion/device-reveal.html` | A portrait screen rising into a near-black frame while the whole stage brightens with it, then stepping aside for a panel under warm light. **The one scene that holds a device** | 7.0s, designed | 1920x1080 |
 
-### The four in the product-ad register
+### The nine in the product-ad register
 
-The four rows above are one house style and were written together, 4 ก.ย. 2569.
+The nine rows above are one house style, written 4 ก.ย. 2569 in three passes.
 They are the answer to "make it look like a real product ad", which the rest of
 this shelf — editorial, film stock, Swiss grid — has no scene for.
+
+The **first four** are built on published specification: Material 3's easing and
+duration tokens, and the cross-fade split from Google's own Flutter code. The
+**second four** went further, and the difference is worth knowing:
+
+- Three of them and `spring-stat-tiles` do not use bezier curves at all.
+  Material 3 Expressive states its motion as **springs**, and the damping and
+  stiffness pairs are in the Android source. Each was integrated as a real
+  spring and sampled into a CSS `linear()`. Spatial springs overshoot — the fast
+  one by 9.4% — and effects springs never do. Put a spatial spring on an opacity
+  and the overshoot is clamped, so the bounce silently becomes a stall.
+- `shared-axis-steps` closes the M3 pattern set. Its slide is **160px, not a
+  screen width**, because Google's own implementation moves 30dp.
+- `aurora-prompt-box` and `ship-it-toolbar` came from watching an actual film
+  frame by frame and sampling its colours off a canvas, not from reading about
+  it. That produced: a border glow whose **hue rotates across the length of the
+  piece**, a chip that becomes a tag inside the input, a cursor used as a
+  character, and the finding that the shipping beat is **lit warmer than every
+  beat before it**.
+
+`device-reveal` came last and from a third pass over the same film, this time
+capturing **every** frame rather than a handful — 1,250 samples at 25ms apart —
+and differencing them. That gave the film's actual edit: **no cut at all for the
+first 12.5 seconds**, then ten cuts at a median 1.6s apart, then a 3.06s held
+ending. It also gave a luminance curve showing the frame sitting between L2 and
+L15 out of 255 for fourteen seconds before jumping to L53 on the shot where the
+built thing is finally shown. `device-reveal` is that jump. The full numbers,
+and what they mean for assembling a piece out of these nine, are under
+"The edit, measured" in `references/google-register.md` — read that before
+cutting several of these together.
 
 They are not an impression of anybody's film. Their motion is Material Design
 3's published easing and duration tokens; their cross-fades use the 6/20 – 14/20

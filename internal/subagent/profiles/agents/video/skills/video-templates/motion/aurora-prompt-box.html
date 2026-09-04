@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Aurora Prompt Box · a chip becomes a tag, a prompt gets written</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@400..700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * aurora-prompt-box — a prompt box on a near-black stage with a glow that rotates hue
+   * around its border, a rail of suggestion chips under it, and a cursor that picks one.
+   * The chosen chip flies into the box and becomes a tag; then the prompt is written.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569. See references/google-register.md.
+   *
+   * WHAT WAS ACTUALLY WATCHED, AND HOW. Google for Developers, "Build Android Apps From A
+   * Text Prompt with Google AI Studio", 31.4s, opened in a browser on 4 ก.ย. 2569 and
+   * stepped frame by frame — not read about, and not taken from its description. Its
+   * frames were also drawn to a canvas and the saturated pixels bucketed by hue, so the
+   * colour arc below is sampled rather than remembered:
+   *
+   *     t=3s   green      #0AC67C dominant
+   *     t=12s  green+amber #347C4A #827A27
+   *     t=18s  blue/teal  #75A6C5 #658AB5
+   *     t=21s  amber wash #977017 #9C4326 across ~48k px
+   *     t=25s  green      #36A853
+   *
+   * That is the finding this scene is built on, and it is not what it looks like at a
+   * glance: the border is **not** a fixed rainbow. Its hue *rotates slowly across the
+   * length of the film*. One full turn here takes the whole 8 seconds, which is why the
+   * box looks like a different colour every time you cut back to it.
+   *
+   * Three devices came from those frames, and this shelf had none of them: a hue-rotating
+   * glow around a rounded container; a chip that is clicked and becomes a labelled tag
+   * inside the input; and a **cursor as a character** — no other scene in this library has
+   * a pointer in it, and in that film the pointer is what carries the story.
+   *
+   * NOT taken: the sampled hues themselves. #36A853 is within rounding of a brand colour
+   * and #0AC67C is a platform green. The rotation is a mechanic; those greens are an
+   * identity. This uses indigo / teal / amber / coral.
+   *
+   *
+   * CORRECTED 4 ก.ย. 2569, after the film was finally seen properly. The first pass read
+   * it off 64x36 average-colour samples and a browser pane 470px wide, which was not
+   * enough to read a layout from. Cropping half a frame into a full-viewport canvas gave
+   * 1.6x native and settled several things that had been guessed:
+   *
+   *   - the hero line is BLUE and light, not white and medium. On a black stage the
+   *     headline is the only coloured type in the shot.
+   *   - the Build control is an OUTLINED pill, not a filled one. Every button in that
+   *     interface is an outline; nothing is filled until it is pressed.
+   *   - the cursor is a large, bright green arrow with a dark keyline — it is lit to be
+   *     followed, not to be realistic.
+   *
+   * Timeline (8.0s @ 60fps): box springs up, glow starts its turn -> chip rail staggers in
+   * -> cursor travels to a chip -> chip presses and its tag appears in the box -> prompt
+   * types 1.9s -> cursor travels to Build -> press, glow brightens -> held.
+   */
+
+  @property --ang { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+
+  :root {
+    /* M3 Expressive springs, simulated from the AOSP damping/stiffness pairs (mass 1).
+       spatial fast 0.6/800, settles 330ms, overshoots to 1.0939 */
+    --sp-fast: linear(0, 0.0377, 0.1329, 0.2618, 0.4052, 0.5487, 0.6819, 0.7985, 0.895, 0.9705, 1.0258, 1.0629, 1.0846, 1.0939, 1.0937, 1.0869, 1.0759, 1.0627, 1.049, 1.0358, 1.024, 1.0139, 1.0059, 0.9998, 0.9955, 0.9928, 0.9914, 0.991, 0.9914, 0.9923, 0.9935, 0.9948, 1);
+    /* spatial default 0.8/380, settles 382ms, peak 1.0151 */
+    --sp-default: linear(0, 0.0239, 0.0843, 0.1671, 0.2617, 0.3601, 0.4567, 0.5478, 0.6309, 0.7047, 0.7689, 0.8236, 0.8692, 0.9065, 0.9364, 0.9599, 0.9779, 0.9913, 1.0009, 1.0075, 1.0117, 1.0141, 1.0151, 1.0151, 1.0144, 1.0133, 1.0119, 1.0105, 1.009, 1.0075, 1.0062, 1.005, 1);
+    /* effects default 1.0/1600, settles 193ms, never overshoots */
+    --sp-effects: linear(0, 0.0248, 0.0849, 0.1641, 0.2514, 0.3396, 0.4245, 0.5033, 0.5747, 0.6384, 0.6943, 0.7428, 0.7846, 0.8203, 0.8506, 0.8761, 0.8976, 0.9156, 0.9305, 0.943, 0.9532, 0.9617, 0.9688, 0.9745, 0.9792, 0.9831, 0.9863, 0.9889, 0.991, 0.9927, 0.9941, 0.9952, 1);
+    --t-fast: 330ms; --t-default: 382ms; --t-effects: 193ms;
+    --e-emphasized: linear(0, 0.0141, 0.0616, 0.1622, 0.4, 0.6686, 0.7728, 0.8315, 0.8706, 0.8989, 0.9204, 0.9372, 0.9506, 0.9614, 0.9701, 0.9773, 0.983, 0.9877, 0.9914, 0.9943, 0.9965, 0.9981, 0.9992, 0.9998, 1);
+
+    --stage: #121317;  --surface: #1C1E23;  --surface-2: #2A2D35;   /* measured, AI Studio */
+    --hair: rgba(255,255,255,.10);
+    --paper: #FFFFFF; --paper-ink: #0E0F12;
+    --dim: #9AA0AE;
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+    /* the headline tint and the cursor: our indigo lifted, our teal lifted. The film's
+       own blue and green are a platform's colours; the decision copied here is that the
+       headline carries the only colour in the type, and the cursor is the brightest
+       object in the frame. */
+    --head: #6E8BF5;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden; position: relative; background: var(--stage);
+    font-family: 'Google Sans Flex', 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: #fff;
+  }
+  .grain { position: absolute; inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.03) 1px, transparent 0);
+    background-size: 44px 44px; }
+
+  .kicker { position: absolute; left: 0; right: 0; top: 178px; text-align: center;
+    font-size: 23px; font-weight: 500; letter-spacing: 2.6px; text-transform: uppercase; color: var(--dim);
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) .2s forwards; }
+  @keyframes fade { to { opacity: 1; } }
+
+  .head { position: absolute; left: 0; right: 0; top: 232px; text-align: center;
+    font-size: 86px; font-weight: 400; letter-spacing: -0.0225em; line-height: 1.08;
+    color: var(--head);
+    opacity: 0; transform: translateY(30px);
+    animation: fade var(--t-effects) var(--sp-effects) .3s forwards,
+               up var(--t-default) var(--sp-default) .3s forwards; }
+  @keyframes up { to { transform: translateY(0); } }
+
+  /* ---- the box, and the glow that turns around it ---- */
+  .wrap { position: absolute; left: 360px; top: 430px; width: 1200px; height: 300px;
+    opacity: 0; transform: translateY(60px);
+    animation: fade var(--t-effects) var(--sp-effects) .5s forwards,
+               up var(--t-fast) var(--sp-fast) .5s forwards; }
+
+  /* One turn over the whole scene. In the film the hue arrives at a different place every
+     time the edit cuts back — this is that, made deterministic. `linear` on purpose: it is
+     a constant-rate effect tied to elapsed time, the one case the motion rules allow it. */
+  .glow, .edge { animation: turn 8s linear forwards; }
+  @keyframes turn { to { --ang: 360deg; } }
+
+  .glow { position: absolute; inset: -26px; border-radius: 46px; filter: blur(42px); opacity: .55;
+    background: conic-gradient(from var(--ang), var(--a4), var(--a3), var(--a2), var(--a1), var(--a4)); }
+  .glow { animation: turn 8s linear forwards, glowUp 700ms var(--sp-effects) 5.5s forwards; }
+  @keyframes glowUp { to { opacity: .92; } }
+
+  .box { position: absolute; inset: 0; border-radius: 30px; background: var(--surface);
+    border: 1px solid var(--hair); padding: 40px 44px; overflow: hidden; }
+  /* the 2px hairline of the same rotating gradient, drawn as a masked ring */
+  .edge { position: absolute; inset: 0; border-radius: 30px; padding: 2px; pointer-events: none;
+    background: conic-gradient(from var(--ang), var(--a4), var(--a3), var(--a2), var(--a1), var(--a4));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude; }
+
+  /* the tag the chip turns into */
+  .tag { display: inline-flex; align-items: center; gap: 14px; padding: 14px 18px 14px 16px;
+    border-radius: 14px; background: var(--surface-2); border: 1px solid var(--hair);
+    opacity: 0; transform: scale(.86) translateY(-16px); transform-origin: left center;
+    animation: fade var(--t-effects) var(--sp-effects) 2.18s forwards,
+               pop var(--t-fast) var(--sp-fast) 2.18s forwards; }
+  @keyframes pop { to { transform: scale(1) translateY(0); } }
+  .tag .ic { width: 30px; height: 30px; border-radius: 8px; background: var(--a4); flex: none; }
+  .tag .tx { line-height: 1.2; }
+  .tag .t1 { font-size: 22px; font-weight: 500; }
+  .tag .t2 { font-size: 17px; color: var(--dim); margin-top: 2px; }
+  .tag .x { color: var(--dim); font-size: 22px; margin-left: 8px; }
+
+  .prompt { margin-top: 26px; font-size: 34px; font-weight: 400; letter-spacing: -.3px;
+    white-space: nowrap; overflow: hidden; width: 0; border-right: 3px solid #fff;
+    animation: type 1.9s steps(46, end) 2.72s forwards, blink 1s steps(1, end) 2.72s 5; }
+  /* 691px is the measured width of this exact sample line in Google Sans Flex at 34px,
+     taken off a Range in a browser rather than guessed — the first draft guessed 826 and
+     parked the caret 135px past the last word for five seconds. Change the copy and both
+     this number and the steps() count have to move with it. */
+  @keyframes type { to { width: 691px; } }
+  @keyframes blink { 0%, 49% { border-right-color: #fff; } 50%, 100% { border-right-color: transparent; } }
+
+  .tools { position: absolute; left: 44px; bottom: 34px; display: flex; gap: 16px; }
+  .circ { width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--hair);
+    display: grid; place-items: center; color: var(--dim); }
+  .circ svg { width: 24px; height: 24px; }
+
+  /* An outlined pill, and it stays outlined through the press. Filling it white on
+     press was the first draft's guess; in the film the button brightens its outline and
+     lifts, and never becomes a solid block. */
+  .build { position: absolute; right: 44px; bottom: 34px; display: inline-flex; align-items: center; gap: 14px;
+    padding: 16px 26px; border-radius: 14px; background: transparent;
+    border: 1px solid rgba(255,255,255,.26); color: #E8EAF0;
+    font-size: 22px; font-weight: 500;
+    animation: pressed var(--t-fast) var(--sp-fast) 5.5s forwards; }
+  .build kbd { font: inherit; font-size: 19px; color: var(--dim); }
+  @keyframes pressed {
+    0%   { transform: scale(1);    border-color: rgba(255,255,255,.26); background: transparent; }
+    42%  { transform: scale(.965); border-color: #fff; background: rgba(255,255,255,.14); }
+    100% { transform: scale(1.03); border-color: #fff; background: rgba(255,255,255,.09); }
+  }
+
+  /* ---- the chip rail ---- */
+  .rail { position: absolute; left: 360px; top: 776px; width: 1200px; display: flex; gap: 18px; }
+  .chip { display: inline-flex; align-items: center; gap: 13px; padding: 18px 28px; border-radius: 999px;
+    background: var(--surface); border: 1px solid var(--hair); font-size: 23px; font-weight: 500; color: #D6DAE4;
+    opacity: 0; transform: translateY(22px);
+    animation: fade var(--t-effects) var(--sp-effects) forwards,
+               up var(--t-default) var(--sp-default) forwards,
+               railOut var(--t-effects) linear 2.12s forwards; }
+  .chip .dot { width: 14px; height: 14px; border-radius: 50%; flex: none; }
+  .chip:nth-child(1) { animation-delay: .92s, .92s, 2.12s; }
+  .chip:nth-child(2) { animation-delay: 1.00s, 1.00s, 2.12s; }
+  .chip:nth-child(3) { animation-delay: 1.08s, 1.08s, 2.12s; }
+  @keyframes railOut { to { opacity: 0; transform: translateY(-18px); } }
+  /* the one that gets picked dips under the cursor first — a press, not a fade */
+  .chip.pick { animation: fade var(--t-effects) var(--sp-effects) 1.00s forwards,
+                          up var(--t-default) var(--sp-default) 1.00s forwards,
+                          press 260ms var(--sp-fast) 1.96s forwards,
+                          railOut var(--t-effects) linear 2.12s forwards; }
+  @keyframes press { 0% { transform: scale(1); } 40% { transform: scale(.94); } 100% { transform: scale(1); } }
+
+  /* ---- the cursor, which is a character here and not decoration ---- */
+  .cursor { position: absolute; left: 0; top: 0; width: 54px; height: 54px; z-index: 40;
+    transform: translate(1180px, 1010px); opacity: 0;
+    animation: fade var(--t-effects) var(--sp-effects) 1.30s forwards,
+               toChip 620ms var(--e-emphasized) 1.34s forwards,
+               toBuild 700ms var(--e-emphasized) 4.80s forwards; }
+  @keyframes toChip  { to { transform: translate(742px, 806px); } }
+  @keyframes toBuild { to { transform: translate(1408px, 700px); } }
+  .cursor svg { width: 54px; height: 54px;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,.7)) drop-shadow(0 0 18px rgba(63,217,164,.35)); }
+
+  .foot { position: absolute; left: 0; right: 0; bottom: 84px; text-align: center;
+    font-size: 21px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: #6B7280;
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 6.4s forwards; }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* The settled frame: the tag placed, the prompt written, Build lit. The chips and the
+       cursor only existed to get there, so neither is shown. */
+    * { animation: none !important; }
+    .wrap, .kicker, .head, .tag, .foot { opacity: 1; transform: none; }
+    .glow { opacity: .8; }
+    .prompt { width: 826px; border-right-color: transparent; }
+    .chip, .cursor { opacity: 0; }
+    .build { border-color: #fff; background: rgba(255,255,255,.09); }
+  }
+</style>
+</head>
+<!-- Frame and length stated, because the renderer reads neither off the CSS: with no
+     data-width/data-height it renders 1080x1920 and crops this silently, and with no
+     data-duration `video check` reports none. 8.0s is also exactly one turn of the border
+     glow, which is why it is not shorter — cut it and the hue stops mid-rotation. -->
+<body data-composition-id="scene" data-no-timeline data-width="1920" data-height="1080" data-start="0" data-duration="8.0">
+  <div class="grain"></div>
+
+  <div class="kicker">From a sentence</div>
+  <div class="head">Say what you want. Watch it get built.</div>
+
+  <div class="wrap">
+    <div class="glow"></div>
+    <div class="box">
+      <div class="edge"></div>
+      <span class="tag">
+        <span class="ic"></span>
+        <span class="tx"><span class="t1">Build a launch film</span><span class="t2">Video templates</span></span>
+        <span class="x">×</span>
+      </span>
+      <div class="prompt">Thirty seconds, eight scenes, one held ending.</div>
+
+      <div class="tools">
+        <span class="circ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+        <span class="circ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+      </div>
+      <span class="build">Build <kbd>⌘ ↵</kbd></span>
+    </div>
+  </div>
+
+  <div class="rail">
+    <span class="chip"><span class="dot" style="background:var(--a1)"></span> Cut a vertical version</span>
+    <span class="chip pick"><span class="dot" style="background:var(--a4)"></span> Build a launch film</span>
+    <span class="chip"><span class="dot" style="background:var(--a3)"></span> Add a data slide</span>
+  </div>
+
+  <div class="cursor">
+    <svg viewBox="0 0 24 24"><path d="M4 2 L4 20 L9 15.5 L12 22 L15 20.5 L12 14.5 L19 14 Z" fill="#3FD9A4" stroke="#0B1F19" stroke-width="1.6" stroke-linejoin="round"/></svg>
+  </div>
+
+  <div class="foot">Aetox · video templates</div>
+</body>
+</html>
