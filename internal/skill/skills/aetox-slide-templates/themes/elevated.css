@@ -9,6 +9,7 @@
   --stage:#eceef1;
   --stage-bg:linear-gradient(180deg,#f2f4f7 0,#e7eaef 100%);
   --line:#dbdee4;
+  --stroke:#7b869c;    /* เส้นที่วาดโครงสร้าง เทาอมฟ้าตามเวที · 3.04:1 */
   --text:#101216;
   --body:#3a3e46;
   --muted:#656a72;

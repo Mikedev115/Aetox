@@ -254,7 +254,8 @@ have one to stand on; reach for them first and leave space on purpose.
   --accent-ink:#fff;     /* text sitting ON the accent, not against the stage */
   --stage:#050608;       /* the stage as one flat colour, for punching holes and mixing scrims */
   --stage-bg:radial-gradient(circle at 80% 15%,#242630 0,#101116 28%,#07080a 70%);
-  --line:#303239;
+  --line:#303239;        /* hairline between rows; decoration, not structure */
+  --stroke:#74798a;      /* a line that draws something: a box, an arrow, an axis */
   --text:#fff;           /* headings */
   --body:#d2d4da;        /* paragraphs */
   --muted:#9ea2ad;       /* captions, footers */
@@ -306,8 +307,20 @@ are not:
   Measured on the accent itself, `--accent-text` there reads 1.00–1.35:1 in
   every theme — invisible — which is the whole reason the third name exists.
 
-Every template reads the text half as `var(--accent-text,var(--accent))`, so a
-deck that never heard of the second name still renders with the first.
+- **`--line` and `--stroke`.** Both draw a thin line and they are not the same
+  job. `--line` is a hairline: the rule between two table rows, the edge of a
+  card, the rail behind numbered steps. It is decoration, it is deliberately
+  held to no contrast bar, and pushed to one it stops reading as a hairline and
+  starts reading as a border. `--stroke` is a line that *draws* something — the
+  box in a flowchart, the arrow between two of them, the axis of a matrix, the
+  curve of a journey — and there the line is the information, so it owes the
+  3:1 that WCAG asks of a meaningful graphic. Held at `--line`'s weight those
+  diagrams measure about 1.1:1 and the drawing all but disappears on a
+  projector, which is the whole reason the second name exists.
+
+Every template reads the text half as `var(--accent-text,var(--accent))`, and a
+structural line as `var(--stroke,var(--line,…))`, so a deck that never heard of
+either new name still renders with the old one.
 
 Type at this size: h1 ~96px, h2 ~64px, body ~22px, caption ~13px, below about
 13px the export to pictures stops resolving it. Paragraphs hold a `max-width`
@@ -357,7 +370,7 @@ Where a deck quotes a number somebody else published, say whose it is.
      for one of aetox-slide-templates themes/*.css to reskin the deck entire. */
   :root{ --accent:#ff3b30; --accent-text:#ff645b; --accent-ink:#fff; --stage:#050608;
          --stage-bg:radial-gradient(circle at 80% 15%,#242630 0,#101116 28%,#07080a 70%);
-         --line:#303239; --text:#fff; --body:#d2d4da; --muted:#9ea2ad;
+         --line:#303239; --stroke:#74798a; --text:#fff; --body:#d2d4da; --muted:#9ea2ad;
          --panel:rgba(255,255,255,.045); }
   *{ box-sizing:border-box; margin:0; padding:0 }
   /* carry the faces beside the file so the export prints them, not a fallback:

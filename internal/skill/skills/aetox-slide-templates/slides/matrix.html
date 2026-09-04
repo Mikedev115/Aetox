@@ -14,16 +14,16 @@
                    color:var(--muted); letter-spacing:.06em }
   .l-matrix .col{ flex:none }
   .l-matrix .plot{ position:relative; width:600px; height:332px;
-                   border:1px solid var(--line,rgba(255,255,255,.18)); border-radius:6px }
+                   border:1px solid var(--stroke,var(--line,rgba(255,255,255,.18))); border-radius:6px }
   .l-matrix .plot::before,
-  .l-matrix .plot::after{ content:''; position:absolute; background:var(--line,rgba(255,255,255,.18)) }
+  .l-matrix .plot::after{ content:''; position:absolute; background:var(--stroke,var(--line,rgba(255,255,255,.18))) }
   .l-matrix .plot::before{ left:50%; top:0; bottom:0; width:1px }
   .l-matrix .plot::after{ top:50%; left:0; right:0; height:1px }
   .l-matrix .q{ position:absolute; font-size:13px; color:var(--muted); letter-spacing:.09em;
                 text-transform:uppercase }
   .l-matrix .dot{ position:absolute; transform:translate(-50%,-50%); display:flex; align-items:center; gap:9px }
   .l-matrix .dot i{ width:14px; height:14px; border-radius:50%; flex:none;
-                    background:var(--line,rgba(255,255,255,.5)) }
+                    background:var(--stroke,var(--line,rgba(255,255,255,.5))) }
   .l-matrix .dot span{ font-size:17px; color:var(--body); white-space:nowrap }
   .l-matrix .dot.us i{ width:20px; height:20px; background:var(--accent) }
   .l-matrix .dot.us span{ color:var(--text); font-weight:600 }

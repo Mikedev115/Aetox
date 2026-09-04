@@ -3,8 +3,8 @@ package skill
 // The themes have to be readable, and that is arithmetic rather than taste.
 //
 // aetox-slide-templates ships six palettes in themes/. Each is a :root block a
-// deck pastes in whole, and swapping one changes every colour on all 23
-// layouts at once — which is the point of them, and also the way a single bad
+// deck pastes in whole, and swapping one changes every colour on every layout
+// in the folder at once — which is the point of them, and also the way a single bad
 // value goes wrong everywhere instead of on one slide. A layout that breaks is
 // visible in the room the moment somebody looks at it. A palette that breaks is
 // not: #767c86 caption text on a #f4f3ef stage looks fine on the laptop it was
@@ -49,7 +49,7 @@ const themeDir = bundledSkillRoot + "/aetox-slide-templates/themes"
 // that one slide looks wrong.
 var themeTokenNames = []string{
 	"accent", "accent-text", "accent-ink", "stage", "stage-bg",
-	"line", "text", "body", "muted", "panel",
+	"line", "stroke", "text", "body", "muted", "panel",
 }
 
 // role -> the contrast it owes. Sizes are the skeleton's own.
@@ -285,6 +285,56 @@ func TestTheInkOnAnAccentFieldIsLegible(t *testing.T) {
 		if r := contrast(over(ink, ground), ground); r < 3.0 {
 			t.Errorf("%s: --accent-ink reads %.2f:1 on --accent, want 3.0:1 — the words on a CTA or a gradient-accent slide sit on that field",
 				name, r)
+		}
+	}
+}
+
+// --stroke is the line that draws something, and it is the one thin line in the
+// palette that owes a contrast bar.
+//
+// --line right beside it owes none and says so: it is a hairline between table
+// rows and the rail behind numbered steps, and pushed to 3:1 it stops being a
+// hairline. The two were one token until the diagram templates arrived — sixteen
+// of them landing at once, every box, arrow and axis stroked with --line — and
+// on the shipped palettes that measured about 1.1:1. Not invisible on the
+// machine it was drawn on. Gone from the back of a room, which is the only
+// place a deck is ever read.
+//
+// 3:1 rather than 4.5:1 because WCAG asks that of a graphic that carries
+// meaning rather than of text, and a 2px flowchart box is the former.
+func TestSlideStrokesAreVisible(t *testing.T) {
+	for name, css := range themeFiles(t) {
+		tok := themeTokens(css)
+		fg, ok := parseThemeColor(tok["stroke"])
+		if !ok {
+			t.Errorf("%s: --stroke is %q, which is not a colour this check can read", name, tok["stroke"])
+			continue
+		}
+		worst, at := math.Inf(1), themeColor{}
+		for _, g := range themeGrounds(tok) {
+			if r := contrast(over(fg, g), g); r < worst {
+				worst, at = r, g
+			}
+		}
+		if worst < 3.0 {
+			t.Errorf("%s: --stroke reads %.2f:1 against #%02x%02x%02x, want 3.0:1 — the boxes and arrows of a diagram are drawn with it",
+				name, worst, int(at.r), int(at.g), int(at.b))
+		}
+	}
+}
+
+// The other half of that split, enforced where it actually goes wrong: a
+// template reaching for the hairline when it meant the drawing. Checked on the
+// SVG presentation attributes because that is where a diagram is drawn, and
+// where all sixteen of them had it.
+func TestADiagramIsNotDrawnWithTheHairline(t *testing.T) {
+	for name, body := range templateFiles(t) {
+		flat := strings.ReplaceAll(body, " ", "")
+		for _, attr := range []string{`stroke="var(--line`, `fill="var(--line`} {
+			if strings.Contains(flat, attr) {
+				t.Errorf("%s: draws with %s… — --line is a hairline held to no contrast bar; a box, an arrow or an axis wants var(--stroke,var(--line,…))",
+					name, attr)
+			}
 		}
 	}
 }

@@ -196,6 +196,16 @@ layout does rather than from taste at write time.
 
 ### The tokens that look like duplicates and are not
 
+`--line` and `--stroke` are both thin lines and are not the same job. `--line`
+is a hairline — the rule between table rows, a card edge, the rail behind
+numbered steps — decoration, held to no contrast bar on purpose. `--stroke`
+draws something: the box in a flowchart, the arrow between two of them, a matrix
+axis, a journey curve. There the line *is* the information, so it owes 3:1 and
+`TestSlideStrokesAreVisible` holds it there. Measured at `--line`'s weight those
+diagrams read about 1.1:1 — visible on the laptop they were drawn on and gone
+from the back of the room. Templates say `var(--stroke,var(--line,…))`, so a
+deck that predates the name still renders.
+
 `--stage` is the stage as one flat colour; `--stage-bg` is what it is actually
 painted with and may be a gradient. Both exist because a gradient cannot be
 punched into a dot on a rail (`timeline`, `roadmap`) or mixed into the scrim

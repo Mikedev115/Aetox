@@ -12,6 +12,7 @@
     radial-gradient(circle at 85% 90%,rgba(120,90,255,.16) 0,transparent 50%),
     #05060a;
   --line:#2b2733;
+  --stroke:#807696;    /* เส้นที่วาดโครงสร้าง อมม่วงตามเวที · 3.05:1 */
   --text:#ffffff;
   --body:#d5d2dc;
   --muted:#9c98a8;

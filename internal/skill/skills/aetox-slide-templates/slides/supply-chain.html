@@ -14,7 +14,7 @@
   .l-supply .route{ display:flex; align-items:flex-start; margin-top:36px }
   .l-supply .stop{ width:158px; flex:none; text-align:center }
   .l-supply .stop .node{ width:66px; height:66px; border-radius:20px; margin:0 auto;
-                         border:2px solid var(--line,rgba(255,255,255,.30));
+                         border:2px solid var(--stroke,var(--line,rgba(255,255,255,.30)));
                          display:flex; align-items:center; justify-content:center;
                          font-size:21px; font-weight:700; color:var(--accent-text,var(--accent)) }
   .l-supply .stop:last-child .node{ border-color:var(--accent); background:var(--panel,rgba(255,255,255,.05)) }
@@ -22,9 +22,9 @@
   .l-supply .stop span{ display:block; margin-top:5px; font-size:15px; color:var(--muted) }
   .l-supply .leg{ flex:1; margin-top:9px; text-align:center }
   .l-supply .leg em{ display:block; font-style:normal; font-size:14px; color:var(--muted); margin-bottom:7px }
-  .l-supply .leg i{ display:block; height:2px; background:var(--line,rgba(255,255,255,.30)); position:relative }
+  .l-supply .leg i{ display:block; height:2px; background:var(--stroke,var(--line,rgba(255,255,255,.30))); position:relative }
   .l-supply .leg i::after{ content:''; position:absolute; right:0; top:-4px;
-                           border-left:9px solid var(--line,rgba(255,255,255,.30));
+                           border-left:9px solid var(--stroke,var(--line,rgba(255,255,255,.30)));
                            border-top:5px solid transparent; border-bottom:5px solid transparent }
   .l-supply .foot{ margin-top:40px; font-size:19px; color:var(--body) }
   .l-supply .foot b{ color:var(--text) }
