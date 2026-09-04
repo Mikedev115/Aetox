@@ -1,6 +1,6 @@
 ---
 name: aetox-web-templates
-description: เทมเพลตหน้าเว็บจริงที่ก๊อปไปใช้ได้เลย 37 ส่วน ตั้งแต่ nav hero ราคา FAQ ไปจนถึงแดชบอร์ด แดชบอร์ดวิเคราะห์ กราฟ 6 ชนิดที่วาดด้วย SVG ล้วน ตาราง ฟอร์ม แจ้งเตือน สลับธีม กริดสื่อ โปรไฟล์ หน้า 404 บทความ และหน้าเอกสาร ไฟล์เดียวจบ responsive ไม่มี framework ไม่มี CDN ไม่ต้อง build ใช้ตอนกำลังจะสร้างหน้าเว็บหรือหน้าจอแล้วไม่อยากประดิษฐ์โครงขึ้นใหม่ทุกครั้ง
+description: เทมเพลตหน้าเว็บจริงที่ก๊อปไปใช้ได้เลย 38 ส่วน ตั้งแต่ nav hero ราคา FAQ ไปจนถึงแดชบอร์ด แดชบอร์ดวิเคราะห์ กราฟ 6 ชนิดที่วาดด้วย SVG ล้วน ตาราง ฟอร์ม แจ้งเตือน สลับธีม กริดสื่อ โปรไฟล์ หน้า 404 บทความ และหน้าเอกสาร ไฟล์เดียวจบ responsive ไม่มี framework ไม่มี CDN ไม่ต้อง build ใช้ตอนกำลังจะสร้างหน้าเว็บหรือหน้าจอแล้วไม่อยากประดิษฐ์โครงขึ้นใหม่ทุกครั้ง
 ---
 
 # Web templates
@@ -35,6 +35,7 @@ and dark mode that every section below assumes. Then paste sections into its
 | Section | File | Reach for it when |
 |---------|------|-------------------|
 | Page shell | `sections/page-shell.html` | Always first. Tokens, reset, skip link, light and dark. |
+| Backgrounds | `sections/backgrounds.html` | Eight paste-on background layers — dots, grid, vignette, glow, fade, noise, aurora, diagonal. One class on a section you already have. |
 | Nav | `sections/nav.html` | Site header. Opens on mobile with no script. |
 | Theme toggle | `sections/theme-toggle.html` | A manual light/dark switch that remembers the choice, instead of only following the OS. |
 | Hero | `sections/hero.html` | The thesis of the page, above the fold. |
