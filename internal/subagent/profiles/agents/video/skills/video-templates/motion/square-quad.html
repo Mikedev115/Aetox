@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Square Quad · four cells, the shape only a square gets</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * square-quad — a 2x2 grid filling the safe box, with one cell doing the talking and
+   * three carrying facts. The reason the square set exists rather than being a crop.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569. Safe-area numbers and their source are stated
+   * in full in `square-title.html`.
+   *
+   * ---- WHY THIS SHAPE, HERE ----
+   * A 2x2 of equal cells is the one composition a square does better than either other
+   * frame, and it is not a matter of taste. In 16:9 four equal cells come out as a row of
+   * short wide boxes with nothing to put in them vertically; in 9:16 they come out as a
+   * column and the eye reads them as a list, in order, which is the opposite of what a
+   * quad means. Only at 1:1 do four cells read as four things AT ONCE, unranked. If the
+   * brief is "these four go together", this is the frame.
+   *
+   * The safe box is 776x776 (1080 less 152 a side). Two cells of 370 with a 36px gap is
+   * exactly that, which is where those numbers come from — change the margin and the cell
+   * size has to move with it or the grid stops filling the box.
+   *
+   * One cell is the voice and three are evidence. Four cells of evidence and no voice is
+   * a table, and a table is not a scene.
+   *
+   * Timeline (5.0s @ 60fps): field -> four cells spring in on a 90ms stagger, each
+   * overshooting -> their contents fade -> figures count for 1.0s -> handle -> held.
+   */
+
+  @property --n2 { syntax: '<integer>'; initial-value: 45; inherits: false; }
+  @property --n3 { syntax: '<integer>'; initial-value: 25; inherits: false; }
+  @property --n4 { syntax: '<integer>'; initial-value: 0;  inherits: false; }
+
+  :root {
+    --safe: 152px; --cell: 370px; --gap: 36px;
+    --sp-fast: linear(0, 0.0377, 0.1329, 0.2618, 0.4052, 0.5487, 0.6819, 0.7985, 0.895, 0.9705, 1.0258, 1.0629, 1.0846, 1.0939, 1.0937, 1.0869, 1.0759, 1.0627, 1.049, 1.0358, 1.024, 1.0139, 1.0059, 0.9998, 0.9955, 0.9928, 0.9914, 0.991, 0.9914, 0.9923, 0.9935, 0.9948, 1);
+    --sp-effects: linear(0, 0.0248, 0.0849, 0.1641, 0.2514, 0.3396, 0.4245, 0.5033, 0.5747, 0.6384, 0.6943, 0.7428, 0.7846, 0.8203, 0.8506, 0.8761, 0.8976, 0.9156, 0.9305, 0.943, 0.9532, 0.9617, 0.9688, 0.9745, 0.9792, 0.9831, 0.9863, 0.9889, 0.991, 0.9927, 0.9941, 0.9952, 1);
+    --t-fast: 330ms; --t-effects: 193ms;
+    --stage: #0E0F12; --surface: #1A1C21; --surface-2: #24272E;
+    --hair: rgba(255,255,255,.11);
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+    --dim: #8C93A3;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1080px; height: 1080px; overflow: hidden; position: relative; background: var(--stage);
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: #fff;
+  }
+  .field { position: absolute; inset: -12%; opacity: 0; filter: blur(90px);
+    background: radial-gradient(720px 720px at 22% 24%, var(--a1) 0%, transparent 60%),
+                radial-gradient(700px 700px at 82% 82%, var(--a2) 0%, transparent 58%);
+    animation: fade 900ms var(--sp-effects) .1s forwards; }
+  @keyframes fade { to { opacity: .30; } }
+  .grain { position: absolute; inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.04) 1px, transparent 0);
+    background-size: 38px 38px; }
+
+  .grid { position: absolute; inset: var(--safe);
+    display: grid; grid-template-columns: repeat(2, var(--cell)); grid-template-rows: repeat(2, var(--cell));
+    gap: var(--gap); }
+
+  .cell { border-radius: 30px; padding: 40px; display: flex; flex-direction: column;
+    background: linear-gradient(150deg, var(--surface), var(--surface-2));
+    border: 1px solid var(--hair); box-shadow: 0 24px 60px rgba(0,0,0,.45);
+    opacity: 0; transform: translateY(70px) scale(.94);
+    animation: fade var(--t-effects) var(--sp-effects) forwards,
+               land var(--t-fast) var(--sp-fast) forwards; }
+  @keyframes land { to { transform: translateY(0) scale(1); } }
+  .cell:nth-child(1) { animation-delay: .34s, .34s; }
+  .cell:nth-child(2) { animation-delay: .43s, .43s; }
+  .cell:nth-child(3) { animation-delay: .52s, .52s; }
+  .cell:nth-child(4) { animation-delay: .61s, .61s; }
+
+  /* the one cell that talks */
+  .cell.say { background: linear-gradient(150deg, var(--a1), #2B36AA); border-color: rgba(255,255,255,.20);
+    justify-content: space-between; }
+  .cell.say .k { font-size: 24px; font-weight: 500; letter-spacing: 2.4px; text-transform: uppercase;
+    color: rgba(255,255,255,.72); }
+  .cell.say .t { font-size: 62px; font-weight: 700; line-height: 1.06; letter-spacing: -1.8px; }
+
+  .cell .cap { display: flex; align-items: center; gap: 13px; font-size: 23px; font-weight: 500;
+    letter-spacing: 1.8px; text-transform: uppercase; color: var(--dim); }
+  .cell .cap i { width: 14px; height: 14px; border-radius: 50%; display: block; flex: none; }
+  .cell .fig { font-size: 128px; font-weight: 700; letter-spacing: -5px; line-height: 1; margin-top: auto;
+    font-variant-numeric: tabular-nums; }
+  .cell .sub { font-size: 24px; color: var(--dim); margin-top: 12px; line-height: 1.4; }
+
+  /* @property is what makes an integer interpolable; its initial-value is the FINAL
+     number, so a browser that ignores @property still shows the right figure, not zero */
+  .cell:nth-child(2) .fig::after { counter-reset: n var(--n2); content: counter(n);
+    animation: c2 1.0s linear .96s forwards; }
+  .cell:nth-child(3) .fig::after { counter-reset: n var(--n3); content: counter(n);
+    animation: c3 1.0s linear 1.05s forwards; }
+  .cell:nth-child(4) .fig::after { counter-reset: n var(--n4); content: counter(n); }
+  @keyframes c2 { from { --n2: 0; } to { --n2: 45; } }
+  @keyframes c3 { from { --n3: 0; } to { --n3: 25; } }
+
+  .handle { position: absolute; left: 0; right: 0; bottom: 52px; text-align: center;
+    font-size: 24px; font-weight: 500; letter-spacing: 2.4px; text-transform: uppercase; color: #5B6070;
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 2.2s forwards; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+    .field { opacity: .30; }
+    .cell, .handle { opacity: 1; transform: none; }
+    .cell:nth-child(2) .fig::after { content: "45"; }
+    .cell:nth-child(3) .fig::after { content: "25"; }
+  }
+</style>
+</head>
+<!-- SQUARE: 1080x1080, stated because the renderer reads neither dimension off the CSS.
+     5.0s is the handle settling at 2.39s plus a hold: four cells at once take longer to
+     read than one line, which is the trade a quad makes. -->
+<body data-composition-id="scene" data-no-timeline data-width="1080" data-height="1080" data-start="0" data-duration="5.0">
+  <div class="field"></div>
+  <div class="grain"></div>
+
+  <div class="grid">
+    <div class="cell say">
+      <div class="k">ชั้นวางเทมเพลต</div>
+      <div class="t">ทุกฉาก<br>เรนเดอร์มาแล้ว</div>
+    </div>
+
+    <div class="cell">
+      <div class="cap"><i style="background:var(--a4)"></i> เคลื่อนไหว</div>
+      <div class="fig"></div>
+      <div class="sub">ฉากที่กลายเป็นวิดีโอได้</div>
+    </div>
+
+    <div class="cell">
+      <div class="cap"><i style="background:var(--a3)"></i> ฉากนิ่ง</div>
+      <div class="fig"></div>
+      <div class="sub">ปก อินโฟกราฟิก หน้าจอจำลอง</div>
+    </div>
+
+    <div class="cell">
+      <div class="cap"><i style="background:var(--a2)"></i> ขั้นตอนบิลด์</div>
+      <div class="fig"></div>
+      <div class="sub">ไม่มี CDN ไม่มีสคริปต์ให้โหลด</div>
+    </div>
+  </div>
+
+  <div class="handle">aetox.app</div>
+</body>
+</html>

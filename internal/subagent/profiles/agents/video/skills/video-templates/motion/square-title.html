@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Square Title · the card that has to stop a scroll</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * square-title — the opening card of the five-scene square set. Centred, high contrast,
+   * and written to be understood with the sound off.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569.
+   *
+   * ---- WHY SQUARE IS ITS OWN SET AND NOT A CROP ----
+   * Three things are different from both 16:9 and 9:16, and each one changes the layout.
+   *
+   * 1. The margin is EQUAL on all four sides. Vertical has three different insets because
+   *    the platform's interface is different at the head, the foot and the right edge; a
+   *    feed post has almost none of that, and what it has is symmetrical. Checked
+   *    4 ก.ย. 2569: Instagram treats roughly 1000x1000 centred as safe on a 1080 square —
+   *    a 40px buffer — while Facebook asks for 14% on every side, which is 152px. This set
+   *    takes Facebook's, because it is the cautious one and one asset has to survive every
+   *    feed. `--safe: 152px`, one variable, used by all five.
+   *
+   * 2. THE SOUND IS OFF. Feed video autoplays muted on Facebook and LinkedIn, so whatever
+   *    a voice would have said has to be on screen instead. Nothing in this set carries
+   *    meaning in audio, and the type is sized for a card scrolling past at a third of
+   *    screen width rather than for a full-screen player.
+   *
+   * 3. There is no reading direction. A landscape frame is read left to right and a
+   *    vertical one top to bottom; a square is read from the middle outward, which is why
+   *    this card is centred and the vertical one is not.
+   *
+   * Timeline (4.0s @ 60fps): field lights -> kicker -> three headline lines rise on a
+   * spring, staggered -> four-hue rule draws from the centre -> lede -> handle -> held.
+   */
+
+  :root {
+    --safe: 152px;   /* Facebook's 14%, the cautious end of the two guides */
+
+    /* M3 Expressive springs, simulated from AOSP damping/stiffness (mass 1).
+       spatial fast 0.6/800 settles 330ms and overshoots 9.4%; effects 1.0/1600 never does. */
+    --sp-fast: linear(0, 0.0377, 0.1329, 0.2618, 0.4052, 0.5487, 0.6819, 0.7985, 0.895, 0.9705, 1.0258, 1.0629, 1.0846, 1.0939, 1.0937, 1.0869, 1.0759, 1.0627, 1.049, 1.0358, 1.024, 1.0139, 1.0059, 0.9998, 0.9955, 0.9928, 0.9914, 0.991, 0.9914, 0.9923, 0.9935, 0.9948, 1);
+    --sp-effects: linear(0, 0.0248, 0.0849, 0.1641, 0.2514, 0.3396, 0.4245, 0.5033, 0.5747, 0.6384, 0.6943, 0.7428, 0.7846, 0.8203, 0.8506, 0.8761, 0.8976, 0.9156, 0.9305, 0.943, 0.9532, 0.9617, 0.9688, 0.9745, 0.9792, 0.9831, 0.9863, 0.9889, 0.991, 0.9927, 0.9941, 0.9952, 1);
+    --t-fast: 330ms; --t-effects: 193ms;
+
+    --stage: #0E0F12;
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+    --dim: #8C93A3;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1080px; height: 1080px; overflow: hidden; position: relative; background: var(--stage);
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: #fff;
+  }
+
+  /* the field runs past the safe box on purpose — the margin governs where TEXT goes */
+  .field { position: absolute; inset: -12%; opacity: 0; filter: blur(90px);
+    background: radial-gradient(760px 760px at 28% 26%, var(--a1) 0%, transparent 62%),
+                radial-gradient(700px 700px at 78% 80%, var(--a4) 0%, transparent 60%);
+    animation: fade 900ms var(--sp-effects) .1s forwards; }
+  @keyframes fade { to { opacity: .44; } }
+  .grain { position: absolute; inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.04) 1px, transparent 0);
+    background-size: 38px 38px; }
+
+  .safe { position: absolute; inset: var(--safe);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+
+  .kicker { display: flex; align-items: center; gap: 16px; font-size: 27px; font-weight: 500;
+    letter-spacing: 3px; text-transform: uppercase; color: var(--dim);
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) .32s forwards; }
+  .kicker .pip { width: 15px; height: 15px; border-radius: 50%; background: var(--a3); flex: none; }
+
+  /* 104px, not the 132 the vertical card uses: a square is read smaller in a feed and the
+     line has less width to run in, so the size comes down and the line count stays at three */
+  .h { font-size: 104px; font-weight: 700; line-height: 1.04; letter-spacing: -3.2px; margin-top: 38px; }
+  .h span { display: block; opacity: 0; transform: translateY(54px);
+    animation: fade var(--t-effects) var(--sp-effects) forwards,
+               rise var(--t-fast) var(--sp-fast) forwards; }
+  @keyframes rise { to { transform: translateY(0); } }
+  .h span:nth-child(1) { animation-delay: .50s, .50s; }
+  .h span:nth-child(2) { animation-delay: .62s, .62s; }
+  .h span:nth-child(3) { animation-delay: .74s, .74s; color: var(--a3); }
+
+  /* drawn from the centre out, because a square has no side to start from */
+  .rule { height: 11px; width: 340px; border-radius: 6px; margin-top: 46px; display: flex; overflow: hidden;
+    transform: scaleX(0);
+    animation: draw 520ms var(--sp-fast) 1.02s forwards; }
+  @keyframes draw { to { transform: scaleX(1); } }
+  .rule i { flex: 1; display: block; }
+
+  .lede { font-size: 34px; line-height: 1.45; color: #C6CBD6; margin-top: 38px; max-width: 640px;
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 1.28s forwards; }
+
+  .handle { position: absolute; left: 0; right: 0; bottom: var(--safe); text-align: center;
+    font-size: 26px; font-weight: 500; letter-spacing: 2.4px; text-transform: uppercase; color: var(--dim);
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 1.58s forwards; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+    .field { opacity: .44; }
+    .kicker, .lede, .handle { opacity: 1; }
+    .h span { opacity: 1; transform: none; }
+    .rule { transform: scaleX(1); }
+  }
+</style>
+</head>
+<!-- SQUARE: data-width 1080, data-height 1080, stated because the renderer reads neither
+     off the CSS. Get it wrong here and it renders 1080x1920 by default, which letterboxes
+     a square design into a tall frame without saying so. 4.0s is the handle settling at
+     1.77s plus a hold — a feed card is scrolled past, so it has to land fast and then be
+     legible for the whole rest of its length. -->
+<body data-composition-id="scene" data-no-timeline data-width="1080" data-height="1080" data-start="0" data-duration="4.0">
+  <div class="field"></div>
+  <div class="grain"></div>
+
+  <div class="safe">
+    <div class="kicker"><span class="pip"></span> Aetox · video</div>
+    <div class="h"><span>Seventy scenes.</span><span>All of them</span><span>already rendered.</span></div>
+    <div class="rule">
+      <i style="background:var(--a1)"></i><i style="background:var(--a4)"></i>
+      <i style="background:var(--a3)"></i><i style="background:var(--a2)"></i>
+    </div>
+    <div class="lede">Change the words. Keep the seconds somebody already argued about.</div>
+  </div>
+
+  <div class="handle">aetox.app</div>
+</body>
+</html>

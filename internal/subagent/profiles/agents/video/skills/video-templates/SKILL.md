@@ -1,6 +1,6 @@
 ---
 name: video-templates
-description: ฉากวิดีโอที่ก๊อปไปใช้ได้เลย 70 ฉาก ไม่ใช่คำอธิบายว่าฉากควรหน้าตาแบบไหน แบ่งเป็นฉากเคลื่อนไหว 45 แบบสำหรับเรนเดอร์เป็นคลิป (รวมเด็คนักลงทุนและพิตช์เด็คแบบเต็มเรื่อง กับอีก 9 ฉากในภาษาโฆษณาโปรดักต์ที่ถอดจากสเปกและจากการหยุดเฟรมดูคลิปจริง สี่ในนั้นเคลื่อนด้วยสปริงจริงของ Material 3 Expressive และทั้งแปดเป็นฉากเดียวบนชั้นที่ตัวอักษรไทยมีฟอนต์ที่เลือกไว้) และฉากนิ่ง 25 แบบสำหรับปก อินโฟกราฟิก สไลด์ข้อมูล ไดอะแกรมอธิบาย และหน้าจอจำลอง ส่วนใหญ่เป็น HTML ไฟล์เดียวจบ อีก 13 ฉากเป็นโฟลเดอร์เพราะมีฉากย่อยกับไฟล์ประกอบของตัวเอง ใช้ตอนกำลังจะทำฉากขึ้นใหม่แล้วไม่อยากประดิษฐ์เองทุกครั้ง
+description: ฉากวิดีโอที่ก๊อปไปใช้ได้เลย 75 ฉาก ไม่ใช่คำอธิบายว่าฉากควรหน้าตาแบบไหน แบ่งเป็นฉากเคลื่อนไหว 50 แบบ ครบสามอัตราส่วน — นอน 39 ตั้ง 6 จัตุรัส 5สำหรับเรนเดอร์เป็นคลิป (รวมเด็คนักลงทุนและพิตช์เด็คแบบเต็มเรื่อง กับอีก 9 ฉากในภาษาโฆษณาโปรดักต์ที่ถอดจากสเปกและจากการหยุดเฟรมดูคลิปจริง สี่ในนั้นเคลื่อนด้วยสปริงจริงของ Material 3 Expressive และทั้งแปดเป็นฉากเดียวบนชั้นที่ตัวอักษรไทยมีฟอนต์ที่เลือกไว้) และฉากนิ่ง 25 แบบสำหรับปก อินโฟกราฟิก สไลด์ข้อมูล ไดอะแกรมอธิบาย และหน้าจอจำลอง ส่วนใหญ่เป็น HTML ไฟล์เดียวจบ อีก 13 ฉากเป็นโฟลเดอร์เพราะมีฉากย่อยกับไฟล์ประกอบของตัวเอง ใช้ตอนกำลังจะทำฉากขึ้นใหม่แล้วไม่อยากประดิษฐ์เองทุกครั้ง
 ---
 
 # Video scene templates
@@ -29,13 +29,13 @@ here on cutting several of them into one piece.
   copy, and one left in is the most visible unfinished work. Keep roughly its
   length: a headline three times longer silently overflows the frame.
 - **ไทย: only the 13 folder scenes still have no Thai typeface.** Every one of the
-  57 single-file scenes now names a Thai face behind its Latin one — `Anuphan`,
+  62 single-file scenes now names a Thai face behind its Latin one — `Anuphan`,
   `Noto Serif Thai` or `IBM Plex Sans Thai` depending on what the stack ends in —
   so Thai copy lands somewhere chosen instead of in Leelawadee by accident. For
   the 13 folders, say it before rendering. `caption-bar`, `stat-strap` and
   `lower-third-name` go further and ship Thai sample copy.
-- **13 of the 45 motion scenes are folders** (the rows whose path ends
-  `/index.html`); the other 32 are one file each.
+- **13 of the 50 motion scenes are folders** (the rows whose path ends
+  `/index.html`); the other 37 are one file each.
   `video new` copies the whole folder; by hand, never take the host alone — it
   renders an empty frame that looks like a working render.
 - **6 scenes carry baked Tailwind CSS** (`bar-chart-counter`,
@@ -43,20 +43,20 @@ here on cutting several of them into one piece.
   `typewriter-cursor`): a class not already in use does nothing, silently.
   Write plain CSS for anything new.
 - **`Length` is what a real render produced**, safe to quote to a user — with
-  nineteen exceptions, marked *designed* in the table: the product-ad scenes were
+  twenty-four exceptions, marked *designed* in the table: the product-ad scenes were
   built so the last keyframe lands on the stated number, but nobody has rendered
   one yet, so quote those as intended rather than as measured until someone has.
-  In the 32 flat scenes the number is `data-duration` on `<body>` — change it to
+  In the 37 flat scenes the number is `data-duration` on `<body>` — change it to
   change the clip. Header-comment timelines state the order, not the length.
 - **The frame is declared in every file** and the renderer never guesses it.
   "fluid CSS" rows re-aspect by changing the two `data-` numbers; the rest
   also draw their own 1920x1080 box in CSS that has to move with them.
-- **Google Fonts is fetched at render time** (40 of 45 motion scenes). A failed
+- **Google Fonts is fetched at render time** (45 of 50 motion scenes). A failed
   fetch is not an error — it is a wrong-looking scene. Check the render.
 - **`__VIDEO_SRC__` / `__VIDEO_DURATION__` are engine slots**, not broken
   markup. Leave them in the library; `video new` fills or strips them.
-- **`CREDITS.md` travels with the work** — licence and lineage of all 70 files
-  (Apache-2.0 and MIT for the 51 vendored, ours for the 19 written here;
+- **`CREDITS.md` travels with the work** — licence and lineage of all 75 files
+  (Apache-2.0 and MIT for the 51 vendored, ours for the 24 written here;
   attribution required either way). A scene copied elsewhere takes its line
   along.
 - **A scene built by hand gets no rewrites.** `video new` is what points GSAP
@@ -64,7 +64,7 @@ here on cutting several of them into one piece.
   whatever CDN address you typed and needs the network at render time. Start
   from `video new` even for a wholly new design, then replace its markup.
 
-## motion/ — 45 animated scenes
+## motion/ — 50 animated scenes
 
 These are the ones that become video. Four folders say *as asked*: they carry
 `__VIDEO_DURATION__`, so the `seconds` given to `video new` is their length and
@@ -117,6 +117,32 @@ the number beside it is the fallback. Every other length is fixed by the scene.
 | `motion/stat-strap.html` | A figure landed top-right while the shot keeps running. **Overlay**, no full-width scrim | 5.0s, designed | 1920x1080 |
 | `motion/split-compare-wipe.html` | Before wiped away to reveal after — and the seam **parks at 42%** so the frame ends holding both | 5.5s, designed | 1920x1080 |
 | `motion/roadmap-dates.html` | Milestones with real dates, a line drawn as far as today, dashed rail after it | 6.5s, designed | 1920x1080 |
+| `motion/square-title.html` | Opening card of the square set, centred because a square has no reading direction. **Carries the safe-area number the set uses** | 4.0s, designed | 1080x1080 |
+| `motion/square-quad.html` | A 2x2 of equal cells, one talking and three carrying figures. **The one composition a square does better than either other frame** | 5.0s, designed | 1080x1080 |
+| `motion/square-stat.html` | One figure at 300px, centred, sized to survive being scrolled past small | 4.0s, designed | 1080x1080 |
+| `motion/square-beats.html` | Five lines cut on the beat, written for a feed card playing **with the sound off** | 8.0s, designed | 1080x1080 |
+| `motion/square-outro.html` | Wordmark, one line, an outlined button — a feed card has to say what to do next itself | 4.0s, designed | 1080x1080 |
+
+### The square set — five scenes for a feed, where the sound is off
+
+`square-title`, `square-quad`, `square-stat`, `square-beats`, `square-outro`.
+1080x1080, one margin variable, `--safe: 152px`.
+
+Square is not a crop of either other frame, for three reasons that each change a
+layout. Its margin is **equal on all four sides**, because a feed post has almost
+no platform furniture over it and what it has is symmetrical — Instagram treats
+about 1000x1000 centred as safe, Facebook asks for 14% a side, and this set takes
+Facebook's as the cautious one. It has **no reading direction**, so its cards are
+centred where the vertical ones are top-weighted. And **the sound is off**: feed
+video autoplays muted, so whatever a voice would have said is on the frame or it
+is not in the video, which is why `square-beats` is set at 92px with four words to
+a line.
+
+`square-quad` is the one that could not be built at any other aspect. Four equal
+cells in 16:9 come out as a row of short wide boxes; in 9:16 they come out as a
+column, which the eye reads as a ranked list. Only at 1:1 do four things read as
+four things **at once**. If the brief is "these four go together", that is the
+frame, and this is the scene.
 
 ### The vertical set — five scenes, and the only way to cut a phone-shaped piece
 

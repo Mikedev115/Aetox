@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Square Outro · the name, one line, and the one thing to do</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * square-outro — the last card of the square set. A wordmark, one line, an outlined
+   * button, a handle.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569. Safe-area numbers and their source are in
+   * `square-title.html`.
+   *
+   * This one differs from `vertical-outro` on purpose, and the difference is the button.
+   * A vertical piece is watched full-screen inside an app that already has its own follow
+   * and share affordances around the frame, so its ending can be a name and nothing else.
+   * A feed card is a small rectangle in a scrolling column with no such furniture over the
+   * video, so the ending has to say what to do next itself. The button is outlined rather
+   * than filled for the same reason every control in this library is — see
+   * `references/google-register.md`.
+   *
+   * The colour drains before the name lands, the way the closing beat of the film taken
+   * apart in that reference does: measured there at luminance L5 and saturation exactly
+   * 0.00, held without a cut. An ending that is still lit is an ending nobody believes.
+   *
+   * Timeline (4.0s @ 60fps): the field drains -> wordmark springs in -> line -> button ->
+   * pips -> handle -> held on near-black.
+   */
+
+  :root {
+    --safe: 152px;
+    --sp-fast: linear(0, 0.0377, 0.1329, 0.2618, 0.4052, 0.5487, 0.6819, 0.7985, 0.895, 0.9705, 1.0258, 1.0629, 1.0846, 1.0939, 1.0937, 1.0869, 1.0759, 1.0627, 1.049, 1.0358, 1.024, 1.0139, 1.0059, 0.9998, 0.9955, 0.9928, 0.9914, 0.991, 0.9914, 0.9923, 0.9935, 0.9948, 1);
+    --sp-effects: linear(0, 0.0248, 0.0849, 0.1641, 0.2514, 0.3396, 0.4245, 0.5033, 0.5747, 0.6384, 0.6943, 0.7428, 0.7846, 0.8203, 0.8506, 0.8761, 0.8976, 0.9156, 0.9305, 0.943, 0.9532, 0.9617, 0.9688, 0.9745, 0.9792, 0.9831, 0.9863, 0.9889, 0.991, 0.9927, 0.9941, 0.9952, 1);
+    --t-fast: 330ms; --t-effects: 193ms;
+    --stage: #0B0C0F;
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+    --dim: #7E8593;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1080px; height: 1080px; overflow: hidden; position: relative; background: var(--stage);
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: #fff;
+  }
+
+  .field { position: absolute; inset: -12%; opacity: .40; filter: blur(90px);
+    background: radial-gradient(720px 720px at 32% 30%, var(--a1) 0%, transparent 60%),
+                radial-gradient(680px 680px at 74% 74%, var(--a2) 0%, transparent 58%);
+    animation: drain 900ms var(--sp-effects) .15s forwards; }
+  @keyframes drain { to { opacity: 0; } }
+  .grain { position: absolute; inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.035) 1px, transparent 0);
+    background-size: 38px 38px; }
+
+  .safe { position: absolute; inset: var(--safe);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+
+  .word { font-size: 96px; font-weight: 400; letter-spacing: -0.0225em; line-height: 1;
+    opacity: 0; transform: scale(.93);
+    animation: fade var(--t-effects) var(--sp-effects) .70s forwards,
+               popIn var(--t-fast) var(--sp-fast) .70s forwards; }
+  @keyframes fade  { to { opacity: 1; } }
+  @keyframes popIn { to { transform: scale(1); } }
+
+  .line { font-size: 34px; line-height: 1.42; color: #B4BAC6; margin-top: 32px; max-width: 600px;
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 1.10s forwards; }
+
+  /* outlined, never filled — the rule this whole library holds to */
+  .cta { display: inline-flex; align-items: center; gap: 16px; margin-top: 44px;
+    padding: 26px 46px; border-radius: 999px;
+    background: transparent; border: 2px solid rgba(255,255,255,.32); color: #fff;
+    font-size: 32px; font-weight: 500;
+    opacity: 0; transform: translateY(24px);
+    animation: fade var(--t-effects) var(--sp-effects) 1.42s forwards,
+               rise var(--t-fast) var(--sp-fast) 1.42s forwards; }
+  @keyframes rise { to { transform: translateY(0); } }
+  .cta svg { width: 26px; height: 26px; }
+
+  .pips { display: flex; gap: 12px; margin-top: 46px; }
+  .pips i { width: 18px; height: 18px; border-radius: 50%; display: block;
+    opacity: 0; transform: scale(.5);
+    animation: fade var(--t-effects) var(--sp-effects) forwards,
+               popIn var(--t-fast) var(--sp-fast) forwards; }
+  .pips i:nth-child(1){background:var(--a1);animation-delay:1.78s,1.78s}
+  .pips i:nth-child(2){background:var(--a4);animation-delay:1.86s,1.86s}
+  .pips i:nth-child(3){background:var(--a3);animation-delay:1.94s,1.94s}
+  .pips i:nth-child(4){background:var(--a2);animation-delay:2.02s,2.02s}
+
+  .handle { position: absolute; left: 0; right: 0; bottom: var(--safe); text-align: center;
+    font-size: 27px; font-weight: 500; letter-spacing: 3px; text-transform: uppercase; color: var(--dim);
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 2.24s forwards; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+    .field { opacity: 0; }
+    .word, .line, .cta, .handle { opacity: 1; transform: none; }
+    .pips i { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<!-- SQUARE: 1080x1080, stated because the renderer guesses neither dimension. 4.0s is the
+     handle settling at 2.43s and then a hold — the hold IS the ending, not padding, and a
+     feed card in particular needs it, because it is the frame somebody stops on. -->
+<body data-composition-id="scene" data-no-timeline data-width="1080" data-height="1080" data-start="0" data-duration="4.0">
+  <div class="field"></div>
+  <div class="grain"></div>
+
+  <div class="safe">
+    <div class="word">Aetox</div>
+    <div class="line">เจ็ดสิบฉากบนชั้น เปลี่ยนคำ เก็บวินาทีไว้</div>
+    <a class="cta">เปิดชั้นวาง
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
+    <div class="pips"><i></i><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="handle">aetox.app</div>
+</body>
+</html>

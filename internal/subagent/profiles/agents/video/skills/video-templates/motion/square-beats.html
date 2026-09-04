@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Square Beats · written to be understood with the sound off</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * square-beats — five lines cut on the beat and one answer held, sized for a feed card
+   * playing with no sound. The middle of the square set.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569. Safe-area numbers and their source are in
+   * `square-title.html`.
+   *
+   * ---- THE ONE FACT THIS SCENE IS BUILT ON ----
+   * Feed video autoplays MUTED on Facebook and LinkedIn. Whatever a voice would have said
+   * has to be on the frame or it is not in the video at all — captions there are not an
+   * accessibility extra, they are the soundtrack. Checked 4 ก.ย. 2569 against the 2026
+   * platform guides, which also report captioned feed video averaging about 12% more watch
+   * time; whether or not that number holds for a given post, the direction is not in
+   * dispute.
+   *
+   * So: 92px type, four words a line at most, and every beat carries a complete thought
+   * rather than half a sentence continued in the next one. Somebody who joins on beat
+   * three has to get something.
+   *
+   * The beat ticker sits at the top edge of the safe box. Unlike a vertical frame there is
+   * no platform furniture at the foot of a feed card, so it could go either way — top is
+   * chosen so the eye finds the progress before the words, not after them.
+   *
+   * Timeline (8.0s @ 60fps): beats cut at 0.0 / 1.2 / 2.4 / 3.6 / 4.8, the sixth at 6.0
+   * and held 2.0s. Each line rises 400ms after its cut; each field pushes in slowly.
+   */
+
+  :root {
+    --safe: 152px;
+    --sp-effects: linear(0, 0.0248, 0.0849, 0.1641, 0.2514, 0.3396, 0.4245, 0.5033, 0.5747, 0.6384, 0.6943, 0.7428, 0.7846, 0.8203, 0.8506, 0.8761, 0.8976, 0.9156, 0.9305, 0.943, 0.9532, 0.9617, 0.9688, 0.9745, 0.9792, 0.9831, 0.9863, 0.9889, 0.991, 0.9927, 0.9941, 0.9952, 1);
+    --e-emph-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --t-effects: 193ms; --d-medium4: 400ms;
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+    --ink: #16181D; --resolve: #0E0F12;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1080px; height: 1080px; overflow: hidden; position: relative; background: var(--resolve);
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: #fff;
+  }
+
+  .beat { position: absolute; inset: 0; opacity: 0; overflow: hidden;
+    animation: cut 1ms linear forwards; }
+  @keyframes cut { to { opacity: 1; } }
+  .beat:nth-of-type(1) { z-index: 1; animation-delay: 0s;   }
+  .beat:nth-of-type(2) { z-index: 2; animation-delay: 1.2s; }
+  .beat:nth-of-type(3) { z-index: 3; animation-delay: 2.4s; }
+  .beat:nth-of-type(4) { z-index: 4; animation-delay: 3.6s; }
+  .beat:nth-of-type(5) { z-index: 5; animation-delay: 4.8s; }
+  .beat:nth-of-type(6) { z-index: 6; animation-delay: 6.0s; }
+
+  /* the field is the layer to swap for a still frame; see caption-montage on why this
+     set ships footage-free and what to reach for if you need moving footage under it */
+  .bg { position: absolute; inset: -5%; transform: scale(1); animation: push 1.7s linear forwards; }
+  @keyframes push { to { transform: scale(1.08); } }
+  .beat:nth-of-type(1) .bg { background: var(--a1);      animation-delay: 0s;   }
+  .beat:nth-of-type(2) .bg { background: var(--ink);     animation-delay: 1.2s; }
+  .beat:nth-of-type(3) .bg { background: var(--a4);      animation-delay: 2.4s; }
+  .beat:nth-of-type(4) .bg { background: var(--a2);      animation-delay: 3.6s; }
+  .beat:nth-of-type(5) .bg { background: var(--a3);      animation-delay: 4.8s; }
+  .beat:nth-of-type(6) .bg { background: var(--resolve); animation-delay: 6.0s; }
+
+  .cap { position: absolute; inset: var(--safe);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+    font-size: 92px; font-weight: 700; line-height: 1.08; letter-spacing: -2.6px;
+    opacity: 0; transform: translateY(32px);
+    animation: capIn var(--d-medium4) var(--e-emph-decel) forwards; }
+  @keyframes capIn { to { opacity: 1; transform: translateY(0); } }
+  .beat:nth-of-type(1) .cap { animation-delay: 0.06s; }
+  .beat:nth-of-type(2) .cap { animation-delay: 1.26s; }
+  .beat:nth-of-type(3) .cap { animation-delay: 2.46s; }
+  .beat:nth-of-type(4) .cap { animation-delay: 3.66s; }
+  .beat:nth-of-type(5) .cap { animation-delay: 4.86s; color: var(--ink); }
+  .beat:nth-of-type(6) .cap { animation-delay: 6.10s; font-size: 68px; letter-spacing: -1.8px; }
+
+  .mark { display: flex; align-items: center; gap: 18px; margin-top: 40px;
+    font-size: 26px; font-weight: 500; letter-spacing: 2.4px; text-transform: uppercase; color: #7E8593;
+    opacity: 0; animation: capIn 500ms var(--sp-effects) 6.6s forwards; }
+  .mark .pips { display: flex; gap: 9px; }
+  .mark .pips i { width: 16px; height: 16px; border-radius: 50%; display: block; }
+
+  .ticker { position: absolute; z-index: 20; left: var(--safe); right: var(--safe); top: var(--safe);
+    display: flex; gap: 11px; }
+  .ticker span { flex: 1; height: 7px; border-radius: 4px; background: rgba(255,255,255,.24); overflow: hidden; }
+  .ticker span::after { content: ""; display: block; height: 100%; width: 0; background: #fff;
+    animation: fill 1.2s linear forwards; }
+  .ticker span:nth-child(1)::after { animation-delay: 0s;   }
+  .ticker span:nth-child(2)::after { animation-delay: 1.2s; }
+  .ticker span:nth-child(3)::after { animation-delay: 2.4s; }
+  .ticker span:nth-child(4)::after { animation-delay: 3.6s; }
+  .ticker span:nth-child(5)::after { animation-delay: 4.8s; }
+  .ticker span:nth-child(6)::after { animation-delay: 6.0s; animation-duration: 2s; }
+  @keyframes fill { to { width: 100%; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+    .beat { opacity: 0; }
+    .beat:nth-of-type(6) { opacity: 1; }
+    .bg { transform: none; }
+    .cap, .mark { opacity: 1; transform: none; }
+    .ticker span::after { width: 100%; }
+  }
+</style>
+</head>
+<!-- SQUARE: 1080x1080, stated because the renderer reads neither dimension off the CSS.
+     8.0s is five beats of 1.2s and a 2.0s resolve — the questions cut, the answer is held. -->
+<body data-composition-id="scene" data-no-timeline data-width="1080" data-height="1080" data-start="0" data-duration="8.0">
+
+  <div class="beat"><div class="bg"></div><div class="cap">เริ่มตรงไหนดี</div></div>
+  <div class="beat"><div class="bg"></div><div class="cap">ราคาเท่าไหร่</div></div>
+  <div class="beat"><div class="bg"></div><div class="cap">ปีหน้ายังใช้ได้ไหม</div></div>
+  <div class="beat"><div class="bg"></div><div class="cap">มีใครเคยทำแล้วบ้าง</div></div>
+  <div class="beat"><div class="bg"></div><div class="cap">ขอดูไฟล์เลย</div></div>
+
+  <div class="beat">
+    <div class="bg"></div>
+    <div class="cap">
+      ทั้งห้าข้อ มีคำตอบอยู่บนชั้นแล้ว
+      <div class="mark">
+        <span class="pips"><i style="background:var(--a1)"></i><i style="background:var(--a4)"></i><i style="background:var(--a3)"></i><i style="background:var(--a2)"></i></span>
+        Aetox
+      </div>
+    </div>
+  </div>
+
+  <div class="ticker"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+</body>
+</html>

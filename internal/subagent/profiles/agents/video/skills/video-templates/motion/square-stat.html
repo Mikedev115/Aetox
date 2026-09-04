@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Square Stat · one figure, centred, filling a feed card</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * square-stat — one number, centred, with its unit under it and a ring of context around
+   * it. Third card of the square set.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569. Safe-area numbers and their source are in
+   * `square-title.html`.
+   *
+   * The figure is 300px, larger than either the landscape or vertical version of this
+   * card, and that is deliberate: a square post is scrolled past at roughly a third of
+   * screen width, so the number has to survive being small before it gets to be big. Test
+   * it by looking at the render at 360px wide — if the figure is not still the first thing
+   * you see, it is not big enough.
+   *
+   * Two digits are what this size is drawn for. Three still fit. Four need the size down
+   * to about 230px, and `overflow:hidden` will clip a fifth without a word of warning.
+   *
+   * Timeline (4.0s @ 60fps): field -> label -> figure springs up and counts for 1.1s ->
+   * unit -> the line under it -> two context rows -> handle -> held.
+   */
+
+  @property --n { syntax: '<integer>'; initial-value: 70; inherits: false; }
+
+  :root {
+    --safe: 152px;
+    --sp-fast: linear(0, 0.0377, 0.1329, 0.2618, 0.4052, 0.5487, 0.6819, 0.7985, 0.895, 0.9705, 1.0258, 1.0629, 1.0846, 1.0939, 1.0937, 1.0869, 1.0759, 1.0627, 1.049, 1.0358, 1.024, 1.0139, 1.0059, 0.9998, 0.9955, 0.9928, 0.9914, 0.991, 0.9914, 0.9923, 0.9935, 0.9948, 1);
+    --sp-effects: linear(0, 0.0248, 0.0849, 0.1641, 0.2514, 0.3396, 0.4245, 0.5033, 0.5747, 0.6384, 0.6943, 0.7428, 0.7846, 0.8203, 0.8506, 0.8761, 0.8976, 0.9156, 0.9305, 0.943, 0.9532, 0.9617, 0.9688, 0.9745, 0.9792, 0.9831, 0.9863, 0.9889, 0.991, 0.9927, 0.9941, 0.9952, 1);
+    --t-fast: 330ms; --t-effects: 193ms;
+    --stage: #0E0F12;
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+    --dim: #8C93A3;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1080px; height: 1080px; overflow: hidden; position: relative; background: var(--stage);
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: #fff;
+  }
+  .field { position: absolute; inset: -12%; opacity: 0; filter: blur(90px);
+    background: radial-gradient(700px 700px at 50% 34%, var(--a3) 0%, transparent 58%),
+                radial-gradient(680px 680px at 30% 84%, var(--a2) 0%, transparent 56%);
+    animation: fade 900ms var(--sp-effects) .1s forwards; }
+  @keyframes fade { to { opacity: .28; } }
+  .grain { position: absolute; inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.04) 1px, transparent 0);
+    background-size: 38px 38px; }
+
+  .safe { position: absolute; inset: var(--safe);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+
+  .label { display: flex; align-items: center; gap: 16px; font-size: 27px; font-weight: 500;
+    letter-spacing: 3px; text-transform: uppercase; color: var(--dim);
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) .30s forwards; }
+  .label .bar { width: 48px; height: 5px; border-radius: 3px; background: var(--a3); }
+
+  .fig { font-size: 300px; font-weight: 700; letter-spacing: -18px; line-height: .86; margin-top: 20px;
+    font-variant-numeric: tabular-nums;
+    opacity: 0; transform: translateY(76px);
+    animation: fade var(--t-effects) var(--sp-effects) .46s forwards,
+               rise var(--t-fast) var(--sp-fast) .46s forwards; }
+  @keyframes rise { to { transform: translateY(0); } }
+  /* @property makes the integer interpolable; its initial-value is the FINAL figure, so a
+     browser that ignores @property lands on the right number rather than on zero */
+  .fig::after { counter-reset: n var(--n); content: counter(n);
+    animation: count 1.1s linear .78s forwards; }
+  @keyframes count { from { --n: 0; } to { --n: 70; } }
+
+  .unit { font-size: 52px; font-weight: 500; color: var(--a3); letter-spacing: -1px; margin-top: 4px;
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 1.06s forwards; }
+
+  .line { width: 260px; height: 8px; border-radius: 4px; margin-top: 40px; display: flex; overflow: hidden;
+    transform: scaleX(0); animation: draw 460ms var(--sp-fast) 1.24s forwards; }
+  @keyframes draw { to { transform: scaleX(1); } }
+  .line i { flex: 1; display: block; }
+
+  .rows { display: flex; gap: 20px; margin-top: 42px; }
+  .row { display: flex; align-items: center; gap: 14px; font-size: 27px; color: #C6CBD6;
+    padding: 20px 28px; border-radius: 999px; border: 1px solid rgba(255,255,255,.13);
+    background: rgba(255,255,255,.04); white-space: nowrap;
+    opacity: 0; transform: translateY(24px);
+    animation: fade var(--t-effects) var(--sp-effects) forwards,
+               rise var(--t-fast) var(--sp-fast) forwards; }
+  .row:nth-child(1) { animation-delay: 1.50s, 1.50s; }
+  .row:nth-child(2) { animation-delay: 1.60s, 1.60s; }
+  .row i { width: 14px; height: 14px; border-radius: 50%; display: block; flex: none; }
+  .row b { font-weight: 500; }
+
+  .handle { position: absolute; left: 0; right: 0; bottom: var(--safe); text-align: center;
+    font-size: 26px; font-weight: 500; letter-spacing: 2.4px; text-transform: uppercase; color: var(--dim);
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 1.86s forwards; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+    .field { opacity: .28; }
+    .label, .fig, .unit, .row, .handle { opacity: 1; transform: none; }
+    .line { transform: scaleX(1); }
+    .fig::after { content: "70"; }
+  }
+</style>
+</head>
+<!-- SQUARE: 1080x1080, stated because the renderer guesses neither dimension. 4.0s is the
+     handle settling at 2.05s plus a hold — a figure gets read twice, so it gets the time. -->
+<body data-composition-id="scene" data-no-timeline data-width="1080" data-height="1080" data-start="0" data-duration="4.0">
+  <div class="field"></div>
+  <div class="grain"></div>
+
+  <div class="safe">
+    <div class="label"><span class="bar"></span> บนชั้นตอนนี้</div>
+    <div class="fig"></div>
+    <div class="unit">ฉาก</div>
+    <div class="line">
+      <i style="background:var(--a1)"></i><i style="background:var(--a4)"></i>
+      <i style="background:var(--a3)"></i><i style="background:var(--a2)"></i>
+    </div>
+    <div class="rows">
+      <div class="row"><i style="background:var(--a1)"></i> เคลื่อนไหว <b>45</b></div>
+      <div class="row"><i style="background:var(--a4)"></i> นิ่ง <b>25</b></div>
+    </div>
+  </div>
+
+  <div class="handle">aetox.app</div>
+</body>
+</html>

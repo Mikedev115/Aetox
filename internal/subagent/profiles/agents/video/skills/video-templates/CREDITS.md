@@ -1,6 +1,6 @@
 # Where these came from
 
-51 of the 70 scenes here were vendored from somewhere; the other 19 were written
+51 of the 75 scenes here were vendored from somewhere; the other 24 were written
 for Aetox and are at the bottom of this file. What follows first is the vendored
 haul.
 
@@ -170,7 +170,7 @@ more registry examples were inspected and NOT taken: `product-promo` and
 `vscode-theme-visualizer` was deferred because it needs its own build scripts,
 which breaks this shelf's copy-and-edit contract.
 
-## motion/ — 19 scenes written here, not vendored (4 ก.ย. 2569)
+## motion/ — 24 scenes written here, not vendored (4 ก.ย. 2569)
 
 `search-query-reveal`, `dot-loader-morph`, `card-expand-hero`, `caption-montage`,
 `aurora-prompt-box`, `ship-it-toolbar`, `spring-stat-tiles`, `shared-axis-steps`,
@@ -268,6 +268,17 @@ practice.
 
 `split-compare-wipe`, `roadmap-dates` — two shapes the shelf had only as slides.
 No outside source.
+
+`square-title`, `square-quad`, `square-stat`, `square-beats`, `square-outro` — the
+five-scene square set, 1080x1080. Same AOSP spring set as everything else here.
+Its one outside input is again geometry and platform behaviour rather than
+design: the safe margin (Instagram about 1000x1000 centred on a 1080 square,
+Facebook 14% a side) and the fact that feed video autoplays muted, both read
+4 ก.ย. 2569 off the 2026 platform-spec guides
+([campaignswift.com](https://campaignswift.com/blog/instagram-safe-zone-sizes),
+[get-ryze.ai](https://www.get-ryze.ai/blog/facebook-ad-sizes-complete-specs-guide-for-2026),
+[quso.ai](https://quso.ai/blog/linkedin-video-specs)). Those are measurements of
+somebody else's product, not a design anybody owns.
 
 ### The Thai retrofit (4 ก.ย. 2569)
 

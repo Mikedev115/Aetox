@@ -9,7 +9,7 @@ not the whole file.
 **Most of these are CSS `@keyframes` and nothing else** — no library, no build
 step, no bundler, which is why they open in a browser as fast as they render.
 
-**32 of the 45 motion scenes hold to that.** The other **13** —
+**37 of the 50 motion scenes hold to that.** The other **13** —
 `bold-portrait-title`, `decision-flowchart`, `editorial-chart`,
 `grain-texture-hero`, `kinetic-type`, `playful-bounce`, `product-launch-30s`,
 `product-showcase`, `structured-grid`, and since 1 ก.ย. `airbnb-deck`,
@@ -81,7 +81,7 @@ of its keyframes: an animation that finishes in 2 seconds inside a 6 second
 scene leaves 4 seconds of a held frame, and one still moving at the end is cut
 off mid-move.
 
-**All 32 single-file scenes state their length on `<body>`**, beside the
+**All 37 single-file scenes state their length on `<body>`**, beside the
 frame, on the same composition root:
 
 ```html
@@ -89,7 +89,7 @@ frame, on the same composition root:
       data-width="1920" data-height="1080" data-start="0" data-duration="3.0">
 ```
 
-That is the one place the length lives in those 32; change the number to change
+That is the one place the length lives in those 37; change the number to change
 the clip. It is stated rather than derived for two reasons. Four of them —
 `glitch-title`, `typewriter-cursor`, `liquid-gradient-hero` and
 `cinematic-light-leak` — have no end to derive: the first three loop for ever
@@ -109,9 +109,11 @@ cut mid-move.
 `dot-loader-morph`, `card-expand-hero`, `caption-montage`, `aurora-prompt-box`,
 `ship-it-toolbar`, `spring-stat-tiles`, `shared-axis-steps` and `device-reveal`
 were written the other way round — the last keyframe was placed *on* the number
-the scene wanted, so 6.0 / 4.0 / 5.0 / 8.0 / 8.0 / 6.0 / 5.0 / 6.4 / 7.0 are where
-the animation ends by construction rather than where a render was observed to
-stop. `aurora-prompt-box`
+the scene wanted, so every one of their lengths is where the animation
+ends by construction rather than where a render was observed to stop. The ten
+added later the same day — the vertical set, the three overlays,
+`split-compare-wipe` and `roadmap-dates` — and the five square scenes after them
+were written the same way. `aurora-prompt-box`
 is the strictest of the eight: its 8.0s is exactly one turn of the border glow,
 so shortening it leaves the hue stopped mid-rotation. Each was stepped frame by frame in a browser
 at several times on the clock and looks right at each, which is not the same
@@ -130,7 +132,7 @@ and it is the one to quote to a user.
 
 ## Google Fonts is the one thing still fetched at render time
 
-40 of the 45 motion scenes pull typefaces over a `<link>` — every one except
+45 of the 50 motion scenes pull typefaces over a `<link>` — every one except
 `bold-portrait-title`, `structured-grid`, `startup-pitch`, `slideshow-demo`
 and `motion-blur`; counted 31 ส.ค., recounted 1 ก.ย. when four scenes
 arrived from the hyperframes registry (only `airbnb-deck` among them fetches),
@@ -146,7 +148,7 @@ If the request fails the frames record the fallback face. That is not a crash
 and not an error message: it is a scene that came out looking wrong for a reason
 nothing in the output explains. Check the render, do not assume it.
 
-## ไทย: 13 of the 70 scenes still have no Thai typeface, and they are all folders
+## ไทย: 13 of the 75 scenes still have no Thai typeface, and they are all folders
 
 Counted 31 ส.ค. over the original 47 scenes: 26 font families between them and
 not one covers Thai; the four scenes vendored 1 ก.ย. add only `Nunito Sans`
@@ -182,11 +184,12 @@ already uses. Do not quietly render and hand it over.
 
 ## Frame size is stated in every file, and has to be
 
-Every scene declares its frame on its composition root: on `<body>` for the 32
-single-file scenes, on the root `<div>` for the 13 folders. 39 of the 45 say
-`data-width="1920" data-height="1080"`; the other **six are portrait, 1080x1920**:
-`bold-portrait-title`, which was the only one for a long time, and the five-scene
-vertical set added 4 ก.ย. 2569.
+Every scene declares its frame on its composition root: on `<body>` for the 37
+single-file scenes, on the root `<div>` for the 13 folders. The shelf now runs
+**three aspects**: 39 landscape at 1920x1080, **six portrait at 1080x1920**
+(`bold-portrait-title`, the only one for a long time, plus the five-scene vertical
+set) and **five square at 1080x1080** (the square set). All eleven of the
+non-landscape ones arrived 4 ก.ย. 2569.
 
 **Stated because the renderer does not guess it.** A scene with no declared
 frame renders at 1080x1920 whatever its CSS says — it crops a design drawn 1920
@@ -197,7 +200,7 @@ written into them.
 Changing the aspect is those two numbers, plus whatever the scene's own CSS
 pins. Six of them — `glitch-title`, `typewriter-cursor`, `bar-chart-counter`,
 `logo-outro`, `liquid-gradient-hero`, `cinematic-light-leak` — lay themselves
-out fluidly, so for those it is only the two numbers. The other 34 draw their own
+out fluidly, so for those it is only the two numbers. The other 39 draw their own
 1920x1080 box in CSS as well, and moving the frame without editing that rule
 leaves the scene drawing its old box inside the new one. The `Frame` column in
 SKILL.md's table says which is which.
@@ -232,8 +235,8 @@ and applies here rather than being decided again per scene.
 ## Where these came from
 
 `CREDITS.md` beside this file records the source repository, the licence and the
-upstream design lineage of every one of the 70 files, including six that were
-themselves derived from other design skills and nineteen that were written here. The licences are Apache-2.0 and
+upstream design lineage of every one of the 75 files, including six that were
+themselves derived from other design skills and twenty-four that were written here. The licences are Apache-2.0 and
 MIT. Both allow commercial use and both require the attribution to travel with
 the work.
 
@@ -318,4 +321,37 @@ from `rgba(0,0,0,0)` to `rgb(245,245,247)` under the override. Any scene that
 paints text with a moving gradient has this same hole in it — check the text is
 still there, not just that the motion stopped.
 
-All nineteen scenes written here shipped with the block from the start.
+All twenty-four scenes written here shipped with the block from the start.
+
+## Square is not a crop either
+
+Five scenes are 1080x1080 and they arrived as a set, the same day as the vertical
+one. Three things separate a square from both other frames, and each of them
+changes a layout rather than just a number.
+
+**The margin is equal on all four sides.** A vertical frame needs three different
+insets because the platform draws different furniture at the head, the foot and
+the right edge. A feed post has almost none of that. Checked 4 ก.ย. 2569 against
+the 2026 platform guides: Instagram treats roughly 1000x1000 centred as safe on a
+1080 square — a 40px buffer — and Facebook asks for 14% on every side, which is
+152px. The set takes Facebook's, because one asset has to survive every feed, and
+holds it in a single variable, `--safe: 152px`.
+
+**The sound is off.** Feed video autoplays muted on Facebook and LinkedIn, so
+anything a voice would have carried has to be on the frame or it is not in the
+video at all. The same guides report captioned feed video averaging about 12% more
+watch time. `square-beats` is built on that fact: 92px type, four words to a line,
+and every beat a complete thought so that somebody joining on beat three still
+gets something.
+
+**There is no reading direction.** A landscape frame is read left to right and a
+vertical one top to bottom; a square is read from the middle outward. That is why
+the square cards are centred where the vertical ones are top-weighted, and why
+`square-title`'s rule draws from the centre out rather than from one edge.
+
+And one shape only this aspect can hold: `square-quad`'s 2x2. Four equal cells in
+16:9 become a row of short wide boxes with nothing to fill vertically; in 9:16 they
+become a column, which reads as a ranked list. At 1:1 four things read as four
+things **at once**, unranked, which is the whole point of putting them in a quad.
+Its numbers follow from the margin — a 776px safe box is exactly two 370px cells
+and a 36px gap, so moving `--safe` means moving `--cell` with it.
