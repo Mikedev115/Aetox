@@ -379,3 +379,47 @@ events and not for their numbers.
 To actually render at 60, put `data-fps="60"` on the composition root beside the
 frame and the duration. It doubles the frames and roughly doubles the render time;
 nothing on this shelf has needed it.
+
+## Rendering this shelf: what was measured, and what turned out to be noise
+
+Measured 4 ก.ย. 2569 on the owner's machine (i5-14450HX, 16 cores, 31.7 GB) with
+hyperframes 0.8.20, rendering `spring-stat-tiles` — 5.0s, 150 frames, 1920x1080 —
+timed as full process wall time, two runs per config, median reported.
+
+**Fewer render workers is faster, and `auto` picks too many.**
+
+    -w 2 .... 53.3s    (runs 53.1, 53.5)
+    -w 4 .... 54.8s    (runs 54.1, 55.6)
+    -w 8 .... 55.9s    (runs 53.4, 58.4)
+    -w 12 ... 71.3s    (runs 70.1, 72.5)
+
+`auto` chose 6 on this machine. Two is better, and twelve is 1.34x worse than two
+— each worker is its own Chrome, and past a handful they contend rather than
+help. Both ends had tight run-to-run spread, which is why this one is worth
+trusting.
+
+**Quality has no measurable effect on render time, so pick `high`.**
+
+    draft ....... 55.4s
+    high ........ 57.1s
+    standard .... 70.8s
+
+Do not read those apart. `high` alone ranged **46.0s to 68.2s** across its two
+runs, so a 1.7s gap between draft and high is smaller than the noise in either of
+them, and the `standard` figure is not safe to quote either. What the numbers do
+support is that quality is not the lever — so take `high`, because it costs
+nothing measurable and produces a better file (456 KB against draft's 311 KB on
+the same scene).
+
+**A caution about `hyperframes benchmark` itself.** It defaults to three runs per
+config, but run with `--runs 1` it reported draft at 34.2s against high at 25.7s
+— which read as "draft is dramatically slower" and is not true. One sample of a
+metric that swings 22 seconds is not a measurement. If the preset benchmark is
+used at all, leave `--runs` alone.
+
+**The real ceiling is not parallelism inside one render.** A render spends roughly
+16s on compile plus capture calibration before a single frame is captured, and
+that is paid once per scene. Rendering a batch of 24 therefore burns about six
+and a half minutes on warm-up alone, and no worker setting touches it. The lever
+that would is running several scene renders as separate concurrent processes,
+which trades memory for wall time; that has not been measured here.
