@@ -1,0 +1,77 @@
+@import "sidenav.css";
+@import "brandnav.css";
+
+:root {
+  --surface: lch(10 0 0);
+  --surface2: lch(20 0 0);
+  --text: lch(90 0 0);
+  --text2: lch(70 0 0);
+  --brandHSL: 328 100% 54%;
+
+  @media (prefers-color-scheme: light) {
+    --surface: lch(90 0 0);
+    --surface2: lch(100 0 0);
+    --text: lch(20 0 0);
+    --text2: lch(40 0 0);
+  }
+}
+
+body {
+  min-block-size: 100vh;
+  font-family: "BLOKK", system-ui;
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+  color: var(--text);
+}
+
+h1,h2,h3,h4,figure {
+  margin: 0;
+  color: var(--text);
+}
+
+h2 {
+  font-size: 2.5rem;
+}
+
+h3 {
+  font-size: 1.5rem;
+  max-inline-size: 30ch;
+}
+
+p {
+  line-height: 1.5;
+  color: var(--text2);
+  max-inline-size: 50ch;
+}
+
+a {
+  color: hsl(328 100% 74%);
+  outline-color: hsl(var(--brandHSL));
+  outline-offset: 5px;
+
+  &:hover {
+    color: hsl(var(--brandHSL));
+  }
+}
+
+.github-corner {
+  fill: var(--surface2);
+  color: var(--surface); 
+  
+  &:hover .octo-arm {
+    animation: octocat-wave 560ms ease-in-out
+  }
+}
+
+@keyframes octocat-wave{
+  0%,100% {
+    transform: rotate(0)
+  }
+  20%,60% {
+    transform: rotate(-25deg)
+  }
+  40%,80% {
+    transform: rotate(10deg)
+  }
+}

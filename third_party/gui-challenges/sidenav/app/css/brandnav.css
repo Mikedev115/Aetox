@@ -1,0 +1,117 @@
+/* these are styles to make it pretty */
+/* sidenav.css has all the layout, state and functionality */
+
+nav {
+  display: inline-flex;
+  flex-direction: column;
+  padding: 2rem;
+  font-size: 1.25rem;
+  color: var(--text);
+
+  @media (min-width: 540px) {
+    padding-block-start: 4.5rem;
+  }
+
+  @media (max-width: 540px) {
+    background-color: var(--surface2);
+    border-inline-end: 1px var(--surface1);
+    box-shadow: 5px 0 40px hsla(0 0% 0% / .45);
+    font-size: 1.5rem;
+  }
+
+  & > h4 {
+    text-transform: uppercase;
+
+    &:not(:first-child) {
+      margin-block-start: 2rem;
+    }
+  }
+
+  & a {
+    text-decoration: none;
+    line-height: 1.25;
+  }
+}
+
+.hamburger {
+  --size: 4rem;
+  display: flex;
+  place-content: center;
+  padding: 1rem;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  margin-inline-start: -1rem;
+  block-size: var(--size);
+  inline-size: var(--size);
+  outline: none;
+  transition:
+    border-color .25s ease,
+    background-color .25s ease;
+
+  &:hover {
+    border-color: hsl(var(--brandHSL) / 50%);
+  }
+
+  &:focus {
+    border-color: hsl(var(--brandHSL) / 12%);
+    background: hsl(var(--brandHSL) / 10%);
+  }
+
+  &:hover svg > line {
+    stroke: hsl(var(--brandHSL));
+  }
+
+  &:active {
+    background: hsl(var(--brandHSL) / 20%);
+  }
+
+  & > svg {
+    width: 100%;
+
+    & > line {
+      stroke: var(--text);
+      stroke-width: 7px;
+      transition: stroke .25s ease;
+    }
+  }
+}
+
+aside > a {
+  outline-offset: -1px;
+  outline: 1px solid transparent;
+
+  &:focus {
+    outline-color: hsl(var(--brandHSL));
+    transition: outline-color .25s ease;
+  }
+}
+
+main {
+  padding: .5rem 1.5rem;
+
+  & > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-block-size: 3rem;
+    margin-block-end: 1rem;
+  }
+}
+
+article {
+  display: inline-grid;
+  gap: 2ch;
+  background: var(--surface2);
+  padding: 2ch;
+  border-radius: 1ch;
+  box-shadow: 0 2px 5px hsl(0 0% 0% / 20%);
+
+  & > * {
+    margin: 0;
+  }
+
+  & > p + :matches(h1,h2,h3,h4,h5,h6) {
+    margin-top: 2ch;
+  }
+}

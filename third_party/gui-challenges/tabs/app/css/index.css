@@ -1,0 +1,65 @@
+@import "device.css";
+@import "tabs.css";
+
+html {
+  block-size: 100%;
+  inline-size: 100%;
+}
+
+body {
+  min-block-size: 100%;
+  min-inline-size: 100%;
+  margin: 0;
+  box-sizing: border-box;
+  display: grid;
+  place-content: center;
+  font-family: system-ui, sans-serif;
+}
+
+p {
+  max-inline-size: 35ch;
+  margin-block: .5ch;
+
+  & + p {
+    margin-block-start: 1rem;
+  }
+}
+
+h2 {
+  font-size: 2.5rem;
+  margin-block-end: .5rem;
+  line-height: 1;
+
+  &:first-of-type {
+    margin-block-start: 0;
+  }
+}
+
+article {
+  box-sizing: border-box;
+  font-family: "Blokk";
+  font-size: 1.25rem;
+  line-height: 1;
+  color: hsl(0 0% 20%);
+}
+
+.github-corner {
+  fill: hsl(0 0% 80%);
+  color: white; 
+  
+  &:hover .octo-arm {
+    animation: octocat-wave 560ms ease-in-out
+  }
+}
+
+@keyframes octocat-wave{
+  0%,100% {
+    transform: rotate(0)
+  }
+  20%,60% {
+    transform: rotate(-25deg)
+  }
+  40%,80% {
+    transform: rotate(10deg)
+  }
+}

@@ -1,0 +1,54 @@
+@import "toast.css";
+
+@custom-media --motionOK (prefers-reduced-motion: no-preference);
+@custom-media --dark (prefers-color-scheme: dark);
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+html {
+  block-size: 100%;
+  color-scheme: dark light;
+}
+
+body {
+  min-block-size: 100%;
+  font-family: system-ui, sans-serif;
+  
+  display: flex;
+  gap: 2ch;
+  align-items: center;
+  justify-content: center;
+
+  @media (max-width: 720px) {
+    flex-direction: column;
+  }
+}
+
+button {
+  font-size: 1.5rem;
+  touch-action: manipulation;
+}
+
+.github-corner {
+  fill: indigo;
+  color: Canvas;
+  
+  &:hover .octo-arm {
+    animation: octocat-wave 560ms ease-in-out
+  }
+}
+
+@keyframes octocat-wave{
+  0%,100% {
+    transform: rotate(0)
+  }
+  20%,60% {
+    transform: rotate(-25deg)
+  }
+  40%,80% {
+    transform: rotate(10deg)
+  }
+}

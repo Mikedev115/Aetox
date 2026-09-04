@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <title>Settings | GUI Challenges</title>
+    <meta charset="utf-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#ff69b4">
+    <meta name="description" content="🙂">
+    <meta name="color-scheme" content="dark light">
+
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+
+    <link rel="stylesheet" href="/style.css">
+    <script type="module" src="/index.js"></script>
+  </head>
+  <body>
+
+    <main>
+      <h1>Settings</h1>
+      
+      <form>
+
+        <section>
+          <header>
+            <h2>Sound & vibration</h2>
+            <small>Adjust system volume channels</small>
+          </header>
+          
+          <fieldset>
+            
+            <div class="fieldset-item">
+              <picture aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <title>A note icon</title>
+                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                </svg>
+              </picture>
+              <div class="input-stack">
+                <label 
+                  for="media-volume" 
+                  id="media-volume" 
+                  aria-hidden="true">
+                    Media volume
+                </label>
+                <input 
+                  name="media-volume" 
+                  aria-labelledby="media-volume" 
+                  type="range" 
+                  value="3" 
+                  max="10" 
+                  style="--track-fill: 30%"
+                >
+              </div>
+            </div>
+
+            <div class="fieldset-item">
+              <picture aria-hidden="true">
+                <title>A phone icon</title>
+                <svg viewBox="0 0 24 24">
+                  <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                </svg>
+              </picture>
+              <div class="input-stack">
+                <label for="call-volume" id="call-volume" aria-hidden="true">Call volume</label>
+                <input 
+                  name="call-volume" 
+                  aria-labelledby="call-volume" 
+                  type="range" 
+                  value="7" 
+                  max="10" 
+                  style="--track-fill: 70%"
+                >
+              </div>
+            </div>
+
+            <div class="fieldset-item">
+              <picture aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <title>A bell icon</title>
+                  <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                </svg>
+              </picture>
+              <div class="input-stack">
+                <label for="ring-volume" id="ring-volume" aria-hidden="true">Ring volume</label>
+                <input 
+                  name="ring-volume" 
+                  aria-labelledby="ring-volume" 
+                  type="range" 
+                  value="5" 
+                  max="10" 
+                  style="--track-fill: 50%"
+                >
+              </div>
+            </div>
+
+            <div class="fieldset-item">
+              <picture aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <title>An alarm clock icon</title>
+                  <path d="M22 5.72l-4.6-3.86-1.29 1.53 4.6 3.86L22 5.72zM7.88 3.39L6.6 1.86 2 5.71l1.29 1.53 4.59-3.85zM12.5 8H11v6l4.75 2.85.75-1.23-4-2.37V8zM12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 16c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+                </svg>
+              </picture>
+              <div class="input-stack">
+                <label for="alarm-volume" id="alarm-volume" aria-hidden="true">Alarm volume</label>
+                <input 
+                  name="alarm-volume" 
+                  aria-labelledby="alarm-volume" 
+                  type="range" 
+                  value="8" 
+                  max="10" 
+                  style="--track-fill: 80%"
+                >
+              </div>
+            </div>
+            
+          </fieldset>
+        </section>
+
+        <section>
+          <header>
+            <h2>Notifications</h2>
+            <small>Turn specific channels on/off</small>
+          </header>
+          
+          <fieldset>
+
+            <div class="fieldset-item">
+              <input 
+                type="checkbox"
+                checked
+                id="text-notifications"
+                name="text-notifications"
+              >
+              <div class="input-stack">
+                <label for="text-notifications">
+                  <h3>Text Messages</h3>
+                  <small>Get notified about all text messages sent to your device</small>
+                </label>
+              </div>
+            </div>
+
+            <div class="fieldset-item">
+              <input 
+                type="checkbox"
+                id="voice-notifications"
+                name="voice-notifications"
+              >
+              <div class="input-stack">
+                <label for="voice-notifications">
+                  <h3>Voice Mail</h3>
+                  <small>Get notified about all voice messages sent to your device</small>
+                </label>
+              </div>
+            </div>
+
+            <div class="fieldset-item">
+              <input 
+                type="checkbox"
+                id="email-notifications"
+                name="email-notifications"
+              >
+              <div class="input-stack">
+                <label for="email-notifications">
+                  <h3>Emails</h3>
+                  <small>Get notified about all text messages to your device</small>
+                </label>
+              </div>
+            </div>
+
+          </fieldset>
+        </section>
+
+      </form>
+    </main>
+
+    <a href="https://github.com/argyleink/gui-challenges" class="github-corner" aria-label="View source on GitHub">
+      <svg width="80" height="80" viewBox="0 0 250 250" style="position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path>
+      </svg>
+    </a>
+
+  </body>
+</html>
