@@ -409,14 +409,31 @@ func embeddedSupportingFiles(fsys fs.FS) []string {
 	return out
 }
 
-// trimListing sorts a file listing and caps it, so both walks answer with the
+// listingCap bounds one skill's file listing, so both walks answer with the
 // same shape and the cap is stated once.
+//
+// The cap is there for a skill nobody here curated: one installed from a
+// repository, or written by the agent itself and grown a folder, where the file
+// count is not a decision anybody made and a walk can turn up hundreds.
+//
+// It was 40 until aetox-slide-templates reached 48 files, and what happened
+// then is exactly what TestEveryFileBundledBesideASkillIsReachable exists to
+// catch. The list is sorted, so themes/ sorted last, and all six themes fell
+// off the end together — skill_view stopped offering the half of that skill
+// that decides what colour a deck is, while the document above went on naming
+// them in a table. So the cap now has room over the largest thing shipped, and
+// what it does cut it says out loud: a listing that ends early and looks
+// complete is worse than a long one, because nothing downstream can tell.
+const listingCap = 80
+
 func trimListing(out []string) []string {
 	sort.Strings(out)
-	if len(out) > 40 {
-		out = out[:40]
+	if len(out) <= listingCap {
+		return out
 	}
-	return out
+	cut := len(out) - listingCap
+	return append(out[:listingCap:listingCap],
+		fmt.Sprintf("[and %d more files this listing did not fit; it is capped at %d]", cut, listingCap))
 }
 
 func (s *skillViewSkill) Execute(ctx context.Context, input Input) (Output, error) {
