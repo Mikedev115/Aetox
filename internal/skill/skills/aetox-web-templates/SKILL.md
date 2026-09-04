@@ -1,6 +1,6 @@
 ---
 name: aetox-web-templates
-description: เทมเพลตหน้าเว็บจริงที่ก๊อปไปใช้ได้เลย 36 ส่วน ตั้งแต่ nav hero ราคา FAQ ไปจนถึงแดชบอร์ด แดชบอร์ดวิเคราะห์ กราฟ 6 ชนิดที่วาดด้วย SVG ล้วน ตาราง ฟอร์ม แจ้งเตือน สลับธีม กริดสื่อ โปรไฟล์ หน้า 404 บทความ และหน้าเอกสาร ไฟล์เดียวจบ responsive ไม่มี framework ไม่มี CDN ไม่ต้อง build ใช้ตอนกำลังจะสร้างหน้าเว็บหรือหน้าจอแล้วไม่อยากประดิษฐ์โครงขึ้นใหม่ทุกครั้ง
+description: เทมเพลตหน้าเว็บจริงที่ก๊อปไปใช้ได้เลย 37 ส่วน ตั้งแต่ nav hero ราคา FAQ ไปจนถึงแดชบอร์ด แดชบอร์ดวิเคราะห์ กราฟ 6 ชนิดที่วาดด้วย SVG ล้วน ตาราง ฟอร์ม แจ้งเตือน สลับธีม กริดสื่อ โปรไฟล์ หน้า 404 บทความ และหน้าเอกสาร ไฟล์เดียวจบ responsive ไม่มี framework ไม่มี CDN ไม่ต้อง build ใช้ตอนกำลังจะสร้างหน้าเว็บหรือหน้าจอแล้วไม่อยากประดิษฐ์โครงขึ้นใหม่ทุกครั้ง
 ---
 
 # Web templates
@@ -61,6 +61,7 @@ and dark mode that every section below assumes. Then paste sections into its
 | Donut | `sections/chart-donut.html` | Share of a whole that genuinely sums to 100%, in at most five slices. |
 | Data table | `sections/data-table.html` | Tabular data that scrolls on a narrow screen. |
 | Form card | `sections/form-card.html` | Sign in, sign up, any short form. |
+| Form controls | `sections/form-controls.html` | Every native control styled once — text, select, checkbox, radio, switch, range, date, file — with error, disabled and read-only states. |
 | Alert | `sections/alert.html` | An inline status message, or a grouped error summary for a multi-field form. |
 | Empty state | `sections/empty-state.html` | A list with nothing in it yet. |
 | Error page | `sections/error-page.html` | 404, 500, anything that went wrong. |
