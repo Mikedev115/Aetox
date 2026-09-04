@@ -1,0 +1,35 @@
+<!-- Image grid. Three pictures that belong to one idea, each with the line that
+     says what it is. Three across; four makes every picture smaller than the
+     thing inside it, and a picture nobody can make out is a grey rectangle with
+     a caption.
+
+     Not feature-grid, whose cells are words in a box. Not team-grid, whose
+     pictures are faces at a fixed round size. This one is for work: screens,
+     places, results, the three things that were built.
+
+     `cover` here rather than the `contain` of visual-split, because these are
+     scenes being sampled rather than objects being shown, and a row of frames
+     that are all the same shape is the whole point of a grid. -->
+<style>
+  .l-imgs .cells{ display:grid; grid-template-columns:repeat(3,1fr); gap:22px; margin-top:34px }
+  .l-imgs figure{ margin:0 }
+  .l-imgs .shot{ height:288px; border-radius:14px; overflow:hidden;
+                 border:1px solid var(--line,rgba(255,255,255,.09));
+                 background:var(--panel,rgba(255,255,255,.045)) }
+  .l-imgs .shot img{ width:100%; height:100%; object-fit:cover; display:block }
+  .l-imgs figcaption{ margin-top:12px; font-size:18px; color:var(--body) }
+  .l-imgs figcaption b{ display:block; color:var(--text); font-size:20px; margin-bottom:3px }
+</style>
+
+<section class="slide l-imgs">
+  <div class="kicker rise">สามอย่างนี้</div>
+  <h1 class="rise" style="font-size:52px">สิ่งที่ทำออกมาได้</h1>
+  <div class="cells rise">
+    <figure><div class="shot"><img src="imgs/ชิ้นที่หนึ่ง.jpg" alt="คำอธิบายภาพ"></div>
+      <figcaption><b>ชื่อชิ้นงาน</b>บรรทัดที่บอกว่ามันคืออะไร</figcaption></figure>
+    <figure><div class="shot"><img src="imgs/ชิ้นที่สอง.jpg" alt="คำอธิบายภาพ"></div>
+      <figcaption><b>ชื่อชิ้นงาน</b>บรรทัดที่บอกว่ามันคืออะไร</figcaption></figure>
+    <figure><div class="shot"><img src="imgs/ชิ้นที่สาม.jpg" alt="คำอธิบายภาพ"></div>
+      <figcaption><b>ชื่อชิ้นงาน</b>บรรทัดที่บอกว่ามันคืออะไร</figcaption></figure>
+  </div>
+</section>

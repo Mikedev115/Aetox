@@ -1,0 +1,126 @@
+/* Photo overlays and text placement.
+   The five treatments and four placements that aetox-design-system's
+   data/slide-backgrounds.csv has been naming since before this folder existed.
+
+   Each row of that table says what a slide type wants — hero takes
+   gradient-dark with the words centred, problem takes desaturate-dark, solution
+   takes gradient-accent with the words on the right. Until now those were names
+   with nothing behind them, exactly the way the colour treatments were names
+   with nothing behind them. This is the markup half.
+
+   Paste this block into the deck's <style> when a slide needs a treatment other
+   than the one its template came with. It is optional: every picture template in
+   slides/ carries its own default scrim, so a deck that never opens this file
+   still works. That is the copy-one-block contract those templates are for.
+
+   Two things about how it is written, both of them mistakes made once already:
+
+   1. The selector is :is([class^="ov-"],[class*=" ov-"]) and never [class*="ov-"].
+      A substring match reaches into every class that merely contains those two
+      letters — the web templates shipped [class*="w-"] and it silently styled
+      show-panel and arrow-nav, which have nothing to do with widths.
+
+   2. The blur and the desaturation are `filter` on the <img>, never
+      `backdrop-filter` on the layer above it. The export runs off-screen and
+      prints what the document computed; a backdrop filter has no reliable
+      backdrop there and prints as a plain rectangle over the picture. A filter
+      on the element itself is paint, and paint survives.
+
+   Everything fades toward --stage, never toward black. "dark" in these names is
+   the table's word for "hide the picture into the stage", and on the paper and
+   elevated themes the stage is light — a literal black veil there buries the
+   photograph and puts dark text on top of it, which is the bug this whole pass
+   started from. The rgba line before each color-mix line is the fallback for a
+   browser without color-mix; the one that understands the second takes it. */
+
+/* The generic picture slide these are written for is four lines:
+
+     <section class="slide ov-gradient-brand tp-left">
+       <img class="ph" src="imgs/…" alt="…">
+       <div class="copy"> …kicker, h1, p… </div>
+     </section>
+
+   On full-bleed.html specifically, delete its own .l-bleed::after rule before
+   adding one of these classes. That template bakes in gradient-dark so it can be
+   pasted alone, and two scrims stack into a veil nobody chose. */
+
+/* the picture layer itself */
+.ph{ position:absolute; inset:0; z-index:0; width:100%; height:100%; object-fit:cover }
+
+/* every overlay is one full-cover layer above the picture and below the words */
+:is([class^="ov-"],[class*=" ov-"])::after{
+  content:''; position:absolute; inset:0; z-index:1; pointer-events:none }
+/* .slide.ov-… rather than .ov-…, so pasting this before or after the layouts
+   reads the same. The skeleton still owns the box; this only paints inside it. */
+
+/* gradient-dark — hero, team, hook, demo, social. The picture holds the top,
+   the words sit in the stage at the bottom. */
+.slide.ov-gradient-dark::after{
+  background:linear-gradient(0deg,rgba(5,6,8,.94) 0 32%,rgba(5,6,8,.15) 78%);
+  background:linear-gradient(0deg,
+    color-mix(in srgb,var(--stage) 94%,transparent) 0 32%,
+    color-mix(in srgb,var(--stage) 15%,transparent) 78%) }
+
+/* gradient-brand — vision, cta. Stage on the side the words are, the accent
+   warming the far side, so the picture reads as the brand's rather than stock. */
+.slide.ov-gradient-brand::after{
+  background:linear-gradient(90deg,rgba(5,6,8,.95) 0 34%,rgba(5,6,8,.35) 62%,rgba(255,59,48,.30));
+  background:linear-gradient(90deg,
+    color-mix(in srgb,var(--stage) 95%,transparent) 0 34%,
+    color-mix(in srgb,var(--stage) 35%,transparent) 62%,
+    color-mix(in srgb,var(--accent) 30%,transparent)) }
+
+/* gradient-accent — solution, the breakthrough slide. The accent dominates and
+   the picture shows through it, which is the loudest of the five: one slide.
+
+   HEADLINE ONLY. This is the one overlay that changes what the words are
+   standing on, and the ground it makes is the accent itself — so the tokens
+   tuned against --stage stop being right the moment it is switched on.
+   Measured on the six shipped themes, --accent-text on this ground reads
+   between 1.00:1 and 1.35:1. Invisible. Every one of them.
+
+   So the rule below re-points the ink for the whole slide at --accent-ink, the
+   token each theme sets for exactly this: what is legible ON the accent rather
+   than against the stage. That clears 3.55:1 on the dark themes and 5.3:1 on
+   the light ones — the display bar, which is all a 60px headline owes, and all
+   this overlay is for. Do not put a caption, a footer or a 13px source line on
+   it; no ink clears 4.5:1 against a saturated mid-red field, the same wall the
+   bleed theme ran into and documents. */
+.slide.ov-gradient-accent{ --accent-text:var(--accent-ink); color:var(--accent-ink) }
+/* the headings are named again rather than left to inherit: the skeleton sets
+   h1/h2/h3 colour directly, and a rule that matches an element beats anything
+   handed down to it, whatever the specificity. Setting `color` on the section
+   alone changes the paragraphs and leaves the headline the stage's colour. */
+.slide.ov-gradient-accent :is(h1,h2,h3,p){ color:var(--accent-ink) }
+.slide.ov-gradient-accent::after{
+  background:linear-gradient(120deg,rgba(255,59,48,.82) 0 40%,rgba(5,6,8,.80));
+  background:linear-gradient(120deg,
+    color-mix(in srgb,var(--accent) 82%,transparent) 0 40%,
+    color-mix(in srgb,var(--stage) 80%,transparent)) }
+
+/* blur-dark — testimonial, social. The picture becomes a field rather than a
+   subject, so a whole paragraph can sit on it. */
+.slide.ov-blur-dark .ph{ filter:blur(11px); transform:scale(1.06) }
+/* scale, because blur samples past the edge and leaves a soft border otherwise */
+.slide.ov-blur-dark::after{
+  background:rgba(5,6,8,.72);
+  background:color-mix(in srgb,var(--stage) 72%,transparent) }
+
+/* desaturate-dark — problem, the slide about what is wrong. Colour drains out
+   of it, which is the whole reason the table asks for this one here. */
+.slide.ov-desaturate-dark .ph{ filter:saturate(.18) contrast(1.06) }
+.slide.ov-desaturate-dark::after{
+  background:linear-gradient(0deg,rgba(5,6,8,.92) 0 30%,rgba(5,6,8,.55) 85%);
+  background:linear-gradient(0deg,
+    color-mix(in srgb,var(--stage) 92%,transparent) 0 30%,
+    color-mix(in srgb,var(--stage) 55%,transparent) 85%) }
+
+/* text_placement — the table's other column. .slide is a flex column, so
+   justify-content is the vertical axis here and align-items the horizontal. */
+.slide.tp-center{ justify-content:center; align-items:center; text-align:center }
+.slide.tp-left  { justify-content:center; align-items:flex-start }
+.slide.tp-right { justify-content:center; align-items:flex-end; text-align:right }
+.slide.tp-bottom{ justify-content:flex-end }
+
+/* the words go above the overlay, or the overlay is painted over them */
+.slide .copy{ position:relative; z-index:2 }

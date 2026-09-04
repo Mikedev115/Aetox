@@ -1,0 +1,35 @@
+<!-- Visual split. The picture beside the words rather than behind them: a
+     product, a screenshot, a photograph of the thing being talked about.
+
+     This is the layout aetox-slides calls the default — "a visual on a panel
+     beside the words" — and it had no file here until now, which is most of why
+     decks kept coming out as text on a dark wall.
+
+     `contain`, never `cover`. The panel is a frame around whatever shape the
+     picture is; a product shot cropped to fill a box is a different product.
+     Unequal columns on purpose: the picture is the wider half, because it is
+     the evidence and the words are the claim. -->
+<style>
+  .l-visual{ display:grid; grid-template-columns:.92fr 1.08fr; gap:54px; align-items:center }
+  .l-visual h1{ font-size:56px }
+  .l-visual .words p{ margin-top:16px; font-size:21px }
+  .l-visual .frame{ background:var(--panel,rgba(255,255,255,.045));
+                    border:1px solid var(--line,rgba(255,255,255,.09));
+                    border-radius:20px; padding:26px; height:430px;
+                    display:flex; align-items:center; justify-content:center }
+  .l-visual .frame img{ max-width:100%; max-height:378px; object-fit:contain;
+                        filter:drop-shadow(0 20px 30px rgba(0,0,0,.42)) }
+  .l-visual .cap{ margin-top:13px; font-size:15px; color:var(--muted) }
+</style>
+
+<section class="slide l-visual">
+  <div class="words">
+    <div class="kicker rise">หมวด</div>
+    <h1 class="rise">สิ่งที่ภาพนี้กำลังพูดถึง</h1>
+    <p class="rise">ประโยคที่บอกว่าให้มองอะไรในภาพ ไม่ใช่บรรยายว่าภาพมีอะไร</p>
+  </div>
+  <div class="rise">
+    <div class="frame"><img src="imgs/ของที่พูดถึง.png" alt="คำอธิบายภาพ"></div>
+    <div class="cap">ที่มา: ชื่อแหล่ง · สัญญาอนุญาต</div>
+  </div>
+</section>

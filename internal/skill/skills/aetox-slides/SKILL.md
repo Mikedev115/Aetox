@@ -302,7 +302,7 @@ are not:
   shade lighter. A theme needing no such split points both at one colour, as
   `ink` and `paper` do. `--accent-ink` is the other direction entirely: the
   colour of words sitting **on** an accent field rather than against the stage,
-  which is what a CTA button puts them on.
+  which is what a CTA button and the `gradient-accent` overlay both put them on.
   Measured on the accent itself, `--accent-text` there reads 1.00–1.35:1 in
   every theme — invisible — which is the whole reason the third name exists.
 

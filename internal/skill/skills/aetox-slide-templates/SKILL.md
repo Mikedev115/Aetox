@@ -1,6 +1,6 @@
 ---
 name: aetox-slide-templates
-description: เทมเพลตจริงที่ก๊อปไปใช้ได้เลย ไม่ใช่คำอธิบายว่าควรหน้าตาแบบไหน เลย์เอาต์สไลด์ 23 แบบ กับชุดสี 6 โทนใน themes/ ที่สลับได้ด้วยการเปลี่ยนบล็อก :root บล็อกเดียว กล่อง 1280x720 ไฟล์เดียวจบ ไม่มี CSS ภายนอก ไม่มีสคริปต์ ไม่มีกราฟจาก CDN ใช้ตอนกำลังจะเขียนสไลด์หรือหน้าจอแล้วไม่อยากประดิษฐ์องค์ประกอบขึ้นใหม่ทุกครั้ง
+description: เทมเพลตจริงที่ก๊อปไปใช้ได้เลย ไม่ใช่คำอธิบายว่าควรหน้าตาแบบไหน เลย์เอาต์สไลด์ 25 แบบ ชุดสี 6 โทนใน themes/ และม่านบนภาพ 5 แบบใน overlays/ ที่สลับได้ด้วยการเปลี่ยนบล็อก :root บล็อกเดียว กล่อง 1280x720 ไฟล์เดียวจบ ไม่มี CSS ภายนอก ไม่มีสคริปต์ ไม่มีกราฟจาก CDN ใช้ตอนกำลังจะเขียนสไลด์หรือหน้าจอแล้วไม่อยากประดิษฐ์องค์ประกอบขึ้นใหม่ทุกครั้ง
 ---
 
 # Slide templates
@@ -68,6 +68,8 @@ you know which layout the slide wants. Then open only that file here. Each is a
 | Chart | `slides/chart-bars.html` | A quantity comparison, drawn in CSS. |
 | Quote | `slides/quote.html` | Somebody's words, attributed. |
 | Full bleed image | `slides/full-bleed.html` | The picture is the slide. |
+| Visual split | `slides/visual-split.html` | The picture beside the words. A product, a screen, the thing itself. |
+| Image grid | `slides/image-grid.html` | Three pictures of one idea, a line each. |
 | Feature grid | `slides/feature-grid.html` | Three or six parts of one thing. |
 | Code | `slides/code.html` | A command or an excerpt, one screen, never scrolled. |
 | Terminal | `slides/terminal.html` | A session: commands and the real output they produced. |
@@ -185,6 +187,51 @@ which no amount of white can rescue.
 a rail behind steps — decoration, not a control and not the thing carrying the
 meaning, which on those rails is the accent-bordered dot. Held to 3:1 it stops
 being a hairline.
+
+## Pictures
+
+`aetox-slides` says it outright: picture-carried is the default and a flat slide
+is the exception, because a dark stage with nothing but text on it, slide after
+slide, is what reads as unfinished. Three layouts here carry one — `full-bleed`
+behind the words, `visual-split` beside them, `image-grid` three at once — and
+`team-grid` carries faces. Go and find the pictures before laying anything out;
+`aetox-design` has the recipe and the rule that this app finds real photographs
+rather than inventing them, and that the licence is checked every time.
+
+### Overlays
+
+A photograph almost never takes text straight on top of it. `aetox-design-system`
+`data/slide-backgrounds.csv` has said which veil each kind of slide wants since
+before any of this existed — `overlay_style` naming five and `text_placement`
+naming four — and none of the nine had markup. They do now, in
+`overlays/photo-overlays.css`.
+
+| `overlay_style` | Class | The table asks for it on |
+|-----------------|-------|--------------------------|
+| `gradient-dark` | `.ov-gradient-dark` | hero, team, hook, demo, social |
+| `gradient-brand` | `.ov-gradient-brand` | vision, cta |
+| `gradient-accent` | `.ov-gradient-accent` | solution |
+| `blur-dark` | `.ov-blur-dark` | testimonial, social |
+| `desaturate-dark` | `.ov-desaturate-dark` | problem |
+
+`text_placement` is `.tp-center`, `.tp-left`, `.tp-right`, `.tp-bottom`.
+
+The file is **optional**. Every picture template carries its own default scrim,
+so copying one block is still enough; open this only when a slide wants one of
+the other four. And note what "dark" means in those names: **toward `--stage`,
+never toward black.** On `paper` and `elevated` the stage is light, so a literal
+black veil buries the photograph and prints dark text over the top of it —
+which is exactly the bug `full-bleed` shipped with until the theme pass, and the
+reason every scrim here is mixed with `color-mix` from a token instead of
+written out as a colour.
+
+Two mechanics worth not rediscovering. The blur and the desaturation are
+`filter` on the `<img>` and never `backdrop-filter` on the layer above it,
+because the off-screen export has no reliable backdrop and prints that as a
+plain rectangle over the picture. And the selector is
+`:is([class^="ov-"],[class*=" ov-"])`, never `[class*="ov-"]`, which matches a
+substring anywhere and reaches into class names that have nothing to do with
+overlays — the web templates shipped that mistake once already.
 
 ## Where the inventory came from
 
