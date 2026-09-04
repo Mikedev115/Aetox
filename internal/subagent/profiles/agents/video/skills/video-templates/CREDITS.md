@@ -17,8 +17,8 @@ Apache-2.0. The file name changed, from the template's marketing name to what it
 does — `frame-vignelli` → `bold-portrait-title`, `frame-pentagram-stat` →
 `stat-anchor`, and so on for all 22.
 
-**Three edits to the markup, 31 ส.ค. 2569, and each one closed a defect that was
-silent.** The licence permits editing outright; this list exists so that nobody
+**Four edits to the markup, and each one closed a defect that was silent.** The
+first three were made 31 ส.ค. 2569, the fourth 4 ก.ย. 2569. The licence permits editing outright; this list exists so that nobody
 reading a scene later mistakes our line for upstream's.
 
 - **A composition root on `<body>` in all 13 single-file scenes**, carrying
@@ -33,6 +33,16 @@ reading a scene later mistakes our line for upstream's.
   sits in a `<style>` block at the end of `<head>` — same position the script
   injected it, same pixels (SSIM 1.000000), 5 KB instead of 282 KB fetched per
   render.
+- **A reduced-motion fallback in the three scenes that animated without one**
+  (4 ก.ย. 2569): `bar-chart-counter`, `logo-outro`, `typewriter-cursor`. Each now
+  carries `@media (prefers-reduced-motion: reduce)` pinning the state it was
+  animating toward. `aetox-design-system`'s `references/motion.md` calls a missing
+  fallback something to flag on sight, so these were the shelf breaking its own
+  rule. `logo-outro` needed three extra declarations because its wordmark is
+  painted with `background-clip:text` over `color:transparent` — stopping the
+  animation alone makes the words vanish rather than hold still.
+  `cinematic-light-leak` was checked and left alone: no element in it declares
+  `animation`, so there is nothing for a fallback to switch off.
 - **Nothing changed for GSAP.** The 9 folders still name `cdn.jsdelivr.net` and
   are byte-for-byte upstream's; `video new` rewrites that address in the copy it
   makes, so the shelf keeps a file that opens in a browser as upstream wrote it.

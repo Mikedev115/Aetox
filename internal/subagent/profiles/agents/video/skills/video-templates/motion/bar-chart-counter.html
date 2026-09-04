@@ -15,6 +15,16 @@
   .line { stroke-dasharray:1000; animation: draw 1.4s ease-out forwards; animation-delay: .4s; opacity:0; animation-fill-mode: forwards; }
   .line { animation: draw 1.4s ease-out .4s forwards, fadeIn .1s linear .4s forwards; }
   @keyframes fadeIn { to { opacity:1 } }
+
+  /* Added 4 ก.ย. 2569. This scene shipped with no reduced-motion fallback, which
+     aetox-design-system's references/motion.md lists as something to flag on sight.
+     `.line` is the only thing that animates — an SVG stroke drawn from a 1000-unit
+     dash offset, with a fade riding along — so the resting state is simply the drawn
+     line at full opacity. Nothing about the chart's meaning needed the drawing. */
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+    .line { stroke-dashoffset: 0; opacity: 1; }
+  }
 </style>
 <!-- Tailwind, compiled once and written in, instead of fetched at render time.
 

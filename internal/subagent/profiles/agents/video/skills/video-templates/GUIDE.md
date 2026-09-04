@@ -293,15 +293,29 @@ fills a phone edge to edge. Two consequences worth knowing before editing one:
 The same applies to the overlays if you take them vertical: each says which
 number to move and to what.
 
-## Four vendored scenes still have no reduced-motion fallback
+## Every scene that animates now has a reduced-motion fallback
 
-Found 4 ก.ย. 2569 while checking the whole shelf: `bar-chart-counter`,
-`logo-outro` and `typewriter-cursor` animate and carry no
-`@media (prefers-reduced-motion: reduce)` block, and `cinematic-light-leak` has
-none either though it has no `@keyframes` to disable, so it is a paper cut rather
-than a defect. `aetox-design-system`'s `references/motion.md` lists "motion with
-no `prefers-reduced-motion` fallback" as something to flag automatically, so this
-is the shelf failing its own rule.
+Three vendored scenes did not, until 4 ก.ย. 2569: `bar-chart-counter`,
+`logo-outro` and `typewriter-cursor` all animated and carried no
+`@media (prefers-reduced-motion: reduce)` block at all.
+`aetox-design-system`'s `references/motion.md` lists "motion with no
+`prefers-reduced-motion` fallback" as something to flag on sight, so the shelf was
+failing its own rule. Each now has one, pinning the state the scene was heading
+for rather than hiding anything.
 
-They are vendored files and were left alone rather than edited in passing. Every
-one of the nineteen scenes written here has the block.
+**`cinematic-light-leak` is the exception and does not need one.** Its only
+`@keyframes` lives inside the baked Tailwind block and no element in it declares
+`animation` at all — it is a painted frame held for five seconds. A grep for
+`@keyframes` flags it; a grep for `animation:` does not, and the second one is the
+question worth asking.
+
+**One of the three was a trap worth writing down.** `logo-outro`'s wordmark is
+painted with `background-clip: text` over `color: transparent`, so switching its
+animation off and stopping there parks the gradient where it is mostly
+transparent and the 84px wordmark **disappears**. Its block therefore undoes the
+clip and gives the colour back as well; measured in a browser, `.shimmer` goes
+from `rgba(0,0,0,0)` to `rgb(245,245,247)` under the override. Any scene that
+paints text with a moving gradient has this same hole in it — check the text is
+still there, not just that the motion stopped.
+
+All nineteen scenes written here shipped with the block from the start.

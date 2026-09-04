@@ -36,6 +36,25 @@
     -webkit-background-clip:text; background-clip:text; color:transparent;
     animation: shimmer 1.8s ease-out 1.9s 1 both;
   }
+
+  /* Added 4 ก.ย. 2569. This scene shipped with no reduced-motion fallback, which
+     aetox-design-system's references/motion.md lists as something to flag on sight.
+     The resting state is the assembled logo, the wordmark, the tagline and the meta
+     row — everything the outro exists to say, with the assembly and the sweep gone.
+
+     `.shimmer` needs the extra three lines and they are not tidiness. It paints the
+     wordmark with `background-clip:text` over `color:transparent`, so switching the
+     animation off alone leaves the gradient parked where it is mostly transparent and
+     the words VANISH. Killing the clip and giving the colour back is what keeps an
+     84px wordmark on screen for a viewer who asked for less motion. */
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+    .piece { opacity: 1; transform: none; }
+    .logo-wrap { filter: drop-shadow(0 0 32px rgba(124,92,255,0.6)); }
+    .brand, .tagline, .meta { opacity: 1; transform: none; }
+    .shimmer { background: none; -webkit-background-clip: border-box;
+      background-clip: border-box; color: inherit; }
+  }
 </style>
 <!-- Tailwind, compiled once and written in, instead of fetched at render time.
 

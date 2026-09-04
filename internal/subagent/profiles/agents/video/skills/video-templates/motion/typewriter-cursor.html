@@ -26,6 +26,16 @@
   .ray-1 { top:30%; left:-10%; width:60%; height:6px; transform:rotate(-12deg); background:linear-gradient(90deg, transparent, rgba(255,59,111,0.6), transparent); filter: blur(8px); }
   .ray-2 { top:55%; right:-10%; width:50%; height:4px; transform:rotate(15deg); background:linear-gradient(90deg, transparent, rgba(0,212,255,0.5), transparent); filter: blur(6px); }
   .ray-3 { top:70%; left:10%; width:40%; height:3px; transform:rotate(-8deg); background:linear-gradient(90deg, transparent, rgba(255,181,71,0.5), transparent); filter: blur(5px); }
+
+  /* Added 4 ก.ย. 2569. This scene shipped with no reduced-motion fallback, which
+     aetox-design-system's references/motion.md lists as something to flag on sight.
+     The blinking caret is the only motion in the whole file — nothing types here — so
+     the resting state is the caret standing still and visible. Hiding it instead would
+     take away the one thing the composition is built around. */
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+    .cursor { opacity: 1; }
+  }
 </style>
 <!-- Tailwind, compiled once and written in, instead of fetched at render time.
 
