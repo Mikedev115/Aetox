@@ -15,7 +15,7 @@
     height: 900px;
     overflow: hidden;
     margin: 0;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     background: #FAFAF8;
     color: #2C2C2C;
   }
@@ -193,7 +193,7 @@
     background: #E8E5E0;
   }
   .code-card-header .filename {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', 'IBM Plex Sans Thai', monospace;
     font-size: 11px;
     color: #BBB;
     font-weight: 400;
@@ -207,11 +207,11 @@
     cursor: pointer;
     color: #CCC;
     font-size: 11px;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
   }
   .code-card-body {
     padding: 24px 28px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', 'IBM Plex Sans Thai', monospace;
     font-size: 13px;
     line-height: 1.8;
     color: #444;
@@ -288,6 +288,13 @@
     color: #AAA;
   }
 </style>
+
+<!-- Thai added 4 ก.ย. 2569. One <link> per family, and the face sits BEHIND the
+     Latin one in every stack: Latin glyphs still resolve to this scene's own
+     typeface, and only Thai glyphs move — off the system fallback nobody chose,
+     onto one somebody did. See GUIDE.md, "ไทย". -->
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
 

@@ -12,7 +12,7 @@
     overflow: hidden;
     margin: 0;
     background: #FFFFFF;
-    font-family: 'Helvetica Neue', 'Arial', sans-serif;
+    font-family: 'Helvetica Neue', 'Arial', 'Anuphan', sans-serif;
     position: relative;
   }
 
@@ -41,7 +41,7 @@
     right: -60px;
     top: 50%;
     transform: translateY(-50%);
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-weight: 900;
     font-size: 640px;
     line-height: 0.82;
@@ -90,7 +90,7 @@
   }
 
   .label {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 4px;
@@ -100,7 +100,7 @@
   }
 
   .title {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-weight: 900;
     font-size: 120px;
     line-height: 0.9;
@@ -134,7 +134,7 @@
   }
 
   .bottom-stat {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 2px;
@@ -151,7 +151,7 @@
   }
 
   .bottom-right {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 3px;
@@ -162,7 +162,7 @@
 
   /* Subtitle */
   .subtitle {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-size: 14px;
     font-weight: 500;
     color: #999;
@@ -181,6 +181,12 @@
     z-index: 2;
   }
 </style>
+
+<!-- Thai added 4 ก.ย. 2569. One <link> per family, and the face sits BEHIND the
+     Latin one in every stack: Latin glyphs still resolve to this scene's own
+     typeface, and only Thai glyphs move — off the system fallback nobody chose,
+     onto one somebody did. See GUIDE.md, "ไทย". -->
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
 

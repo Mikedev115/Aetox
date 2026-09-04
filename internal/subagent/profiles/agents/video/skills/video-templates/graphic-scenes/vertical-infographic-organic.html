@@ -13,7 +13,7 @@
     overflow: hidden;
     margin: 0;
     background: #F5F0EB;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     color: #3D3730;
   }
 
@@ -53,7 +53,7 @@
     margin-bottom: 40px;
   }
   .header-label {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-size: 10px;
     font-weight: 500;
     letter-spacing: 3.5px;
@@ -63,7 +63,7 @@
     opacity: 0.8;
   }
   .header-title {
-    font-family: 'Noto Serif SC', serif;
+    font-family: 'Noto Serif SC', 'Noto Serif Thai', serif;
     font-size: 44px;
     font-weight: 500;
     line-height: 1.35;
@@ -71,7 +71,7 @@
     letter-spacing: 1px;
   }
   .header-subtitle {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-size: 15px;
     font-weight: 300;
     color: #8B7355;
@@ -118,21 +118,21 @@
     z-index: 1;
   }
   .data-num {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-size: 64px;
     font-weight: 300;
     color: #2E2A24;
     line-height: 1;
   }
   .data-unit {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-size: 16px;
     font-weight: 400;
     color: #8B7355;
     margin-top: 4px;
   }
   .data-label {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-size: 12px;
     font-weight: 400;
     color: #A8A098;
@@ -170,7 +170,7 @@
     gap: 8px;
   }
   .reduction-text {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-size: 13px;
     font-weight: 500;
     color: #6B8F71;
@@ -190,7 +190,7 @@
     z-index: 1;
   }
   .section-label {
-    font-family: 'Noto Serif SC', serif;
+    font-family: 'Noto Serif SC', 'Noto Serif Thai', serif;
     font-size: 20px;
     font-weight: 500;
     color: #2D3436;
@@ -198,7 +198,7 @@
     letter-spacing: 1px;
   }
   .section-label .section-num {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-size: 9px;
     font-weight: 400;
     color: #B0AAA0;
@@ -223,14 +223,14 @@
     margin-bottom: 14px;
   }
   .cat-card-title-zh {
-    font-family: 'Noto Serif SC', serif;
+    font-family: 'Noto Serif SC', 'Noto Serif Thai', serif;
     font-size: 20px;
     font-weight: 600;
     color: #2E2A24;
     margin-bottom: 4px;
   }
   .cat-card-title-en {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-size: 11px;
     font-weight: 400;
     color: #A8A098;
@@ -239,7 +239,7 @@
     margin-bottom: 10px;
   }
   .cat-card-desc {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-size: 12px;
     font-weight: 300;
     color: #8B7355;
@@ -293,7 +293,7 @@
     background: rgba(107, 143, 113, 0.06);
   }
   .flow-node-label {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-size: 11px;
     font-weight: 400;
     color: #A8A098;
@@ -301,7 +301,7 @@
     text-transform: uppercase;
   }
   .flow-node-text {
-    font-family: 'Noto Serif SC', serif;
+    font-family: 'Noto Serif SC', 'Noto Serif Thai', serif;
     font-size: 13px;
     font-weight: 500;
     color: #2E2A24;
@@ -322,7 +322,7 @@
     box-shadow: 0 4px 20px rgba(0,0,0,0.03);
   }
   .insight-quote {
-    font-family: 'Noto Serif SC', serif;
+    font-family: 'Noto Serif SC', 'Noto Serif Thai', serif;
     font-size: 20px;
     font-weight: 400;
     color: #2E2A24;
@@ -354,7 +354,7 @@
     flex-shrink: 0;
   }
   .result-text {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-size: 13px;
     font-weight: 400;
     color: #8B7355;
@@ -370,7 +370,7 @@
     z-index: 1;
   }
   .footer-text {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-size: 10px;
     font-weight: 300;
     color: #C4BDB4;
@@ -378,6 +378,13 @@
     text-transform: uppercase;
   }
 </style>
+
+<!-- Thai added 4 ก.ย. 2569. One <link> per family, and the face sits BEHIND the
+     Latin one in every stack: Latin glyphs still resolve to this scene's own
+     typeface, and only Thai glyphs move — off the system fallback nobody chose,
+     onto one somebody did. See GUIDE.md, "ไทย". -->
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@400;500;700&display=swap" rel="stylesheet" />
 </head>
 <body>
 <div class="container">

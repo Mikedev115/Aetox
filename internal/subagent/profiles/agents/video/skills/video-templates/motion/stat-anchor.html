@@ -15,7 +15,7 @@
   body {
     width: 1920px; height: 1080px; overflow: hidden;
     background: #ffffff; color: #000;
-    font-family: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Archivo', 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     position: relative;
   }
 
@@ -92,6 +92,12 @@
     .bar{transform:scaleY(1)}.bottom-bar{transform:translateY(0)}
   }
 </style>
+
+<!-- Thai added 4 ก.ย. 2569. One <link> per family, and the face sits BEHIND the
+     Latin one in every stack: Latin glyphs still resolve to this scene's own
+     typeface, and only Thai glyphs move — off the system fallback nobody chose,
+     onto one somebody did. See GUIDE.md, "ไทย". -->
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <!-- The frame and the length are stated here because the renderer reads neither
      off the CSS. With no data-width/data-height on a composition root it renders

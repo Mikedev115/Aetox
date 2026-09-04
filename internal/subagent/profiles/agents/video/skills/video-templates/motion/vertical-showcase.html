@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Vertical Showcase · the thing, its claim, its one button</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * vertical-showcase — the thing on top, the claim under it, one outlined button at the
+   * foot of the safe area. Fourth card of the vertical set.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569. Safe-area numbers and their source are in
+   * `vertical-title.html`.
+   *
+   * The composition is the one thing a vertical frame is genuinely better at than a
+   * landscape one: object above, argument below, action last, read top to bottom in a
+   * single glance. Landscape has to put those side by side and hope the eye goes left
+   * first. Do not rearrange this into columns — at 840px of usable width, two columns are
+   * two narrow columns.
+   *
+   * The button is an outlined pill and stays one. That is the register's rule, and it came
+   * from watching a real product film frame by frame rather than from taste; see
+   * `references/google-register.md`, "What only a legible frame could give".
+   *
+   * Timeline (6.0s @ 60fps): field -> panel springs up with overshoot -> its contents
+   * cross-fade in -> claim -> three chips stagger -> button -> handle -> held.
+   */
+
+  :root {
+    --safe-x: 120px; --safe-top: 200px; --safe-bottom: 300px;
+    /* spatial fast 0.6/800 — 330ms, overshoots 9.4%; spatial default 0.8/380 — 382ms;
+       effects 1.0/1600 — 193ms, never overshoots. AOSP values, simulated at mass 1. */
+    --sp-fast: linear(0, 0.0377, 0.1329, 0.2618, 0.4052, 0.5487, 0.6819, 0.7985, 0.895, 0.9705, 1.0258, 1.0629, 1.0846, 1.0939, 1.0937, 1.0869, 1.0759, 1.0627, 1.049, 1.0358, 1.024, 1.0139, 1.0059, 0.9998, 0.9955, 0.9928, 0.9914, 0.991, 0.9914, 0.9923, 0.9935, 0.9948, 1);
+    --sp-default: linear(0, 0.0239, 0.0843, 0.1671, 0.2617, 0.3601, 0.4567, 0.5478, 0.6309, 0.7047, 0.7689, 0.8236, 0.8692, 0.9065, 0.9364, 0.9599, 0.9779, 0.9913, 1.0009, 1.0075, 1.0117, 1.0141, 1.0151, 1.0151, 1.0144, 1.0133, 1.0119, 1.0105, 1.009, 1.0075, 1.0062, 1.005, 1);
+    --sp-effects: linear(0, 0.0248, 0.0849, 0.1641, 0.2514, 0.3396, 0.4245, 0.5033, 0.5747, 0.6384, 0.6943, 0.7428, 0.7846, 0.8203, 0.8506, 0.8761, 0.8976, 0.9156, 0.9305, 0.943, 0.9532, 0.9617, 0.9688, 0.9745, 0.9792, 0.9831, 0.9863, 0.9889, 0.991, 0.9927, 0.9941, 0.9952, 1);
+    --t-fast: 330ms; --t-default: 382ms; --t-effects: 193ms;
+    --stage: #0E0F12; --surface: #1C1E23; --surface-2: #2A2D35;
+    --hair: rgba(255,255,255,.11);
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+    --dim: #8C93A3;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1080px; height: 1920px; overflow: hidden; position: relative; background: var(--stage);
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: #fff;
+  }
+  .field { position: absolute; inset: -10%; opacity: 0; filter: blur(90px);
+    background: radial-gradient(900px 900px at 50% 26%, var(--a1) 0%, transparent 60%),
+                radial-gradient(760px 800px at 78% 68%, var(--a4) 0%, transparent 58%);
+    animation: fade 900ms var(--sp-effects) .1s forwards; }
+  @keyframes fade { to { opacity: .34; } }
+  .grain { position: absolute; inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.04) 1px, transparent 0);
+    background-size: 40px 40px; }
+
+  .safe { position: absolute; left: var(--safe-x); right: var(--safe-x);
+    top: var(--safe-top); bottom: var(--safe-bottom);
+    display: flex; flex-direction: column; }
+
+  /* the thing */
+  .panel { border-radius: 34px; border: 1px solid var(--hair); overflow: hidden;
+    background: linear-gradient(150deg, var(--surface), var(--surface-2));
+    box-shadow: 0 40px 100px rgba(0,0,0,.6);
+    padding: 40px; height: 620px; flex: none;
+    opacity: 0; transform: translateY(120px) scale(.95);
+    animation: fade var(--t-effects) var(--sp-effects) .34s forwards,
+               rise var(--t-fast) var(--sp-fast) .34s forwards; }
+  @keyframes rise { to { transform: translateY(0) scale(1); } }
+  .panel .top { display: flex; align-items: center; gap: 16px; font-size: 26px; color: var(--dim); }
+  .panel .top i { width: 15px; height: 15px; border-radius: 50%; background: var(--a4); flex: none; }
+  .panel .big { font-size: 104px; font-weight: 500; letter-spacing: -3.4px; line-height: 1; margin-top: 40px; }
+  .panel .cap2 { font-size: 30px; color: var(--dim); margin-top: 18px; }
+  .panel .bars { display: flex; align-items: flex-end; gap: 16px; height: 210px; margin-top: 44px; }
+  .panel .bars b { flex: 1; border-radius: 10px 10px 0 0; background: rgba(255,255,255,.13);
+    transform-origin: bottom; transform: scaleY(0);
+    animation: grow var(--t-default) var(--sp-default) forwards; }
+  @keyframes grow { to { transform: scaleY(1); } }
+  .panel .bars b:nth-child(1){animation-delay:.80s} .panel .bars b:nth-child(2){animation-delay:.86s}
+  .panel .bars b:nth-child(3){animation-delay:.92s} .panel .bars b:nth-child(4){animation-delay:.98s}
+  .panel .bars b:nth-child(5){animation-delay:1.04s;background:var(--a3)} .panel .bars b:nth-child(6){animation-delay:1.10s}
+
+  .claim { font-size: 78px; font-weight: 700; line-height: 1.06; letter-spacing: -2.4px; margin-top: 56px;
+    opacity: 0; transform: translateY(36px);
+    animation: fade var(--t-effects) var(--sp-effects) 1.24s forwards,
+               rise var(--t-default) var(--sp-default) 1.24s forwards; }
+  .claim em { font-style: normal; color: var(--a3); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 40px; }
+  .chip { padding: 20px 32px; border-radius: 999px; border: 1px solid var(--hair);
+    font-size: 30px; font-weight: 500; color: #D6DAE4; background: rgba(255,255,255,.03);
+    opacity: 0; transform: translateY(24px) scale(.96);
+    animation: fade var(--t-effects) var(--sp-effects) forwards,
+               chipIn var(--t-fast) var(--sp-fast) forwards; }
+  @keyframes chipIn { to { transform: translateY(0) scale(1); } }
+  .chip:nth-child(1){animation-delay:1.56s,1.56s} .chip:nth-child(2){animation-delay:1.66s,1.66s}
+  .chip:nth-child(3){animation-delay:1.76s,1.76s}
+
+  /* outlined, never filled */
+  .cta { margin-top: auto; align-self: stretch; display: flex; align-items: center; justify-content: center;
+    gap: 18px; padding: 32px 0; border-radius: 999px;
+    background: transparent; border: 2px solid rgba(255,255,255,.34); color: #fff;
+    font-size: 36px; font-weight: 500;
+    opacity: 0; transform: translateY(28px);
+    animation: fade var(--t-effects) var(--sp-effects) 2.08s forwards,
+               rise var(--t-fast) var(--sp-fast) 2.08s forwards; }
+  .cta svg { width: 30px; height: 30px; }
+
+  .handle { position: absolute; left: var(--safe-x); bottom: var(--safe-bottom);
+    font-size: 28px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: var(--dim);
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 2.4s forwards; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+    .field { opacity: .34; }
+    .panel, .claim, .chip, .cta, .handle { opacity: 1; transform: none; }
+    .panel .bars b { transform: scaleY(1); }
+  }
+</style>
+</head>
+<!-- PORTRAIT: 1080x1920. 6.0s is the handle settling at 2.59s plus a hold long enough to
+     read a claim, three chips and a button without scrubbing back. -->
+<body data-composition-id="scene" data-no-timeline data-width="1080" data-height="1920" data-start="0" data-duration="6.0">
+  <div class="field"></div>
+  <div class="grain"></div>
+
+  <div class="safe">
+    <div class="panel">
+      <div class="top"><i></i> launch-film · 30s</div>
+      <div class="big">8 scenes</div>
+      <div class="cap2">Four audio tracks · rendered at 60fps</div>
+      <div class="bars">
+        <b style="height:42%"></b><b style="height:64%"></b><b style="height:51%"></b>
+        <b style="height:78%"></b><b style="height:100%"></b><b style="height:58%"></b>
+      </div>
+    </div>
+
+    <div class="claim">Pick one that has <em>already been rendered.</em></div>
+
+    <div class="chips">
+      <span class="chip">One file</span>
+      <span class="chip">No build step</span>
+      <span class="chip">Opens in a browser</span>
+    </div>
+
+    <a class="cta">Open the shelf
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
+  </div>
+
+  <div class="handle">aetox.app</div>
+</body>
+</html>

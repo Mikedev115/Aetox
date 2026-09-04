@@ -14,7 +14,7 @@
     height: 900px;
     overflow: hidden;
     margin: 0;
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     background: #FFFFFF;
     color: #000000;
   }
@@ -28,7 +28,7 @@
     border-bottom: 2px solid #000;
   }
   .nav-logo {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-weight: 700;
     font-size: 20px;
     letter-spacing: -0.5px;
@@ -56,7 +56,7 @@
   }
   .nav-links a:hover { color: #E63946; }
   .nav-submit {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-size: 13px;
     font-weight: 600;
     text-transform: uppercase;
@@ -86,7 +86,7 @@
     border-right: 2px solid #000;
   }
   .hero-stat {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-size: 180px;
     font-weight: 900;
     line-height: 0.85;
@@ -101,7 +101,7 @@
     margin-left: 4px;
   }
   .hero-headline {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-size: 42px;
     font-weight: 900;
     line-height: 1.08;
@@ -127,7 +127,7 @@
   .search-box input {
     flex: 1;
     padding: 16px 20px;
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-size: 15px;
     border: none;
     outline: none;
@@ -138,7 +138,7 @@
     background: #000;
     color: #fff;
     border: none;
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-size: 13px;
     font-weight: 600;
     text-transform: uppercase;
@@ -168,7 +168,7 @@
     background: transparent;
     cursor: pointer;
     transition: all 0.15s;
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
   }
   .cat-tag:hover {
     background: #000;
@@ -211,7 +211,7 @@
     background: #F7F7F7;
   }
   .tool-index {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-size: 14px;
     font-weight: 500;
     color: #BBB;
@@ -227,7 +227,7 @@
     gap: 12px;
   }
   .tool-name {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-size: 22px;
     font-weight: 600;
     letter-spacing: -0.5px;
@@ -292,6 +292,12 @@
   }
   .bottom-bar a:hover { color: #E63946; }
 </style>
+
+<!-- Thai added 4 ก.ย. 2569. One <link> per family, and the face sits BEHIND the
+     Latin one in every stack: Latin glyphs still resolve to this scene's own
+     typeface, and only Thai glyphs move — off the system fallback nobody chose,
+     onto one somebody did. See GUIDE.md, "ไทย". -->
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
 

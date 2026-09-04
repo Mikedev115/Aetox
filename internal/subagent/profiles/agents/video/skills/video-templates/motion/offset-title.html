@@ -16,7 +16,7 @@
   body {
     width: 1920px; height: 1080px; overflow: hidden;
     background: #0d0d14; color: #fff;
-    font-family: 'Syne', sans-serif; position: relative;
+    font-family: 'Syne', 'Anuphan', sans-serif; position: relative;
   }
 
   /* offset split panels */
@@ -53,12 +53,12 @@
   @keyframes draw { to { stroke-dashoffset: 0; } }
 
   /* mono meta line (top-left, on blue) */
-  .meta { position: absolute; left: 90px; top: 96px; z-index: 4; font-family: 'Space Mono', monospace;
+  .meta { position: absolute; left: 90px; top: 96px; z-index: 4; font-family: 'Space Mono', 'IBM Plex Sans Thai', monospace;
     font-size: 18px; font-weight: 700; letter-spacing: 3px; color: rgba(255,255,255,0.85);
     opacity: 0; animation: fade 0.6s ease-out 1.0s forwards; }
 
   /* mono caption bottom-right (on dark) */
-  .caption { position: absolute; right: 110px; bottom: 96px; z-index: 4; font-family: 'Space Mono', monospace;
+  .caption { position: absolute; right: 110px; bottom: 96px; z-index: 4; font-family: 'Space Mono', 'IBM Plex Sans Thai', monospace;
     font-size: 18px; font-weight: 400; letter-spacing: 2px; color: rgba(255,255,255,0.55);
     opacity: 0; animation: fade 0.6s ease-out 2.2s forwards; }
 
@@ -69,6 +69,13 @@
     .script{opacity:1;transform:rotate(-7deg)}.script-underline path{stroke-dashoffset:0}
   }
 </style>
+
+<!-- Thai added 4 ก.ย. 2569. One <link> per family, and the face sits BEHIND the
+     Latin one in every stack: Latin glyphs still resolve to this scene's own
+     typeface, and only Thai glyphs move — off the system fallback nobody chose,
+     onto one somebody did. See GUIDE.md, "ไทย". -->
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <!-- The frame and the length are stated here because the renderer reads neither
      off the CSS. With no data-width/data-height on a composition root it renders

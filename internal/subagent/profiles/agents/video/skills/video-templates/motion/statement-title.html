@@ -26,7 +26,7 @@
   body {
     width: 1920px; height: 1080px; overflow: hidden;
     background: #F5F2EF; color: #1C1410;
-    font-family: 'Space Grotesk', sans-serif; position: relative;
+    font-family: 'Space Grotesk', 'Anuphan', sans-serif; position: relative;
   }
 
   /* full-bleed paper, fades up first so the cut feels printed not lit */
@@ -67,7 +67,7 @@
 
   /* serif standfirst */
   .standfirst { position: absolute; left: 114px; bottom: 200px; max-width: 980px;
-    font-family: 'Libre Baskerville', serif; font-style: italic; font-size: 34px;
+    font-family: 'Libre Baskerville', 'Noto Serif Thai', serif; font-style: italic; font-size: 34px;
     line-height: 1.4; color: #1C1410;
     opacity: 0; animation: fadeUp 0.7s ease-out 1.95s forwards; }
   @keyframes fadeUp { 0%{opacity:0;transform:translateY(22px)} 100%{opacity:1;transform:translateY(0)} }
@@ -95,6 +95,13 @@
     .standfirst, .footer .meta { opacity: 1; transform: none; }
   }
 </style>
+
+<!-- Thai added 4 ก.ย. 2569. One <link> per family, and the face sits BEHIND the
+     Latin one in every stack: Latin glyphs still resolve to this scene's own
+     typeface, and only Thai glyphs move — off the system fallback nobody chose,
+     onto one somebody did. See GUIDE.md, "ไทย". -->
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@400;500;700&display=swap" rel="stylesheet" />
 </head>
 <!-- The frame and the length are stated here because the renderer reads neither
      off the CSS. With no data-width/data-height on a composition root it renders

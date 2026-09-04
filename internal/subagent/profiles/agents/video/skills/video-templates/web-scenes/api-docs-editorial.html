@@ -15,7 +15,7 @@
     height: 900px;
     overflow: hidden;
     margin: 0;
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     background: #FFFFFF;
     color: #111111;
     display: flex;
@@ -49,7 +49,7 @@
   }
   .sidebar-logo .logo-mark svg { color: #fff; }
   .sidebar-logo span {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-weight: 700;
     font-size: 18px;
     letter-spacing: -0.5px;
@@ -58,7 +58,7 @@
     padding: 20px 28px 8px;
   }
   .sidebar-section-label {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 2px;
@@ -165,7 +165,7 @@
     justify-content: center;
   }
   .hero-badge {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 2.5px;
@@ -174,7 +174,7 @@
     margin-bottom: 20px;
   }
   .hero-left h1 {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-size: 52px;
     font-weight: 900;
     line-height: 1.05;
@@ -238,7 +238,7 @@
     background: #FAFAFA;
   }
   .code-header span {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', 'IBM Plex Sans Thai', monospace;
     font-size: 11px;
     color: #999;
     font-weight: 500;
@@ -250,7 +250,7 @@
   .code-dots i { width: 10px; height: 10px; }
   .code-body {
     padding: 20px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', 'IBM Plex Sans Thai', monospace;
     font-size: 13px;
     line-height: 1.7;
     color: #111;
@@ -296,7 +296,7 @@
   }
   .feature-card:last-child { border-right: none; }
   .feature-card .feature-label {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 2px;
@@ -305,7 +305,7 @@
     margin-bottom: 14px;
   }
   .feature-card h3 {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Arial, 'Anuphan', sans-serif;
     font-size: 20px;
     font-weight: 600;
     letter-spacing: -0.5px;
@@ -327,6 +327,13 @@
   }
   .feature-icon i { color: #fff; }
 </style>
+
+<!-- Thai added 4 ก.ย. 2569. One <link> per family, and the face sits BEHIND the
+     Latin one in every stack: Latin glyphs still resolve to this scene's own
+     typeface, and only Thai glyphs move — off the system fallback nobody chose,
+     onto one somebody did. See GUIDE.md, "ไทย". -->
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
 

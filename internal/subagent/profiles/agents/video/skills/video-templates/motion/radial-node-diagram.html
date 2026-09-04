@@ -16,7 +16,7 @@
   body {
     width: 1920px; height: 1080px; overflow: hidden;
     background: #EFEAE0; color: #3A3A34;
-    font-family: 'Manrope', sans-serif; position: relative;
+    font-family: 'Manrope', 'Anuphan', sans-serif; position: relative;
   }
   .wash { position: absolute; inset: 0; z-index: 0;
     background: radial-gradient(ellipse 1100px 900px at 70% 50%, rgba(122,158,127,0.10) 0%, transparent 65%); }
@@ -60,6 +60,12 @@
     .link{stroke-dashoffset:0}.node{transform:scale(1);opacity:1}
   }
 </style>
+
+<!-- Thai added 4 ก.ย. 2569. One <link> per family, and the face sits BEHIND the
+     Latin one in every stack: Latin glyphs still resolve to this scene's own
+     typeface, and only Thai glyphs move — off the system fallback nobody chose,
+     onto one somebody did. See GUIDE.md, "ไทย". -->
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <!-- The frame and the length are stated here because the renderer reads neither
      off the CSS. With no data-width/data-height on a composition root it renders

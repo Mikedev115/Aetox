@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Lower Third · a name and a role, over footage</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * lower-third-name — who is speaking. Comes on, holds long enough to read twice, goes.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569.
+   *
+   * ---- THIS IS AN OVERLAY, WHICH NOTHING ELSE ON THIS SHELF IS ----
+   * Every other scene here paints its own background. This one must not: it is meant to be
+   * mounted over footage, so `body` has NO background at all and the frame outside the
+   * graphic is transparent.
+   *
+   * What that means in practice:
+   *
+   *   Mounted as a layer — a host `index.html` pointing at it with `data-composition-src`,
+   *   the way `grain-texture-hero/compositions/captions.html` is mounted — it composites
+   *   over the A-roll underneath and this is the intended use.
+   *
+   *   Rendered on its own, you get the graphic on whatever the renderer fills with, which
+   *   is black. That is not a bug and not a useful clip. To preview it against something,
+   *   add one line to `body` and delete it again before mounting:
+   *       background: url(a-frame-of-your-footage.jpg) center/cover;
+   *
+   * The bar carries its own scrim (a soft dark gradient behind the type) because footage
+   * is unpredictable: white type on a bright shot is unreadable, and the scrim is the only
+   * thing standing between this graphic and that. Do not remove it to "clean it up".
+   *
+   * VERTICAL: change the two data- numbers to 1080/1920 and move `bottom` from 132px to
+   * about 340px. At 132 in a vertical frame this sits underneath the platform's caption
+   * row — see `vertical-title.html` for where those numbers come from.
+   *
+   * Timeline (5.0s @ 60fps): 0.3s the rule wipes out and the block slides in from the left,
+   * name then role staggered -> held 3.2s -> 4.2s it leaves the way it came.
+   */
+
+  :root {
+    /* spatial fast 0.6/800 — settles 330ms, overshoots 9.4% (AOSP, simulated at mass 1) */
+    --sp-fast: linear(0, 0.0377, 0.1329, 0.2618, 0.4052, 0.5487, 0.6819, 0.7985, 0.895, 0.9705, 1.0258, 1.0629, 1.0846, 1.0939, 1.0937, 1.0869, 1.0759, 1.0627, 1.049, 1.0358, 1.024, 1.0139, 1.0059, 0.9998, 0.9955, 0.9928, 0.9914, 0.991, 0.9914, 0.9923, 0.9935, 0.9948, 1);
+    --sp-effects: linear(0, 0.0248, 0.0849, 0.1641, 0.2514, 0.3396, 0.4245, 0.5033, 0.5747, 0.6384, 0.6943, 0.7428, 0.7846, 0.8203, 0.8506, 0.8761, 0.8976, 0.9156, 0.9305, 0.943, 0.9532, 0.9617, 0.9688, 0.9745, 0.9792, 0.9831, 0.9863, 0.9889, 0.991, 0.9927, 0.9941, 0.9952, 1);
+    --t-fast: 330ms; --t-effects: 193ms;
+    --e-acc: cubic-bezier(0.3, 0, 0.8, 0.15);   /* M3 emphasized accelerate, for the exit */
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  /* no background — this frame is transparent on purpose */
+  body {
+    width: 1920px; height: 1080px; overflow: hidden; position: relative;
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: #fff;
+  }
+
+  /* the scrim: the only thing keeping white type readable over a bright shot */
+  .scrim { position: absolute; left: 0; right: 0; bottom: 0; height: 480px; opacity: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.72) 0%, rgba(0,0,0,.34) 42%, transparent 100%);
+    animation: fade 420ms var(--sp-effects) .30s forwards,
+               out 300ms linear 4.20s forwards; }
+  @keyframes fade { to { opacity: 1; } }
+  @keyframes out  { to { opacity: 0; } }
+
+  .block { position: absolute; left: 132px; bottom: 132px; display: flex; align-items: stretch; gap: 30px;
+    opacity: 0; transform: translateX(-70px);
+    animation: fade var(--t-effects) var(--sp-effects) .34s forwards,
+               slideIn var(--t-fast) var(--sp-fast) .34s forwards,
+               leave 380ms var(--e-acc) 4.20s forwards; }
+  @keyframes slideIn { to { transform: translateX(0); } }
+  @keyframes leave   { to { opacity: 0; transform: translateX(-70px); } }
+
+  /* the four-hue rule wipes down before the words arrive, so the eye has somewhere to be */
+  .rule { width: 10px; border-radius: 5px; overflow: hidden; display: flex; flex-direction: column;
+    transform: scaleY(0); transform-origin: top;
+    animation: wipe 380ms var(--sp-fast) .34s forwards; }
+  @keyframes wipe { to { transform: scaleY(1); } }
+  .rule i { flex: 1; display: block; }
+
+  .words { display: flex; flex-direction: column; justify-content: center; }
+  .name { font-size: 76px; font-weight: 700; letter-spacing: -2px; line-height: 1.05;
+    opacity: 0; transform: translateY(20px);
+    animation: fade var(--t-effects) var(--sp-effects) .52s forwards,
+               up var(--t-fast) var(--sp-fast) .52s forwards; }
+  @keyframes up { to { transform: translateY(0); } }
+  .role { font-size: 34px; font-weight: 400; color: #D2D7E0; margin-top: 12px; letter-spacing: .2px;
+    opacity: 0; transform: translateY(18px);
+    animation: fade var(--t-effects) var(--sp-effects) .62s forwards,
+               up var(--t-fast) var(--sp-fast) .62s forwards; }
+  .role b { color: #fff; font-weight: 500; }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* the graphic present and legible; the entrance and exit are the only things lost */
+    * { animation: none !important; }
+    .scrim, .block, .name, .role { opacity: 1; transform: none; }
+    .rule { transform: scaleY(1); }
+  }
+</style>
+</head>
+<!-- Frame and length stated because the renderer reads neither off the CSS. 5.0s is a
+     0.34s entrance, 3.2s of hold — long enough to read a name and a role twice, which is
+     the actual requirement for a lower third — and a 0.38s exit, ending at 4.58s. -->
+<body data-composition-id="scene" data-no-timeline data-width="1920" data-height="1080" data-start="0" data-duration="5.0">
+  <div class="scrim"></div>
+
+  <div class="block">
+    <div class="rule">
+      <i style="background:var(--a1)"></i><i style="background:var(--a4)"></i>
+      <i style="background:var(--a3)"></i><i style="background:var(--a2)"></i>
+    </div>
+    <div class="words">
+      <div class="name">ไพรัช สุวรรณชาติ</div>
+      <div class="role"><b>Head of Motion</b> · Aetox Studio</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Vertical Title · the opening card of a phone-shaped piece</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * vertical-title — the opening card of the five-scene vertical set. Kicker, a headline
+   * stacked in three lines, a four-hue rule, and a handle at the foot.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569.
+   *
+   * ---- THE SAFE AREA, WHICH IS THE WHOLE REASON THIS SET EXISTS ----
+   * A 1080x1920 frame is not 1080x1920 of usable space. Every platform draws its own
+   * interface on top: tabs and a search affordance at the head, a caption, a handle and
+   * an audio credit at the foot, and a column of buttons up the right side. Text placed
+   * outside the intersection is simply covered, and nothing in this pipeline will warn
+   * you — the render is correct, the post is unreadable.
+   *
+   * Checked 4 ก.ย. 2569 against published guides (kreatli.com/guides/safe-zone-guide and
+   * adaptlypost.com's 2026 round-up), which agree:
+   *
+   *     head        150-200px    tabs and search
+   *     foot        250-300px    caption and handle; Reels takes up to ~500, Shorts ~320
+   *     right       120px        the button column
+   *     universal   900x1400 centred is safe on all three
+   *
+   * This file takes the cautious end of each — head 200, foot 300, sides 120 — and holds
+   * every element inside it. `--safe-*` is where those live; move content by moving those,
+   * not by nudging elements past them. The band outside is used on purpose, for the
+   * background and nothing else, so the frame still fills a phone edge to edge.
+   *
+   * The other four in the set (`vertical-stat`, `vertical-beats`, `vertical-showcase`,
+   * `vertical-outro`) carry the same variables and the same stage, so they cut together.
+   *
+   * Timeline (4.0s @ 60fps): stage lights -> kicker -> three headline lines rise on a
+   * spring, staggered -> rule draws -> handle -> held.
+   */
+
+  :root {
+    /* the safe area, from the guides above */
+    --safe-x: 120px; --safe-top: 200px; --safe-bottom: 300px;
+
+    /* M3 Expressive springs, simulated from the AOSP damping/stiffness pairs (mass 1).
+       spatial fast 0.6/800 settles 330ms and overshoots 9.4%; effects 1.0/1600 never does. */
+    --sp-fast: linear(0, 0.0377, 0.1329, 0.2618, 0.4052, 0.5487, 0.6819, 0.7985, 0.895, 0.9705, 1.0258, 1.0629, 1.0846, 1.0939, 1.0937, 1.0869, 1.0759, 1.0627, 1.049, 1.0358, 1.024, 1.0139, 1.0059, 0.9998, 0.9955, 0.9928, 0.9914, 0.991, 0.9914, 0.9923, 0.9935, 0.9948, 1);
+    --sp-effects: linear(0, 0.0248, 0.0849, 0.1641, 0.2514, 0.3396, 0.4245, 0.5033, 0.5747, 0.6384, 0.6943, 0.7428, 0.7846, 0.8203, 0.8506, 0.8761, 0.8976, 0.9156, 0.9305, 0.943, 0.9532, 0.9617, 0.9688, 0.9745, 0.9792, 0.9831, 0.9863, 0.9889, 0.991, 0.9927, 0.9941, 0.9952, 1);
+    --t-fast: 330ms; --t-effects: 193ms;
+
+    --stage: #0E0F12;
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+    --dim: #8C93A3;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1080px; height: 1920px; overflow: hidden; position: relative; background: var(--stage);
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: #fff;
+  }
+
+  /* the field runs the whole frame, including under the platform's interface — the safe
+     area governs where TEXT goes, not where the picture stops */
+  .field { position: absolute; inset: -10%; opacity: 0; filter: blur(90px);
+    background: radial-gradient(900px 1100px at 24% 30%, var(--a1) 0%, transparent 62%),
+                radial-gradient(760px 900px at 84% 74%, var(--a4) 0%, transparent 60%);
+    animation: fade 900ms var(--sp-effects) .1s forwards; }
+  @keyframes fade { to { opacity: .42; } }
+  .grain { position: absolute; inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.04) 1px, transparent 0);
+    background-size: 40px 40px; }
+
+  /* everything readable lives in here and nothing escapes it */
+  .safe { position: absolute; left: var(--safe-x); right: var(--safe-x);
+    top: var(--safe-top); bottom: var(--safe-bottom);
+    display: flex; flex-direction: column; justify-content: center; }
+
+  .kicker { display: flex; align-items: center; gap: 18px; font-size: 30px; font-weight: 500;
+    letter-spacing: 3px; text-transform: uppercase; color: var(--dim);
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) .32s forwards; }
+  .kicker .pip { width: 16px; height: 16px; border-radius: 50%; background: var(--a3); flex: none; }
+
+  .h { font-size: 132px; font-weight: 700; line-height: 1.02; letter-spacing: -4px; margin-top: 46px; }
+  .h span { display: block; opacity: 0; transform: translateY(64px);
+    animation: fade var(--t-effects) var(--sp-effects) forwards,
+               rise var(--t-fast) var(--sp-fast) forwards; }
+  @keyframes rise { to { transform: translateY(0); } }
+  .h span:nth-child(1) { animation-delay: .52s, .52s; }
+  .h span:nth-child(2) { animation-delay: .64s, .64s; }
+  .h span:nth-child(3) { animation-delay: .76s, .76s; color: var(--a3); }
+
+  .rule { height: 12px; border-radius: 6px; margin-top: 60px; display: flex; overflow: hidden;
+    transform: scaleX(0); transform-origin: left center;
+    animation: draw 520ms var(--sp-fast) 1.05s forwards; }
+  @keyframes draw { to { transform: scaleX(1); } }
+  .rule i { flex: 1; display: block; }
+
+  .lede { font-size: 40px; line-height: 1.45; color: #C6CBD6; margin-top: 44px; max-width: 760px;
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 1.32s forwards; }
+
+  /* the handle sits INSIDE the safe area, not at the frame's foot — at the foot the
+     platform's own caption row lands on top of it */
+  .handle { position: absolute; left: var(--safe-x); bottom: var(--safe-bottom);
+    font-size: 28px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: var(--dim);
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 1.62s forwards; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+    .field { opacity: .42; }
+    .kicker, .lede, .handle { opacity: 1; }
+    .h span { opacity: 1; transform: none; }
+    .rule { transform: scaleX(1); }
+  }
+</style>
+</head>
+<!-- Frame and length stated because the renderer reads neither off the CSS. This one is
+     PORTRAIT: data-width 1080, data-height 1920. Get those two backwards and the renderer
+     crops a design drawn tall into a landscape box without saying so. 4.0s is the handle
+     settling at 1.81s plus a hold long enough to read three lines on a phone. -->
+<body data-composition-id="scene" data-no-timeline data-width="1080" data-height="1920" data-start="0" data-duration="4.0">
+  <div class="field"></div>
+  <div class="grain"></div>
+
+  <div class="safe">
+    <div class="kicker"><span class="pip"></span> Aetox · video</div>
+    <div class="h"><span>Sixty scenes.</span><span>Every one of them</span><span>already rendered.</span></div>
+    <div class="rule">
+      <i style="background:var(--a1)"></i><i style="background:var(--a4)"></i>
+      <i style="background:var(--a3)"></i><i style="background:var(--a2)"></i>
+    </div>
+    <div class="lede">You are not starting from an empty file. You are changing the words in a file that already works.</div>
+  </div>
+
+  <div class="handle">aetox.app</div>
+</body>
+</html>

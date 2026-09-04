@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Caption Bar · spoken lines, cut on the beat, over footage</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * caption-bar — what is being said, one line at a time, over footage. Four lines, each
+   * replacing the last on a hard cut.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569.
+   *
+   * ---- AN OVERLAY: TRANSPARENT ON PURPOSE ----
+   * `body` has no background. Mount it over A-roll with `data-composition-src` the way
+   * `grain-texture-hero/compositions/captions.html` is mounted; rendered alone you get the
+   * bar on black, which is correct and not useful. To preview it against a picture, add
+   * one line to `body` and take it out again before mounting:
+   *     background: url(a-frame-of-your-footage.jpg) center/cover;
+   *
+   * ---- THE THREE THINGS THAT MAKE A CAPTION READABLE ----
+   *   A scrim, always. Footage changes brightness shot to shot and white type on a bright
+   *   frame is gone. The gradient behind this bar is not decoration.
+   *   A hard cut between lines, not a crossfade. Two half-opacity lines on top of each
+   *   other for 150ms is unreadable, and it is what a crossfade produces every time.
+   *   One line at a time, under about twelve words. Two-line captions get read at the
+   *   moment the next one arrives.
+   *
+   * The lines here are Thai, on purpose: this and `lower-third-name` are the first scenes
+   * on the shelf whose sample copy is Thai rather than English, so a Thai brief starts
+   * from something already shaped for Thai rather than from a translation.
+   *
+   * VERTICAL: change the two data- numbers to 1080/1920 and move `bottom` from 118px to
+   * about 330px, or the bar lands under the platform's own caption row. See
+   * `vertical-title.html` for those numbers.
+   *
+   * Timeline (6.0s @ 60fps): the bar arrives at 0.3s and stays; lines cut at 0.4 / 1.7 /
+   * 3.0 / 4.3, each rising 260ms; the bar leaves at 5.5s.
+   */
+
+  :root {
+    --sp-fast: linear(0, 0.0377, 0.1329, 0.2618, 0.4052, 0.5487, 0.6819, 0.7985, 0.895, 0.9705, 1.0258, 1.0629, 1.0846, 1.0939, 1.0937, 1.0869, 1.0759, 1.0627, 1.049, 1.0358, 1.024, 1.0139, 1.0059, 0.9998, 0.9955, 0.9928, 0.9914, 0.991, 0.9914, 0.9923, 0.9935, 0.9948, 1);
+    --sp-effects: linear(0, 0.0248, 0.0849, 0.1641, 0.2514, 0.3396, 0.4245, 0.5033, 0.5747, 0.6384, 0.6943, 0.7428, 0.7846, 0.8203, 0.8506, 0.8761, 0.8976, 0.9156, 0.9305, 0.943, 0.9532, 0.9617, 0.9688, 0.9745, 0.9792, 0.9831, 0.9863, 0.9889, 0.991, 0.9927, 0.9941, 0.9952, 1);
+    --t-fast: 330ms; --t-effects: 193ms;
+    --e-emph-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --a3: #F2B33D;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden; position: relative;
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: #fff;
+  }
+
+  .scrim { position: absolute; left: 0; right: 0; bottom: 0; height: 420px; opacity: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.74) 0%, rgba(0,0,0,.30) 46%, transparent 100%);
+    animation: fade 380ms var(--sp-effects) .30s forwards,
+               out 320ms linear 5.50s forwards; }
+  @keyframes fade { to { opacity: 1; } }
+  @keyframes out  { to { opacity: 0; } }
+
+  .bar { position: absolute; left: 50%; bottom: 118px; transform: translateX(-50%);
+    max-width: 1400px; padding: 26px 44px; border-radius: 22px;
+    background: rgba(12,13,16,.62); border: 1px solid rgba(255,255,255,.14);
+    backdrop-filter: blur(14px);
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) .32s forwards,
+                           out 320ms linear 5.50s forwards; }
+
+  /* the lines stack in one box and cut; the box does not resize between them, so the
+     bar stays put instead of jumping wider on the longest line */
+  .lines { position: relative; height: 66px; }
+  .l { position: absolute; left: 0; right: 0; top: 0; text-align: center; white-space: nowrap;
+    font-size: 46px; font-weight: 500; letter-spacing: -.4px; line-height: 66px;
+    opacity: 0; transform: translateY(16px);
+    animation: lineIn 260ms var(--e-emph-decel) forwards,
+               lineOut 1ms linear forwards; }
+  @keyframes lineIn  { to { opacity: 1; transform: translateY(0); } }
+  @keyframes lineOut { to { opacity: 0; } }
+  /* each line enters on its cut and is switched off on the next one, in a single frame */
+  .l:nth-child(1) { animation-delay: 0.40s, 1.70s; }
+  .l:nth-child(2) { animation-delay: 1.70s, 3.00s; }
+  .l:nth-child(3) { animation-delay: 3.00s, 4.30s; }
+  .l:nth-child(4) { animation-delay: 4.30s, 5.50s; }
+  .l em { font-style: normal; color: var(--a3); }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* one line, legible, with its scrim — a caption track cannot be shown without cuts */
+    * { animation: none !important; }
+    .scrim, .bar { opacity: 1; }
+    .l { opacity: 0; transform: none; }
+    .l:nth-child(4) { opacity: 1; }
+  }
+</style>
+</head>
+<!-- Frame and length stated because the renderer reads neither off the CSS. 6.0s covers
+     four lines at about 1.3s each plus the bar arriving and leaving; change the delays in
+     pairs — a line's own entrance and the next line's, or two will sit on top of each
+     other, which is the one thing this shape exists to avoid. -->
+<body data-composition-id="scene" data-no-timeline data-width="1920" data-height="1080" data-start="0" data-duration="6.0">
+  <div class="scrim"></div>
+
+  <div class="bar">
+    <div class="lines">
+      <div class="l">เราไม่ได้เริ่มจากไฟล์เปล่า</div>
+      <div class="l">ทุกฉากบนชั้นถูกเรนเดอร์มาแล้ว</div>
+      <div class="l">สิ่งที่เปลี่ยนคือ<em>คำ</em> ไม่ใช่<em>จังหวะ</em></div>
+      <div class="l">หกสิบฉาก · เปิดในเบราว์เซอร์ได้เลย</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -13,7 +13,7 @@
     overflow: hidden;
     margin: 0;
     background: #FAFAF8;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     position: relative;
   }
 
@@ -49,7 +49,7 @@
 
   /* Floating "Agent" */
   .floating-agent {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-weight: 200;
     font-size: 128px;
     letter-spacing: -4px;
@@ -81,7 +81,7 @@
 
   /* Subtitle — label tier: smallest text, widest spacing */
   .subtitle {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-weight: 400;
     font-size: 10px;
     letter-spacing: 6px;
@@ -92,7 +92,7 @@
 
   /* Description line — body tier */
   .desc {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-weight: 300;
     font-size: 13px;
     color: #A8A4A0;
@@ -142,7 +142,7 @@
   /* Side text */
   .side-label {
     position: absolute;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-weight: 400;
     font-size: 8px;
     letter-spacing: 4px;
@@ -172,7 +172,7 @@
     position: absolute;
     top: 48px;
     right: 96px;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-weight: 200;
     font-size: 24px;
     color: #D4A574;
@@ -180,6 +180,12 @@
     z-index: 2;
   }
 </style>
+
+<!-- Thai added 4 ก.ย. 2569. One <link> per family, and the face sits BEHIND the
+     Latin one in every stack: Latin glyphs still resolve to this scene's own
+     typeface, and only Thai glyphs move — off the system fallback nobody chose,
+     onto one somebody did. See GUIDE.md, "ไทย". -->
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
 

@@ -1,6 +1,6 @@
 ---
 name: video-templates
-description: ฉากวิดีโอที่ก๊อปไปใช้ได้เลย 60 ฉาก ไม่ใช่คำอธิบายว่าฉากควรหน้าตาแบบไหน แบ่งเป็นฉากเคลื่อนไหว 35 แบบสำหรับเรนเดอร์เป็นคลิป (รวมเด็คนักลงทุนและพิตช์เด็คแบบเต็มเรื่อง กับอีก 9 ฉากในภาษาโฆษณาโปรดักต์ที่ถอดจากสเปกและจากการหยุดเฟรมดูคลิปจริง สี่ในนั้นเคลื่อนด้วยสปริงจริงของ Material 3 Expressive และทั้งแปดเป็นฉากเดียวบนชั้นที่ตัวอักษรไทยมีฟอนต์ที่เลือกไว้) และฉากนิ่ง 25 แบบสำหรับปก อินโฟกราฟิก สไลด์ข้อมูล ไดอะแกรมอธิบาย และหน้าจอจำลอง ส่วนใหญ่เป็น HTML ไฟล์เดียวจบ อีก 13 ฉากเป็นโฟลเดอร์เพราะมีฉากย่อยกับไฟล์ประกอบของตัวเอง ใช้ตอนกำลังจะทำฉากขึ้นใหม่แล้วไม่อยากประดิษฐ์เองทุกครั้ง
+description: ฉากวิดีโอที่ก๊อปไปใช้ได้เลย 70 ฉาก ไม่ใช่คำอธิบายว่าฉากควรหน้าตาแบบไหน แบ่งเป็นฉากเคลื่อนไหว 45 แบบสำหรับเรนเดอร์เป็นคลิป (รวมเด็คนักลงทุนและพิตช์เด็คแบบเต็มเรื่อง กับอีก 9 ฉากในภาษาโฆษณาโปรดักต์ที่ถอดจากสเปกและจากการหยุดเฟรมดูคลิปจริง สี่ในนั้นเคลื่อนด้วยสปริงจริงของ Material 3 Expressive และทั้งแปดเป็นฉากเดียวบนชั้นที่ตัวอักษรไทยมีฟอนต์ที่เลือกไว้) และฉากนิ่ง 25 แบบสำหรับปก อินโฟกราฟิก สไลด์ข้อมูล ไดอะแกรมอธิบาย และหน้าจอจำลอง ส่วนใหญ่เป็น HTML ไฟล์เดียวจบ อีก 13 ฉากเป็นโฟลเดอร์เพราะมีฉากย่อยกับไฟล์ประกอบของตัวเอง ใช้ตอนกำลังจะทำฉากขึ้นใหม่แล้วไม่อยากประดิษฐ์เองทุกครั้ง
 ---
 
 # Video scene templates
@@ -28,13 +28,14 @@ here on cutting several of them into one piece.
 - **Replace all the sample copy.** No `{{ }}` anywhere — every line is real
   copy, and one left in is the most visible unfinished work. Keep roughly its
   length: a headline three times longer silently overflows the frame.
-- **ไทย: 51 of the 60 scenes have no Thai typeface.** Thai copy renders in a
-  system font — readable, chosen by nobody. Say so before rendering, or put a
-  Thai family (`Noto Sans Thai`, `IBM Plex Sans Thai`) first in the stack. The
-  nine exceptions are the product-ad scenes, which carry `Anuphan` behind their
-  Latin face and need nothing said.
-- **13 of the 35 motion scenes are folders** (the rows whose path ends
-  `/index.html`); the other 22 are one file each.
+- **ไทย: only the 13 folder scenes still have no Thai typeface.** Every one of the
+  57 single-file scenes now names a Thai face behind its Latin one — `Anuphan`,
+  `Noto Serif Thai` or `IBM Plex Sans Thai` depending on what the stack ends in —
+  so Thai copy lands somewhere chosen instead of in Leelawadee by accident. For
+  the 13 folders, say it before rendering. `caption-bar`, `stat-strap` and
+  `lower-third-name` go further and ship Thai sample copy.
+- **13 of the 45 motion scenes are folders** (the rows whose path ends
+  `/index.html`); the other 32 are one file each.
   `video new` copies the whole folder; by hand, never take the host alone — it
   renders an empty frame that looks like a working render.
 - **6 scenes carry baked Tailwind CSS** (`bar-chart-counter`,
@@ -42,20 +43,20 @@ here on cutting several of them into one piece.
   `typewriter-cursor`): a class not already in use does nothing, silently.
   Write plain CSS for anything new.
 - **`Length` is what a real render produced**, safe to quote to a user — with
-  nine exceptions, marked *designed* in the table: the product-ad scenes were
+  nineteen exceptions, marked *designed* in the table: the product-ad scenes were
   built so the last keyframe lands on the stated number, but nobody has rendered
   one yet, so quote those as intended rather than as measured until someone has.
-  In the 22 flat scenes the number is `data-duration` on `<body>` — change it to
+  In the 32 flat scenes the number is `data-duration` on `<body>` — change it to
   change the clip. Header-comment timelines state the order, not the length.
 - **The frame is declared in every file** and the renderer never guesses it.
   "fluid CSS" rows re-aspect by changing the two `data-` numbers; the rest
   also draw their own 1920x1080 box in CSS that has to move with them.
-- **Google Fonts is fetched at render time** (30 of 35 motion scenes). A failed
+- **Google Fonts is fetched at render time** (40 of 45 motion scenes). A failed
   fetch is not an error — it is a wrong-looking scene. Check the render.
 - **`__VIDEO_SRC__` / `__VIDEO_DURATION__` are engine slots**, not broken
   markup. Leave them in the library; `video new` fills or strips them.
-- **`CREDITS.md` travels with the work** — licence and lineage of all 60 files
-  (Apache-2.0 and MIT for the 51 vendored, ours for the 9 written here;
+- **`CREDITS.md` travels with the work** — licence and lineage of all 70 files
+  (Apache-2.0 and MIT for the 51 vendored, ours for the 19 written here;
   attribution required either way). A scene copied elsewhere takes its line
   along.
 - **A scene built by hand gets no rewrites.** `video new` is what points GSAP
@@ -63,7 +64,7 @@ here on cutting several of them into one piece.
   whatever CDN address you typed and needs the network at render time. Start
   from `video new` even for a wholly new design, then replace its markup.
 
-## motion/ — 35 animated scenes
+## motion/ — 45 animated scenes
 
 These are the ones that become video. Four folders say *as asked*: they carry
 `__VIDEO_DURATION__`, so the `seconds` given to `video new` is their length and
@@ -106,6 +107,51 @@ the number beside it is the fallback. Every other length is fixed by the scene.
 | `motion/spring-stat-tiles.html` | Four figures on tiles that overshoot and settle on real simulated springs, counting up in pure CSS. **The one scene whose motion is physics, not a drawn curve** | 5.0s, designed | 1920x1080 |
 | `motion/shared-axis-steps.html` | Four steps handing over along one axis, old leaving left as new arrives from right. The M3 pattern nothing else here could do | 6.4s, designed | 1920x1080 |
 | `motion/device-reveal.html` | A portrait screen rising into a near-black frame while the whole stage brightens with it, then stepping aside for a panel under warm light. **The one scene that holds a device** | 7.0s, designed | 1920x1080 |
+| `motion/vertical-title.html` | Opening card of the vertical set: kicker, three stacked lines, four-hue rule. **Carries the safe-area numbers the whole set uses** | 4.0s, designed | 1080x1920 |
+| `motion/vertical-stat.html` | One figure at 260px counting up, unit beside it, two supporting rows | 4.0s, designed | 1080x1920 |
+| `motion/vertical-beats.html` | Five lines cut every 1.2s and one answer held, ticker at the **top** where the platform cannot cover it | 8.0s, designed | 1080x1920 |
+| `motion/vertical-showcase.html` | The thing on top, its claim under it, one outlined button last — the reading order vertical is actually better at | 6.0s, designed | 1080x1920 |
+| `motion/vertical-outro.html` | Wordmark, one line, four pips. The colour drains before the name lands | 4.0s, designed | 1080x1920 |
+| `motion/lower-third-name.html` | Who is speaking. **Overlay: transparent, no background** — mount it over footage | 5.0s, designed | 1920x1080 |
+| `motion/caption-bar.html` | What is being said, one line at a time on hard cuts. **Overlay**, and its sample copy is Thai | 6.0s, designed | 1920x1080 |
+| `motion/stat-strap.html` | A figure landed top-right while the shot keeps running. **Overlay**, no full-width scrim | 5.0s, designed | 1920x1080 |
+| `motion/split-compare-wipe.html` | Before wiped away to reveal after — and the seam **parks at 42%** so the frame ends holding both | 5.5s, designed | 1920x1080 |
+| `motion/roadmap-dates.html` | Milestones with real dates, a line drawn as far as today, dashed rail after it | 6.5s, designed | 1920x1080 |
+
+### The vertical set — five scenes, and the only way to cut a phone-shaped piece
+
+`vertical-title`, `vertical-stat`, `vertical-beats`, `vertical-showcase`,
+`vertical-outro`. Before these landed the shelf had **one** portrait scene out of
+thirty-five, which meant a vertical brief could be opened and not finished. These
+five are an open, a figure, a montage, a product beat and a close — enough to cut
+a whole piece without turning a landscape scene on its side.
+
+They share a stage and three variables so they cut together, and the variables
+are the point: `--safe-x: 120px`, `--safe-top: 200px`, `--safe-bottom: 300px`.
+A 1080x1920 frame is not 1080x1920 of usable space — every platform draws tabs at
+the head, a caption and handle at the foot, and a button column up the right side,
+and text outside the intersection is simply covered with nothing in this pipeline
+warning you. `vertical-title.html` carries the full reasoning and the sources.
+Move content by moving those three variables, never by nudging an element past
+them.
+
+### The three overlays — the only scenes here with no background
+
+`lower-third-name`, `caption-bar`, `stat-strap`. Every other scene on this shelf
+paints its own background; these must not, because they are meant to be composited
+over footage. Their `body` is transparent.
+
+- **Mounted** as a layer through `data-composition-src`, the way
+  `grain-texture-hero/compositions/captions.html` is, they sit over the A-roll.
+  That is the intended use.
+- **Rendered alone** you get the graphic on black. Not a bug, not a useful clip.
+  Each file says how to add a backdrop for previewing, and to take it out again.
+- Two of the three carry a **scrim** — a soft dark gradient behind the type — and
+  it is not decoration: footage changes brightness shot to shot, and white type on
+  a bright frame is gone without it. `stat-strap` skips it because its card is its
+  own scrim.
+- They are positioned not to collide: the lower third takes bottom-left, the strap
+  takes top-right. Check that still holds if you move either.
 
 ### The nine in the product-ad register
 

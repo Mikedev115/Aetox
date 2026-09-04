@@ -40,7 +40,7 @@
       top: 32px;
       right: 50px;
       padding: 16.5px 0;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Inter', 'Anuphan', sans-serif;
       font-weight: 900;
       font-size: 54px;
       color: #181D2F;
@@ -64,7 +64,7 @@
     .bottom-url {
       position: absolute;
       left: 50px;
-      font-family: 'Epilogue', sans-serif;
+      font-family: 'Epilogue', 'Anuphan', sans-serif;
       font-weight: 500;
       font-size: 20px;
       color: #181D2F;
@@ -99,6 +99,12 @@
       object-fit: contain;
     }
   </style>
+
+<!-- Thai added 4 ก.ย. 2569. One <link> per family, and the face sits BEHIND the
+     Latin one in every stack: Latin glyphs still resolve to this scene's own
+     typeface, and only Thai glyphs move — off the system fallback nobody chose,
+     onto one somebody did. See GUIDE.md, "ไทย". -->
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
 

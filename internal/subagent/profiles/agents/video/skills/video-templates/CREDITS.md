@@ -1,6 +1,6 @@
 # Where these came from
 
-51 of the 60 scenes here were vendored from somewhere; the other 9 were written
+51 of the 70 scenes here were vendored from somewhere; the other 19 were written
 for Aetox and are at the bottom of this file. What follows first is the vendored
 haul.
 
@@ -160,7 +160,7 @@ more registry examples were inspected and NOT taken: `product-promo` and
 `vscode-theme-visualizer` was deferred because it needs its own build scripts,
 which breaks this shelf's copy-and-edit contract.
 
-## motion/ — 9 scenes written here, not vendored (4 ก.ย. 2569)
+## motion/ — 19 scenes written here, not vendored (4 ก.ย. 2569)
 
 `search-query-reveal`, `dot-loader-morph`, `card-expand-hero`, `caption-montage`,
 `aurora-prompt-box`, `ship-it-toolbar`, `spring-stat-tiles`, `shared-axis-steps`,
@@ -237,3 +237,41 @@ of one analysis, no frame was written to disk, and the only things kept are the
 derived numbers — ten cut timestamps, nine gap lengths, and a per-second
 luminance and hue table. Those numbers describe the film; they do not reproduce
 it, and no image, audio, or line of its script exists anywhere in this library.
+
+### The vertical set, the overlays, and two shapes the shelf was missing
+
+Ten more written the same day, and none of them derived from anybody's film:
+
+`vertical-title`, `vertical-stat`, `vertical-beats`, `vertical-showcase`,
+`vertical-outro` — the first way to cut a whole phone-shaped piece. Their motion
+is the same AOSP spring set credited above. The only outside input is the safe-area
+geometry, read 4 ก.ย. 2569 off two published guides
+([kreatli.com](https://kreatli.com/guides/safe-zone-guide) and
+[adaptlypost.com](https://adaptlypost.com/en/blog/social-media-safe-zones-2026-complete-guide)),
+which agree with each other: head 150-200px, foot 250-300px, right 120px, and
+900x1400 centred safe on all three. Those are measurements of somebody else's
+interface, not a design anybody owns.
+
+`lower-third-name`, `caption-bar`, `stat-strap` — overlays with no background.
+No outside source; the scrim-and-hard-cut rules in them are ordinary broadcast
+practice.
+
+`split-compare-wipe`, `roadmap-dates` — two shapes the shelf had only as slides.
+No outside source.
+
+### The Thai retrofit (4 ก.ย. 2569)
+
+All 57 single-file scenes now name a Thai face behind their Latin one, up from 9.
+`Anuphan` (Cadson Demak), `Noto Serif Thai` and `IBM Plex Sans Thai`, all SIL OFL
+via Google Fonts, inserted by generic: a stack ending `sans-serif` got Anuphan,
+`serif` got Noto Serif Thai, `monospace` got IBM Plex Sans Thai.
+
+**Only the fallback position was touched.** Latin glyphs still resolve to each
+scene's own typeface and no Latin render can have changed; only Thai glyphs moved,
+off a system fallback nobody chose and onto one somebody did.
+
+**The 13 folders were deliberately left out.** This file records them as
+byte-for-byte upstream, and that provenance was judged worth more than an
+automated edit. Three display stacks ending in `cursive` were also skipped — a
+decorative face like Shrikhand has no Thai equivalent, and quietly substituting a
+clean sans for it would change a design more than it would help.

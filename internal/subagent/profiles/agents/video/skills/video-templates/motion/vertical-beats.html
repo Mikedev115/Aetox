@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Vertical Beats · six hard cuts down a phone</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * vertical-beats — five lines cut on the beat and one answer held. The middle of the
+   * vertical set, and the scene that carries a piece from its opening to its payoff.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569. Safe-area numbers and their source are stated
+   * in full in `vertical-title.html`.
+   *
+   * Two things this does that `caption-montage` (its landscape cousin) does not:
+   *
+   *   The beat ticker sits at the TOP, inside the safe area. In landscape it lives at the
+   *   foot, and at the foot of a vertical frame it is underneath the platform's caption
+   *   row — visible in the render, invisible in the post.
+   *
+   *   Captions are set at 96px over three or four lines rather than one long line. A
+   *   vertical frame is 1080 wide minus 240 of margin: a sentence that fits a landscape
+   *   card wraps to five lines here. Keep each caption under about six words.
+   *
+   * Cut rhythm: 1.2s a beat, which is inside the 1.04-1.20s range measured in the film
+   * that `references/google-register.md` takes apart — the tightened middle, not the 1.6s
+   * median, because a montage is the one place a faster cadence belongs.
+   *
+   * Timeline (8.0s @ 60fps): beats cut at 0.0 / 1.2 / 2.4 / 3.6 / 4.8, the sixth at 6.0
+   * and held 2.0s. Each caption rises 400ms after its cut; each field pushes in slowly.
+   */
+
+  :root {
+    --safe-x: 120px; --safe-top: 200px; --safe-bottom: 300px;
+    --sp-effects: linear(0, 0.0248, 0.0849, 0.1641, 0.2514, 0.3396, 0.4245, 0.5033, 0.5747, 0.6384, 0.6943, 0.7428, 0.7846, 0.8203, 0.8506, 0.8761, 0.8976, 0.9156, 0.9305, 0.943, 0.9532, 0.9617, 0.9688, 0.9745, 0.9792, 0.9831, 0.9863, 0.9889, 0.991, 0.9927, 0.9941, 0.9952, 1);
+    --e-emph-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --t-effects: 193ms; --d-medium4: 400ms;
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+    --ink: #16181D; --resolve: #0E0F12;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1080px; height: 1920px; overflow: hidden; position: relative; background: var(--resolve);
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: #fff;
+  }
+
+  /* each beat cuts in on one frame and stays; the next one covers it */
+  .beat { position: absolute; inset: 0; opacity: 0; overflow: hidden;
+    animation: cut 1ms linear forwards; }
+  @keyframes cut { to { opacity: 1; } }
+  .beat:nth-of-type(1) { z-index: 1; animation-delay: 0s;   }
+  .beat:nth-of-type(2) { z-index: 2; animation-delay: 1.2s; }
+  .beat:nth-of-type(3) { z-index: 3; animation-delay: 2.4s; }
+  .beat:nth-of-type(4) { z-index: 4; animation-delay: 3.6s; }
+  .beat:nth-of-type(5) { z-index: 5; animation-delay: 4.8s; }
+  .beat:nth-of-type(6) { z-index: 6; animation-delay: 6.0s; }
+
+  /* the field is the layer to swap for a still frame — see caption-montage on why this
+     set ships footage-free and what to do if you need moving footage under it */
+  .bg { position: absolute; inset: -4%; transform: scale(1); animation: push 1.7s linear forwards; }
+  @keyframes push { to { transform: scale(1.08); } }
+  .beat:nth-of-type(1) .bg { background: var(--a1);     animation-delay: 0s;   }
+  .beat:nth-of-type(2) .bg { background: var(--ink);    animation-delay: 1.2s; }
+  .beat:nth-of-type(3) .bg { background: var(--a4);     animation-delay: 2.4s; }
+  .beat:nth-of-type(4) .bg { background: var(--a2);     animation-delay: 3.6s; }
+  .beat:nth-of-type(5) .bg { background: var(--a3);     animation-delay: 4.8s; }
+  .beat:nth-of-type(6) .bg { background: var(--resolve);animation-delay: 6.0s; }
+
+  /* the caption lives in the safe box, centred in it, never in the frame's own centre —
+     the two are not the same once the head and foot are taken out */
+  .cap { position: absolute; left: var(--safe-x); right: var(--safe-x);
+    top: var(--safe-top); bottom: var(--safe-bottom);
+    display: flex; align-items: center;
+    font-size: 96px; font-weight: 700; line-height: 1.06; letter-spacing: -2.8px;
+    opacity: 0; transform: translateY(34px);
+    animation: capIn var(--d-medium4) var(--e-emph-decel) forwards; }
+  @keyframes capIn { to { opacity: 1; transform: translateY(0); } }
+  .beat:nth-of-type(1) .cap { animation-delay: 0.06s; }
+  .beat:nth-of-type(2) .cap { animation-delay: 1.26s; }
+  .beat:nth-of-type(3) .cap { animation-delay: 2.46s; }
+  .beat:nth-of-type(4) .cap { animation-delay: 3.66s; }
+  .beat:nth-of-type(5) .cap { animation-delay: 4.86s; color: var(--ink); }
+  .beat:nth-of-type(6) .cap { animation-delay: 6.10s; font-size: 78px; letter-spacing: -2px;
+    flex-direction: column; align-items: flex-start; justify-content: center; }
+
+  .mark { display: flex; align-items: center; gap: 20px; margin-top: 44px;
+    font-size: 28px; font-weight: 500; letter-spacing: 2.4px; text-transform: uppercase; color: #7E8593;
+    opacity: 0; animation: capIn 500ms var(--sp-effects) 6.6s forwards; }
+  .mark .pips { display: flex; gap: 10px; }
+  .mark .pips i { width: 17px; height: 17px; border-radius: 50%; display: block; }
+
+  /* TOP, not bottom — the foot of a vertical frame belongs to the platform */
+  .ticker { position: absolute; z-index: 20; left: var(--safe-x); right: var(--safe-x);
+    top: var(--safe-top); display: flex; gap: 12px; }
+  .ticker span { flex: 1; height: 7px; border-radius: 4px; background: rgba(255,255,255,.24); overflow: hidden; }
+  .ticker span::after { content: ""; display: block; height: 100%; width: 0; background: #fff;
+    animation: fill 1.2s linear forwards; }
+  .ticker span:nth-child(1)::after { animation-delay: 0s;   }
+  .ticker span:nth-child(2)::after { animation-delay: 1.2s; }
+  .ticker span:nth-child(3)::after { animation-delay: 2.4s; }
+  .ticker span:nth-child(4)::after { animation-delay: 3.6s; }
+  .ticker span:nth-child(5)::after { animation-delay: 4.8s; }
+  .ticker span:nth-child(6)::after { animation-delay: 6.0s; animation-duration: 2s; }
+  @keyframes fill { to { width: 100%; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* a montage cannot be shown without cuts, so what survives is where it was going */
+    * { animation: none !important; }
+    .beat { opacity: 0; }
+    .beat:nth-of-type(6) { opacity: 1; }
+    .bg { transform: none; }
+    .cap, .mark { opacity: 1; transform: none; }
+    .ticker span::after { width: 100%; }
+  }
+</style>
+</head>
+<!-- PORTRAIT: 1080x1920, stated because the renderer reads neither dimension off the CSS.
+     8.0s is five beats of 1.2s and a 2.0s resolve — the questions cut, the answer is held. -->
+<body data-composition-id="scene" data-no-timeline data-width="1080" data-height="1920" data-start="0" data-duration="8.0">
+
+  <div class="beat"><div class="bg"></div><div class="cap">where do I start</div></div>
+  <div class="beat"><div class="bg"></div><div class="cap">what will it cost</div></div>
+  <div class="beat"><div class="bg"></div><div class="cap">will it still work</div></div>
+  <div class="beat"><div class="bg"></div><div class="cap">has anyone done it</div></div>
+  <div class="beat"><div class="bg"></div><div class="cap">just show me</div></div>
+
+  <div class="beat">
+    <div class="bg"></div>
+    <div class="cap">
+      All five were answered on the shelf.
+      <div class="mark">
+        <span class="pips"><i style="background:var(--a1)"></i><i style="background:var(--a4)"></i><i style="background:var(--a3)"></i><i style="background:var(--a2)"></i></span>
+        Aetox
+      </div>
+    </div>
+  </div>
+
+  <div class="ticker"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+</body>
+</html>

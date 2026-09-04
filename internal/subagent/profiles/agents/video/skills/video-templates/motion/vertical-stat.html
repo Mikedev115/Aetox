@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Vertical Stat · one figure, the height of a phone</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * vertical-stat — one number, as large as the safe area allows, counting up, with its
+   * unit beside it and its context under it. Second card of the vertical set.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569. The safe-area numbers and where they came from
+   * are stated in full in `vertical-title.html`; this file uses the same three variables
+   * and the same stage so the two cut together.
+   *
+   * A figure in a vertical frame wants to be bigger than a landscape one, not smaller —
+   * the frame is narrow, so the number has to earn the width. 260px here fills the safe
+   * column at three digits. Four digits, and the size has to come down: check it, do not
+   * assume it, because an overflowing figure clips silently against `overflow:hidden`.
+   *
+   * Timeline (4.0s @ 60fps): field lights -> label -> figure springs up and counts for
+   * 1.2s -> unit -> supporting rows stagger -> held.
+   */
+
+  @property --n { syntax: '<integer>'; initial-value: 60; inherits: false; }
+
+  :root {
+    --safe-x: 120px; --safe-top: 200px; --safe-bottom: 300px;
+    /* spatial fast 0.6/800 — settles 330ms, overshoots to 1.0939 */
+    --sp-fast: linear(0, 0.0377, 0.1329, 0.2618, 0.4052, 0.5487, 0.6819, 0.7985, 0.895, 0.9705, 1.0258, 1.0629, 1.0846, 1.0939, 1.0937, 1.0869, 1.0759, 1.0627, 1.049, 1.0358, 1.024, 1.0139, 1.0059, 0.9998, 0.9955, 0.9928, 0.9914, 0.991, 0.9914, 0.9923, 0.9935, 0.9948, 1);
+    /* effects 1.0/1600 — settles 193ms, critically damped */
+    --sp-effects: linear(0, 0.0248, 0.0849, 0.1641, 0.2514, 0.3396, 0.4245, 0.5033, 0.5747, 0.6384, 0.6943, 0.7428, 0.7846, 0.8203, 0.8506, 0.8761, 0.8976, 0.9156, 0.9305, 0.943, 0.9532, 0.9617, 0.9688, 0.9745, 0.9792, 0.9831, 0.9863, 0.9889, 0.991, 0.9927, 0.9941, 0.9952, 1);
+    --t-fast: 330ms; --t-effects: 193ms;
+    --stage: #0E0F12;
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+    --dim: #8C93A3;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1080px; height: 1920px; overflow: hidden; position: relative; background: var(--stage);
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: #fff;
+  }
+
+  .field { position: absolute; inset: -10%; opacity: 0; filter: blur(90px);
+    background: radial-gradient(880px 1000px at 70% 34%, var(--a3) 0%, transparent 58%),
+                radial-gradient(820px 980px at 20% 76%, var(--a2) 0%, transparent 58%);
+    animation: fade 900ms var(--sp-effects) .1s forwards; }
+  @keyframes fade { to { opacity: .30; } }
+  .grain { position: absolute; inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.04) 1px, transparent 0);
+    background-size: 40px 40px; }
+
+  .safe { position: absolute; left: var(--safe-x); right: var(--safe-x);
+    top: var(--safe-top); bottom: var(--safe-bottom);
+    display: flex; flex-direction: column; justify-content: center; }
+
+  .label { display: flex; align-items: center; gap: 18px; font-size: 30px; font-weight: 500;
+    letter-spacing: 3px; text-transform: uppercase; color: var(--dim);
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) .3s forwards; }
+  .label .bar { width: 52px; height: 5px; border-radius: 3px; background: var(--a3); }
+
+  .figwrap { display: flex; align-items: baseline; gap: 24px; margin-top: 34px;
+    opacity: 0; transform: translateY(88px);
+    animation: fade var(--t-effects) var(--sp-effects) .48s forwards,
+               rise var(--t-fast) var(--sp-fast) .48s forwards; }
+  @keyframes rise { to { transform: translateY(0); } }
+  .fig { font-size: 260px; font-weight: 700; letter-spacing: -14px; line-height: .88;
+    font-variant-numeric: tabular-nums; }
+  /* counter() is the only way a number counts with no script; @property is what makes the
+     integer interpolable. A browser that ignores @property shows the initial-value, which
+     is set to the FINAL figure on purpose — it degrades to the right number, not to zero. */
+  .fig::after { counter-reset: n var(--n); content: counter(n);
+    animation: count 1.2s linear .82s forwards; }
+  @keyframes count { from { --n: 0; } to { --n: 60; } }
+  .unit { font-size: 72px; font-weight: 500; letter-spacing: -1.5px; color: var(--a3); }
+
+  .say { font-size: 46px; line-height: 1.35; font-weight: 500; margin-top: 30px; max-width: 780px;
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 1.12s forwards; }
+  .sub { font-size: 32px; line-height: 1.5; color: #B4BAC6; margin-top: 26px; max-width: 760px;
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 1.28s forwards; }
+
+  .rows { margin-top: auto; display: flex; flex-direction: column; gap: 18px; }
+  .row { display: flex; align-items: center; gap: 22px; font-size: 32px; color: #C6CBD6;
+    padding: 22px 28px; border-radius: 20px; border: 1px solid rgba(255,255,255,.12);
+    background: rgba(255,255,255,.03);
+    opacity: 0; transform: translateY(30px);
+    animation: fade var(--t-effects) var(--sp-effects) forwards,
+               rise var(--t-fast) var(--sp-fast) forwards; }
+  .row:nth-child(1) { animation-delay: 1.52s, 1.52s; }
+  .row:nth-child(2) { animation-delay: 1.62s, 1.62s; }
+  .row b { margin-left: auto; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .row i { width: 16px; height: 16px; border-radius: 50%; display: block; flex: none; }
+
+  .handle { position: absolute; left: var(--safe-x); bottom: var(--safe-bottom);
+    font-size: 28px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: var(--dim);
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 1.86s forwards; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+    .field { opacity: .30; }
+    .label, .say, .sub, .handle, .row { opacity: 1; transform: none; }
+    .figwrap { opacity: 1; transform: none; }
+    .fig::after { content: "60"; }
+  }
+</style>
+</head>
+<!-- PORTRAIT: data-width 1080, data-height 1920, and the renderer reads them from here
+     rather than from the CSS. 4.0s is the handle settling at 2.05s plus a hold — a figure
+     needs to be held longer than a headline, because people read it twice. -->
+<body data-composition-id="scene" data-no-timeline data-width="1080" data-height="1920" data-start="0" data-duration="4.0">
+  <div class="field"></div>
+  <div class="grain"></div>
+
+  <div class="safe">
+    <div class="label"><span class="bar"></span> On the shelf</div>
+    <div class="figwrap"><span class="fig"></span><span class="unit">scenes</span></div>
+    <div class="say">Each with timing somebody already argued about.</div>
+    <div class="sub">Thirty-five move. Twenty-five hold still. Forty-seven open in a browser with nothing installed.</div>
+
+    <div class="rows">
+      <div class="row"><i style="background:var(--a1)"></i> Animated <b>35</b></div>
+      <div class="row"><i style="background:var(--a4)"></i> One file each <b>22</b></div>
+    </div>
+  </div>
+
+  <div class="handle">aetox.app</div>
+</body>
+</html>

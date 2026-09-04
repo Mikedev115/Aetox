@@ -15,7 +15,7 @@
     height: 900px;
     overflow: hidden;
     margin: 0;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     background: #F5F0EB;
     color: #3A3A35;
   }
@@ -44,7 +44,7 @@
   }
   .nav-logo-mark i { color: #F5F0EB; }
   .nav-logo-text {
-    font-family: 'Noto Serif SC', serif;
+    font-family: 'Noto Serif SC', 'Noto Serif Thai', serif;
     font-size: 18px;
     font-weight: 600;
     color: #2D3436;
@@ -83,7 +83,7 @@
     color: #BBB;
   }
   .search-box kbd {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-size: 10px;
     background: #EDE8DC;
     border-radius: 4px;
@@ -117,7 +117,7 @@
     letter-spacing: 0.5px;
   }
   .hero h1 {
-    font-family: 'Noto Serif SC', serif;
+    font-family: 'Noto Serif SC', 'Noto Serif Thai', serif;
     font-size: 44px;
     font-weight: 600;
     line-height: 1.15;
@@ -270,13 +270,13 @@
     background: #DDD8CB;
   }
   .code-card-header .fname {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', 'IBM Plex Sans Thai', monospace;
     font-size: 11px;
     color: #BBB;
   }
   .code-card-body {
     padding: 20px 24px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', 'IBM Plex Sans Thai', monospace;
     font-size: 12.5px;
     line-height: 1.8;
     color: #555;
@@ -344,7 +344,7 @@
   }
   .feature-icon-wrap i { color: #6B8F71; }
   .feature-card h3 {
-    font-family: 'Noto Serif SC', serif;
+    font-family: 'Noto Serif SC', 'Noto Serif Thai', serif;
     font-size: 16px;
     font-weight: 500;
     margin-bottom: 8px;
@@ -379,6 +379,14 @@
     transform: translateX(-10px);
   }
 </style>
+
+<!-- Thai added 4 ก.ย. 2569. One <link> per family, and the face sits BEHIND the
+     Latin one in every stack: Latin glyphs still resolve to this scene's own
+     typeface, and only Thai glyphs move — off the system fallback nobody chose,
+     onto one somebody did. See GUIDE.md, "ไทย". -->
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@400;500;700&display=swap" rel="stylesheet" />
 </head>
 <body>
 

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Roadmap Dates · a plan with a calendar attached</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * roadmap-dates — milestones with real dates on them, a line drawn through them, and a
+   * marker saying where today is.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569.
+   *
+   * Not the same thing as `timeline`, and the difference is the reason this exists: a
+   * timeline orders steps, a roadmap commits to dates. `aetox-slide-templates` makes the
+   * same split and keeps both; this shelf had the ordering one (`kinetic-type` and the
+   * process scenes) and nothing that put a calendar on screen.
+   *
+   * The one thing that makes a roadmap read rather than decorate is the TODAY marker.
+   * Without it every milestone looks equally real; with it the frame splits into what is
+   * done and what is promised, which is the only question anybody is asking. Past nodes
+   * are filled, future ones are outlined, and the drawn line stops where today is —
+   * everything to the right of it is a dashed rail, not a solid one.
+   *
+   * Timeline (6.5s @ 60fps): rail appears -> the solid line draws to today over 900ms ->
+   * nodes pop staggered on the fast spring -> the today marker drops -> labels rise ->
+   * footnote -> held.
+   */
+
+  :root {
+    --sp-fast: linear(0, 0.0377, 0.1329, 0.2618, 0.4052, 0.5487, 0.6819, 0.7985, 0.895, 0.9705, 1.0258, 1.0629, 1.0846, 1.0939, 1.0937, 1.0869, 1.0759, 1.0627, 1.049, 1.0358, 1.024, 1.0139, 1.0059, 0.9998, 0.9955, 0.9928, 0.9914, 0.991, 0.9914, 0.9923, 0.9935, 0.9948, 1);
+    --sp-default: linear(0, 0.0239, 0.0843, 0.1671, 0.2617, 0.3601, 0.4567, 0.5478, 0.6309, 0.7047, 0.7689, 0.8236, 0.8692, 0.9065, 0.9364, 0.9599, 0.9779, 0.9913, 1.0009, 1.0075, 1.0117, 1.0141, 1.0151, 1.0151, 1.0144, 1.0133, 1.0119, 1.0105, 1.009, 1.0075, 1.0062, 1.005, 1);
+    --sp-effects: linear(0, 0.0248, 0.0849, 0.1641, 0.2514, 0.3396, 0.4245, 0.5033, 0.5747, 0.6384, 0.6943, 0.7428, 0.7846, 0.8203, 0.8506, 0.8761, 0.8976, 0.9156, 0.9305, 0.943, 0.9532, 0.9617, 0.9688, 0.9745, 0.9792, 0.9831, 0.9863, 0.9889, 0.991, 0.9927, 0.9941, 0.9952, 1);
+    --t-fast: 330ms; --t-default: 382ms; --t-effects: 193ms;
+    /* where today falls along the rail — move this and the drawn line follows it */
+    --today: 46%;
+    --stage: #F7F8FC;
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+    --ink: #16181D; --ink-2: #5B6070; --line: #D9DDE7;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden; position: relative;
+    background: var(--stage);
+    background-image: radial-gradient(1300px 800px at 40% 40%, #FFFFFF 0%, #F5F6FB 72%);
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: var(--ink);
+  }
+
+  .head { position: absolute; left: 130px; top: 168px;
+    opacity: 0; transform: translateY(28px);
+    animation: fade var(--t-effects) var(--sp-effects) .18s forwards,
+               rise var(--t-default) var(--sp-default) .18s forwards; }
+  @keyframes fade { to { opacity: 1; } }
+  @keyframes rise { to { transform: translateY(0); } }
+  .head .k { display: flex; align-items: center; gap: 16px; font-size: 23px; font-weight: 500;
+    letter-spacing: 2.6px; text-transform: uppercase; color: var(--ink-2); }
+  .head .k i { width: 48px; height: 4px; border-radius: 2px; background: var(--a1); display: block; }
+  .head .t { font-size: 76px; font-weight: 700; letter-spacing: -2.2px; margin-top: 26px; }
+
+  /* ---- the rail ---- */
+  .rail { position: absolute; left: 130px; right: 130px; top: 560px; height: 10px; }
+  /* everything after today is a dashed rail, because it has not happened */
+  .rail .future { position: absolute; inset: 0; border-radius: 5px;
+    background: repeating-linear-gradient(90deg, var(--line) 0 18px, transparent 18px 34px);
+    opacity: 0; animation: fade 320ms var(--sp-effects) .52s forwards; }
+  /* and everything up to today is solid, drawn */
+  .rail .done { position: absolute; left: 0; top: 0; height: 100%; width: var(--today);
+    border-radius: 5px; background: var(--a1); transform: scaleX(0); transform-origin: left;
+    animation: draw 900ms var(--sp-default) .68s forwards; }
+  @keyframes draw { to { transform: scaleX(1); } }
+
+  .node { position: absolute; top: 50%; transform: translate(-50%, -50%) scale(.4);
+    width: 34px; height: 34px; border-radius: 50%; background: var(--stage);
+    border: 5px solid var(--line); opacity: 0;
+    animation: fade var(--t-effects) var(--sp-effects) forwards,
+               pop var(--t-fast) var(--sp-fast) forwards; }
+  @keyframes pop { to { transform: translate(-50%, -50%) scale(1); } }
+  .node.past { border-color: var(--a1); background: var(--a1); }
+  .node.n1 { left: 4%;  animation-delay: .80s, .80s; }
+  .node.n2 { left: 25%; animation-delay: .92s, .92s; }
+  .node.n3 { left: 46%; animation-delay: 1.04s, 1.04s; }
+  .node.n4 { left: 70%; animation-delay: 1.16s, 1.16s; }
+  .node.n5 { left: 96%; animation-delay: 1.28s, 1.28s; }
+
+  /* dates above, labels below — one side each, so neither column has to be read twice */
+  .stop { position: absolute; width: 340px; margin-left: -170px;
+    opacity: 0; transform: translateY(24px);
+    animation: fade var(--t-effects) var(--sp-effects) forwards,
+               rise var(--t-default) var(--sp-default) forwards; }
+  .stop .date { font-size: 26px; font-weight: 500; letter-spacing: 1.6px; text-transform: uppercase;
+    color: var(--ink-2); }
+  .stop .name { font-size: 38px; font-weight: 700; letter-spacing: -.8px; margin-top: 10px; line-height: 1.2; }
+  .stop .note { font-size: 24px; color: var(--ink-2); margin-top: 10px; line-height: 1.45; }
+  .stop.up { bottom: calc(100% + 44px); text-align: left; }
+  .stop.dn { top: calc(100% + 44px); text-align: left; }
+  .stop.s1 { left: 4%;  animation-delay: 1.44s, 1.44s; }
+  .stop.s2 { left: 25%; animation-delay: 1.54s, 1.54s; }
+  .stop.s3 { left: 46%; animation-delay: 1.64s, 1.64s; }
+  .stop.s4 { left: 70%; animation-delay: 1.74s, 1.74s; }
+  .stop.s5 { left: 96%; animation-delay: 1.84s, 1.84s; }
+  .stop.future .name, .stop.future .note { color: var(--ink-2); }
+  .stop.future .name { font-weight: 500; }
+
+  /* the marker, and the reason the scene works */
+  .today { position: absolute; left: var(--today); top: -150px; bottom: -150px; width: 3px;
+    background: linear-gradient(to bottom, transparent, var(--a2) 16%, var(--a2) 84%, transparent);
+    opacity: 0; animation: fade 300ms var(--sp-effects) 1.30s forwards; }
+  .today .pill { position: absolute; left: 50%; top: -14px; transform: translate(-50%, -100%) scale(.8);
+    padding: 12px 24px; border-radius: 999px; background: var(--a2); color: #fff;
+    font-size: 24px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; white-space: nowrap;
+    animation: pop2 var(--t-fast) var(--sp-fast) 1.34s forwards; }
+  @keyframes pop2 { to { transform: translate(-50%, -100%) scale(1); } }
+
+  .foot { position: absolute; left: 130px; bottom: 96px; display: flex; align-items: center; gap: 18px;
+    font-size: 22px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: var(--ink-2);
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 2.2s forwards; }
+  .foot .pips { display: flex; gap: 8px; }
+  .foot .pips i { width: 13px; height: 13px; border-radius: 50%; display: block; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+    .head, .stop, .foot, .node, .today, .rail .future { opacity: 1; }
+    .head, .stop { transform: none; }
+    .node { transform: translate(-50%, -50%) scale(1); }
+    .today .pill { transform: translate(-50%, -100%) scale(1); }
+    .rail .done { transform: scaleX(1); }
+  }
+</style>
+</head>
+<!-- Frame and length stated because the renderer reads neither off the CSS. 6.5s is the
+     footnote settling at 2.39s plus a long hold: a roadmap is read across, not glanced at,
+     and five dated stops take longer than five words. -->
+<body data-composition-id="scene" data-no-timeline data-width="1920" data-height="1080" data-start="0" data-duration="6.5">
+
+  <div class="head">
+    <div class="k"><i></i> แผนของชั้นวางเทมเพลต</div>
+    <div class="t">ที่ทำไปแล้ว กับที่สัญญาไว้</div>
+  </div>
+
+  <div class="rail">
+    <div class="future"></div>
+    <div class="done"></div>
+
+    <span class="node past n1"></span>
+    <span class="node past n2"></span>
+    <span class="node past n3"></span>
+    <span class="node n4"></span>
+    <span class="node n5"></span>
+
+    <div class="stop up s1"><div class="date">31 ส.ค. 2569</div><div class="name">วางชั้นครั้งแรก</div><div class="note">47 ฉากจากภายนอก เปลี่ยนชื่อตามสิ่งที่มันเป็น</div></div>
+    <div class="stop dn s2"><div class="date">1 ก.ย. 2569</div><div class="name">เด็คเต็มเรื่อง</div><div class="note">สี่โปรดักชันจาก hyperframes</div></div>
+    <div class="stop up s3"><div class="date">4 ก.ย. 2569</div><div class="name">ภาษาโฆษณาโปรดักต์</div><div class="note">เก้าฉาก ถอดจากสเปกและจากหนังจริง</div></div>
+    <div class="stop dn s4 future"><div class="date">ถัดไป</div><div class="name">เรนเดอร์วัดความยาวจริง</div><div class="note">แทนคำว่า designed ในตารางด้วยตัวเลขที่วัดได้</div></div>
+    <div class="stop up s5 future"><div class="date">ยังไม่มีวัน</div><div class="name">ไทยครบทั้งชั้น</div><div class="note">เหลือ 13 ฉากที่เป็นโฟลเดอร์</div></div>
+
+    <div class="today"><span class="pill">วันนี้</span></div>
+  </div>
+
+  <div class="foot">
+    <span class="pips"><i style="background:var(--a1)"></i><i style="background:var(--a4)"></i><i style="background:var(--a3)"></i><i style="background:var(--a2)"></i></span>
+    Aetox · video templates
+  </div>
+</body>
+</html>

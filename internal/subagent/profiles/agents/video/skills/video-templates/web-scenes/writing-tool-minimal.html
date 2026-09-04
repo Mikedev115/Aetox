@@ -14,7 +14,7 @@
     overflow: hidden;
     margin: 0;
     background: #FAFAF8;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     color: #2C2C2C;
   }
 
@@ -115,7 +115,7 @@
     padding: 14px 32px;
     background: #2C2C2C;
     color: #FAFAF8;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-size: 13px;
     font-weight: 400;
     letter-spacing: 0.5px;
@@ -429,13 +429,19 @@
     color: #fff;
     border: none;
     border-radius: 2px;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     letter-spacing: 0.5px;
   }
 </style>
+
+<!-- Thai added 4 ก.ย. 2569. One <link> per family, and the face sits BEHIND the
+     Latin one in every stack: Latin glyphs still resolve to this scene's own
+     typeface, and only Thai glyphs move — off the system fallback nobody chose,
+     onto one somebody did. See GUIDE.md, "ไทย". -->
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
 <div class="page">

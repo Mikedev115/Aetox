@@ -13,7 +13,7 @@
     overflow: hidden;
     margin: 0;
     background: #F5F0EB;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     color: #3A3A3A;
     position: relative;
   }
@@ -61,7 +61,7 @@
   }
 
   .title-jp {
-    font-family: 'Noto Serif SC', serif;
+    font-family: 'Noto Serif SC', 'Noto Serif Thai', serif;
     font-size: 42px;
     font-weight: 400;
     color: #2D3436;
@@ -108,7 +108,7 @@
     position: absolute;
     bottom: 40px;
     right: 72px;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     font-size: 10px;
     font-weight: 300;
     color: #C8C2B8;
@@ -133,7 +133,7 @@
   }
 
   .key-insight-text {
-    font-family: 'Noto Serif SC', serif;
+    font-family: 'Noto Serif SC', 'Noto Serif Thai', serif;
     font-size: 15px;
     font-weight: 400;
     color: #555555;
@@ -310,6 +310,13 @@
     color: #888888;
   }
 </style>
+
+<!-- Thai added 4 ก.ย. 2569. One <link> per family, and the face sits BEHIND the
+     Latin one in every stack: Latin glyphs still resolve to this scene's own
+     typeface, and only Thai glyphs move — off the system fallback nobody chose,
+     onto one somebody did. See GUIDE.md, "ไทย". -->
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@400;500;700&display=swap" rel="stylesheet" />
 </head>
 <body>
 <div class="layout">

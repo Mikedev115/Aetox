@@ -9,7 +9,7 @@ not the whole file.
 **Most of these are CSS `@keyframes` and nothing else** — no library, no build
 step, no bundler, which is why they open in a browser as fast as they render.
 
-**22 of the 35 motion scenes hold to that.** The other **13** —
+**32 of the 45 motion scenes hold to that.** The other **13** —
 `bold-portrait-title`, `decision-flowchart`, `editorial-chart`,
 `grain-texture-hero`, `kinetic-type`, `playful-bounce`, `product-launch-30s`,
 `product-showcase`, `structured-grid`, and since 1 ก.ย. `airbnb-deck`,
@@ -81,7 +81,7 @@ of its keyframes: an animation that finishes in 2 seconds inside a 6 second
 scene leaves 4 seconds of a held frame, and one still moving at the end is cut
 off mid-move.
 
-**All 22 single-file scenes state their length on `<body>`**, beside the
+**All 32 single-file scenes state their length on `<body>`**, beside the
 frame, on the same composition root:
 
 ```html
@@ -89,7 +89,7 @@ frame, on the same composition root:
       data-width="1920" data-height="1080" data-start="0" data-duration="3.0">
 ```
 
-That is the one place the length lives in those 22; change the number to change
+That is the one place the length lives in those 32; change the number to change
 the clip. It is stated rather than derived for two reasons. Four of them —
 `glitch-title`, `typewriter-cursor`, `liquid-gradient-hero` and
 `cinematic-light-leak` — have no end to derive: the first three loop for ever
@@ -130,7 +130,7 @@ and it is the one to quote to a user.
 
 ## Google Fonts is the one thing still fetched at render time
 
-30 of the 35 motion scenes pull typefaces over a `<link>` — every one except
+40 of the 45 motion scenes pull typefaces over a `<link>` — every one except
 `bold-portrait-title`, `structured-grid`, `startup-pitch`, `slideshow-demo`
 and `motion-blur`; counted 31 ส.ค., recounted 1 ก.ย. when four scenes
 arrived from the hyperframes registry (only `airbnb-deck` among them fetches),
@@ -146,7 +146,7 @@ If the request fails the frames record the fallback face. That is not a crash
 and not an error message: it is a scene that came out looking wrong for a reason
 nothing in the output explains. Check the render, do not assume it.
 
-## ไทย: 51 of the 60 scenes have no Thai typeface
+## ไทย: 13 of the 70 scenes still have no Thai typeface, and they are all folders
 
 Counted 31 ส.ค. over the original 47 scenes: 26 font families between them and
 not one covers Thai; the four scenes vendored 1 ก.ย. add only `Nunito Sans`
@@ -182,10 +182,11 @@ already uses. Do not quietly render and hand it over.
 
 ## Frame size is stated in every file, and has to be
 
-Every scene declares its frame on its composition root: on `<body>` for the 22
-single-file scenes, on the root `<div>` for the 13 folders. 34 of the 35 say
-`data-width="1920" data-height="1080"`; `bold-portrait-title` says 1080x1920 and
-is the only one drawn portrait from the start.
+Every scene declares its frame on its composition root: on `<body>` for the 32
+single-file scenes, on the root `<div>` for the 13 folders. 39 of the 45 say
+`data-width="1920" data-height="1080"`; the other **six are portrait, 1080x1920**:
+`bold-portrait-title`, which was the only one for a long time, and the five-scene
+vertical set added 4 ก.ย. 2569.
 
 **Stated because the renderer does not guess it.** A scene with no declared
 frame renders at 1080x1920 whatever its CSS says — it crops a design drawn 1920
@@ -196,7 +197,7 @@ written into them.
 Changing the aspect is those two numbers, plus whatever the scene's own CSS
 pins. Six of them — `glitch-title`, `typewriter-cursor`, `bar-chart-counter`,
 `logo-outro`, `liquid-gradient-hero`, `cinematic-light-leak` — lay themselves
-out fluidly, so for those it is only the two numbers. The other 24 draw their own
+out fluidly, so for those it is only the two numbers. The other 34 draw their own
 1920x1080 box in CSS as well, and moving the frame without editing that rule
 leaves the scene drawing its old box inside the new one. The `Frame` column in
 SKILL.md's table says which is which.
@@ -231,10 +232,76 @@ and applies here rather than being decided again per scene.
 ## Where these came from
 
 `CREDITS.md` beside this file records the source repository, the licence and the
-upstream design lineage of every one of the 60 files, including six that were
-themselves derived from other design skills and nine that were written here. The licences are Apache-2.0 and
+upstream design lineage of every one of the 70 files, including six that were
+themselves derived from other design skills and nineteen that were written here. The licences are Apache-2.0 and
 MIT. Both allow commercial use and both require the attribution to travel with
 the work.
 
 So the credit file is not paperwork, it is part of the library. If a scene is
 copied out into somewhere else, its line in `CREDITS.md` goes with it.
+
+## Three scenes have no background, and that is the point
+
+`lower-third-name`, `caption-bar` and `stat-strap` are **overlays**. Their `body`
+declares no background at all, so everything outside the graphic is transparent.
+No other scene on this shelf does that, and it changes two things.
+
+**Mounted, they work as intended.** A host `index.html` pointing at one with
+`data-composition-src` composites it over the A-roll underneath, the same
+mechanism `grain-texture-hero` uses for its own caption layer. That is what they
+are for.
+
+**Rendered on their own, you get the graphic on black.** The renderer fills what
+is not painted, and black is what it fills with. That is not a failure and it is
+also not a clip anybody wants. Each of the three carries the one line to paste
+into `body` to preview it against a still, and a reminder to take it out again —
+left in, it is the overlay equivalent of shipping the sample copy.
+
+**Two of them carry a scrim and it is load-bearing.** Footage changes brightness
+between shots; white type over a bright frame is not dim, it is gone. The soft
+dark gradient behind the type in `lower-third-name` and `caption-bar` is the only
+thing standing between the graphic and that, and it is the first thing somebody
+will try to delete to "clean it up". `stat-strap` has none because its card is
+already opaque enough to be its own.
+
+## Vertical is not landscape rotated
+
+Six scenes are 1080x1920 and five of them arrived together as a set. Turning a
+landscape scene on its side does not produce any of them, for one reason:
+
+**A 1080x1920 frame is not 1080x1920 of usable space.** Every platform draws its
+own interface over the video — tabs and search at the head, caption, handle and
+audio credit at the foot, a column of buttons up the right. Anything outside the
+intersection of those is covered, the render is still correct, and nothing in this
+pipeline will tell you. Checked 4 ก.ย. 2569 against published guides
+(kreatli.com/guides/safe-zone-guide and adaptlypost.com's 2026 round-up), which
+agree: head 150-200px, foot 250-300px (Reels takes up to ~500, Shorts ~320), right
+120px, and 900x1400 centred is safe on all three.
+
+The set takes the cautious end — head 200, foot 300, sides 120 — and holds every
+readable element inside it, in three variables named `--safe-x`, `--safe-top` and
+`--safe-bottom`. The background deliberately runs past them so the frame still
+fills a phone edge to edge. Two consequences worth knowing before editing one:
+
+- `vertical-beats` puts its beat ticker at the **top**. Its landscape cousin
+  `caption-montage` puts the same ticker at the foot, which in a vertical frame is
+  underneath the platform's caption row.
+- Captions are set over three or four short lines. At 1080 wide minus 240 of
+  margin, a sentence that fits a landscape card wraps to five lines. Keep each one
+  under about six words.
+
+The same applies to the overlays if you take them vertical: each says which
+number to move and to what.
+
+## Four vendored scenes still have no reduced-motion fallback
+
+Found 4 ก.ย. 2569 while checking the whole shelf: `bar-chart-counter`,
+`logo-outro` and `typewriter-cursor` animate and carry no
+`@media (prefers-reduced-motion: reduce)` block, and `cinematic-light-leak` has
+none either though it has no `@keyframes` to disable, so it is a paper cut rather
+than a defect. `aetox-design-system`'s `references/motion.md` lists "motion with
+no `prefers-reduced-motion` fallback" as something to flag automatically, so this
+is the shelf failing its own rule.
+
+They are vendored files and were left alone rather than edited in passing. Every
+one of the nineteen scenes written here has the block.

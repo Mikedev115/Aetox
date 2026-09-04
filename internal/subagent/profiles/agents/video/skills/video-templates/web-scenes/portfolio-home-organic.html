@@ -14,7 +14,7 @@
     overflow: hidden;
     margin: 0;
     background: #F5F0EB;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Anuphan', sans-serif;
     color: #3D3D3A;
     position: relative;
   }
@@ -56,7 +56,7 @@
     z-index: 10;
   }
   nav .logo {
-    font-family: 'Noto Serif SC', serif;
+    font-family: 'Noto Serif SC', 'Noto Serif Thai', serif;
     font-weight: 400;
     font-size: 16px;
     color: #3D3D3A;
@@ -141,7 +141,7 @@
   }
 
   .hero-center h1 {
-    font-family: 'Noto Serif SC', serif;
+    font-family: 'Noto Serif SC', 'Noto Serif Thai', serif;
     font-weight: 300;
     font-size: 56px;
     line-height: 1.25;
@@ -149,7 +149,7 @@
     color: #2D3436;
   }
   .hero-center h1 .serif-accent {
-    font-family: 'Noto Serif SC', serif;
+    font-family: 'Noto Serif SC', 'Noto Serif Thai', serif;
     font-weight: 600;
     font-style: normal;
     color: #2D3436;
@@ -182,7 +182,7 @@
     flex-direction: column;
   }
   .stat .stat-value {
-    font-family: 'Noto Serif SC', serif;
+    font-family: 'Noto Serif SC', 'Noto Serif Thai', serif;
     font-weight: 600;
     font-size: 28px;
     color: #2D3436;
@@ -288,7 +288,7 @@
     backdrop-filter: blur(8px);
   }
   .bio-card .bio-name {
-    font-family: 'Noto Serif SC', serif;
+    font-family: 'Noto Serif SC', 'Noto Serif Thai', serif;
     font-weight: 600;
     font-size: 15px;
     color: #3D3D3A;
@@ -367,6 +367,13 @@
     font-weight: 300;
   }
 </style>
+
+<!-- Thai added 4 ก.ย. 2569. One <link> per family, and the face sits BEHIND the
+     Latin one in every stack: Latin glyphs still resolve to this scene's own
+     typeface, and only Thai glyphs move — off the system fallback nobody chose,
+     onto one somebody did. See GUIDE.md, "ไทย". -->
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@400;500;700&display=swap" rel="stylesheet" />
 </head>
 <body>
 

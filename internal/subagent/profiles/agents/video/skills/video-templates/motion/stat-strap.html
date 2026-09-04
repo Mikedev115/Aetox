@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Stat Strap · a figure dropped on top of a shot</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * stat-strap — one figure and its label, landed on top of footage while the shot keeps
+   * running underneath. The overlay you reach for when somebody says a number out loud.
+   *
+   * Original work for Aetox, 4 ก.ย. 2569.
+   *
+   * ---- AN OVERLAY: TRANSPARENT ON PURPOSE ----
+   * `body` has no background. Mount it over A-roll with `data-composition-src`; rendered
+   * alone the card sits on black. To preview against a picture, add one line to `body` and
+   * remove it before mounting:
+   *     background: url(a-frame-of-your-footage.jpg) center/cover;
+   *
+   * Unlike `lower-third-name` and `caption-bar` this one carries no full-width scrim — the
+   * card is its own scrim, opaque enough to hold type over anything, and a strap that dims
+   * the whole bottom of the frame for one number is heavier than the number deserves. Its
+   * shadow does the separating instead.
+   *
+   * It sits top-right because that is the corner a speaker's head is least often in, and
+   * because the lower third has the bottom-left. The two are built to be on screen at the
+   * same time without colliding — check that they still do if you move either.
+   *
+   * VERTICAL: change the data- numbers to 1080/1920 and move `top` from 132px to about
+   * 260px, clear of the platform's own head row.
+   *
+   * Timeline (5.0s @ 60fps): 0.3s the card springs in from the right and overshoots, the
+   * figure counts for 0.9s, the label follows, held, and at 4.2s it leaves.
+   */
+
+  @property --n { syntax: '<integer>'; initial-value: 47; inherits: false; }
+
+  :root {
+    /* spatial fast 0.6/800 — 330ms, overshoots 9.4%; effects 1.0/1600 — 193ms, never does */
+    --sp-fast: linear(0, 0.0377, 0.1329, 0.2618, 0.4052, 0.5487, 0.6819, 0.7985, 0.895, 0.9705, 1.0258, 1.0629, 1.0846, 1.0939, 1.0937, 1.0869, 1.0759, 1.0627, 1.049, 1.0358, 1.024, 1.0139, 1.0059, 0.9998, 0.9955, 0.9928, 0.9914, 0.991, 0.9914, 0.9923, 0.9935, 0.9948, 1);
+    --sp-effects: linear(0, 0.0248, 0.0849, 0.1641, 0.2514, 0.3396, 0.4245, 0.5033, 0.5747, 0.6384, 0.6943, 0.7428, 0.7846, 0.8203, 0.8506, 0.8761, 0.8976, 0.9156, 0.9305, 0.943, 0.9532, 0.9617, 0.9688, 0.9745, 0.9792, 0.9831, 0.9863, 0.9889, 0.991, 0.9927, 0.9941, 0.9952, 1);
+    --t-fast: 330ms; --t-effects: 193ms;
+    --e-acc: cubic-bezier(0.3, 0, 0.8, 0.15);
+    --a1: #3B4AE0; --a2: #E8543F; --a3: #F2B33D; --a4: #1F9D74;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden; position: relative;
+    font-family: 'Google Sans', 'Anuphan', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    color: #fff;
+  }
+
+  .card { position: absolute; right: 132px; top: 132px; padding: 40px 48px 36px;
+    border-radius: 28px; background: rgba(12,13,16,.80); border: 1px solid rgba(255,255,255,.16);
+    backdrop-filter: blur(16px); box-shadow: 0 30px 80px rgba(0,0,0,.55);
+    min-width: 460px;
+    opacity: 0; transform: translateX(90px) scale(.96);
+    animation: fade var(--t-effects) var(--sp-effects) .30s forwards,
+               land var(--t-fast) var(--sp-fast) .30s forwards,
+               leave 340ms var(--e-acc) 4.20s forwards; }
+  @keyframes fade  { to { opacity: 1; } }
+  @keyframes land  { to { transform: translateX(0) scale(1); } }
+  @keyframes leave { to { opacity: 0; transform: translateX(90px) scale(.97); } }
+
+  .eyebrow { display: flex; align-items: center; gap: 14px; font-size: 22px; font-weight: 500;
+    letter-spacing: 2.4px; text-transform: uppercase; color: #9AA0AE; }
+  .eyebrow i { width: 13px; height: 13px; border-radius: 50%; background: var(--a3); flex: none; }
+
+  .figwrap { display: flex; align-items: baseline; gap: 14px; margin-top: 18px; }
+  .fig { font-size: 128px; font-weight: 700; letter-spacing: -5px; line-height: .9;
+    font-variant-numeric: tabular-nums; }
+  /* @property is what makes the integer interpolable; without it the number jumps. Its
+     initial-value is the FINAL figure, so a browser that ignores @property still shows the
+     right number rather than zero. */
+  .fig::after { counter-reset: n var(--n); content: counter(n);
+    animation: count .9s linear .62s forwards; }
+  @keyframes count { from { --n: 0; } to { --n: 47; } }
+  .unit { font-size: 46px; font-weight: 500; color: var(--a3); letter-spacing: -1px; }
+
+  .label { font-size: 28px; color: #C6CBD6; margin-top: 10px; max-width: 460px; line-height: 1.4;
+    opacity: 0; animation: fade var(--t-effects) var(--sp-effects) 1.22s forwards; }
+
+  .rule { display: flex; height: 7px; border-radius: 4px; overflow: hidden; margin-top: 26px;
+    transform: scaleX(0); transform-origin: left;
+    animation: draw 420ms var(--sp-fast) 1.34s forwards; }
+  @keyframes draw { to { transform: scaleX(1); } }
+  .rule i { flex: 1; display: block; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+    .card, .label { opacity: 1; transform: none; }
+    .rule { transform: scaleX(1); }
+    .fig::after { content: "47"; }
+  }
+</style>
+</head>
+<!-- Frame and length stated because the renderer reads neither off the CSS. 5.0s is an
+     entrance at 0.3s, a figure that finishes counting at 1.52s, a hold, and an exit ending
+     at 4.54s — a number needs longer on screen than a name, because people read it twice. -->
+<body data-composition-id="scene" data-no-timeline data-width="1920" data-height="1080" data-start="0" data-duration="5.0">
+  <div class="card">
+    <div class="eyebrow"><i></i> เปิดได้ทันที</div>
+    <div class="figwrap"><span class="fig"></span><span class="unit">ฉาก</span></div>
+    <div class="label">จาก 60 ฉากบนชั้น เปิดในเบราว์เซอร์ได้เลยโดยไม่ต้องติดตั้งอะไร</div>
+    <div class="rule">
+      <i style="background:var(--a1)"></i><i style="background:var(--a4)"></i>
+      <i style="background:var(--a3)"></i><i style="background:var(--a2)"></i>
+    </div>
+  </div>
+</body>
+</html>
