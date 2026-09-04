@@ -104,21 +104,28 @@ The numbers in those 13 are measured, not intended — each is what a real rende
 produced on the owner's machine, rounded up to a tenth of a second so nothing is
 cut mid-move.
 
-**The nine added 4 ก.ย. 2569 are the exception, and SKILL.md marks them
-*designed* rather than quoting them flat.** `search-query-reveal`,
-`dot-loader-morph`, `card-expand-hero`, `caption-montage`, `aurora-prompt-box`,
-`ship-it-toolbar`, `spring-stat-tiles`, `shared-axis-steps` and `device-reveal`
-were written the other way round — the last keyframe was placed *on* the number
-the scene wanted, so every one of their lengths is where the animation
-ends by construction rather than where a render was observed to stop. The ten
-added later the same day — the vertical set, the three overlays,
-`split-compare-wipe` and `roadmap-dates` — and the five square scenes after them
-were written the same way. `aurora-prompt-box`
-is the strictest of the eight: its 8.0s is exactly one turn of the border glow,
-so shortening it leaves the hue stopped mid-rotation. Each was stepped frame by frame in a browser
-at several times on the clock and looks right at each, which is not the same
-evidence and should not be quoted as if it were. First person to render one:
-replace the word *designed* in the table with what came back.
+**The 24 written here were built the other way round, and then checked.** Instead
+of deriving a length from the keyframes, the last keyframe was placed *on* the
+number the scene wanted. That is a weaker claim than the vendored 13 could make,
+so until 4 ก.ย. 2569 the table marked all of them *designed* rather than quoting
+them flat.
+
+**They were rendered that day, and the hedge came off.** Every one was rendered
+through hyperframes at draft quality and probed with ffprobe:
+
+    scenes rendered ....... 24 of 24, no failures
+    duration mismatches ... 0
+    frame-size mismatches . 0
+    frame-count off ....... 0
+    frame rates seen ...... one, 30fps
+    frames seen ........... 1920x1080, 1080x1920, 1080x1080
+
+So `roadmap-dates` is 6.500s over 195 frames, `shared-axis-steps` 6.400s over 192,
+`split-compare-wipe` 5.500s over 165, and the rest land the same way. The `Length`
+column is now render-backed for all 75 scenes rather than 51 of them.
+
+`aurora-prompt-box` is still the strictest of them: its 8.0s is exactly one turn of
+the border glow, so shortening it leaves the hue stopped mid-rotation.
 
 Seven of the motion files write their timeline into a header comment
 (`Timeline (5s @ 60fps): corner marks draw -> eyebrow fades -> ...`). **Read it
@@ -355,3 +362,20 @@ become a column, which reads as a ranked list. At 1:1 four things read as four
 things **at once**, unranked, which is the whole point of putting them in a quad.
 Its numbers follow from the margin — a 776px safe box is exactly two 370px cells
 and a 36px gap, so moving `--safe` means moving `--cell` with it.
+
+## Everything renders at 30fps, whatever the header comments say
+
+No scene on this shelf sets `data-fps` on its composition root, so every render
+takes the engine's default of 30. Measured across the 24 rendered 4 ก.ย. 2569:
+one distinct frame rate, 30, in all of them.
+
+That matters because **31 files carry a header comment reading
+`Timeline (Xs @ 60fps)`** and the 60 in there has never been true of a render. The
+24 written here were corrected to say 30 the day they were first rendered; the
+seven vendored ones still say 60, and are left alone for the same reason their
+lengths are — this file already tells you to read those comments for the order of
+events and not for their numbers.
+
+To actually render at 60, put `data-fps="60"` on the composition root beside the
+frame and the duration. It doubles the frames and roughly doubles the render time;
+nothing on this shelf has needed it.

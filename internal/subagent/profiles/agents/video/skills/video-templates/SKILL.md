@@ -42,12 +42,15 @@ here on cutting several of them into one piece.
   `cinematic-light-leak`, `glitch-title`, `liquid-gradient-hero`, `logo-outro`,
   `typewriter-cursor`): a class not already in use does nothing, silently.
   Write plain CSS for anything new.
-- **`Length` is what a real render produced**, safe to quote to a user — with
-  twenty-four exceptions, marked *designed* in the table: the product-ad scenes were
-  built so the last keyframe lands on the stated number, but nobody has rendered
-  one yet, so quote those as intended rather than as measured until someone has.
-  In the 37 flat scenes the number is `data-duration` on `<body>` — change it to
-  change the clip. Header-comment timelines state the order, not the length.
+- **`Length` is what a real render produced**, every row, safe to quote to a user.
+  The 24 written here were rendered 4 ก.ย. 2569 and probed: 24 of 24 came back at
+  exactly their stated length, exactly their stated frame, and the frame count the
+  duration implies. In the 37 flat scenes the number is `data-duration` on
+  `<body>` — change it to change the clip. Header-comment timelines state the
+  order, not the length.
+- **Everything renders at 30fps** and no scene sets `data-fps`, so the engine's
+  default is what every clip gets, whatever a header comment says. Measured across
+  all 24: one distinct frame rate, 30.
 - **The frame is declared in every file** and the renderer never guesses it.
   "fluid CSS" rows re-aspect by changing the two `data-` numbers; the rest
   also draw their own 1920x1080 box in CSS that has to move with them.
@@ -98,30 +101,30 @@ the number beside it is the fallback. Every other length is fixed by the scene.
 | `motion/startup-pitch/index.html` | Pitch deck in motion: cover, problem, product, market with a drill-down, ask | 84s | 1920x1080 |
 | `motion/slideshow-demo/index.html` | Slideshow with branching scenes and a CTA, mounted from one host | 32s | 1920x1080 |
 | `motion/motion-blur/index.html` | Title card with real per-frame motion blur; the word drifting through frame IS the design (check reports its overflow on purpose) | 4.0s | 1920x1080 |
-| `motion/search-query-reveal.html` | A question typed into a search field, suggestions dropping, then the field itself growing into the answer card. **The one scene where anything types** | 6.0s, designed | 1920x1080 |
-| `motion/dot-loader-morph.html` | Four dots bounce, close ranks into one four-coloured bar, and the bar becomes the rule under the headline. A title card wearing a loader's clothes | 4.0s, designed | 1920x1080 |
-| `motion/card-expand-hero.html` | Dark stage, a rail of cards lit from behind, and one of them grows into the whole frame. The only true container transform on the shelf | 5.0s, designed | 1920x1080 |
-| `motion/caption-montage.html` | Five questions hard-cutting every 1.2s over colour fields, then one answer held for two seconds. Ships footage-free on purpose — the file says why | 8.0s, designed | 1920x1080 |
-| `motion/aurora-prompt-box.html` | A prompt box whose border glow rotates hue over the whole scene, a cursor that picks a chip, and the chip becoming a tag inside the box. **The one scene with a pointer in it** | 8.0s, designed | 1920x1080 |
-| `motion/ship-it-toolbar.html` | The finished thing under its toolbar, a cursor pressing Install, warm light flooding the frame, then a hard cut to a mark alone on black. Pairs with `aurora-prompt-box` as the closing half | 6.0s, designed | 1920x1080 |
-| `motion/spring-stat-tiles.html` | Four figures on tiles that overshoot and settle on real simulated springs, counting up in pure CSS. **The one scene whose motion is physics, not a drawn curve** | 5.0s, designed | 1920x1080 |
-| `motion/shared-axis-steps.html` | Four steps handing over along one axis, old leaving left as new arrives from right. The M3 pattern nothing else here could do | 6.4s, designed | 1920x1080 |
-| `motion/device-reveal.html` | A portrait screen rising into a near-black frame while the whole stage brightens with it, then stepping aside for a panel under warm light. **The one scene that holds a device** | 7.0s, designed | 1920x1080 |
-| `motion/vertical-title.html` | Opening card of the vertical set: kicker, three stacked lines, four-hue rule. **Carries the safe-area numbers the whole set uses** | 4.0s, designed | 1080x1920 |
-| `motion/vertical-stat.html` | One figure at 260px counting up, unit beside it, two supporting rows | 4.0s, designed | 1080x1920 |
-| `motion/vertical-beats.html` | Five lines cut every 1.2s and one answer held, ticker at the **top** where the platform cannot cover it | 8.0s, designed | 1080x1920 |
-| `motion/vertical-showcase.html` | The thing on top, its claim under it, one outlined button last — the reading order vertical is actually better at | 6.0s, designed | 1080x1920 |
-| `motion/vertical-outro.html` | Wordmark, one line, four pips. The colour drains before the name lands | 4.0s, designed | 1080x1920 |
-| `motion/lower-third-name.html` | Who is speaking. **Overlay: transparent, no background** — mount it over footage | 5.0s, designed | 1920x1080 |
-| `motion/caption-bar.html` | What is being said, one line at a time on hard cuts. **Overlay**, and its sample copy is Thai | 6.0s, designed | 1920x1080 |
-| `motion/stat-strap.html` | A figure landed top-right while the shot keeps running. **Overlay**, no full-width scrim | 5.0s, designed | 1920x1080 |
-| `motion/split-compare-wipe.html` | Before wiped away to reveal after — and the seam **parks at 42%** so the frame ends holding both | 5.5s, designed | 1920x1080 |
-| `motion/roadmap-dates.html` | Milestones with real dates, a line drawn as far as today, dashed rail after it | 6.5s, designed | 1920x1080 |
-| `motion/square-title.html` | Opening card of the square set, centred because a square has no reading direction. **Carries the safe-area number the set uses** | 4.0s, designed | 1080x1080 |
-| `motion/square-quad.html` | A 2x2 of equal cells, one talking and three carrying figures. **The one composition a square does better than either other frame** | 5.0s, designed | 1080x1080 |
-| `motion/square-stat.html` | One figure at 300px, centred, sized to survive being scrolled past small | 4.0s, designed | 1080x1080 |
-| `motion/square-beats.html` | Five lines cut on the beat, written for a feed card playing **with the sound off** | 8.0s, designed | 1080x1080 |
-| `motion/square-outro.html` | Wordmark, one line, an outlined button — a feed card has to say what to do next itself | 4.0s, designed | 1080x1080 |
+| `motion/search-query-reveal.html` | A question typed into a search field, suggestions dropping, then the field itself growing into the answer card. **The one scene where anything types** | 6.0s | 1920x1080 |
+| `motion/dot-loader-morph.html` | Four dots bounce, close ranks into one four-coloured bar, and the bar becomes the rule under the headline. A title card wearing a loader's clothes | 4.0s | 1920x1080 |
+| `motion/card-expand-hero.html` | Dark stage, a rail of cards lit from behind, and one of them grows into the whole frame. The only true container transform on the shelf | 5.0s | 1920x1080 |
+| `motion/caption-montage.html` | Five questions hard-cutting every 1.2s over colour fields, then one answer held for two seconds. Ships footage-free on purpose — the file says why | 8.0s | 1920x1080 |
+| `motion/aurora-prompt-box.html` | A prompt box whose border glow rotates hue over the whole scene, a cursor that picks a chip, and the chip becoming a tag inside the box. **The one scene with a pointer in it** | 8.0s | 1920x1080 |
+| `motion/ship-it-toolbar.html` | The finished thing under its toolbar, a cursor pressing Install, warm light flooding the frame, then a hard cut to a mark alone on black. Pairs with `aurora-prompt-box` as the closing half | 6.0s | 1920x1080 |
+| `motion/spring-stat-tiles.html` | Four figures on tiles that overshoot and settle on real simulated springs, counting up in pure CSS. **The one scene whose motion is physics, not a drawn curve** | 5.0s | 1920x1080 |
+| `motion/shared-axis-steps.html` | Four steps handing over along one axis, old leaving left as new arrives from right. The M3 pattern nothing else here could do | 6.4s | 1920x1080 |
+| `motion/device-reveal.html` | A portrait screen rising into a near-black frame while the whole stage brightens with it, then stepping aside for a panel under warm light. **The one scene that holds a device** | 7.0s | 1920x1080 |
+| `motion/vertical-title.html` | Opening card of the vertical set: kicker, three stacked lines, four-hue rule. **Carries the safe-area numbers the whole set uses** | 4.0s | 1080x1920 |
+| `motion/vertical-stat.html` | One figure at 260px counting up, unit beside it, two supporting rows | 4.0s | 1080x1920 |
+| `motion/vertical-beats.html` | Five lines cut every 1.2s and one answer held, ticker at the **top** where the platform cannot cover it | 8.0s | 1080x1920 |
+| `motion/vertical-showcase.html` | The thing on top, its claim under it, one outlined button last — the reading order vertical is actually better at | 6.0s | 1080x1920 |
+| `motion/vertical-outro.html` | Wordmark, one line, four pips. The colour drains before the name lands | 4.0s | 1080x1920 |
+| `motion/lower-third-name.html` | Who is speaking. **Overlay: transparent, no background** — mount it over footage | 5.0s | 1920x1080 |
+| `motion/caption-bar.html` | What is being said, one line at a time on hard cuts. **Overlay**, and its sample copy is Thai | 6.0s | 1920x1080 |
+| `motion/stat-strap.html` | A figure landed top-right while the shot keeps running. **Overlay**, no full-width scrim | 5.0s | 1920x1080 |
+| `motion/split-compare-wipe.html` | Before wiped away to reveal after — and the seam **parks at 42%** so the frame ends holding both | 5.5s | 1920x1080 |
+| `motion/roadmap-dates.html` | Milestones with real dates, a line drawn as far as today, dashed rail after it | 6.5s | 1920x1080 |
+| `motion/square-title.html` | Opening card of the square set, centred because a square has no reading direction. **Carries the safe-area number the set uses** | 4.0s | 1080x1080 |
+| `motion/square-quad.html` | A 2x2 of equal cells, one talking and three carrying figures. **The one composition a square does better than either other frame** | 5.0s | 1080x1080 |
+| `motion/square-stat.html` | One figure at 300px, centred, sized to survive being scrolled past small | 4.0s | 1080x1080 |
+| `motion/square-beats.html` | Five lines cut on the beat, written for a feed card playing **with the sound off** | 8.0s | 1080x1080 |
+| `motion/square-outro.html` | Wordmark, one line, an outlined button — a feed card has to say what to do next itself | 4.0s | 1080x1080 |
 
 ### The square set — five scenes for a feed, where the sound is off
 

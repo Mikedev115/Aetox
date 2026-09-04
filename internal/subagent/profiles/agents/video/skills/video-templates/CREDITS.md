@@ -296,3 +296,19 @@ byte-for-byte upstream, and that provenance was judged worth more than an
 automated edit. Three display stacks ending in `cursive` were also skipped — a
 decorative face like Shrikhand has no Thai equivalent, and quietly substituting a
 clean sans for it would change a design more than it would help.
+
+### The render pass (4 ก.ย. 2569)
+
+All 24 scenes written here were rendered locally before the *designed* mark was
+removed from the table — hyperframes 0.8.20 at draft quality, Chrome Headless
+Shell 152, ffmpeg 9.0.1, all three already installed under Aetox's own tools
+directory. 24 of 24 produced a validated artifact with no failures, and every one
+matched its stated duration, frame and frame count exactly.
+
+Two things worth recording for whoever renders next. The CLI's default output
+path is `renders/<name>.mp4` **relative to the working directory**, which on the
+first run put an mp4 inside this skill folder; pass `-o` explicitly. And the CLI
+has telemetry on by default — Aetox's own launcher disables it through
+`HYPERFRAMES_NO_TELEMETRY`, but a hand-run render does not inherit that unless you
+set it. Neither the rendered files nor the scratch projects live in the
+repository.
