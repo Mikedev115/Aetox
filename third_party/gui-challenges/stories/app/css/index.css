@@ -1,0 +1,99 @@
+body {
+  min-block-size: 100vh;
+  display: grid;
+  place-items: center;
+  font-family: system-ui;
+  margin: 0;
+  background: hsl(200 15% 93%);
+
+  /* parent owned aspects of the responsive stories */
+  & > .stories {
+    inline-size: 100vw;
+    block-size: 100vh;
+
+    box-shadow:
+      0 5px 2.5px hsl(200 95% 3% / .037),
+      0 12px 6.5px hsl(200 95% 3% / .053),
+      0 22.5px 13px hsl(200 95% 3% / .065),
+      0 40.2px 24px hsl(200 95% 3% / .077),
+      0 75.2px 44px hsl(200 95% 3% / .093),
+      0 180px 80px hsl(200 95% 3% / .13)
+    ;
+
+    @media (hover: hover) {
+      border-radius: 3ch;
+    }
+
+    /* desktop constraint */
+    @media (hover: hover) and (min-width: 480px) {
+      max-inline-size: 480px;
+      max-block-size: 848px;
+    }
+
+    /* smaller desktop constraint */
+    @media (hover: hover) and (max-height: 880px) and (min-width: 720px) {
+      max-inline-size: 320px;
+      max-block-size: 568px;
+    }
+  }
+}
+
+.stories {
+  display: grid;
+  grid: 1fr / auto-flow 100%;
+  gap: 1ch;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior: contain;
+  touch-action: pan-x;
+}
+
+.user {
+  /* outer */
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+
+  /* inner */
+  display: grid;
+  grid: [story] 1fr / [story] 1fr;
+}
+
+.story {
+  grid-area: story;
+
+  background-size: cover;
+  background-image: 
+    var(--bg), 
+    linear-gradient(to top, lch(98 0 0), lch(90 0 0));
+
+  user-select: none;
+  touch-action: manipulation;
+
+  transition: opacity .3s cubic-bezier(0.4, 0.0, 1, 1);
+
+  &.seen {
+  	opacity: 0;
+    pointer-events: none;
+  }
+}
+
+.github-corner {
+  color: hsl(200 15% 93%);
+  fill: hsl(200 15% 73%); 
+  
+  &:hover .octo-arm {
+    animation: octocat-wave 560ms ease-in-out
+  }
+}
+
+@keyframes octocat-wave{
+  0%,100% {
+    transform: rotate(0)
+  }
+  20%,60% {
+    transform: rotate(-25deg)
+  }
+  40%,80% {
+    transform: rotate(10deg)
+  }
+}

@@ -1,6 +1,6 @@
 ---
 name: aetox-web-templates
-description: เทมเพลตหน้าเว็บจริงที่ก๊อปไปใช้ได้เลย 53 ส่วน ตั้งแต่ nav hero ราคา FAQ ไปจนถึงแดชบอร์ด แดชบอร์ดวิเคราะห์ กราฟ 6 ชนิดที่วาดด้วย SVG ล้วน ตาราง ฟอร์ม แจ้งเตือน สลับธีม กริดสื่อ โปรไฟล์ หน้า 404 บทความ และหน้าเอกสาร ไฟล์เดียวจบ responsive ไม่มี framework ไม่มี CDN ไม่ต้อง build ใช้ตอนกำลังจะสร้างหน้าเว็บหรือหน้าจอแล้วไม่อยากประดิษฐ์โครงขึ้นใหม่ทุกครั้ง
+description: เทมเพลตหน้าเว็บจริงที่ก๊อปไปใช้ได้เลย 57 ส่วน ตั้งแต่ nav hero ราคา FAQ ไปจนถึงแดชบอร์ด แดชบอร์ดวิเคราะห์ กราฟ 6 ชนิดที่วาดด้วย SVG ล้วน ตาราง ฟอร์ม แจ้งเตือน สลับธีม กริดสื่อ โปรไฟล์ หน้า 404 บทความ และหน้าเอกสาร ไฟล์เดียวจบ responsive ไม่มี framework ไม่มี CDN ไม่ต้อง build ใช้ตอนกำลังจะสร้างหน้าเว็บหรือหน้าจอแล้วไม่อยากประดิษฐ์โครงขึ้นใหม่ทุกครั้ง
 ---
 
 # Web templates
@@ -79,6 +79,10 @@ and dark mode that every section below assumes. Then paste sections into its
 | FAB | `sections/FAB.html` | The floating primary action that fans open into labelled choices. |
 | Switch group | `sections/switch-group.html` | One switch that controls a group, showing the in-between state when the children disagree. |
 | Morphing button | `sections/morphing-button.html` | A button that stretches into a panel in place, for an action that needs one more field. |
+| Split text | `sections/split-text.html` | Letters or words entering one after another. The real text stays intact, so a screen reader still reads a sentence. |
+| Color schemes | `sections/color-schemes.html` | Three states — follow the system, light, dark — remembered across loads. What theme-toggle should grow into. |
+| Spring physics | `sections/spring-physics.html` | Motion computed from mass, stiffness and damping rather than a guessed easing curve, for things that should feel like they weigh something. |
+| Stories | `sections/stories.html` | Full-screen cards advanced one at a time with a progress bar on top, for telling something short one screen at a time. |
 | Empty state | `sections/empty-state.html` | A list with nothing in it yet. |
 | Error page | `sections/error-page.html` | 404, 500, anything that went wrong. |
 | Article index | `sections/article-index.html` | The list of posts that links into Article. |
