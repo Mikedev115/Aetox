@@ -1,0 +1,19 @@
+/* ink — dark-background. เวทีมืดแบน ไม่มีไล่สี ไม่มีแสงเน้นมุมไหน
+   ตาราง slide-color-logic.csv ส่งอารมณ์ frustration, fear, narrative มาที่นี่
+   ใช้ตอนเนื้อหาหนักและไม่ต้องการให้เวทีมีน้ำเสียงของตัวเอง */
+
+:root{
+  --accent:#ff3b30;
+  --accent-text:#ff3b30;    /* พื้นแบนและมืดพอ แดงเดิมผ่าน 4.5:1 อยู่แล้ว */
+  --accent-ink:#ffffff;   /* ขาวบนแดง 3.55:1 — เกณฑ์จอใหญ่ */
+  --stage:#07080a;
+  --stage-bg:#07080a;
+  --line:#23252c;
+  --text:#ffffff;
+  --body:#ccced5;
+  --muted:#8d919b;
+  --panel:rgba(255,255,255,.035);
+}
+
+/* คอนทราสต์ต่ำสุดที่วัดได้ บนเวทีและบนแผง
+   text 18.89 · body 12.02 · muted 5.99 · accent 5.33 */

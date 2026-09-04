@@ -1,0 +1,22 @@
+/* glow — dark-glow. เวทีมืดที่มีแสงของสีเน้นเรืองขึ้นจากขอบบน
+   ตาราง slide-color-logic.csv ส่ง curiosity กับ interest มาที่นี่
+   แสงเรืองเป็นของเวที ไม่ใช่ของตัวอักษร ห้ามเอาไปใส่เป็น text-shadow */
+
+:root{
+  --accent:#ff3b30;
+  --accent-text:#ff665e;    /* แสงเรืองยกพื้นให้สว่างขึ้น แดงเดิมจึงตกจาก 4.5:1 */
+  --accent-ink:#ffffff;   /* ขาวบนแดง 3.55:1 — เกณฑ์จอใหญ่ */
+  --stage:#05060a;
+  --stage-bg:
+    radial-gradient(ellipse 70% 55% at 50% -10%,rgba(255,59,48,.30) 0,rgba(255,59,48,.05) 45%,transparent 72%),
+    radial-gradient(circle at 85% 90%,rgba(120,90,255,.16) 0,transparent 50%),
+    #05060a;
+  --line:#2b2733;
+  --text:#ffffff;
+  --body:#d5d2dc;
+  --muted:#9c98a8;
+  --panel:rgba(255,90,70,.07);
+}
+
+/* คอนทราสต์ต่ำสุดที่วัดได้ เทียบกับใจกลางแสงเรือง ซึ่งเป็นจุดที่สว่างที่สุด
+   text 12.92 · body 8.67 · muted 4.60 · accent-text 4.50 */

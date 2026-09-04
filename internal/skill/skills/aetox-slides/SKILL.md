@@ -249,24 +249,65 @@ have one to stand on; reach for them first and leave space on purpose.
 
 ```css
 :root{
-  --accent:#ff3b30;  /* one accent: kicker, CTA, bullets, the unit on a big number */
-  --stage:#050608; --line:#303239;
-  --text:#fff;       /* headings */
-  --body:#d2d4da;    /* paragraphs */
-  --muted:#9ea2ad;   /* captions, footers */
+  --accent:#ff3b30;      /* one accent, as graphics: bars, rules, dots, a big number */
+  --accent-text:#ff645b; /* the same accent as small text: kicker, tag, a marked column */
+  --accent-ink:#fff;     /* text sitting ON the accent, not against the stage */
+  --stage:#050608;       /* the stage as one flat colour, for punching holes and mixing scrims */
+  --stage-bg:radial-gradient(circle at 80% 15%,#242630 0,#101116 28%,#07080a 70%);
+  --line:#303239;
+  --text:#fff;           /* headings */
+  --body:#d2d4da;        /* paragraphs */
+  --muted:#9ea2ad;       /* captions, footers */
+  --panel:rgba(255,255,255,.045); /* a card or a marked cell, lifted off the stage */
 }
-.slide { background:radial-gradient(circle at 80% 15%,#242630 0,#101116 28%,#07080a 70%); }
-.card  { background:linear-gradient(145deg,#1d2028,#111217); border:1px solid var(--line);
+.slide { background:var(--stage-bg,var(--stage)); }
+.card  { background:var(--panel); border:1px solid var(--line);
          border-radius:24px; box-shadow:0 18px 40px #0005; }
 
-/* A photograph carries a slide; a scrim over it keeps the words readable. */
+/* A photograph carries a slide; a scrim over it keeps the words readable.
+   The scrim is mixed from --stage rather than written as a literal, or a light
+   theme lays a black veil over the picture and prints dark text on it. The
+   rgba line first is the fallback where color-mix is missing; the browser that
+   understands the second one takes it. */
 .hero  { background-image:linear-gradient(90deg,rgba(5,6,8,.96) 0 28%,rgba(5,6,8,.45) 56%,rgba(5,6,8,.30)),
+                          url('imgs/hero.png');
+         background-image:linear-gradient(90deg,
+                            color-mix(in srgb,var(--stage) 96%,transparent) 0 28%,
+                            color-mix(in srgb,var(--stage) 45%,transparent) 56%,
+                            color-mix(in srgb,var(--stage) 30%,transparent)),
                           url('imgs/hero.png');
          background-size:cover; background-position:center; justify-content:flex-end; }
 /* Or on a panel beside the words, `contain`, so a product is never cropped. */
 .visual img { max-width:100%; max-height:500px; object-fit:contain;
               filter:drop-shadow(0 25px 35px #000); }
 ```
+
+**Nothing above writes a colour twice, and that is the point.** Every value a
+slide paints with is one of the nine tokens, so a deck changes its whole look by
+replacing the `:root` block and nothing else. `aetox-slide-templates` ships six
+of those blocks in `themes/`, this one among them, and the templates there are
+written against these names. Two of the nine are pairs that look redundant and
+are not:
+
+- **`--stage` and `--stage-bg`.** `--stage-bg` is what the stage is *painted*
+  with and may be a gradient; `--stage` is the same stage as one flat colour,
+  which is what a hole punched in a rail needs (`timeline`, `roadmap`) and what
+  a scrim over a photograph is mixed from. A gradient cannot do either job.
+- **`--accent`, `--accent-text` and `--accent-ink`.** Three names for one hue,
+  because it does three jobs at three different sizes. `--accent` is the graphic
+  — a bar, a rule, a dot, a 280px number — which owes 3:1 against what is behind
+  it. `--accent-text` is the same accent set in a 14–16px kicker, which is small
+  text and owes 4.5:1; on this stage `#ff3b30` measures 3.70 against the
+  brightest panel, fine as a bar and short as a word, so the text half is a
+  shade lighter. A theme needing no such split points both at one colour, as
+  `ink` and `paper` do. `--accent-ink` is the other direction entirely: the
+  colour of words sitting **on** an accent field rather than against the stage,
+  which is what a CTA button puts them on.
+  Measured on the accent itself, `--accent-text` there reads 1.00–1.35:1 in
+  every theme — invisible — which is the whole reason the third name exists.
+
+Every template reads the text half as `var(--accent-text,var(--accent))`, so a
+deck that never heard of the second name still renders with the first.
 
 Type at this size: h1 ~96px, h2 ~64px, body ~22px, caption ~13px, below about
 13px the export to pictures stops resolving it. Paragraphs hold a `max-width`
@@ -312,7 +353,12 @@ Where a deck quotes a number somebody else published, say whose it is.
 <meta charset="UTF-8">
 <title>ชื่อเด็ค</title>
 <style>
-  :root{ --accent:#ff3b30; --stage:#050608; --text:#fff; --body:#d2d4da; --muted:#9ea2ad; }
+  /* the whole palette, and the only place a colour is written. Swap this block
+     for one of aetox-slide-templates themes/*.css to reskin the deck entire. */
+  :root{ --accent:#ff3b30; --accent-text:#ff645b; --accent-ink:#fff; --stage:#050608;
+         --stage-bg:radial-gradient(circle at 80% 15%,#242630 0,#101116 28%,#07080a 70%);
+         --line:#303239; --text:#fff; --body:#d2d4da; --muted:#9ea2ad;
+         --panel:rgba(255,255,255,.045); }
   *{ box-sizing:border-box; margin:0; padding:0 }
   /* carry the faces beside the file so the export prints them, not a fallback:
      @font-face{font-family:"Kanit"; src:url("fonts/Kanit-SemiBold.woff2") format("woff2"); font-weight:600; font-display:block}
@@ -322,13 +368,16 @@ Where a deck quotes a number somebody else published, say whose it is.
 
   .slide{ width:1280px; height:720px; position:relative; overflow:hidden;
           padding:78px 120px; display:flex; flex-direction:column; justify-content:center;
-          background:radial-gradient(circle at 80% 15%,#242630 0,#101116 28%,#07080a 70%);
+          background:var(--stage-bg,var(--stage));
           color:var(--text) }
-  h1{ font-size:96px; line-height:1.05; letter-spacing:-.035em;
+  /* say the colour, never lean on inheriting it: a rule that matches an h1
+     directly beats what .slide passes down, whatever its specificity, and one
+     stray `h1{color:…}` anywhere then prints every heading in it */
+  h1{ color:var(--text); font-size:96px; line-height:1.05; letter-spacing:-.035em;
       font-family:"Kanit","Leelawadee UI",Tahoma,sans-serif }
   p { font-size:22px; line-height:1.7; color:var(--body); max-width:720px }
 
-  .kicker{ color:var(--accent); font-weight:600; letter-spacing:.14em;
+  .kicker{ color:var(--accent-text,var(--accent)); font-weight:600; letter-spacing:.14em;
            text-transform:uppercase; font-size:16px; margin-bottom:14px }
   .brand { position:absolute; left:120px; top:28px; font-weight:700 }
   .page  { position:absolute; right:120px; top:28px; color:var(--muted); font-size:13px }

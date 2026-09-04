@@ -1,0 +1,19 @@
+/* elevated — surface-elevated. สว่างเหมือน paper แต่พื้นเป็นเทาเย็นไล่ลง
+   การ์ดขาวจึงยกตัวชัดกว่า ตาราง slide-color-logic.csv ส่ง trust กับ
+   evaluation มาที่นี่ ทั้งสองเป็นสไลด์ที่มีของให้เทียบกันเป็นกล่อง ๆ */
+
+:root{
+  --accent:#c5311f;         /* เข้มกว่า paper อีกนิด เพราะขั้วมืดของไล่สีสว่างกว่า */
+  --accent-text:#c5311f;
+  --accent-ink:#ffffff;   /* ขาวบนแดงเข้ม 5.48:1 */
+  --stage:#eceef1;
+  --stage-bg:linear-gradient(180deg,#f2f4f7 0,#e7eaef 100%);
+  --line:#dbdee4;
+  --text:#101216;
+  --body:#3a3e46;
+  --muted:#656a72;
+  --panel:#ffffff;
+}
+
+/* คอนทราสต์ต่ำสุดที่วัดได้ เทียบกับขั้วมืดของไล่สี (#e7eaef) และบนการ์ดขาว
+   text 15.55 · body 8.90 · muted 4.51 · accent 4.54 */

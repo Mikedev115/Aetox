@@ -1,6 +1,6 @@
 ---
 name: aetox-slide-templates
-description: เทมเพลตจริงที่ก๊อปไปใช้ได้เลย ไม่ใช่คำอธิบายว่าควรหน้าตาแบบไหน เริ่มที่เลย์เอาต์สไลด์ 23 แบบ กล่อง 1280x720 ไฟล์เดียวจบ ไม่มี CSS ภายนอก ไม่มีสคริปต์ ไม่มีกราฟจาก CDN ใช้ตอนกำลังจะเขียนสไลด์หรือหน้าจอแล้วไม่อยากประดิษฐ์องค์ประกอบขึ้นใหม่ทุกครั้ง
+description: เทมเพลตจริงที่ก๊อปไปใช้ได้เลย ไม่ใช่คำอธิบายว่าควรหน้าตาแบบไหน เลย์เอาต์สไลด์ 23 แบบ กับชุดสี 6 โทนใน themes/ ที่สลับได้ด้วยการเปลี่ยนบล็อก :root บล็อกเดียว กล่อง 1280x720 ไฟล์เดียวจบ ไม่มี CSS ภายนอก ไม่มีสคริปต์ ไม่มีกราฟจาก CDN ใช้ตอนกำลังจะเขียนสไลด์หรือหน้าจอแล้วไม่อยากประดิษฐ์องค์ประกอบขึ้นใหม่ทุกครั้ง
 ---
 
 # Slide templates
@@ -115,6 +115,76 @@ template is a starting composition, not a form to fill in: two slides from the
 same template with the same number of cells and the same sentence lengths is the
 uniformity these exist to break. Vary the cell count, let one slide be a single
 sentence, let another be a number.
+
+## Themes
+
+A layout says where things sit; a theme says what colour they are. They are
+separate files because they change for different reasons — the same `metrics`
+slide is right on all six of these, and a deck that has to be printed on paper
+needs a different stage without needing a different composition.
+
+Six ship in `themes/`. Each is a `:root` block and nothing else: no rule, no
+selector, no `.slide`. Drop one into the deck's single `<style>`, replacing the
+palette the skeleton came with, and the whole deck reskins. Order does not
+matter, because every value travels as a custom property rather than as a rule
+that has to win.
+
+| Theme | File | `slide-color-logic.csv` calls it | Reach for it when |
+|-------|------|--------------------------------|-------------------|
+| House | `themes/house.css` | `dark-surface` | The default. Dark stage, one red doing every job. |
+| Ink | `themes/ink.css` | `dark-background` | Flat dark, no gradient. The stage should have no voice of its own. |
+| Glow | `themes/glow.css` | `dark-glow` | Dark with the accent blooming off the top edge. Curiosity, a demo. |
+| Paper | `themes/paper.css` | `surface` | Light. A deck that gets printed, or a room with the lights on. |
+| Elevated | `themes/elevated.css` | `surface-elevated` | Light, cool, cards lifted. Things being compared side by side. |
+| Bleed | `themes/bleed.css` | `accent-bleed`, `gradient` | The accent becomes the stage. A title, a divider, a close. |
+
+`aetox-design-system` `data/slide-color-logic.csv` maps an emotion to one of
+these in its `theme_file` column, so the choice comes from the same table the
+layout does rather than from taste at write time.
+
+### The tokens that look like duplicates and are not
+
+`--stage` is the stage as one flat colour; `--stage-bg` is what it is actually
+painted with and may be a gradient. Both exist because a gradient cannot be
+punched into a dot on a rail (`timeline`, `roadmap`) or mixed into the scrim
+over a photograph (`full-bleed`), and those two jobs need a colour.
+
+The accent has three names because it does three jobs at three sizes.
+`--accent` is the graphic — a bar, a rule, a dot, a 280px number — which owes
+3:1 against its ground. `--accent-text` is the same accent set as small text — a
+16px kicker, a 14px tag, a marked column head — which owes 4.5:1; on the house
+stage `#ff3b30` measures 3.70 against the brightest panel, correct as a bar and
+short as a word. Templates read that one as `var(--accent-text,var(--accent))`,
+so a deck defining only the first name still renders.
+
+`--accent-ink` faces the other way: it is the colour of words sitting **on** the
+accent rather than against the stage, which is where a CTA and the
+`gradient-accent` overlay both put them. It is not a nicety — measured on the
+accent field, `--accent-text` reads between 1.00:1 and 1.35:1 in all six themes.
+Invisible in every one. `aetox-web-templates` `sections/page-shell.html` has
+carried a token of the same name and meaning since before this folder existed;
+this is the deck side of it.
+
+### Contrast is checked, not asserted
+
+Every theme carries its measured worst case in a comment, and
+`TestSlideThemesAreLegible` recomputes those numbers from the shipped files on
+every run: it composites each translucent token over each colour its own
+`--stage-bg` can produce, and holds text to 3:1 and body, caption and
+accent-as-text to 4.5:1. A theme edited into something unreadable fails the
+build rather than shipping and being noticed on a projector.
+
+Two results of that worth knowing before reaching for a theme. **Bleed carries
+two weights of light, not three** — on a saturated field the third always falls
+under 4.5:1, so `--body` and `--muted` are nearly equal there by design and
+hierarchy comes from size instead. And **bleed's red is darker than it wants to
+be**: the hotter `#ff4b32` that was drawn first gives white body copy 2.86:1,
+which no amount of white can rescue.
+
+`--line` is deliberately outside all of this. It is a hairline between rows and
+a rail behind steps — decoration, not a control and not the thing carrying the
+meaning, which on those rails is the accent-bordered dot. Held to 3:1 it stops
+being a hairline.
 
 ## Where the inventory came from
 
