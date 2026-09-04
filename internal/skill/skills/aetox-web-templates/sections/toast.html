@@ -1,0 +1,248 @@
+<!-- Toast. แถบประกาศผลที่โผล่มาแล้วหายเอง
+
+     ประกาศผลของการกระทำที่ไม่ต้องให้คนกดรับทราบ ต่างจาก alert.html ตรงที่อันนั้นอยู่กับที่ในหน้า อันนี้ลอยทับและหายเอง
+
+     ที่มา: gui-challenges ของ Adam Argyle (Apache License 2.0) โฟลเดอร์ `toast`
+     สำเนาอยู่ที่ third_party/gui-challenges พร้อมไฟล์ LICENSE และ ATTRIBUTION.md
+
+     สิ่งที่เปลี่ยนจากต้นฉบับ ตามข้อผูกพันของ Apache 2.0 ที่ต้องระบุการแก้ไข:
+     1. ต้นฉบับใช้ at-import ดึง open-props/style ซึ่งดึงจาก npm — ไฟล์นี้เปิดจากดิสก์
+        ต้องรันได้ จึงไล่หาตัวแปรที่โค้ดนี้ใช้จริง 0 ตัว (ไล่ซ้ำจนครบสายโซ่
+        ที่ตัวแปรอ้างตัวแปรต่อกัน) แล้วฝังมาเฉพาะที่ใช้ ไม่ได้ยกมาทั้ง 607 ตัว
+        Open Props เป็น MIT ของผู้เขียนคนเดียวกัน สำเนาอยู่ที่ third_party/open-props
+     2. คีย์เฟรมของ Open Props ที่อนิเมชันอ้างถึงอีก 2 ชุด ฝังมาด้วยด้วยเหตุผลเดียวกัน
+     3. ครอบทุกกฎด้วยคลาสราก `.w-toast` ตามสัญญาของคลังนี้ สองเทมเพลตใน
+        เอกสารเดียวกันจะได้เอื้อมถึงกันไม่ได้
+     4. ตัดส่วนหัวและท้ายของหน้าเดโมเขาออก เหลือเฉพาะตัวคอมโพเนนต์ -->
+<style>
+  .w-toast {
+
+  }
+
+  @keyframes fade-in{to{opacity:1}}
+  @keyframes fade-out{to{opacity:0}}
+.w-toast .gui-toast-group {
+  position: fixed;
+  z-index: 1;
+  inset-block-end: 0;
+  inset-inline: 0;
+  padding-block-end: 5vh;
+
+  display: grid;
+  justify-items: center;
+  justify-content: center;
+  gap: 1vh;
+
+  /* optimizations */
+  pointer-events: none;
+}
+.w-toast .gui-toast {
+  --_duration: 3s;
+  --_bg-lightness: 90%;
+  --_travel-distance: 0;
+
+  font-family: system-ui, sans-serif;
+  color: black;
+  background: hsl(0 0% var(--_bg-lightness) / 90%);
+  
+  max-inline-size: min(25ch, 90vw);
+  padding-block: .5ch;
+  padding-inline: 1ch;
+  border-radius: 3px;
+  font-size: 1rem;
+
+  will-change: transform;
+  animation: 
+    fade-in .3s ease,
+    slide-in .3s ease,
+    fade-out .3s ease var(--_duration);
+
+  @media (--dark) {
+    color: white;
+    --_bg-lightness: 20%;
+  }
+
+  @media (--motionOK) {
+    --_travel-distance: 5vh;
+  }
+}
+@keyframes fade-in {
+  from { opacity: 0 }
+}
+@keyframes fade-out {
+  to { opacity: 0 }
+}
+@keyframes slide-in {
+  from { transform: translateY(var(--_travel-distance, 10px)) }
+}
+@custom-media --motionOK (prefers-reduced-motion: no-preference);
+@custom-media --dark (prefers-color-scheme: dark);
+
+* {
+
+  box-sizing: border-box;
+  margin: 0;
+
+}
+.w-toast {
+  block-size: 100%;
+  color-scheme: dark light;
+}
+.w-toast {
+  min-block-size: 100%;
+  font-family: system-ui, sans-serif;
+  
+  display: flex;
+  gap: 2ch;
+  align-items: center;
+  justify-content: center;
+
+  @media (max-width: 720px) {
+    flex-direction: column;
+  }
+}
+.w-toast button {
+  font-size: 1.5rem;
+  touch-action: manipulation;
+}
+.w-toast .github-corner {
+  fill: indigo;
+  color: Canvas;
+  
+  &:hover .octo-arm {
+    animation: octocat-wave 560ms ease-in-out
+  }
+}
+@keyframes octocat-wave {
+  0%,100% {
+    transform: rotate(0)
+  }
+  20%,60% {
+    transform: rotate(-25deg)
+  }
+  40%,80% {
+    transform: rotate(10deg)
+  }
+}
+</style>
+
+<section class="w-section w-toast">
+  <div class="w-wrap">
+    <button id="spells">
+          Cast Spell
+        </button>
+        <button id="actions">
+          Mock User Action
+        </button>
+
+        <a href="https://github.com/argyleink/gui-challenges" class="github-corner" aria-label="View source on GitHub">
+          <svg width="80" height="80" viewBox="0 0 250 250" style="position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true">
+            <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+            <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+            <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path>
+          </svg>
+        </a>
+  </div>
+</section>
+<script>
+const init = () => {
+  const node = document.createElement('section')
+  node.classList.add('gui-toast-group')
+
+  document.firstElementChild.insertBefore(node, document.body)
+  return node
+}
+
+const createToast = text => {
+  const node = document.createElement('output')
+  
+  node.innerText = text
+  node.classList.add('gui-toast')
+  node.setAttribute('role', 'status')
+  node.setAttribute('aria-live', 'polite')
+
+  return node
+}
+
+const addToast = toast => {
+  const { matches:motionOK } = window.matchMedia(
+    '(prefers-reduced-motion: no-preference)'
+  )
+
+  Toaster.children.length && motionOK
+    ? flipToast(toast)
+    : Toaster.appendChild(toast)
+}
+
+const Toast = text => {
+  let toast = createToast(text)
+  addToast(toast)
+
+  return new Promise(async (resolve, reject) => {
+    await Promise.allSettled(
+      toast.getAnimations().map(animation => 
+        animation.finished
+      )
+    )
+    Toaster.removeChild(toast)
+    resolve() 
+  })
+}
+
+// https://aerotwist.com/blog/flip-your-animations/
+const flipToast = toast => {
+  // FIRST
+  const first = Toaster.offsetHeight
+
+  // add new child to change container size
+  Toaster.appendChild(toast)
+
+  // LAST
+  const last = Toaster.offsetHeight
+
+  // INVERT
+  const invert = last - first
+
+  // PLAY
+  const animation = Toaster.animate([
+    { transform: `translateY(${invert}px)` },
+    { transform: 'translateY(0)' }
+  ], {
+    duration: 150,
+    easing: 'ease-out',
+  })
+
+  animation.startTime = document.timeline.currentTime
+}
+
+const Toaster = init()
+export default Toast
+import $ from 'blingblingjs'
+import Toast from './toast.js'
+
+$('#spells').on('click', async () => {
+  await Toast(randomSpell())
+  console.log('poof')
+})
+
+$('#actions').on('click', () => {
+  Toast(randomAction())
+})
+
+const randomSpell = () => {
+  const spells = ['Fire', 'Ice', 'Lit', 'Dark', 'Toast']
+  const levels = ['I','II','III','IV','V']
+  return `${spells[getRandomInt(0, spells.length-1)]} ${levels[getRandomInt(0, levels.length-1)]}`
+}
+
+const randomAction = () => {
+  const actions = ['Saved', 'Added to cart', 'In cart', 'User removed', 'Timer set', 'Added to Favorites', `Multi-Line \n Support 👍`, 'This is just really long and completely unnecessary']
+  return `${actions[getRandomInt(0, actions.length-1)]}`
+}
+
+const getRandomInt = (min, max) => {
+  min = Math.ceil(min)
+  max = Math.floor(max)
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
+</script>

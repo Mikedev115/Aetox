@@ -1,6 +1,6 @@
 ---
 name: aetox-web-templates
-description: เทมเพลตหน้าเว็บจริงที่ก๊อปไปใช้ได้เลย 39 ส่วน ตั้งแต่ nav hero ราคา FAQ ไปจนถึงแดชบอร์ด แดชบอร์ดวิเคราะห์ กราฟ 6 ชนิดที่วาดด้วย SVG ล้วน ตาราง ฟอร์ม แจ้งเตือน สลับธีม กริดสื่อ โปรไฟล์ หน้า 404 บทความ และหน้าเอกสาร ไฟล์เดียวจบ responsive ไม่มี framework ไม่มี CDN ไม่ต้อง build ใช้ตอนกำลังจะสร้างหน้าเว็บหรือหน้าจอแล้วไม่อยากประดิษฐ์โครงขึ้นใหม่ทุกครั้ง
+description: เทมเพลตหน้าเว็บจริงที่ก๊อปไปใช้ได้เลย 46 ส่วน ตั้งแต่ nav hero ราคา FAQ ไปจนถึงแดชบอร์ด แดชบอร์ดวิเคราะห์ กราฟ 6 ชนิดที่วาดด้วย SVG ล้วน ตาราง ฟอร์ม แจ้งเตือน สลับธีม กริดสื่อ โปรไฟล์ หน้า 404 บทความ และหน้าเอกสาร ไฟล์เดียวจบ responsive ไม่มี framework ไม่มี CDN ไม่ต้อง build ใช้ตอนกำลังจะสร้างหน้าเว็บหรือหน้าจอแล้วไม่อยากประดิษฐ์โครงขึ้นใหม่ทุกครั้ง
 ---
 
 # Web templates
@@ -65,6 +65,13 @@ and dark mode that every section below assumes. Then paste sections into its
 | Form controls | `sections/form-controls.html` | Every native control styled once — text, select, checkbox, radio, switch, range, date, file — with error, disabled and read-only states. |
 | Alert | `sections/alert.html` | An inline status message, or a grouped error summary for a multi-field form. |
 | Dialog | `sections/dialog.html` | A question that has to be answered before anything else — confirm, filter, quick edit. Native `<dialog>`, so Esc, focus trap and top layer come free. |
+| Toast | `sections/toast.html` | The result of an action nobody needs to acknowledge. Floats, stacks, and leaves on its own. |
+| Tooltip | `sections/tooltips.html` | A short explanation on hover or focus, in any of four directions, keeping itself inside the viewport. |
+| Switch | `sections/switch.html` | A switch you can actually drag, with a spring on release. Heavier than the one in form-controls, for settings people flip often. |
+| Progress | `sections/progress.html` | Bars and rings, for work whose end is known and for work whose end is not. |
+| Breadcrumbs (collapsing) | `sections/breadcrumbs.html` | The path back up when it is too long for the space — the middle folds into an ellipsis. |
+| Split button | `sections/split-buttons.html` | One obvious action with the rest behind an arrow beside it. |
+| Card stack | `sections/card-stack.html` | Several things in a small space, fanning open on hover. |
 | Empty state | `sections/empty-state.html` | A list with nothing in it yet. |
 | Error page | `sections/error-page.html` | 404, 500, anything that went wrong. |
 | Article index | `sections/article-index.html` | The list of posts that links into Article. |
