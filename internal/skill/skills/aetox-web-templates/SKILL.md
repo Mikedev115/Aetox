@@ -78,6 +78,16 @@ journey: nav → hero → logo bar → features → how it works → testimonial
 pricing → FAQ → CTA band → footer. Cut freely; do not reorder without a reason,
 because each section answers the question the one before it raises.
 
+## The standard
+
+`STANDARD.md` in this folder is the bar every file here answers to, and it is worth
+reading before adding one. The short version is one sentence: **a template that
+encodes the average does not help a capable model, it holds it down.** So each file
+must carry something that cannot be generated on the spot — a measured value, a
+technique that took ten tries, or an art direction that is a real choice rather than
+the default. It also holds the motion vocabulary, the four art directions, and the
+trap book of things that actually broke in this browser.
+
 ## The contract every template obeys
 
 - **One self-contained file.** No framework, no CDN, no build step, no
