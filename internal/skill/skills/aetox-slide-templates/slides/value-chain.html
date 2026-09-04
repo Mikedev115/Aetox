@@ -1,0 +1,40 @@
+<!-- Value chain. The same row of steps as a supply chain, asked a different
+     question: not where it went, but what each step added. So every segment
+     carries a figure, and if the figures are made up the layout is worse than
+     useless — it is supply-chain with arrows drawn on it.
+
+     The chevrons are load-bearing. A row of rectangles says the steps are
+     independent; the notch says each one takes what the last one produced.
+
+     Five segments at most. The last one is accented because that is where the
+     margin lands, which is usually the point being argued. -->
+<style>
+  .l-value .chain{ display:flex; gap:5px; margin-top:36px }
+  .l-value .seg{ flex:1; padding:24px 26px 24px 44px; background:var(--panel,rgba(255,255,255,.05));
+                 clip-path:polygon(0 0,calc(100% - 22px) 0,100% 50%,calc(100% - 22px) 100%,0 100%,22px 50%) }
+  .l-value .seg:first-child{ padding-left:28px;
+                 clip-path:polygon(0 0,calc(100% - 22px) 0,100% 50%,calc(100% - 22px) 100%,0 100%) }
+  .l-value .seg:last-child{ background:var(--accent); color:var(--accent-ink,#fff) }
+  .l-value .seg:last-child b,
+  .l-value .seg:last-child p,
+  .l-value .seg:last-child .add{ color:var(--accent-ink,#fff) }
+  .l-value .seg b{ display:block; font-size:20px }
+  .l-value .seg p{ font-size:16px; margin-top:8px; color:var(--muted); max-width:none }
+  .l-value .add{ display:block; margin-top:16px; font-size:26px; font-weight:700;
+                 color:var(--accent-text,var(--accent)); letter-spacing:-.02em }
+  .l-value .foot{ margin-top:38px; font-size:19px; color:var(--body) }
+  .l-value .foot b{ color:var(--text) }
+</style>
+
+<section class="slide l-value">
+  <div class="kicker rise">ใครเติมมูลค่าตรงไหน</div>
+  <h1 class="rise" style="font-size:50px">ราคาที่เพิ่มขึ้นทีละขั้น</h1>
+  <div class="chain rise">
+    <div class="seg"><b>วัตถุดิบ</b><p>ซื้อเข้ามา</p><span class="add">฿30</span></div>
+    <div class="seg"><b>แปรรูป</b><p>คั่วและบด</p><span class="add">+฿45</span></div>
+    <div class="seg"><b>แบรนด์</b><p>ชื่อและถุง</p><span class="add">+฿60</span></div>
+    <div class="seg"><b>ช่องทาง</b><p>พาไปถึงชั้นวาง</p><span class="add">+฿85</span></div>
+    <div class="seg"><b>หน้าร้าน</b><p>ชงและเสิร์ฟ</p><span class="add">+฿120</span></div>
+  </div>
+  <p class="foot rise">ของที่ซื้อมา ฿30 ขายได้ <b>฿340</b> — และสองขั้นสุดท้ายกินไปกว่าครึ่งของส่วนต่าง</p>
+</section>

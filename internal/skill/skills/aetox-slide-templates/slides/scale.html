@@ -1,0 +1,47 @@
+<!-- Scale. A size nobody can picture, put next to one everybody can. The
+     reference object is the entire content of the slide — get it wrong and the
+     drawing says nothing. Pick something the room has stood next to.
+
+     The shapes are drawn to the same scale as each other or this is a lie with
+     a ruler on it. Work out the ratio first, then set the pixel heights from
+     it; the small one being nearly invisible is the finding, not a layout bug
+     to correct.
+
+     Two references, three shapes total. A fourth turns the row into a chart,
+     and a chart of heights is chart-bars, which is a different slide. -->
+<style>
+  .l-scale .field{ display:flex; align-items:flex-end; justify-content:center; gap:104px;
+                   height:352px; margin-top:16px;
+                   border-bottom:2px solid var(--line,rgba(255,255,255,.35)) }
+  .l-scale .item{ display:flex; flex-direction:column; justify-content:flex-end; text-align:center; flex:none }
+  .l-scale .item .m{ font-size:15px; color:var(--muted); font-family:ui-monospace,"Cascadia Mono",Consolas,monospace }
+  .l-scale .item b{ font-size:19px; margin:4px 0 10px }
+  .l-scale .shape{ background:var(--panel,rgba(255,255,255,.05));
+                   border:2px solid var(--line,rgba(255,255,255,.35));
+                   border-bottom:none; border-radius:8px 8px 0 0; margin:0 auto }
+  .l-scale .item.hero b{ color:var(--text) }
+  .l-scale .item.hero .m{ color:var(--accent-text,var(--accent)) }
+  .l-scale .item.hero .shape{ border-color:var(--accent) }
+  .l-scale .foot{ margin-top:22px; font-size:20px; color:var(--body) }
+  .l-scale .foot b{ color:var(--text) }
+</style>
+
+<section class="slide l-scale">
+  <div class="kicker rise">เทียบขนาด</div>
+  <h1 class="rise" style="font-size:50px">ใหญ่แค่ไหนถึงเรียกว่าใหญ่</h1>
+  <div class="field rise">
+    <div class="item hero">
+      <span class="m">314 ม.</span><b>สิ่งที่พูดถึง</b>
+      <div class="shape" style="height:262px;width:104px"></div>
+    </div>
+    <div class="item">
+      <span class="m">45 ม.</span><b>ตึกสิบชั้น</b>
+      <div class="shape" style="height:38px;width:64px"></div>
+    </div>
+    <div class="item">
+      <span class="m">12 ม.</span><b>รถบัส</b>
+      <div class="shape" style="height:10px;width:42px"></div>
+    </div>
+  </div>
+  <p class="foot rise">เอาตึกสิบชั้น <b>ซ้อนกันเจ็ดหลัง</b> ถึงจะเท่า และรถบัสคือเส้นที่แทบมองไม่เห็นเส้นนั้น</p>
+</section>

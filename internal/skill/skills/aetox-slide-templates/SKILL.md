@@ -1,6 +1,6 @@
 ---
 name: aetox-slide-templates
-description: เทมเพลตจริงที่ก๊อปไปใช้ได้เลย ไม่ใช่คำอธิบายว่าควรหน้าตาแบบไหน เลย์เอาต์สไลด์ 25 แบบ ชุดสี 6 โทนใน themes/ และม่านบนภาพ 5 แบบใน overlays/ ที่สลับได้ด้วยการเปลี่ยนบล็อก :root บล็อกเดียว กล่อง 1280x720 ไฟล์เดียวจบ ไม่มี CSS ภายนอก ไม่มีสคริปต์ ไม่มีกราฟจาก CDN ใช้ตอนกำลังจะเขียนสไลด์หรือหน้าจอแล้วไม่อยากประดิษฐ์องค์ประกอบขึ้นใหม่ทุกครั้ง
+description: เทมเพลตจริงที่ก๊อปไปใช้ได้เลย ไม่ใช่คำอธิบายว่าควรหน้าตาแบบไหน เลย์เอาต์สไลด์ 41 แบบ รวมไดอะแกรม 16 แบบที่วาดด้วย CSS กับ SVG ในไฟล์เอง ชุดสี 6 โทนใน themes/ และม่านบนภาพ 5 แบบใน overlays/ ที่สลับได้ด้วยการเปลี่ยนบล็อก :root บล็อกเดียว กล่อง 1280x720 ไฟล์เดียวจบ ไม่มี CSS ภายนอก ไม่มีสคริปต์ ไม่มีกราฟจาก CDN ใช้ตอนกำลังจะเขียนสไลด์หรือหน้าจอแล้วไม่อยากประดิษฐ์องค์ประกอบขึ้นใหม่ทุกครั้ง
 ---
 
 # Slide templates
@@ -42,9 +42,10 @@ produced seven ad-hoc slides that ended on a step.
 Descriptions were never the missing part. This is the missing part.
 
 It is separate from the skills that describe, rather than folded into them, for
-two reasons. A skill's file listing is capped at 40 entries, so a folder of
-templates inside `aetox-design-system` would push its own tables past the edge
-and hide them silently. And templates are one question, "what does this look
+two reasons. A skill's file listing is capped at 80 entries, so a folder of
+templates inside `aetox-design-system` would push its own tables past the edge.
+The cut now says how many it dropped rather than happening silently, but a file
+the listing never names is still a file nothing goes looking for. And templates are one question, "what does this look
 like in markup", where the tables are another, "which one should I reach for".
 One home each.
 
@@ -85,6 +86,55 @@ you know which layout the slide wants. Then open only that file here. Each is a
 Synthesis and close are not optional and are the two most often missing: a deck
 that stops on its final step has not concluded, only stopped. See
 `aetox-design-system`, "How a deck ends".
+
+## Diagrams
+
+The table above answers "what goes where on this slide". This one answers a
+different question — "what shape is this idea" — and it is the question a deck
+gets wrong more often, because the answer is nearly always a bulleted list and
+nearly never should be.
+
+Every one of these is drawn in CSS or SVG, in the file, with no library and
+nothing fetched. That is not a limitation working out well: a diagram drawn as
+markup keeps its text selectable, reskins with the theme, and prints crisp in
+the `.pptx` export, where a picture of a diagram goes in as a flat bitmap that
+nobody can fix a typo in.
+
+| Shape | File | Reach for it when |
+|-------|------|-------------------|
+| Ecosystem | `slides/ecosystem.html` | One thing and everything that touches it. Lines mean "related", no arrows. |
+| Layers | `slides/layers.html` | Levels that rest on each other. The bottom one holds the rest up. |
+| Blueprint | `slides/blueprint.html` | The thing as a measured drawing. Real numbers or no dimension lines. |
+| Customer journey | `slides/journey.html` | Stages plus how each one felt. The dip is the slide. |
+| Supply chain | `slides/supply-chain.html` | Where it comes from. The legs between the stops carry the cost. |
+| Value chain | `slides/value-chain.html` | The same row of steps, asked what each one added. |
+| Funnel | `slides/funnel.html` | Many at the top, few at the bottom. Drop-off percentages or it is a triangle. |
+| Matrix | `slides/matrix.html` | Options on two axes. The empty quadrant is usually the argument. |
+| Flow | `slides/flow.html` | Steps with a decision in them. One diamond, both branches labelled. |
+| Scale | `slides/scale.html` | A size nobody can picture, beside one everybody can. |
+| Concept map | `slides/concept-map.html` | An idea opened two levels deep. Left to right, never radial. |
+| Hierarchy | `slides/hierarchy.html` | Who reports to whom. Right angles, no arrowheads. |
+| Scenario | `slides/scenario.html` | One present, three futures, each with a likelihood on it. |
+| Case study | `slides/case-study.html` | Problem, what was done, what came of it. The third panel carries a number. |
+| Deconstruct | `slides/deconstruct.html` | A word everybody nods at, opened into the parts it is made of. |
+| Visual story | `slides/visual-story.html` | Four pictures where the order is the point. Shuffle them and it breaks. |
+
+Each file's opening comment names the layout it is most often confused with and
+says which way to go. Those pairs are the ones worth knowing before choosing:
+ecosystem against architecture (related versus directional), concept map against
+ecosystem (two levels versus one ring), funnel against process-steps (something
+narrows versus nothing does), visual story against image grid (an order versus
+no order), and journey against timeline (a felt curve versus a flat one).
+
+### What this folder cannot draw
+
+Some visual jobs are photographic, and markup is the wrong tool for every one of
+them: a cutaway, an exploded view, an X-ray, a cross-section, an anatomy, an
+isometric city, a plausible future version of a real object. Those need an image
+model, and `aetox-design` says plainly that this app has no image model and what
+the three roads are instead. Do not approximate one of them here with rectangles
+and call it done — a cutaway drawn as boxes is not a cutaway, it is architecture
+with a misleading title.
 
 ## The contract every template obeys
 

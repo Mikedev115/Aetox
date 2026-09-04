@@ -1,0 +1,39 @@
+<!-- Layers. One thing sliced into the levels it is built from, top surface
+     first, foundation last. The order is the message: each band rests on the
+     one below it and could not exist without it.
+
+     The indent is doing the work, not decoration — every band sits a little
+     further in than the one under it, which is what makes the stack read as
+     depth rather than as a list with borders. Keep it to four or five; a sixth
+     band makes the indent bigger than the label.
+
+     Reach for feature-grid instead when the parts sit beside each other rather
+     than on top of each other. Nothing rests on a grid cell. -->
+<style>
+  .l-stack .stack{ margin-top:30px }
+  .l-stack .lay{ display:flex; align-items:baseline; gap:20px; padding:17px 24px;
+                 border:1px solid var(--line,rgba(255,255,255,.10)); border-radius:12px;
+                 background:var(--panel,rgba(255,255,255,.035)); margin-bottom:9px }
+  .l-stack .lay:nth-child(2){ margin-left:34px; margin-right:0 }
+  .l-stack .lay:nth-child(3){ margin-left:68px }
+  .l-stack .lay:nth-child(4){ margin-left:102px }
+  .l-stack .lay:nth-child(5){ margin-left:136px }
+  .l-stack .lay:last-child{ border-color:var(--accent) }
+  .l-stack .lay b{ font-size:22px; min-width:210px }
+  .l-stack .lay p{ font-size:18px; margin:0 }
+  .l-stack .lay .n{ color:var(--accent-text,var(--accent)); font-size:14px; letter-spacing:.12em;
+                    min-width:34px }
+  .l-stack .foot{ margin-top:16px; margin-left:102px; color:var(--muted); font-size:15px }
+</style>
+
+<section class="slide l-stack">
+  <div class="kicker rise">ผ่าออกเป็นชั้น</div>
+  <h1 class="rise" style="font-size:52px">ข้างในซ้อนกันอยู่กี่ชั้น</h1>
+  <div class="stack rise">
+    <div class="lay"><span class="n">01</span><b>ชั้นบนสุด</b><p>ชั้นที่คนเห็นและสัมผัส</p></div>
+    <div class="lay"><span class="n">02</span><b>ชั้นถัดลงไป</b><p>สิ่งที่ทำให้ชั้นบนทำงานได้</p></div>
+    <div class="lay"><span class="n">03</span><b>ชั้นกลาง</b><p>ตรรกะที่ตัดสินใจแทน</p></div>
+    <div class="lay"><span class="n">04</span><b>ชั้นฐาน</b><p>สิ่งที่ทุกชั้นข้างบนตั้งอยู่บนมัน</p></div>
+  </div>
+  <p class="foot rise">ยกชั้นล่างออก ชั้นบนพังทั้งกอง</p>
+</section>

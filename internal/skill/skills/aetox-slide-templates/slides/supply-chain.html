@@ -1,0 +1,46 @@
+<!-- Supply chain. Where the thing comes from and what happens to it on the
+     way. The stops are places, the legs between them are the part that costs
+     money and time, and the legs are why this is not the timeline layout: on a
+     timeline the gaps are empty, here they are the story.
+
+     Four stops. Every extra one shrinks the leg labels, and a leg with no room
+     for "เรือ 21 วัน" has given up the only thing this drawing knows that a
+     list of place names does not.
+
+     The line under each stop is what the goods *are* at that point, not what
+     the company does there. "เมล็ดดิบ" then "ผงคั่ว" is the transformation the
+     slide is claiming. -->
+<style>
+  .l-supply .route{ display:flex; align-items:flex-start; margin-top:36px }
+  .l-supply .stop{ width:158px; flex:none; text-align:center }
+  .l-supply .stop .node{ width:66px; height:66px; border-radius:20px; margin:0 auto;
+                         border:2px solid var(--line,rgba(255,255,255,.30));
+                         display:flex; align-items:center; justify-content:center;
+                         font-size:21px; font-weight:700; color:var(--accent-text,var(--accent)) }
+  .l-supply .stop:last-child .node{ border-color:var(--accent); background:var(--panel,rgba(255,255,255,.05)) }
+  .l-supply .stop b{ display:block; margin-top:15px; font-size:20px }
+  .l-supply .stop span{ display:block; margin-top:5px; font-size:15px; color:var(--muted) }
+  .l-supply .leg{ flex:1; margin-top:9px; text-align:center }
+  .l-supply .leg em{ display:block; font-style:normal; font-size:14px; color:var(--muted); margin-bottom:7px }
+  .l-supply .leg i{ display:block; height:2px; background:var(--line,rgba(255,255,255,.30)); position:relative }
+  .l-supply .leg i::after{ content:''; position:absolute; right:0; top:-4px;
+                           border-left:9px solid var(--line,rgba(255,255,255,.30));
+                           border-top:5px solid transparent; border-bottom:5px solid transparent }
+  .l-supply .foot{ margin-top:40px; font-size:19px; color:var(--body) }
+  .l-supply .foot b{ color:var(--text) }
+</style>
+
+<section class="slide l-supply">
+  <div class="kicker rise">มาจากไหนถึงมือใคร</div>
+  <h1 class="rise" style="font-size:50px">ทางที่ของเดินมาทั้งเส้น</h1>
+  <div class="route rise">
+    <div class="stop"><div class="node">1</div><b>สวน</b><span>เมล็ดดิบ</span></div>
+    <div class="leg"><em>รถบรรทุก · 2 วัน</em><i></i></div>
+    <div class="stop"><div class="node">2</div><b>โรงคั่ว</b><span>ผงคั่ว</span></div>
+    <div class="leg"><em>เรือ · 21 วัน</em><i></i></div>
+    <div class="stop"><div class="node">3</div><b>คลังกระจาย</b><span>ถุงพร้อมขาย</span></div>
+    <div class="leg"><em>ขนส่งในเมือง · 1 วัน</em><i></i></div>
+    <div class="stop"><div class="node">4</div><b>หน้าร้าน</b><span>แก้วที่ชง</span></div>
+  </div>
+  <p class="foot rise">ทั้งเส้นใช้เวลา <b>24 วัน</b> และ 21 วันในนั้นอยู่กลางทะเล ไม่ใช่ในโรงงาน</p>
+</section>

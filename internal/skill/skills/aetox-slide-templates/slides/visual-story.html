@@ -1,0 +1,54 @@
+<!-- Visual story. Four pictures in an order, where the order is the point:
+     each frame is the same subject later. A seed, a shoot, a tree, a wood.
+
+     Not image-grid, which is three pictures of one idea in no order — shuffle
+     those and nothing is lost. Shuffle these and the slide stops meaning
+     anything, which is the test for whether this is the right layout.
+
+     The captions carry the change, not the description. "ต้นกล้าสูง 4 ซม."
+     tells the story; "ภาพต้นกล้า" tells the audience what they can already
+     see. -->
+<style>
+  .l-story .strip{ display:grid; grid-template-columns:repeat(4,1fr); gap:22px; margin-top:26px }
+  .l-story figure{ margin:0 }
+  .l-story .fr{ height:194px; border-radius:12px; overflow:hidden;
+                border:1px solid var(--line,rgba(255,255,255,.09));
+                background:var(--panel,rgba(255,255,255,.045)) }
+  .l-story .fr img{ width:100%; height:100%; object-fit:cover; display:block }
+  .l-story .step{ display:flex; align-items:center; gap:10px; margin-top:14px }
+  .l-story .step i{ width:26px; height:26px; border-radius:50%; flex:none; font-style:normal;
+                    border:2px solid var(--accent); color:var(--accent-text,var(--accent));
+                    font-size:14px; font-weight:700; display:flex; align-items:center; justify-content:center }
+  .l-story .step b{ font-size:19px }
+  .l-story figcaption{ margin-top:8px; font-size:16px; color:var(--muted) }
+  .l-story .end{ margin-top:24px; font-size:19px; color:var(--body) }
+  .l-story .end b{ color:var(--text) }
+</style>
+
+<section class="slide l-story">
+  <div class="kicker rise">เรื่องเดียว สี่จังหวะ</div>
+  <h1 class="rise" style="font-size:50px">มันกลายมาเป็นแบบนี้ได้ยังไง</h1>
+  <div class="strip rise">
+    <figure>
+      <div class="fr"><img src="imgs/จังหวะที่หนึ่ง.jpg" alt="คำอธิบายภาพ"></div>
+      <div class="step"><i>1</i><b>ตอนเริ่ม</b></div>
+      <figcaption>สภาพตั้งต้น วัดได้เท่านี้</figcaption>
+    </figure>
+    <figure>
+      <div class="fr"><img src="imgs/จังหวะที่สอง.jpg" alt="คำอธิบายภาพ"></div>
+      <div class="step"><i>2</i><b>สัปดาห์ที่หก</b></div>
+      <figcaption>สิ่งแรกที่เปลี่ยนไปจนเห็น</figcaption>
+    </figure>
+    <figure>
+      <div class="fr"><img src="imgs/จังหวะที่สาม.jpg" alt="คำอธิบายภาพ"></div>
+      <div class="step"><i>3</i><b>เดือนที่สี่</b></div>
+      <figcaption>จุดที่เริ่มเลี้ยงตัวเองได้</figcaption>
+    </figure>
+    <figure>
+      <div class="fr"><img src="imgs/จังหวะที่สี่.jpg" alt="คำอธิบายภาพ"></div>
+      <div class="step"><i>4</i><b>วันนี้</b></div>
+      <figcaption>สภาพตอนนี้ เทียบกับกรอบแรก</figcaption>
+    </figure>
+  </div>
+  <p class="end rise">ระหว่างกรอบแรกกับกรอบสุดท้ายห่างกัน <b>เจ็ดเดือน</b> และไม่มีจังหวะไหนที่ข้ามได้</p>
+</section>

@@ -1,0 +1,58 @@
+<!-- Matrix. Options placed on two axes, so the argument is made by where the
+     dots sit rather than by the sentence next to them. It only works when both
+     axes are things somebody could disagree about — "ราคา" against "คุณภาพ" is
+     an argument; "ดี" against "แย่" is the same axis drawn twice.
+
+     The empty quadrant is usually the point. If all four are full, this is a
+     comparison table with extra steps.
+
+     Five dots at most, and the one being argued for is the accented one. Place
+     them by eye and then check: a dot moved 40px changes the claim. -->
+<style>
+  .l-matrix .wrap{ display:flex; gap:30px; margin-top:24px; align-items:center }
+  .l-matrix .ylab{ writing-mode:vertical-rl; transform:rotate(180deg); font-size:15px;
+                   color:var(--muted); letter-spacing:.06em }
+  .l-matrix .col{ flex:none }
+  .l-matrix .plot{ position:relative; width:600px; height:332px;
+                   border:1px solid var(--line,rgba(255,255,255,.18)); border-radius:6px }
+  .l-matrix .plot::before,
+  .l-matrix .plot::after{ content:''; position:absolute; background:var(--line,rgba(255,255,255,.18)) }
+  .l-matrix .plot::before{ left:50%; top:0; bottom:0; width:1px }
+  .l-matrix .plot::after{ top:50%; left:0; right:0; height:1px }
+  .l-matrix .q{ position:absolute; font-size:13px; color:var(--muted); letter-spacing:.09em;
+                text-transform:uppercase }
+  .l-matrix .dot{ position:absolute; transform:translate(-50%,-50%); display:flex; align-items:center; gap:9px }
+  .l-matrix .dot i{ width:14px; height:14px; border-radius:50%; flex:none;
+                    background:var(--line,rgba(255,255,255,.5)) }
+  .l-matrix .dot span{ font-size:17px; color:var(--body); white-space:nowrap }
+  .l-matrix .dot.us i{ width:20px; height:20px; background:var(--accent) }
+  .l-matrix .dot.us span{ color:var(--text); font-weight:600 }
+  .l-matrix .xlab{ text-align:center; margin-top:10px; font-size:15px; color:var(--muted); letter-spacing:.06em }
+  .l-matrix .read b{ display:block; font-size:22px; margin-bottom:10px }
+  .l-matrix .read p{ font-size:18px; max-width:none }
+</style>
+
+<section class="slide l-matrix">
+  <div class="kicker rise">วางบนสองแกน</div>
+  <h1 class="rise" style="font-size:50px">ช่องที่ยังว่างอยู่</h1>
+  <div class="wrap rise">
+    <div class="ylab">ทำเองได้ยาก →</div>
+    <div class="col">
+      <div class="plot">
+        <span class="q" style="left:14px;top:12px">ยากแต่ถูก</span>
+        <span class="q" style="right:14px;top:12px">ยากและแพง</span>
+        <span class="q" style="left:14px;bottom:12px">ง่ายและถูก</span>
+        <span class="q" style="right:14px;bottom:12px">ง่ายแต่แพง</span>
+        <span class="dot" style="left:22%;top:70%"><i></i><span>เจ้าที่หนึ่ง</span></span>
+        <span class="dot" style="left:63%;top:74%"><i></i><span>เจ้าที่สอง</span></span>
+        <span class="dot" style="left:74%;top:36%"><i></i><span>เจ้าที่สาม</span></span>
+        <span class="dot us" style="left:26%;top:26%"><i></i><span>เรา</span></span>
+      </div>
+      <div class="xlab">ราคาต่อเดือน →</div>
+    </div>
+    <div class="read">
+      <b>อ่านจากรูป</b>
+      <p>ไม่มีใครอยู่ช่องซ้ายบน เพราะมันทำยาก ไม่ใช่เพราะไม่มีคนต้องการ นั่นคือที่ที่เราเลือกยืน</p>
+    </div>
+  </div>
+</section>

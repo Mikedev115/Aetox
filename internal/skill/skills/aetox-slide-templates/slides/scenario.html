@@ -1,0 +1,50 @@
+<!-- Scenario. One present, several futures, each with a number saying how
+     likely it is. The numbers are what stop this being a wish list: three
+     unlabelled branches read as three equally good options, which is the
+     opposite of the point.
+
+     They should not sum to a tidy 100 unless they really are exhaustive. Three
+     branches; a fourth means the axis being varied has not been decided yet.
+
+     Name the branches by what happens, not by how they feel — "ดีที่สุด /
+     ปานกลาง / แย่ที่สุด" is a mood, and a room cannot plan against a mood. -->
+<style>
+  .l-branch .diagram{ margin-top:24px }
+  .l-branch .now{ font-family:"Kanit","Leelawadee UI",Tahoma,sans-serif; font-size:22px; fill:var(--text) }
+  .l-branch .ttl{ font-family:"Prompt","Leelawadee UI",Tahoma,sans-serif; font-size:20px; fill:var(--text) }
+  .l-branch .sub{ font-family:"Prompt","Leelawadee UI",Tahoma,sans-serif; font-size:15px; fill:var(--muted) }
+  .l-branch .odds{ font-family:"Kanit","Leelawadee UI",Tahoma,sans-serif; font-size:26px;
+                   fill:var(--accent-text,var(--accent)) }
+  .l-branch .oddsq{ font-family:"Kanit","Leelawadee UI",Tahoma,sans-serif; font-size:26px; fill:var(--muted) }
+</style>
+
+<section class="slide l-branch">
+  <div class="kicker rise">ถ้าเป็นแบบนั้น</div>
+  <h1 class="rise" style="font-size:50px">ทางที่เรื่องนี้จบได้สามทาง</h1>
+  <svg class="diagram rise" viewBox="0 0 1040 356" width="1040" height="356">
+    <g fill="none" stroke="var(--line,rgba(255,255,255,.35))" stroke-width="2">
+      <path d="M220 178 C320 178,320 62,420 62"/>
+      <path d="M220 178 L420 178"/>
+      <path d="M220 178 C320 178,320 300,420 300"/>
+    </g>
+
+    <rect x="20" y="138" width="200" height="80" rx="18" fill="var(--stage)" stroke="var(--accent)" stroke-width="3"/>
+    <text x="120" y="172" text-anchor="middle" class="now">วันนี้</text>
+    <text x="120" y="196" text-anchor="middle" class="sub">สถานะตั้งต้น</text>
+
+    <rect x="420" y="18" width="600" height="88" rx="14" fill="none" stroke="var(--line,rgba(255,255,255,.35))" stroke-width="2"/>
+    <text x="450" y="54" class="ttl">ต้นทุนวัตถุดิบขึ้นอีก 15%</text>
+    <text x="450" y="80" class="sub">ราคาขายต้องขยับ หรือกำไรหายไปหนึ่งในสาม</text>
+    <text x="985" y="70" text-anchor="end" class="oddsq">25%</text>
+
+    <rect x="420" y="134" width="600" height="88" rx="14" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+    <text x="450" y="170" class="ttl">ทุกอย่างเดินตามแผนเดิม</text>
+    <text x="450" y="196" class="sub">ไม่ต้องทำอะไรเพิ่ม นอกจากจับตาไตรมาสหน้า</text>
+    <text x="985" y="186" text-anchor="end" class="odds">55%</text>
+
+    <rect x="420" y="256" width="600" height="88" rx="14" fill="none" stroke="var(--line,rgba(255,255,255,.35))" stroke-width="2"/>
+    <text x="450" y="292" class="ttl">คู่แข่งลดราคาลงครึ่ง</text>
+    <text x="450" y="318" class="sub">เราไม่ตามราคา แต่ต้องตอบให้ได้ว่าทำไม</text>
+    <text x="985" y="308" text-anchor="end" class="oddsq">20%</text>
+  </svg>
+</section>

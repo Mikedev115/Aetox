@@ -1,0 +1,51 @@
+<!-- Case study. Problem, what was done, what came of it — on one slide,
+     because split across three it stops being a case and becomes a story with
+     no ending.
+
+     The third panel carries a number or the slide has not finished. "ลูกค้า
+     พอใจมาก" is the failure mode this layout exists to prevent; if the result
+     genuinely cannot be measured, say what changed that anybody could check.
+
+     Name the customer and the date. An anonymous case study is a hypothetical
+     wearing a suit, and audiences can tell. -->
+<style>
+  .l-case .who{ margin-top:14px; font-size:16px; color:var(--muted); letter-spacing:.04em }
+  .l-case .cols{ display:grid; grid-template-columns:1fr 34px 1fr 34px 1fr; gap:14px; margin-top:26px }
+  .l-case .p{ border:1px solid var(--line,rgba(255,255,255,.12)); border-radius:16px;
+              background:var(--panel,rgba(255,255,255,.035)); padding:24px 24px 26px }
+  .l-case .p .tag{ display:block; font-size:13px; letter-spacing:.12em; text-transform:uppercase;
+                   color:var(--muted); margin-bottom:14px }
+  .l-case .p b{ display:block; font-size:22px; line-height:1.3; margin-bottom:12px }
+  .l-case .p p{ font-size:17px; margin:0; color:var(--body); max-width:none }
+  .l-case .ar{ display:flex; align-items:center; justify-content:center; font-size:26px;
+               color:var(--accent-text,var(--accent)) }
+  .l-case .win{ border-color:var(--accent) }
+  .l-case .win .tag{ color:var(--accent-text,var(--accent)) }
+  .l-case .win b{ font-size:56px; font-weight:800; letter-spacing:-.035em;
+                  font-family:"Kanit","Leelawadee UI",Tahoma,sans-serif; margin-bottom:10px }
+</style>
+
+<section class="slide l-case">
+  <div class="kicker rise">เคสจริง</div>
+  <h1 class="rise" style="font-size:50px">เรื่องนี้จบยังไง</h1>
+  <div class="who rise">ร้านกาแฟ 12 สาขา · มี.ค. – ก.ค. 2568</div>
+  <div class="cols rise">
+    <div class="p">
+      <span class="tag">ปัญหา</span>
+      <b>สั่งของเกินทุกสัปดาห์</b>
+      <p>สั่งจากความรู้สึกของแต่ละสาขา ของหมดอายุทิ้งเดือนละหลายหมื่น</p>
+    </div>
+    <div class="ar">→</div>
+    <div class="p">
+      <span class="tag">สิ่งที่ทำ</span>
+      <b>ให้ยอดขายสั่งของแทนคน</b>
+      <p>ดึงยอดขายย้อนหลังมาตั้งจำนวนสั่งอัตโนมัติ ให้คนแก้ได้แต่ต้องพิมพ์เหตุผล</p>
+    </div>
+    <div class="ar">→</div>
+    <div class="p win">
+      <span class="tag">ผลลัพธ์</span>
+      <b>−38%</b>
+      <p>ของทิ้งลดลงใน 4 เดือน ยอดขายเท่าเดิม ไม่มีสาขาไหนของขาด</p>
+    </div>
+  </div>
+</section>

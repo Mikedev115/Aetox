@@ -1,0 +1,55 @@
+<!-- Funnel. Many people at the top, few at the bottom, and the drop between
+     each pair of rows is the only number on the slide anybody will remember.
+     So put it there, on the right, as a figure — a funnel drawn without its
+     drop-off percentages is a decorative triangle.
+
+     The bars are centred so the taper is visible as a shape. Four or five
+     stages; below four there is no funnel, above five the last bar is thinner
+     than its own border.
+
+     Reach for process-steps when everybody who starts also finishes. Nothing
+     narrows there, and a funnel that does not narrow is a lie about the
+     shape. -->
+<style>
+  .l-funnel .fun{ display:grid; grid-template-columns:186px 520px 1fr; align-items:center;
+                  gap:12px 26px; margin-top:30px }
+  .l-funnel .lab{ text-align:right; font-size:19px; color:var(--text) }
+  .l-funnel .track{ display:flex; justify-content:center }
+  .l-funnel .bar{ height:58px; border-radius:9px;
+                  background:var(--panel,rgba(255,255,255,.06));
+                  border:1px solid var(--line,rgba(255,255,255,.14)) }
+  .l-funnel .fun>div:nth-last-child(2) .bar{ border-color:var(--accent) }
+  .l-funnel .side b{ font-size:26px; font-weight:700; letter-spacing:-.02em }
+  .l-funnel .side span{ margin-left:12px; font-size:15px; color:var(--muted) }
+  .l-funnel .side span.bad{ color:var(--accent-text,var(--accent)) }
+  .l-funnel .foot{ margin-top:26px; font-size:19px; color:var(--body) }
+  .l-funnel .foot b{ color:var(--text) }
+</style>
+
+<section class="slide l-funnel">
+  <div class="kicker rise">เหลือกี่คน</div>
+  <h1 class="rise" style="font-size:50px">คนหายไปตรงไหนมากที่สุด</h1>
+  <div class="fun rise">
+    <div class="lab">เห็นโฆษณา</div>
+    <div class="track"><div class="bar" style="width:100%"></div></div>
+    <div class="side"><b>48,000</b><span>ทั้งหมด</span></div>
+
+    <div class="lab">เข้าหน้าเว็บ</div>
+    <div class="track"><div class="bar" style="width:74%"></div></div>
+    <div class="side"><b>12,400</b><span>−74%</span></div>
+
+    <div class="lab">เริ่มกรอกฟอร์ม</div>
+    <div class="track"><div class="bar" style="width:46%"></div></div>
+    <div class="side"><b>3,100</b><span class="bad">−75%</span></div>
+
+    <div class="lab">กรอกจนจบ</div>
+    <div class="track"><div class="bar" style="width:26%"></div></div>
+    <div class="side"><b>1,180</b><span>−62%</span></div>
+
+    <div class="lab">จ่ายเงิน</div>
+    <div class="track"><div class="bar" style="width:12%"></div></div>
+    <div class="side"><b>410</b><span>−65%</span></div>
+
+  </div>
+  <p class="foot rise">คนที่เสียไปเยอะที่สุดคือช่วง <b>เข้าหน้าเว็บ → เริ่มกรอก</b> ไม่ใช่ตอนจ่ายเงินอย่างที่เดากัน</p>
+</section>

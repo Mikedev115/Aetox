@@ -1,0 +1,53 @@
+<!-- Ecosystem. One thing in the middle and everything that touches it around
+     the outside. The message is "how much this is connected to", so the centre
+     has to look like the centre: it is the only shape with the accent on it.
+
+     Not architecture, whose lines are directional and mean data moving through
+     in an order. Here the lines mean "related", nothing more, so they carry no
+     arrowheads — an arrow on a relationship line is a claim about direction
+     that the slide is not making.
+
+     Five or six satellites. Four leaves the ring looking accidental, seven
+     makes every label smaller than the gap between them. -->
+<style>
+  .l-eco .diagram{ margin-top:26px }
+  .l-eco .lbl{ font-family:"Prompt","Leelawadee UI",Tahoma,sans-serif; font-size:18px; fill:var(--text) }
+  .l-eco .sub{ font-family:"Prompt","Leelawadee UI",Tahoma,sans-serif; font-size:13px; fill:var(--muted) }
+  .l-eco .core{ font-family:"Kanit","Leelawadee UI",Tahoma,sans-serif; font-size:24px; fill:var(--text) }
+</style>
+
+<section class="slide l-eco">
+  <div class="kicker rise">รอบตัวมันมีอะไร</div>
+  <h1 class="rise" style="font-size:52px">สิ่งที่เกี่ยวข้องกันทั้งวง</h1>
+  <svg class="diagram rise" viewBox="0 0 1040 372" width="1040" height="372">
+    <!-- เส้นความสัมพันธ์วาดก่อน แล้วให้กล่องทึบทับปลายเส้นเอง ไม่ต้องคำนวณจุดตัด -->
+    <g stroke="var(--line,rgba(255,255,255,.30))" stroke-width="2">
+      <line x1="520" y1="186" x2="910" y2="186"/>
+      <line x1="520" y1="186" x2="130" y2="186"/>
+      <line x1="520" y1="186" x2="715" y2="306"/>
+      <line x1="520" y1="186" x2="325" y2="306"/>
+      <line x1="520" y1="186" x2="325" y2="66"/>
+      <line x1="520" y1="186" x2="715" y2="66"/>
+    </g>
+
+    <g fill="var(--stage)" stroke="var(--line,rgba(255,255,255,.30))" stroke-width="2">
+      <rect x="822" y="156" width="176" height="60" rx="14"/>
+      <rect x="42"  y="156" width="176" height="60" rx="14"/>
+      <rect x="627" y="276" width="176" height="60" rx="14"/>
+      <rect x="237" y="276" width="176" height="60" rx="14"/>
+      <rect x="237" y="36"  width="176" height="60" rx="14"/>
+      <rect x="627" y="36"  width="176" height="60" rx="14"/>
+    </g>
+    <g text-anchor="middle">
+      <text x="910" y="182" class="lbl">คู่ค้า</text><text x="910" y="202" class="sub">ส่งของเข้ามา</text>
+      <text x="130" y="182" class="lbl">ลูกค้า</text><text x="130" y="202" class="sub">คนที่ใช้จริง</text>
+      <text x="715" y="302" class="lbl">ช่องทางขาย</text><text x="715" y="322" class="sub">ที่เขาเจอเรา</text>
+      <text x="325" y="302" class="lbl">ทีมงาน</text><text x="325" y="322" class="sub">คนที่ทำให้เกิด</text>
+      <text x="325" y="62"  class="lbl">ระบบหลังบ้าน</text><text x="325" y="82" class="sub">สิ่งที่พึ่งอยู่</text>
+      <text x="715" y="62"  class="lbl">กฎเกณฑ์</text><text x="715" y="82" class="sub">กรอบที่ต้องอยู่ใน</text>
+    </g>
+
+    <circle cx="520" cy="186" r="82" fill="var(--stage)" stroke="var(--accent)" stroke-width="3"/>
+    <text x="520" y="194" text-anchor="middle" class="core">สิ่งที่พูดถึง</text>
+  </svg>
+</section>

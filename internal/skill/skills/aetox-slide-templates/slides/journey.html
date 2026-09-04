@@ -1,0 +1,48 @@
+<!-- Customer journey. The stages somebody passes through, and how it felt at
+     each one. The curve is the reason this exists: a journey drawn as five
+     equal boxes says the stages are equally good, which is never true and
+     hides the only thing worth showing — where it goes wrong.
+
+     So one point sits lowest and it is the accented one. If the drawn curve is
+     flat, this is a timeline and should be one.
+
+     Five stages. The line under each is what the person is doing, not what the
+     company is doing; "ส่งอีเมลต้อนรับ" is the wrong voice for this slide. -->
+<style>
+  .l-journey .stages{ display:grid; grid-template-columns:repeat(5,1fr); gap:0; margin-top:26px }
+  .l-journey .stages b{ font-size:20px; text-align:center }
+  .l-journey .curve{ display:block; margin:6px 0 2px }
+  .l-journey .notes{ display:grid; grid-template-columns:repeat(5,1fr); gap:0 }
+  .l-journey .notes span{ font-size:16px; color:var(--muted); text-align:center; padding:0 12px }
+  .l-journey .notes span.hurt{ color:var(--accent-text,var(--accent)) }
+  .l-journey .axis{ font-family:"Prompt","Leelawadee UI",Tahoma,sans-serif; font-size:13px; fill:var(--muted) }
+  .l-journey .fix{ margin-top:22px; font-size:19px; color:var(--body) }
+  .l-journey .fix b{ color:var(--text) }
+</style>
+
+<section class="slide l-journey">
+  <div class="kicker rise">เส้นทางลูกค้า</div>
+  <h1 class="rise" style="font-size:50px">เขาผ่านอะไรมาบ้างกว่าจะถึงตรงนี้</h1>
+  <div class="stages rise">
+    <b>รู้จัก</b><b>สนใจ</b><b>สมัคร</b><b>ใช้ครั้งแรก</b><b>อยู่ต่อ</b>
+  </div>
+  <svg class="curve rise" viewBox="0 0 1040 156" width="1040" height="156">
+    <text x="0" y="24" class="axis">พอใจ</text>
+    <text x="0" y="146" class="axis">หงุดหงิด</text>
+    <polyline points="104,44 312,66 520,124 728,70 936,36" fill="none"
+              stroke="var(--line,rgba(255,255,255,.35))" stroke-width="3"/>
+    <circle cx="104" cy="44"  r="8" fill="var(--stage)" stroke="var(--line,rgba(255,255,255,.45))" stroke-width="3"/>
+    <circle cx="312" cy="66"  r="8" fill="var(--stage)" stroke="var(--line,rgba(255,255,255,.45))" stroke-width="3"/>
+    <circle cx="520" cy="124" r="13" fill="var(--accent)"/>
+    <circle cx="728" cy="70"  r="8" fill="var(--stage)" stroke="var(--line,rgba(255,255,255,.45))" stroke-width="3"/>
+    <circle cx="936" cy="36"  r="8" fill="var(--stage)" stroke="var(--line,rgba(255,255,255,.45))" stroke-width="3"/>
+  </svg>
+  <div class="notes rise">
+    <span>เห็นจากเพื่อนบอก</span>
+    <span>อ่านหน้าเว็บจนจบ</span>
+    <span class="hurt">กรอก 11 ช่อง ทิ้งกลางคัน</span>
+    <span>ทำสำเร็จใน 3 นาที</span>
+    <span>กลับมาสัปดาห์ถัดไป</span>
+  </div>
+  <p class="fix rise"><b>จุดที่หลุด</b> อยู่ตรงกลาง ไม่ใช่ตรงต้นทาง — เราจ่ายค่าโฆษณาเพื่อพาคนมาถึงหน้าที่ไล่เขากลับ</p>
+</section>

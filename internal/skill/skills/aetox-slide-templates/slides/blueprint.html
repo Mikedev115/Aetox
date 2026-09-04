@@ -1,0 +1,62 @@
+<!-- Blueprint. The object as a drawing rather than as a photograph: outline,
+     grid, dimensions, part numbers. Reach for it when the point is that the
+     thing was designed — measured, specified, decided — rather than that it
+     looks nice.
+
+     It is the one layout here that reads as authority without a single
+     adjective, which also makes it the easiest to abuse: the numbers on it are
+     read as real. Put real ones on it or take the dimension lines off.
+
+     Drawn, not fetched. A photograph run through a blue filter is not this;
+     the tell is that a real drawing has no shadows and no depth of field. -->
+<style>
+  .l-bp .sheet{ margin-top:24px; border:1px solid var(--line,rgba(255,255,255,.22)); border-radius:10px }
+  .l-bp .dim{ font-family:ui-monospace,"Cascadia Mono",Consolas,monospace; font-size:13px; fill:var(--muted) }
+  .l-bp .part{ font-family:ui-monospace,"Cascadia Mono",Consolas,monospace; font-size:13px; fill:var(--accent-text,var(--accent)) }
+  .l-bp .view{ font-family:"Prompt","Leelawadee UI",Tahoma,sans-serif; font-size:15px; fill:var(--text) }
+</style>
+
+<section class="slide l-bp">
+  <div class="kicker rise">แบบเทคนิค</div>
+  <h1 class="rise" style="font-size:50px">ของจริงมีขนาดเท่านี้</h1>
+  <svg class="sheet rise" viewBox="0 0 1040 348" width="1040" height="348">
+    <defs>
+      <pattern id="bp-grid" width="26" height="26" patternUnits="userSpaceOnUse">
+        <path d="M26 0H0V26" fill="none" stroke="var(--line,rgba(255,255,255,.22))" stroke-width="1" stroke-opacity=".45"/>
+      </pattern>
+      <marker id="bp-tick" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+        <path d="M4,1 L4,7" stroke="var(--muted)" stroke-width="1.5"/>
+      </marker>
+    </defs>
+    <rect x="0" y="0" width="1040" height="348" fill="url(#bp-grid)"/>
+
+    <!-- ภาพด้านหน้า -->
+    <rect x="90" y="70" width="330" height="196" rx="18" fill="none" stroke="var(--text)" stroke-width="2"/>
+    <rect x="118" y="98" width="274" height="120" rx="6" fill="none" stroke="var(--line,rgba(255,255,255,.22))" stroke-width="1.5"/>
+    <circle cx="255" cy="242" r="12" fill="none" stroke="var(--accent)" stroke-width="2"/>
+    <text x="255" y="304" text-anchor="middle" class="view">ด้านหน้า</text>
+
+    <!-- ภาพด้านข้าง -->
+    <rect x="860" y="70" width="96" height="196" rx="14" fill="none" stroke="var(--text)" stroke-width="2"/>
+    <line x1="860" y1="128" x2="956" y2="128" stroke="var(--line,rgba(255,255,255,.22))" stroke-width="1.5"/>
+    <text x="908" y="304" text-anchor="middle" class="view">ด้านข้าง</text>
+
+    <!-- เส้นบอกระยะ -->
+    <line x1="90" y1="46" x2="420" y2="46" stroke="var(--muted)" stroke-width="1"
+          marker-start="url(#bp-tick)" marker-end="url(#bp-tick)"/>
+    <text x="255" y="38" text-anchor="middle" class="dim">330 มม.</text>
+    <line x1="62" y1="70" x2="62" y2="266" stroke="var(--muted)" stroke-width="1"
+          marker-start="url(#bp-tick)" marker-end="url(#bp-tick)"/>
+    <text x="20" y="172" class="dim">196 มม.</text>
+    <line x1="860" y1="46" x2="956" y2="46" stroke="var(--muted)" stroke-width="1"
+          marker-start="url(#bp-tick)" marker-end="url(#bp-tick)"/>
+    <text x="908" y="38" text-anchor="middle" class="dim">96 มม.</text>
+
+    <!-- หมายเลขชิ้นส่วน -->
+    <line x1="392" y1="158" x2="500" y2="158" stroke="var(--accent)" stroke-width="1"/>
+    <text x="510" y="154" class="part">01 — พื้นที่แสดงผล 274×120</text>
+    <line x1="267" y1="242" x2="500" y2="242" stroke="var(--accent)" stroke-width="1"/>
+    <text x="510" y="238" class="part">02 — ปุ่มเดียวที่กดได้</text>
+    <text x="510" y="198" class="dim">อะลูมิเนียมขึ้นรูป · 840 ก.</text>
+  </svg>
+</section>

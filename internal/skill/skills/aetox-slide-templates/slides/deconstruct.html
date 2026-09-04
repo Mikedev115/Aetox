@@ -1,0 +1,43 @@
+<!-- Deconstruct. A word everybody nods at, opened up into the parts it is
+     actually made of. It reads as an equation on purpose: the whole on the
+     left, the parts on the right, and the claim is that the right side is
+     complete.
+
+     So it has to be. Four parts that genuinely add up beats six that overlap,
+     and a part that is really an example of another part is the mistake this
+     layout makes most.
+
+     Not feature-grid, whose cells are things a product has. These are things
+     the idea *is*, which is why the left-hand box exists at all. -->
+<style>
+  .l-decon .eq{ display:flex; align-items:center; gap:30px; margin-top:34px }
+  .l-decon .whole{ flex:none; width:302px; border:2px solid var(--accent); border-radius:20px;
+                   padding:30px 26px 28px }
+  .l-decon .whole b{ display:block; font-size:40px; line-height:1.12; letter-spacing:-.03em;
+                     font-family:"Kanit","Leelawadee UI",Tahoma,sans-serif }
+  .l-decon .whole span{ display:block; margin-top:14px; font-size:16px; color:var(--muted) }
+  .l-decon .sign{ flex:none; font-size:42px; color:var(--muted) }
+  .l-decon .parts{ flex:1; display:grid; grid-template-columns:1fr 1fr; gap:14px }
+  .l-decon .pt{ border:1px solid var(--line,rgba(255,255,255,.12)); border-radius:14px;
+                background:var(--panel,rgba(255,255,255,.035)); padding:19px 22px 21px }
+  .l-decon .pt b{ display:block; font-size:20px; margin-bottom:7px }
+  .l-decon .pt p{ font-size:16px; margin:0; color:var(--muted); max-width:none }
+</style>
+
+<section class="slide l-decon">
+  <div class="kicker rise">แยกออกมาดู</div>
+  <h1 class="rise" style="font-size:50px">คำนี้จริง ๆ แล้วประกอบด้วยอะไร</h1>
+  <div class="eq rise">
+    <div class="whole">
+      <b>คำใหญ่<br>ที่ทุกคนพยักหน้า</b>
+      <span>ทุกคนใช้คำนี้ แต่ถามสิบคนได้สิบความหมาย</span>
+    </div>
+    <div class="sign">=</div>
+    <div class="parts">
+      <div class="pt"><b>ส่วนที่หนึ่ง</b><p>อธิบายเป็นภาษาที่ไม่ต้องใช้คำใหญ่คำนั้นอีก</p></div>
+      <div class="pt"><b>ส่วนที่สอง</b><p>สิ่งที่มองเห็นหรือวัดได้จริง</p></div>
+      <div class="pt"><b>ส่วนที่สาม</b><p>ข้อจำกัดที่มากับมันเสมอ</p></div>
+      <div class="pt"><b>ส่วนที่สี่</b><p>สิ่งที่คนมักเข้าใจว่าเป็นส่วนหนึ่ง แต่ไม่ใช่</p></div>
+    </div>
+  </div>
+</section>
