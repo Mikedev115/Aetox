@@ -750,11 +750,11 @@ function fingerprint(text: string): string {
 // would run on every chunk of every reply for a case that never arrives.
 export function renderStreamingMarkdown(text: string): string {
   const open = text.lastIndexOf('<svg')
-  if (open === -1 || text.slice(open).includes('</svg>')) return markLive(renderMarkdown(text), text, false)
+  if (open === -1 || text.slice(open).includes('</svg>')) return markLive(renderMarkdown(healTail(text)), text, false)
 
   const openTagEnd = text.indexOf('>', open)
   // The drawing has not started drawing yet, so there is nothing to mark alive.
-  if (openTagEnd === -1) return markLive(renderMarkdown(text.slice(0, open)), text, false)
+  if (openTagEnd === -1) return markLive(renderMarkdown(healTail(text.slice(0, open))), text, false)
 
   const lastElement = text.lastIndexOf('<')
   const whole = text.indexOf('>', lastElement) === -1 ? text.slice(0, lastElement) : text
@@ -788,6 +788,45 @@ function markLive(html: string, source: string, drawingOpen: boolean): string {
   if (!last) return html
   last.classList.add('live')
   return host.innerHTML
+}
+
+// Close what the model has not finished writing yet, so a word does not have to
+// change shape to become itself.
+//
+// Bold arrives as three separate frames: `**`, then `**คุณอยากได้`, then the
+// closer. Rendered as written, the first two are two dark asterisks and a run
+// of plain text, and the third re-flows the whole line into bold — the letters
+// move, the line breaks move, and what the eye reports is a stutter even though
+// no frame was dropped. The same reply, healed, is bold from its first letter
+// and never moves again.
+//
+// Only the last paragraph is touched. Emphasis cannot cross a blank line in
+// gfm, so everything above the last one is already settled and re-scanning it
+// every frame would be work with no possible finding.
+//
+// A trailing marker is dropped rather than closed: `**` with nothing after it
+// would heal to `****`, which marked draws as four literal asterisks — a worse
+// flash than the one being fixed. Dropped, it appears at the moment it has
+// something to be bold about.
+//
+// Inside an open fence nothing is healed at all. Every marker there is literal
+// text, and closing one would write a character into a code block the user may
+// be about to copy.
+function healTail(text: string): string {
+  if (fenceOpen(text)) return text
+  const at = text.lastIndexOf('\n\n')
+  const head = at === -1 ? '' : text.slice(0, at + 2)
+  let tail = (at === -1 ? text : text.slice(at + 2)).replace(/[*`]+$/, '')
+  if (odd(tail, /`/g)) tail += '`'
+  if (odd(tail, /\*\*/g)) tail += '**'
+  // Single-star emphasis, counted with the double-star pairs taken out — after
+  // the line above they are all pairs.
+  if (odd(tail.replace(/\*\*/g, ''), /\*/g)) tail += '*'
+  return head + tail
+}
+
+function odd(text: string, marker: RegExp): boolean {
+  return (text.match(marker) ?? []).length % 2 === 1
 }
 
 // Up to three leading spaces is still a fence to markdown; four makes it an

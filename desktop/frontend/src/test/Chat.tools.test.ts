@@ -198,6 +198,24 @@ describe('tool timeline collapsing', () => {
     expect(container.querySelectorAll('.tool-step').length).toBe(3)
   })
 
+  // The live panel is not the finished one above: it is open from the first
+  // reasoning token (livePanel starts on 'think') and it is what a thinking
+  // model writes into for most of a turn. It draws through the pacer now, which
+  // means an action writes its text rather than Svelte — and an action that
+  // failed to attach would leave the panel blank instead of throwing.
+  it('shows live reasoning the moment there is any, in full', () => {
+    const { container } = render(Chat, {
+      ...baseProps,
+      awaitingReply: true,
+      reasoningText: 'ผู้ใช้ถามเรื่องสตรีม ต้องไปดูว่าวาดตรงไหน',
+      messages: [{ role: 'user', text: 'go', time: '10:54' }] as any,
+    })
+    // First sight is never typed out — whatever had already streamed when this
+    // block appeared is on screen at once.
+    expect(container.querySelector('.reasoning-body')?.textContent)
+      .toBe('ผู้ใช้ถามเรื่องสตรีม ต้องไปดูว่าวาดตรงไหน')
+  })
+
   // The two panels swap, they never stack: one slot, one open at a time.
   it('opening the tool list closes the thinking it replaces', async () => {
     const { container } = render(Chat, {

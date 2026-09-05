@@ -2,7 +2,7 @@
   import type { BackgroundTask, ChatMessage, TaskState, ModelStatus, ToolStep, TimelineNode, ContextBreakdown } from './types'
   import { groupSteps, isDelegation } from './types'
   import { phasesOf, type TurnPhase } from './turnPhases'
-  import { streamedHtml } from './morph'
+  import { pacedStream, pacedText } from './streamPace'
   import { toolGlide } from './toolGlide'
   import { fold, unroll } from './fold'
   import TaskTimeline from './TaskTimeline.svelte'
@@ -27,7 +27,7 @@
   import { t, i18n, type TKey } from './i18n.svelte'
   import { isShortcut, shortcutLabel } from './shortcuts'
   import { copyDrawing, saveDrawing } from './drawingExport'
-  import { renderMarkdown, renderStreamingMarkdown } from './markdown'
+  import { renderMarkdown } from './markdown'
   import { openUrlInWorkbench, openFileTab, setTabDragPayload, TAB_DRAG_MIME } from './stores/workbench.svelte'
   import {
     cockpit, attachImageFromPath, attachImageFromClipboard, clearPendingImage, attachTabContext, clearPendingContext,
@@ -1517,11 +1517,21 @@
     void cockpit.todos.length
     void cockpit.ask
     void awaitingReply
+    // after DOM update, not before — otherwise we scroll to the old height
+    requestAnimationFrame(stickToBottom)
+  })
+
+  // Called by the effect above, and again by the pacer after every frame it
+  // paints (streamPace.ts). Both are needed and neither is enough: the effect
+  // fires when the STORE changes, the pacer paints when the SCREEN does, and
+  // pacing is precisely the decision to let those two happen at different
+  // moments. Pinned to the effect alone, the view would sit one buffered line
+  // above the letters still being let out.
+  function stickToBottom() {
     const el = chatEl
     if (!el || !pinnedToBottom) return
-    // after DOM update, not before — otherwise we scroll to the old height
-    requestAnimationFrame(() => (el.scrollTop = el.scrollHeight))
-  })
+    el.scrollTop = el.scrollHeight
+  }
 
   // The answer the user types into the question card itself.
   //
@@ -2414,10 +2424,14 @@
     {/if}
     {#if ph.say}
       {#if ph.streaming}
-        <!-- Morphed rather than re-assigned, for the reason the live bubble
-             always was: {@html} rebuilds the paragraph on every token, which
-             restarts any animation in it and drops a selection mid-drag. -->
-        <div class="markdown-body phase-say" use:streamedHtml={renderStreamingMarkdown(ph.say)}></div>
+        <!-- Paced and morphed rather than rendered here and re-assigned.
+             Morphed for the reason the live bubble always was: {@html}
+             rebuilds the paragraph on every token, which restarts any
+             animation in it and drops a selection mid-drag. Paced because the
+             text does not arrive at the speed it should be read at, and the
+             markdown pass belongs on a frame rather than on a chunk — the
+             action takes the raw text and owns both (streamPace.ts). -->
+        <div class="markdown-body phase-say" use:pacedStream={{ text: ph.say, onPaint: stickToBottom }}></div>
       {:else}
         <div class="markdown-body phase-say">{@html renderMarkdown(ph.say)}</div>
       {/if}
@@ -3062,7 +3076,14 @@
                 </button>
               </div>
               {#if livePanel === 'think'}
-                <div class="reasoning-body">{reasoningText}</div>
+                <!-- Paced like the answer, and for longer: this panel is open
+                     by default and a thinking model spends most of a turn
+                     writing into it, so it is the surface the reader watches
+                     most and the one the stutter was loudest on. Cheap to draw
+                     is not the same as smooth — the jitter is in the arrivals
+                     (streamPace.ts). Only the live one; the finished panels
+                     above draw their reasoning in full. -->
+                <div class="reasoning-body" use:pacedText={{ text: reasoningText, onPaint: stickToBottom }}></div>
               {/if}
             {/if}
             <!-- The checklist used to be drawn here, inside the live block, and

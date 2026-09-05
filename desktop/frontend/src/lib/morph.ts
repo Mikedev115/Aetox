@@ -97,11 +97,3 @@ function syncAttributes(oldEl: Element, newEl: Element): void {
     if (!newEl.hasAttribute(attr.name)) oldEl.removeAttribute(attr.name)
   }
 }
-
-/** Svelte action: `use:streamedHtml={html}` where `{@html html}` would go. */
-export function streamedHtml(node: HTMLElement, html: string) {
-  morphInto(node, html)
-  return {
-    update: (next: string) => morphInto(node, next),
-  }
-}
