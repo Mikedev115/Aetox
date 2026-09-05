@@ -1,0 +1,1339 @@
+<!-- ═══════════════════════════════════════════════════════════════════════
+     หน้าสำเร็จรูป · แฟชั่นเอดิทอเรียล — ทิศทาง `pa` (กระดาษ)
+     ═══════════════════════════════════════════════════════════════════════
+
+     ไฟล์เดียวจบ ไม่มี CDN ไม่มี build · ภาพอยู่ในโฟลเดอร์ `imgs/` ข้างไฟล์นี้
+
+     ── หน้านี้ยืมภาษาของสิ่งพิมพ์ ไม่ใช่ของเว็บ ────────────────────────
+     ลำดับไม่ได้เรียงตาม "คำถามที่ลูกค้าถาม" แบบหน้าอื่นในคลัง แต่เรียงแบบ
+     นิตยสาร: ปก → เรียงความ → ภาพชุด → ศึกษาชิ้นงาน → เสียงจากภายนอก →
+     บันทึก → ท้ายเล่ม
+     **ระบบเลขต้องปิดวง** — `w-he` ประกาศ "ฉบับที่ 04" และ `w-cp` ปิดท้าย
+     ด้วย "ฉบับที่ 04 · ปิดเล่ม ..." ถ้าเปลี่ยนเลขต้องเปลี่ยนทั้งสองที่
+     ไม่งั้นเลขฉบับกลายเป็นของประดับ
+
+     ── ใช้ `colophon` แทน footer ไม่ใช่เพิ่มจาก footer ─────────────────
+     หน้านี้ไม่มี `footer-glass.html` โดยตั้งใจ เอกสารหนึ่งฉบับมี landmark
+     `contentinfo` ได้อันเดียว ถ้าจะเอา footer ปกติมาใส่ด้วยต้องเปลี่ยน
+     `<footer class="w-cp">` เป็น `<section>` และตัดลิงก์ที่ซ้ำกันออก
+
+     ── สิ่งที่ต้องเปลี่ยนแน่นอน เรียงตามความเสี่ยง ────────────────────────
+     1. **`w-pq` (คำชมจากสื่อ)** — ถ้ายังไม่เคยมีสื่อเขียนถึงจริง
+        **ให้ลบทั้งส่วนทิ้ง** การแต่งคำชมแล้วใส่ชื่อหัวสื่อคือการแอบอ้าง
+        ชื่อคนอื่น ในไฟล์นี้เขียนชื่อสื่อไว้แบบทั่วไป ("นิตยสารแฟชั่นรายเดือน")
+        เพื่อไม่ให้เผลอปล่อยชื่อจริงออกไป — แต่นั่นก็ยังต้องเปลี่ยนอยู่ดี
+     2. **เครดิตใน `w-cp`** — ชื่อทุกคนต้องเป็นคนที่ทำงานนั้นจริงและยินยอม
+        หน้าท้ายเล่มมีอยู่เพื่อ *ให้* เครดิต การใส่ชื่อสมมติทำลายเหตุผลของมัน
+     3. **ตัวเลขใน `w-ss2`** — น้ำหนักผ้า จำนวนที่ผลิต ราคา ต้องเป็นของจริง
+        "120 ชิ้น มีเลขกำกับ" เป็นคำสัญญาที่คนซื้อจะตรวจตอนได้ของ
+     4. **ภาพทั้งหมด** เป็นภาพวางตำแหน่ง ต้องเป็นภาพถ่ายจริงของงานจริง
+        `alt` ทุกใบต้องเขียนใหม่ให้ตรงกับภาพจริง
+     5. **ที่อยู่ห้องตัดและหน้าร้าน** ใน `w-cp`
+
+     ── ค่าที่ผูกกับความยาวของคำ ต้องวัดใหม่เมื่อเปลี่ยนคำ ────────────────
+     `w-he h1` ตั้ง `clamp(32px,4.4vw,60px)` ไว้เพราะ "น้ำหนักที่เงียบ" กว้าง
+     ราว 390px ในคอลัมน์ 480px **เปลี่ยนหัวเรื่องแล้วต้องเปิดดูของจริง**
+     ว่า `<br>` ที่วางไว้ยังตัดบรรทัดตรงที่ตั้งใจหรือเปล่า
+     ═══════════════════════════════════════════════════════════════════ -->
+<!-- Page shell · ทิศทาง `pa` (กระดาษ) — เชลล์ใบที่สี่ของคลัง
+
+     ทำไมถึงมีอยู่
+     ─────────────
+     สามใบก่อนหน้าคือ `ed` (ขาว–เขียว ค่ากลาง) · `wm` (ครีม–เขียวป่า
+     สำหรับงานที่ความงามอยู่ที่ภาพถ่าย) · `st` (ขาว–ดำล้วน สำหรับงานที่
+     เดิมพันไว้กับขนาดตัวอักษร)
+
+     ใบนี้สำหรับงานที่ยืมภาษาของ **สิ่งพิมพ์** มาใช้ — แฟชั่น นิตยสาร
+     แบรนด์ที่ขายงานฝีมือ สิ่งที่ทำให้หน้าเว็บอ่านเป็นสิ่งพิมพ์ไม่ใช่ฟอนต์
+     เซริฟ (ซึ่งชั้น A เลือกไม่ได้ ด้วยเหตุผลเดียวกับที่บันทึกไว้ใน
+     `page-shell-warm.html`) แต่คือของสี่อย่างที่คุมได้จริง:
+
+       1. **พื้นเป็นสีกระดาษ ไม่ใช่สีขาว** ขาวบริสุทธิ์คือสีของหน้าจอ
+          ไม่ใช่สีของหน้ากระดาษ ความต่างแค่นี้เปลี่ยนทั้งอารมณ์
+       2. **สีเน้นเป็นสีหมึกพิมพ์** สนิม/อิฐ ไม่ใช่สีที่หน้าจอทำได้สวย
+          (ฟ้าสด เขียวนีออน) เพราะสีพวกนั้นไม่มีในโลกของหมึก
+       3. **ตัวเล็กช่องไฟกว้าง** สำหรับป้ายกำกับ — ดูโทเคน `--pa-label-track`
+       4. **ตัวเลขมีที่ของตัวเอง** เลขฉบับ เลขลุค เลขรูป ไม่ใช่การตกแต่ง
+          แต่เป็นระบบอ้างอิงที่ส่วนอื่นในหน้าชี้กลับมาได้
+
+     ── พาเลตต์ วัดแล้วทุกคู่ ────────────────────────────────────────────
+     | คู่ | สว่าง | มืด | เกณฑ์ |
+     |---|---|---|---|
+     | text / bg | 15.86:1 | 16.26:1 | 4.5 |
+     | muted / bg | 6.07:1 | 7.06:1 | 4.5 |
+     | muted / surface | 6.51:1 | 6.51:1 | 4.5 |
+     | accent / bg | 6.04:1 | 6.00:1 | 4.5 |
+     | accent / surface | 6.48:1 | 5.53:1 | 4.5 |
+     | accent-ink / accent | 6.48:1 | 6.00:1 | 4.5 |
+     | field / bg | 3.25:1 | 3.71:1 | 3.0 |
+     | field / surface | 3.48:1 | 3.42:1 | 3.0 |
+     | success / bg | 4.72:1 | 10.09:1 | 4.5 |
+     | warning / bg | 5.25:1 | 8.72:1 | 4.5 |
+     | danger / bg | 5.69:1 | 7.62:1 | 4.5 |
+
+     ตรวจ `accent/surface` ด้วย ไม่ใช่แค่ `accent/bg` เพราะทิศทางนี้ใช้สีเน้น
+     กับ **ป้ายกำกับตัวเล็ก** ซึ่งมักวางอยู่บนการ์ด ไม่ใช่บนพื้นหน้า
+     — บทเรียนเดียวกับที่ `page-shell-warm.html` เจอกับ `--field`:
+     เกณฑ์ต้องผ่านกับพื้นที่มันวางอยู่จริงทุกพื้น ไม่ใช่แค่พื้นหลัก
+
+     สีเน้นในโหมดสว่างคือ `#9e3a20` ไม่ใช่สนิมอ่อนกว่านั้น เพราะป้ายกำกับ
+     ในทิศทางนี้เป็นตัวขนาด 11–13px ซึ่ง WCAG นับเป็นตัวอักษรปกติ ต้องการ
+     4.5:1 ไม่ใช่ 3:1 แบบตัวใหญ่ สนิมที่สว่างกว่านี้ดูสวยกว่าแต่ตกเกณฑ์
+
+     ── สิ่งที่ต่างจากเชลล์อื่นนอกจากสี ──────────────────────────────────
+     · **เงาอุ่นขึ้น** ฐานเป็น `rgb(25 23 20)` เงาเทาอมฟ้าบนพื้นกระดาษอ่าน
+       เป็นคราบ ไม่ใช่เงา (เหตุผลเดียวกับเชลล์อบอุ่น)
+     · **โทเคน `--pa-label-track` และ `--pa-figure-track`** ดูคอมเมนต์ข้าง
+       โทเคนใน `<style>` ข้างล่าง
+
+     ── สิ่งที่เหมือนเชลล์อื่นเป๊ะ ────────────────────────────────────────
+     รีเซ็ต · แลนด์มาร์ก · คลังคำศัพท์การเคลื่อนไหวทั้งสิบคำ · `w-reveal` ·
+     `w-lift` · `w-btn` · สเกลรัศมี · สเกลระดับความสูง · ชุดสีข้อมูล
+     **หนึ่งหน้าใช้เชลล์ใบเดียว ห้ามใส่สองใบในเอกสารเดียวกัน** -->
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ห้องตัดเสื้อ · หน้าสำเร็จรูป</title>
+<meta name="description" content="ประโยคเดียวที่บอกว่าหน้านี้เกี่ยวกับอะไร">
+<style>
+  :root{
+    color-scheme:light dark;
+    --bg:#f4f1ea; --surface:#fbf9f4; --text:#191714; --muted:#5f5a51;
+    --line:#dfd9cd; --field:#8b857a; --accent:#9e3a20; --accent-ink:#fbf9f4;
+    --success:#0e7a58; --warning:#8a5a00; --danger:#b4291c;
+    /* รัศมี — สี่ขั้น ไม่ใช่เก้าค่าที่กะเอา ก่อนหน้านี้ในคลังมีรัศมีเล็กอยู่ห้าค่า
+       (6 7 8 9 10px) และทรงเม็ดยาเขียนสองแบบ (99px กับ 999px) ซึ่งไม่มีใครตั้งใจ
+       ให้ต่างกัน มันแค่ถูกพิมพ์คนละครั้ง */
+    --radius-sm:10px;      /* ของเล็กในการ์ด ป้าย ปุ่มไอคอน */
+    --radius:18px;         /* การ์ด แผง ช่องกรอก */
+    --radius-lg:26px;      /* กล่องเด่น แถบลอย ของที่ใหญ่กว่าครึ่งจอ */
+    --radius-pill:999px;   /* ทรงเม็ดยา ชิป สวิตช์ */
+    --maxw:1120px; --gap:clamp(16px,2.5vw,28px);
+    --pad:clamp(20px,5vw,48px);
+    /* ── ระดับความสูง สี่ขั้น ────────────────────────────────────────────
+       ทุกขั้นเป็นเงาสองชั้นเสมอ ไม่ใช่ชั้นเดียว
+         ชั้นแรก แคบและเข้ม  = เงาสัมผัส บอกว่าของวางอยู่บนพื้น
+         ชั้นสอง กว้างและจาง = เงาบรรยากาศ บอกว่ามันสูงแค่ไหน
+       เงาชั้นเดียวให้ได้อย่างใดอย่างหนึ่ง จึงออกมาเป็นได้แค่ "ลอย" หรือ "แปะ"
+       ไม่เคยเป็น "วางอยู่" ซึ่งเป็นสิ่งที่ตาคาดหวังจากของจริง
+
+       ระยะเบลอโตเป็นเท่าตัวทุกขั้น (6→18→36→68) ไม่ใช่บวกทีละนิด เพราะตาอ่าน
+       ความสูงเป็นสเกลลอการิทึม สองขั้นที่ห่างกัน 4px ตาแยกไม่ออกว่าอันไหนสูงกว่า
+
+       ค่า offset แนวตั้งเป็นครึ่งหนึ่งของเบลอเสมอ นั่นคือมุมแสงคงที่ทั้งระบบ
+       ของสองชิ้นบนหน้าเดียวกันที่เงาทอดคนละมุมคือสิ่งที่อ่านออกทันทีว่าผิด */
+    --e1:0 1px 2px -1px rgb(25 23 20/.10), 0 2px 6px -2px rgb(25 23 20/.08);
+    --e2:0 2px 4px -2px rgb(25 23 20/.10), 0 8px 18px -6px rgb(25 23 20/.12);
+    --e3:0 4px 8px -4px rgb(25 23 20/.12), 0 18px 36px -12px rgb(25 23 20/.18);
+    --e4:0 8px 16px -8px rgb(25 23 20/.16), 0 34px 68px -20px rgb(25 23 20/.26);
+    --sans:"Prompt","Leelawadee UI",system-ui,-apple-system,Segoe UI,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+    /* จังหวะการเคลื่อนไหว มาจาก STANDARD.md ข้อ 4 ไม่ใช่ค่าที่กะเอา ประกาศไว้
+       ที่เดียวเพื่อให้ทั้งหน้าเคลื่อนด้วยจังหวะเดียวกัน สองส่วนที่เข้าฉากคนละ
+       ความเร็วบนหน้าเดียวกันคือสิ่งที่อ่านออกทันทีว่าประกอบมาจากคนละที่ */
+    --ease-in:cubic-bezier(.2,.7,.3,1);   /* เข้าฉาก */
+    --ease-wipe:cubic-bezier(.7,0,.2,1);  /* กวาด */
+    --t-enter:.55s; --t-hover:.18s; --t-stagger:70ms;
+    /* ── โทเคนของทิศทาง `pa` (กระดาษ) ─────────────────────────────────
+       ทิศทางนี้ยืมภาษาของนิตยสารมา: เลขฉบับ · เลขลุค · คำบรรยายใต้ภาพ ·
+       รางแนวตั้งที่ขอบหน้า สิ่งที่ทำให้มันอ่านเป็นสิ่งพิมพ์ไม่ใช่ฟอนต์
+       (ซึ่งชั้น A เลือกไม่ได้) แต่คือ **ช่องไฟกว้างในตัวเล็ก** กับ
+       **ตัวเลขที่มีที่ของตัวเอง**
+
+       ช่องไฟ .2em ที่ 11–13px คือย่านที่ตัวอักษรยังต่อกันเป็นคำอยู่
+       เกิน .26em ตาเริ่มอ่านเป็นตัวอักษรเรียงเดี่ยว ต่ำกว่า .14em
+       ความเป็นสิ่งพิมพ์หายไปหมด — วัดบน Prompt ที่ 12px */
+    --pa-label-track:.2em;
+    --pa-figure-track:.06em;
+    /* สปริงสองตัว ไม่ได้กะด้วยตา — แก้สมการสปริงหน่วง (damped harmonic
+       oscillator) แล้วสุ่มค่าออกมา 22 จุด รายละเอียดที่มาอยู่ใน
+       sections/spring-physics.html ซึ่งมีตัวเทียบกับ cubic-bezier ให้ดูด้วย
+         แน่น  ζ=0.62 ωn=17.0 → เลยเป้า 8.3% นิ่งใน 0.42s  ใช้กับตัวควบคุมเล็ก
+         นุ่ม  ζ=0.72 ωn=12.5 → เลยเป้า 3.8% นิ่งใน 0.55s  ใช้กับแผงและกล่องใหญ่
+       ของใหญ่ต้องเลยเป้าน้อยกว่าเสมอ พื้นที่ยิ่งมาก ตายิ่งจับการแกว่งได้ชัด */
+    --ease-spring:linear(0, .0459 4.5%, .1585 9.1%, .3062 13.6%, .4646 18.2%,
+      .6165 22.7%, .7511 27.3%, .8625 31.8%, .9488 36.4%, 1.011 40.9%,
+      1.051 45.5%, 1.074 50%, 1.083 54.5%, 1.082 59.1%, 1.074 63.6%,
+      1.062 68.2%, 1.049 72.7%, 1.036 77.3%, 1.024 81.8%, 1.014 86.4%,
+      1.006 90.9%, 1.001 95.5%, 1);
+    --ease-spring-soft:linear(0, .0419 4.5%, .1434 9.1%, .2749 13.6%, .4153 18.2%,
+      .5505 22.7%, .6717 27.3%, .7746 31.8%, .8578 36.4%, .922 40.9%,
+      .9689 45.5%, 1.001 50%, 1.022 54.5%, 1.033 59.1%, 1.038 63.6%,
+      1.038 68.2%, 1.035 72.7%, 1.03 77.3%, 1.025 81.8%, 1.02 86.4%,
+      1.015 90.9%, 1.01 95.5%, 1);
+    --t-spring:.42s; --t-spring-soft:.55s;
+    /* สีสำหรับข้อมูล แยกจากสีสถานะข้างบนโดยตั้งใจ: สถานะบอกว่าเรื่องนี้ดีหรือแย่
+       ข้อมูลบอกแค่ว่านี่คนละชุดกับชุดนั้น ปนกันเมื่อไหร่กราฟจะพูดสิ่งที่ไม่ได้
+       ตั้งใจพูด ลำดับตายตัว ห้ามวนกลับ ชุดที่เจ็ดคือรวมเป็น "อื่น ๆ" ไม่ใช่สร้าง
+       สีใหม่ ทั้งหกค่านี้รันผ่าน validator ของสกิล dataviz แล้วทั้งสองโหมด —
+       แถบความสว่าง ความอิ่มสี ระยะห่างของคู่ที่ติดกันเมื่อมองด้วยตาบอดสี และ
+       คอนทราสต์กับพื้น ถ้าจะเปลี่ยนค่า ให้รัน validator ใหม่ อย่ากะด้วยตา */
+    --viz-1:#db2777; --viz-2:#2563eb; --viz-3:#16a34a;
+    --viz-4:#7c3aed; --viz-5:#d97706; --viz-6:#0d9488;
+    /* ไล่เฉดสีเดียวสำหรับปริมาณ อ่อนไปเข้ม ไม่ใช่รุ้ง */
+    --viz-s1:#dbeafe; --viz-s2:#bfdbfe; --viz-s3:#93b4f7;
+    --viz-s4:#4f83ee; --viz-s5:#1d4ed8;
+    /* ขึ้นกับลง เป็นสถานะ ไม่ใช่ชุดข้อมูล จึงยืมจาก success/danger */
+    --viz-up:var(--success); --viz-down:var(--danger);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){ color-scheme:dark;
+           --bg:#12100e; --surface:#1c1916; --text:#f1ede5; --muted:#a49d91;
+           --line:#2b2722; --field:#746d62; --accent:#e0714e; --accent-ink:#12100e;
+           --success:#5fd1a6; --warning:#e0a54a; --danger:#f08776;
+           /* บนพื้นมืด เงาดำแทบไม่มีผล เพราะพื้นก็ดำอยู่แล้ว จึงต้องเข้มขึ้นราวสามเท่า
+              และเพิ่มเส้นสว่างบางที่ขอบบน (inset) ซึ่งเป็นสิ่งที่บอกความสูงจริง ๆ
+              ในโหมดมืด ไม่ใช่เงา */
+           --e1:inset 0 1px 0 rgb(255 255 255/.04), 0 1px 2px -1px rgb(0 0 0/.55), 0 2px 6px -2px rgb(0 0 0/.45);
+           --e2:inset 0 1px 0 rgb(255 255 255/.05), 0 2px 4px -2px rgb(0 0 0/.55), 0 8px 18px -6px rgb(0 0 0/.5);
+           --e3:inset 0 1px 0 rgb(255 255 255/.06), 0 4px 8px -4px rgb(0 0 0/.6), 0 18px 36px -12px rgb(0 0 0/.55);
+           --e4:inset 0 1px 0 rgb(255 255 255/.07), 0 8px 16px -8px rgb(0 0 0/.65), 0 34px 68px -20px rgb(0 0 0/.6);
+           --viz-1:#e0538f; --viz-2:#4f7fe8; --viz-3:#25a463;
+           --viz-4:#8a6bea; --viz-5:#c1862c; --viz-6:#1ba38f;
+           --viz-s1:#182a4a; --viz-s2:#1e3a6b; --viz-s3:#2a539b;
+           --viz-s4:#3a6ecb; --viz-s5:#5b8cf7 }
+  }
+  /* Same values again, gated on an explicit choice rather than the OS
+     setting: sections/theme-toggle.html flips this attribute and remembers
+     it, for a page that wants a switch instead of only following the system. */
+  :root[data-theme="light"]{ color-scheme:light }
+  :root[data-theme="dark"]{ color-scheme:dark;
+         --bg:#12100e; --surface:#1c1916; --text:#f1ede5; --muted:#a49d91;
+         --line:#2b2722; --field:#746d62; --accent:#e0714e; --accent-ink:#12100e;
+         --success:#5fd1a6; --warning:#e0a54a; --danger:#f08776;
+         /* บนพื้นมืด เงาดำแทบไม่มีผล เพราะพื้นก็ดำอยู่แล้ว จึงต้องเข้มขึ้นราวสามเท่า
+            และเพิ่มเส้นสว่างบางที่ขอบบน (inset) ซึ่งเป็นสิ่งที่บอกความสูงจริง ๆ
+            ในโหมดมืด ไม่ใช่เงา */
+         --e1:inset 0 1px 0 rgb(255 255 255/.04), 0 1px 2px -1px rgb(0 0 0/.55), 0 2px 6px -2px rgb(0 0 0/.45);
+         --e2:inset 0 1px 0 rgb(255 255 255/.05), 0 2px 4px -2px rgb(0 0 0/.55), 0 8px 18px -6px rgb(0 0 0/.5);
+         --e3:inset 0 1px 0 rgb(255 255 255/.06), 0 4px 8px -4px rgb(0 0 0/.6), 0 18px 36px -12px rgb(0 0 0/.55);
+         --e4:inset 0 1px 0 rgb(255 255 255/.07), 0 8px 16px -8px rgb(0 0 0/.65), 0 34px 68px -20px rgb(0 0 0/.6);
+         --viz-1:#e0538f; --viz-2:#4f7fe8; --viz-3:#25a463;
+         --viz-4:#8a6bea; --viz-5:#c1862c; --viz-6:#1ba38f;
+         --viz-s1:#182a4a; --viz-s2:#1e3a6b; --viz-s3:#2a539b;
+         --viz-s4:#3a6ecb; --viz-s5:#5b8cf7 }
+  *,*::before,*::after{ box-sizing:border-box }
+  body,h1,h2,h3,h4,p,figure,blockquote,ul,ol,dl,dd{ margin:0 }
+  /* Lists inside a w- component are structure, not prose, so they lose their
+     markers. Scoped to the namespace rather than written as `ul[class]`: the
+     lists in these templates are plain <ul> inside a classed parent, and the
+     `ul[class]` idiom missed every one of them, which put bullet points down
+     the middle of the nav and the logo row the first time it was rendered.
+     Matched by prefix, not substring: `[class*="w-"]` alone would also catch
+     an unrelated class like `show-panel` or `arrow-nav` (both contain "w-")
+     and strip bullets from a list that has nothing to do with this skill. */
+  :is([class^="w-"],[class*=" w-"]) :where(ul,ol){ list-style:none; padding:0 }
+  /* Prose is the exception and asks for its markers back, because there a list
+     IS the content. */
+  .w-article .prose :where(ul,ol),.w-docs .body :where(ul,ol){
+    list-style:revert; padding-left:1.3em }
+  img,svg,video{ display:block; max-width:100%; height:auto }
+  body{ background:var(--bg); color:var(--text); font-family:var(--sans);
+        line-height:1.65; -webkit-font-smoothing:antialiased }
+  a{ color:inherit }
+  :where(a,button,input,textarea,select,summary):focus-visible{
+    outline:2px solid var(--accent); outline-offset:3px; border-radius:var(--radius-sm) }
+  .w-wrap{ width:100%; max-width:var(--maxw); margin-inline:auto; padding-inline:var(--pad) }
+  .w-section{ padding-block:clamp(48px,8vw,104px) }
+  .w-eyebrow{ color:var(--accent); font-weight:600; letter-spacing:.1em;
+              text-transform:uppercase; font-size:13px }
+  .w-lede{ color:var(--muted); font-size:clamp(16px,1.6vw,19px); max-width:62ch }
+  .w-btn{ display:inline-flex; align-items:center; gap:8px; border:1px solid var(--accent);
+          background:var(--accent); color:var(--accent-ink); text-decoration:none;
+          font:600 16px/1 var(--sans); padding:14px 24px; border-radius:var(--radius-pill) }
+  .w-btn--ghost{ background:transparent; color:var(--text); border-color:var(--field) }
+  /* For the rare label a sighted user does not need to see but a screen
+     reader must have — a compact search box, an icon-only control. Stays in
+     the tab order and the accessibility tree, unlike display:none. Prefer a
+     visible label over this one first; most fields in this library use one. */
+  .w-sr-only{
+    position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
+    clip-path:inset(50%); overflow:hidden; white-space:nowrap;
+  }
+  .w-skip{ position:absolute; left:-9999px }
+  .w-skip:focus{ left:12px; top:12px; z-index:99; background:var(--bg); padding:10px 14px }
+
+  /* ── คลังคำศัพท์การเคลื่อนไหว ─────────────────────────────────────────────
+     STANDARD.md ข้อ 4 สั่งว่า "ประกาศครั้งเดียว ใช้ซ้ำทุกที่ ชื่อคือสัญญา ไม่ใช่
+     การตกแต่ง" ที่นี่คือครั้งเดียวนั้น ส่วนที่เขียน animation:w-grow จึงแปลว่า
+     "นี่คือแท่งกราฟ" ไม่ใช่แค่ "ของที่ขยับ" และคนอ่านโค้ดรู้ทันทีว่าจะเห็นอะไร
+
+     คีย์เฟรมประกาศนอกด่าน prefers-reduced-motion ได้ เพราะคีย์เฟรมเปล่า ๆ ไม่
+     ทำให้อะไรขยับ สิ่งที่ต้องอยู่หลังด่านคือจุดที่ "เรียกใช้" ซึ่งอยู่ในไฟล์ของ
+     แต่ละส่วน แบบเดียวกับที่ backgrounds.html กับ dialog.html ทำอยู่แล้ว
+
+     w-rise ขยับ transform อย่างเดียว ไม่แตะ opacity โดยตั้งใจ — กับดักข้อแรกใน
+     STANDARD.md ข้อ 5 บันทึกไว้ว่าเข้าฉากที่เริ่มจาก opacity:0 ทำให้เฟรมแรกของ
+     หน้าว่าง และภาพย่อที่เรนเดอร์จากเฟรมแรกออกมาเป็นหน้าเปล่า */
+  @keyframes w-rise { from{ transform:translateY(14px) } }
+  /* ต้องเขียน to ให้ครบ ห้ามปล่อยให้เบราว์เซอร์เติมจากค่าเดิมของ element เอง:
+     ค่าเดิมของ clip-path คือ none ซึ่งคำนวณระหว่างทางกับ inset() ไม่ได้ ผลคือ
+     มันกระโดดจากปิดสนิทเป็นเปิดสนิทที่ครึ่งทาง ไม่ได้กวาด จับได้ตอนเปิดดูของ
+     จริงเท่านั้น เพราะเช็คจากโค้ดแล้วเห็นชื่อ w-wipe ติดอยู่ครบทุกที่ */
+  @keyframes w-wipe { from{ clip-path:inset(0 100% 0 0) }
+                      to  { clip-path:inset(0 0 0 0) } }
+  @keyframes w-lift { to  { transform:translateY(-3px) } }
+  @keyframes w-slide{ to  { transform:translateX(-50%) } }
+  @keyframes w-drift{ to  { transform:translate3d(4%,-3%,0) scale(1.12) } }
+  @keyframes w-sheen{ from{ background-position:-140% 0 } to{ background-position:240% 0 } }
+  /* งอกจากฐาน แกนไหนก็ได้: ตั้ง --grow-x / --grow-y ที่ตัวที่เรียกใช้ แล้วตั้ง
+     transform-origin ให้ตรงกับฐานจริงของแท่งนั้น ค่าเริ่มต้นคือแท่งแนวตั้ง
+     (--grow-y:0) เพราะเป็นทรงที่พบบ่อยกว่า ส่วนแท่งแนวนอนตั้ง --grow-x:0
+     --grow-y:1 ที่จะแยกเป็น w-grow-x ต่างหากก็ได้ แต่ข้อ 4 บอกว่าชื่อคือสัญญา
+     และสัญญาของคำนี้คือ "งอกจากฐาน" ซึ่งเป็นเรื่องเดียวกันทั้งสองแกน */
+  @keyframes w-grow { from{ transform:scale(var(--grow-x,1),var(--grow-y,0)) } }
+  @keyframes w-draw { from{ stroke-dashoffset:1000 } }   /* คู่กับ pathLength="1000" */
+  @keyframes w-spin { to  { transform:rotate(360deg) } }
+  @keyframes w-blink{ 50% { opacity:.25 } }
+
+  /* การ์ดที่ลอยขึ้นตอนชี้ ใช้ซ้ำได้ทุกส่วนด้วยการเติมคลาส `w-lift` ไม่ต้องเขียน
+     ซ้ำแปดไฟล์ สีขอบกับเงาเปลี่ยนนอกด่าน การขยับอยู่ในด่าน — คนที่ปิดการ
+     เคลื่อนไหวจึงยังได้ผลตอบกลับว่าชี้โดนอะไรอยู่ แค่ไม่มีอะไรกระโดด
+
+     ที่ต้องมีเงาด้วย ไม่ใช่แค่สีขอบ: การ์ดบางใบในคลังนี้ไม่มีขอบเลย (เช่นคนใน
+     team.html) ถ้าผลตอบกลับมีแต่ border-color ใบพวกนั้นจะไม่มีอะไรตอบเลยสำหรับ
+     คนที่ปิดการเคลื่อนไหว เงาทำงานได้ทั้งใบที่มีขอบและไม่มี */
+  .w-lift{ transition:border-color var(--t-hover) linear, box-shadow var(--t-hover) linear }
+  .w-lift:hover{ border-color:color-mix(in srgb,var(--accent) 42%,var(--line));
+                 box-shadow:var(--e2) }
+
+  /* แสงกวาดผ่านปุ่มหลักตอนชี้ ใช้ currentColor จึงถูกทั้งปุ่มทึบ (กวาดสว่างบนพื้น
+     เข้ม) และปุ่มโปร่ง (กวาดตามสีตัวหนังสือ) โดยไม่ต้องแยกกฎ เครื่องที่ไม่รู้จัก
+     color-mix จะทิ้งทั้ง background ทิ้งไป ปุ่มก็เหลือเป็นปุ่มปกติ ไม่ใช่จอดำ */
+  .w-btn{ position:relative; overflow:hidden; isolation:isolate }
+  .w-btn::after{ content:""; position:absolute; inset:0; z-index:-1; pointer-events:none;
+    background:linear-gradient(100deg, transparent 34%,
+      color-mix(in srgb,currentColor 24%,transparent) 50%, transparent 66%);
+    background-size:240% 100%; background-repeat:no-repeat; background-position:-140% 0 }
+
+  /* เข้าฉากตอนเลื่อนถึง เติมคลาส `w-reveal` ที่บล็อกไหนก็ได้
+     ใช้ animation-timeline:view() แทน IntersectionObserver + สคริปต์ เพราะ
+     ตำแหน่งของกล้องคือสิ่งที่เบราว์เซอร์รู้ดีอยู่แล้ว ไม่ต้องถามมันทีละเฟรม
+     สามด่านซ้อนกันตามที่ STANDARD.md ข้อ 2 สั่งไว้ว่าของใหม่ต้องมีทางลง:
+       1. prefers-reduced-motion — คนที่ปิดการเคลื่อนไหวไม่เจออะไรเลย
+       2. @supports (animation-timeline:view()) — เครื่องที่ไม่รองรับข้ามทั้งก้อน
+       3. ท่าที่ใช้คือ w-rise ซึ่งขยับ transform อย่างเดียว
+     สิ่งที่เหลือเมื่อทั้งสามด่านไม่ผ่านคือบล็อกที่มองเห็นครบตามปกติ ไม่ใช่ที่ว่าง
+     ซึ่งเป็นความต่างระหว่าง "ทางลง" กับ "ทางตัน" */
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      .w-reveal{ animation:w-rise linear both;
+                 animation-timeline:view(); animation-range:entry 8% cover 26% }
+    }
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    html{ scroll-behavior:smooth }
+    .w-lift{ transition:transform var(--t-hover) var(--ease-in),
+                        border-color var(--t-hover) linear,
+                        box-shadow var(--t-hover) linear }
+    .w-lift:hover{ transform:translateY(-3px); box-shadow:var(--e3) }
+    .w-btn:hover::after,.w-btn:focus-visible::after{ animation:w-sheen .7s var(--ease-wipe) }
+  }
+</style>
+</head>
+<body>
+<a class="w-skip" href="#main">ข้ามไปเนื้อหา</a>
+<!-- nav.html here -->
+
+<!-- Nav · ทิศทาง `gl` (กระจก) — แคปซูลลอยเหนือเนื้อหา
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี nav.html แล้ว
+     ───────────────────────────────────────────
+     `nav.html` เป็นแถบเต็มความกว้างที่ติดขอบบน มีเส้นคั่นใต้ตัวเอง และมีพื้น
+     ทึบ ซึ่งถูกสำหรับหน้าที่เนื้อหาเริ่มทันทีใต้แถบ — แถบคือ *ขอบ* ของหน้า
+
+     แต่ทรง `hero-product.html` มีพื้นบรรยากาศเต็มความกว้างอยู่ข้างหลัง
+     แถบทึบเต็มความกว้างจะตัดฟ้าออกเป็นสองท่อนตรงบรรทัดแรก ซึ่งเป็นสิ่งแรก
+     ที่คนเห็น แคปซูลลอยแก้ข้อนี้เพราะมันเป็น *ของที่วางอยู่บน* หน้า ไม่ใช่
+     ขอบของหน้า ฟ้าจึงต่อเนื่องผ่านใต้มันไป
+
+     เลือกจากคำถามเดียว: **ข้างหลังแถบมีอะไรที่ต้องมองทะลุไหม**
+     ถ้าไม่มี ใช้ `nav.html` เพราะเบากว่าและไม่ต้องมี `backdrop-filter`
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **`top:12px` ไม่ใช่ `top:0`** เพราะแคปซูลต้องมีอากาศรอบตัวถึงจะอ่านเป็น
+       ของที่ลอย ที่ 0 มันชนขอบจอแล้วกลับไปอ่านเป็นแถบ 12px คือระยะที่เล็ก
+       พอที่ไม่กินพื้นที่เหนือเส้นพับ และใหญ่พอให้เงา `--e3` (เบลอ 36px)
+       มีที่ให้ตกโดยไม่ถูกขอบจอตัด
+     · **ความกว้างสูงสุด 920px ไม่ใช่ `--maxw` 1120px** เพราะแคปซูลที่กว้าง
+       เท่าเนื้อหาจะอ่านเป็นแถบอีกครั้ง 920 คือจุดที่ยังเหลือขอบข้างละ 100px
+       ที่ 1120 ซึ่งเป็นระยะที่ตาแยกออกว่ามันแคบกว่าเนื้อหาข้างล่าง
+     · **`padding:8px 8px 8px 20px`** ไม่สมมาตรโดยตั้งใจ: ข้างขวามีปุ่มที่มี
+       พื้นของตัวเองอยู่แล้ว ระยะ 8px จึงพอ ส่วนข้างซ้ายเป็นตัวอักษรเปล่า
+       ต้องการ 20px ถึงจะดูห่างขอบเท่ากัน — เป็นระยะที่ตาเห็น ไม่ใช่ระยะที่วัด
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`position:sticky` บนตัว `<nav>` ที่อยู่ใน `<div>` ที่มี `overflow`** —
+        ไม่ติดหนึบเลย ไหลไปกับหน้า sticky ตายทันทีที่บรรพบุรุษตัวใดตัวหนึ่ง
+        มี overflow ที่ไม่ใช่ visible ที่นี่จึงวางแถบไว้นอก `<main>` ตรง ๆ
+     2. **เมนูมือถือใช้ `display:none` → `flex`** — transition ไม่ทำงานกับ
+        `display` ตรง ๆ ลองใช้ `max-height` แล้วต้องเดาความสูงล่วงหน้า เมนูที่
+        ยาวกว่าที่เดาจะถูกตัด ทางที่ใช้จริงคือ animation ที่เล่นตอน `:checked`
+        ซึ่งเริ่มหลัง display เปลี่ยนไปแล้ว จึงไม่ต้องรู้ความสูงเลย
+        (วิธีเดียวกับ `nav.html` — ท่า `w-navp-drop` ประกาศในไฟล์นี้เพราะใช้
+        ที่เดียว)
+     3. **ให้แผงเมนูมือถืออยู่ในแคปซูลเดียวกัน** — แคปซูลยืดสูงขึ้นเป็นกล่อง
+        มุมมนที่ไม่ใช่แคปซูลอีกต่อไป แยกออกมาเป็นแผ่นที่สองใต้แคปซูลแทน
+        ซึ่งเป็นสิ่งที่ทิศทาง `gl` ทำอยู่แล้ว — แผ่นโปร่งซ้อนกัน
+     4. **`backdrop-filter` โดยไม่มีพื้นสำรอง** — บนเอนจินที่ไม่รองรับ แคปซูล
+        กลายเป็นใส ตัวหนังสือทับฟ้าจนอ่านไม่ออก ตอนนี้พื้นเริ่มที่ 76% ทึบ
+        อยู่แล้ว แล้วค่อยเพิ่มความเบลอด้วย `@supports` -->
+<style>
+  .w-navp{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 13%,transparent);
+    position:sticky; top:12px; z-index:30; padding-top:12px;
+  }
+  .w-navp .bar{
+    display:flex; align-items:center; gap:clamp(10px,2vw,22px);
+    max-width:920px; margin-inline:auto;
+    padding:8px 8px 8px 20px; min-height:56px;
+    border:1px solid var(--gl-edge); border-radius:var(--radius-pill);
+    background:var(--gl-pane); box-shadow:var(--e3);
+  }
+  @supports (backdrop-filter:blur(4px)){
+    .w-navp .bar{ backdrop-filter:blur(14px) }
+  }
+  .w-navp .mark{ display:flex; align-items:center; gap:9px; text-decoration:none;
+                 font:700 17px/1 var(--sans); letter-spacing:-.02em; flex:none }
+  .w-navp .mark i{ width:22px; height:22px; border-radius:7px; flex:none;
+                   background:var(--accent) }
+  .w-navp ul{ display:flex; align-items:center; gap:clamp(6px,1.4vw,14px);
+              margin-inline:auto }
+  .w-navp ul a{ display:block; text-decoration:none; color:var(--muted);
+                font-size:15px; padding:8px 12px; border-radius:var(--radius-pill) }
+  .w-navp ul a:hover,.w-navp ul a[aria-current="page"]{
+    color:var(--text); background:color-mix(in srgb,var(--text) 7%,transparent) }
+  .w-navp .w-btn{ padding:11px 12px 11px 20px; font-size:15px; flex:none }
+  .w-navp .w-btn .badge{ display:inline-flex; align-items:center; justify-content:center;
+    width:24px; height:24px; border-radius:50%;
+    background:var(--accent-ink); color:var(--accent) }
+  .w-navp .w-btn .badge svg{ width:11px; height:11px }
+
+  /* ── เมนูมือถือ ไม่มีสคริปต์ ───────────────────────────────────────── */
+  .w-navp .toggle{ position:absolute; width:1px; height:1px; margin:-1px;
+                   clip-path:inset(50%); overflow:hidden }
+  .w-navp .burger{ display:none; cursor:pointer; flex:none;
+    width:40px; height:40px; border-radius:50%; background:var(--text);
+    align-items:center; justify-content:center; gap:4px; flex-direction:column }
+  .w-navp .burger i{ width:15px; height:2px; border-radius:2px; background:var(--bg) }
+  .w-navp .toggle:focus-visible ~ .bar .burger{
+    outline:2px solid var(--accent); outline-offset:3px }
+  /* แผงเมนูเป็นแผ่นที่สอง ใต้แคปซูล ไม่ได้ยืดแคปซูลให้สูงขึ้น — ดูข้อ 3 */
+  .w-navp .drop{ display:none; max-width:920px; margin:8px auto 0; padding:10px;
+    border:1px solid var(--gl-edge); border-radius:var(--radius);
+    background:var(--gl-pane); box-shadow:var(--e3) }
+  @supports (backdrop-filter:blur(4px)){ .w-navp .drop{ backdrop-filter:blur(14px) } }
+  .w-navp .drop ul{ display:grid; gap:2px; margin:0 }
+  .w-navp .drop a{ padding:12px 14px; font-size:16px; border-radius:var(--radius-sm) }
+  .w-navp .toggle:checked ~ .drop{ display:block }
+
+  @media (max-width:860px){
+    .w-navp .bar > ul{ display:none }
+    .w-navp .bar .w-btn{ display:none }
+    .w-navp .burger{ display:flex }
+    .w-navp .mark{ margin-inline-end:auto }
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-navp ul a{ transition:background var(--t-hover) linear, color var(--t-hover) linear }
+    .w-navp .toggle:checked ~ .drop{ animation:w-navp-drop .3s var(--ease-in) }
+    /* เงาเข้มขึ้นตามระยะที่เลื่อน ผูกกับ animation-timeline:scroll() ไม่ใช่
+       scroll listener แคปซูลที่ลอยอยู่บนเนื้อหาโดยเงาไม่เปลี่ยนเลยจะดูเหมือน
+       ติดอยู่กับหน้า ไม่ใช่ลอยอยู่เหนือมัน 140px แรกคือระยะที่หัวเรื่องแรก
+       เริ่มลอดใต้แคปซูลพอดีที่ 900px */
+    @supports (animation-timeline:scroll()){
+      .w-navp .bar{ animation-name:w-navp-raise; animation-timing-function:linear;
+        animation-fill-mode:both;
+        animation-timeline:scroll(); animation-range:0 140px }
+    }
+  }
+  @keyframes w-navp-drop{ from{ transform:translateY(-8px) } }
+  @keyframes w-navp-raise{ to{ box-shadow:var(--e4) } }
+</style>
+
+<div class="w-navp">
+  <div class="w-wrap">
+    <input class="toggle" type="checkbox" id="w-navp-open" aria-label="เปิดเมนู">
+    <nav class="bar" aria-label="หลัก">
+      <a class="mark" href="#"><i></i>แบรนด์</a>
+      <ul>
+        <li><a href="#lookbook">ลุคบุ๊ก</a></li>
+        <li><a href="#story">เรื่องของฤดูกาล</a></li>
+        <li><a href="#study">ศึกษาชิ้นงาน</a></li>
+        <li><a href="#journal">บันทึก</a></li>
+      </ul>
+      <a class="w-btn" href="#contact">นัดลองที่ห้องตัด<span class="badge"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h9M8.5 4.2 12.6 8l-4.1 3.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+      <label class="burger" for="w-navp-open"><i></i><i></i></label>
+    </nav>
+    <div class="drop">
+      <ul>
+        <li><a href="#lookbook">ลุคบุ๊ก</a></li>
+        <li><a href="#story">เรื่องของฤดูกาล</a></li>
+        <li><a href="#study">ศึกษาชิ้นงาน</a></li>
+        <li><a href="#journal">บันทึก</a></li>
+        <li><a href="#contact">นัดลองที่ห้องตัด</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<main id="main">
+<!-- Hero · ทิศทาง `pa` (กระดาษ) — หน้าปกที่มีเลขฉบับ
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี hero อีกสี่ทรงแล้ว
+     ────────────────────────────────────────────────
+     สี่ทรงก่อนหน้าทั้งหมดวางข้อความไว้ *กลาง* หรือ *บน* ของหน้า และวางภาพไว้
+     เป็นพื้นหลังหรือของที่ตามมา ทรงนี้ทำสิ่งที่สิ่งพิมพ์ทำ: **แบ่งหน้าเป็น
+     สองคอลัมน์ที่ไม่เท่ากัน** แล้วให้ภาพกินคอลัมน์ใหญ่ตั้งแต่ขอบบนถึงขอบล่าง
+     โดยไม่มีข้อความทับเลยสักตัว
+
+     ความต่างนี้ไม่ใช่รสนิยม มันเปลี่ยนสิ่งที่ภาพทำได้: ภาพที่มีข้อความทับต้อง
+     เลือกภาพที่มีที่ว่าง ส่วนภาพที่ไม่มีอะไรทับใช้ภาพที่คนอยู่กลางเฟรมได้
+     ซึ่งเป็นภาพแฟชั่นเกือบทั้งหมด
+
+     ของสามอย่างที่ทรงนี้มีแล้วทรงอื่นไม่มี:
+       · **เลขฉบับ** — ระบบอ้างอิงที่ส่วนอื่นในหน้าชี้กลับมาได้ ("แคมเปญ 04")
+       · **รางแนวตั้ง** ที่ขอบซ้าย เขียนฤดูกาล หมุน 180° เขียนจากล่างขึ้นบน
+       · **คำบรรยายใต้ภาพ** ที่ชิดขวา ซึ่งเป็นเนื้อหาจริง ไม่ใช่ `alt`
+
+     ค่าที่วัดมา
+     ───────────
+     · **คอลัมน์ `minmax(0,.72fr) minmax(0,1fr)`** — ข้อความได้ 42% ภาพได้ 58%
+       ไม่ใช่ครึ่งต่อครึ่ง เพราะครึ่งต่อครึ่งอ่านเป็นตารางสองช่อง ไม่ใช่หน้า
+       ที่มีลำดับ
+     · **รางแนวตั้งหมุน `180deg` กับ `writing-mode:vertical-rl`** ไม่ใช่
+       `rotate(-90deg)` เพราะ `writing-mode` ทำให้ตัวอักษรไทยเรียงถูกต้อง
+       ตามหลักการเขียนแนวตั้ง ส่วน `rotate` หมุนทั้งกล่องแล้วความสูงของกล่อง
+       ยังคำนวณเป็นแนวนอนอยู่ ซึ่งทำให้เลย์เอาต์รอบข้างพัง
+     · **`aspect-ratio:4/5` ที่ภาพ** — สัดส่วนของฟิล์ม 645 ซึ่งเป็นฟอร์แมต
+       ที่ถ่ายแฟชั่นจริงใช้ ภาพ 16/9 ในทรงนี้จะเตี้ยกว่าคอลัมน์ข้อความมาก
+     · **`--pa-label-track` = .2em** ที่ป้ายเลขฉบับ ค่าจากเชลล์ ไม่ได้ตั้งเอง
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`transform:rotate(-90deg)` ที่รางแนวตั้ง** — กล่องยังกินความกว้าง
+        เท่าข้อความก่อนหมุน ซึ่งยาว 180px แล้วดันคอลัมน์ข้อความหลักหายไป
+        ครึ่งหนึ่ง `writing-mode` แก้ที่ต้นเหตุเพราะมันเปลี่ยนการคำนวณกล่องด้วย
+     2. **`position:absolute` ที่รางแนวตั้ง** — หายไปตอนพับเป็นคอลัมน์เดียว
+        แล้วฤดูกาลไม่ปรากฏที่ไหนเลยบนมือถือ ตอนนี้เป็นคอลัมน์จริงในกริดที่
+        เปลี่ยนเป็นแถวแนวนอนธรรมดาที่ต่ำกว่า 900px
+     3. **คำบรรยายใต้ภาพชิดขวาด้วย `float:right`** — ล้นออกนอกกริดตอนข้อความ
+        ยาวสองบรรทัด ใช้ `text-align:end` กับ `max-width` แทน
+     4. **ให้ `<h1>` มี `text-wrap:balance`** — ในทรงนี้การตัดบรรทัดคือการ
+        ออกแบบ ("The Quiet / Weight of Cloth") `balance` จะไปจัดใหม่เอง
+        ที่นี่จึงใช้ `<br>` ที่ตั้งใจ แล้วปิด balance -->
+<style>
+  .w-he{ padding-block:0 }
+  .w-he .grid{ display:grid; gap:clamp(20px,3vw,36px) }
+  @media (min-width:900px){
+    .w-he .grid{ grid-template-columns:auto minmax(0,.72fr) minmax(0,1fr);
+                 align-items:stretch }
+  }
+
+  /* รางแนวตั้ง — writing-mode ไม่ใช่ rotate ดูเหตุผลข้อ 1 */
+  .w-he .rail{ display:flex; align-items:flex-end; justify-content:flex-start;
+               font:600 12px/1 var(--sans); letter-spacing:var(--pa-label-track,.2em);
+               text-transform:uppercase; color:var(--muted) }
+  @media (min-width:900px){
+    .w-he .rail{ writing-mode:vertical-rl; transform:rotate(180deg);
+                 padding-block:clamp(24px,4vw,48px) }
+  }
+
+  .w-he .lead{ display:flex; flex-direction:column;
+               padding-block:clamp(28px,5vw,64px) }
+  .w-he .issue{ display:flex; flex-wrap:wrap; align-items:baseline; gap:8px;
+                font:600 12px/1.6 var(--sans);
+                letter-spacing:var(--pa-label-track,.2em); text-transform:uppercase }
+  .w-he .issue .no{ color:var(--muted) }
+  .w-he .issue .name{ color:var(--accent) }
+  /* ไม่ใช้ text-wrap:balance เพราะการตัดบรรทัดคือการออกแบบ — ดูข้อ 4 */
+  /* 4.4vw ไม่ใช่ 5.6 — คอลัมน์ข้อความได้ .72fr ของ 1120px ลบรางแนวตั้ง
+     เหลือราว 480px ที่ 5.6vw บนจอ 1280 ได้ตัวอักษร 71px ซึ่งทำให้
+     "น้ำหนักที่เงียบ" กว้างราว 500px แล้วตัดบรรทัดเองเป็นสี่บรรทัด
+     ทั้งที่ตั้งใจให้เป็นสอง — `<br>` ที่วางไว้จึงไม่มีความหมาย
+     ที่ 4.4vw ได้ 56px กว้างราว 390px ซึ่งอยู่ในคอลัมน์พอดี
+     **เปลี่ยนคำในหัวเรื่องแล้วต้องวัดใหม่** เพราะค่านี้ผูกกับความยาวของคำ */
+  .w-he h1{ margin-top:clamp(20px,3vw,34px);
+            font-size:clamp(32px,4.4vw,60px); line-height:1.16;
+            letter-spacing:var(--pa-figure-track,.06em); font-weight:400;
+            text-wrap:normal }
+  .w-he .sub{ margin-top:auto; padding-top:clamp(24px,4vw,44px);
+              color:var(--muted); font-size:15px; line-height:1.7; max-width:44ch }
+  .w-he .acts{ display:flex; flex-wrap:wrap; gap:12px; margin-top:22px }
+
+  .w-he figure{ margin:0; display:flex; flex-direction:column }
+  .w-he img{ display:block; width:100%; aspect-ratio:4/5; object-fit:cover;
+             background:var(--surface) }
+  .w-he figcaption{ margin-top:12px; text-align:end; margin-inline-start:auto;
+                    max-width:46ch; color:var(--muted);
+                    font-size:13px; line-height:1.7 }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-he .issue,.w-he h1,.w-he .sub,.w-he .acts{
+      animation:w-rise var(--t-enter) var(--ease-in) both }
+    .w-he h1{ animation-delay:calc(var(--t-stagger)*1) }
+    .w-he .sub{ animation-delay:calc(var(--t-stagger)*2) }
+    .w-he .acts{ animation-delay:calc(var(--t-stagger)*3) }
+    /* ภาพเผยตัวจากล่างขึ้นบน — ท่า wipe แนวตั้ง ประกาศเองเพราะใช้ที่เดียว */
+    .w-he figure{ overflow:hidden }
+    .w-he img{ animation:w-he-reveal .9s var(--ease-wipe) both;
+               animation-delay:calc(var(--t-stagger)*2) }
+  }
+  @keyframes w-he-reveal{ from{ clip-path:inset(100% 0 0 0) }
+                          to  { clip-path:inset(0 0 0 0) } }
+</style>
+
+<section class="w-section w-he">
+  <div class="w-wrap grid">
+    <p class="rail">ฤดูใบไม้ร่วง — ฤดูหนาว 2569</p>
+
+    <div class="lead">
+      <p class="issue"><span class="no">ฉบับที่ 04</span> — <span class="name">แคมเปญ</span></p>
+      <h1>น้ำหนักที่เงียบ<br>ของผ้าหนึ่งผืน</h1>
+      <p class="sub">ยี่สิบสองลุค ผ้าสามชนิด ข้อโต้แย้งเดียว — ว่าความยับยั้งชั่งใจคือวัสดุที่แพงที่สุด ถ่ายที่โรงงานทอในลำพูน เดือนมิถุนายน 2569</p>
+      <div class="acts">
+        <a class="w-btn" href="#lookbook">ดูลุคทั้งหมด</a>
+        <a class="w-btn w-btn--ghost" href="#journal">อ่านบันทึกห้องตัด</a>
+      </div>
+    </div>
+
+    <figure>
+      <img src="imgs/look-01.jpg" alt="เสื้อคลุมผ้าขนสัตว์ทอมือ ถ่ายกลางแดดจัดกับพื้นหลังท้องฟ้า"
+           width="1200" height="1500" fetchpriority="high">
+      <figcaption>ลุค 01 — เสื้อคลุมผ้าขนสัตว์ทอมือ เย็บมือทั้งตัวที่ห้องตัดในลำพูน ถ่ายนอกสถานที่ มิถุนายน 2569</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- Seasonal story · ทิศทาง `pa` (กระดาษ) — เรียงความสามตอน จบด้วยคำประกาศ
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี story-split.html แล้ว
+     ───────────────────────────────────────────────────
+     `story-split.html` คือย่อหน้าสามสี่ย่อหน้าคู่กับภาพหนึ่งใบ ซึ่งเป็นความ
+     ยาวที่ถูกสำหรับ "ที่นี่เริ่มจากอะไร" ในหน้าที่มีของอื่นให้อ่านอีกเยอะ
+
+     ส่วนนี้ยาวกว่านั้นและมีโครงคนละแบบ: **สามตอนที่มีเลขกำกับ** ซึ่งแต่ละตอน
+     พูดเรื่องเดียวจบในตัว แล้วรวมกันเป็นข้อโต้แย้งเดียว โครงนี้มาจากบทความ
+     นิตยสาร ไม่ใช่จากหน้าเว็บ และมันได้เปรียบตรงที่ **คนอ่านตอนเดียวแล้ว
+     หยุดได้โดยไม่รู้สึกว่าอ่านไม่จบ** ซึ่งเป็นสิ่งที่ย่อหน้าต่อกันยาว ๆ ทำไม่ได้
+
+     เลขตอนเป็นเลขโรมัน (I. II. III.) ไม่ใช่เลขอารบิก เพราะเลขอารบิกในหน้าที่
+     มี "ฉบับที่ 04" กับ "ลุค 05" อยู่แล้วจะปนกัน — เลขโรมันบอกทันทีว่านี่คือ
+     ลำดับของ *การอ่าน* ไม่ใช่ลำดับของ *ของ*
+
+     ปิดท้ายด้วยคำประกาศเต็มความกว้าง ซึ่งเป็นของที่ต้องอยู่ในไฟล์เดียวกันกับ
+     เรียงความ ไม่ใช่แยกไฟล์: มันคือข้อสรุปของสามตอนข้างบน คำประกาศที่ลอย
+     อยู่คนเดียวโดยไม่มีอะไรนำคือสโลแกน ซึ่งเป็นคนละอย่าง
+
+     ค่าที่วัดมา
+     ───────────
+     · **สามตอน ไม่ใช่ห้า** สามคือจำนวนที่ยังอ่านครบได้ในหนึ่งหน้าจอครึ่ง
+       และเป็นจำนวนที่ข้อโต้แย้งหนึ่งข้อรองรับได้จริง — ห้าตอนแปลว่ามีสอง
+       ข้อโต้แย้งปนกันอยู่
+     · **ความกว้างย่อหน้า 62ch** ไม่ใช่ 70 เพราะทิศทางนี้ตั้งใจให้บรรทัดสั้น
+       แบบคอลัมน์นิตยสาร ที่ 62ch บนตัวอักษร 17px ได้ราว 620px
+     · **เลขตอนอยู่ในคอลัมน์ของตัวเองกว้าง 4rem** ไม่ใช่ inline กับหัวข้อ
+       เพราะเมื่อหัวข้อยาวสองบรรทัด เลขที่ inline จะไปอยู่กลางความสูงนั้น
+       ซึ่งอ่านว่าไม่ตรงกับบรรทัดไหน
+     · **คำประกาศ `clamp(24px,3.4vw,42px)` และกว้างไม่เกิน 26ch**
+       เกินกว่านั้นมันกลายเป็นย่อหน้าใหญ่ ไม่ใช่ประโยคเดียวที่ตั้งใจให้จำ
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`counter()` สำหรับเลขโรมัน** (`list-style-type:upper-roman`) —
+        ควบคุมช่องไฟกับสีไม่ได้ และหายไปเมื่อ `list-style:none` ของ shell
+        จับ `<ol>` ในสายของคลาส `w-` เขียนเลขลงมาร์กอัปตรง ๆ เพราะที่นี่
+        เลขคือเนื้อหา
+     2. **ให้คำประกาศเป็น `<blockquote>`** — มันไม่ใช่คำพูดที่ยกมาจากที่อื่น
+        มันคือคำพูดของเจ้าของหน้าเอง `<p>` ที่ใหญ่กับ `<cite>` ต่อท้ายตรงกว่า
+     3. **เส้นคั่นระหว่างตอนเป็น `hr`** — `hr` มีความหมายว่า "เปลี่ยนเรื่อง"
+        แต่สามตอนนี้เป็นเรื่องเดียวกัน ใช้ `border-top` ที่ `li + li` แทน -->
+<style>
+  .w-ns .label{ font:600 12px/1.6 var(--sans);
+                letter-spacing:var(--pa-label-track,.2em); text-transform:uppercase;
+                color:var(--accent) }
+  .w-ns h2{ margin-top:10px; font-size:clamp(28px,4vw,52px); line-height:1.14;
+            letter-spacing:var(--pa-figure-track,.06em); font-weight:400;
+            max-width:18ch }
+
+  .w-ns ol{ margin-top:clamp(28px,4vw,48px) }
+  .w-ns li{ display:grid; gap:6px clamp(18px,3vw,40px);
+            padding-block:clamp(22px,3vw,34px) }
+  .w-ns li + li{ border-top:1px solid var(--line) }
+  @media (min-width:760px){
+    /* เลขอยู่คอลัมน์ของตัวเอง ไม่ inline — ดูเหตุผลในหัวไฟล์ */
+    .w-ns li{ grid-template-columns:4rem minmax(0,1fr) }
+  }
+  .w-ns .rn{ font:400 15px/1.7 var(--mono); color:var(--accent);
+             letter-spacing:.04em }
+  .w-ns h3{ font-size:clamp(19px,2.2vw,25px); line-height:1.3;
+            letter-spacing:var(--pa-figure-track,.06em); font-weight:500 }
+  .w-ns li p{ margin-top:12px; color:var(--muted);
+              font-size:clamp(16px,1.6vw,17px); line-height:1.8; max-width:62ch }
+
+  /* คำประกาศ — ปิดท้ายเรียงความ ไม่ใช่ blockquote (ดูข้อ 2) */
+  .w-ns .manifesto{ margin-top:clamp(32px,5vw,64px);
+                    padding-top:clamp(28px,4vw,48px); border-top:1px solid var(--line);
+                    display:grid; gap:clamp(18px,3vw,32px) }
+  @media (min-width:760px){ .w-ns .manifesto{ grid-template-columns:4rem minmax(0,1fr) } }
+  .w-ns .manifesto .rn{ align-self:start }
+  .w-ns .manifesto p{ font-size:clamp(24px,3.4vw,42px); line-height:1.3;
+                      letter-spacing:var(--pa-figure-track,.06em);
+                      font-weight:400; max-width:26ch }
+  .w-ns .manifesto cite{ display:block; margin-top:20px; font-style:normal;
+                         font:600 12px/1.6 var(--sans);
+                         letter-spacing:var(--pa-label-track,.2em);
+                         text-transform:uppercase; color:var(--muted) }
+
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      .w-ns li,.w-ns .manifesto{ animation-name:w-rise;
+        animation-timing-function:linear; animation-fill-mode:both;
+        animation-timeline:view(); animation-range:entry 6% cover 22% }
+    }
+  }
+</style>
+
+<section class="w-section w-ns" id="story">
+  <div class="w-wrap">
+    <p class="label">เรื่องของฤดูกาล — แสงหน้าหนาว</p>
+    <h2>สามตอน ข้อโต้แย้งเดียว</h2>
+
+    <ol>
+      <li>
+        <span class="rn">I.</span>
+        <div>
+          <h3>ห้องที่แดดไม่เคยส่องถึง</h3>
+          <p>ทุกคอลเลกชันเริ่มที่ห้องเดียวกัน — ห้องด้านเหนือที่ไม่เคยได้รับแสงตรง สีทำตัวซื่อสัตย์ในห้องนั้น ผ้าสีเดียวกันที่ดูอุ่นใต้แดดบ่ายจะเผยตัวว่าเทาเกินไปเมื่อวางในนั้น สิ่งที่รอดจากแสงเหนือคือสิ่งที่รอดทั้งฤดู</p>
+        </div>
+      </li>
+      <li>
+        <span class="rn">II.</span>
+        <div>
+          <h3>ผ้าไหมสามสิบเมตรที่ไม่ถูกตัด</h3>
+          <p>ไหมมาถึงเป็นม้วนเดียวยาวต่อเนื่อง และไม่เคยถูกตัดขวางเจตนาของมัน ทุกลุคทิ้งตัวลงมาจากความยาวเดียว ใช้เข็มหมุดแทนตะเข็บ เพื่อให้ผ้ายังจำรูปทรงที่มันออกมาจากกี่ได้ ตะเข็บคือการตัดสินใจที่ย้อนกลับไม่ได้ เข็มหมุดไม่ใช่</p>
+        </div>
+      </li>
+      <li>
+        <span class="rn">III.</span>
+        <div>
+          <h3>สิ่งที่กล้องเก็บไว้</h3>
+          <p>เราถ่ายตอนพลบ ที่รูรับแสงสุดท้ายที่ฟิล์มยังใช้ได้ เกรนที่เห็นในภาพไม่ใช่ข้อบกพร่อง มันคือสภาพอากาศของเย็นวันนั้นที่ถูกเก็บไว้ ถ้าอยากได้ภาพที่สะอาดกว่านี้ ต้องถ่ายในสตูดิโอ ซึ่งจะได้เสื้อผ้าชุดเดียวกันที่ไม่มีวันไหนอยู่ในนั้น</p>
+        </div>
+      </li>
+    </ol>
+
+    <div class="manifesto">
+      <span class="rn">IV.</span>
+      <div>
+        <p>เราไม่ได้ออกแบบเพื่อภาพถ่าย เราออกแบบเพื่อฤดูหนาวปีที่สิบที่เสื้อตัวนั้นจะได้เจอ</p>
+        <cite>วรรณา ตันติวงศ์ — ผู้ก่อตั้งและผู้อำนวยการฝ่ายสร้างสรรค์</cite>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Lookbook · ทิศทาง `pa` (กระดาษ) — แถบเลื่อนแนวนอนที่บอกว่าเลื่อนได้
+
+     ทำไมชิ้นนี้ถึงมีอยู่ และทำไมคราวนี้แถบเลื่อนแนวนอนถึงถูก
+     ────────────────────────────────────────────────────────
+     `gallery-mosaic.html` บันทึกไว้เองว่า **ตัดแถบเลื่อนแนวนอนทิ้ง** เพราะ
+     บนมือถือมันชนกับการเลื่อนหน้าตามแนวตั้ง และภาพที่อยู่นอกจอไม่มีอะไรบอก
+     ว่ามีอยู่ ทั้งสองข้อยังจริงอยู่ — สิ่งที่เปลี่ยนคือ **เนื้อหา**
+
+     อัลบั้มของสถานที่ไม่มีลำดับ ภาพไหนมาก่อนก็ได้ โมเสกจึงถูก
+     แต่ลุคบุ๊กมีลำดับที่จริง (ลุค 04 ตามด้วย 05) และมีจำนวนที่รู้กันอยู่แล้ว
+     (22 ลุค) ซึ่งทำให้แถบเลื่อนแนวนอนได้เปรียบสองอย่างที่โมเสกไม่มี:
+     **ลำดับตรงกับทิศทางที่นิ้วเลื่อน** และ **ตัวนับบอกได้ว่าเหลืออีกเท่าไร**
+
+     ข้อคัดค้านสองข้อจึงถูกแก้ตรง ๆ ไม่ใช่มองข้าม:
+       1. ชนกับการเลื่อนหน้า — แก้ด้วย `overscroll-behavior-inline:contain`
+          ซึ่งกันไม่ให้การเลื่อนที่ชนขอบไปกระตุกหน้าแม่
+       2. ไม่รู้ว่ามีอีก — แก้ด้วยตัวนับ "03 / 22" กับป้าย "ลากดู" ที่หัวแถบ
+          และด้วยการให้ใบสุดท้ายโผล่ครึ่งใบเสมอ (`scroll-padding-inline-end`)
+
+     ค่าที่วัดมา
+     ───────────
+     · **`scroll-snap-type:inline mandatory`** ไม่ใช่ `proximity` เพราะลุคบุ๊ก
+       ต้องหยุดที่ภาพพอดีทุกครั้ง ภาพที่หยุดค้างครึ่งใบคือภาพที่ตัดสินใจไม่ได้
+       ว่ากำลังดูใบไหน — ต่างจากรายการสินค้าที่ `proximity` ดีกว่า
+     · **ความกว้างใบ `clamp(240px,30vw,360px)`** ที่ 30vw บนจอ 1280px ได้
+       384px → หนีบเหลือ 360px ซึ่งทำให้เห็นสามใบเต็มกับใบที่สี่ครึ่งใบ
+       สามใบครึ่งคือจำนวนที่บอกว่า "ยังมีอีก" ได้โดยไม่ทำให้แต่ละใบเล็กเกิน
+     · **`scroll-padding-inline:var(--pad)`** เพื่อให้ใบที่ snap แล้วไม่ชิด
+       ขอบจอ แต่หยุดตรงกับขอบของ `.w-wrap` เหมือนเนื้อหาอื่นในหน้า
+     · **สัดส่วน 4/5** เท่ากับ `hero-editorial.html` เพราะเป็นภาพจากชุดเดียวกัน
+       ภาพชุดเดียวกันที่สัดส่วนไม่เท่ากันอ่านเป็นคนละงาน
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ทำแถบเลื่อนด้วย `overflow-x:auto` เฉย ๆ ไม่มี snap** — พอปล่อยนิ้ว
+        มันหยุดกลางใบเกือบทุกครั้ง แล้วคนต้องปัดแก้อีกที
+     2. **ซ่อนแถบเลื่อนด้วย `scrollbar-width:none`** — คนใช้เมาส์ไม่มีอะไร
+        บอกว่ามันเลื่อนได้เลย และคนใช้คีย์บอร์ดยังโฟกัสเข้ามาไม่ได้ถ้าไม่มี
+        `tabindex` ตอนนี้แถบเลื่อนยังอยู่ (บางลง) และตัวแถบมี `tabindex="0"`
+        กับ `role="region"` จึงเลื่อนด้วยลูกศรได้
+     3. **`aspect-ratio` ที่ `<figure>` แทน `<img>`** — บั๊กเดิมจาก
+        `offer-cards.html` ภาพล้นออกนอกกรอบ ต้องตั้งที่ `<img>` เสมอ
+     4. **ตัวนับ "03 / 22" อัปเดตตามการเลื่อน** — ต้องมีสคริปต์ ตอนนี้เป็น
+        จำนวนรวมกับจำนวนที่แสดงในแถบ ซึ่งเป็นข้อเท็จจริงที่ไม่ต้องคำนวณ -->
+<style>
+  .w-lb .head{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:var(--gap) }
+  .w-lb .head > div:first-child{ flex:1 1 320px }
+  .w-lb .label{ font:600 12px/1.6 var(--sans);
+                letter-spacing:var(--pa-label-track,.2em); text-transform:uppercase;
+                color:var(--accent) }
+  .w-lb h2{ margin-top:10px; font-size:clamp(28px,4vw,52px); line-height:1.14;
+            letter-spacing:var(--pa-figure-track,.06em); font-weight:400 }
+  .w-lb .meta{ display:flex; align-items:baseline; gap:14px;
+               font:600 12px/1.6 var(--sans);
+               letter-spacing:var(--pa-label-track,.2em); text-transform:uppercase;
+               color:var(--muted) }
+  .w-lb .meta .count{ color:var(--text) }
+
+  .w-lb .strip{ margin-top:clamp(24px,3.4vw,38px);
+                display:flex; gap:clamp(12px,1.6vw,20px);
+                overflow-x:auto; overscroll-behavior-inline:contain;
+                scroll-snap-type:inline mandatory;
+                scroll-padding-inline:var(--pad);
+                padding-inline:var(--pad); padding-bottom:14px }
+  /* ไม่ซ่อนแถบเลื่อน — ดูเหตุผลข้อ 2 */
+  .w-lb .strip{ scrollbar-color:var(--field) transparent }
+  .w-lb .strip:focus-visible{ outline:2px solid var(--accent); outline-offset:4px }
+  .w-lb figure{ margin:0; flex:none; width:clamp(240px,30vw,360px);
+                scroll-snap-align:start }
+  .w-lb img{ display:block; width:100%; aspect-ratio:4/5; object-fit:cover;
+             background:var(--surface) }
+  .w-lb figcaption{ display:flex; align-items:baseline; gap:10px; margin-top:11px;
+                    font-size:13px; line-height:1.6 }
+  .w-lb figcaption .n{ font:600 12px/1.6 var(--mono); color:var(--accent);
+                       flex:none }
+  .w-lb figcaption span{ color:var(--muted) }
+
+  .w-lb .foot{ display:flex; flex-wrap:wrap; align-items:center; gap:14px;
+               margin-top:clamp(18px,2.4vw,26px) }
+  .w-lb .foot p{ flex:1 1 300px; color:var(--muted); font-size:14px }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-lb .strip{ scroll-behavior:smooth }
+    .w-lb img{ transition:filter .5s var(--ease-in) }
+    .w-lb figure:hover img{ filter:saturate(1.08) contrast(1.03) }
+  }
+</style>
+
+<section class="w-section w-lb" id="lookbook">
+  <div class="w-wrap head">
+    <div>
+      <p class="label">ลุคบุ๊ก</p>
+      <h2>ยี่สิบสองลุค เรียงตามลำดับที่ตั้งใจ</h2>
+    </div>
+    <p class="meta"><span>ลากดู</span> · <span class="count">05 / 22</span></p>
+  </div>
+
+  <!-- tabindex + role ทำให้เลื่อนด้วยลูกศรได้ — ดูเหตุผลข้อ 2 -->
+  <div class="strip" tabindex="0" role="region" aria-label="ลุคบุ๊ก เลื่อนตามแนวนอน">
+    <figure>
+      <img src="imgs/look-02.jpg" alt="เสื้อเชิ้ตผ้าป็อปลินสีกระดูก" width="900" height="1125" loading="lazy" decoding="async">
+      <figcaption><span class="n">04</span><span>ป็อปลิน สีกระดูก</span></figcaption>
+    </figure>
+    <figure>
+      <img src="imgs/look-03.jpg" alt="เสื้อโค้ทตัวยาวสีหมึก" width="900" height="1125" loading="lazy" decoding="async">
+      <figcaption><span class="n">05</span><span>โค้ทตัวยาว สีหมึก</span></figcaption>
+    </figure>
+    <figure>
+      <img src="imgs/look-04.jpg" alt="ชุดสูทผ้าขนสัตว์สีหินชนวน" width="900" height="1125" loading="lazy" decoding="async">
+      <figcaption><span class="n">06</span><span>สูทผ้าขนสัตว์ สีหินชนวน</span></figcaption>
+    </figure>
+    <figure>
+      <img src="imgs/look-05.jpg" alt="แว่นตากรอบสีดำสนิท" width="900" height="1125" loading="lazy" decoding="async">
+      <figcaption><span class="n">07</span><span>แว่นตา กรอบสีนิล</span></figcaption>
+    </figure>
+    <figure>
+      <img src="imgs/look-06.jpg" alt="เสื้อหนังแกะบุขนสีน้ำตาลไหม้" width="900" height="1125" loading="lazy" decoding="async">
+      <figcaption><span class="n">08</span><span>หนังแกะบุขน สีน้ำตาลไหม้</span></figcaption>
+    </figure>
+  </div>
+
+  <div class="w-wrap foot">
+    <p>ห้าลุคจากยี่สิบสอง เลื่อนดูต่อได้ หรือกดปุ่มลูกศรถ้าใช้คีย์บอร์ด · ลุคที่เหลืออยู่ในเล่มพิมพ์</p>
+    <a class="w-btn w-btn--ghost" href="#contact">ขอเล่มพิมพ์</a>
+  </div>
+</section>
+
+<!-- Garment study · ทิศทาง `pa` (กระดาษ) — ของชิ้นเดียว อธิบายจนหมด
+
+     ทำไมชิ้นนี้ถึงมีอยู่
+     ────────────────────
+     คลังนี้มี `offer-cards.html` (ของหลายชิ้น ชิ้นละสามบรรทัด) และ
+     `profile-spotlight.html` (คนคนเดียวเต็มหน้า) แต่ไม่มีของสำหรับ
+     **สินค้าชิ้นเดียวที่อธิบายจนหมด** ซึ่งเป็นส่วนที่แบรนด์ที่ขายงานฝีมือ
+     ต้องมี เพราะเหตุผลที่ของชิ้นนั้นแพงอยู่ในรายละเอียด ไม่ได้อยู่ในภาพ
+
+     ความต่างที่ทำให้มันเป็นคนละชิ้นกับการ์ดสินค้า: **สเปกอยู่ในตารางจริง**
+     ที่มีหัวข้อกำกับ ไม่ใช่รายการติ๊กถูก เพราะค่าแต่ละตัวเป็น *ค่า* ไม่ใช่
+     *ความมี/ไม่มี* — "ขนสัตว์สองหน้า 640 กรัม/เมตร" ไม่ใช่สิ่งที่ติ๊กถูกได้
+
+     กฎการเขียนข้อเดียว: **ทุกค่าต้องเป็นสิ่งที่วัดหรือนับได้** น้ำหนักผ้า
+     จำนวนที่ผลิต ที่มาของวัตถุดิบ วิธีเย็บ ถ้าเขียนว่า "คุณภาพพรีเมียม"
+     ตารางทั้งตารางเสียหน้าที่ เพราะคนอ่านมาที่นี่เพื่อหาสิ่งที่ตรวจได้
+
+     ค่าที่วัดมา
+     ───────────
+     · **`<dl>` ไม่ใช่ `<table>`** เพราะมันมีมิติเดียว (หัวข้อ → ค่า) ไม่มี
+       การเปรียบเทียบข้ามแถว `<table>` ต้องมีหัวคอลัมน์ที่ไม่มีอะไรจะเขียน
+     · **สี่แถว ไม่ใช่สิบ** สเปกที่ยาวสิบแถวคือหน้ารายละเอียดสินค้า
+       ซึ่งเป็นคนละหน้า ที่นี่เลือกสี่ค่าที่ *อธิบายราคาได้*
+     · **เลขที่ผลิตเขียนเป็น "120 ชิ้น มีเลขกำกับ"** ไม่ใช่ "จำนวนจำกัด"
+       เพราะจำนวนจำกัดที่ไม่บอกตัวเลขคือคำที่แปลว่าอะไรก็ได้
+     · **ภาพซ้าย ข้อความขวา `1fr .84fr`** — ภาพกว้างกว่า เพราะส่วนนี้ยัง
+       เป็นการขายของ ไม่ใช่การอ่านเอกสาร
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ใส่ราคาไว้ในตารางสเปก** — ราคาอ่านเป็นค่าทางเทคนิคอีกค่าหนึ่ง
+        แล้วหายไปในสายตา ย้ายออกมาอยู่แถวเดียวกับปุ่ม ซึ่งเป็นที่ที่การ
+        ตัดสินใจเกิดจริง (บทเรียนเดียวกับ `offer-cards.html`)
+     2. **`dt` กับ `dd` อยู่บรรทัดเดียวกันด้วย `display:flex` ที่ `<dl>`** —
+        พอ `dd` ยาวสองบรรทัด `dt` ของแถวถัดไปเลื่อนขึ้นไปอยู่ข้าง `dd`
+        ของแถวก่อน ต้องห่อคู่ละ `<div>` ซึ่ง HTML อนุญาตใน `<dl>` อยู่แล้ว
+     3. **ตัวเลขน้ำหนักผ้าใช้ `--sans`** — "640" กับ "540" ในสองแถวติดกัน
+        หลักไม่ตรงกัน ใช้ `--mono` กับ `tabular-nums` เหมือนที่เมนูใช้ -->
+<style>
+  .w-ss2 .grid{ display:grid; gap:clamp(24px,4vw,56px); align-items:start }
+  @media (min-width:880px){
+    .w-ss2 .grid{ grid-template-columns:minmax(0,1fr) minmax(0,.84fr) }
+  }
+  .w-ss2 figure{ margin:0 }
+  .w-ss2 img{ display:block; width:100%; aspect-ratio:4/5; object-fit:cover;
+              background:var(--surface) }
+  .w-ss2 figcaption{ margin-top:11px; color:var(--muted); font-size:13px; line-height:1.7 }
+
+  .w-ss2 .label{ font:600 12px/1.6 var(--sans);
+                 letter-spacing:var(--pa-label-track,.2em); text-transform:uppercase;
+                 color:var(--accent) }
+  .w-ss2 h2{ margin-top:10px; font-size:clamp(26px,3.4vw,42px); line-height:1.18;
+             letter-spacing:var(--pa-figure-track,.06em); font-weight:400;
+             max-width:16ch }
+  .w-ss2 .intro{ margin-top:16px; color:var(--muted);
+                 font-size:clamp(16px,1.6vw,17px); line-height:1.8; max-width:52ch }
+
+  .w-ss2 dl{ margin-top:clamp(24px,3vw,34px); border-top:1px solid var(--line) }
+  /* ห่อคู่ละ div ไม่งั้นแถวเลื่อนชนกัน — ดูเหตุผลข้อ 2 */
+  .w-ss2 dl > div{ display:grid; gap:4px 20px; padding-block:14px;
+                   border-bottom:1px solid var(--line) }
+  @media (min-width:520px){
+    .w-ss2 dl > div{ grid-template-columns:minmax(0,.7fr) minmax(0,1fr);
+                     align-items:baseline }
+  }
+  .w-ss2 dt{ font:600 12px/1.6 var(--sans);
+             letter-spacing:var(--pa-label-track,.2em); text-transform:uppercase;
+             color:var(--muted) }
+  .w-ss2 dd{ margin:0; font-size:16px; line-height:1.65 }
+  .w-ss2 dd .num{ font:600 16px/1.65 var(--mono); font-variant-numeric:tabular-nums }
+
+  .w-ss2 .buy{ display:flex; flex-wrap:wrap; align-items:center; gap:14px;
+               margin-top:clamp(22px,3vw,30px) }
+  .w-ss2 .price{ font:700 clamp(22px,2.6vw,30px)/1 var(--mono);
+                 font-variant-numeric:tabular-nums; letter-spacing:-.01em }
+  .w-ss2 .price small{ display:block; font:500 13px/1.5 var(--sans);
+                       color:var(--muted); letter-spacing:0; margin-top:4px }
+  .w-ss2 .buy .w-btn{ margin-inline-start:auto }
+  .w-ss2 .fine{ margin-top:14px; color:var(--muted); font-size:13px; line-height:1.7 }
+
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      .w-ss2 figure,.w-ss2 .grid > div:last-child{ animation-name:w-rise;
+        animation-timing-function:linear; animation-fill-mode:both;
+        animation-timeline:view(); animation-range:entry 8% cover 26% }
+    }
+  }
+</style>
+
+<section class="w-section w-ss2" id="study">
+  <div class="w-wrap grid">
+    <figure>
+      <img src="imgs/atelier.jpg" alt="เสื้อโค้ทกลางคืน แขวนอยู่บนหุ่นในห้องตัด เห็นตะเข็บที่เย็บมือ"
+           width="1520" height="1900" loading="lazy" decoding="async">
+      <figcaption>รูปที่ 12 — ตะเข็บด้านในของเสื้อโค้ทกลางคืน ถ่ายก่อนติดกระดุม</figcaption>
+    </figure>
+
+    <div>
+      <p class="label">ศึกษาชิ้นงาน — 01</p>
+      <h2>เสื้อโค้ทกลางคืน</h2>
+      <p class="intro">ตัดจากผ้าขนสัตว์สองหน้าที่หนัก 640 กรัมต่อเมตร สร้างมาให้ใส่ได้หลายสิบปีและซ่อมได้ตลอดไป ทุกตะเข็บกุ๊นด้วยมือ ไม่มีชิ้นส่วนไหนใช้กาวรีด</p>
+
+      <dl>
+        <div>
+          <dt>ผ้า</dt>
+          <dd>ขนสัตว์สองหน้า <span class="num">640</span> กรัม/เมตร ทอที่ลำพูน</dd>
+        </div>
+        <div>
+          <dt>โครงสร้าง</dt>
+          <dd>กุ๊นตะเข็บด้วยมือทั้งตัว ไม่มีผ้ากาว ไม่มีการรีดติด</dd>
+        </div>
+        <div>
+          <dt>จำนวนที่ผลิต</dt>
+          <dd><span class="num">120</span> ชิ้น มีเลขกำกับที่ซับใน</dd>
+        </div>
+        <div>
+          <dt>การซ่อม</dt>
+          <dd>ซ่อมฟรีตลอดอายุการใช้งาน บันทึกทุกครั้งในสมุดซ่อมของห้องตัด</dd>
+        </div>
+      </dl>
+
+      <div class="buy">
+        <p class="price">42,000<small>บาท · รวมภาษีแล้ว</small></p>
+        <a class="w-btn" href="#contact">นัดลองที่ห้องตัด</a>
+      </div>
+      <p class="fine">ตัดตามตัวใช้เวลา 6–8 สัปดาห์ · ลองครั้งแรกไม่มีค่าใช้จ่ายและไม่ผูกมัด · ถ้าใส่แล้วไม่ใช่ เราไม่ตัดให้ ดีกว่าตัดแล้วไม่ได้ใส่</p>
+    </div>
+  </div>
+</section>
+
+<!-- Press · ทิศทาง `pa` (กระดาษ) — สื่อพูดว่าอะไร ไม่ใช่ลูกค้าพูดว่าอะไร
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี testimonial สองทรงแล้ว
+     ────────────────────────────────────────────────────
+     `testimonial.html` กับ `testimonial-wall.html` เป็นคำพูดของ **ลูกค้า**
+     ซึ่งเป็นหลักฐานว่า "ของนี้ใช้แล้วดี" ส่วนนี้เป็นคำพูดของ **สื่อ** ซึ่งเป็น
+     หลักฐานคนละชนิด: "คนที่ดูของแบบนี้มาทั้งชีวิตคิดว่ามันดี"
+
+     ความต่างนั้นเปลี่ยนรูปแบบสามอย่าง:
+       · **ไม่มีรูปคน** เพราะสิ่งที่มีน้ำหนักคือชื่อหัวสื่อ ไม่ใช่หน้าคนเขียน
+       · **สั้นกว่ามาก** หนึ่งประโยค เพราะเป็นประโยคที่ถูกยกมาจากบทความยาว
+         คำชมสองย่อหน้าจากสื่ออ่านเหมือนโฆษณาที่จ่ายเงิน
+       · **ต้องมีวันที่และชื่อบทความให้ตรวจ** คำพูดจากสื่อที่ไม่มีวันที่คือ
+         คำพูดที่อาจมาจากสิบปีก่อน หรืออาจไม่เคยมี
+
+     ถ้าไม่มีคำชมจากสื่อจริง **อย่าใช้ส่วนนี้** แต่งคำชมจากหัวสื่อที่มีอยู่จริง
+     ไม่ใช่ placeholder มันคือการแอบอ้างชื่อคนอื่น
+
+     ค่าที่วัดมา
+     ───────────
+     · **สามชิ้น เรียงเป็นแถวเดียว** ไม่ใช่กริดหลายแถว เพราะคำพูดสั้น ๆ
+       สามอันในแถวเดียวอ่านเป็นชุดเดียว ส่วนหกอันสองแถวอ่านเป็นรายการ
+       ซึ่งลดน้ำหนักของแต่ละอัน
+     · **อัญประกาศเปิดเป็นตัวใหญ่ที่ `::before`** ขนาด 2.6em สีเน้น
+       เป็นสัญลักษณ์ของสิ่งพิมพ์ที่ทำงานจริง — ตาเห็นว่านี่คือคำพูดก่อนอ่าน
+       และมันไม่กินที่เพราะ `position:absolute`
+     · **ชื่อหัวสื่อใช้ช่องไฟ `--pa-label-track`** เหมือนป้ายกำกับอื่นในทิศทาง
+       นี้ ทำให้มันอ่านเป็นชื่อสิ่งพิมพ์ ไม่ใช่ชื่อคน
+     · **เส้นคั่นแนวตั้งระหว่างคอลัมน์** เปิดเฉพาะที่กว้างพอให้ทั้งสามอยู่แถว
+       เดียว เพราะเส้นแนวตั้งที่เหลืออยู่ตอนพับเป็นคอลัมน์เดียวจะลอยอยู่กลาง
+       ที่ว่าง (บั๊กเดียวกับ `fact-bar.html`)
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ใช้โลโก้ของหัวสื่อ** — ผิดเรื่องเครื่องหมายการค้า และโลโก้สามอัน
+        ที่มีน้ำหนักตัวอักษรต่างกันทำให้แถวดูไม่เท่ากันทั้งที่ข้อความยาวพอ ๆ กัน
+     2. **`<blockquote>` ที่ไม่มี `<cite>`** — คำพูดที่ไม่ระบุที่มาคือของตกแต่ง
+        ซึ่ง `testimonial.html` บันทึกไว้แล้ว ที่นี่ `<cite>` ถือทั้งชื่อสื่อ
+        และวันที่
+     3. **ให้ทั้งก้อนเป็นลิงก์ไปบทความ** — บทความของสื่อส่วนใหญ่อยู่หลัง
+        เพย์วอลล์หรือหายไปในสองปี ลิงก์ที่ตายคือหลักฐานที่กลายเป็นข้อสงสัย
+        ที่นี่จึงเขียนชื่อบทความกับวันที่ให้ค้นเองได้ -->
+<style>
+  .w-pq .label{ font:600 12px/1.6 var(--sans);
+                letter-spacing:var(--pa-label-track,.2em); text-transform:uppercase;
+                color:var(--accent) }
+  .w-pq h2{ margin-top:10px; font-size:clamp(26px,3.4vw,42px); line-height:1.18;
+            letter-spacing:var(--pa-figure-track,.06em); font-weight:400;
+            max-width:18ch }
+
+  .w-pq .row{ display:grid; gap:clamp(24px,3vw,40px);
+              margin-top:clamp(28px,4vw,48px);
+              grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr)) }
+  .w-pq figure{ margin:0; position:relative; padding-top:34px }
+  /* อัญประกาศเปิด ไม่กินที่เพราะ absolute — ดูเหตุผลในหัวไฟล์ */
+  .w-pq figure::before{ content:"\201C"; position:absolute; top:-6px; left:-4px;
+                        font-size:2.6em; line-height:1; color:var(--accent) }
+  .w-pq blockquote{ font-size:clamp(17px,1.9vw,20px); line-height:1.6;
+                    letter-spacing:var(--pa-figure-track,.06em) }
+  .w-pq figcaption{ margin-top:18px; padding-top:14px; border-top:1px solid var(--line) }
+  .w-pq cite{ display:block; font-style:normal; font:600 12px/1.6 var(--sans);
+              letter-spacing:var(--pa-label-track,.2em); text-transform:uppercase }
+  .w-pq .where{ display:block; margin-top:7px; color:var(--muted);
+                font-size:13px; line-height:1.6 }
+
+  @media (min-width:900px){
+    /* เส้นแนวตั้งเปิดเฉพาะตอนที่ทั้งสามอยู่แถวเดียว — ดูเหตุผลในหัวไฟล์ */
+    .w-pq .row{ grid-template-columns:repeat(3,1fr) }
+    .w-pq figure + figure{ border-inline-start:1px solid var(--line);
+                           padding-inline-start:clamp(24px,3vw,40px) }
+    .w-pq figure + figure::before{ left:clamp(20px,3vw,36px) }
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      .w-pq .row{ animation-name:w-rise; animation-timing-function:linear;
+                  animation-fill-mode:both; animation-timeline:view();
+                  animation-range:entry 6% cover 22% }
+    }
+  }
+</style>
+
+<section class="w-section w-pq" id="press">
+  <div class="w-wrap">
+    <p class="label">ในสิ่งพิมพ์</p>
+    <h2>สามประโยคที่คนอื่นเขียน</h2>
+
+    <div class="row">
+      <figure>
+        <blockquote>บ้านเสื้อผ้าที่หายากในแง่ที่ความยับยั้งชั่งใจของมันอ่านออกมาเป็นความใจกว้าง</blockquote>
+        <figcaption>
+          <cite>นิตยสารแฟชั่นรายเดือน</cite>
+          <span class="where">จากบทความ "ห้องตัดที่ปฏิเสธการโต" · ฉบับเดือนมีนาคม 2569 หน้า 46</span>
+        </figcaption>
+      </figure>
+
+      <figure>
+        <blockquote>เสื้อผ้าที่ทำตัวเหมือนสถาปัตยกรรม และแก่ตัวไปแบบเดียวกัน</blockquote>
+        <figcaption>
+          <cite>วารสารการออกแบบ</cite>
+          <span class="where">จากบทวิจารณ์คอลเลกชันฤดูใบไม้ผลิ · เผยแพร่ 8 เมษายน 2569</span>
+        </figcaption>
+      </figure>
+
+      <figure>
+        <blockquote>ที่นี่ไม่ได้ปล่อยคอลเลกชัน ที่นี่ตีพิมพ์ฉบับ</blockquote>
+        <figcaption>
+          <cite>คอลัมน์แฟชั่นรายสัปดาห์</cite>
+          <span class="where">จากคอลัมน์ "ฉบับที่สี่" · 22 มิถุนายน 2569</span>
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- Article index. A list of posts, each card with a real <time> a reader (or a
+     feed, or a sort) can read, a topic tag, and a link whose own text names
+     the post rather than a bare "อ่านต่อ" that says nothing out of context
+     (WCAG 2.4.4, link purpose). Pairs with article.html: that template is one
+     post, this is the page that lists them.
+
+     การเคลื่อนไหวสามชั้น: `w-reveal` ตอนเลื่อนถึง `w-lift` ตอนชี้ และภาพปกที่
+     ซูมเข้าเล็กน้อยในกรอบเดิม
+
+     ซูมได้โดยไม่ต้องเพิ่ม div เพราะ .post มี overflow:hidden อยู่แล้วเพื่อให้มุม
+     โค้งกินภาพ (ต่างจาก team.html ที่ไม่มี จึงไม่ได้ทำท่านี้) ซูมแค่ 1.04 ไม่ใช่
+     1.1 — ภาพปกบทความมักมีตัวหนังสืออยู่ในภาพ ซูมแรงกว่านี้จะกินตัวหนังสือที่
+     ขอบออกไป -->
+<style>
+  .w-index h2{ font-size:clamp(26px,3.4vw,40px); letter-spacing:-.02em }
+  .w-index .grid{ display:grid; gap:var(--gap); margin-top:clamp(28px,4vw,44px);
+                  grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr)) }
+  .w-index .post{ border:1px solid var(--line); border-radius:var(--radius);
+                  overflow:hidden; background:var(--surface);
+                  display:flex; flex-direction:column }
+  .w-index .post img{ aspect-ratio:16/9; object-fit:cover }
+  .w-index .post .body{ padding:clamp(18px,2.4vw,24px); display:flex;
+                        flex-direction:column; gap:8px; flex:1 }
+  .w-index .tag{ color:var(--accent); font-weight:600; font-size:13px;
+                 letter-spacing:.06em; text-transform:uppercase }
+  .w-index h3{ font-size:19px; line-height:1.3 }
+  .w-index h3 a{ text-decoration:none }
+  .w-index h3 a:hover{ text-decoration:underline }
+  .w-index p{ color:var(--muted); font-size:15px; flex:1 }
+  .w-index .meta{ color:var(--muted); font-size:13px; margin-top:4px }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-index .post img{ transition:transform .32s var(--ease-in) }
+    .w-index .post:hover img{ transform:scale(1.04) }
+  }
+</style>
+
+<section class="w-section w-index" id="articles">
+  <div class="w-wrap">
+    <p class="w-eyebrow">บทความ</p>
+    <h2>สิ่งที่เขียนล่าสุด</h2>
+    <div class="grid">
+      <article class="post w-lift w-reveal">
+        <img src="imgs/post-1.jpg" alt="ภาพประกอบบทความ" width="600" height="338">
+        <div class="body">
+          <span class="tag">หมวดหมู่</span>
+          <h3><a href="#">หัวเรื่องที่บอกว่าบทความนี้สรุปว่าอะไร</a></h3>
+          <p>ประโยคเดียวที่สรุปเนื้อหา ไม่ใช่ย่อหน้าแรกที่ตัดมาดื้อๆ</p>
+          <p class="meta"><time datetime="2026-08-29">29 สิงหาคม 2569</time> &middot; อ่าน 6 นาที</p>
+        </div>
+      </article>
+      <article class="post w-lift w-reveal">
+        <img src="imgs/post-2.jpg" alt="ภาพประกอบบทความ" width="600" height="338">
+        <div class="body">
+          <span class="tag">หมวดหมู่</span>
+          <h3><a href="#">อีกหัวเรื่องหนึ่ง</a></h3>
+          <p>ประโยคเดียวที่สรุปเนื้อหา</p>
+          <p class="meta"><time datetime="2026-08-20">20 สิงหาคม 2569</time> &middot; อ่าน 4 นาที</p>
+        </div>
+      </article>
+      <article class="post w-lift w-reveal">
+        <img src="imgs/post-3.jpg" alt="ภาพประกอบบทความ" width="600" height="338">
+        <div class="body">
+          <span class="tag">หมวดหมู่</span>
+          <h3><a href="#">หัวเรื่องที่สาม</a></h3>
+          <p>ประโยคเดียวที่สรุปเนื้อหา</p>
+          <p class="meta"><time datetime="2026-08-10">10 สิงหาคม 2569</time> &middot; อ่าน 3 นาที</p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+</main>
+<!-- Colophon · ทิศทาง `pa` (กระดาษ) — เครดิตกับที่อยู่ แบบท้ายเล่ม
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี footer สองทรงแล้ว
+     ────────────────────────────────────────────────
+     `footer.html` กับ `footer-glass.html` เป็นแผนที่ของเว็บ — ลิงก์ไปหน้าอื่น
+     ข้อกำหนด ลิขสิทธิ์ ส่วนนี้ไม่ใช่แผนที่ มันคือ **หน้าท้ายเล่ม** ซึ่งทำงาน
+     คนละอย่าง: บอกว่าใครทำอะไรในงานชิ้นนี้ และของจริงอยู่ที่ไหน
+
+     สิ่งพิมพ์มีหน้านี้เพราะงานสร้างสรรค์เป็นงานของหลายคน และการไม่ให้เครดิต
+     คือการลบคนออกจากงานที่เขาทำ เว็บส่วนใหญ่ทิ้งข้อนี้ไป ซึ่งเป็นเหตุผลที่
+     ทีมถ่ายภาพกับสไตลิสต์แทบไม่เคยมีชื่ออยู่บนเว็บของแบรนด์ที่จ้างเขา
+
+     **ส่วนนี้ใช้แทน footer ไม่ใช่ใช้เพิ่ม** หน้าหนึ่งมี footer เดียว
+     ถ้าจะใช้ทั้งคู่ต้องตัดลิงก์ที่ซ้ำกันออกจากอันใดอันหนึ่ง
+
+     ค่าที่วัดมา
+     ───────────
+     · **เครดิตเป็น `<dl>` ที่หัวข้อกับชื่ออยู่บรรทัดเดียวกันเมื่อกว้างพอ**
+       และซ้อนกันเมื่อแคบ เพราะหัวข้ออย่าง "กำกับศิลป์" กับชื่อคนยาวรวมกัน
+       เกิน 30 ตัวอักษร ซึ่งไม่พอในคอลัมน์ 220px
+     · **ที่อยู่เป็น `<address>` จริง** และแยกร้านละบล็อก พร้อมเวลาเปิด
+       เพราะแบรนด์ที่มีหน้าร้านจริงมีคนมาหา
+     · **สามคอลัมน์ที่ความกว้างไม่เท่ากัน** (`1.1fr 1fr 1fr`) เครดิตกว้างสุด
+       เพราะมีคู่หัวข้อ–ค่ามากที่สุด ไม่ได้แบ่งเท่ากันเพื่อความสวย
+     · **บรรทัดปิดท้ายบอกว่าหน้านี้ตั้งใจให้เป็นฉบับ** ซึ่งเป็นสิ่งที่ผูก
+       กลับไปหา `hero-editorial.html` ที่มีเลขฉบับ — ระบบอ้างอิงต้องปิดวง
+       ไม่งั้นเลขฉบับกลายเป็นของประดับ
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ใช้ `<footer>` ซ้อนใน `<footer>`** — ถ้าหน้ามี `footer-glass.html`
+        อยู่แล้วแล้วเอาอันนี้ไปวางต่อ จะได้ landmark `contentinfo` สองอัน
+        ซึ่งโปรแกรมอ่านหน้าจอรายงานว่าผิด ที่นี่จึงเป็น `<footer>` เต็มตัว
+        และเอกสารต้องมีแค่อันเดียว
+     2. **เรียงเครดิตตามลำดับความสำคัญ** — ทำให้ต้องตัดสินว่าใครสำคัญกว่าใคร
+        ซึ่งเป็นการเมืองที่ไม่จำเป็น เรียงตามลำดับที่งานเกิดจริงแทน
+        (กำกับ → ถ่าย → สไตล์ → คัดเลือก → ฉาก → ฟิล์ม)
+     3. **เวลาเปิดร้านเขียนย่อ "อ.–ส."** — บั๊กเดียวกับที่ `hours-contact.html`
+        บันทึกไว้ ที่นี่ยอมย่อได้เพราะเป็นข้อมูลรอง ไม่ใช่หน้าที่หลักของส่วนนี้
+        ถ้าเวลาเปิดเป็นเรื่องสำคัญของหน้า ให้ใช้ `hours-contact.html` แทน -->
+<style>
+  .w-cp{ border-top:1px solid var(--line);
+         padding-block:clamp(40px,6vw,72px) clamp(20px,3vw,28px) }
+  .w-cp .label{ font:600 12px/1.6 var(--sans);
+                letter-spacing:var(--pa-label-track,.2em); text-transform:uppercase;
+                color:var(--accent) }
+  .w-cp h2{ margin-top:10px; font-size:clamp(22px,2.6vw,32px); line-height:1.2;
+            letter-spacing:var(--pa-figure-track,.06em); font-weight:400 }
+
+  .w-cp .cols{ display:grid; gap:clamp(28px,4vw,56px);
+               margin-top:clamp(26px,3.4vw,40px) }
+  @media (min-width:880px){
+    /* ไม่แบ่งเท่ากัน — เครดิตมีคู่หัวข้อ–ค่ามากที่สุด */
+    .w-cp .cols{ grid-template-columns:1.1fr 1fr 1fr }
+  }
+  .w-cp h3{ font:600 12px/1.6 var(--sans);
+            letter-spacing:var(--pa-label-track,.2em); text-transform:uppercase;
+            color:var(--muted); margin-bottom:16px }
+
+  .w-cp dl > div{ display:grid; gap:2px 16px; padding-block:9px;
+                  border-top:1px solid var(--line) }
+  @media (min-width:420px){
+    .w-cp dl > div{ grid-template-columns:minmax(0,.9fr) minmax(0,1fr);
+                    align-items:baseline }
+  }
+  .w-cp dt{ color:var(--muted); font-size:13px }
+  .w-cp dd{ margin:0; font-size:15px }
+
+  .w-cp address{ font-style:normal; display:grid; gap:18px }
+  .w-cp address > div{ padding-top:12px; border-top:1px solid var(--line) }
+  .w-cp address b{ display:block; font-size:15px; font-weight:600; margin-bottom:4px }
+  .w-cp address span{ display:block; color:var(--muted); font-size:14px; line-height:1.7 }
+  .w-cp address a{ color:inherit; text-decoration:none }
+  .w-cp address a:hover{ text-decoration:underline; text-underline-offset:4px }
+
+  .w-cp .end{ display:flex; flex-wrap:wrap; align-items:baseline; gap:12px 24px;
+              margin-top:clamp(32px,5vw,56px); padding-top:22px;
+              border-top:1px solid var(--line);
+              color:var(--muted); font-size:13px }
+  .w-cp .end nav{ display:flex; flex-wrap:wrap; gap:8px 18px; margin-inline-start:auto }
+  .w-cp .end a{ color:var(--muted); text-decoration:none }
+  .w-cp .end a:hover,.w-cp .end a:focus-visible{ color:var(--text);
+                                                 text-decoration:underline }
+  .w-cp .issue{ color:var(--text) }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-cp .end a,.w-cp address a{ transition:color var(--t-hover) linear }
+  }
+</style>
+
+<footer class="w-cp">
+  <div class="w-wrap">
+    <p class="label">ท้ายเล่ม</p>
+    <h2>ใครทำอะไรในฉบับนี้</h2>
+
+    <div class="cols">
+      <div>
+        <h3>เครดิต</h3>
+        <dl>
+          <div><dt>กำกับสร้างสรรค์</dt><dd>วรรณา ตันติวงศ์</dd></div>
+          <div><dt>ถ่ายภาพ</dt><dd>ม. โอกาโฟร์</dd></div>
+          <div><dt>จัดสไตล์</dt><dd>ร. เดนิซ</dd></div>
+          <div><dt>คัดเลือกนายแบบนางแบบ</dt><dd>เฮาส์ นัมเบอร์ ไนน์</dd></div>
+          <div><dt>ออกแบบฉาก</dt><dd>สตูดิโอ มาร์จ</dd></div>
+          <div><dt>ฟิล์ม</dt><dd>โกดัก 500T · 16 มม.</dd></div>
+        </dl>
+      </div>
+
+      <div>
+        <h3>ห้องตัดและหน้าร้าน</h3>
+        <address>
+          <div>
+            <b>ลำพูน — ห้องตัด</b>
+            <span>112 หมู่ 3 ต.เวียงยอง อ.เมือง จ.ลำพูน 51000<br>เปิดตามนัดเท่านั้น</span>
+          </div>
+          <div>
+            <b>กรุงเทพฯ — หน้าร้าน</b>
+            <span>ซอยเจริญกรุง 30 บางรัก กรุงเทพฯ 10500<br>อ.–ส. 11:00–19:00</span>
+          </div>
+          <div>
+            <b>ติดต่อ</b>
+            <span><a href="mailto:atelier@example.co.th">atelier@example.co.th</a><br><a href="tel:+66531234567">053 123 4567</a></span>
+          </div>
+        </address>
+      </div>
+
+      <div>
+        <h3>ในฉบับนี้</h3>
+        <dl>
+          <div><dt>แคมเปญ</dt><dd>ฉบับที่ 04 — น้ำหนักที่เงียบ</dd></div>
+          <div><dt>จำนวนลุค</dt><dd>22 ลุค · ผ้า 3 ชนิด</dd></div>
+          <div><dt>ถ่ายเมื่อ</dt><dd>มิถุนายน 2569 · ลำพูน</dd></div>
+          <div><dt>เล่มพิมพ์</dt><dd>500 เล่ม มีเลขกำกับ</dd></div>
+          <div><dt>ฉบับถัดไป</dt><dd>05 — ฤดูใบไม้ผลิ 2570</dd></div>
+        </dl>
+      </div>
+    </div>
+
+    <div class="end">
+      <span>© 2569 ห้องตัดตัวอย่าง</span>
+      <span class="issue">ฉบับที่ 04 · ปิดเล่ม 28 มิถุนายน 2569</span>
+      <nav aria-label="ข้อกำหนด">
+        <a href="#">ข้อกำหนดการใช้งาน</a>
+        <a href="#">ความเป็นส่วนตัว</a>
+        <a href="#">การซ่อมและการรับคืน</a>
+      </nav>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

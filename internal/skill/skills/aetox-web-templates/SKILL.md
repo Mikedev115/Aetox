@@ -1,113 +1,57 @@
 ---
 name: aetox-web-templates
-description: เทมเพลตหน้าเว็บจริงที่ก๊อปไปใช้ได้เลย 57 ส่วน ตั้งแต่ nav hero ราคา FAQ ไปจนถึงแดชบอร์ด แดชบอร์ดวิเคราะห์ กราฟ 6 ชนิดที่วาดด้วย SVG ล้วน ตาราง ฟอร์ม แจ้งเตือน สลับธีม กริดสื่อ โปรไฟล์ หน้า 404 บทความ และหน้าเอกสาร ไฟล์เดียวจบ responsive ไม่มี framework ไม่มี CDN ไม่ต้อง build ใช้ตอนกำลังจะสร้างหน้าเว็บหรือหน้าจอแล้วไม่อยากประดิษฐ์โครงขึ้นใหม่ทุกครั้ง
+before: writing a web page or a screen as an .html file that is not a slide deck
+description: กติกาของหน้าเว็บที่ Aetox ยอมส่งออกไป — สัญญาที่ทุกหน้าต้องผ่าน (ไฟล์เดียวจบ · responsive โดยไม่ต้องจดเบรกพอยต์ · ไม่ใช้สคริปต์ถ้าไม่จำเป็นต่อความหมาย · landmark จริง · โทเคนสีสำหรับสว่างและมืด · กราฟเป็น SVG ในไฟล์ · เข้าถึงได้ตั้งแต่โครง) พร้อมมาตรฐานใน STANDARD.md และหน้าตัวอย่างเต็มหน้าอีก 6 ใบใน pages/ **นี่คือกติกา ไม่ใช่คลังโค้ดให้แปะ** ออกแบบและเขียนเอง แล้วเอากติกามาตรวจ
 ---
 
 # Web templates
 
-Markup that gets copied, not advice about markup. **Web pages only.**
+**กติกา ไม่ใช่มาร์กอัปให้คัดลอก**
 
-The name says the medium on purpose, the same way `aetox-slide-templates` does.
-A deck is one file at a fixed 1280x720 that an off-screen renderer prints; a web
-page is responsive and lives in a browser somebody resizes, zooms and reads with
-a screen reader. A layout correct for one is wrong for the next, so they are two
-skills and neither borrows from the other.
+คลังส่วนย่อย 104 ชิ้นกับ kit ถูกถอดออกเมื่อ 5 ก.ย. 2569 ด้วยเหตุผลที่ `STANDARD.md`
+เปิดหัวไว้เอง: **เทมเพลตที่เข้ารหัสค่ากลางไม่ได้ช่วยโมเดลที่เก่งอยู่แล้ว มันตรึงให้อยู่ที่ค่ากลาง**
+ตัวเลขที่ตัดสิน — ส่วนย่อยเฉลี่ย 11.7 KB ต่อไฟล์ เทียบชั้นวางสไลด์ที่ 2.2 KB
+ที่ 2 KB โมเดลอ่านแล้วเขียนเอง ที่ 11.7 KB โมเดลแปะ และสิ่งที่แปะคือค่าเฉลี่ยของเมื่อวาน
+เทสที่คุมคลังนั้นก็สารภาพเรื่องเดียวกัน: มันวัด responsive มั้ย มี `<nav>` มั้ย
+ตั้งชื่อคลาสมีคำนำหน้ามั้ย — ซึ่ง**หน้าที่เขียนสดจากศูนย์ผ่านทุกข้อ** ตามข้อ 0 ไฟล์พวกนั้นจึงไม่ควรมีอยู่
 
-## Why this exists
+สิ่งที่เหลืออยู่คือสิ่งที่เจนสดไม่ได้จริง ๆ: **ข้อกำหนดที่ตรวจได้** กับ **ค่าที่วัดมาแล้ว**
 
-Six skills already describe web and UI work: `aetox-frontend-design` decides the
-look, `aetox-ui-design` carries nine implementation guides, `aetox-shadcn` and
-`aetox-radix-to-base` cover component libraries, `aetox-design-system` the
-tokens, `aetox-design` the pictures. Sixty-six files between them, and on
-29 ส.ค. not one of them was markup: every file was prose, a CSV or a licence.
+## วิธีใช้สกิลนี้
 
-That is the same gap the slide tables had, measured the same way. Descriptions
-tell a model what a hero *should be*. They do not stop it building a different
-hero every time, which is what a page assembled from scratch on every run
-actually looks like.
+ออกแบบหน้าเอง เขียนเอง แล้วเอาสัญญาข้างล่างมาตรวจก่อนส่ง
+สกิลนี้ไม่ตัดสินว่าหน้าตาควรเป็นยังไง — `aetox-frontend-design` ตัดสินเรื่องนั้น
+และ `aetox-design-system` ถือชั้นโทเคนถ้าหน้านั้นต้องมีพาเลตต์ของตัวเอง
 
-## The sections
+## หน้าตัวอย่างเต็มหน้า — `pages/` 6 ใบ
 
-Paste `page-shell.html` first; it carries the tokens, the reset, the landmarks
-and dark mode that every section below assumes. Then paste sections into its
-`<main>` in the order the page needs.
+| ไฟล์ | สำหรับ | ขนาด |
+|---|---|---:|
+| `pages/fintech-saas.html` | SaaS · แอปการเงิน | 301 KB |
+| `pages/homestay.html` | ที่พัก · โฮมสเตย์ | 192 KB |
+| `pages/restaurant.html` | ร้านอาหาร · คาเฟ่ | 181 KB |
+| `pages/studio-agency.html` | เอเจนซี · สตูดิโอ | 166 KB |
+| `pages/portfolio.html` | พอร์ตโฟลิโอ · ฟรีแลนซ์ | 149 KB |
+| `pages/fashion-editorial.html` | แฟชั่น · แบรนด์งานฝีมือ | 118 KB |
 
-| Section | File | Reach for it when |
-|---------|------|-------------------|
-| Page shell | `sections/page-shell.html` | Always first. Tokens, reset, skip link, light and dark. |
-| Backgrounds | `sections/backgrounds.html` | Eight paste-on background layers — dots, grid, vignette, glow, fade, noise, aurora, diagonal. One class on a section you already have. |
-| Nav | `sections/nav.html` | Site header. Opens on mobile with no script. |
-| Theme toggle | `sections/theme-toggle.html` | A manual light/dark switch that remembers the choice, instead of only following the OS. |
-| Hero | `sections/hero.html` | The thesis of the page, above the fold. |
-| Logo bar | `sections/logo-bar.html` | Named social proof under the hero. |
-| Features | `sections/features.html` | What it does. Scales 3 to 12 with no new layout. |
-| How it works | `sections/how-it-works.html` | Ordered steps, where the order is the meaning. |
-| Stats | `sections/stats.html` | Numbers, each with its source. |
-| Testimonial | `sections/testimonial.html` | One quote, attributed to a real person. |
-| Team | `sections/team.html` | Named people: photo, role, and a way to reach them. |
-| Profile spotlight | `sections/profile-spotlight.html` | One person in full: bio, real contact, their featured work. |
-| Pricing | `sections/pricing.html` | Up to three tiers, one marked. |
-| FAQ | `sections/faq.html` | Objections. Accordion with no script. |
-| CTA band | `sections/cta-band.html` | Mid-page and end-of-page conversion block. |
-| Newsletter | `sections/newsletter.html` | Email capture or short contact form. |
-| Footer | `sections/footer.html` | Closure and the alternative paths. |
-| Dashboard shell | `sections/dashboard-shell.html` | Sidebar, topbar, content well for an app. |
-| Analytics overview | `sections/analytics-overview.html` | A finished analytics home rather than an empty frame: funnel, totals, retention, distributions, one insight. Frosted chrome over an ambient ground. |
-| Stat cards | `sections/stat-cards.html` | The number row at the top of a dashboard. |
-| Stat cards + sparkline | `sections/stat-sparkline-row.html` | The same number row when the shape of the last eight weeks matters as much as the number. |
-| Area price chart | `sections/chart-area-price.html` | One series over time, for the question "up or down". Latest value labelled at the end of the line. |
-| Multi-series line | `sections/chart-multi-line.html` | Three series that share one unit, compared on one axis. Never two axes. |
-| Stacked bars | `sections/chart-stacked-bars.html` | Totals over time, and what the totals are made of. Three series is the ceiling. |
-| Ranked bars | `sections/chart-ranked-bars.html` | A ranking read in two seconds. Use it wherever a donut would have more than five slices. |
-| Donut | `sections/chart-donut.html` | Share of a whole that genuinely sums to 100%, in at most five slices. |
-| Data table | `sections/data-table.html` | Tabular data that scrolls on a narrow screen. |
-| Form card | `sections/form-card.html` | Sign in, sign up, any short form. |
-| Form controls | `sections/form-controls.html` | Every native control styled once — text, select, checkbox, radio, switch, range, date, file — with error, disabled and read-only states. |
-| Alert | `sections/alert.html` | An inline status message, or a grouped error summary for a multi-field form. |
-| Dialog | `sections/dialog.html` | A question that has to be answered before anything else — confirm, filter, quick edit. Native `<dialog>`, so Esc, focus trap and top layer come free. |
-| Toast | `sections/toast.html` | The result of an action nobody needs to acknowledge. Floats, stacks, and leaves on its own. |
-| Tooltip | `sections/tooltips.html` | A short explanation on hover or focus, in any of four directions, keeping itself inside the viewport. |
-| Switch | `sections/switch.html` | A switch you can actually drag, with a spring on release. Heavier than the one in form-controls, for settings people flip often. |
-| Progress | `sections/progress.html` | Bars and rings, for work whose end is known and for work whose end is not. |
-| Breadcrumbs (collapsing) | `sections/breadcrumbs.html` | The path back up when it is too long for the space — the middle folds into an ellipsis. |
-| Split button | `sections/split-buttons.html` | One obvious action with the rest behind an arrow beside it. |
-| Card stack | `sections/card-stack.html` | Several things in a small space, fanning open on hover. |
-| Tabs | `sections/tabs.html` | Panels you scroll between rather than show and hide, with the underline tracking the real scroll position and arrow keys working per ARIA. |
-| Sidenav | `sections/sidenav.html` | A side menu that becomes a drawer on a narrow screen with no script — `:target` and scroll-snap do it. |
-| Settings | `sections/settings.html` | A finished settings page: labels in one column, controls in the other, every row on the same grid. |
-| Page transitions | `sections/transitions.html` | View Transitions — a circle that grows, or a wipe. Browsers without it just change the page. |
-| FAB | `sections/FAB.html` | The floating primary action that fans open into labelled choices. |
-| Switch group | `sections/switch-group.html` | One switch that controls a group, showing the in-between state when the children disagree. |
-| Morphing button | `sections/morphing-button.html` | A button that stretches into a panel in place, for an action that needs one more field. |
-| Split text | `sections/split-text.html` | Letters or words entering one after another. The real text stays intact, so a screen reader still reads a sentence. |
-| Color schemes | `sections/color-schemes.html` | Three states — follow the system, light, dark — remembered across loads. What theme-toggle should grow into. |
-| Spring physics | `sections/spring-physics.html` | Motion computed from mass, stiffness and damping rather than a guessed easing curve, for things that should feel like they weigh something. |
-| Stories | `sections/stories.html` | Full-screen cards advanced one at a time with a progress bar on top, for telling something short one screen at a time. |
-| Empty state | `sections/empty-state.html` | A list with nothing in it yet. |
-| Error page | `sections/error-page.html` | 404, 500, anything that went wrong. |
-| Article index | `sections/article-index.html` | The list of posts that links into Article. |
-| Article | `sections/article.html` | A post or case study, read rather than scanned. |
-| Media grid | `sections/media-grid.html` | Thumbnail-first content — clips, recordings, uploads — with a type badge and reactions. |
-| Search box | `sections/search-box.html` | A real search input, wired to whatever indexes the pages. |
-| Docs page | `sections/docs-page.html` | Sidebar, prose, on-this-page rail. |
-| Breadcrumb | `sections/breadcrumb.html` | The path back up, for a page nested more than one level deep. |
+**ทุกใบใหญ่กว่าที่ `skill_view` ส่งได้ในครั้งเดียว (64 KB)** ผลลัพธ์ที่ถูกตัดจะบอก
+`offset` ที่ต้องอ่านต่อ แต่ก่อนจะเปิด ให้ชั่งก่อนว่าคุ้มไหม — ใบเดียวกินคอนเท็กซ์
+เท่ากับงานทั้งวัน และเปิดมาแล้วยังเขียนกลับในรอบเดียวไม่ได้อยู่ดี
 
-**Page order for a marketing page**, which is the visitor's own decision
-journey: nav → hero → logo bar → features → how it works → testimonial →
-pricing → FAQ → CTA band → footer. Cut freely; do not reorder without a reason,
-because each section answers the question the one before it raises.
+**ใช้มันแบบตัวอย่าง ไม่ใช่แบบโครงที่ต้องแก้** อ่านส่วนที่อยากรู้ว่าเขาแก้ปัญหานั้นยังไง
+แล้วเขียนของตัวเอง อย่าเปิดทั้งใบเพื่อแก้คำสามคำ
 
-## The standard
+## มาตรฐาน
 
-`STANDARD.md` in this folder is the bar every file here answers to, and it is worth
-reading before adding one. The short version is one sentence: **a template that
-encodes the average does not help a capable model, it holds it down.** So each file
-must carry something that cannot be generated on the spot — a measured value, a
-technique that took ten tries, or an art direction that is a real choice rather than
-the default. It also holds the motion vocabulary, the four art directions, and the
-trap book of things that actually broke in this browser.
+`STANDARD.md` ในโฟลเดอร์นี้คือเส้นที่ทุกอย่างต้องผ่าน **อ่านก่อนเขียนหน้า** ไม่ใช่อ่านเฉพาะ
+ตอนจะเพิ่มไฟล์กลับเข้ามา — ข้อ 4 ถือคลังคำศัพท์การเคลื่อนไหว ข้อ 5 ถือกับดักที่พังจริง
+สองข้อนั้นคือของที่หน้าเขียนสดต้องใช้ ไม่ใช่ของที่คนดูแลโฟลเดอร์ใช้
+ย่อเหลือประโยคเดียว: **เทมเพลตที่เข้ารหัสค่ากลางไม่ได้ช่วยโมเดลที่เก่งอยู่แล้ว มันตรึงให้อยู่ที่ค่ากลาง**
+ไฟล์ที่จะกลับเข้ามาได้ต้องถือของที่เจนสดไม่ได้ — ค่าที่วัดมาแล้ว เทคนิคที่ต้องลองสิบรอบ
+หรือทิศทางศิลป์ที่เป็นการเลือกจริง ไม่ใช่ค่าเริ่มต้น ในนั้นยังมีคลังคำศัพท์การเคลื่อนไหว
+ทิศทางศิลป์สี่แบบ และบันทึกกับดักที่พังจริงในเบราว์เซอร์นี้
 
-## The contract every template obeys
+## สัญญาที่ทุกหน้าต้องผ่าน
 
 - **One self-contained file.** No framework, no CDN, no build step, no
   `node_modules`. The page opens from disk, from a USB stick, from an email
@@ -120,9 +64,9 @@ trap book of things that actually broke in this browser.
 - **No script unless the semantics cannot be had without it.** The FAQ is
   `<details>`, the mobile menu is a checkbox. Both are keyboard operable and
   survive a JS error, which a scripted version of either does not. The one
-  exception is `sections/theme-toggle.html`: a theme choice that resets on
-  every reload has no script-free equivalent worth calling a feature, so it
-  carries a small inline script rather than fake one. Nothing else here does.
+  exception worth making is a theme toggle: a theme choice that resets on every
+  reload has no script-free equivalent worth calling a feature, so it carries a
+  small inline script rather than faking one.
 - **Real landmarks and real elements.** `<nav>`, `<main>`, `<footer>`,
   `<blockquote>` with `<cite>`, `<ol>` when the order is the meaning, `<table>`
   with `scope` on every header. This is not decoration; it is what a screen
@@ -147,52 +91,44 @@ trap book of things that actually broke in this browser.
 - **Accessible by construction.** Visible focus ring, a skip link, labels that
   stay visible when the field is filled, `prefers-reduced-motion` respected, and
   status never carried by colour alone.
+- **The page moves at least once.** A section that sits perfectly still needs a
+  written reason; stillness with no reason is a page that reads as a printout.
+  The numbers here are measured, not chosen — 338 entrance transitions across the
+  24 published originals in the reference folder. **94% are springs** (318 of
+  338), and **73% ride zero bounce** (248), so the default entrance is a spring
+  that arrives without overshooting; keep a small bounce for one hero moment, not
+  for a grid of cards. Duration clusters at **0.9s** (0.6s for something small,
+  1.5s for a hero). Siblings **stagger 100ms apart**, in the order somebody reads
+  them. What moves is **opacity and `translateY` only** — 331 of 338 keep
+  `scale:1`, so a card that enters rises, it does not grow. Offsets are 50px for
+  a block, 10–20px for a line of text. Note the gap against `STANDARD.md` ข้อ 4,
+  which says 0.45–0.7s and 60–90ms: those are the older numbers and the source is
+  slower and calmer than the rule.
+- **Never start an entrance at `opacity:0`.** The originals begin at `.001` in
+  316 of 338 entrances, which keeps the element composited so the first animated
+  frame does not pop. This is also the cheap way past the trap in `STANDARD.md`
+  ข้อ 5: `opacity:0` plus `fill-mode:both` plus a delay renders a blank first
+  frame, and on a hero that blank frame is the page's own thumbnail. Whatever the
+  start value, the rest state must be the finished page — someone who turns
+  motion off sees everything a person with it on sees, just not moving.
 
-## Using one
+## เมื่อแก้ของที่มีอยู่แล้ว
 
-Copy the section, change the words, delete what the page does not need. A
-template is a starting composition, not a form to fill in. Three identical
-card rows down one page is the tell `aetox-anti-slop` is written about: vary
-the cell count, let one section be a single sentence, let another be a number.
+**ออกแบบใหม่ให้ของที่มีอยู่** อ่านหน้าจริงหรือคอมโพเนนต์จริงก่อนเสมอ — เปิดไฟล์ที่
+เรนเดอร์บนเส้นทางนั้นจริง ๆ ไม่ใช่ไฟล์ข้าง ๆ ที่หน้าตาคล้ายกัน แล้วยกสิ่งที่มันพูดและ
+ทำอยู่มาด้วย หน้าที่เขียนจากการเดาว่าของเดิมมีอะไร ไม่ใช่การออกแบบใหม่ มันคือหน้าคนละหน้า
+ที่บังเอิญอยู่ URL เดียวกัน
 
-Read `aetox-frontend-design` before choosing the look, and `aetox-design-system`
-for the token layers if the page needs a palette of its own. This skill decides
-none of that. It only means you do not rebuild the skeleton of a pricing table
-from memory again.
+**แก้ต่อจากที่เพิ่งทำ** จับคู่การแก้ให้ตรงกับสิ่งที่ถูกขอ คำผิดหรือตัวเลขผิดคือการแก้
+บรรทัดเดียว ไม่ใช่เขียนส่วนนั้นใหม่ทั้งก้อน คำขอที่อยากได้ทิศทางอื่น ("ลองฮีโร่ที่กล้ากว่านี้")
+คุ้มที่จะทำสองสามแบบวางเทียบกัน เพราะเทียบถูกกว่าเดาแล้วเจนใหม่ คำขอที่อยากขัดเกลา
+ของเดิมต่อ ยังเป็นการแก้เล็ก ๆ ตรงจุดในมาร์กอัปเดิม สับสนสามอย่างนี้เสียมากกว่าที่ประหยัด —
+เขียนทั้งส่วนใหม่เพื่อแก้คำผิดคือการทิ้งทุกอย่างที่มันทำถูกอยู่แล้ว
 
-**Redesigning something that already exists.** Read the real page or
-component before reaching for a template to replace it: open the file that
-actually renders on that route, not a sibling that looks similar, and carry
-over what it actually says and does. A template pasted in from a guess at the
-old page's content is not a redesign, it is a different page that happens to
-sit at the same URL.
-
-**Iterating on what you built.** Match the edit to what was actually asked. A
-typo or a wrong number is a direct edit to that one line, not a rewrite of the
-section around it. A request for a different direction ("try something bolder
-for the hero") is worth composing two or three variants side by side rather
-than guessing which lands, since comparing is cheaper than regenerating blind.
-A request to keep refining the one already there stays a small, targeted edit
-to that same markup. Confusing these three wastes more than it saves —
-rewriting a whole section to fix a typo throws away everything about it that
-was already right.
-
-Whatever the edit, the token system chosen at the start still governs it. A
-later revision that reaches for a colour or a font not in that system has
-quietly drifted back toward the generic default `aetox-frontend-design` warns
-about. If the palette genuinely needs to change, that is itself a plan
-revision — named and deliberate, not one stray value slipping in three edits
-later.
-
-## When the codebase has a better answer
-
-These are starting points, not the final word. If a real Aetox screen ends up
-with a nav, a form, or a table that is genuinely better than the matching
-template here — clearer, more accessible, solving something this file does
-not — feed it back: update the template file itself, in the same contract as
-the rest of this folder, rather than letting the improvement live only on
-that one page. A library that never learns from the product it describes
-quietly falls behind it.
+ไม่ว่าจะแก้แบบไหน ระบบโทเคนที่เลือกไว้ตอนต้นยังบังคับอยู่ การแก้รอบหลังที่หยิบสีหรือ
+ฟอนต์นอกระบบนั้น คือการไหลกลับไปหาค่าเริ่มต้นทั่ว ๆ ไปที่ `aetox-frontend-design` เตือนไว้
+ถ้าพาเลตต์ต้องเปลี่ยนจริง นั่นคือการแก้แผน — ตั้งใจและเรียกชื่อมัน ไม่ใช่ปล่อยให้ค่าหนึ่ง
+เล็ดลอดเข้ามาตอนแก้ครั้งที่สาม
 
 ## Not in here
 

@@ -1,0 +1,2003 @@
+<!-- ═══════════════════════════════════════════════════════════════════════
+     หน้าสำเร็จรูป · ร้านอาหาร — ทิศทาง `wm` (อบอุ่น)
+     ═══════════════════════════════════════════════════════════════════════
+
+     ไฟล์เดียวจบ ไม่มี CDN ไม่มี build · ภาพอยู่ในโฟลเดอร์ `imgs/` ข้างไฟล์นี้
+     ต้องคัดลอกไปด้วย
+
+     ── ลำดับของหน้านี้ ─────────────────────────────────────────────────
+     รู้สึกยังไง → เงื่อนไขคืออะไร → ร้านนี้คือใคร → มีอะไรกิน →
+     เดือนนี้มีอะไรพิเศษ → หน้าตาจริงเป็นยังไง → คนอื่นว่าไง →
+     เปิดกี่โมงอยู่ตรงไหน → จองโต๊ะ
+     **`w-hc` (เวลาเปิด) ต้องมาก่อน `w-rv` (ฟอร์มจอง) เสมอ** เพราะคนกรอก
+     ฟอร์มต้องรู้ก่อนว่าวันนั้นร้านเปิดไหม
+
+     ── สิ่งที่ต้องเปลี่ยนแน่นอน เรียงตามความเสี่ยง ────────────────────────
+     1. **ราคาทุกจานใน `w-mn` และราคาส่วนลดใน `w-sp`**
+        ราคาเดิมที่ขีดฆ่า **ต้องเป็นราคาที่เคยขายจริง** ในช่วงที่ระบุ ไม่ใช่
+        ราคาที่ตั้งขึ้นให้ส่วนลดดูเยอะ — เป็นเรื่องกฎหมายคุ้มครองผู้บริโภค
+        ไม่ใช่เรื่องมารยาท และเปอร์เซ็นต์ส่วนลดต้องตรงกับราคาสองตัวจริง
+     2. **รอบเวลาใน `w-rv`** คำนวณจากเวลาเปิดจริงลบเวลากินหนึ่งรอบ
+        ที่นี่รอบสุดท้ายคือ 20:30 เพราะครัวปิด 22:00 — ต้องคิดใหม่ทุกร้าน
+     3. **ตารางเวลาใน `w-hc`** เขียนครบเจ็ดวันรวมวันปิด และแยกเวลาครัวปิด
+        ออกจากเวลาร้านปิด ซึ่งเป็นสิ่งที่ทำให้คนที่มาก่อนปิดครึ่งชั่วโมง
+        ไม่ผิดหวัง
+     4. **คลาส `today` ใน `w-hc`** — เทมเพลตชั้น A ไม่มีสคริปต์ จึงรู้ไม่ได้ว่า
+        วันนี้วันอะไร **ถ้าไม่มีหลังบ้านมาตั้งให้ ต้องลบคลาสนั้นทิ้ง**
+        ไม่งั้นมันจะผิดหกวันในเจ็ดวัน ตอนนี้ในไฟล์ยังไม่ได้ใส่ไว้ที่แถวไหน
+     5. **ภาพอาหารทั้งหมด** ต้องเป็นจานจริงของร้าน ถ่ายในแสงจริง
+        ภาพสต็อกของอาหารคือสิ่งที่ลูกค้าจับได้เร็วที่สุดในบรรดาภาพสต็อกทุกชนิด
+     6. **ที่อยู่ พิกัดในลิงก์แผนที่ เบอร์โทร อีเมล** ทั้งใน `w-hc`, `w-rv`, `w-fg`
+
+     ── ฟอร์มยังไม่ได้ต่อกับอะไร ────────────────────────────────────────
+     `<form action="#">` ต้องชี้ไปที่ปลายทางจริง และหน้านี้เขียนไว้ว่าจะตอบกลับ
+     ภายในสองชั่วโมง — ถ้าทำไม่ได้ ต้องแก้ข้อความ ไม่ใช่ปล่อยไว้
+
+     ── เชลล์ ────────────────────────────────────────────────────────────
+     ใช้ `page-shell-warm.html` **ห้ามเอาสองเชลล์มาไว้ในเอกสารเดียวกัน**
+     ═══════════════════════════════════════════════════════════════════ -->
+<!-- Page shell · ทิศทาง `wm` (อบอุ่น) — เชลล์ใบที่สองของคลัง
+
+     ทำไมถึงเป็นไฟล์แยก ไม่ใช่ธีมใน page-shell.html
+     ──────────────────────────────────────────────
+     `STANDARD.md` ข้อ 3 บอกว่าทิศทางศิลป์ต้องมี "ชุดโทเคนและภาษาการเคลื่อนไหว
+     ของตัวเอง ไม่ใช่ไฟล์เดิมเปลี่ยนสี" และข้อ 2 บอกว่าเทมเพลตห้ามนิยามสีเอง
+     สีต้องมาจากโทเคนที่ประกาศครบสามสถานะ สองข้อนี้รวมกันแปลว่า **ทิศทางใหม่
+     ต้องมาพร้อมเชลล์ของตัวเอง** ไม่ใช่โทเคนที่แต่ละส่วนประกาศกันเอง
+
+     ทำไมไม่ยัดเป็น `[data-dir="wm"]` ในเชลล์เดิม: เชลล์เดิมถูกอ้างอิงโดย
+     77 ไฟล์ การเพิ่มชั้นเลือกทิศทางเข้าไปแปลว่าทุกกฎในนั้นต้องแบกความจำเพาะ
+     เพิ่มอีกหนึ่งชั้น ซึ่งจะไปชนกับกฎที่แต่ละส่วนเขียนไว้แล้ว
+     **หนึ่งหน้าใช้เชลล์ใบเดียว ห้ามใส่สองใบในเอกสารเดียวกัน**
+
+     สิ่งที่เหมือนเชลล์เดิมเป๊ะ: รีเซ็ต · แลนด์มาร์ก · คลังคำศัพท์การเคลื่อนไหว
+     ทั้งสิบคำ · `w-reveal` · `w-lift` · `w-btn` · สเกลรัศมี · สเกลระดับความสูง
+     สิ่งที่ต่าง: พาเลตต์ · มุมของเงา (อุ่นขึ้น) · สเกลตัวอักษรของหัวเรื่อง
+
+     ── พาเลตต์ วัดแล้วทุกคู่ ก่อนเข้ามา ไม่ใช่หลังจากนั้น ────────────────
+     ครีมอุ่น + เขียวป่าเข้ม + หมึกอมน้ำตาล สำหรับงานที่ความงามอยู่ที่ภาพถ่าย
+     (ที่พัก ร้านอาหาร ท่องเที่ยว) ซึ่งพื้นขาวบริสุทธิ์จะทำให้ภาพถ่ายดูเย็น
+     และตัดกับสีผิวคนในภาพจนดูเหมือนคนละงาน
+
+     | คู่ | สว่าง | มืด | เกณฑ์ |
+     |---|---|---|---|
+     | text / bg | 14.85:1 | 16.28:1 | 4.5 |
+     | muted / bg | 5.89:1 | 6.89:1 | 4.5 |
+     | muted / surface | 6.41:1 | 6.27:1 | 4.5 |
+     | accent / bg | 9.55:1 | 9.58:1 | 4.5 |
+     | accent-ink / accent | 10.40:1 | 9.58:1 | 4.5 |
+     | field / bg | 3.08:1 | 3.56:1 | 3.0 |
+     | field / surface | 3.35:1 | 3.24:1 | 3.0 |
+     | success / bg | 5.79:1 | 10.00:1 | 4.5 |
+     | warning / bg | 5.30:1 | 8.65:1 | 4.5 |
+     | danger / bg | 6.78:1 | 7.56:1 | 4.5 |
+
+     ค่าที่ต้องแก้ระหว่างทาง: `--field` ในโหมดมืดตั้งไว้ที่ `#6f6456` ตอนแรก
+     ซึ่งผ่านกับพื้น (3.26:1) แต่ **ตกกับ surface ที่ 2.96:1** ช่องกรอกที่วางบน
+     การ์ดจึงมองแทบไม่เห็นทั้งที่วางบนพื้นแล้วเห็น ต้องไล่ขึ้นถึง `#756a5b`
+     ถึงจะผ่านทั้งสองพื้น — เกณฑ์ต้องผ่านกับพื้นที่มัน *วางอยู่จริง* ทุกพื้น
+     ไม่ใช่แค่พื้นหลัก
+
+     ── สิ่งที่ต่างจากเชลล์เดิมนอกจากสี ─────────────────────────────────
+     · **เงาอุ่นขึ้น** เปลี่ยนฐานจาก `rgb(17 19 18)` เป็น `rgb(34 30 25)`
+       เงาสีเทาอมฟ้าบนพื้นครีมอ่านเป็นคราบสกปรก ไม่ใช่เงา
+     · **ไม่มีฟอนต์เซริฟ** ทั้งที่หน้าตาแบบนี้มักจะใช้ เหตุผลอยู่ในคอมเมนต์
+       ข้างโทเคน `--wm-display-*` ข้างล่าง สรุปคือเซริฟไทยที่ติดมากับเครื่อง
+       มี x-height ต่างจากเซริฟละตินราว 14% ประโยคผสมสองภาษาจะเห็นตัวไทย
+       เล็กกว่าอย่างชัดเจน และแก้ไม่ได้ด้วย `font-size-adjust`
+
+     ── ใช้ยังไง ──────────────────────────────────────────────────────
+     วางไฟล์นี้ก่อน แล้วแปะส่วนที่ขึ้นต้นด้วย `w-` ลงใน `<main>` เหมือนเดิม
+     ส่วนทุกส่วนในคลังใช้ได้กับเชลล์ทั้งสองใบ เพราะไม่มีส่วนไหนฮาร์ดโค้ดสี
+     ส่วนที่ออกแบบมาเพื่อทิศทางนี้โดยเฉพาะขึ้นต้นด้วยคำว่า "ทิศทาง `wm`"
+     ในหัวไฟล์ของมันเอง -->
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ร้านอาหาร · หน้าสำเร็จรูป</title>
+<meta name="description" content="ประโยคเดียวที่บอกว่าหน้านี้เกี่ยวกับอะไร">
+<style>
+  :root{
+    color-scheme:light dark;
+    --bg:#f7f2e9; --surface:#fffcf6; --text:#221e19; --muted:#655c50;
+    --line:#e4dbcb; --field:#94897a; --accent:#14472f; --accent-ink:#fffcf6;
+    --success:#1c6b4b; --warning:#8a5a10; --danger:#9b2c21;
+    /* รัศมี — สี่ขั้น ไม่ใช่เก้าค่าที่กะเอา ก่อนหน้านี้ในคลังมีรัศมีเล็กอยู่ห้าค่า
+       (6 7 8 9 10px) และทรงเม็ดยาเขียนสองแบบ (99px กับ 999px) ซึ่งไม่มีใครตั้งใจ
+       ให้ต่างกัน มันแค่ถูกพิมพ์คนละครั้ง */
+    --radius-sm:10px;      /* ของเล็กในการ์ด ป้าย ปุ่มไอคอน */
+    --radius:18px;         /* การ์ด แผง ช่องกรอก */
+    --radius-lg:26px;      /* กล่องเด่น แถบลอย ของที่ใหญ่กว่าครึ่งจอ */
+    --radius-pill:999px;   /* ทรงเม็ดยา ชิป สวิตช์ */
+    --maxw:1120px; --gap:clamp(16px,2.5vw,28px);
+    --pad:clamp(20px,5vw,48px);
+    /* ── ระดับความสูง สี่ขั้น ────────────────────────────────────────────
+       ทุกขั้นเป็นเงาสองชั้นเสมอ ไม่ใช่ชั้นเดียว
+         ชั้นแรก แคบและเข้ม  = เงาสัมผัส บอกว่าของวางอยู่บนพื้น
+         ชั้นสอง กว้างและจาง = เงาบรรยากาศ บอกว่ามันสูงแค่ไหน
+       เงาชั้นเดียวให้ได้อย่างใดอย่างหนึ่ง จึงออกมาเป็นได้แค่ "ลอย" หรือ "แปะ"
+       ไม่เคยเป็น "วางอยู่" ซึ่งเป็นสิ่งที่ตาคาดหวังจากของจริง
+
+       ระยะเบลอโตเป็นเท่าตัวทุกขั้น (6→18→36→68) ไม่ใช่บวกทีละนิด เพราะตาอ่าน
+       ความสูงเป็นสเกลลอการิทึม สองขั้นที่ห่างกัน 4px ตาแยกไม่ออกว่าอันไหนสูงกว่า
+
+       ค่า offset แนวตั้งเป็นครึ่งหนึ่งของเบลอเสมอ นั่นคือมุมแสงคงที่ทั้งระบบ
+       ของสองชิ้นบนหน้าเดียวกันที่เงาทอดคนละมุมคือสิ่งที่อ่านออกทันทีว่าผิด */
+    --e1:0 1px 2px -1px rgb(34 30 25/.10), 0 2px 6px -2px rgb(34 30 25/.08);
+    --e2:0 2px 4px -2px rgb(34 30 25/.10), 0 8px 18px -6px rgb(34 30 25/.12);
+    --e3:0 4px 8px -4px rgb(34 30 25/.12), 0 18px 36px -12px rgb(34 30 25/.18);
+    --e4:0 8px 16px -8px rgb(34 30 25/.16), 0 34px 68px -20px rgb(34 30 25/.26);
+    --sans:"Prompt","Leelawadee UI",system-ui,-apple-system,Segoe UI,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+    /* จังหวะการเคลื่อนไหว มาจาก STANDARD.md ข้อ 4 ไม่ใช่ค่าที่กะเอา ประกาศไว้
+       ที่เดียวเพื่อให้ทั้งหน้าเคลื่อนด้วยจังหวะเดียวกัน สองส่วนที่เข้าฉากคนละ
+       ความเร็วบนหน้าเดียวกันคือสิ่งที่อ่านออกทันทีว่าประกอบมาจากคนละที่ */
+    --ease-in:cubic-bezier(.2,.7,.3,1);   /* เข้าฉาก */
+    --ease-wipe:cubic-bezier(.7,0,.2,1);  /* กวาด */
+    --t-enter:.55s; --t-hover:.18s; --t-stagger:70ms;
+    /* ── สเกลตัวอักษรของทิศทาง `wm` ────────────────────────────────────
+       ทิศทางนี้ไม่ใช้ฟอนต์เซริฟทั้งที่หน้าตาแบบนี้มักจะใช้ เหตุผลวัดมาแล้ว:
+       เซริฟไทยที่ติดมากับ Windows มีตัวเดียวคือ Angsana New ซึ่งมีความสูง
+       ตัวพิมพ์เล็ก (x-height) อยู่ที่ราว 0.42 em ส่วน Georgia อยู่ที่ 0.48 em
+       ต่างกันราว 14% แปลว่าประโยคที่มีทั้งไทยและอังกฤษบนบรรทัดเดียวกันจะเห็น
+       ตัวไทยเล็กกว่าอย่างชัดเจน และแก้ด้วย font-size-adjust ไม่ได้เพราะมัน
+       ปรับได้ทีละฟอนต์ ไม่ใช่ทีละภาษาในสแตกเดียวกัน
+       สิ่งที่ให้ "ความเป็นเอดิทอเรียล" แทนได้โดยไม่พัง คือน้ำหนักที่เบากว่า
+       กับช่องไฟที่กว้างกว่า ซึ่งคุมได้จริงทั้งสองภาษา */
+    --wm-display-weight:500;
+    --wm-display-track:-.012em;
+    --wm-eyebrow-track:.16em;
+    /* สปริงสองตัว ไม่ได้กะด้วยตา — แก้สมการสปริงหน่วง (damped harmonic
+       oscillator) แล้วสุ่มค่าออกมา 22 จุด รายละเอียดที่มาอยู่ใน
+       sections/spring-physics.html ซึ่งมีตัวเทียบกับ cubic-bezier ให้ดูด้วย
+         แน่น  ζ=0.62 ωn=17.0 → เลยเป้า 8.3% นิ่งใน 0.42s  ใช้กับตัวควบคุมเล็ก
+         นุ่ม  ζ=0.72 ωn=12.5 → เลยเป้า 3.8% นิ่งใน 0.55s  ใช้กับแผงและกล่องใหญ่
+       ของใหญ่ต้องเลยเป้าน้อยกว่าเสมอ พื้นที่ยิ่งมาก ตายิ่งจับการแกว่งได้ชัด */
+    --ease-spring:linear(0, .0459 4.5%, .1585 9.1%, .3062 13.6%, .4646 18.2%,
+      .6165 22.7%, .7511 27.3%, .8625 31.8%, .9488 36.4%, 1.011 40.9%,
+      1.051 45.5%, 1.074 50%, 1.083 54.5%, 1.082 59.1%, 1.074 63.6%,
+      1.062 68.2%, 1.049 72.7%, 1.036 77.3%, 1.024 81.8%, 1.014 86.4%,
+      1.006 90.9%, 1.001 95.5%, 1);
+    --ease-spring-soft:linear(0, .0419 4.5%, .1434 9.1%, .2749 13.6%, .4153 18.2%,
+      .5505 22.7%, .6717 27.3%, .7746 31.8%, .8578 36.4%, .922 40.9%,
+      .9689 45.5%, 1.001 50%, 1.022 54.5%, 1.033 59.1%, 1.038 63.6%,
+      1.038 68.2%, 1.035 72.7%, 1.03 77.3%, 1.025 81.8%, 1.02 86.4%,
+      1.015 90.9%, 1.01 95.5%, 1);
+    --t-spring:.42s; --t-spring-soft:.55s;
+    /* สีสำหรับข้อมูล แยกจากสีสถานะข้างบนโดยตั้งใจ: สถานะบอกว่าเรื่องนี้ดีหรือแย่
+       ข้อมูลบอกแค่ว่านี่คนละชุดกับชุดนั้น ปนกันเมื่อไหร่กราฟจะพูดสิ่งที่ไม่ได้
+       ตั้งใจพูด ลำดับตายตัว ห้ามวนกลับ ชุดที่เจ็ดคือรวมเป็น "อื่น ๆ" ไม่ใช่สร้าง
+       สีใหม่ ทั้งหกค่านี้รันผ่าน validator ของสกิล dataviz แล้วทั้งสองโหมด —
+       แถบความสว่าง ความอิ่มสี ระยะห่างของคู่ที่ติดกันเมื่อมองด้วยตาบอดสี และ
+       คอนทราสต์กับพื้น ถ้าจะเปลี่ยนค่า ให้รัน validator ใหม่ อย่ากะด้วยตา */
+    --viz-1:#db2777; --viz-2:#2563eb; --viz-3:#16a34a;
+    --viz-4:#7c3aed; --viz-5:#d97706; --viz-6:#0d9488;
+    /* ไล่เฉดสีเดียวสำหรับปริมาณ อ่อนไปเข้ม ไม่ใช่รุ้ง */
+    --viz-s1:#dbeafe; --viz-s2:#bfdbfe; --viz-s3:#93b4f7;
+    --viz-s4:#4f83ee; --viz-s5:#1d4ed8;
+    /* ขึ้นกับลง เป็นสถานะ ไม่ใช่ชุดข้อมูล จึงยืมจาก success/danger */
+    --viz-up:var(--success); --viz-down:var(--danger);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){ color-scheme:dark;
+           --bg:#14110d; --surface:#1f1b16; --text:#f3eee4; --muted:#a79b89;
+           --line:#2e2820; --field:#756a5b; --accent:#86c79f; --accent-ink:#14110d;
+           --success:#5fd1a6; --warning:#e0a54a; --danger:#f08776;
+           /* บนพื้นมืด เงาดำแทบไม่มีผล เพราะพื้นก็ดำอยู่แล้ว จึงต้องเข้มขึ้นราวสามเท่า
+              และเพิ่มเส้นสว่างบางที่ขอบบน (inset) ซึ่งเป็นสิ่งที่บอกความสูงจริง ๆ
+              ในโหมดมืด ไม่ใช่เงา */
+           --e1:inset 0 1px 0 rgb(255 255 255/.04), 0 1px 2px -1px rgb(0 0 0/.55), 0 2px 6px -2px rgb(0 0 0/.45);
+           --e2:inset 0 1px 0 rgb(255 255 255/.05), 0 2px 4px -2px rgb(0 0 0/.55), 0 8px 18px -6px rgb(0 0 0/.5);
+           --e3:inset 0 1px 0 rgb(255 255 255/.06), 0 4px 8px -4px rgb(0 0 0/.6), 0 18px 36px -12px rgb(0 0 0/.55);
+           --e4:inset 0 1px 0 rgb(255 255 255/.07), 0 8px 16px -8px rgb(0 0 0/.65), 0 34px 68px -20px rgb(0 0 0/.6);
+           --viz-1:#e0538f; --viz-2:#4f7fe8; --viz-3:#25a463;
+           --viz-4:#8a6bea; --viz-5:#c1862c; --viz-6:#1ba38f;
+           --viz-s1:#182a4a; --viz-s2:#1e3a6b; --viz-s3:#2a539b;
+           --viz-s4:#3a6ecb; --viz-s5:#5b8cf7 }
+  }
+  /* Same values again, gated on an explicit choice rather than the OS
+     setting: sections/theme-toggle.html flips this attribute and remembers
+     it, for a page that wants a switch instead of only following the system. */
+  :root[data-theme="light"]{ color-scheme:light }
+  :root[data-theme="dark"]{ color-scheme:dark;
+         --bg:#14110d; --surface:#1f1b16; --text:#f3eee4; --muted:#a79b89;
+         --line:#2e2820; --field:#756a5b; --accent:#86c79f; --accent-ink:#14110d;
+         --success:#5fd1a6; --warning:#e0a54a; --danger:#f08776;
+         /* บนพื้นมืด เงาดำแทบไม่มีผล เพราะพื้นก็ดำอยู่แล้ว จึงต้องเข้มขึ้นราวสามเท่า
+            และเพิ่มเส้นสว่างบางที่ขอบบน (inset) ซึ่งเป็นสิ่งที่บอกความสูงจริง ๆ
+            ในโหมดมืด ไม่ใช่เงา */
+         --e1:inset 0 1px 0 rgb(255 255 255/.04), 0 1px 2px -1px rgb(0 0 0/.55), 0 2px 6px -2px rgb(0 0 0/.45);
+         --e2:inset 0 1px 0 rgb(255 255 255/.05), 0 2px 4px -2px rgb(0 0 0/.55), 0 8px 18px -6px rgb(0 0 0/.5);
+         --e3:inset 0 1px 0 rgb(255 255 255/.06), 0 4px 8px -4px rgb(0 0 0/.6), 0 18px 36px -12px rgb(0 0 0/.55);
+         --e4:inset 0 1px 0 rgb(255 255 255/.07), 0 8px 16px -8px rgb(0 0 0/.65), 0 34px 68px -20px rgb(0 0 0/.6);
+         --viz-1:#e0538f; --viz-2:#4f7fe8; --viz-3:#25a463;
+         --viz-4:#8a6bea; --viz-5:#c1862c; --viz-6:#1ba38f;
+         --viz-s1:#182a4a; --viz-s2:#1e3a6b; --viz-s3:#2a539b;
+         --viz-s4:#3a6ecb; --viz-s5:#5b8cf7 }
+  *,*::before,*::after{ box-sizing:border-box }
+  body,h1,h2,h3,h4,p,figure,blockquote,ul,ol,dl,dd{ margin:0 }
+  /* Lists inside a w- component are structure, not prose, so they lose their
+     markers. Scoped to the namespace rather than written as `ul[class]`: the
+     lists in these templates are plain <ul> inside a classed parent, and the
+     `ul[class]` idiom missed every one of them, which put bullet points down
+     the middle of the nav and the logo row the first time it was rendered.
+     Matched by prefix, not substring: `[class*="w-"]` alone would also catch
+     an unrelated class like `show-panel` or `arrow-nav` (both contain "w-")
+     and strip bullets from a list that has nothing to do with this skill. */
+  :is([class^="w-"],[class*=" w-"]) :where(ul,ol){ list-style:none; padding:0 }
+  /* Prose is the exception and asks for its markers back, because there a list
+     IS the content. */
+  .w-article .prose :where(ul,ol),.w-docs .body :where(ul,ol){
+    list-style:revert; padding-left:1.3em }
+  img,svg,video{ display:block; max-width:100%; height:auto }
+  body{ background:var(--bg); color:var(--text); font-family:var(--sans);
+        line-height:1.65; -webkit-font-smoothing:antialiased }
+  a{ color:inherit }
+  :where(a,button,input,textarea,select,summary):focus-visible{
+    outline:2px solid var(--accent); outline-offset:3px; border-radius:var(--radius-sm) }
+  .w-wrap{ width:100%; max-width:var(--maxw); margin-inline:auto; padding-inline:var(--pad) }
+  .w-section{ padding-block:clamp(48px,8vw,104px) }
+  .w-eyebrow{ color:var(--accent); font-weight:600; letter-spacing:.1em;
+              text-transform:uppercase; font-size:13px }
+  .w-lede{ color:var(--muted); font-size:clamp(16px,1.6vw,19px); max-width:62ch }
+  .w-btn{ display:inline-flex; align-items:center; gap:8px; border:1px solid var(--accent);
+          background:var(--accent); color:var(--accent-ink); text-decoration:none;
+          font:600 16px/1 var(--sans); padding:14px 24px; border-radius:var(--radius-pill) }
+  .w-btn--ghost{ background:transparent; color:var(--text); border-color:var(--field) }
+  /* For the rare label a sighted user does not need to see but a screen
+     reader must have — a compact search box, an icon-only control. Stays in
+     the tab order and the accessibility tree, unlike display:none. Prefer a
+     visible label over this one first; most fields in this library use one. */
+  .w-sr-only{
+    position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
+    clip-path:inset(50%); overflow:hidden; white-space:nowrap;
+  }
+  .w-skip{ position:absolute; left:-9999px }
+  .w-skip:focus{ left:12px; top:12px; z-index:99; background:var(--bg); padding:10px 14px }
+
+  /* ── คลังคำศัพท์การเคลื่อนไหว ─────────────────────────────────────────────
+     STANDARD.md ข้อ 4 สั่งว่า "ประกาศครั้งเดียว ใช้ซ้ำทุกที่ ชื่อคือสัญญา ไม่ใช่
+     การตกแต่ง" ที่นี่คือครั้งเดียวนั้น ส่วนที่เขียน animation:w-grow จึงแปลว่า
+     "นี่คือแท่งกราฟ" ไม่ใช่แค่ "ของที่ขยับ" และคนอ่านโค้ดรู้ทันทีว่าจะเห็นอะไร
+
+     คีย์เฟรมประกาศนอกด่าน prefers-reduced-motion ได้ เพราะคีย์เฟรมเปล่า ๆ ไม่
+     ทำให้อะไรขยับ สิ่งที่ต้องอยู่หลังด่านคือจุดที่ "เรียกใช้" ซึ่งอยู่ในไฟล์ของ
+     แต่ละส่วน แบบเดียวกับที่ backgrounds.html กับ dialog.html ทำอยู่แล้ว
+
+     w-rise ขยับ transform อย่างเดียว ไม่แตะ opacity โดยตั้งใจ — กับดักข้อแรกใน
+     STANDARD.md ข้อ 5 บันทึกไว้ว่าเข้าฉากที่เริ่มจาก opacity:0 ทำให้เฟรมแรกของ
+     หน้าว่าง และภาพย่อที่เรนเดอร์จากเฟรมแรกออกมาเป็นหน้าเปล่า */
+  @keyframes w-rise { from{ transform:translateY(14px) } }
+  /* ต้องเขียน to ให้ครบ ห้ามปล่อยให้เบราว์เซอร์เติมจากค่าเดิมของ element เอง:
+     ค่าเดิมของ clip-path คือ none ซึ่งคำนวณระหว่างทางกับ inset() ไม่ได้ ผลคือ
+     มันกระโดดจากปิดสนิทเป็นเปิดสนิทที่ครึ่งทาง ไม่ได้กวาด จับได้ตอนเปิดดูของ
+     จริงเท่านั้น เพราะเช็คจากโค้ดแล้วเห็นชื่อ w-wipe ติดอยู่ครบทุกที่ */
+  @keyframes w-wipe { from{ clip-path:inset(0 100% 0 0) }
+                      to  { clip-path:inset(0 0 0 0) } }
+  @keyframes w-lift { to  { transform:translateY(-3px) } }
+  @keyframes w-slide{ to  { transform:translateX(-50%) } }
+  @keyframes w-drift{ to  { transform:translate3d(4%,-3%,0) scale(1.12) } }
+  @keyframes w-sheen{ from{ background-position:-140% 0 } to{ background-position:240% 0 } }
+  /* งอกจากฐาน แกนไหนก็ได้: ตั้ง --grow-x / --grow-y ที่ตัวที่เรียกใช้ แล้วตั้ง
+     transform-origin ให้ตรงกับฐานจริงของแท่งนั้น ค่าเริ่มต้นคือแท่งแนวตั้ง
+     (--grow-y:0) เพราะเป็นทรงที่พบบ่อยกว่า ส่วนแท่งแนวนอนตั้ง --grow-x:0
+     --grow-y:1 ที่จะแยกเป็น w-grow-x ต่างหากก็ได้ แต่ข้อ 4 บอกว่าชื่อคือสัญญา
+     และสัญญาของคำนี้คือ "งอกจากฐาน" ซึ่งเป็นเรื่องเดียวกันทั้งสองแกน */
+  @keyframes w-grow { from{ transform:scale(var(--grow-x,1),var(--grow-y,0)) } }
+  @keyframes w-draw { from{ stroke-dashoffset:1000 } }   /* คู่กับ pathLength="1000" */
+  @keyframes w-spin { to  { transform:rotate(360deg) } }
+  @keyframes w-blink{ 50% { opacity:.25 } }
+
+  /* การ์ดที่ลอยขึ้นตอนชี้ ใช้ซ้ำได้ทุกส่วนด้วยการเติมคลาส `w-lift` ไม่ต้องเขียน
+     ซ้ำแปดไฟล์ สีขอบกับเงาเปลี่ยนนอกด่าน การขยับอยู่ในด่าน — คนที่ปิดการ
+     เคลื่อนไหวจึงยังได้ผลตอบกลับว่าชี้โดนอะไรอยู่ แค่ไม่มีอะไรกระโดด
+
+     ที่ต้องมีเงาด้วย ไม่ใช่แค่สีขอบ: การ์ดบางใบในคลังนี้ไม่มีขอบเลย (เช่นคนใน
+     team.html) ถ้าผลตอบกลับมีแต่ border-color ใบพวกนั้นจะไม่มีอะไรตอบเลยสำหรับ
+     คนที่ปิดการเคลื่อนไหว เงาทำงานได้ทั้งใบที่มีขอบและไม่มี */
+  .w-lift{ transition:border-color var(--t-hover) linear, box-shadow var(--t-hover) linear }
+  .w-lift:hover{ border-color:color-mix(in srgb,var(--accent) 42%,var(--line));
+                 box-shadow:var(--e2) }
+
+  /* แสงกวาดผ่านปุ่มหลักตอนชี้ ใช้ currentColor จึงถูกทั้งปุ่มทึบ (กวาดสว่างบนพื้น
+     เข้ม) และปุ่มโปร่ง (กวาดตามสีตัวหนังสือ) โดยไม่ต้องแยกกฎ เครื่องที่ไม่รู้จัก
+     color-mix จะทิ้งทั้ง background ทิ้งไป ปุ่มก็เหลือเป็นปุ่มปกติ ไม่ใช่จอดำ */
+  .w-btn{ position:relative; overflow:hidden; isolation:isolate }
+  .w-btn::after{ content:""; position:absolute; inset:0; z-index:-1; pointer-events:none;
+    background:linear-gradient(100deg, transparent 34%,
+      color-mix(in srgb,currentColor 24%,transparent) 50%, transparent 66%);
+    background-size:240% 100%; background-repeat:no-repeat; background-position:-140% 0 }
+
+  /* เข้าฉากตอนเลื่อนถึง เติมคลาส `w-reveal` ที่บล็อกไหนก็ได้
+     ใช้ animation-timeline:view() แทน IntersectionObserver + สคริปต์ เพราะ
+     ตำแหน่งของกล้องคือสิ่งที่เบราว์เซอร์รู้ดีอยู่แล้ว ไม่ต้องถามมันทีละเฟรม
+     สามด่านซ้อนกันตามที่ STANDARD.md ข้อ 2 สั่งไว้ว่าของใหม่ต้องมีทางลง:
+       1. prefers-reduced-motion — คนที่ปิดการเคลื่อนไหวไม่เจออะไรเลย
+       2. @supports (animation-timeline:view()) — เครื่องที่ไม่รองรับข้ามทั้งก้อน
+       3. ท่าที่ใช้คือ w-rise ซึ่งขยับ transform อย่างเดียว
+     สิ่งที่เหลือเมื่อทั้งสามด่านไม่ผ่านคือบล็อกที่มองเห็นครบตามปกติ ไม่ใช่ที่ว่าง
+     ซึ่งเป็นความต่างระหว่าง "ทางลง" กับ "ทางตัน" */
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      .w-reveal{ animation:w-rise linear both;
+                 animation-timeline:view(); animation-range:entry 8% cover 26% }
+    }
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    html{ scroll-behavior:smooth }
+    .w-lift{ transition:transform var(--t-hover) var(--ease-in),
+                        border-color var(--t-hover) linear,
+                        box-shadow var(--t-hover) linear }
+    .w-lift:hover{ transform:translateY(-3px); box-shadow:var(--e3) }
+    .w-btn:hover::after,.w-btn:focus-visible::after{ animation:w-sheen .7s var(--ease-wipe) }
+  }
+</style>
+</head>
+<body>
+<a class="w-skip" href="#main">ข้ามไปเนื้อหา</a>
+<!-- nav.html here -->
+
+<!-- Nav · ทิศทาง `gl` (กระจก) — แคปซูลลอยเหนือเนื้อหา
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี nav.html แล้ว
+     ───────────────────────────────────────────
+     `nav.html` เป็นแถบเต็มความกว้างที่ติดขอบบน มีเส้นคั่นใต้ตัวเอง และมีพื้น
+     ทึบ ซึ่งถูกสำหรับหน้าที่เนื้อหาเริ่มทันทีใต้แถบ — แถบคือ *ขอบ* ของหน้า
+
+     แต่ทรง `hero-product.html` มีพื้นบรรยากาศเต็มความกว้างอยู่ข้างหลัง
+     แถบทึบเต็มความกว้างจะตัดฟ้าออกเป็นสองท่อนตรงบรรทัดแรก ซึ่งเป็นสิ่งแรก
+     ที่คนเห็น แคปซูลลอยแก้ข้อนี้เพราะมันเป็น *ของที่วางอยู่บน* หน้า ไม่ใช่
+     ขอบของหน้า ฟ้าจึงต่อเนื่องผ่านใต้มันไป
+
+     เลือกจากคำถามเดียว: **ข้างหลังแถบมีอะไรที่ต้องมองทะลุไหม**
+     ถ้าไม่มี ใช้ `nav.html` เพราะเบากว่าและไม่ต้องมี `backdrop-filter`
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **`top:12px` ไม่ใช่ `top:0`** เพราะแคปซูลต้องมีอากาศรอบตัวถึงจะอ่านเป็น
+       ของที่ลอย ที่ 0 มันชนขอบจอแล้วกลับไปอ่านเป็นแถบ 12px คือระยะที่เล็ก
+       พอที่ไม่กินพื้นที่เหนือเส้นพับ และใหญ่พอให้เงา `--e3` (เบลอ 36px)
+       มีที่ให้ตกโดยไม่ถูกขอบจอตัด
+     · **ความกว้างสูงสุด 920px ไม่ใช่ `--maxw` 1120px** เพราะแคปซูลที่กว้าง
+       เท่าเนื้อหาจะอ่านเป็นแถบอีกครั้ง 920 คือจุดที่ยังเหลือขอบข้างละ 100px
+       ที่ 1120 ซึ่งเป็นระยะที่ตาแยกออกว่ามันแคบกว่าเนื้อหาข้างล่าง
+     · **`padding:8px 8px 8px 20px`** ไม่สมมาตรโดยตั้งใจ: ข้างขวามีปุ่มที่มี
+       พื้นของตัวเองอยู่แล้ว ระยะ 8px จึงพอ ส่วนข้างซ้ายเป็นตัวอักษรเปล่า
+       ต้องการ 20px ถึงจะดูห่างขอบเท่ากัน — เป็นระยะที่ตาเห็น ไม่ใช่ระยะที่วัด
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`position:sticky` บนตัว `<nav>` ที่อยู่ใน `<div>` ที่มี `overflow`** —
+        ไม่ติดหนึบเลย ไหลไปกับหน้า sticky ตายทันทีที่บรรพบุรุษตัวใดตัวหนึ่ง
+        มี overflow ที่ไม่ใช่ visible ที่นี่จึงวางแถบไว้นอก `<main>` ตรง ๆ
+     2. **เมนูมือถือใช้ `display:none` → `flex`** — transition ไม่ทำงานกับ
+        `display` ตรง ๆ ลองใช้ `max-height` แล้วต้องเดาความสูงล่วงหน้า เมนูที่
+        ยาวกว่าที่เดาจะถูกตัด ทางที่ใช้จริงคือ animation ที่เล่นตอน `:checked`
+        ซึ่งเริ่มหลัง display เปลี่ยนไปแล้ว จึงไม่ต้องรู้ความสูงเลย
+        (วิธีเดียวกับ `nav.html` — ท่า `w-navp-drop` ประกาศในไฟล์นี้เพราะใช้
+        ที่เดียว)
+     3. **ให้แผงเมนูมือถืออยู่ในแคปซูลเดียวกัน** — แคปซูลยืดสูงขึ้นเป็นกล่อง
+        มุมมนที่ไม่ใช่แคปซูลอีกต่อไป แยกออกมาเป็นแผ่นที่สองใต้แคปซูลแทน
+        ซึ่งเป็นสิ่งที่ทิศทาง `gl` ทำอยู่แล้ว — แผ่นโปร่งซ้อนกัน
+     4. **`backdrop-filter` โดยไม่มีพื้นสำรอง** — บนเอนจินที่ไม่รองรับ แคปซูล
+        กลายเป็นใส ตัวหนังสือทับฟ้าจนอ่านไม่ออก ตอนนี้พื้นเริ่มที่ 76% ทึบ
+        อยู่แล้ว แล้วค่อยเพิ่มความเบลอด้วย `@supports` -->
+<style>
+  .w-navp{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 13%,transparent);
+    position:sticky; top:12px; z-index:30; padding-top:12px;
+  }
+  .w-navp .bar{
+    display:flex; align-items:center; gap:clamp(10px,2vw,22px);
+    max-width:920px; margin-inline:auto;
+    padding:8px 8px 8px 20px; min-height:56px;
+    border:1px solid var(--gl-edge); border-radius:var(--radius-pill);
+    background:var(--gl-pane); box-shadow:var(--e3);
+  }
+  @supports (backdrop-filter:blur(4px)){
+    .w-navp .bar{ backdrop-filter:blur(14px) }
+  }
+  .w-navp .mark{ display:flex; align-items:center; gap:9px; text-decoration:none;
+                 font:700 17px/1 var(--sans); letter-spacing:-.02em; flex:none }
+  .w-navp .mark i{ width:22px; height:22px; border-radius:7px; flex:none;
+                   background:var(--accent) }
+  .w-navp ul{ display:flex; align-items:center; gap:clamp(6px,1.4vw,14px);
+              margin-inline:auto }
+  .w-navp ul a{ display:block; text-decoration:none; color:var(--muted);
+                font-size:15px; padding:8px 12px; border-radius:var(--radius-pill) }
+  .w-navp ul a:hover,.w-navp ul a[aria-current="page"]{
+    color:var(--text); background:color-mix(in srgb,var(--text) 7%,transparent) }
+  .w-navp .w-btn{ padding:11px 12px 11px 20px; font-size:15px; flex:none }
+  .w-navp .w-btn .badge{ display:inline-flex; align-items:center; justify-content:center;
+    width:24px; height:24px; border-radius:50%;
+    background:var(--accent-ink); color:var(--accent) }
+  .w-navp .w-btn .badge svg{ width:11px; height:11px }
+
+  /* ── เมนูมือถือ ไม่มีสคริปต์ ───────────────────────────────────────── */
+  .w-navp .toggle{ position:absolute; width:1px; height:1px; margin:-1px;
+                   clip-path:inset(50%); overflow:hidden }
+  .w-navp .burger{ display:none; cursor:pointer; flex:none;
+    width:40px; height:40px; border-radius:50%; background:var(--text);
+    align-items:center; justify-content:center; gap:4px; flex-direction:column }
+  .w-navp .burger i{ width:15px; height:2px; border-radius:2px; background:var(--bg) }
+  .w-navp .toggle:focus-visible ~ .bar .burger{
+    outline:2px solid var(--accent); outline-offset:3px }
+  /* แผงเมนูเป็นแผ่นที่สอง ใต้แคปซูล ไม่ได้ยืดแคปซูลให้สูงขึ้น — ดูข้อ 3 */
+  .w-navp .drop{ display:none; max-width:920px; margin:8px auto 0; padding:10px;
+    border:1px solid var(--gl-edge); border-radius:var(--radius);
+    background:var(--gl-pane); box-shadow:var(--e3) }
+  @supports (backdrop-filter:blur(4px)){ .w-navp .drop{ backdrop-filter:blur(14px) } }
+  .w-navp .drop ul{ display:grid; gap:2px; margin:0 }
+  .w-navp .drop a{ padding:12px 14px; font-size:16px; border-radius:var(--radius-sm) }
+  .w-navp .toggle:checked ~ .drop{ display:block }
+
+  @media (max-width:860px){
+    .w-navp .bar > ul{ display:none }
+    .w-navp .bar .w-btn{ display:none }
+    .w-navp .burger{ display:flex }
+    .w-navp .mark{ margin-inline-end:auto }
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-navp ul a{ transition:background var(--t-hover) linear, color var(--t-hover) linear }
+    .w-navp .toggle:checked ~ .drop{ animation:w-navp-drop .3s var(--ease-in) }
+    /* เงาเข้มขึ้นตามระยะที่เลื่อน ผูกกับ animation-timeline:scroll() ไม่ใช่
+       scroll listener แคปซูลที่ลอยอยู่บนเนื้อหาโดยเงาไม่เปลี่ยนเลยจะดูเหมือน
+       ติดอยู่กับหน้า ไม่ใช่ลอยอยู่เหนือมัน 140px แรกคือระยะที่หัวเรื่องแรก
+       เริ่มลอดใต้แคปซูลพอดีที่ 900px */
+    @supports (animation-timeline:scroll()){
+      .w-navp .bar{ animation-name:w-navp-raise; animation-timing-function:linear;
+        animation-fill-mode:both;
+        animation-timeline:scroll(); animation-range:0 140px }
+    }
+  }
+  @keyframes w-navp-drop{ from{ transform:translateY(-8px) } }
+  @keyframes w-navp-raise{ to{ box-shadow:var(--e4) } }
+</style>
+
+<div class="w-navp">
+  <div class="w-wrap">
+    <input class="toggle" type="checkbox" id="w-navp-open" aria-label="เปิดเมนู">
+    <nav class="bar" aria-label="หลัก">
+      <a class="mark" href="#"><i></i>แบรนด์</a>
+      <ul>
+        <li><a href="#menu">เมนู</a></li>
+        <li><a href="#specials">ของพิเศษ</a></li>
+        <li><a href="#gallery">ภาพร้าน</a></li>
+        <li><a href="#hours">เวลาเปิด</a></li>
+      </ul>
+      <a class="w-btn" href="#reserve">จองโต๊ะ<span class="badge"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h9M8.5 4.2 12.6 8l-4.1 3.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+      <label class="burger" for="w-navp-open"><i></i><i></i></label>
+    </nav>
+    <div class="drop">
+      <ul>
+        <li><a href="#menu">เมนู</a></li>
+        <li><a href="#specials">ของพิเศษ</a></li>
+        <li><a href="#gallery">ภาพร้าน</a></li>
+        <li><a href="#hours">เวลาเปิด</a></li>
+        <li><a href="#reserve">จองโต๊ะ</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<main id="main">
+<!-- Hero · ทิศทาง `wm` (อบอุ่น) — ภาพเต็มเฟรม ข้อความอยู่บนภาพ
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี hero.html กับ hero-product.html แล้ว
+     ──────────────────────────────────────────────────────────────────
+     สองอันนั้นตอบคำถาม "นี่คืออะไร" กับ "หน้าตาเป็นยังไง" ซึ่งเป็นคำถามของ
+     คนที่กำลังเลือก *เครื่องมือ* แต่สำหรับที่พัก ร้านอาหาร หรือทริป คำถามแรก
+     ไม่ใช่สองอันนั้นเลย มันคือ **"อยู่ตรงนั้นแล้วรู้สึกยังไง"** ซึ่งประโยคตอบ
+     ไม่ได้ มีแต่ภาพที่ตอบได้
+
+     ฉะนั้นทรงนี้กลับข้างทั้งหมด: ภาพกินทั้งเฟรม ข้อความเป็นชั้นบาง ๆ บนภาพ
+     และเป็นทรงเดียวในคลังที่ **ตัดภาพออกแล้วพัง** — ซึ่งถูกต้อง เพราะถ้ายัง
+     ไม่มีภาพที่ดีพอ ก็ยังไม่ควรใช้ทรงนี้ ให้กลับไปใช้ `hero.html`
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **ความสูง `min(88svh, 760px)`** ไม่ใช่ `100vh` — `STANDARD.md` ข้อ 8
+       ห้าม hero สูงเต็มจอที่ดันเนื้อหาจริงออกนอกเฟรมแรก ที่ 88% ยังเหลือแถบ
+       ของส่วนถัดไปโผล่มาให้เห็นว่ายังมีอะไรอยู่ข้างล่าง และ 760px คือเพดาน
+       ที่ทำให้จอสูง ๆ ไม่ได้ภาพที่ยืดจนบิด
+       เขียน `vh` ก่อนแล้วยกระดับด้วย `@supports (height:100svh)` เพราะ
+       `svh` ใน `min()` บนเอนจินที่ไม่รองรับทำให้ทั้งค่าเป็นโมฆะ (กับดักข้อ 5)
+     · **ม่านสองชั้น ไม่ใช่ชั้นเดียว** ชั้นแรกคือไล่เฉดจากล่างขึ้น (สำหรับ
+       ข้อความที่อยู่ล่าง) ชั้นสองคือฟิล์มบาง ๆ ทั้งใบที่ 14% (สำหรับภาพที่
+       สว่างจ้าตรงกลาง) ม่านชั้นเดียวจากล่างจะเอาไม่อยู่เมื่อภาพมีท้องฟ้าขาว
+       อยู่ตรงกลาง ซึ่งเป็นภาพครึ่งหนึ่งของงานประเภทนี้
+     · **ข้อความอยู่ล่างซ้าย ไม่ใช่กลางภาพ** เพราะกลางภาพคือที่ที่ *ของใน
+       ภาพ* อยู่เกือบทุกครั้ง และเพราะข้อความที่ล่างซ้ายทำให้ภาพยังเป็นภาพ
+       ไม่ใช่พื้นหลังของโปสเตอร์
+     · **ภาพเลื่อนช้า 1.06 เท่าใน 20 วินาที** (ken burns) — ที่เร็วกว่านี้ตาจับ
+       ได้ว่ามันขยับแล้วไปสนใจการขยับแทนภาพ ที่ช้ากว่านี้ไม่มีผลอะไรเลย
+       และขยับ `transform` อย่างเดียว ไม่แตะ `opacity` เฟรมแรกจึงครบ
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`background-image` แทน `<img>`** — `STANDARD.md` ข้อ 2 บังคับว่ารูป
+        ต้องมี `width`/`height` เพื่อกันหน้าเด้ง ซึ่ง `background-image` ให้
+        ไม่ได้ และมันหลุดจาก `loading`/`decoding` ทั้งหมด ที่นี่จึงเป็น `<img>`
+        จริงที่ `position:absolute` แล้ว `object-fit:cover`
+     2. **ให้ `<img>` เป็นลูกของกล่องที่มี `animation-timeline`** — ken burns
+        กับ view() ชนกันเพราะทั้งคู่เขียน `transform` ของ element เดียวกัน
+        ตอนนี้ ken burns อยู่ที่ `<img>` ส่วนการเข้าฉากของข้อความอยู่คนละชั้น
+     3. **ปุ่มโปร่งบนภาพใช้ `--field` เป็นสีขอบ** — มองไม่เห็นเลยบนภาพสว่าง
+        เพราะ `--field` คำนวณคอนทราสต์ไว้กับพื้นของหน้า ไม่ใช่กับภาพถ่าย
+        บนภาพต้องใช้สีขาวทึบ ๆ กับพื้นโปร่งที่มี `backdrop-filter`
+     4. **ตัวหนังสือสีขาวล้วนโดยไม่มีม่าน** — กับดักในข้อ 5 ตรง ๆ
+        "ตัวหนังสือจมหายในพื้นหลังจัดจ้าน" ทางแก้คือม่าน ไม่ใช่เงาตัวอักษร
+        (`text-shadow` บนย่อหน้ายาวทำให้อ่านยากกว่าเดิม) -->
+<style>
+  .w-hph{
+    position:relative; isolation:isolate; overflow:hidden;
+    display:flex; align-items:flex-end;
+    padding:0; min-height:600px;
+    color:#fff;
+  }
+  @supports (height:100svh){ .w-hph{ min-height:min(88svh,760px) } }
+
+  .w-hph > img{ position:absolute; inset:0; z-index:-2;
+                width:100%; height:100%; object-fit:cover }
+
+  /* ม่านสองชั้น — ดูเหตุผลในหัวไฟล์ */
+  .w-hph .scrim{ position:absolute; inset:0; z-index:-1; pointer-events:none;
+    background:
+      linear-gradient(0deg, rgb(20 17 13/.82) 0%, rgb(20 17 13/.42) 34%,
+                            rgb(20 17 13/.06) 62%, transparent 100%),
+      rgb(20 17 13/.14) }
+
+  .w-hph .w-wrap{ padding-block:clamp(36px,6vw,72px) }
+  .w-hph .eyebrow{ display:inline-flex; align-items:center; gap:9px;
+    font:600 12px/1 var(--sans); letter-spacing:var(--wm-eyebrow-track,.16em);
+    text-transform:uppercase; color:#fff;
+    border:1px solid rgb(255 255 255/.34); border-radius:var(--radius-pill);
+    padding:9px 15px; background:rgb(255 255 255/.10) }
+  @supports (backdrop-filter:blur(4px)){
+    .w-hph .eyebrow{ backdrop-filter:blur(8px) }
+  }
+  .w-hph h1{ margin-top:20px; font-size:clamp(34px,6vw,68px); line-height:1.2;
+             letter-spacing:var(--wm-display-track,-.012em);
+             font-weight:var(--wm-display-weight,500);
+             max-width:16ch; text-wrap:balance }
+  .w-hph .lede{ margin-top:16px; font-size:clamp(16px,1.7vw,19px);
+                line-height:1.65; max-width:46ch; color:rgb(255 255 255/.86) }
+  .w-hph .acts{ display:flex; flex-wrap:wrap; gap:12px; margin-top:28px }
+
+  /* ปุ่มบนภาพต้องมีสีของตัวเอง ไม่ใช่โทเคนของหน้า — ดูเหตุผลข้อ 3 */
+  .w-hph .w-btn{ border-color:transparent }
+  .w-hph .w-btn--onphoto{ background:rgb(255 255 255/.14); color:#fff;
+                          border:1px solid rgb(255 255 255/.42) }
+  @supports (backdrop-filter:blur(4px)){
+    .w-hph .w-btn--onphoto{ backdrop-filter:blur(10px) }
+  }
+
+  /* ตัวบอกว่ายังมีข้างล่าง — เส้นบาง ๆ ที่ไหลลง ไม่ใช่ลูกศรกระโดด */
+  .w-hph .cue{ position:absolute; left:50%; bottom:18px; z-index:1;
+               width:1px; height:44px; overflow:hidden;
+               background:rgb(255 255 255/.22); translate:-50% 0 }
+  .w-hph .cue i{ display:block; width:100%; height:16px; background:#fff }
+
+  @media (prefers-reduced-motion:no-preference){
+    /* ken burns อยู่ที่ <img> ไม่ใช่ที่กล่อง — ดูเหตุผลข้อ 2 */
+    .w-hph > img{ animation:w-hph-pan 20s ease-in-out infinite alternate }
+    .w-hph .w-wrap > *{ animation:w-rise var(--t-enter) var(--ease-in) both }
+    .w-hph .w-wrap > *:nth-child(2){ animation-delay:calc(var(--t-stagger)*1) }
+    .w-hph .w-wrap > *:nth-child(3){ animation-delay:calc(var(--t-stagger)*2) }
+    .w-hph .w-wrap > *:nth-child(4){ animation-delay:calc(var(--t-stagger)*3) }
+    .w-hph .cue i{ animation:w-hph-cue 2.6s var(--ease-in) infinite }
+  }
+  @keyframes w-hph-pan{ to{ transform:scale(1.06) translate3d(-1.2%,-1%,0) } }
+  @keyframes w-hph-cue{ from{ transform:translateY(-16px) } to{ transform:translateY(44px) } }
+</style>
+
+<section class="w-section w-hph">
+  <img src="imgs/photo-hero.jpg" alt="ครัวเปิดของร้านตอนหัวค่ำ เห็นเตาถ่านและคนทำอาหาร"
+       width="2000" height="1250" fetchpriority="high">
+  <div class="scrim" aria-hidden="true"></div>
+
+  <div class="w-wrap">
+    <p class="eyebrow">ครัวไฟถ่าน · นิมมานเหมินท์ เชียงใหม่</p>
+    <h1>อาหารเหนือที่ทำจากของที่หาได้สัปดาห์นั้น</h1>
+    <p class="lede">เมนูเปลี่ยนทุกสัปดาห์ตามของที่ตลาดมี ไม่มีตู้แช่ใหญ่ในครัวเพราะไม่ได้ตั้งใจจะเก็บอะไรข้ามสัปดาห์</p>
+    <div class="acts">
+      <a class="w-btn" href="#reserve">จองโต๊ะ</a>
+      <a class="w-btn w-btn--onphoto" href="#menu">ดูเมนูก่อน</a>
+    </div>
+  </div>
+
+  <span class="cue" aria-hidden="true"><i></i></span>
+</section>
+
+<!-- Fact bar · ทิศทาง `wm` (อบอุ่น) — สี่ข้อเท็จจริงที่ตัดสินใจแทนสามคำถาม
+
+     ทำไมชิ้นนี้ถึงมีอยู่
+     ────────────────────
+     คลังนี้มี `stats.html` กับ `stats-band.html` ซึ่งทั้งคู่เป็น **ตัวเลข
+     ของธุรกิจ** (มีคนใช้กี่คน โตกี่เปอร์เซ็นต์) ส่วนนี้เป็นคนละอย่าง:
+     มันคือ **เงื่อนไขของการซื้อ** — ราคาเท่าไร รับได้กี่คน ไกลแค่ไหน คนอื่น
+     ให้กี่ดาว สี่ข้อนี้คือสิ่งที่คนตัดสินใจเรื่องที่พักหรือทริปต้องรู้ก่อน
+     จะยอมอ่านอะไรต่อ และเป็นสิ่งที่ถ้าไม่บอกตรงนี้ เขาจะกดกลับไปหาที่อื่น
+
+     ตำแหน่งของมันสำคัญพอ ๆ กับเนื้อหา: **ต้องอยู่ติดใต้ hero ทันที**
+     ไม่ใช่ท้ายหน้า เพราะหน้าที่ของมันคือกันคนที่ไม่ใช่กลุ่มเป้าหมายออกไป
+     ให้เร็วที่สุด ราคาที่ซ่อนอยู่ท้ายหน้าคือราคาที่ทำให้คนอ่านทั้งหน้าฟรี ๆ
+     แล้วโกรธตอนเจอ
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **สี่ข้อ และต้องเป็นสี่ชนิดนี้เท่านั้น**: ราคา · ขนาด/จำนวน · ระยะทาง
+       · หลักฐานสังคม ถ้าเปลี่ยนข้อไหนเป็นคำโฆษณา ("บริการเป็นเลิศ")
+       ทั้งแถบเสียหน้าที่ เพราะสิ่งที่ทำให้แถบนี้ทำงานคือทุกข้อ *ตรวจได้*
+     · **ราคาขึ้นต้นด้วยคำว่า "เริ่มที่"** เสมอ ราคาที่ไม่มีคำนำหน้าคือคำสัญญา
+       ที่ผิดทันทีที่มีห้องแพงกว่านั้น
+     · **`letter-spacing` ของตัวเลขราคาไม่เกิน −.015em** — กับดักในข้อ 5
+       เรื่องสัญลักษณ์สกุลเงินชนเลขตัวแรก ที่นี่หน่วยอยู่ท้าย แต่ตัวเลขสี่หลัก
+       ที่บีบเกินนี้จะอ่านเป็นสามหลัก
+     · **เส้นคั่นเป็น `border-inline-start` ของทุกใบยกเว้นใบแรก** ไม่ใช่
+       `gap` กับพื้น เพราะแถบนี้ต้องอ่านเป็น *แถบเดียว* ไม่ใช่การ์ดสี่ใบ
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ให้แถบลอยทับ hero ด้วย `margin-top:-40px`** — พังบนมือถือ เพราะพอ
+        มันพับเป็นสองแถว ความสูงเพิ่มขึ้นเท่าตัวแล้วไปกินข้อความใน hero
+        ตอนนี้เป็นแถบที่อยู่ใต้ hero ตรง ๆ ถ้าอยากให้ลอยทับจริง ๆ ต้องทำ
+        เฉพาะที่ความกว้างที่การันตีได้ว่าอยู่แถวเดียว
+     2. **`border-inline-start` ทุกใบยกเว้นใบแรกด้วย `:not(:first-child)`** —
+        พอห่อบรรทัด ใบแรกของแถวที่สองยังมีเส้นซ้ายอยู่ ซึ่งลอยอยู่กลางแถบ
+        ตอนนี้ซ่อนเส้นทั้งหมดตอนที่ยังไม่ถึงความกว้างที่อยู่แถวเดียวได้
+     3. **ดาวเป็นอิโมจิ ⭐** — ขนาดกับสีต่างกันทุกระบบปฏิบัติการ และบางเครื่อง
+        เรนเดอร์เป็นภาพสีที่ไม่รับ `currentColor` เลย วาดเป็น SVG แทน -->
+<style>
+  .w-fb2{ padding-block:0 }
+  .w-fb2 .bar{ display:flex; flex-wrap:wrap;
+               border:1px solid var(--line); border-radius:var(--radius);
+               background:var(--surface); overflow:hidden }
+  .w-fb2 .bar > div{ flex:1 1 190px; padding:clamp(16px,2.2vw,22px) clamp(16px,2vw,24px) }
+  @media (min-width:900px){
+    /* เส้นคั่นเปิดเฉพาะตอนที่การันตีได้ว่าทุกใบอยู่แถวเดียว — ดูเหตุผลข้อ 2 */
+    .w-fb2 .bar > div + div{ border-inline-start:1px solid var(--line) }
+  }
+  .w-fb2 dt{ display:flex; align-items:center; gap:7px;
+             color:var(--muted); font-size:13px; margin-bottom:8px }
+  .w-fb2 dt svg{ width:15px; height:15px; color:var(--accent); flex:none }
+  .w-fb2 dd{ margin:0; font-size:clamp(19px,2.2vw,24px); font-weight:700;
+             letter-spacing:-.015em; line-height:1.25 }
+  .w-fb2 dd small{ font-size:14px; font-weight:500; color:var(--muted);
+                   letter-spacing:0 }
+  .w-fb2 .stars{ display:inline-flex; gap:2px; vertical-align:-2px;
+                 margin-inline-end:6px }
+  .w-fb2 .stars svg{ width:15px; height:15px; color:var(--warning) }
+
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      .w-fb2 .bar{ animation-name:w-rise; animation-timing-function:linear;
+                   animation-fill-mode:both; animation-timeline:view();
+                   animation-range:entry 4% cover 18% }
+    }
+  }
+</style>
+
+<section class="w-section w-fb2" aria-label="ข้อมูลสรุปของที่พัก">
+  <div class="w-wrap">
+    <dl class="bar">
+      <div>
+        <dt><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.6v10.8M5 5.6h4.4a1.9 1.9 0 0 1 0 3.8h-2.8a1.9 1.9 0 0 0 0 3.8H11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>เฉลี่ยต่อคน</dt>
+        <dd>450–700<small> บาท</small></dd>
+      </div>
+      <div>
+        <dt><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="6.2" cy="6" r="2.4" stroke="currentColor" stroke-width="1.5"/><circle cx="11.4" cy="7.4" r="1.9" stroke="currentColor" stroke-width="1.5"/><path d="M2.2 13.4c.4-2 1.9-3.1 4-3.1s3.6 1.1 4 3.1M11 10.5c1.7.1 2.8 1.1 3.2 2.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>ที่นั่ง</dt>
+        <dd>38<small> ที่ · โต๊ะใหญ่สุด 8 คน</small></dd>
+      </div>
+      <div>
+        <dt><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.8c2.4 0 4.3 1.9 4.3 4.3 0 3.2-4.3 8.1-4.3 8.1S3.7 9.3 3.7 6.1C3.7 3.7 5.6 1.8 8 1.8Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="8" cy="6.1" r="1.5" stroke="currentColor" stroke-width="1.5"/></svg>ครัวปิด</dt>
+        <dd>21:00<small> · ศ.–ส. ถึง 22:00</small></dd>
+      </div>
+      <div>
+        <dt><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.6 8h10.8M10 4.6 13.4 8 10 11.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>คะแนนจากลูกค้า</dt>
+        <dd><span class="stars" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M8 1.6 9.9 5.6l4.4.6-3.2 3.1.8 4.4L8 11.6l-3.9 2.1.8-4.4L1.7 6.2l4.4-.6Z" fill="currentColor"/></svg><svg viewBox="0 0 16 16"><path d="M8 1.6 9.9 5.6l4.4.6-3.2 3.1.8 4.4L8 11.6l-3.9 2.1.8-4.4L1.7 6.2l4.4-.6Z" fill="currentColor"/></svg><svg viewBox="0 0 16 16"><path d="M8 1.6 9.9 5.6l4.4.6-3.2 3.1.8 4.4L8 11.6l-3.9 2.1.8-4.4L1.7 6.2l4.4-.6Z" fill="currentColor"/></svg><svg viewBox="0 0 16 16"><path d="M8 1.6 9.9 5.6l4.4.6-3.2 3.1.8 4.4L8 11.6l-3.9 2.1.8-4.4L1.7 6.2l4.4-.6Z" fill="currentColor"/></svg><svg viewBox="0 0 16 16"><path d="M8 1.6 9.9 5.6l4.4.6-3.2 3.1.8 4.4L8 11.6l-3.9 2.1.8-4.4L1.7 6.2l4.4-.6Z" fill="currentColor"/></svg></span>4.8<small> จาก 312 รีวิว</small></dd>
+      </div>
+    </dl>
+  </div>
+</section>
+
+<!-- Story · ทิศทาง `wm` (อบอุ่น) — เรื่องของที่นี่ คู่กับภาพเดียวที่ยาว
+
+     ทำไมชิ้นนี้ถึงมีอยู่
+     ────────────────────
+     คลังนี้มี `article.html` (บทความเต็ม) กับ `profile-spotlight.html` (คนเดียว
+     เต็มหน้า) แต่ไม่มีของที่อยู่ตรงกลาง: **ย่อหน้าสามสี่ย่อหน้าที่บอกว่าที่นี่
+     เริ่มจากอะไร** ซึ่งเป็นส่วนที่ทุกเว็บที่พัก ร้านอาหาร และสตูดิโอมี และเป็น
+     ส่วนที่ตัดสินว่าคนจะรู้สึกว่ากำลังคุยกับคนหรือกับบริษัท
+
+     ต่างจาก `features` ตรงที่ส่วนนี้ **ไม่ได้ขายอะไรเลย** มันเล่า และสิ่งที่
+     ทำให้มันได้ผลคือรายละเอียดที่เจาะจงจนแต่งไม่ได้ — "สวนสองไร่ที่ปลูกไว้
+     ตั้งแต่ปี 2558" ทำงาน ส่วน "ธรรมชาติอันงดงาม" ไม่ทำงาน
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **ภาพเป็นแนวตั้ง `4/5` ไม่ใช่ `16/9`** เพราะมันอยู่ข้างข้อความสามย่อหน้า
+       ซึ่งสูงราว 420px ที่ 1120px ภาพแนวนอนจะเตี้ยกว่าคอลัมน์ข้อความเกือบ
+       ครึ่ง แล้วเหลือช่องว่างใต้ภาพที่ไม่มีอะไรทำ
+     · **คำพูดยกมาอยู่ *ในสาย* ของข้อความ ไม่ใช่กล่องลอย** เพราะมันคือประโยค
+       ของคนคนเดียวกับที่เล่าย่อหน้าข้างบน กล่องลอยทำให้มันอ่านเป็นคำพูดของ
+       คนอื่นที่มาแทรก ซึ่งเป็นงานของ `testimonial.html`
+     · **เส้นข้างคำพูดหนา 3px ไม่ใช่ 1px** เส้น 1px บนพื้นครีมทำคอนทราสต์ได้
+       ราว 1.2:1 ซึ่งมองแทบไม่เห็น และเส้นนี้เป็นตัวเดียวที่บอกว่าย่อหน้านี้
+       ต่างจากย่อหน้าอื่น
+     · **ลายเซ็นเป็นข้อความ ไม่ใช่ภาพ** ลายเซ็นสแกนคือไฟล์รูปที่ต้องหามาเพิ่ม
+       และอ่านไม่ออกด้วยโปรแกรมอ่านหน้าจอ ที่นี่ใช้ชื่อกับบทบาทตรง ๆ
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`position:sticky` ที่ภาพ** — ตั้งใจให้ภาพค้างขณะเลื่อนอ่านข้อความ
+        แต่ข้อความสั้นเกินกว่าจะมีระยะให้ค้าง ผลคือภาพขยับนิดเดียวแล้วหยุด
+        ซึ่งดูเหมือนบั๊ก sticky คุ้มเฉพาะเมื่อคอลัมน์ที่เลื่อนสูงกว่าจออย่างน้อย
+        หนึ่งเท่าครึ่ง
+     2. **`aspect-ratio` ที่ `<img>` โดยไม่มี `object-fit`** — ภาพจริงที่
+        สัดส่วนไม่ตรงถูกยืด ต้องมีทั้งคู่เสมอ พร้อม `width`/`height` ที่แท็ก
+        ตามข้อ 2
+     3. **สลับข้างภาพด้วย `direction:rtl`** — พลิกทั้งการอ่านข้อความข้างในด้วย
+        ใช้ `order` ที่ลูกของกริดแทน ซึ่งพลิกแค่ตำแหน่ง ไม่แตะทิศทางการอ่าน -->
+<style>
+  .w-ss .grid{ display:grid; gap:clamp(28px,5vw,64px); align-items:center }
+  @media (min-width:880px){
+    .w-ss .grid{ grid-template-columns:minmax(0,.82fr) minmax(0,1fr) }
+    /* เติม `w-ss--flip` ที่ section เพื่อสลับข้างภาพ — ดูเหตุผลข้อ 3 */
+    .w-ss--flip .shot{ order:2 }
+  }
+  .w-ss .shot{ margin:0; border-radius:var(--radius); overflow:hidden;
+               background:var(--surface) }
+  .w-ss .shot img{ width:100%; height:100%; aspect-ratio:4/5; object-fit:cover;
+                   display:block }
+  .w-ss .shot figcaption{ padding:12px 4px 0; color:var(--muted); font-size:13px }
+
+  .w-ss h2{ font-size:clamp(26px,3.4vw,42px); line-height:1.28;
+            letter-spacing:var(--wm-display-track,-.012em);
+            font-weight:var(--wm-display-weight,500);
+            text-wrap:balance; max-width:20ch }
+  .w-ss .body{ display:grid; gap:16px; margin-top:20px }
+  .w-ss .body p{ color:var(--muted); font-size:clamp(16px,1.6vw,17px);
+                 line-height:1.75; max-width:60ch }
+  .w-ss .body p strong{ color:var(--text); font-weight:600 }
+
+  /* คำพูดยกมา อยู่ในสายของข้อความ ไม่ใช่กล่องลอย — ดูเหตุผลในหัวไฟล์ */
+  .w-ss blockquote{ margin:6px 0; padding-inline-start:clamp(16px,2vw,22px);
+                    border-inline-start:3px solid var(--accent);
+                    font-size:clamp(18px,2vw,21px); line-height:1.6;
+                    color:var(--text) }
+  .w-ss .sign{ display:flex; align-items:center; gap:12px; margin-top:26px;
+               padding-top:22px; border-top:1px solid var(--line) }
+  .w-ss .sign img{ width:44px; height:44px; border-radius:50%; object-fit:cover;
+                   flex:none }
+  .w-ss .sign cite{ font-style:normal; font-weight:600; font-size:15px; display:block }
+  .w-ss .sign span{ color:var(--muted); font-size:14px }
+
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      .w-ss .shot{ animation-name:w-rise; animation-timing-function:linear;
+                   animation-fill-mode:both; animation-timeline:view();
+                   animation-range:entry 8% cover 28% }
+      /* ท่า wipe — เส้นข้างคำพูดลากตัวเองลงมาตอนเลื่อนถึง
+         ใช้ ::before ทับ border เดิม ไม่ใช่ตัด border เอง เพราะ clip-path
+         กินทั้งกล่องรวมตัวหนังสือ (เหตุผลเดียวกับ how-it-works.html) */
+      .w-ss blockquote{ position:relative }
+      .w-ss blockquote::before{ content:""; position:absolute;
+        inset-block:0; inset-inline-start:-3px; width:3px; background:var(--accent);
+        animation-name:w-ss-draw; animation-timing-function:linear;
+        animation-fill-mode:both; animation-timeline:view();
+        animation-range:entry 14% cover 36% }
+    }
+  }
+  @keyframes w-ss-draw{ from{ clip-path:inset(0 0 100% 0) }
+                        to  { clip-path:inset(0 0 0 0) } }
+</style>
+
+<section class="w-section w-ss" id="story">
+  <div class="w-wrap grid">
+    <figure class="shot">
+      <img src="imgs/photo-story.jpg" alt="ต้นจามจุรีที่ปลูกไว้กลางสวน มองจากระเบียงชั้นสอง"
+           width="1520" height="1900" loading="lazy" decoding="async">
+      <figcaption>เตาถ่านตัวแรกที่ยังใช้อยู่ ย้ายมาจากบ้านที่ลำพูน</figcaption>
+    </figure>
+
+    <div>
+      <p class="w-eyebrow">เรื่องของที่นี่</p>
+      <h2>เริ่มจากเตาถ่านตัวเดียวหลังบ้าน</h2>
+      <div class="body">
+        <p>ปี 2558 เราซื้อที่ดินผืนนี้เพราะมันถูก สาเหตุที่มันถูกคือถนนเข้ายังเป็นดินลูกรัง และไม่มีไฟฟ้าเข้าถึง <strong>เราใช้เวลาสามปีแรกไปกับการปลูกต้นไม้ ไม่ใช่การสร้างบ้าน</strong> เพราะคิดว่าถ้าไม่มีร่มเงาก่อน บ้านที่สร้างขึ้นมาก็จะร้อนไปตลอด</p>
+        <p>หลังแรกเสร็จปี 2562 เป็นบ้านที่เราอยู่เอง เปิดให้คนอื่นพักปี 2564 หลังจากมีคนมาขอพักซ้ำ ๆ จนเราคิดว่าน่าจะทำให้มันดีกว่านี้ได้</p>
+        <blockquote>เราไม่ได้จัดห้องให้เสร็จ เราจัดเช้าวันถัดไปให้เสร็จ ห้องเป็นแค่ทางผ่านไปหามัน</blockquote>
+        <p>ตอนนี้มีสามหลัง ทุกหลังหันหน้าไปทางทิศตะวันออกเหมือนกันหมด เพราะเหตุผลเดียว — <strong>แสงตอนหกโมงครึ่งเป็นเหตุผลที่คนกลับมาพักซ้ำ</strong> มากกว่าอย่างอื่นที่เราทำ</p>
+      </div>
+      <div class="sign">
+        <img src="imgs/khon-2.jpg" alt="" width="44" height="44" loading="lazy">
+        <span><cite>ปาริชาต วงศ์อนันต์</cite><span>เจ้าของและคนดูแลสวน</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Menu · ทิศทาง `wm` (อบอุ่น) — เมนูจริงที่สลับหมวดได้ โดยไม่มีสคริปต์
+
+     ทำไมชิ้นนี้ถึงมีอยู่
+     ────────────────────
+     คลังนี้มี `offer-cards.html` ซึ่งเป็นการ์ดของที่มีราคาต่อใบพร้อมภาพ
+     ถูกสำหรับห้องพักหรือทริปที่มีสามสี่รายการ แต่เมนูอาหารมีสามสิบถึงหกสิบ
+     รายการ และ **การ์ดที่มีภาพหกสิบใบคือหน้าที่ไม่มีใครอ่านจนจบ**
+
+     เมนูจริงในร้านอาหารเป็น *รายการ* ไม่ใช่แคตตาล็อก เพราะคนอ่านเมนู
+     ทำสองอย่าง: กวาดหาหมวดที่ตัวเองอยากกิน แล้วอ่านราคาเทียบกันในหมวดนั้น
+     ทั้งสองอย่างต้องการความหนาแน่นของบรรทัด ไม่ใช่ภาพ
+
+     เส้นประระหว่างชื่อกับราคาไม่ใช่การตกแต่ง มันคือสิ่งที่ทำให้ตาลากจากชื่อ
+     ไปหาราคาได้ในบรรทัดยาว ๆ โดยไม่หลุดไปบรรทัดอื่น — เป็นแบบแผนของ
+     เมนูกระดาษที่มีเหตุผลใช้งานจริง ไม่ได้เอามาเพราะดูคลาสสิก
+
+     กลไกแท็บ — ไม่มีสคริปต์
+     ────────────────────────
+     radio สี่ตัววางเป็นลูกแรกของกล่อง แล้วเลือกด้วยตัวเชื่อมพี่น้องทั่วไป
+     วิธีเดียวกับ `pricing-toggle.html` และด้วยเหตุผลเดียวกัน:
+     `:has()` บังคับให้เอา input ไปแทรกในทุกแผง ส่วนตัวเชื่อมพี่น้องต้องการ
+     แค่ให้ input อยู่ก่อนในพ่อเดียวกัน
+
+     `radio` ไม่ใช่ปุ่ม จึงได้ปุ่มลูกศรซ้ายขวาเลื่อนระหว่างหมวดฟรีตามที่ ARIA
+     กำหนดให้ radiogroup — ซึ่งแท็บที่เขียนด้วย JS ส่วนใหญ่ทำไม่ได้
+
+     ค่าที่วัดมา
+     ───────────
+     · **แถบเลื่อนกว้าง `calc(25% - 4px)` และป้ายทุกอัน `flex:1`** เพราะสี่
+       หมวดยาวไม่เท่ากัน ("ของว่าง" กับ "ของหวานและเครื่องดื่ม") ถ้าป้ายกว้าง
+       ตามคำ แถบจะไม่ตรงคำ — บั๊กเดียวกับที่ `pricing-toggle.html` เคยเป็น
+     · **เส้นประ `border-bottom:1px dotted` ยกขึ้น 4px** เพราะเส้นที่วางบน
+       เส้นฐานพอดีจะชนกับหางของตัวอักษรที่มีสระล่าง (ญ ฐ ฤ) ที่ 4px
+       เส้นอยู่ต่ำกว่ากึ่งกลางตัวอักษรพอที่จะไม่ชน แต่ยังสูงพอที่ตาลากตามได้
+     · **ราคาใช้ `--mono` และ `tabular-nums`** เพื่อให้หลักตรงกันทุกบรรทัด
+       ราคาที่หลักไม่ตรงทำให้เทียบราคาในหมวดเดียวกันช้าลงอย่างวัดได้
+     · **ป้ายกำกับ (เผ็ด · มังสวิรัติ · ของทะเล) เป็นตัวอักษร ไม่ใช่ไอคอน**
+       ไอคอนพริกกับไอคอนใบไม้ที่ 14px แยกกันไม่ออกในสายตาคนที่ตาไม่ดี
+       และข้อ 2 ห้ามบอกสถานะด้วยสีหรือรูปอย่างเดียว
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ซ่อนแผงที่ไม่ได้เลือกด้วย `opacity:0;height:0`** — โปรแกรมอ่านหน้าจอ
+        ยังอ่านทั้งสี่หมวดต่อกันรวด 60 รายการ ต้องใช้ `display:none` จริง
+        ซึ่งเอาออกจากผังการเข้าถึงด้วย
+     2. **แผงที่ซ่อนอยู่ใช้ `hidden`** — ใช้ไม่ได้เพราะสถานะมาจาก CSS
+        (`:checked ~`) ไม่ได้มาจากสคริปต์ที่จะไปตั้ง attribute ให้
+     3. **ให้เส้นประเป็น `border-bottom` ของทั้งบรรทัด** — เส้นลากทับใต้ชื่อ
+        และใต้ราคาด้วย ต้องเป็น element แยกที่ `flex:1` อยู่ตรงกลาง
+     4. **`justify-content:space-between` แทนเส้นประ** — พอชื่อยาวจนตัดสอง
+        บรรทัด ราคาไปอยู่กึ่งกลางความสูงของสองบรรทัดนั้น ซึ่งอ่านว่าไม่ตรงกับ
+        บรรทัดไหนเลย `align-items:baseline` กับเส้นประแก้ทั้งสองอย่าง -->
+<style>
+  .w-mn .head{ text-align:center; max-width:52ch; margin-inline:auto }
+  .w-mn h2{ font-size:clamp(26px,3.4vw,42px); line-height:1.28;
+            letter-spacing:var(--wm-display-track,-.012em);
+            font-weight:var(--wm-display-weight,500); text-wrap:balance }
+  .w-mn .w-lede{ margin:14px auto 0 }
+
+  /* radio ซ่อนจากตาแต่ยังอยู่ในลำดับแท็บ */
+  .w-mn .cat{ position:absolute; width:1px; height:1px; margin:-1px; padding:0;
+              border:0; clip-path:inset(50%); overflow:hidden; white-space:nowrap }
+
+  .w-mn .tabs{ position:relative; display:flex; padding:4px; gap:4px;
+               margin:clamp(24px,3.4vw,36px) auto 0; max-width:560px;
+               border:1px solid var(--field); border-radius:var(--radius-pill);
+               background:var(--surface) }
+  .w-mn .tabs::before{ content:""; position:absolute; z-index:0; top:4px; bottom:4px;
+    left:4px; width:calc(25% - 4px); border-radius:var(--radius-pill);
+    background:var(--accent) }
+  /* ป้ายกว้างเท่ากันทุกอัน ไม่ใช่กว้างตามคำ — ดูเหตุผลในหัวไฟล์ */
+  .w-mn .tabs label{ position:relative; z-index:1; flex:1; cursor:pointer;
+    text-align:center; padding:10px 8px; border-radius:var(--radius-pill);
+    font:600 15px/1 var(--sans); color:var(--text); white-space:nowrap }
+
+  #w-mn-1:checked ~ .tabs label[for="w-mn-1"],
+  #w-mn-2:checked ~ .tabs label[for="w-mn-2"],
+  #w-mn-3:checked ~ .tabs label[for="w-mn-3"],
+  #w-mn-4:checked ~ .tabs label[for="w-mn-4"]{ color:var(--accent-ink) }
+  #w-mn-2:checked ~ .tabs::before{ transform:translateX(100%) }
+  #w-mn-3:checked ~ .tabs::before{ transform:translateX(200%) }
+  #w-mn-4:checked ~ .tabs::before{ transform:translateX(300%) }
+  #w-mn-1:focus-visible ~ .tabs label[for="w-mn-1"],
+  #w-mn-2:focus-visible ~ .tabs label[for="w-mn-2"],
+  #w-mn-3:focus-visible ~ .tabs label[for="w-mn-3"],
+  #w-mn-4:focus-visible ~ .tabs label[for="w-mn-4"]{
+    outline:2px solid var(--accent); outline-offset:3px }
+
+  /* display:none จริง ไม่ใช่ opacity — ดูเหตุผลข้อ 1 */
+  .w-mn .panel{ display:none }
+  #w-mn-1:checked ~ .panels .panel--1,
+  #w-mn-2:checked ~ .panels .panel--2,
+  #w-mn-3:checked ~ .panels .panel--3,
+  #w-mn-4:checked ~ .panels .panel--4{ display:grid }
+
+  .w-mn .panels{ margin-top:clamp(28px,4vw,44px) }
+  .w-mn .panel{ gap:clamp(24px,3vw,40px);
+                grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr)) }
+  .w-mn .panel > div{ display:grid; gap:clamp(14px,2vw,20px); align-content:start }
+  .w-mn .grp{ font:600 12px/1 var(--sans); letter-spacing:var(--wm-eyebrow-track,.16em);
+              text-transform:uppercase; color:var(--accent) }
+
+  .w-mn .dish{ display:grid; gap:5px }
+  .w-mn .dish .top{ display:flex; align-items:baseline; gap:10px }
+  .w-mn .dish .nm{ font-size:17px; font-weight:600 }
+  /* เส้นประยกขึ้น 4px เพื่อไม่ให้ชนหางสระล่าง — ดูเหตุผลในหัวไฟล์ */
+  .w-mn .dish .lead{ flex:1; border-bottom:1px dotted var(--field);
+                     transform:translateY(-4px); min-width:24px }
+  .w-mn .dish .pr{ font:600 16px/1 var(--mono); font-variant-numeric:tabular-nums;
+                   white-space:nowrap }
+  .w-mn .dish p{ color:var(--muted); font-size:14px; line-height:1.6; max-width:52ch }
+  .w-mn .dish .tags{ display:flex; flex-wrap:wrap; gap:6px; margin-top:3px }
+  .w-mn .dish .tags span{ font:600 11px/1 var(--sans); color:var(--muted);
+    border:1px solid var(--line); border-radius:var(--radius-pill); padding:5px 9px }
+
+  .w-mn .foot{ display:flex; flex-wrap:wrap; align-items:center; gap:14px;
+               margin-top:clamp(28px,4vw,40px); padding-top:22px;
+               border-top:1px solid var(--line) }
+  .w-mn .foot p{ flex:1 1 300px; color:var(--muted); font-size:14px }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-mn .tabs::before{ transition:transform var(--t-spring) var(--ease-spring) }
+    .w-mn .tabs label{ transition:color var(--t-hover) linear }
+  }
+</style>
+
+<section class="w-section w-mn" id="menu">
+  <div class="w-wrap">
+    <div class="head">
+      <p class="w-eyebrow">เมนู</p>
+      <h2>ราคานี้คือราคาที่จ่ายจริง ไม่มีบวกอะไรอีก</h2>
+      <p class="w-lede">เปลี่ยนตามของที่หาได้ในแต่ละสัปดาห์ ถ้าวันไหนไม่มี เราบอกก่อนสั่ง ไม่ใช่บอกตอนอาหารไม่มา</p>
+    </div>
+
+    <!-- radio อยู่ก่อน .tabs และ .panels ในพ่อเดียวกัน — เงื่อนไขเดียวที่
+         ตัวเชื่อมพี่น้องต้องการ -->
+    <input class="cat" type="radio" name="w-mn-cat" id="w-mn-1" checked>
+    <input class="cat" type="radio" name="w-mn-cat" id="w-mn-2">
+    <input class="cat" type="radio" name="w-mn-cat" id="w-mn-3">
+    <input class="cat" type="radio" name="w-mn-cat" id="w-mn-4">
+
+    <div class="tabs" role="presentation">
+      <label for="w-mn-1">ของว่าง</label>
+      <label for="w-mn-2">จานหลัก</label>
+      <label for="w-mn-3">ของหวาน</label>
+      <label for="w-mn-4">เครื่องดื่ม</label>
+    </div>
+
+    <div class="panels">
+      <div class="panel panel--1">
+        <div>
+          <p class="grp">จานเย็น</p>
+          <div class="dish">
+            <span class="top"><span class="nm">ยำปลาทูโขงหมักส้ม</span><span class="lead"></span><span class="pr">180</span></span>
+            <p>ปลาทูจากแม่กลอง หมักสามวัน ยำกับหอมแดงเผาและใบชะพลู</p>
+            <div class="tags"><span>เผ็ดกลาง</span><span>ของทะเล</span></div>
+          </div>
+          <div class="dish">
+            <span class="top"><span class="nm">สลัดมะเขือเทศดอยกับชีสนมแพะ</span><span class="lead"></span><span class="pr">220</span></span>
+            <p>มะเขือเทศสามพันธุ์จากแม่ริม ชีสจากฟาร์มที่สะเมิง</p>
+            <div class="tags"><span>มังสวิรัติ</span></div>
+          </div>
+        </div>
+        <div>
+          <p class="grp">จานร้อน</p>
+          <div class="dish">
+            <span class="top"><span class="nm">เห็ดป่าย่างเตาถ่านกับเกลือสมุนไพร</span><span class="lead"></span><span class="pr">240</span></span>
+            <p>เห็ดตามฤดู เปลี่ยนทุกสัปดาห์ ถามพนักงานว่าวันนี้เป็นชนิดอะไร</p>
+            <div class="tags"><span>วีแกน</span><span>ตามฤดู</span></div>
+          </div>
+          <div class="dish">
+            <span class="top"><span class="nm">ไส้อั่วทอดกับน้ำจิ้มมะขาม</span><span class="lead"></span><span class="pr">190</span></span>
+            <p>ทำเองทุกเช้า สูตรที่ได้มาจากร้านในกาดหลวงที่ปิดไปแล้ว</p>
+            <div class="tags"><span>เผ็ดน้อย</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel panel--2">
+        <div>
+          <p class="grp">จากเตาถ่าน</p>
+          <div class="dish">
+            <span class="top"><span class="nm">ปลากะพงทั้งตัวย่างเกลือ</span><span class="lead"></span><span class="pr">680</span></span>
+            <p>ขนาดราว 800 กรัม เสิร์ฟกับน้ำจิ้มซีฟู้ดและผักลวก · ใช้เวลาย่าง 25 นาที</p>
+            <div class="tags"><span>ของทะเล</span><span>แบ่งกัน 2–3 คน</span></div>
+          </div>
+          <div class="dish">
+            <span class="top"><span class="nm">คอหมูย่างจิ้มแจ่ว</span><span class="lead"></span><span class="pr">280</span></span>
+            <p>หมักคืนก่อนหน้า ย่างสุกกลาง ถ้าอยากสุกมากบอกได้</p>
+            <div class="tags"><span>เผ็ดกลาง</span></div>
+          </div>
+        </div>
+        <div>
+          <p class="grp">จานข้าวและเส้น</p>
+          <div class="dish">
+            <span class="top"><span class="nm">ข้าวซอยไก่บ้าน</span><span class="lead"></span><span class="pr">160</span></span>
+            <p>น้ำแกงเคี่ยวสี่ชั่วโมง ไก่บ้านจากฟาร์มที่แม่แตง</p>
+            <div class="tags"><span>เผ็ดกลาง</span></div>
+          </div>
+          <div class="dish">
+            <span class="top"><span class="nm">ข้าวผัดปูกับไข่เค็ม</span><span class="lead"></span><span class="pr">320</span></span>
+            <p>เนื้อปูก้อน 80 กรัม ต่อจาน ชั่งจริงทุกจาน</p>
+            <div class="tags"><span>ของทะเล</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel panel--3">
+        <div>
+          <p class="grp">ของหวาน</p>
+          <div class="dish">
+            <span class="top"><span class="nm">ข้าวเหนียวมะม่วงน้ำดอกไม้</span><span class="lead"></span><span class="pr">160</span></span>
+            <p>เฉพาะช่วง มี.ค.–พ.ค. นอกฤดูเราไม่ทำ เพราะมะม่วงไม่อร่อยพอ</p>
+            <div class="tags"><span>ตามฤดู</span></div>
+          </div>
+          <div class="dish">
+            <span class="top"><span class="nm">ไอศกรีมกะทิสดกับถั่วลิสงคั่ว</span><span class="lead"></span><span class="pr">120</span></span>
+            <p>ปั่นเองทุกวัน กะทิคั้นสด ไม่ใส่นมวัว</p>
+            <div class="tags"><span>วีแกน</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel panel--4">
+        <div>
+          <p class="grp">ไม่มีแอลกอฮอล์</p>
+          <div class="dish">
+            <span class="top"><span class="nm">น้ำอัญชันมะนาว</span><span class="lead"></span><span class="pr">80</span></span>
+            <p>อัญชันจากสวนหลังร้าน ไม่ใส่น้ำตาลเพิ่มถ้าไม่ขอ</p>
+          </div>
+          <div class="dish">
+            <span class="top"><span class="nm">กาแฟดริปเมล็ดดอยช้าง</span><span class="lead"></span><span class="pr">110</span></span>
+            <p>คั่วกลาง เปลี่ยนล็อตทุกสองเดือน ถามได้ว่าตอนนี้เป็นล็อตไหน</p>
+          </div>
+        </div>
+        <div>
+          <p class="grp">มีแอลกอฮอล์</p>
+          <div class="dish">
+            <span class="top"><span class="nm">เบียร์คราฟต์ท้องถิ่น</span><span class="lead"></span><span class="pr">220</span></span>
+            <p>หมุนสามชนิด ดูที่กระดานหน้าร้านว่าวันนี้มีอะไร</p>
+          </div>
+          <div class="dish">
+            <span class="top"><span class="nm">ไวน์แก้ว · แดงหรือขาว</span><span class="lead"></span><span class="pr">280</span></span>
+            <p>ขวดละ 1,400 บาท เปิดขวดแล้วเก็บได้สามวัน</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <p>ราคารวมภาษีแล้ว ไม่มีค่าบริการ · แจ้งอาการแพ้อาหารได้ทุกจาน เราตอบตรง ๆ ว่าเปลี่ยนได้หรือไม่ได้</p>
+      <a class="w-btn w-btn--ghost" href="#reserve">จองโต๊ะ</a>
+    </div>
+  </div>
+</section>
+
+<!-- Specials · ทิศทาง `wm` (อบอุ่น) — ของที่มีวันหมดอายุ
+
+     ทำไมชิ้นนี้ถึงมีอยู่
+     ────────────────────
+     `menu-list.html` คือของที่มีทุกวัน `offer-cards.html` คือของที่เลือกได้
+     ตลอดเวลา ส่วนนี้เป็นชนิดที่สาม: **ของที่มีถึงวันที่เท่านั้น**
+
+     สิ่งที่ทำให้มันเป็นคนละชิ้นไม่ใช่หน้าตา แต่คือ **ทุกใบต้องมีวันหมด**
+     รายการ "ของแนะนำ" ที่ไม่มีวันหมด คือเมนูปกติที่ถูกย้ายมาไว้ที่ใหม่
+     ซึ่งไม่ได้เพิ่มอะไรให้ใครเลย และเป็นสิ่งที่คนอ่านจับได้ในสามวินาที
+     เพราะเขาเคยเห็นเมนูเดิมนี้มาแล้วเมื่อเดือนก่อน
+
+     ราคาที่ขีดฆ่าเป็นเรื่องละเอียดอ่อนตามกฎหมายคุ้มครองผู้บริโภค: ราคาเดิม
+     ต้องเป็นราคาที่ **เคยขายจริง** ในช่วงเวลาที่ผ่านมา ไม่ใช่ราคาที่ตั้งขึ้น
+     เพื่อให้ส่วนลดดูเยอะ ไฟล์นี้จึงมีที่ให้เขียนกำกับว่าราคาเดิมคือของเมื่อไหร่
+
+     ค่าที่วัดมา
+     ───────────
+     · **สามใบ ไม่ใช่หกใบ** เพราะของพิเศษที่มีหกอย่างพร้อมกันไม่ใช่ของพิเศษ
+       แล้ว มันคือเมนูอีกหน้าหนึ่ง
+     · **ป้ายวันหมดใช้ `--warning` ไม่ใช่ `--danger`** เพราะมันไม่ใช่ความ
+       ผิดพลาด มันคือกำหนดเวลา และมีคำว่า "ถึง" กำกับเสมอ ไม่ใช่สีอย่างเดียว
+     · **ราคาเดิมขีดฆ่าด้วย `<s>` ไม่ใช่ `text-decoration` ที่ `<span>`**
+       เพราะ `<s>` มีความหมายว่า "ไม่ถูกต้องแล้ว" ในตัวเอง โปรแกรมอ่านหน้าจอ
+       บางตัวประกาศให้ ส่วน `<span>` ที่ขีดด้วย CSS อ่านออกมาเป็นราคาปกติ
+       ซึ่งทำให้คนตาบอดได้ยินสองราคาโดยไม่รู้ว่าอันไหนคืออันที่จ่าย
+     · **ส่วนลดคำนวณแล้วเขียนเป็นเปอร์เซ็นต์** ไม่ปล่อยให้คนหารเอง และตัวเลข
+       ต้องตรงกับราคาสองตัวจริง ๆ (320 → 240 คือ 25%) — ตรวจด้วยการคูณ
+       ไม่ใช่ด้วยการเชื่อ
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **นับถอยหลังเป็นวินาที** — ต้องมีสคริปต์ และเมื่อหมดเวลาแล้วหน้ายัง
+        แสดงของที่หมดอายุอยู่ดีจนกว่าจะมีคนแก้ ตัวเลขที่นับถอยหลังไปถึงศูนย์
+        แล้วยังค้างอยู่แย่กว่าไม่มีเลย ที่นี่เขียนวันที่ตรง ๆ ซึ่งคนอ่านตัดสิน
+        ได้เองว่ายังทันไหม
+     2. **ให้ราคาใหม่ตัวใหญ่กว่าราคาเดิมสามเท่า** — ดูเหมือนขายของลดราคา
+        ในห้าง ซึ่งขัดกับทิศทางทั้งหมดของหน้า ต่างกันสองสเต็ปพอ
+     3. **ป้าย "พิเศษ" อยู่บนภาพ** — ต้องมีม่านใต้ป้าย ไม่งั้นอ่านไม่ออกบนภาพ
+        สว่าง และม่านสามใบทำให้ทั้งแถวมืดลง ย้ายมาอยู่ใต้ภาพแทน -->
+<style>
+  .w-sp .head{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:var(--gap) }
+  .w-sp .head > div:first-child{ flex:1 1 340px }
+  .w-sp h2{ font-size:clamp(26px,3.4vw,42px); line-height:1.28;
+            letter-spacing:var(--wm-display-track,-.012em);
+            font-weight:var(--wm-display-weight,500);
+            text-wrap:balance; max-width:20ch }
+  .w-sp .w-lede{ margin-top:14px }
+
+  .w-sp .cards{ display:grid; gap:var(--gap); margin-top:clamp(28px,4vw,44px);
+                grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr)) }
+  .w-sp .card{ display:flex; flex-direction:column;
+               border:1px solid var(--line); border-radius:var(--radius);
+               background:var(--surface); overflow:hidden }
+  .w-sp figure{ margin:0; overflow:hidden }
+  .w-sp img{ display:block; width:100%; aspect-ratio:3/2; object-fit:cover }
+  .w-sp .body{ display:flex; flex-direction:column; gap:10px;
+               padding:clamp(18px,2.2vw,24px); flex:1 }
+
+  .w-sp .until{ align-self:flex-start; display:flex; align-items:center; gap:7px;
+                font:600 12px/1 var(--sans); color:var(--warning);
+                border:1px solid currentColor; border-radius:var(--radius-pill);
+                padding:6px 11px }
+  .w-sp .until svg{ width:13px; height:13px }
+  .w-sp h3{ font-size:20px; letter-spacing:-.01em }
+  .w-sp .card > .body > p{ color:var(--muted); font-size:15px; line-height:1.6 }
+
+  .w-sp .price{ display:flex; flex-wrap:wrap; align-items:baseline; gap:10px;
+                margin-top:auto; padding-top:16px; border-top:1px solid var(--line) }
+  .w-sp .new{ font:700 24px/1 var(--mono); font-variant-numeric:tabular-nums;
+              letter-spacing:-.015em }
+  .w-sp .new small{ font:500 13px/1 var(--sans); color:var(--muted); margin-inline-start:4px }
+  .w-sp s{ font:500 16px/1 var(--mono); color:var(--muted) }
+  .w-sp .off{ margin-inline-start:auto; font:600 12px/1 var(--sans);
+              color:var(--accent); border:1px solid currentColor;
+              border-radius:var(--radius-pill); padding:6px 10px }
+  .w-sp .was{ color:var(--muted); font-size:12px; line-height:1.55; margin-top:8px }
+
+  .w-sp .note{ margin-top:var(--gap); color:var(--muted); font-size:14px;
+               max-width:76ch; line-height:1.7 }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-sp img{ transition:transform .5s var(--ease-in) }
+    .w-sp .card:hover img{ transform:scale(1.045) }
+    @supports (animation-timeline:view()){
+      .w-sp .card{ animation-name:w-rise; animation-timing-function:linear;
+                   animation-fill-mode:both; animation-timeline:view();
+                   animation-range:entry 8% cover 26% }
+    }
+  }
+</style>
+
+<section class="w-section w-sp" id="specials">
+  <div class="w-wrap">
+    <div class="head">
+      <div>
+        <p class="w-eyebrow">ของพิเศษเดือนนี้</p>
+        <h2>สามอย่าง ที่มีถึงสิ้นเดือนแล้วหายไป</h2>
+        <p class="w-lede">ทำเฉพาะช่วงที่วัตถุดิบดีจริง พอหมดฤดูเราหยุดทำ ไม่ได้เอาของแช่แข็งมาทำต่อ</p>
+      </div>
+      <a class="w-btn w-btn--ghost" href="#reserve">จองโต๊ะ</a>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <figure><img src="imgs/dish-1.jpg" alt="ปลาเนื้ออ่อนย่างเกลือเสิร์ฟบนใบตอง"
+                     width="1200" height="800" loading="lazy" decoding="async"></figure>
+        <div class="body">
+          <span class="until"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.6v3.6l2.3 1.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>ถึง 30 ก.ย. 2569</span>
+          <h3>ปลาเนื้ออ่อนย่างเกลือ</h3>
+          <p>จับจากแม่น้ำปิงช่วงน้ำลด ปีละสองเดือน ย่างเตาถ่านกับเกลือสมุนไพร เสิร์ฟบนใบตอง</p>
+          <div class="price">
+            <span class="new">240<small>บาท</small></span>
+            <s>320 บาท</s>
+            <span class="off">ลด 25%</span>
+          </div>
+          <p class="was">ราคาเดิม 320 บาท เป็นราคาที่ขายจริงตลอด ก.ค.–ส.ค. 2569</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <figure><img src="imgs/dish-2.jpg" alt="แกงเห็ดถอบในหม้อดินร้อน"
+                     width="1200" height="800" loading="lazy" decoding="async"></figure>
+        <div class="body">
+          <span class="until"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.6v3.6l2.3 1.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>ถึง 15 ต.ค. 2569</span>
+          <h3>แกงเห็ดถอบหม้อดิน</h3>
+          <p>เห็ดถอบจากป่าชุมชนแม่ทา รับซื้อจากชาวบ้านโดยตรง มีเฉพาะช่วงต้นฤดูฝนต่อฤดูหนาว</p>
+          <div class="price">
+            <span class="new">280<small>บาท</small></span>
+            <span class="off">เมนูใหม่</span>
+          </div>
+          <p class="was">ไม่เคยมีในเมนูปกติ ทำเฉพาะปีนี้</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <figure><img src="imgs/dish-3.jpg" alt="ชุดอาหารเย็นสี่จานวางบนโต๊ะไม้"
+                     width="1200" height="800" loading="lazy" decoding="async"></figure>
+        <div class="body">
+          <span class="until"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.6v3.6l2.3 1.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>ทุกวันอังคาร–พฤหัสบดี</span>
+          <h3>ชุดอาหารเย็นสำหรับสองคน</h3>
+          <p>สี่จานที่ครัวเลือกให้ตามของที่ได้มาวันนั้น บอกอาการแพ้ล่วงหน้าได้ · ไม่รวมเครื่องดื่ม</p>
+          <div class="price">
+            <span class="new">890<small>บาท</small></span>
+            <s>1,140 บาท</s>
+            <span class="off">ลด 22%</span>
+          </div>
+          <p class="was">ราคาเดิมคือราคารวมของสี่จานที่สั่งแยกตามเมนูปกติ</p>
+        </div>
+      </div>
+    </div>
+
+    <p class="note">ราคาเดิมที่ขีดฆ่าทุกรายการคือราคาที่เคยขายจริงในช่วงที่ระบุไว้ ไม่ใช่ราคาที่ตั้งขึ้นเพื่อให้ส่วนลดดูเยอะ ถ้าอยากตรวจ เมนูเก่าของทุกเดือนเก็บไว้ที่หน้าร้าน</p>
+  </div>
+</section>
+
+<!-- Gallery · ทิศทาง `wm` (อบอุ่น) — โมเสกที่ขนาดต่างกันโดยมีเหตุผล
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี media-grid.html แล้ว
+     ─────────────────────────────────────────────────
+     `media-grid.html` เป็นกริดภาพย่อขนาดเท่ากันที่มีป้ายชนิดกับยอดรีแอ็กชัน
+     ซึ่งถูกสำหรับ **คลังของ** — คลิป ไฟล์อัปโหลด รายการที่คนมาหาของเฉพาะชิ้น
+     ขนาดที่เท่ากันคือสิ่งที่ทำให้สแกนได้
+
+     อัลบั้มของสถานที่ทำงานตรงข้าม: คนไม่ได้มาหาภาพใดภาพหนึ่ง เขามาดูว่า
+     **ที่นี่รู้สึกยังไง** ซึ่งได้จากลำดับและจังหวะ ไม่ได้จากรายการ ภาพที่มี
+     ขนาดเท่ากันสิบสองใบให้ความรู้สึกเดียวกับแคตตาล็อก ไม่ใช่กับการเดินดู
+
+     ขนาดที่ต่างกันต้องมีเหตุผล ไม่ใช่สุ่ม: **ใบใหญ่คือใบที่มีความลึก**
+     (มองทะลุออกไปได้) **ใบเล็กคือรายละเอียด** (มือ ถ้วย เงาบนพื้น)
+     ถ้าสลับกัน ใบใหญ่จะกลายเป็นภาพวัตถุขยายที่ไม่มีที่ให้ตาพัก
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **หกใบ กริดสี่คอลัมน์ สามแถว** ช่องรวมทั้งหมด 12 ช่อง แจกเป็น
+       4 (ใบใหญ่ 2×2) + 2 + 1 + 1 + 3 + 1 = 12 พอดี ตรวจด้วยการบวก
+       ไม่ใช่ด้วยการเปิดดู — กริดที่พิสูจน์ด้วยตาคือกริดที่จะพังเงียบ ๆ ตอนมี
+       คนเพิ่มภาพใบที่เจ็ด
+     · **`grid-auto-rows:minmax(140px,auto)` ไม่ใช่ `1fr`** เพราะ `1fr` ทำให้
+       แถวสูงเท่ากันหมด แล้วใบที่กินสองแถวก็สูงเป็นสองเท่าพอดี ซึ่งอ่านเป็น
+       ตารางอีกครั้ง `minmax` ปล่อยให้แถวสูงตามภาพจริงเล็กน้อย
+     · **`object-position` ต่างกันรายใบ** — ภาพแนวนอนที่ถูกครอปเป็นช่องแนวตั้ง
+       ต้องเลือกเองว่าเก็บส่วนไหน ค่าเริ่มต้น `center` ตัดหัวคนกับยอดต้นไม้ทิ้ง
+       บ่อยที่สุด ที่นี่จึงเขียนกำกับรายใบ ไม่ใช่ตั้งรวม
+     · **คำบรรยายอยู่ใต้กริด ไม่ใช่ทับภาพ** เพราะข้อความบนภาพต้องมีม่าน
+       และม่านหกใบทำให้อัลบั้มมืดลงทั้งชุด `alt` ยังทำหน้าที่ของมันครบ
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ทำเป็นแถบเลื่อนแนวนอนพร้อม scroll-snap** — สวยบนจอกว้าง แต่บนมือถือ
+        มันชนกับการเลื่อนหน้าตามแนวตั้ง คนปัดขึ้นแล้วแถบเลื่อนข้างแทน และ
+        ภาพที่อยู่นอกจอไม่มีอะไรบอกว่ามีอยู่ ถ้าจะทำแถบเลื่อนจริงต้องมีตัวบอก
+        ตำแหน่งด้วย ซึ่งเป็นคนละชิ้นกัน (`sections/stories.html` ทำอยู่แล้ว)
+     2. **`aspect-ratio` ที่ทุกใบ** — ขัดกับ `grid-row:span 2` เพราะสองอย่าง
+        กำหนดความสูงคนละทาง ผลคือใบใหญ่ล้นออกนอกแถวของมัน ที่นี่ความสูง
+        มาจากกริดอย่างเดียว แล้ว `<img>` ใช้ `height:100%` กับ `object-fit`
+     3. **ซูมภาพตอนชี้ 1.1 เท่า** — ที่ใบใหญ่ขนาด 2×2 การซูม 10% แปลว่าภาพ
+        ขยับ 30px ซึ่งมากพอให้เห็นขอบสั่น ลดเหลือ 1.04 แล้วนิ่ง -->
+<style>
+  .w-gm .head{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:var(--gap) }
+  .w-gm .head > div:first-child{ flex:1 1 340px }
+  .w-gm h2{ font-size:clamp(26px,3.4vw,42px); line-height:1.28;
+            letter-spacing:var(--wm-display-track,-.012em);
+            font-weight:var(--wm-display-weight,500);
+            text-wrap:balance; max-width:20ch }
+  .w-gm .w-lede{ margin-top:14px }
+
+  .w-gm .mosaic{ display:grid; gap:clamp(10px,1.4vw,16px);
+                 margin-top:clamp(28px,4vw,44px);
+                 grid-template-columns:repeat(2,1fr);
+                 grid-auto-rows:minmax(140px,auto) }
+  @media (min-width:820px){
+    .w-gm .mosaic{ grid-template-columns:repeat(4,1fr);
+                   grid-auto-rows:minmax(170px,auto) }
+    /* 4 + 2 + 1 + 1 + 3 + 1 = 12 ช่อง เต็มสามแถวพอดี — ดูเหตุผลในหัวไฟล์ */
+    .w-gm .m1{ grid-column:span 2; grid-row:span 2 }
+    .w-gm .m2{ grid-column:span 2 }
+    .w-gm .m5{ grid-column:span 3 }
+  }
+  .w-gm figure{ margin:0; overflow:hidden; border-radius:var(--radius-sm);
+                background:var(--surface) }
+  .w-gm img{ display:block; width:100%; height:100%; object-fit:cover }
+
+  .w-gm .caps{ display:grid; gap:8px; margin-top:clamp(18px,2.4vw,24px);
+               color:var(--muted); font-size:14px }
+  .w-gm .caps li{ display:grid; grid-template-columns:2.6rem 1fr; gap:12px }
+  .w-gm .caps b{ font:600 12px/1.6 var(--mono); color:var(--text) }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-gm img{ transition:transform .55s var(--ease-in) }
+    .w-gm figure:hover img{ transform:scale(1.04) }
+    @supports (animation-timeline:view()){
+      .w-gm .mosaic{ animation-name:w-rise; animation-timing-function:linear;
+                     animation-fill-mode:both; animation-timeline:view();
+                     animation-range:entry 6% cover 22% }
+    }
+  }
+</style>
+
+<section class="w-section w-gm" id="gallery">
+  <div class="w-wrap">
+    <div class="head">
+      <div>
+        <p class="w-eyebrow">อัลบั้ม</p>
+        <h2>หกภาพ เรียงตามลำดับของวันหนึ่ง</h2>
+        <p class="w-lede">ถ่ายในเดือนตุลาคม ไม่ได้ปรับสี ไม่ได้จัดของใหม่ก่อนถ่าย</p>
+      </div>
+      <a class="w-btn w-btn--ghost" href="#booking">มาดูของจริง</a>
+    </div>
+
+    <div class="mosaic">
+      <figure class="m1"><img src="imgs/gallery-1.jpg" alt="ระเบียงไม้ตอนหกโมงครึ่ง แสงเฉียงผ่านต้นไม้ลงมาบนพื้น" width="1280" height="1600" style="object-position:50% 40%" loading="lazy" decoding="async"></figure>
+      <figure class="m2"><img src="imgs/gallery-2.jpg" alt="ทางเดินหินจากลานจอดรถเข้าไปหาตัวบ้าน" width="1280" height="1120" style="object-position:50% 62%" loading="lazy" decoding="async"></figure>
+      <figure class="m3"><img src="imgs/gallery-3.jpg" alt="ถ้วยกาแฟบนโต๊ะไม้ริมหน้าต่าง" width="1280" height="1600" style="object-position:46% 50%" loading="lazy" decoding="async"></figure>
+      <figure class="m4"><img src="imgs/gallery-4.jpg" alt="มุมอ่านหนังสือใต้บันได มีเก้าอี้ตัวเดียวกับโคมไฟ" width="1280" height="1120" style="object-position:54% 44%" loading="lazy" decoding="async"></figure>
+      <figure class="m5"><img src="imgs/gallery-5.jpg" alt="สวนตอนบ่ายแก่ เงาต้นจามจุรีทอดยาวคลุมลานหน้าบ้าน" width="1280" height="1120" style="object-position:50% 56%" loading="lazy" decoding="async"></figure>
+      <figure class="m6"><img src="imgs/gallery-6.jpg" alt="ไฟที่ระเบียงตอนหัวค่ำ มองจากในสวน" width="1280" height="1600" style="object-position:50% 48%" loading="lazy" decoding="async"></figure>
+    </div>
+
+    <ol class="caps">
+      <li><b>06:30</b><span>แสงแรกบนระเบียง ซึ่งเป็นเหตุผลที่ทุกหลังหันหน้าทางเดียวกัน</span></li>
+      <li><b>09:00</b><span>ทางเดินหินจากลานจอด ยาวสี่สิบเมตร ตั้งใจให้เดินไม่ให้ขับเข้ามาถึงบ้าน</span></li>
+      <li><b>16:40</b><span>เงาต้นจามจุรีคลุมทั้งลาน ช่วงที่ร้อนที่สุดของวันจึงยังนั่งข้างนอกได้</span></li>
+      <li><b>19:15</b><span>ไฟระเบียงเปิดเอง ไม่มีไฟส่องสวนเพราะจะรบกวนแมลงและนกที่อยู่ก่อน</span></li>
+    </ol>
+  </div>
+</section>
+
+<!-- Testimonials · ทิศทาง `gl` (กระจก) — กำแพงคำชม ไม่ใช่คำพูดเดียว
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี testimonial.html แล้ว
+     ──────────────────────────────────────────────────
+     `testimonial.html` เป็นคำพูดเดียวกลางหน้า ซึ่งเป็นทางที่ถูกเมื่อ **มีคำพูด
+     ที่ดีจริงอยู่หนึ่งอัน** จากคนที่ชื่อเขามีน้ำหนักในตัวเอง คำพูดเดี่ยวคือ
+     การเดิมพันทั้งส่วนไว้กับประโยคเดียว และถ้าประโยคนั้นดีพอ มันชนะกำแพง
+
+     แต่เมื่อของที่มีคือคำชมธรรมดาสิบอันจากคนสิบคนที่ผู้อ่านไม่รู้จัก
+     การหยิบมาอันเดียวคือการทิ้งหลักฐานเก้าอัน สิ่งที่โน้มน้าวในกรณีนั้น
+     ไม่ใช่ความคมของประโยค แต่คือ **ปริมาณกับความหลากหลายของบทบาท** —
+     นักลงทุนรายย่อย ผู้จัดการกองทุน นักวิเคราะห์ พูดคนละเรื่องแล้วชนกันเอง
+     ตรงเดียว นั่นคือสิ่งที่กำแพงทำได้และคำพูดเดี่ยวทำไม่ได้
+
+     เลือกไฟล์จากคำถามเดียว: **คำพูดที่ดีที่สุดที่มี ดีพอจะยืนคนเดียวไหม**
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **`columns` ไม่ใช่ `grid`** เพราะคำชมยาวไม่เท่ากันโดยธรรมชาติ กริดจะ
+       ยืดทุกใบในแถวให้สูงเท่าใบที่ยาวที่สุด ผลคือช่องว่างใต้ข้อความในใบสั้น
+       สามในห้าใบ ส่วน `columns` ไหลต่อกันเหมือนหนังสือพิมพ์ ไม่มีช่องว่างนั้น
+       ราคาที่จ่ายคือลำดับการอ่านกลายเป็นบนลงล่างทีละคอลัมน์ ซึ่งยอมรับได้
+       เพราะคำชมไม่มีลำดับ
+     · **จำนวนคอลัมน์คุมด้วย `column-width` ไม่ใช่ `column-count`** ทำให้
+       จำนวนคอลัมน์ตามความกว้างจริงเหมือนที่ `auto-fit` ทำให้กริด
+       ไม่ต้องมีเบรกพอยต์ให้ดูแล และ **ค่าต้องเป็นความยาวล้วน**
+       `min(320px,100%)` แบบที่ใช้กับกริดได้ ใช้ที่นี่ไม่ได้ — ดูข้อ 5 ข้างล่าง
+     · **ห้าใบ ไม่ใช่หก** เพราะที่ 1120px ได้สามคอลัมน์ หกใบจะลงตัวเป๊ะ
+       3+3 ซึ่งอ่านออกทันทีว่าเป็นตาราง ห้าใบทำให้คอลัมน์สุดท้ายจบไม่พร้อมกัน
+       ซึ่งเป็นสิ่งที่ทำให้มันอ่านเป็นกำแพงจริง ๆ ไม่ใช่กริดที่ปลอมเป็นกำแพง
+     · **หัวส่วนถือตัวเลขรวม** (คะแนน จำนวนรีวิว จำนวนผู้ใช้) เพราะกำแพงบอก
+       ความหลากหลายได้ แต่บอกขนาดไม่ได้ คนอ่านห้าใบแล้วไม่รู้ว่านี่คือห้าจาก
+       เจ็ดหรือห้าจากเจ็ดพัน
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ไม่ใส่ `break-inside:avoid`** — การ์ดถูกผ่าครึ่ง หัวอยู่ท้ายคอลัมน์
+        หนึ่ง ชื่อคนอยู่ต้นคอลัมน์ถัดไป ซึ่งอ่านแล้วเข้าใจผิดว่าเป็นคนละคน
+        เป็นอาการที่เกิดเฉพาะตอนความกว้างพอดีจุดหนึ่ง จึงไม่เจอถ้าเปิดดู
+        ความกว้างเดียว
+     2. **`margin-top` ที่การ์ดใบแรก** — `columns` ไม่ยุบ margin ข้ามคอลัมน์
+        ใบแรกของคอลัมน์ที่สองและสามเลยเยื้องลงมาจากใบแรกของคอลัมน์แรก
+        แก้ด้วย `margin:0 0 var(--gap)` แล้วให้ระยะห่างมาจากด้านล่างอย่างเดียว
+     3. **`w-reveal` ที่ทุกใบ** — ใบในคอลัมน์ขวาเข้าฉากตอนที่คนอ่านคอลัมน์ซ้าย
+        อยู่ ซึ่งเป็นการเคลื่อนไหวในหางตาที่ไม่มีเหตุผล ตอนนี้เข้าฉากที่ตัว
+        กำแพงทั้งก้อนครั้งเดียว แล้วปล่อยให้ `w-lift` ทำงานต่อรายใบตอนชี้
+     4. **รูปคนเป็น `border-radius:50%` บน `<img>` ที่ไม่มี `object-fit`** —
+        รูปที่ไม่ใช่จัตุรัสถูกยืด ต้องมีทั้ง `object-fit:cover` และ
+        `width`/`height` ที่แท็ก ซึ่งข้อ 2 บังคับอยู่แล้วเพื่อกันหน้าเด้ง
+     5. **`column-width:min(320px,100%)`** — เอาสำนวนที่ใช้กับ
+        `minmax(min(280px,100%),1fr)` ในกริดมาใช้ตรง ๆ แต่ `column-width`
+        ไม่รับเปอร์เซ็นต์ ทั้งค่าจึงเป็นโมฆะและตกกลับเป็น `auto` = คอลัมน์เดียว
+        หน้าไม่พัง ไม่มีข้อความผิดพลาด กำแพงแค่กลายเป็นรายการเงียบ ๆ
+        ก่อนหน้านั้นเขียนเป็น shorthand `columns:min(320px,100%)` ซึ่งพังด้วย
+        เหตุผลเดียวกันและมองไม่ออกกว่าเดิม -->
+<style>
+  .w-tw{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+  }
+  .w-tw .head{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:var(--gap) }
+  .w-tw .head > div:first-child{ flex:1 1 340px }
+  .w-tw h2{ font-size:clamp(26px,3.4vw,40px); letter-spacing:-.02em; text-wrap:balance; line-height:1.24;
+            max-width:20ch }
+
+  /* ตัวเลขรวมของส่วนนี้ เป็น <dl> เพราะมันคือคู่ ค่า–ความหมาย จริง ๆ */
+  .w-tw .totals{ display:flex; gap:clamp(18px,3vw,34px); flex-wrap:wrap }
+  .w-tw .totals dt{ font-size:clamp(22px,2.6vw,30px); font-weight:800;
+                    letter-spacing:-.03em; line-height:1 }
+  .w-tw .totals dd{ color:var(--muted); font-size:13px; margin:5px 0 0 }
+
+  /* `column-width:320px` เขียนเป็นความยาวล้วน ห้ามมี % ปนใน min()
+     — `column-width` ไม่รับเปอร์เซ็นต์ พอเขียน `min(320px,100%)` ทั้งค่าเป็น
+     โมฆะ แล้วตกกลับไปเป็น `auto` ซึ่งแปลว่าคอลัมน์เดียว กำแพงเลยกลายเป็น
+     รายการเรียงลงมาทั้งที่โค้ดอ่านแล้วดูถูกทุกตัว
+     ไม่ต้องมี 100% อยู่แล้ว เพราะเมื่อกล่องแคบกว่า 320px เบราว์เซอร์
+     ยุบเหลือคอลัมน์เดียวให้เอง นั่นคือพฤติกรรมปกติของ column-width */
+  .w-tw .wall{ margin-top:clamp(28px,4vw,44px);
+               column-width:320px; column-gap:var(--gap) }
+  .w-tw figure{
+    break-inside:avoid;                 /* ดูเหตุผลข้อ 1 ในหัวไฟล์ */
+    margin:0 0 var(--gap);              /* ดูเหตุผลข้อ 2 */
+    border:1px solid var(--gl-edge); border-radius:var(--radius);
+    background:var(--gl-pane); padding:clamp(18px,2.2vw,24px);
+    position:relative; isolation:isolate; overflow:hidden;
+  }
+  .w-tw blockquote{ font-size:16px; line-height:1.62 }
+  .w-tw figcaption{ display:flex; align-items:center; gap:11px; margin-top:16px;
+                    padding-top:14px; border-top:1px solid var(--line) }
+  .w-tw img{ width:38px; height:38px; border-radius:50%; object-fit:cover; flex:none }
+  .w-tw cite{ font-style:normal; font-weight:600; font-size:14px; display:block }
+  .w-tw .role{ color:var(--muted); font-size:13px }
+  /* ใบที่เป็นตัวเลข ไม่ใช่ประโยค — กำแพงที่ทุกใบเป็นย่อหน้าเท่ากันคือกริด
+     ที่ปลอมเป็นกำแพง */
+  .w-tw figure.num blockquote{ font-size:clamp(24px,3vw,32px); font-weight:800;
+                               letter-spacing:-.03em; line-height:1.18 }
+  .w-tw figure.num blockquote span{ display:block; font-size:15px; font-weight:400;
+                                    letter-spacing:0; color:var(--muted); margin-top:8px;
+                                    line-height:1.6 }
+
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      /* เข้าฉากที่กำแพงทั้งก้อน ไม่ใช่รายใบ — ดูเหตุผลข้อ 3 ในหัวไฟล์ */
+      .w-tw .wall{ animation-name:w-rise; animation-timing-function:linear;
+                   animation-fill-mode:both;
+                   animation-timeline:view(); animation-range:entry 6% cover 22% }
+    }
+    .w-tw figure::after{ content:""; position:absolute; inset:0; z-index:-1;
+      pointer-events:none;
+      background:linear-gradient(100deg, transparent 36%,
+        color-mix(in srgb,var(--accent) 13%,transparent) 50%, transparent 64%);
+      background-size:240% 100%; background-repeat:no-repeat;
+      background-position:-140% 0 }
+    .w-tw figure:hover::after,.w-tw figure:focus-within::after{
+      animation:w-sheen .9s var(--ease-wipe) }
+  }
+</style>
+
+<section class="w-section w-tw">
+  <div class="w-wrap">
+    <div class="head">
+      <div>
+        <p class="w-eyebrow">เสียงจากคนใช้</p>
+        <h2>คนละบทบาท คนละเหตุผล ชนกันตรงเดียว</h2>
+      </div>
+      <dl class="totals">
+        <div><dt>4.8</dt><dd>คะแนนเฉลี่ย จาก 5</dd></div>
+        <div><dt>312</dt><dd>รีวิวที่ยืนยันตัวตนแล้ว</dd></div>
+        <div><dt>11,400</dt><dd>บัญชีที่ใช้งานอยู่</dd></div>
+      </dl>
+    </div>
+
+    <div class="wall">
+      <figure class="w-lift">
+        <blockquote>ก่อนหน้านี้ผมเปิดสี่แท็บทุกเช้าเพื่อรวมยอด ตอนนี้เปิดอันเดียวแล้วเห็นครบ สิ่งที่เปลี่ยนจริง ๆ คือผมเลิกคำนวณผิดเพราะลืมหักค่าคอมฯ</blockquote>
+        <figcaption>
+          <img src="imgs/khon-1.jpg" alt="" width="38" height="38">
+          <span><cite>ธนกฤต ศรีวิไล</cite><span class="role">นักลงทุนรายย่อย · ใช้มา 14 เดือน</span></span>
+        </figcaption>
+      </figure>
+
+      <figure class="w-lift num">
+        <blockquote>6 ชั่วโมง<span>ต่อสัปดาห์ที่ทีมเราไม่ต้องนั่งรวมรายงานพอร์ตของลูกค้าด้วยมืออีก</span></blockquote>
+        <figcaption>
+          <img src="imgs/khon-2.jpg" alt="" width="38" height="38">
+          <span><cite>ปาริชาต วงศ์อนันต์</cite><span class="role">หัวหน้าทีมที่ปรึกษาการลงทุน</span></span>
+        </figcaption>
+      </figure>
+
+      <figure class="w-lift">
+        <blockquote>คะแนนความเสี่ยงคือส่วนที่ผมสงสัยที่สุดตอนแรก แต่พอกดดูว่ามันคิดจากอะไรได้ ผมก็เลิกเถียงกับมัน ที่สำคัญคือมันบอกเหตุผล ไม่ใช่แค่ตัวเลข</blockquote>
+        <figcaption>
+          <img src="imgs/khon-3.jpg" alt="" width="38" height="38">
+          <span><cite>ศิวกร เจริญพงศ์</cite><span class="role">นักวิเคราะห์การลงทุน</span></span>
+        </figcaption>
+      </figure>
+
+      <figure class="w-lift">
+        <blockquote>ที่ใช้ต่อเพราะการส่งออกไฟล์ยื่นภาษีอย่างเดียวเลย ปีที่แล้วผมนั่งทำเองสามคืน ปีนี้กดปุ่มเดียว</blockquote>
+        <figcaption>
+          <img src="imgs/khon-4.jpg" alt="" width="38" height="38">
+          <span><cite>นภัสสร ทองอินทร์</cite><span class="role">เจ้าของธุรกิจ · ลงทุนเอง</span></span>
+        </figcaption>
+      </figure>
+
+      <figure class="w-lift">
+        <blockquote>สัญญาณไม่ได้แม่นทุกครั้ง และผมชอบที่มันบอกตรง ๆ ว่ามั่นใจกี่เปอร์เซ็นต์ เครื่องมือที่บอกว่าถูกเสมอคือเครื่องมือที่ผมไม่กล้าใช้เงินจริง</blockquote>
+        <figcaption>
+          <img src="imgs/khon-5.jpg" alt="" width="38" height="38">
+          <span><cite>วรินทร พฤกษ์ไพศาล</cite><span class="role">เทรดเดอร์รายวัน</span></span>
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- Hours & contact · ทิศทาง `wm` (อบอุ่น) — เวลาเปิดที่บอกได้ว่าตอนนี้เปิดอยู่ไหม
+
+     ทำไมชิ้นนี้ถึงมีอยู่
+     ────────────────────
+     `location-times.html` ตอบว่า *ไกลแค่ไหน* · `footer-glass.html` มีที่อยู่
+     กับอีเมลอยู่ในนั้นแล้ว แต่ไม่มีไฟล์ไหนตอบคำถามที่คนถามบ่อยที่สุดเกี่ยวกับ
+     ร้าน: **"ตอนนี้เปิดอยู่หรือเปล่า"**
+
+     ร้านอาหารต่างจากธุรกิจอื่นตรงที่เวลาเปิดไม่ใช่ข้อมูลประกอบ มันคือเงื่อนไข
+     ของการมาทั้งหมด และมันไม่เหมือนกันทุกวัน — วันจันทร์ปิด วันเสาร์เปิดยาว
+     ตารางที่เขียนว่า "จ.–ส. 10:00–22:00" ซ่อนความจริงว่าวันอาทิตย์ทำอะไร
+     และครัวปิดก่อนร้านปิดเสมอ ซึ่งเป็นสิ่งที่ทำให้คนที่มาสามทุ่มครึ่งผิดหวัง
+
+     ไฟล์นี้จึงเขียนทุกวันแยกบรรทัด และแยก **เวลาครัวปิด** ออกจาก
+     **เวลาร้านปิด** ซึ่งเป็นรายละเอียดที่แทบไม่มีเว็บร้านไหนบอก
+
+     ค่าที่วัดมา
+     ───────────
+     · **เจ็ดบรรทัด ไม่ใช่ช่วงย่อ** ("จ.–ศ.") เพราะช่วงย่อบังคับให้ทุกวันใน
+       ช่วงเหมือนกันเป๊ะ พอมีวันเดียวที่ต่าง ต้องเขียนสองบรรทัดอยู่ดี
+       แล้วคนอ่านต้องประกอบเอง เจ็ดบรรทัดยาวกว่าแต่ไม่ต้องคิด
+     · **วันปิดยังคงอยู่ในรายการ** เขียนว่า "ปิด" ไม่ใช่ข้ามไป เพราะวันที่
+       หายไปจากรายการอ่านได้สองแบบ — ปิด หรือ ลืมเขียน
+     · **วันนี้ทำเครื่องหมายด้วยเส้นซ้ายกับตัวหนา ไม่ใช่สีพื้น** เพราะพื้นสี
+       บนบรรทัดเดียวในเจ็ดบรรทัดอ่านเป็น "ถูกเลือก" ซึ่งเป็นสถานะที่ผู้ใช้
+       ทำเอง ส่วนนี่คือข้อเท็จจริง
+       **หมายเหตุ: ต้องตั้งคลาสนี้จากฝั่งเซิร์ฟเวอร์** เทมเพลตชั้น A ไม่มี
+       สคริปต์ จึงรู้ไม่ได้ว่าวันนี้วันอะไร — ถ้าปล่อยไว้ตายตัวมันจะผิดหกวัน
+       ในเจ็ดวัน ซึ่งแย่กว่าไม่ทำเครื่องหมายเลย ลบคลาสออกถ้ายังไม่มีหลังบ้าน
+     · **`<time>` ที่มี `datetime`** ทุกช่วงเวลา เพื่อให้เครื่องมือที่อ่านหน้า
+       (รวมถึงตัวจัดทำ structured data) หยิบไปใช้ได้โดยไม่ต้องแกะข้อความไทย
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **จุดสถานะ "เปิดอยู่" สีเขียวแบบตายตัว** — ผิดทันทีที่คนเปิดหน้านี้
+        ตอนตีสอง และเป็นคำโกหกที่ตรวจสอบได้ทันที สถานะที่คำนวณไม่ได้ต้อง
+        ไม่แสดง ไม่ใช่แสดงค่าที่เดาไว้
+     2. **`<table>` สำหรับตารางเวลา** — มันมีมิติเดียว (วัน → เวลา) และบน
+        มือถือต้องรื้อทั้งหมด `<dl>` ตรงกว่าและพับเองได้
+     3. **ที่อยู่กับเวลาอยู่คนละส่วนของหน้า** — คนที่กำลังจะออกจากบ้านต้องการ
+        ทั้งสองอย่างพร้อมกัน การให้เขาเลื่อนหาคือการเพิ่มขั้นตอนโดยไม่จำเป็น -->
+<style>
+  .w-hc .box{ display:grid; gap:clamp(24px,4vw,48px);
+              border:1px solid var(--line); border-radius:var(--radius-lg);
+              background:var(--surface); padding:clamp(22px,3.4vw,40px) }
+  @media (min-width:820px){
+    .w-hc .box{ grid-template-columns:minmax(0,1fr) minmax(0,.9fr) }
+  }
+  .w-hc h2{ font-size:clamp(24px,3vw,34px); line-height:1.3;
+            letter-spacing:var(--wm-display-track,-.012em);
+            font-weight:var(--wm-display-weight,500); text-wrap:balance;
+            max-width:16ch }
+  .w-hc .w-lede{ margin-top:12px; font-size:15px }
+
+  .w-hc address{ font-style:normal; margin-top:22px; display:grid; gap:12px }
+  .w-hc address > div{ display:grid; grid-template-columns:auto 1fr; gap:11px;
+                       align-items:start }
+  .w-hc address svg{ width:17px; height:17px; margin-top:3px; color:var(--accent); flex:none }
+  .w-hc address b{ display:block; font-size:15px; font-weight:600 }
+  .w-hc address span{ color:var(--muted); font-size:14px; line-height:1.6 }
+  .w-hc address a{ color:inherit; text-decoration:none }
+  .w-hc address a:hover{ text-decoration:underline; text-underline-offset:4px }
+  .w-hc .acts{ display:flex; flex-wrap:wrap; gap:12px; margin-top:24px }
+
+  /* ตารางเวลา — เจ็ดบรรทัด ไม่ย่อเป็นช่วง */
+  .w-hc dl{ border:1px solid var(--line); border-radius:var(--radius);
+            background:var(--bg); padding:clamp(16px,2.2vw,22px) }
+  .w-hc dl h3{ font-size:15px; margin-bottom:14px }
+  .w-hc dl > div{ display:flex; align-items:baseline; gap:12px;
+                  padding:9px 0 9px 12px; border-inline-start:2px solid transparent }
+  .w-hc dl > div + div{ border-top:1px solid var(--line) }
+  .w-hc dt{ font-size:15px; min-width:5.5rem }
+  .w-hc dd{ margin:0 0 0 auto; font:500 15px/1.5 var(--mono);
+            font-variant-numeric:tabular-nums; text-align:end }
+  .w-hc dd.shut{ color:var(--muted); font-family:var(--sans) }
+  /* วันนี้ — ต้องตั้งจากฝั่งเซิร์ฟเวอร์ ดูหมายเหตุในหัวไฟล์ */
+  .w-hc dl > div.today{ border-inline-start-color:var(--accent) }
+  .w-hc dl > div.today dt,.w-hc dl > div.today dd{ font-weight:700 }
+  .w-hc .kitchen{ margin-top:14px; padding-top:12px; border-top:1px dashed var(--line);
+                  color:var(--muted); font-size:13px; line-height:1.65 }
+  .w-hc .kitchen b{ color:var(--text); font-weight:600 }
+
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      .w-hc .box{ animation-name:w-rise; animation-timing-function:linear;
+                  animation-fill-mode:both; animation-timeline:view();
+                  animation-range:entry 6% cover 22% }
+    }
+  }
+</style>
+
+<section class="w-section w-hc" id="hours">
+  <div class="w-wrap">
+    <div class="box">
+      <div>
+        <p class="w-eyebrow">เวลาเปิดและที่อยู่</p>
+        <h2>ครัวปิดก่อนร้านปิดหนึ่งชั่วโมงเสมอ</h2>
+        <p class="w-lede">เขียนแยกทุกวันเพราะไม่เหมือนกัน และเขียนเวลาครัวปิดด้วย เพราะนั่นคือเวลาสุดท้ายที่สั่งอาหารได้จริง</p>
+
+        <address>
+          <div>
+            <svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M9 2c2.7 0 4.9 2.1 4.9 4.8 0 3.6-4.9 9.2-4.9 9.2s-4.9-5.6-4.9-9.2C4.1 4.1 6.3 2 9 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="9" cy="6.8" r="1.7" stroke="currentColor" stroke-width="1.5"/></svg>
+            <span><b>ที่อยู่</b>44 ถนนนิมมานเหมินท์ ซอย 9 ต.สุเทพ อ.เมือง จ.เชียงใหม่ 50200 · จอดรถได้ 6 คันหลังร้าน</span>
+          </div>
+          <div>
+            <svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M3.4 4.2c0-.6.5-1.1 1.1-1.1h2c.5 0 .9.3 1 .8l.5 2c.1.4 0 .8-.4 1l-1.1.8a9 9 0 0 0 3.8 3.8l.8-1.1c.2-.3.6-.5 1-.4l2 .5c.5.1.8.5.8 1v2c0 .6-.5 1.1-1.1 1.1A11.4 11.4 0 0 1 3.4 4.2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+            <span><b><a href="tel:+66531234567">053 123 4567</a></b>รับสายทุกวัน 10:00–21:00 · คนที่รับสายอยู่หน้าร้านจริง</span>
+          </div>
+          <div>
+            <svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M2.6 4.6h12.8v8.8H2.6Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="m2.6 5 6.4 4.6L15.4 5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+            <span><b><a href="mailto:hello@example.co.th">hello@example.co.th</a></b>สำหรับจัดเลี้ยงและงานส่วนตัว ตอบภายในหนึ่งวันทำการ</span>
+          </div>
+        </address>
+
+        <div class="acts">
+          <a class="w-btn" href="#reserve">จองโต๊ะ</a>
+          <a class="w-btn w-btn--ghost" href="https://www.google.com/maps/search/?api=1&amp;query=18.7961,98.9670"
+             target="_blank" rel="noopener">เปิดในแผนที่</a>
+        </div>
+      </div>
+
+      <dl>
+        <h3>เวลาเปิด</h3>
+        <div><dt>จันทร์</dt><dd class="shut">ปิด</dd></div>
+        <div><dt>อังคาร</dt><dd><time datetime="11:00">11:00</time>–<time datetime="22:00">22:00</time></dd></div>
+        <div><dt>พุธ</dt><dd><time datetime="11:00">11:00</time>–<time datetime="22:00">22:00</time></dd></div>
+        <div><dt>พฤหัสบดี</dt><dd><time datetime="11:00">11:00</time>–<time datetime="22:00">22:00</time></dd></div>
+        <div><dt>ศุกร์</dt><dd><time datetime="11:00">11:00</time>–<time datetime="23:00">23:00</time></dd></div>
+        <div><dt>เสาร์</dt><dd><time datetime="10:00">10:00</time>–<time datetime="23:00">23:00</time></dd></div>
+        <div><dt>อาทิตย์</dt><dd><time datetime="10:00">10:00</time>–<time datetime="21:00">21:00</time></dd></div>
+        <p class="kitchen"><b>ครัวปิดก่อนร้านปิดหนึ่งชั่วโมง</b> ทุกวัน เช่น วันศุกร์สั่งอาหารได้ถึง 22:00 แล้วนั่งต่อได้ถึง 23:00 · ช่วง 14:00–17:00 วันธรรมดามีเฉพาะเครื่องดื่มกับของว่าง</p>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- Reservation · ทิศทาง `wm` (อบอุ่น) — จองโต๊ะ ซึ่งไม่ใช่การจองห้องพัก
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี booking-form.html แล้ว
+     ───────────────────────────────────────────────────
+     ดูเผิน ๆ เหมือนกัน — ชื่อ เบอร์ วันที่ จำนวนคน แต่สิ่งที่ต่างเป็นสิ่งที่
+     เปลี่ยนทั้งฟอร์ม:
+
+       · ที่พักจองเป็น **ช่วง** (เข้า–ออก) ร้านอาหารจองเป็น **จุดเวลา**
+         ฟอร์มที่พักจึงมีสองช่องวันที่ ส่วนฟอร์มร้านอาหารมีวันที่หนึ่งช่อง
+         กับรอบเวลาหนึ่งช่อง ซึ่งเป็นรายการปิดที่ร้านกำหนดเอง
+       · ที่พักตอบกลับภายในวัน ร้านอาหารต้องตอบ **ทันที** หรือไม่ก็บอกให้โทร
+         เพราะคนจองโต๊ะกำลังตัดสินใจว่าเย็นนี้จะกินที่ไหน ไม่ได้วางแผนล่วงหน้า
+       · จำนวนคนของร้านอาหารมีเพดานที่ **โต๊ะจริง** รองรับได้ เกินจากนั้นต้อง
+         เปลี่ยนเป็นการติดต่อคนละแบบ (จัดเลี้ยง) ซึ่งฟอร์มต้องบอกตรงนั้นเลย
+
+     สามข้อนี้ทำให้มันเป็นฟอร์มคนละใบ ไม่ใช่ใบเดิมที่เปลี่ยนป้าย
+
+     ค่าที่วัดมา
+     ───────────
+     · **รอบเวลาเป็น `<select>` ไม่ใช่ `type="time"`** เพราะร้านไม่ได้เปิด
+       ทุกนาที `type="time"` ยอมให้พิมพ์ 03:47 ซึ่งร้านรับไม่ได้ แล้วต้องไป
+       ตรวจที่หลังบ้านและปฏิเสธทีหลัง ซึ่งแย่กว่าไม่ให้เลือกตั้งแต่แรก
+     · **รอบห่างกัน 30 นาที ตั้งแต่ 11:00 ถึง 20:30** มาจากเวลาเปิดจริง
+       ลบเวลาที่ต้องใช้กินหนึ่งรอบ (90 นาที) — รอบสุดท้ายจึงเป็น 20:30
+       ไม่ใช่ 22:00 ที่เป็นเวลาปิด นี่คือค่าที่ต้องคำนวณจากร้านจริงทุกครั้ง
+     · **เพดาน 8 คน** และตัวเลือกที่ 9 เขียนว่า "9 คนขึ้นไป · ติดต่อเรื่อง
+       จัดเลี้ยง" ซึ่งเปลี่ยนคำอธิบายใต้ปุ่มด้วย CSS ล้วน ไม่ต้องมีสคริปต์
+     · **`autocomplete` ครบทุกช่อง** — บนมือถือประหยัดเวลากรอกได้มากที่สุด
+       และแทบไม่มีเทมเพลตไหนใส่
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`type="number"` ที่ช่องจำนวนคน** — ได้ปุ่มลูกศรเล็ก ๆ ที่กดยากบนมือถือ
+        และไม่มีทางบอกว่าเกิน 8 แล้วต้องทำอะไร `<select>` ที่มีตัวเลือกสุดท้าย
+        เป็นทางออกแก้ทั้งสองอย่าง
+     2. **เตือนเรื่องจัดเลี้ยงด้วย `:has()`** — รองรับย้อนหลังได้สั้นกว่า
+        ตัวเชื่อมพี่น้อง ที่นี่ใช้ radio ซ่อนตัวเดียวไม่ได้เพราะมันคือ select
+        ทางที่ใช้จริงคือแสดงทั้งสองบรรทัดเสมอ แล้วเขียนให้อ่านรู้เรื่องทั้งคู่
+        — ฟอร์มไม่มีสคริปต์ก็ต้องยอมรับว่าบางอย่างบอกล่วงหน้าไม่ได้
+     3. **ปุ่มส่งเขียนว่า "ส่ง"** — ไม่บอกว่าเกิดอะไรขึ้น ปุ่มต้องพูดคำเดียวกับ
+        ผลลัพธ์ ("ขอจองโต๊ะ") ตามที่ `cta-band.html` บันทึกไว้
+     4. **ให้ทั้งส่วนเป็นพื้นสีเน้น** — ฟอร์มบนพื้นสีเข้มทำให้ขอบช่องกรอกที่
+        คำนวณคอนทราสต์ไว้กับ `--bg` ใช้ไม่ได้ทั้งชุด ต้องคำนวณใหม่ทั้งพาเลตต์
+        ซึ่งไม่คุ้ม ที่นี่จึงเป็นพื้นปกติแล้วให้การ์ดเป็นตัวคั่น -->
+<style>
+  .w-rv .grid{ display:grid; gap:clamp(28px,4vw,48px); align-items:start }
+  @media (min-width:940px){
+    .w-rv .grid{ grid-template-columns:minmax(0,.76fr) minmax(0,1fr) }
+  }
+  .w-rv h2{ font-size:clamp(26px,3.4vw,42px); line-height:1.28;
+            letter-spacing:var(--wm-display-track,-.012em);
+            font-weight:var(--wm-display-weight,500);
+            text-wrap:balance; max-width:18ch }
+  .w-rv .w-lede{ margin-top:14px }
+
+  .w-rv .now{ display:grid; gap:12px; margin-top:26px;
+              border:1px solid var(--line); border-radius:var(--radius);
+              background:var(--surface); padding:clamp(18px,2.2vw,24px) }
+  .w-rv .now b{ font-size:16px }
+  .w-rv .now a{ display:inline-flex; align-items:center; gap:9px;
+                font:700 clamp(20px,2.4vw,26px)/1 var(--mono);
+                color:inherit; text-decoration:none; letter-spacing:-.01em }
+  .w-rv .now a svg{ width:20px; height:20px; color:var(--accent); flex:none }
+  .w-rv .now a:hover{ text-decoration:underline; text-underline-offset:6px }
+  .w-rv .now p{ color:var(--muted); font-size:14px; line-height:1.6 }
+
+  .w-rv .rules{ display:grid; gap:9px; margin-top:22px }
+  .w-rv .rules li{ display:grid; grid-template-columns:auto 1fr; gap:9px;
+                   align-items:start; color:var(--muted); font-size:14px;
+                   line-height:1.6 }
+  .w-rv .rules svg{ width:16px; height:16px; margin-top:3px; color:var(--accent); flex:none }
+  .w-rv .rules b{ color:var(--text); font-weight:600 }
+
+  .w-rv form{ border:1px solid var(--line); border-radius:var(--radius);
+              background:var(--surface); padding:clamp(20px,2.8vw,32px);
+              display:grid; gap:16px }
+  .w-rv .row{ display:grid; gap:16px }
+  @media (min-width:440px){ .w-rv .row--2{ grid-template-columns:1fr 1fr } }
+  .w-rv label{ display:block; font-size:14px; font-weight:600; margin-bottom:7px }
+  .w-rv label .req{ color:var(--danger); font-weight:400 }
+  .w-rv input,.w-rv select,.w-rv textarea{
+    width:100%; font:400 16px/1.5 var(--sans); color:var(--text);
+    background:var(--bg); border:1px solid var(--field);
+    border-radius:var(--radius-sm); padding:12px 14px }
+  .w-rv textarea{ min-height:88px; resize:vertical }
+  .w-rv .hint{ color:var(--muted); font-size:13px; margin-top:6px }
+  .w-rv button{ justify-self:start; border:1px solid var(--accent);
+    background:var(--accent); color:var(--accent-ink); cursor:pointer;
+    font:600 16px/1 var(--sans); padding:15px 26px;
+    border-radius:var(--radius-pill) }
+  @media (max-width:520px){ .w-rv button{ justify-self:stretch; text-align:center } }
+  .w-rv .after{ color:var(--muted); font-size:13px; line-height:1.65; margin-top:-4px }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-rv input,.w-rv select,.w-rv textarea{
+      transition:border-color var(--t-hover) linear }
+    .w-rv input:hover,.w-rv select:hover,.w-rv textarea:hover{ border-color:var(--text) }
+    @supports (animation-timeline:view()){
+      .w-rv form{ animation-name:w-rise; animation-timing-function:linear;
+                  animation-fill-mode:both; animation-timeline:view();
+                  animation-range:entry 6% cover 22% }
+    }
+  }
+</style>
+
+<section class="w-section w-rv" id="reserve">
+  <div class="w-wrap grid">
+    <div>
+      <p class="w-eyebrow">จองโต๊ะ</p>
+      <h2>โทรมาเร็วกว่า ถ้าจะมาเย็นนี้</h2>
+      <p class="w-lede">แบบฟอร์มนี้เราตอบภายในสองชั่วโมงในเวลาทำการ ถ้าจะมาวันนี้หรือพรุ่งนี้ โทรตรงเร็วกว่ามาก</p>
+
+      <div class="now">
+        <b>จองทางโทรศัพท์</b>
+        <a href="tel:+66531234567"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3.8 4.6c0-.7.6-1.2 1.2-1.2h2.2c.6 0 1 .4 1.1.9l.6 2.2c.1.5 0 .9-.4 1.2l-1.2.9a10 10 0 0 0 4.2 4.2l.9-1.2c.3-.4.7-.5 1.2-.4l2.2.6c.5.1.9.5.9 1.1v2.2c0 .7-.5 1.2-1.2 1.2A12.7 12.7 0 0 1 3.8 4.6Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>053 123 4567</a>
+        <p>ทุกวัน 10:00–21:00 · คนที่รับสายคือคนที่อยู่หน้าร้าน ตอบได้เลยว่ามีโต๊ะหรือไม่มี</p>
+      </div>
+
+      <ul class="rules">
+        <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.4 6.3 12 13.5 4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>ไม่ต้องมัดจำ</b> สำหรับ 8 คนลงมา</span></li>
+        <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.4 6.3 12 13.5 4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>เก็บโต๊ะไว้ 20 นาที</b> หลังเวลาที่จอง ถ้ามาช้ากว่านั้นโทรบอกได้ เราเก็บต่อให้</span></li>
+        <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.4 6.3 12 13.5 4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>รอบละ 90 นาที</b> ในช่วงเย็นวันศุกร์–อาทิตย์ นอกจากนั้นไม่จำกัด</span></li>
+      </ul>
+    </div>
+
+    <form action="#" method="post">
+      <div class="row row--2">
+        <div>
+          <label for="w-rv-name">ชื่อผู้จอง <span class="req">*</span></label>
+          <input id="w-rv-name" name="name" type="text" autocomplete="name" required>
+        </div>
+        <div>
+          <label for="w-rv-tel">เบอร์โทร <span class="req">*</span></label>
+          <input id="w-rv-tel" name="tel" type="tel" inputmode="numeric" autocomplete="tel" required>
+        </div>
+      </div>
+
+      <div class="row row--2">
+        <div>
+          <label for="w-rv-date">วันที่ <span class="req">*</span></label>
+          <input id="w-rv-date" name="date" type="date" min="2026-09-05" required>
+        </div>
+        <div>
+          <!-- select ไม่ใช่ type="time" — ดูเหตุผลในหัวไฟล์ -->
+          <label for="w-rv-time">รอบเวลา <span class="req">*</span></label>
+          <select id="w-rv-time" name="time" required>
+            <option value="">เลือกรอบ</option>
+            <option>11:00</option><option>11:30</option><option>12:00</option>
+            <option>12:30</option><option>13:00</option><option>17:00</option>
+            <option>17:30</option><option selected>18:00</option><option>18:30</option>
+            <option>19:00</option><option>19:30</option><option>20:00</option>
+            <option>20:30</option>
+          </select>
+          <p class="hint">รอบสุดท้าย 20:30 เพราะร้านปิดครัว 22:00</p>
+        </div>
+      </div>
+
+      <div>
+        <label for="w-rv-guests">จำนวนคน <span class="req">*</span></label>
+        <select id="w-rv-guests" name="guests" required>
+          <option>1 คน</option><option selected>2 คน</option><option>3 คน</option>
+          <option>4 คน</option><option>5 คน</option><option>6 คน</option>
+          <option>7 คน</option><option>8 คน</option>
+          <option value="party">9 คนขึ้นไป · ติดต่อเรื่องจัดเลี้ยง</option>
+        </select>
+        <p class="hint">โต๊ะใหญ่สุดในร้านนั่งได้ 8 คน ถ้ามากกว่านั้นเราจัดให้ได้แต่ต้องคุยกันก่อนสามวัน</p>
+      </div>
+
+      <div>
+        <label for="w-rv-msg">อยากบอกอะไรเพิ่ม</label>
+        <textarea id="w-rv-msg" name="message"></textarea>
+        <p class="hint">เช่น มีเด็กเล็ก ต้องการเก้าอี้สูง แพ้อาหารทะเล หรือมาฉลองอะไรเป็นพิเศษ</p>
+      </div>
+
+      <button type="submit">ขอจองโต๊ะ</button>
+      <p class="after">ส่งแล้วยังไม่ถือว่าจองสำเร็จ เราจะโทรหรือส่งข้อความยืนยันกลับก่อนเสมอ ถ้าไม่ได้รับภายในสองชั่วโมงในเวลาทำการ แปลว่าข้อความไม่ถึง โทรมาได้เลย</p>
+    </form>
+  </div>
+</section>
+
+</main>
+<!-- Footer · ทิศทาง `gl` (กระจก) — ปิดหน้า พร้อมของที่คนมาหาที่ท้ายจริง
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี footer.html แล้ว
+     ──────────────────────────────────────────────
+     `footer.html` เป็นสี่คอลัมน์ลิงก์กับบรรทัดลิขสิทธิ์ ซึ่งครบตามหน้าที่
+     ขั้นต่ำ และ `CATALOG.md` ทำเครื่องหมายไว้เองว่า "**1 ทรง**"
+
+     สิ่งที่ทรงนั้นไม่มีที่ให้ คือของสามอย่างที่คนเลื่อนมาท้ายหน้าจริง ๆ มาหา:
+     **ช่องติดต่อที่เป็นของจริง · สถานะระบบ · ที่อยู่ของบริษัท** สองอย่างหลัง
+     สำคัญเป็นพิเศษกับผลิตภัณฑ์การเงิน เพราะเป็นสิ่งที่คนใช้ตรวจว่าอีกฝั่ง
+     มีตัวตนจริงก่อนจะเชื่อมบัญชีธนาคารให้
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **คอลัมน์แบรนด์กว้างกว่าคอลัมน์ลิงก์ราวสองเท่า** เพราะมันถือประโยค
+       ไม่ใช่รายการ ลิงก์กว้าง 1fr เท่ากันทุกคอลัมน์เพราะเป็นรายการเหมือนกัน
+     · **จุดสถานะกะพริบเป็นขั้น (`w-blink`) ไม่ใช่จางเข้าจางออก** เพราะสิ่งที่
+       มันเลียนแบบคือไฟ LED ซึ่งติดดับเป็นขั้น ไม่ได้ค่อย ๆ สว่าง
+       และมีคำว่า "ปกติ" กำกับเสมอ — ข้อ 2 ห้ามบอกสถานะด้วยสีอย่างเดียว
+     · **`<address>` จริง ไม่ใช่ `<p>`** เพราะมันคือที่อยู่ติดต่อของเจ้าของหน้า
+       ซึ่งเป็นความหมายเดียวที่แท็กนี้มี โปรแกรมอ่านหน้าจอประกาศให้เอง
+     · **อีเมลกับโทรศัพท์เป็นลิงก์ `mailto:` และ `tel:`** ไม่ใช่ข้อความเปล่า
+       บนมือถือ ข้อความเปล่าแปลว่าต้องจดแล้วพิมพ์เอง
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`position:sticky; bottom:0` ที่ footer เพื่อให้มัน "เผยตัว" ตอนเลื่อน
+        ถึงท้าย** — พังบนหน้าที่สั้นกว่าจอ footer ไปลอยทับเนื้อหา และบน iOS
+        มันชนกับแถบล่างของเบราว์เซอร์ ตอนนี้เป็น footer ธรรมดา
+     2. **แผ่นกระจกใบเดียวครอบทั้ง footer** — ที่ท้ายหน้าไม่มีอะไรอยู่ข้างหลัง
+        ให้มองทะลุ แผ่นโปร่งจึงกลายเป็นกล่องเทาที่ไม่มีเหตุผล ตอนนี้ใช้เส้น
+        ขอบบนกับพื้น `--surface` ตรง ๆ แล้วเก็บความเป็นกระจกไว้ที่การ์ด
+        ติดต่อใบเดียว ซึ่งเป็นของที่ควรเด่นจริง
+     3. **ลิงก์ทุกอันมี `:hover{text-decoration:underline}` อย่างเดียว** —
+        ตอนไล่แท็บด้วยคีย์บอร์ดไม่มีอะไรเปลี่ยนเลยนอกจากวงแหวนโฟกัส
+        ตอนนี้เปลี่ยนสีด้วย ซึ่งเห็นได้ทั้งสองทาง -->
+<style>
+  .w-fg{
+    --gl-pane:color-mix(in srgb,var(--bg) 70%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+    background:var(--surface); border-top:1px solid var(--line);
+    padding-block:clamp(40px,6vw,72px) clamp(20px,3vw,28px);
+  }
+  .w-fg .top{ display:grid; gap:clamp(28px,4vw,48px) }
+  @media (min-width:900px){
+    .w-fg .top{ grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr))
+                                       minmax(0,1.2fr) }
+  }
+  .w-fg .brand .mark{ display:flex; align-items:center; gap:9px;
+                      font:700 19px/1 var(--sans); letter-spacing:-.02em;
+                      text-decoration:none }
+  .w-fg .brand .mark i{ width:22px; height:22px; border-radius:7px; flex:none;
+                        background:var(--accent) }
+  .w-fg .brand p{ color:var(--muted); font-size:15px; line-height:1.65;
+                  margin-top:14px; max-width:34ch }
+  .w-fg address{ font-style:normal; color:var(--muted); font-size:14px;
+                 line-height:1.7; margin-top:16px }
+  .w-fg address a{ color:var(--muted); text-decoration:none }
+  .w-fg address a:hover{ color:var(--text); text-decoration:underline }
+
+  .w-fg h3{ font-size:14px; letter-spacing:.02em; margin-bottom:14px }
+  .w-fg .col ul{ display:grid; gap:10px }
+  .w-fg .col a{ color:var(--muted); text-decoration:none; font-size:15px }
+  .w-fg .col a:hover,.w-fg .col a:focus-visible{ color:var(--text);
+                                                 text-decoration:underline }
+
+  /* การ์ดติดต่อ — ของชิ้นเดียวใน footer ที่ยังเป็นกระจก เพราะเป็นของที่
+     ควรเด่น ไม่ใช่รายการลิงก์ */
+  .w-fg .contact{ border:1px solid var(--gl-edge); border-radius:var(--radius);
+                  background:var(--gl-pane); padding:clamp(18px,2.2vw,22px);
+                  display:flex; flex-direction:column; gap:12px }
+  .w-fg .contact b{ font-size:16px; letter-spacing:-.01em }
+  .w-fg .contact p{ color:var(--muted); font-size:14px; line-height:1.6 }
+  .w-fg .contact .w-btn{ justify-content:center; font-size:15px; padding:12px 20px }
+
+  .w-fg .bottom{ display:flex; flex-wrap:wrap; align-items:center; gap:14px 24px;
+                 margin-top:clamp(32px,5vw,56px); padding-top:22px;
+                 border-top:1px solid var(--line);
+                 color:var(--muted); font-size:13px }
+  .w-fg .bottom .status{ display:flex; align-items:center; gap:8px;
+                         margin-left:auto; text-decoration:none; color:var(--muted) }
+  .w-fg .bottom .status i{ width:8px; height:8px; border-radius:50%; flex:none;
+                           background:var(--viz-up) }
+  .w-fg .bottom .status:hover{ color:var(--text) }
+  .w-fg .bottom nav{ display:flex; flex-wrap:wrap; gap:8px 18px }
+  .w-fg .bottom nav a{ color:var(--muted); text-decoration:none }
+  .w-fg .bottom nav a:hover,.w-fg .bottom nav a:focus-visible{ color:var(--text);
+                                                               text-decoration:underline }
+
+  @media (prefers-reduced-motion:no-preference){
+    /* ท่า blink ตาม STANDARD.md ข้อ 4 — จุดสถานะ กะพริบเป็นขั้น ไม่ใช่จางเข้าออก */
+    .w-fg .bottom .status i{ animation:w-blink 2.4s steps(1,end) infinite }
+    .w-fg .col a,.w-fg .bottom a{ transition:color var(--t-hover) linear }
+  }
+</style>
+
+<footer class="w-fg">
+  <div class="w-wrap">
+    <div class="top">
+      <div class="brand">
+        <a class="mark" href="#"><i></i>แบรนด์</a>
+        <p>ครัวไฟถ่านเล็ก ๆ ที่นิมมานเหมินท์ เปิดตั้งแต่ปี 2562</p>
+        <address>
+          บริษัท ตัวอย่าง จำกัด<br>
+          44 ถนนนิมมานเหมินท์ ซอย 9 ต.สุเทพ อ.เมือง จ.เชียงใหม่ 50200<br>
+          <a href="mailto:hello@example.co.th">hello@example.co.th</a> ·
+          <a href="tel:+6620000000">02 000 0000</a>
+        </address>
+      </div>
+
+      <div class="col">
+        <h3>ร้าน</h3>
+        <ul>
+          <li><a href="#menu">เมนู</a></li>
+          <li><a href="#gallery">ภาพร้าน</a></li>
+          <li><a href="#hours">เวลาเปิดและที่อยู่</a></li>
+          <li><a href="#gallery">ภาพร้าน</a></li>
+        </ul>
+      </div>
+
+      <div class="col">
+        <h3>ช่วยเหลือ</h3>
+        <ul>
+          <li><a href="#hours">เวลาเปิด</a></li>
+          <li><a href="#">คู่มือการเริ่มต้น</a></li>
+          <li><a href="#reserve">จองโต๊ะ</a></li>
+          <li><a href="#">แจ้งปัญหา</a></li>
+        </ul>
+      </div>
+
+      <div class="col">
+        <h3>บริษัท</h3>
+        <ul>
+          <li><a href="#">เกี่ยวกับเรา</a></li>
+          <li><a href="#">ร่วมงานกับเรา</a></li>
+          <li><a href="#">บันทึกการเปลี่ยนแปลง</a></li>
+          <li><a href="#">สื่อและโลโก้</a></li>
+        </ul>
+      </div>
+
+      <div class="contact">
+        <b>จองด่วนโทรเลย</b>
+        <p>โทรเร็วกว่าถ้าจะมาวันนี้ คนรับสายอยู่หน้าร้านจริง</p>
+        <a class="w-btn" href="tel:+66531234567">053 123 4567</a>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <span>© 2569 บริษัท ตัวอย่าง จำกัด</span>
+      <nav aria-label="ข้อกำหนด">
+        <a href="#">ข้อกำหนดการใช้งาน</a>
+        <a href="#">ความเป็นส่วนตัว</a>
+        <a href="#">คุกกี้</a>
+      </nav>
+      <a class="status" href="#"><i></i>ระบบทำงานปกติ · ดูสถานะย้อนหลัง</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
