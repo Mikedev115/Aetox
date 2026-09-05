@@ -19,9 +19,20 @@ type countingEngine struct {
 	mime  string
 	delay time.Duration
 	fail  error
+	// stagger makes later calls finish sooner, so pieces started together
+	// come back out of order.
+	stagger bool
 
-	mu   sync.Mutex
-	said []string
+	mu       sync.Mutex
+	said     []string
+	inflight int64
+	peak     int64 // the most calls that were ever in progress at once
+}
+
+func (e *countingEngine) peakInflight() int64 {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.peak
 }
 
 func (e *countingEngine) ID() string { return "counting" }
@@ -36,13 +47,26 @@ func (e *countingEngine) Mime() string {
 func (e *countingEngine) Voices(context.Context) ([]Voice, error) { return nil, nil }
 
 func (e *countingEngine) Synthesize(ctx context.Context, text, outPath string) error {
-	e.calls.Add(1)
+	n := e.calls.Add(1)
 	e.mu.Lock()
 	e.said = append(e.said, text)
+	e.inflight++
+	if e.inflight > e.peak {
+		e.peak = e.inflight
+	}
 	e.mu.Unlock()
-	if e.delay > 0 {
+	defer func() {
+		e.mu.Lock()
+		e.inflight--
+		e.mu.Unlock()
+	}()
+	delay := e.delay
+	if e.stagger {
+		delay = time.Duration(4-n%4) * 30 * time.Millisecond
+	}
+	if delay > 0 {
 		select {
-		case <-time.After(e.delay):
+		case <-time.After(delay):
 		case <-ctx.Done():
 			return ctx.Err()
 		}
@@ -243,5 +267,88 @@ func TestPruneCacheDropsTheColdestFirst(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "hot")); err != nil {
 		t.Error("the newest file was pruned")
+	}
+}
+
+// The owner's kiosk fires every chunk's request the moment the text is cut.
+// Here the same idea is bounded: with Parallel set, that many pieces are in
+// the engine at once — no more, no fewer while there is work.
+func TestParallelKeepsThatManyPiecesInTheEngine(t *testing.T) {
+	eng := &countingEngine{delay: 120 * time.Millisecond}
+	pieces := drain(t, Read(context.Background(), eng, strings.Repeat(longThai, 12), ReadOptions{Dir: t.TempDir(), Parallel: 3}))
+	if len(pieces) < 6 {
+		t.Fatalf("got %d pieces, want enough to fill the window several times", len(pieces))
+	}
+	for i, p := range pieces {
+		if p.Err != nil {
+			t.Fatalf("piece %d failed: %v", i, p.Err)
+		}
+	}
+	if got := eng.peakInflight(); got != 3 {
+		t.Errorf("the engine had at most %d pieces in progress at once, want 3", got)
+	}
+}
+
+// Pieces leave in order even when the engine finishes them in another.
+func TestParallelStillDeliversInOrder(t *testing.T) {
+	eng := &countingEngine{stagger: true}
+	pieces := drain(t, Read(context.Background(), eng, strings.Repeat(longThai, 12), ReadOptions{Dir: t.TempDir(), Parallel: 4}))
+	want := Segment(strings.Repeat(longThai, 12))
+	if len(pieces) != len(want) {
+		t.Fatalf("got %d pieces, want %d", len(pieces), len(want))
+	}
+	for i, p := range pieces {
+		if p.Seq != i || p.Text != want[i] {
+			t.Errorf("piece %d is seq %d %.30q, want %.30q", i, p.Seq, p.Text, want[i])
+		}
+		body, err := os.ReadFile(p.Path)
+		if err != nil || string(body) != p.Text {
+			t.Errorf("piece %d file does not hold its own text (%v)", i, err)
+		}
+		if p.Last != (i == len(pieces)-1) {
+			t.Errorf("piece %d has Last=%v", i, p.Last)
+		}
+	}
+}
+
+// The throttle survives parallelism: a slot frees when a piece is taken, not
+// when it is made, so a caller that stops reading stops the engine within
+// Parallel pieces.
+func TestParallelStillStopsForACallerThatStopsReading(t *testing.T) {
+	eng := &countingEngine{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ch := Read(ctx, eng, strings.Repeat(longThai, 30), ReadOptions{Dir: t.TempDir(), Parallel: 3})
+	<-ch
+	time.Sleep(150 * time.Millisecond)
+	// One taken, one parked in the channel, three holding slots.
+	if n := eng.calls.Load(); n > 5 {
+		t.Errorf("engine ran %d pieces for a caller holding at the first, want at most 5", n)
+	}
+}
+
+func TestCancelStopsEveryParallelPiece(t *testing.T) {
+	eng := &countingEngine{delay: 30 * time.Second}
+	ctx, cancel := context.WithCancel(context.Background())
+	ch := Read(ctx, eng, strings.Repeat(longThai, 12), ReadOptions{Dir: t.TempDir(), Parallel: 3})
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	select {
+	case <-ch:
+	case <-time.After(5 * time.Second):
+		t.Fatal("cancel did not stop the read")
+	}
+	if n := eng.calls.Load(); n != 3 {
+		t.Errorf("engine was called %d times, want the 3 that were in flight and no more", n)
+	}
+}
+
+// A piece that fails ends the read at its place in the order, not the moment
+// it fails: what came before it is still delivered, whole.
+func TestParallelFailureStillArrivesInOrder(t *testing.T) {
+	eng := &countingEngine{fail: fmt.Errorf("ล้มกลางคัน")}
+	pieces := drain(t, Read(context.Background(), eng, strings.Repeat(longThai, 12), ReadOptions{Dir: t.TempDir(), Parallel: 3}))
+	if len(pieces) != 1 || pieces[0].Seq != 0 || pieces[0].Err == nil {
+		t.Fatalf("got %+v, want the first piece carrying the failure and nothing after it", pieces)
 	}
 }

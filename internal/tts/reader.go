@@ -1,7 +1,7 @@
 package tts
 
 // The second half of reading a long reply aloud: turning the pieces Segment
-// cut into a stream of audio files, one at a time, in order.
+// cut into a stream of audio files, in order, a few at a time.
 //
 // This sits ABOVE Engine and does not change its contract. An engine still
 // takes text and writes one file; it has no idea it is being fed a paragraph
@@ -15,6 +15,16 @@ package tts
 // read rate is the throttle. desktop/speak.go is where the window is set,
 // against what the webview reports it is actually playing. Same division as
 // the voice-for-the-locale rule at the top of tts.go.
+//
+// How many pieces synthesize AT ONCE is the caller's call for the same reason
+// (ReadOptions.Parallel). The model is the owner's kiosk (AI-Robot-Guide,
+// AvatarManager.speak): every chunk's request goes out the moment the text is
+// cut, and the player waits only for the chunk it is on — so a slow chunk
+// costs one wait, not one wait per chunk behind it. Here it is bounded rather
+// than all-at-once, and the throttle survives it: a slot is freed when its
+// piece is TAKEN, not when the engine finishes it, so a caller that stops
+// reading stops the engine within Parallel pieces instead of one. The pieces
+// still leave in order whatever order the engine finished them in.
 
 import (
 	"context"
@@ -25,6 +35,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -69,6 +80,13 @@ type ReadOptions struct {
 	// so the caller that built it passes the key. A wrong key here is the one
 	// way to hear the previous voice speaking.
 	CacheKey string
+	// Parallel is how many pieces may be in the engine at once. Zero or one
+	// synthesizes them one after another. The window is measured from what the
+	// caller has taken, so the caller's read rate stays the throttle; how wide
+	// it should be is the caller's judgement, like the look-ahead — a cloud
+	// engine is latency-bound and gains from it, a local one is a process per
+	// piece and gains less.
+	Parallel int
 }
 
 // partSeq keeps two reads that start on the same millisecond from choosing the
@@ -97,13 +115,62 @@ func Read(ctx context.Context, eng Engine, text string, opts ReadOptions) <-chan
 				go pruneCache(opts.CacheDir, cacheBudget)
 			}
 		}
+		// Leaving early — a failed piece, a caller that cancelled — takes the
+		// pieces still synthesizing with it, and the channel does not close
+		// until they have gone: closed means no piece is still being written,
+		// so a caller may delete Dir the moment it sees the close. Defers run
+		// in reverse, so the cancel lands before the wait.
+		var wg sync.WaitGroup
+		defer wg.Wait()
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
 		ext := extForMime(eng.Mime())
-		for i, chunk := range chunks {
-			p := Piece{Seq: i, Text: chunk, Last: i == len(chunks)-1}
-			p.Path, p.Err = synthesizePiece(ctx, eng, chunk, ext, i, opts)
+		width := opts.Parallel
+		if width < 1 {
+			width = 1
+		}
+		// slots bounds the pieces that are in flight or finished and not yet
+		// taken. A slot is acquired to start a piece and freed when that piece
+		// LEAVES on the channel — not when the engine finishes it — so the
+		// caller's read rate is still the throttle: stop taking pieces and the
+		// launcher below stops being let through.
+		slots := make(chan struct{}, width)
+		results := make([]chan Piece, len(chunks))
+		for i := range results {
+			results[i] = make(chan Piece, 1)
+		}
+		// The launcher is counted too, so a worker it starts after the wait
+		// began is still one the wait sees.
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i, chunk := range chunks {
+				select {
+				case slots <- struct{}{}:
+				case <-ctx.Done():
+					return
+				}
+				wg.Add(1)
+				go func(i int, chunk string) {
+					defer wg.Done()
+					p := Piece{Seq: i, Text: chunk, Last: i == len(chunks)-1}
+					p.Path, p.Err = synthesizePiece(ctx, eng, chunk, ext, i, opts)
+					results[i] <- p
+				}(i, chunk)
+			}
+		}()
+		// Out in order, whatever order the engine finished them in.
+		for i := range chunks {
+			var p Piece
+			select {
+			case p = <-results[i]:
+			case <-ctx.Done():
+				return
+			}
 			if !send(ctx, out, p) || p.Err != nil {
 				return
 			}
+			<-slots
 		}
 	}()
 	return out

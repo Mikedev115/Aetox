@@ -157,9 +157,11 @@ func TestSynthesisStopsAheadOfASilentListener(t *testing.T) {
 	}
 	nextChunk(t, events) // the listener starts the first piece and says nothing more
 	time.Sleep(300 * time.Millisecond)
-	// The window, plus the one piece parked in the reader's single slot.
-	if n := eng.calls.Load(); n > speechLookahead+2 {
-		t.Errorf("engine ran %d pieces for a listener still on the first, want at most %d", n, speechLookahead+2)
+	// The window, plus the one piece parked in the reader's channel, plus the
+	// pieces the reader may have in the engine at once.
+	most := int64(speechLookahead + 2 + speechParallel)
+	if n := eng.calls.Load(); n > most {
+		t.Errorf("engine ran %d pieces for a listener still on the first, want at most %d", n, most)
 	}
 }
 

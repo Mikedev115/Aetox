@@ -13,16 +13,18 @@ package main
 // Three parts meet here, and only the third is a judgement:
 //
 //   - internal/tts.Segment cuts the reply into speakable pieces.
-//   - internal/tts.Read synthesizes them one at a time into files.
-//   - THIS file decides how far ahead of the listener that is allowed to run.
+//   - internal/tts.Read synthesizes them into files, a few at a time.
+//   - THIS file decides how far ahead of the listener that is allowed to run,
+//     and how many pieces may be in the engine at once.
 //
 // That last one is the policy internal/tts refuses to hold, for the same
 // reason it refuses to pick a voice for the UI language: the listener lives up
 // here. The webview reports which piece it has started playing (SpeechPlaying)
 // and the reader is released one piece at a time against that report, so a
-// forty-paragraph answer never has more than speechLookahead pieces of audio
-// made for it in advance — which matters on disk for the local engines and in
-// money for the cloud ones.
+// forty-paragraph answer never has more than a handful of pieces of audio made
+// for it in advance — speechLookahead released, plus the speechParallel the
+// reader may still have in the engine — which matters on disk for the local
+// engines and in money for the cloud ones.
 
 import (
 	"context"
@@ -33,6 +35,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/tts"
@@ -49,6 +52,25 @@ var newTTSEngine = tts.New
 // wide margin), and small enough that pressing stop wastes at most two pieces
 // of work rather than the rest of the reply.
 const speechLookahead = 2
+
+// speechParallel is how many pieces the reader may have in the engine at
+// once. The idea is the owner's, from his kiosk (AI-Robot-Guide,
+// AvatarManager.speak, 2026-09-05: "ลองไปศึกษาจาก ... วิธีการแบ่งโหลด"): every
+// chunk's request goes out the moment the text is cut, so one slow chunk
+// costs one wait instead of a wait per chunk behind it. Measured the same
+// evening against edge-tts, the reason it matters here: Niwat answered a
+// 214-rune piece in 1.6–3.0 s, Premwadee took 7–20 s for the same piece or
+// returned nothing, and one such piece in a one-at-a-time reader is a gap in
+// the reading.
+//
+// Three, not all of them, is the adaptation. A local engine is a process per
+// piece (PowerShell for SAPI, a Python start for edge-tts), and a forty-piece
+// reply fired at once would be forty processes on the listener's machine; a
+// paid engine bills every piece whether or not anyone hears it, and a stop
+// press after the first sentence should not have bought the whole reply.
+// With speechLookahead=2 the most that is ever made ahead of the listener is
+// speechLookahead + speechParallel + 1, about two minutes of audio.
+const speechParallel = 3
 
 // speechChunkEvent is one piece announced to the webview. It carries a URL,
 // never bytes: the audio element fetches it from ttsHost and only the seconds
@@ -82,6 +104,9 @@ type speechJob struct {
 	// wake is signalled on every progress report. Buffered by one so a report
 	// that arrives while the reader is not waiting is not lost.
 	wake chan struct{}
+	// done closes when runSpeech has returned and the reader with it — the
+	// moment after which nothing will write into dir.
+	done chan struct{}
 }
 
 // StartSpeech begins reading text aloud and returns the job id the webview
@@ -128,6 +153,7 @@ func (a *App) StartSpeech(text string) (string, error) {
 		files:  map[int]string{},
 		played: -1,
 		wake:   make(chan struct{}, 1),
+		done:   make(chan struct{}),
 	}
 	a.speakMu.Lock()
 	if a.speakJobs == nil {
@@ -140,7 +166,7 @@ func (a *App) StartSpeech(text string) (string, error) {
 	// sentence are two different sounds, and a key that ignored the voice
 	// would hand back the wrong one from the cache.
 	key := engineID + "\x00" + voice + "\x00" + model
-	opts := tts.ReadOptions{Dir: dir, CacheDir: speechCacheDir(), CacheKey: key}
+	opts := tts.ReadOptions{Dir: dir, CacheDir: speechCacheDir(), CacheKey: key, Parallel: speechParallel}
 	go a.runSpeech(ctx, job, engine, text, opts)
 	return id, nil
 }
@@ -148,7 +174,16 @@ func (a *App) StartSpeech(text string) (string, error) {
 // runSpeech pumps the reader into the webview, one piece at a time, holding
 // the reader back to speechLookahead pieces past whatever is playing.
 func (a *App) runSpeech(ctx context.Context, job *speechJob, engine tts.Engine, text string, opts tts.ReadOptions) {
-	for piece := range tts.Read(ctx, engine, text, opts) {
+	defer close(job.done)
+	pieces := tts.Read(ctx, engine, text, opts)
+	// The channel closing is Read's promise that no piece is still being
+	// written. Draining it on every way out is what lets `done` mean the
+	// folder can go.
+	defer func() {
+		for range pieces {
+		}
+	}()
+	for piece := range pieces {
 		if piece.Err != nil {
 			a.emitEvent("speech:chunk", speechChunkEvent{Job: job.id, Seq: piece.Seq, Last: true, Error: piece.Err.Error()})
 			return
@@ -197,8 +232,8 @@ func (job *speechJob) waitFor(ctx context.Context, seq int) bool {
 
 // SpeechPlaying is the webview saying it has started playing a piece. It is
 // what releases the next one, so it must be called for every piece — a webview
-// that stops calling it stops the synthesizer within speechLookahead pieces,
-// which is the intended behaviour and not a stall.
+// that stops calling it stops the synthesizer within speechLookahead +
+// speechParallel pieces, which is the intended behaviour and not a stall.
 func (a *App) SpeechPlaying(jobID string, seq int) {
 	job := a.speechJob(jobID)
 	if job == nil {
@@ -252,6 +287,14 @@ func closeSpeechJob(job *speechJob) {
 		return
 	}
 	job.cancel()
+	// Deleting the folder waits for the work to have stopped: a piece still
+	// being written into a folder being removed leaves the folder behind.
+	// Bounded, because an engine that ignores its context is PieceTimeout's
+	// problem and must not become the stop button's.
+	select {
+	case <-job.done:
+	case <-time.After(2 * time.Second):
+	}
 	// Only the job's own folder. A cached piece lives in the shared cache and
 	// is the next press's head start; deleting it here would make the cache a
 	// thing that never hits.
