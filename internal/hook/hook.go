@@ -242,7 +242,9 @@ func (r *Runner) Run(ctx context.Context, event Event, tool string, args map[str
 // nothing: the output already says FAIL in its own words, and a hook that
 // exited non-zero saying nothing has nothing for the model either.
 func postNote(out string, err error) string {
-	out = strings.TrimSpace(out)
+	// PowerShell's line ends; each one is a token the model pays for and
+	// learns nothing from.
+	out = strings.TrimSpace(strings.ReplaceAll(out, "\r\n", "\n"))
 	if err != nil && errors.Is(err, context.DeadlineExceeded) {
 		limit := fmt.Sprintf("(this hook was stopped at its %s limit; what it printed before that is above, and anything it was still checking is unchecked)", Timeout)
 		if out == "" {

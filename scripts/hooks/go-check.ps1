@@ -27,12 +27,28 @@ $ErrorActionPreference = 'Continue'
 $raw = $env:AETOX_TOOL_ARGS
 if (-not $raw) { exit 0 }
 try { $call = $raw | ConvertFrom-Json } catch { exit 0 }
-$path = $call.args.path
-if (-not $path) { exit 0 }
-if ($path -notmatch '\.go$') { exit 0 }
-if (-not (Test-Path -LiteralPath $path)) { exit 0 }
-
-$dir = Split-Path -Parent (Resolve-Path -LiteralPath $path)
+# One path for write/edit/append/delete; a list of them for a batch, which
+# names each edit's own path and has no path of its own. Every file this call
+# touched counts, and the package is checked once even when the batch touched
+# several files in it.
+$paths = @()
+if ($call.args.path) { $paths += [string]$call.args.path }
+if ($call.args.edits) { foreach ($e in $call.args.edits) { if ($e.path) { $paths += [string]$e.path } } }
+$dirs = @()
+foreach ($p in $paths) {
+    if ($p -notmatch '\.go$') { continue }
+    if (-not (Test-Path -LiteralPath $p)) { continue }
+    $d = Split-Path -Parent (Resolve-Path -LiteralPath $p)
+    if ($dirs -notcontains $d) { $dirs += $d }
+}
+if ($dirs.Count -eq 0) { exit 0 }
+# One package per call is the overwhelmingly common case; a batch that spans
+# packages gets the first checked and the rest named, rather than a second
+# check that would not fit the budget anyway.
+$dir = $dirs[0]
+if ($dirs.Count -gt 1) {
+    Write-Output ("Note: this call touched Go files in {0} packages; only the first is checked below. Run go test on the others yourself: {1}" -f $dirs.Count, (($dirs | Select-Object -Skip 1) -join ', '))
+}
 $budgetMs = 8000
 $sw = [Diagnostics.Stopwatch]::StartNew()
 
