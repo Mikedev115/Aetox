@@ -23,6 +23,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -37,7 +39,8 @@ type Event string
 const (
 	// PreToolUse runs before the tool does, and can refuse it.
 	PreToolUse Event = "PreToolUse"
-	// PostToolUse runs after, and cannot change what already happened.
+	// PostToolUse runs after, and cannot change what already happened; what
+	// it prints does reach the model, beside the tool's own result.
 	PostToolUse Event = "PostToolUse"
 )
 
@@ -70,7 +73,8 @@ type Config struct {
 	Hooks []Hook `json:"hooks"`
 }
 
-// Decision is what a PreToolUse pass concluded.
+// Decision is what a pass of hooks concluded: for PreToolUse, whether the
+// call may go ahead; for PostToolUse, what the hooks had to say about it.
 type Decision struct {
 	// Blocked is true when a blocking hook exited non-zero.
 	Blocked bool
@@ -78,6 +82,20 @@ type Decision struct {
 	// do something else rather than repeat the call. A hook that blocks without
 	// printing anything is a wall with no sign on it, so there is a fallback.
 	Reason string
+	// Notes is what the PostToolUse hooks printed, joined, and it reaches the
+	// model beside the tool's own result. Empty when they printed nothing,
+	// which is what a formatter that had nothing to fix says, and the common
+	// case, so silence costs no tokens.
+	//
+	// It used to be dropped, on the reasoning that a PostToolUse hook cannot
+	// change what happened. It still cannot, and the result the model reads is
+	// still the tool's own; but a hook that ran the tests after an edit and
+	// watched them fail was telling nobody, and the one reader who could act
+	// on that is the model. A failing test in its face is what keeps it working;
+	// a failing test in the debug log is a note to a user who is not looking.
+	// Carried on both a clean exit and a non-zero one, because the non-zero
+	// exit is the interesting one — that is what `go test` says when it fails.
+	Notes string
 }
 
 // Load reads the hooks file. A missing file is not an error: almost nobody has
@@ -174,12 +192,14 @@ func (r *Runner) Any(event Event) bool {
 //	AETOX_EVENT     PreToolUse or PostToolUse
 //	AETOX_TOOL_ARGS the same JSON as on stdin, for a shell that cannot read it
 //
-// PostToolUse also gets AETOX_TOOL_OK ("1"/"0") and AETOX_TOOL_OUTPUT.
+// PostToolUse also gets AETOX_TOOL_OK ("1"/"0") and AETOX_TOOL_OUTPUT, and
+// whatever it prints comes back in Decision.Notes for the model to read.
 func (r *Runner) Run(ctx context.Context, event Event, tool string, args map[string]any, result *Result) Decision {
 	if r == nil {
 		return Decision{}
 	}
 	var payload []byte
+	var notes []string
 	for _, h := range r.hooks {
 		if h.Event != event || !globMatch(h.Matcher, strings.ToLower(strings.TrimSpace(tool))) {
 			continue
@@ -192,6 +212,11 @@ func (r *Runner) Run(ctx context.Context, event Event, tool string, args map[str
 			payload = marshalCall(event, tool, args)
 		}
 		out, err := r.exec(ctx, command, payload, event, tool, result)
+		if event == PostToolUse {
+			if note := postNote(out, err); note != "" {
+				notes = append(notes, note)
+			}
+		}
 		if err == nil {
 			continue
 		}
@@ -207,7 +232,25 @@ func (r *Runner) Run(ctx context.Context, event Event, tool string, args map[str
 		}
 		return Decision{Blocked: true, Reason: reason}
 	}
-	return Decision{}
+	return Decision{Notes: strings.Join(notes, "\n")}
+}
+
+// postNote is what one PostToolUse hook has to say: its output, plus the one
+// fact the output cannot carry itself — that it was cut off at the limit. A
+// hook stopped at Timeout mid-`go test` printed half a report, and half a
+// report that does not say so reads as a whole one. A non-zero exit adds
+// nothing: the output already says FAIL in its own words, and a hook that
+// exited non-zero saying nothing has nothing for the model either.
+func postNote(out string, err error) string {
+	out = strings.TrimSpace(out)
+	if err != nil && errors.Is(err, context.DeadlineExceeded) {
+		limit := fmt.Sprintf("(this hook was stopped at its %s limit; what it printed before that is above, and anything it was still checking is unchecked)", Timeout)
+		if out == "" {
+			return limit
+		}
+		return out + "\n" + limit
+	}
+	return out
 }
 
 // Result describes a finished tool call, for PostToolUse.

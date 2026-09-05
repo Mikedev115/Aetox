@@ -210,3 +210,29 @@ func TestGlobMatch(t *testing.T) {
 		}
 	}
 }
+
+// What a PostToolUse hook prints reaches the caller, and reaches it on a
+// non-zero exit too — that exit is what `go test` says when it has something
+// worth reading. Two hooks, two lines, in order.
+func TestPostToolUseOutputReachesTheCaller(t *testing.T) {
+	r := runnerFor(t,
+		Hook{Event: PostToolUse, Matcher: "*", Command: script(t, `echo "gofmt: ok"`, `Write-Output "gofmt: ok"`)},
+		Hook{Event: PostToolUse, Matcher: "*", Command: script(t, `echo "FAIL: TestX"; exit 1`, `Write-Output "FAIL: TestX"; exit 1`)},
+	)
+	d := r.Run(context.Background(), PostToolUse, "edit", nil, &Result{OK: true})
+	if d.Blocked {
+		t.Fatal("a PostToolUse hook blocked")
+	}
+	lines := strings.Split(d.Notes, "\n")
+	if len(lines) != 2 || lines[0] != "gofmt: ok" || lines[1] != "FAIL: TestX" {
+		t.Errorf("Notes = %q, want both hooks' lines in order", d.Notes)
+	}
+}
+
+// Silence is the common case and it must cost nothing: no output, no note.
+func TestPostToolUseSilenceIsNoNote(t *testing.T) {
+	r := runnerFor(t, Hook{Event: PostToolUse, Matcher: "*", Command: script(t, `exit 0`, `exit 0`)})
+	if d := r.Run(context.Background(), PostToolUse, "write", nil, &Result{OK: true}); d.Notes != "" {
+		t.Errorf("Notes = %q for a hook that printed nothing", d.Notes)
+	}
+}

@@ -22,6 +22,13 @@ type Output struct {
 	Success    bool
 	Truncated  bool
 	DurationMs int64
+	// AfterHook is what the user's PostToolUse hooks printed once this call
+	// had run — a formatter's complaint, a test run's verdict. Beside the
+	// tool's own output rather than inside it, so the model can never mistake
+	// the hook's words for the tool's, and so a huge tool output trimmed to
+	// its backstop cannot trim the one line that says the tests failed.
+	// Empty for nearly every call: no hooks, or hooks with nothing to say.
+	AfterHook string
 	// FromWorld marks an unsuccessful result as a report about the machine's
 	// current state rather than about anyone's behaviour: a server that has not
 	// answered yet, an MCP connection still being made. It is the same statement

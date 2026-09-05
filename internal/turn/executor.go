@@ -1415,6 +1415,11 @@ func (e *Executor) modelToolReceipt(ctx context.Context, name string, args map[s
 	if path, ok := args["path"].(string); ok && strings.TrimSpace(path) != "" {
 		receipt["path"] = strings.TrimSpace(path)
 	}
+	// The same redaction pass the output gets: a hook's words came from the
+	// user's own commands, and those see the same secrets the tools do.
+	if after := strings.TrimSpace(output.AfterHook); after != "" {
+		receipt["after_hook"] = e.sanitizeAndTrimOutput(after)
+	}
 	payload, err := json.Marshal(receipt)
 	if err != nil {
 		return result
@@ -1493,11 +1498,16 @@ func (e *Executor) executeTool(ctx context.Context, name string, args map[string
 	// hook point, and a hook that only saw the happy path would be useless for
 	// the second. It cannot change the result: the tool has already run, and
 	// pretending otherwise would be a lie about what the model is reading.
+	// What it CAN do is speak: a hook that ran the tests after an edit has a
+	// verdict, and the model is the one reader who can act on it. It rides in
+	// its own field so it is never mistaken for the tool's output and never
+	// trimmed away with it.
 	if handled && e.hooks.Any(hook.PostToolUse) {
-		e.hooks.Run(ctx, hook.PostToolUse, name, args, &hook.Result{
+		after := e.hooks.Run(ctx, hook.PostToolUse, name, args, &hook.Result{
 			OK:     err == nil && output.Success,
 			Output: output.Content,
 		})
+		output.AfterHook = strings.TrimSpace(after.Notes)
 	}
 	return output, handled, err
 }
