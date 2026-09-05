@@ -928,6 +928,22 @@ func (h *browserHost) open(id, url, fallback string, x, y, w, hgt int) {
 	h.backend.do(func() {
 		debuglog.Msg("browser.open(%s): running on the host thread", id)
 		if h.tab(id) != nil {
+			// Not a failure, and not a navigation either: the tab is already
+			// embedded, so there is nothing here to create. A reused tab was
+			// navigated by workbenchOpenBrowser before its desk event went out,
+			// and the frontend's handler calls BrowserOpen to RAISE a tab as
+			// well as to create one — so this return is how the common case
+			// ends, several times per session.
+			//
+			// It says so out loud because the silence was read as a hang. On
+			// 5 ก.ย. a run's log ended on the line above and the missing
+			// "embed ok" was diagnosed as a deadlock in this function; the
+			// actual cause was the process restarting twelve seconds later,
+			// which the next log file states on its fourth line. A branch that
+			// logs its entry and not its exit leaves the log ending on a
+			// sentence that reads as unfinished work, and whoever reads it next
+			// has to disprove this function before looking anywhere else.
+			debuglog.Msg("browser.open(%s): tab already open, nothing to create", id)
 			return
 		}
 		tab := &browserTab{navDone: make(chan struct{}), navOnce: &sync.Once{}, fallback: fallback}
