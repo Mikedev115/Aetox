@@ -1,0 +1,16 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "portfolio",
+  "type": "registry:file",
+  "title": "portfolio",
+  "description": "พอร์ตโฟลิโอส่วนบุคคลและฟรีแลนซ์",
+  "author": "Aetox <https://github.com/Mikedev115>",
+  "categories": ["portfolio", "personal"],
+  "files": [
+    {
+      "path": "templates/portfolio/index.html",
+      "type": "registry:file",
+      "target": "public/portfolio.html"
+    }
+  ]
+}

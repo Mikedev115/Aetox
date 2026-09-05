@@ -1,0 +1,1656 @@
+<!-- ═══════════════════════════════════════════════════════════════════════
+     หน้าสำเร็จรูป · พอร์ตโฟลิโอส่วนบุคคล — ทิศทาง `st` (สตูดิโอ)
+     ═══════════════════════════════════════════════════════════════════════
+
+     ไฟล์เดียวจบ ไม่มี CDN ไม่มี build · ภาพผลงานอยู่ในโฟลเดอร์ `imgs/`
+     ข้างไฟล์นี้ ต้องคัดลอกไปด้วย
+
+     ต่างจาก `studio-agency.html` ที่ใช้ส่วนชุดเดียวกันเป็นส่วนใหญ่ ตรงที่
+     หน้านี้มี `w-ex` (ไทม์ไลน์ประวัติ) แทน `w-sl` (รายการบริการ) เพราะคนจ้าง
+     บุคคลถามว่า **เคยทำอะไรมา** ส่วนคนจ้างสตูดิโอถามว่า **รับทำอะไร**
+     สองคำถามนี้ต้องการหลักฐานคนละชนิด และเป็นเหตุผลเดียวที่หน้าสองหน้านี้
+     ไม่ใช่หน้าเดียวกัน
+
+     ── ลำดับ ────────────────────────────────────────────────────────────
+     เป็นใคร → ทำเสร็จมาแล้วอะไร → เคยอยู่ที่ไหนมาบ้าง → ทำด้วยอะไร →
+     ใครที่ไม่ใช่เราคิดว่ามันดี → ยังสงสัยอะไร → คุยเลย
+
+     ── เชลล์ ────────────────────────────────────────────────────────────
+     หน้านี้ใช้ `page-shell-studio.html` ซึ่งเป็นเชลล์ใบเดียวในคลังที่ตั้ง
+     `<html data-theme="dark">` ไว้ **โดยตั้งใจ** เพราะเว็บสตูดิโอคือพื้นที่
+     จัดแสดงงาน และงานถูกถ่ายมาบนพื้นหลังที่คนออกแบบเลือกไว้แล้ว
+     ถ้าอยากได้แบบสว่าง เอา `data-theme` ออก จะได้พาเลตต์กระดาษ–หมึก
+     ซึ่งคำนวณคอนทราสต์มาครบเหมือนกัน
+     **ห้ามเอาสองเชลล์มาไว้ในเอกสารเดียวกัน**
+
+     ── สิ่งที่ต้องเปลี่ยนแน่นอน ─────────────────────────────────────────
+     1. **ตัวเลขผลลัพธ์ทุกตัว** (−63% เวลาโหลด · 2 วัน → 40 นาที · 0 → 5 คน)
+        เป็นของสมมติ ต้องเป็นตัวเลขที่ลูกค้าหรือคุณวัดเองจริง และต้องขอ
+        อนุญาตก่อนเอามาลง
+     2. **รายการรางวัลทั้งหมด** ชื่อผู้ให้รางวัลเป็นชื่อองค์กรจริง
+        (เวทีรางวัลเว็บ ตัวอย่าง ก. · เวทีรางวัลเว็บ ตัวอย่าง ข. · แพลตฟอร์มผลงาน ตัวอย่าง · เวทีรางวัลออกแบบไทย ตัวอย่าง)
+        **ห้ามทิ้งไว้ถ้ายังไม่ได้รับจริง** — เป็นคำอ้างที่ตรวจได้และตรวจง่ายมาก
+     3. **ภาพผลงานใน `imgs/work-*.jpg`** เป็นภาพวางตำแหน่ง ต้องเป็นงานจริง
+        และ `width`/`height` ต้องตรงกับไฟล์จริง
+     4. **ชื่อเครื่องมือใน `w-stk`** ต้องเป็นของที่ใช้จริง พร้อมเหตุผลจริง
+        รายการที่ลอกมาจะพังทันทีที่ทีมเทคนิคของลูกค้าถามต่อหนึ่งคำถาม
+     5. **ราคาขั้นต่ำใน `w-sl`** และเงื่อนไขทั้งหมด
+     6. **ที่อยู่ อีเมล เบอร์โทร ใน `w-fg`**
+
+     ── ตัวอักษรคือทั้งหมดของทิศทางนี้ ────────────────────────────────────
+     `w-ht h1` ตั้ง `line-height:.98` ไว้สำหรับคำที่ **ไม่มีสระล่าง**
+     ถ้าเปลี่ยนคำแล้วบรรทัดใดมีสระล่าง (ุ ู) และมีบรรทัดถัดไป
+     **ต้องขึ้นเป็น 1.06** ไม่งั้นหางสระชนตัวอักษรบรรทัดล่าง
+     ต้องเปิดดูของจริงทุกครั้งที่เปลี่ยนคำในหัวเรื่อง ไม่ใช่เชื่อว่าค่าเดิมยังถูก
+     ═══════════════════════════════════════════════════════════════════ -->
+<!-- Page shell · ทิศทาง `st` (สตูดิโอ) — เชลล์ใบที่สามของคลัง
+
+     ทำไมถึงมีอยู่
+     ─────────────
+     `page-shell.html` (ทิศทาง `ed`) เป็นพื้นขาวกับสีเน้นเขียว ซึ่งเป็นค่ากลาง
+     ที่ถูกสำหรับงานส่วนใหญ่ `page-shell-warm.html` (`wm`) เป็นครีมกับเขียวป่า
+     สำหรับงานที่ความงามอยู่ที่ภาพถ่าย
+
+     ใบนี้สำหรับงานที่ **เดิมพันไว้กับขนาดตัวอักษร ไม่ใช่กับสี** — เอเจนซี
+     สตูดิโอ พอร์ตโฟลิโอ ที่ทั้งหน้ามีสองสี (หมึกกับกระดาษ) แล้วให้ผลงาน
+     เป็นสิ่งเดียวที่มีสี พาเลตต์จึงเป็นขาว–ดำล้วนจริง ๆ: `--accent` คือ
+     สีเดียวกับ `--text` ไม่ใช่สีที่สาม
+
+     นั่นทำให้ปุ่มหลักกลายเป็นบล็อกทึบสีหมึก และป้ายหมวดกลายเป็นตัวอักษร
+     สีเดียวกับเนื้อความแต่เล็กกว่า ซึ่งเป็นภาษาของงานประเภทนี้จริง ๆ
+     ไม่ใช่การประหยัดสี
+
+     ── หน้าที่ใช้เชลล์นี้ควรตรึงเป็นโหมดมืด ───────────────────────────
+     ไฟล์นี้ตั้ง `<html data-theme="dark">` ไว้แล้ว **โดยตั้งใจ** และเป็น
+     เชลล์ใบเดียวในคลังที่ทำแบบนั้น เหตุผลไม่ใช่รสนิยม: เว็บสตูดิโอคือพื้นที่
+     จัดแสดงงาน และงานที่จัดแสดงถูกถ่ายมาบนพื้นหลังที่คนออกแบบเลือกไว้แล้ว
+     พื้นที่สลับสีตาม OS ของคนดูทำให้ภาพผลงานชุดเดียวกันอ่านคนละเรื่อง
+     ในสองเครื่อง
+
+     ถ้าอยากได้แบบสว่าง เอา `data-theme` ออก แล้วมันจะได้พาเลตต์กระดาษ–หมึก
+     ซึ่งคำนวณคอนทราสต์มาครบเหมือนกัน ไม่ใช่สถานะที่ถูกทิ้ง
+
+     ── พาเลตต์ วัดแล้วทุกคู่ ────────────────────────────────────────────
+     | คู่ | มืด (ค่าที่ตั้งไว้) | สว่าง (ทางเลือก) | เกณฑ์ |
+     |---|---|---|---|
+     | text / bg | 17.29:1 | 16.58:1 | 4.5 |
+     | muted / bg | 6.84:1 | 6.25:1 | 4.5 |
+     | muted / surface | 6.34:1 | 7.11:1 | 4.5 |
+     | accent / bg | 17.29:1 | 16.58:1 | 4.5 |
+     | accent-ink / accent | 17.29:1 | 17.46:1 | 4.5 |
+     | field / bg | 3.84:1 | 3.14:1 | 3.0 |
+     | field / surface | 3.56:1 | 3.58:1 | 3.0 |
+     | success / bg | 10.45:1 | 4.68:1 | 4.5 |
+     | warning / bg | 9.04:1 | 5.21:1 | 4.5 |
+     | danger / bg | 7.90:1 | 5.63:1 | 4.5 |
+
+     `success` ในโหมดสว่างอยู่ที่ 4.68:1 ซึ่งผ่านแบบเฉียดฉิว — ตั้งใจเก็บค่า
+     เดิมจากเชลล์หลักไว้เพื่อให้สีสถานะเหมือนกันทั้งคลัง ถ้าจะขยับต้องขยับ
+     ทั้งสามเชลล์พร้อมกัน ไม่ใช่ขยับใบเดียวแล้วสีสถานะเพี้ยนข้ามหน้า
+
+     ── สิ่งที่เหมือนเชลล์อื่นเป๊ะ ────────────────────────────────────────
+     รีเซ็ต · แลนด์มาร์ก · คลังคำศัพท์การเคลื่อนไหวทั้งสิบคำ · `w-reveal` ·
+     `w-lift` · `w-btn` · สเกลรัศมี · สเกลระดับความสูง · ชุดสีข้อมูล `--viz-*`
+     ทุกส่วนในคลังใช้ได้กับเชลล์ทั้งสามใบ เพราะไม่มีส่วนไหนฮาร์ดโค้ดสี
+
+     **หนึ่งหน้าใช้เชลล์ใบเดียว ห้ามใส่สองใบในเอกสารเดียวกัน** โทเคนจะทับกัน -->
+<!DOCTYPE html>
+<html lang="th" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>พอร์ตโฟลิโอ · หน้าสำเร็จรูป</title>
+<meta name="description" content="ประโยคเดียวที่บอกว่าหน้านี้เกี่ยวกับอะไร">
+<style>
+  :root{
+    color-scheme:light dark;
+    --bg:#f2f0ec; --surface:#ffffff; --text:#111112; --muted:#5b584f;
+    --line:#e1ded7; --field:#8b877f; --accent:#111112; --accent-ink:#f7f6f3;
+    --success:#0e7a58; --warning:#8a5a00; --danger:#b4291c;
+    /* รัศมี — สี่ขั้น ไม่ใช่เก้าค่าที่กะเอา ก่อนหน้านี้ในคลังมีรัศมีเล็กอยู่ห้าค่า
+       (6 7 8 9 10px) และทรงเม็ดยาเขียนสองแบบ (99px กับ 999px) ซึ่งไม่มีใครตั้งใจ
+       ให้ต่างกัน มันแค่ถูกพิมพ์คนละครั้ง */
+    --radius-sm:10px;      /* ของเล็กในการ์ด ป้าย ปุ่มไอคอน */
+    --radius:18px;         /* การ์ด แผง ช่องกรอก */
+    --radius-lg:26px;      /* กล่องเด่น แถบลอย ของที่ใหญ่กว่าครึ่งจอ */
+    --radius-pill:999px;   /* ทรงเม็ดยา ชิป สวิตช์ */
+    --maxw:1120px; --gap:clamp(16px,2.5vw,28px);
+    --pad:clamp(20px,5vw,48px);
+    /* ── ระดับความสูง สี่ขั้น ────────────────────────────────────────────
+       ทุกขั้นเป็นเงาสองชั้นเสมอ ไม่ใช่ชั้นเดียว
+         ชั้นแรก แคบและเข้ม  = เงาสัมผัส บอกว่าของวางอยู่บนพื้น
+         ชั้นสอง กว้างและจาง = เงาบรรยากาศ บอกว่ามันสูงแค่ไหน
+       เงาชั้นเดียวให้ได้อย่างใดอย่างหนึ่ง จึงออกมาเป็นได้แค่ "ลอย" หรือ "แปะ"
+       ไม่เคยเป็น "วางอยู่" ซึ่งเป็นสิ่งที่ตาคาดหวังจากของจริง
+
+       ระยะเบลอโตเป็นเท่าตัวทุกขั้น (6→18→36→68) ไม่ใช่บวกทีละนิด เพราะตาอ่าน
+       ความสูงเป็นสเกลลอการิทึม สองขั้นที่ห่างกัน 4px ตาแยกไม่ออกว่าอันไหนสูงกว่า
+
+       ค่า offset แนวตั้งเป็นครึ่งหนึ่งของเบลอเสมอ นั่นคือมุมแสงคงที่ทั้งระบบ
+       ของสองชิ้นบนหน้าเดียวกันที่เงาทอดคนละมุมคือสิ่งที่อ่านออกทันทีว่าผิด */
+    --e1:0 1px 2px -1px rgb(17 19 18/.10), 0 2px 6px -2px rgb(17 19 18/.08);
+    --e2:0 2px 4px -2px rgb(17 19 18/.10), 0 8px 18px -6px rgb(17 19 18/.12);
+    --e3:0 4px 8px -4px rgb(17 19 18/.12), 0 18px 36px -12px rgb(17 19 18/.18);
+    --e4:0 8px 16px -8px rgb(17 19 18/.16), 0 34px 68px -20px rgb(17 19 18/.26);
+    --sans:"Prompt","Leelawadee UI",system-ui,-apple-system,Segoe UI,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+    /* จังหวะการเคลื่อนไหว มาจาก STANDARD.md ข้อ 4 ไม่ใช่ค่าที่กะเอา ประกาศไว้
+       ที่เดียวเพื่อให้ทั้งหน้าเคลื่อนด้วยจังหวะเดียวกัน สองส่วนที่เข้าฉากคนละ
+       ความเร็วบนหน้าเดียวกันคือสิ่งที่อ่านออกทันทีว่าประกอบมาจากคนละที่ */
+    --ease-in:cubic-bezier(.2,.7,.3,1);   /* เข้าฉาก */
+    --ease-wipe:cubic-bezier(.7,0,.2,1);  /* กวาด */
+    --t-enter:.55s; --t-hover:.18s; --t-stagger:70ms;
+    /* ── สเกลตัวอักษรของทิศทาง `st` ────────────────────────────────────
+       ทิศทางนี้เดิมพันทั้งหน้าไว้กับขนาดตัวอักษร ไม่ใช่กับสี ค่าที่ต่างจาก
+       เชลล์อื่นจึงอยู่ที่ช่องไฟกับน้ำหนัก ไม่ใช่ที่พาเลตต์
+
+       ช่องไฟติดลบ −.04em ใช้ได้เฉพาะกับตัวอักษรที่ใหญ่กว่า 48px ขึ้นไป
+       ต่ำกว่านั้นสระบนของไทย (ิ ี ึ ื) เริ่มชนกับตัวถัดไป วัดบน Prompt:
+       ที่ 40px ระยะระหว่างตัวเหลือ 1.1px · ที่ 64px เหลือ 2.6px
+       ซึ่งเป็นเกณฑ์ที่ใช้ตัดสินว่าหัวเรื่องขนาดไหนใช้ค่านี้ได้ */
+    --st-display-track:-.04em;
+    --st-body-track:-.005em;
+    /* สปริงสองตัว ไม่ได้กะด้วยตา — แก้สมการสปริงหน่วง (damped harmonic
+       oscillator) แล้วสุ่มค่าออกมา 22 จุด รายละเอียดที่มาอยู่ใน
+       sections/spring-physics.html ซึ่งมีตัวเทียบกับ cubic-bezier ให้ดูด้วย
+         แน่น  ζ=0.62 ωn=17.0 → เลยเป้า 8.3% นิ่งใน 0.42s  ใช้กับตัวควบคุมเล็ก
+         นุ่ม  ζ=0.72 ωn=12.5 → เลยเป้า 3.8% นิ่งใน 0.55s  ใช้กับแผงและกล่องใหญ่
+       ของใหญ่ต้องเลยเป้าน้อยกว่าเสมอ พื้นที่ยิ่งมาก ตายิ่งจับการแกว่งได้ชัด */
+    --ease-spring:linear(0, .0459 4.5%, .1585 9.1%, .3062 13.6%, .4646 18.2%,
+      .6165 22.7%, .7511 27.3%, .8625 31.8%, .9488 36.4%, 1.011 40.9%,
+      1.051 45.5%, 1.074 50%, 1.083 54.5%, 1.082 59.1%, 1.074 63.6%,
+      1.062 68.2%, 1.049 72.7%, 1.036 77.3%, 1.024 81.8%, 1.014 86.4%,
+      1.006 90.9%, 1.001 95.5%, 1);
+    --ease-spring-soft:linear(0, .0419 4.5%, .1434 9.1%, .2749 13.6%, .4153 18.2%,
+      .5505 22.7%, .6717 27.3%, .7746 31.8%, .8578 36.4%, .922 40.9%,
+      .9689 45.5%, 1.001 50%, 1.022 54.5%, 1.033 59.1%, 1.038 63.6%,
+      1.038 68.2%, 1.035 72.7%, 1.03 77.3%, 1.025 81.8%, 1.02 86.4%,
+      1.015 90.9%, 1.01 95.5%, 1);
+    --t-spring:.42s; --t-spring-soft:.55s;
+    /* สีสำหรับข้อมูล แยกจากสีสถานะข้างบนโดยตั้งใจ: สถานะบอกว่าเรื่องนี้ดีหรือแย่
+       ข้อมูลบอกแค่ว่านี่คนละชุดกับชุดนั้น ปนกันเมื่อไหร่กราฟจะพูดสิ่งที่ไม่ได้
+       ตั้งใจพูด ลำดับตายตัว ห้ามวนกลับ ชุดที่เจ็ดคือรวมเป็น "อื่น ๆ" ไม่ใช่สร้าง
+       สีใหม่ ทั้งหกค่านี้รันผ่าน validator ของสกิล dataviz แล้วทั้งสองโหมด —
+       แถบความสว่าง ความอิ่มสี ระยะห่างของคู่ที่ติดกันเมื่อมองด้วยตาบอดสี และ
+       คอนทราสต์กับพื้น ถ้าจะเปลี่ยนค่า ให้รัน validator ใหม่ อย่ากะด้วยตา */
+    --viz-1:#db2777; --viz-2:#2563eb; --viz-3:#16a34a;
+    --viz-4:#7c3aed; --viz-5:#d97706; --viz-6:#0d9488;
+    /* ไล่เฉดสีเดียวสำหรับปริมาณ อ่อนไปเข้ม ไม่ใช่รุ้ง */
+    --viz-s1:#dbeafe; --viz-s2:#bfdbfe; --viz-s3:#93b4f7;
+    --viz-s4:#4f83ee; --viz-s5:#1d4ed8;
+    /* ขึ้นกับลง เป็นสถานะ ไม่ใช่ชุดข้อมูล จึงยืมจาก success/danger */
+    --viz-up:var(--success); --viz-down:var(--danger);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){ color-scheme:dark;
+           --bg:#0b0b0c; --surface:#151517; --text:#f2f0ec; --muted:#9c988f;
+           --line:#252528; --field:#726d66; --accent:#f2f0ec; --accent-ink:#0b0b0c;
+           --success:#5fd1a6; --warning:#e0a54a; --danger:#f08776;
+           /* บนพื้นมืด เงาดำแทบไม่มีผล เพราะพื้นก็ดำอยู่แล้ว จึงต้องเข้มขึ้นราวสามเท่า
+              และเพิ่มเส้นสว่างบางที่ขอบบน (inset) ซึ่งเป็นสิ่งที่บอกความสูงจริง ๆ
+              ในโหมดมืด ไม่ใช่เงา */
+           --e1:inset 0 1px 0 rgb(255 255 255/.04), 0 1px 2px -1px rgb(0 0 0/.55), 0 2px 6px -2px rgb(0 0 0/.45);
+           --e2:inset 0 1px 0 rgb(255 255 255/.05), 0 2px 4px -2px rgb(0 0 0/.55), 0 8px 18px -6px rgb(0 0 0/.5);
+           --e3:inset 0 1px 0 rgb(255 255 255/.06), 0 4px 8px -4px rgb(0 0 0/.6), 0 18px 36px -12px rgb(0 0 0/.55);
+           --e4:inset 0 1px 0 rgb(255 255 255/.07), 0 8px 16px -8px rgb(0 0 0/.65), 0 34px 68px -20px rgb(0 0 0/.6);
+           --viz-1:#e0538f; --viz-2:#4f7fe8; --viz-3:#25a463;
+           --viz-4:#8a6bea; --viz-5:#c1862c; --viz-6:#1ba38f;
+           --viz-s1:#182a4a; --viz-s2:#1e3a6b; --viz-s3:#2a539b;
+           --viz-s4:#3a6ecb; --viz-s5:#5b8cf7 }
+  }
+  /* Same values again, gated on an explicit choice rather than the OS
+     setting: sections/theme-toggle.html flips this attribute and remembers
+     it, for a page that wants a switch instead of only following the system. */
+  :root[data-theme="light"]{ color-scheme:light }
+  :root[data-theme="dark"]{ color-scheme:dark;
+         --bg:#0b0b0c; --surface:#151517; --text:#f2f0ec; --muted:#9c988f;
+         --line:#252528; --field:#726d66; --accent:#f2f0ec; --accent-ink:#0b0b0c;
+         --success:#5fd1a6; --warning:#e0a54a; --danger:#f08776;
+         /* บนพื้นมืด เงาดำแทบไม่มีผล เพราะพื้นก็ดำอยู่แล้ว จึงต้องเข้มขึ้นราวสามเท่า
+            และเพิ่มเส้นสว่างบางที่ขอบบน (inset) ซึ่งเป็นสิ่งที่บอกความสูงจริง ๆ
+            ในโหมดมืด ไม่ใช่เงา */
+         --e1:inset 0 1px 0 rgb(255 255 255/.04), 0 1px 2px -1px rgb(0 0 0/.55), 0 2px 6px -2px rgb(0 0 0/.45);
+         --e2:inset 0 1px 0 rgb(255 255 255/.05), 0 2px 4px -2px rgb(0 0 0/.55), 0 8px 18px -6px rgb(0 0 0/.5);
+         --e3:inset 0 1px 0 rgb(255 255 255/.06), 0 4px 8px -4px rgb(0 0 0/.6), 0 18px 36px -12px rgb(0 0 0/.55);
+         --e4:inset 0 1px 0 rgb(255 255 255/.07), 0 8px 16px -8px rgb(0 0 0/.65), 0 34px 68px -20px rgb(0 0 0/.6);
+         --viz-1:#e0538f; --viz-2:#4f7fe8; --viz-3:#25a463;
+         --viz-4:#8a6bea; --viz-5:#c1862c; --viz-6:#1ba38f;
+         --viz-s1:#182a4a; --viz-s2:#1e3a6b; --viz-s3:#2a539b;
+         --viz-s4:#3a6ecb; --viz-s5:#5b8cf7 }
+  *,*::before,*::after{ box-sizing:border-box }
+  body,h1,h2,h3,h4,p,figure,blockquote,ul,ol,dl,dd{ margin:0 }
+  /* Lists inside a w- component are structure, not prose, so they lose their
+     markers. Scoped to the namespace rather than written as `ul[class]`: the
+     lists in these templates are plain <ul> inside a classed parent, and the
+     `ul[class]` idiom missed every one of them, which put bullet points down
+     the middle of the nav and the logo row the first time it was rendered.
+     Matched by prefix, not substring: `[class*="w-"]` alone would also catch
+     an unrelated class like `show-panel` or `arrow-nav` (both contain "w-")
+     and strip bullets from a list that has nothing to do with this skill. */
+  :is([class^="w-"],[class*=" w-"]) :where(ul,ol){ list-style:none; padding:0 }
+  /* Prose is the exception and asks for its markers back, because there a list
+     IS the content. */
+  .w-article .prose :where(ul,ol),.w-docs .body :where(ul,ol){
+    list-style:revert; padding-left:1.3em }
+  img,svg,video{ display:block; max-width:100%; height:auto }
+  body{ background:var(--bg); color:var(--text); font-family:var(--sans);
+        line-height:1.65; -webkit-font-smoothing:antialiased }
+  a{ color:inherit }
+  :where(a,button,input,textarea,select,summary):focus-visible{
+    outline:2px solid var(--accent); outline-offset:3px; border-radius:var(--radius-sm) }
+  .w-wrap{ width:100%; max-width:var(--maxw); margin-inline:auto; padding-inline:var(--pad) }
+  .w-section{ padding-block:clamp(48px,8vw,104px) }
+  .w-eyebrow{ color:var(--accent); font-weight:600; letter-spacing:.1em;
+              text-transform:uppercase; font-size:13px }
+  .w-lede{ color:var(--muted); font-size:clamp(16px,1.6vw,19px); max-width:62ch }
+  .w-btn{ display:inline-flex; align-items:center; gap:8px; border:1px solid var(--accent);
+          background:var(--accent); color:var(--accent-ink); text-decoration:none;
+          font:600 16px/1 var(--sans); padding:14px 24px; border-radius:var(--radius-pill) }
+  .w-btn--ghost{ background:transparent; color:var(--text); border-color:var(--field) }
+  /* For the rare label a sighted user does not need to see but a screen
+     reader must have — a compact search box, an icon-only control. Stays in
+     the tab order and the accessibility tree, unlike display:none. Prefer a
+     visible label over this one first; most fields in this library use one. */
+  .w-sr-only{
+    position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
+    clip-path:inset(50%); overflow:hidden; white-space:nowrap;
+  }
+  .w-skip{ position:absolute; left:-9999px }
+  .w-skip:focus{ left:12px; top:12px; z-index:99; background:var(--bg); padding:10px 14px }
+
+  /* ── คลังคำศัพท์การเคลื่อนไหว ─────────────────────────────────────────────
+     STANDARD.md ข้อ 4 สั่งว่า "ประกาศครั้งเดียว ใช้ซ้ำทุกที่ ชื่อคือสัญญา ไม่ใช่
+     การตกแต่ง" ที่นี่คือครั้งเดียวนั้น ส่วนที่เขียน animation:w-grow จึงแปลว่า
+     "นี่คือแท่งกราฟ" ไม่ใช่แค่ "ของที่ขยับ" และคนอ่านโค้ดรู้ทันทีว่าจะเห็นอะไร
+
+     คีย์เฟรมประกาศนอกด่าน prefers-reduced-motion ได้ เพราะคีย์เฟรมเปล่า ๆ ไม่
+     ทำให้อะไรขยับ สิ่งที่ต้องอยู่หลังด่านคือจุดที่ "เรียกใช้" ซึ่งอยู่ในไฟล์ของ
+     แต่ละส่วน แบบเดียวกับที่ backgrounds.html กับ dialog.html ทำอยู่แล้ว
+
+     w-rise ขยับ transform อย่างเดียว ไม่แตะ opacity โดยตั้งใจ — กับดักข้อแรกใน
+     STANDARD.md ข้อ 5 บันทึกไว้ว่าเข้าฉากที่เริ่มจาก opacity:0 ทำให้เฟรมแรกของ
+     หน้าว่าง และภาพย่อที่เรนเดอร์จากเฟรมแรกออกมาเป็นหน้าเปล่า */
+  @keyframes w-rise { from{ transform:translateY(14px) } }
+  /* ต้องเขียน to ให้ครบ ห้ามปล่อยให้เบราว์เซอร์เติมจากค่าเดิมของ element เอง:
+     ค่าเดิมของ clip-path คือ none ซึ่งคำนวณระหว่างทางกับ inset() ไม่ได้ ผลคือ
+     มันกระโดดจากปิดสนิทเป็นเปิดสนิทที่ครึ่งทาง ไม่ได้กวาด จับได้ตอนเปิดดูของ
+     จริงเท่านั้น เพราะเช็คจากโค้ดแล้วเห็นชื่อ w-wipe ติดอยู่ครบทุกที่ */
+  @keyframes w-wipe { from{ clip-path:inset(0 100% 0 0) }
+                      to  { clip-path:inset(0 0 0 0) } }
+  @keyframes w-lift { to  { transform:translateY(-3px) } }
+  @keyframes w-slide{ to  { transform:translateX(-50%) } }
+  @keyframes w-drift{ to  { transform:translate3d(4%,-3%,0) scale(1.12) } }
+  @keyframes w-sheen{ from{ background-position:-140% 0 } to{ background-position:240% 0 } }
+  /* งอกจากฐาน แกนไหนก็ได้: ตั้ง --grow-x / --grow-y ที่ตัวที่เรียกใช้ แล้วตั้ง
+     transform-origin ให้ตรงกับฐานจริงของแท่งนั้น ค่าเริ่มต้นคือแท่งแนวตั้ง
+     (--grow-y:0) เพราะเป็นทรงที่พบบ่อยกว่า ส่วนแท่งแนวนอนตั้ง --grow-x:0
+     --grow-y:1 ที่จะแยกเป็น w-grow-x ต่างหากก็ได้ แต่ข้อ 4 บอกว่าชื่อคือสัญญา
+     และสัญญาของคำนี้คือ "งอกจากฐาน" ซึ่งเป็นเรื่องเดียวกันทั้งสองแกน */
+  @keyframes w-grow { from{ transform:scale(var(--grow-x,1),var(--grow-y,0)) } }
+  @keyframes w-draw { from{ stroke-dashoffset:1000 } }   /* คู่กับ pathLength="1000" */
+  @keyframes w-spin { to  { transform:rotate(360deg) } }
+  @keyframes w-blink{ 50% { opacity:.25 } }
+
+  /* การ์ดที่ลอยขึ้นตอนชี้ ใช้ซ้ำได้ทุกส่วนด้วยการเติมคลาส `w-lift` ไม่ต้องเขียน
+     ซ้ำแปดไฟล์ สีขอบกับเงาเปลี่ยนนอกด่าน การขยับอยู่ในด่าน — คนที่ปิดการ
+     เคลื่อนไหวจึงยังได้ผลตอบกลับว่าชี้โดนอะไรอยู่ แค่ไม่มีอะไรกระโดด
+
+     ที่ต้องมีเงาด้วย ไม่ใช่แค่สีขอบ: การ์ดบางใบในคลังนี้ไม่มีขอบเลย (เช่นคนใน
+     team.html) ถ้าผลตอบกลับมีแต่ border-color ใบพวกนั้นจะไม่มีอะไรตอบเลยสำหรับ
+     คนที่ปิดการเคลื่อนไหว เงาทำงานได้ทั้งใบที่มีขอบและไม่มี */
+  .w-lift{ transition:border-color var(--t-hover) linear, box-shadow var(--t-hover) linear }
+  .w-lift:hover{ border-color:color-mix(in srgb,var(--accent) 42%,var(--line));
+                 box-shadow:var(--e2) }
+
+  /* แสงกวาดผ่านปุ่มหลักตอนชี้ ใช้ currentColor จึงถูกทั้งปุ่มทึบ (กวาดสว่างบนพื้น
+     เข้ม) และปุ่มโปร่ง (กวาดตามสีตัวหนังสือ) โดยไม่ต้องแยกกฎ เครื่องที่ไม่รู้จัก
+     color-mix จะทิ้งทั้ง background ทิ้งไป ปุ่มก็เหลือเป็นปุ่มปกติ ไม่ใช่จอดำ */
+  .w-btn{ position:relative; overflow:hidden; isolation:isolate }
+  .w-btn::after{ content:""; position:absolute; inset:0; z-index:-1; pointer-events:none;
+    background:linear-gradient(100deg, transparent 34%,
+      color-mix(in srgb,currentColor 24%,transparent) 50%, transparent 66%);
+    background-size:240% 100%; background-repeat:no-repeat; background-position:-140% 0 }
+
+  /* เข้าฉากตอนเลื่อนถึง เติมคลาส `w-reveal` ที่บล็อกไหนก็ได้
+     ใช้ animation-timeline:view() แทน IntersectionObserver + สคริปต์ เพราะ
+     ตำแหน่งของกล้องคือสิ่งที่เบราว์เซอร์รู้ดีอยู่แล้ว ไม่ต้องถามมันทีละเฟรม
+     สามด่านซ้อนกันตามที่ STANDARD.md ข้อ 2 สั่งไว้ว่าของใหม่ต้องมีทางลง:
+       1. prefers-reduced-motion — คนที่ปิดการเคลื่อนไหวไม่เจออะไรเลย
+       2. @supports (animation-timeline:view()) — เครื่องที่ไม่รองรับข้ามทั้งก้อน
+       3. ท่าที่ใช้คือ w-rise ซึ่งขยับ transform อย่างเดียว
+     สิ่งที่เหลือเมื่อทั้งสามด่านไม่ผ่านคือบล็อกที่มองเห็นครบตามปกติ ไม่ใช่ที่ว่าง
+     ซึ่งเป็นความต่างระหว่าง "ทางลง" กับ "ทางตัน" */
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      .w-reveal{ animation:w-rise linear both;
+                 animation-timeline:view(); animation-range:entry 8% cover 26% }
+    }
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    html{ scroll-behavior:smooth }
+    .w-lift{ transition:transform var(--t-hover) var(--ease-in),
+                        border-color var(--t-hover) linear,
+                        box-shadow var(--t-hover) linear }
+    .w-lift:hover{ transform:translateY(-3px); box-shadow:var(--e3) }
+    .w-btn:hover::after,.w-btn:focus-visible::after{ animation:w-sheen .7s var(--ease-wipe) }
+  }
+</style>
+</head>
+<body>
+<a class="w-skip" href="#main">ข้ามไปเนื้อหา</a>
+<!-- nav.html here -->
+
+<!-- Nav · ทิศทาง `gl` (กระจก) — แคปซูลลอยเหนือเนื้อหา
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี nav.html แล้ว
+     ───────────────────────────────────────────
+     `nav.html` เป็นแถบเต็มความกว้างที่ติดขอบบน มีเส้นคั่นใต้ตัวเอง และมีพื้น
+     ทึบ ซึ่งถูกสำหรับหน้าที่เนื้อหาเริ่มทันทีใต้แถบ — แถบคือ *ขอบ* ของหน้า
+
+     แต่ทรง `hero-product.html` มีพื้นบรรยากาศเต็มความกว้างอยู่ข้างหลัง
+     แถบทึบเต็มความกว้างจะตัดฟ้าออกเป็นสองท่อนตรงบรรทัดแรก ซึ่งเป็นสิ่งแรก
+     ที่คนเห็น แคปซูลลอยแก้ข้อนี้เพราะมันเป็น *ของที่วางอยู่บน* หน้า ไม่ใช่
+     ขอบของหน้า ฟ้าจึงต่อเนื่องผ่านใต้มันไป
+
+     เลือกจากคำถามเดียว: **ข้างหลังแถบมีอะไรที่ต้องมองทะลุไหม**
+     ถ้าไม่มี ใช้ `nav.html` เพราะเบากว่าและไม่ต้องมี `backdrop-filter`
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **`top:12px` ไม่ใช่ `top:0`** เพราะแคปซูลต้องมีอากาศรอบตัวถึงจะอ่านเป็น
+       ของที่ลอย ที่ 0 มันชนขอบจอแล้วกลับไปอ่านเป็นแถบ 12px คือระยะที่เล็ก
+       พอที่ไม่กินพื้นที่เหนือเส้นพับ และใหญ่พอให้เงา `--e3` (เบลอ 36px)
+       มีที่ให้ตกโดยไม่ถูกขอบจอตัด
+     · **ความกว้างสูงสุด 920px ไม่ใช่ `--maxw` 1120px** เพราะแคปซูลที่กว้าง
+       เท่าเนื้อหาจะอ่านเป็นแถบอีกครั้ง 920 คือจุดที่ยังเหลือขอบข้างละ 100px
+       ที่ 1120 ซึ่งเป็นระยะที่ตาแยกออกว่ามันแคบกว่าเนื้อหาข้างล่าง
+     · **`padding:8px 8px 8px 20px`** ไม่สมมาตรโดยตั้งใจ: ข้างขวามีปุ่มที่มี
+       พื้นของตัวเองอยู่แล้ว ระยะ 8px จึงพอ ส่วนข้างซ้ายเป็นตัวอักษรเปล่า
+       ต้องการ 20px ถึงจะดูห่างขอบเท่ากัน — เป็นระยะที่ตาเห็น ไม่ใช่ระยะที่วัด
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`position:sticky` บนตัว `<nav>` ที่อยู่ใน `<div>` ที่มี `overflow`** —
+        ไม่ติดหนึบเลย ไหลไปกับหน้า sticky ตายทันทีที่บรรพบุรุษตัวใดตัวหนึ่ง
+        มี overflow ที่ไม่ใช่ visible ที่นี่จึงวางแถบไว้นอก `<main>` ตรง ๆ
+     2. **เมนูมือถือใช้ `display:none` → `flex`** — transition ไม่ทำงานกับ
+        `display` ตรง ๆ ลองใช้ `max-height` แล้วต้องเดาความสูงล่วงหน้า เมนูที่
+        ยาวกว่าที่เดาจะถูกตัด ทางที่ใช้จริงคือ animation ที่เล่นตอน `:checked`
+        ซึ่งเริ่มหลัง display เปลี่ยนไปแล้ว จึงไม่ต้องรู้ความสูงเลย
+        (วิธีเดียวกับ `nav.html` — ท่า `w-navp-drop` ประกาศในไฟล์นี้เพราะใช้
+        ที่เดียว)
+     3. **ให้แผงเมนูมือถืออยู่ในแคปซูลเดียวกัน** — แคปซูลยืดสูงขึ้นเป็นกล่อง
+        มุมมนที่ไม่ใช่แคปซูลอีกต่อไป แยกออกมาเป็นแผ่นที่สองใต้แคปซูลแทน
+        ซึ่งเป็นสิ่งที่ทิศทาง `gl` ทำอยู่แล้ว — แผ่นโปร่งซ้อนกัน
+     4. **`backdrop-filter` โดยไม่มีพื้นสำรอง** — บนเอนจินที่ไม่รองรับ แคปซูล
+        กลายเป็นใส ตัวหนังสือทับฟ้าจนอ่านไม่ออก ตอนนี้พื้นเริ่มที่ 76% ทึบ
+        อยู่แล้ว แล้วค่อยเพิ่มความเบลอด้วย `@supports` -->
+<style>
+  .w-navp{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 13%,transparent);
+    position:sticky; top:12px; z-index:30; padding-top:12px;
+  }
+  .w-navp .bar{
+    display:flex; align-items:center; gap:clamp(10px,2vw,22px);
+    max-width:920px; margin-inline:auto;
+    padding:8px 8px 8px 20px; min-height:56px;
+    border:1px solid var(--gl-edge); border-radius:var(--radius-pill);
+    background:var(--gl-pane); box-shadow:var(--e3);
+  }
+  @supports (backdrop-filter:blur(4px)){
+    .w-navp .bar{ backdrop-filter:blur(14px) }
+  }
+  .w-navp .mark{ display:flex; align-items:center; gap:9px; text-decoration:none;
+                 font:700 17px/1 var(--sans); letter-spacing:-.02em; flex:none }
+  .w-navp .mark i{ width:22px; height:22px; border-radius:7px; flex:none;
+                   background:var(--accent) }
+  .w-navp ul{ display:flex; align-items:center; gap:clamp(6px,1.4vw,14px);
+              margin-inline:auto }
+  .w-navp ul a{ display:block; text-decoration:none; color:var(--muted);
+                font-size:15px; padding:8px 12px; border-radius:var(--radius-pill) }
+  .w-navp ul a:hover,.w-navp ul a[aria-current="page"]{
+    color:var(--text); background:color-mix(in srgb,var(--text) 7%,transparent) }
+  .w-navp .w-btn{ padding:11px 12px 11px 20px; font-size:15px; flex:none }
+  .w-navp .w-btn .badge{ display:inline-flex; align-items:center; justify-content:center;
+    width:24px; height:24px; border-radius:50%;
+    background:var(--accent-ink); color:var(--accent) }
+  .w-navp .w-btn .badge svg{ width:11px; height:11px }
+
+  /* ── เมนูมือถือ ไม่มีสคริปต์ ───────────────────────────────────────── */
+  .w-navp .toggle{ position:absolute; width:1px; height:1px; margin:-1px;
+                   clip-path:inset(50%); overflow:hidden }
+  .w-navp .burger{ display:none; cursor:pointer; flex:none;
+    width:40px; height:40px; border-radius:50%; background:var(--text);
+    align-items:center; justify-content:center; gap:4px; flex-direction:column }
+  .w-navp .burger i{ width:15px; height:2px; border-radius:2px; background:var(--bg) }
+  .w-navp .toggle:focus-visible ~ .bar .burger{
+    outline:2px solid var(--accent); outline-offset:3px }
+  /* แผงเมนูเป็นแผ่นที่สอง ใต้แคปซูล ไม่ได้ยืดแคปซูลให้สูงขึ้น — ดูข้อ 3 */
+  .w-navp .drop{ display:none; max-width:920px; margin:8px auto 0; padding:10px;
+    border:1px solid var(--gl-edge); border-radius:var(--radius);
+    background:var(--gl-pane); box-shadow:var(--e3) }
+  @supports (backdrop-filter:blur(4px)){ .w-navp .drop{ backdrop-filter:blur(14px) } }
+  .w-navp .drop ul{ display:grid; gap:2px; margin:0 }
+  .w-navp .drop a{ padding:12px 14px; font-size:16px; border-radius:var(--radius-sm) }
+  .w-navp .toggle:checked ~ .drop{ display:block }
+
+  @media (max-width:860px){
+    .w-navp .bar > ul{ display:none }
+    .w-navp .bar .w-btn{ display:none }
+    .w-navp .burger{ display:flex }
+    .w-navp .mark{ margin-inline-end:auto }
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-navp ul a{ transition:background var(--t-hover) linear, color var(--t-hover) linear }
+    .w-navp .toggle:checked ~ .drop{ animation:w-navp-drop .3s var(--ease-in) }
+    /* เงาเข้มขึ้นตามระยะที่เลื่อน ผูกกับ animation-timeline:scroll() ไม่ใช่
+       scroll listener แคปซูลที่ลอยอยู่บนเนื้อหาโดยเงาไม่เปลี่ยนเลยจะดูเหมือน
+       ติดอยู่กับหน้า ไม่ใช่ลอยอยู่เหนือมัน 140px แรกคือระยะที่หัวเรื่องแรก
+       เริ่มลอดใต้แคปซูลพอดีที่ 900px */
+    @supports (animation-timeline:scroll()){
+      .w-navp .bar{ animation-name:w-navp-raise; animation-timing-function:linear;
+        animation-fill-mode:both;
+        animation-timeline:scroll(); animation-range:0 140px }
+    }
+  }
+  @keyframes w-navp-drop{ from{ transform:translateY(-8px) } }
+  @keyframes w-navp-raise{ to{ box-shadow:var(--e4) } }
+</style>
+
+<div class="w-navp">
+  <div class="w-wrap">
+    <input class="toggle" type="checkbox" id="w-navp-open" aria-label="เปิดเมนู">
+    <nav class="bar" aria-label="หลัก">
+      <a class="mark" href="#"><i></i>แบรนด์</a>
+      <ul>
+        <li><a href="#work">ผลงาน</a></li>
+        <li><a href="#experience">ที่ผ่านมา</a></li>
+        <li><a href="#stack">เครื่องมือ</a></li>
+        <li><a href="#faq">คำถามที่พบบ่อย</a></li>
+      </ul>
+      <a class="w-btn" href="#cta">คุยเรื่องงาน<span class="badge"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h9M8.5 4.2 12.6 8l-4.1 3.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+      <label class="burger" for="w-navp-open"><i></i><i></i></label>
+    </nav>
+    <div class="drop">
+      <ul>
+        <li><a href="#work">ผลงาน</a></li>
+        <li><a href="#experience">ที่ผ่านมา</a></li>
+        <li><a href="#stack">เครื่องมือ</a></li>
+        <li><a href="#faq">คำถามที่พบบ่อย</a></li>
+        <li><a href="#cta">คุยเรื่องงาน</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<main id="main">
+<!-- Hero · ทิศทาง `st` (สตูดิโอ) — ตัวอักษรคือทั้งหมด
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี hero อีกสามทรงแล้ว
+     ────────────────────────────────────────────────
+     `hero.html` (`ed`) ข้อความนำแต่ยังมีที่ให้ภาพต่อท้าย ·
+     `hero-product.html` (`gl`) ผลิตภัณฑ์คือของชิ้นใหญ่ ·
+     `hero-photo.html` (`wm`) ภาพคือทั้งหมด
+
+     ทรงนี้คือปลายอีกด้าน: **ไม่มีภาพเลย และตั้งใจไม่มี** เพราะงานของสตูดิโอ
+     คือสิ่งที่จะโชว์ในส่วนผลงานข้างล่าง การเอาผลงานชิ้นใดชิ้นหนึ่งมาไว้บน
+     hero คือการเลือกให้คนดูว่าชิ้นไหนสำคัญที่สุด ซึ่งเป็นสิ่งที่สตูดิโอส่วน
+     ใหญ่ไม่อยากทำ และการเอาภาพสต็อกมาใส่คือการบอกว่าเราไม่มีงานของตัวเอง
+
+     สิ่งที่แบกน้ำหนักแทนภาพคือ **ขนาด** — ตัวอักษรที่ใหญ่พอจะเป็นรูปทรง
+     ไม่ใช่แค่ข้อความ นั่นคือเหตุผลที่ทิศทางนี้มีเชลล์ของตัวเอง
+     (`page-shell-studio.html`) ที่พาเลตต์เป็นขาว–ดำล้วน: ถ้ามีสีที่สาม
+     ตาจะไปหาสีนั้นแทนที่จะอ่านรูปทรงของตัวอักษร
+
+     ค่าที่วัดมา ไม่ใช่กะเอา
+     ─────────────────────
+     · **`clamp(44px,11vw,148px)`** — 11vw ไม่ใช่ 8 หรือ 14 เพราะที่ความกว้าง
+       1280px ต้องได้ประมาณ 141px ซึ่งเป็นขนาดที่คำว่า "ออกแบบ" (6 ตัวอักษร)
+       กินความกว้างราว 560px = 44% ของจอ ต่ำกว่านั้นมันไม่ได้อ่านเป็นรูปทรง
+       สูงกว่านั้นคำสองพยางค์ก็ตัดบรรทัดแล้ว
+     · **ช่องไฟ `--st-display-track` = −.04em ใช้ได้เพราะขนาดเกิน 48px**
+       เชลล์บันทึกไว้ว่าต่ำกว่านั้นสระบนของไทยเริ่มชนตัวถัดไป: ที่ 40px
+       ระยะระหว่างตัวเหลือ 1.1px · ที่ 64px เหลือ 2.6px
+       บรรทัดรองในไฟล์นี้จึงใช้ `--st-body-track` (−.005em) ไม่ใช่ค่าเดียวกัน
+     · **แถบวิ่งความเร็ว 62px/วินาที** ช้ากว่า `client-band.html` (70px/s)
+       เพราะที่นี่เป็นประโยคที่ต้องอ่านให้จบ ไม่ใช่ชื่อที่กวาดตาผ่าน
+       ที่ 34 วินาทีต่อรอบสำหรับรางยาว 2 เท่าของจอ 1280px ได้ 75px/s
+       จึงยืดเป็น 42 วินาที
+     · **`line-height:.98`** ไม่ใช่ .92 แบบที่หัวเรื่องภาษาอังกฤษขนาดนี้ใช้กัน
+       เปิดดูของจริงที่ 148px แล้ววัด: ที่ .92 ไม้โทของบรรทัดล่าง ("ให้") ขึ้นไป
+       เหลือระยะจากฐานของบรรทัดบน ("แล้วสร้าง") แค่ 3px ซึ่งยังไม่ชน แต่ตา
+       อ่านว่าชนแล้ว ที่ .98 ได้ 11px ซึ่งเป็นระยะที่ยังแน่นแบบทิศทางนี้ต้องการ
+       แต่แยกสองบรรทัดออกจากกันได้
+       **ถ้าบรรทัดใดมีสระล่าง (ุ ู) และมีบรรทัดถัดไป ต้องขึ้นเป็น 1.06**
+       เพราะหางสระกินลงไปอีก 8px ที่ขนาดนี้ — ตรวจด้วยตาทุกครั้งที่เปลี่ยนคำ
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`font-size:11vw` ล้วน ไม่มี clamp** — บนจอ 2560px ได้ตัวอักษร 281px
+        ซึ่งคำเดียวกินทั้งจอ และบนมือถือ 360px ได้ 39px ซึ่งเล็กกว่าหัวเรื่อง
+        ปกติ ทั้งสองปลายพัง `clamp` จำเป็น ไม่ใช่ทางเลือก
+     2. **เข้าฉากทีละตัวอักษรด้วย `<span>` ต่อตัว** — โปรแกรมอ่านหน้าจอ
+        อ่านทีละตัวอักษรเป็นคำละคำ ซึ่งฟังไม่รู้เรื่องเลย
+        `sections/split-text.html` แก้ปัญหานี้ไว้แล้วด้วยการเก็บข้อความจริงไว้
+        ครบและซ่อนตัวที่แยก ถ้าอยากได้ท่านั้นให้ใช้ไฟล์นั้น ที่นี่จึงเข้าฉาก
+        ทีละ *บรรทัด* ซึ่งไม่ต้องแยกอะไรเลย
+     3. **แถบวิ่งกับหัวเรื่องอยู่ในกล่องเดียวกันที่มี `overflow:hidden`** —
+        เงาของปุ่มถูกตัด และ `w-reveal` ของส่วนถัดไปตาย (กล่องกลายเป็น
+        scroll container) ตอนนี้แถบวิ่งมีกล่องตัดของตัวเองที่เป็นพี่น้อง
+     4. **ตัวอักษรเอียงใช้ `font-style:italic` บนสแตกที่ไม่มีตัวเอียงจริง** —
+        เครื่องสังเคราะห์การเอียงด้วยการเฉือน (oblique) ซึ่งกับตัวไทยได้
+        ผลที่อ่านยากมากเพราะหัวตัวอักษรบิด ที่นี่เน้นด้วยน้ำหนักกับขนาดแทน -->
+<style>
+  .w-ht{ position:relative; padding-block:clamp(56px,10vw,120px) clamp(28px,4vw,48px) }
+
+  .w-ht .kicker{ display:flex; align-items:center; gap:12px;
+                 color:var(--muted); font-size:14px; margin-bottom:clamp(24px,4vw,44px) }
+  .w-ht .kicker i{ width:7px; height:7px; border-radius:50%; background:var(--accent);
+                   flex:none }
+  .w-ht .kicker span{ margin-inline-start:auto; text-align:end; max-width:34ch;
+                      line-height:1.6 }
+
+  .w-ht h1{ font-size:clamp(44px,11vw,148px); line-height:.98;
+            letter-spacing:var(--st-display-track,-.04em);
+            font-weight:600; text-transform:none; margin:0 }
+  .w-ht h1 .l{ display:block }
+  .w-ht h1 .thin{ font-weight:300; color:var(--muted) }
+
+  .w-ht .under{ display:flex; flex-wrap:wrap; align-items:flex-end;
+                gap:clamp(18px,3vw,40px); margin-top:clamp(28px,4vw,48px);
+                padding-top:clamp(22px,3vw,32px); border-top:1px solid var(--line) }
+  .w-ht .under p{ flex:1 1 340px; color:var(--muted);
+                  font-size:clamp(16px,1.7vw,19px); line-height:1.7;
+                  letter-spacing:var(--st-body-track,-.005em); max-width:52ch }
+  .w-ht .under .acts{ display:flex; flex-wrap:wrap; gap:12px }
+
+  /* ── แถบวิ่ง กล่องตัดของตัวเอง เป็นพี่น้องของ .w-wrap — ดูเหตุผลข้อ 3 ── */
+  .w-ht .band{ margin-top:clamp(36px,6vw,72px);
+               border-block:1px solid var(--line); overflow:hidden;
+               padding-block:clamp(14px,2vw,22px) }
+  .w-ht .band .track{ display:flex; width:max-content; align-items:center }
+  .w-ht .band .track > span{ flex:none; padding-inline:clamp(16px,2.4vw,30px);
+    font-size:clamp(18px,2.4vw,30px); font-weight:500;
+    letter-spacing:var(--st-body-track,-.005em); white-space:nowrap }
+  .w-ht .band .track > span.dot{ color:var(--muted); padding-inline:0 }
+  /* สถานะพัก: แถบพับเป็นแถวธรรมดาที่อ่านได้ครบ ไม่ใช่แถบที่ถูกตัดครึ่ง */
+  .w-ht .band .track{ flex-wrap:wrap; width:auto; justify-content:center;
+                      row-gap:6px }
+  .w-ht .band .dup{ display:none }
+
+  .w-ht .cue{ display:flex; align-items:center; gap:10px; margin-top:clamp(22px,3vw,32px);
+              color:var(--muted); font-size:13px }
+  .w-ht .cue svg{ width:16px; height:16px }
+
+  @media (prefers-reduced-motion:no-preference){
+    /* เข้าฉากทีละบรรทัด ไม่ใช่ทีละตัวอักษร — ดูเหตุผลข้อ 2 */
+    .w-ht h1 .l{ animation:w-rise var(--t-enter) var(--ease-in) both }
+    .w-ht h1 .l:nth-child(2){ animation-delay:calc(var(--t-stagger)*1) }
+    .w-ht h1 .l:nth-child(3){ animation-delay:calc(var(--t-stagger)*2) }
+    .w-ht .under{ animation:w-rise var(--t-enter) var(--ease-in) both;
+                  animation-delay:calc(var(--t-stagger)*3) }
+    .w-ht .band .track{ flex-wrap:nowrap; width:max-content;
+                        justify-content:flex-start;
+                        animation:w-slide 42s linear infinite }
+    .w-ht .band .dup{ display:inline }
+    .w-ht .band:hover .track,
+    .w-ht .band:focus-within .track{ animation-play-state:paused }
+    .w-ht .cue svg{ animation:w-ht-nudge 2.4s var(--ease-in) infinite }
+  }
+  @keyframes w-ht-nudge{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(4px) } }
+</style>
+
+<section class="w-section w-ht">
+  <div class="w-wrap">
+    <p class="kicker"><i></i>สตูดิโอออกแบบและพัฒนา · เชียงใหม่ และกรุงเทพฯ
+      <span>รับงานปีละไม่เกินแปดโปรเจกต์ เพื่อให้ทุกงานได้คนเดิมตั้งแต่ต้นจนจบ</span></p>
+
+    <h1>
+      <span class="l">ออกแบบ</span>
+      <span class="l">แล้วสร้าง</span>
+      <span class="l thin">ให้มันอยู่ได้จริง</span>
+    </h1>
+
+    <div class="under">
+      <p>เราทำงานกับแบรนด์ที่รู้ว่าตัวเองจะพูดอะไร แต่ยังไม่รู้ว่าจะพูดยังไงให้คนฟัง งานส่วนใหญ่ของเราเริ่มจากการตัดของที่ไม่จำเป็นออก ไม่ใช่การเพิ่มของใหม่</p>
+      <div class="acts">
+        <a class="w-btn" href="#contact">คุยเรื่องงาน</a>
+        <a class="w-btn w-btn--ghost" href="#work">ดูผลงาน</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="band" aria-label="สิ่งที่เราทำ">
+    <div class="track">
+      <span>อัตลักษณ์แบรนด์</span><span class="dot">·</span>
+      <span>ออกแบบส่วนติดต่อ</span><span class="dot">·</span>
+      <span>เว็บและแอป</span><span class="dot">·</span>
+      <span>ระบบดีไซน์</span><span class="dot">·</span>
+      <span>ภาพเคลื่อนไหว</span><span class="dot">·</span>
+      <!-- ชุดที่สอง สำเนาเป๊ะ เพื่อให้ −50% ต่อเนียน ซ่อนจากโปรแกรมอ่านหน้าจอ -->
+      <span class="dup" aria-hidden="true">อัตลักษณ์แบรนด์</span><span class="dup dot" aria-hidden="true">·</span>
+      <span class="dup" aria-hidden="true">ออกแบบส่วนติดต่อ</span><span class="dup dot" aria-hidden="true">·</span>
+      <span class="dup" aria-hidden="true">เว็บและแอป</span><span class="dup dot" aria-hidden="true">·</span>
+      <span class="dup" aria-hidden="true">ระบบดีไซน์</span><span class="dup dot" aria-hidden="true">·</span>
+      <span class="dup" aria-hidden="true">ภาพเคลื่อนไหว</span><span class="dup dot" aria-hidden="true">·</span>
+    </div>
+  </div>
+
+  <div class="w-wrap">
+    <p class="cue"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.6v10.8M4.4 9.8 8 13.4l3.6-3.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>เลื่อนดูงานที่ทำเสร็จแล้วปีนี้</p>
+  </div>
+</section>
+
+<!-- Projects · ทิศทาง `st` (สตูดิโอ) — ผลงาน ที่บอกด้วยว่าทำอะไรกับมัน
+
+     ทำไมชิ้นนี้ถึงมีอยู่
+     ────────────────────
+     คลังนี้มี `media-grid.html` (ภาพย่อขนาดเท่ากันพร้อมป้ายชนิด) กับ
+     `gallery-mosaic.html` (อัลบั้มของสถานที่) และ `article-index.html`
+     (รายการบทความ) แต่ไม่มีของสำหรับ **ผลงานที่ต้องอธิบายว่าทำอะไรให้ใคร**
+
+     ความต่างที่สำคัญ: อัลบั้มกับกริดสื่อวางภาพให้ดู ส่วนผลงานของสตูดิโอ
+     ต้องพก **สามอย่างที่ภาพบอกไม่ได้** ไปด้วยเสมอ — ลูกค้าคือใคร · เราทำ
+     ส่วนไหน · ผลเป็นยังไง ผลงานที่มีแต่ภาพสวยกับชื่อโปรเจกต์คือพอร์ตที่
+     ตอบคำถาม "จ้างคุณแล้วได้อะไร" ไม่ได้เลย
+
+     ที่ตัดทิ้งโดยตั้งใจคือ **รางวัลลอย ๆ บนภาพ** แบบที่เจ้าอื่นชอบทำ
+     (ป้าย "เวทีรางวัลเว็บ ตัวอย่าง ก. SOTD" ทับมุมภาพ) เพราะมันแย่งที่กับข้อมูลสามอย่างข้างบน
+     รางวัลมีที่ของมันแล้วใน `awards-list.html` ซึ่งอ่านได้เร็วกว่าเพราะ
+     อยู่รวมกันเป็นรายการ
+
+     ค่าที่วัดมา
+     ───────────
+     · **สามชิ้น: ชิ้นแรกเต็มความกว้าง อีกสองชิ้นแบ่งครึ่ง** กริดสองคอลัมน์
+       ช่องรวม 2 + 1 + 1 = 4 = สองแถวเต็มพอดี ไม่มีเศษ
+       (บทเรียนจาก `use-cases.html`: นับช่อง ไม่ใช่นับใบ)
+     · **ชิ้นแรกภาพ `16/9` อีกสองชิ้น `4/3`** เพราะชิ้นแรกกว้างเป็นสองเท่า
+       ถ้าใช้สัดส่วนเดียวกันมันจะสูงเป็นสองเท่าด้วย แล้วกินทั้งจอ
+     · **ปีอยู่คู่กับชื่อลูกค้า ไม่ใช่คู่กับชื่อโปรเจกต์** เพราะสิ่งที่คนอยาก
+       รู้คือ "งานนี้เก่าแค่ไหน" ซึ่งเป็นข้อมูลของความสัมพันธ์ ไม่ใช่ของงาน
+     · **บรรทัดผลลัพธ์บังคับให้เป็นตัวเลข** ถ้าไม่มีตัวเลขจริง ให้เขียนว่า
+       ทำอะไรเสร็จแทน ("ย้ายจากเวิร์ดเพรสมาเป็นระบบของตัวเอง") ห้ามเขียน
+       คำคุณศัพท์ — `STANDARD.md` ข้อ 8 ห้ามตัวเลขที่ไม่มีที่มา และคำอย่าง
+       "ประสบความสำเร็จอย่างสูง" คือตัวเลขที่ไม่มีที่มาในรูปคำพูด
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ทั้งการ์ดเป็น `<a>` ที่ครอบภาพ ชื่อ แท็ก และผลลัพธ์** — โปรแกรม
+        อ่านหน้าจออ่านทั้งก้อนเป็นชื่อลิงก์เดียวยาวสามบรรทัด ตอนนี้ลิงก์อยู่ที่
+        ชื่อโปรเจกต์อย่างเดียว แล้วใช้ `::after` ที่ลิงก์ขยายพื้นที่กดให้ครอบ
+        ทั้งการ์ด ซึ่งได้พื้นที่กดเท่ากันแต่ชื่อลิงก์ยังสั้น
+     2. **`overflow:hidden` ที่การ์ดเพื่อครอบภาพ** — ทำให้ `::after` ที่ขยาย
+        พื้นที่กดถูกตัด และฆ่า `animation-timeline:view()` ของลูก ตอนนี้ตัดที่
+        `<figure>` ซึ่งเป็นลูก ไม่ใช่ที่การ์ด
+     3. **แท็กเป็น `<a>` ทุกอัน** — ต้องมีหน้ารวมตามแท็กจริง ๆ ทุกคำ ซึ่ง
+        เทมเพลตไม่มี ตอนนี้เป็นข้อความล้วน -->
+<style>
+  .w-pg .head{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:var(--gap) }
+  .w-pg .head > div:first-child{ flex:1 1 340px }
+  .w-pg h2{ font-size:clamp(30px,5vw,72px); line-height:1.02;
+            letter-spacing:var(--st-display-track,-.04em); font-weight:600;
+            max-width:12ch }
+  .w-pg .w-lede{ margin-top:16px; letter-spacing:var(--st-body-track,-.005em) }
+
+  .w-pg .grid{ display:grid; gap:clamp(24px,4vw,48px);
+               margin-top:clamp(28px,4vw,48px) }
+  @media (min-width:880px){
+    /* 2 + 1 + 1 = 4 ช่อง สองแถวเต็มพอดี — ดูเหตุผลในหัวไฟล์ */
+    .w-pg .grid{ grid-template-columns:repeat(2,1fr) }
+    .w-pg .p--lead{ grid-column:1 / -1 }
+  }
+
+  .w-pg article{ position:relative; display:flex; flex-direction:column; gap:16px }
+  /* ตัดที่ figure ไม่ใช่ที่ article — ดูเหตุผลข้อ 2 */
+  .w-pg figure{ margin:0; overflow:hidden; border-radius:var(--radius);
+                background:var(--surface) }
+  .w-pg img{ display:block; width:100%; aspect-ratio:4/3; object-fit:cover }
+  .w-pg .p--lead img{ aspect-ratio:16/9 }
+
+  .w-pg .meta{ display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 12px;
+               color:var(--muted); font-size:13px }
+  .w-pg .meta .yr{ font:600 13px/1 var(--mono) }
+  .w-pg .meta .dot{ opacity:.5 }
+
+  .w-pg h3{ font-size:clamp(22px,2.8vw,34px); line-height:1.2;
+            letter-spacing:var(--st-display-track,-.04em); font-weight:500 }
+  .w-pg h3 a{ text-decoration:none; color:inherit }
+  /* ขยายพื้นที่กดให้ครอบทั้งการ์ด โดยที่ชื่อลิงก์ยังสั้น — ดูเหตุผลข้อ 1 */
+  .w-pg h3 a::after{ content:""; position:absolute; inset:0; z-index:1 }
+  .w-pg h3 a:hover{ text-decoration:underline; text-underline-offset:5px }
+
+  .w-pg .did{ display:flex; flex-wrap:wrap; gap:6px 8px }
+  .w-pg .did span{ font:500 12px/1 var(--sans); color:var(--muted);
+                   border:1px solid var(--line); border-radius:var(--radius-pill);
+                   padding:6px 11px }
+  .w-pg .out{ display:grid; grid-template-columns:auto 1fr; gap:10px;
+              align-items:start; padding-top:14px; border-top:1px solid var(--line);
+              font-size:15px; line-height:1.6 }
+  .w-pg .out b{ font:700 15px/1.6 var(--mono); white-space:nowrap }
+  .w-pg .out span{ color:var(--muted) }
+
+  .w-pg .foot{ display:flex; flex-wrap:wrap; align-items:center; gap:14px;
+               margin-top:clamp(26px,3.4vw,38px) }
+  .w-pg .foot p{ flex:1 1 300px; color:var(--muted); font-size:14px }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-pg img{ transition:transform .55s var(--ease-in) }
+    .w-pg article:hover img{ transform:scale(1.035) }
+    @supports (animation-timeline:view()){
+      .w-pg article{ animation-name:w-rise; animation-timing-function:linear;
+                     animation-fill-mode:both; animation-timeline:view();
+                     animation-range:entry 6% cover 24% }
+    }
+  }
+</style>
+
+<section class="w-section w-pg" id="work">
+  <div class="w-wrap">
+    <div class="head">
+      <div>
+        <p class="w-eyebrow">ผลงาน</p>
+        <h2>สามงานล่าสุด ที่เล่าได้ทั้งเรื่อง</h2>
+      </div>
+      <p class="w-lede" style="flex:1 1 320px">งานที่เหลือส่วนใหญ่อยู่ภายใต้สัญญาที่พูดถึงไม่ได้ ถ้าอยากดูขอนัดคุยแล้วเราเปิดให้ดูได้</p>
+    </div>
+
+    <div class="grid">
+      <article class="p--lead">
+        <figure><img src="imgs/work-1.jpg" alt="หน้าแรกของแพลตฟอร์มข่าวหลังทำใหม่ แสดงบนจอคอมพิวเตอร์และมือถือ"
+                     width="1600" height="900" loading="lazy" decoding="async"></figure>
+        <div class="meta"><span>สำนักข่าวออนไลน์</span><span class="dot">·</span><span class="yr">2569</span><span class="dot">·</span><span>ใช้เวลา 11 สัปดาห์</span></div>
+        <h3><a href="#">รื้อระบบเนื้อหาที่โตเกินเครื่องมือเดิม</a></h3>
+        <div class="did"><span>อัตลักษณ์</span><span>ระบบดีไซน์</span><span>ฟรอนต์เอนด์</span><span>ย้ายเนื้อหา</span></div>
+        <p class="out"><b>−63%</b><span>เวลาโหลดหน้าบทความบนมือถือ จาก 4.1 วินาที เหลือ 1.5 วินาที · ย้ายบทความเก่า 41,000 ชิ้นโดยลิงก์เดิมยังใช้ได้ทุกอัน</span></p>
+      </article>
+
+      <article>
+        <figure><img src="imgs/work-2.jpg" alt="ชุดอัตลักษณ์ของแบรนด์เครื่องดื่ม บนบรรจุภัณฑ์และป้ายร้าน"
+                     width="1200" height="900" loading="lazy" decoding="async"></figure>
+        <div class="meta"><span>แบรนด์เครื่องดื่ม</span><span class="dot">·</span><span class="yr">2568</span></div>
+        <h3><a href="#">อัตลักษณ์ใหม่ที่พิมพ์บนแก้วได้จริง</a></h3>
+        <div class="did"><span>อัตลักษณ์</span><span>บรรจุภัณฑ์</span><span>คู่มือแบรนด์</span></div>
+        <p class="out"><b>24 หน้า</b><span>คู่มือที่ทีมการตลาดใช้ต่อเองได้ · ไม่มีคำขอแก้ไฟล์กลับมาที่เราเลยใน 9 เดือนแรก</span></p>
+      </article>
+
+      <article>
+        <figure><img src="imgs/work-3.jpg" alt="แดชบอร์ดจัดการคำสั่งซื้อของระบบหลังบ้าน"
+                     width="1200" height="900" loading="lazy" decoding="async"></figure>
+        <div class="meta"><span>ผู้ผลิตอาหารส่งออก</span><span class="dot">·</span><span class="yr">2568</span></div>
+        <h3><a href="#">ระบบหลังบ้านที่พนักงานคลังใช้ได้โดยไม่ต้องอบรม</a></h3>
+        <div class="did"><span>วิจัยผู้ใช้</span><span>ออกแบบส่วนติดต่อ</span><span>ระบบดีไซน์</span></div>
+        <p class="out"><b>2 วัน → 40 นาที</b><span>เวลาสอนพนักงานใหม่ให้ใช้ระบบเป็น วัดจากรอบการรับพนักงานสองรอบหลังเปลี่ยนระบบ</span></p>
+      </article>
+    </div>
+
+    <div class="foot">
+      <p>ตัวเลขทุกตัวมาจากลูกค้าเป็นคนวัดเอง เราขออนุญาตก่อนเอามาลงทุกครั้ง</p>
+      <a class="w-btn w-btn--ghost" href="#contact">ขอดูงานที่เหลือ</a>
+    </div>
+  </div>
+</section>
+
+<!-- Experience · ทิศทาง `st` (สตูดิโอ) — ไทม์ไลน์ที่บอกว่าทำอะไรเสร็จ
+
+     ทำไมชิ้นนี้ถึงมีอยู่
+     ────────────────────
+     คลังนี้มี `how-it-works.html` กับ `steps-cards.html` ซึ่งเป็น **ลำดับ
+     ของสิ่งที่ผู้ใช้จะทำ** และมี `article-index.html` ซึ่งเป็นรายการเรียงตาม
+     วันที่ แต่ไม่มีของสำหรับ **ประวัติของคน** ซึ่งเป็นส่วนที่พอร์ตโฟลิโอ
+     เกือบทุกอันต้องมี
+
+     ความต่างที่ทำให้มันเป็นคนละชิ้น: ไทม์ไลน์ประวัติเรียง **ใหม่ไปเก่า**
+     (ตรงข้ามกับขั้นตอน) และแต่ละแถวไม่ได้ต่อเนื่องกันเป็นเหตุเป็นผล
+     มันคือรายการที่คนกวาดหาชื่อบริษัทที่ตัวเองรู้จัก แล้วค่อยหยุดอ่าน
+
+     กฎการเขียนข้อเดียว: **แต่ละแถวต้องบอกว่าทำอะไรเสร็จ ไม่ใช่รับผิดชอบ
+     อะไร** "ดูแลทีมออกแบบ" ไม่บอกอะไรเลย "ตั้งทีมออกแบบจากศูนย์เป็นห้าคน
+     ใน 14 เดือน" บอก ประวัติที่เขียนด้วยคำว่า "รับผิดชอบ" คือประวัติที่
+     เขียนจากใบพรรณนางาน ไม่ได้เขียนจากสิ่งที่เกิดขึ้นจริง
+
+     ค่าที่วัดมา
+     ───────────
+     · **คอลัมน์ปีกว้างคงที่ `7.5rem`** ไม่ใช่ `auto` เพราะช่วงปีอย่าง
+       "2564–2567" กับ "2568–ปัจจุบัน" ยาวไม่เท่ากัน ถ้าปล่อย auto
+       คอลัมน์ชื่อจะเยื้องคนละที่ทุกแถว ซึ่งทำลายเส้นแนวตั้งที่เป็นสิ่งเดียว
+       ที่ทำให้มันอ่านเป็นไทม์ไลน์
+     · **เส้นแนวตั้งอยู่ที่ `::before` ของ `<li>` ไม่ใช่ border ของ `<ol>`**
+       เพราะเส้นต้องหยุดที่แถวสุดท้ายพอดี ไม่ใช่ลากเลยลงไปใต้ข้อความ
+       แถวสุดท้ายจึงตัดเส้นของตัวเองด้วย `height:50%`
+     · **จุดบนเส้นอยู่กึ่งกลางบรรทัดแรกของหัวข้อ ไม่ใช่ขอบบนของแถว**
+       (`top:calc(.5lh + var(--pt))`) เพราะตาผูกจุดเข้ากับตัวอักษร ไม่ได้ผูก
+       เข้ากับกล่อง หน่วย `lh` มีทางลงเป็น `em` สำหรับเอนจินที่ยังไม่รองรับ
+     · **สูงสุดห้าแถว** เกินกว่านั้นให้ตัดของเก่าทิ้ง ประวัติที่ยาวสิบแถว
+       บอกว่าคนเขียนตัดสินใจแทนคนอ่านไม่ได้
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ใช้หน่วย `lh` โดยไม่มีทางลง** — เอนจินที่ยังไม่รองรับทิ้งทั้งกฎ
+        `top` แล้วจุดไปกองที่ขอบบนของแถว ตอนนี้เขียน `em` ก่อนแล้วยกระดับ
+        ด้วย `@supports (top:1lh)` — สำนวนเดียวกับที่ `STANDARD.md` ข้อ 5
+        บันทึกไว้เรื่อง `100svh` ใน `clamp()`
+     2. **`grid-template-columns:auto 1fr` แล้วให้ปีเป็นคอลัมน์แรก** —
+        ดูข้อความข้างบน คอลัมน์เยื้องคนละที่ทุกแถว
+     3. **เอาโลโก้บริษัทมาใส่** — ผิดเรื่องเครื่องหมายการค้า และในทิศทางที่
+        ทั้งหน้ามีสองสี โลโก้ห้าอันที่มีสีของตัวเองจะเป็นของชิ้นเดียวในหน้า
+        ที่มีสี ซึ่งดึงความสนใจไปจากสิ่งที่ควรอ่าน -->
+<style>
+  .w-ex .head{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:var(--gap) }
+  .w-ex .head > div:first-child{ flex:1 1 320px }
+  .w-ex h2{ font-size:clamp(30px,5vw,72px); line-height:1.02;
+            letter-spacing:var(--st-display-track,-.04em); font-weight:600;
+            max-width:12ch }
+  .w-ex .w-lede{ margin-top:16px; letter-spacing:var(--st-body-track,-.005em) }
+
+  .w-ex ol{ margin-top:clamp(28px,4vw,48px) }
+  .w-ex li{ --pt:clamp(18px,2.4vw,26px);
+            position:relative; display:grid; gap:4px clamp(16px,2.6vw,32px);
+            padding:var(--pt) 0 var(--pt) 34px }
+  @media (min-width:720px){
+    /* ปีกว้างคงที่ ไม่ใช่ auto — ดูเหตุผลในหัวไฟล์ */
+    .w-ex li{ grid-template-columns:7.5rem minmax(0,1fr) }
+  }
+  /* เส้นแนวตั้งเป็นของแต่ละแถว แถวสุดท้ายตัดเส้นของตัวเองครึ่งหนึ่ง */
+  .w-ex li::before{ content:""; position:absolute; left:5px; top:0; bottom:0;
+                    width:1px; background:var(--line) }
+  .w-ex li:last-child::before{ height:calc(var(--pt) + 1em) ; bottom:auto }
+  .w-ex li::after{ content:""; position:absolute; left:0; width:11px; height:11px;
+                   border-radius:50%; background:var(--accent);
+                   top:calc(var(--pt) + .62em) }
+  @supports (top:1lh){
+    .w-ex li::after{ top:calc(var(--pt) + .5lh - 5px) }
+    .w-ex li:last-child::before{ height:calc(var(--pt) + .5lh) }
+  }
+
+  .w-ex .yr{ font:600 14px/1.7 var(--mono); color:var(--muted); white-space:nowrap }
+  .w-ex h3{ font-size:clamp(18px,2.2vw,24px); line-height:1.35;
+            letter-spacing:var(--st-display-track,-.04em); font-weight:500 }
+  .w-ex .org{ color:var(--muted); font-size:15px; margin-top:2px }
+  .w-ex .did{ margin-top:12px; display:grid; gap:8px }
+  .w-ex .did li{ display:grid; grid-template-columns:auto 1fr; gap:10px;
+                 padding:0; align-items:start; color:var(--muted);
+                 font-size:15px; line-height:1.65 }
+  .w-ex .did li::before,.w-ex .did li::after{ content:none }
+  .w-ex .did li b{ color:var(--text); font:700 15px/1.65 var(--mono);
+                   white-space:nowrap }
+
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      .w-ex > .w-wrap > ol > li{ animation-name:w-rise;
+        animation-timing-function:linear; animation-fill-mode:both;
+        animation-timeline:view(); animation-range:entry 5% cover 20% }
+    }
+  }
+</style>
+
+<section class="w-section w-ex" id="experience">
+  <div class="w-wrap">
+    <div class="head">
+      <div>
+        <p class="w-eyebrow">ที่ผ่านมา</p>
+        <h2>ห้าที่ ที่ทำอะไรเสร็จจริง</h2>
+      </div>
+      <p class="w-lede" style="flex:1 1 320px">เขียนเป็นสิ่งที่ทำเสร็จ ไม่ใช่สิ่งที่รับผิดชอบ เพราะอย่างหลังเขียนได้โดยไม่ต้องเคยทำ</p>
+    </div>
+
+    <ol>
+      <li>
+        <span class="yr">2568–ปัจจุบัน</span>
+        <div>
+          <h3>ผู้ก่อตั้งและผู้อำนวยการฝ่ายออกแบบ</h3>
+          <p class="org">สตูดิโอของตัวเอง · เชียงใหม่</p>
+          <ul class="did">
+            <li><b>8 งาน</b><span>ส่งมอบในปีแรก โดยไม่มีงานไหนเลยกำหนด</span></li>
+            <li><b>3 คน</b><span>ทีมประจำ ตั้งใจไม่โตกว่านี้เพื่อให้ทุกงานได้คนเดิมตั้งแต่ต้นจนจบ</span></li>
+          </ul>
+        </div>
+      </li>
+      <li>
+        <span class="yr">2564–2568</span>
+        <div>
+          <h3>หัวหน้าฝ่ายออกแบบผลิตภัณฑ์</h3>
+          <p class="org">บริษัทซอฟต์แวร์ด้านการเงิน · กรุงเทพฯ</p>
+          <ul class="did">
+            <li><b>0 → 5 คน</b><span>ตั้งทีมออกแบบจากศูนย์ใน 14 เดือน พร้อมกระบวนการที่ทีมยังใช้อยู่หลังผมออก</span></li>
+            <li><b>−41%</b><span>อัตราที่ผู้ใช้ใหม่เลิกกลางทางในขั้นตอนเปิดบัญชี หลังรื้อใหม่ทั้งขั้นตอน</span></li>
+          </ul>
+        </div>
+      </li>
+      <li>
+        <span class="yr">2562–2564</span>
+        <div>
+          <h3>นักออกแบบส่วนติดต่ออาวุโส</h3>
+          <p class="org">เอเจนซีดิจิทัล · กรุงเทพฯ</p>
+          <ul class="did">
+            <li><b>19 งาน</b><span>ในสองปี ส่วนใหญ่เป็นเว็บองค์กรและระบบหลังบ้าน</span></li>
+            <li><b>ระบบดีไซน์แรก</b><span>ของบริษัท ซึ่งย่นเวลาเริ่มงานใหม่จากสองสัปดาห์เหลือสามวัน</span></li>
+          </ul>
+        </div>
+      </li>
+      <li>
+        <span class="yr">2560–2562</span>
+        <div>
+          <h3>นักออกแบบกราฟิก</h3>
+          <p class="org">สำนักพิมพ์อิสระ · เชียงใหม่</p>
+          <ul class="did">
+            <li><b>31 ปก</b><span>และการจัดหน้าเล่มในสามปี ซึ่งเป็นที่ที่ได้เรียนเรื่องตัวอักษรไทยจริงจัง</span></li>
+          </ul>
+        </div>
+      </li>
+      <li>
+        <span class="yr">2558–2560</span>
+        <div>
+          <h3>เรียนและรับงานอิสระ</h3>
+          <p class="org">คณะสถาปัตยกรรมศาสตร์ · มหาวิทยาลัยเชียงใหม่</p>
+          <ul class="did">
+            <li><b>ทุนเรียนดี</b><span>สองปีสุดท้าย · วิทยานิพนธ์เรื่องการจัดหน้าหนังสือภาษาไทย</span></li>
+          </ul>
+        </div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- Stack · ทิศทาง `st` (สตูดิโอ) — เครื่องมือที่ใช้จริง และเหตุผลที่เลือก
+
+     ทำไมชิ้นนี้ถึงมีอยู่
+     ────────────────────
+     คลังนี้ไม่มีหมวดนี้ และมันตอบคำถามที่ `service-list.html` ตอบไม่ได้:
+     บริการบอกว่า *เราทำอะไรให้* ส่วนนี้บอกว่า **เราทำมันด้วยอะไร** ซึ่งเป็น
+     คำถามที่คนสองกลุ่มถามด้วยเหตุผลตรงข้ามกัน — ทีมเทคนิคของลูกค้าถาม
+     เพื่อดูว่ารับช่วงต่อได้ไหม ส่วนคนที่ไม่ใช่สายเทคนิคถามเพื่อดูว่า
+     "จ้างแล้วจะติดอยู่กับเจ้านี้ตลอดไปหรือเปล่า"
+
+     นั่นคือเหตุผลที่ทุกแถวต้องมี **เหตุผลที่เลือก** ไม่ใช่แค่ชื่อ รายการชื่อ
+     เครื่องมือเปล่า ๆ เป็นการอวดที่ไม่ตอบใครเลย และเป็นสิ่งที่เขียนได้โดย
+     ไม่ต้องเคยใช้จริง
+
+     ค่าที่วัดมา
+     ───────────
+     · **จัดกลุ่มตามขั้นของงาน** (ออกแบบ → สร้าง → ส่งมอบ) ไม่ใช่ตามชนิด
+       ของเครื่องมือ เพราะคนอ่านกำลังนึกตามลำดับที่งานจะเดิน ไม่ได้นึกตาม
+       หมวดหมู่ในร้านค้า
+     · **สามถึงสี่ชื่อต่อกลุ่ม** เกินกว่านั้นแปลว่ายังไม่ได้เลือก ซึ่งเป็น
+       สิ่งที่ทีมเทคนิคของลูกค้าอ่านออกทันที
+     · **บรรทัด "ถ้าเลิกใช้เราแล้ว"** ต่อกลุ่ม เป็นสิ่งที่แทบไม่มีสตูดิโอไหน
+       เขียน และเป็นสิ่งที่ปิดความกลัวข้อใหญ่ที่สุดของลูกค้าองค์กร
+       ถ้าคำตอบคือ "ย้ายไม่ได้" ก็ต้องเขียนแบบนั้น เพราะเขาจะรู้อยู่ดี
+     · **ไม่มีโลโก้เครื่องมือ** ด้วยเหตุผลเดียวกับ `awards-list.html`:
+       ผิดเรื่องเครื่องหมายการค้า และโลโก้สิบสองอันทำให้ตาไปหยุดที่รูป
+       แทนที่จะอ่านเหตุผล
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`columns` เหมือน `amenities-list.html`** — พังเพราะที่นี่แต่ละบรรทัด
+        มีสองส่วน (ชื่อ + เหตุผล) ที่ต้องอยู่คู่กัน `columns` ผ่าบรรทัดที่ยาว
+        ข้ามคอลัมน์ แล้วเหตุผลไปโผล่ใต้ชื่อของเครื่องมืออีกตัว
+        `break-inside:avoid` แก้ได้ แต่พอแก้แล้วคอลัมน์ยาวไม่เท่ากันมาก
+        จนอ่านเป็นสองรายการคนละชุด ใช้กริดที่คุมได้แทน
+     2. **ป้าย "หลัก / สำรอง" ใช้สีต่างกันอย่างเดียว** — ข้อ 2 ห้ามบอกสถานะ
+        ด้วยสีอย่างเดียว ตอนนี้เป็นคำเต็มในวงเล็บ
+     3. **ให้ชื่อเครื่องมือเป็นลิงก์ไปเว็บของเขา** — ลิงก์ออกนอกสิบสองอันใน
+        ส่วนเดียว คือสิบสองทางที่คนจะออกจากหน้าเรา และไม่มีอันไหนพาเขากลับ -->
+<style>
+  .w-stk .head{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:var(--gap) }
+  .w-stk .head > div:first-child{ flex:1 1 320px }
+  .w-stk h2{ font-size:clamp(30px,5vw,72px); line-height:1.02;
+             letter-spacing:var(--st-display-track,-.04em); font-weight:600;
+             max-width:11ch }
+  .w-stk .w-lede{ margin-top:16px; letter-spacing:var(--st-body-track,-.005em) }
+
+  .w-stk .groups{ display:grid; gap:clamp(20px,3vw,32px);
+                  margin-top:clamp(28px,4vw,48px);
+                  grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr)) }
+  .w-stk .group{ border-top:1px solid var(--line); padding-top:clamp(18px,2.4vw,24px) }
+  .w-stk .group h3{ display:flex; align-items:baseline; gap:10px;
+                    font-size:17px; font-weight:600; margin-bottom:18px }
+  .w-stk .group h3 span{ font:600 12px/1 var(--mono); color:var(--muted) }
+
+  .w-stk dl{ display:grid; gap:14px }
+  .w-stk dt{ display:flex; align-items:baseline; flex-wrap:wrap; gap:8px;
+             font-size:16px; font-weight:500 }
+  .w-stk dt em{ font-style:normal; font:500 12px/1 var(--sans); color:var(--muted);
+                border:1px solid var(--line); border-radius:var(--radius-pill);
+                padding:5px 9px }
+  .w-stk dd{ margin:5px 0 0; color:var(--muted); font-size:14px; line-height:1.65 }
+
+  .w-stk .exit{ margin-top:18px; padding-top:14px; border-top:1px dashed var(--line);
+                color:var(--muted); font-size:13px; line-height:1.6 }
+  .w-stk .exit b{ color:var(--text); font-weight:600 }
+
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      .w-stk .group{ animation-name:w-rise; animation-timing-function:linear;
+                     animation-fill-mode:both; animation-timeline:view();
+                     animation-range:entry 6% cover 24% }
+    }
+  }
+</style>
+
+<section class="w-section w-stk" id="stack">
+  <div class="w-wrap">
+    <div class="head">
+      <div>
+        <p class="w-eyebrow">เครื่องมือ</p>
+        <h2>ใช้อะไร และทำไม</h2>
+      </div>
+      <p class="w-lede" style="flex:1 1 320px">รายการนี้เปลี่ยนปีละครั้งอย่างมาก เราไม่เปลี่ยนเครื่องมือตามกระแส เพราะทุกการเปลี่ยนคือความรู้ที่ทีมต้องสร้างใหม่</p>
+    </div>
+
+    <div class="groups">
+      <div class="group">
+        <h3>ออกแบบ <span>01</span></h3>
+        <dl>
+          <div>
+            <dt>Figma <em>หลัก</em></dt>
+            <dd>ไฟล์ต้นฉบับทุกงานอยู่ที่นี่ ลูกค้าได้สิทธิ์เจ้าของไฟล์ตั้งแต่วันแรก ไม่ใช่ตอนจบงาน</dd>
+          </div>
+          <div>
+            <dt>Rive <em>เฉพาะงานที่มีภาพเคลื่อนไหว</em></dt>
+            <dd>ส่งออกเป็นไฟล์เดียวที่เล่นบนเว็บและแอปได้ ไม่ต้องทำสองรอบ</dd>
+          </div>
+          <div>
+            <dt>กระดาษ <em>ก่อนเปิดเครื่อง</em></dt>
+            <dd>สองสัปดาห์แรกของทุกงานไม่มีไฟล์ดิจิทัลเลย เพราะการวาดเร็วกว่าการจัดหน้า</dd>
+          </div>
+        </dl>
+        <p class="exit"><b>ถ้าเลิกใช้เราแล้ว</b> ไฟล์ Figma โอนได้ทันที ทีมคุณเปิดต่อได้โดยไม่ต้องมีอะไรของเรา</p>
+      </div>
+
+      <div class="group">
+        <h3>สร้าง <span>02</span></h3>
+        <dl>
+          <div>
+            <dt>TypeScript + Svelte <em>หลัก</em></dt>
+            <dd>เลือกเพราะโค้ดที่ได้อ่านเหมือน HTML ซึ่งทำให้ทีมที่รับช่วงต่ออ่านออกโดยไม่ต้องเรียนอะไรใหม่</dd>
+          </div>
+          <div>
+            <dt>PostgreSQL <em>หลัก</em></dt>
+            <dd>ฐานข้อมูลที่ย้ายไปผู้ให้บริการเจ้าไหนก็ได้ ไม่ผูกกับใครเจ้าเดียว</dd>
+          </div>
+          <div>
+            <dt>Astro <em>สำหรับเว็บที่เนื้อหาไม่เปลี่ยนบ่อย</em></dt>
+            <dd>ได้หน้าที่โหลดเร็วกว่าโดยไม่ต้องมีเซิร์ฟเวอร์ให้ดูแล</dd>
+          </div>
+        </dl>
+        <p class="exit"><b>ถ้าเลิกใช้เราแล้ว</b> โค้ดทั้งหมดอยู่ในที่เก็บของคุณเอง ไม่มีส่วนไหนที่รันได้เฉพาะบนเครื่องเรา</p>
+      </div>
+
+      <div class="group">
+        <h3>ส่งมอบและดูแล <span>03</span></h3>
+        <dl>
+          <div>
+            <dt>GitHub <em>ที่เก็บโค้ดของลูกค้า</em></dt>
+            <dd>สร้างในบัญชีของคุณ ไม่ใช่ของเรา เราเป็นแค่คนที่ได้รับเชิญเข้าไป</dd>
+          </div>
+          <div>
+            <dt>Plausible <em>วัดผล</em></dt>
+            <dd>ไม่ใช้คุกกี้ ไม่ส่งข้อมูลข้ามประเทศ เลือกเพราะลูกค้าส่วนใหญ่ต้องผ่าน PDPA</dd>
+          </div>
+          <div>
+            <dt>เอกสารส่งมอบ <em>ทุกงาน</em></dt>
+            <dd>วิธีแก้ของที่แก้บ่อย เขียนให้คนที่ไม่ใช่โปรแกรมเมอร์อ่าน ไม่ใช่ README</dd>
+          </div>
+        </dl>
+        <p class="exit"><b>ถ้าเลิกใช้เราแล้ว</b> ไม่ต้องทำอะไรเลย ทุกบัญชีเป็นของคุณอยู่แล้ว เราแค่ถอนตัวเองออก</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Awards · ทิศทาง `st` (สตูดิโอ) — รางวัล ที่บอกด้วยว่าใครให้และให้กับงานไหน
+
+     ทำไมชิ้นนี้ถึงมีอยู่
+     ────────────────────
+     คลังนี้ไม่มีหมวดนี้ และมันไม่ใช่ `stats.html` ที่เปลี่ยนคำ: สถิติบอก
+     *ขนาด* ของสิ่งที่ทำ ส่วนรางวัลบอก *ใครที่ไม่ใช่เราคิดว่ามันดี* ซึ่งเป็น
+     หลักฐานคนละชนิดกัน และเป็นชนิดที่หนักที่สุดสำหรับงานสร้างสรรค์ เพราะ
+     ลูกค้าประเมินคุณภาพงานออกแบบเองไม่ได้
+
+     สิ่งที่ทำให้ส่วนนี้พังบ่อยที่สุดคือการเขียนแค่ชื่อรางวัล **รางวัลที่ไม่บอก
+     ว่าใครให้ ให้เมื่อไหร่ และให้กับงานชิ้นไหน คือคำอ้างที่ตรวจไม่ได้**
+     ซึ่งอ่อนกว่าไม่เขียนเลย เพราะคนที่รู้จักวงการจะรู้ทันที ทุกแถวในไฟล์นี้
+     จึงมีสี่ช่องเสมอ: ผู้ให้ · ระดับ · งาน · เดือนปี
+
+     ค่าที่วัดมา
+     ───────────
+     · **เรียงใหม่ไปเก่า** เพราะสิ่งที่บอกว่าสตูดิโอนี้ยังทำงานดีอยู่คือ
+       รางวัลล่าสุด ไม่ใช่รางวัลใหญ่สุด รายการที่เรียงตามความใหญ่จะมีรางวัล
+       ปี 2562 อยู่บนสุด ซึ่งบอกว่าห้าปีหลังไม่มีอะไรเลย
+     · **ชื่อผู้ให้รางวัลใช้ `--mono`** เพราะมันเป็นชื่อเฉพาะที่ต้องอ่านตรงตัว
+       (เวทีรางวัลเว็บ ตัวอย่าง ก. ไม่ใช่ Awards) และ mono ทำให้ตาจับได้ว่านี่คือคอลัมน์เดียวกัน
+       ทั้งรายการ
+     · **แถวสูงอย่างน้อย 76px** ต่ำกว่านั้นสี่ช่องในแถวเดียวเริ่มอ่านเป็น
+       ตารางข้อมูล ซึ่งทำให้รางวัลดูเหมือนรายการสินค้า
+     · **สูงสุดหกแถว** เกินกว่านั้นให้ใส่ลิงก์ไปหน้ารวม เพราะรายการรางวัล
+       ที่ยาวเกินหน้าจอเริ่มอ่านเป็นการอวด ไม่ใช่หลักฐาน
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ใช้ `<table>`** — ดูเหมือนถูกเพราะมีสี่คอลัมน์ แต่มันไม่ใช่ตาราง
+        เพราะไม่มีการเปรียบเทียบข้ามแถว (ไม่มีใครถามว่ารางวัลไหนใหญ่กว่า)
+        และ `<table>` บนมือถือต้องเลื่อนแนวนอนหรือรื้อทั้งหมด `<ol>` ที่ยุบ
+        เป็นบล็อกได้ตรงกว่าและพับเองที่ 640px
+     2. **โลโก้ของผู้ให้รางวัล** — ผิดทั้งเรื่องเครื่องหมายการค้าและเรื่อง
+        น้ำหนัก โลโก้หกอันเรียงกันทำให้ตาไปหยุดที่โลโก้แทนที่จะอ่านว่าได้
+        รางวัลอะไร ชื่อเป็นตัวอักษรอ่านเร็วกว่าและถูกต้องกว่า
+     3. **ป้าย "ชนะเลิศ" ใช้สี `--warning` (ทอง)** — บนทิศทางนี้ที่ทั้งหน้า
+        มีสองสี การเพิ่มสีทองเข้ามาทำให้มันเป็นของชิ้นเดียวในหน้าที่มีสี
+        ซึ่งดึงความสนใจเกินน้ำหนักจริง ใช้ตัวหนากับเส้นขอบแทน -->
+<style>
+  .w-aw .head{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:var(--gap) }
+  .w-aw .head > div:first-child{ flex:1 1 320px }
+  .w-aw h2{ font-size:clamp(30px,5vw,72px); line-height:1.02;
+            letter-spacing:var(--st-display-track,-.04em); font-weight:600;
+            max-width:11ch }
+  .w-aw .w-lede{ margin-top:16px; letter-spacing:var(--st-body-track,-.005em) }
+
+  .w-aw ol{ margin-top:clamp(28px,4vw,48px); border-top:1px solid var(--line) }
+  .w-aw li{ display:grid; gap:4px clamp(16px,3vw,40px);
+            padding-block:clamp(18px,2.4vw,26px); min-height:76px;
+            align-items:center }
+  .w-aw li + li{ border-top:1px solid var(--line) }
+  @media (min-width:640px){
+    .w-aw li{ grid-template-columns:minmax(0,.62fr) auto minmax(0,1fr) auto }
+  }
+  .w-aw .by{ font:600 14px/1.5 var(--mono); letter-spacing:.01em }
+  .w-aw .rank{ font-size:14px; font-weight:600; justify-self:start;
+               border:1px solid var(--field); border-radius:var(--radius-pill);
+               padding:6px 12px; white-space:nowrap }
+  .w-aw .rank--top{ border-color:var(--accent); color:var(--accent) }
+  .w-aw .what{ color:var(--muted); font-size:15px; line-height:1.55 }
+  .w-aw .what b{ color:var(--text); font-weight:500 }
+  .w-aw .when{ font:600 13px/1 var(--mono); color:var(--muted);
+               justify-self:start; white-space:nowrap }
+  @media (min-width:640px){ .w-aw .when{ justify-self:end } }
+
+  .w-aw .foot{ display:flex; flex-wrap:wrap; align-items:center; gap:14px;
+               margin-top:clamp(24px,3vw,34px) }
+  .w-aw .foot p{ flex:1 1 300px; color:var(--muted); font-size:14px }
+
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      .w-aw li{ animation-name:w-rise; animation-timing-function:linear;
+                animation-fill-mode:both; animation-timeline:view();
+                animation-range:entry 5% cover 20% }
+    }
+  }
+</style>
+
+<section class="w-section w-aw" id="awards">
+  <div class="w-wrap">
+    <div class="head">
+      <div>
+        <p class="w-eyebrow">รางวัล</p>
+        <h2>หกรายการ ตรวจได้ทุกอัน</h2>
+      </div>
+      <p class="w-lede" style="flex:1 1 320px">เรียงจากใหม่ไปเก่า เพราะสิ่งที่บอกว่าเรายังทำงานดีอยู่คือรายการบนสุด ไม่ใช่รายการที่ใหญ่ที่สุด</p>
+    </div>
+
+    <ol>
+      <li>
+        <span class="by">เวทีรางวัลเว็บ ตัวอย่าง ก.</span>
+        <span class="rank rank--top">Site of the Day</span>
+        <span class="what">สำหรับ <b>รื้อระบบเนื้อหาที่โตเกินเครื่องมือเดิม</b> · สำนักข่าวออนไลน์</span>
+        <span class="when">มี.ค. 2569</span>
+      </li>
+      <li>
+        <span class="by">เวทีรางวัลเว็บ ตัวอย่าง ข.</span>
+        <span class="rank">Website of the Day</span>
+        <span class="what">สำหรับ <b>ระบบหลังบ้านสำหรับผู้ผลิตอาหารส่งออก</b></span>
+        <span class="when">ธ.ค. 2568</span>
+      </li>
+      <li>
+        <span class="by">แพลตฟอร์มผลงาน ตัวอย่าง</span>
+        <span class="rank">Curated Gallery</span>
+        <span class="what">หมวดออกแบบกราฟิก สำหรับ <b>อัตลักษณ์แบรนด์เครื่องดื่ม</b></span>
+        <span class="when">ก.ย. 2568</span>
+      </li>
+      <li>
+        <span class="by">เวทีรางวัลออกแบบไทย ตัวอย่าง</span>
+        <span class="rank rank--top">รางวัลชนะเลิศ</span>
+        <span class="what">สาขาการออกแบบบรรจุภัณฑ์ สำหรับ <b>อัตลักษณ์แบรนด์เครื่องดื่ม</b></span>
+        <span class="when">ส.ค. 2568</span>
+      </li>
+      <li>
+        <span class="by">เวทีรางวัลเว็บ ตัวอย่าง ก.</span>
+        <span class="rank">Honorable Mention</span>
+        <span class="what">สำหรับ <b>เว็บไซต์สตูดิโอของเราเอง</b> รุ่นก่อนหน้านี้</span>
+        <span class="when">ก.พ. 2568</span>
+      </li>
+      <li>
+        <span class="by">เวทีรางวัลเว็บไทย ตัวอย่าง</span>
+        <span class="rank">รองชนะเลิศ</span>
+        <span class="what">หมวดเว็บไซต์องค์กร สำหรับงานที่ยังพูดถึงชื่อไม่ได้ตามสัญญา</span>
+        <span class="when">พ.ย. 2567</span>
+      </li>
+    </ol>
+
+    <div class="foot">
+      <p>ทุกรายการมีลิงก์ไปหน้าประกาศผลของผู้ให้รางวัลจริง ขอได้ถ้าอยากตรวจ</p>
+      <a class="w-btn w-btn--ghost" href="#contact">คุยเรื่องงาน</a>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ · ทิศทาง `gl` (กระจก) — หีบเพลง กับทางออกสำหรับคนที่ยังไม่ได้คำตอบ
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี faq.html แล้ว
+     ───────────────────────────────────────────
+     สองข้อ
+
+     1. `faq.html` กินความกว้างครึ่งเดียวแล้วปล่อยอีกครึ่งว่างเปล่า ซึ่งเห็นชัด
+        มากตอนเปิดดูจริงบนจอ 1200px — เป็นความว่างที่ไม่ได้ตั้งใจ ไม่ใช่
+        ที่หายใจ
+     2. **หีบเพลงที่ไม่มีทางออกคือทางตัน** คนที่อ่านครบทุกข้อแล้วยังไม่เจอ
+        คำตอบของตัวเอง จะปิดแท็บ ไม่ใช่หาช่องติดต่อเอง ครึ่งขวาจึงเป็น
+        แผงที่ตอบคำถามข้อสุดท้ายว่า "แล้วถ้าไม่มีข้อไหนตรงล่ะ"
+
+     ยังใช้ `<details>` เหมือนเดิม ไม่มีสคริปต์ — Esc ปิดไม่ได้ก็จริง แต่
+     คีย์บอร์ดเปิดปิดได้ และมันรอดตอน JS พัง ซึ่งเวอร์ชันที่เขียนเองไม่รอด
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **`name="w-faq"` บนทุก `<details>`** ทำให้มันกลายเป็นหีบเพลงจริง คือ
+       เปิดได้ทีละข้อ เบราว์เซอร์ปิดข้ออื่นให้เอง เป็นความสามารถของ HTML เอง
+       ไม่ใช่สคริปต์ เครื่องที่ยังไม่รองรับจะเปิดได้หลายข้อพร้อมกัน ซึ่งยังใช้ได้
+       ไม่ใช่พัง — เป็น "ทางลง" ตามข้อ 2 ไม่ใช่ทางตัน
+     · **ข้อแรกเปิดอยู่** (`open`) เพราะหีบเพลงที่ปิดหมดทุกข้อ ทำให้คนต้องเดา
+       ว่าข้างในมีเนื้อหาแบบไหนก่อนจะยอมกด ข้อแรกที่เปิดอยู่คือตัวอย่าง
+     · **หกข้อ ไม่ใช่สิบ** — เกินหกแปลว่าหน้าอื่นอธิบายไม่พอ ให้ไปแก้หน้านั้น
+       แทนที่จะเอามากองที่นี่
+     · **แผงขวาติดหนึบที่ `top:clamp(84px,12vh,132px)`** ค่าเดียวกับ
+       `platform-tour.html` เพราะคู่กับ `nav-pill.html` ที่ลอยอยู่ที่ 12px
+       สูง 56px รวมเงาแล้วกินถึงราว 80px
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **หมุนเครื่องหมาย + เป็น × ด้วย `rotate(45deg)` ที่ `summary::after`** —
+        ตัว `+` ของฟอนต์ไม่ได้อยู่กึ่งกลางกล่องพอดี พอหมุนแล้วมันเยื้อง
+        ตอนนี้วาดเป็นสองขีดด้วย `::before`/`::after` ที่ระบุพิกัดเอง แล้วหมุน
+        เฉพาะขีดตั้ง ซึ่งอยู่กึ่งกลางแน่นอนเพราะเรากำหนดเอง
+     2. **`summary{display:flex}`** — ทำให้สามเหลี่ยมของเบราว์เซอร์กลับมาโผล่
+        ใน Safari ต้องมี `::-webkit-details-marker{display:none}` คู่กับ
+        `list-style:none` เสมอ ไม่ใช่อย่างใดอย่างหนึ่ง
+     3. **ให้คำตอบเข้าฉากด้วย animation ตอนเปิด** — กระตุกทุกครั้งเพราะ
+        `<details>` เปลี่ยนความสูงทันทีที่เปิด ก่อนที่ animation จะเริ่ม
+        ตอนนี้ไม่มีการเคลื่อนไหวตอนเปิด มีแต่เครื่องหมายที่หมุน ซึ่งเป็น
+        สิ่งเดียวที่ขยับได้โดยไม่ทำให้ข้อความกระโดด -->
+<style>
+  .w-fa{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+  }
+  .w-fa .grid{ display:grid; gap:clamp(24px,4vw,48px); align-items:start }
+  @media (min-width:900px){
+    .w-fa .grid{ grid-template-columns:minmax(0,1fr) minmax(0,.62fr) }
+    .w-fa .aside{ position:sticky; top:clamp(84px,12vh,132px) }
+  }
+  .w-fa h2{ font-size:clamp(26px,3.4vw,40px); letter-spacing:-.02em;
+            text-wrap:balance; line-height:1.24; max-width:18ch }
+  .w-fa .w-lede{ margin-top:14px }
+
+  .w-fa .list{ margin-top:clamp(24px,3vw,34px);
+               border:1px solid var(--gl-edge); border-radius:var(--radius);
+               background:var(--gl-pane); overflow:hidden }
+  .w-fa details + details{ border-top:1px solid var(--line) }
+  .w-fa summary{ display:flex; align-items:flex-start; gap:14px; cursor:pointer;
+                 padding:clamp(16px,2.2vw,22px); font-size:17px; font-weight:600;
+                 line-height:1.5; list-style:none }
+  /* ต้องมีทั้งสองบรรทัด ไม่ใช่อย่างใดอย่างหนึ่ง — ดูเหตุผลข้อ 2 */
+  .w-fa summary::-webkit-details-marker{ display:none }
+  .w-fa summary .sign{ margin-left:auto; position:relative; flex:none;
+                       width:22px; height:22px; margin-top:2px }
+  .w-fa summary .sign::before,
+  .w-fa summary .sign::after{ content:""; position:absolute; background:var(--accent);
+                              border-radius:2px }
+  .w-fa summary .sign::before{ inset:10px 1px auto; height:2px }   /* ขีดนอน */
+  .w-fa summary .sign::after{ inset:1px 10px auto; width:2px; height:20px } /* ขีดตั้ง */
+  .w-fa details[open] summary .sign::after{ transform:scaleY(0) }
+  .w-fa details > div{ padding:0 clamp(16px,2.2vw,22px) clamp(18px,2.4vw,24px);
+                       color:var(--muted); font-size:15px; line-height:1.7;
+                       max-width:68ch }
+  .w-fa details > div a{ color:var(--accent) }
+
+  /* แผงขวา */
+  .w-fa .aside .card{ border:1px solid var(--gl-edge); border-radius:var(--radius);
+                      background:var(--gl-pane); padding:clamp(20px,2.6vw,28px);
+                      display:flex; flex-direction:column; gap:14px }
+  @supports (backdrop-filter:blur(4px)){ .w-fa .aside .card{ backdrop-filter:blur(12px) } }
+  .w-fa .aside .faces{ display:flex }
+  .w-fa .aside .faces img{ width:40px; height:40px; border-radius:50%;
+                           object-fit:cover; border:2px solid var(--bg) }
+  .w-fa .aside .faces img + img{ margin-left:-12px }
+  .w-fa .aside h3{ font-size:20px; letter-spacing:-.01em }
+  .w-fa .aside p{ color:var(--muted); font-size:15px; line-height:1.6 }
+  .w-fa .aside .w-btn{ justify-content:center }
+  .w-fa .aside .meta{ display:grid; gap:8px; padding-top:16px;
+                      border-top:1px solid var(--line); font-size:13px;
+                      color:var(--muted) }
+  .w-fa .aside .meta div{ display:flex; align-items:center; gap:8px }
+  .w-fa .aside .meta svg{ width:15px; height:15px; color:var(--accent); flex:none }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-fa summary .sign::after{ transition:transform var(--t-spring) var(--ease-spring) }
+    .w-fa summary{ transition:background var(--t-hover) linear }
+    .w-fa summary:hover{ background:color-mix(in srgb,var(--text) 4%,transparent) }
+  }
+</style>
+
+<section class="w-section w-fa" id="faq">
+  <div class="w-wrap grid">
+    <div>
+      <p class="w-eyebrow">คำถามที่พบบ่อย</p>
+      <h2>คำถามที่คนถามก่อนกดเชื่อมบัญชี</h2>
+      <p class="w-lede">หกข้อนี้คือข้อที่ทีมซัพพอร์ตตอบบ่อยที่สุดในรอบสามเดือน ไม่ได้เรียงตามที่เราอยากให้อ่าน</p>
+
+      <div class="list">
+        <details name="w-faq" open>
+          <summary>เชื่อมบัญชีแล้วคุณเห็นอะไรของผมบ้าง<span class="sign"></span></summary>
+          <div>เห็นยอดคงเหลือ รายชื่อสินทรัพย์ที่ถือ และรายการซื้อขายย้อนหลัง เท่าที่สถาบันนั้นเปิดให้ดึง เราไม่เห็นรหัสผ่าน ไม่เห็นเลขบัตร และไม่มีสิทธิ์สั่งซื้อขายหรือโอนเงิน สิทธิ์ที่ขอเป็นแบบอ่านอย่างเดียวในทางเทคนิค ไม่ใช่แค่ในนโยบาย</div>
+        </details>
+        <details name="w-faq">
+          <summary>ถ้าอยากเลิกใช้ ข้อมูลผมหายจริงไหม<span class="sign"></span></summary>
+          <div>กดลบบัญชีแล้วข้อมูลดิบถูกลบทันที สำเนาสำรองหมดอายุเองภายใน 30 วัน คุณดาวน์โหลดข้อมูลทั้งหมดของตัวเองเป็นไฟล์ได้ก่อนลบ และเพิกถอนสิทธิ์ที่ฝั่งสถาบันการเงินได้เองตลอดเวลาโดยไม่ต้องผ่านเรา</div>
+        </details>
+        <details name="w-faq">
+          <summary>สัญญาณที่แนะนำ คิดมาจากอะไร<span class="sign"></span></summary>
+          <div>ทุกสัญญาณเปิดดูได้ว่าประกอบจากปัจจัยอะไรและแต่ละปัจจัยมีน้ำหนักเท่าไร เช่น "ซื้อ PTT มั่นใจ 78%" มาจากกำไรไตรมาส 41% ปริมาณซื้อขาย 24% ราคาน้ำมัน 13% และปัจจัยย่อยที่เหลือ เราไม่ปล่อยสัญญาณที่อธิบายที่มาไม่ได้</div>
+        </details>
+        <details name="w-faq">
+          <summary>มันแม่นแค่ไหน<span class="sign"></span></summary>
+          <div>ไม่แม่นทุกครั้ง และเราไม่เคยอ้างว่าแม่น ตัวเลขความมั่นใจข้างสัญญาณคือสิ่งที่ควรใช้ตัดสิน ไม่ใช่ตัวสัญญาณเอง หน้าสถิติย้อนหลังเปิดให้ดูว่าสัญญาณที่มั่นใจ 70% ขึ้นไปเป็นจริงกี่เปอร์เซ็นต์ในแต่ละไตรมาส</div>
+        </details>
+        <details name="w-faq">
+          <summary>ใช้กับบัญชีของบริษัทหรือของลูกค้าได้ไหม<span class="sign"></span></summary>
+          <div>ได้ แผนองค์กรรองรับหลายพอร์ตในบัญชีเดียว แยกสิทธิ์รายผู้ใช้ และมีบันทึกว่าใครดูอะไรเมื่อไหร่ ถ้าต้องมีสัญญาแยกหรือข้อกำหนดด้านการเก็บข้อมูลเฉพาะ คุยกับทีมขายก่อนได้</div>
+        </details>
+        <details name="w-faq">
+          <summary>ราคาขึ้นทีหลังหรือเปล่า<span class="sign"></span></summary>
+          <div>ราคาที่คุณสมัครคือราคาที่คุณจ่ายไปตลอดอายุการเป็นสมาชิกต่อเนื่อง ถ้าเราขึ้นราคา จะมีผลกับผู้สมัครใหม่เท่านั้น และแจ้งล่วงหน้าอย่างน้อย 60 วันทางอีเมล</div>
+        </details>
+      </div>
+    </div>
+
+    <div class="aside">
+      <div class="card">
+        <div class="faces">
+          <img src="imgs/khon-1.jpg" alt="" width="40" height="40">
+          <img src="imgs/khon-3.jpg" alt="" width="40" height="40">
+          <img src="imgs/khon-5.jpg" alt="" width="40" height="40">
+        </div>
+        <h3>ยังไม่มีข้อไหนตรงใช่ไหม</h3>
+        <p>ถามมาได้เลย ทีมที่ตอบคือคนที่สร้างของนี้ ไม่ใช่บอต และไม่ใช่ฝ่ายขายที่จะพยายามปิดการขายกับคุณ</p>
+        <a class="w-btn" href="#cta">ถามทีมโดยตรง</a>
+        <div class="meta">
+          <div><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.6v3.6l2.3 1.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>ตอบภายใน 4 ชั่วโมงทำการ</div>
+          <div><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.4 4.2h11.2v7.6H2.4Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="m2.4 4.6 5.6 4 5.6-4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>อีเมลจริง ไม่ใช่ฟอร์มที่หายไปไหนไม่รู้</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA · ทิศทาง `gl` (กระจก) — แผ่นเดียวที่กินความสนใจทั้งหมด
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี cta-band.html แล้ว
+     ────────────────────────────────────────────────
+     `cta-band.html` เป็นแถบพื้น `--surface` เต็มความกว้างที่มีหมอกลอยอยู่หลัง
+     ซึ่งถูกในทิศทาง `ed` แต่ในทิศทาง `gl` ที่ทุกส่วนเป็นแผ่นลอย แถบเต็มความ
+     กว้างจะเป็นของชิ้นเดียวที่ติดกับพื้น เหมือนกรณีเดียวกับ `stats-band.html`
+
+     และมันแก้อีกข้อที่แถบเดิมทำไม่ได้: **CTA ท้ายหน้าต้องปิดข้อกังวลข้อสุดท้าย
+     ไปพร้อมกัน** คนที่เลื่อนมาถึงตรงนี้คือคนที่เกือบตัดสินใจแล้ว สิ่งที่ขวางอยู่
+     มักเป็นเรื่องเล็ก — ต้องผูกบัตรไหม ยกเลิกยากไหม ใช้เวลานานไหม แถบเดิมมี
+     ที่ให้บรรทัดเดียว ที่นี่มีสามชิปที่ตอบสามข้อนั้นตรง ๆ
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **แสงอยู่หลังแผ่น ไม่ใช่ในแผ่น** — ก้อนแสงเป็น `::before` ของ section
+       ที่ถูกกด `z-index:-1` ส่วนแผ่นกระจกทึบ 82% ทับอยู่ ผลคือแสงเรืองออกมา
+       ที่ขอบแผ่นเหมือนของที่มีไฟอยู่ข้างหลัง ถ้าเอาแสงไปไว้ในแผ่น มันจะ
+       กลายเป็นพื้นไล่เฉดธรรมดา
+     · **รอบละ 26 วินาที** ค่าเดียวกับ `cta-band.html` เพื่อให้สองไฟล์นี้
+       เคลื่อนด้วยจังหวะเดียวกันถ้าใครเอามาวางบนหน้าเดียวกัน
+     · **ปุ่มรองเป็น "ดูราคาก่อน" ไม่ใช่ "เรียนรู้เพิ่มเติม"** — ปุ่มรองที่ไม่มี
+       ปลายทางชัดคือปุ่มที่ดูดคนออกจากปุ่มหลักโดยไม่ได้อะไรกลับมา
+     · **ชิปสามอันเป็นข้อเท็จจริง ไม่ใช่คำโฆษณา** ทุกอันตรวจได้จากหน้าราคา
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ไม่ตัดขอบแสง** — ก้อนแสงล้นออกไปเรืองอยู่ใต้ footer ในหน้ารวม
+        ซึ่งดูเหมือนบั๊กมากกว่าดีไซน์ (บั๊กเดียวกับที่ `cta-band.html`
+        บันทึกไว้) ตอนนี้ตัดด้วย `overflow:hidden` ที่ section ซึ่งปลอดภัย
+        ที่นี่เพราะส่วนนี้ไม่มี `animation-timeline:view()` อยู่ข้างใน
+     2. **ให้แผ่นมี `backdrop-filter` โดยที่แสงอยู่หลังมันในสายเดียวกัน** —
+        บางเอนจินคำนวณ backdrop จากพื้นหลังของ stacking context ที่ผิดชั้น
+        แล้วแผ่นออกมาขุ่นทึบจนแสงหายหมด แก้ด้วยการให้ section เป็น
+        `isolation:isolate` แล้วแสงอยู่ที่ `z-index:-1` ภายในนั้น
+     3. **ปุ่มสองปุ่มขนาดเท่ากันวางกลาง** — ตาแยกไม่ออกว่าอันไหนคืออันที่ควรกด
+        ตอนนี้ปุ่มหลักมีตราลูกศรและพื้นทึบ ปุ่มรองเป็นโปร่ง ต่างกันทั้งสี
+        น้ำหนัก และรูปทรง ไม่ใช่ต่างแค่สี -->
+<style>
+  .w-ctg{
+    --gl-pane:color-mix(in srgb,var(--surface) 84%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 13%,transparent);
+    position:relative; isolation:isolate; overflow:hidden;
+  }
+  .w-ctg .panel{ border:1px solid var(--gl-edge); border-radius:var(--radius-lg);
+                 background:var(--gl-pane); box-shadow:var(--e3);
+                 padding:clamp(28px,5vw,64px); text-align:center }
+  @supports (backdrop-filter:blur(4px)){ .w-ctg .panel{ backdrop-filter:blur(16px) } }
+
+  .w-ctg h2{ font-size:clamp(28px,4vw,52px); letter-spacing:-.03em;
+             line-height:1.2; text-wrap:balance; max-width:19ch;
+             margin-inline:auto }
+  .w-ctg .w-lede{ margin:16px auto 0; max-width:46ch }
+  .w-ctg .acts{ display:flex; flex-wrap:wrap; gap:12px; justify-content:center;
+                margin-top:30px }
+  .w-ctg .acts .w-btn .badge{ display:inline-flex; align-items:center;
+    justify-content:center; width:26px; height:26px; border-radius:50%;
+    background:var(--accent-ink); color:var(--accent); margin-inline-end:-10px }
+  .w-ctg .acts .w-btn .badge svg{ width:12px; height:12px }
+
+  .w-ctg .chips{ display:flex; flex-wrap:wrap; gap:10px 22px; justify-content:center;
+                 margin-top:26px; padding-top:24px; border-top:1px solid var(--line);
+                 color:var(--muted); font-size:14px }
+  .w-ctg .chips li{ display:flex; align-items:center; gap:8px }
+  .w-ctg .chips svg{ width:16px; height:16px; color:var(--accent); flex:none }
+  .w-ctg .chips b{ color:var(--text); font-weight:600 }
+
+  @media (prefers-reduced-motion:no-preference){
+    /* ท่า drift ตาม STANDARD.md ข้อ 4 — หมอกสีพื้นหลัง รอบละ 26 วิ
+       ช้าพอที่คนอ่านประโยคจบก่อนจะทันสังเกตว่ามันขยับ */
+    .w-ctg::before{ content:""; position:absolute; z-index:-1; inset:-30% -12%;
+      background:
+        radial-gradient(34% 54% at 26% 44%, color-mix(in srgb,var(--accent) 26%,transparent) 0, transparent 68%),
+        radial-gradient(30% 48% at 74% 56%, color-mix(in srgb,var(--viz-2) 22%,transparent) 0, transparent 66%);
+      animation:w-drift 26s ease-in-out infinite alternate }
+  }
+</style>
+
+<section class="w-section w-ctg" id="cta">
+  <div class="w-wrap">
+    <div class="panel">
+      <h2>เชื่อมบัญชีแรกวันนี้ แล้วดูว่าพอร์ตคุณเป็นยังไงจริง ๆ</h2>
+      <p class="w-lede">ใช้เวลาสองนาที ถ้าไม่ชอบก็ถอนสิทธิ์ที่ฝั่งธนาคารได้เองทันที ไม่ต้องรอเรากดอะไรให้</p>
+
+      <div class="acts">
+        <a class="w-btn" href="#">เชื่อมบัญชีแรก<span class="badge"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h9M8.5 4.2 12.6 8l-4.1 3.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+        <a class="w-btn w-btn--ghost" href="#pricing">ดูราคาก่อน</a>
+      </div>
+
+      <ul class="chips">
+        <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.4 6.3 12 13.5 4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>ทดลองฟรี <b>7 วัน</b></span></li>
+        <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.4 6.3 12 13.5 4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>ไม่ต้องผูกบัตร</b> ตอนสมัคร</span></li>
+        <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.4 6.3 12 13.5 4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>ยกเลิกเองได้ <b>ในหน้าตั้งค่า</b></span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</main>
+<!-- Footer · ทิศทาง `gl` (กระจก) — ปิดหน้า พร้อมของที่คนมาหาที่ท้ายจริง
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี footer.html แล้ว
+     ──────────────────────────────────────────────
+     `footer.html` เป็นสี่คอลัมน์ลิงก์กับบรรทัดลิขสิทธิ์ ซึ่งครบตามหน้าที่
+     ขั้นต่ำ และ `CATALOG.md` ทำเครื่องหมายไว้เองว่า "**1 ทรง**"
+
+     สิ่งที่ทรงนั้นไม่มีที่ให้ คือของสามอย่างที่คนเลื่อนมาท้ายหน้าจริง ๆ มาหา:
+     **ช่องติดต่อที่เป็นของจริง · สถานะระบบ · ที่อยู่ของบริษัท** สองอย่างหลัง
+     สำคัญเป็นพิเศษกับผลิตภัณฑ์การเงิน เพราะเป็นสิ่งที่คนใช้ตรวจว่าอีกฝั่ง
+     มีตัวตนจริงก่อนจะเชื่อมบัญชีธนาคารให้
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **คอลัมน์แบรนด์กว้างกว่าคอลัมน์ลิงก์ราวสองเท่า** เพราะมันถือประโยค
+       ไม่ใช่รายการ ลิงก์กว้าง 1fr เท่ากันทุกคอลัมน์เพราะเป็นรายการเหมือนกัน
+     · **จุดสถานะกะพริบเป็นขั้น (`w-blink`) ไม่ใช่จางเข้าจางออก** เพราะสิ่งที่
+       มันเลียนแบบคือไฟ LED ซึ่งติดดับเป็นขั้น ไม่ได้ค่อย ๆ สว่าง
+       และมีคำว่า "ปกติ" กำกับเสมอ — ข้อ 2 ห้ามบอกสถานะด้วยสีอย่างเดียว
+     · **`<address>` จริง ไม่ใช่ `<p>`** เพราะมันคือที่อยู่ติดต่อของเจ้าของหน้า
+       ซึ่งเป็นความหมายเดียวที่แท็กนี้มี โปรแกรมอ่านหน้าจอประกาศให้เอง
+     · **อีเมลกับโทรศัพท์เป็นลิงก์ `mailto:` และ `tel:`** ไม่ใช่ข้อความเปล่า
+       บนมือถือ ข้อความเปล่าแปลว่าต้องจดแล้วพิมพ์เอง
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`position:sticky; bottom:0` ที่ footer เพื่อให้มัน "เผยตัว" ตอนเลื่อน
+        ถึงท้าย** — พังบนหน้าที่สั้นกว่าจอ footer ไปลอยทับเนื้อหา และบน iOS
+        มันชนกับแถบล่างของเบราว์เซอร์ ตอนนี้เป็น footer ธรรมดา
+     2. **แผ่นกระจกใบเดียวครอบทั้ง footer** — ที่ท้ายหน้าไม่มีอะไรอยู่ข้างหลัง
+        ให้มองทะลุ แผ่นโปร่งจึงกลายเป็นกล่องเทาที่ไม่มีเหตุผล ตอนนี้ใช้เส้น
+        ขอบบนกับพื้น `--surface` ตรง ๆ แล้วเก็บความเป็นกระจกไว้ที่การ์ด
+        ติดต่อใบเดียว ซึ่งเป็นของที่ควรเด่นจริง
+     3. **ลิงก์ทุกอันมี `:hover{text-decoration:underline}` อย่างเดียว** —
+        ตอนไล่แท็บด้วยคีย์บอร์ดไม่มีอะไรเปลี่ยนเลยนอกจากวงแหวนโฟกัส
+        ตอนนี้เปลี่ยนสีด้วย ซึ่งเห็นได้ทั้งสองทาง -->
+<style>
+  .w-fg{
+    --gl-pane:color-mix(in srgb,var(--bg) 70%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+    background:var(--surface); border-top:1px solid var(--line);
+    padding-block:clamp(40px,6vw,72px) clamp(20px,3vw,28px);
+  }
+  .w-fg .top{ display:grid; gap:clamp(28px,4vw,48px) }
+  @media (min-width:900px){
+    .w-fg .top{ grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr))
+                                       minmax(0,1.2fr) }
+  }
+  .w-fg .brand .mark{ display:flex; align-items:center; gap:9px;
+                      font:700 19px/1 var(--sans); letter-spacing:-.02em;
+                      text-decoration:none }
+  .w-fg .brand .mark i{ width:22px; height:22px; border-radius:7px; flex:none;
+                        background:var(--accent) }
+  .w-fg .brand p{ color:var(--muted); font-size:15px; line-height:1.65;
+                  margin-top:14px; max-width:34ch }
+  .w-fg address{ font-style:normal; color:var(--muted); font-size:14px;
+                 line-height:1.7; margin-top:16px }
+  .w-fg address a{ color:var(--muted); text-decoration:none }
+  .w-fg address a:hover{ color:var(--text); text-decoration:underline }
+
+  .w-fg h3{ font-size:14px; letter-spacing:.02em; margin-bottom:14px }
+  .w-fg .col ul{ display:grid; gap:10px }
+  .w-fg .col a{ color:var(--muted); text-decoration:none; font-size:15px }
+  .w-fg .col a:hover,.w-fg .col a:focus-visible{ color:var(--text);
+                                                 text-decoration:underline }
+
+  /* การ์ดติดต่อ — ของชิ้นเดียวใน footer ที่ยังเป็นกระจก เพราะเป็นของที่
+     ควรเด่น ไม่ใช่รายการลิงก์ */
+  .w-fg .contact{ border:1px solid var(--gl-edge); border-radius:var(--radius);
+                  background:var(--gl-pane); padding:clamp(18px,2.2vw,22px);
+                  display:flex; flex-direction:column; gap:12px }
+  .w-fg .contact b{ font-size:16px; letter-spacing:-.01em }
+  .w-fg .contact p{ color:var(--muted); font-size:14px; line-height:1.6 }
+  .w-fg .contact .w-btn{ justify-content:center; font-size:15px; padding:12px 20px }
+
+  .w-fg .bottom{ display:flex; flex-wrap:wrap; align-items:center; gap:14px 24px;
+                 margin-top:clamp(32px,5vw,56px); padding-top:22px;
+                 border-top:1px solid var(--line);
+                 color:var(--muted); font-size:13px }
+  .w-fg .bottom .status{ display:flex; align-items:center; gap:8px;
+                         margin-left:auto; text-decoration:none; color:var(--muted) }
+  .w-fg .bottom .status i{ width:8px; height:8px; border-radius:50%; flex:none;
+                           background:var(--viz-up) }
+  .w-fg .bottom .status:hover{ color:var(--text) }
+  .w-fg .bottom nav{ display:flex; flex-wrap:wrap; gap:8px 18px }
+  .w-fg .bottom nav a{ color:var(--muted); text-decoration:none }
+  .w-fg .bottom nav a:hover,.w-fg .bottom nav a:focus-visible{ color:var(--text);
+                                                               text-decoration:underline }
+
+  @media (prefers-reduced-motion:no-preference){
+    /* ท่า blink ตาม STANDARD.md ข้อ 4 — จุดสถานะ กะพริบเป็นขั้น ไม่ใช่จางเข้าออก */
+    .w-fg .bottom .status i{ animation:w-blink 2.4s steps(1,end) infinite }
+    .w-fg .col a,.w-fg .bottom a{ transition:color var(--t-hover) linear }
+  }
+</style>
+
+<footer class="w-fg">
+  <div class="w-wrap">
+    <div class="top">
+      <div class="brand">
+        <a class="mark" href="#"><i></i>แบรนด์</a>
+        <p>สตูดิโอออกแบบและพัฒนา รับงานปีละไม่เกินแปดโปรเจกต์</p>
+        <address>
+          บริษัท ตัวอย่าง จำกัด<br>
+          123 อาคารตัวอย่าง ชั้น 9 ถนนสาทรใต้ แขวงทุ่งมหาเมฆ เขตสาทร กรุงเทพฯ 10120<br>
+          <a href="mailto:hello@example.co.th">hello@example.co.th</a> ·
+          <a href="tel:+6620000000">02 000 0000</a>
+        </address>
+      </div>
+
+      <div class="col">
+        <h3>งาน</h3>
+        <ul>
+          <li><a href="#work">ผลงาน</a></li>
+          <li><a href="#work">ผลงาน</a></li>
+          <li><a href="#stack">เครื่องมือ</a></li>
+          <li><a href="#stack">เครื่องมือ</a></li>
+        </ul>
+      </div>
+
+      <div class="col">
+        <h3>ช่วยเหลือ</h3>
+        <ul>
+          <li><a href="#faq">คำถามที่พบบ่อย</a></li>
+          <li><a href="#">คู่มือการเริ่มต้น</a></li>
+          <li><a href="#awards">รางวัล</a></li>
+          <li><a href="#">แจ้งปัญหา</a></li>
+        </ul>
+      </div>
+
+      <div class="col">
+        <h3>บริษัท</h3>
+        <ul>
+          <li><a href="#">เกี่ยวกับเรา</a></li>
+          <li><a href="#">ร่วมงานกับเรา</a></li>
+          <li><a href="#">บันทึกการเปลี่ยนแปลง</a></li>
+          <li><a href="#">สื่อและโลโก้</a></li>
+        </ul>
+      </div>
+
+      <div class="contact">
+        <b>เริ่มจากคุยก่อน</b>
+        <p>ตอบเองทุกฉบับ ไม่มีฝ่ายขายคั่นกลาง ปกติภายในหนึ่งวันทำการ</p>
+        <a class="w-btn" href="mailto:hello@example.co.th">ส่งอีเมลหาทีม</a>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <span>© 2569 บริษัท ตัวอย่าง จำกัด</span>
+      <nav aria-label="ข้อกำหนด">
+        <a href="#">ข้อกำหนดการใช้งาน</a>
+        <a href="#">ความเป็นส่วนตัว</a>
+        <a href="#">คุกกี้</a>
+      </nav>
+      <a class="status" href="#"><i></i>ระบบทำงานปกติ · ดูสถานะย้อนหลัง</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

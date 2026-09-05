@@ -1,0 +1,16 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "homestay",
+  "type": "registry:file",
+  "title": "homestay",
+  "description": "ที่พักและโฮมสเตย์ · ขายด้วยภาพถ่ายเป็นหลัก",
+  "author": "Aetox <https://github.com/Mikedev115>",
+  "categories": ["hospitality", "lodging"],
+  "files": [
+    {
+      "path": "templates/homestay/index.html",
+      "type": "registry:file",
+      "target": "public/homestay.html"
+    }
+  ]
+}

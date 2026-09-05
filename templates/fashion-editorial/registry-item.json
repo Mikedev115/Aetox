@@ -1,0 +1,16 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "fashion-editorial",
+  "type": "registry:file",
+  "title": "fashion-editorial",
+  "description": "แฟชั่นและแบรนด์งานฝีมือ · ยืมภาษาสิ่งพิมพ์",
+  "author": "Aetox <https://github.com/Mikedev115>",
+  "categories": ["fashion", "editorial", "print"],
+  "files": [
+    {
+      "path": "templates/fashion-editorial/index.html",
+      "type": "registry:file",
+      "target": "public/fashion-editorial.html"
+    }
+  ]
+}

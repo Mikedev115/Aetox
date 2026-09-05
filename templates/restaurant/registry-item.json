@@ -1,0 +1,16 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "restaurant",
+  "type": "registry:file",
+  "title": "restaurant",
+  "description": "ร้านอาหารและคาเฟ่ · มีเมนูและฟอร์มจองโต๊ะ",
+  "author": "Aetox <https://github.com/Mikedev115>",
+  "categories": ["restaurant", "menu", "booking"],
+  "files": [
+    {
+      "path": "templates/restaurant/index.html",
+      "type": "registry:file",
+      "target": "public/restaurant.html"
+    }
+  ]
+}

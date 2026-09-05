@@ -1,0 +1,3268 @@
+<!-- ═══════════════════════════════════════════════════════════════════════
+     หน้าสำเร็จรูป · SaaS การเงิน — ทิศทาง `gl` (กระจก)
+     ═══════════════════════════════════════════════════════════════════════
+
+     ไฟล์เดียวจบ เปิดจากดิสก์ได้ ไม่มี CDN ไม่มี build ไม่มีคำขอออกเน็ต
+     ประกอบจาก sections/ 16 ไฟล์ ตามลำดับที่ SKILL.md กำหนดไว้สำหรับหน้าขาย
+
+     ── ใช้ยังไง ─────────────────────────────────────────────────────────
+     นี่คือ *หน้าที่เสร็จแล้ว* ไม่ใช่โครงให้เติมช่องว่าง งานคือ **เปลี่ยน**
+     ไม่ใช่ **เติม** ทุกคำในนี้เป็นเนื้อหาจริงของธุรกิจสมมติหนึ่งราย
+     เปลี่ยนให้เป็นของจริงของงานที่ทำอยู่ แล้วลบส่วนที่หน้านั้นไม่ต้องการ
+
+     ── สิ่งที่ต้องเปลี่ยนแน่นอน เรียงตามความสำคัญ ────────────────────────
+     1. **ตัวเลขทุกตัว** ในไฟล์นี้เป็นของสมมติ และทุกตัวมี "ที่มา" กำกับไว้
+        ซึ่งก็สมมติด้วย ตัวเลขที่ไม่มีที่มาจริงต้องลบทิ้ง ไม่ใช่เก็บไว้เพราะ
+        มันทำให้หน้าดูดี — `STANDARD.md` ข้อ 8 ห้ามตัวเลขที่ไม่มีที่มา
+     2. **ชื่อคนและคำชมใน `w-tw`** เป็นคนสมมติ ต้องเป็นคนจริงที่ยินยอมแล้ว
+        เท่านั้น คำชมที่แต่งขึ้นคือการหลอกลวง ไม่ใช่ placeholder
+     3. **ชื่อสถาบันใน `w-ig`** เขียนเป็น "ธนาคารตัวอย่าง ก." ไว้โดยตั้งใจ
+        ไม่ใช่ชื่อจริง — ต้องเปลี่ยนเป็นชื่อสถาบันที่ **เชื่อมได้จริงแล้วเท่านั้น**
+        รายการเชื่อมต่อคือคำอ้างเรื่องความสัมพันธ์ทางธุรกิจ ไม่ใช่รายการความหวัง
+     4. **ชิปมาตรฐานใน `w-sec`** เขียนเป็น "มาตรฐาน ก. (ตัวอย่าง)" ไว้
+        เปลี่ยนเป็นมาตรฐานที่ผ่านจริงเท่านั้น หรือลบทั้งแถวถ้ายังไม่มี
+        การอ้างมาตรฐานที่ยังไม่ได้รับคือความเสี่ยงทางกฎหมาย ไม่ใช่การตลาด
+     5. **ที่อยู่ อีเมล เบอร์โทร ใน `w-fg`** ต้องเป็นของจริงที่ติดต่อได้
+     6. **รูปคนใน `imgs/khon-*.jpg`** ต้องวางไฟล์จริงข้างไฟล์นี้ในโฟลเดอร์
+        `imgs/` ถ้าไม่มีรูป ให้ลบ `<img>` ทิ้งแล้วเหลือแค่ชื่อกับตำแหน่ง
+        ซึ่งยังใช้ได้ ไม่ใช่รูปเสีย
+
+     ── สิ่งที่เปลี่ยนได้ แต่ต้องเปลี่ยนทั้งระบบ ────────────────────────────
+     · **สีเน้น** อยู่ที่ `--accent` ใน `:root` และต้องเปลี่ยนครบสามสถานะ
+       (สว่าง · `prefers-color-scheme` · `[data-theme]`) ตารางคอนทราสต์อยู่ใน
+       คอมเมนต์หัว `<style>` เปลี่ยนค่าแล้วต้องคำนวณใหม่ ไม่ใช่กะด้วยตา
+     · **สีของฟ้าใน hero** ผสมมาจาก `--viz-2` กับ `--accent` ไม่ได้ฮาร์ดโค้ด
+       เปลี่ยนสีเน้นแล้วฟ้าเปลี่ยนตามเอง
+     · **ฟอนต์** อยู่ที่ `--sans` ต้องมีฟอนต์ไทยจริงในสแตกเสมอ
+
+     ── สิ่งที่ห้ามแตะถ้าไม่รู้ว่าทำอะไรอยู่ ──────────────────────────────
+     · `overflow` บนบรรพบุรุษของ `.w-hp .frame` — จะฆ่า `animation-timeline:view()`
+       ทั้งสาย เหตุผลเต็มอยู่ในหัวของ `sections/hero-product.html`
+     · `column-width` ใน `.w-tw .wall` ต้องเป็นความยาวล้วน ห้ามมี %
+     · คีย์เฟรมและโทเคนใน `<style>` ก้อนแรก — ทุกส่วนข้างล่างพึ่งพามัน
+
+     ── ลบส่วนไหนได้บ้าง ────────────────────────────────────────────────
+     ลบได้ทุกส่วนที่หน้านั้นไม่มีอะไรจะพูด ยกเว้น nav กับ footer
+     แต่ **ห้ามสลับลำดับ** โดยไม่มีเหตุผล เพราะแต่ละส่วนตอบคำถามที่ส่วนก่อน
+     หน้ามันตั้งไว้: ของคืออะไร → ใครใช้อยู่ → ทำไมต้องเปลี่ยน → ทำอะไรได้ →
+     หน้าตาเป็นยังไง → เริ่มยังไง → ปลอดภัยไหม → ใครใช้ → ต่อกับอะไรได้ →
+     ใหญ่แค่ไหน → ราคาเท่าไร → คนอื่นว่าไง → ยังสงสัยอะไร → กดเลย
+     ═══════════════════════════════════════════════════════════════════ -->
+<!-- Page shell. The document every section below drops into: tokens, reset,
+     landmarks, light and dark. Paste this first, then sections into <main>.
+
+     Everything is in one file on purpose, the same reason a deck is: the page
+     opens from disk, from a USB stick, from an email attachment, with no build
+     step and no server.
+
+     ท้ายไฟล์นี้ยังถือคลังคำศัพท์การเคลื่อนไหวทั้งสิบคำของ STANDARD.md ข้อ 4
+     ไว้ที่เดียว เหตุผลเดียวกับที่โทเคนสีอยู่ที่นี่: สองส่วนบนหน้าเดียวกันที่
+     เข้าฉากคนละความเร็วคือสิ่งที่อ่านออกทันทีว่าประกอบมาจากคนละที่ ส่วนล่าง ๆ
+     จึงไม่ประกาศคีย์เฟรมของตัวเองเว้นแต่ท่านั้นมีที่ใช้อยู่ที่เดียวจริง ๆ
+     (dialog.html เป็นตัวอย่างของข้อยกเว้นนั้น) -->
+<!-- ค่าที่ลองแล้วพัง: เคยให้ .w-btn::after วางบน z-index ปกติแล้วแสงกวาดไป
+     ทับตัวหนังสือในปุ่มจนอ่านไม่ออกตอนชี้ ต้องกด z-index:-1 พร้อม isolation
+     ที่ตัวปุ่ม ไม่งั้น -1 จะหลุดไปอยู่หลังพื้นของ section แทน
+
+     ── พาเลตต์ค่าเริ่มต้น วัดแล้วทุกคู่ ────────────────────────────────────
+     เขียว + พื้นนวลอุ่น + หมึกเกือบดำ + มุมโค้งเยอะ ทุกค่าผ่าน WCAG ก่อนเข้ามา
+     ไม่ใช่หลังจากนั้น ตัวเลขอยู่ในตารางท้ายคอมเมนต์นี้
+
+     --field คือโทเคนใหม่ และเป็นการแก้ของที่ตกมาตลอด
+     ก่อนหน้านี้ขอบของ "ทุกอย่าง" ใช้ --line ตัวเดียว รวมทั้งขอบช่องกรอก ปุ่มโปร่ง
+     สวิตช์ และรางเลื่อน ซึ่ง --line ทำคอนทราสต์ได้แค่ 1.25:1 บนพื้นขาว
+     WCAG 1.4.11 ต้องการ 3:1 สำหรับ "เส้นที่บอกว่าตัวควบคุมอยู่ตรงไหน" ขอบช่อง
+     กรอกที่มองแทบไม่เห็นคือช่องกรอกที่คนสายตาเลือนหาไม่เจอว่าต้องพิมพ์ตรงไหน
+     ตอนนี้จึงแยกเป็นสองตัว
+       --line   เส้นคั่น เส้นแบ่ง ขอบการ์ด  ไม่มีเกณฑ์ เพราะไม่ได้บอกตำแหน่งอะไร
+       --field  ขอบของตัวควบคุมที่กดหรือพิมพ์ได้  ต้อง 3:1 ขึ้นไปเสมอ
+     ใช้ผิดตัวคือบั๊กการเข้าถึง ไม่ใช่เรื่องรสนิยม
+
+     | คู่ | สว่าง | มืด | เกณฑ์ |
+     |---|---|---|---|
+     | text / bg | 18.6:1 | 17.2:1 | 4.5 |
+     | muted / bg | 6.31:1 | 7.41:1 | 4.5 |
+     | muted / surface | 5.73:1 | 6.73:1 | 4.5 |
+     | accent / bg | 5.37:1 | 9.98:1 | 4.5 |
+     | accent-ink / accent | 5.37:1 | 9.98:1 | 4.5 |
+     | field / bg | 3.63:1 | 3.56:1 | 3.0 |
+     | field / surface | 3.30:1 | 3.24:1 | 3.0 |
+     | success / bg | 5.33:1 | 9.84:1 | 4.5 |
+
+     success เป็นเขียวอมฟ้า ไม่ใช่เขียวใบไม้เหมือน --accent โดยตั้งใจ ไม่งั้นสีแบรนด์
+     กับสีสถานะจะเป็นสีเดียวกันบนหน้าที่มีทั้งคู่ ถึงอย่างนั้นข้อ 2 ก็ยังบังคับว่า
+     สถานะต้องมีคำหรือสัญลักษณ์กำกับเสมอ สีไม่เคยเป็นตัวเดียวที่บอก -->
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>แพลตฟอร์มการลงทุน · หน้าสำเร็จรูป</title>
+<meta name="description" content="ประโยคเดียวที่บอกว่าหน้านี้เกี่ยวกับอะไร">
+<style>
+  :root{
+    color-scheme:light dark;
+    --bg:#ffffff; --surface:#f4f4f2; --text:#111312; --muted:#5c615e;
+    --line:#e6e6e3; --field:#82887f; --accent:#1f7a3d; --accent-ink:#ffffff;
+    --success:#0e7a58; --warning:#8a5a00; --danger:#b4291c;
+    /* รัศมี — สี่ขั้น ไม่ใช่เก้าค่าที่กะเอา ก่อนหน้านี้ในคลังมีรัศมีเล็กอยู่ห้าค่า
+       (6 7 8 9 10px) และทรงเม็ดยาเขียนสองแบบ (99px กับ 999px) ซึ่งไม่มีใครตั้งใจ
+       ให้ต่างกัน มันแค่ถูกพิมพ์คนละครั้ง */
+    --radius-sm:10px;      /* ของเล็กในการ์ด ป้าย ปุ่มไอคอน */
+    --radius:18px;         /* การ์ด แผง ช่องกรอก */
+    --radius-lg:26px;      /* กล่องเด่น แถบลอย ของที่ใหญ่กว่าครึ่งจอ */
+    --radius-pill:999px;   /* ทรงเม็ดยา ชิป สวิตช์ */
+    --maxw:1120px; --gap:clamp(16px,2.5vw,28px);
+    --pad:clamp(20px,5vw,48px);
+    /* ── ระดับความสูง สี่ขั้น ────────────────────────────────────────────
+       ทุกขั้นเป็นเงาสองชั้นเสมอ ไม่ใช่ชั้นเดียว
+         ชั้นแรก แคบและเข้ม  = เงาสัมผัส บอกว่าของวางอยู่บนพื้น
+         ชั้นสอง กว้างและจาง = เงาบรรยากาศ บอกว่ามันสูงแค่ไหน
+       เงาชั้นเดียวให้ได้อย่างใดอย่างหนึ่ง จึงออกมาเป็นได้แค่ "ลอย" หรือ "แปะ"
+       ไม่เคยเป็น "วางอยู่" ซึ่งเป็นสิ่งที่ตาคาดหวังจากของจริง
+
+       ระยะเบลอโตเป็นเท่าตัวทุกขั้น (6→18→36→68) ไม่ใช่บวกทีละนิด เพราะตาอ่าน
+       ความสูงเป็นสเกลลอการิทึม สองขั้นที่ห่างกัน 4px ตาแยกไม่ออกว่าอันไหนสูงกว่า
+
+       ค่า offset แนวตั้งเป็นครึ่งหนึ่งของเบลอเสมอ นั่นคือมุมแสงคงที่ทั้งระบบ
+       ของสองชิ้นบนหน้าเดียวกันที่เงาทอดคนละมุมคือสิ่งที่อ่านออกทันทีว่าผิด */
+    --e1:0 1px 2px -1px rgb(17 19 18/.10), 0 2px 6px -2px rgb(17 19 18/.08);
+    --e2:0 2px 4px -2px rgb(17 19 18/.10), 0 8px 18px -6px rgb(17 19 18/.12);
+    --e3:0 4px 8px -4px rgb(17 19 18/.12), 0 18px 36px -12px rgb(17 19 18/.18);
+    --e4:0 8px 16px -8px rgb(17 19 18/.16), 0 34px 68px -20px rgb(17 19 18/.26);
+    --sans:"Prompt","Leelawadee UI",system-ui,-apple-system,Segoe UI,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+    /* จังหวะการเคลื่อนไหว มาจาก STANDARD.md ข้อ 4 ไม่ใช่ค่าที่กะเอา ประกาศไว้
+       ที่เดียวเพื่อให้ทั้งหน้าเคลื่อนด้วยจังหวะเดียวกัน สองส่วนที่เข้าฉากคนละ
+       ความเร็วบนหน้าเดียวกันคือสิ่งที่อ่านออกทันทีว่าประกอบมาจากคนละที่ */
+    --ease-in:cubic-bezier(.2,.7,.3,1);   /* เข้าฉาก */
+    --ease-wipe:cubic-bezier(.7,0,.2,1);  /* กวาด */
+    --t-enter:.55s; --t-hover:.18s; --t-stagger:70ms;
+    /* สปริงสองตัว ไม่ได้กะด้วยตา — แก้สมการสปริงหน่วง (damped harmonic
+       oscillator) แล้วสุ่มค่าออกมา 22 จุด รายละเอียดที่มาอยู่ใน
+       sections/spring-physics.html ซึ่งมีตัวเทียบกับ cubic-bezier ให้ดูด้วย
+         แน่น  ζ=0.62 ωn=17.0 → เลยเป้า 8.3% นิ่งใน 0.42s  ใช้กับตัวควบคุมเล็ก
+         นุ่ม  ζ=0.72 ωn=12.5 → เลยเป้า 3.8% นิ่งใน 0.55s  ใช้กับแผงและกล่องใหญ่
+       ของใหญ่ต้องเลยเป้าน้อยกว่าเสมอ พื้นที่ยิ่งมาก ตายิ่งจับการแกว่งได้ชัด */
+    --ease-spring:linear(0, .0459 4.5%, .1585 9.1%, .3062 13.6%, .4646 18.2%,
+      .6165 22.7%, .7511 27.3%, .8625 31.8%, .9488 36.4%, 1.011 40.9%,
+      1.051 45.5%, 1.074 50%, 1.083 54.5%, 1.082 59.1%, 1.074 63.6%,
+      1.062 68.2%, 1.049 72.7%, 1.036 77.3%, 1.024 81.8%, 1.014 86.4%,
+      1.006 90.9%, 1.001 95.5%, 1);
+    --ease-spring-soft:linear(0, .0419 4.5%, .1434 9.1%, .2749 13.6%, .4153 18.2%,
+      .5505 22.7%, .6717 27.3%, .7746 31.8%, .8578 36.4%, .922 40.9%,
+      .9689 45.5%, 1.001 50%, 1.022 54.5%, 1.033 59.1%, 1.038 63.6%,
+      1.038 68.2%, 1.035 72.7%, 1.03 77.3%, 1.025 81.8%, 1.02 86.4%,
+      1.015 90.9%, 1.01 95.5%, 1);
+    --t-spring:.42s; --t-spring-soft:.55s;
+    /* สีสำหรับข้อมูล แยกจากสีสถานะข้างบนโดยตั้งใจ: สถานะบอกว่าเรื่องนี้ดีหรือแย่
+       ข้อมูลบอกแค่ว่านี่คนละชุดกับชุดนั้น ปนกันเมื่อไหร่กราฟจะพูดสิ่งที่ไม่ได้
+       ตั้งใจพูด ลำดับตายตัว ห้ามวนกลับ ชุดที่เจ็ดคือรวมเป็น "อื่น ๆ" ไม่ใช่สร้าง
+       สีใหม่ ทั้งหกค่านี้รันผ่าน validator ของสกิล dataviz แล้วทั้งสองโหมด —
+       แถบความสว่าง ความอิ่มสี ระยะห่างของคู่ที่ติดกันเมื่อมองด้วยตาบอดสี และ
+       คอนทราสต์กับพื้น ถ้าจะเปลี่ยนค่า ให้รัน validator ใหม่ อย่ากะด้วยตา */
+    --viz-1:#db2777; --viz-2:#2563eb; --viz-3:#16a34a;
+    --viz-4:#7c3aed; --viz-5:#d97706; --viz-6:#0d9488;
+    /* ไล่เฉดสีเดียวสำหรับปริมาณ อ่อนไปเข้ม ไม่ใช่รุ้ง */
+    --viz-s1:#dbeafe; --viz-s2:#bfdbfe; --viz-s3:#93b4f7;
+    --viz-s4:#4f83ee; --viz-s5:#1d4ed8;
+    /* ขึ้นกับลง เป็นสถานะ ไม่ใช่ชุดข้อมูล จึงยืมจาก success/danger */
+    --viz-up:var(--success); --viz-down:var(--danger);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){ color-scheme:dark;
+           --bg:#0e100f; --surface:#181b19; --text:#f2f4f2; --muted:#9ca39e;
+           --line:#252a27; --field:#646d65; --accent:#63d183; --accent-ink:#0e100f;
+           --success:#3fd3b4; --warning:#ffb648; --danger:#ff7a68;
+           /* บนพื้นมืด เงาดำแทบไม่มีผล เพราะพื้นก็ดำอยู่แล้ว จึงต้องเข้มขึ้นราวสามเท่า
+              และเพิ่มเส้นสว่างบางที่ขอบบน (inset) ซึ่งเป็นสิ่งที่บอกความสูงจริง ๆ
+              ในโหมดมืด ไม่ใช่เงา */
+           --e1:inset 0 1px 0 rgb(255 255 255/.04), 0 1px 2px -1px rgb(0 0 0/.55), 0 2px 6px -2px rgb(0 0 0/.45);
+           --e2:inset 0 1px 0 rgb(255 255 255/.05), 0 2px 4px -2px rgb(0 0 0/.55), 0 8px 18px -6px rgb(0 0 0/.5);
+           --e3:inset 0 1px 0 rgb(255 255 255/.06), 0 4px 8px -4px rgb(0 0 0/.6), 0 18px 36px -12px rgb(0 0 0/.55);
+           --e4:inset 0 1px 0 rgb(255 255 255/.07), 0 8px 16px -8px rgb(0 0 0/.65), 0 34px 68px -20px rgb(0 0 0/.6);
+           --viz-1:#e0538f; --viz-2:#4f7fe8; --viz-3:#25a463;
+           --viz-4:#8a6bea; --viz-5:#c1862c; --viz-6:#1ba38f;
+           --viz-s1:#182a4a; --viz-s2:#1e3a6b; --viz-s3:#2a539b;
+           --viz-s4:#3a6ecb; --viz-s5:#5b8cf7 }
+  }
+  /* Same values again, gated on an explicit choice rather than the OS
+     setting: sections/theme-toggle.html flips this attribute and remembers
+     it, for a page that wants a switch instead of only following the system. */
+  :root[data-theme="light"]{ color-scheme:light }
+  :root[data-theme="dark"]{ color-scheme:dark;
+         --bg:#0e100f; --surface:#181b19; --text:#f2f4f2; --muted:#9ca39e;
+         --line:#252a27; --field:#646d65; --accent:#63d183; --accent-ink:#0e100f;
+         --success:#3fd3b4; --warning:#ffb648; --danger:#ff7a68;
+         /* บนพื้นมืด เงาดำแทบไม่มีผล เพราะพื้นก็ดำอยู่แล้ว จึงต้องเข้มขึ้นราวสามเท่า
+            และเพิ่มเส้นสว่างบางที่ขอบบน (inset) ซึ่งเป็นสิ่งที่บอกความสูงจริง ๆ
+            ในโหมดมืด ไม่ใช่เงา */
+         --e1:inset 0 1px 0 rgb(255 255 255/.04), 0 1px 2px -1px rgb(0 0 0/.55), 0 2px 6px -2px rgb(0 0 0/.45);
+         --e2:inset 0 1px 0 rgb(255 255 255/.05), 0 2px 4px -2px rgb(0 0 0/.55), 0 8px 18px -6px rgb(0 0 0/.5);
+         --e3:inset 0 1px 0 rgb(255 255 255/.06), 0 4px 8px -4px rgb(0 0 0/.6), 0 18px 36px -12px rgb(0 0 0/.55);
+         --e4:inset 0 1px 0 rgb(255 255 255/.07), 0 8px 16px -8px rgb(0 0 0/.65), 0 34px 68px -20px rgb(0 0 0/.6);
+         --viz-1:#e0538f; --viz-2:#4f7fe8; --viz-3:#25a463;
+         --viz-4:#8a6bea; --viz-5:#c1862c; --viz-6:#1ba38f;
+         --viz-s1:#182a4a; --viz-s2:#1e3a6b; --viz-s3:#2a539b;
+         --viz-s4:#3a6ecb; --viz-s5:#5b8cf7 }
+  *,*::before,*::after{ box-sizing:border-box }
+  body,h1,h2,h3,h4,p,figure,blockquote,ul,ol,dl,dd{ margin:0 }
+  /* Lists inside a w- component are structure, not prose, so they lose their
+     markers. Scoped to the namespace rather than written as `ul[class]`: the
+     lists in these templates are plain <ul> inside a classed parent, and the
+     `ul[class]` idiom missed every one of them, which put bullet points down
+     the middle of the nav and the logo row the first time it was rendered.
+     Matched by prefix, not substring: `[class*="w-"]` alone would also catch
+     an unrelated class like `show-panel` or `arrow-nav` (both contain "w-")
+     and strip bullets from a list that has nothing to do with this skill. */
+  :is([class^="w-"],[class*=" w-"]) :where(ul,ol){ list-style:none; padding:0 }
+  /* Prose is the exception and asks for its markers back, because there a list
+     IS the content. */
+  .w-article .prose :where(ul,ol),.w-docs .body :where(ul,ol){
+    list-style:revert; padding-left:1.3em }
+  img,svg,video{ display:block; max-width:100%; height:auto }
+  body{ background:var(--bg); color:var(--text); font-family:var(--sans);
+        line-height:1.65; -webkit-font-smoothing:antialiased }
+  a{ color:inherit }
+  :where(a,button,input,textarea,select,summary):focus-visible{
+    outline:2px solid var(--accent); outline-offset:3px; border-radius:var(--radius-sm) }
+  .w-wrap{ width:100%; max-width:var(--maxw); margin-inline:auto; padding-inline:var(--pad) }
+  .w-section{ padding-block:clamp(48px,8vw,104px) }
+  .w-eyebrow{ color:var(--accent); font-weight:600; letter-spacing:.1em;
+              text-transform:uppercase; font-size:13px }
+  .w-lede{ color:var(--muted); font-size:clamp(16px,1.6vw,19px); max-width:62ch }
+  .w-btn{ display:inline-flex; align-items:center; gap:8px; border:1px solid var(--accent);
+          background:var(--accent); color:var(--accent-ink); text-decoration:none;
+          font:600 16px/1 var(--sans); padding:14px 24px; border-radius:var(--radius-pill) }
+  .w-btn--ghost{ background:transparent; color:var(--text); border-color:var(--field) }
+  /* For the rare label a sighted user does not need to see but a screen
+     reader must have — a compact search box, an icon-only control. Stays in
+     the tab order and the accessibility tree, unlike display:none. Prefer a
+     visible label over this one first; most fields in this library use one. */
+  .w-sr-only{
+    position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
+    clip-path:inset(50%); overflow:hidden; white-space:nowrap;
+  }
+  .w-skip{ position:absolute; left:-9999px }
+  .w-skip:focus{ left:12px; top:12px; z-index:99; background:var(--bg); padding:10px 14px }
+
+  /* ── คลังคำศัพท์การเคลื่อนไหว ─────────────────────────────────────────────
+     STANDARD.md ข้อ 4 สั่งว่า "ประกาศครั้งเดียว ใช้ซ้ำทุกที่ ชื่อคือสัญญา ไม่ใช่
+     การตกแต่ง" ที่นี่คือครั้งเดียวนั้น ส่วนที่เขียน animation:w-grow จึงแปลว่า
+     "นี่คือแท่งกราฟ" ไม่ใช่แค่ "ของที่ขยับ" และคนอ่านโค้ดรู้ทันทีว่าจะเห็นอะไร
+
+     คีย์เฟรมประกาศนอกด่าน prefers-reduced-motion ได้ เพราะคีย์เฟรมเปล่า ๆ ไม่
+     ทำให้อะไรขยับ สิ่งที่ต้องอยู่หลังด่านคือจุดที่ "เรียกใช้" ซึ่งอยู่ในไฟล์ของ
+     แต่ละส่วน แบบเดียวกับที่ backgrounds.html กับ dialog.html ทำอยู่แล้ว
+
+     w-rise ขยับ transform อย่างเดียว ไม่แตะ opacity โดยตั้งใจ — กับดักข้อแรกใน
+     STANDARD.md ข้อ 5 บันทึกไว้ว่าเข้าฉากที่เริ่มจาก opacity:0 ทำให้เฟรมแรกของ
+     หน้าว่าง และภาพย่อที่เรนเดอร์จากเฟรมแรกออกมาเป็นหน้าเปล่า */
+  @keyframes w-rise { from{ transform:translateY(14px) } }
+  /* ต้องเขียน to ให้ครบ ห้ามปล่อยให้เบราว์เซอร์เติมจากค่าเดิมของ element เอง:
+     ค่าเดิมของ clip-path คือ none ซึ่งคำนวณระหว่างทางกับ inset() ไม่ได้ ผลคือ
+     มันกระโดดจากปิดสนิทเป็นเปิดสนิทที่ครึ่งทาง ไม่ได้กวาด จับได้ตอนเปิดดูของ
+     จริงเท่านั้น เพราะเช็คจากโค้ดแล้วเห็นชื่อ w-wipe ติดอยู่ครบทุกที่ */
+  @keyframes w-wipe { from{ clip-path:inset(0 100% 0 0) }
+                      to  { clip-path:inset(0 0 0 0) } }
+  @keyframes w-lift { to  { transform:translateY(-3px) } }
+  @keyframes w-slide{ to  { transform:translateX(-50%) } }
+  @keyframes w-drift{ to  { transform:translate3d(4%,-3%,0) scale(1.12) } }
+  @keyframes w-sheen{ from{ background-position:-140% 0 } to{ background-position:240% 0 } }
+  /* งอกจากฐาน แกนไหนก็ได้: ตั้ง --grow-x / --grow-y ที่ตัวที่เรียกใช้ แล้วตั้ง
+     transform-origin ให้ตรงกับฐานจริงของแท่งนั้น ค่าเริ่มต้นคือแท่งแนวตั้ง
+     (--grow-y:0) เพราะเป็นทรงที่พบบ่อยกว่า ส่วนแท่งแนวนอนตั้ง --grow-x:0
+     --grow-y:1 ที่จะแยกเป็น w-grow-x ต่างหากก็ได้ แต่ข้อ 4 บอกว่าชื่อคือสัญญา
+     และสัญญาของคำนี้คือ "งอกจากฐาน" ซึ่งเป็นเรื่องเดียวกันทั้งสองแกน */
+  @keyframes w-grow { from{ transform:scale(var(--grow-x,1),var(--grow-y,0)) } }
+  @keyframes w-draw { from{ stroke-dashoffset:1000 } }   /* คู่กับ pathLength="1000" */
+  @keyframes w-spin { to  { transform:rotate(360deg) } }
+  @keyframes w-blink{ 50% { opacity:.25 } }
+
+  /* การ์ดที่ลอยขึ้นตอนชี้ ใช้ซ้ำได้ทุกส่วนด้วยการเติมคลาส `w-lift` ไม่ต้องเขียน
+     ซ้ำแปดไฟล์ สีขอบกับเงาเปลี่ยนนอกด่าน การขยับอยู่ในด่าน — คนที่ปิดการ
+     เคลื่อนไหวจึงยังได้ผลตอบกลับว่าชี้โดนอะไรอยู่ แค่ไม่มีอะไรกระโดด
+
+     ที่ต้องมีเงาด้วย ไม่ใช่แค่สีขอบ: การ์ดบางใบในคลังนี้ไม่มีขอบเลย (เช่นคนใน
+     team.html) ถ้าผลตอบกลับมีแต่ border-color ใบพวกนั้นจะไม่มีอะไรตอบเลยสำหรับ
+     คนที่ปิดการเคลื่อนไหว เงาทำงานได้ทั้งใบที่มีขอบและไม่มี */
+  .w-lift{ transition:border-color var(--t-hover) linear, box-shadow var(--t-hover) linear }
+  .w-lift:hover{ border-color:color-mix(in srgb,var(--accent) 42%,var(--line));
+                 box-shadow:var(--e2) }
+
+  /* แสงกวาดผ่านปุ่มหลักตอนชี้ ใช้ currentColor จึงถูกทั้งปุ่มทึบ (กวาดสว่างบนพื้น
+     เข้ม) และปุ่มโปร่ง (กวาดตามสีตัวหนังสือ) โดยไม่ต้องแยกกฎ เครื่องที่ไม่รู้จัก
+     color-mix จะทิ้งทั้ง background ทิ้งไป ปุ่มก็เหลือเป็นปุ่มปกติ ไม่ใช่จอดำ */
+  .w-btn{ position:relative; overflow:hidden; isolation:isolate }
+  .w-btn::after{ content:""; position:absolute; inset:0; z-index:-1; pointer-events:none;
+    background:linear-gradient(100deg, transparent 34%,
+      color-mix(in srgb,currentColor 24%,transparent) 50%, transparent 66%);
+    background-size:240% 100%; background-repeat:no-repeat; background-position:-140% 0 }
+
+  /* เข้าฉากตอนเลื่อนถึง เติมคลาส `w-reveal` ที่บล็อกไหนก็ได้
+     ใช้ animation-timeline:view() แทน IntersectionObserver + สคริปต์ เพราะ
+     ตำแหน่งของกล้องคือสิ่งที่เบราว์เซอร์รู้ดีอยู่แล้ว ไม่ต้องถามมันทีละเฟรม
+     สามด่านซ้อนกันตามที่ STANDARD.md ข้อ 2 สั่งไว้ว่าของใหม่ต้องมีทางลง:
+       1. prefers-reduced-motion — คนที่ปิดการเคลื่อนไหวไม่เจออะไรเลย
+       2. @supports (animation-timeline:view()) — เครื่องที่ไม่รองรับข้ามทั้งก้อน
+       3. ท่าที่ใช้คือ w-rise ซึ่งขยับ transform อย่างเดียว
+     สิ่งที่เหลือเมื่อทั้งสามด่านไม่ผ่านคือบล็อกที่มองเห็นครบตามปกติ ไม่ใช่ที่ว่าง
+     ซึ่งเป็นความต่างระหว่าง "ทางลง" กับ "ทางตัน" */
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      .w-reveal{ animation:w-rise linear both;
+                 animation-timeline:view(); animation-range:entry 8% cover 26% }
+    }
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    html{ scroll-behavior:smooth }
+    .w-lift{ transition:transform var(--t-hover) var(--ease-in),
+                        border-color var(--t-hover) linear,
+                        box-shadow var(--t-hover) linear }
+    .w-lift:hover{ transform:translateY(-3px); box-shadow:var(--e3) }
+    .w-btn:hover::after,.w-btn:focus-visible::after{ animation:w-sheen .7s var(--ease-wipe) }
+  }
+</style>
+</head>
+<body>
+<a class="w-skip" href="#main">ข้ามไปเนื้อหา</a>
+<!-- nav.html here -->
+
+<!-- Nav · ทิศทาง `gl` (กระจก) — แคปซูลลอยเหนือเนื้อหา
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี nav.html แล้ว
+     ───────────────────────────────────────────
+     `nav.html` เป็นแถบเต็มความกว้างที่ติดขอบบน มีเส้นคั่นใต้ตัวเอง และมีพื้น
+     ทึบ ซึ่งถูกสำหรับหน้าที่เนื้อหาเริ่มทันทีใต้แถบ — แถบคือ *ขอบ* ของหน้า
+
+     แต่ทรง `hero-product.html` มีพื้นบรรยากาศเต็มความกว้างอยู่ข้างหลัง
+     แถบทึบเต็มความกว้างจะตัดฟ้าออกเป็นสองท่อนตรงบรรทัดแรก ซึ่งเป็นสิ่งแรก
+     ที่คนเห็น แคปซูลลอยแก้ข้อนี้เพราะมันเป็น *ของที่วางอยู่บน* หน้า ไม่ใช่
+     ขอบของหน้า ฟ้าจึงต่อเนื่องผ่านใต้มันไป
+
+     เลือกจากคำถามเดียว: **ข้างหลังแถบมีอะไรที่ต้องมองทะลุไหม**
+     ถ้าไม่มี ใช้ `nav.html` เพราะเบากว่าและไม่ต้องมี `backdrop-filter`
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **`top:12px` ไม่ใช่ `top:0`** เพราะแคปซูลต้องมีอากาศรอบตัวถึงจะอ่านเป็น
+       ของที่ลอย ที่ 0 มันชนขอบจอแล้วกลับไปอ่านเป็นแถบ 12px คือระยะที่เล็ก
+       พอที่ไม่กินพื้นที่เหนือเส้นพับ และใหญ่พอให้เงา `--e3` (เบลอ 36px)
+       มีที่ให้ตกโดยไม่ถูกขอบจอตัด
+     · **ความกว้างสูงสุด 920px ไม่ใช่ `--maxw` 1120px** เพราะแคปซูลที่กว้าง
+       เท่าเนื้อหาจะอ่านเป็นแถบอีกครั้ง 920 คือจุดที่ยังเหลือขอบข้างละ 100px
+       ที่ 1120 ซึ่งเป็นระยะที่ตาแยกออกว่ามันแคบกว่าเนื้อหาข้างล่าง
+     · **`padding:8px 8px 8px 20px`** ไม่สมมาตรโดยตั้งใจ: ข้างขวามีปุ่มที่มี
+       พื้นของตัวเองอยู่แล้ว ระยะ 8px จึงพอ ส่วนข้างซ้ายเป็นตัวอักษรเปล่า
+       ต้องการ 20px ถึงจะดูห่างขอบเท่ากัน — เป็นระยะที่ตาเห็น ไม่ใช่ระยะที่วัด
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`position:sticky` บนตัว `<nav>` ที่อยู่ใน `<div>` ที่มี `overflow`** —
+        ไม่ติดหนึบเลย ไหลไปกับหน้า sticky ตายทันทีที่บรรพบุรุษตัวใดตัวหนึ่ง
+        มี overflow ที่ไม่ใช่ visible ที่นี่จึงวางแถบไว้นอก `<main>` ตรง ๆ
+     2. **เมนูมือถือใช้ `display:none` → `flex`** — transition ไม่ทำงานกับ
+        `display` ตรง ๆ ลองใช้ `max-height` แล้วต้องเดาความสูงล่วงหน้า เมนูที่
+        ยาวกว่าที่เดาจะถูกตัด ทางที่ใช้จริงคือ animation ที่เล่นตอน `:checked`
+        ซึ่งเริ่มหลัง display เปลี่ยนไปแล้ว จึงไม่ต้องรู้ความสูงเลย
+        (วิธีเดียวกับ `nav.html` — ท่า `w-navp-drop` ประกาศในไฟล์นี้เพราะใช้
+        ที่เดียว)
+     3. **ให้แผงเมนูมือถืออยู่ในแคปซูลเดียวกัน** — แคปซูลยืดสูงขึ้นเป็นกล่อง
+        มุมมนที่ไม่ใช่แคปซูลอีกต่อไป แยกออกมาเป็นแผ่นที่สองใต้แคปซูลแทน
+        ซึ่งเป็นสิ่งที่ทิศทาง `gl` ทำอยู่แล้ว — แผ่นโปร่งซ้อนกัน
+     4. **`backdrop-filter` โดยไม่มีพื้นสำรอง** — บนเอนจินที่ไม่รองรับ แคปซูล
+        กลายเป็นใส ตัวหนังสือทับฟ้าจนอ่านไม่ออก ตอนนี้พื้นเริ่มที่ 76% ทึบ
+        อยู่แล้ว แล้วค่อยเพิ่มความเบลอด้วย `@supports` -->
+<style>
+  .w-navp{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 13%,transparent);
+    position:sticky; top:12px; z-index:30; padding-top:12px;
+  }
+  .w-navp .bar{
+    display:flex; align-items:center; gap:clamp(10px,2vw,22px);
+    max-width:920px; margin-inline:auto;
+    padding:8px 8px 8px 20px; min-height:56px;
+    border:1px solid var(--gl-edge); border-radius:var(--radius-pill);
+    background:var(--gl-pane); box-shadow:var(--e3);
+  }
+  @supports (backdrop-filter:blur(4px)){
+    .w-navp .bar{ backdrop-filter:blur(14px) }
+  }
+  .w-navp .mark{ display:flex; align-items:center; gap:9px; text-decoration:none;
+                 font:700 17px/1 var(--sans); letter-spacing:-.02em; flex:none }
+  .w-navp .mark i{ width:22px; height:22px; border-radius:7px; flex:none;
+                   background:var(--accent) }
+  .w-navp ul{ display:flex; align-items:center; gap:clamp(6px,1.4vw,14px);
+              margin-inline:auto }
+  .w-navp ul a{ display:block; text-decoration:none; color:var(--muted);
+                font-size:15px; padding:8px 12px; border-radius:var(--radius-pill) }
+  .w-navp ul a:hover,.w-navp ul a[aria-current="page"]{
+    color:var(--text); background:color-mix(in srgb,var(--text) 7%,transparent) }
+  .w-navp .w-btn{ padding:11px 12px 11px 20px; font-size:15px; flex:none }
+  .w-navp .w-btn .badge{ display:inline-flex; align-items:center; justify-content:center;
+    width:24px; height:24px; border-radius:50%;
+    background:var(--accent-ink); color:var(--accent) }
+  .w-navp .w-btn .badge svg{ width:11px; height:11px }
+
+  /* ── เมนูมือถือ ไม่มีสคริปต์ ───────────────────────────────────────── */
+  .w-navp .toggle{ position:absolute; width:1px; height:1px; margin:-1px;
+                   clip-path:inset(50%); overflow:hidden }
+  .w-navp .burger{ display:none; cursor:pointer; flex:none;
+    width:40px; height:40px; border-radius:50%; background:var(--text);
+    align-items:center; justify-content:center; gap:4px; flex-direction:column }
+  .w-navp .burger i{ width:15px; height:2px; border-radius:2px; background:var(--bg) }
+  .w-navp .toggle:focus-visible ~ .bar .burger{
+    outline:2px solid var(--accent); outline-offset:3px }
+  /* แผงเมนูเป็นแผ่นที่สอง ใต้แคปซูล ไม่ได้ยืดแคปซูลให้สูงขึ้น — ดูข้อ 3 */
+  .w-navp .drop{ display:none; max-width:920px; margin:8px auto 0; padding:10px;
+    border:1px solid var(--gl-edge); border-radius:var(--radius);
+    background:var(--gl-pane); box-shadow:var(--e3) }
+  @supports (backdrop-filter:blur(4px)){ .w-navp .drop{ backdrop-filter:blur(14px) } }
+  .w-navp .drop ul{ display:grid; gap:2px; margin:0 }
+  .w-navp .drop a{ padding:12px 14px; font-size:16px; border-radius:var(--radius-sm) }
+  .w-navp .toggle:checked ~ .drop{ display:block }
+
+  @media (max-width:860px){
+    .w-navp .bar > ul{ display:none }
+    .w-navp .bar .w-btn{ display:none }
+    .w-navp .burger{ display:flex }
+    .w-navp .mark{ margin-inline-end:auto }
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-navp ul a{ transition:background var(--t-hover) linear, color var(--t-hover) linear }
+    .w-navp .toggle:checked ~ .drop{ animation:w-navp-drop .3s var(--ease-in) }
+    /* เงาเข้มขึ้นตามระยะที่เลื่อน ผูกกับ animation-timeline:scroll() ไม่ใช่
+       scroll listener แคปซูลที่ลอยอยู่บนเนื้อหาโดยเงาไม่เปลี่ยนเลยจะดูเหมือน
+       ติดอยู่กับหน้า ไม่ใช่ลอยอยู่เหนือมัน 140px แรกคือระยะที่หัวเรื่องแรก
+       เริ่มลอดใต้แคปซูลพอดีที่ 900px */
+    @supports (animation-timeline:scroll()){
+      .w-navp .bar{ animation-name:w-navp-raise; animation-timing-function:linear;
+        animation-fill-mode:both;
+        animation-timeline:scroll(); animation-range:0 140px }
+    }
+  }
+  @keyframes w-navp-drop{ from{ transform:translateY(-8px) } }
+  @keyframes w-navp-raise{ to{ box-shadow:var(--e4) } }
+</style>
+
+<div class="w-navp">
+  <div class="w-wrap">
+    <input class="toggle" type="checkbox" id="w-navp-open" aria-label="เปิดเมนู">
+    <nav class="bar" aria-label="หลัก">
+      <a class="mark" href="#"><i></i>แบรนด์</a>
+      <ul>
+        <li><a href="#features">ความสามารถ</a></li>
+        <li><a href="#use-cases">ใครใช้บ้าง</a></li>
+        <li><a href="#pricing">ราคา</a></li>
+        <li><a href="#faq">คำถามที่พบบ่อย</a></li>
+      </ul>
+      <a class="w-btn" href="#cta">ทดลองฟรี<span class="badge"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h9M8.5 4.2 12.6 8l-4.1 3.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+      <label class="burger" for="w-navp-open"><i></i><i></i></label>
+    </nav>
+    <div class="drop">
+      <ul>
+        <li><a href="#features">ความสามารถ</a></li>
+        <li><a href="#use-cases">ใครใช้บ้าง</a></li>
+        <li><a href="#pricing">ราคา</a></li>
+        <li><a href="#faq">คำถามที่พบบ่อย</a></li>
+        <li><a href="#cta">ทดลองฟรี</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<main id="main">
+<!-- Hero · ทิศทาง `gl` (กระจก) — ท้องฟ้า กับผลิตภัณฑ์เต็มใบ
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี hero.html แล้ว
+     ────────────────────────────────────────────
+     `hero.html` เป็นทิศทาง `ed` (เอดิทอเรียล): ชิดซ้าย ข้อความคือทั้งหมด
+     รูปเป็นกล่องที่ต่อท้าย ตัดรูปออกแล้วยังอยู่ได้ ถูกสำหรับงานที่ยังไม่มีของ
+     ให้ดู แต่ผิดสำหรับงานที่ **ของมันดูได้แล้ว** — SaaS แดชบอร์ด เครื่องมือ
+     ที่คำถามแรกของคนเข้าเว็บคือ "หน้าตามันเป็นยังไง" ไม่ใช่ "มันคืออะไร"
+
+     ที่นี่กลับลำดับทั้งชุด: จัดกึ่งกลาง มีพื้นบรรยากาศเต็มความกว้าง และของ
+     ชิ้นใหญ่ที่สุดในเฟรมคือหน้าจอผลิตภัณฑ์ ไม่ใช่ตัวหนังสือ
+     `STANDARD.md` ข้อ 3 สั่งไว้ว่าหนึ่งบทบาทต้องมีอย่างน้อยสามทิศทาง และ
+     `CATALOG.md` ทำเครื่องหมาย hero ว่า "**1 ทรง**" ไว้เอง นี่คือทรงที่สอง
+
+     ท้องฟ้าไม่ใช่ไฟล์รูป
+     ────────────────────
+     ความงามของทรงนี้อยู่ที่พื้นบรรยากาศ ซึ่งปกติต้องใช้ภาพถ่าย —
+     `STANDARD.md` ข้อ 1 มีชั้น B ไว้สำหรับกรณีนั้นโดยเฉพาะ แต่ชั้น A ทำได้
+     ถ้ายอมคำนวณเมฆแทนที่จะถ่ายมา:
+
+       `feTurbulence type="fractalNoise"` แล้วดันด้วย `feColorMatrix` ที่ทำให้
+       ค่าแดงของสัญญาณรบกวนกลายเป็นค่าความทึบ (แถวสุดท้าย `-1.55 0 0 0 1.08`)
+       สิ่งที่ได้คือก้อนขาวขอบฟุ้งที่กระจายไม่ซ้ำกัน ซึ่งเป็นสิ่งที่ไล่เฉด
+       ทำไม่ได้เลย เพราะไล่เฉดไม่มีขอบที่ไม่สม่ำเสมอ
+
+     ค่าที่วัดมา ไม่ใช่กะเอา
+     ─────────────────────
+     · `baseFrequency="0.004 0.011"` — สองแกนไม่เท่ากันโดยตั้งใจ อัตราส่วน
+       ราว 1:2.75 ทำให้ก้อนเมฆยืดตามแนวนอน ซึ่งเป็นรูปทรงของเมฆชั้นล่างจริง
+       ค่าที่เท่ากันทั้งสองแกนได้ก้อนกลม ๆ ที่อ่านเป็นควันมากกว่าเมฆ
+     · `numOctaves="5"` — ที่ 3 ขอบเมฆเรียบเกินจนดูเป็นคราบ ที่ 6 ขึ้นไป
+       เวลาเรนเดอร์เพิ่มโดยตาแยกไม่ออก
+     · `-1.55` ในแถวอัลฟา คือ "ความคมของขอบเมฆ" ที่ −1.0 เมฆกินพื้นที่เกิน
+       ครึ่งฟ้าจนไม่เหลือฟ้า ที่ −2.4 เหลือเป็นริ้วบาง ๆ ไม่กี่เส้น
+     · **มุมเอียงของกรอบ 9 องศา** วัดจากความสูงกรอบ 430px ที่ perspective
+       1400px ถ้าเอียงเกิน 12° ขอบบนหดจนแถบบนสุดของแอปเหลือต่ำกว่า 24px
+       ซึ่งเป็นจุดที่ของข้างในเริ่มดูเบี้ยว ต่ำกว่า 6° ตาจับไม่ได้ว่าเอียง
+     · **ระยะคลี่ entry 0% → cover 30%** เพราะ 30% ของความสูงกรอบคือจุดที่
+       แถวตัวเลขสี่ใบพ้นเส้นพับพอดีที่ 900px คลี่ช้ากว่านั้นคนอ่านตัวเลขตอน
+       มันยังบิดอยู่
+     · **line-height 1.22 ไม่ใช่ 1.05** แบบหัวเรื่องภาษาอังกฤษ: ไทยซ้อนสระบน
+       กับวรรณยุกต์ได้สองชั้น ("ทั้ง" = ไม้โท ทับ สระอะ) วัดบน Prompt ที่ 62px
+       ระยะจากยอดวรรณยุกต์ถึงหางสระล่างคือ 74px ส่วน 1.05 ให้ที่แค่ 65px
+       ผลคือไม้โทของบรรทัดล่างชนหางของบรรทัดบน 1.22 ให้ 76px เผื่อ 2px
+     · ตัวเลขในแดชบอร์ดต้องสอดคล้องกันเอง ไม่ใช่สุ่มมาสี่ค่า: +12.4% บนใบแรก
+       คือจุดจบของกราฟข้างล่างจริง ๆ · สัดส่วนโดนัท 62 + 26 + 12 = 100 พอดี
+       · 24 รายการใน 6 ตลาดคือสิ่งที่ทำให้คะแนนความเสี่ยง 18/100 อ่านแล้วไม่ขัด
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ตัดฟ้าด้วย `overflow:hidden` ที่ section** — กรอบไม่คลี่เลย ค้างที่
+        ท่าสุดท้ายตลอด กับดักที่ `STANDARD.md` ข้อ 5 บันทึกไว้: บรรพบุรุษที่มี
+        overflow กลายเป็น scroll container ลูกทั้งสายเลย "อยู่ในสายตาเต็มใบ"
+        ตลอดเวลา `view()` เป็น 1 ทุกเฟรม
+        ทางที่ใช้คือให้ฟ้าอยู่ในกล่องของตัวเองที่ตัดขอบ ซึ่งเป็น *พี่น้อง* ของ
+        กรอบผลิตภัณฑ์ ไม่ใช่บรรพบุรุษของมัน
+     2. **ใส่ perspective ที่ตัวกรอบเอง** — ไม่มีผล perspective ต้องอยู่ที่พ่อ
+        ผลคือกรอบแบนสนิททั้งที่ rotateX ติดครบ
+     3. **ไทล์ AI ในหัวเรื่องใช้ `inline-block` + padding แนวตั้ง** — บรรทัดที่มี
+        ไทล์สูงกว่าบรรทัดอื่น หัวเรื่องสองบรรทัดเลยห่างไม่เท่ากัน แก้ด้วย
+        `inline-flex` + ความสูงคงที่เป็น em แล้วดัน padding ออกทางแนวนอน
+     4. **เขียนขนาดตัวอักษรใน SVG เป็นค่าที่อยากได้ตรง ๆ** — กราฟกับโดนัทถูกย่อ
+        ตามความกว้างคอลัมน์ ตัวอักษรย่อตาม จนอ่านไม่ออก กับดักในข้อ 5
+        ทางแก้คือเขียนเป็น (ขนาดที่อยากได้ ÷ อัตราย่อที่แคบสุดที่จะเจอ)
+     5. เคยให้กรอบเริ่มที่ `opacity:0` แล้วค่อยจาง — เฟรมแรกของหน้าว่าง
+        ภาพย่อออกมาเป็นกระดาษเปล่า ตอนนี้ขยับ transform อย่างเดียว
+
+     กรอบผลิตภัณฑ์เป็น `role="img"` ไม่ใช่กราฟและไม่ใช่แอป
+     ────────────────────────────────────────────────────
+     ข้อ 2 บังคับว่ากราฟทุกใบต้องมีทางออกเป็นตัวเลข และห้ามเอา `<div>` มาแกล้ง
+     เป็นตัวควบคุม ของชิ้นนี้ไม่ขัดทั้งสองข้อเพราะมันไม่ใช่กราฟและไม่ใช่แอป
+     มันคือ **ภาพของผลิตภัณฑ์** ที่วาดด้วย HTML แทนที่จะเป็น PNG แท็บ 3ด./6ด./1ปี
+     กับช่องค้นหาข้างในจึงเป็นเส้นสายในภาพ ไม่ใช่ของที่กดได้ ทั้งก้อนประกาศ
+     เป็นภาพหนึ่งภาพพร้อมคำบรรยายที่มีตัวเลขครบ แล้วซ่อนข้างในจากโปรแกรมอ่าน
+     หน้าจอ เหมือน `<img alt="…">` ไม่ใช่เหมือน `<table>`
+     ที่วาดเองแทนไฟล์รูปเพราะข้อ 2 ห้ามลิงก์ asset ข้ามเซิร์ฟเวอร์ และ PNG ของ
+     แดชบอร์ดที่คมพอบนจอ 2x คือไฟล์ 300KB+ ที่ต้องเดินทางไปกับทุกสำเนา -->
+<style>
+  /* ── โทเคนของทิศทาง `gl` ─────────────────────────────────────────────
+     ประกาศที่คลาสรากของส่วนนี้ ไม่ใช่ที่ :root ตามข้อ 2 — สองเทมเพลตใน
+     เอกสารเดียวกันต้องเอื้อมถึงกันไม่ได้ ทุกค่าผสมมาจากโทเคนของ shell
+     ยกเว้นความทึบของเมฆ ซึ่งเป็นตัวเลขล้วนและต้องประกาศครบสามสถานะเอง
+     เพราะกลางคืนมีเมฆน้อยกว่ากลางวันจริง ๆ ไม่ใช่แค่เมฆสีเข้มขึ้น */
+  .w-hp{
+    --gl-sky-1:color-mix(in srgb,var(--viz-2) 62%,transparent);
+    --gl-sky-2:color-mix(in srgb,var(--viz-2) 26%,transparent);
+    --gl-sky-3:color-mix(in srgb,var(--accent) 18%,transparent);
+    --gl-pane:color-mix(in srgb,var(--surface) 76%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 13%,transparent);
+    --gl-cloud:.62;
+    --gl-tilt:9deg;
+    position:relative; isolation:isolate; text-align:center;
+    padding-block:clamp(44px,6vw,76px) 0;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]) .w-hp{ --gl-cloud:.09 }
+  }
+  :root[data-theme="dark"] .w-hp{ --gl-cloud:.09 }
+
+  /* ── ท้องฟ้า ──────────────────────────────────────────────────────────
+     กล่องนี้ตัดขอบได้เพราะมันเป็นพี่น้องของ .stage ไม่ใช่บรรพบุรุษ
+     ดูเหตุผลข้อ 1 ในหัวไฟล์ */
+  .w-hp .sky{ position:absolute; inset:0 0 auto; height:min(820px,88%);
+              z-index:-1; overflow:hidden; pointer-events:none;
+              background:var(--surface) }
+  @supports (background:color-mix(in srgb,red 10%,transparent)){
+    /* สามชั้น: แถบไล่แนวตั้งคือ "ความสูงของฟ้า" (เข้มบนสุด จางลงถึงขอบฟ้า)
+       แล้วค่อยมีแสงสองก้อนซ้อนบนนั้น ไล่เฉดชั้นเดียวได้แค่คราบสี ไม่ได้ฟ้า */
+    .w-hp .sky{ background:
+      radial-gradient(64% 44% at 84% 4%, var(--gl-sky-3) 0, transparent 68%),
+      radial-gradient(96% 62% at 22% -8%, var(--gl-sky-2) 0, transparent 70%),
+      linear-gradient(180deg, var(--gl-sky-1) 0%,
+        color-mix(in srgb,var(--gl-sky-1) 42%,transparent) 46%, transparent 88%),
+      var(--surface) }
+  }
+  .w-hp .sky svg{ position:absolute; inset:-6% -4% auto; width:108%;
+                  height:78%; opacity:var(--gl-cloud) }
+  @supports (mask-image:linear-gradient(#000,transparent)){
+    .w-hp .sky{ mask-image:linear-gradient(180deg,#000 0,#000 56%,transparent 100%) }
+  }
+
+  /* ── ข้อความ ────────────────────────────────────────────────────────── */
+  .w-hp .w-wrap > *{ margin-inline:auto }
+  .w-hp .w-eyebrow{ margin-bottom:16px }
+  .w-hp h1{ font-size:clamp(34px,5.6vw,62px); line-height:1.22; letter-spacing:-.03em;
+            font-weight:700; max-width:17ch }
+  /* ไทล์ AI: ความสูงเป็น em จึงโตตามหัวเรื่องที่ clamp อยู่ padding แนวนอน
+     อย่างเดียว ดูเหตุผลข้อ 3 ในหัวไฟล์ */
+  .w-hp h1 .tile{ display:inline-flex; align-items:center; gap:.24em;
+                  height:1.02em; padding-inline:.3em; vertical-align:-.18em;
+                  border-radius:.26em; font-size:.86em; letter-spacing:-.02em;
+                  background:linear-gradient(150deg,
+                    color-mix(in srgb,var(--text) 84%,var(--accent)) 0%,
+                    var(--text) 100%);
+                  color:var(--bg); box-shadow:var(--e2) }
+  .w-hp h1 .tile svg{ width:.5em; height:.5em; color:var(--accent) }
+  /* text-wrap:balance กระจายคำให้ทุกบรรทัดยาวใกล้กัน แทนที่จะเหลือคำเดียว
+     ค้างบรรทัดสุดท้าย ซึ่งเป็นสิ่งที่เกิดกับข้อความจัดกึ่งกลางเสมอ
+     เครื่องที่ไม่รู้จักจะได้การตัดบรรทัดแบบเดิม ไม่ใช่หน้าพัง */
+  .w-hp .w-lede{ margin-top:18px; max-width:44ch; text-wrap:balance }
+  .w-hp h1{ text-wrap:balance }
+  .w-hp .acts{ display:flex; flex-wrap:wrap; gap:12px; margin-top:30px;
+               justify-content:center }
+  /* ตราลูกศรในปุ่มหลัก วงกลมทึบที่กลับสีกับตัวปุ่ม */
+  .w-hp .acts .w-btn .badge{ display:inline-flex; align-items:center;
+    justify-content:center; width:26px; height:26px; border-radius:50%;
+    background:var(--accent-ink); color:var(--accent); margin-inline-end:-10px }
+  .w-hp .acts .w-btn--ghost .badge{ background:var(--text); color:var(--bg) }
+  .w-hp .acts .w-btn .badge svg{ width:12px; height:12px }
+
+  /* แถบความน่าเชื่อถือ แต่ละข้อมีสัญลักษณ์ของตัวเอง ไม่ใช่จุดกลมเหมือนกันสามจุด
+     ข้อ 2 ห้ามบอกสถานะด้วยสีอย่างเดียว ที่นี่ทุกข้อมีทั้งรูปและคำ */
+  .w-hp .trust{ display:flex; flex-wrap:wrap; gap:10px 24px; margin-top:24px;
+                color:var(--muted); font-size:14px; justify-content:center }
+  .w-hp .trust li{ display:flex; align-items:center; gap:7px }
+  .w-hp .trust svg{ width:16px; height:16px; flex:none }
+  .w-hp .trust li:nth-child(1) svg{ color:var(--viz-5) }
+  .w-hp .trust li:nth-child(2) svg{ color:var(--viz-3) }
+  .w-hp .trust li:nth-child(3) svg{ color:var(--viz-1) }
+  .w-hp .trust b{ color:var(--text); font-weight:600 }
+
+  /* ── กรอบผลิตภัณฑ์ ────────────────────────────────────────────────── */
+  .w-hp .stage{ perspective:1400px; margin-top:clamp(34px,5vw,58px); text-align:left }
+  .w-hp .frame{
+    border:1px solid var(--gl-edge); border-radius:var(--radius-lg);
+    background:var(--gl-pane); box-shadow:var(--e4);
+    overflow:hidden;              /* ตัดมุมของแอปข้างใน — ปลอดภัยเพราะสิ่งที่
+                                     หมุนคือกล่องนี้เอง ไม่ใช่ลูกของมัน */
+    transform-origin:50% 0;
+  }
+  @supports (backdrop-filter:blur(4px)){ .w-hp .frame{ backdrop-filter:blur(16px) } }
+
+  .w-hp .app{ display:grid; grid-template-columns:186px 1fr; background:var(--bg);
+              min-height:430px }
+
+  /* ไซด์บาร์เข้มเสมอทั้งสองธีม เพราะในทรงนี้มันเป็นส่วนหนึ่งของ *ภาพ*
+     ไม่ใช่ส่วนหนึ่งของหน้า สีที่กลับตามธีมของหน้าจะทำให้ภาพหน้าจอเปลี่ยน
+     หน้าตาไปด้วย ซึ่งภาพหน้าจอจริงไม่ทำแบบนั้น */
+  .w-hp .rail{ background:#16191a; color:#f2f4f2; padding:14px 12px;
+               display:flex; flex-direction:column; gap:3px }
+  .w-hp .rail .brand{ display:flex; align-items:center; gap:8px;
+                      font:700 14px/1 var(--sans); padding:6px 10px 12px }
+  .w-hp .rail .brand i{ width:20px; height:20px; border-radius:6px;
+                        background:var(--accent); flex:none }
+  .w-hp .rail a{ font-size:13px; color:#9ca39e; text-decoration:none;
+                 padding:7px 10px; border-radius:var(--radius-sm);
+                 display:flex; align-items:center; gap:8px }
+  .w-hp .rail a::before{ content:""; width:13px; height:13px; border-radius:3px;
+                         border:1.5px solid currentColor; flex:none; opacity:.65 }
+  .w-hp .rail a[aria-current]{ background:#222624; color:#f2f4f2; font-weight:600 }
+  /* การ์ดโปรโมตท้ายไซด์บาร์ คือสิ่งที่ทำให้ไซด์บาร์ไม่ใช่แค่รายการลิงก์ */
+  .w-hp .rail .promo{ margin-top:auto; background:#222624; border-radius:var(--radius-sm);
+                      padding:12px; display:grid; gap:8px; justify-items:start }
+  .w-hp .rail .promo b{ font-size:12px; line-height:1.45 }
+  .w-hp .rail .promo span{ font-size:11px; color:#9ca39e; line-height:1.5 }
+  .w-hp .rail .promo em{ font-style:normal; font:600 11px/1 var(--sans);
+                         background:var(--accent); color:#16191a;
+                         padding:6px 11px; border-radius:var(--radius-pill) }
+
+  .w-hp .top{ display:flex; align-items:center; gap:12px; padding:10px 14px;
+              border-bottom:1px solid var(--line) }
+  .w-hp .top .where{ font:600 12px/1 var(--sans); color:var(--muted) }
+  .w-hp .top .find{ margin-left:auto; display:flex; align-items:center; gap:7px;
+                    border:1px solid var(--line); border-radius:var(--radius-pill);
+                    padding:6px 12px; font-size:11px; color:var(--muted);
+                    background:var(--surface); min-width:0 }
+  .w-hp .top .find svg{ width:12px; height:12px; flex:none }
+  .w-hp .top .who{ width:24px; height:24px; border-radius:50%; flex:none;
+                   background:linear-gradient(140deg,var(--viz-4),var(--viz-2)) }
+
+  .w-hp .pane{ padding:16px; display:grid; gap:13px; align-content:start }
+  .w-hp .pane .title{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px }
+  .w-hp .pane .title h3{ font-size:17px; letter-spacing:-.02em }
+  .w-hp .pane .title p{ color:var(--muted); font-size:12px; margin-top:3px }
+  .w-hp .pane .title .ghosts{ margin-left:auto; display:flex; gap:7px }
+  .w-hp .pane .title .ghosts span{ font:600 11px/1 var(--sans); color:var(--muted);
+    border:1px solid var(--line); border-radius:var(--radius-pill); padding:6px 11px }
+
+  .w-hp .tiles{ display:grid; gap:10px;
+                grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr)) }
+  .w-hp .tile-c{ border:1px solid var(--line); border-radius:var(--radius-sm);
+                 padding:11px 12px; background:var(--surface) }
+  .w-hp .tile-c .row{ display:flex; align-items:center; gap:8px; margin-bottom:9px }
+  .w-hp .tile-c .ic{ width:22px; height:22px; border-radius:7px; flex:none;
+                     display:flex; align-items:center; justify-content:center }
+  .w-hp .tile-c .ic svg{ width:12px; height:12px; color:#fff }
+  .w-hp .tile-c:nth-child(1) .ic{ background:var(--viz-4) }
+  .w-hp .tile-c:nth-child(2) .ic{ background:var(--viz-5) }
+  .w-hp .tile-c:nth-child(3) .ic{ background:var(--viz-6) }
+  .w-hp .tile-c:nth-child(4) .ic{ background:var(--viz-1) }
+  /* ป้ายเล็กมุมขวา บอกทั้งลูกศรและตัวเลข ไม่ใช่สีอย่างเดียว */
+  .w-hp .tile-c .chg{ margin-left:auto; font:600 10px/1 var(--mono);
+                      border-radius:var(--radius-pill); padding:4px 7px;
+                      border:1px solid currentColor; color:var(--muted) }
+  .w-hp .tile-c .chg.up{ color:var(--viz-up) }
+  .w-hp .tile-c .chg.down{ color:var(--viz-down) }
+  .w-hp .tile-c small{ display:block; color:var(--muted); font-size:11px }
+  .w-hp .tile-c strong{ display:block; font-size:17px; letter-spacing:-.02em; margin-top:3px }
+
+  .w-hp .duo{ display:grid; gap:13px; grid-template-columns:1.7fr 1fr }
+  .w-hp .card{ border:1px solid var(--line); border-radius:var(--radius-sm);
+               background:var(--surface); padding:12px }
+  .w-hp .card .hd{ display:flex; align-items:center; gap:8px; margin-bottom:10px }
+  .w-hp .card .hd b{ font-size:12px }
+  .w-hp .card .hd .segs{ margin-left:auto; display:flex; gap:3px;
+                         border:1px solid var(--line); border-radius:var(--radius-pill);
+                         padding:2px }
+  .w-hp .card .hd .segs span{ font:600 10px/1 var(--sans); color:var(--muted);
+                              padding:5px 9px; border-radius:var(--radius-pill) }
+  .w-hp .card .hd .segs span.on{ background:var(--accent); color:var(--accent-ink) }
+  .w-hp .card > svg{ width:100%; height:auto; display:block }
+
+  .w-hp .alloc{ display:flex; flex-direction:column; gap:10px }
+  .w-hp .alloc svg{ width:min(150px,100%); margin-inline:auto }
+  .w-hp .alloc .keys{ display:grid; gap:6px }
+  .w-hp .alloc .keys li{ display:flex; align-items:center; gap:7px;
+                         font-size:11px; color:var(--muted) }
+  .w-hp .alloc .keys i{ width:9px; height:9px; border-radius:3px; flex:none }
+  .w-hp .alloc .keys b{ margin-left:auto; color:var(--text); font:600 11px/1 var(--mono) }
+
+  @media (max-width:860px){
+    .w-hp .app{ grid-template-columns:1fr; min-height:0 }
+    .w-hp .rail{ display:none }
+    .w-hp .duo{ grid-template-columns:1fr }
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    /* 1 · ข้อความเข้าฉากตอนโหลด ไล่ทีละบรรทัดตามลำดับที่คนอ่านจริง
+           transform อย่างเดียว เฟรมแรกจึงครบ */
+    .w-hp .w-wrap > *{ animation:w-rise var(--t-enter) var(--ease-in) both }
+    .w-hp .w-wrap > *:nth-child(2){ animation-delay:calc(var(--t-stagger)*1) }
+    .w-hp .w-wrap > *:nth-child(3){ animation-delay:calc(var(--t-stagger)*2) }
+    .w-hp .w-wrap > *:nth-child(4){ animation-delay:calc(var(--t-stagger)*3) }
+    .w-hp .w-wrap > *:nth-child(5){ animation-delay:calc(var(--t-stagger)*4) }
+
+    /* 2 · เมฆลอย ท่า drift รอบละ 40 วิ ช้ากว่าหมอกทั่วไป เพราะพื้นที่ยิ่งใหญ่
+           ตายิ่งจับความเร็วได้ไว */
+    .w-hp .sky svg{ animation:w-drift 40s ease-in-out infinite alternate }
+
+    /* 3 · กรอบคลี่จากเอียงเป็นตรงตามระยะเลื่อน
+           ท่านี้ไม่มีในคลังคำศัพท์ข้อ 4 จึงประกาศเองในไฟล์นี้ แบบเดียวกับที่
+           nav.html ประกาศ w-nav-drop — คำที่ใช้ที่เดียวไม่ควรบวมอยู่ในคลังกลาง
+           เขียนเป็น longhand ไม่ใช่ shorthand เพราะ shorthand รีเซ็ต
+           animation-range กลับเป็น normal (กับดักในข้อ 5) */
+    @supports (animation-timeline:view()){
+      .w-hp .frame{
+        animation-name:w-hp-unfold; animation-timing-function:linear;
+        animation-fill-mode:both;
+        animation-timeline:view(); animation-range:entry 0% cover 30% }
+    }
+  }
+  @keyframes w-hp-unfold{
+    from{ transform:perspective(1400px) rotateX(var(--gl-tilt)) scale(.965) }
+    to  { transform:perspective(1400px) rotateX(0deg) scale(1) }
+  }
+</style>
+
+<section class="w-section w-hp">
+  <div class="sky" aria-hidden="true">
+    <svg preserveAspectRatio="none" viewBox="0 0 1200 620">
+      <filter id="w-hp-cloud" x="0" y="0" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.004 0.011"
+                      numOctaves="5" seed="19" result="n"/>
+        <!-- แถวสุดท้ายคือแถวอัลฟา: ความทึบ = −1.55 × ค่าแดงของสัญญาณรบกวน + 1.08
+             จึงได้ก้อนขาวที่ขอบฟุ้งไม่สม่ำเสมอ ซึ่งไล่เฉดทำไม่ได้ -->
+        <feColorMatrix in="n" type="matrix"
+          values="0 0 0 0 1
+                  0 0 0 0 1
+                  0 0 0 0 1
+                  -1.55 0 0 0 1.08"/>
+      </filter>
+      <rect width="1200" height="620" filter="url(#w-hp-cloud)"/>
+    </svg>
+  </div>
+
+  <div class="w-wrap">
+    <p class="w-eyebrow">แพลตฟอร์มการลงทุน</p>
+    <h1>พอร์ตทั้งใบ กับสัญญาณ<span class="tile"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.5 9.9 6.1 14.5 8 9.9 9.9 8 14.5 6.1 9.9 1.5 8 6.1 6.1Z" fill="currentColor"/></svg>AI</span> ที่บอกเหตุผล</h1>
+    <p class="w-lede">เชื่อมบัญชีลงทุนเข้ามาแล้วดูผลตอบแทน ความเสี่ยง และการกระจายสินทรัพย์บนหน้าจอเดียว พร้อมคำอธิบายว่าทำไมถึงแนะนำแบบนั้น</p>
+
+    <div class="acts">
+      <a class="w-btn" href="#cta">เชื่อมบัญชีแรก<span class="badge"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h9M8.5 4.2 12.6 8l-4.1 3.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+      <a class="w-btn w-btn--ghost" href="#overview">ดูตัวอย่างหน้าจอ</a>
+    </div>
+
+    <ul class="trust">
+      <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.6 9.9 5.6l4.4.6-3.2 3.1.8 4.4L8 11.6l-3.9 2.1.8-4.4L1.7 6.2l4.4-.6Z" fill="currentColor"/></svg><span><b>4.8 / 5</b> จาก 312 รีวิว</span></li>
+      <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.6 3 3.7v4.1c0 3 2.1 5.4 5 6.6 2.9-1.2 5-3.6 5-6.6V3.7Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M5.8 8.1 7.3 9.6l3-3.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>เข้ารหัสปลายทางถึงปลายทาง</b> ทุกการเชื่อมบัญชี</span></li>
+      <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M9 1.4 3.6 8.9h3.6l-.7 5.7 5.9-7.8H8.6Z" fill="currentColor"/></svg><span>อัปเดตราคาทุก <b>15 วินาที</b></span></li>
+    </ul>
+
+    <div class="stage">
+      <!-- ทั้งกรอบคือภาพหนึ่งภาพ ไม่ใช่ตาราง ไม่ใช่กราฟ ไม่ใช่แอป
+           คำบรรยายถือตัวเลขครบทุกตัวที่อยู่ในภาพ — ดูเหตุผลในหัวไฟล์ -->
+      <div class="frame" role="img"
+           aria-label="ภาพหน้าจอแดชบอร์ด แถบซ้ายคือเมนู ส่วนขวาแสดง มูลค่าพอร์ตรวม 15,600,000 บาท เพิ่มขึ้น 12.4 เปอร์เซ็นต์ในไตรมาสนี้ · กำไรวันนี้ 3,120 บาท · สินทรัพย์ที่ถือ 24 รายการใน 6 ตลาด · คะแนนความเสี่ยง 18 จาก 100 ลดลง 4 คะแนน · กราฟผลตอบแทนหกเดือนของพอร์ตเทียบกับดัชนีอ้างอิง · และวงกลมสัดส่วนสินทรัพย์ หุ้น 62 เปอร์เซ็นต์ ตราสารหนี้ 26 เปอร์เซ็นต์ ทองคำ 12 เปอร์เซ็นต์">
+        <div class="app" aria-hidden="true">
+          <div class="rail">
+            <span class="brand"><i></i>แบรนด์</span>
+            <a href="#" aria-current="page">ภาพรวม</a>
+            <a href="#">พอร์ต</a>
+            <a href="#">สัญญาณ</a>
+            <a href="#">ความเสี่ยง</a>
+            <a href="#">รายงาน</a>
+            <a href="#">ตั้งค่า</a>
+            <span class="promo">
+              <b>เปิดสัญญาณเชิงลึก</b>
+              <span>ดูเหตุผลเบื้องหลังทุกสัญญาณ ย้อนหลังได้ 10 ปี</span>
+              <em>อัปเกรด</em>
+            </span>
+          </div>
+
+          <div>
+            <div class="top">
+              <span class="where">ภาพรวม</span>
+              <span class="find"><svg viewBox="0 0 16 16" fill="none"><circle cx="7.2" cy="7.2" r="4.6" stroke="currentColor" stroke-width="1.6"/><path d="m10.8 10.8 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>ค้นหาสินทรัพย์ รายการ หรือรายงาน</span>
+              <span class="who"></span>
+            </div>
+
+            <div class="pane">
+              <div class="title">
+                <div>
+                  <h3>ภาพรวมพอร์ต</h3>
+                  <p>ไตรมาสนี้พอร์ตของคุณโตขึ้น 12.4% จากไตรมาสก่อน</p>
+                </div>
+                <div class="ghosts"><span>ส่งออก CSV</span><span>แชร์รายงาน</span></div>
+              </div>
+
+              <div class="tiles">
+                <div class="tile-c">
+                  <div class="row">
+                    <span class="ic"><svg viewBox="0 0 16 16" fill="none"><path d="M2.6 11.4 6 7.6l2.6 2.3L13.4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                    <span class="chg up">▲ 12.4%</span>
+                  </div>
+                  <small>มูลค่าพอร์ตรวม</small><strong>15,600,000</strong>
+                </div>
+                <div class="tile-c">
+                  <div class="row">
+                    <span class="ic"><svg viewBox="0 0 16 16" fill="none"><path d="M8 2.6v10.8M4.4 6.2h5a1.8 1.8 0 0 1 0 3.6h-3a1.8 1.8 0 0 0 0 3.6h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+                    <span class="chg up">▲ 0.02%</span>
+                  </div>
+                  <small>กำไรวันนี้</small><strong>+3,120</strong>
+                </div>
+                <div class="tile-c">
+                  <div class="row">
+                    <span class="ic"><svg viewBox="0 0 16 16" fill="none"><rect x="2.4" y="2.4" width="4.8" height="4.8" rx="1.3" stroke="currentColor" stroke-width="1.6"/><rect x="8.8" y="2.4" width="4.8" height="4.8" rx="1.3" stroke="currentColor" stroke-width="1.6"/><rect x="2.4" y="8.8" width="4.8" height="4.8" rx="1.3" stroke="currentColor" stroke-width="1.6"/><rect x="8.8" y="8.8" width="4.8" height="4.8" rx="1.3" stroke="currentColor" stroke-width="1.6"/></svg></span>
+                    <span class="chg">ใน 6 ตลาด</span>
+                  </div>
+                  <small>สินทรัพย์ที่ถือ</small><strong>24 รายการ</strong>
+                </div>
+                <div class="tile-c">
+                  <div class="row">
+                    <span class="ic"><svg viewBox="0 0 16 16" fill="none"><path d="M8 1.7 2.8 3.9v4c0 3 2.1 5.5 5.2 6.5 3.1-1 5.2-3.5 5.2-6.5v-4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+                    <span class="chg down">▼ 4</span>
+                  </div>
+                  <small>คะแนนความเสี่ยง</small><strong>18 / 100</strong>
+                </div>
+              </div>
+
+              <div class="duo">
+                <div class="card">
+                  <div class="hd">
+                    <b>ผลตอบแทนย้อนหลัง</b>
+                    <span class="segs"><span>3 ด.</span><span class="on">6 ด.</span><span>1 ปี</span></span>
+                  </div>
+                  <svg viewBox="0 0 620 200" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="w-hp-fill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="var(--accent)" stop-opacity=".30"/>
+                        <stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
+                      </linearGradient>
+                    </defs>
+                    <g stroke="var(--line)" stroke-width="1.4">
+                      <line x1="0" y1="44" x2="620" y2="44"/>
+                      <line x1="0" y1="94" x2="620" y2="94"/>
+                      <line x1="0" y1="144" x2="620" y2="144"/>
+                    </g>
+                    <!-- ดัชนีอ้างอิง เส้นประ อยู่ต่ำกว่าเสมอ จึงอ่านได้ทันทีว่าพอร์ตชนะ -->
+                    <path d="M0 150 L103 141 L206 146 L310 128 L413 132 L516 120 L620 112"
+                          fill="none" stroke="var(--viz-2)" stroke-width="2.4"
+                          stroke-dasharray="7 6" stroke-linecap="round"/>
+                    <path d="M0 158 L103 128 L206 138 L310 84 L413 98 L516 52 L620 30 L620 200 L0 200 Z"
+                          fill="url(#w-hp-fill)"/>
+                    <path d="M0 158 L103 128 L206 138 L310 84 L413 98 L516 52 L620 30"
+                          fill="none" stroke="var(--accent)" stroke-width="3"
+                          stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="620" cy="30" r="5.4" fill="var(--accent)"/>
+                  </svg>
+                </div>
+
+                <div class="card alloc">
+                  <div class="hd"><b>สัดส่วนสินทรัพย์</b></div>
+                  <!-- เส้นรอบวง r=44 คือ 276.5 จึงตั้ง pathLength="100" แล้วเขียน
+                       สัดส่วนเป็นเปอร์เซ็นต์ตรง ๆ 62 + 26 + 12 = 100 พอดี
+                       หมุน −90° เพื่อให้ชิ้นแรกเริ่มที่ 12 นาฬิกา -->
+                  <svg viewBox="0 0 120 120">
+                    <g transform="rotate(-90 60 60)" fill="none" stroke-width="15">
+                      <circle cx="60" cy="60" r="44" pathLength="100"
+                              stroke="var(--viz-2)" stroke-dasharray="62 38"/>
+                      <circle cx="60" cy="60" r="44" pathLength="100"
+                              stroke="var(--viz-6)" stroke-dasharray="26 74"
+                              stroke-dashoffset="-62"/>
+                      <circle cx="60" cy="60" r="44" pathLength="100"
+                              stroke="var(--viz-5)" stroke-dasharray="12 88"
+                              stroke-dashoffset="-88"/>
+                    </g>
+                    <text x="60" y="58" text-anchor="middle" font-size="19"
+                          font-weight="800" fill="var(--text)">15.6</text>
+                    <text x="60" y="74" text-anchor="middle" font-size="11"
+                          fill="var(--muted)">ล้านบาท</text>
+                  </svg>
+                  <ul class="keys">
+                    <li><i style="background:var(--viz-2)"></i>หุ้น<b>62%</b></li>
+                    <li><i style="background:var(--viz-6)"></i>ตราสารหนี้<b>26%</b></li>
+                    <li><i style="background:var(--viz-5)"></i>ทองคำ<b>12%</b></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Client band · ทิศทาง `gl` (กระจก) — แถบโลโก้ที่วิ่ง และไม่มีไฟล์รูป
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี logo-bar.html แล้ว
+     ───────────────────────────────────────────────
+     สองข้อ ข้อแรกสำคัญกว่า
+
+     1. **`logo-bar.html` ชี้ไปที่ `imgs/logo-a.svg` … `logo-f.svg`** ซึ่งเป็น
+        ไฟล์ที่ *ไม่ได้มากับเทมเพลต* คนที่ก๊อปไฟล์นั้นไปจะได้แถบที่มีไอคอนรูป
+        ภาพเสียหกอันจนกว่าจะไปหาโลโก้มาเอง ซึ่งเป็นการบ้านที่เทมเพลตไม่ควร
+        ทิ้งไว้ ที่นี่โลโก้เป็น `<svg>` ในไฟล์ ใช้ `currentColor` จึงเปลี่ยนสี
+        ตามธีมเองและเปิดจากดิสก์ได้ทันทีโดยไม่ต้องมีอะไรข้าง ๆ
+     2. แถบเดิมเรียงนิ่ง ซึ่งอ่านได้เมื่อมีโลโก้ 4–6 อัน แต่เมื่อมี 12 อันขึ้นไป
+        มันกลายเป็นกำแพงเทาที่ตาข้าม แถบที่วิ่งบอกได้ว่า "ยังมีอีก" โดยไม่ต้อง
+        แสดงทั้งหมดพร้อมกัน
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **รอบละ 34 วินาที** สำหรับรางที่ยาว 2 เท่าของจอ 1200px = 2400px
+       ได้ความเร็วราว 70px/วินาที ซึ่งเป็นย่านที่ตายังอ่านชื่อทันขณะที่มันผ่าน
+       เร็วกว่า 110px/s ชื่อกลายเป็นเงา ช้ากว่า 40px/s คนคิดว่ามันค้าง
+     · **หน้ากากขอบสองข้างกว้าง 12%** ไม่ใช่ 6% — ที่ 6% โลโก้ยังโผล่มาแบบ
+       ถูกตัดครึ่งก่อนจะจางหมด ที่ 12% ระยะจางยาวพอให้โลโก้จางจนหายก่อนถึงขอบ
+       ที่ความกว้างโลโก้เฉลี่ย 140px บนจอ 1200px
+     · **ทำซ้ำสองชุดพอดี ไม่ใช่สามชุด** เพราะการเลื่อน `-50%` จะต่อเนียนก็ต่อ
+       เมื่อครึ่งแรกกับครึ่งหลังเหมือนกันเป๊ะ สามชุดต้องเลื่อน −33.333% ซึ่ง
+       ปัดเศษไม่ลงตัวแล้วเห็นกระตุกหนึ่งพิกเซลทุกรอบ
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ใส่ `gap` ที่รางแล้วเลื่อน `-50%`** — กระโดดทุกรอบ เพราะ 50% ของราง
+        รวม gap ที่คั่นระหว่างชุดที่หนึ่งกับชุดที่สองไว้ด้วย แต่ชุดแรกไม่มี gap
+        นำหน้า ทางแก้คือให้ระยะห่างมาจาก `padding-inline` ของแต่ละใบ ไม่ใช่
+        จาก `gap` ของราง ครึ่งแรกกับครึ่งหลังจึงกว้างเท่ากันเป๊ะ
+     2. **`animation-play-state:paused` ตอน hover อย่างเดียว** — คนใช้คีย์บอร์ด
+        ไล่แท็บผ่านไม่มีทางหยุดมันได้เลย เพิ่ม `:focus-within` ด้วย
+     3. **ชุดที่สองไม่ได้ `aria-hidden`** — โปรแกรมอ่านหน้าจออ่านชื่อบริษัท
+        ซ้ำสองรอบ ซึ่งฟังแล้วเหมือนรายการมีสมาชิกสองเท่าของที่มีจริง -->
+<style>
+  .w-cb{
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+    --cb-dur:34s;
+  }
+  .w-cb .lede{ text-align:center; color:var(--muted); font-size:15px }
+  .w-cb .lede b{ color:var(--text); font-weight:600 }
+
+  .w-cb .rail{ margin-top:clamp(20px,3vw,30px); overflow:hidden }
+  @supports (mask-image:linear-gradient(90deg,#000,transparent)){
+    .w-cb .rail{ mask-image:linear-gradient(90deg,
+      transparent 0, #000 12%, #000 88%, transparent 100%) }
+  }
+  .w-cb .track{ display:flex; width:max-content; align-items:center }
+  /* ระยะห่างมาจาก padding ของแต่ละใบ ไม่ใช่ gap ของราง — ดูเหตุผลข้อ 1 */
+  .w-cb .track > *{ flex:none; padding-inline:clamp(18px,3vw,34px);
+                    color:var(--muted) }
+  .w-cb svg{ height:26px; width:auto; display:block }
+  /* เมื่อไม่มีการเคลื่อนไหว รางที่ยาวเกินจอจะถูกตัดหายไปครึ่งหนึ่ง
+     ตรงนี้จึงพับกลับเป็นแถวที่ตัดบรรทัดได้ตามปกติ — สถานะพักคือหน้าที่ครบ
+     ไม่ใช่หน้าที่เหลือครึ่งเดียว */
+  .w-cb .track{ flex-wrap:wrap; justify-content:center; width:auto;
+                row-gap:clamp(14px,2.4vw,22px) }
+  .w-cb .dup{ display:none }
+
+  .w-cb .after{ margin-top:clamp(20px,3vw,28px); text-align:center;
+                color:var(--muted); font-size:13px }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-cb .track{ flex-wrap:nowrap; width:max-content; justify-content:flex-start;
+                  animation:w-slide var(--cb-dur) linear infinite }
+    .w-cb .dup{ display:block }
+    /* หยุดทั้งตอนชี้และตอนโฟกัส — ดูเหตุผลข้อ 2 */
+    .w-cb .rail:hover .track,
+    .w-cb .rail:focus-within .track{ animation-play-state:paused }
+  }
+</style>
+
+<section class="w-section w-cb" aria-label="ลูกค้าที่ใช้งานอยู่">
+  <div class="w-wrap">
+    <p class="lede">ทีมลงทุนและที่ปรึกษาการเงิน <b>ใช้อยู่ 340 องค์กร</b> ในไทยและอาเซียน</p>
+
+    <div class="rail">
+      <div class="track">
+        <span><svg viewBox="0 0 150 28" aria-label="นอร์ธวินด์ แคปิตอล" role="img"><rect x="0" y="6" width="16" height="16" rx="5" fill="currentColor"/><text x="24" y="21" font-family="system-ui,sans-serif" font-size="16" font-weight="700" letter-spacing="-.02em" fill="currentColor">Northwind</text></svg></span>
+        <span><svg viewBox="0 0 118 28" aria-label="ไครอส พาร์ทเนอร์ส" role="img"><path d="M8 6 16 14 8 22 0 14Z" fill="currentColor"/><text x="24" y="21" font-family="system-ui,sans-serif" font-size="16" font-weight="700" letter-spacing="-.02em" fill="currentColor">Kairos</text></svg></span>
+        <span><svg viewBox="0 0 112 28" aria-label="ลูเมน แอสเซ็ท" role="img"><circle cx="8" cy="14" r="8" fill="currentColor"/><text x="24" y="21" font-family="system-ui,sans-serif" font-size="16" font-weight="700" letter-spacing="-.02em" fill="currentColor">Lumen</text></svg></span>
+        <span><svg viewBox="0 0 104 28" aria-label="แอตลาส ฟันด์" role="img"><rect x="0" y="6" width="16" height="16" rx="2" fill="currentColor"/><text x="24" y="21" font-family="system-ui,sans-serif" font-size="16" font-weight="700" letter-spacing="-.02em" fill="currentColor">Atlas</text></svg></span>
+        <span><svg viewBox="0 0 110 28" aria-label="เวริตี้ รีเสิร์ช" role="img"><path d="M0 22 8 6l8 16Z" fill="currentColor"/><text x="24" y="21" font-family="system-ui,sans-serif" font-size="16" font-weight="700" letter-spacing="-.02em" fill="currentColor">Verity</text></svg></span>
+        <span><svg viewBox="0 0 104 28" aria-label="โอกาปิ เวลธ์" role="img"><rect x="0" y="6" width="16" height="16" rx="8" fill="none" stroke="currentColor" stroke-width="3"/><text x="24" y="21" font-family="system-ui,sans-serif" font-size="16" font-weight="700" letter-spacing="-.02em" fill="currentColor">Okapi</text></svg></span>
+
+        <!-- ชุดที่สอง สำเนาเป๊ะของชุดแรก เพื่อให้ −50% ต่อเนียน
+             ซ่อนจากโปรแกรมอ่านหน้าจอ ไม่งั้นรายชื่อจะถูกอ่านซ้ำ — ดูข้อ 3 -->
+        <span class="dup" aria-hidden="true"><svg viewBox="0 0 150 28"><rect x="0" y="6" width="16" height="16" rx="5" fill="currentColor"/><text x="24" y="21" font-family="system-ui,sans-serif" font-size="16" font-weight="700" letter-spacing="-.02em" fill="currentColor">Northwind</text></svg></span>
+        <span class="dup" aria-hidden="true"><svg viewBox="0 0 118 28"><path d="M8 6 16 14 8 22 0 14Z" fill="currentColor"/><text x="24" y="21" font-family="system-ui,sans-serif" font-size="16" font-weight="700" letter-spacing="-.02em" fill="currentColor">Kairos</text></svg></span>
+        <span class="dup" aria-hidden="true"><svg viewBox="0 0 112 28"><circle cx="8" cy="14" r="8" fill="currentColor"/><text x="24" y="21" font-family="system-ui,sans-serif" font-size="16" font-weight="700" letter-spacing="-.02em" fill="currentColor">Lumen</text></svg></span>
+        <span class="dup" aria-hidden="true"><svg viewBox="0 0 104 28"><rect x="0" y="6" width="16" height="16" rx="2" fill="currentColor"/><text x="24" y="21" font-family="system-ui,sans-serif" font-size="16" font-weight="700" letter-spacing="-.02em" fill="currentColor">Atlas</text></svg></span>
+        <span class="dup" aria-hidden="true"><svg viewBox="0 0 110 28"><path d="M0 22 8 6l8 16Z" fill="currentColor"/><text x="24" y="21" font-family="system-ui,sans-serif" font-size="16" font-weight="700" letter-spacing="-.02em" fill="currentColor">Verity</text></svg></span>
+        <span class="dup" aria-hidden="true"><svg viewBox="0 0 104 28"><rect x="0" y="6" width="16" height="16" rx="8" fill="none" stroke="currentColor" stroke-width="3"/><text x="24" y="21" font-family="system-ui,sans-serif" font-size="16" font-weight="700" letter-spacing="-.02em" fill="currentColor">Okapi</text></svg></span>
+      </div>
+    </div>
+
+    <p class="after">ชื่อในภาพเป็นชื่อสมมติ เปลี่ยนเป็นลูกค้าจริงก่อนขึ้นหน้าเว็บเสมอ</p>
+  </div>
+</section>
+
+<!-- Before / After · ทิศทาง `gl` (กระจก) — ปัญหาวันนี้ เทียบกับหลังใช้
+
+     ทำไมชิ้นนี้ถึงมีอยู่
+     ────────────────────
+     คลังนี้ไม่มีหมวดนี้เลยสักไฟล์ ซึ่งเป็นช่องโหว่ที่ใหญ่กว่าที่เห็น:
+     `features` บอกว่า *มันทำอะไรได้* · `how-it-works` บอกว่า *ใช้ยังไง* ·
+     `stats` บอกว่า *ผลลัพธ์เท่าไร* แต่ไม่มีไฟล์ไหนบอกว่า **ทำไมต้องเปลี่ยน**
+
+     ส่วนนี้ทำงานคนละอย่างกับ `features`: มันไม่ได้ขายความสามารถ มันตั้งชื่อ
+     ให้ความเจ็บที่คนอ่านมีอยู่แล้วแต่ยังไม่เคยพูดออกมา แล้วค่อยวางของที่เรามี
+     ไว้ตรงข้าม คนที่ยังไม่รู้ตัวว่ามีปัญหาจะไม่สนใจตารางความสามารถ
+
+     `image-compare.html` ไม่ใช่ชิ้นเดียวกัน — อันนั้นคือภาพสองภาพบนเฟรมเดียว
+     ที่ลากคั่นได้ ใช้กับของที่ *ตาเห็นความต่าง* อันนี้คือข้อความสองชุด
+     ใช้กับของที่ต้องอ่านถึงจะเห็นความต่าง
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **สี่ข้อต่อฝั่ง ไม่ใช่สามหรือหก** สามข้ออ่านเหมือนรายการที่ยังไม่ครบ
+       หกข้อคนอ่านสองข้อแรกแล้วข้าม สี่คือจำนวนที่ตาจับได้ทั้งชุดในการกวาด
+       ครั้งเดียว (subitizing หยุดที่ 4)
+     · **ข้อความสองฝั่งต้องจับคู่กันทีละบรรทัด** — บรรทัดที่ 2 ฝั่งซ้ายต้องเป็น
+       ปัญหาที่บรรทัดที่ 2 ฝั่งขวาแก้ ไม่ใช่รายการปัญหาสี่ข้อวางข้างรายการดี ๆ
+       สี่ข้อที่ไม่เกี่ยวกัน กริดจึงใช้ `grid-auto-flow:column` ในโหมดกว้าง
+       เพื่อบังคับให้แถวตรงกันเสมอ แม้ข้อความยาวไม่เท่ากัน
+     · **ตัวเลขสองใบใต้ตาราง** เป็นขนาดของปัญหา ไม่ใช่ขนาดของสินค้า
+       (68% ของเวลาที่หมดไปกับการรวมข้อมูล · 3.2 ชม./สัปดาห์) ตัวเลขที่พูด
+       เรื่องปัญหาอยู่ในส่วนของปัญหา ตัวเลขที่พูดเรื่องผลลัพธ์อยู่ใน `stats`
+     · **แถบครึ่งซ้ายไม่ใช่สีแดง** ทั้งแผง ใช้ `--muted` กับพื้น `--surface`
+       เฉย ๆ แล้วให้เครื่องหมาย ✕ เป็นตัวบอก เพราะแผงแดงเต็มใบอ่านเป็น
+       "ข้อผิดพลาดของระบบ" ไม่ใช่ "สภาพวันนี้" และข้อ 2 ห้ามบอกสถานะด้วยสี
+       อย่างเดียวอยู่แล้ว
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ทำเป็นสวิตช์ ก่อน/หลัง ที่สลับเนื้อหาในที่เดียว** (แบบที่ต้นฉบับ
+        หลายเจ้าใช้) — พังเรื่องการเปรียบเทียบ เพราะการเทียบต้องเห็นสองฝั่ง
+        *พร้อมกัน* คนกดสลับไปมาแล้วจำอีกฝั่งไม่ได้ สวิตช์เหมาะกับราคาที่มี
+        ค่าเดียวต่อโหมด ไม่ใช่กับรายการที่ต้องวางคู่กัน
+     2. **`grid-auto-flow:column` โดยไม่กำหนด `grid-template-rows`** — คอลัมน์
+        ที่สองไหลไปต่อท้ายคอลัมน์แรกแทนที่จะขึ้นแถวใหม่ ต้องระบุจำนวนแถว
+        (`repeat(4,auto)`) ให้ชัด เบราว์เซอร์ถึงจะรู้ว่าจะพับตรงไหน
+     3. **ขีดฆ่าข้อความฝั่งซ้ายด้วย `text-decoration:line-through`** — อ่านยาก
+        มากในภาษาไทยเพราะเส้นพาดทับสระกลางบรรทัด (ิ ี ึ ื) จนแยกไม่ออก
+        ใช้เครื่องหมาย ✕ นำหน้ากับสีจาง ๆ แทน
+     4. **เส้นคั่นกลางเป็น `border-left` ของคอลัมน์ขวา** — หายไปตอนพับเป็น
+        คอลัมน์เดียว แล้วสองฝั่งติดกันจนอ่านเป็นรายการเดียวยาว ๆ ตอนนี้ใช้
+        ป้ายหัวคอลัมน์เป็นตัวแบ่ง ซึ่งอยู่ครบทั้งสองโหมด -->
+<style>
+  .w-ba{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+  }
+  .w-ba .head{ max-width:44ch }
+  .w-ba h2{ font-size:clamp(26px,3.4vw,40px); letter-spacing:-.02em; text-wrap:balance; line-height:1.24 }
+  .w-ba .w-lede{ margin-top:14px }
+
+  .w-ba .panes{ display:grid; gap:var(--gap); margin-top:clamp(28px,4vw,44px);
+                grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr)) }
+  .w-ba .pane{ border:1px solid var(--gl-edge); border-radius:var(--radius);
+               background:var(--gl-pane); padding:clamp(20px,2.4vw,28px);
+               display:flex; flex-direction:column; gap:16px;
+               position:relative; isolation:isolate; overflow:hidden }
+  .w-ba .pane--after{ border-color:color-mix(in srgb,var(--accent) 46%,var(--gl-edge)) }
+
+  .w-ba .tag{ align-self:flex-start; display:flex; align-items:center; gap:8px;
+              font:600 13px/1 var(--sans); letter-spacing:.02em;
+              border:1px solid var(--field); border-radius:var(--radius-pill);
+              padding:8px 14px; color:var(--muted) }
+  .w-ba .pane--after .tag{ border-color:var(--accent); color:var(--accent) }
+  .w-ba .tag i{ width:8px; height:8px; border-radius:50%; background:currentColor }
+
+  .w-ba ul{ display:grid; gap:12px }
+  .w-ba li{ display:grid; grid-template-columns:auto 1fr; gap:11px; align-items:start;
+            font-size:15px; line-height:1.55 }
+  .w-ba li svg{ width:19px; height:19px; margin-top:2px; flex:none }
+  .w-ba .pane--before li{ color:var(--muted) }
+  .w-ba .pane--before li svg{ color:var(--muted) }
+  .w-ba .pane--after li svg{ color:var(--accent) }
+  .w-ba li b{ font-weight:600; color:var(--text) }
+
+  /* ตัวเลขขนาดของปัญหา วางใต้ตาราง ไม่ใช่ในตาราง */
+  .w-ba .costs{ display:grid; gap:var(--gap); margin-top:var(--gap);
+                grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr)) }
+  .w-ba .cost{ border:1px solid var(--gl-edge); border-radius:var(--radius);
+               background:var(--gl-pane); padding:clamp(18px,2.2vw,24px) }
+  .w-ba .cost dt{ font-size:clamp(30px,3.8vw,44px); font-weight:800;
+                  letter-spacing:-.035em; line-height:1 }
+  .w-ba .cost dd{ margin:9px 0 0; color:var(--muted); font-size:15px; line-height:1.55 }
+  .w-ba .cost .src{ display:block; font-size:13px; opacity:.85; margin-top:6px }
+  /* แถบสัดส่วนใต้ตัวเลข ทำให้ 68% กับ 41% เทียบกันด้วยตา ไม่ใช่ด้วยการอ่าน */
+  .w-ba .cost .bar{ display:block; height:6px; border-radius:999px;
+                    background:var(--line); margin-top:14px; overflow:hidden }
+  .w-ba .cost .bar i{ display:block; height:100%; width:var(--v);
+                      background:var(--accent); border-radius:inherit;
+                      transform-origin:0 50% }
+
+  @media (min-width:860px){
+    /* บังคับให้บรรทัดที่ n ของสองฝั่งอยู่แถวเดียวกันเสมอ แม้ข้อความยาวไม่เท่ากัน
+       ต้องระบุจำนวนแถวด้วย ไม่งั้นคอลัมน์สองไหลต่อท้ายคอลัมน์หนึ่ง — ข้อ 2 */
+    .w-ba .panes{ grid-template-columns:1fr 1fr }
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-ba .pane::after{ content:""; position:absolute; inset:0; z-index:-1;
+      pointer-events:none;
+      background:linear-gradient(100deg, transparent 36%,
+        color-mix(in srgb,var(--accent) 12%,transparent) 50%, transparent 64%);
+      background-size:240% 100%; background-repeat:no-repeat;
+      background-position:-140% 0 }
+    .w-ba .pane:hover::after{ animation:w-sheen .9s var(--ease-wipe) }
+    @supports (animation-timeline:view()){
+      .w-ba .cost .bar i{ --grow-x:0; --grow-y:1;
+        animation-name:w-grow; animation-timing-function:var(--ease-in);
+        animation-fill-mode:both;
+        animation-timeline:view(); animation-range:entry 12% cover 32% }
+    }
+  }
+</style>
+
+<section class="w-section w-ba" id="why">
+  <div class="w-wrap">
+    <div class="head">
+      <p class="w-eyebrow">ทำไมต้องเปลี่ยน</p>
+      <h2>ปัญหาไม่ใช่ว่าข้อมูลไม่มี แต่คือมันอยู่คนละที่</h2>
+      <p class="w-lede">คนที่ลงทุนหลายที่ส่วนใหญ่ไม่ได้ขาดข้อมูล เขาขาดที่ที่รวมมันไว้แล้วบอกได้ว่าตอนนี้ควรทำอะไร</p>
+    </div>
+
+    <div class="panes">
+      <div class="pane pane--before">
+        <span class="tag"><i></i>วันนี้</span>
+        <ul>
+          <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.2" stroke="currentColor" stroke-width="1.6"/><path d="m7.2 7.2 5.6 5.6M12.8 7.2l-5.6 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span><b>ยอดอยู่คนละแอป</b> ต้องเปิดสี่ห้าที่แล้วบวกเองในหัวหรือในสเปรดชีต</span></li>
+          <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.2" stroke="currentColor" stroke-width="1.6"/><path d="m7.2 7.2 5.6 5.6M12.8 7.2l-5.6 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span><b>ไม่รู้ว่าควรซื้อ ถือ หรือขาย</b> เพราะไม่มีอะไรบอกว่าอันไหนเสี่ยงเกินสัดส่วนแล้ว</span></li>
+          <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.2" stroke="currentColor" stroke-width="1.6"/><path d="m7.2 7.2 5.6 5.6M12.8 7.2l-5.6 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span><b>ตามด้วยมือทุกสัปดาห์</b> เวลาหมดไปกับการรวมข้อมูล ไม่ใช่กับการตัดสินใจ</span></li>
+          <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.2" stroke="currentColor" stroke-width="1.6"/><path d="m7.2 7.2 5.6 5.6M12.8 7.2l-5.6 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span><b>ตัดสินใจจากข้อมูลเก่า</b> กว่าจะรวมเสร็จ ราคาก็เปลี่ยนไปแล้ว</span></li>
+        </ul>
+      </div>
+
+      <div class="pane pane--after">
+        <span class="tag"><i></i>หลังเชื่อมบัญชี</span>
+        <ul>
+          <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.2" stroke="currentColor" stroke-width="1.6"/><path d="m6.6 10.3 2.6 2.6 4.4-5.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>ยอดรวมอยู่บนหน้าเดียว</b> ดึงจากทุกบัญชีที่เชื่อมไว้ อัปเดตทุก 15 วินาที</span></li>
+          <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.2" stroke="currentColor" stroke-width="1.6"/><path d="m6.6 10.3 2.6 2.6 4.4-5.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>สัญญาณพร้อมระดับความมั่นใจ</b> และเหตุผลว่าคิดจากอะไร กดดูได้ทุกอัน</span></li>
+          <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.2" stroke="currentColor" stroke-width="1.6"/><path d="m6.6 10.3 2.6 2.6 4.4-5.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>รายงานสร้างเอง</b> ทั้งรายสัปดาห์และไฟล์ยื่นภาษีปลายปี</span></li>
+          <li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.2" stroke="currentColor" stroke-width="1.6"/><path d="m6.6 10.3 2.6 2.6 4.4-5.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>เตือนตอนสัดส่วนเพี้ยน</b> ก่อนที่ความเสี่ยงจะโตเกินที่ตั้งไว้</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <dl class="costs">
+      <div class="cost">
+        <dt>68%</dt>
+        <dd>ของเวลาที่นักลงทุนรายย่อยใช้กับพอร์ต หมดไปกับการรวบรวมข้อมูล ไม่ใช่การวิเคราะห์
+          <span class="src">แบบสำรวจผู้ใช้ 412 คน · มี.ค. 2569</span></dd>
+        <span class="bar" style="--v:68%"><i></i></span>
+      </div>
+      <div class="cost">
+        <dt>3.2 ชม.</dt>
+        <dd>ต่อสัปดาห์โดยเฉลี่ยที่หมดไปกับการเปิดหลายแอปแล้วรวมยอดเอง
+          <span class="src">ค่ามัธยฐานจากผู้ใช้กลุ่มเดียวกัน</span></dd>
+        <span class="bar" style="--v:41%"><i></i></span>
+      </div>
+    </dl>
+  </div>
+</section>
+
+<!-- Features · ทิศทาง `gl` (กระจก) — เบนโตะที่แต่ละช่องเป็นคนละชนิด
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี features.html แล้ว
+     ─────────────────────────────────────────────
+     `features.html` ใช้ `auto-fit` ซึ่งแปลว่าทุกช่องกว้างเท่ากันและมีของ
+     ชนิดเดียวกัน — ไอคอน หัวข้อ ประโยค คูณสี่ นั่นคือสิ่งที่ `aetox-anti-slop`
+     เรียกว่าตัวบอกที่ชัดที่สุดของงานที่เจนมา และหัวไฟล์ของ features.html
+     ก็เขียนเตือนเรื่องนี้ไว้เอง แต่ตัวมันเองแก้ไม่ได้ เพราะ auto-fit ไม่มีทาง
+     ให้ช่องหนึ่งเป็นตารางสัญญาณและอีกช่องเป็นมาตรวัด
+
+     ที่นี่จึงเป็นกริดที่ระบุช่วงเอง และของในแต่ละช่อง **เป็นคนละชนิดกันจริง**:
+     ตารางสัญญาณ · มาตรวัดครึ่งวง · แถวเส้นเล็ก · ตัวเลขเดี่ยว
+     ถ้าเปลี่ยนทุกช่องให้เป็นไอคอนกับประโยคเหมือนกันหมด ไฟล์นี้ก็ไม่มีเหตุผล
+     ให้มีอยู่ต่อ ให้กลับไปใช้ features.html แทน
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **กริด 6 คอลัมน์ ไม่ใช่ 4** เพราะ 6 หารด้วย 2 และ 3 ลงตัวทั้งคู่
+       จึงจัดได้ทั้งแถวสองใบและแถวสามใบโดยไม่เหลือเศษ ที่ 4 คอลัมน์
+       แถวสามใบจะเหลือช่องว่างหนึ่งช่องเสมอ ซึ่งเป็นบั๊กที่ features.html
+       เป็นอยู่จริงตอนนี้: การ์ดใบแรก `span 2` ในกริด auto-fit ที่พอดี 3 คอลัมน์
+       ทำให้แถวสองเหลือรูโหว่ครึ่งแถวที่ความกว้าง 1200px
+     · **ทุกแถวรวมได้ 6 พอดี** — 3+3 / 3+3 / 2+2+2 ตรวจได้ด้วยการบวก
+       ไม่ใช่ด้วยการเปิดดู กริดที่พิสูจน์ความถูกต้องด้วยตาคือกริดที่จะพังเงียบ ๆ
+       ตอนมีคนเพิ่มการ์ดใบที่เจ็ด
+     · **แถบความมั่นใจ 78 / 55 / 31%** เป็นค่าที่เรียงจากมากไปน้อยตรงกับลำดับ
+       ของป้าย ซื้อ / ถือ / ขาย ตัวเลขที่ไม่เรียงตามป้ายคือตารางที่อ่านแล้วสะดุด
+     · **มาตรวัดกวาด 210°** ไม่ใช่ 180° เพราะครึ่งวงพอดีทำให้ปลายทั้งสองข้าง
+       ชี้ออกแนวนอน แล้วป้าย "ต่ำ" กับ "สูง" ต้องไปวางนอกโค้ง กินความกว้าง
+       เพิ่มอีกข้างละ 28px ที่ 210° ปลายโค้งเงยขึ้นมา 13.5px ป้ายจึงวางใต้ปลาย
+       ได้ในความกว้างเดิม พิกัดคำนวณจากจุดศูนย์กลาง (66,58) รัศมี 52
+       ที่มุม −195° และ +15° ไม่ได้ลากด้วยตา
+       ความยาวเส้น 2π·52·(210/360) = 190.6 จึงตั้ง `pathLength="100"`
+       แล้วคิดเป็นเปอร์เซ็นต์ตรง ๆ แทนที่จะคูณเลขนี้ทุกครั้ง
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ให้ช่องใหญ่ `grid-row:span 2` แล้วช่องเล็กสูงตามเนื้อหา** — ผลคือ
+        ช่องเล็กสองใบที่อยู่ข้างกันสูงไม่เท่ากัน ขอบล่างเลยไม่ตรงแนวสักที่
+        แก้ด้วย `align-items:stretch` (ค่าเริ่มต้นของกริด) บวก
+        `display:flex;flex-direction:column` ที่ตัวช่อง แล้วดันของชิ้นสุดท้าย
+        ด้วย `margin-top:auto` ความสูงจึงมาจากกริด ไม่ใช่จากเนื้อหา
+     2. **แสงกวาดใช้ `background-position` บนตัวช่องเอง** — ทับพื้นของช่อง
+        จนตัวหนังสือจาง ต้องย้ายไป `::after` ที่กด `z-index:-1` พร้อม
+        `isolation:isolate` ที่ตัวช่อง ซึ่งเป็นกับดักเดียวกับที่ page-shell
+        บันทึกไว้เรื่องปุ่ม ถ้าไม่ใส่ isolation ค่า -1 จะหลุดไปอยู่หลังพื้นของ
+        section แทนที่จะอยู่หลังตัวหนังสือของช่อง
+     3. **`grid-template-areas` แทนการระบุ span** — อ่านง่ายกว่าจริง แต่พอถึง
+        เบรกพอยต์ต้องเขียน areas ใหม่ทั้งผัง สามครั้ง สามชุด ที่ span
+        เปลี่ยนแค่ตัวเลขเดียวต่อช่อง -->
+<style>
+  .w-fb{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+  }
+  .w-fb h2{ font-size:clamp(26px,3.4vw,40px); letter-spacing:-.02em; text-wrap:balance; line-height:1.24;
+            max-width:22ch }
+  .w-fb .w-lede{ margin-top:14px }
+
+  .w-fb .bento{ display:grid; gap:var(--gap); margin-top:clamp(28px,4vw,44px);
+                grid-template-columns:repeat(6,1fr) }
+  .w-fb .cell{
+    grid-column:span 2;
+    display:flex; flex-direction:column; gap:10px;
+    border:1px solid var(--gl-edge); border-radius:var(--radius);
+    background:var(--gl-pane); padding:clamp(18px,2.2vw,24px);
+    position:relative; isolation:isolate; overflow:hidden;   /* ตัดแสงกวาด */
+  }
+  .w-fb .cell--wide{ grid-column:span 3 }
+  .w-fb .cell h3{ font-size:18px; letter-spacing:-.01em }
+  .w-fb .cell p{ color:var(--muted); font-size:15px }
+  /* ของชิ้นสุดท้ายถูกดันลงล่างเสมอ ความสูงจึงมาจากกริด ไม่ใช่จากเนื้อหา
+     ดูเหตุผลข้อ 1 ในหัวไฟล์ */
+  .w-fb .cell > :last-child{ margin-top:auto }
+
+  /* ── ช่องที่ 1 · ตารางสัญญาณ ─────────────────────────────────────── */
+  .w-fb .sig{ display:grid; gap:8px; margin-top:4px }
+  .w-fb .sig li{ display:grid; grid-template-columns:4.6rem 1fr auto auto; align-items:center;
+                 gap:10px; padding:9px 11px; border:1px solid var(--line);
+                 border-radius:var(--radius-sm); background:var(--bg) }
+  .w-fb .sig .sym{ font:700 13px/1 var(--mono); letter-spacing:.02em }
+  .w-fb .sig .bar{ height:5px; border-radius:999px; background:var(--line);
+                   position:relative; overflow:hidden }
+  .w-fb .sig .bar i{ position:absolute; inset:0 auto 0 0; width:var(--v);
+                     background:var(--accent); border-radius:inherit;
+                     transform-origin:0 50% }
+  /* ป้ายบอกด้วยคำ ไม่ใช่สีอย่างเดียว — ข้อ 2 */
+  .w-fb .sig .tag{ font:600 11px/1 var(--sans); padding:4px 8px;
+                   border-radius:var(--radius-pill); border:1px solid currentColor }
+  .w-fb .sig .tag.buy { color:var(--viz-up) }
+  .w-fb .sig .tag.hold{ color:var(--muted) }
+  .w-fb .sig .tag.sell{ color:var(--viz-down) }
+  .w-fb .sig .pct{ font:600 11px/1 var(--mono); color:var(--muted); min-width:3.2ch;
+                   text-align:right }
+
+  /* ── ช่องที่ 2 · มาตรวัดครึ่งวง ──────────────────────────────────── */
+  .w-fb .gauge{ display:flex; align-items:center; gap:16px }
+  .w-fb .gauge svg{ width:132px; height:auto; flex:none }
+  .w-fb .gauge .read{ font-size:clamp(26px,3vw,34px); font-weight:800;
+                      letter-spacing:-.03em; line-height:1 }
+  .w-fb .gauge .read small{ font-size:14px; font-weight:500; color:var(--muted) }
+  .w-fb .gauge .note{ color:var(--muted); font-size:14px; margin-top:6px }
+
+  /* ── ช่องที่ 3 · แถวเส้นเล็ก ──────────────────────────────────────── */
+  .w-fb .spark{ display:grid; gap:6px; margin-top:2px }
+  .w-fb .spark li{ display:grid; grid-template-columns:5.2rem 1fr auto; align-items:center;
+                   gap:12px; font-size:13px }
+  .w-fb .spark svg{ width:100%; height:26px }
+  .w-fb .spark b{ font:600 13px/1 var(--mono) }
+
+  /* ── ช่องตัวเลขเดี่ยว ─────────────────────────────────────────────── */
+  /* เขียนเป็น `p.big` ไม่ใช่ `.big` เพราะ `.w-fb .cell p` ข้างบนมีตัวนับ
+     element อยู่หนึ่งตัว จึงชนะ `.w-fb .big` ที่มีแต่คลาสสองตัว ตอนที่เขียน
+     เป็น `.big` เฉย ๆ ตัวเลขทั้งสามใบเรนเดอร์ที่ 15px เท่าย่อหน้าธรรมดา
+     ทั้งที่กฎถูกทุกค่า — จับได้ตอนเปิดดูของจริงเท่านั้น */
+  .w-fb .cell p.big{ font-size:clamp(32px,4vw,46px); font-weight:800;
+                     letter-spacing:-.035em; line-height:1; color:var(--text) }
+  .w-fb .cell p.big span{ font-size:15px; font-weight:500; color:var(--muted);
+                          letter-spacing:0 }
+  .w-fb .cell p.src{ color:var(--muted); font-size:13px }
+
+  @media (max-width:940px){
+    .w-fb .bento{ grid-template-columns:repeat(4,1fr) }
+    .w-fb .cell,.w-fb .cell--wide{ grid-column:span 4 }
+    .w-fb .cell--half{ grid-column:span 2 }
+  }
+  @media (max-width:560px){
+    .w-fb .bento{ grid-template-columns:1fr }
+    .w-fb .cell,.w-fb .cell--wide,.w-fb .cell--half{ grid-column:auto }
+    .w-fb .gauge{ flex-direction:column; align-items:flex-start }
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    /* แสงกวาดผ่านแผ่นกระจกตอนชี้ — ลายเซ็นของทิศทาง `gl`
+       อยู่ที่ ::after ที่กด z-index หลังตัวหนังสือ ดูเหตุผลข้อ 2 ในหัวไฟล์ */
+    .w-fb .cell::after{ content:""; position:absolute; inset:0; z-index:-1;
+      pointer-events:none;
+      background:linear-gradient(100deg, transparent 36%,
+        color-mix(in srgb,var(--accent) 14%,transparent) 50%, transparent 64%);
+      background-size:240% 100%; background-repeat:no-repeat;
+      background-position:-140% 0 }
+    .w-fb .cell:hover::after,.w-fb .cell:focus-within::after{
+      animation:w-sheen .9s var(--ease-wipe) }
+    /* แท่งความมั่นใจงอกจากซ้าย ท่า grow ตั้งแกนนอน */
+    @supports (animation-timeline:view()){
+      .w-fb .sig .bar i{ --grow-x:0; --grow-y:1;
+        animation-name:w-grow; animation-timing-function:var(--ease-in);
+        animation-fill-mode:both;
+        animation-timeline:view(); animation-range:entry 10% cover 30% }
+      /* ไม่ใช้ w-draw ของ shell เพราะท่านั้นผูกกับ pathLength="1000" และขยับ
+         stroke-dashoffset ส่วนที่นี่ pathLength="100" เพื่ออ่านเป็นเปอร์เซ็นต์
+         ตรง ๆ และสิ่งที่ต้องโตคือความยาวของขีด ไม่ใช่ตำแหน่งของมัน
+         ท่านี้ใช้ที่เดียว จึงประกาศในไฟล์นี้ ไม่ไปบวมอยู่ในคลังกลาง */
+      .w-fb .gauge .arc{ animation-name:w-fb-arc; animation-timing-function:var(--ease-in);
+        animation-fill-mode:both;
+        animation-timeline:view(); animation-range:entry 10% cover 34% }
+    }
+  }
+  @keyframes w-fb-arc{ from{ stroke-dasharray:0 100 } to{ stroke-dasharray:18 100 } }
+</style>
+
+<section class="w-section w-fb" id="features">
+  <div class="w-wrap">
+    <p class="w-eyebrow">ความสามารถ</p>
+    <h2>สี่อย่างที่ทำให้พอร์ตอ่านออกในสามสิบวินาที</h2>
+    <p class="w-lede">ทุกช่องข้างล่างคือของจริงคนละชนิด ไม่ใช่การ์ดแบบเดียวกันสี่ใบ เพราะคำถามที่แต่ละอันตอบก็คนละคำถาม</p>
+
+    <div class="bento">
+      <!-- แถว 1 · 3 + 3 -->
+      <div class="cell cell--wide w-reveal">
+        <h3>สัญญาณที่บอกเหตุผลท้ายบรรทัด</h3>
+        <p>ทุกสัญญาณมาพร้อมระดับความมั่นใจ ไม่ใช่คำสั่งลอย ๆ</p>
+        <ul class="sig">
+          <li><span class="sym">PTT</span>
+              <span class="bar" style="--v:78%"><i></i></span>
+              <span class="pct">78%</span>
+              <span class="tag buy">ซื้อ</span></li>
+          <li><span class="sym">AOT</span>
+              <span class="bar" style="--v:55%"><i></i></span>
+              <span class="pct">55%</span>
+              <span class="tag hold">ถือ</span></li>
+          <li><span class="sym">DELTA</span>
+              <span class="bar" style="--v:31%"><i></i></span>
+              <span class="pct">31%</span>
+              <span class="tag sell">ขาย</span></li>
+        </ul>
+      </div>
+
+      <div class="cell cell--wide w-reveal">
+        <h3>ความเสี่ยงเป็นตัวเลขเดียว</h3>
+        <div class="gauge">
+          <!-- โค้ง 210° รอบจุดศูนย์กลาง (66,58) รัศมี 52
+               ปลายซ้ายที่มุม −195° = (15.8, 71.5) · ปลายขวาที่ +15° = (116.2, 71.5)
+               large-arc-flag = 1 เพราะกวาดเกิน 180° · sweep = 1 คือทวนเข็มบนจอ
+               ที่แกน y ชี้ลง ซึ่งทำให้โค้งอ้อมด้านบน ไม่ใช่ด้านล่าง -->
+          <svg viewBox="0 0 132 96" role="img" aria-label="มาตรวัดความเสี่ยง 18 จาก 100 อยู่ในช่วงต่ำ">
+            <path d="M15.8 71.5 A52 52 0 1 1 116.2 71.5"
+                  fill="none" stroke="var(--line)" stroke-width="11" stroke-linecap="round"/>
+            <path class="arc" d="M15.8 71.5 A52 52 0 1 1 116.2 71.5" pathLength="100"
+                  fill="none" stroke="var(--accent)" stroke-width="11" stroke-linecap="round"
+                  stroke-dasharray="18 100"/>
+            <text x="15.8" y="90" font-size="11" fill="var(--muted)" text-anchor="middle">ต่ำ</text>
+            <text x="116.2" y="90" font-size="11" fill="var(--muted)" text-anchor="middle">สูง</text>
+          </svg>
+          <div>
+            <p class="read">18<small> / 100</small></p>
+            <p class="note">ต่ำกว่าเดือนก่อน 4 คะแนน หลังลดน้ำหนักหุ้นกลุ่มเดียวลง</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- แถว 2 · 3 + 3 -->
+      <div class="cell cell--wide w-reveal">
+        <h3>ทุกตลาดที่ถืออยู่ บรรทัดละหนึ่ง</h3>
+        <ul class="spark">
+          <li><span>หุ้นไทย</span>
+            <svg viewBox="0 0 120 26" preserveAspectRatio="none" aria-hidden="true"><path d="M0 20 L20 16 L40 18 L60 9 L80 12 L100 6 L120 4" fill="none" stroke="var(--viz-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <b>+8.2%</b></li>
+          <li><span>หุ้นต่างประเทศ</span>
+            <svg viewBox="0 0 120 26" preserveAspectRatio="none" aria-hidden="true"><path d="M0 12 L20 14 L40 8 L60 11 L80 6 L100 9 L120 5" fill="none" stroke="var(--viz-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <b>+14.7%</b></li>
+          <li><span>ตราสารหนี้</span>
+            <svg viewBox="0 0 120 26" preserveAspectRatio="none" aria-hidden="true"><path d="M0 14 L20 14 L40 15 L60 13 L80 14 L100 13 L120 13" fill="none" stroke="var(--viz-3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <b>+2.1%</b></li>
+          <li><span>ทองคำ</span>
+            <svg viewBox="0 0 120 26" preserveAspectRatio="none" aria-hidden="true"><path d="M0 8 L20 11 L40 9 L60 15 L80 13 L100 18 L120 16" fill="none" stroke="var(--viz-5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <b>−3.4%</b></li>
+        </ul>
+      </div>
+
+      <div class="cell cell--wide w-reveal">
+        <h3>เชื่อมบัญชีแล้วจบ</h3>
+        <p>โบรกเกอร์และธนาคารในไทยที่เชื่อมได้ตอนนี้ ดึงยอดและรายการซื้อขายย้อนหลังมาให้เอง ไม่ต้องกรอกมือ</p>
+        <p class="big">37 <span>สถาบัน</span></p>
+      </div>
+
+      <!-- แถว 3 · 2 + 2 + 2 -->
+      <div class="cell cell--half w-reveal">
+        <h3>อัปเดตราคา</h3>
+        <p class="big">15 <span>วินาที</span></p>
+        <p class="src">วัดจากค่ามัธยฐานของการดึงราคา 24 ชม. ล่าสุด</p>
+      </div>
+      <div class="cell cell--half w-reveal">
+        <h3>ย้อนหลังได้ถึง</h3>
+        <p class="big">10 <span>ปี</span></p>
+        <p class="src">เท่าที่โบรกเกอร์ต้นทางเก็บให้</p>
+      </div>
+      <div class="cell cell--half w-reveal">
+        <h3>ส่งออกได้</h3>
+        <p class="big">4 <span>รูปแบบ</span></p>
+        <p class="src">CSV · XLSX · PDF · ไฟล์ยื่นภาษี</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Platform tour · ทิศทาง `gl` (กระจก) — พาดูของจริงทีละหน้าจอ
+
+     ทำไมชิ้นนี้ถึงมีอยู่
+     ────────────────────
+     `features-bento.html` ตอบว่า *มันทำอะไรได้บ้าง* — กวาดตาแล้วจบใน 10 วินาที
+     แต่คนที่ผ่านเบนโตะมาแล้วยังไม่กด คือคนที่ยังไม่เห็นภาพว่า **ใช้จริงแล้ว
+     หน้าตาเป็นยังไง** ส่วนนี้ตอบข้อนั้น ด้วยการวางหน้าจอจริงสามหน้าเรียงลงมา
+     แล้วให้ข้อความอธิบายอยู่ข้าง ๆ แบบไม่หนีไปไหน
+
+     ต่างจาก `hero-product.html` ตรงที่ hero โชว์ *หน้าเดียว* เพื่อบอกว่า
+     "ของมีอยู่จริง" ส่วนนี้โชว์ *สามหน้า* เพื่อบอกว่า "งานที่ต้องทำจริงมันไหล
+     ยังไง" — ดูภาพรวม → กดดูเหตุผล → ตั้งการเตือน
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **คอลัมน์ซ้ายติดหนึบที่ `top:clamp(84px,12vh,132px)`** ไม่ใช่ `top:0`
+       เพราะทรงนี้คู่กับ `nav-pill.html` ที่ลอยอยู่ที่ 12px สูง 56px รวมเงา
+       แล้วกินถึงราว 80px ข้อความที่ติดที่ 0 จะไปอยู่ใต้แคปซูล
+     · **สามหน้าจอ ไม่ใช่สี่** เพราะคอลัมน์ซ้ายติดหนึบอยู่ตลอดช่วงที่ขวาเลื่อน
+       ถ้าขวายาวเกินราวสามเท่าของความสูงจอ คนจะรู้สึกว่าซ้ายค้าง ไม่ใช่ติดตาม
+       สามใบที่สูงใบละ ~300px รวม gap = ~980px ซึ่งพอดีกับจอ 900px คูณ 1.1
+     · **ตัวเลขในสามหน้าจอต่อเนื่องกัน** — ใบแรกบอกยอด 15,600,000 ใบที่สอง
+       อธิบายว่า PTT คิดมาจากอะไรได้ 78% ใบที่สามเตือนว่าหุ้นไทยเกินเพดาน 45%
+       ที่ตั้งไว้ ทั้งสามคือเรื่องเดียวกันสามจังหวะ ไม่ใช่สามภาพที่ไม่เกี่ยวกัน
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`position:sticky` บนคอลัมน์ซ้ายที่มี `align-items:center` ที่กริดพ่อ** —
+        ไม่ติดเลย เพราะ `align-items` ที่ไม่ใช่ `start` ทำให้ลูกสูงเท่าเนื้อหา
+        ตัวเอง แล้วกล่องที่สูงเท่าเนื้อหาไม่มีที่ให้เลื่อนภายใน sticky จึงไม่มี
+        อะไรให้ทำ ต้องตั้ง `align-items:start` ที่กริด
+     2. **ให้สามหน้าจอเข้าฉากด้วย `w-reveal` ทั้งสามใบพร้อมกัน** — ใบที่สาม
+        เข้าฉากตอนที่ยังอยู่นอกจอ พอเลื่อนถึงมันก็นิ่งไปแล้ว ต้องผูก
+        `animation-range` แยกใบ และเขียนกฎรวมเป็น longhand ไม่ใช่ shorthand
+        เพราะ shorthand `animation:` รีเซ็ต `animation-range` ทิ้ง (กับดักข้อ 5)
+     3. **ป้ายลำดับเป็น `::before` ที่ `content:counter()`** — เลขหายตอนที่
+        `<ol>` ถูกรีเซ็ตโดยส่วนอื่นในหน้ารวม เขียนเลขลงไปตรง ๆ ในมาร์กอัป
+        แทน เพราะที่นี่เลขคือ *เนื้อหา* ไม่ใช่การจัดหน้า -->
+<style>
+  .w-tour{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+  }
+  .w-tour .grid{ display:grid; gap:clamp(28px,5vw,64px);
+                 align-items:start }        /* ต้องเป็น start — ดูข้อ 1 */
+  @media (min-width:900px){
+    .w-tour .grid{ grid-template-columns:minmax(0,.86fr) minmax(0,1fr) }
+    .w-tour .rail{ position:sticky; top:clamp(84px,12vh,132px) }
+  }
+  .w-tour h2{ font-size:clamp(26px,3.4vw,40px); letter-spacing:-.02em;
+              text-wrap:balance; line-height:1.24; max-width:18ch }
+  .w-tour .w-lede{ margin-top:14px }
+  .w-tour .acts{ display:flex; flex-wrap:wrap; gap:12px; margin-top:26px }
+  .w-tour .acts .w-btn .badge{ display:inline-flex; align-items:center;
+    justify-content:center; width:24px; height:24px; border-radius:50%;
+    background:var(--accent-ink); color:var(--accent); margin-inline-end:-8px }
+  .w-tour .acts .w-btn .badge svg{ width:11px; height:11px }
+
+  .w-tour .points{ display:grid; gap:14px; margin-top:30px;
+                   padding-top:26px; border-top:1px solid var(--line) }
+  .w-tour .points li{ display:grid; grid-template-columns:auto 1fr; gap:12px;
+                      align-items:start }
+  .w-tour .points .n{ width:24px; height:24px; border-radius:50%; flex:none;
+                      background:var(--accent); color:var(--accent-ink);
+                      font:700 12px/24px var(--mono); text-align:center }
+  .w-tour .points b{ display:block; font-size:16px; margin-bottom:3px }
+  .w-tour .points p{ color:var(--muted); font-size:14px; line-height:1.6 }
+
+  /* ── หน้าจอสามใบ ─────────────────────────────────────────────────── */
+  .w-tour .screens{ display:grid; gap:clamp(16px,2.4vw,24px) }
+  .w-tour .scr{ border:1px solid var(--gl-edge); border-radius:var(--radius);
+                background:var(--gl-pane); box-shadow:var(--e2); overflow:hidden }
+  @supports (backdrop-filter:blur(4px)){ .w-tour .scr{ backdrop-filter:blur(12px) } }
+  .w-tour .scr .bar{ display:flex; align-items:center; gap:8px;
+                     padding:9px 13px; border-bottom:1px solid var(--line);
+                     font:600 11px/1 var(--mono); color:var(--muted) }
+  .w-tour .scr .bar i{ width:7px; height:7px; border-radius:50%;
+                       background:var(--line); flex:none }
+  .w-tour .scr .body{ padding:14px; background:var(--bg) }
+
+  /* ใบที่ 1 · ยอดรวมกับแท่งสัดส่วน */
+  .w-tour .sum{ display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap }
+  .w-tour .sum strong{ font-size:clamp(24px,3vw,32px); letter-spacing:-.03em; line-height:1 }
+  .w-tour .sum em{ font-style:normal; font:600 12px/1 var(--mono); color:var(--viz-up) }
+  .w-tour .sum span{ color:var(--muted); font-size:12px; margin-left:auto }
+  .w-tour .split{ display:flex; height:10px; border-radius:999px; overflow:hidden;
+                  margin-top:14px; background:var(--line) }
+  .w-tour .split i{ display:block; height:100% }
+  .w-tour .legend{ display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:11px;
+                   font-size:12px; color:var(--muted) }
+  .w-tour .legend li{ display:flex; align-items:center; gap:6px }
+  .w-tour .legend b{ width:9px; height:9px; border-radius:3px; flex:none }
+
+  /* ใบที่ 2 · เหตุผลเบื้องหลังสัญญาณ */
+  .w-tour .why{ display:grid; gap:9px }
+  .w-tour .why .top{ display:flex; align-items:center; gap:9px }
+  .w-tour .why .sym{ font:700 14px/1 var(--mono) }
+  .w-tour .why .tag{ font:600 11px/1 var(--sans); color:var(--viz-up);
+                     border:1px solid currentColor; border-radius:var(--radius-pill);
+                     padding:4px 9px }
+  .w-tour .why .conf{ margin-left:auto; font:600 12px/1 var(--mono); color:var(--muted) }
+  .w-tour .why .reason{ display:grid; grid-template-columns:auto 1fr auto; gap:9px;
+                        align-items:center; font-size:12px; color:var(--muted);
+                        border:1px solid var(--line); border-radius:var(--radius-sm);
+                        padding:8px 10px; background:var(--surface) }
+  .w-tour .why .reason .w{ font:600 11px/1 var(--mono); color:var(--text) }
+  .w-tour .why .reason .track{ height:4px; border-radius:999px; background:var(--line);
+                               overflow:hidden }
+  .w-tour .why .reason .track i{ display:block; height:100%; width:var(--v);
+                                 background:var(--accent); transform-origin:0 50% }
+
+  /* ใบที่ 3 · การเตือน */
+  .w-tour .alert{ display:grid; grid-template-columns:auto 1fr; gap:11px;
+                  align-items:start; border:1px solid var(--warning);
+                  border-radius:var(--radius-sm); padding:12px;
+                  background:color-mix(in srgb,var(--warning) 10%,var(--surface)) }
+  .w-tour .alert svg{ width:19px; height:19px; color:var(--warning); flex:none; margin-top:2px }
+  .w-tour .alert b{ display:block; font-size:13px; margin-bottom:3px }
+  .w-tour .alert p{ color:var(--muted); font-size:12px; line-height:1.55 }
+  .w-tour .rule{ display:flex; align-items:center; gap:9px; margin-top:11px;
+                 font-size:12px; color:var(--muted) }
+  .w-tour .rule .pill{ font:600 11px/1 var(--mono); color:var(--text);
+                       border:1px solid var(--field); border-radius:var(--radius-pill);
+                       padding:5px 9px }
+
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      /* longhand ทั้งชุด ไม่ใช่ shorthand — ดูเหตุผลข้อ 2 ในหัวไฟล์ */
+      .w-tour .scr{ animation-name:w-rise; animation-timing-function:linear;
+                    animation-fill-mode:both; animation-timeline:view();
+                    animation-range:entry 10% cover 28% }
+      .w-tour .why .reason .track i{ --grow-x:0; --grow-y:1;
+        animation-name:w-grow; animation-timing-function:var(--ease-in);
+        animation-fill-mode:both; animation-timeline:view();
+        animation-range:entry 14% cover 34% }
+    }
+  }
+</style>
+
+<section class="w-section w-tour" id="overview">
+  <div class="w-wrap grid">
+    <div class="rail">
+      <p class="w-eyebrow">พาดูของจริง</p>
+      <h2>สามจังหวะที่คนใช้จริงเดินทุกเช้า</h2>
+      <p class="w-lede">ไม่ใช่รายการความสามารถ แต่คือลำดับที่เกิดขึ้นจริงตั้งแต่เปิดหน้าจอจนถึงตอนที่ตัดสินใจ</p>
+      <div class="acts">
+        <a class="w-btn" href="#cta">ลองกับพอร์ตตัวเอง<span class="badge"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h9M8.5 4.2 12.6 8l-4.1 3.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+        <a class="w-btn w-btn--ghost" href="#pricing">ดูราคา</a>
+      </div>
+      <ol class="points">
+        <li><span class="n">1</span><div><b>เห็นยอดรวมก่อน</b><p>ทุกบัญชีที่เชื่อมไว้รวมเป็นตัวเลขเดียว พร้อมสัดส่วนว่ามันมาจากไหน</p></div></li>
+        <li><span class="n">2</span><div><b>กดดูว่าทำไม</b><p>ทุกสัญญาณเปิดดูได้ว่าคิดจากปัจจัยอะไร แต่ละปัจจัยมีน้ำหนักเท่าไร</p></div></li>
+        <li><span class="n">3</span><div><b>ตั้งเพดานไว้ครั้งเดียว</b><p>แล้วให้ระบบเตือนเองตอนสัดส่วนเกิน ไม่ต้องมานั่งเช็คทุกวัน</p></div></li>
+      </ol>
+    </div>
+
+    <div class="screens">
+      <!-- ทั้งสามใบเป็นภาพ ไม่ใช่ตารางหรือตัวควบคุม — เหตุผลเดียวกับ hero-product -->
+      <div class="scr" role="img" aria-label="หน้าจอที่หนึ่ง ยอดรวม 15,600,000 บาท เพิ่มขึ้น 12.4 เปอร์เซ็นต์ แบ่งเป็นหุ้น 62 เปอร์เซ็นต์ ตราสารหนี้ 26 เปอร์เซ็นต์ ทองคำ 12 เปอร์เซ็นต์">
+        <div class="bar" aria-hidden="true"><i></i><i></i><i></i>ภาพรวม</div>
+        <div class="body" aria-hidden="true">
+          <div class="sum"><strong>15,600,000</strong><em>▲ 12.4%</em><span>อัปเดต 15 วินาทีที่แล้ว</span></div>
+          <div class="split">
+            <i style="width:62%;background:var(--viz-2)"></i>
+            <i style="width:26%;background:var(--viz-6)"></i>
+            <i style="width:12%;background:var(--viz-5)"></i>
+          </div>
+          <ul class="legend">
+            <li><b style="background:var(--viz-2)"></b>หุ้น 62%</li>
+            <li><b style="background:var(--viz-6)"></b>ตราสารหนี้ 26%</li>
+            <li><b style="background:var(--viz-5)"></b>ทองคำ 12%</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="scr" role="img" aria-label="หน้าจอที่สอง เหตุผลเบื้องหลังสัญญาณซื้อของ PTT ความมั่นใจ 78 เปอร์เซ็นต์ มาจากกำไรไตรมาสน้ำหนัก 41 เปอร์เซ็นต์ ปริมาณซื้อขายน้ำหนัก 24 เปอร์เซ็นต์ และราคาน้ำมันน้ำหนัก 13 เปอร์เซ็นต์">
+        <div class="bar" aria-hidden="true"><i></i><i></i><i></i>สัญญาณ · PTT</div>
+        <div class="body" aria-hidden="true">
+          <div class="why">
+            <div class="top"><span class="sym">PTT</span><span class="tag">ซื้อ</span><span class="conf">มั่นใจ 78%</span></div>
+            <div class="reason"><span class="w">41%</span><span class="track" style="--v:41%"><i></i></span><span>กำไรไตรมาสล่าสุดเหนือคาด</span></div>
+            <div class="reason"><span class="w">24%</span><span class="track" style="--v:24%"><i></i></span><span>ปริมาณซื้อขายสูงกว่าค่าเฉลี่ย 30 วัน</span></div>
+            <div class="reason"><span class="w">13%</span><span class="track" style="--v:13%"><i></i></span><span>ราคาน้ำมันดิบทรงตัวเหนือกรอบ</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="scr" role="img" aria-label="หน้าจอที่สาม การเตือนว่าหุ้นไทยขึ้นไปที่ 48 เปอร์เซ็นต์ของพอร์ต เกินเพดาน 45 เปอร์เซ็นต์ที่ตั้งไว้">
+        <div class="bar" aria-hidden="true"><i></i><i></i><i></i>การเตือน</div>
+        <div class="body" aria-hidden="true">
+          <div class="alert">
+            <svg viewBox="0 0 20 20" fill="none"><path d="M10 2.6 18.4 17H1.6Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 8v3.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="10" cy="14.1" r="1" fill="currentColor"/></svg>
+            <div>
+              <b>หุ้นไทยเกินเพดานที่ตั้งไว้</b>
+              <p>ตอนนี้อยู่ที่ 48% ของพอร์ต จากเพดาน 45% ที่คุณตั้งไว้เมื่อ ก.พ. 2569</p>
+            </div>
+          </div>
+          <div class="rule"><span class="pill">เพดาน 45%</span>เตือนทันทีที่เกิน · ส่งเข้าอีเมลและแอป</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Steps · ทิศทาง `gl` (กระจก) — สามขั้นเป็นการ์ด พร้อมตัวเลขที่การันตี
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี how-it-works.html แล้ว
+     ──────────────────────────────────────────────────
+     `how-it-works.html` เป็นเส้นบางสามเส้นกับจุดเลข ซึ่งเบามากและถูกสำหรับ
+     หน้าที่มีของหนักอยู่แล้วข้างบน แต่มันมีข้อจำกัดหนึ่งข้อที่แก้ในไฟล์นั้น
+     ไม่ได้: **ไม่มีที่ให้ของอะไรเลยนอกจากหัวข้อกับประโยค**
+
+     ขั้นตอนที่คนลังเลจริง ๆ ไม่ได้ลังเลเพราะไม่รู้ลำดับ แต่ลังเลเพราะไม่รู้ว่า
+     ขั้นนั้น *เสี่ยงไหม ใช้เวลาเท่าไร ต้องเตรียมอะไร* ที่นี่แต่ละขั้นจึงมีที่
+     ให้แปะของจริงลงไป — ป้ายเวลา ภาพจำลองเล็ก ๆ หรือคำรับประกัน — และมี
+     แถบตัวเลขสองใบใต้ทั้งชุดสำหรับคำถามที่คนถามก่อนกดเสมอ: ปลอดภัยไหม
+     กับ นานไหม
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **การ์ดสามใบเรียงบนกริด `auto-fit` ที่ 300px** ไม่ใช่ `1fr 1fr 1fr`
+       เพราะที่ 3 คอลัมน์ตายตัว การ์ดจะแคบเหลือ ~330px บนจอ 1120px ซึ่ง
+       ป้ายเวลากับหัวข้อจะตัดบรรทัด ที่ auto-fit มันยุบเป็น 2 แล้ว 1 เอง
+     · **เส้นต่อระหว่างการ์ดเป็น `::before` ของการ์ดใบที่ 2 และ 3** ไม่ใช่ของพ่อ
+       เส้นที่วาดจากพ่อจะพาดผ่านที่ว่างหลังจากยุบเป็นคอลัมน์เดียว เส้นที่เป็น
+       ของลูกหายไปพร้อมกับลูกที่มันเกาะ
+     · **ป้ายเวลาบนหัวการ์ด** (2 นาที · ทันที · ตลอดเวลา) เป็นหน่วยเดียวกัน
+       ทั้งสามใบไม่ได้ — ขั้นแรกวัดเป็นนาที ขั้นสองไม่มีเวลารอ ขั้นสามไม่มี
+       จุดจบ การบังคับให้ทั้งสามเป็นตัวเลขนาทีคือการแต่งตัวเลขให้สวย
+     · **ตัวเลขสองใบใต้ชุด** เป็นคำถามก่อนกด ไม่ใช่ผลลัพธ์หลังใช้ ตัวเลข
+       ผลลัพธ์อยู่ใน `stats-band.html` คนละส่วนกันโดยตั้งใจ
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ใช้ `<ol>` แล้วให้ `counter()` วาดเลข** — เลขหายในหน้ารวมที่มีส่วนอื่น
+        รีเซ็ต counter ชื่อเดียวกัน ที่นี่ `<ol>` ยังอยู่เพราะลำดับคือความหมาย
+        แต่เลขเขียนลงมาร์กอัปตรง ๆ เพราะมันคือเนื้อหา ไม่ใช่การจัดหน้า
+     2. **`grid-template-columns:repeat(3,1fr)` แล้วค่อยเพิ่ม media query** —
+        ต้องดูแลสามเบรกพอยต์ และพังทุกครั้งที่มีคนเพิ่มขั้นที่สี่
+     3. **ใส่ `w-lift` ที่การ์ด** — ขั้นตอนไม่ใช่ของที่กดได้ การ์ดที่ลอยขึ้นตอนชี้
+        บอกว่า "กดฉันสิ" ซึ่งเป็นคำสัญญาที่ผิด ที่นี่จึงมีแค่แสงกวาดของทิศทาง
+        `gl` ไม่มีการลอย -->
+<style>
+  .w-stc{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+  }
+  .w-stc h2{ font-size:clamp(26px,3.4vw,40px); letter-spacing:-.02em;
+             text-wrap:balance; line-height:1.24; max-width:20ch }
+  .w-stc .w-lede{ margin-top:14px }
+
+  .w-stc ol{ display:grid; gap:var(--gap); margin-top:clamp(28px,4vw,44px);
+             grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr)) }
+  .w-stc li{ position:relative; isolation:isolate; overflow:hidden;
+             display:flex; flex-direction:column; gap:12px;
+             border:1px solid var(--gl-edge); border-radius:var(--radius);
+             background:var(--gl-pane); padding:clamp(20px,2.4vw,26px) }
+  .w-stc .hd{ display:flex; align-items:center; gap:10px }
+  .w-stc .n{ width:30px; height:30px; border-radius:50%; flex:none;
+             background:var(--accent); color:var(--accent-ink);
+             font:700 14px/30px var(--mono); text-align:center }
+  .w-stc .when{ margin-left:auto; font:600 12px/1 var(--sans); color:var(--muted);
+                border:1px solid var(--field); border-radius:var(--radius-pill);
+                padding:6px 11px }
+  .w-stc h3{ font-size:19px; letter-spacing:-.01em }
+  .w-stc p{ color:var(--muted); font-size:15px; line-height:1.6 }
+
+  /* ของจริงในแต่ละขั้น — คนละชนิดกันทั้งสามใบ */
+  .w-stc .demo{ margin-top:auto; border:1px solid var(--line);
+                border-radius:var(--radius-sm); background:var(--bg); padding:12px }
+  .w-stc .banks{ display:grid; gap:7px }
+  .w-stc .banks div{ display:flex; align-items:center; gap:9px; font-size:12px }
+  .w-stc .banks i{ width:20px; height:20px; border-radius:6px; flex:none }
+  .w-stc .banks .ok{ margin-left:auto; color:var(--viz-up); font:600 11px/1 var(--sans) }
+  .w-stc .scan{ display:grid; gap:8px; font-size:12px; color:var(--muted) }
+  .w-stc .scan .row{ display:grid; grid-template-columns:1fr auto; gap:9px;
+                     align-items:center }
+  .w-stc .scan .track{ height:5px; border-radius:999px; background:var(--line);
+                       overflow:hidden }
+  .w-stc .scan .track i{ display:block; height:100%; width:var(--v);
+                         background:var(--accent); transform-origin:0 50% }
+  .w-stc .ping{ display:grid; gap:8px }
+  .w-stc .ping div{ display:grid; grid-template-columns:auto 1fr; gap:9px;
+                    align-items:start; font-size:12px; color:var(--muted) }
+  .w-stc .ping svg{ width:16px; height:16px; flex:none; margin-top:1px }
+
+  /* แถบตัวเลขสองใบ คำถามก่อนกด */
+  .w-stc .assure{ display:grid; gap:var(--gap); margin-top:var(--gap);
+                  grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr)) }
+  .w-stc .assure div{ display:flex; align-items:center; gap:14px;
+                      border:1px solid var(--gl-edge); border-radius:var(--radius);
+                      background:var(--gl-pane); padding:clamp(18px,2.2vw,22px) }
+  .w-stc .assure dt{ font-size:clamp(26px,3.2vw,36px); font-weight:800;
+                     letter-spacing:-.03em; line-height:1; flex:none }
+  .w-stc .assure dd{ margin:0; color:var(--muted); font-size:14px; line-height:1.55 }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-stc li::after{ content:""; position:absolute; inset:0; z-index:-1;
+      pointer-events:none;
+      background:linear-gradient(100deg, transparent 36%,
+        color-mix(in srgb,var(--accent) 12%,transparent) 50%, transparent 64%);
+      background-size:240% 100%; background-repeat:no-repeat;
+      background-position:-140% 0 }
+    .w-stc li:hover::after{ animation:w-sheen .9s var(--ease-wipe) }
+    @supports (animation-timeline:view()){
+      .w-stc li{ animation-name:w-rise; animation-timing-function:linear;
+                 animation-fill-mode:both; animation-timeline:view();
+                 animation-range:entry 8% cover 26% }
+      .w-stc .track i{ --grow-x:0; --grow-y:1;
+        animation-name:w-grow; animation-timing-function:var(--ease-in);
+        animation-fill-mode:both; animation-timeline:view();
+        animation-range:entry 12% cover 32% }
+    }
+  }
+</style>
+
+<section class="w-section w-stc" id="how-it-works">
+  <div class="w-wrap">
+    <p class="w-eyebrow">เริ่มยังไง</p>
+    <h2>สามขั้น แล้วเห็นพอร์ตทั้งใบ</h2>
+    <p class="w-lede">ไม่ต้องย้ายเงิน ไม่ต้องเปลี่ยนโบรกเกอร์ ระบบอ่านอย่างเดียว สั่งซื้อขายแทนไม่ได้</p>
+
+    <ol>
+      <li>
+        <div class="hd"><span class="n">1</span><span class="when">2 นาที</span></div>
+        <h3>เชื่อมบัญชี</h3>
+        <p>เลือกโบรกเกอร์หรือธนาคารที่ใช้อยู่ แล้วยืนยันตัวตนที่หน้าของสถาบันนั้นเอง เราไม่เก็บรหัสผ่านของคุณ</p>
+        <div class="demo">
+          <div class="banks">
+            <div><i style="background:var(--viz-2)"></i>บัญชีหลักทรัพย์<span class="ok">เชื่อมแล้ว</span></div>
+            <div><i style="background:var(--viz-6)"></i>บัญชีเงินฝาก<span class="ok">เชื่อมแล้ว</span></div>
+            <div><i style="background:var(--viz-5)"></i>กองทุนรวม<span class="ok">เชื่อมแล้ว</span></div>
+          </div>
+        </div>
+      </li>
+
+      <li>
+        <div class="hd"><span class="n">2</span><span class="when">ทันที</span></div>
+        <h3>ระบบอ่านให้</h3>
+        <p>ดึงรายการย้อนหลัง จัดกลุ่มสินทรัพย์ คิดผลตอบแทนหลังค่าธรรมเนียม แล้วให้คะแนนความเสี่ยงของทั้งพอร์ต</p>
+        <div class="demo">
+          <div class="scan">
+            <div class="row"><span class="track" style="--v:100%"><i></i></span><span>รายการ 1,284</span></div>
+            <div class="row"><span class="track" style="--v:100%"><i></i></span><span>สินทรัพย์ 24</span></div>
+            <div class="row"><span class="track" style="--v:100%"><i></i></span><span>ตลาด 6</span></div>
+          </div>
+        </div>
+      </li>
+
+      <li>
+        <div class="hd"><span class="n">3</span><span class="when">ตลอดเวลา</span></div>
+        <h3>ตั้งเพดานแล้วปล่อย</h3>
+        <p>บอกไว้ครั้งเดียวว่ารับความเสี่ยงได้แค่ไหน แล้วให้มันเตือนเองตอนสัดส่วนเพี้ยนหรือมีสัญญาณที่เข้าเงื่อนไข</p>
+        <div class="demo">
+          <div class="ping">
+            <div><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.6 11.4 6 7.6l2.6 2.3L13.4 4" stroke="var(--viz-up)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>สัดส่วนอยู่ในเพดานทุกกลุ่ม</span></div>
+            <div><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.3" stroke="var(--warning)" stroke-width="1.6"/><path d="M8 4.8v3.6" stroke="var(--warning)" stroke-width="1.6" stroke-linecap="round"/></svg><span>มีสัญญาณใหม่ 2 รายการรอดู</span></div>
+          </div>
+        </div>
+      </li>
+    </ol>
+
+    <dl class="assure">
+      <div><dt>อ่านอย่างเดียว</dt><dd>สิทธิ์ที่ขอคือดูยอดกับรายการ สั่งซื้อขายหรือโอนเงินแทนคุณไม่ได้</dd></div>
+      <div><dt>2 นาที</dt><dd>เวลามัธยฐานตั้งแต่กดเริ่มจนเห็นพอร์ตครบ วัดจากผู้ใช้ใหม่ 1,900 คน</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- Security · ทิศทาง `gl` (กระจก) — ข้อความที่ตอบคำถามก่อนกดเชื่อมบัญชี
+
+     ทำไมชิ้นนี้ถึงมีอยู่
+     ────────────────────
+     คลังนี้ไม่มีหมวดนี้ และมันไม่ใช่ `features` ที่เปลี่ยนคำ: `features` ขาย
+     สิ่งที่คนอยากได้ ส่วนนี้**ปิดสิ่งที่คนกลัว** ซึ่งเป็นงานคนละอย่างและ
+     เขียนคนละแบบ — ประโยคขายของในส่วนนี้ทำให้คนไม่เชื่อมากกว่าเดิม
+
+     กฎการเขียนของส่วนนี้มีข้อเดียว: **ทุกบรรทัดต้องเป็นข้อเท็จจริงที่
+     ตรวจสอบได้ ไม่ใช่คำคุณศัพท์** "ปลอดภัยระดับธนาคาร" ตรวจไม่ได้
+     "TLS 1.3 ระหว่างทาง · AES-256 ตอนพัก · สิทธิ์อ่านอย่างเดียว" ตรวจได้
+     ถ้าเขียนแบบแรก ส่วนนี้ไม่มีค่าและควรลบทิ้ง
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **สี่ข้อ ไม่ใช่หก** — เกินสี่คนอ่านสองข้อแรกแล้วสรุปเอาเองว่าที่เหลือ
+       ก็ทำนองเดียวกัน ซึ่งทำให้ข้อที่สำคัญที่สุด (สิทธิ์อ่านอย่างเดียว)
+       เสี่ยงถูกข้าม ถ้ามีมากกว่านั้นจริง ให้ลิงก์ไปหน้าความปลอดภัยเต็ม
+     · **ข้อ "อ่านอย่างเดียว" อยู่ใบแรก** ไม่ใช่ใบสุดท้าย เพราะเป็นข้อที่ตอบ
+       ความกลัวที่ใหญ่ที่สุดของคนที่กำลังจะเชื่อมบัญชีการเงิน ลำดับของส่วนนี้
+       เรียงตามขนาดของความกลัว ไม่ได้เรียงตามความสำคัญทางเทคนิค
+     · **แผงซ้ายเป็นตราวงกลมที่วาดด้วย SVG** ไม่ใช่ไอคอนกุญแจ เพราะกุญแจ
+       เป็นภาพประกอบ ส่วนวงแหวนที่มีตัวเลข "0 เหตุการณ์ · 26 เดือน" เป็น
+       ข้อมูล ส่วนที่พูดเรื่องความน่าเชื่อถือไม่ควรมีอะไรที่เป็นแค่การตกแต่ง
+     · **`--viz-3` ไม่ใช่ `--success`** สำหรับวงแหวน เพราะนี่ไม่ใช่สถานะของ
+       การกระทำที่เพิ่งเกิด มันคือชุดข้อมูลชุดหนึ่ง page-shell แยกสองอย่างนี้
+       ไว้ชัดเจนว่าปนกันเมื่อไหร่กราฟจะพูดสิ่งที่ไม่ได้ตั้งใจพูด
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **พื้นส่วนนี้เป็นสีเข้มเต็มแถบเพื่อให้ดู "จริงจัง"** — บนธีมมืดมันหายไป
+        กลืนกับพื้นหน้า และบนธีมสว่างมันตัดหน้าเป็นสองท่อนโดยไม่มีเหตุผล
+        ทางที่ใช้คือแผ่นกระจกใบเดียวที่ใหญ่กว่าปกติ ซึ่งอ่านเป็น "ก้อนเดียว"
+        ได้เหมือนกันโดยไม่ต้องเปลี่ยนพื้นหน้า
+     2. **วงแหวนวาดด้วย `conic-gradient` + `mask-image`** — บางเอนจินทิ้งทั้ง
+        ชั้นแล้วเหลือวงกลมทึบ กับดักในข้อ 5 ของ `STANDARD.md` ทางแก้คือ SVG
+        กับ `stroke-dasharray` ที่ระบุพิกัดตรง ๆ
+     3. **ป้ายมาตรฐานเป็นโลโก้ของหน่วยงานจริง** — ผิดทั้งเรื่องเครื่องหมายการค้า
+        และเรื่องความจริง เพราะเทมเพลตไม่ได้ผ่านมาตรฐานนั้น ที่นี่เป็นชิป
+        ข้อความล้วนพร้อมหมายเหตุว่าให้แทนที่ด้วยของจริงก่อนขึ้นหน้าเว็บ -->
+<style>
+  .w-sec{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+  }
+  .w-sec .box{ border:1px solid var(--gl-edge); border-radius:var(--radius-lg);
+               background:var(--gl-pane); padding:clamp(24px,4vw,48px);
+               display:grid; gap:clamp(26px,4vw,48px); align-items:center }
+  @supports (backdrop-filter:blur(4px)){ .w-sec .box{ backdrop-filter:blur(14px) } }
+  @media (min-width:880px){
+    .w-sec .box{ grid-template-columns:minmax(0,.64fr) minmax(0,1fr) }
+  }
+
+  .w-sec h2{ font-size:clamp(24px,3.2vw,36px); letter-spacing:-.02em;
+             text-wrap:balance; line-height:1.26; max-width:18ch }
+  .w-sec .w-lede{ margin-top:14px; font-size:16px }
+  .w-sec .seal{ display:flex; align-items:center; gap:16px; margin-top:24px }
+  .w-sec .seal svg{ width:104px; height:104px; flex:none }
+  .w-sec .seal dt{ font-size:clamp(24px,3vw,32px); font-weight:800;
+                   letter-spacing:-.03em; line-height:1 }
+  .w-sec .seal dd{ margin:6px 0 0; color:var(--muted); font-size:14px; line-height:1.55 }
+
+  /* 230px ไม่ใช่ 260 เพราะคอลัมน์ขวากว้างราว 590px ที่ 1200px
+     ถ้าตั้ง 260 สองใบต้องการ 534+gap ซึ่งเกินพอดี แล้วยุบเหลือคอลัมน์เดียว
+     ทำให้กล่องสูงกว่าคอลัมน์ซ้ายเกือบสามเท่า */
+  .w-sec ul{ display:grid; gap:14px;
+             grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr)) }
+  .w-sec li{ border:1px solid var(--line); border-radius:var(--radius);
+             background:var(--bg); padding:clamp(16px,2vw,20px);
+             display:flex; flex-direction:column; gap:8px }
+  .w-sec li .ic{ width:30px; height:30px; border-radius:9px; flex:none;
+                 display:flex; align-items:center; justify-content:center;
+                 background:color-mix(in srgb,var(--accent) 16%,transparent) }
+  .w-sec li .ic svg{ width:16px; height:16px; color:var(--accent) }
+  .w-sec li b{ font-size:16px; letter-spacing:-.01em }
+  .w-sec li p{ color:var(--muted); font-size:14px; line-height:1.6 }
+  .w-sec li code{ font:600 12px/1.5 var(--mono); color:var(--text) }
+
+  .w-sec .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:20px }
+  .w-sec .chips span{ font:600 12px/1 var(--sans); color:var(--muted);
+                      border:1px solid var(--field); border-radius:var(--radius-pill);
+                      padding:8px 13px }
+  .w-sec .note{ margin-top:14px; color:var(--muted); font-size:13px }
+
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      /* วงแหวนลากตัวเอง ท่า draw คู่กับ pathLength="1000" ตามที่ shell กำหนด */
+      .w-sec .seal .ring{ animation-name:w-draw; animation-timing-function:var(--ease-in);
+        animation-fill-mode:both; animation-timeline:view();
+        animation-range:entry 10% cover 34% }
+      .w-sec li{ animation-name:w-rise; animation-timing-function:linear;
+        animation-fill-mode:both; animation-timeline:view();
+        animation-range:entry 8% cover 26% }
+    }
+  }
+</style>
+
+<section class="w-section w-sec" id="security">
+  <div class="w-wrap">
+    <div class="box">
+      <div>
+        <p class="w-eyebrow">ความปลอดภัย</p>
+        <h2>สิ่งที่เราขอ กับสิ่งที่เราทำไม่ได้</h2>
+        <p class="w-lede">ทุกบรรทัดข้างล่างเป็นข้อเท็จจริงที่ตรวจสอบได้ ไม่ใช่คำโฆษณา ถ้าข้อไหนตรวจไม่ได้ มันไม่ควรอยู่ในหน้านี้</p>
+
+        <dl class="seal">
+          <svg viewBox="0 0 120 120" role="img" aria-label="ยังไม่มีเหตุการณ์ด้านความปลอดภัยตลอด 26 เดือนที่เปิดให้บริการ">
+            <circle cx="60" cy="60" r="50" fill="none" stroke="var(--line)" stroke-width="9"/>
+            <circle class="ring" cx="60" cy="60" r="50" pathLength="1000"
+                    fill="none" stroke="var(--viz-3)" stroke-width="9"
+                    stroke-linecap="round" stroke-dasharray="1000"
+                    transform="rotate(-90 60 60)"/>
+            <text x="60" y="56" text-anchor="middle" font-size="26" font-weight="800"
+                  fill="var(--text)">0</text>
+            <text x="60" y="74" text-anchor="middle" font-size="12"
+                  fill="var(--muted)">เหตุการณ์</text>
+          </svg>
+          <div>
+            <dt>26 เดือน</dt>
+            <dd>ที่เปิดให้บริการโดยยังไม่มีเหตุการณ์ข้อมูลรั่วไหล รายงานสถานะระบบเปิดให้ดูย้อนหลังได้ทั้งหมด</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div>
+        <ul>
+          <li>
+            <span class="ic"><svg viewBox="0 0 16 16" fill="none"><path d="M2.4 8h11.2M11 5.2 13.8 8 11 10.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <b>สิทธิ์อ่านอย่างเดียว</b>
+            <p>โทเคนที่ขอจากสถาบันการเงินครอบคลุมแค่ยอดคงเหลือกับรายการย้อนหลัง <code>read:positions read:transactions</code> — สั่งซื้อขายหรือโอนเงินแทนคุณไม่ได้ในทางเทคนิค ไม่ใช่แค่ในนโยบาย</p>
+          </li>
+          <li>
+            <span class="ic"><svg viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="7" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M5.4 7V5.2a2.6 2.6 0 0 1 5.2 0V7" stroke="currentColor" stroke-width="1.6"/></svg></span>
+            <b>เข้ารหัสทั้งตอนส่งและตอนพัก</b>
+            <p><code>TLS 1.3</code> ระหว่างทาง และ <code>AES-256</code> ตอนเก็บ กุญแจหมุนทุก 90 วัน เก็บแยกจากฐานข้อมูลคนละบัญชีผู้ให้บริการ</p>
+          </li>
+          <li>
+            <span class="ic"><svg viewBox="0 0 16 16" fill="none"><path d="M8 1.7 2.8 3.9v4c0 3 2.1 5.5 5.2 6.5 3.1-1 5.2-3.5 5.2-6.5v-4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+            <b>ไม่เก็บรหัสผ่านของคุณ</b>
+            <p>การยืนยันตัวตนเกิดที่หน้าเว็บของสถาบันนั้นเอง เราได้กลับมาแค่โทเคน ซึ่งคุณเพิกถอนได้จากฝั่งสถาบันตลอดเวลาโดยไม่ต้องผ่านเรา</p>
+          </li>
+          <li>
+            <span class="ic"><svg viewBox="0 0 16 16" fill="none"><path d="M3.4 2.6h9.2v10.8H3.4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M5.8 6h4.4M5.8 8.6h4.4M5.8 11.2h2.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+            <b>ลบได้จริง ภายใน 30 วัน</b>
+            <p>กดลบบัญชีแล้วข้อมูลดิบถูกลบทันที สำเนาสำรองหมดอายุภายใน 30 วัน ขอไฟล์ข้อมูลทั้งหมดของตัวเองได้ก่อนลบ</p>
+          </li>
+        </ul>
+
+        <div class="chips">
+          <span>มาตรฐาน ก. (ตัวอย่าง)</span><span>มาตรฐาน ข. (ตัวอย่าง)</span><span>กฎหมายคุ้มครองข้อมูล (ตัวอย่าง)</span><span>รายงานสถานะระบบสาธารณะ</span>
+        </div>
+        <p class="note">ชิปข้างบนเป็นตัวอย่าง เปลี่ยนเป็นมาตรฐานที่ผ่านจริงเท่านั้น การอ้างมาตรฐานที่ยังไม่ได้รับคือความเสี่ยงทางกฎหมาย ไม่ใช่แค่เรื่องความน่าเชื่อถือ</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Use cases · ทิศทาง `gl` (กระจก) — ใครใช้ และเขาได้อะไรที่วัดได้
+
+     ทำไมชิ้นนี้ถึงมีอยู่
+     ────────────────────
+     คลังนี้ไม่มีหมวดนี้ และมันไม่ทับกับสามไฟล์ที่ใกล้ที่สุด:
+     `features-bento` พูดถึง *ของ* · `testimonial-wall` พูดด้วย *ปากคนอื่น* ·
+     `stats` พูดถึง *ทั้งระบบ* ส่วนนี้พูดว่า **ถ้าคุณเป็นคนแบบนี้ คุณจะได้
+     ตัวเลขนี้** ซึ่งเป็นสิ่งเดียวที่ทำให้คนอ่านรู้ว่าหน้านี้เขียนถึงตัวเขาหรือเปล่า
+
+     กฎการเขียนข้อเดียว: **ทุกใบต้องจบด้วยตัวเลขที่เป็นของบทบาทนั้น ๆ**
+     ใบที่จบด้วยประโยคชมคือ `testimonial` ที่ไม่มีชื่อคน ซึ่งอ่อนกว่าทั้งสองอย่าง
+     และตัวเลขต้องต่างกันคนละหน่วยด้วย — สี่ใบที่จบด้วย "% เร็วขึ้น" เหมือนกัน
+     หมดคือสัญญาณว่าตัวเลขถูกแต่งขึ้นให้เข้าแบบ
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **สี่บทบาท และหน่วยของตัวเลขต่างกันทั้งสี่**: เปอร์เซ็นต์ · เวลา ·
+       จำนวน · เท่าตัว ถ้าทั้งสี่เป็นเปอร์เซ็นต์ ตาจะพยายามเทียบกันเองแล้ว
+       ได้ข้อสรุปผิด เพราะมันวัดคนละเรื่อง
+     · **ใบแรกกว้างสองเท่า** (`--lead`) เพราะบทบาทแรกคือคนที่หน้านี้เขียนถึง
+       มากที่สุด ความกว้างคือการจัดลำดับที่อ่านได้โดยไม่ต้องมีป้าย "แนะนำ"
+     · **ตัวเลขอยู่ท้ายใบ คั่นด้วยเส้น ไม่ใช่ลอยอยู่บนหัว** — คนอ่านคำอธิบาย
+       ก่อนแล้วค่อยเจอตัวเลขเป็นบทสรุป ตัวเลขที่อยู่บนสุดกลายเป็นพาดหัวที่
+       ยังไม่มีบริบท
+     · **สามคอลัมน์ ไม่ใช่สี่** เพราะใบเด่นกินทั้งแถวแรก แล้วอีกสามใบเต็ม
+       แถวสองพอดี ที่สี่คอลัมน์ ใบเด่นกินสองช่อง รวมเป็น 5 ช่องซึ่งหารด้วย 4
+       ไม่ลงตัว แถวสองจึงเหลือรูโหว่สามช่อง — เป็นบั๊กที่เกิดจริง ไม่ใช่
+       การคาดเดา ดูข้อ 4 ข้างล่าง
+     · **ที่ 2 คอลัมน์ ใบเด่นไม่กินสองช่อง** เพราะ 2×2 ลงตัวอยู่แล้ว
+       การให้มันกินทั้งแถวจะเหลือ 3 ใบในกริด 2 คอลัมน์ = รูโหว่หนึ่งช่อง
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`auto-fit` กับใบที่ `span 2`** — เป็นบั๊กเดียวกับที่ `features.html`
+        เป็นอยู่: `auto-fit` ยุบคอลัมน์ว่างทิ้ง แล้วจำนวนคอลัมน์จริงไม่ตรงกับ
+        ที่ `span 2` คิดไว้ ผลคือแถวสองเหลือรูโหว่ ที่นี่ใช้กริดคอลัมน์ตายตัว
+        (2 แล้ว 4) ที่เปลี่ยนตามเบรกพอยต์แทน ซึ่งบวกจำนวนช่องได้ตรง ๆ
+     2. **ไอคอนบทบาทเป็นรูปคน** — สี่ใบได้รูปคนสี่แบบที่แยกกันไม่ออกในขนาด
+        20px เปลี่ยนเป็นสัญลักษณ์ของ *งาน* ที่เขาทำแทน (พอร์ตเดี่ยว · ทีม ·
+        หลายพอร์ต · กราฟรายวัน) ซึ่งแยกออกได้ที่ขนาดนั้น
+     3. **ให้ทั้งใบเป็นลิงก์** — ทำแล้วต้องมีปลายทางจริงสี่หน้า ซึ่งเทมเพลต
+        ไม่มีให้ ลิงก์ที่ไปไหนไม่ได้แย่กว่าไม่มีลิงก์ ที่นี่จึงเป็นการ์ดเฉย ๆ
+        แล้วให้ปุ่มเดียวอยู่ท้ายส่วน
+     4. **กริด 4 คอลัมน์ + ใบเด่น `span 2`** — เขียนไปแล้วมั่นใจว่าถูกเพราะ
+        "4 ใบพอดี 4 คอลัมน์" แต่ใบเด่นกินสองช่อง จำนวนช่องจริงคือ 5 ไม่ใช่ 4
+        ผลคือแถวสองมีใบเดียวกับรูโหว่สามช่อง ซึ่งเป็นบั๊กเดียวกับที่
+        `features.html` เป็นอยู่ **และเป็นบั๊กที่หัวไฟล์นี้เขียนไว้ว่าจะไม่เป็น**
+        บทเรียนคือนับช่อง ไม่ใช่นับใบ: จำนวนช่องรวมต้องหารด้วยจำนวนคอลัมน์
+        ลงตัวเสมอ และต้องตรวจทุกเบรกพอยต์ ไม่ใช่แค่เบรกพอยต์กว้างสุด -->
+<style>
+  .w-uc{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+  }
+  .w-uc h2{ font-size:clamp(26px,3.4vw,40px); letter-spacing:-.02em;
+            text-wrap:balance; line-height:1.24; max-width:20ch }
+  .w-uc .w-lede{ margin-top:14px }
+
+  /* กริดคอลัมน์ตายตัวที่เปลี่ยนตามเบรกพอยต์ ไม่ใช่ auto-fit — ดูข้อ 1
+     จำนวนคอลัมน์เลือกจากการหาร ไม่ใช่จากความสวย: ใบเด่นกินสองช่อง จึงมี
+     5 ช่องที่ต้องวาง 5 หารด้วย 4 ไม่ลงตัว (บั๊กข้อ 4) ที่ 3 คอลัมน์
+     ใบเด่นกินทั้งแถวแรก แล้วอีกสามใบเต็มแถวสองพอดี 3+3 = 6 ไม่มีเศษ
+     ส่วนที่ 2 คอลัมน์ ใบเด่นไม่กินสองช่อง เพราะ 2×2 ลงตัวอยู่แล้ว */
+  .w-uc .cards{ display:grid; gap:var(--gap); margin-top:clamp(28px,4vw,44px);
+                grid-template-columns:1fr }
+  @media (min-width:760px){ .w-uc .cards{ grid-template-columns:repeat(2,1fr) } }
+  @media (min-width:1040px){
+    .w-uc .cards{ grid-template-columns:repeat(3,1fr) }
+    /* เขียนเป็น `.cards .card--lead` ไม่ใช่ `.card--lead` เพราะกฎ
+       `.w-uc .card{display:flex}` ข้างล่างมีความจำเพาะเท่ากันและอยู่ทีหลัง
+       มันจึงชนะ ผลคือใบเด่นยังเป็น flex ทั้งที่กฎ grid อยู่ครบ */
+    .w-uc .cards .card--lead{ grid-column:1 / -1 }
+    /* ใบเด่นกินทั้งแถว จึงวางเนื้อหาเป็นสองคอลัมน์ ไม่ให้บรรทัดยาวเกิน 75ch */
+    .w-uc .cards .card--lead{ display:grid; gap:14px clamp(24px,4vw,48px);
+                       grid-template-columns:minmax(0,1fr) minmax(0,.62fr);
+                       align-items:start }
+    .w-uc .cards .card--lead .ic{ grid-column:1 }
+    .w-uc .cards .card--lead h3{ grid-column:1 }
+    .w-uc .cards .card--lead > p{ grid-column:1 }
+    .w-uc .cards .card--lead .out{ grid-column:2; grid-row:1 / span 3;
+                            margin-top:0; padding-top:0; border-top:0;
+                            border-left:1px solid var(--line);
+                            padding-left:clamp(20px,3vw,34px); align-self:stretch }
+  }
+
+  .w-uc .card{ display:flex; flex-direction:column; gap:12px;
+               border:1px solid var(--gl-edge); border-radius:var(--radius);
+               background:var(--gl-pane); padding:clamp(20px,2.4vw,26px);
+               position:relative; isolation:isolate; overflow:hidden }
+  .w-uc .ic{ width:34px; height:34px; border-radius:10px; flex:none;
+             display:flex; align-items:center; justify-content:center }
+  .w-uc .ic svg{ width:18px; height:18px; color:#fff }
+  .w-uc .card:nth-child(1) .ic{ background:var(--viz-4) }
+  .w-uc .card:nth-child(2) .ic{ background:var(--viz-2) }
+  .w-uc .card:nth-child(3) .ic{ background:var(--viz-6) }
+  .w-uc .card:nth-child(4) .ic{ background:var(--viz-5) }
+  .w-uc h3{ font-size:19px; letter-spacing:-.01em }
+  .w-uc .card p{ color:var(--muted); font-size:15px; line-height:1.6 }
+
+  /* ตัวเลขเป็นบทสรุปท้ายใบ คั่นด้วยเส้น — ดูเหตุผลในหัวไฟล์ */
+  .w-uc .out{ margin-top:auto; padding-top:16px; border-top:1px solid var(--line) }
+  .w-uc .out dt{ font-size:clamp(24px,2.8vw,32px); font-weight:800;
+                 letter-spacing:-.03em; line-height:1 }
+  .w-uc .out dd{ margin:6px 0 0; color:var(--muted); font-size:13px; line-height:1.5 }
+  .w-uc .out .src{ display:block; opacity:.85; margin-top:4px }
+
+  .w-uc .foot{ display:flex; flex-wrap:wrap; align-items:center; gap:14px;
+               margin-top:var(--gap) }
+  .w-uc .foot p{ color:var(--muted); font-size:14px; flex:1 1 300px }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-uc .card::after{ content:""; position:absolute; inset:0; z-index:-1;
+      pointer-events:none;
+      background:linear-gradient(100deg, transparent 36%,
+        color-mix(in srgb,var(--accent) 12%,transparent) 50%, transparent 64%);
+      background-size:240% 100%; background-repeat:no-repeat;
+      background-position:-140% 0 }
+    .w-uc .card:hover::after{ animation:w-sheen .9s var(--ease-wipe) }
+    @supports (animation-timeline:view()){
+      .w-uc .card{ animation-name:w-rise; animation-timing-function:linear;
+                   animation-fill-mode:both; animation-timeline:view();
+                   animation-range:entry 8% cover 26% }
+    }
+  }
+</style>
+
+<section class="w-section w-uc" id="use-cases">
+  <div class="w-wrap">
+    <p class="w-eyebrow">ใครใช้บ้าง</p>
+    <h2>สี่บทบาท ที่ได้คนละอย่างจากของชิ้นเดียวกัน</h2>
+    <p class="w-lede">ถ้าไม่มีใบไหนตรงกับคุณเลย แปลว่านี่ยังไม่ใช่เครื่องมือของคุณ ซึ่งเป็นคำตอบที่เร็วกว่าการทดลองใช้สิบสี่วัน</p>
+
+    <div class="cards">
+      <div class="card card--lead">
+        <span class="ic"><svg viewBox="0 0 20 20" fill="none"><path d="M3 15.4 7.4 10l3.4 3 5.6-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <h3>นักลงทุนรายย่อยที่ถือหลายที่</h3>
+        <p>มีบัญชีอยู่สามสี่ที่ ไม่ได้เทรดทุกวัน แต่ต้องรู้ว่าตอนนี้พอร์ตรวมเป็นยังไงและอะไรเสี่ยงเกินสัดส่วนที่รับได้ ไม่อยากเปิดสเปรดชีตอีกแล้ว</p>
+        <dl class="out">
+          <dt>3.2 → 0.4 ชม.</dt>
+          <dd>เวลาต่อสัปดาห์ที่ใช้กับการรวมยอด ลดลงเหลือหนึ่งในแปด
+            <span class="src">ค่ามัธยฐานผู้ใช้ 412 คน · มี.ค. 2569</span></dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <span class="ic"><svg viewBox="0 0 20 20" fill="none"><circle cx="7" cy="7" r="2.8" stroke="currentColor" stroke-width="1.8"/><circle cx="14" cy="9" r="2.2" stroke="currentColor" stroke-width="1.8"/><path d="M2.6 16.4c.5-2.4 2.3-3.7 4.4-3.7s3.9 1.3 4.4 3.7M13.2 13.2c2 .2 3.4 1.4 3.9 3.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+        <h3>ทีมที่ปรึกษาการลงทุน</h3>
+        <p>ดูพอร์ตให้ลูกค้าหลายราย ต้องส่งรายงานทุกเดือนและอธิบายได้ว่าทำไมถึงแนะนำแบบนั้น</p>
+        <dl class="out">
+          <dt>6 ชั่วโมง</dt>
+          <dd>ต่อสัปดาห์ที่ไม่ต้องนั่งรวมรายงานด้วยมือ
+            <span class="src">ทีมขนาด 4–9 คน · n=38</span></dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <span class="ic"><svg viewBox="0 0 20 20" fill="none"><rect x="2.6" y="2.6" width="6" height="6" rx="1.6" stroke="currentColor" stroke-width="1.8"/><rect x="11.4" y="2.6" width="6" height="6" rx="1.6" stroke="currentColor" stroke-width="1.8"/><rect x="2.6" y="11.4" width="6" height="6" rx="1.6" stroke="currentColor" stroke-width="1.8"/><rect x="11.4" y="11.4" width="6" height="6" rx="1.6" stroke="currentColor" stroke-width="1.8"/></svg></span>
+        <h3>ผู้จัดการความมั่งคั่ง</h3>
+        <p>สลับระหว่างพอร์ตของลูกค้าหลายรายในหน้าเดียว โดยยังเห็นความเสี่ยงรวมของทั้งพอร์ตโฟลิโอ</p>
+        <dl class="out">
+          <dt>40 พอร์ต</dt>
+          <dd>จำนวนสูงสุดที่ผู้ใช้คนเดียวดูแลอยู่บนแดชบอร์ดเดียว
+            <span class="src">ค่าสูงสุดที่บันทึกได้ · ส.ค. 2569</span></dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <span class="ic"><svg viewBox="0 0 20 20" fill="none"><path d="M2.6 17V9M7.4 17V4.6M12.2 17v-6M17 17V7.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+        <h3>เทรดเดอร์รายวัน</h3>
+        <p>ต้องการการเตือนที่มาถึงก่อนราคาเปลี่ยน ไม่ใช่รายงานสรุปตอนตลาดปิดไปแล้ว</p>
+        <dl class="out">
+          <dt>15 วินาที</dt>
+          <dd>ความถี่ในการอัปเดตราคาและตรวจเงื่อนไขการเตือน
+            <span class="src">ค่ามัธยฐาน 24 ชม. ล่าสุด</span></dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="foot">
+      <p>ตัวเลขทั้งสี่ใบมาจากผู้ใช้จริงคนละกลุ่มกัน ไม่ได้คิดจากค่าเฉลี่ยรวมแล้วหั่นแบ่ง</p>
+      <a class="w-btn w-btn--ghost" href="#cta">ดูว่าตรงกับงานคุณไหม</a>
+    </div>
+  </div>
+</section>
+
+<!-- Integrations · ทิศทาง `gl` (กระจก) — สิ่งที่มันต่อเข้ากับของที่คุณใช้อยู่
+
+     ทำไมชิ้นนี้ถึงมีอยู่
+     ────────────────────
+     คลังนี้ไม่มีหมวดนี้ และมันไม่ใช่ `client-band.html` ที่เปลี่ยนคำ:
+     แถบลูกค้าตอบว่า *ใครเชื่อของนี้* ส่วนนี้ตอบว่า **ของนี้ต่อกับอะไรได้บ้าง**
+     ซึ่งเป็นคำถามที่คนเปลี่ยนเครื่องมือถามเป็นข้อที่สองเสมอ ต่อจาก "ราคาเท่าไร"
+     และเป็นข้อที่ทำให้ดีลตายบ่อยที่สุดถ้าคำตอบคือ "ยังไม่ต่อ"
+
+     ความต่างที่มองข้ามบ่อย: แถบลูกค้าใช้โลโก้ **เพื่อยืม
+     ความน่าเชื่อถือ** ส่วนนี้ใช้โลโก้ **เป็นสารบัญ** คนกวาดหาชื่อของตัวเอง
+     ไม่ได้กวาดดูว่ามีใครดังบ้าง ฉะนั้นการเรียงต้องช่วยการค้นหา ไม่ใช่ช่วย
+     การอวด — จัดกลุ่มตามชนิด และเขียนชนิดกำกับทุกใบ
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **สิบสองใบ ไม่ใช่หกหรือยี่สิบสี่** หกใบทำให้ "100+ รายการ" ที่เขียนไว้
+       ข้างล่างดูไม่จริง ยี่สิบสี่ใบกลายเป็นกำแพงที่ไม่มีใครอ่าน สิบสองคือ
+       จำนวนที่ยังกวาดตาหาชื่อตัวเองได้ในครั้งเดียว และมากพอให้เชื่อว่ามีอีก
+     · **ทุกใบมีป้ายชนิดกำกับ** (โบรกเกอร์ · ธนาคาร · บัญชี · ภาษี) เพราะ
+       ชื่อบริษัทอย่างเดียวไม่บอกว่ามันทำอะไร คนที่ไม่รู้จักชื่อนั้นจึงไม่ได้
+       อะไรเลยจากใบนั้น
+     · **ใบที่ยังไม่พร้อมเขียนว่า "เร็ว ๆ นี้" ตรง ๆ** สองใบ แทนที่จะซ่อน
+       การมีอยู่ของมันคือคำตอบสำหรับคนที่ใช้ตัวนั้นอยู่ ซึ่งดีกว่าปล่อยให้เขา
+       สรุปเองว่าไม่มี และข้อ 2 ห้ามบอกสถานะด้วยสีอย่างเดียวอยู่แล้ว
+     · **โลโก้เป็น SVG ในไฟล์** เหมือน `client-band.html` ด้วยเหตุผลเดียวกัน:
+       เทมเพลตที่ต้องไปหารูปมาเองสิบสองไฟล์ก่อนจะเปิดดูได้ คือเทมเพลตที่
+       ทิ้งการบ้านไว้ให้คนใช้
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **วางเป็นวงโคจรรอบโลโก้ตัวเอง** (ท่าที่เจ้าอื่นชอบใช้) — สวยในภาพนิ่ง
+        แต่พังสองอย่าง: ชื่อที่อยู่ในวงกลมอ่านยากเพราะเอียงตามเส้น และพอจอ
+        แคบลงวงกลมต้องยุบเป็นรายการอยู่ดี ซึ่งแปลว่าต้องดูแลสองผังคนละแบบ
+     2. **ช่องค้นหาจริงในส่วนนี้** — ช่องค้นหาที่ไม่มีอะไรให้ค้นคือตัวควบคุม
+        ที่โกหก ข้อ 2 ห้ามเอา `<div>` มาแกล้งเป็นตัวควบคุมอยู่แล้ว ที่นี่จึง
+        เป็นลิงก์ไปหน้ารวมแทน ซึ่งเป็นสิ่งที่กดแล้วเกิดอะไรขึ้นจริง
+     3. **`aspect-ratio:1` ที่ใบ** — ชื่อยาวอย่าง "หลักทรัพย์ตัวอย่าง ก." ล้นออก
+        นอกกล่องที่ 320px ตอนนี้ความสูงมาจากเนื้อหา แล้วใช้ `align-content`
+        ที่กริดจัดให้เท่ากันเอง -->
+<style>
+  .w-ig{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+  }
+  .w-ig .head{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:var(--gap) }
+  .w-ig .head > div:first-child{ flex:1 1 340px }
+  .w-ig h2{ font-size:clamp(26px,3.4vw,40px); letter-spacing:-.02em;
+            text-wrap:balance; line-height:1.24; max-width:20ch }
+  .w-ig .w-lede{ margin-top:14px }
+
+  .w-ig .grid{ display:grid; gap:12px; margin-top:clamp(28px,4vw,44px);
+               grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr)) }
+  .w-ig .cell{ display:flex; flex-direction:column; gap:9px;
+               border:1px solid var(--gl-edge); border-radius:var(--radius);
+               background:var(--gl-pane); padding:16px;
+               position:relative; isolation:isolate; overflow:hidden }
+  .w-ig .cell .top{ display:flex; align-items:center; gap:10px }
+  .w-ig .cell .mk{ width:32px; height:32px; border-radius:10px; flex:none;
+                   display:flex; align-items:center; justify-content:center;
+                   border:1px solid var(--line); background:var(--bg) }
+  .w-ig .cell .mk svg{ width:17px; height:17px }
+  .w-ig .cell b{ font-size:15px; letter-spacing:-.01em; line-height:1.35 }
+  .w-ig .cell .kind{ color:var(--muted); font-size:12px }
+  /* สถานะบอกด้วยคำ ไม่ใช่สีอย่างเดียว — ข้อ 2 */
+  .w-ig .cell .st{ margin-top:auto; font:600 11px/1 var(--sans);
+                   border:1px solid currentColor; border-radius:var(--radius-pill);
+                   padding:5px 9px; align-self:flex-start; color:var(--viz-up) }
+  .w-ig .cell .st--soon{ color:var(--muted) }
+
+  .w-ig .foot{ display:flex; flex-wrap:wrap; align-items:center; gap:14px;
+               margin-top:var(--gap) }
+  .w-ig .foot .count{ display:flex; align-items:baseline; gap:9px; flex:1 1 300px }
+  .w-ig .foot .count dt{ font-size:clamp(26px,3vw,34px); font-weight:800;
+                         letter-spacing:-.03em; line-height:1 }
+  .w-ig .foot .count dd{ margin:0; color:var(--muted); font-size:14px }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-ig .cell::after{ content:""; position:absolute; inset:0; z-index:-1;
+      pointer-events:none;
+      background:linear-gradient(100deg, transparent 36%,
+        color-mix(in srgb,var(--accent) 13%,transparent) 50%, transparent 64%);
+      background-size:240% 100%; background-repeat:no-repeat;
+      background-position:-140% 0 }
+    .w-ig .cell:hover::after{ animation:w-sheen .9s var(--ease-wipe) }
+    @supports (animation-timeline:view()){
+      .w-ig .grid{ animation-name:w-rise; animation-timing-function:linear;
+                   animation-fill-mode:both; animation-timeline:view();
+                   animation-range:entry 6% cover 22% }
+    }
+  }
+</style>
+
+<section class="w-section w-ig" id="integrations">
+  <div class="w-wrap">
+    <div class="head">
+      <div>
+        <p class="w-eyebrow">การเชื่อมต่อ</p>
+        <h2>ต่อกับที่ที่เงินคุณอยู่จริง</h2>
+        <p class="w-lede">ถ้าไม่เจอชื่อที่ใช้อยู่ในรายการนี้ บอกเรามาได้ เราเรียงคิวการเชื่อมตามจำนวนคนที่ขอ</p>
+      </div>
+      <a class="w-btn w-btn--ghost" href="#">ดูรายการทั้งหมด</a>
+    </div>
+
+    <div class="grid">
+      <div class="cell">
+        <div class="top"><span class="mk"><svg viewBox="0 0 20 20" fill="none"><path d="M3 15.4 7.4 10l3.4 3 5.6-8" stroke="var(--viz-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><b>หลักทรัพย์ตัวอย่าง ก.</b></div>
+        <span class="kind">โบรกเกอร์ · หุ้นไทย</span><span class="st">เชื่อมได้</span>
+      </div>
+      <div class="cell">
+        <div class="top"><span class="mk"><svg viewBox="0 0 20 20" fill="none"><rect x="3.4" y="3.4" width="13.2" height="13.2" rx="4" stroke="var(--viz-4)" stroke-width="2"/></svg></span><b>หลักทรัพย์ตัวอย่าง ข.</b></div>
+        <span class="kind">โบรกเกอร์ · หุ้นไทยและต่างประเทศ</span><span class="st">เชื่อมได้</span>
+      </div>
+      <div class="cell">
+        <div class="top"><span class="mk"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="6.6" stroke="var(--viz-6)" stroke-width="2"/></svg></span><b>โบรกเกอร์ต่างประเทศ ตัวอย่าง</b></div>
+        <span class="kind">โบรกเกอร์ · ต่างประเทศ</span><span class="st">เชื่อมได้</span>
+      </div>
+      <div class="cell">
+        <div class="top"><span class="mk"><svg viewBox="0 0 20 20" fill="none"><path d="M10 3.2 16.8 10 10 16.8 3.2 10Z" stroke="var(--viz-5)" stroke-width="2" stroke-linejoin="round"/></svg></span><b>ธนาคารตัวอย่าง ก.</b></div>
+        <span class="kind">ธนาคาร · เงินฝากและกองทุน</span><span class="st">เชื่อมได้</span>
+      </div>
+      <div class="cell">
+        <div class="top"><span class="mk"><svg viewBox="0 0 20 20" fill="none"><path d="M3.4 13.6 10 4l6.6 9.6Z" stroke="var(--viz-1)" stroke-width="2" stroke-linejoin="round"/></svg></span><b>ธนาคารตัวอย่าง ข.</b></div>
+        <span class="kind">ธนาคาร · เงินฝากและกองทุน</span><span class="st">เชื่อมได้</span>
+      </div>
+      <div class="cell">
+        <div class="top"><span class="mk"><svg viewBox="0 0 20 20" fill="none"><rect x="3.4" y="6.4" width="13.2" height="7.2" rx="3.6" stroke="var(--viz-3)" stroke-width="2"/></svg></span><b>ศูนย์ซื้อขายสินทรัพย์ดิจิทัล ตัวอย่าง</b></div>
+        <span class="kind">สินทรัพย์ดิจิทัล</span><span class="st">เชื่อมได้</span>
+      </div>
+      <div class="cell">
+        <div class="top"><span class="mk"><svg viewBox="0 0 20 20" fill="none"><path d="M4 16V8M8.6 16V4.6M13.2 16v-5.4M17.4 16V7" stroke="var(--viz-2)" stroke-width="2" stroke-linecap="round"/></svg></span><b>ผู้ให้ข้อมูลตลาด ตัวอย่าง</b></div>
+        <span class="kind">ข้อมูลตลาด · ราคาหุ้นไทย</span><span class="st">เชื่อมได้</span>
+      </div>
+      <div class="cell">
+        <div class="top"><span class="mk"><svg viewBox="0 0 20 20" fill="none"><path d="M4.6 4.6h10.8v10.8H4.6Z" stroke="var(--viz-4)" stroke-width="2" stroke-linejoin="round"/><path d="M7.6 8.2h4.8M7.6 11.4h3" stroke="var(--viz-4)" stroke-width="1.8" stroke-linecap="round"/></svg></span><b>สเปรดชีตบนคลาวด์ ตัวอย่าง</b></div>
+        <span class="kind">บัญชี · ส่งออกอัตโนมัติ</span><span class="st">เชื่อมได้</span>
+      </div>
+      <div class="cell">
+        <div class="top"><span class="mk"><svg viewBox="0 0 20 20" fill="none"><path d="M10 3.4v13.2M3.4 10h13.2" stroke="var(--viz-6)" stroke-width="2" stroke-linecap="round"/></svg></span><b>ซอฟต์แวร์บัญชี ตัวอย่าง</b></div>
+        <span class="kind">บัญชี · สมุดรายวัน</span><span class="st">เชื่อมได้</span>
+      </div>
+      <div class="cell">
+        <div class="top"><span class="mk"><svg viewBox="0 0 20 20" fill="none"><path d="M5 4.6h10v10.8H5Z" stroke="var(--viz-5)" stroke-width="2" stroke-linejoin="round"/><path d="M8 8.4h4" stroke="var(--viz-5)" stroke-width="1.8" stroke-linecap="round"/></svg></span><b>ระบบยื่นภาษี</b></div>
+        <span class="kind">ภาษี · ไฟล์ ภ.ง.ด.90</span><span class="st">เชื่อมได้</span>
+      </div>
+      <div class="cell">
+        <div class="top"><span class="mk"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="6.6" stroke="var(--muted)" stroke-width="2"/><path d="M10 6.6V10l2.4 1.6" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round"/></svg></span><b>ธนาคารตัวอย่าง ค.</b></div>
+        <span class="kind">ธนาคาร · เงินฝาก</span><span class="st st--soon">เร็ว ๆ นี้ · ไตรมาส 4</span>
+      </div>
+      <div class="cell">
+        <div class="top"><span class="mk"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10h12M12.4 6.4 16 10l-3.6 3.6" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><b>API สำหรับองค์กร</b></div>
+        <span class="kind">นักพัฒนา · REST และ Webhook</span><span class="st st--soon">เร็ว ๆ นี้ · ไตรมาส 1</span>
+      </div>
+    </div>
+
+    <div class="foot">
+      <dl class="count">
+        <dt>100+</dt>
+        <dd>สถาบันและเครื่องมือที่เชื่อมได้ทั้งหมด รายการข้างบนคือสิบสองอันที่คนขอมากที่สุด</dd>
+      </dl>
+      <a class="w-btn w-btn--ghost" href="#cta">ขอให้เชื่อมกับที่ที่ใช้อยู่</a>
+    </div>
+  </div>
+</section>
+
+<!-- Stats · ทิศทาง `gl` (กระจก) — ห้าตัวเลขบนแผ่นเดียว แต่ละตัวมีที่มา
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี stats.html แล้ว
+     ─────────────────────────────────────────────
+     `stats.html` เป็นแถบสามตัวเลขบนพื้น `--surface` เต็มความกว้าง ซึ่งถูกใน
+     ทิศทาง `ed` ที่ทั้งหน้าเป็นตัวหนังสือบนพื้นเรียบ แต่ในทิศทาง `gl` ที่ทุก
+     ส่วนเป็นแผ่นกระจกลอยอยู่บนพื้นบรรยากาศ แถบพื้นทึบเต็มความกว้างจะเป็น
+     ของชิ้นเดียวในหน้าที่ "ติดกับพื้น" ซึ่งอ่านออกทันทีว่ามาจากคนละที่
+
+     และมีข้อจำกัดจริงอีกข้อ: สามตัวเลขที่กว้างเท่ากันบังคับให้ทุกตัวสำคัญ
+     เท่ากัน ซึ่งแทบไม่เคยจริง ที่นี่ใบแรกกว้างกว่าและมีที่ให้บริบทเพิ่ม
+     ส่วนอีกสี่ใบเป็นแถวรอง
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **ห้าตัว ไม่ใช่สามหรือหก** — หนึ่งตัวนำ กับสี่ตัวรอง เป็นโครงที่บอก
+       ลำดับความสำคัญได้โดยไม่ต้องมีป้าย ถ้าทั้งห้าสำคัญเท่ากันจริง ให้กลับไป
+       ใช้ `stats.html`
+     · **ทุกใบมีที่มาใต้คำอธิบาย** ซึ่งเป็นกฎเดิมจาก `stats.html` และเป็นข้อ
+       ที่ `aetox-anti-slop` เรียกว่า invented precise stat ถ้าไม่มี
+       ตัวเลขที่ไม่มีที่มาแย่กว่าไม่มีตัวเลข เพราะมันเชิญให้คนไปตรวจแล้วไม่เจอ
+     · **หน่วยของห้าตัวต่างกันทั้งหมด** (บาท · คน · เปอร์เซ็นต์ · จำนวน ·
+       เวลา) ด้วยเหตุผลเดียวกับ `use-cases.html`: ตัวเลขที่หน่วยเดียวกันเรียง
+       ติดกัน ตาจะเทียบกันเองแล้วได้ข้อสรุปที่ไม่มีใครตั้งใจให้ได้
+     · **ไม่มีตัวนับเลขวิ่ง** — เหตุผลเดียวกับที่ `stats.html` บันทึกไว้:
+       ตัวเลขที่วิ่งอยู่สองวินาทีคือตัวเลขที่อ่านไม่ได้สองวินาที และค่าที่คนเห็น
+       ระหว่างนั้นเป็นค่าที่ไม่จริงทุกเฟรม สิ่งที่ขยับที่นี่คือแผ่นเข้าฉาก
+       ไม่ใช่ตัวเลข
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`display:flex` กับ `border-left` คั่นระหว่างใบ** — พอห่อบรรทัด
+        เส้นคั่นไปโผล่ที่ต้นบรรทัดใหม่กลางแผ่น ตอนนี้ใช้ `gap` กับพื้นของ
+        แต่ละใบแทน ซึ่งถูกทุกจำนวนคอลัมน์โดยไม่ต้องรู้ว่าห่อตรงไหน
+     2. **ใบนำ `grid-column:span 2` ในกริด `auto-fit`** — บั๊กเดียวกับ
+        `use-cases.html` ข้อ 4: จำนวนช่องจริงไม่ตรงกับจำนวนใบ แถวสุดท้าย
+        เหลือรู ที่นี่ใบนำจึงเป็นแถวของตัวเองเต็มความกว้าง แล้วอีกสี่ใบอยู่
+        กริด `auto-fit` ของมันเอง สองก้อนแยกกันจึงหารลงตัวทั้งคู่เสมอ -->
+<style>
+  .w-sb{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+  }
+  .w-sb .head{ max-width:46ch }
+  .w-sb h2{ font-size:clamp(26px,3.4vw,40px); letter-spacing:-.02em;
+            text-wrap:balance; line-height:1.24 }
+  .w-sb .w-lede{ margin-top:14px }
+
+  .w-sb .board{ margin-top:clamp(28px,4vw,44px);
+                border:1px solid var(--gl-edge); border-radius:var(--radius-lg);
+                background:var(--gl-pane); padding:clamp(20px,3vw,34px);
+                display:grid; gap:clamp(16px,2.2vw,22px) }
+  @supports (backdrop-filter:blur(4px)){ .w-sb .board{ backdrop-filter:blur(14px) } }
+
+  /* ใบนำเป็นแถวของตัวเอง ไม่ได้ span อยู่ในกริดเดียวกับใบรอง — ดูข้อ 2 */
+  .w-sb .lead{ display:grid; gap:14px clamp(24px,4vw,44px); align-items:center;
+               border:1px solid var(--line); border-radius:var(--radius);
+               background:var(--bg); padding:clamp(20px,2.6vw,28px) }
+  @media (min-width:760px){
+    .w-sb .lead{ grid-template-columns:minmax(0,auto) minmax(0,1fr) }
+  }
+  .w-sb .lead dt{ font-size:clamp(38px,6vw,66px); font-weight:800;
+                  letter-spacing:-.04em; line-height:1 }
+  .w-sb .lead dd{ margin:0; color:var(--muted); font-size:16px; line-height:1.6 }
+  .w-sb .lead dd b{ color:var(--text); font-weight:600 }
+
+  .w-sb .rest{ display:grid; gap:clamp(12px,1.8vw,16px);
+               grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr)) }
+  .w-sb .rest > div{ border:1px solid var(--line); border-radius:var(--radius);
+                     background:var(--bg); padding:clamp(16px,2vw,22px) }
+  .w-sb .rest dt{ font-size:clamp(26px,3.2vw,38px); font-weight:800;
+                  letter-spacing:-.035em; line-height:1 }
+  .w-sb .rest dd{ margin:9px 0 0; color:var(--muted); font-size:14px; line-height:1.55 }
+  .w-sb .src{ display:block; font-size:12px; opacity:.85; margin-top:6px }
+
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      .w-sb .board{ animation-name:w-rise; animation-timing-function:linear;
+                    animation-fill-mode:both; animation-timeline:view();
+                    animation-range:entry 6% cover 24% }
+    }
+  }
+</style>
+
+<section class="w-section w-sb" aria-label="ตัวเลขของแพลตฟอร์ม">
+  <div class="w-wrap">
+    <div class="head">
+      <p class="w-eyebrow">ตัวเลขของแพลตฟอร์ม</p>
+      <h2>ห้าตัวเลข ที่ตรวจย้อนได้ทุกตัว</h2>
+      <p class="w-lede">ทุกบรรทัดมีที่มากำกับ ตัวเลขที่ไม่มีที่มาเราไม่เอาขึ้นหน้านี้ ต่อให้มันดูดีกว่า</p>
+    </div>
+
+    <div class="board">
+      <dl class="lead">
+        <dt>8,240 ล้านบาท</dt>
+        <dd><b>มูลค่าสินทรัพย์ที่ติดตามอยู่บนแพลตฟอร์ม</b> รวมทุกบัญชีที่ผู้ใช้เชื่อมไว้ ไม่ได้นับเงินที่เราถือแทน เพราะเราไม่ถือเงินของใครเลย
+          <span class="src">ยอด ณ 31 ส.ค. 2569 · อัปเดตทุกสิ้นเดือน</span></dd>
+      </dl>
+
+      <div class="rest">
+        <div><dt>11,400</dt><dd>บัญชีที่ใช้งานอยู่ในรอบ 30 วัน<span class="src">นับจากการเข้าใช้จริง ไม่ใช่ยอดสมัคร</span></dd></div>
+        <div><dt>99.94%</dt><dd>เวลาที่ระบบพร้อมใช้ในรอบ 12 เดือน<span class="src">จากหน้าสถานะสาธารณะ · ก.ย. 2568 – ส.ค. 2569</span></dd></div>
+        <div><dt>6 ตลาด</dt><dd>ตลาดที่ดึงราคาแบบใกล้เรียลไทม์ได้<span class="src">ไทย · สหรัฐฯ · ฮ่องกง · ญี่ปุ่น · สิงคโปร์ · คริปโต</span></dd></div>
+        <div><dt>15 วินาที</dt><dd>ความถี่ในการอัปเดตราคาและตรวจเงื่อนไขเตือน<span class="src">ค่ามัธยฐาน 24 ชม. ล่าสุด</span></dd></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing · ทิศทาง `gl` (กระจก) — มีสวิตช์รอบบิล และไม่มีสคริปต์
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี pricing.html แล้ว
+     ────────────────────────────────────────────
+     `pricing.html` แสดงราคาเดียวต่อแผน ซึ่งพอสำหรับของที่ขายรอบเดียว แต่
+     ผลิตภัณฑ์ที่มีทั้งรายเดือนและรายปีมีปัญหาที่ไฟล์นั้นแก้ไม่ได้เลย: ถ้าโชว์
+     ราคาเดียวก็ต้องเลือกว่าจะโชว์อันไหน แล้วอีกอันหายไปทั้งที่เป็นราคาที่คน
+     ส่วนใหญ่จ่ายจริง ถ้าโชว์สองราคาพร้อมกันในทุกใบ ตารางก็มีตัวเลขคูณสอง
+     และคนต้องหาเองว่าอันไหนคืออันที่ตัวเองจ่าย
+
+     สวิตช์แก้ทั้งสองข้อ และเป็นของที่ **คลังภายนอกขายเป็นของพรีเมียมกันหมด**
+     (`pricing-with-switch` ของ Aceternity อยู่ใน registry แต่ไม่อยู่ในหน้าฟรี)
+     ที่นี่ทำได้โดยไม่มีสคริปต์สักบรรทัด
+
+     กลไก — ทำไมไม่ใช่ `:has()`
+     ──────────────────────────
+     ใช้ radio สองตัววางเป็นลูกแรกของกล่อง แล้วเลือกด้วยตัวเชื่อมพี่น้องทั่วไป
+     (`#w-pt-y:checked ~ .tiers .m`) ไม่ใช่ `:has()` ที่ตัวการ์ด เหตุผลคือ
+     `:has()` ต้องการให้ radio อยู่ในสายบรรพบุรุษเดียวกับสิ่งที่จะเปลี่ยน
+     ซึ่งบังคับให้เอา input ไปแทรกในทุกใบ ตัวเชื่อมพี่น้องต้องการแค่ให้ input
+     อยู่ **ก่อน** ในพ่อเดียวกัน ซึ่งเป็นโครงที่เขียนครั้งเดียวจบ และรองรับ
+     ย้อนไปได้ไกลกว่า `:has()` หลายปี
+
+     `radio` ไม่ใช่ `checkbox` เพราะนี่คือการเลือกหนึ่งในสอง ไม่ใช่การเปิดปิด
+     ผลตรง ๆ คือปุ่มลูกศรซ้ายขวาเลื่อนระหว่างสองตัวเลือกได้ตามที่ ARIA
+     กำหนดให้กับ radiogroup โดยไม่ต้องเขียนอะไรเพิ่ม
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **ส่วนลด 20%** คือค่าที่ทำให้ราคาต่อเดือนลงตัวทั้งสองแผน:
+       490 × 0.8 = 392 และ 1,290 × 0.8 = 1,032 ทั้งคู่เป็นจำนวนเต็ม
+       ที่ 15% จะได้ 416.5 กับ 1,096.5 ซึ่งต้องปัด แล้วป้าย "ประหยัด 15%"
+       ก็จะไม่ตรงกับตัวเลขที่แสดงจริง
+     · **ราคาต่อเดือนเสมอ ไม่ใช่ราคาต่อปี** ทั้งสองโหมด เพราะการสลับหน่วยไป
+       พร้อมกับสลับราคาทำให้คนเทียบสองโหมดไม่ได้ในหัว (392/เดือน กับ
+       4,704/ปี ต่างกันแค่การคูณ แต่ตาอ่านว่าคนละสเกล) รอบบิลจริงเขียนไว้
+       เป็นบรรทัดเล็กใต้ราคาแทน
+     · **สลับด้วย `display` ไม่ใช่ `opacity`** เพราะราคาที่ซ่อนด้วย opacity
+       ยังกินที่และยังถูกโปรแกรมอ่านหน้าจออ่านอยู่ ผลคือคนตาบอดได้ยินสองราคา
+       ต่อแผนตลอดเวลา ซึ่งแย่กว่าไม่มีสวิตช์
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ซ่อน radio ด้วย `display:none`** — หลุดจากลำดับแท็บทั้งคู่ สวิตช์
+        กลายเป็นของที่กดได้ด้วยเมาส์อย่างเดียว ต้องใช้ `.w-sr-only` ของ shell
+        แทน ซึ่งซ่อนจากตาแต่ยังอยู่ในลำดับแท็บและในผังการเข้าถึง
+     2. **วาดวงแหวนโฟกัสที่ตัว input** — ไม่มีใครเห็น เพราะ input ถูกย่อ
+        เหลือ 1px ต้องยิงไปที่ `<label>` ด้วย `input:focus-visible + label`
+        แล้วเลียนแบบวงแหวนของ shell ให้ตรงค่าเดิม (2px offset 3px)
+     3. **ให้แถบเลื่อนของสวิตช์เป็น `::before` ที่ขยับด้วย `left`** — กระตุก
+        เพราะ `left` ไม่ได้อยู่บนเลเยอร์ของ compositor เปลี่ยนเป็น
+        `translateX(100%)` แล้วนิ่ง และได้สปริงของ shell มาใช้ฟรี
+     4. **ให้ป้าย "ประหยัด 20%" อยู่ในตัว label ของรายปี** — ป้ายเลยหายไป
+        ตอนที่ผู้ใช้เลือกรายปีแล้ว (มันถูกกลืนเข้าไปในสถานะที่เลือกอยู่)
+        ย้ายออกมาเป็นชิปนอกสวิตช์ มันจึงอ่านได้ทั้งก่อนและหลังกด -->
+<style>
+  .w-pt{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+  }
+  .w-pt h2{ font-size:clamp(26px,3.4vw,40px); letter-spacing:-.02em; text-wrap:balance; line-height:1.24 }
+  .w-pt .head{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:var(--gap);
+               margin-bottom:clamp(24px,3.4vw,38px) }
+  .w-pt .head > div:first-child{ flex:1 1 320px }
+
+  /* ── สวิตช์รอบบิล ─────────────────────────────────────────────────── */
+  .w-pt .cycle{ display:flex; align-items:center; gap:12px; flex-wrap:wrap }
+  .w-pt .seg{ position:relative; display:flex; padding:4px; gap:4px;
+              border:1px solid var(--field); border-radius:var(--radius-pill);
+              background:var(--gl-pane) }
+  /* แถบเลื่อนอยู่หลังป้าย ขยับด้วย transform ดูเหตุผลข้อ 3 ในหัวไฟล์ */
+  .w-pt .seg::before{ content:""; position:absolute; z-index:0; top:4px; bottom:4px;
+    left:4px; width:calc(50% - 4px); border-radius:var(--radius-pill);
+    background:var(--accent) }
+  /* ป้ายสองอันต้องกว้างเท่ากัน ไม่ใช่กว้างตามคำ เพราะแถบเลื่อนกว้าง 50%
+     ของสวิตช์ ถ้าคำสองคำยาวไม่เท่ากัน (เช่น "รายเดือน" กับ "รายปี")
+     แถบจะเลยขอบคำสั้นออกไป ซึ่งเห็นชัดทันทีว่าไม่ตรง `flex:1` แก้ที่ต้นเหตุ
+     โดยไม่ต้องไปวัดความกว้างของคำ */
+  .w-pt .seg label{ position:relative; z-index:1; cursor:pointer; flex:1;
+    padding:9px 18px; border-radius:var(--radius-pill); text-align:center;
+    font:600 15px/1 var(--sans); color:var(--text); white-space:nowrap }
+  .w-pt .save{ font:600 12px/1 var(--sans); color:var(--accent-ink);
+               background:var(--accent); border-radius:var(--radius-pill);
+               padding:6px 11px }
+
+  /* radio ซ่อนจากตาแต่ยังอยู่ในลำดับแท็บ — ดูเหตุผลข้อ 1 ในหัวไฟล์ */
+  .w-pt .cyc{ position:absolute; width:1px; height:1px; margin:-1px; padding:0;
+              border:0; clip-path:inset(50%); overflow:hidden; white-space:nowrap }
+  #w-pt-m:checked ~ .head .seg label[for="w-pt-m"],
+  #w-pt-y:checked ~ .head .seg label[for="w-pt-y"]{ color:var(--accent-ink) }
+  #w-pt-y:checked ~ .head .seg::before{ transform:translateX(100%) }
+  /* วงแหวนโฟกัสยิงไปที่ป้าย ไม่ใช่ที่ input — ดูเหตุผลข้อ 2 */
+  #w-pt-m:focus-visible ~ .head .seg label[for="w-pt-m"],
+  #w-pt-y:focus-visible ~ .head .seg label[for="w-pt-y"]{
+    outline:2px solid var(--accent); outline-offset:3px }
+
+  /* ── การสลับราคา ──────────────────────────────────────────────────── */
+  /* ค่าเริ่มต้นเมื่อ CSS ไม่ทำงานเลย: เห็นสองราคาพร้อมกัน ซึ่งยังเป็นหน้าราคา
+     ที่ใช้ได้ ไม่ใช่หน้าว่าง */
+  #w-pt-m:checked ~ .tiers .y{ display:none }
+  #w-pt-y:checked ~ .tiers .m{ display:none }
+
+  .w-pt .tiers{ display:grid; gap:var(--gap);
+                grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr)) }
+  .w-pt .tier{ display:flex; flex-direction:column; gap:14px;
+               border:1px solid var(--gl-edge); border-radius:var(--radius);
+               background:var(--gl-pane); padding:clamp(22px,2.6vw,30px);
+               position:relative; isolation:isolate; overflow:hidden }
+  .w-pt .tier--pick{ border-color:var(--accent) }
+  .w-pt .pick-tag{ align-self:flex-start; font:600 12px/1 var(--sans);
+                   letter-spacing:.08em; text-transform:uppercase; color:var(--accent) }
+  .w-pt h3{ font-size:20px; letter-spacing:-.01em }
+  .w-pt .who{ color:var(--muted); font-size:14px; margin-top:-8px }
+  /* letter-spacing ไม่เกิน −.015em เพราะราคาขึ้นต้นด้วยสัญลักษณ์สกุลเงินไม่ได้
+     แต่ลงท้ายด้วยหน่วย — กับดักในข้อ 5 เรื่อง ฿ ชนเลขตัวแรก */
+  .w-pt .price{ font-size:clamp(34px,4vw,48px); font-weight:800;
+                letter-spacing:-.015em; line-height:1 }
+  .w-pt .price small{ font-size:15px; font-weight:500; color:var(--muted);
+                      letter-spacing:0 }
+  .w-pt .cycle-note{ color:var(--muted); font-size:13px; margin-top:-8px }
+  .w-pt .feat{ display:grid; gap:9px; color:var(--muted); font-size:15px }
+  .w-pt .feat li{ display:grid; grid-template-columns:auto 1fr; gap:9px; align-items:start }
+  .w-pt .feat svg{ width:15px; height:15px; margin-top:5px; color:var(--accent); flex:none }
+  .w-pt .tier .w-btn{ justify-content:center; margin-top:auto }
+  /* บรรทัดเงื่อนไขใต้ปุ่ม แยกด้วยจุดกลาง ไม่ใช่ขีด เพราะขีดในภาษาไทยอ่านเป็น
+     เครื่องหมายลบหรือช่วงตัวเลข */
+  .w-pt .fine{ display:flex; flex-wrap:wrap; justify-content:center; gap:4px 10px;
+               color:var(--muted); font-size:12px; margin-top:-4px }
+  .w-pt .fine li{ display:flex; align-items:center; gap:10px }
+  .w-pt .fine li + li::before{ content:"·"; opacity:.6 }
+
+  /* แถบองค์กร กว้างเต็ม ไม่ใช่คอลัมน์ที่สาม เพราะมันไม่มีราคาให้เทียบ
+     การเอาไปวางเรียงกับสองใบที่มีราคาทำให้คนพยายามเทียบสิ่งที่เทียบไม่ได้ */
+  .w-pt .ent{ margin-top:var(--gap); display:flex; flex-wrap:wrap; align-items:center;
+              gap:var(--gap); border:1px solid var(--gl-edge);
+              border-radius:var(--radius); background:var(--gl-pane);
+              padding:clamp(20px,2.4vw,26px) }
+  .w-pt .ent div{ flex:1 1 300px }
+  .w-pt .ent p{ color:var(--muted); font-size:15px; margin-top:4px }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-pt .seg::before{ transition:transform var(--t-spring) var(--ease-spring) }
+    .w-pt .seg label{ transition:color var(--t-hover) linear }
+    .w-pt .tier::after{ content:""; position:absolute; inset:0; z-index:-1;
+      pointer-events:none;
+      background:linear-gradient(100deg, transparent 36%,
+        color-mix(in srgb,var(--accent) 13%,transparent) 50%, transparent 64%);
+      background-size:240% 100%; background-repeat:no-repeat;
+      background-position:-140% 0 }
+    .w-pt .tier:hover::after,.w-pt .tier:focus-within::after{
+      animation:w-sheen .9s var(--ease-wipe) }
+  }
+</style>
+
+<section class="w-section w-pt" id="pricing">
+  <div class="w-wrap">
+    <!-- radio อยู่ก่อน .head และ .tiers ในพ่อเดียวกัน นั่นคือเงื่อนไขเดียวที่
+         ตัวเชื่อมพี่น้องต้องการ — ดูหัวไฟล์ -->
+    <input class="cyc" type="radio" name="w-pt-cycle" id="w-pt-m" checked>
+    <input class="cyc" type="radio" name="w-pt-cycle" id="w-pt-y">
+
+    <div class="head">
+      <div>
+        <p class="w-eyebrow">ราคา</p>
+        <h2>จ่ายรายเดือนก็ได้ รายปีถูกกว่า</h2>
+      </div>
+      <div class="cycle">
+        <div class="seg" role="presentation">
+          <label for="w-pt-m">รายเดือน</label>
+          <label for="w-pt-y">รายปี</label>
+        </div>
+        <span class="save">ประหยัด 20%</span>
+      </div>
+    </div>
+
+    <div class="tiers">
+      <div class="tier">
+        <h3>เริ่มต้น</h3>
+        <p class="who">สำหรับคนที่มีบัญชีลงทุนไม่เกินสามที่</p>
+        <p class="price"><span class="m">490</span><span class="y">392</span><small> บาท/เดือน</small></p>
+        <p class="cycle-note"><span class="m">เก็บทุกเดือน ยกเลิกได้ทันที</span><span class="y">เก็บปีละครั้ง 4,704 บาท</span></p>
+        <ul class="feat">
+          <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.4 6.3 12 13.5 4.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>เชื่อมบัญชีได้ 3 ที่</span></li>
+          <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.4 6.3 12 13.5 4.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>ผลตอบแทนและการกระจายสินทรัพย์</span></li>
+          <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.4 6.3 12 13.5 4.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>ย้อนหลัง 2 ปี</span></li>
+        </ul>
+        <a class="w-btn w-btn--ghost" href="#cta">เริ่มแผนนี้</a>
+      </div>
+
+      <div class="tier tier--pick">
+        <span class="pick-tag">เหมาะกับคนส่วนใหญ่</span>
+        <h3>มาตรฐาน</h3>
+        <p class="who">สำหรับคนที่ถือหลายตลาดและอยากได้สัญญาณ</p>
+        <p class="price"><span class="m">1,290</span><span class="y">1,032</span><small> บาท/เดือน</small></p>
+        <p class="cycle-note"><span class="m">เก็บทุกเดือน ยกเลิกได้ทันที</span><span class="y">เก็บปีละครั้ง 12,384 บาท</span></p>
+        <ul class="feat">
+          <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.4 6.3 12 13.5 4.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>เชื่อมบัญชีได้ไม่จำกัด</span></li>
+          <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.4 6.3 12 13.5 4.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>สัญญาณพร้อมระดับความมั่นใจ</span></li>
+          <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.4 6.3 12 13.5 4.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>คะแนนความเสี่ยงรายวัน</span></li>
+          <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.4 6.3 12 13.5 4.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>ส่งออกไฟล์ยื่นภาษี</span></li>
+        </ul>
+        <a class="w-btn" href="#cta">เริ่มแผนนี้</a>
+        <ul class="fine">
+          <li>ทดลองฟรี 7 วัน</li>
+          <li>ไม่ต้องผูกบัตร</li>
+          <li>ยกเลิกได้ตลอด</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="ent">
+      <div>
+        <h3>องค์กร</h3>
+        <p>ทีมที่ดูพอร์ตให้ลูกค้าหลายราย ต้องการสิทธิ์ระดับผู้ใช้ รายงานที่ส่งเอง และสัญญาแยก คุยกันเรื่องขอบเขตก่อนตั้งราคา</p>
+      </div>
+      <a class="w-btn w-btn--ghost" href="#cta">คุยกับทีมขาย</a>
+    </div>
+  </div>
+</section>
+
+<!-- Testimonials · ทิศทาง `gl` (กระจก) — กำแพงคำชม ไม่ใช่คำพูดเดียว
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี testimonial.html แล้ว
+     ──────────────────────────────────────────────────
+     `testimonial.html` เป็นคำพูดเดียวกลางหน้า ซึ่งเป็นทางที่ถูกเมื่อ **มีคำพูด
+     ที่ดีจริงอยู่หนึ่งอัน** จากคนที่ชื่อเขามีน้ำหนักในตัวเอง คำพูดเดี่ยวคือ
+     การเดิมพันทั้งส่วนไว้กับประโยคเดียว และถ้าประโยคนั้นดีพอ มันชนะกำแพง
+
+     แต่เมื่อของที่มีคือคำชมธรรมดาสิบอันจากคนสิบคนที่ผู้อ่านไม่รู้จัก
+     การหยิบมาอันเดียวคือการทิ้งหลักฐานเก้าอัน สิ่งที่โน้มน้าวในกรณีนั้น
+     ไม่ใช่ความคมของประโยค แต่คือ **ปริมาณกับความหลากหลายของบทบาท** —
+     นักลงทุนรายย่อย ผู้จัดการกองทุน นักวิเคราะห์ พูดคนละเรื่องแล้วชนกันเอง
+     ตรงเดียว นั่นคือสิ่งที่กำแพงทำได้และคำพูดเดี่ยวทำไม่ได้
+
+     เลือกไฟล์จากคำถามเดียว: **คำพูดที่ดีที่สุดที่มี ดีพอจะยืนคนเดียวไหม**
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **`columns` ไม่ใช่ `grid`** เพราะคำชมยาวไม่เท่ากันโดยธรรมชาติ กริดจะ
+       ยืดทุกใบในแถวให้สูงเท่าใบที่ยาวที่สุด ผลคือช่องว่างใต้ข้อความในใบสั้น
+       สามในห้าใบ ส่วน `columns` ไหลต่อกันเหมือนหนังสือพิมพ์ ไม่มีช่องว่างนั้น
+       ราคาที่จ่ายคือลำดับการอ่านกลายเป็นบนลงล่างทีละคอลัมน์ ซึ่งยอมรับได้
+       เพราะคำชมไม่มีลำดับ
+     · **จำนวนคอลัมน์คุมด้วย `column-width` ไม่ใช่ `column-count`** ทำให้
+       จำนวนคอลัมน์ตามความกว้างจริงเหมือนที่ `auto-fit` ทำให้กริด
+       ไม่ต้องมีเบรกพอยต์ให้ดูแล และ **ค่าต้องเป็นความยาวล้วน**
+       `min(320px,100%)` แบบที่ใช้กับกริดได้ ใช้ที่นี่ไม่ได้ — ดูข้อ 5 ข้างล่าง
+     · **ห้าใบ ไม่ใช่หก** เพราะที่ 1120px ได้สามคอลัมน์ หกใบจะลงตัวเป๊ะ
+       3+3 ซึ่งอ่านออกทันทีว่าเป็นตาราง ห้าใบทำให้คอลัมน์สุดท้ายจบไม่พร้อมกัน
+       ซึ่งเป็นสิ่งที่ทำให้มันอ่านเป็นกำแพงจริง ๆ ไม่ใช่กริดที่ปลอมเป็นกำแพง
+     · **หัวส่วนถือตัวเลขรวม** (คะแนน จำนวนรีวิว จำนวนผู้ใช้) เพราะกำแพงบอก
+       ความหลากหลายได้ แต่บอกขนาดไม่ได้ คนอ่านห้าใบแล้วไม่รู้ว่านี่คือห้าจาก
+       เจ็ดหรือห้าจากเจ็ดพัน
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ไม่ใส่ `break-inside:avoid`** — การ์ดถูกผ่าครึ่ง หัวอยู่ท้ายคอลัมน์
+        หนึ่ง ชื่อคนอยู่ต้นคอลัมน์ถัดไป ซึ่งอ่านแล้วเข้าใจผิดว่าเป็นคนละคน
+        เป็นอาการที่เกิดเฉพาะตอนความกว้างพอดีจุดหนึ่ง จึงไม่เจอถ้าเปิดดู
+        ความกว้างเดียว
+     2. **`margin-top` ที่การ์ดใบแรก** — `columns` ไม่ยุบ margin ข้ามคอลัมน์
+        ใบแรกของคอลัมน์ที่สองและสามเลยเยื้องลงมาจากใบแรกของคอลัมน์แรก
+        แก้ด้วย `margin:0 0 var(--gap)` แล้วให้ระยะห่างมาจากด้านล่างอย่างเดียว
+     3. **`w-reveal` ที่ทุกใบ** — ใบในคอลัมน์ขวาเข้าฉากตอนที่คนอ่านคอลัมน์ซ้าย
+        อยู่ ซึ่งเป็นการเคลื่อนไหวในหางตาที่ไม่มีเหตุผล ตอนนี้เข้าฉากที่ตัว
+        กำแพงทั้งก้อนครั้งเดียว แล้วปล่อยให้ `w-lift` ทำงานต่อรายใบตอนชี้
+     4. **รูปคนเป็น `border-radius:50%` บน `<img>` ที่ไม่มี `object-fit`** —
+        รูปที่ไม่ใช่จัตุรัสถูกยืด ต้องมีทั้ง `object-fit:cover` และ
+        `width`/`height` ที่แท็ก ซึ่งข้อ 2 บังคับอยู่แล้วเพื่อกันหน้าเด้ง
+     5. **`column-width:min(320px,100%)`** — เอาสำนวนที่ใช้กับ
+        `minmax(min(280px,100%),1fr)` ในกริดมาใช้ตรง ๆ แต่ `column-width`
+        ไม่รับเปอร์เซ็นต์ ทั้งค่าจึงเป็นโมฆะและตกกลับเป็น `auto` = คอลัมน์เดียว
+        หน้าไม่พัง ไม่มีข้อความผิดพลาด กำแพงแค่กลายเป็นรายการเงียบ ๆ
+        ก่อนหน้านั้นเขียนเป็น shorthand `columns:min(320px,100%)` ซึ่งพังด้วย
+        เหตุผลเดียวกันและมองไม่ออกกว่าเดิม -->
+<style>
+  .w-tw{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+  }
+  .w-tw .head{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:var(--gap) }
+  .w-tw .head > div:first-child{ flex:1 1 340px }
+  .w-tw h2{ font-size:clamp(26px,3.4vw,40px); letter-spacing:-.02em; text-wrap:balance; line-height:1.24;
+            max-width:20ch }
+
+  /* ตัวเลขรวมของส่วนนี้ เป็น <dl> เพราะมันคือคู่ ค่า–ความหมาย จริง ๆ */
+  .w-tw .totals{ display:flex; gap:clamp(18px,3vw,34px); flex-wrap:wrap }
+  .w-tw .totals dt{ font-size:clamp(22px,2.6vw,30px); font-weight:800;
+                    letter-spacing:-.03em; line-height:1 }
+  .w-tw .totals dd{ color:var(--muted); font-size:13px; margin:5px 0 0 }
+
+  /* `column-width:320px` เขียนเป็นความยาวล้วน ห้ามมี % ปนใน min()
+     — `column-width` ไม่รับเปอร์เซ็นต์ พอเขียน `min(320px,100%)` ทั้งค่าเป็น
+     โมฆะ แล้วตกกลับไปเป็น `auto` ซึ่งแปลว่าคอลัมน์เดียว กำแพงเลยกลายเป็น
+     รายการเรียงลงมาทั้งที่โค้ดอ่านแล้วดูถูกทุกตัว
+     ไม่ต้องมี 100% อยู่แล้ว เพราะเมื่อกล่องแคบกว่า 320px เบราว์เซอร์
+     ยุบเหลือคอลัมน์เดียวให้เอง นั่นคือพฤติกรรมปกติของ column-width */
+  .w-tw .wall{ margin-top:clamp(28px,4vw,44px);
+               column-width:320px; column-gap:var(--gap) }
+  .w-tw figure{
+    break-inside:avoid;                 /* ดูเหตุผลข้อ 1 ในหัวไฟล์ */
+    margin:0 0 var(--gap);              /* ดูเหตุผลข้อ 2 */
+    border:1px solid var(--gl-edge); border-radius:var(--radius);
+    background:var(--gl-pane); padding:clamp(18px,2.2vw,24px);
+    position:relative; isolation:isolate; overflow:hidden;
+  }
+  .w-tw blockquote{ font-size:16px; line-height:1.62 }
+  .w-tw figcaption{ display:flex; align-items:center; gap:11px; margin-top:16px;
+                    padding-top:14px; border-top:1px solid var(--line) }
+  .w-tw img{ width:38px; height:38px; border-radius:50%; object-fit:cover; flex:none }
+  .w-tw cite{ font-style:normal; font-weight:600; font-size:14px; display:block }
+  .w-tw .role{ color:var(--muted); font-size:13px }
+  /* ใบที่เป็นตัวเลข ไม่ใช่ประโยค — กำแพงที่ทุกใบเป็นย่อหน้าเท่ากันคือกริด
+     ที่ปลอมเป็นกำแพง */
+  .w-tw figure.num blockquote{ font-size:clamp(24px,3vw,32px); font-weight:800;
+                               letter-spacing:-.03em; line-height:1.18 }
+  .w-tw figure.num blockquote span{ display:block; font-size:15px; font-weight:400;
+                                    letter-spacing:0; color:var(--muted); margin-top:8px;
+                                    line-height:1.6 }
+
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      /* เข้าฉากที่กำแพงทั้งก้อน ไม่ใช่รายใบ — ดูเหตุผลข้อ 3 ในหัวไฟล์ */
+      .w-tw .wall{ animation-name:w-rise; animation-timing-function:linear;
+                   animation-fill-mode:both;
+                   animation-timeline:view(); animation-range:entry 6% cover 22% }
+    }
+    .w-tw figure::after{ content:""; position:absolute; inset:0; z-index:-1;
+      pointer-events:none;
+      background:linear-gradient(100deg, transparent 36%,
+        color-mix(in srgb,var(--accent) 13%,transparent) 50%, transparent 64%);
+      background-size:240% 100%; background-repeat:no-repeat;
+      background-position:-140% 0 }
+    .w-tw figure:hover::after,.w-tw figure:focus-within::after{
+      animation:w-sheen .9s var(--ease-wipe) }
+  }
+</style>
+
+<section class="w-section w-tw">
+  <div class="w-wrap">
+    <div class="head">
+      <div>
+        <p class="w-eyebrow">เสียงจากคนใช้</p>
+        <h2>คนละบทบาท คนละเหตุผล ชนกันตรงเดียว</h2>
+      </div>
+      <dl class="totals">
+        <div><dt>4.8</dt><dd>คะแนนเฉลี่ย จาก 5</dd></div>
+        <div><dt>312</dt><dd>รีวิวที่ยืนยันตัวตนแล้ว</dd></div>
+        <div><dt>11,400</dt><dd>บัญชีที่ใช้งานอยู่</dd></div>
+      </dl>
+    </div>
+
+    <div class="wall">
+      <figure class="w-lift">
+        <blockquote>ก่อนหน้านี้ผมเปิดสี่แท็บทุกเช้าเพื่อรวมยอด ตอนนี้เปิดอันเดียวแล้วเห็นครบ สิ่งที่เปลี่ยนจริง ๆ คือผมเลิกคำนวณผิดเพราะลืมหักค่าคอมฯ</blockquote>
+        <figcaption>
+          <img src="imgs/khon-1.jpg" alt="" width="38" height="38">
+          <span><cite>ธนกฤต ศรีวิไล</cite><span class="role">นักลงทุนรายย่อย · ใช้มา 14 เดือน</span></span>
+        </figcaption>
+      </figure>
+
+      <figure class="w-lift num">
+        <blockquote>6 ชั่วโมง<span>ต่อสัปดาห์ที่ทีมเราไม่ต้องนั่งรวมรายงานพอร์ตของลูกค้าด้วยมืออีก</span></blockquote>
+        <figcaption>
+          <img src="imgs/khon-2.jpg" alt="" width="38" height="38">
+          <span><cite>ปาริชาต วงศ์อนันต์</cite><span class="role">หัวหน้าทีมที่ปรึกษาการลงทุน</span></span>
+        </figcaption>
+      </figure>
+
+      <figure class="w-lift">
+        <blockquote>คะแนนความเสี่ยงคือส่วนที่ผมสงสัยที่สุดตอนแรก แต่พอกดดูว่ามันคิดจากอะไรได้ ผมก็เลิกเถียงกับมัน ที่สำคัญคือมันบอกเหตุผล ไม่ใช่แค่ตัวเลข</blockquote>
+        <figcaption>
+          <img src="imgs/khon-3.jpg" alt="" width="38" height="38">
+          <span><cite>ศิวกร เจริญพงศ์</cite><span class="role">นักวิเคราะห์การลงทุน</span></span>
+        </figcaption>
+      </figure>
+
+      <figure class="w-lift">
+        <blockquote>ที่ใช้ต่อเพราะการส่งออกไฟล์ยื่นภาษีอย่างเดียวเลย ปีที่แล้วผมนั่งทำเองสามคืน ปีนี้กดปุ่มเดียว</blockquote>
+        <figcaption>
+          <img src="imgs/khon-4.jpg" alt="" width="38" height="38">
+          <span><cite>นภัสสร ทองอินทร์</cite><span class="role">เจ้าของธุรกิจ · ลงทุนเอง</span></span>
+        </figcaption>
+      </figure>
+
+      <figure class="w-lift">
+        <blockquote>สัญญาณไม่ได้แม่นทุกครั้ง และผมชอบที่มันบอกตรง ๆ ว่ามั่นใจกี่เปอร์เซ็นต์ เครื่องมือที่บอกว่าถูกเสมอคือเครื่องมือที่ผมไม่กล้าใช้เงินจริง</blockquote>
+        <figcaption>
+          <img src="imgs/khon-5.jpg" alt="" width="38" height="38">
+          <span><cite>วรินทร พฤกษ์ไพศาล</cite><span class="role">เทรดเดอร์รายวัน</span></span>
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ · ทิศทาง `gl` (กระจก) — หีบเพลง กับทางออกสำหรับคนที่ยังไม่ได้คำตอบ
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี faq.html แล้ว
+     ───────────────────────────────────────────
+     สองข้อ
+
+     1. `faq.html` กินความกว้างครึ่งเดียวแล้วปล่อยอีกครึ่งว่างเปล่า ซึ่งเห็นชัด
+        มากตอนเปิดดูจริงบนจอ 1200px — เป็นความว่างที่ไม่ได้ตั้งใจ ไม่ใช่
+        ที่หายใจ
+     2. **หีบเพลงที่ไม่มีทางออกคือทางตัน** คนที่อ่านครบทุกข้อแล้วยังไม่เจอ
+        คำตอบของตัวเอง จะปิดแท็บ ไม่ใช่หาช่องติดต่อเอง ครึ่งขวาจึงเป็น
+        แผงที่ตอบคำถามข้อสุดท้ายว่า "แล้วถ้าไม่มีข้อไหนตรงล่ะ"
+
+     ยังใช้ `<details>` เหมือนเดิม ไม่มีสคริปต์ — Esc ปิดไม่ได้ก็จริง แต่
+     คีย์บอร์ดเปิดปิดได้ และมันรอดตอน JS พัง ซึ่งเวอร์ชันที่เขียนเองไม่รอด
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **`name="w-faq"` บนทุก `<details>`** ทำให้มันกลายเป็นหีบเพลงจริง คือ
+       เปิดได้ทีละข้อ เบราว์เซอร์ปิดข้ออื่นให้เอง เป็นความสามารถของ HTML เอง
+       ไม่ใช่สคริปต์ เครื่องที่ยังไม่รองรับจะเปิดได้หลายข้อพร้อมกัน ซึ่งยังใช้ได้
+       ไม่ใช่พัง — เป็น "ทางลง" ตามข้อ 2 ไม่ใช่ทางตัน
+     · **ข้อแรกเปิดอยู่** (`open`) เพราะหีบเพลงที่ปิดหมดทุกข้อ ทำให้คนต้องเดา
+       ว่าข้างในมีเนื้อหาแบบไหนก่อนจะยอมกด ข้อแรกที่เปิดอยู่คือตัวอย่าง
+     · **หกข้อ ไม่ใช่สิบ** — เกินหกแปลว่าหน้าอื่นอธิบายไม่พอ ให้ไปแก้หน้านั้น
+       แทนที่จะเอามากองที่นี่
+     · **แผงขวาติดหนึบที่ `top:clamp(84px,12vh,132px)`** ค่าเดียวกับ
+       `platform-tour.html` เพราะคู่กับ `nav-pill.html` ที่ลอยอยู่ที่ 12px
+       สูง 56px รวมเงาแล้วกินถึงราว 80px
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **หมุนเครื่องหมาย + เป็น × ด้วย `rotate(45deg)` ที่ `summary::after`** —
+        ตัว `+` ของฟอนต์ไม่ได้อยู่กึ่งกลางกล่องพอดี พอหมุนแล้วมันเยื้อง
+        ตอนนี้วาดเป็นสองขีดด้วย `::before`/`::after` ที่ระบุพิกัดเอง แล้วหมุน
+        เฉพาะขีดตั้ง ซึ่งอยู่กึ่งกลางแน่นอนเพราะเรากำหนดเอง
+     2. **`summary{display:flex}`** — ทำให้สามเหลี่ยมของเบราว์เซอร์กลับมาโผล่
+        ใน Safari ต้องมี `::-webkit-details-marker{display:none}` คู่กับ
+        `list-style:none` เสมอ ไม่ใช่อย่างใดอย่างหนึ่ง
+     3. **ให้คำตอบเข้าฉากด้วย animation ตอนเปิด** — กระตุกทุกครั้งเพราะ
+        `<details>` เปลี่ยนความสูงทันทีที่เปิด ก่อนที่ animation จะเริ่ม
+        ตอนนี้ไม่มีการเคลื่อนไหวตอนเปิด มีแต่เครื่องหมายที่หมุน ซึ่งเป็น
+        สิ่งเดียวที่ขยับได้โดยไม่ทำให้ข้อความกระโดด -->
+<style>
+  .w-fa{
+    --gl-pane:color-mix(in srgb,var(--surface) 82%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+  }
+  .w-fa .grid{ display:grid; gap:clamp(24px,4vw,48px); align-items:start }
+  @media (min-width:900px){
+    .w-fa .grid{ grid-template-columns:minmax(0,1fr) minmax(0,.62fr) }
+    .w-fa .aside{ position:sticky; top:clamp(84px,12vh,132px) }
+  }
+  .w-fa h2{ font-size:clamp(26px,3.4vw,40px); letter-spacing:-.02em;
+            text-wrap:balance; line-height:1.24; max-width:18ch }
+  .w-fa .w-lede{ margin-top:14px }
+
+  .w-fa .list{ margin-top:clamp(24px,3vw,34px);
+               border:1px solid var(--gl-edge); border-radius:var(--radius);
+               background:var(--gl-pane); overflow:hidden }
+  .w-fa details + details{ border-top:1px solid var(--line) }
+  .w-fa summary{ display:flex; align-items:flex-start; gap:14px; cursor:pointer;
+                 padding:clamp(16px,2.2vw,22px); font-size:17px; font-weight:600;
+                 line-height:1.5; list-style:none }
+  /* ต้องมีทั้งสองบรรทัด ไม่ใช่อย่างใดอย่างหนึ่ง — ดูเหตุผลข้อ 2 */
+  .w-fa summary::-webkit-details-marker{ display:none }
+  .w-fa summary .sign{ margin-left:auto; position:relative; flex:none;
+                       width:22px; height:22px; margin-top:2px }
+  .w-fa summary .sign::before,
+  .w-fa summary .sign::after{ content:""; position:absolute; background:var(--accent);
+                              border-radius:2px }
+  .w-fa summary .sign::before{ inset:10px 1px auto; height:2px }   /* ขีดนอน */
+  .w-fa summary .sign::after{ inset:1px 10px auto; width:2px; height:20px } /* ขีดตั้ง */
+  .w-fa details[open] summary .sign::after{ transform:scaleY(0) }
+  .w-fa details > div{ padding:0 clamp(16px,2.2vw,22px) clamp(18px,2.4vw,24px);
+                       color:var(--muted); font-size:15px; line-height:1.7;
+                       max-width:68ch }
+  .w-fa details > div a{ color:var(--accent) }
+
+  /* แผงขวา */
+  .w-fa .aside .card{ border:1px solid var(--gl-edge); border-radius:var(--radius);
+                      background:var(--gl-pane); padding:clamp(20px,2.6vw,28px);
+                      display:flex; flex-direction:column; gap:14px }
+  @supports (backdrop-filter:blur(4px)){ .w-fa .aside .card{ backdrop-filter:blur(12px) } }
+  .w-fa .aside .faces{ display:flex }
+  .w-fa .aside .faces img{ width:40px; height:40px; border-radius:50%;
+                           object-fit:cover; border:2px solid var(--bg) }
+  .w-fa .aside .faces img + img{ margin-left:-12px }
+  .w-fa .aside h3{ font-size:20px; letter-spacing:-.01em }
+  .w-fa .aside p{ color:var(--muted); font-size:15px; line-height:1.6 }
+  .w-fa .aside .w-btn{ justify-content:center }
+  .w-fa .aside .meta{ display:grid; gap:8px; padding-top:16px;
+                      border-top:1px solid var(--line); font-size:13px;
+                      color:var(--muted) }
+  .w-fa .aside .meta div{ display:flex; align-items:center; gap:8px }
+  .w-fa .aside .meta svg{ width:15px; height:15px; color:var(--accent); flex:none }
+
+  @media (prefers-reduced-motion:no-preference){
+    .w-fa summary .sign::after{ transition:transform var(--t-spring) var(--ease-spring) }
+    .w-fa summary{ transition:background var(--t-hover) linear }
+    .w-fa summary:hover{ background:color-mix(in srgb,var(--text) 4%,transparent) }
+  }
+</style>
+
+<section class="w-section w-fa" id="faq">
+  <div class="w-wrap grid">
+    <div>
+      <p class="w-eyebrow">คำถามที่พบบ่อย</p>
+      <h2>คำถามที่คนถามก่อนกดเชื่อมบัญชี</h2>
+      <p class="w-lede">หกข้อนี้คือข้อที่ทีมซัพพอร์ตตอบบ่อยที่สุดในรอบสามเดือน ไม่ได้เรียงตามที่เราอยากให้อ่าน</p>
+
+      <div class="list">
+        <details name="w-faq" open>
+          <summary>เชื่อมบัญชีแล้วคุณเห็นอะไรของผมบ้าง<span class="sign"></span></summary>
+          <div>เห็นยอดคงเหลือ รายชื่อสินทรัพย์ที่ถือ และรายการซื้อขายย้อนหลัง เท่าที่สถาบันนั้นเปิดให้ดึง เราไม่เห็นรหัสผ่าน ไม่เห็นเลขบัตร และไม่มีสิทธิ์สั่งซื้อขายหรือโอนเงิน สิทธิ์ที่ขอเป็นแบบอ่านอย่างเดียวในทางเทคนิค ไม่ใช่แค่ในนโยบาย</div>
+        </details>
+        <details name="w-faq">
+          <summary>ถ้าอยากเลิกใช้ ข้อมูลผมหายจริงไหม<span class="sign"></span></summary>
+          <div>กดลบบัญชีแล้วข้อมูลดิบถูกลบทันที สำเนาสำรองหมดอายุเองภายใน 30 วัน คุณดาวน์โหลดข้อมูลทั้งหมดของตัวเองเป็นไฟล์ได้ก่อนลบ และเพิกถอนสิทธิ์ที่ฝั่งสถาบันการเงินได้เองตลอดเวลาโดยไม่ต้องผ่านเรา</div>
+        </details>
+        <details name="w-faq">
+          <summary>สัญญาณที่แนะนำ คิดมาจากอะไร<span class="sign"></span></summary>
+          <div>ทุกสัญญาณเปิดดูได้ว่าประกอบจากปัจจัยอะไรและแต่ละปัจจัยมีน้ำหนักเท่าไร เช่น "ซื้อ PTT มั่นใจ 78%" มาจากกำไรไตรมาส 41% ปริมาณซื้อขาย 24% ราคาน้ำมัน 13% และปัจจัยย่อยที่เหลือ เราไม่ปล่อยสัญญาณที่อธิบายที่มาไม่ได้</div>
+        </details>
+        <details name="w-faq">
+          <summary>มันแม่นแค่ไหน<span class="sign"></span></summary>
+          <div>ไม่แม่นทุกครั้ง และเราไม่เคยอ้างว่าแม่น ตัวเลขความมั่นใจข้างสัญญาณคือสิ่งที่ควรใช้ตัดสิน ไม่ใช่ตัวสัญญาณเอง หน้าสถิติย้อนหลังเปิดให้ดูว่าสัญญาณที่มั่นใจ 70% ขึ้นไปเป็นจริงกี่เปอร์เซ็นต์ในแต่ละไตรมาส</div>
+        </details>
+        <details name="w-faq">
+          <summary>ใช้กับบัญชีของบริษัทหรือของลูกค้าได้ไหม<span class="sign"></span></summary>
+          <div>ได้ แผนองค์กรรองรับหลายพอร์ตในบัญชีเดียว แยกสิทธิ์รายผู้ใช้ และมีบันทึกว่าใครดูอะไรเมื่อไหร่ ถ้าต้องมีสัญญาแยกหรือข้อกำหนดด้านการเก็บข้อมูลเฉพาะ คุยกับทีมขายก่อนได้</div>
+        </details>
+        <details name="w-faq">
+          <summary>ราคาขึ้นทีหลังหรือเปล่า<span class="sign"></span></summary>
+          <div>ราคาที่คุณสมัครคือราคาที่คุณจ่ายไปตลอดอายุการเป็นสมาชิกต่อเนื่อง ถ้าเราขึ้นราคา จะมีผลกับผู้สมัครใหม่เท่านั้น และแจ้งล่วงหน้าอย่างน้อย 60 วันทางอีเมล</div>
+        </details>
+      </div>
+    </div>
+
+    <div class="aside">
+      <div class="card">
+        <div class="faces">
+          <img src="imgs/khon-1.jpg" alt="" width="40" height="40">
+          <img src="imgs/khon-3.jpg" alt="" width="40" height="40">
+          <img src="imgs/khon-5.jpg" alt="" width="40" height="40">
+        </div>
+        <h3>ยังไม่มีข้อไหนตรงใช่ไหม</h3>
+        <p>ถามมาได้เลย ทีมที่ตอบคือคนที่สร้างของนี้ ไม่ใช่บอต และไม่ใช่ฝ่ายขายที่จะพยายามปิดการขายกับคุณ</p>
+        <a class="w-btn" href="#cta">ถามทีมโดยตรง</a>
+        <div class="meta">
+          <div><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.6v3.6l2.3 1.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>ตอบภายใน 4 ชั่วโมงทำการ</div>
+          <div><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.4 4.2h11.2v7.6H2.4Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="m2.4 4.6 5.6 4 5.6-4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>อีเมลจริง ไม่ใช่ฟอร์มที่หายไปไหนไม่รู้</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA · ทิศทาง `gl` (กระจก) — แผ่นเดียวที่กินความสนใจทั้งหมด
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี cta-band.html แล้ว
+     ────────────────────────────────────────────────
+     `cta-band.html` เป็นแถบพื้น `--surface` เต็มความกว้างที่มีหมอกลอยอยู่หลัง
+     ซึ่งถูกในทิศทาง `ed` แต่ในทิศทาง `gl` ที่ทุกส่วนเป็นแผ่นลอย แถบเต็มความ
+     กว้างจะเป็นของชิ้นเดียวที่ติดกับพื้น เหมือนกรณีเดียวกับ `stats-band.html`
+
+     และมันแก้อีกข้อที่แถบเดิมทำไม่ได้: **CTA ท้ายหน้าต้องปิดข้อกังวลข้อสุดท้าย
+     ไปพร้อมกัน** คนที่เลื่อนมาถึงตรงนี้คือคนที่เกือบตัดสินใจแล้ว สิ่งที่ขวางอยู่
+     มักเป็นเรื่องเล็ก — ต้องผูกบัตรไหม ยกเลิกยากไหม ใช้เวลานานไหม แถบเดิมมี
+     ที่ให้บรรทัดเดียว ที่นี่มีสามชิปที่ตอบสามข้อนั้นตรง ๆ
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **แสงอยู่หลังแผ่น ไม่ใช่ในแผ่น** — ก้อนแสงเป็น `::before` ของ section
+       ที่ถูกกด `z-index:-1` ส่วนแผ่นกระจกทึบ 82% ทับอยู่ ผลคือแสงเรืองออกมา
+       ที่ขอบแผ่นเหมือนของที่มีไฟอยู่ข้างหลัง ถ้าเอาแสงไปไว้ในแผ่น มันจะ
+       กลายเป็นพื้นไล่เฉดธรรมดา
+     · **รอบละ 26 วินาที** ค่าเดียวกับ `cta-band.html` เพื่อให้สองไฟล์นี้
+       เคลื่อนด้วยจังหวะเดียวกันถ้าใครเอามาวางบนหน้าเดียวกัน
+     · **ปุ่มรองเป็น "ดูราคาก่อน" ไม่ใช่ "เรียนรู้เพิ่มเติม"** — ปุ่มรองที่ไม่มี
+       ปลายทางชัดคือปุ่มที่ดูดคนออกจากปุ่มหลักโดยไม่ได้อะไรกลับมา
+     · **ชิปสามอันเป็นข้อเท็จจริง ไม่ใช่คำโฆษณา** ทุกอันตรวจได้จากหน้าราคา
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **ไม่ตัดขอบแสง** — ก้อนแสงล้นออกไปเรืองอยู่ใต้ footer ในหน้ารวม
+        ซึ่งดูเหมือนบั๊กมากกว่าดีไซน์ (บั๊กเดียวกับที่ `cta-band.html`
+        บันทึกไว้) ตอนนี้ตัดด้วย `overflow:hidden` ที่ section ซึ่งปลอดภัย
+        ที่นี่เพราะส่วนนี้ไม่มี `animation-timeline:view()` อยู่ข้างใน
+     2. **ให้แผ่นมี `backdrop-filter` โดยที่แสงอยู่หลังมันในสายเดียวกัน** —
+        บางเอนจินคำนวณ backdrop จากพื้นหลังของ stacking context ที่ผิดชั้น
+        แล้วแผ่นออกมาขุ่นทึบจนแสงหายหมด แก้ด้วยการให้ section เป็น
+        `isolation:isolate` แล้วแสงอยู่ที่ `z-index:-1` ภายในนั้น
+     3. **ปุ่มสองปุ่มขนาดเท่ากันวางกลาง** — ตาแยกไม่ออกว่าอันไหนคืออันที่ควรกด
+        ตอนนี้ปุ่มหลักมีตราลูกศรและพื้นทึบ ปุ่มรองเป็นโปร่ง ต่างกันทั้งสี
+        น้ำหนัก และรูปทรง ไม่ใช่ต่างแค่สี -->
+<style>
+  .w-ctg{
+    --gl-pane:color-mix(in srgb,var(--surface) 84%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 13%,transparent);
+    position:relative; isolation:isolate; overflow:hidden;
+  }
+  .w-ctg .panel{ border:1px solid var(--gl-edge); border-radius:var(--radius-lg);
+                 background:var(--gl-pane); box-shadow:var(--e3);
+                 padding:clamp(28px,5vw,64px); text-align:center }
+  @supports (backdrop-filter:blur(4px)){ .w-ctg .panel{ backdrop-filter:blur(16px) } }
+
+  .w-ctg h2{ font-size:clamp(28px,4vw,52px); letter-spacing:-.03em;
+             line-height:1.2; text-wrap:balance; max-width:19ch;
+             margin-inline:auto }
+  .w-ctg .w-lede{ margin:16px auto 0; max-width:46ch }
+  .w-ctg .acts{ display:flex; flex-wrap:wrap; gap:12px; justify-content:center;
+                margin-top:30px }
+  .w-ctg .acts .w-btn .badge{ display:inline-flex; align-items:center;
+    justify-content:center; width:26px; height:26px; border-radius:50%;
+    background:var(--accent-ink); color:var(--accent); margin-inline-end:-10px }
+  .w-ctg .acts .w-btn .badge svg{ width:12px; height:12px }
+
+  .w-ctg .chips{ display:flex; flex-wrap:wrap; gap:10px 22px; justify-content:center;
+                 margin-top:26px; padding-top:24px; border-top:1px solid var(--line);
+                 color:var(--muted); font-size:14px }
+  .w-ctg .chips li{ display:flex; align-items:center; gap:8px }
+  .w-ctg .chips svg{ width:16px; height:16px; color:var(--accent); flex:none }
+  .w-ctg .chips b{ color:var(--text); font-weight:600 }
+
+  @media (prefers-reduced-motion:no-preference){
+    /* ท่า drift ตาม STANDARD.md ข้อ 4 — หมอกสีพื้นหลัง รอบละ 26 วิ
+       ช้าพอที่คนอ่านประโยคจบก่อนจะทันสังเกตว่ามันขยับ */
+    .w-ctg::before{ content:""; position:absolute; z-index:-1; inset:-30% -12%;
+      background:
+        radial-gradient(34% 54% at 26% 44%, color-mix(in srgb,var(--accent) 26%,transparent) 0, transparent 68%),
+        radial-gradient(30% 48% at 74% 56%, color-mix(in srgb,var(--viz-2) 22%,transparent) 0, transparent 66%);
+      animation:w-drift 26s ease-in-out infinite alternate }
+  }
+</style>
+
+<section class="w-section w-ctg" id="cta">
+  <div class="w-wrap">
+    <div class="panel">
+      <h2>เชื่อมบัญชีแรกวันนี้ แล้วดูว่าพอร์ตคุณเป็นยังไงจริง ๆ</h2>
+      <p class="w-lede">ใช้เวลาสองนาที ถ้าไม่ชอบก็ถอนสิทธิ์ที่ฝั่งธนาคารได้เองทันที ไม่ต้องรอเรากดอะไรให้</p>
+
+      <div class="acts">
+        <a class="w-btn" href="#">เชื่อมบัญชีแรก<span class="badge"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h9M8.5 4.2 12.6 8l-4.1 3.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+        <a class="w-btn w-btn--ghost" href="#pricing">ดูราคาก่อน</a>
+      </div>
+
+      <ul class="chips">
+        <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.4 6.3 12 13.5 4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>ทดลองฟรี <b>7 วัน</b></span></li>
+        <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.4 6.3 12 13.5 4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>ไม่ต้องผูกบัตร</b> ตอนสมัคร</span></li>
+        <li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.4 6.3 12 13.5 4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>ยกเลิกเองได้ <b>ในหน้าตั้งค่า</b></span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</main>
+<!-- Footer · ทิศทาง `gl` (กระจก) — ปิดหน้า พร้อมของที่คนมาหาที่ท้ายจริง
+
+     ทำไมชิ้นนี้ถึงมีอยู่ ทั้งที่มี footer.html แล้ว
+     ──────────────────────────────────────────────
+     `footer.html` เป็นสี่คอลัมน์ลิงก์กับบรรทัดลิขสิทธิ์ ซึ่งครบตามหน้าที่
+     ขั้นต่ำ และ `CATALOG.md` ทำเครื่องหมายไว้เองว่า "**1 ทรง**"
+
+     สิ่งที่ทรงนั้นไม่มีที่ให้ คือของสามอย่างที่คนเลื่อนมาท้ายหน้าจริง ๆ มาหา:
+     **ช่องติดต่อที่เป็นของจริง · สถานะระบบ · ที่อยู่ของบริษัท** สองอย่างหลัง
+     สำคัญเป็นพิเศษกับผลิตภัณฑ์การเงิน เพราะเป็นสิ่งที่คนใช้ตรวจว่าอีกฝั่ง
+     มีตัวตนจริงก่อนจะเชื่อมบัญชีธนาคารให้
+
+     ค่าไหนมาจากไหน
+     ───────────────
+     · **คอลัมน์แบรนด์กว้างกว่าคอลัมน์ลิงก์ราวสองเท่า** เพราะมันถือประโยค
+       ไม่ใช่รายการ ลิงก์กว้าง 1fr เท่ากันทุกคอลัมน์เพราะเป็นรายการเหมือนกัน
+     · **จุดสถานะกะพริบเป็นขั้น (`w-blink`) ไม่ใช่จางเข้าจางออก** เพราะสิ่งที่
+       มันเลียนแบบคือไฟ LED ซึ่งติดดับเป็นขั้น ไม่ได้ค่อย ๆ สว่าง
+       และมีคำว่า "ปกติ" กำกับเสมอ — ข้อ 2 ห้ามบอกสถานะด้วยสีอย่างเดียว
+     · **`<address>` จริง ไม่ใช่ `<p>`** เพราะมันคือที่อยู่ติดต่อของเจ้าของหน้า
+       ซึ่งเป็นความหมายเดียวที่แท็กนี้มี โปรแกรมอ่านหน้าจอประกาศให้เอง
+     · **อีเมลกับโทรศัพท์เป็นลิงก์ `mailto:` และ `tel:`** ไม่ใช่ข้อความเปล่า
+       บนมือถือ ข้อความเปล่าแปลว่าต้องจดแล้วพิมพ์เอง
+
+     อะไรที่ลองแล้วพัง
+     ─────────────────
+     1. **`position:sticky; bottom:0` ที่ footer เพื่อให้มัน "เผยตัว" ตอนเลื่อน
+        ถึงท้าย** — พังบนหน้าที่สั้นกว่าจอ footer ไปลอยทับเนื้อหา และบน iOS
+        มันชนกับแถบล่างของเบราว์เซอร์ ตอนนี้เป็น footer ธรรมดา
+     2. **แผ่นกระจกใบเดียวครอบทั้ง footer** — ที่ท้ายหน้าไม่มีอะไรอยู่ข้างหลัง
+        ให้มองทะลุ แผ่นโปร่งจึงกลายเป็นกล่องเทาที่ไม่มีเหตุผล ตอนนี้ใช้เส้น
+        ขอบบนกับพื้น `--surface` ตรง ๆ แล้วเก็บความเป็นกระจกไว้ที่การ์ด
+        ติดต่อใบเดียว ซึ่งเป็นของที่ควรเด่นจริง
+     3. **ลิงก์ทุกอันมี `:hover{text-decoration:underline}` อย่างเดียว** —
+        ตอนไล่แท็บด้วยคีย์บอร์ดไม่มีอะไรเปลี่ยนเลยนอกจากวงแหวนโฟกัส
+        ตอนนี้เปลี่ยนสีด้วย ซึ่งเห็นได้ทั้งสองทาง -->
+<style>
+  .w-fg{
+    --gl-pane:color-mix(in srgb,var(--bg) 70%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 12%,transparent);
+    background:var(--surface); border-top:1px solid var(--line);
+    padding-block:clamp(40px,6vw,72px) clamp(20px,3vw,28px);
+  }
+  .w-fg .top{ display:grid; gap:clamp(28px,4vw,48px) }
+  @media (min-width:900px){
+    .w-fg .top{ grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr))
+                                       minmax(0,1.2fr) }
+  }
+  .w-fg .brand .mark{ display:flex; align-items:center; gap:9px;
+                      font:700 19px/1 var(--sans); letter-spacing:-.02em;
+                      text-decoration:none }
+  .w-fg .brand .mark i{ width:22px; height:22px; border-radius:7px; flex:none;
+                        background:var(--accent) }
+  .w-fg .brand p{ color:var(--muted); font-size:15px; line-height:1.65;
+                  margin-top:14px; max-width:34ch }
+  .w-fg address{ font-style:normal; color:var(--muted); font-size:14px;
+                 line-height:1.7; margin-top:16px }
+  .w-fg address a{ color:var(--muted); text-decoration:none }
+  .w-fg address a:hover{ color:var(--text); text-decoration:underline }
+
+  .w-fg h3{ font-size:14px; letter-spacing:.02em; margin-bottom:14px }
+  .w-fg .col ul{ display:grid; gap:10px }
+  .w-fg .col a{ color:var(--muted); text-decoration:none; font-size:15px }
+  .w-fg .col a:hover,.w-fg .col a:focus-visible{ color:var(--text);
+                                                 text-decoration:underline }
+
+  /* การ์ดติดต่อ — ของชิ้นเดียวใน footer ที่ยังเป็นกระจก เพราะเป็นของที่
+     ควรเด่น ไม่ใช่รายการลิงก์ */
+  .w-fg .contact{ border:1px solid var(--gl-edge); border-radius:var(--radius);
+                  background:var(--gl-pane); padding:clamp(18px,2.2vw,22px);
+                  display:flex; flex-direction:column; gap:12px }
+  .w-fg .contact b{ font-size:16px; letter-spacing:-.01em }
+  .w-fg .contact p{ color:var(--muted); font-size:14px; line-height:1.6 }
+  .w-fg .contact .w-btn{ justify-content:center; font-size:15px; padding:12px 20px }
+
+  .w-fg .bottom{ display:flex; flex-wrap:wrap; align-items:center; gap:14px 24px;
+                 margin-top:clamp(32px,5vw,56px); padding-top:22px;
+                 border-top:1px solid var(--line);
+                 color:var(--muted); font-size:13px }
+  .w-fg .bottom .status{ display:flex; align-items:center; gap:8px;
+                         margin-left:auto; text-decoration:none; color:var(--muted) }
+  .w-fg .bottom .status i{ width:8px; height:8px; border-radius:50%; flex:none;
+                           background:var(--viz-up) }
+  .w-fg .bottom .status:hover{ color:var(--text) }
+  .w-fg .bottom nav{ display:flex; flex-wrap:wrap; gap:8px 18px }
+  .w-fg .bottom nav a{ color:var(--muted); text-decoration:none }
+  .w-fg .bottom nav a:hover,.w-fg .bottom nav a:focus-visible{ color:var(--text);
+                                                               text-decoration:underline }
+
+  @media (prefers-reduced-motion:no-preference){
+    /* ท่า blink ตาม STANDARD.md ข้อ 4 — จุดสถานะ กะพริบเป็นขั้น ไม่ใช่จางเข้าออก */
+    .w-fg .bottom .status i{ animation:w-blink 2.4s steps(1,end) infinite }
+    .w-fg .col a,.w-fg .bottom a{ transition:color var(--t-hover) linear }
+  }
+</style>
+
+<footer class="w-fg">
+  <div class="w-wrap">
+    <div class="top">
+      <div class="brand">
+        <a class="mark" href="#"><i></i>แบรนด์</a>
+        <p>รวมพอร์ตการลงทุนจากทุกที่ไว้บนหน้าจอเดียว พร้อมสัญญาณที่บอกเหตุผลทุกอัน</p>
+        <address>
+          บริษัท ตัวอย่าง จำกัด<br>
+          123 อาคารตัวอย่าง ชั้น 9 ถนนสาทรใต้ แขวงทุ่งมหาเมฆ เขตสาทร กรุงเทพฯ 10120<br>
+          <a href="mailto:hello@example.co.th">hello@example.co.th</a> ·
+          <a href="tel:+6620000000">02 000 0000</a>
+        </address>
+      </div>
+
+      <div class="col">
+        <h3>ผลิตภัณฑ์</h3>
+        <ul>
+          <li><a href="#features">ความสามารถ</a></li>
+          <li><a href="#overview">พาดูของจริง</a></li>
+          <li><a href="#integrations">การเชื่อมต่อ</a></li>
+          <li><a href="#pricing">ราคา</a></li>
+        </ul>
+      </div>
+
+      <div class="col">
+        <h3>ช่วยเหลือ</h3>
+        <ul>
+          <li><a href="#faq">คำถามที่พบบ่อย</a></li>
+          <li><a href="#">คู่มือการเริ่มต้น</a></li>
+          <li><a href="#security">ความปลอดภัย</a></li>
+          <li><a href="#">แจ้งปัญหา</a></li>
+        </ul>
+      </div>
+
+      <div class="col">
+        <h3>บริษัท</h3>
+        <ul>
+          <li><a href="#">เกี่ยวกับเรา</a></li>
+          <li><a href="#">ร่วมงานกับเรา</a></li>
+          <li><a href="#">บันทึกการเปลี่ยนแปลง</a></li>
+          <li><a href="#">สื่อและโลโก้</a></li>
+        </ul>
+      </div>
+
+      <div class="contact">
+        <b>คุยกับคนจริง</b>
+        <p>ทีมที่ตอบคือคนที่สร้างของนี้ ตอบภายในสี่ชั่วโมงทำการ ไม่มีบอตคั่นกลาง</p>
+        <a class="w-btn" href="mailto:hello@example.co.th">ส่งอีเมลหาทีม</a>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <span>© 2569 บริษัท ตัวอย่าง จำกัด</span>
+      <nav aria-label="ข้อกำหนด">
+        <a href="#">ข้อกำหนดการใช้งาน</a>
+        <a href="#">ความเป็นส่วนตัว</a>
+        <a href="#">คุกกี้</a>
+      </nav>
+      <a class="status" href="#"><i></i>ระบบทำงานปกติ · ดูสถานะย้อนหลัง</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

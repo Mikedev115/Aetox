@@ -1,0 +1,16 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "studio-agency",
+  "type": "registry:file",
+  "title": "studio-agency",
+  "description": "เอเจนซีและสตูดิโอ · รับงานเป็นโปรเจกต์",
+  "author": "Aetox <https://github.com/Mikedev115>",
+  "categories": ["agency", "studio", "portfolio"],
+  "files": [
+    {
+      "path": "templates/studio-agency/index.html",
+      "type": "registry:file",
+      "target": "public/studio-agency.html"
+    }
+  ]
+}

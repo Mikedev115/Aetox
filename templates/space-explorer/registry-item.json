@@ -1,0 +1,16 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "space-explorer",
+  "type": "registry:file",
+  "title": "space-explorer",
+  "description": "วัตถุชิ้นเดียวเป็นพระเอก · carousel ซูมทะลุ ไม่มีไฟล์ภาพ",
+  "author": "Aetox <https://github.com/Mikedev115>",
+  "categories": ["product", "showcase", "carousel"],
+  "files": [
+    {
+      "path": "templates/space-explorer/index.html",
+      "type": "registry:file",
+      "target": "public/space-explorer.html"
+    }
+  ]
+}

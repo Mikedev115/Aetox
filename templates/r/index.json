@@ -1,0 +1,96 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "aetox",
+  "homepage": "https://github.com/Mikedev115/Aetox",
+  "items": [
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "fashion-editorial",
+      "type": "registry:file",
+      "title": "fashion-editorial",
+      "description": "แฟชั่นและแบรนด์งานฝีมือ · ยืมภาษาสิ่งพิมพ์",
+      "author": "Aetox <https://github.com/Mikedev115>",
+      "categories": [
+        "fashion",
+        "editorial",
+        "print"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "fintech-saas",
+      "type": "registry:file",
+      "title": "fintech-saas",
+      "description": "SaaS และแอปการเงิน · มีหน้าจอโปรแกรมให้โชว์",
+      "author": "Aetox <https://github.com/Mikedev115>",
+      "categories": [
+        "fintech",
+        "saas",
+        "dashboard"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "homestay",
+      "type": "registry:file",
+      "title": "homestay",
+      "description": "ที่พักและโฮมสเตย์ · ขายด้วยภาพถ่ายเป็นหลัก",
+      "author": "Aetox <https://github.com/Mikedev115>",
+      "categories": [
+        "hospitality",
+        "lodging"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "portfolio",
+      "type": "registry:file",
+      "title": "portfolio",
+      "description": "พอร์ตโฟลิโอส่วนบุคคลและฟรีแลนซ์",
+      "author": "Aetox <https://github.com/Mikedev115>",
+      "categories": [
+        "portfolio",
+        "personal"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "restaurant",
+      "type": "registry:file",
+      "title": "restaurant",
+      "description": "ร้านอาหารและคาเฟ่ · มีเมนูและฟอร์มจองโต๊ะ",
+      "author": "Aetox <https://github.com/Mikedev115>",
+      "categories": [
+        "restaurant",
+        "menu",
+        "booking"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "space-explorer",
+      "type": "registry:file",
+      "title": "space-explorer",
+      "description": "วัตถุชิ้นเดียวเป็นพระเอก · carousel ซูมทะลุ ไม่มีไฟล์ภาพ",
+      "author": "Aetox <https://github.com/Mikedev115>",
+      "categories": [
+        "product",
+        "showcase",
+        "carousel"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "studio-agency",
+      "type": "registry:file",
+      "title": "studio-agency",
+      "description": "เอเจนซีและสตูดิโอ · รับงานเป็นโปรเจกต์",
+      "author": "Aetox <https://github.com/Mikedev115>",
+      "categories": [
+        "agency",
+        "studio",
+        "portfolio"
+      ]
+    }
+  ]
+}

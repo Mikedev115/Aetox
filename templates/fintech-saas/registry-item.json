@@ -1,0 +1,16 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "fintech-saas",
+  "type": "registry:file",
+  "title": "fintech-saas",
+  "description": "SaaS และแอปการเงิน · มีหน้าจอโปรแกรมให้โชว์",
+  "author": "Aetox <https://github.com/Mikedev115>",
+  "categories": ["fintech", "saas", "dashboard"],
+  "files": [
+    {
+      "path": "templates/fintech-saas/index.html",
+      "type": "registry:file",
+      "target": "public/fintech-saas.html"
+    }
+  ]
+}
