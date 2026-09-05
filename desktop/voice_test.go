@@ -169,9 +169,12 @@ func TestInstallVoiceEngineRunsOnlyCatalogCommands(t *testing.T) {
 	if _, err := voiceInstallArgv("chat", "edge"); err == nil {
 		t.Error("unknown side was allowed")
 	}
-	argv, err := voiceInstallArgv("tts", "edge")
-	if err != nil || strings.Join(argv, " ") != "pip install edge-tts" {
-		t.Errorf("edge argv = %v, %v — must be exactly the catalog's command", argv, err)
+	if _, err := voiceInstallArgv("tts", "edge"); err == nil {
+		t.Error("edge needs nothing installed any more, and must say so rather than run something")
+	}
+	argv, err := voiceInstallArgv("tts", "gtts")
+	if err != nil || strings.Join(argv, " ") != "pip install gTTS" {
+		t.Errorf("gtts argv = %v, %v — must be exactly the catalog's command", argv, err)
 	}
 }
 

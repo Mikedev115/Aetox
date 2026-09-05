@@ -106,11 +106,11 @@ var catalog = []Descriptor{
 		Install:  "โหลด release จาก https://github.com/rhasspy/piper วางที่ <DataRoot>\\tools\\piper และโหลดไฟล์เสียง .onnx จาก https://huggingface.co/rhasspy/piper-voices ไว้ที่ <DataRoot>\\models\\piper",
 	},
 	{
-		ID:             "edge",
-		Label:          "Microsoft Edge (คลาวด์, ฟรี)",
-		Binaries:       []string{"edge-tts"},
-		Install:        "ติดตั้งด้วย: pip install edge-tts (ต้องมี Python) — เสียง Neural ของ Microsoft รวมเสียงไทย Premwadee/Niwat ฟรี ไม่ใช้ key แต่ข้อความจะถูกส่งไปสังเคราะห์บนคลาวด์",
-		InstallCommand: []string{"pip", "install", "edge-tts"},
+		ID:    "edge",
+		Label: "Microsoft Edge (คลาวด์, ฟรี)",
+		// No Binaries and no InstallCommand: Aetox speaks the service's own
+		// protocol (edge.go), so there is nothing to install.
+		Install: "ไม่ต้องติดตั้งอะไร แค่ต่อเน็ต — เสียง Neural ของ Microsoft Edge รวมเสียงไทย Premwadee/Niwat ฟรี ไม่ใช้ key แต่ข้อความจะถูกส่งไปสังเคราะห์บนคลาวด์ของ Microsoft",
 	},
 	{
 		ID:             "gtts",

@@ -159,19 +159,18 @@ func (l *ladder) raise(n int) {
 // synthesize makes one piece, climbing the ladder as voices fail it.
 func synthesize(ctx context.Context, l *ladder, i, n int, chunk string, opts ReadOptions) Piece {
 	p := Piece{Seq: i, Text: chunk, Last: i == n-1}
+	r := int(l.level.Load())
+	voice, ok := l.rung(ctx, r)
+	if !ok {
+		// Cannot happen — the level only ever climbs to a rung that exists —
+		// but a piece that reported success with no file behind it would be
+		// worse than this line.
+		p.Err = fmt.Errorf("ไม่มีเสียงให้อ่านชิ้นที่ %d", i+1)
+		return p
+	}
 	var first error
 	tried := 0
-	for r := int(l.level.Load()); ; r++ {
-		voice, ok := l.rung(ctx, r)
-		if !ok {
-			// Out of voices. The first reason is the one the user can act on
-			// — it is about the voice they picked.
-			p.Err = first
-			if tried > 1 {
-				p.Err = fmt.Errorf("%w — เสียงสำรองอีก %d เสียงก็ไม่สำเร็จ", first, tried-1)
-			}
-			return p
-		}
+	for {
 		tried++
 		o := opts
 		o.CacheKey = voice.CacheKey
@@ -188,7 +187,22 @@ func synthesize(ctx context.Context, l *ladder, i, n int, chunk string, opts Rea
 		if first == nil {
 			first = err
 		}
-		l.raise(r + 1)
+		next, ok := l.rung(ctx, r+1)
+		if !ok {
+			// Out of voices. The first reason is the one the user can act on
+			// — it is about the voice they picked.
+			p.Err = first
+			if tried > 1 {
+				p.Err = fmt.Errorf("%w — เสียงสำรองอีก %d เสียงก็ไม่สำเร็จ", first, tried-1)
+			}
+			return p
+		}
+		// Climb, and take the pieces started after this one with us. Only
+		// to a rung that exists: a level past the top of the ladder would
+		// start the next piece on nothing.
+		r++
+		voice = next
+		l.raise(r)
 	}
 }
 

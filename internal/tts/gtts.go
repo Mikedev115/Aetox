@@ -6,14 +6,21 @@ package tts
 // language code. Same honesty as edge: the text goes to Google.
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/Mikedev115/Aetox/internal/proc"
 )
 
-// swapped in tests — reuses the edge runner's shape.
-var runGTTS = execEdgeTTS
+// swapped in tests.
+var runGTTS = execCLI
 
 type gttsVoice struct {
 	binPath string
@@ -74,4 +81,52 @@ func parseGTTSLanguages(raw string) []Voice {
 	// Alphabetical by code so th sits where a Thai eye scans for it.
 	sort.Slice(voices, func(i, j int) bool { return voices[i].ID < voices[j].ID })
 	return voices
+}
+
+// execCLI runs a pip-installed vendor's program and returns its stdout. Its
+// stderr is the message when it fails; a program that is not there names the
+// install.
+func execCLI(ctx context.Context, binPath string, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, binPath, args...)
+	proc.HideConsole(cmd)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			return "", fmt.Errorf("ไม่พบโปรแกรม %s — ติดตั้งด้วย: pip install gTTS", filepath.Base(binPath))
+		}
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			msg = err.Error()
+		}
+		return "", fmt.Errorf("%s ไม่สำเร็จ (%s)", filepath.Base(binPath), firstLine(msg, msg))
+	}
+	return stdout.String(), nil
+}
+
+// lookBinary resolves a CLI vendor's program: PATH first, then the pip --user
+// Scripts folders, which pip fills WITHOUT putting them on PATH — measured on
+// the owner's machine 2026-09-01, where `pip install edge-tts` landed in
+// %APPDATA%\Python\Python313\Scripts and LookPath alone called it missing.
+// Written for the edge and gtts engines; edge has since stopped needing a
+// program at all (edge.go), so this is gtts's now.
+func lookBinary(desc Descriptor) (string, error) {
+	for _, name := range desc.Binaries {
+		if path, err := exec.LookPath(name); err == nil {
+			return path, nil
+		}
+	}
+	if appData := os.Getenv("APPDATA"); appData != "" {
+		for _, name := range desc.Binaries {
+			matches, _ := filepath.Glob(filepath.Join(appData, "Python", "*", "Scripts", name+".exe"))
+			sort.Sort(sort.Reverse(sort.StringSlice(matches))) // newest Python first
+			for _, match := range matches {
+				if info, err := os.Stat(match); err == nil && !info.IsDir() {
+					return match, nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("ไม่พบโปรแกรม %s ในเครื่อง — %s", strings.Join(desc.Binaries, "/"), desc.Install)
 }
