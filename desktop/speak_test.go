@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -20,6 +21,7 @@ import (
 type fakeSpeaker struct {
 	calls atomic.Int64
 	mime  string
+	fail  error
 }
 
 func (*fakeSpeaker) ID() string { return "fake" }
@@ -35,6 +37,9 @@ func (*fakeSpeaker) Voices(context.Context) ([]tts.Voice, error) { return nil, n
 
 func (f *fakeSpeaker) Synthesize(_ context.Context, text, outPath string) error {
 	f.calls.Add(1)
+	if f.fail != nil {
+		return f.fail
+	}
 	return os.WriteFile(outPath, []byte(text), 0o600)
 }
 
@@ -162,6 +167,57 @@ func TestSynthesisStopsAheadOfASilentListener(t *testing.T) {
 	most := int64(speechLookahead + 2 + speechParallel)
 	if n := eng.calls.Load(); n > most {
 		t.Errorf("engine ran %d pieces for a listener still on the first, want at most %d", n, most)
+	}
+}
+
+// The kiosk's rule, up here where the list lives: when the picked voice fails
+// a piece, the reading goes on in a stand-in — the local engine, once the
+// engine picked has no second voice to offer — and the webview is told each
+// piece's own type, because the stand-in's audio is not the picked voice's.
+func TestAFailingVoiceFallsBackAndTheReadGoesOn(t *testing.T) {
+	broken := &fakeSpeaker{fail: fmt.Errorf("ไม่มีเสียงตอบกลับ"), mime: "audio/mpeg"}
+	local := &fakeSpeaker{}
+	app, events := speakApp(t, broken)
+	// speakApp answers every engine with `broken`; here the local engine — the
+	// last rung of speechFallbacks — answers with `local`.
+	newTTSEngine = func(o tts.Options) (tts.Engine, error) {
+		if o.Engine == "windows" {
+			return local, nil
+		}
+		return broken, nil
+	}
+	app.cur().cfg.TTSEngine = "edge"
+	text := strings.Repeat(speakSample, 12)
+	job, err := app.StartSpeech(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := 0
+	for {
+		c := nextChunk(t, events)
+		if c.Error != "" {
+			t.Fatalf("piece %d failed instead of falling back: %s", c.Seq, c.Error)
+		}
+		if c.Mime != "audio/wav" {
+			t.Errorf("piece %d announced as %q, want the stand-in's audio/wav", c.Seq, c.Mime)
+		}
+		if _, mime, ok := app.speechChunkFile(job, c.Seq); !ok || mime != "audio/wav" {
+			t.Errorf("piece %d is served as %q (found=%v), want audio/wav", c.Seq, mime, ok)
+		}
+		seen++
+		app.SpeechPlaying(job, c.Seq)
+		if c.Last {
+			break
+		}
+	}
+	if want := len(tts.Segment(text)); seen != want {
+		t.Errorf("the read delivered %d pieces, the text has %d", seen, want)
+	}
+	if n := broken.calls.Load(); n < 1 || n > speechParallel {
+		t.Errorf("the failing voice was tried %d times, want between 1 and the %d pieces that can be in flight at once", n, speechParallel)
+	}
+	if local.calls.Load() == 0 {
+		t.Error("the stand-in was never asked")
 	}
 }
 

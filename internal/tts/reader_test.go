@@ -352,3 +352,127 @@ func TestParallelFailureStillArrivesInOrder(t *testing.T) {
 		t.Fatalf("got %+v, want the first piece carrying the failure and nothing after it", pieces)
 	}
 }
+
+// The kiosk's rule: a voice that fails is not the end of the reading, the
+// next voice on the list is. Every piece still arrives, made by the stand-in
+// and typed as the stand-in's audio, and the voice that failed the first
+// piece is not offered the second.
+func TestAFailedPieceFallsBackToTheNextVoice(t *testing.T) {
+	primary := &countingEngine{fail: fmt.Errorf("ไม่มีเสียงตอบกลับ"), mime: "audio/mpeg"}
+	spare := &countingEngine{}
+	built := 0
+	opts := ReadOptions{Dir: t.TempDir(), Fallbacks: func(context.Context) []Fallback {
+		built++
+		return []Fallback{{Engine: spare}}
+	}}
+	pieces := drain(t, Read(context.Background(), primary, strings.Repeat(longThai, 8), opts))
+	if len(pieces) < 3 {
+		t.Fatalf("got %d pieces, want the whole reading", len(pieces))
+	}
+	for i, p := range pieces {
+		if p.Err != nil {
+			t.Fatalf("piece %d failed despite a spare voice: %v", i, p.Err)
+		}
+		if p.Fallback != 1 || p.Mime != "audio/wav" {
+			t.Errorf("piece %d: made by voice %d as %q, want the spare (1) as audio/wav", i, p.Fallback, p.Mime)
+		}
+		if body, err := os.ReadFile(p.Path); err != nil || string(body) != p.Text {
+			t.Errorf("piece %d file does not hold its text (%v)", i, err)
+		}
+	}
+	if built != 1 {
+		t.Errorf("the fallback list was built %d times, want once", built)
+	}
+	if n := primary.calls.Load(); n != 1 {
+		t.Errorf("the failing voice was tried %d times, want once — it should not be offered the next piece", n)
+	}
+	if n := spare.calls.Load(); int(n) != len(pieces) {
+		t.Errorf("the spare made %d pieces of %d", n, len(pieces))
+	}
+}
+
+// A voice that works never pays for the list: building it may mean asking
+// another engine for its voices.
+func TestAWorkingVoiceNeverBuildsTheFallbackList(t *testing.T) {
+	built := false
+	opts := ReadOptions{Dir: t.TempDir(), Parallel: 3, Fallbacks: func(context.Context) []Fallback {
+		built = true
+		return nil
+	}}
+	drain(t, Read(context.Background(), &countingEngine{}, strings.Repeat(longThai, 8), opts))
+	if built {
+		t.Error("the fallback list was built for a read that never needed it")
+	}
+}
+
+// When every voice fails, the reason shown is the first one — it is about the
+// voice the user picked — and it says the stand-ins were tried too.
+func TestEveryVoiceFailingEndsTheReadWithTheFirstReason(t *testing.T) {
+	primary := &countingEngine{fail: fmt.Errorf("เสียงหลักพัง")}
+	spare := &countingEngine{fail: fmt.Errorf("เสียงสำรองพัง")}
+	opts := ReadOptions{Dir: t.TempDir(), Fallbacks: func(context.Context) []Fallback {
+		return []Fallback{{Engine: spare}}
+	}}
+	pieces := drain(t, Read(context.Background(), primary, strings.Repeat(longThai, 4), opts))
+	if len(pieces) != 1 || pieces[0].Err == nil {
+		t.Fatalf("got %+v, want one failed piece", pieces)
+	}
+	msg := pieces[0].Err.Error()
+	if !strings.Contains(msg, "เสียงหลักพัง") || !strings.Contains(msg, "สำรอง") {
+		t.Errorf("reason %q should name the picked voice's failure and that a stand-in was tried", msg)
+	}
+	if spare.calls.Load() != 1 {
+		t.Errorf("the spare was tried %d times, want once", spare.calls.Load())
+	}
+}
+
+// A stop is a stop. The piece a stop interrupts must not go looking for
+// another voice to finish on.
+func TestStopDoesNotTryTheNextVoice(t *testing.T) {
+	primary := &countingEngine{delay: 30 * time.Second}
+	spare := &countingEngine{}
+	ctx, cancel := context.WithCancel(context.Background())
+	opts := ReadOptions{Dir: t.TempDir(), Fallbacks: func(context.Context) []Fallback {
+		return []Fallback{{Engine: spare}}
+	}}
+	ch := Read(ctx, primary, strings.Repeat(longThai, 4), opts)
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	select {
+	case <-ch:
+	case <-time.After(5 * time.Second):
+		t.Fatal("cancel did not stop the read")
+	}
+	if spare.calls.Load() != 0 {
+		t.Errorf("the spare was called %d times after a stop", spare.calls.Load())
+	}
+}
+
+// A stand-in's audio is cached as the stand-in's, so the next read with the
+// picked voice — working again — does not get the stand-in's voice back from
+// the cache.
+func TestFallbackPiecesAreCachedAsTheirOwnVoice(t *testing.T) {
+	cache := t.TempDir()
+	text := strings.Repeat(longThai, 4)
+	broken := &countingEngine{fail: fmt.Errorf("ไม่มีเสียงตอบกลับ")}
+	spare := &countingEngine{}
+	first := drain(t, Read(context.Background(), broken, text, ReadOptions{
+		Dir: t.TempDir(), CacheDir: cache, CacheKey: "edge|Premwadee|",
+		Fallbacks: func(context.Context) []Fallback { return []Fallback{{Engine: spare, CacheKey: "edge|Niwat|"}} },
+	}))
+	if len(first) == 0 || first[0].Err != nil {
+		t.Fatalf("the fallback read failed: %+v", first)
+	}
+
+	recovered := &countingEngine{}
+	second := drain(t, Read(context.Background(), recovered, text, ReadOptions{Dir: t.TempDir(), CacheDir: cache, CacheKey: "edge|Premwadee|"}))
+	if int(recovered.calls.Load()) != len(second) {
+		t.Errorf("the recovered voice synthesized %d of %d pieces — the rest came back in the stand-in's voice", recovered.calls.Load(), len(second))
+	}
+
+	again := &countingEngine{}
+	drain(t, Read(context.Background(), again, text, ReadOptions{Dir: t.TempDir(), CacheDir: cache, CacheKey: "edge|Niwat|"}))
+	if again.calls.Load() != 0 {
+		t.Errorf("the stand-in's own key missed the cache %d times", again.calls.Load())
+	}
+}

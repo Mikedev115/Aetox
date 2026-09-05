@@ -25,6 +25,13 @@ package tts
 // piece is TAKEN, not when the engine finishes it, so a caller that stops
 // reading stops the engine within Parallel pieces instead of one. The pieces
 // still leave in order whatever order the engine finished them in.
+//
+// When a voice fails a piece, the read climbs a ladder of stand-ins the caller
+// handed it (ReadOptions.Fallbacks) instead of stopping — the kiosk again,
+// which lists two voices per language and then another vendor and falls down
+// the list until one answers. Which voices are on the ladder is the caller's
+// policy. That a voice which failed one piece is not offered the next, and
+// that a stop press climbs nothing, are this file's.
 
 import (
 	"context"
@@ -61,8 +68,23 @@ type Piece struct {
 	// the caller must serve the path it is given and must not assume it owns
 	// what it is deleting.
 	Path string
-	Last bool
-	Err  error
+	// Mime is the type of what Path holds — the type of the engine that made
+	// THIS piece, which after a fallback is not the engine Read was given.
+	Mime string
+	// Fallback is which voice made the piece: 0 the one Read was given, n the
+	// nth entry of ReadOptions.Fallbacks.
+	Fallback int
+	Last     bool
+	Err      error
+}
+
+// Fallback is a voice a read may fall back to when a piece fails on the one
+// before it: an engine, and the cache key that names ITS configuration. A
+// piece it makes is cached as its own voice, never as the one it stood in for
+// — the wrong key here is the one way to hear the previous voice speaking.
+type Fallback struct {
+	Engine   Engine
+	CacheKey string
 }
 
 // ReadOptions configures one read.
@@ -87,6 +109,87 @@ type ReadOptions struct {
 	// engine is latency-bound and gains from it, a local one is a process per
 	// piece and gains less.
 	Parallel int
+	// Fallbacks names the voices to try, in order, when a piece fails on the
+	// engine Read was given. Called once, on the first failure, never before:
+	// building the list may mean enumerating another engine's voices, and a
+	// read whose voice works should not pay for that. Nil, or an empty list,
+	// means a failed piece ends the read the way it always did. Once a piece
+	// has fallen back, the pieces started after it begin on the fallback
+	// rather than retrying the voice that just failed; a piece already in
+	// flight finishes on whatever it was started with.
+	Fallbacks func(ctx context.Context) []Fallback
+}
+
+// ladder is what a read climbs when a piece fails: the voice it was given,
+// then ReadOptions.Fallbacks, resolved once on the first failure.
+type ladder struct {
+	primary Fallback
+	build   func(ctx context.Context) []Fallback
+	once    sync.Once
+	extra   []Fallback
+	// level is the rung every piece started from now on begins at. It only
+	// climbs: a voice that failed one piece is not offered the next one.
+	level atomic.Int32
+}
+
+func (l *ladder) rung(ctx context.Context, n int) (Fallback, bool) {
+	if n == 0 {
+		return l.primary, true
+	}
+	l.once.Do(func() {
+		if l.build != nil {
+			l.extra = l.build(ctx)
+		}
+	})
+	if n-1 < len(l.extra) {
+		return l.extra[n-1], true
+	}
+	return Fallback{}, false
+}
+
+func (l *ladder) raise(n int) {
+	for {
+		cur := l.level.Load()
+		if int32(n) <= cur || l.level.CompareAndSwap(cur, int32(n)) {
+			return
+		}
+	}
+}
+
+// synthesize makes one piece, climbing the ladder as voices fail it.
+func synthesize(ctx context.Context, l *ladder, i, n int, chunk string, opts ReadOptions) Piece {
+	p := Piece{Seq: i, Text: chunk, Last: i == n-1}
+	var first error
+	tried := 0
+	for r := int(l.level.Load()); ; r++ {
+		voice, ok := l.rung(ctx, r)
+		if !ok {
+			// Out of voices. The first reason is the one the user can act on
+			// — it is about the voice they picked.
+			p.Err = first
+			if tried > 1 {
+				p.Err = fmt.Errorf("%w — เสียงสำรองอีก %d เสียงก็ไม่สำเร็จ", first, tried-1)
+			}
+			return p
+		}
+		tried++
+		o := opts
+		o.CacheKey = voice.CacheKey
+		path, err := synthesizePiece(ctx, voice.Engine, chunk, extForMime(voice.Engine.Mime()), i, o)
+		if err == nil {
+			p.Path, p.Mime, p.Fallback = path, voice.Engine.Mime(), r
+			return p
+		}
+		// A stop is a stop, not a reason to try another voice.
+		if ctx.Err() != nil {
+			p.Err = err
+			return p
+		}
+		if first == nil {
+			first = err
+		}
+		l.raise(r + 1)
+	}
 }
 
 // partSeq keeps two reads that start on the same millisecond from choosing the
@@ -124,7 +227,7 @@ func Read(ctx context.Context, eng Engine, text string, opts ReadOptions) <-chan
 		defer wg.Wait()
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
-		ext := extForMime(eng.Mime())
+		voices := &ladder{primary: Fallback{Engine: eng, CacheKey: opts.CacheKey}, build: opts.Fallbacks}
 		width := opts.Parallel
 		if width < 1 {
 			width = 1
@@ -153,9 +256,7 @@ func Read(ctx context.Context, eng Engine, text string, opts ReadOptions) <-chan
 				wg.Add(1)
 				go func(i int, chunk string) {
 					defer wg.Done()
-					p := Piece{Seq: i, Text: chunk, Last: i == len(chunks)-1}
-					p.Path, p.Err = synthesizePiece(ctx, eng, chunk, ext, i, opts)
-					results[i] <- p
+					results[i] <- synthesize(ctx, voices, i, len(chunks), chunk, opts)
 				}(i, chunk)
 			}
 		}()

@@ -25,6 +25,13 @@ package main
 // for it in advance — speechLookahead released, plus the speechParallel the
 // reader may still have in the engine — which matters on disk for the local
 // engines and in money for the cloud ones.
+//
+// A fourth judgement joined on 2026-09-05: which voices stand in when the one
+// the user picked fails a piece (speechFallbacks). The kiosk's rule again —
+// its backend lists two voices per language and then another vendor — and
+// policy for the same reason as the others: the list depends on the UI
+// language and on what this machine has installed, neither of which
+// internal/tts may read.
 
 import (
 	"context"
@@ -38,6 +45,7 @@ import (
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/tts"
 )
 
@@ -84,11 +92,17 @@ type speechChunkEvent struct {
 	Error string `json:"error,omitempty"`
 }
 
+// speechFile is one finished piece: where it is, and what type it is — the
+// type of the engine that made THAT piece, which after a fallback is not the
+// same for every piece of a read.
+type speechFile struct {
+	path, mime string
+}
+
 // speechJob is one press of ฟัง.
 type speechJob struct {
 	id     string
 	dir    string
-	mime   string
 	cancel context.CancelFunc
 
 	mu sync.Mutex
@@ -97,7 +111,7 @@ type speechJob struct {
 	// map already holds, so there is no path to validate and nothing to
 	// traverse. It is not a directory listing because a cache hit points
 	// outside the job's own folder.
-	files map[int]string
+	files map[int]speechFile
 	// played is the highest piece the webview says it has started. -1 until
 	// the first one, which is what gives the read its head start.
 	played int
@@ -148,9 +162,8 @@ func (a *App) StartSpeech(text string) (string, error) {
 	job := &speechJob{
 		id:     id,
 		dir:    dir,
-		mime:   engine.Mime(),
 		cancel: cancel,
-		files:  map[int]string{},
+		files:  map[int]speechFile{},
 		played: -1,
 		wake:   make(chan struct{}, 1),
 		done:   make(chan struct{}),
@@ -165,8 +178,17 @@ func (a *App) StartSpeech(text string) (string, error) {
 	// The engine's identity AND its configuration: two voices reading the same
 	// sentence are two different sounds, and a key that ignored the voice
 	// would hand back the wrong one from the cache.
-	key := engineID + "\x00" + voice + "\x00" + model
-	opts := tts.ReadOptions{Dir: dir, CacheDir: speechCacheDir(), CacheKey: key, Parallel: speechParallel}
+	opts := tts.ReadOptions{
+		Dir:      dir,
+		CacheDir: speechCacheDir(),
+		CacheKey: speechCacheKey(engineID, voice, model),
+		Parallel: speechParallel,
+		// Built only once a piece has failed — speechFallbacks says why that
+		// matters to the first piece's timing.
+		Fallbacks: func(context.Context) []tts.Fallback {
+			return a.speechFallbacks(cfg.UILocale, engineID, voice, model)
+		},
+	}
 	go a.runSpeech(ctx, job, engine, text, opts)
 	return id, nil
 }
@@ -188,14 +210,19 @@ func (a *App) runSpeech(ctx context.Context, job *speechJob, engine tts.Engine, 
 			a.emitEvent("speech:chunk", speechChunkEvent{Job: job.id, Seq: piece.Seq, Last: true, Error: piece.Err.Error()})
 			return
 		}
+		if piece.Fallback > 0 {
+			// The answer to "why did the voice change halfway through",
+			// written where it can be found.
+			debuglog.Msg("speak: piece %d of %s read by stand-in voice %d", piece.Seq, job.id, piece.Fallback)
+		}
 		job.mu.Lock()
-		job.files[piece.Seq] = piece.Path
+		job.files[piece.Seq] = speechFile{path: piece.Path, mime: piece.Mime}
 		job.mu.Unlock()
 		a.emitEvent("speech:chunk", speechChunkEvent{
 			Job:  job.id,
 			Seq:  piece.Seq,
 			URL:  fmt.Sprintf("%s%s/%d%s", ttsHostPrefix, job.id, piece.Seq, filepath.Ext(piece.Path)),
-			Mime: job.mime,
+			Mime: piece.Mime,
 			Last: piece.Last,
 		})
 		if piece.Last {
@@ -317,8 +344,68 @@ func (a *App) speechChunkFile(jobID string, seq int) (string, string, bool) {
 	}
 	job.mu.Lock()
 	defer job.mu.Unlock()
-	path, ok := job.files[seq]
-	return path, job.mime, ok
+	f, ok := job.files[seq]
+	return f.path, f.mime, ok
+}
+
+// speechCacheKey names one voice for the cache: the engine's identity AND its
+// configuration, through the catalog so that "" and "windows" — the same
+// engine asked for two ways — are one key.
+func speechCacheKey(engineID, voice, model string) string {
+	if desc, ok := tts.Lookup(engineID); ok {
+		engineID = desc.ID
+	}
+	return engineID + "\x00" + voice + "\x00" + model
+}
+
+// speechFallbacks is the policy internal/tts leaves up here: which voices to
+// try, in order, when the one the user picked fails a piece. The owner's kiosk
+// (AI-Robot-Guide, speech_handler.synthesize_speech_stream) lists two voices
+// per language and then a different vendor, and falls down the list until one
+// answers. Measured against edge-tts on 2026-09-05, that list is the
+// difference between a reading and an error: Premwadee returned nothing five
+// times in seven, Niwat answered every time.
+//
+// So: one more voice of the same engine in the same language, then the local
+// Windows engine, which needs no network and is on every machine this ships
+// to. Same engine first because it is the same kind of voice; Windows last
+// because Pattara after Premwadee is a change of speaker — and a change of
+// speaker still beats a reading that stops. One same-engine voice, not all of
+// them: a third voice of a vendor that just failed twice fails for the same
+// reason, and every try is seconds the listener spends in silence.
+//
+// The list is built only once a piece has failed (ReadOptions.Fallbacks):
+// finding Windows' Thai voice means starting PowerShell, and a read whose
+// voice works must not pay that in front of its first piece.
+func (a *App) speechFallbacks(locale, engineID, voice, model string) []tts.Fallback {
+	var out []tts.Fallback
+	add := func(engine, v, m string) {
+		eng, err := newTTSEngine(tts.Options{Engine: engine, Voice: v, Model: m})
+		if err != nil {
+			return // an engine this machine cannot run is no stand-in
+		}
+		out = append(out, tts.Fallback{Engine: eng, CacheKey: speechCacheKey(engine, v, m)})
+	}
+	// The stand-in speaks the language of the voice that failed — the UI's
+	// when that voice is not in the engine's own list to ask.
+	lang := strings.ToLower(strings.TrimSpace(locale))
+	voices, _ := a.ttsVoices(engineID)
+	for _, v := range voices {
+		if strings.EqualFold(v.ID, voice) && strings.TrimSpace(v.Lang) != "" {
+			lang = strings.ToLower(v.Lang)
+		}
+	}
+	for _, v := range voices {
+		if strings.EqualFold(v.ID, voice) || (lang != "" && !strings.HasPrefix(strings.ToLower(v.Lang), lang)) {
+			continue
+		}
+		add(engineID, v.ID, model)
+		break
+	}
+	if desc, ok := tts.Lookup(engineID); !ok || desc.ID != "windows" {
+		add("windows", a.defaultTTSVoice("windows", locale), "")
+	}
+	return out
 }
 
 // speechCacheDir is where finished pieces are kept so a second press of ฟัง on
