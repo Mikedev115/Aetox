@@ -199,6 +199,20 @@ func zaiContextWindow(modelID string) int {
 // packages need the same answer and one of them (internal/app) cannot import
 // bootstrap — bootstrap imports app. A second copy of a constant is how two
 // callers start disagreeing about the same fact.
+// MaxOutputTokens is the most this model will produce in one reply, by the
+// catalog's word, or 0 when the catalog does not know the model. There is no
+// per-provider table behind it the way ContextWindowTokens has one: the
+// callers that need a number when the catalog has none carry their own floor,
+// which is the floor they were using before the catalog was consulted at all.
+func MaxOutputTokens(provider, modelName string) int {
+	canonical := NormalizeProvider(provider)
+	modelID := strings.ToLower(strings.TrimSpace(modelName))
+	if modelID == "" {
+		modelID = strings.ToLower(strings.TrimSpace(DefaultModel(canonical)))
+	}
+	return catalogMaxOutput(canonical, modelID)
+}
+
 func HistoryChars(contextTokens int) int {
 	if contextTokens <= 0 {
 		return 0

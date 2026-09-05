@@ -39,6 +39,14 @@ func TestMain(m *testing.M) {
 				ReasoningLevels: []string{"low", "medium", "high", "xhigh", "max"},
 				Input:           []string{"text", "image", "pdf"}, Output: []string{"text"},
 			},
+			// A row with a maxOutput, captured from the local catalog on
+			// 2026-09-05: the model the output ceiling was found capping at
+			// 8,192 while the catalog said 131,072.
+			"opencode-go/glm-5.3-flash": {
+				Context: 1000000, MaxOutput: 131072, ToolCall: true, Reasoning: true,
+				ReasoningLevels: []string{"high", "max"},
+				Input:           []string{"text", "image"}, Output: []string{"text"},
+			},
 		},
 	})
 	os.Exit(m.Run())

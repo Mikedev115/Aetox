@@ -222,12 +222,25 @@ func (a *Agent) clampToWindow(ceiling int) int {
 	}
 }
 
-// providerOutputCeiling is the per-provider floor this used to return on its
-// own: the largest max_tokens each API accepts, before the window is consulted.
+// providerOutputCeiling is the largest max_tokens to ask this model for,
+// before the window is consulted.
+//
+// The catalog's own figure first, when it has one: a landing page asked for on
+// glm-5.3-flash streamed for two minutes into the 8,192 the default branch
+// below allows, was cut, was asked for the rest, started over and was cut
+// again — four minutes and 16k output tokens for no file, on a model the
+// catalog says will write 131,072 in one reply. The table below is what each
+// API was known to accept when nothing better was known; it stays as the
+// floor for a model the catalog has no row for. max_tokens is a ceiling, not
+// a reservation: a large one costs nothing until the model actually produces
+// a large reply, and clampToWindow still cuts it to the room the window has.
 func (a *Agent) providerOutputCeiling() int {
 	name := ""
 	if a.provider != nil {
 		name = model.NormalizeProvider(a.provider.Name())
+	}
+	if n := model.MaxOutputTokens(name, a.model); n > 0 {
+		return n
 	}
 	switch name {
 	case "deepseek":

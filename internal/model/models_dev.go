@@ -520,6 +520,19 @@ func catalogContextWindow(provider, modelName string) int {
 	return facts.Context
 }
 
+// catalogMaxOutput is the catalog's word on the most this model will produce
+// in one reply, or 0 when the catalog has no row or the row does not say.
+func catalogMaxOutput(provider, modelName string) int {
+	installedCatalogMu.RLock()
+	c := installedCatalog
+	installedCatalogMu.RUnlock()
+	facts, ok := c.For(provider, modelName)
+	if !ok || facts.MaxOutput <= 0 {
+		return 0
+	}
+	return facts.MaxOutput
+}
+
 // modelsDevDocument is only the part of the upstream JSON we keep.
 type modelsDevDocument map[string]struct {
 	Models map[string]struct {
