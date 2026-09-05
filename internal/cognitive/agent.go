@@ -244,12 +244,33 @@ func (a *Agent) providerOutputCeiling() int {
 	}
 }
 
+// windowFill is the provider's own count of how full this conversation's
+// request was, paired with the char count the history had when it was
+// measured, so the fill can be carried forward between measurements: the
+// chars that moved since, divided by the ratio the same measurement implies.
+//
+// It is kept apart from lastUsage on purpose. lastUsage is per call — reset
+// at every turn's start so LastUsage answers "what did this call cost" — and
+// the compaction decision needs the opposite: the most recent measurement of
+// this conversation whatever turn it came from, including at the start of a
+// turn, which is exactly when the first check runs.
+type windowFill struct {
+	promptTokens int
+	chars        int
+}
+
 type Agent struct {
 	provider  model.Provider
 	model     string
 	context   *memory.Context
 	lastUsage model.Usage
-	onUsage   func(model.Usage) // observer for every API response's usage; nil = off
+	// fill is what the provider last said this conversation's request weighed.
+	// Zero until the first reply, and again after the history is replaced
+	// wholesale (ClearContext, RestoreHistory), when nothing measured is still
+	// standing. Only conversation requests set it: a summary's or an ephemeral
+	// prompt's usage measures a different request.
+	fill    windowFill
+	onUsage func(model.Usage) // observer for every API response's usage; nil = off
 	// onToolCallStart is told a tool call is coming while its arguments are
 	// still streaming — the UI's only signal during the long silence of a
 	// model writing a large file. nil = off.
@@ -592,6 +613,7 @@ func (a *Agent) RespondWithTools(
 			return "", false, err
 		}
 		a.recordUsage(response.Usage)
+		a.measureFill(response.Usage)
 
 		// Two different things from here on, and they were one before an answer
 		// could arrive in pieces:
@@ -975,15 +997,96 @@ func (a *Agent) compactIfNeeded(ctx context.Context) {
 	// the sweep is free and lossless-in-practice (everything it clears can be
 	// re-run), the summary costs a model call and keeps only what the
 	// summarizer thought mattered.
-	if a.context.NeedsCompaction(microCompactThresholdFraction) {
+	if a.needsCompaction(microCompactThresholdFraction) {
 		if swept, freed := a.context.MicroCompact(compactKeepRecent, sweepableToolOutputs); swept > 0 {
 			debuglog.Info("micro-compacted", fmt.Sprintf("%d old tool outputs cleared, %d chars freed", swept, freed))
 		}
 	}
-	if !a.context.NeedsCompaction(compactThresholdFraction) {
+	if !a.needsCompaction(compactThresholdFraction) {
 		return
 	}
 	a.compact(ctx)
+}
+
+// needsCompaction says whether the conversation has crossed threshold of the
+// model's window — by the provider's count when there is one, by chars when
+// there is not yet.
+//
+// The char budget stands in for a token limit at a flat four chars per token,
+// and the note on compactNow records what that flat rate is worth: 3.45 to
+// 5.46 across three real sessions on one machine, by how much of the turn was
+// Thai prose and how much English tool output. Two days of recorded usage
+// showed where that lands — requests reaching 166k tokens before anything
+// was summarized, because the chars said there was room. The provider counts
+// every request with its own tokenizer and reports the number back; once it
+// has, that number is the one to decide by, and the chars only bridge the
+// gap to the next one.
+func (a *Agent) needsCompaction(threshold float64) bool {
+	if a == nil || a.context == nil || threshold <= 0 {
+		return false
+	}
+	used, window, measured := a.WindowFill()
+	if !measured {
+		return a.context.NeedsCompaction(threshold)
+	}
+	return float64(used) > threshold*float64(window)
+}
+
+// WindowFill is how full the model's context window is, in tokens: the
+// provider's last count carried forward by the chars that moved since, against
+// the window the char budget was cut from. measured is false until a provider
+// has counted this conversation, and callers then have only the char estimate.
+func (a *Agent) WindowFill() (used, window int, measured bool) {
+	if a == nil || a.context == nil {
+		return 0, 0, false
+	}
+	_, chars, maxChars := a.context.UsageStats()
+	// The inverse of model.HistoryChars: the budget is the window at four
+	// chars a token, so the window is the budget at a quarter. Read back from
+	// the budget rather than looked up again, so a user's own override of the
+	// window (ModelContextTokens) is honoured here the same as there.
+	window = maxChars / 4
+	if a.fill.promptTokens <= 0 || window <= 0 {
+		return 0, window, false
+	}
+	return a.estimatedFill(chars), window, true
+}
+
+// estimatedFill carries the last measurement forward to the history's current
+// size. The ratio is the measurement's own — its chars over its tokens — so a
+// Thai-heavy conversation is bridged at a Thai rate and an English one at an
+// English rate, and it errs high: the measured count includes the tool block,
+// which the chars do not, so the ratio comes out a little low and a char is
+// charged as slightly more than a token's worth. High is the safe side. The
+// delta may be negative: a sweep or a summary took chars away, and the fill
+// falls with them until the next reply measures again.
+func (a *Agent) estimatedFill(chars int) int {
+	ratio := 4.0
+	if a.fill.chars > 0 && a.fill.promptTokens > 0 {
+		ratio = float64(a.fill.chars) / float64(a.fill.promptTokens)
+		if ratio < 1 {
+			ratio = 1
+		}
+		if ratio > 6 {
+			ratio = 6
+		}
+	}
+	est := a.fill.promptTokens + int(float64(chars-a.fill.chars)/ratio)
+	if est < 0 {
+		return 0
+	}
+	return est
+}
+
+// measureFill takes a conversation request's usage as the new measurement.
+// Called beside recordUsage on the paths that sent the conversation itself,
+// and not on the ones that sent something else over it.
+func (a *Agent) measureFill(u *model.Usage) {
+	if a == nil || a.context == nil || u == nil || u.PromptTokens <= 0 {
+		return
+	}
+	_, chars, _ := a.context.UsageStats()
+	a.fill = windowFill{promptTokens: u.PromptTokens, chars: chars}
 }
 
 // sweepableToolOutputs is every tool whose old output the micro sweep may
@@ -1347,6 +1450,7 @@ func (a *Agent) respondFromContext(ctx context.Context, opts turn.TurnOptions) (
 	}
 	a.lastUsage = model.Usage{}
 	a.recordUsage(response.Usage)
+	a.measureFill(response.Usage)
 
 	a.context.AddMessage(model.Message{
 		Role:             model.RoleAssistant,
@@ -1410,6 +1514,7 @@ func (a *Agent) RespondStream(ctx context.Context, userMessage string, onChunk f
 			}
 			a.lastUsage = model.Usage{}
 			a.recordUsage(response.Usage)
+			a.measureFill(response.Usage)
 			a.context.AddMessage(model.Message{
 				Role:             model.RoleAssistant,
 				Content:          reply,
@@ -1431,6 +1536,7 @@ func (a *Agent) RespondStream(ctx context.Context, userMessage string, onChunk f
 	}
 	a.lastUsage = model.Usage{}
 	a.recordUsage(response.Usage)
+	a.measureFill(response.Usage)
 	a.context.AddMessage(model.Message{
 		Role:             model.RoleAssistant,
 		Content:          reply,
@@ -1470,6 +1576,7 @@ func (a *Agent) ClearContext() {
 	}
 	a.context.Reset(systemPrompt)
 	a.lastUsage = model.Usage{}
+	a.fill = windowFill{}
 }
 
 // RestoreHistory appends prior conversation turns into the agent's context,
@@ -1481,6 +1588,8 @@ func (a *Agent) RestoreHistory(messages []model.Message) {
 	for _, m := range messages {
 		a.context.AddMessage(m)
 	}
+	// Whatever was measured was measured on a different history.
+	a.fill = windowFill{}
 }
 
 func (a *Agent) ContextUsage() (messageCount int, usedChars int, maxChars int) {

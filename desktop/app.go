@@ -2773,8 +2773,14 @@ func (a *App) contextWindowTokens() int {
 func (a *App) GetModelInfo() ModelInfo {
 	used := 0
 	if a.cur().agent != nil {
-		_, usedChars, _ := a.cur().agent.ContextUsage()
-		used = (usedChars + 3) / 4
+		// The provider's own count once it has given one, so the meter and the
+		// compaction decision read the same number; the char estimate before.
+		if fill, _, measured := a.cur().agent.WindowFill(); measured {
+			used = fill
+		} else {
+			_, usedChars, _ := a.cur().agent.ContextUsage()
+			used = (usedChars + 3) / 4
+		}
 	}
 	warning := ""
 	if a.cur().modelErr != nil {
