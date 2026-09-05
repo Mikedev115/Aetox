@@ -1,0 +1,887 @@
+<!-- ═══════════════════════════════════════════════════════════════════════
+     หน้าสำเร็จรูป · ห้องเรียนสุริยะ — ทิศทาง `ob` (วัตถุเป็นพระเอก)
+     ═══════════════════════════════════════════════════════════════════════
+
+     ไฟล์เดียวจบ ไม่มี CDN ไม่มี build **ไม่มีไฟล์ภาพเลยสักไฟล์** — ดาวทุกดวง
+     ในหน้านี้วาดด้วย CSS gradient ตามถนนสายที่ 1 ของ `aetox-design` (วาดเอง)
+     เพราะแอปนี้ไม่มีโมเดลภาพ และดาวเคราะห์คือของที่วาดด้วยเรขาคณิตได้จริง
+
+     ── ทำไมหน้านี้ถึงมีอยู่ ────────────────────────────────────────────
+     หกใบก่อนหน้าในโฟลเดอร์นี้มีของอย่างหนึ่งร่วมกัน: hero ของทุกใบเป็น
+     *ตัวอักษร* หรือ *ภาพถ่าย* ไม่มีใบไหนที่พระเอกของหน้าเป็น **วัตถุชิ้นเดียว**
+     ที่ใหญ่กว่าเฟรม — ผลิตภัณฑ์ นาฬิกา รถ ดาวเคราะห์ — ซึ่งเป็นโจทย์ที่เจอบ่อย
+     ในหน้าขายสินค้าและหน้าการศึกษา ใบนี้ถือทิศทางนั้น (`STANDARD.md` ข้อ 3
+     รหัส `ob`) และเป็นตัวอย่างใช้งานจริงชิ้นแรกที่ข้อ 3 บังคับให้มี
+
+     สิ่งที่หน้าอื่นทำไม่ได้และใบนี้ทำ:
+       1. **วัตถุถูกครอปด้วยขอบล่างของเฟรม** เห็นแค่ยอดโค้ง ~30% — ท่า
+          "เส้นขอบฟ้า" การครอปคือสัญญาณให้เลื่อนต่อ จึงไม่ต้องมีลูกศรชี้ลง
+          และเป็นเหตุผลที่ hero ใบนี้สูง 100vh ได้ทั้งที่ข้อ 8 ห้าม (ดูข้อยกเว้น
+          ที่ข้อ 8 เขียนไว้แล้ว)
+       2. **ของถัดไปโผล่ที่ขอบ** (`peek`) ดาวข้างเคียงถูกขอบซ้ายขวาครอปครึ่ง
+          ดวง พร้อมชื่อ — เป็นตัวนำทางของ carousel แทนจุดสามจุดใต้ภาพ
+       3. **เปลี่ยนฉากด้วยการซูมทะลุ** (`zoom`) ดาวขยายจนล้นเฟรมตอนถูกเลื่อน
+          ออก ไม่ใช่เลื่อนซ้ายขวา — ผูกกับตำแหน่งเลื่อนของ carousel ด้วย
+          `animation-timeline:view(inline)` ไม่มีสคริปต์สักบรรทัด
+
+     ── ค่าไหนมาจากไหน ────────────────────────────────────────────────
+     · **ตัวเลขดาวทุกตัว** ปัดจาก NASA Planetary Fact Sheet
+       (nssdc.gsfc.nasa.gov/planetary/factsheet) — เส้นผ่านศูนย์กลาง
+       ระยะเฉลี่ยจากดวงอาทิตย์ อุณหภูมิเฉลี่ย คาบโคจร จำนวนดวงจันทร์
+       ถ้าเปลี่ยนดาวต้องเปลี่ยนที่ตารางใน `w-cmp` และ `<details>` ใต้กราฟ
+       ด้วย เพราะสองที่นั้นคือเลขชุดเดียวกัน
+     · **พาเลตต์** วัดทุกคู่ (ตารางข้างล่าง) ตัวเลขจากสูตร WCAG 2.x
+     · **ยอดโค้งที่โผล่ = 30% ของความสูงจอ** (`--ob-crest`) วัดจากคลิปอ้างอิง
+       ที่เจ้าของงานให้มาเมื่อ 5 ก.ย. 2569 ยึดกับ *ความสูงจอ* ไม่ใช่กับขนาดดาว —
+       รอบแรกเขียนเป็น "จม 62% ของดาว" แล้วดาว 1,400px บนจอสูง 450px โผล่มา
+       ทั้งดวงทับข้อความ เพราะ 38% ของ 1,400 คือ 530px ซึ่งสูงกว่าจอ
+       ที่ 50% ของจอ ดาวอ่านเป็น "ครึ่งวงกลม" ซึ่งเป็นทรงเรขาคณิต ไม่ใช่วัตถุ
+       ที่ใหญ่กว่าเฟรม ต้องต่ำกว่านั้นถึงจะอ่านเป็นขอบฟ้า
+     · **ซูมทะลุถึง 2.6 เท่า** ไม่ใช่ 1.5 — ที่ 1.5 ดาวยังอยู่ในเฟรมตอนฉากจบ
+       ตาอ่านว่า "โตขึ้นนิดหน่อยแล้วเลื่อนไป" ต้องล้นเฟรมทุกด้านก่อนฉากจบ
+       ถึงจะอ่านว่า "ทะลุผ่าน" ค่านี้ผูกกับขนาดดาว `--orb` = min(150vw,1400px)
+
+     ── พาเลตต์ วัดแล้วทุกคู่ ────────────────────────────────────────────
+     | คู่ | สว่าง | มืด | เกณฑ์ |
+     |---|---|---|---|
+     | text / bg | 15.68:1 | 16.32:1 | 4.5 |
+     | muted / bg | 6.71:1 | 8.33:1 | 4.5 |
+     | muted / surface | 7.21:1 | 7.66:1 | 4.5 |
+     | accent / bg | 6.17:1 | 9.72:1 | 4.5 |
+     | accent / surface | 6.63:1 | 8.93:1 | 4.5 |
+     | accent-ink / accent | 6.63:1 | 9.72:1 | 4.5 |
+     | field / bg | 3.65:1 | 4.58:1 | 3.0 |
+     | field / surface | 3.92:1 | 4.21:1 | 3.0 |
+     | success / bg | 4.74:1 | 10.40:1 | 4.5 |
+     | warning / bg | 5.59:1 | 10.73:1 | 4.5 |
+     | danger / bg | 5.78:1 | 8.61:1 | 4.5 |
+
+     โหมดมืดคือโหมดที่ทิศทางนี้ *เกิดมาเพื่อ* — อวกาศมืด โหมดสว่างไม่ใช่ของ
+     แถม แต่เป็น "หนังสือเรียนดาราศาสตร์": ฟ้าซีด ดาวเป็นภาพประกอบบนกระดาษ
+     ดาวทุกดวงจึงต้องอ่านได้บนพื้นซีดด้วย ซึ่งเป็นเหตุผลที่ขอบมืดของดาว
+     (terminator) เข้มถึง 55% ไม่ใช่ 35% — บนพื้นมืด 35% พอ บนพื้นซีด
+     ดาวที่ขอบจางจะละลายหายไปในกระดาษ
+
+     ── อะไรที่ลองแล้วพัง ───────────────────────────────────────────────
+     1. **`animation-timeline:view()` บนตัวดาวเอง** — พังสองชั้น ชั้นแรก `view()`
+        วัดแกน block (แนวตั้ง) เป็นค่าเริ่มต้น ฉากทุกฉากอยู่ในสายตาแนวตั้งเต็มใบ
+        ตลอด progress จึงเป็น 1 ค้าง แก้เป็น `view(inline)` แล้วเจอชั้นสอง:
+        `view()` วัด*กล่องของ element ที่ถูกอนิเมต* ไม่ใช่ฉาก ดาวกว้าง 1,400px
+        ล้นจอสองข้าง ที่ scrollLeft 0 มันจึง "ยังเข้ามาไม่ครบ" และค้างที่ scale
+        0.966 แทนที่จะเป็น 1 ทางที่ใช้คือ `view-timeline:--w-scene inline`
+        ที่*ฉาก* แล้วให้ดาว ข้อความ และ peek ผูกกับชื่อนั้น — ทั้งสามวัดจาก
+        กล่องเดียวกันและเป็นกล่องที่กว้างเท่าจอพอดี วัดแล้ว: scrollLeft 0 →
+        scale 1.000 ตรงตัว
+     2. **`overflow:hidden` ที่ตัวฉากเพื่อครอปดาว** — ทำให้ฉากกลายเป็น scroll
+        container แล้ว `view()` ของดาวไปวัดกับฉากแทนที่จะวัดกับ carousel
+        (กับดักที่ `STANDARD.md` ข้อ 5 บันทึกไว้แล้ว มาโผล่ในอีกรูป) ทางที่ใช้
+        คือ `clip-path:inset(0)` ซึ่งครอปเหมือนกันแต่ไม่สร้าง scroll container
+     3. **`overflow-x:auto` เฉย ๆ บน carousel** — เอนจินตั้ง `overflow-y` เป็น
+        `auto` ให้ด้วย ดาวที่ทะลุขอบล่างจึงเปิดแถบเลื่อนแนวตั้งใน hero ต้องเขียน
+        `overflow-y:hidden` ให้ชัด
+     4. **ซูมด้วย `animation:` shorthand** — `animation-range` ถูกรีเซ็ตกลับเป็น
+        `normal` ทุกฉากซูมพร้อมกันตั้งแต่โหลด (กับดักข้อ 5 อีกข้อ) ที่นี่เขียน
+        longhand ทั้งหมด และแต่ละดาวมีสองท่า (มาถึง / ทะลุ) คนละ range
+     5. **ตัวอักษรใหญ่ 14vw** — "ดาวอังคาร" เก้าตัวอักษรกว้าง ~75vw ที่ 14vw
+        ชนขอบดาวข้างเคียงบนจอ 1024 ลดเป็น 11vw เพดาน 150px แล้วเว้นระยะ
+        ให้ peek อยู่นอกคอลัมน์ข้อความเสมอ
+     6. **ดาวหมุนด้วย `rotate`** — เงาและไฮไลต์หมุนตามไปด้วย ดาวกลายเป็นลูกบอล
+        ที่กลิ้ง ไม่ใช่ดาวที่แสงตกจากด้านเดียว ต้องแยกชั้น: พื้นผิวเลื่อนด้วย
+        `background-position-x` ส่วนแสงเงาเป็นชั้นบนที่อยู่นิ่ง
+     ═══════════════════════════════════════════════════════════════════ -->
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ห้องเรียนสุริยะ · หน้าสำเร็จรูป</title>
+<meta name="description" content="สำรวจดาวเคราะห์ชั้นในทั้งสี่ดวงด้วยตัวเลขจริงจาก NASA บทเรียนสั้นสำหรับห้องเรียนมัธยม">
+<style>
+  :root{
+    color-scheme:light dark;
+    --bg:#eef1f7; --surface:#f8f9fc; --text:#111827; --muted:#4b5468;
+    --line:#d3d9e6; --field:#727d95; --accent:#1d56b0; --accent-ink:#f8f9fc;
+    --success:#0f7a4f; --warning:#8a5300; --danger:#b3261e;
+    --radius-sm:10px; --radius:18px; --radius-lg:26px; --radius-pill:999px;
+    --maxw:1120px; --gap:clamp(16px,2.5vw,28px);
+    --pad:clamp(20px,5vw,48px);
+    --e1:0 1px 2px -1px rgb(17 24 39/.10), 0 2px 6px -2px rgb(17 24 39/.08);
+    --e2:0 2px 4px -2px rgb(17 24 39/.10), 0 8px 18px -6px rgb(17 24 39/.12);
+    --e3:0 4px 8px -4px rgb(17 24 39/.12), 0 18px 36px -12px rgb(17 24 39/.18);
+    --e4:0 8px 16px -8px rgb(17 24 39/.16), 0 34px 68px -20px rgb(17 24 39/.26);
+    --sans:"Prompt","Leelawadee UI",system-ui,-apple-system,Segoe UI,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+    --ease-in:cubic-bezier(.2,.7,.3,1);
+    --ease-wipe:cubic-bezier(.7,0,.2,1);
+    --t-enter:.55s; --t-hover:.18s; --t-stagger:70ms;
+    --viz-1:#1d56b0; --viz-2:#c2410c; --viz-3:#0f7a4f;
+    --viz-4:#6d28d9; --viz-5:#8a5300; --viz-6:#0e7490;
+    --viz-s1:#dbe6fb; --viz-s2:#b9cdf5; --viz-s3:#84a6ea;
+    --viz-s4:#4b78d0; --viz-s5:#1d56b0;
+    /* ── โทเคนของทิศทาง `ob` ──────────────────────────────────────────
+       --ob-space  พื้นของฉากที่วัตถุลอยอยู่ ไม่ใช่ --bg เพราะฉากต้องลึกกว่าหน้า
+       --ob-star   สีจุดดาว โหมดสว่างเป็นจุดมืดจาง ๆ เหมือนจุดพิมพ์บนกระดาษ
+       --ob-veil   ม่านหลังบล็อกข้อความ (กับดักข้อ 5: ตัวหนังสือจมในพื้นจัดจ้าน)
+       --ob-limb   ความเข้มของขอบมืดของดาว ดูเหตุผลที่หัวไฟล์ */
+    --ob-space:linear-gradient(180deg,#dfe7f5 0%,#eef1f7 70%);
+    --ob-star:rgb(17 24 39/.22);
+    --ob-veil:rgb(238 241 247/.72);
+    --ob-limb:.55;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){ color-scheme:dark;
+      --bg:#070b16; --surface:#0f1626; --text:#e6eaf4; --muted:#a0a9bd;
+      --line:#1e2840; --field:#6f7a95; --accent:#8ab8ff; --accent-ink:#070b16;
+      --success:#4fd39a; --warning:#f2b544; --danger:#ff8a80;
+      --e1:inset 0 1px 0 rgb(255 255 255/.04), 0 1px 2px -1px rgb(0 0 0/.55), 0 2px 6px -2px rgb(0 0 0/.45);
+      --e2:inset 0 1px 0 rgb(255 255 255/.05), 0 2px 4px -2px rgb(0 0 0/.55), 0 8px 18px -6px rgb(0 0 0/.5);
+      --e3:inset 0 1px 0 rgb(255 255 255/.06), 0 4px 8px -4px rgb(0 0 0/.6), 0 18px 36px -12px rgb(0 0 0/.55);
+      --e4:inset 0 1px 0 rgb(255 255 255/.07), 0 8px 16px -8px rgb(0 0 0/.65), 0 34px 68px -20px rgb(0 0 0/.6);
+      --viz-1:#8ab8ff; --viz-2:#ff9b6a; --viz-3:#4fd39a;
+      --viz-4:#b79cff; --viz-5:#f2b544; --viz-6:#4ed0e6;
+      --viz-s1:#152342; --viz-s2:#1d3466; --viz-s3:#2a4d97;
+      --viz-s4:#4a76d2; --viz-s5:#8ab8ff;
+      --ob-space:radial-gradient(120% 80% at 50% 110%,#101a38 0%,#070b16 55%,#03060f 100%);
+      --ob-star:rgb(230 234 244/.9);
+      --ob-veil:rgb(7 11 22/.62);
+      --ob-limb:.45 }
+  }
+  :root[data-theme="light"]{ color-scheme:light }
+  :root[data-theme="dark"]{ color-scheme:dark;
+    --bg:#070b16; --surface:#0f1626; --text:#e6eaf4; --muted:#a0a9bd;
+    --line:#1e2840; --field:#6f7a95; --accent:#8ab8ff; --accent-ink:#070b16;
+    --success:#4fd39a; --warning:#f2b544; --danger:#ff8a80;
+    --e1:inset 0 1px 0 rgb(255 255 255/.04), 0 1px 2px -1px rgb(0 0 0/.55), 0 2px 6px -2px rgb(0 0 0/.45);
+    --e2:inset 0 1px 0 rgb(255 255 255/.05), 0 2px 4px -2px rgb(0 0 0/.55), 0 8px 18px -6px rgb(0 0 0/.5);
+    --e3:inset 0 1px 0 rgb(255 255 255/.06), 0 4px 8px -4px rgb(0 0 0/.6), 0 18px 36px -12px rgb(0 0 0/.55);
+    --e4:inset 0 1px 0 rgb(255 255 255/.07), 0 8px 16px -8px rgb(0 0 0/.65), 0 34px 68px -20px rgb(0 0 0/.6);
+    --viz-1:#8ab8ff; --viz-2:#ff9b6a; --viz-3:#4fd39a;
+    --viz-4:#b79cff; --viz-5:#f2b544; --viz-6:#4ed0e6;
+    --viz-s1:#152342; --viz-s2:#1d3466; --viz-s3:#2a4d97;
+    --viz-s4:#4a76d2; --viz-s5:#8ab8ff;
+    --ob-space:radial-gradient(120% 80% at 50% 110%,#101a38 0%,#070b16 55%,#03060f 100%);
+    --ob-star:rgb(230 234 244/.9);
+    --ob-veil:rgb(7 11 22/.62);
+    --ob-limb:.45 }
+
+  *,*::before,*::after{ box-sizing:border-box }
+  body,h1,h2,h3,h4,p,figure,blockquote,ul,ol,dl,dd{ margin:0 }
+  :is([class^="w-"],[class*=" w-"]) :where(ul,ol){ list-style:none; padding:0 }
+  img,svg,video{ display:block; max-width:100%; height:auto }
+  body{ background:var(--bg); color:var(--text); font-family:var(--sans);
+        line-height:1.65; -webkit-font-smoothing:antialiased }
+  a{ color:inherit }
+  :where(a,button,input,textarea,select,summary):focus-visible{
+    outline:2px solid var(--accent); outline-offset:3px; border-radius:var(--radius-sm) }
+  .w-wrap{ width:100%; max-width:var(--maxw); margin-inline:auto; padding-inline:var(--pad) }
+  .w-section{ padding-block:clamp(48px,8vw,104px) }
+  .w-eyebrow{ color:var(--accent); font-weight:600; letter-spacing:.14em;
+              text-transform:uppercase; font-size:13px }
+  .w-lede{ color:var(--muted); font-size:clamp(16px,1.6vw,19px); max-width:62ch }
+  .w-btn{ display:inline-flex; align-items:center; gap:8px; border:1px solid var(--accent);
+          background:var(--accent); color:var(--accent-ink); text-decoration:none;
+          font:600 16px/1 var(--sans); padding:14px 24px; border-radius:var(--radius-pill) }
+  .w-btn--ghost{ background:transparent; color:var(--text); border-color:var(--field) }
+  .w-sr-only{
+    position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
+    clip-path:inset(50%); overflow:hidden; white-space:nowrap;
+  }
+  .w-skip{ position:absolute; left:-9999px }
+  .w-skip:focus{ left:12px; top:12px; z-index:99; background:var(--bg); padding:10px 14px }
+
+  /* ── คลังคำศัพท์การเคลื่อนไหว (STANDARD.md ข้อ 4) ประกาศครั้งเดียว ──────
+     สิบคำเดิมครบ และสองคำที่ทิศทาง `ob` เพิ่มเข้าคลัง:
+       zoom  ขยายทะลุเฟรมเพื่อเปลี่ยนฉาก — ของที่เป็นพระเอกเท่านั้น
+       peek  ของถัดไปโผล่ที่ขอบ — เป็นการจัดวาง (ตำแหน่ง) มากกว่าท่า จึงไม่มี
+             คีย์เฟรมของตัวเอง แต่ตอนเข้าฉากใช้ w-rise ตามปกติ */
+  @keyframes w-rise { from{ transform:translateY(14px) } }
+  @keyframes w-wipe { from{ clip-path:inset(0 100% 0 0) }
+                      to  { clip-path:inset(0 0 0 0) } }
+  @keyframes w-lift { to  { transform:translateY(-3px) } }
+  @keyframes w-slide{ to  { transform:translateX(-50%) } }
+  @keyframes w-drift{ to  { transform:translate3d(4%,-3%,0) scale(1.12) } }
+  @keyframes w-sheen{ from{ background-position:-140% 0 } to{ background-position:240% 0 } }
+  @keyframes w-grow { from{ transform:scale(var(--grow-x,1),var(--grow-y,0)) } }
+  @keyframes w-draw { from{ stroke-dashoffset:1000 } }
+  @keyframes w-spin { to  { transform:rotate(360deg) } }
+  @keyframes w-blink{ 50% { opacity:.25 } }
+  /* zoom มีสองครึ่ง เพราะฉากมีสองขอบ: มาถึง (จากเล็กเป็นเต็ม) และทะลุ (จาก
+     เต็มเป็นล้นเฟรม) แยกชื่อไว้เพราะ animation-range ของสองครึ่งต่างกัน
+     ดู .w-ob .orb ข้างล่าง */
+  @keyframes w-zoom-in { from{ transform:translateX(-50%) scale(.62) } }
+  @keyframes w-zoom-out{ to  { transform:translateX(-50%) scale(2.6) } }
+  @keyframes w-zoom-fade{ to { opacity:.001; transform:translateY(-24px) } }
+
+  .w-lift{ transition:border-color var(--t-hover) linear, box-shadow var(--t-hover) linear }
+  .w-lift:hover{ border-color:color-mix(in srgb,var(--accent) 42%,var(--line));
+                 box-shadow:var(--e2) }
+  .w-btn{ position:relative; overflow:hidden; isolation:isolate }
+  .w-btn::after{ content:""; position:absolute; inset:0; z-index:-1; pointer-events:none;
+    background:linear-gradient(100deg, transparent 34%,
+      color-mix(in srgb,currentColor 24%,transparent) 50%, transparent 66%);
+    background-size:240% 100%; background-repeat:no-repeat; background-position:-140% 0 }
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      .w-reveal{ animation:w-rise linear both;
+                 animation-timeline:view(); animation-range:entry 8% cover 26% }
+    }
+  }
+  @media (prefers-reduced-motion:no-preference){
+    html{ scroll-behavior:smooth }
+    .w-lift{ transition:transform var(--t-hover) var(--ease-in),
+                        border-color var(--t-hover) linear,
+                        box-shadow var(--t-hover) linear }
+    .w-lift:hover{ transform:translateY(-3px); box-shadow:var(--e3) }
+    .w-btn:hover::after,.w-btn:focus-visible::after{ animation:w-sheen .7s var(--ease-wipe) }
+  }
+
+  /* ── ดาวเคราะห์ — วาดครั้งเดียว ใช้ทุกที่ ─────────────────────────────
+     ดวงหนึ่งคือสี่ชั้นซ้อนกัน จากบนลงล่าง:
+       1. ไฮไลต์  จุดสว่างเล็กที่ 30%,28% — ดวงอาทิตย์อยู่ซ้ายบนเสมอทั้งหน้า
+          (STANDARD.md ข้อ 4.5: มุมแสงคงที่ทั้งระบบ ใช้กับดาวเหมือนใช้กับเงา)
+       2. ขอบมืด  terminator เป็นชั้น inset shadow ไม่ใช่ gradient เพราะ inset
+          โค้งตามทรงกลมให้เอง gradient ต้องคำนวณจุดศูนย์กลางใหม่ทุกขนาด
+       3. พื้นผิว  ต่างกันต่อดวง ตั้งผ่าน --p1 (สว่าง) --p2 (กลาง) --p3 (มืด)
+          และชั้นลายเพิ่มเติมใน .orb.<ชื่อดาว>
+       4. แสงขอบ  box-shadow ด้านนอกสีเดียวกับ --p1 บาง ๆ — บนพื้นมืดคือ
+          บรรยากาศ บนพื้นซีดคือเงาตกกระทบ ค่าเดียวอ่านได้ทั้งสองแบบ */
+  .w-orb{
+    --p1:#e8e2d8; --p2:#8f8478; --p3:#2c2621;
+    width:var(--orb,200px); aspect-ratio:1; border-radius:50%;
+    background:
+      radial-gradient(circle at 30% 28%, rgb(255 255 255/.42) 0, transparent 26%),
+      radial-gradient(circle at 36% 32%, var(--p1) 0, var(--p2) 46%, var(--p3) 82%, #000 100%);
+    box-shadow:
+      inset -.12em -.08em .28em rgb(0 0 0/var(--ob-limb)),
+      0 0 .5em -.1em color-mix(in srgb,var(--p1) 45%,transparent);
+    font-size:var(--orb,200px);   /* หน่วย em ของเงาผูกกับขนาดดาว ไม่ต้องคำนวณใหม่ */
+  }
+  .w-orb.mercury{ --p1:#d9d2c8; --p2:#8a8078; --p3:#2a2622;
+    background-image:
+      radial-gradient(circle at 30% 28%, rgb(255 255 255/.42) 0, transparent 26%),
+      radial-gradient(circle at 62% 58%, rgb(0 0 0/.18) 0 4%, transparent 5%),
+      radial-gradient(circle at 44% 70%, rgb(0 0 0/.16) 0 3%, transparent 4%),
+      radial-gradient(circle at 70% 36%, rgb(0 0 0/.14) 0 2.5%, transparent 3.5%),
+      radial-gradient(circle at 36% 32%, var(--p1) 0, var(--p2) 46%, var(--p3) 82%, #000 100%) }
+  .w-orb.venus{ --p1:#f3dfb6; --p2:#c9985a; --p3:#4a2f14;
+    background-image:
+      radial-gradient(circle at 30% 28%, rgb(255 255 255/.42) 0, transparent 26%),
+      repeating-linear-gradient(172deg, transparent 0 6%, rgb(255 255 255/.07) 6% 9%, transparent 9% 15%),
+      radial-gradient(circle at 36% 32%, var(--p1) 0, var(--p2) 46%, var(--p3) 82%, #000 100%) }
+  .w-orb.earth{ --p1:#9fd0ff; --p2:#2564b8; --p3:#0a1e4a;
+    background-image:
+      radial-gradient(circle at 30% 28%, rgb(255 255 255/.42) 0, transparent 26%),
+      radial-gradient(ellipse 18% 12% at 34% 40%, #3f8f4a 0 62%, transparent 66%),
+      radial-gradient(ellipse 12% 20% at 56% 64%, #4a9a4f 0 60%, transparent 66%),
+      radial-gradient(ellipse 22% 9% at 70% 34%, #5aa35a 0 60%, transparent 66%),
+      radial-gradient(circle at 50% 8%, rgb(255 255 255/.8) 0 6%, transparent 9%),
+      radial-gradient(circle at 36% 32%, var(--p1) 0, var(--p2) 46%, var(--p3) 82%, #000 100%) }
+  .w-orb.mars{ --p1:#f0a677; --p2:#b8542a; --p3:#3d1708;
+    background-image:
+      radial-gradient(circle at 30% 28%, rgb(255 255 255/.36) 0, transparent 26%),
+      radial-gradient(ellipse 26% 12% at 52% 58%, rgb(0 0 0/.22) 0 60%, transparent 68%),
+      radial-gradient(circle at 50% 6%, rgb(255 255 255/.7) 0 5%, transparent 8%),
+      radial-gradient(circle at 36% 32%, var(--p1) 0, var(--p2) 46%, var(--p3) 82%, #000 100%) }
+</style>
+</head>
+<body>
+<a class="w-skip" href="#main">ข้ามไปเนื้อหา</a>
+
+<!-- Nav · แคปซูลลอยเหนือฉาก — เหตุผลเดียวกับที่หน้าแฟชั่นใช้: ข้างหลังแถบมี
+     อวกาศที่ต้องมองทะลุ แถบทึบเต็มความกว้างจะตัดฟ้าเป็นสองท่อนตรงบรรทัดแรก
+     แถบใช้ margin-bottom ติดลบเท่าความสูงตัวเอง เพื่อให้ hero เริ่มที่ขอบบน
+     ของหน้าจริง ๆ และแคปซูลลอยทับ ไม่ใช่ดัน hero ลงไป 80px -->
+<style>
+  .w-navp{
+    --gl-pane:color-mix(in srgb,var(--surface) 76%,transparent);
+    --gl-edge:color-mix(in srgb,var(--text) 13%,transparent);
+    position:sticky; top:12px; z-index:30; padding-top:12px;
+    margin-bottom:calc(-1 * (56px + 12px));
+  }
+  .w-navp .bar{
+    display:flex; align-items:center; gap:clamp(10px,2vw,22px);
+    max-width:920px; margin-inline:auto;
+    padding:8px 8px 8px 20px; min-height:56px;
+    border:1px solid var(--gl-edge); border-radius:var(--radius-pill);
+    background:var(--gl-pane); box-shadow:var(--e3);
+  }
+  @supports (backdrop-filter:blur(4px)){
+    .w-navp .bar{ backdrop-filter:blur(14px) saturate(1.3) }
+  }
+  .w-navp .brand{ font-weight:700; text-decoration:none; letter-spacing:.02em; margin-right:auto }
+  .w-navp .brand small{ display:block; font-weight:500; font-size:11px; color:var(--muted); letter-spacing:.12em }
+  .w-navp .links{ display:flex; gap:clamp(6px,1.4vw,14px) }
+  .w-navp .links a{ text-decoration:none; font-size:15px; color:var(--muted);
+    padding:8px 10px; border-radius:var(--radius-pill) }
+  .w-navp .links a:hover{ color:var(--text); background:color-mix(in srgb,var(--text) 6%,transparent) }
+  .w-navp .cta{ padding:10px 18px; font-size:15px }
+  .w-navp .toggle{ display:none }
+  .w-navp .burger{ display:none; width:40px; height:40px; border-radius:50%;
+    place-items:center; cursor:pointer; border:1px solid var(--field) }
+  .w-navp .burger svg{ width:18px; height:18px }
+  .w-navp .drop{ display:none; max-width:920px; margin:8px auto 0; padding:10px;
+    border:1px solid var(--gl-edge); border-radius:var(--radius-lg); background:var(--gl-pane);
+    box-shadow:var(--e3) }
+  .w-navp .drop a{ display:block; padding:12px 14px; text-decoration:none; border-radius:var(--radius-sm) }
+  .w-navp .drop a:hover{ background:color-mix(in srgb,var(--text) 6%,transparent) }
+  @media (max-width:760px){
+    .w-navp .links,.w-navp .cta{ display:none }
+    .w-navp .burger{ display:grid }
+    .w-navp .toggle:checked ~ .drop{ display:block }
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .w-navp .drop{ animation:w-navp-drop var(--t-enter) var(--ease-in) both }
+  }
+  @keyframes w-navp-drop{ from{ transform:translateY(-8px) } }
+</style>
+<div class="w-navp w-wrap">
+  <nav class="bar" aria-label="หลัก">
+    <a class="brand" href="#main">ห้องเรียนสุริยะ<small>SOLAR CLASSROOM</small></a>
+    <div class="links">
+      <a href="#planets">ดาวเคราะห์</a>
+      <a href="#earth">โลก</a>
+      <a href="#compare">เปรียบเทียบ</a>
+      <a href="#lessons">บทเรียน</a>
+    </div>
+    <a class="w-btn cta" href="#lessons">เริ่มเรียน</a>
+    <input class="toggle" type="checkbox" id="w-navp-t">
+    <label class="burger" for="w-navp-t" aria-label="เปิดเมนู">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </label>
+    <div class="drop">
+      <a href="#planets">ดาวเคราะห์</a>
+      <a href="#earth">โลก</a>
+      <a href="#compare">เปรียบเทียบ</a>
+      <a href="#lessons">บทเรียน</a>
+    </div>
+  </nav>
+</div>
+
+<main id="main">
+
+<!-- Hero · `ob` — carousel ของวัตถุที่ใหญ่กว่าเฟรม
+
+     โครง: <section> เป็น carousel เลื่อนแนวนอนด้วย scroll-snap ฉากละ 100%
+     ในแต่ละฉากมี ข้อความกลาง · ดาวใหญ่ที่ขอบล่างครอป · ดาวข้างเคียงสองดวงที่
+     ขอบซ้ายขวา (peek) ซึ่งเป็นลิงก์ไปฉากนั้น
+
+     ไม่มีสคริปต์: ปุ่มก่อนหน้า/ถัดไปคือ <a href="#p-…"> ธรรมดา เบราว์เซอร์
+     เลื่อน carousel ไปหาฉากนั้นเองและ snap เข้าที่ คนใช้คีย์บอร์ดกด Tab ไปที่
+     ลิงก์ หรือโฟกัสที่ carousel (tabindex=0) แล้วกดลูกศรซ้ายขวาก็ได้
+     คนที่ปิดการเคลื่อนไหวได้ carousel ที่ snap ปกติ ไม่มีซูม — ทุกฉากครบ
+
+     หัวข้อ: ฉากทั้งสี่เป็นพี่น้องกันในระดับเดียว ไม่มีฉากไหนเป็น h1 ของหน้า
+     ได้ h1 จึงเป็นประโยคที่มองไม่เห็น (w-sr-only) แต่ screen reader ได้ยิน
+     ส่วนชื่อดาวเป็น h2 ทุกดวง
+
+     ความสูง 100vh: ข้อยกเว้นของ STANDARD.md ข้อ 8 — hero นี้ *คือ* เนื้อหาจริง
+     และวัตถุที่ตัดขอบล่างคือสัญญาณเลื่อนในตัว ไม่ได้ดันอะไรออกนอกเฟรม -->
+<style>
+  .w-ob{ position:relative; background:var(--ob-space); color:var(--text) }
+  /* ทุ่งดาว — สามชั้นของจุดคนละความถี่ ให้ความลึกโดยไม่ต้องมีรูป
+     ชั้นละ background-size ต่างกัน ดาวจึงไม่เรียงเป็นตาราง ตาไม่จับ pattern */
+  .w-ob::before{ content:""; position:absolute; inset:0; pointer-events:none; opacity:.9;
+    background-image:
+      radial-gradient(1.2px 1.2px at 18% 22%, var(--ob-star) 50%, transparent 51%),
+      radial-gradient(1px 1px at 74% 14%, var(--ob-star) 50%, transparent 51%),
+      radial-gradient(1.6px 1.6px at 46% 66%, var(--ob-star) 50%, transparent 51%),
+      radial-gradient(1px 1px at 88% 48%, var(--ob-star) 50%, transparent 51%),
+      radial-gradient(1px 1px at 30% 84%, var(--ob-star) 50%, transparent 51%);
+    background-size:340px 260px, 520px 410px, 610px 470px, 430px 350px, 270px 300px }
+  .w-ob .track{
+    display:grid; grid-auto-flow:column; grid-auto-columns:100%;
+    overflow-x:auto; overflow-y:hidden;           /* พังข้อ 3 ที่หัวไฟล์ */
+    scroll-snap-type:x mandatory; scrollbar-width:none;
+    scroll-behavior:smooth;
+  }
+  .w-ob .track::-webkit-scrollbar{ display:none }
+  .w-ob .scene{
+    --orb:min(150vw,1400px);
+    --ob-crest:clamp(150px,30vh,340px);            /* ส่วนของดาวที่โผล่พ้นขอบล่าง */
+    scroll-snap-align:start; position:relative;
+    min-height:100vh; clip-path:inset(0);          /* พังข้อ 2 ที่หัวไฟล์ */
+    view-timeline:--w-scene inline;                /* พังข้อ 1 ที่หัวไฟล์: ฉากเป็นเจ้าของ timeline ไม่ใช่ดาว */
+    display:grid; align-content:start; justify-items:center; text-align:center;
+    padding:clamp(120px,18vh,180px) var(--pad) 0;
+  }
+  @supports (height:100svh){ .w-ob .scene{ min-height:100svh } }
+  .w-ob .copy{ position:relative; z-index:2; max-width:60ch;
+    padding:12px clamp(12px,3vw,28px); border-radius:var(--radius-lg);
+    background:radial-gradient(60% 70% at 50% 50%, var(--ob-veil) 0, transparent 100%) }
+  .w-ob .copy .w-eyebrow{ display:block; margin-bottom:8px }
+  .w-ob .copy h2{
+    font-size:clamp(52px,11vw,150px); line-height:.95; font-weight:300;
+    letter-spacing:-.015em; margin-bottom:clamp(12px,2vw,20px) }
+  .w-ob .copy p{ color:var(--muted); font-size:clamp(15px,1.5vw,18px); max-width:52ch; margin-inline:auto }
+  .w-ob .copy .w-btn{ margin-top:clamp(18px,2.6vw,28px) }
+  .w-ob .orb{
+    position:absolute; left:50%; top:calc(100% - var(--ob-crest)); z-index:1;
+    transform:translateX(-50%);
+    /* จุดยึดของการซูมอยู่ที่ 20% จากยอด ไม่ใช่ใจกลาง: ใจกลางจมอยู่ใต้จอ ถ้ายึด
+       ตรงนั้นดาวจะโตลงล่างซึ่งมองไม่เห็น ยึดใกล้ยอดแล้วยอดจะ *ลอยขึ้น* มาปิดจอ
+       ตอนซูม 2.6 เท่า — ยอดขยับขึ้น 0.2 × 1400 × 1.6 ≈ 450px ซึ่งพอปิดจอ */
+    transform-origin:50% 20%;
+  }
+  /* peek — ดาวข้างเคียงที่ขอบ ครึ่งดวงถูกขอบครอป พร้อมชื่อเป็นลิงก์
+     วางที่ 46% ของความสูง ไม่ใช่ 50% เพราะดาวใหญ่กินขอบล่างไปแล้ว
+     จุดกึ่งกลางของ "ที่ว่าง" อยู่สูงกว่ากึ่งกลางเฟรม */
+  .w-ob .peek{
+    --orb:clamp(72px,12vw,170px);
+    position:absolute; top:46%; z-index:2; display:grid; gap:10px; justify-items:center;
+    text-decoration:none; color:var(--muted); font-size:13px; letter-spacing:.12em;
+    text-transform:uppercase;
+  }
+  .w-ob .peek:hover,.w-ob .peek:focus-visible{ color:var(--text) }
+  .w-ob .peek .w-orb{ transition:transform var(--t-hover) var(--ease-in) }
+  .w-ob .peek:hover .w-orb{ transform:scale(1.06) }
+  .w-ob .peek.prev{ left:0; transform:translate(-40%,-50%) }
+  .w-ob .peek.next{ right:0; transform:translate(40%,-50%) }
+  .w-ob .peek span{ display:inline-flex; align-items:center; gap:6px; white-space:nowrap }
+  .w-ob .peek.prev span{ transform:translateX(30%) }
+  .w-ob .peek.next span{ transform:translateX(-30%) }
+  /* บนจอแคบ peek ชนคอลัมน์ข้อความ (พังข้อ 5) ย้ายลงไปเป็นแถบก่อนหน้า/ถัดไป
+     ใต้ปุ่ม ยังเป็นลิงก์เดิม แค่ไม่ครอปที่ขอบ */
+  @media (max-width:700px){
+    /* เขียน .prev/.next ซ้ำในนี้ เพราะกฎเดสก์ท็อป `.w-ob .peek.next` เฉพาะเจาะจง
+       กว่า `.w-ob .peek` — รอบแรกเขียนแค่ตัวหลัง แถบเลยยังลอยขึ้น 50% ไปทับปุ่ม */
+    .w-ob .peek,.w-ob .peek.prev,.w-ob .peek.next{ --orb:44px; position:static; transform:none;
+      grid-auto-flow:column; align-items:center;
+      padding:8px 12px; border:1px solid var(--field); border-radius:var(--radius-pill) }
+    .w-ob .peek span,.w-ob .peek.prev span,.w-ob .peek.next span{ transform:none }
+    .w-ob .peek .w-orb{ box-shadow:none }
+    .w-ob .peeks{ position:relative; z-index:2; display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; justify-content:center }
+  }
+  @media (min-width:701px){ .w-ob .peeks{ display:contents } }
+
+  /* ── zoom · ผูกกับตำแหน่งเลื่อนของ carousel ──────────────────────────
+     สองท่าบนดาวดวงเดียว คนละ range:
+       w-zoom-in   ตอนฉากเลื่อนเข้ามา (entry)  .62 → 1
+       w-zoom-out  ตอนฉากเลื่อนออกไป (exit)    1 → 2.6
+     ระหว่าง entry จบกับ exit เริ่ม (ฉากอยู่เต็มจอ) ดาวอยู่ที่ scale 1 ซึ่งคือ
+     สถานะพัก — เฟรมแรกของหน้าจึงครบ ไม่ใช่ดาวเล็กที่รอโต
+     longhand ทั้งหมด เพราะ shorthand รีเซ็ต animation-range (พังข้อ 4)
+     timeline ชื่อ --w-scene ประกาศที่ฉาก (แกน inline) ไม่ใช่ view() ที่ตัวดาว
+     เพราะ view() วัดกล่องของตัวมันเอง และดาวกว้างกว่าจอ (พังข้อ 1) */
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view(inline)){
+      .w-ob .orb{
+        animation-name:w-zoom-in, w-zoom-out;
+        animation-timing-function:var(--ease-in), var(--ease-wipe);
+        animation-fill-mode:both, both;
+        animation-timeline:--w-scene, --w-scene;
+        animation-range:entry 0% entry 100%, exit 0% exit 100%;
+      }
+      .w-ob .copy{
+        animation-name:w-zoom-fade;
+        animation-timing-function:linear;
+        animation-fill-mode:both;
+        animation-timeline:--w-scene;
+        animation-range:exit 0% exit 60%;
+      }
+      .w-ob .peek{
+        animation-name:w-zoom-fade;
+        animation-timing-function:linear;
+        animation-fill-mode:both;
+        animation-timeline:--w-scene;
+        animation-range:exit 0% exit 40%;
+      }
+    }
+    .w-ob::before{ animation:w-drift 90s linear infinite alternate }
+  }
+</style>
+<section class="w-ob" id="planets" aria-labelledby="w-ob-h1">
+  <h1 id="w-ob-h1" class="w-sr-only">ห้องเรียนสุริยะ — สำรวจดาวเคราะห์ชั้นในทั้งสี่ดวง</h1>
+  <div class="track" tabindex="0" role="group" aria-label="เลือกดาวเคราะห์ เลื่อนซ้ายขวาหรือกดลูกศร">
+
+    <article class="scene" id="p-mercury" aria-labelledby="h-mercury">
+      <div class="copy">
+        <span class="w-eyebrow">ดวงที่ 1 จากดวงอาทิตย์ · Mercury</span>
+        <h2 id="h-mercury">ดาวพุธ</h2>
+        <p>ดาวเคราะห์ที่เล็กที่สุดและใกล้ดวงอาทิตย์ที่สุด กลางวันร้อนถึง 430 °C กลางคืนหนาวถึง −180 °C เพราะแทบไม่มีบรรยากาศเก็บความร้อน หนึ่งวันบนดาวพุธยาวเกือบ 176 วันโลก</p>
+        <a class="w-btn" href="#compare">ดูตัวเลขของดาวพุธ</a>
+      </div>
+      <div class="peeks">
+        <a class="peek next" href="#p-venus"><div class="w-orb venus" aria-hidden="true"></div><span>ดาวศุกร์ <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
+      </div>
+      <div class="w-orb orb mercury" aria-hidden="true"></div>
+    </article>
+
+    <article class="scene" id="p-venus" aria-labelledby="h-venus">
+      <div class="copy">
+        <span class="w-eyebrow">ดวงที่ 2 จากดวงอาทิตย์ · Venus</span>
+        <h2 id="h-venus">ดาวศุกร์</h2>
+        <p>ร้อนที่สุดในระบบสุริยะแม้จะไม่ได้ใกล้ดวงอาทิตย์ที่สุด เพราะบรรยากาศคาร์บอนไดออกไซด์หนาทึบกักความร้อนไว้ที่ 464 °C ทั้งดวง หมุนรอบตัวเองกลับทางกับดาวดวงอื่น และหมุนช้ากว่าโคจรรอบดวงอาทิตย์</p>
+        <a class="w-btn" href="#compare">ดูตัวเลขของดาวศุกร์</a>
+      </div>
+      <div class="peeks">
+        <a class="peek prev" href="#p-mercury"><div class="w-orb mercury" aria-hidden="true"></div><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg> ดาวพุธ</span></a>
+        <a class="peek next" href="#p-earth"><div class="w-orb earth" aria-hidden="true"></div><span>โลก <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
+      </div>
+      <div class="w-orb orb venus" aria-hidden="true"></div>
+    </article>
+
+    <article class="scene" id="p-earth" aria-labelledby="h-earth">
+      <div class="copy">
+        <span class="w-eyebrow">ดวงที่ 3 จากดวงอาทิตย์ · Earth</span>
+        <h2 id="h-earth">โลก</h2>
+        <p>ดาวเคราะห์ดวงเดียวที่รู้ว่ามีสิ่งมีชีวิต ผิวสองในสามเป็นน้ำ บรรยากาศไนโตรเจนกับออกซิเจนบางพอให้แสงผ่านและหนาพอกันรังสี อยู่ห่างดวงอาทิตย์ 149.6 ล้านกิโลเมตร — ระยะที่นักดาราศาสตร์ใช้เป็นหน่วยวัดหนึ่งหน่วย</p>
+        <a class="w-btn" href="#earth">ทำไมโลกถึงพิเศษ</a>
+      </div>
+      <div class="peeks">
+        <a class="peek prev" href="#p-venus"><div class="w-orb venus" aria-hidden="true"></div><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg> ดาวศุกร์</span></a>
+        <a class="peek next" href="#p-mars"><div class="w-orb mars" aria-hidden="true"></div><span>ดาวอังคาร <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
+      </div>
+      <div class="w-orb orb earth" aria-hidden="true"></div>
+    </article>
+
+    <article class="scene" id="p-mars" aria-labelledby="h-mars">
+      <div class="copy">
+        <span class="w-eyebrow">ดวงที่ 4 จากดวงอาทิตย์ · Mars</span>
+        <h2 id="h-mars">ดาวอังคาร</h2>
+        <p>ดาวสีสนิมที่ผิวมีเหล็กออกไซด์ปกคลุม มีภูเขาไฟสูงที่สุดในระบบสุริยะ และมีร่องรอยของแม่น้ำที่เคยไหล วันหนึ่งยาว 24.7 ชั่วโมง ใกล้เคียงโลกที่สุด แต่หนึ่งปียาวเกือบสองเท่า</p>
+        <a class="w-btn" href="#compare">ดูตัวเลขของดาวอังคาร</a>
+      </div>
+      <div class="peeks">
+        <a class="peek prev" href="#p-earth"><div class="w-orb earth" aria-hidden="true"></div><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg> โลก</span></a>
+      </div>
+      <div class="w-orb orb mars" aria-hidden="true"></div>
+    </article>
+
+  </div>
+</section>
+
+<!-- โลกหมุน · วัตถุชิ้นเดียว ซ้ายข้อความ ขวาดาว
+
+     ดาวหมุนด้วยการเลื่อนพื้นผิว ไม่ใช่หมุนทั้งดวง (พังข้อ 6 ที่หัวไฟล์)
+     ลายทวีปเป็น tile กว้าง 200% ของดวง repeat-x แล้วเลื่อน
+     background-position-x จาก 0 ไป 200% — ที่ 200% ระยะเลื่อนเท่ากับหนึ่ง
+     tile พอดี ลูปจึงต่อเนื่องไม่กระตุก ชั้นแสงเงาอยู่บนสุดและไม่เลื่อน
+     ดวงอาทิตย์จึงอยู่ซ้ายบนตลอด เหมือนดาวทุกดวงในหน้านี้
+
+     คำศัพท์: นี่คือ `slide` (เลื่อนไม่จบ) ในความหมายของข้อ 4 แค่เลื่อนพื้นผิว
+     แทนที่จะเลื่อนกล่อง จึงตั้งชื่อคีย์เฟรมเฉพาะที่ w-earth-turn และใช้ที่นี่ที่เดียว -->
+<style>
+  .w-earth{ background:var(--bg) }
+  .w-earth .grid{ display:grid; gap:clamp(28px,5vw,64px); align-items:center;
+    grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr)) }
+  .w-earth h2{ font-size:clamp(40px,6vw,84px); line-height:1; font-weight:300; letter-spacing:-.01em;
+    margin:8px 0 18px }
+  .w-earth .actions{ display:flex; gap:12px; align-items:center; margin-top:22px; flex-wrap:wrap }
+  .w-earth .circle{ display:inline-grid; place-items:center; width:48px; height:48px;
+    border:1px solid var(--field); border-radius:50%; color:var(--text) }
+  .w-earth .circle svg{ width:18px; height:18px }
+  .w-earth dl{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px 20px; margin-top:28px;
+    padding-top:22px; border-top:1px solid var(--line) }
+  .w-earth dt{ color:var(--muted); font-size:13px; letter-spacing:.06em }
+  .w-earth dd{ font-size:clamp(20px,2.2vw,26px); font-weight:500; font-variant-numeric:tabular-nums }
+  .w-earth dd small{ font-size:.6em; color:var(--muted); font-weight:400; margin-left:4px }
+  .w-earth .stage{ display:grid; place-items:center; padding-block:20px }
+  .w-earth .globe{
+    --orb:clamp(240px,34vw,440px);
+    width:var(--orb); aspect-ratio:1; border-radius:50%; font-size:var(--orb);
+    background-color:#2564b8;
+    background-image:
+      radial-gradient(circle at 30% 28%, rgb(255 255 255/.42) 0, transparent 26%),
+      radial-gradient(circle at 36% 32%, rgb(159 208 255/.9) 0, transparent 46%, rgb(10 30 74/.9) 82%, #000 100%),
+      radial-gradient(ellipse 9% 12% at 17% 40%, #3f8f4a 0 62%, transparent 66%),
+      radial-gradient(ellipse 6% 20% at 28% 64%, #4a9a4f 0 60%, transparent 66%),
+      radial-gradient(ellipse 11% 9% at 35% 34%, #5aa35a 0 60%, transparent 66%),
+      radial-gradient(ellipse 8% 14% at 62% 46%, #3f8f4a 0 62%, transparent 66%),
+      radial-gradient(ellipse 12% 8% at 80% 30%, #4a9a4f 0 60%, transparent 66%),
+      radial-gradient(ellipse 7% 11% at 88% 66%, #5aa35a 0 60%, transparent 66%);
+    background-size:100% 100%, 100% 100%, 200% 100%, 200% 100%, 200% 100%, 200% 100%, 200% 100%, 200% 100%;
+    background-repeat:no-repeat, no-repeat, repeat-x, repeat-x, repeat-x, repeat-x, repeat-x, repeat-x;
+    background-position-x:0, 0, 0, 0, 0, 0, 0, 0;
+    box-shadow:inset -.12em -.08em .28em rgb(0 0 0/var(--ob-limb)),
+               0 0 .5em -.1em rgb(159 208 255/.45);
+  }
+  @keyframes w-earth-turn{ to{ background-position-x:0, 0, 200%, 200%, 200%, 200%, 200%, 200% } }
+  @media (prefers-reduced-motion:no-preference){
+    .w-earth .globe{ animation:w-earth-turn 48s linear infinite }
+    .w-earth .circle{ transition:transform var(--t-hover) var(--ease-in) }
+    .w-earth .actions:hover .circle{ transform:translateX(4px) }
+  }
+</style>
+<section class="w-earth w-section" id="earth" aria-labelledby="w-earth-h">
+  <div class="w-wrap grid">
+    <div class="w-reveal">
+      <span class="w-eyebrow">ดาวสีน้ำเงิน</span>
+      <h2 id="w-earth-h">โลก</h2>
+      <p class="w-lede">โลกอยู่ในระยะที่น้ำเป็นของเหลวได้ ไม่ใกล้จนเดือดอย่างดาวศุกร์ ไม่ไกลจนแข็งอย่างดาวอังคาร บทเรียนนี้ใช้โลกเป็นไม้บรรทัด แล้ววัดดาวดวงอื่นเทียบกับมัน</p>
+      <div class="actions">
+        <a class="w-btn w-btn--ghost" href="#lessons">เรียนบทที่ 3 · เขตเอื้ออาศัย</a>
+        <a class="circle" href="#compare" aria-label="ไปที่ตารางเปรียบเทียบ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </div>
+      <dl>
+        <div><dt>เส้นผ่านศูนย์กลาง</dt><dd>12,756<small>กม.</small></dd></div>
+        <div><dt>ระยะจากดวงอาทิตย์</dt><dd>149.6<small>ล้าน กม.</small></dd></div>
+        <div><dt>หนึ่งวัน</dt><dd>24.0<small>ชม.</small></dd></div>
+        <div><dt>หนึ่งปี</dt><dd>365.2<small>วัน</small></dd></div>
+      </dl>
+    </div>
+    <div class="stage" aria-hidden="true"><div class="globe"></div></div>
+  </div>
+</section>
+
+<!-- พื้นผิว · ภาพเต็มจอที่ไม่มีไฟล์ภาพ
+
+     พื้นผิวดาวอังคารจาก gradient ซ้อน: สีฐาน + หลุมอุกกาบาต (วงกลมสองวงซ้อน
+     สว่างซีกหนึ่ง มืดซีกหนึ่ง ตามทิศแสงเดิม) + ฝุ่นเป็นแถบเฉียง ย่อหน้าอยู่มุมขวาล่าง
+     ตามคลิปอ้างอิง มีม่านไล่เฉดใต้ข้อความตามกับดักข้อ 5 -->
+<style>
+  .w-surf{ position:relative; min-height:70vh; display:grid; align-items:end; color:#f6e9dd;
+    background-color:#8a3a1c;
+    background-image:
+      linear-gradient(180deg, transparent 40%, rgb(40 12 4/.85) 100%),
+      radial-gradient(circle at 22% 38%, rgb(255 210 170/.35) 0 5.5%, rgb(60 20 8/.5) 6% 7.5%, transparent 8%),
+      radial-gradient(circle at 68% 62%, rgb(255 210 170/.3) 0 9%, rgb(60 20 8/.5) 9.5% 11.5%, transparent 12%),
+      radial-gradient(circle at 84% 24%, rgb(255 210 170/.3) 0 3%, rgb(60 20 8/.5) 3.5% 4.5%, transparent 5%),
+      radial-gradient(circle at 42% 78%, rgb(255 210 170/.25) 0 4%, rgb(60 20 8/.45) 4.5% 5.5%, transparent 6%),
+      repeating-linear-gradient(112deg, transparent 0 34px, rgb(255 255 255/.035) 34px 36px),
+      radial-gradient(120% 90% at 30% 20%, #c46a3a 0, #8a3a1c 55%, #4a1a0a 100%) }
+  @supports (height:70svh){ .w-surf{ min-height:70svh } }
+  .w-surf .w-wrap{ display:grid; justify-items:end; padding-block:clamp(40px,7vw,80px) }
+  .w-surf .note{ max-width:42ch; text-align:right }
+  .w-surf .note .w-eyebrow{ color:#ffd0b0 }
+  .w-surf .note h2{ font-size:clamp(26px,3.2vw,40px); font-weight:400; line-height:1.15; margin:6px 0 12px }
+  .w-surf .note p{ color:rgb(246 233 221/.86); font-size:clamp(15px,1.4vw,17px) }
+</style>
+<section class="w-surf" aria-labelledby="w-surf-h">
+  <div class="w-wrap">
+    <div class="note w-reveal">
+      <span class="w-eyebrow">พื้นผิวดาวอังคาร</span>
+      <h2 id="w-surf-h">สนิมทั้งดวง</h2>
+      <p>สีแดงของดาวอังคารคือเหล็กออกไซด์ — สนิมชนิดเดียวกับที่เกิดบนตะปูเปียก ฝุ่นสนิมนี้ละเอียดพอจะลอยขึ้นไปทั้งบรรยากาศเมื่อเกิดพายุ และเคยปกคลุมทั้งดวงนานหลายเดือนเมื่อ พ.ศ. 2561</p>
+    </div>
+  </div>
+</section>
+
+<!-- เปรียบเทียบ · ตารางกับกราฟจากตัวเลขชุดเดียวกัน
+
+     กราฟเป็น SVG ในไฟล์ แท่งงอกจากซ้าย (w-grow แนวนอน) ทุกแท่งมี <title>
+     และตัวเลขเดียวกันอยู่ใน <details> ใต้กราฟตามสัญญาของสกิล
+     สีแท่งเป็น --viz-1 ตัวเดียว เพราะเป็นชุดข้อมูลเดียว (ระยะทาง) ไม่ใช่สี่ชุด
+     ขนาดตัวอักษรใน viewBox 530 คือ 19 เพื่อให้ได้ 10px ที่คอลัมน์แคบสุด 280px
+     (กับดักข้อ 5: ขนาด = ที่อยากได้ ÷ อัตราย่อแคบสุด) -->
+<style>
+  .w-cmp{ background:var(--surface); border-block:1px solid var(--line) }
+  .w-cmp .head{ max-width:62ch; margin-bottom:clamp(24px,4vw,40px) }
+  .w-cmp h2{ font-size:clamp(28px,3.6vw,44px); font-weight:400; line-height:1.1; margin:6px 0 12px }
+  /* 560 ไม่ใช่ 320: ตารางหกคอลัมน์ต้องการ ~600px ถึงจะไม่ต้องเลื่อน ถ้าให้สอง
+     คอลัมน์ที่ 320 ตารางจะได้แถบเลื่อนบนจอ 1280 ซึ่งกว้างพออยู่แล้ว
+     ต่ำกว่า 1170 จึงวางกราฟใต้ตารางแทน */
+  .w-cmp .grid{ display:grid; gap:clamp(24px,4vw,48px); align-items:start;
+    grid-template-columns:repeat(auto-fit,minmax(min(560px,100%),1fr)) }
+  .w-cmp .tbl{ overflow-x:auto }
+  .w-cmp table{ width:100%; border-collapse:collapse; font-size:15px; font-variant-numeric:tabular-nums }
+  .w-cmp caption{ text-align:left; color:var(--muted); font-size:13px; padding-bottom:10px }
+  .w-cmp th,.w-cmp td{ padding:10px 12px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap }
+  .w-cmp th[scope="row"],.w-cmp thead th:first-child{ text-align:left }
+  .w-cmp thead th{ color:var(--muted); font-weight:500; font-size:13px }
+  .w-cmp tbody th{ font-weight:600 }
+  .w-cmp tbody th i{ display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:8px; vertical-align:-1px }
+  .w-cmp figure{ display:grid; gap:12px }
+  .w-cmp figcaption{ color:var(--muted); font-size:13px }
+  .w-cmp svg{ width:100%; max-width:560px; font-family:var(--sans) }
+  .w-cmp svg text{ fill:var(--text); font-size:19px }
+  .w-cmp svg .lbl{ fill:var(--muted) }
+  .w-cmp svg .bar{ fill:var(--viz-1); transform-origin:120px 50% }
+  .w-cmp svg .axis{ stroke:var(--line) }
+  .w-cmp details{ border:1px solid var(--line); border-radius:var(--radius); padding:10px 14px }
+  .w-cmp summary{ cursor:pointer; font-size:14px; color:var(--muted) }
+  .w-cmp details table{ margin-top:10px; font-size:14px }
+  @media (prefers-reduced-motion:no-preference){
+    @supports (animation-timeline:view()){
+      .w-cmp svg .bar{ --grow-x:0; --grow-y:1; animation:w-grow var(--ease-in) both;
+        animation-timeline:view(); animation-range:entry 10% entry 60% }
+    }
+  }
+</style>
+<section class="w-cmp w-section" id="compare" aria-labelledby="w-cmp-h">
+  <div class="w-wrap">
+    <div class="head w-reveal">
+      <span class="w-eyebrow">เปรียบเทียบ</span>
+      <h2 id="w-cmp-h">สี่ดวงในตารางเดียว</h2>
+      <p class="w-lede">ตัวเลขปัดจาก NASA Planetary Fact Sheet ระยะเป็นค่าเฉลี่ยตลอดวงโคจร อุณหภูมิเป็นค่าเฉลี่ยทั้งดวง</p>
+    </div>
+    <div class="grid">
+      <div class="tbl w-reveal">
+        <table>
+          <caption>ดาวเคราะห์ชั้นในทั้งสี่ดวง</caption>
+          <thead><tr>
+            <th scope="col">ดาว</th>
+            <th scope="col">เส้นผ่านศูนย์กลาง (กม.)</th>
+            <th scope="col">ระยะจากดวงอาทิตย์ (ล้าน กม.)</th>
+            <th scope="col">อุณหภูมิเฉลี่ย (°C)</th>
+            <th scope="col">หนึ่งปี (วันโลก)</th>
+            <th scope="col">ดวงจันทร์</th>
+          </tr></thead>
+          <tbody>
+            <tr><th scope="row"><i class="w-orb mercury" style="--orb:12px"></i>ดาวพุธ</th><td>4,879</td><td>57.9</td><td>167</td><td>88.0</td><td>0</td></tr>
+            <tr><th scope="row"><i class="w-orb venus" style="--orb:12px"></i>ดาวศุกร์</th><td>12,104</td><td>108.2</td><td>464</td><td>224.7</td><td>0</td></tr>
+            <tr><th scope="row"><i class="w-orb earth" style="--orb:12px"></i>โลก</th><td>12,756</td><td>149.6</td><td>15</td><td>365.2</td><td>1</td></tr>
+            <tr><th scope="row"><i class="w-orb mars" style="--orb:12px"></i>ดาวอังคาร</th><td>6,792</td><td>227.9</td><td>−65</td><td>687.0</td><td>2</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <figure class="w-reveal">
+        <svg viewBox="0 0 530 190" role="img" aria-labelledby="w-cmp-svg-t">
+          <title id="w-cmp-svg-t">ระยะเฉลี่ยจากดวงอาทิตย์ของดาวเคราะห์สี่ดวง เป็นล้านกิโลเมตร</title>
+          <line class="axis" x1="120" y1="8" x2="120" y2="176" stroke-width="1"/>
+          <g>
+            <text class="lbl" x="110" y="36" text-anchor="end">ดาวพุธ</text>
+            <rect class="bar" x="120" y="18" width="81" height="26" rx="4"><title>ดาวพุธ 57.9 ล้านกิโลเมตร</title></rect>
+            <text x="209" y="36">57.9</text>
+          </g>
+          <g>
+            <text class="lbl" x="110" y="78" text-anchor="end">ดาวศุกร์</text>
+            <rect class="bar" x="120" y="60" width="151" height="26" rx="4"><title>ดาวศุกร์ 108.2 ล้านกิโลเมตร</title></rect>
+            <text x="279" y="78">108.2</text>
+          </g>
+          <g>
+            <text class="lbl" x="110" y="120" text-anchor="end">โลก</text>
+            <rect class="bar" x="120" y="102" width="209" height="26" rx="4"><title>โลก 149.6 ล้านกิโลเมตร</title></rect>
+            <text x="337" y="120">149.6</text>
+          </g>
+          <g>
+            <text class="lbl" x="110" y="162" text-anchor="end">ดาวอังคาร</text>
+            <rect class="bar" x="120" y="144" width="319" height="26" rx="4"><title>ดาวอังคาร 227.9 ล้านกิโลเมตร</title></rect>
+            <text x="447" y="162">227.9</text>
+          </g>
+        </svg>
+        <figcaption>ระยะเฉลี่ยจากดวงอาทิตย์ · ล้านกิโลเมตร · มาตราส่วน 1.4 พิกเซลต่อล้านกิโลเมตร</figcaption>
+        <details>
+          <summary>ตัวเลขในกราฟนี้เป็นตาราง</summary>
+          <table>
+            <thead><tr><th scope="col">ดาว</th><th scope="col">ล้าน กม.</th><th scope="col">หน่วยดาราศาสตร์ (AU)</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">ดาวพุธ</th><td>57.9</td><td>0.39</td></tr>
+              <tr><th scope="row">ดาวศุกร์</th><td>108.2</td><td>0.72</td></tr>
+              <tr><th scope="row">โลก</th><td>149.6</td><td>1.00</td></tr>
+              <tr><th scope="row">ดาวอังคาร</th><td>227.9</td><td>1.52</td></tr>
+            </tbody>
+          </table>
+        </details>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- บทเรียน · <ol> เพราะลำดับคือความหมาย — บทที่ 3 ต้องมาหลังบทที่ 2
+     ไม่ใช่การ์ดสี่ใบเรียงกัน (ข้อ 8) แต่เป็นเส้นเวลาที่มีเลขจริง -->
+<style>
+  .w-les h2{ font-size:clamp(28px,3.6vw,44px); font-weight:400; line-height:1.1; margin:6px 0 12px }
+  .w-les .head{ max-width:62ch; margin-bottom:clamp(24px,4vw,40px) }
+  .w-les ol{ display:grid; gap:0; border-top:1px solid var(--line) }
+  .w-les li{ display:grid; grid-template-columns:auto 1fr auto; gap:clamp(14px,3vw,32px); align-items:baseline;
+    padding:clamp(18px,2.6vw,28px) 0; border-bottom:1px solid var(--line) }
+  .w-les .n{ font-family:var(--mono); color:var(--accent); font-size:14px; letter-spacing:.08em; min-width:3ch }
+  .w-les h3{ font-size:clamp(18px,2vw,24px); font-weight:500; margin-bottom:4px }
+  .w-les p{ color:var(--muted); max-width:58ch }
+  .w-les .len{ color:var(--muted); font-size:13px; white-space:nowrap; font-variant-numeric:tabular-nums }
+  .w-les li a{ text-decoration:none }
+  .w-les li a:hover h3{ color:var(--accent) }
+  @media (max-width:520px){ .w-les li{ grid-template-columns:auto 1fr } .w-les .len{ grid-column:2 } }
+</style>
+<section class="w-les w-section" id="lessons" aria-labelledby="w-les-h">
+  <div class="w-wrap">
+    <div class="head w-reveal">
+      <span class="w-eyebrow">บทเรียน · ม.ต้น</span>
+      <h2 id="w-les-h">สี่บท เรียงตามระยะจากดวงอาทิตย์</h2>
+      <p class="w-lede">แต่ละบทใช้เวลาหนึ่งคาบเรียน มีใบงานให้ดาวน์โหลดและแบบฝึกที่ให้นักเรียนคำนวณจากตัวเลขจริงข้างบน</p>
+    </div>
+    <ol class="w-reveal">
+      <li><span class="n">01</span><a href="#p-mercury"><h3>ทำไมดาวพุธถึงไม่ร้อนที่สุด</h3><p>บรรยากาศกับความร้อน — เปรียบเทียบดาวที่ใกล้ที่สุดกับดาวที่ร้อนที่สุด แล้วหาว่าอะไรต่างกัน</p></a><span class="len">50 นาที</span></li>
+      <li><span class="n">02</span><a href="#p-venus"><h3>ปรากฏการณ์เรือนกระจกแบบสุดขั้ว</h3><p>ดาวศุกร์เป็นห้องทดลองของโลก: บรรยากาศหนา 90 เท่าทำอะไรกับอุณหภูมิ</p></a><span class="len">50 นาที</span></li>
+      <li><span class="n">03</span><a href="#earth"><h3>เขตเอื้ออาศัย</h3><p>ระยะที่น้ำเป็นของเหลวได้ คำนวณจากระยะและอุณหภูมิของสี่ดวง แล้ววาดเขตนั้นลงบนแผนผัง</p></a><span class="len">50 นาที</span></li>
+      <li><span class="n">04</span><a href="#p-mars"><h3>น้ำที่หายไปจากดาวอังคาร</h3><p>ร่องรอยแม่น้ำและขั้วน้ำแข็ง — หลักฐานว่าดาวอังคารเคยเปียก และทำไมตอนนี้ถึงแห้ง</p></a><span class="len">50 นาที</span></li>
+    </ol>
+  </div>
+</section>
+
+<!-- คำถามที่ถามบ่อย · <details> ไม่มีสคริปต์ -->
+<style>
+  .w-faq{ background:var(--surface); border-top:1px solid var(--line) }
+  .w-faq .grid{ display:grid; gap:clamp(24px,4vw,48px);
+    grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr)) }
+  .w-faq h2{ font-size:clamp(28px,3.6vw,44px); font-weight:400; line-height:1.1; margin:6px 0 12px }
+  .w-faq details{ border-bottom:1px solid var(--line); padding:14px 0 }
+  .w-faq summary{ cursor:pointer; font-weight:500; font-size:17px; list-style:none; display:flex; justify-content:space-between; gap:12px }
+  .w-faq summary::-webkit-details-marker{ display:none }
+  .w-faq summary::after{ content:"+"; color:var(--accent); font-size:22px; line-height:1 }
+  .w-faq details[open] summary::after{ content:"−" }
+  .w-faq details p{ color:var(--muted); padding-top:8px; max-width:60ch }
+</style>
+<section class="w-faq w-section" aria-labelledby="w-faq-h">
+  <div class="w-wrap grid">
+    <div class="w-reveal">
+      <span class="w-eyebrow">คำถามที่ครูถามบ่อย</span>
+      <h2 id="w-faq-h">ก่อนเอาไปใช้ในห้อง</h2>
+      <p class="w-lede">ถ้าคำถามของคุณไม่อยู่ในนี้ เขียนมาที่อีเมลท้ายหน้า เราตอบภายในสองวันทำการ</p>
+    </div>
+    <div class="w-reveal">
+      <details><summary>ตัวเลขในหน้านี้เชื่อถือได้แค่ไหน</summary><p>ทุกตัวปัดจาก NASA Planetary Fact Sheet ซึ่งอัปเดตปีละครั้ง เราระบุทศนิยมเท่าที่ต้นทางให้ และไม่ปัดเพิ่มเพื่อให้ดูสวย</p></details>
+      <details><summary>ใช้กับนักเรียนระดับไหน</summary><p>ออกแบบสำหรับ ม.1–ม.3 บทที่ 3 ต้องใช้การคูณหารทศนิยมและการอ่านกราฟแท่ง ซึ่งอยู่ในหลักสูตรคณิตศาสตร์ ม.1 แล้ว</p></details>
+      <details><summary>ทำไมมีแค่สี่ดวง</summary><p>ดาวเคราะห์ชั้นในทั้งสี่เป็นดาวหิน เทียบกันได้ตรง ๆ ดาวแก๊สยักษ์ต้องการหน่วยและมาตราส่วนคนละชุด และจะเป็นชุดบทเรียนถัดไป</p></details>
+      <details><summary>เอาภาพดาวไปใช้ในใบงานได้ไหม</summary><p>ได้ ดาวทุกดวงในหน้านี้วาดด้วย CSS ไม่ใช่ภาพถ่าย จึงไม่มีลิขสิทธิ์ของช่างภาพติดมา ถ้าต้องการภาพถ่ายจริง ใช้คลังของ NASA ซึ่งเป็นสาธารณสมบัติ</p></details>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<style>
+  .w-ft{ padding-block:clamp(40px,6vw,72px) 28px; border-top:1px solid var(--line) }
+  .w-ft .grid{ display:grid; gap:clamp(24px,4vw,48px);
+    grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr)) }
+  .w-ft h3{ font-size:14px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-bottom:10px }
+  .w-ft address{ font-style:normal; color:var(--muted) }
+  .w-ft address b{ display:block; color:var(--text); font-weight:500 }
+  .w-ft ul{ display:grid; gap:6px; color:var(--muted) }
+  .w-ft .end{ display:flex; flex-wrap:wrap; gap:12px 24px; justify-content:space-between;
+    margin-top:clamp(28px,4vw,48px); padding-top:18px; border-top:1px solid var(--line);
+    color:var(--muted); font-size:13px }
+  .w-ft .end nav{ display:flex; gap:16px }
+  .w-ft .end a{ text-decoration:none }
+  .w-ft .end a:hover{ color:var(--text) }
+</style>
+<footer class="w-ft">
+  <div class="w-wrap">
+    <div class="grid">
+      <div>
+        <h3>ห้องเรียนสุริยะ</h3>
+        <address>
+          <b>โครงการสื่อดาราศาสตร์เพื่อโรงเรียน</b>
+          <a href="mailto:hello@example.ac.th">hello@example.ac.th</a><br>
+          ตอบภายใน 2 วันทำการ
+        </address>
+      </div>
+      <div>
+        <h3>แหล่งตัวเลข</h3>
+        <ul>
+          <li>NASA Planetary Fact Sheet — nssdc.gsfc.nasa.gov</li>
+          <li>ระยะเป็นค่าเฉลี่ยตลอดวงโคจร (semi-major axis)</li>
+          <li>อุณหภูมิเป็นค่าเฉลี่ยทั้งดวง ไม่ใช่ค่าสูงสุด</li>
+        </ul>
+      </div>
+      <div>
+        <h3>ชุดบทเรียน</h3>
+        <ul>
+          <li>ชุดที่ 1 · ดาวเคราะห์ชั้นใน (หน้านี้)</li>
+          <li>ชุดที่ 2 · ดาวแก๊สยักษ์ — กำลังเขียน</li>
+          <li>ชุดที่ 3 · ดวงจันทร์และวงแหวน</li>
+        </ul>
+      </div>
+    </div>
+    <div class="end">
+      <span>© 2569 โครงการสื่อดาราศาสตร์เพื่อโรงเรียน · ภาพดาวทุกดวงวาดด้วย CSS ใช้ซ้ำได้</span>
+      <nav aria-label="ข้อกำหนด">
+        <a href="#">สัญญาอนุญาต</a>
+        <a href="#">ความเป็นส่วนตัว</a>
+      </nav>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

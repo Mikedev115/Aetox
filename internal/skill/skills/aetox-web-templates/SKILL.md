@@ -1,14 +1,15 @@
 ---
 name: aetox-web-templates
 before: writing a web page or a screen as an .html file that is not a slide deck
-description: กติกาของหน้าเว็บที่ Aetox ยอมส่งออกไป — สัญญาที่ทุกหน้าต้องผ่าน (ไฟล์เดียวจบ · responsive โดยไม่ต้องจดเบรกพอยต์ · ไม่ใช้สคริปต์ถ้าไม่จำเป็นต่อความหมาย · landmark จริง · โทเคนสีสำหรับสว่างและมืด · กราฟเป็น SVG ในไฟล์ · เข้าถึงได้ตั้งแต่โครง) พร้อมมาตรฐานใน STANDARD.md และหน้าตัวอย่างเต็มหน้าอีก 6 ใบใน pages/ **นี่คือกติกา ไม่ใช่คลังโค้ดให้แปะ** ออกแบบและเขียนเอง แล้วเอากติกามาตรวจ
+description: กติกาของหน้าเว็บที่ Aetox ยอมส่งออกไป — สัญญาที่ทุกหน้าต้องผ่าน (responsive โดยไม่ต้องจดเบรกพอยต์ · ไม่ใช้สคริปต์ถ้าไม่จำเป็นต่อความหมาย · landmark จริง · โทเคนสีสำหรับสว่างและมืด · กราฟเป็น SVG ในไฟล์ · เข้าถึงได้ตั้งแต่โครง) พร้อมคลังคำศัพท์การเคลื่อนไหวกับจังหวะที่วัดมาแล้วใน STANDARD.md **นี่คือกติกาล้วน ไม่มีมาร์กอัปให้แปะแม้แต่บรรทัดเดียว** ออกแบบและเขียนเอง แล้วเอากติกามาตรวจ
 ---
 
 # Web templates
 
 **กติกา ไม่ใช่มาร์กอัปให้คัดลอก**
 
-คลังส่วนย่อย 104 ชิ้นกับ kit ถูกถอดออกเมื่อ 5 ก.ย. 2569 ด้วยเหตุผลที่ `STANDARD.md`
+คลังส่วนย่อย 104 ชิ้น kit ชั้น B และหน้าตัวอย่าง 7 ใบ ถูกถอดออกเมื่อ 5 ก.ย. 2569
+ด้วยเหตุผลที่ `STANDARD.md`
 เปิดหัวไว้เอง: **เทมเพลตที่เข้ารหัสค่ากลางไม่ได้ช่วยโมเดลที่เก่งอยู่แล้ว มันตรึงให้อยู่ที่ค่ากลาง**
 ตัวเลขที่ตัดสิน — ส่วนย่อยเฉลี่ย 11.7 KB ต่อไฟล์ เทียบชั้นวางสไลด์ที่ 2.2 KB
 ที่ 2 KB โมเดลอ่านแล้วเขียนเอง ที่ 11.7 KB โมเดลแปะ และสิ่งที่แปะคือค่าเฉลี่ยของเมื่อวาน
@@ -23,23 +24,24 @@ description: กติกาของหน้าเว็บที่ Aetox ย
 สกิลนี้ไม่ตัดสินว่าหน้าตาควรเป็นยังไง — `aetox-frontend-design` ตัดสินเรื่องนั้น
 และ `aetox-design-system` ถือชั้นโทเคนถ้าหน้านั้นต้องมีพาเลตต์ของตัวเอง
 
-## หน้าตัวอย่างเต็มหน้า — `pages/` 6 ใบ
+## หน้าตัวอย่างย้ายออกไปเป็นกรณีศึกษาแล้ว
 
-| ไฟล์ | สำหรับ | ขนาด |
-|---|---|---:|
-| `pages/fintech-saas.html` | SaaS · แอปการเงิน | 301 KB |
-| `pages/homestay.html` | ที่พัก · โฮมสเตย์ | 192 KB |
-| `pages/restaurant.html` | ร้านอาหาร · คาเฟ่ | 181 KB |
-| `pages/studio-agency.html` | เอเจนซี · สตูดิโอ | 166 KB |
-| `pages/portfolio.html` | พอร์ตโฟลิโอ · ฟรีแลนซ์ | 149 KB |
-| `pages/fashion-editorial.html` | แฟชั่น · แบรนด์งานฝีมือ | 118 KB |
+`pages/` 7 ใบไม่ได้ถูกลบ — ย้ายไป `docs/case-studies/web-pages/` ในรีโปนี้
+มันยังมีค่าสำหรับ**คนที่นั่งอ่าน**ว่าปัญหาหนึ่งถูกแก้ยังไง สิ่งที่มันไม่ควรเป็นคือ
+ของที่อยู่ในบันเดิลให้โมเดลหยิบ
 
-**ทุกใบใหญ่กว่าที่ `skill_view` ส่งได้ในครั้งเดียว (64 KB)** ผลลัพธ์ที่ถูกตัดจะบอก
-`offset` ที่ต้องอ่านต่อ แต่ก่อนจะเปิด ให้ชั่งก่อนว่าคุ้มไหม — ใบเดียวกินคอนเท็กซ์
-เท่ากับงานทั้งวัน และเปิดมาแล้วยังเขียนกลับในรอบเดียวไม่ได้อยู่ดี
+ตัวเลขที่ตัดสิน: ทั้งเจ็ดใบรวมกัน **1.18 MB** ทุกใบใหญ่กว่าที่ `skill_view` ส่งได้
+ในครั้งเดียว (64 KB) แลกกับการถูกเปิด **สองครั้งตลอดอายุของมัน** ซึ่งเป็นไฟล์เดียวกัน
+ทั้งสองครั้ง ของที่ต้องอ่านสามรอบกว่าจะครบใบแล้วยังเขียนกลับในรอบเดียวไม่ได้
+ไม่ใช่ตัวอย่าง มันคือค่าผ่านทาง
 
-**ใช้มันแบบตัวอย่าง ไม่ใช่แบบโครงที่ต้องแก้** อ่านส่วนที่อยากรู้ว่าเขาแก้ปัญหานั้นยังไง
-แล้วเขียนของตัวเอง อย่าเปิดทั้งใบเพื่อแก้คำสามคำ
+ที่ลึกกว่านั้น หน้าตัวอย่างเต็มใบสอนสิ่งที่มันไม่ได้ตั้งใจสอน โมเดลที่เปิดมันขึ้นมา
+ไม่ได้อ่านว่า "เขาแก้ปัญหานี้ยังไง" มันอ่านว่า "นี่คือหน้าที่ผ่านแล้ว" แล้วส่งของที่
+ใกล้เคียงกลับมา กลไกเดียวกับที่ทำให้ `sections/` ต้องออกไป แค่ใหญ่กว่าเดิม
+
+**กติกาที่ตามมาจากเรื่องนี้: ไม่เอามาร์กอัปยัดกลับเข้าโฟลเดอร์สกิลอีก** ไม่ว่าจะ
+ตั้งใจดีแค่ไหน สิ่งที่อยู่ในนี้ได้คือข้อกำหนดที่ตรวจได้กับค่าที่วัดมาแล้ว งานที่อยาก
+เก็บไว้ให้คนดูไปอยู่ที่ `docs/case-studies/`
 
 ## มาตรฐาน
 
@@ -49,13 +51,10 @@ description: กติกาของหน้าเว็บที่ Aetox ย
 ย่อเหลือประโยคเดียว: **เทมเพลตที่เข้ารหัสค่ากลางไม่ได้ช่วยโมเดลที่เก่งอยู่แล้ว มันตรึงให้อยู่ที่ค่ากลาง**
 ไฟล์ที่จะกลับเข้ามาได้ต้องถือของที่เจนสดไม่ได้ — ค่าที่วัดมาแล้ว เทคนิคที่ต้องลองสิบรอบ
 หรือทิศทางศิลป์ที่เป็นการเลือกจริง ไม่ใช่ค่าเริ่มต้น ในนั้นยังมีคลังคำศัพท์การเคลื่อนไหว
-ทิศทางศิลป์สี่แบบ และบันทึกกับดักที่พังจริงในเบราว์เซอร์นี้
+ทิศทางศิลป์ห้าแบบ และบันทึกกับดักที่พังจริงในเบราว์เซอร์นี้
 
 ## สัญญาที่ทุกหน้าต้องผ่าน
 
-- **One self-contained file.** No framework, no CDN, no build step, no
-  `node_modules`. The page opens from disk, from a USB stick, from an email
-  attachment. Same reason a deck is one file.
 - **Responsive without breakpoint bookkeeping.** `clamp()` for type and space,
   `repeat(auto-fit,minmax(min(280px,100%),1fr))` for grids, so the column count
   follows the content and the viewport rather than a list of widths somebody has
@@ -104,6 +103,23 @@ description: กติกาของหน้าเว็บที่ Aetox ย
   a block, 10–20px for a line of text. Note the gap against `STANDARD.md` ข้อ 4,
   which says 0.45–0.7s and 60–90ms: those are the older numbers and the source is
   slower and calmer than the rule.
+- **The markup ships because you typed it, not because you found it.** Do not
+  download a published page and edit it, and do not strip somebody's analytics
+  out of their work and pass it on. Studying other people's pages to *measure*
+  them is the right use and is how the two rules above got their numbers — read
+  the timings, the offsets, the easing, then write your own. A deliverable of
+  400 KB in 67 lines is not a page that was designed; it is a copy, and it
+  belongs to somebody.
+
+  This is here because the contract was silent about it and silence read as
+  permission: on 5 ก.ย., asked for "a nice landing page, anything, go look
+  around", the agent called `skill_view` on this skill and `web_search` for
+  "best Framer template landing page" **twenty-one milliseconds apart** — in one
+  batch, so it had decided to go shopping before this file's first sentence
+  reached it. It came back with a paid marketplace template, stripped the
+  tracking script, and served it on localhost. Every other rule here passed on
+  that page: it was one self-contained file, it was responsive, it had real
+  landmarks. Provenance was the only thing nothing checked.
 - **Never start an entrance at `opacity:0`.** The originals begin at `.001` in
   316 of 338 entrances, which keeps the element composited so the first animated
   frame does not pop. This is also the cheap way past the trap in `STANDARD.md`

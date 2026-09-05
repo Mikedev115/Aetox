@@ -242,13 +242,13 @@ func notInSkill(d DiscoveredSkill, sub string) error {
 // ~/.aetox/skills, outside the workspace, so the sandbox would refuse every
 // read here. This is the same rule applied to a different root, and it is the
 // only place that root is readable from.
-func readSkillFile(d DiscoveredSkill, sub string) (string, error) {
+func readSkillFile(d DiscoveredSkill, sub string, offset int) (string, error) {
 	// A skill that ships inside the binary is read out of the binary. Its
 	// folder is an FS rooted at the skill, so "outside the skill" is not a
 	// judgement this has to make: fs.Sub already refused to hand out a root
 	// above it, and cleanPath below refuses a name that climbs.
 	if d.files != nil {
-		return readEmbeddedSkillFile(d, sub)
+		return readEmbeddedSkillFile(d, sub, offset)
 	}
 	dir := d.Dir
 	// No folder and nothing embedded. Without this, filepath.Abs("") returns
@@ -281,14 +281,7 @@ func readSkillFile(d DiscoveredSkill, sub string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("could not read %q: %w", sub, err)
 	}
-	if len(data) > maxSkillFileBytes {
-		cut := maxSkillFileBytes
-		for cut > 0 && !utf8.RuneStart(data[cut]) {
-			cut--
-		}
-		return string(data[:cut]) + fmt.Sprintf("\n\n[cut, file is %d bytes, showed the first %d]", len(data), cut), nil
-	}
-	return string(data), nil
+	return sliceSkillFile(data, offset)
 }
 
 // readEmbeddedSkillFile is readSkillFile's other half: the same read against a
@@ -299,7 +292,7 @@ func readSkillFile(d DiscoveredSkill, sub string) (string, error) {
 // cannot express one. What is left is the spelling: `path.Clean` folds a "../"
 // into a name that leaves the root, and fs.ValidPath is what rejects it, which
 // is why the clean happens before the check rather than after.
-func readEmbeddedSkillFile(d DiscoveredSkill, sub string) (string, error) {
+func readEmbeddedSkillFile(d DiscoveredSkill, sub string, offset int) (string, error) {
 	fsys := d.files
 	name := path.Clean(strings.TrimPrefix(filepath.ToSlash(sub), "./"))
 	if name == "" || name == "." || !fs.ValidPath(name) {
@@ -316,14 +309,7 @@ func readEmbeddedSkillFile(d DiscoveredSkill, sub string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("could not read %q: %w", sub, err)
 	}
-	if len(data) > maxSkillFileBytes {
-		cut := maxSkillFileBytes
-		for cut > 0 && !utf8.RuneStart(data[cut]) {
-			cut--
-		}
-		return string(data[:cut]) + fmt.Sprintf("\n\n[cut, file is %d bytes, showed the first %d]", len(data), cut), nil
-	}
-	return string(data), nil
+	return sliceSkillFile(data, offset)
 }
 
 // skillViewSkill is L1: the full body of one skill, fetched by name.
@@ -354,7 +340,72 @@ func (s *skillViewSkill) Description() string {
 // data file; sending all of it costs the same context whether the model needed
 // the whole thing or the first page, and the cut is reported so a truncated
 // read is never mistaken for a short file.
-const maxSkillFileBytes = 32 << 10
+// 64KB rather than the 32KB it was until 2026-09-05, which is read.go's
+// readMaxBytes — the two doors serve the same kind of thing to the same model
+// and had no reason to disagree. At 32KB, five of this shelf's own files were
+// cut, three of them ordinary page sections nobody would guess were oversized.
+// The cap is survivable now in a way it was not: sliceSkillFile takes an offset,
+// so a file over it is paged rather than lost.
+const maxSkillFileBytes = 64 << 10
+
+// sliceSkillFile is the window both readers hand back: bytes from offset, one
+// cap's worth at most, and a marker that says where to carry on.
+//
+// The marker is the whole point. Before this the cut said only that a file was
+// longer than what arrived, and nothing could act on it — skill_view took no
+// offset, and a bundled file has no path for read or shell to reach instead,
+// so a file over the cap was a file whose tail did not exist. Measured
+// 2026-09-05: a section 19% over the cap was pasted into a page without its
+// closing tags, and a 301KB page arrived as a stump the model quietly dropped.
+//
+// Byte offsets rather than read.go's line offsets, because the cap is a byte
+// cap and a resume point the caller has to recompute is one it gets wrong.
+// Runes are never split: the window starts and ends on a rune boundary.
+func sliceSkillFile(data []byte, offset int) (string, error) {
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > len(data) {
+		return "", fmt.Errorf("offset %d is past the end of this file, which is %d bytes", offset, len(data))
+	}
+	for offset > 0 && offset < len(data) && !utf8.RuneStart(data[offset]) {
+		offset--
+	}
+	rest := data[offset:]
+	if len(rest) <= maxSkillFileBytes {
+		if offset > 0 {
+			return string(rest) + fmt.Sprintf("\n\n[bytes %d to %d, the end of the file]", offset, len(data)), nil
+		}
+		return string(rest), nil
+	}
+	cut := maxSkillFileBytes
+	for cut > 0 && !utf8.RuneStart(rest[cut]) {
+		cut--
+	}
+	return string(rest[:cut]) + fmt.Sprintf(
+		"\n\n[cut, file is %d bytes, showed bytes %d to %d; read the rest with the same call plus offset=%d]",
+		len(data), offset, offset+cut, offset+cut), nil
+}
+
+// skillsCarryingFile answers which skills list a file at this path, matched
+// against the same listing the model was handed at L1 — so a name it read there
+// resolves here, and one it invented does not.
+func skillsCarryingFile(discovered []DiscoveredSkill, sub string) []DiscoveredSkill {
+	want := path.Clean(strings.TrimPrefix(filepath.ToSlash(sub), "./"))
+	if want == "" || want == "." {
+		return nil
+	}
+	var out []DiscoveredSkill
+	for _, d := range discovered {
+		for _, f := range supportingFiles(d) {
+			if f == want {
+				out = append(out, d)
+				break
+			}
+		}
+	}
+	return out
+}
 
 // supportingFiles lists what else lives in a skill's folder, so the model can
 // find a reference it was never told about.
@@ -424,7 +475,36 @@ func embeddedSupportingFiles(fsys fs.FS) []string {
 // them in a table. So the cap now has room over the largest thing shipped, and
 // what it does cut it says out loud: a listing that ends early and looks
 // complete is worse than a long one, because nothing downstream can tell.
-const listingCap = 80
+//
+// It happened a second time on 2026-09-05, same shape, worse consequence:
+// aetox-web-templates grew to 125 files and everything from "n" onward fell
+// off — including all four page-shell*.html, which is the file every other
+// section in that skill requires before it can be pasted anywhere. The skill
+// was, from the model's side, a folder of parts with the frame missing.
+//
+// The lesson from twice is that the cap cannot be "a number that felt roomy":
+// it has to be checked against the largest shipped skill whenever one grows,
+// and TestEveryFileBundledBesideASkillIsReachable is what does the checking.
+// 160 was double the largest thing shipped at the time (125), which was the
+// same headroom 80 gave against 48.
+//
+// Raised to 320 on 5 ก.ย. 2569, and this one is headroom rather than a
+// reaction: aetox-web-templates went the other way that day and the largest
+// shipped skill is now aetox-slide-templates at 48 files, so nothing is near
+// the old cap. The owner asked for the ceiling to stop being the thing that
+// decides what a skill may hold — the two incidents above were both a cap
+// quietly amputating a skill, never a skill being usefully small because of
+// one — so the number now sits far enough above anything curated that it can
+// only bite something genuinely enormous.
+//
+// It is still a cap and it still must not be raised to "however many files
+// there are". The listing is joined into the L1 answer in full, so it is
+// context spent on every skill_view of that skill: 320 names is already a few
+// KB before a single file is read. A folder that genuinely needs thousands of
+// entries does not want a bigger number here, it wants an index file it
+// curates and a listing that stays browsable — which is a different change
+// from this constant.
+const listingCap = 320
 
 func trimListing(out []string) []string {
 	sort.Strings(out)
@@ -468,8 +548,14 @@ func (s *skillViewSkill) ToolDefinition() model.ToolDefinition {
 			// instead.
 			"path": map[string]any{
 				"type":        "string",
-				"description": "Optional: one of the files listed at the end of the skill body, spelled exactly as it appears there",
+				"description": "One of the files listed at the end of the skill body, spelled exactly",
 			},
+			// Declared and left undescribed, which is the whole of what the
+			// block can afford: this entry is already over the standard
+			// (block_standard_test.go). The teaching happens where it is
+			// free and where it is needed — a cut result names the offset to
+			// resume from, and only a caller that has been cut ever reads it.
+			"offset": map[string]any{"type": "integer"},
 		},
 		"required":             []string{"name"},
 		"additionalProperties": false,
@@ -488,20 +574,49 @@ func (s *skillViewSkill) ExecuteTool(_ context.Context, args map[string]any) (Ou
 	start := time.Now()
 	name, _ := args["name"].(string)
 	name = strings.TrimSpace(name)
-	if name == "" {
-		err := fmt.Errorf("name is required, call skills_list to see what is installed")
-		return newToolOutput(s.Name(), s.Name(), err.Error(), start, false, err), err
-	}
 	sub, _ := args["path"].(string)
 	sub = strings.TrimSpace(sub)
 
 	discovered := s.shelf()
+
+	// A path with no name is the shape a model lands on right after a call that
+	// only needed a name: it has the listing in front of it, reaches for one
+	// line of it, and drops the skill the listing belonged to. Measured
+	// 2026-09-05 — `{"path": "pages/fintech-saas.html"}` cost a whole round,
+	// and the old answer ("call skills_list to see what is installed") sent it
+	// looking for a skill that was never missing.
+	//
+	// The file names its own owner nearly always, so resolve it rather than
+	// charging a round for a spelling. The result line says which skill it
+	// resolved to, so a wrong guess is visible in the same turn.
+	if name == "" && sub != "" {
+		owners := skillsCarryingFile(discovered, sub)
+		switch len(owners) {
+		case 1:
+			name = owners[0].Name
+		case 0:
+			err := fmt.Errorf("name is required: no installed skill carries %q. Call it as {\"name\": \"<skill>\", \"path\": %q}, or skills_list to see what is installed", sub, sub)
+			return newToolOutput(s.Name(), s.Name(), err.Error(), start, false, err), err
+		default:
+			names := make([]string, 0, len(owners))
+			for _, d := range owners {
+				names = append(names, d.Name)
+			}
+			sort.Strings(names)
+			err := fmt.Errorf("name is required: %q is in %s. Call it as {\"name\": \"<one of those>\", \"path\": %q}", sub, strings.Join(names, ", "), sub)
+			return newToolOutput(s.Name(), s.Name(), err.Error(), start, false, err), err
+		}
+	}
+	if name == "" {
+		err := fmt.Errorf("name is required, call skills_list to see what is installed")
+		return newToolOutput(s.Name(), s.Name(), err.Error(), start, false, err), err
+	}
 	for _, d := range discovered {
 		if !strings.EqualFold(d.Name, name) {
 			continue
 		}
 		if sub != "" {
-			content, err := readSkillFile(d, sub)
+			content, err := readSkillFile(d, sub, intArg(args["offset"]))
 			if err != nil {
 				return newToolOutput(s.Name(), s.Name()+" "+d.Name, err.Error(), start, false, err), err
 			}
