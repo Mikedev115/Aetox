@@ -66,8 +66,39 @@ describe('a drawing markdown could have taken apart', () => {
     expect(out).not.toContain('<em>')
   })
 
-  // The opposite case, and the reason the lift only takes what starts a line:
-  // an answer *about* svg shows the source, and must keep showing it.
+  // The case the lift used to miss, and it is the one a model writes most: the
+  // sentence and the picture it introduces on the same line. Left for markdown,
+  // `breaks: true` turned the newlines inside the drawing into <br>, and a <br>
+  // in foreign content breaks the HTML parser out of the <svg> — every shape
+  // after the first newline landed outside the drawing and was sanitised away.
+  // What rendered was the frame, at the right size, with nothing in it.
+  it('renders one that opens in the middle of a line', () => {
+    const out = renderMarkdown(
+      'วาดตารางให้ดู<svg viewBox="0 0 640 100" width="100%">\n' +
+        '  <style>.h{fill:var(--text-primary)}</style>\n' +
+        '  <text x="8" y="20" class="h">หน้า</text>\n' +
+        '  <line x1="0" y1="28" x2="640" y2="28" stroke="#888"/>\n' +
+        '</svg>'
+    )
+
+    expect(out).toContain('<text')
+    expect(out).toContain('หน้า')
+    expect(out).toContain('<line')
+    // The tell of the old failure: an empty frame, and the drawing's own
+    // newlines left behind as line breaks where the shapes used to be.
+    expect(out).not.toContain('</svg><div class="drawing-tools">' + '<br>')
+    expect(out).not.toMatch(/<svg[^>]*><\/svg>/)
+  })
+
+  // The opposite case, and the reason a drawing between backticks is left
+  // alone: an answer *about* svg shows the source, and must keep showing it.
+  it('still shows one inside backticks as source', () => {
+    const out = renderMarkdown('เขียนแบบนี้ `<svg viewBox="0 0 10 10"><rect width="4" height="4" /></svg>` ครับ')
+
+    expect(out).toContain('<code>')
+    expect(out).not.toContain('drawing-box')
+  })
+
   it('still shows a drawing inside a fenced block as code', () => {
     const out = renderMarkdown('```svg\n<svg viewBox="0 0 10 10"><rect width="4" height="4" /></svg>\n```')
 

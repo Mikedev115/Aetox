@@ -330,11 +330,28 @@ function escapeAttr(value: string): string {
 // So a complete drawing is lifted out before markdown ever sees it and put back
 // after — the same treatment a fenced block gets, for the same reason.
 //
-// Only a drawing in the left margin is lifted. One written inside backticks is
-// being discussed rather than drawn, and it starts after the backtick; an
-// indented one belongs to the list item it is indented under, and lifting it
-// would land the picture below the list instead of inside the bullet.
-const DRAWING = /^<svg\b[\s\S]*?<\/svg\s*>/gim
+// A drawing that opens in the MIDDLE of a line is lifted too, and it is the
+// case this used to miss.
+//
+// The anchor here was `^`, so `…ตามโค้ดจริง<svg viewBox="0 0 640 372">` — a
+// sentence and the picture it introduces, written as one line, which is what a
+// model does when the prose and the drawing are one thought — was left for
+// markdown to read. `breaks: true` then turns every newline inside it into a
+// <br>, and <br> is one of the tags that make the HTML parser BREAK OUT of
+// foreign content: the parser closes the <svg> at the first one and every
+// shape after it lands outside the drawing, where the sanitiser drops it.
+//
+// The failure is silent and total. The frame renders at the right size with
+// คัดลอก and บันทึก on it, and nothing inside (owner, 6 ก.ย., with a
+// screenshot of an empty box: "มันไม่แสดง"). A one-line <svg> survived, which
+// is why this went unnoticed — every drawing worth drawing has newlines in it.
+//
+// Two exclusions the anchor used to buy for free are now bought explicitly, in
+// liftDrawings: an <svg> inside backticks is being discussed rather than drawn,
+// and one with nothing but whitespace before it on its line is indented under a
+// list item, where lifting it would land the picture below the list instead of
+// inside the bullet.
+const DRAWING = /<svg\b[\s\S]*?<\/svg\s*>/gi
 const PLACEHOLDER = /<!--aetox-drawing-(\d+)-->/g
 
 // Fenced blocks are the one place an <svg> at the start of a line is source
@@ -354,11 +371,44 @@ function fencedSpans(text: string): Array<[number, number]> {
   return spans
 }
 
+// Inline code spans, which the left-margin anchor used to rule out for free: a
+// drawing written between backticks is source the user asked to see. Fenced
+// blocks are taken out of the scan first — their bodies are full of backticks
+// that pair with nothing, and a stray one there would swallow the rest of the
+// message into an imaginary code span.
+function codeSpans(text: string, fences: Array<[number, number]>): Array<[number, number]> {
+  const spans: Array<[number, number]> = []
+  const runs = /`+/g
+  let open: { at: number; len: number } | null = null
+  for (let m = runs.exec(text); m !== null; m = runs.exec(text)) {
+    if (fences.some(([from, to]) => m!.index >= from && m!.index < to)) continue
+    if (open === null) open = { at: m.index, len: m[0].length }
+    else if (m[0].length === open.len) {
+      spans.push([open.at, m.index + m[0].length])
+      open = null
+    }
+  }
+  return spans
+}
+
+// Whitespace and nothing else before the drawing on its own line: it is
+// indented under something — a list item, a blockquote — and belongs to it.
+// Column 0 is the ordinary drawing and is lifted; so is one that opens after
+// prose on the same line, which is the case this is careful NOT to catch.
+function indentedUnder(text: string, offset: number): boolean {
+  const lineStart = text.lastIndexOf('\n', offset - 1) + 1
+  const before = text.slice(lineStart, offset)
+  return before !== '' && before.trim() === ''
+}
+
 function liftDrawings(text: string): { text: string; held: string[] } {
   const fences = fencedSpans(text)
+  const codes = codeSpans(text, fences)
   const held: string[] = []
   const lifted = text.replace(DRAWING, (match, offset: number) => {
     if (fences.some(([from, to]) => offset >= from && offset < to)) return match
+    if (codes.some(([from, to]) => offset >= from && offset < to)) return match
+    if (indentedUnder(text, offset)) return match
     return `<!--aetox-drawing-${held.push(match) - 1}-->`
   })
   return { text: lifted, held }
@@ -429,10 +479,75 @@ function confine(html: string): string {
   for (const style of host.querySelectorAll('style')) {
     if (!style.closest('svg')) style.remove()
   }
+  // The same phantom from the other end of markdown's paragraph machinery: the
+  // tail of a panel closes a paragraph that never had anything in it, and an
+  // empty <p> inside `display:grid` is a grid item exactly as a <br> is. It
+  // carries nothing anywhere else either — marked writes none for real prose.
+  for (const para of Array.from(host.querySelectorAll('p'))) {
+    if (para.children.length === 0 && (para.textContent ?? '').trim() === '') para.remove()
+  }
+  for (const br of Array.from(host.querySelectorAll('br'))) {
+    if (betweenBlocks(br)) br.remove()
+  }
   for (const table of host.querySelectorAll('table')) {
     if (!table.closest('.table-scroll')) scrollTable(table)
   }
   return host.innerHTML
+}
+
+// A <br> standing between two blocks is not a line break anybody wrote.
+//
+// `breaks: true` is right for chat — a model that ends a line means to end it —
+// and wrong for the markup a model lays out. A panel (internal/prompt's `panel`
+// layer) is divs written one per line, and glued to the end of a sentence the
+// whole thing is inline HTML, so every newline inside it comes back as a <br>
+// BETWEEN the divs.
+//
+// In ordinary flow that is a stack of blank lines. Inside `display:grid` it is
+// worse than cosmetic: a <br> is a grid ITEM, so a four-column header row of
+// four labels became nine items and wrapped — "หน้า" over "แอดมินสนาม" in the
+// second column, "ซุปเปอร์" over "เมเนเจอร์" in the fourth, and a third row
+// holding nothing but a line break (owner, 6 ก.ย., screenshot of exactly that).
+// The body rows were written one line each and came out perfect, which is the
+// tell: nothing was wrong with the panel, only with the newlines in it.
+//
+// Removed rather than prevented: `breaks` is a whole-document setting and the
+// prose around the panel needs it. A <br> next to real text is left alone —
+// that is the one this is for, and it is never the one in the way.
+const BLOCKS = new Set([
+  'ADDRESS', 'ARTICLE', 'ASIDE', 'BLOCKQUOTE', 'DD', 'DETAILS', 'DIALOG', 'DIV', 'DL', 'DT',
+  'FIELDSET', 'FIGCAPTION', 'FIGURE', 'FOOTER', 'FORM', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+  'HEADER', 'HGROUP', 'HR', 'LI', 'MAIN', 'NAV', 'OL', 'P', 'PRE', 'SECTION', 'TABLE', 'UL',
+])
+
+function betweenBlocks(br: Element): boolean {
+  const before = besideBr(br, 'previousSibling')
+  const after = besideBr(br, 'nextSibling')
+  // An edge counts as a block boundary — a <br> as the first or last thing in a
+  // container of divs is the same stray newline, and in a grid it is a whole
+  // phantom row. Both sides being an edge is an empty container: nothing to do.
+  if (before === 'inline' || after === 'inline') return false
+  return before === 'block' || after === 'block'
+}
+
+/** What sits on one side of a <br>, ignoring the whitespace markdown left with
+ *  it: 'block', 'inline' (an element or any real text), or 'edge'. */
+function besideBr(br: Element, step: 'previousSibling' | 'nextSibling'): 'block' | 'inline' | 'edge' {
+  let node: ChildNode | null = br[step]
+  while (node !== null) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if ((node.textContent ?? '').trim() === '') { node = node[step]; continue }
+      return 'inline'
+    }
+    if (node.nodeType === Node.COMMENT_NODE) { node = node[step]; continue }
+    if (node.nodeType !== Node.ELEMENT_NODE) return 'inline'
+    // A run of them is one stray newline repeated, so the whole run is judged
+    // by what the run sits between — otherwise a blank line inside a panel
+    // leaves two <br> that each keep the other alive.
+    if ((node as Element).tagName === 'BR') { node = node[step]; continue }
+    return BLOCKS.has((node as Element).tagName) ? 'block' : 'inline'
+  }
+  return 'edge'
 }
 
 // A wide table has to scroll, and CSS alone could never make it.
