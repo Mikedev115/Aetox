@@ -255,6 +255,98 @@ func TestSummarizerRowsBecomeIssuesAndKeepTheirDecisions(t *testing.T) {
 	}
 }
 
+// v18: renaming an agent renames its whole past with it.
+//
+// `research` became `deepresearch` and only the folder moved. What that cost
+// was not tidiness: resolveStation refuses a session whose chair profile is
+// gone, so every chat ever held with that agent answered a click with an error
+// and an empty screen — the transcript sitting untouched in the store, filed
+// under a name nothing could resolve. Its learning went the same way, scoped by
+// a name no longer in the office.
+func TestRenamedAgentKeepsItsSessionsAndItsLearning(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "aetox.db")
+
+	// Brought fully up to date first, then wound back one step: the columns
+	// this migration rewrites were themselves added by earlier steps, so a
+	// database old enough to predate them cannot hold the rows under test.
+	old, err := sql.Open("sqlite", "file:"+filepath.ToSlash(path))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := migrate(old); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	if _, err := old.Exec("PRAGMA user_version = 17"); err != nil {
+		t.Fatalf("wind back: %v", err)
+	}
+	now := time.Now().Format(time.RFC3339)
+	for _, stmt := range []struct {
+		sql  string
+		args []any
+	}{
+		{`INSERT INTO sessions(id, project_key, title, created_at, updated_at, mode, agent)
+		  VALUES(?,?,?,?,?,'specialized','research')`,
+			[]any{"20260906-155408.454", "proj", "เทส MCP หน่อยครับ", now, now}},
+		{`INSERT INTO sessions(id, project_key, title, created_at, updated_at, mode, agent)
+		  VALUES(?,?,?,?,?,'specialized','doc')`,
+			[]any{"20260906-155409.000", "proj", "งานเอกสาร", now, now}},
+		{`INSERT INTO jobs(session_id, agent, request, time) VALUES(?,'research','ค้นให้หน่อย',?)`,
+			[]any{"20260906-155408.454", now}},
+		{`INSERT INTO tool_runs(agent, tool, args, output, time) VALUES('research','web_search','{}','ok',?)`,
+			[]any{now}},
+		{`INSERT INTO pending_changes(kind, scope, body, created_at) VALUES('memory','research','แหล่งนี้เชื่อถือได้',?)`,
+			[]any{now}},
+	} {
+		if _, err := old.Exec(stmt.sql, stmt.args...); err != nil {
+			t.Fatalf("seed row: %v", err)
+		}
+	}
+	if err := old.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	a := seed(&App{cfg: config.Config{}, dbDir: dir}, newConversation())
+	t.Cleanup(func() {
+		if a.db != nil {
+			_ = a.db.Close()
+		}
+	})
+	db, err := a.database()
+	if err != nil {
+		t.Fatalf("database: %v", err)
+	}
+
+	for _, want := range []struct {
+		what  string
+		query string
+	}{
+		{"session", `SELECT agent FROM sessions WHERE id = '20260906-155408.454'`},
+		{"job", `SELECT agent FROM jobs WHERE session_id = '20260906-155408.454'`},
+		{"tool run", `SELECT agent FROM tool_runs WHERE tool = 'web_search'`},
+		{"pending change", `SELECT scope FROM pending_changes WHERE kind = 'memory'`},
+	} {
+		var got string
+		if err := db.QueryRow(want.query).Scan(&got); err != nil {
+			t.Fatalf("read %s: %v", want.what, err)
+		}
+		if got != "deepresearch" {
+			t.Errorf("%s still filed under %q — the rename left it behind", want.what, got)
+		}
+	}
+
+	// Only that one name moves. Every other agent keeps its own rows, which is
+	// the difference between a rename and a rewrite.
+	var other string
+	if err := db.QueryRow(
+		`SELECT agent FROM sessions WHERE id = '20260906-155409.000'`).Scan(&other); err != nil {
+		t.Fatalf("read untouched session: %v", err)
+	}
+	if other != "doc" {
+		t.Errorf("another agent's session was rewritten to %q", other)
+	}
+}
+
 // Migrations are append-only and their versions must climb by one from 1: a
 // duplicate or a gap makes "which steps has this database run" unanswerable.
 func TestMigrationVersionsAreSequential(t *testing.T) {

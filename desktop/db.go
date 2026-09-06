@@ -628,6 +628,46 @@ CREATE TABLE IF NOT EXISTS project_folders (
 			return nil
 		},
 	},
+	{
+		version: 18,
+		name:    "research_is_now_deepresearch",
+		apply: func(tx *sql.Tx) error {
+			// The agent named `research` was renamed to `deepresearch` (6 ก.ย.)
+			// and the rename moved its identity folder and its address — and
+			// nothing else. An agent's name is not only what the user types at
+			// it: it is the key its whole past is filed under, in four columns
+			// of this database, and none of them moved with the folder.
+			//
+			// The visible half was a chat that could not be opened at all.
+			// resolveStation refuses a session whose chair profile is gone —
+			// deliberately, because reopening it as the main assistant would be
+			// answering as somebody else — so every session ever held with that
+			// agent became a row in the history list that raises an error and
+			// shows nothing. The transcript was never lost; the name in front
+			// of it was, and that was enough to make it unreachable.
+			//
+			// The quiet half is the learning: every tool run, every delegation
+			// job, and any lesson still waiting for approval is scoped by agent
+			// name, so leaving those behind would hand the renamed agent an
+			// empty past and keep the old one's in the store forever, filed
+			// under a name nothing can read.
+			//
+			// Exact matches only. The name is a whole column value here, never
+			// a substring of one, and a `replace()` would have rewritten every
+			// unrelated row that merely contains the word.
+			for _, stmt := range []string{
+				`UPDATE sessions       SET agent = 'deepresearch' WHERE agent = 'research'`,
+				`UPDATE jobs           SET agent = 'deepresearch' WHERE agent = 'research'`,
+				`UPDATE tool_runs      SET agent = 'deepresearch' WHERE agent = 'research'`,
+				`UPDATE pending_changes SET scope = 'deepresearch' WHERE scope = 'research'`,
+			} {
+				if _, err := tx.Exec(stmt); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	},
 }
 
 // latestSchemaVersion is what this build understands.
