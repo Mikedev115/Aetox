@@ -168,6 +168,10 @@ func (a *App) RegenerateReply(revertFiles bool) (RegenerateResult, error) {
 	// pass should be able to see, and it cannot if the retry overwrites the
 	// attempt that provoked it.
 	a.recordJobs(conv, replyID, question, agentMsg.Text, mark, time.Since(started))
+	// A second answer that ends by asking something leaves the user exactly where
+	// the first one would have (prepared_reply.go). The button they pressed was
+	// "answer again", not "and I will type the reply myself this time".
+	a.maybePrepareReply(conv, question, agentMsg.Text)
 
 	return RegenerateResult{
 		Text: agentMsg.Text, Parts: agentMsg.Parts,

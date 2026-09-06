@@ -142,6 +142,8 @@ export const en: Record<keyof typeof th, string> = {
   'start.chair.prepPrompt': 'I am about to hand you this job — what do you need from me to do it well? Do not start yet. Answer in three parts: what files or information you must have to start at all, what would improve the result but is not required, and what decisions I have to make first because guessing wrong would mean redoing everything. Also tell me roughly how long this should take if I bring you all of it, and where you expect to get stuck: ',
 
   'chat.inputPlaceholder': 'Type your request… ({key} for everything else)',
+  'chat.preparedTake': 'use this wording',
+  'chat.preparedMore': 'press again for {n} more',
   'chat.attachImage': 'Attach image',
   'chat.attachFile': 'Attach a file',
   'chat.attachImages': 'Images',
@@ -728,6 +730,8 @@ export const en: Record<keyof typeof th, string> = {
   'settings.approvalTitle': 'Tool permission',
   'settings.approvalDesc': 'How much the agent can do without asking first',
 
+  'settings.preparedReplyTitle': 'Write my reply for me',
+  'settings.preparedReplyDesc': 'When an answer ends by asking you something, your reply is written into the composer in dim text — Tab takes it, typing clears it. Turns that leave nothing to decide cost nothing.',
   'settings.firstRunTitle': 'See the first-run screen',
   'settings.firstRunDesc': 'Forget theme, language, text sizes and panel widths, and show the welcome wizard again. API keys, chat history and engine settings are untouched.',
   'settings.firstRunAction': 'Start over as a fresh install',

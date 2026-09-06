@@ -311,7 +311,21 @@ func draftSkillEditOnce(ctx context.Context, p model.Provider, req model.Request
 // TestProviderConnection does — endpoint, key and wire format from the live
 // config, so the loop drafts with the model the user is actually paying for.
 func (a *App) oneShotProvider() (model.Provider, string, error) {
-	cfg := a.cur().cfg
+	return a.oneShotProviderFor(a.cur())
+}
+
+// oneShotProviderFor is the same thing for a NAMED conversation, which is what
+// any caller reached from a finished turn must use. `a.cur()` is the chat on
+// screen — a cursor this codebase stopped trusting at §150 — and a turn that
+// ended while the user was reading another conversation would otherwise be
+// followed up on whatever model THAT chat happens to run. Same rule the turn
+// path already follows: the conversation is handed over and held, never read
+// back later.
+func (a *App) oneShotProviderFor(conv *conversation) (model.Provider, string, error) {
+	if conv == nil {
+		conv = a.cur()
+	}
+	cfg := conv.cfg
 	canonical := model.NormalizeProvider(cfg.ModelProvider)
 	baseURL := resolveBaseURLForProvider(canonical)
 	apiKey := resolveAPIKeyForProvider(canonical)

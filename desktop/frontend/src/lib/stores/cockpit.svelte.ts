@@ -1641,6 +1641,12 @@ async function runLiveTurn(call: (turn: LiveTurnRef) => Promise<void>): Promise<
     cockpit.todos = []
   }
   cockpit.ask = null
+  // Wording prepared for the question the PREVIOUS turn asked. Whatever the
+  // user is sending now is their answer to it — taken, edited, or ignored in
+  // favour of something else entirely — and once it is sent the offer is spent.
+  // Left standing it would sit under the new answer as a reply to a question
+  // two turns old.
+  clearPrepared()
   try {
     await call(turn)
   } finally {
@@ -2033,6 +2039,57 @@ export function applyTodos(ev: SessionEvent<CockpitState['todos']> | CockpitStat
  * question nobody is asking any more. */
 export function clearPlan(): void {
   cockpit.todos = []
+}
+
+/** The user's next message, written for them (desktop/prepared_reply.go).
+ *
+ * Arrives after the turn it belongs to has already ended, which is what makes
+ * it the one agent event that must NOT go through forLiveTurn: that helper's
+ * job is to route what a RUNNING turn emits, and by the time this lands there
+ * is no running turn to match against.
+ *
+ * Applied only to the chat on screen, and dropped otherwise rather than parked.
+ * A wording is a sentence somebody was about to type in a box they are looking
+ * at; restoring it into a composer three chats later, under an answer scrolled
+ * off days ago, would be a message with no visible question. */
+export function applyPreparedReplies(
+  ev: SessionEvent<PreparedReply[]> | PreparedReply[],
+): void {
+  const stamped = ev && typeof ev === 'object' && 'sessionId' in (ev as object)
+    ? (ev as SessionEvent<PreparedReply[]>)
+    : null
+  const id = stamped?.sessionId ?? ''
+  if (id && cockpit.openSession && id !== cockpit.openSession) return
+  const list = stamped ? stamped.data : (ev as PreparedReply[])
+  cockpit.prepared = Array.isArray(list) ? list.filter((r) => r?.text) : []
+  cockpit.preparedAt = 0
+}
+
+/** Put the wording down untaken — the user typed something of their own, sent
+ * the message, pressed Escape, or started a new turn. */
+export function clearPrepared(): void {
+  if (cockpit.prepared.length === 0) return
+  cockpit.prepared = []
+  cockpit.preparedAt = 0
+}
+
+/** The wording currently on offer, '' when there is none. */
+export function preparedText(): string {
+  return cockpit.prepared[cockpit.preparedAt]?.text ?? ''
+}
+
+/** Tab pressed on a wording already taken: move to the next one the model
+ * prepared, and stop at the last rather than cycling back to the first.
+ *
+ * Not a cycle on purpose. Cycling means the same key both advances and
+ * retreats, so a user holding Tab to see what else there is ends up back where
+ * they started with no way to tell they have been round — and what this key
+ * edits is a message about to be sent. Returns '' when there is nothing
+ * further, which leaves what they already have in the box alone. */
+export function nextPrepared(): string {
+  if (cockpit.preparedAt >= cockpit.prepared.length - 1) return ''
+  cockpit.preparedAt += 1
+  return preparedText()
 }
 
 /** suggest_task tool: the agent's pending side-work chips, replaced wholesale.

@@ -239,6 +239,10 @@ export const LearningEnabled = boolFn(true)
 export const SetLearningEnabled = noop()
 export const SkillTuneAuto = boolFn(false)
 export const SetSkillTuneAuto = noop()
+// Ships on, so the mock answers on — a settings page that renders the switch
+// off by default would let a regression in the real default pass unnoticed.
+export const PreparedReplyOn = boolFn(true)
+export const SetPreparedReplyOn = noop()
 export const RunSkillTuneup = vi.fn(async (..._args: any[]) => 0)
 export const ListSkillProposals = arr()
 export const PendingSkillTuneCount = vi.fn(async (..._args: any[]) => 0)

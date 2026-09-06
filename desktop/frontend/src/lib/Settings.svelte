@@ -56,6 +56,7 @@
     SetConnectionStartCommand, StartConnectionServer, CheckConnectionServer,
     AppVersion, AppCredit, RecentDebugLog,
     LearningEnabled, SetLearningEnabled, SkillTuneAuto, SetSkillTuneAuto, RunSkillTuneup, ListSkillProposals, ListPendingChanges, ListDecidedChanges,
+    PreparedReplyOn, SetPreparedReplyOn,
     ApprovePendingChange, RejectPendingChange, LearnedEntries, LearnedScopeInfos, SaveLearnedEntry, OpenMemoryFolder,
     ForgetMemoryScope, AdoptMemoryScope, RecentProjects,
     ListSystemIssues, MarkIssueReported, ListDecidedIssues,
@@ -152,6 +153,11 @@
   // ---------- General: default shell ----------
   let shells = $state<{ name: string; path: string }[]>([])
   let defaultShell = $state(localStorage.getItem('defaultShell') ?? '')
+  // Whether a turn that ends by asking something writes the user's reply for
+  // them (desktop/prepared_reply.go). Ships on, so the honest initial value is
+  // on: a switch drawn off for the moment before Go answers reads as a feature
+  // that is disabled rather than one that is loading.
+  let preparedOn = $state(true)
 
   function saveDefaultShell() {
     localStorage.setItem('defaultShell', defaultShell)
@@ -638,6 +644,7 @@
           shells = await TerminalShells()
           if (!shells.some((s) => s.path === defaultShell)) defaultShell = shells[0]?.path ?? ''
         })(),
+        (async () => { preparedOn = await PreparedReplyOn() })(),
         loadMCP(),
         loadSkills(),
         (async () => {
@@ -3060,6 +3067,20 @@
     }
   }
 
+  // Off means no turn ever spends a call preparing wording, whatever it ended
+  // with. Written straight through rather than optimistically: this switch
+  // decides whether money is spent, and a checkbox that moves before the write
+  // lands is a checkbox that can lie about that.
+  async function togglePreparedReply() {
+    try {
+      await SetPreparedReplyOn(!preparedOn)
+      preparedOn = await PreparedReplyOn()
+    } catch {
+      // Preference file unwritable — leave the switch reading what Go last said
+      // rather than showing a state nothing persisted.
+    }
+  }
+
   async function toggleSkillTuneAuto() {
     try {
       await SetSkillTuneAuto(!skillTuneAutoOn)
@@ -4460,6 +4481,16 @@
           <select class="ctrl" value={cockpit.model.approval} onchange={(e) => switchApprovalMode(e.currentTarget.value)}>
             {#each approvalOptions as opt}<option value={opt.value}>{opt.label}</option>{/each}
           </select>
+        </div>
+        <div class="set-row">
+          <div class="set-txt">
+            <div class="t">{t('settings.preparedReplyTitle')}</div>
+            <div class="d">{t('settings.preparedReplyDesc')}</div>
+          </div>
+          <label class="mswitch">
+            <input type="checkbox" checked={preparedOn} onchange={togglePreparedReply} />
+            <span></span>
+          </label>
         </div>
         <div class="set-row">
           <div class="set-txt">

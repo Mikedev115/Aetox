@@ -19,9 +19,10 @@
   import {
     cockpit, sendUserMessage, loadRealState, openFile,
     switchProvider, switchThinkLevel,
-    switchModel, submitAPIKey, setActiveView, restoreActiveView, closeFile, applyAgentStatus, applyToolEvent,
+    switchModel, cancelPendingModel, applyModelRowChanged, submitAPIKey, setActiveView, restoreActiveView, closeFile, applyAgentStatus, applyToolEvent,
     applyAgentChunk, applyReasoningChunk, applyModelLoading, attachImageFromPath, attachFileFromPath, fileKind,
     applyAskUser, applyAskDone, applyTodos, applyMissedInterjections, applyTaskChips, applyUsageRound,
+    applyPreparedReplies,
     applyPendingLearned, refreshPendingLearned, refreshPendingIssues, applyAgentDone, isOverlayView, closeOverlay,
     refreshProjectFolders, refreshOpenFiles,
   } from './lib/stores/cockpit.svelte'
@@ -201,6 +202,11 @@
     // could not fold it in, so it comes back here and goes out as its own turn.
     const offMissed = EventsOn('agent:interjection-missed', applyMissedInterjections)
     const offTaskChips = EventsOn('tasks:changed', applyTaskChips)
+    // The user's own next message, written for them after a turn that ended by
+    // asking them something. Lands after agent:done rather than during the
+    // turn — it is written from the finished answer — so it is the one agent
+    // event that arrives at an idle chat.
+    const offPrepared = EventsOn('composer:prepared', applyPreparedReplies)
     // What the turn is costing, round by round, from the same reporter that
     // has always written it to the usage table (desktop/usage.go). The table
     // answered the question a day later; this answers it while there is still
@@ -291,11 +297,14 @@
       offBusyDone()
       offAgentReasoning()
       offModelLoading()
+      offModelSwitched()
+      offModelPending()
       offAskUser()
       offAskDone()
       offTodos()
       offMissed()
       offTaskChips()
+      offPrepared()
       offUsage()
       offWorkspace()
       offFiles()

@@ -32,6 +32,12 @@ func TestMain(m *testing.M) {
 	if err := os.Setenv("AETOX_DATA_ROOT", root); err != nil {
 		panic("test data root: " + err.Error())
 	}
+	// Same reasoning one paragraph up, for the other thing a finished turn
+	// spends without being asked: SendMessage hands every answer that ends in a
+	// question to the prepared-reply writer, which would make a real model call
+	// from any test that drives a turn to the end. The unit tests below call
+	// offersChoice and cleanReplies directly.
+	preparedReplies = false
 	code := m.Run()
 	_ = os.RemoveAll(root)
 	os.Exit(code)

@@ -1038,6 +1038,14 @@ export interface CockpitState {
   todos: { content: string; status: 'pending' | 'in_progress' | 'completed' }[]
   /** Side work the agent flagged with suggest_task — chips the user can start or dismiss. */
   taskChips: TaskChip[]
+  /** The user's own next message, written for them after a turn that ended by
+   *  asking them something (desktop/prepared_reply.go). Best first; the composer
+   *  shows one at a time in dim text and Tab takes it. Empty on every turn that
+   *  left nothing to decide, which is most of them. */
+  prepared: PreparedReply[]
+  /** Which of `prepared` the composer is offering. Tab on an already-taken
+   *  wording moves to the next, so a second option is one keypress away. */
+  preparedAt: number
   /** How many things the agent wants to remember and is waiting to be allowed to.
    * Surfaced as a mark on the way into settings: an approval queue nobody is
    * told about is one that never gets emptied, which would quietly turn
@@ -1055,6 +1063,16 @@ export interface CockpitState {
    * this way. Carries the *kind* because it came from the roster — Settings
    * must never re-derive it from a file. Consumed and cleared on arrival. */
   settingsIntent: { section: string; agent?: string; createAgent?: boolean } | null
+}
+
+/** One wording the user might send next, ready for Tab to take.
+ *
+ * The text is the user's own message, not the assistant's — first person, as
+ * they would have typed it. That is the whole idea: a turn that ends "เอา a
+ * หรือ b" leaves them with a decision already made and a sentence still to
+ * type, and this is the sentence. */
+export interface PreparedReply {
+  text: string
 }
 
 /** One suggested side task from the agent (suggest_task tool). */
@@ -1107,6 +1125,8 @@ export function emptyCockpitState(): CockpitState {
     ask: null,
     todos: [],
     taskChips: [],
+    prepared: [],
+    preparedAt: 0,
     pendingLearned: 0,
     pendingIssues: 0,
     settingsIntent: null,

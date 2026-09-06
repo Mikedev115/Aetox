@@ -242,6 +242,13 @@ type ModelPreference struct {
 	// exactly what an absent-means-off default is for. The user turns it on in
 	// settings; either way a drafted fix only ever applies on their approval.
 	SkillTuneAuto bool `json:"skill_tune_auto,omitempty"`
+	// PreparedReplyOff turns off the wording written into the composer after a
+	// turn that ended by asking the user something (desktop/prepared_reply.go).
+	// Negative, so absent means on — the opposite spelling from SkillTuneAuto
+	// one field up, and the file there says why the two differ: that one drafts
+	// in the background on its own schedule, this one only ever spends on a turn
+	// the user just watched finish and puts the result under their cursor.
+	PreparedReplyOff bool `json:"prepared_reply_off,omitempty"`
 	// The assistant's reach: one switch per kind, plus the per-worker trim. Each
 	// is spelled so that ABSENT means what the product ships — the same rule
 	// LearningDisabled above follows, applied twice with opposite answers.

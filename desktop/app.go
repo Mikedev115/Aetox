@@ -88,6 +88,11 @@ type App struct {
 	// repeat; this stops the concurrency.
 	skillTuneRunning atomic.Bool
 
+	// preparing guards the prepared-reply writer (prepared_reply.go) the same
+	// way and for the same reason: one small call at a time, whichever chat
+	// finished first.
+	preparing atomic.Bool
+
 	terminalsMu sync.Mutex
 	terminals   map[string]*TerminalSession
 	browsers    *browserHost
@@ -2391,6 +2396,11 @@ func (a *App) SendMessage(text, to string) (TurnReply, error) {
 	// After the transcript, never instead of it: a failure to record the work
 	// for later learning must not cost the user their conversation.
 	a.recordJobs(conv, messageID, userMsg.Text, agentMsg.Text, mark, time.Since(started))
+	// Last, and off this goroutine: an answer that ended by asking the user
+	// something has their reply written into the composer for them to take with
+	// Tab (prepared_reply.go). It gates itself on the answer actually offering a
+	// choice, so the ordinary turn pays nothing.
+	a.maybePrepareReply(conv, userMsg.Text, agentMsg.Text)
 	return replyOf(agentMsg), nil
 }
 

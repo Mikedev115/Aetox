@@ -2828,6 +2828,29 @@ button.phase-head:hover { color:var(--text-muted); }
    be readable before sending, not squinted at through a 220px slot. */
 .composer .input { width:100%; resize:none; border:none; outline:none; background:none; color:var(--text-primary); font:inherit; font-size:var(--chat-font-size, 15.5px); line-height:1.5; max-height:50vh; overflow-y:auto; }
 .composer .input::placeholder { color:var(--text-dim); }
+/* The wording prepared for the user after a turn that ended by asking them
+   something (desktop/prepared_reply.go). It sits UNDER the textarea, in the
+   same type at the same place, so what Tab is offering to type is drawn exactly
+   where it would land — a hint in a different size or a different indent is a
+   promise the box does not keep.
+
+   The textarea keeps its own transparent background and stays on top, so the
+   caret blinks in front of the suggestion and a click lands in the real
+   control. Only ever drawn over an EMPTY box, which is what lets this be one
+   dim block rather than a mirror of the typed text: there is no typed text to
+   mirror, and the pixel-chasing that a Copilot-style overlay needs (fonts,
+   wrapping, scroll position, every one of them a way to sit one pixel off) has
+   nothing to do here.
+
+   pointer-events:none because it is a picture of a sentence, not a sentence —
+   selecting it, or clicking it and having nothing focus, would both be lies. */
+.composer .input-wrap { position:relative; display:flex; }
+.composer .input-wrap .input { position:relative; z-index:1; }
+.composer .ghost { position:absolute; inset:0; pointer-events:none; color:var(--text-dim); font:inherit; font-size:var(--chat-font-size, 15.5px); line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; }
+/* What the key does, said once, only while there is something to take. */
+.composer .prepared-hint { display:flex; align-items:center; gap:8px; font-size:var(--fs-sm); color:var(--text-dim); }
+.composer .prepared-hint .key { font-family:var(--mono); font-size:var(--fs-xs); border:1px solid var(--border-default); border-radius:var(--r-sm); padding:1px 6px; color:var(--text-secondary); }
+.composer .prepared-hint .more { color:var(--text-dim); }
 /* The anchor for the two popovers on this row that have no wrapper of their own
    (.ctx-menu and .model-menu — see .model-pick). It used to be the box, which
    was fine only while the box was one line tall: a composer holding two images

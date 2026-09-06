@@ -45,6 +45,7 @@
     retryFailedTurn, editFailedTurn, regenerateReply, switchVariant, resendEdited, rateReply,
     setActiveView, newChairSession, newSessionAt, openSettingsAt, setStance,
     sendUserMessage, liveThinkSecs,
+    preparedText, nextPrepared, clearPrepared,
   } from './stores/cockpit.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import MemoryCard from './MemoryCard.svelte'
@@ -518,6 +519,13 @@
   // is worse, because it looks like something they wrote.
   const DRAFT_KEY = 'aetox-composer-draft'
   let draft = $state('')
+  // The wording on offer, or '' when there is none to draw. Only over an empty
+  // box, and never while this chat is mid-turn: what is typed during a turn
+  // goes INTO it (Interject), so a suggestion sitting there would be offering
+  // to interrupt the work with an answer to the question before last.
+  const ghost = $derived(
+    draft === '' && !awaitingReply && cockpit.prepared.length > 0 ? preparedText() : '',
+  )
   // Reactive: it lands after an await, and the effect below has to re-run when
   // it does. Left as a plain variable, a draft typed in the first moments after
   // the window opens was never stored at all — the effect had already decided
@@ -982,12 +990,18 @@
   // pasted prompt deserves the whole window, not 220px.
   // Reacts to every draft change so starter picks and post-send clears resize too.
   let inputEl = $state<HTMLTextAreaElement | null>(null)
+  let ghostEl = $state<HTMLDivElement | null>(null)
   $effect(() => {
     void draft
+    // A prepared wording is drawn over an EMPTY box, so the textarea's own
+    // scrollHeight is one row and knows nothing about it. Without this a
+    // two-line suggestion is cut off at the first line — read as the model
+    // having written half a sentence.
+    void ghost
     const el = inputEl
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = el.scrollHeight + 'px'
+    el.style.height = Math.max(el.scrollHeight, ghostEl?.scrollHeight ?? 0) + 'px'
   })
 
   // One open menu at a time on the composer.
@@ -1836,6 +1850,44 @@
       submit()
       return
     }
+    // Tab takes the wording prepared for this question (prepared_reply.go), and
+    // pressing it again swaps to the next option the model offered.
+    //
+    // It only ever ACTS when there is something to take: with nothing prepared,
+    // Tab is left alone to do what Tab does. That matters because the key is
+    // already spoken for in this composer — Shift+Tab moves the approval mode
+    // (Chat.svelte's window handler) — and because a key that silently swallows
+    // itself is worse than one that does nothing.
+    //
+    // Never on Shift+Tab, which is that other control and must reach it
+    // untouched even while a wording is on offer.
+    if (e.key === 'Tab' && !e.shiftKey && cockpit.prepared.length > 0) {
+      const offered = preparedText()
+      // The box is empty: the offer is standing, take it.
+      if (draft === '') {
+        e.preventDefault()
+        takePrepared(offered)
+        return
+      }
+      // The box holds exactly what the last Tab put there, untouched: this is
+      // the second press, so show what else was prepared. An empty answer means
+      // there is nothing else — leave the wording they have alone rather than
+      // wrapping round to where they started.
+      if (draft === offered) {
+        const other = nextPrepared()
+        if (other) {
+          e.preventDefault()
+          takePrepared(other)
+        }
+        return
+      }
+      // Anything else in the box is the user's own writing. Tab is theirs.
+      return
+    }
+    // Escape puts the offer down. The same key closes the roster below, and
+    // both can be open at once, so this does not return — one press should
+    // clear what is actually on screen.
+    if (e.key === 'Escape' && cockpit.prepared.length > 0) clearPrepared()
     // "/" on an empty composer opens the preset list — the placeholder has
     // promised this since before there was anything to show.
     if (e.key === '/' && draft.trim() === '') {
@@ -2021,6 +2073,35 @@
     }
     mentionPicked = ''
     inputEl?.focus()
+  }
+
+  // Taking a prepared wording: it stops being a suggestion and becomes the
+  // user's own draft, editable like anything they typed. Nothing is sent — the
+  // Enter that sends it is still theirs to press, which is the line between
+  // this and an assistant that answers its own questions.
+  //
+  // The caret goes to the END rather than staying at 0, because the likeliest
+  // next act after taking a sentence is adding a clause to it.
+  function takePrepared(text: string) {
+    draft = text
+    const el = inputEl
+    if (!el) return
+    el.focus()
+    // After the binding has written the new value, or the caret is placed in
+    // the text that was there before it.
+    tick().then(() => el.setSelectionRange(text.length, text.length))
+  }
+
+  // The user writing their own words puts the offer down for good. Typing over
+  // a suggestion is a rejection of it, and an offer that came back the moment
+  // the box was cleared again would be one the user had already declined.
+  //
+  // On input rather than on keydown so it cannot fire for the Tab that TAKES a
+  // wording: setting `draft` from code raises no input event, so what reaches
+  // here is only ever the person at the keyboard — typing, pasting, or editing
+  // what Tab just handed them.
+  function onComposerInput() {
+    if (cockpit.prepared.length > 0 && draft !== preparedText()) clearPrepared()
   }
 
   // '' = closed. The two composer buttons and the "/" key set it.
@@ -4325,17 +4406,45 @@
           <div class="folder-note">{t('chat.mentionNote')}</div>
         </div>
       {/if}
-      <textarea
-        class="input"
-        rows="1"
-        placeholder={cockpit.chair
-          ? t('chat.inputToAgent', { name: cockpit.chair })
-          : t('chat.inputPlaceholder', { key: shortcutLabel('palette') })}
-        bind:this={inputEl}
-        bind:value={draft}
-        onkeydown={onKeydown}
-        onpaste={onComposerPaste}
-      ></textarea>
+      <!-- The answer to the question the last turn ended on, written out in the
+           user's own voice and waiting for Tab (prepared_reply.go).
+           Drawn UNDER the textarea rather than as its placeholder, because a
+           placeholder cannot say what to press and disappears the moment
+           anything is typed — and this has to survive a keystroke long enough
+           to be rejected on purpose. Only while the box is genuinely empty: it
+           is a suggestion, and a suggestion drawn over somebody's own sentence
+           is a rendering bug. -->
+      <div class="input-wrap">
+        {#if ghost}
+          <div class="ghost" bind:this={ghostEl} aria-hidden="true">{ghost}</div>
+        {/if}
+        <textarea
+          class="input"
+          rows="1"
+          placeholder={ghost
+            ? ''
+            : cockpit.chair
+              ? t('chat.inputToAgent', { name: cockpit.chair })
+              : t('chat.inputPlaceholder', { key: shortcutLabel('palette') })}
+          bind:this={inputEl}
+          bind:value={draft}
+          onkeydown={onKeydown}
+          oninput={onComposerInput}
+          onpaste={onComposerPaste}
+        ></textarea>
+      </div>
+      <!-- What the key does, next to the thing it does it to. Only while there
+           is something to take: a permanent legend for a control that is
+           usually absent is noise on every other turn. -->
+      {#if ghost}
+        <div class="prepared-hint">
+          <span class="key">Tab</span>
+          <span class="t">{t('chat.preparedTake')}</span>
+          {#if cockpit.prepared.length > 1}
+            <span class="more">{t('chat.preparedMore', { n: String(cockpit.prepared.length - 1) })}</span>
+          {/if}
+        </div>
+      {/if}
       {#if voiceError}
         <!-- The engine's own sentence, verbatim — it already says what is
              missing and where to fix it (internal/stt, internal/tts). -->
