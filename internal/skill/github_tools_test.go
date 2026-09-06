@@ -239,6 +239,55 @@ func TestFindPlainSkillsTakesTheWholeSubtree(t *testing.T) {
 	}
 }
 
+// A scanner's fixtures are the case this was written for. NVIDIA's SkillSpector
+// keeps deliberately-malicious samples under tests/fixtures/, and before the
+// test directories joined notSkillMaterial this function returned all of them
+// as installable skills — the scanner plus twenty-four traps. Installing a
+// security scanner must not write a prompt-injection sample into the skills
+// directory where the model will read it as instructions.
+func TestFindPlainSkillsSkipsTestFixtures(t *testing.T) {
+	entries := []githubTreeEntry{
+		{Path: "skills/skill-inspector/SKILL.md", Type: "blob", Size: 10},
+		{Path: "tests/fixtures/malicious_skill/SKILL.md", Type: "blob", Size: 10},
+		{Path: "tests/fixtures/ssd/ssd1_semantic_injection/SKILL.md", Type: "blob", Size: 10},
+		{Path: "test/helper/SKILL.md", Type: "blob", Size: 10},
+		{Path: "e2e/flows/SKILL.md", Type: "blob", Size: 10},
+		{Path: "spec/support/SKILL.md", Type: "blob", Size: 10},
+		{Path: "testdata/sample/SKILL.md", Type: "blob", Size: 10},
+	}
+	got := findPlainSkills(entries, "SkillSpector")
+	if len(got) != 1 {
+		names := make([]string, 0, len(got))
+		for _, s := range got {
+			names = append(names, s.name)
+		}
+		t.Fatalf("got %d skills %v, want only the published one", len(got), names)
+	}
+	if got[0].name != "skill-inspector" {
+		t.Errorf("installed %q, want skill-inspector", got[0].name)
+	}
+}
+
+// The other direction, which a blunter blocklist would have broken: a skill
+// whose own job is testing is a published skill, and "examples" is a folder
+// repositories really do publish skills under.
+func TestFindPlainSkillsKeepsSkillsNamedAfterTesting(t *testing.T) {
+	entries := []githubTreeEntry{
+		{Path: "skills/testing/SKILL.md", Type: "blob", Size: 10},
+		{Path: "skills/test-writer/SKILL.md", Type: "blob", Size: 10},
+		{Path: "examples/hello/SKILL.md", Type: "blob", Size: 10},
+		{Path: "samples/world/SKILL.md", Type: "blob", Size: 10},
+	}
+	got := findPlainSkills(entries, "repo")
+	if len(got) != 4 {
+		names := make([]string, 0, len(got))
+		for _, s := range got {
+			names = append(names, s.name)
+		}
+		t.Fatalf("got %d skills %v, want all four", len(got), names)
+	}
+}
+
 func TestFindPlainSkillsNoSkillFile(t *testing.T) {
 	entries := []githubTreeEntry{{Path: "README.md", Type: "blob", Size: 10}}
 	if got := findPlainSkills(entries, "repo"); len(got) != 0 {

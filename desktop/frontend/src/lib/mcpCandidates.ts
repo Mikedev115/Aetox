@@ -13,7 +13,8 @@
 // mcpShelf.ts with a `why` you wrote yourself. Delete the row here once it's
 // promoted — this file is a waiting room, not a second catalog.
 //
-// Every row was verified 2026-09-03 by firing a real MCP `initialize` (and,
+// Every row was verified (2026-09-03 for the first pass, 2026-09-05 for the
+// second — each row carries its own date) by firing a real MCP `initialize` (and,
 // where reachable without a key, a real `tools/list`) at the URL in `source`.
 // `evidence` is the literal response, trimmed. Nothing here was taken from a
 // vendor's docs page or a directory site's claim — see the `semgrep` row
@@ -315,5 +316,297 @@ export const MCP_CANDIDATES: MCPCandidate[] = [
     verifiedAt: '2026-09-03',
     toolCount: null,
     evidence: 'The MCP endpoint itself answers 403 (ambiguous — could be a bot check, not OAuth, per the shelf charter\'s own Cloudflare lesson about reading a 403 twice). The resource-metadata endpoint answers cleanly though: https://setup.shopify.com/.well-known/oauth-protected-resource -> 200, authorization_servers=["https://setup.shopify.com/auth"]. Discovery: AS metadata at https://setup.shopify.com/.well-known/oauth-authorization-server/auth has token_endpoint_auth_methods_supported=["none"] but NO registration_endpoint — DCR not supported, needs a pre-registered client_id from Shopify.',
+  },
+
+  // ── Second pass, 2026-09-05. Same method as above — a real `initialize`
+  //    from a browser user agent, then for every 401 the RFC 9728 → RFC 8414
+  //    walk to see whether the authorization server has a
+  //    registration_endpoint. 57 endpoints probed; the rows below are the
+  //    ones that both answered and reach something Aetox has no tool for.
+  //    Five of them (microsoft-learn, aws-knowledge, zapier, supabase, canva)
+  //    went straight to the shelf the same day on the owner's word and are
+  //    deleted from here, per the rule at the top of this file.
+  //
+  //    Left out on purpose, so nobody re-probes them:
+  //    - overlap with a tool already here (rule 1): tavily, brightdata,
+  //      jina (22 tools, but search/read/screenshot is web_search + web_fetch
+  //      + the browser), browser.mcp.cloudflare.com (a hosted browser).
+  //    - mcp.devin.ai/mcp answers as serverInfo.name "DeepWiki" 2.14.3 —
+  //      the same server as the deepwiki preset already on the shelf.
+  //    - too narrow for a shelf a general user reads: kite (Zerodha, India
+  //      only), mercadolibre, workos, stytch, observability.mcp.cloudflare.com
+  //      (one account's Workers logs), astro-docs / resend-docs / neon-docs
+  //      (one vendor's Mintlify docs each).
+  //    - not one click by construction: pipedream (400 "external user id is
+  //      required"), openrouter (307 to a docs page, no server).
+  //    - no DNS at all on 2026-09-05: mcp.perplexity.ai, mcp.readme.com,
+  //      mcp.coinbase.com, mcp.zerion.io, api.hub.docker.com.
+  //    - stackblitz answered 403 with an HTML bot page — the Cloudflare
+  //      lesson from the shelf charter, unread rather than refused. ─────────
+
+  // ── auth: none ───────────────────────────────────────────────────────────
+
+  // ── auth: static-header — 401 whose own body names an API token, so the
+  //    header form works without a sign-in ─────────────────────────────────
+  {
+    id: 'apify',
+    category: 'web scraping actors / datasets',
+    source: 'https://mcp.apify.com',
+    auth: 'static-header',
+    gap: 'Thousands of ready-made scrapers (Google Maps listings, Instagram, Amazon, job boards) run as actors and return datasets. firecrawl walks a site; this runs a purpose-built extractor for a site and hands back rows.',
+    overlaps: ['firecrawl (already on shelf) — crawl/scrape generic pages, not per-site extractors', 'web_fetch (internal/skill/web_fetch.go) — one page'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST / (no headers) -> 401 {"error":"invalid_token","error_description":"Missing or invalid access token. Pass an Apify API token in the Authorization: Bearer <token> header. Manage tokens at https://console.apify.com/account/integrations"} — the header format is in the error body. registration_endpoint also present at console-backend.apify.com.',
+  },
+  {
+    id: 'postman',
+    category: 'API collections / requests',
+    source: 'https://mcp.postman.com/mcp',
+    auth: 'static-header',
+    gap: 'Reads and runs the user\'s own Postman collections and environments — a saved, authenticated API surface Aetox otherwise cannot see.',
+    overlaps: ['web_fetch (internal/skill/web_fetch.go) — raw HTTP, no collections, no saved auth'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST /mcp (no headers) -> 401 {"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request: API key required"}}, header WWW-Authenticate: Bearer resource_metadata="https://mcp.postman.com/.well-known/oauth-protected-resource/mcp" — body names an API key; DCR also available.',
+  },
+  {
+    id: 'alphavantage',
+    category: 'stock / forex / commodity market data',
+    source: 'https://mcp.alphavantage.co/mcp',
+    auth: 'static-header',
+    gap: 'Equities, FX and commodities time series — the same gap coingecko above fills for crypto, for everything else. calc.go has no numbers of its own.',
+    overlaps: ['coingecko (above) — crypto only', 'currencyapi (above) — FX rates only'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST /mcp (no headers) -> 401 {"error":"invalid_request","error_description":"Missing access token"}, header WWW-Authenticate: Bearer resource_metadata="https://mcp.alphavantage.co/.well-known/oauth-protected-resource/mcp". Alpha Vantage issues a free API key on its site; AS metadata also has a registration_endpoint.',
+  },
+
+  // ── auth: oauth-dcr — 401, and the authorization server named by the
+  //    resource metadata has a registration_endpoint. Every one of these is
+  //    what semgrep / grafana / netlify / notion were on 3 ก.ย.: one click
+  //    with the browser sign-in, once someone has done that sign-in and
+  //    written `why`. ──────────────────────────────────────────────────────
+  {
+    id: 'asana',
+    category: 'project management / tasks',
+    source: 'https://mcp.asana.com/sse',
+    auth: 'oauth-dcr',
+    gap: 'Aetox has no task or project tool at all — nothing reads or writes tasks, projects, or comments in a live workspace.',
+    overlaps: ['linear (above) — same category, different vendor'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST (no headers) -> 401, header WWW-Authenticate: Bearer realm="OAuth", error="invalid_token", error_description="Missing or invalid access token", resource_metadata="https://mcp.asana.com/.well-known/oauth-protected-resource". AS metadata at https://mcp.asana.com/.well-known/oauth-authorization-server has registration_endpoint. Note the path is /sse — the older transport — so internal/mcp/client.go\'s streamable-HTTP path needs checking against it before promotion.',
+  },
+  {
+    id: 'monday',
+    category: 'work management / boards',
+    source: 'https://mcp.monday.com/mcp',
+    auth: 'oauth-dcr',
+    gap: 'Same gap as asana and linear — boards, items, updates in a live monday.com account — for the third vendor in that category.',
+    overlaps: ['asana (above)', 'linear (above)'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST (no headers) -> 401, header WWW-Authenticate: Bearer realm="OAuth", error="invalid_token", error_description="Missing or invalid access token", resource_metadata="https://mcp.monday.com/.well-known/oauth-protected-resource/mcp". AS metadata at https://auth.monday.com/.well-known/oauth-authorization-server/mcp has registration_endpoint.',
+  },
+  {
+    id: 'miro',
+    category: 'whiteboards / diagrams (Miro)',
+    source: 'https://mcp.miro.com/mcp',
+    auth: 'oauth-dcr',
+    gap: 'Aetox draws nothing on a shared board — nothing reads or writes sticky notes, frames, or diagrams in a live Miro board.',
+    overlaps: [],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST /mcp (no headers) -> 401 {"error":"Authentication required"}, header WWW-Authenticate: Bearer resource_metadata="https://mcp.miro.com/.well-known/oauth-protected-resource". AS metadata at https://mcp.miro.com/.well-known/oauth-authorization-server has registration_endpoint.',
+  },
+  {
+    id: 'paypal',
+    category: 'payments (PayPal)',
+    source: 'https://mcp.paypal.com/mcp',
+    auth: 'oauth-dcr',
+    gap: 'Aetox has no payment tool. Invoices, orders, subscriptions, disputes in a live PayPal business account.',
+    overlaps: ['stripe (above) — same category, static key rather than sign-in'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST (no headers) -> 401, header WWW-Authenticate: Bearer realm="OAuth", error="invalid_token", error_description="Missing or invalid access token", resource_metadata="https://mcp.paypal.com/.well-known/oauth-protected-resource/mcp". AS metadata at https://mcp.paypal.com/.well-known/oauth-authorization-server has registration_endpoint.',
+  },
+  {
+    id: 'square',
+    category: 'payments / point of sale (Square)',
+    source: 'https://mcp.squareup.com/sse',
+    auth: 'oauth-dcr',
+    gap: 'Same gap as paypal and stripe, for a seller whose money runs through Square — catalog, orders, payments, customers.',
+    overlaps: ['stripe (above)', 'paypal (above)'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST (no headers) -> 401, header WWW-Authenticate: Bearer realm="OAuth", error="invalid_token", error_description="Missing or invalid access token", resource_metadata="https://mcp.squareup.com/.well-known/oauth-protected-resource/sse". AS metadata at https://mcp.squareup.com/.well-known/oauth-authorization-server has registration_endpoint. Path is /sse — same transport caveat as asana.',
+  },
+  {
+    id: 'plaid',
+    category: 'bank accounts / transactions (Plaid)',
+    source: 'https://api.dashboard.plaid.com/mcp/sse',
+    auth: 'oauth-dcr',
+    gap: 'Nothing in Aetox reads a bank account. This is the Plaid dashboard — items, institutions, usage — not a consumer\'s statements, which is worth knowing before promoting.',
+    overlaps: [],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST /mcp/sse (no headers) -> 401 {"error":"Unauthorized"}, no WWW-Authenticate. Default resource metadata at https://api.dashboard.plaid.com/.well-known/oauth-protected-resource answered, and the AS metadata at https://api.dashboard.plaid.com/.well-known/oauth-authorization-server has registration_endpoint. /sse transport caveat as asana.',
+  },
+  {
+    id: 'webflow',
+    category: 'website builder / CMS (Webflow)',
+    source: 'https://mcp.webflow.com/sse',
+    auth: 'oauth-dcr',
+    gap: 'Aetox writes local HTML files (the web-templates skill) and publishes nothing — this edits pages, CMS items and styles on a live Webflow site.',
+    overlaps: ['netlify (on shelf) — deploys a built site; webflow edits the site itself'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST (no headers) -> 401, header WWW-Authenticate: Bearer realm="OAuth", error="invalid_token", error_description="Missing or invalid access token", resource_metadata="https://mcp.webflow.com/.well-known/oauth-protected-resource/sse". AS metadata at https://mcp.webflow.com/.well-known/oauth-authorization-server has registration_endpoint. /sse transport caveat as asana.',
+  },
+  {
+    id: 'wix',
+    category: 'website builder (Wix)',
+    source: 'https://mcp.wix.com/mcp',
+    auth: 'oauth-dcr',
+    gap: 'Same gap as webflow for the other builder: reads and edits a live Wix site, its store and bookings.',
+    overlaps: ['webflow (above)'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST (no headers) -> 401, header WWW-Authenticate: Bearer realm="OAuth", error="invalid_token", error_description="Missing or invalid access token", resource_metadata="https://mcp.wix.com/.well-known/oauth-protected-resource/mcp". AS metadata at https://mcp.wix.com/.well-known/oauth-authorization-server has registration_endpoint.',
+  },
+  {
+    id: 'sanity',
+    category: 'headless CMS (Sanity)',
+    source: 'https://mcp.sanity.io',
+    auth: 'oauth-dcr',
+    gap: 'Aetox has no CMS tool — nothing queries or writes documents in a live content store.',
+    overlaps: ['webflow (above) — CMS half only'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST / (no headers) -> 401 {"error":"invalid_token","error_description":"Missing Authorization header"}, header WWW-Authenticate naming resource_metadata="https://mcp.sanity.io/.well-known/oauth-protected-resource". AS metadata at https://mcp.sanity.io/.well-known/oauth-authorization-server has registration_endpoint.',
+  },
+  {
+    id: 'prisma',
+    category: 'Postgres hosting (Prisma)',
+    source: 'https://mcp.prisma.io/mcp',
+    auth: 'oauth-dcr',
+    gap: 'Third database vendor after neon and supabase — Prisma Postgres projects, connection strings, and the Prisma-side tooling.',
+    overlaps: ['neon (above)', 'supabase (on shelf)'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST /mcp (no headers) -> 401 {"error":"invalid_token","error_description":"Missing Authorization header"}, header WWW-Authenticate naming resource_metadata="https://mcp.prisma.io/.well-known/oauth-protected-resource/mcp". AS metadata at https://auth.prisma.io/.well-known/oauth-authorization-server has registration_endpoint.',
+  },
+  {
+    id: 'intercom',
+    category: 'customer support / conversations (Intercom)',
+    source: 'https://mcp.intercom.com/mcp',
+    auth: 'oauth-dcr',
+    gap: 'Nothing in Aetox reads a support inbox — conversations, contacts, tickets in a live Intercom workspace.',
+    overlaps: [],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST (no headers) -> 401, header WWW-Authenticate: Bearer realm="OAuth", error="invalid_token", error_description="Missing or invalid access token". Default resource metadata at https://mcp.intercom.com/.well-known/oauth-protected-resource answered; AS metadata at https://mcp.intercom.com/.well-known/oauth-authorization-server has registration_endpoint.',
+  },
+  {
+    id: 'honeycomb',
+    category: 'observability / traces (Honeycomb)',
+    source: 'https://mcp.honeycomb.io/mcp',
+    auth: 'oauth-dcr',
+    gap: 'Same gap grafana fills on the shelf, for a team whose telemetry lives in Honeycomb — queries, triggers, SLOs against real production data.',
+    overlaps: ['grafana (on shelf) — same category, different vendor', 'sentry (above) — errors rather than traces'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST /mcp (no headers) -> 401, empty body, header WWW-Authenticate: Bearer resource_metadata="https://mcp.honeycomb.io/.well-known/oauth-protected-resource". AS metadata at https://ui.honeycomb.io/.well-known/oauth-authorization-server has registration_endpoint.',
+  },
+  {
+    id: 'jam',
+    category: 'bug reports with recordings (Jam)',
+    source: 'https://mcp.jam.dev/mcp',
+    auth: 'oauth-dcr',
+    gap: 'A Jam is a screen recording plus console, network and device data — a bug report a person made. Aetox has no way to open one; this reads them.',
+    overlaps: ['sentry (above) — errors the code raised, not what a person saw'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST /mcp (no headers) -> 401 {"error":"invalid_token","error_description":"Access token is missing or invalid"}, header WWW-Authenticate: Bearer resource_metadata="https://mcp.jam.dev/.well-known/oauth-protected-resource", scope="mcp:read mcp:write". AS metadata at https://api.jam.dev/.well-known/oauth-authorization-server has registration_endpoint.',
+  },
+  {
+    id: 'semrush',
+    category: 'SEO / keyword and domain data (Semrush)',
+    source: 'https://mcp.semrush.com/v1/mcp',
+    auth: 'oauth-dcr',
+    gap: 'Keyword volumes, backlinks, domain rankings — data web_search never returns as numbers. Aetox has nothing in this category.',
+    overlaps: [],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST /v1/mcp (no headers) -> 401, empty body, header WWW-Authenticate: Bearer resource_metadata="https://mcp.semrush.com/.well-known/oauth-protected-resource". AS metadata at https://oauth.semrush.com/.well-known/oauth-authorization-server has registration_endpoint.',
+  },
+  {
+    id: 'algolia',
+    category: 'hosted search index management (Algolia)',
+    source: 'https://mcp.algolia.com/mcp',
+    auth: 'oauth-dcr',
+    gap: 'Manages the user\'s own Algolia indices — records, settings, analytics. Nothing in Aetox touches a search index.',
+    overlaps: [],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST /mcp (no headers) -> 401 {"status":401,"detail":"Unauthorized: Missing or invalid Authorization header","code":"UNAUTHORIZED"}, header WWW-Authenticate: Bearer resource_metadata="https://mcp.algolia.com/.well-known/oauth-protected-resource", scope="public". AS metadata at https://dashboard.algolia.com/.well-known/oauth-authorization-server has registration_endpoint.',
+  },
+  {
+    id: 'globalping',
+    category: 'network measurements from many locations (Globalping)',
+    source: 'https://mcp.globalping.dev/mcp',
+    auth: 'oauth-dcr',
+    gap: 'ping, traceroute, DNS and HTTP checks run from probes around the world. Aetox can fetch a URL from this machine only; it cannot tell how a site answers from Singapore.',
+    overlaps: ['web_fetch (internal/skill/web_fetch.go) — one vantage point, this one'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST /mcp (no headers) -> 401, empty body, header WWW-Authenticate: Bearer realm="OAuth", resource_metadata="https://mcp.globalping.dev/.well-known/oauth-protected-resource/mcp", scope="measurements". AS metadata at https://mcp.globalping.dev/.well-known/oauth-authorization-server has registration_endpoint.',
+  },
+  {
+    id: 'cloudflare-radar',
+    category: 'internet traffic / outage / ranking data (Cloudflare Radar)',
+    source: 'https://radar.mcp.cloudflare.com/mcp',
+    auth: 'oauth-dcr',
+    gap: 'Radar is Cloudflare\'s public view of the internet — traffic shifts, outages, domain rankings, attack trends — a data set nothing on the shelf reaches. Distinct from cloudflare-docs (reads docs) and cloudflare-api (one account).',
+    overlaps: ['cloudflare-docs (on shelf) — docs only', 'cloudflare-api (above) — the user\'s own account'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST /mcp (no headers) -> 401, empty body, header WWW-Authenticate: Bearer realm="OAuth", resource_metadata="https://radar.mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp". AS metadata at https://radar.mcp.cloudflare.com/.well-known/oauth-authorization-server has registration_endpoint.',
+  },
+  {
+    id: 'dodo',
+    category: 'payments / merchant of record (Dodo Payments)',
+    source: 'https://mcp.dodopayments.com/mcp',
+    auth: 'oauth-dcr',
+    gap: 'Fourth payments vendor, the one that handles global tax as merchant of record — products, subscriptions, payouts.',
+    overlaps: ['stripe (above)', 'paypal (above)', 'square (above)'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST (no headers) -> 401, header WWW-Authenticate: Bearer realm="OAuth", error="invalid_token", error_description="Missing or invalid access token", resource_metadata="https://mcp.dodopayments.com/.well-known/oauth-protected-resource/mcp". AS metadata at https://mcp.dodopayments.com/.well-known/oauth-authorization-server has registration_endpoint.',
+  },
+
+  // ── auth: oauth-manual — no registration_endpoint, so not one click ──────
+  {
+    id: 'hubspot',
+    category: 'CRM (HubSpot)',
+    source: 'https://mcp.hubspot.com/anthropic',
+    auth: 'oauth-manual',
+    gap: 'Aetox has no CRM tool — contacts, companies, deals, tickets in a live HubSpot portal.',
+    overlaps: ['intercom (above) — support side, not sales'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST /anthropic (no headers) -> 401, empty body, header WWW-Authenticate: Bearer resource_metadata="https://mcp.hubspot.com/.well-known/oauth-protected-resource". AS metadata at https://mcp.hubspot.com/.well-known/oauth-authorization-server has NO registration_endpoint — needs a pre-registered client_id from HubSpot.',
+  },
+  {
+    id: 'box',
+    category: 'file storage (Box)',
+    source: 'https://mcp.box.com',
+    auth: 'oauth-manual',
+    gap: 'Aetox reads files on this machine only. This reaches a Box account — search, read, and AI-ask over files that live there.',
+    overlaps: ['filesystem tools — local disk only'],
+    verifiedAt: '2026-09-05',
+    toolCount: null,
+    evidence: 'POST / (no headers) -> 401, empty body, header WWW-Authenticate: Bearer realm="Service", error="invalid_request", error_description="The access token was not found.", resource_metadata="https://mcp.box.com/.well-known/oauth-protected-resource". AS metadata at https://api.box.com/.well-known/oauth-authorization-server has NO registration_endpoint.',
   },
 ]

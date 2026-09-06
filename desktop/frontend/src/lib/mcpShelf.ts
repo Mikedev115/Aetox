@@ -149,6 +149,28 @@ export const MCP_PRESETS: MCPPreset[] = [
   { name: 'exa', desc: 'Web search built for models to read', why: 'Results returned as text to read rather than as pages to open, so an answer costs one call instead of a search and five fetches.', url: 'https://mcp.exa.ai/mcp' },
   { name: 'huggingface', desc: 'Search models, datasets and spaces', why: 'Aetox has no index of models, datasets or spaces, and a web search finds blog posts about them rather than the things.', url: 'https://huggingface.co/mcp' },
   { name: 'cloudflare-docs', desc: "Search Cloudflare's documentation", why: "Cloudflare's own index of its own docs, which is a different thing from a web search that happens to land there.", url: 'https://docs.mcp.cloudflare.com/mcp' },
+  // Added 2026-09-05 (owner: "ใส่ ... ขึ้นชั้นเลยครับ"), from the second
+  // research pass recorded in mcpCandidates.ts. These two are the
+  // cloudflare-docs shape again — a vendor's own index of its own docs — and
+  // both answered a bare `initialize` with no credential of any kind. The
+  // `why` on each was written after real calls the same day, not from the
+  // tool descriptions: microsoft_docs_search asked about hidden files in
+  // Get-ChildItem came back with the about_FileSystem_Provider chunk that
+  // names the -Hidden parameter; aws___search_documentation asked about
+  // presigned URL expiry came back with the verbatim page section (1 minute
+  // to 12 hours in the console, up to 7 days from the SDK).
+  { name: 'microsoft-learn', desc: "Microsoft's own docs: Windows, Azure, .NET, PowerShell, Office", why: "Microsoft's own index of its own docs, which is a different thing from a web search that happens to land there — and a code-sample search web_search cannot do at all. Asked for Get-ChildItem hidden files it returned the exact provider page naming the parameter, not a forum thread about it.", url: 'https://learn.microsoft.com/api/mcp' },
+  { name: 'aws-knowledge', desc: "AWS's own docs, plus regions and per-region service availability", why: "AWS's own docs index, returning the verbatim page section rather than a snippet, so the answer is usually already in the result. Two things no web search returns as data sit beside it: the region list and which services exist in which region.", url: 'https://knowledge-mcp.global.api.aws' },
+  // zapier answers 401 "Expected Bearer token for MCP authentication", and
+  // there are two ways to get one: paste the token from the user's own Zapier
+  // MCP page, or the sign-in — its authorization server publishes a
+  // registration_endpoint (probed 2026-09-05), so it is the semgrep shape and
+  // takes the same `${connect:...}` path. It is written as the sign-in rather
+  // than the paste for the reason capabilityRoom.test.ts pins: every
+  // non-oauth preset must be one click, and a bare `Authorization: Bearer`
+  // is a form. The paste still works through แก้ไข for someone who has the
+  // token already. `why` is the same placeholder as the rows below it.
+  { name: 'zapier', desc: 'Run actions in ~8000 apps connected through Zapier', why: '[รอเจ้าของลองเข้าสู่ระบบจริงแล้วเขียนใหม่ — ต้องต่อ Zap จริงก่อนถึงจะรู้ว่า "ใช้แล้วเป็นไง"]', url: 'https://mcp.zapier.com/api/mcp/mcp', headers: ['Authorization: Bearer ${connect:zapier}'], oauth: true },
 
   // Added 2026-09-03 — the first three presets that need a sign-in rather
   // than a static header. internal/mcp/client.go still connects with a
@@ -181,6 +203,13 @@ export const MCP_PRESETS: MCPPreset[] = [
   // rule applies: delete this note and write a real `why` once someone has
   // actually signed in.
   { name: 'notion', desc: 'Search, read and write pages in a workspace', why: '[รอเจ้าของลองเข้าสู่ระบบจริงแล้วเขียนใหม่ — ต้องผ่านหน้าจอ OAuth ก่อนถึงจะรู้ว่า "ใช้แล้วเป็นไง"]', url: 'https://mcp.notion.com/mcp', headers: ['Authorization: Bearer ${connect:notion}'], oauth: true },
+  // Added 2026-09-05 with the two docs servers above: the first two of the
+  // twenty oauth-dcr rows from the second research pass in mcpCandidates.ts,
+  // picked by the owner. Both answered 401 with a resource_metadata pointer
+  // and both authorization servers publish a registration_endpoint, so the
+  // sign-in path is the one semgrep already walks. Same placeholder rule.
+  { name: 'supabase', desc: 'Run SQL and manage tables, functions and logs in your Supabase projects', why: '[รอเจ้าของลองเข้าสู่ระบบจริงแล้วเขียนใหม่ — ต้องผ่านหน้าจอ OAuth ก่อนถึงจะรู้ว่า "ใช้แล้วเป็นไง"]', url: 'https://mcp.supabase.com/mcp', headers: ['Authorization: Bearer ${connect:supabase}'], oauth: true },
+  { name: 'canva', desc: 'Create and export designs in your Canva account', why: '[รอเจ้าของลองเข้าสู่ระบบจริงแล้วเขียนใหม่ — ต้องผ่านหน้าจอ OAuth ก่อนถึงจะรู้ว่า "ใช้แล้วเป็นไง"]', url: 'https://mcp.canva.com/mcp', headers: ['Authorization: Bearer ${connect:canva}'], oauth: true },
 ]
 
 /** A stdio preset with no command written in the table is the one that has to

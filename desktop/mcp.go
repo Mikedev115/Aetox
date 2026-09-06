@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Mikedev115/Aetox/internal/bootstrap"
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/mcp"
@@ -314,6 +313,29 @@ func (a *App) SaveMCPServer(originalName string, server config.MCPServerConfig) 
 	}
 
 	originalName = strings.TrimSpace(originalName)
+	// A server nobody said anything about lands on the general desks.
+	//
+	// Absent is not empty here, the same distinction the allowlist below is
+	// written around: nil is a caller with nothing to say about placement (the
+	// shelf's เพิ่ม, the register's form, AddMCPServer), while `[]` is a
+	// decision — connected, shown to nobody — and must survive untouched.
+	//
+	// The default itself is not new; config.MCPDefaultDesks has always been the
+	// app's answer for a server with no `for:`. What was broken is that only
+	// MigrateMCPServerOwners applied it, and it could never see one of these:
+	// `For` is written without omitempty, so a nil placement reaches the file as
+	// `"for": null` — a key that is present, which is exactly what the migration
+	// skips. So pressing เพิ่ม saved a server placed nowhere, permanently, and
+	// the shelf said เพิ่มแล้ว while no desk carried a single one of its tools.
+	// The user had to go and tick the desk the app would have picked anyway
+	// (owner, 6 ก.ย.: "มันควรจะขึ้นฝั่งผู้ช่วยแบบเป็นค่าเริ่มต้น").
+	//
+	// Written into the entry rather than applied at read time, for the reason
+	// MCPDefaultDesks states: a silent default is a rule the user cannot see or
+	// switch off, and after this the file says exactly what is true.
+	if originalName == "" && server.For == nil {
+		server.For = append([]string(nil), config.MCPDefaultDesks...)
+	}
 	target := -1
 	for i, s := range servers {
 		if originalName != "" && strings.EqualFold(s.Name, originalName) {
@@ -401,22 +423,13 @@ func (a *App) RemoveMCPServer(name string) error {
 // TestMCPServer forces a fresh connection attempt (closing any cached failure)
 // and reports the resulting status, so the user can retry a server they just
 // fixed without restarting the app.
+//
+// Close()+reconnect is enough for every server now, including one whose
+// header is a ${connect:...} reference: the Client re-resolves that on every
+// request (mcp.Server.HeaderSource), so a rotated key or a refreshed OAuth
+// token reaches the wire without the full rebuildMCP() this used to run first
+// — which reloaded every server, not just the one being tested.
 func (a *App) TestMCPServer(name string) MCPServerInfo {
-	// A server whose header resolves ${env:...}/${connect:...} cannot be
-	// helped by Close() alone: the Client this app is holding had that
-	// reference resolved once, at construction, and a plain reconnect reuses
-	// the exact same (possibly now-expired) value. rebuildMCP() reloads the
-	// saved config and re-resolves it fresh — the only way a rotated key or a
-	// refreshed OAuth token this Client predates ever reaches the wire.
-	if servers, err := config.LoadMCPServers(); err == nil {
-		for _, s := range servers {
-			if strings.EqualFold(s.Name, name) && bootstrap.HasSecretRef(s.Headers) {
-				a.rebuildMCP()
-				break
-			}
-		}
-	}
-
 	c := a.findMCPClient(name)
 	if c == nil {
 		return MCPServerInfo{Name: name, Status: string(mcp.StatusFailed), Err: "server not found"}

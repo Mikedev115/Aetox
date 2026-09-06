@@ -3,17 +3,25 @@
 // levels inside Settings and the word appeared nowhere a reader would pass.
 //
 // So what is pinned here is the announcing, which is the part that quietly stops
-// working: the room opening on the shelf rather than on your own empty list, the
-// shelf being the real list rather than a second copy of it, and the two rooms
-// this one deliberately does not swallow.
+// working: the room opening on the ห้องสมุด rather than on your own empty list,
+// that library being the real list rather than a second copy of it, and the two
+// rooms this one deliberately does not swallow.
+//
+// Since 4 ก.ย. 2026 the ของคุณ half also EDITS one field — `for:`, who carries a
+// server — so the last block pins both halves of that: that the panel is the
+// register's own and writes through the register's own call, and that nothing
+// ELSE followed it in.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import Capability from '../lib/Capability.svelte'
 import { NAV, navFor } from '../lib/desks'
 import { MCP_PRESETS, needsPaste, presetFor, presetConfig } from '../lib/mcpShelf'
+import { SKILL_PRESETS } from '../lib/skillShelf'
 import {
   ListMCPServers, ListExternalSkills, ListTools, SaveMCPServer,
+  PlacementTargets, SetMCPServerTargets, RemoveMCPServer, ToggleMCPServer,
   StartMCPSignIn, CompleteMCPSignIn, CancelMCPSignIn, MCPSignInStatus,
+  InstallSkillFromGitHub,
 } from './mocks/wailsApp'
 import { BrowserOpenURL } from './mocks/wailsRuntime'
 import { cockpit } from '../lib/stores/cockpit.svelte'
@@ -111,7 +119,7 @@ describe('what the room says when you walk in', () => {
   // Point 2 of the room's whole design: it opens on the servers you do NOT
   // have. A register opening on your own empty list can only ever confirm what
   // you already knew, which is how the old page failed.
-  it('opens on the shelf, showing every preset, with nothing connected', async () => {
+  it('opens on the library, showing every preset, with nothing connected', async () => {
     render(Capability, { onClose: () => {} })
     await waitFor(() => expect(ListMCPServers).toHaveBeenCalled())
     for (const p of MCP_PRESETS) {
@@ -247,19 +255,271 @@ describe('what the room deliberately does not hold', () => {
   // เครื่องมือในตัว is an inventory, not a register: there is no shelf of
   // built-in tools to browse, so offering the pair would put half a choice on
   // screen that leads nowhere.
-  it('drops the shelf/yours switch on the built-in tab', async () => {
+  it('drops the library/yours switch on the built-in tab', async () => {
     render(Capability, { onClose: () => {} })
-    await waitFor(() => expect(screen.getByText('ชั้นวาง')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('ห้องสมุด')).toBeTruthy())
     await fireEvent.click(screen.getByText('เครื่องมือในตัว'))
-    await waitFor(() => expect(screen.queryByText('ชั้นวาง')).toBeNull())
+    await waitFor(() => expect(screen.queryByText('ห้องสมุด')).toBeNull())
   })
 
-  // The skills shelf is empty and says so. MCP has eight curated entries
-  // because mcpShelf.ts was written; skills have no such list, and drawing one
-  // it does not have would be the shelf breaking its own promise.
-  it('admits there is no skill shelf rather than inventing one', async () => {
+  // The skills shelf was empty for as long as it existed and said so, on the
+  // argument that drawing a list it did not have would break its own promise.
+  // skillShelf.ts is that list, so what is pinned now is that the tab draws it
+  // — and the older test's point survives as the assertion that every card
+  // comes from the file rather than from the markup.
+  it('draws the skill shelf from skillShelf.ts', async () => {
     render(Capability, { onClose: () => {} })
     await fireEvent.click(screen.getByText('สกิล'))
-    expect(await screen.findByText('ยังไม่มีชั้นวางสกิล')).toBeTruthy()
+    for (const p of SKILL_PRESETS) {
+      expect(await screen.findByText(p.name)).toBeTruthy()
+    }
+  })
+
+  // The one thing a person cannot find out after pressing: the button installs
+  // the WHOLE repository, because InstallSkillFromGitHub cannot take less than
+  // one. A card that showed only the pack's headline would be hiding fifty
+  // skills behind a one-word button.
+  it('says how many skills a card writes before it is pressed', async () => {
+    render(Capability, { onClose: () => {} })
+    await fireEvent.click(screen.getByText('สกิล'))
+    const p = SKILL_PRESETS[0]
+    const card = (await screen.findByText(p.name)).closest('article')!
+    expect(card.textContent).toContain(String(p.installs.length))
+  })
+
+  // Pressing เพิ่ม hands the repo URL to the engine's own installer and nothing
+  // else — no second copy of the URL, no client-side unpacking.
+  it('installs a pack through the engine, by its own repo url', async () => {
+    render(Capability, { onClose: () => {} })
+    await fireEvent.click(screen.getByText('สกิล'))
+    const p = SKILL_PRESETS[0]
+    const card = (await screen.findByText(p.name)).closest('article')!
+    await fireEvent.click(card.querySelector('button')!)
+    await waitFor(() => expect(InstallSkillFromGitHub).toHaveBeenCalledWith(p.repo))
+  })
+
+  // A pack whose skills are all on disk is เพิ่มแล้ว and has no button, the
+  // same way an added MCP server does. Matched on the pack's own `installs`
+  // list, because the installer's unit is the repository: one skill in common
+  // is not the pack, and a missing one is not a reason to redraw the button as
+  // if nothing were there.
+  it('marks a pack added only when all of its skills are present', async () => {
+    const p = SKILL_PRESETS[0]
+    vi.mocked(ListExternalSkills).mockResolvedValue(
+      p.installs.map((name) => ({ name, description: '', dir: 'd' })) as any)
+    render(Capability, { onClose: () => {} })
+    await fireEvent.click(screen.getByText('สกิล'))
+    const card = (await screen.findByText(p.name)).closest('article')!
+    await waitFor(() => expect(card.querySelector('button')).toBeNull())
+  })
+
+  it('offers to install the rest when a pack is only half there', async () => {
+    const p = SKILL_PRESETS[0]
+    vi.mocked(ListExternalSkills).mockResolvedValue(
+      [{ name: p.installs[0], description: '', dir: 'd' }] as any)
+    render(Capability, { onClose: () => {} })
+    await fireEvent.click(screen.getByText('สกิล'))
+    const card = (await screen.findByText(p.name)).closest('article')!
+    await waitFor(() => expect(card.querySelector('button')).not.toBeNull())
+    expect(card.textContent).toContain('1')
+  })
+})
+
+// ── the shelf file itself ─────────────────────────────────────────────────────
+//
+// mcpShelf.ts has a Go test guarding it because its keys have to line up with a
+// second file. This one has no twin, so what is guarded is the promise the file
+// makes in its own header: every entry is a real GitHub repository, and the
+// `installs` list is the measured truth the card counts from — a list that is
+// empty, duplicated, or shared between two packs would make the count and the
+// เพิ่มแล้ว tick both wrong, silently.
+describe('the skill shelf', () => {
+  it('points every card at a github repository', () => {
+    for (const p of SKILL_PRESETS) {
+      expect({ name: p.name, ok: /^https:\/\/github\.com\/[^/]+\/[^/]+$/.test(p.repo) })
+        .toEqual({ name: p.name, ok: true })
+    }
+  })
+
+  it('lists what each pack writes, with no name twice', () => {
+    for (const p of SKILL_PRESETS) {
+      expect(p.installs.length).toBeGreaterThan(0)
+      expect(new Set(p.installs).size).toBe(p.installs.length)
+    }
+  })
+
+  // Two packs claiming the same skill folder would fight over one directory on
+  // disk, and the room would draw both as added the moment either was.
+  it('never has two packs claiming one skill folder', () => {
+    const seen = new Map<string, string>()
+    for (const p of SKILL_PRESETS) {
+      for (const name of p.installs) {
+        expect({ name, owner: seen.get(name) ?? p.name }).toEqual({ name, owner: p.name })
+        seen.set(name, p.name)
+      }
+    }
+  })
+
+  // The charter's rule 1, as far as a test can read it: a pack that only
+  // repeats a bundled aetox-* skill is a second copy of an answer the machine
+  // already gives. The overlaps that do exist are named in the file's own
+  // comments; what must never happen is a pack whose whole content is one.
+  it('does not ship a pack that only repeats a bundled skill', () => {
+    for (const p of SKILL_PRESETS) {
+      expect({ name: p.name, count: p.installs.length }).toEqual({ name: p.name, count: p.installs.length })
+      expect(p.installs.every((s) => s.startsWith('aetox-'))).toBe(false)
+    }
+  })
+})
+
+// ── ของคุณ: the one field this room writes ────────────────────────────────────
+//
+// The half that used to be a three-column table. The owner's reading of it was
+// that it printed owner names in a column and then sent him to another page to
+// change one, which is a page that knows the answer and refuses to act on it.
+//
+// What is pinned is the boundary, not the layout: `for:` is written HERE, in the
+// register's own panel, through the register's own call — and nothing else came
+// with it. A room that grows an edit a release is how the second editor for one
+// config file gets built by accident.
+describe('who carries a server, changed in the room', () => {
+  const TARGETS = [
+    { id: 'assistant', name: 'assistant', detail: 'โต๊ะผู้ช่วย', kind: 'desk' },
+    { id: 'coding', name: 'coding', detail: 'โต๊ะโค้ด', kind: 'desk' },
+    { id: 'agent:deepresearch', name: 'deepresearch', detail: 'เอเจนหาข้อมูล', kind: 'agent' },
+  ]
+  const server = (over: Record<string, unknown> = {}) =>
+    ({ name: 'firecrawl', disabled: false, status: 'ok', tools: 4, for: [], ...over })
+
+  const openMine = async (rows: Record<string, unknown>[]) => {
+    vi.mocked(PlacementTargets).mockResolvedValue(TARGETS as any)
+    vi.mocked(ListMCPServers).mockResolvedValue(rows as any)
+    render(Capability, { onClose: () => {} })
+    await waitFor(() => expect(PlacementTargets).toHaveBeenCalled())
+    await fireEvent.click(screen.getByText('ของคุณ'))
+    return await screen.findByRole('button', { name: /firecrawl/ })
+  }
+
+  it('writes the whole new list through the register own call, not a per-target one', async () => {
+    const head = await openMine([server({ for: ['agent:deepresearch'] })])
+    await fireEvent.click(head) // กางแถว
+
+    const sw = await screen.findByRole('switch', { name: /assistant/ })
+    expect(sw.getAttribute('aria-checked')).toBe('false')
+    await fireEvent.click(sw)
+
+    // The whole list, because that is what the engine stores — a per-target
+    // call would need the engine to merge, and two places deciding what the
+    // list is now is how one of them ends up wrong.
+    await waitFor(() => expect(SetMCPServerTargets).toHaveBeenCalledWith('firecrawl', ['agent:deepresearch', 'assistant']))
+    // And it re-reads, so the panel agrees with disk rather than with itself.
+    expect(vi.mocked(ListMCPServers).mock.calls.length).toBeGreaterThan(1)
+  })
+
+  // The fact the old column could not state. Every switch under every row can be
+  // off for the desks and five healthy-looking rows still read as a working
+  // list — which is exactly what the owner's own machine looked like.
+  it('says out loud when the assistant you talk to carries nothing', async () => {
+    await openMine([server({ for: ['agent:deepresearch'] })])
+    expect(screen.getByText(/ยังไม่มีเซิร์ฟเวอร์ตัวไหนเปิดให้โต๊ะเลย/)).toBeTruthy()
+  })
+
+  it('drops that warning as soon as one desk carries something', async () => {
+    await openMine([server({ for: ['coding'] })])
+    expect(screen.queryByText(/ยังไม่มีเซิร์ฟเวอร์ตัวไหนเปิดให้โต๊ะเลย/)).toBeNull()
+  })
+
+  // The measurement that caught this sentence lying, kept as the test that stops
+  // it lying again. A chat with no desk set is the pre-modes full desk and
+  // carries every server whatever `for:` says — the owner's own machine, where
+  // nothing was on for a desk and 44 notion tools were in the session anyway.
+  // Reading `for:` alone would have shown him "the assistant cannot reach
+  // anything through MCP" while it was holding 44 of them.
+  it('stays quiet when the session is actually holding MCP tools, whatever for: says', async () => {
+    vi.mocked(ListTools).mockResolvedValue(
+      [tool(), tool({ name: 'notion_search', source: 'mcp', category: '' })] as any)
+    await openMine([server({ for: ['agent:deepresearch'] })])
+    expect(screen.queryByText(/ยังไม่มีเซิร์ฟเวอร์ตัวไหนเปิดให้โต๊ะเลย/)).toBeNull()
+  })
+
+  // โต๊ะ is the settings page's word, and settings may say it bare: whoever got
+  // three levels in went looking for it. This room is the announcement, so it is
+  // read by someone meeting the word for the first time.
+  it('translates โต๊ะ and เอเจน where the switches are, which settings does not', async () => {
+    const head = await openMine([server()])
+    await fireEvent.click(head)
+    expect(await screen.findByText(/ผู้ช่วยหลักที่คุณคุยด้วยในหน้าแชท ทำงานอยู่บนโต๊ะพวกนี้/)).toBeTruthy()
+    expect(screen.getByText(/คนในทีมที่คุยตรงได้จากหน้าทีมงาน/)).toBeTruthy()
+  })
+
+  // Reversed on 4 ก.ย. 2026, and the reversal is the point. This used to assert
+  // that ลบ was NOT here — a boundary that read as principled and was not: the
+  // room was already a second editor, just one with its arms cut off, so a
+  // person on a row had to know which half of the job lived on which page. The
+  // owner found it by trying to delete a server he was looking straight at.
+  it('deletes a server from the row, behind the register own confirm', async () => {
+    await openMine([server()])
+    await fireEvent.click(screen.getByRole('button', { name: 'จัดการเซิร์ฟเวอร์นี้' }))
+    await fireEvent.click(await screen.findByRole('button', { name: /ลบ/ }))
+
+    // Never on the first click: this throws away a configuration that has to be
+    // typed again from nothing.
+    expect(RemoveMCPServer).not.toHaveBeenCalled()
+    expect(screen.getByText('ลบ MCP server?')).toBeTruthy()
+
+    // The menu shut when the dialog opened, so the only ลบ left on screen is
+    // the one that actually removes it.
+    await fireEvent.click(screen.getByRole('button', { name: 'ลบ' }))
+    // With the name, not with '' — the first cut read it back out of reactive
+    // state after clearing it, so the call went through and removed nothing.
+    await waitFor(() => expect(RemoveMCPServer).toHaveBeenCalledWith('firecrawl'))
+  })
+
+  // The other two the register keeps on its row. Switching one off matters most:
+  // the room grew a "ปิดอยู่" state before it grew any way back out of it.
+  it('switches a server off and on from the same row', async () => {
+    await openMine([server({ disabled: true, status: 'disabled' })])
+    await fireEvent.click(screen.getByRole('button', { name: 'จัดการเซิร์ฟเวอร์นี้' }))
+    await fireEvent.click(await screen.findByRole('button', { name: /เปิดใช้/ }))
+    await waitFor(() => expect(ToggleMCPServer).toHaveBeenCalledWith('firecrawl', false))
+  })
+
+  // The form does NOT come with them — eleven fields copied is the duplication
+  // the room's original no-edit rule was actually about. The label says where it
+  // goes rather than pretending the field is here.
+  it('sends the address and key to the register instead of copying the form', async () => {
+    await openMine([server()])
+    await fireEvent.click(screen.getByRole('button', { name: 'จัดการเซิร์ฟเวอร์นี้' }))
+    expect(await screen.findByRole('button', { name: /ที่ทะเบียน/ })).toBeTruthy()
+    for (const field of ['cwd', 'timeout', 'env']) {
+      expect(screen.queryByLabelText(field)).toBeNull()
+    }
+  })
+
+  // A switched-off server carries nothing whoever it is pointed at —
+  // config.mcpServersFor drops it before it ever reads `for:`. The register has
+  // always greyed its switches for that reason; the room copied the panel and
+  // not the guard, so it took the click and wrote a value the engine ignores.
+  it('refuses to pretend a switched-off server can be handed to anyone', async () => {
+    const head = await openMine([server({ disabled: true, status: 'disabled' })])
+    await fireEvent.click(head)
+
+    const sw = await screen.findByRole('switch', { name: /assistant/ })
+    expect((sw as HTMLButtonElement).disabled).toBe(true)
+    await fireEvent.click(sw)
+    expect(SetMCPServerTargets).not.toHaveBeenCalled()
+
+    // And it says why, rather than leaving a dead control with no reason —
+    // "off" has to be a word, not only a grey dot (DESIGN.md §4).
+    expect(screen.getByText('ปิดอยู่')).toBeTruthy()
+    expect(screen.getByText(/เปิดมันจากเมนูจัดการที่ท้ายแถวก่อน/)).toBeTruthy()
+  })
+
+  // A count is the register's answer, because that page is about servers. This
+  // page has one question and it is WHO, so the shut row answers it by name.
+  it('names the carriers on the shut row rather than counting them', async () => {
+    await openMine([server({ for: ['agent:deepresearch'] })])
+    expect(screen.getByText('deepresearch')).toBeTruthy()
+    expect(screen.queryByText('เปิดให้ 1 ที่')).toBeNull()
   })
 })

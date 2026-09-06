@@ -368,9 +368,28 @@ type plainSkill struct {
 // notSkillMaterial are directory names that hold other people's code rather
 // than a published skill. A SKILL.md underneath one of these belongs to a
 // dependency or a build artefact, not to this repository.
+//
+// **The test directories are here for a sharper reason than tidiness, found on
+// 2026-09-05 while checking repositories for the skill shelf.** A scanner
+// published by NVIDIA (SkillSpector) keeps its sample inputs at
+// tests/fixtures/, and those samples are what a scanner's samples must be:
+// skills built to be caught. Run against that repository's real tree, this
+// function returned twenty-five skills — one of them the scanner, the other
+// twenty-four the fixtures, with names like malicious_skill, mcp_poisoned_tool
+// and ssd1_semantic_injection. Installing it wrote a prompt-injection sample
+// into the user's skills directory as a live skill the model then reads.
+//
+// The repository did nothing wrong: a test fixture is not a published skill,
+// and every convention says so by putting it under tests/. This function was
+// the one that could not tell the difference, so it learns the convention.
+// "examples" and "samples" are deliberately NOT here — repositories do publish
+// real skills under those names, and a wrong exclusion is silent in the other
+// direction.
 var notSkillMaterial = map[string]bool{
 	"node_modules": true, "vendor": true, "dist": true, "build": true,
 	"target": true, "out": true, "coverage": true, "__pycache__": true,
+	"test": true, "tests": true, "testdata": true, "__tests__": true,
+	"fixtures": true, "e2e": true, "spec": true, "specs": true,
 }
 
 // findPlainSkills reads a repository listing the way a person would: the folder
