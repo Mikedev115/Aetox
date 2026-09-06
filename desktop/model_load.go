@@ -53,6 +53,20 @@ var (
 	modelLoadGrace = 1200 * time.Millisecond
 )
 
+// runsWeightsLocally reports whether this provider brings a model into THIS
+// machine's memory to answer.
+//
+// Two callers, one question, and they use the answer in opposite directions:
+// the load row exists only for these (§the block above), and the queued-switch
+// preflight (§232) exists only for everyone else — pinging a local runtime to
+// prove the next model would pull it into the same VRAM the model that is
+// still answering is sitting in, which can evict or OOM the turn the user is
+// waiting on. One spelling, so the two can never disagree about which
+// providers those are.
+func runsWeightsLocally(canonical string) bool {
+	return canonical == "ollama" || canonical == "lmstudio"
+}
+
 // watchModelLoad reports, for as long as it takes, that this turn is waiting on
 // a local runtime to bring its model into memory. The returned func ends the
 // watch and clears the row; it is safe to call more than once, and every caller
@@ -64,7 +78,7 @@ func (a *App) watchModelLoad(ctx context.Context, conv *conversation) func() {
 	// Only the two runtimes that run the weights on this machine. Everyone
 	// else's model is already in memory somewhere else, and a wait on them is
 	// the network's, which this row would misname.
-	if canonical != "ollama" && canonical != "lmstudio" {
+	if !runsWeightsLocally(canonical) {
 		return func() {}
 	}
 	base := strings.TrimSpace(conv.cfg.ModelBaseURL)

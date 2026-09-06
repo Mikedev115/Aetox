@@ -3,16 +3,16 @@
 // incremental updates here — append a chat message, advance a timeline step) and
 // the UI reacts. Do not reassign `cockpit` itself; mutate its properties.
 
-import { emptyCockpitState, emptyTurnSpend, emptySessionSpend, type SessionSpend as SessionSpendTotals, type CockpitState, type ParkedTurn, type TreeNode, type Session, type ToolStep, type ToolEvent, type ChatMessage, type MessageVariant, type TurnPart, type PendingFile, type PendingImage, type ModelLoading } from '../types'
+import { emptyCockpitState, emptyTurnSpend, emptySessionSpend, type SessionSpend as SessionSpendTotals, type CockpitState, type ParkedTurn, type TreeNode, type Session, type ToolStep, type ToolEvent, type ChatMessage, type MessageVariant, type TurnPart, type PendingFile, type PendingImage, type ModelLoading, type StoreFault, type PreparedReply } from '../types'
 import type { CockpitSource } from '../services/cockpit'
 import {
   SendMessage, GetProjectStatus, GetModelInfo, OpenProjectFolder, OpenProjectPath,
   SwitchProvider, SwitchThinkLevel, SwitchApprovalMode, SetProviderWireFormat,
-  SwitchModel, SetAPIKey, SetProviderBaseURL, ProjectTree, ReadFile,
+  SwitchModel, CancelPendingModel, SetAPIKey, SetProviderBaseURL, ProjectTree, ReadFile,
   ListSessions, LoadSession, NewSession, NewSessionAt, NewChairSession, NewSessionInSpace, CurrentSpace, SessionsInSpace, Spaces, SessionMode, SessionAgent, CurrentSessionID, SearchSessions, DeleteSession,
   SessionTranscript, TurnInFlight,
   SaveChatImage, SaveChatImageData, SaveChatFile, ReadImageDataURL, CancelTurn, BrowserGetText, RecentProjects,
-  ListSessionsForDoor, SearchSessionsForDoor, LoadSessionAnyProject, ClearProjectFocus,
+  ListSessionsForDoor, SearchSessionsForDoor, LoadSessionAnyProject, ClearProjectFocus, HistoryFault,
   AnswerUserQuestion, Interject, RetryActiveProvider, PendingUndo, UndoLastTurn,
   RestorePoints, PendingRestore, RewindTo,
   CompleteSignIn, SignOut, ImportSignIn,
@@ -81,11 +81,32 @@ function applyModelInfo(info: main.ModelInfo): void {
     approval: info.approvalMode,
     wireFormat: info.wireFormat,
     warning: info.warning,
+    // ?? null, not `info.pending`: the Go side omits the field entirely when
+    // nothing is queued (omitempty), and leaving `undefined` on the store would
+    // keep the last queue drawn after the switch had already landed.
+    pending: info.pending ?? null,
   })
   // warning is live state, not a paint-smoothing hint: a provider that was
   // unreachable last run may well be up now, and seeding a stale "not running"
   // banner before the real GetModelInfo lands would be a lie on every launch.
-  cacheModelInfo({ ...cockpit.model, warning: '' })
+  //
+  // pending is dropped for a stronger version of the same reason: a queue only
+  // exists while a turn is running, and no turn survives a relaunch — a seeded
+  // one would announce a switch that nothing is ever going to make.
+  cacheModelInfo({ ...cockpit.model, warning: '', pending: null })
+}
+
+/** The model row changing underneath the window rather than because of a click.
+ *
+ * Two events arrive here: `model:switched` when a queued switch lands at the
+ * turn boundary, and `model:pending` when the preflight has proved (or failed
+ * to prove) the switch that is waiting. Both are pushes — every other path
+ * through applyModelInfo is the return value of something the user just
+ * pressed — and Go sends both only for the chat on screen, since a background
+ * chat has no picker to correct and refreshDesk re-asks when it opens. */
+export function applyModelRowChanged(info: main.ModelInfo): void {
+  if (!info?.provider) return
+  applyModelInfo(info)
 }
 
 /** Pull the real file tree the Go engine currently has. */
@@ -1088,6 +1109,12 @@ export async function switchApprovalMode(mode: string): Promise<void> {
 
 export async function switchModel(modelName: string): Promise<void> {
   applyModelInfo(await SwitchModel(modelName))
+}
+
+/** Drop a switch queued behind the running turn, leaving this chat on the
+ *  engine that is answering. */
+export async function cancelPendingModel(): Promise<void> {
+  applyModelInfo(await CancelPendingModel())
 }
 
 export async function submitAPIKey(providerName: string, apiKey: string): Promise<void> {

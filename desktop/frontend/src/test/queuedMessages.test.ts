@@ -117,7 +117,7 @@ describe('the composer while a turn is running', () => {
     task: { title: '', steps: [] } as any,
     agentStatus: '', toolSteps: [] as any[], streamingText: '', reasoningText: '',
     messages: [] as any[], onSend: () => {}, onSwitchProvider: async () => {},
-    onSwitchThinkLevel: async () => {}, onSwitchModel: async () => {}, onSubmitAPIKey: async () => {},
+    onSwitchThinkLevel: async () => {}, onSwitchModel: async () => {}, onCancelPendingModel: async () => {}, onSubmitAPIKey: async () => {},
     model: { provider: 'deepseek', modelName: 'v4', thinkLevel: 'high', approval: 'ask', wireFormat: '' } as any,
   }
 
@@ -152,7 +152,7 @@ describe('the composer draft across a reload', () => {
     task: { title: '', steps: [] } as any, awaitingReply: false,
     agentStatus: '', toolSteps: [] as any[], streamingText: '', reasoningText: '',
     messages: [] as any[], onSend: () => {}, onSwitchProvider: async () => {},
-    onSwitchThinkLevel: async () => {}, onSwitchModel: async () => {}, onSubmitAPIKey: async () => {},
+    onSwitchThinkLevel: async () => {}, onSwitchModel: async () => {}, onCancelPendingModel: async () => {}, onSubmitAPIKey: async () => {},
     model: { provider: 'deepseek', modelName: 'v4', thinkLevel: 'high', approval: 'ask', wireFormat: '' } as any,
   }
 

@@ -122,6 +122,17 @@ type conversation struct {
 	// widened mid-turn waits (§185). Guarded by App.turnMu, not free-standing:
 	// it is read and cleared at the moment the turn ends.
 	pendingCfg *config.Config
+	// pendingCheck is what the preflight has made of the queued switch (§232):
+	// "" not attempted (nothing queued, or a runtime whose weights live on this
+	// machine and must not be woken beside a turn in flight), "checking",
+	// "ready", or "failed". pendingNote carries the latency label or the
+	// provider's own failure message, and pendingProbe is the provider/model
+	// the answer in flight belongs to, so a dial moved twice does not land its
+	// first result on its second queue. All three are guarded by App.turnMu
+	// with pendingCfg, and cleared with it.
+	pendingCheck string
+	pendingNote  string
+	pendingProbe string
 
 	// lastSnapshot is the tree as it stood before THIS chat's last turn — what
 	// its undo goes back to. "" when there is nothing to go back to.

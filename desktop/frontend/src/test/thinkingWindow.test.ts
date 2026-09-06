@@ -25,6 +25,7 @@ const baseProps = {
   onSwitchProvider: async () => {},
   onSwitchThinkLevel: async () => {},
   onSwitchModel: async () => {},
+  onCancelPendingModel: async () => {},
   onSubmitAPIKey: async () => {},
   model: { provider: 'deepseek', modelName: 'v4', thinkLevel: 'high', approval: 'ask', wireFormat: '' } as any,
   messages: [{ role: 'user', text: 'ไปสิ', time: '22:19' }] as any,

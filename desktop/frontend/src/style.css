@@ -3015,6 +3015,7 @@ button.phase-head:hover { color:var(--text-muted); }
 .model-chip .pv { flex:none; display:inline-flex; align-items:center; }
 .model-chip .lvl { flex:none; color:var(--text-dim); }
 .model-chip .caret { flex:none; color:var(--text-dim); font-size:var(--fs-2xs); }
+.model-chip .queued { flex:none; display:inline-flex; align-items:center; color:var(--text-dim); }
 .model-menu {
   /* Anchored to the composer's button ROW, not to the chip that opens it —
      which is why .model-pick is not positioned. Bounding the width was not
@@ -3055,6 +3056,18 @@ button.phase-head:hover { color:var(--text-muted); }
    whole message ("start its server and load a model"), not its first 30px. */
 .mm-warn { display:flex; flex-direction:column; gap:2px; font-size:var(--fs-xs); color:var(--danger, #e5534b); word-break:break-word; }
 .mm-warn span { color:var(--text-muted); }
+/* A switch asked for and not yet taken. Deliberately not .mm-warn's red:
+   nothing has gone wrong, something is simply still to come, and a queue drawn
+   as a failure would send people looking for the problem. */
+.mm-queued { display:flex; align-items:center; gap:6px; min-width:0; font-size:var(--fs-xs); color:var(--text-muted); }
+.mm-queued .q-t { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mm-queued .q-t strong { color:var(--text-secondary); font-weight:600; }
+.mm-queued .q-x { flex:none; margin-left:auto; display:inline-flex; align-items:center; padding:2px; border-radius:var(--r-sm); color:var(--text-dim); cursor:pointer; }
+.mm-queued .q-x:hover { background:var(--surface-hover); color:var(--text-primary); }
+.mm-queued .q-s { flex:none; color:var(--text-dim); }
+.mm-queued .q-s.ok { color:var(--status-ok, var(--interactive)); }
+.mm-queued .q-s.bad { color:var(--danger, #e5534b); }
+.mm-queued-why { font-size:var(--fs-xs); color:var(--danger, #e5534b); word-break:break-word; }
 
 /* Custom up-opening dropdown for the model-menu's provider/model/think-level
    pickers — a native <select>'s own option list can't be forced to open

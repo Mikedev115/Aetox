@@ -1799,6 +1799,35 @@ type ModelInfo struct {
 	// the UI has to say so instead of showing a provider nobody is talking to.
 	// Empty means the provider bootstrapped for real.
 	Warning string `json:"warning"`
+	// Pending is the switch queued behind this chat's running turn, nil when
+	// the dials and the engine already agree. The fields above stay the truth
+	// about what is answering right now — a queued switch must not move the
+	// chip, or the user would be reading the name of a model that has not said
+	// a word yet.
+	Pending *PendingModel `json:"pending,omitempty"`
+}
+
+// PendingModel is a switch waiting at the turn boundary: what this chat will
+// run on once the answer in flight is finished.
+//
+// A shape of its own rather than four more nullable fields on ModelInfo,
+// because the window asks one question of it — is anything queued — and four
+// fields that are only meaningful together are four chances to answer that
+// wrongly.
+type PendingModel struct {
+	Provider   string `json:"provider"`
+	ModelName  string `json:"modelName"`
+	ThinkLevel string `json:"thinkLevel"`
+	WireFormat string `json:"wireFormat"`
+	// Check is the preflight's verdict on this switch — "" not attempted,
+	// "checking", "ready", "failed" — and Note the latency label or the
+	// provider's own failure message. The point of proving it while the old
+	// turn still runs is that a key that was never set, or an endpoint that is
+	// down, is a thing to find out now rather than at the boundary, when the
+	// engine falls back and the next answer comes from somewhere the user did
+	// not choose.
+	Check string `json:"check,omitempty"`
+	Note  string `json:"note,omitempty"`
 }
 
 // desktopProviders is the curated subset of the full engine catalog
@@ -2100,14 +2129,17 @@ var errTurnBusy = fmt.Errorf("เอเจนกำลังทำงานอ�
 // having broken rather than as having been postponed.
 var errTurnBusyUpdate = fmt.Errorf("เอเจนกำลังทำงานอยู่ — รอให้เสร็จ หรือกดหยุดก่อน แล้วค่อยอัปเดต (การอัปเดตต้องปิดแอป)")
 
-// errTurnBusyModel is the same refusal again, for the model menu's engine
-// dials — model, provider, thinking depth, wire format. SetStance has carried
-// this guard since stances existed, and its reason is these dials' reason
-// word for word: a turn running in this conversation would finish on an agent
-// it was not started with. The dials just never got the same sentence — which
-// is how a model switch mid-turn could kill the turn's delegates, orphan its
-// interjections, and snapshot its context half-written (§185).
-var errTurnBusyModel = fmt.Errorf("เอเจนกำลังทำงานอยู่ — รอให้เสร็จ หรือกดหยุดก่อน แล้วค่อยสลับโมเดล")
+// There is no errTurnBusyModel any more, and the third member of this family
+// is worth an epitaph. The model menu's four engine dials — model, provider,
+// thinking depth, wire format — used to refuse outright while their own chat's
+// turn ran (§185.1), on the reasoning SetStance still uses: a turn would finish
+// on an agent it was not started with. That danger is real and untouched. What
+// was wrong was the remedy. Refusing tells a person who has already decided to
+// come back later and decide again, and the waiting room they were being kept
+// out of already existed — conv.pendingCfg, which every other door has parked
+// in since §185. The dials park there too now (§232): the switch is taken at
+// the moment it is asked for, and lands at the turn boundary, where it was
+// always going to be safe.
 
 // beginTurn marks one turn in flight and stamps it with the session it was
 // born in. Refuses when a turn is already running: two turns share one agent
@@ -2196,6 +2228,7 @@ func (a *App) endTurn(sessionID string) {
 	if parkedConv != nil {
 		parked = parkedConv.pendingCfg
 		parkedConv.pendingCfg = nil
+		parkedConv.pendingCheck, parkedConv.pendingNote, parkedConv.pendingProbe = "", "", ""
 	}
 	a.turnMu.Unlock()
 	// A config change that arrived mid-turn lands now, before anything lets go
@@ -2203,6 +2236,15 @@ func (a *App) endTurn(sessionID string) {
 	// released chat is rebuilt from when it is next opened.
 	if parked != nil {
 		a.applyConfig(parkedConv, *parked)
+		// The model row on screen is a cache of what GetModelInfo last said,
+		// and a queued switch landing here is the one engine change no click of
+		// the user's precedes — without this the chip went on naming the model
+		// that had just been replaced until something else refreshed it. Only
+		// for the chat being looked at: a background chat has no picker to
+		// correct, and refreshDesk re-asks the moment it is opened.
+		if parkedConv == a.cur() {
+			a.emitEvent("model:switched", a.GetModelInfo())
+		}
 	}
 	a.emitEvent("agent:done", TurnStatus{Running: false, SessionID: sessionID})
 	// The work was what kept this chat's engine alive while the user was
@@ -2812,6 +2854,13 @@ func (a *App) GetModelInfo() ModelInfo {
 	if a.cur().modelErr != nil {
 		warning = a.cur().modelErr.Error()
 	}
+	// Read before the literal below rather than inside it: the park slot is
+	// guarded by turnMu, and a field initialiser is the wrong place to be
+	// taking a lock.
+	conv := a.cur()
+	a.turnMu.Lock()
+	pending := pendingModelOf(conv)
+	a.turnMu.Unlock()
 	return ModelInfo{
 		Provider:   a.cur().cfg.ModelProvider,
 		ModelName:  a.cur().cfg.ModelName,
@@ -2826,6 +2875,7 @@ func (a *App) GetModelInfo() ModelInfo {
 		ContextMax:   a.contextWindowTokens(),
 		WireFormat:   effectiveWireFormat(a.cur().cfg.ModelProvider, a.cur().cfg.ModelWireFormat),
 		Warning:      warning,
+		Pending:      pending,
 	}
 }
 
@@ -2841,6 +2891,224 @@ func (a *App) modelSwitchResult() (ModelInfo, error) {
 		return ModelInfo{}, fmt.Errorf("switch failed: %s", a.cur().modelStatus)
 	}
 	return a.GetModelInfo(), nil
+}
+
+// dialResult is what a model-menu dial reports back: the engine state, and an
+// error only when a switch was actually attempted and failed.
+//
+// Not modelSwitchResult directly. That one judges the engine that is running,
+// which is the right question after a rebuild and the wrong one after a queue:
+// a switch waiting for the turn boundary has not been tried yet, so reporting
+// the live engine's health as its outcome would put "switch failed" on a chat
+// that is answering perfectly well — and on the aetox-fallback path, a red
+// warning about a provider the user just queued their way off.
+func (a *App) dialResult(conv *conversation) (ModelInfo, error) {
+	a.turnMu.Lock()
+	var next config.Config
+	queued := conv.pendingCfg != nil
+	if queued {
+		next = *conv.pendingCfg
+	}
+	a.turnMu.Unlock()
+	if queued {
+		// The one place all four dials pass through, which is why the preflight
+		// is hung here rather than in each of them.
+		a.preflightQueued(conv, next)
+		return a.GetModelInfo(), nil
+	}
+	return a.modelSwitchResult()
+}
+
+// preflightQueued proves the queued switch while the old turn is still
+// answering: one 1-token completion through the client chat itself uses, so the
+// key, the endpoint and the wire format are all tested at once.
+//
+// This is the "เตรียมรอเลย" half of the owner's ask, and with many providers it
+// is the half that earns its keep — a queue is a decision taken minutes before
+// it lands, and a provider with no key would otherwise announce itself only
+// when the boundary arrives and the engine falls back to the built-in one.
+//
+// Never for a runtime whose weights live on this machine (runsWeightsLocally):
+// there, "proving" the model means loading it, into the same VRAM the model
+// that is still talking occupies. That is not a check, it is a way to kill the
+// turn the user is waiting on, so those queue with no verdict at all.
+func (a *App) preflightQueued(conv *conversation, next config.Config) {
+	canonical := model.NormalizeProvider(next.ModelProvider)
+	name := strings.TrimSpace(next.ModelName)
+	probe := canonical + "/" + name
+
+	a.turnMu.Lock()
+	if conv.pendingCfg == nil { // cancelled or landed in the meantime
+		a.turnMu.Unlock()
+		return
+	}
+	// Nothing to prove when the queue keeps the endpoint that is answering
+	// right now — only the model name moved, and the turn in flight is a better
+	// proof of that provider than any ping could be. Found the hard way, in the
+	// owner's own window: the ping went out over the same connection a turn was
+	// streaming on, took longer than its own deadline, and the row said
+	// "ต่อไม่ได้" about a provider that was visibly working. A check that fires
+	// on the healthy path is not a check, it is a false alarm about a decision
+	// the user has just made.
+	cur := conv.cfg
+	sameEndpoint := canonical == model.NormalizeProvider(cur.ModelProvider) &&
+		strings.TrimSpace(next.ModelBaseURL) == strings.TrimSpace(cur.ModelBaseURL) &&
+		strings.TrimSpace(next.ModelAPIKey) == strings.TrimSpace(cur.ModelAPIKey) &&
+		next.ModelWireFormat == cur.ModelWireFormat
+	if runsWeightsLocally(canonical) || name == "" || sameEndpoint {
+		conv.pendingCheck, conv.pendingNote, conv.pendingProbe = "", "", ""
+		a.turnMu.Unlock()
+		return
+	}
+	if conv.pendingProbe == probe && conv.pendingCheck != "" {
+		// The same provider and model as the answer already in flight (or
+		// already in hand) — a second dial that only moved the thinking level
+		// does not need the endpoint proven twice.
+		a.turnMu.Unlock()
+		return
+	}
+	conv.pendingCheck, conv.pendingNote, conv.pendingProbe = "checking", "", probe
+	wire := next.ModelWireFormat
+	// The parked config's own endpoint and key, not the app-wide resolution:
+	// this is a rehearsal of the request the engine will make at the boundary,
+	// and the switch that queued it already resolved both. Falling back to the
+	// resolvers keeps a config that carries neither (a dial that only moved the
+	// model name) pointing where it always did.
+	baseURL, apiKey := next.ModelBaseURL, next.ModelAPIKey
+	if strings.TrimSpace(baseURL) == "" {
+		baseURL = resolveBaseURLForProvider(canonical)
+	}
+	if strings.TrimSpace(apiKey) == "" {
+		apiKey = resolveAPIKeyForProvider(canonical)
+	}
+	a.turnMu.Unlock()
+	a.emitPendingCheck(conv)
+
+	go func() {
+		label, err := probeProvider(canonical, name, baseURL, apiKey, wire)
+		a.turnMu.Lock()
+		// Superseded, cancelled, or landed while the ping was in the air. A
+		// verdict about a switch nobody is waiting for is worse than none: it
+		// would be read as being about whatever is queued now.
+		if conv.pendingCfg == nil || conv.pendingProbe != probe {
+			a.turnMu.Unlock()
+			return
+		}
+		switch {
+		case timedOut(err):
+			// The ping ran out of time, which says nothing about the endpoint —
+			// §189's distinction between a failure and a cancellation, and true
+			// here for the same reason. A provider that is merely slow, or busy
+			// with the very turn this switch is queued behind, must not be
+			// reported as unreachable. No verdict is the honest answer.
+			conv.pendingCheck, conv.pendingNote = "", ""
+		case err != nil:
+			conv.pendingCheck, conv.pendingNote = "failed", err.Error()
+		default:
+			conv.pendingCheck, conv.pendingNote = "ready", label
+		}
+		a.turnMu.Unlock()
+		a.emitPendingCheck(conv)
+	}()
+}
+
+// timedOut reports whether this is the preflight running out of clock rather
+// than the endpoint answering badly.
+//
+// Two spellings, for the reason §189 needed two: not every layer wraps
+// ctx.Err() with %w, and the flattened string is what actually arrives from an
+// HTTP client that has already formatted the URL into it.
+func timedOut(err error) bool {
+	return err != nil &&
+		(errors.Is(err, context.DeadlineExceeded) ||
+			strings.HasSuffix(err.Error(), context.DeadlineExceeded.Error()))
+}
+
+// emitPendingCheck pushes the preflight's state to the window, for the chat on
+// screen only — the same rule endTurn's model:switched follows, and for the
+// same reason: a background chat has no picker to correct.
+func (a *App) emitPendingCheck(conv *conversation) {
+	if conv == a.cur() {
+		a.emitEvent("model:pending", a.GetModelInfo())
+	}
+}
+
+// dialBase is the config a model-menu dial starts from: what this chat will
+// next run on, which is the parked switch when one is already queued and the
+// live config otherwise.
+//
+// Not conv.cfg unconditionally. The park slot holds exactly one config and
+// each parking replaces it whole, so a dial built from the live config would
+// silently undo whatever was already waiting there — queue DeepSeek, then move
+// the thinking level, and the provider snaps back with nothing on screen
+// saying so. Two dials moved during one turn are two decisions, and both have
+// to arrive.
+func (a *App) dialBase(conv *conversation) config.Config {
+	a.turnMu.Lock()
+	defer a.turnMu.Unlock()
+	if conv.pendingCfg != nil {
+		return *conv.pendingCfg
+	}
+	return conv.cfg
+}
+
+// pendingModelOf reports the queued switch on this conversation, or nil when
+// nothing a person would call a model switch is waiting. Callers hold turnMu:
+// pendingCfg is guarded by it, not free-standing.
+//
+// The park slot is not only ever a model switch — an MCP server ticked, a
+// connection toggled, a sign-in landing all park there and none of them move
+// the model menu. A chip announcing "next: the model you are already running"
+// would be the app inventing a decision the user never made, so the four dials
+// are compared and only a real difference is reported.
+func pendingModelOf(conv *conversation) *PendingModel {
+	if conv == nil || conv.pendingCfg == nil {
+		return nil
+	}
+	next, cur := *conv.pendingCfg, conv.cfg
+	nextWire := effectiveWireFormat(next.ModelProvider, next.ModelWireFormat)
+	if model.NormalizeProvider(next.ModelProvider) == model.NormalizeProvider(cur.ModelProvider) &&
+		next.ModelName == cur.ModelName &&
+		next.ThinkLevel == cur.ThinkLevel &&
+		nextWire == effectiveWireFormat(cur.ModelProvider, cur.ModelWireFormat) {
+		return nil
+	}
+	return &PendingModel{
+		Provider:   next.ModelProvider,
+		ModelName:  next.ModelName,
+		ThinkLevel: next.ThinkLevel,
+		WireFormat: nextWire,
+		Check:      conv.pendingCheck,
+		Note:       conv.pendingNote,
+	}
+}
+
+// CancelPendingModel drops a queued switch and leaves this chat on the engine
+// its turn is running.
+//
+// The other half of the queue. A decision made mid-turn should survive to the
+// turn boundary, and a decision changed before it lands has to be droppable —
+// otherwise the only way out of a mis-click is to let the wrong model take
+// over and then switch back, which costs a re-bootstrap and a chip that was
+// wrong twice.
+//
+// It clears the whole slot, not the model fields alone: what is parked is one
+// config, and there is no such thing as half-applying it.
+func (a *App) CancelPendingModel() ModelInfo {
+	conv := a.cur()
+	a.turnMu.Lock()
+	conv.pendingCfg = nil
+	conv.pendingCheck, conv.pendingNote, conv.pendingProbe = "", "", ""
+	a.turnMu.Unlock()
+	// SwitchModel files its choice under the provider the moment it is made, so
+	// that switching away and back returns to it. A cancelled switch was
+	// un-made, and leaving that memo would land the next visit to this provider
+	// on a model the user changed their mind about — so the live choice is
+	// filed back over it. A queue cancelled on a DIFFERENT provider keeps its
+	// memo, which is the honest answer there: the user did pick that model off
+	// that provider's list, and it is only ever read if they go back.
+	rememberModelForProvider(conv.cfg.ModelProvider, conv.cfg.ModelName)
+	return a.GetModelInfo()
 }
 
 // effectiveWireFormat resolves the format actually in effect: the explicit
@@ -3596,6 +3864,17 @@ func (a *App) TestProviderConnection(providerName, modelName string) (string, er
 	if modelName == "" {
 		modelName = fallback
 	}
+	return probeProvider(canonical, modelName, baseURL, apiKey, wireFormat)
+}
+
+// probeProvider is the ping itself: a 1-token completion through the same
+// client chat uses, so endpoint, key and wire format are all proven at once.
+//
+// Split out of TestProviderConnection when the queued-switch preflight (§232)
+// needed the same proof about a provider that is NOT the one on screen — the
+// button on the settings page resolves which model to ping from the open chat,
+// and a queue already knows.
+func probeProvider(canonical, modelName, baseURL, apiKey, wireFormat string) (string, error) {
 	p, err := model.NewProvider(model.ProviderOptions{
 		Provider:   canonical,
 		Model:      modelName,
@@ -3628,14 +3907,10 @@ func (a *App) TestProviderConnection(providerName, modelName string) (string, er
 // after §155 is only "what a new chat is born with" and may name a model
 // somebody chose in another conversation.
 func (a *App) SwitchModel(modelName string) (ModelInfo, error) {
-	// Same gate, same reason as SetStance: the rebuild would swap the agent a
-	// running turn is finishing on. Narrowed to THIS chat — a turn in another
-	// conversation is no longer this dial's business (§150).
-	if a.turnRunningIn(a.cur().id) {
-		info, _ := a.modelSwitchResult()
-		return info, errTurnBusyModel
-	}
-	next := a.cur().cfg
+	// No gate here any more. The rebuild still must not swap the agent a
+	// running turn is finishing on, so applyConfig parks it and endTurn applies
+	// it at the boundary (§232) — the switch is accepted now and taken then.
+	next := a.dialBase(a.cur())
 	next.ModelName = strings.TrimSpace(modelName)
 	if next.ModelName == "" {
 		next.ModelName = model.ResolveDefaultModel(next.ModelProvider, next.ModelBaseURL, next.ModelAPIKey)
@@ -3645,7 +3920,7 @@ func (a *App) SwitchModel(modelName string) (ModelInfo, error) {
 	// what makes switching away and back come back here.
 	rememberModelForProvider(next.ModelProvider, next.ModelName)
 	a.applyConfig(a.cur(), next)
-	return a.modelSwitchResult()
+	return a.dialResult(a.cur())
 }
 
 // HasAPIKey reports whether a key-requiring provider already has resolvable
@@ -3916,11 +4191,7 @@ func (a *App) RetryActiveProvider() ModelInfo {
 
 // SwitchProvider re-bootstraps the engine on a different provider, using its default model.
 func (a *App) SwitchProvider(provider string) (ModelInfo, error) {
-	if a.turnRunningIn(a.cur().id) {
-		info, _ := a.modelSwitchResult()
-		return info, errTurnBusyModel
-	}
-	next := a.cur().cfg
+	next := a.dialBase(a.cur())
 	next.ModelProvider = model.NormalizeProvider(provider)
 	next.ModelBaseURL = resolveBaseURLForProvider(next.ModelProvider)
 	next.ModelWireFormat = "" // reset to the new provider's default format
@@ -3928,7 +4199,7 @@ func (a *App) SwitchProvider(provider string) (ModelInfo, error) {
 	next.ModelName = resolveModelForProvider(next.ModelProvider, next.ModelBaseURL, next.ModelAPIKey)
 	next.ThinkLevel = model.NormalizeThinkingLevel(next.ModelProvider, next.ModelName, "")
 	a.applyConfig(a.cur(), next)
-	return a.modelSwitchResult()
+	return a.dialResult(a.cur())
 }
 
 // ProviderWireFormats lists the wire formats providerName can speak — e.g.
@@ -3949,30 +4220,22 @@ func (a *App) ProviderWireFormats(providerName string) []string {
 // selected model. A no-op format (provider has no alt, or format is already
 // current) still re-bootstraps — cheap, and keeps behavior predictable.
 func (a *App) SetProviderWireFormat(format string) (ModelInfo, error) {
-	if a.turnRunningIn(a.cur().id) {
-		info, _ := a.modelSwitchResult()
-		return info, errTurnBusyModel
-	}
-	next := a.cur().cfg
+	next := a.dialBase(a.cur())
 	format = strings.TrimSpace(format)
 	if info, ok := model.LookupProviderInfo(model.NormalizeProvider(next.ModelProvider)); ok && format == info.Runtime {
 		format = "" // matches the catalog default — store nothing
 	}
 	next.ModelWireFormat = format
 	a.applyConfig(a.cur(), next)
-	return a.modelSwitchResult()
+	return a.dialResult(a.cur())
 }
 
 // SwitchThinkLevel changes the reasoning depth for the current provider/model.
 func (a *App) SwitchThinkLevel(level string) (ModelInfo, error) {
-	if a.turnRunningIn(a.cur().id) {
-		info, _ := a.modelSwitchResult()
-		return info, errTurnBusyModel
-	}
-	next := a.cur().cfg
+	next := a.dialBase(a.cur())
 	next.ThinkLevel = model.NormalizeThinkingLevel(next.ModelProvider, next.ModelName, level)
 	a.applyConfig(a.cur(), next)
-	return a.modelSwitchResult()
+	return a.dialResult(a.cur())
 }
 
 // SwitchApprovalMode changes the safety approval mode the engine runs with.
@@ -4218,19 +4481,25 @@ func (a *App) applyConfig(conv *conversation, cfg config.Config) {
 	// workspace case and it is true of every caller: this function swaps the
 	// agent, the registry and the dispatcher, kills the delegations register,
 	// and snapshots a context that is half-written — doing that mid-turn
-	// discards work the user is waiting on. The model-menu dials refuse
-	// loudly before getting here (errTurnBusyModel); everything else — a
-	// connection toggled, an MCP server switched on, a sign-in completing —
-	// parks its config and endTurn applies it, exactly as a workspace widened
-	// mid-turn already waits. Checked and parked under one lock so a turn
-	// cannot end between the check and the write and strand the config.
+	// discards work the user is waiting on. So every caller parks and endTurn
+	// applies — a connection toggled, an MCP server switched on, a sign-in
+	// completing, and since §232 the model-menu dials too, which used to refuse
+	// here instead. Exactly as a workspace widened mid-turn already waits.
+	// Checked and parked under one lock so a turn cannot end between the check
+	// and the write and strand the config.
 	a.turnMu.Lock()
 	if _, running := a.turns[conv.id]; running && conv.id != "" {
 		conv.pendingCfg = &cfg
+		// A new queue is unproven, whatever the last one's verdict was. Cleared
+		// here rather than in the dials because every door lands in this slot,
+		// and a verdict outliving the config it was about would be read as
+		// belonging to the one that replaced it.
+		conv.pendingCheck, conv.pendingNote, conv.pendingProbe = "", "", ""
 		a.turnMu.Unlock()
 		return
 	}
 	conv.pendingCfg = nil // this rebuild supersedes anything parked
+	conv.pendingCheck, conv.pendingNote, conv.pendingProbe = "", "", ""
 	a.turnMu.Unlock()
 	// Rebuilt with the engine, because the work tree it watches is the sandbox
 	// root and that is exactly what a re-bootstrap can change. An error here is
@@ -4336,6 +4605,12 @@ func (a *App) applyConfig(conv *conversation, cfg config.Config) {
 		// rather than on the next restart.
 		Shell:        a.shellBackend,
 		OnToolAction: func(ev turn.ToolEvent) { a.recordToolAction(conv, ev) },
+		// A delegate's own turn, kept until this one is assembled and can carry
+		// it (recordChildParts). The live relay above draws it and stores
+		// nothing; this is what makes it survive being reopened.
+		OnChildParts: func(parentRef string, parts []turn.TurnPart) {
+			a.recordChildParts(conv, parentRef, parts)
+		},
 		// Three jobs, deliberately named apart: one writes the call down, one
 		// tells the window a file it is showing has moved on, and one puts the
 		// editor's own clips on the desk without being asked (video_desk.go).

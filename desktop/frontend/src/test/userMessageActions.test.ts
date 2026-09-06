@@ -28,6 +28,7 @@ const propsWith = (messages: any[]) => (cockpit.chat = messages as any) && ({
   onSwitchProvider: async () => {},
   onSwitchThinkLevel: async () => {},
   onSwitchModel: async () => {},
+  onCancelPendingModel: async () => {},
   onSubmitAPIKey: async () => {},
   model: { provider: 'codex', modelName: 'gpt-5.6-terra', thinkLevel: 'medium', approval: 'ask', wireFormat: '' } as any,
   messages: messages as any,

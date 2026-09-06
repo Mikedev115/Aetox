@@ -195,6 +195,13 @@
     // status string: agentStatus is blanked the moment anything concrete is on
     // screen, and this wait is the one where nothing concrete exists yet.
     const offModelLoading = EventsOn('model:loading', applyModelLoading)
+    // A switch the user queued mid-turn, landing at the turn boundary. The one
+    // engine change no click of theirs immediately precedes, so it is the one
+    // the model row cannot learn about any other way.
+    const offModelSwitched = EventsOn('model:switched', applyModelRowChanged)
+    // The verdict on that queued switch, arriving while the old turn is still
+    // answering: proven reachable, or not, before the boundary rather than after.
+    const offModelPending = EventsOn('model:pending', applyModelRowChanged)
     const offAskUser = EventsOn('ask:user', applyAskUser)
     const offAskDone = EventsOn('ask:done', applyAskDone)
     const offTodos = EventsOn('todo:update', applyTodos)
@@ -497,6 +504,7 @@
         onSwitchProvider={switchProvider}
         onSwitchThinkLevel={switchThinkLevel}
         onSwitchModel={switchModel}
+        onCancelPendingModel={cancelPendingModel}
         onSubmitAPIKey={submitAPIKey}
       />
     {:else}

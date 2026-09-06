@@ -6,7 +6,10 @@
 // request *will cost* — and the fix is to say which one is on screen.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/svelte'
+import { tick } from 'svelte'
 import Chat from '../lib/Chat.svelte'
+import { cockpit, applyUsageRound } from '../lib/stores/cockpit.svelte'
+import { emptyTurnSpend } from '../lib/types'
 import { GetContextBreakdown, EnabledProviders, ListModelsForProvider } from './mocks/wailsApp'
 
 const breakdown = (measured: boolean, used: number, cachedTokens = 0, tools?: any[]) => ({
@@ -28,7 +31,7 @@ const props = () => ({
   task: { elapsed: '', steps: [] },
   model: {
     provider: 'aetox', modelName: 'test', thinkLevel: '', contextUsed: 0,
-    contextMax: 0, approval: 'ask' as const, wireFormat: '', warning: '',
+    contextMax: 0, approval: 'ask' as const, wireFormat: '', warning: '', pending: null,
   },
   awaitingReply: false,
   agentStatus: '',
@@ -39,6 +42,7 @@ const props = () => ({
   onSwitchProvider: async () => {},
   onSwitchThinkLevel: async () => {},
   onSwitchModel: async () => {},
+  onCancelPendingModel: async () => {},
   onSubmitAPIKey: async () => {},
 })
 
@@ -230,5 +234,64 @@ describe('opening the tool block', () => {
 
     await screen.findByText(/12.0k \/ 1000.0k/)
     expect(screen.queryByRole('button', { name: /^(Tools|เครื่องมือ|工具)/ })).toBeNull()
+  })
+})
+
+// "มันหายไปไหนตอนทำงาน" (owner, 7 ก.ย.): the meter vanished from the composer
+// for the length of a turn — a seven-minute delegation with the one number
+// worth watching taken off the screen.
+//
+// Two faults, one symptom. The reading could be blanked by an answer that meant
+// "not ready" rather than "nothing to show", and nothing ever asked again: the
+// refresh fired on the message count and on awaitingReply, and a long tool loop
+// changes neither.
+describe('the context meter while a turn is running', () => {
+  const good = breakdown(true, 40201)
+
+  // Opening the panel re-reads, so the button is also the way a test asks for a
+  // refresh without reaching inside the component.
+  it('keeps the last good reading when the engine answers zero', async () => {
+    GetContextBreakdown.mockResolvedValue(good as any)
+    render(Chat, props())
+    const meter = await screen.findByRole('button', { name: /Context window|หน้าต่างคอนเท็กซ์/ })
+
+    // A conversation being built has no agent and no registry for a moment, and
+    // GetContextBreakdown honestly answers 0 while that lasts. The first message
+    // of a new chat races exactly that.
+    GetContextBreakdown.mockResolvedValue(breakdown(false, 0) as any)
+    meter.click()
+
+    expect(await screen.findByText(/40.2k \/ 1000.0k/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Context window|หน้าต่างคอนเท็กซ์/ })).toBeTruthy()
+  })
+
+  it('keeps it when the call throws outright', async () => {
+    GetContextBreakdown.mockResolvedValue(good as any)
+    render(Chat, props())
+    const meter = await screen.findByRole('button', { name: /Context window|หน้าต่างคอนเท็กซ์/ })
+
+    GetContextBreakdown.mockRejectedValue(new Error('engine busy'))
+    meter.click()
+
+    expect(await screen.findByText(/40.2k \/ 1000.0k/)).toBeTruthy()
+  })
+
+  // The window fills while the turn runs, so the meter has to move with it.
+  // Driven by the spend tally rather than a timer: every model round moves it,
+  // and a round is exactly when the context has changed.
+  it('re-reads as each round lands', async () => {
+    GetContextBreakdown.mockResolvedValue(good as any)
+    cockpit.turnSpend = emptyTurnSpend()
+    cockpit.openSession = 'sess_ctx'
+
+    render(Chat, { ...props(), awaitingReply: true })
+    await tick()
+    const before = GetContextBreakdown.mock.calls.length
+
+    applyUsageRound({ session: 'sess_ctx', in: 12000, out: 300 })
+    await tick()
+    await tick()
+
+    expect(GetContextBreakdown.mock.calls.length).toBeGreaterThan(before)
   })
 })

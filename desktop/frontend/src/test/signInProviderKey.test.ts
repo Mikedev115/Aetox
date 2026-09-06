@@ -30,6 +30,7 @@ const baseProps = {
   onSwitchProvider: async () => {},
   onSwitchThinkLevel: async () => {},
   onSwitchModel: async () => {},
+  onCancelPendingModel: async () => {},
   onSubmitAPIKey: async () => {},
 }
 

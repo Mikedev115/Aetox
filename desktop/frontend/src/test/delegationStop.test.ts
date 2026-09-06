@@ -27,6 +27,7 @@ const baseProps = {
   onSwitchProvider: async () => {},
   onSwitchThinkLevel: async () => {},
   onSwitchModel: async () => {},
+  onCancelPendingModel: async () => {},
   onSubmitAPIKey: async () => {},
   model: { provider: 'ollama', modelName: 'gemma4:31b', thinkLevel: 'high', approval: 'ask', wireFormat: '' } as any,
 }

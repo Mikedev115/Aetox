@@ -59,7 +59,7 @@
   let {
     messages, task, model, awaitingReply, agentStatus, toolSteps, streamingText, reasoningText,
     modelLoading = null,
-    onSend, onSwitchProvider, onSwitchThinkLevel, onSwitchModel, onSubmitAPIKey,
+    onSend, onSwitchProvider, onSwitchThinkLevel, onSwitchModel, onCancelPendingModel, onSubmitAPIKey,
   }: {
     messages: ChatMessage[]
     task: TaskState
@@ -75,6 +75,8 @@
     onSwitchProvider: (provider: string) => Promise<void>
     onSwitchThinkLevel: (level: string) => Promise<void>
     onSwitchModel: (modelName: string) => Promise<void>
+    /** Drop a switch queued behind the running turn. */
+    onCancelPendingModel: () => Promise<void>
     onSubmitAPIKey: (provider: string, apiKey: string) => Promise<void>
   } = $props()
 
@@ -250,6 +252,38 @@
     if (!task) return stranded(node, live) ? 'err' : node.step.state
     if (stillWorking(task)) return 'run'
     return task.state === 'failed' ? 'err' : 'done'
+  }
+  // What the PORTRAIT says, which is a different question from what the card
+  // says. agentFace.ts has drawn all of this since the faces landed — the
+  // laptop lifting into frame, the person rocking as they type, the pupils
+  // darting while nothing has been picked up yet, the ring that goes green or
+  // red — and not one caller ever passed `state`, so every face in the app has
+  // been the idle one. This is the wire that was missing, not a new drawing.
+  //
+  // 'think' and 'work' are told apart by whether the delegate has DONE anything
+  // yet — not by whether a row is running this second, which is what it asked
+  // first and what was wrong with it two ways at once.
+  //
+  // Wrong about the state: a worker two minutes into a job sat there with no
+  // laptop for most of it, because the gaps between calls are most of a turn
+  // (owner, 7 ก.ย., over a card at 2m28s: "ตอนทำงานทำไมไม่กดคีย์บอร์ด").
+  // Wrong about the movement: af-lift runs once per render of the markup and
+  // the markup is re-handed whenever the state changes, so work → think → work
+  // across every gap re-played the laptop being picked up, put away and picked
+  // up again — "อนิเมชันมันหายไปไหน" is that flicker, not a missing rule.
+  //
+  // The line style.css draws is about GETTING AHEAD of the work: "drawing it
+  // already typing would be the UI getting ahead". Before the first row there
+  // is nothing to be ahead of and the face looks around; after it the machine
+  // is open, and it stays open until the work ends.
+  //
+  // Queued is the empty face, deliberately: nothing has started, so nothing may
+  // move. The card already refuses a clock and a spinner there for the same
+  // reason.
+  function faceState(node: TimelineNode, state: ToolStep['state'], queued: boolean): FaceState {
+    if (queued) return ''
+    if (state === 'run') return node.children.length > 0 ? 'work' : 'think'
+    return state === 'err' ? 'err' : 'done'
   }
   // Only ever asked of the live list (toolSteps), so it asks the live question:
   // a delegation whose register entry has not arrived yet is this turn's work,
@@ -493,6 +527,18 @@
     switchError = ''
     try {
       await onSwitchThinkLevel(value)
+    } catch (err) {
+      switchError = String(err)
+    }
+  }
+
+  // Taking back a decision, not recovering from an error: the dials accept a
+  // switch mid-turn and park it, so the only way to change your mind before it
+  // lands is this.
+  async function cancelQueuedSwitch() {
+    switchError = ''
+    try {
+      await onCancelPendingModel()
     } catch (err) {
       switchError = String(err)
     }
@@ -1907,31 +1953,114 @@
     if (e.key === 'Escape' && mentionOpen) mentionOpen = false
   }
 
-  // A delegation's steps stay folded until somebody asks for them, running or
-  // finished alike.
+  // A DELEGATE SHOWS ITS WORK WHILE IT WORKS, AND FOLDS IT WHEN IT IS DONE.
+  // The same rule the agent's own stretches follow (`landing`), because it is
+  // the same question: work in flight is what the reader came to watch, and
+  // work that is over is a record (owner, 7 ก.ย.: "ตอนเอเจนรัน tool มันควรจะ
+  // แสดง tool เป็นค่าเริ่มต้น แต่จำกัดตามที่คุยกัน ทำเสร็จก็พับ").
   //
-  // They used to be open while the delegate worked, on the reasoning that a
-  // running delegate's steps ARE the evidence it is alive (§105.5) — which was
-  // true for exactly as long as nothing else on the card moved. The headline
-  // is that evidence now (cardHeadline), so holding the whole list open on top
-  // of it printed the newest row twice, three lines apart, and put four
-  // concurrent delegations back into the wall the fold was added to stop
-  // ("มันติดกันจนดูยังไงไม่รู้").
+  // It was closed at both ends for a while, and the reason was real: the
+  // headline shows the newest row, so an open list printed that row twice,
+  // three lines apart ("มันติดกันจนดูยังไงไม่รู้"). That is fixed where it
+  // belongs instead — an open card's headline stops repeating the live row and
+  // names the job (cardHeadline) — rather than by hiding the work.
   //
-  // This is where the transcript's card and the tray's part company, and the
-  // reason is structural rather than a taste: the tray keeps its short tail of
-  // rows because it has no fold to offer — BackgroundWork is handed the live
-  // event feed and holds the last few, never the whole list, so "see every
-  // step" is not a thing it could open. This card has the whole list.
+  // The cap is what keeps four concurrent delegates from becoming a wall: the
+  // list is windowed while it runs (.tool-box.live-window), exactly as the
+  // agent's own is.
   //
-  // Keyed on the `task` call's ref so a row keeps its state as the list grows,
-  // and holding only what the user has actually toggled.
+  // Keyed on the `task` call's ref so a row keeps its state as the list grows.
+  // Holding only what the app or the user has actually decided: an absent key
+  // means "follow the work", which is what makes a card read back out of the
+  // database open closed with no timer having to have run.
   let openSteps = $state<Record<string, boolean>>({})
+  // The cards the app is folding on the reader's behalf, and the ones already
+  // handed to a timer. Same two, same reasons, as the phase fold above.
+  let cardLanding = $state<Record<string, boolean>>({})
+  const armedCards = new Set<string>()
   const stepsKey = (node: TimelineNode) => node.step.ref ?? node.step.label
   const stepsOpen = (node: TimelineNode) => openSteps[stepsKey(node)] ?? false
   function toggleSteps(node: TimelineNode) {
-    openSteps[stepsKey(node)] = !stepsOpen(node)
+    const key = stepsKey(node)
+    // A click hands the card to the reader for good — the timer that may be
+    // about to shut it finds it off the list and leaves it alone.
+    delete cardLanding[key]
+    openSteps[key] = !stepsOpen(node)
   }
+
+  // The card asks this of itself, through an action rather than from the
+  // template: followCard writes state, and state written during a render is
+  // forbidden (and would be a loop if it were not). Same reason toolGlide and
+  // toolWindow are actions — what they need is a moment AFTER the frame.
+  function followsWork(node: HTMLElement, arg: { key: string; running: boolean }) {
+    let cur = arg
+    // The arrival, and the guard on it. `drawnOnce` false means this component
+    // is drawing its first frame — every card in front of it was already there
+    // before the screen existed, and a card that did not arrive must not be
+    // animated as though it had.
+    if (drawnOnce) node.classList.add('bgw-in')
+    followCard(cur.key, cur.running)
+    return {
+      update(next: { key: string; running: boolean }) {
+        cur = next
+        followCard(cur.key, cur.running)
+      },
+    }
+  }
+
+  // Opens a card's list while its delegate works, and shuts it a beat after the
+  // delegate stops.
+  //
+  // Driven from the draw site rather than an effect over `livePhases`, because
+  // a delegation outlives the turn that started it (§44.11): the card that has
+  // to be watched is whichever one is on screen, and only the card knows its
+  // own state. `drawnOnce` is the same guard the phases use — a card that was
+  // already finished when this component opened its eyes has no movement to
+  // show, and replaying one on every visit is the bug that taught us so.
+  function followCard(key: string, running: boolean) {
+    if (!key) return
+    if (running) {
+      armedCards.delete(key)
+      // Opened once, and only where the reader has no opinion: a click writes
+      // `false` here, and `false` is not `undefined`. Deliberately NOT behind
+      // the drawnOnce guard the phases use — coming back to a chat whose
+      // delegate is STILL working should show the work, and there is no
+      // movement to replay in opening something that is genuinely in flight.
+      // What that guard protects against is a fold, and a fold needs
+      // cardLanding, which only this branch ever sets.
+      if (openSteps[key] === undefined) {
+        openSteps[key] = true
+        cardLanding[key] = true
+      }
+      return
+    }
+    // Never seen working on this screen — a card already finished when we got
+    // here, or one still queued. Nothing to fold, so nothing to time.
+    if (armedCards.has(key) || !cardLanding[key]) return
+    armedCards.add(key)
+    const still = motionStill()
+    window.setTimeout(() => {
+      armedCards.delete(key)
+      if (!cardLanding[key]) return
+      openSteps[key] = false
+      window.setTimeout(() => { delete cardLanding[key] }, still ? 0 : SETTLE_MS)
+    }, still ? 0 : LANDING_HOLD_MS)
+  }
+  // A delegate's steps, as the DELEGATE's own.
+  //
+  // Every row under a card carries `parent` — the `task` call that hired the
+  // worker — which is how the timeline tells whose work is whose in the one
+  // flat list it is handed. One level down that stamp is the wrong answer:
+  // `isOwn` reads it as "somebody else did this", so the transcript's own
+  // blocks, handed a delegate's rows unchanged, would file every one of them
+  // as a delegation of a delegation and draw nothing at all.
+  //
+  // From where the worker stands these ARE its own steps, and this says so. A
+  // row belonging to a delegation the worker itself started keeps its parent
+  // and still nests, because that ref is a different one.
+  const ownWork = (node: TimelineNode): ToolStep[] =>
+    node.children.map((s) => (s.parent === node.step.ref ? { ...s, parent: undefined } : s))
+
   // Tool calls only. Narration and thinking ride in the same list and are not
   // tools — counting them would inflate "used N tools" with sentences, the same
   // rule ownTools follows for the agent's own row.
@@ -1976,7 +2105,11 @@
   const cardHeadline = (node: TimelineNode, state: ToolStep['state'], queued: boolean): string => {
     const job = node.step.label.replace(/^task\s*/, '')
     if (queued || state === 'err') return job
-    if (state === 'run') return currentStep(node.children)?.label ?? job
+    // The live row belongs to the head only while the list is shut. With the
+    // list open the row is three lines below, and printing it twice is what
+    // closed this list in the first place — the duplication was the complaint,
+    // not the work being visible.
+    if (state === 'run') return stepsOpen(node) ? job : currentStep(node.children)?.label ?? job
     const done = tally(node.children)
     const parts: string[] = []
     if (done.read) parts.push(t('bgw.tallyRead', { n: done.read }))
@@ -3063,12 +3196,33 @@
         <!-- Folds shut rather than vanishing. A delegate that finishes leaves
              the live area for the collapsed count above, and in one frame the
              card, its beam and its steps were simply gone — the work looked
-             lost rather than done. Out only: a delegation appearing is the
-             model starting one, and that should be immediate. -->
+             lost rather than done.
+             And it arrives on its own terms. A delegation appearing IS the
+             model starting one, so it may not be held back a single frame —
+             but landing at full strength in one frame is a different thing from
+             landing without delay, and only the first was ever the complaint
+             (owner, 7 ก.ย.: "ตอนเรียกซับเอเจน ตอนมันปรากฏตัว ทำให้นุ่มกว่านี้").
+
+             The movement is a CLASS the action puts on, not a `transition:`.
+             A local `in:` never ran here at all: the first card of a phase is
+             created together with the `{#if shownSubs.length}` block around it,
+             and Svelte suppresses a local intro whose parent block is what is
+             arriving — so the one card that most needed the movement, the
+             first, was the one that never got it. `|global` would have run it,
+             and would also have re-run every card on every return to this page,
+             which is the replay bug two complaints ago. `bgw-in` is put on by
+             followsWork, which already knows the difference.
+
+             The two-beat handover below is untouched: the person still arrives
+             before what they were told, and the brief still writes itself. -->
         {@const job = node.step.label.replace(/^task\s*/, '')}
         {@const headline = cardHeadline(node, state, queued)}
         {@const counts = tally(node.children)}
-        <div class="bgw-card {state}" class:is-queued={queued} out:fold>
+        <div
+          class="bgw-card {state}" class:is-queued={queued}
+          out:fold
+          use:followsWork={{ key: stepsKey(node), running: state === 'run' && !queued }}
+        >
           <!-- The card is a face and the sentence beside it, and that ordering
                is the change. What used to sit here was a form: a 15px spinner,
                the name, a pill saying the name's state again, a clock, and the
@@ -3085,7 +3239,7 @@
                  assistant may not hand this one work, which is a fact about the
                  roster; waiting for a slot is a fact about right now, and the
                  card says that in words on the line below. -->
-            <span class="bgw-face"><AgentFace name={node.step.agent ?? ''} size={34} /></span>
+            <span class="bgw-face"><AgentFace name={node.step.agent ?? ''} size={34} state={faceState(node, state, queued)} /></span>
             <div class="bgw-said">
               <!-- Keyed on the text, which is what makes it move.
                    {#key} destroys and rebuilds the span when the label changes,
@@ -3187,6 +3341,12 @@
                  over the headline IS the tally, and a card stating "9 files
                  read" in two places has taught its reader that one of them is
                  decoration. -->
+            <!-- The door stays at the right edge, where it has always been and
+                 where the owner put it back the moment it moved: a control at
+                 the far end of a row is one the eye finds by following the row,
+                 and the same edge holds it on every card whatever the tallies
+                 in front of it happen to say (owner: "ปุ่มนี้ดูยากไป เอาไว้
+                 ขวามือก็ดีอยู่แล้ว"). -->
             <div class="bgw-foot">
               {#if state === 'run' && !queued && counts.read > 0}
                 <span class="bgw-tal">{t('bgw.tallyRead', { n: counts.read })}</span>
@@ -4771,6 +4931,39 @@
                     {/if}
                   </div>
                 {/if}
+                {#if model.pending}
+                  <!-- What was asked for and has not happened yet. Above the
+                       dials because it is the answer to the question one of
+                       them was just asked, and it names the model rather than
+                       saying "queued": the whole point of queueing is that the
+                       decision is already made. -->
+                  <div class="mm-queued">
+                    <Icon name="timer" size={12} />
+                    <span class="q-t">
+                      {t('chat.modelQueued')}
+                      <strong>{shortModelName(model.pending.modelName) || model.pending.provider}</strong>
+                    </span>
+                    {#if model.pending.check === 'checking'}
+                      <span class="q-s">{t('chat.modelQueuedChecking')}</span>
+                    {:else if model.pending.check === 'ready'}
+                      <span class="q-s ok" title={model.pending.note}>{t('chat.modelQueuedReady')}</span>
+                    {:else if model.pending.check === 'failed'}
+                      <span class="q-s bad">{t('chat.modelQueuedFailed')}</span>
+                    {/if}
+                    <button
+                      type="button" class="q-x"
+                      title={t('chat.modelQueuedCancel')} aria-label={t('chat.modelQueuedCancel')}
+                      onclick={cancelQueuedSwitch}
+                    ><Icon name="x" size={11} /></button>
+                  </div>
+                  <!-- The provider's own words, wrapped rather than trimmed —
+                       the reason a key or an endpoint is refused is the whole
+                       message, and finding it out before the boundary is the
+                       entire point of checking early. -->
+                  {#if model.pending.check === 'failed' && model.pending.note}
+                    <div class="mm-queued-why">{model.pending.note}</div>
+                  {/if}
+                {/if}
                 <!-- Top row on purpose: the knob changed most often, and the
                      only one on this menu with a safety consequence. -->
                 <div class="mm-row">
@@ -4842,6 +5035,10 @@
                    model.thinkLevel instead, a model with exactly one real level
                    drew a badge for a setting the menu offers no way to change. -->
               {#if thinkLevels.length > 1 && model.thinkLevel}<span class="lvl">{model.thinkLevel}</span>{/if}
+              <!-- A switch is waiting. Said with a mark and not with the name:
+                   this chip's one job is to say what is answering RIGHT NOW,
+                   and another model's name sitting on it would read as that. -->
+              {#if model.pending}<span class="queued" title="{t('chat.modelQueued')} {model.pending.modelName || model.pending.provider}"><Icon name="timer" size={11} /></span>{/if}
               <span class="caret"><Icon name={modelMenuOpen ? 'chevronUp' : 'chevronDown'} size={12} /></span>
             </button>
           </div>

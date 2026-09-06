@@ -15,6 +15,9 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/Mikedev115/Aetox/internal/config"
 )
 
 // Stop pressed in the beginTurn → armTurnCancel gap (openTurn's DB writes sit
@@ -716,37 +719,224 @@ func TestATaskChipStaysInTheChatThatRaisedIt(t *testing.T) {
 	}
 }
 
-// The model menu's engine dials get the same sentence SetStance has carried
-// since stances existed: a rebuild mid-turn would swap the agent the running
-// turn is finishing on, kill its delegates and snapshot its context
-// half-written. The owner could not reproduce the reported switch bug because
-// he switched between turns — this is the half that only shows while one runs
-// (§185).
-func TestModelDialsRefuseWhileTheirTurnRuns(t *testing.T) {
-	a := newTestApp(t, t.TempDir())
+// dialledChat is a conversation with a real provider and model on it, which
+// the model dials need and newTestApp deliberately does not build (it seeds an
+// app with no engine behind it). Named rather than repeated: three tests below
+// ask the same question of the same starting point.
+func dialledChat(t *testing.T, a *App) *conversation {
+	t.Helper()
 	conv := a.cur()
+	conv.cfg = config.Config{
+		ModelProvider: "deepseek",
+		ModelName:     "deepseek-chat",
+		SandboxRoot:   t.TempDir(),
+	}
+	return conv
+}
+
+// The model menu's four engine dials do not refuse mid-turn any more; they
+// queue (§232). What §185 measured is unchanged and is the reason the queue
+// exists at all — a rebuild would swap the agent the running turn is finishing
+// on, kill its delegates and snapshot its context half-written — so the switch
+// waits in conv.pendingCfg, the same room every other door has parked in
+// since, and endTurn takes it at the boundary.
+func TestModelDialsQueueWhileTheirTurnRuns(t *testing.T) {
+	a := newTestApp(t, t.TempDir())
+	conv := dialledChat(t, a)
 	before := conv.cfg
+
+	if err := a.beginTurn(conv.id); err != nil {
+		t.Fatalf("beginTurn() = %v", err)
+	}
+
+	if _, err := a.SwitchModel("deepseek-reasoner"); err != nil {
+		t.Fatalf("SwitchModel mid-turn = %v, want it accepted and queued", err)
+	}
+	if conv.cfg.ModelName != before.ModelName {
+		t.Errorf("a queued dial swapped the engine under the running turn: %q", conv.cfg.ModelName)
+	}
+	info := a.GetModelInfo()
+	if info.ModelName != before.ModelName {
+		t.Errorf("ModelInfo.ModelName = %q while queued, want the model actually answering (%q) — the chip must not move before the switch does",
+			info.ModelName, before.ModelName)
+	}
+	if info.Pending == nil || info.Pending.ModelName != "deepseek-reasoner" {
+		t.Fatalf("ModelInfo.Pending = %+v, want the queued model named", info.Pending)
+	}
+
+	// A second dial moved during the same turn is a second decision, not a
+	// replacement. The slot holds one config, so a dial has to build on what is
+	// already waiting in it (dialBase) or quietly undo it.
+	if _, err := a.SwitchThinkLevel("high"); err != nil {
+		t.Fatalf("SwitchThinkLevel mid-turn = %v", err)
+	}
+	if info := a.GetModelInfo(); info.Pending == nil || info.Pending.ModelName != "deepseek-reasoner" {
+		t.Fatalf("the second dial dropped the first: Pending = %+v", info.Pending)
+	}
+
+	a.endTurn(conv.id)
+
+	if conv.cfg.ModelName != "deepseek-reasoner" {
+		t.Errorf("conv.cfg.ModelName = %q after endTurn, want the queued switch to have landed", conv.cfg.ModelName)
+	}
+	if info := a.GetModelInfo(); info.Pending != nil {
+		t.Errorf("Pending = %+v after the switch landed, want the queue empty", info.Pending)
+	}
+}
+
+// The other half of the queue. Without it the only way out of a mis-click is
+// to let the wrong model take over and then switch back — a re-bootstrap, and
+// a chip that was wrong twice.
+func TestCancelPendingModelDropsTheQueuedSwitch(t *testing.T) {
+	a := newTestApp(t, t.TempDir())
+	conv := dialledChat(t, a)
+
+	if err := a.beginTurn(conv.id); err != nil {
+		t.Fatalf("beginTurn() = %v", err)
+	}
+	if _, err := a.SwitchModel("deepseek-reasoner"); err != nil {
+		t.Fatalf("SwitchModel mid-turn = %v", err)
+	}
+	if info := a.CancelPendingModel(); info.Pending != nil {
+		t.Fatalf("CancelPendingModel left %+v queued", info.Pending)
+	}
+
+	a.endTurn(conv.id)
+
+	if conv.cfg.ModelName != "deepseek-chat" {
+		t.Errorf("conv.cfg.ModelName = %q after a cancelled queue, want the engine left exactly where it was", conv.cfg.ModelName)
+	}
+}
+
+// The queued switch is rehearsed while the old turn is still answering: one
+// 1-token request through the client chat itself uses, so a key that was never
+// set or an endpoint that is down is found out now rather than at the boundary,
+// where the engine would quietly fall back and the next answer would come from
+// somewhere nobody chose (§232).
+//
+// 127.0.0.1:1 rather than a real provider: this test must prove the wiring, not
+// the internet, and a refused connection is a failure the same shape as a bad
+// key without leaving the machine. The wire format is what moves here, because
+// only a switch that changes the ENDPOINT is worth proving — see the test below
+// this one.
+func TestAQueuedSwitchIsProvedWhileTheTurnRuns(t *testing.T) {
+	a := newTestApp(t, t.TempDir())
+	conv := dialledChat(t, a)
+	conv.cfg.ModelBaseURL = "http://127.0.0.1:1"
+	conv.cfg.ModelAPIKey = "test-key"
+	conv.cfg.ModelWireFormat = "anthropic"
 
 	if err := a.beginTurn(conv.id); err != nil {
 		t.Fatalf("beginTurn() = %v", err)
 	}
 	defer a.endTurn(conv.id)
 
-	if _, err := a.SwitchModel("some-other-model"); !errors.Is(err, errTurnBusyModel) {
-		t.Errorf("SwitchModel mid-turn = %v, want the busy refusal", err)
+	info, err := a.SetProviderWireFormat("openai-compatible")
+	if err != nil {
+		t.Fatalf("SetProviderWireFormat mid-turn = %v", err)
 	}
-	if _, err := a.SwitchProvider("deepseek"); !errors.Is(err, errTurnBusyModel) {
-		t.Errorf("SwitchProvider mid-turn = %v, want the busy refusal", err)
+	// Set before the dial returns, so what the window is handed already says a
+	// check is under way — a row that only learns this from a later event
+	// flickers through "queued, unknown" on every switch.
+	if info.Pending == nil || info.Pending.Check != "checking" {
+		t.Fatalf("Pending = %+v straight after the dial, want a check under way", info.Pending)
 	}
-	if _, err := a.SwitchThinkLevel("high"); !errors.Is(err, errTurnBusyModel) {
-		t.Errorf("SwitchThinkLevel mid-turn = %v, want the busy refusal", err)
+
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		pending := a.GetModelInfo().Pending
+		if pending != nil && pending.Check == "failed" {
+			if pending.Note == "" {
+				t.Error("a failed preflight carries no reason — the whole point is to say what is wrong")
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the preflight never settled: %+v", pending)
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
-	if _, err := a.SetProviderWireFormat("anthropic"); !errors.Is(err, errTurnBusyModel) {
-		t.Errorf("SetProviderWireFormat mid-turn = %v, want the busy refusal", err)
+}
+
+// The switch that keeps the endpoint it is already talking to is not pinged at
+// all, and this is the case the owner walked into within minutes of the
+// preflight shipping: a model-only switch on opencode-go sent a ping over the
+// same connection a turn was streaming on, the ping outlived its own deadline,
+// and the row announced "ต่อไม่ได้" about a provider that was visibly working.
+// The turn in flight is a better proof of that endpoint than any ping.
+func TestAQueuedSwitchOnTheSameEndpointIsNotPinged(t *testing.T) {
+	a := newTestApp(t, t.TempDir())
+	conv := dialledChat(t, a)
+	conv.cfg.ModelBaseURL = "http://127.0.0.1:1"
+
+	if err := a.beginTurn(conv.id); err != nil {
+		t.Fatalf("beginTurn() = %v", err)
 	}
-	if conv.cfg.ModelName != before.ModelName || conv.cfg.ModelProvider != before.ModelProvider ||
-		conv.cfg.ThinkLevel != before.ThinkLevel || conv.cfg.ModelWireFormat != before.ModelWireFormat {
-		t.Errorf("a refused dial still moved the config: %+v -> %+v", before, conv.cfg)
+	defer a.endTurn(conv.id)
+
+	info, err := a.SwitchModel("deepseek-reasoner")
+	if err != nil {
+		t.Fatalf("SwitchModel mid-turn = %v", err)
+	}
+	if info.Pending == nil {
+		t.Fatal("the switch was not queued at all")
+	}
+	if info.Pending.Check != "" {
+		t.Errorf("Pending.Check = %q for a switch that changes only the model, want no check attempted", info.Pending.Check)
+	}
+}
+
+// A runtime whose weights live on this machine is never pinged to prove a
+// queued switch. "Proving" it means loading it, into the same VRAM the model
+// that is still talking occupies — a check that can kill the turn it was meant
+// to protect is not a check.
+func TestAQueuedLocalRuntimeIsNotWokenBesideARunningTurn(t *testing.T) {
+	a := newTestApp(t, t.TempDir())
+	conv := dialledChat(t, a)
+	conv.cfg.ModelProvider = "lmstudio"
+	conv.cfg.ModelName = "qwen3-4b"
+	conv.cfg.ModelBaseURL = "http://127.0.0.1:1"
+
+	if err := a.beginTurn(conv.id); err != nil {
+		t.Fatalf("beginTurn() = %v", err)
+	}
+	defer a.endTurn(conv.id)
+
+	info, err := a.SwitchModel("qwen3-8b")
+	if err != nil {
+		t.Fatalf("SwitchModel mid-turn = %v", err)
+	}
+	if info.Pending == nil {
+		t.Fatal("the switch was not queued at all")
+	}
+	if info.Pending.Check != "" {
+		t.Errorf("Pending.Check = %q for a local runtime, want no check attempted", info.Pending.Check)
+	}
+}
+
+// The park slot is shared with every other door, and most of what lands in it
+// is not a model switch at all — an MCP server ticked, a connection toggled, a
+// sign-in landing. A chip naming the model already running would be the app
+// inventing a decision nobody made, so only a real difference on the four
+// dials counts as one.
+func TestAParkedNonModelChangeDrawsNoPendingSwitch(t *testing.T) {
+	a := newTestApp(t, t.TempDir())
+	conv := dialledChat(t, a)
+
+	if err := a.beginTurn(conv.id); err != nil {
+		t.Fatalf("beginTurn() = %v", err)
+	}
+	defer a.endTurn(conv.id)
+
+	next := conv.cfg
+	next.SandboxRoot = t.TempDir() // a door that rebuilds, on none of the dials
+	a.applyConfig(conv, next)
+
+	if conv.pendingCfg == nil {
+		t.Fatal("the change was not parked — this test is no longer testing what it says")
+	}
+	if info := a.GetModelInfo(); info.Pending != nil {
+		t.Errorf("Pending = %+v for a parked change that moves no dial, want nil", info.Pending)
 	}
 }
 

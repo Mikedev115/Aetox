@@ -88,6 +88,7 @@ describe('the diff fold-out in the chat timeline', () => {
     onSwitchProvider: async () => {},
     onSwitchThinkLevel: async () => {},
     onSwitchModel: async () => {},
+    onCancelPendingModel: async () => {},
     onSubmitAPIKey: async () => {},
     model: { provider: 'deepseek', modelName: 'v4', thinkLevel: 'high', approval: 'ask', wireFormat: '' } as any,
   }

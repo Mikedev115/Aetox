@@ -112,6 +112,25 @@ export interface ProjectInfo {
 
 export type ApprovalMode = 'ask' | 'unsafe-only' | 'full-access'
 
+/** A switch queued behind a running turn: what this chat will run on once the
+ *  answer in flight is finished. The dials accept a switch mid-turn and park it
+ *  here rather than refusing, but the engine is only swapped at the turn
+ *  boundary — so this is a promise about the next round, never a description
+ *  of the current one. */
+export interface PendingModel {
+  provider: string
+  modelName: string
+  thinkLevel: string
+  wireFormat: string
+  /** What the preflight made of this switch while the old turn kept answering:
+   *  '' not attempted — nothing to attempt, or a runtime whose weights live on
+   *  this machine and must not be woken beside a turn in flight — 'checking',
+   *  'ready', or 'failed'. */
+  check?: string
+  /** The latency label on 'ready', the provider's own message on 'failed'. */
+  note?: string
+}
+
 export interface ModelStatus {
   provider: string
   modelName: string
@@ -126,6 +145,11 @@ export interface ModelStatus {
    *  built-in aetox provider (e.g. LM Studio's server is not running). Empty
    *  when the named provider really is the one running. */
   warning: string
+  /** The switch waiting for this chat's turn to end, null when nothing is
+   *  queued. Every field above stays what is answering RIGHT NOW: a queued
+   *  switch must not move the chip, or the row would name a model that has not
+   *  said a word yet. */
+  pending: PendingModel | null
 }
 
 /** One labeled share of the context window; key: system | tools | messages | free. */
@@ -1096,7 +1120,7 @@ export function emptyCockpitState(): CockpitState {
     historyFault: null,
     spaceHistory: [],
     spaces: [],
-    model: { provider: '', modelName: '', thinkLevel: '', contextUsed: 0, contextMax: 0, approval: 'ask', wireFormat: '', warning: '' },
+    model: { provider: '', modelName: '', thinkLevel: '', contextUsed: 0, contextMax: 0, approval: 'ask', wireFormat: '', warning: '', pending: null },
     chat: [],
     task: { elapsed: '', steps: [] },
     turnFiles: [],
