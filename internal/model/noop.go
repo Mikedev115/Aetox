@@ -145,6 +145,15 @@ type GuideTopic struct {
 // guideAnswers is the whole guide: question and answer, every language, in one
 // place. Matching is done against these exact strings, so the questions the UI
 // shows and the questions this matches are the same values by construction.
+//
+// These are only shown while no real model is connected, which is the first
+// thing a new user is made to fix. So this guide answers six questions and then
+// disappears, and from that moment the same six are answered by whatever the
+// connected model says. The bundled `aetox-teach` skill carries the same
+// substance in its `references/answers.md` for exactly that reason: the story a
+// user hears must not change the moment they paste an API key. Edit the two
+// together, or the app starts contradicting itself at the least forgiving
+// moment there is.
 var guideAnswers = []struct {
 	id   string
 	q, a phrase
@@ -645,13 +654,28 @@ func (p *NoopProvider) noopMemoryReply(model string, req Request) Response {
 	// projects untested. Harmless where there is no project: the parameter is
 	// absent from the tool block, and the tool reads an unusable `where` as the
 	// shared file, exactly as it does for a word the model invented.
+	// A brief that says "profile" aims it at the user's own file instead —
+	// the third destination, and the one whose whole point is that it is NOT
+	// reachable by `where`. A bench that could only produce machine facts would
+	// leave the 6 ก.ย. split untested from the only end that can prove it: a
+	// real turn, through the real tool, landing in USER.md.
+	if briefMentions(req, "profile") || briefMentions(req, "โปรไฟล์") {
+		return Response{Provider: p.Name(), Model: model, ToolCalls: []ToolCall{{
+			ID:   "noop_memory_user_1",
+			Type: "function",
+			Function: FunctionCall{Name: "memory", Arguments: p.say(phrase{
+				"th": `{"about":"user","text":"ผู้ใช้ชอบคำตอบสั้นและพูดไทย","why":"[tools-test] ชุดทดสอบโปรไฟล์ผู้ใช้"}`,
+				"en": `{"about":"user","text":"The user prefers short answers and speaks Thai","why":"[tools-test] the user-profile test set"}`,
+			})},
+		}}}
+	}
 	if briefMentions(req, "project") || briefMentions(req, "โปรเจกต์") {
 		return Response{Provider: p.Name(), Model: model, ToolCalls: []ToolCall{{
 			ID:   "noop_memory_project_1",
 			Type: "function",
 			Function: FunctionCall{Name: "memory", Arguments: p.say(phrase{
-				"th": `{"text":"โปรเจกต์นี้ตกลงกันว่าใช้ PowerShell เป็นเชลล์หลัก","why":"[tools-test] ชุดทดสอบความจำรายโปรเจกต์","where":"this-project"}`,
-				"en": `{"text":"This project settled on PowerShell as its shell","why":"[tools-test] the per-project memory test set","where":"this-project"}`,
+				"th": `{"about":"machine","text":"โปรเจกต์นี้ตกลงกันว่าใช้ PowerShell เป็นเชลล์หลัก","why":"[tools-test] ชุดทดสอบความจำรายโปรเจกต์","where":"this-project"}`,
+				"en": `{"about":"machine","text":"This project settled on PowerShell as its shell","why":"[tools-test] the per-project memory test set","where":"this-project"}`,
 			})},
 		}}}
 	}
@@ -659,8 +683,11 @@ func (p *NoopProvider) noopMemoryReply(model string, req Request) Response {
 		ID:   "noop_memory_1",
 		Type: "function",
 		Function: FunctionCall{Name: "memory", Arguments: p.say(phrase{
-			"th": `{"text":"เครื่องนี้ไม่มี Excel ติดตั้ง ต้องส่งไฟล์ .xlsx กลับเป็นไฟล์เสมอ","why":"[tools-test] ชุดทดสอบการเรียนรู้"}`,
-			"en": `{"text":"This machine has no Excel installed, so .xlsx work has to come back as a file","why":"[tools-test] the learning test set"}`,
+			// `about` is required of the assistant and absent from a worker's
+			// schema, which ignores it — so one set of arguments is correct at
+			// both doors this reply is used from.
+			"th": `{"about":"machine","text":"เครื่องนี้ไม่มี Excel ติดตั้ง ต้องส่งไฟล์ .xlsx กลับเป็นไฟล์เสมอ","why":"[tools-test] ชุดทดสอบการเรียนรู้"}`,
+			"en": `{"about":"machine","text":"This machine has no Excel installed, so .xlsx work has to come back as a file","why":"[tools-test] the learning test set"}`,
 		})},
 	}}}
 }

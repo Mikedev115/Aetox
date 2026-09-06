@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/learned"
@@ -40,8 +41,13 @@ var ProjectContextFileNames = []string{"AETOX.md", "AGENTS.md", "CLAUDE.md"}
 // checking file existence separately and hoping it matches.
 type Loaded struct {
 	UserGlobalPaths []string // every identity file actually folded in, nil if none
-	MemoryPath      string   // agent-written memory, "" when it has learned nothing
-	DeskMemoryPath  string   // what this desk taught it, "" when the desk has learned nothing
+	// UserProfilePath is what Aetox worked out about the PERSON, as opposed to
+	// UserGlobalPaths, which is what that person wrote about themselves. "" when
+	// nothing about them has been approved yet — the state of every fresh
+	// machine, and of this one until 6 ก.ย.
+	UserProfilePath string
+	MemoryPath      string // agent-written memory, "" when it has learned nothing
+	DeskMemoryPath  string // what this desk taught it, "" when the desk has learned nothing
 	// ProjectMemoryPath is what working in THIS project settled — the agent's
 	// own record, approved by the user. Distinct from ProjectPath below, which
 	// is the file the USER wrote for this repository. "" when no project is
@@ -371,6 +377,8 @@ func BuildWithReport(surface Surface, scope Scope, desk Desk) (string, Loaded) {
 	// Desk.ToolLess.
 	if !desk.ToolLess {
 		b.WriteString(capability())
+		b.WriteString(offering())
+		b.WriteString(reads(desk))
 		// Each gated on a tool it is entirely about, which is what Desk.Carries
 		// is for. A desk has never withheld these — every desk writes files and
 		// two of the three have a shell — but a *stance* does: วางแผน keeps
@@ -437,10 +445,27 @@ func BuildWithReport(surface Surface, scope Scope, desk Desk) (string, Loaded) {
 
 	var loaded Loaded
 	loaded.UserGlobalPaths = foldIdentityLayers(&b)
-	// None of the learned layers reach a chair: its Direction already carries
-	// its own memory (Desk.Chair), and the three below all belong to the main
-	// assistant's sessions. Identity above is deliberately not gated — a chair
-	// is still Aetox, specialised (§44.0); memory is where the boundary runs.
+	// Who the user is goes everywhere, and it is the one learned layer that
+	// does (owner's call, 6 ก.ย.: *"ผมว่า USER.md ไปทุกที่เลยดีกว่า"*). A chair
+	// gets it for the reason identity is not gated either — it is talking to the
+	// same person the assistant talks to, and §184.5's boundary was drawn around
+	// what an agent *learned doing its job*, which is a different thing from who
+	// it is working for. subagent.PromptFor folds the same file for the same
+	// reason, so a worker on a delegated job knows it too.
+	//
+	// Directly after the identity files and before everything else learned: what
+	// the user wrote about themselves comes first, then what Aetox worked out
+	// about them, then what it worked out about the machine. The budget is what
+	// makes this affordable at all — learned.UserMaxBytes is a quarter of every
+	// other scope's, precisely because this one is paid for by every request the
+	// app makes rather than by one desk's.
+	loaded.UserProfilePath = foldLearnedMemory(&b, learned.UserScope,
+		"What you have learned about this user, and they approved")
+	// None of the *other* learned layers reach a chair: its Direction already
+	// carries its own memory (Desk.Chair), and the three below all belong to the
+	// main assistant's sessions. Identity above is deliberately not gated — a
+	// chair is still Aetox, specialised (§44.0); memory is where the boundary
+	// runs.
 	if !desk.Chair {
 		loaded.MemoryPath = foldLearnedMemory(&b, learned.MainScope,
 			"What you have learned and the user approved")
@@ -712,6 +737,135 @@ func capability() string {
 		"When something you need really is absent, say which one and where it is switched on, and ask " +
 		"for it. Then do the part that does not need it. Refusing the whole job over one missing piece, " +
 		"and quietly finishing without it, are both wrong.\n"
+}
+
+// offering says the one thing about the user that the rest of this prompt does
+// not: they cannot ask for what they have never seen.
+//
+// Every other layer here answers a question the model has. This one answers a
+// question the model does not know it is being asked. The owner's report is the
+// whole reason it exists: he has been teaching this app to every new user by
+// hand, one at a time, because nothing in a session ever volunteers what the
+// session could have done instead. A capability nobody mentions is
+// indistinguishable from one that is not there, which is the same failure
+// capability() above is about, seen from the user's side of the screen rather
+// than the model's.
+//
+// Written as a state and not as a step, which is the line this layer has to
+// walk. The comment on workbench above records what happened the last time a
+// prompt asked for an act at a fixed point in the work: three places said "put
+// it on the desk", and the model opened things because it had been told to
+// rather than because the work asked for it. All three were removed on
+// 2026-08-30 and nothing replaced them. So the trigger here is a moment the
+// model can recognize from the inside — an answer it is already giving turns
+// out to touch something the user does not know is here — and the layer says
+// what to do in that moment rather than adding a stage to every job.
+//
+// The two sentences that keep it from becoming a sales pitch are the cap and
+// the stop. One offer, because a menu of five is a tour, and a tour is what a
+// person clicks away from. And stopping after it is what makes it an offer at
+// all: the owner asked for exactly this shape — propose one thing, and if they
+// say yes, that is consent to start, not a request to describe it again.
+//
+// Ungated, and inside the tool block for the reason the block exists. A turn
+// carrying nothing (คู่คิด) cannot act on a yes, and an offer that cannot be
+// taken up is worse than silence. Nothing here names a tool or a panel, so
+// there is no carries() to ask and no surface to branch on: workbench() already
+// owns what the panels are called, and this owns whether they are ever
+// mentioned.
+func offering() string {
+	return "The person you are talking to cannot ask for something they have never seen, and most of what " +
+		"this machine does is not on their screen. When an answer you are already giving turns out to touch " +
+		"something they clearly do not know is here, name it the way it is labelled for them and offer to " +
+		"do one of it, now, with the work already in front of you.\n" +
+		"One offer, where there is a real one, and then stop and let them answer. This is not the question " +
+		"in clarify below: nothing is blocked, and a plain question deserves a plain answer before anything " +
+		"is proposed. A no is an answer about the offer and not about the request, so finish what they asked " +
+		"for either way. A yes is the work starting, so do it in that turn rather than describing it again.\n"
+}
+
+// Read is one skill's own claim about when it must be read: the work it comes
+// before, in the skill's words.
+type Read struct {
+	Skill  string
+	Before string
+}
+
+// shelf is where the machine's `before:` claims come from, registered once by
+// whatever assembled this process (internal/bootstrap, which both front ends
+// import). A function rather than a slice, so nothing scans the disk at import
+// time and a skill installed mid-session is in the next prompt built.
+//
+// Package-level rather than a Desk field, which is where it was until
+// 2026-09-05, and the move is the whole point of this seam. A shelf is a fact
+// about the MACHINE: the same claims on every desk, every stance, and both
+// front ends. Hanging it on the desk made three sessions on one machine
+// disagree about it — the CLI, which never builds a Desk, was told none of the
+// claims at all, and desktop's legacy session got a line that
+// prompt.Build did not, which is exactly what
+// TestALegacySessionKeepsTheFullDeskAndTheSamePrompt forbids: an upgrade may
+// not spend an existing conversation's prefix cache by adding a line to it.
+//
+// Registered rather than read directly for the reason Carries is a closure:
+// this package does not import internal/skill.
+var shelf atomic.Value // func() []Read
+
+// UseShelf registers the source of the claims. Idempotent, and a nil source is
+// ignored rather than clearing one already set — a caller that has nothing to
+// register must not silence a caller that did.
+func UseShelf(claims func() []Read) {
+	if claims != nil {
+		shelf.Store(claims)
+	}
+}
+
+// shelfClaims is the read side, and answers nothing at all when no one has
+// registered — the prompt of a process with no skill layer is the prompt as it
+// was before this feature existed.
+func shelfClaims() []Read {
+	claims, _ := shelf.Load().(func() []Read)
+	if claims == nil {
+		return nil
+	}
+	return claims()
+}
+
+// reads turns those claims into the one kind of sentence a model reliably
+// follows. The principle in capability() — look before building from scratch
+// — was ignored by a flash-class model on 2026-09-04: it wrote a coffee-shop
+// site from nothing with 61 bundled page templates one lookup away. The same
+// model reads `aetox-slides` before every deck, because assistant.md names
+// that moment. A desk file naming moments is a list somebody grows by hand,
+// one skill at a time (§221); so the skill names its own moment, and this
+// layer only reads the claims out. A desk without skill_view hears none of
+// them, because it could not act on them — which is the one thing the desk
+// still decides here, the claims themselves coming from the shelf above.
+func reads(desk Desk) string {
+	claims := shelfClaims()
+	if len(claims) == 0 || !desk.carries("skill_view") {
+		return ""
+	}
+	// Worded as a fact about how the work starts, not as a rule being imposed.
+	//
+	// The first version said the lookup "is not optional and it comes first",
+	// which did get the lookup made — and got it announced. On 6 ก.ย. a run
+	// opened its turn with "there are two more design skills that FORCE me to
+	// read before writing — let me read both", which is a model reporting
+	// compliance with a mandate instead of a model doing its job. Reading the
+	// skill for the work in hand should be as unremarkable as opening a file:
+	// the user asked for a web page, not for a narration of the reading order.
+	//
+	// The lookup still has to happen, so the sentence still says to do it
+	// first. What it no longer does is describe itself as a constraint, because
+	// a model handed a constraint tends to say out loud that it is obeying one.
+	var b strings.Builder
+	b.WriteString("Some skills name the work they are read before. When the work in hand is that work, " +
+		"call skill_view for the skill named and read it before starting — it is part of doing the " +
+		"work, not a step worth mentioning.\n")
+	for _, r := range claims {
+		fmt.Fprintf(&b, "- before %s: skill_view %q\n", r.Before, r.Skill)
+	}
+	return b.String()
 }
 
 // fileEditing tells the model how to change a file it has already written.

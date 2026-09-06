@@ -83,3 +83,49 @@ func TestAProfileCanStillRefuseMemory(t *testing.T) {
 		t.Error("an allowlist that omits memory should exclude it")
 	}
 }
+
+// Who the work is for reaches a worker; what the assistant learned about the
+// machine does not. The two used to be one file, so this boundary could not be
+// drawn at all — the whole of MEMORY.md was either shared or not.
+//
+// Owner's call, 6 ก.ย.: *"ผมว่า USER.md ไปทุกที่เลยดีกว่า"*. What §184.5 kept is
+// the part that was about cost: what each agent learned doing its job stays in
+// its own file, so no prompt grows with everything every worker ever concluded.
+// A profile does not grow — it is capped at a quarter of every other scope,
+// exactly because this fold is paid for on every job.
+func TestAWorkerKnowsWhoTheWorkIsForButNotWhatTheAssistantLearned(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	for scope, marker := range map[string]string{
+		learned.UserScope: "USER-PROFILE-MARKER",
+		learned.MainScope: "MAIN-MEMORY-MARKER",
+		"explore":         "SCOPED-MARKER",
+	} {
+		if err := learned.Apply(scope, learned.OpAdd, "", marker); err != nil {
+			t.Fatalf("seed %s: %v", scope, err)
+		}
+	}
+
+	got := PromptFor(Profile{Name: "explore", Prompt: "you search files"})
+	if !strings.Contains(got, "USER-PROFILE-MARKER") {
+		t.Errorf("a worker does not know who it is working for:\n%s", got)
+	}
+	if strings.Contains(got, "MAIN-MEMORY-MARKER") {
+		t.Errorf("the assistant's own memory reached a worker:\n%s", got)
+	}
+	// Who the work is for, before what the work taught you — the same order the
+	// main prompt folds these in.
+	if strings.Index(got, "USER-PROFILE-MARKER") > strings.Index(got, "SCOPED-MARKER") {
+		t.Errorf("the profile folded after the worker's own memory:\n%s", got)
+	}
+}
+
+// A machine with no profile approved gives every worker the prompt it had
+// before this existed, byte for byte — the same promise the fold below it
+// already made.
+func TestAWorkerWithNoProfileOnTheMachinePaysNothing(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	p := Profile{Name: "explore", Prompt: "you search files"}
+	if got := PromptFor(p); got != p.Prompt {
+		t.Errorf("an empty profile still changed the prompt:\n%q", got)
+	}
+}

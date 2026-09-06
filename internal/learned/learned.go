@@ -17,6 +17,9 @@
 //     learned about doing its job is not something the main agent has to carry
 //     the cost of knowing. It is also the difference between a system whose
 //     context stays flat as it learns and one whose prompt grows forever.
+//     USER.md is the deliberate exception and the only one — who the work is
+//     for is not something an agent learned doing its job, so it goes
+//     everywhere, on a budget a quarter the size (UserScope, UserMaxBytes).
 //   - **Nothing here writes itself.** Every change arrives as a proposal and
 //     is applied only after a human approves it (desktop/pending.go). The tool
 //     the model calls does not touch the disk.
@@ -48,6 +51,55 @@ import (
 // silently dropping the newest fact would teach it that writing memory works
 // when it did not.
 const MaxBytes = 8 << 10
+
+// UserMaxBytes is the ceiling on the user's own profile, and it is deliberately
+// a quarter of everything else's.
+//
+// USER.md is the one file that rides in EVERY request this app makes — every
+// desk, every chair, every worker on every delegated job (owner's call,
+// 6 ก.ย.: *"ผมว่า USER.md ไปทุกที่เลยดีกว่า"*). That is the bill §44's capability
+// boundary exists to hold down, so the boundary moves to the size instead: a
+// profile is a handful of sentences about a person, and a person who needs ten
+// kilobytes of description is not being described, they are being transcribed.
+// Hermes prices the same file at 1,375 bytes; this is larger because Thai
+// spends roughly three bytes on a character English spends one, and the owner's
+// own approved lines are Thai and English mixed.
+const UserMaxBytes = 2 << 10
+
+// MaxBytesFor is the ceiling that applies to one scope. Everything that writes
+// or truncates asks this rather than reading MaxBytes directly — the two
+// budgets exist because the two files are paid for by different numbers of
+// requests, and a writer that knew only the bigger one would let the profile
+// grow into every worker's prompt.
+func MaxBytesFor(scope string) int {
+	if strings.TrimSpace(scope) == UserScope {
+		return UserMaxBytes
+	}
+	return MaxBytes
+}
+
+// UserScope is the user's own profile: who they are, what they are building,
+// and how they want to be worked with. `<DataRoot>/memory/USER.md`.
+//
+// It is split out of MEMORY.md because the machine measured two bars where the
+// tool offered one. Of the sixteen proposals this machine has ever produced,
+// the seven about the user were approved four times and the eight about the
+// machine were approved **zero** times — and the two lines about hardware that
+// did survive were both phrased as facts about the user's own setup and his
+// attitude to it. One file, one budget and one description had been asking the
+// agent to clear a single bar that the person applying it never had.
+//
+// The split is by lifetime as much as by subject. Who the user is outlives
+// every machine they will ever own, so it is the fact worth carrying into a
+// worker's prompt; where Ollama put its models is true of one disk until the
+// next reinstall, and stays in MEMORY.md where only the sessions that touch
+// this machine pay for it.
+//
+// Spelled with a colon so a delegate can never name it: validScope refuses ':'
+// and a delegate's scope is its profile name, so "a worker writing the user's
+// profile" is not a rule the model is asked to keep — it is a string it cannot
+// construct.
+const UserScope = "user:profile"
 
 // MainScope is the main agent's own memory. Empty rather than "main" because
 // that is how the rest of the codebase already spells "not a delegate"
@@ -93,9 +145,10 @@ const projectPrefix = "project:"
 // desk taught the agent, folded into that desk's prompt and no other's.
 //
 // This is the second axis of §44's capability boundary. MEMORY.md stays the
-// cross-desk truths — who the user is, what this machine is like — because
-// those are true wherever they are sitting; what coding work taught the agent
-// about this repository must never cost the assistant desk a token.
+// cross-desk truths about the machine and the setup — who the USER is moved to
+// UserScope on 6 ก.ย. — because those are true wherever they are sitting; what
+// coding work taught the agent about this repository must never cost the
+// assistant desk a token.
 func ModeScope(name string) string {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -191,6 +244,12 @@ func FileFor(scope string) (string, error) {
 	if scope == MainScope {
 		return filepath.Join(dir, "MEMORY.md"), nil
 	}
+	// Beside MEMORY.md rather than under it, and named the way Hermes names it,
+	// for the reason the whole folder is markdown: this is the file another
+	// agent runtime would recognise on sight if the folder were handed to it.
+	if scope == UserScope {
+		return filepath.Join(dir, "USER.md"), nil
+	}
 	if desk, ok := SplitModeScope(scope); ok {
 		if !validScope(desk) {
 			return "", fmt.Errorf("invalid memory scope %q", scope)
@@ -219,8 +278,9 @@ func FileFor(scope string) (string, error) {
 }
 
 // Read returns one scope's memory as it stands on disk, or "" when there is
-// none — which is the normal state, not an error. Truncated at MaxBytes so a
-// hand-edited file cannot cost more than the quota the tool enforces.
+// none — which is the normal state, not an error. Truncated at this scope's
+// own ceiling so a hand-edited file cannot cost more than the quota the tool
+// enforces.
 func Read(scope string) string {
 	path, err := FileFor(scope)
 	if err != nil {
@@ -230,15 +290,15 @@ func Read(scope string) string {
 	if err != nil {
 		return ""
 	}
-	if len(data) > MaxBytes {
-		data = data[:MaxBytes]
+	if limit := MaxBytesFor(scope); len(data) > limit {
+		data = data[:limit]
 	}
 	return strings.TrimSpace(stripHeader(string(data)))
 }
 
 // Scopes lists every scope under <DataRoot>/memory that currently holds
-// something, main first, then the desks and the projects in the order the
-// filesystem gives them.
+// something: the user's profile, then main, then the desks and the projects in
+// the order the filesystem gives them.
 //
 // It exists because the review page could only ever show one file. That was
 // true enough while the main agent's was the only one a session could write
@@ -256,6 +316,12 @@ func Scopes() []string {
 		return nil
 	}
 	var out []string
+	// The profile first, because it is what the other files are about: someone
+	// scanning this page for "what does it think it knows about me" should not
+	// have to read the machine's notes to find out.
+	if Read(UserScope) != "" {
+		out = append(out, UserScope)
+	}
 	if Read(MainScope) != "" {
 		out = append(out, MainScope)
 	}
@@ -351,10 +417,10 @@ func Apply(scope, op, before, body string) error {
 	}
 
 	rendered := render(scope, lines)
-	if len(rendered) > MaxBytes {
+	if limit := MaxBytesFor(scope); len(rendered) > limit {
 		return fmt.Errorf(
 			"this scope's memory is full (%d bytes, limit %d) — merge or drop an existing line first",
-			len(rendered), MaxBytes)
+			len(rendered), limit)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -422,10 +488,10 @@ func EditEntry(scope string, index int, body string) error {
 		lines[index] = body
 	}
 	rendered := render(scope, lines)
-	if len(rendered) > MaxBytes {
+	if limit := MaxBytesFor(scope); len(rendered) > limit {
 		return fmt.Errorf(
 			"this scope's memory is full (%d bytes, limit %d) — shorten the line or remove another",
-			len(rendered), MaxBytes)
+			len(rendered), limit)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -457,7 +523,7 @@ func Forget(scope string) error {
 // than at approval time — a queue full of proposals that cannot be applied is
 // worse than a refusal the agent can act on.
 func Full(scope string, addBytes int) bool {
-	return len(Read(scope))+addBytes+len(header(scope)) > MaxBytes
+	return len(Read(scope))+addBytes+len(header(scope)) > MaxBytesFor(scope)
 }
 
 // header is the first thing in the file. It exists for the human who opens
@@ -465,6 +531,17 @@ func Full(scope string, addBytes int) bool {
 // assertions with no provenance reads as configuration, and someone will edit
 // it expecting the agent to obey rather than to have learned.
 func header(scope string) string {
+	// The profile's header answers a different question, so it opens with a
+	// different sentence. "Learned by the main agent" describes a notebook; this
+	// file is about the person reading it, and someone who opens it should see
+	// that in the first line rather than infer it from the contents.
+	if scope == UserScope {
+		return userHeaderTitle + "\n\n" +
+			"What Aetox worked out about you from your own sessions, and you approved before it landed here.\n" +
+			"It rides in every request — the assistant, every desk, and every worker on every job — so keep it short.\n" +
+			"Plain markdown on purpose — this folder works in any agent that reads .md context files.\n" +
+			"Edit or delete any line; nothing here is load-bearing for the app.\n\n"
+	}
 	who := "the main agent"
 	desk, isDesk := SplitModeScope(scope)
 	project, isProject := SplitProjectScope(scope)
@@ -476,18 +553,27 @@ func header(scope string) string {
 	case scope != MainScope:
 		who = "the " + scope + " sub-agent"
 	}
-	return "# Learned by " + who + "\n\n" +
+	return learnedHeaderTitle + who + "\n\n" +
 		"Written by Aetox from its own completed work, and approved by you before it landed here.\n" +
 		"Plain markdown on purpose — this folder works in any agent that reads .md context files.\n" +
 		"Edit or delete any line; nothing here is load-bearing for the app.\n\n"
 }
+
+// The two first lines a memory file can open with. Named rather than spelled
+// twice, because stripHeader has to recognise exactly what header wrote: text
+// the reader sees and the model must not is one string, not two that agree
+// today.
+const (
+	learnedHeaderTitle = "# Learned by "
+	userHeaderTitle    = "# What Aetox knows about you"
+)
 
 // stripHeader removes the explanatory block so it is not folded into the
 // prompt. It explains the file to a person; the model is told what the layer is
 // by the layer's own title.
 func stripHeader(raw string) string {
 	const marker = "\n\n"
-	if !strings.HasPrefix(raw, "# Learned by ") {
+	if !strings.HasPrefix(raw, learnedHeaderTitle) && !strings.HasPrefix(raw, userHeaderTitle) {
 		return raw
 	}
 	if idx := strings.Index(raw, "\n- "); idx >= 0 {
@@ -537,6 +623,35 @@ func findEntry(lines []string, needle string) int {
 		}
 	}
 	return -1
+}
+
+// Screen refuses a proposal whose text carries characters a reviewer cannot
+// see, and says which one.
+//
+// This is the one check worth automating here, and the checks around it are
+// deliberately not built. Everything a remembered line says ends up in the
+// system prompt of later sessions, so a line copied out of a fetched page could
+// carry an instruction — but a person reads every line before it is kept
+// (nothing in this package writes itself), and a keyword blocklist would only
+// repeat, badly and in one language, the judgment they are already making.
+// What a reader genuinely cannot do is see a zero-width joiner or a
+// right-to-left override, which can hide a second sentence inside a line that
+// looks ordinary on the review card and does not look ordinary to a model.
+//
+// So: invisible and direction-changing characters only. Tab and newline are
+// allowed — a proposal is one line, and render would flatten them anyway.
+func Screen(text string) error {
+	for _, r := range text {
+		if r == '\t' || r == '\n' || r == '\r' {
+			continue
+		}
+		if unicode.Is(unicode.Cf, r) || unicode.Is(unicode.Co, r) || r == 'ㅤ' || r == '⠀' {
+			return fmt.Errorf(
+				"this text carries a hidden character (U+%04X) that the user would not see when deciding — send it again without it",
+				r)
+		}
+	}
+	return nil
 }
 
 // validScope rejects anything that would escape the memory directory. A scope

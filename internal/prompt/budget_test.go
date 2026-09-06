@@ -111,6 +111,8 @@ func logLayerSizes(t *testing.T, prompt string) {
 		{"surfaceLayer", surfaceLayer(SurfaceDesktop)},
 		{"workbench", workbench(SurfaceDesktop, desk)},
 		{"capability", capability()},
+		{"offering", offering()},
+		{"reads", reads(desk)},
 		{"fileEditing", fileEditing(desk)},
 		{"parallelCalls", parallelCalls()},
 		{"batchWork", batchWork()},

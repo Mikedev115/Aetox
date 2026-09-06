@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	aetoxapp "github.com/Mikedev115/Aetox/internal/app"
@@ -251,6 +252,31 @@ func deskFor(m *mode.Mode, direction string, r reach) prompt.Desk {
 		Delegates:     r.delegates,
 		DelegationOff: r.switchedOff,
 	}
+}
+
+// The claims are registered once, here, because this is the package both front
+// ends go through to assemble a session — the desktop and cmd/aetox alike. It
+// used to be handed to prompt through a Desk field, and the CLI, which builds
+// no Desk, was therefore told none of it: one machine, one shelf, two answers.
+//
+// The function is registered rather than its result, so nothing scans the disk
+// at import time and a skill installed mid-session is in the next prompt built.
+func init() { prompt.UseShelf(skillReads) }
+
+// skillReads is the shelf's own answer to "which skill comes before which
+// work": every SKILL.md that declares `before:`, in name order so the prompt
+// is the same string on every build. The same scan skills_list runs, so what
+// the prompt promises and what the list shows cannot disagree.
+func skillReads() []prompt.Read {
+	var out []prompt.Read
+	for _, d := range skill.ListDiscovered(skill.DefaultDiscoveryPaths()) {
+		if d.Before == "" {
+			continue
+		}
+		out = append(out, prompt.Read{Skill: d.Name, Before: d.Before})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Skill < out[j].Skill })
+	return out
 }
 
 // reach is who this session can hand a whole job to, and — where the answer is

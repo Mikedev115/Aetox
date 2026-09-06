@@ -183,6 +183,28 @@ type Profile struct {
 	// A name rather than an image: the file is a .md the user edits by hand,
 	// and a path to a picture would be a second thing to keep alive beside it.
 	Icon string `json:"icon,omitempty"`
+	// Hair and Accessory are the rest of that face, and they follow Icon's rule
+	// exactly: a NAME out of the app's own wardrobe (desktop/frontend/src/lib/
+	// agentFace.ts), never a drawing, so there is still nothing to keep alive
+	// beside the .md.
+	//
+	// Empty is the ordinary case and stays the ordinary case. A face is derived
+	// from the agent's name — that is what lets a file somebody drops in
+	// tomorrow arrive looking like a person with nobody having chosen anything
+	// — and these two only say "not that one, this one" for an owner who cared
+	// enough to open the editor. A name this build does not have falls back to
+	// the derived part rather than to an error, for the same reason Icon does.
+	Hair      string `json:"hair,omitempty"`
+	Accessory string `json:"accessory,omitempty"`
+	// Hue is the colour, in degrees around the wheel, and it is a STRING here
+	// for the same reason the two above are: this side does not read the file's
+	// meaning, it carries what the file says. As an int it would also have no
+	// way to tell "the author wrote 0" — red, a real choice — from "the author
+	// wrote nothing", and the difference between those two is the whole default.
+	//
+	// Blank is again the ordinary case: the colour then comes from coverHue, as
+	// every agent's has since before there was a face to put it on.
+	Hue string `json:"hue,omitempty"`
 	// Needs are the outside things this agent cannot do its job without —
 	// "connection:<id>" for an external account, "mcp:<server>" for a tool
 	// server. See needs.go for the rule that makes this safe: a need is a
@@ -540,6 +562,25 @@ func rawFor(name string) (string, bool) {
 // its prefix cache.
 func PromptFor(p Profile) string {
 	prompt := p.Prompt + skillsIndex(p)
+	// Who the work is for, before what the work taught you. It is the one thing
+	// a worker reads that it did not learn and cannot write: USER.md is the main
+	// sessions' file, and a delegate's `memory` tool is not even offered the word
+	// that would reach it (learned.MemoryTool.forWorker).
+	//
+	// This crosses §184.5's line on purpose and the owner drew the new one:
+	// *"ผมว่า USER.md ไปทุกที่เลยดีกว่า"* (6 ก.ย.). The boundary that decision
+	// kept is the one that was actually about cost — what each agent *learned
+	// doing its job* still stays in its own file, which is what stops one prompt
+	// growing with everything every worker has ever concluded. Who the user is
+	// does not grow: it is capped at learned.UserMaxBytes, a quarter of every
+	// other scope, precisely because this fold is the one that is paid for on
+	// every job.
+	//
+	// A machine with no profile yet gets the old prompt byte for byte, like the
+	// two folds around it.
+	if profile := learned.Read(learned.UserScope); profile != "" {
+		prompt += "\n\n---\n# Who you are working for\n" + profile + "\n"
+	}
 	if memory := learned.Read(p.Name); memory != "" {
 		prompt += "\n\n---\n# What you have learned doing this job before\n" + memory + "\n"
 	}
@@ -729,6 +770,9 @@ func parse(name, raw string) Profile {
 		Steps:       steps,
 		Desk:        strings.ToLower(strings.TrimSpace(fields["desk"])),
 		Icon:        strings.TrimSpace(fields["icon"]),
+		Hair:        strings.TrimSpace(fields["hair"]),
+		Accessory:   strings.TrimSpace(fields["accessory"]),
+		Hue:         strings.TrimSpace(fields["hue"]),
 		Needs:       splitList(fields["needs"]),
 		Publisher:   strings.TrimSpace(fields["publisher"]),
 		Package:     strings.TrimSpace(fields["package"]),

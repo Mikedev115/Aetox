@@ -15,6 +15,12 @@
 import { t } from './i18n.svelte'
 import { deskLabelKey } from './desks'
 
+/** The user's own profile (learned.UserScope). Spelled with a colon in Go so a
+ *  delegate's name can never collide with it; spelled out here rather than
+ *  matched by prefix because it is the only member of its namespace, and a
+ *  prefix test would quietly claim any future one. */
+const USER_SCOPE = 'user:profile'
+
 /** The 8 hex characters config.ProjectKey appends so two folders named "app"
  *  cannot collide. It is identity, not information: the folder's own name is
  *  what a person recognises, so the suffix is dropped for display only. */
@@ -23,6 +29,7 @@ const KEY_HASH = /-[0-9a-f]{8}$/
 export function scopeLabel(scope: string): string {
   const s = (scope ?? '').trim()
   if (!s) return t('settings.learningScopeMain')
+  if (s === USER_SCOPE) return t('settings.learningScopeUser')
 
   const desk = s.startsWith('mode:') ? s.slice(5) : ''
   if (desk) {

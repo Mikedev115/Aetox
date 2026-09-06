@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -229,6 +230,85 @@ func TestParseUnlimitedFromFrontmatter(t *testing.T) {
 	}
 	if got := p.MaxToolCalls(); got > 0 {
 		t.Errorf("MaxToolCalls = %d, want no ceiling", got)
+	}
+}
+
+// The face a profile chooses for itself survives the file, and survives it
+// UNTOUCHED. The parts are named by id out of the app's wardrobe
+// (desktop/frontend/src/lib/agentFace.ts) and those ids are camelCase, so a
+// parser that helpfully lowercased them — as it does for `desk:`, where the
+// values really are one word — would turn a face somebody chose into the
+// derived one and never say a word about it.
+//
+// Absent is the ordinary case and has to stay cheap: blank means the drawing
+// derives that part from the agent's name, which is what every profile nobody
+// has opened says, and what the whole roster looked like before the editor
+// could write these lines at all.
+func TestAProfileKeepsTheFaceItNamesForItself(t *testing.T) {
+	p := parse("backend", `---
+description: d
+icon: terminal
+hair: sidePart
+accessory: glasses
+---
+You build.`)
+	if p.Icon != "terminal" || p.Hair != "sidePart" || p.Accessory != "glasses" {
+		t.Fatalf("face = %q/%q/%q, want terminal/sidePart/glasses verbatim", p.Icon, p.Hair, p.Accessory)
+	}
+
+	bare := parse("backend", `---
+description: d
+---
+You build.`)
+	if bare.Hair != "" || bare.Accessory != "" {
+		t.Errorf("a profile that chose nothing arrives as %q/%q — blank is what tells the drawing to derive it", bare.Hair, bare.Accessory)
+	}
+}
+
+// The seven that ship are spread around the colour wheel by hand, and that is
+// the whole reason `hue:` exists as a field: derived, coverHue clusters them.
+// deepresearch and automation landed four degrees apart and doc and github three,
+// which on a roster card is the same colour twice — two people a reader has
+// nothing to tell apart by, on the page whose entire job is telling them apart.
+//
+// Sixteen degrees is not a taste. Below it this palette stops resolving the
+// difference at the size a card actually draws (38px, at 42% saturation on the
+// skin and 38% on the shirt), which is where the two collisions above came
+// from. An eighth agent is welcome; an eighth agent wearing doc's purple is
+// the roster going back to what it was.
+func TestTheShippedRosterIsSpreadAcrossTheColourWheel(t *testing.T) {
+	const minApart = 16
+
+	hues := map[string]int{}
+	for _, p := range Chairs(mode.Office) {
+		if p.Hue == "" {
+			t.Errorf("%s names no hue — it would take whatever coverHue gives it, which is what put two pairs of these on top of each other", p.Name)
+			continue
+		}
+		deg, err := strconv.Atoi(p.Hue)
+		if err != nil || deg < 0 || deg > 359 {
+			t.Errorf("%s has hue %q, which is not a degree on the wheel — the drawing refuses it and falls back to the derived colour, silently", p.Name, p.Hue)
+			continue
+		}
+		hues[p.Name] = deg
+	}
+
+	for a, x := range hues {
+		for b, y := range hues {
+			if a >= b {
+				continue
+			}
+			gap := x - y
+			if gap < 0 {
+				gap = -gap
+			}
+			if gap > 180 {
+				gap = 360 - gap
+			}
+			if gap < minApart {
+				t.Errorf("%s (%d) and %s (%d) are %d° apart, want at least %d — they arrive on the roster as the same colour", a, x, b, y, gap, minApart)
+			}
+		}
 	}
 }
 

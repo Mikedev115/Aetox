@@ -109,6 +109,22 @@ const (
 	whereProject    = "this-project"
 )
 
+// What a line is ABOUT, which is a different question from where it goes and
+// is now asked first.
+//
+// The two were one question until 6 ก.ย. and the machine had been answering
+// them separately the whole time: of sixteen proposals, the seven about the
+// user were approved four times and the eight about the machine zero times.
+// One description asked the model to clear one bar; the person applying it held
+// two. So the model is asked which of the two it is writing, and the answer
+// picks the file — `user` always lands in the profile, whatever desk this is
+// and whatever `where` says, because who somebody is cannot be true of one
+// project only.
+const (
+	aboutUser    = "user"
+	aboutMachine = "machine"
+)
+
 func (t *MemoryTool) whereOptions() []string {
 	out := []string{whereEverywhere}
 	if t.Project != "" {
@@ -124,8 +140,11 @@ func (t *MemoryTool) whereOptions() []string {
 func (t *MemoryTool) whereDescription() string {
 	b := strings.Builder{}
 	projectFirst := t.ProjectFirst && t.Project != ""
-	everywhere := "everywhere for a fact that is true whatever you are working on — this user, " +
-		"this machine, how they like things done."
+	// It stopped saying "this user" on 6 ก.ย.: a fact about the user has its own
+	// file now and reaches it whatever this says, so leaving the word here would
+	// offer a destination that the same call has already overruled.
+	everywhere := "Only read when about is machine. everywhere for a fact that is true of this computer " +
+		"whatever you are working on."
 	if !projectFirst {
 		everywhere = strings.Replace(everywhere, "everywhere ", "everywhere (default) ", 1)
 	}
@@ -173,6 +192,18 @@ func (t *MemoryTool) Description() string {
 // user states something about themselves, that IS the evidence — there is no
 // later observation that would confirm it further. The cost sentence is what
 // holds the other side; it always was.
+//
+// 6 ก.ย. added the second question — `about`, user or machine — and two
+// sentences the file's own history had earned. The bar was one bar in this text
+// and two bars in the person applying it (see UserScope for the count), so the
+// model is now asked which of them it is clearing. The declarative-fact rule
+// is the other: the only proposal this machine ever made in the imperative
+// ("ก่อนสร้าง UI … ต้องเปิดอ่านสกิลก่อน") was refused, and it deserved to be —
+// an order stored here is read in every later session and outranks whatever the
+// user asks for then. Hermes states the same rule and states the reason better
+// than a list of examples could, so it is stated rather than exemplified. Where
+// that lesson does belong is the skill for that work, which is one more
+// sentence and closes the only exit the refusal left open.
 func (t *MemoryTool) ToolDefinition() model.ToolDefinition {
 	schema := map[string]any{
 		"type": "object",
@@ -196,6 +227,22 @@ func (t *MemoryTool) ToolDefinition() model.ToolDefinition {
 			},
 		},
 		"additionalProperties": false,
+	}
+	// A worker is never offered this and its block does not grow by a byte: it
+	// does not talk to the user, so it has no profile to write and no evidence
+	// to write one from. That is the same boundary §184.5 drew on the read side,
+	// held here by the schema rather than by the model's cooperation — there is
+	// no word a delegate's tool call can say that reaches USER.md.
+	if !t.forWorker() {
+		schema["properties"].(map[string]any)["about"] = map[string]any{
+			"type": "string",
+			"enum": []string{aboutUser, aboutMachine},
+			"description": "Required. user for a fact about the person you are talking to — who they are, " +
+				"what they are building, how they want to be worked with, what a request of theirs " +
+				"reliably turns out to mean. machine for a fact about this computer or this setup — " +
+				"where something lives, what had to be installed, a convention the files hold to.",
+		}
+		schema["required"] = []string{"about"}
 	}
 	// The parameter appears only for a session that has somewhere else to put a
 	// line — a focused project. The tool block rides in every request, so an
@@ -246,6 +293,9 @@ func (t *MemoryTool) definitionText() string {
 		"is said rather than waiting to be told to. " +
 		"Not worth keeping: anything about the task in front of you, anything you could look up or " +
 		"search for when you need it, and a conclusion of your own you have not seen borne out. " +
+		"Write a fact, never an instruction to yourself: \"they prefer short answers\", not \"always " +
+		"answer briefly\" — an order kept here outranks what they ask you for next month. " +
+		"How to do a kind of work belongs in the skill for that work, not here. " +
 		"A remembered line costs context on every request this agent ever makes again, so a wrong or " +
 		"idle one is paid for forever. Nothing here takes effect until the user approves it, and it " +
 		"reaches you at the start of the next session, not this one."
@@ -305,12 +355,40 @@ func (t *MemoryTool) ExecuteTool(_ context.Context, args map[string]any) (skill.
 	if t.ProjectFirst && t.Project != "" {
 		scope = ProjectScope(t.Project)
 	}
-	switch strings.TrimSpace(stringArg(args, "where")) {
-	case whereEverywhere:
-		scope = t.Scope
-	case whereProject:
-		if t.Project != "" {
-			scope = ProjectScope(t.Project)
+	// `about` is required and has no default, which is the opposite of `where`
+	// one paragraph down, and the difference is who can answer. §184 moved
+	// `where`'s default onto the desk because the desk knows: coding work
+	// settles project decisions wherever it is done. Nothing but the model knows
+	// whether the sentence it just wrote is about the person or about the
+	// computer — a coding session learns both — so an unsaid word here would be
+	// §184's own finding repeating itself: a parameter whose absence is
+	// indistinguishable from one of its values is a bias, not a choice.
+	//
+	// Refused rather than guessed, and the refusal names both words, because the
+	// model can act on it in the same turn: this is the door §139 opened for a
+	// `replace` that names nothing.
+	if !t.forWorker() {
+		switch strings.TrimSpace(stringArg(args, "about")) {
+		case aboutUser:
+			// Whatever the desk's architecture says and whatever `where` says.
+			// Who somebody is cannot be true of one project only, so there is no
+			// destination left to choose.
+			scope = UserScope
+		case aboutMachine:
+			switch strings.TrimSpace(stringArg(args, "where")) {
+			case whereEverywhere:
+				scope = t.Scope
+			case whereProject:
+				if t.Project != "" {
+					scope = ProjectScope(t.Project)
+				}
+			}
+		case "":
+			return fail(fmt.Errorf(
+				"about is required — %q for a fact about the person you are talking to, %q for a fact about this computer or setup",
+				aboutUser, aboutMachine))
+		default:
+			return fail(fmt.Errorf("about must be %q or %q", aboutUser, aboutMachine))
 		}
 	}
 
@@ -331,13 +409,24 @@ func (t *MemoryTool) ExecuteTool(_ context.Context, args map[string]any) (skill.
 		return fail(fmt.Errorf("unknown op %q — use add, replace or remove", op))
 	}
 
+	// Before the queue rather than before the file: a card the user cannot read
+	// correctly must never be drawn for them to approve. See Screen for why this
+	// is the only check of its kind here.
+	if err := Screen(text); err != nil {
+		return fail(err)
+	}
+
 	// Refused here rather than at approval: a proposal that cannot be applied
 	// would sit in the user's review list looking like progress, and the agent
 	// would never learn that it needs to consolidate.
 	if op == OpAdd && Full(scope, len(text)+2) {
+		// The limit is per file since the profile got its own, a quarter the
+		// size, and it is the one the model will meet first. Naming the number
+		// this scope actually has is the difference between "consolidate" and
+		// "consolidate down to what".
 		return fail(fmt.Errorf(
-			"this agent's memory is full (limit %d bytes) — replace or remove a line that has stopped being useful before adding another",
-			MaxBytes))
+			"this memory is full (limit %d bytes) — replace or remove a line that has stopped being useful before adding another",
+			MaxBytesFor(scope)))
 	}
 
 	// Same door, same reason, and the case that made it necessary is the

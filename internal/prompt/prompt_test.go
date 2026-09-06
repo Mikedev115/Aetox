@@ -455,6 +455,12 @@ func TestAFoldedFileIsNamedOnlyWhenTheUserNamedIt(t *testing.T) {
 // happens to share the chair's name, the project's decisions. Identity and
 // the user's own project rules still fold, because a chair is still Aetox,
 // specialised (§44.0) — memory is where the boundary runs.
+//
+// The profile is the one exception, and the owner drew it on 6 ก.ย.: *"ผมว่า
+// USER.md ไปทุกที่เลยดีกว่า"*. It sits on the identity side of that boundary
+// rather than the memory side — a chair is talking to the same person the
+// assistant talks to, and what §184.5 refused to share was what an agent
+// learned *doing its job*, which is a different thing from who the job is for.
 func TestAChairChatReadsNoMemoryButItsOwn(t *testing.T) {
 	dataRoot := t.TempDir()
 	t.Setenv("AETOX_DATA_ROOT", dataRoot)
@@ -471,6 +477,7 @@ func TestAChairChatReadsNoMemoryButItsOwn(t *testing.T) {
 		learned.MainScope:          "MAIN-MEMORY-MARKER",
 		learned.ModeScope("deck"):  "DESK-MEMORY-MARKER",
 		learned.ProjectScope(root): "PROJECT-MEMORY-MARKER",
+		learned.UserScope:          "USER-PROFILE-MARKER",
 	} {
 		if err := learned.Apply(scope, learned.OpAdd, "", marker); err != nil {
 			t.Fatalf("seed %s: %v", scope, err)
@@ -480,7 +487,9 @@ func TestAChairChatReadsNoMemoryButItsOwn(t *testing.T) {
 	text, loaded := BuildWithReport(SurfaceDesktop, Scope{Root: root},
 		Desk{Name: "deck", Direction: "you build decks\n\nCHAIR-OWN-MEMORY-MARKER", Chair: true})
 
-	for _, marker := range []string{"CHAIR-OWN-MEMORY-MARKER", "IDENTITY-MARKER", "PROJECT-RULES-MARKER"} {
+	for _, marker := range []string{
+		"CHAIR-OWN-MEMORY-MARKER", "IDENTITY-MARKER", "PROJECT-RULES-MARKER", "USER-PROFILE-MARKER",
+	} {
 		if !strings.Contains(text, marker) {
 			t.Errorf("%s belongs in a chair's prompt and is missing:\n%s", marker, text)
 		}
@@ -1194,5 +1203,108 @@ func TestGitLayerSnapshotsTheRepository(t *testing.T) {
 	}
 	if strings.Index(text, "Branch: main") > strings.Index(text, "answer in haiku") {
 		t.Error("the user's project rules must come after (and so outrank) the machine's git state")
+	}
+}
+
+// The profile sits between what the user wrote about themselves and what the
+// agent worked out about the machine, and the order is the policy: their own
+// words first, then Aetox's conclusions about them, then its conclusions about
+// their computer.
+//
+// Asserted by position rather than by presence, because presence was never the
+// risk. Every one of these layers already folded; what a later edit can quietly
+// break is which of them a model reads last.
+func TestTheProfileSitsBetweenWhatTheUserWroteAndWhatWasLearnedAboutTheMachine(t *testing.T) {
+	dataRoot := t.TempDir()
+	t.Setenv("AETOX_DATA_ROOT", dataRoot)
+
+	identityDir := filepath.Join(dataRoot, "identity")
+	if err := os.MkdirAll(identityDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(identityDir, "context.md"), "IDENTITY-MARKER")
+	for scope, marker := range map[string]string{
+		learned.UserScope: "USER-PROFILE-MARKER",
+		learned.MainScope: "MAIN-MEMORY-MARKER",
+	} {
+		if err := learned.Apply(scope, learned.OpAdd, "", marker); err != nil {
+			t.Fatalf("seed %s: %v", scope, err)
+		}
+	}
+
+	text, loaded := BuildWithReport(SurfaceDesktop, Scope{}, Desk{})
+
+	identity := strings.Index(text, "IDENTITY-MARKER")
+	profile := strings.Index(text, "USER-PROFILE-MARKER")
+	machine := strings.Index(text, "MAIN-MEMORY-MARKER")
+	if identity < 0 || profile < 0 || machine < 0 {
+		t.Fatalf("a layer is missing entirely (identity=%d profile=%d machine=%d):\n%s",
+			identity, profile, machine, text)
+	}
+	if !(identity < profile && profile < machine) {
+		t.Errorf("layers are out of order (identity=%d profile=%d machine=%d):\n%s",
+			identity, profile, machine, text)
+	}
+	if loaded.UserProfilePath == "" {
+		t.Error("the report does not name the profile it folded, so the settings badge cannot")
+	}
+	// The file explains itself to a person who opens the folder; the prompt
+	// pays for the line and nothing else. This file rides in every request the
+	// app makes, so it is the one where that matters most.
+	if strings.Contains(text, "about you") {
+		t.Errorf("the profile's own header reached the prompt:\n%s", text)
+	}
+}
+
+// A machine with no profile approved yet — every fresh install — gets the
+// prompt it got before this existed, byte for byte. The common case must not
+// pay for the feature, and prefix caching keys on the leading bytes.
+func TestNoProfileMeansNoLayerAtAll(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	text, loaded := BuildWithReport(SurfaceDesktop, Scope{}, Desk{})
+	if loaded.UserProfilePath != "" {
+		t.Errorf("the report claims a profile that was never written: %q", loaded.UserProfilePath)
+	}
+	if strings.Contains(text, "about this user") {
+		t.Errorf("an empty profile still folded a heading:\n%s", text)
+	}
+}
+
+// The owner was teaching this app to every new user by hand, one at a time,
+// because a session never volunteers what it could have done instead. A user
+// cannot ask for what they have never seen, so a capability nobody mentions is
+// indistinguishable from one that is not there.
+//
+// What is pinned here is the shape rather than the wording: a single offer, and
+// a stop after it. A menu is a tour, and acting without waiting is not an offer.
+func TestPromptSaysAUserCannotAskForWhatTheyHaveNeverSeen(t *testing.T) {
+	got := Build(SurfaceDesktop, Scope{Root: t.TempDir()})
+	for _, want := range []string{
+		"cannot ask for something they have never seen",
+		// The cap, and the wait. Both load-bearing.
+		"One offer",
+		"stop and let them answer",
+		// A yes is consent to start, not a request for a second description.
+		"do it in that turn",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("system prompt is missing %q:\n%s", want, got)
+		}
+	}
+}
+
+// An offer that cannot be taken up is worse than silence: คู่คิด carries no
+// tools, so a yes there has nothing to start. The layer sits inside the
+// ToolLess skip for that reason rather than for the reason its neighbours do,
+// and this is the test that keeps it there.
+func TestAToolLessTurnMakesNoOffers(t *testing.T) {
+	got := BuildForDesk(SurfaceDesktop, Scope{Root: t.TempDir()}, Desk{
+		Name:      "chat",
+		Direction: "This session is conversation.",
+		ToolLess:  true,
+		Carries:   func(string) bool { return false },
+	})
+	if strings.Contains(got, "cannot ask for something they have never seen") {
+		t.Errorf("a turn carrying nothing is told to offer work it cannot start:\n%s", got)
 	}
 }

@@ -90,6 +90,41 @@ func TestALiveTurnRecordsTheWorkItDid(t *testing.T) {
 	}
 }
 
+// A fact about the PERSON goes to USER.md, through the same real turn and the
+// same approval door — asserted end to end because that is the only place the
+// 6 ก.ย. split can actually be proved. `about` is answered by the model, the
+// tool resolves it to a scope, the proposer files it, and approval writes it:
+// four components, and a unit test of any one of them would still pass if the
+// destination were wrong.
+func TestALiveTurnFilesAFactAboutTheUserInTheProfile(t *testing.T) {
+	a := bootLearningApp(t)
+
+	if _, err := a.SendMessage("memory: ทดสอบโปรไฟล์ผู้ใช้", ""); err != nil {
+		t.Fatalf("turn failed: %v", err)
+	}
+	pending := a.ListPendingChanges()
+	if len(pending) != 1 {
+		t.Fatalf("want one proposal queued by the turn, got %d", len(pending))
+	}
+	if pending[0].Scope != learned.UserScope {
+		t.Fatalf("a fact about the user was filed under %q, want the profile", pending[0].Scope)
+	}
+	if !strings.HasSuffix(pending[0].Target, "USER.md") {
+		t.Errorf("the card names %q; the user decides by reading which file this lands in", pending[0].Target)
+	}
+	if err := a.ApprovePendingChange(pending[0].ID); err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+	if got := learned.Read(learned.UserScope); got == "" {
+		t.Fatal("approval did not reach the profile")
+	}
+	// And it did not also land in the file every machine fact goes to. One
+	// destination per proposal, or the budget the split bought is spent twice.
+	if got := learned.Read(learned.MainScope); got != "" {
+		t.Errorf("a profile line also reached the shared file: %q", got)
+	}
+}
+
 // The same turn, from the other end: the tool the model called was the real
 // `memory`, it went through the real approval door, and nothing reached the
 // memory file on the way.
