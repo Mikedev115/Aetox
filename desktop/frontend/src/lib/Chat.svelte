@@ -2765,6 +2765,23 @@
     <span class="subj" title={subject}
       >{#if parts.head}<span class="path">{parts.head}</span>{/if}{parts.tail}</span>
   {/if}
+  {#if s.answer}
+    <!-- The other half of an exchange. `subject` above is the question the model
+         asked; this is what the user said back, and on this row it is the more
+         valuable of the two — the question can be inferred from the work around
+         it, the answer cannot be inferred from anything.
+
+         So it is the half that must not be cut: it takes its width first and the
+         question truncates behind it, which is the opposite of every other row
+         here and right for the only row whose subject is a sentence.
+
+         In the primary ink because it is the USER's word inside a list of the
+         agent's actions — the one row in a turn that records a decision the
+         person made. Drawn from the stored part as well as the live event, so a
+         session reopened next week still says it (turn.ToolPart.Answer). -->
+    <span class="answered">{t('tool.answered')}</span>
+    <span class="answer" title={s.answer}>{s.answer}</span>
+  {/if}
   {#if s.state === 'err'}
     <!-- Kept, and only on failure. The tile carries "done" perfectly well — it
          is the row that stopped moving — but "failed" is the one state nobody

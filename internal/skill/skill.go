@@ -131,6 +131,18 @@ type Output struct {
 	// answer: a proposal approved from Settings must not still be offering an
 	// Approve button in a session reopened a week later.
 	ProposalID int64
+	// Answer is what the user said when a tool asked them something. Only
+	// `ask_user` sets it, and for the same reason Links exists further up: the
+	// answer was already in the output — inside "user chose: X", a sentence
+	// written for the model to read — and the window's only way at it would have
+	// been to parse that prose back apart.
+	//
+	// It matters after the fact rather than during. The question card is drawn
+	// inside the live turn and is gone the moment it is answered, so a session
+	// reopened tomorrow held a row saying a question had been asked, with
+	// neither the question nor the answer anywhere on it (owner, 7 ก.ย.:
+	// *"ควรจะดูย้อนหลังได้ว่า ถามอะไรและเราตอบอะไร"*).
+	Answer string
 }
 
 // LineDelta counts how a replacement changed a file, for Output's stats.

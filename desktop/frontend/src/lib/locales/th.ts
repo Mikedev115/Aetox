@@ -422,6 +422,7 @@ export const th = {
   'tool.memory': 'ความจำ',
   'tool.todo': 'รายการงาน',
   'tool.askUser': 'ถามคุณ',
+  'tool.answered': 'ตอบ',
   'tool.time': 'ดูเวลา',
   'tool.calc': 'คำนวณ',
   'tool.searchOpened': 'อ่านแล้ว',

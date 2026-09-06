@@ -464,6 +464,7 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'tool.memory': '记忆',
   'tool.todo': '待办',
   'tool.askUser': '问你',
+  'tool.answered': '回答',
   'tool.time': '看时间',
   'tool.calc': '计算',
   'tool.searchOpened': '已读',

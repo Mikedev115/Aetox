@@ -427,6 +427,7 @@ export const en: Record<keyof typeof th, string> = {
   'tool.memory': 'Memory',
   'tool.todo': 'Todos',
   'tool.askUser': 'Ask you',
+  'tool.answered': 'answered',
   'tool.time': 'Check time',
   'tool.calc': 'Calculate',
   'tool.searchOpened': 'read',

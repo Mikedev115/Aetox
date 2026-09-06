@@ -316,6 +316,11 @@ export interface ToolPartInfo {
    *  sources an answer was built from, and a card that vanishes on restart
    *  leaves them with an answer and no way back to what it read. */
   links?: ToolLink[]
+  /** On an `ask_user` call: what the user answered. The question card is drawn
+   *  inside the live turn and is gone the moment it is answered, so this row is
+   *  the only record the exchange leaves — and until this field it carried
+   *  neither half of it. */
+  answer?: string
 }
 
 /** One of the answers a question received. */
@@ -556,6 +561,10 @@ export interface ToolEvent {
    * chat draws it as a card under the answer, so what the agent wants to
    * remember is decided where it was proposed rather than in Settings. */
   proposalId?: number
+  /** On a result event from `ask_user`: what the user answered. Travels beside
+   * `subject`, which carries the question — the two halves of an exchange the
+   * live card stops showing the instant it is answered. */
+  answer?: string
   /** On a "note" event: the narration the model wrote alongside this round's
    * tool calls — its own words for what it is doing. On a "said" event: a whole
    * answer the model had finished writing when the user typed over it. */
@@ -627,6 +636,11 @@ export interface ToolStep {
    * writes no file. One line is not git's: `~N` means N further diff lines
    * exist and were dropped to keep the transcript bounded. */
   diff?: string
+  /** On an `ask_user` row: what the user answered. The row's `subject` carries
+   * the question, so the two together are the whole exchange — which is the
+   * only place it survives, the card that asked it being drawn inside the live
+   * turn and gone the moment it is answered. */
+  answer?: string
   /** On a `task` row: the worker doing the job, and the brief it was given. */
   agent?: string
   brief?: string

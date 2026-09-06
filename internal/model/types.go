@@ -319,11 +319,17 @@ func normalizeUsage(usage Usage) *Usage {
 // detail view and is usually too long to read there anyway. `task` has only a
 // description, so its label is unaffected by where the two sit relative to
 // each other.
-var ArgSubjectKeys = []string{"path", "file_path", "url", "description", "command", "pattern", "query", "name"}
+//
+// `question` is here for `ask_user`, and its position says the same thing about
+// that tool: a row reading only "ถามคุณ" is a row that has forgotten the one
+// fact worth keeping about a question (owner, 7 ก.ย.). Below `description` and
+// above `command` because no tool has both — it costs the tools around it
+// nothing, and it is what turns a bare verb into a row somebody can read back.
+var ArgSubjectKeys = []string{"path", "file_path", "url", "description", "question", "command", "pattern", "query", "name"}
 
 // partialArgRe matches one complete "key": "value" pair. The closing quote is
 // required, so a value still arriving cannot match and be reported truncated.
-var partialArgRe = regexp.MustCompile(`"(path|file_path|url|command|pattern|query|name|description)"\s*:\s*"((?:[^"\\]|\\.)*)"`)
+var partialArgRe = regexp.MustCompile(`"(path|file_path|url|command|pattern|query|name|description|question)"\s*:\s*"((?:[^"\\]|\\.)*)"`)
 
 // SubjectFromPartialArgs pulls the first readable argument out of a tool call
 // whose JSON is still streaming in, so the UI can name the call before its

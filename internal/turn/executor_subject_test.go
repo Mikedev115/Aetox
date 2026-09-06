@@ -11,6 +11,10 @@ func TestToolCallSubject(t *testing.T) {
 		{"edit alt key", `{"file_path":"desktop/app.go","find":"a","replace":"b"}`, "desktop/app.go"},
 		{"fetch", `{"url":"https://ollama.com"}`, "https://ollama.com"},
 		{"bash", `{"command":"go build ./..."}`, "go build ./..."},
+		// A row reading only "ถามคุณ" has forgotten the one fact worth keeping
+		// about a question (owner, 7 ก.ย.). The answer rides the result event;
+		// the question is right here in the arguments.
+		{"ask_user", `{"question":"เอาทางไหนดี","options":["a","b"]}`, "เอาทางไหนดี"},
 		{"no nameable arg", `{"limit":10}`, ""},
 		{"blank value falls through", `{"path":"  ","url":"https://x.dev"}`, "https://x.dev"},
 		{"not json keeps old behaviour", `{"path":"truncated`, `{"path":"truncated`},

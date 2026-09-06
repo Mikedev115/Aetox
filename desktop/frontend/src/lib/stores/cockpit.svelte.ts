@@ -465,6 +465,9 @@ function stepsFromParts(parts?: TurnPart[]): ToolStep[] | undefined {
       count: tool.count || undefined,
       range: tool.range || undefined,
       diff: tool.diff || undefined,
+      // What the user answered when this call asked them something. The stored
+      // half of the exchange: the card that asked lives in the live turn only.
+      answer: tool.answer || undefined,
       agent: tool.agent || undefined,
       brief: tool.brief || undefined,
       agentKind: tool.agentKind || undefined,
@@ -2695,6 +2698,10 @@ export function applyToolEvent(stamped: SessionEvent<ToolEvent> | ToolEvent): vo
   // of the time, but a delegate's fetch can land before its search's own result
   // does, and a pass over the whole list is cheap at timeline scale.
   markOpenedLinks(steps)
+  // What the user said when this call asked them something. On the result, like
+  // the diff below: the question is in the arguments and is already on the row
+  // as its subject, and the answer cannot exist until the call returns.
+  step.answer = ev.answer || undefined
   // The change itself, for the โค้ด desk's fold-out. It arrives once, on the
   // result — the streaming call events know the path before they know the text.
   step.diff = ev.diff || undefined

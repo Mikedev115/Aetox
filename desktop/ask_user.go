@@ -105,6 +105,11 @@ func (s *askUserSkill) ask(ctx context.Context, question string, options []strin
 		return skill.Output{
 			Name: "ask_user", Command: "ask_user " + question, Success: true,
 			Content: receipt, RawOutput: receipt,
+			// The same answer again, as a field. `receipt` is a sentence written
+			// for the model; this is for the transcript, which has to be able to
+			// show what was asked and what was said back long after the card that
+			// asked it is gone.
+			Answer:     answer,
 			DurationMs: time.Since(start).Milliseconds(),
 		}, nil
 	case <-ctx.Done():

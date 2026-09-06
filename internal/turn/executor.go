@@ -448,6 +448,11 @@ type ToolEvent struct {
 	// open button instead of leaving them to be hunted for in the file tree.
 	// Empty for every tool whose output is text.
 	Artifacts []string `json:"artifacts,omitempty"`
+	// Answer carries skill.Output.Answer: what the user said when `ask_user`
+	// asked them something. Result events only, empty for every other tool.
+	// It travels beside Subject — which names the row with the QUESTION — so a
+	// row can say both halves of an exchange the live card no longer holds.
+	Answer string `json:"answer,omitempty"`
 	// ProposalID carries skill.Output.ProposalID the same way: the queued change
 	// a `memory` call is waiting on a decision for, which the chat draws under
 	// the answer as the proposal itself, with the yes and the no on it. Zero for
@@ -1189,6 +1194,7 @@ func (e *Executor) executeAgentToolLoop(
 			Diff:       output.Diff,
 			Artifacts:  output.Artifacts,
 			ProposalID: output.ProposalID,
+			Answer:     output.Answer,
 		}
 		if !success {
 			if execErr != nil {
@@ -1244,6 +1250,10 @@ func (e *Executor) executeAgentToolLoop(
 			Diff:       output.Diff,
 			Artifacts:  output.Artifacts,
 			ProposalID: output.ProposalID,
+			// Written down, not only sent: the card that asked is drawn inside
+			// the live turn and is gone once it is answered, so the stored part
+			// is the only place a reopened session can read the exchange from.
+			Answer: output.Answer,
 		})
 		return receipt, output.Images, execErr
 	}, asStreamHandler(reasoning), opts)

@@ -243,3 +243,22 @@ func TestStreamAccumulatorCountsBeforeThePathArrives(t *testing.T) {
 		t.Errorf("the naming update lost the id: %+v", last)
 	}
 }
+
+// The two lists that name a row — ArgSubjectKeys and partialArgRe — are written
+// out separately and have to agree, or a call is drawn once while it streams
+// and again under a different name when it lands. `question` is the newest
+// entry in both and was the easiest to add to one and forget in the other.
+func TestAQuestionNamesItsRowWhileItStreamsAndAfter(t *testing.T) {
+	question := "เอาทางไหนดี ยิงรอบสองหรือเพิ่มเครื่องมือ"
+	streamed, ok := SubjectFromPartialArgs(`{"question": "` + question + `", "options": ["a`)
+	if !ok {
+		t.Fatalf("a streaming ask_user call resolved no subject, so the row reads as a bare verb")
+	}
+	completed := SubjectFromArgs(map[string]any{"question": question, "options": []any{"a", "b"}})
+	if streamed != completed {
+		t.Fatalf("the row is renamed when the call lands, which draws it twice:\n  streaming: %q\n  completed: %q", streamed, completed)
+	}
+	if streamed != question {
+		t.Fatalf("subject = %q, want the question itself", streamed)
+	}
+}

@@ -127,6 +127,13 @@ type ToolPart struct {
 	// proposed it, and a session reopened tomorrow should still show it — either
 	// still asking, or saying which way it went. Zero on every other tool.
 	ProposalID int64 `json:"proposalId,omitempty"`
+	// Answer is what the user said when `ask_user` asked them something, written
+	// down for the same reason ProposalID is one field up — and more sharply.
+	// The question card lives inside the live turn and is gone the moment it is
+	// answered, so without this the row is the ONLY trace of the exchange and it
+	// carries neither half of it. Empty on every other tool. A new JSON field in
+	// the existing parts column, so no migration: an older row simply has none.
+	Answer string `json:"answer,omitempty"`
 }
 
 // partList accumulates a turn as it happens. Not safe for concurrent use, and

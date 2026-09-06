@@ -33,7 +33,12 @@ func TestAskUserAnswerRoundTrip(t *testing.T) {
 
 	type result struct {
 		content string
-		err     error
+		// The answer as a FIELD, which is the half the transcript reads. The
+		// receipt below is a sentence written for the model; a row that had to
+		// parse "user chose: B" back apart to say what was chosen would be
+		// exactly the mistake ToolEvent.Links exists to have stopped.
+		answer string
+		err    error
 	}
 	done := make(chan result, 1)
 	go func() {
@@ -41,7 +46,7 @@ func TestAskUserAnswerRoundTrip(t *testing.T) {
 			"question": "which one?",
 			"options":  []any{"A", "B"},
 		})
-		done <- result{out.Content, err}
+		done <- result{out.Content, out.Answer, err}
 	}()
 
 	// Wait until the question is registered, then answer as the user would.
@@ -67,6 +72,12 @@ func TestAskUserAnswerRoundTrip(t *testing.T) {
 	}
 	if !strings.Contains(r.content, "user chose: B") {
 		t.Fatalf("answer must reach the model receipt, got %q", r.content)
+	}
+	// And the transcript's half of it. Without this the timeline row is the only
+	// record the exchange leaves and it says neither what was asked nor what was
+	// answered (owner, 7 ก.ย.).
+	if r.answer != "B" {
+		t.Fatalf("Output.Answer = %q, want %q — the row has no way to say what was chosen", r.answer, "B")
 	}
 	// The slot must be free again for the next question.
 	app.askMu.Lock()

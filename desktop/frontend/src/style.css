@@ -1188,6 +1188,17 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   transition:color var(--swap-glyph) ease;
 }
 .tool-step .subj .path { color:var(--text-dim); }
+/* The answer half of an `ask_user` row: what the USER said, beside the question
+   the model asked. `flex:0 0 auto` on purpose and against the grain of this row
+   — every other qualifier here yields to the subject and truncates; this one
+   takes its width first and lets the question ellipsis behind it. The question
+   is recoverable from the work around the row, the answer is not, and it is the
+   only thing in a turn's timeline that records a decision the person made. */
+.tool-step .answered { flex:0 0 auto; font-size:var(--fs-xs); color:var(--text-dim); }
+.tool-step .answer {
+  flex:0 0 auto; max-width:40%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:var(--fs-xs); font-weight:600; color:var(--text-primary);
+}
 /* The x on a failed row. Not the old glyph box: it is 11px, it appears only on
    failure, and it sits AFTER the words rather than in front of them, because
    the leading position now belongs to the family and a mark that only sometimes
