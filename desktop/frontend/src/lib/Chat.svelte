@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { BackgroundTask, ChatMessage, TaskState, ModelStatus, ToolStep, TimelineNode, ContextBreakdown } from './types'
+  import type { BackgroundTask, ChatMessage, TaskState, ModelStatus, ToolStep, TimelineNode, ContextBreakdown, ModelLoading } from './types'
   import { groupSteps, isDelegation } from './types'
   import { phasesOf, type TurnPhase } from './turnPhases'
   import { pacedStream, pacedText } from './streamPace'
@@ -11,6 +11,7 @@
   import Logo from './Logo.svelte'
   import { onMount } from 'svelte'
   import AgentFace from './AgentFace.svelte'
+  import { faceOf } from './agentFace'
   import { shell } from './shell.svelte'
   import {
     EnabledProviders, SupportedThinkLevels,
@@ -47,10 +48,12 @@
   import Icon from './Icon.svelte'
   import ProviderMark from './ProviderMark.svelte'
   import { ICONS, type IconName } from './icons'
-  import { startersFor, dealStarters, STARTER_SLOTS } from './starters'
+  import { startersFor, dealStarters, STARTER_SLOTS, TEACH_STARTER_KEY } from './starters'
+  import { teachingCardPinned, clearTeachingCard } from './firstRun'
 
   let {
     messages, task, model, awaitingReply, agentStatus, toolSteps, streamingText, reasoningText,
+    modelLoading = null,
     onSend, onSwitchProvider, onSwitchThinkLevel, onSwitchModel, onSubmitAPIKey,
   }: {
     messages: ChatMessage[]
@@ -61,6 +64,8 @@
     toolSteps: ToolStep[]
     streamingText: string
     reasoningText: string
+    /** A local runtime reading this turn's weights off disk, or null. */
+    modelLoading?: ModelLoading | null
     onSend: (text: string, to?: string) => void
     onSwitchProvider: (provider: string) => Promise<void>
     onSwitchThinkLevel: (level: string) => Promise<void>
@@ -120,8 +125,21 @@
   // "frozen". Only reacts to awaitingReply, so toggling it mid-turn still sticks
   // for that turn.
   let livePanel = $state<Panel>('think')
+  // The EDGE, not the state. Reading awaitingReply is what makes this effect
+  // run, and an effect that runs is not the same as a turn that started: it
+  // re-runs whenever the prop is re-assigned the value it already had, and
+  // every one of those runs used to re-open the panel and re-pin the window
+  // under a reader who had just closed or scrolled them.
+  let wasAwaiting = false
   $effect(() => {
-    if (awaitingReply) livePanel = 'think'
+    const now = awaitingReply
+    // thinkPinned rides along: a scroll back through LAST turn's reasoning must
+    // not leave this turn's window frozen on a line nothing is writing to.
+    if (now && !wasAwaiting) {
+      livePanel = 'think'
+      thinkPinned = true
+    }
+    wasAwaiting = now
   })
 
   // A finished tool call is history — it collapses behind a count next to the
@@ -1471,15 +1489,30 @@
   // re-deals when the room changes, when the language changes (the pool is
   // different words), when the agent's own file arrives, and when the user asks
   // for another hand. Not otherwise.
+  // The wizard has just finished and the user has not said anything yet, so the
+  // card that teaches this app holds the first slot instead of taking its
+  // chances in the deal (firstRun.ts). Only on ผู้ช่วย: a project chat and a
+  // chat with a specialist are both rooms somebody arrived at on purpose.
+  //
+  // State rather than a read inside the effect, so spending the pin on send
+  // re-deals the hand instead of leaving a stale card on a screen nobody is
+  // looking at any more.
+  let teachPinned = $state(teachingCardPinned())
+  const pinnedStarter = $derived(
+    teachPinned && !cockpit.chair && !cockpit.space && (cockpit.desk === 'assistant' || cockpit.desk === '')
+      ? t(TEACH_STARTER_KEY)
+      : undefined,
+  )
   let reroll = $state(0)
   let starters = $state<{ icon: IconName; title: string; prompt: string }[]>([])
   $effect(() => {
     const pool = starterPool
     const key = dealKey
+    const pin = pinnedStarter
     void reroll
     // Dealt by title, which is also the {#each} key below: two cards the user
     // cannot tell apart must not be able to share a slot.
-    starters = dealStarters(key, pool, (c) => c.title)
+    starters = dealStarters(key, pool, (c) => c.title, STARTER_SLOTS, pin)
   })
 
   // Only offered when there is something behind the four. A button that deals
@@ -1523,7 +1556,7 @@
     void cockpit.ask
     void awaitingReply
     // after DOM update, not before — otherwise we scroll to the old height
-    requestAnimationFrame(stickToBottom)
+    requestAnimationFrame(paintThinking)
   })
 
   // Called by the effect above, and again by the pacer after every frame it
@@ -1536,6 +1569,57 @@
     const el = chatEl
     if (!el || !pinnedToBottom) return
     el.scrollTop = el.scrollHeight
+  }
+
+  // While it runs, the thinking is a WINDOW onto the reasoning rather than all
+  // of it.
+  //
+  // Owner, 6 ก.ย., with a screenshot of Claude Code mid-thought: "ทำ UI ตอน
+  // โมเดลคิดยาวๆ ประมาณนี้ได้ไหม". A model that reasons for two minutes put two
+  // minutes of grey text on the page: the composer sat a screen and a half
+  // below the fold, the transcript scrolled the whole time to keep up with
+  // prose nobody reads word for word, and the answer — when it came — arrived
+  // at the bottom of a wall. What a thinking panel is FOR while it runs is
+  // proof of life and the last few lines of it.
+  //
+  // So the live panel is capped and scrolls inside itself (style.css,
+  // .reasoning-body.live). The page stops growing, the tail keeps moving, and
+  // every earlier line is still in the box to be scrolled back to — clipped,
+  // never dropped. The finished panel, opened tomorrow, is still the whole
+  // thing: this cap is about a thing in motion, not about the record of it.
+  let thinkEl = $state<HTMLDivElement | null>(null)
+  let thinkPinned = true
+  let lastThinkTop = 0
+  // Whether the box has more in it than it can show. Only then is it masked —
+  // a three-line thought fading at both ends would be dimming its only lines.
+  let thinkClipped = $state(false)
+  // The transcript's rule, one box smaller and for the same reason: scrolling
+  // up inside the window to re-read a line must not be undone by the next
+  // chunk. Back at the floor it follows again. (24px, not the transcript's 80:
+  // the whole box is only five lines tall, so an 80px band would be most of it
+  // and "near the bottom" would mean "anywhere".)
+  function onThinkScroll() {
+    const el = thinkEl
+    if (!el) return
+    const fromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    if (el.scrollTop < lastThinkTop - 1 && fromBottom > 2) thinkPinned = false
+    else if (fromBottom < 24) thinkPinned = true
+    lastThinkTop = el.scrollTop
+  }
+  function followThinking() {
+    const el = thinkEl
+    if (!el || !thinkPinned) return
+    el.scrollTop = el.scrollHeight
+    lastThinkTop = el.scrollTop
+  }
+  // What the pacer calls after each frame it paints: the window follows its own
+  // text, the page follows whatever sits under the window. Both are needed —
+  // the window scrolls on text the page no longer grows for.
+  function paintThinking() {
+    const el = thinkEl
+    if (el) thinkClipped = el.scrollHeight > el.clientHeight + 1
+    followThinking()
+    stickToBottom()
   }
 
   // The answer the user types into the question card itself.
@@ -1700,6 +1784,8 @@
       return
     }
     if (!draft.trim() && !cockpit.pendingImages.length && !cockpit.pendingContexts.length && !cockpit.pendingFiles.length) return
+    // The pin is for a user who has not asked for anything yet. They just did.
+    if (teachPinned) { clearTeachingCard(); teachPinned = false }
     onSend(draft, addressed)
     draft = ''
     // The choice belongs to the message that carried it. The next one starts
@@ -3062,6 +3148,26 @@
             <!-- The whole row, not just its text: with nothing else on it, an
                  empty row would still take its share of the bubble's gap and
                  push the toggles below it down for no reason. -->
+            <!-- The wait before the wait. A local model is read off the disk
+                 before it can produce a single token, and on a big one that is
+                 half a minute in which the thinking row has nothing to say and
+                 the app looks hung. Drawn above the phrase because it is the
+                 thing actually happening: the model is not thinking yet.
+                 A clock, not a bar — Ollama and LM Studio report a model as
+                 resident or not and count nothing in between, so the seconds
+                 are measured and there is no percentage to be honest about
+                 (desktop/model_load.go). -->
+            {#if modelLoading}
+              <div class="typing-row model-load">
+                <span class="model-load-mark"><Icon name="loaderCircle" size={13} /></span>
+                <span class="model-load-text">
+                  {modelLoading.model
+                    ? t('chat.modelLoadingNamed', { model: modelLoading.model })
+                    : t('chat.modelLoading')}
+                </span>
+                <span class="model-load-secs">{t('chat.modelLoadingFor', { secs: modelLoading.secs })}</span>
+              </div>
+            {/if}
             {#if liveStatus}
               <div class="typing-row"><span class="typing-status">{liveStatus}</span></div>
             {/if}
@@ -3088,7 +3194,13 @@
                      is not the same as smooth — the jitter is in the arrivals
                      (streamPace.ts). Only the live one; the finished panels
                      above draw their reasoning in full. -->
-                <div class="reasoning-body" use:pacedText={{ text: reasoningText, onPaint: stickToBottom }}></div>
+                <div
+                  class="reasoning-body live"
+                  class:clipped={thinkClipped}
+                  bind:this={thinkEl}
+                  onscroll={onThinkScroll}
+                  use:pacedText={{ text: reasoningText, onPaint: paintThinking }}
+                ></div>
               {/if}
             {/if}
             <!-- The checklist used to be drawn here, inside the live block, and
@@ -3357,7 +3469,7 @@
                        reading. Small enough that the prop is dropped on its own
                        (agentFace.ts, PROP_MIN_PX) — at this size the name is
                        doing the work and a held object is four pixels of noise. -->
-                  <AgentFace name={c.name} icon={c.icon} size={20} /><span class="t">{c.name}</span>
+                  <AgentFace name={c.name} {...faceOf(c)} size={20} /><span class="t">{c.name}</span>
                   {#if locked}<span class="focus-locked"><Icon name="wrench" size={12} /></span>{/if}
                 </button>
                 <!-- The same pill the settings rows wear, and the same two

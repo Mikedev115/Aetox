@@ -157,7 +157,7 @@ describe('working in one chat while another one runs', () => {
       chat: [{ role: 'user', text: 'งานที่กำลังทำ', time: '10:00' }],
       awaitingReply: true, agentStatus: 'กำลังรันเครื่องมือ', toolSteps: [],
       turnFiles: [], turnProposals: [], streamingText: 'ครึ่งประโยค',
-      reasoningText: '', ask: null, todos: [], turnSpend: emptyTurnSpend(),
+      reasoningText: '', modelLoading: null, ask: null, todos: [], turnSpend: emptyTurnSpend(),
       queued: [],
     }
     vi.mocked(LoadSessionAnyProject).mockResolvedValue([question] as never)

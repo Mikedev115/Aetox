@@ -3,7 +3,7 @@
 // incremental updates here — append a chat message, advance a timeline step) and
 // the UI reacts. Do not reassign `cockpit` itself; mutate its properties.
 
-import { emptyCockpitState, emptyTurnSpend, type CockpitState, type ParkedTurn, type TreeNode, type Session, type ToolStep, type ToolEvent, type ChatMessage, type MessageVariant, type TurnPart, type PendingFile, type PendingImage } from '../types'
+import { emptyCockpitState, emptyTurnSpend, type CockpitState, type ParkedTurn, type TreeNode, type Session, type ToolStep, type ToolEvent, type ChatMessage, type MessageVariant, type TurnPart, type PendingFile, type PendingImage, type ModelLoading } from '../types'
 import type { CockpitSource } from '../services/cockpit'
 import {
   SendMessage, GetProjectStatus, GetModelInfo, OpenProjectFolder, OpenProjectPath,
@@ -658,7 +658,7 @@ async function restoreLiveTranscript(): Promise<void> {
       cockpit.parked[other] = {
         chat: [], awaitingReply: true, agentStatus: '', toolSteps: [],
         turnFiles: [], turnProposals: [], streamingText: '', reasoningText: '',
-        ask: null, todos: [], turnSpend: emptyTurnSpend(), queued: [],
+        modelLoading: null, ask: null, todos: [], turnSpend: emptyTurnSpend(), queued: [],
       }
     }
   }
@@ -726,6 +726,7 @@ export async function applyAgentDone(status: { sessionId: string }): Promise<voi
   cockpit.turnProposals = []
   cockpit.streamingText = ''
   cockpit.reasoningText = ''
+  cockpit.modelLoading = null
   cockpit.sessionError = ''
   const id = await CurrentSessionID()
   if (status?.sessionId === id) {
@@ -823,6 +824,7 @@ function parkLive(id: string): void {
     turnProposals: cockpit.turnProposals,
     streamingText: cockpit.streamingText,
     reasoningText: cockpit.reasoningText,
+    modelLoading: cockpit.modelLoading,
     ask: cockpit.ask,
     todos: cockpit.todos,
     turnSpend: cockpit.turnSpend,
@@ -848,6 +850,7 @@ function restoreLive(id: string): boolean {
   cockpit.turnProposals = held.turnProposals
   cockpit.streamingText = held.streamingText
   cockpit.reasoningText = held.reasoningText
+  cockpit.modelLoading = held.modelLoading ?? null
   cockpit.ask = held.ask
   cockpit.todos = held.todos
   cockpit.turnSpend = held.turnSpend
@@ -883,6 +886,7 @@ function clearLive(): void {
   cockpit.turnProposals = []
   cockpit.streamingText = ''
   cockpit.reasoningText = ''
+  cockpit.modelLoading = null
   cockpit.ask = null
   cockpit.todos = []
   // The meter is the arriving chat's, not the one being left. Without this it
@@ -1563,6 +1567,7 @@ async function runLiveTurn(call: (turn: LiveTurnRef) => Promise<void>): Promise<
   cockpit.toolSteps = []
   cockpit.streamingText = ''
   cockpit.reasoningText = ''
+  cockpit.modelLoading = null
   // The question card belongs to the turn that raised it: it is drawn inside
   // the live block (Chat.svelte's `{#if awaitingReply}`), so a stale one is
   // invisible while the chat is idle and then reappears the instant the next
@@ -1633,6 +1638,11 @@ async function runLiveTurn(call: (turn: LiveTurnRef) => Promise<void>): Promise<
       l.turnProposals = []
       l.streamingText = ''
       l.reasoningText = ''
+      // Cleared at both ends like everything else here, and for a reason of its
+      // own: the engine sends its own "done loading" event, and a turn that
+      // died before the watcher could send it would leave a spinner claiming a
+      // model is still loading into a chat that has stopped.
+      l.modelLoading = null
       // Cleared at both ends, like toolSteps. A turn that died with a question
       // still on screen left a card whose tool is no longer listening —
       // pressing an option answered nothing. The checklist is deliberately not
@@ -1691,26 +1701,11 @@ function turnArtifacts(turn: LiveTurnRef): Pick<ChatMessage, 'steps' | 'reasonin
  * resend), which were four copies of the same object literal. The reason it had
  * to become a function is the line below it.
  *
- * **The live step list is missing the last thing the model said.** The engine
- * emits a `note` for the prose of every round that is followed by tool calls
- * and deliberately not for the closing one (`if r.Final { return }` in
- * executor.go) — the old bubble took that from Reply and drew it separately, so
- * nothing needed to send it twice. Now that the bubble is drawn from the
- * sequence, a list without it is a turn whose answer is not in it: the last
- * phase never exists and the reply is on screen nowhere at all.
- *
- * So the closing sentence is appended here, as the text part it is. What the
- * window ends up holding is then the same list `stepsFromParts` produces when
- * the session is reopened, which is the property the whole layout rests on.
- *
- * Skipped when the turn's last prose already IS that sentence: an interjection
- * demotes an answer and the engine DOES send that one, as `said`.
+ * The step list it carries is `stepsWithClosing`'s, for the reason written
+ * there.
  */
 function answeredBubble(reply: main.TurnReply, turn: LiveTurnRef): ChatMessage {
   const live = turnArtifacts(turn)
-  const steps = live.steps ?? []
-  const closing = (reply.text ?? '').trim()
-  const lastProse = [...steps].reverse().find((s) => s.kind === 'note' || s.kind === 'said')
   return {
     role: 'agent',
     text: reply.text,
@@ -1718,10 +1713,40 @@ function answeredBubble(reply: main.TurnReply, turn: LiveTurnRef): ChatMessage {
     time: nowLabel(),
     id: reply.messageId || undefined,
     ...live,
-    steps: closing && lastProse?.label !== closing
-      ? [...steps, { kind: 'note', label: closing, state: 'done', startedAt: 0 }]
-      : live.steps,
+    steps: stepsWithClosing(live.steps, reply.text),
   }
+}
+
+/** A finished answer's step list, with the answer itself in it.
+ *
+ * **The live step list is missing the last thing the model said.** The engine
+ * emits a `note` for the prose of every round that is followed by tool calls
+ * and deliberately not for the closing one (`if r.Final { return }` in
+ * executor.go) — the old bubble took that from Reply and drew it separately, so
+ * nothing needed to send it twice. Now that the bubble is drawn from the
+ * sequence (Chat.svelte draws `m.parts` turns from `m.steps` alone and never
+ * from `m.text`), a list without it is a turn whose answer is not in it: the
+ * last phase never exists and the reply is on screen nowhere at all.
+ *
+ * So the closing sentence is appended here, as the text part it is. What the
+ * window ends up holding is then the same list `stepsFromParts` produces when
+ * the session is reopened, which is the property the whole layout rests on.
+ *
+ * Every path that puts a completed answer on screen has to come through here.
+ * `regenerateReply` did not, and the answer it had just fetched was drawn
+ * nowhere: the bubble showed the preamble, the tool row, and then stopped —
+ * four generated posters and the sentence offering them, gone from a turn that
+ * had produced them (owner, 6 ก.ย.).
+ *
+ * Skipped when the turn's last prose already IS that sentence: an interjection
+ * demotes an answer and the engine DOES send that one, as `said`.
+ */
+function stepsWithClosing(steps: ToolStep[] | undefined, closing: string | undefined): ToolStep[] | undefined {
+  const said = (closing ?? '').trim()
+  if (!said) return steps
+  const lastProse = [...(steps ?? [])].reverse().find((s) => s.kind === 'note' || s.kind === 'said')
+  if (lastProse?.label === said) return steps
+  return [...(steps ?? []), { kind: 'note', label: said, state: 'done', startedAt: 0 }]
 }
 
 /** The transcript the turn's reply belongs in — its own conversation's, wherever
@@ -1806,16 +1831,20 @@ export async function regenerateReply(revertFiles: boolean): Promise<void> {
   // Whatever is on screen becomes variant 0 — with its tool timeline, which the
   // engine's own list cannot carry (the store keeps no timeline).
   const previous: MessageVariant[] = last.variants ?? [
-    { text: last.text, reasoning: last.reasoning, thinkSecs: last.thinkSecs, steps: last.steps },
+    { text: last.text, reasoning: last.reasoning, thinkSecs: last.thinkSecs, steps: last.steps, parts: last.parts },
   ]
   await runLiveTurn(async (turn) => {
     try {
       const result = await RegenerateReply(revertFiles)
       const artifacts = turnArtifacts(turn)
+      // Same treatment the first answer got (answeredBubble): the closing
+      // sentence is not in the live step list, and this bubble is drawn from
+      // that list alone. Without it the re-answer arrives invisible.
+      const answered = stepsWithClosing(artifacts.steps, result.text)
       const variants: MessageVariant[] = result.variants.map((v, i) => ({ ...v, steps: previous[i]?.steps }))
-      variants[result.active] = { ...variants[result.active], steps: artifacts.steps }
+      variants[result.active] = { ...variants[result.active], steps: answered }
       Object.assign(last, artifacts, {
-        text: result.text, parts: result.parts as TurnPart[] | undefined,
+        text: result.text, parts: result.parts as TurnPart[] | undefined, steps: answered,
         time: nowLabel(), variants, activeVariant: result.active,
         revertedFiles: result.reverted?.length ? result.reverted : undefined,
         error: undefined,
@@ -1839,12 +1868,21 @@ export async function switchVariant(index: number): Promise<void> {
   const local = last.variants[index]
   try {
     const result = await SwitchVariant(index)
+    // The sequence moves with the answer, and which copy of it exists depends
+    // on where this variant came from: one generated in this window has live
+    // `steps`, one read back from the store has `parts` and nothing else. Both
+    // have to end up as steps, because that is what the bubble draws — reading
+    // only `steps` is what made a flip on a reopened chat land on an empty
+    // bubble, and leaving `parts` behind is what put the other attempt's tool
+    // calls under this answer.
+    const parts = (result.parts as TurnPart[] | undefined) ?? local?.parts
     Object.assign(last, {
       text: result.text,
+      parts,
       activeVariant: result.active,
       reasoning: local?.reasoning || undefined,
       thinkSecs: local?.thinkSecs || undefined,
-      steps: local?.steps,
+      steps: local?.steps ?? stepsFromParts(parts),
       error: undefined,
     })
   } catch (err) {
@@ -2191,6 +2229,22 @@ export function applyReasoningChunk(ev: SessionEvent<string> | string): void {
     else clock.last = now
     l.reasoningText += chunk
   })
+}
+
+/** A local runtime reading this turn's model off disk (desktop/model_load.go).
+ *
+ * The payload with `loading` false is the end of the wait — the engine sends
+ * exactly one of those when the weights are in, and it is what takes the row
+ * away. A wait with no model name is still a wait, so the flag is what decides.
+ *
+ * There is no percentage in it on purpose: Ollama and LM Studio report a model
+ * as resident or not resident and count nothing in between, so the row shows
+ * the state and a clock that is actually measured. */
+export function applyModelLoading(ev: SessionEvent<ModelLoading> | ModelLoading): void {
+  const payload = forLiveTurn(ev)
+  if (payload === null) return
+  const loading = payload && payload.loading ? payload : null
+  writeLive(eventSession(ev), (l) => { l.modelLoading = loading })
 }
 
 /**

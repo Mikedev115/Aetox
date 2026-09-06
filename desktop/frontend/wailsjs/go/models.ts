@@ -584,6 +584,9 @@ export namespace main {
 	    jobs: number;
 	    lastUsed?: string;
 	    icon: string;
+	    hair?: string;
+	    accessory?: string;
+	    hue?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Chair(source);
@@ -600,6 +603,9 @@ export namespace main {
 	        this.jobs = source["jobs"];
 	        this.lastUsed = source["lastUsed"];
 	        this.icon = source["icon"];
+	        this.hair = source["hair"];
+	        this.accessory = source["accessory"];
+	        this.hue = source["hue"];
 	    }
 	}
 	export class ChangedFile {
@@ -2521,6 +2527,7 @@ export namespace skill {
 	export class DiscoveredSkill {
 	    name: string;
 	    description: string;
+	    before?: string;
 	    dir: string;
 	    bundled?: boolean;
 	
@@ -2532,6 +2539,7 @@ export namespace skill {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
 	        this.description = source["description"];
+	        this.before = source["before"];
 	        this.dir = source["dir"];
 	        this.bundled = source["bundled"];
 	    }
@@ -2588,6 +2596,9 @@ export namespace subagent {
 	    steps?: number;
 	    desk?: string;
 	    icon?: string;
+	    hair?: string;
+	    accessory?: string;
+	    hue?: string;
 	    needs?: string[];
 	    publisher?: string;
 	    package?: string;
@@ -2614,6 +2625,9 @@ export namespace subagent {
 	        this.steps = source["steps"];
 	        this.desk = source["desk"];
 	        this.icon = source["icon"];
+	        this.hair = source["hair"];
+	        this.accessory = source["accessory"];
+	        this.hue = source["hue"];
 	        this.needs = source["needs"];
 	        this.publisher = source["publisher"];
 	        this.package = source["package"];

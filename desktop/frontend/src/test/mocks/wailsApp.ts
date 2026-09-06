@@ -77,7 +77,7 @@ const busyLayers = () => [
   { id: 'edgeGlow', label: 'ขอบแผงเรืองแสง', note: '', on: true },
   { id: 'actionBar', label: 'แถบบอกการกระทำ', note: '', on: true },
   { id: 'tabDot', label: 'จุดบนแท็บที่กำลังใช้', note: '', on: false },
-  { id: 'pageMarks', label: 'ลูกศรและวงแหวนบนหน้าเว็บ', note: '', on: true },
+  { id: 'pageMarks', label: 'เมาส์ Aetox บนหน้าเว็บ', note: '', on: true },
 ]
 export const BusySignal = vi.fn(async (..._args: any[]) => busyLayers())
 export const SetBusyLayer = vi.fn(async (..._args: any[]) => busyLayers())

@@ -20,7 +20,7 @@
     cockpit, sendUserMessage, loadRealState, openFile,
     switchProvider, switchThinkLevel,
     switchModel, submitAPIKey, setActiveView, restoreActiveView, closeFile, applyAgentStatus, applyToolEvent,
-    applyAgentChunk, applyReasoningChunk, attachImageFromPath, attachFileFromPath, fileKind,
+    applyAgentChunk, applyReasoningChunk, applyModelLoading, attachImageFromPath, attachFileFromPath, fileKind,
     applyAskUser, applyAskDone, applyTodos, applyMissedInterjections, applyTaskChips, applyUsageRound,
     applyPendingLearned, refreshPendingLearned, refreshPendingIssues, applyAgentDone, isOverlayView, closeOverlay,
     refreshProjectFolders, refreshOpenFiles,
@@ -190,6 +190,10 @@
     // glowing for a page nothing is looking at.
     const offBusyDone = EventsOn('agent:done', clearBusyWork)
     const offAgentReasoning = EventsOn('agent:reasoning', applyReasoningChunk)
+    // A local runtime reading the weights off disk. Its own event rather than a
+    // status string: agentStatus is blanked the moment anything concrete is on
+    // screen, and this wait is the one where nothing concrete exists yet.
+    const offModelLoading = EventsOn('model:loading', applyModelLoading)
     const offAskUser = EventsOn('ask:user', applyAskUser)
     const offAskDone = EventsOn('ask:done', applyAskDone)
     const offTodos = EventsOn('todo:update', applyTodos)
@@ -286,6 +290,7 @@
       offAgentDone()
       offBusyDone()
       offAgentReasoning()
+      offModelLoading()
       offAskUser()
       offAskDone()
       offTodos()
@@ -478,6 +483,7 @@
         toolSteps={cockpit.toolSteps}
         streamingText={cockpit.streamingText}
         reasoningText={cockpit.reasoningText}
+        modelLoading={cockpit.modelLoading}
         onSend={(text, to) => sendUserMessage(text, false, to)}
         onSwitchProvider={switchProvider}
         onSwitchThinkLevel={switchThinkLevel}

@@ -292,8 +292,14 @@ export interface MessageVariant {
   text: string
   reasoning?: string
   thinkSecs?: number
-  /** Live only. The store keeps no tool timeline, so a variant read back from a
-   * reloaded session has none — the switcher just shows no toggle for it. */
+  /** The sequence THIS attempt produced (desktop/sessions.go SessionVariant).
+   * Each try does its own work, so it is stored per variant — a variant that
+   * carried only its text put one answer on screen above another answer's tool
+   * calls the moment the user flipped between them. */
+  parts?: TurnPart[]
+  /** Live only: the timeline as the events built it. A variant read back from
+   * the store has `parts` instead, and `stepsFromParts` is what turns one into
+   * the other — the two must never be assumed to arrive together. */
   steps?: ToolStep[]
 }
 
@@ -677,6 +683,24 @@ export interface ProjectFolder {
   missing: boolean
 }
 
+/** A local runtime reading a model off disk before this turn can start.
+ *
+ *  `secs` is measured, and there is deliberately no percentage: neither Ollama
+ *  (/api/ps) nor LM Studio (/api/v0/models) counts the bytes on their way into
+ *  memory — they answer "resident" or "not resident" — so a bar here would be
+ *  this app's guess wearing a measurement's clothes. null when nothing is
+ *  loading (desktop/model_load.go). */
+export interface ModelLoading {
+  /** The wait is on. Carried as its own flag because a session with no model
+   *  name pinned waits just as long as one with, and reading "is it loading"
+   *  off the name would leave that wait undrawn. */
+  loading: boolean
+  provider: string
+  /** '' when the session has not pinned one — the row then names no model. */
+  model: string
+  secs: number
+}
+
 /** One chat's live turn state, held while the window is showing another chat.
  *
  * The same fields CockpitState carries for the chat on screen — that is the
@@ -691,6 +715,7 @@ export interface ParkedTurn {
   turnProposals: number[]
   streamingText: string
   reasoningText: string
+  modelLoading: ModelLoading | null
   ask: { question: string; options: string[] } | null
   todos: { content: string; status: 'pending' | 'in_progress' | 'completed' }[]
   /** Parked with the rest of the live state, because the meter belongs to the
@@ -821,6 +846,9 @@ export interface CockpitState {
   streamingText: string
   /** Model's reasoning/thinking tokens streamed so far this turn, from agent:reasoning events. '' when idle or the provider doesn't stream reasoning. */
   reasoningText: string
+  /** The local runtime is loading this turn's model into memory — a wait that
+   *  looks exactly like a hung app until something says so. null otherwise. */
+  modelLoading: ModelLoading | null
   /** Images staged in the composer, not yet sent — in the order they were
    *  attached. A list, not a slot: attaching a second picture used to replace
    *  the first, so one question could only ever carry one. */
@@ -919,6 +947,7 @@ export function emptyCockpitState(): CockpitState {
     turnSpend: emptyTurnSpend(),
     streamingText: '',
     reasoningText: '',
+    modelLoading: null,
     ask: null,
     todos: [],
     taskChips: [],

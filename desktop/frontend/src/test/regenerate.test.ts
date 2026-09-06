@@ -89,6 +89,39 @@ describe('answering again', () => {
     expect(reply.variants?.map((v) => v.text)).toEqual(['คำตอบแรก', 'คำตอบที่สอง'])
   })
 
+  // The bubble of a turn that recorded parts is drawn from `steps` alone —
+  // `m.text` is never rendered there — and the engine does not emit a step for
+  // the closing sentence. The first answer got it appended (answeredBubble);
+  // the re-answer did not, so a regenerated reply with tool calls in it showed
+  // its preamble, its tool row, and then nothing: the answer itself was on
+  // screen nowhere (owner, 6 ก.ย. — โปสเตอร์ 4 แบบที่หายไปทั้งใบ).
+  it('puts the re-answer into the sequence the bubble is drawn from', async () => {
+    await answered('คำตอบแรก')
+    cockpit.toolSteps = [
+      { kind: 'note', label: 'เอางั้นเลยครับ ผมจะลองสร้างโปสเตอร์', state: 'done', startedAt: 0 },
+      { label: 'canva_generate-design', state: 'done', secs: 21, startedAt: 0 },
+    ] as never
+    RegenerateReply.mockResolvedValueOnce({
+      text: 'ได้แล้วครับ AI สร้างมาให้ 4 แบบ',
+      parts: [
+        { kind: 'text', text: 'เอางั้นเลยครับ ผมจะลองสร้างโปสเตอร์' },
+        { kind: 'tool', tool: { ref: 'call_1', name: 'canva_generate-design', ok: true, secs: 21 } },
+        { kind: 'text', text: 'ได้แล้วครับ AI สร้างมาให้ 4 แบบ' },
+      ],
+      variants: [{ text: 'คำตอบแรก' }, { text: 'ได้แล้วครับ AI สร้างมาให้ 4 แบบ' }],
+      active: 1,
+    })
+
+    await regenerateReply(false)
+
+    const reply = cockpit.chat[1]
+    const prose = (reply.steps ?? []).filter((s) => s.kind === 'note' || s.kind === 'said')
+    expect(prose.at(-1)?.label).toBe('ได้แล้วครับ AI สร้างมาให้ 4 แบบ')
+    // And the variant keeps the complete list, so flipping back to it later
+    // does not lose the answer a second time.
+    expect(reply.variants?.[1].steps).toEqual(reply.steps)
+  })
+
   it('says so when it put files back first', async () => {
     await answered()
     RegenerateReply.mockResolvedValueOnce({
@@ -162,6 +195,41 @@ describe('switching between answers', () => {
     expect(reply.thinkSecs).toBe(3)
     // The engine is told too: the conversation must continue from this answer.
     expect(SwitchVariant).toHaveBeenCalledWith(0)
+  })
+
+  // A variant read back from the store has no live timeline — it has `parts`,
+  // which is where the store keeps one. Reading only `steps` left the bubble of
+  // a reopened chat empty the moment the user flipped, and leaving `parts` on
+  // the answer that was replaced drew this answer above the other attempt's
+  // tool calls.
+  it('rebuilds the sequence from the stored parts of a reopened answer', async () => {
+    SendMessage.mockResolvedValueOnce({ text: 'คำตอบที่สอง' })
+    await sendUserMessage('ทำไมแบตขึ้นช้า')
+    const storedParts = [
+      { kind: 'text', text: 'ขอเช็คก่อนนะครับ' },
+      { kind: 'tool', tool: { ref: 'call_1', name: 'web_search', ok: true, secs: 2 } },
+      { kind: 'text', text: 'คำตอบแรก' },
+    ]
+    Object.assign(cockpit.chat[1], {
+      variants: [
+        { text: 'คำตอบแรก', parts: storedParts },
+        { text: 'คำตอบที่สอง', parts: [{ kind: 'text', text: 'คำตอบที่สอง' }] },
+      ],
+      activeVariant: 1,
+    })
+
+    SwitchVariant.mockResolvedValueOnce({
+      text: 'คำตอบแรก',
+      parts: storedParts,
+      variants: [{ text: 'คำตอบแรก' }, { text: 'คำตอบที่สอง' }],
+      active: 0,
+    })
+    await switchVariant(0)
+
+    const reply = cockpit.chat[1]
+    expect(reply.parts).toEqual(storedParts)
+    const prose = (reply.steps ?? []).filter((s) => s.kind === 'note' || s.kind === 'said')
+    expect(prose.map((s) => s.label)).toEqual(['ขอเช็คก่อนนะครับ', 'คำตอบแรก'])
   })
 
   it('does nothing on a bubble that was only ever answered once', async () => {
