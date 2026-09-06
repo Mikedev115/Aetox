@@ -2040,56 +2040,106 @@ button.phase-head:hover { color:var(--text-muted); }
 
    Only .run wears it. A finished delegation is a record, and a record that
    glows is asking to be re-read. */
-/* The same beam on the other things that take a while to arrive. A plan, a
-   drawing and a long fenced file all get their edge, their heading and their
-   คัดลอก button before a third of the content exists — so they read as
-   finished from the first frame, and a user who copies then gets a third of it.
-   The delegation card had exactly this problem; this is the same answer
-   (markdown.ts markLive picks which block, and only ever the last one).
-
-   THE PHASE IS ANIMATED ON THE ANCESTOR, NOT ON THE RING. That is the whole
-   reason this works at all, and it is not a style choice.
-
-   A streamed answer is drawn with {@html}, so every token REPLACES the markup
-   inside .markdown-body. An animation declared on the ring restarts from zero
-   with the element that carries it, which on a plan arriving token by token is
-   sixty times a second: the light never travels, it twitches in place (owner,
-   15 ส.ค.: "ตอนวาดแผน อนิเมชั่นพังครับ เพราะมันสตรีมอ่ะ"). No timing function
-   fixes that — the element is new, so its clock is new.
-
-   So the clock lives on an element the stream does not touch: .markdown-body
-   itself, and the delegation card, both of which Svelte owns and keeps. The
-   property inherits, so a ring created this frame reads the phase already in
-   progress and is instantly where the previous one left off. :has(.live) keeps
-   the clock off every finished message in the transcript. */
+/* NOTHING INSIDE THE TRANSCRIPT WEARS THE BEAM ANY MORE.
+ *
+ * A plan, a drawing and a long fenced file used to get one while they were
+ * still being written: each has its edge, its heading and its คัดลอก button
+ * before a third of the content exists, so it reads as finished from the first
+ * frame, and a user who copies then gets a third of it. That was true and the
+ * beam did say it — but it says it in the middle of the thing being read.
+ *
+ * The reply column is the one place in the app that is prose, and the light
+ * travelling round a block is not competing with chrome there, it is competing
+ * with the sentence the user is in. The delegation card lost the beam on
+ * 7 ก.ย. for the same reason one step out ("ตรงซับเอเจน เอาแสงวิบวับออกด้วย");
+ * this is the owner finishing that thought over the whole column (7 ก.ย.).
+ *
+ * The turn already says it is running, in words, one element below: the
+ * waiting phrase in .typing-status, which is still there for as long as any
+ * block is still arriving. A block that has stopped growing while that phrase
+ * is still on screen has not been abandoned — the phrase is the answer to
+ * "is this all of it?", and it does not have to be repeated on the block.
+ *
+ * The beam stays OUTSIDE the transcript: a session row in the sidebar, the
+ * workbench edge. Those are chrome — nothing there is being read a word at a
+ * time, and neither has any other way to say "this one is still going".
+ *
+ * THE PHASE IS ANIMATED ON THE CARRIER, NOT ON THE RING, and that is still not
+ * a style choice. The property inherits down to the ::before, so the ring reads
+ * a lap already in progress rather than starting its own; an animation declared
+ * on the ring restarts with the element, which is what the streamed version
+ * could never survive (owner, 15 ส.ค.: "ตอนวาดแผน อนิเมชั่นพังครับ เพราะมัน
+ * สตรีมอ่ะ"). The rule outlives the case that found it. */
 @property --beam-phase { syntax:'<angle>'; initial-value:0deg; inherits:true; }
 @keyframes beam-phase { to { --beam-phase:360deg; } }
-.bgw-card.run,
+/* THE DELEGATION CARD NO LONGER WEARS THE BEAM.
+ *
+ * It was added because the card could not say "alive" any other way, and it was
+ * the right answer then. It is not now: the portrait does it. AgentFace's `work`
+ * state lifts a laptop into frame and rocks the person as they type, which says
+ * the same thing quieter, in the place the eye already goes, and says WHAT is
+ * happening rather than only that something is.
+ *
+ * What settled it is the case the card's own comment predicted and got wrong.
+ * Four delegations run at once here routinely, and four chasing lights around
+ * four outlines is not four workers — it is a light show, with the transcript
+ * behind it (owner, 7 ก.ย., over a screenshot of exactly that: "ตรงซับเอเจน
+ * เอาแสงวิบวับออกด้วย"). Two signals for one fact, and the loud one had to go.
+ *
+ * The beam stays everywhere else it is used — a session row in the sidebar, the
+ * workbench, a plan or code block being written — because none of those has a
+ * face to say it for them. */
 .sess-row.working,
 .proj-group-sess.working,
 .proj-chats li button.working,
-.wb.busy-glow,
-.markdown-body:has(.live) { animation:beam-phase 3s linear infinite; }
+.wb.busy-glow { animation:beam-phase 3s linear infinite; }
 
 /* Positioned always, not only while lit.
-   These four used to take position:relative along with the `.live` class, which
+   These used to take position:relative along with the `.working` class, which
    was enough while the ring appeared and vanished with that class. It is not
    enough now: a ring that fades OUT has to still be there after the class has
    gone, so the ring is now permanent and only its opacity is a state. The
    position they take is the one they already took every time they worked, so
    nothing here is a stacking context they have not had before. */
-.markdown-body .plan-card,
-.markdown-body .codeblock,
-.markdown-body .drawing-box,
 .bgw-card { position:relative; }
-.bgw-card::before,
+/* Somebody being hired, arriving. Put on by followsWork and only for a card
+   this screen watched appear — see the note at the card in Chat.svelte for why
+   this is a class and not a transition.
+
+   Longer and softer than the app's other arrivals because of what it is: every
+   other movement here reports something that happened to the work, and this one
+   introduces a person. No scale — a card scaled up resamples the 11px name and
+   the brief under it at fractional sizes on the way, and the eye reads that as
+   blur rather than as movement (the same finding unroll records in fold.ts).
+   `both` holds the first frame, so the card cannot flash at full strength
+   before the animation's first tick. */
+.bgw-card.bgw-in { animation:bgw-arrive .56s cubic-bezier(.19,.72,.24,1) both; }
+/* The person, arriving. The card is the block they arrive IN and it comes up
+   as one flat thing; the portrait is the only part of it that is somebody, so
+   it gets a movement of its own — a small settle out of 92%, over the same
+   window. A scale is safe here and nowhere else on this card: there is no text
+   inside the tile to be resampled at fractional sizes on the way. */
+.bgw-card.bgw-in .bgw-face { animation:bgw-face-in .56s cubic-bezier(.19,.72,.24,1) both; }
+@keyframes bgw-face-in {
+  from { opacity:0; transform:scale(.92); }
+  to { opacity:1; transform:none; }
+}
+/* What the worker was TOLD, a beat behind the worker. Two events, and landing
+   both in one frame gave the eye no moment in which it was on the portrait
+   rather than on the block of text beside it. The lead comes in as --told-lead
+   so the number stays in typeOnce.ts, where the writing it is synchronised with
+   already reads it. */
+.bgw-told.told-in { animation:bgw-arrive .22s ease var(--told-lead, 0ms) both; }
+@media (prefers-reduced-motion: reduce) { .bgw-told.told-in { animation:none; } }
+@keyframes bgw-arrive {
+  from { opacity:0; transform:translateY(5px); }
+  to { opacity:1; transform:none; }
+}
+@media (prefers-reduced-motion: reduce) { .bgw-card.bgw-in, .bgw-card.bgw-in .bgw-face { animation:none; } }
 .sess-row::before,
 .proj-group-sess::before,
 .proj-chats li button::before,
-.wb::before,
-.markdown-body .plan-card::before,
-.markdown-body .codeblock::before,
-.markdown-body .drawing-box::before {
+.wb::before {
   content:''; position:absolute; inset:0; border-radius:inherit; padding:1.5px;
   pointer-events:none; z-index:1;
   -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -2113,14 +2163,10 @@ button.phase-head:hover { color:var(--text-muted); }
 }
 /* Lit. In fast enough to be there before the eye is; out slow enough that two
    beats of one job do not read as two jobs. */
-.bgw-card.run::before,
 .sess-row.working::before,
 .proj-group-sess.working::before,
 .proj-chats li button.working::before,
-.wb.busy-glow::before,
-.markdown-body .plan-card.live::before,
-.markdown-body .codeblock.live::before,
-.markdown-body .drawing-box.live::before {
+.wb.busy-glow::before {
   /* Two comets, each a long fade-in tail behind a bright head cut off sharply
      at the front — the asymmetry is what says which way it is travelling. */
   background:conic-gradient(from var(--beam-phase),
@@ -2135,11 +2181,6 @@ button.phase-head:hover { color:var(--text-muted); }
   opacity:1;
   transition:opacity var(--beam-in) ease-out;
 }
-/* The card's ring sits ON its hairline rather than inside it — it has nothing
-   clipping it. The three markdown blocks do (a code block hides its overflow
-   to keep its header inside its own rounded corners), so theirs sit just
-   inside instead of being cut off at the corners. */
-.bgw-card::before { inset:-1px; }
 /* A chat with a turn running in it, wearing the same ring a working delegation
    wears (owner, 18 ส.ค.: "ให้เซสชั่นนั้นมีเอฟเฟคกำลังทำงาน เหมือนตอนซับเอเจนทำงาน").
    It is the same fact both times — this one is still going — so it is the same
@@ -2204,12 +2245,11 @@ button.phase-head:hover { color:var(--text-muted); }
    nothing from anybody and is costing nothing, and drawing it as loud as work
    in flight would make a four-slot queue look like a machine under load. */
 .bgw-card.is-queued { border-color:var(--border-subtle); }
-/* The beam says "something is happening here", and on a queued card nothing is.
-   It is lit by `.run`, which the transcript's card legitimately carries — a
-   queued delegation IS live work — so the light is taken off here rather than
-   by lying about the state. */
-.bgw-card.run.is-queued { animation:none; }
-.bgw-card.run.is-queued::before { display:none; }
+/* The queued card's own quiet is its border and nothing else now. It used to
+   have a beam to take off here — lit by `.run`, which a queued delegation
+   legitimately carries — and that light is gone from this card entirely. The
+   portrait covers the same ground and covers it better: a queued worker gets
+   the empty face, so nothing on the card moves at all. */
 .bgw-mark.queue { color:var(--text-dim); }
 .bgw-badge.queue { color:var(--text-dim); border:1px solid var(--border-default); }
 .bgw-card.is-waiting { border-color:var(--status-modified); }
@@ -3610,8 +3650,8 @@ button.phase-head:hover { color:var(--text-muted); }
    reach at all (desktop/browser_marks.go).
 
    **ขอบแผงเรืองแสง** has no rules of its own — look for .wb.busy-glow in the
-   beam-phase block far above. It is the same comet the working chat row and
-   the running delegation card wear, on the same shared clock, and that is the
+   beam-phase block far above. It is the same comet a working session row in
+   the sidebar wears, on the same shared clock, and that is the
    whole point: "this one is still going" is one fact, and a user who has
    learned it once in the sidebar should not have to learn a second light down
    here. Borrowed structure, not a borrowed ornament.

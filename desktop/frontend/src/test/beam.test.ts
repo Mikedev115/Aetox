@@ -1,14 +1,15 @@
 // The running beam, checked as CSS text rather than as pixels.
 //
-// The bug this pins was invisible in every unit test and obvious on screen: a
-// streamed answer is drawn with {@html}, so the markup inside .markdown-body is
-// REPLACED on every token. An animation declared on the ring restarts with the
-// element that carries it, so the light twitched in place instead of
-// travelling ("ตอนวาดแผน อนิเมชั่นพังครับ เพราะมันสตรีมอ่ะ").
+// The structure this pins was found by a bug that was invisible in every unit
+// test and obvious on screen: a streamed answer is drawn with {@html}, so the
+// markup inside it is REPLACED on every token. An animation declared on the
+// ring restarts with the element that carries it, so the light twitched in
+// place instead of travelling ("ตอนวาดแผน อนิเมชั่นพังครับ เพราะมันสตรีมอ่ะ").
 //
-// The fix is structural — the clock runs on an ancestor the stream does not
-// touch, and the phase inherits down to whatever ring exists this frame — so
-// the thing worth pinning is the structure, not the look.
+// The fix was structural — the clock runs on the carrier, the phase inherits
+// down to whatever ring exists this frame — so the thing worth pinning is the
+// structure, not the look. The transcript is no longer one of the carriers
+// (see below), and the rule outlives the case that found it.
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 
@@ -17,11 +18,11 @@ const rule = (selector: string) =>
   css.slice(css.indexOf(selector)).slice(0, css.slice(css.indexOf(selector)).indexOf('}') + 1)
 
 describe('the running beam', () => {
-  it('runs its clock on the ancestor, never on the ring', () => {
-    expect(css).toContain('.markdown-body:has(.live) { animation:beam-phase')
+  it('runs its clock on the carrier, never on the ring', () => {
+    expect(css).toContain('.wb.busy-glow { animation:beam-phase')
     // The ring reads the phase; if it ever animates it again, a streamed block
     // is back to restarting sixty times a second.
-    const ring = rule('.bgw-card.run::before,')
+    const ring = rule('.sess-row.working::before,')
     expect(ring).toContain('var(--beam-phase)')
     expect(ring).not.toContain('animation:')
   })
@@ -30,8 +31,8 @@ describe('the running beam', () => {
     expect(css).toMatch(/@property --beam-phase\s*\{[^}]*inherits:\s*true/)
   })
 
-  it('is worn only by what is still being produced', () => {
-    for (const selector of ['.plan-card.live', '.codeblock.live', '.drawing-box.live', '.bgw-card.run']) {
+  it('is worn only by what is still working', () => {
+    for (const selector of ['.sess-row.working', '.proj-group-sess.working', '.wb.busy-glow']) {
       expect(css).toContain(`${selector}::before`)
     }
     // A finished delegation is a record, and a record that glows asks to be
@@ -39,8 +40,37 @@ describe('the running beam', () => {
     expect(css).not.toContain('.bgw-card.done::before')
   })
 
+  // The reply column lost it on 7 ก.ย. A plan, a drawing and a long fence used
+  // to wear one while they were still being written, which was a light moving
+  // inside the thing the user is reading — the one place in the app that is
+  // prose rather than chrome. The waiting phrase below the message says the
+  // same thing in words, and is on screen for as long as anything is arriving.
+  it('is not worn by anything inside the transcript', () => {
+    for (const selector of ['.plan-card.live', '.codeblock.live', '.drawing-box.live']) {
+      expect(css).not.toContain(selector)
+    }
+    // And the clock is off the column too — a carrier animating --beam-phase
+    // for rings that no longer exist is a frame of work every 3s for nothing.
+    expect(css).not.toContain('.markdown-body:has(.live)')
+  })
+
+  // The delegation card gave the beam back. It was added when the card had no
+  // other way to say "alive"; the portrait says it now — AgentFace's `work`
+  // state puts a laptop in front of the person and has them type — and two
+  // signals for one fact is one too many when four delegations run at once and
+  // the transcript is behind four chasing lights.
+  //
+  // The other carriers keep it. None of them has a face to say it for them.
+  it('is not worn by the delegation card, which has a face instead', () => {
+    expect(css).not.toContain('.bgw-card.run::before')
+    expect(css).not.toContain('.bgw-card::before')
+    // And the clock is off it too — a carrier animating --beam-phase for a ring
+    // that no longer exists is a frame of work every 3s for nothing.
+    expect(css).not.toContain('.bgw-card.run,')
+  })
+
   it('drops the motion but keeps the signal when motion is unwelcome', () => {
-    const at = css.indexOf('.markdown-body:has(.live) { animation:none; }')
+    const at = css.indexOf('.wb.busy-glow { animation:none; }')
     expect(at).toBeGreaterThan(-1)
     // The nearest at-rule above it is the guard, not some other block it drifted
     // into: stopping the clock unconditionally would leave a still gradient at

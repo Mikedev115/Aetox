@@ -319,30 +319,33 @@ describe('taking a drawing out of the app', () => {
 })
 
 // A block that takes a while to arrive reads as finished from its first frame:
-// the card has its edge, its heading and its คัดลอก button before a third of
-// it exists. The running beam says otherwise, and only ever about one block.
-describe('marking the block still being written', () => {
-  it('marks a drawing while its closing tag has not arrived', () => {
+// the card has its edge, its heading and its คัดลอก button before a third of it
+// exists. From 15 ส.ค. a `live` class was added to that one block and style.css
+// ran a beam round it; the owner took the light out of the reply column on
+// 7 ก.ย., because it moved inside the thing being read. The waiting phrase
+// under the message carries the fact now.
+//
+// Pinned as an absence so a marker is not reintroduced by accident: a class
+// nothing styles is invisible until someone writes the rule again.
+describe('the block still being written', () => {
+  it('is not marked while a drawing is still arriving', () => {
     const half = 'ดูภาพนี้\n\n<svg viewBox="0 0 100 40" width="100%"><rect width="60" height="20" />'
-    expect(renderStreamingMarkdown(half)).toContain('drawing-box live')
-    expect(renderStreamingMarkdown(half + '</svg>')).not.toContain('live')
+    expect(renderStreamingMarkdown(half)).toContain('drawing-box')
+    expect(renderStreamingMarkdown(half)).not.toContain('live')
   })
 
-  it('marks a plan while its fence is open', () => {
+  it('is not marked while a plan fence is open', () => {
     const half = '```plan\n# แผนทดสอบ\n- เปิด desk_list\n'
-    expect(renderStreamingMarkdown(half)).toContain('live')
-    expect(renderStreamingMarkdown(half + '```')).not.toContain('live')
+    expect(renderStreamingMarkdown(half)).not.toContain('live')
   })
 
-  it('marks only the fence still open, never the ones that closed', () => {
+  it('is not marked among fences that already closed', () => {
     const out = renderStreamingMarkdown('```go\nfmt.Println(1)\n```\n\nแล้วอันนี้\n\n```go\nfmt.Println(2)\n')
     const marked = [...out.matchAll(/class="codeblock( live)?"/g)].map((m) => m[1] ?? '')
-    expect(marked).toEqual(['', ' live'])
+    expect(marked).toEqual(['', ''])
   })
 
-  // A finished message renders through renderMarkdown, so nothing it draws can
-  // be left glowing by a turn that has ended.
-  it('never marks anything on a finished answer', () => {
+  it('is not marked on a finished answer either', () => {
     expect(renderMarkdown('```plan\n# แผน\n')).not.toContain('live')
   })
 })

@@ -1311,46 +1311,33 @@ function fingerprint(text: string): string {
 // Only the last opening tag is looked for, not a matched pair — nested <svg>
 // is not something a drawing in an answer does, and a scan that balanced tags
 // would run on every chunk of every reply for a case that never arrives.
+// NOTHING HERE MARKS THE BLOCK STILL BEING WRITTEN ANY MORE.
+//
+// From 15 ส.ค. this added a `live` class to the one unfinished plan, drawing or
+// fence, and style.css ran a beam round it: those blocks have their edge, their
+// heading and their คัดลอก button before a third of the content exists, so they
+// read as finished from the first frame.
+//
+// The owner took the light out of the reply column on 7 ก.ย., a month after the
+// same call on the delegation card. The observation was right; the beam was the
+// wrong place to answer it, because it moves inside the thing being read. What
+// says "not all of it yet" now is the waiting phrase under the message, which
+// is on screen for exactly as long as anything is still arriving.
+//
+// Left as a note rather than deleted quietly: the next person to notice a
+// half-drawn plan looking finished should know this was tried, and where it
+// went (style.css, the beam block).
 export function renderStreamingMarkdown(text: string): string {
   const open = text.lastIndexOf('<svg')
-  if (open === -1 || text.slice(open).includes('</svg>')) return markLive(renderMarkdown(healTail(text)), text, false)
+  if (open === -1 || text.slice(open).includes('</svg>')) return renderMarkdown(healTail(text))
 
   const openTagEnd = text.indexOf('>', open)
-  // The drawing has not started drawing yet, so there is nothing to mark alive.
-  if (openTagEnd === -1) return markLive(renderMarkdown(healTail(text.slice(0, open))), text, false)
+  // The drawing has not started drawing yet.
+  if (openTagEnd === -1) return renderMarkdown(healTail(text.slice(0, open)))
 
   const lastElement = text.lastIndexOf('<')
   const whole = text.indexOf('>', lastElement) === -1 ? text.slice(0, lastElement) : text
-  return markLive(renderMarkdown(whole + '</svg>'), text, true)
-}
-
-// Marks the one block still being written, so the surface can show it is being
-// written (style.css, the running beam).
-//
-// A block that takes a while to arrive — a plan, a drawing, a long fenced file
-// — reads as finished from its first frame: the card has its edge, its heading
-// and its คัดลอก button before a third of it exists, and a user who copies then
-// gets a third of it. The delegation card had this exact problem and was given
-// a beam; this is the same signal on the same grounds (owner, 15 ส.ค.).
-//
-// Which block is unfinished is not guessed. A drawing's opening <svg> with no
-// </svg> yet is what the caller above already computed; a fence is open when
-// the count of fence lines is odd. Only the LAST match is marked, because the
-// earlier ones closed — three code blocks in an answer must not all pulse
-// because the fourth is arriving.
-//
-// The finished message renders through renderMarkdown, which does none of
-// this, so a block cannot be left glowing by a turn that ended.
-function markLive(html: string, source: string, drawingOpen: boolean): string {
-  const selector = drawingOpen ? '.drawing-box' : fenceOpen(source) ? '.plan-card,.codeblock' : ''
-  if (selector === '') return html
-  const host = document.createElement('div')
-  host.innerHTML = html
-  const blocks = host.querySelectorAll(selector)
-  const last = blocks[blocks.length - 1]
-  if (!last) return html
-  last.classList.add('live')
-  return host.innerHTML
+  return renderMarkdown(whole + '</svg>')
 }
 
 // Close what the model has not finished writing yet, so a word does not have to
