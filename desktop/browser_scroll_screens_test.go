@@ -119,7 +119,7 @@ func TestAMultiScreenScrollWarnsThatThePageMayHaveEnded(t *testing.T) {
 	app := hostWithTabs(t, "web-agent-1", []string{"web-agent-1"}, "web-agent-1")
 	s := &browserScrollSkill{app: app}
 
-	out, err := s.scroll("down", 3)
+	out, err := s.scroll("down", 3, browserTarget{})
 	if err != nil {
 		t.Fatalf("scroll down 3: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestAMultiScreenScrollWarnsThatThePageMayHaveEnded(t *testing.T) {
 	// One screen says nothing extra. The caveat is only true of a distance that
 	// could have overshot, and a note on every single scroll is a note nobody
 	// reads by the third one.
-	one, err := s.scroll("down", 1)
+	one, err := s.scroll("down", 1, browserTarget{})
 	if err != nil {
 		t.Fatalf("scroll down 1: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestAMultiScreenScrollWarnsThatThePageMayHaveEnded(t *testing.T) {
 
 func TestClampedScrollSaysSoAndPointsAtBottom(t *testing.T) {
 	app := hostWithTabs(t, "web-agent-1", []string{"web-agent-1"}, "web-agent-1")
-	out, err := (&browserScrollSkill{app: app}).scroll("down", 99)
+	out, err := (&browserScrollSkill{app: app}).scroll("down", 99, browserTarget{})
 	if err != nil {
 		t.Fatalf("scroll down 99: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestTheToolWaitsForTheWholeJourney(t *testing.T) {
 	s := &browserScrollSkill{app: app}
 
 	start := time.Now()
-	if _, err := s.scroll("down", 3); err != nil {
+	if _, err := s.scroll("down", 3, browserTarget{}); err != nil {
 		t.Fatalf("scroll down 3: %v", err)
 	}
 	if took := time.Since(start); took < 3*scrollSettle {
@@ -238,7 +238,7 @@ func TestScrollGuidanceTellsTheModelToDecideTheDistance(t *testing.T) {
 // it into a refusal later because the signature looks required.
 func TestAnOmittedDistanceStillScrollsRatherThanRefusing(t *testing.T) {
 	app := hostWithTabs(t, "web-agent-1", []string{"web-agent-1"}, "web-agent-1")
-	out, err := (&browserScrollSkill{app: app}).scroll("down", 0)
+	out, err := (&browserScrollSkill{app: app}).scroll("down", 0, browserTarget{})
 	if err != nil {
 		t.Fatalf("scroll with no distance was refused: %v", err)
 	}

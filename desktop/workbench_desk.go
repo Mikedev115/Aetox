@@ -524,6 +524,7 @@ func (s *deskSkill) Guidance(args map[string]any) string {
 	switch strings.ToLower(strings.TrimSpace(str(args["action"]))) {
 	case "open":
 		return "Pass the path write/doc_write/sheet_write reported. The desk picks the pane — a picture as a picture, a PDF as a reader, a spreadsheet as a grid, anything else in the editor — so there is nothing to choose here.\n" +
+			"A web page (.html without slides) opens here as source. To show it rendered, `browser open` takes the same path; that is where a page you built for someone belongs.\n" +
 			"Slides: a deck is one .html file whose slides are <section class=\"slide\">, and do NOT build navigation into it — the room already pages, presents full-screen and exports .pptx/.pdf, so a deck that moves itself is one the room cannot drive. The `aetox-slides` skill is the full recipe; read it before writing a deck rather than after."
 	case "list":
 		return "A page the user opened themselves reports only that it exists — never its address. That is not a gap to work around."

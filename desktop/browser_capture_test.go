@@ -174,3 +174,28 @@ func TestOrdinaryCaptureCarriesNoStripNote(t *testing.T) {
 		t.Errorf("unreadable bytes got %q, want no note", note)
 	}
 }
+
+// A pixel in the picture has to become a point on the page, or a model that
+// sees a cell cannot press it. The multiplier is measured against the fitted
+// image the model actually sees, and a full-page picture says its y is not a
+// viewport coordinate.
+func TestCaptureSaysHowItsPixelsMapToThePage(t *testing.T) {
+	png := pagePNG(t, 2560, 1400) // a 1280×700 viewport at DPR 2
+	view := browserActResult{VW: 1280, VH: 700, DPR: 2}
+	note := captureScaleNote(view, png, false)
+	for _, want := range []string{"viewport 1280×700", "ภาพ 2560×1400", "DPR 2", "× 0.5"} {
+		if !strings.Contains(note, want) {
+			t.Errorf("scale note missing %q: %s", want, note)
+		}
+	}
+	if strings.Contains(note, "full") || strings.Contains(note, "ทั้งเอกสาร") {
+		t.Errorf("a viewport capture must not warn about document offsets: %s", note)
+	}
+	full := captureScaleNote(view, png, true)
+	if !strings.Contains(full, "ทั้งเอกสาร") {
+		t.Errorf("a full capture must say its y is a document offset: %s", full)
+	}
+	if captureScaleNote(view, []byte("not a png"), false) != "" {
+		t.Error("an unreadable picture gets no note rather than a wrong one")
+	}
+}

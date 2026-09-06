@@ -433,8 +433,9 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 		// nothing reaches memory until a human approves it.
 		"memory": {
 			args: map[string]any{
-				"text": "เครื่องนี้ไม่มี Excel ติดตั้ง",
-				"why":  "เปิดไฟล์ .xlsx แล้วไม่มีโปรแกรมรับ",
+				"about": "machine",
+				"text":  "เครื่องนี้ไม่มี Excel ติดตั้ง",
+				"why":   "เปิดไฟล์ .xlsx แล้วไม่มีโปรแกรมรับ",
 			},
 			check: func(t *testing.T, out skill.Output, _ string) {
 				if !strings.Contains(out.Content, "approve") {
@@ -538,6 +539,16 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 			args:      map[string]any{"path": "tone.wav"},
 			available: bothOf(haveBinary("ffmpeg"), haveSpeechEngine),
 			why:       "no ffmpeg, or no speech model on this machine",
+		},
+		// ffprobe rather than ffmpeg: this tool measures, it does not encode.
+		// The check reads the spine, because an FCPXML with a well-formed
+		// header and an empty spine is a file that opens and holds no edit —
+		// the one failure this tool has that looks like success.
+		"video_project": {
+			args:      map[string]any{"cutfile": "cut.json"},
+			available: bothOf(haveBinary("ffprobe"), fileExists(filepath.Join(root, "clip.mp4"))),
+			why:       "no ffprobe, or no video fixture",
+			check:     fileContains("cut.fcpxml", "<asset-clip"),
 		},
 		"diagnostics": {
 			args:      map[string]any{"path": "main.go"},
@@ -692,6 +703,10 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 		// covered without one, in browser_log_test.go.
 		"browser_console": {args: map[string]any{}, available: never, why: "needs the app window"},
 		"browser_network": {args: map[string]any{}, available: never, why: "needs the app window"},
+		// upload is the fourth right of its own (6 ก.ย.): it hands a sandbox
+		// file to a page, and it refuses in words before the engine when the
+		// path is missing — which is as far as a test with no window gets.
+		"browser_upload": {args: map[string]any{"ref": 1, "path": "page-1.png"}, available: never, why: "needs the app window"},
 
 		// The agent's reach onto the desk (workbench_desk.go). desk_open and
 		// desk_terminal both end in an event the frontend answers, so there is
@@ -1016,6 +1031,18 @@ func writeToolFixtures(t *testing.T, root string) {
 		if err := cmd.Run(); err != nil {
 			t.Logf("could not build the video fixture (%v) — video_ocr will report as unavailable", err)
 		}
+	}
+
+	// A cutfile over that same clip, so video_project has an edit to export.
+	// Written whether or not ffmpeg built the video: the case is gated on the
+	// clip existing, and a fixture that appears only sometimes is a fixture
+	// nobody can reason about.
+	cut := `{"name":"cut","version":1,` +
+		`"sources":[{"id":"raw","path":"clip.mp4"}],` +
+		`"ops":[{"op":"trim","src":"raw","start":0.5,"duration":1.0},` +
+		`{"op":"add_text","text":"not carried"}]}`
+	if err := os.WriteFile(filepath.Join(root, "cut.json"), []byte(cut), 0o644); err != nil {
+		t.Fatalf("write cut.json fixture: %v", err)
 	}
 }
 

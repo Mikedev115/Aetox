@@ -106,8 +106,36 @@ is the cheap way to find out; if the engine refuses it, the fallback is
 `ICoreWebView2_16::PrintToPdfStream` and the four interfaces above, for the same
 result.
 
+## A fifth patch: closing a webview, and reloading one
+
+`pkg/edge/aetox_lifecycle.go` binds `ICoreWebView2Controller.Close` and
+`ICoreWebView2.Reload`, and adds `Chromium.Close` / `Chromium.Reload` on top.
+Same shape as the second, third and fourth patches: upstream declares both vtbl
+slots and binds neither.
+
+Aetox needs them for a tab whose engine has gone (`desktop/browser.go`,
+`engineGone` / `revive`; DECISIONS §227). On 6 ก.ย. the browser process behind
+an agent's tab exited while the app kept running; WebView2 answers every call on
+a closed webview with `HRESULT_FROM_WIN32(ERROR_INVALID_STATE)`, the tab stayed
+registered, and every browser tool call for twenty minutes was refused with the
+same sentence. The fix listens to `ProcessFailed` (upstream already registers
+the handler and exposes `ProcessFailedCallback`; Aetox had never set it) and
+treats `ERROR_INVALID_STATE` from any call as "closed", then destroys the dead
+view and creates a new one under the same tab.
+
+- **`Close`** is what actually ends a webview. `win32Tab.destroy` used to be
+  `DestroyWindow` alone, leaving the controller to be reclaimed at process exit.
+  On a dead engine Close is refused with the same `ERROR_INVALID_STATE`; the
+  caller expects that and does not report it.
+- **`Reload`** is the one-line answer to `RENDER_PROCESS_EXITED`: the engine is
+  fine, the page is not, and reloading puts it back without a new webview.
+- Both return the HRESULT as an error rather than routing through
+  `errorCallback`, because the code that closes a tab already knows the engine
+  may be gone and must not have that fact re-reported as a fresh complaint.
+
 ## Upgrading go-webview2
 
-Re-copy the module, then re-apply the four `AETOX PATCH` blocks, the
-`GetIsSuccess` binding, and the two capture files above. Keep the version in
-this note and the root `go.mod` require in sync.
+Re-copy the module, then re-apply the four `AETOX PATCH` blocks in
+`chromium.go`, the `GetIsSuccess` binding, the two capture files, the two
+DevTools files and `aetox_lifecycle.go`. Keep the version in this note and the
+root `go.mod` require in sync.

@@ -197,3 +197,49 @@ func TestPageTextReadsShadowRootsThroughTheirChildren(t *testing.T) {
 		t.Errorf("shadow-root text must be read through its children, not its host, got:\n%s", js)
 	}
 }
+
+func TestFormatBrowserReadSaysWhenThePagePaints(t *testing.T) {
+	// Google Docs and Sheets, 5 ก.ย.: eight reads of two documents each
+	// returned the toolbar and the ruler, and the model took the toolbar for
+	// the document. The line under test is the one that says the text of a
+	// painted page is the frame around the picture — and names capture as the
+	// way to the picture, because "not in the text" without a door is the
+	// frames-line mistake made again.
+	painted := browserSnapshot{CanvasShare: 0.55, CanvasCount: 3}
+	got := formatBrowserRead("สเปรดชีตไม่มีชื่อ", "https://docs.google.com/spreadsheets/d/x", "", "ไฟล์ แก้ไข ดู", painted)
+	if !strings.Contains(got, "3 canvas element(s) cover 55%") {
+		t.Errorf("a painted page must be reported with its measure, got:\n%s", got)
+	}
+	if !strings.Contains(got, "`capture`") || !strings.Contains(got, "`type`") {
+		t.Errorf("the canvas notice must name capture as the way to see the content and to check a type, got:\n%s", got)
+	}
+
+	// A chart in a corner is not a painted page, and saying otherwise would
+	// send every read of a dashboard to a screenshot it does not need.
+	chart := browserSnapshot{CanvasShare: 0.08, CanvasCount: 1}
+	if got := formatBrowserRead("Dashboard", "https://example.com", "", "text", chart); strings.Contains(got, "canvas element") {
+		t.Errorf("a small canvas must not trigger the notice, got:\n%s", got)
+	}
+}
+
+func TestFormatBrowserReadMarksTheKeyboardSinkAndItsProxies(t *testing.T) {
+	// Google Sheets, 5 ก.ย.: `[20] textbox: ""` and `[25] textarea: ""` were
+	// indistinguishable, the model typed into the textarea, and the keys went
+	// into an off-screen editor the sheet does not listen to. The cell editor
+	// was [20], focused the whole time. The marks are what let a model choose.
+	snap := browserSnapshot{Elements: []browserElement{
+		{Ref: 20, Tag: "div", Role: "textbox", Text: "", Focused: true},
+		{Ref: 25, Tag: "textarea", Text: "", Hidden: true},
+		{Ref: 26, Tag: "button", Text: "ปิด"},
+	}}
+	got := formatBrowserRead("Sheet", "https://docs.google.com/spreadsheets/d/x", "", "", snap)
+	if !strings.Contains(got, `[20] textbox: "" (focused`) {
+		t.Errorf("the focused element must be marked, got:\n%s", got)
+	}
+	if !strings.Contains(got, `[25] textarea: "" (hidden`) {
+		t.Errorf("a hidden proxy input must be marked, got:\n%s", got)
+	}
+	if !strings.Contains(got, "[26] button: \"ปิด\"\n") {
+		t.Errorf("an ordinary element carries no mark, got:\n%s", got)
+	}
+}

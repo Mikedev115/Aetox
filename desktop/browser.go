@@ -107,6 +107,18 @@ type tabCallbacks struct {
 	// user so. The tool's answer has to be able to carry what the engine said,
 	// or the agent is guessing about its own tools.
 	onEngineError func(err error)
+	// onEngineGone says the engine behind this tab is gone for good — its
+	// browser process exited, or the webview has been closed under us — and
+	// nothing this view is asked from now on will succeed. Distinct from
+	// onEngineError because the two want opposite responses: an error is
+	// something to report about a call, this is something to REPLACE, and the
+	// host answers it by putting a new engine behind the same tab (revive).
+	//
+	// Until 6 ก.ย. there was no such channel. The browser process behind an
+	// agent's tab ended at 01:47, the tab stayed in the map, and every call for
+	// the next twenty minutes was refused with the same sentence while the
+	// tool reported a page that would not load.
+	onEngineGone func(err error)
 }
 
 // hostBackend is one platform's webview host.
@@ -175,6 +187,46 @@ type aetoxMsg struct {
 	Ref   int    `json:"ref,omitempty"`
 	Tag   string `json:"tag,omitempty"`
 	Label string `json:"label,omitempty"`
+	// "act" from a type only: which way the text goes in ("value" or "keys"),
+	// whether focusing the element left an editable thing focused, and where
+	// the element is on screen for the real click that fixes it when it did
+	// not. See typeScript and browser_keys.go.
+	Mode   string  `json:"mode,omitempty"`
+	Active bool    `json:"active,omitempty"`
+	CX     float64 `json:"cx,omitempty"`
+	CY     float64 `json:"cy,omitempty"`
+	// Where the page's focus was before the type touched anything, and where
+	// it ended up, each as one short descriptor. See aetoxDescribe.
+	FocusBefore string `json:"focusBefore,omitempty"`
+	Focus       string `json:"focus,omitempty"`
+	// Kept: the target was a hidden proxy and the page already had an editor
+	// focused, so focus was left where the page put it.
+	Kept bool `json:"kept,omitempty"`
+	// Mouse ("act" from a click): the element is not HTML and has no click()
+	// — the click has to be a real pointer at cx, cy. See clickScript.
+	Mouse bool `json:"mouse,omitempty"`
+	// "act" from a point, under, focus, viewport or state script: what is
+	// under a point, the viewport in CSS px and its pixel ratio, how far the
+	// page is scrolled, how many interactive elements it has, and — for a
+	// file input — whether it is one and what it accepts. See aetoxPointJS.
+	Under   string  `json:"under,omitempty"`
+	VW      int     `json:"vw,omitempty"`
+	VH      int     `json:"vh,omitempty"`
+	DPR     float64 `json:"dpr,omitempty"`
+	ScrollX int     `json:"scrollX,omitempty"`
+	ScrollY int     `json:"scrollY,omitempty"`
+	Count   int     `json:"count,omitempty"`
+	// "act" from findTextScript: the plain-text matches, described, when
+	// there were several to choose between.
+	Matches   []string `json:"matches,omitempty"`
+	FileInput bool     `json:"fileInput,omitempty"`
+	Multiple  bool     `json:"multiple,omitempty"`
+	Accept    string   `json:"accept,omitempty"`
+	// "text" and "act": how much of the viewport is canvas, and how many. A
+	// page that paints its content is a page whose text is only its chrome.
+	// See aetoxCanvasJS.
+	CanvasShare float64 `json:"canvasShare,omitempty"`
+	CanvasCount int     `json:"canvasCount,omitempty"`
 	// "log": one of the page's own recorders, read on demand. Armed travels
 	// with the entries deliberately — an empty buffer and a page the recorder
 	// never reached are the same list, and only one of them is evidence. See
@@ -198,6 +250,15 @@ type browserElement struct {
 	Tag  string `json:"tag"`
 	Role string `json:"role,omitempty"`
 	Text string `json:"text"`
+	// Focused: this is where the page's keyboard goes right now. Hidden: an
+	// input or textarea the page keeps out of sight, which is a keyboard proxy
+	// and not a field. Both exist because of Google Sheets on 5 ก.ย.: the list
+	// showed `[20] textbox: ""` and `[25] textarea: ""` with nothing to tell
+	// them apart, the model picked the textarea, and the keys went into an
+	// off-screen Trix editor while the cell editor — [20], focused all along —
+	// got nothing. See typeScript.
+	Focused bool `json:"focused,omitempty"`
+	Hidden  bool `json:"hidden,omitempty"`
 }
 
 // browserImage is one meaningful image found on the page — its absolute URL
@@ -224,6 +285,14 @@ type browserSnapshot struct {
 	// contents cannot be reached from JS by any means, so they are counted and
 	// reported rather than quietly omitted.
 	BlockedFrames int
+	// CanvasShare is how much of the viewport is covered by <canvas>, 0..1,
+	// and CanvasCount how many there are. Google Docs, Sheets and Slides,
+	// Figma, a chart — all paint what they show, and none of what they paint
+	// is in Text. Reported so a read can say that its text is the page's
+	// chrome and not its content, instead of presenting the toolbar as the
+	// document. See aetoxCanvasJS.
+	CanvasShare float64
+	CanvasCount int
 }
 
 // metaScript reports the page's real title and URL back over the bridge. The
@@ -330,6 +399,50 @@ const aetoxTextJS = `
   }
 `
 
+// aetoxCanvasJS measures how much of what is on screen is painted rather than
+// written: the viewport area under visible <canvas> elements, as a share of
+// the viewport.
+//
+// It exists because of two sessions on 5 ก.ย. A model typed twelve sections
+// into a Google Doc and two rows into a Google Sheet, read the pages back, saw
+// its text in the DOM, and told the user the work was done. Both documents
+// were empty. Docs and Sheets keep the document in their own memory and paint
+// it onto canvas; the DOM around the canvas is menus, rulers, and the one
+// hidden element that catches the keyboard. A read of that DOM is a read of
+// the toolbar, and nothing in it said so — so the model reported on a document
+// it had never seen, in the same words it uses for one it has.
+//
+// A measurement rather than a list of hostnames, for the reason
+// visionModelMarkers gives: every editor that paints is one this file has not
+// heard of yet. Overlapping canvases can sum past the viewport, so the share
+// is capped at 1 — the question is "is this page mostly paint", not "how many
+// layers".
+//
+// canvasAppShare is where "some canvas on the page" becomes "this page paints
+// its content". A fifth of the viewport: Docs with its side panel open, Sheets
+// with Gemini's panel taking half the window, both clear it; a page with a
+// chart in a corner does not, and for that page the text really is the page.
+const canvasAppShare = 0.2
+
+const aetoxCanvasJS = `
+  function aetoxCanvas(roots){
+    var vw=window.innerWidth||0,vh=window.innerHeight||0;
+    if(vw<=0||vh<=0)return{share:0,count:0};
+    var area=0,count=0;
+    for(var i=0;i<roots.length;i++){
+      var cs;
+      try{cs=roots[i].querySelectorAll('canvas');}catch(e){continue;}
+      for(var j=0;j<cs.length;j++){
+        var r=cs[j].getBoundingClientRect();
+        var w=Math.min(r.right,vw)-Math.max(r.left,0),h=Math.min(r.bottom,vh)-Math.max(r.top,0);
+        if(w<=0||h<=0)continue;
+        count++;area+=w*h;
+      }
+    }
+    return{share:Math.min(1,area/(vw*vh)),count:count};
+  }
+`
+
 // textScript reads page text and, in the same pass, tags every visible
 // interactive element with a data-aetox-ref so browser_click/browser_type can
 // target it later. Refs are reassigned fresh each call.
@@ -347,11 +460,16 @@ const aetoxTextJS = `
 // the same rule skill_view's end marker was written for
 // (internal/skill/progressive.go), applied to the tool that was breaking it.
 func textScript(token, filter string) string {
-	return fmt.Sprintf(`(function(){%s%s
+	return fmt.Sprintf(`(function(){%s%s%s%s
   var want=%s.trim().toLowerCase();
   var scan=aetoxScan();
   var roots=scan.roots;
-  var sel='a[href],button,input,select,textarea,[role="button"],[role="link"],[contenteditable="true"]';
+  var act=aetoxDeepActive();
+  /* svg text is here for the editors that draw their document as SVG —
+     Google Slides, diagrams — where a title placeholder is a <text> node
+     and nothing else on the page names it. innerText is an HTMLElement
+     property, so the label below falls through to textContent for these. */
+  var sel='a[href],button,input,select,textarea,[role="button"],[role="link"],[contenteditable="true"],svg text';
   /* Stale refs from the previous read are cleared first, in every root. A
      filtered read tags far fewer nodes than an unfiltered one, so without this
      a ref could resolve to a node the last read tagged and this one did not. */
@@ -368,7 +486,8 @@ func textScript(token, filter string) string {
       var el=els[i];
       var rect=el.getBoundingClientRect();
       if(rect.width<=0||rect.height<=0)continue;
-      var txt=(el.innerText||el.value||el.getAttribute('aria-label')||el.getAttribute('placeholder')||'').trim().replace(/\s+/g,' ').slice(0,80);
+      var txt=(el.innerText||el.value||el.getAttribute('aria-label')||el.getAttribute('placeholder')||(el instanceof SVGElement?el.textContent:'')||'').trim().replace(/\s+/g,' ').slice(0,80);
+      if(el instanceof SVGElement&&!txt)continue;
       if(el.tagName==='SELECT'){
         var op=[];
         for(var k=0;k<el.options.length&&k<8;k++)op.push(el.options[k].text.trim());
@@ -379,7 +498,8 @@ func textScript(token, filter string) string {
       if(out.length>=150)continue;
       var ref=out.length+1;
       el.setAttribute('data-aetox-ref',String(ref));
-      out.push({ref:ref,tag:el.tagName.toLowerCase(),role:el.getAttribute('role')||'',text:txt});
+      var hid=(el.tagName==="INPUT"||el.tagName==="TEXTAREA")&&aetoxTypeMode(el)==="keys";
+      out.push({ref:ref,tag:el.tagName.toLowerCase(),role:el.getAttribute('role')||'',text:txt,focused:el===act,hidden:hid});
     }
   }
   var imgs=[],seenSrc={},imgTotal=0;
@@ -399,8 +519,9 @@ func textScript(token, filter string) string {
     }
   }
   var text=aetoxText();
-  %s(JSON.stringify({__aetox:"text",token:%q,title:document.title,url:location.href,text:text.slice(0,200000),elements:out,images:imgs,elementsTotal:elTotal,imagesTotal:imgTotal,frames:scan.blocked}));
-})()`, aetoxScanJS, aetoxTextJS, mustJSONString(filter), bridgePost, token)
+  var cv=aetoxCanvas(roots);
+  %s(JSON.stringify({__aetox:"text",token:%q,title:document.title,url:location.href,text:text.slice(0,200000),elements:out,images:imgs,elementsTotal:elTotal,imagesTotal:imgTotal,frames:scan.blocked,canvasShare:cv.share,canvasCount:cv.count}));
+})()`, aetoxScanJS, aetoxTextJS, aetoxCanvasJS, aetoxTypeModeJS, mustJSONString(filter), bridgePost, token)
 }
 
 // browserActResult is what a click or a type says about the element it was
@@ -410,6 +531,46 @@ type browserActResult struct {
 	Ref   int
 	Tag   string
 	Label string
+	// Set by a type only. Mode is "value" when the page script set the
+	// element's value itself, "keys" when the text still has to go in as
+	// keystrokes from the engine (browser_keys.go). Active says whether
+	// focusing the element left something editable focused; CX, CY is the
+	// element's centre in CSS pixels, for the real click that takes focus when
+	// it did not. CanvasShare is aetoxCanvas's answer for this page.
+	Mode        string
+	Active      bool
+	CX, CY      float64
+	CanvasShare float64
+	// FocusBefore and Focus name the element the page had focused before the
+	// type and after it took focus — "textarea#x.cls[aria-label](editable)".
+	// The second is where the keystrokes will go, which is a fact the model
+	// should have: on a page whose editor is a hidden sink, the element the
+	// model aimed at and the element that gets the keys are not the same.
+	FocusBefore, Focus string
+	// Kept is true when the target was a hidden proxy and the page already
+	// held the keyboard in an editor, so the script left focus alone and the
+	// keys went to that editor. See typeScript.
+	Kept bool
+	// Mouse is true when a click's target is not an HTML element and the
+	// script did not click it: the click still has to happen, as a real
+	// pointer at CX, CY. See clickScript.
+	Mouse bool
+	// The page's answer about a point or about itself: what is under the
+	// point (aetoxDescribe), the viewport in CSS px with its pixel ratio and
+	// scroll offset, how many interactive elements it holds, the document
+	// title, and for a file input whether it is one and what it accepts.
+	Under     string
+	VW, VH    int
+	DPR       float64
+	ScrollX   int
+	ScrollY   int
+	Count     int
+	Matches   []string
+	Title     string
+	URL       string
+	FileInput bool
+	Multiple  bool
+	Accept    string
 }
 
 // aetoxActJS is the one sentence a click and a type both have to say: whether
@@ -432,11 +593,13 @@ type browserActResult struct {
 // all is what `read` is for, and the guidance already says to read afterwards.
 func aetoxActJS() string {
 	return `
-  function aetoxReport(token,ref,el){
-    ` + bridgePost + `(JSON.stringify({__aetox:"act",token:token,url:location.href,ref:ref,
+  function aetoxReport(token,ref,el,extra){
+    var m={__aetox:"act",token:token,url:location.href,ref:ref,
       found:!!el,
       tag:el?el.tagName.toLowerCase():"",
-      label:el?String(el.innerText||el.value||el.getAttribute('aria-label')||'').trim().replace(/\s+/g,' ').slice(0,80):""}));
+      label:el?String(el.innerText||el.value||el.getAttribute('aria-label')||'').trim().replace(/\s+/g,' ').slice(0,80):""};
+    if(extra)for(var k in extra)m[k]=extra[k];
+    ` + bridgePost + `(JSON.stringify(m));
   }
 `
 }
@@ -446,24 +609,277 @@ func aetoxActJS() string {
 // aetoxFind rather than document.querySelector, because textScript now tags
 // nodes inside shadow roots and same-origin frames as well. A ref handed out by
 // a read this tool could not then act on would be worse than not handing it out.
+//
+// An element that is not HTML — SVG text in a Slides deck, a shape in a
+// diagram — has no click() to call and answers only to a real pointer, so
+// the report says so (mouse:true) with the element's centre, and Go clicks
+// there through the engine instead (clickByMouse). Reported before the
+// scroll for the reason above; the centre is measured after it, which is why
+// the second report exists: it carries the coordinates the click needs,
+// and only on the path where nothing can navigate before it is sent.
 func clickScript(token string, ref int) string {
 	tok, _ := json.Marshal(token)
-	return fmt.Sprintf(`(function(){%s%s
+	return fmt.Sprintf(`(function(){%s%s%s
   var el=aetoxFind(%d);
+  var mouse=!!el&&!(el instanceof HTMLElement);
+  if(mouse){
+    try{el.scrollIntoView({block:"center"});}catch(e){}
+    var p=aetoxPagePoint(el);
+    aetoxReport(%s,%d,el,{mouse:true,cx:p.x,cy:p.y});
+    return;
+  }
   aetoxReport(%s,%d,el);
   if(!el)return;
   el.scrollIntoView({block:"center"});
   el.click();
-})()`, aetoxScanJS, aetoxActJS(), ref, string(tok), ref)
+})()`, aetoxScanJS, aetoxActJS(), aetoxPointJS, ref, string(tok), ref, string(tok), ref)
 }
 
-// typeScript sets an input/textarea/select/contenteditable's value via the
-// native setter (so React/Vue-controlled inputs pick it up) and fires
-// input+change. A SELECT matches the text against option value or label
-// instead of overwriting content. enter additionally presses Enter — synthetic
-// keydown first (skipped requestSubmit if the page preventDefault'ed it), then
-// the form's requestSubmit, because untrusted KeyboardEvents never trigger the
-// browser's own implicit submission.
+// aetoxPointJS is how a place on the page is measured and named.
+//
+// aetoxPagePoint is an element's centre in CSS pixels of the TOP viewport —
+// getBoundingClientRect is relative to the element's own frame, so for an
+// element inside a same-origin iframe the frame's own rect is added, all the
+// way up. The engine's pointer events take top-viewport coordinates and
+// nothing else, so a centre measured any other way clicks the wrong place by
+// exactly the frame's offset.
+//
+// aetoxUnder is the reverse: the deepest element at a point, descending into
+// shadow roots and same-origin frames the way a pointer would. It skips
+// Aetox's own overlays because those are pointer-events:none, which is one
+// more reason they have to be.
+//
+// aetoxView is the viewport as the model needs to know it to aim: its size in
+// CSS pixels (what a capture's pixels map onto), its pixel ratio (why the
+// capture has more pixels than that), and how far it is scrolled.
+const aetoxPointJS = `
+  function aetoxPagePoint(el){
+    var r=el.getBoundingClientRect();
+    var x=r.left+r.width/2,y=r.top+r.height/2;
+    var d=el.ownerDocument,guard=0;
+    while(d&&d!==document&&guard++<10){
+      var f=null;
+      try{f=d.defaultView&&d.defaultView.frameElement;}catch(e){f=null;}
+      if(!f)break;
+      var fr=f.getBoundingClientRect();
+      x+=fr.left;y+=fr.top;
+      d=f.ownerDocument;
+    }
+    return{x:x,y:y};
+  }
+  function aetoxUnder(x,y){
+    var el=null;
+    try{el=document.elementFromPoint(x,y);}catch(e){return null;}
+    var guard=0;
+    while(el&&guard++<10){
+      var inner=null;
+      if(el.shadowRoot&&el.shadowRoot.elementFromPoint){
+        try{inner=el.shadowRoot.elementFromPoint(x,y);}catch(e){inner=null;}
+        if(inner===el)inner=null;
+      }else if(el.tagName==="IFRAME"){
+        var doc=null;
+        try{doc=el.contentDocument;}catch(e){doc=null;}
+        if(doc){var fr=el.getBoundingClientRect();try{inner=doc.elementFromPoint(x-fr.left,y-fr.top);}catch(e){inner=null;}}
+      }
+      if(!inner)break;
+      el=inner;
+    }
+    return el;
+  }
+  function aetoxView(){
+    return{vw:window.innerWidth||0,vh:window.innerHeight||0,dpr:window.devicePixelRatio||1,scrollX:Math.round(window.scrollX||0),scrollY:Math.round(window.scrollY||0)};
+  }
+  function aetoxCountInteractive(){
+    var roots=aetoxScan().roots,n=0;
+    var sel='a[href],button,input,select,textarea,[role="button"],[role="link"],[contenteditable="true"],svg text';
+    for(var i=0;i<roots.length;i++){try{n+=roots[i].querySelectorAll(sel).length;}catch(e){}}
+    return n;
+  }
+`
+
+// pointScript measures a ref: where its centre is in the top viewport,
+// whether it is HTML (a script can click it) or not (only a pointer can),
+// and the viewport it sits in. Acts on nothing; the gesture is the engine's.
+func pointScript(token string, ref int) string {
+	tok, _ := json.Marshal(token)
+	return fmt.Sprintf(`(function(){%s%s%s%s%s
+  var el=aetoxFind(%d),extra=aetoxView();
+  if(el){
+    try{el.scrollIntoView({block:"center",behavior:"instant"});}catch(e){}
+    var p=aetoxPagePoint(el);
+    extra.cx=p.x;extra.cy=p.y;
+    extra.mouse=!(el instanceof HTMLElement);
+    extra.under=aetoxDescribe(el);
+  }
+  extra.canvasShare=aetoxCanvas(aetoxScan().roots).share;
+  aetoxReport(%s,%d,el,extra);
+})()`, aetoxScanJS, aetoxActJS(), aetoxCanvasJS, aetoxTypeModeJS, aetoxPointJS, ref, string(tok), ref)
+}
+
+// underScript names what is at a viewport point, and refuses a point outside
+// the viewport before anything is pressed there: found is "inside", not
+// "something was hit", because a pointer over an empty patch of canvas is a
+// perfectly good target and an off-screen point is not one at all.
+func underScript(token string, x, y float64) string {
+	tok, _ := json.Marshal(token)
+	return fmt.Sprintf(`(function(){%s%s%s%s%s
+  var x=%g,y=%g,extra=aetoxView();
+  var inside=x>=0&&y>=0&&x<=extra.vw&&y<=extra.vh;
+  var el=inside?aetoxUnder(x,y):null;
+  extra.found=inside;extra.cx=x;extra.cy=y;
+  extra.under=el?aetoxDescribe(el):"";
+  extra.canvasShare=aetoxCanvas(aetoxScan().roots).share;
+  aetoxReport(%s,0,el,extra);
+})()`, aetoxScanJS, aetoxActJS(), aetoxCanvasJS, aetoxTypeModeJS, aetoxPointJS, x, y, string(tok))
+}
+
+// focusScript says where the page's keyboard goes right now — the one fact a
+// `key` or a target-less `type` has to name, because keystrokes go to focus
+// and not to a ref (§226).
+func focusScript(token string) string {
+	tok, _ := json.Marshal(token)
+	return fmt.Sprintf(`(function(){%s%s%s%s%s
+  var a=aetoxDeepActive(),extra=aetoxView();
+  extra.focus=aetoxDescribe(a);
+  extra.active=aetoxActiveIsEditable();
+  extra.canvasShare=aetoxCanvas(aetoxScan().roots).share;
+  aetoxReport(%s,0,a,extra);
+})()`, aetoxScanJS, aetoxActJS(), aetoxCanvasJS, aetoxTypeModeJS, aetoxPointJS, string(tok))
+}
+
+// viewportScript is the viewport alone, for capture: what its pixels map to.
+func viewportScript(token string) string {
+	tok, _ := json.Marshal(token)
+	return fmt.Sprintf(`(function(){%s%s%s
+  aetoxReport(%s,0,null,aetoxView());
+})()`, aetoxScanJS, aetoxActJS(), aetoxPointJS, string(tok))
+}
+
+// stateScript is the page in four numbers and a name, cheap enough to ask
+// before and after every action: URL and title, how many interactive
+// elements it has, and where its focus is. The difference between two of
+// these is the change note an action hands back in place of "ใช้ read ดูผล"
+// — measured on Playwright's MCP as the single change that let a model chain
+// a dozen actions without stopping to look.
+func stateScript(token string) string {
+	tok, _ := json.Marshal(token)
+	return fmt.Sprintf(`(function(){%s%s%s%s
+  var extra=aetoxView();
+  extra.title=document.title;
+  extra.count=aetoxCountInteractive();
+  extra.focus=aetoxDescribe(aetoxDeepActive());
+  extra.found=true;
+  aetoxReport(%s,0,null,extra);
+})()`, aetoxScanJS, aetoxActJS(), aetoxTypeModeJS, aetoxPointJS, string(tok))
+}
+
+// findTextScript is `find` for text that is not a control: a heading, a word
+// in a paragraph, a label with nothing to press. The interactive read is
+// tried first (resolveTarget); this is what runs when it found nothing, so a
+// hover over "hover me" or a double-click on a word works the way it would
+// for a person, who never asked whether the thing under the pointer was a
+// button. The owner's first live run (6 ก.ย.) failed both of those.
+//
+// The deepest elements whose text contains the words are the matches — a
+// paragraph inside a section inside main all contain it, and the paragraph
+// is the one meant. Exactly one is tagged as ref 1 so the point script can
+// find it; several are described back so the model can choose by ref after
+// a read, or by a longer text. Aetox's own overlays are skipped, since they
+// are the one thing on the page that is not the page.
+func findTextScript(token, text string) string {
+	tok, _ := json.Marshal(token)
+	return fmt.Sprintf(`(function(){%s%s%s%s
+  var want=%s.trim().toLowerCase();
+  var roots=aetoxScan().roots,hits=[],seen=0;
+  for(var r=0;r<roots.length;r++){
+    var stale;
+    try{stale=roots[r].querySelectorAll('[data-aetox-ref]');}catch(e){continue;}
+    for(var q=0;q<stale.length;q++)stale[q].removeAttribute('data-aetox-ref');
+  }
+  if(want){
+    for(var r2=0;r2<roots.length&&seen<AETOX_BUDGET;r2++){
+      var all;
+      try{all=roots[r2].querySelectorAll('*');}catch(e){continue;}
+      for(var i=0;i<all.length&&seen<AETOX_BUDGET;i++){
+        seen++;
+        var el=all[i],tag=el.tagName;
+        if(tag==="SCRIPT"||tag==="STYLE"||tag==="NOSCRIPT"||tag==="HTML"||tag==="BODY"||tag==="HEAD")continue;
+        if(el.id&&String(el.id).indexOf("__aetox")===0)continue;
+        var t=String(el.textContent||"");
+        if(t.toLowerCase().indexOf(want)<0)continue;
+        var rc=el.getBoundingClientRect();
+        if(rc.width<=0||rc.height<=0)continue;
+        hits.push(el);
+      }
+    }
+  }
+  var deep=[];
+  for(var a=0;a<hits.length;a++){
+    var inner=false;
+    for(var b=0;b<hits.length;b++){if(a!==b&&hits[a].contains(hits[b])){inner=true;break;}}
+    if(!inner)deep.push(hits[a]);
+  }
+  var extra={count:deep.length,matches:[]};
+  for(var d=0;d<deep.length&&d<12;d++){
+    var s=String(deep[d].innerText||deep[d].textContent||"").trim().replace(/\s+/g," ").slice(0,60);
+    extra.matches.push(aetoxDescribe(deep[d])+' "'+s+'"');
+  }
+  var one=deep.length===1?deep[0]:null;
+  if(one)one.setAttribute('data-aetox-ref','1');
+  aetoxReport(%s,0,one,extra);
+})()`, aetoxScanJS, aetoxActJS(), aetoxTypeModeJS, aetoxPointJS, mustJSONString(text), string(tok))
+}
+
+// fileInputScript says whether a ref is a file input, and what it takes.
+// Acts on nothing: the file goes in through the engine (DOM.setFileInputFiles),
+// which is the only door a page lets a file through.
+func fileInputScript(token string, ref int) string {
+	tok, _ := json.Marshal(token)
+	return fmt.Sprintf(`(function(){%s%s%s
+  var el=aetoxFind(%d),extra={};
+  if(el){
+    extra.fileInput=(el.tagName==="INPUT"&&String(el.type).toLowerCase()==="file");
+    extra.multiple=!!el.multiple;
+    extra.accept=String(el.getAttribute("accept")||"");
+    try{el.scrollIntoView({block:"center",behavior:"instant"});}catch(e){}
+    var p=aetoxPagePoint(el);
+    extra.cx=p.x;extra.cy=p.y;
+  }
+  aetoxReport(%s,%d,el,extra);
+})()`, aetoxScanJS, aetoxActJS(), aetoxPointJS, ref, string(tok), ref)
+}
+
+// typeScript is the page half of a type, and it decides which of two ways the
+// text goes in.
+//
+// **value** — a visible input, textarea or select. The value is set through
+// the native setter (so React/Vue-controlled inputs pick it up) and
+// input+change are fired; a SELECT matches the text against option value or
+// label instead. enter additionally presses Enter — synthetic keydown first
+// (skipped requestSubmit if the page preventDefault'ed it), then the form's
+// requestSubmit, because untrusted KeyboardEvents never trigger the browser's
+// own implicit submission. This was the whole of the tool until 5 ก.ย.
+//
+// **keys** — a contenteditable, or an input the page keeps hidden as its
+// keyboard proxy. The script only focuses the element and reports; the text is
+// then typed by the engine as real keystrokes (browser_keys.go). It has to be,
+// because of what the value path did to Google Docs and Google Sheets that day:
+// `el.textContent=val` on Docs' editor container — a contenteditable div whose
+// children are the canvas tiles — replaced the tiles with the text, which the
+// next `read` then found in the DOM and reported back as the document. Sheets'
+// hidden textarea took the value and Sheets, which listens for keys and not
+// for values, never looked at it. Both tools said "พิมพ์แล้ว", both reads
+// agreed, and the user opened two empty documents. An editor that keeps its
+// document in its own memory accepts exactly one kind of input, and a DOM
+// write is not it.
+//
+// The mode is decided here, on the live element, and not by hostname: a
+// hidden proxy input is a shape (opacity 0, a few pixels, parked off-screen),
+// and the shape is what every such editor shares. The report carries the mode
+// so Go knows whether it still has work to do, and carries whether focus
+// actually landed on something editable, because a proxy that the page
+// focuses for itself on a real click will not be focused by `el.focus()` from
+// a script — Go then clicks for real at cx, cy first.
 func typeScript(token string, ref int, text string, enter bool) string {
 	encoded, _ := json.Marshal(text)
 	enterJS := ""
@@ -475,10 +891,33 @@ func typeScript(token string, ref int, text string, enter bool) string {
   if(notHandled&&el.form&&typeof el.form.requestSubmit==="function"){el.form.requestSubmit();}`
 	}
 	tok, _ := json.Marshal(token)
-	return fmt.Sprintf(`(function(){%s%s
+	return fmt.Sprintf(`(function(){%s%s%s%s
   var el=aetoxFind(%d);
-  aetoxReport(%s,%d,el);
-  if(!el)return;
+  var mode=aetoxTypeMode(el),extra={mode:mode};
+  if(el&&mode==="keys"){
+    /* Focus before the report, and only here: focusing cannot navigate, and
+       the report has to say whether focus landed. The value path reports
+       first and acts after, as click does. */
+    try{el.scrollIntoView({block:"center"});}catch(e){}
+    extra.focusBefore=aetoxDescribe(aetoxDeepActive());
+    /* A hidden input is the page's keyboard proxy, and a page that already
+       holds the keyboard somewhere editable has told us where its keys go.
+       Google Sheets, 5 ก.ย.: the cell editor was focused, the model aimed at
+       the one textarea the read listed, focusing that moved the keyboard into
+       an off-screen Trix editor, and the sheet got nothing. So a proxy target
+       does not take focus away from an editor that has it. A contenteditable
+       target always takes it: the model named the editor itself. */
+    var proxy=(el.tagName==="INPUT"||el.tagName==="TEXTAREA");
+    if(proxy&&aetoxActiveIsEditable()&&aetoxDeepActive()!==el){extra.kept=true;}
+    else{aetoxTakeFocus(el);}
+    var rk=el.getBoundingClientRect();
+    extra.active=aetoxActiveIsEditable();
+    extra.focus=aetoxDescribe(aetoxDeepActive());
+    extra.cx=rk.left+rk.width/2;extra.cy=rk.top+rk.height/2;
+    extra.canvasShare=aetoxCanvas(aetoxScan().roots).share;
+  }
+  aetoxReport(%s,%d,el,extra);
+  if(!el||mode==="keys")return;
   el.focus();
   var val=%s;
   if(el.tagName==="SELECT"){
@@ -498,8 +937,77 @@ func typeScript(token string, ref int, text string, enter bool) string {
   }
   el.dispatchEvent(new Event("input",{bubbles:true}));
   el.dispatchEvent(new Event("change",{bubbles:true}));%s
-})()`, aetoxScanJS, aetoxActJS(), ref, string(tok), ref, encoded, enterJS)
+})()`, aetoxScanJS, aetoxActJS(), aetoxCanvasJS, aetoxTypeModeJS, ref, string(tok), ref, encoded, enterJS)
 }
+
+// aetoxTypeModeJS is the decision typeScript's comment describes, plus the two
+// things the keys path needs from the page: focus taken the way a script can
+// take it, and an honest answer about whether that worked.
+//
+// aetoxActiveIsEditable follows document.activeElement down through shadow
+// roots and same-origin frames, because that is where the editable really is
+// in the editors this exists for: Docs' keyboard target is a contenteditable
+// inside an about:blank iframe, and focusing the visible editor is what makes
+// Docs focus that. A cross-origin frame stops the walk, and an IFRAME is not
+// editable, so the answer is "no" and Go clicks for real.
+//
+// aetoxTakeFocus puts the caret at the end of what is there, for a plain
+// contenteditable and for an input, so the keystrokes that follow append
+// rather than prepend — the reading a model has of "type this into the
+// editor". Not for an element with canvas inside it: a DOM selection inside
+// Docs' tile container means nothing to Docs and could mean something wrong.
+const aetoxTypeModeJS = `
+  function aetoxTypeMode(el){
+    if(!el)return "";
+    var tag=el.tagName;
+    if(tag==="SELECT")return "value";
+    if(tag!=="INPUT"&&tag!=="TEXTAREA")return "keys";
+    var r=el.getBoundingClientRect(),cs=getComputedStyle(el);
+    var hidden=parseFloat(cs.opacity)===0||cs.visibility==="hidden"||r.width<4||r.height<4||r.right<0||r.bottom<0;
+    return hidden?"keys":"value";
+  }
+  function aetoxTakeFocus(el){
+    try{el.focus();}catch(e){}
+    try{
+      if(el.tagName==="INPUT"||el.tagName==="TEXTAREA"){var n=el.value.length;el.setSelectionRange(n,n);return;}
+      if(el.querySelector('canvas'))return;
+      var d=el.ownerDocument,s=d.getSelection();
+      if(!s)return;
+      var rg=d.createRange();rg.selectNodeContents(el);rg.collapse(false);
+      s.removeAllRanges();s.addRange(rg);
+    }catch(e){}
+  }
+  function aetoxDeepActive(){
+    var a=document.activeElement,guard=0;
+    while(a&&guard++<20){
+      var inner=null;
+      if(a.shadowRoot&&a.shadowRoot.activeElement)inner=a.shadowRoot.activeElement;
+      else if(a.tagName==="IFRAME"){try{inner=a.contentDocument?a.contentDocument.activeElement:null;}catch(e){inner=null;}}
+      if(!inner||inner===a)break;
+      a=inner;
+    }
+    return a;
+  }
+  function aetoxActiveIsEditable(){
+    var a=aetoxDeepActive();
+    if(!a||a===document.body)return false;
+    if(a.tagName==="INPUT"||a.tagName==="TEXTAREA")return true;
+    return !!a.isContentEditable;
+  }
+  function aetoxDescribe(a){
+    if(!a||a===document.body)return "body";
+    var s=a.tagName.toLowerCase();
+    try{
+      if(a.id)s+="#"+a.id;
+      var cls=String(a.getAttribute('class')||'').trim().split(/\s+/).filter(Boolean).slice(0,2);
+      if(cls.length)s+="."+cls.join(".");
+      var al=a.getAttribute('aria-label');
+      if(al)s+="["+al.slice(0,40)+"]";
+      if(a.isContentEditable)s+="(editable)";
+    }catch(e){}
+    return s;
+  }
+`
 
 // sameOrigin reports whether a and b share a scheme+host — used to check a
 // page's claimed URL against its real origin as reported by the engine.
@@ -570,6 +1078,15 @@ type browserTab struct {
 	zoomMu sync.Mutex
 	zoom   float64 // device-size emulation (see BrowserSetZoom); 0 = never set
 
+	// Where the agent's cursor is, in CSS pixels of the viewport, and whether
+	// it has been anywhere yet. The sprite itself lives in the page and dies
+	// with the document; this is what draws it back on the next one, at the
+	// spot the user last saw it. See browser_marks.go, aetoxCursorJS.
+	curMu    sync.Mutex
+	curX     float64
+	curY     float64
+	curKnown bool
+
 	textMu    sync.Mutex
 	textCh    chan browserSnapshot
 	textToken string // token BrowserGetText is currently waiting on; empty = none pending
@@ -620,6 +1137,34 @@ type browserTab struct {
 	// about the navigation being waited on and never a leftover from the last
 	// one. See tabCallbacks.onEngineError for why it exists at all.
 	engErr error
+	// dead is why the engine behind this tab is gone, or nil while it lives.
+	// Set by engineGone, cleared by a revive that put a new engine in place.
+	// A tab that is dead answers nothing; a tab that was dead and is not now
+	// has a note to give (reviveNote). Guarded by engMu with engErr, because
+	// they are read together by the waiter that decides what to say.
+	dead error
+	// reviveNote is told once, to the next answer the agent gets from this
+	// tab: its page was put back by a fresh engine, so whatever was typed and
+	// not sent, scrolled to, or picked is gone. Same shape as dialogs.
+	reviveNote string
+	// revives is when each revive happened, so a tab whose engine cannot stay
+	// alive is given up rather than rebuilt forever. See reviveAllowed.
+	revives []time.Time
+	// gen counts the engines this tab has had. Each set of callbacks carries
+	// the generation it was made for, so a complaint from an engine that has
+	// already been replaced cannot be mistaken for the current one dying — a
+	// late refusal from the old webview would otherwise revive a live tab.
+	gen int
+
+	// wantMu guards where this tab was last asked to go and how big it was —
+	// everything a fresh engine needs to put the same page back in the same
+	// place. Written by every navigation and every bounds change; read only
+	// by revive. Kept on the tab rather than asked of the engine because the
+	// engine that knew is the one that is gone.
+	wantMu    sync.Mutex
+	wantURL   string
+	bounds    [4]int
+	hasBounds bool
 
 	// shotMu guards what this tab's last capture looked like.
 	//
@@ -686,6 +1231,152 @@ func (t *browserTab) engineError() error {
 	return t.engErr
 }
 
+// remember records the page this tab was asked for, so a revive can ask for
+// it again. Every navigation goes through goTo, which calls this; open()
+// calls it for the first page, which the backend navigates to itself.
+func (t *browserTab) remember(url string) {
+	t.wantMu.Lock()
+	defer t.wantMu.Unlock()
+	t.wantURL = url
+}
+
+// rememberBounds records where the tab's window is, in the same physical
+// pixels BrowserSetBounds is given.
+func (t *browserTab) rememberBounds(x, y, w, h int) {
+	t.wantMu.Lock()
+	defer t.wantMu.Unlock()
+	t.bounds, t.hasBounds = [4]int{x, y, w, h}, true
+}
+
+// wanted is what a fresh engine should be given: the last page asked for and
+// the last rect the tab was placed at.
+func (t *browserTab) wanted() (url string, x, y, w, h int) {
+	t.wantMu.Lock()
+	defer t.wantMu.Unlock()
+	return t.wantURL, t.bounds[0], t.bounds[1], t.bounds[2], t.bounds[3]
+}
+
+// goTo is the one way a tab is navigated after it exists: it records the
+// destination and then asks the view for it, so revive always knows where
+// the tab was going. Called on the host thread like every view call.
+func (t *browserTab) goTo(v tabView, url string) {
+	t.remember(url)
+	v.navigate(url)
+}
+
+// markDead records that the engine behind this tab is gone. Reports whether
+// this is news — a dead engine tends to say so more than once (ProcessFailed,
+// then a refusal for every call already queued), and only the first should
+// start a revive.
+func (t *browserTab) markDead(why error) bool {
+	if why == nil {
+		return false
+	}
+	t.engMu.Lock()
+	defer t.engMu.Unlock()
+	if t.dead != nil {
+		return false
+	}
+	t.dead = why
+	return true
+}
+
+// deadWhy is why the engine is gone, or nil while it lives.
+func (t *browserTab) deadWhy() error {
+	t.engMu.Lock()
+	defer t.engMu.Unlock()
+	return t.dead
+}
+
+func (t *browserTab) isDead() bool { return t.deadWhy() != nil }
+
+// nextGen numbers the engine about to be created for this tab.
+func (t *browserTab) nextGen() int {
+	t.engMu.Lock()
+	defer t.engMu.Unlock()
+	t.gen++
+	return t.gen
+}
+
+func (t *browserTab) generation() int {
+	t.engMu.Lock()
+	defer t.engMu.Unlock()
+	return t.gen
+}
+
+// reviveBudget is how many times, within reviveWindow, a tab's engine may be
+// replaced before the tab is given up instead. One death is the case this
+// exists for; a second within a minute means whatever is killing the engine
+// is still there, and a third webview would only be a third corpse.
+const (
+	reviveBudget = 2
+	reviveWindow = time.Minute
+)
+
+// reviveAllowed reports whether one more revive fits the budget, and counts
+// it if so. Only revive calls this.
+func (t *browserTab) reviveAllowed(now time.Time) bool {
+	t.engMu.Lock()
+	defer t.engMu.Unlock()
+	recent := t.revives[:0]
+	for _, at := range t.revives {
+		if now.Sub(at) < reviveWindow {
+			recent = append(recent, at)
+		}
+	}
+	t.revives = recent
+	if len(t.revives) >= reviveBudget {
+		return false
+	}
+	t.revives = append(t.revives, now)
+	return true
+}
+
+// revived clears the death and leaves the sentence the next answer carries.
+func (t *browserTab) revived(url string) {
+	t.engMu.Lock()
+	defer t.engMu.Unlock()
+	why := t.dead
+	t.dead = nil
+	t.reviveNote = fmt.Sprintf("เอนจินเบราว์เซอร์ของแท็บนี้ล่ม (%v) และถูกเปิดขึ้นใหม่แล้ว หน้า %s ถูกโหลดกลับมา แต่สิ่งที่พิมพ์ค้างไว้ ตำแหน่งที่เลื่อนถึง และ ref จากการอ่านครั้งก่อนหายไป อ่านหน้าใหม่ก่อนทำต่อ", why, url)
+}
+
+// takeReviveNote hands back the revive sentence and forgets it, so it is said
+// once — to the first answer after the engine came back — and not again.
+func (t *browserTab) takeReviveNote() string {
+	t.engMu.Lock()
+	defer t.engMu.Unlock()
+	note := t.reviveNote
+	t.reviveNote = ""
+	return note
+}
+
+// giveUp ends whatever wait is on this tab, with the death left in place so
+// the waiter names it. Called when a revive could not be done.
+func (t *browserTab) giveUp() {
+	t.setNavOK(false)
+	once, done := t.latch()
+	once.Do(func() { close(done) })
+}
+
+// navPending reports whether a navigation is being waited on — the latch is
+// armed and nothing has closed it yet.
+func (t *browserTab) navPending() bool {
+	_, done := t.latch()
+	select {
+	case <-done:
+		return false
+	default:
+		return true
+	}
+}
+
+func (t *browserTab) isHidden() bool {
+	t.visMu.Lock()
+	defer t.visMu.Unlock()
+	return t.hidden
+}
+
 func (t *browserTab) meta() (title, url string) {
 	t.metaMu.Lock()
 	defer t.metaMu.Unlock()
@@ -723,11 +1414,36 @@ func (a *App) dialogNote(id AgentTabID) string {
 	if t == nil {
 		return ""
 	}
+	var out string
+	// The engine coming back is told here as well: it is the same kind of
+	// sentence — something happened to this page while nobody was asking —
+	// and the callers that append this are exactly the ones that should carry
+	// it. See engineNote for the callers that only want that half.
+	if note := t.takeReviveNote(); note != "" {
+		out += "\n" + note
+	}
 	lines := t.takeDialogs()
 	if len(lines) == 0 {
+		return out
+	}
+	return out + "\nหน้าเว็บขึ้นกล่องข้อความ:\n" + strings.Join(lines, "\n")
+}
+
+// engineNote is the revive sentence alone, for the answers that do not carry
+// dialogs — open and read, which are where an agent most often meets a page
+// it has to start over on.
+func (a *App) engineNote(id AgentTabID) string {
+	if a.browsers == nil {
 		return ""
 	}
-	return "\nหน้าเว็บขึ้นกล่องข้อความ:\n" + strings.Join(lines, "\n")
+	t := a.browsers.tab(string(id))
+	if t == nil {
+		return ""
+	}
+	if note := t.takeReviveNote(); note != "" {
+		return "\n" + note
+	}
+	return ""
 }
 
 // armNavigation readies the tab for one more navigation, so the caller that
@@ -742,6 +1458,39 @@ func (a *App) dialogNote(id AgentTabID) string {
 // never had it set. The zero-value tab is a real state — tests build one, and
 // a completion can arrive before open() finishes storing its fields — so the
 // pair is resolved here rather than assumed to exist at every use.
+// zoomFactor is the tab's device-emulation zoom, or 0 when none was ever
+// set. nil-safe, because the tab a pointer action aims at can have closed
+// between the lookup and the press.
+func (t *browserTab) zoomFactor() float64 {
+	if t == nil {
+		return 0
+	}
+	t.zoomMu.Lock()
+	defer t.zoomMu.Unlock()
+	return t.zoom
+}
+
+// rememberCursor and cursor are the agent's pointer position across
+// documents: written by every pointer action, read by navCompleted to redraw
+// the sprite on the page that replaced the one it was drawn on.
+func (t *browserTab) rememberCursor(x, y float64) {
+	if t == nil {
+		return
+	}
+	t.curMu.Lock()
+	t.curX, t.curY, t.curKnown = x, y, true
+	t.curMu.Unlock()
+}
+
+func (t *browserTab) cursor() (x, y float64, ok bool) {
+	if t == nil {
+		return 0, 0, false
+	}
+	t.curMu.Lock()
+	defer t.curMu.Unlock()
+	return t.curX, t.curY, t.curKnown
+}
+
 func (t *browserTab) latch() (*sync.Once, chan struct{}) {
 	t.navMu.Lock()
 	defer t.navMu.Unlock()
@@ -842,6 +1591,12 @@ func (t *browserTab) awaitNavigation(ctx context.Context, timeout time.Duration)
 		// avoiding a localhost URL whose server simply was not running yet.
 		return statereport.New("page did not finish loading")
 	}
+	// The latch closed because the engine is gone and could not be replaced
+	// (giveUp), not because a page arrived. Named as ours, like the refusal
+	// above: the page did nothing wrong.
+	if why := t.deadWhy(); why != nil {
+		return fmt.Errorf("the browser engine behind this tab died and could not be brought back: %w", why)
+	}
 	if !t.navLoaded() {
 		return statereport.New("page failed to load — not found, or unreachable")
 	}
@@ -927,7 +1682,19 @@ func (h *browserHost) open(id, url, fallback string, x, y, w, hgt int) {
 	debuglog.Msg("browser.open(%s): queueing (url=%s)", id, url)
 	h.backend.do(func() {
 		debuglog.Msg("browser.open(%s): running on the host thread", id)
-		if h.tab(id) != nil {
+		if t := h.tab(id); t != nil {
+			// Open, but with no engine behind it: the browser process ended
+			// and nothing has put a new one there yet (engineGone queues a
+			// revive; this open may simply have got here first). Reviving on
+			// the page THIS call asked for is better than on the page the tab
+			// last had, and it is what the caller is about to wait on.
+			if t.isDead() {
+				debuglog.Msg("browser.open(%s): the tab's engine is gone; reviving it on %s", id, url)
+				t.remember(url)
+				t.rememberBounds(x, y, w, hgt)
+				h.revive(id, t)
+				return
+			}
 			// Not a failure, and not a navigation either: the tab is already
 			// embedded, so there is nothing here to create. A reused tab was
 			// navigated by workbenchOpenBrowser before its desk event went out,
@@ -947,11 +1714,9 @@ func (h *browserHost) open(id, url, fallback string, x, y, w, hgt int) {
 			return
 		}
 		tab := &browserTab{navDone: make(chan struct{}), navOnce: &sync.Once{}, fallback: fallback}
-		view := h.backend.openTab(id, url, x, y, w, hgt, tabCallbacks{
-			onMessage:     func(raw, source string) { h.onMessage(id, tab, raw, source) },
-			onNavDone:     func(v tabView, ok bool) { h.navCompleted(id, tab, v, ok) },
-			onEngineError: tab.noteEngineError,
-		})
+		tab.remember(url)
+		tab.rememberBounds(x, y, w, hgt)
+		view := h.backend.openTab(id, url, x, y, w, hgt, h.callbacks(id, tab))
 		if view == nil {
 			return // the backend has already logged why
 		}
@@ -974,6 +1739,111 @@ func (h *browserHost) open(id, url, fallback string, x, y, w, hgt int) {
 		}
 		h.mu.Unlock()
 	})
+}
+
+// callbacks is what the backend is handed for a tab's engine, written once
+// because a tab now gets an engine more than once: at open, and again at
+// every revive. Two copies of these closures would be two places for the
+// engine-gone wiring to be forgotten.
+func (h *browserHost) callbacks(id string, tab *browserTab) tabCallbacks {
+	gen := tab.nextGen()
+	return tabCallbacks{
+		onMessage:     func(raw, source string) { h.onMessage(id, tab, raw, source) },
+		onNavDone:     func(v tabView, ok bool) { h.navCompleted(id, tab, v, ok) },
+		onEngineError: tab.noteEngineError,
+		onEngineGone:  func(err error) { h.engineGone(id, tab, gen, err) },
+	}
+}
+
+// engineGone is the portable half of "the engine behind this tab is gone".
+//
+// Called from whatever thread the engine chose — ProcessFailed and the error
+// callback both arrive on the host thread, but nothing here depends on that.
+// It records the death once and queues the revive rather than doing it in
+// place: this may be running inside the engine's own callback, and destroying
+// that engine's window from inside its callback is not a place to be.
+func (h *browserHost) engineGone(id string, tab *browserTab, gen int, why error) {
+	if tab.generation() != gen {
+		return // an engine this tab no longer has
+	}
+	if !tab.markDead(why) {
+		return // the same death, reported again
+	}
+	debuglog.Msg("browser tab %s: engine gone (%v); reviving", id, why)
+	// So a wait that times out before the revive lands names the engine
+	// rather than the weather.
+	tab.noteEngineError(why)
+	h.backend.do(func() { h.revive(id, tab) })
+}
+
+// revive puts a new engine behind a tab whose engine is gone: the same id,
+// the same *browserTab, the same page and rect, a fresh webview. On the host
+// thread — callers reach it through do, or are already inside one.
+//
+// The tab keeps its identity on purpose. Everything that holds a tab — the
+// frontend's strip, the agent's agentID, a workbenchOpenBrowser mid-wait — is
+// holding the id and the *browserTab, and both stay valid across the revive.
+// The wait in particular: if a navigation was pending when the engine died,
+// its latch is kept and the revived engine's completion closes it, so the
+// caller that asked for the page gets the page, later than it hoped, rather
+// than an error it has to retry.
+//
+// It gives up rather than looping. A second death inside reviveWindow says
+// the cause is still there, and the honest answer is the one closeTab gives
+// for a view that died: the page is gone, and the agent is told so.
+func (h *browserHost) revive(id string, tab *browserTab) {
+	if !tab.isDead() {
+		return // an earlier revive (or an open) already did this
+	}
+	h.mu.Lock()
+	registered := h.tabs[id] == tab
+	old := h.views[id]
+	if registered {
+		delete(h.views, id)
+	}
+	h.mu.Unlock()
+	if !registered {
+		return // closed in the meantime; nothing to put back
+	}
+	if old != nil {
+		old.destroy()
+	}
+
+	url, x, y, w, hgt := tab.wanted()
+	fail := func(why string) {
+		debuglog.Msg("browser tab %s: %s; giving the tab up", id, why)
+		tab.giveUp()
+		if h.app != nil {
+			h.app.closeTab(id, closedByApp)
+			return
+		}
+		h.mu.Lock()
+		delete(h.tabs, id)
+		h.mu.Unlock()
+	}
+	if !tab.reviveAllowed(time.Now()) {
+		fail("the engine died again within a minute")
+		return
+	}
+	// A wait already in progress keeps its latch (see above); otherwise arm
+	// one, so the revived navigation is awaitable like any other.
+	if !tab.navPending() {
+		tab.armNavigation()
+	}
+	debuglog.Msg("browser tab %s: reviving on %s", id, url)
+	view := h.backend.openTab(id, url, x, y, w, hgt, h.callbacks(id, tab))
+	if view == nil {
+		fail("a new engine could not be created")
+		return
+	}
+	h.mu.Lock()
+	h.views[id] = view
+	h.mu.Unlock()
+	if tab.isHidden() {
+		view.setVisible(false)
+	}
+	tab.revived(url)
+	debuglog.Msg("browser tab %s: engine back", id)
 }
 
 // agentTabPrefix marks the ids workbenchOpenBrowser mints. It is the only thing
@@ -1002,7 +1872,7 @@ func (h *browserHost) navCompleted(id string, tab *browserTab, view tabView, ok 
 	if !ok {
 		if fb := tab.takeFallback(); fb != "" {
 			debuglog.Msg("browser.nav(%s): the guessed scheme failed, falling back to %s", id, fb)
-			view.navigate(fb)
+			tab.goTo(view, fb)
 			return
 		}
 	}
@@ -1034,6 +1904,15 @@ func (h *browserHost) navCompleted(id string, tab *browserTab, view tabView, ok 
 		view.setZoom(z)
 	}
 	view.eval(metaScript())
+
+	// The cursor the user was watching died with the old document. Put it
+	// back where they last saw it, on the new one — a pointer that vanished
+	// on every navigation would read as the agent having let go of the mouse.
+	if h.app != nil && h.app.pageMarksOn() {
+		if x, y, ok := tab.cursor(); ok {
+			view.eval(cursorShowScript(x, y))
+		}
+	}
 }
 
 // onMessage handles one postMessage envelope from a tab's page. source is the
@@ -1074,6 +1953,7 @@ func (h *browserHost) onMessage(id string, tab *browserTab, raw string, source s
 		ch <- browserSnapshot{
 			Text: m.Text, Elements: m.Elements, Images: m.Images,
 			ElementsTotal: m.ElementsTotal, ImagesTotal: m.ImagesTotal, BlockedFrames: m.Frames,
+			CanvasShare: m.CanvasShare, CanvasCount: m.CanvasCount,
 		}
 	case "act":
 		tab.actMu.Lock()
@@ -1085,7 +1965,14 @@ func (h *browserHost) onMessage(id string, tab *browserTab, raw string, source s
 		if ch == nil || m.Token == "" || m.Token != expectedToken || !sameOrigin(source, m.URL) {
 			return
 		}
-		ch <- browserActResult{Found: m.Found, Ref: m.Ref, Tag: m.Tag, Label: m.Label}
+		ch <- browserActResult{
+			Found: m.Found, Ref: m.Ref, Tag: m.Tag, Label: m.Label,
+			Mode: m.Mode, Active: m.Active, CX: m.CX, CY: m.CY, CanvasShare: m.CanvasShare,
+			FocusBefore: m.FocusBefore, Focus: m.Focus, Kept: m.Kept, Mouse: m.Mouse,
+			Under: m.Under, VW: m.VW, VH: m.VH, DPR: m.DPR, ScrollX: m.ScrollX, ScrollY: m.ScrollY,
+			Count: m.Count, Matches: m.Matches, Title: m.Title, URL: m.URL,
+			FileInput: m.FileInput, Multiple: m.Multiple, Accept: m.Accept,
+		}
 	case "log":
 		tab.logMu.Lock()
 		ch := tab.logCh
@@ -1221,14 +2108,17 @@ func (a *App) BrowserNavigate(id, url, fallback string) {
 		// Armed before the navigation starts: nav-completed can fire from the
 		// engine's thread before this call returns.
 		t.setFallback(fallback)
-		v.navigate(url)
+		t.goTo(v, url)
 	})
 }
 
 // BrowserSetBounds moves/resizes a tab's view (physical pixels, relative to
 // the main window client area).
 func (a *App) BrowserSetBounds(id string, x, y, w, h int) {
-	a.onTab(id, func(v tabView, _ *browserTab) { v.setBounds(x, y, w, h) })
+	a.onTab(id, func(v tabView, t *browserTab) {
+		t.rememberBounds(x, y, w, h)
+		v.setBounds(x, y, w, h)
+	})
 }
 
 // BrowserSetZoom scales the page inside a tab — this is what makes the device
@@ -1352,6 +2242,20 @@ const (
 	closedByApp                          // a sweep, a teardown, a view that died
 )
 
+// String names the reason for the log, which is the one reader that has to
+// tell the three apart after the fact.
+func (r closeReason) String() string {
+	switch r {
+	case closedByUser:
+		return "user"
+	case closedByAgent:
+		return "agent"
+	case closedByApp:
+		return "app"
+	}
+	return fmt.Sprintf("closeReason(%d)", int(r))
+}
+
 // BrowserClose is the × on the tab strip, and nothing else. It is a Wails
 // binding, so the window is its only caller; every close inside the engine
 // names its own reason through closeTab.
@@ -1401,6 +2305,11 @@ func (a *App) closeTab(id string, why closeReason) {
 	v := host.views[id]
 	_, wasOpen := host.tabs[id]
 	delete(host.tabs, id)
+	// Said in the log, with who asked. Every open logs itself and no close
+	// did, so a tab that vanished between two tool calls — web-agent-1 on
+	// 6 ก.ย. 21:07, closed by nobody the log could name — left only the
+	// agent's "no page open" to reason backwards from.
+	debuglog.Msg("browser.close(%s): by %s (open=%v, view=%v)", id, why, wasOpen, v != nil)
 	// Written by the call that actually removed the tab, and only that one.
 	// A second pass over an id already gone writes nothing, so re-entering
 	// this function cannot overwrite the reason the first pass gave — which
@@ -1515,6 +2424,15 @@ func (a *App) browserSnapshot(id, filter string) (browserSnapshot, error) {
 // a third outcome and not a failure: the report is a courtesy the page performs
 // and a page can be busy, gone, or refusing to run scripts at all.
 func (a *App) browserActOn(id string, build func(token string) string) (res browserActResult, answered bool, err error) {
+	return a.browserActOnFor(id, build, 2*time.Second)
+}
+
+// browserActOnFor is browserActOn with the caller's own patience. The change
+// note asks the page about itself right after an action that may be
+// navigating away, and a page mid-unload never answers; waiting the full two
+// seconds for that silence, on every click, would cost more than the note
+// saves. That caller asks for less and reads silence as "the page is going".
+func (a *App) browserActOnFor(id string, build func(token string) string, wait time.Duration) (res browserActResult, answered bool, err error) {
 	host, err := a.browserHostLazy()
 	if err != nil {
 		return browserActResult{}, false, err
@@ -1538,7 +2456,7 @@ func (a *App) browserActOn(id string, build func(token string) string) (res brow
 		return r, true, nil
 	// Short, because the report is sent before the click rather than after it:
 	// nothing here is waiting on a page to finish loading or a handler to run.
-	case <-time.After(2 * time.Second):
+	case <-time.After(wait):
 		t.actMu.Lock()
 		t.actCh = nil
 		t.actToken = ""

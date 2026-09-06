@@ -1056,6 +1056,18 @@ async function restoreWorkbench(sessionId: string): Promise<void> {
       if (rackAt >= 0) {
         const [tab] = workbench.foreign.splice(rackAt, 1)
         workbench.tabs.push(tab)
+      } else if (s.mine && s.id) {
+        // The agent's page, and the rack does not have it — the window was
+        // reloaded (the rack is memory) or the chip outlived its window. It
+        // comes back under its OWN id, not a fresh web-N: the pane's mount
+        // calls BrowserOpen with that id, which re-attaches to the native
+        // window if Go still has it (kept across a reload while the turn
+        // runs — CloseAllBrowserTabs) and otherwise creates it as the
+        // agent's, on the same page. A fresh web-N was a second, user-owned
+        // window on the same URL, beside an agent tab with no chip at all —
+        // web-4 next to web-agent-2 on 6 ก.ย. 21:07 — and the agent, told
+        // "no page open", opened a third.
+        workbench.tabs.push({ id: s.id, kind: 'browser', name: s.name, url: s.url ?? '', mine: true, sessionId })
       } else {
         const id = openBrowserTab()
         const tab = workbench.tabs.find((t) => t.id === id)

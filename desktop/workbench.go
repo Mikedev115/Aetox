@@ -19,6 +19,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/model"
@@ -107,6 +108,23 @@ func unrenderableFile(url string) string {
 // background chat's page parks on its own desk instead of drawing over the one
 // on screen. The window still creates the native view either way (the shadow
 // rack mounts a hidden pane), so the poll below is satisfied for both routes.
+// mintAgentTabID names a tab the agent does not have yet: past every id
+// already taken, not just past the counter.
+//
+// The counter restarts with the process, and since 6 ก.ย. the window brings an
+// agent chip back under its saved id after a reload — so web-agent-2 can exist
+// before this process has ever minted a 2. host.open on a taken id returns
+// without navigating, and the agent would have been told its page was open
+// while looking at whatever that tab already had.
+func (a *App) mintAgentTabID() AgentTabID {
+	for {
+		id := AgentTabID(fmt.Sprintf(agentTabPrefix+"%d", atomic.AddInt64(&agentBrowserSeq, 1)))
+		if a.browsers == nil || a.browsers.tab(string(id)) == nil {
+			return id
+		}
+	}
+}
+
 func (a *App) workbenchOpenBrowser(ctx context.Context, url string, newTab bool, owner string) (title, finalURL, duplicateOf string, err error) {
 	if a.ctx == nil {
 		return "", "", "", fmt.Errorf("UI not ready")
@@ -167,7 +185,7 @@ func (a *App) workbenchOpenBrowser(ctx context.Context, url string, newTab bool,
 		}
 	}
 	if !reusing {
-		id = AgentTabID(fmt.Sprintf(agentTabPrefix+"%d", atomic.AddInt64(&agentBrowserSeq, 1)))
+		id = a.mintAgentTabID()
 	}
 	if reusing {
 		// Armed before navigate, so the wait below is this navigation's.
@@ -187,7 +205,7 @@ func (a *App) workbenchOpenBrowser(ctx context.Context, url string, newTab bool,
 		//
 		// That line no longer compiles: browserTab has no view to reach past
 		// this call. See browserHost.onTab.
-		a.onTab(string(id), func(v tabView, _ *browserTab) { v.navigate(url) })
+		a.onTab(string(id), func(v tabView, t *browserTab) { t.goTo(v, url) })
 	}
 	// Emitted either way: for a new tab the frontend creates it, and for one
 	// that exists the same handler just raises it — which is what the user
@@ -530,6 +548,11 @@ func (s *browserOpenSkill) open(ctx context.Context, url string, newTab bool) (s
 		// so it is not named twice here. See browserTabRef.
 		out.Content += "\nหน้านี้เปิดอยู่ในแท็บนี้แล้ว จึงใช้แท็บเดิม ไม่ได้เปิดใบใหม่"
 	}
+	// If the engine died and came back under this open, the page here is the
+	// revived one: say so, once, where the agent is about to start from it.
+	if id, err := s.app.agentTab(); err == nil {
+		out.Content += s.app.engineNote(id)
+	}
 	out.RawOutput = out.Content
 	return out, nil
 }
@@ -768,12 +791,40 @@ func (s *browserReadSkill) Execute(_ context.Context, input skill.Input) (skill.
 		truncated = true
 	}
 	out.Content = formatBrowserRead(title, url, filter, text, snap)
+	if id, err := s.app.agentTab(); err == nil {
+		out.Content += s.app.engineNote(id)
+	}
 	out.RawOutput = out.Content
 	// A cut element list is a truncated result exactly as a cut page text is.
 	// It was not marked as one until 2026-08-22, so every surface that shows
 	// the user "this was shortened" showed nothing for the commonest case.
 	out.Truncated = truncated || snap.ElementsTotal > len(snap.Elements) || snap.ImagesTotal > len(snap.Images)
 	return out, nil
+}
+
+// elementLine is one element as every list of them spells it — the read, an
+// ambiguous find, the change note after a navigation — so a ref reads the
+// same wherever the model meets it.
+//
+// The two marks tell a keyboard sink from a field. On a page that paints its
+// editor, "focused" is the element the page's own keys go to and the one to
+// type into; "hidden" is a proxy the page keeps off-screen, which typing into
+// sends keys wherever the page's focus already is. See browserElement.
+func elementLine(el browserElement) string {
+	role := el.Role
+	if role == "" {
+		role = el.Tag
+	}
+	mark := ""
+	switch {
+	case el.Focused && el.Hidden:
+		mark = " (focused, hidden)"
+	case el.Focused:
+		mark = " (focused — where the page's keys go now)"
+	case el.Hidden:
+		mark = " (hidden — not on screen; if the page has an editor focused, keys typed here go to that editor)"
+	}
+	return fmt.Sprintf("[%d] %s: %q%s", el.Ref, role, el.Text, mark)
 }
 
 // formatBrowserRead is everything the model is told about the page, built from
@@ -812,11 +863,7 @@ func formatBrowserRead(title, url, filter, text string, snap browserSnapshot) st
 			fmt.Fprintf(&b, "\nClickable/typeable elements%s (use browser_click/browser_type with ref):\n", count)
 		}
 		for _, el := range snap.Elements {
-			role := el.Role
-			if role == "" {
-				role = el.Tag
-			}
-			fmt.Fprintf(&b, "[%d] %s: %q\n", el.Ref, role, el.Text)
+			b.WriteString(elementLine(el) + "\n")
 		}
 		// The line this list did not have until 2026-08-22. A cut list and a
 		// short page were the same output, so a model that could not find its
@@ -854,6 +901,18 @@ func formatBrowserRead(title, url, filter, text string, snap browserSnapshot) st
 	// in the text, which reads exactly like a page that has not finished
 	// loading. That is the one wrong conclusion read's own guidance pushes the
 	// model toward, so the fact has to arrive with the read that lacks it.
+	// The same kind of fact as the frames line, and it was missing for the
+	// same reason that one once was. Two reads of a Google Doc and six of a
+	// Google Sheet on 5 ก.ย. each came back with the toolbar, the ruler and the
+	// menus, and the model took that for the document — reported twelve
+	// sections typed into one and two rows into the other, both empty. Nothing
+	// in the read said that the content of this page is painted and not
+	// written, so the model had no way to know that the text it was reading
+	// was the frame around the picture.
+	if snap.CanvasShare >= canvasAppShare {
+		fmt.Fprintf(&b, "\n%d canvas element(s) cover %d%% of the viewport. Whatever is painted there — a document, a sheet, a chart, a drawing — is NOT in the text below, which is only this page's menus and toolbars. `capture` is the only way to see that content, and the only way to check that a `type` landed in it.\n",
+			snap.CanvasCount, int(snap.CanvasShare*100+0.5))
+	}
 	if snap.BlockedFrames > 0 {
 		fmt.Fprintf(&b, "\n%d frame(s) on this page come from another site and cannot be read from here. Anything inside them is missing from the text below, and waiting will not bring it.\n", snap.BlockedFrames)
 	}
@@ -882,29 +941,72 @@ func (*browserClickSkill) ToolDefinition() model.ToolDefinition {
 }
 
 func (s *browserClickSkill) ExecuteTool(_ context.Context, args map[string]any) (skill.Output, error) {
-	ref, _ := args["ref"].(float64)
-	return s.click(int(ref))
+	return s.click(targetFrom(args, "ref", "find", "x", "y"), str(args["button"]), intArg(args["count"]))
 }
 
 func (s *browserClickSkill) Execute(_ context.Context, input skill.Input) (skill.Output, error) {
-	ref, _ := input["ref"].(float64)
-	return s.click(int(ref))
+	args := map[string]any(input)
+	return s.click(targetFrom(args, "ref", "find", "x", "y"), str(args["button"]), intArg(args["count"]))
 }
 
-func (s *browserClickSkill) click(ref int) (skill.Output, error) {
+// click presses a target: a ref, a text, or a point, with any button, any
+// count. The plain case — a ref on an HTML element, left, once — keeps the
+// script's own `el.click()`, which is what every form and link has answered
+// since the tool existed; every other case is the engine's pointer.
+func (s *browserClickSkill) click(target browserTarget, button string, count int) (skill.Output, error) {
 	start := time.Now()
-	out := skill.Output{Name: "browser_click", Command: fmt.Sprintf("browser_click %d", ref)}
-	id, err := s.app.agentTab()
-	var res browserActResult
-	var answered bool
-	if err == nil {
-		// The ring goes down first, on the agent's path only. browserClickRef
-		// is shared with BrowserClickRef, which is the *user* clicking through
-		// their own panel — and a mark saying "the agent is working here" drawn
-		// over somebody's own click is the one thing this layer must never do.
-		s.app.markPageClick(id, ref)
-		res, answered, err = s.app.browserClickRef(string(id), ref)
+	button = strings.ToLower(strings.TrimSpace(button))
+	if button == "" {
+		button = "left"
 	}
+	if count < 1 {
+		count = 1
+	}
+	out := skill.Output{Name: "browser_click", Command: "browser_click " + target.String()}
+	id, err := s.app.agentTab()
+	if err != nil {
+		out.Content, out.Stderr = "คลิกไม่สำเร็จ: "+err.Error(), err.Error()
+		return out, err
+	}
+	if !mouseButtons[button] {
+		err := fmt.Errorf("button %q is not one of left, right, middle", button)
+		out.Content, out.Stderr = err.Error(), err.Error()
+		return out, err
+	}
+	// Resolve and travel first, whichever path presses. The cursor arrives
+	// before the ring so the user sees the hand reach the button.
+	aimed, err := s.app.aim(id, target, true)
+	if err != nil {
+		out.Content, out.Stderr = "คลิกไม่สำเร็จ: "+err.Error(), err.Error()
+		out.DurationMs = time.Since(start).Milliseconds()
+		return out, err
+	}
+	byPoint := target.HasXY && target.Ref == 0 && target.Find == ""
+	if byPoint || button != "left" || count != 1 || aimed.Mouse {
+		// No ref needed any more: the mark is a ripple at the point, so a
+		// click by coordinates on a canvas finally gets one too.
+		s.app.markPageClick(id, point{aimed.CX, aimed.CY})
+		ctx, cancel := pointerContext()
+		defer cancel()
+		if err := s.app.pressByMouse(ctx, string(id), point{aimed.CX, aimed.CY}, button, count); err != nil {
+			msg := pointerFailed(clickSaid(button, count)+" "+targetSaid(target, aimed), err) + s.app.browserWhere(id)
+			out.Content, out.Stderr = msg, msg
+			return out, err
+		}
+		time.Sleep(300 * time.Millisecond)
+		out.Success = true
+		out.Content = pointerMessage(button, count, target, aimed) + s.app.browserWhere(id)
+		out.RawOutput = out.Content
+		out.DurationMs = time.Since(start).Milliseconds()
+		return out, nil
+	}
+	ref := aimed.Ref
+	// The ripple goes out first, on the agent's path only. browserClickRef
+	// is shared with BrowserClickRef, which is the *user* clicking through
+	// their own panel — and a mark saying "the agent is working here" drawn
+	// over somebody's own click is the one thing this layer must never do.
+	s.app.markPageClick(id, point{aimed.CX, aimed.CY})
+	res, answered, err := s.app.browserClickRef(string(id), ref)
 	out.DurationMs = time.Since(start).Milliseconds()
 	if err != nil {
 		out.Content, out.Stderr = "คลิกไม่สำเร็จ: "+err.Error(), err.Error()
@@ -919,14 +1021,75 @@ func (s *browserClickSkill) click(ref int) (skill.Output, error) {
 		out.Content, out.Stderr = msg, msg
 		return out, errors.New(msg)
 	}
-	time.Sleep(300 * time.Millisecond) // let click-driven navigation/DOM update settle before the next browser_read
+	// The page said this element cannot be clicked from a script — SVG text
+	// in a Slides deck has no click(), and the deck selects a shape on a real
+	// mousedown — so the click is the engine's, at the centre the page
+	// measured. An engine that cannot is reported as a click that did not
+	// happen, which is what it is.
+	mouse := ""
+	if answered && res.Mouse {
+		ctx, cancel := context.WithTimeout(context.Background(), deckEngineTimeout)
+		defer cancel()
+		if mouseErr := s.app.clickByMouse(ctx, string(id), res.CX, res.CY); mouseErr != nil {
+			msg := fmt.Sprintf("คลิก %s ไม่สำเร็จ: element นี้รับได้แต่เมาส์จริงจากเอนจิน และเอนจินตอบว่า %v — ถือว่ายังไม่ได้คลิก%s",
+				browserActLabel(ref, res, answered), mouseErr, s.app.browserWhere(id))
+			out.Content, out.Stderr = msg, msg
+			return out, mouseErr
+		}
+		mouse = " (ด้วยเมาส์จริงตรงกลาง element เพราะเป็น SVG ที่สคริปต์คลิกไม่ได้)"
+	}
+	time.Sleep(300 * time.Millisecond) // let click-driven navigation/DOM update settle before the change note
 	out.Success = true
 	// Naming what was clicked, not just that something was. "คลิก ref 2 แล้ว"
 	// is unfalsifiable from the outside; the tag and label are what let a caller
 	// see it hit the element it meant.
-	out.Content = fmt.Sprintf("คลิก %s แล้ว%s ใช้ browser_read เพื่อดูผลลัพธ์", browserActLabel(ref, res, answered), s.app.browserWhere(id))
+	out.Content = fmt.Sprintf("คลิก %s แล้ว%s%s%s", browserActLabel(ref, res, answered), mouse, canvasNote(aimed), s.app.browserWhere(id))
 	out.RawOutput = out.Content
 	return out, nil
+}
+
+// typedByKeysMessage is what a type by keystrokes says about itself, and it
+// says three things the value path never had to: that the text went in at the
+// caret rather than over what was there, that a click was needed to get the
+// keyboard (which moved the caret), and — on a page that paints its content —
+// that `read` will not show the result. That last sentence is the one that
+// stops "พิมพ์แล้ว" from becoming "เสร็จแล้ว" without anybody looking.
+func typedByKeysMessage(where, text string, enter, clicked bool, res browserActResult) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "พิมพ์ %d ตัวอักษรลง %s เป็นคีย์สโตรกจริงแล้ว", utf8.RuneCountInString(text), where)
+	if enter {
+		b.WriteString(" และกด Enter")
+	}
+	b.WriteString(" — ข้อความเข้าที่ตำแหน่งเคอร์เซอร์ ต่อจากของเดิม ไม่ได้แทนที่")
+	if strings.ContainsAny(text, "\n\t") {
+		b.WriteString(" ขึ้นบรรทัดใหม่ส่งเป็นปุ่ม Enter และแท็บเป็นปุ่ม Tab")
+	}
+	// Where the keys actually went. Keystrokes go to the page's focus and not
+	// to a ref, and on an editor whose keyboard sink is hidden those can be
+	// two different elements; naming the one that had focus is the only way
+	// the model can tell "typed into the sheet" from "typed into a textarea
+	// the sheet does not listen to".
+	if res.Focus != "" {
+		fmt.Fprintf(&b, " คีย์ไปที่ focus ของหน้า: %s", res.Focus)
+		if res.FocusBefore != "" && res.FocusBefore != res.Focus {
+			fmt.Fprintf(&b, " (ก่อนพิมพ์ focus อยู่ที่ %s)", res.FocusBefore)
+		}
+	}
+	switch {
+	case res.Kept:
+		b.WriteString(" (element ที่เลือกเป็น input ซ่อน ส่วนหน้ามี editor ที่ focus อยู่แล้ว จึงไม่ย้าย focus — คีย์เข้า editor นั้น ซึ่งเป็นที่ที่คีย์บอร์ดจริงจะไป)")
+	case clicked:
+		b.WriteString(" (focus จากสคริปต์ไม่ติด จึงคลิกจริงกลาง element ก่อน ซึ่งย้ายเคอร์เซอร์ไปตรงนั้น)")
+	case !res.Active:
+		b.WriteString(" (focus จากสคริปต์ไม่ติด และ element อยู่นอกจอจึงคลิกจริงไม่ได้ — คีย์ไปที่สิ่งที่หน้า focus อยู่เดิม ซึ่งอาจไม่ใช่ที่ตั้งใจ)")
+	}
+	canvasShare := res.CanvasShare
+	if canvasShare >= canvasAppShare {
+		b.WriteString(" หน้านี้วาดเนื้อหาบน canvas: read มองไม่เห็นสิ่งที่พิมพ์ลงไป ยืนยันด้วย capture เท่านั้น ก่อนบอกว่าเสร็จ")
+	} else {
+		b.WriteString(" ใช้ read ดูผล")
+	}
+	return b.String()
 }
 
 // browserActLabel names the element an action landed on, falling back to the
@@ -969,28 +1132,40 @@ func (*browserTypeSkill) ToolDefinition() model.ToolDefinition {
 }
 
 func (s *browserTypeSkill) ExecuteTool(_ context.Context, args map[string]any) (skill.Output, error) {
-	ref, _ := args["ref"].(float64)
-	text, _ := args["text"].(string)
-	enter, _ := args["enter"].(bool)
-	return s.typeText(int(ref), text, enter)
+	return s.typeText(targetFrom(args, "ref", "find", "x", "y"), str(args["text"]), boolArg(args["enter"]))
 }
 
 func (s *browserTypeSkill) Execute(_ context.Context, input skill.Input) (skill.Output, error) {
-	ref, _ := input["ref"].(float64)
-	text, _ := input["text"].(string)
-	enter, _ := input["enter"].(bool)
-	return s.typeText(int(ref), text, enter)
+	args := map[string]any(input)
+	return s.typeText(targetFrom(args, "ref", "find", "x", "y"), str(args["text"]), boolArg(args["enter"]))
 }
 
-func (s *browserTypeSkill) typeText(ref int, text string, enter bool) (skill.Output, error) {
+// typeText fills a target, or — with no target — types at the page's focus.
+//
+// The second form is what a person does after clicking a cell by eye: the
+// click put the keyboard somewhere, and the typing goes where the keyboard
+// is. A point as the target is that click and that typing in one call.
+func (s *browserTypeSkill) typeText(target browserTarget, text string, enter bool) (skill.Output, error) {
 	start := time.Now()
-	out := skill.Output{Name: "browser_type", Command: fmt.Sprintf("browser_type %d", ref)}
+	out := skill.Output{Name: "browser_type", Command: "browser_type " + target.String()}
 	id, err := s.app.agentTab()
-	var res browserActResult
-	var answered bool
-	if err == nil {
-		res, answered, err = s.app.browserTypeRef(string(id), ref, text, enter)
+	if err != nil {
+		out.Content, out.Stderr = "พิมพ์ไม่สำเร็จ: "+err.Error(), err.Error()
+		return out, err
 	}
+	if target.empty() || (target.HasXY && target.Ref == 0 && target.Find == "") {
+		return s.typeAtFocus(start, id, target, text, enter)
+	}
+	// Resolved and travelled to for a ref as well as a text: the hand goes
+	// to the field it is about to type into, and a ref that is gone is
+	// refused here with why, before anything is typed.
+	found, err := s.app.aim(id, target, false)
+	if err != nil {
+		out.Content, out.Stderr = "พิมพ์ไม่สำเร็จ: "+err.Error(), err.Error()
+		return out, err
+	}
+	ref := found.Ref
+	res, answered, err := s.app.browserTypeRef(string(id), ref, text, enter)
 	out.DurationMs = time.Since(start).Milliseconds()
 	if err != nil {
 		out.Content, out.Stderr = "พิมพ์ไม่สำเร็จ: "+err.Error(), err.Error()
@@ -1005,15 +1180,82 @@ func (s *browserTypeSkill) typeText(ref int, text string, enter bool) (skill.Out
 		out.Content, out.Stderr = msg, msg
 		return out, errors.New(msg)
 	}
+	where := browserActLabel(ref, res, answered)
+	// The page said the element will only take a keyboard, and did not touch
+	// it. The keystrokes come from the engine now (browser_keys.go), and an
+	// engine that cannot send them is reported as a type that did not happen —
+	// not as one that did, which is the whole lesson of 5 ก.ย.
+	if answered && res.Mode == "keys" {
+		ctx, cancel := context.WithTimeout(context.Background(), deckEngineTimeout)
+		defer cancel()
+		clicked, keyErr := s.app.typeByKeys(ctx, string(id), res, text, enter)
+		out.DurationMs = time.Since(start).Milliseconds()
+		if keyErr != nil {
+			msg := fmt.Sprintf("พิมพ์ลง %s ไม่สำเร็จ: element นี้รับได้แต่คีย์สโตรกจริงจากเอนจิน และเอนจินตอบว่า %v — ถือว่ายังไม่ได้พิมพ์%s", where, keyErr, s.app.browserWhere(id))
+			out.Content, out.Stderr = msg, msg
+			return out, keyErr
+		}
+		if enter {
+			time.Sleep(300 * time.Millisecond)
+		}
+		out.Success = true
+		out.Content = typedByKeysMessage(where, text, enter, clicked, res) + s.app.browserWhere(id)
+		out.RawOutput = out.Content
+		return out, nil
+	}
 	if enter {
-		time.Sleep(300 * time.Millisecond) // let Enter-driven navigation settle before the next browser_read
+		time.Sleep(300 * time.Millisecond) // let Enter-driven navigation settle before the change note
 	}
 	out.Success = true
-	where := browserActLabel(ref, res, answered)
 	out.Content = fmt.Sprintf("พิมพ์ลง %s แล้ว%s", where, s.app.browserWhere(id))
 	if enter {
-		out.Content = fmt.Sprintf("พิมพ์ลง %s และกด Enter แล้ว%s ใช้ browser_read เพื่อดูผลลัพธ์", where, s.app.browserWhere(id))
+		out.Content = fmt.Sprintf("พิมพ์ลง %s และกด Enter แล้ว%s", where, s.app.browserWhere(id))
 	}
 	out.RawOutput = out.Content
+	return out, nil
+}
+
+// typeAtFocus is the target-less type: keystrokes to wherever the page's
+// keyboard is, after a click at the point when one was given. The answer
+// names the focus, because that is the only place the text could have gone.
+func (s *browserTypeSkill) typeAtFocus(start time.Time, id AgentTabID, target browserTarget, text string, enter bool) (skill.Output, error) {
+	out := skill.Output{Name: "browser_type", Command: "browser_type " + target.String()}
+	ctx, cancel := pointerContext()
+	defer cancel()
+	prefix := ""
+	if target.HasXY {
+		aimed, err := s.app.aim(id, target, true)
+		if err != nil {
+			out.Content, out.Stderr = "พิมพ์ไม่สำเร็จ: "+err.Error(), err.Error()
+			return out, err
+		}
+		if err := s.app.pressByMouse(ctx, string(id), point{aimed.CX, aimed.CY}, "left", 1); err != nil {
+			msg := pointerFailed("คลิกที่ "+point{aimed.CX, aimed.CY}.String(), err) + s.app.browserWhere(id)
+			out.Content, out.Stderr = msg, msg
+			return out, err
+		}
+		// The page focuses whatever it focuses in its own handlers, a frame
+		// or two after the press.
+		time.Sleep(150 * time.Millisecond)
+		prefix = fmt.Sprintf("คลิกที่ %s ก่อน แล้ว", targetSaid(target, aimed))
+	}
+	res, answered, _ := s.app.browserActOn(string(id), focusScript)
+	if !answered {
+		res = browserActResult{}
+	}
+	// Whatever has focus is the target; no click of the tool's own.
+	res.Active = true
+	if _, err := s.app.typeByKeys(ctx, string(id), res, text, enter); err != nil {
+		msg := pointerFailed("พิมพ์", err) + s.app.browserWhere(id)
+		out.Content, out.Stderr = msg, msg
+		return out, err
+	}
+	if enter {
+		time.Sleep(300 * time.Millisecond)
+	}
+	out.Success = true
+	out.Content = prefix + typedByKeysMessage("focus ของหน้า", text, enter, false, res) + s.app.browserWhere(id)
+	out.RawOutput = out.Content
+	out.DurationMs = time.Since(start).Milliseconds()
 	return out, nil
 }

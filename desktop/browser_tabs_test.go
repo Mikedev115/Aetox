@@ -360,7 +360,7 @@ func TestScrollTakesTheFourDirectionsAndRefusesTheRest(t *testing.T) {
 	s := &browserScrollSkill{app: app}
 
 	for _, to := range []string{"down", "up", "top", "bottom", ""} {
-		out, err := s.scroll(to, 0)
+		out, err := s.scroll(to, 0, browserTarget{})
 		if err != nil {
 			t.Errorf("scroll %q: %v", to, err)
 			continue
@@ -374,7 +374,7 @@ func TestScrollTakesTheFourDirectionsAndRefusesTheRest(t *testing.T) {
 			t.Errorf("scroll %q does not say to read again: %q", to, out.Content)
 		}
 	}
-	if _, err := s.scroll("sideways", 0); err == nil {
+	if _, err := s.scroll("sideways", 0, browserTarget{}); err == nil {
 		t.Error("an unknown direction was accepted")
 	}
 }

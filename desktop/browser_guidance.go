@@ -27,6 +27,9 @@ package main
 import "strings"
 
 func (s *browserSkill) Guidance(args map[string]any) string {
+	if steps, ok := args["steps"].([]any); ok && len(steps) > 0 {
+		return browserGuidance["steps"]
+	}
 	action := strings.ToLower(strings.TrimSpace(str(args["action"])))
 	return browserGuidance[action]
 }
@@ -56,6 +59,7 @@ var browserGuidance = map[string]string{
 	// cases: a model holding a camera and no rule for it photographs everything.
 	"capture": "Use this only when `read` cannot answer, because the answer was never in the text: a chart, a canvas, a map, a rendered document, or a layout you suspect is wrong. Read first, photograph second — a picture costs far more than the read it would have duplicated.\n" +
 		"By default it sees what is on screen. `full=true` photographs the whole document instead, which is what you want for a long form or a report and is wasted on a page that already fits — it is the same answer in several times the bytes. If a page is too long even for that, the result says where it was cut; nothing else about the picture will tell you.\n" +
+		"The answer says how the picture's pixels map to the page: multiply a pixel you read off it by the ratio given and you have the x,y to click, hover or drag at. Aim only from a viewport capture — a full one's y is a document offset, not a place on screen.\n" +
 		"The file is kept under output/<session> so the user can open it too.",
 
 	// Says WHEN, for the same reason `wait` does: the failure it prevents does
@@ -63,7 +67,8 @@ var browserGuidance = map[string]string{
 	// and successful, and nothing in that answer suggests there was more.
 	"scroll": "A page that loads as you go — a feed, a result list, a channel — is one screen deep in the document until something scrolls it. So a short `read` on a page you expected to be long is usually not the whole page: scroll, read again, and repeat until the reading stops growing.\n" +
 		"`to` is down, up, top or bottom. ALWAYS send `screens` with down and up: it is how far to travel in this one call, 1 to 10, and deciding it before you call is the whole point. Ten screens of a feed is ten calls at one screen each or one call at ten — same page, ten times the round trip. Send 1 when you mean to read what comes next; send a bigger number when you are reaching for content that has not loaded yet.\n" +
-		"It presses once per screen with a pause between, so content that arrives as you go still arrives — a single jump of the same distance would skip it. A page shorter than what you asked for stops at its end rather than failing, so a read after a long scroll that looks short may mean you were already at the bottom. Every scroll invalidates your refs, exactly like a navigation: read again before you click.",
+		"It presses once per screen with a pause between, so content that arrives as you go still arrives — a single jump of the same distance would skip it. A page shorter than what you asked for stops at its end rather than failing, so a read after a long scroll that looks short may mean you were already at the bottom. Every scroll invalidates your refs, exactly like a navigation: read again before you click.\n" +
+		"When the page did not move — a canvas app, a map, a list that renders as you wheel — give it a target (ref or x,y over the content) and the scroll becomes a real mouse wheel there, which is the only kind of scrolling those pages hear.",
 
 	"back": "Returns to the previous page in this tab with what you had typed and scrolled still there. Re-opening its URL is a different thing and loses all of it, and a page that came from a POST cannot be re-opened at all.\n" +
 		"A tab with nothing behind it does not fail — it says there is nowhere back to.",
@@ -108,9 +113,30 @@ var browserGuidance = map[string]string{
 	"network": "The fetch and XMLHttpRequest calls the page's own code made, oldest first, with status and duration. Use it when a page renders but its data does not: this is what tells a 401 from a 500 from a request that was never made at all.\n" +
 		"Three limits worth knowing before you draw a conclusion. Images, scripts and stylesheets are NOT here — those are the browser's own fetches, not the page's, so their absence from this list says nothing about whether they loaded. A status shown as `-` means the request never came back. And anything in a query string that looks like a credential arrives as <redacted>, which is the tool hiding it and not the page sending it that way.",
 
-	"click": "A ref belongs to the page it was read from AND to the read that produced it: the next read renumbers everything, and a filtered read tags only its own matches, so a short list carries ref 1 upward whatever the full page holds. It also goes stale the moment the page changes, which a click often does. Read, act, read again.\n" +
-		"A click can navigate, raise a dialog, or do nothing visible; read afterwards rather than assuming which.",
+	"click": "A ref belongs to the page it was read from AND to the read that produced it: the next read renumbers everything, and a filtered read tags only its own matches, so a short list carries ref 1 upward whatever the full page holds. It also goes stale the moment the page changes, which a click often does. Read, act, read again — or aim by text instead: `find` presses the one element whose text contains it — a control first, then any visible text — waits up to three seconds for it to appear, and refuses with a list when there are several, so nothing stale is ever pressed.\n" +
+		"A point (x,y) is for what has no ref: a cell in a sheet, a shape on a canvas. Read it off a viewport `capture`, multiplied by the ratio the capture reports; never off a full-page one. The answer names what was under the point.\n" +
+		"`button: right` opens a context menu: the page's own shows in read, the system's does not exist to read or capture — `key Escape` closes it. `count: 2` selects a word, `3` a paragraph, on most editors.\n" +
+		"Every action that acts ends with what changed on the page — URL, focus, how many things there are to press — so read again only when the note is not enough.",
+
+	// The batch. Said once, on the first batch, because the failure it
+	// prevents is never batching at all: a model that reads, acts, reads, acts
+	// pays a round trip per move and never learns there was a cheaper way.
+	"steps": "One call, several moves, in order: open → wait → click → type → key Enter is one call and not five. Use it whenever you can see two or more moves ahead. Aim steps by text (`find`) or by point (x,y), because no ref is known before a read inside the batch — and end with `read` or `capture` when you need to see the result rather than the change note. It stops at the first step that fails and tells you every step's answer, which failed, and which never ran; nothing after a failure is attempted.",
+
+	"hover": "Moves the pointer without pressing. Menus that open on hover, tooltips, and the toolbar a shape shows when the mouse is over it all need this before a click can reach them. Aim by ref, by `find` (the element's text), or by x,y from a capture. The answer names what was under the pointer.",
+
+	"drag": "Press at the first target, sweep to the second, release — with the real mouse, so the page sees a drag. Two uses: moving something (a card between columns, a slider, a shape) and selecting text by sweeping over it, which is how a word or a line is selected in Docs, Sheets and Slides before `key ctrl+b`. Aim either end by ref, `find` or x,y. The browser's own highlight shows what got selected; `read` shows it on a text page, only `capture` on a painted one.\n" +
+		"Selecting without a drag: click into the editor, then `key ctrl+a` for everything, `key shift+End` to the end of the line, `key shift+ArrowRight` one character at a time.",
+
+	"key": "Presses keys where the page's focus is, as real key events. Names: Enter, Tab, Escape, Backspace, Delete, Space, ArrowLeft/Right/Up/Down, Home, End, PageUp, PageDown, F1-F12; chords with ctrl, shift, alt, meta joined by +, as in `ctrl+a`, `ctrl+b`, `shift+End`, `ctrl+shift+ArrowRight`; several in one call separated by spaces. ctrl/alt/meta drop the character (ctrl+a selects, it does not type an a); shift keeps it. A chord nobody recognises is refused before anything is pressed.\n" +
+		"Escape closes menus and dialogs and leaves an editor's text box; Enter on a selected sheet cell starts editing it; F2 does the same in most grids. The answer names the focus the keys went to, and on a painted page reminds you that only `capture` shows the result.",
+
+	"upload": "Puts a sandbox file into an `<input type=file>` — the way the system's file picker would, without opening one. Aim at the input by ref or `find`; a page whose upload button opens a picker has the real input somewhere in `read`, often hidden. The answer says the page received the file; it has NOT been uploaded anywhere until the page itself does that, so `wait` for or `read` the page's own confirmation before saying so. Only files under the sandbox, never a credential store.",
 
 	"type": "A ref belongs to the page it was read from and to the read that produced it: a later read, filtered or not, renumbers them all. If anything has read this page since, read it again before typing into a number that may now mean something else.\n" +
-		"For a select element the text must match one of the options `read` listed. enter=true submits, which is how a search box with no button is used.",
+		"For a select element the text must match one of the options `read` listed. enter=true submits, which is how a search box with no button is used.\n" +
+		// The second way in, and the sentence that stops a type on a canvas
+		// page from being reported as done. See typeScript for the day.
+		"Two ways in, chosen per element, and the answer says which it took. A visible input, textarea or select has its value set outright, replacing what was there. A contenteditable, or an input the page keeps hidden as its keyboard proxy — Google Docs, Sheets and Slides, Notion, code editors — gets real keystrokes at the caret instead, because those editors keep the document in their own memory and ignore a DOM write; there a newline is sent as Enter and a tab as Tab, which in a sheet is how the caret moves between cells. On a page that paints its content on canvas, `read` cannot see what you typed — only `capture` can, so look before you report it done.\n" +
+		"With no target at all, the keystrokes go to wherever the page's focus is — what a person does after clicking a cell by eye. With x,y, that click and the typing are one call. `find` aims by the element's text instead of a ref.",
 }

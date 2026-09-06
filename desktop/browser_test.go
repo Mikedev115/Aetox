@@ -88,7 +88,7 @@ func TestOnMessageRejectsTextWithWrongToken(t *testing.T) {
 
 	select {
 	case got := <-ch:
-		t.Fatalf("channel received %q, want no delivery for a wrong-token message", got)
+		t.Fatalf("channel received %+v, want no delivery for a wrong-token message", got)
 	default:
 	}
 }
@@ -180,6 +180,11 @@ func TestTextScriptListsSelectOptions(t *testing.T) {
 type fakeBackend struct {
 	mu   sync.Mutex
 	cmds []func()
+	// opens and cbs record every engine the portable layer asked for and the
+	// callbacks it handed each one, so a test can drive "the engine died" and
+	// see what was created in its place.
+	opens []openCall
+	cbs   map[string]tabCallbacks
 }
 
 func (b *fakeBackend) start() error { return nil }
@@ -205,8 +210,30 @@ func (b *fakeBackend) drain() {
 	}
 }
 
+// openCall is one openTab the portable layer asked for, kept so a test can
+// say what a revive asked for and where.
+type openCall struct {
+	id, url string
+	bounds  [4]int
+}
+
 func (b *fakeBackend) openTab(id, url string, x, y, w, h int, cb tabCallbacks) tabView {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.opens = append(b.opens, openCall{id: id, url: url, bounds: [4]int{x, y, w, h}})
+	if b.cbs == nil {
+		b.cbs = map[string]tabCallbacks{}
+	}
+	b.cbs[id] = cb
 	return &fakeView{}
+}
+
+// engineOf is the callbacks the most recent engine for id was given — the
+// door a test uses to stand in for that engine.
+func (b *fakeBackend) engineOf(id string) tabCallbacks {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.cbs[id]
 }
 
 // fakeView records what the portable layer asked a tab to do.

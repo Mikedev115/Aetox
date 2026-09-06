@@ -1,6 +1,6 @@
 package main
 
-// ลูกศรและวงแหวนบนหน้าเว็บ, checked without a browser.
+// เมาส์ ลูกศรเลื่อน และแรงกระเพื่อมบนหน้าเว็บ, checked without a browser.
 //
 // These are scripts, so what can be pinned here is what the script SAYS, and
 // the three things it says are the three rules the layer would be wrong
@@ -11,15 +11,20 @@ package main
 // none — so they are worth a test that runs in a second.
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Mikedev115/Aetox/internal/config"
 )
 
 func TestMarkScriptsClearBeforeTheyDraw(t *testing.T) {
 	for name, js := range map[string]string{
-		"click":  markClickScript(3),
+		"click":  markRippleScript(120, 240),
 		"scroll": markScrollScript("down", 0),
 	} {
 		mount := strings.Index(js, "function aetoxMarkMount")
@@ -37,7 +42,7 @@ func TestMarkScriptsClearBeforeTheyDraw(t *testing.T) {
 // transform:translateZ(0) on body, so body is not far enough up.
 func TestMarksMountAtTheRootAndStayFixed(t *testing.T) {
 	for name, js := range map[string]string{
-		"click":  markClickScript(1),
+		"click":  markRippleScript(10, 20),
 		"scroll": markScrollScript("up", 0),
 	} {
 		if !strings.Contains(js, "var root=document.documentElement;") {
@@ -57,7 +62,7 @@ func TestMarksMountAtTheRootAndStayFixed(t *testing.T) {
 // with the user's setting.
 func TestMarksAskThePageAboutMotion(t *testing.T) {
 	for name, js := range map[string]string{
-		"click":  markClickScript(2),
+		"click":  markRippleScript(300, 80),
 		"scroll": markScrollScript("bottom", 0),
 	} {
 		if !strings.Contains(js, "prefers-reduced-motion: reduce") {
@@ -93,19 +98,6 @@ func TestScrollMarkPointsTheRightWay(t *testing.T) {
 	}
 }
 
-// A ref that matches nothing leaves the page clean rather than leaving the last
-// mark up — a ring still pointing at the button from the previous action is a
-// ring that lies about which one is being pressed.
-func TestClickMarkGivesUpQuietlyOnAMissingRef(t *testing.T) {
-	js := markClickScript(9)
-	if !strings.Contains(js, "if(!el){aetoxMarkClear();return;}") {
-		t.Error("a ref matching nothing does not clear the previous mark")
-	}
-	if !strings.Contains(js, `behavior:"instant"`) {
-		t.Error("the element is centred without instant behaviour, so the rect can be read mid-scroll")
-	}
-}
-
 // The switch gates DRAWING and nothing else. Clearing has to run either way, or
 // turning the layer off mid-run would leave the last mark on the page for the
 // rest of its life.
@@ -121,10 +113,10 @@ func TestPageMarksSwitchGatesDrawingOnly(t *testing.T) {
 	// Neither door panics with no browser host behind it, which is the state
 	// every one of this package's tests constructs an App in — and, more to the
 	// point, the state a session is in before anybody has opened a page.
-	off.markPageClick(AgentTabID("web-agent-1"), 1)
+	off.markPageClick(AgentTabID("web-agent-1"), point{4, 5})
 	off.markPageScroll(AgentTabID("web-agent-1"), "down", 0)
 	off.clearPageMarks(AgentTabID("web-agent-1"))
-	on.markPageClick(AgentTabID("web-agent-1"), 1)
+	on.markPageClick(AgentTabID("web-agent-1"), point{4, 5})
 	on.markPageScroll(AgentTabID("web-agent-1"), "down", 0)
 }
 
@@ -149,5 +141,123 @@ func TestClearScriptRemovesTheMarkByID(t *testing.T) {
 	// done yet.
 	if strings.Index(js, "removeChild") > strings.Index(js, "aetoxReport(\"tok-1\"") {
 		t.Error("it reports before it removes")
+	}
+}
+
+// The cursor is the one mark that is not an action: it stays, so it must not
+// go through the mount that clears the previous mark, and it must come off
+// before a capture with the trail beside it.
+func TestCursorLivesBesideTheMarksAndDiesBeforeACapture(t *testing.T) {
+	js := cursorMoveScript(40, 50, 200*time.Millisecond, true)
+	if strings.Contains(js, "aetoxMarkMount(") {
+		t.Error("the cursor must not be mounted through aetoxMarkMount, which clears the ring it should outlive")
+	}
+	for _, want := range []string{"position:fixed", "pointer-events:none", "document.documentElement", "createElementNS", "prefers-reduced-motion"} {
+		if !strings.Contains(js, want) {
+			t.Errorf("cursor script missing %q", want)
+		}
+	}
+	clear := clearMarksScript("tok")
+	for _, id := range []string{markElementID, cursorElementID, trailElementID} {
+		if !strings.Contains(clear, id) {
+			t.Errorf("clearMarksScript does not remove %s, so a capture would photograph it", id)
+		}
+	}
+	drag := cursorDragScript(point{1, 2}, point{30, 40}, 300*time.Millisecond)
+	if !strings.Contains(drag, "createElement(\"canvas\")") || !strings.Contains(drag, "devicePixelRatio") {
+		t.Error("the trail is a canvas at device pixel ratio")
+	}
+	if !strings.Contains(cursorShowScript(3, 4), "aetoxCursorTo(3,4,0,false)") {
+		t.Error("cursorShowScript must place the sprite without travel")
+	}
+}
+
+// The layer off is no sprite and no wait; the position is remembered either
+// way so the sprite comes back where it should when the layer returns.
+func TestCursorMoveHonoursTheSwitch(t *testing.T) {
+	app := &App{}
+	app.cfg.BusyPageMarksOff = true
+	app.browsers = &browserHost{app: app, tabs: map[string]*browserTab{"web-agent-1": {}}, views: map[string]tabView{"web-agent-1": &fakeView{}}}
+	if wait := app.markCursorMove("web-agent-1", point{10, 10}, true); wait != 0 {
+		t.Errorf("with marks off a click must not wait for a sprite, got %v", wait)
+	}
+	if x, y, ok := app.browsers.tab("web-agent-1").cursor(); !ok || x != 10 || y != 10 {
+		t.Errorf("the position is remembered regardless, got %v %v %v", x, y, ok)
+	}
+}
+
+// The click mark is a ripple leaving the point, not a light around the box.
+// Two things are pinned: no halo anywhere (a glow is what grows back one
+// shadow at a time), and the mark placed AT the coordinates rather than around
+// a measured rect — which is what lets a click by x,y on a canvas have any
+// feedback at all.
+func TestClickMarkIsARippleFromThePoint(t *testing.T) {
+	js := markRippleScript(120, 240)
+	if strings.Contains(js, "box-shadow") {
+		t.Error("the click mark is wearing a glow again")
+	}
+	if !strings.Contains(js, "left:120px;top:240px;width:0;height:0;") {
+		t.Errorf("the ripple is not mounted at the click point: %s", js)
+	}
+	if !strings.Contains(js, "wave(0);wave(150);") {
+		t.Error("one wave reads as a circle that appeared; two read as something leaving the point")
+	}
+	// Nothing may come to rest visible. element.animate() with the default
+	// fill drops the element back to its own style when it finishes, so every
+	// animated piece starts at opacity 0 and the page is left clean.
+	for _, want := range []string{`border:2.5px solid "+AETOX_ACC+";border-radius:50%;opacity:0;`, `background:"+AETOX_ACC+";opacity:0;`} {
+		if !strings.Contains(js, want) {
+			t.Errorf("a ripple piece can come to rest visible, missing %q", want)
+		}
+	}
+}
+
+// The sprite IS the mark. Not an arrow wearing Aetox's colours: the logo's own
+// outline, leaned 14 degrees, with its apex — the peak of the A — as the pixel
+// the click lands on.
+//
+// The three places that have to agree on that apex are what this pins. The
+// group transform puts it at the hotspot, the transform-origin squeezes about
+// it on a press, and the translate moves the sprite to a page coordinate by
+// it; any one of them drifting means a pointer that points somewhere else.
+func TestCursorIsTheLogoAndAgreesOnItsTip(t *testing.T) {
+	js := cursorMoveScript(10, 20, 200*time.Millisecond, true)
+	tip := fmt.Sprintf("%g,%g", cursorTipX, cursorTipY)
+	for _, want := range []string{
+		"AETOX_LOGO=",
+		"M 116.0,742.5",                         // the mark's own outline, not a drawn arrow
+		"translate(" + tip + ") scale(0.04703)", // apex to the hotspot, then to 34px
+		"rotate(-14)",
+		"translate(-416,-19.5)", // the apex in the mark's own 804x762 grid
+		fmt.Sprintf("transform-origin:%gpx %gpx", cursorTipX, cursorTipY),
+		fmt.Sprintf(`"translate("+(x-%g)+"px,"+(y-%g)+"px)"`, cursorTipX, cursorTipY),
+		`"fill-rule":"evenodd"`, // the counter stays a hole
+		cursorInk,
+	} {
+		if !strings.Contains(js, want) {
+			t.Errorf("cursor sprite missing %q", want)
+		}
+	}
+	// Built attribute by attribute. innerHTML is the one thing a page with
+	// Trusted Types enforced refuses outright, and this sprite exists to be
+	// seen on exactly those sites.
+	if strings.Contains(js, ".innerHTML") {
+		t.Error("the sprite is assembled with innerHTML, which the strictest sites refuse")
+	}
+}
+
+// One mark, two copies, no import between them: the Go string has to stay the
+// outline the window actually draws.
+func TestCursorLogoMatchesTheWindows(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("frontend", "src", "lib", "Logo.svelte"))
+	if err != nil {
+		t.Skipf("no frontend source to compare against: %v", err)
+	}
+	m := regexp.MustCompile(`d="([^"]+)"`).FindSubmatch(b)
+	if m == nil {
+		t.Fatal("Logo.svelte no longer carries a path to compare with")
+	}
+	if string(m[1]) != aetoxLogoPath {
+		t.Error("the cursor's copy of the mark has drifted from the one Logo.svelte draws")
 	}
 }

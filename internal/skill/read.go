@@ -385,6 +385,27 @@ func looksBinary(f *os.File) (bool, error) {
 // for a while.
 func IntArg(value any) int { return intArg(value) }
 
+// FloatArg is the same rule for a number with a fraction: a coordinate read
+// off a picture arrives as 412, 412.5 or "412", and a tool that reads the
+// third as zero clicks the corner of the page.
+func FloatArg(value any) (float64, bool) {
+	switch n := value.(type) {
+	case float64:
+		return n, true
+	case int:
+		return float64(n), true
+	case json.Number:
+		if parsed, err := n.Float64(); err == nil {
+			return parsed, true
+		}
+	case string:
+		if parsed, err := strconv.ParseFloat(strings.TrimSpace(n), 64); err == nil {
+			return parsed, true
+		}
+	}
+	return 0, false
+}
+
 // BoolArg is the same rule for a boolean: a model that quotes "true" means
 // true, and a tool that reads that as false refuses an option it was given.
 func BoolArg(value any) bool {

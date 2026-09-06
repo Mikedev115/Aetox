@@ -53,10 +53,38 @@ func TestActionsReportBeforeTheyAct(t *testing.T) {
 		t.Errorf("clickScript must report before it clicks, got:\n%s", click)
 	}
 
+	// For a type, "act" is the write: the value setter or the textContent
+	// assignment. Focusing is not an act in this sense — it cannot navigate —
+	// and the keys path focuses BEFORE reporting on purpose, because the
+	// report has to say whether focus landed (see typeScript).
 	typed := typeScript("tok", 3, "x", false)
-	report, act = strings.Index(typed, "aetoxReport("), strings.Index(typed, "el.focus()")
-	if report < 0 || act < 0 || report > act {
-		t.Errorf("typeScript must report before it types, got:\n%s", typed)
+	report = strings.Index(typed, "aetoxReport(")
+	for _, write := range []string{`"value").set.call`, "el.textContent=val"} {
+		if act := strings.Index(typed, write); report < 0 || act < 0 || report > act {
+			t.Errorf("typeScript must report before it writes %s, got:\n%s", write, typed)
+		}
+	}
+}
+
+func TestTypeScriptLeavesEditorsToTheEngine(t *testing.T) {
+	// Google Docs and Sheets, 5 ก.ย.: a value written into an editor's DOM is
+	// a value the editor never reads, and a read of that DOM then finds it and
+	// calls it the document. The script must decide on the element, report
+	// the decision, and — for an editor — stop, so browser_keys.go can type.
+	js := typeScript("tok", 4, "hello", true)
+	for _, want := range []string{
+		"aetoxTypeMode(el)",                             // the decision is made on the live element
+		`if(!el||mode==="keys")return`,                  // and an editor is left untouched here
+		"extra.active=aetoxActiveIsEditable()",          // whether focus landed travels with the report
+		"extra.canvasShare=",                            // and so does whether read will see the result
+		`tag!=="INPUT"&&tag!=="TEXTAREA")return "keys"`, // a contenteditable is always keys
+		"parseFloat(cs.opacity)===0",                    // a hidden proxy input is keys too
+		`aetoxReport("tok",4,el,extra)`,                 // and the mode reaches Go, which has the typing to do
+		"extra.kept=true",                               // a proxy never steals focus from an editor that has it
+	} {
+		if !strings.Contains(js, want) {
+			t.Errorf("typeScript missing %q, got:\n%s", want, js)
+		}
 	}
 }
 
@@ -64,14 +92,41 @@ func TestActionsReportEvenWhenTheRefMatchesNothing(t *testing.T) {
 	// The whole bug in one assertion: the report has to come out ABOVE the
 	// early return, or a ref that matches nothing produces silence, and silence
 	// is what the old code turned into "clicked".
+	// type's early return also leaves an editor untouched for the engine to
+	// type into (browser_keys.go); the report still has to be above it.
+	bails := map[string]string{"click": "if(!el)return;", "type": `if(!el||mode==="keys")return;`}
 	for name, js := range map[string]string{"click": clickScript("tok", 9), "type": typeScript("tok", 9, "x", false)} {
-		report, bail := strings.Index(js, "aetoxReport("), strings.Index(js, "if(!el)return;")
+		report, bail := strings.Index(js, "aetoxReport("), strings.Index(js, bails[name])
 		if report < 0 || bail < 0 || report > bail {
 			t.Errorf("%sScript must report before giving up on a missing ref, got:\n%s", name, js)
 		}
 		if !strings.Contains(js, "found:!!el") {
 			t.Errorf("%sScript must say whether the ref matched, got:\n%s", name, js)
 		}
+	}
+}
+
+func TestClickScriptHandsSVGToTheMouse(t *testing.T) {
+	// Google Slides, 5 ก.ย.: the title placeholder is SVG text, SVGElement has
+	// no click(), and the deck selects a shape on a real mousedown. The script
+	// must say so and hand back the centre, and must not try el.click() on it.
+	js := clickScript("tok", 5)
+	for _, want := range []string{
+		"!(el instanceof HTMLElement)",
+		"mouse:true",
+		// The centre is measured in the top viewport's pixels, so a shape
+		// inside a same-origin frame is clicked where it is and not where
+		// the frame's own origin says it is.
+		"var p=aetoxPagePoint(el)",
+		"cx:p.x,cy:p.y",
+	} {
+		if !strings.Contains(js, want) {
+			t.Errorf("clickScript missing %q, got:\n%s", want, js)
+		}
+	}
+	// The mouse branch returns before the HTML click.
+	if strings.Index(js, "mouse:true") > strings.Index(js, "el.click()") {
+		t.Errorf("the SVG report must come before the HTML click path, got:\n%s", js)
 	}
 }
 

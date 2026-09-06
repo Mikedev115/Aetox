@@ -167,7 +167,7 @@ func scrollSaid(to string, screens int) string {
 	return fmt.Sprintf("%s %d screens", where, screens)
 }
 
-func (s *browserScrollSkill) scroll(to string, screensArg int) (skill.Output, error) {
+func (s *browserScrollSkill) scroll(to string, screensArg int, target browserTarget) (skill.Output, error) {
 	start := time.Now()
 	to = strings.ToLower(strings.TrimSpace(to))
 	if to == "" {
@@ -188,6 +188,14 @@ func (s *browserScrollSkill) scroll(to string, screensArg int) (skill.Output, er
 		out.Content, out.Stderr = err.Error(), err.Error()
 		out.DurationMs = time.Since(start).Milliseconds()
 		return out, err
+	}
+	// Aimed: a real wheel over a point, for the pages the JS path cannot
+	// move. A canvas app, a map, a virtualised list all scroll on `wheel`
+	// and never on scrollBy — the script below moves nothing on them and
+	// says it did (6 ก.ย.). The wheel goes where a person would put the
+	// pointer, and the cursor goes there first so the user sees why.
+	if !target.empty() {
+		return s.wheel(start, id, to, screens, clamped, said, target)
 	}
 	// The whole journey, so both the arrow and the wait cover it rather than the
 	// first press of it.
@@ -220,6 +228,62 @@ func (s *browserScrollSkill) scroll(to string, screensArg int) (skill.Output, er
 	if clamped {
 		out.Content += fmt.Sprintf("\n(ขอมาเกิน %d จอ เลื่อนให้ %d จอ — ถ้าอยากถึงล่างสุดใช้ to=bottom)", maxScrollScreens, screens)
 	}
+	out.RawOutput = out.Content
+	out.DurationMs = time.Since(start).Milliseconds()
+	return out, nil
+}
+
+// wheelJumpScreens is what top and bottom mean to a wheel, which has no
+// "to the end": as many screens as one call may travel, and the answer says
+// so.
+const wheelJumpScreens = maxScrollScreens
+
+// wheel is the aimed scroll: the pointer over the target, then one screen of
+// notches per screen asked for, with the same settle between screens the JS
+// path gives a page to load what a screen revealed.
+func (s *browserScrollSkill) wheel(start time.Time, id AgentTabID, to string, screens int, clamped bool, said string, target browserTarget) (skill.Output, error) {
+	out := skill.Output{Name: "browser_scroll", Command: "browser scroll " + to + " " + target.String()}
+	res, err := s.app.aim(id, target, false)
+	if err != nil {
+		out.Content, out.Stderr = "เลื่อนไม่สำเร็จ: "+err.Error(), err.Error()
+		out.DurationMs = time.Since(start).Milliseconds()
+		return out, err
+	}
+	jump := to == "top" || to == "bottom"
+	if jump {
+		screens = wheelJumpScreens
+	}
+	dir := 1.0
+	if to == "up" || to == "top" {
+		dir = -1
+	}
+	screenPx := float64(res.VH) * 0.9
+	if screenPx <= 0 {
+		screenPx = 600
+	}
+	p := point{res.CX, res.CY}
+	travel := time.Duration(screens) * scrollSettle
+	s.app.markPageScroll(id, to, int(travel.Milliseconds()))
+	ctx, cancel := pointerContext()
+	defer cancel()
+	for i := 0; i < screens; i++ {
+		if err := s.app.wheelByMouse(ctx, string(id), p, 0, dir*screenPx); err != nil {
+			msg := pointerFailed("หมุนล้อเมาส์", err) + s.app.browserWhere(id)
+			out.Content, out.Stderr = msg, msg
+			out.DurationMs = time.Since(start).Milliseconds()
+			return out, err
+		}
+		time.Sleep(scrollSettle)
+	}
+	out.Success = true
+	out.Content = fmt.Sprintf("หมุนล้อเมาส์จริงเหนือ %s เลื่อน %s แล้ว — refs จากการ read ก่อนหน้าใช้ไม่ได้แล้ว", targetSaid(target, res), said)
+	if jump {
+		out.Content += fmt.Sprintf("\nล้อเมาส์ไม่มี \"ถึงสุด\": หมุนไป %d จอ ถ้ายังไม่สุดเรียกอีกครั้ง", screens)
+	}
+	if clamped && !jump {
+		out.Content += fmt.Sprintf("\n(ขอมาเกิน %d จอ เลื่อนให้ %d จอ)", maxScrollScreens, screens)
+	}
+	out.Content += canvasNote(res)
 	out.RawOutput = out.Content
 	out.DurationMs = time.Since(start).Milliseconds()
 	return out, nil

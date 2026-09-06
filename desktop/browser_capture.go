@@ -27,6 +27,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"image"
 	// Registered for its header alone — a capture is always a PNG, and
@@ -98,6 +99,15 @@ func (s *browserCaptureSkill) capture(ctx context.Context, full bool) (skill.Out
 	// was doing a job it was never told about. The wait is bounded at two
 	// seconds and silence is not a failure — see clearPageMarks.
 	a.clearPageMarks(id)
+	// And put the cursor back once the photograph is taken, whichever way
+	// this returns: the user was watching it, and a capture is not an action
+	// that moves the mouse.
+	defer a.restorePageCursor(id)
+
+	// The viewport, asked for before the photograph: what the picture's
+	// pixels map onto. Without this a model that sees a cell in the picture
+	// has no way to turn the pixel into a point it can press.
+	view, viewKnown := a.pageViewport(id)
 
 	var title, url string
 	tab := a.browsers.tab(string(id))
@@ -112,6 +122,31 @@ func (s *browserCaptureSkill) capture(ctx context.Context, full bool) (skill.Out
 	case <-time.After(400 * time.Millisecond): // the raise has to reach the native view and it has to draw
 	}
 
+	// A hidden view has no picture to give, and asking it for one is eight
+	// seconds of silence. BrowserSetVisible(false) is a Win32 ShowWindow
+	// (SW_HIDE), a hidden window is not composited, and CapturePreview on one
+	// never answers (WebView2Feedback #1077, #2983) — so the 8s deadline in
+	// BrowserCapturePNG was the whole answer, twice in a row, while the
+	// user was on another chat (6 ก.ย. 21:05: two captures, 8.4s each, "the
+	// page did not answer with a picture"). The raise above is what un-hides
+	// a tab of the chat on screen; a tab still hidden after it is either a
+	// background chat's — parked, and staying parked until its chat is opened
+	// (§187) — or one the pane has not mounted yet, which a short wait sorts
+	// from the first. Either way the agent is told what is true and what to do
+	// instead, at once, rather than handed a timeout to guess at.
+	background := s.owner != "" && s.owner != a.cur().id
+	if tab != nil && tab.isHidden() {
+		if !background {
+			a.waitShown(ctx, tab, 1500*time.Millisecond)
+		}
+		if tab.isHidden() {
+			err := captureHiddenErr(background)
+			out.Content, out.Stderr = "แคปหน้าเว็บไม่สำเร็จ: "+err.Error(), err.Error()
+			out.DurationMs = time.Since(start).Milliseconds()
+			return out, err
+		}
+	}
+
 	// notes are whatever this picture is not. They are collected as they are
 	// learnt and spent at the bottom, because every one of them is a thing a
 	// caller would otherwise have to infer from a picture that looks perfectly
@@ -124,7 +159,7 @@ func (s *browserCaptureSkill) capture(ctx context.Context, full bool) (skill.Out
 	// hidden native view produces no frames — so the picture below can be the
 	// last thing the page drew before it was hidden. Said out loud, because
 	// from the bytes alone a stale frame looks exactly like a fresh one.
-	if s.owner != "" && s.owner != a.cur().id {
+	if background {
 		notes = append(notes, "แชตนี้ไม่ได้อยู่บนจอ หน้าต่างเบราว์เซอร์จึงถูกซ่อนไว้ ภาพนี้อาจเป็นเฟรมเก่าของหน้า ไม่ใช่สถานะล่าสุด")
 	}
 	var dataURL string
@@ -223,6 +258,11 @@ func (s *browserCaptureSkill) capture(ctx context.Context, full bool) (skill.Out
 		if strip := tallStripNote(png); strip != "" {
 			notes = append(notes, strip)
 		}
+		if viewKnown {
+			if scale := captureScaleNote(view, fitted.Data, full); scale != "" {
+				notes = append(notes, scale)
+			}
+		}
 		out.Images = []model.Image{fitted}
 		out.Content = fmt.Sprintf("ภาพของ %s อยู่ด้านล่าง และเก็บไว้ที่ %s", where, rel)
 	} else {
@@ -231,6 +271,58 @@ func (s *browserCaptureSkill) capture(ctx context.Context, full bool) (skill.Out
 	out.Content += captureNotes(notes)
 	out.RawOutput = out.Content
 	return out, nil
+}
+
+// pageViewport asks the page how big it is, in the unit a click is aimed in.
+// captureHiddenErr is the sentence for a view that cannot be photographed
+// because it is not being drawn, in the two shapes that has.
+func captureHiddenErr(background bool) error {
+	if background {
+		return errors.New("แชตนี้ไม่ได้อยู่บนจอ หน้าต่างเบราว์เซอร์ของมันจึงถูกซ่อนไว้ และหน้าต่างที่ซ่อนอยู่ไม่วาดเฟรมให้ถ่าย — ใช้ read แทนไปก่อน หรือ capture อีกครั้งเมื่อผู้ใช้กลับมาที่แชตนี้")
+	}
+	return errors.New("แท็บนี้ถูกซ่อนอยู่ (ไม่ใช่แท็บที่แสดงบนจอตอนนี้) จึงไม่มีเฟรมให้ถ่าย — ใช้ tabs select เพื่อดึงขึ้นมาก่อน หรือใช้ read แทน")
+}
+
+// waitShown gives a raise time to land: the pane mounts, BrowserSetVisible
+// runs, the tab stops being hidden. Bounded, and silence is the caller's to
+// judge — it reads isHidden again after this returns.
+func (a *App) waitShown(ctx context.Context, tab *browserTab, limit time.Duration) {
+	deadline := time.Now().Add(limit)
+	for tab.isHidden() && time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+}
+
+func (a *App) pageViewport(id AgentTabID) (browserActResult, bool) {
+	res, answered, err := a.browserActOnFor(string(id), viewportScript, stateWait)
+	return res, err == nil && answered && res.VW > 0 && res.VH > 0
+}
+
+// captureScaleNote is how a pixel in the picture becomes a point on the page.
+//
+// The picture is physical pixels (the viewport times the device pixel ratio,
+// times any zoom preset) and may then have been shrunk again for the wire;
+// the model sees the shrunk one, so the multiplier is measured against THAT
+// width, which is the only width it can read a pixel off. A full-page capture
+// is a picture of the document, whose y is a document offset and not a
+// viewport one — said, because a y read off it and pressed lands wherever the
+// viewport happens to be.
+func captureScaleNote(view browserActResult, fitted []byte, full bool) string {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(fitted))
+	if err != nil || cfg.Width <= 0 {
+		return ""
+	}
+	k := float64(view.VW) / float64(cfg.Width)
+	note := fmt.Sprintf("viewport %d×%d CSS px, ภาพ %d×%d px, DPR %.2g: พิกัดที่อ่านจากภาพ × %.3g = x,y สำหรับ click/hover/drag/scroll",
+		view.VW, view.VH, cfg.Width, cfg.Height, view.DPR, k)
+	if full {
+		note += " — ภาพนี้คือทั้งเอกสาร y ในภาพจึงไม่ใช่ y ของ viewport เลื่อนไปให้เห็นจุดที่จะกด แล้ว capture แบบไม่ full ก่อนเล็ง"
+	}
+	return note
 }
 
 // tallStripRatio is how much taller than wide a picture has to be before it is

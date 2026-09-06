@@ -89,7 +89,7 @@
   // which is a real sentence rather than a blank: an action added to the
   // browser tool and not to the dictionary should read as work being done, not
   // as the signal having broken.
-  const BUSY_ACTS = new Set(['open', 'read', 'click', 'type', 'scroll', 'capture', 'tabs', 'wait', 'back', 'dialog', 'console', 'network'])
+  const BUSY_ACTS = new Set(['open', 'read', 'click', 'type', 'scroll', 'capture', 'tabs', 'wait', 'back', 'dialog', 'console', 'network', 'hover', 'drag', 'key', 'upload'])
 
   /** What the bar says: the action in words, with the thing it is being done to.
    *
@@ -306,6 +306,38 @@
     }
   }
 
+  // Slide an open dropdown back inside the window.
+  //
+  // The + button rides at the end of the tab strip, so where it sits depends on
+  // how many tabs are open and how wide the panel is. `.plus-menu` hangs from
+  // its left edge, and at 230px wide it ran off the right of the window as soon
+  // as a tab or two had pushed the button over: the owner's screenshot showed
+  // "หน้าพัฒนาโค้ด", Git, Pull requests and แผน with their labels sheared off at
+  // the window frame. Nothing in the DOM clips it (.insp-tabs deliberately has
+  // no overflow-x for exactly this reason) — the clip is the window edge, which
+  // no ancestor style can fix.
+  //
+  // A shift, not a flip. Flipping to right:0 would tear the menu away from the
+  // button it belongs to on every narrow panel; moving it the few pixels it
+  // overhangs keeps it attached and keeps the rows readable. The shift is
+  // bounded by the room actually available on the left, so a panel too narrow
+  // to hold the menu at all loses the same edge it would have lost anyway
+  // rather than losing the other one instead.
+  const menuGutter = 8
+  function keepOnScreen(el: HTMLElement) {
+    const fit = () => {
+      el.style.marginLeft = '0px'
+      const box = el.getBoundingClientRect()
+      const overhang = box.right - (window.innerWidth - menuGutter)
+      if (overhang <= 0) return
+      const room = Math.max(box.left - menuGutter, 0)
+      el.style.marginLeft = `${-Math.min(overhang, room)}px`
+    }
+    fit()
+    window.addEventListener('resize', fit)
+    return { destroy: () => window.removeEventListener('resize', fit) }
+  }
+
   function closeMenuOnOutsideClick(e: MouseEvent) {
     if (!(e.target as HTMLElement).closest('.plus-menu-wrap')) menuOpen = false
   }
@@ -405,7 +437,7 @@
     <div class="plus-menu-wrap">
       <button class="icobtn tiny plus-btn" aria-label={t('workbench.addTab')} data-tip={t('workbench.addTab')} onclick={() => (menuOpen = !menuOpen)}><Icon name="plus" size={14} /></button>
       {#if menuOpen}
-        <div class="plus-menu">{@render tabChoices()}</div>
+        <div class="plus-menu" use:keepOnScreen>{@render tabChoices()}</div>
       {/if}
     </div>
   </div>

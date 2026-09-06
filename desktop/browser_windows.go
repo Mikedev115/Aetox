@@ -12,6 +12,7 @@ package main
 // browser thread".
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -246,11 +247,52 @@ func (t *win32Tab) setVisible(visible bool) {
 	procShowWindow.Call(t.hwnd, uintptr(swHide))
 }
 
-// ponytail: DestroyWindow only — the WebView2 controller isn't explicitly
-// Closed (the wrapper doesn't expose it); its process is reclaimed when the
-// app exits. The WebKit hosts can do better, since both toolkits expose a real
-// teardown.
-func (t *win32Tab) destroy() { procDestroyWindow.Call(t.hwnd) }
+// destroy closes the controller, then the window. Close is what actually ends
+// a webview — DestroyWindow alone left the controller to be reclaimed at
+// process exit, which the old comment here called a ponytail. On a tab whose
+// engine has already gone, Close is refused; the refusal is the expected
+// answer and is not reported.
+func (t *win32Tab) destroy() {
+	t.requireHostThread("destroy")
+	if err := t.chromium.Close(); err != nil && !engineClosed(err) {
+		debuglog.Msg("browser: closing a tab's webview: %v", err)
+	}
+	procDestroyWindow.Call(t.hwnd)
+}
+
+// errEngineProcessExited is what ProcessFailed says when the browser process
+// behind a tab ends. Named because it reaches the agent's answer.
+var errEngineProcessExited = errors.New("the browser engine's process exited")
+
+// engineClosed reports whether err is the engine saying "this webview is
+// closed" rather than complaining about the call it was given.
+//
+// WebView2 answers every call on a closed CoreWebView2 with
+// HRESULT_FROM_WIN32(ERROR_INVALID_STATE) — the same code it returns after
+// Close(), and after the browser process it lived in has exited. The RPC
+// codes are the same fact seen from one layer down: the COM proxy found no
+// server on the other end of the pipe.
+//
+// The message Windows renders for it — "The group or resource is not in the
+// correct state to perform the requested operation" — is the sentence that sat
+// in the log fifteen times on 6 ก.ย. while the tool reported a network
+// problem. It is not a network problem, and it is not transient: no call on
+// that webview will ever succeed again. The only recovery is a new one.
+func engineClosed(err error) bool {
+	var code syscall.Errno
+	if !errors.As(err, &code) {
+		return false
+	}
+	switch uint32(code) {
+	case 0x139F, // ERROR_INVALID_STATE
+		0x8007139F, // HRESULT_FROM_WIN32(ERROR_INVALID_STATE)
+		0x80010108, // RPC_E_DISCONNECTED: the object invoked has disconnected from its clients
+		0x800706BA, // HRESULT_FROM_WIN32(RPC_S_SERVER_UNAVAILABLE)
+		0x800706BE: // HRESULT_FROM_WIN32(RPC_S_CALL_FAILED)
+		return true
+	}
+	return false
+}
 
 type win32Host struct {
 	mu       sync.Mutex
@@ -505,7 +547,48 @@ func (h *win32Host) openTab(id, url string, x, y, w, hgt int, cb tabCallbacks) t
 		if cb.onEngineError != nil {
 			cb.onEngineError(err)
 		}
+		// A refusal because the webview is CLOSED is not a complaint about
+		// the call, it is the engine's only way of saying the browser
+		// process behind this tab is gone. Reported separately, because the
+		// answer to it is a new engine, not a better call. See engineClosed.
+		if cb.onEngineGone != nil && engineClosed(err) {
+			cb.onEngineGone(err)
+		}
 	})
+
+	// The engine's own account of a process behind this tab ending. The
+	// browser process is the one that matters: when it goes, this webview is
+	// closed and stays closed, and until this handler existed nobody was told —
+	// the tab sat in the host's map, black, answering every call with
+	// ERROR_INVALID_STATE for the rest of the session (6 ก.ย.: twenty-two
+	// minutes of "the browser engine refused what Aetox asked it to do").
+	//
+	// A renderer dying is a smaller event with a smaller answer: the engine is
+	// fine, the page is not, and Reload puts the page back.
+	chromium.ProcessFailedCallback = func(_ *edge.ICoreWebView2, args *edge.ICoreWebView2ProcessFailedEventArgs) {
+		if args == nil {
+			return
+		}
+		kind, err := args.GetProcessFailedKind()
+		if err != nil {
+			debuglog.Msg("browser tab %s: a process failed but the engine would not say which: %v", id, err)
+			return
+		}
+		switch kind {
+		case edge.COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED:
+			debuglog.Msg("browser tab %s: the browser process exited", id)
+			if cb.onEngineGone != nil {
+				cb.onEngineGone(errEngineProcessExited)
+			}
+		case edge.COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED:
+			debuglog.Msg("browser tab %s: the page's renderer exited; reloading", id)
+			chromium.Reload()
+		case edge.COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE:
+			debuglog.Msg("browser tab %s: the page's renderer is not responding", id)
+		default:
+			debuglog.Msg("browser tab %s: a helper process ended (kind %d); the engine restarts those itself", id, kind)
+		}
+	}
 
 	view := &win32Tab{hwnd: hwnd, chromium: chromium, hostThread: h.threadID, reportErr: cb.onEngineError}
 

@@ -130,22 +130,30 @@ func (s *browserSkill) ToolDefinition() model.ToolDefinition {
 	lines := map[string]string{
 		"open":    "`open` (url, newTab?) — go to a page and wait for it to load.",
 		"read":    "`read` (filter?) — the page's text, plus its interactive elements each tagged [n]; filter lists only the elements whose text contains it.",
-		"click":   "`click` (ref) — press the element with that ref.",
-		"type":    "`type` (ref, text, enter?) — fill an input/textarea/select/contenteditable.",
+		"click":   "`click` (ref | find | x,y, button?: right, count?: 2|3) — press the element with that ref, the one whose text contains find, or the viewport point x,y in CSS px read off a capture; right for a context menu, count 2/3 for double/triple.",
+		"type":    "`type` (ref? | find? | x,y?, text, enter?) — fill an input/textarea/select/contenteditable; with no target, keystrokes to wherever the page's focus is; with x,y, click there first.",
 		"wait":    "`wait` (text, seconds?) — wait until that text appears.",
 		"back":    "`back` — return to the previous page in this tab.",
-		"scroll":  "`scroll` (to: down|up|top|bottom, screens) — move the page N screens; read again after.",
+		"scroll":  "`scroll` (to: down|up|top|bottom, screens) — move the page N screens; add ref or x,y and it is a real mouse wheel over that point instead, for canvas and virtualised apps.",
 		"capture": "`capture` (full?) — a picture of the page; full=true photographs the whole document instead of the visible part.",
 		"tabs":    "`tabs` (act: list|select|close, id) — your own tabs.",
 		"dialog":  "`dialog` (accept, text?) — answer this page's next alert/confirm/prompt.",
 		"console": "`console` — what this page logged, threw, or had blocked since it loaded.",
 		"network": "`network` — the fetch/XHR calls this page's own code made since it loaded.",
+		"hover":   "`hover` (ref | find | x,y) — move the pointer there without pressing.",
+		"drag":    "`drag` (ref|find|x,y → toRef|toFind|toX,toY) — press at the first, sweep to the second, release: moves things, selects the text swept over.",
+		"key":     "`key` (keys) — press keys at the page's focus: names (Escape, Enter, Backspace, ArrowDown, Home, End, F2) and chords (ctrl+a, shift+End, ctrl+shift+ArrowRight), several separated by spaces.",
+		"upload":  "`upload` (ref | find, path) — put a file from the sandbox into that file input.",
 	}
 	var b strings.Builder
 	b.WriteString("Work a web page in the workbench browser, where the user can watch. Actions:\n")
 	for _, action := range allowed {
 		b.WriteString(lines[action] + "\n")
 	}
+	// The batch form. One line, because it is the shape of a call and not
+	// a judgment — the judgment (when to batch, how to end one) is in
+	// Guidance, sent once.
+	b.WriteString("`steps` (array of these actions) — run several in order in one call; stops at the first that fails and reports every step.\n")
 	// Two sentences survive the migration, for two different reasons.
 	//
 	// The first is signature rather than judgment: which tab an action lands on
@@ -174,6 +182,17 @@ func (s *browserSkill) ToolDefinition() model.ToolDefinition {
 			"action":  map[string]any{"type": "string", "enum": allowed},
 			"url":     map[string]any{"type": "string"},
 			"ref":     map[string]any{"type": "integer"},
+			"find":    map[string]any{"type": "string"},
+			"x":       map[string]any{"type": "number"},
+			"y":       map[string]any{"type": "number"},
+			"toRef":   map[string]any{"type": "integer"},
+			"toFind":  map[string]any{"type": "string"},
+			"toX":     map[string]any{"type": "number"},
+			"toY":     map[string]any{"type": "number"},
+			"button":  map[string]any{"type": "string", "enum": []string{"left", "right", "middle"}},
+			"count":   map[string]any{"type": "integer"},
+			"keys":    map[string]any{"type": "string"},
+			"path":    map[string]any{"type": "string"},
 			"filter":  map[string]any{"type": "string"},
 			"text":    map[string]any{"type": "string"},
 			"enter":   map[string]any{"type": "boolean"},
@@ -185,8 +204,11 @@ func (s *browserSkill) ToolDefinition() model.ToolDefinition {
 			"screens": map[string]any{"type": "integer"},
 			"accept":  map[string]any{"type": "boolean"},
 			"full":    map[string]any{"type": "boolean"},
+			"steps": map[string]any{
+				"type":  "array",
+				"items": map[string]any{"type": "object"},
+			},
 		},
-		"required": []string{"action"},
 	})
 }
 
@@ -198,19 +220,44 @@ func (s *browserSkill) Execute(ctx context.Context, input skill.Input) (skill.Ou
 	return s.run(ctx, map[string]any(input))
 }
 
+// actingActions are the actions whose answer carries a change note: they
+// touch the page, and what the page did about it is the observation the
+// model would otherwise spend a call on. read, capture, wait, tabs, console
+// and network describe the page and change nothing; open's answer is a page.
+var actingActions = map[string]bool{
+	"click": true, "type": true, "key": true, "hover": true, "drag": true,
+	"scroll": true, "upload": true, "back": true, "dialog": true,
+}
+
 func (s *browserSkill) run(ctx context.Context, args map[string]any) (skill.Output, error) {
-	action := strings.ToLower(strings.TrimSpace(str(args["action"])))
-	if action == "" {
-		return skill.Output{Name: "browser"}, fmt.Errorf("action is required — one of %s", strings.Join(s.allowedActions(), ", "))
+	if steps, ok := args["steps"].([]any); ok && len(steps) > 0 {
+		return s.runSteps(ctx, steps)
 	}
-	// Refused here as well as hidden from the description, because a
-	// description is guidance and a gate is a gate.
-	if !slices.Contains(s.allowedActions(), action) {
-		return skill.Output{Name: "browser"}, fmt.Errorf("browser %s is not available here — this session may use: %s",
-			action, strings.Join(s.allowedActions(), ", "))
+	action, err := s.gate(args)
+	if err != nil {
+		return skill.Output{Name: "browser"}, err
+	}
+
+	// The page before, for the note after. Asked only when the action acts,
+	// and never a reason to refuse: a page that will not say what it is
+	// still gets its click.
+	var before browserActResult
+	noting := false
+	if actingActions[action] {
+		if id := AgentTabID(s.app.agentTabPeek()); id != "" {
+			before, noting = s.app.pageState(id, stateWait)
+		}
 	}
 
 	out, err := s.dispatch(ctx, action, args)
+	if err == nil && noting && out.Content != "" {
+		if id := AgentTabID(s.app.agentTabPeek()); id != "" {
+			out.Content += s.app.changeNote(id, before)
+			if out.RawOutput != "" {
+				out.RawOutput = out.Content
+			}
+		}
+	}
 
 	// Which tab, stamped once, here, for every action that does not already say
 	// it mid-sentence. This is the one door every browser action comes through,
@@ -222,7 +269,7 @@ func (s *browserSkill) run(ctx context.Context, args map[string]any) (skill.Outp
 	// move which tab is current, and the tab an answer belongs to is the one it
 	// left the agent on.
 	if out.Content != "" && !browserNamesItsOwnTab[action] {
-		if id, tabErr := s.app.agentTab(); tabErr == nil {
+		if id := AgentTabID(s.app.agentTabPeek()); id != "" {
 			out.Content += browserTabRef(id, "")
 			// RawOutput is the same sentence when it is set at all, and an
 			// empty one is a deliberate state on the error paths.
@@ -234,26 +281,138 @@ func (s *browserSkill) run(ctx context.Context, args map[string]any) (skill.Outp
 	return out, err
 }
 
+// gate reads the action out of a call and refuses one this caller may not
+// use. Refused here as well as hidden from the description, because a
+// description is guidance and a gate is a gate. Shared by the single call and
+// by every step of a batch, so a batch cannot smuggle an action past it.
+func (s *browserSkill) gate(args map[string]any) (string, error) {
+	action := strings.ToLower(strings.TrimSpace(str(args["action"])))
+	if action == "" {
+		return "", fmt.Errorf("action is required — one of %s", strings.Join(s.allowedActions(), ", "))
+	}
+	if !slices.Contains(s.allowedActions(), action) {
+		return "", fmt.Errorf("browser %s is not available here — this session may use: %s",
+			action, strings.Join(s.allowedActions(), ", "))
+	}
+	return action, nil
+}
+
+// runSteps is several actions in one call.
+//
+// Owner, 6 ก.ย.: *"ทำยังไงให้มันไว เพราะตอนนี้ 1 call ได้แค่ 1 แอ็คชั่น … อยากให้มันเหมือน
+// คนควบคุมจริง ๆ"*. A person who knows the next four moves makes them; the
+// model was paying a full round trip for each. This is the shape OpenAI's
+// computer_call takes (`actions[]`, one screenshot back) and Claude's
+// computer use (several tool_use blocks, one screenshot to close), and it is
+// the shape of this very session's browser_batch.
+//
+// Three rules. Every step passes the same gate a single call does, so a
+// profile without browser_type cannot type through a batch. It stops at the
+// first step that fails and says which, what came before it, and what did
+// not run — the model knows exactly where it stands. And there is one change
+// note at the end, not one per step: the observation is of where the batch
+// left the page.
+//
+// Between an acting step and the next, the page is given the same settle a
+// single call gets from its change note — so open → click → read inside one
+// batch does not read the page the click just left.
+func (s *browserSkill) runSteps(ctx context.Context, steps []any) (skill.Output, error) {
+	out := skill.Output{Name: "browser", Command: fmt.Sprintf("browser steps (%d)", len(steps))}
+	var b strings.Builder
+	var before browserActResult
+	noting := false
+	if id := AgentTabID(s.app.agentTabPeek()); id != "" {
+		before, noting = s.app.pageState(id, stateWait)
+	}
+	var failed error
+	for i, raw := range steps {
+		if failed != nil {
+			args, _ := raw.(map[string]any)
+			fmt.Fprintf(&b, "\n%d. %s: ยังไม่ได้ทำ", i+1, str(args["action"]))
+			continue
+		}
+		args, ok := raw.(map[string]any)
+		if !ok {
+			failed = fmt.Errorf("step %d is not an object", i+1)
+			fmt.Fprintf(&b, "\n%d. ✗ %v", i+1, failed)
+			continue
+		}
+		action, err := s.gate(args)
+		if err != nil {
+			failed = err
+			fmt.Fprintf(&b, "\n%d. ✗ %v", i+1, err)
+			continue
+		}
+		res, err := s.dispatch(ctx, action, args)
+		if res.Content != "" && !browserNamesItsOwnTab[action] {
+			if id := AgentTabID(s.app.agentTabPeek()); id != "" {
+				res.Content += browserTabRef(id, "")
+			}
+		}
+		out.Images = append(out.Images, res.Images...)
+		out.Artifacts = append(out.Artifacts, res.Artifacts...)
+		if err != nil {
+			failed = fmt.Errorf("step %d (%s): %w", i+1, action, err)
+			fmt.Fprintf(&b, "\n%d. %s ✗ %s", i+1, action, strings.TrimSpace(res.Content))
+			continue
+		}
+		fmt.Fprintf(&b, "\n%d. %s: %s", i+1, action, strings.TrimSpace(res.Content))
+		// The page settles before the next step, and its state after this
+		// one is what the note at the end will be measured against, so a
+		// batch that opens a page, acts on it and reads it reads the page
+		// it acted on.
+		if actingActions[action] && i+1 < len(steps) && noting {
+			if id := AgentTabID(s.app.agentTabPeek()); id != "" {
+				if after, ok := s.app.settleAfterAct(id, before); ok {
+					_ = after
+				}
+			}
+		}
+	}
+	if noting {
+		if id := AgentTabID(s.app.agentTabPeek()); id != "" {
+			b.WriteString(s.app.changeNote(id, before))
+		}
+	}
+	out.Content = strings.TrimPrefix(b.String(), "\n")
+	out.RawOutput = out.Content
+	out.Success = failed == nil
+	if failed != nil {
+		out.Stderr = failed.Error()
+	}
+	return out, failed
+}
+
 // browserNamesItsOwnTab is the actions whose answers already carry the tab.
 //
-// The first three say it mid-sentence through browserWhere, where the fact
+// Those that act say it mid-sentence through browserWhere, where the fact
 // belongs — a click that landed somewhere is about the page it landed on, not
 // about a bracket at the end. `tabs` enumerates every tab by id and marks the
 // current one, so a stamp would be a fourth mention in three lines.
 var browserNamesItsOwnTab = map[string]bool{
 	"click": true, "type": true, "back": true, "tabs": true,
+	"hover": true, "drag": true, "key": true, "upload": true,
 }
 
 func (s *browserSkill) dispatch(ctx context.Context, action string, args map[string]any) (skill.Output, error) {
+	target := targetFrom(args, "ref", "find", "x", "y")
 	switch action {
 	case "open":
 		return (&browserOpenSkill{app: s.app, owner: s.owner()}).open(ctx, str(args["url"]), boolArg(args["newTab"]))
 	case "read":
 		return (&browserReadSkill{app: s.app}).Execute(ctx, skill.Input{"filter": str(args["filter"])})
 	case "click":
-		return (&browserClickSkill{app: s.app}).click(intArg(args["ref"]))
+		return (&browserClickSkill{app: s.app}).click(target, str(args["button"]), intArg(args["count"]))
 	case "type":
-		return (&browserTypeSkill{app: s.app}).typeText(intArg(args["ref"]), str(args["text"]), boolArg(args["enter"]))
+		return (&browserTypeSkill{app: s.app}).typeText(target, str(args["text"]), boolArg(args["enter"]))
+	case "hover":
+		return (&browserHoverSkill{app: s.app}).hover(target)
+	case "drag":
+		return (&browserDragSkill{app: s.app}).drag(target, targetFrom(args, "toRef", "toFind", "toX", "toY"))
+	case "key":
+		return (&browserKeySkill{app: s.app}).key(str(args["keys"]))
+	case "upload":
+		return (&browserUploadSkill{app: s.app}).upload(target, str(args["path"]))
 	case "capture":
 		return (&browserCaptureSkill{app: s.app, owner: s.owner()}).capture(ctx, boolArg(args["full"]))
 	case "tabs":
@@ -263,7 +422,7 @@ func (s *browserSkill) dispatch(ctx context.Context, action string, args map[str
 	case "back":
 		return (&browserBackSkill{app: s.app}).back(ctx)
 	case "scroll":
-		return (&browserScrollSkill{app: s.app}).scroll(str(args["to"]), intArg(args["screens"]))
+		return (&browserScrollSkill{app: s.app}).scroll(str(args["to"]), intArg(args["screens"]), target)
 	case "dialog":
 		return (&browserDialogSkill{app: s.app}).dialog(boolArg(args["accept"]), str(args["text"]))
 	case "console", "network":
