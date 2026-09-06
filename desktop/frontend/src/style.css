@@ -1732,7 +1732,14 @@ button.phase-head:hover { color:var(--text-muted); }
 .bgw-mark.queue { color:var(--text-dim); }
 .bgw-badge.queue { color:var(--text-dim); border:1px solid var(--border-default); }
 .bgw-card.is-waiting { border-color:var(--status-modified); }
-.bgw-card.is-done { display:flex; align-items:center; gap:9px; padding:7px 13px; }
+/* A receipt is the same card, still. It used to collapse into a single flex
+   row, which made a delegation change shape at the exact moment it stopped —
+   the opposite of what §105.6 asked for. */
+.bgw-card.is-done { padding:9px 13px; }
+/* What has already happened, under the line that is happening now. Quieter
+   than the headline and still drawn: one line cannot show movement to somebody
+   who looked away for a second, which is why §105.5 put a list here. */
+.bgw-past { opacity:.62; }
 .bgw-head { display:flex; align-items:center; gap:8px; }
 .bgw-mark { display:flex; color:var(--text-dim); }
 .bgw-mark.run { color:var(--interactive); animation:tool-spin 1.2s linear infinite; }
@@ -1754,6 +1761,16 @@ button.phase-head:hover { color:var(--text-muted); }
   transition:color .12s ease, border-color .12s ease;
 }
 .bgw-stop:hover { color:var(--status-danger); border-color:var(--status-danger); }
+/* Quieter until the pointer is on the card, and deliberately NOT to zero.
+   §163 is titled "a brake you cannot reach is not a brake", and a control that
+   only exists while hovered is one nobody finds in the second they want it —
+   the second being the point of this button. So it fades rather than hides,
+   and it holds its place in the row either way: a button that appears on hover
+   also moves the clock beside it, which is a card flinching every time the
+   pointer crosses it. */
+.bgw-stop-quiet { opacity:.42; }
+.bgw-card:hover .bgw-stop-quiet,
+.bgw-stop-quiet:focus-visible { opacity:1; }
 /* Inside a run the label comes off: the group header already says "stop", and
    eight worker rows each repeating the word is the card shouting again. */
 .bgw-stop-worker { padding:2px 6px; margin-left:6px; }
@@ -1776,10 +1793,93 @@ button.phase-head:hover { color:var(--text-muted); }
   margin:1px 0 0 23px; color:var(--text-dim); line-height:1.45;
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
 }
-.bgw-steps { margin-left:20px; }
-/* The fold. Sits where a step row would, so opening it does not shift the card
-   sideways — the rows appear directly under their own summary. */
-.bgw-toggle { margin:5px 0 0 21px; }
+
+/* ── The delegation card, built around the work instead of the name ──────────
+   The card this replaces led with WHO, and who is the one thing about a
+   delegation that cannot change. The name, a pill repeating the name's state,
+   and a clock sat across the top; the job sat under them; the work itself was
+   behind a fold. Nothing on it moved, so a portrait added to the corner
+   changed nothing either — owner, over exactly that version: "แทบไม่ต่างจาก
+   อันเก่า", after the diagnosis it came from: "ทั้งที่มีอวตารแล้วทำไมยัง
+   เงียบแบบเดิมอยู่".
+
+   So the top row is a person and a sentence: a face big enough to read, the
+   line saying what is happening RIGHT NOW at body size, and everything that
+   used to be the headline demoted to the caption under it. This is §105.5's
+   finding — a list of filenames going past is what says "alive", a counter is
+   not — applied to the card in the transcript, which never received it.
+
+   45px is the gutter everything below the top row hangs off: a 34px face plus
+   the 11px gap, so the rail, the foot and the steps all line up with the
+   sentence rather than with the picture. */
+.bgw-top { display:flex; align-items:flex-start; gap:11px; }
+.bgw-face { flex:none; margin-top:1px; }
+/* 30% where AgentFace's own tile is 26%. Higher specificity than the
+   component's scoped rule on purpose — the roster wants a squarer tile at
+   20px, and a portrait at this size beside running text wants a softer one. */
+.bgw-card .bgw-face .agent-face { border-radius:30%; }
+.bgw-said { flex:1; min-width:0; }
+/* The headline. One line, clipped rather than wrapped: it is a file path more
+   often than not, and a card that changes height when the delegate opens a
+   deeply nested file is a card that makes the transcript jump under the
+   reader's eye. The whole of it is the title. */
+.bgw-now {
+  font-size:var(--fs-sm); color:var(--text-primary); line-height:1.45;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+/* And it arrives from below, which is the whole of the motion. The span is
+   rebuilt by {#key} whenever the text changes, so the animation runs once per
+   step and the card reads as a line advancing rather than as text being
+   swapped. inline-block because a transform does nothing to an inline box. */
+.bgw-now-in { display:inline-block; animation:bgw-tick .22s ease-out; }
+@keyframes bgw-tick { from { transform:translateY(7px); opacity:0; } to { transform:none; opacity:1; } }
+.bgw-who {
+  display:flex; align-items:center; gap:5px; margin-top:2px;
+  color:var(--text-dim); font-size:var(--fs-xs); font-variant-numeric:tabular-nums;
+}
+/* The separators, dimmer than what they separate, so the line reads as three
+   facts and not as one string. */
+.bgw-who .bgw-dot { opacity:.5; }
+.bgw-who .bgw-agent { font-size:var(--fs-xs); color:var(--text-muted); }
+/* The state word keeps its colour and loses its pill. A bordered badge beside
+   a 34px face was the loudest thing on a card whose headline is supposed to be
+   the work — and the word is what a screen reader and a
+   prefers-reduced-motion viewer have instead of the beam, so it does not get
+   to leave. */
+.bgw-who .bgw-badge.run,
+.bgw-who .bgw-badge.queue,
+.bgw-who .bgw-badge.wait { padding:0; border:0; }
+.bgw-clock { font-variant-numeric:tabular-nums; }
+/* Spend at the far end of the caption line. It is the one figure here that is
+   an amount rather than a description, and it is the one somebody is looking
+   for when they are deciding whether to reach for the brake (§163.3). */
+.bgw-who .bgw-meta { margin-left:auto; padding-left:10px; }
+/* What it was told, in a rail — because that is what it is. An instruction
+   handed to somebody reads differently from a caption under a picture, and the
+   rail is the mark this app already uses for a thing that was said to a worker
+   (.bgw-worker-ask). */
+.bgw-told { margin:8px 0 0 45px; border-left:2px solid var(--border-subtle); padding-left:9px; }
+.bgw-told .bgw-brief, .bgw-told .bgw-longbrief { margin:0; }
+.bgw-told .bgw-brief { color:var(--text-secondary); }
+.bgw-told .bgw-longbrief { margin-top:2px; }
+/* The foot: what has been touched, and the way in to the rest. */
+.bgw-foot {
+  display:flex; align-items:center; gap:11px; margin:8px 0 0 45px;
+  color:var(--text-dim); font-size:var(--fs-xs); font-variant-numeric:tabular-nums;
+}
+.bgw-open {
+  margin-left:auto; display:flex; align-items:center; gap:4px;
+  background:none; border:0; padding:0; cursor:pointer;
+  color:var(--text-dim); font:inherit; font-size:var(--fs-xs);
+}
+.bgw-open:hover { color:var(--text-secondary); }
+.bgw-steps { margin-left:45px; }
+/* Motion off, meaning kept: the line still changes, it just stops sliding.
+   Sits beside the beam's own reduced-motion rule for the same reason — what is
+   being removed is the travel, never the fact. */
+@media (prefers-reduced-motion: reduce) {
+  .bgw-now-in { animation:none; }
+}
 /* A declared job (internal/subagent/run.go) drawn as one card with its workers
    under it. Everything here is the existing card's vocabulary at one more level
    of indent — a run is not a new kind of object on screen, it is the same rows
