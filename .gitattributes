@@ -1,0 +1,41 @@
+# Line endings, settled 2026-09-06.
+#
+# Until this file existed the repository had no opinion, so core.autocrlf on
+# each machine had the last word. On this one it is true, which means git wrote
+# CRLF into the working tree on checkout and normalised it back to LF on read.
+# Both halves of that are invisible: every file in the index was already LF, and
+# a CRLF working file never once showed up as modified in `git status`.
+#
+# What it cost, measured the day this landed. `gofmt -l internal desktop cmd`
+# named 247 files. Stripping CR from a copy of each and re-running it left 28 —
+# so 219 of those complaints were line endings, and the tool that reports real
+# formatting drift was reporting nine parts noise to one part signal. Nobody
+# reads a list like that, which is how 24 genuinely misformatted files reached
+# main. Fourteen of the twenty-eight were themselves CRLF, so the noise was not
+# merely loud, it was hiding half the signal inside itself.
+#
+# eol=lf rather than eol=native on purpose: the whole tree is Go, TypeScript and
+# Svelte, every toolchain over it writes LF, and "whatever this machine prefers"
+# is the setting that produced the mess above.
+* text=auto eol=lf
+
+# Named rather than left to text=auto, so that a future rule cannot widen its
+# way over them. auto already treats these as binary; this says so out loud.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.gz binary
+*.mp3 binary
+*.woff2 binary
+*.lockb binary
+
+# desktop/wails-dev.bat is deliberately NOT pinned to CRLF. Batch files usually
+# want it, that one has been LF in both the index and the working tree all
+# along, and it runs — so the rule that would "fix" it is the only thing here
+# that would change a working file's behaviour.
+#
+# One more trap worth writing down: Artifacts.svelte and BackgroundWork.svelte
+# are detected as binary, because they carry bytes no text file should. text=auto
+# leaves them alone and must keep doing so. A blanket `*.svelte text` added later
+# would rewrite them, which is why there is no such line here.
