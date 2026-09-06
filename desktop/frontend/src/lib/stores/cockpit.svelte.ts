@@ -203,9 +203,23 @@ export async function refreshSessions(): Promise<void> {
   cockpit.sessions = draftRow(current, metas.map((m) => ({
     id: m.id, title: m.title, ago: agoLabel(m.updatedAt), updatedAt: m.updatedAt, active: m.id === onScreenSession(current), mode: m.mode, agent: m.agent,
   })))
-  // Keeps the workbench layout keyed to whichever session is actually live —
-  // restores it on app start, migrates it when the engine re-keys the chat.
-  await adoptWorkbenchSession(current)
+  // Keeps the workbench layout keyed to the chat ON SCREEN — restores it on
+  // app start, migrates it when the engine re-keys the chat.
+  //
+  // On screen, not `current`. The two come apart the moment another chat is
+  // read while one works (arriveAt): `current` is then the WORKING chat, and
+  // handing it to the desk did two wrong things at once. It saved the viewed
+  // chat's tabs under the working chat's id, and — the one the owner could see
+  // — it made the working agent's pages "live" (openAgentBrowserTabFor judges
+  // by the bound id), so a page another chat was browsing drew itself on the
+  // strip of the chat being read, over whatever was there (7 ก.ย.: "เว็บไซต์
+  // แสดงผลทั้งที่เปิดหน้าอื่น"). And this runs at the tail of every door, so
+  // the switch the door had just made was undone a few lines later.
+  //
+  // The engine's id is still the answer when nothing is open yet — app start,
+  // before the window has said where it is — which is what onScreenSession
+  // falls back to.
+  await adoptWorkbenchSession(onScreenSession(current))
 }
 
 /** Full-text search this project's history (Thai/English substrings, FTS5). */
