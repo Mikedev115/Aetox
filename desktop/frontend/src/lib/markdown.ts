@@ -270,13 +270,10 @@ function renderPlan(source: string): string {
   } finally {
     insidePlan = false
   }
-  // data-chrome marks this svg as the app's own furniture rather than something
-  // the model drew, so confine() leaves it alone — without it the card's icon
-  // is framed as a drawing, complete with its own copy and save buttons.
-  const icon =
-    `<svg class="icon" data-chrome="1" width="14" height="14" viewBox="0 0 24 24" fill="none" ` +
-    `stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ` +
-    `aria-hidden="true">${ICONS.compass}</svg>`
+  // chromeIcon's data-chrome marks this svg as the app's own furniture rather
+  // than something the model drew, so confine() leaves it alone — without it
+  // the card's icon is framed as a drawing, complete with copy and save buttons.
+  const icon = chromeIcon('compass')
   // The source rides along in an attribute so Copy hands back the markdown the
   // model wrote — the thing a user pastes into an issue or a commit message.
   // Reading it back off the rendered DOM instead would return the card's text
@@ -492,6 +489,11 @@ function confine(html: string): string {
   for (const table of host.querySelectorAll('table')) {
     if (!table.closest('.table-scroll')) scrollTable(table)
   }
+  // Whole paragraphs first, then runs inside whatever paragraph is left: a
+  // paragraph made only of pictures is swallowed by the first pass, so the
+  // second only ever sees pictures that share their paragraph with something.
+  for (const run of blockRuns(host)) buildGallery(run)
+  for (const run of galleryRuns(host)) buildGallery(run)
   return host.innerHTML
 }
 
@@ -576,6 +578,327 @@ function scrollTable(table: Element): void {
   win.className = 'table-scroll'
   table.replaceWith(win)
   win.appendChild(table)
+}
+
+// ---------- several images are one gallery ----------
+//
+// Four posters came back from Canva as four <img> in a single paragraph, and
+// the paragraph drew them as four tall columns down the answer (owner's
+// screenshot). The old CSS aimed at exactly this — `p > img:not(:only-child)`
+// capped each at a third of the bubble — but a cap is the wrong instrument for
+// it. Portrait art at a third of a 592px bubble is still a 180px column each,
+// four of them stack rather than sit side by side, and not one could be
+// clicked, enlarged or saved. Four things the model MADE were being drawn as
+// four things it spilled.
+//
+// So a run of adjacent images is collected into one object: a stage showing one
+// at a time, a filmstrip under it to change which. The height an answer spends
+// stops growing with the number of pictures, and the picture you are looking at
+// is finally large enough to look at.
+//
+// A lone image is not a run and is left exactly as it was. It is a picture in a
+// sentence — framing one would be the plan-card's icon mistake in a new costume.
+interface Run {
+  shots: Element[]
+  // The <br> markdown put BETWEEN two shots. They are punctuation for a
+  // paragraph of pictures, and once the pictures are on a stage they are
+  // punctuation for nothing — left behind they are blank lines under the
+  // gallery, one per picture. Only the ones enclosed by the run are listed: a
+  // break after the last picture still separates it from the sentence below.
+  seps: Element[]
+  // The paragraphs the run swallowed whole, dissolved once the pictures are
+  // out of them. Empty for a run found inside a single paragraph.
+  blocks: Element[]
+}
+
+function galleryRuns(host: Element): Run[] {
+  const runs: Run[] = []
+  // Grouped by parent, because "adjacent" is a fact about siblings. Pictures
+  // markdown put in separate paragraphs were written as separate thoughts and
+  // stay separate. A linked picture's sibling is its <a>, not the img inside.
+  const parents = new Set<Element | null>()
+  for (const img of host.querySelectorAll('img')) {
+    const own = img.parentElement
+    if (own) parents.add(linkedShot(own) ? own.parentElement : own)
+  }
+  for (const parent of parents) {
+    // The same re-render guard the table's window carries: markdown passes raw
+    // HTML through, so a gallery can arrive already built and must not be
+    // wrapped in a second one.
+    if (!parent || parent.closest('.img-gallery')) continue
+    let run: Run = { shots: [], seps: [], blocks: [] }
+    // Breaks seen since the last picture. They only become the run's when
+    // another picture follows them — until then they might be the break that
+    // ends the run, and that one belongs to the paragraph.
+    let pending: Element[] = []
+    for (const node of Array.from(parent.childNodes)) {
+      const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : null
+      // `breaks:true` is set, so one picture per line — which is how a model
+      // writes four of them — arrives as <img><br><img>. That break is
+      // markdown's punctuation between two pictures, not something standing
+      // between them; neither is the whitespace around it.
+      if (el?.tagName === 'BR') {
+        if (run.shots.length > 0) pending.push(el)
+        continue
+      }
+      if (el === null && (node.textContent ?? '').trim() === '') continue
+      if (el !== null && (el.tagName === 'IMG' || linkedShot(el))) {
+        run.shots.push(el)
+        run.seps.push(...pending)
+        pending = []
+        continue
+      }
+      // Anything else — a word, a link with text in it — ends the run. A
+      // picture with a sentence beside it is illustrating that sentence, not
+      // queuing behind a poster.
+      if (run.shots.length > 1) runs.push(run)
+      run = { shots: [], seps: [], blocks: [] }
+      pending = []
+    }
+    if (run.shots.length > 1) runs.push(run)
+  }
+  return runs
+}
+
+// The four posters that started this were NOT in one paragraph.
+//
+// The rule this began with — pictures that are siblings — was written from the
+// markdown a model *could* write, and the model that actually answered wrote
+// something else: a blank line between every image, which is four paragraphs.
+// So the collector found no run anywhere and the four columns stood exactly as
+// they were, in a build that had the whole gallery in it (owner's screenshot of
+// the Canva answer, "มันพังอ่ะ").
+//
+// A paragraph holding nothing but pictures is not a paragraph the reader is
+// meant to read as prose — it is a picture on a line of its own — and several
+// of them in a row are the same four things the same model spilled. They are
+// collected together and the paragraphs dissolve, which is why a run carries
+// the blocks it swallowed.
+//
+// A paragraph with so much as a word in it is not one of these, so a caption
+// under a picture still ends the run, and "ก่อน ![ก] กลาง" is never touched.
+function blockRuns(host: Element): Run[] {
+  const runs: Run[] = []
+  const parents = new Set<Element | null>()
+  for (const p of host.querySelectorAll('p')) {
+    if (pictureBlock(p) !== null) parents.add(p.parentElement)
+  }
+  for (const parent of parents) {
+    if (!parent) continue
+    let run: Run = { shots: [], seps: [], blocks: [] }
+    const close = () => {
+      if (run.shots.length > 1) runs.push(run)
+      run = { shots: [], seps: [], blocks: [] }
+    }
+    // Element children, so the whitespace markdown leaves between two blocks
+    // does not read as something standing between them.
+    for (const child of Array.from(parent.children)) {
+      const shots = pictureBlock(child)
+      if (shots === null) {
+        close()
+        continue
+      }
+      run.shots.push(...shots)
+      run.blocks.push(child)
+    }
+    close()
+  }
+  return runs
+}
+
+// The pictures in a paragraph that is nothing else, or null if it is anything
+// else at all. A <br> and the whitespace around it are the paragraph's own
+// punctuation and do not disqualify it — they leave with it.
+function pictureBlock(el: Element): Element[] | null {
+  if (el.tagName !== 'P' || el.closest('.img-gallery')) return null
+  const shots: Element[] = []
+  for (const node of Array.from(el.childNodes)) {
+    const child = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : null
+    if (child?.tagName === 'BR') continue
+    if (child === null) {
+      if ((node.textContent ?? '').trim() === '') continue
+      return null
+    }
+    if (child.tagName === 'IMG' || linkedShot(child)) {
+      shots.push(child)
+      continue
+    }
+    return null
+  }
+  return shots.length > 0 ? shots : null
+}
+
+// A picture that is also a link, which is how a shop's results arrive:
+// `[![กระเป๋า](รูป)](ลิงก์ร้าน)` per product, so the paragraph holds four <a>
+// and not one bare <img>. Reading only for <img> saw none of them and left the
+// four columns exactly as they were (owner, ตอนเอาลิงก์ร้านค้ามา).
+//
+// The anchor is what goes on the stage rather than the img inside it, so the
+// link survives being collected: clicking the big picture still goes to the
+// shop, through the same handler in Chat.svelte that any link in an answer
+// uses. Nothing here has to know what a shop is.
+//
+// One image and nothing else — an <a> with a word in it is a sentence with a
+// picture in it, and belongs in the prose it was written into.
+function linkedShot(el: Element): boolean {
+  return (
+    el.tagName === 'A' &&
+    el.children.length === 1 &&
+    el.children[0].tagName === 'IMG' &&
+    (el.textContent ?? '').trim() === ''
+  )
+}
+
+// The <img> a shot is, or the one it wraps.
+function faceOf(shot: Element): Element | null {
+  return shot.tagName === 'IMG' ? shot : shot.querySelector('img')
+}
+
+// One stage, one filmstrip, and the controls that move between them. Clicks are
+// handled by delegation in Chat.svelte, exactly as the drawing and code buttons'
+// are — {@html} markup cannot carry Svelte handlers.
+//
+// Spans rather than divs, and that is not taste. The run lives inside the <p>
+// markdown wrapped it in, and what this function edits is handed back as a
+// STRING the surface sets as innerHTML: the HTML parser closes an open <p> the
+// moment it meets a <div>, so a div-built gallery would be torn out of its
+// paragraph and left standing between two empty ones. A span told to
+// display:block is the same box with none of that.
+function buildGallery({ shots, seps, blocks }: Run): void {
+  for (const br of seps) br.remove()
+  const box = document.createElement('span')
+  box.className = 'img-gallery'
+  // Which one is up, written on the element rather than held in a variable: the
+  // handler that changes it lives in another file, and this markup is all it
+  // gets. Placed where the run began — before the first paragraph when the run
+  // swallowed whole ones, otherwise where the first picture stood — while the
+  // pictures are still in place, so it lands in the flow they were in.
+  box.setAttribute('data-shown', '0')
+  ;(blocks[0] ?? shots[0]).before(box)
+
+  const stage = document.createElement('span')
+  stage.className = 'gallery-stage'
+  const strip = document.createElement('span')
+  strip.className = 'gallery-strip'
+  for (const [at, shot] of shots.entries()) {
+    shot.classList.add('gallery-shot')
+    if (at === 0) shot.classList.add('shown')
+    // Moved, not copied: the element the model wrote is the one on the stage —
+    // its alt text, its href, whatever else it carries, all untouched.
+    stage.appendChild(shot)
+    markDestination(shot)
+    strip.appendChild(thumbnail(shot, at))
+  }
+  stage.appendChild(stepButton('gallery-prev', -1, t('chat.galleryPrev')))
+  stage.appendChild(stepButton('gallery-next', 1, t('chat.galleryNext')))
+  // The counter is the one part of the frame that says something rather than
+  // does something, so it is drawn now and rewritten on every switch by the
+  // same handler that switches. Both build it from the same two numbers.
+  const count = document.createElement('span')
+  count.className = 'gallery-count'
+  count.textContent = `1 / ${shots.length}`
+  stage.appendChild(count)
+  // Enlarging is not this component's job. ImagePane already reads a picture
+  // full-size, with fit-to-pane, 1:1 and the way out to the real app on it —
+  // a lightbox here would be a second, worse one of those.
+  const open = document.createElement('button')
+  open.type = 'button'
+  open.className = 'gallery-open'
+  open.textContent = t('chat.galleryOpen')
+  stage.appendChild(open)
+
+  box.appendChild(stage)
+  box.appendChild(strip)
+  // Emptied of everything that was in them, so what is left would be blank
+  // paragraphs holding the gallery's own margins open.
+  for (const block of blocks) block.remove()
+}
+
+// A shop's poster is a door, and a picture that is a door has to look like one.
+// The whole stage is clickable when the shot is a link — that is what an <a>
+// around an image already means, and moving it here kept it — but a stage is
+// also where the arrows and the counter live, so nothing about it says the
+// picture itself goes anywhere.
+//
+// The badge says where. Put INSIDE the anchor rather than on the stage, which
+// is the whole trick: it appears and disappears with the shot it belongs to,
+// so flipping from a linked product to a plain poster needs no handler and
+// cannot go out of step with what is on screen. Its text is the host, because
+// "shopee.co.th" answers "where does this go" and "เปิดลิงก์" does not.
+function markDestination(shot: Element): void {
+  const href = shot.getAttribute('href')
+  if (href === null) return
+  const badge = document.createElement('span')
+  badge.className = 'gallery-link'
+  badge.innerHTML = chromeIcon('externalLink', 12)
+  const name = document.createElement('span')
+  // A URL the browser cannot parse is not necessarily a bad one — a relative
+  // path is legal in markdown — so the raw href is the fallback rather than
+  // the badge being dropped. `document.baseURI` is only there to give the
+  // parser somewhere to stand; nothing here follows it.
+  let host = href
+  try {
+    host = new URL(href, document.baseURI).host || href
+  } catch {
+    host = href
+  }
+  name.textContent = host
+  badge.appendChild(name)
+  shot.appendChild(badge)
+}
+
+// The filmstrip's face for one shot: a second <img> at the same address rather
+// than a clone of the first. The browser has the bytes after the stage fetched
+// them, so this costs a decode and not a download — and the alt text stays on
+// the picture on the stage, which is where a screen reader is looking for it.
+//
+// A button, never an anchor, even for a linked shot. The filmstrip's job is to
+// choose which picture is up; a thumbnail that navigated to the shop instead
+// would leave the gallery with no way to look at the thing before buying it.
+function thumbnail(shot: Element, at: number): HTMLElement {
+  const face = faceOf(shot)
+  const pick = document.createElement('button')
+  pick.type = 'button'
+  pick.className = at === 0 ? 'gallery-thumb picked' : 'gallery-thumb'
+  pick.setAttribute('data-at', String(at))
+  const label = (face?.getAttribute('alt') ?? '').trim()
+  pick.setAttribute('aria-label', label === '' ? String(at + 1) : label)
+  const shown = document.createElement('img')
+  shown.setAttribute('src', face?.getAttribute('src') ?? '')
+  shown.setAttribute('alt', '')
+  pick.appendChild(shown)
+  return pick
+}
+
+// A step is signed rather than named twice: the handler adds `data-step` to
+// where it is and wraps, so nothing over there has to know which class means
+// backwards. One glyph serves both — the previous arrow is the next arrow
+// mirrored in CSS, which is what a chevron is.
+function stepButton(cls: string, step: number, label: string): HTMLElement {
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = `gallery-step ${cls}`
+  button.setAttribute('data-step', String(step))
+  // No text, so the name has to be somewhere: aria-label for a reader, title
+  // for the pointer that is already hovering the stage to make it appear.
+  button.setAttribute('aria-label', label)
+  button.setAttribute('title', label)
+  // The app's own markup, not the model's — this runs after the sanitizer
+  // because the sanitizer is for what arrived, and none of this arrived.
+  button.innerHTML = chromeIcon('chevronRight', 16)
+  return button
+}
+
+// The app's own glyph, drawn into markup that is otherwise the model's.
+// data-chrome is what tells confine() this svg is furniture rather than a
+// picture: without it the icon is framed as a drawing and handed its own copy
+// and save buttons.
+function chromeIcon(name: keyof typeof ICONS, size = 14): string {
+  return (
+    `<svg class="icon" data-chrome="1" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" ` +
+    `stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ` +
+    `aria-hidden="true">${ICONS[name]}</svg>`
+  )
 }
 
 // frameDrawing puts the take-it-with-you controls on a drawing: copy and save,

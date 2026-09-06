@@ -17,3 +17,21 @@ export function fileURL(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean).map(encodeURIComponent)
   return '/aetox-file/' + parts.join('/')
 }
+
+/** The project-relative path behind a file-host URL, or '' for an address that
+ * is not one.
+ *
+ * The inverse of fileURL, and it lives beside it so the two cannot drift — the
+ * prefix and the per-segment encoding are one decision, written once. What
+ * needs it is the gallery in chat (markdown.ts): an <img> in an answer carries
+ * an address, and whether that address is a file on the desk or a picture
+ * somewhere on the web decides which pane is able to open it.
+ *
+ * A query or a fragment is cut before decoding. The file host answers neither,
+ * so anything after them was never part of the name. */
+export function filePath(url: string): string {
+  const prefix = '/aetox-file/'
+  if (!url.startsWith(prefix)) return ''
+  const bare = url.slice(prefix.length).split(/[?#]/)[0]
+  return bare.split('/').filter(Boolean).map(decodeURIComponent).join('/')
+}
