@@ -99,7 +99,7 @@ func TestBundledSkillRefusesAFileRead(t *testing.T) {
 		t.Fatalf("reading a file out of a bundled skill succeeded: %q", out.Content)
 	}
 
-	if _, err := readSkillFile(DiscoveredSkill{Name: "rootless", Bundled: true}, "go.mod"); err == nil {
+	if _, err := readSkillFile(DiscoveredSkill{Name: "rootless", Bundled: true}, "go.mod", 0); err == nil {
 		t.Fatal("a skill with no folder anywhere read a file from the working directory")
 	}
 }

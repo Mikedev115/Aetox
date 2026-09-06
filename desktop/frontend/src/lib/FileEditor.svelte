@@ -162,6 +162,12 @@
       })
       // eslint-disable-next-line no-bitwise
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, save)
+    }).catch((err: unknown) => {
+      // The lazy chunk did not arrive. Seen 2026-09-04 under `wails dev`: the
+      // dev server behind an open window had gone, the header drew from
+      // modules already loaded, and the body stayed blank with nothing to say
+      // why. A pane that failed to load must say so where "Saved" is.
+      if (!disposed) errorMsg = t('fileEditor.loadFailed', { err: String(err) })
     })
 
     return () => { disposed = true }

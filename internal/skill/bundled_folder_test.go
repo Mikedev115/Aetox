@@ -135,7 +135,7 @@ func TestEveryFileBundledBesideASkillIsReachable(t *testing.T) {
 				t.Errorf("%s ships %s and skill_view never offers it", d.Name, rel)
 				return nil
 			}
-			if _, readErr := readSkillFile(d, rel); readErr != nil {
+			if _, readErr := readSkillFile(d, rel, 0); readErr != nil {
 				t.Errorf("%s offers %s and cannot serve it: %v", d.Name, rel, readErr)
 			}
 			return nil
@@ -191,7 +191,7 @@ func namedFiles(d DiscoveredSkill) []string {
 func TestNoBundledSkillNamesAFileItDoesNotShip(t *testing.T) {
 	for _, d := range bundledSkills() {
 		for _, named := range namedFiles(d) {
-			if _, err := readSkillFile(d, named); err != nil {
+			if _, err := readSkillFile(d, named, 0); err != nil {
 				t.Errorf("%s points the model at %q and does not ship it: %v", d.Name, named, err)
 			}
 		}

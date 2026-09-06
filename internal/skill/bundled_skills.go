@@ -58,7 +58,7 @@ func bundledSkills() []DiscoveredSkill {
 		if readErr != nil {
 			continue
 		}
-		name, description, body, parseErr := parseSkillMarkdown(string(raw))
+		name, description, before, body, parseErr := parseSkillMarkdown(string(raw))
 		if parseErr != nil {
 			continue
 		}
@@ -75,7 +75,7 @@ func bundledSkills() []DiscoveredSkill {
 		if subErr != nil {
 			sub = nil
 		}
-		out = append(out, DiscoveredSkill{Name: name, Description: description, Bundled: true, body: body, files: sub})
+		out = append(out, DiscoveredSkill{Name: name, Description: description, Before: before, Bundled: true, body: body, files: sub})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out

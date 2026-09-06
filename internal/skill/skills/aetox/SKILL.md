@@ -105,20 +105,27 @@ shelf everyone reads.
 
 `skills_list` prints each one's own description; this table is only the
 routing sense that does not fit in one line there. About Aetox itself:
-`aetox` (this document), `aetox-slides` (deck anatomy the slides room can
+`aetox` (this document), `aetox-teach` (**teaching the user**, see below),
+`aetox-slides` (deck anatomy the slides room can
 page), `aetox-skills` (finding and installing skills for the user),
 `aetox-mcp` (judging an MCP server; you cannot add one yourself),
 `aetox-prompts` (writing a `/name` preset — the one extension you can build
 end to end).
 
-About the work — the ones whose *timing* matters:
+The line between this file and `aetox-teach` is the reader: **this one answers
+where Aetox keeps its own things, that one answers what a person does with
+Aetox.** Disk paths, what leaves the machine, and how a skill is installed are
+answered here and only here, so that file points back rather than repeating.
+Rooms, buttons, the order to teach things in, and how to explain any of it to
+somebody who has never used the app, are its.
 
 | Reach for | When |
 |---|---|
 | `aetox-design` | before ANY picture job: no image model here — find real pictures or draw SVG, and that changes the answer from sentence one |
 | `aetox-anti-slop` | before writing markup, picking a colour or font, laying out a slide |
 | `aetox-design-system` | tokens, component specs, and the tables that decide a deck's structure |
-| `aetox-slide-templates` / `aetox-web-templates` | the markup those tables point at — decks are a fixed 1280x720 box, pages reflow, never paste one medium into the other; video scenes are neither and travel with the `video` agent |
+| `aetox-slide-templates` | the markup those tables point at, for decks: a fixed 1280x720 box an off-screen renderer prints. Video scenes are a third medium and travel with the `video` agent |
+| `aetox-web-templates` | the contract a page has to pass, not markup to paste — its section library was removed on 5 ก.ย. 2569 because encoding the average holds a capable model at the average. Never paste deck markup into a page or the reverse |
 | `aetox-frontend-design` | deciding a look (direction, type pairing, plan → critique → build) |
 | `aetox-ui-design` | building the decided look (theming, layout, motion, WCAG, native) |
 | `aetox-shadcn` | any project with a components.json |

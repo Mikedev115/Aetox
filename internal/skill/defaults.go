@@ -166,6 +166,11 @@ func RegisterDefaults(registry *Registry, opts RegistryOptions) {
 		&windmillSkill{},
 		// One name, three actions: image, video, audio (media_pack.go).
 		&mediaReadSkill{root: opts.SandboxRoot, speech: opts.Speech},
+		// Not one of them, and not a sense at all: it turns a cut list into a
+		// project file an editing program opens (video_project.go). It sits
+		// here because the desk that carries media is the desk that edits
+		// video, and because a tool nobody can reach is not a capability.
+		&videoProjectSkill{root: opts.SandboxRoot, files: opts.Files},
 		&pdfReadSkill{root: opts.SandboxRoot},
 		&webFetchSkill{},
 		// The download step of the picture-and-sound recipe, owned by the

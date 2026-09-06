@@ -196,6 +196,22 @@ func resolveSandboxPath(root string, requestPath string) (string, error) {
 	return resolveWithin(root, requestPath, true)
 }
 
+// SandboxFile is the one door for a caller outside this package that wants to
+// hand a sandbox file to something else — the browser's `upload` on 6 ก.ย. —
+// resolved inside the root and refused where every tool here refuses: a
+// credential store, the agent's own knowledge, the guest's home. Exported
+// rather than copied, for the reason IntArg was.
+func SandboxFile(root string, requestPath string) (string, error) {
+	abs, err := resolveSandboxPath(root, requestPath)
+	if err != nil {
+		return "", err
+	}
+	if err := refuseCredentialStore(abs); err != nil {
+		return "", err
+	}
+	return abs, nil
+}
+
 // WorkspacePath is resolveSandboxPath for the window rather than the agent: the
 // same one gate, asked quietly.
 //

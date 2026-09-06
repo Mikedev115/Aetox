@@ -28,39 +28,67 @@ func TestContentLinesDoesNotInventATrailingLine(t *testing.T) {
 }
 
 func TestContentLineCapBoundary(t *testing.T) {
-	if err := checkContentLineCap("content", linesOf(contentLineCap)); err != nil {
-		t.Fatalf("exactly the cap must pass, got %v", err)
+	if note := contentLineCapNote("content", linesOf(contentLineCap)); note != "" {
+		t.Fatalf("exactly the cap must pass silently, got %q", note)
 	}
-	err := checkContentLineCap("content", linesOf(contentLineCap+1))
-	if err == nil {
-		t.Fatal("one line over the cap must be refused")
+	note := contentLineCapNote("content", linesOf(contentLineCap+1))
+	if note == "" {
+		t.Fatal("one line over the cap must be remarked on")
 	}
-	for _, want := range []string{"301", "300", "Nothing was written", "mode=append"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("refusal is missing %q: %s", want, err.Error())
+	for _, want := range []string{"301", "300", "written whole", "mode=append"} {
+		if !strings.Contains(note, want) {
+			t.Errorf("note is missing %q: %s", want, note)
 		}
 	}
 }
 
-// The point of a cap over a salvage: an over-long write leaves nothing behind.
-// A partial file that opens cleanly and is missing its second half is the
-// failure this whole design exists to avoid.
-func TestWriteSkillOverCapWritesNothing(t *testing.T) {
+// Over the cap is written, whole, and said so. Content that reached the tool
+// parsed as JSON, so the cut-off the cap exists to prevent did not happen;
+// refusing a finished file bought the same file back in three rounds (§221).
+func TestWriteSkillOverCapWritesWholeAndSaysSo(t *testing.T) {
+	root := t.TempDir()
+	s := &writeSkill{root: root}
+
+	content := linesOf(contentLineCap + 50)
+	out, err := s.ExecuteTool(context.Background(), map[string]any{
+		"path":    "big.html",
+		"content": content,
+	})
+	if err != nil {
+		t.Fatalf("a whole call over the cap must still be written: %v", err)
+	}
+	if !out.Success {
+		t.Error("Success = false on a write that landed")
+	}
+	data, readErr := os.ReadFile(filepath.Join(root, "big.html"))
+	if readErr != nil {
+		t.Fatalf("file not written: %v", readErr)
+	}
+	if string(data) != content {
+		t.Fatalf("file on disk is not the content sent (%d bytes vs %d)", len(data), len(content))
+	}
+	for _, want := range []string{"write done", "350", "mode=append"} {
+		if !strings.Contains(out.Content, want) {
+			t.Errorf("result is missing %q:\n%s", want, out.Content)
+		}
+	}
+}
+
+// Within the cap there is nothing to say: the note is for the gamble, and a
+// call that took none must not read as if it had.
+func TestWriteSkillAtCapCarriesNoNote(t *testing.T) {
 	root := t.TempDir()
 	s := &writeSkill{root: root}
 
 	out, err := s.ExecuteTool(context.Background(), map[string]any{
-		"path":    "big.html",
-		"content": linesOf(contentLineCap + 50),
+		"path":    "ok.txt",
+		"content": linesOf(contentLineCap),
 	})
-	if err == nil {
-		t.Fatal("expected a refusal over the cap")
+	if err != nil {
+		t.Fatalf("a file exactly at the cap must be written: %v", err)
 	}
-	if out.Success {
-		t.Error("Success = true on a refused write")
-	}
-	if _, statErr := os.Stat(filepath.Join(root, "big.html")); statErr == nil {
-		t.Fatal("a refused write must not leave a file on disk")
+	if strings.Contains(out.Content, "Note:") {
+		t.Errorf("a write within the cap must carry no note:\n%s", out.Content)
 	}
 }
 
@@ -76,24 +104,30 @@ func TestWriteSkillAtCapStillWrites(t *testing.T) {
 	}
 }
 
-// The other door. A cap that only watched write would be satisfied by moving
-// the same content into one enormous append.
-func TestEditAppendOverCapChangesNothing(t *testing.T) {
+// The other door. A cap that only watched write would be routed around by
+// moving the same content into one enormous append, so append carries the
+// same note, and lands the same way.
+func TestEditAppendOverCapLandsWithNote(t *testing.T) {
 	root := t.TempDir()
 	path := writeEditFixture(t, root, "cont.txt", "start\n")
 	s := &editSkill{root: root}
 
-	_, err := s.ExecuteTool(context.Background(), map[string]any{
+	out, err := s.ExecuteTool(context.Background(), map[string]any{
 		"path":    "cont.txt",
 		"replace": linesOf(contentLineCap + 1),
 		"mode":    "append",
 	})
-	if err == nil {
-		t.Fatal("append must obey the same cap as write")
+	if err != nil {
+		t.Fatalf("a whole append over the cap must still land: %v", err)
 	}
 	data, _ := os.ReadFile(path)
-	if string(data) != "start\n" {
-		t.Fatalf("a refused append must leave the file untouched, got %q", string(data))
+	if contentLines(string(data)) != contentLineCap+2 {
+		t.Fatalf("append did not land whole, got %d lines", contentLines(string(data)))
+	}
+	for _, want := range []string{"edit done", "301", "mode=append"} {
+		if !strings.Contains(out.Content, want) {
+			t.Errorf("result is missing %q:\n%s", want, out.Content)
+		}
 	}
 }
 

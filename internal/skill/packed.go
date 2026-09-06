@@ -96,12 +96,24 @@ var packs = map[string]*pack{
 	// use, which is what retired its private profile-reading gate on 2026-08-10.
 	"browser": {
 		tool:    "browser",
-		actions: []string{"open", "read", "click", "type", "wait", "back", "scroll", "capture", "tabs", "dialog", "console", "network"},
+		actions: []string{"open", "read", "click", "type", "wait", "back", "scroll", "capture", "tabs", "dialog", "console", "network", "hover", "drag", "key", "upload"},
 		names: map[string]string{
 			"open":  "browser_open",
 			"read":  "browser_read",
 			"click": "browser_click",
 			"type":  "browser_type",
+			// Three added 2026-09-06 on the rights that already cover them.
+			// hover and drag are the pointer doing what click's right already
+			// lets it do — press on the page — with the button held or not
+			// held; a profile that may click may sweep. key is the keyboard
+			// doing what type's right lets it do, one key at a time.
+			"hover": "browser_click",
+			"drag":  "browser_click",
+			"key":   "browser_type",
+			// upload is a right of its own, the way capture and network are:
+			// it takes a file off this machine and hands it to a website,
+			// which "may type into pages" was never a grant of.
+			"upload": "browser_upload",
 			// capture is a right of its own rather than part of read, because
 			// "may read this page" and "may see it" are not the same permission:
 			// a picture carries everything the text left out, including whatever

@@ -223,9 +223,9 @@ so a deck defining only the first name still renders.
 accent rather than against the stage, which is where a CTA and the
 `gradient-accent` overlay both put them. It is not a nicety — measured on the
 accent field, `--accent-text` reads between 1.00:1 and 1.35:1 in all six themes.
-Invisible in every one. `aetox-web-templates` `sections/page-shell.html` has
-carried a token of the same name and meaning since before this folder existed;
-this is the deck side of it.
+Invisible in every one. A token of the same name and meaning has
+carried the web side of this since before this folder existed; this is the deck
+side of it.
 
 ### Contrast is checked, not asserted
 

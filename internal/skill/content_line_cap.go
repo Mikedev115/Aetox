@@ -27,16 +27,22 @@ import (
 // token per two characters (the same measurement clampToWindow is built on),
 // and the ceiling is shared with reasoning and whatever the model says before
 // the call. What the cap does is keep ordinary work — code and markup, which
-// is most of what write is for — inside one call on every provider, and turn
-// the remainder into a refusal that arrives before anything is written rather
-// than a truncation that arrives after.
+// is most of what write is for — inside one call on every provider.
+//
+// It is a number the model is told, not a gate the content is refused at.
+// Content that reaches the tool at all has parsed as JSON, which means the
+// call survived the ceiling; the only failure the cap exists to prevent has
+// by then not happened. Refusing anyway was measured on 2026-09-04 (§221): a
+// 438-line page arrived whole after 134 seconds, was thrown away, and was
+// bought back in three more rounds. So a call over the cap is written, and
+// the result carries a note saying it was a gamble that happened to pay.
 //
 // Chosen over the tighter numbers considered (100, 250) because the two costs
 // are not symmetric. Too low spends an extra round on every large file, for
 // ever, and that was already decided against once: deepseekV4OutputTokenMax
 // was raised to 64K precisely so a whole file need not be split, since every
-// split resends the full context. Too high spends one wasted round when a file
-// genuinely overflows, and only then.
+// split resends the full context. Too high risks one cut-off round when a
+// file genuinely overflows, and only then.
 const contentLineCap = 300
 
 // contentLines counts what the cap counts. A file ending in a newline is not
@@ -52,21 +58,23 @@ func contentLines(s string) int {
 	return lines
 }
 
-// checkContentLineCap refuses a call whose content is over the cap, and says
-// what to do instead.
+// contentLineCapNote is what a call over the cap is told, appended to a result
+// that otherwise reads as success. Empty within the cap.
 //
-// It guards every door, not just write's: a cap that only watched write would
-// be routed around by one enormous edit, which is the same content through a
-// different name. The remedy is the same either way, and it is the reason the
-// cap is affordable at all — append continues a file without re-sending it.
-func checkContentLineCap(field, content string) error {
+// It rides on every door that takes content, not just write's: a cap that only
+// watched write would be routed around by one enormous append, which is the
+// same content through a different name. The remedy is the same either way,
+// and it is the reason the cap is affordable at all — append continues a file
+// without re-sending it.
+func contentLineCapNote(field, content string) string {
 	lines := contentLines(content)
 	if lines <= contentLineCap {
-		return nil
+		return ""
 	}
-	return fmt.Errorf(
-		"%s is %d lines, over the %d-line limit for one call. Nothing was written. "+
-			"Send the first %d lines or fewer, then continue the file with edit mode=append. "+
-			"This is a cap on one call, not on the file: a longer file is written in several.",
+	return fmt.Sprintf(
+		"Note: %s was %d lines, over the %d-line guide for one call. It was written whole because it "+
+			"arrived intact, but a call this size is a gamble on the round's output limit, and a losing one "+
+			"is cut off mid-JSON and cannot run. Next time send the first %d lines, then continue the file "+
+			"with edit mode=append.",
 		field, lines, contentLineCap, contentLineCap)
 }

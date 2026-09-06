@@ -145,12 +145,11 @@ func (s *editSkill) Execute(ctx context.Context, input Input) (Output, error) {
 	// one that exists, and a replace too large for the round is refused by the
 	// truncation guard with the file untouched. What the cap is protecting
 	// against is spending a whole round's output on something that cannot run,
-	// and append is the door that would otherwise take the traffic write no
-	// longer accepts.
+	// and append is the door that would otherwise take that traffic. Over the
+	// cap is a note rather than a refusal, for the reason write.go gives.
+	capNote := ""
 	if appendMode {
-		if err := checkContentLineCap("replace text", replaceText); err != nil {
-			return newToolOutput("edit", command, "", start, false, err), err
-		}
+		capNote = contentLineCapNote("replace text", replaceText)
 	}
 
 	targetPath, err := resolveSandboxPath(s.root, requestPath)
@@ -195,7 +194,11 @@ func (s *editSkill) Execute(ctx context.Context, input Input) (Output, error) {
 		// held to it (filestate.go). edit needs no guard of its own: an
 		// find text aimed at text somebody has changed simply will not match.
 		s.files.Note(targetPath)
-		out := newToolOutput("edit", command, "edit done: appended to "+requestPath, start, false, nil)
+		result := "edit done: appended to " + requestPath
+		if capNote != "" {
+			result += "\n" + capNote
+		}
+		out := newToolOutput("edit", command, result, start, false, nil)
 		out.LinesAdded, _ = LineDelta("", addition)
 		out.Diff = UnifiedDiff(content, updated)
 		return appendFreshDiagnostics(ctx, s.root, requestPath, out), nil

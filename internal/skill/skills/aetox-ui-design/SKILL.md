@@ -13,12 +13,12 @@ Nine implementation guides, one per problem, the how-to-build layer.
 tokens; these turn that into code. Open the one the task is actually about;
 each file carries its source skill's own reference material inline.
 
-**For the skeleton of a page, do not start from memory.** `aetox-web-templates`
-ships twenty-nine sections as real markup, nav and hero through pricing and FAQ
-to a dashboard shell, a data table, a form, a 404, an article and a docs page.
-Every guide here describes how a thing should behave; that skill is the thing
-itself, ready to paste, and starting from it leaves this reading for the part
-that is actually particular to the job.
+**Write the skeleton yourself, then check it.** `aetox-web-templates` carries
+the contract a page has to pass — self-contained file, responsive without
+breakpoint bookkeeping, real landmarks, tokens for light and dark, accessible by
+construction — and no longer carries sections to paste. The library was removed
+on 5 ก.ย. 2569: markup that encodes the average holds a capable model at the
+average, while a rule it has to satisfy does not.
 
 **On the web**
 

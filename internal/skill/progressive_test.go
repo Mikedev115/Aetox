@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // The whole point of progressive loading in one test: a discovered skill is
@@ -352,5 +353,126 @@ func TestSkillViewDoesNotInventAPathShapeForTheModelToCopy(t *testing.T) {
 	// It has to say where the real answer is instead.
 	if !strings.Contains(desc, "listed at the end of the skill body") {
 		t.Errorf("path description does not point at the listing: %q", desc)
+	}
+}
+
+// A cut the caller cannot act on loses the tail for good. These files have no
+// path on disk (bundled_skills.go), so read and shell are not a second route to
+// the rest of one — skill_view is the only door, and until 2026-09-05 it took
+// no offset. Measured that day: a 301KB page arrived as a 32KB stump the model
+// quietly abandoned, and a section 19% over the cap was pasted into a page
+// without its closing tags.
+func TestASkillFileOverTheCapCanBeReadToItsEnd(t *testing.T) {
+	root := t.TempDir()
+	writeSkillFixture(t, root, "big", "---\nname: big_skill\ndescription: d\n---\nbody\n")
+	// Two and a bit windows, so the walk below takes three calls and the last
+	// one is short — the case where the end marker has to appear.
+	whole := strings.Repeat("a", maxSkillFileBytes*2+1000)
+	if err := os.WriteFile(filepath.Join(root, "big", "data.txt"), []byte(whole), 0o644); err != nil {
+		t.Fatalf("fixture: %v", err)
+	}
+
+	view := &skillViewSkill{paths: []string{root}}
+	read := func(offset int) string {
+		args := map[string]any{"name": "big_skill", "path": "data.txt"}
+		if offset > 0 {
+			args["offset"] = offset
+		}
+		out, err := view.ExecuteTool(context.Background(), args)
+		if err != nil {
+			t.Fatalf("offset=%d: %v", offset, err)
+		}
+		return out.Content
+	}
+
+	got, offset, rounds := "", 0, 0
+	for {
+		body := read(offset)
+		rounds++
+		if rounds > 8 {
+			t.Fatal("paging did not terminate")
+		}
+		if i := strings.Index(body, "\n\n[cut, file is "); i >= 0 {
+			if !strings.Contains(body, "offset=") {
+				t.Fatalf("a cut result must name where to carry on: %q", body[i:])
+			}
+			got += body[:i]
+			offset += maxSkillFileBytes
+			continue
+		}
+		if i := strings.Index(body, "\n\n[bytes "); i >= 0 {
+			got += body[:i]
+			break
+		}
+		t.Fatalf("round %d ended with neither a cut marker nor an end marker", rounds)
+	}
+
+	if got != whole {
+		t.Errorf("paging lost content: got %d bytes of %d in %d rounds", len(got), len(whole), rounds)
+	}
+}
+
+// The window starts and ends on a rune boundary, so a Thai file — which every
+// page in the shelf is — never arrives with half a character at either seam.
+func TestPagingNeverSplitsARune(t *testing.T) {
+	data := []byte(strings.Repeat("ก", maxSkillFileBytes)) // 3 bytes each
+	first, err := sliceSkillFile(data, 0)
+	if err != nil {
+		t.Fatalf("slice: %v", err)
+	}
+	head := first
+	if i := strings.Index(first, "\n\n[cut,"); i >= 0 {
+		head = first[:i]
+	}
+	if !utf8.ValidString(head) {
+		t.Error("the head of a cut window is not valid UTF-8")
+	}
+	rest, err := sliceSkillFile(data, maxSkillFileBytes)
+	if err != nil {
+		t.Fatalf("slice at offset: %v", err)
+	}
+	if !utf8.ValidString(rest) {
+		t.Error("a window opened at the cap is not valid UTF-8")
+	}
+	if _, err := sliceSkillFile(data, len(data)+1); err == nil {
+		t.Error("an offset past the end should say so rather than return nothing")
+	}
+}
+
+// A path with no name is the shape a model lands on right after a call that
+// only needed one: the listing is in front of it, it reaches for a line of it,
+// and drops the skill the listing belonged to. Measured 2026-09-05 —
+// {"path": "pages/fintech-saas.html"} cost a whole round, and the old answer
+// ("call skills_list to see what is installed") sent it looking for a skill
+// that was never missing.
+func TestSkillViewResolvesAPathThatNamedNoSkill(t *testing.T) {
+	root := t.TempDir()
+	writeSkillFixture(t, root, "deploy", "---\nname: deploy_notes\ndescription: d\n---\nbody\n")
+	if err := os.WriteFile(filepath.Join(root, "deploy", "runbook.md"), []byte("the runbook"), 0o644); err != nil {
+		t.Fatalf("fixture: %v", err)
+	}
+
+	view := &skillViewSkill{paths: []string{root}}
+	out, err := view.ExecuteTool(context.Background(), map[string]any{"path": "runbook.md"})
+	if err != nil {
+		t.Fatalf("one owner should resolve rather than cost a round: %v", err)
+	}
+	if !strings.Contains(out.Content, "the runbook") {
+		t.Errorf("resolved to the wrong file: %q", out.Content)
+	}
+	// The result says which skill it decided on, so a wrong guess is visible in
+	// the same turn rather than mistaken for the file that was asked for.
+	if !strings.Contains(out.Command, "deploy_notes") {
+		t.Errorf("result should name the skill it resolved to, got %q", out.Command)
+	}
+
+	// A name nobody carries still fails, and the message says the shape to use
+	// rather than sending the caller to skills_list for a name it already had.
+	_, err = view.ExecuteTool(context.Background(), map[string]any{"path": "no/such.md"})
+	if err == nil {
+		t.Fatal("a path no skill carries should be an error")
+	}
+	if !strings.Contains(err.Error(), "path") {
+		t.Errorf("the error should show the call shape: %v", err)
 	}
 }

@@ -98,7 +98,7 @@ func (s *changeSkill) ToolDefinition() model.ToolDefinition {
 	allowed := s.allowedActions()
 
 	lines := map[string]string{
-		"write":  "`write` (path, content), a whole file, at most 300 lines per call. Over that nothing is written: send 300 and carry on with append.",
+		"write":  "`write` (path, content), a whole file, 300 lines per call at most: send 300 and carry on with append.",
 		"edit":   "`edit` (path, find, replace, all?), replace an exact string. find must be unique in the file unless all=true. Empty replace deletes what matched.",
 		"append": "`append` (path, replace), add text to the end of a file. Carries on a file that write had to cut; no separator is added, so a file cut mid-word continues mid-word. 300 lines per call, same as write.",
 		"batch":  "`batch` (edits, path?), several edits across one or more files, all applied or none. Prefer it over repeated edit calls when one change touches several places.",
@@ -208,6 +208,22 @@ func (s *changeSkill) innerArgs(action string, args map[string]any) map[string]a
 		out[k] = v
 	}
 	out["mode"] = "append"
+	// `write` takes the text as `content` and `append` takes it as `replace`,
+	// which is one tool asking for the same thing under two names. A model that
+	// has just written a file with `content` continues it with `content`, and
+	// the round is spent on an error that names a field it never sent.
+	// Measured 2026-09-05: every long page pays this once, and every page is
+	// long, because a page is written by write-then-append-seven-times.
+	//
+	// The rewrite is here rather than in the edit tool because this is the
+	// layer that already knows `append` is an action word standing for a flag.
+	// Underneath, the field is `replace` and stays `replace`.
+	if replace, _ := out["replace"].(string); strings.TrimSpace(replace) == "" {
+		if content, ok := out["content"].(string); ok && content != "" {
+			out["replace"] = content
+			delete(out, "content")
+		}
+	}
 	return out
 }
 

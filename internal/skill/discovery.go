@@ -84,7 +84,13 @@ func DefaultDiscoveryPaths() []string {
 type DiscoveredSkill struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	Dir         string `json:"dir"`
+	// Before is the work this skill must be read before, in the skill's own
+	// words (`before:` in its frontmatter), or empty for a skill that makes no
+	// such claim. It is the one thing about a skill the prompt states up
+	// front: "before X, read Y" is the sentence a model follows, and it used
+	// to be typed into a desk file per skill (§221). Now the skill says it.
+	Before string `json:"before,omitempty"`
+	Dir    string `json:"dir"`
 	// Bundled marks a skill that ships inside the binary (bundled_skills.go).
 	// It has no Dir, so it cannot be revealed or deleted — the surfaces that
 	// offer those ask this rather than testing Dir for emptiness, so "no
@@ -140,7 +146,7 @@ func diskSkills(paths []string) ([]DiscoveredSkill, []error) {
 			if readErr != nil {
 				continue
 			}
-			name, description, body, parseErr := parseSkillMarkdown(string(raw))
+			name, description, before, body, parseErr := parseSkillMarkdown(string(raw))
 			if parseErr != nil {
 				errs = append(errs, fmt.Errorf("parse %s: %w", filepath.Join(skillDir, "SKILL.md"), parseErr))
 				continue
@@ -148,7 +154,7 @@ func diskSkills(paths []string) ([]DiscoveredSkill, []error) {
 			if name == "" {
 				name = entry.Name()
 			}
-			found = append(found, DiscoveredSkill{Name: name, Description: description, Dir: skillDir, body: body})
+			found = append(found, DiscoveredSkill{Name: name, Description: description, Before: before, Dir: skillDir, body: body})
 		}
 	}
 	return found, errs
@@ -197,7 +203,7 @@ func EmbeddedSkills(fsys fs.FS, dir string) ([]DiscoveredSkill, []error) {
 		if readErr != nil {
 			continue
 		}
-		name, description, body, parseErr := parseSkillMarkdown(string(raw))
+		name, description, before, body, parseErr := parseSkillMarkdown(string(raw))
 		if parseErr != nil {
 			errs = append(errs, fmt.Errorf("parse %s: %w", file, parseErr))
 			continue
@@ -221,7 +227,7 @@ func EmbeddedSkills(fsys fs.FS, dir string) ([]DiscoveredSkill, []error) {
 		if subErr != nil {
 			sub = nil // one document, then; the body still works
 		}
-		found = append(found, DiscoveredSkill{Name: name, Description: description, Bundled: true, body: body, files: sub})
+		found = append(found, DiscoveredSkill{Name: name, Description: description, Before: before, Bundled: true, body: body, files: sub})
 	}
 	return found, errs
 }
@@ -303,15 +309,16 @@ func RegisterDiscovered(registry *Registry, paths []string) []error {
 //	---
 //	body (markdown instructions for the model to follow)
 //
-// Only "name" and "description" keys are read — the rest of the frontmatter is
+// "name", "description" and "before" are read — the rest of the frontmatter is
 // none of a skill's business (see MCP-SUPPORT-PLAN.md, opencode's own SKILL.md
-// format).
-func parseSkillMarkdown(raw string) (name, description, body string, err error) {
+// format). "before" is Aetox's one addition: the work the skill precedes, which
+// the prompt reads out so no desk file has to name the skill (§221).
+func parseSkillMarkdown(raw string) (name, description, before, body string, err error) {
 	fields, body, err := ParseFrontmatter(raw)
 	if err != nil {
-		return "", "", "", err
+		return "", "", "", "", err
 	}
-	return fields["name"], fields["description"], body, nil
+	return fields["name"], fields["description"], strings.TrimSpace(fields["before"]), body, nil
 }
 
 // ParseFrontmatter splits a leading "---" block off a markdown document and

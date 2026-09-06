@@ -159,7 +159,9 @@ func (*writeSkill) Guidance(map[string]any) string {
 		"lines here, the rest with edit mode=append, which does not re-send what is already on disk.\n" +
 		"This is not a style rule. A tool call bigger than the round's output limit is cut off mid-JSON and " +
 		"cannot run at all, and that limit varies by provider and shrinks as the conversation grows. Lines " +
-		"are the one unit you can count while writing."
+		"are the one unit you can count while writing.\n" +
+		"A web page you wrote (an .html that is not a slide deck) is shown rendered with browser open <path>, " +
+		"where a browser tool is on this desk; desk open shows only its source."
 }
 
 func (s *writeSkill) Execute(ctx context.Context, input Input) (Output, error) {
@@ -191,12 +193,11 @@ func (s *writeSkill) Execute(ctx context.Context, input Input) (Output, error) {
 		err := errors.New("usage: write <path> <content>")
 		return newToolOutput("write", "write", "", start, false, err), err
 	}
-	// Before the path is resolved and long before anything is opened: a call
-	// over the cap must leave nothing behind, which is the whole reason a cap
-	// beats catching the same content after it was truncated.
-	if err := checkContentLineCap("content", content); err != nil {
-		return newToolOutput("write", "write "+requestPath, "", start, false, err), err
-	}
+	// Over the cap is a note on the result, not a refusal. Content that reached
+	// this line parsed whole, so the cut-off the cap guards against did not
+	// happen; refusing it threw a finished file away and bought the same file
+	// back in three rounds (DECISIONS.md §221).
+	capNote := contentLineCapNote("content", content)
 
 	original := requestPath
 	requestPath = s.placed(requestPath)
@@ -259,6 +260,9 @@ func (s *writeSkill) Execute(ctx context.Context, input Input) (Output, error) {
 	output := "write done: " + requestPath
 	if requestPath != original {
 		output += onDiskNote(s.root, targetPath)
+	}
+	if capNote != "" {
+		output += "\n" + capNote
 	}
 	out := newToolOutput("write", "write "+requestPath, output, start, false, nil)
 	out.LinesAdded, out.LinesRemoved = LineDelta(string(previous), content)

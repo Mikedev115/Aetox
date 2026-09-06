@@ -76,8 +76,9 @@ raster screenshot, not the clean vector a logo bar needs.
 MIT) is a searchable library of pre-vectorized, web-optimized SVG logos for
 software, AI, and platform brands. Search it by name and use `web_fetch` +
 `media_fetch` on the entry's file under `static/library/` the same way as any
-other found asset. `sections/logo-bar.html` in `aetox-web-templates` is built
-to take exactly this — drop the file in as `imgs/logo-*.svg`.
+other found asset. A logo bar wants them as
+`imgs/logo-*.svg` beside the page, at one shared height, never at one shared
+width — the eye reads the cap height, not the bounding box.
 
 **The MIT licence covers svgl's own site and code, not the logos in it** —
 each mark stays the trademark of the company it names; svgl's own
