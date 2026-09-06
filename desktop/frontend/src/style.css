@@ -56,7 +56,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
      Turned off while a resize handle is being dragged: there the pointer IS
      the animation, and easing toward the cursor turns a direct manipulation
      into a control that lags behind the hand. */
-  transition:grid-template-columns .18s ease;
+  transition:grid-template-columns var(--dur-glide) ease;
   grid-template-rows:56px 1fr;
   /* The topbar sits over the content column only, so the card can start at the
      top of the window instead of 62px down it (owner, 2026-08-14: "เอาพื้นหลัง
@@ -104,7 +104,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    layout does it. */
 .resize-handle::after {
   content:""; position:absolute; top:0; bottom:0; left:2.5px; width:1px;
-  background:transparent; transition:background .12s ease;
+  background:transparent; transition:background var(--dur-tint) ease;
 }
 .resize-handle:hover::after, .resize-handle.dragging::after { background:var(--accent); width:2px; left:2px; }
 /* handle-l sits at the sidebar's right edge rather than centred in its own 6px
@@ -134,7 +134,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    and body is overflow:hidden. */
 ::-webkit-scrollbar { width:10px; height:10px; }
 ::-webkit-scrollbar-thumb {
-  background:transparent; border-radius:var(--r-sm); transition:background .15s ease;
+  background:transparent; border-radius:var(--r-sm); transition:background var(--dur-tint) ease;
 }
 :hover::-webkit-scrollbar-thumb { background:var(--scrollbar-thumb); }
 ::-webkit-scrollbar-thumb:hover { background:var(--scrollbar-thumb-hover); }
@@ -254,7 +254,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   box-shadow:0 8px 20px rgba(0,0,0,.35);
   opacity:0; pointer-events:none;
   transform:translateX(-50%) translateY(-4px);
-  transition:opacity .1s ease .35s, transform .1s ease .35s;
+  transition:opacity var(--dur-tint) ease .35s, transform var(--dur-tint) ease .35s;
 }
 [data-tip]:hover::after, [data-tip]:focus-visible::after { opacity:1; transform:translateX(-50%) translateY(0); }
 [data-tip].tip-r::after { left:auto; right:0; transform:translateY(-4px); }
@@ -406,7 +406,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .row .tw {
   flex:none; width:0; height:0; margin-right:1px;
   border-style:solid; border-width:4px 0 4px 5px; border-color:transparent transparent transparent var(--text-dim);
-  transition:transform .1s ease;
+  transition:transform var(--dur-press) ease;
 }
 .row .tw.open { transform:rotate(90deg); }
 .row .ic { width:15px; text-align:center; opacity:.85; }
@@ -499,7 +499,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   color:inherit; font-size:var(--fs-xs); text-align:left; cursor:pointer;
 }
-.sess-del { flex:none; opacity:0; color:var(--text-dim); border-radius:var(--r-xs); padding:1px 5px; font-size:var(--fs-xs); cursor:pointer; transition:opacity .12s ease; }
+.sess-del { flex:none; opacity:0; color:var(--text-dim); border-radius:var(--r-xs); padding:1px 5px; font-size:var(--fs-xs); cursor:pointer; transition:opacity var(--dur-tint) ease; }
 .proj-group-sess:hover .sess-del, .sess-row:hover .sess-del, .sess-del.confirm,
 .sess-acts:focus-within .sess-del { opacity:1; }
 .sess-del:hover { color:var(--status-danger); background:var(--surface-hover); }
@@ -508,10 +508,10 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    icon for the two format chips, which is the whole picker. */
 /* Same hidden-until-hover shape as .sess-exp beside it; the .on rule further
    up is what keeps a pinned row's mark visible with the mouse elsewhere. */
-.sess-pin { flex:none; opacity:0; color:var(--text-dim); border-radius:var(--r-xs); padding:1px 5px; cursor:pointer; display:inline-flex; align-items:center; border:none; background:none; transition:opacity .12s ease; }
+.sess-pin { flex:none; opacity:0; color:var(--text-dim); border-radius:var(--r-xs); padding:1px 5px; cursor:pointer; display:inline-flex; align-items:center; border:none; background:none; transition:opacity var(--dur-tint) ease; }
 .sess-row:hover .sess-pin, .sess-acts:focus-within .sess-pin { opacity:1; }
 .sess-pin:hover { color:var(--text-primary); }
-.sess-exp { flex:none; opacity:0; color:var(--text-dim); border-radius:var(--r-xs); padding:1px 5px; font-size:var(--fs-xs); cursor:pointer; display:inline-flex; gap:2px; align-items:center; border:none; background:none; transition:opacity .12s ease; }
+.sess-exp { flex:none; opacity:0; color:var(--text-dim); border-radius:var(--r-xs); padding:1px 5px; font-size:var(--fs-xs); cursor:pointer; display:inline-flex; gap:2px; align-items:center; border:none; background:none; transition:opacity var(--dur-tint) ease; }
 .proj-group-sess:hover .sess-exp, .sess-row:hover .sess-exp, .sess-exp.armed,
 .sess-acts:focus-within .sess-exp { opacity:1; }
 .sess-exp:hover { background:var(--surface-hover); }
@@ -536,13 +536,13 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
  *
  * --acts-mask is where the text must be fully gone, measured from the right
  * edge; the band fades over the 30px before it. Registered rather than plain so
- * it can transition, and the text drifts away on the same .12s the buttons
- * arrive on instead of snapping. The default is negative on purpose: it pushes
+ * it can transition, and the text drifts away on the same --dur-tint the
+ * buttons arrive on instead of snapping. The default is negative on purpose: it pushes
  * both stops past the element's own right edge, which is how "no mask at all"
  * is written in a declaration that is always present. */
 @property --acts-mask { syntax:'<length>'; initial-value:-40px; inherits:false; }
 .proj-group-sess-open {
-  --acts-mask:-40px; transition:--acts-mask .12s ease;
+  --acts-mask:-40px; transition:--acts-mask var(--dur-tint) ease;
   -webkit-mask:linear-gradient(to right, #000 calc(100% - var(--acts-mask) - 30px), transparent calc(100% - var(--acts-mask)));
   mask:linear-gradient(to right, #000 calc(100% - var(--acts-mask) - 30px), transparent calc(100% - var(--acts-mask)));
 }
@@ -668,7 +668,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .acct-dot {
   display:inline-block; width:6px; height:6px; border-radius:50%;
   background:var(--border-strong); margin-right:6px; vertical-align:middle;
-  transition:background .2s ease;
+  transition:background var(--dur-tint) ease;
 }
 .acct-dot.on { background:var(--accent); }
 /* Shared by the language and theme rows. max-width so the 14-entry theme list
@@ -695,7 +695,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .ver-check {
   margin-left:auto; padding:3px 8px; border-radius:var(--r-sm); background:transparent;
   border:1px solid var(--border-subtle); color:var(--text-muted); font:inherit;
-  font-size:var(--fs-xs); cursor:pointer; transition:color .15s ease, border-color .15s ease;
+  font-size:var(--fs-xs); cursor:pointer; transition:color var(--dur-tint) ease, border-color var(--dur-tint) ease;
 }
 .ver-check:hover:not(:disabled) { color:var(--text-primary); border-color:var(--border-strong); }
 .ver-check:disabled { opacity:.5; cursor:default; }
@@ -728,7 +728,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .ver-bar {
   height:3px; margin-left:24px; border-radius:2px; background:var(--border-subtle); overflow:hidden;
 }
-.ver-bar-fill { display:block; height:100%; background:var(--accent); transition:width .2s ease; }
+.ver-bar-fill { display:block; height:100%; background:var(--accent); transition:width var(--dur-glide) ease; }
 /* No total from the server means no percentage to honestly draw, so the bar
    moves instead of claiming a position. */
 .ver-bar.indeterminate .ver-bar-fill { width:35%; animation:ver-bar-slide 1.1s ease-in-out infinite; }
@@ -1491,6 +1491,27 @@ button.phase-head:hover { color:var(--text-muted); }
 /* The timeline inside a phase already has the header above it for air. */
 .phase .tool-steps { margin-bottom:0; }
 
+/* A delegate's own narration, inside its card, at the size the main transcript
+   gives the same sentence (.phase-say). It used to be a `note` row — 12px and
+   muted, in a panel — which is the demotion §59 took out of the transcript and
+   left in place one level down. The side margins are the box's, matched to the
+   diff and search cards that already sit inside it. */
+/* The transcript's own blocks, one level in.
+ *
+ * Everything about their shape comes from .phase and its parts — that is the
+ * whole point of drawing them with phaseBlock rather than beside it. Only two
+ * things change, and both are about standing inside a card rather than in the
+ * conversation:
+ *
+ *  - The prose steps down one size. At --fs-lg it is the largest text in a
+ *    block that already has a 13px headline over it and 12px rows under it, and
+ *    it read as the card's title (owner: "มันไม่ค่อยสมส่วน").
+ *  - The first stretch loses its top padding. In the transcript that space
+ *    separates one stretch from the answer above it; here there is a card edge
+ *    and its own margin doing that job already. */
+.bgw-work .phase-say { font-size:var(--fs-md); }
+.bgw-work .phase:first-child { padding-top:0; }
+
 /* flex, because .icon is display:block — as a bare child of this block div the
    svg took its own line and sat above the text instead of beside it. */
 .tool-think { display:flex; align-items:center; gap:6px; padding:3px 0; font-size:var(--fs-xs); color:var(--text-dim); }
@@ -1751,7 +1772,7 @@ button.phase-head:hover { color:var(--text-muted); }
   background:var(--surface-sunken); border:1px solid var(--border-subtle);
 }
 .chat-inner .markdown-body .gallery-step, .chat-inner .markdown-body .gallery-open {
-  position:absolute; opacity:0; transition:opacity .12s;
+  position:absolute; opacity:0; transition:opacity var(--dur-tint);
   background:var(--surface-raised); border:1px solid var(--border-subtle);
 }
 .chat-inner .markdown-body .gallery-stage:hover .gallery-step,
@@ -1781,7 +1802,7 @@ button.phase-head:hover { color:var(--text-muted); }
 .chat-inner .markdown-body .gallery-thumb {
   padding:0; width:38px; height:48px; overflow:hidden; border-radius:var(--r-sm);
   background:var(--surface-sunken); border:1px solid var(--border-subtle);
-  opacity:.6; transition:opacity .12s, border-color .12s, box-shadow .12s;
+  opacity:.6; transition:opacity var(--dur-tint), border-color var(--dur-tint), box-shadow var(--dur-tint);
 }
 .chat-inner .markdown-body .gallery-thumb:hover { opacity:1; }
 .chat-inner .markdown-body .gallery-thumb.picked {
@@ -1868,7 +1889,7 @@ button.phase-head:hover { color:var(--text-muted); }
 .markdown-body .codeblock-head .lang { font-size:var(--fs-xs); color:var(--text-dim); font-family:var(--font-mono, monospace); margin-right:auto; }
 .markdown-body .code-copy, .markdown-body .code-run {
   font-size:var(--fs-xs); color:var(--text-muted); padding:2px 8px; border-radius:var(--r-sm); cursor:pointer;
-  opacity:0; transition:opacity .12s;
+  opacity:0; transition:opacity var(--dur-tint);
 }
 .markdown-body .codeblock:hover .code-copy, .markdown-body .code-copy:focus-visible,
 .markdown-body .codeblock:hover .code-run, .markdown-body .code-run:focus-visible { opacity:1; }
@@ -1996,7 +2017,7 @@ button.phase-head:hover { color:var(--text-muted); }
 }
 .markdown-body .math-copy {
   font-size:var(--fs-xs); color:var(--text-muted); padding:2px 8px; border-radius:var(--r-sm); cursor:pointer;
-  opacity:0; transition:opacity .12s;
+  opacity:0; transition:opacity var(--dur-tint);
 }
 .markdown-body .math-block:hover .math-copy, .markdown-body .math-copy:focus-visible { opacity:1; }
 .markdown-body .math-copy:hover { background:var(--surface-hover); color:var(--text-primary); }
@@ -2019,10 +2040,28 @@ button.phase-head:hover { color:var(--text-muted); }
    ("มันชิดกันเกินครับ ดูอ้วนมาก"). What separates one card from the next is
    space; the hairline is only there to say where a card ends. */
 .bgw { display:flex; flex-direction:column; gap:14px; margin-bottom:12px; }
+/* A ground of its own, and a shadow to stand on it.
+ *
+ * It was transparent, which was fine while the inside of the card was a short
+ * list of 12px rows. It stopped being fine the moment the card started drawing
+ * the transcript's own blocks: the same prose at the same size on the same
+ * background as the turn around it, with a hairline somewhere out at the edge
+ * — one reply with a rectangle drawn on part of it (owner: "มันดูกลืนเกินไป
+ * เพิ่มเงานิดนึง").
+ *
+ * --surface-panel is one step UP from the transcript's --surface-app, and the
+ * boxes inside it stay on --surface-sunken, so the hierarchy reads in the right
+ * order: the conversation, a card lifted off it, recessed boxes within that.
+ * The shadow is two layers and both are shallow — a contact edge that says the
+ * card has a bottom, and a wide soft one that says how far off the page it is.
+ * It must stay this quiet: a raised, shadowed surface at row scale is what
+ * .tool-step.run::after uses to mean "this call is live", and a card shouting
+ * the same thing would be two signals for one idea. */
 .bgw-card {
   position:relative;
   padding:9px 13px; border:1px solid var(--border-subtle); border-radius:var(--r-lg);
-  background:transparent; font-size:var(--fs-xs);
+  background:var(--surface-panel); font-size:var(--fs-xs);
+  box-shadow:0 1px 2px rgba(0,0,0,.18), 0 6px 16px -8px rgba(0,0,0,.30);
 }
 .tool-steps > .bgw-card + .bgw-card { margin-top:14px; }
 
@@ -2199,30 +2238,17 @@ button.phase-head:hover { color:var(--text-muted); }
 .proj-chats li button { position:relative; }
 .proj-group-sess::before,
 .proj-chats li button::before { inset:0; }
-/* The drawing box carries --r-md of its own now (the frame added 25 ส.ค.), so
-   `border-radius:inherit` above already lands on the right corners — the same
-   way the code block beside it has always got them. Stated rather than deleted:
-   this line existed because the box had no border, and the next person to take
-   the frame off has to put it back. Outside the chat the frame is not applied
-   and the corners would resolve square, which costs nothing: the ring is lit
-   only by markLive, and only a streamed answer is ever live. */
 /* Motion off, signal kept: a steady lit outline still says which one is the
    one still working, which is the whole job. */
 @media (prefers-reduced-motion: reduce) {
-  .bgw-card.run,
   .sess-row.working,
   .proj-group-sess.working,
   .proj-chats li button.working,
-  .wb.busy-glow,
-  .markdown-body:has(.live) { animation:none; }
-  .bgw-card.run::before,
+  .wb.busy-glow { animation:none; }
   .sess-row.working::before,
   .proj-group-sess.working::before,
   .proj-chats li button.working::before,
-  .wb.busy-glow::before,
-  .markdown-body .plan-card.live::before,
-  .markdown-body .codeblock.live::before,
-  .markdown-body .drawing-box.live::before {
+  .wb.busy-glow::before {
     background:color-mix(in srgb, var(--interactive) 55%, transparent);
   }
 }
@@ -2279,7 +2305,7 @@ button.phase-head:hover { color:var(--text-muted); }
   border:1px solid var(--border-subtle); border-radius:999px;
   background:transparent; color:var(--text-dim);
   font-size:var(--fs-2xs); line-height:1.6; cursor:pointer;
-  transition:color .12s ease, border-color .12s ease;
+  transition:color var(--dur-tint) ease, border-color var(--dur-tint) ease;
 }
 .bgw-stop:hover { color:var(--status-danger); border-color:var(--status-danger); }
 /* Quieter until the pointer is on the card, and deliberately NOT to zero.
@@ -2453,10 +2479,34 @@ button.phase-head:hover { color:var(--text-muted); }
    the whole mechanism: it was promised before the work existed, so it stays on
    screen at zero rather than appearing once somebody gets round to it. */
 .bgw-phase-title.idle { font-weight:400; color:var(--text-dim); }
-.bgw-phase-bar { flex:1; min-width:24px; height:2px; border-radius:2px; background:var(--border-subtle); overflow:hidden; }
-.bgw-phase-fill { display:block; height:2px; background:var(--interactive); }
+/* One pip per promised worker, pushed to the right so the count it belongs to
+   is the next thing the eye reaches. The bar these replace was flex:1 and ran
+   the whole width of the panel — at 0 of 1 that is an empty rule across the
+   screen, which reads as a divider between two rows rather than as the progress
+   of one. Pips also say HOW MANY, which is the fact a plan has and a percentage
+   does not. Capped at twelve: past that the number is the readable form. */
+.bgw-pips { margin-left:auto; display:flex; gap:3px; align-items:center; }
+.bgw-pip { width:14px; height:3px; border-radius:2px; background:var(--border-strong); }
+.bgw-pip.on { background:var(--interactive); }
+/* The one being worked on, breathing. Same beat as .bgw-mark.run beside it, so
+   two marks about the same worker do not tell two different stories. */
+.bgw-pip.live { background:var(--interactive); animation:bgw-pip 1.6s ease-in-out infinite; }
+@keyframes bgw-pip { 0%, 100% { opacity:.35; } 50% { opacity:1; } }
+@media (prefers-reduced-motion: reduce) { .bgw-pip.live { animation:none; opacity:.6; } }
+/* The run's own fold. A caret at the head of the row, at the same size and in
+   the same ink as the phase carets under it — one disclosure vocabulary. */
+.bgw-runfold {
+  display:flex; align-items:center; padding:0; border:0; background:none;
+  color:var(--text-dim); cursor:pointer;
+}
+.bgw-runfold:hover { color:var(--text-secondary); }
+.bgw-runbody { overflow:hidden; }
 .bgw-phase-count { color:var(--text-dim); white-space:nowrap; font-variant-numeric:tabular-nums; }
 .bgw-worker { display:flex; align-items:center; gap:7px; margin:5px 0 0 34px; color:var(--text-secondary); }
+/* The tile keeps the card's own corner so a 20px face and a 34px one read as
+   the same object at two sizes. */
+.bgw-worker-face { flex:none; display:flex; }
+.bgw-worker-face .agent-face { border-radius:30%; }
 .bgw-worker-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .bgw-worker-agent { color:var(--text-dim); white-space:nowrap; }
 .bgw-worker-step { margin:1px 0 0 53px; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -2483,7 +2533,7 @@ button.phase-head:hover { color:var(--text-muted); }
 /* A drawing's take-it-with-you controls: hover-revealed like a code block's,
    overlaid top-right so they never change the drawing's layout. */
 .markdown-body .drawing-box { position:relative; }
-.markdown-body .drawing-tools { position:absolute; top:6px; right:6px; display:flex; gap:4px; opacity:0; transition:opacity .12s; }
+.markdown-body .drawing-tools { position:absolute; top:6px; right:6px; display:flex; gap:4px; opacity:0; transition:opacity var(--dur-tint); }
 .markdown-body .drawing-box:hover .drawing-tools, .markdown-body .drawing-tools:focus-within { opacity:1; }
 .markdown-body .drawing-tools button { font-size:var(--fs-xs); color:var(--text-dim); background:var(--surface-raised); border:1px solid var(--border-subtle); border-radius:var(--r-xs); padding:2px 8px; cursor:pointer; }
 .markdown-body .drawing-tools button:hover { background:var(--surface-hover); color:var(--text-primary); }
@@ -2526,7 +2576,7 @@ button.phase-head:hover { color:var(--text-muted); }
    that is always lit competes with the plan for the eye. */
 .markdown-body .plan-copy {
   font-size:var(--fs-xs); color:var(--text-muted); background:none; border:none;
-  padding:2px 8px; border-radius:var(--r-sm); cursor:pointer; opacity:0; transition:opacity .12s;
+  padding:2px 8px; border-radius:var(--r-sm); cursor:pointer; opacity:0; transition:opacity var(--dur-tint);
 }
 .markdown-body .plan-card:hover .plan-copy, .markdown-body .plan-copy:focus-visible { opacity:1; }
 .markdown-body .plan-copy:hover { background:var(--surface-hover); color:var(--text-primary); }
@@ -2653,7 +2703,7 @@ button.phase-head:hover { color:var(--text-muted); }
    whole learning loop is fed by exactly that gesture (jobs.go). Owner's call,
    14 ส.ค. — "ควรจะขึ้นตลอด ไม่ใช่รอเอาเมาส์ไปสัมผัส".
    They stay quiet rather than hidden: --text-dim at rest, accent on hover. */
-.msg-copy { flex:none; color:var(--text-dim); transition:color .12s, background .12s; }
+.msg-copy { flex:none; color:var(--text-dim); transition:color var(--dur-tint), background var(--dur-tint); }
 .msg-copy:hover { color:var(--accent); background:var(--surface-hover); }
 .msg-copy:disabled { cursor:default; opacity:.35; }
 .msg-copy:disabled:hover { background:none; color:var(--text-dim); }
@@ -2672,7 +2722,7 @@ button.phase-head:hover { color:var(--text-muted); }
 
 /* Re-running a turn, in the same row and on the same terms. Retry keeps its
    danger colour: a turn that failed has nothing else to offer. */
-.msg-act { flex:none; color:var(--text-dim); transition:color .12s, background .12s; }
+.msg-act { flex:none; color:var(--text-dim); transition:color var(--dur-tint), background var(--dur-tint); }
 .msg-act:hover:not(:disabled) { color:var(--accent); background:var(--surface-hover); }
 .msg-act.retry { color:var(--status-danger); }
 .msg-act.retry:hover:not(:disabled) { color:var(--status-danger-strong, var(--status-danger)); }
@@ -2850,6 +2900,42 @@ button.phase-head:hover { color:var(--text-muted); }
 .rewind-item { gap:10px; }
 .rewind-when { flex:none; width:38px; color:var(--text-dim); font-size:var(--fs-2xs); font-variant-numeric:tabular-nums; }
 .rewind-label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* EVERY POPOVER IN THE APP ARRIVES THE SAME WAY.
+ *
+ * There are ten of them and they were already one surface written out ten
+ * times: absolute, --surface-panel, a --border-subtle hairline, --shadow-menu,
+ * and a corner. What none of them had was an ARRIVAL — every one of them
+ * appeared fully formed in a single frame, which is the one thing a layer
+ * floating above the page must not do, because nothing on screen says where it
+ * came from.
+ *
+ * One rule and not ten, listed by name rather than by a class nobody has to
+ * remember to add: a shared `.pop` would be a promise that the next menu's
+ * author opts in, and the evidence of these ten is that nobody opts in — they
+ * copy the block above. A name missing from this list is a menu that pops, and
+ * that is a thing you can see.
+ *
+ * The origin is the edge it hangs off, so the menu grows out of the control
+ * that opened it instead of drifting in from nowhere. Upward menus (bottom:
+ * calc(100% + …)) grow from their bottom edge; downward ones from their top.
+ * Both are the same 4px and the same --dur-tint the control itself answers a
+ * pointer in: opening a menu is a press, not a screen change.
+ *
+ * The global prefers-reduced-motion rule at the end of this file turns it off
+ * with everything else, so there is nothing to remember here. */
+@keyframes menu-in { from { opacity:0; transform:translateY(var(--menu-from, 4px)) } }
+.focus-menu, .attach-menu, .stance-menu, .branch-menu, .model-menu, .ctx-menu,
+.summary-menu, .busy-menu, .plus-menu {
+  animation:menu-in var(--dur-tint) var(--ease-arrive) both;
+}
+/* Grows from the edge it is pinned to. */
+.focus-menu, .attach-menu, .stance-menu, .branch-menu, .model-menu, .ctx-menu {
+  transform-origin:bottom center; --menu-from:4px;
+}
+.summary-menu, .busy-menu, .plus-menu {
+  transform-origin:top center; --menu-from:-4px;
+}
+
 /* Project-focus picker — the chip is a button opening an upward menu:
    "no focus" / recent projects / open folder (Claude Desktop-style). */
 .focus-pick { position:relative; }
@@ -3706,7 +3792,7 @@ button.phase-head:hover { color:var(--text-muted); }
 }
 .busy-bar-dot {
   flex:none; width:7px; height:7px; border-radius:50%;
-  background:var(--text-muted); transition:background 140ms ease, box-shadow 140ms ease;
+  background:var(--text-muted); transition:background var(--dur-tint) ease, box-shadow var(--dur-tint) ease;
 }
 .busy-bar.live .busy-bar-dot {
   background:var(--interactive);
@@ -4241,7 +4327,7 @@ button.phase-head:hover { color:var(--text-muted); }
   border:none; border-radius:var(--r-md); overflow:visible;
   background:var(--surface-raised);
   display:flex; flex-direction:column; gap:8px; padding:12px;
-  transition:background .15s ease;
+  transition:background var(--dur-tint) ease;
 }
 .chair-card.agc:hover { background:var(--surface-hover); border-color:transparent; }
 
@@ -4299,7 +4385,7 @@ button.phase-head:hover { color:var(--text-muted); }
   border:none; border-radius:var(--r-sm); padding:6px 10px;
   background:var(--surface-sunken); color:var(--text-secondary);
   font:inherit; font-size:var(--fs-sm); cursor:pointer;
-  transition:background .15s, color .15s;
+  transition:background var(--dur-tint), color var(--dur-tint);
 }
 .agc .chair-talk:hover { background:var(--surface-hover); color:var(--text-primary); }
 .agc .chair-talk .t { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -4349,7 +4435,7 @@ button.phase-head:hover { color:var(--text-muted); }
 .chair-card {
   display:flex; flex-direction:column; text-align:left;
   border:1px solid var(--border-default); border-radius:var(--r-lg); overflow:hidden;
-  background:var(--surface-raised); transition:border-color .15s;
+  background:var(--surface-raised); transition:border-color var(--dur-tint);
 }
 .chair-card:hover { border-color:var(--border-strong); }
 
@@ -4583,10 +4669,14 @@ button.phase-head:hover { color:var(--text-muted); }
   color:var(--text-secondary);
 }
 .ag-sec:first-of-type { margin-top:14px; }
-/* A row whose whole surface is the checkbox's label — the tick is small and
-   the name beside it is what people aim at. */
+/* A row whose whole surface is the switch's label — the switch is small and the
+   name beside it is what people aim at. The hover is what says so; without it a
+   row that moves when clicked anywhere looks like a row that does not. */
 .ag-reachrow { cursor:pointer; }
-.ag-reachrow input[type="checkbox"] { flex:none; }
+.ag-reachrow:hover { background:var(--surface-raised); }
+/* Which of them this agent actually carries, without reading five switches: a
+   server it does not hold wears its logo dimmed. */
+.ag-reachrow:not(.on) .cap-mark { opacity:.5; }
 /* An unmet requirement is the one count on this page that is not neutral: it
    means the agent cannot do the job it says it does. */
 .ag-count-warn { color:var(--danger, #e5534b); }
@@ -4709,7 +4799,7 @@ button.phase-head:hover { color:var(--text-muted); }
   position:absolute; top:8px; right:8px; z-index:1;
   display:grid; place-items:center; width:24px; height:24px; border-radius:var(--r-full);
   background:hsl(0 0% 0% / .45); color:hsl(0 0% 100% / .8);
-  opacity:0; transition:opacity .12s, background .12s, color .12s;
+  opacity:0; transition:opacity var(--dur-tint), background var(--dur-tint), color var(--dur-tint);
 }
 .proj-cardwrap:hover .proj-card-del, .proj-card-del:focus-visible { opacity:1; }
 .proj-card-del:hover { background:var(--status-danger); color:hsl(0 0% 100%); }
@@ -4813,7 +4903,7 @@ button.phase-head:hover { color:var(--text-muted); }
 .art-range {
   padding:5px 12px; border-radius:var(--r-full); font-size:var(--fs-sm); cursor:pointer;
   color:var(--text-muted); background:transparent; border:1px solid var(--border-subtle);
-  transition:color .12s, background .12s, border-color .12s;
+  transition:color var(--dur-tint), background var(--dur-tint), border-color var(--dur-tint);
 }
 .art-range:hover { color:var(--text-primary); background:var(--surface-hover); }
 .art-range.on {
@@ -4837,7 +4927,7 @@ button.phase-head:hover { color:var(--text-muted); }
   width:100%; margin-top:16px; padding:11px; cursor:pointer;
   border:1px solid var(--border-subtle); border-radius:var(--r-md);
   background:transparent; color:var(--text-muted); font:inherit; font-size:var(--fs-sm);
-  transition:color .12s, background .12s;
+  transition:color var(--dur-tint), background var(--dur-tint);
 }
 .art-more:hover { color:var(--text-primary); background:var(--surface-hover); }
 .art-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:14px; }
@@ -4947,7 +5037,7 @@ button.phase-head:hover { color:var(--text-muted); }
   border-radius:5px; border:1px solid var(--border-strong);
   background:color-mix(in srgb, var(--surface-app) 80%, transparent);
   color:var(--text-on-interactive); cursor:pointer;
-  opacity:0; transition:opacity .12s, background .12s, border-color .12s;
+  opacity:0; transition:opacity var(--dur-tint), background var(--dur-tint), border-color var(--dur-tint);
 }
 .art-card:hover .art-tick, .art-tick:focus-visible, .art-tick.on,
 .art-grid.picking .art-tick { opacity:1; }
@@ -4988,7 +5078,7 @@ button.phase-head:hover { color:var(--text-muted); }
 .art-squeeze-bar {
   position:absolute; left:0; bottom:0; height:2px; width:var(--p, 0%);
   background:var(--interactive); border-radius:0 2px 2px 0;
-  transition:width .18s ease-out;
+  transition:width var(--dur-glide) ease-out;
 }
 .art-squeezed { position:relative; overflow:hidden; }
 .art-squeezed .art-del { margin-left:auto; }
@@ -5004,7 +5094,7 @@ button.phase-head:hover { color:var(--text-muted); }
 /* Above the fade .art-thumb draws over its own bottom edge, or the number sits
    in the mist. */
 .art-thumb::after { z-index:1; }
-.art-chev { display:flex; flex:none; margin-left:auto; color:var(--text-dim); transition:transform .14s; }
+.art-chev { display:flex; flex:none; margin-left:auto; color:var(--text-dim); transition:transform var(--dur-press); }
 .art-chev.on { transform:rotate(180deg); }
 
 .art-name-row { display:flex; align-items:center; gap:6px; min-width:0; padding:0 14px; }
@@ -5355,7 +5445,7 @@ button.phase-head:hover { color:var(--text-muted); }
 .reg-head { flex:1 1 auto; display:flex; align-items:flex-start; gap:8px; min-width:0; background:none; border:0; padding:0; margin:0; text-align:left; color:inherit; font:inherit; cursor:pointer; }
 .reg-head .set-txt { display:block; min-width:0; }
 .reg-head:focus-visible { outline:2px solid var(--interactive); outline-offset:2px; border-radius:var(--r-sm); }
-.reg-caret { flex:0 0 auto; color:var(--text-muted); line-height:1.4; transition:transform .15s; }
+.reg-caret { flex:0 0 auto; color:var(--text-muted); line-height:1.4; transition:transform var(--dur-press); }
 .reg-caret.open { transform:rotate(90deg); }
 /* The mark a named server wears, drawn by McpMark.svelte. Global rather than
    scoped because two rooms draw the same server: the ห้องสมุด gallery and this
@@ -5433,7 +5523,7 @@ button.phase-head:hover { color:var(--text-muted); }
   display:flex; align-items:center; gap:9px; width:100%;
   padding:5px 8px; border:1px solid transparent; border-radius:var(--r-sm);
   background:none; color:var(--text-muted); font:inherit; font-size:var(--fs-sm);
-  text-align:left; cursor:pointer; transition:background .12s, color .12s, border-color .12s;
+  text-align:left; cursor:pointer; transition:background var(--dur-tint), color var(--dur-tint), border-color var(--dur-tint);
 }
 .mcp-place:hover:not(:disabled) { background:var(--surface-raised); color:var(--text-primary); }
 .mcp-place[aria-checked="true"] { color:var(--text-primary); }
@@ -5461,13 +5551,13 @@ button.phase-head:hover { color:var(--text-muted); }
    another is how a design language stops being one. */
 .mswitch span, .mswitch-face {
   border-radius:var(--r-full); background:var(--surface-sunken);
-  border:1px solid var(--border-strong); transition:background .15s; pointer-events:none;
+  border:1px solid var(--border-strong); transition:background var(--dur-tint); pointer-events:none;
 }
 .mswitch span { position:absolute; inset:0; }
 .mswitch-face { position:relative; flex:none; width:34px; height:19px; margin-left:auto; }
 .mswitch span::after, .mswitch-face::after {
   content:''; position:absolute; top:2px; left:2px; width:13px; height:13px;
-  border-radius:50%; background:var(--text-muted); transition:transform .15s, background .15s;
+  border-radius:50%; background:var(--text-muted); transition:transform var(--dur-press), background var(--dur-tint);
 }
 .mswitch input:checked + span,
 [aria-checked="true"] > .mswitch-face { background:var(--interactive); border-color:var(--interactive); }
@@ -5637,7 +5727,7 @@ button.phase-head:hover { color:var(--text-muted); }
   background:none; border:none; padding:0; cursor:pointer;
   font-size:var(--fs-xs); font-weight:500;
   text-transform:none; letter-spacing:normal;
-  color:var(--text-muted); transition:color .15s;
+  color:var(--text-muted); transition:color var(--dur-tint);
 }
 .keylink:hover { color:var(--interactive); }
 .keylink:focus-visible { outline:2px solid var(--interactive); outline-offset:2px; border-radius:var(--r-sm); }
@@ -5805,7 +5895,7 @@ button.phase-head:hover { color:var(--text-muted); }
 /* Tabular figures, or the byte count jitters sideways on every frame. */
 .upd-bytes { font-variant-numeric:tabular-nums; color:var(--text-primary); }
 .upd-bar { height:8px; border-radius:999px; background:var(--surface-sunken); border:1px solid var(--border-subtle); overflow:hidden; }
-.upd-bar-fill { height:100%; width:0; background:var(--accent); border-radius:999px; transition:width .18s linear; }
+.upd-bar-fill { height:100%; width:0; background:var(--accent); border-radius:999px; transition:width var(--dur-glide) linear; }
 /* No Content-Length on the download means no honest percentage. A bar that
    moves without claiming a number is the truthful shape for that; a fake 50%
    is not. */
@@ -5902,7 +5992,7 @@ button.phase-head:hover { color:var(--text-muted); }
   display:flex; align-items:center; gap:11px; width:100%;
   background:var(--surface-panel); border:1px solid var(--border-default); color:var(--text-primary);
   border-radius:var(--r-lg); padding:13px 16px; font:inherit; font-size:var(--fs-md); cursor:pointer;
-  transition:transform var(--dur-press) ease, border-color .14s ease, background .14s ease;
+  transition:transform var(--dur-press) ease, border-color var(--dur-tint) ease, background var(--dur-tint) ease;
 }
 .ob-big:hover:not(:disabled) { background:var(--surface-hover); border-color:var(--border-strong); }
 .ob-big:active:not(:disabled) { transform:scale(.985); }
@@ -5953,7 +6043,7 @@ button.phase-head:hover { color:var(--text-muted); }
   position:relative; display:flex; flex-direction:column; align-items:center; gap:6px;
   border:1px solid var(--border-subtle); background:var(--surface-panel); color:var(--text-secondary);
   border-radius:var(--r-md); padding:11px 5px; font:inherit; font-size:var(--fs-xs); cursor:pointer;
-  transition:transform var(--dur-press) ease, border-color .12s ease, background .12s ease;
+  transition:transform var(--dur-press) ease, border-color var(--dur-tint) ease, background var(--dur-tint) ease;
 }
 .ob-tile:hover:not(:disabled) { border-color:var(--border-strong); background:var(--surface-hover); }
 .ob-tile:active:not(:disabled) { transform:scale(.95); }
@@ -5973,7 +6063,7 @@ button.phase-head:hover { color:var(--text-muted); }
   position:relative; width:96px; aspect-ratio:1; display:flex; flex-direction:column; align-items:center;
   justify-content:center; gap:8px; border:1px solid var(--border-subtle); background:var(--surface-panel);
   color:var(--text-secondary); border-radius:var(--r-md); font:inherit; font-size:var(--fs-xs); cursor:pointer;
-  transition:transform var(--dur-press) ease, border-color .12s ease, background .12s ease;
+  transition:transform var(--dur-press) ease, border-color var(--dur-tint) ease, background var(--dur-tint) ease;
 }
 .ob-cell:hover:not(:disabled) { border-color:var(--border-strong); background:var(--surface-hover); }
 .ob-cell:active:not(:disabled) { transform:scale(.96); }
@@ -6000,7 +6090,7 @@ button.phase-head:hover { color:var(--text-muted); }
   display:flex; align-items:center; gap:11px; width:100%; text-align:left;
   border:1px solid var(--border-subtle); background:var(--surface-panel); color:var(--text-primary);
   border-radius:var(--r-lg); padding:12px 14px; font:inherit; cursor:pointer;
-  transition:transform var(--dur-press) ease, border-color .12s ease, background .12s ease;
+  transition:transform var(--dur-press) ease, border-color var(--dur-tint) ease, background var(--dur-tint) ease;
 }
 .ob-row:hover { border-color:var(--border-strong); }
 .ob-row:active { transform:scale(.985); }
@@ -6018,7 +6108,7 @@ button.phase-head:hover { color:var(--text-muted); }
 .ob-swatch {
   width:42px; height:42px; border-radius:var(--r-md); border:1px solid var(--border-default);
   padding:0; cursor:pointer; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end;
-  transition:transform .12s ease, border-color .14s ease;
+  transition:transform var(--dur-press) ease, border-color var(--dur-tint) ease;
 }
 .ob-swatch:hover { transform:translateY(-2px); }
 .ob-swatch.on { border-color:var(--accent); transform:translateY(-2px); }
@@ -6041,7 +6131,7 @@ button.phase-head:hover { color:var(--text-muted); }
 }
 
 .ob-dots { position:absolute; bottom:26px; left:50%; transform:translateX(-50%); display:flex; gap:7px; }
-.ob-dots i { width:6px; height:6px; border-radius:50%; background:var(--border-default); transition:width .22s ease, background .22s ease; }
+.ob-dots i { width:6px; height:6px; border-radius:50%; background:var(--border-default); transition:width var(--dur-glide) ease, background var(--dur-tint) ease; }
 .ob-dots i.past { background:var(--border-strong); }
 .ob-dots i.on { width:18px; border-radius:3px; background:var(--accent); }
 /* Above the step dots and quieter than everything on the screen: an offer on
@@ -6160,7 +6250,7 @@ button.phase-head:hover { color:var(--text-muted); }
 .pp-card {
   display:flex; flex-direction:column; text-align:left; cursor:pointer;
   border:1px solid var(--border-default); border-radius:var(--r-lg); overflow:hidden;
-  background:var(--surface-raised); transition:border-color .15s, transform .15s;
+  background:var(--surface-raised); transition:border-color var(--dur-tint), transform var(--dur-press);
 }
 .pp-card:hover { border-color:var(--interactive); transform:translateY(-2px); }
 .pp-cover {
@@ -6259,8 +6349,10 @@ button.phase-head:hover { color:var(--text-muted); }
 .ag-steprow { display:flex; align-items:center; gap:14px; }
 .ag-steps { max-width:110px; }
 .ag-steps:disabled { opacity:.45; }
-.ag-check { display:inline-flex; align-items:center; gap:7px; font-size:var(--fs-md); color:var(--text-secondary); cursor:pointer; }
-.ag-check input { accent-color:var(--interactive); width:15px; height:15px; cursor:pointer; }
+.ag-check { display:inline-flex; align-items:center; gap:9px; font-size:var(--fs-md); color:var(--text-secondary); cursor:pointer; }
+/* No sizing for the input: it wears .mswitch now, the same face as every other
+   on/off in ตั้งค่า, and .mswitch lays its own checkbox out. A rule here would
+   only be this one control disagreeing with the rest of the app again. */
 
 /* The panel. Taller than the confirm dialog and scrolls its own body, because
    the list is the content — the head, the search and the footer stay put so the
@@ -6463,7 +6555,7 @@ button.ctrl, label.ctrl { display:inline-flex; align-items:center; justify-conte
    agent are two kinds of audience and nine identical pills said they were one
    kind. The glyph is dimmer than the label on purpose — it sorts the list, it
    does not compete with the name being read. */
-.conn-chip { display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-sm); padding:5px 11px 5px 9px; border-radius:var(--r-full); background:transparent; border:1px solid var(--border-subtle); color:var(--text-muted); cursor:pointer; transition:border-color .15s, color .15s, background .15s; }
+.conn-chip { display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-sm); padding:5px 11px 5px 9px; border-radius:var(--r-full); background:transparent; border:1px solid var(--border-subtle); color:var(--text-muted); cursor:pointer; transition:border-color var(--dur-tint), color var(--dur-tint), background var(--dur-tint); }
 .conn-chip .icon { flex:none; opacity:.7; }
 .conn-chip.on .icon { opacity:1; }
 .conn-chip:hover:not(:disabled) { border-color:var(--border-strong); color:var(--text-secondary); }
@@ -6566,6 +6658,19 @@ button.ctrl, label.ctrl { display:inline-flex; align-items:center; justify-conte
   68% { opacity:1; }
   86% { opacity:.75; }
 }
+
+/* The ring is put ON, not stamped on.
+ *
+ * A delegate finishing swaps one box-shadow for another, and with nothing
+ * between them the green appeared in the frame the last row landed — the one
+ * moment the eye is already on the portrait, answered with a hard cut (owner,
+ * 7 ก.ย.: "ทำไมอวตาลไม่ขยับตามบริบท ... ทำไมมันกระแทกมาทันที"). Long enough to
+ * be seen arriving, short enough that the card's own words still land first.
+ *
+ * On the tile itself rather than on the two state rules, so `work → done` and
+ * `done → err` and the way back all cost the same. */
+.agent-face { transition:box-shadow var(--dur-settle) ease; }
+@media (prefers-reduced-motion: reduce) { .agent-face { transition:none; } }
 
 /* Finished and failed wear a ring and nothing else. The tick, the clock and
    the words belong to whatever card is holding the face — one fact, drawn

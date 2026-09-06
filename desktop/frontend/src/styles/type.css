@@ -54,6 +54,19 @@
      register, and what is happening right now. There is no token for a slow
      decorative entrance, because there is no such thing here. */
   --dur-press:90ms;         /* the squash under a finger */
+  /* The two the app spent five years of transitions on without ever naming.
+     Counted in style.css on 7 ก.ย. 2026, before they existed: 54 `transition:`
+     declarations holding 28 different lengths, and the shape of the pile was
+     not disagreement — it was two jobs written out by hand over and over.
+     Forty of them changed a COLOUR when the pointer arrived (.12s forty-four
+     times, .15s seventeen, one stray 140ms); the rest moved a LENGTH (.18s,
+     .2s, .22s). Every one of those numbers was somebody picking again what
+     the row above had already picked.
+     The values are the ones the app had already voted for, not new opinions:
+     .12s and .18s were the counts that won. What is new is that they now have
+     a name, so the next hover row is a token instead of a thirtieth guess. */
+  --dur-tint:120ms;         /* a colour answering the pointer: hover, focus, on/off */
+  --dur-glide:180ms;        /* a length changing: a panel widening, a bar filling */
   --dur-arrive:300ms;       /* a screen or panel coming in */
   --dur-settle:340ms;       /* a tick landing on what was just chosen */
   --dur-hold-success:850ms; /* "it worked" is read before the screen moves on */

@@ -36,4 +36,4 @@ An interaction that fires rarely can afford a delightful, slightly longer moment
 
 ## Related
 
-- `DESIGN.md` (repository root, §4), the canonical token names (`--dur-press`, `--dur-arrive`, `--dur-settle`, `--dur-hold-success`, `--dur-ground`) and the rule that a millisecond number is written once, there, and referenced everywhere else by name.
+- `DESIGN.md` (repository root, §4), the canonical token names (`--dur-press`, `--dur-tint`, `--dur-glide`, `--dur-arrive`, `--dur-settle`, `--dur-hold-success`, `--dur-ground`) and the rule that a millisecond number is written once, there, and referenced everywhere else by name.
