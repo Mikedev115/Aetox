@@ -2249,10 +2249,20 @@
       // movement to replay in opening something that is genuinely in flight.
       // What that guard protects against is a fold, and a fold needs
       // cardLanding, which only this branch ever sets.
-      if (openSteps[key] === undefined) {
-        openSteps[key] = true
-        cardLanding[key] = true
-      }
+      // HELD BACK FOR 1.5.18, and the conflict is worth stating rather than
+      // deleting. Opening it here reintroduces exactly what the fold on a
+      // running delegation was added to stop: the newest row is already the
+      // card's HEADLINE, so an open list prints that row twice, and four
+      // concurrent delegates each holding their whole list open is the wall
+      // (Chat.tools.test.ts, "is folded while the delegate works"). Two written
+      // intentions point opposite ways here — "coming back should show the
+      // work" against "the headline already IS the work" — and that is a call
+      // for the owner, not for a release.
+      //
+      // With nothing setting `cardLanding`, the timed fold below is unreachable
+      // this release — toggleSteps CLEARS that flag, because a card the reader
+      // opened is theirs. Said plainly rather than left to be discovered: this
+      // is one branch held back, not a feature quietly half-wired.
       return
     }
     // Never seen working on this screen — a card already finished when we got
