@@ -210,6 +210,11 @@ export const OpenAgentSkillsFolder = noop()
 export const ListAllSessions = arr()
 export const ListSessionsForDoor = arr()
 export const SearchSessionsForDoor = arr()
+// A store that opens: the default has to be "no fault", or every test whose
+// history is legitimately empty would draw the unreadable-store banner.
+export const HistoryFault = vi.fn(async (..._args: any[]) => ({
+  failed: false, tooNew: false, have: 0, known: 0, message: '',
+}))
 export const ListPromptPresets = arr()
 export const ListTools = arr()
 export const ListExternalSkills = arr()

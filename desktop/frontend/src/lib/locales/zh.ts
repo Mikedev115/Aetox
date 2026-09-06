@@ -42,6 +42,8 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'sidebar.searchHistory': '搜索历史…',
   'sidebar.noResults': '没有找到结果',
   'sidebar.noHistory': '此项目还没有历史记录',
+  'sidebar.historyUnreadable': '暂时无法打开聊天记录 — 你的对话仍在硬盘上，没有丢失',
+  'sidebar.historyNewerFile': '无法打开聊天记录：该文件由更新版本的 Aetox 写入（架构版本 {have}，此版本只支持到 {known}）— 对话仍在，更新应用后即可恢复',
   'sidebar.newSession': '新建会话',
   'sidebar.today': '今天',
   'sidebar.yesterday': '昨天',

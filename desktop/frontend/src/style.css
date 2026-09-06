@@ -597,7 +597,18 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .peek-act.primary { border-color:var(--border-strong); }
 
 /* Empty state for a search that matched nothing. */
-.sess-empty { padding:10px 12px; font-size:var(--fs-sm); color:var(--text-muted); }.proj-group-more:hover { color:var(--text-primary); }
+.sess-empty { padding:10px 12px; font-size:var(--fs-sm); color:var(--text-muted); }
+/* The history could not be read — said in the column where the missing chats
+   would have been, because that is where the user is looking when they conclude
+   the chats are gone. Muted rather than alarming: nothing was lost. */
+.hist-fault {
+  display:flex; align-items:flex-start; gap:8px;
+  margin:0 10px 8px; padding:8px 10px;
+  border:1px solid var(--border-default); border-radius:8px;
+  background:var(--surface-hover);
+  font-size:var(--fs-xs); line-height:1.5; color:var(--text-primary);
+}
+.hist-fault .ic { flex:0 0 auto; margin-top:1px; color:var(--danger, #e5534b); }.proj-group-more:hover { color:var(--text-primary); }
 
 .side-footer-wrap { position:relative; flex:0 0 auto; border-top:1px solid var(--border-subtle); }
 .side-footer {

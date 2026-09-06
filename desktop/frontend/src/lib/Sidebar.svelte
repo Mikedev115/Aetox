@@ -596,6 +596,25 @@
   </div>
   {/if}
 
+  <!-- "ยังไม่มีแชต" and "อ่านแชตไม่ได้" are not the same sentence, and this
+       column drew the first one for both until 7 ก.ย. 2026 — an owner with 77
+       sessions on disk was shown an empty list and read it as the only thing an
+       empty list can mean.
+
+       Above the list rather than inside its empty branch, because the draft
+       chat is always a row: the empty branch does not run, so a message put
+       there would never be seen in the case it was written for. -->
+  {#if showChats && cockpit.historyFault}
+    <div class="hist-fault">
+      <span class="ic"><Icon name="alertTriangle" size={13} /></span>
+      <span>
+        {cockpit.historyFault.tooNew
+          ? t('sidebar.historyNewerFile', { have: cockpit.historyFault.have, known: cockpit.historyFault.known })
+          : t('sidebar.historyUnreadable')}
+      </span>
+    </div>
+  {/if}
+
   {#if showChats}
   <div class="side-sections">
   <div class="side-panel">

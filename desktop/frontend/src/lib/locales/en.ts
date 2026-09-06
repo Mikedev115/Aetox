@@ -47,6 +47,8 @@ export const en: Record<keyof typeof th, string> = {
   'sidebar.searchHistory': 'Search history…',
   'sidebar.noResults': 'No results found',
   'sidebar.noHistory': 'No history in this project yet',
+  'sidebar.historyUnreadable': 'Chat history cannot be opened right now — your chats are still on disk, nothing was lost',
+  'sidebar.historyNewerFile': 'Chat history cannot be opened: the file was written by a newer Aetox (schema {have}, this build knows {known}) — your chats are still there, update the app to get them back',
   'sidebar.newSession': 'New session',
   'sidebar.today': 'Today',
   'sidebar.yesterday': 'Yesterday',

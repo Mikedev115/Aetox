@@ -11,11 +11,14 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/turn"
 	_ "modernc.org/sqlite"
 )
@@ -714,15 +717,30 @@ type sqlExecQuerier interface {
 // copy of their history is worse than the feature being unavailable until they
 // upgrade. The app still starts — every caller of database() treats an error as
 // "no history", not as a fatal.
+// schemaTooNewError is the one open failure this build can never talk its way
+// out of: the file was migrated by a NEWER Aetox, so its schema is ahead of
+// everything this binary knows how to read. Retrying cannot help, and opening
+// it anyway would write an older shape over newer data.
+//
+// A type rather than a sentinel for two reasons. The message the user has to
+// see names both numbers, and database() has to tell this apart from "the disk
+// was busy for a second" — until 7 ก.ย. 2026 those were the same cached error,
+// and the second one then lasted for the rest of the process.
+type schemaTooNewError struct{ have, known int }
+
+func (e schemaTooNewError) Error() string {
+	return fmt.Sprintf(
+		"aetox.db is at schema version %d but this build knows only %d — it was written by a newer Aetox. Nothing was changed; upgrade to open this history",
+		e.have, e.known)
+}
+
 func migrate(db *sql.DB) error {
 	var current int
 	if err := db.QueryRow("PRAGMA user_version").Scan(&current); err != nil {
 		return fmt.Errorf("read schema version: %w", err)
 	}
 	if latest := latestSchemaVersion(); current > latest {
-		return fmt.Errorf(
-			"aetox.db is at schema version %d but this build knows only %d — it was written by a newer Aetox. Nothing was changed; upgrade to open this history",
-			current, latest)
+		return schemaTooNewError{have: current, known: latest}
 	}
 	for _, m := range migrations {
 		if m.version <= current {
@@ -798,34 +816,107 @@ func hasColumn(db sqlExecQuerier, table, column string) (bool, error) {
 }
 
 // database opens (once) the app-wide SQLite store.
+// dbRetryEvery is how often a store that failed to open is tried again. Short
+// enough that the window recovers on its own once the disk lets go, long enough
+// that a genuinely dead store cannot make every list in the app wait out the
+// busy_timeout below.
+const dbRetryEvery = 3 * time.Second
+
+// database opens the store on first use and hands the same handle back after.
+//
+// Two things here are the fix for 7 ก.ย. 2026, the day an installed 1.5.17 was
+// opened over a database a newer build had already migrated to schema 18. Every
+// list in the app came back empty: 77 sessions still on disk, not one of them on
+// screen, and not one line in the log to say why.
+//
+//  1. The failure is logged. Nothing logged it before. The callers swallow the
+//     error and return an empty slice (see ListSessionsForDoor), and eachRow's
+//     logging never runs because no query is ever reached — so the app was
+//     silent in precisely the case where it had the most to say.
+//
+//  2. The failure is not necessarily kept. sync.Once made the first error the
+//     answer for the life of the process, so a store that was busy for one
+//     second — another instance still writing its way out of a shutdown — left
+//     that window with no history until the user restarted it. Only
+//     schemaTooNewError is permanent; everything else is retried, at most once
+//     every dbRetryEvery.
 func (a *App) database() (*sql.DB, error) {
-	a.dbInit.Do(func() {
-		dir := a.dbDir
-		if dir == "" {
-			var err error
-			dir, err = config.DataRoot()
-			if err != nil {
-				a.dbErr = err
-				return
-			}
-		}
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			a.dbErr = err
-			return
-		}
-		dsn := "file:" + filepath.ToSlash(filepath.Join(dir, "aetox.db")) +
-			"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
-		db, err := sql.Open("sqlite", dsn)
+	a.dbMu.Lock()
+	defer a.dbMu.Unlock()
+	if a.db != nil {
+		return a.db, nil
+	}
+	if a.dbErr != nil && (a.dbFatal || time.Now().Before(a.dbRetryAt)) {
+		return nil, a.dbErr
+	}
+	db, err := a.openDatabase()
+	if err != nil {
+		var tooNew schemaTooNewError
+		a.dbErr, a.dbFatal = err, errors.As(err, &tooNew)
+		a.dbRetryAt = time.Now().Add(dbRetryEvery)
+		debuglog.Msg("db: cannot open aetox.db: %v", err)
+		return nil, err
+	}
+	a.db, a.dbErr, a.dbFatal = db, nil, false
+	return a.db, nil
+}
+
+// openDatabase is one attempt at the store — the body database() used to run
+// inside its sync.Once, lifted out so that retrying is calling it again rather
+// than reaching into half-set fields.
+func (a *App) openDatabase() (*sql.DB, error) {
+	dir := a.dbDir
+	if dir == "" {
+		var err error
+		dir, err = config.DataRoot()
 		if err != nil {
-			a.dbErr = err
-			return
+			return nil, err
 		}
-		if err := migrate(db); err != nil {
-			a.dbErr = err
-			_ = db.Close()
-			return
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, err
+	}
+	dsn := "file:" + filepath.ToSlash(filepath.Join(dir, "aetox.db")) +
+		"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, err
+	}
+	if err := migrate(db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	return db, nil
+}
+
+// StoreFault is why the local store could not be opened, in the shape the
+// window needs: a flag to branch on, the two numbers the "newer Aetox" case has
+// to name, and the raw error for whoever reads the bug report.
+type StoreFault struct {
+	Failed  bool   `json:"failed"`
+	TooNew  bool   `json:"tooNew"`
+	Have    int    `json:"have"`
+	Known   int    `json:"known"`
+	Message string `json:"message"`
+}
+
+// HistoryFault is what the sidebar asks when its history came back empty, and
+// the whole point of it is that "there are no chats" and "your chats could not
+// be read" stop looking identical. They looked identical for as long as the
+// list existed, which is how a full database read as an erased one.
+//
+// It asks database() rather than reading the cached error, so the answer is
+// current: a store that has come back since the list was fetched reports no
+// fault, and the banner goes away by itself. The retry throttle above is what
+// keeps that from costing a second open attempt per refresh.
+func (a *App) HistoryFault() StoreFault {
+	if _, err := a.database(); err != nil {
+		fault := StoreFault{Failed: true, Message: err.Error()}
+		var tooNew schemaTooNewError
+		if errors.As(err, &tooNew) {
+			fault.TooNew, fault.Have, fault.Known = true, tooNew.have, tooNew.known
 		}
-		a.db = db
-	})
-	return a.db, a.dbErr
+		return fault
+	}
+	return StoreFault{}
 }

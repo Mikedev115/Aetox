@@ -196,6 +196,22 @@ export async function searchSessions(query: string): Promise<void> {
   }))
 }
 
+/** The engine's reason the history could not be read, or null when it could.
+ *
+ * Swallowing the IPC failure is deliberate and errs the safe way: an engine
+ * that cannot answer this question is no evidence that the store is broken, and
+ * a banner raised on a dropped call would cry wolf over a history that is
+ * merely empty. The one it must not miss — a store that answered, and answered
+ * that it is unreadable — always arrives. */
+async function historyFault(): Promise<StoreFault | null> {
+  try {
+    const fault = await HistoryFault()
+    return fault?.failed ? fault : null
+  } catch {
+    return null
+  }
+}
+
 /** Pull this door's chat history across every project, newest first.
  *
  * Scoped in SQL rather than filtered here — see deskFilterFor for why the
@@ -210,6 +226,11 @@ export async function refreshGlobalHistory(): Promise<void> {
   cockpit.history = draftRow(current, metas.map((m) => ({
     id: m.id, title: m.title, ago: agoLabel(m.updatedAt), updatedAt: m.updatedAt, active: m.id === onScreenSession(current), projectName: m.projectName, mode: m.mode, agent: m.agent,
   })), cockpit.project.name)
+  // Asked only when the list came back with nothing, which is the one moment
+  // the answer changes anything: a list with rows in it is proof the store
+  // opened. An empty one is not proof of an empty history — see StoreFault —
+  // and until this call existed the window drew those two as the same thing.
+  cockpit.historyFault = metas.length === 0 ? await historyFault() : null
   // The rail's two lists in one breath. They are one column and the user reads
   // them as one column, so a โปรเจกต์ whose newest chat just changed name must
   // not be sitting above a chat list that already knows — refreshing them apart

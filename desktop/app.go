@@ -226,10 +226,17 @@ type App struct {
 	// two writers are now normal rather than impossible.
 	toolHistoryMu sync.Mutex
 
-	dbInit sync.Once
-	db     *sql.DB
-	dbErr  error
-	dbDir  string // overrides the default <UserConfigDir>/aetox directory; empty means production default. Test seam only.
+	// The store opens lazily, and when it cannot open, the window is told why
+	// instead of being handed an empty history — see database() for the day
+	// that cost us. dbErr is the last failure, dbFatal marks the one kind this
+	// build can never recover from, dbRetryAt keeps a broken disk from turning
+	// every list into a five-second stall.
+	dbMu      sync.Mutex
+	db        *sql.DB
+	dbErr     error
+	dbFatal   bool
+	dbRetryAt time.Time
+	dbDir     string // overrides the default <UserConfigDir>/aetox directory; empty means production default. Test seam only.
 
 	// openDir stands in for openInFileManager, the one door out to the OS file
 	// manager. nil means the real thing.

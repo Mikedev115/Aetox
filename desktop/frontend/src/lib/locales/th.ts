@@ -48,6 +48,8 @@ export const th = {
   'sidebar.searchHistory': 'ค้นหาประวัติ…',
   'sidebar.noResults': 'ไม่พบผลลัพธ์',
   'sidebar.noHistory': 'ยังไม่มีประวัติในโปรเจกต์นี้',
+  'sidebar.historyUnreadable': 'เปิดประวัติแชทไม่ได้ตอนนี้ — แชทเก่ายังอยู่ครบ ไม่ได้หายไปไหน',
+  'sidebar.historyNewerFile': 'เปิดประวัติแชทไม่ได้: ไฟล์ถูกเขียนโดย Aetox รุ่นใหม่กว่า (สคีมา {have} แต่รุ่นนี้รู้จักถึง {known}) — แชทเก่ายังอยู่ครบ อัปเดตแอปแล้วกลับมาเหมือนเดิม',
   'sidebar.newSession': 'เริ่มเซสชันใหม่',
   'sidebar.today': 'วันนี้',
   'sidebar.yesterday': 'เมื่อวาน',

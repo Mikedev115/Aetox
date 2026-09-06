@@ -4,6 +4,20 @@
 
 export type GitStatus = 'M' | 'U' | null
 
+/** Why the local store could not be opened (Go: main.StoreFault).
+ *
+ *  `tooNew` is the case with a cure the user can act on — the file was migrated
+ *  by a newer Aetox and this build is behind it — so it carries both schema
+ *  numbers. `message` is the engine's own words, for a bug report rather than
+ *  for the sidebar. */
+export interface StoreFault {
+  failed: boolean
+  tooNew: boolean
+  have: number
+  known: number
+  message: string
+}
+
 /** One state of the project this chat can be put back to (Go: main.RestorePoint).
  *  The label is the message that opened the turn it precedes — a list of times
  *  and tree hashes is a list nobody can pick from. */
@@ -861,6 +875,14 @@ export interface CockpitState {
   /** All chat history across every project, newest first — sidebar's global history layer.
    *  Chats held inside a โปรเจกต์ are not in it: they live in `spaceHistory`. */
   history: Session[]
+  /** Why the history above could not be read, or null when it could.
+   *
+   *  It exists because an empty `history` used to mean two completely different
+   *  things and said neither: "you have no chats" and "your chats are on disk
+   *  and this build cannot open the file they are in". On 7 ก.ย. 2026 the owner
+   *  got the second one — 77 sessions, none on screen — and read it as the
+   *  first, which is the only reading the window offered. */
+  historyFault: StoreFault | null
   /** The open chat's project's own chats (§90), newest first. Empty whenever
    *  the open chat is in no project — which is most of the time, and is what
    *  puts `history` back on screen. */
@@ -1053,6 +1075,7 @@ export function emptyCockpitState(): CockpitState {
     tree: [],
     sessions: [],
     history: [],
+    historyFault: null,
     spaceHistory: [],
     spaces: [],
     model: { provider: '', modelName: '', thinkLevel: '', contextUsed: 0, contextMax: 0, approval: 'ask', wireFormat: '', warning: '' },

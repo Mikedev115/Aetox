@@ -42,6 +42,7 @@ beforeEach(() => {
   cockpit.desk = ''
   cockpit.activeView = 'chat'
   cockpit.history.length = 0
+  cockpit.historyFault = null
   setShell('assistant')
   vi.mocked(CurrentSessionID).mockResolvedValue('20260805-120000.000')
   vi.mocked(SessionMode).mockResolvedValue('')
@@ -250,5 +251,33 @@ describe('the working ring on a workshop project chat', () => {
     const { container } = render(Sidebar, { onOpenSettings: () => {} })
 
     expect(container.querySelector('.proj-group-sess')?.classList.contains('working')).toBe(true)
+  })
+})
+
+// The 7 ก.ย. 2026 failure, from the outside: an empty column that means "your
+// chats cannot be read" must not look like the empty column that means "you
+// have no chats". Those were the same picture for as long as the list existed,
+// and the owner read the only reading the window offered — that 77 sessions
+// had been erased.
+describe('a history the store could not open', () => {
+  it('says so above the list instead of drawing an ordinary empty column', () => {
+    cockpit.historyFault = { failed: true, tooNew: true, have: 18, known: 17, message: 'schema 18 > 17' }
+
+    const { container } = render(Sidebar, { onOpenSettings: () => {} })
+
+    const banner = container.querySelector('.hist-fault')
+    expect(banner).not.toBeNull()
+    // Both numbers, because "update the app" is only actionable when the user
+    // can see which way round the mismatch goes.
+    expect(banner?.textContent).toContain('18')
+    expect(banner?.textContent).toContain('17')
+  })
+
+  it('says nothing when the store is fine and the history is simply empty', () => {
+    cockpit.historyFault = null
+
+    const { container } = render(Sidebar, { onOpenSettings: () => {} })
+
+    expect(container.querySelector('.hist-fault')).toBeNull()
   })
 })
