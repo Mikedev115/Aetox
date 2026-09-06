@@ -240,6 +240,126 @@ function renderMath(token: MathToken): string {
   }
 }
 
+// ---------- footnotes ----------
+//
+// A model that has been reading the web cites what it read, and the way it
+// writes a citation is `[^1]` with `[^1]: ที่มา` underneath. markdown does not
+// know that syntax, and what it did with it was worse than ignoring it:
+// `[^1]: ที่มา` is a valid LINK DEFINITION to markdown — a label `^1` pointing
+// at a URL `ที่มา` — so the definition line vanished from the answer entirely
+// and `[^1]` in the sentence above became a live link to a made-up address.
+// The user was shown a blue `^1` that goes nowhere, and never shown the source
+// the model had gone and found.
+//
+// So both halves are tokenized here, ahead of everything: extensions are
+// offered the source before the built-in rules, which is the same seam the
+// mathematics above uses to get in front of the escape rule.
+//
+// Numbered by first REFERENCE rather than by the order the definitions are
+// written in, because the number is what the reader sees in the sentence and
+// the sentence is what they read first. A definition nothing refers to still
+// gets printed, unnumbered, at the end — the bug being fixed here is text
+// disappearing, and a fix that drops a different line is the same bug.
+const FOOTNOTE = {
+  // The definition and any lines indented under it, which is how a citation
+  // long enough to wrap arrives.
+  def: /^\[\^([^\]\s]+)\]:[ \t]*([^\n]*(?:\n[ \t]+[^\n]*)*)(?:\n+|$)/,
+  ref: /^\[\^([^\]\s]+)\]/,
+} as const
+
+// Per-render state, reset at the top of renderMarkdown. Same shape as
+// insidePlan below: this renderer is called once per message and marked has
+// nowhere to hang state of its own.
+let footnoteAt = new Map<string, number>()
+let footnoteBody = new Map<string, string>()
+let footnoteOrder: string[] = []
+
+function footnoteNumber(label: string): number {
+  const seen = footnoteAt.get(label)
+  if (seen !== undefined) return seen
+  const next = footnoteAt.size + 1
+  footnoteAt.set(label, next)
+  return next
+}
+
+marked.use({
+  extensions: [
+    {
+      name: 'footnoteDef',
+      level: 'block',
+      tokenizer(src: string) {
+        const match = FOOTNOTE.def.exec(src)
+        if (!match) return undefined
+        const label = match[1]
+        // Joined onto one line: the indentation is markdown's way of saying
+        // "still the same note", not part of what the note says.
+        const body = match[2].replace(/\n[ \t]+/g, ' ').trim()
+        if (!footnoteBody.has(label)) {
+          footnoteBody.set(label, marked.parseInline(body, { async: false }) as string)
+          footnoteOrder.push(label)
+        }
+        return { type: 'footnoteDef', raw: match[0] }
+      },
+      // Nothing where it was written. The note itself is printed once, at the
+      // foot of the answer, by renderMarkdown.
+      renderer: () => '',
+    },
+    {
+      // No `start` hint on either half, deliberately. `start` tells the lexer
+      // where a token might begin so a run of plain text is cut short of it —
+      // and pointing it at the `[^` inside `` `[^1]` `` made it cut the text
+      // token in the middle of a code span, which came back as `<code> [^1]`
+      // with a space grown in front of it. Both halves open on a character the
+      // lexer already stops at, so the hint bought nothing and cost that.
+      name: 'footnoteRef',
+      level: 'inline',
+      tokenizer(src: string) {
+        const match = FOOTNOTE.ref.exec(src)
+        return match ? { type: 'footnoteRef', raw: match[0], label: match[1] } : undefined
+      },
+      // Not an <a href="#...">. An id is document-wide (confineDrawing has the
+      // long version of why that matters here) and two answers both citing a
+      // `[^1]` would collide; worse, a hash link in a webview navigates the app
+      // itself. The marker carries its label instead and Chat.svelte finds the
+      // note within the same answer.
+      renderer: (token) => {
+        const label = String((token as Tokens.Generic).label ?? '')
+        return `<sup class="fn-ref" data-fn="${escapeAttr(label)}">${footnoteNumber(label)}</sup>`
+      },
+    },
+  ],
+})
+
+// The notes themselves, printed once under the answer they belong to.
+//
+// Referenced ones first, in the order the reader met them; then anything the
+// model defined and never pointed at, marked with a dash instead of a number
+// so the list cannot claim a reference that is not there.
+function renderFootnotes(): string {
+  if (footnoteBody.size === 0) return ''
+  const numbered = [...footnoteAt.entries()].sort((a, b) => a[1] - b[1])
+  const rows = [
+    ...numbered.map(([label, n]) => [label, String(n)] as const),
+    ...footnoteOrder.filter((label) => !footnoteAt.has(label)).map((label) => [label, '—'] as const),
+  ]
+  const notes = rows
+    .map(([label, mark]) => {
+      // A reference with no definition still prints its number in the
+      // sentence, and printing an empty note under it would say the source
+      // exists. It does not, so the row is skipped and only the marker stands.
+      const body = footnoteBody.get(label)
+      if (body === undefined) return ''
+      return (
+        `<div class="fn-note" data-fn="${escapeAttr(label)}">` +
+        `<span class="fn-mark">${escapeText(mark)}</span>` +
+        `<span class="fn-body">${body}</span>` +
+        `</div>`
+      )
+    })
+    .join('')
+  return notes === '' ? '' : `<div class="fn-notes">${notes}</div>`
+}
+
 // A plan arrives as a fenced block tagged `plan` and is drawn as a card of its
 // own: the icon of the dial that produced it, a title, and the plan itself
 // (internal/prompt.planCard asks for exactly this, and only where a surface can
@@ -369,12 +489,17 @@ function liftDrawings(text: string): { text: string; held: string[] } {
 // `drawing` layer is what asks for them). Nothing here has to allow it — the
 // point of the note is that nothing may quietly forbid it either.
 export function renderMarkdown(text: string): string {
+  // Cleared per answer, not per app: a citation numbered 1 in one reply has
+  // nothing to do with the 1 in the reply above it.
+  footnoteAt = new Map()
+  footnoteBody = new Map()
+  footnoteOrder = []
   const { text: lifted, held } = liftDrawings(text)
   const html = (marked.parse(lifted, { async: false }) as string).replace(
     PLACEHOLDER,
     (_, i: string) => held[Number(i)] ?? ''
   )
-  return confine(html)
+  return confine(html + renderFootnotes())
 }
 
 // What DOMPurify guards is the machine: no script, no handler, no way for a
