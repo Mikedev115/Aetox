@@ -76,6 +76,56 @@ describe('tool events from the engine', () => {
     expect(cockpit.toolSteps[0].label).toBe('todo_write')
   })
 
+  // The join undone. All three facts were on the event the whole time and the
+  // store was flattening them into one string, which is what made the row read
+  // like a log line — and which threw `act` away entirely, so a `browser` row
+  // could say the browser was busy and not one thing more.
+  it('keeps the name, the act and the subject as their own fields', () => {
+    applyToolEvent({ action: 'call', ref: 'c1', name: 'browser', act: 'click', subject: '#submit' })
+    expect(cockpit.toolSteps[0]).toMatchObject({
+      name: 'browser', act: 'click', subject: '#submit',
+      // And the joined string as well: it is still a row's identity on an
+      // engine that sends no call id, and still what a stored turn reads back.
+      label: 'browser #submit',
+    })
+  })
+
+  // A row born from the streaming announcement knows the tool and nothing else
+  // — the action is inside arguments the model is still writing. Taking the
+  // later answer is what keeps that row from staying on the pack's own verb.
+  it('lets the act arrive after the row exists', () => {
+    applyToolEvent({ action: 'call', ref: 'c2', name: 'change' })
+    expect(cockpit.toolSteps[0].act).toBeUndefined()
+    applyToolEvent({ action: 'call', ref: 'c2', name: 'change', act: 'delete', subject: 'old.go' })
+    expect(cockpit.toolSteps).toHaveLength(1)
+    expect(cockpit.toolSteps[0]).toMatchObject({ act: 'delete', subject: 'old.go' })
+  })
+
+  // ข้อ 02: the results existed inside the tool's text output, where no window
+  // could read them, so a search row said how long it took and nothing about
+  // what it found.
+  it('takes a search\'s results off the result event', () => {
+    applyToolEvent({ action: 'call', ref: 's1', name: 'web_search', subject: 'rsc' })
+    applyToolEvent({
+      action: 'result', ref: 's1', name: 'web_search', subject: 'rsc', ok: true, count: 2,
+      links: [
+        { title: 'RFC', url: 'https://react.dev/rfc' },
+        { title: 'Notes', url: 'https://go.dev/blog' },
+      ],
+    })
+    expect(cockpit.toolSteps[0].links).toHaveLength(2)
+    expect(cockpit.toolSteps[0].links?.[0]).toMatchObject({ title: 'RFC' })
+    // Nothing has been read in full yet.
+    expect(cockpit.toolSteps[0].links?.[0].opened).toBeUndefined()
+
+    // The fetch that earns the badge lands calls later, which is why the badge
+    // cannot ride on the search's own event.
+    applyToolEvent({ action: 'call', ref: 'f1', name: 'web_fetch', subject: 'https://react.dev/rfc' })
+    applyToolEvent({ action: 'result', ref: 'f1', name: 'web_fetch', subject: 'https://react.dev/rfc', ok: true })
+    expect(cockpit.toolSteps[0].links?.[0].opened).toBe(true)
+    expect(cockpit.toolSteps[0].links?.[1].opened).toBeUndefined()
+  })
+
   // Argument order is the model's choice: when a write's "content" streams
   // before its "path" the row appears unnamed and has to name itself later.
   // Keyed on the label, the arrival of the name drew a second row.
@@ -257,7 +307,9 @@ describe('tool timeline collapsing', () => {
     // The running row belongs to the sentence that announced it, not to a
     // separate list at the bottom of the bubble.
     const phases = container.querySelectorAll('.phase')
-    expect(phases[1].querySelector('.tool-step')?.textContent).toContain('browser_read')
+    // The row says what the agent is DOING — the tool's own name is not on it
+    // any more (lib/toolFace.ts). Which row it is, is still the point here.
+    expect(phases[1].querySelector('.tool-step')?.textContent).toContain('Read page')
     expect(phases[0].querySelector('.tool-step')).toBeNull()
   })
 
@@ -374,7 +426,7 @@ describe('tool timeline collapsing', () => {
 
     const shown = container.querySelectorAll('.tool-step')
     expect(shown.length).toBe(1)
-    expect(shown[0].textContent).toContain('browser_read')
+    expect(shown[0].textContent).toContain('Read page')
 
     // The header is the control, and it is the only one: no summary row above
     // it saying the same thing a second time.
@@ -690,7 +742,7 @@ describe('sub-agent tool events', () => {
     // It is the agent's own work, and shows as the one row it is.
     const own = container.querySelectorAll('.tool-steps > .tool-step')
     expect(own.length).toBe(1)
-    expect(own[0].textContent).toContain('task')
+    expect(own[0].textContent).toContain('Delegate')
   })
 
   // The flag is three-valued and the middle value is load-bearing: a row born
@@ -956,6 +1008,47 @@ describe('sub-agent tool events', () => {
     expect(toggles[0]).toContain('failed')
   })
 
+  // ข้อ 02: the card under a search row. Drawn through the reply's tools panel
+  // because that path renders a finished timeline unfolded — the live block
+  // folds what has finished, which is the right behaviour and the wrong fixture.
+  it('draws what a search found under the row that ran it', async () => {
+    const steps = [
+      {
+        label: 'web_search react server components', name: 'web_search',
+        subject: 'react server components', state: 'done', startedAt: 0, secs: 2, count: 3,
+        links: [
+          { title: 'Server Components RFC', url: 'https://react.dev/rfc', opened: true },
+          { title: 'Go 1.24 release notes', url: 'https://www.go.dev/blog/go1.24' },
+          { title: 'Rendering: Server Components', url: 'https://nextjs.org/docs' },
+        ],
+      },
+    ]
+    const { container } = render(Chat, {
+      ...baseProps,
+      messages: [{ role: 'agent', text: 'done', time: '10:54', steps }] as any,
+    })
+    const toolsBtn = container.querySelector('.meta-row .reasoning-toggle') as HTMLElement
+    toolsBtn.click()
+    await tick()
+
+    const card = container.querySelector('.search-card')
+    expect(card).not.toBeNull()
+    // The query, in quotes, straight off the row's own subject.
+    expect(card?.querySelector('.search-head .q')?.textContent).toContain('react server components')
+    const hits = card!.querySelectorAll('.search-hit')
+    expect(hits.length).toBe(3)
+    expect(hits[0].querySelector('.ttl')?.textContent).toBe('Server Components RFC')
+    // The host without the `www.` nobody reads, and its initials in place of a
+    // favicon nobody is going to fetch over the network.
+    expect(hits[1].querySelector('.dom')?.textContent).toBe('go.dev')
+    expect(hits[1].querySelector('.fav')?.textContent).toBe('GO')
+    // Only the one the agent went back and read wears the badge.
+    expect(hits[0].querySelector('.was-read')).not.toBeNull()
+    expect(hits[1].querySelector('.was-read')).toBeNull()
+    expect(card?.querySelector('.search-foot')?.textContent)
+      .toContain('3 results · 1 read in full · 2s')
+  })
+
   // Opening one panel closes the other, and each shows only its own kind.
   it('keeps the tools panel and the sub-agents panel apart', async () => {
     const steps = [
@@ -972,7 +1065,9 @@ describe('sub-agent tool events', () => {
     toolsBtn.click()
     await tick()
     expect(container.querySelector('.bgw-card')).toBeNull()
-    expect(container.textContent).toContain('read a.txt')
+    // A step with only the old joined label still draws both halves: the verb
+    // off its first word, the subject off the rest (toolSubject).
+    expect(container.textContent).toContain('a.txt')
     expect(container.querySelectorAll('.tool-steps .tool-step').length).toBe(1)
 
     subsBtn.click()

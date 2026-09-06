@@ -62,8 +62,18 @@ type TurnPart struct {
 // facts ToolEvent carries live, kept because a reopened session should show the
 // work, not just its conclusion.
 type ToolPart struct {
-	Ref     string `json:"ref,omitempty"`
-	Name    string `json:"name"`
+	Ref  string `json:"ref,omitempty"`
+	Name string `json:"name"`
+	// Act is ToolEvent.Act written down: which action of a packed tool this was.
+	//
+	// Left off when Act was added for the live timeline, and the gap showed the
+	// moment the window started drawing a verb from it: a reopened session could
+	// say "เปิดเว็บ" for every `browser` row and "แก้" for every `change` row —
+	// the pack's first action standing in for all twelve — while the live turn
+	// had said which one it actually was. Name alone stopped being an answer
+	// when packing landed (§99); a transcript that keeps only Name keeps only
+	// the half of the fact that no longer means anything.
+	Act     string `json:"act,omitempty"`
 	Subject string `json:"subject,omitempty"`
 	// Agent and Brief are set only on a `task` call: which sub-agent the work
 	// went to, and the brief it was given. AgentKind is which pile that worker
@@ -91,6 +101,13 @@ type ToolPart struct {
 	// Problems is ToolEvent.Problems written down — the "!N" a reopened
 	// session still owes the reader about an edit that broke the file.
 	Problems int `json:"problems,omitempty"`
+	// Links is what a `web_search` found, written down for the reason Artifacts
+	// is: the card is the only record the user has of which sources an answer
+	// was built from, and one that vanishes on restart leaves them holding the
+	// answer with no way back to what it read. A new JSON field inside the
+	// existing parts column, so no migration — older rows simply have none,
+	// which is what they had anyway.
+	Links []ToolLink `json:"links,omitempty"`
 	// Diff is ToolEvent.Diff written down, for the same reason Artifacts is one
 	// field below: this is the part that survives a restart. A change you can
 	// only inspect until the app closes is a change you have to take on trust

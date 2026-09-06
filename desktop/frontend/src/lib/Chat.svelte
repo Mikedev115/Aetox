@@ -4,6 +4,7 @@
   import { phasesOf, type TurnPhase } from './turnPhases'
   import { pacedStream, pacedText } from './streamPace'
   import { toolGlide } from './toolGlide'
+  import { toolFamily, toolIcon, toolVerbKey, toolFallbackVerb, toolSubject, toolServer, serverSlot, splitSubject, linkDomain, linkInitials } from './toolFace'
   import { fold, unroll } from './fold'
   import TaskTimeline from './TaskTimeline.svelte'
   import BackgroundWork from './BackgroundWork.svelte'
@@ -1331,10 +1332,21 @@
   // Which unit a reading row's count is in. The engine sends a bare number on
   // purpose — the unit is implied by the tool, and naming it here is what
   // keeps it translatable instead of baked into Go in one language.
+  // What the number beside a reading row is COUNTING. The tool knows its own
+  // unit and deliberately sends a bare number (skill.Output.ResultCount), so
+  // naming it is the window's job — that is what keeps the count from being a
+  // sentence in one hardcoded language.
+  //
+  // The act, then the name. Reading the name alone is what it did before, and
+  // packing (§99) had quietly broken it: every grep arrives as `search` now, so
+  // "พบ 8" had been rendering as "8 บรรทัด" for every code search since the
+  // pack landed. The bug was invisible precisely because the row's own label
+  // said `search` too, so the wrong unit agreed with the wrong name.
   function gotUnitKey(s: ToolStep): TKey {
-    const name = s.label.split(' ')[0]
+    const name = s.act || s.name || s.label.split(' ')[0]
     if (name === 'grep') return 'chat.gotMatches'
     if (name === 'glob' || name === 'list') return 'chat.gotFiles'
+    if (name === 'web_search') return 'chat.gotResults'
     return 'chat.gotLines'
   }
 
@@ -2388,6 +2400,17 @@
   {:else}
   {@const key = diffKey(s)}
   {@const foldable = showDiffs && !!s.diff}
+  <!-- The family rides on the ROW rather than on the tile inside it, so that
+       --tool-hue is in scope for everything the row draws: the tile, its live
+       pulse, and the sliding bar that stands in for a count that has not
+       arrived yet. A custom property declared on the tile would reach the tile
+       alone, and the bar would have had to pick a colour of its own — which is
+       how one row ends up saying two different things about what it is. -->
+  {@const fam = toolFamily(s)}
+  <!-- A bridged tool's tile takes a chart slot keyed to its SERVER, so two
+       Canva rows look like two Canva rows and a Slack row does not. Zero for
+       everything first-party, where the family has already decided. -->
+  {@const slot = fam === 'mcp' ? serverSlot(toolServer(s)) : 0}
   <!-- Coerced, not left as undefined: Svelte drops an attribute whose value
        is undefined, and a disclosure button with no aria-expanded at all reads
        to a screen reader as something that does not open. -->
@@ -2399,7 +2422,7 @@
   {#if foldable}
     <button
       type="button"
-      class="tool-step {s.state} foldable"
+      class="tool-step f-{fam} h-{slot} {s.state} foldable"
       aria-expanded={shown}
       title={t('chat.diffToggle')}
       onclick={() => (openDiffs[key] = !shown)}
@@ -2417,57 +2440,174 @@
          same thing. The glyph is what has to be honest here: an x row still
          says it failed. The words stay one hover away, and the whole text is
          in tool_runs.error either way. -->
-    <div class="tool-step {s.state}" title={s.error || undefined}>{@render stepFace(s, live)}</div>
+    <div class="tool-step f-{fam} h-{slot} {s.state}" title={s.error || undefined}>{@render stepFace(s, live)}</div>
   {/if}
+  {#if s.links?.length}{@render searchCard(s)}{/if}
   {/if}
+{/snippet}
+
+<!-- What a search found, under the row that ran it.
+     (ข้อ 02 — owner: "web_search คืนรายการผลลัพธ์อยู่แล้วแต่จมอยู่ใน output ที่ UI
+     อ่านไม่ได้")
+
+     The list has existed since the tool did. It was formatted into the text
+     handed to the MODEL, which is not a place a window can read from, so the
+     chat could say a search had run and how long it took and not one word about
+     what came back — while three lines later the answer was citing sources the
+     user had never been shown. skill.Output.Links carries them as data now, and
+     this is where they land.
+
+     Titles and domains only. No snippet: the snippet is the search engine's
+     summary of a page, written for ranking rather than for reading, and eight
+     of them turn the card into a wall the row above it was supposed to save the
+     reader from. The title says what it is; the domain says whether to trust
+     it; that is the whole decision a result list is for. -->
+{#snippet searchCard(s: ToolStep)}
+  {@const links = s.links ?? []}
+  {@const opened = links.filter((l) => l.opened).length}
+  <div class="search-card">
+    <div class="search-head">
+      <span class="ic"><Icon name="search" size={13} /></span>
+      <!-- The query in quotes, because it is a thing that was said. Straight
+           from the row's own subject — `query` is one of the argument keys the
+           executor names a call by (model.ArgSubjectKeys), so a search row has
+           always known its own words. -->
+      <span class="q">“{s.subject ?? ''}”</span>
+      <span class="n">{t('chat.gotResults', { n: links.length })}</span>
+    </div>
+    {#each links as link, i}
+      <!-- The stagger is the card ARRIVING, and it is worth being exact about
+           what it is not. `web_search` is one HTTP round trip whose results are
+           parsed together (and a two-wording fan-out still joins on a WaitGroup
+           before it returns), so there is no progress to stream: all eight
+           exist in the same millisecond. What this animates is the list
+           appearing, one line after another instead of eight at once, which is
+           the difference between reading a result list and being handed a
+           block. Faking a per-result clock on top of that would be the app
+           claiming to know something it does not. -->
+      <a class="search-hit" href={link.url} style="--i:{i}"
+         onclick={(e) => { e.preventDefault(); openUrlInWorkbench(link.url) }}>
+        <!-- Initials, not a fetched favicon: this app renders with no network by
+             design (the whole icon set is inlined for the same reason), and a
+             favicon request per result would be eight calls to eight strangers
+             announcing what the user just searched for. -->
+        <span class="fav">{linkInitials(link.url)}</span>
+        <span class="ttl">{link.title}</span>
+        <span class="dom">{linkDomain(link.url)}</span>
+        {#if link.opened}
+          <!-- The agent went back and read this one in full. The one mark that
+               separates what the internet has from what the answer was built
+               on. -->
+          <span class="was-read">{t('tool.searchOpened')}</span>
+        {/if}
+      </a>
+    {/each}
+    <div class="search-foot">
+      {t('tool.searchSummary', { n: links.length, read: opened, secs: s.secs ?? 0 })}
+    </div>
+  </div>
 {/snippet}
 
 <!-- The row's contents, shared by the two elements above so that being
      expandable cannot quietly change what a row says. -->
 {#snippet stepFace(s: ToolStep, live: boolean)}
-  <!-- Both marks, always, stacked in one 15px box: the ring fades out as the
-       tick fades in. Swapping one element's contents changed a finishing call
-       in a single frame, which was the one thing in the timeline that looked
-       broken rather than fast. The box is a fixed size for the same reason it
-       always was — nothing in the row may move when the state does. -->
-  <span class="glyph">
-    <span class="spin"></span>
-    <span class="tick"><Icon name={s.state === 'err' ? 'x' : 'check'} size={12} /></span>
+  {@const fam = toolFamily(s)}
+  {@const verbKey = toolVerbKey(s)}
+  {@const subject = toolSubject(s)}
+  {@const parts = splitSubject(subject)}
+  <!-- The tile: which FAMILY of work this is, in one glyph and one colour, at
+       the left edge where the eye lands. It replaced the tick-or-ring glyph in
+       that position and took the state over with it — a family colour that goes
+       grey when a call fails says both things in one mark, where two marks side
+       by side said the same thing twice and cost 15px of the row.
+
+       The state still has to be readable without colour, which is what keeps
+       the failed row's own x-glyph below: `.err` is not merely "the red one". -->
+  <span class="tile">
+    <Icon name={toolIcon(fam)} size={13} />
   </span>
-  <span class="lbl">{s.label}</span>
-  {#if s.git}
-    <!-- The file's git letter, the vocabulary every editor already taught:
-         M modified, U untracked, A added, D deleted. Only when there is one —
-         a clean file wears nothing. -->
-    <span class="git-badge g-{s.git}">{s.git}</span>
+  <!-- The verb, and it is the row's headline. Bold and in the primary ink
+       because it is the one thing a reader scanning a turn is actually after:
+       WHAT the agent did. The tool's own name is not that — it is the name of
+       the function, in a language half this app's users do not read, and since
+       packing it does not even name the act (lib/toolFace.ts).
+
+       Falls back to the raw name+action for anything unmapped (an MCP tool
+       nobody here has heard of), which is still better than the old label: it
+       says which action of that tool ran. -->
+  {#if fam === 'mcp'}
+    <!-- Who this ran at, in front of what it did. It is the fact a bridged row
+         most owes the reader — `generate design` alone could be anything, and
+         "this happened at Canva, not in your project" is the whole difference.
+         Dim, because it qualifies the verb rather than competing with it. -->
+    <span class="srv">{toolServer(s)}</span>
   {/if}
-  {#if s.problems}
-    <!-- The self-check found the file broken after this change. The mark that
-         must not wait to be discovered inside the folded result. -->
-    <span class="prob-badge" title={t('chat.problemsAfter', { n: s.problems })}>!{s.problems}</span>
+  <span class="verb">{verbKey ? t(verbKey) : toolFallbackVerb(s)}</span>
+  {#if subject}
+    <!-- The subject in mono, cut where the path stops locating and starts
+         naming. `internal/skill/` is scaffolding the eye should skip; the file
+         name at the end is the thing the row is about. One ink for both made
+         every row a sixty-character scan for its last eight. -->
+    <span class="subj" title={subject}
+      >{#if parts.head}<span class="path">{parts.head}</span>{/if}{parts.tail}</span>
   {/if}
-  {#if s.state === 'run' && live}
-    <span class="secs">· {liveSecs(s)}s</span>
-  {:else if s.secs}
-    <span class="secs">· {s.secs}s</span>
+  {#if s.state === 'err'}
+    <!-- Kept, and only on failure. The tile carries "done" perfectly well — it
+         is the row that stopped moving — but "failed" is the one state nobody
+         may miss, and a colour is not allowed to be the only thing saying it. -->
+    <span class="glyph"><Icon name="x" size={11} /></span>
   {/if}
-  {#if s.added || s.removed}
-    <!-- While it runs, only the climbing "+N" is real — the removed
-         count isn't known until the file is actually written. -->
-    <span class="tool-stat">
-      <span class="add">+{s.added ?? 0}</span>
-      {#if s.state !== 'run'}<span class="del">-{s.removed ?? 0}</span>{/if}
-    </span>
-  {:else if s.range || s.count}
-    <!-- The reading tools' counterpart to "+9 -0": which lines a read opened,
-         and how much came back, in the tool's own unit. "read gate.py · 1-60"
-         is the difference between knowing a file was touched and knowing which
-         slice of it the model is actually holding. -->
-    <span class="tool-stat got">
-      {#if s.range}{s.range}{/if}
-      {#if s.count}{s.range ? ' ' : ''}({t(gotUnitKey(s), { n: s.count ?? 0 })}){/if}
-    </span>
-  {/if}
+  <!-- Everything from here right, pinned to the right edge. The numbers are
+       read as a COLUMN down the turn — four "+N -M" that line up are four
+       measurements, four that float wherever their file name happened to end
+       are four unrelated facts. Same argument .phase-head's tabular figures
+       already make one level up. -->
+  <span class="tool-right">
+    {#if s.git}
+      <!-- The file's git letter, the vocabulary every editor already taught:
+           M modified, U untracked, A added, D deleted. Only when there is one —
+           a clean file wears nothing. -->
+      <span class="git-badge g-{s.git}">{s.git}</span>
+    {/if}
+    {#if s.problems}
+      <!-- The self-check found the file broken after this change. The mark that
+           must not wait to be discovered inside the folded result. -->
+      <span class="prob-badge" title={t('chat.problemsAfter', { n: s.problems })}>!{s.problems}</span>
+    {/if}
+    {#if s.state === 'run' && live}
+      <span class="secs">· {liveSecs(s)}s</span>
+    {:else if s.secs}
+      <span class="secs">· {s.secs}s</span>
+    {/if}
+    {#if s.state === 'run' && !s.added}
+      <!-- A running row has no honest number yet — a read has not returned its
+           lines, a search has not returned its results — and the seconds beside
+           it already say the wait is alive. So the space the count will occupy
+           shows movement instead of a zero: a short bar sliding through the
+           track the "+42 -9" will land in, which is the row saying "this one,
+           still going" without claiming a measurement it does not have.
+
+           Not shown when a write is streaming: `added` climbs for real there,
+           and a genuine number always beats an animation. -->
+      <span class="run-bar" aria-hidden="true"><span></span></span>
+    {:else if s.added || s.removed}
+      <!-- While it runs, only the climbing "+N" is real — the removed
+           count isn't known until the file is actually written. -->
+      <span class="tool-stat">
+        <span class="add">+{s.added ?? 0}</span>
+        {#if s.state !== 'run'}<span class="del">-{s.removed ?? 0}</span>{/if}
+      </span>
+    {:else if s.range || s.count}
+      <!-- The reading tools' counterpart to "+9 -0": which lines a read opened,
+           and how much came back, in the tool's own unit. "read gate.py · 1-60"
+           is the difference between knowing a file was touched and knowing which
+           slice of it the model is actually holding. -->
+      <span class="tool-stat got">
+        {#if s.range}{s.range}{/if}
+        {#if s.count}{s.range ? ' ' : ''}({t(gotUnitKey(s), { n: s.count ?? 0 })}){/if}
+      </span>
+    {/if}
+  </span>
 {/snippet}
 
 {#snippet toolTimeline(steps: ToolStep[], live: boolean)}

@@ -343,6 +343,17 @@ func (e *Executor) stopSpinner() {
 	}
 }
 
+// ToolLink is one result a search came back with, on its way to the UI.
+//
+// A near-copy of skill.ResultLink, and it stays a copy: `turn` is the boundary
+// the window reads, and a struct that crosses it is a wire format with its own
+// json tags, not the internals of whichever tool happened to fill it in. The
+// same rule ToolPart follows one file over.
+type ToolLink struct {
+	Title string `json:"title"`
+	URL   string `json:"url"`
+}
+
 // ToolEvent is one entry in a UI's live tool timeline. It replaced a pair of
 // formatted strings ("write {\"path\":\"internal/skil", "write: สำเร็จ"): the
 // frontend had to parse a *localized* Thai word to tell success from failure,
@@ -407,6 +418,16 @@ type ToolEvent struct {
 	// events only; zero/empty where the tool has no honest number.
 	Count int    `json:"count,omitempty"`
 	Range string `json:"range,omitempty"`
+	// Links is what a `web_search` found, result events only: title and URL per
+	// result, in the order the tool ranked them.
+	//
+	// It travels as data for the same reason this whole struct exists. The list
+	// was already there — formatted into the tool's text output, which goes to
+	// the model — and the window's only way at it would have been to parse a
+	// numbered list out of prose written for a language model. So the chat drew
+	// a row saying a search had run, and the user watched an answer get built
+	// from sources they were never shown. Nil for every other tool.
+	Links []ToolLink `json:"links,omitempty"`
 	// Problems is the after-edit self-check's number (skill.Output.Problems):
 	// how many errors the language server sees in a file this call changed.
 	// The row wears it as a red "!N" — the one mark that must not wait to be
@@ -754,6 +775,23 @@ func unpackedName(name, args string) string {
 		return name
 	}
 	return skill.Unpack(name, parsed)
+}
+
+// toolLinks converts a tool's result list into the wire shape.
+//
+// A loop rather than a shared type, for the reason ToolLink's own comment
+// gives: `turn` is where the window's vocabulary is decided, and letting a
+// skill's struct through unchanged would make every field a tool adds to it a
+// field the UI silently starts receiving.
+func toolLinks(links []skill.ResultLink) []ToolLink {
+	if len(links) == 0 {
+		return nil
+	}
+	out := make([]ToolLink, 0, len(links))
+	for _, l := range links {
+		out = append(out, ToolLink{Title: l.Title, URL: l.URL})
+	}
+	return out
 }
 
 func packedActionOf(args string) string {
@@ -1147,6 +1185,7 @@ func (e *Executor) executeAgentToolLoop(
 			Count:      output.ResultCount,
 			Range:      output.ResultRange,
 			Problems:   output.Problems,
+			Links:      toolLinks(output.Links),
 			Diff:       output.Diff,
 			Artifacts:  output.Artifacts,
 			ProposalID: output.ProposalID,
@@ -1181,8 +1220,13 @@ func (e *Executor) executeAgentToolLoop(
 		// row that forgot who it hired drew a generic "sub-agent" block.
 		agent, brief, isTask := delegationOf(call.Function.Name, call.Function.Arguments)
 		parts.addTool(ToolPart{
-			Ref:        call.ID,
-			Name:       call.Function.Name,
+			Ref:  call.ID,
+			Name: call.Function.Name,
+			// The act as well as the name, so a reopened session can say which
+			// action of a packed tool ran. Taken off the event rather than
+			// re-parsed, because the two disagreeing about one call is the
+			// failure this would be introducing to guard against.
+			Act:        ev.Act,
 			Subject:    ev.Subject,
 			Agent:      agent,
 			Brief:      brief,
@@ -1196,6 +1240,7 @@ func (e *Executor) executeAgentToolLoop(
 			Count:      output.ResultCount,
 			Range:      output.ResultRange,
 			Problems:   output.Problems,
+			Links:      ev.Links,
 			Diff:       output.Diff,
 			Artifacts:  output.Artifacts,
 			ProposalID: output.ProposalID,

@@ -29,6 +29,7 @@ import {
 } from '../../../wailsjs/go/main/App'
 import type { main } from '../../../wailsjs/go/models'
 import { t } from '../i18n.svelte'
+import { markOpenedLinks } from '../toolFace'
 import { shell, setShell, shellForDesk, deskForShell, deskFilterFor, homeForShell, SHELLS, type ShellName } from '../shell.svelte'
 import { workbench, switchWorkbenchSession, adoptWorkbenchSession, removeWorkbenchState } from './workbench.svelte'
 
@@ -446,6 +447,14 @@ function stepsFromParts(parts?: TurnPart[]): ToolStep[] | undefined {
     if (!tool) return
     steps.push({
       label: [tool.name, tool.subject].filter(Boolean).join(' '),
+      // The same three facts un-joined, so a reopened turn draws the row the
+      // live turn drew. `act` is the one that can be missing here and nowhere
+      // else: turn.ToolPart only started writing it down with this change, so
+      // every packed row stored before it falls back to the pack's own verb.
+      name: tool.name || undefined,
+      act: tool.act || undefined,
+      subject: tool.subject || undefined,
+      links: tool.links?.length ? tool.links.map((l) => ({ ...l })) : undefined,
       ref: tool.ref,
       state: tool.ok ? 'done' : 'err',
       error: tool.error || undefined,
@@ -462,6 +471,12 @@ function stepsFromParts(parts?: TurnPart[]): ToolStep[] | undefined {
       startedAt: 0,
     })
   })
+  // Which of the stored searches' results were read in full. Worked out here
+  // rather than stored, because it is a fact about the turn as a whole and the
+  // parts are written down one at a time as they happen — the `web_fetch` that
+  // makes a search result "อ่านแล้ว" had not run yet when that search's part
+  // was recorded.
+  markOpenedLinks(steps)
   return steps.length ? steps : undefined
 }
 
@@ -2547,6 +2562,14 @@ export function applyToolEvent(stamped: SessionEvent<ToolEvent> | ToolEvent): vo
       if (ev.range) open.range = ev.range
       // Let the row name itself once the subject shows up.
       if (ev.subject) open.label = label
+      if (ev.subject) open.subject = ev.subject
+      // The tool's name and the act inside it, on the same terms: a row born
+      // from the streaming announcement may have neither yet — a model that
+      // writes a browser call's arguments before its action leaves `act` empty
+      // on the first event and fills it in on the second, and the row must take
+      // the later answer rather than keep the earlier silence.
+      if (ev.name) open.name = ev.name
+      if (ev.act) open.act = ev.act
       // Same rule for a delegation's facts. The row is usually born from the
       // streaming progress event, which fires while the model is still writing
       // the call's arguments — agent, brief and kind are unknowable then and
@@ -2564,7 +2587,14 @@ export function applyToolEvent(stamped: SessionEvent<ToolEvent> | ToolEvent): vo
       return
     }
     steps.push({
-      label, ref: ev.ref, parent: ev.parent || undefined, task: ev.task || undefined,
+      label,
+      // The same three facts the label is made of, kept apart so the row can
+      // draw them apart: a family icon off the name, a verb off the name and
+      // the act together, the subject in its own ink (lib/toolFace.ts). The
+      // label stays because it is still this row's identity on an engine that
+      // sends no call id, and still what a stored turn will be read back as.
+      name: ev.name || undefined, act: ev.act || undefined, subject: ev.subject || undefined,
+      ref: ev.ref, parent: ev.parent || undefined, task: ev.task || undefined,
       // Only a `task` call carries these, and they arrive on the first event —
       // the delegation is named before its first delegate step shows up.
       agent: ev.agent || undefined, brief: ev.brief || undefined,
@@ -2578,6 +2608,9 @@ export function applyToolEvent(stamped: SessionEvent<ToolEvent> | ToolEvent): vo
   const step = steps.find(running) ?? steps.find((s) => s.state === 'run')
   if (!step) return
   if (ev.subject) step.label = label
+  if (ev.subject) step.subject = ev.subject
+  if (ev.name) step.name = ev.name
+  if (ev.act) step.act = ev.act
   step.state = ev.ok ? 'done' : 'err'
   step.secs = Math.round((Date.now() - step.startedAt) / 1000)
   step.error = ev.ok ? undefined : ev.error
@@ -2591,6 +2624,15 @@ export function applyToolEvent(stamped: SessionEvent<ToolEvent> | ToolEvent): vo
   step.git = ev.git || undefined
   // The after-edit self-check: errors now in the file this call changed.
   step.problems = ev.problems || undefined
+  // What a search found. Copied rather than referenced: markOpenedLinks writes
+  // a flag onto these objects, and writing onto an event the caller still holds
+  // is the kind of shared mutation that only shows up as a bug months later.
+  step.links = ev.links?.length ? ev.links.map((l) => ({ ...l })) : undefined
+  // Whether any earlier search's results have now been read in full. Run on
+  // EVERY result, not only on a fetch: the two calls arrive in that order most
+  // of the time, but a delegate's fetch can land before its search's own result
+  // does, and a pass over the whole list is cheap at timeline scale.
+  markOpenedLinks(steps)
   // The change itself, for the โค้ด desk's fold-out. It arrives once, on the
   // result — the streaming call events know the path before they know the text.
   step.diff = ev.diff || undefined

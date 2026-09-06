@@ -252,6 +252,12 @@ export interface TurnPart {
 export interface ToolPartInfo {
   ref?: string
   name: string
+  /** The action inside a packed tool, written down with the turn. Without it a
+   * reopened session can only draw a `browser` row as "เปิดเว็บ" and a `change`
+   * row as "แก้" — the pack's first action standing in for all of them — while
+   * the live turn had said which one it actually was. Absent on turns stored
+   * before this field existed. */
+  act?: string
   subject?: string
   agent?: string
   brief?: string
@@ -285,6 +291,11 @@ export interface ToolPartInfo {
    *  the artifacts above, so reopening the session brings the card back — still
    *  asking, or saying which way the decision went. */
   proposalId?: number
+  /** On a `web_search` call: what it found, written down for the same reason
+   *  the artifacts are. The card is the only record the user has of which
+   *  sources an answer was built from, and a card that vanishes on restart
+   *  leaves them with an answer and no way back to what it read. */
+  links?: ToolLink[]
 }
 
 /** One of the answers a question received. */
@@ -400,6 +411,25 @@ export interface BackgroundPhase {
   tokens: number
 }
 
+/** One result a `web_search` came back with — mirrors turn.ToolLink in Go.
+ *
+ * The list has always existed; it was formatted into the tool's text output and
+ * handed to the model, which is a place a UI cannot read from. So the chat could
+ * say that a search had run and how many seconds it took, and not one word about
+ * what it found — while the model, three lines later, was writing about sources
+ * the user had never been shown. This is that list travelling as data.
+ */
+export interface ToolLink {
+  title: string
+  url: string
+  /** The agent went back and read this one in full — a later `web_fetch` or
+   * `browser open` on the same URL. Not sent by the engine: it is a fact about
+   * the REST of the turn, so the window works it out over the whole step list
+   * (markOpenedLinks in lib/toolFace.ts) rather than a single event knowing
+   * something it cannot. */
+  opened?: boolean
+}
+
 /** One tool call/result as the engine sends it — mirrors turn.ToolEvent in Go. */
 export interface ToolEvent {
   action: 'call' | 'result' | 'note' | 'thinking' | 'said'
@@ -442,6 +472,9 @@ export interface ToolEvent {
   /** Errors the language server sees in a file this call changed — the
    * after-edit self-check's number, worn as a red "!N". */
   problems?: number
+  /** What a `web_search` found: title and URL per result, in the order the
+   * tool ranked them. Absent on every other tool. */
+  links?: ToolLink[]
   /** Git-style unified hunks for what this call changed — the same format
    * `git diff` prints, built by the tool itself (internal/skill/hunk.go) rather
    * than asked of git, so a row expanded tomorrow still shows what THIS call
@@ -493,7 +526,30 @@ export interface ToolStep {
    * order lives, and is drawn as markdown prose in the bubble — never inside
    * the tool timeline, and never counted as a tool. */
   kind?: 'note' | 'thinking' | 'said'
+  /** The row as one string: `name subject`, which is what it was for a year and
+   * what every row stored before this change is.
+   *
+   * Kept, not replaced. It is still the identity a row falls back to when the
+   * engine sends no call id (`running()` in the store matches on it), it is
+   * still what a `note`/`said` row's prose rides in, and a turn read out of the
+   * database can only be as detailed as what was written down. The three fields
+   * below are the same facts un-joined; the drawing prefers them and falls back
+   * to this, so an old turn keeps its row and a new one gets a better one. */
   label: string
+  /** The tool the engine named — `browser`, `change`, `read`. Split back out of
+   * the label because joining it in threw away the thing the row most needed:
+   * which FAMILY of work this is, which is what the icon and the colour say
+   * (lib/toolFace.ts). Absent on rows born before this field existed. */
+  name?: string
+  /** The action inside a packed tool (ToolEvent.act). The whole reason §99 put
+   * Act on the event: `browser` is twelve different sentences and `name` says
+   * the same word for all of them. Absent for an unpacked tool, and on a row
+   * rebuilt from a turn stored before ToolPart carried it. */
+  act?: string
+  /** The one argument worth reading — the path, the URL, the query. Held apart
+   * from `name` so the row can draw it in its own ink: mono, dim for the
+   * directory, bright for the file name at the end of it. */
+  subject?: string
   /** ToolEvent.ref of the call this row is showing, when the engine sent one. */
   ref?: string
   /** Set when this row is a sub-agent's work, carrying the `task` call's ref. */
@@ -513,6 +569,9 @@ export interface ToolStep {
   git?: string
   /** The self-check's error count — see ToolEvent.problems. */
   problems?: number
+  /** What a `web_search` found — see ToolLink. Absent on every other tool, and
+   * on a search from before the engine sent them. */
+  links?: ToolLink[]
   /** Git-style unified hunks for what this call changed — the same format
    * `git diff` prints, built by the tool itself (internal/skill/hunk.go) rather
    * than asked of git, so a row expanded tomorrow still shows what THIS call
