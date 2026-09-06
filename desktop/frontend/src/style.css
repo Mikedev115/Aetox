@@ -981,6 +981,16 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 @media (prefers-reduced-motion:reduce) {
   .typing-status { background:none; -webkit-text-fill-color:currentColor; }
 }
+/* The local-runtime load row: spinner, what is loading, and how long it has
+   been. Muted like the phrase below it — this is a wait, not an event — with
+   the clock in tabular figures so a number ticking up does not shift the words
+   beside it. There is no bar here by design: see chat.modelLoading in the
+   locales, and desktop/model_load.go. */
+.model-load { gap:8px; }
+.model-load-mark { display:inline-flex; color:var(--text-muted); animation:tool-spin 1.2s linear infinite; }
+.model-load-text { color:var(--text-muted); font-size:var(--fs-md); }
+.model-load-secs { color:var(--text-dim); font-size:var(--fs-sm); font-variant-numeric:tabular-nums; }
+
 /* "thought for 34s" and "used 24 tools" sit on one line above the reply; both
    open their own body below, collapsed by default. */
 .meta-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; margin-bottom:8px; }
@@ -998,6 +1008,30 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   padding:8px 10px; margin-bottom:8px; border-left:2px solid var(--border-strong);
 }
 .typing-bubble .reasoning-body { margin-bottom:0; }
+/* The live one is a window: five lines of the thinking, scrolling inside its
+   own box while the page below it stays put (Chat.svelte, followThinking).
+   Before this, a two-minute reasoning stream was two minutes of grey text
+   pushing the composer off the bottom of the screen.
+   No scrollbar: the box is five lines tall, a gutter would cost it a tenth of
+   its width, and the fade at the top already says there is more above. It
+   still scrolls — wheel, touchpad and keyboard all reach the earlier lines. */
+.reasoning-body.live {
+  max-height:7.5em; overflow-y:auto; overscroll-behavior:contain;
+  padding-top:0; padding-bottom:0;
+  scrollbar-width:none;
+}
+.reasoning-body.live::-webkit-scrollbar { width:0; height:0; }
+/* Only once there IS something above and below to fade into — masked while the
+   thinking is still three lines long, the first and last lines of a short
+   reasoning would be dimmed for no reason. `clipped` is set from the element's
+   own overflow after each paint.
+   The top fades twice as far as the bottom on purpose: above is text already
+   read and leaving, below is the line being written this second, and that one
+   has to stay legible. */
+.reasoning-body.live.clipped {
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 1.6em, #000 calc(100% - 0.8em), transparent 100%);
+  mask-image:linear-gradient(to bottom, transparent 0, #000 1.6em, #000 calc(100% - 0.8em), transparent 100%);
+}
 /* per-turn tool timeline (live in the typing bubble, persisted on the reply) */
 .tool-steps { position:relative; display:flex; flex-direction:column; margin-bottom:8px; }
 .typing-bubble .tool-steps { margin-bottom:0; }
@@ -4613,6 +4647,54 @@ button.phase-head:hover { color:var(--text-muted); }
 .reg-head:focus-visible { outline:2px solid var(--interactive); outline-offset:2px; border-radius:var(--r-sm); }
 .reg-caret { flex:0 0 auto; color:var(--text-muted); line-height:1.4; transition:transform .15s; }
 .reg-caret.open { transform:rotate(90deg); }
+/* The mark a named server wears, drawn by McpMark.svelte. Global rather than
+   scoped because two rooms draw the same server: the ห้องสมุด gallery and this
+   page's register and แนะนำ shelf. A copy per room is how the two lists drift
+   apart by a pixel a month until they stop looking like one idea — the same
+   reason `.reg-` is not `.mcp-` above.
+
+   Two skins on one box, so a brand logo and a lettered tile are the same size,
+   the same corner and the same place in the row; a list where one kind of row
+   is 26px and the other 22px reads as broken before anybody works out why.
+
+   The tile keeps the .pp-cover gradient formula so the galleries agree; the
+   brand skin drops it, because a coloured plate under a logo is the app
+   deciding that service's brand colour for it. The colour is on the ink, not
+   the ground — see the note at the top of mcpMarks.ts for the two versions of
+   this that had it the other way round.
+
+   Named `logo`, not `brand`: style.css owns an unscoped `.brand` for the
+   sidebar's logo column, and that would draw every logo tile 36px wide on a
+   26px row — the lettered tile next to it square, the logo tile a pill. */
+.cap-mark {
+  flex:none;
+  width:var(--px, 26px);
+  height:var(--px, 26px);
+  border-radius:calc(var(--px, 26px) * .27);
+  display:grid;
+  place-items:center;
+  font-family:var(--font-mono, monospace);
+  font-size:calc(var(--px, 26px) * .42);
+  font-weight:600;
+  letter-spacing:-.02em;
+  text-transform:lowercase;
+  color:hsl(var(--h) 60% 84%);
+  background:
+    radial-gradient(120% 120% at 20% 0%, hsl(var(--h) 70% 42% / .55), transparent 60%),
+    linear-gradient(135deg, hsl(var(--h) 45% 22%), hsl(calc(var(--h) + 40) 45% 15%));
+}
+.cap-mark.logo { background:var(--surface-raised); color:var(--text-primary); }
+.cap-mark.logo svg { width:calc(var(--px, 26px) * .62); height:calc(var(--px, 26px) * .62); display:block; }
+/* A settings row that leads with a mark: the MCP shelf and the skills
+   register. The gap comes in from the register's 16px to the 8-10px the mark
+   rows use, because a logo floating 16px from its own name reads as belonging
+   to neither column. Not named after either list — it was `.mcp-preset-row`
+   for an afternoon and the skills list wanted the identical three lines. */
+.mark-row { gap:10px; }
+/* These rows are three and four lines tall — name, address, why, who asked —
+   and a centred mark lands beside the middle of the paragraph instead of
+   beside the name it labels. Top-aligned, nudged onto the title's own line. */
+.mark-row .cap-mark { align-self:flex-start; margin-top:3px; }
 /* Connected and pointed at nobody is the one state worth interrupting for: it
    looks healthy on the row and reaches no one. */
 .mcp-badge-warn { color:var(--status-warn); border-color:var(--status-warn); }
@@ -5585,17 +5667,42 @@ button.ctrl, label.ctrl { display:inline-flex; align-items:center; justify-conte
 .crumb-sep { flex:none; color:var(--text-dim); }
 .crumb-here { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-primary); }
 
-/* The icon picker in the agent editor. A row of the marks themselves — the
-   value is a name from a fixed set, so choosing one is recognising it, not
-   typing it. The first cell is "choose none", which is the default and means
-   the roster derives the mark from what the agent makes. */
-.ag-icons { display:flex; flex-wrap:wrap; gap:6px; }
+/* The face picker in the agent editor. Three rows and a preview: what the
+   agent holds, its hair, its glasses, and beside them the person those three
+   answers actually make. The preview is the point — the rows are choices about
+   parts, and a part means nothing until you see who is wearing it.
+   The first cell of every row is "choose none", which is the default and means
+   that part is derived from the agent's name, as the whole roster was before
+   any of this existed. */
+.ag-face { display:flex; align-items:center; gap:14px; }
+.ag-face-say { display:flex; flex-direction:column; align-items:flex-start; gap:6px; min-width:0; }
+/* A link, not a button: undoing a choice is not a peer of making one, and a
+   second .ctrl beside the preview would read as the thing to press. */
+.ag-face-reset {
+  border:none; background:none; padding:0; font:inherit; cursor:pointer;
+  color:var(--text-secondary); text-decoration:underline;
+}
+.ag-face-reset:hover { color:var(--text-primary); }
+
+.ag-icons, .ag-parts { display:flex; flex-wrap:wrap; gap:6px; }
 .ag-icon {
   width:34px; height:34px; display:grid; place-items:center; border-radius:var(--r-sm);
   border:1px solid var(--border-subtle); background:var(--surface-sunken); color:var(--text-dim);
 }
 .ag-icon:hover { color:var(--text-primary); border-color:var(--border-strong); }
 .ag-icon.on { color:var(--text-primary); border-color:var(--interactive); background:var(--surface-raised); }
+/* Bigger than .ag-icon, and the rows it serves are the reason: a mark is
+   recognised at 16px, a HAIRCUT is not. At the icon row's size the eight cuts
+   arrived as eight nearly identical heads and the row had to be squinted at,
+   which fails in the same way as offering a choice that changes nothing. The
+   padding keeps the tile off the border — a face filling its box to the edge
+   reads as a cropped head. */
+.ag-part {
+  padding:3px; display:grid; place-items:center; border-radius:var(--r-sm);
+  border:1px solid var(--border-subtle); background:var(--surface-sunken); cursor:pointer;
+}
+.ag-part:hover { border-color:var(--border-strong); }
+.ag-part.on { border-color:var(--interactive); background:var(--surface-raised); }
 
 /* The roster's search box, and the mark on each row — the two things the
    reference UI had that this page did not. The mark is the same one the office
@@ -5670,3 +5777,101 @@ button.ctrl, label.ctrl { display:inline-flex; align-items:center; justify-conte
 }
 .mprice.free { color:var(--status-success); }
 .mprice.dim { color:var(--text-dim); }
+
+/* ── The agent's face, alive ──────────────────────────────────────────────
+   AgentFace draws the character; these rules decide whether any of it moves.
+   The split is deliberate: agentFace.ts must return the same markup for the
+   same agent forever (its own rule 3), so nothing in there may animate, and
+   nothing here may draw.
+
+   Global rather than scoped to the component, and this is the one thing that
+   makes the file work at all: the character is injected with {@html}, so a
+   Svelte-scoped selector never reaches inside the <svg>. Only the tile itself
+   is styled in AgentFace.svelte, which is markup Svelte compiled.
+
+   The three hooks are `af-rig` (the person), `af-pupils` (what looks around)
+   and `af-eye` (what blinks). A part added to the drawing needs no rule here
+   unless it is meant to move.
+
+   prefers-reduced-motion is already handled globally, above. */
+.agent-face .af-eye {
+  transform-box:fill-box; transform-origin:center;
+  animation:af-blink var(--af-blink, 5.4s) infinite;
+}
+/* A blink is two frames of a whole cycle. Written as a percentage of a long
+   loop rather than as a short animation with a delay, because a delay only
+   staggers the FIRST one — after that every face is back on the same beat. */
+@keyframes af-blink { 0%, 95.5%, 100% { transform:scaleY(1); } 97% { transform:scaleY(.1); } }
+
+/* Thinking looks around. It does not lean, and it has no laptop: the model is
+   deciding what to do, and drawing it already typing would be the UI getting
+   ahead of the work. */
+.agent-face.think .af-pupils { transform-box:view-box; animation:af-dart 3.4s ease-in-out infinite; }
+@keyframes af-dart {
+  0%, 38% { transform:translateX(0); }
+  48%, 66% { transform:translateX(-1.7px); }
+  78%, 100% { transform:translateX(1.3px); }
+}
+
+/* Working types. The whole person rocks a degree and a half either side of a
+   pivot down at the machine — not the head alone, which reads as a nod at
+   nobody, and not far enough to be a motion you catch yourself watching. */
+.agent-face.work .af-rig {
+  transform-box:view-box; transform-origin:32px 58px;
+  animation:af-type 1.6s ease-in-out infinite;
+}
+@keyframes af-type {
+  0%, 100% { transform:translateY(1.4px) rotate(-1.4deg); }
+  50% { transform:translateY(2.4px) rotate(1.4deg); }
+}
+
+/* The machine is lifted into place rather than faded in. It arrives from below
+   the tile because that is where a laptop comes from, and the whole point of
+   the state is that something was picked up and opened.
+   `both` holds the last frame: the animation runs once per render of the
+   markup, and {@html} hands it fresh markup only when the state actually
+   changes. */
+.agent-face.work .af-kit {
+  transform-box:view-box;
+  animation:af-lift .34s cubic-bezier(.2,.9,.25,1) both;
+}
+@keyframes af-lift {
+  from { opacity:0; transform:translateY(15px); }
+  to { opacity:1; transform:none; }
+}
+
+/* The screen catches up a beat after the lid is open, then flickers — steps(),
+   not a smooth pulse, because a screen changes when its CONTENT changes and
+   content arrives in jumps. Irregular stops on purpose: an even rhythm is a
+   heartbeat, and this is meant to read as a page scrolling. */
+.agent-face.work .af-glow {
+  animation:af-glow-in .3s ease .12s both, af-flicker 3.4s steps(1, end) .42s infinite;
+}
+@keyframes af-glow-in { from { opacity:0; } to { opacity:1; } }
+@keyframes af-flicker {
+  0%, 100% { opacity:1; }
+  22% { opacity:.7; }
+  30% { opacity:1; }
+  61% { opacity:.85; }
+  68% { opacity:1; }
+  86% { opacity:.75; }
+}
+
+/* Finished and failed wear a ring and nothing else. The tick, the clock and
+   the words belong to whatever card is holding the face — one fact, drawn
+   once. This is only the colour that says which way it went, on the thing the
+   eye already went to.
+
+   Written with the element in the selector so it outranks the tile's own ring
+   in AgentFace.svelte whichever stylesheet the browser loaded first, and the
+   top highlight is restated so the tile keeps its lift while wearing one. */
+span.agent-face.done {
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--status-success) 70%, transparent),
+    inset 0 1px 0 hsl(var(--h) 60% 62% / .18);
+}
+span.agent-face.err {
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--status-danger) 70%, transparent),
+    inset 0 1px 0 hsl(var(--h) 60% 62% / .18);
+}

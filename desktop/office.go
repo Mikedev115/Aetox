@@ -55,6 +55,15 @@ type Chair struct {
 	// have to know which tool means which mark, and that is a fact about the
 	// engine's tools, not about a card.
 	Icon string `json:"icon"`
+	// The rest of the face, passed through exactly as the profile wrote it —
+	// unlike Icon, which is resolved to a mark here. There is nothing to
+	// resolve: blank means "derive it from the name", and the deriving is the
+	// drawing's own job (agentFace.ts), on every surface, from the same input.
+	// Filling in a default here would be this file guessing at a haircut the
+	// hash already answers better.
+	Hair      string `json:"hair,omitempty"`
+	Accessory string `json:"accessory,omitempty"`
+	Hue       string `json:"hue,omitempty"`
 }
 
 // chairIcon is the face an agent wears when its profile does not choose one.
@@ -95,6 +104,9 @@ func (a *App) ListChairs() []Chair {
 			Builtin:     p.Builtin,
 			Overrides:   p.Overrides,
 			Path:        p.Path,
+			Hair:        p.Hair,
+			Accessory:   p.Accessory,
+			Hue:         p.Hue,
 		}
 		// The child's registry is the answer to "what can this chair do", so it
 		// is what gets asked — rather than a second reading of the same rules

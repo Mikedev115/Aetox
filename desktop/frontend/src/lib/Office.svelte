@@ -26,6 +26,7 @@
   import Icon from './Icon.svelte'
   import AgentLock from './AgentLock.svelte'
   import AgentFace from './AgentFace.svelte'
+  import { faceOf } from './agentFace'
 
   let { onClose }: { onClose: () => void } = $props()
 
@@ -129,12 +130,14 @@
   }
 
   // The face a job wears is its author's, resolved off the roster so one agent
-  // cannot show two faces on one page. Only the PROP needs resolving: the person
-  // is drawn from the name, so a job whose profile has since been deleted keeps
-  // the same face and loses nothing but what they were holding.
-  const icons = $derived(new Map(chairs.map((c) => [c.name, c.icon ?? ''])))
-  function iconOf(name: string): string {
-    return icons.get(name) ?? ''
+  // cannot show two faces on one page. Only what the profile CHOSE needs
+  // resolving — the mark it holds and, if its owner said so, its hair and
+  // glasses. The person underneath is drawn from the name, so a job whose
+  // profile has since been deleted keeps the same face and loses nothing but
+  // what it was holding.
+  const faces = $derived(new Map(chairs.map((c) => [c.name, faceOf(c)])))
+  function jobFace(name: string) {
+    return faces.get(name) ?? {}
   }
 
   // Who is in the feed, in the order the roster lists them — so the filter row
@@ -260,7 +263,7 @@
           <div class="chair-card agc" class:locked>
             <div class="chair-body">
               <div class="chair-who">
-                <AgentFace name={c.name} icon={c.icon} size={38} />
+                <AgentFace name={c.name} {...faceOf(c)} size={38} />
                 <span class="chair-name">{c.name}</span>
               </div>
               <p class="chair-desc">{c.description}</p>
@@ -372,7 +375,7 @@
               <!-- The same face as the card above it. The feed names who did
                    the work, so drawing them a second way here would make one
                    agent two people on one page. -->
-              <AgentFace name={j.chair} icon={iconOf(j.chair)} size={22} />
+              <AgentFace name={j.chair} {...jobFace(j.chair)} size={22} />
               <!-- The line the caller wrote, not the arguments the tool call
                    carried. `request` is the machine's copy and stays available
                    on hover for anyone who wants it. -->

@@ -26,26 +26,34 @@
   //     which is the same locked state by a different route. App.AgentGate
   //     answers both, and says which.
   import { onMount } from 'svelte'
-  import { AgentGate, VideoCheckSeen } from '../../wailsjs/go/main/App'
+  import { AgentGate, ListChairs, VideoCheckSeen } from '../../wailsjs/go/main/App'
   import { main } from '../../wailsjs/go/models'
   import { newChairSession, setActiveView } from './stores/cockpit.svelte'
   import { t, type TKey } from './i18n.svelte'
   import Icon from './Icon.svelte'
   import AgentLock from './AgentLock.svelte'
   import AgentFace from './AgentFace.svelte'
+  import { faceOf } from './agentFace'
   import VideoReady from './VideoReady.svelte'
   import { coverHue } from './coverHue'
-  import type { IconName } from './icons'
 
   let { onClose }: { onClose: () => void } = $props()
 
   // One entry per door, in the order the question is asked. The agent name is
   // the address, never the headline: `video` and `editor` are what the engine
   // calls them, and what a person picks between is making and cutting.
-  const doors: { agent: string; icon: IconName; title: TKey; desc: TKey }[] = [
-    { agent: 'video', icon: 'clapperboard', title: 'videowork.make', desc: 'videowork.makeDesc' },
-    { agent: 'editor', icon: 'slidersHorizontal', title: 'videowork.cut', desc: 'videowork.cutDesc' },
+  const doors: { agent: string; title: TKey; desc: TKey }[] = [
+    { agent: 'video', title: 'videowork.make', desc: 'videowork.makeDesc' },
+    { agent: 'editor', title: 'videowork.cut', desc: 'videowork.cutDesc' },
   ]
+
+  // The face each door wears, off the roster rather than typed out here. It WAS
+  // typed out here — `clapperboard` and `slidersHorizontal`, the same two words
+  // the two AGENT.md files say — and that is a copy of somebody else's file
+  // that nothing keeps in step: an owner who restyles `video` in the editor
+  // would restyle it everywhere except the room named after the work it does.
+  let faces = $state<Record<string, main.Chair>>({})
+  const doorFace = (agent: string) => faceOf(faces[agent])
 
   // One question per card, asked of one place, so the class on the card and the
   // sentence on the veil cannot disagree.
@@ -67,6 +75,13 @@
   async function refresh() {
     const answers = await Promise.all(doors.map((d) => AgentGate(d.agent)))
     gates = Object.fromEntries(doors.map((d, i) => [d.agent, answers[i]]))
+    // Not awaited with the gates and not allowed to fail the room: a roster the
+    // engine cannot answer for costs these two cards the mark they hold, and
+    // the face derived from the name is still a face. A locked card is a
+    // verdict and has to be right; a haircut is not.
+    void ListChairs()
+      .then((roster) => { faces = Object.fromEntries(roster.map((c) => [c.name, c])) })
+      .catch(() => {})
     ready = true
   }
 
@@ -115,7 +130,7 @@
                      whole from the roster on the reasoning that this is the same
                      kind of thing being chosen in the same app; a face here and
                      a face there is the rest of that sentence. -->
-                <AgentFace name={d.agent} icon={d.icon} size={38} />
+                <AgentFace name={d.agent} {...doorFace(d.agent)} size={38} />
                 <span class="chair-name">{t(d.title)}</span>
               </div>
               <p class="chair-desc">{t(d.desc)}</p>

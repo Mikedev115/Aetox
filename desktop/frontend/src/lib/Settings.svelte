@@ -11,8 +11,13 @@
   import { i18n, t, setLocale, localeNames, type Locale, type TKey } from './i18n.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import ProviderMark from './ProviderMark.svelte'
+  import McpMark from './McpMark.svelte'
   import ProviderAccount from './ProviderAccount.svelte'
   import AgentFace from './AgentFace.svelte'
+  // The wardrobe itself, so the pickers below offer exactly what the drawing
+  // can draw. Anything hand-listed here instead would be a second catalogue to
+  // keep in step, which is the bug this page just had.
+  import { HAIR, ACCESSORY_CHOICES, PROP_ICONS, HUES, faceOf } from './agentFace'
   import Icon from './Icon.svelte'
   import { coverHue } from './coverHue'
   import { armFirstRunReplay } from './firstRun'
@@ -1197,8 +1202,9 @@
   // it and should not, since the roster this page has already loaded does.
   const deskIcon = (id: string): IconName =>
     NAV.find((n) => n.id === id)?.icon ?? (id === 'specialized' ? 'bot' : 'layoutList')
-  const agentIcon = (name: string): string | undefined =>
-    subagents.find((a) => a.name === name)?.icon
+  // The whole face an agent wears, looked up once and spread into AgentFace, so
+  // a surface that draws somebody cannot draw two thirds of them.
+  const agentFaceOf = (name: string) => faceOf(subagents.find((x) => x.name === name))
 
   const mcpNeededIds = (s: MCPRow): string[] =>
     agentsNeeding(s.name)
@@ -1447,10 +1453,20 @@
     // Placing it is the half that makes the need met — installing alone leaves
     // the card saying "unplaced", which from the user's side is the same button
     // having done nothing.
+    //
+    // The agent and nobody else, replacing what the add just wrote rather than
+    // adding to it. A plain add lands on the general desks now
+    // (config.MCPDefaultDesks, applied in SaveMCPServer), which is right for a
+    // server the user picked off the shelf and wrong for this one: pressed
+    // here, the answer to "who is this for" is on screen — the agent whose card
+    // it is — and the line above about keeping an agent's server off the main
+    // assistant's tool block is the whole reason `for:` exists. Appending would
+    // have handed firecrawl to the assistant as a side effect of meeting
+    // research's need.
     if (agentMCPId) {
       const row = mcpServers.find((s) => s.name === p.name)
       if (row) {
-        await SetMCPServerTargets(p.name, [...(row.for ?? []), agentMCPId])
+        await SetMCPServerTargets(p.name, [agentMCPId])
         await loadMCP()
       }
     }
@@ -2055,6 +2071,12 @@
     name: string; description: string; model?: string
     tools?: string[]; deny?: string[]; steps?: number; prompt: string
     path?: string; builtin: boolean; overrides?: boolean; invalid?: string; notice?: string; icon?: string
+    // The two parts of the face a profile may name for itself. Blank on almost
+    // every row and blank is the answer: the drawing derives them from the name
+    // (agentFace.ts). Carried so that a page which SHOWS an agent shows the one
+    // its owner chose — an override that only the settings editor honoured
+    // would be one person with two faces.
+    hair?: string; accessory?: string; hue?: string
     // Already resolved by the backend (applyHomeRules fills the default), which
     // is why the editor shows this rather than the raw `desk:` it keeps: the
     // default is a constant in internal/mode and spelling it again here is how
@@ -2119,16 +2141,52 @@
   let agentDraftDeny = $state<string[]>([])
   let agentDraftSteps = $state('')
   let agentDraftIcon = $state('')
-  // What the picker offers. A hand-picked subset of the app's marks, not all of
-  // them: forty icons is a wall to scan and most of them mean nothing as a
-  // person — these are the shapes that read as a job. Adding one is adding a
-  // name here, and the value stored is that name, so an icon dropped from the
-  // set later shows as the derived mark rather than as a blank square.
+  // The other two thirds of the face. Same rule as the icon and the same
+  // default: '' means "derive it from the name", which is what every profile
+  // nobody has opened says, and what the roster has always drawn.
+  let agentDraftHair = $state('')
+  let agentDraftAccessory = $state('')
+  // Kept as the string the file carries rather than a number, so what the
+  // editor holds is what the .md says — including a value somebody hand-wrote
+  // that this build does not offer. faceOf() is the one place it becomes a
+  // colour, and it refuses anything that is not 0..360.
+  let agentDraftHue = $state('')
+  // What the STARTER CARD picker offers — a hand-picked subset of the app's
+  // marks, not all of them: forty icons is a wall to scan and most of them mean
+  // nothing on a card. Adding one is adding a name here.
+  //
+  // This list used to serve the agent's own icon too, and that was the bug: a
+  // card's icon is drawn as itself, an agent's is drawn as something the face
+  // HOLDS, and only the second one has to exist in the wardrobe. Eleven of
+  // these fifteen did not, so picking one changed nothing on the roster and the
+  // page said so nowhere. The face picker reads PROP_ICONS now, off the map
+  // that does the drawing.
   const AGENT_ICONS: IconName[] = [
     'layoutList', 'fileText', 'chartColumn', 'fileCode', 'terminal', 'globe',
     'search', 'brain', 'palette', 'clapperboard', 'headphones', 'package',
     'compass', 'puzzle', 'bot',
   ]
+  // What the preview draws from, which is what the ROSTER will draw from: the
+  // name, and whatever of the face has been chosen. Before a name is typed
+  // there is nothing to derive from, so it borrows the name field's own
+  // placeholder rather than showing an empty tile — and it changes under you as
+  // you type, which is the truest thing this page can say about where a face
+  // comes from.
+  const facePreviewName = $derived(agentDraftName.trim() || 'backend')
+  const faceIsAuto = $derived(!agentDraftIcon && !agentDraftHair && !agentDraftAccessory && !agentDraftHue)
+  // The draft as one object, so the preview and every cell of every row below
+  // are fed by the same call the roster is fed by. A row that built its own
+  // overrides would be a second reading of the same four fields.
+  const draftFace = $derived(faceOf({
+    icon: agentDraftIcon, hair: agentDraftHair, accessory: agentDraftAccessory, hue: agentDraftHue,
+  }))
+  const resetFace = () => {
+    agentDraftIcon = ''
+    agentDraftHair = ''
+    agentDraftAccessory = ''
+    agentDraftHue = ''
+  }
+
   let agentDraftPrompt = $state('')
   // The role is the whole of what an agent is, and for a bundled one that is a
   // hundred lines of prose — opening the editor to change a model meant
@@ -2464,7 +2522,8 @@
   // question the Back button needs answered.
   const agentDraftKey = () => JSON.stringify([
     agentDraftName, agentDraftDescription, agentDraftModel,
-    agentDraftTools, agentDraftDeny, agentDraftSteps, agentDraftIcon, agentDraftPrompt,
+    agentDraftTools, agentDraftDeny, agentDraftSteps, agentDraftPrompt,
+    agentDraftIcon, agentDraftHair, agentDraftAccessory, agentDraftHue,
   ])
   let agentSnapshot = ''
 
@@ -2487,6 +2546,9 @@
     // new one does not disable the field under the user's cursor.
     agentDraftSteps = parsed.steps.trim() || STEPS_UNLIMITED
     agentDraftIcon = parsed.icon
+    agentDraftHair = parsed.hair
+    agentDraftAccessory = parsed.accessory
+    agentDraftHue = parsed.hue
     agentKeptDesk = parsed.desk
     agentKeptNeeds = parsed.needs
     agentDraftPrompt = parsed.body
@@ -2513,6 +2575,9 @@
     agentDraftDeny = []
     agentDraftSteps = STEPS_UNLIMITED // a new worker starts uncapped, like every shipped one
     agentDraftIcon = ''
+    agentDraftHair = ''
+    agentDraftAccessory = ''
+    agentDraftHue = ''
     agentKeptDesk = ''
     agentKeptNeeds = []
     agentDraftPrompt = t('settings.agentStarter')
@@ -2535,6 +2600,9 @@
       deny: agentDraftDeny,
       steps: agentDraftSteps,
       icon: agentDraftIcon,
+      hair: agentDraftHair,
+      accessory: agentDraftAccessory,
+      hue: agentDraftHue,
       desk: agentKeptDesk,
       needs: agentKeptNeeds,
       body: agentDraftPrompt,
@@ -2595,7 +2663,7 @@
   // office ceiling. An editor must not delete what it does not draw.
   type AgentFields = {
     description: string; model: string; tools: string[]; deny: string[]; steps: string; icon: string
-    desk: string; needs: string[]; body: string
+    hair: string; accessory: string; hue: string; desk: string; needs: string[]; body: string
   }
 
   // Mirrors internal/subagent/profile.go's parse(): a leading `---`-fenced block
@@ -2608,7 +2676,8 @@
   function parseAgentFile(raw: string): AgentFields {
     const asPromptOnly = {
       description: '', model: '', tools: [] as string[], deny: [] as string[],
-      steps: '', icon: '', desk: '', needs: [] as string[], body: raw.trim(),
+      steps: '', icon: '', hair: '', accessory: '', hue: '', desk: '',
+      needs: [] as string[], body: raw.trim(),
     }
     const normalized = raw.replace(/\r\n/g, '\n').replace(/^\n+/, '')
     if (!normalized.startsWith('---\n')) return asPromptOnly
@@ -2631,6 +2700,12 @@
       deny: list(fields.deny),
       steps: (fields.steps ?? '').trim(),
       icon: (fields.icon ?? '').trim(),
+      // Not lowercased: these name a part in the wardrobe by its id, and the
+      // ids are camelCase ('sidePart'). Lowercasing here would turn a face
+      // somebody chose into the derived one, silently, on the way in.
+      hair: (fields.hair ?? '').trim(),
+      accessory: (fields.accessory ?? '').trim(),
+      hue: (fields.hue ?? '').trim(),
       desk: (fields.desk ?? '').trim().toLowerCase(),
       // Not lowercased and not split on anything but the comma: an entry may
       // carry alternatives ("connection:n8n | connection:windmill"), which the
@@ -2660,6 +2735,12 @@
     // one: an absent field means the roster derives it from what the agent
     // makes, which is the right answer for every profile nobody has opened.
     if (f.icon.trim()) lines.push(`icon: ${f.icon.trim()}`)
+    // The same rule for the rest of the face: written only when chosen, absent
+    // when derived. A file full of lines restating the default is a file whose
+    // defaults can never change again.
+    if (f.hair.trim()) lines.push(`hair: ${f.hair.trim()}`)
+    if (f.accessory.trim()) lines.push(`accessory: ${f.accessory.trim()}`)
+    if (f.hue.trim()) lines.push(`hue: ${f.hue.trim()}`)
     // The keyword, not a number. Leaving the line out would mean the same thing
     // today (the default is no ceiling since §110), but writing it says so in
     // the file, where the next person to read it is looking.
@@ -3474,7 +3555,7 @@
              this one is headed ซับเอเจน and its rows carry no chat button —
              and that a second visual language for the same kind of thing costs
              more than it explains. -->
-        <AgentFace name={a.name} icon={a.icon} size={38} />
+        <AgentFace name={a.name} {...faceOf(a)} size={38} />
         <span class="chair-name" title={a.path || 'built-in:' + a.name}>{a.name}</span>
         {#if delegate}
           {@const w = reachOf(a.name)}
@@ -3542,7 +3623,7 @@
              invite the question of how to hire one. -->
         <AgentFace
           name={a.name}
-          icon={a.icon}
+          {...faceOf(a)}
           size={38}
           off={!!reachOf(a.name) && !(reachOf(a.name)!.on && !reachOf(a.name)!.off)}
         />
@@ -3809,27 +3890,114 @@
           <span class="eyebrow">{t('settings.agentDescription')}</span>
           <input class="ctrl" bind:value={agentDraftDescription} placeholder={t('settings.agentDescriptionPlaceholder')} />
         </label>
-        <!-- The face this agent wears on the roster. A row of the app's own
-             marks rather than a text field: the value is a name from a fixed
-             set, and a field where a typo silently means "no icon" is a field
-             that fails without saying so. Choosing none is a real choice and
-             the default — the roster then derives one from what the agent
-             makes, which is right for every profile nobody has opened. -->
+        <!-- The face this agent wears on the roster, chosen and SHOWN in the
+             same place. Choosing none is a real choice and still the default:
+             the face is then derived from the name, which is right for every
+             profile nobody has opened, and is what the whole roster looked like
+             before this section existed.
+             What was here was one row of the app's line marks and no picture of
+             the outcome anywhere on the page — so the thing you picked (a
+             glyph) was not the thing you got (a person holding something), and
+             eleven of the fifteen marks on offer drew nothing at all while
+             three that shipped agents wear could not be picked (agentFace.ts,
+             the note above PROP). The preview is the fix for the first half,
+             PROP_ICONS for the second. -->
         <div class="pp-field">
-          <span class="eyebrow">{t('settings.agentIcon')}</span>
+          <span class="eyebrow">{t('settings.agentFace')}</span>
+          <div class="ag-face">
+            <AgentFace name={facePreviewName} {...draftFace} size={76} />
+            <div class="ag-face-say">
+              <span class="d muted">{faceIsAuto ? t('settings.agentFaceAutoHint') : t('settings.agentFaceHint')}</span>
+              {#if !faceIsAuto}
+                <button type="button" class="ag-face-reset" onclick={resetFace}>
+                  {t('settings.agentFaceReset')}
+                </button>
+              {/if}
+            </div>
+          </div>
+        </div>
+
+        <!-- What it is holding. Still glyphs rather than faces: sixteen heads
+             differing by one small object is a wall of near-identical tiles,
+             and the mark itself is what the eye can tell apart at this size.
+             The preview above is where the outcome is read. -->
+        <div class="pp-field">
+          <span class="eyebrow">{t('settings.agentProp')}</span>
           <div class="ag-icons">
             <button type="button" class="ag-icon" class:on={agentDraftIcon === ''}
-              title={t('settings.agentIconAuto')} onclick={() => (agentDraftIcon = '')}>
+              title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
+              onclick={() => (agentDraftIcon = '')}>
               <Icon name="sparkles" size={16} />
             </button>
-            {#each AGENT_ICONS as name (name)}
+            {#each PROP_ICONS as name (name)}
               <button type="button" class="ag-icon" class:on={agentDraftIcon === name}
-                title={name} onclick={() => (agentDraftIcon = name)}>
-                <Icon {name} size={16} />
+                title={name} aria-label={name} onclick={() => (agentDraftIcon = name)}>
+                <Icon name={name as IconName} size={16} />
               </button>
             {/each}
           </div>
           <span class="d muted">{agentDraftIcon === '' ? t('settings.agentIconAutoHint') : agentDraftIcon}</span>
+        </div>
+
+        <!-- Hair and glasses ARE drawn as faces, and for the opposite reason to
+             the row above: the difference between two haircuts is the head
+             itself, so a swatch of the part alone would be a shape nobody
+             recognises. Each button is the whole outcome, holding whatever was
+             picked above, so no cell on this row is a guess. -->
+        <div class="pp-field">
+          <span class="eyebrow">{t('settings.agentHair')}</span>
+          <div class="ag-parts">
+            <button type="button" class="ag-part" class:on={agentDraftHair === ''}
+              title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
+              onclick={() => (agentDraftHair = '')}>
+              <AgentFace name={facePreviewName} {...draftFace} hair={undefined} size={40} />
+            </button>
+            {#each HAIR as h (h.id)}
+              <button type="button" class="ag-part" class:on={agentDraftHair === h.id}
+                title={h.label} aria-label={h.label} onclick={() => (agentDraftHair = h.id)}>
+                <AgentFace name={facePreviewName} {...draftFace} hair={h.id} size={40} />
+              </button>
+            {/each}
+          </div>
+        </div>
+
+        <div class="pp-field">
+          <span class="eyebrow">{t('settings.agentAccessory')}</span>
+          <div class="ag-parts">
+            <button type="button" class="ag-part" class:on={agentDraftAccessory === ''}
+              title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
+              onclick={() => (agentDraftAccessory = '')}>
+              <AgentFace name={facePreviewName} {...draftFace} accessory={undefined} size={40} />
+            </button>
+            {#each ACCESSORY_CHOICES as a (a.id)}
+              <button type="button" class="ag-part" class:on={agentDraftAccessory === a.id}
+                title={a.label} aria-label={a.label} onclick={() => (agentDraftAccessory = a.id)}>
+                <AgentFace name={facePreviewName} {...draftFace} accessory={a.id} size={40} />
+              </button>
+            {/each}
+          </div>
+        </div>
+
+        <!-- Colour, and the one row where the cell could have been a plain
+             swatch. It is a face for the same reason the two above are: the hue
+             moves the skin, the shirt, the hair and what is held, all at once
+             and by different amounts, so a square of one colour would be a
+             promise about three quarters of what changes. -->
+        <div class="pp-field">
+          <span class="eyebrow">{t('settings.agentHue')}</span>
+          <div class="ag-parts">
+            <button type="button" class="ag-part" class:on={agentDraftHue === ''}
+              title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
+              onclick={() => (agentDraftHue = '')}>
+              <AgentFace name={facePreviewName} {...draftFace} hue={undefined} size={40} />
+            </button>
+            {#each HUES as h (h)}
+              <button type="button" class="ag-part" class:on={agentDraftHue === String(h)}
+                title={`${h}°`} aria-label={`${h}°`} onclick={() => (agentDraftHue = String(h))}>
+                <AgentFace name={facePreviewName} {...draftFace} hue={h} size={40} />
+              </button>
+            {/each}
+          </div>
         </div>
         <!-- A div rather than the `label` every other field uses: the toggle is
              a button, and a button inside a label puts the caret in the textarea
@@ -5012,6 +5180,17 @@
                opencode's and which Aetox never scans), so anyone who followed
                the instructions put files where nothing was looking. -->
           <div class="d mono-dim">{skillsDir}</div>
+          <!-- Said once, under the folder it is about. It used to be printed on
+               every bundled row — a three-clause sentence about how to override
+               a bundled skill, repeated down twenty-five rows that all shipped
+               with the app, which is a wall of identical text where a list of
+               names should be. Capability.svelte refused to draw it per card
+               for exactly this reason and left a note saying the register was
+               where the sentence belonged; the register was repeating it too.
+               The row keeps the label, this keeps the explanation. -->
+          {#if extSkills.some((s) => s.bundled)}
+            <div class="d muted">{t('settings.skillBundled')}</div>
+          {/if}
         </div>
         {#if skillIssues.length > 0}
           <!-- Files that are in the right folder and still did not appear. The
@@ -5035,11 +5214,24 @@
                unique across the merged list by construction — a user folder of
                the same name replaces the bundled entry rather than joining it. -->
           {#each extSkills as s (s.name)}
-            <div class="set-row">
+            <div class="set-row mark-row">
+              <!-- The same lettered tile ห้องสมุด gives a skill, with the
+                   `aetox-` prefix dropped for the same reason it drops it
+                   there: twenty of these start with it, so the first two
+                   letters would be `ae` on every tile and the tile would sort
+                   nothing. -->
+              <span class="cap-mark" style="--px:22px; --h:{coverHue(s.name)}" aria-hidden="true">
+                {s.name.replace(/^aetox-/, '').slice(0, 2)}
+              </span>
               <div class="set-txt">
-                <div class="t">{s.name}</div>
+                <div class="t">
+                  {s.name}
+                  {#if s.bundled}<span class="tag">{t('capability.bundled')}</span>{/if}
+                </div>
                 <div class="d">{s.description || '—'}</div>
-                <div class="d mono-dim">{s.bundled ? t('settings.skillBundled') : s.dir}</div>
+                <!-- Where it is on disk — which a bundled skill has no answer
+                     to, so it says nothing rather than saying a sentence. -->
+                {#if !s.bundled}<div class="d mono-dim">{s.dir}</div>{/if}
               </div>
               {#if !s.bundled}
                 <button class="ctrl ctrl-danger" disabled={skillBusy !== ''} onclick={() => removeSkill(s.name, s.dir)}>
@@ -5903,6 +6095,12 @@
                 onclick={() => (mcpOpen = mcpOpen === s.name ? '' : s.name)}
               >
                 <span class="reg-caret" class:open={mcpOpen === s.name}>›</span>
+                <!-- The server's own face, the same one ห้องสมุด draws it with
+                     (McpMark.svelte). This page listed the same servers as
+                     that room and gave them nothing to be recognised by, so
+                     firecrawl wore its logo on one screen and was a line of
+                     text on the next — one server, two identities. -->
+                <McpMark name={s.name} size={22} />
                 <span class="set-txt">
                   <span class="t">
                     <span class="dot" style={statusVar(s.status)}></span> {s.name}
@@ -5995,7 +6193,7 @@
                             onclick={() => toggleMCPTarget(s, target.id)}
                           >
                             {#if kind === 'agent'}
-                              <AgentFace name={target.name} icon={agentIcon(target.name)} size={22} off={!isOn} />
+                              <AgentFace name={target.name} {...agentFaceOf(target.name)} size={22} off={!isOn} />
                             {:else}
                               <span class="mcp-place-ic"><Icon name={deskIcon(target.id)} size={14} /></span>
                             {/if}
@@ -6112,9 +6310,19 @@
         </div>
         {#each MCP_PRESETS as p (p.name)}
           {@const wanted = agentsNeeding(p.name)}
-          <div class="set-row">
+          <div class="set-row mark-row">
+            <McpMark name={p.name} size={22} />
             <div class="set-txt">
-              <div class="t">{p.name} <span class="mcp-badge">{p.url ? 'http' : 'stdio'}</span></div>
+              <div class="t">
+                {p.name} <span class="mcp-badge">{p.url ? 'http' : 'stdio'}</span>
+                <!-- A server you sign into rather than paste a key for. The
+                     row said nothing about it and offered the same เพิ่ม as
+                     every other, which wrote an entry whose Authorization
+                     header was still the literal ${connect:...} and never
+                     connected. Saying so is half the fix; the button beside it
+                     is the other half. -->
+                {#if p.oauth}<span class="mcp-badge">{t('capability.needsSignIn')}</span>{/if}
+              </div>
               <div class="d">{p.desc} · {p.url ?? p.command?.join(' ')}</div>
               <!-- Why it is on a shelf at all: what it reaches that Aetox has
                    no tool for. The list was seven names and seven capability
@@ -6132,9 +6340,21 @@
                 </div>
               {/if}
             </div>
-            <button class="ctrl" disabled={mcpBusy !== '' || presetTaken(p.name)} onclick={() => addPreset(p)}>
-              {mcpBusy === 'preset:' + p.name ? t('settings.adding') : t('settings.add')}
-            </button>
+            {#if p.oauth && !presetTaken(p.name)}
+              <!-- The sign-in lives in ห้องสมุด, which owns the browser round
+                   trip, the code screen and the cancel — and it stays there.
+                   Copying that flow onto this page is how the two would drift
+                   apart by a fix a month, the same argument `.reg-` is written
+                   under in style.css. So this row hands the job over instead of
+                   pretending it can finish it. -->
+              <button class="ctrl" onclick={() => setActiveView('capability')}>
+                {t('settings.mcpSignInRoom')}
+              </button>
+            {:else}
+              <button class="ctrl" disabled={mcpBusy !== '' || presetTaken(p.name)} onclick={() => addPreset(p)}>
+                {mcpBusy === 'preset:' + p.name ? t('settings.adding') : t('settings.add')}
+              </button>
+            {/if}
           </div>
         {/each}
       </div>

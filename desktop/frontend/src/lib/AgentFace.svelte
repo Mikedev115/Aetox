@@ -23,7 +23,7 @@
   //
   // This file is the FRAME. Every part lives in agentFace.ts, so adding a
   // haircut is appending one row there and nothing here changes.
-  import { resolveFace, faceSVG, type FaceOverrides } from './agentFace'
+  import { resolveFace, faceSVG, wardrobeHash, type FaceOverrides } from './agentFace'
 
   let {
     name,
@@ -33,6 +33,7 @@
     hue = undefined,
     hair = undefined,
     accessory = undefined,
+    state = '',
   }: {
     name: string
     icon?: string
@@ -40,14 +41,21 @@
     off?: boolean
   } & FaceOverrides = $props()
 
-  const face = $derived(resolveFace(name, size, { hue, hair, accessory, icon }))
+  const face = $derived(resolveFace(name, size, { hue, hair, accessory, icon, state }))
   const inner = $derived(faceSVG(face))
+
+  // Nobody blinks on the beat. Eight agents in the office all blinking together
+  // is the one thing that would make them read as one animation rather than
+  // eight people, so the interval is taken off the name — stable for an agent,
+  // different between any two, and nothing has to coordinate it. Same hash the
+  // wardrobe uses; a shared cycle length here would be the bug, not a saving.
+  const blink = $derived(4.4 + (wardrobeHash(name) % 9) * 0.3)
 </script>
 
 <span
-  class="agent-face"
+  class="agent-face {state}"
   class:off
-  style="--h:{face.hue}; width:{size}px; height:{size}px"
+  style="--h:{face.hue}; --af-blink:{blink}s; width:{size}px; height:{size}px"
   aria-hidden="true"
 >
   <!-- Our own markup out of agentFace.ts, never anything a user typed: the

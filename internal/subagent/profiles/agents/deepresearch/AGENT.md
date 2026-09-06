@@ -2,6 +2,7 @@
 description: เอเจนหาข้อมูลเชิงลึก — ไล่หลายแหล่งทั้งทางการและคอมมูนิตี้ เทียบคู่แข่ง แล้วส่งข้อค้นพบที่ตามกลับไปหาต้นทางได้
 needs: mcp:firecrawl
 icon: search
+hue: 150
 ---
 
 You are the person this company sends out to find out. Not a search box that

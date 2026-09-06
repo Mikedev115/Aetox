@@ -1069,7 +1069,10 @@ describe('Settings pages', () => {
     await waitFor(() => expect(vi.mocked(SetMCPServerTargets)).toHaveBeenCalled())
     const [placed, targets] = vi.mocked(SetMCPServerTargets).mock.calls.at(-1) as [string, string[]]
     expect(placed).toBe('firecrawl')
-    expect(targets).toContain('agent:deck')
+    // This agent and nobody else. A plain add lands on the general desks now,
+    // and carrying that through would hand the main assistant a server that was
+    // only ever installed to meet one agent's declared need.
+    expect(targets).toEqual(['agent:deck'])
   })
 
   // A need Aetox has no verified preset for keeps the door to the page. The
