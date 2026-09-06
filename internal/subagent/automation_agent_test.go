@@ -580,7 +580,7 @@ func TestTheAgentIsToldThatLearnedStartCommandsMustBeSaved(t *testing.T) {
 // `todo_write` or `task_plan`, because a run declared there would draw a second
 // panel over the one the person is already watching. So a `tools:` line naming
 // one of them does nothing at all except make the roster warn, forever, about
-// something nobody can fix: the office page reported automation and research as
+// something nobody can fix: the office page reported automation and deepresearch as
 // missing `todo_write` on 30 ส.ค., which was true and useless in the same
 // breath.
 //

@@ -191,10 +191,10 @@ type AgentGate struct {
 // AgentGate decides whether an agent is offered as a working teammate.
 //
 // **`needs:` means needs.** It was briefly read as "would be improved by", on
-// the reasoning that `research` still has web_search without firecrawl and so
+// the reasoning that `deepresearch` still has web_search without firecrawl and so
 // would be locked for nothing. The owner refused that reading on the ground
 // that answers the question properly (30 ส.ค.): *"บังคับให้มี firecrawl ครับ
-// ไม่งั้นมันจะต่างอะไรจากเมน"* — a research agent whose only tools are the ones
+// ไม่งั้นมันจะต่างอะไรจากเมน"* — a deepresearch agent whose only tools are the ones
 // the assistant already carries is the assistant with a different prompt, and
 // offering it as a specialist is the lie, not locking it.
 //

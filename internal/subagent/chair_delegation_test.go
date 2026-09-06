@@ -76,15 +76,15 @@ func TestRefusingAColleagueTellsTheChairWhatToDoInstead(t *testing.T) {
 	isolate(t)
 
 	tool := &taskTool{opts: TaskOptions{NoAgents: true, Desk: nil}}
-	research, ok := Load("research")
+	deep, ok := Load("deepresearch")
 	if !ok {
-		t.Fatal("the bundled research profile did not load")
+		t.Fatal("the bundled deepresearch profile did not load")
 	}
-	_, err := tool.reach(research)
+	_, err := tool.reach(deep)
 	if err == nil {
 		t.Fatal("a helpers-only roster reached a colleague")
 	}
-	if !strings.Contains(err.Error(), research.Name) {
+	if !strings.Contains(err.Error(), deep.Name) {
 		t.Errorf("the refusal does not name the worker it is about: %v", err)
 	}
 	for _, want := range []string{"helper", "person"} {
@@ -96,7 +96,7 @@ func TestRefusingAColleagueTellsTheChairWhatToDoInstead(t *testing.T) {
 	// The same tool without the narrowing still reaches it, so the test above is
 	// measuring the switch rather than some other refusal on the way.
 	open := &taskTool{opts: TaskOptions{Desk: nil}}
-	if _, err := open.reach(research); err != nil {
-		t.Errorf("research is unreachable even without the narrowing, so this proves nothing: %v", err)
+	if _, err := open.reach(deep); err != nil {
+		t.Errorf("deepresearch is unreachable even without the narrowing, so this proves nothing: %v", err)
 	}
 }

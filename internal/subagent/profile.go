@@ -554,7 +554,7 @@ func PromptFor(p Profile) string {
 // behind it, so it calls it on a hunch or not at all. Measured 31 ส.ค. on the
 // owner's machine: automation opened a skill on 0 of 50 jobs and github on 0 of
 // 22, both of them carrying a paragraph in their own AGENT.md telling them to
-// open one before that kind of work. Only research did it with any regularity,
+// open one before that kind of work. Only deepresearch did it with any regularity,
 // 8 opens across 15 jobs.
 //
 // So a worker's knowledge was reachable, documented, instructed, and unread.

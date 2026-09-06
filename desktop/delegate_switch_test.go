@@ -174,7 +174,7 @@ func newSwitchApp(t *testing.T) *App {
 // can be proved.
 //
 // A zero Config, not the desktop app's startup state: since 20 ส.ค. a machine
-// where nobody has answered resolves to เอเจน ON with research the only one in
+// where nobody has answered resolves to เอเจน ON with deepresearch the only one in
 // reach (App.resolveConfig, shippedDelegation), which is a different fact and
 // has its own test below. What is asserted here is what a Config built anywhere
 // else means — a test, another entry point, the CLI.

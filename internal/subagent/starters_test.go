@@ -123,7 +123,7 @@ func TestSettingsFormStopsWhereTheReaderStops(t *testing.T) {
 // Every shipped worker opens with something, in both languages the app ships
 // in. A worker is not required to have an opening — but one that has a Thai
 // file and no English one would fall back to Thai in front of an English user,
-// silently, and these six are ours to keep straight. (`research` was missing
+// silently, and these six are ours to keep straight. (`deepresearch` was missing
 // from this list while it shipped both files, so nothing was checking them.)
 func TestBundledAgentsShipStartersInBothLanguages(t *testing.T) {
 	// What a pool owes is enough to fill the grid, not an exact number — the
@@ -131,7 +131,7 @@ func TestBundledAgentsShipStartersInBothLanguages(t *testing.T) {
 	// holding three would deal a widow onto the second row.
 	const windowHand = 4
 
-	for _, name := range []string{"automation", "doc", "github", "research", "sheet"} {
+	for _, name := range []string{"automation", "deepresearch", "doc", "github", "sheet"} {
 		thCards := 0
 		for _, locale := range []string{"th", "en"} {
 			raw, ok := bundledStarters(name)(locale)

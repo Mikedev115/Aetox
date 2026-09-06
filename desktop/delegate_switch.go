@@ -98,7 +98,7 @@ type DelegateWorker struct {
 // is one choice about how the app arrives, not a property of the agent. It was
 // one name until 20 ส.ค. and the comment then said the day a second earned its
 // place this becomes a list. It did.
-var shippedReachableAgents = []string{"doc", "research", "sheet"}
+var shippedReachableAgents = []string{"deepresearch", "doc", "sheet"}
 
 // shippedDelegation is the delegation a machine gets before anybody answers the
 // question — read at startup, never written to disk (App.resolveConfig).

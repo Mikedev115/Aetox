@@ -188,7 +188,7 @@ describe('Settings pages', () => {
   // being advertised for it from a list nobody remembers to update.
   it('says why each preset is recommended and which agent asked for it', async () => {
     vi.mocked(ListSubagentProfiles).mockResolvedValue([
-      { name: 'research', description: 'หาข้อมูล', prompt: 'role', builtin: true, desk: 'specialized', needs: ['mcp:firecrawl'] },
+      { name: 'deepresearch', description: 'หาข้อมูล', prompt: 'role', builtin: true, desk: 'specialized', needs: ['mcp:firecrawl'] },
       { name: 'deck', description: 'ทำสไลด์', prompt: 'role', builtin: true, desk: 'specialized' },
       { name: 'automation', description: 'ออโต', prompt: 'role', builtin: true, desk: 'specialized', needs: ['connection:n8n | mcp:windmill'] },
     ] as any)
@@ -205,7 +205,7 @@ describe('Settings pages', () => {
       if (!el) throw new Error('the firecrawl preset row is not on the page')
       return el
     })
-    expect(row.querySelector('.mcp-wanted')?.textContent).toContain('research')
+    expect(row.querySelector('.mcp-wanted')?.textContent).toContain('deepresearch')
 
     // A preset nobody declared stays quiet rather than showing an empty label.
     const exa = Array.from(container.querySelectorAll('.set-row'))

@@ -104,7 +104,7 @@
   const targetsOf = (s: MCPRow) => s.for ?? []
 
   // What a placement id is called. The chips printed the raw id — `agent:editor`,
-  // `agent:research` — which is the engine's address for a thing, not its name.
+  // `agent:deepresearch` — which is the engine's address for a thing, not its name.
   // Settings' register has always resolved these through PlacementTargets; the
   // room was showing the same rows in a different vocabulary.
   const targetName = (id: string) => targets.find((x) => x.id === id)?.name ?? id

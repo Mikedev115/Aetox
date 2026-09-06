@@ -41,12 +41,12 @@ func isolate(t *testing.T) string {
 func TestBundledProfilesAreUsable(t *testing.T) {
 	isolate(t)
 	got := List()
-	want := []string{"automation", "doc", "editor", "explore", "general", "github", "research", "reviewer", "sheet", "tester", "video"}
+	want := []string{"automation", "deepresearch", "doc", "editor", "explore", "general", "github", "reviewer", "sheet", "tester", "video"}
 	if len(got) != len(want) {
 		t.Fatalf("List() = %d profiles, want %d", len(got), len(want))
 	}
 	chairs := map[string]bool{
-		"automation": true, "doc": true, "editor": true, "github": true, "research": true,
+		"automation": true, "deepresearch": true, "doc": true, "editor": true, "github": true,
 		"sheet": true, "video": true,
 	}
 	for i, p := range got {
@@ -371,7 +371,7 @@ func TestKindOfSplitsTheTwoPiles(t *testing.T) {
 		"sheet":    KindAgent,
 		"explore":  KindHelper, // the assistant's own hands
 		"general":  KindHelper,
-		"research": KindAgent,
+		"deepresearch": KindAgent,
 		"":         KindHelper, // unnamed → the default profile, which is explore
 		"nobody":   "",         // not runnable → no kind claimed
 	}

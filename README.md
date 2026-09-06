@@ -211,7 +211,7 @@ model required, and the model that *can* see gets the image itself instead.
 <img src="docs/assets/cap-image-ocr.png" alt="OCR pulling Thai text out of an image" width="100%">
 
 **Delegate to a specialist.** Type `@doc`, `@sheet`, `@github`, `@automation` or
-`@research` and your sentence reaches that agent word for word — not a paraphrase. Each is a folder on disk with its
+`@deepresearch` and your sentence reaches that agent word for word — not a paraphrase. Each is a folder on disk with its
 own prompt, its own memory, optionally its own model, and its own private skills.
 
 **Give it a job, not a step.** Work that takes twenty moves is planned before it is worked, and
@@ -226,8 +226,8 @@ month is held back by default rather than slipping in.
 
 Run on 2026-08-15, from one sentence — *"find 20 CRMs a Thai SME could actually pick and give me
 a spreadsheet comparing them"*: **6m 51s, two agents, 42 tool calls between them** — 8 by the
-assistant, 27 by `research` reading pricing pages, 7 by `sheet` — and one tool failure it worked
-around. The handoff between the two was the baton this README describes: `research` left a
+assistant, 27 by `deepresearch` reading pricing pages, 7 by `sheet` — and one tool failure it worked
+around. The handoff between the two was the baton this README describes: `deepresearch` left a
 markdown report in the session's output folder and `sheet` was given the path, not the contents.
 Twenty rows came back, fourteen with a real numeric price sorted low to high, and
 **six deliberately left blank** with the reason written in beside them — quoted-only pricing, or
@@ -264,7 +264,7 @@ it involves code.
 
 ## The team
 
-Five agents ship — `doc`, `sheet`, `github`, `automation`, `research` — and hiring a
+Five agents ship — `doc`, `sheet`, `github`, `automation`, `deepresearch` — and hiring a
 sixth is dropping a folder into `<DataRoot>/agents/`. No release, no plugin API, no restart.
 
 An agent's folder is its whole identity: `AGENT.md` (who it is, what desk it sits at, which tools
@@ -276,7 +276,7 @@ That folder is also where the difference between a clever assistant and a compan
 agent pins **its own model**, so the one that opens twenty pricing pages can run on something
 cheap while the one that has to weigh what it found runs on something strong, and the bill
 follows the work instead of following the hardest task in it. Each keeps **its own memory**, so
-what the research agent learned about a source does not leak into the document agent's judgement
+what the deepresearch agent learned about a source does not leak into the document agent's judgement
 about a contract. A single generalist has one model, one memory and one set of tools for every job
 it will ever be handed — and no way for you to add a sixth colleague to it.
 

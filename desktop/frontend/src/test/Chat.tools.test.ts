@@ -717,14 +717,14 @@ describe('sub-agent tool events', () => {
   // the engine's register instead — the same source the tray reads.
   describe('a delegation card follows the register, not its task row', () => {
     const registered = (over: Record<string, unknown> = {}) => ({
-      id: 'task_1', agent: 'research', label: 'ตรวจ CRM ไทย 20 เจ้า',
+      id: 'task_1', agent: 'deepresearch', label: 'ตรวจ CRM ไทย 20 เจ้า',
       startedAt: new Date(Date.now() - 92_000).toISOString(),
       toolCalls: 27, state: 'running', collected: false, ...over,
     })
     // The row exactly as the engine leaves it: closed, eight seconds, a tick.
     const spawnedRow = {
       label: 'task ตรวจ CRM ไทย 20 เจ้า', ref: 'call_1', task: 'task_1',
-      agent: 'research', agentKind: 'agent', state: 'done', secs: 8, startedAt: Date.now() - 92_000,
+      agent: 'deepresearch', agentKind: 'agent', state: 'done', secs: 8, startedAt: Date.now() - 92_000,
     }
 
     it('keeps the clock running while the worker is still on its tools', () => {
@@ -832,7 +832,7 @@ describe('sub-agent tool events', () => {
     // call completes before the register has a handle to give.
     it('takes the delegation id off the first step its worker runs', () => {
       cockpit.toolSteps = []
-      applyToolEvent({ action: 'call', ref: 'call_1', name: 'task', agent: 'research' })
+      applyToolEvent({ action: 'call', ref: 'call_1', name: 'task', agent: 'deepresearch' })
       expect(cockpit.toolSteps[0].task).toBeUndefined()
       applyToolEvent({ action: 'call', ref: 'r1', parent: 'call_1', task: 'task_1', name: 'web_fetch', subject: 'crm.co.th' })
       expect(cockpit.toolSteps[0].task).toBe('task_1')

@@ -125,7 +125,7 @@ export const MCP_PRESETS: MCPPreset[] = [
   { name: 'kinocut', desc: 'Cut, subtitle and render video, on this machine', why: 'Aetox reads video and produces none. This is the half that cuts and renders. Install it from ห้องงานวิดีโอ, which fetches it the same way ffmpeg and Tesseract are fetched; this entry is the connection.', command: [] },
   { name: 'github', desc: 'Repos, pull requests, issues, CI', why: "Aetox's own github tool only reads. This is the half that acts — opening a pull request, commenting, moving an issue.", url: 'https://api.githubcopilot.com/mcp/', headers: ['Authorization: Bearer ${connect:github}'] },
   // Second because it is the other one a bundled agent asks for by name — the
-  // research agent ships `needs: mcp:firecrawl`, and the 12 ส.ค. half of the
+  // deepresearch agent ships `needs: mcp:firecrawl`, and the 12 ส.ค. half of the
   // rule above is exactly this case.
   //
   // **No `headers` entry, and that is the finding rather than an omission.**

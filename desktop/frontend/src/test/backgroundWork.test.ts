@@ -62,7 +62,7 @@ describe('the background work card', () => {
   it('offers a brake on each running delegate, naming that one', async () => {
     const stopped: string[] = []
     const { container } = render(BackgroundWork, {
-      tasks: [task({ id: 'task_1', agent: 'research' }), task({ id: 'task_2', agent: 'doc' })],
+      tasks: [task({ id: 'task_1', agent: 'deepresearch' }), task({ id: 'task_2', agent: 'doc' })],
       steps: [], onAnswer: () => {}, onStop: (id: string) => stopped.push(id), onStopRun: () => {}, onStopQueue: () => {},
     })
     const buttons = [...container.querySelectorAll<HTMLButtonElement>('.bgw-stop')]

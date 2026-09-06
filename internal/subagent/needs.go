@@ -341,7 +341,7 @@ func mcpState(agent, name string) Need {
 //
 // The one line that stays is not a move but a standard: a result that needed the
 // missing thing, handed over as if it did not, is the failure nobody downstream
-// can catch. That is the same kind of thing as the research worker's "never
+// can catch. That is the same kind of thing as the deepresearch worker's "never
 // report what you did not read" — a truth about the job, not a procedure for it.
 func needsNotice(unmet []Need) string {
 	if len(unmet) == 0 {

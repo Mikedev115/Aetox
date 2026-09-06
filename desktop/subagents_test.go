@@ -73,7 +73,7 @@ func TestSubagentProfileBindings(t *testing.T) {
 	a := newSubagentTestApp(t)
 
 	// Nine bundled: four helpers (explore, general, reviewer, tester) and five
-	// chairs — the office's four (doc, sheet, automation, research) plus github
+	// chairs — the office's four (doc, sheet, automation, deepresearch) plus github
 	// at the coding desk. The settings page lists both kinds; a chair is a
 	// sub-agent profile managed exactly like the others, and what makes it a
 	// chair is one line of its own frontmatter, not a separate store.
