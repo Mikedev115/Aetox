@@ -36,8 +36,16 @@
 //
 // The rate itself is `lag / time left`, which needs no words-per-minute to
 // tune: drained at that rate the backlog reaches zero exactly at the deadline,
-// which makes the rate constant. A provider that already streams evenly
-// (DeepSeek) builds no backlog and is left alone by the same arithmetic.
+// which makes the rate constant across the window. A provider that already
+// streams evenly (DeepSeek) builds no backlog and is left alone by the same
+// arithmetic.
+//
+// Constant is not yet soft, though, because the rate still ARRIVES as a step —
+// stopped to full speed between two frames, and dead stop again at the end of
+// the backlog. What the eye follows in moving text is the acceleration, so the
+// rate is eased rather than taken whole (SPEED_TAU_MS): the text leans into a
+// burst and coasts out of it. That is the last of the three, and the one the
+// owner asked for by name — "ทำให้นุ่มกว่านี้ได้ไหม".
 //
 // What this costs is the end of a reply landing one gap late — the final burst
 // still plays out after the model has stopped talking. That is the whole price,
@@ -52,7 +60,7 @@ import { renderStreamingMarkdown } from './markdown'
 // the old per-chunk behaviour reached by another route. The ceiling is a
 // promise about the end of a reply — a model that pauses two seconds
 // mid-thought must not buy itself a two-second tail after its last word.
-const MIN_WINDOW_MS = 120
+const MIN_WINDOW_MS = 180
 const MAX_WINDOW_MS = 400
 
 // A pause longer than this ended a burst. Below it the events are one lump
@@ -64,6 +72,20 @@ const BURST_GAP_MS = 50
 // How far a newly measured gap moves the average. Low enough that one slow
 // round trip does not stretch the window for the rest of the reply.
 const GAP_WEIGHT = 0.3
+
+// How quickly the release rate is allowed to change, as the time constant of
+// an exponential ease, in ms.
+//
+// The rate the window asks for is right but it arrives as a step: a burst lands
+// and the letters go from stopped to full speed between two frames, then stop
+// dead when the backlog runs out. Nothing is dropped and it still reads as
+// hard, because what the eye follows in moving text is the ACCELERATION and
+// there was none — only jumps. Eased, the text leans into a burst and coasts
+// out of it, which is the difference between smooth and soft.
+//
+// 90ms is about five frames: slow enough to round off every start and stop,
+// fast enough that the controller below still tracks a burst inside its window.
+const SPEED_TAU_MS = 90
 
 // The shortest window the rate may be computed against. Past its deadline — a
 // backgrounded webview stops calling rAF for seconds at a time — `lag / time
@@ -88,6 +110,7 @@ class Pacer {
   private frame = 0
   private last = 0
   private deadline = 0
+  private speed = 0
   private lastFeed = 0
   private gap = MIN_WINDOW_MS
   private started = false
@@ -135,6 +158,7 @@ class Pacer {
 
   private snap(text: string): void {
     this.stop()
+    this.speed = 0
     this.arrived = text
     this.shown = text.length
     this.paint()
@@ -163,7 +187,17 @@ class Pacer {
     this.last = now
     const lag = this.arrived.length - this.shown
     const left = Math.max(this.deadline - now, FRAME_MS)
-    this.shown = Math.min(this.arrived.length, this.shown + (lag / left) * dt)
+    // A proportional controller on the backlog — the rate that empties it
+    // exactly at the deadline — with the rate itself eased rather than taken
+    // whole. Falling behind while the ease catches up raises the rate the
+    // controller asks for, so the two settle together instead of fighting.
+    const target = lag / left
+    this.speed += (target - this.speed) * (1 - Math.exp(-dt / SPEED_TAU_MS))
+    this.shown = Math.min(this.arrived.length, this.shown + this.speed * dt)
+    // An eased rate approaches the end without reaching it, and a frame that
+    // owes a third of a character would ask for frames forever. Below one, the
+    // debt is not something anyone can see.
+    if (this.arrived.length - this.shown < 1) this.shown = this.arrived.length
     this.paint()
     // Caught up: stop asking for frames. A reply spends most of its life
     // waiting on a tool, and a loop that idles through that keeps the

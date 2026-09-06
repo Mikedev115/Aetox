@@ -95,8 +95,9 @@ describe('the stream pacer', () => {
   it('has the whole burst on screen by its deadline', () => {
     const { action, said } = mount('ก')
     action.update({ text: 'ก' + LONG })
-    // MIN_WINDOW_MS is 120; ten frames is 160ms, so nothing may still be held back.
-    for (let i = 0; i < 10; i++) frame()
+    // MIN_WINDOW_MS is 180, and the ease adds a little on either end; well
+    // past both, nothing may still be held back.
+    drain(400)
     expect(said()).toBe('ก' + LONG)
   })
 
@@ -168,7 +169,7 @@ describe('the stream pacer', () => {
     drain(130)
     expect(said().length).toBeLessThan(text.length)
     // And it is still finished well before the next burst would land.
-    drain(300)
+    drain(500)
     expect(said()).toBe(text)
   })
 
@@ -183,7 +184,7 @@ describe('the stream pacer', () => {
     }
     text += LINE
     action.update({ text })
-    drain(420) // MAX_WINDOW_MS is 400
+    drain(600) // MAX_WINDOW_MS is 400, plus the ease coasting out
     expect(said()).toBe(text)
   })
 
@@ -200,7 +201,24 @@ describe('the stream pacer', () => {
 
     frame()
     expect((host.textContent ?? '').length).toBeGreaterThan('เริ่มคิด'.length)
-    drain(200)
+    drain(400)
     expect(host.textContent).toBe('เริ่มคิด' + LONG)
+  })
+
+  it('leans into a burst instead of starting at full speed', () => {
+    const { action, said } = mount('ก')
+    action.update({ text: 'ก' + LONG })
+
+    frame()
+    const first = said().length - 1
+    frame()
+    frame()
+    const third = said().length - 1 - first
+
+    // Nothing was dropped before and it still read as hard: the letters went
+    // from stopped to full speed between two frames. Acceleration is what the
+    // eye follows, so the third frame has to be moving faster than the first.
+    expect(first).toBeGreaterThan(0)
+    expect(third).toBeGreaterThan(first)
   })
 })
