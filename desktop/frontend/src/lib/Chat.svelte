@@ -2354,6 +2354,30 @@
       void openGalleryShot(el.closest<HTMLElement>('.img-gallery'))
       return
     }
+    // A citation marker takes you to what it cites (markdown.ts renderFootnotes).
+    //
+    // Matched by data attribute rather than by an href to an id, because an id
+    // is document-wide: every answer in the transcript numbers its own notes
+    // from 1, and a `#fn-1` would land on whichever message got there first —
+    // besides which a hash link in a webview navigates the app itself. The
+    // search is scoped to the answer the marker was clicked in, so it can only
+    // ever find that message's own note.
+    const fnRef = el.closest<HTMLElement>('.fn-ref')
+    if (fnRef) {
+      const body = fnRef.closest('.markdown-body')
+      const note = Array.from(body?.querySelectorAll<HTMLElement>('.fn-note') ?? []).find(
+        (n) => n.dataset.fn === fnRef.dataset.fn,
+      )
+      if (note) {
+        note.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+        // Re-triggered by taking the class off and putting it back on the next
+        // frame — clicking the same marker twice must flash twice, and an
+        // animation does not restart while its class is already there.
+        note.classList.remove('found')
+        requestAnimationFrame(() => note.classList.add('found'))
+      }
+      return
+    }
     const a = el.closest('a')
     const href = a?.getAttribute('href')
     if (!href || !/^https?:\/\//i.test(href)) return

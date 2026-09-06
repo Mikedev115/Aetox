@@ -1674,6 +1674,41 @@ button.phase-head:hover { color:var(--text-muted); }
   display:block; width:100%; height:100%; max-width:100%; max-height:100%;
   margin:0; border:none; border-radius:0; background:none; object-fit:cover;
 }
+/* ---------- footnotes ----------
+   A citation in the sentence, and what it cites under the answer. Until
+   markdown.ts learned the syntax, `[^1]: ที่มา` was read as a link definition:
+   the source line disappeared and `[^1]` became a blue link to a made-up
+   address. So the marker is deliberately NOT a link — it is a number that
+   takes you down to the note, and nothing about it should promise the web.
+
+   Sized to sit in the line rather than push it open: superscript at .72em with
+   its own line-height, which is what keeps a paragraph full of citations from
+   growing a stripe of extra leading. */
+.markdown-body .fn-ref {
+  font-size:.72em; line-height:0; vertical-align:super;
+  color:var(--accent); cursor:pointer; padding:0 1px; user-select:none;
+}
+.markdown-body .fn-ref:hover { text-decoration:underline; }
+/* The notes are apparatus, not prose: a hairline separates them from the
+   answer and everything about them is one step quieter — smaller, dimmer, and
+   held in a column so the numbers line up under each other. */
+.markdown-body .fn-notes {
+  margin:16px 0 0; padding-top:10px; border-top:1px solid var(--border-subtle);
+  font-size:.86em; color:var(--text-secondary);
+}
+.markdown-body .fn-note {
+  display:grid; grid-template-columns:1.6em minmax(0,1fr); gap:6px;
+  padding:2px 4px; border-radius:var(--r-sm); scroll-margin:12px;
+}
+.markdown-body .fn-mark { color:var(--accent); text-align:right; }
+/* Where the marker sent you. It has to be findable in a note that is one line
+   of a list of eight, and it has to stop being findable a moment later —
+   a permanent highlight would be a second thing to read. */
+.markdown-body .fn-note.found { animation:fn-found 1.2s ease-out; }
+@keyframes fn-found {
+  from { background:var(--surface-hover); }
+  to { background:transparent; }
+}
 .markdown-body hr { border:none; border-top:1px solid var(--border-subtle); margin:.8em 0; }
 /* Inline code is a word in a sentence, not a boxed widget — tint it and drop
    the border, so `ComProc` mid-paragraph stops looking like a button.
