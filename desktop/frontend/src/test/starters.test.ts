@@ -13,11 +13,12 @@
 // answer is used when there is one, the generic four stand when there is not,
 // and the window never trusts the file blindly.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/svelte'
+import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import Chat from '../lib/Chat.svelte'
 import { ChairStarters } from './mocks/wailsApp'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import { startersFor, dealStarters, STARTER_SLOTS } from '../lib/starters'
+import { TEACH_PIN_KEY } from '../lib/firstRun'
 import { th } from '../lib/locales/th'
 import { en } from '../lib/locales/en'
 
@@ -44,6 +45,7 @@ beforeEach(() => {
   cockpit.space = ''
   cockpit.activeView = 'chat'
   cockpit.chat.length = 0
+  localStorage.removeItem(TEACH_PIN_KEY)
 })
 
 describe('which room the empty chat speaks for', () => {
@@ -242,5 +244,94 @@ describe('the empty chat on screen', () => {
     await waitFor(() => expect(screen.getByText('การ์ดไอคอนมั่ว')).toBeTruthy())
     const glyph = container.querySelector('.starter-card .ic svg')
     expect(glyph?.innerHTML.trim()).toBeTruthy()
+  })
+})
+
+// The wizard ends by telling the user to type what they want done, and lands
+// them on an empty chat that has never explained itself. The owner was covering
+// that gap in person, one user at a time.
+//
+// A card in the pool is not enough to cover it: four are dealt out of ten, so
+// the introduction would be missing from the first screen four openings out of
+// ten. So the one showing that matters is pinned, and pinned means slot zero,
+// not merely present.
+describe('the card that teaches the app', () => {
+  const pool = Array.from({ length: 10 }, (_, i) => `card-${i}`)
+
+  it('takes the first slot without costing a slot twice', () => {
+    for (let n = 0; n < 30; n++) {
+      const hand = dealStarters('t-pin', pool, (c) => c, STARTER_SLOTS, 'card-7')
+      expect(hand[0]).toBe('card-7')
+      expect(hand).toHaveLength(STARTER_SLOTS)
+      expect(new Set(hand).size).toBe(STARTER_SLOTS)
+    }
+  })
+
+  // Every room deals from this function, and the pin is a fact about one of
+  // them. A room whose pool has never heard of the card is not an error to
+  // report, it is a room the pin does not apply to.
+  it('is ignored by a room whose pool does not hold it', () => {
+    const hand = dealStarters('t-pin-absent', pool, (c) => c, STARTER_SLOTS, 'start.assistant.teachTitle')
+    expect(hand).toHaveLength(STARTER_SLOTS)
+    expect(new Set(hand).size).toBe(STARTER_SLOTS)
+  })
+
+  // An agent's own folder usually holds exactly the four the grid draws, which
+  // is the branch that returns the pool untouched. A pin still has to reach the
+  // front there, or it would work everywhere except the smallest rooms.
+  it('reaches the front of a pool no bigger than a hand', () => {
+    const four = pool.slice(0, STARTER_SLOTS)
+    expect(dealStarters('t-pin-small', four, (c) => c, STARTER_SLOTS, 'card-2')).toEqual([
+      'card-2', 'card-0', 'card-1', 'card-3',
+    ])
+  })
+
+  it('opens ผู้ช่วย in the first slot while the pin stands', async () => {
+    localStorage.setItem(TEACH_PIN_KEY, '1')
+    cockpit.desk = 'assistant'
+
+    const { container } = render(Chat, chatProps)
+
+    await waitFor(() => {
+      const shown = [...container.querySelectorAll('.starter-card .title')].map((n) => n.textContent)
+      expect(shown).toHaveLength(STARTER_SLOTS)
+      expect(shown[0]).toBe(th['start.assistant.teachTitle'])
+    })
+  })
+
+  // The pin is for somebody who has not asked for anything yet. A chat they
+  // opened on purpose, inside a project or with a specialist, is not that.
+
+  // Spent on send, not on read. A reload before they click anything must not
+  // quietly cost them the one showing this is for, and a user who has started
+  // working must not be handed an introduction on their next empty chat.
+  it('spends the pin the moment the user says anything', async () => {
+    localStorage.setItem(TEACH_PIN_KEY, '1')
+    cockpit.desk = 'assistant'
+
+    const sent: string[] = []
+    const { container } = render(Chat, { ...chatProps, onSend: (text: string) => sent.push(text) })
+    await waitFor(() => expect(container.querySelector('textarea.input')).toBeTruthy())
+
+    const input = container.querySelector('textarea.input') as HTMLTextAreaElement
+    await fireEvent.input(input, { target: { value: 'จัดโฟลเดอร์ดาวน์โหลดให้หน่อย' } })
+    await fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(sent).toHaveLength(1)
+    expect(localStorage.getItem(TEACH_PIN_KEY)).toBeNull()
+  })
+
+  it('leaves a project chat alone', async () => {
+    localStorage.setItem(TEACH_PIN_KEY, '1')
+    cockpit.desk = 'assistant'
+    cockpit.space = 'เปิดร้านกาแฟ'
+
+    const { container } = render(Chat, chatProps)
+
+    await waitFor(() => {
+      expect(screen.getByText(th['start.project.headline'])).toBeTruthy()
+      const shown = [...container.querySelectorAll('.starter-card .title')].map((n) => n.textContent)
+      expect(shown).not.toContain(th['start.assistant.teachTitle'])
+    })
   })
 })

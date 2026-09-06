@@ -99,6 +99,16 @@ const SETS: Record<string, StarterSet> = {
       { icon: 'timer', titleKey: 'start.assistant.runwayTitle', promptKey: 'start.assistant.runwayPrompt' },
       { icon: 'compass', titleKey: 'start.assistant.marketTitle', promptKey: 'start.assistant.marketPrompt' },
       { icon: 'package', titleKey: 'start.assistant.deckTitle', promptKey: 'start.assistant.deckPrompt' },
+      // Pinned to the first slot on the empty chat that follows the wizard
+      // (firstRun.ts, TEACH_PIN_KEY). It sits in the pool like any other card
+      // the rest of the time: somebody who already knows the app should not be
+      // dealt an introduction forever.
+      //
+      // It passes the rule above the same way its neighbours do. A card that
+      // promised a tour would end in a wall of text, so this one ends in a file:
+      // one real job done on their own material, and a short guide written out
+      // and opened. What is being taught is the app, and what they keep is work.
+      { icon: 'compass', titleKey: 'start.assistant.teachTitle', promptKey: 'start.assistant.teachPrompt' },
     ],
   },
 
@@ -202,17 +212,37 @@ export const STARTER_SLOTS = 4
 // cards that no longer exist.
 const bags = new Map<string, string[]>()
 
+/** The card the first empty chat after the wizard opens with, by title key.
+ *
+ * Exported as the KEY and not the title, because the title is a translation and
+ * the pin has to survive the user switching language on the welcome screen. The
+ * window resolves it against the same pool it draws from. */
+export const TEACH_STARTER_KEY = 'start.assistant.teachTitle'
+
 export function dealStarters<T>(
   key: string,
   pool: readonly T[],
   nameOf: (card: T) => string,
   count = STARTER_SLOTS,
+  pin?: string,
 ): T[] {
-  if (pool.length <= count) return [...pool]
-
   const byName = new Map(pool.map((c) => [nameOf(c), c]))
+  // A pin names a card that may not be in this room's pool at all, and asking
+  // for one that is not there is not an error: it is a room this pin does not
+  // apply to, and the hand is dealt as if nobody asked.
+  const pinned = pin !== undefined ? byName.get(pin) : undefined
+
+  if (pool.length <= count) {
+    if (!pinned) return [...pool]
+    return [pinned, ...pool.filter((c) => nameOf(c) !== pin)]
+  }
+
   const hand: T[] = []
   const dealt = new Set<string>()
+  if (pinned !== undefined) {
+    hand.push(pinned)
+    dealt.add(pin as string)
+  }
   let bag = (bags.get(key) ?? []).filter((n) => byName.has(n))
 
   while (hand.length < count) {

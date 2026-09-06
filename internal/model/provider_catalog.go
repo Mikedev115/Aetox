@@ -449,6 +449,69 @@ type openAIModelsResponse struct {
 // one. Errors are swallowed for the same reason; this is a best-effort hint on
 // a path that already has a fallback.
 func activeLocalModel(canonical, baseURL, apiKey string) string {
+	loaded := residentLocalModels(canonical, baseURL, apiKey)
+	if len(loaded) == 0 {
+		return ""
+	}
+	return loaded[0]
+}
+
+// LocalModelResident answers whether a local runtime has this model in memory
+// and ready to answer, which is the question behind "is it still loading?".
+//
+// A local runtime does not stream load progress — neither Ollama's /api/ps nor
+// LM Studio's /api/v0/models carries a percentage, and the chat request itself
+// simply blocks until the weights are in. So the honest live signal is not a
+// bar but a state, and this is what it is read from: the model the turn is
+// about is either resident or it is not.
+//
+// A blank want asks the weaker question — is ANYTHING loaded — which is what a
+// session that has not pinned a model is actually waiting for. False on every
+// unknown: not a local provider, no endpoint, an older build with neither
+// endpoint. The caller shows nothing rather than claiming a wait it cannot see.
+func LocalModelResident(canonical, baseURL, apiKey, want string) bool {
+	loaded := residentLocalModels(canonical, baseURL, apiKey)
+	if len(loaded) == 0 {
+		return false
+	}
+	want = strings.TrimSpace(want)
+	if want == "" {
+		return true
+	}
+	for _, name := range loaded {
+		if sameLocalModel(name, want) {
+			return true
+		}
+	}
+	return false
+}
+
+// sameLocalModel compares two names for the same weights.
+//
+// Not string equality: Ollama answers "qwen3:8b" for a model a user pinned as
+// "qwen3", and LM Studio's ids carry the publisher ("mistralai/voxtral-mini").
+// A mismatch here would report a resident model as still loading forever, so
+// the comparison is deliberately generous — the cost of a false match is one
+// spinner that stops a second early, the cost of a false miss is a spinner
+// that never stops.
+func sameLocalModel(a, b string) bool {
+	norm := func(v string) string {
+		v = strings.ToLower(strings.TrimSpace(v))
+		if i := strings.LastIndex(v, "/"); i >= 0 {
+			v = v[i+1:]
+		}
+		return strings.TrimSuffix(v, ":latest")
+	}
+	x, y := norm(a), norm(b)
+	if x == "" || y == "" {
+		return false
+	}
+	return x == y || strings.HasPrefix(x, y+":") || strings.HasPrefix(y, x+":")
+}
+
+// residentLocalModels lists the chat-capable models a local runtime is holding
+// in memory right now, newest answer first, or nothing when it cannot say.
+func residentLocalModels(canonical, baseURL, apiKey string) []string {
 	var path string
 	switch canonical {
 	case "lmstudio":
@@ -456,33 +519,33 @@ func activeLocalModel(canonical, baseURL, apiKey string) string {
 	case "ollama":
 		path = "/api/ps"
 	default:
-		return ""
+		return nil
 	}
 	root := strings.TrimSuffix(strings.TrimRight(strings.TrimSpace(baseURL), "/"), "/v1")
 	if root == "" {
-		return ""
+		return nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, root+path, nil)
 	if err != nil {
-		return ""
+		return nil
 	}
 	if apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 	resp, err := (&http.Client{Timeout: 3 * time.Second}).Do(req)
 	if err != nil {
-		return ""
+		return nil
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return ""
+		return nil
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return ""
+		return nil
 	}
 
 	var payload struct {
@@ -499,24 +562,25 @@ func activeLocalModel(canonical, baseURL, apiKey string) string {
 		} `json:"models"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return ""
+		return nil
 	}
+	var loaded []string
 	for _, m := range payload.Data {
 		// Embedding models also report "loaded" and cannot answer a chat
 		// request, so an explicit non-llm type is skipped. An empty type is
 		// kept: older builds omit it entirely.
 		if m.State == "loaded" && (m.Type == "" || m.Type == "llm" || m.Type == "vlm") {
 			if id := strings.TrimSpace(m.ID); id != "" {
-				return id
+				loaded = append(loaded, id)
 			}
 		}
 	}
 	for _, m := range payload.Models {
 		if name := strings.TrimSpace(firstNonEmpty(m.Name, m.Model)); name != "" {
-			return name
+			loaded = append(loaded, name)
 		}
 	}
-	return ""
+	return loaded
 }
 
 func firstNonEmpty(values ...string) string {

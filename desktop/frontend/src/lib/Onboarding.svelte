@@ -26,7 +26,7 @@
   } from '../../wailsjs/go/main/App'
   import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
   import { cockpit, switchProvider, submitAPIKey, switchApprovalMode, completeSignIn } from './stores/cockpit.svelte'
-  import { DONE_KEY, takeFirstRunReplay } from './firstRun'
+  import { DONE_KEY, armTeachingCard, takeFirstRunReplay } from './firstRun'
   import { durationMs } from './motion'
   import { COMMUNITY_URL } from './links'
   import { noteCapabilityRequest } from './capabilities.svelte'
@@ -215,6 +215,10 @@
 
   function finish() {
     localStorage.setItem(DONE_KEY, '1')
+    // The wizard ends with "type what you want done", which lands the user on
+    // an empty chat that has never explained itself. This is what puts the card
+    // that does in front of them rather than four dealt at random.
+    armTeachingCard()
     visible = false
   }
 

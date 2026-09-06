@@ -18,6 +18,16 @@ export const DONE_KEY = 'aetox.onboarded'
  * never enough to see this screen again. Consumed on read. */
 export const REPLAY_KEY = 'aetox.onboarding.replay'
 
+/** Set when the wizard is finished, cleared once the user has said anything.
+ * While it stands, the empty chat on ผู้ช่วย puts the card that teaches this
+ * app in the first slot instead of dealing it at random with the rest.
+ *
+ * A flag rather than "has this machine ever sent a message", because the
+ * thing being remembered is that the wizard JUST finished. And cleared on
+ * send rather than on read, so a reload before they click anything does not
+ * quietly spend the one showing this is for. */
+export const TEACH_PIN_KEY = 'aetox.teach.pin'
+
 // Every browser-side preference a fresh install does not have yet. Listed by
 // name rather than wiped by prefix on purpose: `aetox-composer-draft` holds a
 // message the user typed and has not sent, `aetox-workbench:<session>` holds
@@ -29,6 +39,7 @@ export const REPLAY_KEY = 'aetox.onboarding.replay'
 // and this button is not a factory reset — it replays the first *screen*.
 const PREFERENCE_KEYS = [
   DONE_KEY,
+  TEACH_PIN_KEY,
   'aetox-theme',
   'aetox-locale',
   'aetox-shell',
@@ -87,5 +98,36 @@ export function takeFirstRunReplay(): boolean {
     return armed
   } catch {
     return false
+  }
+}
+
+/** Arm the teaching card for the next empty chat. Called where the wizard
+ *  finishes, and only there: the shortcut that marks an install done because it
+ *  already had a working key is documented as never bothering that user, and a
+ *  pinned card is a bother. */
+export function armTeachingCard(): void {
+  try {
+    localStorage.setItem(TEACH_PIN_KEY, '1')
+  } catch {
+    /* storage unavailable — the card is simply dealt with the others */
+  }
+}
+
+/** Whether the card should hold the first slot. Reading does not spend it. */
+export function teachingCardPinned(): boolean {
+  try {
+    return localStorage.getItem(TEACH_PIN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/** Spend it. The user has said something, so they no longer need the app
+ *  offering to explain itself before they have asked for anything. */
+export function clearTeachingCard(): void {
+  try {
+    localStorage.removeItem(TEACH_PIN_KEY)
+  } catch {
+    /* nothing was remembered to begin with */
   }
 }
