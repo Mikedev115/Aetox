@@ -153,7 +153,7 @@ func (s *browserSkill) ToolDefinition() model.ToolDefinition {
 	// The batch form. One line, because it is the shape of a call and not
 	// a judgment — the judgment (when to batch, how to end one) is in
 	// Guidance, sent once.
-	b.WriteString("`steps` (array of these actions) — run several in order in one call; stops at the first that fails and reports every step.\n")
+	b.WriteString("`steps` (array of these actions) — run several in order in one call; stops at the first that fails, or when the page moves under a step aimed by ref or x,y, and reports every step.\n")
 	// Two sentences survive the migration, for two different reasons.
 	//
 	// The first is signature rather than judgment: which tab an action lands on
@@ -316,6 +316,17 @@ func (s *browserSkill) gate(args map[string]any) (string, error) {
 // Between an acting step and the next, the page is given the same settle a
 // single call gets from its change note — so open → click → read inside one
 // batch does not read the page the click just left.
+//
+// And it stops when the page moves out from under a step that cannot see
+// that it moved. browser-use puts the same rule this way — *"we execute the
+// actions until the page changes"* — and the reason is that a stale aim does
+// not fail: ref 3 on the page that arrived is a real element, and the point
+// x,y read off the old capture is a real place on the screen, so the click
+// lands, reports success, and the batch goes on doing something nobody asked
+// for. `find` is the exception and goes on, because it resolves against the
+// page it lands on and refuses rather than guess. What the model gets back is
+// the steps that ran, the ones that did not, and the new page's refs —
+// enough to carry on from where the page actually is.
 func (s *browserSkill) runSteps(ctx context.Context, steps []any) (skill.Output, error) {
 	out := skill.Output{Name: "browser", Command: fmt.Sprintf("browser steps (%d)", len(steps))}
 	var b strings.Builder
@@ -325,8 +336,15 @@ func (s *browserSkill) runSteps(ctx context.Context, steps []any) (skill.Output,
 		before, noting = s.app.pageState(id, stateWait)
 	}
 	var failed error
+	// Where the tab was when the step began, which is the page a ref or an
+	// x,y in it was aimed at. `before` cannot serve: it is the start of the
+	// batch, and by step three the page may have moved twice.
+	current := before
+	// The step the batch stopped BEFORE, 1-based, or 0 for a batch that ran
+	// to the end. Not a failure — the steps that ran, ran.
+	stopped := 0
 	for i, raw := range steps {
-		if failed != nil {
+		if failed != nil || stopped != 0 {
 			args, _ := raw.(map[string]any)
 			fmt.Fprintf(&b, "\n%d. %s: ยังไม่ได้ทำ", i+1, str(args["action"]))
 			continue
@@ -357,17 +375,28 @@ func (s *browserSkill) runSteps(ctx context.Context, steps []any) (skill.Output,
 			continue
 		}
 		fmt.Fprintf(&b, "\n%d. %s: %s", i+1, action, strings.TrimSpace(res.Content))
-		// The page settles before the next step, and its state after this
-		// one is what the note at the end will be measured against, so a
-		// batch that opens a page, acts on it and reads it reads the page
-		// it acted on.
-		if actingActions[action] && i+1 < len(steps) && noting {
+		if i+1 >= len(steps) {
+			continue
+		}
+		// The page settles before the next step, so a batch that opens a
+		// page, acts on it and reads it reads the page it acted on — and the
+		// state that comes back is how an unplanned navigation is told from
+		// no navigation at all.
+		moved := refsDieAfter(action, args)
+		if actingActions[action] && noting {
 			if id := AgentTabID(s.app.agentTabPeek()); id != "" {
-				if after, ok := s.app.settleAfterAct(id, before); ok {
-					_ = after
+				if after, ok := s.app.settleAfterAct(id, current); ok {
+					moved = moved || after.URL != current.URL
+					current = after
 				}
 			}
 		}
+		if moved && stepAimsBlind(steps[i+1]) {
+			stopped = i + 2
+		}
+	}
+	if stopped != 0 {
+		fmt.Fprintf(&b, "\n→ หยุดก่อนขั้นที่ %d: หน้าเปลี่ยนระหว่างทาง ref และ x,y ของหน้าก่อนใช้กับหน้านี้ไม่ได้ — เล็งด้วย find หรือ read หน้าใหม่ก่อนค่อยทำต่อ", stopped)
 	}
 	if noting {
 		if id := AgentTabID(s.app.agentTabPeek()); id != "" {
@@ -381,6 +410,58 @@ func (s *browserSkill) runSteps(ctx context.Context, steps []any) (skill.Output,
 		out.Stderr = failed.Error()
 	}
 	return out, failed
+}
+
+// refsDieAfter reports whether a step, having run, leaves every ref and every
+// x,y written before it pointing at a page that is no longer there.
+//
+// Two actions do it by definition rather than by accident, which is why they
+// are known without asking the page: `open` is a navigation — that is what it
+// is for — and `tabs select` moves to a different document entirely. Everything
+// else that can navigate does so unpredictably, and is caught by the URL
+// comparison in runSteps instead.
+func refsDieAfter(action string, args map[string]any) bool {
+	switch action {
+	case "open":
+		return true
+	case "tabs":
+		return strings.EqualFold(strings.TrimSpace(str(args["act"])), "select")
+	}
+	return false
+}
+
+// stepAimsBlind reports whether a step points at something only the page it
+// was written for can resolve: a [n] from a read, or a point off a capture.
+//
+// A step has up to two aims — drag has a far end — and either one being blind
+// is enough. A drag that starts at `find` and ends at toX,toY is half written
+// for a page that may be gone, and half is all it takes to sweep across the
+// wrong thing.
+//
+// A step with no aim at all (read, capture, wait, key, tabs) is not blind: it
+// does not care which page it lands on.
+func stepAimsBlind(raw any) bool {
+	args, ok := raw.(map[string]any)
+	if !ok {
+		return false
+	}
+	return aimIsBlind(args, "find", "ref", "x", "y") ||
+		aimIsBlind(args, "toFind", "toRef", "toX", "toY")
+}
+
+// aimIsBlind answers for one end of a step, and answers in targetFrom's terms
+// on purpose: text wins over a ref there, and a lone x without a y is not a
+// point there, so neither is an aim here.
+func aimIsBlind(args map[string]any, findKey, refKey, xKey, yKey string) bool {
+	if strings.TrimSpace(str(args[findKey])) != "" {
+		return false
+	}
+	if intArg(args[refKey]) != 0 {
+		return true
+	}
+	_, okX := skill.FloatArg(args[xKey])
+	_, okY := skill.FloatArg(args[yKey])
+	return okX && okY
 }
 
 // browserNamesItsOwnTab is the actions whose answers already carry the tab.
