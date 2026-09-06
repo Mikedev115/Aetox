@@ -28,6 +28,7 @@
   import { isShortcut, shortcutLabel } from './shortcuts'
   import { copyDrawing, saveDrawing } from './drawingExport'
   import { renderMarkdown } from './markdown'
+  import { filePath } from './fileUrl'
   import { openUrlInWorkbench, openFileTab, setTabDragPayload, TAB_DRAG_MIME } from './stores/workbench.svelte'
   import {
     cockpit, attachImageFromPath, attachImageFromClipboard, clearPendingImage, attachTabContext, clearPendingContext,
@@ -2112,6 +2113,52 @@
     }
   }
 
+  // Which picture a gallery in an answer is showing (markdown.ts, buildGallery).
+  //
+  // The state lives on the elements themselves rather than in a component,
+  // because there is no component: the markup arrived through {@html}, and a
+  // re-render replaces it wholesale anyway — mid-turn, while the answer is
+  // still streaming, which is exactly when a remembered index would point at a
+  // picture that has not arrived.
+  //
+  // Wraps rather than stopping at the ends. An arrow that dies on the last
+  // poster reads as a broken button, and there is nothing at either end of four
+  // pictures worth defending.
+  function showGalleryShot(box: HTMLElement | null, at: number) {
+    if (!box) return
+    const shots = Array.from(box.querySelectorAll<HTMLElement>('.gallery-shot'))
+    if (shots.length === 0) return
+    const next = ((at % shots.length) + shots.length) % shots.length
+    box.dataset.shown = String(next)
+    shots.forEach((shot, i) => shot.classList.toggle('shown', i === next))
+    box.querySelectorAll('.gallery-thumb').forEach((pick, i) => pick.classList.toggle('picked', i === next))
+    // Rewritten from the same two numbers markdown.ts first drew it from.
+    const count = box.querySelector('.gallery-count')
+    if (count) count.textContent = `${next + 1} / ${shots.length}`
+  }
+
+  // "เปิดใหญ่" — the picture at full size, in the pane that already knows how to
+  // read one. ImagePane has fit-to-pane, 1:1 and the way out to the real app on
+  // it; a lightbox in the bubble would be a second, worse one of those.
+  //
+  // A file in the project opens there. Anything else is a picture on the web,
+  // where the only thing that can open it is a browser tab — and that is most
+  // of them, because a picture in an answer usually came from one.
+  //
+  // Deliberately the IMAGE, not the link a shop's poster is wrapped in:
+  // clicking the poster itself is what goes to the shop, and enlarging it must
+  // not be the same gesture as leaving for a shopping site.
+  async function openGalleryShot(box: HTMLElement | null) {
+    if (!box) return
+    const shot = box.querySelector<HTMLElement>('.gallery-shot.shown')
+    const face = shot?.matches('img') ? shot : shot?.querySelector('img')
+    const src = face?.getAttribute('src') ?? ''
+    if (src === '') return
+    const path = filePath(src)
+    if (path !== '') await openFileTab(path)
+    else openUrlInWorkbench(src)
+  }
+
   // Links in rendered markdown must not navigate the app's own webview away —
   // open them in a workbench browser tab instead.
   function onChatClick(e: MouseEvent) {
@@ -2187,6 +2234,26 @@
         mathBtn.textContent = t('chat.copiedCode')
         setTimeout(() => (mathBtn.textContent = t('chat.copyCode')), 1500)
       })
+      return
+    }
+    // The gallery's own controls, checked BEFORE the link handler below. A shot
+    // from a shop is an <a> filling the stage, and the arrows, the filmstrip
+    // and เปิดใหญ่ sit on top of it — read in the other order, every one of them
+    // would leave for the shopping site instead of doing its job.
+    const thumbBtn = el.closest<HTMLElement>('.gallery-thumb')
+    if (thumbBtn) {
+      showGalleryShot(thumbBtn.closest('.img-gallery'), Number(thumbBtn.dataset.at ?? '0'))
+      return
+    }
+    const stepBtn = el.closest<HTMLElement>('.gallery-step')
+    if (stepBtn) {
+      // Signed, so this end never has to know which class means backwards.
+      const box = stepBtn.closest<HTMLElement>('.img-gallery')
+      showGalleryShot(box, Number(box?.dataset.shown ?? '0') + Number(stepBtn.dataset.step ?? '0'))
+      return
+    }
+    if (el.closest('.gallery-open')) {
+      void openGalleryShot(el.closest<HTMLElement>('.img-gallery'))
       return
     }
     const a = el.closest('a')

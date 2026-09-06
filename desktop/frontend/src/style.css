@@ -1226,11 +1226,14 @@ button.phase-head:hover { color:var(--text-muted); }
 }
 .markdown-body a { color:var(--accent); }
 .markdown-body strong { font-weight:700; }
-/* Images the model embeds (![alt](url) — e.g. web_fetch/browser_read results).
-   inline-block + max-height keeps several consecutive images flowing as a
-   wrapping gallery row instead of full-width stacked monsters; max-width
-   stops any single huge image from blowing out the chat column. Broken
-   URLs collapse to their alt text at a sane size. */
+/* An image the model embedded (![alt](url) — e.g. web_fetch/browser_read
+   results), on its own. Several in a row are no longer this rule's problem:
+   they are collected into a gallery further down, which is the only place the
+   "wrapping gallery row" this comment used to promise ever actually happened.
+   What is left is the lone picture in a sentence — inline-block so it sits in
+   the line it was written into, max-width so nothing blows out the chat column,
+   max-height so a tall one does not become the whole screen. Broken URLs
+   collapse to their alt text at a sane size. */
 .markdown-body img {
   display:inline-block; vertical-align:top;
   max-width:100%; max-height:240px; width:auto; height:auto;
@@ -1338,14 +1341,132 @@ button.phase-head:hover { color:var(--text-muted); }
    not add a paragraph's leading on top of the drawing's own margin. */
 .markdown-body p > svg:only-child { margin:0; }
 .markdown-body p:has(> svg:only-child) { margin:12px 0; }
-/* Several images in one paragraph = a gallery row: cap each to roughly a
-   third of the bubble so 2–3 sit side by side instead of stacking full-size.
-   (:only-child keeps a lone image at the larger single-image size above.) */
-/* Not a flat 33%: each image also carries a 6px right margin, and the source
-   whitespace between two <img> is a real space under the paragraph's pre-wrap.
-   At 32% three came to ~595px in a 592px bubble and the third wrapped — the
-   row was one pixel-budget short of the 2–3 the cap is for. */
-.markdown-body p > img:not(:only-child) { max-width:calc(33.333% - 12px); max-height:180px; }
+/* ---------- several pictures are one gallery ----------
+   The rule that used to live here capped each image in a multi-image paragraph
+   at a third of the bubble, on the theory that 2–3 would then sit side by side.
+   Four portrait posters from Canva proved the theory wrong in the only way that
+   counts (owner's screenshot): a third of a 592px bubble is still a 180px
+   column, four of them stacked rather than sat, and not one could be clicked,
+   enlarged or saved. A cap was never the instrument — the answer was showing
+   four things the model MADE as four things it spilled.
+   markdown.ts (galleryRuns) collects a run of adjacent pictures into one
+   object instead.
+
+   The old rule was doing two jobs under one selector, though, and only the
+   first of them moved. "ก่อน ![ก] กลาง ![ข] หลัง" is a picture INSIDE a
+   sentence — never a run, because the words between them end it — and with
+   the rule gone it came back at the full single-image ceiling: two 240px
+   pictures on one line with ก่อน/กลาง/หลัง stranded at the top of them
+   (owner's screenshot of TEST 4). So the second job is written on its own
+   below, aimed at what it was always actually for.
+   A lone image in its own paragraph keeps the size the rule above gives it. */
+/* A picture with words around it is part of the line, so it is sized like a
+   word: a low ceiling, and the middle of the picture on the middle of the
+   text rather than the text pinned to its top edge. vertical-align:top is
+   right for a picture that IS the paragraph and wrong for one inside it. */
+.markdown-body p > img:not(:only-child) { max-height:150px; vertical-align:middle; }
+/* The rest of the gallery follows.
+
+   Spans throughout, and that is structural, not stylistic: the run sits inside
+   the <p> markdown wrapped it in, and the HTML parser closes an open <p> the
+   instant it meets a <div> — a div-built gallery would be torn out of its
+   paragraph on the way in and left standing between two empty ones. */
+.chat-inner .markdown-body .img-gallery { display:block; margin:18px 0; max-width:680px; }
+/* 16/10 and a fixed ratio is the point of the whole thing: an answer with four
+   pictures is now exactly as tall as an answer with two, and the height no
+   longer grows with how generous the model felt. --surface-app rather than a
+   raised surface because the picture is the object here — the stage is the
+   wall it hangs on, and a wall reads as further back than the page. */
+.chat-inner .markdown-body .gallery-stage {
+  position:relative; display:block; aspect-ratio:16/10; overflow:hidden;
+  background:var(--surface-app);
+  border:1px solid var(--border-subtle); border-radius:var(--r-md);
+}
+/* Every picture is loaded and stacked; the one that is up is the one that is
+   not hidden. Swapping a single <img>'s src on each click would re-decode and
+   flash the empty stage between two posters that are already in memory.
+   object-fit:contain is what a portrait poster needed and never had: it gets
+   the full height of the stage and keeps its shape, instead of being handed a
+   third of the width and told to cope. */
+.chat-inner .markdown-body .gallery-shot {
+  position:absolute; inset:0; display:none;
+  width:100%; height:100%; max-width:100%; max-height:100%;
+  margin:0; padding:10px; box-sizing:border-box;
+  border:none; border-radius:0; background:none; object-fit:contain;
+  /* On the picture, not on a box behind it — the shadow follows the poster's
+     own edges, which is the difference between art on a wall and a photo in a
+     frame that does not fit it. */
+  filter:drop-shadow(0 8px 20px rgba(0,0,0,.3));
+}
+.chat-inner .markdown-body .gallery-shot.shown { display:block; }
+/* A shot that is a link (a shop's product) is an <a> filling the stage, with
+   the model's own <img> inside it. */
+.chat-inner .markdown-body a.gallery-shot { padding:0; filter:none; }
+.chat-inner .markdown-body a.gallery-shot > img {
+  width:100%; height:100%; max-width:100%; max-height:100%;
+  margin:0; padding:10px; box-sizing:border-box;
+  border:none; border-radius:0; background:none; object-fit:contain;
+  filter:drop-shadow(0 8px 20px rgba(0,0,0,.3));
+}
+/* Where the picture goes, when it goes anywhere. Sits inside the anchor, so it
+   appears and disappears with the shot it belongs to and can never name the
+   wrong destination. */
+.chat-inner .markdown-body .gallery-link {
+  position:absolute; left:8px; bottom:8px; display:inline-flex; align-items:center; gap:4px;
+  max-width:calc(100% - 16px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  padding:2px 8px; border-radius:999px; font-size:var(--fs-xs); color:var(--text-secondary);
+  background:var(--surface-sunken); border:1px solid var(--border-subtle);
+}
+.chat-inner .markdown-body a.gallery-shot:hover .gallery-link { color:var(--accent); border-color:var(--accent); }
+/* The counter says something rather than does something, so it stays. The
+   controls appear on hover, the way a code block's Copy does. */
+.chat-inner .markdown-body .gallery-count {
+  position:absolute; right:8px; bottom:8px; padding:2px 8px; border-radius:999px;
+  font-size:var(--fs-xs); color:var(--text-secondary);
+  background:var(--surface-sunken); border:1px solid var(--border-subtle);
+}
+.chat-inner .markdown-body .gallery-step, .chat-inner .markdown-body .gallery-open {
+  position:absolute; opacity:0; transition:opacity .12s;
+  background:var(--surface-raised); border:1px solid var(--border-subtle);
+}
+.chat-inner .markdown-body .gallery-stage:hover .gallery-step,
+.chat-inner .markdown-body .gallery-stage:hover .gallery-open,
+.chat-inner .markdown-body .gallery-step:focus-visible,
+.chat-inner .markdown-body .gallery-open:focus-visible { opacity:1; }
+.chat-inner .markdown-body .gallery-step {
+  top:50%; transform:translateY(-50%); width:30px; height:30px;
+  display:grid; place-items:center; border-radius:50%; color:var(--text-primary);
+}
+.chat-inner .markdown-body .gallery-prev { left:8px; }
+.chat-inner .markdown-body .gallery-next { right:8px; }
+/* One glyph for both arrows — a chevron pointing back is a chevron mirrored. */
+.chat-inner .markdown-body .gallery-prev .icon { transform:scaleX(-1); }
+.chat-inner .markdown-body .gallery-step:hover, .chat-inner .markdown-body .gallery-open:hover {
+  background:var(--surface-hover); color:var(--text-primary);
+}
+.chat-inner .markdown-body .gallery-open {
+  top:8px; right:8px; padding:3px 9px; border-radius:var(--r-sm);
+  font-size:var(--fs-xs); color:var(--text-secondary);
+}
+/* The filmstrip. Thumbnails are cropped (object-fit:cover) where the stage
+   contains: at 38x48 a contained portrait is a sliver of picture in a box of
+   background, and what a filmstrip has to answer is "which one is this", not
+   "what shape is it". */
+.chat-inner .markdown-body .gallery-strip { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.chat-inner .markdown-body .gallery-thumb {
+  padding:0; width:38px; height:48px; overflow:hidden; border-radius:var(--r-sm);
+  background:var(--surface-sunken); border:1px solid var(--border-subtle);
+  opacity:.6; transition:opacity .12s, border-color .12s, box-shadow .12s;
+}
+.chat-inner .markdown-body .gallery-thumb:hover { opacity:1; }
+.chat-inner .markdown-body .gallery-thumb.picked {
+  opacity:1; border-color:var(--accent);
+  box-shadow:0 0 0 1px var(--accent), 0 0 10px -2px var(--accent);
+}
+.chat-inner .markdown-body .gallery-thumb img {
+  display:block; width:100%; height:100%; max-width:100%; max-height:100%;
+  margin:0; border:none; border-radius:0; background:none; object-fit:cover;
+}
 .markdown-body hr { border:none; border-top:1px solid var(--border-subtle); margin:.8em 0; }
 /* Inline code is a word in a sentence, not a boxed widget — tint it and drop
    the border, so `ComProc` mid-paragraph stops looking like a button.
