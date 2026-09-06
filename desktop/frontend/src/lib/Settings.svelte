@@ -4072,7 +4072,10 @@
               aria-label={t('settings.agentStepsField')}
             />
             <label class="ag-check">
-              <input type="checkbox" checked={agentStepsUnlimited} onchange={toggleStepsUnlimited} />
+              <span class="mswitch">
+                <input type="checkbox" checked={agentStepsUnlimited} onchange={toggleStepsUnlimited} />
+                <span></span>
+              </span>
               {t('settings.agentStepsUnlimited')}
             </label>
           </div>
@@ -4164,15 +4167,29 @@
       </div>
     {:else}
       {#each agentServerCandidates as s (s.name)}
-        <label class="set-row ag-reachrow">
-          <input
-            type="checkbox" checked={(s.for ?? []).includes(agentMCPId)}
-            disabled={mcpBusy !== ''} onchange={() => toggleAgentServer(s)}
-          />
+        {@const on = (s.for ?? []).includes(agentMCPId)}
+        <!-- The server's own face (McpMark.svelte), which this list was the last
+             one still drawing without. ตั้งค่า › MCP gives the same five servers
+             their logos; this box gave them five lines of identical grey text —
+             and this is the page where you have to pick one of the five out.
+             One server, two identities on two pages, is two features. -->
+        <label class="set-row ag-reachrow mark-row" class:on>
+          <McpMark name={s.name} size={22} />
           <div class="set-txt">
-            <div class="t">{s.name}{#if s.tools > 0}<span class="tag">{t('settings.mcpToolCount', { n: String(s.tools) })}</span>{/if}</div>
+            <div class="t">{s.name}{#if s.tools > 0}<span class="mcp-badge">{t('settings.mcpToolCount', { n: String(s.tools) })}</span>{/if}</div>
             <div class="d">{s.url || (s.command ?? []).join(' ')}</div>
           </div>
+          <!-- The app's switch, not the browser's tick. Every other on/off in
+               ตั้งค่า is .mswitch — including this very server's row on the MCP
+               page — so the one raw checkbox left here read as another app's
+               control pasted in, and sat on the left where nothing else does. -->
+          <span class="mswitch">
+            <input
+              type="checkbox" checked={on}
+              disabled={mcpBusy !== ''} onchange={() => toggleAgentServer(s)}
+            />
+            <span></span>
+          </span>
         </label>
       {/each}
       <div class="set-row"><div class="d muted">{t('settings.agentMCPInstant')}</div></div>
