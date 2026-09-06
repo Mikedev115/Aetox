@@ -578,6 +578,11 @@ func usageByModel(db *sql.DB, since string) ([]UsageRow, error) {
 // was never asked for. Same grouping and the same strictness, because the rows
 // go through the same pricing.
 func usageBySession(db *sql.DB, id string) ([]UsageRow, error) {
+	// query-direct: scanUsageRows aborts on a scan error rather than skipping the
+	// row, which is stricter than eachRow — the same reason usageByModel above
+	// carries this marker, and the two share the scanner that enforces it. A cost
+	// total built from most of the rows is worse than no total, because it looks
+	// like an answer.
 	rows, err := db.Query(
 		`SELECT model,
 		        COALESCE(provider, ''),
