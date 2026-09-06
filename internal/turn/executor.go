@@ -655,6 +655,17 @@ func (e *Executor) reportToolCall(ref, name, args string) {
 			Act:   packedActionOf(args),
 			Agent: agent, Brief: brief, AgentKind: e.kindOf(isTask, agent),
 			Delegation: &isTask,
+			// Which delegation a `collect` is redeeming. It is the same join key
+			// the rows from inside a sub-agent already carry, used for the same
+			// reason: the window has to be able to say that this row and that
+			// card are about one worker.
+			//
+			// Without it a collect is an anonymous row reading "รอผลงาน · 13s",
+			// sitting above the card of the delegate whose thirteen seconds
+			// those were — the number on the wrong object, and the card itself
+			// with no clock at all once the register has been cleared. The id is
+			// in the arguments; nothing was reading it.
+			Task: collectedTask(name, args),
 			// The REQUESTED range, on the call event: a read's offset/limit are
 			// in the arguments, so "40-60" can sit on the row the whole time it
 			// runs instead of appearing only when the result closes it. The
@@ -663,6 +674,37 @@ func (e *Executor) reportToolCall(ref, name, args string) {
 			Range: requestedReadRange(name, args),
 		})
 	}
+}
+
+// collectedTask reads the delegation id out of a `task` call that is redeeming
+// one — `collect`, and `answer`, which unsticks a delegate parked on a question.
+//
+// Deliberately not `start`: a start HAS no id yet (the register mints one and
+// hands it back in the result), and stamping the argument of a start would be
+// stamping a worker's name on the row that hired them.
+//
+// Several ids comma separated is one call redeeming several delegations, which
+// the tool allows. Empty in that case rather than picking the first — a row
+// that claims to be about one of them is worse than a row that claims nothing,
+// and the seconds it took belong to no single card.
+func collectedTask(name, args string) string {
+	if !strings.EqualFold(strings.TrimSpace(name), "task") {
+		return ""
+	}
+	parsed, err := model.ParseToolArguments(args)
+	if err != nil {
+		return ""
+	}
+	switch action, _ := parsed["action"].(string); strings.ToLower(strings.TrimSpace(action)) {
+	case "collect", "answer":
+	default:
+		return ""
+	}
+	id, _ := parsed["task_id"].(string)
+	if id = strings.TrimSpace(id); id == "" || strings.Contains(id, ",") {
+		return ""
+	}
+	return id
 }
 
 // requestedReadRange derives the line span a read call is asking for from its

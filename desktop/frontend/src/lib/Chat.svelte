@@ -166,8 +166,21 @@
   // because the list is what keeps the order — it is drawn as prose in the
   // bubble, and inside the timeline it would be a paragraph pretending to be a
   // row, in the panel the user opens to see which tools ran.
+  // The agent sitting and waiting on somebody else. It is a real call and it is
+  // not work: what it does is redeem a delegation that has its own card, its own
+  // face and its own clock two rows below.
+  //
+  // While it RUNS it stays — the agent genuinely is blocked, and "รอผลงาน · 8s"
+  // is the only thing on screen saying so. Once it comes back it is a row that
+  // duplicates the card underneath it and pushes the count up by one (owner,
+  // 7 ก.ย., over a turn whose "ใช้ 1 เครื่องมือ" was this and nothing else).
+  // Its seconds are not lost with it: they are the delegate's, and they go onto
+  // the delegate's card, where cardSecs now looks for them.
+  const isCollect = (s: ToolStep) => !s.kind && s.name === 'task' && s.act === 'collect'
+  const spentWaiting = (s: ToolStep) => isCollect(s) && s.state !== 'run'
   const ownSteps = (steps: ToolStep[]) =>
-    groupSteps(steps).filter(isOwn).map((n) => n.step).filter((s) => s.kind !== 'said')
+    groupSteps(steps).filter(isOwn).map((n) => n.step)
+      .filter((s) => s.kind !== 'said' && !spentWaiting(s))
   // The answers this turn wrote and then wrote past, in the order they were
   // said. A delegate's are its own to draw, so only the agent's own count.
   const saidSteps = (steps: ToolStep[]) => steps.filter((s) => s.kind === 'said' && !s.parent)
@@ -305,6 +318,26 @@
         .filter(Boolean),
     ),
   )
+  // How long the agent waited for each delegate, off the `collect` row that
+  // redeemed it. The engine stamps that row with the delegation's id
+  // (collectedTask in internal/turn/executor.go) for exactly this join.
+  //
+  // It is the best answer the window has once the register has been cleared —
+  // a turn reopened tomorrow has no register entry, and the `task` row's own
+  // seconds are the SPAWN, which returns the instant the worker starts and is
+  // therefore always about zero. A card that said "0s" over a job that took
+  // thirteen was the number being wrong rather than missing.
+  //
+  // Read from the same two places drawnDelegations is: the live turn's events,
+  // and every turn already in the transcript.
+  const waitedFor = $derived(
+    new Map(
+      [...toolSteps, ...messages.flatMap((m) => m.steps ?? [])]
+        .filter((s) => isCollect(s) && s.task && s.secs)
+        .map((s) => [s.task as string, s.secs as number]),
+    ),
+  )
+
   // A delegate parked on a question is never hidden: the tray row carries the
   // answer box, and the transcript's card has nowhere to type.
   const trayTasks = $derived(
@@ -1493,7 +1526,9 @@
       if (task.elapsedMs) return Math.round(task.elapsedMs / 1000)
     }
     if (node.step.state === 'run') return live ? liveSecs(node.step) : undefined
-    return node.step.secs
+    // Ahead of the row's own number, which is the spawn and not the job.
+    const waited = node.step.task ? waitedFor.get(node.step.task) : undefined
+    return waited ?? node.step.secs
   }
   // Minutes once there are any: a delegate that ran for four minutes reading
   // "247s" makes the reader do the division.
