@@ -337,6 +337,19 @@ func TestMCPOwnersMigrateOnceAndAreWrittenBack(t *testing.T) {
 	}
 }
 
+// A server saved with a nil placement reaches the file as `"for": null`,
+// because the field is written without omitempty. The migration skipped it —
+// the key IS there — so a server added from the shelf sat placed on no desk at
+// all, and the entry looked settled while nothing carried its tools. Absent and
+// null are the same statement: nobody has said where this goes.
+func TestANullForIsTreatedAsNeverPlaced(t *testing.T) {
+	withServers(t, `[{"name":"canva","url":"https://mcp.canva.com/mcp","for":null}]`)
+
+	if got := MCPServersForDesk("assistant"); !slices.Contains(got, "canva") {
+		t.Fatalf("a server saved with a null `for` is carried by no desk: %v", got)
+	}
+}
+
 // withServers points the data root at a temp dir holding one servers file, and
 // resets the once-guard so each test migrates its own fixture.
 func withServers(t *testing.T, body string) string {

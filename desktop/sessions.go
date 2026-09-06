@@ -1267,12 +1267,13 @@ func rememberDesk(desk string) {
 	if desk == "" {
 		return
 	}
-	pref, _, err := config.LoadModelPreference()
-	if err != nil || pref.LastDesk == desk {
-		return
-	}
-	pref.LastDesk = desk
-	_ = config.SaveModelPreference(pref)
+	_ = config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		if pref.LastDesk == desk {
+			return config.ErrPreferenceUnchanged
+		}
+		pref.LastDesk = desk
+		return nil
+	})
 }
 
 // CurrentSessionID reports which session the engine is writing to, so the

@@ -4,6 +4,8 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -800,15 +802,23 @@ type MCPServerConfig struct {
 	Source string `json:"source,omitempty"`
 }
 
-// MCPDefaultDesks is where a server with no `for:` lands: the two general
-// desks. It is applied once, by MigrateMCPServerOwners, and written back into
-// the file — not treated as a standing default.
+// MCPDefaultDesks is where a server with no `for:` lands: the main assistant,
+// and nowhere else. Written into the file by whoever adds the server
+// (SaveMCPServer) and by MigrateMCPServerOwners for entries that predate the
+// field — not treated as a standing default.
 //
 // Writing it back is the whole point. A silent default is a rule the user
 // cannot see, edit or switch off, and this field exists to be a switch. After
 // the migration the file says exactly what is true, and an empty `for` from
 // then on means what it says: attached nowhere.
-var MCPDefaultDesks = []string{"assistant", "coding"}
+// Two desks until 6 ก.ย. — assistant and coding, on the reasoning that both
+// are general-purpose. The owner's call is one, and it is the better default
+// for the same reason the field exists: a server arrives because somebody
+// wanted it in the chat they were sitting in, and handing it to a second desk
+// they were not looking at spends that desk's tool block on a guess. Ticking
+// coding afterwards is one click on a row that is already open; noticing that
+// a desk you never asked about grew ten tools is not.
+var MCPDefaultDesks = []string{"assistant"}
 
 func MCPServersPath() (string, error) {
 	root, err := DataRoot()
@@ -929,7 +939,15 @@ func migrateMCPServerOwners() {
 	}
 	changed := false
 	for _, e := range entries {
-		if _, ok := e["for"]; ok {
+		// `null` counts as absent, not as an answer. `For` is written without
+		// omitempty (see the field), so every entry a nil placement was saved
+		// through — which was every server added from the shelf until the add
+		// path started filling this in — reached the file as `"for": null`: a
+		// key that is present, which this loop then skipped forever. Those
+		// servers were placed on no desk at all, and nothing on screen said so.
+		// An explicit "nowhere" is `[]`, which is what SetMCPServerTargets
+		// writes and what this still leaves alone.
+		if raw, ok := e["for"]; ok && strings.TrimSpace(string(raw)) != "null" {
 			continue
 		}
 		owners, err := json.Marshal(MCPDefaultDesks)
@@ -1108,6 +1126,48 @@ func SaveModelPreference(pref ModelPreference) error {
 		pref.ModelAPIKeys = nil // a value copy: the caller's struct is untouched
 	}
 	return saveModelPreferenceFile(pref)
+}
+
+// ErrPreferenceUnchanged is how an UpdateModelPreference mutator says the file
+// already holds the answer, so there is nothing to write. Not an error to the
+// caller: UpdateModelPreference swallows it and returns nil.
+var ErrPreferenceUnchanged = errors.New("model preference unchanged")
+
+// prefMu serializes every load-modify-save of the preference file inside this
+// process. Two writers that each read the file, change their own field and
+// write the whole thing back will, run side by side, keep only the second
+// one's change — and a provider enabled a moment earlier is exactly the kind
+// of field the loser drops (DECISIONS §225).
+var prefMu sync.Mutex
+
+// UpdateModelPreference is the one way a setting changes: read the file, change
+// the fields the caller came for, write everything back — under one lock, and
+// never over a file that could not be read.
+//
+// The last clause is the reason this exists rather than each writer doing its
+// own load-modify-save. Every writer used to read the file with `pref, ok, _ :=`
+// and, when ok was false, start from an empty struct — right for a file that is
+// not there, and catastrophic for a file that is there and was momentarily
+// unreadable (another process mid-write, a scanner holding it): the empty
+// struct plus the caller's one field is what got written back, and every field
+// only the file remembered — the enabled providers, the model last picked on
+// each provider, the user's name — was gone (DECISIONS §225). A missing file
+// still starts from empty; an unreadable one is an error, and the file stays as
+// it is.
+func UpdateModelPreference(mutate func(*ModelPreference) error) error {
+	prefMu.Lock()
+	defer prefMu.Unlock()
+	pref, _, err := LoadModelPreference()
+	if err != nil {
+		return fmt.Errorf("model preference unreadable, leaving it as is: %w", err)
+	}
+	if err := mutate(&pref); err != nil {
+		if errors.Is(err, ErrPreferenceUnchanged) {
+			return nil
+		}
+		return err
+	}
+	return SaveModelPreference(pref)
 }
 
 // saveModelPreferenceFile writes the settings file exactly as given. Separate

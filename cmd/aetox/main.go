@@ -563,53 +563,40 @@ func bootstrapModelWithStatus(cfg config.Config) (model.BootstrapResult, string)
 	return result, resolveModelStatus(cfg, result)
 }
 
+// persistModelPreference writes the CLI's choice — provider, model, endpoint,
+// thinking level, approval mode — into the preference file the desktop reads
+// too, and touches nothing else in it.
+//
+// It used to build the file from scratch: a fresh struct with those five fields
+// and the API keys, saved over whatever was there. Every field only the file
+// remembered — the providers enabled in the desktop's picker, the model last
+// chosen on each provider, the user's name, the desk to open at — went with it,
+// on every CLI launch, because this runs at startup whether or not anything
+// changed. The desktop then re-wrote the fields it holds in memory on its next
+// save, which is why the file looked intact except for the provider list that
+// had "just disappeared" (owner, 5 ก.ย.; DECISIONS §225).
 func persistModelPreference(cfg config.Config) error {
 	provider := strings.TrimSpace(cfg.ModelProvider)
 	if provider == "" {
 		return nil
 	}
 	canonicalProvider := model.NormalizeProvider(provider)
-	storedPreference, hasStoredPreference, _ := config.LoadModelPreference()
-	if hasStoredPreference {
-		storedPreference = normalizeProviderPreference(storedPreference)
-	} else {
-		storedPreference = config.ModelPreference{}
-	}
-	if strings.TrimSpace(cfg.ModelAPIKey) != "" {
-		storedPreference.SetAPIKeyForProvider(canonicalProvider, cfg.ModelAPIKey)
-	}
+	modelName := strings.TrimSpace(cfg.ModelName)
 	modelBaseURL := strings.TrimSpace(cfg.ModelBaseURL)
 	if modelBaseURL == model.DefaultBaseURL(canonicalProvider) {
 		modelBaseURL = ""
 	}
-	pref := config.ModelPreference{
-		ModelProvider: canonicalProvider,
-		ModelName:     strings.TrimSpace(cfg.ModelName),
-		ModelBaseURL:  modelBaseURL,
-		ThinkLevel:    model.NormalizeThinkingLevel(canonicalProvider, strings.TrimSpace(cfg.ModelName), cfg.ThinkLevel),
-		ApprovalMode:  string(safety.NormalizeApprovalMode(cfg.ApprovalMode)),
-		ModelAPIKeys:  storedPreference.ModelAPIKeys,
-	}
-	if len(pref.ModelAPIKeys) == 0 {
-		pref.ModelAPIKeys = nil
-	}
-	return config.SaveModelPreference(pref)
-}
-
-func normalizeProviderPreference(pref config.ModelPreference) config.ModelPreference {
-	normalized := config.ModelPreference{
-		ModelProvider: strings.TrimSpace(pref.ModelProvider),
-		ModelName:     strings.TrimSpace(pref.ModelName),
-		ModelBaseURL:  strings.TrimSpace(pref.ModelBaseURL),
-		ThinkLevel:    string(think.NormalizeLevel(pref.ThinkLevel)),
-	}
-	for _, key := range model.SupportedProviders() {
-		modelName := key
-		if value := pref.APIKeyForProvider(key); value != "" {
-			normalized.SetAPIKeyForProvider(modelName, value)
+	return config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		if strings.TrimSpace(cfg.ModelAPIKey) != "" {
+			pref.SetAPIKeyForProvider(canonicalProvider, cfg.ModelAPIKey)
 		}
-	}
-	return normalized
+		pref.ModelProvider = canonicalProvider
+		pref.ModelName = modelName
+		pref.ModelBaseURL = modelBaseURL
+		pref.ThinkLevel = model.NormalizeThinkingLevel(canonicalProvider, modelName, cfg.ThinkLevel)
+		pref.ApprovalMode = string(safety.NormalizeApprovalMode(cfg.ApprovalMode))
+		return nil
+	})
 }
 
 func promptModelSelection(cfg config.Config, askThinkLevel bool) (string, string, string, string, string, bool) {

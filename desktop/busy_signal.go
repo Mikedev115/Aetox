@@ -79,8 +79,8 @@ func (a *App) BusySignal() []BusyLayer {
 		},
 		{
 			ID:    busyPageMarks,
-			Label: "ลูกศรและวงแหวนบนหน้าเว็บ",
-			Note:  "ชี้จุดที่กำลังกด และทิศที่กำลังเลื่อน วาดลงบนหน้าเว็บโดยตรง",
+			Label: "เมาส์ Aetox บนหน้าเว็บ",
+			Note:  "โลโก้เป็นตัวชี้ คลื่นกระจายออกจากจุดที่กด และลูกศรบอกทิศที่กำลังเลื่อน วาดลงบนหน้าเว็บโดยตรง",
 			On:    !cfg.BusyPageMarksOff,
 		},
 	}
@@ -137,13 +137,11 @@ func (a *App) SetBusyLayer(id string, on bool) []BusyLayer {
 // a switch that could not be written down still took effect on screen, and an
 // error banner about a visual preference would be louder than the preference.
 func saveBusySignal(cfg config.Config) {
-	pref, _, err := config.LoadModelPreference()
-	if err != nil {
-		return
-	}
-	pref.BusyEdgeGlowOff = cfg.BusyEdgeGlowOff
-	pref.BusyActionBarOff = cfg.BusyActionBarOff
-	pref.BusyTabDot = cfg.BusyTabDot
-	pref.BusyPageMarksOff = cfg.BusyPageMarksOff
-	_ = config.SaveModelPreference(pref)
+	_ = config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		pref.BusyEdgeGlowOff = cfg.BusyEdgeGlowOff
+		pref.BusyActionBarOff = cfg.BusyActionBarOff
+		pref.BusyTabDot = cfg.BusyTabDot
+		pref.BusyPageMarksOff = cfg.BusyPageMarksOff
+		return nil
+	})
 }

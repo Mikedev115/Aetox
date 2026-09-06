@@ -50,9 +50,29 @@ func MCPServers(cfgs []config.MCPServerConfig) []mcp.Server {
 			Disabled:    c.Disabled,
 			Deferred:    agentsOnly(c.For),
 			Tools:       c.Tools,
+			// The resolved maps above are a snapshot; these are the live
+			// answer, asked again on every request and every spawn. Only a
+			// map with a reference in it gets one — a pasted key is the same
+			// string every time and costs nothing to leave alone.
+			HeaderSource: secretSource(c.Headers),
+			EnvSource:    secretSource(c.Environment),
 		})
 	}
 	return out
+}
+
+// secretSource hands back a resolver for a map that holds a ${env:}/${connect:}
+// reference, and nil for one that does not.
+//
+// Nil rather than a resolver that returns the same map: mcp.Client reads a
+// nil source as "the static headers are the whole story", which keeps a
+// server with a pasted key on exactly the path it was on before sources
+// existed.
+func secretSource(m map[string]string) func() map[string]string {
+	if !HasSecretRef(m) {
+		return nil
+	}
+	return func() map[string]string { return resolveSecretRefs(m) }
 }
 
 // agentsOnly reports that no desk carries this server — only named agents do —
@@ -88,17 +108,15 @@ func agentsOnly(for_ []string) bool {
 // read "Bearer" with nothing after it, because the paste never happened).
 var secretRef = regexp.MustCompile(`\$\{(env|connect):([A-Za-z_][A-Za-z0-9_-]*)\}`)
 
-// HasSecretRef reports whether any header value resolves through
-// resolveSecretRefs — the thing desktop's TestMCPServer needs to know before
-// deciding how hard a "test this connection" click has to work.
+// HasSecretRef reports whether any value in the map resolves through
+// resolveSecretRefs — which is what decides whether a server gets a live
+// source (secretSource) or keeps its static, resolved-once map.
 //
-// A client.go Client's resolved headers are frozen at construction: Close()
-// followed by a reconnect reuses the exact same (possibly now-stale) map, so
-// it can never notice a rotated key or a freshly-refreshed OAuth token. A
-// server with no reference in its headers does not have that problem —
-// Close()+reconnect is enough — so the caller only pays for a full
-// rebuildMCP() (which reloads every server, not just this one) when it would
-// actually change something.
+// It used to decide something else: how hard desktop's TestMCPServer had to
+// work, because a Client's resolved headers were frozen at construction and
+// only a full rebuildMCP() could re-resolve them. With mcp.Server.HeaderSource
+// the Client asks on every request, so that distinction is gone and the test
+// button is a plain Close()+reconnect for every server.
 func HasSecretRef(headers map[string]string) bool {
 	for _, v := range headers {
 		if secretRef.MatchString(v) {

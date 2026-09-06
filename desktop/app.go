@@ -2444,6 +2444,13 @@ func (a *App) runTurn(conv *conversation, text, to string) (SessionMessage, Sess
 		cancel()
 		a.disarmTurnCancel(turnSession)
 	}()
+	// A local model is read off the disk before the first token can exist, and
+	// nothing else on screen can tell that wait apart from a model thinking in
+	// silence. Ended by the first sign of life below as well as by the model
+	// going resident, because a runtime lists a model as loaded a beat after it
+	// starts answering (model_load.go).
+	loadDone := a.watchModelLoad(ctx, conv)
+	defer loadDone()
 	// Accumulate reasoning at the source so it persists with the turn — the
 	// live panel alone would vanish once the turn completes. First/last chunk
 	// times give the "thought for Xs" label.
@@ -2484,8 +2491,10 @@ func (a *App) runTurn(conv *conversation, text, to string) (SessionMessage, Sess
 	result, err := conv.chat.RunOnceStreamWithAttachments(ctx, sent, images, documents, func(chunk string) {
 		// The authoritative delivery: replaces whatever the live preview holds,
 		// so the answer lands exactly once no matter what streamed before it.
+		loadDone()
 		a.emitChatChunk(conv, chunk, true)
 	}, func(chunk string) {
+		loadDone()
 		if firstThink.IsZero() {
 			firstThink = time.Now()
 		}
@@ -3150,34 +3159,33 @@ func (a *App) SetProviderEnabled(providerName string, enabled bool) ([]string, e
 	if _, ok := model.LookupProviderInfo(canonical); !ok {
 		return nil, fmt.Errorf("unknown provider: %q", providerName)
 	}
-	pref, ok, _ := config.LoadModelPreference()
-	if !ok {
-		pref = config.ModelPreference{}
-	}
-	// Materialize the resolved (possibly default) set before mutating, so
-	// toggling one provider never silently drops the implicit active one.
-	current := config.ResolvedEnabledProviders(pref.EnabledProviders, a.cur().cfg.ModelProvider)
+	var current, next []string
+	err := config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		// Materialize the resolved (possibly default) set before mutating, so
+		// toggling one provider never silently drops the implicit active one.
+		current = config.ResolvedEnabledProviders(pref.EnabledProviders, a.cur().cfg.ModelProvider)
 
-	next := make([]string, 0, len(current)+1)
-	found := false
-	for _, p := range current {
-		if p == canonical {
-			found = true
-			if !enabled {
-				continue // drop it
+		next = make([]string, 0, len(current)+1)
+		found := false
+		for _, p := range current {
+			if p == canonical {
+				found = true
+				if !enabled {
+					continue // drop it
+				}
 			}
+			next = append(next, p)
 		}
-		next = append(next, p)
-	}
-	if enabled && !found {
-		next = append(next, canonical)
-	}
-	if !enabled && len(next) == 0 {
-		return current, fmt.Errorf("cannot disable %s: at least one provider must stay enabled", canonical)
-	}
-
-	pref.EnabledProviders = next
-	if err := config.SaveModelPreference(pref); err != nil {
+		if enabled && !found {
+			next = append(next, canonical)
+		}
+		if !enabled && len(next) == 0 {
+			return fmt.Errorf("cannot disable %s: at least one provider must stay enabled", canonical)
+		}
+		pref.EnabledProviders = next
+		return nil
+	})
+	if err != nil {
 		return current, err
 	}
 	return next, nil
@@ -3582,17 +3590,16 @@ func (a *App) SetProviderBaseURL(providerName, baseURL string) (ModelInfo, error
 		trimmed = strings.TrimRight(trimmed, "/")
 	}
 
-	pref, ok, _ := config.LoadModelPreference()
-	if !ok {
-		pref = config.ModelPreference{}
-	}
-	pref.SetBaseURLForProvider(canonical, trimmed)
-	if strings.EqualFold(a.cur().cfg.ModelProvider, canonical) {
-		// The legacy single slot is what resolveConfig reads first; leaving a
-		// stale value there would fight the change on the next launch.
-		pref.ModelBaseURL = trimmed
-	}
-	if err := config.SaveModelPreference(pref); err != nil {
+	err := config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		pref.SetBaseURLForProvider(canonical, trimmed)
+		if strings.EqualFold(a.cur().cfg.ModelProvider, canonical) {
+			// The legacy single slot is what resolveConfig reads first; leaving a
+			// stale value there would fight the change on the next launch.
+			pref.ModelBaseURL = trimmed
+		}
+		return nil
+	})
+	if err != nil {
 		return ModelInfo{}, err
 	}
 
@@ -3617,12 +3624,11 @@ func (a *App) SetAPIKey(providerName, apiKey string) (ModelInfo, error) {
 		return ModelInfo{}, fmt.Errorf("API key cannot be empty")
 	}
 
-	pref, ok, _ := config.LoadModelPreference()
-	if !ok {
-		pref = config.ModelPreference{}
-	}
-	pref.SetAPIKeyForProvider(canonical, key)
-	if err := config.SaveModelPreference(pref); err != nil {
+	err := config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		pref.SetAPIKeyForProvider(canonical, key)
+		return nil
+	})
+	if err != nil {
 		return ModelInfo{}, err
 	}
 
@@ -3674,14 +3680,12 @@ func rememberModelForProvider(canonicalProvider, modelName string) {
 	if strings.TrimSpace(canonicalProvider) == "" || strings.TrimSpace(modelName) == "" {
 		return
 	}
-	pref, ok, _ := config.LoadModelPreference()
-	if !ok {
-		pref = config.ModelPreference{}
-	}
-	pref.SetModelForProvider(canonicalProvider, modelName)
 	// Best effort: a preference file that cannot be written is not a reason to
 	// refuse the switch the user just asked for.
-	_ = config.SaveModelPreference(pref)
+	_ = config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		pref.SetModelForProvider(canonicalProvider, modelName)
+		return nil
+	})
 }
 
 func resolveAPIKeyForProvider(canonicalProvider string) string {
@@ -4066,6 +4070,31 @@ func (a *App) applyConfig(conv *conversation, cfg config.Config) {
 	conv.lastSnapshot = "" // a snapshot of the previous project is not an undo for this one
 	a.snapshotMu.Unlock()
 
+	// The desk, re-read from disk before anything is built on it.
+	//
+	// A *mode.Mode is a snapshot, and two of its lists are resolved at load time
+	// rather than declared in the manifest — MCP (config.MCPServersForDesk) and
+	// Connections. So a session holding one taken at setStation goes on
+	// answering with the placements as they were when it opened, however many
+	// times the engine is rebuilt underneath it. Ticking a desk on a server did
+	// connect the server and register its tools; mode.Carries then filtered
+	// every one of them off the desk that had just been ticked, and the
+	// assistant reported having no MCP tools — correctly, from where it stood.
+	// Only re-opening the desk (or relaunching) refreshed it, which is not a
+	// step anyone can guess.
+	//
+	// Here rather than in SetMCPServerTargets because every writer of a
+	// placement already funnels through this one function — the two MCP target
+	// paths, the four connection ones, and whatever the next one turns out to
+	// be. A desk whose file has since been deleted keeps the snapshot it has:
+	// this is a refresh, not a re-validation, and stranding a live session is
+	// the worse answer.
+	if name := conv.desk.DeskName(); name != "" {
+		if fresh, ok := mode.Load(name); ok {
+			conv.desk = fresh
+		}
+	}
+
 	// cfg, not a.cfg: this runs before the assignment below, and the tools that
 	// care which project this is must be built from the config being applied.
 	workbenchTools := a.workbenchSkills(conv, cfg.SandboxRoot)
@@ -4330,12 +4359,10 @@ func (a *App) UserName() string {
 }
 
 func (a *App) SetUserName(name string) error {
-	pref, _, err := config.LoadModelPreference()
-	if err != nil {
-		return err
-	}
-	pref.UserName = strings.TrimSpace(name)
-	return config.SaveModelPreference(pref)
+	return config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		pref.UserName = strings.TrimSpace(name)
+		return nil
+	})
 }
 
 // persistModelPreference saves the current model/approval choice to the same
@@ -4346,69 +4373,72 @@ func persistModelPreference(cfg config.Config) {
 		return
 	}
 	canonicalProvider := model.NormalizeProvider(provider)
-	pref, ok, _ := config.LoadModelPreference()
-	if !ok {
-		pref = config.ModelPreference{}
-	}
-	if strings.TrimSpace(cfg.ModelAPIKey) != "" {
-		pref.SetAPIKeyForProvider(canonicalProvider, cfg.ModelAPIKey)
-	}
-	pref.ModelProvider = canonicalProvider
-	pref.ModelName = strings.TrimSpace(cfg.ModelName)
-	baseURL := strings.TrimSpace(cfg.ModelBaseURL)
-	if baseURL == model.DefaultBaseURL(canonicalProvider) {
-		baseURL = "" // matches the catalog — store nothing, so a later catalog change lands
-	}
-	pref.ModelBaseURL = baseURL
-	pref.SetBaseURLForProvider(canonicalProvider, baseURL)
-	pref.ModelWireFormat = strings.TrimSpace(cfg.ModelWireFormat)
-	pref.ThinkLevel = model.NormalizeThinkingLevel(canonicalProvider, pref.ModelName, cfg.ThinkLevel)
-	pref.ApprovalMode = string(safety.NormalizeApprovalMode(cfg.ApprovalMode))
-	// Only overwrite when we actually have one: a model change must not wipe a
-	// language the user already picked.
-	if v := strings.TrimSpace(cfg.UILocale); v != "" {
-		pref.UILocale = v
-	}
-	// Unlike the language, an empty value here is a real choice — it is how
-	// "go back to picking whatever is on disk" is expressed — so it is written
-	// through rather than treated as "nothing to say".
-	pref.SpeechModelPath = strings.TrimSpace(cfg.SpeechModelPath)
-	// The voice page's three picks ride the same rule: empty is the real
-	// choice "back to the default", so all are written through.
-	pref.SpeechEngine = strings.TrimSpace(cfg.SpeechEngine)
-	pref.TTSEngine = strings.TrimSpace(cfg.TTSEngine)
-	pref.TTSVoice = strings.TrimSpace(cfg.TTSVoice)
-	pref.SpeechModelName = strings.TrimSpace(cfg.SpeechModelName)
-	pref.TTSModelName = strings.TrimSpace(cfg.TTSModelName)
-	// Written through unconditionally, unlike the delegation block below: these
-	// four carry no "has anybody answered" flag and need none, because each
-	// one's zero value is its shipped default. Writing false for a switch
-	// nobody has touched writes the same thing omitempty would have left out.
-	pref.BusyEdgeGlowOff = cfg.BusyEdgeGlowOff
-	pref.BusyActionBarOff = cfg.BusyActionBarOff
-	pref.BusyTabDot = cfg.BusyTabDot
-	pref.BusyPageMarksOff = cfg.BusyPageMarksOff
-	// Same rule as SpeechModelPath one line up: an empty value is a real choice
-	// here — turning the last switch back on is expressed as "nobody is off" —
-	// so it is written through rather than treated as nothing to say.
-	// Written only once somebody has answered — and the guard is the point.
-	//
-	// cfg carries the RESOLVED delegation, which on a machine that has never
-	// touched a switch is the shipped default. Writing that through would put the
-	// default into the file as if it were a choice, and the next load would read
-	// a non-empty agents_off as somebody's answer (sanitizePreference) and freeze
-	// it there. A user who never answers keeps a file that never says, so the day
-	// the shipped default changes, it changes for them.
-	//
-	// Only ever set, never cleared: no later save of an unrelated setting may take
-	// an answer back.
-	if cfg.DelegateSet || pref.DelegateSet {
-		pref.DelegateAgents = cfg.DelegateAgents
-		pref.DelegateHelpersOff = cfg.DelegateHelpersOff
-		pref.WorkersOff = cfg.WorkersOff
-		pref.DelegateSet = true
-	}
-	_ = config.SaveModelPreference(pref)
+	// A load-modify-save under config's lock, and one that writes nothing when
+	// the file cannot be read. This used to fall back to an empty struct on any
+	// read failure, so a momentarily unreadable file came back holding only
+	// the fields set below — the providers enabled in the picker, the model
+	// remembered per provider and the user's name were gone (DECISIONS §225).
+	_ = config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		if strings.TrimSpace(cfg.ModelAPIKey) != "" {
+			pref.SetAPIKeyForProvider(canonicalProvider, cfg.ModelAPIKey)
+		}
+		pref.ModelProvider = canonicalProvider
+		pref.ModelName = strings.TrimSpace(cfg.ModelName)
+		baseURL := strings.TrimSpace(cfg.ModelBaseURL)
+		if baseURL == model.DefaultBaseURL(canonicalProvider) {
+			baseURL = "" // matches the catalog — store nothing, so a later catalog change lands
+		}
+		pref.ModelBaseURL = baseURL
+		pref.SetBaseURLForProvider(canonicalProvider, baseURL)
+		pref.ModelWireFormat = strings.TrimSpace(cfg.ModelWireFormat)
+		pref.ThinkLevel = model.NormalizeThinkingLevel(canonicalProvider, pref.ModelName, cfg.ThinkLevel)
+		pref.ApprovalMode = string(safety.NormalizeApprovalMode(cfg.ApprovalMode))
+		// Only overwrite when we actually have one: a model change must not wipe a
+		// language the user already picked.
+		if v := strings.TrimSpace(cfg.UILocale); v != "" {
+			pref.UILocale = v
+		}
+		// Unlike the language, an empty value here is a real choice — it is how
+		// "go back to picking whatever is on disk" is expressed — so it is written
+		// through rather than treated as "nothing to say".
+		pref.SpeechModelPath = strings.TrimSpace(cfg.SpeechModelPath)
+		// The voice page's three picks ride the same rule: empty is the real
+		// choice "back to the default", so all are written through.
+		pref.SpeechEngine = strings.TrimSpace(cfg.SpeechEngine)
+		pref.TTSEngine = strings.TrimSpace(cfg.TTSEngine)
+		pref.TTSVoice = strings.TrimSpace(cfg.TTSVoice)
+		pref.SpeechModelName = strings.TrimSpace(cfg.SpeechModelName)
+		pref.TTSModelName = strings.TrimSpace(cfg.TTSModelName)
+		// Written through unconditionally, unlike the delegation block below: these
+		// four carry no "has anybody answered" flag and need none, because each
+		// one's zero value is its shipped default. Writing false for a switch
+		// nobody has touched writes the same thing omitempty would have left out.
+		pref.BusyEdgeGlowOff = cfg.BusyEdgeGlowOff
+		pref.BusyActionBarOff = cfg.BusyActionBarOff
+		pref.BusyTabDot = cfg.BusyTabDot
+		pref.BusyPageMarksOff = cfg.BusyPageMarksOff
+		// Same rule as SpeechModelPath one line up: an empty value is a real choice
+		// here — turning the last switch back on is expressed as "nobody is off" —
+		// so it is written through rather than treated as nothing to say.
+		// Written only once somebody has answered — and the guard is the point.
+		//
+		// cfg carries the RESOLVED delegation, which on a machine that has never
+		// touched a switch is the shipped default. Writing that through would put the
+		// default into the file as if it were a choice, and the next load would read
+		// a non-empty agents_off as somebody's answer (sanitizePreference) and freeze
+		// it there. A user who never answers keeps a file that never says, so the day
+		// the shipped default changes, it changes for them.
+		//
+		// Only ever set, never cleared: no later save of an unrelated setting may take
+		// an answer back.
+		if cfg.DelegateSet || pref.DelegateSet {
+			pref.DelegateAgents = cfg.DelegateAgents
+			pref.DelegateHelpersOff = cfg.DelegateHelpersOff
+			pref.WorkersOff = cfg.WorkersOff
+			pref.DelegateSet = true
+		}
+		return nil
+	})
 }
 
 // projectStatus reports the governance file the prompt layer would actually

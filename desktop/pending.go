@@ -574,12 +574,10 @@ func learningEnabled() bool {
 
 // SetLearningEnabled persists the switch.
 func (a *App) SetLearningEnabled(on bool) error {
-	pref, _, err := config.LoadModelPreference()
-	if err != nil {
-		return err
-	}
-	pref.LearningDisabled = !on
-	return config.SaveModelPreference(pref)
+	return config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		pref.LearningDisabled = !on
+		return nil
+	})
 }
 
 // LearningEnabled reports the switch for the settings page.
@@ -600,10 +598,8 @@ func skillTuneAuto() bool {
 func (a *App) SkillTuneAuto() bool { return skillTuneAuto() }
 
 func (a *App) SetSkillTuneAuto(on bool) error {
-	pref, _, err := config.LoadModelPreference()
-	if err != nil {
-		return err
-	}
-	pref.SkillTuneAuto = on
-	return config.SaveModelPreference(pref)
+	return config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		pref.SkillTuneAuto = on
+		return nil
+	})
 }

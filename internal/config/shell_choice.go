@@ -55,12 +55,11 @@ func (c *ShellChoice) For(root string) proc.Backend {
 // other setting that lives there, so a shell picked in one surface is the shell
 // the other surface finds.
 func (c *ShellChoice) Set(root, setting string) error {
-	pref, _, err := LoadModelPreference()
+	err := UpdateModelPreference(func(pref *ModelPreference) error {
+		pref.SetShellFor(root, proc.ParseBackend(setting))
+		return nil
+	})
 	if err != nil {
-		return err
-	}
-	pref.SetShellFor(root, proc.ParseBackend(setting))
-	if err := SaveModelPreference(pref); err != nil {
 		return err
 	}
 	if c != nil {
