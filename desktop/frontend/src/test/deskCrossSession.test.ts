@@ -165,6 +165,23 @@ describe('a browser page belongs to one conversation', () => {
     expect(saved('claimer-b').tabs.map((t) => (t as { id?: string }).id)).toEqual(['web-agent-4'])
   })
 
+  it('brings an agent page back under its own id when the rack has lost it', async () => {
+    await adoptWorkbenchSession('reload-d')
+    routeDeskEvent('open-browser', { sessionId: 'reload-d', id: 'web-agent-6', url: 'https://r.test' })
+    await switchWorkbenchSession('away-d')
+    // The window reloaded: the rack is memory and is gone, the saved desk is
+    // localStorage and is not.
+    workbench.foreign.length = 0
+
+    await switchWorkbenchSession('reload-d')
+    // Same id — the pane re-attaches to the agent's window, or recreates it
+    // as the agent's. Not a fresh web-N beside a chipless agent tab.
+    expect(workbench.tabs.map((t) => t.id)).toEqual(['web-agent-6'])
+    expect(workbench.tabs[0].mine).toBe(true)
+    expect(workbench.tabs[0].sessionId).toBe('reload-d')
+    expect(workbench.tabs[0].url).toBe('https://r.test')
+  })
+
   it('a close reaches a parked page everywhere it is remembered', async () => {
     await adoptWorkbenchSession('front-c')
     routeDeskEvent('open-browser', { sessionId: 'back-c', id: 'web-agent-5', url: 'https://z.test' })
