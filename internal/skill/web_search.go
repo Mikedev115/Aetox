@@ -267,13 +267,31 @@ func (s *webSearchSkill) search(ctx context.Context, queries, allowed, blocked [
 		fmt.Fprintf(&b, "Search results for %d wordings, merged: %d found, %d after removing duplicates, best %d shown:\n",
 			ran, found, before, len(merged))
 	}
+	// The same list twice, on purpose, and the duplication is the point rather
+	// than an oversight: the text below is written FOR THE MODEL — numbered,
+	// with the snippet, so it can choose what to fetch — and Links is written
+	// for the WINDOW, which needs the parts addressable and nothing else. One
+	// representation serving both would mean the UI parsing prose meant for a
+	// language model, which is precisely the mistake ToolEvent was created to
+	// undo (see its comment in internal/turn/executor.go).
+	links := make([]ResultLink, 0, len(merged))
 	for i, r := range merged {
 		fmt.Fprintf(&b, "\n%d. %s\n   %s\n", i+1, r.Title, r.URL)
 		if r.Snippet != "" {
 			fmt.Fprintf(&b, "   %s\n", r.Snippet)
 		}
+		links = append(links, ResultLink{Title: r.Title, URL: r.URL})
 	}
-	return newToolOutput("web_search", command, strings.TrimSpace(b.String()), start, cut, nil), nil
+	out := newToolOutput("web_search", command, strings.TrimSpace(b.String()), start, cut, nil)
+	out.Links = links
+	// How many came back, in this tool's own unit. It had been left at zero, so
+	// a search was the one reading tool whose row could not say what it got —
+	// "web_search react server components · 2s" and not a number anywhere, while
+	// read said "1-60 (60 บรรทัด)" beside it. The UI names the unit (chat.
+	// gotResults); this is only the count, which is what keeps it out of one
+	// hardcoded language.
+	out.ResultCount = len(merged)
+	return out, nil
 }
 
 // fetchOne is one wording against one endpoint.

@@ -10,7 +10,11 @@ package turn
 // a UI matching the pair up never sees an action close that it did not see
 // open.
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Mikedev115/Aetox/internal/skill"
+)
 
 func TestPackedActionOfReadsTheActionKey(t *testing.T) {
 	for _, tc := range []struct {
@@ -74,5 +78,30 @@ func TestExecutorLeavesTabToTheHost(t *testing.T) {
 	// it, not instead of it.
 	if seen[0].Subject != "https://a.test" {
 		t.Errorf("Subject = %q, want the URL", seen[0].Subject)
+	}
+}
+
+// A search's results, crossing into the window's vocabulary.
+//
+// The conversion is a loop and could have been a shared type, which is exactly
+// why it is worth a test: `turn` is the boundary the UI reads, and the reason
+// this copies rather than passes through is that a field a skill adds to its
+// own struct must not become a field the UI silently starts receiving. Pinning
+// the shape is pinning that decision.
+func TestToolLinksCrossTheBoundary(t *testing.T) {
+	got := toolLinks([]skill.ResultLink{
+		{Title: "Server Components RFC", URL: "https://react.dev/rfc"},
+		{Title: "Go 1.24 release notes", URL: "https://go.dev/blog/go1.24"},
+	})
+	if len(got) != 2 {
+		t.Fatalf("links = %d, want 2", len(got))
+	}
+	if got[0].Title != "Server Components RFC" || got[0].URL != "https://react.dev/rfc" {
+		t.Errorf("first link = %+v", got[0])
+	}
+	// nil rather than an empty slice, so `omitempty` keeps the field off every
+	// event of every tool that is not a search — which is nearly all of them.
+	if toolLinks(nil) != nil {
+		t.Error("no results must travel as no field at all")
 	}
 }

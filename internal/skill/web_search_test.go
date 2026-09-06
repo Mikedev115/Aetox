@@ -52,6 +52,69 @@ func TestWebSearchParsesDuckDuckGoResults(t *testing.T) {
 	}
 }
 
+// The same results, said twice: once as prose for the model, once as data for
+// the window (ข้อ 02). The list has existed since the tool did; until Links it
+// existed only inside Content, which is written for a language model and is not
+// something a UI can be asked to parse.
+func TestWebSearchHandsBackItsResultsAsData(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte(`<html><body>
+<div class="result">
+  <a class="result__a" href="https://react.dev/rfc">Server Components RFC</a>
+  <a class="result__snippet" href="https://react.dev/rfc">A long snippet the card deliberately does not draw.</a>
+</div>
+<div class="result">
+  <a class="result__a" href="https://go.dev/blog/go1.24">Go 1.24 release notes</a>
+</div>
+</body></html>`))
+	}))
+	defer server.Close()
+
+	s := &webSearchSkill{endpoint: server.URL}
+	out, err := s.ExecuteTool(context.Background(), map[string]any{"query": "react server components"})
+	if err != nil {
+		t.Fatalf("search failed: %v", err)
+	}
+	if len(out.Links) != 2 {
+		t.Fatalf("links = %d, want 2: %+v", len(out.Links), out.Links)
+	}
+	if out.Links[0].Title != "Server Components RFC" || out.Links[0].URL != "https://react.dev/rfc" {
+		t.Errorf("first link = %+v", out.Links[0])
+	}
+	if out.Links[1].URL != "https://go.dev/blog/go1.24" {
+		t.Errorf("second link = %+v", out.Links[1])
+	}
+	// The row's own number, in this tool's unit. It had been left at zero, so a
+	// search was the one reading tool whose row could not say what it got.
+	if out.ResultCount != 2 {
+		t.Errorf("ResultCount = %d, want 2", out.ResultCount)
+	}
+	// The model still gets the full text, snippet included: the two audiences
+	// want different things and this is not a migration from one to the other.
+	if !strings.Contains(out.Content, "A long snippet") {
+		t.Errorf("the model's copy lost its snippets:\n%s", out.Content)
+	}
+}
+
+// A search that comes back with nothing has nothing to draw, and a card with an
+// empty list is a card that should not be on screen at all.
+func TestWebSearchSendsNoLinksWhenItFindsNothing(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`<html><body></body></html>`))
+	}))
+	defer server.Close()
+
+	s := &webSearchSkill{endpoint: server.URL}
+	out, err := s.ExecuteTool(context.Background(), map[string]any{"query": "nothing at all"})
+	if err != nil {
+		t.Fatalf("search failed: %v", err)
+	}
+	if len(out.Links) != 0 {
+		t.Errorf("links = %+v, want none", out.Links)
+	}
+}
+
 func TestWebSearchEmptyQueryFails(t *testing.T) {
 	s := &webSearchSkill{}
 	if _, err := s.ExecuteTool(context.Background(), map[string]any{"query": "  "}); err == nil {

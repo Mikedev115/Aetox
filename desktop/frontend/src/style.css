@@ -1009,10 +1009,15 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    not taking the air back out. */
 .tool-step { position:relative; display:flex; align-items:center; gap:8px; padding:8px 0; min-width:0; }
 /* The stub of rail between one row and the next, re-measured for the padding
-   above: the gap between two glyph boxes is now 16px, and the line overlaps
-   2px into each so it reads as continuous rather than as a floating tick. */
+   above: the gap between two glyph boxes is still 16px (padding, not the mark,
+   is what sets it), and the line overlaps 2px into each so it reads as
+   continuous rather than as a floating tick.
+
+   left moved 7px -> 11px with the mark: the rail hangs from the centre of
+   whatever the row's leading element is, and that is a 22px tile now rather
+   than a 15px glyph. Off by four it reads as a mistake, not as a variant. */
 .tool-step:not(:first-child)::before {
-  content:''; position:absolute; left:7px; top:-10px; height:20px;
+  content:''; position:absolute; left:11px; top:-10px; height:20px;
   border-left:1px solid var(--border-strong);
 }
 /* The block that says which call is live.
@@ -1048,38 +1053,129 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    only for one that is genuinely new — which is the moment it is describing. */
 .tool-step { animation:tool-row-in var(--swap-row-in) var(--ease-arrive); }
 @keyframes tool-row-in { from { opacity:0; transform:translateY(-3px); } to { opacity:1; transform:none; } }
-/* The ring and the tick are BOTH here, stacked, fading past each other. They
-   used to be one element whose contents were swapped, so a call finishing
-   changed the row in a single frame — the one thing in the timeline that
-   genuinely looked broken rather than fast. */
-.tool-step .glyph {
-  flex:0 0 auto; width:15px; height:15px; display:grid; place-items:center;
-  font-size:var(--fs-2xs); color:var(--text-dim);
-}
-.tool-step .glyph > * { grid-area:1/1; }
-.tool-step.done .glyph { color:var(--status-success); }
-.tool-step.err .glyph { color:var(--status-danger); }
-.tool-step .glyph .spin {
-  width:10px; height:10px; border:1.5px dashed var(--accent); border-radius:50%;
-  animation:tool-spin 1.2s linear infinite;
-  transition:opacity var(--swap-glyph) ease, transform var(--swap-glyph) ease;
-}
-.tool-step .glyph .tick {
-  display:inline-flex; opacity:0; transform:scale(.7);
-  transition:opacity var(--swap-glyph) ease, transform var(--swap-glyph) var(--ease-overshoot);
-}
-.tool-step.done .glyph .spin, .tool-step.err .glyph .spin { opacity:0; transform:scale(.55); }
-.tool-step.done .glyph .tick, .tool-step.err .glyph .tick { opacity:1; transform:none; }
 @keyframes tool-spin { to { transform:rotate(360deg); } }
-.tool-step .lbl {
-  min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  font-family:var(--mono); font-size:var(--fs-xs); color:var(--text-muted);
+
+/* The family tile, at the left edge where the eye lands.
+   (ข้อ 01 — owner: the row read `canva_generate-design A modern tech poster
+   announcing…`, which is a log line and not a UI.)
+
+   It stands where the tick/ring glyph stood and does that job too: a row whose
+   tile stopped pulsing is a row that finished. Two marks for one state was 15px
+   of the row spent saying the same thing twice, and the state was never the
+   interesting fact on a timeline where almost everything succeeds — WHICH KIND
+   of work this is, is.
+
+   The colours are the app's own status roles, unchanged and not extended: blue
+   for reading (the same --status-untracked a new file wears), green for writing
+   (--status-success), the brand cyan for the web, amber for a command, the
+   chart purple for media, --interactive for a delegation. Six roles that
+   already exist in every one of the fourteen themes, so this needs no theme to
+   be re-picked; --chart-4 is deliberate rather than lazy — theme.css says the
+   chart family is the one set a named theme may leave alone, which is exactly
+   the property a seventh accent needed. */
+.tool-step .tile {
+  flex:0 0 auto; width:22px; height:22px; border-radius:var(--r-sm);
+  display:grid; place-items:center;
+  color:var(--tool-hue); background:color-mix(in srgb, var(--tool-hue) 14%, transparent);
+  transition:color var(--swap-glyph) ease, background var(--swap-glyph) ease;
+}
+.tool-step.f-read   { --tool-hue:var(--status-untracked); }
+.tool-step.f-write  { --tool-hue:var(--status-success); }
+.tool-step.f-web    { --tool-hue:var(--accent); }
+.tool-step.f-shell  { --tool-hue:var(--status-modified); }
+.tool-step.f-media  { --tool-hue:var(--chart-4); }
+.tool-step.f-task   { --tool-hue:var(--interactive); }
+.tool-step.f-other  { --tool-hue:var(--text-muted); }
+/* A bridged tool takes a colour keyed to its SERVER rather than to a kind of
+   work, because the kind of work is the one thing nobody here can know: the
+   set of MCP servers is whatever the user connected this morning. What IS
+   knowable is provenance, and that is the more useful fact anyway — a reader
+   scanning a turn wants to see that three rows in a row happened at Canva.
+
+   Chart slots, and not a free hue off coverHue.ts: theme.css says the chart
+   family is the one set a named theme may leave alone (it is validated against
+   the darkest and lightest surfaces in the file), so this gets five colours
+   that already pass everywhere without asking fourteen themes to re-pick them.
+   f-other's grey stays the floor for anything that is not bridged either. */
+.tool-step.f-mcp.h-1 { --tool-hue:var(--chart-1); }
+.tool-step.f-mcp.h-2 { --tool-hue:var(--chart-2); }
+.tool-step.f-mcp.h-3 { --tool-hue:var(--chart-3); }
+.tool-step.f-mcp.h-4 { --tool-hue:var(--chart-4); }
+.tool-step.f-mcp.h-5 { --tool-hue:var(--chart-5); }
+/* The server's name, in front of the verb and dim: it qualifies what was done
+   rather than competing with it. Mono because it is an identifier — the one
+   the user typed into their MCP config — and not a word. */
+.tool-step .srv {
+  flex:0 0 auto; font-family:var(--mono); font-size:var(--fs-xs);
+  color:var(--text-dim);
+}
+/* The seam, drawn rather than spaced. "canva generate design" with only a gap
+   between the halves reads as one four-word phrase; the dot says there are two
+   things here and which is which. In CSS because it is punctuation belonging to
+   the layout, not a word either half owns. */
+.tool-step .srv::after { content:'·'; margin-left:6px; }
+/* A failed call keeps its family — what it was trying to do did not change —
+   but loses the colour, because on a timeline where almost everything works the
+   red x is the thing that must not have to compete with five other hues. */
+.tool-step.err { --tool-hue:var(--status-danger); }
+/* The ring on the live row. It is the tile's own halo rather than a spinner
+   beside it: a spinner is a second object to look at, and this timeline can
+   have four rows running at once inside a delegation card. Colour-mixed from
+   the family hue so the pulse says WHICH kind of work is running, which a grey
+   ring could not.
+
+   box-shadow, not a scale — the tile must not move a pixel when it settles, or
+   every row in the list nudges its neighbours each time one finishes. */
+.tool-step.run .tile { animation:tool-tile-pulse 1.7s var(--ease-arrive) infinite; }
+@keyframes tool-tile-pulse {
+  0%   { box-shadow:0 0 0 0 color-mix(in srgb, var(--tool-hue) 45%, transparent); }
+  70%  { box-shadow:0 0 0 6px color-mix(in srgb, var(--tool-hue) 0%, transparent); }
+  100% { box-shadow:0 0 0 0 color-mix(in srgb, var(--tool-hue) 0%, transparent); }
+}
+/* The verb: what the agent is doing, in the reader's own language, and the one
+   thing on the row worth reading first. Primary ink and 500 weight because
+   everything else here is a qualifier of it. */
+.tool-step .verb {
+  flex:0 0 auto; font-size:var(--fs-xs); font-weight:600; color:var(--text-secondary);
   transition:color var(--swap-glyph) ease;
 }
 /* The live row is the one you are meant to be reading. Weight carries the
    state as much as the block does, so the row still says which one it is on a
    screen where the raised surface is barely a shade. */
-.tool-step.run .lbl { color:var(--text-primary); }
+.tool-step.run .verb { color:var(--text-primary); }
+/* The subject, mono because it is nearly always a path, a URL or a command —
+   things whose characters have to line up to be scanned. The name at the end is
+   the bright half and the directory before it is dim: that is the whole point
+   of splitting it (lib/toolFace.ts), and one ink for both is what made every
+   row a sixty-character read for its last eight. */
+.tool-step .subj {
+  min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-family:var(--mono); font-size:var(--fs-xs); color:var(--text-secondary);
+  transition:color var(--swap-glyph) ease;
+}
+.tool-step .subj .path { color:var(--text-dim); }
+/* The x on a failed row. Not the old glyph box: it is 11px, it appears only on
+   failure, and it sits AFTER the words rather than in front of them, because
+   the leading position now belongs to the family and a mark that only sometimes
+   exists must not be the thing the column is aligned on. */
+.tool-step .glyph { flex:0 0 auto; display:inline-flex; color:var(--status-danger); }
+/* Everything the row measures, pinned right and read as a column. */
+.tool-step .tool-right {
+  flex:0 0 auto; margin-left:auto; display:flex; align-items:center; gap:8px;
+  padding-left:10px;
+}
+/* The running row's placeholder for a number it does not have yet: a short bar
+   sliding through the track the count will land in. Sized to the "+42 -9" it
+   replaces so nothing on the right edge shifts when the real number arrives. */
+.tool-step .run-bar {
+  flex:0 0 auto; position:relative; width:34px; height:3px; overflow:hidden;
+  border-radius:2px; background:var(--border-default);
+}
+.tool-step .run-bar > span {
+  position:absolute; top:0; height:100%; width:40%; border-radius:2px;
+  background:var(--tool-hue, var(--accent)); animation:tool-run-bar 1.3s ease-in-out infinite;
+}
+@keyframes tool-run-bar { from { left:-40%; } to { left:100%; } }
 .tool-step .secs { flex:0 0 auto; font-size:var(--fs-xs); color:var(--text-dim); }
 .tool-step .tool-stat { flex:0 0 auto; font-size:var(--fs-xs); font-variant-numeric:tabular-nums; }
 .tool-step .tool-stat .add { color:var(--status-success); }
@@ -1105,7 +1201,84 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   width:100%; text-align:left; font:inherit; color:inherit;
   background:none; border:0; cursor:pointer; border-radius:var(--r-sm);
 }
-.tool-step.foldable:hover .lbl { color:var(--text-primary); }
+.tool-step.foldable:hover .subj { color:var(--text-primary); }
+
+/* What a search found, under the row that ran it (ข้อ 02).
+ *
+ * A bordered block rather than a raised card: the raised surface in this
+ * timeline already means "this row is live" (.tool-step.run::after), and a
+ * second thing wearing it would be the transcript using one signal for two
+ * ideas. A hairline says "these belong together" without claiming a state.
+ *
+ * Indented to the tile's own left edge — 32px, the tile plus the row's gap — so
+ * the card hangs off the row that made it instead of starting a new column. */
+.search-card {
+  margin:2px 0 6px 32px; padding:8px 10px 6px;
+  border:1px solid var(--border-subtle); border-radius:var(--r-md);
+  background:var(--surface-sunken);
+}
+.search-head {
+  display:flex; align-items:center; gap:8px; padding-bottom:7px;
+  border-bottom:1px solid var(--border-subtle);
+}
+.search-head .ic { display:inline-flex; flex:0 0 auto; color:var(--accent); }
+/* The query, in quotes, in the app's reading ink: it is the one thing on the
+   card the user themselves caused. */
+.search-head .q {
+  min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:var(--fs-xs); color:var(--text-primary);
+}
+.search-head .n {
+  flex:0 0 auto; margin-left:auto; font-size:var(--fs-xs); color:var(--text-dim);
+  font-variant-numeric:tabular-nums;
+}
+/* One result. A link, because it IS one — it opens in the workbench, and a div
+   with a click handler would take that away from the keyboard and from the
+   middle mouse button both. */
+.search-hit {
+  display:flex; align-items:center; gap:9px; padding:5px 4px; margin:0 -4px;
+  border-radius:var(--r-sm); text-decoration:none; color:inherit;
+  /* The cascade in. Not progress — web_search parses its whole page at once and
+     a fan-out joins before it returns, so all eight results exist in the same
+     millisecond (internal/skill/web_search.go). This is the LIST appearing one
+     line after another instead of as a block, which is how a result list is
+     read. 40ms apart, capped by the tool's own eight-result ceiling, so the
+     last one lands within a third of a second. */
+  animation:search-hit-in var(--swap-row-in) var(--ease-arrive) backwards;
+  animation-delay:calc(var(--i) * 40ms);
+}
+@keyframes search-hit-in { from { opacity:0; transform:translateY(-2px); } to { opacity:1; transform:none; } }
+.search-hit:hover { background:var(--surface-row-hover); }
+/* The domain's initials, not a fetched favicon: this app renders with no
+   network by design (icons.ts inlines the whole icon set for the same reason),
+   and eight favicon requests would be eight strangers told what was searched
+   for. Taken from the host so two results from one site wear one mark. */
+.search-hit .fav {
+  flex:0 0 auto; width:20px; height:20px; border-radius:5px;
+  display:grid; place-items:center;
+  background:var(--surface-raised); color:var(--text-muted);
+  font-size:var(--fs-2xs); font-weight:600; letter-spacing:.01em;
+}
+.search-hit .ttl {
+  min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:var(--fs-xs); color:var(--text-secondary);
+}
+.search-hit:hover .ttl { color:var(--text-primary); }
+.search-hit .dom {
+  flex:0 0 auto; margin-left:auto; font-family:var(--mono);
+  font-size:var(--fs-2xs); color:var(--text-dim);
+}
+/* The agent read this one in full. The mark that separates what the internet
+   has from what the answer was actually built on. */
+.search-hit .was-read {
+  flex:0 0 auto; padding:1px 6px; border-radius:4px;
+  font-size:var(--fs-2xs); color:var(--accent);
+  background:color-mix(in srgb, var(--accent) 13%, transparent);
+}
+.search-foot {
+  margin-top:6px; padding-top:6px; border-top:1px solid var(--border-subtle);
+  font-size:var(--fs-2xs); color:var(--text-dim); font-variant-numeric:tabular-nums;
+}
 .tool-step.foldable:hover .fold-caret { color:var(--text-muted); }
 .tool-step .fold-caret { flex:0 0 auto; display:inline-flex; color:var(--text-dim); }
 /* Narration inside a DELEGATE's block — a sub-agent working out loud, under the

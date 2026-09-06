@@ -12,6 +12,19 @@ import (
 
 type Input map[string]any
 
+// ResultLink is one thing a search found: what it is called, and where it is.
+//
+// Deliberately not the searchResult the DuckDuckGo parser produces — that one
+// carries a snippet, and a snippet is the engine's own summary of a page,
+// written to justify a ranking rather than to be read. Eight of them turn a
+// result list back into the wall of text the list was supposed to replace. The
+// title says what it is and the host says whether to trust it; that is the
+// whole of the decision a result list exists to support.
+type ResultLink struct {
+	Title string `json:"title"`
+	URL   string `json:"url"`
+}
+
 type Output struct {
 	Name       string
 	Content    string
@@ -60,6 +73,21 @@ type Output struct {
 	// has no honest answer.
 	ResultCount int
 	ResultRange string
+	// Links are the results a search came back with — title and URL each, in the
+	// order the tool ranked them. Only `web_search` sets it.
+	//
+	// It is the same idea as Images and Artifacts below: the tool hands back the
+	// thing itself instead of a sentence about it. web_search has always
+	// returned this list — it formats it into Content, which is written FOR THE
+	// MODEL and is not a place a window can read from. So the chat could say
+	// that a search had run and how long it took and nothing whatsoever about
+	// what came back, while the answer three lines later cited sources the user
+	// had never been shown. A list of results is exactly the kind of output that
+	// stops being a wall of text the moment the UI is allowed to draw it.
+	//
+	// Nil for every other tool, including web_fetch: one page is not a result
+	// list, and the row already names the URL it opened.
+	Links []ResultLink
 	// Problems is how many ERRORS the language server reports in a file this
 	// call just changed (freshdiag.go) — the after-edit self-check's number,
 	// for the timeline's red "!N". Zero when the file is clean, the language
