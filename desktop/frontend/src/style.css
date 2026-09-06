@@ -1100,6 +1100,67 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 @keyframes tool-row-in { from { opacity:0; transform:translateY(-3px); } to { opacity:1; transform:none; } }
 @keyframes tool-spin { to { transform:rotate(360deg); } }
 
+/* The box a phase's calls sit in.
+ *
+ * The rows were bare before this — a column of text with nothing around it,
+ * which read as loose lines under a paragraph rather than as a list of things
+ * that happened (owner, 7 ก.ย., pointing at Claude Code's own: "เนี้ย ดีกว่า
+ * แบบโล่งๆอีก"). One hairline box, one seam between rows, and the column reads
+ * as a receipt.
+ *
+ * The seam replaces the rail between tiles inside the box. Both at once is two
+ * systems drawing the same join, and the rail was answering the question the
+ * border now answers better: these rows belong together.
+ *
+ * The padding moves onto the ROW rather than sitting on the box, so the live
+ * row's block and the travelling bar can still run edge to edge — full bleed
+ * inside a bordered box, where their -10px overhang would have been clipped by
+ * the scroll window below. */
+.tool-box {
+  border:1px solid var(--border-subtle); border-radius:var(--r-md);
+  background:var(--surface-sunken);
+}
+.tool-box .tool-step { padding-left:10px; padding-right:10px; }
+.tool-box .tool-step + .tool-step { border-top:1px solid var(--border-subtle); }
+.tool-box .tool-step:not(:first-child)::before { display:none; }
+.tool-box .tool-glide { left:0; right:0; border-radius:0; }
+.tool-box .tool-step.run::after { inset:0; border-radius:0; }
+/* The diff and the search card belong to the row above them, so they keep the
+   row's own gutter rather than the box's edge. */
+.tool-box .tool-diff, .tool-box .search-card { margin-left:10px; margin-right:10px; }
+
+/* The live one is a window, for the reason the thinking panel is one.
+ *
+ * Nothing folds while the turn runs any more — a call that finished stays in
+ * the list instead of vanishing the frame its result landed — and five rows is
+ * where that stops being generous and starts being a wall. So the box caps
+ * itself and scrolls, the newest row arrives at the floor, and every earlier
+ * one is still in there to be scrolled back to (lib/toolWindow.ts).
+ *
+ * No scrollbar: a gutter would cost the box a tenth of its width to say what
+ * the fade already says. It still scrolls — wheel, touchpad and keyboard all
+ * reach the rows above. */
+.tool-box.live-window {
+  max-height:190px; overflow-y:auto; overscroll-behavior:contain;
+  scrollbar-width:none;
+}
+.tool-box.live-window::-webkit-scrollbar { width:0; height:0; }
+/* Masked at the end that HAS something past it, and only there. Masked at the
+   bottom while the list is pinned to it, the fade would be dimming the row that
+   is running — the one row on the box that must stay legible. */
+.tool-box.live-window.fade-top {
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 1.6em, #000 100%);
+  mask-image:linear-gradient(to bottom, transparent 0, #000 1.6em, #000 100%);
+}
+.tool-box.live-window.fade-bot {
+  -webkit-mask-image:linear-gradient(to bottom, #000 calc(100% - 0.9em), transparent 100%);
+  mask-image:linear-gradient(to bottom, #000 calc(100% - 0.9em), transparent 100%);
+}
+.tool-box.live-window.fade-top.fade-bot {
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 1.6em, #000 calc(100% - 0.9em), transparent 100%);
+  mask-image:linear-gradient(to bottom, transparent 0, #000 1.6em, #000 calc(100% - 0.9em), transparent 100%);
+}
+
 /* The family tile, at the left edge where the eye lands.
    (ข้อ 01 — owner: the row read `canva_generate-design A modern tech poster
    announcing…`, which is a log line and not a UI.)
@@ -1288,6 +1349,37 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   flex:0 0 auto; margin-left:auto; font-size:var(--fs-xs); color:var(--text-dim);
   font-variant-numeric:tabular-nums;
 }
+/* The wall. Same shape as .reasoning-body.live and .tool-box.live-window, and
+   the same reason: this is a nested layer inside a row inside a turn, and a
+   nested layer that can be twenty items long is not a card any more, it is a
+   page. Six results fit; the rest are scrolled to.
+
+   The head and the foot stay outside it, because "8 ผล" and "อ่านเต็ม 2" are
+   facts about the whole list and must not scroll away from it.
+
+   No scrollbar, like its two siblings: a gutter would cost the card a tenth of
+   its width to say what the fade already says. */
+.search-hits {
+  max-height:186px; overflow-y:auto; overscroll-behavior:contain;
+  scrollbar-width:none;
+}
+.search-hits::-webkit-scrollbar { width:0; height:0; }
+/* Masked at the end that HAS something past it, and only there — a list of
+   three would otherwise wear a dimmed first and last row for no reason.
+   Set from the element's own overflow after each paint (lib/toolWindow.ts). */
+.search-hits.fade-top {
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 1.4em, #000 100%);
+  mask-image:linear-gradient(to bottom, transparent 0, #000 1.4em, #000 100%);
+}
+.search-hits.fade-bot {
+  -webkit-mask-image:linear-gradient(to bottom, #000 calc(100% - 1.4em), transparent 100%);
+  mask-image:linear-gradient(to bottom, #000 calc(100% - 1.4em), transparent 100%);
+}
+.search-hits.fade-top.fade-bot {
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 1.4em, #000 calc(100% - 1.4em), transparent 100%);
+  mask-image:linear-gradient(to bottom, transparent 0, #000 1.4em, #000 calc(100% - 1.4em), transparent 100%);
+}
+
 /* One result. A link, because it IS one — it opens in the workbench, and a div
    with a click handler would take that away from the keyboard and from the
    middle mouse button both. */
@@ -1387,6 +1479,10 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 }
 button.phase-head:hover { color:var(--text-muted); }
 .phase-head .chev { display:inline-flex; flex:0 0 auto; }
+/* The same 12px the caret takes, held open on the phases that have none, so a
+   phase does not shift sideways in the frame it stops running and becomes a
+   control. */
+.phase-head .chev-slot { width:12px; flex:0 0 auto; }
 /* Body size, body colour, full markdown. This is the whole fix: a table, a
    heading or a chart the model wrote before calling a tool used to arrive as
    12px of muted plain text inside a collapsed panel, which is where §59's
@@ -2258,7 +2354,37 @@ button.phase-head:hover { color:var(--text-muted); }
   color:var(--text-dim); font:inherit; font-size:var(--fs-xs);
 }
 .bgw-open:hover { color:var(--text-secondary); }
-.bgw-steps { margin-left:45px; }
+/* The card's whole list: one indent in, and the wall around everything the
+   worker said and did. The bordered box that used to be this element is now one
+   per stretch INSIDE it (.bgw-steps keeps that job below), because the prose
+   belongs outside a box and the cap belongs outside them all. */
+.bgw-work { margin-left:45px; display:flex; flex-direction:column; }
+/* The same window as .tool-box.live-window and .reasoning-body.live. Written
+   out rather than shared because what wears it here is not a box: this element
+   has no border and no ground of its own, and borrowing .tool-box to get the
+   cap would draw a frame around a frame. */
+.bgw-work.live-window {
+  max-height:230px; overflow-y:auto; overscroll-behavior:contain;
+  scrollbar-width:none;
+}
+.bgw-work.live-window::-webkit-scrollbar { width:0; height:0; }
+.bgw-work.live-window.fade-top {
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 1.6em, #000 100%);
+  mask-image:linear-gradient(to bottom, transparent 0, #000 1.6em, #000 100%);
+}
+.bgw-work.live-window.fade-bot {
+  -webkit-mask-image:linear-gradient(to bottom, #000 calc(100% - 0.9em), transparent 100%);
+  mask-image:linear-gradient(to bottom, #000 calc(100% - 0.9em), transparent 100%);
+}
+.bgw-work.live-window.fade-top.fade-bot {
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 1.6em, #000 calc(100% - 0.9em), transparent 100%);
+  mask-image:linear-gradient(to bottom, transparent 0, #000 1.6em, #000 calc(100% - 0.9em), transparent 100%);
+}
+/* The delegate's list wears the same box as the agent's own, one indent in —
+   and the same window while it is still being written to. This was the only
+   list in the app with no cap on it, which is exactly backwards: a delegate is
+   the one worker that can run for twenty minutes. */
+.bgw-steps.tool-box { margin-top:3px; }
 /* Motion off, meaning kept: the line still changes, it just stops sliding.
    Sits beside the beam's own reduced-motion rule for the same reason — what is
    being removed is the travel, never the fact. */

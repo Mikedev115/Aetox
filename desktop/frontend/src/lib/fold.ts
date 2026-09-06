@@ -12,12 +12,17 @@
 // honoured — svelte/transition does not consult it, and the CSS half of the app
 // already does (style.css).
 import { slide } from 'svelte/transition'
-import { cubicOut } from 'svelte/easing'
+import { cubicOut, cubicInOut } from 'svelte/easing'
 
 // Read per call rather than once at module load: the setting can change while
 // the app is open, and a value captured at startup would need a restart to take
 // effect. Guarded for the test environment, where matchMedia does not exist.
-function reduced(): boolean {
+//
+// Exported for the one caller that DRIVES a fold instead of declaring it: the
+// beat Chat.svelte holds before shutting a phase is the same decision as the
+// fold's own length, and asked to stop moving the app must not answer with a
+// pause instead of a movement.
+export function motionStill(): boolean {
   return (
     typeof window !== 'undefined' &&
     typeof window.matchMedia === 'function' &&
@@ -25,9 +30,69 @@ function reduced(): boolean {
   )
 }
 
-/** Folds an element open and shut by its own height. `transition:fold`. */
-export function fold(node: Element, { duration = 240 }: { duration?: number } = {}) {
-  return slide(node, { duration: reduced() ? 0 : duration, easing: cubicOut })
+const FOLD_MS = 240
+
+/** Folds an element open and shut by its own height. `transition:fold`.
+ *
+ * `delay` is for one job and it is worth naming: staging an arrival in more
+ * than one beat. A delegation card is drawn the instant the model hands work
+ * over — that part is not allowed to wait — but what it was TOLD arrives a beat
+ * behind the person it was told to, because that is the order the event happens
+ * in and the order a reader takes it in (owner, 7 ก.ย.). It rides here rather
+ * than on a second timer so the reduced-motion guard covers it too: asked to
+ * stop moving, the app must not answer with a pause instead. */
+export function fold(
+  node: Element,
+  { duration = FOLD_MS, delay = 0 }: { duration?: number; delay?: number } = {},
+) {
+  const still = motionStill()
+  return slide(node, {
+    duration: still ? 0 : duration,
+    delay: still ? 0 : delay,
+    easing: cubicOut,
+  })
+}
+
+/** How long a stretch of work takes to fold away. */
+export const SETTLE_MS = 520
+
+/** The fold a stretch of work does when its last call comes back.
+ * `transition:settle`.
+ *
+ * A separate transition from `fold` and not a parameter of it, because every
+ * one of its three differences is the same decision taken again: this movement
+ * is allowed to be *seen*, where a fold is a report that gets out of the way.
+ *
+ *  - **Twice the time.** The owner asked for นุ่มนวล four times before this was
+ *    right, and 240ms was the last thing still answering him with a flick.
+ *  - **Eased at both ends.** `fold` uses cubicOut, which on an OUTRO hangs and
+ *    then drops — the shape reads as a decision made late. cubicInOut starts
+ *    slow, moves, and arrives slowly, which is the whole of what "gently"
+ *    means to an eye.
+ *  - **It fades as it goes.** The height alone clips the list against the row
+ *    below it, and a clip is a cut however long you take over it. Fading it out
+ *    on the way down is what turns the last rows into something that LEFT
+ *    rather than something that was trimmed off.
+ *
+ * `gap` is the container's, not the node's: a flex parent holds its whole gap
+ * for as long as the child exists, so a block folding to nothing inside one
+ * still owns its share of the row until the frame it is removed — the last few
+ * pixels of the gentlest possible fold land as a jump. The margin cancels it
+ * and unwinds alongside the height, the same way unroll cancels the composer's.
+ */
+export function settle(
+  node: Element,
+  { duration = SETTLE_MS, gap = 0 }: { duration?: number; gap?: number } = {},
+) {
+  // Measured before the transition starts, which for an outro is while the
+  // block is still at full size — the one moment its real height can be read.
+  const height = (node as HTMLElement).offsetHeight
+  return {
+    duration: motionStill() ? 0 : duration,
+    easing: cubicInOut,
+    css: (t: number) =>
+      `overflow:hidden; height:${t * height}px; opacity:${t}; margin-bottom:${(t - 1) * gap}px;`,
+  }
 }
 
 /** Opens an attachment from its top edge and shuts it the same way.
@@ -60,7 +125,7 @@ export function unroll(
   // is still at full size — the one moment its real height can be read.
   const height = (node as HTMLElement).offsetHeight
   return {
-    duration: reduced() ? 0 : duration,
+    duration: motionStill() ? 0 : duration,
     easing: cubicOut,
     css: (t: number) => `overflow:hidden; height:${t * height}px; margin-bottom:${(t - 1) * gap}px;`,
   }

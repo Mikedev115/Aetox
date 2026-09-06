@@ -6,6 +6,7 @@ import { cockpit, applyToolEvent, resetBackgroundWork } from '../lib/stores/cock
 import { isDelegation } from '../lib/types'
 import { setLocale } from '../lib/i18n.svelte'
 import { GuideTopics, SwitchApprovalMode, SupportedThinkLevels, BackgroundTasks } from './mocks/wailsApp'
+import { workbench } from '../lib/stores/workbench.svelte'
 
 const baseProps = {
   task: { title: '', steps: [] } as any,
@@ -18,6 +19,7 @@ const baseProps = {
   onSwitchProvider: async () => {},
   onSwitchThinkLevel: async () => {},
   onSwitchModel: async () => {},
+  onCancelPendingModel: async () => {},
   onSubmitAPIKey: async () => {},
   model: { provider: 'deepseek', modelName: 'v4', thinkLevel: 'high', approval: 'ask', wireFormat: '' } as any,
 }
@@ -413,21 +415,39 @@ describe('tool timeline collapsing', () => {
     expect(toggles.some((b) => b.textContent?.includes('Used 0'))).toBe(false)
   })
 
-  // Finished work folds; what is still going never does. Both halves matter and
-  // the second one is the one that was got wrong first: folding the phase whole
-  // and re-opening it while something ran looked identical until the person
-  // closed it themselves, and then buried a live row.
-  it('folds the finished rows and leaves the running one out', async () => {
+  // Nothing folds while the turn runs. The rule used to be the other half of
+  // this — only what was still going stayed out — which took a call off the
+  // screen in the frame its result landed: a skill that answered in half a
+  // second was never readable at all (owner, 7 ก.ย.). The cap that folding used
+  // to provide is the scrolling window on the box now.
+  it('keeps every call on screen while the turn is running', () => {
     const { container } = render(Chat, {
       ...baseProps, awaitingReply: true,
       messages: [{ role: 'user', text: 'go', time: '10:54' }] as any,
       toolSteps: [step('web_fetch', 'done'), step('web_fetch', 'done'), step('browser_read', 'run')],
     })
 
-    const shown = container.querySelectorAll('.tool-step')
-    expect(shown.length).toBe(1)
-    expect(shown[0].textContent).toContain('Read page')
+    expect(container.querySelectorAll('.tool-step').length).toBe(3)
+    // The count is still said — as a line, not as a control. With nothing
+    // hidden there is nothing a fold could promise.
+    expect(container.querySelector('button.phase-head')).toBeNull()
+    expect(container.querySelector('.phase-head')?.textContent).toContain('Used 3 tools')
+    expect(container.querySelector('.tool-box.live-window')).toBeTruthy()
+  })
 
+  // And the other half, unchanged: a turn that is over is a record, and a
+  // record is read by opening it.
+  it('folds the whole list behind the count once the turn is over', async () => {
+    const { container } = render(Chat, {
+      ...baseProps,
+      messages: [{
+        role: 'agent', text: 'done', time: '10:54',
+        parts: [{ kind: 'text', text: 'done' }],
+        steps: [step('web_fetch', 'done'), step('web_fetch', 'done'), step('browser_read', 'done')],
+      }] as any,
+    })
+
+    expect(container.querySelector('.tool-step')).toBeNull()
     // The header is the control, and it is the only one: no summary row above
     // it saying the same thing a second time.
     const toggles = [...container.querySelectorAll('.meta-row .reasoning-toggle')]
@@ -437,6 +457,238 @@ describe('tool timeline collapsing', () => {
     expect(head?.textContent).toContain('Used 3 tools')
     await fireEvent.click(head!)
     expect(container.querySelectorAll('.tool-step').length).toBe(3)
+    // A record is not windowed: the cap is about a thing in motion.
+    expect(container.querySelector('.tool-box.live-window')).toBeNull()
+  })
+
+  // The last call coming back is the signal — not the next sentence, and not
+  // the end of the turn (owner, 7 ก.ย.: "พอมันรัน tool เสร็จ ถึงตัวสุดท้าย ก่อน
+  // จะพูดประโยคถัดไป มันก็พับลงอย่างนุ่มนวล"). The model has said nothing yet
+  // here and the turn is still running.
+  it('folds a stretch of work when its last call comes back, mid-turn', async () => {
+    const working = [
+      { label: 'read a.go', ref: 'call_a', state: 'done', startedAt: 0, secs: 1 },
+      { label: 'read b.go', ref: 'call_b', state: 'run', startedAt: 0 },
+    ]
+    const { container, rerender } = render(Chat, {
+      ...baseProps, awaitingReply: true,
+      messages: [{ role: 'user', text: 'go', time: '10:54' }] as any,
+      toolSteps: working as any,
+    })
+    // One list, no control, while a call is still out.
+    expect(container.querySelector('button.phase-head')).toBeNull()
+
+    // The last one comes back. The model has said nothing yet and the turn is
+    // still running: this alone is the signal.
+    await rerender({
+      toolSteps: [working[0], { ...working[1], state: 'done', secs: 1 }],
+    } as any)
+
+    // Nothing vanished in the frame the result landed: the rows are still
+    // there, still open, and the header has become the control.
+    const head = () => container.querySelector('button.phase-head')
+    expect(head()).toBeTruthy()
+    expect(head()!.getAttribute('aria-expanded')).toBe('true')
+    expect(container.querySelectorAll('.tool-step').length).toBe(2)
+
+    await new Promise((r) => setTimeout(r, 700))
+    await tick()
+    expect(head()!.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  // The half that must never move: a stretch with a call still out is one list,
+  // whole, capped and scrolling, with a line over it rather than a control.
+  it('never folds a stretch that still has a call out', async () => {
+    const { container } = render(Chat, {
+      ...baseProps, awaitingReply: true,
+      messages: [{ role: 'user', text: 'go', time: '10:54' }] as any,
+      toolSteps: [
+        { label: 'read a.go', ref: 'call_a', state: 'done', startedAt: 0, secs: 1 },
+        { label: 'read b.go', ref: 'call_b', state: 'done', startedAt: 0, secs: 1 },
+        { label: 'run go test', ref: 'call_c', state: 'run', startedAt: 0 },
+      ] as any,
+    })
+
+    await new Promise((r) => setTimeout(r, 700))
+    await tick()
+    expect(container.querySelectorAll('.tool-step').length).toBe(3)
+    expect(container.querySelector('button.phase-head')).toBeNull()
+    // The cap he compared to the thinking panel, still on.
+    expect(container.querySelector('.tool-box.live-window')).toBeTruthy()
+  })
+
+  // The view unmounts Chat whole, so opening a file mid-turn and coming back
+  // rebuilds every fold map from nothing. Without a guard the effect met a
+  // stretch that had folded ten seconds earlier, found no record of it, and
+  // played the whole movement again — every single time (owner: "ไปหน้าอื่นแล้ว
+  // กลับมามันจะพับให้ดูอีกรอบ ผมลองแล้วเป็นซ้ำๆ"). The app folds what it watched
+  // arrive, and nothing else.
+  it('does not replay the fold for work that ended before it was mounted', async () => {
+    const done = [
+      { label: 'read a.go', ref: 'call_a', state: 'done', startedAt: 0, secs: 1 },
+      { label: 'read b.go', ref: 'call_b', state: 'done', startedAt: 0, secs: 1 },
+    ]
+    // A remount over a turn already in flight: the rows arrive finished.
+    const { container } = render(Chat, {
+      ...baseProps, awaitingReply: true,
+      messages: [{ role: 'user', text: 'go', time: '10:54' }] as any,
+      toolSteps: done as any,
+    })
+    await tick()
+
+    // Closed and still from the first frame — nothing to hand over, so nothing
+    // is opened in order to be shut again.
+    const head = container.querySelector('button.phase-head')
+    expect(head?.getAttribute('aria-expanded')).toBe('false')
+    expect(container.querySelector('.phase-fold')).toBeNull()
+
+    await new Promise((r) => setTimeout(r, 700))
+    await tick()
+    expect(head?.getAttribute('aria-expanded')).toBe('false')
+    expect(container.querySelector('.phase-fold')).toBeNull()
+  })
+
+  // The other half of that guard: work still in flight on the first frame has
+  // its ending ahead of it, so it is adopted the ordinary way and folds.
+  it('still folds work that was in flight when it was mounted', async () => {
+    const { container, rerender } = render(Chat, {
+      ...baseProps, awaitingReply: true,
+      messages: [{ role: 'user', text: 'go', time: '10:54' }] as any,
+      toolSteps: [{ label: 'read a.go', ref: 'call_a', state: 'run', startedAt: 0 }] as any,
+    })
+    await tick()
+    expect(container.querySelector('button.phase-head')).toBeNull()
+
+    await rerender({
+      toolSteps: [{ label: 'read a.go', ref: 'call_a', state: 'done', startedAt: 0, secs: 1 }],
+    } as any)
+    const head = () => container.querySelector('button.phase-head')
+    expect(head()?.getAttribute('aria-expanded')).toBe('true')
+
+    await new Promise((r) => setTimeout(r, 700))
+    await tick()
+    expect(head()?.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  // A sentence is what opens a phase, so two rounds of tools can arrive under
+  // one. The beat has to be spent asking again, not on the answer it had when
+  // it was armed.
+  it('calls off the fold when the same stretch starts working again', async () => {
+    const quiet = [{ label: 'read a.go', ref: 'call_a', state: 'done', startedAt: 0, secs: 1 }]
+    const { container, rerender } = render(Chat, {
+      ...baseProps, awaitingReply: true,
+      messages: [{ role: 'user', text: 'go', time: '10:54' }] as any,
+      toolSteps: quiet as any,
+    })
+    await rerender({
+      toolSteps: [...quiet, { label: 'read b.go', ref: 'call_b', state: 'run', startedAt: 0 }],
+    } as any)
+
+    await new Promise((r) => setTimeout(r, 700))
+    await tick()
+    expect(container.querySelectorAll('.tool-step').length).toBe(2)
+    expect(container.querySelector('button.phase-head')).toBeNull()
+  })
+
+  // The frame the reply lands used to take the rows with it. They are drawn
+  // outside the fold while the turn runs -- nothing folds mid-turn -- and the
+  // fold they were handed to started closed, so three rows became a count in
+  // one frame with nothing saying where they had gone (owner, 7 ก.ย.: "ตอนมัน
+  // รัน tool เสร็จ มันควรจะพับเก็บอย่างสุภาพ ... ตอนนี้มันแบบ พึ๊บไปเลย").
+  //
+  // So the record inherits the state the live block was in, at the live
+  // window's own height so the handover moves nothing, and shuts itself a beat
+  // later.
+  it('hands the running rows to the fold open, then folds them shut', async () => {
+    const steps = [
+      { label: 'read a.go', ref: 'call_a', state: 'done', startedAt: 0, secs: 1 },
+      { label: 'read b.go', ref: 'call_b', state: 'done', startedAt: 0, secs: 1 },
+    ]
+    // Watched arriving, because that is the only work the app folds.
+    const { container, rerender } = render(Chat, {
+      ...baseProps, awaitingReply: true,
+      messages: [{ role: 'user', text: 'go', time: '10:54' }] as any,
+      toolSteps: [steps[0], { ...steps[1], state: 'run', secs: undefined }] as any,
+    })
+    await rerender({ toolSteps: steps } as any)
+    expect(container.querySelectorAll('.tool-step').length).toBe(2)
+
+    // The turn ends: the live block goes and the finished bubble takes its
+    // place, drawing the same phase.
+    await rerender({
+      awaitingReply: false,
+      toolSteps: [],
+      messages: [
+        { role: 'user', text: 'go', time: '10:54' },
+        { role: 'agent', text: 'done', time: '10:55', parts: [{ kind: 'text', text: 'done' }], steps },
+      ],
+    } as any)
+
+    const head = () => container.querySelector('button.phase-head')
+    expect(head()?.getAttribute('aria-expanded')).toBe('true')
+    expect(container.querySelectorAll('.tool-step').length).toBe(2)
+    // Still at the height it had a frame ago, so the swap moves nothing.
+    expect(container.querySelector('.tool-box.live-window')).toBeTruthy()
+
+    await new Promise((r) => setTimeout(r, 700))
+    await tick()
+    expect(head()?.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  // The beat is the reader's to interrupt. Opening a phase inside it used to be
+  // undone a moment later by a timer armed before the click.
+  it('leaves a phase alone once the reader has touched it', async () => {
+    const steps = [{ label: 'read a.go', ref: 'call_a', state: 'done', startedAt: 0, secs: 1 }]
+    const { container, rerender } = render(Chat, {
+      ...baseProps, awaitingReply: true,
+      messages: [{ role: 'user', text: 'go', time: '10:54' }] as any,
+      toolSteps: [{ label: 'read a.go', ref: 'call_a', state: 'run', startedAt: 0 }] as any,
+    })
+    await rerender({ toolSteps: steps } as any)
+    await rerender({
+      awaitingReply: false,
+      toolSteps: [],
+      messages: [
+        { role: 'user', text: 'go', time: '10:54' },
+        { role: 'agent', text: 'done', time: '10:55', parts: [{ kind: 'text', text: 'done' }], steps },
+      ],
+    } as any)
+
+    // Shut it by hand, then open it again -- both inside the beat.
+    const head = container.querySelector('button.phase-head')!
+    await fireEvent.click(head)
+    await fireEvent.click(head)
+    expect(head.getAttribute('aria-expanded')).toBe('true')
+
+    await new Promise((r) => setTimeout(r, 700))
+    await tick()
+    expect(head.getAttribute('aria-expanded')).toBe('true')
+    // And it is the full list now, not the running turn's window.
+    expect(container.querySelector('.tool-box.live-window')).toBeNull()
+  })
+
+  // The fold is keyed on the engine's own call id rather than on where the
+  // phase happens to be drawn. Keyed by position it belonged to a slot instead
+  // of to a phase, so the live block and the finished bubble were two different
+  // keys for one stretch of work — everything the reader opened during a turn
+  // shut itself the instant the reply landed.
+  it('keeps a fold with its own phase when the transcript shifts', async () => {
+    const agentMsg = (text: string, ref: string) => ({
+      role: 'agent', text, time: '10:54',
+      parts: [{ kind: 'text', text }],
+      steps: [{ label: 'read a.go', ref, state: 'done', startedAt: 0, secs: 1 }],
+    })
+    const { container, rerender } = render(Chat, {
+      ...baseProps,
+      messages: [agentMsg('first', 'call_a')] as any,
+    })
+    await fireEvent.click(container.querySelector('button.phase-head')!)
+    expect(container.querySelectorAll('.tool-step').length).toBe(1)
+
+    // A newer turn arrives in front of it: index 0 is somebody else's phase now.
+    await rerender({ messages: [agentMsg('newer', 'call_b'), agentMsg('first', 'call_a')] } as any)
+    const heads = [...container.querySelectorAll('button.phase-head')]
+    expect(heads.map((h) => h.getAttribute('aria-expanded'))).toEqual(['false', 'true'])
   })
 
   // Each number next to the thing it is about. The first version put both on
@@ -451,7 +703,7 @@ describe('tool timeline collapsing', () => {
       toolSteps: [
         { kind: 'thinking', label: '', secs: 8, state: 'done', startedAt: 0 },
         { kind: 'note', label: 'ขั้นที่ 1 เก็บข้อมูลดิบก่อน', state: 'done', startedAt: 0 },
-        step('shell', 'done'),
+        step('shell', 'run'),
       ] as any,
     })
 
@@ -461,14 +713,20 @@ describe('tool timeline collapsing', () => {
       .filter(Boolean)
     expect(order).toEqual(['phase-think', 'phase-say', 'phase-head'])
     expect(phase.querySelector('.phase-think')?.textContent).toContain('8')
-    // And the thinking is a line, not a second control: one fold per phase, and
-    // it promises only what sits under it.
-    expect(phase.querySelectorAll('button').length).toBe(1)
+    // And the thinking is a line, never a control: what it would open is the
+    // reasoning text, which is one blob for the whole turn and belongs to no
+    // single stretch. The work line under the prose is a line too for as long
+    // as the stretch has a call out — which is why one is still running here.
+    expect(phase.querySelectorAll('button').length).toBe(0)
   })
 
   // The half a person can lose work over. A delegate runs for minutes while the
-  // agent narrates on, and a fold must never be able to take it off the screen.
-  it('never folds a delegation that is still working', async () => {
+  // agent narrates on, and nothing may take it off the screen — not even now
+  // that the agent's OWN rows fold as soon as its last call comes back. The two
+  // are different things: a tool row is a receipt and folds into a count, a
+  // delegation is somebody else's work with a face on it, and "ซับเอเจน 1 ตัว"
+  // cannot stand in for that.
+  it('never folds a delegation that is still working', () => {
     cockpit.backgroundTasks = []
     const { container } = render(Chat, {
       ...baseProps, awaitingReply: true,
@@ -480,12 +738,31 @@ describe('tool timeline collapsing', () => {
     })
 
     expect(container.querySelector('.bgw-card')).toBeTruthy()
-    // Folded shut, and the card is still there: it was never inside the fold.
-    const head = container.querySelector('button.phase-head')
-    expect(head?.getAttribute('aria-expanded')).toBe('false')
-    await fireEvent.click(head!)
-    await fireEvent.click(head!)
+    // The agent's own finished read may fold; the card may not go in with it.
+    expect(container.querySelector('.phase-fold .bgw-card')).toBeNull()
+  })
+
+  // And the one the owner actually reported: the moment a delegate's report is
+  // the thing to read was the moment its card left the screen for the collapsed
+  // count above it (7 ก.ย.: "แล้วซับเอเจน จะไม่พับเองหลังจากทำงานเสร็จ"). It
+  // stays for the rest of the turn now, and past the beat that folds the
+  // agent's own rows away.
+  it('keeps a delegation that has finished on screen for the rest of the turn', () => {
+    cockpit.backgroundTasks = [{
+      id: 'task_7', agent: 'ผู้ช่วยค้นหา', label: 'หาไฟล์', startedAt: new Date().toISOString(),
+      toolCalls: 2, tokens: 0, tokensIn: 0, tokensOut: 0, cachedIn: 0, cacheReported: false,
+      state: 'done', elapsedMs: 4_000, collected: true,
+    }] as any
+    const { container } = render(Chat, {
+      ...baseProps, awaitingReply: true,
+      messages: [{ role: 'user', text: 'go', time: '10:54' }] as any,
+      toolSteps: [
+        { label: 'task start', ref: 'call_7', task: 'task_7', delegation: true, agent: 'ผู้ช่วยค้นหา', state: 'done', startedAt: 0 },
+      ] as any,
+    })
+
     expect(container.querySelector('.bgw-card')).toBeTruthy()
+    expect(container.querySelector('button.phase-head')).toBeNull()
   })
 })
 
@@ -675,11 +952,14 @@ describe('sub-agent tool events', () => {
 
     const block = container.querySelector('.bgw-card')
     expect(block).toBeTruthy()
-    // The rows sit behind the card's own door now — the headline is what a
-    // running delegate shows without being asked.
-    await fireEvent.click(block!.querySelector('.bgw-open') as HTMLElement)
+    // The rows are the default for a delegate that is working — no click. With
+    // them on screen the headline names the JOB rather than repeating the newest
+    // row three lines above itself, which is what the separate job line under it
+    // used to be for and why it is dropped here.
+    expect(block?.querySelector('.bgw-open')?.getAttribute('aria-expanded')).toBe('true')
     expect(block?.querySelector('.bgw-agent')?.textContent).toContain('explore')
-    expect(block?.querySelector('.bgw-brief')?.textContent).toContain('find every caller')
+    expect(block?.textContent).toContain('find every caller')
+    expect(block?.querySelector('.bgw-brief')).toBeNull()
     expect(block?.querySelector('.bgw-longbrief')?.textContent).toContain('callers of Resolve')
     // The delegate's tools live inside the block, not in the agent's own list.
     expect(block?.querySelectorAll('.bgw-steps .tool-step').length).toBe(2)
@@ -1053,6 +1333,15 @@ describe('sub-agent tool events', () => {
     expect(hits[1].querySelector('.was-read')).toBeNull()
     expect(card?.querySelector('.search-foot')?.textContent)
       .toContain('3 results · 1 read in full · 2s')
+
+    // One click, one tab. The row opens its own tab and the chat's link
+    // handler met the same anchor on the way up and opened it again — two
+    // tabs on one page from a single click (7 ก.ย.).
+    workbench.tabs.length = 0
+    ;(hits[1] as HTMLElement).click()
+    await tick()
+    const opened = workbench.tabs.filter((t) => t.kind === 'browser')
+    expect(opened.map((t) => t.url)).toEqual(['https://www.go.dev/blog/go1.24'])
   })
 
   // Opening one panel closes the other, and each shows only its own kind.

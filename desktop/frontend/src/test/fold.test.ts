@@ -6,7 +6,7 @@
 // ignored it would be the one animation in the app that keeps moving after the
 // user asked everything to stop.
 import { describe, it, expect, afterEach } from 'vitest'
-import { fold } from '../lib/fold'
+import { fold, settle, SETTLE_MS } from '../lib/fold'
 
 const el = () => document.createElement('div')
 const withMotionSetting = (reduce: boolean) => {
@@ -31,6 +31,17 @@ describe('the folding transition', () => {
     expect(fold(el()).duration).toBe(0)
   })
 
+  // The one thing a delay is for here: staging an arrival in two beats. It
+  // rides on this transition rather than on a timer of its own so the guard
+  // above covers it too — asked to stop moving, the app must not answer with a
+  // pause instead.
+  it('can hold an arrival back a beat, and never once motion is unwelcome', () => {
+    withMotionSetting(false)
+    expect(fold(el(), { delay: 260 }).delay).toBe(260)
+    withMotionSetting(true)
+    expect(fold(el(), { delay: 260 }).delay).toBe(0)
+  })
+
   // Read per call, not captured at module load: the setting can change while
   // the app is open, and a value read once would need a restart to take effect.
   it('reads the setting again rather than remembering the first answer', () => {
@@ -50,5 +61,59 @@ describe('the folding transition', () => {
   it('lets a caller ask for a different length', () => {
     withMotionSetting(false)
     expect(fold(el(), { duration: 90 }).duration).toBe(90)
+  })
+
+})
+
+// The slower one, for the single movement the owner asked to be able to watch:
+// a stretch of work folding away once its last call has come back.
+describe('the settling fold', () => {
+  const tall = () => {
+    const node = el()
+    Object.defineProperty(node, 'offsetHeight', { value: 120, configurable: true })
+    return node
+  }
+
+  // Twice a fold's length, on purpose. Four rounds of "ค่อยๆ ดุนุ่มๆ" ended
+  // here, and a duration that drifts back towards fold's is the regression.
+  it('takes longer than a fold, and lets a caller say how much longer', () => {
+    withMotionSetting(false)
+    expect(settle(tall()).duration).toBe(SETTLE_MS)
+    expect(SETTLE_MS).toBeGreaterThan(fold(el()).duration as number)
+    expect(settle(tall(), { duration: 0 }).duration).toBe(0)
+  })
+
+  // The two things that make it read as gentle rather than merely slow: it
+  // fades as it shrinks, so the last rows LEAVE instead of being trimmed off
+  // against the row below, and it is eased at both ends.
+  it('fades as it shrinks, and eases at both ends', () => {
+    withMotionSetting(false)
+    const t = settle(tall())
+    expect(t.css!(1)).toContain('opacity:1')
+    expect(t.css!(0)).toContain('opacity:0')
+    // cubicInOut: slow away from both ends, which cubicOut is not.
+    expect(t.easing!(0.5)).toBeCloseTo(0.5, 5)
+    expect(t.easing!(0.1)).toBeLessThan(0.1)
+    expect(t.easing!(0.9)).toBeGreaterThan(0.9)
+  })
+
+  // A gap belongs to the container, not to the block folding inside it, so it
+  // stays whole for as long as the child exists: without this the height
+  // reaches zero and THEN the gap goes, in one frame — the jump the whole
+  // movement was slowed down to remove.
+  it('unwinds the container gap along with the height', () => {
+    withMotionSetting(false)
+    const css = settle(tall(), { gap: 8 }).css!
+    expect(css(1)).toContain('height:120px')
+    expect(css(1)).toContain('margin-bottom:0px')
+    expect(css(0)).toContain('height:0px')
+    expect(css(0)).toContain('margin-bottom:-8px')
+  })
+
+  // The guard covers the second transition too, which is exactly where a rule
+  // gets left behind.
+  it('collapses to no time at all when motion is unwelcome', () => {
+    withMotionSetting(true)
+    expect(settle(tall()).duration).toBe(0)
   })
 })

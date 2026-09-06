@@ -4,15 +4,17 @@
   import { phasesOf, type TurnPhase } from './turnPhases'
   import { pacedStream, pacedText } from './streamPace'
   import { toolGlide } from './toolGlide'
+  import { toolWindow } from './toolWindow'
+  import { typeOnce, HANDOVER_LEAD_MS } from './typeOnce'
   import { toolFamily, toolIcon, toolVerbKey, toolFallbackVerb, toolSubject, toolServer, serverSlot, splitSubject, linkDomain, linkInitials } from './toolFace'
-  import { fold, unroll } from './fold'
+  import { fold, unroll, settle, SETTLE_MS, motionStill } from './fold'
   import TaskTimeline from './TaskTimeline.svelte'
   import BackgroundWork from './BackgroundWork.svelte'
   import Palette from './Palette.svelte'
   import Logo from './Logo.svelte'
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
   import AgentFace from './AgentFace.svelte'
-  import { faceOf } from './agentFace'
+  import { faceOf, type FaceState } from './agentFace'
   import { shell } from './shell.svelte'
   import {
     EnabledProviders, SupportedThinkLevels,
@@ -145,7 +147,11 @@
     if (now && !wasAwaiting) {
       livePanel = 'think'
       thinkPinned = true
+      // Whatever the last turn left mid-landing is over, one way or the other.
+      settleLanded(true)
     }
+    // The turn is finished: what was live is a record now, and a record folds.
+    if (!now && wasAwaiting) settleLanded()
     wasAwaiting = now
   })
 
@@ -438,14 +444,161 @@
     return bits.join(' · ')
   }
 
-  // Which phases the reader has opened. Closed is the default and there is no
-  // exception to it, because there is nothing a fold can hide that matters:
-  // only finished work folds, and what is still running is drawn outside it.
+  // Which phases the reader has opened. Closed is the default for a turn read
+  // back out of the transcript, and there is nothing a fold can hide that
+  // matters there: only finished work folds, and what is still running is drawn
+  // outside it. The one exception is the turn that has just ended in front of
+  // them, which arrives open and shuts itself — see `landing` below.
   //
   // Keyed by message and phase rather than by phase alone, for the reason
   // openDiffs is keyed per row: a person who opened the second stretch is
   // reading the second stretch, and the next turn must not shut it.
   let openRows = $state<Record<string, boolean>>({})
+
+  // The phases the APP has open rather than the reader — the ones that were
+  // live a moment ago and are on their way shut.
+  //
+  // Nothing folds while a turn runs: its rows are drawn outside the fold, and
+  // the fold does not exist until the turn is over. So the frame the reply
+  // lands is a handover between two different elements drawing the same work,
+  // and with `openRows` at its default the second one drew nothing — three
+  // rows, then a count where they had been, in one frame (owner, 7 ก.ย.: "ตอน
+  // มันรัน tool เสร็จ มันควรจะพับเก็บอย่างสุภาพ แบบค่อยๆ นุ่มๆ ... ตอนนี้มันแบบ
+  // พึ๊บไปเลย").
+  //
+  // A key on this list says three things at once: draw the phase open, draw it
+  // at the live window's own height so the handover moves nothing, and skip the
+  // fold's intro — the rows are not arriving, they were on screen already. A
+  // click on the header takes the phase off the list, and from that moment the
+  // fold belongs to the reader.
+  let landing = $state<Record<string, boolean>>({})
+  // Which keys this turn has seeded. A plain Set rather than state read back out
+  // of `openRows`, so the effect below only ever WRITES the things it changes:
+  // an effect that reads the state it writes is the shape that re-runs itself.
+  const seededPhases = new Set<string>()
+  // Whether this component has drawn a frame yet.
+  //
+  // The view unmounts Chat whole (`activeView === 'chat'` in App.svelte), so
+  // opening a file mid-turn and coming back builds every one of these maps from
+  // nothing — and without this the effect below met a stretch that had folded
+  // ten seconds ago, found no record of it, and played the whole movement again
+  // (owner: "ไปหน้าอื่นแล้วกลับมามันจะพับให้ดูอีกรอบ ผมลองแล้วเป็นซ้ำๆ").
+  //
+  // The rule it buys is the honest one: THE APP ONLY FOLDS WHAT IT WATCHED
+  // ARRIVE. Work that was already over when this component first opened its
+  // eyes has no handover to make — it is a record, and it is drawn as one,
+  // closed and still. Work still in flight on that first frame is adopted the
+  // ordinary way, because its ending is still ahead of us.
+  let drawnOnce = false
+  // And which of them have already been handed to a timer. The effect below
+  // runs on every event the turn produces, and arming one fold twice would shut
+  // a phase the reader had re-opened in between.
+  const armed = new Set<string>()
+  // The beat between a stretch of work closing and its rows folding away. It is
+  // the owner's own request over these rows (7 ก.ย.: "ทำให้มีดีเลย์ก่อนพับ
+  // นิดนึงได้ไหม"): before it, a call that came back in half a second was
+  // on screen for a single frame.
+  const LANDING_HOLD_MS = 480
+
+  // Seeded while the phase is still LIVE, not when it closes, and that is the
+  // whole trick: the state has to be true BEFORE the fold draws for the first
+  // time, or the rows blink out for a frame and back in. The key already
+  // survives the handover from the live block to the finished bubble
+  // (phaseKey), so in the turn-end case this is setting state for an element
+  // that does not exist yet.
+  //
+  // A phase with no call id of its own is skipped: its key changes at that
+  // handover, so there is nothing to hand over to.
+  $effect(() => {
+    const first = !drawnOnce
+    drawnOnce = true
+    for (const ph of livePhases) {
+      const key = phaseKey(ph, '')
+      const tools = ownTools(ph.steps)
+      if (!key || !tools.length) continue
+      const running = tools.some((s) => s.state === 'run')
+      if (!seededPhases.has(key)) {
+        seededPhases.add(key)
+        // Seen for the first time on the first frame AND already finished: this
+        // is a remount over work that ended while we were on another page. Note
+        // it as known and leave it closed — see `drawnOnce`.
+        if (!first || running) {
+          openRows[key] = true
+          landing[key] = true
+        }
+      }
+      // THE LAST CALL COMING BACK IS THE SIGNAL, not the next sentence
+      // arriving (owner, 7 ก.ย.: "พอมันรัน tool เสร็จ ถึงตัวสุดท้าย ก่อนจะพูด
+      // ประโยคถัดไป มันก็พับลงอย่างนุ่มนวล"). Waiting for the sentence put the
+      // fold a whole round behind the thing it is about — the model can think
+      // for a minute between the two, and the rows sat there finished for all
+      // of it. Quiet is the honest end of a stretch of work; the sentence is
+      // just the next thing to read.
+      if (running) armed.delete(key)
+      else settlePhase(key)
+    }
+  })
+
+  // Shuts one phase, a beat after it stopped being the stretch the turn is in.
+  //
+  // `landing` is cleared only once the movement is over, never when it starts:
+  // the flag is also what holds the box at the live window's height, and losing
+  // it mid-fold would let the list spring to full size on its way out.
+  //
+  // `now` spends the beat, and the turn ending is what spends it: there is no
+  // next sentence arriving over these rows, so there is nothing to wait for.
+  function settlePhase(key: string, now = false) {
+    if (armed.has(key) || !landing[key]) return
+    armed.add(key)
+    const still = motionStill()
+    window.setTimeout(() => {
+      armed.delete(key)
+      // Two ways the beat can be spent for nothing, and both have to be asked
+      // at the END of it rather than the start. The reader may have clicked the
+      // header, which hands the fold to them for good; and the same stretch may
+      // have started another call, because a sentence is what opens a phase and
+      // two rounds of tools can arrive under one.
+      if (!landing[key] || phaseWorking(key)) return
+      openRows[key] = false
+      window.setTimeout(() => { delete landing[key] }, still ? 0 : SETTLE_MS)
+    }, now || still ? 0 : LANDING_HOLD_MS)
+  }
+
+  // Whether the stretch behind a key still has a call out. Asked of the live
+  // list, which is the only place a running row can be.
+  function phaseWorking(key: string): boolean {
+    return livePhases.some(
+      (ph) => phaseKey(ph, '') === key && ownTools(ph.steps).some((s) => s.state === 'run'),
+    )
+  }
+
+  // The turn ended, so the stretch it was in closed with it — the one phase the
+  // effect above always leaves open, and the only one still to settle.
+  function settleLanded(now = false) {
+    for (const key of seededPhases) settlePhase(key, now)
+    seededPhases.clear()
+  }
+
+  // A click hands the fold back to the reader for good.
+  function togglePhase(key: string, open: boolean) {
+    delete landing[key]
+    openRows[key] = !open
+  }
+
+  // Which phase this is, asked in terms that do not change when the turn ends.
+  //
+  // The live block and the finished bubble are two different elements drawing
+  // the same phase, so a key built from where it is drawn is a different key on
+  // either side of that handover — `live:0` while it ran, `3:0` a frame later.
+  // Everything the reader had opened during the turn shut itself the instant
+  // the reply landed, which reads as the window losing its place rather than as
+  // a fold. The engine's own call id is the same id in both halves, so it is
+  // the key; the position stays as the fallback for a phase that ran nothing,
+  // which has no fold to remember either way.
+  function phaseKey(ph: TurnPhase, fallback: string): string {
+    const ref = ph.steps.find((s) => s.ref)?.ref
+    return ref ? `ph:${ref}` : fallback
+  }
 
   // One label builder for both piles — same shape, different word and count.
   function delegationLabel(nodes: TimelineNode[], key: 'chat.usedAgents' | 'chat.usedSubagents' | 'chat.usedDelegations'): string {
@@ -2938,6 +3091,17 @@
       <span class="q">“{s.subject ?? ''}”</span>
       <span class="n">{t('chat.gotResults', { n: links.length })}</span>
     </div>
+    <!-- A wall, the same one the thinking panel and the tool list already have.
+         A search that comes back with twenty results is the longest single
+         thing a row can put on screen, and it was the last list in the app with
+         no cap on it: the card pushed the answer a screen and a half down for
+         work the reader had not asked to read in full (owner, 7 ก.ย.: "ชั้นย่อย
+         นี้ก็ควรจะมีกำแพง เหมือนตอนคิด").
+         `follow: false` is the one difference from the lists above it: those
+         are being written to and the newest line is the one to see, while all
+         eight of these existed in the same millisecond and the first is the
+         best. It stays at the top and is scrolled DOWN into. -->
+    <div class="search-hits" use:toolWindow={{ follow: false }}>
     {#each links as link, i}
       <!-- The stagger is the card ARRIVING, and it is worth being exact about
            what it is not. `web_search` is one HTTP round trip whose results are
@@ -3090,11 +3254,17 @@
   </span>
 {/snippet}
 
-{#snippet toolTimeline(steps: ToolStep[], live: boolean)}
+<!-- `windowed` is the live list's cap, and only the live list's: a turn in
+     flight keeps every call it has made on screen (nothing folds mid-turn any
+     more), so without it the block grows for as long as the model keeps
+     working. Opened tomorrow the same list is the whole record, at whatever
+     height it needs — the cap is about a thing in motion, which is the same
+     line .reasoning-body.live draws. -->
+{#snippet toolTimeline(steps: ToolStep[], live: boolean, windowed: boolean)}
   <!-- toolGlide adds the block that travels to whichever row is live. On a
        finished timeline read back from the store there is no live row, so it
        measures once, finds nothing, and stays out of the way. -->
-  <div class="tool-steps" use:toolGlide>
+  <div class="tool-steps tool-box" class:live-window={windowed} use:toolGlide use:toolWindow={windowed}>
     {#each steps as s}
       {@render toolRow(s, live)}
     {/each}
@@ -3119,11 +3289,42 @@
        row's (cardState / isRunningNode) — a `task` row calls itself done the
        instant its worker is spawned, and folding on that would hide a delegate
        on its twenty-seventh call. -->
-  {@const runSubs = subs.filter((n) => isRunningNode(n))}
-  {@const doneSubs = subs.filter((n) => !isRunningNode(n))}
   {@const runOwn = own.filter((s) => s.state === 'run')}
   {@const doneOwn = own.filter((s) => s.state !== 'run')}
-  {@const foldable = doneOwn.length > 0 || doneSubs.length > 0}
+  <!-- A STRETCH OF WORK FOLDS WHEN ITS LAST CALL COMES BACK, and not before.
+       While any of them is out, the whole list is on screen and outside the
+       fold — every call it has made, at the height the owner dialled, inside a
+       window that scrolls (the same thing .reasoning-body.live is, which is
+       what he compared it to: "เหมือนช่องคิดอ่ะ"). The header over it is a line
+       and not a control, because a list with something moving in it must never
+       be one click from being hidden.
+
+       The rule was "fold what has finished" once, per row, and it folded a call
+       away in the frame its result landed: a skill that answered in half a
+       second was on screen for a single frame, and a delegate that had just
+       come back took its card with it (owner, 7 ก.ย.: "แล้วซับเอเจนจะไม่พับเอง
+       หลังจากทำงานเสร็จ"). Then it was "fold nothing until the turn ends",
+       which held a whole turn's history open and made the ending one big
+       disappearance; then "fold when the next sentence arrives", which put the
+       movement a round late — a model can think for a minute between its last
+       result and its next word, and the finished rows sat there for all of it.
+
+       The stretch going quiet is the honest end of it, and it is the one the
+       owner has been describing all along: "พอมันรัน tool เสร็จ ถึงตัวสุดท้าย
+       ก่อนจะพูดประโยคถัดไป มันก็พับลงอย่างนุ่มนวล". A DELEGATION still folds at
+       none of these moments (shownSubs), which has never been in question. -->
+  {@const working = live && runOwn.length > 0}
+  {@const shownOwn = working ? own : runOwn}
+  <!-- A DELEGATION IS NEVER FOLDED, running or finished, live turn or one read
+       back a week later. A tool row is a thing the agent did and folds into a
+       count the way a receipt does; a delegation is somebody else's work, with
+       a face on it and a brief it was handed, and the count "ซับเอเจน 2 ตัว"
+       cannot stand in for that — it names how many, which is the least
+       interesting fact about them (owner, 7 ก.ย.: "ตอนมันทำงานแม้ตอนงานเสร็จ
+       ซับเอเจนไม่ควรพับ"). The fold is for the agent's own rows now, and only
+       those. -->
+  {@const shownSubs = subs}
+  {@const foldable = !working && doneOwn.length > 0}
   {@const open = openRows[key] ?? false}
   <div class="phase">
     <!-- Above the sentence, because it happened before the sentence. It is a
@@ -3162,12 +3363,17 @@
          separate "N more rows" row underneath was the first version and put
          the count in two places. -->
     {#if workLine && foldable}
-      <button type="button" class="phase-head" aria-expanded={open} onclick={() => (openRows[key] = !open)}>
+      <button type="button" class="phase-head" aria-expanded={open} onclick={() => togglePhase(key, open)}>
         <span class="chev"><Icon name={open ? 'chevronDown' : 'chevronRight'} size={12} /></span>
         {workLine}
       </button>
     {:else if workLine}
-      <div class="phase-head">{workLine}</div>
+      <!-- The caret's SLOT is kept where there is no caret. A live phase has
+           nothing to open and drawing one would be a promise it cannot keep —
+           but the same phase grows one the instant the turn ends, and without
+           the slot the line jumps 18px right at exactly the handover the fold
+           below it exists to make gentle. -->
+      <div class="phase-head"><span class="chev-slot" aria-hidden="true"></span>{workLine}</div>
     {/if}
     <!-- What has finished folds. What is still going never does.
          (owner, 29 ส.ค.: "ตอนอัปเดต UI ไปลืมคิดถึงตอนซับเอเจนหรือเอเจนกำลังทำงาน")
@@ -3178,21 +3384,34 @@
          it and buried a delegate that was still working, in the one product
          where a delegate can work for twenty minutes. A fold is for what is
          over. Nothing that is moving is ever a click away from being hidden. -->
-    {#if open}
-      {#if doneOwn.length}
-        {@render toolTimeline(doneOwn, live)}
-      {/if}
-      {#if doneSubs.length}
-        {@render subagentTimeline(doneSubs, live)}
-      {/if}
+    {#if foldable && open}
+      <!-- `settle` rather than `fold`: this is the one movement in the app the
+           owner asked to be able to WATCH, and fold.ts carries the three ways
+           it differs. It rides a wrapper rather than the box, because the box
+           is also the scrolling window (.tool-box.live-window) and a height
+           animation cannot share an element with an overflow that owns one.
+           The 8px is .phase's own gap.
+
+           `in:`/`out:` rather than one `transition:`, because the two ends are
+           not the same event. A phase that was working a frame ago has its rows
+           on screen already and must arrive with no movement at all — the list
+           it is taking over from is drawn by the block below, and two boxes
+           unfolding past each other is not a handover. Everything else — a
+           click, a stretch that starts working again after it folded — gets the
+           movement. -->
+      <div class="phase-fold" in:settle={{ duration: landing[key] ? 0 : SETTLE_MS, gap: 8 }} out:settle={{ gap: 8 }}>
+        {@render toolTimeline(doneOwn, live, landing[key] ?? false)}
+      </div>
     {/if}
     <!-- Delegations first, as they have always been drawn: a sub-agent is the
-         slowest thing in a turn and the one the user most wants to see move. -->
-    {#if runSubs.length}
-      {@render subagentTimeline(runSubs, live)}
+         slowest thing in a turn and the one the user most wants to see move.
+         Uncapped, unlike the rows: a card is what the user is watching, and a
+         card inside a scroll window is a card you have to go looking for. -->
+    {#if shownSubs.length}
+      {@render subagentTimeline(shownSubs, live)}
     {/if}
-    {#if runOwn.length}
-      {@render toolTimeline(runOwn, live)}
+    {#if shownOwn.length}
+      {@render toolTimeline(shownOwn, live, live)}
     {/if}
   </div>
 {/snippet}
@@ -3398,10 +3617,45 @@
               <!-- Both ways, here: the user's own click on the toggle deserves
                    the same fold the finish gets, or the control feels like a
                    different mechanism from the thing it controls. -->
-              <div class="bgw-steps" transition:fold>
-                {#each node.children as child}
-                  {@render toolRow(child, live)}
-                {/each}
+              <!-- The same box, and the same window, as the agent's own list
+                   above it. A delegate is the one worker here that can run for
+                   twenty minutes, so its list is the one that grows longest and
+                   was the only one still growing without a cap.
+                   `state === 'run'` rather than `live`: a delegation outlives
+                   the turn that started it (§44.11), and a list that is still
+                   being written to is a thing in motion whichever turn happens
+                   to be on screen. Stopped, it is a record and shows whole —
+                   the line .reasoning-body.live has always drawn. -->
+              <div
+                class="bgw-work"
+                class:live-window={state === 'run'}
+                use:toolWindow={state === 'run'}
+                transition:fold
+              >
+                <!-- The delegate's turn, drawn the way a turn is drawn.
+                     A flat row list was what this used to be, so a worker's own
+                     narration arrived as a 12px muted line in a panel — the
+                     exact demotion §59 removed from the main transcript and
+                     then left in place one level down (owner, 7 ก.ย.: "มันควร
+                     แสดงเหมือนตอนแชทปกติเลย ข้างในกล่องการทำงานของเอเจนอ่ะ").
+                     Same `phasesOf`, same markdown, same rows: a sub-agent's
+                     work is a turn, and there is no altitude at which that
+                     stops being true. Inside the one box rather than a box per
+                     stretch, because the cap and the scrolling window belong to
+                     the card as a whole. -->
+              <!-- THE SAME BLOCKS THE TRANSCRIPT DRAWS, one level in. Not a
+                   parallel markup that resembles them — `phaseBlock` itself
+                   (owner, 7 ก.ย.: "ซับเอเจนอ่ะให้มันแสดง UI เหมือนแชททั่วไปเลย
+                   แค่เข้าไปอยู่ในบล็อคของเอเจน").
+                   Two hand-written versions of this had already drifted from
+                   the original in three ways each — the prose inside the box,
+                   its own size, its own gutter — and each was a separate round
+                   of him pointing at a screenshot. A worker's turn IS a turn;
+                   there is no altitude at which it stops being one.
+                   `ownWork` is why this needs a step at all: see it. -->
+              {#each phasesOf(ownWork(node)) as ph, p}
+                {@render phaseBlock(ph, phaseKey(ph, `${stepsKey(node)}:${p}`), state === 'run')}
+              {/each}
               </div>
             {/if}
           {/if}
@@ -3544,7 +3798,7 @@
                 {/if}
               {/if}
               {#each phasesOf(m.steps ?? []) as ph, p}
-                {@render phaseBlock(ph, `${i}:${p}`, false)}
+                {@render phaseBlock(ph, phaseKey(ph, `${i}:${p}`), false)}
               {/each}
               {#if m.ending}
                 <!-- How the turn ended, under the last thing the model said.
@@ -3935,7 +4189,7 @@
                  being judged stranded by a turn that has not ended (cardState
                  skips that check only while live). -->
             {#each livePhases as ph, p}
-              {@render phaseBlock(ph, `live:${p}`, true)}
+              {@render phaseBlock(ph, phaseKey(ph, `live:${p}`), true)}
             {/each}
             {#if cockpit.ask}
               <div class="ask-panel">

@@ -110,6 +110,7 @@ const baseProps = {
   onSwitchProvider: async () => {},
   onSwitchThinkLevel: async () => {},
   onSwitchModel: async () => {},
+  onCancelPendingModel: async () => {},
   onSubmitAPIKey: async () => {},
   model: { provider: 'ollama', modelName: 'gemma4:31b', thinkLevel: 'high', approval: 'ask', wireFormat: '' } as any,
 }
@@ -260,5 +261,129 @@ describe('the delegation card in the transcript', () => {
   it('says nothing about spend before the first round comes back', () => {
     const { container } = render(Chat, { ...baseProps, toolSteps: [delegation] } as any)
     expect(container.querySelector('.bgw-card .bgw-meta')).toBeNull()
+  })
+})
+
+// The one list in the app that had no cap on it, which is exactly backwards: a
+// delegate is the worker that can run for twenty minutes, so its list is the
+// one that grows longest. Same window the thinking panel has had since it had
+// the same problem — capped and scrolling while it is being written to, whole
+// once it is a record.
+describe('the delegate’s own tool list', () => {
+  const withChildren = [
+    delegation,
+    { label: 'read a.go', parent: 'call_1', task: 'task_1', state: 'done', startedAt: 0, secs: 1 },
+    { label: 'read b.go', parent: 'call_1', task: 'task_1', state: 'run', startedAt: 0 },
+  ]
+
+  it('caps itself while the delegate is still working', async () => {
+    const { container } = render(Chat, { ...baseProps, toolSteps: withChildren } as any)
+    await fireEvent.click(container.querySelector('.bgw-open') as HTMLElement)
+    expect(container.querySelector('.bgw-steps.tool-box.live-window')).toBeTruthy()
+  })
+
+  // Read off `state`, not off which turn is on screen: a delegation outlives
+  // the turn that started it, and a stopped one is a record wherever it sits.
+  it('shows itself whole once the delegate has stopped', async () => {
+    cockpit.backgroundTasks = [registered({ state: 'done', elapsedMs: 9_000 })]
+    const { container } = render(Chat, { ...baseProps, toolSteps: withChildren } as any)
+    await fireEvent.click(container.querySelector('.bgw-open') as HTMLElement)
+    expect(container.querySelector('.bgw-steps.tool-box')).toBeTruthy()
+    expect(container.querySelector('.bgw-steps.live-window')).toBeNull()
+  })
+})
+
+// A tool row is a thing the agent did, and folds into a count the way a receipt
+// does. A delegation is somebody ELSE'S work — a face, and a brief they were
+// handed — and "ซับเอเจน 2 ตัว" cannot stand in for that: it names how many,
+// which is the least interesting fact about them. So the fold is the agent's
+// own rows and only those, on a live turn and on one read back a week later.
+describe('a delegation is never folded', () => {
+  const storedTurn = {
+    role: 'agent', text: 'ok', time: '10:54',
+    parts: [{ kind: 'text', text: 'ok' }],
+    steps: [
+      { label: 'read a.go', ref: 'call_0', state: 'done', startedAt: 0, secs: 1 },
+      { ...delegation, state: 'done' },
+    ],
+  }
+
+  it('is on screen the moment a finished turn is drawn, with nothing to click', () => {
+    cockpit.backgroundTasks = []
+    const { container } = render(Chat, { ...baseProps, awaitingReply: false, messages: [storedTurn] } as any)
+
+    expect(container.querySelector('.bgw-card')).toBeTruthy()
+    // The agent's own row is still behind the count — that half is unchanged.
+    expect(container.querySelector('.tool-step')).toBeNull()
+    expect(container.querySelector('button.phase-head')?.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('stays on screen when the reader closes the fold again', async () => {
+    cockpit.backgroundTasks = []
+    const { container } = render(Chat, { ...baseProps, awaitingReply: false, messages: [storedTurn] } as any)
+    const head = container.querySelector('button.phase-head') as HTMLElement
+
+    await fireEvent.click(head)
+    expect(container.querySelectorAll('.tool-step').length).toBe(1)
+    expect(container.querySelector('.bgw-card')).toBeTruthy()
+    await fireEvent.click(head)
+    expect(container.querySelector('.tool-step')).toBeNull()
+    expect(container.querySelector('.bgw-card')).toBeTruthy()
+  })
+})
+
+// The agent sitting and waiting on somebody else. A real call, and not work:
+// what it redeems has its own card, its own face and its own clock right below
+// it, so once it comes back the row is the card said twice and a count pushed
+// up by one.
+describe('the row that waits for a delegate', () => {
+  // `delegation: false` is what the engine sends: only STARTING one hires
+  // anybody, so a collect arrives explicitly saying it did not (delegationOf in
+  // internal/turn/executor.go). Without it the row's label alone would make the
+  // window guess it was a delegation and draw a second card.
+  const collect = (over = {}) => ({
+    label: 'task', name: 'task', act: 'collect', ref: 'call_2', delegation: false,
+    task: 'task_1', state: 'done', startedAt: 0, secs: 13, ...over,
+  })
+
+  it('is on screen while the agent is actually blocked on it', () => {
+    const { container } = render(Chat, {
+      ...baseProps,
+      toolSteps: [delegation, collect({ state: 'run', secs: undefined })],
+    } as any)
+    const rows = [...container.querySelectorAll('.tool-step')].map((r) => r.textContent)
+    expect(rows.join(' ')).toContain('รอผลงาน')
+  })
+
+  it('is gone once it comes back, and takes its place in the count with it', () => {
+    cockpit.backgroundTasks = [registered({ state: 'done', elapsedMs: 13_000 })]
+    const { container } = render(Chat, {
+      ...baseProps, awaitingReply: false,
+      messages: [{
+        role: 'agent', text: 'ok', time: '10:54',
+        parts: [{ kind: 'text', text: 'ok' }],
+        steps: [{ ...delegation, state: 'done' }, collect()],
+      }] as any,
+    })
+    expect(container.textContent).not.toContain('รอผลงาน')
+    // One delegation and nothing else: the collect is not a tool the agent used.
+    expect(container.querySelector('.phase-head')?.textContent).not.toContain('เครื่องมือ')
+  })
+
+  // The thirteen seconds were the delegate's all along. They belong on the
+  // delegate's card, not on an anonymous row above it — and the card's own row
+  // cannot supply them, because a `task` start returns the instant the worker
+  // is spawned.
+  it('hands its seconds to the card of the delegate it waited for', () => {
+    cockpit.backgroundTasks = []
+    const { container } = render(Chat, {
+      ...baseProps, awaitingReply: false,
+      messages: [{
+        role: 'agent', text: 'ok', time: '10:54',
+        parts: [{ kind: 'text', text: 'ok' }],
+        steps: [{ ...delegation, state: 'done', secs: 0 }, collect()],
+      }] as any,
+    })
+    expect(container.querySelector('.bgw-card .bgw-clock')?.textContent?.trim()).toBe('13s')
   })
 })
