@@ -655,7 +655,7 @@ describe('sub-agent tool events', () => {
   // The delegation block is the whole point: one titled group per sub-agent,
   // with its own steps inside it and the brief the main agent wrote. A flat list
   // of rows cannot say who did what.
-  it('draws a delegation as its own named block with the delegate’s steps inside', () => {
+  it('draws a delegation as its own named block with the delegate’s steps inside', async () => {
     const { container } = render(Chat, {
       ...baseProps,
       // The live rows only exist during a turn, which is when a delegate runs.
@@ -675,6 +675,9 @@ describe('sub-agent tool events', () => {
 
     const block = container.querySelector('.bgw-card')
     expect(block).toBeTruthy()
+    // The rows sit behind the card's own door now — the headline is what a
+    // running delegate shows without being asked.
+    await fireEvent.click(block!.querySelector('.bgw-open') as HTMLElement)
     expect(block?.querySelector('.bgw-agent')?.textContent).toContain('explore')
     expect(block?.querySelector('.bgw-brief')?.textContent).toContain('find every caller')
     expect(block?.querySelector('.bgw-longbrief')?.textContent).toContain('callers of Resolve')
@@ -685,7 +688,7 @@ describe('sub-agent tool events', () => {
 
   // Two delegates run at once and their events interleave on one channel — the
   // reason ToolEvent.parent exists at all. Each block must hold its own steps.
-  it('keeps two concurrent delegations in separate blocks', () => {
+  it('keeps two concurrent delegations in separate blocks', async () => {
     const { container } = render(Chat, {
       ...baseProps,
       awaitingReply: true,
@@ -701,6 +704,7 @@ describe('sub-agent tool events', () => {
 
     const blocks = container.querySelectorAll('.bgw-card')
     expect(blocks.length).toBe(2)
+    for (const b of blocks) await fireEvent.click(b.querySelector('.bgw-open') as HTMLElement)
     expect(blocks[0].querySelector('.bgw-agent')?.textContent).toContain('explore')
     expect(blocks[1].querySelector('.bgw-agent')?.textContent).toContain('general')
     expect(blocks[0].querySelectorAll('.bgw-steps .tool-step').length).toBe(2)
@@ -792,10 +796,10 @@ describe('sub-agent tool events', () => {
       expect(card?.className).toContain('run')
       expect(card?.querySelector('.bgw-badge.run')).toBeTruthy()
       // Counted off the delegation's own start, not frozen at the spawn's 8s.
-      expect(card?.querySelector('.bgw-meta')?.textContent?.trim()).toBe('1m 32s')
+      expect(card?.querySelector('.bgw-clock')?.textContent?.trim()).toBe('1m 32s')
       // And it stays where the user can watch it, instead of collapsing behind
       // the "used N agents" toggle the moment it starts.
-      expect(card?.querySelector('.bgw-steps')).toBeTruthy()
+      expect(card?.querySelector('.bgw-open')).toBeTruthy()
     })
 
     // Finished work is folded away wherever it sits: behind the phase header in
@@ -821,7 +825,7 @@ describe('sub-agent tool events', () => {
         messages: [{ role: 'agent', text: 'done', time: '10:54' }] as any,
       })
       const card = await openFinished(container)
-      expect(card?.querySelector('.bgw-meta')?.textContent?.trim()).toBe('3m 34s')
+      expect(card?.querySelector('.bgw-clock')?.textContent?.trim()).toBe('3m 34s')
       expect(card?.querySelector('.bgw-badge.run')).toBeNull()
     })
 
@@ -836,7 +840,7 @@ describe('sub-agent tool events', () => {
         messages: [{ role: 'agent', text: 'done', time: '10:54' }] as any,
       })
       const card = await openFinished(container)
-      expect(card?.querySelector('.bgw-meta')?.textContent?.trim()).toBe('8s')
+      expect(card?.querySelector('.bgw-clock')?.textContent?.trim()).toBe('8s')
     })
 
     // The other half of that fallback, and the half that was wrong. A row left
@@ -858,7 +862,9 @@ describe('sub-agent tool events', () => {
       expect(card?.className).not.toContain('run')
       expect(card?.querySelector('.bgw-badge.run')).toBeNull()
       // No frozen clock either: the spawn's number was never the job's.
-      expect(card?.querySelector('.bgw-meta')?.textContent?.trim()).toBe('')
+      // Absent rather than blank: the caption line draws the clock or it does
+      // not, so "no number" is a missing element and not an empty one.
+      expect(card?.querySelector('.bgw-clock')).toBeNull()
       // And the ✗ explains itself, rather than blaming a delegate that never
       // got the chance to fail.
       expect(card?.querySelector('.tool-err')?.textContent).toContain('turn ended')
@@ -1092,13 +1098,18 @@ describe('sub-agent tool events', () => {
       { label: 'read hay.txt', parent: 't1', state, startedAt: Date.now() },
     ]
 
-    it('is open while the delegate is still working', () => {
+    // Folded while it works too, now that the card has a headline that moves:
+    // the newest row is the top line of the card, so holding the whole list
+    // open under it printed that row twice and put four concurrent delegations
+    // back into the wall this fold was added to stop.
+    it('is folded while the delegate works, with the live row as the headline', () => {
       const { container } = render(Chat, {
         ...baseProps, awaitingReply: true,
         toolSteps: delegation('run') as any,
         messages: [{ role: 'agent', text: 'done', time: '10:54' }] as any,
       })
-      expect(container.querySelectorAll('.bgw-steps .tool-step').length).toBe(2)
+      expect(container.querySelector('.bgw-now')?.textContent?.trim()).toBe('read hay.txt')
+      expect(container.querySelectorAll('.bgw-steps .tool-step').length).toBe(0)
     })
 
     it('is folded once it has finished, and says how many are behind it', async () => {
@@ -1110,8 +1121,12 @@ describe('sub-agent tool events', () => {
       subsBtn.click()
       await tick()
 
-      const fold = container.querySelector('.bgw-toggle') as HTMLElement
-      expect(fold.textContent).toContain('Used 2 tools')
+      const fold = container.querySelector('.bgw-open') as HTMLElement
+      expect(fold.textContent).toContain('See every step')
+      // The count moved to the caption line beside the name, where it sits
+      // with the clock: the control at the foot is a door, and labelling a
+      // door with a number made it read as the summary it is not.
+      expect(container.querySelector('.bgw-who')?.textContent).toContain('2 tools')
       expect(container.querySelectorAll('.bgw-steps .tool-step').length).toBe(0)
 
       fold.click()

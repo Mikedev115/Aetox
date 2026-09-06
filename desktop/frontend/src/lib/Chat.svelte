@@ -28,6 +28,8 @@
   import type { main, connect, subagent } from '../../wailsjs/go/models'
   import { t, i18n, type TKey } from './i18n.svelte'
   import { isShortcut, shortcutLabel } from './shortcuts'
+  import { currentStep, tally } from './delegateWork'
+  import { hasSpend, spendLabel, spendTitle } from './spend'
   import { copyDrawing, saveDrawing } from './drawingExport'
   import { renderMarkdown } from './markdown'
   import { filePath } from './fileUrl'
@@ -1830,20 +1832,28 @@
     if (e.key === 'Escape' && mentionOpen) mentionOpen = false
   }
 
-  // A delegation's steps are folded away once it has finished, and open while
-  // it works. The two states want opposite things from the same rows: a running
-  // delegate's steps ARE the evidence it is alive (§105.5), and a finished one's
-  // are a record nobody asked to re-read — four of them stacked turned the
-  // transcript into a wall ("มันติดกันจนดูยังไงไม่รู้").
+  // A delegation's steps stay folded until somebody asks for them, running or
+  // finished alike.
+  //
+  // They used to be open while the delegate worked, on the reasoning that a
+  // running delegate's steps ARE the evidence it is alive (§105.5) — which was
+  // true for exactly as long as nothing else on the card moved. The headline
+  // is that evidence now (cardHeadline), so holding the whole list open on top
+  // of it printed the newest row twice, three lines apart, and put four
+  // concurrent delegations back into the wall the fold was added to stop
+  // ("มันติดกันจนดูยังไงไม่รู้").
+  //
+  // This is where the transcript's card and the tray's part company, and the
+  // reason is structural rather than a taste: the tray keeps its short tail of
+  // rows because it has no fold to offer — BackgroundWork is handed the live
+  // event feed and holds the last few, never the whole list, so "see every
+  // step" is not a thing it could open. This card has the whole list.
   //
   // Keyed on the `task` call's ref so a row keeps its state as the list grows,
-  // and holding only what the user has actually toggled: the default is
-  // computed per render, so a delegation that finishes while open does not
-  // slam shut under the pointer.
+  // and holding only what the user has actually toggled.
   let openSteps = $state<Record<string, boolean>>({})
   const stepsKey = (node: TimelineNode) => node.step.ref ?? node.step.label
-  const stepsOpen = (node: TimelineNode) =>
-    openSteps[stepsKey(node)] ?? isRunningNode(node)
+  const stepsOpen = (node: TimelineNode) => openSteps[stepsKey(node)] ?? false
   function toggleSteps(node: TimelineNode) {
     openSteps[stepsKey(node)] = !stepsOpen(node)
   }
@@ -1851,6 +1861,53 @@
   // tools — counting them would inflate "used N tools" with sentences, the same
   // rule ownTools follows for the agent's own row.
   const toolCount = (node: TimelineNode) => node.children.filter((c) => !c.kind).length
+
+  // What this delegate has spent, when there is anybody left to ask.
+  // The register is the only holder of it, so a turn read back from the
+  // database has none — and drawing nothing is the honest answer there, not a
+  // zero. Same words as the tray's card, out of spend.ts, because they are one
+  // card at two moments (§105.6) and this half of it never said any of it.
+  const spendOf = (node: TimelineNode) => {
+    const task = registerTask(node)
+    return hasSpend(task) ? task : undefined
+  }
+  // The headline of a delegation card, which is the whole of this redesign.
+  //
+  // The card used to lead with the delegate's NAME, and the name is the one
+  // thing on it that cannot change. Everything that moves — the file being
+  // read, the count climbing — was either absent or behind a fold, so a card
+  // with a portrait on it was still a form. Owner, over the version that only
+  // swapped the spinner for a face: *"แทบไม่ต่างจากอันเก่า"*, and before that
+  // the diagnosis it came from: *"ทั้งที่มีอวตารแล้วทำไมยังเงียบแบบเดิมอยู่"*.
+  // The word was เงียบ — silent, not ugly. A card is silent when the only
+  // thing on it that changes is a clock.
+  //
+  // So the hierarchy is inverted: the work is the headline, the name is the
+  // caption under it. That is the same lesson §105.5 learned for the tray —
+  // "a counter that changes every few seconds cannot answer 'is this alive';
+  // a list of filenames scrolling past can" — applied at last to the card that
+  // lives in the transcript, which never got it.
+  //
+  // Three answers, in the order a delegation's life goes:
+  //   - working  → the row it is on, which changes every few seconds.
+  //   - finished → what it came back with (delegateWork.tally). A finished card
+  //     used to say nothing but a tool count; this is the one sentence somebody
+  //     actually wants, and it is DERIVED from rows already stored, so no turn
+  //     written before today is missing it.
+  //   - neither  → the job it was handed. The resting headline, and the right
+  //     one for a queued delegate that has not started, and for a failed one:
+  //     leading a card that wears an error with "read 9 files" would be
+  //     answering a question nobody asked.
+  const cardHeadline = (node: TimelineNode, state: ToolStep['state'], queued: boolean): string => {
+    const job = node.step.label.replace(/^task\s*/, '')
+    if (queued || state === 'err') return job
+    if (state === 'run') return currentStep(node.children)?.label ?? job
+    const done = tally(node.children)
+    const parts: string[] = []
+    if (done.read) parts.push(t('bgw.tallyRead', { n: done.read }))
+    if (done.wrote) parts.push(t('bgw.tallyWrote', { n: done.wrote }))
+    return parts.length ? parts.join(' · ') : job
+  }
 
   // Answering a parked delegate goes out as an ordinary chat message — the same
   // door the user's own typing uses, so the engine has one entrance and not two.
@@ -2844,55 +2901,95 @@
              card, its beam and its steps were simply gone — the work looked
              lost rather than done. Out only: a delegation appearing is the
              model starting one, and that should be immediate. -->
+        {@const job = node.step.label.replace(/^task\s*/, '')}
+        {@const headline = cardHeadline(node, state, queued)}
+        {@const counts = tally(node.children)}
         <div class="bgw-card {state}" class:is-queued={queued} out:fold>
-          <div class="bgw-head">
-            {#if queued}
-              <span class="bgw-mark queue"><Icon name="clock" size={15} /></span>
-            {:else if state === 'run'}
-              <span class="bgw-mark run"><Icon name="loaderCircle" size={15} /></span>
-            {:else}
-              <span class="bgw-mark {state === 'done' ? 'ok' : 'fail'}">
-                <Icon name={state === 'done' ? 'check' : 'x'} size={15} />
-              </span>
-            {/if}
-            <!-- Written the way the user would write it. An agent has one
-                 address (owner, 12 ส.ค.): you reach doc by typing "@doc", and
-                 when the assistant reaches doc on your behalf it has to look
-                 like the same act, or the convention you were taught reads as
-                 something only you do. A helper keeps its bare name — nobody
-                 addresses one; it is the assistant's own hands. -->
-            <b class="bgw-agent">{node.step.agent
-              ? (isAgentNode(node) ? '@' + node.step.agent : node.step.agent)
-              : t(isAgentNode(node) ? 'chat.agent' : 'chat.subagent')}</b>
-            {#if queued}
-              <span class="bgw-badge queue">{t('bgw.queued')}</span>
-            {:else if state === 'run'}
-              <span class="bgw-badge run">{t('bgw.running')}</span>
-            {/if}
-            <span class="bgw-meta">
-              {#if queued}{t('bgw.queuedNote')}{:else if secs !== undefined}{clockLabel(secs)}{/if}
-            </span>
-            <!-- The brake, beside the clock, on the card that is actually on
-                 screen (owner, 30 ส.ค.: *"มีปุ่มหยุดเอเจนหลักทำไมไม่มีปุ่มหยุด
-                 ซับเอเจนหรือเอเจนครับ"*).
-                 
-                 The tray's card has had one since §163 and this one never did,
-                 which read as an oversight and was worse than that: a
-                 delegation drawn here is EXCLUDED from the tray by design
-                 (drawnDelegations — one delegation, one card), so for the whole
-                 of the turn that started it, this was the only card there was
-                 and it had no button on it. The composer's Stop is not the
-                 answer either: it ends the turn, and a delegate deliberately
-                 outlives its turn.
-                 
-                 Icon only. The tray's says "หยุด" in words because it is a card
-                 standing on its own with room for it; this one sits inside a
-                 transcript, where a labelled button on every delegation of a
-                 long conversation is the page shouting. Same rule the worker
-                 rows inside a run already follow. -->
+          <!-- The card is a face and the sentence beside it, and that ordering
+               is the change. What used to sit here was a form: a 15px spinner,
+               the name, a pill saying the name's state again, a clock, and the
+               job — five things, none of which moved. The one thing on it that
+               changed was the clock, which §105.5 already established cannot
+               answer "is this alive".
+
+               The face is 34px because that is where the wardrobe starts
+               working: agentFace.ts drops the held prop below PROP_MIN_PX (32)
+               on purpose, so a smaller portrait is a head and a haircut and
+               nothing that could ever say what the person is doing. -->
+          <div class="bgw-top">
+            <!-- No `off` and no drain on a queued face. `off` means the
+                 assistant may not hand this one work, which is a fact about the
+                 roster; waiting for a slot is a fact about right now, and the
+                 card says that in words on the line below. -->
+            <span class="bgw-face"><AgentFace name={node.step.agent ?? ''} size={34} /></span>
+            <div class="bgw-said">
+              <!-- Keyed on the text, which is what makes it move.
+                   {#key} destroys and rebuilds the span when the label changes,
+                   so the slide declared on it starts from zero every time — the
+                   one case where "the animation restarts with the element" is
+                   the behaviour wanted rather than the bug beam.test.ts pins.
+                   The beam's own clock is untouched: it runs on .bgw-card, an
+                   ancestor this never replaces. -->
+              <div class="bgw-now" title={headline}>
+                {#key headline}<span class="bgw-now-in">{headline}</span>{/key}
+              </div>
+              <!-- Who, and the accounting, on one quiet line.
+                   The state pill is gone from here: the beam says "working"
+                   from the corner of the eye and the headline says what the
+                   work IS, so a pill repeating the word was the third thing on
+                   the card saying one thing. What is left is the mark for the
+                   states that have no other tell — finished, failed, and not
+                   started, none of which the beam is lit for. -->
+              <div class="bgw-who">
+                {#if queued}<span class="bgw-mark queue"><Icon name="clock" size={12} /></span>
+                {:else if state === 'done'}<span class="bgw-mark ok"><Icon name="check" size={12} /></span>
+                {:else if state === 'err'}<span class="bgw-mark fail"><Icon name="x" size={12} /></span>{/if}
+                <!-- Written the way the user would write it. An agent has one
+                     address (owner, 12 ส.ค.): you reach doc by typing "@doc",
+                     and when the assistant reaches doc on your behalf it has to
+                     look like the same act, or the convention you were taught
+                     reads as something only you do. A helper keeps its bare
+                     name — nobody addresses one; it is the assistant's own
+                     hands. -->
+                <b class="bgw-agent">{node.step.agent
+                  ? (isAgentNode(node) ? '@' + node.step.agent : node.step.agent)
+                  : t(isAgentNode(node) ? 'chat.agent' : 'chat.subagent')}</b>
+                <!-- The state, in a word, and it is here rather than gone.
+                     The beam answers "is this alive" faster than any text can,
+                     but it is a CSS gradient: it says nothing to a screen
+                     reader and stops moving entirely under
+                     prefers-reduced-motion. So the word stays — stripped of the
+                     pill it used to wear, because a bordered badge beside a
+                     34px face was the loudest thing on a card whose headline is
+                     supposed to be the work. -->
+                {#if queued}
+                  <span class="bgw-dot">·</span><span class="bgw-badge queue">{t('bgw.queued')}</span>
+                  <span class="bgw-dot">·</span><span>{t('bgw.queuedNote')}</span>
+                {:else}
+                  {#if state === 'run'}<span class="bgw-dot">·</span><span class="bgw-badge run">{t('bgw.running')}</span>{/if}
+                  {#if secs !== undefined}<span class="bgw-dot">·</span><span class="bgw-clock">{clockLabel(secs)}</span>{/if}
+                  {#if toolCount(node) > 0}<span class="bgw-dot">·</span><span>{t('bgw.tools', { n: toolCount(node) })}</span>{/if}
+                  {#if spendOf(node)}<span class="bgw-meta" title={spendTitle(spendOf(node)!)}>{spendLabel(spendOf(node)!)}</span>{/if}
+                {/if}
+              </div>
+            </div>
+            <!-- The brake, on the card that is actually on screen (owner,
+                 30 ส.ค.: *"มีปุ่มหยุดเอเจนหลักทำไมไม่มีปุ่มหยุดซับเอเจนหรือ
+                 เอเจนครับ"*). A delegation drawn here is EXCLUDED from the tray
+                 by design (drawnDelegations — one delegation, one card), so for
+                 the whole of the turn that started it this is the only card
+                 there is. The composer's Stop is not the answer either: it ends
+                 the turn, and a delegate deliberately outlives its turn.
+
+                 Icon only, and quieter until the pointer is on the card — but
+                 never invisible, which is the line §163 draws in its own title.
+                 It sits beside work that is going fine far more often than
+                 beside work anybody wants to end, and a brake you can only find
+                 by hovering is a brake nobody finds in the second they want
+                 it. -->
             {#if state === 'run' && node.step.task}
               <button
-                class="bgw-stop bgw-stop-worker" type="button"
+                class="bgw-stop bgw-stop-worker bgw-stop-quiet" type="button"
                 title={t('bgw.stopTask', { agent: node.step.agent ?? '' })}
                 aria-label={t('bgw.stopTask', { agent: node.step.agent ?? '' })}
                 onclick={() => stopBackgroundTask(node.step.task!)}
@@ -2901,19 +2998,43 @@
               </button>
             {/if}
           </div>
-          <div class="bgw-brief">{node.step.label.replace(/^task\s*/, '')}</div>
-          {#if node.step.brief}
-            <!-- The brief is the whole reason a delegate did what it did, and it
-                 is the one thing the user never otherwise sees: it is written by
-                 the main agent, not typed by them. Clamped to a few lines; the
-                 full text is the title. -->
-            <div class="bgw-longbrief" title={node.step.brief}>{node.step.brief}</div>
+          <!-- What it was told, in a rail, because that is what it is: an
+               instruction handed to somebody, not a caption under a picture.
+
+               The job line is dropped when the headline is already showing it —
+               a queued card and a failed one lead with the job, and printing it
+               twice in two type sizes reads as a bug rather than as emphasis.
+
+               The brief under it is the whole reason a delegate did what it did
+               and the one thing the user never otherwise sees: it is written by
+               the main agent, not typed by them. Clamped to two lines; the full
+               text is the title. -->
+          {#if headline !== job || node.step.brief}
+            <div class="bgw-told">
+              {#if headline !== job}<div class="bgw-brief">{job}</div>{/if}
+              {#if node.step.brief}
+                <div class="bgw-longbrief" title={node.step.brief}>{node.step.brief}</div>
+              {/if}
+            </div>
           {/if}
           {#if node.children.length}
-            <button class="reasoning-toggle bgw-toggle" onclick={() => toggleSteps(node)}>
-              <span class="chev"><Icon name={stepsOpen(node) ? 'chevronDown' : 'chevronRight'} size={12} /></span>
-              {t('chat.usedTools', { n: toolCount(node) })}
-            </button>
+            <!-- The foot: what it has touched, and the way in to the rest.
+                 The tally is drawn only while the work is running — once it is
+                 over the headline IS the tally, and a card stating "9 files
+                 read" in two places has taught its reader that one of them is
+                 decoration. -->
+            <div class="bgw-foot">
+              {#if state === 'run' && !queued && counts.read > 0}
+                <span class="bgw-tal">{t('bgw.tallyRead', { n: counts.read })}</span>
+              {/if}
+              {#if state === 'run' && !queued && counts.wrote > 0}
+                <span class="bgw-tal">{t('bgw.tallyWrote', { n: counts.wrote })}</span>
+              {/if}
+              <button class="bgw-open" type="button" aria-expanded={stepsOpen(node)} onclick={() => toggleSteps(node)}>
+                {t('bgw.viewWork')}
+                <Icon name={stepsOpen(node) ? 'chevronDown' : 'chevronRight'} size={12} />
+              </button>
+            </div>
             {#if stepsOpen(node)}
               <!-- Both ways, here: the user's own click on the toggle deserves
                    the same fold the finish gets, or the control feels like a

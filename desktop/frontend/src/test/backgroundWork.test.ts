@@ -30,9 +30,12 @@ describe('the background work card', () => {
     const { container } = render(BackgroundWork, {
       tasks: [task()], steps, onAnswer: () => {}, onStop: () => {}, onStopRun: () => {}, onStopQueue: () => {},
     })
+    // The newest row is the card's headline now, at body size, where the eye
+    // already is — the other two stay underneath as the history that proves it
+    // moved. Still three rows' worth; forty would bury the conversation.
+    expect(container.querySelector('.bgw-now')?.textContent?.trim()).toBe('read d.go')
     const rows = [...container.querySelectorAll('.tool-step .lbl')].map((el) => el.textContent)
-    // Three, newest last: forty rows would bury the conversation under it.
-    expect(rows).toEqual(['read b.go', 'read c.go', 'read d.go'])
+    expect(rows).toEqual(['read b.go', 'read c.go'])
   })
 
   // Steps carry the delegation's id because `parent` is the provider's call id
@@ -122,8 +125,9 @@ describe('the background work card', () => {
       tasks: [task({ tokensIn: 0, tokensOut: 0 })],
       steps: [], onAnswer: () => {}, onStop: () => {}, onStopRun: () => {}, onStopQueue: () => {},
     })
-    // "เข้า 0 · ออก 0" reads as a measurement. There has not been one yet.
-    expect(container.querySelector('.bgw-meta')?.textContent).not.toContain('เข้า')
+    // "เข้า 0 · ออก 0" reads as a measurement. There has not been one yet, so
+    // the element is not drawn at all rather than drawn empty.
+    expect(container.querySelector('.bgw-meta')).toBeNull()
   })
 
   it('puts a parked delegate’s question and a box to answer it on the card', () => {

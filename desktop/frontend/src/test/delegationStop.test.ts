@@ -58,7 +58,7 @@ describe('stopping a delegate from the card in the transcript', () => {
 
     const card = container.querySelector('.bgw-card.run')
     expect(card).toBeTruthy()
-    const stop = card!.querySelector('.bgw-head .bgw-stop') as HTMLButtonElement
+    const stop = card!.querySelector('.bgw-top .bgw-stop') as HTMLButtonElement
     expect(stop).toBeTruthy()
 
     await fireEvent.click(stop)
@@ -73,7 +73,7 @@ describe('stopping a delegate from the card in the transcript', () => {
 
     const card = container.querySelector('.bgw-card.is-queued')
     expect(card).toBeTruthy()
-    expect(card!.querySelector('.bgw-head .bgw-stop')).toBeTruthy()
+    expect(card!.querySelector('.bgw-top .bgw-stop')).toBeTruthy()
   })
 
   // And never on work that is over. A button that cannot do anything is worse
