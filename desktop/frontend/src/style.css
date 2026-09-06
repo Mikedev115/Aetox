@@ -3148,6 +3148,14 @@ button.phase-head:hover { color:var(--text-muted); }
   /* Same anchor and same reason as .model-menu: the button row, not the box. */
   position:absolute; bottom:calc(100% + 10px); right:0; z-index:50;
   min-width:min(270px, 100cqi); max-width:100cqi;
+  /* And bounded by the window's height for the same reason it is bounded by
+     the pane's width. The panel grew three blocks on 7 ก.ย. — the tool drawer,
+     the turn's spend, the chat's total — and on a short screen the whole top of
+     it, the "how full" line the panel exists to answer, was above the ceiling
+     with no way to scroll to it (owner, 7 ก.ย.: "เผื่อมีคนจอน้อย"). dvh rather
+     than vh so a mobile toolbar counts; the subtraction keeps a composer's own
+     height off the panel even when 72% of the window would not. */
+  max-height:min(72dvh, calc(100dvh - 120px)); overflow-y:auto; overscroll-behavior:contain;
   display:flex; flex-direction:column; gap:8px; padding:12px;
   background:var(--surface-panel); border:1px solid var(--border-subtle); border-radius:var(--r-lg);
   box-shadow:var(--shadow-menu);
@@ -3183,7 +3191,9 @@ button.phase-head:hover { color:var(--text-muted); }
    screen cannot be read at either end. */
 .ctx-tools {
   display:flex; flex-direction:column; gap:5px;
-  max-height:190px; overflow-y:auto; padding:6px 2px 2px 16px;
+  /* And a share of a short window rather than a flat 190px, so the drawer
+     cannot take the whole scrolling panel it now sits inside. */
+  max-height:min(190px, 26dvh); overflow-y:auto; padding:6px 2px 2px 16px;
 }
 .ctx-tools .ctx-row .lbl {
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-secondary);

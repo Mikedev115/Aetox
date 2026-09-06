@@ -66,6 +66,24 @@ describe('the composer bounds its own popovers', () => {
     expect(rule(selector)).not.toContain('position:relative')
   })
 
+  // Width was the half that overflowed sideways; this is the half that
+  // overflowed upward. The context panel gained the tool drawer and two spend
+  // blocks on 7 ก.ย., and on a short window its own heading — the "how full"
+  // answer it exists to give — sat above the ceiling with no way to reach it.
+  it('keeps the context panel inside a short window', () => {
+    const decls = rule('.ctx-menu')
+    expect(decls).toMatch(/max-height:min\(72dvh, ?calc\(100dvh - 120px\)\)/)
+    // A cap with nothing to scroll is just a shorter clip.
+    expect(decls).toContain('overflow-y:auto')
+    expect(decls).toContain('overscroll-behavior:contain')
+  })
+
+  // The drawer scrolls in itself, which is right, and a flat cap would have
+  // eaten the whole panel on the screen this was fixed for.
+  it('lets the tool drawer shrink with the window', () => {
+    expect(rule('.ctx-tools')).toMatch(/max-height:min\(190px, ?26dvh\)/)
+  })
+
   it('keeps a dropdown list inside the menu that opens it', () => {
     expect(rule('.updrop-list')).toMatch(/max-width:min\(240px, ?calc\(100cqi - 32px\)\)/)
   })
