@@ -2384,8 +2384,14 @@ button.phase-head:hover { color:var(--text-muted); }
 .bgw-told .bgw-brief { color:var(--text-secondary); }
 .bgw-told .bgw-longbrief { margin-top:2px; }
 /* The foot: what has been touched, and the way in to the rest. */
+/* Closer to the brief than it was, and the list closer still. Three 8px gaps
+   in a row — brief, foot, box — put a hand's width of nothing between the
+   instruction and the work done under it, and the foot row is mostly empty
+   space on the left, so the eye read the gap as one long one (owner, 7 ก.ย.:
+   "พรอบและ tool อ่ะมันห่างกันเกิน"). The foot belongs to the list below it, not
+   to the brief above, so the air goes above it and not below. */
 .bgw-foot {
-  display:flex; align-items:center; gap:11px; margin:8px 0 0 45px;
+  display:flex; align-items:center; gap:11px; margin:6px 0 0 45px;
   color:var(--text-dim); font-size:var(--fs-xs); font-variant-numeric:tabular-nums;
 }
 .bgw-open {

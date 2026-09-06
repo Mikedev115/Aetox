@@ -92,6 +92,15 @@
   // to look the way it already looked.
   let collapsed = $state<Record<string, boolean>>({})
   const keyOf = (run: BackgroundRun, phase: string) => run.id + '\u0000' + phase
+  // A phase opens itself while somebody is working in it, and closes when they
+  // are not. Every phase used to be open at once, which on a run that has only
+  // reached its first round is three empty rules stacked under one worker.
+  // An explicit toggle outranks it: `collapsed` holds only what the reader has
+  // decided, so an absent key means "follow the work".
+  const phaseOpen = (run: BackgroundRun, phase: { title: string; running: number }) => {
+    const said = collapsed[keyOf(run, phase.title)]
+    return said === undefined ? phase.running > 0 : !said
+  }
   function togglePhase(run: BackgroundRun, phase: string) {
     const key = keyOf(run, phase)
     collapsed[key] = !collapsed[key]
@@ -151,6 +160,25 @@
   // One draft per waiting delegate, keyed by id: two of them parked at once
   // must not share a box.
   let drafts = $state<Record<string, string>>({})
+
+  // Whether a whole run is open. Open while it runs and folded once it is over,
+  // which is the rule the transcript's own blocks follow: work in flight is
+  // what the reader came to watch, work that is over is a record. Only what the
+  // reader has decided is held here, same as `collapsed`.
+  let runShut = $state<Record<string, boolean>>({})
+  const runOpen = (run: BackgroundRun) => {
+    const said = runShut[run.id]
+    return said === undefined ? run.running : !said
+  }
+  function toggleRun(run: BackgroundRun) {
+    runShut[run.id] = runOpen(run)
+  }
+  // What a folded run says instead of its phases: how far along it is, then the
+  // same three numbers the open head carries. A fold has to be readable without
+  // opening it or it is just a hiding place.
+  const runDone = (run: BackgroundRun) => run.phases.reduce((n, p) => n + p.done, 0)
+  const runPlanned = (run: BackgroundRun) =>
+    run.phases.reduce((n, p) => n + (p.planned > 0 ? p.planned : p.done + p.running), 0)
   function send(id: string) {
     const answer = (drafts[id] ?? '').trim()
     if (!answer) return
@@ -168,14 +196,31 @@
       <div class="bgw-item" transition:fold>
         <div class="bgw-card" class:run={run.running}>
           <div class="bgw-head">
+            <!-- The whole run folds, and its head is the control — the summary
+                 is already there, and a separate row saying "N phases" would
+                 put the same count in two places (the argument the transcript's
+                 phase headers settled). -->
+            <button
+              class="bgw-runfold" type="button"
+              aria-expanded={runOpen(run)} onclick={() => toggleRun(run)}
+              title={runOpen(run) ? t('bgw.foldRun') : t('bgw.openRun')}
+            >
+              <Icon name={runOpen(run) ? 'chevronDown' : 'chevronRight'} size={14} />
+            </button>
             <span class="bgw-mark" class:run={run.running} class:ok={!run.running}>
               <Icon name={run.running ? 'loaderCircle' : 'check'} size={15} />
             </span>
             <b class="bgw-agent">{run.name}</b>
-            {#if run.running}
-              <span class="bgw-badge run">{t('bgw.running')}</span>
-            {/if}
+            <!-- No state pill. §105.5 took one off the delegation card for the
+                 reason that applies here word for word: a spinning mark, a name,
+                 a pill naming the mark's state again and a clock is four things
+                 saying two, and the only one of them that ever moved was the
+                 clock. The mark spins or it does not; the clock counts or it
+                 does not; a run that is over says so by both. -->
             <span class="bgw-meta">
+              <!-- Folded, the progress leads: it is the one fact the phases
+                   below were carrying and the only one a fold could lose. -->
+              {#if !runOpen(run) && runPlanned(run) > 0}{runDone(run)}/{runPlanned(run)} · {/if}
               {elapsed(run.startedAt)} ·
               {t('bgw.runWorkers', { n: allTasks.filter((task) => task.run === run.id).length })}
               {#if run.tokens > 0} · {t('bgw.runTokens', { n: compact(run.tokens) })}{/if}
@@ -193,6 +238,8 @@
               </button>
             {/if}
           </div>
+          {#if runOpen(run)}
+          <div class="bgw-runbody" transition:fold>
           {#if run.brief}<div class="bgw-brief">{run.brief}</div>{/if}
 
           {#each run.phases as phase (phase.title)}
@@ -202,28 +249,45 @@
             <button
               class="bgw-phase"
               onclick={() => togglePhase(run, phase.title)}
-              aria-expanded={!collapsed[keyOf(run, phase.title)]}
+              aria-expanded={phaseOpen(run, phase)}
             >
-              <Icon name={collapsed[keyOf(run, phase.title)] ? 'chevronRight' : 'chevronDown'} size={14} />
+              <Icon name={phaseOpen(run, phase) ? 'chevronDown' : 'chevronRight'} size={14} />
               <span class="bgw-phase-title" class:idle={phase.done + phase.running === 0}>{phase.title}</span>
-              <span class="bgw-phase-bar">
-                <span
-                  class="bgw-phase-fill"
-                  style="width:{phase.planned > 0 ? Math.min(100, (phase.done / phase.planned) * 100) : phase.done > 0 ? 100 : 0}%"
-                ></span>
+              <!-- One pip per worker the phase was PROMISED, filled as they
+                   land. The bar it replaces stretched the full width of the
+                   row, so at 0/1 it was an empty rule running across the panel
+                   — read as a divider rather than as progress, and unable to
+                   say the one thing a plan can say that a percentage cannot:
+                   how many. Two of three lit is a fact you take in without
+                   reading a number. -->
+              <span class="bgw-pips" aria-hidden="true">
+                {#each { length: Math.min(12, phase.planned > 0 ? phase.planned : phase.done + phase.running) } as _, i}
+                  <span class="bgw-pip" class:on={i < phase.done} class:live={i >= phase.done && i < phase.done + phase.running}></span>
+                {/each}
               </span>
               <span class="bgw-phase-count">
                 {#if phase.planned > 0}{phase.done}/{phase.planned}{:else if phase.done + phase.running > 0}{phase.done}{:else}{t('bgw.phaseWaiting')}{/if}
               </span>
             </button>
 
-            {#if !collapsed[keyOf(run, phase.title)]}
+            {#if phaseOpen(run, phase)}
               {#each workersOf(run, phase.title) as task (task.id)}
                 <div class="bgw-worker">
-                  <span class="bgw-mark {task.state === 'waiting' ? 'wait' : task.state === 'queued' ? 'queue' : task.state === 'running' ? 'run' : task.state === 'failed' ? 'fail' : 'ok'}">
-                    <Icon
-                      name={task.state === 'waiting' ? 'hand' : task.state === 'queued' ? 'clock' : task.state === 'running' ? 'loaderCircle' : task.state === 'failed' ? 'x' : 'check'}
-                      size={12}
+                  <!-- The worker's own face, not a glyph. Every other surface in
+                       the app that names a delegate draws the person (the
+                       transcript's card, the roster, the mention menu); this one
+                       was left behind on a tick-or-spinner, so the same worker
+                       was a portrait in one panel and an anonymous mark in the
+                       next (owner, 7 ก.ย.: "อันนี้อีก UI พัง ล้าหลังไปแล้วมั้ง").
+                       One mark, two facts: WHO, from the wardrobe, and WHAT IS
+                       HAPPENING, from the ring and the movement inside it —
+                       which is the argument §105.5 made when it put the face on
+                       the card and dropped the glyph beside it. -->
+                  <span class="bgw-worker-face">
+                    <AgentFace
+                      name={task.agent ?? ''}
+                      size={20}
+                      state={task.state === 'running' ? 'work' : task.state === 'failed' ? 'err' : task.state === 'waiting' || task.state === 'queued' ? '' : 'done'}
                     />
                   </span>
                   <span class="bgw-worker-label">{task.label}</span>
@@ -274,6 +338,8 @@
               {/each}
             {/if}
           {/each}
+          </div>
+          {/if}
         </div>
       </div>
     {/each}
@@ -297,7 +363,7 @@
                said it; what the top line owes the reader is WHAT is being
                worked on. -->
           <div class="bgw-top">
-            <span class="bgw-face"><AgentFace name={task.agent} size={34} /></span>
+            <span class="bgw-face"><AgentFace name={task.agent} size={34} state={steps.some((s) => s.task === task.id && s.state === 'run') ? 'work' : 'think'} /></span>
             <div class="bgw-said">
               {#key nowOf(task.id)}
                 <div class="bgw-now" title={nowOf(task.id)}>
@@ -413,7 +479,7 @@
              one: how far it had got, and what it had already cost. -->
         <div class="bgw-card is-done" class:is-stopped={task.state === 'stopped'}>
           <div class="bgw-top">
-            <span class="bgw-face"><AgentFace name={task.agent} size={34} /></span>
+            <span class="bgw-face"><AgentFace name={task.agent} size={34} state={task.state === 'failed' ? 'err' : task.state === 'stopped' ? '' : 'done'} /></span>
             <div class="bgw-said">
               <!-- A receipt leads with how it ended, where a running card leads
                    with what it is doing. Same line, same size — the card does

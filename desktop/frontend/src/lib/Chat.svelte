@@ -3582,10 +3582,41 @@
                the main agent, not typed by them. Clamped to two lines; the full
                text is the title. -->
           {#if headline !== job || node.step.brief}
-            <div class="bgw-told">
+            <!-- A beat behind the person, on a handover the reader is
+                 watching happen: somebody was hired, and THEN they were told
+                 what to do. Two events, and the card used to land both in one
+                 frame as a paragraph-sized block — there was no moment at which
+                 the eye was on the portrait rather than on the wall of text
+                 beside it. The card itself still arrives instantly; this is the
+                 only part allowed to wait, and it waits exactly as long as the
+                 text inside it does (HANDOVER_LEAD_MS, shared so the block
+                 opening and the writing starting are one movement).
+                 Zero on everything else — a card restored from the database is
+                 a record, and a record does not re-enact its own arrival. -->
+            {@const handover = live && state === 'run' && node.children.length === 0}
+            <!-- A class, not an `in:`, for the reason written at the card: a
+                 local intro inside a block that is itself arriving never runs,
+                 so this beat was silently dead — the brief still wrote itself
+                 (typeOnce is an action and always runs), but the block it
+                 writes into stopped waiting for the person to land first. The
+                 lead is one number in one place still; it rides in as a custom
+                 property rather than being written out a second time in CSS. -->
+            <div
+              class="bgw-told" class:told-in={handover}
+              style="--told-lead:{HANDOVER_LEAD_MS}ms"
+            >
               {#if headline !== job}<div class="bgw-brief">{job}</div>{/if}
               {#if node.step.brief}
-                <div class="bgw-longbrief" title={node.step.brief}>{node.step.brief}</div>
+                <!-- Written out at the moment it is handed over, and only
+                     then: `on` is false for a card read back out of the
+                     database, and it drops the instant the first tool row lands
+                     so the brief snaps whole rather than holding the screen
+                     behind work that has already started (lib/typeOnce.ts). -->
+                <div
+                  class="bgw-longbrief"
+                  title={node.step.brief}
+                  use:typeOnce={{ text: node.step.brief ?? '', on: handover }}
+                ></div>
               {/if}
             </div>
           {/if}
