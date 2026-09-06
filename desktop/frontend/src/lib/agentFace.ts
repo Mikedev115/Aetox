@@ -551,9 +551,26 @@ export function resolveFace(name: string, size: number, o: FaceOverrides = {}): 
 // gradient or a blur at 26px is one smear of mud, while an edge stays an edge
 // at any size. It is also how flat illustration has always drawn a face lit by
 // a screen at night — two tones, no falloff.
+//
+// LIT IS NOT BLEACHED, and that distinction is the whole of this function.
+// It went in at 88% lightness, which is a real thing a screen does to a face
+// and is also the lightness at which hue stops being visible: two agents twenty
+// degrees apart are the same near-white up there, and the lit area is the jaw,
+// the neck and the top of the shirt — the largest continuous patch of colour on
+// a 34px tile. So every worker turned into the same person the moment it
+// started working (owner, 7 ก.ย.: "แต่ละตัวก็มีสีของตัวเอง ทำไมพอทำท่าทางแม่ง
+// กลายเป็นสีเดียวกัน").
+//
+// Nothing was wired wrong, and it is worth saying so: the hue is still
+// coverHue(name), and the machine, its screen and its glow are all drawn from
+// that agent's own palette. These were three wrong numbers, not a shortcut.
+// Ten points of lightness come off and the saturation goes up to pay for it,
+// which keeps the step up from the unlit skin (78% → 82%) that says "a light
+// just landed on this" while leaving enough colour in it to say WHOSE face it
+// landed on.
 function litBy(hue: number): { skin: string; shade: string; shirt: string } {
   const h = (hue + 354) % 360
-  return { skin: `hsl(${h} 62% 88%)`, shade: `hsl(${h} 46% 76%)`, shirt: `hsl(${h} 44% 52%)` }
+  return { skin: `hsl(${h} 70% 82%)`, shade: `hsl(${h} 56% 69%)`, shirt: `hsl(${h} 52% 49%)` }
 }
 
 // The lit part of the face has to stop at the jaw, and the jaw is an ellipse.
