@@ -721,6 +721,7 @@ export namespace main {
 		}
 	}
 	
+	
 	export class DayPoint {
 	    day: string;
 	    model: string;
@@ -1083,6 +1084,28 @@ export namespace main {
 	        this.orphan = source["orphan"];
 	    }
 	}
+	export class PendingModel {
+	    provider: string;
+	    modelName: string;
+	    thinkLevel: string;
+	    wireFormat: string;
+	    check?: string;
+	    note?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PendingModel(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.provider = source["provider"];
+	        this.modelName = source["modelName"];
+	        this.thinkLevel = source["thinkLevel"];
+	        this.wireFormat = source["wireFormat"];
+	        this.check = source["check"];
+	        this.note = source["note"];
+	    }
+	}
 	export class ModelInfo {
 	    provider: string;
 	    modelName: string;
@@ -1092,6 +1115,7 @@ export namespace main {
 	    contextMax: number;
 	    wireFormat: string;
 	    warning: string;
+	    pending?: PendingModel;
 	
 	    static createFrom(source: any = {}) {
 	        return new ModelInfo(source);
@@ -1107,7 +1131,26 @@ export namespace main {
 	        this.contextMax = source["contextMax"];
 	        this.wireFormat = source["wireFormat"];
 	        this.warning = source["warning"];
+	        this.pending = this.convertValues(source["pending"], PendingModel);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class ModelListing {
 	    model: string;
@@ -1221,6 +1264,7 @@ export namespace main {
 	        this.decidedAt = source["decidedAt"];
 	    }
 	}
+	
 	export class PlacementTarget {
 	    id: string;
 	    name: string;
@@ -1875,6 +1919,26 @@ export namespace main {
 	        this.managed = source["managed"];
 	        this.active = source["active"];
 	        this.where = source["where"];
+	    }
+	}
+	export class StoreFault {
+	    failed: boolean;
+	    tooNew: boolean;
+	    have: number;
+	    known: number;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new StoreFault(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.failed = source["failed"];
+	        this.tooNew = source["tooNew"];
+	        this.have = source["have"];
+	        this.known = source["known"];
+	        this.message = source["message"];
 	    }
 	}
 	export class TTSVoiceInfo {
@@ -2786,54 +2850,24 @@ export namespace turn {
 	        this.url = source["url"];
 	    }
 	}
-	export class ToolPart {
-	    ref?: string;
-	    name: string;
-	    act?: string;
-	    subject?: string;
-	    agent?: string;
-	    brief?: string;
-	    agentKind?: string;
-	    delegation?: boolean;
-	    ok: boolean;
-	    error?: string;
+	export class TurnPart {
+	    kind: string;
+	    text?: string;
+	    demoted?: boolean;
 	    secs?: number;
-	    added?: number;
-	    removed?: number;
-	    count?: number;
-	    range?: string;
-	    problems?: number;
-	    links?: ToolLink[];
-	    diff?: string;
-	    artifacts?: string[];
-	    proposalId?: number;
+	    tool?: ToolPart;
 	
 	    static createFrom(source: any = {}) {
-	        return new ToolPart(source);
+	        return new TurnPart(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.ref = source["ref"];
-	        this.name = source["name"];
-	        this.act = source["act"];
-	        this.subject = source["subject"];
-	        this.agent = source["agent"];
-	        this.brief = source["brief"];
-	        this.agentKind = source["agentKind"];
-	        this.delegation = source["delegation"];
-	        this.ok = source["ok"];
-	        this.error = source["error"];
+	        this.kind = source["kind"];
+	        this.text = source["text"];
+	        this.demoted = source["demoted"];
 	        this.secs = source["secs"];
-	        this.added = source["added"];
-	        this.removed = source["removed"];
-	        this.count = source["count"];
-	        this.range = source["range"];
-	        this.problems = source["problems"];
-	        this.links = this.convertValues(source["links"], ToolLink);
-	        this.diff = source["diff"];
-	        this.artifacts = source["artifacts"];
-	        this.proposalId = source["proposalId"];
+	        this.tool = this.convertValues(source["tool"], ToolPart);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -2854,24 +2888,58 @@ export namespace turn {
 		    return a;
 		}
 	}
-	export class TurnPart {
-	    kind: string;
-	    text?: string;
-	    demoted?: boolean;
+	export class ToolPart {
+	    ref?: string;
+	    name: string;
+	    act?: string;
+	    subject?: string;
+	    agent?: string;
+	    brief?: string;
+	    agentKind?: string;
+	    delegation?: boolean;
+	    children?: TurnPart[];
+	    ok: boolean;
+	    error?: string;
 	    secs?: number;
-	    tool?: ToolPart;
+	    added?: number;
+	    removed?: number;
+	    count?: number;
+	    range?: string;
+	    problems?: number;
+	    links?: ToolLink[];
+	    diff?: string;
+	    artifacts?: string[];
+	    proposalId?: number;
+	    answer?: string;
 	
 	    static createFrom(source: any = {}) {
-	        return new TurnPart(source);
+	        return new ToolPart(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.kind = source["kind"];
-	        this.text = source["text"];
-	        this.demoted = source["demoted"];
+	        this.ref = source["ref"];
+	        this.name = source["name"];
+	        this.act = source["act"];
+	        this.subject = source["subject"];
+	        this.agent = source["agent"];
+	        this.brief = source["brief"];
+	        this.agentKind = source["agentKind"];
+	        this.delegation = source["delegation"];
+	        this.children = this.convertValues(source["children"], TurnPart);
+	        this.ok = source["ok"];
+	        this.error = source["error"];
 	        this.secs = source["secs"];
-	        this.tool = this.convertValues(source["tool"], ToolPart);
+	        this.added = source["added"];
+	        this.removed = source["removed"];
+	        this.count = source["count"];
+	        this.range = source["range"];
+	        this.problems = source["problems"];
+	        this.links = this.convertValues(source["links"], ToolLink);
+	        this.diff = source["diff"];
+	        this.artifacts = source["artifacts"];
+	        this.proposalId = source["proposalId"];
+	        this.answer = source["answer"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

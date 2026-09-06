@@ -174,6 +174,10 @@ export function CancelMCPSignIn(arg1) {
   return window['go']['main']['App']['CancelMCPSignIn'](arg1);
 }
 
+export function CancelPendingModel() {
+  return window['go']['main']['App']['CancelPendingModel']();
+}
+
 export function CancelSignIn(arg1) {
   return window['go']['main']['App']['CancelSignIn'](arg1);
 }
@@ -392,6 +396,10 @@ export function GuideTopics() {
 
 export function HasAPIKey(arg1) {
   return window['go']['main']['App']['HasAPIKey'](arg1);
+}
+
+export function HistoryFault() {
+  return window['go']['main']['App']['HistoryFault']();
 }
 
 export function ImportSession() {
@@ -722,6 +730,10 @@ export function PlacementTargets() {
   return window['go']['main']['App']['PlacementTargets']();
 }
 
+export function PreparedReplyOn() {
+  return window['go']['main']['App']['PreparedReplyOn']();
+}
+
 export function PriceModels(arg1, arg2) {
   return window['go']['main']['App']['PriceModels'](arg1, arg2);
 }
@@ -1020,6 +1032,10 @@ export function SetLearningEnabled(arg1) {
 
 export function SetMCPServerTargets(arg1, arg2) {
   return window['go']['main']['App']['SetMCPServerTargets'](arg1, arg2);
+}
+
+export function SetPreparedReplyOn(arg1) {
+  return window['go']['main']['App']['SetPreparedReplyOn'](arg1);
 }
 
 export function SetProviderBaseURL(arg1, arg2) {

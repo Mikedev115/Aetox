@@ -101,6 +101,8 @@ export function CancelAccountSignIn():Promise<void>;
 
 export function CancelMCPSignIn(arg1:string):Promise<void>;
 
+export function CancelPendingModel():Promise<main.ModelInfo>;
+
 export function CancelSignIn(arg1:string):Promise<void>;
 
 export function CancelTurn():Promise<void>;
@@ -210,6 +212,8 @@ export function GitWorkingTree():Promise<Array<main.GitFileChange>>;
 export function GuideTopics():Promise<Array<model.GuideTopic>>;
 
 export function HasAPIKey(arg1:string):Promise<boolean>;
+
+export function HistoryFault():Promise<main.StoreFault>;
 
 export function ImportSession():Promise<string>;
 
@@ -375,6 +379,8 @@ export function PickPresetImage(arg1:string):Promise<string>;
 
 export function PlacementTargets():Promise<Array<main.PlacementTarget>>;
 
+export function PreparedReplyOn():Promise<boolean>;
+
 export function PriceModels(arg1:string,arg2:Array<string>):Promise<Array<main.ModelListing>>;
 
 export function ProjectTree():Promise<Array<main.TreeNode>>;
@@ -524,6 +530,8 @@ export function SetDelegateOff(arg1:string,arg2:boolean):Promise<main.DelegateSe
 export function SetLearningEnabled(arg1:boolean):Promise<void>;
 
 export function SetMCPServerTargets(arg1:string,arg2:Array<string>):Promise<void>;
+
+export function SetPreparedReplyOn(arg1:boolean):Promise<void>;
 
 export function SetProviderBaseURL(arg1:string,arg2:string):Promise<main.ModelInfo>;
 
