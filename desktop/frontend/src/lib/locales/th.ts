@@ -337,6 +337,8 @@ export const th = {
   'bgw.stop': 'หยุด',
   'bgw.stopTask': 'หยุด {agent}',
   'bgw.stopRun': 'หยุดคนทำงานในงานนี้ทั้งหมด',
+  'bgw.foldRun': 'พับงานนี้',
+  'bgw.openRun': 'ดูเฟสของงานนี้',
   'bgw.tallyRead': 'อ่าน {n} ไฟล์',
   'bgw.tallyWrote': 'แก้ {n} ไฟล์',
   'bgw.viewWork': 'ดูงานทั้งหมด',

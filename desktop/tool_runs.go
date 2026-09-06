@@ -101,3 +101,57 @@ func boolToInt(b bool) int {
 	}
 	return 0
 }
+
+// recordChildParts catches a delegate's finished sequence, to be spliced into
+// the parent turn's own when that turn is written down (withChildParts).
+//
+// Called from the delegate's goroutine, which is why it takes the same lock the
+// command log does.
+func (a *App) recordChildParts(conv *conversation, parentRef string, parts []turn.TurnPart) {
+	if conv == nil || parentRef == "" || len(parts) == 0 {
+		return
+	}
+	a.toolHistoryMu.Lock()
+	defer a.toolHistoryMu.Unlock()
+	if conv.childParts == nil {
+		conv.childParts = map[string][]turn.TurnPart{}
+	}
+	conv.childParts[parentRef] = append([]turn.TurnPart(nil), parts...)
+}
+
+// withChildParts hangs each delegate's sequence off the `task` call that hired
+// it, and empties the holding map: the parts are the turn's from here on, and a
+// ref left behind would attach a worker's transcript to the NEXT turn that
+// happened to reuse its call id.
+//
+// Copies rather than writing through the Tool pointers it is handed. `parts`
+// comes straight off turn.Result and the executor's own list shares those
+// pointers; mutating them would edit a slice the engine still owns.
+func (a *App) withChildParts(conv *conversation, parts []turn.TurnPart) []turn.TurnPart {
+	if conv == nil {
+		return parts
+	}
+	a.toolHistoryMu.Lock()
+	held := conv.childParts
+	conv.childParts = nil
+	a.toolHistoryMu.Unlock()
+	if len(held) == 0 || len(parts) == 0 {
+		return parts
+	}
+	out := make([]turn.TurnPart, len(parts))
+	copy(out, parts)
+	for i := range out {
+		tool := out[i].Tool
+		if tool == nil || tool.Ref == "" {
+			continue
+		}
+		kids, ok := held[tool.Ref]
+		if !ok {
+			continue
+		}
+		clone := *tool
+		clone.Children = kids
+		out[i].Tool = &clone
+	}
+	return out
+}

@@ -110,6 +110,16 @@ type TaskOptions struct {
 	// plus the delegate's profile name — "which sub-agent is bad at what" is the
 	// question the stored record exists to answer, and it needs both.
 	OnToolRun func(turn.ToolRun)
+	// OnChildParts hands the parent the delegate's finished turn, under the ref
+	// of the `task` call that hired it.
+	//
+	// Separate from OnToolAction and not derivable from it: that channel is a
+	// live relay the window draws and nobody stores, so everything a delegate
+	// did was gone the moment the session was reopened. This is the record —
+	// the same TurnPart sequence the parent keeps for itself, for the worker.
+	// Called once, when the run is over; a run that produced nothing calls
+	// nothing.
+	OnChildParts func(parentRef string, parts []turn.TurnPart)
 	// OnUsage is the parent's usage reporter — a delegate's tokens are the user's
 	// tokens, so they land in the same stats with no extra plumbing.
 	OnUsage    func(model.Usage)
@@ -753,6 +763,12 @@ func (t *taskTool) begin(ctx context.Context, args map[string]any, out **running
 		// test file and…") would run as a single explicit tool call, not a turn.
 		result, runErr := exec.Execute(runCtx, brief, command.Intent{Raw: brief, Kind: command.KindConversation}, nil, nil, nil)
 		elapsed := time.Since(self.startedAt())
+		// Handed over whatever the ending was. A delegate that failed halfway
+		// did the work up to the wall, and that half is the part a person
+		// actually reopens the card to read.
+		if t.opts.OnChildParts != nil && len(result.Parts) > 0 {
+			t.opts.OnChildParts(parentRef, result.Parts)
+		}
 
 		// Cancellation is checked BEFORE runErr and independently of it: a stopped
 		// turn can come back with runErr == nil carrying the empty-reply fallback,

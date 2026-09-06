@@ -516,6 +516,18 @@ function stepsFromParts(parts?: TurnPart[]): ToolStep[] | undefined {
       delegation: tool.delegation,
       startedAt: 0,
     })
+    // The delegate's own turn, flattened in behind the row that hired it.
+    //
+    // Flattened rather than kept nested because that is the shape the timeline
+    // has always taken: one ordered list where a child names its parent, which
+    // is exactly what the live relay produces (ToolEvent.Parent) and what
+    // groupSteps reads. Stored nested because a turn inside a turn is what it
+    // is; the two shapes meet here, once, instead of at every draw site.
+    if (tool.ref && tool.children?.length) {
+      for (const child of stepsFromParts(tool.children as TurnPart[]) ?? []) {
+        steps.push({ ...child, parent: tool.ref })
+      }
+    }
   })
   // Which of the stored searches' results were read in full. Worked out here
   // rather than stored, because it is a fact about the turn as a whole and the

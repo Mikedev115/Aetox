@@ -36,6 +36,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/mode"
 	"github.com/Mikedev115/Aetox/internal/skill"
 	"github.com/Mikedev115/Aetox/internal/subagent"
+	"github.com/Mikedev115/Aetox/internal/turn"
 )
 
 // conversation is one chat: its engine, the coordinates that engine was built
@@ -166,7 +167,6 @@ type conversation struct {
 	// a way back into a conversation they left.
 	restorePoints []RestorePoint
 
-
 	// userSaves is every file the PERSON saved from the editor since
 	// lastSnapshot was taken. An undo of this chat leaves them alone.
 	//
@@ -230,6 +230,16 @@ type conversation struct {
 	// made that claim false. Guarded by App.toolHistoryMu, which covers every
 	// conversation's slice: a delegate writes from its own goroutine (§44.11).
 	toolHistory []string
+
+	// childParts holds each delegate's finished sequence until the turn that
+	// hired it is written down, keyed by the `task` call's ref.
+	//
+	// It has to be caught here and spliced in later because of the order the
+	// two facts arrive in: a delegate finishes in the middle of the parent's
+	// turn, on its own goroutine, and the parent's Parts do not exist until the
+	// whole turn is assembled. Guarded by App.toolHistoryMu, like the slice
+	// above and for the same reason — a delegate writes from its own goroutine.
+	childParts map[string][]turn.TurnPart
 
 	// A worker addressed with @name that stopped to ask something, and is still
 	// holding everything it had done when it stopped. The next message in THIS

@@ -170,8 +170,12 @@ type Options struct {
 	// Nil is the native shell: every existing host, and every test.
 	Shell func() proc.Backend
 
-	OnToolAction     func(turn.ToolEvent)
-	OnToolRun        func(turn.ToolRun)
+	OnToolAction func(turn.ToolEvent)
+	OnToolRun    func(turn.ToolRun)
+	// OnChildParts receives a delegate's finished sequence, under the `task`
+	// call that hired it. Only the desktop supplies one: it is the front end
+	// that stores a transcript and can therefore be asked to show one back.
+	OnChildParts     func(parentRef string, parts []turn.TurnPart)
 	OnStatus         func(string)
 	OnContentPreview func(string)
 	OnContentReset   func()
@@ -644,6 +648,7 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 		Approve:      opts.Approve,
 		OnToolAction: opts.OnToolAction,
 		OnToolRun:    opts.OnToolRun,
+		OnChildParts: opts.OnChildParts,
 		OnUsage:      opts.OnUsage,
 		MaxChars:     maxChars,
 		ThinkLevel:   think.NormalizeLevel(thinkLevel),

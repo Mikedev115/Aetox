@@ -326,6 +326,17 @@ export interface ToolPartInfo {
   /** Whether this `task` row hired anybody. Written down with the turn, so a
    *  reopened session draws the same blocks the live one did. */
   delegation?: boolean
+  /** The delegate's OWN turn, hanging off the `task` call that hired it — the
+   *  same sequence shape, one level down.
+   *
+   *  A delegate runs on its own executor and its own part list, and that list
+   *  used to end with the run: the live relay drew every call the worker made
+   *  and stored none of them, so switching chats or reopening the session left
+   *  a card with a name, a brief and nothing underneath (owner, 7 ก.ย.:
+   *  "ซับเอเจนมีปัญหา สลับหรือรีเฟรชแล้ว tool หาย"). Absent on every turn
+   *  stored before this existed, which is why the card still draws whatever it
+   *  is given rather than expecting anything. */
+  children?: TurnPart[]
   ok: boolean
   error?: string
   secs?: number

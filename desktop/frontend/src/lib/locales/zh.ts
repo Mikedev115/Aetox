@@ -613,6 +613,8 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'bgw.stop': '停止',
   'bgw.stopTask': '停止 {agent}',
   'bgw.stopRun': '停止此任务的所有工作者',
+  'bgw.foldRun': '收起此任务',
+  'bgw.openRun': '展开此任务的阶段',
   'bgw.tools': '{n} 个工具',
   'bgw.spend': '输入 {in} · 输出 {out}',
   'bgw.spendTitle': '此子代理已用的 tokens：读入 {in}，写出 {out}',

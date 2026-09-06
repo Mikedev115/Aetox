@@ -2586,8 +2586,9 @@ func (a *App) runTurn(conv *conversation, text, to string) (SessionMessage, Sess
 		Role: "agent", Text: result.Reply, Time: now,
 		Reasoning: strings.TrimSpace(reasoning.String()), ThinkSecs: thinkSecs,
 		// The turn as it happened, so reopening this session shows the work
-		// and not just the sentence it ended on.
-		Parts: result.Parts,
+		// and not just the sentence it ended on — every delegate's own turn
+		// hanging off the `task` row that hired it.
+		Parts: a.withChildParts(conv, result.Parts),
 	}
 	if err != nil {
 		return SessionMessage{Role: "user", Text: text, Time: now}, agentMsg, err

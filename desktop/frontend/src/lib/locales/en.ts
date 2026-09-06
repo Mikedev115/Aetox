@@ -344,6 +344,8 @@ export const en: Record<keyof typeof th, string> = {
   'bgw.stop': 'Stop',
   'bgw.stopTask': 'Stop {agent}',
   'bgw.stopRun': 'Stop every worker on this job',
+  'bgw.foldRun': 'Fold this job',
+  "bgw.openRun": "Show this job's phases",
   'bgw.tallyRead': '{n} files read',
   'bgw.tallyWrote': '{n} files changed',
   'bgw.viewWork': 'See every step',

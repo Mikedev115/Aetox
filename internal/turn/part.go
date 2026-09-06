@@ -86,12 +86,27 @@ type ToolPart struct {
 	// hired anybody, or was one of the four actions that do not. A reopened
 	// session reads only the parts, so leaving it off the transcript would fix
 	// the live turn and let the same wrong card come back on reload.
-	Delegation *bool  `json:"delegation,omitempty"`
-	OK         bool   `json:"ok"`
-	Error      string `json:"error,omitempty"`
-	Secs       int    `json:"secs,omitempty"`
-	Added      int    `json:"added,omitempty"`
-	Removed    int    `json:"removed,omitempty"`
+	Delegation *bool `json:"delegation,omitempty"`
+	// Children is the delegate's own turn — the sequence IT went through, in
+	// the same shape as this one, hanging off the `task` call that hired it.
+	//
+	// A delegate runs on its own Executor with its own partList, and that list
+	// used to be thrown away with the run: the parent kept one `task` row, so a
+	// reopened session drew a card with a name and a brief and nothing
+	// underneath it, while the live turn had shown every call the worker made
+	// (owner, 7 ก.ย.: "ซับเอเจนมีปัญหา สลับหรือรีเฟรชแล้ว tool หาย"). The live
+	// events were never the record — they are relayed, not stored — so the only
+	// honest fix is for the record to carry the work too.
+	//
+	// Nested rather than flattened with a parent pointer, because that is what
+	// it is: a turn inside a turn. The window flattens it on the way in
+	// (stepsFromParts), where the timeline already wants one ordered list.
+	Children []TurnPart `json:"children,omitempty"`
+	OK       bool       `json:"ok"`
+	Error    string     `json:"error,omitempty"`
+	Secs     int        `json:"secs,omitempty"`
+	Added    int        `json:"added,omitempty"`
+	Removed  int        `json:"removed,omitempty"`
 	// Count/Range are ToolEvent.Count and Range written down — see the comment
 	// there. A reopened session rebuilds its rows from these parts alone, and
 	// "read gate.py 1-60" is exactly the kind of fact worth still being true
