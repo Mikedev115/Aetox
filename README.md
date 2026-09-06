@@ -524,23 +524,25 @@ date-stamped, because the rule above does not have an exception for numbers we w
 
 </details>
 
-## Status — v1.5.17
+## Status — v1.5.18
 
-The core is in place. [Release notes](docs/release-notes/v1.5.17.md) ·
+The core is in place. [Release notes](docs/release-notes/v1.5.18.md) ·
 [roadmap](ROADMAP.md) · [architecture](ARCHITECTURE.md).
 
 Three things it does today that are worth knowing about:
 
-- **Video editing that finishes on your machine.** The editor agent drives kinocut and a pinned,
-  SHA-checked scene renderer; the cutting room beside the chat shows the cut as a ledger with a
-  player, and every number on it is read from the file itself, never from what the agent said.
-- **Talk to it, and have it read back.** A mic in the composer transcribes into the draft, a
-  listen button under each reply speaks it, and the voice vendors switch from Settings — fifteen
-  of them, local by default, with recordings never leaving the machine until a cloud row is
-  picked by name.
-- **The right-hand desk belongs to its own chat.** A page opened by a background chat's agent no
-  longer appears over what you are reading: it waits on that chat's own desk, its window stays
-  alive for the agent, and switching back adopts the same page without a reload.
+- **Change the model mid-answer, and the next one is proved before its turn comes.** The four
+  engine dials no longer refuse while a turn is running: the switch is taken the moment you make
+  it, parks at the turn boundary, and the menu says what is queued and how to drop it. While the
+  old model keeps answering, a one-token ping proves the next endpoint's key and wire format —
+  except for the runtimes that hold their weights in this machine's own memory, where proving a
+  model would mean loading it beside the one still talking.
+- **A chat reopened tomorrow still holds what happened inside it.** What a delegate did is kept
+  under the card that hired it, and what a question asked you — together with your answer — is
+  kept on its row. Both used to live only inside the running turn and go with it.
+- **The answer you were about to type is already typed.** A turn that ends by handing you a
+  choice writes your reply into the composer in dim text: Tab takes it, Tab again offers the
+  other option, and typing anything clears it. Nothing is ever sent that you did not send.
 
 **Next** — agents working across turns rather than only inside one; a plan handed from the
 assistant door to the code door; a code-door team with defined roles.
