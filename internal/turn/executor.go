@@ -1508,6 +1508,19 @@ func (e *Executor) executeTool(ctx context.Context, name string, args map[string
 			Output: output.Content,
 		})
 		output.AfterHook = strings.TrimSpace(after.Notes)
+		if after.Blocked {
+			// The tool's own words stay exactly what it said — the work did
+			// happen — but the call is reported as failed, with the hook's
+			// reason first so the label beside the call and the model both read
+			// the rejection, not the tool's stderr. When the hook printed
+			// nothing, its fallback reason rides in AfterHook, so the model is
+			// never left guessing why a receipt says error.
+			output.Success = false
+			output.Stderr = strings.TrimSpace("rejected by a PostToolUse hook: " + after.Reason + "\n" + output.Stderr)
+			if output.AfterHook == "" {
+				output.AfterHook = after.Reason
+			}
+		}
 	}
 	return output, handled, err
 }

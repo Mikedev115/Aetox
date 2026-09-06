@@ -131,15 +131,38 @@ func TestPostToolUseSeesTheOutcome(t *testing.T) {
 	}
 }
 
-// A PostToolUse hook cannot block: the tool has already run, and pretending
-// otherwise would be a lie about what the model is reading.
-func TestPostToolUseCannotBlock(t *testing.T) {
+// A blocking PostToolUse hook cannot change what the tool did, but it can
+// reject the result: Blocked carries the hook's own words as the reason.
+func TestPostToolUseBlockingHookRejectsTheResult(t *testing.T) {
+	r := runnerFor(t, Hook{
+		Event: PostToolUse, Matcher: "*", Blocking: true,
+		Command: script(t, `echo "lint failed"; exit 1`, `Write-Output "lint failed"; exit 1`),
+	})
+	d := r.Run(context.Background(), PostToolUse, "write", nil, &Result{OK: true})
+	if !d.Blocked {
+		t.Fatal("a blocking PostToolUse hook that exited non-zero did not reject the result")
+	}
+	if d.Reason != "lint failed" {
+		t.Errorf("Reason = %q, want the hook's own words", d.Reason)
+	}
+	if d.Notes != "lint failed" {
+		t.Errorf("Notes = %q, want the hook's output still carried beside the reason", d.Notes)
+	}
+}
+
+// A hook that blocks without printing anything is a wall with no sign on it;
+// the fallback reason names the event, so the model is not left guessing.
+func TestPostToolUseBlockingHookWithoutOutputStillSaysWhy(t *testing.T) {
 	r := runnerFor(t, Hook{
 		Event: PostToolUse, Matcher: "*", Blocking: true,
 		Command: script(t, `exit 1`, `exit 1`),
 	})
-	if d := r.Run(context.Background(), PostToolUse, "write", nil, &Result{OK: true}); d.Blocked {
-		t.Error("a PostToolUse hook blocked something that had already happened")
+	d := r.Run(context.Background(), PostToolUse, "write", nil, &Result{OK: true})
+	if !d.Blocked {
+		t.Fatal("a blocking PostToolUse hook that exited non-zero did not reject the result")
+	}
+	if !strings.Contains(d.Reason, "PostToolUse") {
+		t.Errorf("Reason = %q, want the fallback to name the event", d.Reason)
 	}
 }
 

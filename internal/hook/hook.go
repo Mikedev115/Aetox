@@ -40,7 +40,8 @@ const (
 	// PreToolUse runs before the tool does, and can refuse it.
 	PreToolUse Event = "PreToolUse"
 	// PostToolUse runs after, and cannot change what already happened; what
-	// it prints does reach the model, beside the tool's own result.
+	// it prints does reach the model, beside the tool's own result, and a
+	// blocking one rejects the result for the model to react to.
 	PostToolUse Event = "PostToolUse"
 )
 
@@ -62,8 +63,12 @@ type Hook struct {
 	// would type. It receives the call as JSON on stdin and as environment
 	// variables — see Run.
 	Command string `json:"command"`
-	// Blocking makes a non-zero exit refuse the tool call. Only meaningful on
-	// PreToolUse. Off by default: a hook that silently starts blocking work
+	// Blocking makes a non-zero exit carry weight, per event: on PreToolUse it
+	// refuses the call before the tool runs; on PostToolUse it rejects the
+	// result the tool already produced — the tool's own output is untouched,
+	// but the receipt the model reads turns into an error carrying the hook's
+	// reason, so the model fixes the work instead of moving on having believed
+	// it done. Off by default: a hook that silently starts blocking work
 	// because a formatter returned 1 is worse than no hook at all.
 	Blocking bool `json:"blocking"`
 }
@@ -74,9 +79,13 @@ type Config struct {
 }
 
 // Decision is what a pass of hooks concluded: for PreToolUse, whether the
-// call may go ahead; for PostToolUse, what the hooks had to say about it.
+// call may go ahead; for PostToolUse, what the hooks had to say about it —
+// and, when one of them was blocking and exited non-zero, that the result is
+// rejected and why.
 type Decision struct {
-	// Blocked is true when a blocking hook exited non-zero.
+	// Blocked is true when a blocking hook exited non-zero. On PreToolUse the
+	// call never runs; on PostToolUse the result is reported as failed for the
+	// model, with Reason as why.
 	Blocked bool
 	// Reason is what that hook printed, which is shown to the model so it can
 	// do something else rather than repeat the call. A hook that blocks without
@@ -193,7 +202,9 @@ func (r *Runner) Any(event Event) bool {
 //	AETOX_TOOL_ARGS the same JSON as on stdin, for a shell that cannot read it
 //
 // PostToolUse also gets AETOX_TOOL_OK ("1"/"0") and AETOX_TOOL_OUTPUT, and
-// whatever it prints comes back in Decision.Notes for the model to read.
+// whatever it prints comes back in Decision.Notes for the model to read. A
+// blocking PostToolUse hook that exits non-zero also sets Decision.Blocked
+// with its output as Decision.Reason — the result is rejected, not undone.
 func (r *Runner) Run(ctx context.Context, event Event, tool string, args map[string]any, result *Result) Decision {
 	if r == nil {
 		return Decision{}
@@ -223,14 +234,20 @@ func (r *Runner) Run(ctx context.Context, event Event, tool string, args map[str
 		debuglog.Msg("hook %q on %s(%s) failed: %v", command, event, tool, err)
 		// A failing non-blocking hook is the user's problem to see in the log,
 		// never a reason to stop the agent doing what it was asked.
-		if !h.Blocking || event != PreToolUse {
+		if !h.Blocking {
 			continue
 		}
 		reason := strings.TrimSpace(out)
 		if reason == "" {
-			reason = "a PreToolUse hook refused this call and printed no reason"
+			if event == PostToolUse {
+				reason = "a PostToolUse hook rejected this result and printed no reason"
+			} else {
+				reason = "a PreToolUse hook refused this call and printed no reason"
+			}
 		}
-		return Decision{Blocked: true, Reason: reason}
+		// The PostToolUse notes were collected above; a blocking one carries
+		// them out beside its reason rather than dropping them.
+		return Decision{Blocked: true, Reason: reason, Notes: strings.Join(notes, "\n")}
 	}
 	return Decision{Notes: strings.Join(notes, "\n")}
 }
