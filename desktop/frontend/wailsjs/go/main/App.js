@@ -978,6 +978,10 @@ export function SessionSources(arg1) {
   return window['go']['main']['App']['SessionSources'](arg1);
 }
 
+export function SessionSpend(arg1) {
+  return window['go']['main']['App']['SessionSpend'](arg1);
+}
+
 export function SessionTranscript(arg1) {
   return window['go']['main']['App']['SessionTranscript'](arg1);
 }

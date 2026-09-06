@@ -503,6 +503,8 @@ export function SessionSourceCount(arg1:string):Promise<number>;
 
 export function SessionSources(arg1:string):Promise<Array<main.Source>>;
 
+export function SessionSpend(arg1:string):Promise<main.SessionSpend>;
+
 export function SessionTranscript(arg1:string):Promise<Array<main.SessionMessage>>;
 
 export function SessionsInSpace(arg1:string):Promise<Array<main.SessionMeta>>;

@@ -180,6 +180,85 @@ func TestGetContextBreakdownReportsAnUnknownWindowAsUnknown(t *testing.T) {
 // tool block eats the window. And the cache column that was always in the same
 // row must come out with it, so a mostly-cached prompt stops presenting as
 // fully paid.
+// The tool block is the biggest thing in a fresh chat and the meter said only
+// its size — a number you can resent and cannot act on. Opening it is what makes
+// it actionable (owner, 7 ก.ย.: "จะได้รู้ต้นทาง"), and the whole value of a
+// drill-down is that it survives being audited: a reader who opens a list to
+// check a number will add the list up.
+func TestContextToolRowsAddUpToTheirSlice(t *testing.T) {
+	for _, total := range []int{0, 1, 7, 27_910, 999_999} {
+		// Character counts as they come out of toolWeights, wildly uneven the
+		// way real definitions are — one browser tool against a dozen small ones.
+		rows := []ContextTool{
+			{Name: "browser", Tokens: 41_000},
+			{Name: "bash", Tokens: 3_100},
+			{Name: "read", Tokens: 2_900},
+			{Name: "write", Tokens: 2_870},
+			{Name: "todo_write", Tokens: 61},
+			{Name: "ask_user", Tokens: 59},
+		}
+		apportionTools(rows, total)
+		sum := 0
+		for _, r := range rows {
+			if r.Tokens < 0 {
+				t.Fatalf("total %d: %s came out negative (%d)", total, r.Name, r.Tokens)
+			}
+			sum += r.Tokens
+		}
+		if sum != total {
+			t.Errorf("total %d: rows sum to %d; a panel that does not add up loses the audit it was built for", total, sum)
+		}
+	}
+}
+
+// The remainder has to land somewhere, and where it lands is the difference
+// between a rounding error and a lie. On the heaviest row it is invisible; on
+// the lightest — where a naive loop would leave it — a 15-token tool is drawn
+// at three times its size.
+func TestContextToolRemainderLandsOnTheHeaviestRow(t *testing.T) {
+	rows := []ContextTool{
+		{Name: "heavy", Tokens: 40_000},
+		{Name: "tiny-a", Tokens: 61},
+		{Name: "tiny-b", Tokens: 59},
+	}
+	apportionTools(rows, 10_000)
+	if rows[1].Tokens > 20 || rows[2].Tokens > 20 {
+		t.Errorf("a rounding remainder was dumped on a small row: %+v", rows)
+	}
+	if rows[0].Tokens < 9_900 {
+		t.Errorf("the heavy row = %d; it should carry the remainder", rows[0].Tokens)
+	}
+}
+
+// A tool bridged from a server the user added is the one cost on this list they
+// can actually turn off, so naming the server is the point of the column. The
+// registry knows only that a tool is MCP; the server is in the name, because
+// that is how the name was built.
+func TestContextToolNamesTheServerAToolCameFrom(t *testing.T) {
+	// Names as toolName really builds them: sanitize(server) + "_" + tool, so a
+	// hyphen in a server name survives into the prefix.
+	//
+	// "github enterprise" is the case that matters. It sanitizes to
+	// `github_enterprise_`, which BOTH it and plain `github` prefix — a tool
+	// called `enterprise_list_repos` on the `github` server would be named the
+	// same thing. Longest prefix is the tiebreak, and without it the shorter
+	// server claims every tool of the longer one.
+	servers := []string{"github", "github enterprise", "github-cloud", "exa"}
+	cases := map[string]string{
+		"github_list_repos":            "github",
+		"github_enterprise_list_repos": "github enterprise",
+		"github-cloud_list_repos":      "github-cloud",
+		"exa_search":                   "exa",
+		"bash":                         "",
+		"todo_write":                   "",
+	}
+	for tool, want := range cases {
+		if got := mcpServerOf(tool, servers); got != want {
+			t.Errorf("mcpServerOf(%q) = %q; want %q", tool, got, want)
+		}
+	}
+}
+
 func TestGetContextBreakdownPinsFixedSlicesAndReportsCache(t *testing.T) {
 	agent := cognitive.NewAgent(cognitive.AgentConfig{
 		SystemPrompt: "you are a test system prompt",

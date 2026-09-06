@@ -642,6 +642,24 @@ export namespace main {
 	        this.error = source["error"];
 	    }
 	}
+	export class ContextTool {
+	    name: string;
+	    tokens: number;
+	    source: string;
+	    server?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ContextTool(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.tokens = source["tokens"];
+	        this.source = source["source"];
+	        this.server = source["server"];
+	    }
+	}
 	export class ContextSlice {
 	    key: string;
 	    tokens: number;
@@ -665,6 +683,7 @@ export namespace main {
 	    sweptItems?: number;
 	    sweptTokens?: number;
 	    summaries?: number;
+	    tools?: ContextTool[];
 	
 	    static createFrom(source: any = {}) {
 	        return new ContextBreakdown(source);
@@ -680,6 +699,7 @@ export namespace main {
 	        this.sweptItems = source["sweptItems"];
 	        this.sweptTokens = source["sweptTokens"];
 	        this.summaries = source["summaries"];
+	        this.tools = this.convertValues(source["tools"], ContextTool);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -1682,6 +1702,30 @@ export namespace main {
 	        this.space = source["space"];
 	        this.projectKey = source["projectKey"];
 	        this.projectName = source["projectName"];
+	    }
+	}
+	export class SessionSpend {
+	    in: number;
+	    out: number;
+	    cached: number;
+	    cacheReported: boolean;
+	    cost: number;
+	    unpriced: number;
+	    rounds: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SessionSpend(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.in = source["in"];
+	        this.out = source["out"];
+	        this.cached = source["cached"];
+	        this.cacheReported = source["cacheReported"];
+	        this.cost = source["cost"];
+	        this.unpriced = source["unpriced"];
+	        this.rounds = source["rounds"];
 	    }
 	}
 	

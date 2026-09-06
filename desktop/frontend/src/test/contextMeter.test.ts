@@ -9,7 +9,7 @@ import { render, screen } from '@testing-library/svelte'
 import Chat from '../lib/Chat.svelte'
 import { GetContextBreakdown, EnabledProviders, ListModelsForProvider } from './mocks/wailsApp'
 
-const breakdown = (measured: boolean, used: number, cachedTokens = 0) => ({
+const breakdown = (measured: boolean, used: number, cachedTokens = 0, tools?: any[]) => ({
   usedTokens: used,
   maxTokens: 1000000,
   measured,
@@ -20,6 +20,7 @@ const breakdown = (measured: boolean, used: number, cachedTokens = 0) => ({
     { key: 'messages', tokens: measured ? used - 10122 : 0 },
     { key: 'free', tokens: 1000000 - used },
   ],
+  tools,
 })
 
 const props = () => ({
@@ -168,5 +169,66 @@ describe('the context meter when the round exceeds the stated window', () => {
 
     expect(await screen.findByText(/43.4k \/ 32.0k \(136%\)/)).toBeTruthy()
     expect(screen.getByText(/larger than the window|ใหญ่กว่าหน้าต่าง/)).toBeTruthy()
+  })
+})
+
+// The tool block is the biggest thing in a fresh chat — 27.9k of 32.9k on the
+// owner's install — and the meter said only that. A total with no way in is a
+// number you can resent and cannot act on, and the action is real: the block is
+// what a narrower desk exists to shrink and what a forgotten MCP server
+// quietly inflates (owner, 7 ก.ย.: "จะได้รู้ต้นทาง").
+describe('opening the tool block', () => {
+  const tools = [
+    { name: 'browser', tokens: 6100, source: 'workbench' },
+    { name: 'exa_search', tokens: 2400, source: 'mcp', server: 'exa' },
+    { name: 'bash', tokens: 1000, source: 'builtin' },
+  ]
+
+  it('stays shut until asked, then names the tools behind the number', async () => {
+    GetContextBreakdown.mockResolvedValue(breakdown(true, 12040, 0, tools) as any)
+
+    render(Chat, props())
+    const button = await screen.findByRole('button', { name: /Context window|หน้าต่างคอนเท็กซ์/ })
+    button.click()
+
+    // The panel answers "how full" first; forty rows would bury that.
+    await screen.findByText(/12.0k \/ 1000.0k/)
+    expect(screen.queryByText('exa_search')).toBeNull()
+
+    const row = await screen.findByRole('button', { name: /^(Tools|เครื่องมือ|工具)/ })
+    row.click()
+
+    expect(await screen.findByText('exa_search')).toBeTruthy()
+    expect(screen.getByText('browser')).toBeTruthy()
+    expect(screen.getByText('bash')).toBeTruthy()
+  })
+
+  // The server name is the point of the origin column: a bridged tool is the
+  // one cost on the list the user can actually switch off, and "mcp" alone does
+  // not say which one to go and look at.
+  it('names the server a bridged tool came from', async () => {
+    GetContextBreakdown.mockResolvedValue(breakdown(true, 12040, 0, tools) as any)
+
+    render(Chat, props())
+    const meter = await screen.findByRole('button', { name: /Context window|หน้าต่างคอนเท็กซ์/ })
+    meter.click()
+    ;(await screen.findByRole('button', { name: /^(Tools|เครื่องมือ|工具)/ })).click()
+
+    expect(await screen.findByText('exa')).toBeTruthy()
+    // And a tool the engine ships with says so rather than borrowing a server.
+    expect(screen.getAllByText(/built in|ในตัว|内置/).length).toBeGreaterThan(0)
+  })
+
+  // Nothing to open is not an empty drawer. A desk carrying no tools at all
+  // must not offer a disclosure that reveals nothing.
+  it('is not openable when the backend sent no rows', async () => {
+    GetContextBreakdown.mockResolvedValue(breakdown(true, 12040) as any)
+
+    render(Chat, props())
+    const meter = await screen.findByRole('button', { name: /Context window|หน้าต่างคอนเท็กซ์/ })
+    meter.click()
+
+    await screen.findByText(/12.0k \/ 1000.0k/)
+    expect(screen.queryByRole('button', { name: /^(Tools|เครื่องมือ|工具)/ })).toBeNull()
   })
 })

@@ -668,6 +668,26 @@ CREATE TABLE IF NOT EXISTS project_folders (
 			return nil
 		},
 	},
+	{
+		version: 19,
+		name:    "token_usage_by_session",
+		apply: func(tx *sql.Tx) error {
+			// token_usage has been indexed by time since it was written, which
+			// is the stats page's question ("what did today cost"). Nothing
+			// indexed the other one, and there was no other one until the
+			// composer's meter started asking what a single chat has cost.
+			//
+			// Two readers now scan by session and both sit on a chat's hot
+			// path: lastPromptUsage on every context refresh, SessionSpend on
+			// every round of every turn. On a table that only grows — 30 MB of
+			// it after a fortnight here — a full scan per round is the kind of
+			// cost that never shows up as a bug, just as an app that gets
+			// slower the longer you use it.
+			_, err := tx.Exec(
+				`CREATE INDEX IF NOT EXISTS idx_token_usage_session ON token_usage(session_id, id)`)
+			return err
+		},
+	},
 }
 
 // latestSchemaVersion is what this build understands.

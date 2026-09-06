@@ -2848,6 +2848,30 @@ type ContextSlice struct {
 	Tokens int    `json:"tokens"`
 }
 
+// ContextTool is one tool definition's weight inside the tool block.
+//
+// The block is the biggest thing in a fresh chat — 27.9k of 32.9k on the
+// owner's install — and until now the meter said only that. "เครื่องมือ 27.9k"
+// with no way in is a number you can resent and cannot act on, and the action
+// is real: the tool block is exactly what a narrower desk exists to shrink, and
+// what an MCP server the user forgot they installed quietly inflates. So the
+// row opens (owner, 7 ก.ย.: "มันควรจะกดดูย่อยได้ครับว่าเครื่องมืออะไร จะได้รู้
+// ต้นทาง").
+//
+// Source and Server are the "ต้นทาง" half. A tool the engine ships with and a
+// tool bridged from a server the user added are the same cost and completely
+// different decisions, and the second one is the one that can be turned off.
+type ContextTool struct {
+	Name   string `json:"name"`
+	Tokens int    `json:"tokens"`
+	Source string `json:"source"` // builtin | workbench | mcp
+	// Server is the MCP server a bridged tool came from, empty for everything
+	// else. Recovered from the name prefix, which is how the name was built
+	// (internal/mcp/adapter.go ToolPrefix) — the registry records that a tool is
+	// MCP and not which server it came from.
+	Server string `json:"server,omitempty"`
+}
+
 // ContextBreakdown backs the composer's context meter (Claude Code-style):
 // how full the window is and what fills it.
 type ContextBreakdown struct {
@@ -2873,6 +2897,10 @@ type ContextBreakdown struct {
 	SweptItems  int `json:"sweptItems,omitempty"`
 	SweptTokens int `json:"sweptTokens,omitempty"`
 	Summaries   int `json:"summaries,omitempty"`
+	// Tools is the tool slice broken out per definition, heaviest first, and it
+	// adds up to that slice exactly — see toolWeights on why that had to be
+	// arranged rather than assumed.
+	Tools []ContextTool `json:"tools,omitempty"`
 }
 
 // GetContextBreakdown reports what is in the model's context window.
@@ -2916,14 +2944,17 @@ func (a *App) GetContextBreakdown() ContextBreakdown {
 	}
 
 	toolChars := 0
+	var toolRows []ContextTool
 	if a.cur().registry != nil {
 		// Through the desk's filter, not the whole registry: the tool block is
 		// what a narrower desk exists to shrink, and reporting the full pile
 		// here would tell the user the one number the choice was meant to change
 		// had not changed at all.
-		if defs, err := json.Marshal(a.deskTools().ToolDefinitions()); err == nil {
-			toolChars = len(defs)
+		defs := a.deskTools().ToolDefinitions()
+		if b, err := json.Marshal(defs); err == nil {
+			toolChars = len(b)
 		}
+		toolRows = a.toolWeights(defs)
 	}
 
 	maxTokens := a.contextWindowTokens()
@@ -2961,6 +2992,11 @@ func (a *App) GetContextBreakdown() ContextBreakdown {
 		used = real
 	}
 
+	// After the correction above, never before: `tools` can still be scaled down
+	// here, and rows adding up to a number the header no longer shows is the one
+	// way a drill-down is worse than no drill-down.
+	apportionTools(toolRows, tools)
+
 	slices := []ContextSlice{
 		{Key: "system", Tokens: system},
 		{Key: "tools", Tokens: tools},
@@ -2997,6 +3033,7 @@ func (a *App) GetContextBreakdown() ContextBreakdown {
 		SweptItems:   sweptItems,
 		SweptTokens:  est(sweptChars),
 		Summaries:    summaries,
+		Tools:        toolRows,
 	}
 }
 
@@ -3022,6 +3059,127 @@ func imageTokens(img model.Image) int {
 		tok = 1600
 	}
 	return tok
+}
+
+// toolWeights measures each tool definition on its own, so the block above can
+// be opened and read rather than only resented.
+//
+// Chars, not tokens, at this stage. The token figure is apportioned later
+// (apportionTools) against whatever the header ends up saying, because the two
+// have to agree: a panel whose rows sum to 28.1k under a heading of 27.9k
+// invites exactly the audit it was built to satisfy, and loses it.
+//
+// Heaviest first. The question this list answers is "what is taking the space",
+// and forty rows in registration order do not answer it.
+func (a *App) toolWeights(defs []model.ToolDefinition) []ContextTool {
+	if len(defs) == 0 {
+		return nil
+	}
+	// Server names are read once and only if something needs them: this runs on
+	// every context refresh, and LoadMCPServers is a file read.
+	var servers []string
+	loadedServers := false
+
+	rows := make([]ContextTool, 0, len(defs))
+	chars := make([]int, 0, len(defs))
+	for _, def := range defs {
+		b, err := json.Marshal(def)
+		if err != nil {
+			continue
+		}
+		row := ContextTool{Name: def.Function.Name}
+		if a.cur().registry != nil {
+			if src, ok := a.cur().registry.SourceOf(def.Function.Name); ok {
+				row.Source = string(src)
+				if src == skill.SourceMCP {
+					if !loadedServers {
+						loadedServers = true
+						if list, err := config.LoadMCPServers(); err == nil {
+							for _, srv := range list {
+								servers = append(servers, srv.Name)
+							}
+						}
+					}
+					row.Server = mcpServerOf(def.Function.Name, servers)
+				}
+			}
+		}
+		rows = append(rows, row)
+		chars = append(chars, len(b))
+	}
+	// Sorted by weight, and by name where two weigh the same — a list that
+	// reorders itself between two refreshes that measured the same thing reads
+	// as churn, and this one is redrawn after every turn.
+	idx := make([]int, len(rows))
+	for i := range idx {
+		idx[i] = i
+	}
+	sort.SliceStable(idx, func(x, y int) bool {
+		if chars[idx[x]] != chars[idx[y]] {
+			return chars[idx[x]] > chars[idx[y]]
+		}
+		return rows[idx[x]].Name < rows[idx[y]].Name
+	})
+	out := make([]ContextTool, 0, len(rows))
+	for _, i := range idx {
+		// Tokens carries chars for now; apportionTools converts it in place.
+		out = append(out, ContextTool{
+			Name: rows[i].Name, Tokens: chars[i], Source: rows[i].Source, Server: rows[i].Server,
+		})
+	}
+	return out
+}
+
+// apportionTools turns the per-tool character counts into token figures that
+// sum to exactly `total`.
+//
+// Estimating each row on its own — (chars+3)/4, the same rule the slices use —
+// would be the obvious thing and it would not add up: forty rows each rounded
+// up on their own overshoot the whole by up to forty tokens, and the array's
+// own brackets and commas are in the header and in no row. Neither error is
+// large and both are the kind a reader finds, having opened the list precisely
+// because they wanted to check the number.
+//
+// The remainder lands on the heaviest row, where it is a rounding error. On the
+// lightest it would be a distortion — a 20-token tool drawn at 60.
+func apportionTools(rows []ContextTool, total int) {
+	if len(rows) == 0 {
+		return
+	}
+	sum := 0
+	for _, r := range rows {
+		sum += r.Tokens // still chars here
+	}
+	if sum <= 0 || total <= 0 {
+		for i := range rows {
+			rows[i].Tokens = 0
+		}
+		return
+	}
+	assigned := 0
+	for i := range rows {
+		tok := total * rows[i].Tokens / sum
+		rows[i].Tokens = tok
+		assigned += tok
+	}
+	rows[0].Tokens += total - assigned
+}
+
+// mcpServerOf recovers which server bridged a tool from its name, which is
+// where the answer is: toolName builds it as prefix + tool (internal/mcp/
+// adapter.go), and the registry records only that a tool is MCP.
+//
+// Longest prefix wins. Two servers named `github` and `github-enterprise` both
+// prefix `github_enterprise_list_repos`, and the shorter one would claim it.
+func mcpServerOf(tool string, servers []string) string {
+	best, bestLen := "", 0
+	for _, srv := range servers {
+		p := mcp.ToolPrefix(srv)
+		if len(p) > bestLen && strings.HasPrefix(strings.ToLower(tool), p) {
+			best, bestLen = srv, len(p)
+		}
+	}
+	return best
 }
 
 // lastPromptUsage is the real input size of this session's most recent round,

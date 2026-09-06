@@ -107,6 +107,89 @@ func (a *App) emitUsageRound(conv *conversation, u model.Usage) {
 	a.emitEvent("usage:round", round)
 }
 
+// SessionSpend is one conversation's whole bill, and it exists because the
+// only spend figure this app ever showed was the live one.
+//
+// UsageRound is per round and the window adds it up per turn, in memory —
+// which meant the meter under the composer answered "what has this TURN cost"
+// and nothing answered "what has this CHAT cost". Refresh the window, switch
+// chats and come back, or simply send the next message, and the number went to
+// zero: a turn's total is reset by the next turn by design, and a webview
+// reload has no memory of the last one at all. The owner read that as the app
+// throwing the bill away (7 ก.ย.: "ค่าใช้จ่ายอะไรก็รีเฟรชหมด"), and he was
+// right about the number even though nothing was lost — every round had been
+// in token_usage the whole time, filed under the session id, unread.
+//
+// So this is a read, not a second ledger. There is no accumulator here to fall
+// out of step with the table, and the window adds nothing to what comes back:
+// recordTokenUsage writes the row BEFORE emitUsageRound announces it, so a
+// refresh triggered by a round already includes that round.
+//
+// Zero for an unknown or empty session, which is the honest answer for a chat
+// that has not spent anything — the UI draws no card for it rather than a row
+// of zeros.
+type SessionSpend struct {
+	In     int `json:"in"`
+	Out    int `json:"out"`
+	Cached int `json:"cached"`
+	// CacheReported carries the same claim it does everywhere else: false means
+	// no round in this chat reported cache accounting at all, which is not the
+	// same as a 0% hit rate and must not be drawn as one.
+	CacheReported bool `json:"cacheReported"`
+	// Cost over the rounds that could be priced, and Unpriced how many could
+	// not. A total quietly missing a third of the chat is a number the user
+	// would trust and should not, so the UI shows money only at Unpriced == 0.
+	Cost     float64 `json:"cost"`
+	Unpriced int     `json:"unpriced"`
+	Rounds   int     `json:"rounds"`
+}
+
+// SessionSpend totals one conversation's token_usage rows, priced by the same
+// rules the stats page uses (priceRows).
+//
+// Failures answer zero rather than an error: spend reporting must never be
+// able to break a chat, which is the rule recordTokenUsage and emitUsageRound
+// already follow, and a meter that vanishes is a smaller wrong than a chat
+// that will not open.
+func (a *App) SessionSpend(id string) SessionSpend {
+	var out SessionSpend
+	if strings.TrimSpace(id) == "" {
+		return out
+	}
+	db, err := a.database()
+	if err != nil {
+		debuglog.Msg("session spend: db unavailable: %v", err)
+		return out
+	}
+	rows, err := usageBySession(db, id)
+	if err != nil {
+		debuglog.Msg("session spend: query failed: %v", err)
+		return out
+	}
+	if catalog := a.modelCatalog(); catalog != nil {
+		priceRows(catalog, rows)
+	}
+	for _, r := range rows {
+		out.In += int(r.PromptTokens)
+		out.Out += int(r.CompletionTokens)
+		out.Cached += int(r.CachedTokens)
+		out.Rounds += int(r.Calls)
+		// Any round that reported a cache is enough. A chat run partly on a
+		// provider that accounts for one and partly on a local model that does
+		// not still has a real cached figure, and dropping the flag for the
+		// second half would hide a number that was truthfully measured.
+		if r.CacheRows > 0 {
+			out.CacheReported = true
+		}
+		if r.Priced {
+			out.Cost += r.Cost
+		} else {
+			out.Unpriced += int(r.Calls)
+		}
+	}
+	return out
+}
+
 // priceRound turns one round into money, or reports that it cannot.
 //
 // The same three rules priceUsage applies to the stats page, applied live so
@@ -262,20 +345,7 @@ func (a *App) priceUsage(out *UsageStats) {
 	}
 	out.Totals.PricesFetched = catalog.Fetched.Format(time.RFC3339)
 	for _, rows := range [][]UsageRow{out.Today, out.Week, out.All} {
-		for i := range rows {
-			// A plan is not a meter. Codex answers with models OpenAI also
-			// sells per token, so pricing those calls by the API rate would
-			// bill a subscription twice over and call the result spend.
-			if provider.BalanceKindFor(rows[i].Provider) == provider.BalanceSubscription {
-				continue
-			}
-			facts, ok := lookupFacts(catalog, rows[i].Provider, rows[i].Model)
-			if !ok || !facts.Price.Priced() {
-				continue
-			}
-			rows[i].Cost = facts.Price.Cost(rows[i].UncachedTokens, rows[i].CachedTokens, rows[i].CompletionTokens)
-			rows[i].Priced = true
-		}
+		priceRows(catalog, rows)
 	}
 	// Totals come from the all-time rows, so the headline and the table can
 	// never disagree about what was counted.
@@ -285,6 +355,30 @@ func (a *App) priceUsage(out *UsageStats) {
 		}
 		out.Totals.Cost += r.Cost
 		out.Totals.PricedCalls += r.Calls
+	}
+}
+
+// priceRows puts money on the rows it can and leaves the rest alone.
+//
+// Lifted out of priceUsage the day a second caller appeared (SessionSpend).
+// The three rules below are the whole reason: a subscription is not a meter, a
+// model nobody published a rate for is unpriced rather than free, and cached
+// input is charged at the cache rate. Two copies of that would be two places
+// to get a bill wrong, and the second copy is always the one nobody updates.
+func priceRows(catalog *model.ModelCatalog, rows []UsageRow) {
+	for i := range rows {
+		// A plan is not a meter. Codex answers with models OpenAI also
+		// sells per token, so pricing those calls by the API rate would
+		// bill a subscription twice over and call the result spend.
+		if provider.BalanceKindFor(rows[i].Provider) == provider.BalanceSubscription {
+			continue
+		}
+		facts, ok := lookupFacts(catalog, rows[i].Provider, rows[i].Model)
+		if !ok || !facts.Price.Priced() {
+			continue
+		}
+		rows[i].Cost = facts.Price.Cost(rows[i].UncachedTokens, rows[i].CachedTokens, rows[i].CompletionTokens)
+		rows[i].Priced = true
 	}
 }
 
@@ -476,6 +570,34 @@ func usageByModel(db *sql.DB, since string) ([]UsageRow, error) {
 	if err != nil {
 		return nil, err
 	}
+	return scanUsageRows(rows)
+}
+
+// usageBySession is usageByModel's aggregation narrowed to one conversation,
+// which is the grain the composer's meter needs and the only one this table
+// was never asked for. Same grouping and the same strictness, because the rows
+// go through the same pricing.
+func usageBySession(db *sql.DB, id string) ([]UsageRow, error) {
+	rows, err := db.Query(
+		`SELECT model,
+		        COALESCE(provider, ''),
+		        SUM(prompt_tokens),
+		        SUM(completion_tokens),
+		        COALESCE(SUM(cached_prompt_tokens), 0),
+		        COUNT(cached_prompt_tokens),
+		        COUNT(*)
+		 FROM token_usage WHERE session_id = ? GROUP BY model, COALESCE(provider, '')`, id)
+	if err != nil {
+		return nil, err
+	}
+	return scanUsageRows(rows)
+}
+
+// scanUsageRows reads the seven columns both aggregations select, in that
+// order. It aborts on a scan error rather than skipping the row: a cost total
+// built from most of the rows is worse than no total, because it looks like an
+// answer.
+func scanUsageRows(rows *sql.Rows) ([]UsageRow, error) {
 	defer rows.Close()
 	var result []UsageRow
 	for rows.Next() {

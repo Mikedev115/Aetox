@@ -120,6 +120,23 @@ export interface ContextSlice {
   tokens: number
 }
 
+/** One tool definition's weight inside the tool block (desktop/app.go
+ *  ContextTool). The block is the biggest thing in a fresh chat and the meter
+ *  used to say only its size, which is a number you can resent and cannot act
+ *  on — so the row opens onto this list. */
+export interface ContextTool {
+  name: string
+  /** Apportioned in Go so the rows sum to the tools slice exactly. A list you
+   *  opened to check a number has to survive being added up. */
+  tokens: number
+  /** builtin | workbench | mcp — where the tool came from, which is the half
+   *  that says whether anything can be done about it. */
+  source: string
+  /** The MCP server that bridged it, for mcp tools only. The one cost on this
+   *  list the user can actually switch off. */
+  server?: string
+}
+
 /** Composer context meter payload (GetContextBreakdown). */
 export interface ContextBreakdown {
   usedTokens: number
@@ -141,6 +158,9 @@ export interface ContextBreakdown {
   sweptItems?: number
   sweptTokens?: number
   summaries?: number
+  /** The tools slice, broken out per definition and heaviest first. Absent on
+   *  a chat with no tools at all, and on rounds from before this shipped. */
+  tools?: ContextTool[]
 }
 
 export interface ChatMessage {
@@ -341,6 +361,34 @@ export interface TurnSpend {
  *  old value on three of the four paths that clear it. */
 export function emptyTurnSpend(): TurnSpend {
   return { in: 0, out: 0, cached: 0, cacheReported: false, cost: 0, unpriced: 0 }
+}
+
+/** What this whole chat has spent (desktop/usage.go SessionSpend), read back
+ *  from token_usage rather than accumulated here.
+ *
+ *  TurnSpend above is the live one and it is deliberately per-turn: it is reset
+ *  by the next turn, and a webview reload has no memory of the last one at all.
+ *  That is correct for the question it answers and useless for the other one a
+ *  person asks in the same breath — what has this conversation cost — which is
+ *  why refreshing the window looked like the bill being thrown away. Nothing
+ *  was ever lost; every round was in the database, filed under the session id,
+ *  and nothing read it back.
+ *
+ *  Same field names as TurnSpend on purpose: the panel draws both blocks with
+ *  one row component, and two shapes saying the same thing is how the two
+ *  blocks would drift apart. */
+export interface SessionSpend extends TurnSpend {
+  /** How many model rounds this chat has taken. Shown beside the total because
+   *  it is the number that explains it: 20 rounds is a turn that ran a long
+   *  tool loop, not a chat with twenty messages in it. */
+  rounds: number
+}
+
+/** A chat with nothing spent yet. Not the same as "not loaded": a chat that has
+ *  genuinely spent nothing draws no card at all, so both cases render the same
+ *  and neither invents a zero the user could read as a measurement. */
+export function emptySessionSpend(): SessionSpend {
+  return { ...emptyTurnSpend(), rounds: 0 }
 }
 
 /** desktop/background_tasks.go BackgroundTask. The tray draws these. */
@@ -891,6 +939,17 @@ export interface CockpitState {
    *  watching, which is spend continuing while nothing looks like it is going
    *  on. */
   turnSpend: TurnSpend
+  /** What the chat on screen has spent in total, read back from the database
+   *  (SessionSpend) rather than accumulated here.
+   *
+   *  Deliberately not derived from turnSpend. token_usage already holds every
+   *  round of every turn this chat ever took, so the total is a query, and a
+   *  running sum kept beside it would be a second answer that drifts the first
+   *  time a round is missed — or double-counts the first time both are added.
+   *  Re-read rather than incremented, on the open of a chat and after each
+   *  round: recordTokenUsage writes the row before emitUsageRound announces it,
+   *  so a refresh a round triggers already contains that round. */
+  sessionSpend: SessionSpend
   /** Sandbox paths of finished files this turn produced — a spreadsheet, a deck,
    *  a document. Collected live from agent:tool results so the reply can show
    *  them as cards with an open button: the file panel is where you go looking,
@@ -1004,6 +1063,7 @@ export function emptyCockpitState(): CockpitState {
     backgroundTasks: [],
     backgroundRuns: [],
     turnSpend: emptyTurnSpend(),
+    sessionSpend: emptySessionSpend(),
     streamingText: '',
     reasoningText: '',
     modelLoading: null,

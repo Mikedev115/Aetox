@@ -236,6 +236,8 @@ export const en: Record<keyof typeof th, string> = {
   // so this panel and the stats page cannot end up wording the same quantity
   // two ways. See the note at the block in Chat.svelte.
   'chat.spendTitle': 'Spent this turn',
+  'chat.spendSessionTitle': 'This chat, all of it',
+  'chat.spendRounds': '{n} model rounds, kept in this chat’s history — a refresh does not reset it',
   'chat.spendUnpriced': 'No published rate for this model, so the cost is not shown. Sub-agents are counted in the tokens above, and they keep counting after the turn ends.',
   'chat.sendIntoTurn': 'Send this into the running turn',
   'chat.retry': 'Try again',
@@ -371,6 +373,9 @@ export const en: Record<keyof typeof th, string> = {
   'chat.contextOverWindow': 'The last round was larger than the window on record, so that figure is stale or wrong. Nothing was rejected.',
   'chat.ctx_system': 'System prompt',
   'chat.ctx_tools': 'Tools',
+  'chat.ctxToolBuiltin': 'built in',
+  'chat.ctxToolMcp': 'MCP',
+  'chat.ctxToolsNote': 'Estimated from each definition’s own text, so the rows add up to the figure above. This block rides along with every message — a narrower desk carries fewer tools, and an MCP server you are not using can be switched off under Capabilities.',
   'chat.ctx_messages': 'Messages',
   'chat.ctx_free': 'Free space',
   'chat.gotResults': '{n} results',

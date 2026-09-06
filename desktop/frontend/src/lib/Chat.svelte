@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { BackgroundTask, ChatMessage, TaskState, ModelStatus, ToolStep, TimelineNode, ContextBreakdown, ModelLoading } from './types'
+  import type { BackgroundTask, ChatMessage, TaskState, ModelStatus, ToolStep, TimelineNode, ContextBreakdown, ModelLoading, TurnSpend } from './types'
   import { groupSteps, isDelegation } from './types'
   import { phasesOf, type TurnPhase } from './turnPhases'
   import { pacedStream, pacedText } from './streamPace'
@@ -1293,18 +1293,41 @@
   // person asks in the same breath: what will the next message weigh, and what
   // has this already cost.
   const spend = $derived(cockpit.turnSpend)
+  // And what this whole chat has spent — a read of token_usage rather than a
+  // counter (cockpit.refreshSessionSpend), which is the difference that matters.
+  // The turn's tally is live and the next turn resets it; the chat's total is
+  // every round ever recorded under this session id, so it survives a reload, a
+  // switch to another chat and back, and the app being closed. Only the first
+  // one existed, which is why refreshing the window read as the bill being
+  // thrown away (7 ก.ย.).
+  const sessionSpend = $derived(cockpit.sessionSpend)
+  const hasTurnSpend = $derived(spend.in > 0 || spend.out > 0)
+  const hasSessionSpend = $derived(sessionSpend.in > 0 || sessionSpend.out > 0)
   // The input the provider had to read fresh. Floored, because a provider that
   // reports more cache than input would otherwise draw a negative row.
-  const spendMiss = $derived(Math.max(0, spend.in - spend.cached))
-  const sharePct = (n: number) => (spend.in > 0 ? Math.round((n / spend.in) * 100) + '%' : '')
-  const hitPct = $derived(sharePct(spend.cached))
-  const missPct = $derived(sharePct(spendMiss))
+  const missOf = (s: TurnSpend) => Math.max(0, s.in - s.cached)
+  const sharePct = (s: TurnSpend, n: number) => (s.in > 0 ? Math.round((n / s.in) * 100) + '%' : '')
   // Shown only when every spending round could be priced. A partial total is
   // the one kind of wrong a money figure must never be.
   const showMoney = $derived(spend.unpriced === 0 && spend.cost > 0)
+  const showSessionMoney = $derived(sessionSpend.unpriced === 0 && sessionSpend.cost > 0)
   // Four places, because the interesting figures are small: a cheap turn on a
   // flash model runs to fractions of a cent, and $0.00 would read as free.
   const fmtMoney = (usd: number) => '$' + usd.toFixed(usd < 0.01 ? 4 : 2)
+  // The tool block opens. It is the biggest thing in a fresh chat — 27.9k of
+  // 32.9k on the owner's install — and a total with no way in is a number you
+  // can resent and cannot act on (owner, 7 ก.ย.: "มันควรจะกดดูย่อยได้ครับว่า
+  // เครื่องมืออะไร จะได้รู้ต้นทาง"). Closed by default: the panel answers "how
+  // full" first, and forty rows would bury that.
+  let toolsOpen = $state(false)
+  // Reset when the drawer closes, so reopening the panel is not a lapful of
+  // rows the user opened once about a different chat.
+  $effect(() => { if (!ctxMenuOpen) toolsOpen = false })
+  // Where a tool came from, in the words that let a person act. The server name
+  // for a bridged tool, because that is the one thing on this list that can be
+  // switched off; a plain word for the rest, because "builtin" is not a place.
+  const toolOrigin = (tl: { source: string; server?: string }): string =>
+    tl.server || (tl.source === 'mcp' ? t('chat.ctxToolMcp') : t('chat.ctxToolBuiltin'))
   const ctxLabels = $derived<Record<string, string>>({
     system: t('chat.ctx_system'),
     tools: t('chat.ctx_tools'),
@@ -2529,6 +2552,49 @@
         {#if footer}<div class="updrop-foot">{footer}</div>{/if}
       </div>
     {/if}
+  </div>
+{/snippet}
+
+{#snippet spendRows(s: TurnSpend)}
+  <!-- The labels are the usage page's own keys, not copies of its words (owner,
+       22 ส.ค.: "ศัพท์เดียวกันจะได้ตรวจสอบได้ง่าย"). This panel and the stats
+       page report the same four quantities, and the whole point of matching
+       vocabulary is that a number can be carried from one to the other — which
+       a second set of strings saying almost the same thing would quietly break
+       the first time one of them was reworded. They are English in every locale
+       there too, deliberately: these are the provider's own billing terms.
+
+       One snippet for both blocks, for the same reason spend.ts exists: the
+       turn's rows and the chat's rows are the same four facts at two scopes,
+       and two copies of them is how one gets a fix the other does not. -->
+  <div class="ctx-row">
+    <span class="dot in"></span>
+    <span class="lbl">{t('settings.usageInput')}</span>
+    <span class="val">{fmtTokens(s.in)}</span>
+    <span class="pct"></span>
+  </div>
+  <!-- Hit and miss, and only when the provider accounts for a cache at all. A
+       local runtime reports neither, and drawing that as a 0% hit rate would be
+       the panel claiming something nobody measured. -->
+  {#if s.cacheReported}
+    <div class="ctx-row sub">
+      <span class="dot hit"></span>
+      <span class="lbl">{t('settings.usageHit')}</span>
+      <span class="val">{fmtTokens(s.cached)}</span>
+      <span class="pct">{sharePct(s, s.cached)}</span>
+    </div>
+    <div class="ctx-row sub">
+      <span class="dot miss"></span>
+      <span class="lbl">{t('settings.usageMiss')}</span>
+      <span class="val">{fmtTokens(missOf(s))}</span>
+      <span class="pct">{sharePct(s, missOf(s))}</span>
+    </div>
+  {/if}
+  <div class="ctx-row">
+    <span class="dot out"></span>
+    <span class="lbl">{t('settings.usageOutput')}</span>
+    <span class="val">{fmtTokens(s.out)}</span>
+    <span class="pct"></span>
   </div>
 {/snippet}
 
@@ -4401,12 +4467,46 @@
                   {/each}
                 </div>
                 {#each ctx.slices as s (s.key)}
-                  <div class="ctx-row">
-                    <span class="dot {s.key}"></span>
-                    <span class="lbl">{ctxLabels[s.key] ?? s.key}</span>
-                    <span class="val">{fmtTokens(s.tokens)}</span>
-                    <span class="pct">{slicePct(s.tokens)}</span>
-                  </div>
+                  {#if s.key === 'tools' && (ctx.tools?.length ?? 0) > 0}
+                    <!-- The one row with something behind it. A button rather
+                         than a div with a click handler: it is a disclosure, so
+                         it has to be reachable by keyboard and has to say what
+                         state it is in to a screen reader. -->
+                    <button
+                      type="button" class="ctx-row ctx-openable"
+                      aria-expanded={toolsOpen}
+                      onclick={() => { toolsOpen = !toolsOpen }}
+                    >
+                      <span class="dot {s.key}"></span>
+                      <span class="lbl">{ctxLabels[s.key] ?? s.key}</span>
+                      <span class="caret"><Icon name={toolsOpen ? 'chevronUp' : 'chevronDown'} size={11} /></span>
+                      <span class="val">{fmtTokens(s.tokens)}</span>
+                      <span class="pct">{slicePct(s.tokens)}</span>
+                    </button>
+                    {#if toolsOpen}
+                      <!-- Heaviest first, and scrolling rather than truncated:
+                           the tail is where a forgotten MCP server hides, and a
+                           list that stops at ten would hide exactly the row
+                           worth finding. -->
+                      <div class="ctx-tools">
+                        {#each ctx.tools ?? [] as tl (tl.name)}
+                          <div class="ctx-row sub">
+                            <span class="lbl">{tl.name}</span>
+                            <span class="src" class:mcp={tl.source === 'mcp'}>{toolOrigin(tl)}</span>
+                            <span class="val">{fmtTokens(tl.tokens)}</span>
+                          </div>
+                        {/each}
+                      </div>
+                      <div class="ctx-note ctx-tools-note">{t('chat.ctxToolsNote')}</div>
+                    {/if}
+                  {:else}
+                    <div class="ctx-row">
+                      <span class="dot {s.key}"></span>
+                      <span class="lbl">{ctxLabels[s.key] ?? s.key}</span>
+                      <span class="val">{fmtTokens(s.tokens)}</span>
+                      <span class="pct">{slicePct(s.tokens)}</span>
+                    </div>
+                  {/if}
                 {/each}
                 {#if (ctx.sweptItems ?? 0) > 0 || (ctx.summaries ?? 0) > 0}
                   <!-- The layers that shrink the number above, named. Without
@@ -4457,45 +4557,36 @@
                      ออก 0" reads as a measurement and there has not been one.
                      Keeps counting after the turn ends, on purpose: a sub-agent
                      outlives the turn that dispatched it. -->
-                {#if spend.in > 0 || spend.out > 0}
+                {#if hasTurnSpend || hasSessionSpend}
                   <div class="ctx-spend">
-                    <div class="ctx-head">
-                      <span class="t">{t('chat.spendTitle')}</span>
-                      {#if showMoney}<span class="v">{fmtMoney(spend.cost)}</span>{/if}
-                    </div>
-                    <!-- The labels are the usage page's own keys, not copies of
-                         its words (owner, 22 ส.ค.: "ศัพท์เดียวกันจะได้ตรวจสอบ
-                         ได้ง่าย"). This panel and the stats page report the same
-                         four quantities, and the whole point of matching
-                         vocabulary is that a number can be carried from one to
-                         the other — which a second set of strings saying almost
-                         the same thing would quietly break the first time one
-                         of them was reworded. They are English in every locale
-                         there too, deliberately: these are the provider's own
-                         billing terms. -->
-                    <div class="ctx-row">
-                      <span class="dot in"></span>
-                      <span class="lbl">{t('settings.usageInput')}</span>
-                      <span class="val">{fmtTokens(spend.in)}</span>
-                      <span class="pct"></span>
-                    </div>
-                    <!-- Hit and miss, and only when the provider accounts for
-                         a cache at all. A local runtime reports neither, and
-                         drawing that as a 0% hit rate would be the panel
-                         claiming something nobody measured. -->
-                    {#if spend.cacheReported}
-                      <div class="ctx-row sub">
-                        <span class="dot hit"></span>
-                        <span class="lbl">{t('settings.usageHit')}</span>
-                        <span class="val">{fmtTokens(spend.cached)}</span>
-                        <span class="pct">{hitPct}</span>
+                    {#if hasTurnSpend}
+                      <div class="ctx-head">
+                        <span class="t">{t('chat.spendTitle')}</span>
+                        {#if showMoney}<span class="v">{fmtMoney(spend.cost)}</span>{/if}
                       </div>
-                      <div class="ctx-row sub">
-                        <span class="dot miss"></span>
-                        <span class="lbl">{t('settings.usageMiss')}</span>
-                        <span class="val">{fmtTokens(spendMiss)}</span>
-                        <span class="pct">{missPct}</span>
+                      {@render spendRows(spend)}
+                    {/if}
+                    <!-- And the same four quantities for the whole chat, which
+                         is the question the block above cannot answer and was
+                         being read as answering. It is a database total, so it
+                         is still here after a reload, after a switch to another
+                         chat and back, and after the app has been closed —
+                         the turn's tally above is none of those things, and the
+                         two are labelled apart rather than merged because a
+                         person deciding whether to keep going needs both. -->
+                    {#if hasSessionSpend}
+                      <div class="ctx-head" class:ctx-sub-head={hasTurnSpend}>
+                        <span class="t">{t('chat.spendSessionTitle')}</span>
+                        {#if showSessionMoney}<span class="v">{fmtMoney(sessionSpend.cost)}</span>{/if}
                       </div>
+                      {@render spendRows(sessionSpend)}
+                      {#if sessionSpend.rounds > 0}
+                        <!-- Rounds, not messages. A single turn that ran a long
+                             tool loop is twenty rounds, and without this the
+                             total under a three-message chat reads as an error
+                             in the meter rather than as what a tool loop costs. -->
+                        <div class="ctx-note">{t('chat.spendRounds', { n: sessionSpend.rounds })}</div>
+                      {/if}
                     {/if}
                     <div class="ctx-row">
                       <span class="dot out"></span>
@@ -4508,7 +4599,7 @@
                          model, which is not the same as the round being free,
                          and a total quietly missing three rounds is a number
                          the user would trust and should not. -->
-                    {#if !showMoney}
+                    {#if (hasTurnSpend && !showMoney) || (hasSessionSpend && !showSessionMoney)}
                       <div class="ctx-note">{t('chat.spendUnpriced')}</div>
                     {/if}
                   </div>

@@ -105,6 +105,11 @@ export const DeleteIdentityFile = noop()
 export const DeleteSession = noop()
 export const EnabledProviders = arr()
 export const GetContextBreakdown = vi.fn(async () => ({}))
+// A chat that has spent nothing. Tests that care set their own; the rest get
+// the shape rather than an undefined the store would then read fields off.
+export const SessionSpend = vi.fn(async (_id: string) => ({
+  in: 0, out: 0, cached: 0, cacheReported: false, cost: 0, unpriced: 0, rounds: 0,
+}))
 export const GetRepoMapGraph = vi.fn(async (_maxNodes: number) => ({ focused: false, nodes: [], edges: [], totalFiles: 0 }))
 const modelInfo = () => ({
   provider: 'aetox', modelName: 'test', thinkLevel: '', approval: 'ask',

@@ -3,7 +3,7 @@
 // incremental updates here — append a chat message, advance a timeline step) and
 // the UI reacts. Do not reassign `cockpit` itself; mutate its properties.
 
-import { emptyCockpitState, emptyTurnSpend, type CockpitState, type ParkedTurn, type TreeNode, type Session, type ToolStep, type ToolEvent, type ChatMessage, type MessageVariant, type TurnPart, type PendingFile, type PendingImage, type ModelLoading } from '../types'
+import { emptyCockpitState, emptyTurnSpend, emptySessionSpend, type SessionSpend as SessionSpendTotals, type CockpitState, type ParkedTurn, type TreeNode, type Session, type ToolStep, type ToolEvent, type ChatMessage, type MessageVariant, type TurnPart, type PendingFile, type PendingImage, type ModelLoading } from '../types'
 import type { CockpitSource } from '../services/cockpit'
 import {
   SendMessage, GetProjectStatus, GetModelInfo, OpenProjectFolder, OpenProjectPath,
@@ -26,6 +26,7 @@ import {
   RetryFailedTurn, RegenerateReply, ResendEdited, SwitchVariant,
   ExportSession, ImportSession,
   Stance, Stances, SetStance,
+  SessionSpend,
 } from '../../../wailsjs/go/main/App'
 import type { main } from '../../../wailsjs/go/models'
 import { t } from '../i18n.svelte'
@@ -651,6 +652,11 @@ async function restoreLiveTranscript(): Promise<void> {
   // "the chat on screen" reads it from here rather than asking the engine,
   // which has no current session of its own to give.
   cockpit.openSession = id
+  // What this chat has spent, back on screen with it. The Go side outlives the
+  // reload and the database outlives everything, so nothing here is being
+  // reconstructed — it is being read for the first time by a window that has
+  // just been born.
+  void refreshSessionSpend()
   try {
     const messages = await SessionTranscript(id)
     if (messages.length > 0) {
@@ -2364,6 +2370,56 @@ export async function stopBackgroundRun(runId: string): Promise<void> {
  * dropped, because adding a spend this window did not cause would put one
  * chat's bill under another chat's composer.
  */
+/** Re-read what the chat on screen has spent in total (desktop/usage.go
+ * SessionSpend), from the table that has held every round all along.
+ *
+ * A read, never an accumulation. `turnSpend` below is the live counter and it
+ * is right to be per-turn — but it was also the ONLY spend figure the app had,
+ * so refreshing the window, switching chats, or simply sending the next message
+ * took the number to zero and read as the bill being thrown away. Adding a
+ * second accumulator beside it would only move the problem: two totals for one
+ * fact drift the first time a round is missed and double the first time both
+ * are added. The database is the fact; this asks it.
+ *
+ * A failed read leaves the last good figure on screen rather than zeroing it.
+ * "The query did not come back" and "this chat has spent nothing" are different
+ * sentences, and only one of them belongs under the composer.
+ */
+export async function refreshSessionSpend(): Promise<void> {
+  const id = cockpit.openSession
+  if (!id) {
+    cockpit.sessionSpend = emptySessionSpend()
+    return
+  }
+  let total: SessionSpendTotals
+  try {
+    total = (await SessionSpend(id)) as SessionSpendTotals
+  } catch {
+    return
+  }
+  // The user can switch chats inside that await, and a late answer landing
+  // afterwards would put one conversation's bill under another's composer —
+  // the exact bug the turnSpend reset in clearLive exists to prevent.
+  if (cockpit.openSession !== id) return
+  cockpit.sessionSpend = total
+}
+
+/** Rounds can land faster than anyone can read them — a turn with four
+ * delegates lands several a second — and each one would otherwise be a Go
+ * round-trip. Coalesced to at most one read a second, always with a trailing
+ * one so the figure settles on the true total rather than on whatever the last
+ * leading edge saw. */
+let spendReadAt = 0
+let spendReadTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleSessionSpendRead(): void {
+  if (spendReadTimer) return
+  spendReadTimer = setTimeout(() => {
+    spendReadTimer = null
+    spendReadAt = Date.now()
+    void refreshSessionSpend()
+  }, Math.max(0, 1000 - (Date.now() - spendReadAt)))
+}
+
 export function applyUsageRound(round: {
   session?: string
   in?: number
@@ -2393,6 +2449,12 @@ export function applyUsageRound(round: {
       unpriced: spend.unpriced + (spent && !round.priced ? 1 : 0),
     }
   })
+  // And the chat's own total, which is not added to here: this round is
+  // already in the database — recordTokenUsage writes the row before
+  // emitUsageRound announces it — so the read below contains it. Only for the
+  // chat on screen; a background conversation's total is re-read when the user
+  // arrives at it.
+  if ((round.session ?? '') === cockpit.openSession) scheduleSessionSpendRead()
 }
 
 /**
@@ -3016,6 +3078,12 @@ function arriveAt(id: string): boolean {
   parkLive(cockpit.openSession)
   cockpit.openSession = id
   cockpit.sessionError = ''
+  // The bill on screen is the arriving chat's. Cleared before the read rather
+  // than left up during it, so no frame shows the conversation being left under
+  // the one being opened — the mistake clearLive's turnSpend reset was written
+  // to end, arriving here by omission if this line were not.
+  cockpit.sessionSpend = emptySessionSpend()
+  void refreshSessionSpend()
   // The undo chip belongs to the chat it was offered on, and it is not live
   // turn state — so it is dropped here rather than parked, and re-read from the
   // engine once the arrival is done (refreshUndo, at the tail of every door).

@@ -139,6 +139,111 @@ func TestUsageStatsPutsMoneyOnRowsItCanPrice(t *testing.T) {
 	}
 }
 
+// The composer's meter could answer "what has this TURN cost" and nothing could
+// answer "what has this CHAT cost" — the turn's tally lives in the window, so a
+// refresh, a switch to another chat, or simply the next message took it to zero
+// and read as the bill being thrown away (owner, 7 ก.ย.: "ค่าใช้จ่ายอะไรก็
+// รีเฟรชหมด"). Nothing was ever lost; these rows were in token_usage the whole
+// time, filed under the session id, and nothing read them back.
+//
+// So the test that matters is the boring one: every round of one chat, added up
+// by session, priced, and not contaminated by the chat next door.
+func TestSessionSpendTotalsOneChatAndNotTheNextOne(t *testing.T) {
+	isolateUserDirs(t)
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	a := seed(&App{cfg: config.Config{ModelProvider: "deepseek", ModelName: "deepseek-v4-flash"}, dbDir: t.TempDir()}, newConversation())
+	t.Cleanup(func() {
+		if a.db != nil {
+			_ = a.db.Close()
+		}
+	})
+	root, err := config.DataRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := model.SaveModelCatalog(root, &model.ModelCatalog{
+		Fetched: time.Now(),
+		Models: map[string]model.ModelFacts{
+			"deepseek/deepseek-v4-flash": {Price: model.ModelPrice{Input: 0.14, Output: 0.28, CacheRead: 0.0028}, Context: 1_000_000},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Three rounds of one turn — a tool loop, which is why "rounds" and not
+	// "messages" is the count the panel shows.
+	a.cur().id = "chat-a"
+	for i := 0; i < 3; i++ {
+		a.recordTokenUsage(a.cur(), model.Usage{
+			PromptTokens: 30_000, CachedPromptTokens: 27_000,
+			CompletionTokens: 500, CacheReported: true,
+		})
+	}
+	// Another conversation, spending at the same time. A window can have several
+	// live at once, and a total that swept them together would put one chat's
+	// bill under another chat's composer.
+	a.cur().id = "chat-b"
+	a.recordTokenUsage(a.cur(), model.Usage{PromptTokens: 999_999, CompletionTokens: 999, CacheReported: true})
+
+	got := a.SessionSpend("chat-a")
+	if got.In != 90_000 || got.Out != 1_500 || got.Cached != 81_000 {
+		t.Errorf("chat-a = in %d / out %d / cached %d; want 90000 / 1500 / 81000", got.In, got.Out, got.Cached)
+	}
+	if got.Rounds != 3 {
+		t.Errorf("Rounds = %d; want the 3 model calls, not the 1 turn", got.Rounds)
+	}
+	if !got.CacheReported {
+		t.Error("the provider accounted for a cache and the total says it did not")
+	}
+	if got.Unpriced != 0 {
+		t.Errorf("Unpriced = %d; the catalog prices this model", got.Unpriced)
+	}
+	// 9k fresh input + 81k cached + 1.5k output against the rates above.
+	if got.Cost < 0.0015 || got.Cost > 0.0020 {
+		t.Errorf("Cost = $%.6f; hand arithmetic says about $0.00168", got.Cost)
+	}
+
+	if b := a.SessionSpend("chat-b"); b.In != 999_999 || b.Rounds != 1 {
+		t.Errorf("chat-b = %+v; the two chats are being mixed", b)
+	}
+	// A chat nobody has heard of is zero, not an error and not a guess. The UI
+	// draws no card for it, which is the honest rendering of "nothing spent".
+	if none := a.SessionSpend("chat-that-never-was"); none != (SessionSpend{}) {
+		t.Errorf("unknown session = %+v; want the zero total", none)
+	}
+	if none := a.SessionSpend("  "); none != (SessionSpend{}) {
+		t.Errorf("blank session = %+v; want the zero total", none)
+	}
+}
+
+// Unknown is not free, and it is not "no cache hits" either. A local runtime
+// publishes no rate and does no cache accounting, and a total that quietly
+// reported $0.00 at a 0% hit rate would be claiming two things nobody measured.
+func TestSessionSpendKeepsSilentAboutWhatNobodyMeasured(t *testing.T) {
+	isolateUserDirs(t)
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir()) // guaranteed empty: no catalog here
+	a := seed(&App{cfg: config.Config{ModelProvider: "lmstudio", ModelName: "some-local-model"}, dbDir: t.TempDir()}, newConversation())
+	t.Cleanup(func() {
+		if a.db != nil {
+			_ = a.db.Close()
+		}
+	})
+	a.cur().id = "local"
+	a.recordTokenUsage(a.cur(), model.Usage{PromptTokens: 4000, CompletionTokens: 120})
+	a.recordTokenUsage(a.cur(), model.Usage{PromptTokens: 4200, CompletionTokens: 90})
+
+	got := a.SessionSpend("local")
+	if got.In != 8200 || got.Out != 210 || got.Rounds != 2 {
+		t.Errorf("counts = %+v; the tokens are known even when the price is not", got)
+	}
+	if got.CacheReported {
+		t.Error("CacheReported on a runtime that never claimed a cache")
+	}
+	if got.Cost != 0 || got.Unpriced != 2 {
+		t.Errorf("cost = $%v over %d unpriced rounds; want $0 and both rounds counted as unpriced", got.Cost, got.Unpriced)
+	}
+}
+
 // Prices are a bonus on top of a page that worked without them. No catalog must
 // cost the user their token counts.
 func TestUsageStatsStillWorksWithNoPriceCatalog(t *testing.T) {

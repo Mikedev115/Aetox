@@ -3121,6 +3121,13 @@ button.phase-head:hover { color:var(--text-muted); }
    numbers has no way to tell where one claim ends and the other begins. */
 .ctx-spend { margin-top:10px; padding-top:9px; border-top:1px solid var(--border-subtle); }
 .ctx-spend .ctx-head { margin-bottom:6px; }
+/* The chat's total, set off from the turn's without a second rule: one hairline
+   already separates forecast from spend, and a second one across the same
+   270px column turns a panel into a form. Space is enough to say "different
+   scope, same kind of number". Only when there is a block above it to be
+   separated from — after a reload the turn's tally is legitimately absent, and
+   a lone total must not sit under a gap left for something that is not there. */
+.ctx-spend .ctx-head.ctx-sub-head { margin-top:11px; }
 /* Hit and miss sit under the input they divide, so the eye reads them as its
    parts rather than as two more totals. */
 .ctx-spend .ctx-row.sub { padding-left:14px; color:var(--text-dim); }
@@ -3160,6 +3167,40 @@ button.phase-head:hover { color:var(--text-muted); }
 .ctx-row .lbl { flex:1; min-width:0; }
 .ctx-row .val { color:var(--text-primary); font-variant-numeric:tabular-nums; }
 .ctx-row .pct { width:48px; text-align:right; color:var(--text-dim); font-variant-numeric:tabular-nums; }
+/* The tool row is a disclosure. It has to keep the exact metrics of the four
+   rows around it — a button brings its own font, padding and background, and a
+   row that grew 4px taller than its neighbours would read as selected rather
+   than as openable. */
+.ctx-openable {
+  width:100%; padding:0; border:0; background:none; font:inherit; color:inherit;
+  text-align:left; cursor:pointer;
+}
+.ctx-openable .lbl { flex:0 1 auto; }
+.ctx-openable .caret { flex:1; display:flex; align-items:center; color:var(--text-dim); }
+.ctx-openable:hover .lbl, .ctx-openable:hover .caret { color:var(--text-primary); }
+/* Scrolls in itself rather than growing the panel: forty tools is taller than
+   the window above a composer, and a popover that runs off the top of the
+   screen cannot be read at either end. */
+.ctx-tools {
+  display:flex; flex-direction:column; gap:5px;
+  max-height:190px; overflow-y:auto; padding:6px 2px 2px 16px;
+}
+.ctx-tools .ctx-row .lbl {
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-secondary);
+}
+/* Where it came from, dimmed — it is the answer to a question asked second.
+   A bridged tool's server is the exception: it is the only row on this list the
+   user can act on, so it is the only one that keeps full contrast. */
+.ctx-tools .src { flex:none; max-width:11ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-dim); }
+.ctx-tools .src.mcp { color:var(--text-muted); }
+.ctx-tools .val { min-width:44px; text-align:right; }
+/* The drawer's own footnote, not a section break. .ctx-note rules a line above
+   itself, which is right where it ends the panel and wrong here: the two slices
+   below the tool row would be cut off from the two above it, and the reader
+   would be looking at a list that had been split in half by an aside. */
+.ctx-note.ctx-tools-note {
+  margin:2px 0 2px 16px; padding-top:0; border-top:0; color:var(--text-dim);
+}
 .composer .send:hover { color:var(--accent); border-color:var(--interactive-hover-border); }
 .composer .send.stop { color:var(--danger, #e5534b); }
 .composer .send.stop:hover { border-color:var(--danger, #e5534b); }
