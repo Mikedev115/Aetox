@@ -2114,10 +2114,20 @@ func (a *App) BrowserNavigate(id, url, fallback string) {
 
 // BrowserSetBounds moves/resizes a tab's view (physical pixels, relative to
 // the main window client area).
+//
+// A hidden tab stays hidden through a move. The frontend re-glues bounds for
+// reasons that have nothing to do with visibility — a window resize, the
+// inspector reopening at another width — and a backend whose move also shows
+// (win32's did, until 7 ก.ย.) turned each of those into the page surfacing
+// over settings, over a dialog, over another chat. Said here, once, for every
+// backend: only BrowserSetVisible(true) puts a tab on screen.
 func (a *App) BrowserSetBounds(id string, x, y, w, h int) {
 	a.onTab(id, func(v tabView, t *browserTab) {
 		t.rememberBounds(x, y, w, h)
 		v.setBounds(x, y, w, h)
+		if t.isHidden() {
+			v.setVisible(false)
+		}
 	})
 }
 
@@ -2219,6 +2229,17 @@ func (a *App) CloseAllBrowserTabs() {
 		// be reported as one: the agent is told its page is gone, not that
 		// somebody closed it.
 		a.closeTab(id, closedByApp)
+	}
+	// Spared is not shown. The frontend that just loaded owns no panes, so a
+	// kept window has nothing to hide or move it until a pane adopts it — and
+	// the chat that owns it is not necessarily the one the window comes back
+	// on. Left as it was, it sat composited over whatever chat loaded, at the
+	// bounds it had before the reload, with nothing able to reach it (the
+	// owner's "แสดงผลค้าง", 7 ก.ย.). Hidden here, it waits like a parked page:
+	// the pane that adopts it (restoreWorkbench, by id) shows it again, and the
+	// agent still browsing it never notices, since a hidden tab navigates.
+	for id := range keep {
+		a.BrowserSetVisible(id, false)
 	}
 }
 

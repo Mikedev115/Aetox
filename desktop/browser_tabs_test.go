@@ -283,6 +283,30 @@ func TestTheOrphanSweepSparesARunningTurnsTabs(t *testing.T) {
 	}
 }
 
+// Spared is not shown. The frontend that reloads owns no panes yet, so a kept
+// window has nothing to hide or move it until a pane adopts it — and the chat
+// that owns it is not necessarily the one the window comes back on. It sat
+// composited over whatever chat loaded, at its old bounds (7 ก.ย.).
+func TestTheOrphanSweepHidesWhatItSpares(t *testing.T) {
+	app := hostWithTabs(t, "web-agent-1", []string{"web-agent-1"}, "web-agent-1", "web-3")
+	app.turns = map[string]*liveTurn{"20260824-000000.001": {}}
+
+	app.CloseAllBrowserTabs()
+	app.browsers.backend.(*fakeBackend).drain()
+
+	app.browsers.mu.Lock()
+	kept := app.browsers.views["web-agent-1"].(*fakeView)
+	app.browsers.mu.Unlock()
+	if n := len(kept.visible); n == 0 || kept.visible[n-1] {
+		t.Errorf("the spared window was left on screen with no pane to hide it: visible=%v", kept.visible)
+	}
+	// And the tab knows, so the next navigation's re-glue (navCompleted) does
+	// not put it back.
+	if !app.browsers.tab("web-agent-1").isHidden() {
+		t.Error("the tab was hidden without being told")
+	}
+}
+
 // With nothing working, an agent tab is as orphaned as any other — otherwise the
 // leftovers of a turn that died would sit there for the rest of the app's life
 // with nothing left to close them.

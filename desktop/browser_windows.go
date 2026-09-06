@@ -232,9 +232,16 @@ func (t *win32Tab) sendBehind() {
 	procSetWindowPos.Call(t.hwnd, hwndBottom, 0, 0, 0, 0, swpNoMove|swpNoSize|swpNoActivate)
 }
 
+// setBounds moves and raises; it does not show. SWP_SHOWWINDOW rode along here
+// until 7 ก.ย., which made every re-glue a show: the pane reflows on a window
+// resize whether or not its tab is on screen, so resizing the app with
+// settings open — or with the tab hidden for any other reason — surfaced the
+// page over whatever was drawn there. Showing is setVisible's job, and the
+// portable layer (BrowserSetBounds) refuses to surface a hidden tab anyway;
+// this line just stops asking for it.
 func (t *win32Tab) setBounds(x, y, w, h int) {
 	t.requireHostThread("setBounds")
-	procSetWindowPos.Call(t.hwnd, hwndTop, uintptr(x), uintptr(y), uintptr(w), uintptr(h), swpShowWindow|swpNoActivate)
+	procSetWindowPos.Call(t.hwnd, hwndTop, uintptr(x), uintptr(y), uintptr(w), uintptr(h), swpNoActivate)
 	t.chromium.Resize()
 }
 

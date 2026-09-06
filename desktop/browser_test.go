@@ -278,6 +278,29 @@ func (v *fakeView) setBounds(x, y, w, h int) {
 	v.bounds = [4]int{x, y, w, h}
 }
 
+// A re-glue is not a show. The pane sends bounds on every window resize
+// whether or not its tab is on screen, and a move that also surfaced the tab
+// put the page over settings, over a dialog, over another chat — from any
+// backend whose move shows (win32's did). Only BrowserSetVisible(true) shows.
+func TestBoundsNeverSurfaceAHiddenTab(t *testing.T) {
+	b := &fakeBackend{}
+	view := &fakeView{}
+	app := &App{}
+	app.browsers = &browserHost{app: app, backend: b,
+		tabs: map[string]*browserTab{"web-1": {}}, views: map[string]tabView{"web-1": view}}
+
+	app.BrowserSetVisible("web-1", false)
+	app.BrowserSetBounds("web-1", 10, 20, 300, 200)
+	b.drain()
+
+	if view.bounds != [4]int{10, 20, 300, 200} {
+		t.Errorf("the move itself was lost: bounds=%v", view.bounds)
+	}
+	if n := len(view.visible); n == 0 || view.visible[n-1] {
+		t.Errorf("moving a hidden tab surfaced it: visible=%v", view.visible)
+	}
+}
+
 // A tab is only registered at the END of open()'s own queued command, so any
 // lookup done on the caller's goroutine finds nil for every call made right
 // after BrowserOpen — which silently dropped the bounds correction the frontend

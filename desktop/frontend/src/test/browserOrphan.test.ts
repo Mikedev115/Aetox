@@ -48,6 +48,42 @@ describe('an unmounted browser pane leaves nothing on screen', () => {
     expect(BrowserCloseForTeardown).not.toHaveBeenCalled()
   })
 
+  // A box on screen can still have something drawn over it — a dialog's
+  // backdrop, the drop target — and the intersection observer cannot tell.
+  // What is on top at the pane's centre can.
+  it('hides the native window while something is drawn over the pane', async () => {
+    const doc = document as unknown as { elementFromPoint?: (x: number, y: number) => Element | null }
+    const had = doc.elementFromPoint
+    let onTop: Element | null = null
+    doc.elementFromPoint = () => onTop
+    try {
+      const { container, unmount } = render(BrowserPane, {
+        tab: { id: 'web-9', kind: 'browser' as const, name: 'x', url: 'https://a.test' },
+        active: true, menuOpen: false, dragging: false,
+      })
+      const host = container.querySelector('.native-host')!
+      onTop = host
+      await vi.waitFor(() => expect(BrowserSetVisible).toHaveBeenCalledWith('web-9', true))
+
+      // A backdrop lands over the inspector: the page goes under it.
+      BrowserSetVisible.mockClear()
+      const backdrop = document.createElement('div')
+      onTop = backdrop
+      document.body.appendChild(backdrop)
+      await vi.waitFor(() => expect(BrowserSetVisible).toHaveBeenCalledWith('web-9', false))
+
+      // The backdrop leaves: the page comes back.
+      BrowserSetVisible.mockClear()
+      onTop = host
+      backdrop.remove()
+      await vi.waitFor(() => expect(BrowserSetVisible).toHaveBeenCalledWith('web-9', true))
+      unmount()
+    } finally {
+      if (had) doc.elementFromPoint = had
+      else delete doc.elementFromPoint
+    }
+  })
+
   it('says nothing about a window it never opened', async () => {
     const { unmount } = render(BrowserPane, {
       tab: { id: 'web-2', kind: 'browser' as const, name: 'x', url: '' },

@@ -24,6 +24,8 @@
   let opened = $state(false)
   // See the IntersectionObserver below. True until measured otherwise.
   let onScreen = $state(true)
+  // See the covering probe below. False until measured otherwise.
+  let covered = $state(false)
   let lastSent = '' // last URL we told the native side to load — breaks the meta-event feedback loop
 
   /** Pane pixels reserved around the native window, in CSS px. See layout(). */
@@ -68,7 +70,10 @@
   // So the question changed from "is there a reason to hide" to "does this pane
   // have a box on screen", which is one fact, measured, and true of every reason
   // at once including the ones nobody has written yet.
-  const visible = $derived(active && opened && onScreen && !menuOpen && !dragging && !isOverlayView(cockpit.activeView))
+  //
+  // And then a second fact, `covered`, because a box on screen can still have
+  // something drawn over it — see the probe below.
+  const visible = $derived(active && opened && onScreen && !covered && !menuOpen && !dragging && !isOverlayView(cockpit.activeView))
 
   // Device-size emulation without any emulation trickery: the tab IS a real
   // window, so shrink it to the device's aspect ratio (letterboxed in the pane,
@@ -209,6 +214,63 @@
     }))
     io.observe(el)
     return () => io.disconnect()
+  })
+
+  // Is something drawn OVER this pane? The other measurement `visible` leans on.
+  //
+  // onScreen answers "does this pane have a box"; it cannot answer "is that box
+  // on top". A confirm dialog's backdrop, the drop target, a sheet somebody adds
+  // next month — anything the app lays over the inspector — leaves the box
+  // exactly where it was, so the observer above keeps saying on screen and the
+  // native window goes on compositing over the dialog. It is the overlay-view
+  // list's failure one layer down: a modal is not a view, and isOverlayView
+  // cannot see it.
+  //
+  // elementFromPoint at the pane's centre is one hit-test, and it answers for
+  // every overlay at once, including the ones nobody has written yet. The
+  // element on top there is this host, or something inside it, or an ancestor
+  // (only reachable when the host itself is not hit-testable, which is not a
+  // cover) — or it is something covering the pane. Native windows are not in
+  // the DOM, so the tab's own page never answers for itself.
+  //
+  // Re-asked whenever the document changes, coalesced to one hit-test per
+  // frame. A MutationObserver over the body fires on every streamed token, and
+  // that is fine: its only job is to schedule the next look. Off screen there
+  // is nothing to ask — a pane with no box has no centre — and the effect stands
+  // down, which also resets the answer for the way back in.
+  $effect(() => {
+    const el = host
+    if (spectator || !el || !onScreen) return
+    if (typeof MutationObserver === 'undefined' || typeof document.elementFromPoint !== 'function') return
+    let pending = 0
+    const look = () => {
+      pending = 0
+      const box = el.getBoundingClientRect()
+      if (box.width === 0 || box.height === 0) return
+      const top = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+      // Off the viewport (null) counts as uncovered: of the two ways to be
+      // wrong, hiding the user's page is the worse one.
+      covered = top !== null && top !== el && !el.contains(top) && !top.contains(el)
+    }
+    // requestAnimationFrame where there is one — the answer is only needed by
+    // the next paint — and a timer where there is not (jsdom).
+    const schedule = () => {
+      if (pending) return
+      pending = typeof requestAnimationFrame === 'function'
+        ? requestAnimationFrame(look)
+        : (setTimeout(look, 0) as unknown as number)
+    }
+    const mo = new MutationObserver(schedule)
+    mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'open'] })
+    look()
+    return () => {
+      mo.disconnect()
+      if (pending) {
+        if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(pending)
+        clearTimeout(pending)
+      }
+      covered = false
+    }
   })
 
   // The page reports its real title/URL after every navigation (including
