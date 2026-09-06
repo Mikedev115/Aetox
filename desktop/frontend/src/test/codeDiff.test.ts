@@ -114,24 +114,28 @@ describe('the diff fold-out in the chat timeline', () => {
     await fireEvent.click(container.querySelector('.meta-row .reasoning-toggle') as HTMLElement)
   }
 
-  it('folds shut, and opens on the โค้ด desk when the row is clicked', async () => {
+  // Open on arrival: on the โค้ด desk the diff is the work, and a change
+  // nobody looked at is a change nobody reviewed. The fold is still there for
+  // the row somebody is finished with.
+  it('opens on the โค้ด desk, and shuts when the row is clicked', async () => {
     cockpit.desk = 'coding'
     const { container } = render(Chat, { ...props, messages: replyWith({ diff: DIFF }) })
     await tick()
     await openTheTimeline(container)
 
-    expect(container.querySelector('.tool-diff')).toBeNull()
     const row = container.querySelector('.tool-step.foldable') as HTMLElement
     expect(row).not.toBeNull()
-    expect(row.getAttribute('aria-expanded')).toBe('false')
-
-    await fireEvent.click(row)
+    expect(row.getAttribute('aria-expanded')).toBe('true')
     expect(container.querySelector('.tool-diff')).not.toBeNull()
     expect(container.querySelector('.dl.del .tx')?.textContent).toBe('	println("old")')
 
-    // And shuts again, on the same row.
-    await fireEvent.click(container.querySelector('.tool-step.foldable') as HTMLElement)
+    await fireEvent.click(row)
     expect(container.querySelector('.tool-diff')).toBeNull()
+    expect((container.querySelector('.tool-step.foldable') as HTMLElement).getAttribute('aria-expanded')).toBe('false')
+
+    // And opens again, on the same row.
+    await fireEvent.click(container.querySelector('.tool-step.foldable') as HTMLElement)
+    expect(container.querySelector('.tool-diff')).not.toBeNull()
   })
 
   // The Review panel's removal reasoning still holds everywhere else: this is a

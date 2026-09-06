@@ -1349,9 +1349,14 @@
   // this, so it is the one room that draws it.
   const showDiffs = $derived(cockpit.desk === 'coding')
 
-  // Folded shut, and remembered per row rather than per turn: a person who
-  // opened the third edit is reading the third edit, and the next tool result
-  // must not shut it.
+  // Open by default on this desk, and remembered per row rather than per turn:
+  // a person who shut the third edit is done with the third edit, and the next
+  // tool result must not re-open it.
+  //
+  // Open is the default because of what the โค้ด desk is: the diff IS the work
+  // here, and a change nobody looked at is a change nobody reviewed. The fold
+  // stays for the row somebody is finished with — an absent key means open,
+  // `false` means the reader closed it (owner, 6 ก.ย.).
   //
   // Keyed on the engine's call id where there is one. The label is the fallback
   // and it is a weaker key — two identical edits in one session would share a
@@ -2300,7 +2305,7 @@
   <!-- Coerced, not left as undefined: Svelte drops an attribute whose value
        is undefined, and a disclosure button with no aria-expanded at all reads
        to a screen reader as something that does not open. -->
-  {@const shown = !!(foldable && openDiffs[key])}
+  {@const shown = !!(foldable && (openDiffs[key] ?? true))}
   <!-- A row with a diff behind it is a real button; every other row is the div
        it has always been. Not one element wearing a role: a control that
        sometimes responds teaches the user to stop trying it, and the
