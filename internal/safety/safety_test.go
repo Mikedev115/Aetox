@@ -86,6 +86,31 @@ func TestAssessCommandMediaToolsMatchVideoOCR(t *testing.T) {
 	}
 }
 
+// video_project is filed under media with those three and is deliberately NOT
+// in their tier: it writes an .fcpxml where they only read. Pinned against
+// doc_write rather than described, so a future edit that lets it fall through
+// to the read-only catch-all fails here instead of shipping a writer that
+// skips the approval every other writer passes.
+func TestVideoProjectIsAssessedAsAWriter(t *testing.T) {
+	reference := AssessCommand("doc_write", []string{"memo.docx"})
+	got := AssessCommand("video_project", []string{"cut.json"})
+	if got.Risk != reference.Risk {
+		t.Errorf("AssessCommand(video_project).Risk = %v, want doc_write's %v", got.Risk, reference.Risk)
+	}
+	if len(got.Effects) != 1 || got.Effects[0] != EffectWriteWorkspace {
+		t.Errorf("AssessCommand(video_project).Effects = %v, want [%v]", got.Effects, EffectWriteWorkspace)
+	}
+	read := AssessCommand("video_ocr", []string{"clip.mp4"})
+	for _, mode := range []ApprovalMode{ApprovalFullAccess, ApprovalUnsafeOnly, ApprovalMode("")} {
+		if ShouldPrompt(mode, got) != ShouldPrompt(mode, reference) {
+			t.Errorf("video_project prompts differently from doc_write under mode %q", mode)
+		}
+		if ShouldPrompt(mode, read) && !ShouldPrompt(mode, got) {
+			t.Errorf("video_project asks for less than video_ocr under mode %q, which cannot be right", mode)
+		}
+	}
+}
+
 // calc asks for no permission, and the reason has to be recorded rather than
 // inherited from the fallback every unrecognised name lands in: a tool that
 // runs in this process and can reach no file, socket or program is not asking

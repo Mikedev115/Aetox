@@ -454,6 +454,42 @@ func (a *App) VideoToolingStatus() VideoToolingStatus {
 // (VideoEditorTools) for the same reason it reads the command and environment
 // from here: two lists would be answering one question, and the one in a
 // .svelte file is the one nobody re-measures.
+//
+// **Re-measured 4 ก.ย. 2569**, same kinocut 1.15.0, this time by reading a real
+// `tools/list` off the running server and counting each whole tool object
+// (name + description + inputSchema) as it crosses the wire: 196 tools =
+// 183,780 characters, the list below = 61,899. At four characters to a token
+// that is ~46,000 against ~15,500. The 30 ส.ค. figures above counted the
+// schemas alone, which is why they are smaller; both say the same thing about
+// the ratio, and the newer method is the one that matches what a request
+// actually carries.
+//
+// **The last three exist because a rendered file is not an edit.** Owner,
+// 4 ก.ย.: *"ไฟล์ที่แก้ต่อได้สำคัญมาก"*. `video_cutfile_validate` and
+// `video_cutfile_render` are kinocut's Cutfile — a JSON edit document whose
+// parent folder is the workspace, which a person can open, disagree with, edit
+// by hand and render again; `video_init_project` is what lays that workspace
+// out (media/out/receipts and a starter Cutfile) so the pair has somewhere to
+// live. 1,976 characters, ~500 tokens, for the difference between handing back
+// an mp4 and handing back the decisions that made it.
+//
+// Its reach is real but bounded, and the agent has to be told so rather than
+// discover it in an error: a Cutfile lowers to the workflow engine's nine
+// allowlisted ops — `trim, merge, crop, resize, convert, add_text, burn_in,
+// composite_layers, probe`. That is a picture edit. Nothing about audio
+// (`video_duck_audio`, `video_normalize_audio`, `video_add_audio`), no speed,
+// fade or overlay, goes in one; those stay direct tool calls, and a cut list
+// that claims to be the whole edit when the sound was done outside it is a
+// worse lie than no file at all.
+//
+// Deliberately still out, with `search_tools` as the way the agent finds them:
+// `video_otio_export` (its output is IR-shaped JSON with no media references
+// and no source ranges — nothing in Resolve, Premiere or Final Cut can open
+// it, so shipping it as "an editable project" would be the claim, not the
+// file), `video_semantic_timeline` and `video_timeline_edit_plan` (both take an
+// undocumented `request` object, so the agent would be guessing), and the
+// `video_review_*` approval loop, which needs a surface on the desk before it
+// means anything.
 var videoEditorTools = []string{
 	"search_tools",
 	"video_info", "video_info_detailed", "video_read_metadata", "video_trim", "video_merge",
@@ -469,6 +505,7 @@ var videoEditorTools = []string{
 	"hyperframes_render", "hyperframes_preview", "hyperframes_still", "hyperframes_inspect",
 	"hyperframes_catalog", "hyperframes_compositions", "hyperframes_validate", "hyperframes_doctor",
 	"hyperframes_capture", "hyperframes_tts", "hyperframes_remove_background",
+	"video_init_project", "video_cutfile_validate", "video_cutfile_render",
 }
 
 // VideoEditorTools is the allowlist as the settings shelf asks for it.

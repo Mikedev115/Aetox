@@ -272,6 +272,18 @@ func AssessCommand(skillName string, args []string) Assessment {
 				Reason:    "doc_write can create or overwrite a document file",
 			}
 		}
+		// The one media tool that writes. `image_ocr`, `video_ocr` and
+		// `audio_transcribe` are all reads and belong in the catch-all below;
+		// this one puts an .fcpxml on the disk, so it belongs with the writers
+		// and not with the family it is filed under.
+		if skillName == "video_project" {
+			return Assessment{
+				SkillName: "video_project",
+				Risk:      RiskHigh,
+				Effects:   []Effect{EffectWriteWorkspace},
+				Reason:    "video_project can create or overwrite a project file",
+			}
+		}
 		if skillName == "edit" {
 			return Assessment{
 				SkillName: "edit",

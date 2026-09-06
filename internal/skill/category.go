@@ -103,6 +103,11 @@ var toolCategories = map[string]string{
 	"video_ocr":        CategoryMedia,
 	"pdf_read":         CategoryMedia,
 	"audio_transcribe": CategoryMedia,
+	// It writes rather than senses, which is the one thing this group does not
+	// otherwise do — but what it writes is a video project, and the desk that
+	// carries video is this one. Filed by what it is for, which is the rule at
+	// the top of this file, not by which verb it performs.
+	"video_project": CategoryMedia,
 
 	// The automation engine the user connected (§92.3). Filed under web because
 	// that is what it is from outside — an HTTP service somewhere on the network
