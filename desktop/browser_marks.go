@@ -141,9 +141,11 @@ func aetoxMarkJS(lifeMS int) string {
 // right answer for a reason the ring could not reach. A box says WHICH control
 // — and the pointer is already sitting on that control, so it was the half
 // already covered. What nothing on the page said was WHERE inside it the press
-// landed, and with the sprite now being the logo rather than an arrow, the
-// exact pixel is precisely the thing a letterform cannot point at. The ripple
-// is that pixel, drawn.
+// landed: an arrow's point is one or two pixels of ink under a moving sprite,
+// and on a wide control that is not enough to read the spot from. The ripple
+// is that pixel, drawn — and it stayed the right answer when the sprite went
+// back to being an arrow, because the thing it adds was never about the shape
+// of the cursor.
 //
 // Two waves rather than one, the second 150ms behind: one ring reads as a
 // circle that appeared, two read as something leaving the point. They go out
@@ -307,47 +309,57 @@ const (
 	trailElementID  = "__aetox-trail"
 )
 
-// cursorTipX and cursorTipY are where the mark's apex sits inside the sprite's
-// own box, and therefore the only place a click can be said to happen.
+// cursorTipX and cursorTipY are where the arrow's point sits inside the
+// sprite's own box, and therefore the only place a click can be said to happen.
 //
 // Three things have to agree on this pair or the sprite lies about where it is
-// pointing: the group transform that puts the apex there, the transform-origin
+// pointing: the group transform that puts the point there, the transform-origin
 // the press squeezes about, and the translate that moves the sprite to a page
 // coordinate. They are one constant used three times for that reason.
+//
+// A small inset rather than zero, because the outline is stroked around the
+// shape: at (0,0) the point's own casing would fall outside the sprite's box
+// and be clipped, and a pointer with a flattened tip is the one part of an
+// arrow the eye reads as broken.
 const (
-	cursorTipX = 13.59
-	cursorTipY = 2.69
+	cursorTipX = 1.6
+	cursorTipY = 1.6
 )
 
-// cursorInk is the tile the app icon is: near-black, not pure black, the same
-// ink the window uses behind the mark.
+// cursorInk is the outline drawn around the arrow: near-black, not pure black,
+// the same ink the window uses behind its own mark.
 //
-// It is half of what makes the sprite Aetox's rather than Windows'. The first
-// arrow was a white body with a blue outline — the shape every operating system
-// draws, wearing a coat of paint — and the owner asked on 6 ก.ย. for a pointer
-// that *"เห็นภาพของ Aetox จริง ๆ"*. The icon answers that question already: an ink
-// tile with a white monoline A on it, rounded joins, hollow, no shading. So the
-// arrow is drawn in that language rather than beside it — ink body, white line
-// around it — and the tile itself rides at the tail with the A on it.
+// **The sprite was the logo for one day and is an ordinary arrow again.** The
+// 6 ก.ย. version leaned the app's A fourteen degrees and used its apex as the
+// hotspot, on the reasoning that a pointer the user watches on somebody else's
+// site may as well say whose hand it is. Seen in place the owner's answer was
+// *"เอาเมาส์ปกติก็ได้ ไม่เอาแบบนี้"*, and it is the right call for a reason worth
+// keeping: a cursor is not a place to sign your name. It is the one element on
+// screen whose whole job is to be read instantly and without thought, and a
+// letterform at 20px is read — briefly, but read — before it is understood as
+// a pointer. That pause is the cost, it is paid on every single action, and
+// nothing is bought with it that the ring, the ripple and the trail were not
+// already saying.
 //
-// Ink-with-a-white-edge is also the one pairing that survives an unknown page.
-// A white sprite vanishes into Google's results and a dark one into a terminal
-// theme; a dark body carrying a light outline keeps an edge against both, which
-// a cursor that exists to be watched on somebody else's site has to.
+// White body with an ink outline is what every operating system draws, and it
+// is also the one pairing that survives an unknown page: a white sprite alone
+// vanishes into Google's results and a dark one into a terminal theme, while a
+// light body carrying a dark edge keeps a border against both.
 const cursorInk = "#0e1116"
 
-// aetoxLogoPath is the mark itself — the same outline Logo.svelte draws in the
-// window, on its own 804×762 grid.
+// cursorArrowPath is the pointer itself: the shape an operating system draws,
+// with its point at (0,0) so the hotspot needs no arithmetic to find.
 //
-// Copied rather than imported, because there is no seam between Go and the
-// frontend bundle to import across, and TestCursorDrawsTheRealLogo reads the
-// .svelte file and compares, so the copy cannot drift without a test saying so.
+// Written in CSS pixels rather than in a design grid, and therefore at no
+// scale: the sprite is ~20px tall because these numbers say 19.7, which is
+// what a system arrow measures. The version this replaces carried a 804×762
+// grid and a 0.04703 scale down from it, and every one of those numbers was a
+// place the tip could drift away from where the click actually went.
 //
-// It is a filled outline, not a stroked line: the shape IS the monoline, with
-// the counter as an even-odd hole. That is why the sprite draws it twice —
-// once in white with a wide stroke for the casing, once in ink on top — rather
-// than colouring a single stroke.
-const aetoxLogoPath = `M 116.0,742.5 L 92.0,742.5 L 73.0,737.5 L 53.0,726.5 L 36.5,711.0 L 21.5,680.0 L 20.5,640.0 L 37.5,594.0 L 245.5,120.0 L 265.5,90.0 L 293.0,60.5 L 321.0,40.5 L 347.0,28.5 L 380.0,20.5 L 416.0,19.5 L 452.0,26.5 L 484.0,40.5 L 509.0,57.5 L 533.5,82.0 L 565.5,134.0 L 656.5,345.0 L 658.5,375.0 L 651.5,396.0 L 641.5,410.0 L 622.0,425.5 L 581.0,440.5 L 367.0,442.5 L 339.0,446.5 L 311.0,457.5 L 285.5,479.0 L 275.5,494.0 L 183.5,700.0 L 153.0,729.5 L 137.0,737.5 L 116.0,742.5 Z M 115.5,703.0 L 136.0,694.5 L 154.5,673.0 L 242.5,473.0 L 257.5,452.0 L 276.0,434.5 L 312.0,414.5 L 349.0,405.5 L 494.5,404.0 L 402.0,190.5 L 322.5,371.0 L 313.0,379.5 L 300.0,380.5 L 293.0,377.5 L 285.5,367.0 L 285.5,357.0 L 363.5,179.0 L 373.5,161.0 L 386.0,150.5 L 411.0,147.5 L 425.0,154.5 L 433.5,164.0 L 539.0,404.5 L 567.0,403.5 L 589.0,398.5 L 605.0,390.5 L 616.5,379.0 L 619.5,371.0 L 617.5,350.0 L 530.5,152.0 L 500.5,104.0 L 465.0,74.5 L 443.0,64.5 L 416.0,58.5 L 389.0,58.5 L 357.0,66.5 L 335.0,77.5 L 317.0,91.5 L 294.5,116.0 L 279.5,139.0 L 61.5,637.0 L 58.5,664.0 L 67.5,687.0 L 87.0,701.5 L 115.5,703.0 Z M 711.0,742.5 L 689.0,742.5 L 664.0,735.5 L 642.0,722.5 L 623.5,704.0 L 610.5,683.0 L 553.0,547.5 L 329.0,547.5 L 322.0,544.5 L 314.5,534.0 L 316.5,518.0 L 331.0,508.5 L 573.0,509.5 L 581.5,516.0 L 587.5,527.0 L 652.5,678.0 L 664.0,690.5 L 680.0,700.5 L 710.0,703.5 L 724.0,698.5 L 737.5,686.0 L 743.5,674.0 L 745.5,652.0 L 738.5,627.0 L 661.5,450.0 L 661.5,441.0 L 670.0,429.5 L 678.0,426.5 L 690.0,428.5 L 699.5,440.0 L 775.5,615.0 L 784.5,653.0 L 781.5,681.0 L 764.5,714.0 L 740.0,733.5 L 711.0,742.5 Z`
+// Read it as the outline it is, clockwise from the point: straight down the
+// left edge, up into the notch, out to the tail, back up the tail's other
+// side, out to the shoulder, and home along the diagonal.
+const cursorArrowPath = `M 0,0 L 0,17.1 L 4.2,13.3 L 6.7,19.7 L 9.2,18.6 L 6.8,12.4 L 12.1,12.0 Z`
 
 // cursorTravelMax is the most a pointer action waits for the sprite to arrive
 // before the press goes in.
@@ -379,7 +391,7 @@ func cursorTravel(from, to point, known bool) time.Duration {
 // aetoxCursorJS is the sprite: find it or build it, move it, press it.
 func aetoxCursorJS() string {
 	return fmt.Sprintf(`
-  var AETOX_CUR=%q, AETOX_TRAIL=%q, AETOX_CACC=%q, AETOX_INK=%q, AETOX_LOGO=%q;
+  var AETOX_CUR=%q, AETOX_TRAIL=%q, AETOX_CACC=%q, AETOX_INK=%q, AETOX_ARROW=%q;
   function aetoxCursorQuiet(){
     try{return !!(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);}
     catch(e){return false;}
@@ -398,35 +410,30 @@ func aetoxCursorJS() string {
       for(var k in attrs)n.setAttribute(k,attrs[k]);
       return n;
     }
-    /* The sprite is the logo, at 34px tall and leaned 14 degrees.
-       The numbers are one derivation, done once: the mark's own apex —
-       (416,19.5) in its 804×762 grid, the peak of the A — is the pixel the
-       click lands on, so the group is translated so that point sits at the
-       hotspot, then scaled to 34px tall (0.04703) and rotated -14 degrees.
-       The lean is what turns a letter standing still into something aimed;
-       past about 20 degrees it stops reading as an A, and at zero it reads as
-       a sticker rather than a pointer.
-       The viewBox is the rotated bounding box plus room for the casing, which
-       is why it is 40.4×42 and why the hotspot is 13.59 in from the left: the
-       A's left leg hangs out to the left of its own apex. */
-    var svg=node("svg",{viewBox:"0 0 40.4 42",width:"40.4",height:"42",fill:"none"});
-    var g=node("g",{transform:"translate(%g,%g) scale(0.04703) rotate(-14) translate(-416,-19.5)"});
-    /* Casing under, ink over. Stroke widths are in the mark's own units, so
-       they divide by the scale: 59.5 units is 2.8 CSS px of white around the
-       line, 36.1 is 1.7px of ink added to it — the weight a monoline logo
-       needs to survive at cursor size, and the reason the first cut of this
-       looked like wire. */
-    g.appendChild(node("path",{d:AETOX_LOGO,fill:"#ffffff",stroke:"#ffffff",
-      "stroke-width":"59.5","stroke-linejoin":"round","fill-rule":"evenodd"}));
-    g.appendChild(node("path",{d:AETOX_LOGO,fill:AETOX_INK,stroke:AETOX_INK,
-      "stroke-width":"36.1","stroke-linejoin":"round","fill-rule":"evenodd"}));
+    /* The sprite is an ordinary arrow, drawn at 1:1 — the path is already in
+       CSS pixels, so there is no scale and no rotation, and the only transform
+       is the one that puts its point on the hotspot. That is the whole of the
+       geometry now; the version this replaces stacked a scale and a rotate on
+       top of a translate out of a 804x762 design grid, and each of those was a
+       place the drawn tip could disagree with the pixel being clicked.
+       The viewBox is the shape (12.1x19.7) plus the hotspot inset and room for
+       the casing on the far side, which is why 16x24 covers it. */
+    var svg=node("svg",{viewBox:"0 0 16 24",width:"16",height:"24",fill:"none"});
+    var g=node("g",{transform:"translate(%g,%g)"});
+    /* One path, filled white and stroked in ink: the body and its border are
+       the same outline, which is what keeps the border an even weight all the
+       way round a shape with a 20-degree corner at the tip. Round joins so
+       that corner is a point rather than a spike, and the miter a sharp join
+       would throw past the tip is exactly what the box has no room for. */
+    g.appendChild(node("path",{d:AETOX_ARROW,fill:"#ffffff",stroke:AETOX_INK,
+      "stroke-width":"1.5","stroke-linejoin":"round"}));
     svg.appendChild(g);
     c=document.createElement("div");
     c.id=AETOX_CUR;
     /* transform-origin at the tip, not the middle: the press below squeezes
        the sprite, and a squeeze about the centre of a 30px box walks the tip
        off the control it is pressing. */
-    c.style.cssText="position:fixed;left:0;top:0;width:41px;height:42px;margin:0;padding:0;z-index:2147483602;pointer-events:none;transform-origin:%gpx %gpx;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));will-change:transform;";
+    c.style.cssText="position:fixed;left:0;top:0;width:16px;height:24px;margin:0;padding:0;z-index:2147483602;pointer-events:none;transform-origin:%gpx %gpx;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));will-change:transform;";
     c.appendChild(svg);
     c.__aetoxX=0;c.__aetoxY=0;
     root.appendChild(c);
@@ -505,7 +512,7 @@ func aetoxCursorJS() string {
     }
     requestAnimationFrame(frame);
   }
-`, cursorElementID, trailElementID, markAccent, cursorInk, aetoxLogoPath,
+`, cursorElementID, trailElementID, markAccent, cursorInk, cursorArrowPath,
 		cursorTipX, cursorTipY, cursorTipX, cursorTipY, cursorTipX, cursorTipY)
 }
 

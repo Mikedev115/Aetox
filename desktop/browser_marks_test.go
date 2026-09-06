@@ -12,9 +12,9 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
+	"math"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -212,30 +212,42 @@ func TestClickMarkIsARippleFromThePoint(t *testing.T) {
 	}
 }
 
-// The sprite IS the mark. Not an arrow wearing Aetox's colours: the logo's own
-// outline, leaned 14 degrees, with its apex — the peak of the A — as the pixel
-// the click lands on.
+// The sprite is an ordinary arrow, and the three places that have to agree on
+// its point are what this pins.
 //
-// The three places that have to agree on that apex are what this pins. The
-// group transform puts it at the hotspot, the transform-origin squeezes about
-// it on a press, and the translate moves the sprite to a page coordinate by
-// it; any one of them drifting means a pointer that points somewhere else.
-func TestCursorIsTheLogoAndAgreesOnItsTip(t *testing.T) {
+// The owner had the logo for a day and sent it back — *"เอาเมาส์ปกติก็ได้ ไม่เอา
+// แบบนี้"* — so what is drawn is the shape an operating system draws, at 1:1
+// with no scale and no rotation. That flatness is the point of the test as much
+// as the shape is: the group transform puts the tip on the hotspot, the
+// transform-origin squeezes about it on a press, and the translate moves the
+// sprite to a page coordinate by it. Any one of them drifting means a pointer
+// that points somewhere other than where the click goes, and the fewer numbers
+// stand between the path and the pixel the fewer places that can happen.
+func TestCursorIsAnArrowAndAgreesOnItsTip(t *testing.T) {
 	js := cursorMoveScript(10, 20, 200*time.Millisecond, true)
 	tip := fmt.Sprintf("%g,%g", cursorTipX, cursorTipY)
 	for _, want := range []string{
-		"AETOX_LOGO=",
-		"M 116.0,742.5",                         // the mark's own outline, not a drawn arrow
-		"translate(" + tip + ") scale(0.04703)", // apex to the hotspot, then to 34px
-		"rotate(-14)",
-		"translate(-416,-19.5)", // the apex in the mark's own 804x762 grid
+		"AETOX_ARROW=",
+		"M 0,0 L 0,17.1",                  // the point is the path's own origin
+		`"translate(` + tip + `)"`,        // and the only transform puts it on the hotspot
+		`viewBox:"0 0 16 24"`,             // a box the 12.1x19.7 shape fits inside with its casing
+		`"stroke-width":"1.5"`,            // one outline, stroked in ink and filled white
+		`"stroke-linejoin":"round"`,       // so the 20-degree tip is a point, not a spike
+		`fill:"#ffffff",stroke:AETOX_INK`, // body light, border dark: legible on any page
 		fmt.Sprintf("transform-origin:%gpx %gpx", cursorTipX, cursorTipY),
 		fmt.Sprintf(`"translate("+(x-%g)+"px,"+(y-%g)+"px)"`, cursorTipX, cursorTipY),
-		`"fill-rule":"evenodd"`, // the counter stays a hole
 		cursorInk,
 	} {
 		if !strings.Contains(js, want) {
 			t.Errorf("cursor sprite missing %q", want)
+		}
+	}
+	// The geometry the logo needed is gone rather than merely unused. A stray
+	// scale or rotate left behind is a number nothing reads until the day
+	// somebody edits the path and cannot work out why the tip sits wrong.
+	for _, gone := range []string{"scale(0.04703)", "rotate(-14)", "AETOX_LOGO", "evenodd"} {
+		if strings.Contains(js, gone) {
+			t.Errorf("the logo sprite's %q survived the change back to an arrow", gone)
 		}
 	}
 	// Built attribute by attribute. innerHTML is the one thing a page with
@@ -246,18 +258,29 @@ func TestCursorIsTheLogoAndAgreesOnItsTip(t *testing.T) {
 	}
 }
 
-// One mark, two copies, no import between them: the Go string has to stay the
-// outline the window actually draws.
-func TestCursorLogoMatchesTheWindows(t *testing.T) {
-	b, err := os.ReadFile(filepath.Join("frontend", "src", "lib", "Logo.svelte"))
-	if err != nil {
-		t.Skipf("no frontend source to compare against: %v", err)
+// The arrow is the size a system arrow is, and it fits the box it is given.
+//
+// Both halves matter and they pull against each other: a sprite drawn larger
+// than its viewBox is silently clipped, and one drawn much smaller than 20px
+// stops reading as the mouse pointer it is imitating. The path is in CSS pixels
+// precisely so this can be checked by reading it.
+func TestCursorArrowIsSystemSizedAndFitsItsBox(t *testing.T) {
+	var maxX, maxY float64
+	for _, pair := range regexp.MustCompile(`(\d+(?:\.\d+)?),(\d+(?:\.\d+)?)`).FindAllStringSubmatch(cursorArrowPath, -1) {
+		x, _ := strconv.ParseFloat(pair[1], 64)
+		y, _ := strconv.ParseFloat(pair[2], 64)
+		maxX, maxY = math.Max(maxX, x), math.Max(maxY, y)
 	}
-	m := regexp.MustCompile(`d="([^"]+)"`).FindSubmatch(b)
-	if m == nil {
-		t.Fatal("Logo.svelte no longer carries a path to compare with")
+	if maxY < 16 || maxY > 24 {
+		t.Errorf("the arrow is %gpx tall; a system pointer is about 20", maxY)
 	}
-	if string(m[1]) != aetoxLogoPath {
-		t.Error("the cursor's copy of the mark has drifted from the one Logo.svelte draws")
+	// The casing is stroked half in and half out, so the ink reaches 0.75px
+	// past the outline on the far side, and the inset moves the whole shape.
+	const casing = 0.75
+	if got, limit := maxX+cursorTipX+casing, 16.0; got > limit {
+		t.Errorf("the arrow reaches %gpx across a %gpx box and will be clipped", got, limit)
+	}
+	if got, limit := maxY+cursorTipY+casing, 24.0; got > limit {
+		t.Errorf("the arrow reaches %gpx down a %gpx box and will be clipped", got, limit)
 	}
 }
