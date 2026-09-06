@@ -706,9 +706,10 @@
     }
   }
 
-  // Same catch as the two rows above it. Without one the refusal a busy turn
-  // answers with (errTurnBusyModel) died as an unhandled rejection and the
-  // row just looked broken.
+  // Same catch as the two rows above it. It was added when a busy turn
+  // answered these dials with a refusal, which died here as an unhandled
+  // rejection and left the row looking broken; a busy turn queues now (§232)
+  // and the catch stays for the switch that genuinely fails.
   async function handleThinkChange(value: string) {
     switchError = ''
     try {
@@ -1492,11 +1493,24 @@
   // Context meter: how full the model's context window is and what fills it.
   let ctx = $state<ContextBreakdown | null>(null)
   async function refreshContext() {
+    let next: ContextBreakdown
     try {
-      ctx = await GetContextBreakdown()
+      next = await GetContextBreakdown()
     } catch {
-      ctx = null // engine not ready yet — button hides itself
+      // Keep the last good reading. "The engine did not answer" and "there is
+      // nothing to show" are different sentences, and only the second one is a
+      // reason to take the control off the screen — this used to blank it, and
+      // with no refresh during a turn (see below) it stayed blank for minutes.
+      return
     }
+    // Zero is the engine mid-bootstrap, not an empty window. A conversation
+    // being built has no agent and no registry for a moment, and
+    // GetContextBreakdown honestly answers 0 for both slices while that lasts.
+    // Taking it at face value is how the meter disappeared: the first message
+    // of a new chat races the engine being built to answer it, the reading
+    // came back 0, the button hid itself, and nothing asked again until the
+    // turn was over (owner, 7 ก.ย.: "มันหายไปไหนตอนทำงาน").
+    if (next && next.usedTokens > 0) ctx = next
   }
   // Refresh on mount and after every completed turn (message count settles).
   $effect(() => {
@@ -1554,9 +1568,28 @@
   const missOf = (s: TurnSpend) => Math.max(0, s.in - s.cached)
   const sharePct = (s: TurnSpend, n: number) => (s.in > 0 ? Math.round((n / s.in) * 100) + '%' : '')
   // Shown only when every spending round could be priced. A partial total is
-  // the one kind of wrong a money figure must never be.
+  // the one kind of wrong a money figure must never be. Asked separately of
+  // each block: a chat can have been run on a priced model all week and then
+  // moved to one the catalog has never heard of, and the turn being unpriceable
+  // is no reason to withhold the total that is.
   const showMoney = $derived(spend.unpriced === 0 && spend.cost > 0)
   const showSessionMoney = $derived(sessionSpend.unpriced === 0 && sessionSpend.cost > 0)
+  // And during the turn, which is when the window is actually filling and the
+  // meter is worth looking at. It used to freeze for the whole turn: the effect
+  // above fires on the message count and on awaitingReply, and a turn that
+  // spends seven minutes in a tool loop with three delegates changes neither —
+  // so the number on screen was taken before any of that work happened.
+  //
+  // Driven by the spend tally rather than by a timer. Every model round moves
+  // it, and a round is exactly when the context has changed, so nothing polls
+  // while nothing is happening — and the round that lands first also repairs a
+  // meter that came up empty against a half-built engine.
+  $effect(() => {
+    void spend.in
+    void spend.out
+    if (!awaitingReply) return
+    refreshContext()
+  })
   // Four places, because the interesting figures are small: a cheap turn on a
   // flash model runs to fractions of a cent, and $0.00 would read as free.
   const fmtMoney = (usd: number) => '$' + usd.toFixed(usd < 0.01 ? 4 : 2)
@@ -2742,6 +2775,14 @@
   // Links in rendered markdown must not navigate the app's own webview away —
   // open them in a workbench browser tab instead.
   function onChatClick(e: MouseEvent) {
+    // A click something nearer has already answered. The search card's rows
+    // open their own tab and call preventDefault to say so; this handler then
+    // met the same <a href="https://…"> on the way up and opened it again —
+    // one click on a search result, two tabs on one page (web-3 and web-4 in
+    // the same millisecond, 7 ก.ย. 04:37). Read here rather than stopped
+    // there: stopPropagation at the row would also keep the click from the
+    // document listeners that close open menus.
+    if (e.defaultPrevented) return
     const el = e.target as HTMLElement
     // buttons on a rendered code block ({@html} markup can't carry handlers)
     const runBtn = el.closest('.code-run')
@@ -3129,6 +3170,7 @@
         {/if}
       </a>
     {/each}
+    </div>
     <div class="search-foot">
       {t('tool.searchSummary', { n: links.length, read: opened, secs: s.secs ?? 0 })}
     </div>
@@ -3895,7 +3937,7 @@
                 <div class="reasoning-body">{m.reasoning}</div>
               {/if}
               {#if m.steps?.length && openPanel[i] === 'tools'}
-                {@render toolTimeline(ownSteps(m.steps), false)}
+                {@render toolTimeline(ownSteps(m.steps), false, false)}
               {/if}
               {#if m.steps?.length && openPanel[i] === 'agents'}
                 {@render subagentTimeline(delegatedAgents(m.steps), false)}
@@ -5194,12 +5236,6 @@
                         <div class="ctx-note">{t('chat.spendRounds', { n: sessionSpend.rounds })}</div>
                       {/if}
                     {/if}
-                    <div class="ctx-row">
-                      <span class="dot out"></span>
-                      <span class="lbl">{t('settings.usageOutput')}</span>
-                      <span class="val">{fmtTokens(spend.out)}</span>
-                      <span class="pct"></span>
-                    </div>
                     <!-- Money is absent rather than approximate. An unpriced
                          round means the catalog publishes no rate for this
                          model, which is not the same as the round being free,
