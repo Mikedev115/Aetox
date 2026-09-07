@@ -1703,50 +1703,48 @@ button.phase-head:hover { color:var(--text-muted); }
    gallery's stage furniture arriving on a single photograph. */
 .chat-inner .markdown-body img:not(.img-gallery img):not(a img) { cursor:zoom-in; }
 
-/* ── image_make: the picture unfolds under its own row ──────────────────────
-   The sequence is deliberate and the owner chose it in that shape (7 ก.ย.):
-   the tool row lands FIRST, on its own, and only then does the frame open
-   beneath it. A box that appeared in the same frame as the row would read as
-   part of the row's arrival — one object flashing in — where what is actually
-   happening is that a request was made and then something started coming back.
+/* ── image_make: the picture the phase produced ─────────────────────────────
+   Rendered by the phase and not by the row (Chat.svelte, drawStrip), which is
+   what lets it be this size. Inside the row list it lived in a 190px scrolling
+   window that then folded shut when the turn ended: a picture squeezed into a
+   window built for one-line rows, and then hidden.
+
+   The sequence the owner chose (7 ก.ย.) is intact and now finishes where it
+   was meant to: the tool row lands first on its own, the frame unfolds beneath
+   it, the light sweeps while the engine works, and the picture arrives IN the
+   frame rather than somewhere else on the page.
 
    grid-template-rows 0fr→1fr is the unfold. Not max-height with a guessed
    ceiling: the box grows to the height it really needs, so the prose below is
    pushed at the true rate instead of snapping the last few pixels. */
 .draw-slot {
-  /* No width cap. It had 300px, which left two thirds of the row's own box
-     empty beside it and made the sweep a short flick in a corner (owner,
-     7 ก.ย.: "เล็กเกิน ควรจะกวาดกว่านี้"). The band belongs to the row above
-     it, so it takes the row's width and the light gets the whole of it to
-     travel across. 30px of indent keeps it under the row's text rather than
-     under its tile. */
-  display:grid; grid-template-rows:0fr; margin:2px 10px 8px 30px;
+  display:grid; grid-template-rows:0fr; margin:8px 0 4px;
   animation:draw-unfold 420ms cubic-bezier(.16,.84,.31,1) 140ms forwards;
 }
 @keyframes draw-unfold { to { grid-template-rows:1fr; } }
 .draw-slot-in { overflow:hidden; min-height:0; opacity:0; animation:draw-fade 320ms ease 240ms forwards; }
 @keyframes draw-fade { to { opacity:1; } }
 
-/* A short band, not a picture-shaped box, and the height is the whole point.
-   This lives inside .tool-box.live-window, which caps itself at 190px and
-   scrolls (see that rule): a 4:3 box 300px wide is 225px tall, taller than the
-   entire window, so it filled the window and scrolled its own tool row out of
-   sight — measured on the first real image_make call, 7 ก.ย.
-   108px leaves the row it belongs to visible above it, which is what makes the
-   two read as one thing happening rather than as a box that ate the list. */
+/* 4:3 while nothing is known, then the real ratio once the picture reports it
+   (fitDrawBox in Chat.svelte). aspect-ratio is transitioned rather than set, so
+   a portrait picture eases the frame open instead of jolting it.
+   --dur-settle, which type.css defines as "a tick landing on what was just
+   chosen": the frame arriving at the shape the picture turned out to have is
+   that, and a literal duration here is what motionTokens.test.ts refuses. */
 .draw-box {
-  position:relative; overflow:hidden; height:120px; margin-top:6px;
+  position:relative; overflow:hidden; aspect-ratio:4/3; max-width:440px;
   border:1px solid var(--border-subtle); border-radius:var(--r-md);
   background:var(--surface-sunken); display:grid; place-items:center;
+  transition:aspect-ratio var(--dur-settle) cubic-bezier(.2,.7,.3,1);
 }
 .draw-note { color:var(--text-dim); font-size:var(--fs-xs); }
 
 /* The working state, and it is worth naming what it is not. The beam that used
-   to run round a block while it was being written was removed on 7 ก.ย.
-   because it competed with the sentence the reader was in, on work that was
-   already there to read. This is the opposite case: an EMPTY box, holding a
-   place for something that does not exist yet, with no text on it to compete
-   with. The owner picked this over three quieter alternatives knowing that. */
+   to run round a block while it was being written was removed on 7 ก.ย. because
+   it competed with the sentence the reader was in, on work that was already
+   there to read. This is the opposite case: an EMPTY box, holding a place for
+   something that does not exist yet, with no text on it to compete with. The
+   owner picked this over three quieter alternatives knowing that. */
 .draw-box.working::before {
   content:''; position:absolute; inset:-60%;
   background:linear-gradient(115deg, transparent 38%, var(--surface-raised) 50%, transparent 62%);
@@ -1754,12 +1752,19 @@ button.phase-head:hover { color:var(--text-muted); }
 }
 @keyframes draw-sheen { from { transform:translateX(-58%); } to { transform:translateX(58%); } }
 
-/* An infinite animation is the one kind this setting exists for. The unfold
-   stays — it is a transition with an end. */
+.draw-box img {
+  width:100%; height:100%; object-fit:contain; display:block; cursor:zoom-in;
+  animation:draw-arrive 520ms cubic-bezier(.2,.7,.3,1);
+}
+@keyframes draw-arrive { from { opacity:0; transform:scale(1.015); } to { opacity:1; transform:none; } }
+
+/* An infinite animation is the one kind this setting exists for. The unfold and
+   the arrival stay — both are transitions with an end. */
 @media (prefers-reduced-motion: reduce) {
   .draw-slot { grid-template-rows:1fr; animation:none; }
   .draw-slot-in { opacity:1; animation:none; }
   .draw-box.working::before { animation:none; opacity:.5; }
+  .draw-box img { animation:none; }
 }
 /* ---------- several pictures are one gallery ----------
    The rule that used to live here capped each image in a multi-image paragraph

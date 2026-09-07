@@ -37,7 +37,7 @@
   import { hasSpend, spendLabel, spendTitle } from './spend'
   import { copyDrawing, saveDrawing } from './drawingExport'
   import { renderMarkdown } from './markdown'
-  import { filePath } from './fileUrl'
+  import { filePath, fileURL } from './fileUrl'
   import { openUrlInWorkbench, openFileTab, setTabDragPayload, TAB_DRAG_MIME } from './stores/workbench.svelte'
   import {
     cockpit, attachImageFromPath, attachImageFromClipboard, clearPendingImage, attachTabContext, clearPendingContext,
@@ -213,6 +213,26 @@
   const isHelperNode = (n: TimelineNode) => n.step.agentKind === 'helper'
   const delegatedAgents = (steps: ToolStep[]) => delegated(steps).filter(isAgentNode)
   const delegatedHelpers = (steps: ToolStep[]) => delegated(steps).filter(isHelperNode)
+
+  // ONE FRAME PER PICTURE, not one per row.
+  //
+  // A slow call is polled: the executor's STILL RUNNING notice tells the model
+  // to "call it again with exactly the same arguments" and dedupes the work
+  // behind it (internal/turn/executor.go), so one picture that takes two
+  // minutes leaves THREE rows in the timeline. Those are three status reads of
+  // one picture, and drawing a frame each said the app was making three
+  // (owner, 7 ก.ย.).
+  //
+  // Keyed by subject and the freshest row wins: whether the picture is here yet
+  // is a fact about the file, and the last thing said about it is the true one.
+  const drawnPictures = (steps: ToolStep[]) => {
+    const byPath = new Map<string, { subject: string; ready: boolean }>()
+    for (const s of steps) {
+      if (s.name !== 'image_make' || !s.subject) continue
+      byPath.set(s.subject, { subject: s.subject, ready: s.state === 'done' })
+    }
+    return [...byPath.values()]
+  }
   // Everything handed out, whichever pile it landed in and including the ones
   // that landed in neither: what the running list and the block bodies iterate,
   // so an unstamped delegation is still drawn even though it is counted nowhere.
@@ -2829,6 +2849,19 @@
     void sendUserMessage(t('chat.runFixPrompt', { lang, code, output }))
   }
 
+  // The frame holds 4:3 until the picture can say otherwise, then eases to its
+  // real shape. Read off naturalWidth/naturalHeight rather than passed down
+  // from the call: image_make's width/height are a REQUEST, and an engine is
+  // free to round them to a size it serves — the file is the only thing that
+  // knows what was really drawn.
+  function fitDrawBox(e: Event) {
+    const img = e.currentTarget as HTMLImageElement
+    const box = img.closest('.draw-box') as HTMLElement | null
+    if (box && img.naturalWidth > 0 && img.naturalHeight > 0) {
+      box.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`
+    }
+  }
+
   // Copy or save the drawing whose button was clicked. The PNG carries the
   // theme's real colours (drawingExport bakes them), so what lands on the
   // clipboard is what the user is looking at. Both paths flash their verdict
@@ -3249,11 +3282,7 @@
     <div class="tool-step f-{fam} h-{slot} {s.state}" title={s.error || undefined}>{@render stepFace(s, live)}</div>
   {/if}
   {#if s.links?.length}{@render searchCard(s)}{/if}
-  <!-- A picture the model drew, shown where it was drawn. Same hook as the
-       search card above: a row that produced something the reader should see
-       puts it directly under itself rather than only in the produced-files
-       strip at the end of the turn. -->
-  {#if s.name === 'image_make'}{@render drawCard(s)}{/if}
+
   {/if}
 {/snippet}
 
@@ -3273,25 +3302,37 @@
      of them turn the card into a wall the row above it was supposed to save the
      reader from. The title says what it is; the domain says whether to trust
      it; that is the whole decision a result list is for. -->
-{#snippet drawCard(s: ToolStep)}
-  <!-- WHILE IT IS RUNNING, AND ONLY THEN.
-       The finished picture is deliberately not drawn here, for two reasons that
-       both come from where this sits. The timeline collapses to "ใช้ 1 เครื่องมือ"
-       once the turn ends, so a picture placed in it is a picture nobody can see
-       (owner, 7 ก.ย., first image_make call). And the live box is a 190px
-       scrolling window built for one-line rows — a picture-shaped box inside it
-       fills the window and pushes its own row out of view, which is the second
-       thing that screenshot showed.
-       The picture arrives in the prose instead, where the model already puts it
-       with ![...](path) — an address that now resolves, see markdown.ts's
-       hostRelativeImage. This box is the WAIT, not the result. -->
-  {#if s.state === 'run'}
+{#snippet drawStrip(steps: ToolStep[])}
+  <!-- THE PICTURE BELONGS TO THE PHASE, NOT TO THE ROW.
+       It was drawn inside the row list first, which is where the call happens
+       and the wrong place for what the call produced: that list lives inside
+       .tool-box.live-window (190px, scrolling) and folds itself shut when the
+       turn ends. A picture there is squeezed into a window built for one-line
+       rows, and then hidden by a fold — measured on both counts (owner, 7 ก.ย.).
+       Here it is a sibling of the fold rather than its child, so closing the
+       work list never takes the work's result with it, and there is no window
+       to fit inside. Which is what lets the frame BECOME the picture. -->
+  {#each drawnPictures(steps) as shot (shot.subject)}
     <div class="draw-slot">
       <div class="draw-slot-in">
-        <div class="draw-box working"><span class="draw-note">{t('chat.drawing')}</span></div>
+        {#if shot.ready}
+          <!-- The path the model ASKED for, which is not always the path the
+               file got — image_make renames to match the bytes, and an
+               unfocused session places it in its own folder. Both are resolved
+               by the file host, so the name from the call is enough here.
+               onerror falls back to the waiting frame: a status read can report
+               done a moment before the bytes are on disk, and a broken icon is
+               a worse answer than "still working". -->
+          <div class="draw-box">
+            <img src={fileURL(shot.subject)} alt="" onload={fitDrawBox}
+                 onerror={(e) => (e.currentTarget as HTMLImageElement).closest('.draw-box')?.classList.add('working')} />
+          </div>
+        {:else}
+          <div class="draw-box working"><span class="draw-note">{t('chat.drawing')}</span></div>
+        {/if}
       </div>
     </div>
-  {/if}
+  {/each}
 {/snippet}
 
 {#snippet searchCard(s: ToolStep)}
@@ -3646,6 +3687,9 @@
     {#if shownOwn.length}
       {@render toolTimeline(shownOwn, live, live)}
     {/if}
+    <!-- Last in the phase and outside every fold above it: the pictures this
+         stretch of work produced, at the size a picture deserves. -->
+    {@render drawStrip(own)}
   </div>
 {/snippet}
 
