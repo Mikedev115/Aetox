@@ -172,6 +172,7 @@ export const en: Record<keyof typeof th, string> = {
   'chat.rateBad': 'This answer missed',
   'chat.thoughtDone': 'Done thinking · view thoughts',
   'chat.thoughtFor': 'Thought for {secs}s',
+  'chat.drawing': 'Drawing',
   'chat.thinkingFor': 'Thinking {secs}s',
   // A local runtime reading the weights off disk before the turn can start.
   // Seconds, never a percentage: neither Ollama nor LM Studio reports how far

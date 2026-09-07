@@ -394,6 +394,7 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'chat.rateBad': '这个回答没说到点上',
   'chat.thoughtDone': '思考完毕 · 查看思路',
   'chat.thoughtFor': '思考了 {secs} 秒',
+  'chat.drawing': '正在画',
   'chat.thinkingFor': '思考中 {secs} 秒',
   'chat.modelLoading': '正在加载模型…',
   'chat.modelLoadingNamed': '正在加载 {model}…',

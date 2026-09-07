@@ -1696,6 +1696,63 @@ button.phase-head:hover { color:var(--text-muted); }
    not add a paragraph's leading on top of the drawing's own margin. */
 .markdown-body p > svg:only-child { margin:0; }
 .markdown-body p:has(> svg:only-child) { margin:12px 0; }
+
+/* ── image_make: the picture unfolds under its own row ──────────────────────
+   The sequence is deliberate and the owner chose it in that shape (7 ก.ย.):
+   the tool row lands FIRST, on its own, and only then does the frame open
+   beneath it. A box that appeared in the same frame as the row would read as
+   part of the row's arrival — one object flashing in — where what is actually
+   happening is that a request was made and then something started coming back.
+
+   grid-template-rows 0fr→1fr is the unfold. Not max-height with a guessed
+   ceiling: the box grows to the height it really needs, so the prose below is
+   pushed at the true rate instead of snapping the last few pixels. */
+.draw-slot {
+  display:grid; grid-template-rows:0fr; margin:2px 0 8px 30px; max-width:300px;
+  animation:draw-unfold 420ms cubic-bezier(.16,.84,.31,1) 140ms forwards;
+}
+@keyframes draw-unfold { to { grid-template-rows:1fr; } }
+.draw-slot-in { overflow:hidden; min-height:0; opacity:0; animation:draw-fade 320ms ease 240ms forwards; }
+@keyframes draw-fade { to { opacity:1; } }
+
+/* 4:3 while nothing is known, then the real ratio once the picture reports it
+   (fitDrawBox in Chat.svelte). aspect-ratio is transitioned rather than set,
+   so a portrait picture eases the frame open instead of jolting it. */
+.draw-box {
+  position:relative; overflow:hidden; aspect-ratio:4/3; margin-top:6px;
+  border:1px solid var(--border-subtle); border-radius:var(--r-md);
+  background:var(--surface-sunken); display:grid; place-items:center;
+  transition:aspect-ratio 380ms cubic-bezier(.2,.7,.3,1);
+}
+.draw-note { color:var(--text-dim); font-size:var(--fs-xs); }
+
+/* The working state, and it is worth naming what it is not. The beam that used
+   to run round a block while it was being written was removed on 7 ก.ย.
+   because it competed with the sentence the reader was in, on work that was
+   already there to read. This is the opposite case: an EMPTY box, holding a
+   place for something that does not exist yet, with no text on it to compete
+   with. The owner picked this over three quieter alternatives knowing that. */
+.draw-box.working::before {
+  content:''; position:absolute; inset:-60%;
+  background:linear-gradient(115deg, transparent 38%, var(--surface-raised) 50%, transparent 62%);
+  animation:draw-sheen 2100ms cubic-bezier(.45,0,.55,1) infinite;
+}
+@keyframes draw-sheen { from { transform:translateX(-58%); } to { transform:translateX(58%); } }
+
+.draw-box img {
+  width:100%; height:100%; object-fit:contain; display:block;
+  animation:draw-arrive 520ms cubic-bezier(.2,.7,.3,1);
+}
+@keyframes draw-arrive { from { opacity:0; transform:scale(1.015); } to { opacity:1; transform:none; } }
+
+/* An infinite animation is the one kind this setting exists for. The frame,
+   the unfold and the arrival all stay — they are transitions with an end. */
+@media (prefers-reduced-motion: reduce) {
+  .draw-slot { grid-template-rows:1fr; animation:none; }
+  .draw-slot-in { opacity:1; animation:none; }
+  .draw-box.working::before { animation:none; opacity:.5; }
+  .draw-box img { animation:none; }
+}
 /* ---------- several pictures are one gallery ----------
    The rule that used to live here capped each image in a multi-image paragraph
    at a third of the bubble, on the theory that 2–3 would then sit side by side.

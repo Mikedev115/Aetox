@@ -37,7 +37,7 @@
   import { hasSpend, spendLabel, spendTitle } from './spend'
   import { copyDrawing, saveDrawing } from './drawingExport'
   import { renderMarkdown } from './markdown'
-  import { filePath } from './fileUrl'
+  import { filePath, fileURL } from './fileUrl'
   import { openUrlInWorkbench, openFileTab, setTabDragPayload, TAB_DRAG_MIME } from './stores/workbench.svelte'
   import {
     cockpit, attachImageFromPath, attachImageFromClipboard, clearPendingImage, attachTabContext, clearPendingContext,
@@ -2829,6 +2829,19 @@
     void sendUserMessage(t('chat.runFixPrompt', { lang, code, output }))
   }
 
+  // The frame holds 4:3 until the picture can say otherwise, then eases to its
+  // real shape. Read off naturalWidth/naturalHeight rather than passed down
+  // from the call: image_make's width/height are a REQUEST, and an engine is
+  // free to round them to a size it actually serves — the file is the only
+  // thing that knows what was really drawn.
+  function fitDrawBox(e: Event) {
+    const img = e.currentTarget as HTMLImageElement
+    const box = img.closest('.draw-box') as HTMLElement | null
+    if (box && img.naturalWidth > 0 && img.naturalHeight > 0) {
+      box.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`
+    }
+  }
+
   // Copy or save the drawing whose button was clicked. The PNG carries the
   // theme's real colours (drawingExport bakes them), so what lands on the
   // clipboard is what the user is looking at. Both paths flash their verdict
@@ -3230,6 +3243,11 @@
     <div class="tool-step f-{fam} h-{slot} {s.state}" title={s.error || undefined}>{@render stepFace(s, live)}</div>
   {/if}
   {#if s.links?.length}{@render searchCard(s)}{/if}
+  <!-- A picture the model drew, shown where it was drawn. Same hook as the
+       search card above: a row that produced something the reader should see
+       puts it directly under itself rather than only in the produced-files
+       strip at the end of the turn. -->
+  {#if s.name === 'image_make'}{@render drawCard(s)}{/if}
   {/if}
 {/snippet}
 
@@ -3249,6 +3267,23 @@
      of them turn the card into a wall the row above it was supposed to save the
      reader from. The title says what it is; the domain says whether to trust
      it; that is the whole decision a result list is for. -->
+{#snippet drawCard(s: ToolStep)}
+  <!-- The slot is outside the state test on purpose: it mounts once, unfolds
+       once, and is still the same element when the picture replaces the
+       placeholder inside it. Putting the {#if} outside would remount the slot
+       on arrival and play the unfold a second time, for a box that is already
+       open. -->
+  <div class="draw-slot">
+    <div class="draw-slot-in">
+      {#if s.state === 'run'}
+        <div class="draw-box working"><span class="draw-note">{t('chat.drawing')}</span></div>
+      {:else if s.state === 'done' && s.subject}
+        <div class="draw-box"><img src={fileURL(s.subject)} alt="" onload={fitDrawBox} /></div>
+      {/if}
+    </div>
+  </div>
+{/snippet}
+
 {#snippet searchCard(s: ToolStep)}
   {@const links = s.links ?? []}
   {@const opened = links.filter((l) => l.opened).length}
