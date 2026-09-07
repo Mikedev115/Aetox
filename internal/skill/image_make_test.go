@@ -210,14 +210,12 @@ func TestAnHonestEngineIsNotRenamedForNothing(t *testing.T) {
 	}
 }
 
-func TestTheReceiptHandsOverALineThatActuallyResolves(t *testing.T) {
-	// A picture that was made and then only NAMED is a picture nobody sees —
-	// the third real call answered with the path in inline code and no image.
-	// The receipt now carries the finished markdown, and the two things the
-	// model gets wrong writing it itself have to already be right in it: the
-	// placed path, and the extension AFTER the byte-driven correction.
-	jpg := []byte("\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00")
-	eng := &fakeDrawEngine{ext: ".png", body: jpg}
+func TestTheReceiptTellsTheModelNotToPasteThePictureAgain(t *testing.T) {
+	// The app draws the picture itself (Chat.svelte, drawStrip). A receipt that
+	// also handed over a markdown line put the same picture on the page twice —
+	// which is what the first version of this receipt did, and what the owner
+	// saw on screen (7 ก.ย.).
+	eng := &fakeDrawEngine{ext: ".png", body: oneTinyPNG(t)}
 	s, _ := drawSkill(t, eng)
 
 	out, err := s.ExecuteTool(context.Background(), map[string]any{
@@ -227,13 +225,16 @@ func TestTheReceiptHandsOverALineThatActuallyResolves(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExecuteTool: %v", err)
 	}
-	want := "![an orange cat](art/hero.jpg)"
-	if !strings.Contains(out.Content, want) {
-		t.Errorf("the receipt does not carry %q:\n%s", want, out.Content)
+	if strings.Contains(out.Content, "![") {
+		t.Errorf("the receipt still offers a line to paste:\n%s", out.Content)
 	}
-	// And never the name that was asked for, which is the whole failure.
-	if strings.Contains(out.Content, "](art/hero.png)") {
-		t.Errorf("the receipt offers the stale name:\n%s", out.Content)
+	if !strings.Contains(out.Content, "อย่าแปะรูปซ้ำ") {
+		t.Errorf("the receipt does not say the app already shows it:\n%s", out.Content)
+	}
+	// The path is still named — the model needs it to talk about the file, and
+	// it is the corrected one, not the one that was asked for.
+	if !strings.Contains(out.Content, "art/hero.png") {
+		t.Errorf("the receipt does not name the file:\n%s", out.Content)
 	}
 }
 

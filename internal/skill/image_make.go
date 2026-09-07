@@ -94,10 +94,9 @@ func (*imageMakeSkill) Guidance(map[string]any) string {
 		"prompt in English for the widest model support and describe subject, composition and style — a " +
 		"picture model reads it literally and cannot ask a follow-up. width and height are pixels; omit them for the engine's own defaults. The file extension is " +
 		"corrected to whatever the engine really produced, so the path you get back may not be the path " +
-		"you asked for — put the path from the RECEIPT in your answer, never the one you asked for. Show " +
-		"the picture with ![description](path) so it appears in the reply; naming the file instead leaves " +
-		"the user with a picture they cannot see. Tell them it was generated — it carries no licence and " +
-		"no provenance."
+		"you asked for. The app puts the picture on the page itself, so do not paste it in with " +
+		"![...](...) — that shows it twice. Describe it in words instead, and say it was generated: it " +
+		"carries no licence and no provenance."
 }
 
 func (s *imageMakeSkill) Execute(ctx context.Context, input Input) (Output, error) {
@@ -218,18 +217,19 @@ func (s *imageMakeSkill) draw(ctx context.Context, prompt, requestPath string, r
 	if placed != requestPath {
 		report += onDiskNote(s.root, targetPath)
 	}
-	// The line to paste, spelled out rather than described.
+	// DO NOT hand the model a line to paste.
 	//
-	// A picture that was made and then only NAMED is a picture the user cannot
-	// see: the third real call came back with "ดูรูปได้ที่:" and the path in
-	// inline code, which is a correct sentence and an empty answer (owner,
-	// 7 ก.ย.). Nothing had ever told the model to show it — the receipt said
-	// where the file was and stopped there.
+	// It used to: the receipt carried finished markdown because a picture that
+	// was made and only NAMED is a picture nobody sees. That fixed the silence
+	// and bought a double — the app draws the picture itself now (Chat.svelte,
+	// drawStrip), so a model that also pastes it puts the same picture on the
+	// page twice (owner, 7 ก.ย., with both of them on screen).
 	//
-	// Handed over as finished markdown, with the placed path and the corrected
-	// extension already in it, because those are the two things the model gets
-	// wrong writing the line itself: it uses the name it ASKED for.
-	report += fmt.Sprintf("\nแสดงรูปในคำตอบด้วยบรรทัดนี้: ![%s](%s)", altText(prompt), placed)
+	// One of the two had to go, and it is this one. The app's frame does not
+	// depend on the model getting a path right — which it got wrong twice, once
+	// on the folder and once on the extension — and it is the only one that can
+	// be sized, clicked and opened.
+	report += "\nแอปแสดงรูปนี้ให้เองแล้ว อย่าแปะรูปซ้ำในคำตอบ พูดถึงมันเป็นคำพูดได้ตามปกติ"
 	report += "\nรูปนี้สร้างด้วย AI — บอกผู้ใช้ด้วยถ้ามันจะถูกเอาไปใช้ที่อื่น"
 	return newToolOutput("image_make", command, report, start, false, nil), nil
 }
