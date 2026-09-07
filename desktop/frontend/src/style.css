@@ -1717,6 +1717,11 @@ button.phase-head:hover { color:var(--text-muted); }
    grid-template-rows 0fr→1fr is the unfold. Not max-height with a guessed
    ceiling: the box grows to the height it really needs, so the prose below is
    pushed at the true rate instead of snapping the last few pixels. */
+/* A wrapping row. One picture takes the width it wants; several become a set
+   read across rather than a column scrolled down. min() so a narrow window
+   stacks them rather than shaving each one to a stamp. */
+.draw-strip { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-start; }
+.draw-strip .draw-slot { flex:1 1 min(280px, 100%); max-width:440px; }
 .draw-slot {
   display:grid; grid-template-rows:0fr; margin:8px 0 4px;
   animation:draw-unfold 420ms cubic-bezier(.16,.84,.31,1) 140ms forwards;
@@ -1732,12 +1737,26 @@ button.phase-head:hover { color:var(--text-muted); }
    chosen": the frame arriving at the shape the picture turned out to have is
    that, and a literal duration here is what motionTokens.test.ts refuses. */
 .draw-box {
-  position:relative; overflow:hidden; aspect-ratio:4/3; max-width:440px;
+  position:relative; overflow:hidden; aspect-ratio:4/3;
   border:1px solid var(--border-subtle); border-radius:var(--r-md);
   background:var(--surface-sunken); display:grid; place-items:center;
   transition:aspect-ratio var(--dur-settle) cubic-bezier(.2,.7,.3,1);
 }
 .draw-note { color:var(--text-dim); font-size:var(--fs-xs); }
+/* Take-it-with-you controls, borrowing .drawing-tools' rules rather than
+   restating them: a picture in an answer and a drawing in an answer are the
+   same kind of object to a reader, and two hover treatments for them would be
+   two inventions. */
+.draw-box .draw-tools {
+  position:absolute; top:6px; right:6px; z-index:4; display:flex; gap:4px;
+  opacity:0; transition:opacity var(--dur-tint);
+}
+.draw-box:hover .draw-tools, .draw-box .draw-tools:focus-within { opacity:1; }
+.draw-box .draw-tools button {
+  font-size:var(--fs-xs); color:var(--text-dim); background:var(--surface-raised);
+  border:1px solid var(--border-subtle); border-radius:var(--r-xs); padding:2px 8px; cursor:pointer;
+}
+.draw-box .draw-tools button:hover { background:var(--surface-hover); color:var(--text-primary); }
 
 /* The working state, and it is worth naming what it is not. The beam that used
    to run round a block while it was being written was removed on 7 ก.ย. because

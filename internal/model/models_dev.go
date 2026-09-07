@@ -352,6 +352,24 @@ func (c *ModelCatalog) chatCandidates(providerName string) ([]candidate, string)
 // chatCandidates insists on: a picture model has no context window, cannot call
 // a tool, and is priced per image. Judging it by a chat model's requirements
 // would reject every row it is meant to find — gpt-image-1 has Context: 0.
+// ProducesImages reports whether this exact model answers with a picture.
+//
+// It exists for a warning, not for a capability: nothing in this package reads
+// an inline image part out of a chat response, so a model that returns one has
+// its picture dropped in silence. A user who picks such a model as their CHAT
+// model gets text and no explanation, which is the one outcome worse than a
+// refusal. desktop/app.go turns this into a sentence on the model chip.
+//
+// False whenever the catalog has nothing to say — an unknown model is not
+// warned about on a guess.
+func ProducesImages(providerName, modelName string) bool {
+	installedCatalogMu.RLock()
+	c := installedCatalog
+	installedCatalogMu.RUnlock()
+	facts, ok := c.For(providerName, modelName)
+	return ok && facts.Produces("image")
+}
+
 func ImageModelsFor(providerName string) []string {
 	installedCatalogMu.RLock()
 	c := installedCatalog

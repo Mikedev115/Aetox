@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -322,6 +323,56 @@ func unusedSessionID(db *sql.DB) (string, error) {
 // in (a raw .svg coloured by var(--text-secondary) is invisible everywhere
 // outside this app) and hands the finished image here as a data URL — this
 // side only asks where and writes bytes. Returns the path, "" on cancel.
+// SavePicture copies a picture that is already in the workspace to wherever the
+// user chooses. The บันทึก button on a generated picture (Chat.svelte).
+//
+// A COPY, not a re-encode. SaveDrawing above exists because an <svg> in an
+// answer is not a file — its bytes have to be rendered before they can be
+// saved, and PNG is what a canvas produces. A picture from image_make is
+// already a file on disk, usually a JPEG, and pushing it through a canvas to
+// satisfy a PNG-only door would re-encode somebody's picture to get it out of
+// the app it is already inside.
+//
+// The path is the one the CALLER used, which is not always the one the file
+// got — resolveProduced applies the same two corrections the file host does, so
+// the button saves exactly the picture the user is looking at.
+func (a *App) SavePicture(relPath string) (string, error) {
+	relPath = strings.TrimSpace(relPath)
+	if relPath == "" {
+		return "", fmt.Errorf("ไม่ได้บอกว่าจะบันทึกไฟล์ไหน")
+	}
+	root := strings.TrimSpace(a.cur().cfg.SandboxRoot)
+	if root == "" {
+		return "", fmt.Errorf("ยังไม่ได้เปิดโปรเจกต์")
+	}
+	full, err := a.resolveProduced(root, relPath)
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(full)
+	if err != nil {
+		return "", fmt.Errorf("อ่านไฟล์รูปไม่ได้: %w", err)
+	}
+
+	name := filepath.Base(full)
+	ext := strings.ToLower(filepath.Ext(name))
+	if ext == "" {
+		ext = ".png"
+	}
+	path, err := wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{
+		Title:           "บันทึกภาพ",
+		DefaultFilename: name,
+		Filters: []wailsruntime.FileFilter{{
+			DisplayName: "รูปภาพ (*" + ext + ")",
+			Pattern:     "*" + ext,
+		}},
+	})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return path, os.WriteFile(path, data, 0o644)
+}
+
 func (a *App) SaveDrawing(dataURL string) (string, error) {
 	data, err := decodePNGDataURL(dataURL)
 	if err != nil {

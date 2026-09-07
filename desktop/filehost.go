@@ -28,6 +28,39 @@ import (
 	"github.com/Mikedev115/Aetox/internal/skill"
 )
 
+// resolveProduced turns the name a caller used into the file that actually
+// exists, applying both of the mismatches this app creates for itself.
+//
+// Two candidate folders, each given the extension tolerance in turn. They have
+// to compose: a picture asked for as `hero.png` that was written as
+// `output/<id>/hero.jpg` misses on BOTH counts at once, and resolving the
+// folder first would leave the extension rule searching the root while the file
+// sits in the session's folder.
+//
+// PlacedWrite rather than PlacedPath: the second candidate is wanted as a place
+// to LOOK, and PlacedPath only reports one that already holds the exact name —
+// which is the case that has just failed.
+//
+// Shared with SavePicture (export.go) so the button that saves a picture and
+// the host that displays it can never disagree about which file that is.
+func (a *App) resolveProduced(root, rel string) (string, error) {
+	full, err := safeSandboxPath(root, rel)
+	if err != nil {
+		return "", err
+	}
+	full = siblingByExtension(full)
+	if _, statErr := os.Stat(full); statErr != nil {
+		if placed := skill.PlacedWrite(a.outputSubdir, rel); placed != rel {
+			if alt, altErr := safeSandboxPath(root, placed); altErr == nil {
+				if alt = siblingByExtension(alt); isServableFile(alt) {
+					full = alt
+				}
+			}
+		}
+	}
+	return full, nil
+}
+
 // pictureExts are the extensions siblingByExtension will accept as the same
 // picture under another name. Deliberately only pictures: this rule exists
 // because image_make renames what it wrote, and nothing else in the app hands
@@ -163,20 +196,10 @@ func (a *App) fileHost(next http.Handler) http.Handler {
 		// PlacedWrite rather than PlacedPath: the second candidate is wanted as
 		// a place to look, and PlacedPath only reports one that already holds
 		// the exact name — which is the case that has just failed.
-		full, err := safeSandboxPath(root, rel)
+		full, err := a.resolveProduced(root, rel)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusForbidden)
 			return
-		}
-		full = siblingByExtension(full)
-		if _, statErr := os.Stat(full); statErr != nil {
-			if placed := skill.PlacedWrite(a.outputSubdir, rel); placed != rel {
-				if alt, altErr := safeSandboxPath(root, placed); altErr == nil {
-					if alt = siblingByExtension(alt); isServableFile(alt) {
-						full = alt
-					}
-				}
-			}
 		}
 
 		f, err := os.Open(full)

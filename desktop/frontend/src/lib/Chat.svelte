@@ -36,6 +36,7 @@
   import { currentStep, tally } from './delegateWork'
   import { hasSpend, spendLabel, spendTitle } from './spend'
   import { copyDrawing, saveDrawing } from './drawingExport'
+  import { SavePicture } from '../../wailsjs/go/main/App'
   import { renderMarkdown } from './markdown'
   import { filePath, fileURL } from './fileUrl'
   import { openUrlInWorkbench, openFileTab, setTabDragPayload, TAB_DRAG_MIME } from './stores/workbench.svelte'
@@ -2862,6 +2863,57 @@
     }
   }
 
+  // Copy or save a generated picture.
+  //
+  // Copy goes through a canvas because the clipboard does not take a JPEG:
+  // ClipboardItem is PNG in practice, so the picture is decoded and re-encoded
+  // for the clipboard only. Save does NOT — the file is already on disk and the
+  // engine copies it as it is (SavePicture), so what lands on the user's drive
+  // is the picture the engine made rather than a re-encode of it.
+  async function exportShot(button: HTMLButtonElement) {
+    const path = button.dataset.shot ?? ''
+    if (path === '' || button.dataset.busy) return
+    button.dataset.busy = '1'
+    try {
+      await runShotExport(button, path)
+    } finally {
+      delete button.dataset.busy
+    }
+  }
+
+  async function runShotExport(button: HTMLButtonElement, path: string) {
+    const isCopy = button.classList.contains('shot-copy')
+    const idle = isCopy ? t('chat.copyDrawing') : t('chat.saveDrawing')
+    try {
+      if (isCopy) {
+        const blob = await fetch(fileURL(path)).then((r) => r.blob())
+        const png = await pngBlob(blob)
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })])
+        button.textContent = t('chat.copiedCode')
+      } else {
+        await SavePicture(path)
+        button.textContent = t('chat.savedDrawing')
+      }
+    } catch {
+      button.textContent = t('chat.drawingExportFailed')
+    }
+    setTimeout(() => (button.textContent = idle), 1400)
+  }
+
+  // Whatever the file is, as a PNG the clipboard will accept.
+  async function pngBlob(blob: Blob): Promise<Blob> {
+    if (blob.type === 'image/png') return blob
+    const bitmap = await createImageBitmap(blob)
+    const canvas = document.createElement('canvas')
+    canvas.width = bitmap.width
+    canvas.height = bitmap.height
+    canvas.getContext('2d')?.drawImage(bitmap, 0, 0)
+    bitmap.close()
+    return await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob((out) => (out ? resolve(out) : reject(new Error('encode failed'))), 'image/png'),
+    )
+  }
+
   // Copy or save the drawing whose button was clicked. The PNG carries the
   // theme's real colours (drawingExport bakes them), so what lands on the
   // clipboard is what the user is looking at. Both paths flash their verdict
@@ -2996,6 +3048,15 @@
     const resHead = el.closest('.run-res-head')
     if (resHead) {
       resHead.closest('.run-res')?.classList.toggle('folded')
+      return
+    }
+    // A generated picture's own pair. Read before the lone-picture open below,
+    // or the button's click would enlarge the picture instead of doing its job
+    // — the same ordering the gallery's controls are read in.
+    const shotBtn = el.closest<HTMLElement>('.shot-copy, .shot-save')
+    if (shotBtn) {
+      e.preventDefault()
+      void exportShot(shotBtn as HTMLButtonElement)
       return
     }
     const drawBtn = el.closest('.drawing-copy, .drawing-save')
@@ -3312,6 +3373,12 @@
        Here it is a sibling of the fold rather than its child, so closing the
        work list never takes the work's result with it, and there is no window
        to fit inside. Which is what lets the frame BECOME the picture. -->
+  <!-- One row that wraps, not a column. Two pictures from one stretch of work
+       are siblings — a comparison, a pair, a set — and stacking them at full
+       width turns a pair into a page you scroll (owner, 7 ก.ย.: "ทำไมมันโชว์
+       แบบนี้"). Side by side they are read together, which is what they were
+       made for. A single picture still gets the whole width. -->
+  <div class="draw-strip">
   {#each drawnPictures(steps) as shot (shot.subject)}
     <div class="draw-slot">
       <div class="draw-slot-in">
@@ -3326,6 +3393,13 @@
           <div class="draw-box">
             <img src={fileURL(shot.subject)} alt="" onload={fitDrawBox}
                  onerror={(e) => (e.currentTarget as HTMLImageElement).closest('.draw-box')?.classList.add('working')} />
+            <!-- The same pair a drawing in an answer already carries, in the
+                 same place and revealed the same way: take-it-with-you controls
+                 belong on the thing, not in a menu somewhere else. -->
+            <div class="draw-tools">
+              <button type="button" data-shot={shot.subject} class="shot-copy">{t('chat.copyDrawing')}</button>
+              <button type="button" data-shot={shot.subject} class="shot-save">{t('chat.saveDrawing')}</button>
+            </div>
           </div>
         {:else}
           <div class="draw-box working"><span class="draw-note">{t('chat.drawing')}</span></div>

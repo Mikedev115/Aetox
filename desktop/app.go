@@ -2855,6 +2855,15 @@ func (a *App) GetModelInfo() ModelInfo {
 	if a.cur().modelErr != nil {
 		warning = a.cur().modelErr.Error()
 	}
+	// A model that answers with a picture, chosen as the CHAT model, loses its
+	// pictures in silence: internal/model reads no inline image part out of a
+	// response, so the user gets the text and no sign that anything was
+	// dropped. Nothing is broken enough to refuse the model — it still talks —
+	// but a silent loss is the one outcome worse than a refusal, so the chip
+	// says it. Second to a real bootstrap failure, which is the louder problem.
+	if warning == "" && model.ProducesImages(a.cur().cfg.ModelProvider, a.cur().cfg.ModelName) {
+		warning = "โมเดลนี้สร้างภาพได้เอง แต่แอปยังไม่รับภาพที่มากับคำตอบ ภาพจะไม่ขึ้น — สั่งวาดผ่านเครื่องมือแทน ตั้งค่าเจ้าที่วาดได้ที่ ตั้งค่า > สร้างภาพ"
+	}
 	// Read before the literal below rather than inside it: the park slot is
 	// guarded by turnMu, and a field initialiser is the wrong place to be
 	// taking a lock.

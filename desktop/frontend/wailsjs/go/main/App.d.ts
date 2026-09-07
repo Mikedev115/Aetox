@@ -491,6 +491,8 @@ export function SaveLearnedEntry(arg1:string,arg2:number,arg3:string):Promise<vo
 
 export function SaveMCPServer(arg1:string,arg2:config.MCPServerConfig):Promise<void>;
 
+export function SavePicture(arg1:string):Promise<string>;
+
 export function SavePromptPreset(arg1:string,arg2:string):Promise<void>;
 
 export function SaveSubagentProfile(arg1:string,arg2:string):Promise<void>;
