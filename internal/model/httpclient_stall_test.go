@@ -10,6 +10,25 @@ import (
 	"time"
 )
 
+// retryLayer digs the retrying transport out of a client built by
+// newModelHTTPClient, so a test can shorten one of its budgets.
+//
+// Two layers rather than one since the User-Agent moved into the client
+// (identityTransport wraps this one): tests below reach past both, and one
+// place to unwrap means adding a third layer breaks one line, not four.
+func retryLayer(t *testing.T, c *http.Client) *retryTransport {
+	t.Helper()
+	id, ok := c.Transport.(*identityTransport)
+	if !ok {
+		t.Fatalf("outer transport is %T, not the one that names us — the shape this test reads changed", c.Transport)
+	}
+	tr, ok := id.base.(*retryTransport)
+	if !ok {
+		t.Fatalf("inner transport is %T, not the retrying one — the shape this test reads changed", id.base)
+	}
+	return tr
+}
+
 // A server that accepts the connection and then says nothing is what Ollama
 // looks like while it loads a model into VRAM, and it used to be an unbounded
 // wait: the client's only timeout was on the dial, dialing localhost always
@@ -39,10 +58,7 @@ func TestEveryModelClientBoundsTheFirstByte(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := newModelHTTPClient(20*time.Second, tc.endpoint)
-			tr, ok := c.Transport.(*retryTransport)
-			if !ok {
-				t.Fatalf("transport is %T, not the retrying one — the shape this test reads changed", c.Transport)
-			}
+			tr := retryLayer(t, c)
 			base, ok := tr.base.(*http.Transport)
 			if !ok {
 				t.Fatalf("inner transport is %T", tr.base)
@@ -72,7 +88,7 @@ func TestAStalledServerEventuallyErrors(t *testing.T) {
 	defer func() { close(stall); srv.Close() }()
 
 	c := newModelHTTPClient(20*time.Second, srv.URL)
-	base := c.Transport.(*retryTransport).base.(*http.Transport)
+	base := retryLayer(t, c).base.(*http.Transport)
 	base.ResponseHeaderTimeout = 300 * time.Millisecond
 
 	// No deadline on the context, exactly like a chat turn: if anything stops
@@ -110,7 +126,7 @@ func TestAStalledStreamEventuallyErrors(t *testing.T) {
 	defer func() { close(stall); srv.Close() }()
 
 	c := newModelHTTPClient(20*time.Second, srv.URL)
-	c.Transport.(*retryTransport).idle = 300 * time.Millisecond
+	retryLayer(t, c).idle = 300 * time.Millisecond
 
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
 	resp, err := c.Do(req)
@@ -156,7 +172,7 @@ func TestASlowButLiveStreamIsNeverInterrupted(t *testing.T) {
 	c := newModelHTTPClient(20*time.Second, srv.URL)
 	// Total transfer ~600ms, longest single gap ~100ms: over the budget as a
 	// whole, comfortably under it between bytes.
-	c.Transport.(*retryTransport).idle = 300 * time.Millisecond
+	retryLayer(t, c).idle = 300 * time.Millisecond
 
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
 	resp, err := c.Do(req)

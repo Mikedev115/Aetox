@@ -3,7 +3,9 @@ package model
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/debuglog"
+	pvdr "github.com/Mikedev115/Aetox/internal/provider"
 )
 
 // openAIMessage mirrors Message field for field, tag for tag and — this is the
@@ -162,6 +165,11 @@ type OpenAICompatibleProvider struct {
 	tokenSource func(context.Context) (string, error)
 	headers     map[string]string
 	httpClient  *http.Client
+	// sessionHeader is the name this provider wants a conversation id under
+	// (provider.Spec.SessionHeader), empty for the rows that ask for none;
+	// sessionID is the id itself, minted once — see newConversationID.
+	sessionHeader string
+	sessionID     string
 }
 
 func NewOpenAICompatibleProvider(cfg OpenAICompatibleConfig) (*OpenAICompatibleProvider, error) {
@@ -193,6 +201,17 @@ func NewOpenAICompatibleProvider(cfg OpenAICompatibleConfig) (*OpenAICompatibleP
 		timeout = 20 * time.Second
 	}
 
+	// Asked of the catalog rather than of the provider name, so a gateway that
+	// starts requiring one is a row edit and not a branch here.
+	sessionHeader := ""
+	if spec, ok := pvdr.Lookup(provider); ok {
+		sessionHeader = spec.SessionHeader
+	}
+	sessionID := ""
+	if sessionHeader != "" {
+		sessionID = newConversationID()
+	}
+
 	return &OpenAICompatibleProvider{
 		provider:    provider,
 		model:       model,
@@ -202,14 +221,51 @@ func NewOpenAICompatibleProvider(cfg OpenAICompatibleConfig) (*OpenAICompatibleP
 		tokenSource: cfg.TokenSource,
 		headers:     cfg.Headers,
 		httpClient:  newModelHTTPClient(timeout, baseURL),
+
+		sessionHeader: sessionHeader,
+		sessionID:     sessionID,
 	}, nil
 }
 
-// applyAuth sets every header that depends on credentials. It runs per
-// request, which is the whole point: a TokenSource refreshes an expiring token
-// here, where a failure can still be reported as a request error.
+// newConversationID mints the id sent in a provider's session header.
+//
+// One per provider instance, and that is the whole design rather than a
+// shortcut: the engine is built per conversation and rebuilt when that chat's
+// model changes (desktop/conversation.go), so this struct's lifetime already
+// IS the conversation the gateway is asking about. Nothing has to be threaded
+// down from the session store, two chats open at once cannot share an id, and
+// a window whose session row is not named yet — id "" until its first turn —
+// still gets a stable one, which is the case a store lookup would have got
+// wrong on the very first request of every new chat.
+//
+// Random rather than the stored session id on purpose. The header is a routing
+// and cache hint; what leaves the machine should identify the conversation to
+// the gateway without also handing a third party a key into Aetox's own
+// database. The prefix is the same identification the User-Agent makes
+// (internal/model/httpclient.go), for a gateway that is watching for clients
+// that behave badly.
+func newConversationID() string {
+	var buf [16]byte
+	if _, err := rand.Read(buf[:]); err != nil {
+		// Never observed in practice. A clock-derived id is still stable for
+		// the life of this provider, which is all the header promises.
+		return fmt.Sprintf("aetox-%d", time.Now().UnixNano())
+	}
+	return "aetox-" + hex.EncodeToString(buf[:])
+}
+
+// applyAuth sets every header this provider adds to a request of its own
+// accord. It runs per request, which is the whole point: a TokenSource
+// refreshes an expiring token here, where a failure can still be reported as a
+// request error.
 func (p *OpenAICompatibleProvider) applyAuth(ctx context.Context, req *http.Request) error {
 	req.Header.Set("Content-Type", "application/json")
+	// Not a credential, and deliberately above the configured headers: a name
+	// somebody put in their own config is the more specific answer and has to
+	// survive.
+	if p.sessionHeader != "" && p.sessionID != "" {
+		req.Header.Set(p.sessionHeader, p.sessionID)
+	}
 	for name, value := range p.headers {
 		req.Header.Set(name, value)
 	}

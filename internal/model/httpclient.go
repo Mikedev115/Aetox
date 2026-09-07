@@ -16,6 +16,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/Mikedev115/Aetox/internal/version"
 )
 
 // newModelHTTPClient builds the HTTP client every model provider uses.
@@ -72,7 +74,41 @@ func newModelHTTPClient(connectTimeout time.Duration, endpoint string) *http.Cli
 	// silence for the whole budget trips it.
 	budget := firstByteBudget(endpoint)
 	transport.ResponseHeaderTimeout = budget
-	return &http.Client{Transport: &retryTransport{base: transport, idle: budget}}
+	return &http.Client{Transport: &identityTransport{
+		base: &retryTransport{base: transport, idle: budget},
+	}}
+}
+
+// userAgent is how Aetox names itself to a model endpoint.
+//
+// It exists because the standard library sends "Go-http-client/1.1" when
+// nobody says otherwise, which tells a provider nothing about who is calling —
+// and one of them now asks in writing for a client to name itself rather than
+// its HTTP library (opencode's Go plan, see the sessionHeader field in
+// internal/provider/catalog.go). Carrying the release number is the useful
+// half: it is what makes "this broke in 1.5.19" answerable from their side.
+var userAgent = "Aetox/" + version.Current
+
+// identityTransport puts that name on every model request that has not already
+// got one.
+//
+// Here rather than in each of the four runtimes because all four build their
+// client in newModelHTTPClient, and a fifth one added later must not have to
+// remember. Above retryTransport rather than inside it so that a replay does
+// not have to know anything about who we are.
+type identityTransport struct{ base http.RoundTripper }
+
+func (t *identityTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.Header.Get("User-Agent") == "" {
+		// Cloned rather than edited: the caller still owns the request it
+		// handed us, and a RoundTripper that modifies one is a documented
+		// mistake. Clone carries Body and GetBody across, which is what the
+		// retry below rewinds.
+		clone := req.Clone(req.Context())
+		clone.Header.Set("User-Agent", userAgent)
+		req = clone
+	}
+	return t.base.RoundTrip(req)
 }
 
 // firstByteBudget is how long to wait for a provider to begin answering before

@@ -163,6 +163,12 @@ type Spec struct {
 	// paste belongs to api.openai.com — a different host, a different bill,
 	// and a guaranteed 401. Offering the field there is offering a dead end.
 	AcceptsAPIKey bool
+	// SessionHeader is the header this provider wants a stable conversation id
+	// in, empty for everyone that asks for none. It sits in the catalog beside
+	// BaseURL because it is the same kind of fact — part of what the endpoint
+	// accepts, not a nicety: opencode's Go gateway rejects a request without it
+	// outright, before the model is reached.
+	SessionHeader string
 }
 
 // ---------------------------------------------------------------------------
@@ -183,6 +189,7 @@ type entry struct {
 	balanceKind    BalanceKind
 	quotaSource    QuotaSource
 	apiKeyURL      string
+	sessionHeader  string
 	// signInOnly is the negative form so that the zero value — every other
 	// provider — means "a pasted key works here", which is the common case.
 	signInOnly bool
@@ -867,6 +874,12 @@ var catalog = map[string]*entry{
 		baseURL:        "https://opencode.ai/zen/v1",
 		envKeys:        []string{"OPENCODE_API_KEY"},
 		apiKeyURL:      "https://opencode.ai/auth",
+		// The gate below was measured on the Go row and only documented for it.
+		// It is sent here too because this is the same host handing the body to
+		// the same handler, a header an endpoint does not read costs nothing, and
+		// the alternative is learning that this row gained the same gate by
+		// having somebody's turn die on it.
+		sessionHeader: "x-opencode-session",
 		// No FallbackModel, for the reason the `nvidia` and `ollama-cloud` rows
 		// have none: /v1/models answers 200 here without a token, so the
 		// endpoint is always the authority and always fresher than a name typed
@@ -917,6 +930,16 @@ var catalog = map[string]*entry{
 		baseURL:        "https://opencode.ai/zen/go/v1",
 		envKeys:        []string{"OPENCODE_API_KEY"},
 		apiKeyURL:      "https://opencode.ai/auth",
+		// Measured 2026-09-07, and it is a hard gate rather than a preference:
+		// without this header chat/completions answers 400 "Request is missing
+		// x-opencode-session and cannot be routed efficiently" — no model is
+		// reached and no token is spent. The docs it points at
+		// (https://opencode.ai/docs/go/#where-can-i-use-it) ask a client for a
+		// stable id per conversation so the gateway can route it and reuse the
+		// prompt cache, and for a user agent that names the client rather than
+		// its HTTP library — the second half is every model request's business
+		// and lives in internal/model/httpclient.go.
+		sessionHeader: "x-opencode-session",
 		modelDefaults: ModelDefaults{},
 		// True for the same reason as the row above, and from the same source:
 		// routes/zen/go/v1/chat/completions.ts hands the body to the identical
@@ -981,6 +1004,7 @@ func Lookup(name string) (Spec, bool) {
 		QuotaSource:    e.quotaSource,
 		AcceptsAPIKey:  !e.signInOnly,
 		APIKeyURL:      e.apiKeyURL,
+		SessionHeader:  e.sessionHeader,
 	}, true
 }
 
