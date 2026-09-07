@@ -23,6 +23,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Mikedev115/Aetox/internal/skill"
 )
 
 // fileHostPrefix is the URL space this owns. Everything outside it belongs to
@@ -88,6 +90,20 @@ func (a *App) fileHost(next http.Handler) http.Handler {
 			http.Error(w, "no project open", http.StatusNotFound)
 			return
 		}
+		// A produced file has two names: the path the model ASKED for, and the
+		// path placedWrite actually gave it — a session's output/<id> folder
+		// when no project is focused. An <img> in an answer carries the first,
+		// because the model writes ![cat](cat.jpg) out of the same intention
+		// that made the call, not out of the receipt that says where the file
+		// landed. So every picture a chat produced 404'd here (owner, 7 ก.ย.,
+		// with a screenshot of the second image_make call).
+		//
+		// The file TOOLS already answer this with skill.PlacedPath: try the
+		// literal path, fall back to the session's folder, and report the
+		// original when neither exists. The same rule one layer up, and it
+		// grants nothing new — both candidates still go through
+		// safeSandboxPath under the same root.
+		rel = skill.PlacedPath(root, a.outputSubdir, rel)
 		full, err := safeSandboxPath(root, rel)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusForbidden)

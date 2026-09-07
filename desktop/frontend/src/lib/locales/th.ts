@@ -1028,7 +1028,7 @@ export const th = {
   'settings.speechUse': 'ใช้ตัวนี้',
   'settings.speechInUse': 'กำลังใช้อยู่',
   'settings.voice': 'เสียง',
-  'settings.image': 'ภาพ',
+  'settings.image': 'สร้างภาพ',
   'settings.imageDesc': 'เครื่องมือวาดรูปของผู้ช่วย เลือกเจ้าที่จะวาดให้ เจ้าใหม่ที่เพิ่มเข้ามาจะโผล่ที่หน้านี้เอง',
   'settings.imageEngine': 'เจ้าที่วาดให้',
   'settings.imageModel': 'โมเดล',

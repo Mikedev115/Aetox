@@ -1029,7 +1029,7 @@ export const en: Record<keyof typeof th, string> = {
   'settings.speechUse': 'Use this one',
   'settings.speechInUse': 'In use',
   'settings.voice': 'Voice',
-  'settings.image': 'Pictures',
+  'settings.image': 'Image generation',
   'settings.imageDesc': 'The assistant’s drawing tool. Pick who draws; vendors added later show up here on their own.',
   'settings.imageEngine': 'Who draws',
   'settings.imageModel': 'Model',

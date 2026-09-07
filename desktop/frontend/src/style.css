@@ -1708,7 +1708,13 @@ button.phase-head:hover { color:var(--text-muted); }
    ceiling: the box grows to the height it really needs, so the prose below is
    pushed at the true rate instead of snapping the last few pixels. */
 .draw-slot {
-  display:grid; grid-template-rows:0fr; margin:2px 0 8px 30px; max-width:300px;
+  /* No width cap. It had 300px, which left two thirds of the row's own box
+     empty beside it and made the sweep a short flick in a corner (owner,
+     7 ก.ย.: "เล็กเกิน ควรจะกวาดกว่านี้"). The band belongs to the row above
+     it, so it takes the row's width and the light gets the whole of it to
+     travel across. 30px of indent keeps it under the row's text rather than
+     under its tile. */
+  display:grid; grid-template-rows:0fr; margin:2px 10px 8px 30px;
   animation:draw-unfold 420ms cubic-bezier(.16,.84,.31,1) 140ms forwards;
 }
 @keyframes draw-unfold { to { grid-template-rows:1fr; } }
@@ -1723,7 +1729,7 @@ button.phase-head:hover { color:var(--text-muted); }
    108px leaves the row it belongs to visible above it, which is what makes the
    two read as one thing happening rather than as a box that ate the list. */
 .draw-box {
-  position:relative; overflow:hidden; height:108px; margin-top:6px;
+  position:relative; overflow:hidden; height:120px; margin-top:6px;
   border:1px solid var(--border-subtle); border-radius:var(--r-md);
   background:var(--surface-sunken); display:grid; place-items:center;
 }

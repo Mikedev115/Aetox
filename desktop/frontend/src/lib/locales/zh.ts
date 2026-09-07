@@ -633,7 +633,7 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'settings.groupModels': 'AI 模型',
   'settings.groupTools': '工具',
   'settings.voice': '语音',
-  'settings.image': '图片',
+  'settings.image': '生成图片',
   'settings.imageDesc': '助手的画图工具。选择由谁来画，之后新增的服务商会自动出现在这里。',
   'settings.imageEngine': '由谁来画',
   'settings.imageModel': '模型',

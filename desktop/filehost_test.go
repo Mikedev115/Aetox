@@ -159,3 +159,68 @@ func TestFileHostRefusesDirectory(t *testing.T) {
 		t.Errorf("status = %d, want 404", res.StatusCode)
 	}
 }
+
+// A produced file has two names: the one the model asked for and the one
+// placedWrite actually gave it. An <img> in an answer carries the first —
+// ![cat](cat.jpg) is written out of the same intention that made the call, not
+// out of the receipt that says where the file landed — so every picture a chat
+// produced used to 404 here (owner, 7 ก.ย., first two image_make calls).
+//
+// The same fallback the file TOOLS already use (skill.PlacedPath), one layer up.
+func TestFileHostFindsAFileInTheSessionsOwnFolder(t *testing.T) {
+	root := t.TempDir()
+	sub := filepath.Join(root, "output", "sess-1")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, "cat.jpg"), []byte("\xff\xd8\xffbytes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	passed := false
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { passed = true })
+	a := &App{}
+	a.cur().cfg.SandboxRoot = root
+	a.cur().id = "sess-1"
+
+	rec := httptest.NewRecorder()
+	a.fileHost(next).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/aetox-file/cat.jpg", nil))
+	res := rec.Result()
+	body, _ := io.ReadAll(res.Body)
+	if passed {
+		t.Fatal("the request was passed through instead of served")
+	}
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("bare name = %d, want 200 — the session fallback did not run", res.StatusCode)
+	}
+	if !strings.HasPrefix(string(body), "\xff\xd8\xff") {
+		t.Errorf("served the wrong bytes: %q", body)
+	}
+}
+
+// The literal path still wins. A file that really is at the root must not be
+// shadowed by one of the same name in a session folder.
+func TestFileHostPrefersTheLiteralPath(t *testing.T) {
+	root := t.TempDir()
+	sub := filepath.Join(root, "output", "sess-1")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "cat.jpg"), []byte("at-the-root"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, "cat.jpg"), []byte("in-the-folder"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	a := &App{}
+	a.cur().cfg.SandboxRoot = root
+	a.cur().id = "sess-1"
+	rec := httptest.NewRecorder()
+	a.fileHost(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})).
+		ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/aetox-file/cat.jpg", nil))
+	body, _ := io.ReadAll(rec.Result().Body)
+	if string(body) != "at-the-root" {
+		t.Errorf("served %q, want the literal path to win", body)
+	}
+}
