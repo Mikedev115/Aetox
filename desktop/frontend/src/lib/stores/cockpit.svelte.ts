@@ -2608,18 +2608,31 @@ export function applyUsageRound(round: {
  */
 function autoCollectFinished(): void {
   if (cockpit.awaitingReply) return
-  // 'stopped' is deliberately not in this list. Auto-collect exists so a
-  // finished delegate reports itself without being asked, and a delegate the
-  // user stopped has nothing to report: sending the model after it spends a
-  // whole turn on work somebody just paid a click to end, and invites it to
-  // start the same job again. The row stays visible in the tray, which is
-  // where the user already is.
+  // 'stopped' IS in this list, and it was not.
+  //
+  // It was left out on the reasoning that a delegate the user stopped has
+  // nothing to report — which is true of one stopped because it was going the
+  // wrong way, and false of the one this actually happens to. A delegate is
+  // stopped because it is SLOW, fourteen tools deep with five files read and
+  // half the web work done, and the old rule threw that away and left the
+  // screen silent: owner, 7 ก.ย., *"ตอนกดหยุดงานมัน เงียบหายไปเลย ปกติถ้าหยุด
+  // ซับเอเจนกระทันหัน มันควรจะเรียกตัวเมนขึ้นมาดิ เพื่อรับคอนแท็คต่อ"*.
+  // One decision was covering two different reasons for the same click.
+  //
+  // The partial work is already here to collect — task.go hands the child's
+  // parts back before it checks for cancellation — so this costs the engine
+  // nothing new. The half of the old reasoning that was right is answered in
+  // the prompt instead: it says the work was stopped and tells the model not to
+  // restart it, which is the thing nobody wanted a turn spent on.
   const ready = cockpit.backgroundTasks.find(
-    (t) => (t.state === 'done' || t.state === 'failed') && !t.collected && !autoCollected.has(t.id),
+    (t) =>
+      (t.state === 'done' || t.state === 'failed' || t.state === 'stopped') &&
+      !t.collected && !autoCollected.has(t.id),
   )
   if (!ready) return
   autoCollected.add(ready.id)
-  void sendUserMessage(t('chat.bgFinishedPrompt', { id: ready.id, agent: ready.agent }))
+  const prompt = ready.state === 'stopped' ? 'chat.bgStoppedPrompt' : 'chat.bgFinishedPrompt'
+  void sendUserMessage(t(prompt, { id: ready.id, agent: ready.agent }))
 }
 
 /** Which list an event's row belongs in.

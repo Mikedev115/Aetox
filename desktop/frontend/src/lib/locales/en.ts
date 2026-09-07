@@ -359,6 +359,7 @@ export const en: Record<keyof typeof th, string> = {
   'bgw.send': 'Send',
   'bgw.answerPlaceholder': 'Answer {agent}…',
   'chat.bgFinishedPrompt': '[system] Background agent {agent} ({id}) has finished. Collect it with task action=collect and report what it found.',
+  'chat.bgStoppedPrompt': '[system] The user stopped {agent} ({id}) part-way. Collect what it managed with task action=collect, then say what it got and what is left. Do not restart the same job unless the user asks.',
   'chat.openFile': 'Open',
   // The memory card under an answer. It asks rather than announces, because
   // nothing is remembered until the user says so.
