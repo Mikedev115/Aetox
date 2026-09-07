@@ -91,6 +91,7 @@
   --swap-row-in:120ms;      /* the new row fading in */
   --swap-block:150ms;       /* the block travelling to it */
   --focus-move:380ms;       /* the focus of a live list moving to the next row */
+  --deal-step:55ms;         /* the beat between two rows of one batch arriving */
   --swap-glyph:110ms;       /* the ring on the finished row becoming a tick */
   /* Overshoot is for something arriving that the user caused. Never for
      something that merely appeared. */

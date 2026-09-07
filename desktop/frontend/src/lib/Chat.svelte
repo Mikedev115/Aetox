@@ -5,6 +5,7 @@
   import { pacedStream, pacedText } from './streamPace'
   import { toolGlide } from './toolGlide'
   import { toolWindow } from './toolWindow'
+  import { toolArrive } from './toolArrive'
   import { toolFocus } from './toolFocus'
   import { typeOnce, typeMs, HANDOVER_LEAD_MS } from './typeOnce'
   import { toolFamily, toolIcon, toolVerbKey, toolFallbackVerb, toolSubject, toolServer, serverSlot, splitSubject, linkDomain, linkInitials } from './toolFace'
@@ -3435,7 +3436,13 @@
   <!-- toolGlide adds the block that travels to whichever row is live. On a
        finished timeline read back from the store there is no live row, so it
        measures once, finds nothing, and stays out of the way. -->
-  <div class="tool-steps tool-box" class:live-window={windowed} use:toolGlide use:toolWindow={windowed}>
+  <div
+    class="tool-steps tool-box"
+    class:live-window={windowed}
+    use:toolGlide
+    use:toolWindow={windowed}
+    use:toolArrive
+  >
     {#each steps as s}
       {@render toolRow(s, live)}
     {/each}

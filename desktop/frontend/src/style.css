@@ -1095,8 +1095,17 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
              opacity var(--beam-in) ease-out;
 }
 /* A row arriving. Not keyed, so Svelte updates rows in place and this runs
-   only for one that is genuinely new — which is the moment it is describing. */
-.tool-step { animation:tool-row-in var(--swap-row-in) var(--ease-arrive); }
+   only for one that is genuinely new — which is the moment it is describing.
+
+   `--i` is the row's place in the BATCH it landed with, stamped by toolArrive,
+   and it is the whole of the stagger: rows that arrive alone carry no `--i` and
+   start immediately, and rows that arrive five at a time are dealt out instead
+   of dropped. `backwards` is what makes the delay a wait rather than a flash —
+   without it the row is at full strength until its turn comes. */
+.tool-step, .tool-note {
+  animation:tool-row-in var(--swap-row-in) var(--ease-arrive) backwards;
+  animation-delay:calc(var(--i, 0) * var(--deal-step));
+}
 @keyframes tool-row-in { from { opacity:0; transform:translateY(-3px); } to { opacity:1; transform:none; } }
 @keyframes tool-spin { to { transform:rotate(360deg); } }
 
