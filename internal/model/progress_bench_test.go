@@ -6,10 +6,14 @@ import (
 	"testing"
 )
 
-// The accumulator sees every streamed fragment of a tool call, and both helpers
-// it calls scan the arguments accumulated *so far* — which grow with the file
-// being written. That is quadratic by construction, so it is worth knowing what
-// it actually costs before shipping it on the hot path.
+// The accumulator sees every streamed fragment of a tool call, and everything
+// it does with one touches the arguments accumulated *so far* — which grow with
+// the file being written. Two separate quadratics lived here, and this is the
+// benchmark that found both: the helpers re-scanning the whole buffer per
+// fragment, fixed by pacing them on the clock in toolProgressTracker.report,
+// and the buffer itself being re-copied per fragment, fixed by the Builder in
+// streamToolAccumulator. Together they took an 800-line write from 2.7ms and
+// 18MB to 68us and 215KB. It stays on the hot path, so it stays measured.
 func BenchmarkStreamAccumulatorLargeWrite(b *testing.B) {
 	// An 800-line HTML file, arriving the way a model streams one.
 	var frags []string
@@ -33,9 +37,10 @@ func BenchmarkStreamAccumulatorLargeWrite(b *testing.B) {
 
 // The same 800-line file with the arguments in the other order. When "content"
 // arrives first the subject stays unresolved for the whole write, so the regex
-// re-scans an ever-growing buffer on every fragment instead of matching once.
-// Argument order is the model's choice, so this ordering is not hypothetical —
-// and it is 8x the cost of the other one.
+// keeps looking instead of matching once and stopping. Argument order is the
+// model's choice, so this ordering is not hypothetical — it used to cost 8x the
+// other one, and the point of keeping both benchmarks is that the gap between
+// them is what a re-scan per fragment looks like when it comes back.
 func BenchmarkStreamAccumulatorLargeWriteContentFirst(b *testing.B) {
 	var frags []string
 	frags = append(frags, `{"content": "`)

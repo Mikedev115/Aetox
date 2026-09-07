@@ -947,6 +947,18 @@ type streamToolAccumulator struct {
 	calls   []*ToolCall
 	byIndex map[int]int
 	byID    map[string]int
+	// args holds a call's arguments while they are still arriving. Appending
+	// onto the ToolCall's own string re-copied everything accumulated so far on
+	// every fragment, so an 800-line write moved 18MB of copies to end up with
+	// 50KB of arguments — quadratic in the size of the file the model is
+	// writing, which is the one number that grows without limit here. A Builder
+	// appends instead, and its String is a view of that buffer rather than a
+	// copy, so the progress hook below still reads the arguments so far for
+	// free. Measured by BenchmarkStreamAccumulatorLargeWrite.
+	//
+	// Pointers because append copies the elements it moves, and a Builder that
+	// has been written to panics when copied.
+	args []*strings.Builder
 	// progress reports a call as it is written — see Request.OnToolCallProgress.
 	progress *toolProgressTracker
 }
@@ -972,11 +984,11 @@ func (a *streamToolAccumulator) add(deltas []streamToolCallDelta) {
 		if d.Function.Name != "" {
 			call.Function.Name = d.Function.Name
 		}
-		call.Function.Arguments += d.Function.Arguments
+		a.args[slot].WriteString(d.Function.Arguments)
 		if len(d.ExtraContent) > 0 {
 			call.ExtraContent = d.ExtraContent
 		}
-		a.progress.report(slot, call.ID, call.Function.Name, call.Function.Arguments)
+		a.progress.report(slot, call.ID, call.Function.Name, a.args[slot].String())
 	}
 }
 
@@ -1011,6 +1023,7 @@ func (a *streamToolAccumulator) slotFor(d streamToolCallDelta) int {
 // with no id of their own reach the newest call rather than the oldest.
 func (a *streamToolAccumulator) open(index int) int {
 	a.calls = append(a.calls, &ToolCall{Type: "function"})
+	a.args = append(a.args, &strings.Builder{})
 	slot := len(a.calls) - 1
 	a.byIndex[index] = slot
 	return slot
@@ -1022,6 +1035,9 @@ func (a *streamToolAccumulator) finalize() []ToolCall {
 	}
 	calls := make([]ToolCall, 0, len(a.calls))
 	for slot, call := range a.calls {
+		// Nothing read the arguments off the ToolCall while they streamed, so
+		// this is where the accumulated buffer becomes the call's own.
+		call.Function.Arguments = a.args[slot].String()
 		// The arguments are complete now, so this is the last chance for the row
 		// to learn its subject — and the chance pacing would otherwise eat when
 		// the naming argument came last. See toolProgressTracker.flush.
