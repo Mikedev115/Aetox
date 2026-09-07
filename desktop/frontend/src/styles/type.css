@@ -90,6 +90,7 @@
      if this ever reads as abrupt. */
   --swap-row-in:120ms;      /* the new row fading in */
   --swap-block:150ms;       /* the block travelling to it */
+  --focus-move:380ms;       /* the focus of a live list moving to the next row */
   --swap-glyph:110ms;       /* the ring on the finished row becoming a tick */
   /* Overshoot is for something arriving that the user caused. Never for
      something that merely appeared. */

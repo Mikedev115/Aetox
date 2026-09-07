@@ -5,7 +5,8 @@
   import { pacedStream, pacedText } from './streamPace'
   import { toolGlide } from './toolGlide'
   import { toolWindow } from './toolWindow'
-  import { typeOnce, HANDOVER_LEAD_MS } from './typeOnce'
+  import { toolFocus } from './toolFocus'
+  import { typeOnce, typeMs, HANDOVER_LEAD_MS } from './typeOnce'
   import { toolFamily, toolIcon, toolVerbKey, toolFallbackVerb, toolSubject, toolServer, serverSlot, splitSubject, linkDomain, linkInitials } from './toolFace'
   import { fold, unroll, settle, SETTLE_MS, motionStill } from './fold'
   import TaskTimeline from './TaskTimeline.svelte'
@@ -13,6 +14,7 @@
   import Palette from './Palette.svelte'
   import Logo from './Logo.svelte'
   import { onMount, tick } from 'svelte'
+  import { cubicOut } from 'svelte/easing'
   import AgentFace from './AgentFace.svelte'
   import { faceOf, type FaceState } from './agentFace'
   import { shell } from './shell.svelte'
@@ -242,6 +244,55 @@
     node.step.task ? cockpit.backgroundTasks.find((b) => b.id === node.step.task) : undefined
   const stillWorking = (b?: BackgroundTask) =>
     b?.state === 'running' || b?.state === 'waiting' || b?.state === 'queued'
+  // Ended by the user, which cardState cannot say: ToolStep['state'] has three
+  // values and none of them is this one, so a stopped delegate came out of it
+  // as 'done' and wore a green tick over work somebody paid a click to end.
+  // The tray has always said it in words (BackgroundWork, t('bgw.stopped')) and
+  // this card is the same card (§105.6), so it says it too. Owner, 7 ก.ย.:
+  // *"พอผมกดหยุดซับเอเจนตอนทำงานมัน นิ่งไปเลย"* — the silence was cardKids
+  // above; the tick was this.
+  const stoppedByUser = (node: TimelineNode) => registerTask(node)?.state === 'stopped'
+  // The rows a card draws, which is not the same list as the ones nested under
+  // its row.
+  //
+  // groupSteps nests a delegate's steps under the `task` row that hired it, and
+  // that holds for exactly as long as both are in one list. They are not.
+  // A delegation outlives the turn that started it (§44.11) and `task start`
+  // returns the instant the worker is spawned, so the parent turn ends, its row
+  // moves into the transcript, and from then on cockpit.listFor cannot find the
+  // parent in the live list and sends every step the worker runs to the
+  // window's tray instead. On the run this was diagnosed from, the turn ended
+  // 5s after the delegate began and the delegate's first tool call landed 7s
+  // later still: not one of its rows ever reached its card.
+  //
+  // Everything the card says is read off this list — the live headline, the
+  // tally, the door to the work, and whether the portrait has its hands on the
+  // machine. So a card with no children is a card that cannot move, which is
+  // the whole complaint: owner, 7 ก.ย., over a delegate 27s into a research
+  // job: *"ทำไมมันนิ่งแบบนี้ทั้งที่มันทำงานยุ"*, and then *"tool ที่มันใช้อ่ะ
+  // หายไปไหน"*. They had not gone anywhere. They were in a tray that
+  // `drawnDelegations` hides the moment this card exists, so the work was on
+  // neither surface.
+  //
+  // Joined on the delegation's id, which is the join the tray has always made
+  // (§105) — the same one, read from the other side. Deduped on the call id
+  // because a delegate that starts AND finishes inside its turn nests properly
+  // and must not be drawn twice.
+  // The window in which a delegation is being handed over ON THIS SCREEN and
+  // nothing has come back yet — which is the window the job line and the brief
+  // write themselves in, and the exact test for "the headline is still the
+  // job". A function rather than a `{@const}` because it is asked in two places
+  // and one of them is not a legal position for one.
+  const handingOver = (node: TimelineNode, live: boolean, state: ToolStep['state']) =>
+    live && state === 'run' && cardKids(node).length === 0
+
+  const cardKids = (node: TimelineNode): ToolStep[] => {
+    const id = node.step.task
+    if (!id) return node.children
+    const seen = new Set(node.children.map((s) => s.ref).filter(Boolean))
+    const late = cockpit.backgroundSteps.filter((s) => s.task === id && (!s.ref || !seen.has(s.ref)))
+    return late.length ? [...node.children, ...late] : node.children
+  }
   // A card whose ✗ this window inferred rather than was told. Worth telling
   // apart from a delegate that reported failure: the mark is the same and the
   // reason is not, and a card that says only ✗ over work nobody ever heard back
@@ -301,7 +352,7 @@
   // reason.
   function faceState(node: TimelineNode, state: ToolStep['state'], queued: boolean): FaceState {
     if (queued) return ''
-    if (state === 'run') return node.children.length > 0 ? 'work' : 'think'
+    if (state === 'run') return cardKids(node).length > 0 ? 'work' : 'think'
     return state === 'err' ? 'err' : 'done'
   }
   // Only ever asked of the live list (toolSteps), so it asks the live question:
@@ -2199,6 +2250,29 @@
   // handed to a timer. Same two, same reasons, as the phase fold above.
   let cardLanding = $state<Record<string, boolean>>({})
   const armedCards = new Set<string>()
+  // The head's line changing, as a crossfade rather than a swap.
+  //
+  // It was one animation on the arriving span — 7px of travel in 220ms — and
+  // `{#key}` destroyed the outgoing one in the same frame that made the new
+  // one. So the slot was empty while the new line climbed into it, and the
+  // whole line read as a jump the height of itself rather than as a line being
+  // replaced: *"อนิเมชั่นแบบโดดๆขึ้นๆลงๆ"*, and *"อนิเมชั่นแข็งไป"*.
+  //
+  // Two transitions on the same keyed span fix both halves. Svelte holds the
+  // outgoing element until its `out` finishes, so the two overlap and there is
+  // no frame with nothing in the slot; and with the overlap paid for, the
+  // travel can come down to 3px, which is a line settling rather than a line
+  // arriving from somewhere else. `.bgw-now` gives them a fixed height and
+  // stacks them, so two lines at once still cannot move the card.
+  const tickLine = (_node: Element, { out = false } = {}) => ({
+    duration: motionStill() ? 0 : out ? 260 : 400,
+    easing: cubicOut,
+    css: (t: number) =>
+      out
+        ? `opacity:${t * 0.55}; transform:translateY(${(1 - t) * -3}px)`
+        : `opacity:${t}; transform:translateY(${(1 - t) * 3}px)`,
+  })
+
   const stepsKey = (node: TimelineNode) => node.step.ref ?? node.step.label
   const stepsOpen = (node: TimelineNode) => openSteps[stepsKey(node)] ?? false
   function toggleSteps(node: TimelineNode) {
@@ -2249,9 +2323,29 @@
       // movement to replay in opening something that is genuinely in flight.
       // What that guard protects against is a fold, and a fold needs
       // cardLanding, which only this branch ever sets.
-      // Held back: the card HEADLINE already carries the newest row while the
-      // list is shut, so opening it here prints that row twice and puts four
-      // concurrent delegates back into the wall the fold was added to stop.
+      // UNPAUSED. It was held back at 1.5.18 because it collided with the card
+      // headline: the rule then was that the live row belonged to the head only
+      // while the list was SHUT, so opening the list automatically meant every
+      // running card led with its job title and the feature §105.6 was built
+      // for died quietly. Neither intention was wrong; the collision was, and
+      // it is gone — the head holds the live row open or shut now, and the list
+      // says WHICH row that is by putting it at the floor at body size
+      // (toolFocus.ts). Owner, 7 ก.ย., over a card still folded:
+      // *"ทำไมยังพับแบบนี้เป็นค่าเริ่มต้นอยู่อีก"*.
+      //
+      // The other half of the old objection — four concurrent delegates each
+      // holding their whole list open — is answered by the list being a 230px
+      // window with a mask (.bgw-work.live-window) rather than something that
+      // grows without a cap, which is what it was when that wall was hit.
+      //
+      // Setting `cardLanding` is what makes this an opinion the app HOLDS
+      // rather than one it takes from the reader: the app opens the card, and
+      // shuts it a beat after the delegate stops. A click hands it over for
+      // good — toggleSteps clears the flag, and from then on it is theirs.
+      if (openSteps[key] === undefined) {
+        openSteps[key] = true
+        cardLanding[key] = true
+      }
       return
     }
     // Never seen working on this screen — a card already finished when we got
@@ -2279,12 +2373,12 @@
   // row belonging to a delegation the worker itself started keeps its parent
   // and still nests, because that ref is a different one.
   const ownWork = (node: TimelineNode): ToolStep[] =>
-    node.children.map((s) => (s.parent === node.step.ref ? { ...s, parent: undefined } : s))
+    cardKids(node).map((s) => (s.parent === node.step.ref ? { ...s, parent: undefined } : s))
 
   // Tool calls only. Narration and thinking ride in the same list and are not
   // tools — counting them would inflate "used N tools" with sentences, the same
   // rule ownTools follows for the agent's own row.
-  const toolCount = (node: TimelineNode) => node.children.filter((c) => !c.kind).length
+  const toolCount = (node: TimelineNode) => cardKids(node).filter((c) => !c.kind).length
 
   // What this delegate has spent, when there is anybody left to ask.
   // The register is the only holder of it, so a turn read back from the
@@ -2325,12 +2419,31 @@
   const cardHeadline = (node: TimelineNode, state: ToolStep['state'], queued: boolean): string => {
     const job = node.step.label.replace(/^task\s*/, '')
     if (queued || state === 'err') return job
-    // The live row belongs to the head only while the list is shut. With the
-    // list open the row is three lines below, and printing it twice is what
-    // closed this list in the first place — the duplication was the complaint,
-    // not the work being visible.
-    if (state === 'run') return stepsOpen(node) ? job : currentStep(node.children)?.label ?? job
-    const done = tally(node.children)
+    // The live row is the head's, open or shut.
+    //
+    // It used to be the head's only while the list was shut, to stop the row
+    // being printed twice. That traded the wrong way round: the moment the
+    // reader opens the list is the moment they have asked what it is doing, and
+    // it was the one moment the head stopped answering — the newest row is at
+    // the floor of a window that scrolls, under whatever result card the last
+    // call brought back. Owner, 7 ก.ย., over a card 14 tools into a job with
+    // its list open: *"ผมไม่รู้ว่ามันทำงานอยู่อ่ะ"*.
+    //
+    // The duplication it was avoiding is answered instead by the list SAYING
+    // which row the head is showing — the focus ladder puts that row at body
+    // size at the floor (toolFocus.ts) — and the job line is not lost either:
+    // `bgw-told` takes it the moment the headline stops being it, which is the
+    // `headline !== job` branch that was already written for the queued card.
+    if (state === 'run') return currentStep(cardKids(node))?.label ?? job
+    // Stopped is not finished, and the tally is the wrong sentence for it: a
+    // delegate the user braked did not come back with anything, so what the
+    // card owes them is where it had got to. It is also the only answer that
+    // survives a research job — tally counts files, and a delegate nine web
+    // fetches deep has touched none, so the receipt would be the job title
+    // again and the card would go silent at exactly the moment somebody
+    // reached for it.
+    if (stoppedByUser(node)) return currentStep(cardKids(node))?.label ?? job
+    const done = tally(cardKids(node))
     const parts: string[] = []
     if (done.read) parts.push(t('bgw.tallyRead', { n: done.read }))
     if (done.wrote) parts.push(t('bgw.tallyWrote', { n: done.wrote }))
@@ -3322,7 +3435,17 @@
      The rows are the ones this timeline has always drawn, at the height the
      owner dialled himself; a phase that ran more than six folds the rest away
      rather than taking the air back out (style.css says so at .tool-step). -->
-{#snippet phaseBlock(ph: TurnPhase, key: string, live: boolean)}
+<!-- `unfolded` is the delegate card's, and only its: inside a worker that is
+     still going, a stretch that has gone quiet must NOT fold away to "ใช้ 1
+     เครื่องมือ". The fold is right in the transcript, where the list can grow
+     for as long as the model keeps working and nothing else caps it. It is
+     wrong here, where the card already caps the whole thing in a 230px window
+     with a mask — folding inside a window is two mechanisms solving one
+     problem, and the one that wins hides the work. Owner, 7 ก.ย., over a card
+     whose rows had all folded to counts a second after landing: *"เนี้ยไหนว่า
+     ปรับแล้ว"*. Everything the worker has done stays on screen; the window is
+     what keeps it from being a wall. -->
+{#snippet phaseBlock(ph: TurnPhase, key: string, live: boolean, unfolded = false)}
   {@const own = ownSteps(ph.steps)}
   {@const subs = delegated(ph.steps)}
   {@const workLine = phaseWork(ph)}
@@ -3354,7 +3477,7 @@
        owner has been describing all along: "พอมันรัน tool เสร็จ ถึงตัวสุดท้าย
        ก่อนจะพูดประโยคถัดไป มันก็พับลงอย่างนุ่มนวล". A DELEGATION still folds at
        none of these moments (shownSubs), which has never been in question. -->
-  {@const working = live && runOwn.length > 0}
+  {@const working = unfolded || (live && runOwn.length > 0)}
   {@const shownOwn = working ? own : runOwn}
   <!-- A DELEGATION IS NEVER FOLDED, running or finished, live turn or one read
        back a week later. A tool row is a thing the agent did and folds into a
@@ -3512,7 +3635,7 @@
              before what they were told, and the brief still writes itself. -->
         {@const job = node.step.label.replace(/^task\s*/, '')}
         {@const headline = cardHeadline(node, state, queued)}
-        {@const counts = tally(node.children)}
+        {@const counts = tally(cardKids(node))}
         <div
           class="bgw-card {state}" class:is-queued={queued}
           out:fold
@@ -3543,8 +3666,24 @@
                    the behaviour wanted rather than the bug beam.test.ts pins.
                    The beam's own clock is untouched: it runs on .bgw-card, an
                    ancestor this never replaces. -->
+              <!-- THE SECOND BEAT. A delegation appearing is three events and
+                   not one — somebody was hired, they were told what the job is,
+                   and then they started — and landing all three in a frame is
+                   what reads as a stutter at the second a card appears (owner,
+                   7 ก.ย.: *"จังหวะเรียกซับเอเจนมันเหมือนกระตุกอ่ะ"*).
+                   `handover` is already the exact condition for "this headline
+                   is still the job and no work has come back yet", so the job
+                   writes itself here and the brief below waits for it to
+                   finish. The instant the first row lands, `on` drops and the
+                   line snaps whole — an arrival may never be the reason the
+                   screen is behind the work (typeOnce.ts). -->
               <div class="bgw-now" title={headline}>
-                {#key headline}<span class="bgw-now-in">{headline}</span>{/key}
+                {#key headline}<span
+                  class="bgw-now-in"
+                  in:tickLine={{ out: false }}
+                  out:tickLine={{ out: true }}
+                  use:typeOnce={{ text: headline, on: handingOver(node, live, state) }}
+                >{headline}</span>{/key}
               </div>
               <!-- Who, and the accounting, on one quiet line.
                    The state pill is gone from here: the beam says "working"
@@ -3555,6 +3694,7 @@
                    started, none of which the beam is lit for. -->
               <div class="bgw-who">
                 {#if queued}<span class="bgw-mark queue"><Icon name="clock" size={12} /></span>
+                {:else if stoppedByUser(node)}<span class="bgw-mark off"><Icon name="square" size={12} /></span>
                 {:else if state === 'done'}<span class="bgw-mark ok"><Icon name="check" size={12} /></span>
                 {:else if state === 'err'}<span class="bgw-mark fail"><Icon name="x" size={12} /></span>{/if}
                 <!-- Written the way the user would write it. An agent has one
@@ -3580,6 +3720,7 @@
                   <span class="bgw-dot">·</span><span>{t('bgw.queuedNote')}</span>
                 {:else}
                   {#if state === 'run'}<span class="bgw-dot">·</span><span class="bgw-badge run">{t('bgw.running')}</span>{/if}
+                  {#if stoppedByUser(node)}<span class="bgw-dot">·</span><span>{t('bgw.stopped')}</span>{/if}
                   {#if secs !== undefined}<span class="bgw-dot">·</span><span class="bgw-clock">{clockLabel(secs)}</span>{/if}
                   {#if toolCount(node) > 0}<span class="bgw-dot">·</span><span>{t('bgw.tools', { n: toolCount(node) })}</span>{/if}
                   {#if spendOf(node)}<span class="bgw-meta" title={spendTitle(spendOf(node)!)}>{spendLabel(spendOf(node)!)}</span>{/if}
@@ -3594,20 +3735,26 @@
                  there is. The composer's Stop is not the answer either: it ends
                  the turn, and a delegate deliberately outlives its turn.
 
-                 Icon only, and quieter until the pointer is on the card — but
-                 never invisible, which is the line §163 draws in its own title.
-                 It sits beside work that is going fine far more often than
-                 beside work anybody wants to end, and a brake you can only find
-                 by hovering is a brake nobody finds in the second they want
-                 it. -->
+                 Icon only, and RED before the pointer is anywhere near it.
+                 It went in quiet — 10px, dim, half-faded until hover — on the
+                 argument that it sits beside work that is going fine far more
+                 often than beside work anybody wants to end. That argument is
+                 sound and it lost to the case §163 is titled after: a brake you
+                 cannot reach is not a brake, and one you have to find by
+                 hovering is one nobody finds in the second they want it. Owner,
+                 7 ก.ย., pointing straight at it: *"ตรงนี้เอาสีแดงชัดๆด้วย
+                 เล็กไป"*. The card is not louder for it — everything else on
+                 the row got quieter when §105.6 rebuilt it, so the one control
+                 that ends somebody's work is now the only coloured thing up
+                 there, which is the right thing to be able to say. -->
             {#if state === 'run' && node.step.task}
               <button
-                class="bgw-stop bgw-stop-worker bgw-stop-quiet" type="button"
+                class="bgw-stop bgw-stop-worker" type="button"
                 title={t('bgw.stopTask', { agent: node.step.agent ?? '' })}
                 aria-label={t('bgw.stopTask', { agent: node.step.agent ?? '' })}
                 onclick={() => stopBackgroundTask(node.step.task!)}
               >
-                <Icon name="square" size={10} />
+                <Icon name="square" size={13} />
               </button>
             {/if}
           </div>
@@ -3634,7 +3781,7 @@
                  opening and the writing starting are one movement).
                  Zero on everything else — a card restored from the database is
                  a record, and a record does not re-enact its own arrival. -->
-            {@const handover = live && state === 'run' && node.children.length === 0}
+            {@const handover = handingOver(node, live, state)}
             <!-- A class, not an `in:`, for the reason written at the card: a
                  local intro inside a block that is itself arriving never runs,
                  so this beat was silently dead — the brief still wrote itself
@@ -3642,9 +3789,16 @@
                  writes into stopped waiting for the person to land first. The
                  lead is one number in one place still; it rides in as a custom
                  property rather than being written out a second time in CSS. -->
+            <!-- THE THIRD BEAT, and it waits for the second. The lead was
+                 HANDOVER_LEAD_MS, which was right when the head landed with the
+                 person; now the head writes the job over that window, so this
+                 starts where that finishes. One number, computed once, handed
+                 to the slide and to the typing together — two copies of it is
+                 how they stop being one movement. -->
+            {@const briefLead = HANDOVER_LEAD_MS + (handover ? typeMs(headline) : 0)}
             <div
               class="bgw-told" class:told-in={handover}
-              style="--told-lead:{HANDOVER_LEAD_MS}ms"
+              style="--told-lead:{briefLead}ms"
             >
               {#if headline !== job}<div class="bgw-brief">{job}</div>{/if}
               {#if node.step.brief}
@@ -3656,12 +3810,12 @@
                 <div
                   class="bgw-longbrief"
                   title={node.step.brief}
-                  use:typeOnce={{ text: node.step.brief ?? '', on: handover }}
+                  use:typeOnce={{ text: node.step.brief ?? '', on: handover, lead: briefLead }}
                 ></div>
               {/if}
             </div>
           {/if}
-          {#if node.children.length}
+          {#if cardKids(node).length}
             <!-- The foot: what it has touched, and the way in to the rest.
                  The tally is drawn only while the work is running — once it is
                  over the headline IS the tally, and a card stating "9 files
@@ -3698,10 +3852,27 @@
                    being written to is a thing in motion whichever turn happens
                    to be on screen. Stopped, it is a record and shows whole —
                    the line .reasoning-body.live has always drawn. -->
+              <!-- WORK IN FLIGHT IS A STREAM; WORK THAT IS OVER IS A RECORD.
+                   `.reasoning-body.live` is the vocabulary this app already has
+                   for a thing in motion the reader is meant to watch — a rail, a
+                   five-line window, masked at both ends, and text arriving paced
+                   rather than in the lumps the wire sent (streamPace.ts). It is
+                   the one surface here nobody has ever had to ask "is this
+                   alive" about, and the owner asked for it by name: *"ตอนทำงาน
+                   ผมอยากให้มันเหมือนบล็อคความคิดอ่ะ"*.
+                   A delegate is the longest-running thing in the product and was
+                   wearing the opposite clothes — a bordered receipt, filled by
+                   rows that pop. So while it runs it wears the rail, and the box
+                   comes back the moment the work is over, because then it IS a
+                   receipt.
+                   toolFocus is the other half: with twenty rows in a rail,
+                   which one is happening has to be readable without hunting. -->
               <div
                 class="bgw-work"
                 class:live-window={state === 'run'}
+                class:stream={state === 'run'}
                 use:toolWindow={state === 'run'}
+                use:toolFocus={state === 'run'}
                 transition:fold
               >
                 <!-- The delegate's turn, drawn the way a turn is drawn.
@@ -3726,7 +3897,7 @@
                    there is no altitude at which it stops being one.
                    `ownWork` is why this needs a step at all: see it. -->
               {#each phasesOf(ownWork(node)) as ph, p}
-                {@render phaseBlock(ph, phaseKey(ph, `${stepsKey(node)}:${p}`), state === 'run')}
+                {@render phaseBlock(ph, phaseKey(ph, `${stepsKey(node)}:${p}`), state === 'run', state === 'run')}
               {/each}
               </div>
             {/if}

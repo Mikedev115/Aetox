@@ -24,6 +24,19 @@ import type { BackgroundTask, ToolStep } from '../lib/types'
 const step = (over: Partial<ToolStep> = {}): ToolStep =>
   ({ label: 'read a.go', state: 'done', startedAt: 0, ...over }) as ToolStep
 
+// This file asserts what a card SAYS, and the card now writes two of its lines
+// out at the moment of handover — the job and the brief (typeOnce.ts). Asserting
+// text against a running animation is asserting a race, so motion is switched
+// off here and the arrival is pinned where it belongs, in typeOnce.test.ts.
+// jsdom ships no matchMedia at all, which typeOnce reads as "motion is welcome".
+function reducedMotion() {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }),
+  })
+}
+
 describe('what a delegate touched', () => {
   it('tells a file it read from a file it changed', () => {
     expect(tally([
@@ -142,6 +155,7 @@ const openFinished = async (container: Element) => {
 }
 
 beforeEach(() => {
+  reducedMotion()
   setLocale('th')
   cockpit.chat = []
   cockpit.todos = []
@@ -276,9 +290,8 @@ describe('the delegate’s own tool list', () => {
     { label: 'read b.go', parent: 'call_1', task: 'task_1', state: 'run', startedAt: 0 },
   ]
 
-  it('caps itself while the delegate is still working', async () => {
+  it('caps itself while the delegate is still working', () => {
     const { container } = render(Chat, { ...baseProps, toolSteps: withChildren } as any)
-    await fireEvent.click(container.querySelector('.bgw-open') as HTMLElement)
     expect(container.querySelector('.bgw-work.live-window')).toBeTruthy()
   })
 
@@ -287,6 +300,7 @@ describe('the delegate’s own tool list', () => {
   it('shows itself whole once the delegate has stopped', async () => {
     cockpit.backgroundTasks = [registered({ state: 'done', elapsedMs: 9_000 })]
     const { container } = render(Chat, { ...baseProps, toolSteps: withChildren } as any)
+    // Finished, so nothing opened it for the reader: the door is the way in.
     await fireEvent.click(container.querySelector('.bgw-open') as HTMLElement)
     expect(container.querySelector('.bgw-work')).toBeTruthy()
     expect(container.querySelector('.bgw-work.live-window')).toBeNull()
@@ -329,6 +343,121 @@ describe('a delegation is never folded', () => {
     await fireEvent.click(head)
     expect(container.querySelector('.tool-step')).toBeNull()
     expect(container.querySelector('.bgw-card')).toBeTruthy()
+  })
+})
+
+// A delegate that outlived the turn that started it, which is nearly all of
+// them: `task start` returns the instant the worker is spawned (§44.11), so the
+// parent turn ends within seconds and the worker's first tool call lands after
+// it. Its rows arrive stamped with a `parent` the live list no longer holds, so
+// cockpit.listFor files them under the window's tray — and the tray hides any
+// delegation that has a card (drawnDelegations), which left the work on neither
+// surface. Owner, 7 ก.ย., over a card 27s into a research job that had by then
+// run seven web searches: *"ทำไมมันนิ่งแบบนี้ทั้งที่มันทำงานยุ"*, then *"tool
+// ที่มันใช้อ่ะ หายไปไหน"*.
+//
+// The join is the delegation's id — the same one the tray makes from the other
+// side (§105).
+describe('a delegate whose work arrived after its turn ended', () => {
+  // What the transcript holds once the turn is over: the agent's own row, and
+  // the `task` row closed by its own result a second after it spawned.
+  const turnThatDelegated = {
+    role: 'agent', text: 'ส่งงานวิจัยไปแล้วครับ', time: '12:59',
+    parts: [{ kind: 'text', text: 'ส่งงานวิจัยไปแล้วครับ' }],
+    steps: [{ ...delegation, state: 'done', secs: 2 }],
+  }
+  const late = (over: Partial<ToolStep>): ToolStep =>
+    ({ task: 'task_1', parent: 'call_1', state: 'done', startedAt: 0, ...over }) as ToolStep
+
+  beforeEach(() => {
+  reducedMotion()
+    cockpit.backgroundSteps = [
+      late({ label: 'skills_list', ref: 'c1' }),
+      late({ label: 'web_search Msty changelog', ref: 'c2' }),
+      late({ label: 'web_fetch https://lmstudio.ai/blog', ref: 'c3', state: 'run' }),
+    ]
+  })
+
+  it('leads with the row the delegate is on right now', () => {
+    const { container } = render(Chat, { ...baseProps, awaitingReply: false, messages: [turnThatDelegated] } as any)
+
+    const card = container.querySelector('.bgw-card')
+    expect(card?.querySelector('.bgw-now')?.textContent?.trim()).toBe('web_fetch https://lmstudio.ai/blog')
+  })
+
+  // The door, and the count beside it. Both hang off the same list, which is
+  // why a card with nothing nested under it had neither — and a card with no
+  // way in reads as a delegate that has done nothing at all.
+  it('opens onto the work it has done', async () => {
+    const { container } = render(Chat, { ...baseProps, awaitingReply: false, messages: [turnThatDelegated] } as any)
+
+    // The app has already opened it while the delegate works, so what this
+    // pins is that the work behind the door is real and that the way back out
+    // is there.
+    const door = container.querySelector('.bgw-foot .bgw-open') as HTMLElement
+    expect(door).toBeTruthy()
+    expect(door.getAttribute('aria-expanded')).toBe('true')
+    expect(container.querySelector('.bgw-who')?.textContent).toContain('3 เครื่องมือ')
+    expect(container.querySelector('.bgw-work')?.textContent).toContain('lmstudio.ai')
+
+    await fireEvent.click(door)
+    expect(container.querySelector('.bgw-work')).toBeNull()
+  })
+
+  // The portrait asks the same list, so it was sitting there with no laptop for
+  // the whole job — the thing faceState was wired up to stop doing.
+  it('puts the delegate’s hands on the machine', () => {
+    const { container } = render(Chat, { ...baseProps, awaitingReply: false, messages: [turnThatDelegated] } as any)
+
+    expect(container.querySelector('.bgw-card .agent-face.work')).toBeTruthy()
+  })
+
+  // Work in flight is a stream; work that is over is a record.
+  //
+  // The delegate is the longest-running thing in the product and it was drawn
+  // as a bordered receipt the whole time, which is what a finished thing looks
+  // like. While it runs it wears .reasoning-body.live's clothes instead — the
+  // one surface in this app nobody has ever had to ask "is this alive" about.
+  it('wears the thinking panel while it works', () => {
+    const { container } = render(Chat, { ...baseProps, awaitingReply: false, messages: [turnThatDelegated] } as any)
+
+    expect(container.querySelector('.bgw-work.stream')).toBeTruthy()
+  })
+
+  it('takes the receipt box back the moment the work is over', async () => {
+    cockpit.backgroundTasks = [registered({ state: 'done', elapsedMs: 96_000 })]
+    const { container } = render(Chat, { ...baseProps, awaitingReply: false, messages: [turnThatDelegated] } as any)
+    await fireEvent.click(container.querySelector('.bgw-foot .bgw-open') as HTMLElement)
+
+    expect(container.querySelector('.bgw-work')).toBeTruthy()
+    expect(container.querySelector('.bgw-work.stream')).toBeNull()
+  })
+
+  // §163: a brake you cannot reach is not a brake. It spent a while at .42
+  // opacity until the pointer was on the card, which is one hover away from a
+  // control whose whole point is the second somebody wants it.
+  it('keeps the brake on the card visible without a hover', () => {
+    const { container } = render(Chat, { ...baseProps, awaitingReply: false, messages: [turnThatDelegated] } as any)
+
+    const brake = container.querySelector('.bgw-card .bgw-stop-worker')
+    expect(brake).toBeTruthy()
+    expect(brake?.classList.contains('bgw-stop-quiet')).toBe(false)
+  })
+
+  // Stopping is neither finishing nor failing, and ToolStep['state'] has no
+  // word for it — so the card drew a green tick over work the user had just
+  // paid a click to end. Owner: *"พอผมกดหยุดซับเอเจนตอนทำงานมัน นิ่งไปเลย"*.
+  it('says so when the user is the one who ended it', () => {
+    cockpit.backgroundTasks = [registered({ state: 'stopped', elapsedMs: 31_000 })]
+    const { container } = render(Chat, { ...baseProps, awaitingReply: false, messages: [turnThatDelegated] } as any)
+
+    const card = container.querySelector('.bgw-card') as Element
+    expect(card.querySelector('.bgw-mark.ok')).toBeNull()
+    expect(card.querySelector('.bgw-mark.off')).toBeTruthy()
+    expect(card.querySelector('.bgw-who')?.textContent).toContain('คุณสั่งหยุดไว้')
+    // And what it managed before the brake is still readable: a stopped card
+    // that fell back to the job title was the silence being reported.
+    expect(card.querySelector('.bgw-now')?.textContent?.trim()).not.toBe('ตรวจ SKILL.md ให้ตรงกับโค้ด')
   })
 })
 

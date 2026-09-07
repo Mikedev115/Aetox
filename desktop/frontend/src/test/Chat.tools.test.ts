@@ -27,6 +27,7 @@ const baseProps = {
 const step = (label: string, state: 'run' | 'done' | 'err') => ({ label, state, startedAt: 0, secs: 1 })
 
 beforeEach(() => {
+  reducedMotion()
   setLocale('en')
   cockpit.chat = []
   cockpit.todos = []
@@ -41,8 +42,24 @@ beforeEach(() => {
 // turn.ToolEvent carries the outcome as a field. It used to be a formatted
 // string the frontend matched the Thai word "สำเร็จ" against, so translating
 // that word would have marked every call failed.
+// This file asserts what a card SAYS, and the card now writes two of its lines
+// out at the moment of handover — the job and the brief (typeOnce.ts). Asserting
+// text against a running animation is asserting a race, so motion is switched
+// off here and the arrival is pinned where it belongs, in typeOnce.test.ts.
+// jsdom ships no matchMedia at all, which typeOnce reads as "motion is welcome".
+function reducedMotion()
+    {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }),
+  })
+}
+
 describe('tool events from the engine', () => {
-  beforeEach(() => { cockpit.toolSteps = [] })
+  beforeEach(() => {
+  reducedMotion()
+    cockpit.toolSteps = [] })
 
   it('reads success, the failure reason, and line counts off the event', () => {
     applyToolEvent({ action: 'call', name: 'write', subject: 'internal/skill/edit.go' })
@@ -186,7 +203,9 @@ describe('tool events from the engine', () => {
   // so without a second home those rows land in the NEXT turn's timeline and
   // are drawn as work the user's new question caused.
   describe('a delegate still working after its turn ended', () => {
-    beforeEach(() => { cockpit.backgroundSteps = [] })
+    beforeEach(() => {
+  reducedMotion()
+    cockpit.backgroundSteps = [] })
 
     it('keeps its steps out of the next turn and in the background list', () => {
       // Turn 1: the delegation opens and its first step lands in the timeline.
@@ -771,7 +790,9 @@ describe('tool timeline collapsing', () => {
 // that arrangement is that exactly one of them is ever showing. `glide-on` is
 // the switch, so it is what these check.
 describe('the block on the live tool row', () => {
-  beforeEach(() => { cockpit.toolSteps = [] })
+  beforeEach(() => {
+  reducedMotion()
+    cockpit.toolSteps = [] })
 
   it('hands the live row to the travelling bar when one call is running', async () => {
     const { container } = render(Chat, {
@@ -880,7 +901,9 @@ describe('approval mode on the composer', () => {
 // apart only by ToolEvent.parent (§44.5). The timeline has to show whose work is
 // whose, and two delegates running the same tool must not share a row.
 describe('sub-agent tool events', () => {
-  beforeEach(() => { cockpit.toolSteps = [] })
+  beforeEach(() => {
+  reducedMotion()
+    cockpit.toolSteps = [] })
 
   it('keeps a delegate’s row separate from an identical call by the main agent', () => {
     // The `task` row first, as the engine sends it: a delegate's parent is the
@@ -952,18 +975,20 @@ describe('sub-agent tool events', () => {
 
     const block = container.querySelector('.bgw-card')
     expect(block).toBeTruthy()
-    // The rows are the default for a delegate that is working — no click. With
-    // them on screen the headline names the JOB rather than repeating the newest
-    // row three lines above itself, which is what the separate job line under it
-    // used to be for and why it is dropped here.
-    // Shut by default while it works: the newest row is already the card's
-    // HEADLINE, so an open list would print it twice — and four delegates each
-    // holding their list open is the wall this fold exists to stop.
-    expect(block?.querySelector('.bgw-open')?.getAttribute('aria-expanded')).toBe('false')
-    await fireEvent.click(block?.querySelector('.bgw-open') as HTMLElement)
+    // Open by default while it works. It was shut for one release, because the
+    // headline then belonged to the job whenever the list was open and the two
+    // could not both be the work. They can now, so coming back to a chat whose
+    // delegate is still going shows what it is doing without a click.
+    expect(block?.querySelector('.bgw-open')?.getAttribute('aria-expanded')).toBe('true')
     expect(block?.querySelector('.bgw-agent')?.textContent).toContain('explore')
-    expect(block?.textContent).toContain('find every caller')
-    expect(block?.querySelector('.bgw-brief')).toBeNull()
+    // The head holds the live row whether the list is open or shut, so the JOB
+    // moves down into the rail rather than being dropped. It used to be the
+    // other way round — the head gave the line back to the job the moment the
+    // list opened, which is the one moment the reader had asked what it was
+    // doing. Both facts are on the card either way; which one is the headline
+    // is the whole of the change.
+    expect(block?.querySelector('.bgw-now')?.textContent).toContain('read hay.txt')
+    expect(block?.querySelector('.bgw-brief')?.textContent).toContain('find every caller')
     expect(block?.querySelector('.bgw-longbrief')?.textContent).toContain('callers of Resolve')
     // The delegate's tools live inside the block, not in the agent's own list.
     expect(block?.querySelectorAll('.bgw-work .tool-step').length).toBe(2)
@@ -993,7 +1018,6 @@ describe('sub-agent tool events', () => {
 
     const blocks = container.querySelectorAll('.bgw-card')
     expect(blocks.length).toBe(2)
-    for (const b of blocks) await fireEvent.click(b.querySelector('.bgw-open') as HTMLElement)
     expect(blocks[0].querySelector('.bgw-agent')?.textContent).toContain('explore')
     expect(blocks[1].querySelector('.bgw-agent')?.textContent).toContain('general')
     expect(blocks[0].querySelectorAll('.bgw-work .tool-step').length).toBe(2)
@@ -1032,8 +1056,12 @@ describe('sub-agent tool events', () => {
     const blocks = container.querySelectorAll('.bgw-card')
     expect(blocks.length).toBe(1)
     expect(blocks[0].querySelector('.bgw-agent')?.textContent).toContain('explore')
-    // It is the agent's own work, and shows as the one row it is.
-    const own = container.querySelectorAll('.tool-steps > .tool-step')
+    // It is the agent's own work, and shows as the one row it is. The
+    // delegate's rows have to be excluded by hand now: its list is open while
+    // it works, and a worker's turn is drawn with the same blocks the
+    // transcript uses, so it carries a .tool-steps of its own.
+    const own = [...container.querySelectorAll('.tool-steps > .tool-step')]
+      .filter((r) => !r.closest('.bgw-work'))
     expect(own.length).toBe(1)
     expect(own[0].textContent).toContain('Delegate')
   })
@@ -1396,18 +1424,20 @@ describe('sub-agent tool events', () => {
       { label: 'read hay.txt', parent: 't1', state, startedAt: Date.now() },
     ]
 
-    // Folded while it works too, now that the card has a headline that moves:
-    // the newest row is the top line of the card, so holding the whole list
-    // open under it printed that row twice and put four concurrent delegations
-    // back into the wall this fold was added to stop.
-    it('is folded while the delegate works, with the live row as the headline', () => {
+    // OPEN while it works, and the headline is still the live row. Those two
+    // were in conflict for exactly one release — the head gave its line back to
+    // the job whenever the list was open, so opening it automatically killed
+    // the headline — and they are not any more. Both say the work: the head
+    // says WHICH row, and the ladder in the list puts that same row at the
+    // floor at body size, so they read as one thing (toolFocus.ts).
+    it('is open while the delegate works, with the live row as the headline', () => {
       const { container } = render(Chat, {
         ...baseProps, awaitingReply: true,
         toolSteps: delegation('run') as any,
         messages: [{ role: 'agent', text: 'done', time: '10:54' }] as any,
       })
       expect(container.querySelector('.bgw-now')?.textContent?.trim()).toBe('read hay.txt')
-      expect(container.querySelectorAll('.bgw-work .tool-step').length).toBe(0)
+      expect(container.querySelectorAll('.bgw-work .tool-step').length).toBe(2)
     })
 
     it('is folded once it has finished, and says how many are behind it', async () => {

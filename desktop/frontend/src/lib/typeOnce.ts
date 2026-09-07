@@ -19,7 +19,15 @@
  * brief snaps whole. The animation may never be the reason the screen is behind
  * the work.
  */
-export type TypeOnce = { text: string; on: boolean }
+export type TypeOnce = {
+  text: string
+  on: boolean
+  /** When to start, if not straight after the person lands. The card is three
+   *  beats now, not two — somebody is hired, told what the JOB is, and then
+   *  handed the brief — and the third cannot start until the second has
+   *  finished. Defaults to HANDOVER_LEAD_MS, which is the second beat. */
+  lead?: number
+}
 
 // 18ms a character is a shade quicker than the eye reads, which is the point:
 // this is meant to be watched finishing, not read as it goes — the text is
@@ -29,6 +37,14 @@ export type TypeOnce = { text: string; on: boolean }
 const MS_PER_CHAR = 18
 const MIN_MS = 400
 const MAX_MS = 2200
+
+/** How long this will take over a given string.
+ *
+ *  Exported because the beat after it has to start when this one ends, and a
+ *  second copy of the arithmetic is how two beats stop being one movement —
+ *  the same reason HANDOVER_LEAD_MS is exported for .bgw-told's own slide. */
+export const typeMs = (text: string) =>
+  Math.min(Math.max(text.length * MS_PER_CHAR, MIN_MS), MAX_MS)
 
 /** The beat between the person arriving and the work they were given.
  *
@@ -71,7 +87,7 @@ export function typeOnce(node: HTMLElement, param: TypeOnce) {
   }
 
   const run = () => {
-    const total = Math.min(Math.max(text.length * MS_PER_CHAR, MIN_MS), MAX_MS)
+    const total = typeMs(text)
     const start = performance.now()
     const step = (now: number) => {
       const t = Math.min((now - start) / total, 1)
@@ -89,7 +105,7 @@ export function typeOnce(node: HTMLElement, param: TypeOnce) {
     timer = setTimeout(() => {
       timer = 0
       run()
-    }, HANDOVER_LEAD_MS)
+    }, param.lead ?? HANDOVER_LEAD_MS)
   } else whole()
 
   return {

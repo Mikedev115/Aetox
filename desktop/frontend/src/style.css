@@ -2309,18 +2309,32 @@ button.phase-head:hover { color:var(--text-muted); }
 }
 .bgw-stop:hover { color:var(--status-danger); border-color:var(--status-danger); }
 /* Quieter until the pointer is on the card, and deliberately NOT to zero.
-   §163 is titled "a brake you cannot reach is not a brake", and a control that
-   only exists while hovered is one nobody finds in the second they want it —
-   the second being the point of this button. So it fades rather than hides,
-   and it holds its place in the row either way: a button that appears on hover
-   also moves the clock beside it, which is a card flinching every time the
-   pointer crosses it. */
+   Kept for the tray's own rows, where a panel of eight workers each wearing a
+   red pill is a wall of alarm over work that is going fine. */
 .bgw-stop-quiet { opacity:.42; }
 .bgw-card:hover .bgw-stop-quiet,
 .bgw-stop-quiet:focus-visible { opacity:1; }
-/* Inside a run the label comes off: the group header already says "stop", and
-   eight worker rows each repeating the word is the card shouting again. */
-.bgw-stop-worker { padding:2px 6px; margin-left:6px; }
+/* THE BRAKE ON THE DELEGATION CARD, AND IT IS RED BEFORE YOU TOUCH IT.
+   Inside a run the label comes off — the group header already says "stop", and
+   eight worker rows each repeating the word is the card shouting.
+   The colour is the part that changed. It went in dim and half-faded, on the
+   argument that it sits beside work that is going fine far more often than
+   beside work anybody wants to end; that lost to the case §163 is titled after
+   (owner, 7 ก.ย.: "ตรงนี้เอาสีแดงชัดๆด้วย เล็กไป"). It can afford to be the
+   loud thing now: §105.6 took the pill off the state, the ring off the card and
+   the count out of the headline, so this is the only colour on the top row and
+   the only control that ends somebody's work. 13px in a 26px pill is a target
+   the pointer hits without aiming, which the 10px one was not. */
+.bgw-stop-worker {
+  padding:4px 9px; margin-left:8px; opacity:1;
+  color:var(--status-danger);
+  border-color:color-mix(in srgb, var(--status-danger) 42%, transparent);
+  background:color-mix(in srgb, var(--status-danger) 10%, transparent);
+}
+.bgw-stop-worker:hover {
+  color:var(--status-danger); border-color:var(--status-danger);
+  background:color-mix(in srgb, var(--status-danger) 20%, transparent);
+}
 /* A receipt for work somebody ended. Dimmer than a finished one because it is
    the only card here nobody is going to read back — nothing collects it, so it
    is the end of that delegate's story rather than a step in it. */
@@ -2371,15 +2385,20 @@ button.phase-head:hover { color:var(--text-muted); }
    deeply nested file is a card that makes the transcript jump under the
    reader's eye. The whole of it is the title. */
 .bgw-now {
+  position:relative; height:1.45em;
   font-size:var(--fs-sm); color:var(--text-primary); line-height:1.45;
+}
+/* And it crossfades, which is the whole of the motion.
+   Stacked rather than in flow: two lines exist at once for a quarter of a
+   second while one leaves and the next arrives (Chat.svelte tickLine), and in
+   flow that would be the card growing a second line and shrinking again on
+   every step. Absolute, so the head's height is the head's height forever.
+   The clipping lives here rather than on .bgw-now because the thing being
+   clipped is the line, and there are two of them. */
+.bgw-now-in {
+  position:absolute; inset:0;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-/* And it arrives from below, which is the whole of the motion. The span is
-   rebuilt by {#key} whenever the text changes, so the animation runs once per
-   step and the card reads as a line advancing rather than as text being
-   swapped. inline-block because a transform does nothing to an inline box. */
-.bgw-now-in { display:inline-block; animation:bgw-tick .22s ease-out; }
-@keyframes bgw-tick { from { transform:translateY(7px); opacity:0; } to { transform:none; opacity:1; } }
 .bgw-who {
   display:flex; align-items:center; gap:5px; margin-top:2px;
   color:var(--text-dim); font-size:var(--fs-xs); font-variant-numeric:tabular-nums;
@@ -2452,6 +2471,146 @@ button.phase-head:hover { color:var(--text-muted); }
   -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 1.6em, #000 calc(100% - 0.9em), transparent 100%);
   mask-image:linear-gradient(to bottom, transparent 0, #000 1.6em, #000 calc(100% - 0.9em), transparent 100%);
 }
+
+/* ── WORK IN FLIGHT WEARS THE THINKING PANEL ────────────────────────────────
+   .reasoning-body.live is the vocabulary this app already has for a thing in
+   motion the reader is meant to watch: a 2px rail, a short window, masked at
+   both ends, and text arriving paced rather than in the lumps the wire sent.
+   It is the one surface here nobody has ever had to ask "is this alive" about.
+
+   A delegate is the longest-running thing in the product and it was wearing the
+   opposite clothes — a bordered receipt box, filled by rows that pop — which is
+   why a card fourteen tools into a job still read as still (owner, 7 ก.ย.:
+   *"ตอนทำงานผมอยากให้มันเหมือนบล็อคความคิดอ่ะ"*).
+
+   So the box comes off while the work runs and the rail goes on, and the box
+   comes back the moment it stops — then it IS a receipt, and a receipt wants
+   edges. Nothing here is a new element; it is the same rows under different
+   clothes, which is why the switch costs no layout the reader can see. */
+.bgw-work.stream { padding:0 14px 0 16px; border-left:2px solid var(--border-strong); }
+.bgw-work.stream .tool-box {
+  border:0; border-radius:0; background:none;
+}
+.bgw-work.stream .tool-box .tool-step { padding-left:0; padding-right:0; }
+/* THE SEAMS STAY. The box's border and ground come off, but the hairline
+   between one row and the next does not — it is what makes a column of rows
+   read as a list of things that happened rather than as loose lines under a
+   paragraph, which is the finding .tool-box was added for in the first place
+   (owner, 7 ก.ย., of the boxed version: "เนี้ย ดีกว่าแบบโล่งๆอีก", and of the
+   rail: "มันควรจะแบ่งเป็นชั้นๆแบบนี้ด้วยนะ หมายถึงเส้นๆอ่ะ"). The seam and the
+   frame were doing two different jobs and only the frame was in the way. */
+/* One window, not two. The card's is the cap (.bgw-work.live-window); a box
+   inside it carrying a cap of its own is a scroll area inside a scroll area,
+   and the ladder cannot recede past an edge that is already clipping it. */
+.bgw-work.stream .tool-box.live-window {
+  max-height:none; overflow:visible;
+  -webkit-mask-image:none; mask-image:none;
+}
+/* THE FOCUS ROW BREAKS OUT OF THE COLUMN.
+   Setting it a step up in size was half an answer and read as half an answer:
+   *"มันควรเป็นบล้อคยื่นขึ้นมา ไม่ใช่ยกแค่ตัวหนังสือแบบนี้"*. Five treatments were
+   put side by side running the same stream and this is the one that was picked
+   — the row the delegate is on is WIDER than every row above it, standing on a
+   raised ground with a shadow under it, while its text stays on the same left
+   edge as the rest.
+
+   That last part is what makes it read as one row lifting out of a column
+   rather than as a second kind of row: the negative margin and the padding
+   cancel, so nothing moves sideways — only the ground under it grows.
+
+   Keyed on the focus and not on .run, and that is load-bearing. A delegate
+   between two calls has no running row at all, so a block following .run would
+   blink out in every gap — the flinch toolGlide was written to stop. The floor
+   of the list is always somewhere.
+
+   The shadow is softer than it was drawn in the mock because the card's own
+   window clips it: .bgw-work.live-window scrolls, and a scroller clips at its
+   padding box. The 14/16px of padding is the room it has to spread into. */
+.bgw-work.stream .tool-glide { display:none; }
+.bgw-work.stream .tool-step.run::after { display:none; }
+.bgw-work.stream .tool-step.d0 {
+  margin:7px -10px 7px -12px; padding:11px 10px 11px 12px;
+  border-radius:var(--r-md); background:var(--surface-raised);
+  box-shadow:0 2px 4px rgba(0,0,0,.30), 0 14px 28px -14px rgba(0,0,0,.6);
+}
+/* A hairline drawn across something standing off the page says the two are
+   still in the same plane, which is the opposite of what the block is for. */
+.bgw-work.stream .tool-step.d0,
+.bgw-work.stream .tool-step.d0 + .tool-step { border-top-color:transparent; }
+
+/* A SEARCH'S RESULT LIST IS A PAGE, and a page inside a stream is the thing
+   that buried the live row in the first place — eight results is the longest
+   single thing one row can put on screen, and four searches in a job is four of
+   those stacked inside a 230px window (owner, 7 ก.ย.: *"คิดเผื่อตอนมันค้นเว็บ
+   แล้วมันแสดงตัวเลือกยาวเหยียดด้วยนะ"*).
+
+   So while the delegate works the list is not drawn, and nothing is lost by it:
+   the row carries its own readout — "(8 ผล)", off ToolEvent.Count through
+   gotUnitKey — the results are still on the step, and they unfold with the
+   receipt the moment the work is over. What a reader watches in a stream is
+   WHERE the worker is, not what the third result of its second search said.
+
+   The receipt does not pile them up either: a finished delegation folds its
+   stretches back to "ใช้ N เครื่องมือ" (phaseBlock's `unfolded` is true only
+   while it runs) and the card shuts a beat after that, so a job with four
+   searches in it ends as one line rather than as four screens of links. */
+.bgw-work.stream .search-card { display:none; }
+
+/* ── THE FOCUS LADDER (lib/toolFocus.ts stamps d0..d3) ──────────────────────
+   The row at the floor is the one happening; the ones above it recede. In a
+   vertical list this shape is a wheel picker, and the principle under it is
+   focus + context.
+
+   NOTHING IS SCALED. A transform-scaled row resamples its own text at
+   fractional sizes on the way and the eye reads that as blur rather than as
+   movement — the finding .bgw-card.bgw-in records above, and fold.ts records
+   again for unroll. So the sizes are one discrete step, landed on, which keeps
+   every glyph crisp in every frame; what travels between them is opacity and
+   colour, neither of which costs a layout. */
+.bgw-work.stream .tool-step,
+.bgw-work.stream .tool-note {
+  transition:opacity var(--focus-move) var(--ease-arrive),
+             padding var(--focus-move) var(--ease-arrive),
+             margin var(--focus-move) var(--ease-arrive),
+             background var(--focus-move) var(--ease-arrive),
+             box-shadow var(--focus-move) var(--ease-arrive),
+             border-color var(--focus-move) var(--ease-arrive);
+}
+.bgw-work.stream .tool-step .verb,
+.bgw-work.stream .tool-step .subj,
+.bgw-work.stream .tool-note {
+  transition:font-size var(--focus-move) var(--ease-arrive),
+             color var(--focus-move) var(--ease-arrive);
+}
+.bgw-work.stream .tool-step .tile {
+  transition:width var(--focus-move) var(--ease-arrive),
+             height var(--focus-move) var(--ease-arrive);
+}
+.bgw-work.stream .tool-step { padding-top:5px; padding-bottom:5px; }
+/* In focus: the row is read, so it is set at reading size. The tile is left
+   alone — the block is what says which row this is, and a mark that grows as
+   well is the card saying it twice. */
+.bgw-work.stream .tool-step.d0 { opacity:1; }
+.bgw-work.stream .tool-step.d0 .verb,
+.bgw-work.stream .tool-step.d0 .subj { font-size:var(--fs-md); }
+.bgw-work.stream .tool-step.d0 .subj { color:var(--text-primary); }
+/* The delegate thinking out loud is the same thing the reasoning panel holds,
+   so in focus it is set the way that panel sets it. */
+.bgw-work.stream .tool-note.d0 { opacity:1; font-size:var(--fs-sm); color:var(--text-secondary); }
+/* Receding. Four steps only — past the third the window's own mask has taken
+   over and a fifth would be a distinction nobody can see. */
+.bgw-work.stream .tool-step.d1, .bgw-work.stream .tool-note.d1 { opacity:.62; }
+.bgw-work.stream .tool-step.d2, .bgw-work.stream .tool-note.d2 { opacity:.4; }
+.bgw-work.stream .tool-step.d3, .bgw-work.stream .tool-note.d3 { opacity:.26; }
+/* Motion off, meaning kept: the ladder still says which row is which, it just
+   stops travelling between them. */
+@media (prefers-reduced-motion: reduce) {
+  .bgw-work.stream .tool-step,
+  .bgw-work.stream .tool-note,
+  .bgw-work.stream .tool-step .verb,
+  .bgw-work.stream .tool-step .subj,
+  .bgw-work.stream .tool-step .tile { transition:none; }
+}
 /* The delegate's list wears the same box as the agent's own, one indent in —
    and the same window while it is still being written to. This was the only
    list in the app with no cap on it, which is exactly backwards: a delegate is
@@ -2460,9 +2619,8 @@ button.phase-head:hover { color:var(--text-muted); }
 /* Motion off, meaning kept: the line still changes, it just stops sliding.
    Sits beside the beam's own reduced-motion rule for the same reason — what is
    being removed is the travel, never the fact. */
-@media (prefers-reduced-motion: reduce) {
-  .bgw-now-in { animation:none; }
-}
+/* Motion off is handled in the transition itself (motionStill), so nothing is
+   needed here any more — the line still changes, it just stops travelling. */
 /* A declared job (internal/subagent/run.go) drawn as one card with its workers
    under it. Everything here is the existing card's vocabulary at one more level
    of indent — a run is not a new kind of object on screen, it is the same rows
