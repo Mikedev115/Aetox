@@ -127,6 +127,28 @@ var catalog = []Descriptor{
 		Models:  []string{"flux", "turbo"},
 		Default: true,
 	},
+	// The three below need no new credential from the user: each reads the key
+	// already entered for that same provider on ตั้งค่า > โมเดล
+	// (config.ProviderAPIKey), which is the whole reason they are worth having
+	// as separate rows rather than as one "bring your own endpoint" row.
+	{
+		ID:      "openai",
+		Label:   "OpenAI (คลาวด์, ใช้ API key เดิม)",
+		Install: "ใช้ API key ของ OpenAI ที่ใส่ไว้แล้วที่ ตั้งค่า > โมเดล > OpenAI — เปลี่ยน Base URL ของ OpenAI ได้เพื่อชี้ไปเซิร์ฟเวอร์อื่นที่พูด API เดียวกัน คำสั่งวาดจะถูกส่งไปสร้างภาพปลายทาง",
+		Models:  []string{"gpt-image-1", "dall-e-3"},
+	},
+	{
+		ID:      "xai",
+		Label:   "xAI Grok (คลาวด์, ใช้ API key เดิม)",
+		Install: "ใช้ API key ของ xAI ที่ใส่ไว้แล้วที่ ตั้งค่า > โมเดล > xAI — เจ้านี้กำหนดขนาดภาพไม่ได้ ขอมาก็จะถูกละไว้ และคำสั่งวาดจะถูกส่งไปสร้างภาพบนคลาวด์ของ xAI",
+		Models:  []string{"grok-2-image"},
+	},
+	{
+		ID:      "gemini",
+		Label:   "Gemini (คลาวด์, ใช้ API key เดิม)",
+		Install: "ใช้ API key ของ Gemini ที่ใส่ไว้แล้วที่ ตั้งค่า > โมเดล > Gemini — เจ้านี้ไม่มีช่องขนาดภาพ ขนาดที่ขอจะถูกฝากไปกับคำบรรยายแทน และคำสั่งวาดจะถูกส่งไปสร้างภาพบนคลาวด์ของ Google",
+		Models:  []string{"gemini-2.5-flash-image", "gemini-3-pro-image"},
+	},
 }
 
 // Catalog returns every known vendor — default first, then alphabetical — for
@@ -173,6 +195,12 @@ func newEngine(desc Descriptor, opts Options) (Engine, error) {
 	switch desc.ID {
 	case "pollinations":
 		return newPollinations(desc, opts)
+	// Two rows, one runtime: these disagree about their models and their sizes
+	// and about nothing else (openai_api.go).
+	case "openai", "xai":
+		return newAPIImages(desc, opts)
+	case "gemini":
+		return newGeminiImages(desc, opts)
 	default:
 		return nil, fmt.Errorf("engine %q อยู่ในรายการแต่ยังไม่มีตัวรัน", desc.ID)
 	}

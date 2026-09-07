@@ -170,3 +170,42 @@ func TestWithExtReplacesRatherThanAppends(t *testing.T) {
 		}
 	}
 }
+
+func TestTheBytesOverruleTheEnginesOwnDeclaration(t *testing.T) {
+	// The case Ext() cannot cover: a row that declares PNG handed a JPEG,
+	// which is exactly what the dall-e path does when it fetches whatever sits
+	// at the URL it was given. The name must follow the bytes, not the claim.
+	jpg := []byte("\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00")
+	eng := &fakeDrawEngine{ext: ".png", body: jpg}
+	s, root := drawSkill(t, eng)
+
+	out, err := s.ExecuteTool(context.Background(), map[string]any{"prompt": "x", "path": "hero.png"})
+	if err != nil {
+		t.Fatalf("ExecuteTool: %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(root, "hero.jpg")); statErr != nil {
+		t.Fatalf("the name did not follow the bytes: %v", statErr)
+	}
+	if _, statErr := os.Stat(filepath.Join(root, "hero.png")); statErr == nil {
+		t.Error("the engine's wrong claim was left on disk as a second file")
+	}
+	if content := out.Content; !strings.Contains(content, "hero.jpg") {
+		t.Errorf("the receipt names the wrong file: %q", content)
+	}
+}
+
+func TestAnHonestEngineIsNotRenamedForNothing(t *testing.T) {
+	// The other half of the rule: when the declaration and the bytes agree and
+	// the caller asked for that extension, nothing is renamed and the receipt
+	// says nothing about it.
+	eng := &fakeDrawEngine{ext: ".png", body: oneTinyPNG(t)}
+	s, _ := drawSkill(t, eng)
+
+	out, err := s.ExecuteTool(context.Background(), map[string]any{"prompt": "x", "path": "a.png"})
+	if err != nil {
+		t.Fatalf("ExecuteTool: %v", err)
+	}
+	if strings.Contains(out.Content, "นามสกุล") {
+		t.Errorf("a rename was reported when none happened: %q", out.Content)
+	}
+}

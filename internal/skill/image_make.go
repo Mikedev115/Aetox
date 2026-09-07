@@ -144,9 +144,12 @@ func (s *imageMakeSkill) draw(ctx context.Context, prompt, requestPath string, r
 	// The name is settled before anything is written, so the file that appears
 	// and the file named in the receipt cannot differ. See the file comment for
 	// why the extension is corrected rather than warned about.
+	// A first guess at the name, from the engine's own declaration, so the file
+	// is created under something plausible. The bytes correct it after the
+	// write — see below.
 	original := requestPath
 	requestPath = withExt(requestPath, engine.Ext())
-	renamed := requestPath != original
+	renamed := false
 
 	// The same placement rule write, sheet_write and media_fetch follow
 	// (write.go): a relative path in an unfocused session lands in the
@@ -166,7 +169,6 @@ func (s *imageMakeSkill) draw(ctx context.Context, prompt, requestPath string, r
 	if err := engine.Generate(ctx, prompt, req, targetPath); err != nil {
 		return fail(err)
 	}
-	s.files.Note(targetPath)
 
 	// Judged by its own first bytes, never by what the engine promised — the
 	// rule media_fetch is built on, and the reason it is worth repeating here
@@ -184,13 +186,31 @@ func (s *imageMakeSkill) draw(ctx context.Context, prompt, requestPath string, r
 		return fail(fmt.Errorf("%s เขียนไฟล์ออกมาแล้วแต่ไม่ใช่รูป — ลบทิ้งแล้ว ไม่ได้บันทึกอะไรไว้", engine.ID()))
 	}
 
+	// And now the bytes get the last word on the NAME too. Ext() was only ever
+	// a hint, and with four vendors behind this it is four separate guesses —
+	// the dall-e path hands back whatever sits at a URL, and a row declaring
+	// PNG can perfectly well be given a JPEG. Correcting it here means no
+	// engine can produce a file whose extension lies, however wrong its own
+	// declaration was.
+	if want := extFor(kind); want != "" && !strings.EqualFold(pathExt(targetPath), want) {
+		corrected := strings.TrimSuffix(targetPath, pathExt(targetPath)) + want
+		if renameErr := os.Rename(targetPath, corrected); renameErr != nil {
+			return fail(renameErr)
+		}
+		targetPath = corrected
+		placed = withExt(placed, want)
+	}
+	// Noted after the rename, so the record names the file that exists.
+	s.files.Note(targetPath)
+	renamed = !strings.EqualFold(pathExt(original), pathExt(placed))
+
 	report := fmt.Sprintf("วาดแล้ว %s (%s, %s", placed, kind, humanBytes(len(body)))
 	if w, h, ok := imageDims(kind, body); ok {
 		report += fmt.Sprintf(", %dx%d px", w, h)
 	}
 	report += ")"
 	if renamed {
-		report += fmt.Sprintf("\nนามสกุลถูกเปลี่ยนจาก %s เป็น %s ให้ตรงกับสิ่งที่เอนจินสร้างจริง", pathExt(original), engine.Ext())
+		report += fmt.Sprintf("\nนามสกุลถูกเปลี่ยนจาก %s เป็น %s ให้ตรงกับไบต์ที่ได้มาจริง", pathExt(original), pathExt(placed))
 	}
 	if placed != requestPath {
 		report += onDiskNote(s.root, targetPath)
@@ -202,6 +222,23 @@ func (s *imageMakeSkill) draw(ctx context.Context, prompt, requestPath string, r
 // isPictureKind keeps this tool to still images. sniffMediaKind also answers
 // for sound, and a picture tool that accepted an MP3 because the sniffer
 // recognised it would be a check that never says no.
+// extFor is the extension that matches what sniffMediaKind saw. Empty for
+// anything that is not a still picture — isPictureKind has already refused
+// those, so an empty answer means "leave the name alone".
+func extFor(kind string) string {
+	switch kind {
+	case "png":
+		return ".png"
+	case "jpg":
+		return ".jpg"
+	case "gif":
+		return ".gif"
+	case "webp":
+		return ".webp"
+	}
+	return ""
+}
+
 func isPictureKind(kind string) bool {
 	switch kind {
 	case "png", "jpg", "gif", "webp":
