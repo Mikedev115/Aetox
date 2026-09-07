@@ -163,6 +163,14 @@ type TurnOptions struct {
 	// more RespondWithTools parameter so the Agent interface, and every fake
 	// implementing it, stays untouched.
 	OnRound func(RoundEvent)
+	// OnAsked, if set, hears each message the user typed into the running turn,
+	// at the moment the loop folds it into the context — which is the moment it
+	// happened, as far as the turn is concerned.
+	//
+	// Separate from OnRound rather than a flag on it, because it is not a round:
+	// a round is the model answering and this is the user speaking, they can
+	// arrive in either order, and one round can be followed by three of these.
+	OnAsked func(text string)
 	// OnContent, if set, receives the model's answer text as it is generated,
 	// for a live preview only. It is NOT the delivery channel: the reply still
 	// arrives exactly once, through onChunk, when the turn ends.
@@ -360,7 +368,7 @@ type ToolLink struct {
 // and anything the UI wanted to show beyond the name had nowhere to travel.
 // New per-call facts belong here as fields, not as more text to re-parse.
 type ToolEvent struct {
-	Action string `json:"action"` // "call" | "result" | "note" | "thinking" | "said"
+	Action string `json:"action"` // "call" | "result" | "note" | "thinking" | "said" | "asked"
 	Name   string `json:"name"`
 	// Ref is the provider's tool-call id, and it is what the UI keys a timeline
 	// row on. The label used to serve as identity, which forced the streaming
@@ -389,6 +397,10 @@ type ToolEvent struct {
 	// and answered the same way in all of them. Empty for a tool that is not
 	// packed, and for arguments that will not parse.
 	Act string `json:"act,omitempty"`
+	// Time is the clock an "asked" event was typed at, "15:04". Empty on every
+	// other action: a tool row's place in the sequence is what says when it ran,
+	// and only the user's own message is drawn as a bubble that carries one.
+	Time string `json:"time,omitempty"`
 	// Tab is the browser tab this call is working, and it is the one field here
 	// the executor does not fill in: `turn` has never heard of a browser and
 	// should not start now. The host stamps it on the way past
@@ -1204,6 +1216,20 @@ func (e *Executor) executeAgentToolLoop(
 		}
 		if e.onToolAction != nil {
 			e.onToolAction(ToolEvent{Action: "note", Text: text})
+		}
+	}
+	// Set beside OnRound and for the same reason it is: the sequence is the
+	// turn's own record, and the user's half of a conversation held during the
+	// turn belongs in it whether or not anybody is drawing a live timeline.
+	opts.OnAsked = func(text string) {
+		text = strings.TrimSpace(text)
+		if text == "" {
+			return
+		}
+		at := time.Now().Format("15:04")
+		parts.addAsked(text, at)
+		if e.onToolAction != nil {
+			e.onToolAction(ToolEvent{Action: "asked", Text: text, Time: at})
 		}
 	}
 

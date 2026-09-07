@@ -37,12 +37,32 @@ const (
 	PartThinking PartKind = "thinking"
 	// PartTool is one completed tool call.
 	PartTool PartKind = "tool"
+	// PartAsked is something the USER said while this turn was still running —
+	// the one part of a turn the model did not write.
+	//
+	// It is here because the sequence is the only thing that knows where it
+	// belongs. An interjection lands between two rounds, and every other record
+	// of the turn loses that: the context keeps it as one more RoleUser message
+	// with no position relative to the assistant's own parts, and the transcript
+	// kept nothing at all — Interject writes no row, so a question typed under a
+	// running turn survived exactly as long as the window did.
+	//
+	// The window used to move the bubble instead. A CSS `order` pushed it below
+	// the live block, which is right for one interjection and wrong for the
+	// second: everything the model says during a turn is inside that one block,
+	// so the answer to the first question was drawn above the question, and the
+	// user's own messages piled at the bottom in a heap (owner, 7 ก.ย.: *"มัน
+	// กองแบบนี้หมด ทั้งที่ความเป็นจริง พิมพ์ไว้ตรงไหนควรจะอยู่ตรงนั้น"*). Nothing
+	// can be re-ordered into the right place from outside the sequence. So it
+	// goes in the sequence.
+	PartAsked PartKind = "asked"
 )
 
 // TurnPart is one piece of an assistant turn, in the order it happened.
 type TurnPart struct {
 	Kind PartKind `json:"kind"`
-	// Text carries a PartText's prose. Empty for the other kinds.
+	// Text carries a PartText's prose, or a PartAsked's message. Empty for the
+	// other kinds.
 	Text string `json:"text,omitempty"`
 	// Demoted marks a PartText the model wrote as its whole answer, which an
 	// interjection then re-placed (cognitive.Agent keeps the turn alive rather
@@ -54,6 +74,13 @@ type TurnPart struct {
 	Demoted bool `json:"demoted,omitempty"`
 	// Secs is how long a PartThinking segment streamed.
 	Secs int `json:"secs,omitempty"`
+	// Time is the clock a PartAsked was typed at, in the same "15:04" the
+	// transcript's own user rows are stamped with (desktop/sessions.go
+	// openTurn). It rides on the part because the part is the only record of
+	// this message there is: a reopened turn that drew the question without a
+	// time under it would be the one bubble in the conversation that could not
+	// say when it was said.
+	Time string `json:"time,omitempty"`
 	// Tool describes a PartTool. Nil for the other kinds.
 	Tool *ToolPart `json:"tool,omitempty"`
 }
@@ -183,6 +210,21 @@ func (p *partList) addAnswer(text string) {
 		return
 	}
 	p.parts = append(p.parts, TurnPart{Kind: PartText, Text: text, Demoted: true})
+}
+
+// addAsked appends what the user typed into the running turn, at the point the
+// loop folded it in.
+//
+// Never merged, in either direction, and the two reasons are different. Into the
+// prose above it: that was the model talking and this is not — a merge would put
+// the user's words inside the assistant's paragraph. Into another asked below
+// it: two messages typed a minute apart are two messages, and the timestamps the
+// window draws under them would have nothing left to sit under.
+func (p *partList) addAsked(text, at string) {
+	if p == nil || text == "" {
+		return
+	}
+	p.parts = append(p.parts, TurnPart{Kind: PartAsked, Text: text, Time: at})
 }
 
 func (p *partList) addThinking(secs int) {

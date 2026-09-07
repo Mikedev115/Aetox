@@ -1537,6 +1537,29 @@ button.phase-head:hover { color:var(--text-muted); }
    12px of muted plain text inside a collapsed panel, which is where §59's
    narration and the mid-turn charts both went to die. */
 .phase-say { font-size:var(--fs-lg); color:var(--text-primary); }
+/* The user's own message, inside the turn it was typed into.
+   It wears .asked-bubble rather than reusing .bubble, and that is not tidiness:
+   this sits inside .msg.bot > .bubble, where `.msg.bot .bubble { padding:0 }`
+   is three classes deep and beats anything a two-class rule here could say. A
+   nested bubble would come out flat against its own border.
+   Everything else is deliberately identical to .msg.user's — the same raised
+   fill, the same border, the same clipped top-right corner, the same timestamp
+   underneath. Where a message was said should change nothing about how it
+   looks; the reader has already learned what their own words look like. */
+.phase-asked {
+  align-self:flex-end; display:flex; flex-direction:column; align-items:flex-end;
+  max-width:min(80%, 620px);
+}
+.phase-asked > .asked-bubble {
+  background:var(--surface-raised); border:1px solid var(--border-default);
+  border-radius:var(--r-lg); border-top-right-radius:4px; padding:11px 14px;
+  min-width:0; overflow-wrap:break-word; word-break:break-word;
+}
+.phase-asked .time { margin-top:8px; }
+/* More air above a change of speaker than a change of paragraph gets. Without
+   it the bubble reads as the tail of the stretch above rather than the start of
+   the one it opens. */
+.phase:has(> .phase-asked) { padding-top:16px; }
 /* The timeline inside a phase already has the header above it for air. */
 .phase .tool-steps { margin-bottom:0; }
 
@@ -6934,11 +6957,6 @@ button.ctrl, label.ctrl { display:inline-flex; align-items:center; justify-conte
    unbounded and it stays the user's only way out. */
 .composer .send.stop.secondary { width:30px; height:30px; margin-right:6px; opacity:.75; }
 .composer .send.stop.secondary:hover { opacity:1; }
-
-/* A message sent into a running turn, drawn after the live block instead of
-   above it. .chat-inner is a flex column, so one `order` says it — no second
-   render path, and the array it comes from stays in the order it happened. */
-.chat-inner > .msg.during-turn { order: 1; }
 
 /* Connections — one card per external account. The placement row is chips
    rather than the MCP page's checkbox column because a card carries three or

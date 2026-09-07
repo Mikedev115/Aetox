@@ -1,4 +1,4 @@
-import type { ToolStep } from './types'
+import type { ChatMessage, ToolStep } from './types'
 
 /**
  * A turn, cut back into the stretches of work it was actually made of.
@@ -19,6 +19,16 @@ export interface TurnPhase {
   /** The model's own words that opened this stretch. Empty on a phase that
    *  began with a tool call and no sentence in front of it. */
   say: string
+  /** What the USER said to open this stretch — a message typed while the turn
+   *  was running. Kept apart from `say` rather than folded into it because the
+   *  two are different people: `say` is drawn as the assistant's prose, this is
+   *  drawn as their own bubble. Empty on every phase the user did not
+   *  interrupt, which is nearly all of them. */
+  asked?: string
+  /** The clock `asked` was typed at, as the engine stamped it. */
+  askedTime?: string
+  /** What the message came with. Live turns only — see ToolStep.attached. */
+  askedAttached?: Pick<ChatMessage, 'images' | 'files' | 'contexts'>
   /** Seconds the model thought before saying it. Summed over the thinking rows
    *  that arrived since the previous phase, which is exactly the stretch this
    *  phase covers: a `thinking` row is emitted at the end of the round whose
@@ -63,8 +73,13 @@ export function phasesOf(steps: ToolStep[], streamingSay = ''): TurnPhase[] {
   let pendingThink = 0
   let open: TurnPhase | null = null
 
-  const start = (say: string, streaming: boolean): TurnPhase => {
+  const start = (say: string, streaming: boolean, asked?: ToolStep): TurnPhase => {
     const phase: TurnPhase = { say, thinkSecs: pendingThink, steps: [], streaming }
+    if (asked) {
+      phase.asked = asked.label
+      phase.askedTime = asked.time
+      phase.askedAttached = asked.attached
+    }
     pendingThink = 0
     phases.push(phase)
     return phase
@@ -87,7 +102,27 @@ export function phasesOf(steps: ToolStep[], streamingSay = ''): TurnPhase[] {
     // always was. It keeps its markdown either way, which is the whole
     // complaint the Demoted flag was added to answer.
     if (step.kind === 'note' || step.kind === 'said') {
+      // A phase the user opened is still waiting for its sentence: the model
+      // answers the interruption in the very next round, and that answer is
+      // this phase's prose rather than a new stretch. Only ever true for the
+      // phase directly after the message — anything else starts its own.
+      if (open && open.asked && !open.say && open.steps.length === 0) {
+        open.say = step.label
+        // The thinking happened between the message and the answer, so it
+        // belongs to this phase — `start` took the tally at the moment the
+        // message landed, when there was nothing in it yet.
+        open.thinkSecs += pendingThink
+        pendingThink = 0
+        continue
+      }
       open = start(step.label, false)
+      continue
+    }
+    // The user cutting in ends whatever stretch was open, whether or not the
+    // model had said anything in it. It is the strongest boundary a turn has:
+    // everything after it happened because of it.
+    if (step.kind === 'asked') {
+      open = start('', false, step)
       continue
     }
     if (!open) open = start('', false)

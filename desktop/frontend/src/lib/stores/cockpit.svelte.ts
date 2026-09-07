@@ -424,10 +424,23 @@ function restoreAttachments(m: main.SessionMessage): ChatMessage {
     proposals: proposalsFromParts(m.parts as TurnPart[] | undefined),
   }
   if (out.role === 'agent') return out
+  return Object.assign(out, foldOutAttachments(out.text))
+}
+
+/** A sent question, split back into the prose the bubble shows and the cards
+ *  under it.
+ *
+ * Its own function because two paths need it and only one of them is a reload.
+ * The other is a straggler: a message the engine could not fold into the turn
+ * it was typed under comes back here as the text it was SENT as — markers and
+ * all — and drawing that raw would put "[attachment: user-attached image — read
+ * it with image_ocr] .aetox-attachments/x.png" in a chat bubble. */
+function foldOutAttachments(text: string): Partial<ChatMessage> {
+  const out: Partial<ChatMessage> = {}
   // What is folded out is also kept: editing a restored question has to be able
   // to re-send the exact lines the model was given the first time.
   let suffix = ''
-  out.text = out.text
+  out.text = text
     .replace(ATTACH_CTX_RE, (all, label: string, content: string) => {
       // Rebuilt from the stored block rather than persisted separately, so a
       // reopened question shows the same cards it showed when it was asked.
@@ -507,6 +520,15 @@ function stepsFromParts(parts?: TurnPart[]): ToolStep[] | undefined {
   if (!parts?.length) return undefined
   const steps: ToolStep[] = []
   parts.forEach((part) => {
+    // The user's own words, back out of the sequence at the point they were
+    // typed. This is what a reopened session gains that it never had: an
+    // interjection was written down nowhere before this part existed, so the
+    // transcript came back holding an answer to a question it could not show.
+    if (part.kind === 'asked') {
+      if (!part.text) return
+      steps.push({ kind: 'asked', label: part.text, time: part.time, state: 'done', startedAt: 0 })
+      return
+    }
     if (part.kind === 'text') {
       if (!part.text) return
       // Every sentence the model wrote, the closing one included. Holding the
@@ -839,7 +861,6 @@ export async function applyAgentDone(status: { sessionId: string }): Promise<voi
   reattachedTurn = false
   cockpit.awaitingReply = false
   cockpit.turnSession = ''
-  for (const m of cockpit.chat) m.duringTurn = undefined
   cockpit.agentStatus = ''
   cockpit.toolSteps = []
   cockpit.turnFiles = []
@@ -991,7 +1012,16 @@ function restoreLive(id: string): boolean {
  *  order instead of racing itself. */
 function drainStraggler(): Promise<void> {
   const next = queuedMessages.shift()
-  return next !== undefined ? sendUserMessage(next, true) : Promise.resolve()
+  if (next === undefined) return Promise.resolve()
+  // The bubble is drawn here rather than left to sendUserMessage, and the flag
+  // still says `alreadyShown` when it goes out. The message WAS shown — as a row
+  // inside the turn that then handed it back, which applyMissedInterjections has
+  // just taken away again — so something has to draw it, and it cannot be the
+  // ordinary path: `next` is the text the engine returned, attachment markers
+  // and all, and sendUserMessage would put those raw lines in the bubble.
+  // Folded back out the same way a reopened session folds a stored question.
+  cockpit.chat.push({ role: 'user', text: next, time: nowLabel(), ...foldOutAttachments(next) })
+  return sendUserMessage(next, true)
 }
 
 /** Everything the chat arriving on screen starts from when it is NOT working. */
@@ -1252,8 +1282,15 @@ export function clearQueuedMessages(): void {
 
 /**
  * The engine handed back a message it could not fold into the turn that was
- * ending. Its bubble is already on screen (it was shown the moment it was typed),
- * so it goes out as its own turn with `alreadyShown` set.
+ * ending. It goes out as its own turn instead.
+ *
+ * Which means taking its row back out of the turn that did not take it. The
+ * window drew the message the moment it was typed, optimistically, into the
+ * running turn's sequence (sendUserMessage) — and that turn is about to be
+ * written down. Left there it would be a question the turn never saw, stored
+ * inside the answer to the question before it, and then asked again a second
+ * later as its own turn: the same sentence on screen twice, once in the wrong
+ * conversation.
  */
 export function applyMissedInterjections(ev: SessionEvent<string[]> | string[]): void {
   const texts = forLiveTurn(ev)
@@ -1262,12 +1299,19 @@ export function applyMissedInterjections(ev: SessionEvent<string[]> | string[]):
   // chat's queue, a parked chat keeps its own (ParkedTurn.queued) and drains it
   // when it comes back on screen. One global queue was how a message missed in
   // chat A went out as chat B's next turn.
-  const home = liveHome(eventSession(ev))
-  const dest = !home || home === (cockpit as unknown as ParkedTurn)
-    ? queuedMessages
-    : (home.queued ??= [])
+  const id = eventSession(ev)
+  const home = liveHome(id)
+  const onScreen = !home || home === (cockpit as unknown as ParkedTurn)
+  const dest = onScreen ? queuedMessages : (home.queued ??= [])
   for (const text of texts) {
-    if (text.trim()) dest.push(text)
+    const trimmed = text.trim()
+    if (!trimmed) continue
+    dest.push(text)
+    // Same list the optimistic row went into, whichever chat that turn is in.
+    writeLive(id, (live) => {
+      const at = live.toolSteps.findIndex((s) => s.kind === 'asked' && s.label === trimmed)
+      if (at >= 0) live.toolSteps.splice(at, 1)
+    })
   }
 }
 
@@ -1595,19 +1639,43 @@ export async function sendUserMessage(text: string, alreadyShown = false, to = '
   }
   const sentText = (trimmed + attachSuffix).trim()
   if (!alreadyShown) {
-    cockpit.chat.push({
-      role: 'user', text: trimmed, time: nowLabel(),
-      // Sent into a turn that is already running: it belongs *after* what has
-      // streamed so far, not above it. Pushed into the same list either way —
-      // the order in the array is already chronological — and the flag only
-      // tells the transcript to draw it below the live block until that block
-      // is gone (Chat.svelte).
-      duringTurn: cockpit.awaitingReply || undefined,
-      images: images.length ? images.map((i) => ({ dataUrl: i.dataUrl, relPath: i.relPath })) : undefined,
-      contexts: contexts.length ? contexts.map((c) => ({ label: c.label, preview: attachmentPreview(c.content) })) : undefined,
-      files: files.length ? files.map((f) => ({ label: f.label, kind: f.kind })) : undefined,
-      attachSuffix: attachSuffix || undefined,
-    })
+    // Sent into a turn that is already running: it is a piece of THAT turn, and
+    // it goes into the turn's own sequence rather than beside it.
+    //
+    // A bubble of its own was the old answer, moved below the live block by a
+    // CSS `order`. That works for exactly one interjection. Everything the
+    // model says during a turn is inside that one block, so the answer to the
+    // first question was drawn above the question, and a second and third
+    // message piled underneath in a heap (owner, 7 ก.ย.: *"มันกองแบบนี้หมด
+    // ทั้งที่ความเป็นจริง พิมพ์ไว้ตรงไหนควรจะอยู่ตรงนั้น"*). Nothing outside the
+    // sequence can be ordered into the right place inside it.
+    //
+    // Drawn now rather than when the engine confirms it, because the engine
+    // folds it in on its next loop round and that can be twenty seconds away —
+    // a message that vanishes for twenty seconds has been lost, as far as the
+    // person who typed it is concerned. The confirming `asked` event matches
+    // this row instead of adding a second (applyToolEvent).
+    if (cockpit.awaitingReply) {
+      cockpit.toolSteps.push({
+        kind: 'asked', label: trimmed, time: nowLabel(), state: 'done', startedAt: Date.now(),
+        // Live only. The stored part carries prose, which is all an interjection
+        // has ever kept — its attachments were persisted nowhere before this row
+        // existed either, so nothing is lost here that was not lost already.
+        attached: {
+          images: images.length ? images.map((i) => ({ dataUrl: i.dataUrl, relPath: i.relPath })) : undefined,
+          contexts: contexts.length ? contexts.map((c) => ({ label: c.label, preview: attachmentPreview(c.content) })) : undefined,
+          files: files.length ? files.map((f) => ({ label: f.label, kind: f.kind })) : undefined,
+        },
+      })
+    } else {
+      cockpit.chat.push({
+        role: 'user', text: trimmed, time: nowLabel(),
+        images: images.length ? images.map((i) => ({ dataUrl: i.dataUrl, relPath: i.relPath })) : undefined,
+        contexts: contexts.length ? contexts.map((c) => ({ label: c.label, preview: attachmentPreview(c.content) })) : undefined,
+        files: files.length ? files.map((f) => ({ label: f.label, kind: f.kind })) : undefined,
+        attachSuffix: attachSuffix || undefined,
+      })
+    }
   }
   cockpit.pendingImages = []
   cockpit.pendingContexts = []
@@ -1663,6 +1731,19 @@ async function runLiveTurn(call: (turn: LiveTurnRef) => Promise<void>): Promise<
   // path that produces an answer comes through this function, so one reset
   // covers a send, a retry, a regenerate and an edited resend alike.
   cockpit.turnSpend = emptyTurnSpend()
+  // Cleared in the same breath as the flag above, and that is a fix rather than
+  // tidying. These five used to sit below the session lookup, which awaits when
+  // the window has not been told its session yet — a cold start's first turn.
+  // For that one await `awaitingReply` was true and last turn's rows were still
+  // standing, and anything typed into the gap went into a list about to be
+  // thrown away: the composer's own interjection row (sendUserMessage) landed
+  // there and was wiped a tick later, so the message vanished off the screen
+  // while the engine went on answering it.
+  cockpit.agentStatus = ''
+  cockpit.toolSteps = []
+  cockpit.streamingText = ''
+  cockpit.reasoningText = ''
+  cockpit.modelLoading = null
   // Whose turn this is: the chat on screen, because that is the only chat a
   // turn can be started from. Read from the window's own answer rather than
   // asked of the engine — it is synchronous, so there is no frame in which a
@@ -1710,11 +1791,6 @@ async function runLiveTurn(call: (turn: LiveTurnRef) => Promise<void>): Promise<
   // wrong (the first message of a brand-new chat).
   const turn: LiveTurnRef = { id: cockpit.turnSession }
   runningTurns.push(turn)
-  cockpit.agentStatus = ''
-  cockpit.toolSteps = []
-  cockpit.streamingText = ''
-  cockpit.reasoningText = ''
-  cockpit.modelLoading = null
   // The question card belongs to the turn that raised it: it is drawn inside
   // the live block (Chat.svelte's `{#if awaitingReply}`), so a stale one is
   // invisible while the chat is idle and then reappears the instant the next
@@ -1781,10 +1857,6 @@ async function runLiveTurn(call: (turn: LiveTurnRef) => Promise<void>): Promise<
     // for exactly one turn, and this is the end of that turn.
     writeLive(ran, (l) => {
       l.awaitingReply = false
-      // The live block is gone, so anything that was drawn below it takes its
-      // ordinary place in the transcript. The array order never changed — it
-      // was chronological all along — only where those bubbles were painted.
-      for (const m of l.chat) m.duringTurn = undefined
       l.agentStatus = ''
       l.toolSteps = []
       l.turnFiles = []
@@ -2786,6 +2858,17 @@ export function applyToolEvent(stamped: SessionEvent<ToolEvent> | ToolEvent): vo
         kind: 'said', label: text, parent: ev.parent || undefined,
         state: 'done', startedAt: Date.now(),
       })
+    }
+    return
+  }
+  // The engine has folded the message into the turn. The window already drew it
+  // the moment it was typed (sendUserMessage below), so this confirms a row
+  // rather than adding one — the optimistic copy is the same message and two of
+  // them would be the user saying it twice.
+  if (ev.action === 'asked') {
+    const text = ev.text?.trim()
+    if (text && !steps.some((s) => s.kind === 'asked' && s.label === text)) {
+      steps.push({ kind: 'asked', label: text, time: ev.time, state: 'done', startedAt: Date.now() })
     }
     return
   }

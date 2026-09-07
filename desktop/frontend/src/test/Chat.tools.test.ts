@@ -1508,3 +1508,54 @@ describe('sub-agent tool events', () => {
     expect(blocks[0].querySelector('.bgw-agent')?.textContent).toContain('explore')
   })
 })
+
+// What the user typed while the turn was running. It rides in the step list
+// because the step list is what keeps the order, and it must be drawn as their
+// own bubble and counted as nothing — a turn the user spoke into twice would
+// otherwise report two tools it never called.
+describe('a message typed into a running turn', () => {
+  const seq = [
+    { kind: 'note', label: 'reading the loop first', state: 'done', startedAt: 0 },
+    step('read', 'done'),
+    { kind: 'asked', label: 'I meant the program', time: '19:03', state: 'done', startedAt: 0 },
+    { kind: 'note', label: 'ah, understood', state: 'done', startedAt: 0 },
+  ]
+
+  it('is drawn as the user bubble that opens its phase, with its clock', async () => {
+    const { container } = render(Chat, {
+      ...baseProps,
+      messages: [{
+        role: 'agent', text: 'ok', time: '10:54',
+        parts: [{ kind: 'text', text: 'ok' }],
+        steps: seq,
+      }] as any,
+    })
+    const phases = [...container.querySelectorAll('.phase')]
+    expect(phases).toHaveLength(2)
+    // Not a row in the timeline, and not prose in the answer: a bubble.
+    expect(phases[0].querySelector('.phase-asked')).toBeNull()
+    expect(phases[1].querySelector('.asked-bubble')?.textContent?.trim()).toBe('I meant the program')
+    expect(phases[1].querySelector('.phase-asked .msg-time')?.textContent).toBe('19:03')
+    // And the answer to it is that same phase's prose, not a third stretch.
+    expect(phases[1].querySelector('.phase-say')?.textContent).toContain('ah, understood')
+  })
+
+  it('is not counted as a tool', async () => {
+    const { container } = render(Chat, {
+      ...baseProps,
+      messages: [{
+        role: 'agent', text: 'ok', time: '10:54',
+        parts: [{ kind: 'text', text: 'ok' }],
+        steps: seq,
+      }] as any,
+    })
+    const phases = [...container.querySelectorAll('.phase')]
+    // One tool ran, in the first stretch. The second ran nothing at all, so it
+    // has no work line — an 'asked' counted there would have given it one.
+    expect(phases[0].querySelector('.phase-head')?.textContent).toContain('1')
+    expect(phases[1].querySelector('.phase-head')).toBeNull()
+    // Never a timeline row either, however the panel is opened.
+    expect([...container.querySelectorAll('.tool-step')]
+      .some((r) => r.textContent?.includes('I meant the program'))).toBe(false)
+  })
+})

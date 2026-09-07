@@ -15,6 +15,7 @@ beforeEach(() => {
   localStorage.clear()
   vi.clearAllMocks()
   cockpit.chat.length = 0
+  cockpit.toolSteps.length = 0
   queuedMessages.length = 0
   cockpit.awaitingReply = false
 })
@@ -33,8 +34,14 @@ describe('messages typed during a turn', () => {
     expect(queuedMessages).toEqual([])
     // Still one conversation — a second SendMessage would race the live turn.
     expect(SendMessage).toHaveBeenCalledTimes(1)
-    // And the user sees their message the moment they send it, not after the turn.
-    expect(cockpit.chat.filter((m) => m.role === 'user').map((m) => m.text)).toEqual(['one', 'two'])
+    // And the user sees their message the moment they send it, not after the
+    // turn — but INSIDE that turn, where they typed it. A bubble of its own in
+    // the transcript was the old answer, and it could only ever be drawn above
+    // the live block or below it: above, and the model looks like it has not
+    // answered; below, and the answer to the first interruption sits above the
+    // question while the second and third pile at the bottom.
+    expect(cockpit.chat.filter((m) => m.role === 'user').map((m) => m.text)).toEqual(['one'])
+    expect(cockpit.toolSteps.filter((s) => s.kind === 'asked').map((s) => s.label)).toEqual(['two'])
 
     finishTurn({ text: 'reply to one' })
     await inFlight
@@ -99,8 +106,13 @@ describe('an interjected message carries its attachment', () => {
     expect(handed).toContain('audio_transcribe')
     // Not left behind to ride along with whatever is typed next.
     expect(cockpit.pendingFiles).toEqual([])
-    // The bubble keeps the label, since the model only ever got the path.
-    expect(cockpit.chat.at(-1)).toMatchObject({ role: 'user', files: [{ label: 'standup.m4a', kind: 'audio' }] })
+    // The row keeps the label, since the model only ever got the path — the
+    // same card the transcript bubble draws, on the row that replaced it.
+    expect(cockpit.toolSteps.at(-1)).toMatchObject({
+      kind: 'asked',
+      label: 'ถอดเสียงอันนี้ด้วย',
+      attached: { files: [{ label: 'standup.m4a', kind: 'audio' }] },
+    })
 
     finishTurn({ text: 'done' })
     await inFlight

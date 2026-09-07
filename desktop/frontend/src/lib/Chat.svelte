@@ -171,11 +171,13 @@
   // step whose `task` row is missing — belongs to the sub-agent view, so no row
   // can fall through the gap and be counted as the agent's own work.
   const isOwn = (n: TimelineNode) => !n.step.parent && !isDelegation(n)
-  // 'said' rows are excluded here rather than skipped at each draw site: they
-  // are not steps. An answer an interjection re-placed rides in this list only
-  // because the list is what keeps the order — it is drawn as prose in the
-  // bubble, and inside the timeline it would be a paragraph pretending to be a
-  // row, in the panel the user opens to see which tools ran.
+  // 'said' and 'asked' rows are excluded here rather than skipped at each draw
+  // site: they are not steps. An answer an interjection re-placed, and the
+  // interjection itself, ride in this list only because the list is what keeps
+  // the order — they are drawn as prose and as a bubble by the phase they open,
+  // and inside the timeline they would be paragraphs pretending to be rows, in
+  // the panel the user opens to see which tools ran. Counted there, a turn the
+  // user spoke into twice would report two tools it never called.
   // The agent sitting and waiting on somebody else. It is a real call and it is
   // not work: what it does is redeem a delegation that has its own card, its own
   // face and its own clock two rows below.
@@ -190,7 +192,7 @@
   const spentWaiting = (s: ToolStep) => isCollect(s) && s.state !== 'run'
   const ownSteps = (steps: ToolStep[]) =>
     groupSteps(steps).filter(isOwn).map((n) => n.step)
-      .filter((s) => s.kind !== 'said' && !spentWaiting(s))
+      .filter((s) => s.kind !== 'said' && s.kind !== 'asked' && !spentWaiting(s))
   // The answers this turn wrote and then wrote past, in the order they were
   // said. A delegate's are its own to draw, so only the agent's own count.
   const saidSteps = (steps: ToolStep[]) => steps.filter((s) => s.kind === 'said' && !s.parent)
@@ -3289,6 +3291,12 @@
     <!-- The model's own words for what it is doing, in the position of the
          work it announces (§59). Plain text, not a status row. -->
     <div class="tool-note">{s.label}</div>
+  {:else if s.kind === 'asked'}
+    <!-- The user's own rows are drawn by the phase they open and never reach
+         here (ownSteps drops them). A delegate's would — sub-agents take no
+         interjections today, so this is the branch that keeps a message from
+         arriving as a tool row with a tick beside it if one ever does. -->
+    <div class="tool-note">{s.label}</div>
   {:else if s.kind === 'said'}
     <!-- The agent's own 'said' rows are drawn in the bubble and never reach
          here (ownSteps drops them). A delegate's would — sub-agents take no
@@ -3676,6 +3684,45 @@
   {@const foldable = !working && doneOwn.length > 0}
   {@const open = openRows[key] ?? false}
   <div class="phase">
+    <!-- The user, cutting in. Above everything else in the phase because it is
+         what started the phase: they typed, the model thought, and then it
+         answered. Drawn as the same bubble their questions wear everywhere else
+         — this is not a timeline row about a message, it IS the message, and it
+         has no business looking like tooling because of where it happens to
+         live (owner, 7 ก.ย.: *"พิมพ์ไว้ตรงไหนควรจะอยู่ตรงนั้นตามตำแหน่งปกติ"*). -->
+    {#if ph.asked}
+      <div class="phase-asked">
+        <div class="asked-bubble">
+          <!-- The same three blocks the transcript bubble draws, in the same
+               order. A picture, a clip and a dragged-in tab can all ride on a
+               message typed mid-turn, and they did before this row existed. -->
+          {#each ph.askedAttached?.images ?? [] as img}
+            {#if img.dataUrl}<img src={img.dataUrl} alt="" class="msg-image" />{/if}
+          {/each}
+          {#each ph.askedAttached?.files ?? [] as file}
+            <div class="attach-card">
+              <div class="attach-head">
+                <span class="ic"><Icon name={fileIcon(file.kind)} size={13} /></span>
+                <span class="attach-name">{file.label}</span>
+              </div>
+            </div>
+          {/each}
+          {#each ph.askedAttached?.contexts ?? [] as ctx}
+            <div class="attach-card">
+              <div class="attach-head">
+                <span class="ic"><Icon name="paperclip" size={13} /></span>
+                <span class="attach-name">{ctx.label}</span>
+              </div>
+              {#if ctx.preview}<pre class="attach-body">{ctx.preview}</pre>{/if}
+            </div>
+          {/each}
+          {ph.asked}
+        </div>
+        {#if ph.askedTime}
+          <div class="time"><span class="msg-time">{ph.askedTime}</span></div>
+        {/if}
+      </div>
+    {/if}
     <!-- Above the sentence, because it happened before the sentence. It is a
          line and not a control: what it could open is the reasoning text, and
          that is one blob for the whole turn which no phase can hold a share
@@ -4181,12 +4228,15 @@
         </div>
       {/if}
       {#each messages as m, i}
-        <!-- A message sent into a running turn belongs below what has already
-             streamed, not above it: it was said at that point, and drawn at the
-             top it reads as something the assistant has not answered yet. The
-             column is a flex box, so ordering is the whole fix — the array
-             stays chronological and the index stays the index. -->
-        <div class="msg {m.role === 'user' ? 'user' : 'bot'}" class:during-turn={m.duringTurn}>
+        <!-- Every bubble here is a turn's own question or its answer, and it is
+             drawn where the array puts it. A message typed INTO a running turn
+             is not one of these: it is a piece of that turn and it is drawn
+             inside it, at the point it was typed (phaseBlock's .phase-asked).
+             This row used to carry a `during-turn` class that pushed it below
+             the live block with `order:1` — which is right for one interruption
+             and wrong for the second, because everything the model says during
+             a turn is inside that one block. -->
+        <div class="msg {m.role === 'user' ? 'user' : 'bot'}">
           <div class="bubble">
             {#if m.role === 'agent' && m.tag}
               <div class="name"><span class="tag think">{m.tag}</span></div>

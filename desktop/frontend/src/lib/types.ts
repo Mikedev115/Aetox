@@ -263,11 +263,6 @@ export interface ChatMessage {
    * Fewer than two means no switcher is drawn. */
   variants?: MessageVariant[]
   activeVariant?: number
-  /** Sent into a turn that was already running (Interject). The transcript
-   *  draws it below the live block instead of above it, because that is where
-   *  it happened — the array order is already right, so the flag is cleared
-   *  the moment the turn ends and the bubble takes its ordinary place. */
-  duringTurn?: boolean
   /** This bubble is a turn that never completed. failedText is exactly what was
    * sent — attachment marker lines and all — so a retry re-sends the same thing
    * rather than a reconstruction of it. */
@@ -301,7 +296,10 @@ export interface ChatMessage {
  * prose. Collapsing that to one string is what put narration in a separate
  * panel and made the tool timeline impossible to store. */
 export interface TurnPart {
-  kind: 'text' | 'thinking' | 'tool'
+  /** 'asked' is the one part of a turn the user wrote: a message typed while
+   * the turn was still running, kept at the point the loop folded it in.
+   * Its prose rides in `text` like a 'text' part's does. */
+  kind: 'text' | 'thinking' | 'tool' | 'asked'
   /** prose, on a 'text' part */
   text?: string
   /** On a 'text' part: the model had finished this as its answer, and an
@@ -310,6 +308,11 @@ export interface TurnPart {
   demoted?: boolean
   /** seconds a 'thinking' segment streamed */
   secs?: number
+  /** On an 'asked' part: the clock it was typed at, "15:04", stamped by the
+   * engine. The part is the only record this message has, so the time has to
+   * ride on it — a reopened turn drawing the question without one would be the
+   * single bubble in the conversation that cannot say when it was said. */
+  time?: string
   tool?: ToolPartInfo
 }
 
@@ -540,7 +543,9 @@ export interface ToolLink {
 
 /** One tool call/result as the engine sends it — mirrors turn.ToolEvent in Go. */
 export interface ToolEvent {
-  action: 'call' | 'result' | 'note' | 'thinking' | 'said'
+  action: 'call' | 'result' | 'note' | 'thinking' | 'said' | 'asked'
+  /** "15:04" on an 'asked' event, empty on the rest. */
+  time?: string
   name: string
   /** The engine's tool-call id — how a row is recognized across updates. The
    * label cannot serve: it is empty of its subject on the early events. */
@@ -636,8 +641,13 @@ export interface ToolStep {
    * "said" is not a row at all: it is an answer the model finished writing and
    * an interjection re-placed. It rides in this list because that is where the
    * order lives, and is drawn as markdown prose in the bubble — never inside
-   * the tool timeline, and never counted as a tool. */
-  kind?: 'note' | 'thinking' | 'said'
+   * the tool timeline, and never counted as a tool.
+   *
+   * "asked" is here for the same reason and is not a step either: it is what
+   * the user typed into the running turn, drawn as their own bubble where they
+   * typed it. Like "said" it must be kept out of every place that counts or
+   * draws tools — it is in this list only because this list is the order. */
+  kind?: 'note' | 'thinking' | 'said' | 'asked'
   /** The row as one string: `name subject`, which is what it was for a year and
    * what every row stored before this change is.
    *
@@ -648,6 +658,20 @@ export interface ToolStep {
    * below are the same facts un-joined; the drawing prefers them and falls back
    * to this, so an old turn keeps its row and a new one gets a better one. */
   label: string
+  /** What an 'asked' row came with, in the shape the bubble already draws:
+   * a message typed into a running turn can carry a picture, a clip or a
+   * dragged-in tab like any other, and its bubble drew all three before this
+   * row replaced the bubble. Live only — TurnPart carries prose, and an
+   * interjection's attachments were persisted nowhere at all before this row
+   * existed either, so a reopened turn loses nothing it used to have. */
+  attached?: Pick<ChatMessage, 'images' | 'files' | 'contexts'>
+  /** The clock an 'asked' row was typed at. Stamped by the engine onto the
+   * part, so a reopened turn draws the same time under the same bubble the
+   * live one did — the rule this file's turnPhases note states as a whole:
+   * a turn drawn one way while it runs and another after a reload is the app
+   * disagreeing with itself. Empty on every other kind: a tool row's place in
+   * the sequence is what says when it ran. */
+  time?: string
   /** The tool the engine named — `browser`, `change`, `read`. Split back out of
    * the label because joining it in threw away the thing the row most needed:
    * which FAMILY of work this is, which is what the icon and the colour say

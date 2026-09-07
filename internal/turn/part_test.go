@@ -30,6 +30,9 @@ type scriptedRound struct {
 	// demoted is a round the model wrote as its whole answer, which an
 	// interjection then kept the turn going past.
 	demoted bool
+	// asked is what the user typed under this round, handed over the way the
+	// tool loop hands its drained interjections over (cognitive.Agent).
+	asked []string
 }
 
 func (a *scriptedAgent) SupportsToolCalling() bool { return true }
@@ -56,6 +59,13 @@ func (a *scriptedAgent) RespondWithTools(
 	for _, r := range a.rounds {
 		if opts.OnRound != nil {
 			opts.OnRound(RoundEvent{Text: r.text, Final: r.final, Demoted: r.demoted})
+		}
+		// After the round, never before it: the model said its piece and THEN
+		// the user typed over it, and the order is the whole point of the part.
+		for _, text := range r.asked {
+			if opts.OnAsked != nil {
+				opts.OnAsked(text)
+			}
 		}
 		if r.final {
 			reply = r.text
@@ -124,6 +134,8 @@ func shape(parts []TurnPart) string {
 			out = append(out, "thinking")
 		case PartTool:
 			out = append(out, "tool("+p.Tool.Name+")")
+		case PartAsked:
+			out = append(out, "asked("+p.Text+")")
 		}
 	}
 	return strings.Join(out, " → ")
@@ -322,5 +334,72 @@ func TestConsecutiveTextMergesIntoOnePart(t *testing.T) {
 
 	if got := shape(list.all()); got != "text(first\n\nsecond) → tool(read) → text(third)" {
 		t.Errorf("sequence = %q", got)
+	}
+}
+
+// What the user says during a turn is part of that turn, in the place they said
+// it. Before PartAsked the sequence had no room for it: the window moved the
+// bubble below the live block with CSS instead, which put the answer to the
+// first interruption above the question and heaped the rest at the bottom
+// (owner, 7 ก.ย.). Nothing outside the sequence can be ordered into it.
+func TestWhatTheUserSaysMidTurnIsInTheSequenceWhereTheySaidIt(t *testing.T) {
+	var events []ToolEvent
+	exec := NewExecutor(ExecutorOptions{
+		Agent: &scriptedAgent{rounds: []scriptedRound{
+			{text: "ครับ ขอไล่ดูก่อน", tools: []string{"grep"}},
+			{text: "## สรุป\n\n- ข้อหนึ่ง", demoted: true, asked: []string{"ผมหมายถึงตัวโปรแกรมครับ"}},
+			{text: "อ๋อ เข้าใจแล้วครับ", final: true},
+		}},
+		Dispatcher:   twoToolDispatcher{},
+		ApprovalMode: "full-access",
+		OnToolAction: func(ev ToolEvent) { events = append(events, ev) },
+	})
+	result, err := exec.Execute(
+		context.Background(), "ช่วยตั้งค่าให้หน่อย",
+		command.Intent{Raw: "ช่วยตั้งค่าให้หน่อย", Kind: command.KindConversation},
+		nil, nil, nil,
+	)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	want := "text(ครับ ขอไล่ดูก่อน) → tool(grep) → answer(## สรุป\n\n- ข้อหนึ่ง) → asked(ผมหมายถึงตัวโปรแกรมครับ) → text(อ๋อ เข้าใจแล้วครับ)"
+	if got := shape(result.Parts); got != want {
+		t.Errorf("sequence =\n  %s\nwant\n  %s", got, want)
+	}
+
+	var asked []ToolEvent
+	for _, ev := range events {
+		if ev.Action == "asked" {
+			asked = append(asked, ev)
+		}
+	}
+	if len(asked) != 1 || asked[0].Text != "ผมหมายถึงตัวโปรแกรมครับ" {
+		t.Fatalf("asked events = %+v; want the message, once", asked)
+	}
+	// Stamped, because the part is the only record this message has: nothing
+	// else writes an interjection down, so a reopened turn draws the bubble from
+	// here or draws it with no time at all.
+	if asked[0].Time == "" {
+		t.Error("asked event carries no clock")
+	}
+	for _, p := range result.Parts {
+		if p.Kind == PartAsked && p.Time == "" {
+			t.Error("asked part carries no clock")
+		}
+	}
+}
+
+// Two messages a minute apart are two messages. Merged they would be one bubble
+// with one timestamp, and the second minute would have vanished.
+func TestTwoInterjectionsStayTwoParts(t *testing.T) {
+	result := runScripted(t,
+		scriptedRound{text: "กำลังทำครับ", tools: []string{"read"}, asked: []string{"ไม่ใช่แบบนั้นน", "คือ iGPU ผมกากนั่นแหละ"}},
+		scriptedRound{text: "เข้าใจแล้วครับ", final: true},
+	)
+
+	want := "text(กำลังทำครับ) → asked(ไม่ใช่แบบนั้นน) → asked(คือ iGPU ผมกากนั่นแหละ) → tool(read) → text(เข้าใจแล้วครับ)"
+	if got := shape(result.Parts); got != want {
+		t.Errorf("sequence =\n  %s\nwant\n  %s", got, want)
 	}
 }

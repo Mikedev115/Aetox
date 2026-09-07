@@ -2859,6 +2859,7 @@ export namespace turn {
 	    text?: string;
 	    demoted?: boolean;
 	    secs?: number;
+	    time?: string;
 	    tool?: ToolPart;
 	
 	    static createFrom(source: any = {}) {
@@ -2871,6 +2872,7 @@ export namespace turn {
 	        this.text = source["text"];
 	        this.demoted = source["demoted"];
 	        this.secs = source["secs"];
+	        this.time = source["time"];
 	        this.tool = this.convertValues(source["tool"], ToolPart);
 	    }
 	
