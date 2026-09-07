@@ -35,6 +35,7 @@
   import { clampPanelWidth, fitPanelsToWindow } from './lib/panelSize'
   import { isShortcut } from './lib/shortcuts'
   import Icon from './lib/Icon.svelte'
+  import { sidle } from './lib/fold'
 
   function fileLabel(path: string): string {
     return path.split('/').pop() ?? path
@@ -469,8 +470,11 @@
     {#if cockpit.openFiles.length > 0 && shellHasChats(shell.name)}
       <div class="tabs">
         <button class="tab" class:active={cockpit.activeView === 'chat'} onclick={() => setActiveView('chat')}>Chat</button>
-        {#each cockpit.openFiles as f}
-          <button class="tab" class:active={cockpit.activeView === f.path} title={fileLabel(f.path)} onclick={() => setActiveView(f.path)}>
+        <!-- Keyed on the path: without it Svelte closes the LAST tab whatever
+             you clicked, which is invisible while tabs appear and vanish in one
+             frame and glaring the moment they take 180ms to leave. -->
+        {#each cockpit.openFiles as f (f.path)}
+          <button class="tab" class:active={cockpit.activeView === f.path} title={fileLabel(f.path)} onclick={() => setActiveView(f.path)} transition:sidle>
             <span class="label">{fileLabel(f.path)}</span>
             <span
               class="tab-close" role="button" tabindex="0" aria-label={`Close ${fileLabel(f.path)}`}

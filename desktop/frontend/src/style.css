@@ -831,15 +831,80 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .app.sidebar-collapsed .main, .app.sidebar-collapsed .topbar { margin-left:6px; }
 .app.inspector-collapsed .main, .app.inspector-collapsed .topbar { margin-right:6px; }
 .tabs { display:flex; align-items:center; gap:2px; padding:0 18px; border-bottom:1px solid var(--border-default); background:var(--surface-sunken); overflow-x:auto; }
+/* A tab is a chip standing ON a darker strip, not a word floating on the same
+   ground as the pane behind it. The owner's report was ของเรามันกลืนไป, set
+   beside a browser whose live tab is a lit shape you can point at: here the
+   underline was carrying the whole job alone, and an underline is invisible
+   until you already know where to look. So the strip goes sunken, the live tab
+   goes raised, and the SHAPE does the pointing before the colour has to.
+
+   A pill that floats inside the strip rather than one wedged into it. The chip
+   filled the row edge to edge on the first pass and the owner sent it back —
+   *"ชิดบนชิดล่างเกินไปไม่ผ่าน"* — with the shape he wanted beside it: a rounded
+   tab with air above and below. Which also settles what marks the live one.
+   The accent underline is gone: an underline belongs to a tab ATTACHED to the
+   pane below it, and this one is not attached to anything — it stands clear on
+   all four sides, so the mark has to go around it. */
 .tab {
-  display:flex; align-items:center; gap:6px; padding:14px 12px 12px; color:var(--text-muted);
-  border-bottom:2px solid transparent; font-size:var(--fs-lg); flex:0 1 200px; min-width:84px; max-width:200px;
+  /* The vertical rhythm is one decision written once: 7px of air, 7px of
+     padding, the line box, and the same back again. Nothing here is a pixel
+     height — the app's text-size setting moves --fs-lg and the pill grows with
+     it, which a fixed 44px row could not do. */
+  display:flex; align-items:center; gap:7px; padding:7px 12px; margin:7px 0; color:var(--text-secondary);
+  border-radius:var(--r-md);
+  /* No width of its own, in either direction. A tab is as wide as its name and
+     no wider (grow 0), and it gives that width back only when the strip has run
+     out (shrink 1, min-width 0) — so one long name is shown in full while there
+     is room for it, and twenty tabs all give way together instead of the last
+     few being pushed off the end of a strip that cannot scroll (.insp-tabs has
+     no overflow-x on purpose — it would clip the + menu). The 200px lane this
+     replaces was the thing cutting names short with half the strip still empty;
+     under real pressure the label ellipsis takes over and the icon is what is
+     left carrying the tab, which is the right thing to be left with. */
+  font-size:var(--fs-lg); flex:0 1 auto; min-width:0;
+  transition:background var(--dur-tint) ease, color var(--dur-tint) ease;
 }
-.tab:hover { color:var(--text-primary); }
-.tab.active { color:var(--text-primary); border-bottom-color:var(--accent); font-weight:600; }
+/* Mixed off the strip's own ground rather than taken from --surface-row-hover:
+   three of the fourteen themes set that token to the very colour this strip
+   now wears (rose-pine-dawn and solarized-light land at 1.00 contrast), and a
+   hover that changes nothing is worse than no hover at all. Mixing toward the
+   text moves away from the ground in either direction — lighter on the dark
+   themes, darker on the light ones — which is all a hover has to do. */
+.tab:hover { color:var(--text-primary); background:color-mix(in srgb, var(--text-primary) 8%, var(--surface-sunken)); }
+/* Fill AND outline, because the fill alone cannot be trusted across themes:
+   raised-over-sunken is 1.45 on nord and 1.09 on rose-pine, and at 1.09 the
+   chip is a rumour. The outline stays NEUTRAL — --border-strong, the token
+   every theme guarantees is visible on its own surfaces. An accent-tinted edge
+   was tried first and read as a focus ring: a coloured outline is what this app
+   puts round the thing the keyboard is on, and spending it here would say the
+   wrong word in the right place. The colour is on the icon instead, where it
+   names the tab rather than ringing it. Inset shadow rather than a real border:
+   a border would add two pixels
+   of width and one of height, and this strip sits on top of a native window
+   that follows its height. */
+.tab.active {
+  color:var(--text-primary); background:var(--surface-raised); font-weight:600;
+  box-shadow:inset 0 0 0 1px var(--border-strong);
+}
+/* The icon is the fastest thing to read in a strip of short names, so it is
+   given its own contrast rather than inheriting the label's. Muted while the
+   tab is asleep, accent while it is the one you are standing in — the same
+   accent as the underline, so the two marks say one thing and not two. */
+.tab .ic { color:var(--text-muted); transition:color var(--dur-tint) ease; }
+.tab:hover .ic { color:var(--text-secondary); }
+.tab.active .ic { color:var(--accent); }
 .tab .label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tab-close { flex:0 0 auto; opacity:.6; }
-.tab-close:hover { opacity:1; }
+/* A round target that lights under its own pointer, so closing a tab is
+   something you aim at rather than a glyph you hope you hit. It is dim, not
+   hidden: a strip where the × appears only on hover makes the user sweep the
+   row to find out what can be closed. */
+.tab-close {
+  flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center;
+  width:17px; height:17px; border-radius:50%; opacity:.5; color:var(--text-muted);
+  transition:opacity var(--dur-tint) ease, background var(--dur-tint) ease, color var(--dur-tint) ease;
+}
+.tab:hover .tab-close, .tab.active .tab-close, .tab-close:focus-visible { opacity:1; }
+.tab-close:hover { background:var(--surface-hover); color:var(--text-primary); opacity:1; }
 /* file editor (dock + main) */
 .file-editor { flex:1; min-height:0; height:100%; display:flex; flex-direction:column; }
 .fe-head { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--border-default); font-family:var(--mono); font-size:var(--fs-md); color:var(--text-code); }
@@ -4155,10 +4220,13 @@ button.phase-head:hover { color:var(--text-muted); }
 /* ---------- inspector ---------- */
 .inspector { grid-area:inspector; background:var(--surface-panel); display:flex; flex-direction:column; overflow:hidden; }
 /* no overflow-x here: it would clip the absolutely-positioned .plus-menu dropdown */
-.insp-tabs { display:flex; align-items:center; gap:2px; padding:0 14px; border-bottom:1px solid var(--border-default); min-width:0; }
-.insp-tabs .tab { padding:14px 10px 12px; font-size:var(--fs-sm); }
+/* Sunken, like .tabs in the main column: the strip has to be a different
+   ground from the pane under it, or the raised chip on the live tab has
+   nothing to stand on and we are back to words floating on the panel. */
+.insp-tabs { display:flex; align-items:center; gap:2px; padding:0 14px; border-bottom:1px solid var(--border-default); background:var(--surface-sunken); min-width:0; }
+.insp-tabs .tab { padding:7px 10px; font-size:var(--fs-sm); }
 .plus-menu-wrap { position:relative; }
-.plus-btn { color:var(--text-dim); font-size:var(--fs-xl); }
+.plus-btn { color:var(--text-secondary); font-size:var(--fs-xl); }
 .plus-menu {
   position:absolute; top:calc(100% + 6px); left:0; z-index:20; min-width:230px;
   border:1px solid var(--border-subtle); border-radius:var(--r-md); background:var(--surface-panel);

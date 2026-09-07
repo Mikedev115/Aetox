@@ -33,6 +33,7 @@
   import { t, type TKey } from '../i18n.svelte'
   import { isShortcut, shortcutLabel } from '../shortcuts'
   import Icon from '../Icon.svelte'
+  import { sidle } from '../fold'
   import type { IconName } from '../icons'
 
   const tabIcon: Record<string, IconName> = { terminal: 'keyboard', browser: 'globe', files: 'copy', file: 'fileText', decks: 'layoutList', cutroom: 'scissors' }
@@ -416,6 +417,7 @@
         class="tab" class:active={workbench.activeId === tab.id} title={tab.name} onclick={() => activateTab(tab.id)}
         draggable={canDrag(tab)}
         ondragstart={(e) => onTabDragStart(e, tab)}
+        transition:sidle
       >
         <span class="ic"><Icon name={tabIcon[tab.kind] ?? 'fileText'} size={13} /></span>
         <span class="label">{tab.name}</span>

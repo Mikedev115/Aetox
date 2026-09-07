@@ -13,6 +13,7 @@
 // already does (style.css).
 import { slide } from 'svelte/transition'
 import { cubicOut, cubicInOut } from 'svelte/easing'
+import { durationMs } from './motion'
 
 // Read per call rather than once at module load: the setting can change while
 // the app is open, and a value captured at startup would need a restart to take
@@ -128,5 +129,50 @@ export function unroll(
     duration: motionStill() ? 0 : duration,
     easing: cubicOut,
     css: (t: number) => `overflow:hidden; height:${t * height}px; margin-bottom:${(t - 1) * gap}px;`,
+  }
+}
+
+/** A tab opening out of nothing, and leaving the same way. `transition:sidle`.
+ *
+ * The horizontal case of the same problem `fold` was written for: CSS cannot
+ * animate a removal, and a tab strip is where that shows worst. Open a page and
+ * a chip appears mid-row in one frame; close one and every tab to its right
+ * jumps left by its width. Owner, 7 ก.ย.: *"อนิเมชั่น แบบเพิ่มและลบ อ่ะควรจะมีนะ
+ * แบบไม่ใช่โดดพึบพับ"*.
+ *
+ * Width, not opacity — a chip that fades in at full size still shoves its
+ * neighbours aside in one frame, which is the jump itself and not a softening
+ * of it. Growing the width is what makes the room and the tab one movement, and
+ * it is why closing needs nothing else to tidy up after it: the neighbours
+ * close the space themselves as the width goes, so no per-item `animate:flip`
+ * is layered on top.
+ *
+ * The padding scales with the width for a reason that only appears at the end:
+ * with `box-sizing:border-box` the padding is a floor the width cannot go
+ * under, so a tab told to be 0px wide stands at 24px and then vanishes — the
+ * flick put back in the last frame. `margin-right` cancels the strip's own gap
+ * on the same clock, the way `unroll` cancels the composer's: a flex parent
+ * holds the full gap for as long as the child exists, so without it the row
+ * still lands the last 2px as a jump.
+ *
+ * The length is `--dur-glide`, the token whose whole definition is "a length
+ * changing: a panel widening, a bar filling". That is this, exactly, and the
+ * number belongs in the stylesheet with the rest of the app's motion. */
+export function sidle(node: Element, { gap = 2 }: { gap?: number } = {}) {
+  const el = node as HTMLElement
+  // Read while the element is at full size: for an outro this is the one frame
+  // its real width can still be measured, and for an intro it is the width flex
+  // has just given it — the target to grow toward.
+  const cs = getComputedStyle(el)
+  const width = el.offsetWidth
+  const padLeft = parseFloat(cs.paddingLeft) || 0
+  const padRight = parseFloat(cs.paddingRight) || 0
+  return {
+    duration: motionStill() ? 0 : durationMs('--dur-glide', 180),
+    easing: cubicOut,
+    css: (t: number) =>
+      `overflow:hidden; width:${t * width}px;` +
+      `padding-left:${t * padLeft}px; padding-right:${t * padRight}px;` +
+      `margin-right:${(t - 1) * gap}px; opacity:${t};`,
   }
 }

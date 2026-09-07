@@ -6,7 +6,7 @@
 // ignored it would be the one animation in the app that keeps moving after the
 // user asked everything to stop.
 import { describe, it, expect, afterEach } from 'vitest'
-import { fold, settle, SETTLE_MS } from '../lib/fold'
+import { fold, settle, sidle, SETTLE_MS } from '../lib/fold'
 
 const el = () => document.createElement('div')
 const withMotionSetting = (reduce: boolean) => {
@@ -115,5 +115,57 @@ describe('the settling fold', () => {
   it('collapses to no time at all when motion is unwelcome', () => {
     withMotionSetting(true)
     expect(settle(tall()).duration).toBe(0)
+  })
+})
+
+// The horizontal one, for the strip where an un-animated removal is worst: a
+// tab leaving takes its width with it, and every tab to its right jumps.
+describe('the sidling tab transition', () => {
+  const chip = (width = 140, pad = 12) => {
+    const node = el()
+    Object.defineProperty(node, 'offsetWidth', { value: width, configurable: true })
+    node.style.paddingLeft = `${pad}px`
+    node.style.paddingRight = `${pad}px`
+    return node
+  }
+
+  it('grows and shrinks by its own width, and fades with it', () => {
+    withMotionSetting(false)
+    const css = sidle(chip()).css!
+    expect(css(1)).toContain('width:140px')
+    expect(css(1)).toContain('opacity:1')
+    expect(css(0)).toContain('width:0px')
+    expect(css(0)).toContain('opacity:0')
+  })
+
+  // The floor that puts the flick back in the last frame: with border-box the
+  // padding is a width the element cannot go under, so a tab told to be 0px
+  // wide stands at 24px and then vanishes. The padding has to leave with it.
+  it('takes its padding down with the width, so nothing is left standing', () => {
+    withMotionSetting(false)
+    const css = sidle(chip(140, 12)).css!
+    expect(css(1)).toContain('padding-left:12px')
+    expect(css(1)).toContain('padding-right:12px')
+    expect(css(0)).toContain('padding-left:0px')
+    expect(css(0)).toContain('padding-right:0px')
+  })
+
+  // Same reason settle unwinds its own: a flex parent holds the whole gap for
+  // as long as the child exists, so the last 2px would land as a jump.
+  it('unwinds the strip gap along with the width', () => {
+    withMotionSetting(false)
+    const css = sidle(chip(), { gap: 2 }).css!
+    expect(css(1)).toContain('margin-right:0px')
+    expect(css(0)).toContain('margin-right:-2px')
+  })
+
+  // No stylesheet in jsdom, so this is the fallback rather than the token — but
+  // the point of the check is that a length is asked for by name at all, and
+  // that the guard covers this transition too.
+  it('runs at the app’s length for a length changing, and stops when asked', () => {
+    withMotionSetting(false)
+    expect(sidle(chip()).duration).toBe(180)
+    withMotionSetting(true)
+    expect(sidle(chip()).duration).toBe(0)
   })
 })
