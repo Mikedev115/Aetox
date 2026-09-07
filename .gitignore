@@ -86,3 +86,10 @@ Thumbs.db
 
 # .msix ที่รอคุณอัป Partner Center ด้วยมือ - ไฟล์ Store ไม่ใช่ซอร์ส
 store-upload/
+
+# VS Code local workspace settings
+.vscode/
+
+# Local worktrees or test checkouts
+/aetox-head2/
+
