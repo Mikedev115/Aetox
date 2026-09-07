@@ -286,12 +286,29 @@
   const handingOver = (node: TimelineNode, live: boolean, state: ToolStep['state']) =>
     live && state === 'run' && cardKids(node).length === 0
 
+  // Held between calls, because eight things on one card ask this and all eight
+  // asked it again on every clock tick. Keyed on the two lengths that can change
+  // what the answer IS — how many rows the tray holds, and how many are nested
+  // under this row — so a hit costs two reads instead of a scan of the tray, a
+  // Set, and two array copies.
+  //
+  // A row changing STATE is deliberately not a miss: the objects in the cached
+  // array are the same objects, so a run going done shows through it, and
+  // everything downstream (currentStep, tally, toolCount) reads those fields
+  // itself and stays reactive on them.
+  const kidsHeld = new Map<string, { tray: number; own: number; rows: ToolStep[] }>()
   const cardKids = (node: TimelineNode): ToolStep[] => {
     const id = node.step.task
     if (!id) return node.children
+    const tray = cockpit.backgroundSteps.length
+    const own = node.children.length
+    const held = kidsHeld.get(id)
+    if (held && held.tray === tray && held.own === own) return held.rows
     const seen = new Set(node.children.map((s) => s.ref).filter(Boolean))
     const late = cockpit.backgroundSteps.filter((s) => s.task === id && (!s.ref || !seen.has(s.ref)))
-    return late.length ? [...node.children, ...late] : node.children
+    const rows = late.length ? [...node.children, ...late] : node.children
+    kidsHeld.set(id, { tray, own, rows })
+    return rows
   }
   // A card whose ✗ this window inferred rather than was told. Worth telling
   // apart from a delegate that reported failure: the mark is the same and the
@@ -3852,7 +3869,17 @@
                    being written to is a thing in motion whichever turn happens
                    to be on screen. Stopped, it is a record and shows whole —
                    the line .reasoning-body.live has always drawn. -->
-              <!-- WORK IN FLIGHT IS A STREAM; WORK THAT IS OVER IS A RECORD.
+              <!-- `settle`, not `fold`, and that is the same standard the rest of
+                   the app folds finished work at (owner, 7 ก.ย.: *"ตอนพับเก็บ
+                   อ่ะ มันควรจะเป็นมาตรฐานเดียวกันคือเก็บแบบสมูธ ๆ เหมือนตอนพับ
+                   tool ที่รันแล้วเก็บ"*). fold.ts writes down the three
+                   differences and they are all the same decision: twice the
+                   time, eased at both ends rather than hanging and dropping,
+                   and fading as it goes so the last rows read as having LEFT
+                   rather than as having been trimmed off. This list is a
+                   stretch of work coming to an end, which is precisely what
+                   `settle` was written for.
+                   WORK IN FLIGHT IS A STREAM; WORK THAT IS OVER IS A RECORD.
                    `.reasoning-body.live` is the vocabulary this app already has
                    for a thing in motion the reader is meant to watch — a rail, a
                    five-line window, masked at both ends, and text arriving paced
@@ -3873,7 +3900,7 @@
                 class:stream={state === 'run'}
                 use:toolWindow={state === 'run'}
                 use:toolFocus={state === 'run'}
-                transition:fold
+                transition:settle
               >
                 <!-- The delegate's turn, drawn the way a turn is drawn.
                      A flat row list was what this used to be, so a worker's own

@@ -2528,15 +2528,32 @@ button.phase-head:hover { color:var(--text-muted); }
    padding box. The 14/16px of padding is the room it has to spread into. */
 .bgw-work.stream .tool-glide { display:none; }
 .bgw-work.stream .tool-step.run::after { display:none; }
-.bgw-work.stream .tool-step.d0 {
-  margin:7px -10px 7px -12px; padding:11px 10px 11px 12px;
-  border-radius:var(--r-md); background:var(--surface-raised);
+/* ONE BLOCK, HOWEVER MANY ROWS ARE OUT. The agent fires its read-only calls in
+   a group, so the band is often five rows and five separate slabs stacked with
+   gaps between them is not what "the work is here" looks like. The ground is on
+   every row of the band; only the outer edges get the corners and the shadow,
+   so the group reads as one thing that grew. */
+.bgw-work.stream .tool-step[data-depth="0"] {
+  margin:0 -10px 0 -12px; padding:9px 10px 9px 12px;
+  background:var(--surface-raised);
+}
+.bgw-work.stream .tool-step[data-depth="0"]:first-child,
+.bgw-work.stream :not([data-depth="0"]) + .tool-step[data-depth="0"] {
+  margin-top:7px; padding-top:11px;
+  border-top-left-radius:var(--r-md); border-top-right-radius:var(--r-md);
+}
+.bgw-work.stream .tool-step[data-depth="0"]:not(:has(+ [data-depth="0"])) {
+  margin-bottom:7px; padding-bottom:11px;
+  border-bottom-left-radius:var(--r-md); border-bottom-right-radius:var(--r-md);
   box-shadow:0 2px 4px rgba(0,0,0,.30), 0 14px 28px -14px rgba(0,0,0,.6);
 }
 /* A hairline drawn across something standing off the page says the two are
    still in the same plane, which is the opposite of what the block is for. */
-.bgw-work.stream .tool-step.d0,
-.bgw-work.stream .tool-step.d0 + .tool-step { border-top-color:transparent; }
+/* No hairline anywhere the block is: one drawn across something standing off
+   the page says the two are in the same plane, and one drawn INSIDE the band
+   cuts a single slab into slices. */
+.bgw-work.stream .tool-step[data-depth="0"],
+.bgw-work.stream .tool-step[data-depth="0"] + .tool-step { border-top-color:transparent; }
 
 /* A SEARCH'S RESULT LIST IS A PAGE, and a page inside a stream is the thing
    that buried the live row in the first place — eight results is the longest
@@ -2590,18 +2607,18 @@ button.phase-head:hover { color:var(--text-muted); }
 /* In focus: the row is read, so it is set at reading size. The tile is left
    alone — the block is what says which row this is, and a mark that grows as
    well is the card saying it twice. */
-.bgw-work.stream .tool-step.d0 { opacity:1; }
-.bgw-work.stream .tool-step.d0 .verb,
-.bgw-work.stream .tool-step.d0 .subj { font-size:var(--fs-md); }
-.bgw-work.stream .tool-step.d0 .subj { color:var(--text-primary); }
+.bgw-work.stream .tool-step[data-depth="0"] { opacity:1; }
+.bgw-work.stream .tool-step[data-depth="0"] .verb,
+.bgw-work.stream .tool-step[data-depth="0"] .subj { font-size:var(--fs-md); }
+.bgw-work.stream .tool-step[data-depth="0"] .subj { color:var(--text-primary); }
 /* The delegate thinking out loud is the same thing the reasoning panel holds,
    so in focus it is set the way that panel sets it. */
-.bgw-work.stream .tool-note.d0 { opacity:1; font-size:var(--fs-sm); color:var(--text-secondary); }
+.bgw-work.stream .tool-note[data-depth="0"] { opacity:1; font-size:var(--fs-sm); color:var(--text-secondary); }
 /* Receding. Four steps only — past the third the window's own mask has taken
    over and a fifth would be a distinction nobody can see. */
-.bgw-work.stream .tool-step.d1, .bgw-work.stream .tool-note.d1 { opacity:.62; }
-.bgw-work.stream .tool-step.d2, .bgw-work.stream .tool-note.d2 { opacity:.4; }
-.bgw-work.stream .tool-step.d3, .bgw-work.stream .tool-note.d3 { opacity:.26; }
+.bgw-work.stream .tool-step[data-depth="1"], .bgw-work.stream .tool-note[data-depth="1"] { opacity:.62; }
+.bgw-work.stream .tool-step[data-depth="2"], .bgw-work.stream .tool-note[data-depth="2"] { opacity:.4; }
+.bgw-work.stream .tool-step[data-depth="3"], .bgw-work.stream .tool-note[data-depth="3"] { opacity:.26; }
 /* Motion off, meaning kept: the ladder still says which row is which, it just
    stops travelling between them. */
 @media (prefers-reduced-motion: reduce) {

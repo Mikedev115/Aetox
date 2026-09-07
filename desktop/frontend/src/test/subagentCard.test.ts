@@ -14,6 +14,7 @@
 // stored, which is why a turn written months ago has them too.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, fireEvent } from '@testing-library/svelte'
+import { tick } from 'svelte'
 import Chat from '../lib/Chat.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import { setLocale } from '../lib/i18n.svelte'
@@ -442,6 +443,42 @@ describe('a delegate whose work arrived after its turn ended', () => {
     const brake = container.querySelector('.bgw-card .bgw-stop-worker')
     expect(brake).toBeTruthy()
     expect(brake?.classList.contains('bgw-stop-quiet')).toBe(false)
+  })
+
+  // THE APP HOLDS AN OPINION AND THEN HANDS IT BACK. It opens the card when the
+  // delegate starts, because coming back to a chat whose worker is still going
+  // should show the work; and it shuts the card a beat after the worker stops,
+  // because what is left then is a record and a record does not need to be open
+  // (owner, 7 ก.ย.: *"ตอนซับเอเจนทำงานเสร็จ มันควรพับให้สิ แต่ตอนเริ่มมัน เปิด
+  // เป็นค่าเริ่มต้น"*). A click at any point takes it off the app's hands for
+  // good — toggleSteps clears the flag the timer reads.
+  it('opens itself when the delegate starts and shuts itself when it stops', async () => {
+    const { container } = render(Chat, { ...baseProps, awaitingReply: false, messages: [turnThatDelegated] } as any)
+    expect(container.querySelector('.bgw-foot .bgw-open')?.getAttribute('aria-expanded')).toBe('true')
+
+    cockpit.backgroundTasks = [registered({ state: 'done', elapsedMs: 96_000 })]
+    await tick()
+    // Motion is off in this file, so the hold and the settle are both zero and
+    // one turn of the macrotask queue is the whole wait.
+    await new Promise((done) => setTimeout(done, 0))
+    await tick()
+    expect(container.querySelector('.bgw-foot .bgw-open')?.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  // And it stays the reader's once they have touched it: a card somebody opened
+  // by hand must not be shut by a timer they never started.
+  it('leaves a card the reader opened alone', async () => {
+    const { container } = render(Chat, { ...baseProps, awaitingReply: false, messages: [turnThatDelegated] } as any)
+    const door = container.querySelector('.bgw-foot .bgw-open') as HTMLElement
+    await fireEvent.click(door)
+    await fireEvent.click(container.querySelector('.bgw-foot .bgw-open') as HTMLElement)
+    expect(container.querySelector('.bgw-foot .bgw-open')?.getAttribute('aria-expanded')).toBe('true')
+
+    cockpit.backgroundTasks = [registered({ state: 'done', elapsedMs: 96_000 })]
+    await tick()
+    await new Promise((done) => setTimeout(done, 0))
+    await tick()
+    expect(container.querySelector('.bgw-foot .bgw-open')?.getAttribute('aria-expanded')).toBe('true')
   })
 
   // Stopping is neither finishing nor failing, and ToolStep['state'] has no

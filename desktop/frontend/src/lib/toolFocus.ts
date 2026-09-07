@@ -22,11 +22,20 @@
  *
  *  An action rather than component state, for the reason toolGlide and
  *  toolWindow are actions: what it needs is a count of rows it does not own,
- *  taken after the frame that changed them. Four steps is the whole ladder —
- *  past the third the window's own mask has taken over, and a fifth would be a
- *  distinction nobody can see.
+ *  taken after the frame that changed them.
+ *
+ *  A DATA ATTRIBUTE AND NOT A CLASS, which is not a style choice — it is the
+ *  only thing that works. A row's class is a template expression carrying its
+ *  own state (`class="tool-step f-{fam} h-{slot} {s.state}"`), so the frame a
+ *  call comes back in, Svelte rewrites that attribute whole and every class an
+ *  action put there is gone with it. The focus block would vanish the instant
+ *  the row it was on finished, which is the exact moment it is supposed to be
+ *  handing over rather than disappearing. `data-depth` is nobody else's, so it
+ *  survives, and CSS reads it with an attribute selector at the same weight.
  */
-const DEPTHS = ['d0', 'd1', 'd2', 'd3']
+// The deepest step drawn. Past this the window's own mask has taken over and a
+// further one would be a distinction nobody can see.
+const FLOOR = 3
 
 export function toolFocus(node: HTMLElement, on = true) {
   let live = on
@@ -39,23 +48,40 @@ export function toolFocus(node: HTMLElement, on = true) {
     // skipped, which is correct: it belongs to the row above it and takes that
     // row's depth by sitting under it.
     const rows = node.querySelectorAll<HTMLElement>('.tool-step, .tool-note')
+    // THE FOCUS IS A BAND, NOT A ROW, because a turn is not one call at a time.
+    // The agent groups its read-only calls and fires them together
+    // (internal/cognitive/agent.go, "running %d read-only tool calls
+    // together"), so five searches land in one frame and five rows are out at
+    // once. A ladder that lit only the newest of them dimmed four rows every
+    // bit as live as the one it lit, and a whole group arriving together is
+    // what reads as the list going off all at once (owner, 7 ก.ย.:
+    // *"จู่ๆก็ตู้มมาทีเดียว ยาวรวดเดียวอ่ะ"*).
+    //
+    // So everything still out is depth 0 and the ladder counts up from the
+    // FIRST of them. With nothing out — the gap between one group and the next,
+    // which is most of a turn — the floor of the list holds the focus, so the
+    // band never blinks off between calls.
+    let top = rows.length - 1
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].classList.contains('run')) { top = i; break }
+    }
     for (let i = 0; i < rows.length; i++) {
       const el = rows[i]
-      const want = live ? DEPTHS[Math.min(rows.length - 1 - i, DEPTHS.length - 1)] : ''
-      // Written down on the element rather than read back off classList: a row
-      // whose depth has not changed must not have its class removed and re-added,
-      // and this is the cheapest way to know that without touching the DOM.
+      const want = live ? String(i >= top ? 0 : Math.min(top - i, FLOOR)) : ''
       if (el.dataset.depth === want) continue
-      if (el.dataset.depth) el.classList.remove(el.dataset.depth)
-      if (want) el.classList.add(want)
-      el.dataset.depth = want
+      if (want) el.dataset.depth = want
+      else delete el.dataset.depth
     }
   }
   const schedule = () => { if (!frame) frame = requestAnimationFrame(paint) }
 
-  // Rows arrive and rows change state; both move the floor.
+  // Rows arrive, and rows stop running; both move the band. The second is an
+  // ATTRIBUTE change — a row carries its own state in its class — so watching
+  // childList alone left the band sitting on a group that had already come
+  // back. Filtered to `class` so this cannot see its own writes: what it writes
+  // is data-depth, and a filter that let that through would be a loop.
   const rows = new MutationObserver(schedule)
-  rows.observe(node, { childList: true, subtree: true })
+  rows.observe(node, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })
   paint()
 
   return {
