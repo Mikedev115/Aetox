@@ -42,6 +42,7 @@
     MCPConfigPath, OpenMCPFolder,
     ListSpeechModels, SetSpeechModel, SpeechStatus, RevealSpeechModel, SpeechModelDirs, OpenSpeechModelDir,
     ListSpeechEngines, SetSpeechEngine, ListTTSEngines, SetTTSEngine, ListTTSVoices, SetTTSVoice, TTSStatus, SpeakText,
+    ListImageEngines, SetImageEngine, SetImageModelName, ImageStatus,
     SetSpeechModelName, SetTTSModelName,
     InstallVoiceEngine,
     UsageStats, ListPromptPresets, OpenPromptsFolder,
@@ -1580,6 +1581,50 @@
       speechError = String(err) // stays open so the reason is readable
     } finally {
       speechBusy = false
+    }
+  }
+
+  // ---------- Picture page (image_make's vendor and model) ----------
+  //
+  // Half of the voice page's shape and none of its extra questions: there is no
+  // voice to choose, no model FILE on disk to point at, and no local engine to
+  // install — every vendor here is an HTTP call. What is left is the two picks
+  // and the one status line.
+  let imageEngines = $state<EngineRow[]>([])
+  let imageStatus = $state('') // the vendor's own reason it cannot run; '' means ready
+  let imagePageBusy = $state(false)
+  let imagePageError = $state('')
+
+  const activeImageEngine = $derived(imageEngines.find((e) => e.active))
+
+  async function loadImagePage() {
+    imageEngines = await ListImageEngines()
+    imageStatus = await ImageStatus()
+  }
+
+  async function pickImageEngine(id: string) {
+    imagePageBusy = true
+    imagePageError = ''
+    try {
+      await SetImageEngine(id)
+      await loadImagePage()
+    } catch (err) {
+      imagePageError = String(err)
+    } finally {
+      imagePageBusy = false
+    }
+  }
+
+  async function pickImageModelName(name: string) {
+    imagePageBusy = true
+    imagePageError = ''
+    try {
+      await SetImageModelName(name)
+      await loadImagePage()
+    } catch (err) {
+      imagePageError = String(err)
+    } finally {
+      imagePageBusy = false
     }
   }
 
@@ -3146,6 +3191,7 @@
     if (active === 'learning') void loadLearning()
     if (active === 'skilltune') void loadSkillTune()
     if (active === 'voice') void loadVoicePage()
+    if (active === 'image') void loadImagePage()
   })
 
   $effect(() => {
@@ -3219,6 +3265,11 @@
       { id: 'tools', label: t('settings.tools'), icon: 'wrench', terms: [SPEECH_TOOL] },
       { id: 'voice', label: t('settings.voice'), icon: 'mic',
         terms: ['TTS', 'STT', 'whisper', t('settings.sttHeading'), t('settings.ttsHeading'), t('settings.speechModel')] },
+      // Beside เสียง and not in its own group: both pages configure ONE tool
+      // each — that one audio_transcribe and the ฟัง button, this one
+      // image_make — so they are the same kind of row and belong together.
+      { id: 'image', label: t('settings.image'), icon: 'image',
+        terms: ['Pollinations', 'DALL-E', 'gpt-image', 'Grok', 'Gemini', 'image_make', t('settings.imageEngine')] },
       { id: 'skills', label: t('settings.skills'), icon: 'puzzle', terms: [t('settings.skillInstall')] },
       { id: 'mcp', label: t('settings.mcpServers'), icon: 'plug', terms: [t('settings.mcpPresets'), t('settings.addServer')] },
       // Below MCP and not beside the model sign-ins: both pages here extend
@@ -5206,6 +5257,48 @@
           </select>
         </div>
       </div>
+    {:else if active === 'image'}
+      <h2>{t('settings.image')}</h2>
+      <p class="muted set-sub">{t('settings.imageDesc')}</p>
+
+      {#if imagePageError}<div class="mset-error">{imagePageError}</div>{/if}
+
+      <div class="settings-card">
+        <div class="set-row">
+          <div class="set-txt">
+            <div class="t">{t('settings.imageEngine')}</div>
+            <!-- ONE line under the title, and it is the vendor's own, not a
+                 standing paragraph of advice. There were two: this row carried
+                 a generic sentence about keys AND the vendor's note under it,
+                 stacked over a dropdown whose label already said which of them
+                 needs a key (owner, 7 ก.ย.: "เอาแค่ผู้ให้บริการก็พอ เขียน
+                 รายละเอียดสะยาวเลย"). The generic one is gone; internal/imagegen
+                 shortened the other to a line. -->
+            {#if activeImageEngine?.install}<div class="d">{activeImageEngine.install}</div>{/if}
+            <!-- Why the picked vendor cannot run, which for every cloud row here
+                 is a missing key — worded by internal/imagegen as where to go
+                 and put one. -->
+            {#if imageStatus}<div class="d mset-error">{imageStatus}</div>{/if}
+          </div>
+          <select class="ctrl" disabled={imagePageBusy} value={activeImageEngine?.id ?? ''} onchange={(e) => pickImageEngine(e.currentTarget.value)}>
+            {#each imageEngines as eng (eng.id)}<option value={eng.id}>{eng.label}</option>{/each}
+          </select>
+        </div>
+        <!-- Same rule the two voice pickers follow: a vendor with one model has
+             no choice to offer, and a dropdown with one entry is not a choice. -->
+        {#if (activeImageEngine?.models?.length ?? 0) > 1}
+          <div class="set-row">
+            <div class="set-txt">
+              <div class="t">{t('settings.imageModel')}</div>
+              <div class="d">{t('settings.imageModelDesc')}</div>
+            </div>
+            <select class="ctrl" disabled={imagePageBusy} value={activeImageEngine?.activeModel ?? ''} onchange={(e) => pickImageModelName(e.currentTarget.value)}>
+              {#each activeImageEngine?.models ?? [] as m (m)}<option value={m}>{m}</option>{/each}
+            </select>
+          </div>
+        {/if}
+      </div>
+
     {:else if active === 'skills'}
       <h2>{t('settings.skills')}</h2>
       <p class="muted set-sub">{t('settings.skillsDesc')}</p>

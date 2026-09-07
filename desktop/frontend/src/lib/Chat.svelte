@@ -37,7 +37,7 @@
   import { hasSpend, spendLabel, spendTitle } from './spend'
   import { copyDrawing, saveDrawing } from './drawingExport'
   import { renderMarkdown } from './markdown'
-  import { filePath, fileURL } from './fileUrl'
+  import { filePath } from './fileUrl'
   import { openUrlInWorkbench, openFileTab, setTabDragPayload, TAB_DRAG_MIME } from './stores/workbench.svelte'
   import {
     cockpit, attachImageFromPath, attachImageFromClipboard, clearPendingImage, attachTabContext, clearPendingContext,
@@ -2829,19 +2829,6 @@
     void sendUserMessage(t('chat.runFixPrompt', { lang, code, output }))
   }
 
-  // The frame holds 4:3 until the picture can say otherwise, then eases to its
-  // real shape. Read off naturalWidth/naturalHeight rather than passed down
-  // from the call: image_make's width/height are a REQUEST, and an engine is
-  // free to round them to a size it actually serves — the file is the only
-  // thing that knows what was really drawn.
-  function fitDrawBox(e: Event) {
-    const img = e.currentTarget as HTMLImageElement
-    const box = img.closest('.draw-box') as HTMLElement | null
-    if (box && img.naturalWidth > 0 && img.naturalHeight > 0) {
-      box.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`
-    }
-  }
-
   // Copy or save the drawing whose button was clicked. The PNG carries the
   // theme's real colours (drawingExport bakes them), so what lands on the
   // clipboard is what the user is looking at. Both paths flash their verdict
@@ -3268,20 +3255,24 @@
      reader from. The title says what it is; the domain says whether to trust
      it; that is the whole decision a result list is for. -->
 {#snippet drawCard(s: ToolStep)}
-  <!-- The slot is outside the state test on purpose: it mounts once, unfolds
-       once, and is still the same element when the picture replaces the
-       placeholder inside it. Putting the {#if} outside would remount the slot
-       on arrival and play the unfold a second time, for a box that is already
-       open. -->
-  <div class="draw-slot">
-    <div class="draw-slot-in">
-      {#if s.state === 'run'}
+  <!-- WHILE IT IS RUNNING, AND ONLY THEN.
+       The finished picture is deliberately not drawn here, for two reasons that
+       both come from where this sits. The timeline collapses to "ใช้ 1 เครื่องมือ"
+       once the turn ends, so a picture placed in it is a picture nobody can see
+       (owner, 7 ก.ย., first image_make call). And the live box is a 190px
+       scrolling window built for one-line rows — a picture-shaped box inside it
+       fills the window and pushes its own row out of view, which is the second
+       thing that screenshot showed.
+       The picture arrives in the prose instead, where the model already puts it
+       with ![...](path) — an address that now resolves, see markdown.ts's
+       hostRelativeImage. This box is the WAIT, not the result. -->
+  {#if s.state === 'run'}
+    <div class="draw-slot">
+      <div class="draw-slot-in">
         <div class="draw-box working"><span class="draw-note">{t('chat.drawing')}</span></div>
-      {:else if s.state === 'done' && s.subject}
-        <div class="draw-box"><img src={fileURL(s.subject)} alt="" onload={fitDrawBox} /></div>
-      {/if}
+      </div>
     </div>
-  </div>
+  {/if}
 {/snippet}
 
 {#snippet searchCard(s: ToolStep)}

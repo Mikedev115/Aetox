@@ -186,7 +186,10 @@ func TestEveryCloudRowSaysThePromptLeavesTheMachine(t *testing.T) {
 		if len(d.Binaries) > 0 {
 			continue // a local engine sends nothing anywhere
 		}
-		if !strings.Contains(d.Install, "คลาวด์") && !strings.Contains(d.Install, "เซิร์ฟเวอร์") && !strings.Contains(d.Install, "ปลายทาง") {
+		// "ส่งไป" is the verb that actually says the prompt leaves — checked on
+		// that rather than on a vendor word, so shortening a row's line cannot
+		// quietly drop the disclosure.
+		if !strings.Contains(d.Install, "ส่งไป") {
 			t.Errorf("cloud row %q does not say the prompt leaves the machine: %q", d.ID, d.Install)
 		}
 	}

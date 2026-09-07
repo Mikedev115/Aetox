@@ -1715,14 +1715,17 @@ button.phase-head:hover { color:var(--text-muted); }
 .draw-slot-in { overflow:hidden; min-height:0; opacity:0; animation:draw-fade 320ms ease 240ms forwards; }
 @keyframes draw-fade { to { opacity:1; } }
 
-/* 4:3 while nothing is known, then the real ratio once the picture reports it
-   (fitDrawBox in Chat.svelte). aspect-ratio is transitioned rather than set,
-   so a portrait picture eases the frame open instead of jolting it. */
+/* A short band, not a picture-shaped box, and the height is the whole point.
+   This lives inside .tool-box.live-window, which caps itself at 190px and
+   scrolls (see that rule): a 4:3 box 300px wide is 225px tall, taller than the
+   entire window, so it filled the window and scrolled its own tool row out of
+   sight — measured on the first real image_make call, 7 ก.ย.
+   108px leaves the row it belongs to visible above it, which is what makes the
+   two read as one thing happening rather than as a box that ate the list. */
 .draw-box {
-  position:relative; overflow:hidden; aspect-ratio:4/3; margin-top:6px;
+  position:relative; overflow:hidden; height:108px; margin-top:6px;
   border:1px solid var(--border-subtle); border-radius:var(--r-md);
   background:var(--surface-sunken); display:grid; place-items:center;
-  transition:aspect-ratio 380ms cubic-bezier(.2,.7,.3,1);
 }
 .draw-note { color:var(--text-dim); font-size:var(--fs-xs); }
 
@@ -1739,19 +1742,12 @@ button.phase-head:hover { color:var(--text-muted); }
 }
 @keyframes draw-sheen { from { transform:translateX(-58%); } to { transform:translateX(58%); } }
 
-.draw-box img {
-  width:100%; height:100%; object-fit:contain; display:block;
-  animation:draw-arrive 520ms cubic-bezier(.2,.7,.3,1);
-}
-@keyframes draw-arrive { from { opacity:0; transform:scale(1.015); } to { opacity:1; transform:none; } }
-
-/* An infinite animation is the one kind this setting exists for. The frame,
-   the unfold and the arrival all stay — they are transitions with an end. */
+/* An infinite animation is the one kind this setting exists for. The unfold
+   stays — it is a transition with an end. */
 @media (prefers-reduced-motion: reduce) {
   .draw-slot { grid-template-rows:1fr; animation:none; }
   .draw-slot-in { opacity:1; animation:none; }
   .draw-box.working::before { animation:none; opacity:.5; }
-  .draw-box img { animation:none; }
 }
 /* ---------- several pictures are one gallery ----------
    The rule that used to live here capped each image in a multi-image paragraph

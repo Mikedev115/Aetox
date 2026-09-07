@@ -72,6 +72,41 @@ var apiImageSpecs = map[string]apiImageSpec{
 		supportsSize: false,
 		ext:          ".jpg",
 	},
+	// The three below are read straight off internal/provider/catalog.go: each
+	// declares RuntimeOpenAICompatible with these exact base URLs, which is
+	// what makes one runtime enough for all of them. `official` is the same
+	// string, so pointing any of them at a local server drops the key check
+	// the way the OpenAI row already allows.
+	"alibaba": {
+		defaultBase: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+		provider:    "alibaba",
+		envVars:     []string{"DASHSCOPE_API_KEY", "QWEN_API_KEY"},
+		vendor:      "Alibaba Cloud",
+		official:    "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+		// DashScope spells a size "1024*1024". Sending the OpenAI spelling is
+		// a 400, so none is sent and the vendor's default stands.
+		supportsSize: false,
+		ext:          ".png",
+	},
+	"zai": {
+		defaultBase:  "https://api.z.ai/api/paas/v4",
+		provider:     "zai",
+		envVars:      []string{"ZAI_API_KEY"},
+		vendor:       "Z.ai",
+		official:     "https://api.z.ai/api/paas/v4",
+		supportsSize: true,
+		ext:          ".png",
+	},
+	"modelscope": {
+		defaultBase: "https://api-inference.modelscope.cn/v1",
+		provider:    "modelscope",
+		envVars:     []string{"MODELSCOPE_API_KEY"},
+		vendor:      "ModelScope",
+		official:    "https://api-inference.modelscope.cn/v1",
+		// Its roster moves and the accepted sizes move with it.
+		supportsSize: false,
+		ext:          ".png",
+	},
 }
 
 type apiImages struct {

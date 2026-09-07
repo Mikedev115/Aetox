@@ -215,6 +215,8 @@ export function HasAPIKey(arg1:string):Promise<boolean>;
 
 export function HistoryFault():Promise<main.StoreFault>;
 
+export function ImageStatus():Promise<string>;
+
 export function ImportSession():Promise<string>;
 
 export function ImportSignIn(arg1:string):Promise<main.ModelInfo>;
@@ -262,6 +264,8 @@ export function ListDecksIn(arg1:string):Promise<main.DeckPage>;
 export function ListExternalSkills():Promise<Array<skill.DiscoveredSkill>>;
 
 export function ListIdentityFiles():Promise<Array<main.IdentityFile>>;
+
+export function ListImageEngines():Promise<Array<main.VoiceEngineInfo>>;
 
 export function ListMCPServers():Promise<Array<main.MCPServerInfo>>;
 
@@ -526,6 +530,10 @@ export function SetConnectionStartCommand(arg1:string,arg2:string):Promise<void>
 export function SetConnectionTargets(arg1:string,arg2:Array<string>):Promise<void>;
 
 export function SetDelegateOff(arg1:string,arg2:boolean):Promise<main.DelegateSettings>;
+
+export function SetImageEngine(arg1:string):Promise<void>;
+
+export function SetImageModelName(arg1:string):Promise<void>;
 
 export function SetLearningEnabled(arg1:boolean):Promise<void>;
 

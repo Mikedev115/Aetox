@@ -338,6 +338,39 @@ func (c *ModelCatalog) chatCandidates(providerName string) ([]candidate, string)
 // Tool calling is required only where the provider offers it at all, the same
 // concession DefaultFor makes for a shelf like Perplexity's where insisting
 // would return nothing.
+// ImageModelsFor lists the models this provider serves that PRODUCE a picture,
+// as the installed catalog knows them, alphabetically. Empty when the catalog
+// has nothing to say — an offline machine, a provider it has never heard of.
+//
+// This is the one caller of ModelFacts.Produces("image"), and until it existed
+// that method was dead code sitting beside two filters that both demand
+// Produces("text") (chatCandidates, usableFirst). Those filters are right for
+// the chat picker and wrong for this one, which is why picture models needed a
+// reader of their own rather than a loosening of theirs.
+//
+// Nothing here is filtered on price, context or tool support, all of which
+// chatCandidates insists on: a picture model has no context window, cannot call
+// a tool, and is priced per image. Judging it by a chat model's requirements
+// would reject every row it is meant to find — gpt-image-1 has Context: 0.
+func ImageModelsFor(providerName string) []string {
+	installedCatalogMu.RLock()
+	c := installedCatalog
+	installedCatalogMu.RUnlock()
+	if c == nil || len(c.Models) == 0 {
+		return nil
+	}
+	prefix := modelsDevProvider(NormalizeProvider(providerName)) + "/"
+	out := []string{}
+	for key, facts := range c.Models {
+		if !strings.HasPrefix(key, prefix) || !facts.Produces("image") {
+			continue
+		}
+		out = append(out, strings.TrimPrefix(key, prefix))
+	}
+	sort.Strings(out)
+	return out
+}
+
 func (c *ModelCatalog) ModelsFor(providerName string) []string {
 	pool, _ := c.chatCandidates(providerName)
 	if len(pool) == 0 {

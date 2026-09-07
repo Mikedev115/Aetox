@@ -402,6 +402,10 @@ export function HistoryFault() {
   return window['go']['main']['App']['HistoryFault']();
 }
 
+export function ImageStatus() {
+  return window['go']['main']['App']['ImageStatus']();
+}
+
 export function ImportSession() {
   return window['go']['main']['App']['ImportSession']();
 }
@@ -496,6 +500,10 @@ export function ListExternalSkills() {
 
 export function ListIdentityFiles() {
   return window['go']['main']['App']['ListIdentityFiles']();
+}
+
+export function ListImageEngines() {
+  return window['go']['main']['App']['ListImageEngines']();
 }
 
 export function ListMCPServers() {
@@ -1024,6 +1032,14 @@ export function SetConnectionTargets(arg1, arg2) {
 
 export function SetDelegateOff(arg1, arg2) {
   return window['go']['main']['App']['SetDelegateOff'](arg1, arg2);
+}
+
+export function SetImageEngine(arg1) {
+  return window['go']['main']['App']['SetImageEngine'](arg1);
+}
+
+export function SetImageModelName(arg1) {
+  return window['go']['main']['App']['SetImageModelName'](arg1);
 }
 
 export function SetLearningEnabled(arg1) {

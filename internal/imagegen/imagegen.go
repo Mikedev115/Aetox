@@ -76,9 +76,14 @@ type Descriptor struct {
 	// Binaries are the PATH candidates that count as this vendor being
 	// installed, in preference order. Empty for a vendor that is an HTTP call.
 	Binaries []string
-	// Install is a ready-to-follow Thai instruction for getting this vendor
-	// working — and, for a cloud row, the sentence that says the prompt is
-	// sent off this machine. Never leave that unsaid on a cloud row.
+	// Install is ONE SHORT LINE, shown under the vendor picker. It carries only
+	// what the label cannot: what this vendor needs, its one real quirk, and —
+	// never omitted on a cloud row — where the prompt goes.
+	//
+	// It used to be a paragraph each, stacked under a second paragraph of
+	// generic advice: two walls of prose over a dropdown whose label already
+	// said the important half (owner, 7 ก.ย.: "เขียนรายละเอียดสะยาวเลย"). The
+	// generic half is gone from the page and this half is a line.
 	Install string
 	// InstallCommand is the exact argv the settings page's ติดตั้ง button runs,
 	// and also the command it displays — one value serving both, so the command
@@ -123,7 +128,7 @@ var catalog = []Descriptor{
 		Label: "Pollinations (คลาวด์, ฟรี ไม่ใช้ key)",
 		// No Binaries and no InstallCommand: it is one HTTP GET, so there is
 		// nothing to install.
-		Install: "ไม่ต้องติดตั้งอะไร แค่ต่อเน็ต — ฟรี ไม่ใช้ API key แต่คำสั่งวาดจะถูกส่งไปสร้างภาพบนเซิร์ฟเวอร์ของ Pollinations",
+		Install: "ฟรี ไม่ต้องตั้งอะไร · คำสั่งวาดส่งไปที่เซิร์ฟเวอร์ของ Pollinations",
 		Models:  []string{"flux", "turbo"},
 		Default: true,
 	},
@@ -134,19 +139,45 @@ var catalog = []Descriptor{
 	{
 		ID:      "openai",
 		Label:   "OpenAI (คลาวด์, ใช้ API key เดิม)",
-		Install: "ใช้ API key ของ OpenAI ที่ใส่ไว้แล้วที่ ตั้งค่า > โมเดล > OpenAI — เปลี่ยน Base URL ของ OpenAI ได้เพื่อชี้ไปเซิร์ฟเวอร์อื่นที่พูด API เดียวกัน คำสั่งวาดจะถูกส่งไปสร้างภาพปลายทาง",
+		Install: "ใช้ API key เดิมจากหน้าโมเดล · เปลี่ยน Base URL ชี้ไปเซิร์ฟเวอร์ในบ้านได้ · คำสั่งวาดส่งไปที่ OpenAI",
 		Models:  []string{"gpt-image-1", "dall-e-3"},
 	},
 	{
 		ID:      "xai",
 		Label:   "xAI Grok (คลาวด์, ใช้ API key เดิม)",
-		Install: "ใช้ API key ของ xAI ที่ใส่ไว้แล้วที่ ตั้งค่า > โมเดล > xAI — เจ้านี้กำหนดขนาดภาพไม่ได้ ขอมาก็จะถูกละไว้ และคำสั่งวาดจะถูกส่งไปสร้างภาพบนคลาวด์ของ xAI",
+		Install: "ใช้ API key เดิมจากหน้าโมเดล · กำหนดขนาดภาพไม่ได้ · คำสั่งวาดส่งไปที่ xAI",
 		Models:  []string{"grok-2-image"},
+	},
+	// Three more that this build already holds a key and a base URL for
+	// (internal/provider/catalog.go), all three declaring
+	// RuntimeOpenAICompatible — so they cost one row each and no new code.
+	//
+	// Their sizes are deliberately NOT declared supported: DashScope writes a
+	// size as "1024*1024" rather than "1024x1024", and ModelScope's roster
+	// moves. An omitted size gets the vendor's own default, which works; a
+	// wrongly-formatted one is a 400 on a request that would have succeeded.
+	{
+		ID:      "alibaba",
+		Label:   "Alibaba Qwen (คลาวด์, ใช้ API key เดิม)",
+		Install: "ใช้ API key เดิมจากหน้าโมเดล · คำสั่งวาดส่งไปที่ Alibaba Cloud",
+		Models:  []string{"wan2.2-t2i-flash", "qwen-image"},
+	},
+	{
+		ID:      "zai",
+		Label:   "Z.ai CogView (คลาวด์, ใช้ API key เดิม)",
+		Install: "ใช้ API key เดิมจากหน้าโมเดล · คำสั่งวาดส่งไปที่ Z.ai",
+		Models:  []string{"cogview-4", "cogview-3-flash"},
+	},
+	{
+		ID:      "modelscope",
+		Label:   "ModelScope (คลาวด์, ใช้ API key เดิม)",
+		Install: "ใช้ API key เดิมจากหน้าโมเดล · คำสั่งวาดส่งไปที่ ModelScope",
+		Models:  []string{"MusePublic/FLUX.1-Krea-dev"},
 	},
 	{
 		ID:      "gemini",
 		Label:   "Gemini (คลาวด์, ใช้ API key เดิม)",
-		Install: "ใช้ API key ของ Gemini ที่ใส่ไว้แล้วที่ ตั้งค่า > โมเดล > Gemini — เจ้านี้ไม่มีช่องขนาดภาพ ขนาดที่ขอจะถูกฝากไปกับคำบรรยายแทน และคำสั่งวาดจะถูกส่งไปสร้างภาพบนคลาวด์ของ Google",
+		Install: "ใช้ API key เดิมจากหน้าโมเดล · ขนาดฝากไปกับคำบรรยาย · คำสั่งวาดส่งไปที่ Google",
 		Models:  []string{"gemini-2.5-flash-image", "gemini-3-pro-image"},
 	},
 }
@@ -197,7 +228,7 @@ func newEngine(desc Descriptor, opts Options) (Engine, error) {
 		return newPollinations(desc, opts)
 	// Two rows, one runtime: these disagree about their models and their sizes
 	// and about nothing else (openai_api.go).
-	case "openai", "xai":
+	case "openai", "xai", "alibaba", "zai", "modelscope":
 		return newAPIImages(desc, opts)
 	case "gemini":
 		return newGeminiImages(desc, opts)

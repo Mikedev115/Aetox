@@ -8,6 +8,7 @@ import hljs from 'highlight.js/lib/common'
 // token colours on a light surface, where ten of fourteen measured under 3:1.
 // style.css maps .hljs-* onto the --syn-* properties applySyntaxTheme() writes,
 // so a fenced block is coloured by whatever theme is on.
+import { fileURL } from './fileUrl'
 import { t } from './i18n.svelte'
 import { ICONS } from './icons'
 
@@ -614,6 +615,9 @@ function confine(html: string): string {
   for (const table of host.querySelectorAll('table')) {
     if (!table.closest('.table-scroll')) scrollTable(table)
   }
+  // Before the galleries, because a gallery is built out of these elements and
+  // a stage showing four broken icons is not better than four broken icons.
+  for (const img of host.querySelectorAll('img')) hostRelativeImage(img)
   // Whole paragraphs first, then runs inside whatever paragraph is left: a
   // paragraph made only of pictures is swallowed by the first pass, so the
   // second only ever sees pictures that share their paragraph with something.
@@ -703,6 +707,51 @@ function scrollTable(table: Element): void {
   win.className = 'table-scroll'
   table.replaceWith(win)
   win.appendChild(table)
+}
+
+// ---------- a picture in an answer is a file on the desk ----------
+//
+// `![a cat](art/cat.jpg)` is what a model writes when it has just made a
+// picture, and it is the natural place for the picture to appear — in the
+// sentence that announces it. What it renders to is <img src="art/cat.jpg">,
+// which the webview resolves against its OWN origin, where no such file has
+// ever existed. So the picture the model just made came out as a broken icon
+// with its own alt text beside it (owner, 7 ก.ย., with a screenshot of exactly
+// that after the first image_make call).
+//
+// The file host is the address these paths actually have (fileUrl.ts,
+// desktop/filehost.go) and nothing was translating them into it. Every other
+// surface that shows a project file — the panes, the file cards — goes through
+// fileURL; prose was the one that did not.
+//
+// Left alone: anything already absolute. An http(s) picture is somewhere on the
+// web, a data:/blob: one carries its own bytes, and one already pointing at the
+// file host has been translated once and must not be translated twice.
+function hostRelativeImage(img: Element): void {
+  const src = (img.getAttribute('src') ?? '').trim()
+  if (src === '' || /^(https?:|data:|blob:|file:|\/\/)/i.test(src)) return
+  if (src.startsWith('/aetox-file/')) return
+  // A leading slash or "./" is still a project-relative path here — a model
+  // writing "/art/cat.jpg" means the same file as "art/cat.jpg", and fileURL
+  // drops empty segments either way.
+  img.setAttribute('src', fileURL(decodeOnce(src.replace(/^\.\//, ''))))
+}
+
+// marked has ALREADY percent-encoded the address it wrote, and fileURL encodes
+// every segment again — so `art/แมว.png` came out with each % doubled into %25
+// and the picture 404'd on any name that is not plain ASCII. Thai names are
+// ordinary here; the assistant writes them.
+//
+// Decoded once so that exactly one encoding survives. A malformed escape is
+// handed back as written rather than thrown on: that is somebody's odd
+// filename, and a picture drawn at a strange address beats no picture and a
+// broken render of everything after it.
+function decodeOnce(src: string): string {
+  try {
+    return decodeURIComponent(src)
+  } catch {
+    return src
+  }
 }
 
 // ---------- several images are one gallery ----------

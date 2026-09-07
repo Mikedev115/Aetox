@@ -38,7 +38,7 @@ describe('a run of images becomes one gallery', () => {
 
     const shown = host.querySelectorAll('.gallery-shot.shown')
     expect(shown.length).toBe(1)
-    expect(shown[0].getAttribute('src')).toBe('a.png')
+    expect(shown[0].getAttribute('src')).toBe('/aetox-file/a.png')
     expect(host.querySelector('.gallery-count')?.textContent).toBe('1 / 4')
     expect(host.querySelector('.img-gallery')?.getAttribute('data-shown')).toBe('0')
   })
@@ -145,7 +145,11 @@ describe('what is not a run', () => {
     const host = render('![คนเดียว](a.png)')
 
     expect(host.querySelector('.img-gallery')).toBeNull()
-    expect(host.querySelector('img')?.getAttribute('src')).toBe('a.png')
+    // "as it was" is about the STAGE: a lone picture is not collected onto one.
+    // Its address is translated like every other picture's — that pass runs
+    // before the galleries are built and is not what this test is guarding
+    // (markdown.ts, hostRelativeImage).
+    expect(host.querySelector('img')?.getAttribute('src')).toBe('/aetox-file/a.png')
   })
 
   // A picture with a sentence beside it is illustrating that sentence.
@@ -201,7 +205,7 @@ describe('pictures that are also links', () => {
     const host = render(SHOP)
 
     expect(host.querySelector('.gallery-shot')?.getAttribute('href')).toBe('https://shop.example.com/a')
-    expect(host.querySelector('.gallery-shot img')?.getAttribute('src')).toBe('a.png')
+    expect(host.querySelector('.gallery-shot img')?.getAttribute('src')).toBe('/aetox-file/a.png')
   })
 
   // Inside the anchor, so it appears and disappears with the shot it names and
@@ -221,7 +225,7 @@ describe('pictures that are also links', () => {
     const picks = host.querySelectorAll('.gallery-thumb')
     expect(picks.length).toBe(3)
     for (const pick of picks) expect(pick.tagName).toBe('BUTTON')
-    expect(host.querySelector('.gallery-thumb img')?.getAttribute('src')).toBe('a.png')
+    expect(host.querySelector('.gallery-thumb img')?.getAttribute('src')).toBe('/aetox-file/a.png')
   })
 
   it('mixes a linked product and a plain picture into one gallery', () => {
