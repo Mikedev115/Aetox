@@ -524,25 +524,28 @@ date-stamped, because the rule above does not have an exception for numbers we w
 
 </details>
 
-## Status — v1.5.18
+## Status — v1.5.19
 
-The core is in place. [Release notes](docs/release-notes/v1.5.18.md) ·
+The core is in place. [Release notes](docs/release-notes/v1.5.19.md) ·
 [roadmap](ROADMAP.md) · [architecture](ARCHITECTURE.md).
 
 Three things it does today that are worth knowing about:
 
-- **Change the model mid-answer, and the next one is proved before its turn comes.** The four
-  engine dials no longer refuse while a turn is running: the switch is taken the moment you make
-  it, parks at the turn boundary, and the menu says what is queued and how to drop it. While the
-  old model keeps answering, a one-token ping proves the next endpoint's key and wire format —
-  except for the runtimes that hold their weights in this machine's own memory, where proving a
-  model would mean loading it beside the one still talking.
-- **A chat reopened tomorrow still holds what happened inside it.** What a delegate did is kept
-  under the card that hired it, and what a question asked you — together with your answer — is
-  kept on its row. Both used to live only inside the running turn and go with it.
-- **The answer you were about to type is already typed.** A turn that ends by handing you a
-  choice writes your reply into the composer in dim text: Tab takes it, Tab again offers the
-  other option, and typing anything clears it. Nothing is ever sent that you did not send.
+- **Type into an answer while it is being written, and your message stays where you typed it.**
+  An interruption is a piece of that turn now, drawn as your own bubble at the point it landed,
+  with the reply to it underneath. It used to be a bubble beside the turn that could only sit
+  above the live block or below it, so a second interruption piled at the bottom away from the
+  answer it caused. It is also written down: a chat reopened tomorrow shows the question and the
+  answer in the order they happened, which nothing kept before.
+- **The tab you are standing in is a shape, not an underline.** The strip sits lower than the
+  pane, the live tab is a raised chip with a neutral outline and a coloured icon, and tabs are as
+  wide as their names rather than cut short by a fixed lane. Opening and closing one takes 180ms
+  of width instead of a jump.
+- **The whole scene library is reachable, and a render is no longer stuck at 1080p.** All 75
+  scenes across four shelves open by any spelling the index teaches — 25 of them were refused
+  before — plus `blank` for the piece none of them is the shape of. A render now takes resolution
+  up to 4K, mov/webm with an alpha channel, PNG sequences, GIF, film frame rates like 23.976, and
+  per-render text variables. All of it was in the engine already and none of it could be asked for.
 
 **Next** — agents working across turns rather than only inside one; a plan handed from the
 assistant door to the code door; a code-door team with defined roles.
