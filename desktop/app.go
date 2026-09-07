@@ -4747,6 +4747,14 @@ func resolveConfig(opts config.ConfigOptions) config.Config {
 		if v := strings.TrimSpace(pref.TTSModelName); v != "" {
 			cfg.TTSModelName = v
 		}
+		// The picture page rides the voice page's rule exactly: a stored pick
+		// wins, and nothing stored leaves the catalog default in place.
+		if v := strings.TrimSpace(pref.ImageEngine); v != "" {
+			cfg.ImageEngine = v
+		}
+		if v := strings.TrimSpace(pref.ImageModelName); v != "" {
+			cfg.ImageModelName = v
+		}
 		// All positive, all read straight through: an install that has never
 		// touched a switch stored nothing, which is off, which is what a zero
 		// Config already means. A file written before the switch was split says
@@ -4860,6 +4868,10 @@ func persistModelPreference(cfg config.Config) {
 		pref.TTSVoice = strings.TrimSpace(cfg.TTSVoice)
 		pref.SpeechModelName = strings.TrimSpace(cfg.SpeechModelName)
 		pref.TTSModelName = strings.TrimSpace(cfg.TTSModelName)
+		// And the picture page's two, same rule: empty is the real choice
+		// "back to the default", so both are written through.
+		pref.ImageEngine = strings.TrimSpace(cfg.ImageEngine)
+		pref.ImageModelName = strings.TrimSpace(cfg.ImageModelName)
 		// Written through unconditionally, unlike the delegation block below: these
 		// four carry no "has anybody answered" flag and need none, because each
 		// one's zero value is its shipped default. Writing false for a switch

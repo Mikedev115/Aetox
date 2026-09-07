@@ -1,6 +1,7 @@
 package skill
 
 import (
+	"github.com/Mikedev115/Aetox/internal/imagegen"
 	"github.com/Mikedev115/Aetox/internal/proc"
 	"github.com/Mikedev115/Aetox/internal/stt"
 )
@@ -15,6 +16,10 @@ type RegistryOptions struct {
 	// Speech configures audio_transcribe: which engine, which model file.
 	// The zero value means the catalog default with an auto-discovered model.
 	Speech stt.Options
+	// Images configures image_make: which vendor draws, and on which of its
+	// named models. The zero value means the catalog default — which is the
+	// keyless one, so the tool works before any setting has been touched.
+	Images imagegen.Options
 	// OutputSubdir answers "where should a brand new file go?" as a path
 	// relative to SandboxRoot — returning "" writes straight to the root, as
 	// before. A func rather than a string because the answer changes per chat
@@ -166,6 +171,12 @@ func RegisterDefaults(registry *Registry, opts RegistryOptions) {
 		&windmillSkill{},
 		// One name, three actions: image, video, audio (media_pack.go).
 		&mediaReadSkill{root: opts.SandboxRoot, speech: opts.Speech},
+		// Not one of them, and the pack's own comment is why: media_read is
+		// "reading a file a model cannot read by itself", and every gate that
+		// pack sits behind was drawn for reads. This one writes a file, so it
+		// is a different grant and sits on the other side of วางแผน
+		// (internal/mode/stance.go) with the rest of the writers.
+		&imageMakeSkill{root: opts.SandboxRoot, outputSubdir: opts.OutputSubdir, files: opts.Files, images: opts.Images},
 		// Not one of them, and not a sense at all: it turns a cut list into a
 		// project file an editing program opens (video_project.go). It sits
 		// here because the desk that carries media is the desk that edits

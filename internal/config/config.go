@@ -56,6 +56,15 @@ type Config struct {
 	// first, and both clear on a vendor switch: a model name is one vendor's
 	// private vocabulary.
 	SpeechModelName string
+	// ImageEngine picks the picture-making vendor by internal/imagegen
+	// Descriptor.ID, and ImageModelName pins a named model on it — the same
+	// pair as the two above, for the same reason, set on ตั้งค่า > ภาพ.
+	//
+	// Empty means the catalog default, which is the keyless vendor:
+	// image_make works on a machine where nothing has been configured, and
+	// the setting exists to move off that rather than to enable it.
+	ImageEngine    string
+	ImageModelName string
 	TTSModelName    string
 	// UILocale is the language the desktop UI is showing ("th", "en"). The
 	// engine has no business with language — the one exception is Aetox's own
@@ -194,6 +203,10 @@ type ModelPreference struct {
 	// names rather than files (see Config.SpeechModelName).
 	SpeechModelName string `json:"speech_model_name,omitempty"`
 	TTSModelName    string `json:"tts_model_name,omitempty"`
+	// The picture page's two picks, stored by catalog id for the same reason
+	// the voice page's are: a pick has to survive a list being reordered.
+	ImageEngine    string `json:"image_engine,omitempty"`
+	ImageModelName string `json:"image_model_name,omitempty"`
 	// UserName is what the user calls themselves in the sidebar footer. It
 	// lives here rather than in the webview's localStorage because that store
 	// is keyed by origin — a name typed under `wails dev` (…:34115) was a

@@ -12,6 +12,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/hook"
+	"github.com/Mikedev115/Aetox/internal/imagegen"
 	"github.com/Mikedev115/Aetox/internal/learned"
 	"github.com/Mikedev115/Aetox/internal/mcp"
 	"github.com/Mikedev115/Aetox/internal/mode"
@@ -472,6 +473,10 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 		// Empty ModelPath keeps the original behaviour — auto-discover — so a
 		// user who never opens the picker sees no change.
 		Speech: stt.Options{Engine: cfg.SpeechEngine, Model: cfg.SpeechModelName, ModelPath: cfg.SpeechModelPath},
+		// The picture side of the same idea, and the zero value is deliberately
+		// usable: an empty ImageEngine resolves to the keyless vendor, so
+		// image_make draws on a machine where nobody has opened the picture page.
+		Images: imagegen.Options{Engine: cfg.ImageEngine, Model: cfg.ImageModelName},
 		// The same question visionAttachments asks of a user's attachment,
 		// asked once here for the files the model finds on its own. Re-asked on
 		// every re-bootstrap, which is what happens when the model changes.

@@ -272,7 +272,19 @@ func AssessCommand(skillName string, args []string) Assessment {
 				Reason:    "doc_write can create or overwrite a document file",
 			}
 		}
-		// The one media tool that writes. `image_ocr`, `video_ocr` and
+		// Now two of them. `image_make` writes a picture, so it lands here with
+		// the writers for the same reason video_project does — and it reaches
+		// the network to get the bytes, which `media_fetch` already establishes
+		// is a write-shaped act rather than a read.
+		if skillName == "image_make" {
+			return Assessment{
+				SkillName: "image_make",
+				Risk:      RiskHigh,
+				Effects:   []Effect{EffectWriteWorkspace, EffectUseNetwork},
+				Reason:    "image_make sends the prompt to the picture engine and writes the result into the workspace",
+			}
+		}
+		// The other media tool that writes. `image_ocr`, `video_ocr` and
 		// `audio_transcribe` are all reads and belong in the catch-all below;
 		// this one puts an .fcpxml on the disk, so it belongs with the writers
 		// and not with the family it is filed under.
