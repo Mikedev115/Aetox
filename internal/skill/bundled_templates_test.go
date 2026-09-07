@@ -52,15 +52,32 @@ func templateFiles(t *testing.T) map[string]string {
 	return out
 }
 
-// Every template is a slide the room and the exporter can both see. Without
-// this a template is a file that looks like markup and routes to the editor.
-func TestEverySlideTemplateIsAReadableSlide(t *testing.T) {
+// Every template is exactly one slide the exporter can see — and is not itself a
+// deck.
+//
+// The second half used to be the opposite: it asserted deck.Is, so that opening
+// a template landed in the slides room rather than the editor. That was wrong on
+// the screen, which is where it was finally read. A template declares no `.slide`
+// box and no `:root` — the skeleton it gets pasted into owns both, deliberately
+// (SKILL.md) — so the room rendered it exactly as written, a heading against the
+// left edge of a stage with no 16:9 frame and no palette. Worse, the listing
+// walks output/, and a session that left a copy of the repo there on 7 ก.ย. filled
+// the room with forty-four rows of them.
+//
+// So a template routes to the editor now, which is also what it is: markup to
+// read and copy. Count still has to be 1 — the block being one slide is the
+// thing that makes it paste-able — and deck.Whole is the line between the two
+// answers.
+func TestEverySlideTemplateIsOneSlideToPasteAndNotADeck(t *testing.T) {
 	for name, body := range templateFiles(t) {
 		if got := deck.Count([]byte(body)); got != 1 {
 			t.Errorf("%s: the exporter reads %d slides in it, want exactly 1 — a template is one slide to paste", name, got)
 		}
-		if !deck.Is([]byte(body)) {
-			t.Errorf("%s: would not be routed to the slides room", name)
+		if deck.Whole([]byte(body)) {
+			t.Errorf("%s: carries a document skeleton — a template is pasted into one, it does not bring its own", name)
+		}
+		if deck.Is([]byte(body)) {
+			t.Errorf("%s: would be listed and rendered as a deck, without the box or the palette it never declares", name)
 		}
 	}
 }

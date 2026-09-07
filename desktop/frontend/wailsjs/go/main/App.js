@@ -294,6 +294,10 @@ export function DeleteArtifact(arg1) {
   return window['go']['main']['App']['DeleteArtifact'](arg1);
 }
 
+export function DeleteDeck(arg1) {
+  return window['go']['main']['App']['DeleteDeck'](arg1);
+}
+
 export function DeleteIdentityFile(arg1) {
   return window['go']['main']['App']['DeleteIdentityFile'](arg1);
 }

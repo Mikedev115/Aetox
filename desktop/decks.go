@@ -220,6 +220,12 @@ func readDeckRow(c deckFile) *Deck {
 	if err != nil {
 		return nil
 	}
+	// A fragment carrying the marker is not a deck (deck.Whole), and it is asked
+	// first because it answers off the head of the file: a folder of slide
+	// templates costs one tag each here rather than forty-one full parses.
+	if !deck.Whole(source) {
+		return nil
+	}
 	// The marker is counted rather than matched, so the row can say how many
 	// slides are in there without the caller opening it. A page that is not a
 	// deck costs one parse and is dropped.
@@ -234,6 +240,54 @@ func readDeckRow(c deckFile) *Deck {
 		SessionID: c.session,
 		Modified:  c.modified.Format(time.RFC3339),
 	}
+}
+
+// DeleteDeck removes one deck from the project.
+//
+// ผลงาน has been the only place a produced file dies (COMPANY.md §6.7), and this
+// is the second door rather than a second rule: the room lists decks from the
+// open project's output/ folder, and until now a row it showed could only be got
+// rid of somewhere else, by finding the same file again in a gallery that groups
+// by conversation. The room is where the person is already looking at the deck,
+// which is the same argument the export button won.
+//
+// Bounded twice, and the second bound is the one that matters. safeSandboxPath
+// keeps the path inside the open project; the output/ check keeps it inside the
+// only folder the listing looks in. Without the second, a binding that takes a
+// project-relative path and calls os.Remove is a door onto the user's source
+// tree — and this one is reachable from a click.
+//
+// A deck that is already gone is a success: the caller asked for it not to be
+// there, and it is not there. The room reloads after, so a file deleted from
+// under it leaves the same way.
+func (a *App) DeleteDeck(relPath string) error {
+	root := strings.TrimSpace(a.cur().cfg.SandboxRoot)
+	if root == "" {
+		return fmt.Errorf("no project open")
+	}
+	full, err := safeSandboxPath(root, relPath)
+	if err != nil {
+		return err
+	}
+	base, err := filepath.Abs(filepath.Join(root, outputDir))
+	if err != nil {
+		return err
+	}
+	rel, err := filepath.Rel(base, full)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("ลบได้เฉพาะไฟล์ในโฟลเดอร์ผลงานเท่านั้น")
+	}
+	info, err := os.Stat(full)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return fmt.Errorf("นี่เป็นโฟลเดอร์ ไม่ใช่ไฟล์เด็ค")
+	}
+	return os.Remove(full)
 }
 
 // fileURLForPath turns an absolute OS path into a file:// URL.

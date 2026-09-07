@@ -15,8 +15,8 @@ describe('isDeck', () => {
   })
 
   it('รับได้ทั้ง single และ double quote และคลาสที่มีหลายตัว', () => {
-    expect(isDeck('d.html', `<section class='intro slide dark'>x</section>`)).toBe(true)
-    expect(isDeck('d.html', '<section id="a" class="slide">x</section>')).toBe(true)
+    expect(isDeck('d.html', `<html><body><section class='intro slide dark'>x</section></body></html>`)).toBe(true)
+    expect(isDeck('d.html', '<!doctype html><section id="a" class="slide">x</section>')).toBe(true)
   })
 
   it('หน้าเว็บธรรมดายังเปิดเป็นซอร์ส', () => {
@@ -26,7 +26,26 @@ describe('isDeck', () => {
   // "slideshow" มีคำว่า slide อยู่ข้างใน การจับแบบ substring จะลากหน้าเว็บที่ไม่
   // เกี่ยวอะไรเลยเข้ามาเปิดเป็นสไลด์เปล่า ๆ ขอบคลาสจึงต้องเป็นขอบคำ
   it('ไม่หลงคลาสที่แค่มีคำว่า slide อยู่ข้างใน', () => {
-    expect(isDeck('d.html', '<section class="slideshow-wrapper">x</section>')).toBe(false)
+    expect(isDeck('d.html', '<html><body><section class="slideshow-wrapper">x</section></body></html>')).toBe(false)
+  })
+
+  // เทมเพลตสไลด์คือบล็อกสำหรับก๊อปไปวาง ไม่ใช่ไฟล์ที่เปิดดูได้ กล่อง 1280x720 กับ
+  // ชุดสีอยู่ในโครงที่มันถูกวางลงไป ไม่ได้อยู่ในตัวเทมเพลต เปิดเป็นสไลด์ตรง ๆ จึงได้
+  // หน้าที่หัวข้อชนขอบซ้ายบนเวทีที่ไม่มีใครสั่ง (เจ้าของ 7 ก.ย.) กฎตัวจริงอยู่ที่
+  // deck.Whole ฝั่งโก อันนี้เป็นแค่ตัวส่งไปเปิดให้ถูกแพเนล
+  it('เศษไฟล์ที่มีแค่ section.slide ยังเปิดเป็นซอร์ส', () => {
+    const template =
+      '<style>.l-stack .lay{ padding:17px 24px }</style>\n' +
+      '<section class="slide l-stack"><h1>ข้างในซ้อนกันอยู่กี่ชั้น</h1></section>'
+    expect(isDeck('layers.html', template)).toBe(false)
+    expect(isDeck('layers.html', '<!-- Layers. -->\n' + template)).toBe(false)
+  })
+
+  // เด็คที่มีสไลด์โชว์โค้ด HTML ต้องไม่ถูกคำว่า <html> ในเนื้อสไลด์พาไปผิดทาง —
+  // โครงต้องมาก่อนสไลด์ ไม่ใช่แค่มีอยู่ที่ไหนสักแห่งในไฟล์
+  it('โครงต้องมาก่อนสไลด์ ไม่ใช่แค่โผล่ที่ไหนก็ได้', () => {
+    const quotes = '<section class="slide"><pre>เขียน <html> ปิดท้ายด้วย </html></pre></section>'
+    expect(isDeck('code.html', quotes)).toBe(false)
   })
 
   it('ไม่ใช่ไฟล์ .html ก็ไม่ใช่เด็ค แม้ข้อความจะตรง', () => {

@@ -62,12 +62,63 @@ const notesClass = "notes"
 // Is reports whether HTML is a deck rather than an ordinary page, and Count
 // says how many slides are in it.
 //
+// Two questions, both of which have to be yes: the file has to carry the marker,
+// and it has to be a whole document. Slide markup on its own is not a deck —
+// see Whole for the files that taught this.
+//
 // Both parse. A byte-level prefilter was written here first and removed: it had
 // to be case-insensitive to be correct, which meant either lowercasing the whole
 // file — several megabytes once pictures are embedded — or hand-rolling a folded
 // scan. Parsing is what the answer actually depends on, and a deck is small
 // enough that the caller can bound it by file size instead (desktop/decks.go).
-func Is(source []byte) bool { return Count(source) > 0 }
+func Is(source []byte) bool { return Whole(source) && Count(source) > 0 }
+
+// Whole reports whether source is a complete HTML document rather than a
+// fragment that happens to carry slide markup.
+//
+// The slide templates are what this exists for. Every file in
+// `internal/skill/skills/aetox-slide-templates/slides` is a `<style>` block and
+// one `<section class="slide">`, written to be pasted into a deck's skeleton —
+// the skeleton is where `.slide` gets its 1280x720 box and its side padding, and
+// where the theme's `:root` gets declared, and the templates deliberately
+// redefine none of it (that skill's SKILL.md says so). So each one carries the
+// marker, and the marker alone called all forty-one of them decks. On 7 ก.ย. a
+// session left a copy of this repo in its output/ folder and the room listed
+// them, then rendered them exactly as written: no 16:9 frame, no palette,
+// headings jammed against the edge of a stage they never asked for. The room was
+// not wrong; the files were never decks.
+//
+// Tokenized rather than parsed, because html.Parse synthesizes <html>, <head>
+// and <body> around whatever it is handed — after the parse a fragment and a
+// document are the same tree, and the difference this asks about is gone.
+// Reading tokens also keeps the case folding in the tokenizer instead of a
+// hand-rolled scan, which is the objection that sank the prefilter above. It
+// stops at the first tag either way, so it costs the head of the file rather
+// than the file.
+func Whole(source []byte) bool {
+	z := html.NewTokenizer(bytes.NewReader(source))
+	for {
+		switch z.Next() {
+		case html.ErrorToken:
+			// Ran out of file without meeting a tag at all: not a document, and
+			// not anything else either.
+			return false
+		case html.DoctypeToken:
+			return true
+		case html.StartTagToken, html.SelfClosingTagToken:
+			switch name, _ := z.TagName(); string(name) {
+			case "html", "head", "body":
+				return true
+			default:
+				// Content opened without a wrapper around it. A deck may leave
+				// the doctype out and a browser will still render it, but it
+				// cannot leave out every one of these and still be a file
+				// somebody meant as a page.
+				return false
+			}
+		}
+	}
+}
 
 // Count is Is with the number, for a listing that wants to say "8 สไลด์"
 // without paying for the pictures Slides would decode.

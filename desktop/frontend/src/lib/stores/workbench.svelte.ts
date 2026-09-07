@@ -102,10 +102,23 @@ export function fileView(path: string): FileView | undefined {
  * all.
  *
  * An .html without the marker is a web page and still opens as source, which is
- * the behaviour every existing page keeps. */
+ * the behaviour every existing page keeps.
+ *
+ * And the marker has to sit inside a document. A slide template — a `<style>`
+ * block and one `<section class="slide">`, meant to be pasted into a deck's
+ * skeleton — carries the marker and is not a deck: opened as slides it renders
+ * without the 1280x720 box or the palette that the skeleton, not the template,
+ * declares. `deck.Whole` on the Go side is where that rule is decided and says
+ * why; this checks the same thing the cheap way, which is all a routing hint
+ * owes. */
 export function isDeck(path: string, content: string): boolean {
   if (!/\.html?$/i.test(path)) return false
-  return /<(?:section|div)[^>]*\bclass\s*=\s*("[^"]*\bslide\b|'[^']*\bslide\b)/i.test(content)
+  const marker = content.search(/<(?:section|div)[^>]*\bclass\s*=\s*("[^"]*\bslide\b|'[^']*\bslide\b)/i)
+  if (marker === -1) return false
+  // Before the marker, not merely present: a deck that shows `<html>` inside a
+  // code slide would otherwise vouch for any fragment quoting one.
+  const document = content.search(/<!doctype\s+html|<html[\s>]|<head[\s>]|<body[\s>]/i)
+  return document !== -1 && document < marker
 }
 
 // `foreign` is the shadow rack: live browser tabs whose conversation is NOT on

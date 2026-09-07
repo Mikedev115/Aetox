@@ -126,11 +126,55 @@ func TestOnlyASectionIsASlide(t *testing.T) {
 }
 
 func TestClassMatchIsWholeWord(t *testing.T) {
-	if Is([]byte(`<section class="slideshow-wrapper"><h1>x</h1></section>`)) {
+	if Is([]byte(`<html><body><section class="slideshow-wrapper"><h1>x</h1></section></body></html>`)) {
 		t.Error("slideshow-wrapper is not a slide")
 	}
-	if !Is([]byte(`<section class="dark slide wide"><h1>x</h1></section>`)) {
+	if !Is([]byte(`<html><body><section class="dark slide wide"><h1>x</h1></section></body></html>`)) {
 		t.Error("a marker among other classes is still a marker")
+	}
+}
+
+// The slide templates are the file this rule exists for: a <style> block and one
+// <section class="slide">, written to be pasted into a deck's skeleton, which is
+// where the 1280x720 box and the theme live. Every one of the forty-one carries
+// the marker, so before this they listed as decks and rendered as themselves —
+// no frame, no palette (owner, 7 ก.ย.).
+//
+// Count still counts. What the fragment is not is a *file* somebody can open,
+// and that is the question Is answers.
+func TestAFragmentIsNotADeck(t *testing.T) {
+	fragment := []byte(`<style>.l-stack .lay{ padding:17px 24px }</style>` +
+		`<section class="slide l-stack"><h1>ข้างในซ้อนกันอยู่กี่ชั้น</h1></section>`)
+	if Is(fragment) {
+		t.Error("a paste block carrying the marker is not a deck")
+	}
+	if n := Count(fragment); n != 1 {
+		t.Errorf("Count = %d, want 1 — the slide is still there to cut", n)
+	}
+}
+
+func TestWholeReadsTheHeadOfTheFile(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want bool
+	}{
+		{"doctype", "<!doctype html><section class=\"slide\">x</section>", true},
+		{"html tag with no doctype", "<html><body><section class=\"slide\">x</section></body></html>", true},
+		{"body only", "<body><section class=\"slide\">x</section></body>", true},
+		// A comment header is what every template in the skill opens with, and
+		// the tokenizer walks past it to the first tag either way.
+		{"comment before the document", "<!-- ทำไมสไลด์นี้ถึงมีอยู่ -->\n<!doctype html><html></html>", true},
+		{"comment before a fragment", "<!-- Layers. -->\n<style>x{}</style><section class=\"slide\">x</section>", false},
+		{"style first", "<style>x{}</style><section class=\"slide\">x</section>", false},
+		{"section first", "<section class=\"slide\">x</section>", false},
+		{"nothing at all", "", false},
+		{"words with no markup", "ไม่ใช่ HTML เลย", false},
+	}
+	for _, c := range cases {
+		if got := Whole([]byte(c.src)); got != c.want {
+			t.Errorf("%s: Whole = %v, want %v", c.name, got, c.want)
+		}
 	}
 }
 

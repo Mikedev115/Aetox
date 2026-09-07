@@ -578,3 +578,95 @@ func skeletonFromTheSlidesSkill(t *testing.T) string {
 	}
 	return best
 }
+
+// The slide templates are not decks, and this asks the real ones.
+//
+// Every file in the aetox-slide-templates skill is a paste block: a <style> and
+// one <section class="slide">, with the 1280x720 box and the palette left to the
+// skeleton it gets pasted into. On 7 ก.ย. a session copied this whole repo into
+// its output/ folder and the room listed forty-four of them, then rendered each
+// one honestly — a heading against the left edge of a stage it never asked for.
+//
+// Written against the files on disk rather than a fragment made up here, for the
+// reason skeletonFromTheSlidesSkill exists: the rule is only worth anything if
+// it holds for the documents that actually shipped.
+func TestSlideTemplatesDoNotListAsDecks(t *testing.T) {
+	dir := filepath.Join("..", "internal", "skill", "skills", "aetox-slide-templates", "slides")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("the slide templates are not where they are compiled in from: %v", err)
+	}
+
+	a, root := deckApp(t)
+	copied := 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".html") {
+			continue
+		}
+		body, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeUnder(t, root, "output/20260907-123107.699/templates/"+e.Name(), string(body))
+		copied++
+	}
+	if copied == 0 {
+		t.Fatal("no templates copied — the folder moved and this test stopped testing anything")
+	}
+	writeUnder(t, root, "output/20260907-123107.699/เสนอราคา.html", deckHTML("ก", "หนึ่ง", "สอง"))
+
+	decks := a.ListDecks()
+	if len(decks) != 1 {
+		t.Fatalf("got %d decks from %d templates and one deck, want 1: %+v", len(decks), copied, decks)
+	}
+	if decks[0].Name != "เสนอราคา.html" {
+		t.Errorf("listed %q, want the deck", decks[0].Name)
+	}
+}
+
+// Deleting from the room, which is the second door onto the same act ผลงาน owns
+// (COMPANY.md §6.7) rather than a second rule about it.
+func TestDeleteDeckRemovesTheFile(t *testing.T) {
+	a, root := deckApp(t)
+	rel := "output/20260819-010101.111/เสนอราคา.html"
+	full := writeUnder(t, root, rel, deckHTML("ก", "หนึ่ง"))
+
+	if err := a.DeleteDeck(rel); err != nil {
+		t.Fatalf("DeleteDeck: %v", err)
+	}
+	if _, err := os.Stat(full); !os.IsNotExist(err) {
+		t.Errorf("the file is still there: %v", err)
+	}
+	if decks := a.ListDecks(); len(decks) != 0 {
+		t.Errorf("the room still lists %d decks", len(decks))
+	}
+}
+
+// The binding takes a project-relative path and calls os.Remove, and it is
+// reachable from a click. output/ is the only folder the listing looks in, so it
+// is the only folder this may empty — a deck path pointing at the source tree is
+// a bug or an attack, and either way the answer is no.
+func TestDeleteDeckRefusesOutsideOutput(t *testing.T) {
+	a, root := deckApp(t)
+	full := writeUnder(t, root, "src/index.html", deckHTML("ก", "หนึ่ง"))
+
+	if err := a.DeleteDeck("src/index.html"); err == nil {
+		t.Error("a file outside output/ was deleted")
+	}
+	if _, err := os.Stat(full); err != nil {
+		t.Errorf("the file was removed anyway: %v", err)
+	}
+	if err := a.DeleteDeck("../outside.html"); err == nil {
+		t.Error("a path climbing out of the project was accepted")
+	}
+}
+
+// Two clicks arrive from a room that reloads on every finished turn, so the file
+// can go between the listing and the second click. The user asked for it not to
+// be there, and it is not there.
+func TestDeleteDeckOnAFileAlreadyGoneIsFine(t *testing.T) {
+	a, _ := deckApp(t)
+	if err := a.DeleteDeck("output/20260819-010101.111/ไม่มีแล้ว.html"); err != nil {
+		t.Errorf("DeleteDeck on a missing file: %v", err)
+	}
+}

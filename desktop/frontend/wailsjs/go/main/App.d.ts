@@ -161,6 +161,8 @@ export function DelegateSwitches():Promise<main.DelegateSettings>;
 
 export function DeleteArtifact(arg1:string):Promise<void>;
 
+export function DeleteDeck(arg1:string):Promise<void>;
+
 export function DeleteIdentityFile(arg1:string):Promise<void>;
 
 export function DeletePromptPreset(arg1:string):Promise<void>;

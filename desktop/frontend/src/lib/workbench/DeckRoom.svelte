@@ -11,7 +11,7 @@
   // เดียวกันว่าเด็คหน้าตายังไง และวันที่สองที่นั้นไม่ตรงกันคือวันที่ต้องมาไล่ว่า
   // อันไหนถูก
   import { onMount, onDestroy } from 'svelte'
-  import { ListDecksIn, ReadFile } from '../../../wailsjs/go/main/App'
+  import { DeleteDeck, ListDecksIn, ReadFile } from '../../../wailsjs/go/main/App'
   import { EventsOn } from '../../../wailsjs/runtime/runtime'
   import type { main } from '../../../wailsjs/go/models'
   import { t } from '../i18n.svelte'
@@ -79,7 +79,36 @@
     if (!decks.some((d) => d.path === chosen)) await choose(decks[0]?.path ?? '')
   }
 
+  // ลบเด็คทิ้ง — สองคลิก คลิกแรกถาม คลิกที่สองทำ
+  //
+  // ท่าเดียวกับผลงาน (Artifacts.svelte) ไม่ใช่กล่องยืนยันกลางจอ: การลบไฟล์เดียว
+  // ที่เห็นอยู่ตรงหน้าไม่ควรหยุดทั้งหน้าจอ และคำถามที่ตอบด้วยปุ่มเดิมทำให้ "เปลี่ยน
+  // ใจ" คือการไม่กด ไม่ใช่การหาปุ่มยกเลิก
+  //
+  // ปุ่มอยู่ที่นี่ทั้งที่ผลงานก็ลบได้ เพราะห้องนี้คือที่ที่คนกำลังมองเด็คอยู่ — เหตุผล
+  // เดียวกับที่ปุ่มส่งออกอยู่บนแถบของสไลด์ ไม่ใช่ในหน้าตั้งค่าที่ไหนสักแห่ง ส่วนขอบ
+  // ว่าลบอะไรได้บ้างอยู่ฝั่งโก (DeleteDeck) ไม่ใช่ที่ปุ่มนี้
+  let confirming = $state('')
+
+  async function remove(path: string) {
+    if (confirming !== path) {
+      confirming = path
+      return
+    }
+    confirming = ''
+    try {
+      await DeleteDeck(path)
+      failure = ''
+    } catch (err) {
+      failure = String(err)
+    }
+    // โหลดใหม่ ไม่ใช่ตัดแถวออกจากอาเรย์เอง รายการนี้อ่านจากดิสก์ทุกครั้งอยู่แล้ว
+    // และ load() เป็นตัวเลือกเด็คถัดไปให้ด้วยเมื่อใบที่เปิดอยู่คือใบที่เพิ่งหายไป
+    await load()
+  }
+
   async function choose(path: string) {
+    confirming = ''
     chosen = path
     content = ''
     if (!path) return
@@ -145,10 +174,17 @@
           {#if row.head}
             <li class="head">{t(row.head)}</li>
           {/if}
-          <li>
+          <li class="row-line">
             <button type="button" class="row" class:on={d.path === chosen} onclick={() => choose(d.path)}>
               <span class="row-name" title={d.path}>{d.name}</span>
               <span class="row-meta">{t('deckRoom.slideCount', { n: String(d.slides) })} · {when(d.modified)}</span>
+            </button>
+            <button
+              type="button" class="del" class:confirm={confirming === d.path}
+              aria-label={t('deckRoom.delete')} title={t('deckRoom.delete')}
+              onclick={() => remove(d.path)}
+            >
+              {#if confirming === d.path}{t('sidebar.confirmDelete')}{:else}<Icon name="x" size={12} />{/if}
             </button>
           </li>
         {/each}
@@ -223,8 +259,28 @@
     flex: none; margin: 0; padding: 6px 10px; font-size: var(--fs-xs, 11px);
     color: var(--text-muted); border-top: 1px solid var(--border-default);
   }
+  /* แถวเป็นสองปุ่มที่วางเรียงกัน ไม่ใช่ปุ่มซ้อนในปุ่ม (ซึ่งเขียนแบบนั้นไม่ได้)
+     ปุ่มลบโผล่ตอนเมาส์อยู่บนแถว หรือตอนโฟกัสด้วยคีย์บอร์ด หรือตอนกำลังถามยืนยัน
+     — รายการที่มีกากบาทค้างอยู่ทุกแถวอ่านเหมือนถังขยะมากกว่ารายการงาน */
+  .row-line { display: flex; align-items: center; gap: 2px; }
+  .del {
+    flex: none; appearance: none; background: none; border: 1px solid transparent;
+    border-radius: var(--r-sm); color: var(--text-muted); cursor: pointer;
+    font: inherit; font-size: var(--fs-xs, 11px); padding: 3px 6px;
+    display: inline-flex; align-items: center;
+    /* ซ่อนแล้วต้องกดไม่โดนด้วย ปุ่มใสที่ยังรับคลิกคือกับดักที่มองไม่เห็น
+       (คีย์บอร์ดยังแท็บมาถึงได้ pointer-events คุมแค่เมาส์) */
+    opacity: 0; pointer-events: none;
+  }
+  .row-line:hover .del, .del:focus-visible, .del.confirm { opacity: 1; pointer-events: auto; }
+  .del:hover { color: var(--text-danger, #f87171); }
+  .del.confirm {
+    color: var(--text-danger, #f87171);
+    border-color: color-mix(in srgb, var(--text-danger, #f87171) 45%, transparent);
+  }
+
   .row {
-    width: 100%; text-align: left; appearance: none; background: none;
+    width: 100%; min-width: 0; text-align: left; appearance: none; background: none;
     border: 1px solid transparent; border-radius: var(--r-sm);
     padding: 8px 10px; cursor: pointer; font: inherit;
     display: flex; flex-direction: column; gap: 3px;

@@ -571,6 +571,7 @@ export const th = {
   'deckRoom.slideCount': '{n} สไลด์',
   'deckRoom.count': '{n} เด็ค',
   'deckRoom.more': 'แสดงเพิ่มอีก {n} เด็ค',
+  'deckRoom.delete': 'ลบเด็คนี้',
   'workbench.dropHere': 'วางตรงนี้ได้เลย',
  'workbench.dropHint': 'ไฟล์ หรือหน้าเว็บที่ลากมาจากเบราว์เซอร์ วางแล้วขึ้นบนโต๊ะทันที',
   'workbench.dropFailed': 'เอาไฟล์นี้เข้ามาไม่ได้',

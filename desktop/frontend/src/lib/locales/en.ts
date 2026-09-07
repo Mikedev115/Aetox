@@ -579,6 +579,7 @@ export const en: Record<keyof typeof th, string> = {
   'deckRoom.slideCount': '{n} slides',
   'deckRoom.count': '{n} decks',
   'deckRoom.more': 'Show {n} more',
+  'deckRoom.delete': 'Delete this deck',
   'workbench.dropHere': 'Drop it here',
   'workbench.dropHint': 'A file, or a page dragged from a browser. It opens on the desk right away',
   'workbench.dropFailed': 'This file couldn’t be brought in.',
