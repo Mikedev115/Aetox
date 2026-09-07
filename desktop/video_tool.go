@@ -31,6 +31,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -59,11 +60,25 @@ const (
 	videoLibraryAgent = "video"
 	videoLibrarySkill = "video-templates"
 
-	// Where the motion scenes live inside that skill. The still ones are
-	// deliberately not reachable here — they do not move, so rendering one
-	// produces a video of a photograph, which is a thing somebody asked for by
-	// mistake every time.
+	// Where the motion scenes live inside that skill, and the shelf a bare name
+	// is looked for on first.
 	videoLibraryDir = "motion"
+
+	// The name that means "do not copy anybody's scene". It is not on any
+	// shelf: the file comes out of the renderer's own bundle, which is the one
+	// blank composition guaranteed to match the engine that will render it.
+	videoBlankTemplate = "blank"
+
+	// What a still scene's frame says when nobody said. Only ever a
+	// placeholder: a cover has no length of its own and the renderer needs a
+	// number, so one is written and then reported, never written and left to be
+	// discovered in the output.
+	videoStillFallbackSeconds = 4.0
+
+	// How many scene names one shelf contributes to a refusal before it says
+	// how many more there are. The refusal exists to un-stick a caller who
+	// guessed a name, not to be the inventory.
+	videoNamesPerShelf = 20
 
 	// A render is the longest thing this app runs on purpose. Bounded anyway,
 	// because a scene that has stopped answering should end as an error rather
@@ -125,9 +140,9 @@ func (s *videoToolSkill) ToolDefinition() model.ToolDefinition {
 	// Guidance, sent once on the first call — the same split browser_tool.go
 	// made when its entry went from 766 tokens to a fifth of that.
 	lines := map[string]string{
-		"new":    "`new` (template, path, seconds?, footage?) — copy a scene out of the library into its own project folder, ready to edit.",
+		"new":    "`new` (template, path, seconds?, footage?) — copy a scene out of the library into its own project folder, ready to edit. `template` is a scene name, `<shelf>/<name>` when two shelves could mean it, or `blank` for the renderer's own empty composition when no scene is the shape you need.",
 		"check":  "`check` (path) — open the project once and report runtime errors, text that overflows the frame, and contrast failures.",
-		"render": "`render` (path, output?, seconds?, fps?, quality?, composition?, proof?) — render the project to a video file; a fresh check report rides along, and proof:true also reads the on-screen text back via OCR in the same reply.",
+		"render": "`render` (path, output?, resolution?, format?, fps?, quality?, composition?, variables?, strict?, proof?) — render the project; a fresh check report rides along, and proof:true also reads the on-screen text back via OCR in the same reply. Length is not a render option: it is `data-duration` in the markup.",
 	}
 	var b strings.Builder
 	b.WriteString("Build a video from an HTML scene. Actions:\n")
@@ -137,6 +152,13 @@ func (s *videoToolSkill) ToolDefinition() model.ToolDefinition {
 	b.WriteString("\nEvery path is relative to the project root. " +
 		"Read the `video-templates` skill for what is in the library and what each scene needs.")
 
+	// One schema for three actions, because `video` is one packed tool. That
+	// means every property is visible to every action and the description is
+	// where an action-shaped fact has to live — see `seconds`, which `render`
+	// does not read and cannot stop being offered while `new` needs it. Saying
+	// so in the schema is the honest version of "removed from the signature",
+	// which is what the render line above claimed on its own until 8 ก.ย. 2569
+	// while this block went on advertising the parameter to the model.
 	return toolDef(videoToolName, b.String(), map[string]any{
 		"type": "object",
 		"properties": map[string]any{
@@ -146,10 +168,31 @@ func (s *videoToolSkill) ToolDefinition() model.ToolDefinition {
 			"output":      map[string]any{"type": "string"},
 			"footage":     map[string]any{"type": "string"},
 			"composition": map[string]any{"type": "string"},
-			"seconds":     map[string]any{"type": "number"},
-			"fps":         map[string]any{"type": "integer"},
-			"quality":     map[string]any{"type": "string", "enum": []string{"draft", "standard", "high"}},
-			"proof":       map[string]any{"type": "boolean"},
+			"seconds": map[string]any{
+				"type":        "number",
+				"description": "`new` only, and only for the scenes carrying __VIDEO_DURATION__; every other scene's length is `data-duration` in its markup. `render` has no length option and neither does the renderer.",
+			},
+			"fps": map[string]any{
+				"type":        "string",
+				"description": "`render`. Whole number (24, 25, 30, 50, 60, 120, 240) or ffmpeg rational as text — \"24000/1001\" for 23.976, \"30000/1001\" for 29.97, \"60000/1001\" for 59.94. Range 1-240; defaults to the composition's data-fps, else 30.",
+			},
+			"resolution": map[string]any{
+				"type":        "string",
+				"enum":        videoResolutions,
+				"description": "`render`. Scales the capture without touching the scene: landscape 1920x1080, portrait 1080x1920, square 1080x1080, and the -4k of each (3840x2160, 2160x3840, 2160x2160). Must keep the composition's aspect ratio and scale by a whole multiple.",
+			},
+			"format": map[string]any{
+				"type":        "string",
+				"enum":        videoFormats,
+				"description": "`render`. mp4 by default. mov and webm carry transparency for an overlay; png-sequence writes RGBA frames to a folder for After Effects, Nuke or Fusion; gif is small enough to paste into a pull request.",
+			},
+			"variables": map[string]any{
+				"type":        "string",
+				"description": "`render`. JSON object merged over the composition's data-composition-variables defaults, read inside the scene through window.__hyperframes.getVariables(). One composition, different words, without editing the markup between renders.",
+			},
+			"strict":  map[string]any{"type": "boolean", "description": "`render`. Fail the render on lint errors instead of producing the file anyway. Off by default, because half of what the layout pass reports on this library is the design of the scene."},
+			"quality": map[string]any{"type": "string", "enum": []string{"draft", "standard", "high"}},
+			"proof":   map[string]any{"type": "boolean"},
 		},
 		"required": []string{"action"},
 	})
@@ -234,9 +277,21 @@ func (s *videoToolSkill) newProject(args map[string]any) (skill.Output, error) {
 	// scaffolds a project from a video file; nothing fills them on this path,
 	// so a scene left with the placeholders in it renders with a duration of
 	// the literal string "__VIDEO_DURATION__".
-	seconds := argFloat(args, "seconds")
+	asked := argFloat(args, "seconds")
+	seconds := asked
 	if seconds <= 0 {
 		seconds = videoDefaultSeconds(full)
+	}
+	// Whether this scene is one of the four that take a length, asked before
+	// the patcher fills the slot and the evidence disappears. The other 46 have
+	// their length written into the markup by the author, and a `seconds` that
+	// silently does nothing to them is the defect this answers.
+	takesLength := videoHasDurationSlot(full)
+	// Before the placeholders, because the frame it writes carries the duration
+	// as a number and the patcher would otherwise have nothing to fill.
+	framed, unframed, err := videoEnsureCompositionRoot(full, filepath.Base(dest), seconds)
+	if err != nil {
+		return videoFailed(command, err), err
 	}
 	filled, err := videoPatchPlaceholders(full, seconds, strings.TrimSpace(argString(args, "footage")))
 	if err != nil {
@@ -255,7 +310,58 @@ func (s *videoToolSkill) newProject(args map[string]any) (skill.Output, error) {
 	if localised > 0 {
 		report += fmt.Sprintf(", ชี้ GSAP ไปที่ไฟล์ในเครื่องใน %d ไฟล์", localised)
 	}
+	if framed {
+		report += fmt.Sprintf(", เติมกรอบคอมโพสิชันให้ตามขนาดที่ฉากวาดไว้เอง ยาว %.4g วินาที", videoRootDuration(full))
+	}
 	report += ")\n" + videoProjectInventory(full)
+	// The length, said out loud when it was not the caller's to choose.
+	//
+	// `seconds` reaches four of the fifty motion scenes — the ones whose author
+	// wrote `__VIDEO_DURATION__` because their keyframes were built to stretch.
+	// On the other forty-six it did nothing and said nothing, so an agent asked
+	// for a 20-second clip got a 30-second one, reported 20, and nobody found
+	// out until somebody watched it. There is no flag on the renderer either:
+	// duration lives in the markup and only there.
+	if asked > 0 && !takesLength && !framed {
+		if fixed := videoRootDuration(full); fixed > 0 && math.Abs(fixed-asked) > 0.05 {
+			report += fmt.Sprintf("\nความยาวที่ขอมา %.4g วินาที ไม่ได้ถูกใช้ — ฉากนี้ยาว %.4g วินาทีเขียนไว้ในไฟล์"+
+				"\nจะเปลี่ยนต้องแก้ `data-duration` บนธาตุรากพร้อมกับคีย์เฟรมที่วิ่งอยู่ในนั้น แก้อย่างเดียวได้ภาพค้างหรือท่าที่ถูกตัดกลางคัน"+
+				"\nหรือเลือกฉากที่ยาวใกล้เคียงกว่านี้จากตารางใน SKILL.md ซึ่งบอกความยาวไว้ทุกแถว", asked, fixed)
+		}
+	}
+	if framed {
+		// Said out loud rather than left for the render to reveal. The still
+		// shelves are for the frames around a video — a cover, an infographic,
+		// an interface on screen where a real screenshot would leak real data —
+		// and one rendered on its own is a video of a photograph.
+		report += "\nฉากนี้ไม่มีการเคลื่อนไหว มันเป็นวัสดุหรือภาพนิ่ง ไม่ใช่คลิปที่ยืนได้ด้วยตัวเอง" +
+			" — ถ้าจะให้เป็นงานส่ง ให้เอาไปประกอบในฉากที่เคลื่อนไหว หรือส่งเป็นภาพนิ่ง"
+		if asked <= 0 {
+			// The number above was ours because nobody gave one, and a scene
+			// that does not move has none of its own to read. Said here so it
+			// is a starting point rather than a decision made quietly.
+			//
+			// Read back off the frame that was just written rather than printed
+			// from videoStillFallbackSeconds, which is what this said until
+			// 8 ก.ย. 2569. The two agree only while no still scene ships a
+			// `template.html-video.yaml`; the moment one does, videoDefaultSeconds
+			// wins the write and the constant wins the sentence, and one report
+			// states two different lengths for one file. Reporting a number the
+			// tool did not use is the exact defect the rest of this block exists
+			// to answer.
+			report += fmt.Sprintf("\nความยาว %.4g วินาทีเป็นค่าตั้งต้นที่เครื่องมือใส่ให้ ไม่ใช่ของฉาก — เปลี่ยนที่ `data-duration` บนราก ได้ตามที่งานต้องการ", videoRootDuration(full))
+		}
+	}
+	if unframed != "" {
+		// The loud half of videoEnsureCompositionRoot's third answer. A project
+		// with no composition root renders 1080x1920 whatever it drew, crops the
+		// rest away, and comes back from `check` with an empty report that reads
+		// like a pass — so the one moment this can be caught is here, before the
+		// agent spends a render finding out.
+		report += "\n**ฉากนี้ไม่มีกรอบคอมโพสิชัน และเติมให้ไม่ได้** — " + unframed +
+			"\nถ้าปล่อยไว้ ตัวเรนเดอร์จะทำเป็น 1080x1920 แล้วครอปส่วนที่กว้างกว่านั้นทิ้งเงียบ ๆ และ `video check` จะไม่มีความยาวให้สุ่มเลย์เอาต์ รายงานจะว่างและอ่านเหมือนผ่าน" +
+			"\nเติมเองบน `<body>`: `data-composition-id`, `data-width`, `data-height`, `data-start=\"0\"`, `data-duration` และ `data-no-timeline` ถ้าฉากไม่มีการเคลื่อนไหว"
+	}
 	report += "\nแก้ข้อความข้างบนให้เป็นของงานนี้ทั้งหมด (ที่เห็นคือสำเนาตัวอย่าง) แล้วเรียก video check ก่อนเรนเดอร์" +
 		"\nฟอนต์ของฉากไม่มีชุดตัวอักษรไทย — ข้อความไทยจะออกมาเป็นฟอนต์ระบบ ถ้าไม่ใช่ที่ตั้งใจให้เพิ่มฟอนต์ไทยใน <link> เอง"
 	return skill.Output{Name: "video_new", Command: command, Content: report, Success: true}, nil
@@ -356,38 +462,143 @@ var (
 // existed, which sent an agent retrying a template the refusal itself listed
 // (tool_runs, 31 ส.ค. 16:49). A refusal has to name the caller's actual
 // mistake, or it manufactures the next one.
+// videoShelves are the library's four shelves, in the order a bare name is
+// searched. No name appears on two of them, so the order decides nothing today
+// — it is written down so that a name that ever does collide resolves the same
+// way twice rather than by whichever read came back first.
+//
+// **Three of these were unreachable until 7 ก.ย. 2569, and the shelf's own
+// index taught their names anyway.** `videoLibraryDir` was the only prefix
+// stripped and anything with a `/` left in it was refused, so an agent that did
+// what SKILL.md's own table says — `video new graphic-scenes/social-cover-
+// editorial.html` — got told that a scene it had just read about was not a
+// scene. Twenty-five of the seventy-five, which is every cover, infographic,
+// data slide and interface mock on the shelf.
+//
+// The reason they were held back was real and is kept, one line down rather
+// than as a locked door: a still scene rendered on its own is a video of a
+// photograph. What that argument does not cover is the job SKILL.md actually
+// describes them for — "a believable interface on screen where a real
+// screenshot would leak real data" — which needs the file inside a project and
+// had no way to get there. `product-launch-30s` ships three 1x1 transparent
+// PNGs where its product screenshots go; the material to replace them was on
+// the shelf the whole time and the tool would not hand it over.
+var videoShelves = []string{videoLibraryDir, "graphic-scenes", "slide-scenes", "web-scenes"}
+
 func videoCopyTemplate(template, dest string) (int, error) {
-	// The path shapes are accepted, because WE teach them: the SKILL.md table
-	// spells every scene `motion/<name>.html` or `motion/<name>/index.html`,
+	// The path shapes are accepted, because WE teach them: the SKILL.md tables
+	// spell every scene `<shelf>/<name>.html` or `motion/<name>/index.html`,
 	// and agents copy that spelling verbatim into `template` — three times in
 	// one evening (problem queue, 31 ส.ค.), each answered by a refusal that
 	// blamed the caller for reading our own index. One unambiguous meaning,
 	// so normalise instead of refusing.
-	template = strings.TrimPrefix(strings.ReplaceAll(template, `\`, "/"), videoLibraryDir+"/")
-	template = strings.TrimSuffix(template, "/index.html")
+	template = strings.TrimSuffix(strings.ReplaceAll(template, `\`, "/"), "/index.html")
 	template = strings.TrimSuffix(template, ".html")
-	if strings.ContainsAny(template, `/\`) {
-		return 0, fmt.Errorf("template คือชื่อฉากในคลัง ไม่ใช่พาธ — ดูรายชื่อในตาราง SKILL.md ของ video-templates")
+	shelves := videoShelves
+	if shelf, name, found := strings.Cut(template, "/"); found {
+		if !slices.Contains(videoShelves, shelf) || strings.ContainsAny(name, "/") {
+			return 0, fmt.Errorf("template คือชื่อฉากในคลัง หรือ <ชั้น>/<ชื่อฉาก> — ชั้นที่มีคือ %s",
+				strings.Join(videoShelves, ", "))
+		}
+		shelves, template = []string{shelf}, name
 	}
 	if _, err := os.Stat(dest); err == nil {
 		return 0, fmt.Errorf("%s มีอยู่แล้ว", filepath.Base(dest))
 	}
-	shelf, err := subagent.ListSkillDir(videoLibraryAgent, videoLibrarySkill, videoLibraryDir)
-	if err != nil {
-		return 0, err
+	if template == videoBlankTemplate {
+		return videoCopyBlank(dest)
 	}
-	dir := videoLibraryDir + "/" + template
-	if !slices.Contains(shelf, template) {
-		if !slices.Contains(shelf, template+".html") {
-			return 0, fmt.Errorf("ไม่มีฉากชื่อ %s ในคลัง — มีให้เลือกคือ %s", template, videoLibraryNames())
-		}
-		data, err := subagent.ReadSkillFile(videoLibraryAgent, videoLibrarySkill, dir+".html")
+	// A shelf that will not list is not a scene that does not exist, so the loop
+	// keeps looking — but the reason the first one gave is kept, because if NO
+	// shelf lists then the caller's name was never the problem and telling them
+	// it was sends them to pick a different one, forever. This dropped the error
+	// on the floor until 8 ก.ย. 2569 and answered a broken library with
+	// "ไม่มีฉากชื่อ …", which is the failure the comment above this function
+	// describes, committed by the function it describes.
+	var shelfErr error
+	listed := false
+	for _, shelf := range shelves {
+		names, err := subagent.ListSkillDir(videoLibraryAgent, videoLibrarySkill, shelf)
 		if err != nil {
-			return 0, err
+			if shelfErr == nil {
+				shelfErr = err
+			}
+			continue
 		}
-		return videoWriteFlatScene(dest, data)
+		listed = true
+		dir := shelf + "/" + template
+		if slices.Contains(names, template) {
+			return subagent.CopySkillDir(videoLibraryAgent, videoLibrarySkill, dir, dest)
+		}
+		if slices.Contains(names, template+".html") {
+			data, err := subagent.ReadSkillFile(videoLibraryAgent, videoLibrarySkill, dir+".html")
+			if err != nil {
+				return 0, err
+			}
+			return videoWriteFlatScene(dest, data)
+		}
 	}
-	return subagent.CopySkillDir(videoLibraryAgent, videoLibrarySkill, dir, dest)
+	if !listed {
+		return 0, fmt.Errorf("เปิดคลังฉากไม่ได้เลยสักชั้น จึงยังไม่รู้ว่ามี %s หรือไม่: %w", template, shelfErr)
+	}
+	return 0, fmt.Errorf("ไม่มีฉากชื่อ %s ในคลัง — มีให้เลือกคือ %s", template, videoLibraryNames())
+}
+
+// videoCopyBlank writes the renderer's own empty composition, which is the
+// answer to "start from nothing" that does not involve anybody guessing at the
+// contract.
+//
+// **Why this exists.** Until 7 ก.ย. 2569 `video new` had no shape but "copy one
+// of these", and the brief tells the agent copying is the right move — a scene
+// written from nothing is a scene whose timing nobody has tested. Both are
+// true, and together they meant every clip this office has ever made is one of
+// fifty files with the words changed. A blank start is the release valve, not
+// a replacement: it is for the piece none of the fifty is the shape of.
+//
+// It comes out of the engine's bundle rather than being a file we wrote,
+// because a blank composition is a statement about the renderer's contract —
+// which `data-*` attributes a root needs, how a timeline registers — and the
+// only copy of that statement guaranteed to match the engine installed here is
+// the one shipped beside it. It arrives carrying `__VIDEO_DURATION__`,
+// `__VIDEO_SRC__` and the GSAP CDN address, so the three steps `video new`
+// already runs over a copied scene fill it in with nothing added.
+func videoCopyBlank(dest string) (int, error) {
+	src := hyperframesTemplate(videoBlankTemplate)
+	if src == "" {
+		return 0, fmt.Errorf("ฉากเปล่ามาจากตัวเรนเดอร์ ซึ่งเครื่องนี้ยังไม่ได้ติดตั้ง — หน้างานวิดีโอติดตั้งได้ในกดเดียว หรือเริ่มจากฉากในคลังไปก่อน")
+	}
+	return copyOSTree(src, dest)
+}
+
+// copyOSTree copies a folder on disk into dest, answering with how many files
+// it wrote. dest must not exist, for the reason subagent.CopySkillDir refuses a
+// folder that does: merging is how a half-finished project quietly inherits
+// files from a different scene.
+func copyOSTree(src, dest string) (int, error) {
+	written := 0
+	err := filepath.WalkDir(src, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, p)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dest, rel)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(target, data, 0o644); err != nil {
+			return err
+		}
+		written++
+		return nil
+	})
+	return written, err
 }
 
 // videoWriteFlatScene turns one self-contained library file into a project
@@ -414,15 +625,195 @@ func videoWriteFlatScene(dest string, data []byte) (int, error) {
 // take the description's advice to go and read it. Guess once, be told, get it
 // right, instead of a loop of "no such scene" with nowhere to look.
 func videoLibraryNames() string {
-	entries, err := subagent.ListSkillDir(videoLibraryAgent, videoLibrarySkill, videoLibraryDir)
-	if err != nil {
+	var parts []string
+	for _, shelf := range videoShelves {
+		entries, err := subagent.ListSkillDir(videoLibraryAgent, videoLibrarySkill, shelf)
+		if err != nil {
+			continue
+		}
+		names := make([]string, 0, len(entries))
+		for _, e := range entries {
+			names = append(names, strings.TrimSuffix(e, ".html"))
+		}
+		if len(names) == 0 {
+			continue
+		}
+		// Capped per shelf, because this went from fifty names to seventy-five
+		// when the other three shelves opened on 7 ก.ย. 2569 and it is printed
+		// on every mistyped scene name. The point of the list is to get the
+		// caller un-stuck on the shelf they meant, and twenty names does that;
+		// the complete inventory is the SKILL.md tables, which the tail below
+		// sends them to.
+		if len(names) > videoNamesPerShelf {
+			names = append(names[:videoNamesPerShelf:videoNamesPerShelf],
+				fmt.Sprintf("… อีก %d ฉาก", len(names)-videoNamesPerShelf))
+		}
+		// Grouped by shelf rather than run together, because the four are not
+		// interchangeable: one of them moves and three do not, and a caller
+		// reading a flat list of seventy-five names cannot tell which is which.
+		parts = append(parts, shelf+": "+strings.Join(names, ", "))
+	}
+	if len(parts) == 0 {
 		return "เปิดสกิล video-templates ดูรายชื่อ"
 	}
-	names := make([]string, 0, len(entries))
-	for _, e := range entries {
-		names = append(names, strings.TrimSuffix(e, ".html"))
+	parts = append(parts, videoBlankTemplate+": ฉากเปล่าของตัวเรนเดอร์ เมื่อไม่มีฉากไหนเป็นรูปทรงที่ต้องการ")
+	parts = append(parts, "รายชื่อครบพร้อมความยาวและกรอบของทุกฉากอยู่ในตารางของสกิล video-templates")
+	return strings.Join(parts, "\n")
+}
+
+// videoStillCanvas is the page frame a still scene draws itself at, taken from
+// the CSS rule that declares the width the scene's own `<meta name="viewport">`
+// says the page is.
+//
+// Read out of the file instead of measured by hand, and instead of editing
+// twenty-five vendored files to carry a composition root. CREDITS.md promises
+// those files are the source's own bytes, and this is the same split
+// `__VIDEO_DURATION__` and the GSAP rewrite already use: the shelf keeps what
+// arrived, the copy gets what the engine needs.
+//
+// **The selector is what decides, and the reason is that size alone does not.**
+// This took the first rule declaring both a width and a height over 240px until
+// 8 ก.ย. 2569, on the reasoning that 240 tells a page frame from a button. It
+// does not, and the shelf already carries the counter-examples: swept on
+// 8 ก.ย., `portfolio-home-organic` has a 1440x828 hero, `api-docs-editorial` a
+// 260x900 sidebar, `portfolio-home-editorial` two 320x320 tiles and a 344x344,
+// `vertical-infographic-organic` a 600x600 and a 400x400. All twenty-five
+// measured correctly anyway, and only because the canvas rule happens to come
+// first in every file — a property of how somebody wrote them, not one this
+// code can hold on to across a library refresh. 1440x828 is the one to picture:
+// 72px short of the real 1440x900, close enough to render and to pass `check`
+// looking fine, and a hero is exactly as wide as the page it sits on, so no
+// amount of comparing widths would have caught it either.
+//
+// What separates them is what the rule is FOR. The canvas is the page, so the
+// rule that sets it names `body` — and swept over the shelf on 8 ก.ย., twenty-
+// four of the twenty-five carry exactly one such rule and it is the canvas in
+// every one. That is the answer: not the biggest box, not the first box, the
+// box that is the document.
+//
+// **Two fallbacks under it, in order, for a file that does not say it that
+// way.** The scene's own `<meta name="viewport" content="width=…">` next, which
+// twenty-four of the twenty-five also carry and which at least forces a decoy to
+// match the page width. Then first-rule-over-240, the old behaviour with the old
+// risk, which is what `explainer-diagram-poster` lands on: it has no body rule
+// and its viewport says `device-width`, which says nothing. Kept rather than
+// refused because a poster measured wrong is recoverable and a poster refused is
+// a shelf with a hole in it — and the outcome is no longer silent either way,
+// because videoEnsureCompositionRoot now reports both the frame it wrote and its
+// failure to write one.
+var videoStillBlock = regexp.MustCompile(`(?s)([^{}]*)\{([^{}]*)\}`)
+var videoStillWidth = regexp.MustCompile(`(?:^|[^-\w])width\s*:\s*(\d+)px`)
+var videoStillHeight = regexp.MustCompile(`(?:^|[^-\w])height\s*:\s*(\d+)px`)
+var videoStillBodySel = regexp.MustCompile(`(?i)(?:^|[\s,>+~])body\b`)
+var videoViewportMeta = regexp.MustCompile(`(?i)<meta\b[^>]*name\s*=\s*["']?viewport["']?[^>]*>`)
+var videoViewportWidth = regexp.MustCompile(`(?i)\bwidth\s*=\s*(\d+)`)
+
+func videoStillCanvas(markup string) (width, height int) {
+	// 0 when the scene declares no pixel width — `device-width`, or no meta at
+	// all — which is the signal to fall through rather than to refuse.
+	declared := 0
+	if meta := videoViewportMeta.FindString(markup); meta != "" {
+		if m := videoViewportWidth.FindStringSubmatch(meta); m != nil {
+			declared, _ = strconv.Atoi(m[1])
+		}
 	}
-	return strings.Join(names, ", ")
+	var body, matchesViewport, first [2]int
+	for _, block := range videoStillBlock.FindAllStringSubmatch(markup, -1) {
+		selector, rule := block[1], block[2]
+		w := videoStillWidth.FindStringSubmatch(rule)
+		h := videoStillHeight.FindStringSubmatch(rule)
+		if w == nil || h == nil {
+			continue
+		}
+		wv, _ := strconv.Atoi(w[1])
+		hv, _ := strconv.Atoi(h[1])
+		// The 240 floor is still here and it is no longer what does the work:
+		// it only keeps an icon out of the last fallback, where nothing else can.
+		if wv < 240 || hv < 240 {
+			continue
+		}
+		if body == [2]int{} && videoStillBodySel.MatchString(selector) {
+			body = [2]int{wv, hv}
+		}
+		if matchesViewport == [2]int{} && declared > 0 && wv == declared {
+			matchesViewport = [2]int{wv, hv}
+		}
+		if first == [2]int{} {
+			first = [2]int{wv, hv}
+		}
+	}
+	for _, pick := range [][2]int{body, matchesViewport, first} {
+		if pick != [2]int{} {
+			return pick[0], pick[1]
+		}
+	}
+	return 0, 0
+}
+
+// videoEnsureCompositionRoot gives a copied scene the frame the renderer needs,
+// when the scene did not bring one.
+//
+// **What happens without it**, and it is the defect CREDITS.md already records
+// for the thirteen single-file motion scenes: the renderer produces 1080x1920
+// for every project that declares nothing, crops anything drawn wider, and says
+// nothing about either. `video check` cannot sample a layout it has no duration
+// for, so the report comes back empty and reads like a pass.
+//
+// Only ever adds. A scene that already carries `data-composition-id` anywhere
+// is a scene whose author decided the frame, including all fifty on the motion
+// shelf, and this leaves it exactly as it was.
+//
+// **Three answers, not two, and the third is the point.** `framed` is a frame
+// written; empty `unframed` with `framed` false is a scene that brought its own
+// and needed nothing. A non-empty `unframed` is the case that used to look
+// exactly like the second one: a scene with no frame that could not be given
+// one. Silence there is the whole defect this function exists to stop — the
+// renderer takes an unframed project as 1080x1920, crops whatever is drawn
+// wider, and `check` has no duration to sample, so the report comes back empty
+// and reads like a pass. Returned as a sentence rather than logged, because the
+// only party who can do anything about it is the agent reading the report.
+func videoEnsureCompositionRoot(dir, name string, seconds float64) (framed bool, unframed string, err error) {
+	index := filepath.Join(dir, "index.html")
+	data, readErr := os.ReadFile(index)
+	if readErr != nil {
+		return false, "", nil // a folder scene mounts its own; nothing to frame
+	}
+	markup := string(data)
+	if strings.Contains(markup, "data-composition-id") {
+		return false, "", nil
+	}
+	// From here down the scene has no frame, so every exit owes a reason.
+	width, height := videoStillCanvas(markup)
+	if width == 0 || height == 0 {
+		return false, "อ่านขนาดที่ฉากวาดตัวเองไม่ออก — ไม่มีทั้ง `<meta name=\"viewport\" content=\"width=…\">`" +
+			" และกติกา CSS ที่บอกทั้งกว้างและสูงเป็นพิกเซล", nil
+	}
+	loc := regexp.MustCompile(`<body\b[^>]*>`).FindStringIndex(markup)
+	if loc == nil {
+		return false, "ไฟล์นี้ไม่มีแท็ก <body> ให้เติมกรอบ", nil
+	}
+	open := markup[loc[0]:loc[1]]
+	if strings.HasSuffix(open, "/>") {
+		return false, "แท็ก <body> ปิดตัวเอง เติมแอตทริบิวต์เข้าไปไม่ได้", nil
+	}
+	if seconds <= 0 {
+		// A still scene has no length of its own to read — nothing moves, so
+		// nobody wrote one — and the renderer will not start without a number.
+		// So this is a placeholder, not a judgement about how long anybody
+		// should look at a cover: `video new` says the number out loud in its
+		// report, which is what keeps it a starting point the agent can argue
+		// with rather than a decision made quietly on its behalf.
+		seconds = videoStillFallbackSeconds
+	}
+	// data-no-timeline because these do not move: there is no paused timeline
+	// for the renderer to seek, and saying so is what stops it waiting for one.
+	attrs := fmt.Sprintf(` data-composition-id=%q data-no-timeline data-width="%d" data-height="%d" data-start="0" data-duration="%.4g"`,
+		name, width, height, seconds)
+	patched := markup[:loc[1]-1] + attrs + markup[loc[1]-1:]
+	if writeErr := os.WriteFile(index, []byte(patched), 0o644); writeErr != nil {
+		return false, "", writeErr
+	}
+	return true, "", nil
 }
 
 var (
@@ -462,6 +853,79 @@ func videoDefaultSeconds(dir string) float64 {
 		return 0
 	}
 	return seconds
+}
+
+// videoHasDurationSlot reports whether any file in the project still carries
+// `__VIDEO_DURATION__` — that is, whether this scene's author meant its length
+// to be given rather than fixed.
+//
+// Asked of the copy rather than of a list of four scene names, because the
+// answer is a property of the markup and a list would be a second place to keep
+// it true.
+func videoHasDurationSlot(dir string) bool {
+	found := false
+	filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || found || !strings.EqualFold(filepath.Ext(path), ".html") {
+			return nil
+		}
+		data, readErr := os.ReadFile(path)
+		if readErr == nil && strings.Contains(string(data), videoDurationSlot) {
+			found = true
+		}
+		return nil
+	})
+	return found
+}
+
+// videoRootDuration is how long this project actually is, read off the frame
+// the renderer will read it off.
+//
+// The first element carrying both `data-composition-id` and `data-duration`
+// that is not itself a mounted sub-composition — a flat scene declares the pair
+// on `<body>`, a folder scene on a `<div>` that wraps the beats, and the beats
+// carry the same pair one level in.
+//
+// **`data-composition-src` is what tells the whole from its parts**, and
+// document order is not. This filtered on nothing and took the first match
+// until 8 ก.ย. 2569, on the reasoning that a root is written before the layers
+// it wraps. Two of the thirteen folder scenes are the other way round:
+// `grain-texture-hero` mounts `intro` at a literal `data-duration="2.5"` and
+// `structured-grid` mounts one at `1.86`, both ahead of a root whose own
+// duration is still `__VIDEO_DURATION__` at that moment — so the old rule was
+// right only because videoPatchPlaceholders had already run and turned the root
+// into a number the regex could see. An ordering dependency between two
+// functions that nothing wrote down. Swept over all thirteen on 8 ก.ย.: the
+// filter picks the right root in every one of them, before or after the patch,
+// and recovers `bold-portrait-title` and `playful-bounce`, which answered 0.
+//
+// 0 when the project declares nothing, which is a different sentence from "it
+// is zero seconds long" and is why the callers check.
+var videoRootTag = regexp.MustCompile(`<[a-zA-Z][^>]*>`)
+var videoRootDurationAttr = regexp.MustCompile(`data-duration="([0-9.]+)"`)
+
+func videoRootDuration(dir string) float64 {
+	data, err := os.ReadFile(filepath.Join(dir, "index.html"))
+	if err != nil {
+		return 0
+	}
+	for _, tag := range videoRootTag.FindAllString(string(data), -1) {
+		if !strings.Contains(tag, "data-composition-id") {
+			continue
+		}
+		if strings.Contains(tag, "data-composition-src") {
+			continue // a layer this project mounts, not the project
+		}
+		m := videoRootDurationAttr.FindStringSubmatch(tag)
+		if m == nil {
+			continue
+		}
+		seconds, convErr := strconv.ParseFloat(m[1], 64)
+		if convErr != nil {
+			continue
+		}
+		return seconds
+	}
+	return 0
 }
 
 // videoUseLocalGSAP points a copied project's script tags at the copy of GSAP
@@ -515,16 +979,29 @@ func videoUseLocalGSAP(dir string) (int, error) {
 			}
 			copied = true
 		}
-		// Relative to the file doing the loading, because the renderer serves
-		// the project directory and a sub-composition sits one level down.
-		rel, err := filepath.Rel(filepath.Dir(path), filepath.Join(vendor, "gsap.min.js"))
-		if err != nil {
-			return err
-		}
-		href := filepath.ToSlash(rel)
-		if !strings.HasPrefix(href, ".") {
-			href = "./" + href
-		}
+		// Root-relative from every file, including the ones inside
+		// compositions/, and the word "including" is the whole fix.
+		//
+		// This was `filepath.Rel` from the loading file until 7 ก.ย. 2569, on
+		// the reasoning that a sub-composition sits one level down and should
+		// therefore climb one level up. It sits one level down **on disk**; the
+		// renderer serves it with the project root as its base URL, so `../`
+		// climbs above the root and `check` refuses it —
+		// `invalid_parent_traversal_in_asset_path`, whose own fix line says
+		// "compositions are served with the project root as their base URL, so
+		// paths must be root-relative, not relative to the compositions/
+		// directory."
+		//
+		// **What it cost.** Every folder scene that loads GSAP came out of
+		// `video new` with one error per sub-composition and no way for the
+		// agent to fix it — 8 on `product-launch-30s`, and 9 of the 13 folder
+		// scenes affected, which is every rich scene on the shelf. The render
+		// still worked, because the renderer rewrites the path against each
+		// sub-composition's source. So the agent was handed a report that said
+		// the good templates were broken and the flat ones were clean, and it
+		// did what anybody would: it stopped reaching for the folders. Measured
+		// 7 ก.ย. on a real copy — 8 errors before, `Check passed` after.
+		href := "vendor/gsap.min.js"
 		if err := os.WriteFile(path, []byte(strings.ReplaceAll(text, gsapCDNURL, href)), 0o644); err != nil {
 			return err
 		}
@@ -609,12 +1086,27 @@ func (s *videoToolSkill) render(ctx context.Context, args map[string]any) (skill
 	}
 
 	argv := []string{"render", full}
+
+	// The container, decided before the name, because it decides the name and
+	// it decides what "there is a render" means at the end.
+	format := strings.ToLower(strings.TrimSpace(argString(args, "format")))
+	if format != "" && !slices.Contains(videoFormats, format) {
+		err := fmt.Errorf("format %q ไม่มี — มี %s", format, strings.Join(videoFormats, ", "))
+		return videoFailed(command, err), err
+	}
+	if format == "" {
+		format = "mp4"
+	}
+
 	out := strings.TrimSpace(argString(args, "output"))
 	if out == "" {
 		// Beside the project, named after it. Upstream's own default is
 		// renders/<name>.mp4 inside the project, which buries the one file the
 		// user actually wants under the working folder.
-		out = filepath.Base(full) + ".mp4"
+		//
+		// The suffix follows the format, because a webm written to a name
+		// ending .mp4 is a file every player on this machine will refuse.
+		out = filepath.Base(full) + videoFormatSuffix[format]
 	}
 	root, err := s.sandbox()
 	if err != nil {
@@ -629,14 +1121,78 @@ func (s *videoToolSkill) render(ctx context.Context, args map[string]any) (skill
 	}
 	argv = append(argv, "--output", outFull)
 
-	if fps := argInt(args, "fps"); fps > 0 {
-		argv = append(argv, "--fps", strconv.Itoa(fps))
+	// Passed as text, not as an integer, and that is the unlock rather than a
+	// detail. `hyperframes render --help` takes "an integer (24, 25, 30, 50, 60,
+	// 120, 240) or ffmpeg-style rational (30000/1001 for NTSC 29.97, 24000/1001
+	// for 23.976, 60000/1001 for 59.94), range 1-240". This read argInt and the
+	// tool schema said `"type": "integer"` until 8 ก.ย. 2569, so 23.976 — the
+	// rate every piece of footage shot on film arrives at — was unreachable
+	// through a ceiling this office had built and the engine had not. The engine
+	// validates the range; repeating that here would be a second place to keep
+	// the same number true.
+	if fps := strings.TrimSpace(argString(args, "fps")); fps != "" && fps != "0" {
+		argv = append(argv, "--fps", fps)
 	}
 	if quality := strings.TrimSpace(argString(args, "quality")); quality != "" {
 		argv = append(argv, "--quality", quality)
 	}
 	if composition := strings.TrimSpace(argString(args, "composition")); composition != "" {
 		argv = append(argv, "--composition", composition)
+	}
+	if format != "mp4" {
+		argv = append(argv, "--format", format)
+	}
+	// **4K was available on this machine the whole time.** `--resolution` scales
+	// the capture by raising Chrome's deviceScaleFactor — "the composition is
+	// unchanged", in upstream's own words — so a 1920x1080 scene renders at
+	// 3840x2160 without a byte of its CSS moving. `video render` forwarded four
+	// of the engine's forty options until 8 ก.ย. 2569 and this was not one of
+	// them, which made every clip this office has ever produced 1080p because
+	// nobody could ask for anything else. The aspect ratio still has to match
+	// the composition and the scale still has to be a whole multiple; those are
+	// the engine's rules and it enforces them.
+	if resolution := strings.ToLower(strings.TrimSpace(argString(args, "resolution"))); resolution != "" {
+		argv = append(argv, "--resolution", resolution)
+	}
+	// One composition, different words. This is upstream's own answer to the
+	// complaint that started this whole day — that every video came out the same
+	// shape with the words changed — and it had no way through the tool: values
+	// merged over the composition's `data-composition-variables` defaults and
+	// read back inside the scene through `window.__hyperframes.getVariables()`.
+	// Passed through as the caller wrote it, because it is JSON on both sides
+	// and re-encoding it here would only add a place for it to change shape.
+	if variables := strings.TrimSpace(argString(args, "variables")); variables != "" {
+		argv = append(argv, "--variables", variables)
+	}
+	// Off by default, and it stays off by default for the reason the check
+	// below already gives: half of what the layout pass reports on this library
+	// is the design of the scene. What changes is that a caller who wants the
+	// render to stop on a lint error can now say so, instead of the tool having
+	// decided for everyone that it never should.
+	if argBool(args, "strict") {
+		argv = append(argv, "--strict")
+	}
+	// `seconds` was in this action's signature until 7 ก.ย. 2569 and was never
+	// read — no flag was built from it, and the renderer has none to build:
+	// `hyperframes render --help` offers output, resolution, format, fps,
+	// quality, composition, variables and encoder settings, and nothing that
+	// changes how long the piece runs. Duration is `data-duration` in the markup
+	// and only there.
+	//
+	// Still in the schema, because one packed tool has one schema and `new`
+	// needs it; what changed on 8 ก.ย. is that the schema now says whose
+	// parameter it is, which is the claim the prose was making on its own. And
+	// answered rather than ignored when a caller sends it here anyway, because a
+	// parameter that has been advertised gets tried. It does not fail the
+	// render: the file that comes out is the right file, and refusing to produce
+	// it would punish the caller for our own old lie.
+	var lengthNote string
+	if asked := argFloat(args, "seconds"); asked > 0 {
+		lengthNote = "\nseconds ไม่ใช่ตัวเลือกของ render และไม่ได้ถูกใช้ — ความยาวอยู่ที่ `data-duration` บนธาตุรากในมาร์กอัป"
+		if fixed := videoRootDuration(full); fixed > 0 {
+			lengthNote += fmt.Sprintf(" ซึ่งตอนนี้คือ %.4g วินาที", fixed)
+		}
+		lengthNote += "\nจะเปลี่ยนความยาวต้องแก้ค่านั้นพร้อมกับคีย์เฟรมที่วิ่งอยู่ในนั้น แล้วเรนเดอร์ใหม่"
 	}
 
 	// The check rides inside the render, and it gates nothing. Measured on the
@@ -652,18 +1208,28 @@ func (s *videoToolSkill) render(ctx context.Context, args map[string]any) (skill
 	// costs the render nothing.
 	checkReport, checkRan, _ := runHyperframesReport(ctx, videoCheckTimeout, "check", full)
 
+	// lengthNote rides the failure too, and it did not until 8 ก.ย. 2569: it was
+	// built here and appended only to the success report, so a caller who passed
+	// `seconds` and got a failed render never learned the argument had been
+	// ignored, and sent it again with the next attempt. A correction that only
+	// arrives when nothing went wrong is a correction that never reaches the
+	// person repeating the mistake.
 	if _, err := runHyperframes(ctx, videoRenderTimeout, argv...); err != nil {
-		return videoFailed(command, err), err
+		failed := videoFailed(command, err)
+		failed.Content += lengthNote
+		return failed, err
 	}
-	info, err := os.Stat(outFull)
-	if err != nil || info.Size() == 0 {
-		// The renderer said it succeeded and there is no file, or an empty one.
-		// Reporting that as success is how a chat ends with a path nobody can
-		// open.
-		failure := fmt.Errorf("เรนเดอร์จบแล้วแต่ไม่มีไฟล์ที่ %s", out)
-		return videoFailed(command, failure), failure
+	produced, err := videoRenderProduced(outFull, format)
+	if err != nil {
+		// The renderer said it succeeded and there is nothing at the path it was
+		// given. Reporting that as success is how a chat ends with a path nobody
+		// can open.
+		failed := videoFailed(command, err)
+		failed.Content += lengthNote
+		return failed, err
 	}
-	report := fmt.Sprintf("เรนเดอร์เสร็จ: %s (%.1f MB)", out, float64(info.Size())/(1<<20))
+	report := "เรนเดอร์เสร็จ: " + out + " (" + produced + ")"
+	report += lengthNote
 	if checkRan && strings.TrimSpace(checkReport) != "" {
 		report += "\nรายงาน check ก่อนเรนเดอร์ (อ่านแบบเดียวกับ video check — ที่ตั้งใจซ้อนกันไม่ใช่ปัญหา):\n" + checkReport
 	}
@@ -673,7 +1239,12 @@ func (s *videoToolSkill) render(ctx context.Context, args map[string]any) (skill
 	// sequence belongs here, the judgement on what the letters say stays with
 	// the agent. Best effort: a machine that cannot OCR still rendered.
 	if argBool(args, "proof") {
-		if text, ocrErr := skill.OCRVideoFile(ctx, outFull, 1); ocrErr != nil {
+		if format == "png-sequence" {
+			// A folder of frames is not something OCRVideoFile can open, and
+			// letting it try produces an error about a path rather than the
+			// sentence the caller needs.
+			report += "\nproof อ่านกลับจากไฟล์วิดีโอ ใช้กับ png-sequence ไม่ได้ — เรนเดอร์เป็น mp4 อีกรอบถ้าต้องการอ่านตัวอักษรกลับ"
+		} else if text, ocrErr := skill.OCRVideoFile(ctx, outFull, 1); ocrErr != nil {
 			report += "\nอ่านข้อความบนจอกลับไม่ได้: " + ocrErr.Error()
 		} else {
 			report += "\nข้อความบนจอ (OCR ทุก 1 วิ):\n" + text
@@ -681,6 +1252,65 @@ func (s *videoToolSkill) render(ctx context.Context, args map[string]any) (skill
 	}
 	report += "\nเปิดให้ผู้ใช้ดูด้วย desk open"
 	return skill.Output{Name: "video_render", Command: command, Content: report, Success: true}, nil
+}
+
+// videoFormats and videoFormatSuffix are the containers the engine writes, in
+// the order `hyperframes render --help` lists them at 0.8.20. Named here rather
+// than forwarded blindly so a typo comes back as a sentence naming the five
+// instead of as a render that quietly produced an mp4 nobody asked for.
+//
+// The list is worth reading as capability rather than as file extensions: mov
+// and webm carry an alpha channel, which is the difference between a title card
+// and an overlay that can sit on somebody else's footage; png-sequence is the
+// handoff to After Effects, Nuke and Fusion; gif is the one that can be pasted
+// into a pull request. All four were unreachable until 8 ก.ย. 2569.
+var videoFormats = []string{"mp4", "webm", "mov", "gif", "png-sequence"}
+
+// videoResolutions are the engine's output presets at 0.8.20. Listed rather
+// than free-form WxH because the engine takes presets and only presets, and an
+// enum is the difference between the model reading the six sizes it can have
+// and guessing at a seventh.
+//
+// The aliases upstream also accepts (1080p, 4k, uhd, square-1080p and the rest)
+// are deliberately not here: six names that mean six sizes teaches the shape of
+// the choice, and eleven names that mean six sizes teaches nothing extra.
+var videoResolutions = []string{"landscape", "portrait", "square", "landscape-4k", "portrait-4k", "square-4k"}
+
+var videoFormatSuffix = map[string]string{
+	"mp4":  ".mp4",
+	"webm": ".webm",
+	"mov":  ".mov",
+	"gif":  ".gif",
+	// A directory of RGBA frames, so no suffix and no dot: a folder named
+	// <project>.mp4 would be a lie told by the file browser.
+	"png-sequence": "-frames",
+}
+
+// videoRenderProduced answers what the renderer left behind, or an error saying
+// it left nothing.
+//
+// Two shapes, because png-sequence is a directory of frames and everything else
+// is one file. A size check against a directory reads 0 on Windows and would
+// have called every successful frame export a failed render.
+func videoRenderProduced(path, format string) (string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", fmt.Errorf("เรนเดอร์จบแล้วแต่ไม่มีไฟล์ที่ %s", filepath.Base(path))
+	}
+	if format == "png-sequence" {
+		if !info.IsDir() {
+			return "", fmt.Errorf("png-sequence ต้องได้โฟลเดอร์เฟรม แต่ %s ไม่ใช่โฟลเดอร์", filepath.Base(path))
+		}
+		entries, readErr := os.ReadDir(path)
+		if readErr != nil || len(entries) == 0 {
+			return "", fmt.Errorf("เรนเดอร์จบแล้วแต่ไม่มีเฟรมใน %s", filepath.Base(path))
+		}
+		return fmt.Sprintf("%d เฟรม", len(entries)), nil
+	}
+	if info.Size() == 0 {
+		return "", fmt.Errorf("เรนเดอร์จบแล้วแต่ไฟล์ที่ %s ว่างเปล่า", filepath.Base(path))
+	}
+	return fmt.Sprintf("%.1f MB", float64(info.Size())/(1<<20)), nil
 }
 
 // projectDir resolves a project path and refuses one that is not a project.

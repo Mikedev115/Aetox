@@ -25,6 +25,13 @@ that is already the shape you need, then change the words, the numbers and the
 colours. A scene written from nothing is a scene whose timing nobody has tested;
 one of these has been.
 
+That is a preference, not a fence. Seventy-five scenes is a wide shelf and it is
+still a finite one, and a piece that is nearly one of them made worse to fit is
+worse than a piece built for itself. When none of them is the shape, take
+`video new blank` — the renderer's own empty composition — and write the scene.
+The rules below are then yours to keep rather than inherited, which is the whole
+of what you are giving up.
+
 Read the `video-templates` skill before you write your first scene: it says
 what is in the library, what the renderer will and will not run, and which
 scenes are pinned to one canvas size. Credit what you borrowed the way the
@@ -112,6 +119,19 @@ it names the real length and the order things happen in.
 If you write motion by hand rather than copying it from a template, those are
 the rules you check before spending a render.
 
+## Editing a scene is a file job, so use the file tools like one
+
+A scene is markup and you have the tools that markup deserves. `change edit`
+replaces the line you mean; `change write` replaces the file. On a 16 KB
+composition the second is slower, costs more, and is how an attribute goes
+missing without anybody typing a delete — this library has lost bytes that way
+twice. Reach for `write` when you are creating a file or replacing all of it,
+and for `edit` every other time.
+
+`search grep` is how you find which of a folder scene’s eight sub-scenes holds
+the line you are changing. Reading all eight to find one is the same answer for
+eight times the money.
+
 ## Look at it before you spend the render
 
 Opening a scene as a page takes a second. A render is minutes of somebody's
@@ -131,6 +151,18 @@ already know. A transition exists to hide a cut, not to be admired.
 Give the length of every scene when you describe what you built, in seconds, and
 say why it is that long. It is the part of this job a user can correct, and the
 part they can never correct after the render if you never said it.
+
+**Know where that number comes from, because it is usually not yours.** A
+scene's length is `data-duration` in its markup. Four of the fifty take it as an
+argument to `video new`; the rest arrive at the length their author built the
+keyframes for, and there is no render option that changes it — the renderer has
+none. So the length is decided when you pick the scene, which makes the Length
+column part of choosing rather than something to read afterwards.
+
+Changing one is a real edit and an honest one: `data-duration` on the root and
+the keyframes inside it move together, or you get a held picture at the end and
+a move cut off in the middle. Do it when the piece needs it. Do not do it
+quietly, and do not report a length you asked for rather than the one on disk.
 
 Cut a scene rather than speeding it up. A video that runs four seconds long is
 fixed by having less to say, not by saying it faster.
@@ -166,6 +198,43 @@ edit the closing move is one call, not check-then-render; ask with
 `proof: true` and it reads its own screen text back in the same answer too.
 `video check` alone is still the cheap look before a render you are not sure
 about.
+
+### The render decides more than the file name
+
+Four of `render`'s options change what the piece *is*, and they are worth
+knowing before you pick a scene rather than after.
+
+- **`resolution`** — `landscape` 1920x1080, `portrait` 1080x1920, `square`
+  1080x1080, and `landscape-4k` 3840x2160, `portrait-4k` 2160x3840,
+  `square-4k` 2160x2160. This scales the capture, not the scene: the markup and
+  the CSS are untouched and Chrome simply paints at a higher density, so a
+  1080p scene delivers 4K without an edit. What it cannot do is change the
+  shape — the aspect ratio has to match what the scene draws, and the scale has
+  to be a whole multiple. A 16:9 scene cannot become 9:16 this way; that is a
+  different scene.
+- **`format`** — `mp4` unless you say otherwise. `mov` and `webm` keep an alpha
+  channel, which is the difference between a title card and an overlay somebody
+  can lay over their own footage. `png-sequence` writes RGBA frames to a folder,
+  which is what an editor wants when the piece is going into After Effects,
+  Nuke or Fusion rather than to a viewer. `gif` is small enough to paste into a
+  pull request or a doc. Ask what the thing is *for* before defaulting to mp4:
+  a logo sting delivered as an mp4 with a black box behind it is the wrong file.
+- **`fps`** — a whole number, or an ffmpeg rational written as text:
+  `"24000/1001"` is 23.976 and is what footage shot on film arrives at,
+  `"30000/1001"` is 29.97, `"60000/1001"` is 59.94. Matching the source rate is
+  the difference between motion that reads smoothly and motion that judders.
+  Left alone it follows the scene, else 30.
+- **`variables`** — a JSON object merged over the scene's own
+  `data-composition-variables` defaults and read inside the composition through
+  `window.__hyperframes.getVariables()`. When a scene declares them, this is how
+  the same composition renders three times with three sets of words and no edit
+  between the renders. Read the scene before reaching for it: a scene that
+  declares none ignores what you send.
+
+`strict: true` makes a lint error stop the render instead of producing the file
+anyway. Off by default because half of what the layout pass reports on this
+library is the scene's design, so turn it on when the piece is going to somebody
+and you want the machine to be certain, not while you are still deciding.
 
 Aetox does not write the rendering engine. It runs one — installed on this
 machine, working offline — and `video` is the door to it. If the tool answers

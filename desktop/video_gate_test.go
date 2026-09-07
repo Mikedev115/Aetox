@@ -177,7 +177,18 @@ func TestACopiedSceneUsesTheLocalGSAPWhenThereIsOne(t *testing.T) {
 	}
 
 	// Installed: every file that named the CDN now names the copy beside it,
-	// spelled relative to the file doing the loading.
+	// spelled root-relative — from the sub-composition too, which is the whole
+	// point and the opposite of what this test asserted until 7 ก.ย. 2569.
+	//
+	// A sub-composition sits one level down on disk and is served with the
+	// project root as its base URL, so `../vendor/` climbs above the root.
+	// `hyperframes check` calls that `invalid_parent_traversal_in_asset_path`
+	// and it is an error, not a warning — 8 of them on `product-launch-30s`,
+	// one per sub-composition, on a project `video new` had just written and
+	// the agent had no way to fix. The render worked anyway, because the
+	// renderer rewrites the path against each sub-composition's source, so what
+	// the shelf's richest scenes actually produced was a clean video attached
+	// to a report saying they were broken.
 	if err := os.MkdirAll(filepath.Join(root, "tools", "gsap"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -192,16 +203,16 @@ func TestACopiedSceneUsesTheLocalGSAPWhenThereIsOne(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "vendor", "gsap.min.js")); err != nil {
 		t.Fatalf("the project has no local copy to point at: %v", err)
 	}
-	for name, want := range map[string]string{
-		"index.html": `src="./vendor/gsap.min.js"`,
-		filepath.Join("compositions", "intro.html"): `src="../vendor/gsap.min.js"`,
-	} {
+	for _, name := range []string{"index.html", filepath.Join("compositions", "intro.html")} {
 		body, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(string(body), want) {
-			t.Errorf("%s does not load %s: %s", name, want, body)
+		if !strings.Contains(string(body), `src="vendor/gsap.min.js"`) {
+			t.Errorf("%s does not load vendor/gsap.min.js root-relative: %s", name, body)
+		}
+		if strings.Contains(string(body), "../vendor/") {
+			t.Errorf("%s climbs above the project root, which check refuses: %s", name, body)
 		}
 		if strings.Contains(string(body), gsapCDNURL) {
 			t.Errorf("%s still names the CDN after the rewrite", name)

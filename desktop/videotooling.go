@@ -243,6 +243,29 @@ func hyperframesParts() (node, entry string) {
 	return node, entry
 }
 
+// hyperframesTemplate is one of the scaffolds the renderer ships beside itself,
+// or "" when the bundle is not installed or does not carry that name.
+//
+// The bundle carries three (`blank`, `warm-grain`, `_shared`) and `video new`
+// uses the first: an empty composition whose `data-*` attributes are the
+// engine's own statement of its contract, which is worth more than a file we
+// wrote that agrees with it today. Resolved off the entry point rather than
+// rebuilt from DataRoot, so there is one answer to "where is the bundle" and
+// hyperframesParts owns it.
+func hyperframesTemplate(name string) string {
+	_, entry := hyperframesParts()
+	if entry == "" || name == "" || name != filepath.Base(name) {
+		return ""
+	}
+	// entry is <...>/node_modules/hyperframes/bin/hyperframes.mjs, and the
+	// templates sit beside bin/ under dist/.
+	dir := filepath.Join(filepath.Dir(filepath.Dir(entry)), "dist", "templates", name)
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		return ""
+	}
+	return dir
+}
+
 // gsapCDNURL is the one address the library's nine composition scenes load
 // their animation library from, spelled here because two places have to agree
 // about it: the copy that rewrites it into a local path, and the test that

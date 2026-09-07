@@ -10,6 +10,20 @@ with `video new`, change the words. A scene written from nothing is a scene
 whose timing nobody has tested; every one of these has been rendered by the
 people who wrote it.
 
+**All four shelves are reachable and every spelling in these tables works.**
+`video new social-cover-editorial`, `video new graphic-scenes/social-cover-editorial.html`
+and `video new motion/product-launch-30s/index.html` all name the scene they
+look like they name. No name appears on two shelves, so the bare one is never
+ambiguous. Until 7 ก.ย. 2569 only the motion shelf could be reached and the
+other twenty-five names in these tables were refused, which is worth knowing if
+you carry a memory of being told one of them did not exist.
+
+**And when none of the seventy-five is the shape you need, `video new blank`.**
+That is the renderer's own empty composition — a frame, a registered timeline
+and nothing else. It is the release valve for the piece the shelf does not
+have, not a way around the paragraph above: if one of these is close, start
+from it.
+
 **The tables below are the complete inventory.** The listing this tool appends
 after the document is capped at 40 entries and the library holds over 100
 files, so most of it does not appear there. The tables are what to read; you do
@@ -48,16 +62,41 @@ here on cutting several of them into one piece.
   duration implies. In the 37 flat scenes the number is `data-duration` on
   `<body>` — change it to change the clip. Header-comment timelines state the
   order, not the length.
-- **Everything renders at 30fps** and no scene sets `data-fps`, so the engine's
-  default is what every clip gets, whatever a header comment says. Measured across
-  all 24: one distinct frame rate, 30.
+- **Everything renders at 30fps by default** and no scene sets `data-fps`, so the
+  engine's default is what every clip gets unless `video render` is given one.
+  Measured across all 24: one distinct frame rate, 30. `fps` takes an ffmpeg
+  rational as text too — `"24000/1001"` for 23.976, `"30000/1001"` for 29.97 —
+  which is how a clip cut against filmed footage stops juddering.
 - **The frame is declared in every file** and the renderer never guesses it.
   "fluid CSS" rows re-aspect by changing the two `data-` numbers; the rest
   also draw their own 1920x1080 box in CSS that has to move with them.
+- **The Frame column is the shape, not the size.** `video render resolution:` can
+  deliver any row at 4K — `landscape-4k` 3840x2160, `portrait-4k` 2160x3840,
+  `square-4k` 2160x2160 — without touching the scene: it raises the capture
+  density and the markup is untouched. What it cannot do is change the aspect
+  ratio, so the Frame column still decides the shape and only the shape. Pick the
+  row whose shape the piece needs; pick the resolution when you render.
+- **The library has no 4:5 scene.** The four shapes in general use are 16:9,
+  9:16, 1:1 and 4:5 (1080x1350, the feed on Instagram, Facebook and LinkedIn).
+  This shelf covers the first three — 33 rows at 1920x1080, 6 at 1080x1920, 5 at
+  1080x1080 — and none of the seventy-five is 4:5. There is no preset for it
+  either. A 4:5 piece means a "fluid CSS" row with both `data-` numbers and its
+  own CSS box moved to 1080x1350, or `video new blank` and a scene written for
+  it. Say which you did.
 - **Google Fonts is fetched at render time** (45 of 50 motion scenes). A failed
   fetch is not an error — it is a wrong-looking scene. Check the render.
 - **`__VIDEO_SRC__` / `__VIDEO_DURATION__` are engine slots**, not broken
   markup. Leave them in the library; `video new` fills or strips them.
+- **Length lives in the markup, and `seconds` reaches four scenes.** The four
+  marked *as asked* carry `__VIDEO_DURATION__` and take the number `video new`
+  is given; the other 46 have theirs written in by the author, and passing
+  `seconds` for one of them changes nothing — `video new` now says so instead of
+  going quiet. `video render` has no length option at all and neither does the
+  renderer. **To make a scene a different length**, edit `data-duration` on the
+  root element *and* the keyframes that run inside it: the two are one number in
+  two places, and moving only the first gives a held picture at the end or a
+  move cut off in the middle. Changing a length is a real edit, so prefer the
+  scene whose length is already near — every row below states one.
 - **`CREDITS.md` travels with the work** — licence and lineage of all 75 files
   (Apache-2.0 and MIT for the 51 vendored, ours for the 24 written here;
   attribution required either way). A scene copied elsewhere takes its line
@@ -72,6 +111,13 @@ here on cutting several of them into one piece.
 These are the ones that become video. Four folders say *as asked*: they carry
 `__VIDEO_DURATION__`, so the `seconds` given to `video new` is their length and
 the number beside it is the fallback. Every other length is fixed by the scene.
+
+**Read the Length column as part of the choice, not as trivia.** It is the one
+column that cannot be changed by editing words, and the piece that ends up four
+seconds long is the piece whose scene was four seconds long. No row here is the
+default for a kind of brief; pick on shape and on length together, and when two
+rows fit, say which two and why you took one — that sentence is the part a user
+can correct.
 
 | File | What it is | Length | Frame |
 |:--|:--|:--|:--|
@@ -91,13 +137,13 @@ the number beside it is the fallback. Every other length is fixed by the scene.
 | `motion/radial-node-diagram.html` | Soft-tech radial node graph on a frosted card, links drawing outward | 3.1s | 1920x1080 |
 | `motion/structured-grid/index.html` | Swiss grid frame for A-roll with overlay layers. Use it to hold footage, not to replace it | as asked, 10s | 1920x1080 |
 | `motion/product-showcase/index.html` | Product promo: the thing, its claim, its call to action | 20s | 1920x1080 |
-| `motion/product-launch-30s/index.html` | A whole 30-second promo: eight mounted scenes and four audio tracks. Start here when the brief is a launch clip | 30s | 1920x1080 |
+| `motion/product-launch-30s/index.html` | A whole 30-second promo: eight mounted scenes and four audio tracks. The shelf’s widest launch piece — right when the brief has eight things to say and 30s to say them, wrong when it has one, when the piece must be shorter, or when it is vertical. Its three product screenshots are 1x1 placeholders: put a `web-scenes` interface in their place | 30s | 1920x1080 |
 | `motion/logo-outro.html` | Closing scene: logo with a shimmer sweep | 3.7s | 1920x1080, fluid CSS |
 | `motion/grain-texture-hero/index.html` | Warm cream hero with film grain over it | as asked, 10s | 1920x1080 |
 | `motion/liquid-gradient-hero.html` | Aurora blobs drifting behind a hero line. Honours `prefers-reduced-motion`. Endless drift, cut to 6s on `<body>` | 6.0s | 1920x1080, fluid CSS |
 | `motion/cinematic-light-leak.html` | Film stock: scratches, perforations, vignette, warm leaks. **No `@keyframes` at all** — a painted frame held 5s, a backdrop rather than a shot | 5.0s | 1920x1080, fluid CSS |
 | `motion/playful-bounce/index.html` | Bouncy, informal motion. The one register the rest of this library does not have | as asked, 10s | 1920x1080 |
-| `motion/airbnb-deck/index.html` | Twelve-beat investor deck in motion, with its own per-beat SFX. The fullest production on the shelf — start here for a deck-shaped video | 108s | 1920x1080 |
+| `motion/airbnb-deck/index.html` | Twelve-beat investor deck in motion, with its own per-beat SFX. The fullest production on the shelf, and 108s is a long way to commit — right for a deck with twelve real beats, wrong as a default for anything deck-shaped. `startup-pitch` is the same shape at 84s and `slideshow-demo` at 32s | 108s | 1920x1080 |
 | `motion/startup-pitch/index.html` | Pitch deck in motion: cover, problem, product, market with a drill-down, ask | 84s | 1920x1080 |
 | `motion/slideshow-demo/index.html` | Slideshow with branching scenes and a CTA, mounted from one host | 32s | 1920x1080 |
 | `motion/motion-blur/index.html` | Title card with real per-frame motion blur; the word drifting through frame IS the design (check reports its overflow on purpose) | 4.0s | 1920x1080 |
@@ -253,6 +299,20 @@ white space and restraint, *organic* is soft shapes and warmth.
 | Directory nav | `web-scenes/directory-nav-editorial.html` and `-minimal` `-organic` | A listing or catalogue interface on screen |
 | Writing tool | `web-scenes/writing-tool-editorial.html` and `-minimal` `-organic` | An editor or writing app on screen |
 | Explainer diagram | `graphic-scenes/explainer-diagram-poster.html` | A single branded "how X works" poster — icon, title, one diagram, footer |
+
+`video new` takes these like any other scene and gives the copy the composition
+root the renderer needs, at the size the scene already draws itself — a cover
+comes out 1200x510, an infographic 1080x1920, a slide 1920x1080, an interface
+1440x900, the poster 1200x1581. Without that frame the renderer makes every
+project 1080x1920 and crops the rest away silently, which is why these were held
+back before it existed.
+
+**What that does not change is what they are for.** One of these rendered on its
+own is a video of a photograph. Use them as the material a moving scene mounts
+or screenshots, or as the still the job also needs — a cover beside the clip, a
+poster, an interface on screen where a real screenshot would leak real data.
+`motion/product-launch-30s` ships three 1x1 transparent PNGs where its product
+screenshots go, and the five `web-scenes` subjects are what belongs there.
 
 The three-voice subjects share one file name with `-editorial`, `-minimal` or
 `-organic` on the end; the explainer diagram is one design, not three, and its
