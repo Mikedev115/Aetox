@@ -209,3 +209,50 @@ func TestAnHonestEngineIsNotRenamedForNothing(t *testing.T) {
 		t.Errorf("a rename was reported when none happened: %q", out.Content)
 	}
 }
+
+func TestTheReceiptHandsOverALineThatActuallyResolves(t *testing.T) {
+	// A picture that was made and then only NAMED is a picture nobody sees —
+	// the third real call answered with the path in inline code and no image.
+	// The receipt now carries the finished markdown, and the two things the
+	// model gets wrong writing it itself have to already be right in it: the
+	// placed path, and the extension AFTER the byte-driven correction.
+	jpg := []byte("\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00")
+	eng := &fakeDrawEngine{ext: ".png", body: jpg}
+	s, _ := drawSkill(t, eng)
+
+	out, err := s.ExecuteTool(context.Background(), map[string]any{
+		"prompt": "an orange cat",
+		"path":   "art/hero.png",
+	})
+	if err != nil {
+		t.Fatalf("ExecuteTool: %v", err)
+	}
+	want := "![an orange cat](art/hero.jpg)"
+	if !strings.Contains(out.Content, want) {
+		t.Errorf("the receipt does not carry %q:\n%s", want, out.Content)
+	}
+	// And never the name that was asked for, which is the whole failure.
+	if strings.Contains(out.Content, "](art/hero.png)") {
+		t.Errorf("the receipt offers the stale name:\n%s", out.Content)
+	}
+}
+
+func TestAltTextIsADescriptionNotAParagraph(t *testing.T) {
+	// Alt text is read aloud and shown when the picture cannot load.
+	long := strings.Repeat("a very detailed cyberpunk scene ", 12)
+	got := altText(long)
+	if len(got) > 80 {
+		t.Errorf("alt text is %d chars, want it trimmed: %q", len(got), got)
+	}
+	if strings.HasSuffix(got, " ") {
+		t.Errorf("alt text ends on a space: %q", got)
+	}
+	// A bracket would close the markdown alt early and spill the rest as prose.
+	if strings.ContainsAny(altText("a [cat] in a box"), "[]") {
+		t.Error("brackets survived into the alt text")
+	}
+	// Newlines and runs of spaces collapse — a prompt is often multi-line.
+	if got := altText("  a cat\n  in   a box  "); got != "a cat in a box" {
+		t.Errorf("altText did not collapse whitespace: %q", got)
+	}
+}

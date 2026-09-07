@@ -94,7 +94,10 @@ func (*imageMakeSkill) Guidance(map[string]any) string {
 		"prompt in English for the widest model support and describe subject, composition and style — a " +
 		"picture model reads it literally and cannot ask a follow-up. width and height are pixels; omit them for the engine's own defaults. The file extension is " +
 		"corrected to whatever the engine really produced, so the path you get back may not be the path " +
-		"you asked for. Tell the user the picture was generated — it carries no licence and no provenance."
+		"you asked for — put the path from the RECEIPT in your answer, never the one you asked for. Show " +
+		"the picture with ![description](path) so it appears in the reply; naming the file instead leaves " +
+		"the user with a picture they cannot see. Tell them it was generated — it carries no licence and " +
+		"no provenance."
 }
 
 func (s *imageMakeSkill) Execute(ctx context.Context, input Input) (Output, error) {
@@ -215,8 +218,37 @@ func (s *imageMakeSkill) draw(ctx context.Context, prompt, requestPath string, r
 	if placed != requestPath {
 		report += onDiskNote(s.root, targetPath)
 	}
+	// The line to paste, spelled out rather than described.
+	//
+	// A picture that was made and then only NAMED is a picture the user cannot
+	// see: the third real call came back with "ดูรูปได้ที่:" and the path in
+	// inline code, which is a correct sentence and an empty answer (owner,
+	// 7 ก.ย.). Nothing had ever told the model to show it — the receipt said
+	// where the file was and stopped there.
+	//
+	// Handed over as finished markdown, with the placed path and the corrected
+	// extension already in it, because those are the two things the model gets
+	// wrong writing the line itself: it uses the name it ASKED for.
+	report += fmt.Sprintf("\nแสดงรูปในคำตอบด้วยบรรทัดนี้: ![%s](%s)", altText(prompt), placed)
 	report += "\nรูปนี้สร้างด้วย AI — บอกผู้ใช้ด้วยถ้ามันจะถูกเอาไปใช้ที่อื่น"
 	return newToolOutput("image_make", command, report, start, false, nil), nil
+}
+
+// altText is the prompt, shortened to something that reads as a description
+// rather than as a paragraph. Alt text is read aloud by a screen reader and
+// shown when the picture cannot load, and a 300-word prompt serves neither.
+func altText(prompt string) string {
+	alt := strings.Join(strings.Fields(prompt), " ")
+	// Brackets would close the markdown alt early, leaving the rest as prose.
+	alt = strings.NewReplacer("[", "(", "]", ")").Replace(alt)
+	const limit = 80
+	if len(alt) > limit {
+		if cut := strings.LastIndex(alt[:limit], " "); cut > 20 {
+			return alt[:cut]
+		}
+		return alt[:limit]
+	}
+	return alt
 }
 
 // isPictureKind keeps this tool to still images. sniffMediaKind also answers
