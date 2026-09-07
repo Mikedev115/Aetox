@@ -279,7 +279,7 @@ describe('the delegate’s own tool list', () => {
   it('caps itself while the delegate is still working', async () => {
     const { container } = render(Chat, { ...baseProps, toolSteps: withChildren } as any)
     await fireEvent.click(container.querySelector('.bgw-open') as HTMLElement)
-    expect(container.querySelector('.bgw-steps.tool-box.live-window')).toBeTruthy()
+    expect(container.querySelector('.bgw-work.live-window')).toBeTruthy()
   })
 
   // Read off `state`, not off which turn is on screen: a delegation outlives
@@ -288,8 +288,8 @@ describe('the delegate’s own tool list', () => {
     cockpit.backgroundTasks = [registered({ state: 'done', elapsedMs: 9_000 })]
     const { container } = render(Chat, { ...baseProps, toolSteps: withChildren } as any)
     await fireEvent.click(container.querySelector('.bgw-open') as HTMLElement)
-    expect(container.querySelector('.bgw-steps.tool-box')).toBeTruthy()
-    expect(container.querySelector('.bgw-steps.live-window')).toBeNull()
+    expect(container.querySelector('.bgw-work')).toBeTruthy()
+    expect(container.querySelector('.bgw-work.live-window')).toBeNull()
   })
 })
 

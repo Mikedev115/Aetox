@@ -956,14 +956,23 @@ describe('sub-agent tool events', () => {
     // them on screen the headline names the JOB rather than repeating the newest
     // row three lines above itself, which is what the separate job line under it
     // used to be for and why it is dropped here.
-    expect(block?.querySelector('.bgw-open')?.getAttribute('aria-expanded')).toBe('true')
+    // Shut by default while it works: the newest row is already the card's
+    // HEADLINE, so an open list would print it twice — and four delegates each
+    // holding their list open is the wall this fold exists to stop.
+    expect(block?.querySelector('.bgw-open')?.getAttribute('aria-expanded')).toBe('false')
+    await fireEvent.click(block?.querySelector('.bgw-open') as HTMLElement)
     expect(block?.querySelector('.bgw-agent')?.textContent).toContain('explore')
     expect(block?.textContent).toContain('find every caller')
     expect(block?.querySelector('.bgw-brief')).toBeNull()
     expect(block?.querySelector('.bgw-longbrief')?.textContent).toContain('callers of Resolve')
     // The delegate's tools live inside the block, not in the agent's own list.
-    expect(block?.querySelectorAll('.bgw-steps .tool-step').length).toBe(2)
-    expect(container.querySelectorAll('.tool-steps > .tool-step').length).toBe(0)
+    expect(block?.querySelectorAll('.bgw-work .tool-step').length).toBe(2)
+    // Not in the AGENT's own list — which now has to be said by excluding the
+    // delegate's, because a sub-agent's turn is drawn with the same phase
+    // blocks the transcript uses and therefore has a .tool-steps of its own.
+    const ownRows = [...container.querySelectorAll('.tool-steps > .tool-step')]
+      .filter((r) => !r.closest('.bgw-work'))
+    expect(ownRows.length).toBe(0)
   })
 
   // Two delegates run at once and their events interleave on one channel — the
@@ -987,8 +996,8 @@ describe('sub-agent tool events', () => {
     for (const b of blocks) await fireEvent.click(b.querySelector('.bgw-open') as HTMLElement)
     expect(blocks[0].querySelector('.bgw-agent')?.textContent).toContain('explore')
     expect(blocks[1].querySelector('.bgw-agent')?.textContent).toContain('general')
-    expect(blocks[0].querySelectorAll('.bgw-steps .tool-step').length).toBe(2)
-    expect(blocks[1].querySelectorAll('.bgw-steps .tool-step').length).toBe(1)
+    expect(blocks[0].querySelectorAll('.bgw-work .tool-step').length).toBe(2)
+    expect(blocks[1].querySelectorAll('.bgw-work .tool-step').length).toBe(1)
     // No cross-contamination: the second delegate's edit is not in the first block.
     expect(blocks[0].textContent).not.toContain('edit beta.go')
     expect(blocks[1].textContent).not.toContain('grep alpha')
@@ -1398,7 +1407,7 @@ describe('sub-agent tool events', () => {
         messages: [{ role: 'agent', text: 'done', time: '10:54' }] as any,
       })
       expect(container.querySelector('.bgw-now')?.textContent?.trim()).toBe('read hay.txt')
-      expect(container.querySelectorAll('.bgw-steps .tool-step').length).toBe(0)
+      expect(container.querySelectorAll('.bgw-work .tool-step').length).toBe(0)
     })
 
     it('is folded once it has finished, and says how many are behind it', async () => {
@@ -1416,11 +1425,18 @@ describe('sub-agent tool events', () => {
       // with the clock: the control at the foot is a door, and labelling a
       // door with a number made it read as the summary it is not.
       expect(container.querySelector('.bgw-who')?.textContent).toContain('2 tools')
-      expect(container.querySelectorAll('.bgw-steps .tool-step').length).toBe(0)
+      expect(container.querySelectorAll('.bgw-work .tool-step').length).toBe(0)
 
       fold.click()
       await tick()
-      expect(container.querySelectorAll('.bgw-steps .tool-step').length).toBe(2)
+      // The delegate's work is drawn as a TURN now, not a flat row list, so its
+      // finished calls sit behind their own phase header one level in — the
+      // same fold the transcript uses, which is the whole point of drawing a
+      // sub-agent's turn the way a turn is drawn.
+      const inner = container.querySelector('.bgw-work button.phase-head') as HTMLElement
+      inner.click()
+      await tick()
+      expect(container.querySelectorAll('.bgw-work .tool-step').length).toBe(2)
     })
   })
 
