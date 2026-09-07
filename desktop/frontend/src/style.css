@@ -5302,9 +5302,16 @@ button.phase-head:hover { color:var(--text-muted); }
 .art-del.confirm { color:var(--status-danger); font-size:var(--fs-2xs); font-weight:600; }
 
 .settings-page { flex:1; display:flex; overflow:hidden; }
-/* Part of the frame, so it takes the frame's surface and drops its border: the
-   card's own edge is what separates the two now, and a line six pixels from a
-   rounded corner is the shape this was drawn to remove. */
+/* The rail keeps the frame's own surface. It is the CONTENT that steps down —
+   see .settings-content below, which is where the separation this comment used
+   to promise actually comes from now.
+ *
+ * What it used to say was that the card's edge separated the two. That is true
+ * from the first card down and false above it: every page opens with an <h2>
+ * and a line of prose on bare surface, so the top of the page — the part you
+ * land on — had a 260px column of --surface-panel meeting a content area of
+ * --surface-panel and nothing in between (owner, 7 ก.ย.: "หมายถึงพื้นหลัง
+ * ตรงเมนู กับเนื้อหาข้างในอ่ะครับ"). */
 .settings-nav {
   flex:0 0 260px; padding:14px 12px;
   background:var(--surface-panel); display:flex; flex-direction:column; gap:2px; overflow-y:auto;
@@ -5312,10 +5319,40 @@ button.phase-head:hover { color:var(--text-muted); }
 .settings-back { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:var(--r-md); color:var(--text-secondary); }
 .settings-back:hover { background:var(--surface-row-hover); color:var(--text-primary); }
 .settings-search {
-  margin:8px 0 14px; padding:7px 10px; border-radius:var(--r-md); background:var(--surface-panel);
+  /* 6px, not 14: the first group label below now brings its own 22px of air,
+     and two margins in a flex column do not collapse — 36px of nothing under
+     the search box read as the list having fallen off. */
+  margin:8px 0 6px; padding:7px 10px; border-radius:var(--r-md); background:var(--surface-panel);
   border:1px solid var(--border-subtle); color:var(--text-primary); font:inherit; font-size:var(--fs-lg);
 }
-.settings-group-label { padding:12px 10px 4px; }
+/* THE COLUMN HAD NO RHYTHM (owner, 7 ก.ย., with a screenshot: "ของเรามันแทบจะ
+   กลืนกัน"). Twenty rows, one size, one colour, 2px apart, and a group heading
+   separated from the group above it by twelve — so the eye had nothing to
+   count by and the whole aside read as one object.
+ *
+ * Nothing below is a new colour or a new token. What changed is where the
+ * space is and which of the two marks in a row is the loud one.
+ *
+ * The heading gets the space, because a heading that is merely a different
+ * colour is still in the list; one with air above it is over the list. And the
+ * letter-spacing .eyebrow carries is dropped to a third: .11em is drawn for
+ * short uppercase Latin, and Thai has no uppercase — all it did to ส่วนบุคคล
+ * and เครื่องมือ was pull the consonants apart from their own vowel marks.
+ *
+ * The letter-spacing fix is unscoped because Thai is Thai wherever this class
+   lands; the air is scoped to the nav, because the other place it is used is a
+   single heading over one short list inside a card (the provider aside), where
+   22px of nothing above a card's first line is not rhythm, it is a gap. */
+.settings-group-label { padding:12px 10px 4px; letter-spacing:.04em; }
+/* --text-muted, overriding the --text-dim .eyebrow carries. Dim is the right
+   idea and the wrong token: it bottoms out at 2.70:1 on these surfaces — this
+   file already says so 4300 lines up — and a heading nobody can read is not a
+   quiet heading, it is a missing one. The first cut used it and the owner got
+   a column that blended at a lower brightness rather than one with a shape:
+   "มันกลืนกันเกินครับ" (7 ก.ย.). Muted is the darkest tone here that is still
+   text. */
+.settings-nav .settings-group-label { padding:22px 10px 6px; color:var(--text-muted); }
+.settings-nav .settings-group-label:first-of-type { padding-top:12px; }
 .settings-nav-empty { padding:10px; color:var(--text-dim); font-size:var(--fs-sm); line-height:1.5; }
 /* Boot failure, above whichever page is open. Not styled as a row inside a
    card: it is about the page, not about anything on it. */
@@ -5324,11 +5361,60 @@ button.phase-head:hover { color:var(--text-muted); }
   border:1px solid var(--status-danger); border-left-width:3px; border-radius:var(--r-md);
   background:var(--status-danger-bg);
 }
-.settings-nav-item { display:flex; align-items:center; gap:9px; padding:7px 10px; border-radius:var(--r-md); color:var(--text-secondary); font-size:var(--fs-lg); }
-.settings-nav-item:hover { background:var(--surface-row-hover); }
-.settings-nav-item.active { background:var(--surface-selected); color:var(--text-selected); }
-.settings-nav-item .ic { width:16px; text-align:center; }
-.settings-content { flex:1; overflow-y:auto; padding:48px 64px; }
+/* --fs-md, down from --fs-lg, and this is the type scale's own answer rather
+   than a preference: --fs-lg is body — the size set for prose you read line
+   after line — and --fs-md is what type.css labels "row title". A nav label is
+   a row title. It is scanned, not read. The 1.5px bought back is what lets the
+   padding grow without the column growing with it. */
+.settings-nav-item { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:var(--r-md); color:var(--text-secondary); font-size:var(--fs-md); }
+.settings-nav-item:hover { background:var(--surface-row-hover); color:var(--text-primary); }
+/* The same four properties .row.active wears in the session sidebar, in the
+   same order — surface, text, weight, accent bar.
+ *
+ * The first plan for this row was a neutral grey pill instead of the blue,
+ * copied off a reference. Two things were wrong with it. --surface-selected is
+ * not blue: it is blue in the default theme only, and Nord, Dracula, Rosé Pine
+ * and Catppuccin each define their own, so a hardcoded grey would have been
+ * one theme's idea painted over the other five. And the app already has a
+ * selected row — the session list — so a second shape here would not be a
+ * quieter selection, it would be a second invention to learn.
+ *
+ * The weight and the bar are what this row was actually missing: it had the
+ * fill and none of the marking, so it was loud without being legible. */
+.settings-nav-item.active {
+  background:var(--surface-selected); color:var(--text-selected);
+  font-weight:600; box-shadow:inset 2px 0 0 var(--accent);
+}
+/* One notch under the label, so the two marks in a row stop weighing the same.
+   An icon is where the eye lands on the way to the word, not the thing being
+   read — twenty icons at the label's own colour is the wall the owner was
+   looking at. It brightens with the label on hover and on the active row, so
+   the row still moves as one piece.
+   --text-muted and not --text-dim, for the reason written over the group label
+   above: one step down from --text-secondary is a hierarchy, two steps is a
+   ghost, and a 2px stroke at 16px has less ink to lose than text does. */
+.settings-nav-item .ic { width:16px; text-align:center; color:var(--text-muted); }
+.settings-nav-item:hover .ic, .settings-nav-item.active .ic { color:inherit; }
+/* The step down, and it is .page-shell's, property for property — surface,
+   outline, left-only rounding, gutter on three sides.
+ *
+ * Not a new idea and deliberately not a divider line: ทีมเอเจน, ผลงาน and
+ * โปรเจกต์ are the same kind of room and already arrive this way, so ตั้งค่า
+ * was the one full-window page in the app that had never been given the
+ * treatment. Copying it here is what makes the four rooms one room, and the
+ * reason it works is written over .page-shell: two dark surfaces a few values
+ * apart do not separate on colour alone, so the outline does the separating
+ * and the colour only has to say which side is for reading.
+ *
+ * The right edge takes no radius and no gutter — it meets the window, where
+ * there is no frame to round away from. Same judgement .main makes. */
+.settings-content {
+  flex:1; overflow-y:auto; padding:48px 64px;
+  background:var(--surface-app);
+  border:1px solid var(--border-default); border-right:0;
+  border-radius:var(--r-lg) 0 0 var(--r-lg);
+  margin:6px 0 6px 6px;
+}
 /* Width is a per-page decision, not a fixed clamp on the wrapper. It used to be
    a hard max-width:760px here, which silently won over the 960px the usage
    page's cards ask for — that page's charts and its six-column table were
