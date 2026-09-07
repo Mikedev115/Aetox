@@ -136,7 +136,11 @@ func newAPIImages(desc Descriptor, opts Options) (Engine, error) {
 	// wants none, the real service always does — and failing here beats
 	// failing after a turn has already been spent composing the prompt.
 	if key == "" && base == spec.official {
-		return nil, fmt.Errorf("ยังไม่มี API key ของ %s — ใส่ได้ที่ ตั้งค่า > โมเดล > %s แล้วการสร้างภาพจะใช้ key เดียวกัน", spec.vendor, spec.vendor)
+		// The fact only. Where to go is a BUTTON on the page that shows this
+		// (Settings.svelte) — a sentence spelling out a path the app could
+		// simply walk you down is a worse version of the same thing (owner,
+		// 7 ก.ย.: "แทนที่จะเขียนคำอธิบายแบบนี้ สร้างทางลัดให้ก็จบละ").
+		return nil, fmt.Errorf("ยังไม่มี API key ของ %s", spec.vendor)
 	}
 	return &apiImages{
 		id: desc.ID, baseURL: base, apiKey: key, model: model, spec: spec,

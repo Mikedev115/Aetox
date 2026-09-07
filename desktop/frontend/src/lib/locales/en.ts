@@ -1032,6 +1032,7 @@ export const en: Record<keyof typeof th, string> = {
   'settings.image': 'Image generation',
   'settings.imageDesc': 'The assistant’s drawing tool. Pick who draws; vendors added later show up here on their own.',
   'settings.imageEngine': 'Who draws',
+  'settings.imageAddKey': 'Add the API key',
   'settings.imageModel': 'Model',
   'settings.imageModelDesc': 'The first is the recommended one.',
   'settings.voiceDesc': 'The composer mic and read-aloud replies. Both sides are vendor-switchable, and a new vendor shows up here by itself',

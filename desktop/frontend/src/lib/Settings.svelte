@@ -1597,6 +1597,12 @@
 
   const activeImageEngine = $derived(imageEngines.find((e) => e.active))
 
+  // One click from "this vendor has no key" to the box that takes one.
+  async function goToProviderKey(provider: string) {
+    openSection('models')
+    await selectProvider(provider)
+  }
+
   async function loadImagePage() {
     imageEngines = await ListImageEngines()
     imageStatus = await ImageStatus()
@@ -5275,10 +5281,22 @@
                  รายละเอียดสะยาวเลย"). The generic one is gone; internal/imagegen
                  shortened the other to a line. -->
             {#if activeImageEngine?.install}<div class="d">{activeImageEngine.install}</div>{/if}
-            <!-- Why the picked vendor cannot run, which for every cloud row here
-                 is a missing key — worded by internal/imagegen as where to go
-                 and put one. -->
-            {#if imageStatus}<div class="d mset-error">{imageStatus}</div>{/if}
+            <!-- Why the picked vendor cannot run, which for every cloud row
+                 here is a missing key. The engine states the FACT and this
+                 states the way out — as a button, because a sentence spelling
+                 out a path the app can simply walk you down is a worse version
+                 of the same thing (owner, 7 ก.ย.).
+                 The imagegen row id and the provider id are deliberately the
+                 same string, which is what lets one click land on the right
+                 provider rather than on the models page in general. -->
+            {#if imageStatus}
+              <div class="d mset-error">{imageStatus}</div>
+              {#if activeImageEngine && activeImageEngine.id !== 'pollinations'}
+                <button class="ctrl ctrl-icon" onclick={() => goToProviderKey(activeImageEngine!.id)}>
+                  <Icon name="brain" size={13} /> {t('settings.imageAddKey')}
+                </button>
+              {/if}
+            {/if}
           </div>
           <select class="ctrl" disabled={imagePageBusy} value={activeImageEngine?.id ?? ''} onchange={(e) => pickImageEngine(e.currentTarget.value)}>
             {#each imageEngines as eng (eng.id)}<option value={eng.id}>{eng.label}</option>{/each}

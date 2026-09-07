@@ -41,7 +41,8 @@ func newGeminiImages(desc Descriptor, opts Options) (Engine, error) {
 	}
 	key := config.ProviderAPIKey("gemini", "GEMINI_API_KEY", "GOOGLE_API_KEY")
 	if key == "" {
-		return nil, fmt.Errorf("ยังไม่มี API key ของ Gemini — ใส่ได้ที่ ตั้งค่า > โมเดล > Gemini แล้วการสร้างภาพจะใช้ key เดียวกัน")
+		// The fact only; the page that shows this carries the button.
+		return nil, fmt.Errorf("ยังไม่มี API key ของ Gemini")
 	}
 	base := strings.TrimRight(config.ProviderBaseURL("gemini"), "/")
 	if base == "" {
