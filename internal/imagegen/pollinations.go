@@ -99,7 +99,7 @@ func (p *pollinations) Generate(ctx context.Context, prompt string, req Request,
 	if err != nil {
 		return err
 	}
-	resp, err := p.client.Do(httpReq)
+	resp, err := doWithRetry(p.client, httpReq)
 	if err != nil {
 		return fmt.Errorf("ต่อ Pollinations ไม่ได้: %w", err)
 	}

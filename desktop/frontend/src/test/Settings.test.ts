@@ -857,7 +857,12 @@ describe('Settings pages', () => {
     // No doors: nothing to create, configure, or pin. (The description may
     // *mention* creating an agent — it points at the team page — so the check
     // is on buttons, not on prose.)
-    const buttonLabels = Array.from(container.querySelectorAll('button')).map((b) => b.textContent ?? '')
+    // Scoped to the PAGE, not the whole frame. The left nav is a list of
+    // buttons too, and one of its rows is now สร้างภาพ — a page name, not a
+    // door on this page. Reading the frame made the roster look editable
+    // because a different page exists.
+    const page = container.querySelector('.settings-content')!
+    const buttonLabels = Array.from(page.querySelectorAll('button')).map((b) => b.textContent ?? '')
     expect(buttonLabels.some((l) => l.includes('สร้าง'))).toBe(false)
     expect(container.querySelector('.set-row button')).toBeNull()
     expect(container.querySelectorAll('.set-row select.ctrl').length).toBe(0)

@@ -2894,7 +2894,16 @@
   async function openGalleryShot(box: HTMLElement | null) {
     if (!box) return
     const shot = box.querySelector<HTMLElement>('.gallery-shot.shown')
-    const face = shot?.matches('img') ? shot : shot?.querySelector('img')
+    await openShot(shot?.matches('img') ? shot : (shot?.querySelector('img') ?? null))
+  }
+
+  // One picture, opened properly: on the desk when it is a file there, in a
+  // browser tab when it lives on the web. Split out of openGalleryShot so a
+  // lone picture and a gallery's เปิดใหญ่ cannot drift into two behaviours —
+  // "look at this properly" is one thing, and a picture should not have it
+  // only when it happens to have neighbours (owner, 7 ก.ย., of the first
+  // picture image_make ever put in a reply: "ควรจะขึ้นใหญ่ได้").
+  async function openShot(face: HTMLElement | null) {
     const src = face?.getAttribute('src') ?? ''
     if (src === '') return
     const path = filePath(src)
@@ -3005,6 +3014,16 @@
     }
     if (el.closest('.gallery-open')) {
       void openGalleryShot(el.closest<HTMLElement>('.img-gallery'))
+      return
+    }
+    // A lone picture in an answer. Read AFTER the gallery's own controls above,
+    // so a thumbnail or a step arrow keeps doing its own job, and skipped for a
+    // picture wrapped in a link — clicking a shop's poster is what goes to the
+    // shop, and enlarging must not be the same gesture as leaving.
+    const lone = el.closest<HTMLElement>('.markdown-body img')
+    if (lone && !lone.closest('.img-gallery') && !lone.closest('a')) {
+      e.preventDefault()
+      void openShot(lone)
       return
     }
     // A citation marker takes you to what it cites (markdown.ts renderFootnotes).

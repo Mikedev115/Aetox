@@ -1697,6 +1697,12 @@ button.phase-head:hover { color:var(--text-muted); }
 .markdown-body p > svg:only-child { margin:0; }
 .markdown-body p:has(> svg:only-child) { margin:12px 0; }
 
+/* A lone picture opens on the desk when clicked (Chat.svelte, openShot), so it
+   has to look like something you can click. Not a border or a hover frame: the
+   picture is the content, and a chrome that appears on hover would be the
+   gallery's stage furniture arriving on a single photograph. */
+.chat-inner .markdown-body img:not(.img-gallery img):not(a img) { cursor:zoom-in; }
+
 /* ── image_make: the picture unfolds under its own row ──────────────────────
    The sequence is deliberate and the owner chose it in that shape (7 ก.ย.):
    the tool row lands FIRST, on its own, and only then does the frame open

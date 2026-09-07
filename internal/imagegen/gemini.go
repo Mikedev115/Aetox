@@ -96,7 +96,7 @@ func (g *geminiImages) Generate(ctx context.Context, prompt string, req Request,
 	// ends up in logs and error messages.
 	httpReq.Header.Set("x-goog-api-key", g.apiKey)
 
-	resp, err := g.client.Do(httpReq)
+	resp, err := doWithRetry(g.client, httpReq)
 	if err != nil {
 		return fmt.Errorf("ต่อ Gemini ไม่ได้: %w", err)
 	}

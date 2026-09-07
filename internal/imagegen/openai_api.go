@@ -170,7 +170,7 @@ func (a *apiImages) Generate(ctx context.Context, prompt string, req Request, ou
 		httpReq.Header.Set("Authorization", "Bearer "+a.apiKey)
 	}
 
-	resp, err := a.client.Do(httpReq)
+	resp, err := doWithRetry(a.client, httpReq)
 	if err != nil {
 		return fmt.Errorf("ต่อ %s ไม่ได้: %w", a.spec.vendor, err)
 	}
