@@ -475,6 +475,13 @@ func (a *Agent) RespondWithTools(
 		// that require alternating roles (see convertMessagesToAnthropic).
 		for _, text := range a.DrainInterjections() {
 			debuglog.Msg("interjection folded in before round %d (%d chars)", i+1, len(text))
+			// Into the turn's sequence before it goes into the context, so the
+			// record and the model see it at the same point. The note is not
+			// carried across: it is an instruction to the model about how to
+			// treat what follows, and the user asked their question without it.
+			if opts.OnAsked != nil {
+				opts.OnAsked(text)
+			}
 			a.context.Add(model.RoleUser, interjectionNote+text)
 		}
 		// Recomputed here, not before the loop: each round adds its own tool
@@ -758,6 +765,12 @@ func (a *Agent) RespondWithTools(
 				}
 				for _, text := range pending {
 					debuglog.Msg("interjection kept the turn alive (%d chars)", len(text))
+					// After the demoted round above, never before it: the model
+					// finished that answer and THEN the user typed over it, and
+					// the sequence is the only place that order is written down.
+					if opts.OnAsked != nil {
+						opts.OnAsked(text)
+					}
 					a.context.Add(model.RoleUser, interjectionNote+text)
 				}
 				continue
@@ -825,6 +838,18 @@ func (a *Agent) RespondWithTools(
 		}
 
 		calls := response.ToolCalls
+		// Every picture this RESPONSE produced, held back until every result it
+		// asked for is written down — see where they are collected below. Scoped
+		// to the response and not to the parallel group on purpose: the ids that
+		// have to be answered together are the ones in one assistant message, and
+		// parallelGroup is free to split that message into several batches.
+		var pictures []model.Message
+		flushPictures := func() {
+			for _, picture := range pictures {
+				a.context.AddMessage(picture)
+			}
+			pictures = nil
+		}
 		for i := 0; i < len(calls); {
 			// How many of the calls starting here may run at the same time.
 			// Always at least one, so the sequential path below is the same
@@ -854,6 +879,7 @@ func (a *Agent) RespondWithTools(
 						ToolCallID: toolCall.ID,
 						Content:    "aborted: identical tool call repeated " + fmt.Sprint(repeatedCalls) + " times",
 					})
+					flushPictures()
 					return stopMsg, true, nil
 				}
 				repeats[k] = repeatedCalls
@@ -912,10 +938,21 @@ func (a *Agent) RespondWithTools(
 				// that is what this is — a single path rather than three, at the
 				// cost of one extra message in history.
 				//
+				// Collected rather than added here, and that is the whole of what
+				// this list is for. Anthropic requires every tool_result of a round
+				// to sit at the front of the reply turn, so a picture added beside
+				// its own result puts a text and an image block between two results
+				// the moment a round has more than one call. Measured 2026-09-07: a
+				// round of `browser capture` then `browser console` died on
+				// `messages.52: tool_use ids were found without tool_result blocks
+				// immediately after`, taking 187 seconds of finished work with it.
+				// The OpenAI-compatible dialect does not care, which is why one call
+				// per round never showed this.
+				//
 				// It says which call it belongs to, because a user message the user
 				// did not send is otherwise indistinguishable from one they did.
 				if len(images[k]) > 0 {
-					a.context.AddMessage(model.Message{
+					pictures = append(pictures, model.Message{
 						Role:    model.RoleUser,
 						Content: "[the image returned by " + toolCall.Function.Name + " follows]",
 						Images:  images[k],
@@ -935,10 +972,12 @@ func (a *Agent) RespondWithTools(
 			// instant, and leaving the others' results out would hand the
 			// provider a tool_calls message with holes in its replies.
 			if cancelled != "" && ctx.Err() != nil {
+				flushPictures()
 				return cancelled, true, ctx.Err()
 			}
 			i += group
 		}
+		flushPictures()
 	}
 
 	return ToolLoopExhausted, anyToolUsed, nil

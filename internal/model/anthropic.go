@@ -351,7 +351,54 @@ func convertMessagesToAnthropic(msgs []Message) (string, []anthropicMessage) {
 		out = append(out, anthropicMessage{Role: role, Content: blocks})
 	}
 
+	// Anthropic's one ordering rule, applied where the rule is known rather
+	// than only where it happened to be broken: every tool_result answering
+	// the previous assistant turn must sit at the FRONT of the reply. The
+	// source of the 2026-09-07 failure is fixed too — cognitive/agent.go holds
+	// a round's pictures back until its results are written down — but any
+	// future path that puts a block between two results is the same 400, one
+	// that names a message index and nothing else, and this is the layer that
+	// knows the rule.
+	for i := range out {
+		if out[i].Role == "user" {
+			out[i].Content = toolResultsFirst(out[i].Content)
+		}
+	}
+
 	return strings.Join(systemParts, "\n\n"), out
+}
+
+// toolResultsFirst moves a turn's tool_result blocks ahead of everything
+// else, leaving both groups in the order they arrived. A turn that is already
+// in order — which is nearly all of them — is handed back untouched rather
+// than rebuilt, so nothing that works today changes shape.
+func toolResultsFirst(blocks []anthropicContentBlock) []anthropicContentBlock {
+	seenOther, ordered := false, true
+	for _, b := range blocks {
+		if b.Type != "tool_result" {
+			seenOther = true
+			continue
+		}
+		if seenOther {
+			ordered = false
+			break
+		}
+	}
+	if ordered {
+		return blocks
+	}
+	out := make([]anthropicContentBlock, 0, len(blocks))
+	for _, b := range blocks {
+		if b.Type == "tool_result" {
+			out = append(out, b)
+		}
+	}
+	for _, b := range blocks {
+		if b.Type != "tool_result" {
+			out = append(out, b)
+		}
+	}
+	return out
 }
 
 func convertToolsToAnthropic(tools []ToolDefinition) []anthropicTool {
