@@ -3407,6 +3407,7 @@
       </div>
     </div>
   {/each}
+  </div>
 {/snippet}
 
 {#snippet searchCard(s: ToolStep)}
