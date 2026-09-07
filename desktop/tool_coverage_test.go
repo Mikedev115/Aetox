@@ -583,6 +583,19 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 			why:       "offline",
 			check:     outputContains("Example Domain"),
 		},
+		// The keyless vendor is the one picture engine a test can actually
+		// drive: no key, no GPU, nothing to install. Which also makes this the
+		// only place the endpoint's shape gets checked against the real
+		// service rather than against a fake — if Pollinations changes its
+		// URL, this is what says so.
+		"image_make": {
+			args:      map[string]any{"prompt": "a plain red circle on a white background", "path": "coverage-dot.png"},
+			available: picturesUsable,
+			why:       "offline, or the free picture endpoint is throttling",
+			// Not the filename: image_make renames what it wrote to match the
+			// bytes, so the path in the receipt is not the path asked for.
+			check: outputContains("วาดแล้ว"),
+		},
 		"media_fetch": {
 			args:      map[string]any{"url": "https://github.com/github.png", "path": "cover-github.png"},
 			available: online,
@@ -790,6 +803,31 @@ func haveSpeechEngine() bool {
 
 // online is a real reachability check, not a guess from an env var: the network
 // tools below are about to make real requests.
+// picturesUsable is online() plus one question that online() cannot answer:
+// whether the keyless picture endpoint will serve us right now.
+//
+// It is a free service with a per-user rate limit, and the limit is shared with
+// whatever the person at this machine has been doing — a run of pictures in the
+// app throttles the test minutes later. Read as a failure, that is a red suite
+// caused by somebody else's counter; read as an availability question, it takes
+// the same skipped path an offline machine takes, where assertReachable still
+// proves the dispatcher routes the call and the refusal is a sentence a user
+// could act on.
+func picturesUsable() bool {
+	if !online() {
+		return false
+	}
+	client := &http.Client{Timeout: 20 * time.Second}
+	resp, err := client.Get("https://image.pollinations.ai/prompt/ping?width=64&height=64&nologo=true")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
+	return resp.StatusCode == http.StatusOK &&
+		strings.HasPrefix(strings.ToLower(resp.Header.Get("Content-Type")), "image/")
+}
+
 func online() bool {
 	conn, err := net.DialTimeout("tcp", "example.com:443", 4*time.Second)
 	if err != nil {

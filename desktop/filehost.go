@@ -22,10 +22,61 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/Mikedev115/Aetox/internal/skill"
 )
+
+// pictureExts are the extensions siblingByExtension will accept as the same
+// picture under another name. Deliberately only pictures: this rule exists
+// because image_make renames what it wrote, and nothing else in the app hands
+// back a file under a different extension than the caller asked for.
+var pictureExts = []string{".png", ".jpg", ".jpeg", ".webp", ".gif"}
+
+// isServableFile is "a file that exists and is not a directory". Named apart
+// from the test helper of a similar name in tool_coverage_test.go, which is a
+// closure factory rather than a predicate.
+func isServableFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+// siblingByExtension answers the mismatch the app creates itself.
+//
+// image_make names the file after the BYTES the engine produced, not after
+// what the caller asked for — a model writes `hero.png` because pictures are
+// called that, and Pollinations answers with JPEG, so the file on disk is
+// `hero.jpg`. That rule is right and stays: a .png that is really a JPEG opens
+// nowhere. But the model then writes ![hero](hero.png) into its answer, naming
+// the file it requested rather than the file it got, and the picture 404s
+// (owner, 7 ก.ย., third image_make call — the .jpg answered 200 beside it).
+//
+// So when a picture is asked for by a name that does not exist, the same
+// basename wearing another picture extension in the same folder is served
+// instead. It only ever runs when the exact path missed, so a real hero.png
+// sitting beside a real hero.jpg is never shadowed — and it will not turn a
+// missing document into some other document, because both ends are pictures.
+func siblingByExtension(full string) string {
+	if _, err := os.Stat(full); err == nil {
+		return full
+	}
+	ext := strings.ToLower(filepath.Ext(full))
+	if !slices.Contains(pictureExts, ext) {
+		return full
+	}
+	stem := strings.TrimSuffix(full, filepath.Ext(full))
+	for _, candidate := range pictureExts {
+		if candidate == ext {
+			continue
+		}
+		alt := stem + candidate
+		if info, err := os.Stat(alt); err == nil && !info.IsDir() {
+			return alt
+		}
+	}
+	return full
+}
 
 // fileHostPrefix is the URL space this owns. Everything outside it belongs to
 // the app's own assets and is passed straight through.
@@ -103,11 +154,29 @@ func (a *App) fileHost(next http.Handler) http.Handler {
 		// original when neither exists. The same rule one layer up, and it
 		// grants nothing new — both candidates still go through
 		// safeSandboxPath under the same root.
-		rel = skill.PlacedPath(root, a.outputSubdir, rel)
+		// Two candidate folders, each given the extension tolerance in turn.
+		// They have to compose: a picture asked for as `hero.png` that was
+		// written as `output/<id>/hero.jpg` misses on BOTH counts at once, and
+		// resolving the folder first would leave the extension rule searching
+		// the root while the file sits in the session's folder.
+		//
+		// PlacedWrite rather than PlacedPath: the second candidate is wanted as
+		// a place to look, and PlacedPath only reports one that already holds
+		// the exact name — which is the case that has just failed.
 		full, err := safeSandboxPath(root, rel)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusForbidden)
 			return
+		}
+		full = siblingByExtension(full)
+		if _, statErr := os.Stat(full); statErr != nil {
+			if placed := skill.PlacedWrite(a.outputSubdir, rel); placed != rel {
+				if alt, altErr := safeSandboxPath(root, placed); altErr == nil {
+					if alt = siblingByExtension(alt); isServableFile(alt) {
+						full = alt
+					}
+				}
+			}
 		}
 
 		f, err := os.Open(full)

@@ -108,6 +108,11 @@ var toolCategories = map[string]string{
 	// carries video is this one. Filed by what it is for, which is the rule at
 	// the top of this file, not by which verb it performs.
 	"video_project": CategoryMedia,
+	// Media for the same reason video_project is, and by the same rule: filed
+	// by what it is FOR, not by which verb it performs. It writes rather than
+	// senses, and what it writes is a picture — the desk that carries pictures
+	// is this one.
+	"image_make": CategoryMedia,
 
 	// The automation engine the user connected (§92.3). Filed under web because
 	// that is what it is from outside — an HTTP service somewhere on the network

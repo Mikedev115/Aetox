@@ -224,3 +224,69 @@ func TestFileHostPrefersTheLiteralPath(t *testing.T) {
 		t.Errorf("served %q, want the literal path to win", body)
 	}
 }
+
+// image_make names the file after the bytes, so a model that asked for .png
+// and got JPEG has a correct file on disk and a stale name in its own answer.
+// The app made that mismatch; the app absorbs it.
+func TestFileHostServesAPictureWhoseExtensionWasCorrected(t *testing.T) {
+	root := t.TempDir()
+	sub := filepath.Join(root, "output", "sess-1")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, "hero.jpg"), []byte("real-jpeg"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	a := &App{}
+	a.cur().cfg.SandboxRoot = root
+	a.cur().id = "sess-1"
+	rec := httptest.NewRecorder()
+	a.fileHost(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})).
+		ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/aetox-file/hero.png", nil))
+	res := rec.Result()
+	body, _ := io.ReadAll(res.Body)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("hero.png = %d, want 200 via the .jpg beside it", res.StatusCode)
+	}
+	if string(body) != "real-jpeg" {
+		t.Errorf("served %q", body)
+	}
+}
+
+// The exact name always wins, and the rule never reaches past pictures.
+func TestExtensionFallbackIsNarrow(t *testing.T) {
+	root := t.TempDir()
+	write := func(name, body string) {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("both.png", "the-png")
+	write("both.jpg", "the-jpg")
+	write("notes.md", "a document")
+
+	a := &App{}
+	a.cur().cfg.SandboxRoot = root
+	get := func(path string) (int, string) {
+		rec := httptest.NewRecorder()
+		a.fileHost(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})).
+			ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/aetox-file/"+path, nil))
+		res := rec.Result()
+		body, _ := io.ReadAll(res.Body)
+		return res.StatusCode, string(body)
+	}
+
+	// A real file is never shadowed by its sibling.
+	if _, body := get("both.png"); body != "the-png" {
+		t.Errorf("both.png served %q, want the exact file", body)
+	}
+	// A missing document does not become some other document.
+	if code, _ := get("notes.txt"); code != http.StatusNotFound {
+		t.Errorf("notes.txt = %d, want 404 — the rule is for pictures only", code)
+	}
+	// And a picture with no sibling at all is still a 404.
+	if code, _ := get("nothing.png"); code != http.StatusNotFound {
+		t.Errorf("nothing.png = %d, want 404", code)
+	}
+}
