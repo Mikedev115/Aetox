@@ -542,36 +542,35 @@ export function resolveFace(name: string, size: number, o: FaceOverrides = {}): 
   }
 }
 
-// The same person under the screen's light. Not a brighter version of the
-// palette — a COOLER one, six degrees round the wheel, because a monitor is the
-// one light source in the room that is bluer than the room. Three tones only:
-// what the light lands on is the jaw, the neck and the top of the shirt.
+// WHY THERE IS NO LIT PALETTE HERE ANY MORE.
 //
-// Flat, with a hard edge, and that is a decision rather than a shortcut: a
-// gradient or a blur at 26px is one smear of mud, while an edge stays an edge
-// at any size. It is also how flat illustration has always drawn a face lit by
-// a screen at night — two tones, no falloff.
+// There was one, twice. The first went in at 88% lightness and turned every
+// worker into the same near-white person the moment it started (owner, 7 ก.ย.:
+// *"แต่ละตัวก็มีสีของตัวเอง ทำไมพอทำท่าทางแม่งกลายเป็นสีเดียวกัน"*). The second
+// paid for ten points of lightness with saturation — 42 to 70 — plus six
+// degrees of cooling, and got the same complaint twice more: *"สีอวตารเปลี่ยน
+// เองอีก ขณะทำงาน ทั้งที่มันควรจะเปลี่ยนแค่บริบทแท้ๆ"*, then *"แต่ละตัวมีอวตาร
+// ของตัวเอง ทำไมบริบทหรือสถานะทำให้สีเพี้ยนหมด"*.
 //
-// LIT IS NOT BLEACHED, and that distinction is the whole of this function.
-// It went in at 88% lightness, which is a real thing a screen does to a face
-// and is also the lightness at which hue stops being visible: two agents twenty
-// degrees apart are the same near-white up there, and the lit area is the jaw,
-// the neck and the top of the shirt — the largest continuous patch of colour on
-// a 34px tile. So every worker turned into the same person the moment it
-// started working (owner, 7 ก.ย.: "แต่ละตัวก็มีสีของตัวเอง ทำไมพอทำท่าทางแม่ง
-// กลายเป็นสีเดียวกัน").
+// Three attempts at tuning a repaint is the signal that the repaint itself was
+// the mistake. The rule the owner has been stating all along is that the colour
+// is an IDENTITY: it answers who this is, and nothing about what they are doing
+// may touch it. A palette that swaps skin, shirt and shade for a second set of
+// values while the person works cannot obey that rule at any numbers, because
+// swapping them IS the violation.
 //
-// Nothing was wired wrong, and it is worth saying so: the hue is still
-// coverHue(name), and the machine, its screen and its glow are all drawn from
-// that agent's own palette. These were three wrong numbers, not a shortcut.
-// Ten points of lightness come off and the saturation goes up to pay for it,
-// which keeps the step up from the unlit skin (78% → 82%) that says "a light
-// just landed on this" while leaving enough colour in it to say WHOSE face it
-// landed on.
-function litBy(hue: number): { skin: string; shade: string; shirt: string } {
-  const h = (hue + 354) % 360
-  return { skin: `hsl(${h} 70% 82%)`, shade: `hsl(${h} 56% 69%)`, shirt: `hsl(${h} 52% 49%)` }
-}
+// And there was a second thing wrong that no number could have fixed: the head
+// was drawn unlit, the jaw patch lit, the ears unlit and the shirt lit, so a
+// working face carried two skin tones with a hard edge across it. That does not
+// read as one person under a light. It reads as the colour having gone wrong,
+// which is the word he used — เพี้ยน.
+//
+// So light is an OVERLAY now, and only that: white at low opacity over the same
+// clipped jaw, plus the glow the machine already threw. White lightens without
+// moving hue or saturation, which is the one way to draw a light landing on
+// somebody that cannot repaint them. Every fill on the person comes from
+// palette(coverHue(name)) in every state, and the work state is a POSE — the
+// laptop up, the brows, the catchlights — not a colour.
 
 // The lit part of the face has to stop at the jaw, and the jaw is an ellipse.
 //
@@ -627,14 +626,13 @@ function workScene(p: Palette): string {
 export function faceSVG(f: Face): string {
   const { p, head } = f
   const working = f.state === 'work'
-  const lit = litBy(f.hue)
   const jaw = jawClip(head)
 
   let s = `<g class="af-rig">`
   s +=
-    `<path d="M3 64c0-13 12-19 29-19s29 6 29 19z" fill="${working ? lit.shirt : p.shirt}"/>` +
-    `<path d="M25 45l7 8 7-8z" fill="${working ? lit.skin : p.skin}"/>` +
-    `<rect x="27.5" y="35" width="9" height="11" fill="${working ? lit.shade : p.skinShade}"/>`
+    `<path d="M3 64c0-13 12-19 29-19s29 6 29 19z" fill="${p.shirt}"/>` +
+    `<path d="M25 45l7 8 7-8z" fill="${p.skin}"/>` +
+    `<rect x="27.5" y="35" width="9" height="11" fill="${p.skinShade}"/>`
   if (f.ears) {
     s += `<circle cx="16.5" cy="28" r="3.4" fill="${p.skinShade}"/><circle cx="47.5" cy="28" r="3.4" fill="${p.skinShade}"/>`
   }
@@ -648,7 +646,7 @@ export function faceSVG(f: Face): string {
     s +=
       `<clipPath id="${jaw}"><ellipse cx="32" cy="${head.cy}" rx="${head.rx}" ry="${head.ry}"/></clipPath>` +
       `<g clip-path="url(#${jaw})">` +
-      `<path d="M12 ${round(top)}L52 ${round(top - 2.2)}V46H12z" fill="${lit.skin}"/></g>`
+      `<path d="M12 ${round(top)}L52 ${round(top - 2.2)}V46H12z" fill="#ffffff" opacity=".17"/></g>`
   }
   if (f.hair.front) s += f.hair.front(p)
   if (working) {
