@@ -47,13 +47,36 @@
   // ไฟล์ / วิดีโอ (owner, 1 ก.ย.): a rendered clip is the deliverable somebody
   // came back for, and it drowns between the screenshots and working files of
   // the session that made it. Same chip row grammar as the time ranges — a
-  // second axis on the same shelf, not a second page. Judged by extension on
-  // the client because everything in range is already here (see refresh).
-  const KINDS = ['files', 'video'] as const
+  // second axis on the same shelf, not a second page.
+  //
+  // **Two chips became seven on 8 ก.ย.**, and the reason is the same complaint
+  // one size bigger: *"มันไม่กรองอะไรเลย ไฟล์อันไหนที่ Aetox แก้แม่งไปรวมกันหมด"*.
+  // A clip was the one thing worth pulling out of the pile when the pile was
+  // screenshots; the pile now also holds decks, scenes, exported pages, audio
+  // and spreadsheets, and "everything else" is not a shelf.
+  //
+  // The kind is the engine's answer now rather than a regex over the filename
+  // (Artifact.Kind). A deck, a video scene and a web page are all `.html` and
+  // nothing in the name tells them apart, so the client cannot be the one to
+  // decide — and once the hard half has to come from the engine, having the easy
+  // half decided here as well is only a second opinion waiting to disagree.
+  const KINDS = ['files', 'image', 'video', 'slides', 'scene', 'page', 'audio', 'doc', 'sheet'] as const
   type Kind = (typeof KINDS)[number]
   let kind = $state<Kind>('files')
-  const isVideo = (f: main.Artifact) => /\.(mp4|webm|mov|mkv|avi)$/i.test(f.name)
-  const inKind = $derived(kind === 'video' ? files.filter(isVideo) : files)
+  const inKind = $derived(kind === 'files' ? files : files.filter((f) => f.kind === kind))
+
+  // Only the shelves that have something on them, in the order above. A chip
+  // that answers with an empty page is a chip that has cost the reader a click
+  // to learn nothing, and this page already knows what it is holding — the same
+  // rule the range picker follows when it binds to `served` rather than to what
+  // was clicked: the control says what is actually there.
+  //
+  // The current kind is kept in the row even when the range moves under it and
+  // empties that shelf, because a chip that vanishes while it is the selected
+  // one leaves the page filtered by something with no control on screen.
+  const shownKinds = $derived(
+    KINDS.filter((k) => k === 'files' || k === kind || files.some((f) => f.kind === k)),
+  )
 
   function pickKind(next: Kind) {
     if (kind === next) return
@@ -561,7 +584,7 @@
            has to say what you are actually looking at. -->
       {#if loaded && (files.length > 0 || served !== 'week')}
         <div class="art-ranges">
-          {#each KINDS as k (k)}
+          {#each shownKinds as k (k)}
             <button type="button" class="art-range" class:on={kind === k} onclick={() => pickKind(k)}>
               {t(`artifacts.kind.${k}`)}
             </button>
@@ -572,7 +595,12 @@
               {t(`artifacts.range.${r}`)}
             </button>
           {/each}
-          <span class="art-count">{t('artifacts.count', { n: String(kind === 'video' ? inKind.length : total) })}</span>
+          <!-- `total` is the engine's count for the whole range, which is the
+               honest number only while nothing is filtered out of it: it counts
+               past the cap the page draws to, which is the whole reason it
+               exists. A picked kind is counted here instead, over what actually
+               arrived. -->
+          <span class="art-count">{t('artifacts.count', { n: String(kind === 'files' ? total : inKind.length) })}</span>
           <!-- Right-hand end of the same row the ranges live on, because these
                act on what that row is showing. Two buttons at rest: take all of
                it, or drag a box over the part you meant. -->
@@ -731,10 +759,14 @@
       <!-- Everything in range is already here; this only decides how much is
            drawn. The count is the point — "แสดงเพิ่ม" alone does not say whether
            it is hiding four files or four hundred. -->
+      <!-- Named after the shelf that is empty, not after video. The message was
+           written when there were two chips and one of them could come up
+           empty; with seven, "ยังไม่มีวิดีโอในช่วงเวลานี้" under a เอกสาร filter
+           is the page describing something the reader did not ask about. -->
       {#if loaded && inKind.length === 0 && files.length > 0}
         <div class="page-empty">
-          <Icon name="clapperboard" size={22} />
-          <p>{t('artifacts.kindVideoEmpty')}</p>
+          <Icon name="package" size={22} />
+          <p>{t('artifacts.kindEmpty', { kind: t(`artifacts.kind.${kind}`) })}</p>
         </div>
       {/if}
       {#if inKind.length > shown}

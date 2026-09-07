@@ -376,6 +376,7 @@ export namespace main {
 	    modified: string;
 	    root: string;
 	    folder?: string;
+	    kind: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Artifact(source);
@@ -390,6 +391,7 @@ export namespace main {
 	        this.modified = source["modified"];
 	        this.root = source["root"];
 	        this.folder = source["folder"];
+	        this.kind = source["kind"];
 	    }
 	}
 	export class ArtifactPage {

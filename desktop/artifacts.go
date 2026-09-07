@@ -10,12 +10,16 @@ package main
 // costs one directory walk on a page nobody opens in a loop.
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/Mikedev115/Aetox/internal/deck"
 )
 
 // outputDir is the folder outputSubdir writes into, relative to a root. Named
@@ -72,7 +76,42 @@ type Artifact struct {
 	// key: the card can print it. Nested folders keep their whole path here, so
 	// two files in different branches never collapse into one deck.
 	Folder string `json:"folder,omitempty"`
+	// Kind is what sort of thing this file is, for the chip row that filters the
+	// gallery. One of the artifactKind* constants below.
+	//
+	// Decided here rather than in the window, and the reason is the half of this
+	// question an extension cannot answer. A deck, a video scene and an exported
+	// web page are all `.html`; telling them apart means opening the head of the
+	// file, which is the engine's job and not something to do in a `$derived`
+	// over every row on every keystroke. The extensions the window could have
+	// judged travel the same road anyway, because a kind decided in two places
+	// is a kind that disagrees with itself the first time either side learns a
+	// new format.
+	Kind string `json:"kind"`
 }
+
+// The kinds a produced file can be. Named rather than spelled at each use for
+// the ordinary reason, and kept few on purpose: this is the row of chips a
+// person reads left to right to find the thing they came back for, not a
+// taxonomy of every format that exists.
+//
+// `scene` and `page` are separate from `slides` even though all three are HTML,
+// because they are three different answers to "what did Aetox make me": a deck
+// to present, a clip's source to render, a site to open. Everything a person
+// would call a document — notes, a transcript, a script the agent wrote — is
+// `doc`, because the shelf a person looks on is "the writing", not ".md versus
+// .py".
+const (
+	artifactKindImage  = "image"
+	artifactKindVideo  = "video"
+	artifactKindAudio  = "audio"
+	artifactKindSlides = "slides"
+	artifactKindScene  = "scene"
+	artifactKindPage   = "page"
+	artifactKindSheet  = "sheet"
+	artifactKindDoc    = "doc"
+	artifactKindOther  = "other"
+)
 
 // ListArtifacts returns every file under <root>/output/<session> for each root
 // this install knows about, newest first.
@@ -258,11 +297,34 @@ func sweepArtifacts(root string) []Artifact {
 // because a deliverable can legitimately bring its own — an exported site, a
 // folder of frames — and a gallery that showed only the top level would hide
 // exactly the work that took longest.
+//
+// **A source tree is not a deliverable, and one of them can drown the gallery.**
+// Measured on the owner's machine, 8 ก.ย. 2569: one session held its two real
+// files — two .md posts — beside a full checkout of this repository that a turn
+// had copied into the folder. 8,267 files, 6,508 of them under `third_party/`,
+// against 300 real artifacts in every other session put together. Past the cap
+// (`maxArtifacts`), and grouped by folder path, so it did not even arrive as one
+// wrong card: it arrived as hundreds of decks named after directories of
+// somebody else's source. The owner's words for the page were that it filters
+// nothing and everything is lumped in together, and he was right.
+//
+// [internal/deck](../internal/deck/deck.go) already learned this the hard way —
+// its own comment records the slides room listing a copied repo's HTML and
+// rendering it as decks — and answered it by asking whether a file is a whole
+// document. The gallery could not use that answer, because the flood is not
+// HTML. So it asks the question one level up instead: is this directory a
+// checkout somebody dropped here, rather than something an agent produced.
 func sweepSession(dir, sessionID, root string) []Artifact {
 	var out []Artifact
 	_ = filepath.WalkDir(dir, func(path string, entry os.DirEntry, err error) error {
-		if err != nil || entry.IsDir() {
+		if err != nil {
 			return nil //lint:ignore nilerr an unreadable entry is skipped, not fatal
+		}
+		if entry.IsDir() {
+			if path != dir && notADeliverableDir(path, entry.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 		if art, ok := describeArtifact(path, sessionID, root); ok {
 			art.Folder = folderUnder(dir, path)
@@ -271,6 +333,35 @@ func sweepSession(dir, sessionID, root string) []Artifact {
 		return nil
 	})
 	return out
+}
+
+// notADeliverableDir reports whether a directory under a session is a place
+// nothing the gallery should show can be.
+//
+// Two rules, and they answer different things. The names are the machinery of
+// other people's tools — a package manager's cache, a vendored dependency tree,
+// Python's bytecode — which is never what a person came back to this page for
+// and is where the file counts run into the thousands. The `.git` test is the
+// one that catches the case that started this: a directory holding a `.git` is
+// somebody's working copy, whatever it is called, and the copy of this repo that
+// flooded the gallery was named `Aetox` and would have passed any name list.
+//
+// Deliberately not a size or depth rule. A real deliverable can be large and
+// deeply nested — an exported site, a folder of rendered frames — and a gallery
+// that hid work for being big would hide exactly the work that took longest,
+// which is the mistake sweepSession's own comment warns against one line up.
+func notADeliverableDir(path, name string) bool {
+	switch strings.ToLower(name) {
+	case ".git", "node_modules", "third_party", "__pycache__", ".venv", ".svn", ".hg":
+		return true
+	}
+	// A checkout, under any name. Stat rather than ReadDir: `.git` is a
+	// directory in a clone and a file in a worktree or submodule, and both are
+	// the same answer to the only question being asked here.
+	if _, err := os.Stat(filepath.Join(path, ".git")); err == nil {
+		return true
+	}
+	return false
 }
 
 // folderUnder is the directory of path relative to the session folder, in
@@ -382,5 +473,82 @@ func describeArtifact(path, sessionID, root string) (Artifact, bool) {
 		Size:      info.Size(),
 		Modified:  info.ModTime().Format(time.RFC3339),
 		Root:      root,
+		Kind:      artifactKind(path),
 	}, true
+}
+
+// htmlPeek is how much of an HTML file is read to tell a deck from a scene from
+// a page. The three markers all live in the first tags of the document — a
+// doctype, a `<body data-composition-id>`, the first slide — so this is the head
+// of the file rather than the file, the same bound internal/deck works to.
+const htmlPeek = 64 << 10
+
+// artifactKind names what one produced file is.
+//
+// **Extension first, because for most files it is the whole answer** and it
+// costs a string compare against a name the sweep already has. A png is a
+// picture on every machine that ever wrote one.
+//
+// **HTML is the exception, and it is the reason this function is not a map.**
+// A deck to present, a video scene to render and a site to open are all `.html`,
+// and they are three different answers to what somebody came back to this page
+// for. Nothing in the name separates them: `index.html` is all three. So the
+// head of the file is read and asked directly, in the order that costs least —
+// the composition attribute is a substring scan, and only a file that is not a
+// scene is parsed for slides.
+//
+// A file that cannot be opened answers `page` rather than dropping out of the
+// gallery. It is still an HTML file the agent made; what is unknown is only
+// which of three shelves it belongs on, and the general one is where a person
+// looks when the specific one turns up empty.
+func artifactKind(path string) string {
+	switch strings.ToLower(strings.TrimPrefix(filepath.Ext(path), ".")) {
+	case "png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "avif", "tiff":
+		return artifactKindImage
+	case "mp4", "webm", "mov", "mkv", "avi", "m4v":
+		return artifactKindVideo
+	case "mp3", "wav", "m4a", "flac", "ogg", "aac":
+		return artifactKindAudio
+	case "xlsx", "xls", "csv", "tsv":
+		return artifactKindSheet
+	case "md", "txt", "pdf", "docx", "doc", "rtf", "json", "yaml", "yml",
+		"py", "ps1", "js", "ts", "go", "sh", "sql":
+		return artifactKindDoc
+	case "html", "htm":
+		return htmlKind(path)
+	}
+	return artifactKindOther
+}
+
+// htmlKind opens the head of one HTML file and says which of the three things
+// it is. Split out so the read has one home and artifactKind stays a table.
+func htmlKind(path string) string {
+	file, err := os.Open(path)
+	if err != nil {
+		return artifactKindPage
+	}
+	defer file.Close()
+	head := make([]byte, htmlPeek)
+	n, readErr := io.ReadFull(file, head)
+	if n == 0 && readErr != nil {
+		return artifactKindPage
+	}
+	head = head[:n]
+	// The renderer's own frame, and the cheapest of the three questions: a
+	// substring, no parse. `data-composition-id` is what every scene on the
+	// video shelf declares on its root and what `video new` writes into a scene
+	// that arrived without one (video_tool.go), so it is the same fact the
+	// renderer reads rather than a second opinion about it.
+	if bytes.Contains(head, []byte("data-composition-id")) {
+		return artifactKindScene
+	}
+	// Whole document AND carrying slides, both, which is exactly the pair
+	// readDeckRow requires before the slides room will list a file. A fragment
+	// with the marker is not a deck there and must not be one here: two rooms
+	// disagreeing about what a deck is would put a file on this page's สไลด์
+	// shelf that the slides room refuses to open.
+	if deck.Whole(head) && deck.Count(head) > 0 {
+		return artifactKindSlides
+	}
+	return artifactKindPage
 }
