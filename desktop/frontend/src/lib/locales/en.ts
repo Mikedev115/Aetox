@@ -450,6 +450,10 @@ export const en: Record<keyof typeof th, string> = {
   'taskTimeline.changeSummary': 'Change Summary',
 
   'workbench.filesTab': 'Files',
+  'workbench.browseFolder': 'Look at a folder…',
+  'workbench.browseNote': 'Looking only — not opened as a project',
+  'workbench.stopBrowsing': 'Stop looking at this folder',
+  'workbench.noProjectHere': 'The assistant is not tied to a project — it reaches the whole machine. You can point this panel at any folder, just to look.',
   'workbench.newTab': 'New tab',
   // Shown only in a frontend that connected through wails dev - the real
   // window is the only one holding the native page (hostWebview.ts).

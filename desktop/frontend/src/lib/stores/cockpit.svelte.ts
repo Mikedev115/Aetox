@@ -9,6 +9,7 @@ import {
   SendMessage, GetProjectStatus, GetModelInfo, OpenProjectFolder, OpenProjectPath,
   SwitchProvider, SwitchThinkLevel, SwitchApprovalMode, SetProviderWireFormat,
   SwitchModel, CancelPendingModel, SetAPIKey, SetProviderBaseURL, ProjectTree, ReadFile,
+  BrowseFolder, BrowseRoot, StopBrowsing,
   ListSessions, LoadSession, NewSession, NewSessionAt, NewChairSession, NewSessionInSpace, CurrentSpace, SessionsInSpace, Spaces, SessionMode, SessionAgent, CurrentSessionID, SearchSessions, DeleteSession,
   SessionTranscript, TurnInFlight,
   SaveChatImage, SaveChatImageData, SaveChatFile, ReadImageDataURL, CancelTurn, BrowserGetText, RecentProjects,
@@ -119,6 +120,33 @@ export async function refreshWorkspace(): Promise<void> {
   // Go's generated bindings type these fields as plain `string`; the values
   // are always one of the frontend's narrower literals ("dir"/"file", "M"/"U"/"").
   cockpit.tree = tree as unknown as TreeNode[]
+  // The one thing about the tree its own rows cannot say: whether this is a
+  // project or a folder somebody is only looking at.
+  cockpit.browseRoot = await BrowseRoot()
+}
+
+/** Point the file tree at a folder without opening it as a project.
+ *
+ * Deliberately not `openFolder`. That one focuses the engine on the folder,
+ * retargets what a new chat is born into, and files the folder in the recent
+ * projects table for good — three things the ผู้ช่วย door must not do, where
+ * a chat reaches the whole machine precisely because it has no project (the
+ * owner picked a folder to look at on 7 ก.ย. and the app kept it). This moves
+ * one string in the engine's memory and nothing else. */
+export async function browseFolder(): Promise<void> {
+  try {
+    cockpit.browseRoot = await BrowseFolder()
+  } catch (err) {
+    showSessionRefusal(err)
+    return
+  }
+  await refreshWorkspace()
+}
+
+/** Put the tree back to empty. */
+export async function stopBrowsing(): Promise<void> {
+  await StopBrowsing()
+  await refreshWorkspace()
 }
 
 /** "2 นาทีที่แล้ว" for an RFC3339 stamp. Exported because the browser tab's

@@ -413,6 +413,35 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .row .st { margin-left:auto; font-size:var(--fs-xs); font-weight:700; }
 .row .st.m { color:var(--status-modified); }
 .row .st.u { color:var(--status-untracked); }
+.row .st.d { color:var(--status-danger); }
+/* The name is the part that gives ground when the row runs out of width, so the
+   mark at its end stays on screen. Scoped to the file tree: other .row lists
+   have their own idea of what the middle of a row is. */
+.proj .row .lbl { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+/* The name carries the colour too, not only the mark at the end of the row.
+   The name is where the eye already is when it scans a tree, and it is the part
+   that survives a narrow panel — the same reason every editor tints it. Folders
+   included: they wear the strongest colour of what is inside them. */
+.proj .row .lbl.m { color:var(--status-modified); }
+.proj .row .lbl.u { color:var(--status-untracked); }
+.proj .row .lbl.d { color:var(--status-danger); }
+/* The git end of a file-tree row: how much changed, then what happened. One
+   group with one auto margin — two of them would split the gap and drift the
+   count away from its letter. */
+.row .gitmark { margin-left:auto; display:inline-flex; align-items:baseline; gap:5px; flex:none; }
+.row .gitmark .st { margin-left:0; }
+.row .gitmark .add, .row .gitmark .rem {
+  font-size:var(--fs-xs); font-variant-numeric:tabular-nums; opacity:.85;
+}
+.row .gitmark .add { color:var(--status-untracked); }
+.row .gitmark .rem { color:var(--status-danger); }
+/* A folder wears the colour of what is inside it, not a letter: the tree lives
+   collapsed, and a badge that only ever marked files said nothing at all in the
+   state the panel is usually in. */
+.row .gitmark .dot { width:6px; height:6px; border-radius:50%; align-self:center; }
+.row .gitmark .dot.m { background:var(--status-modified); }
+.row .gitmark .dot.u { background:var(--status-untracked); }
+.row .gitmark .dot.d { background:var(--status-danger); }
 .sess-day { margin:2px 4px 6px; font-size:var(--fs-xs); }
 /* Which day these rows are from. Dim and small on purpose: it is a ruler the
    eye uses to skip, not a heading it should stop at — the row titles are what

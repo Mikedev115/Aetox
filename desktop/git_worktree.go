@@ -58,14 +58,39 @@ func (a *App) GitWorkingTree() []GitFileChange {
 	if !ok {
 		return out
 	}
-
 	ctx, cancel := a.gitContext()
 	defer cancel()
+	return append(out, workingTree(ctx, root, true)...)
+}
 
+// workingTree is the one reader of `git status --porcelain` in this app.
+//
+// Three surfaces ask this question — the git room's rows, the summary strip's
+// repo section, and the file tree's badges — and they used to ask it with three
+// copies of the same parse. The letters were kept in step by comment ("the same
+// three the file tree's badges use") rather than by code, which is exactly the
+// arrangement that drifts on the day one of them learns something the others
+// do not. This is that something: `countUntracked`, and the prefix below.
+//
+// **Paths come back relative to `root`.** Porcelain always prints them relative
+// to the *repository* root, so a project opened at a subfolder of its repo got
+// rows whose paths matched nothing it could show — no badge in the tree, and a
+// summary listing paths that read as if they were somewhere else.
+// `rev-parse --show-prefix` is where the project sits inside the repo, and
+// anything outside it belongs to a part of the repository this window is not
+// looking at.
+//
+// countUntracked is what an untracked file's `+N` costs: its whole content, read
+// to be counted. Worth it for a panel of rows somebody is reading; not worth it
+// for a tree that only needs to know the file is new, and where a folder full of
+// unadded files would mean reading every one of them on every refresh.
+func workingTree(ctx context.Context, root string, countUntracked bool) []GitFileChange {
+	out := []GitFileChange{}
 	status, err := gitOut(ctx, root, "status", "--porcelain")
 	if err != nil {
 		return out
 	}
+	prefix := repoPrefix(ctx, root)
 	counts := numstat(ctx, root)
 
 	for _, line := range strings.Split(strings.TrimRight(status, "\n"), "\n") {
@@ -79,8 +104,12 @@ func (a *App) GitWorkingTree() []GitFileChange {
 			path = path[idx+4:]
 		}
 		path = strings.Trim(path, `"`)
+		here, inside := underPrefix(path, prefix)
+		if !inside {
+			continue
+		}
 
-		row := GitFileChange{Path: path, Status: "M"}
+		row := GitFileChange{Path: here, Status: "M"}
 		switch {
 		case strings.Contains(code, "D"):
 			row.Status = "D"
@@ -89,12 +118,41 @@ func (a *App) GitWorkingTree() []GitFileChange {
 		}
 		if c, hit := counts[path]; hit {
 			row.Added, row.Removed = c[0], c[1]
-		} else if row.Status == "U" {
-			row.Added = fileLineCount(filepath.Join(root, filepath.FromSlash(path)))
+		} else if row.Status == "U" && countUntracked {
+			row.Added = fileLineCount(filepath.Join(root, filepath.FromSlash(here)))
 		}
 		out = append(out, row)
 	}
 	return out
+}
+
+// repoPrefix is where root sits inside its repository, as a forward-slashed
+// path ending in "/" — empty when root is the repository itself, which is the
+// ordinary case and costs one more git call to be sure of.
+func repoPrefix(ctx context.Context, root string) string {
+	raw, err := gitOut(ctx, root, "rev-parse", "--show-prefix")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(raw)
+}
+
+// underPrefix re-roots one porcelain path at the project, and says whether it
+// belongs to the project at all.
+//
+// An untracked directory arrives as "sub/" and stays a directory: it is the one
+// row that names a folder rather than a file, and the tree needs it that way to
+// know every file under it is new.
+func underPrefix(path, prefix string) (string, bool) {
+	if prefix == "" {
+		return path, true
+	}
+	if !strings.HasPrefix(path, prefix) {
+		// The repository has changes elsewhere. True, and none of this
+		// project's business.
+		return "", false
+	}
+	return strings.TrimPrefix(path, prefix), true
 }
 
 // GitFileDiff is what one row unfolds into: the same git-style hunks the chat

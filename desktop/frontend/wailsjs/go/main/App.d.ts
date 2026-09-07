@@ -55,6 +55,10 @@ export function BackgroundRuns():Promise<Array<main.BackgroundRun>>;
 
 export function BackgroundTasks():Promise<Array<main.BackgroundTask>>;
 
+export function BrowseFolder():Promise<string>;
+
+export function BrowseRoot():Promise<string>;
+
 export function BrowserBack(arg1:string):Promise<void>;
 
 export function BrowserCaptureFullPNG(arg1:context.Context,arg2:string):Promise<string>;
@@ -622,6 +626,8 @@ export function StartSpeech(arg1:string):Promise<string>;
 export function StopBackgroundRun(arg1:string):Promise<number>;
 
 export function StopBackgroundTask(arg1:string):Promise<boolean>;
+
+export function StopBrowsing():Promise<void>;
 
 export function StopMobileRemote():Promise<main.RemoteStatus>;
 

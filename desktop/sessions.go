@@ -892,7 +892,7 @@ func (a *App) LoadSessionAnyProject(id string) ([]SessionMessage, error) {
 			return a.LoadSession(id)
 		}
 		a.retargetTemplate(config.ConfigOptions{RootPath: rootPath, ApprovalMode: string(safety.ApprovalFullAccess)})
-		a.projectFocused = true
+		a.takeProject()
 		a.setWorkspaceRoots(a.storedWorkspaceFolders(rootPath))
 		a.touchProject(a.cur().cfg.SandboxRoot)
 	}

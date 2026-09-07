@@ -17,7 +17,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -40,7 +39,6 @@ import (
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/oauth"
 	"github.com/Mikedev115/Aetox/internal/ooxml"
-	"github.com/Mikedev115/Aetox/internal/proc"
 	"github.com/Mikedev115/Aetox/internal/prompt"
 	"github.com/Mikedev115/Aetox/internal/safety"
 	"github.com/Mikedev115/Aetox/internal/skill"
@@ -151,6 +149,13 @@ type App struct {
 	// projects entry, UI shows an unfocused chip). This is the startup default —
 	// the app must not silently adopt whatever cwd it was launched from.
 	projectFocused bool
+
+	// browseRoot is a folder the file tree is merely LOOKING at while unfocused.
+	// It is not a project and never becomes one: nothing here reaches the
+	// engine's sandbox, the recent-projects table or the session a new chat is
+	// born into. In memory only, dropped on the next focus switch and on the
+	// next start — see browse_root.go for why that is the whole point.
+	browseRoot string
 
 	// extraRoots are the folders the user added to the focused project — the
 	// whole of what widens the sandbox beyond it (desktop/workspace.go). Loaded
@@ -512,23 +517,17 @@ func (a *App) GitChangedFiles() []ChangedFile {
 	if !a.projectFocused {
 		return out
 	}
-	// proc-detached: one git read, bounded by its own completion a few lines down
-	cmd := exec.Command("git", "-C", a.cur().cfg.SandboxRoot, "status", "--porcelain")
-	proc.HideConsole(cmd)
-	raw, err := cmd.Output()
-	if err != nil {
+	root := strings.TrimSpace(a.cur().cfg.SandboxRoot)
+	if root == "" {
 		return out
 	}
-	for _, line := range strings.Split(strings.TrimRight(string(raw), "\n"), "\n") {
-		if len(line) < 4 {
-			continue
-		}
-		code := strings.TrimSpace(line[:2])
-		status := "M"
-		if strings.Contains(code, "?") || strings.Contains(code, "A") {
-			status = "U"
-		}
-		out = append(out, ChangedFile{Path: strings.TrimSpace(line[3:]), Status: status})
+	// Through workingTree rather than a parse of its own: this used to be the
+	// second of three readings of `git status --porcelain`, and the one that
+	// silently lacked what the other two had learned (see there).
+	ctx, cancel := a.gitContext()
+	defer cancel()
+	for _, f := range workingTree(ctx, root, false) {
+		out = append(out, ChangedFile{Path: f.Path, Status: f.Status})
 	}
 	return out
 }
@@ -539,8 +538,13 @@ type TreeNode struct {
 	Path   string `json:"path"` // relative to the sandbox root, forward-slashed
 	Kind   string `json:"kind"` // "dir" | "file"
 	Depth  int    `json:"depth"`
-	Status string `json:"status,omitempty"` // "M" | "U" | ""
-	Icon   string `json:"icon,omitempty"`
+	Status string `json:"status,omitempty"` // "M" | "U" | "D" | ""
+	// How much of the file changed, against HEAD. Zero on a folder and on
+	// anything git has nothing to compare — the row then wears its letter alone,
+	// which is still the answer to "did this change".
+	Added   int    `json:"added,omitempty"`
+	Removed int    `json:"removed,omitempty"`
+	Icon    string `json:"icon,omitempty"`
 }
 
 // treeIgnore skips VCS/build/dependency noise a dev never wants in the sidebar.
@@ -550,32 +554,65 @@ var treeIgnore = skill.IgnoredDirs
 
 // ProjectTree walks the sandbox root and returns a flat, depth-first file
 // tree for the sidebar (dirs collapsed by default, matching Sidebar.svelte's
-// toggle logic). Git status per file reuses GitChangedFiles so the M/U
-// badges match the Inspector's Files Changed panel exactly.
+// toggle logic). Git status per node comes from workingTree, the one reader of
+// `git status --porcelain` in this app, so a file means the same thing here, in
+// the git room and in the summary strip.
 //
 // ponytail: walks the whole tree eagerly on every call rather than lazily
 // per folder-expand — fine for a normal repo, revisit if it's ever slow on
-// a huge one.
+// a huge one. The counts cost a `git diff --numstat HEAD` alongside the status
+// on every refresh (turn end, project switch); the same pair the git room has
+// been paying on a timer.
 func (a *App) ProjectTree() []TreeNode {
 	// Unfocused mode is rooted at the user's home dir — eagerly walking that
 	// (Documents, Downloads, ...) would be huge and meaningless as a "project
-	// tree", so the tree is simply empty until a project is focused.
-	if !a.projectFocused {
-		return []TreeNode{}
-	}
+	// tree", so the tree is empty there unless the user has pointed it at one
+	// folder to look at (browse_root.go). That folder is a view and nothing
+	// else: it does not move the engine, and it is gone on the next start.
 	root := strings.TrimSpace(a.cur().cfg.SandboxRoot)
+	browsing := false
+	if !a.projectFocused {
+		root = strings.TrimSpace(a.browseRoot)
+		browsing = root != ""
+	}
 	if root == "" {
 		return []TreeNode{}
 	}
 
-	statusByPath := make(map[string]string)
-	for _, f := range a.GitChangedFiles() {
-		statusByPath[filepath.ToSlash(f.Path)] = f.Status
-	}
+	// What git says about this project, once, for the whole walk. Counts come
+	// with it now: "which file changed" and "how much of it" are one question
+	// asked of one command, and the row that answers the first has room for the
+	// second (owner, 7 ก.ย.: "แบบไฟล์ไหนแก้อะไรยังไง").
+	//
+	// Untracked *folders* arrive as a single row — git does not list what is
+	// inside something it has never seen — so they are kept apart and applied by
+	// prefix. Without that a brand-new folder shows an unmarked tree of files
+	// that are every one of them new.
+	changed := make(map[string]GitFileChange)
+	newDirs := []string{}
+	func() {
+		ctx, cancel := a.gitContext()
+		defer cancel()
+		for _, f := range workingTree(ctx, root, false) {
+			if strings.HasSuffix(f.Path, "/") {
+				newDirs = append(newDirs, f.Path)
+				continue
+			}
+			changed[f.Path] = f
+		}
+	}()
 
 	out := []TreeNode{}
 	var walk func(dir string, depth int)
 	walk = func(dir string, depth int) {
+		// A project is a folder the user chose to work in; a browsed folder is
+		// any folder at all, and the dialog will happily hand back C:\. The walk
+		// is eager and runs on every refresh, so browsing gets a ceiling that
+		// stops the window rather than a spinner nobody can cancel. Projects
+		// keep the behaviour they have always had.
+		if browsing && len(out) >= browseNodeCap {
+			return
+		}
 		entries, err := os.ReadDir(dir)
 		if err != nil {
 			return
@@ -599,14 +636,85 @@ func (a *App) ProjectTree() []TreeNode {
 				walk(full, depth+1)
 				continue
 			}
-			out = append(out, TreeNode{
-				Label: name, Path: relSlash, Kind: "file", Depth: depth, Icon: "📄",
-				Status: statusByPath[relSlash],
-			})
+			node := TreeNode{Label: name, Path: relSlash, Kind: "file", Depth: depth, Icon: "📄"}
+			if f, hit := changed[relSlash]; hit {
+				node.Status, node.Added, node.Removed = f.Status, f.Added, f.Removed
+			} else if insideNewDir(relSlash, newDirs) {
+				node.Status = "U"
+			}
+			out = append(out, node)
 		}
 	}
 	walk(root, 0)
+	// A deleted file has no row — the walk reads the disk, and it is not on the
+	// disk. Its folder still gets the mark, which is the only place the tree can
+	// say a file left without inventing a row that opens onto nothing.
+	gone := []string{}
+	for p, f := range changed {
+		if f.Status == "D" {
+			gone = append(gone, p)
+		}
+	}
+	rollUpStatus(out, gone)
 	return out
+}
+
+// insideNewDir answers for the files git never mentioned because their whole
+// folder is new to it.
+func insideNewDir(rel string, dirs []string) bool {
+	for _, d := range dirs {
+		if strings.HasPrefix(rel, d) {
+			return true
+		}
+	}
+	return false
+}
+
+// rollUpStatus gives a folder the mark of what is inside it, however deep.
+//
+// The tree opens collapsed, which is the state it spends most of its life in —
+// nine folders and a handful of loose files, and every changed file in the
+// project hidden inside one of them. Badging only the files meant the panel said
+// nothing at all in exactly the arrangement the owner was looking at (7 ก.ย.).
+// A folder cannot say how much changed, so it does not try: it says something in
+// here did, and which kind, and the folder opens.
+//
+// M wins over D wins over U, because that is the order of "you will want to look
+// at this": an edit to a file that was already yours is the thing a diff is for,
+// and a folder of new files is mostly one act.
+func rollUpStatus(nodes []TreeNode, gone []string) {
+	rank := map[string]int{"U": 1, "D": 2, "M": 3}
+	strongest := map[string]string{}
+	mark := func(path, status string) {
+		for dir := parentPath(path); dir != ""; dir = parentPath(dir) {
+			if rank[status] > rank[strongest[dir]] {
+				strongest[dir] = status
+			}
+		}
+	}
+	for _, n := range nodes {
+		if n.Kind == "file" && n.Status != "" {
+			mark(n.Path, n.Status)
+		}
+	}
+	for _, p := range gone {
+		mark(p, "D")
+	}
+	for i := range nodes {
+		if nodes[i].Kind == "dir" {
+			nodes[i].Status = strongest[nodes[i].Path]
+		}
+	}
+}
+
+// parentPath is the folder one level up, or "" at the top of the tree. Its own
+// small function because the paths here are always forward-slashed and relative,
+// which filepath.Dir is not the right tool for on Windows.
+func parentPath(p string) string {
+	if i := strings.LastIndex(p, "/"); i > 0 {
+		return p[:i]
+	}
+	return ""
 }
 
 // safeSandboxPath resolves a path the window was handed and decides whether the
@@ -2090,7 +2198,9 @@ func (a *App) focusNone() {
 	}
 	a.projectFocused = false
 	// Cleared rather than carried: the added folders belong to the project that
-	// is being left, and this mode reaches the machine anyway.
+	// is being left, and this mode reaches the machine anyway. The tree's
+	// browsing root goes with them for the same reason (browse_root.go).
+	a.browseRoot = ""
 	a.setWorkspaceRoots(nil)
 	a.retargetTemplate(config.ConfigOptions{RootPath: root, ApprovalMode: string(safety.ApprovalFullAccess)})
 }
@@ -3546,7 +3656,7 @@ func (a *App) OpenProjectFolder() (ProjectStatus, error) {
 	// Sessions are per project — turns are already persisted incrementally, so
 	// point what a new chat is born with at this folder and open one there.
 	// Nothing that is already running is touched; see retargetTemplate.
-	a.projectFocused = true
+	a.takeProject()
 	a.setWorkspaceRoots(a.storedWorkspaceFolders(dir))
 	a.retargetTemplate(config.ConfigOptions{RootPath: dir, ApprovalMode: string(safety.ApprovalFullAccess)})
 	a.startNewSession()
@@ -3566,7 +3676,7 @@ func (a *App) OpenProjectPath(root string) (ProjectStatus, error) {
 	// workspace folders are read at bootstrap and baked into the engine built
 	// with them, so moving them here reaches the chat about to be born and
 	// nothing that is already alive.
-	a.projectFocused = true
+	a.takeProject()
 	a.setWorkspaceRoots(a.storedWorkspaceFolders(root))
 	a.retargetTemplate(config.ConfigOptions{RootPath: root, ApprovalMode: string(safety.ApprovalFullAccess)})
 	a.startNewSession()

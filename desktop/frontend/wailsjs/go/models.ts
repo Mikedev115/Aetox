@@ -2064,6 +2064,8 @@ export namespace main {
 	    kind: string;
 	    depth: number;
 	    status?: string;
+	    added?: number;
+	    removed?: number;
 	    icon?: string;
 	
 	    static createFrom(source: any = {}) {
@@ -2077,6 +2079,8 @@ export namespace main {
 	        this.kind = source["kind"];
 	        this.depth = source["depth"];
 	        this.status = source["status"];
+	        this.added = source["added"];
+	        this.removed = source["removed"];
 	        this.icon = source["icon"];
 	    }
 	}

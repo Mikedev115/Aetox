@@ -389,6 +389,11 @@ export const OpenProjectPath = vi.fn(async (..._args: any[]): Promise<main.Proje
 export const PickAttachments = arr()
 export const PickAttachmentImage = str()
 export const ProjectTree = arr()
+// Browsing: a folder the file tree is pointed at while no project is focused.
+// Empty by default, which is what the ผู้ช่วย door looks like on open.
+export const BrowseFolder = str()
+export const BrowseRoot = str()
+export const StopBrowsing = noop()
 export const ProviderBaseURL = str()
 export const PriceModels = arr()
 export const ProviderAPIKeyURL = str()

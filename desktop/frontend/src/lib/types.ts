@@ -2,7 +2,9 @@
 // whatever feeds it — a mock today, the Go core via Wails bindings later.
 // Components render CockpitState; they never know the source.
 
-export type GitStatus = 'M' | 'U' | null
+/** What git says about one file: modified, untracked (or newly added), gone.
+ *  The same three letters `workingTree` on the Go side hands every surface. */
+export type GitStatus = 'M' | 'U' | 'D' | null
 
 /** Why the local store could not be opened (Go: main.StoreFault).
  *
@@ -34,6 +36,10 @@ export interface TreeNode {
   depth: number
   open?: boolean
   status?: GitStatus
+  /** Lines changed against HEAD. Absent on a folder, and on a file git has
+   *  nothing to compare — the letter alone still says the file changed. */
+  added?: number
+  removed?: number
   icon?: string
 }
 
@@ -906,6 +912,10 @@ export interface CockpitState {
   projectFolders: ProjectFolder[]
   projects: RecentProject[]
   tree: TreeNode[]
+  /** The folder the file tree is merely looking at while no project is focused,
+   *  or '' for none. A view, not a project: it never reaches the engine and it
+   *  is gone on the next start (Go: browse_root.go). */
+  browseRoot: string
   sessions: Session[]
   /** All chat history across every project, newest first — sidebar's global history layer.
    *  Chats held inside a โปรเจกต์ are not in it: they live in `spaceHistory`. */
@@ -1126,6 +1136,7 @@ export function emptyCockpitState(): CockpitState {
     projectFolders: [],
     projects: [],
     tree: [],
+    browseRoot: '',
     sessions: [],
     history: [],
     historyFault: null,

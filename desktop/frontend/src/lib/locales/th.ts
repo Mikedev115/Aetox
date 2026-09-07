@@ -445,6 +445,10 @@ export const th = {
   'taskTimeline.changeSummary': 'สรุปการเปลี่ยนแปลง',
 
   'workbench.filesTab': 'ไฟล์',
+  'workbench.browseFolder': 'เปิดดูโฟลเดอร์…',
+  'workbench.browseNote': 'ดูอย่างเดียว ไม่ได้เปิดเป็นโปรเจกต์',
+  'workbench.stopBrowsing': 'เลิกดูโฟลเดอร์นี้',
+  'workbench.noProjectHere': 'ผู้ช่วยไม่ผูกโปรเจกต์ — มันเอื้อมได้ทั้งเครื่อง จะชี้แผงนี้ไปที่โฟลเดอร์ไหนก็ได้ แค่เอาไว้ดู',
   'workbench.newTab': 'แท็บใหม่',
   // ขึ้นเฉพาะใน frontend ที่ต่อเข้ามาทาง wails dev หน้าต่างเว็บจริงอยู่ในแอป และมีได้ชุดเดียว (hostWebview.ts)
   'workbench.spectator': 'หน้าเว็บแสดงอยู่ในหน้าต่างแอปจริง หน้าต่างนี้เป็นแค่ผู้ชม',

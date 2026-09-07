@@ -82,6 +82,14 @@ export function BackgroundTasks() {
   return window['go']['main']['App']['BackgroundTasks']();
 }
 
+export function BrowseFolder() {
+  return window['go']['main']['App']['BrowseFolder']();
+}
+
+export function BrowseRoot() {
+  return window['go']['main']['App']['BrowseRoot']();
+}
+
 export function BrowserBack(arg1) {
   return window['go']['main']['App']['BrowserBack'](arg1);
 }
@@ -1216,6 +1224,10 @@ export function StopBackgroundRun(arg1) {
 
 export function StopBackgroundTask(arg1) {
   return window['go']['main']['App']['StopBackgroundTask'](arg1);
+}
+
+export function StopBrowsing() {
+  return window['go']['main']['App']['StopBrowsing']();
 }
 
 export function StopMobileRemote() {
