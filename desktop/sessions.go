@@ -660,6 +660,43 @@ func (a *App) touchProject(root string) {
 		projectKey(root), filepath.Base(filepath.Clean(root)), root, time.Now().Format(time.RFC3339))
 }
 
+// ForgetProject drops one project from the sidebar's list, and nothing else.
+//
+// The list has only ever grown. touchProject inserts on every open and nothing
+// has ever deleted, so a folder opened once by mistake stays in the column for
+// the life of the install — the owner's Downloads on 7 ก.ย., opened by the file
+// panel's one button and then unremovable ("ทำไมลบโปรเจกต์ไม่ได้หน้าโค้ด").
+//
+// The row IS the app's memory of a folder, so removing it is exactly that: no
+// file on disk is touched and no transcript is deleted. The chats held in it
+// keep their rows and still open — LoadSessionAnyProject reads a session whose
+// project row is gone as a chat held outside every project rather than as an
+// error, which is the branch this makes ordinary rather than exceptional.
+//
+// Forgetting the project you are standing in steps out of it too. The
+// alternative is an app running inside a folder its own list no longer names,
+// with the folder dialog as the only way back — and stepping out is an act the
+// app already has (ClearProjectFocus), which is why this is the same two calls
+// rather than a new kind of state.
+func (a *App) ForgetProject(root string) (ProjectStatus, error) {
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return a.currentProjectStatus(), fmt.Errorf("ไม่ได้บอกว่าโปรเจกต์ไหน")
+	}
+	db, err := a.database()
+	if err != nil {
+		return a.currentProjectStatus(), err
+	}
+	if _, err := db.Exec(`DELETE FROM projects WHERE project_key = ?`, projectKey(root)); err != nil {
+		return a.currentProjectStatus(), err
+	}
+	if a.projectFocused && projectKey(a.cur().cfg.SandboxRoot) == projectKey(root) {
+		a.focusNone()
+		a.startNewSession()
+	}
+	return a.currentProjectStatus(), nil
+}
+
 // RecentProjects lists every project ever opened, newest first, each paired
 // with its most recent session title (if any) for the sidebar subtitle.
 func (a *App) RecentProjects() []ProjectMeta {

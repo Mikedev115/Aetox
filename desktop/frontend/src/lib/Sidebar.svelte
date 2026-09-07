@@ -2,16 +2,18 @@
   import { onMount } from 'svelte'
   import {
     cockpit, newSession, openFolder, openProject, openDesk, setActiveView,
-    searchGlobalHistory, selectGlobalSession, deleteSession, exportChat, importChat,
+    searchGlobalHistory, selectGlobalSession, deleteSession, exportChat, importChat, forgetProject,
+    refreshSpaces,
     sessionWorking,
     newChairSession, openSpace,
   } from './stores/cockpit.svelte'
   import type { Session, SpaceRow } from './types'
   import {
     UserName, SetUserName, ListModes, ProviderAccountFor,
-    AccountStatus, AccountRefresh, ListTools,
+    AccountStatus, AccountRefresh, ListTools, DeleteSpace,
   } from '../../wailsjs/go/main/App'
   import ProviderAccount from './ProviderAccount.svelte'
+  import ConfirmDialog from './ConfirmDialog.svelte'
   import { navFor, deskLabelKey, type NavEntry } from './desks'
   import { shell, shellHasChats } from './shell.svelte'
   import { t, i18n, setLocale, localeNames, type Locale, type TKey } from './i18n.svelte'
@@ -140,8 +142,12 @@
     void checkNow()
   }
 
-  function closeProfileOnOutsideClick(e: MouseEvent) {
-    if (!(e.target as HTMLElement).closest('.side-footer-wrap')) profileOpen = false
+  // One handler for every menu this column opens, because only ever one of them
+  // is open and each must close on a click that lands anywhere else.
+  function closeMenusOnOutsideClick(e: MouseEvent) {
+    const el = e.target as HTMLElement
+    if (profileOpen && !el.closest('.side-footer-wrap')) profileOpen = false
+    if (rowMenu && !el.closest('.row-menu-wrap')) closeRowMenu()
   }
 
   function focusOnMount(el: HTMLInputElement) {
@@ -230,6 +236,57 @@
     }
     confirmDeleteId = ''
     deleteSession(s)
+  }
+
+  // ปักหมุดกับลบอยู่หลังสามจุด (เจ้าของ 7 ก.ย.: "ควรจะห่อไว้ใน สามจุดนะ ทั้งปักหมุด
+  // และลบ" แล้วต่อด้วย "หน้าผู้ช่วยอีก").
+  //
+  // A row in this column is a place to go, and every control sitting on it
+  // competes with the name for both width and attention. + stays out — starting
+  // work in a project is the thing you press every day — and the two that are
+  // pressed once in a project's life go behind one button. One menu id for both
+  // doors, prefixed, because only ever one may be open.
+  let rowMenu = $state('')
+  function toggleRowMenu(id: string) {
+    rowMenu = rowMenu === id ? '' : id
+    forgetKey = ''
+  }
+  function closeRowMenu() {
+    rowMenu = ''
+    forgetKey = ''
+  }
+
+  // Taking a project off the list: ask once, then do it. Same two clicks the
+  // chat rows use, and the same reason — the ask belongs in the control that
+  // does the thing, not in a dialog over the whole window. It stays a two-step
+  // inside the menu, where the second click lands on the word rather than on an
+  // icon that has just changed meaning.
+  let forgetKey = $state('')
+  function askForget(key: string, path: string) {
+    if (forgetKey !== key) {
+      forgetKey = key
+      return
+    }
+    forgetKey = ''
+    rowMenu = ''
+    void forgetProject(path)
+  }
+
+  // A โปรเจกต์ at the assistant's door is a folder holding copies of the user's
+  // files, so its delete goes through the app's one dialog rather than the
+  // two-click gesture above — the same door the โปรเจกต์ page opens, and the
+  // same sentence, because it is the same act reached from a different row.
+  let confirmSpace = $state('')
+  let spaceError = $state('')
+  async function removeSpace(name: string) {
+    confirmSpace = ''
+    spaceError = ''
+    try {
+      await DeleteSpace(name)
+    } catch (err) {
+      spaceError = String(err)
+    }
+    await refreshSpaces()
   }
 
   // Two-step export, same shape as delete: the first click asks the one
@@ -426,8 +483,12 @@
 </script>
 
 <svelte:window
-  onclick={profileOpen ? closeProfileOnOutsideClick : undefined}
+  onclick={profileOpen || rowMenu ? closeMenusOnOutsideClick : undefined}
   onkeydown={(e) => {
+    if (e.key === 'Escape' && rowMenu) {
+      closeRowMenu()
+      return
+    }
     if (isShortcut(e, 'newSession')) {
       e.preventDefault()
       newSession()
@@ -538,13 +599,33 @@
       <span class="ic"><Icon name={here ? 'folderOpen' : 'folder'} size={14} /></span>
       <span class="t">{p.name}</span>
     </button>
-    <button type="button" class="proj-group-pin tip-r" class:on={pinnedSpaces[p.name]}
-      data-tip={pinnedSpaces[p.name] ? t('sidebar.unpinProject') : t('sidebar.pinProject')}
-      aria-label={pinnedSpaces[p.name] ? t('sidebar.unpinProject') : t('sidebar.pinProject')}
-      aria-pressed={!!pinnedSpaces[p.name]}
-      onclick={() => (pinnedSpaces[p.name] = !pinnedSpaces[p.name])}>
-      <Icon name="pin" size={13} />
-    </button>
+    <!-- The same three dots the workshop's rows wear, holding the same two
+         acts. What ลบ means differs, and only there: a โปรเจกต์ here is a folder
+         of copies of the user's files, so it goes through the app's one dialog
+         rather than a second click — the โปรเจกต์ page's door, reached from the
+         row you were already looking at. -->
+    <span class="row-menu-wrap">
+      <button type="button" class="row-more tip-r" data-tip={t('sidebar.rowMenu')}
+        aria-label={t('sidebar.rowMenu')} aria-haspopup="menu"
+        aria-expanded={rowMenu === 's:' + p.name}
+        onclick={(e) => { e.stopPropagation(); toggleRowMenu('s:' + p.name) }}>
+        <Icon name="ellipsisVertical" size={14} />
+      </button>
+      {#if rowMenu === 's:' + p.name}
+        <div class="plus-menu" role="menu">
+          <button type="button" class="plus-menu-item" role="menuitem"
+            onclick={() => { pinnedSpaces[p.name] = !pinnedSpaces[p.name]; closeRowMenu() }}>
+            <span class="ic"><Icon name="pin" size={14} /></span>
+            {pinnedSpaces[p.name] ? t('sidebar.unpinProject') : t('sidebar.pinProject')}
+          </button>
+          <button type="button" class="plus-menu-item danger" role="menuitem"
+            onclick={() => { confirmSpace = p.name; closeRowMenu() }}>
+            <span class="ic"><Icon name="x" size={14} /></span>
+            {t('projects.delete')}
+          </button>
+        </div>
+      {/if}
+    </span>
   </div>
 {/snippet}
 
@@ -667,17 +748,43 @@
                    is here, because that mark is the reason the row is at the
                    top and a row that moved for no visible reason is worse than
                    no pinning at all. -->
-              <button type="button" class="proj-group-pin tip-r" class:on={g.pinned}
-                data-tip={g.pinned ? t('sidebar.unpinProject') : t('sidebar.pinProject')}
-                aria-label={g.pinned ? t('sidebar.unpinProject') : t('sidebar.pinProject')}
-                aria-pressed={g.pinned}
-                onclick={() => (pinnedProjects[g.project.key] = !pinnedProjects[g.project.key])}>
-                <Icon name="pin" size={13} />
-              </button>
               <button type="button" class="proj-group-new tip-r" data-tip={t('sidebar.newChatIn')}
                 aria-label={t('sidebar.newChatIn')} onclick={() => startChatIn(g.project.path)}>
                 <Icon name="plus" size={13} />
               </button>
+              <!-- ปักหมุด and the way off the list, behind one button. Pinning
+                   is done once and then forgotten about; removing a row is done
+                   once in a project's life. Neither earns a permanent seat on a
+                   row whose name is the thing you came to read. -->
+              <span class="row-menu-wrap">
+                <button type="button" class="row-more tip-r" data-tip={t('sidebar.rowMenu')}
+                  aria-label={t('sidebar.rowMenu')} aria-haspopup="menu"
+                  aria-expanded={rowMenu === 'p:' + g.project.key}
+                  onclick={(e) => { e.stopPropagation(); toggleRowMenu('p:' + g.project.key) }}>
+                  <Icon name="ellipsisVertical" size={14} />
+                </button>
+                {#if rowMenu === 'p:' + g.project.key}
+                  <div class="plus-menu" role="menu">
+                    <button type="button" class="plus-menu-item" role="menuitem"
+                      onclick={() => { pinnedProjects[g.project.key] = !pinnedProjects[g.project.key]; closeRowMenu() }}>
+                      <span class="ic"><Icon name="pin" size={14} /></span>
+                      {g.pinned ? t('sidebar.unpinProject') : t('sidebar.pinProject')}
+                    </button>
+                    <!-- What this removes is the app's memory of the folder,
+                         not the folder: the files stay, and the chats held in it
+                         keep their transcripts and still open. Two clicks, the
+                         same ask the chat rows use — and here the second click
+                         lands on a word rather than on an icon that has just
+                         changed meaning. -->
+                    <button type="button" class="plus-menu-item danger" role="menuitem"
+                      title={t('sidebar.forgetProjectNote')}
+                      onclick={() => askForget(g.project.key, g.project.path)}>
+                      <span class="ic"><Icon name="x" size={14} /></span>
+                      {forgetKey === g.project.key ? t('sidebar.confirmDelete') : t('sidebar.forgetProject')}
+                    </button>
+                  </div>
+                {/if}
+              </span>
             </div>
             {#if !collapsedProjects[g.project.key]}
               {#each expandedProjects[g.project.key] ? g.sessions : g.sessions.slice(0, PROJECT_GROUP_PREVIEW) as s (s.id)}
@@ -959,3 +1066,25 @@
     {/if}
   </div>
 </aside>
+
+<!-- Deleting a โปรเจกต์ takes its folder and the copies of the user's files
+     inside it, so it asks through the app's one dialog — the same title, the
+     same sentence and the same named folder the โปรเจกต์ page uses, because a
+     second wording for one act is a second answer to what it does. -->
+{#if confirmSpace}
+  {@const name = confirmSpace}
+  <ConfirmDialog
+    title={t('projects.confirmDeleteTitle')}
+    message={t('projects.confirmDeleteMessage')}
+    detail={name}
+    confirmLabel={t('settings.confirmDeleteAction')}
+    onConfirm={() => removeSpace(name)}
+    onCancel={() => (confirmSpace = '')}
+  />
+{/if}
+{#if spaceError}
+  <div class="hist-fault" role="alert">
+    <span class="ic"><Icon name="alertTriangle" size={13} /></span>
+    <span>{spaceError}</span>
+  </div>
+{/if}

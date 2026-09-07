@@ -378,6 +378,7 @@ export const OpenAgentsFolder = noop()
 export const SaveAgentProfile = noop()
 export const OpenSubagentsFolder = noop()
 export const OpenPromptsFolder = noop()
+export const ForgetProject = vi.fn(async (..._args: any[]): Promise<main.ProjectStatus | undefined> => undefined)
 export const OpenProjectFolder = noop()
 // The door answers with the project it opened — App.d.ts returns ProjectStatus,
 // and openProject does Object.assign(cockpit.project, answer). It resolves

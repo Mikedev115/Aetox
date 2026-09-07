@@ -195,6 +195,8 @@ export function FileStillThere(arg1:string):Promise<string>;
 
 export function ForgetMemoryScope(arg1:string):Promise<void>;
 
+export function ForgetProject(arg1:string):Promise<main.ProjectStatus>;
+
 export function GetContextBreakdown():Promise<main.ContextBreakdown>;
 
 export function GetModelInfo():Promise<main.ModelInfo>;

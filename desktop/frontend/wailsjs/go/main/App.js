@@ -362,6 +362,10 @@ export function ForgetMemoryScope(arg1) {
   return window['go']['main']['App']['ForgetMemoryScope'](arg1);
 }
 
+export function ForgetProject(arg1) {
+  return window['go']['main']['App']['ForgetProject'](arg1);
+}
+
 export function GetContextBreakdown() {
   return window['go']['main']['App']['GetContextBreakdown']();
 }

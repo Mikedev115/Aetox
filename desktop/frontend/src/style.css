@@ -509,17 +509,28 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   border-radius:var(--r-sm); color:var(--text-dim); cursor:pointer;
 }
 .proj-group-row:hover .proj-group-new { color:var(--text-secondary); }
-/* Same shape as + beside it, one step quieter, and it stays lit once it is
-   on: the mark is the reason this row is at the top, so hiding it would
-   leave a list that reorders itself for no visible reason. */
-.proj-group-pin {
+.proj-group-new:hover { color:var(--text-primary); background:var(--surface-hover); }
+/* Same shape as + beside it, one step quieter: what is behind it — pin, and
+   the way off the list — is pressed once in a project's life, where + is the
+   thing you press every day. Hidden until the row is under the pointer, and
+   held visible while its menu is open, or the button vanishes under the thing
+   it just opened. */
+.row-menu-wrap { position:relative; display:flex; }
+.row-more {
   flex:none; width:24px; height:24px; display:grid; place-items:center;
   border-radius:var(--r-sm); color:transparent; cursor:pointer;
 }
-.proj-group-row:hover .proj-group-pin { color:var(--text-dim); }
-.proj-group-pin:hover { color:var(--text-primary); background:var(--surface-hover); }
-.proj-group-pin.on, .proj-group-row:hover .proj-group-pin.on { color:var(--accent); }
-.proj-group-new:hover { color:var(--text-primary); background:var(--surface-hover); }
+.proj-group-row:hover .row-more, .row-more[aria-expanded="true"] { color:var(--text-dim); }
+.row-more:hover, .row-more[aria-expanded="true"] { color:var(--text-primary); background:var(--surface-hover); }
+/* Pinned right and narrower than the composer's menu: this column is 250-ish
+   pixels and clips its overflow (.side), so the default left anchor put the
+   menu past the column's edge and the labels were cut in half.
+   Written through the wrapper because .plus-menu's own `left:0` is declared
+   further down this file — same specificity, and the last one would win. */
+.row-menu-wrap .plus-menu { left:auto; right:0; min-width:186px; }
+.row-menu-wrap .plus-menu-item { font-size:var(--fs-sm); padding:7px 9px; width:100%; }
+.plus-menu-item.danger { color:var(--status-danger); }
+.plus-menu-item.danger:hover { background:color-mix(in srgb, var(--status-danger) 12%, transparent); }
 .proj-group-sess { position:relative; display:flex; align-items:center; min-width:0; border-radius:var(--r-sm); color:var(--text-secondary); }
 .proj-group-sess:hover { background:var(--surface-row-hover); color:var(--text-primary); }
 .proj-group-sess.active { background:var(--surface-selected); color:var(--text-selected); }

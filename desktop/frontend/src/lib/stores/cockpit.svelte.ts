@@ -13,7 +13,7 @@ import {
   ListSessions, LoadSession, NewSession, NewSessionAt, NewChairSession, NewSessionInSpace, CurrentSpace, SessionsInSpace, Spaces, SessionMode, SessionAgent, CurrentSessionID, SearchSessions, DeleteSession,
   SessionTranscript, TurnInFlight,
   SaveChatImage, SaveChatImageData, SaveChatFile, ReadImageDataURL, CancelTurn, BrowserGetText, RecentProjects,
-  ListSessionsForDoor, SearchSessionsForDoor, LoadSessionAnyProject, ClearProjectFocus, HistoryFault,
+  ListSessionsForDoor, SearchSessionsForDoor, LoadSessionAnyProject, ClearProjectFocus, ForgetProject, HistoryFault,
   AnswerUserQuestion, Interject, RetryActiveProvider, PendingUndo, UndoLastTurn,
   RestorePoints, PendingRestore, RewindTo,
   CompleteSignIn, SignOut, ImportSignIn,
@@ -1117,6 +1117,27 @@ export async function openProject(path: string): Promise<void> {
   await refreshWorkspace()
   await refreshProjectFolders()
   await refreshProjects()
+}
+
+/** Take a project off the sidebar's list.
+ *
+ * The list only ever grew: a folder opened once stayed in the column for good,
+ * with no way to remove it (owner, 7 ก.ย.). This removes the app's memory of the
+ * folder and nothing else — the folder keeps its files, the chats held in it
+ * keep their transcripts and still open, outside every project. Standing in the
+ * project being forgotten steps out of it, which is a session switch and has to
+ * arrive like one. */
+export async function forgetProject(path: string): Promise<void> {
+  const standingIn = cockpit.project.focused && cockpit.project.path === path
+  try {
+    Object.assign(cockpit.project, await ForgetProject(path))
+  } catch (err) {
+    showSessionRefusal(err)
+    return
+  }
+  if (standingIn) await afterNewSession()
+  await refreshProjects()
+  await refreshWorkspace()
 }
 
 /** Drop project focus: the AI keeps full machine access (files/git/terminal)
