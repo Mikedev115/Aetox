@@ -152,8 +152,28 @@ func OwnSkills(name string) ([]skill.DiscoveredSkill, []error) {
 			continue // the user wrote their own; that is the one that runs
 		}
 		out = append(out, s)
+		written[strings.ToLower(s.Name)] = true
 	}
-	return out, append(errs, shippedErrs...)
+	// Third and last: knowledge that arrived as a pinned download. Last because
+	// the first two are ours and the user's, and a folder fetched off the
+	// network must not be able to answer to a name either of them already uses.
+	//
+	// Its own address rather than a folder inside the home, because a
+	// component's Dest is wiped before every unpack — see
+	// config.AgentInstalledSkillsPath. An unusable path here is not an error
+	// worth reporting: it means the download was never installed, which is the
+	// normal state for every worker but the one that makes video.
+	installed, installedErrs := []skill.DiscoveredSkill(nil), []error(nil)
+	if root, pathErr := config.AgentInstalledSkillsPath(name); pathErr == nil {
+		installed, installedErrs = skill.ScopedSkills([]string{root})
+	}
+	for _, s := range installed {
+		if written[strings.ToLower(s.Name)] {
+			continue
+		}
+		out = append(out, s)
+	}
+	return out, append(append(errs, shippedErrs...), installedErrs...)
 }
 
 // bundledSkillsDir is where a shipped worker's skills sit inside the binary.

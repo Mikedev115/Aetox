@@ -132,6 +132,32 @@ func AgentSkillsPath(name string) (string, error) {
 	return agentFile(name, AgentSkillsDir)
 }
 
+// AgentInstalledSkillsPath is the *other* shelf: knowledge that arrived as a
+// pinned download rather than in the binary or from the user's own hand.
+//
+// Outside the worker's home on purpose, and the reason is one line of
+// capability.Install: a component's Dest is `os.RemoveAll`ed before every
+// unpack, so pointing a download at <home>/skills would delete every skill the
+// user wrote there the first time the pin moved. Downloads own their directory
+// or they do not get one.
+//
+// Under tools/ beside the programs for the same reason they are: this is
+// third-party content Aetox fetched, pinned by checksum, and deletable in one
+// folder without touching anything the user owns. Not created here — an absent
+// folder is a worker whose extra shelf was never installed, which is the normal
+// state for every worker but one.
+func AgentInstalledSkillsPath(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" || name != filepath.Base(name) || name == "." || name == ".." {
+		return "", errors.New("invalid agent name")
+	}
+	root, err := DataRoot()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(root, "tools", "agent-skills", name), nil
+}
+
 // AgentMCPPath is the servers file inside a home. Not created here: most
 // workers bring none, and an absent file is how they say so.
 func AgentMCPPath(name string) (string, error) {

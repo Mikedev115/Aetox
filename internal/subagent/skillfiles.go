@@ -11,8 +11,9 @@ package subagent
 // model asked to invent them.
 //
 // So this is a copy, not a second discovery mechanism. It resolves through the
-// same two addresses OwnSkills does, in the same order — what the user wrote
-// wins over what shipped — and it refuses anything outside the named skill.
+// same three addresses OwnSkills does, in the same order — what the user wrote
+// wins over what shipped, and what shipped wins over what was downloaded — and
+// it refuses anything outside the named skill.
 
 import (
 	"errors"
@@ -56,10 +57,20 @@ func CopySkillDir(agent, skillName, sub, dest string) (int, error) {
 		}
 	}
 	root := bundledSkillsDir(agent) + "/" + skillName + "/" + clean
-	if _, err := fs.Stat(bundledProfiles, root); err != nil {
-		return 0, fmt.Errorf("ไม่พบ %s ในสกิล %s ของเอเจน %s", sub, skillName, agent)
+	if _, err := fs.Stat(bundledProfiles, root); err == nil {
+		return copyEmbeddedDir(root, dest)
 	}
-	return copyEmbeddedDir(root, dest)
+	// The downloaded shelf last, and it is the one this function exists for at
+	// scale: the hyperframes skills ship 904 files, and their motion templates
+	// carry png, woff2 and mp3 beside the HTML — bytes a model asked to
+	// reproduce is a model asked to invent them.
+	if installed, err := config.AgentInstalledSkillsPath(agent); err == nil {
+		src := filepath.Join(installed, skillName, filepath.FromSlash(clean))
+		if info, err := os.Stat(src); err == nil && info.IsDir() {
+			return copyOSDir(src, dest)
+		}
+	}
+	return 0, fmt.Errorf("ไม่พบ %s ในสกิล %s ของเอเจน %s", sub, skillName, agent)
 }
 
 // cleanSkillSub refuses anything that is not a plain path inside the skill.
@@ -96,11 +107,20 @@ func ReadSkillFile(agent, skillName, sub string) ([]byte, error) {
 			return os.ReadFile(src)
 		}
 	}
-	data, err := fs.ReadFile(bundledProfiles, bundledSkillsDir(agent)+"/"+skillName+"/"+clean)
-	if err != nil {
-		return nil, fmt.Errorf("ไม่พบ %s ในสกิล %s ของเอเจน %s", sub, skillName, agent)
+	if data, err := fs.ReadFile(bundledProfiles, bundledSkillsDir(agent)+"/"+skillName+"/"+clean); err == nil {
+		return data, nil
 	}
-	return data, nil
+	// This is the level-3 read the hyperframes skills are built around: their
+	// SKILL.md files are routers that name a `references/` file per decision,
+	// and a shelf whose bodies open but whose references do not is a shelf that
+	// answers every question with the name of a file.
+	if installed, err := config.AgentInstalledSkillsPath(agent); err == nil {
+		src := filepath.Join(installed, skillName, filepath.FromSlash(clean))
+		if info, err := os.Stat(src); err == nil && !info.IsDir() {
+			return os.ReadFile(src)
+		}
+	}
+	return nil, fmt.Errorf("ไม่พบ %s ในสกิล %s ของเอเจน %s", sub, skillName, agent)
 }
 
 // ListSkillDir names what is on one shelf of a worker's skill, without reading
@@ -112,9 +132,10 @@ func ReadSkillFile(agent, skillName, sub string) ([]byte, error) {
 // may not be carrying. Folders and files both, with the extension left on,
 // because that is how the caller has to spell them back.
 //
-// Both addresses again, merged rather than shadowed: a user who added one scene
-// of their own has a shelf that is the shipped one plus theirs, and a listing
-// that showed only the folder it found first would hide whichever half lost.
+// All three addresses again, merged rather than shadowed: a user who added one
+// scene of their own has a shelf that is the shipped one plus theirs, and a
+// listing that showed only the folder it found first would hide whichever half
+// lost.
 func ListSkillDir(agent, skillName, sub string) ([]string, error) {
 	clean, err := cleanSkillSub(sub)
 	if err != nil {
@@ -141,6 +162,14 @@ func ListSkillDir(agent, skillName, sub string) ([]string, error) {
 	if err == nil {
 		for _, e := range entries {
 			add(e.Name())
+		}
+	}
+	if installed, err := config.AgentInstalledSkillsPath(agent); err == nil {
+		entries, err := os.ReadDir(filepath.Join(installed, skillName, filepath.FromSlash(clean)))
+		if err == nil {
+			for _, e := range entries {
+				add(e.Name())
+			}
 		}
 	}
 	if len(names) == 0 {

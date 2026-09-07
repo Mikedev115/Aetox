@@ -36,7 +36,7 @@ on:
         description: which tool to build, or all of them
         type: choice
         default: all
-        options: [all, tesseract, ffmpeg, ffmpeg-gpl, kinocut, hyperframes, chrome-headless-shell]
+        options: [all, tesseract, ffmpeg, ffmpeg-gpl, kinocut, hyperframes, hyperframes-skills, chrome-headless-shell]
       kinocut_version:
         description: kinocut version on PyPI to bundle
         default: 1.15.0
@@ -728,6 +728,188 @@ jobs:
 
             Not an Aetox release.
           files: hyperframes-win64.zip
+          # See the Tesseract job above: this is the release that took the
+          # Latest badge and broke the update check for every install.
+          prerelease: true
+
+  # The playbook the engine came with, which the engine's own bundle does not
+  # carry.
+  #
+  # **What was missing, and how it was missed.** hyperframes ships its authoring
+  # knowledge as Agent Skills — 20 folders, 904 files — and the npm package
+  # carries exactly two of them (`hyperframes`, the router, and
+  # `hyperframes-cli`, the command contract). Everything else is fetched at first
+  # use by `hyperframes skills update <name>`, which reaches GitHub. Aetox pins
+  # HYPERFRAMES_NO_AUTO_INSTALL=1 and works offline, so that road is closed here
+  # and the other 18 skills had simply never arrived. The video agent has been
+  # running on its own AGENT.md alone since 30 ส.ค.; the engine's own account of
+  # what a composition is — `data-*` timing, seek-safe animation, the media
+  # contract — was on disk in nobody's hands.
+  #
+  # **Pinned at v0.8.20 rather than at upstream's head**, which is v0.8.30 as of
+  # 7 ก.ย. 2569. These files document the CLI, and the CLI we install is 0.8.20;
+  # skills ten releases ahead would name flags the engine on the user's machine
+  # does not have, and an agent told to run a command that does not exist has no
+  # way to find out it was reading the wrong book. The two move together or
+  # neither moves. v0.8.20 is commit 724796e — the same commit
+  # `Mikedev115/hyperframes` was cut from, so the fork's `skills/` and this are
+  # the same bytes today.
+  #
+  # **Upstream, not the fork.** The three patches in docs/HYPERFRAMES-FORK.md are
+  # all engine code and none of them touches `skills/`. Building this from
+  # upstream keeps the provenance sentence short — these files are heygen-com's,
+  # unedited — and leaves the fork what it is, a place for three patches.
+  #
+  # **What it refuses to guess.** `skills/` also holds a loose
+  # `python-encoding.test.mjs` that is not a skill. The job takes the folders that
+  # have a SKILL.md and throws on a folder that does not, so a skill upstream adds
+  # is carried without anyone editing this file, and a folder that lost its
+  # SKILL.md fails the build instead of shipping as a hole.
+  #
+  # **It counts the files twice**, once on disk and once inside the finished zip,
+  # and throws if they differ. That check is here because of the exact defect this
+  # bundle exists to stop repeating: the first pass at vendoring upstream's
+  # templates took each folder's index.html and left the compositions behind, and
+  # a scene like that does not fail loudly — it renders as a frame with its
+  # contents absent. A partial archive must not be publishable.
+  #
+  # The layout of the zip is not cosmetic: it extracts to
+  # <DataRoot>/tools/agent-skills/video/ and internal/subagent's shelf reads one
+  # folder per skill directly under it. Under tools/ rather than inside the
+  # agent's home because internal/capability wipes a component's Dest before every
+  # unpack, and the home is where the user keeps the skills they wrote themselves.
+  hyperframes-skills:
+    runs-on: windows-latest
+    if: inputs.only == 'all' || inputs.only == 'hyperframes-skills'
+    steps:
+      - name: Take upstream at the tag the engine is pinned to
+        uses: actions/checkout@v4
+        with:
+          repository: heygen-com/hyperframes
+          ref: v${{ inputs.hyperframes_version }}
+          path: src
+          # One commit of a 1.4GB repository. Nothing here reads history.
+          fetch-depth: 1
+
+      - name: Say exactly what is being packed
+        id: source
+        shell: pwsh
+        run: |
+          Push-Location src
+          $sha = (git rev-parse HEAD).Trim()
+          Pop-Location
+          "sha=$sha" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "packing heygen-com/hyperframes@$sha (tag v${{ inputs.hyperframes_version }})"
+
+      - name: Take every folder that is a skill, and refuse one that is not
+        id: stage
+        shell: pwsh
+        run: |
+          if (-not (Test-Path src/skills)) { throw 'upstream has no skills/ at this tag' }
+          New-Item -ItemType Directory out -Force | Out-Null
+          $taken = 0
+          foreach ($dir in Get-ChildItem src/skills -Directory) {
+            if (-not (Test-Path (Join-Path $dir.FullName 'SKILL.md'))) {
+              throw "src/skills/$($dir.Name) has no SKILL.md - read what upstream changed before shipping this"
+            }
+            Copy-Item $dir.FullName -Destination "out/$($dir.Name)" -Recurse
+            $taken++
+          }
+          if ($taken -lt 2) { throw "took $taken skills - that is not a shelf" }
+          # The two the engine's own npm bundle carries. Without either the
+          # archive is decoration: one is the router every request enters
+          # through and the other is the command contract.
+          foreach ($required in 'hyperframes', 'hyperframes-cli') {
+            if (-not (Test-Path "out/$required/SKILL.md")) { throw "no $required in the shelf" }
+          }
+          $files = (Get-ChildItem out -Recurse -File).Count
+          "files=$files" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "skills=$taken" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "$taken skills, $files files"
+
+      - name: Zip it, prove nothing fell out, and say what to pin
+        id: pack
+        shell: pwsh
+        run: |
+          Compress-Archive -Path out/* -DestinationPath hyperframes-skills.zip
+          # The whole reason this job is not three lines. Compress-Archive is
+          # quiet about a file it could not read, and a shelf that is short one
+          # reference reads exactly like a complete one until an agent opens the
+          # file that is not there.
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path hyperframes-skills.zip))
+          $entries = @($zip.Entries | Where-Object { $_.FullName -notmatch '/$' }).Count
+          $zip.Dispose()
+          if ($entries -ne ${{ steps.stage.outputs.files }}) {
+            throw "staged ${{ steps.stage.outputs.files }} files and the zip holds $entries - do not publish a partial shelf"
+          }
+          $sha = (Get-FileHash hyperframes-skills.zip -Algorithm SHA256).Hash.ToLower()
+          $tag = "tools-hyperframes-skills-${{ inputs.hyperframes_version }}"
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          @"
+
+          Paste into Manifest() in internal/capability/capability.go:
+
+            URL:    "https://github.com/${{ github.repository }}/releases/download/$tag/hyperframes-skills.zip",
+            SHA256: "$sha",
+            Marker: "hyperframes-skills-${{ inputs.hyperframes_version }}.ok",
+            ApproxBytes: $((Get-Item hyperframes-skills.zip).Length),
+
+          ${{ steps.stage.outputs.skills }} skills, $entries files, from
+          heygen-com/hyperframes@${{ steps.source.outputs.sha }}
+
+          "@ | Write-Host
+
+      # **Refuse to overwrite a tag somebody has already pinned**, and this job
+      # needs the guard in a way the six beside it do not.
+      #
+      # Their archives come from a fixed upstream binary, so a re-run uploads
+      # bytes that hash the same and the pin in capability.go still matches.
+      # This one packs 904 loose files with Compress-Archive, which is not
+      # deterministic — measured 7 ก.ย. 2569, two runs over identical input gave
+      # a656d17a… and d4afdb58…. So a `only: all` dispatch, which is the DEFAULT
+      # choice in the dropdown and re-runs every job in this file, would replace
+      # the asset at the pinned URL with bytes of a different hash and
+      # capability.Install would then refuse the download on every machine that
+      # has not already unpacked it.
+      #
+      # Bumping hyperframes_version makes a new tag and walks past this. Sending
+      # the same version twice on purpose means deleting the release first,
+      # which is a deliberate act rather than a side effect of "build all".
+      - name: Refuse to replace a shelf that is already published
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.pack.outputs.tag }}"
+          gh release view $tag --repo ${{ github.repository }} 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) {
+            throw "$tag is already published, and this archive will not hash the same as the one behind it - delete that release first if replacing it is really what you want"
+          }
+          Write-Host "$tag is free"
+
+      - name: Publish it as its own release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.pack.outputs.tag }}
+          name: ${{ steps.pack.outputs.tag }}
+          body: |
+            The HyperFrames Agent Skills at v${{ inputs.hyperframes_version }}
+            (Apache-2.0, HeyGen), packed unedited from
+            heygen-com/hyperframes@${{ steps.source.outputs.sha }} —
+            ${{ steps.stage.outputs.skills }} skills, ${{ steps.stage.outputs.files }} files.
+
+            The engine's npm package carries two of these and fetches the rest
+            over the network at first use. Aetox does not have that road open, so
+            they travel the way every other tool here does: one pinned zip, no
+            installer, no package manager on the user's machine.
+
+            Pinned to the same version as the engine on purpose. Skills that
+            document a newer CLI than the one installed are skills that name
+            flags the machine does not have.
+
+            Not an Aetox release.
+          files: hyperframes-skills.zip
           # See the Tesseract job above: this is the release that took the
           # Latest badge and broke the update check for every install.
           prerelease: true
