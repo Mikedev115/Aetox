@@ -1,45 +1,37 @@
 package main
 
-// Asking once, and writing the answer down.
+// Who may be driven, decided in advance rather than in the middle of a turn.
 //
-// This is the second door — the guard (computer_guard.go) answers "is this the
-// kind of thing Aetox does at all", and this one answers "does this user want it
-// done to this program". They are separate because a card offered for something
-// that would be refused afterwards is the failure askWorkspaceWiden names:
-// "a question whose yes cannot be honoured trains the user to distrust the
-// question."
+// The guard (computer_guard.go) answers "is this the kind of thing Aetox does at
+// all". This file answers "did this user choose this program". They stay
+// separate because the first is a rule the project made and the second is a
+// decision only the person at the machine can make.
 //
-// The shape is copied from askWorkspaceWiden deliberately, including the part
-// both rivals do differently. Codex and Claude Desktop both scope an app
-// approval to the session — Claude's expires when the session ends, Codex's
-// lives in a per-app allowlist you can only see by going looking for it. Ours
-// persists and shows up in Settings, because the house already argued this out:
+// **Nothing here asks anything.** The first version raised a card on the first
+// touch of a program, remembered the yes, and showed it in Settings. The owner
+// changed it on 9 ก.ย. after watching it work — "แล้วต้องเลือกด้วยดิ จะให้ตัวไหน
+// ควบคุม" — and the new rule is better, not merely different:
 //
-//	"There is deliberately no 'allow once': a right that is not on the list is
-//	 a right the panel has stopped describing."  — desktop/workspace.go:186
+//	A card raised mid-turn asks somebody to decide in a hurry, about a program
+//	they were not thinking about, while an agent waits. Everything in that
+//	moment argues for yes — the work is half done, the question is in the way,
+//	and the cost of no is starting over. Codex and Claude Desktop both ask
+//	exactly then. Choosing on a page whose whole subject is this, with nothing
+//	waiting, is a decision rather than a reflex.
 //
-// A session-scoped grant is an "allow once" with a longer fuse. It disappears
-// without being revoked, which means the user never learns what they granted,
-// and it re-asks later for something they already decided — the two failure
-// modes of a permission prompt, in one design.
-//
-// The rule written is safety.PermissionRule{Tool: "computer_*", Pattern:
-// "<exe>*"}, which is exactly the shape §4.3 of the direction doc specified,
-// and it is enforced by the gate that already runs in internal/turn — this file
-// writes the rule and never becomes a fourth gate of its own.
+// What survives from the first version is where the answer LIVES. A yes is a
+// `safety.PermissionRule` in permissions.json — §4.3 of the direction doc, and
+// the same rule desktop/workspace.go:186 states for folders: a right that is
+// not on a list the user can see is a right the panel has stopped describing.
+// It is enforced by the gate already running in internal/turn; this file writes
+// the rule and never becomes a gate of its own.
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/safety"
-)
-
-const (
-	reachAllow  = "อนุญาต / Allow"
-	reachRefuse = "ไม่ / No"
 )
 
 // computerToolPrefix is the tool-name half of every rule this file writes. The
@@ -120,77 +112,104 @@ func (a *App) RevokeComputerApp(name string) error {
 	})
 }
 
-// askReachApp puts the card up and, on a yes, writes the grant.
+// requireReachApp answers whether this program may be driven at all.
 //
-// Returns nil when the program may be driven — either because it already was
-// granted or because the user just said so — and a worded refusal otherwise.
-// Never returns a bare boolean: the caller is a tool action that has to report
-// what happened, and "the user said no" and "there was nobody to ask" are
-// different sentences.
-func (a *App) askReachApp(ctx context.Context, conv *conversation, t reachTarget) error {
+// It does NOT ask. That is the change the owner made on 9 ก.ย. after seeing the
+// first version work — *"แล้วต้องเลือกด้วยดิ จะให้ตัวไหนควบคุม"* — and it is a
+// better rule than the one it replaced, for a reason worth writing down.
+//
+// A card raised mid-turn asks a person to decide, in a hurry, about a program
+// they were not thinking about, while an agent waits on the answer. Everything
+// about that moment argues for yes: the work is half done, the question is in
+// the way, and the cost of no is starting again. Both products this was studied
+// against ask exactly then, and both of them are asking at the worst possible
+// time.
+//
+// Choosing in advance, on a page whose whole subject is this, is a decision
+// rather than a reflex. So the answer here is a refusal that names the page,
+// and the granting happens in AllowComputerApp below, from a list of windows
+// the user is looking at with nothing waiting on them.
+func requireReachApp(t reachTarget) error {
 	key := exeKey(t.Exe)
 	if key == "" {
-		return refuse("ไม่รู้ว่าหน้าต่างนี้เป็นของโปรแกรมไหน จึงไม่ขออนุญาตให้", "")
+		return refuse("ไม่รู้ว่าหน้าต่างนี้เป็นของโปรแกรมไหน จึงไม่แตะ", "")
 	}
 	if reachGranted(t.Exe) {
 		return nil
 	}
+	return refuse(
+		fmt.Sprintf("ยังไม่ได้อนุญาตให้ Aetox ใช้ %s", t.Label()),
+		fmt.Sprintf("ผู้ใช้เป็นคนเลือกเองว่าจะให้คุมโปรแกรมไหน — บอกเขาให้ไปที่ ตั้งค่า → การใช้คอมพิวเตอร์ แล้วเพิ่ม %q เข้าไปในรายการ", key))
+}
 
-	// No window, no question — the same test emitEvent makes before it reaches
-	// the Wails runtime, and the same one askWorkspaceWiden makes. A headless
-	// run has nobody to ask, and parking a tool call on an answer that can
-	// never arrive is worse than a refusal the model can report.
-	if a.emit == nil && a.ctx == nil {
-		return refuse(
-			fmt.Sprintf("ยังไม่ได้อนุญาตให้ Aetox ใช้ %s และตอนนี้ไม่มีหน้าต่างให้ถาม", t.Label()),
-			"")
-	}
+// ComputerAppRow is one program the settings page can offer to allow: a window
+// the user has open right now, with what Aetox would be able to do to it.
+type ComputerAppRow struct {
+	Name    string `json:"name"`    // the program key the grant is written against
+	Title   string `json:"title"`   // the window title the user is looking at
+	Allowed bool   `json:"allowed"` // already on the list
+	Blocked string `json:"blocked"` // non-empty when this kind is never driven
+	Warn    string `json:"warn"`    // non-empty when a yes here reaches the whole machine
+}
 
-	question := fmt.Sprintf(
-		"งานนี้ต้องใช้หน้าต่างของโปรแกรมอื่น\n\n**%s**\n\nให้ Aetox อ่านและกดในโปรแกรมนี้ไหม (ถอนได้ทีหลังที่ ตั้งค่า → การใช้คอมพิวเตอร์)",
-		t.Label())
-	if warn := broadReachWarning(t.Exe); warn != "" {
-		// The extra sentence a program with machine-wide reach earns. Both
-		// rivals show one on the same list, and the reason is that a yes here
-		// is worth more than a yes to a text editor — a card that reads the
-		// same for both is quietly lying about one of them.
-		question += "\n\n⚠️ " + warn
-	}
-
-	ch, err := a.beginUserQuestion(conv, question, []string{reachAllow, reachRefuse})
+// OpenComputerApps lists what the user could allow, built from the windows
+// actually open. A list of every installed program would be a catalogue; a list
+// of what is on screen right now is a decision they can make by looking.
+func (a *App) OpenComputerApps() []ComputerAppRow {
+	out := []ComputerAppRow{}
+	windows, err := reachListWindows()
 	if err != nil {
-		return refuse(
-			"มีคำถามอื่นค้างอยู่ในแชตนี้ จึงยังขออนุญาตเรื่องนี้ไม่ได้",
-			"ตอบคำถามนั้นก่อน แล้วสั่งใหม่อีกครั้ง")
+		return out
 	}
-	defer a.endUserQuestion(conv)
-
-	select {
-	case answer := <-ch:
-		if answer != reachAllow {
-			return refuse(fmt.Sprintf("ผู้ใช้ไม่อนุญาตให้ใช้ %s", t.Label()), "")
+	seen := map[string]bool{}
+	for _, w := range windows {
+		key := exeKey(w.Exe)
+		tier, note := appTier(w.Exe)
+		// Never-driven kinds are left out entirely rather than shown greyed:
+		// Aetox's own windows are the main case, and offering to allow one is
+		// offering something that will never be honoured.
+		if key == "" || tier == tierNever || seen[key] {
+			continue
 		}
-	case <-ctx.Done():
-		return refuse("เทิร์นถูกหยุดก่อนได้คำตอบ", "")
+		seen[key] = true
+		row := ComputerAppRow{Name: key, Title: w.Title, Allowed: reachGranted(w.Exe)}
+		if tier == tierElsewhere {
+			// Shown, not hidden, and told which tool does it properly. A user
+			// looking for Chrome in this list and not finding it learns nothing;
+			// one who finds it with "Aetox uses its own browser for this" learns
+			// the shape of the product.
+			row.Blocked = note
+		}
+		if tier == tierWarned {
+			row.Warn = note
+		}
+		out = append(out, row)
 	}
+	return out
+}
 
+// AllowComputerApp puts one program on the list.
+func (a *App) AllowComputerApp(name string) error {
+	key := exeKey(name)
+	if key == "" {
+		return fmt.Errorf("no program named")
+	}
+	// The tier is re-checked here rather than trusted from the row the user
+	// clicked: the page is a picture of a moment, and the rule is the rule.
+	if tier, note := appTier(key); tier == tierNever || tier == tierElsewhere {
+		return fmt.Errorf("%s", note)
+	}
 	if err := config.UpdatePermissions(func(cfg *safety.PermissionConfig) error {
-		rule := reachRuleFor(t.Exe)
+		rule := reachRuleFor(key)
 		for _, r := range cfg.Rules {
 			if strings.EqualFold(r.Tool, rule.Tool) && r.Pattern == rule.Pattern {
-				return nil // already there; a second yes is not a second rule
+				return nil
 			}
 		}
 		cfg.Rules = append(cfg.Rules, rule)
 		return nil
 	}); err != nil {
-		// The user said yes and the machine would not write it down. Refusing
-		// is the honest answer: proceeding would drive the program on a grant
-		// that does not exist anywhere, which is the session-scoped grant this
-		// design rejected, arrived at by accident.
-		return refuse(
-			fmt.Sprintf("บันทึกสิทธิ์ไม่สำเร็จ จึงยังไม่ใช้ %s: %v", t.Label(), err),
-			"")
+		return err
 	}
 	a.emitEvent("computer:apps", a.GrantedComputerApps())
 	return nil

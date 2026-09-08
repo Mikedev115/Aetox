@@ -43,6 +43,7 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/automation/n8n"
 	"github.com/Mikedev115/Aetox/internal/automation/windmill"
+	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/lsp"
 	"github.com/Mikedev115/Aetox/internal/skill"
 	"github.com/Mikedev115/Aetox/internal/stt"
@@ -91,6 +92,11 @@ func TestEveryToolRunsThroughTheRealDispatcher(t *testing.T) {
 	// third-party binary needs the real value back for the length of its call.
 	realUserProfile := os.Getenv("USERPROFILE")
 	isolateUserDirs(t)
+	// Before workbenchSkills: `computer` is registered only when the user has
+	// turned it on, so with the shipped default off this test would never see
+	// it and its seven actions would ship unexercised — the exact gap the
+	// missing-case guard below exists to close, arriving through the back door.
+	switchOnComputer(t)
 	root := t.TempDir()
 	// diagnostics starts a real gopls and leaves it running on purpose (see
 	// lsp.Shared). Registered after the temp dirs so LIFO shuts it down first:
@@ -249,15 +255,23 @@ func assertModelSurfaceIsIntact(t *testing.T, registry *skill.Registry, dispatch
 
 // runTool calls the dispatcher exactly the way turn/executor.go does, under a
 // deadline so a hung tool fails the test instead of the suite.
-// mustSwitchOnComputer turns the computer-control switch on for the one case
-// that needs it. It writes to the isolated data root isolateUserDirs set up,
-// so nothing here can reach the preference file of the person running the test.
-func mustSwitchOnComputer(t *testing.T, a *App) {
+// switchOnComputer turns the computer-control switch on for the duration of a
+// test.
+//
+// It writes the preference file directly rather than calling the binding,
+// because the binding re-applies the whole config to rebuild the engine (the
+// switch decides whether the tool is registered at all) and this test builds its
+// registry by hand. isolateUserDirs has already pointed the data root at a temp
+// dir, so the file written here is thrown away with the test and is never the
+// one belonging to whoever is running it.
+func switchOnComputer(t *testing.T) {
 	t.Helper()
-	if err := a.SetComputerControlOn(true); err != nil {
+	if err := config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		pref.ComputerControlOn = true
+		return nil
+	}); err != nil {
 		t.Fatalf("could not turn computer control on for the test: %v", err)
 	}
-	t.Cleanup(func() { _ = a.SetComputerControlOn(false) })
 }
 
 func runTool(t *testing.T, d *skill.Dispatcher, app *App, name string, tc toolCase) skill.Output {
@@ -778,8 +792,7 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 		// An empty desktop answers "no other windows are open" and still succeeds,
 		// which is what keeps this runnable on a build agent.
 		"computer_apps": {
-			args:  map[string]any{},
-			setUp: func(t *testing.T, a *App) { mustSwitchOnComputer(t, a) },
+			args: map[string]any{},
 			check: func(t *testing.T, out skill.Output, _ string) {
 				// Aetox never lists itself. Not merely refused when aimed at:
 				// absent, so a model never spends a turn finding out it may not.

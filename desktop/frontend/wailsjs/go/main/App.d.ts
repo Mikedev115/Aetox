@@ -41,6 +41,8 @@ export function AgentNeeds(arg1:string):Promise<Array<subagent.Requirement>>;
 
 export function AgentSkills(arg1:string):Promise<Array<main.AgentSkillInfo>>;
 
+export function AllowComputerApp(arg1:string):Promise<void>;
+
 export function AnswerUserQuestion(arg1:string,arg2:string):Promise<void>;
 
 export function AppCredit():Promise<string>;
@@ -354,6 +356,8 @@ export function OpenAgentSkillsFolder(arg1:string):Promise<void>;
 export function OpenAgentsFolder():Promise<void>;
 
 export function OpenArtifact(arg1:string):Promise<void>;
+
+export function OpenComputerApps():Promise<Array<main.ComputerAppRow>>;
 
 export function OpenExport(arg1:string):Promise<void>;
 

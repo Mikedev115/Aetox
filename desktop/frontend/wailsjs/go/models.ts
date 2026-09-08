@@ -644,6 +644,26 @@ export namespace main {
 	        this.error = source["error"];
 	    }
 	}
+	export class ComputerAppRow {
+	    name: string;
+	    title: string;
+	    allowed: boolean;
+	    blocked: string;
+	    warn: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ComputerAppRow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.title = source["title"];
+	        this.allowed = source["allowed"];
+	        this.blocked = source["blocked"];
+	        this.warn = source["warn"];
+	    }
+	}
 	export class ContextTool {
 	    name: string;
 	    tokens: number;

@@ -244,6 +244,22 @@ var ErrNoApprover = errors.New("bootstrap: Options.Approve is required (a nil ap
 //
 // reach is passed in rather than read off the manifest, because the manifest is
 // only half the answer — see canDelegate.
+// handedOver reports whether the front end gave this session a particular tool.
+//
+// `computer` is the first tool whose presence is a USER SETTING rather than a
+// desk rule: the manifests grant it by category, and the desktop only hands it
+// over when the switch is on (desktop/app.go). So the prompt cannot learn from
+// the desk whether this session has it, and asking the setting again here would
+// be a second reader of one switch — ExtraSkills IS the answer.
+func handedOver(handed []skill.Skill, name string) bool {
+	for _, s := range handed {
+		if s != nil && s.Name() == name {
+			return true
+		}
+	}
+	return false
+}
+
 func deskFor(m *mode.Mode, direction string, r reach) prompt.Desk {
 	return prompt.Desk{
 		Name:      m.DeskName(),
@@ -427,6 +443,7 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 	// more on cache misses than either layer saves (internal/learned).
 	handover := canDelegate(cfg, opts.Mode, opts.Chair)
 	desk := deskFor(opts.Mode, opts.Mode.Direction(), handover)
+	desk.DrivesMachine = handedOver(opts.ExtraSkills, "computer")
 	if opts.Chair != nil {
 		// A chair chat runs on the chair's own prompt — profile plus what it
 		// has learned, the same fold its delegate runs get (§85: one fold, two

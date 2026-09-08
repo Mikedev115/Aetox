@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import Settings from '../lib/Settings.svelte'
 import {
   ComputerControlOn, SetComputerControlOn, GrantedComputerApps, RevokeComputerApp,
+  OpenComputerApps, AllowComputerApp,
 } from './mocks/wailsApp'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 
@@ -31,6 +32,7 @@ beforeEach(() => {
   cockpit.settingsIntent = null
   vi.mocked(ComputerControlOn).mockResolvedValue(false)
   vi.mocked(GrantedComputerApps).mockResolvedValue([])
+  vi.mocked(OpenComputerApps).mockResolvedValue([])
 })
 
 describe('the computer-use page', () => {
@@ -38,7 +40,7 @@ describe('the computer-use page', () => {
     const { container } = render(Settings, { onClose: () => {} })
     await openSection(container, 'การใช้คอมพิวเตอร์')
 
-    await waitFor(() => expect(container.textContent).toContain('โปรแกรมใดก็ได้'))
+    await waitFor(() => expect(container.textContent).toContain('อนุญาตให้ควบคุมคอมพิวเตอร์'))
     const box = container.querySelector('.mswitch input') as HTMLInputElement
     expect(box.checked).toBe(false)
   })
@@ -59,7 +61,7 @@ describe('the computer-use page', () => {
   it('turns the reach on through the binding rather than optimistically', async () => {
     const { container } = render(Settings, { onClose: () => {} })
     await openSection(container, 'การใช้คอมพิวเตอร์')
-    await waitFor(() => expect(container.textContent).toContain('โปรแกรมใดก็ได้'))
+    await waitFor(() => expect(container.textContent).toContain('อนุญาตให้ควบคุมคอมพิวเตอร์'))
 
     vi.mocked(ComputerControlOn).mockResolvedValue(true)
     await fireEvent.change(container.querySelector('.mswitch input') as HTMLInputElement)
@@ -71,41 +73,67 @@ describe('the computer-use page', () => {
     await waitFor(() => expect(vi.mocked(ComputerControlOn).mock.calls.length).toBeGreaterThan(1))
   })
 
-  it('shows the programs the user has allowed, and lets them be taken back', async () => {
+  it('lets the user pick a program from the windows that are open', async () => {
     vi.mocked(ComputerControlOn).mockResolvedValue(true)
-    vi.mocked(GrantedComputerApps).mockResolvedValue(['notepad', 'winword'])
+    vi.mocked(OpenComputerApps).mockResolvedValue([
+      { name: 'notepad', title: 'บันทึกย่อ', allowed: false, blocked: '', warn: '' },
+      { name: 'chrome', title: 'หน้าเว็บ', allowed: false, blocked: 'browser', warn: '' },
+    ] as any)
 
     const { container } = render(Settings, { onClose: () => {} })
     await openSection(container, 'การใช้คอมพิวเตอร์')
 
-    // This list is the half neither rival has: their app approvals expire with
-    // the session, so there is nothing to draw. Ours are written down precisely
-    // so this can exist.
+    // Chosen here, with nothing waiting, rather than answered in a hurry while
+    // an agent is parked on the reply.
     await waitFor(() => expect(container.textContent).toContain('notepad'))
-    expect(container.textContent).toContain('winword')
-
-    const revoke = screen.getAllByText('ถอนสิทธิ์')
-    expect(revoke.length).toBe(2)
-    await fireEvent.click(revoke[0])
-    await waitFor(() => expect(vi.mocked(RevokeComputerApp)).toHaveBeenCalledWith('notepad'))
+    await fireEvent.click(screen.getByText('อนุญาต'))
+    await waitFor(() => expect(vi.mocked(AllowComputerApp)).toHaveBeenCalledWith('notepad'))
   })
 
-  it('says nothing is allowed yet rather than showing an empty box', async () => {
+  it('shows a browser in the list and says which tool does it instead', async () => {
     vi.mocked(ComputerControlOn).mockResolvedValue(true)
+    vi.mocked(OpenComputerApps).mockResolvedValue([
+      { name: 'chrome', title: 'หน้าเว็บ', allowed: false, blocked: 'browser', warn: '' },
+    ] as any)
+
     const { container } = render(Settings, { onClose: () => {} })
     await openSection(container, 'การใช้คอมพิวเตอร์')
 
-    await waitFor(() => expect(container.textContent).toContain('ยังไม่ได้อนุญาตโปรแกรมไหน'))
+    // Shown rather than hidden: a user who cannot find Chrome here learns
+    // nothing, one who finds it with the reason learns the shape of the product.
+    await waitFor(() => expect(container.textContent).toContain('chrome'))
+    expect(container.textContent).toContain('`browser`')
+    // And it offers no button, because there is nothing to grant.
+    expect(screen.queryByText('อนุญาต')).toBeNull()
   })
 
-  it('hides the granted list while the reach is off, because it grants nothing', async () => {
-    vi.mocked(GrantedComputerApps).mockResolvedValue(['notepad'])
+  it('keeps an allowed program visible after its window closes', async () => {
+    vi.mocked(ComputerControlOn).mockResolvedValue(true)
+    vi.mocked(GrantedComputerApps).mockResolvedValue(['winword'])
+    vi.mocked(OpenComputerApps).mockResolvedValue([])
+
     const { container } = render(Settings, { onClose: () => {} })
     await openSection(container, 'การใช้คอมพิวเตอร์')
 
-    await waitFor(() => expect(container.textContent).toContain('โปรแกรมใดก็ได้'))
-    // The master switch is off, so a list of programs Aetox "may" drive would
-    // be describing a permission that is not in force.
+    // The grant is still in force whether or not the program is running, so
+    // hiding it would hide a permission the user still has.
+    await waitFor(() => expect(container.textContent).toContain('winword'))
+    await fireEvent.click(screen.getByText('ถอนสิทธิ์'))
+    await waitFor(() => expect(vi.mocked(RevokeComputerApp)).toHaveBeenCalledWith('winword'))
+  })
+
+  it('offers nothing to pick while the switch is off', async () => {
+    vi.mocked(GrantedComputerApps).mockResolvedValue(['notepad'])
+    vi.mocked(OpenComputerApps).mockResolvedValue([
+      { name: 'notepad', title: 'บันทึกย่อ', allowed: true, blocked: '', warn: '' },
+    ] as any)
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'การใช้คอมพิวเตอร์')
+
+    await waitFor(() => expect(container.textContent).toContain('อนุญาตให้ควบคุมคอมพิวเตอร์'))
+    // Off means the model does not have the tool at all, so a list of programs
+    // it "may" drive would be describing a permission that is not in force.
     expect(container.textContent).not.toContain('ถอนสิทธิ์')
+    expect(screen.queryByText('อนุญาต')).toBeNull()
   })
 })

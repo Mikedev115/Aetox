@@ -182,6 +182,23 @@ type Desk struct {
 	// internal/mode, and a second stance that also answers with a plan should
 	// get the card by saying so, not by being added to a list here.
 	Planning bool
+	// DrivesMachine is whether this session was handed the `computer` tool.
+	//
+	// A bool rather than a reading of Carries, and deliberately not a general
+	// mechanism. Every other name the paragraphs below ask about comes from the
+	// engine's own registry, so "the desk allows it" and "this session has it"
+	// are the same answer and Carries can serve for both. `computer` is the
+	// first name where they differ: the desk manifests grant it by category, and
+	// the desktop only hands it over when the user has switched it on, so a
+	// Carries-based reading told every CLI session and every switched-off desktop
+	// session to prefer other tools over one it did not have.
+	//
+	// Making Carries mean "actually registered" would be the general fix and is
+	// a bigger change than this one: two tests pin the current reading (a zero
+	// Desk carries everything, and a stanceless desk builds byte-for-byte as it
+	// did before stances), and both are pinning something real. One bool that
+	// defaults to false leaves both standing.
+	DrivesMachine bool
 }
 
 // carries answers Desk.Carries for the zero value too: a desk that was never
@@ -1398,7 +1415,7 @@ func evidence(desk Desk) string {
 	// here. The prompt budget is the reason the trim is worth making rather
 	// than the ceiling being raised: this rule is worth 50 tokens on every
 	// request and was not worth 140.
-	if desk.carries("computer") {
+	if desk.DrivesMachine {
 		s += "`computer` drives another program's window: the broadest and slowest reach there is, so try " +
 			"it last. A connector, a file tool, `shell` or `browser` is more precise whenever one fits.\n"
 	}

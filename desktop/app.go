@@ -4538,6 +4538,27 @@ func (a *App) workbenchSkills(conv *conversation, sandboxRoot string) []skill.Sk
 	if conversationHasEditor(conv) {
 		skills = append(skills, &cuttingRoomSkill{app: a, conv: conv})
 	}
+	// Driving programs on this machine, and the second conditional tool here.
+	//
+	// The switch does not merely refuse the calls, it removes the tool: a
+	// feature that is off is not in the block at all (owner, 9 ก.ย. — "แยก tool
+	// เลยนะ ถ้าไม่เปิด ก็ไม่เอาระบบนี้"). Two reasons, and the second is the
+	// stronger one.
+	//
+	// The cheap one is the tool block: `computer` is ~280 tokens sent on every
+	// request of every session, and this ships off, so almost everyone would be
+	// paying for a capability nobody had granted.
+	//
+	// The real one is what a registered-but-refusing tool does to a model. It
+	// reads the block, sees it may drive the machine, plans around that, calls
+	// it, and is told no — a wasted round trip and a plan built on a premise
+	// that was never true. An absent tool produces a model that plans with what
+	// it has. This is the same argument browserSkill's own description makes
+	// about never advertising an action that will be refused, applied one level
+	// up to the whole tool.
+	if computerControlOn() {
+		skills = append(skills, newComputerSkill(a, conv))
+	}
 	return skills
 }
 
@@ -4548,11 +4569,6 @@ func (a *App) everySessionSkills(conv *conversation, sandboxRoot string) []skill
 		// The four old names are still what `tools:` and `categories:` speak —
 		// they moved from being tools to being the actions' permission keys.
 		&browserSkill{app: a, conv: conv},
-		// One tool for programs on this machine that Aetox did not start, three
-		// actions inside it (computer_tool.go). Off until the user turns it on
-		// in settings; the tool is registered either way so a model that reaches
-		// for it is told the switch exists rather than that the tool does not.
-		newComputerSkill(a, conv),
 		// One tool for making a video, three actions inside it (video_tool.go).
 		// Here rather than in defaults.go because it needs the app: the project
 		// root, and the same DataRoot lookups the readiness panel uses.

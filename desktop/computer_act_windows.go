@@ -198,6 +198,28 @@ func findByRuntimeID(a *iUIAutomation, hwnd uintptr, want []int32) (*iUIAutomati
 	return nil, hresult{code: hrElementNotAvailable, what: "the element behind that ref is gone"}
 }
 
+// aimPointerAt moves Aetox's own pointer onto the control about to be acted on.
+//
+// Called from inside the walk that already found the element, so it costs one
+// property read rather than a second tree walk. Failure is silent on purpose:
+// this is the only thing in this file that can be skipped without the action
+// being wrong, and an element that will not report a rectangle is still an
+// element that can be pressed.
+//
+// The rectangle is in physical screen pixels, which is the same space the
+// overlay window covers — see the DPI note at the top of uia_windows.go for why
+// that agreement is not an accident.
+func aimPointerAt(el *iUIAutomationElement) {
+	r, err := el.boundingRect()
+	if err != nil {
+		return
+	}
+	if r.Right <= r.Left || r.Bottom <= r.Top {
+		return // an element with no box on screen; nothing to point at
+	}
+	overlay.point(int((r.Left+r.Right)/2), int((r.Top+r.Bottom)/2))
+}
+
 func sameRuntimeID(a, b []int32) bool {
 	if len(a) != len(b) || len(a) == 0 {
 		return false
@@ -229,6 +251,7 @@ func reachClick(hwnd uintptr, runtimeID []int32) error {
 		if enabled, err := el.isEnabled(); err == nil && !enabled {
 			return hresult{code: hrElementNotEnabled, what: "that control is disabled"}
 		}
+		aimPointerAt(el)
 
 		var last error
 		for _, try := range []func() error{el.invoke, el.toggle, el.selectItem, el.doDefaultAction} {
@@ -278,6 +301,7 @@ func reachType(hwnd uintptr, runtimeID []int32, text string) error {
 		if enabled, err := el.isEnabled(); err == nil && !enabled {
 			return hresult{code: hrElementNotEnabled, what: "that field is disabled"}
 		}
+		aimPointerAt(el)
 		return el.setValue(text)
 	})
 }

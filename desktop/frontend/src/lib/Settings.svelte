@@ -60,6 +60,7 @@
     LearningEnabled, SetLearningEnabled, SkillTuneAuto, SetSkillTuneAuto, RunSkillTuneup, ListSkillProposals, ListPendingChanges, ListDecidedChanges,
     PreparedReplyOn, SetPreparedReplyOn,
     ComputerControlOn, SetComputerControlOn, GrantedComputerApps, RevokeComputerApp,
+    OpenComputerApps, AllowComputerApp,
     ApprovePendingChange, RejectPendingChange, LearnedEntries, LearnedScopeInfos, SaveLearnedEntry, OpenMemoryFolder,
     ForgetMemoryScope, AdoptMemoryScope, RecentProjects,
     ListSystemIssues, MarkIssueReported, ListDecidedIssues,
@@ -324,6 +325,8 @@
   let connections = $state<ConnectionRow[]>([])
   let computerOn = $state(false)
   let computerApps = $state<string[]>([])
+  type ComputerAppRow = { name: string; title: string; allowed: boolean; blocked: string; warn: string }
+  let computerRows = $state<ComputerAppRow[]>([])
   let computerError = $state('')
   // Keyed by connection id, because the page draws one card per service and two
   // of them must not share a token box, an error, or a spinner.
@@ -3231,6 +3234,7 @@
     try {
       computerOn = await ComputerControlOn()
       computerApps = (await GrantedComputerApps()) ?? []
+      computerRows = ((await OpenComputerApps()) ?? []) as ComputerAppRow[]
     } catch {
       // Preference file unreadable. Leave both at their shipped defaults rather
       // than drawing a switch whose state nothing confirmed.
@@ -3240,6 +3244,15 @@
   async function toggleComputer() {
     try {
       await SetComputerControlOn(!computerOn)
+      await loadComputer()
+    } catch (err) {
+      computerError = String(err)
+    }
+  }
+
+  async function allowComputerApp(name: string) {
+    try {
+      await AllowComputerApp(name)
       await loadComputer()
     } catch (err) {
       computerError = String(err)
@@ -6714,27 +6727,66 @@
         </div>
 
         {#if computerOn}
-          <!-- What the yes answers landed as. This is the half both rivals do
-               not have: their approvals expire with the session, so there is
-               nothing to show. Ours are written down precisely so this list can
-               exist and be taken back from. -->
-          {#if computerApps.length === 0}
+          <!-- Which programs, chosen here rather than asked for mid-turn. The
+               owner's rule (9 ก.ย.): "แล้วต้องเลือกด้วยดิ จะให้ตัวไหนควบคุม".
+               A card raised while an agent waits is answered in a hurry; a list
+               read with nothing waiting is a decision. -->
+          <div class="set-row">
+            <span class="set-txt">
+              <span class="t">{t('settings.computerPick')}</span>
+              <span class="d">{t('settings.computerPickDesc')}</span>
+            </span>
+            <button class="ctrl" onclick={loadComputer}>{t('settings.computerRefresh')}</button>
+          </div>
+
+          {#if computerRows.length === 0}
             <div class="set-row"><span class="set-txt">
-              <span class="d muted">{t('settings.computerNoApps')}</span>
+              <span class="d muted">{t('settings.computerNoWindows')}</span>
             </span></div>
-          {:else}
-            {#each computerApps as app (app)}
-              <div class="set-row">
-                <span class="set-txt">
-                  <span class="t">{app}</span>
-                  <span class="d">{t('settings.computerAppAllowed')}</span>
+          {/if}
+
+          {#each computerRows as row (row.name)}
+            <div class="set-row">
+              <span class="set-txt">
+                <span class="t">{row.name}</span>
+                <span class="d">
+                  {#if row.blocked}
+                    {t('settings.computerUseInstead', { tool: row.blocked })}
+                  {:else if row.warn}
+                    ⚠️ {row.warn}
+                  {:else}
+                    {row.title}
+                  {/if}
                 </span>
-                <button class="ctrl" onclick={() => revokeComputerApp(app)}>
+              </span>
+              {#if row.blocked}
+                <span class="mcp-badge">{t('settings.computerNotYet')}</span>
+              {:else if row.allowed}
+                <button class="ctrl" onclick={() => revokeComputerApp(row.name)}>
                   {t('settings.computerRevoke')}
                 </button>
-              </div>
-            {/each}
-          {/if}
+              {:else}
+                <button class="ctrl" onclick={() => allowComputerApp(row.name)}>
+                  {t('settings.computerAllow')}
+                </button>
+              {/if}
+            </div>
+          {/each}
+
+          <!-- A program that was allowed and is not open right now still has the
+               right, so it still has to be visible and revocable — otherwise
+               closing a window would hide a grant that is still in force. -->
+          {#each computerApps.filter((a) => !computerRows.some((r) => r.name === a)) as app (app)}
+            <div class="set-row">
+              <span class="set-txt">
+                <span class="t">{app}</span>
+                <span class="d">{t('settings.computerAllowedClosed')}</span>
+              </span>
+              <button class="ctrl" onclick={() => revokeComputerApp(app)}>
+                {t('settings.computerRevoke')}
+              </button>
+            </div>
+          {/each}
         {/if}
 
         <!-- Rows 2 to 4 stay visible and say why they cannot be switched on.

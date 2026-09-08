@@ -248,12 +248,29 @@ func computerControlOn() bool {
 // ComputerControlOn reports the switch for the settings page.
 func (a *App) ComputerControlOn() bool { return computerControlOn() }
 
-// SetComputerControlOn persists it.
+// SetComputerControlOn persists it and rebuilds the engine.
+//
+// The rebuild is the point, not housekeeping. The switch decides whether the
+// tool is REGISTERED (app.go, workbenchSkills), and registration happens once
+// when the engine is assembled — so without this the user would turn it on,
+// see the switch move, and the model would still not have the tool until the
+// app was restarted. A setting that needs a restart to mean anything is a
+// setting that looks broken.
+//
+// Same call SetAgentOff makes for the same reason: delegation also changes what
+// is in the tool block, and it re-applies the config rather than inventing a
+// lighter path.
 func (a *App) SetComputerControlOn(on bool) error {
-	return config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+	if err := config.UpdateModelPreference(func(pref *config.ModelPreference) error {
 		pref.ComputerControlOn = on
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	if a != nil && a.cur() != nil {
+		a.applyConfig(a.cur(), a.cur().cfg)
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------

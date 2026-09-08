@@ -318,6 +318,11 @@ func TestEveryToolHasACategory(t *testing.T) {
 func TestTheComputerPackCarriesOnlySignature(t *testing.T) {
 	const packedBase, packedPerAct = 100, 28
 
+	// The tool exists only when the user has switched it on, so the measurement
+	// has to switch it on. Into a temp data root, never the real one.
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	switchOnComputer(t)
+
 	a := seed(&App{cfg: config.Config{SandboxRoot: t.TempDir()}}, newConversation())
 	for _, s := range a.workbenchSkills(a.cur(), t.TempDir()) {
 		tool, ok := s.(skill.Tool)
