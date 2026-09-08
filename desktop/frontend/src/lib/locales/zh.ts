@@ -460,6 +460,8 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'settings.computerAnyAppDesc': '默认关闭。开启后 Aetox 才会拿到这个工具；关闭时模型完全没有它。',
   'settings.computerPick': '选择它可以操作的程序',
   'settings.computerPickDesc': '来自当前打开的窗口。Aetox 只能操作你勾选的程序。',
+  'settings.computerBrowse': '从电脑中选择…',
+  'settings.computerElsewhere': '由其他工具负责',
   'settings.computerRefresh': '刷新',
   'settings.computerNoWindows': '当前没有其他程序的窗口。打开你需要的程序后点刷新。',
   'settings.computerAllow': '允许',

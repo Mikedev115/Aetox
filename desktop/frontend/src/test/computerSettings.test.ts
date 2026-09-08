@@ -3,7 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import Settings from '../lib/Settings.svelte'
 import {
   ComputerControlOn, SetComputerControlOn, GrantedComputerApps, RevokeComputerApp,
-  OpenComputerApps, AllowComputerApp,
+  OpenComputerApps, AllowComputerApp, BrowseForComputerApp,
 } from './mocks/wailsApp'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 
@@ -152,6 +152,33 @@ describe('the computer-use page', () => {
     // twenty pixels depending on whether an icon could be read is a list that
     // reads as broken.
     await waitFor(() => expect(container.querySelector('.prog-icon-none')).toBeTruthy())
+  })
+
+  it('can add a program that is not running, from the disk', async () => {
+    vi.mocked(ComputerControlOn).mockResolvedValue(true)
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'การใช้คอมพิวเตอร์')
+
+    // A list of what happens to be open is not the whole question: a person
+    // setting this up thinks in terms of the programs they use, and making them
+    // launch one first in order to permit it is working around the interface.
+    await waitFor(() => expect(screen.getByText('เลือกจากเครื่อง…')).toBeTruthy())
+    await fireEvent.click(screen.getByText('เลือกจากเครื่อง…'))
+    await waitFor(() => expect(vi.mocked(BrowseForComputerApp)).toHaveBeenCalled())
+  })
+
+  it('does not call a browser row "not available yet"', async () => {
+    vi.mocked(ComputerControlOn).mockResolvedValue(true)
+    vi.mocked(OpenComputerApps).mockResolvedValue([
+      { name: 'chrome', title: 'หน้าเว็บ', allowed: false, blocked: 'browser', warn: '', icon: '' },
+    ] as any)
+
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'การใช้คอมพิวเตอร์')
+
+    // It is not a missing feature. It is a job another tool already does
+    // better, and a badge saying otherwise contradicts the sentence beside it.
+    await waitFor(() => expect(container.textContent).toContain('ใช้เครื่องมืออื่น'))
   })
 
   it('offers nothing to pick while the switch is off', async () => {

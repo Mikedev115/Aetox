@@ -449,6 +449,8 @@ export const en: Record<keyof typeof th, string> = {
   'settings.computerAnyAppDesc': 'Off by default. Aetox is only given this tool once you turn it on; while it is off the model does not have it at all.',
   'settings.computerPick': 'Choose which programs it may control',
   'settings.computerPickDesc': 'From the windows open right now. Aetox can only touch the ones you pick.',
+  'settings.computerBrowse': 'Browse…',
+  'settings.computerElsewhere': 'Another tool does this',
   'settings.computerRefresh': 'Refresh',
   'settings.computerNoWindows': 'No other program is open right now. Open the one you want and press refresh.',
   'settings.computerAllow': 'Allow',

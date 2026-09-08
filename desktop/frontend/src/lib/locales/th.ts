@@ -444,6 +444,8 @@ export const th = {
   'settings.computerAnyAppDesc': 'ปิดไว้เป็นค่าเริ่มต้น เปิดแล้ว Aetox ถึงจะได้เครื่องมือนี้ไปใช้ ปิดอยู่คือโมเดลไม่มีเครื่องมือนี้เลย',
   'settings.computerPick': 'เลือกโปรแกรมที่ให้ควบคุมได้',
   'settings.computerPickDesc': 'จากหน้าต่างที่เปิดอยู่ตอนนี้ Aetox แตะได้เฉพาะที่คุณเลือกไว้เท่านั้น',
+  'settings.computerBrowse': 'เลือกจากเครื่อง…',
+  'settings.computerElsewhere': 'ใช้เครื่องมืออื่น',
   'settings.computerRefresh': 'รีเฟรช',
   'settings.computerNoWindows': 'ตอนนี้ไม่มีหน้าต่างของโปรแกรมอื่นเปิดอยู่ เปิดโปรแกรมที่ต้องการแล้วกดรีเฟรช',
   'settings.computerAllow': 'อนุญาต',

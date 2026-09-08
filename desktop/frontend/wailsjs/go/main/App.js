@@ -90,6 +90,10 @@ export function BrowseFolder() {
   return window['go']['main']['App']['BrowseFolder']();
 }
 
+export function BrowseForComputerApp() {
+  return window['go']['main']['App']['BrowseForComputerApp']();
+}
+
 export function BrowseRoot() {
   return window['go']['main']['App']['BrowseRoot']();
 }

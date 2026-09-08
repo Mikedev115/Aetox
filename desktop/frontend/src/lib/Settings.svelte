@@ -60,7 +60,7 @@
     LearningEnabled, SetLearningEnabled, SkillTuneAuto, SetSkillTuneAuto, RunSkillTuneup, ListSkillProposals, ListPendingChanges, ListDecidedChanges,
     PreparedReplyOn, SetPreparedReplyOn,
     ComputerControlOn, SetComputerControlOn, GrantedComputerApps, RevokeComputerApp,
-    OpenComputerApps, AllowComputerApp, ProgramIcon,
+    OpenComputerApps, AllowComputerApp, ProgramIcon, BrowseForComputerApp,
     ApprovePendingChange, RejectPendingChange, LearnedEntries, LearnedScopeInfos, SaveLearnedEntry, OpenMemoryFolder,
     ForgetMemoryScope, AdoptMemoryScope, RecentProjects,
     ListSystemIssues, MarkIssueReported, ListDecidedIssues,
@@ -3251,6 +3251,15 @@
   async function toggleComputer() {
     try {
       await SetComputerControlOn(!computerOn)
+      await loadComputer()
+    } catch (err) {
+      computerError = String(err)
+    }
+  }
+
+  async function browseForComputerApp() {
+    try {
+      await BrowseForComputerApp()
       await loadComputer()
     } catch (err) {
       computerError = String(err)
@@ -6743,7 +6752,10 @@
               <span class="t">{t('settings.computerPick')}</span>
               <span class="d">{t('settings.computerPickDesc')}</span>
             </span>
-            <button class="ctrl" onclick={loadComputer}>{t('settings.computerRefresh')}</button>
+            <span class="mcp-row-actions">
+              <button class="ctrl" onclick={browseForComputerApp}>{t('settings.computerBrowse')}</button>
+              <button class="ctrl" onclick={loadComputer}>{t('settings.computerRefresh')}</button>
+            </span>
           </div>
 
           {#if computerRows.length === 0}
@@ -6772,7 +6784,11 @@
                 </span>
               </span>
               {#if row.blocked}
-                <span class="mcp-badge">{t('settings.computerNotYet')}</span>
+                <!-- NOT "ยังใช้ไม่ได้". A browser here is not a missing
+                     feature, it is a job another tool already does better, and
+                     a badge that says otherwise contradicts the sentence
+                     beside it. -->
+                <span class="mcp-badge">{t('settings.computerElsewhere')}</span>
               {:else if row.allowed}
                 <button class="ctrl" onclick={() => revokeComputerApp(row.name)}>
                   {t('settings.computerRevoke')}

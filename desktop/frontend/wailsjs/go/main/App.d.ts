@@ -59,6 +59,8 @@ export function BackgroundTasks():Promise<Array<main.BackgroundTask>>;
 
 export function BrowseFolder():Promise<string>;
 
+export function BrowseForComputerApp():Promise<string>;
+
 export function BrowseRoot():Promise<string>;
 
 export function BrowserBack(arg1:string):Promise<void>;

@@ -30,6 +30,8 @@ import (
 	"fmt"
 	"strings"
 
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/safety"
 )
@@ -221,4 +223,47 @@ func (a *App) AllowComputerApp(name string) error {
 	}
 	a.emitEvent("computer:apps", a.GrantedComputerApps())
 	return nil
+}
+
+// BrowseForComputerApp opens a file picker and puts the chosen program on the
+// list.
+//
+// The open-windows list answers "which of these" and this answers "and that one
+// over there". The owner asked for it twice (9 ก.ย., "เพิ่มโปรแกรมอื่นได้ไหม"),
+// which is the clearest signal there is that a list of what happens to be
+// running was not the whole question: a person setting this up thinks in terms
+// of the programs they use, not the ones that are open at the moment they open
+// settings, and asking them to launch something first in order to permit it is
+// making them work around the interface.
+//
+// Returns "" with no error when the picker was dismissed, the same as every
+// other picker in this app: cancelling is not a failure and must not raise one.
+func (a *App) BrowseForComputerApp() (string, error) {
+	path, err := wailsruntime.OpenFileDialog(a.ctx, wailsruntime.OpenDialogOptions{
+		Title:   "เลือกโปรแกรมที่ให้ Aetox ควบคุมได้",
+		Filters: []wailsruntime.FileFilter{{DisplayName: "โปรแกรม (*.exe)", Pattern: "*.exe"}},
+	})
+	if err != nil || strings.TrimSpace(path) == "" {
+		return "", err
+	}
+	key := exeKey(path)
+	if key == "" {
+		return "", fmt.Errorf("ไฟล์นี้ไม่ใช่โปรแกรม")
+	}
+	// The same rules the picker applies, applied to a path the user typed their
+	// way to. A file dialog is not a way around the tiers: choosing cmd.exe here
+	// has to answer what choosing it from the list answers.
+	if tier, note := appTier(key); tier == tierNever || tier == tierElsewhere {
+		switch note {
+		case "shell":
+			return "", fmt.Errorf("%s เป็นเทอร์มินัล Aetox ใช้ `shell` กับงานแบบนี้แทน", key)
+		case "browser":
+			return "", fmt.Errorf("%s เป็นเบราว์เซอร์ Aetox ใช้เบราว์เซอร์ของตัวเองแทน", key)
+		}
+		return "", fmt.Errorf("%s", note)
+	}
+	if err := a.AllowComputerApp(key); err != nil {
+		return "", err
+	}
+	return key, nil
 }
