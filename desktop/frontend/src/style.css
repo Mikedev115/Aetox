@@ -683,6 +683,17 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 /* Rows in the profile menu share one 10px left/right rhythm and the sidebar's
    13.5px scale, so the head, language row, and settings row line up. */
 .profile-menu .plus-menu-item { font-size:var(--fs-sm); padding:8px 10px; width:100%; }
+/* AND EVERY ROW HAS TO FIT, whatever is on it. .side clips its overflow, so a
+   flex item that refuses to shrink does not spill out of the menu looking
+   untidy — it walks off the edge of the app and is cut in half by the sidebar,
+   which is what the owner was pointing at on 8 ก.ย. 2026 ("เห็นมั้ยมันยื่น").
+   The reason it refuses is `min-width:auto`: a flex item will not go below its
+   own content, and a <select> counts its LONGEST OPTION as content — so the
+   theme row, on a 200px sidebar, was 150px of select plus an icon and a label
+   inside 152px of room, and the last 4px of the control were outside the app.
+   min-width:0 lets the control take the squeeze instead of the panel. */
+.profile-menu .plus-menu-item { min-width:0; }
+.profile-menu .plus-menu-item > .ic { flex:none; }
 .profile-head { display:flex; align-items:center; gap:10px; padding:8px 10px 12px; }
 .profile-head .avatar.lg { width:32px; height:32px; font-size:var(--fs-lg); }
 .profile-head .name-input {
@@ -720,7 +731,10 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 /* Shared by the language and theme rows. max-width so the 14-entry theme list
    can't stretch the menu wider than the sidebar it hangs off. */
 .lang-select {
-  margin-left:auto; max-width:150px; padding:3px 6px; border-radius:var(--r-sm); background:var(--surface-panel);
+  /* min-width:0 for the reason written over .profile-menu .plus-menu-item: the
+     max-width caps how wide the list may make it, and only this lets a narrow
+     sidebar make it narrower. */
+  margin-left:auto; max-width:150px; min-width:0; padding:3px 6px; border-radius:var(--r-sm); background:var(--surface-panel);
   border:1px solid var(--border-subtle); color:var(--text-primary); font:inherit; font-size:var(--fs-xs); cursor:pointer;
 }
 
@@ -730,16 +744,20 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    a panel bolted onto a menu. */
 .ver-menu { display:flex; flex-direction:column; gap:6px; padding:4px 10px 8px; }
 .ver-row { display:flex; align-items:center; gap:8px; }
-.ver-row .ic { width:16px; text-align:center; color:var(--text-dim); }
+.ver-row .ic { width:16px; text-align:center; flex:none; color:var(--text-dim); }
 /* The version is read, not glanced at, so it gets --text-muted rather than the
    dimmer tone the stamp lines use. */
-.ver-name { font-size:var(--fs-xs); color:var(--text-muted); }
+/* Truncated rather than wrapped, and the button beside it never breaks: on a
+   narrow sidebar this row used to fold ตรวจอัปเดต into two stacked syllables,
+   which reads as a broken control rather than as a squeezed one. The version
+   is the part that can afford to lose a character. */
+.ver-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--fs-xs); color:var(--text-muted); }
 /* Deliberately quiet: this button is available, not asked for. The daily check
    is what normally answers this question, and a loud button beside a row that
    already says "you are on the latest version" would be inviting a click that
    changes nothing. */
 .ver-check {
-  margin-left:auto; padding:3px 8px; border-radius:var(--r-sm); background:transparent;
+  margin-left:auto; flex:none; white-space:nowrap; padding:3px 8px; border-radius:var(--r-sm); background:transparent;
   border:1px solid var(--border-subtle); color:var(--text-muted); font:inherit;
   font-size:var(--fs-xs); cursor:pointer; transition:color var(--dur-tint) ease, border-color var(--dur-tint) ease;
 }
@@ -2632,10 +2650,21 @@ button.phase-head:hover { color:var(--text-muted); }
   position:absolute; inset:0;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
+/* THE CAPTION WRAPS, AND NOTHING IN IT IS ALLOWED TO BE SQUEEZED.
+   A single flex row with no wrap has one way to fit a narrow panel: shrink
+   every item below the width of its own word. On a 320px chat panel that turned
+   the line into a column of single characters — "@deepresearch" stacked one
+   letter per row — while the spend at the end sailed through intact, because
+   .bgw-meta was the only item here carrying a nowrap of its own (owner, 8 ก.ย.,
+   over a narrowed window: "มันแสดงผลได้ไม่ค่อยดีอ่ะ ... ตอนย่ออ่ะ").
+   So the row is allowed a second line and every item on it keeps its natural
+   width. row-gap stays tight: two lines of caption must still read as one
+   caption, not as two facts stacked. */
 .bgw-who {
-  display:flex; align-items:center; gap:5px; margin-top:2px;
+  display:flex; flex-wrap:wrap; align-items:center; gap:5px; row-gap:1px; margin-top:2px;
   color:var(--text-dim); font-size:var(--fs-xs); font-variant-numeric:tabular-nums;
 }
+.bgw-who > * { flex:none; white-space:nowrap; }
 /* The separators, dimmer than what they separate, so the line reads as three
    facts and not as one string. */
 .bgw-who .bgw-dot { opacity:.5; }
@@ -2766,27 +2795,71 @@ button.phase-head:hover { color:var(--text-muted); }
    gaps between them is not what "the work is here" looks like. The ground is on
    every row of the band; only the outer edges get the corners and the shadow,
    so the group reads as one thing that grew. */
-.bgw-work.stream .tool-step[data-depth="0"] {
+/* THE GROUND BELONGS TO THE ROW, NOT TO THE FLOOR OF THE BOX.
+   The block was drawn by giving depth 0 — and only depth 0 — its margins, its
+   padding and its ground. Depth 0 is always the bottom of the list, so the
+   slab was always in the same place: a row leaving focus dropped the whole
+   treatment in one frame while the window rode down to the next one, and what
+   the eye actually read was a plate bolted to the bottom of the box with text
+   pouring through it (owner, 8 ก.ย.: "เวลาเลื่อนขึ้น ที่ยื่นออกมา ควรจะเลื่อน
+   ขึ้นไปด้วย").
+   Two changes, and they are one idea. GEOMETRY IS CONSTANT: every row in the
+   stream carries the same margins and the same padding whatever its depth, so
+   the band changing hands costs no reflow — no row grows, no row shrinks, and
+   the negative margin cancels the padding on all of them, so the text column
+   never moves sideways either. What is left to change is the GROUND, and it
+   fades on the window's own clock (--lift-fade / --ease-ride), so the slab
+   travels upward with its row for exactly as long as the ride takes and then
+   dissolves where the row leaves it.
+   The cost is honest and was accepted: a row at rest is now as tall as a row in
+   focus, so a 230px window holds fewer of them. A list that does not jump is
+   worth more than a list that holds one extra line. */
+.bgw-work.stream .tool-step[data-depth] {
   margin:0 -10px 0 -12px; padding:9px 10px 9px 12px;
-  background:var(--surface-raised);
+  background:transparent; box-shadow:0 0 0 rgba(0,0,0,0);
 }
+.bgw-work.stream .tool-step[data-depth="0"] { background:var(--surface-raised); }
+/* Two steps of afterglow, not one. The row that has just handed over is still
+   the one the reader was looking at, so it keeps most of its ground; the one
+   above that is a hint that something was there. Past it the ladder's own
+   opacity has taken over. */
+.bgw-work.stream .tool-step[data-depth="1"] {
+  background:color-mix(in srgb, var(--surface-raised) 55%, transparent);
+}
+.bgw-work.stream .tool-step[data-depth="2"] {
+  background:color-mix(in srgb, var(--surface-raised) 18%, transparent);
+}
+/* The corners and the shadow mark the EDGES OF A BAND, and a receding band is
+   still a band — so depth 1 gets the same shape at a lower voice. Without this
+   the slab would keep its ground on the way up and lose its outline in a frame,
+   which is a rectangle dissolving rather than a block leaving. */
 .bgw-work.stream .tool-step[data-depth="0"]:first-child,
-.bgw-work.stream :not([data-depth="0"]) + .tool-step[data-depth="0"] {
-  margin-top:7px; padding-top:11px;
+.bgw-work.stream :not([data-depth="0"]) + .tool-step[data-depth="0"],
+.bgw-work.stream .tool-step[data-depth="1"]:first-child,
+.bgw-work.stream :not([data-depth="1"]) + .tool-step[data-depth="1"] {
   border-top-left-radius:var(--r-md); border-top-right-radius:var(--r-md);
 }
 .bgw-work.stream .tool-step[data-depth="0"]:not(:has(+ [data-depth="0"])) {
-  margin-bottom:7px; padding-bottom:11px;
   border-bottom-left-radius:var(--r-md); border-bottom-right-radius:var(--r-md);
   box-shadow:0 2px 4px rgba(0,0,0,.30), 0 14px 28px -14px rgba(0,0,0,.6);
+}
+.bgw-work.stream .tool-step[data-depth="1"]:not(:has(+ [data-depth="1"])) {
+  border-bottom-left-radius:var(--r-md); border-bottom-right-radius:var(--r-md);
+  box-shadow:0 1px 2px rgba(0,0,0,.14), 0 8px 16px -12px rgba(0,0,0,.30);
 }
 /* A hairline drawn across something standing off the page says the two are
    still in the same plane, which is the opposite of what the block is for. */
 /* No hairline anywhere the block is: one drawn across something standing off
    the page says the two are in the same plane, and one drawn INSIDE the band
-   cuts a single slab into slices. */
+   cuts a single slab into slices.
+   Now that the ground fades over three depths instead of appearing on one, the
+   seam has to be off wherever there is still a ground to cut. */
 .bgw-work.stream .tool-step[data-depth="0"],
-.bgw-work.stream .tool-step[data-depth="0"] + .tool-step { border-top-color:transparent; }
+.bgw-work.stream .tool-step[data-depth="1"],
+.bgw-work.stream .tool-step[data-depth="2"],
+.bgw-work.stream .tool-step[data-depth="0"] + .tool-step,
+.bgw-work.stream .tool-step[data-depth="1"] + .tool-step,
+.bgw-work.stream .tool-step[data-depth="2"] + .tool-step { border-top-color:transparent; }
 
 /* A SEARCH'S RESULT LIST IS A PAGE, and a page inside a stream is the thing
    that buried the live row in the first place — eight results is the longest
@@ -2822,8 +2895,15 @@ button.phase-head:hover { color:var(--text-muted); }
   transition:opacity var(--focus-move) var(--ease-arrive),
              padding var(--focus-move) var(--ease-arrive),
              margin var(--focus-move) var(--ease-arrive),
-             background var(--focus-move) var(--ease-arrive),
-             box-shadow var(--focus-move) var(--ease-arrive),
+             /* The ground and its shadow ride with the WINDOW, not with the
+                ladder: 460ms of cubicInOut is what toolWindow.ts scrolls the
+                box by, and the block is supposed to look attached to the row
+                travelling that distance. At the ladder's 380ms ease-out the
+                ground was always finished before its row got where it was
+                going, which is the whole of what read as "the slab stayed at
+                the bottom". */
+             background-color var(--lift-fade) var(--ease-ride),
+             box-shadow var(--lift-fade) var(--ease-ride),
              border-color var(--focus-move) var(--ease-arrive);
 }
 .bgw-work.stream .tool-step .verb,
@@ -2836,7 +2916,10 @@ button.phase-head:hover { color:var(--text-muted); }
   transition:width var(--focus-move) var(--ease-arrive),
              height var(--focus-move) var(--ease-arrive);
 }
-.bgw-work.stream .tool-step { padding-top:5px; padding-bottom:5px; }
+/* The compact padding that used to live here is gone: the ladder no longer
+   changes a row's box at all, only its ground and its ink, so a row's height is
+   the same at every depth and the list cannot jump when the band moves. What
+   sets that height now is the geometry rule above, on [data-depth]. */
 /* In focus: the row is read, so it is set at reading size. The tile is left
    alone — the block is what says which row this is, and a mark that grows as
    well is the card saying it twice. */

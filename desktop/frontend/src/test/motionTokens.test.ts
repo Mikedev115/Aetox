@@ -25,7 +25,13 @@ const tokens = readFileSync('src/styles/type.css', 'utf8')
 
 /** Every `transition:` declaration in the sheet, body only. */
 function declarations(): string[] {
-  return [...css.matchAll(/transition:([^;]+);/g)].map((m) => m[1])
+  // Comments out first. A note explaining a duration lives inside the
+  // declaration it belongs to — "460ms of cubicInOut is what toolWindow.ts
+  // scrolls the box by" sits in the middle of the transition it justifies — and
+  // reading that prose as a value fails the file for the sentence that says why
+  // the value is right (8 ก.ย. 2026).
+  const body = css.replace(/\/\*[\s\S]*?\*\//g, '')
+  return [...body.matchAll(/transition:([^;]+);/g)].map((m) => m[1])
 }
 
 describe('the motion token layer', () => {

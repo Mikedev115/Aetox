@@ -91,10 +91,23 @@
   --swap-row-in:120ms;      /* the new row fading in */
   --swap-block:150ms;       /* the block travelling to it */
   --focus-move:380ms;       /* the focus of a live list moving to the next row */
+  /* The raised ground under the live band, dissolving as the band recedes.
+     Set to the WINDOW'S OWN RIDE (toolWindow.ts: RIDE_MS 460 / cubicInOut) and
+     not to --focus-move, because those two are one motion: the block has to
+     travel upward with the row it is under. A ground that finished fading
+     before its row arrived is what reads as a slab parked at the floor with
+     text sliding beneath it (owner, 8 ก.ย.: "เวลาเลื่อนขึ้น ที่ยื่นออกมา ควรจะ
+     เลื่อนขึ้นไปด้วย"). */
+  --lift-fade:460ms;        /* the raised ground fading as its row recedes */
   --deal-step:55ms;         /* the beat between two rows of one batch arriving */
   --swap-glyph:110ms;       /* the ring on the finished row becoming a tick */
   /* Overshoot is for something arriving that the user caused. Never for
      something that merely appeared. */
   --ease-overshoot:cubic-bezier(.2,.9,.3,1.5);
   --ease-arrive:cubic-bezier(.2,.7,.3,1);
+  /* cubicInOut, written out — the curve toolWindow.ts rides its scroll on and
+     the one `settle` folds with. Slow, moves, slow: what gently means to an
+     eye, and the reason anything travelling ALONGSIDE that ride has to use it
+     rather than a curve of its own. */
+  --ease-ride:cubic-bezier(.65,0,.35,1);
 }
