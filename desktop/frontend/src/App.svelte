@@ -21,7 +21,7 @@
     switchProvider, switchThinkLevel,
     switchModel, cancelPendingModel, applyModelRowChanged, submitAPIKey, setActiveView, restoreActiveView, closeFile, applyAgentStatus, applyToolEvent,
     applyAgentChunk, applyReasoningChunk, applyModelLoading, applyPlanUpdate, attachImageFromPath, attachFileFromPath, fileKind,
-    applyAskUser, applyAskDone, applyTodos, applyMissedInterjections, applyTaskChips, applyUsageRound,
+    applyAskUser, applyAskDone, applyDriving, applyTodos, applyMissedInterjections, applyTaskChips, applyUsageRound,
     applyPreparedReplies,
     applyPendingLearned, refreshPendingLearned, refreshPendingIssues, applyAgentDone, isOverlayView, closeOverlay,
     refreshProjectFolders, refreshOpenFiles,
@@ -214,6 +214,10 @@
     const offModelPending = EventsOn('model:pending', applyModelRowChanged)
     const offAskUser = EventsOn('ask:user', applyAskUser)
     const offAskDone = EventsOn('ask:done', applyAskDone)
+    // The takeover banner: raised before the first action of an acting call
+    // and lowered when it returns, so the user reads about their machine being
+    // driven before the cursor moves rather than after.
+    const offDriving = EventsOn('computer:driving', applyDriving)
     const offTodos = EventsOn('todo:update', applyTodos)
     // A message typed in the moment the turn was already returning: the engine
     // could not fold it in, so it comes back here and goes out as its own turn.
@@ -320,6 +324,7 @@
       offModelPending()
       offAskUser()
       offAskDone()
+      offDriving()
       offTodos()
       offMissed()
       offTaskChips()

@@ -300,3 +300,44 @@ func TestEveryToolHasACategory(t *testing.T) {
 		t.Errorf("these tools are not in internal/skill/category.go, so they fall into the catch-all: %v", missing)
 	}
 }
+
+// The per-tool ceiling, for a tool the package that owns that rule cannot see.
+//
+// internal/skill/block_standard_test.go holds every tool to a size: 80 tokens
+// plain, 100 + 28 per action packed. It builds a default registry to do it,
+// which means it has never once looked at the tools the desktop hosts —
+// `browser`, `desk`, `video`, `plan`, `computer` — every tool with a window
+// behind it and the most room to grow prose in.
+//
+// Measuring all of them shows ten are already over, some by a lot. Holding them
+// to the standard is worth doing and is NOT this change: a computer-control
+// commit that quietly imposes a new size limit on `memory` and `browser` is a
+// change nobody reviewed. So this pins the one tool that arrived under the
+// standard and can be kept there, and the rest is named as work rather than
+// done in passing.
+func TestTheComputerPackCarriesOnlySignature(t *testing.T) {
+	const packedBase, packedPerAct = 100, 28
+
+	a := seed(&App{cfg: config.Config{SandboxRoot: t.TempDir()}}, newConversation())
+	for _, s := range a.workbenchSkills(a.cur(), t.TempDir()) {
+		tool, ok := s.(skill.Tool)
+		if !ok || tool.Name() != "computer" {
+			continue
+		}
+		payload, err := json.Marshal(tool.ToolDefinition())
+		if err != nil {
+			t.Fatalf("computer: definition does not marshal: %v", err)
+		}
+		tokens := len(payload) / 4
+		ceiling := packedBase + packedPerAct*len(skill.PackedCalls("computer"))
+		if tokens > ceiling {
+			t.Errorf("computer is %d tokens, over the %d-token ceiling for its shape.\n"+
+				"  A block entry carries what the tool IS and what to pass it. When to reach for it,\n"+
+				"  what it costs and what to watch out for belong in Guidance() and are sent once.",
+				tokens, ceiling)
+		}
+		t.Logf("computer: %d tokens against a ceiling of %d", tokens, ceiling)
+		return
+	}
+	t.Fatal("the computer pack was not registered, so its size was never measured")
+}

@@ -4279,6 +4279,24 @@ button.phase-head:hover { color:var(--text-muted); }
 .composer .send.stop { color:var(--danger, #e5534b); }
 .composer .send.stop:hover { border-color:var(--danger, #e5534b); }
 
+/* computer: the agent is driving a program on this machine right now.
+   One line, not a card. A card would compete with the ask panel below it for
+   the same attention, and these two say opposite things: the ask panel wants an
+   answer, this one wants to be READ and then ignored. It is warm rather than
+   red because being driven is the state the user asked for, not a fault; the
+   fault case is a refusal in the transcript, where refusals belong. */
+.driving-strip {
+  display:flex; align-items:center; gap:8px;
+  margin-top:8px; padding:6px 10px;
+  border:1px solid var(--warn-border, var(--border-default));
+  border-left:3px solid var(--warn, var(--accent));
+  border-radius:var(--r-md);
+  background:var(--surface-raised);
+  font-size:var(--fs-sm); color:var(--text-secondary);
+}
+.driving-what { color:var(--text-primary, inherit); }
+.driving-where { color:var(--text-muted, var(--text-secondary)); margin-left:auto; }
+
 /* ask_user: the model is blocked on a user choice — one card per option,
    stacked, with an A/B/C key badge so choices read as separate things */
 .ask-panel { margin-top:8px; padding:10px; border:1px solid var(--border-default); border-radius:var(--r-md); }

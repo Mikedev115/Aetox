@@ -917,6 +917,11 @@ export interface ParkedTurn {
   reasoningText: string
   modelLoading: ModelLoading | null
   ask: { question: string; options: string[] } | null
+  /** The window the agent is driving right now (computer tool), null when it is not driving one.
+   *  Parked with the rest of the live state: the takeover belongs to a turn, and a
+   *  banner left on `cockpit` would follow the user into the next chat and claim
+   *  their machine was being driven by a conversation that had stopped. */
+  driving: { window: string; doing: string } | null
   todos: { content: string; status: 'pending' | 'in_progress' | 'completed' }[]
   /** Parked with the rest of the live state, because the meter belongs to the
    *  turn and the turn is what is being parked. Left on `cockpit` instead, it
@@ -1190,6 +1195,11 @@ export interface CockpitState {
   pendingFiles: PendingFile[]
   /** Question the model is blocked on (ask_user tool), null when none. */
   ask: { question: string; options: string[] } | null
+  /** The window the agent is driving right now (computer tool), null when it is not driving one.
+   *  Parked with the rest of the live state: the takeover belongs to a turn, and a
+   *  banner left on `cockpit` would follow the user into the next chat and claim
+   *  their machine was being driven by a conversation that had stopped. */
+  driving: { window: string; doing: string } | null
   /** The model's task checklist (todo_write tool), replaced wholesale each call. */
   todos: { content: string; status: 'pending' | 'in_progress' | 'completed' }[]
   /** Side work the agent flagged with suggest_task — chips the user can start or dismiss. */
@@ -1285,6 +1295,7 @@ export function emptyCockpitState(): CockpitState {
     reasoningText: '',
     modelLoading: null,
     ask: null,
+    driving: null,
     todos: [],
     taskChips: [],
     plan: null,

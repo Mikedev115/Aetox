@@ -838,7 +838,7 @@ async function restoreLiveTranscript(): Promise<void> {
       cockpit.parked[other] = {
         chat: [], awaitingReply: true, agentStatus: '', toolSteps: [],
         turnFiles: [], turnProposals: [], streamingText: '', reasoningText: '',
-        modelLoading: null, ask: null, todos: [], turnSpend: emptyTurnSpend(), queued: [],
+        modelLoading: null, ask: null, driving: null, todos: [], turnSpend: emptyTurnSpend(), queued: [],
       }
     }
   }
@@ -1078,6 +1078,7 @@ function parkLive(id: string): void {
     reasoningText: cockpit.reasoningText,
     modelLoading: cockpit.modelLoading,
     ask: cockpit.ask,
+    driving: cockpit.driving,
     todos: cockpit.todos,
     turnSpend: cockpit.turnSpend,
     // splice(0) moves rather than copies: the screen queue empties for the
@@ -1104,6 +1105,7 @@ function restoreLive(id: string): boolean {
   cockpit.reasoningText = held.reasoningText
   cockpit.modelLoading = held.modelLoading ?? null
   cockpit.ask = held.ask
+  cockpit.driving = held.driving ?? null
   cockpit.todos = held.todos
   cockpit.turnSpend = held.turnSpend
   // The question card that just came back on screen is this chat's — clicking
@@ -1149,6 +1151,10 @@ function clearLive(): void {
   cockpit.reasoningText = ''
   cockpit.modelLoading = null
   cockpit.ask = null
+  // The takeover strip belongs to the chat that raised it. Cleared here so it
+  // cannot follow the user into another conversation and claim their machine
+  // is being driven by one that is not driving anything.
+  cockpit.driving = null
   cockpit.todos = []
   // The meter is the arriving chat's, not the one being left. Without this it
   // followed the user across, and a brand-new conversation opened under a
@@ -2281,6 +2287,24 @@ export function applyAskUser(
   if (liveHome(eventSession(ev)) === (cockpit as unknown as ParkedTurn)) {
     askSession = eventSession(ev)
   }
+}
+
+// The takeover banner. Emitted by desktop/computer_tool.go when an acting
+// action takes the screen, and again with an empty window when it lets go.
+//
+// Written into the LIVE turn rather than onto cockpit, for the reason the
+// comment on the field gives: a banner that outlives its chat tells the user
+// their machine is being driven by a conversation that stopped. Parking it with
+// the rest of the turn state means switching chats shows the truth about each.
+export function applyDriving(
+  ev: SessionEvent<{ window: string; doing: string }> | { window: string; doing: string },
+): void {
+  const payload = forLiveTurn(ev)
+  if (payload === null) return
+  const on = !!payload.window
+  writeLive(eventSession(ev), (l) => {
+    l.driving = on ? { window: payload.window, doing: payload.doing ?? '' } : null
+  })
 }
 
 export function applyAskDone(ev?: SessionEvent<unknown> | unknown): void {

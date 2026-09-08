@@ -104,6 +104,10 @@ func (s *computerSkill) ToolDefinition() model.ToolDefinition {
 		"list_apps": "`list_apps` — the windows open on this machine right now: title and program.",
 		"read":      "`read` (window, filter?) — what is inside one window, each control tagged [n]; filter keeps only rows whose text contains it.",
 		"capture":   "`capture` (window?) — a picture of one window, nothing behind or in front of it.",
+		"focus":     "`focus` (window) — bring that window to the front.",
+		"click":     "`click` (ref) — press the control with that ref.",
+		"type":      "`type` (ref?, text?, keys?) — put text into that control, or send keys to whatever has focus.",
+		"close":     "`close` (window) — ask that window to close, the way its own × does.",
 	}
 	var b strings.Builder
 	b.WriteString("Use a program already running on this machine. Actions:\n")
@@ -122,6 +126,8 @@ func (s *computerSkill) ToolDefinition() model.ToolDefinition {
 			"window": map[string]any{"type": "string"},
 			"filter": map[string]any{"type": "string"},
 			"ref":    map[string]any{"type": "integer"},
+			"text":   map[string]any{"type": "string"},
+			"keys":   map[string]any{"type": "string"},
 		},
 		"required": []string{"action"},
 	})
@@ -148,6 +154,14 @@ func (s *computerSkill) Guidance(args map[string]any) string {
 		return "A picture of one window, taken by asking that window to draw itself — so nothing behind it, in front of it, " +
 			"or on your other monitors is in it. Use it when you need to see a layout, a chart or an image; " +
 			"use `read` when you need to know what the controls are, because a picture has no refs and cannot be clicked by."
+	case "focus", "click", "type", "close":
+		return "Acting takes the screen. The window is raised, the user sees a banner saying what is being done and can " +
+			"stop it, and no other chat may drive the machine until this call returns. So do one thing, look, and decide " +
+			"again: a long unattended run in somebody's own applications is the shape of this that goes wrong.\n" +
+			"Every ref expires the moment anything is pressed or typed, because the window redraws. Read again before " +
+			"the next action; a number from the round before points at whatever now sits in that slot.\n" +
+			"Never type a credential. A password field is refused, and anything a person would call a secret is theirs " +
+			"to type. `close` is a REQUEST: a program with unsaved work will answer it with a dialog rather than close."
 	}
 	return ""
 }
@@ -194,6 +208,14 @@ func (s *computerSkill) run(ctx context.Context, args map[string]any) (skill.Out
 		return s.read(ctx, start, cmd, str(args["window"]), str(args["filter"]))
 	case "capture":
 		return s.capture(ctx, start, cmd, str(args["window"]))
+	case "focus":
+		return s.focus(ctx, start, cmd, str(args["window"]))
+	case "click":
+		return s.click(ctx, start, cmd, intArg(args["ref"]))
+	case "type":
+		return s.typeInto(ctx, start, cmd, intArg(args["ref"]), str(args["text"]), str(args["keys"]))
+	case "close":
+		return s.closeWindow(ctx, start, cmd, str(args["window"]))
 	}
 	err = fmt.Errorf("computer %s is not implemented yet", action)
 	return failure(computerToolName, cmd, err, start), err
@@ -434,4 +456,264 @@ func failure(name, cmd string, err error, start time.Time) skill.Output {
 		Success:    false,
 		DurationMs: time.Since(start).Milliseconds(),
 	}
+}
+
+// ---------------------------------------------------------------------------
+// The acting half
+// ---------------------------------------------------------------------------
+
+// takeTheScreen is what every acting action passes and no reading action does.
+//
+// Three things happen here, in this order, and the order is the design:
+//
+//  1. **The lock.** One chat drives the machine at a time. Both rivals do this
+//     and both give the same reason: two agents clicking in one window produce
+//     a state neither predicted, and the second reports success for a click the
+//     first one's dialog swallowed.
+//  2. **The probe.** GetCursorPos is the cheapest question that fails exactly
+//     when there is no input desktop: a locked screen, a UAC prompt, a switched
+//     session. Asked BEFORE anything is attempted, so a locked machine is
+//     answered with the sentence about being locked rather than with the
+//     wreckage of a half-finished action.
+//  3. **The banner.** The owner chose the Codex-on-Windows model: an acting turn
+//     takes the screen, and the user is told so while it holds it. Announcing
+//     before the first action rather than after it is the whole point, because a
+//     person who sees their cursor move and reads about it afterwards has
+//     already had the fright.
+func (s *computerSkill) takeTheScreen(t reachTarget, doing string) error {
+	if err := s.app.screen.take(s.sessionID(), doing); err != nil {
+		return err
+	}
+	if _, _, err := reachCursor(); err != nil {
+		s.app.screen.release(s.sessionID())
+		return err
+	}
+	s.app.emitEvent("computer:driving", sessionEvent[map[string]any]{
+		SessionID: s.sessionID(),
+		Data:      map[string]any{"window": t.Label(), "doing": doing},
+	})
+	return nil
+}
+
+// releaseTheScreen is deferred by every acting action. It runs on the refusal
+// paths too, which is the case worth naming: a lock held by an action that was
+// refused is a chat that has quietly taken the machine away from every other
+// chat and will not give it back until the app restarts.
+func (s *computerSkill) releaseTheScreen() {
+	s.app.screen.release(s.sessionID())
+	s.app.emitEvent("computer:driving", sessionEvent[map[string]any]{
+		SessionID: s.sessionID(),
+		Data:      map[string]any{"window": "", "doing": ""},
+	})
+}
+
+func (s *computerSkill) sessionID() string {
+	if s.conv == nil {
+		return ""
+	}
+	return s.conv.id
+}
+
+func (s *computerSkill) focus(ctx context.Context, start time.Time, cmd, window string) (skill.Output, error) {
+	target, err := s.resolve(ctx, cmd, window)
+	if err != nil {
+		return failure(computerToolName, cmd, err, start), err
+	}
+	if err := s.takeTheScreen(target, "เรียกหน้าต่างขึ้นมา"); err != nil {
+		return failure(computerToolName, cmd, err, start), err
+	}
+	defer s.releaseTheScreen()
+
+	if err := reachFocusWindow(target.HWND); err != nil {
+		return failure(computerToolName, cmd, err, start), err
+	}
+	settle()
+	return success(computerToolName, cmd, fmt.Sprintf("เรียก %s ขึ้นมาหน้าสุดแล้ว", target.Label()), start), nil
+}
+
+// click presses the control a ref stands for.
+//
+// The window is not named: a ref only exists because a read made it, and that
+// read named the window. Asking for it again would be asking the model to
+// repeat something it cannot get wrong, and letting it name a DIFFERENT window
+// than the one the ref came from is a way to press the wrong thing that no
+// amount of care at the call site would catch.
+func (s *computerSkill) click(ctx context.Context, start time.Time, cmd string, ref int) (skill.Output, error) {
+	node, target, err := s.aim(ctx, cmd, ref)
+	if err != nil {
+		return failure(computerToolName, cmd, err, start), err
+	}
+	if err := s.takeTheScreen(target, "กด "+describeNode(node)); err != nil {
+		return failure(computerToolName, cmd, err, start), err
+	}
+	defer s.releaseTheScreen()
+
+	if err := reachFocusWindow(target.HWND); err != nil {
+		return failure(computerToolName, cmd, err, start), err
+	}
+	if err := reachClick(target.HWND, node.RuntimeID); err != nil {
+		return failure(computerToolName, cmd, err, start), err
+	}
+	settle()
+
+	// Refs are dead the moment something is pressed. Dropping the table here is
+	// what makes the next miss say "nothing has been read" instead of resolving
+	// a number against a window that has since redrawn, which is the difference
+	// between a clear refusal and a confident click on the wrong control.
+	s.refs.forget()
+	body := fmt.Sprintf("กด %s ใน %s แล้ว\nref ทั้งหมดหมดอายุแล้ว — `read` ใหม่ก่อนกดอย่างอื่น",
+		describeNode(node), target.Label())
+	return success(computerToolName, cmd, body, start), nil
+}
+
+// typeInto puts text into a control, or sends keys to whatever has focus.
+//
+// Two jobs in one action rather than two actions, and the reason is the
+// permission rather than the convenience: both are typing, and a user deciding
+// "Aetox may type in this program" has not thereby drawn a line between typing
+// a word and pressing ctrl+s. Splitting them would create a right nobody asked
+// for and nobody would understand.
+func (s *computerSkill) typeInto(ctx context.Context, start time.Time, cmd string, ref int, text, keys string) (skill.Output, error) {
+	keys = strings.TrimSpace(keys)
+	if ref <= 0 && keys == "" {
+		err := refuse("ไม่ได้บอกว่าจะพิมพ์ลงตรงไหน",
+			"ส่ง `ref` จากการ `read` เพื่อพิมพ์ลงช่องนั้น หรือส่ง `keys` เพื่อกดคีย์ลัดไปที่สิ่งที่กำลังโฟกัสอยู่")
+		return failure(computerToolName, cmd, err, start), err
+	}
+
+	// keys with no ref: a shortcut has no element to address, so the window it
+	// lands on is whichever this chat last read. Raised first, because a
+	// shortcut sent to a window nobody brought forward lands somewhere else
+	// entirely, and "somewhere else" on a real desktop is the user's own work.
+	if ref <= 0 {
+		target, err := s.pick("")
+		if err != nil {
+			return failure(computerToolName, cmd, err, start), err
+		}
+		if err := guardReach(true, int32(os.Getpid()), "type", target); err != nil {
+			return failure(computerToolName, cmd, err, start), err
+		}
+		if err := s.app.askReachApp(ctx, s.conv, target); err != nil {
+			return failure(computerToolName, cmd, err, start), err
+		}
+		if err := s.takeTheScreen(target, "กดคีย์ "+keys); err != nil {
+			return failure(computerToolName, cmd, err, start), err
+		}
+		defer s.releaseTheScreen()
+
+		if err := reachFocusWindow(target.HWND); err != nil {
+			return failure(computerToolName, cmd, err, start), err
+		}
+		if err := reachKeys(keys); err != nil {
+			return failure(computerToolName, cmd, err, start), err
+		}
+		settle()
+		s.refs.forget()
+		body := fmt.Sprintf("กด %s ไปที่ %s แล้ว\nref ทั้งหมดหมดอายุแล้ว — `read` ใหม่ก่อนทำอย่างอื่น", keys, target.Label())
+		return success(computerToolName, cmd, body, start), nil
+	}
+
+	node, target, err := s.aim(ctx, cmd, ref)
+	if err != nil {
+		return failure(computerToolName, cmd, err, start), err
+	}
+	// The password refusal is made here as well as inside reachType, and the
+	// duplication is deliberate: this one can answer without touching Windows at
+	// all, and the rule it enforces is a line the design does not cross rather
+	// than a check that happens to live somewhere.
+	if node.Password {
+		err := refuse("ช่องนี้เป็นช่องรหัสผ่าน Aetox ไม่พิมพ์รหัสผ่านให้", "บอกผู้ใช้ให้พิมพ์เอง")
+		return failure(computerToolName, cmd, err, start), err
+	}
+	if err := s.takeTheScreen(target, "พิมพ์ใน "+describeNode(node)); err != nil {
+		return failure(computerToolName, cmd, err, start), err
+	}
+	defer s.releaseTheScreen()
+
+	if err := reachFocusWindow(target.HWND); err != nil {
+		return failure(computerToolName, cmd, err, start), err
+	}
+	if err := reachType(target.HWND, node.RuntimeID, text); err != nil {
+		return failure(computerToolName, cmd, err, start), err
+	}
+	if keys != "" {
+		if err := reachKeys(keys); err != nil {
+			return failure(computerToolName, cmd, err, start), err
+		}
+	}
+	settle()
+
+	// Read back what the field holds now. This is the one place the tool can
+	// report what HAPPENED rather than what was attempted, and it is worth a
+	// round trip: a provider that silently truncates or reformats what it was
+	// given is common, and a model told "typed" would carry on believing the
+	// field says what it sent.
+	var b strings.Builder
+	fmt.Fprintf(&b, "พิมพ์ใน %s ของ %s แล้ว", describeNode(node), target.Label())
+	if got, err := reachReadBack(target.HWND, node.RuntimeID); err == nil {
+		fmt.Fprintf(&b, "\nตอนนี้ช่องนั้นมีค่า: %q", clip(got, 400))
+	}
+	b.WriteString("\nref ทั้งหมดหมดอายุแล้ว — `read` ใหม่ก่อนทำอย่างอื่น")
+	s.refs.forget()
+	return success(computerToolName, cmd, b.String(), start), nil
+}
+
+func (s *computerSkill) closeWindow(ctx context.Context, start time.Time, cmd, window string) (skill.Output, error) {
+	target, err := s.resolve(ctx, cmd, window)
+	if err != nil {
+		return failure(computerToolName, cmd, err, start), err
+	}
+	if err := s.takeTheScreen(target, "ปิดหน้าต่าง"); err != nil {
+		return failure(computerToolName, cmd, err, start), err
+	}
+	defer s.releaseTheScreen()
+
+	if err := reachCloseWindow(target.HWND); err != nil {
+		return failure(computerToolName, cmd, err, start), err
+	}
+	settle()
+	s.refs.forget()
+	// Deliberately not "closed". WM_CLOSE is a request, and a program with
+	// unsaved work answers it with a dialog. Reporting the request as the
+	// outcome is how a model comes to believe a document was closed while a
+	// "save changes?" box is still sitting on the user's screen.
+	body := fmt.Sprintf("ส่งคำขอปิดไปที่ %s แล้ว โปรแกรมอาจถามเรื่องบันทึกงานก่อน — `list_apps` เพื่อดูว่าปิดจริงไหม", target.Label())
+	return success(computerToolName, cmd, body, start), nil
+}
+
+// aim resolves a ref into the element and the window it belongs to, through
+// both doors. The window comes from the refs table rather than from the call,
+// which is what makes "read before act" structural.
+func (s *computerSkill) aim(ctx context.Context, cmd string, ref int) (reachNode, reachTarget, error) {
+	hwnd, _ := s.refs.window()
+	node, err := s.refs.lookup(hwnd, ref)
+	if err != nil {
+		return reachNode{}, reachTarget{}, err
+	}
+	target, err := reachFindWindow(hwnd)
+	if err != nil {
+		s.refs.forget()
+		return reachNode{}, reachTarget{}, err
+	}
+	if err := guardReach(true, int32(os.Getpid()), strings.TrimPrefix(cmd, computerToolName+" "), target); err != nil {
+		return reachNode{}, reachTarget{}, err
+	}
+	if err := s.app.askReachApp(ctx, s.conv, target); err != nil {
+		return reachNode{}, reachTarget{}, err
+	}
+	return node, target, nil
+}
+
+// describeNode names a control the way the user would point at it, so a receipt
+// says "pressed the Save button" rather than "pressed ref 7".
+func describeNode(n reachNode) string {
+	switch {
+	case n.Name != "" && n.Role != "":
+		return fmt.Sprintf("%s %q", n.Role, n.Name)
+	case n.Name != "":
+		return fmt.Sprintf("%q", n.Name)
+	case n.Role != "":
+		return n.Role
+	}
+	return fmt.Sprintf("ref %d", n.Ref)
 }

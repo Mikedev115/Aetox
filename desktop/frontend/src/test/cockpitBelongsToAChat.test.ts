@@ -91,6 +91,23 @@ const decided: Record<string, Kind> = {
   streamingText: 'parked-live', reasoningText: 'parked-live',
   modelLoading: 'parked-live', ask: 'parked-live', todos: 'parked-live',
   turnSpend: 'parked-live', task: 'parked-live',
+  // The takeover strip (computer tool). Parked rather than dropped, and the
+  // two wrong answers are worth naming because both look right.
+  //
+  // Dropped would be wrong: nothing on the engine side can be asked "is this
+  // chat driving something", so a strip dropped on the way out never comes
+  // back, and the user returns to a chat that is holding their machine with
+  // nothing on screen saying so.
+  //
+  // Left on cockpit would be worse: the strip would follow the user into
+  // another conversation and tell them THAT chat was driving a window, which
+  // is the exact shape of the three bugs at the top of this file.
+  //
+  // Parked is safe here for a reason that does not generalise: the strip only
+  // exists between takeTheScreen and its deferred release, both inside one
+  // tool call, so awaitingReply is true for the whole of its life and
+  // parkLive's gate can never miss it.
+  driving: 'parked-live',
 
   // ---- held in its own map ----
   // A prepared wording exists BECAUSE a turn ended, so it can never satisfy

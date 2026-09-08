@@ -1929,7 +1929,8 @@ func toolCallToArgs(name string, args map[string]any) []string {
 		if raw, ok := args["path"].(string); ok {
 			return []string{strings.TrimSpace(raw)}
 		}
-	case "computer_apps", "computer_read", "computer_capture":
+	case "computer_apps", "computer_read", "computer_capture",
+		"computer_focus", "computer_click", "computer_type", "computer_close":
 		// The window first, because that is what the permission is keyed on:
 		// a user's yes is per program (desktop/computer_permission.go), and the
 		// rule it writes matches on the first token. It is also what the

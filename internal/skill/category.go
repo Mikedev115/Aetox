@@ -168,6 +168,10 @@ var toolCategories = map[string]string{
 	"computer_apps":    CategoryShell,
 	"computer_read":    CategoryShell,
 	"computer_capture": CategoryShell,
+	"computer_focus":   CategoryShell,
+	"computer_click":   CategoryShell,
+	"computer_type":    CategoryShell,
+	"computer_close":   CategoryShell,
 
 	// Putting things in front of the user on their own desk, and seeing what is
 	// there. Filed under agent rather than files: these do not read or change a

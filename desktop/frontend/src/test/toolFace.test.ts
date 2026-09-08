@@ -53,7 +53,7 @@ describe('which family a tool belongs to', () => {
   // carries an underscore, and `skills_list` read as server `skills` doing
   // `list` would be a bridged tool that is not one.
   it('never reads a first-party underscore as a server', () => {
-    for (const name of ['web_search', 'shell_output', 'skills_list', 'todo_write', 'image_ocr', 'desk_close', 'computer_apps', 'computer_read', 'computer_capture']) {
+    for (const name of ['web_search', 'shell_output', 'skills_list', 'todo_write', 'image_ocr', 'desk_close', 'computer_apps', 'computer_read', 'computer_capture', 'computer_click', 'computer_type', 'computer_focus', 'computer_close']) {
       expect({ name, parts: mcpParts(name) }).toEqual({ name, parts: null })
     }
   })

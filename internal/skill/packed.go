@@ -215,11 +215,15 @@ var packs = map[string]*pack{
 	// browser_capture is held to.
 	"computer": {
 		tool:    "computer",
-		actions: []string{"list_apps", "read", "capture"},
+		actions: []string{"list_apps", "read", "capture", "focus", "click", "type", "close"},
 		names: map[string]string{
 			"list_apps": "computer_apps",
 			"read":      "computer_read",
 			"capture":   "computer_capture",
+			"focus":     "computer_focus",
+			"click":     "computer_click",
+			"type":      "computer_type",
+			"close":     "computer_close",
 		},
 	},
 	// The desk itself: the surface the user is looking at. Packed 2026-08-20 on

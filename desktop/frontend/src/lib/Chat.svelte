@@ -4949,6 +4949,21 @@
                 {@render planCard(cockpit.plan)}
               {/if}
             {/each}
+            <!-- The takeover strip. Raised before the first acting call touches
+                 anything and lowered when it returns, so a person reads that
+                 their machine is being driven BEFORE the window jumps to the
+                 front rather than after. Codex-on-Windows takes the whole
+                 desktop for the length of a task; ours takes it for the length
+                 of one action, and this is how the user knows which. Stop is
+                 the composer's existing button, so the strip states the fact
+                 and does not invent a second control for it. -->
+            {#if cockpit.driving}
+              <div class="driving-strip" role="status">
+                <Icon name="monitor" size={13} />
+                <span class="driving-what">{cockpit.driving.doing}</span>
+                <span class="driving-where">{cockpit.driving.window}</span>
+              </div>
+            {/if}
             {#if cockpit.ask}
               <div class="ask-panel">
                 <div class="ask-q">{cockpit.ask.question}</div>

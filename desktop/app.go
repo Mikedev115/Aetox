@@ -241,6 +241,13 @@ type App struct {
 	// closing it) and never held across anything slow.
 	askMu sync.Mutex
 
+	// screen is which chat, if any, is currently driving programs on the
+	// machine (computer_guard.go). On the App rather than on a conversation
+	// because the thing it protects is the machine, and there is one of those:
+	// two chats clicking in one window produce a state neither of them
+	// predicted. Held for the length of an acting call, never for a session.
+	screen screenLock
+
 	mcp *mcp.Manager // configured MCP servers; built once, shared by every conversation
 
 	// When each engine's start command was fired, so a second call cannot start

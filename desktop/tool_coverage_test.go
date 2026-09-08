@@ -803,6 +803,19 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 		// rather than leaking a Win32 error.
 		"computer_read":    {args: map[string]any{"window": "Notepad"}, available: never, why: "needs a named window open on this machine"},
 		"computer_capture": {args: map[string]any{"window": "Notepad"}, available: never, why: "needs a named window open on this machine"},
+		// The acting four. Never runnable from a test, and the reason is not that
+		// they need a window: it is that they would DRIVE one. A test suite that
+		// clicks in whatever application happens to be open on the machine running
+		// it is a test suite that types into somebody real work.
+		//
+		// What stays checked is what matters most here: each is routed and each
+		// refuses in words. Every one of them refuses without touching Windows at
+		// all, because the switch is off in this environment and that is the first
+		// question the tool asks.
+		"computer_focus": {args: map[string]any{"window": "Notepad"}, available: never, why: "would drive a real window"},
+		"computer_click": {args: map[string]any{"ref": 1}, available: never, why: "would drive a real window"},
+		"computer_type":  {args: map[string]any{"ref": 1, "text": "x"}, available: never, why: "would drive a real window"},
+		"computer_close": {args: map[string]any{"window": "Notepad"}, available: never, why: "would drive a real window"},
 		// wait, back and dialog all need a live page, and all refuse in words
 		// before they touch the engine — which is the behaviour worth having
 		// reachable here even though none of them can run.
