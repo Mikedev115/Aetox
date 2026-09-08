@@ -65,7 +65,7 @@ type Config struct {
 	// the setting exists to move off that rather than to enable it.
 	ImageEngine    string
 	ImageModelName string
-	TTSModelName    string
+	TTSModelName   string
 	// UILocale is the language the desktop UI is showing ("th", "en"). The
 	// engine has no business with language — the one exception is Aetox's own
 	// built-in provider, which is an onboarding surface wearing a Provider
@@ -262,6 +262,14 @@ type ModelPreference struct {
 	// in the background on its own schedule, this one only ever spends on a turn
 	// the user just watched finish and puts the result under their cursor.
 	PreparedReplyOff bool `json:"prepared_reply_off,omitempty"`
+	// ComputerControlOn is the master switch for `computer` — driving programs
+	// on the machine that Aetox did not start (docs/architecture/computer-use-2026-09-07.md).
+	// Positive, so absent means OFF, and that is the whole point rather than a
+	// default chosen for tidiness: this is the first reach that acts on a
+	// surface the user did not choose to show us, and both of the products it
+	// was studied against ship theirs off for the same reason. A user who has
+	// never heard of it has never granted it.
+	ComputerControlOn bool `json:"computer_control_on,omitempty"`
 	// The assistant's reach: one switch per kind, plus the per-worker trim. Each
 	// is spelled so that ABSENT means what the product ships — the same rule
 	// LearningDisabled above follows, applied twice with opposite answers.
@@ -758,6 +766,63 @@ func LoadPermissions() (safety.PermissionConfig, error) {
 		return safety.PermissionConfig{}, err
 	}
 	return cfg, nil
+}
+
+// permMu serialises the read-modify-write below, the same way prefMu does for
+// the preference file. Two windows answering two approval cards at the same
+// moment would otherwise each write the list they read before the other's
+// answer, and one grant would vanish with no error anywhere.
+var permMu sync.Mutex
+
+// SavePermissions writes the user's per-tool permission rules.
+//
+// New in the computer-control work, and worth saying why it did not exist
+// before: until now every rule in permissions.json was either hand-written by
+// the user or generated at boot by bootstrap for a configured MCP server.
+// Nothing in the app had ever turned a user's answer into a durable rule. The
+// house rule that made it necessary is desktop/workspace.go:186 — "there is
+// deliberately no 'allow once': a right that is not on the list is a right the
+// panel has stopped describing." A yes on an approval card has to land
+// somewhere the user can see it and take it back, and this is that somewhere.
+//
+// Write-then-rename for the reason saveModelPreferenceFile gives.
+func SavePermissions(cfg safety.PermissionConfig) error {
+	path, err := PermissionsPath()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	payload, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, payload, 0o600); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+// UpdatePermissions reads, mutates and writes the rule list under one lock.
+// Every caller that adds or removes a grant goes through here rather than
+// pairing Load with Save itself, so the read-modify-write is never split.
+func UpdatePermissions(mutate func(*safety.PermissionConfig) error) error {
+	permMu.Lock()
+	defer permMu.Unlock()
+	cfg, err := LoadPermissions()
+	if err != nil {
+		return fmt.Errorf("permissions file unreadable, leaving it as is: %w", err)
+	}
+	if err := mutate(&cfg); err != nil {
+		return err
+	}
+	return SavePermissions(cfg)
 }
 
 // MCPServerConfig is the persisted, provider-agnostic description of one MCP

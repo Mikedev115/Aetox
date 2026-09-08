@@ -91,16 +91,9 @@ type iUnknownVtbl struct {
 	Release        comProc
 }
 
-// hresult carries a COM failure with its code intact, so computer_errors.go can
-// tell "you are not allowed" from "that element is gone" instead of collapsing
-// both into the word `failed` — which is precisely what made the old tool
-// undebuggable from a transcript.
-type hresult struct {
-	code uint32
-	what string
-}
-
-func (h hresult) Error() string { return fmt.Sprintf("%s: HRESULT %#08x", h.what, h.code) }
+// hresult and the HRESULT constants live in computer_errors.go: the code is the
+// input to a decision made there, and that file compiles on every platform so
+// the decision can be tested on every platform.
 
 func hrOK(hr uintptr) bool { return int32(uint32(hr)) >= 0 }
 
@@ -110,17 +103,6 @@ func hrErr(what string, hr uintptr) error {
 	}
 	return hresult{code: uint32(hr), what: what}
 }
-
-// Well-known HRESULTs this code reasons about by name rather than by number.
-const (
-	hrElementNotAvailable = 0x80040201 // UIA_E_ELEMENTNOTAVAILABLE
-	hrElementNotEnabled   = 0x80040200 // UIA_E_ELEMENTNOTENABLED
-	hrNoClickablePoint    = 0x80040202 // UIA_E_NOCLICKABLEPOINT
-	hrNotSupported        = 0x80040204 // UIA_E_NOTSUPPORTED
-	hrAccessDenied        = 0x80070005 // E_ACCESSDENIED
-	hrInvalidArg          = 0x80070057 // E_INVALIDARG
-	hrNoInterface         = 0x80004002 // E_NOINTERFACE
-)
 
 // ---------------------------------------------------------------------------
 // GUIDs
