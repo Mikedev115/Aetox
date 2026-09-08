@@ -243,3 +243,55 @@ func TestFormatBrowserReadMarksTheKeyboardSinkAndItsProxies(t *testing.T) {
 		t.Errorf("an ordinary element carries no mark, got:\n%s", got)
 	}
 }
+
+// The list of what counts as a control, and the reason it grew on 8 ก.ย.
+//
+// A page written in a component framework builds its controls out of ARIA
+// roles on plain elements: Angular Material's tab is `<div role="tab">` round
+// a `<span>`. The old list was the HTML controls plus role=button and
+// role=link, so a tab was in no read, had no ref, could not be clicked by name
+// — and could not be drawn on a marked capture either, because marks draw what
+// a read stamped. Measured on material.angular.dev the same day: the old list
+// saw 69 controls on the tabs page and every tab on it was invisible to the
+// agent.
+func TestTheInteractiveSelectorSeesAComponentFrameworksControls(t *testing.T) {
+	parts := map[string]bool{}
+	for _, p := range strings.Split(interactiveSel, ",") {
+		parts[strings.TrimSpace(p)] = true
+	}
+
+	// Things a person presses, picks, ticks or types into.
+	for _, want := range []string{
+		`a[href]`, `button`, `input`, `select`, `textarea`, `[contenteditable="true"]`,
+		`[role="button"]`, `[role="link"]`, `[role="tab"]`, `[role="checkbox"]`,
+		`[role="switch"]`, `[role="menuitem"]`, `[role="option"]`, `[role="combobox"]`,
+		`[role="textbox"]`, `[role="treeitem"]`, `svg text`,
+	} {
+		if !parts[want] {
+			t.Errorf("a control the agent cannot reach: %s is not in interactiveSel", want)
+		}
+	}
+
+	// Containers are not controls. Listing one would put a ref — and, on a
+	// marked capture, a box — round a group and everything inside it.
+	for _, unwanted := range []string{
+		`[role="tablist"]`, `[role="listbox"]`, `[role="menu"]`, `[role="group"]`,
+		`[role="navigation"]`, `[role="list"]`, `div`, `span`, `[tabindex]`,
+	} {
+		if parts[unwanted] {
+			t.Errorf("%s is a container, not a control — it would wrap everything inside it in a ref", unwanted)
+		}
+	}
+}
+
+// One list, two readers. They were two copies until the roles above were added,
+// and widening one would have left the page's own count of its controls
+// answering the question the other had stopped asking.
+func TestBothReadersAskTheSameQuestionAboutWhatAControlIs(t *testing.T) {
+	if !strings.Contains(textScript("tok", ""), interactiveSel) {
+		t.Error("textScript does not use interactiveSel — a read judges controls by a list of its own")
+	}
+	if !strings.Contains(aetoxPointJS, interactiveSel) {
+		t.Error("aetoxCountInteractive does not use interactiveSel — the page's own count is of something else")
+	}
+}

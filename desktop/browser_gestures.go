@@ -184,14 +184,14 @@ func (a *App) findByText(id AgentTabID, text string) (int, error) {
 		}
 		if answered && res.Count > 1 {
 			var b strings.Builder
-			fmt.Fprintf(&b, "มี %d ที่บนหน้าที่มีข้อความ %q ไม่มีตัวไหนเป็นปุ่มหรือช่องกรอก และเลือกไม่ได้ว่าตัวไหน — ใช้ข้อความที่ยาวขึ้นให้เหลือหนึ่ง หรือ capture แล้วเล็งด้วย x,y:", res.Count, text)
+			fmt.Fprintf(&b, "มี %d ที่บนหน้าที่มีข้อความ %q ไม่มีตัวไหนเป็นปุ่มหรือช่องกรอก และเลือกไม่ได้ว่าตัวไหน — ใช้ข้อความที่ยาวขึ้นให้เหลือหนึ่ง หรือ capture marks=true แล้วกดด้วย ref ที่เห็นในภาพ (ถ้าสิ่งที่ต้องการไม่มีเลขกำกับ แปลว่าหน้านี้วาดเอง ค่อยเล็งด้วย x,y):", res.Count, text)
 			for _, m := range res.Matches {
 				b.WriteString("\n- " + m)
 			}
 			return 0, errors.New(b.String())
 		}
 		if time.Now().After(deadline) {
-			return 0, fmt.Errorf("ไม่มีข้อความ %q บนหน้านี้ (รอ %s แล้ว) — read ดูว่ามีอะไรบ้าง หรือใช้ข้อความอื่น", text, findWait)
+			return 0, fmt.Errorf("ไม่มีข้อความ %q บนหน้านี้ (รอ %s แล้ว) — read ดูว่ามีอะไรบ้าง ใช้ข้อความอื่น หรือ capture marks=true เพื่อเห็นของที่กดได้พร้อมเลข ref", text, findWait)
 		}
 		time.Sleep(250 * time.Millisecond)
 	}

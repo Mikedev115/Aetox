@@ -448,6 +448,45 @@ const aetoxCanvasJS = `
   }
 `
 
+// interactiveSel is what counts as a control, in one place.
+//
+// There were two copies of this string until 8 ก.ย. — textScript's and
+// aetoxCountInteractive's — which is the second-place-answering-one-question
+// this file's neighbours keep warning about. Widening one and not the other
+// would have left the page's own count of controls answering the old question
+// while `read` answered the new one.
+//
+// **The ARIA roles below are the change, and they are not a nicety.** The list
+// was the HTML controls plus role=button and role=link, which is every control
+// a page written in HTML has and about half the controls a page written in a
+// component framework has. Angular Material — which is Google's entire product
+// line, so Docs, Sheets, and NotebookLM — builds a tab as `<div role="tab">`
+// wrapping a `<span class="mdc-tab__text-label">`. Neither matched, so the tab
+// was in no read, had no ref, and could not be clicked by name.
+//
+// What that cost, from the owner's log of 8 ก.ย. 14:37: `click find:"เว็บไซต์"`
+// refused (no such text), `read` (the control is not in it), `click
+// find:"แหล่งข้อมูล"` refused with ten non-interactive text nodes listed —
+// including `span.mdc-tab__text-label "แหล่งข้อมูล"`, the label of the very tab
+// that was wanted — then `capture`, then `click x:114,y:119` measured off the
+// picture by eye. Five calls and a coordinate to press a tab, and the repeat
+// detector filed the failure as a tool that keeps breaking the same way.
+//
+// It is also why `capture marks=true` would NOT have rescued that turn: marks
+// draw the refs a read stamped, so they inherit this list's blind spots exactly.
+// A control that is in no read is in no picture either.
+//
+// Everything added is a role that IS a control by definition — something a
+// person presses, picks, ticks or types into. Roles that only describe
+// structure (tablist, menu, listbox, group) stay out: they contain controls,
+// they are not controls, and listing them would put a box round the container
+// and its contents both.
+const interactiveSel = `a[href],button,input,select,textarea,[contenteditable="true"],` +
+	`[role="button"],[role="link"],[role="tab"],[role="checkbox"],[role="radio"],` +
+	`[role="switch"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],` +
+	`[role="option"],[role="combobox"],[role="textbox"],[role="searchbox"],` +
+	`[role="slider"],[role="spinbutton"],[role="treeitem"],svg text`
+
 // textScript reads page text and, in the same pass, tags every visible
 // interactive element with a data-aetox-ref so browser_click/browser_type can
 // target it later. Refs are reassigned fresh each call.
@@ -474,7 +513,7 @@ func textScript(token, filter string) string {
      Google Slides, diagrams — where a title placeholder is a <text> node
      and nothing else on the page names it. innerText is an HTMLElement
      property, so the label below falls through to textContent for these. */
-  var sel='a[href],button,input,select,textarea,[role="button"],[role="link"],[contenteditable="true"],svg text';
+  var sel='%s';
   /* Stale refs from the previous read are cleared first, in every root. A
      filtered read tags far fewer nodes than an unfiltered one, so without this
      a ref could resolve to a node the last read tagged and this one did not. */
@@ -526,7 +565,7 @@ func textScript(token, filter string) string {
   var text=aetoxText();
   var cv=aetoxCanvas(roots);
   %s(JSON.stringify({__aetox:"text",token:%q,title:document.title,url:location.href,text:text.slice(0,200000),elements:out,images:imgs,elementsTotal:elTotal,imagesTotal:imgTotal,frames:scan.blocked,canvasShare:cv.share,canvasCount:cv.count}));
-})()`, aetoxScanJS, aetoxTextJS, aetoxCanvasJS, aetoxTypeModeJS, mustJSONString(filter), bridgePost, token)
+})()`, aetoxScanJS, aetoxTextJS, aetoxCanvasJS, aetoxTypeModeJS, mustJSONString(filter), interactiveSel, bridgePost, token)
 }
 
 // browserActResult is what a click or a type says about the element it was
@@ -699,7 +738,7 @@ const aetoxPointJS = `
   }
   function aetoxCountInteractive(){
     var roots=aetoxScan().roots,n=0;
-    var sel='a[href],button,input,select,textarea,[role="button"],[role="link"],[contenteditable="true"],svg text';
+    var sel='` + interactiveSel + `';
     for(var i=0;i<roots.length;i++){try{n+=roots[i].querySelectorAll(sel).length;}catch(e){}}
     return n;
   }
