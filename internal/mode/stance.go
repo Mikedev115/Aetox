@@ -114,6 +114,18 @@ var planKeeps = map[string]bool{
 	// so any of these is one line whenever it is decided on.
 	"browser_open": true, "browser_read": true, "browser_wait": true,
 	"browser_back": true, "browser_console": true, "browser_network": true,
+	// The machine's windows, the looking half only. Same cut as the browser's
+	// one line up and made for the same reason: a plan has to be able to SEE
+	// what is on the machine — which program is open, what a dialog is asking —
+	// or it plans blind. What it may not do is press anything, so `computer_apps`
+	// and `computer_read` are here and the acting actions are not.
+	//
+	// `computer_capture` is absent on purpose, and the reason is browser_capture's
+	// exactly: "may read this window" and "may see it" are different grants, and
+	// a picture carries whatever else the window happens to be showing. An
+	// allow-list fails safe by leaving something out, so it is one line whenever
+	// it is decided on.
+	"computer_apps": true, "computer_read": true,
 	// Reading code and repositories. `repo_map` is the shape of a project for
 	// about a thousand tokens, which is the single most useful thing a plan can
 	// be built on and was missing here only because it landed after this list

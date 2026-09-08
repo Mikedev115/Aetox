@@ -4541,6 +4541,11 @@ func (a *App) everySessionSkills(conv *conversation, sandboxRoot string) []skill
 		// The four old names are still what `tools:` and `categories:` speak —
 		// they moved from being tools to being the actions' permission keys.
 		&browserSkill{app: a, conv: conv},
+		// One tool for programs on this machine that Aetox did not start, three
+		// actions inside it (computer_tool.go). Off until the user turns it on
+		// in settings; the tool is registered either way so a model that reaches
+		// for it is told the switch exists rather than that the tool does not.
+		newComputerSkill(a, conv),
 		// One tool for making a video, three actions inside it (video_tool.go).
 		// Here rather than in defaults.go because it needs the app: the project
 		// root, and the same DataRoot lookups the readiness panel uses.

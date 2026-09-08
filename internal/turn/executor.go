@@ -1929,6 +1929,17 @@ func toolCallToArgs(name string, args map[string]any) []string {
 		if raw, ok := args["path"].(string); ok {
 			return []string{strings.TrimSpace(raw)}
 		}
+	case "computer_apps", "computer_read", "computer_capture":
+		// The window first, because that is what the permission is keyed on:
+		// a user's yes is per program (desktop/computer_permission.go), and the
+		// rule it writes matches on the first token. It is also what the
+		// approval prompt shows, which is the same thing said twice on purpose —
+		// "Aetox may use Notepad" is a question a person can answer, and the
+		// action word next to it is not.
+		if raw, ok := args["window"].(string); ok && strings.TrimSpace(raw) != "" {
+			return []string{strings.TrimSpace(raw)}
+		}
+		return nil
 	case "grep":
 		result := make([]string, 0, 2)
 		if raw, ok := args["pattern"].(string); ok && strings.TrimSpace(raw) != "" {

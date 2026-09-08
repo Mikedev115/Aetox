@@ -333,6 +333,29 @@ func AssessCommand(skillName string, args []string) Assessment {
 				Reason:    "plugin install can write files outside the repository",
 			}
 		}
+		// Reaching a program on this machine that Aetox did not start
+		// (desktop/computer_tool.go). RiskHigh on every action including the
+		// reading ones, and the reason the reading ones count is the whole
+		// difference between this and the browser: a page Aetox opened is a
+		// page it chose, and a window somebody else has open is a surface the
+		// user never offered — it may be their bank, their messages, a document
+		// they are halfway through. Looking at one is an act.
+		//
+		// EffectTouchOutsideWorkspace so `unsafe-only` prompts for it too. A
+		// user who narrowed approvals to "only the dangerous things" has not
+		// thereby said yes to Aetox reading their other windows.
+		//
+		// Written explicitly rather than left to the catch-all below, which
+		// answers RiskLow with no effects and therefore no prompt at all — the
+		// exact accident that let a writing tool skip its approval in §75.
+		if strings.HasPrefix(skillName, "computer_") || skillName == "computer" {
+			return Assessment{
+				SkillName: skillName,
+				Risk:      RiskHigh,
+				Effects:   []Effect{EffectTouchOutsideWorkspace},
+				Reason:    "reaches a program on this machine that Aetox did not start",
+			}
+		}
 		// All github_* skills are read-only API calls (plugin_install, the
 		// one that writes, is handled above this branch).
 		if strings.HasPrefix(skillName, "github_") {

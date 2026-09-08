@@ -155,6 +155,20 @@ var toolCategories = map[string]string{
 	"browser_click": CategoryWeb,
 	"browser_type":  CategoryWeb,
 
+	// Programs already running on this machine (desktop/computer_tool.go). Shell
+	// rather than web, and the choice decides which desks get it: `shell` means
+	// "reaches the machine", which is exactly what driving somebody else's
+	// window is, and it keeps the tool off the specialized desk — the desk whose
+	// job is producing a document has no business clicking around in Excel.
+	//
+	// All four spellings listed, the same reason the browser's are: a desk or a
+	// profile narrows with the action names, and an unlisted one falls to
+	// CategoryAgent, which every desk carries — quietly widening the narrower.
+	"computer":         CategoryShell,
+	"computer_apps":    CategoryShell,
+	"computer_read":    CategoryShell,
+	"computer_capture": CategoryShell,
+
 	// Putting things in front of the user on their own desk, and seeing what is
 	// there. Filed under agent rather than files: these do not read or change a
 	// file, they change what the person is looking at — which is the same kind

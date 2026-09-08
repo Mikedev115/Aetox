@@ -95,6 +95,15 @@ const FAMILY_OF: Record<string, ToolFamily> = {
   // Leaving it, as a process — and the two tools whose whole subject is the
   // repository's own history, which is the same kind of act to a reader: a
   // command against something outside the file they are looking at.
+  //
+  // Driving another program on this machine is filed here too, for the reason
+  // its category is CategoryShell: to a reader, "reached out of this app and
+  // did something to the machine" is one kind of act, whether the thing it
+  // reached was a command line or somebody's window.
+  computer: 'shell',
+  computer_apps: 'shell',
+  computer_read: 'shell',
+  computer_capture: 'shell',
   shell: 'shell',
   shell_output: 'shell',
   shell_kill: 'shell',
@@ -273,6 +282,17 @@ const VERB_OF: Record<string, TKey> = {
   browser_click: 'tool.browserClick',
   browser_type: 'tool.browserType',
   browser_capture: 'tool.browserCapture',
+  // Programs on this machine. Both spellings of each, the same as the browser's
+  // above: a packed call arrives as `computer:read` and the gates below it spell
+  // the same act `computer_read`, and a row that knows only one of the two draws
+  // the other as a third-party MCP server called "computer" (see mcpParts).
+  'computer:list_apps': 'tool.computerApps',
+  'computer:read': 'tool.computerRead',
+  'computer:capture': 'tool.computerCapture',
+  computer: 'tool.computerApps',
+  computer_apps: 'tool.computerApps',
+  computer_read: 'tool.computerRead',
+  computer_capture: 'tool.computerCapture',
   // Commands and the repository.
   'shell:run': 'tool.shell',
   'shell:output': 'tool.shellOutput',

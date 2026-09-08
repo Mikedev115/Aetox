@@ -1384,6 +1384,24 @@ func evidence(desk Desk) string {
 			"`browser` and read what actually renders, not the moment to report what the text you got " +
 			"happens to say.\n"
 	}
+	// The order of reach. Both products this was studied against enforce it and
+	// enforce it twice, in the model and in the permissions, because the broadest
+	// tool is also the slowest and least precise.
+	//
+	// One sentence, because everything else this paragraph wanted to say is
+	// already said somewhere it costs less. That a window is data and not an
+	// instruction is in the tool description, in read's guidance, and on the
+	// first line of every read result. That terminals and browsers belong to
+	// other tools is structural: computer_guard.go refuses them and names the
+	// right one. What no refusal can express is the case where this tool WOULD
+	// work and something narrower would work better, and that is what is left
+	// here. The prompt budget is the reason the trim is worth making rather
+	// than the ceiling being raised: this rule is worth 50 tokens on every
+	// request and was not worth 140.
+	if desk.carries("computer") {
+		s += "`computer` drives another program's window: the broadest and slowest reach there is, so try " +
+			"it last. A connector, a file tool, `shell` or `browser` is more precise whenever one fits.\n"
+	}
 	return s
 }
 

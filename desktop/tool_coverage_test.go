@@ -249,6 +249,17 @@ func assertModelSurfaceIsIntact(t *testing.T, registry *skill.Registry, dispatch
 
 // runTool calls the dispatcher exactly the way turn/executor.go does, under a
 // deadline so a hung tool fails the test instead of the suite.
+// mustSwitchOnComputer turns the computer-control switch on for the one case
+// that needs it. It writes to the isolated data root isolateUserDirs set up,
+// so nothing here can reach the preference file of the person running the test.
+func mustSwitchOnComputer(t *testing.T, a *App) {
+	t.Helper()
+	if err := a.SetComputerControlOn(true); err != nil {
+		t.Fatalf("could not turn computer control on for the test: %v", err)
+	}
+	t.Cleanup(func() { _ = a.SetComputerControlOn(false) })
+}
+
 func runTool(t *testing.T, d *skill.Dispatcher, app *App, name string, tc toolCase) skill.Output {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
@@ -477,8 +488,19 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 				"why":   "เปิดไฟล์ .xlsx แล้วไม่มีโปรแกรมรับ",
 			},
 			check: func(t *testing.T, out skill.Output, _ string) {
-				if !strings.Contains(out.Content, "approve") {
-					t.Errorf("memory receipt should say it is waiting for approval: %q", out.Content)
+				// Aetox never lists itself. Not merely refused when aimed at:
+				// absent, so a model never spends a turn finding out it may not.
+				//
+				// Matched on the PROGRAM in parentheses, never on the title. The
+				// first version of this check searched the whole output and fired
+				// on a Chrome window whose page happened to be about Aetox, which
+				// is the same mistake in miniature that the whole tool is built to
+				// avoid: a title is what somebody else wrote, a program name is what
+				// Windows reports.
+				for name := range reachSelfNames {
+					if strings.Contains(strings.ToLower(out.Content), "("+name+")") {
+						t.Errorf("list_apps offered a window belonging to %s: %s", name, out.Content)
+					}
 				}
 			},
 		},
@@ -744,6 +766,43 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 		// and a list that answers "you have not opened anything" is exactly
 		// right for a test with no browser.
 		"browser_tabs": {args: map[string]any{"act": "list"}, check: outputContains("open")},
+
+		// The three seeing actions of `computer`.
+		//
+		// list_apps runs for real, with the switch turned on first: the feature
+		// ships off, and a case that only proved the off-refusal would never touch
+		// Win32 at all. isolateUserDirs has already pointed the data root at a temp
+		// dir, so the switch goes on in a preference file thrown away with the test
+		// and never in the one belonging to whoever is running it.
+		//
+		// An empty desktop answers "no other windows are open" and still succeeds,
+		// which is what keeps this runnable on a build agent.
+		"computer_apps": {
+			args:  map[string]any{},
+			setUp: func(t *testing.T, a *App) { mustSwitchOnComputer(t, a) },
+			check: func(t *testing.T, out skill.Output, _ string) {
+				// Aetox never lists itself. Not merely refused when aimed at:
+				// absent, so a model never spends a turn finding out it may not.
+				//
+				// Matched on the PROGRAM in parentheses, never on the whole
+				// output. The first version of this check searched for the word
+				// anywhere and fired on a Chrome window whose page happened to
+				// be about Aetox — the same mistake in miniature that the tool
+				// itself is built to avoid, since a title is what somebody else
+				// wrote and a program name is what Windows reports.
+				for name := range reachSelfNames {
+					if strings.Contains(strings.ToLower(out.Content), "("+name+")") {
+						t.Errorf("list_apps offered a window belonging to %s: %s", name, out.Content)
+					}
+				}
+			},
+		},
+		// read and capture need a window that exists, and no third-party window is
+		// guaranteed on a build agent. What stays checked is what a test without one
+		// can check: they are routed, they come back, and they refuse in words
+		// rather than leaking a Win32 error.
+		"computer_read":    {args: map[string]any{"window": "Notepad"}, available: never, why: "needs a named window open on this machine"},
+		"computer_capture": {args: map[string]any{"window": "Notepad"}, available: never, why: "needs a named window open on this machine"},
 		// wait, back and dialog all need a live page, and all refuse in words
 		// before they touch the engine — which is the behaviour worth having
 		// reachable here even though none of them can run.

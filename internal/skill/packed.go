@@ -195,6 +195,33 @@ var packs = map[string]*pack{
 			"plan":    "task_plan",
 		},
 	},
+	// Programs on the machine that Aetox did not start
+	// (docs/architecture/computer-use-2026-09-07.md). Packed for the reason the
+	// browser is: another whole entry in the tool block, sent on every request
+	// of every session, is what a new capability must not cost.
+	//
+	// No fallback, deliberately. `shell` has one because the model had been
+	// calling it bare for months; this tool has no history and no dominant
+	// action, and the harmless-direction argument `plan` uses does not apply
+	// either — the two reading actions answer genuinely different questions
+	// (what the controls are vs what it looks like), so guessing between them
+	// wastes a turn either way.
+	//
+	// The cut inside is the whole point, and it is `plan`'s case again. Every
+	// action here is one a desk grants together, but the STANCE has to divide
+	// them: วางแผน may look at a window and may not press anything in one.
+	// `capture` is its own right rather than riding on `read` — "may read this
+	// window" and "may see it" are different grants, the same distinction
+	// browser_capture is held to.
+	"computer": {
+		tool:    "computer",
+		actions: []string{"list_apps", "read", "capture"},
+		names: map[string]string{
+			"list_apps": "computer_apps",
+			"read":      "computer_read",
+			"capture":   "computer_capture",
+		},
+	},
 	// The desk itself: the surface the user is looking at. Packed 2026-08-20 on
 	// the owner's call — "desk นี่ไงที่ผมอยากแพ็ค" — and it is the clearest
 	// one-object case left, because a desk is one object by definition.

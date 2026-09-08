@@ -209,7 +209,14 @@ func TestEveryDeclaredActionIsWiredToAnImplementation(t *testing.T) {
 			// same reason: a plan is keyed to a conversation and stored in the
 			// app's database, and neither of those exists in a registry this
 			// package can build.
-			if tool == "browser" || tool == "desk" || tool == "video" || tool == "task" || tool == "plan" {
+			//
+			// `computer` joined on 2026-09-09, and its reason is the strongest
+			// of the set: it reaches windows belonging to other programs through
+			// COM, so it is desktop-hosted twice over — by the app it needs and
+			// by the operating system it only exists on. Its per-action routing
+			// is driven for real in desktop/tool_coverage_test.go, and its COM
+			// layer walks a live accessibility tree in desktop/uia_windows_test.go.
+			if tool == "browser" || tool == "desk" || tool == "video" || tool == "task" || tool == "plan" || tool == "computer" {
 				continue
 			}
 			t.Errorf("%s is declared as a pack but is not registered", tool)
