@@ -245,3 +245,94 @@ func TestTodoWriteEmptyListClears(t *testing.T) {
 		t.Fatalf("empty list receipt wrong: %q", out.Content)
 	}
 }
+
+// The shape a model actually sent, three calls running, each rejected for
+// having no question — while carrying one.
+//
+// Anthropic-trained models know AskUserQuestion, whose arguments nest a list of
+// questions, each with its own options. Handed a field named "options", the
+// model put that list in it. Nothing was missing; it was one level down.
+func TestAskUserReadsTheNestedQuestionShape(t *testing.T) {
+	// Verbatim from the failure card (owner, 8 ก.ย. 2026), minus the truncation.
+	question, options := askArgs(map[string]any{
+		"options": []any{
+			map[string]any{
+				"question": "จะให้ช่วยเรื่อง MacBook Air แบบไหนดีครับ",
+				"header":   "MacBook Air",
+				"options": []any{
+					"อยากรู้สเปก/ราคา MacBook Air รุ่นล่าสุด เทียบรุ่น",
+					"กำลังจะซื้อ อยากได้คำแนะนำเลือกรุ่น",
+				},
+			},
+		},
+	})
+	if question != "จะให้ช่วยเรื่อง MacBook Air แบบไหนดีครับ" {
+		t.Fatalf("question not found one level down: %q", question)
+	}
+	if len(options) != 2 || options[0] != "อยากรู้สเปก/ราคา MacBook Air รุ่นล่าสุด เทียบรุ่น" {
+		t.Fatalf("options not found one level down: %#v", options)
+	}
+}
+
+// AskUserQuestion's own field names, used verbatim: `questions` at the top and
+// {label, description} for each choice. The label is the clickable half.
+func TestAskUserReadsLabelledOptions(t *testing.T) {
+	question, options := askArgs(map[string]any{
+		"questions": []any{
+			map[string]any{
+				"question": "ลบไฟล์เก่าทิ้งไหม",
+				"options": []any{
+					map[string]any{"label": "ลบเลย", "description": "กู้คืนไม่ได้"},
+					map[string]any{"label": "เก็บไว้ก่อน", "description": "ย้ายไป .bak"},
+				},
+			},
+		},
+	})
+	if question != "ลบไฟล์เก่าทิ้งไหม" {
+		t.Fatalf("question: %q", question)
+	}
+	if len(options) != 2 || options[0] != "ลบเลย" || options[1] != "เก็บไว้ก่อน" {
+		t.Fatalf("labels not unwrapped: %#v", options)
+	}
+}
+
+// A question with only a `header` is a 12-character chip, not a sentence — a
+// poor card, and still a far better one than a third identical rejection.
+func TestAskUserFallsBackToTheHeader(t *testing.T) {
+	question, options := askArgs(map[string]any{
+		"options": []any{
+			map[string]any{"header": "ธีม", "options": []any{"สว่าง", "มืด"}},
+		},
+	})
+	if question != "ธีม" || len(options) != 2 {
+		t.Fatalf("header fallback: %q %#v", question, options)
+	}
+}
+
+// The flat shape is still the declared one, and unpicking the nested shape must
+// not touch it.
+func TestAskUserKeepsTheFlatShape(t *testing.T) {
+	question, options := askArgs(map[string]any{
+		"question": "เอาไหม",
+		"options":  []any{" เอา ", "ไม่เอา", "   "},
+	})
+	if question != "เอาไหม" {
+		t.Fatalf("question: %q", question)
+	}
+	// Trimmed, and the blank entry dropped rather than drawn as a dead button.
+	if len(options) != 2 || options[0] != "เอา" {
+		t.Fatalf("options: %#v", options)
+	}
+}
+
+// Nothing usable is still a refusal — and now the refusal says what the shape
+// should have been, which is the part that was missing.
+func TestAskUserStillRefusesWhenThereIsNoQuestion(t *testing.T) {
+	s := &askUserSkill{app: NewApp(), conv: newConversation()}
+	_, err := s.ExecuteTool(context.Background(), map[string]any{
+		"options": []any{map[string]any{"nothing": "useful"}},
+	})
+	if err == nil || !strings.Contains(err.Error(), `"question"`) {
+		t.Fatalf("the error must name the shape it wants, got %v", err)
+	}
+}

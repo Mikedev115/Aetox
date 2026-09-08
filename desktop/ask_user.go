@@ -40,9 +40,12 @@ func (*askUserSkill) ToolDefinition() model.ToolDefinition {
 				"description": "The question to ask, in the user's language. Ask only when genuinely blocked on a decision that is the user's to make.",
 			},
 			"options": map[string]any{
-				"type":        "array",
-				"items":       map[string]any{"type": "string"},
-				"description": "2-4 short, mutually exclusive choices. The user can also type a free-text answer.",
+				"type":  "array",
+				"items": map[string]any{"type": "string"},
+				// "plain strings" and "one question" are both here because both
+				// were got wrong: the nested AskUserQuestion shape arrives
+				// otherwise, and askArgs has to unpick it.
+				"description": "2-4 short, mutually exclusive choices, as plain strings — not objects, and not a nested list of questions. The user can also type a free-text answer.",
 			},
 		},
 		"required":             []string{"question", "options"},
@@ -53,23 +56,115 @@ func (*askUserSkill) ToolDefinition() model.ToolDefinition {
 		Type: "function",
 		Function: model.ToolFunction{
 			Name:        "ask_user",
-			Description: "Ask the user to choose between options and wait for the answer. Use when blocked on a decision only the user can make; never for questions you can resolve yourself.",
+			Description: "Ask the user ONE question and wait for the answer. Arguments are flat: a `question` string and an `options` array of plain strings. Use when blocked on a decision only the user can make; never for questions you can resolve yourself.",
 			Parameters:  payload,
 		},
 	}
 }
 
 func (s *askUserSkill) ExecuteTool(ctx context.Context, args map[string]any) (skill.Output, error) {
-	question, _ := args["question"].(string)
-	var options []string
-	if raw, ok := args["options"].([]any); ok {
-		for _, o := range raw {
-			if v, ok := o.(string); ok && strings.TrimSpace(v) != "" {
-				options = append(options, strings.TrimSpace(v))
-			}
+	question, options := askArgs(args)
+	return s.ask(ctx, question, options)
+}
+
+// askArgs reads the flat shape this tool declares — and the nested one models
+// reach for anyway.
+//
+// Anthropic-trained models know AskUserQuestion, whose arguments nest:
+// {questions:[{question, header, options:[{label, description}]}]}. Handed a
+// field called "options", such a model puts that whole array in it, and what
+// arrived was {"options":[{"options":["อยากรู้สเปก/ราคา MacBook Air...", ...]}]}
+// — a question genuinely asked, with its choices, rejected for the packaging.
+// Three times running, because "question is required" never named the shape it
+// wanted (owner, 8 ก.ย. 2026).
+//
+// Refusing that costs the user an answer to a question they were never shown,
+// so it is read rather than refused. The declared shape stays the flat one:
+// this is a translation on the way in, not a second contract.
+func askArgs(args map[string]any) (string, []string) {
+	question := strings.TrimSpace(stringOf(args["question"]))
+	options := optionLabels(args["options"])
+	if question != "" && len(options) >= 2 {
+		return question, options
+	}
+	// One level down, under whichever name the model used for the list.
+	for _, key := range []string{"options", "questions"} {
+		nestedQ, nestedOpts := nestedAsk(args[key])
+		if question == "" {
+			question = nestedQ
+		}
+		// Only when there is something down there: a flat list that is merely
+		// too short must not be blanked by a lookup that found nothing.
+		if len(options) < 2 && len(nestedOpts) > 0 {
+			options = nestedOpts
 		}
 	}
-	return s.ask(ctx, strings.TrimSpace(question), options)
+	return question, options
+}
+
+// stringOf reads a string out of a JSON value and ignores anything else.
+func stringOf(v any) string {
+	s, _ := v.(string)
+	return s
+}
+
+// optionLabels turns a JSON array into the strings the user will click. An
+// entry is either a plain string (this tool's own shape) or an object carrying
+// the label under one of the names the various question tools use — for
+// AskUserQuestion's {label, description}, the label is the clickable half and
+// the description is scaffolding this UI has nowhere to put.
+func optionLabels(v any) []string {
+	raw, ok := v.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		var label string
+		switch t := item.(type) {
+		case string:
+			label = t
+		case map[string]any:
+			for _, key := range []string{"label", "text", "title", "option", "value", "answer"} {
+				if label = strings.TrimSpace(stringOf(t[key])); label != "" {
+					break
+				}
+			}
+		}
+		if label = strings.TrimSpace(label); label != "" {
+			out = append(out, label)
+		}
+	}
+	return out
+}
+
+// nestedAsk digs one level for a question packaged as a list of questions.
+// Only the first is taken: this tool asks one thing at a time and the UI draws
+// one card, so the rest are dropped rather than silently merged into one
+// unanswerable prompt — the model re-asks whatever still matters once it has
+// this answer.
+func nestedAsk(v any) (string, []string) {
+	raw, ok := v.([]any)
+	if !ok {
+		return "", nil
+	}
+	for _, item := range raw {
+		obj, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		question := strings.TrimSpace(stringOf(obj["question"]))
+		if question == "" {
+			// AskUserQuestion's `header` is a 12-character chip, not a
+			// sentence — a poor question, but a far better card than none.
+			question = strings.TrimSpace(stringOf(obj["header"]))
+		}
+		opts := optionLabels(obj["options"])
+		if question != "" || len(opts) > 0 {
+			return question, opts
+		}
+	}
+	return "", nil
 }
 
 func (s *askUserSkill) Execute(ctx context.Context, input skill.Input) (skill.Output, error) {
@@ -86,11 +181,14 @@ func (s *askUserSkill) ask(ctx context.Context, question string, options []strin
 			DurationMs: time.Since(start).Milliseconds(),
 		}, err
 	}
+	// Both messages spell the shape out. An error that only states what is
+	// missing leaves a model that got the packaging wrong to retry the same
+	// packaging, which is exactly what happened three times running.
 	if question == "" {
-		return fail(errors.New("question is required"))
+		return fail(errors.New(`question is required — call it flat, one question per call: {"question": "...", "options": ["...", "..."]}`))
 	}
 	if len(options) < 2 {
-		return fail(errors.New("provide at least 2 options"))
+		return fail(errors.New(`provide at least 2 options, as plain strings: {"question": "...", "options": ["ทำต่อ", "หยุดไว้ก่อน"]}`))
 	}
 
 	answerCh, err := s.app.beginUserQuestion(s.conv, question, options)
