@@ -411,6 +411,8 @@ export function PreparedReplyOn():Promise<boolean>;
 
 export function PriceModels(arg1:string,arg2:Array<string>):Promise<Array<main.ModelListing>>;
 
+export function ProgramIcon(arg1:string):Promise<string>;
+
 export function ProjectTree():Promise<Array<main.TreeNode>>;
 
 export function ProviderAPIKeyURL(arg1:string):Promise<string>;

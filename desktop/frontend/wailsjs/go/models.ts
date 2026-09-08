@@ -648,6 +648,7 @@ export namespace main {
 	    name: string;
 	    title: string;
 	    allowed: boolean;
+	    icon: string;
 	    blocked: string;
 	    warn: string;
 	
@@ -660,6 +661,7 @@ export namespace main {
 	        this.name = source["name"];
 	        this.title = source["title"];
 	        this.allowed = source["allowed"];
+	        this.icon = source["icon"];
 	        this.blocked = source["blocked"];
 	        this.warn = source["warn"];
 	    }

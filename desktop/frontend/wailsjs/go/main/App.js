@@ -794,6 +794,10 @@ export function PriceModels(arg1, arg2) {
   return window['go']['main']['App']['PriceModels'](arg1, arg2);
 }
 
+export function ProgramIcon(arg1) {
+  return window['go']['main']['App']['ProgramIcon'](arg1);
+}
+
 export function ProjectTree() {
   return window['go']['main']['App']['ProjectTree']();
 }

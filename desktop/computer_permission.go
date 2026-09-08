@@ -148,6 +148,7 @@ type ComputerAppRow struct {
 	Name    string `json:"name"`    // the program key the grant is written against
 	Title   string `json:"title"`   // the window title the user is looking at
 	Allowed bool   `json:"allowed"` // already on the list
+	Icon    string `json:"icon"`    // the program's own icon as a data URL, "" when it has none
 	Blocked string `json:"blocked"` // non-empty when this kind is never driven
 	Warn    string `json:"warn"`    // non-empty when a yes here reaches the whole machine
 }
@@ -172,7 +173,14 @@ func (a *App) OpenComputerApps() []ComputerAppRow {
 			continue
 		}
 		seen[key] = true
-		row := ComputerAppRow{Name: key, Title: w.Title, Allowed: reachGranted(w.Exe)}
+		row := ComputerAppRow{
+			Name:    key,
+			Title:   w.Title,
+			Allowed: reachGranted(w.Exe),
+			// The program's own icon, so the row and the taskbar show the same
+			// picture and a person picks by recognising rather than by reading.
+			Icon: exeIconDataURL(w.Exe),
+		}
 		if tier == tierElsewhere {
 			// Shown, not hidden, and told which tool does it properly. A user
 			// looking for Chrome in this list and not finding it learns nothing;

@@ -76,8 +76,8 @@ describe('the computer-use page', () => {
   it('lets the user pick a program from the windows that are open', async () => {
     vi.mocked(ComputerControlOn).mockResolvedValue(true)
     vi.mocked(OpenComputerApps).mockResolvedValue([
-      { name: 'notepad', title: 'บันทึกย่อ', allowed: false, blocked: '', warn: '' },
-      { name: 'chrome', title: 'หน้าเว็บ', allowed: false, blocked: 'browser', warn: '' },
+      { name: 'notepad', title: 'บันทึกย่อ', allowed: false, blocked: '', warn: '', icon: '' },
+      { name: 'chrome', title: 'หน้าเว็บ', allowed: false, blocked: 'browser', warn: '', icon: '' },
     ] as any)
 
     const { container } = render(Settings, { onClose: () => {} })
@@ -93,7 +93,7 @@ describe('the computer-use page', () => {
   it('shows a browser in the list and says which tool does it instead', async () => {
     vi.mocked(ComputerControlOn).mockResolvedValue(true)
     vi.mocked(OpenComputerApps).mockResolvedValue([
-      { name: 'chrome', title: 'หน้าเว็บ', allowed: false, blocked: 'browser', warn: '' },
+      { name: 'chrome', title: 'หน้าเว็บ', allowed: false, blocked: 'browser', warn: '', icon: '' },
     ] as any)
 
     const { container } = render(Settings, { onClose: () => {} })
@@ -122,10 +122,42 @@ describe('the computer-use page', () => {
     await waitFor(() => expect(vi.mocked(RevokeComputerApp)).toHaveBeenCalledWith('winword'))
   })
 
+  it('puts each program own icon on its row', async () => {
+    vi.mocked(ComputerControlOn).mockResolvedValue(true)
+    vi.mocked(OpenComputerApps).mockResolvedValue([
+      { name: 'notepad', title: 'บันทึกย่อ', allowed: false, blocked: '', warn: '', icon: 'data:image/png;base64,AAA' },
+    ] as any)
+
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'การใช้คอมพิวเตอร์')
+
+    // The picture the taskbar shows, so a person picks by recognising rather
+    // than by reading a filename.
+    await waitFor(() => {
+      const img = container.querySelector('img.prog-icon') as HTMLImageElement
+      expect(img?.src).toContain('data:image/png;base64,AAA')
+    })
+  })
+
+  it('keeps the row aligned when a program has no icon to give', async () => {
+    vi.mocked(ComputerControlOn).mockResolvedValue(true)
+    vi.mocked(OpenComputerApps).mockResolvedValue([
+      { name: 'oldapp', title: 'โปรแกรมเก่า', allowed: false, blocked: '', warn: '', icon: '' },
+    ] as any)
+
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'การใช้คอมพิวเตอร์')
+
+    // A placeholder of the same size, not nothing: a list whose rows shift by
+    // twenty pixels depending on whether an icon could be read is a list that
+    // reads as broken.
+    await waitFor(() => expect(container.querySelector('.prog-icon-none')).toBeTruthy())
+  })
+
   it('offers nothing to pick while the switch is off', async () => {
     vi.mocked(GrantedComputerApps).mockResolvedValue(['notepad'])
     vi.mocked(OpenComputerApps).mockResolvedValue([
-      { name: 'notepad', title: 'บันทึกย่อ', allowed: true, blocked: '', warn: '' },
+      { name: 'notepad', title: 'บันทึกย่อ', allowed: true, blocked: '', warn: '', icon: '' },
     ] as any)
     const { container } = render(Settings, { onClose: () => {} })
     await openSection(container, 'การใช้คอมพิวเตอร์')

@@ -4279,6 +4279,17 @@ button.phase-head:hover { color:var(--text-muted); }
 .composer .send.stop { color:var(--danger, #e5534b); }
 .composer .send.stop:hover { border-color:var(--danger, #e5534b); }
 
+/* A program's own icon on a row of the computer-use register.
+   Fixed box whether or not there is a picture, so a machine where one icon
+   could not be read does not draw that row's text two millimetres left of every
+   other row's — a list that shifts is a list that reads as broken. */
+.prog-icon {
+  width:20px; height:20px; flex:0 0 20px;
+  object-fit:contain; border-radius:4px;
+  margin-right:10px;
+}
+.prog-icon-none { background:var(--surface-raised); opacity:.5; }
+
 /* computer: the agent is driving a program on this machine right now.
    One line, not a card. A card would compete with the ask panel below it for
    the same attention, and these two say opposite things: the ask panel wants an

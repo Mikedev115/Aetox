@@ -60,7 +60,7 @@
     LearningEnabled, SetLearningEnabled, SkillTuneAuto, SetSkillTuneAuto, RunSkillTuneup, ListSkillProposals, ListPendingChanges, ListDecidedChanges,
     PreparedReplyOn, SetPreparedReplyOn,
     ComputerControlOn, SetComputerControlOn, GrantedComputerApps, RevokeComputerApp,
-    OpenComputerApps, AllowComputerApp,
+    OpenComputerApps, AllowComputerApp, ProgramIcon,
     ApprovePendingChange, RejectPendingChange, LearnedEntries, LearnedScopeInfos, SaveLearnedEntry, OpenMemoryFolder,
     ForgetMemoryScope, AdoptMemoryScope, RecentProjects,
     ListSystemIssues, MarkIssueReported, ListDecidedIssues,
@@ -325,8 +325,9 @@
   let connections = $state<ConnectionRow[]>([])
   let computerOn = $state(false)
   let computerApps = $state<string[]>([])
-  type ComputerAppRow = { name: string; title: string; allowed: boolean; blocked: string; warn: string }
+  type ComputerAppRow = { name: string; title: string; allowed: boolean; blocked: string; warn: string; icon: string }
   let computerRows = $state<ComputerAppRow[]>([])
+  let computerFixedIcons = $state<Record<string, string>>({})
   let computerError = $state('')
   // Keyed by connection id, because the page draws one card per service and two
   // of them must not share a token box, an error, or a spinner.
@@ -3235,6 +3236,12 @@
       computerOn = await ComputerControlOn()
       computerApps = (await GrantedComputerApps()) ?? []
       computerRows = ((await OpenComputerApps()) ?? []) as ComputerAppRow[]
+      // The three rows that are not built yet are drawn from a fixed list, so
+      // their logos have to be asked for by name. Missing is fine and common:
+      // a machine without Excel installed gets no Excel icon and the row says
+      // what it always said.
+      const named = await Promise.all(['chrome', 'msedge', 'excel'].map(ProgramIcon))
+      computerFixedIcons = { chrome: named[0] ?? '', msedge: named[1] ?? '', excel: named[2] ?? '' }
     } catch {
       // Preference file unreadable. Leave both at their shipped defaults rather
       // than drawing a switch whose state nothing confirmed.
@@ -6747,6 +6754,11 @@
 
           {#each computerRows as row (row.name)}
             <div class="set-row">
+              <!-- The program's own icon, the same picture the taskbar shows.
+                   Drawn beside the name rather than instead of it: a person
+                   picks by recognising the logo and confirms by reading the
+                   name, and a row with only one of those makes them work. -->
+              {#if row.icon}<img class="prog-icon" src={row.icon} alt="" />{:else}<span class="prog-icon prog-icon-none"></span>{/if}
               <span class="set-txt">
                 <span class="t">{row.name}</span>
                 <span class="d">
@@ -6778,6 +6790,7 @@
                closing a window would hide a grant that is still in force. -->
           {#each computerApps.filter((a) => !computerRows.some((r) => r.name === a)) as app (app)}
             <div class="set-row">
+              <span class="prog-icon prog-icon-none"></span>
               <span class="set-txt">
                 <span class="t">{app}</span>
                 <span class="d">{t('settings.computerAllowedClosed')}</span>
@@ -6794,6 +6807,7 @@
              twice the hard way: a control that vanishes in the broken state is
              a dead end, not a tidy UI. -->
         <div class="set-row">
+          {#if computerFixedIcons.chrome}<img class="prog-icon" src={computerFixedIcons.chrome} alt="" />{:else}<span class="prog-icon prog-icon-none"></span>{/if}
           <span class="set-txt">
             <span class="t">Google Chrome</span>
             <span class="d">{t('settings.computerNeedsExtension')}</span>
@@ -6801,6 +6815,7 @@
           <span class="mcp-badge">{t('settings.computerNotYet')}</span>
         </div>
         <div class="set-row">
+          {#if computerFixedIcons.msedge}<img class="prog-icon" src={computerFixedIcons.msedge} alt="" />{:else}<span class="prog-icon prog-icon-none"></span>{/if}
           <span class="set-txt">
             <span class="t">Microsoft Edge</span>
             <span class="d">{t('settings.computerNeedsExtension')}</span>
@@ -6808,6 +6823,7 @@
           <span class="mcp-badge">{t('settings.computerNotYet')}</span>
         </div>
         <div class="set-row">
+          {#if computerFixedIcons.excel}<img class="prog-icon" src={computerFixedIcons.excel} alt="" />{:else}<span class="prog-icon prog-icon-none"></span>{/if}
           <span class="set-txt">
             <span class="t">Microsoft Excel</span>
             <span class="d">{t('settings.computerExcelDesc')}</span>
