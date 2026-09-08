@@ -4,7 +4,8 @@
 // reads this; the rest of the sidebar chrome stays on the locked system scale.
 
 const STORAGE_KEY = 'aetox-tree-font-size'
-const DEFAULT_SIZE = 13
+// 13 until 8 ก.ย. 2026 — see chatFont.svelte.ts.
+const DEFAULT_SIZE = 12
 const MIN_SIZE = 11
 const MAX_SIZE = 18
 

@@ -4683,7 +4683,7 @@
             <div class="d">{t('settings.chatFontDesc')}</div>
           </div>
           <input
-            class="ctrl set-num" type="number" min="12" max="22" step="0.5"
+            class="ctrl set-num" type="number" min="11" max="22" step="0.5"
             value={chatFont.size}
             onchange={(e) => applyChatFontSize(parseFloat(e.currentTarget.value))}
           />

@@ -15,6 +15,7 @@ import { initTheme } from './lib/theme.svelte'
 import { initEditorFont } from './lib/editorFont.svelte'
 import { initChatFont } from './lib/chatFont.svelte'
 import { initSystemZoom } from './lib/systemFont.svelte'
+import { initTypeScale } from './lib/typeScale.svelte'
 import { initLocale } from './lib/i18n.svelte'
 import { initEditorTheme } from './lib/editorTheme.svelte'
 import { initTreeFont } from './lib/treeFont.svelte'
@@ -27,6 +28,11 @@ initShell()
 initRunnableLanguages()
 initEditorFont()
 initChatFont()
+// Before initSystemZoom, and never left out again: the text scale writes
+// --fs-scale, and a control whose pick was written to localStorage and then
+// read by nobody is a setting that silently resets on every restart. It was
+// missing from this list from the day the control shipped (found 8 ก.ย. 2026).
+initTypeScale()
 initSystemZoom()
 initLocale()
 initEditorTheme()

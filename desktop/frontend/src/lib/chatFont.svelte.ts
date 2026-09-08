@@ -3,8 +3,11 @@
 // this; the rest of the chrome stays on the locked system scale.
 
 const STORAGE_KEY = 'aetox-chat-font-size'
-const DEFAULT_SIZE = 14.5
-const MIN_SIZE = 12
+// 14.5 until 8 ก.ย. 2026. The owner had been reading chat at 12 — at the floor
+// of this control, which is its own signal: a default nobody uses and a floor
+// somebody is pinned to are the same mistake seen from two ends. Both moved.
+const DEFAULT_SIZE = 12
+const MIN_SIZE = 11
 const MAX_SIZE = 22
 
 export const chatFont = $state<{ size: number }>({ size: DEFAULT_SIZE })

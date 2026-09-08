@@ -13,6 +13,8 @@
 // icon glyphs don't overflow their boxes at this setting the way per-rule
 // font-size scaling did. Aetox only ships on WebView2 (Chromium), so the
 // non-standard-but-Chromium-supported `zoom` property is safe here.
+import { DEFAULT_TYPE_SCALE } from './typeScale.svelte'
+
 const STORAGE_KEY = 'aetox-system-zoom'
 const MIN_ZOOM = 0.8
 const MAX_ZOOM = 1.3
@@ -24,9 +26,15 @@ export const SYSTEM_BASE_PX = 15.5
 /** What the px readout says on a machine that has never touched this control.
  * Expressed in px rather than as a zoom factor because px is the number the
  * owner tuned and the number Settings shows — the factor below is arithmetic,
- * not a second opinion about the size. */
-export const DEFAULT_SYSTEM_PX = 16
-const DEFAULT_ZOOM = DEFAULT_SYSTEM_PX / SYSTEM_BASE_PX
+ * not a second opinion about the size.
+ * 16 until 8 ก.ย. 2026, when it was set to the size the owner had actually
+ * been running: a shipped default nobody who uses the app every day agrees
+ * with is a default that is wrong. */
+export const DEFAULT_SYSTEM_PX = 14.5
+// Divided by the default TEXT scale, because the readout Settings shows is
+// zoom x SYSTEM_BASE_PX x that scale — leaving it out would land a fresh
+// install a step above the number written just above.
+const DEFAULT_ZOOM = DEFAULT_SYSTEM_PX / (SYSTEM_BASE_PX * DEFAULT_TYPE_SCALE)
 
 export const systemZoom = $state<{ value: number }>({ value: DEFAULT_ZOOM })
 

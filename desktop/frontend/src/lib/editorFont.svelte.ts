@@ -4,7 +4,9 @@
 // properties — its `fontSize` option is set/updated straight from editorFont.size.
 
 const STORAGE_KEY = 'aetox-editor-font-size'
-const DEFAULT_SIZE = 14
+// 14 until 8 ก.ย. 2026 — see chatFont.svelte.ts: the app now ships at the size
+// its author actually works at rather than a step above it.
+const DEFAULT_SIZE = 12
 const MIN_SIZE = 10
 const MAX_SIZE = 24
 
