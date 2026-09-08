@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
   import Terminal from '../Terminal.svelte'
   import FileEditor from '../FileEditor.svelte'
   import FilesPane from './FilesPane.svelte'
@@ -233,11 +233,9 @@
    * It does NOT close anything. detachTab takes the chip off the strip and out
    * of the saved layout; the window and its page carry on, which is the whole
    * point of the button. */
-  async function detachActiveTab() {
-    const tab = activeTab
-    if (tab?.kind !== 'browser' || !tab.url) return
-    await BrowserDetach(tab.id)
-    detachTab(tab.id)
+  async function detachTabInOwnWindow(id: string) {
+    await BrowserDetach(id)
+    detachTab(id)
   }
 
   // Same gate as browserCmd: a tab still on its start page has no native
@@ -399,6 +397,27 @@
     moreSection = ''
   }
 
+  /** Run a browser command from inside the menu, after the menu has gone.
+   *
+   * The order is the whole function, and it is not tidiness. Opening this menu
+   * HIDES the page — it has to, or the menu is drawn underneath a native window
+   * — and a hidden WebView2 refuses work that needs a live view: `capture` has
+   * always known this (browser_capture.go says an SW_HIDE window produces no
+   * frames), and DevTools is the same kind of call. Clicking เครื่องมือนักพัฒนา
+   * did nothing at all for exactly that reason, from the moment the menu shipped.
+   *
+   * `await tick()` is what makes it work rather than what makes it likely: the
+   * pane's visibility effect runs in that flush and issues BrowserSetVisible,
+   * and every one of these calls lands on the browser host's single FIFO queue
+   * — so the show is queued before the command, and runs before it. */
+  async function menuCmd(fn: (id: string) => Promise<void>) {
+    const tab = activeTab
+    closeMore()
+    if (tab?.kind !== 'browser' || !tab.url) return
+    await tick()
+    await fn(tab.id)
+  }
+
   /** Open the overflow menu, or one of its sections.
    *
    * Sections are exclusive: opening one closes the other, so the menu never
@@ -421,7 +440,7 @@
 </script>
 
 <svelte:window
-  onclick={menuOpen ? closeMenuOnOutsideClick : undefined} onkeydown={onKeydown}
+  onclick={menuOpen || moreOpen ? closeMenuOnOutsideClick : undefined} onkeydown={onKeydown}
   ondragover={onWindowDragOver} ondrop={endDrag} ondragend={endDrag}
 />
 
@@ -588,11 +607,11 @@
             </div>
           {/if}
           <span class="more-sep" aria-hidden="true"></span>
-          <button class="more-item" role="menuitem" onclick={() => { browserCmd(BrowserOpenDevTools); closeMore() }}>
+          <button class="more-item" role="menuitem" onclick={() => void menuCmd(BrowserOpenDevTools)}>
             <Icon name="wrench" size={14} />
             <span class="more-txt">{t('workbench.devtools')}</span>
           </button>
-          <button class="more-item" role="menuitem" onclick={() => { void detachActiveTab(); closeMore() }}>
+          <button class="more-item" role="menuitem" onclick={() => void menuCmd(detachTabInOwnWindow)}>
             <Icon name="externalLink" size={14} />
             <span class="more-txt">{t('workbench.detach')}</span>
           </button>

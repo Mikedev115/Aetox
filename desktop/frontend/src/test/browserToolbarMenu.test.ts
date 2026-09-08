@@ -19,6 +19,7 @@ import { tick } from 'svelte'
 import Workbench from '../lib/workbench/Workbench.svelte'
 import { workbench } from '../lib/stores/workbench.svelte'
 import { setLocale } from '../lib/i18n.svelte'
+import { BrowserOpenDevTools } from './mocks/wailsApp'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -75,6 +76,27 @@ describe('the browser toolbar', () => {
     await fireEvent.click(rows[1])
     await tick()
     expect(container.querySelectorAll('.more-sub').length).toBe(1)
+  })
+
+  it('closes the menu before it runs a command, or the page is still hidden', async () => {
+    const { container } = render(Workbench)
+    await openMenu(container)
+
+    // Opening the menu hides the page — it has to, or the menu is drawn under
+    // a native window — and a hidden WebView2 refuses work that needs a live
+    // view. เครื่องมือนักพัฒนา did nothing at all for exactly that reason.
+    let menuWasStillOpen: boolean | null = null
+    vi.mocked(BrowserOpenDevTools).mockImplementation(async () => {
+      menuWasStillOpen = !!container.querySelector('.more-menu')
+    })
+
+    const rows = Array.from(container.querySelectorAll('.more-menu > .more-item')) as HTMLButtonElement[]
+    await fireEvent.click(rows[2])
+    await tick()
+    await tick()
+
+    expect(BrowserOpenDevTools).toHaveBeenCalledWith('web-1')
+    expect(menuWasStillOpen).toBe(false)
   })
 
   it('tells the pane a menu is open, or the menu is drawn under the page', () => {
