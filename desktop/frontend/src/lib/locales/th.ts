@@ -508,6 +508,7 @@ export const th = {
   'workbench.busyRun.tabs': 'กำลังจัดการแท็บ {subject}',
   'workbench.busyEnd.tabs': 'จัดการแท็บ {subject} แล้ว',
   'workbench.busyRun.wait': 'กำลังรอหน้าเว็บ {subject}',
+  'workbench.busyRun.waitProgress': 'กำลังรอหน้าเว็บ {subject} — {elapsed}/{total} วิ',
   'workbench.busyEnd.wait': 'รอหน้าเว็บ {subject} เสร็จแล้ว',
   'workbench.busyRun.back': 'กำลังย้อนกลับ {subject}',
   'workbench.busyEnd.back': 'ย้อนกลับ {subject} แล้ว',

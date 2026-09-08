@@ -103,6 +103,21 @@
    *  resolves to nothing and the space it left goes with it. */
   const busyText = $derived.by(() => {
     const act = BUSY_ACTS.has(busyWork.act) ? busyWork.act : 'other'
+    // A wait that has reported its progress gets its own phrase, because it is
+    // the only action with something to say while it is still going: ten
+    // minutes of an unchanging line is indistinguishable from a hang, and the
+    // reasonable thing to do about a hang is press Stop. Only while running,
+    // and only once a number has arrived — a wait shorter than the first tick
+    // reads exactly as it did before, which is nearly all of them.
+    if (busyWork.running && act === 'wait' && busyWork.waitTotal > 0) {
+      return t('workbench.busyRun.waitProgress', {
+        subject: busyWork.subject,
+        elapsed: String(busyWork.waitElapsed),
+        total: String(busyWork.waitTotal),
+      })
+        .replace(/\s+/g, ' ')
+        .trim()
+    }
     const key = `workbench.busy${busyWork.running ? 'Run' : 'End'}.${act}` as TKey
     return t(key, { subject: busyWork.subject }).replace(/\s+/g, ' ').trim()
   })

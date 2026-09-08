@@ -53,8 +53,10 @@ var browserGuidance = map[string]string{
 		"When you can already name the moves that come after this one — wait for the results, click the first, type into the box — send them WITH the open as one `steps` call. Two moves you can see ahead is a round trip saved; five is four.",
 
 	// Says WHEN, because the failure it prevents does not look like a failure.
-	"wait": "Most pages fetch their real content after the document loads. A `read` straight after `open` or `click` therefore SUCCEEDS and comes back empty, and there is nothing in that answer to suggest waiting — so the honest reading of it is \"there are no results\" when the truth is \"not yet\".\n" +
-		"`wait` is the only action that can tell those two apart. Use it whenever you expect something that is not there yet. If it times out, that is a report and not an error: the page may still be loading, or it may genuinely never say that. Read the page before deciding which.",
+	"wait": "Most pages fetch their real content after the document loads. A `read` straight after `open` or `click` therefore SUCCEEDS and comes back empty, and there is nothing in that answer to suggest waiting, so the honest reading of it is \"there are no results\" when the truth is \"not yet\".\n" +
+		"`wait` is the only action that can tell those two apart. Use it whenever you expect something that is not there yet. If it times out, that is a report and not an error: the page may still be loading, or it may genuinely never say that. Read the page before deciding which.\n" +
+		"The other thing pages do is hand a job to a server and take MINUTES over it: generating audio, rendering a video, running a build, assembling a report. That is a wait too, and it is the one that costs most to get wrong. Reading, saying you will wait a moment, and reading again spends a whole round of the conversation to learn that nothing has happened yet, and the page still has to be read afterwards. Pass `seconds` sized to the job the page told you about, up to 600, and wait ONCE. You cannot sleep and there is nothing else to be doing meanwhile: the wait is the waiting.\n" +
+		"Wait for the text that means DONE, never for the text that means working. A page that says it is generating something already says that, so a wait on those words comes back at once having told you nothing.",
 
 	// Says when, and names the shape of page that qualifies rather than listing
 	// cases: a model holding a camera and no rule for it photographs everything.

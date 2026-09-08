@@ -515,6 +515,7 @@ export const en: Record<keyof typeof th, string> = {
   'workbench.busyRun.tabs': 'Sorting out its tabs {subject}',
   'workbench.busyEnd.tabs': 'Sorted out its tabs {subject}',
   'workbench.busyRun.wait': 'Waiting for the page {subject}',
+  'workbench.busyRun.waitProgress': 'Waiting for the page {subject} — {elapsed}/{total}s',
   'workbench.busyEnd.wait': 'Waited for the page {subject}',
   'workbench.busyRun.back': 'Going back {subject}',
   'workbench.busyEnd.back': 'Went back {subject}',

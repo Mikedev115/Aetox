@@ -441,6 +441,25 @@ func TestToolCallDeadline(t *testing.T) {
 		{"a wait_timeout without a wait_for buys nothing", "shell_output", map[string]any{"wait_timeout_seconds": float64(300)}, 60 * time.Second},
 		{"a blank wait_for is not a wait", "shell_output", map[string]any{"wait_for": "  ", "wait_timeout_seconds": float64(300)}, 60 * time.Second},
 		{"the waiting ceiling holds too", "shell_output", map[string]any{"wait_for": "x", "wait_timeout_seconds": float64(99999)}, maxToolExecutionTimeout},
+		// browser_wait is the third, and the unpacked name is what arrives here
+		// (skill.Unpack at the call site) — asked about "browser" this switch
+		// would answer for `click` too.
+		//
+		// It was absent until 2026-09-08, and the absence was invisible because
+		// the tool's own ceiling was 60 seconds as well. A page that hands its
+		// work to a server and takes minutes over it — audio being generated, a
+		// video rendering, a build running — could not be waited for at all, so
+		// the only move left was to read, say "still going", and read again:
+		// a whole round of the conversation per look, which is the exact waste
+		// shell_output's wait_for exists to prevent.
+		{"a browser wait stretches to its wait", "browser_wait", map[string]any{"text": "Download", "seconds": float64(300)}, 300 * time.Second},
+		{"an int survives here too", "browser_wait", map[string]any{"text": "Download", "seconds": 300}, 300 * time.Second},
+		{"a wait that names no duration keeps the default", "browser_wait", map[string]any{"text": "Download"}, 60 * time.Second},
+		{"the browser wait ceiling holds", "browser_wait", map[string]any{"text": "x", "seconds": float64(99999)}, maxToolExecutionTimeout},
+		// The packed name buys nothing, and neither does any other action on
+		// it: a click that names `seconds` is a click.
+		{"the packed name is not the act", "browser", map[string]any{"action": "wait", "seconds": float64(300)}, 60 * time.Second},
+		{"another browser act cannot buy time", "browser_click", map[string]any{"seconds": float64(300)}, 60 * time.Second},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

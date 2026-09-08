@@ -107,6 +107,21 @@ func toolCallDeadline(name string, args map[string]any) time.Duration {
 			return toolExecutionTimeout
 		}
 		key = "wait_timeout_seconds"
+	case "browser_wait":
+		// The unpacked name, like shell_output above and for the same reason:
+		// this switch is asked about the act, not about the tool the act was
+		// called through (skill.Unpack at the call site). Only `wait` stretches
+		// a turn — every other browser action answers in the time a page takes
+		// to respond, which the 60 second default covers generously.
+		//
+		// This case was missing for as long as `browser wait` has existed, and
+		// it did not show as a bug because the tool's own ceiling was 60
+		// seconds too. Two agreeing limits look like one limit. When that
+		// ceiling went to ten minutes (desktop/browser_wait.go) this became the
+		// binding one, and a wait asked for five minutes would have been cut at
+		// one — then reported as a page that never said the thing, which is the
+		// wrong answer to give about a job that was still running.
+		key = "seconds"
 	default:
 		return toolExecutionTimeout
 	}
@@ -338,6 +353,21 @@ func (e *Executor) currentApprovalMode() safety.ApprovalMode {
 	}
 	return safety.ApprovalAsk
 }
+
+// MaxToolDeadline is the longest a single tool call may run, whatever it asks
+// for.
+//
+// Exported for the same reason HasNoDeadline is: a tool that offers a wait of
+// its own has a ceiling of its own, and the two have to agree or the smaller
+// one silently wins. That is not hypothetical — `browser wait` and this guard
+// were both 60 seconds until 2026-09-08, which read as one limit and was two.
+// When the browser's went to ten minutes this one became the thing that cut a
+// five-minute wait at one, and the report the model got back said the page had
+// never said the thing.
+//
+// A function rather than a constant so the package still owns the number, and
+// so a test can assert the relationship rather than restate the value.
+func MaxToolDeadline() time.Duration { return maxToolExecutionTimeout }
 
 func (e *Executor) reportStatus(msg string) {
 	if e.statusReporter != nil {

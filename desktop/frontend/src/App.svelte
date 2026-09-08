@@ -27,7 +27,7 @@
     refreshProjectFolders, refreshOpenFiles,
   } from './lib/stores/cockpit.svelte'
   import { shell, shellHasChats } from './lib/shell.svelte'
-  import { applyBusyEvent, clearBusyWork } from './lib/stores/busySignal.svelte'
+  import { applyBusyEvent, clearBusyWork, watchBrowserWaits } from './lib/stores/busySignal.svelte'
   import { RelativizePath, CloseAllBrowserTabs } from '../wailsjs/go/main/App'
   import { OnFileDrop, OnFileDropOff, EventsOn } from '../wailsjs/runtime/runtime'
   import { workbench, openPathsInWorkbench, filesChangedOnDisk } from './lib/stores/workbench.svelte'
@@ -181,6 +181,11 @@
     // listener rather than a call inside the first, so a workbench concern
     // stays out of the store that draws messages.
     const offBusyTool = EventsOn('agent:tool', applyBusyEvent)
+    // Not a tool event, and that is the point: `agent:tool` says a call started
+    // and a call finished, with nothing in between. A `browser wait` may now
+    // run for ten minutes (desktop/browser_wait.go), so it reports its own
+    // progress on a channel of its own and the busy bar counts along.
+    const offBrowserWaiting = watchBrowserWaits()
     const offAgentChunk = EventsOn('agent:chunk', applyAgentChunk)
     // The ending for a turn this window has no promise for — a webview reload
     // killed the SendMessage promise, the engine kept working, and this event
@@ -300,6 +305,7 @@
       offAgentStatus()
       offAgentTool()
       offBusyTool()
+      offBrowserWaiting()
       offAgentChunk()
       offAgentDone()
       offBusyDone()

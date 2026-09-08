@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Mikedev115/Aetox/internal/turn"
 )
 
 // The wait script has to answer exactly once and stop by itself. A poller that
@@ -138,11 +140,64 @@ func TestWaitRefusesAnEmptyNeedle(t *testing.T) {
 
 // The ceiling is not decoration: a model that asks for an hour would hold the
 // turn open for one.
+//
+// The number this test defends moved on 2026-09-08, from two minutes to ten,
+// and the objection it was written around is worth keeping rather than
+// deleting. It said: a long wait on a page that will never say the thing holds
+// the turn open for nothing. True, and it was the right call while the only
+// waits anybody had were load races.
+//
+// What it did not weigh is what the agent does when it CANNOT wait long enough.
+// It reads, says it will wait a moment, and reads again — a full model round
+// per look, on a job the page already said would take minutes, and the page
+// still has to be read at the end. The short ceiling did not save the turn; it
+// spent the conversation instead, which is the more expensive of the two.
+//
+// Three things bound the long wait, which is why it is affordable: it is
+// bounded (waitMax), the Stop button cuts through it (ctx), and it reports
+// every waitProgressEvery so nobody watching mistakes it for a hang. Take any
+// of those away and two minutes was right.
 func TestWaitIsCappedAndDefaulted(t *testing.T) {
 	if waitDefault <= 0 || waitDefault > waitMax {
 		t.Errorf("waitDefault = %v is not a usable default under the cap %v", waitDefault, waitMax)
 	}
-	if waitMax > 2*time.Minute {
-		t.Errorf("waitMax = %v is long enough to hold a turn open on a page that will never say it", waitMax)
+	if waitMax > 10*time.Minute {
+		t.Errorf("waitMax = %v holds a turn open longer than any tool call may run", waitMax)
+	}
+	// The default is still for the load race. It is one constant away from the
+	// ceiling and the two are easy to conflate — a caller that named no
+	// duration is waiting on a page finishing its own load, not on a server
+	// doing a job.
+	if waitDefault > 30*time.Second {
+		t.Errorf("waitDefault = %v is no longer a load-race default", waitDefault)
+	}
+}
+
+// The two ceilings on a wait have to agree, and this test exists because for a
+// year they agreed by accident.
+//
+// waitMax was 60 seconds and internal/turn's per-call guard was 60 seconds, so
+// a wait that ran out looked like this tool's own answer and nobody had cause
+// to look for a second limit. Raising one alone changes nothing: whichever is
+// smaller is the real one, and what the model is told is that the page never
+// said the thing — not that its wait was cut.
+func TestAWaitTheToolAllowsIsAWaitTheTurnWillSitThrough(t *testing.T) {
+	if waitMax > turn.MaxToolDeadline() {
+		t.Fatalf("waitMax is %s but a tool call is cut at %s — a wait asked for the full %s "+
+			"would be killed by the turn and reported as a page that stayed silent",
+			waitMax, turn.MaxToolDeadline(), waitMax)
+	}
+}
+
+// A wait long enough to be worth watching has to say so while it runs. Ten
+// minutes behind a line of text that never changes is a hang as far as anybody
+// watching is concerned, and the reasonable answer to a hang is Stop — which
+// would hand back the ceiling the moment it was raised.
+func TestALongWaitReportsOftenEnoughToReadAsAlive(t *testing.T) {
+	if waitProgressEvery <= 0 || waitProgressEvery > 15*time.Second {
+		t.Fatalf("waitProgressEvery is %s: too rare to read as progress", waitProgressEvery)
+	}
+	if ticks := waitMax / waitProgressEvery; ticks < 10 {
+		t.Fatalf("a full-length wait reports only %d times", ticks)
 	}
 }

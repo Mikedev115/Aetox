@@ -10,6 +10,7 @@
 // switches are only ever changed from the one menu, so there is no second
 // writer to watch for.
 
+import { EventsOn } from '../../../wailsjs/runtime/runtime'
 import { BusySignal, SetBusyLayer } from '../../../wailsjs/go/main/App'
 import type { main } from '../../../wailsjs/go/models'
 import type { ToolEvent } from '../types'
@@ -98,7 +99,12 @@ export const busyWork = $state<{
    *  a page that reflows under the agent between its read and its click is a
    *  page whose refs have moved. Once per turn instead. */
   seen: boolean
-}>({ tab: '', act: '', subject: '', running: false, seen: false })
+  /** How far a `browser wait` has got, in whole seconds, and how far it may go.
+   *  Both 0 whenever no wait is reporting — the bar reads that as "no number to
+   *  draw" rather than as a wait that has just started. */
+  waitElapsed: number
+  waitTotal: number
+}>({ tab: '', act: '', subject: '', running: false, seen: false, waitElapsed: 0, waitTotal: 0 })
 
 // The calls in flight, by the engine's tool-call id. A set rather than a
 // boolean because a round can carry more than one browser call, and a single
@@ -127,6 +133,11 @@ export function applyBusyEvent(stamped: Stamped | ToolEvent): void {
     busyWork.tab = ev.tab ?? ''
     busyWork.running = true
     busyWork.seen = true
+    // A fresh call starts with no progress, including a second `wait` after a
+    // first: leaving the old numbers would have the new wait open partway
+    // through a count it never made.
+    busyWork.waitElapsed = 0
+    busyWork.waitTotal = 0
     return
   }
   if (ev.action !== 'result') return
@@ -135,6 +146,40 @@ export function applyBusyEvent(stamped: Stamped | ToolEvent): void {
   // act/subject/tab are left standing. The bar keeps saying what was just
   // done, with its light out — a record of the last action, which is true,
   // rather than a blank strip taking up room for no reason.
+}
+
+/** A `browser wait` says where it has got to, every five seconds.
+ *
+ * The one place this store learns something mid-call. Everywhere else it reads
+ * tool events, whose vocabulary is call/result and has nothing to say about a
+ * call still running — which was fine while a wait could not last longer than a
+ * minute, and stopped being fine when its ceiling went to ten
+ * (desktop/browser_wait.go). Ten minutes behind a line of text that never
+ * changes reads as a hang, and the reasonable answer to a hang is Stop.
+ *
+ * It only ever rewrites the subject, and only while a wait is the thing in
+ * flight. The act, the tab and the running light stay where the tool events put
+ * them, so an event arriving late — after the result, after the turn ended —
+ * cannot switch a light back on.
+ *
+ * elapsed < 0 is the wait saying it is over. The numbers go back to zero so the
+ * finished bar reads as a record of what was waited for rather than as a count
+ * frozen partway.
+ */
+export function watchBrowserWaits(): () => void {
+  return EventsOn(
+    'browser:waiting',
+    (p: { tab?: string; text?: string; elapsed?: number; total?: number }) => {
+      if (!busyWork.running || busyWork.act !== 'wait') return
+      const elapsed = p?.elapsed ?? -1
+      // Numbers, never a formatted string: the bar's words are a locale
+      // template and the unit belongs in it, beside every other word the bar
+      // says. A store that formatted this would be the one place in the panel
+      // writing English into Thai.
+      busyWork.waitElapsed = elapsed < 0 ? 0 : elapsed
+      busyWork.waitTotal = elapsed < 0 ? 0 : (p?.total ?? 0)
+    },
+  )
 }
 
 /** The turn ended. Everything this signal knows was about that turn.
@@ -151,4 +196,6 @@ export function clearBusyWork(): void {
   busyWork.subject = ''
   busyWork.running = false
   busyWork.seen = false
+  busyWork.waitElapsed = 0
+  busyWork.waitTotal = 0
 }
