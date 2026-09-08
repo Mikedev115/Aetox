@@ -252,6 +252,10 @@ type fakeView struct {
 	// behind is what the deck export asks for and nothing else does: laid out
 	// and painting, with the app's own webview drawn over it.
 	behind bool
+	// detached records the window this tab was given, if it was given one.
+	detached    bool
+	detachTitle string
+	detachSize  [2]int
 }
 
 func (v *fakeView) navigate(url string)  { v.lastJS = "navigate:" + url }
@@ -267,6 +271,10 @@ func (v *fakeView) capture() <-chan shotResult {
 }
 
 func (v *fakeView) sendBehind() { v.behind = true }
+
+func (v *fakeView) detach(title string, w, h int) {
+	v.detached, v.detachTitle, v.detachSize = true, title, [2]int{w, h}
+}
 
 func (v *fakeView) callEngine(method, paramsJSON string) <-chan engineReply {
 	v.calls = append(v.calls, [2]string{method, paramsJSON})

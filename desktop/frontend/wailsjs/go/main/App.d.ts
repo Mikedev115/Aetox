@@ -81,6 +81,7 @@ export function BrowserNavigate(arg1:string,arg2:string,arg3:string):Promise<voi
 
 export function BrowserOpen(arg1:string,arg2:string,arg3:string,arg4:number,arg5:number,arg6:number,arg7:number):Promise<void>;
 
+export function BrowserDetach(arg1:string):Promise<void>;
 export function BrowserOpenDevTools(arg1:string):Promise<void>;
 
 export function BrowserReload(arg1:string):Promise<void>;

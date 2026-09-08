@@ -529,6 +529,7 @@ export const th = {
   'workbench.busyRun.other': 'กำลังทำงานในเบราว์เซอร์ {subject}',
   'workbench.busyEnd.other': 'ทำงานในเบราว์เซอร์ {subject} แล้ว',
   'workbench.devtools': 'เครื่องมือนักพัฒนา',
+  'workbench.detach': 'แยกเป็นหน้าต่างของตัวเอง',
   'workbench.viewport': 'ขนาดหน้าจอ',
   'workbench.viewportFill': 'เต็มแผง',
   'workbench.stopTask': 'หยุดงานปัจจุบัน',

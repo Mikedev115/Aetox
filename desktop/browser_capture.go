@@ -125,7 +125,14 @@ func (s *browserCaptureSkill) capture(ctx context.Context, full, marks bool) (sk
 	if tab != nil {
 		title, url = tab.meta()
 	}
-	a.deskEvent(s.owner, "open-browser", map[string]string{"id": string(id), "url": url})
+	if a.detachedTab(string(id)) {
+		// It left the desk, so there is no chip to make active and no pane to
+		// un-hide — and an open-browser event would draw it a NEW chip on
+		// whatever desk happens to be on screen. Raised at the window instead.
+		a.raiseDetached(string(id))
+	} else {
+		a.deskEvent(s.owner, "open-browser", map[string]string{"id": string(id), "url": url})
+	}
 	select {
 	case <-ctx.Done():
 		out.DurationMs = time.Since(start).Milliseconds()

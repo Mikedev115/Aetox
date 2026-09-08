@@ -161,6 +161,13 @@ func (a *App) agentTabList() string {
 			if named := browserPageRef(t.meta()); named != "" {
 				ref = named
 			}
+			// Said because it changes what the user can see. A tab in the panel is
+			// on one desk, in one chat; a detached one is a window of its own that
+			// outlives the chat it came from, and a raise brings a whole window
+			// forward rather than switching a chip.
+			if t.isDetached() {
+				ref += " (หน้าต่างแยก)"
+			}
 		}
 		fmt.Fprintf(&b, "%s%s — %s\n", mark, id, ref)
 	}
@@ -186,7 +193,12 @@ func (a *App) selectAgentTab(id, owner string) error {
 	if t := h.tab(id); t != nil {
 		_, url = t.meta()
 	}
-	a.deskEvent(owner, "open-browser", map[string]string{"id": id, "url": url})
+	if a.detachedTab(id) {
+		// A tab in a window of its own is raised there. See raiseDetached.
+		a.raiseDetached(id)
+	} else {
+		a.deskEvent(owner, "open-browser", map[string]string{"id": id, "url": url})
+	}
 	return nil
 }
 

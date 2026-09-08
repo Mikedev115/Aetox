@@ -212,7 +212,11 @@ func (a *App) workbenchOpenBrowser(ctx context.Context, url string, newTab bool,
 	// needs to actually see the page the agent moved to. Stamped with the
 	// owner, so "the user" here means the user of THAT chat: on screen it
 	// raises, in the background it parks on that session's desk.
-	a.deskEvent(owner, "open-browser", map[string]string{"id": string(id), "url": url})
+	if a.detachedTab(string(id)) {
+		a.raiseDetached(string(id))
+	} else {
+		a.deskEvent(owner, "open-browser", map[string]string{"id": string(id), "url": url})
+	}
 
 	// The frontend creates the tab, which creates the native webview — poll
 	// until it exists, then wait out its first navigation.

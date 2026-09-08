@@ -43,6 +43,13 @@ var (
 	procPostThreadMsgW   = user32.NewProc("PostThreadMessageW")
 	procDefWindowProcW   = user32.NewProc("DefWindowProcW")
 
+	// Detaching a tab into a window of its own: reparent it out of the app,
+	// give it a real frame, name it for the taskbar, and let the OS place it.
+	// See win32Tab.detach.
+	procSetParent         = user32.NewProc("SetParent")
+	procSetWindowLongPtrW = user32.NewProc("SetWindowLongPtrW")
+	procSetWindowTextW    = user32.NewProc("SetWindowTextW")
+
 	procGetWindowDpiAwarenessCtx = user32.NewProc("GetWindowDpiAwarenessContext")
 	procSetThreadDpiAwarenessCtx = user32.NewProc("SetThreadDpiAwarenessContext")
 	procGetWindowThreadProcessID = user32.NewProc("GetWindowThreadProcessId")
@@ -69,6 +76,19 @@ const (
 	// outside every monitor, this is the deck export's window (deck_render.go).
 	wsExToolWindow = 0x00000080
 	wsExNoActivate = 0x08000000
+
+	// A window of its own: title bar, border, minimise/maximise, resizable —
+	// everything WS_CHILD is not. What a detached tab wears (win32Tab.detach).
+	// No WS_EX_TOOLWINDOW here, unlike the export window: this one is a window
+	// the user works in, so it belongs on the taskbar where they can find it
+	// after alt-tabbing away.
+	wsOverlappedWindow = 0x00CF0000
+	gwlStyle           = ^uintptr(15) // GWL_STYLE, which is -16
+	swpFrameChanged    = 0x0020
+	swShowNormal       = 1
+	swRestore          = 9
+	wmSize             = 0x0005
+	wmClose            = 0x0010
 
 	coinitApartmentThreaded = 0x2
 
@@ -119,6 +139,20 @@ type wndClassExW struct {
 type win32Tab struct {
 	hwnd     uintptr
 	chromium *edge.Chromium
+	// detached: this tab has left the panel and is a top-level window of its
+	// own (detach). Two things stop happening the moment it is true — the pane
+	// no longer says where the tab sits, and nothing hides it — and both are
+	// enforced here as well as at the caller, because the pane is one window’s
+	// opinion and this is the window itself.
+	detached bool
+	// onClosed fires when somebody closes the detached window’s frame. It is
+	// the only way a tab can end that does not come from Aetox’s own strip, and
+	// without it the × on that frame would destroy the window while the agent
+	// went on holding a tab that no longer exists.
+	onClosed func()
+	// forget takes this tab out of the host’s hwnd index. Held as a closure
+	// rather than a host pointer so a tab built by a test needs no host.
+	forget func()
 	// hostThread and reportErr are the tripwire, not the plumbing: see
 	// requireHostThread.
 	hostThread uint32
@@ -241,12 +275,102 @@ func (t *win32Tab) sendBehind() {
 // this line just stops asking for it.
 func (t *win32Tab) setBounds(x, y, w, h int) {
 	t.requireHostThread("setBounds")
+	// A detached window is where the user put it. The pane goes on measuring
+	// its own rectangle and goes on reporting it — it has no idea this tab left
+	// — so the refusal lives here, at the window, rather than depending on
+	// every caller remembering.
+	if t.detached {
+		return
+	}
 	procSetWindowPos.Call(t.hwnd, hwndTop, uintptr(x), uintptr(y), uintptr(w), uintptr(h), swpNoActivate)
 	t.chromium.Resize()
 }
 
+// detach takes this tab out of the app and gives it a window of its own.
+//
+// The owner's call, 8 ก.ย.: *"ไม่อยากให้ผูกอยู่แค่กับใน Aetox ... แต่ Aetox ก็ตามไป
+// ควบคุมได้นะ"* — and the second half needs no code at all, which is the fact
+// that makes this feature small. The agent talks to the WebView2 through CDP
+// and the page bridge; neither has ever known where the HWND sits. read, click,
+// type, capture and the ref marks all keep working on a window that is no
+// longer anywhere near the app.
+//
+// It REPARENTS rather than rebuilding. A second window with the same URL is not
+// the same window: the page would reload, losing the scroll position, the form
+// half-filled, the session the page is holding in memory — and the refs from
+// the last read would be pointing at a document that no longer exists.
+//
+// The Win32 dance is the standard one and every step is load-bearing:
+// SetParent(0) makes it top-level, GWL_STYLE swaps WS_CHILD for a real frame,
+// and SWP_FRAMECHANGED is what makes the window recalculate its non-client area
+// — without it the frame is not drawn and the client rect is still the child's,
+// so the page is laid out for a window that is not the one on screen.
+//
+// The export window (openTab) reaches the same place by being born there. This
+// one has to arrive mid-life, because a tab is only worth detaching once there
+// is something on it.
+func (t *win32Tab) detach(title string, w, h int) {
+	t.requireHostThread("detach")
+	if t.detached {
+		// Already out. Asking again is "bring it to me", which is the useful
+		// reading of a second press and costs nothing to honour.
+		procShowWindow.Call(t.hwnd, uintptr(swRestore))
+		procSetWindowPos.Call(t.hwnd, hwndTop, 0, 0, 0, 0, swpNoMove|swpNoSize|swpShowWindow|swpNoActivate)
+		return
+	}
+	procSetParent.Call(t.hwnd, 0)
+	procSetWindowLongPtrW.Call(t.hwnd, gwlStyle, uintptr(wsOverlappedWindow|wsVisible))
+	// Named for the taskbar. A row of untitled windows is what alt-tab shows
+	// otherwise, and the whole point of detaching is that the user goes and
+	// finds this page later.
+	if title != "" {
+		if p, err := syscall.UTF16PtrFromString(title); err == nil {
+			procSetWindowTextW.Call(t.hwnd, uintptr(unsafe.Pointer(p)))
+		}
+	}
+	if w <= 0 || h <= 0 {
+		w, h = detachedW, detachedH
+	}
+	x, y := detachedSpawn()
+	procSetWindowPos.Call(t.hwnd, hwndTop, uintptr(x), uintptr(y), uintptr(w), uintptr(h), swpFrameChanged|swpShowWindow)
+	procShowWindow.Call(t.hwnd, uintptr(swShowNormal))
+	t.detached = true
+	// After the frame, not before: the client rect the page is laid out in is
+	// the one the new style produced.
+	t.chromium.Resize()
+}
+
+// detachedW, detachedH and detachedSpawn are where a window that has just left
+// the panel appears. Cascaded rather than centred, because the second one has
+// to be findable when it lands on top of the first.
+const (
+	detachedW = 1100
+	detachedH = 800
+)
+
+var detachedNth int
+
+func detachedSpawn() (int, int) {
+	const step = 28
+	n := detachedNth % 8
+	detachedNth++
+	return 120 + n*step, 90 + n*step
+}
+
 func (t *win32Tab) setVisible(visible bool) {
 	t.requireHostThread("setVisible")
+	// Detached: raise it when asked, and never hide it. Hiding is the panel’s
+	// idea of a tab that is not the current one, and this window has no current
+	// tab to lose to — a capture that hid the user’s window to photograph it
+	// would be absurd, and a session switch that hid it would be the panel
+	// reaching into a window it gave away.
+	if t.detached {
+		if visible {
+			procShowWindow.Call(t.hwnd, uintptr(swRestore))
+			procSetWindowPos.Call(t.hwnd, hwndTop, 0, 0, 0, 0, swpNoMove|swpNoSize|swpShowWindow|swpNoActivate)
+		}
+		return
+	}
 	if visible {
 		procSetWindowPos.Call(t.hwnd, hwndTop, 0, 0, 0, 0, swpNoMove|swpNoSize|swpShowWindow|swpNoActivate)
 		return
@@ -261,6 +385,9 @@ func (t *win32Tab) setVisible(visible bool) {
 // answer and is not reported.
 func (t *win32Tab) destroy() {
 	t.requireHostThread("destroy")
+	if t.forget != nil {
+		t.forget()
+	}
 	if err := t.chromium.Close(); err != nil && !engineClosed(err) {
 		debuglog.Msg("browser: closing a tab's webview: %v", err)
 	}
@@ -309,6 +436,13 @@ type win32Host struct {
 	attempt  *startAttempt
 	started  bool
 	class    *uint16
+	// byHwnd is how the window procedure finds the tab a message is about.
+	// It exists because a detached window has messages worth answering — it is
+	// resized and closed by the user now, not by the pane — and the class’s
+	// procedure is shared by every tab, so it is handed an HWND and nothing
+	// else. Guarded by mu with the queue above; the procedure runs on the host
+	// thread and nothing holds mu across a wait for that thread.
+	wins map[uintptr]*win32Tab
 }
 
 // startAttempt is one try at bringing the host thread up: a latch that closes
@@ -449,6 +583,30 @@ func (h *win32Host) run(att *startAttempt) {
 	// Child window class; all messages go to DefWindowProc — sizing is driven
 	// explicitly from BrowserSetBounds.
 	wndProc := syscall.NewCallback(func(hwnd, msg, wparam, lparam uintptr) uintptr {
+		// Two messages a detached window gets and a child window never did.
+		//
+		// WM_SIZE: the user drags the frame, so the page has to be laid out again.
+		// A child window was only ever resized by BrowserSetBounds, which called
+		// Resize itself — the comment above this class used to say sizing is driven
+		// explicitly, and that stopped being the whole truth the day a window could
+		// be resized by somebody else.
+		//
+		// WM_CLOSE: the × on that frame. Answered rather than passed on, so the
+		// window is not destroyed here — it goes back out through the same close
+		// path a × in the strip takes, which is the one that tells the agent its
+		// page is gone. Destroying first and reporting after would leave a moment
+		// in which the tab is in the map and its window is not.
+		switch msg {
+		case wmSize:
+			if t := h.tabByHwnd(hwnd); t != nil && t.chromium != nil {
+				t.chromium.Resize()
+			}
+		case wmClose:
+			if t := h.tabByHwnd(hwnd); t != nil && t.onClosed != nil {
+				t.onClosed()
+				return 0
+			}
+		}
 		r, _, _ := procDefWindowProcW.Call(hwnd, msg, wparam, lparam)
 		return r
 	})
@@ -507,6 +665,30 @@ func (h *win32Host) drain() {
 // child of the app's. Kept here rather than passed in because the reason is a
 // Win32 fact, not a caller's preference — see below.
 const offscreenTabID = exportTabID
+
+// tabByHwnd answers the window procedure's one question. Nil for a window this
+// host does not own, which includes every message that arrives after a tab has
+// been destroyed and before its queue has drained.
+func (h *win32Host) tabByHwnd(hwnd uintptr) *win32Tab {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.wins[hwnd]
+}
+
+func (h *win32Host) rememberWindow(hwnd uintptr, t *win32Tab) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.wins == nil {
+		h.wins = map[uintptr]*win32Tab{}
+	}
+	h.wins[hwnd] = t
+}
+
+func (h *win32Host) forgetWindow(hwnd uintptr) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.wins, hwnd)
+}
 
 func (h *win32Host) openTab(id, url string, x, y, w, hgt int, cb tabCallbacks) tabView {
 	// A child window ALWAYS paints over its parent's client area. Z-order only
@@ -597,7 +779,12 @@ func (h *win32Host) openTab(id, url string, x, y, w, hgt int, cb tabCallbacks) t
 		}
 	}
 
-	view := &win32Tab{hwnd: hwnd, chromium: chromium, hostThread: h.threadID, reportErr: cb.onEngineError}
+	view := &win32Tab{hwnd: hwnd, chromium: chromium, hostThread: h.threadID, reportErr: cb.onEngineError, onClosed: cb.onWindowClosed}
+	// Indexed by window handle from here on: the class procedure is shared by
+	// every tab and is handed an HWND, so this map is the only way a message
+	// about a detached window finds the tab it belongs to.
+	h.rememberWindow(hwnd, view)
+	view.forget = func() { h.forgetWindow(hwnd) }
 
 	chromium.MessageCallback = func(message string, _ *edge.ICoreWebView2, args *edge.ICoreWebView2WebMessageReceivedEventArgs) {
 		source, _ := args.GetSource()

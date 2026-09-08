@@ -134,6 +134,9 @@ export function BrowserOpen(arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
   return window['go']['main']['App']['BrowserOpen'](arg1, arg2, arg3, arg4, arg5, arg6, arg7);
 }
 
+export function BrowserDetach(arg1) {
+  return window['go']['main']['App']['BrowserDetach'](arg1);
+}
 export function BrowserOpenDevTools(arg1) {
   return window['go']['main']['App']['BrowserOpenDevTools'](arg1);
 }

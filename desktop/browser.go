@@ -41,6 +41,16 @@ type tabView interface {
 	// that is merely shown can stay behind the app's own webview — loaded,
 	// painting, invisible.
 	setVisible(visible bool)
+	// detach gives this tab a window of its own: out of the app, with a frame,
+	// a taskbar button and the user in charge of where it sits. Called once per
+	// tab and never undone — a detached page is separate from the session it
+	// came from and outlives it (the owner’s rule, 8 ก.ย.).
+	//
+	// Nothing about how the agent reaches the page changes, which is why this
+	// is one method rather than a mode: the tools talk to the engine, not to a
+	// rectangle. A host with no such concept may do nothing, and the tab simply
+	// stays in the panel.
+	detach(title string, w, h int)
 	setZoom(factor float64)
 	openDevTools()
 	destroy()
@@ -107,6 +117,11 @@ type tabCallbacks struct {
 	// user so. The tool's answer has to be able to carry what the engine said,
 	// or the agent is guessing about its own tools.
 	onEngineError func(err error)
+	// onWindowClosed fires when somebody closes a DETACHED tab’s own window.
+	// It is the one way a tab can end that Aetox’s own strip never sees, and
+	// without it that × would leave the agent holding a page that is gone —
+	// the orphan §127 spent a week on, arrived at from the other direction.
+	onWindowClosed func()
 	// onEngineGone says the engine behind this tab is gone for good — its
 	// browser process exited, or the webview has been closed under us — and
 	// nothing this view is asked from now on will succeed. Distinct from
@@ -1212,6 +1227,10 @@ type browserTab struct {
 	wantURL   string
 	bounds    [4]int
 	hasBounds bool
+	// detached: this tab is a window of its own now and no longer part of any
+	// desk. Guarded by wantMu with the two above because it is the same kind
+	// of fact — what this tab should be, as opposed to what its engine is.
+	detached bool
 
 	// shotMu guards what this tab's last capture looked like.
 	//
@@ -1289,6 +1308,42 @@ func (t *browserTab) remember(url string) {
 
 // rememberBounds records where the tab's window is, in the same physical
 // pixels BrowserSetBounds is given.
+// markDetached records that this tab now lives in a window of its own, and
+// detachSize is the rectangle to give that window.
+//
+// The flag is read by everything that used to assume a tab is a rectangle
+// inside the panel — the session teardown that would have closed it, the desk
+// event that would have drawn a chip for it, the capture that would have told
+// the model to run `tabs select` to un-hide it. None of those is wrong about a
+// tab in the strip; all of them are wrong about this one.
+func (t *browserTab) markDetached() {
+	t.wantMu.Lock()
+	defer t.wantMu.Unlock()
+	t.detached = true
+}
+
+func (t *browserTab) isDetached() bool {
+	if t == nil {
+		return false
+	}
+	t.wantMu.Lock()
+	defer t.wantMu.Unlock()
+	return t.detached
+}
+
+// detachSize is the size the window opens at: the rectangle the tab had in the
+// panel when it was pulled out, so the page it is showing does not reflow the
+// moment it leaves. Zero for a tab that was never placed, which lets the
+// platform pick its own default.
+func (t *browserTab) detachSize() (w, h int) {
+	t.wantMu.Lock()
+	defer t.wantMu.Unlock()
+	if !t.hasBounds {
+		return 0, 0
+	}
+	return t.bounds[2], t.bounds[3]
+}
+
 func (t *browserTab) rememberBounds(x, y, w, h int) {
 	t.wantMu.Lock()
 	defer t.wantMu.Unlock()
@@ -1662,6 +1717,10 @@ type browserHost struct {
 	// point (see browserTab's own comment, and browser_shot.go's header for
 	// what the engine does when that rule is broken).
 	views map[string]tabView
+	// onUserClose is how a close that Aetox did not start gets back into the
+	// app: the × on a detached window’s own frame. Set by the App that owns
+	// this host, because closeTab lives there.
+	onUserClose func(id string)
 	// Two fields because there are two questions, and one field answering both
 	// is what put the agent's keystrokes on the user's page.
 	//
@@ -1713,6 +1772,8 @@ func newBrowserHost(app *App) *browserHost {
 		backend: newHostBackend(),
 		tabs:    map[string]*browserTab{},
 		views:   map[string]tabView{},
+		// The one close that starts outside Aetox: the × on a detached window.
+		onUserClose: func(id string) { app.closeTab(id, closedByUser) },
 	}
 }
 
@@ -1799,7 +1860,45 @@ func (h *browserHost) callbacks(id string, tab *browserTab) tabCallbacks {
 		onNavDone:     func(v tabView, ok bool) { h.navCompleted(id, tab, v, ok) },
 		onEngineError: tab.noteEngineError,
 		onEngineGone:  func(err error) { h.engineGone(id, tab, gen, err) },
+		// The × on a detached window’s own frame. Routed to the same door the
+		// strip’s × uses, so a page that goes away goes away once, in one
+		// vocabulary, and the agent is told the user closed it.
+		onWindowClosed: func() { h.windowClosed(id) },
 	}
+}
+
+// windowClosed is a detached window’s frame being closed by the user.
+//
+// It goes through closeTab rather than destroying anything here, for the reason
+// the close-reason vocabulary exists at all: what the agent must be told is not
+// “the window is gone” but WHO ended it. A page the user shut is not a page
+// that crashed and is not a page the agent closed, and only one of the three is
+// a reason to try again.
+func (h *browserHost) windowClosed(id string) {
+	if h.onUserClose != nil {
+		h.onUserClose(id)
+	}
+}
+
+// detach hands a tab its own window. Idempotent: a second call raises the
+// window that is already out, which is the useful reading of a second press.
+//
+// The title travels because only this side knows it — the view has the page,
+// the tab has what the page called itself, and the window needs a name for the
+// taskbar the moment it appears rather than at the next navigation.
+func (h *browserHost) detach(id string) {
+	h.onTab(id, func(v tabView, t *browserTab) {
+		title, url := t.meta()
+		if title == "" {
+			title = url
+		}
+		if title == "" {
+			title = "Aetox"
+		}
+		w, hgt := t.detachSize()
+		v.detach(title, w, hgt)
+		t.markDetached()
+	})
 }
 
 // engineGone is the portable half of "the engine behind this tab is gone".
@@ -2193,6 +2292,49 @@ func (a *App) BrowserSetZoom(id string, factor float64) {
 		t.zoomMu.Unlock()
 		v.setZoom(factor)
 	})
+}
+
+// raiseDetached brings a detached window to the front.
+//
+// It is the whole of what “raise this tab” means once a tab has left the
+// panel. Every other raise in this app is a desk event — the window makes the
+// chip active and the pane un-hides the view — and a detached tab has no chip
+// and no pane, so an event would be addressed to nobody, and (worse) the
+// handler would draw it a new chip on whatever desk is on screen.
+func (a *App) raiseDetached(id string) {
+	a.onTab(id, func(v tabView, _ *browserTab) { v.setVisible(true) })
+}
+
+// detachedTab reports whether this id names a tab that has left the panel. Read
+// by every raise in the app, which is why it is one call and not a field lookup
+// at four sites.
+func (a *App) detachedTab(id string) bool {
+	if a.browsers == nil {
+		return false
+	}
+	return a.browsers.tab(id).isDetached()
+}
+
+// BrowserDetach gives a tab a window of its own, and it never comes back.
+//
+// The owner’s ask, 8 ก.ย.: *“เราเพิ่มปุ่มแยก ให้เบราว์เซอร์มันรันแยกออกมาเลยได้ไหม
+// ไม่อยากให้ผูกอยู่แค่กับใน Aetox ... แต่ Aetox ก็ตามไปควบคุมได้นะ”* — with the rule
+// that settles every question below: once out, it is separate from the session
+// it came from and outlives it.
+//
+// So this is a one-way door, and deliberately. A window that could be pushed
+// back into the strip would need a session to be pushed back INTO, and the tab
+// no longer has one — its chat may have been closed an hour ago. “Come back”
+// for a detached page is opening it again, which the agent and the address bar
+// can both already do.
+//
+// Nothing about reaching the page changes. The tools drive the engine, and the
+// engine does not know which window it is in: read, click, type, capture and
+// the ref marks all keep working, from any chat, exactly as before.
+func (a *App) BrowserDetach(id string) {
+	if host, err := a.browserHostLazy(); err == nil {
+		host.detach(id)
+	}
 }
 
 // BrowserSetVisible shows/hides a tab (hidden when its dock tab is inactive or

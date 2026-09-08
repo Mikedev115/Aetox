@@ -183,6 +183,24 @@ export async function closeTab(tab: WorkbenchTab): Promise<void> {
   removeTab(tab.id)
 }
 
+/** The tab left the panel for a window of its own (BrowserDetach).
+ *
+ * removeTab and NOT closeTab: nothing is being stopped. The native window is
+ * alive, the page is still loaded, the agent can still drive it — all that
+ * changes is that this strip is no longer the thing drawing it.
+ *
+ * Taking the chip off is what makes the owner's rule true: a detached page is
+ * separate from the session it came from and outlives it. The chip is the only
+ * thing that tied it to this chat — it is what the saved layout stores and what
+ * a session switch tears down — so a chip left behind would restore as a second
+ * window on the same page next time this chat opened.
+ *
+ * The saved layout follows on its own: the snapshot is written from an effect
+ * over these tabs, so removing one is already the whole of forgetting it. */
+export function detachTab(id: string): void {
+  removeTab(id)
+}
+
 /** Singleton tab: project file tree. */
 export function openFilesTab(): void {
   if (!workbench.tabs.some((t) => t.kind === 'files')) {

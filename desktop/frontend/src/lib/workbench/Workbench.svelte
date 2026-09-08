@@ -19,7 +19,7 @@
   import { cockpit } from '../stores/cockpit.svelte'
   import {
     workbench, activateTab, closeTab, removeTab,
-    openFilesTab, openBrowserTab, openTerminalTab, openDecksTab, openGitTab, openPRTab, openRepoMapTab, openCuttingRoomTab, openFileTab, routeDeskEvent,
+    openFilesTab, openBrowserTab, openTerminalTab, openDecksTab, openGitTab, openPRTab, openRepoMapTab, openCuttingRoomTab, openFileTab, routeDeskEvent, detachTab,
     reportDeskTabs,
     openUrlInWorkbench, saveWorkbenchSnapshot, resolveAddressBarInput, labelForUrl,
     deviceList, loadDevices,
@@ -27,7 +27,7 @@
     type WorkbenchTab,
   } from '../stores/workbench.svelte'
   import { busy, busyWork, layerOn, loadBusySignal, toggleBusyLayer } from '../stores/busySignal.svelte'
-  import { TerminalShells, BrowserBack, BrowserForward, BrowserReload, BrowserOpenDevTools, BrowserSetDevice } from '../../../wailsjs/go/main/App'
+  import { TerminalShells, BrowserBack, BrowserForward, BrowserReload, BrowserOpenDevTools, BrowserSetDevice, BrowserDetach } from '../../../wailsjs/go/main/App'
   import { pagePick, startPagePick, stopPagePick, type PickMode } from './pagePick.svelte'
   import { EventsOn } from '../../../wailsjs/runtime/runtime'
   import { t, type TKey } from '../i18n.svelte'
@@ -204,6 +204,25 @@
   function browserCmd(fn: (id: string) => Promise<void>) {
     const tab = activeTab
     if (tab?.kind === 'browser' && tab.url) fn(tab.id)
+  }
+
+  /** Pull the active browser tab out into a window of its own.
+   *
+   * Two halves, in this order and not the other: Go reparents the native window
+   * first, and only then does the tab leave the strip. Removing the chip first
+   * would unmount BrowserPane, and an unmounted pane is a tab whose bounds and
+   * visibility nobody is driving — for the fraction of a second before the
+   * detach lands, the window would be a child of the app with nothing telling
+   * it where to sit.
+   *
+   * It does NOT close anything. detachTab takes the chip off the strip and out
+   * of the saved layout; the window and its page carry on, which is the whole
+   * point of the button. */
+  async function detachActiveTab() {
+    const tab = activeTab
+    if (tab?.kind !== 'browser' || !tab.url) return
+    await BrowserDetach(tab.id)
+    detachTab(tab.id)
   }
 
   // Same gate as browserCmd: a tab still on its start page has no native
@@ -512,6 +531,15 @@
     ><Icon name="pencil" size={14} /></button>
     <span class="insp-sep" aria-hidden="true"></span>
     <button class="icobtn tiny tip-r" aria-label={t('workbench.devtools')} data-tip={t('workbench.devtools')} onclick={() => browserCmd(BrowserOpenDevTools)}><Icon name="wrench" size={14} /></button>
+    <!-- Out of the app, into a window of its own — and it does not come back
+         (the owner's rule, 8 ก.ย.: once out, it is separate from the session).
+         So the tab leaves the strip in the same gesture: the window IS where
+         the page lives now, the taskbar is where it is found, and a chip left
+         behind would be a chip for a pane this panel no longer draws. -->
+    <button
+      class="icobtn tiny tip-r" aria-label={t('workbench.detach')} data-tip={t('workbench.detach')}
+      onclick={() => detachActiveTab()}
+    ><Icon name="externalLink" size={14} /></button>
     <!-- A transparent native <select> over the ⋮ glyph. Chromium renders its
          popup as an OS window, so it floats above the tab's own native window —
          a DOM dropdown here is invisible unless the page hides, which reads as
