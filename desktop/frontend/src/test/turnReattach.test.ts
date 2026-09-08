@@ -101,6 +101,40 @@ describe('a window reloaded while the agent is working', () => {
     expect(cockpit.awaitingReply).toBe(true)
     expect(vi.mocked(SessionTranscript)).not.toHaveBeenCalled()
   })
+
+  // The reattach flag says "a turn this window walked in on has ended". It does
+  // not say the turn was this chat's, and the user is free to open another one
+  // while it runs. Aimed at the wrong chat, the ending wiped the live block and
+  // painted the finished conversation over the one on screen — the reader lost
+  // what they were reading, which is the owner's "แชทมันหายวั๊บ".
+  it('leaves the chat on screen alone when the turn ended in another one', async () => {
+    await reloadMidTurn()
+    cockpit.openSession = 's2'
+    cockpit.chat = [{ role: 'user', text: 'อีกแชทนึง', time: '11:00' }]
+    vi.mocked(SessionTranscript).mockResolvedValue([question, answer] as never)
+    vi.mocked(SessionTranscript).mockClear() // the reload's own read, already spent
+
+    await applyAgentDone({ sessionId: 's1' })
+
+    expect(cockpit.chat.map((m) => m.text)).toEqual(['อีกแชทนึง'])
+    expect(vi.mocked(SessionTranscript)).not.toHaveBeenCalled()
+  })
+
+  // A transcript that comes back empty at the end of a turn is a failed read,
+  // not an empty conversation — the store has at least the question in it, or
+  // there would have been no turn. Assigning it dropped the window to the
+  // welcome screen with the whole chat gone. restoreLiveTranscript has always
+  // guarded this read; this one did not, and it is the same read.
+  it('does not blank the window when the transcript comes back empty', async () => {
+    await reloadMidTurn()
+    vi.mocked(SessionTranscript).mockResolvedValue([] as never)
+
+    await applyAgentDone({ sessionId: 's1' })
+
+    expect(cockpit.chat.map((m) => m.text)).toEqual(['ไล่บั๊คให้หน่อย'])
+    // The turn still ends — the live block comes down either way.
+    expect(cockpit.awaitingReply).toBe(false)
+  })
 })
 
 describe('working in one chat while another one runs', () => {
