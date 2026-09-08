@@ -3326,14 +3326,14 @@ button.phase-head:hover { color:var(--text-muted); }
  * with everything else, so there is nothing to remember here. */
 @keyframes menu-in { from { opacity:0; transform:translateY(var(--menu-from, 4px)) } }
 .focus-menu, .attach-menu, .stance-menu, .branch-menu, .model-menu, .ctx-menu,
-.summary-menu, .busy-menu, .plus-menu {
+.summary-menu, .more-menu, .plus-menu {
   animation:menu-in var(--dur-tint) var(--ease-arrive) both;
 }
 /* Grows from the edge it is pinned to. */
 .focus-menu, .attach-menu, .stance-menu, .branch-menu, .model-menu, .ctx-menu {
   transform-origin:bottom center; --menu-from:4px;
 }
-.summary-menu, .busy-menu, .plus-menu {
+.summary-menu, .more-menu, .plus-menu {
   transform-origin:top center; --menu-from:-4px;
 }
 
@@ -4109,33 +4109,47 @@ button.phase-head:hover { color:var(--text-muted); }
    A checklist rather than a settings page, and it lives in the browser
    toolbar rather than in Settings, because it is a decision about the panel
    you are looking at while you are looking at it (owner, 24 ส.ค.). */
-.busy-wrap { position:relative; display:flex; }
-.busy-menu {
-  position:absolute; top:calc(100% + 8px); left:0; z-index:60; width:300px;
+.more-wrap { position:relative; display:flex; }
+/* Pinned to the RIGHT edge, unlike the checklist it replaced: this button is
+   the last thing in the toolbar, and a menu growing rightwards from it would
+   grow off the panel. keepOnScreen still has the last word on a narrow one. */
+.more-menu {
+  position:absolute; top:calc(100% + 8px); right:0; z-index:60; width:288px;
   padding:4px; border:1px solid var(--border-subtle); border-radius:var(--r-lg);
   background:var(--surface-panel); box-shadow:var(--shadow-menu);
 }
-.busy-head {
-  margin:0; padding:8px 10px 6px; font-size:var(--fs-xs); color:var(--text-muted);
-  border-bottom:1px solid var(--border-subtle);
+.more-item {
+  display:flex; align-items:center; gap:9px; width:100%; padding:8px 10px;
+  border-radius:var(--r-sm); text-align:left; cursor:pointer;
+  color:var(--text-secondary); font-size:var(--fs-sm);
 }
-.busy-item {
-  display:flex; gap:9px; width:100%; padding:9px 10px; border-radius:var(--r-sm);
-  text-align:left; cursor:pointer; color:var(--text-secondary);
+.more-item:hover { background:var(--surface-hover); color:var(--text-primary); }
+.more-txt { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+/* The current value, on the right of the row that opens the list — so the menu
+   answers "what size is it now" without being opened twice. */
+.more-val { color:var(--text-muted); font-size:var(--fs-xs); flex:none; }
+.more-note { color:var(--text-muted); font-size:var(--fs-xs); }
+/* An expanded section, inset so the eye can see it belongs to the row above. */
+.more-sub { margin:2px 0 6px 8px; border-left:1px solid var(--border-subtle); padding-left:4px; }
+.more-item.sub { padding:6px 10px; }
+.more-item.on { color:var(--text-primary); }
+.more-head {
+  margin:0; padding:6px 10px 8px; font-size:var(--fs-xs); color:var(--text-muted);
 }
-.busy-item:hover { background:var(--surface-hover); }
+.more-sep { display:block; height:1px; margin:4px 6px; background:var(--border-subtle); }
 /* The tick box keeps its width whether or not it holds a tick, so the labels
    stay on one left edge — a checklist whose rows shift as you toggle them is
    one you have to re-find your place in after every click. */
-.busy-item .tick {
+.more-item .tick {
   flex:none; width:16px; height:16px; margin-top:1px; display:grid; place-items:center;
   border:1.5px solid var(--border-strong); border-radius:var(--r-sm); color:var(--text-on-interactive);
 }
-.busy-item.on .tick { background:var(--interactive); border-color:var(--interactive); }
-.busy-item .txt { display:flex; flex-direction:column; gap:2px; min-width:0; }
-.busy-item .txt b { font-size:var(--fs-sm); font-weight:600; color:var(--text-secondary); }
-.busy-item.on .txt b { color:var(--text-primary); }
-.busy-item .txt span { font-size:var(--fs-xs); color:var(--text-dim); line-height:1.45; }
+/* A radio row (a size) shows its tick and no box; a checkbox row (a layer)
+   shows the box either way. The border is what tells them apart. */
+.more-item[role="menuitemradio"] .tick { border:none; color:var(--interactive); }
+.more-item.on .tick { background:var(--interactive); border-color:var(--interactive); }
+.more-item .more-txt b { font-size:var(--fs-sm); font-weight:600; color:var(--text-secondary); }
+.more-item.on .more-txt b { color:var(--text-primary); }
 
 /* ---------- ไฟบอกสถานะ: the layers themselves ----------
    Three of the four are here. The fourth is drawn inside the page by an

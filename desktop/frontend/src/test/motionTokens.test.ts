@@ -60,7 +60,7 @@ describe('the motion token layer', () => {
     const rule = arrival.slice(0, arrival.indexOf('}', arrival.indexOf('animation:menu-in')))
     for (const menu of [
       'focus-menu', 'attach-menu', 'stance-menu', 'branch-menu', 'model-menu',
-      'ctx-menu', 'summary-menu', 'busy-menu', 'plus-menu',
+      'ctx-menu', 'summary-menu', 'more-menu', 'plus-menu',
     ]) {
       expect(rule).toContain(`.${menu}`)
     }

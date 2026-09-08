@@ -57,10 +57,25 @@
 
   let shells = $state<{ name: string; path: string }[]>([])
   let menuOpen = $state(false)
-  // The busy-signal checklist, opened from the browser toolbar. Its own flag
-  // rather than sharing menuOpen: two menus that close each other by accident
-  // is the bug that costs a click every single time.
-  let busyOpen = $state(false)
+  // The browser toolbar's overflow menu, and which section inside it is open.
+  //
+  // One menu where there were four buttons and a native <select> (owner, 8 ก.ย.:
+  // *"เราห่อรวมใน สามจุดได้ไหม"*). Its sections are disclosures rather than
+  // fly-outs: eight device sizes and four busy-signal layers flat would be a
+  // fifteen-row menu, and a second floating layer over a native browser window
+  // is the one thing this panel has learnt not to build.
+  let moreOpen = $state(false)
+  let moreSection = $state<'' | 'size' | 'busy'>('')
+  // Every menu this toolbar can open, as one fact for the browser pane.
+  //
+  // A native WebView2 window composites ABOVE everything the app draws, so a
+  // DOM menu over the pane is invisible unless the page hides first. The pane
+  // does hide for one thing it can measure — something covering the CENTRE of
+  // its box — and a menu hanging off the toolbar covers the top and never the
+  // centre. That is exactly why ไฟบอกสถานะ opened onto nothing: the checklist
+  // was drawn, correctly, underneath the page. The panel has to SAY a menu is
+  // open; it cannot be inferred.
+  const panelMenuOpen = $derived(menuOpen || moreOpen)
   let urlDraft = $state('')
 
   const activeTab = $derived(workbench.tabs.find((t) => t.id === workbench.activeId))
@@ -374,11 +389,27 @@
   }
 
   function closeMenuOnOutsideClick(e: MouseEvent) {
-    if (!(e.target as HTMLElement).closest('.plus-menu-wrap')) menuOpen = false
+    const el = e.target as HTMLElement
+    if (!el.closest('.plus-menu-wrap')) menuOpen = false
+    if (!el.closest('.more-wrap')) closeMore()
+  }
+
+  function closeMore() {
+    moreOpen = false
+    moreSection = ''
+  }
+
+  /** Open the overflow menu, or one of its sections.
+   *
+   * Sections are exclusive: opening one closes the other, so the menu never
+   * grows past a screen and the thing just clicked is always in view. */
+  function toggleMoreSection(name: 'size' | 'busy') {
+    moreSection = moreSection === name ? '' : name
+    if (name === 'busy' && moreSection === 'busy') void loadBusySignal()
   }
 
   function onKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') { menuOpen = false; if (pagePick.tabId) stopPagePick(); return }
+    if (e.key === 'Escape') { menuOpen = false; closeMore(); if (pagePick.tabId) stopPagePick(); return }
     if (isShortcut(e, 'browserTab')) { e.preventDefault(); openBrowserTab() }
     else if (isShortcut(e, 'filesTab')) { e.preventDefault(); openFilesTab() }
     // Only reaches here while the app's own webview has focus. Once the page
@@ -488,37 +519,11 @@
     />
     <button class="icobtn tiny" aria-label={t('workbench.go')} data-tip={t('workbench.go')} onclick={navigate}><Icon name="externalLink" size={14} /></button>
     <span class="insp-sep" aria-hidden="true"></span>
-    <!-- What the panel SHOWS you about the agent working, as against the two
-         controls after it, which do something TO the page. It sits first
-         because it is the only one here that changes nothing except how the
-         panel reports itself. -->
-    <span class="busy-wrap">
-      <button
-        class="icobtn tiny" class:active={busyOpen}
-        aria-label={t('workbench.busySignal')} data-tip={t('workbench.busySignal')}
-        aria-expanded={busyOpen} aria-haspopup="true"
-        onclick={() => { busyOpen = !busyOpen; if (busyOpen) void loadBusySignal() }}
-      ><Icon name="sparkles" size={14} /></button>
-      {#if busyOpen}
-        <div class="busy-menu" role="dialog" aria-label={t('workbench.busySignal')}>
-          <p class="busy-head">{t('workbench.busySignalHint')}</p>
-          {#each busy.layers as layer (layer.id)}
-            <button
-              class="busy-item" class:on={layer.on}
-              role="menuitemcheckbox" aria-checked={layer.on}
-              onclick={() => void toggleBusyLayer(layer.id, !layer.on)}
-            >
-              <span class="tick">{#if layer.on}<Icon name="check" size={12} />{/if}</span>
-              <span class="txt"><b>{layer.label}</b><span>{layer.note}</span></span>
-            </button>
-          {/each}
-        </div>
-      {/if}
-    </span>
     <!-- Pointing at the page is a way of talking to the agent, not a way of
-         inspecting the page — the rule that separates it from the two controls
-         after it, which are the user's own magnifying glass. -->
-    <span class="insp-sep" aria-hidden="true"></span>
+         inspecting the page, so these two stay in the open while everything
+         else went into the menu: they are MODES, they carry a lit state you
+         have to be able to see, and each has a keyboard shortcut. A mode you
+         cannot tell is on is a mode you turn on twice. -->
     <button
       class="icobtn tiny" class:active={pagePick.tabId === activeTab?.id && pagePick.mode === 'pick'}
       aria-label={t('workbench.pick')} data-tip={`${t('workbench.pick')} · ${shortcutLabel('pickElement')}`}
@@ -530,31 +535,69 @@
       onclick={() => togglePick('draw')}
     ><Icon name="pencil" size={14} /></button>
     <span class="insp-sep" aria-hidden="true"></span>
-    <button class="icobtn tiny tip-r" aria-label={t('workbench.devtools')} data-tip={t('workbench.devtools')} onclick={() => browserCmd(BrowserOpenDevTools)}><Icon name="wrench" size={14} /></button>
-    <!-- Out of the app, into a window of its own — and it does not come back
-         (the owner's rule, 8 ก.ย.: once out, it is separate from the session).
-         So the tab leaves the strip in the same gesture: the window IS where
-         the page lives now, the taskbar is where it is found, and a chip left
-         behind would be a chip for a pane this panel no longer draws. -->
-    <button
-      class="icobtn tiny tip-r" aria-label={t('workbench.detach')} data-tip={t('workbench.detach')}
-      onclick={() => detachActiveTab()}
-    ><Icon name="externalLink" size={14} /></button>
-    <!-- A transparent native <select> over the ⋮ glyph. Chromium renders its
-         popup as an OS window, so it floats above the tab's own native window —
-         a DOM dropdown here is invisible unless the page hides, which reads as
-         the page crashing. Looks like a button, behaves like the platform. -->
-    <span class="vp-picker tip-r" data-tip={activeTab?.viewport ? `${activeTab.viewport.w}×${activeTab.viewport.h}` : t('workbench.viewportFill')}>
-      <span class="icobtn tiny" aria-hidden="true"><Icon name="ellipsisVertical" size={14} /></span>
-      <select
-        class="vp-select" aria-label={t('workbench.viewport')} value={activeTab?.viewport?.name ?? ''}
-        onchange={(e) => setViewport(e.currentTarget.value)}
-      >
-        <option value="">{t('workbench.viewportFill')}</option>
-        {#each DEVICES as d}
-          <option value={d.name}>{d.name} ({d.w}×{d.h})</option>
-        {/each}
-      </select>
+    <!-- Everything that is not a mode: the page's size, what the panel draws
+         while the agent works, the developer tools, and the way out into a
+         window of its own. Four buttons and a native <select> until 8 ก.ย.,
+         two of which had grown the same ↗ glyph meaning different things. -->
+    <span class="more-wrap">
+      <button
+        class="icobtn tiny tip-r" class:active={moreOpen}
+        aria-label={t('workbench.more')} data-tip={t('workbench.more')}
+        aria-expanded={moreOpen} aria-haspopup="true"
+        onclick={() => (moreOpen ? closeMore() : (moreOpen = true))}
+      ><Icon name="ellipsisVertical" size={14} /></button>
+      {#if moreOpen}
+        <div class="more-menu" role="menu" aria-label={t('workbench.more')} use:keepOnScreen>
+          <button class="more-item" role="menuitem" aria-expanded={moreSection === 'size'} onclick={() => toggleMoreSection('size')}>
+            <Icon name="monitor" size={14} />
+            <span class="more-txt">{t('workbench.viewport')}</span>
+            <span class="more-val">{activeTab?.viewport?.name ?? t('workbench.viewportFill')}</span>
+          </button>
+          {#if moreSection === 'size'}
+            <div class="more-sub">
+              <button class="more-item sub" role="menuitemradio" aria-checked={!activeTab?.viewport} onclick={() => { setViewport(''); closeMore() }}>
+                <span class="tick">{#if !activeTab?.viewport}<Icon name="check" size={12} />{/if}</span>
+                <span class="more-txt">{t('workbench.viewportFill')}</span>
+              </button>
+              {#each DEVICES as d}
+                <button class="more-item sub" role="menuitemradio" aria-checked={activeTab?.viewport?.name === d.name} onclick={() => { setViewport(d.name); closeMore() }}>
+                  <span class="tick">{#if activeTab?.viewport?.name === d.name}<Icon name="check" size={12} />{/if}</span>
+                  <span class="more-txt">{d.name}</span>
+                  <span class="more-val">{d.w}×{d.h}</span>
+                </button>
+              {/each}
+            </div>
+          {/if}
+          <button class="more-item" role="menuitem" aria-expanded={moreSection === 'busy'} onclick={() => toggleMoreSection('busy')}>
+            <Icon name="sparkles" size={14} />
+            <span class="more-txt">{t('workbench.busySignal')}</span>
+          </button>
+          {#if moreSection === 'busy'}
+            <div class="more-sub">
+              <p class="more-head">{t('workbench.busySignalHint')}</p>
+              {#each busy.layers as layer (layer.id)}
+                <button
+                  class="more-item sub" class:on={layer.on}
+                  role="menuitemcheckbox" aria-checked={layer.on}
+                  onclick={() => void toggleBusyLayer(layer.id, !layer.on)}
+                >
+                  <span class="tick">{#if layer.on}<Icon name="check" size={12} />{/if}</span>
+                  <span class="more-txt"><b>{layer.label}</b><span class="more-note">{layer.note}</span></span>
+                </button>
+              {/each}
+            </div>
+          {/if}
+          <span class="more-sep" aria-hidden="true"></span>
+          <button class="more-item" role="menuitem" onclick={() => { browserCmd(BrowserOpenDevTools); closeMore() }}>
+            <Icon name="wrench" size={14} />
+            <span class="more-txt">{t('workbench.devtools')}</span>
+          </button>
+          <button class="more-item" role="menuitem" onclick={() => { void detachActiveTab(); closeMore() }}>
+            <Icon name="externalLink" size={14} />
+            <span class="more-txt">{t('workbench.detach')}</span>
+          </button>
+        </div>
+      {/if}
     </span>
   </div>
   <!-- แถบบอกการกระทำ: what is being done, and to what, in words.
@@ -627,7 +670,7 @@
             {/if}
           {/key}
         {:else}
-          <BrowserPane tab={tab} active={workbench.activeId === tab.id} menuOpen={menuOpen} dragging={dragging} />
+          <BrowserPane tab={tab} active={workbench.activeId === tab.id} menuOpen={panelMenuOpen} dragging={dragging} />
         {/if}
       </div>
     {/each}

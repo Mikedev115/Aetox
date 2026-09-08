@@ -537,6 +537,7 @@ export const en: Record<keyof typeof th, string> = {
   'workbench.busyEnd.other': 'Worked the browser {subject}',
   'workbench.devtools': 'DevTools',
   'workbench.detach': 'Open in its own window',
+  'workbench.more': 'More tools',
   'workbench.viewport': 'Screen size',
   'workbench.viewportFill': 'Fill panel',
   'workbench.stopTask': 'Stop Current Task',

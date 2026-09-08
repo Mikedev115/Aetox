@@ -35,12 +35,28 @@ function withBrowserTab() {
   workbench.activeId = 'web-1'
 }
 
-async function picker(container: HTMLElement): Promise<HTMLSelectElement> {
+/** Open the overflow menu and expand its size section.
+ *
+ * A native <select> until 8 ก.ย., when the four toolbar buttons and the picker
+ * were folded into one ⋮ menu. The two halves this file is about did not
+ * change; only the way a person reaches them did.
+ */
+async function sizeRows(container: HTMLElement): Promise<HTMLButtonElement[]> {
+  await fireEvent.click(container.querySelector('.more-wrap button') as HTMLButtonElement)
+  await tick()
+  const opener = container.querySelector('.more-menu .more-item') as HTMLButtonElement
+  await fireEvent.click(opener)
   await vi.waitFor(() => {
-    const el = container.querySelector('.vp-select') as HTMLSelectElement | null
-    if (!el || el.options.length < 2) throw new Error('the device list has not arrived')
+    if (container.querySelectorAll('.more-sub .more-item').length < 2) throw new Error('the device list has not arrived')
   })
-  return container.querySelector('.vp-select') as HTMLSelectElement
+  return Array.from(container.querySelectorAll('.more-sub .more-item')) as HTMLButtonElement[]
+}
+
+/** The label and the size shown on one row. */
+function rowText(el: HTMLElement): string {
+  const name = el.querySelector('.more-txt')?.textContent?.trim() ?? ''
+  const size = el.querySelector('.more-val')?.textContent?.trim() ?? ''
+  return size ? `${name} (${size})` : name
 }
 
 describe('the device picker', () => {
@@ -48,8 +64,7 @@ describe('the device picker', () => {
     withBrowserTab()
     const { container } = render(Workbench)
 
-    const sel = await picker(container)
-    const rows = Array.from(sel.options).map((o) => o.textContent?.trim() ?? '')
+    const rows = (await sizeRows(container)).map(rowText)
 
     // The first row is เต็มแผง, which is the absence of a device rather than
     // one of them, and so is the only row this file is allowed to know about.
@@ -60,8 +75,8 @@ describe('the device picker', () => {
     withBrowserTab()
     const { container } = render(Workbench)
 
-    const sel = await picker(container)
-    await fireEvent.change(sel, { target: { value: 'iPhone SE' } })
+    const rows = await sizeRows(container)
+    await fireEvent.click(rows[1])
     await tick()
 
     // The half that was missing. Without this the pane is a narrow desktop.
@@ -74,9 +89,11 @@ describe('the device picker', () => {
     withBrowserTab()
     const { container } = render(Workbench)
 
-    const sel = await picker(container)
-    await fireEvent.change(sel, { target: { value: 'iPhone SE' } })
-    await fireEvent.change(sel, { target: { value: '' } })
+    // Picking a size closes the menu, so going back means opening it again —
+    // which is the gesture a person makes too.
+    await fireEvent.click((await sizeRows(container))[1])
+    await tick()
+    await fireEvent.click((await sizeRows(container))[0])
     await tick()
 
     expect(vi.mocked(BrowserSetDevice).mock.calls.at(-1)).toEqual(['web-1', ''])
