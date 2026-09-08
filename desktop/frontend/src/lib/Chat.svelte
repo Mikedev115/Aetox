@@ -89,6 +89,14 @@
   let providers = $state<string[]>([])
   let thinkLevels = $state<string[]>([])
   let models = $state<string[]>([])
+  // Whether the list above is "not fetched yet" or "fetched and empty". The row
+  // draws differently for each, and without this flag every menu open flashed
+  // the empty-list shape for one round trip on a provider that has a list.
+  let modelsLoading = $state(false)
+  // The typed model id, for a provider whose list could not be fetched. Held
+  // here rather than in the row so it survives the dropdown closing, and
+  // prefilled with the model in use so the row still SAYS which one that is.
+  let customModel = $state('')
   // What each of those models costs, keyed by name. Same call the settings page
   // makes, because "ฟรี" appearing on one screen and not the other is one fact
   // with two answers — and this is the screen where the model is actually
@@ -719,7 +727,13 @@
   })
 
   async function refreshProviderDerived(provider: string) {
-    const res = await ListModelsForProvider(provider)
+    modelsLoading = true
+    let res: string[] | null = null
+    try {
+      res = await ListModelsForProvider(provider)
+    } finally {
+      modelsLoading = false
+    }
     models = Array.isArray(res) ? res : []
     // Prices for the list that is on screen, not for one fetched again. Not
     // awaited: the names are pickable before the money arrives, and a provider
@@ -796,6 +810,20 @@
     } catch (err) {
       switchError = String(err)
     }
+  }
+
+  // The id box mirrors whatever is in use, so a provider switch re-seeds it
+  // instead of leaving the previous provider's model sitting in a box the next
+  // press would send back.
+  $effect(() => { customModel = model.modelName })
+
+  // A provider whose list could not be fetched is still a provider you can
+  // name a model on — that is the whole contract ListModelsForProvider states
+  // for an empty result, and Settings has always honoured it.
+  async function useCustomModel() {
+    const name = customModel.trim()
+    if (!name) return
+    await handleModelChange(name)
   }
 
   // Same catch as the two rows above it. It was added when a busy turn
@@ -6079,11 +6107,42 @@
                         : priced[m]?.priced ? `$${priced[m].input} / $${priced[m].output}` : '',
                       tagFree: !!priced[m]?.free,
                     })), model.modelName, handleModelChange, priceSourceLine)}
+                  {:else if modelsLoading}
+                    <span class="mm-static">{t('settings.loadingModels')}</span>
                   {:else}
-                    <!-- No discoverable list — read-only; custom model ids are set in Settings -->
-                    <span class="mm-static">{model.modelName || '—'}</span>
+                    <!-- No discoverable list — a local runtime whose server is
+                         off, or an account whose /v1/models is refused. This
+                         used to be read-only text pointing at nothing, so the
+                         one row the menu exists to change was the only one
+                         that could not be changed (owner, 9 ก.ย.: "บั๊คเลือก
+                         โมเดลไม่ได้"). The id is typed here now, the same
+                         way the settings page has always allowed. -->
+                    <div class="mm-idbox">
+                      <input
+                        class="ctrl mm-id"
+                        placeholder={t('settings.customModelPlaceholder')}
+                        bind:value={customModel}
+                        onclick={(e) => e.stopPropagation()}
+                        onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); useCustomModel() } }}
+                      />
+                      <button
+                        type="button" class="ctrl" disabled={!customModel.trim()}
+                        onclick={(e) => { e.stopPropagation(); useCustomModel() }}
+                      >{t('settings.use')}</button>
+                    </div>
                   {/if}
                 </div>
+                {#if !modelsLoading && models.length === 0}
+                  <!-- Why the box is there, and the way back to a real list:
+                       start the server, then ask again without closing the menu. -->
+                  <div class="mm-nolist">
+                    <span>{t('chat.modelNoList', { p: model.provider })}</span>
+                    <button
+                      type="button"
+                      onclick={(e) => { e.stopPropagation(); refreshProviderDerived(model.provider) }}
+                    >{t('settings.retry')}</button>
+                  </div>
+                {/if}
                 <!-- Two, not one: a picker with a single entry is not a choice,
                      it just tells the user there is a setting they cannot move.
                      The command palette has always required two (Palette.svelte);

@@ -4055,9 +4055,21 @@ button.phase-head:hover { color:var(--text-muted); }
    mostly caret, and stacking is the lesser loss. */
 @container composer (max-width: 220px) {
   .mm-row { flex-direction:column; align-items:stretch; gap:4px; }
-  .mm-row .ctrl, .mm-row .updrop { max-width:none; }
+  .mm-row .ctrl, .mm-row .updrop, .mm-row .mm-idbox { max-width:none; }
 }
 .mm-static { font-size:var(--fs-sm); color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* The typed model id, for a provider that has no list to offer. Same 180px
+   budget the dropdowns on the other rows get, split between the box and the
+   button, so the menu keeps one right edge. */
+.mm-idbox { display:flex; align-items:center; gap:6px; min-width:0; max-width:180px; }
+.mm-idbox input.mm-id { flex:1 1 auto; min-width:0; width:auto; }
+.mm-idbox .ctrl { max-width:none; }
+/* Why there is a box and not a list, and the way back to a list. Dim and small:
+   it is a note about the row above, not a warning — nothing has failed yet. */
+.mm-nolist { display:flex; align-items:center; gap:8px; min-width:0; font-size:var(--fs-2xs); color:var(--text-dim); }
+.mm-nolist span { flex:1 1 auto; min-width:0; }
+.mm-nolist button { flex:none; appearance:none; background:none; border:none; padding:0; color:var(--interactive); font:inherit; cursor:pointer; text-decoration:underline; }
+.mm-nolist button:hover { color:var(--text-primary); }
 /* Wraps rather than ellipsises: the reason a provider is unreachable is the
    whole message ("start its server and load a model"), not its first 30px. */
 .mm-warn { display:flex; flex-direction:column; gap:2px; font-size:var(--fs-xs); color:var(--danger, #e5534b); word-break:break-word; }

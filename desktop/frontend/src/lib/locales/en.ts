@@ -38,6 +38,7 @@ export const en: Record<keyof typeof th, string> = {
   'chat.subagentStep': 'a sub-agent’s step',
   'chat.provider': 'Provider',
   'chat.model': 'Model',
+  'chat.modelNoList': 'No model list from {p}. Type a model id instead.',
   'chat.thinkLevel': 'Thinking level',
   'chat.modelQueued': 'Next round runs on',
   'chat.modelQueuedCancel': 'Cancel the switch',

@@ -39,6 +39,7 @@ export const th = {
   'chat.subagentStep': 'งานของซับเอเจน',
   'chat.provider': 'ผู้ให้บริการ',
   'chat.model': 'โมเดล',
+  'chat.modelNoList': 'ยังไม่ได้รายชื่อโมเดลจาก {p} พิมพ์ชื่อเองได้เลย',
   'chat.thinkLevel': 'ระดับความคิด',
   'chat.modelQueued': 'รอบถัดไปจะใช้',
   'chat.modelQueuedCancel': 'ยกเลิกการสลับ',
