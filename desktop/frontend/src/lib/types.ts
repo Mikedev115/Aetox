@@ -930,6 +930,76 @@ export interface ParkedTurn {
   queued: string[]
 }
 
+/** One heading of a plan and what is under it (Go: main.PlanSection).
+ *
+ * Its own shape rather than the binding's, the same call §94's note makes about
+ * Space: what crosses into the window is a wire format the window owns, and a
+ * field the Go struct gains should be a decision here rather than an arrival. */
+export interface PlanSection {
+  heading: string
+  body: string
+}
+
+/** This conversation's plan (Go: main.Plan, desktop/plan.go).
+ *
+ * `version` counts the writes, so the card can say a plan was revised rather
+ * than redrawing silently — a plan that changes with no mark on it reads as a
+ * plan the user misremembered.
+ *
+ * `changed` names the sections the LAST call touched and is deliberately not
+ * stored on the Go side: it is a fact about that call, not about the plan, so a
+ * chat reopened days later comes back with it empty and nothing highlighted. */
+/** One numbered step of the plan, with somewhere to record that it happened
+ *  (Go: main.PlanStep).
+ *
+ *  Structured rather than a markdown list inside "What to change", and that is
+ *  what makes มุ่งเป้า's first gate mechanical: to know whether step 3 is done
+ *  off prose you would have to read it, which is a judgement. A row with a
+ *  state on it is a fact. */
+export interface PlanStep {
+  n: number
+  text: string
+  /** '' | 'doing' | 'done' | 'failed'. `failed` settles a step as much as
+   *  `done` does — a step reported impossible is a finding, not an open one. */
+  state?: string
+  /** Why a step failed, drawn under it. */
+  note?: string
+  /** A breakpoint the USER set: carry the plan out up to here, then wait.
+   *
+   *  It exists because the pause button only works for somebody sitting in
+   *  front of the screen, and this mode is built to be walked away from. */
+  stop?: boolean
+}
+
+export interface Plan {
+  title: string
+  sections: PlanSection[]
+  /** The plan's checklist. Empty for a plan written without one, which is a
+   *  plan มุ่งเป้า refuses to carry out — the refusal is honest: a run with no
+   *  checkable steps is "try harder for longer". */
+  steps?: PlanStep[]
+  version: number
+  changed?: string[]
+  updated: string
+  /** This conversation is carrying the plan out right now (goal_run.go). Not
+   *  stored on the Go side: a run is a turn in progress, and one that survived
+   *  a restart would be a window offering to stop something that is not
+   *  happening. */
+  running?: boolean
+  /** How many times the engine refused to let the turn end because the plan was
+   *  not finished. The one part of มุ่งเป้า the user cannot otherwise see — the
+   *  gates fire between the model speaking and the turn ending, so a run pushed
+   *  back four times looks exactly like one that sailed through. */
+  sentBack?: number
+  /** Why the run is holding, '' when it is not. A hold is not a stop: the turn
+   *  ended where it stood with everything it did already marked, and ไปต่อ
+   *  picks it up. */
+  paused?: string
+  /** RFC3339, when the run began. The window keeps the clock and counts up from
+   *  it; a Go side pushing ticks would be an event stream that says nothing. */
+  startedAt?: string
+}
+
 export interface CockpitState {
   project: ProjectInfo
   /** Folders added to the focused project, in the order they were added. */
@@ -1092,6 +1162,23 @@ export interface CockpitState {
    *
    *  Empty whenever nothing is working off screen, which is almost always. */
   parked: Record<string, ParkedTurn>
+  /** Chats whose turn finished while the user was looking at something else,
+   *  and which have not been opened since.
+   *
+   *  The other half of `parked`. That one answers "is this one still going",
+   *  which the row says with a green dot; this one answers the question the
+   *  list could not answer at all — a turn that ended in a chat nobody was
+   *  watching left no mark anywhere, so the only way to find out work had
+   *  finished was to open every row and look (owner, 8 ก.ย.: *"บางทีงานที่ทำไว้
+   *  เสร็จแล้วอ่ะ บางทีมันไม่มีอะไรแจ้งเตือนเลยว่าเสร็จแล้ว"*). A finished-and-unread
+   *  chat wears an amber dot until it is opened.
+   *
+   *  Set only for a chat that was NOT on screen when its turn ended: a turn
+   *  that finishes in front of you has already been read by the time it lands.
+   *  Cleared by arriveAt, which is the one door every chat is opened through.
+   *  Persisted in localStorage, because the mark outliving a reload is the
+   *  whole point of it — closing the window is not reading the answer. */
+  unread: Record<string, boolean>
   /** Which chat the window is showing. The window's own fact, not the engine's
    *  — the engine is addressed by id and has no "current" of its own
    *  (desktop/conversation.go). Everything that means "the chat on screen"
@@ -1107,6 +1194,11 @@ export interface CockpitState {
   todos: { content: string; status: 'pending' | 'in_progress' | 'completed' }[]
   /** Side work the agent flagged with suggest_task — chips the user can start or dismiss. */
   taskChips: TaskChip[]
+  /** This conversation's plan (desktop/plan.go), drawn as a card and kept in the
+   *  app's own database rather than in the transcript. null until the chat has
+   *  one — which is most chats, and is why it is null rather than an empty Plan:
+   *  "no plan" and "a plan with nothing in it" draw differently. */
+  plan: Plan | null
   /** The user's own next message, written for them after a turn that ended by
    *  asking them something (desktop/prepared_reply.go). Best first; the composer
    *  shows one at a time in dim text and Tab takes it. Empty on every turn that
@@ -1195,6 +1287,7 @@ export function emptyCockpitState(): CockpitState {
     ask: null,
     todos: [],
     taskChips: [],
+    plan: null,
     prepared: [],
     preparedAt: 0,
     pendingLearned: 0,
@@ -1203,6 +1296,7 @@ export function emptyCockpitState(): CockpitState {
     pendingImages: [],
     sessionError: '',
     parked: {},
+    unread: {},
     openSession: '',
     pendingContexts: [],
     pendingFiles: [],

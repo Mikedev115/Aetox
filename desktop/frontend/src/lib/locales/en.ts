@@ -22,6 +22,8 @@ export const en: Record<keyof typeof th, string> = {
   'sidebar.rowMenu': 'More',
   'sidebar.pinChat': 'Pin this chat',
   'sidebar.unpinChat': 'Unpin',
+  'sidebar.chatWorking': 'Working on this one now',
+  'sidebar.chatUnread': 'Finished — you have not opened it yet',
   'sidebar.pinned': 'Pinned',
   'sidebar.chatsInSpace': 'Chats in {name}',
   'sidebar.unpinProject': 'Unpin',
@@ -286,6 +288,26 @@ export const en: Record<keyof typeof th, string> = {
   'chat.modelIdPlaceholder': 'model id',
   'chat.copyCode': 'Copy',
   'chat.planCard': 'Plan',
+  'chat.planRevision': 'revision {n}',
+  'chat.planStart': 'Carry out this plan',
+  'chat.planStartMessage': 'Carry out this plan.',
+  'chat.planStop': 'Stop',
+  'chat.planPause': 'Pause',
+  'chat.planGo': 'Carry on',
+  'chat.planStopHere': 'Pause here',
+  'chat.inputDuringRun': 'Say anything while it works — it lands when this step finishes',
+
+  'chat.planRunning': 'carrying it out — {done}/{total}',
+  'chat.planSentBack': 'sent back {n}',
+  'chat.planMinutes': '{n} min',
+  'chat.planJustNow': 'just started',
+  'chat.planEdit': 'Edit',
+  'chat.planEditSave': 'Save',
+  'chat.planEditCancel': 'Cancel',
+  'chat.planEditHint': 'Headings as **Heading**, steps as 1. 2. 3.',
+  'chat.planJump': 'Show the plan',
+
+
   'chat.copyDrawing': 'Copy',
   'chat.saveDrawing': 'Save',
   'chat.savedDrawing': 'Saved',
@@ -314,8 +336,8 @@ export const en: Record<keyof typeof th, string> = {
   // The session strip above the composer. The chip label is what tells you
   // what is inside, so the count rides on the chip rather than hiding behind it.
   'summary.toggle': 'This room at a glance',
-  'strip.plan': 'Plan',
-  'strip.planEmpty': 'No plan in this room yet',
+  'strip.plan': 'To do',
+  'strip.planEmpty': 'Nothing to do in this room yet',
   // A finished plan clears itself on the next turn; this is for one abandoned
   // half-way through.
   'summary.clearPlan': 'Put this plan down',

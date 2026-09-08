@@ -55,11 +55,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/Mikedev115/Aetox/internal/config"
 	_ "modernc.org/sqlite"
 )
+
+// planFence is what the chat draws a plan card around (markdown.ts), and so
+// the only mark in a transcript that says "this was a plan" rather than an
+// answer that happened to have headings.
+const planFence = "```plan"
 
 func main() {
 	days := flag.Int("days", 0, "only the last N days (0 = all time)")
@@ -103,6 +109,7 @@ func main() {
 	delegationContainment(db, window)
 	cacheHealth(db, window)
 	cacheBreaks(db, window)
+	planRewrites(db, window)
 	trialReport(db, window)
 	outputVolume(db, window)
 }
@@ -418,6 +425,129 @@ func outputVolume(db *sql.DB, window string) {
 // this whole program exists to put a number in front of the owner and let him
 // decide something with it. A table that quietly lost its tail is the one
 // failure an audit must not have: it does not look wrong, it looks smaller.
+
+// planRewrites answers the question the plan overhaul was started over: when a
+// plan is revised, how much of what comes back is a plan that already existed?
+//
+// The measurement had to come from the transcript rather than from tool_runs,
+// because writing a plan is not a tool call. It is the assistant's own words,
+// wrapped in a ```plan fence so the chat can draw it as a card
+// (internal/prompt.planCard) — and that fence is what makes the count possible
+// at all. Before the card there was no way to tell a plan from an answer, which
+// is the same gap §106.11 closed for the reader.
+//
+// Counted per conversation and not per day: two plans in two conversations are
+// two plans, and two plans in ONE conversation is the second one being written
+// over the first. Only the second and later cards are charged, because the
+// first is the plan the user asked for.
+//
+// The re-reading line beside it is the other half of the same waste and the
+// half that costs INPUT: a plan rebuilt from the top opens what it opened the
+// first time. It is the same sha-identical test REPEAT WASTE runs, narrowed to
+// the conversations that produced more than one plan.
+func planRewrites(db *sql.DB, window string) {
+	section("PLAN REWRITES — plans written over a plan that already existed")
+
+	rows, err := db.Query(`
+	  SELECT session_id, text FROM messages
+	  WHERE role='agent' AND instr(text, '` + planFence + `') > 0 AND ` + window + `
+	  ORDER BY session_id, id`)
+	if err != nil {
+		fmt.Println("  unavailable:", err)
+		return
+	}
+	defer rows.Close()
+
+	cards := map[string][]int64{}
+	var order []string
+	for rows.Next() {
+		var sid, text string
+		if err := rows.Scan(&sid, &text); err != nil {
+			continue
+		}
+		if _, seen := cards[sid]; !seen {
+			order = append(order, sid)
+		}
+		cards[sid] = append(cards[sid], planCardBytes(text))
+	}
+	stopEarly(rows)
+
+	var single, multi int
+	var first, again int64
+	for _, cs := range cards {
+		first += cs[0]
+		if len(cs) == 1 {
+			single++
+			continue
+		}
+		multi++
+		for _, b := range cs[1:] {
+			again += b
+		}
+	}
+
+	if len(cards) == 0 {
+		fmt.Println("  no plan card in this window — nothing to compare")
+		fmt.Println()
+		return
+	}
+	fmt.Printf("  conversations that produced a plan  %d (%d wrote it once, %d wrote it again)\n", len(cards), single, multi)
+	fmt.Printf("  first drafts                        %d bytes\n", first)
+	fmt.Printf("  written over a plan already there   %d bytes (%.0f%% of all plan output)\n", again, pct(again, first+again))
+
+	// The conversations themselves, worst first: one number for a whole history
+	// hides whether it was everybody a little or one conversation badly, and
+	// those two want different fixes.
+	sort.SliceStable(order, func(i, j int) bool { return len(cards[order[i]]) > len(cards[order[j]]) })
+	shown := 0
+	for _, sid := range order {
+		if len(cards[sid]) < 2 || shown >= 5 {
+			continue
+		}
+		var dupCalls, dupBytes int64
+		d, err := db.Query(`
+		  SELECT count(*)-1, sum(output_bytes)-min(output_bytes) FROM tool_runs
+		  WHERE session_id=? AND ok=1 AND output_sha256<>''
+		  GROUP BY tool, output_sha256 HAVING count(*)>1`, sid)
+		if err == nil {
+			for d.Next() {
+				var c, b int64
+				if d.Scan(&c, &b) == nil {
+					dupCalls += c
+					dupBytes += b
+				}
+			}
+			d.Close()
+		}
+		fmt.Printf("    %-22s %d plans, %d re-read of the same bytes (%d bytes read twice)\n",
+			shortID(sid), len(cards[sid]), dupCalls, dupBytes)
+		shown++
+	}
+	fmt.Println()
+}
+
+// planCardBytes is the size of the card itself, not of the message carrying it.
+// A sentence before the plan is not the plan, and counting it would make a
+// chatty turn look like a bigger rewrite than a terse one.
+func planCardBytes(text string) int64 {
+	i := strings.Index(text, planFence)
+	if i < 0 {
+		return 0
+	}
+	body := text[i:]
+	if j := strings.Index(body[len(planFence):], "```"); j >= 0 {
+		body = body[:len(planFence)+j+3]
+	}
+	return int64(len(body))
+}
+
+func shortID(id string) string {
+	if len(id) > 20 {
+		return id[:20]
+	}
+	return id
+}
+
 func stopEarly(rows *sql.Rows) {
 	if err := rows.Err(); err != nil {
 		fmt.Println("  ! the read stopped early, so these totals are short:", err)

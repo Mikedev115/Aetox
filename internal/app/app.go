@@ -627,6 +627,19 @@ func (a *App) SetApprovalMode(mode safety.ApprovalMode) {
 	}
 }
 
+// SetGoalCheck installs the question asked when a turn is about to end, or
+// clears it with nil — มุ่งเป้า (turn.Executor.SetGoalCheck).
+//
+// A pass-through, like SetApprovalMode above and for the same reason: what the
+// window holds is a decision, and where that decision has to arrive is inside a
+// turn that may already be running. Nothing in this package judges the work —
+// the checker is the caller's, and so is what "done" means.
+func (a *App) SetGoalCheck(check func(answer string) string) {
+	if a.turnExecutor != nil {
+		a.turnExecutor.SetGoalCheck(check)
+	}
+}
+
 func (a *App) applyApprovalMode(modeArg string) {
 	modeArg = strings.ToLower(strings.TrimSpace(modeArg))
 	switch modeArg {

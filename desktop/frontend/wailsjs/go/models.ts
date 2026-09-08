@@ -1289,6 +1289,104 @@ export namespace main {
 	        this.kind = source["kind"];
 	    }
 	}
+	export class PlanStep {
+	    n: number;
+	    text: string;
+	    state?: string;
+	    note?: string;
+	    stop?: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new PlanStep(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.n = source["n"];
+	        this.text = source["text"];
+	        this.state = source["state"];
+	        this.note = source["note"];
+	        this.stop = source["stop"];
+	    }
+	}
+	export class PlanSection {
+	    heading: string;
+	    body: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PlanSection(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.heading = source["heading"];
+	        this.body = source["body"];
+	    }
+	}
+	export class Plan {
+	    title: string;
+	    sections: PlanSection[];
+	    steps?: PlanStep[];
+	    version: number;
+	    changed?: string[];
+	    updated: string;
+	    sentBack?: number;
+	    startedAt?: string;
+	    paused?: string;
+	    running: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new Plan(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.title = source["title"];
+	        this.sections = this.convertValues(source["sections"], PlanSection);
+	        this.steps = this.convertValues(source["steps"], PlanStep);
+	        this.version = source["version"];
+	        this.changed = source["changed"];
+	        this.updated = source["updated"];
+	        this.sentBack = source["sentBack"];
+	        this.startedAt = source["startedAt"];
+	        this.paused = source["paused"];
+	        this.running = source["running"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class PlanRunStart {
+	    refusal?: string;
+	    started?: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new PlanRunStart(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.refusal = source["refusal"];
+	        this.started = source["started"];
+	    }
+	}
+	
+	
 	export class PriceSource {
 	    name: string;
 	    fetched: string;
@@ -2365,6 +2463,10 @@ export namespace main {
 	    h: number;
 	    dpr: number;
 	    mobile: boolean;
+	    radius?: number;
+	    notch?: string;
+	    notchW?: number;
+	    notchH?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new deviceProfile(source);
@@ -2377,6 +2479,10 @@ export namespace main {
 	        this.h = source["h"];
 	        this.dpr = source["dpr"];
 	        this.mobile = source["mobile"];
+	        this.radius = source["radius"];
+	        this.notch = source["notch"];
+	        this.notchW = source["notchW"];
+	        this.notchH = source["notchH"];
 	    }
 	}
 

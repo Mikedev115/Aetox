@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { BackgroundTask, ChatMessage, TaskState, ModelStatus, ToolStep, TimelineNode, ContextBreakdown, ModelLoading, TurnSpend } from './types'
+  import type { BackgroundTask, ChatMessage, TaskState, ModelStatus, ToolStep, TimelineNode, ContextBreakdown, ModelLoading, TurnSpend, Plan } from './types'
   import { groupSteps, isDelegation } from './types'
   import { phasesOf, type TurnPhase } from './turnPhases'
   import { pacedStream, pacedText } from './streamPace'
@@ -33,6 +33,7 @@
   import type { main, connect, subagent } from '../../wailsjs/go/models'
   import { t, i18n, type TKey } from './i18n.svelte'
   import { isShortcut, shortcutLabel } from './shortcuts'
+  import { openMicStream, applySpeaker, audioDevices } from './audioDevices.svelte'
   import { currentStep, tally } from './delegateWork'
   import { hasSpend, spendLabel, spendTitle } from './spend'
   import { copyDrawing, saveDrawing } from './drawingExport'
@@ -51,8 +52,7 @@
     retryFailedTurn, editFailedTurn, regenerateReply, switchVariant, resendEdited, rateReply,
     setActiveView, newChairSession, newSessionAt, openSettingsAt, setStance,
     sendUserMessage, liveThinkSecs,
-    preparedText, nextPrepared, clearPrepared,
-  } from './stores/cockpit.svelte'
+    preparedText, nextPrepared, clearPrepared, startPlanRun, stopPlanRun, savePlanText, pausePlanRun, resumePlanRun, setPlanStepStop } from './stores/cockpit.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import MemoryCard from './MemoryCard.svelte'
   import CodeDiff from './CodeDiff.svelte'
@@ -1383,11 +1383,17 @@
     }
     let stream: MediaStream
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // The mic picked on the เสียง page, or Windows' default when none is.
+      stream = await openMicStream()
     } catch {
       voiceError = t('chat.micDenied')
       return
     }
+    // Said once, before the recording rather than after it: a mic that has
+    // been unplugged since it was chosen means this take is going through a
+    // different one, and finding that out from an empty transcript is the
+    // whole bug this picker exists for.
+    if (audioDevices.fellBack) voiceError = t('chat.micFellBack')
     micChunks = []
     const rec = new MediaRecorder(stream)
     micRecorder = rec
@@ -1504,6 +1510,9 @@
     // the next one, the way a dropped frame is skipped rather than fatal.
     audio.onerror = () => { void playNextPiece() }
     if (speakJob) void SpeechPlaying(speakJob, Number(audio.dataset.seq ?? 0)).catch(() => {})
+    // Routed here rather than at creation: setSinkId is a promise, and a piece
+    // built while the one before it is still playing would race play().
+    await applySpeaker(audio)
     try {
       await audio.play()
     } catch {
@@ -3152,6 +3161,114 @@
     e.preventDefault()
     openUrlInWorkbench(href)
   }
+  /** Did this stretch of work write the plan? The card is anchored on the step
+   *  rather than on the message text, which is what lets it come back when the
+   *  chat is reopened: the step is stored with the turn, the plan is stored in
+   *  the database, and neither of them is a sentence somebody has to have typed.
+   *
+   *  `read` does not count. Reading the plan is the acting session looking
+   *  something up; drawing a card under it would put the plan on screen in the
+   *  middle of work that is carrying it out, not writing it. */
+  const wrotePlan = (steps: ToolStep[]) =>
+    steps.some((s) => !s.kind && s.name === 'plan' && (s.act === 'write' || s.act === 'amend'))
+
+  /** The card's Copy hands back markdown, the same shape `plan read` returns.
+   *  Read off the rendered card instead it would come back with every heading
+   *  and list flattened out of it — the note renderPlan in markdown.ts carries
+   *  about its own data-plan attribute, for the same reason. */
+  /** The step being worked on: the one marked `doing`, or the first that is
+   *  not settled. The run bar's headline, because "where are we" is the
+   *  question a long run leaves the user holding.
+   *
+   *  Falls back rather than blanking. A run between steps — the model has
+   *  finished one and not yet marked the next — would otherwise flash an empty
+   *  bar, which reads as the run having stopped. */
+  const planNow = (plan: Plan) => {
+    const steps = plan.steps ?? []
+    return (
+      steps.find((st) => st.state === 'doing') ??
+      steps.find((st) => st.state !== 'done' && st.state !== 'failed')
+    )
+  }
+
+  /** Minutes since the run began. Counted HERE, from one timestamp, rather than
+   *  pushed from Go: a clock arriving as events is a stream of messages that say
+   *  nothing, and this is the mode whose whole point is not paying for those. */
+  let runTick = $state(0)
+  $effect(() => {
+    if (!cockpit.plan?.running) return
+    // Ticks the derived clock, nothing else. A minute is the resolution the bar
+    // shows, so a slower interval would let the number sit visibly wrong.
+    const id = setInterval(() => (runTick += 1), 15000)
+    return () => clearInterval(id)
+  })
+  const planElapsed = (plan: Plan) => {
+    void runTick
+    if (!plan.startedAt) return ''
+    const began = Date.parse(plan.startedAt)
+    if (Number.isNaN(began)) return ''
+    const mins = Math.max(0, Math.floor((Date.now() - began) / 60000))
+    return mins < 1 ? t('chat.planJustNow') : t('chat.planMinutes', { n: String(mins) })
+  }
+
+  /** How far the run has got. Settled, not done: a step reported impossible is
+   *  a finding the user needs and is not still open — the same line the Go side
+   *  draws in unfinishedSteps. */
+  const planDone = (plan: Plan) =>
+    (plan.steps ?? []).filter((st) => st.state === 'done' || st.state === 'failed').length
+
+  // The plan open for hand editing, as markdown, or null when it is not.
+  //
+  // One box for the whole card (the owner's call over per-section editing), and
+  // the format is the one `plan read` prints — planMarkdown writes exactly what
+  // parsePlanMarkdown reads, so the round trip is a property of one Go file
+  // rather than a guess about what somebody typed.
+  let planDraft = $state<string | null>(null)
+
+  function onEditPlan(plan: Plan) {
+    planRefusal = ''
+    planDraft = planAsMarkdown(plan)
+  }
+
+  /** Take the user back to the card. The strip says where the run is; the card
+   *  is where the rest of it lives, and a strip you cannot get from is a strip
+   *  that has to carry everything. */
+  function scrollToPlan() {
+    chatEl?.querySelector('.plan-card')?.scrollIntoView({
+      // The same check fold.ts and typeOnce.ts make, inline because it is one
+      // line and this is the only place in this file that needs it.
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'center',
+    })
+  }
+
+  async function onSavePlan() {
+    if (planDraft === null) return
+    const refusal = await savePlanText(planDraft)
+    planRefusal = refusal
+    // Closed only on success. A refusal with the box already gone would have
+    // thrown the user's edit away to show them why it was rejected.
+    if (refusal === '') planDraft = null
+  }
+
+  // The engine's refusal, shown under the button rather than swallowed: "there
+  // is no plan" and "this plan has no checkable steps" send the user to
+  // different places, and a button that did nothing would send them to neither.
+  let planRefusal = $state('')
+
+  async function onStartPlanRun() {
+    planRefusal = await startPlanRun()
+  }
+
+  async function onStopPlanRun() {
+    planRefusal = ''
+    await stopPlanRun()
+  }
+
+  const planAsMarkdown = (plan: Plan) =>
+    (plan.title ? '# ' + plan.title + '\n\n' : '') +
+    plan.sections.map((sec) => '**' + sec.heading + '**\n' + sec.body).join('\n\n')
+
 </script>
 
 <!-- "/" is the prompt list on its own button; Ctrl+K opens the same component in
@@ -3638,6 +3755,150 @@
      whose rows had all folded to counts a second after landing: *"เนี้ยไหนว่า
      ปรับแล้ว"*. Everything the worker has done stays on screen; the window is
      what keeps it from being a wall. -->
+<!-- THE PLAN, drawn from the row rather than from anything the model typed
+     (desktop/plan.go). It sits under the stretch of work that wrote it, which is
+     what §106.12 decided when a plan was still prose in a message: the turn was
+     spent producing it, so the card IS the reply and is not folded away.
+
+     What changed under that decision is where the words come from. A plan used
+     to reach the screen by the model typing the whole document inside a ```plan
+     fence — which is also why revising one cost the document a second time. Now
+     the tool holds it and this draws it, so an `amend` costs the section that
+     changed and the card updates in place.
+
+     The ANCHOR is the plan step in the timeline, and that is what makes the card
+     survive a reopen: the step is stored with the turn, so a transcript read
+     back a week later still knows this is where the plan was written. What it
+     draws is the plan as it stands NOW, not as it stood then — deliberately, and
+     the same reading `plan read` gives: there is one plan being worked on, not a
+     copy per revision. `changed` marks what the last call touched.
+
+     The fence renderer in markdown.ts stays where it is. It is the contract for
+     a surface that draws cards and has no tool to draw one from
+     (internal/prompt.planCard), and for a plan a model wrote before this
+     existed. -->
+
+
+{#snippet planCard(plan: Plan)}
+  <div class="plan-card" class:running={plan.running} data-plan={planAsMarkdown(plan)}>
+    <!-- THE RUN BAR. Everything a long run leaves the user wondering, in one
+         strip: which step is running, how far, how long, and how many times the
+         engine sent the turn back. That last number is the only view there is of
+         มุ่งเป้า's gates — they fire between the model speaking and the turn
+         ending, so a run pushed back four times otherwise looks exactly like one
+         that sailed through.
+         The dot is the answer to the failure this app has already learned once,
+         at the browser's wait ceiling: a screen that does not move reads as a
+         hang, and the reasonable thing to do about a hang is press Stop. -->
+    {#if plan.running}
+      {@const now = planNow(plan)}
+      <div class="runbar">
+        <div class="runbar-top">
+          <span class="runbar-now">
+            <span class="livedot"></span>{now ? now.text : t('chat.planRunning', { done: String(planDone(plan)), total: String((plan.steps ?? []).length) })}
+          </span>
+          <span class="runbar-meta">
+            {planDone(plan)}/{(plan.steps ?? []).length}{planElapsed(plan) ? ' · ' + planElapsed(plan) : ''}{plan.sentBack ? ' · ' + t('chat.planSentBack', { n: String(plan.sentBack) }) : ''}
+          </span>
+          <button class="plan-run-stop" type="button" onclick={onStopPlanRun}>{t('chat.planStop')}</button>
+        </div>
+        <div class="runbar-track"><i style="width:{(plan.steps ?? []).length ? Math.round((planDone(plan) / (plan.steps ?? []).length) * 100) : 0}%"></i></div>
+      </div>
+    {/if}
+    <div class="plan-head">
+      <!-- The same compass the fence-rendered card wears (markdown.ts
+           renderPlan). Two cards for one thing that do not look alike is worse
+           than either of them, and the icon is the half a user recognises
+           before they read a word of it. -->
+      <span class="plan-kind"><Icon name="compass" size={13} />{t('chat.planCard')}</span>
+      {#if plan.version > 1}
+        <span class="plan-rev">{t('chat.planRevision', { n: String(plan.version) })}</span>
+      {/if}
+      <!-- onChatClick already handles `.plan-copy` for any `.plan-card`
+           carrying data-plan, so this needs no wiring of its own — and it must
+           be here, or the state-drawn card is the one plan in the app you
+           cannot copy out. -->
+      <!-- Editing is the user's, and it is theirs even while the plan is being
+           carried out: a run that turned up a wrong step is exactly when you
+           want to fix it, and the next check reads the plan fresh. -->
+      {#if planDraft === null}
+        <button class="plan-edit" type="button" onclick={() => onEditPlan(plan)}>{t('chat.planEdit')}</button>
+      {/if}
+      <button class="plan-copy" type="button">{t('chat.copyCode')}</button>
+    </div>
+    {#if planDraft !== null}
+      <!-- The whole card as one box. Per-section editing was the alternative and
+           the owner chose this: a plan is a document, and a document is edited
+           as one. -->
+      <textarea class="plan-edit-box" bind:value={planDraft} spellcheck="false"></textarea>
+      <div class="plan-foot">
+        <span class="plan-edit-hint">{t('chat.planEditHint')}</span>
+        <button class="plan-run-stop" type="button" onclick={() => (planDraft = null)}>{t('chat.planEditCancel')}</button>
+        <button class="plan-run" type="button" onclick={onSavePlan}>{t('chat.planEditSave')}</button>
+      </div>
+      {#if planRefusal}<p class="plan-refusal">{planRefusal}</p>{/if}
+    {:else}
+    {#if plan.title}<h3 class="plan-title">{plan.title}</h3>{/if}
+    <div class="plan-body">
+      {#each plan.sections as sec}
+        <h4 class="plan-heading" class:plan-changed={(plan.changed ?? []).includes(sec.heading)}>
+          {sec.heading}
+        </h4>
+        <div class="markdown-body">{@html renderMarkdown(sec.body)}</div>
+      {/each}
+      <!-- THE CHECKLIST, and it is the whole of มุ่งเป้า's screen. The owner's
+           constraint on that mode was to report as little as possible, and the
+           reason is sharper than output tokens: narration written beside a
+           round's tool calls goes into the conversation and is re-sent with
+           every later round of the same turn, so narrating a thirty-step run
+           costs quadratically. These rows cost nothing per round — they are a
+           UI object reading state, not sentences in a context. -->
+      {#if (plan.steps ?? []).length > 0}
+        <ol class="plan-steps">
+          {#each plan.steps ?? [] as st}
+            <li class="plan-step" data-state={st.state || 'todo'} class:bp={st.stop}>
+              <span class="plan-step-mark" aria-hidden="true"></span>
+              <span class="plan-step-text">{st.text}</span>
+              <!-- A BREAKPOINT IS A PAUSE SET IN ADVANCE, and that is why it
+                   earns a control of its own next to a button that already
+                   pauses: พัก only works for somebody sitting in front of the
+                   screen, and this mode exists to be walked away from. Set it
+                   on the step you already know you want to see happen.
+                   Hidden until the row is hovered, once set it stays lit — an
+                   instruction the user gave has to be visible without hunting
+                   for it. -->
+              {#if !(st.state === 'done' || st.state === 'failed')}
+                <button
+                  class="plan-step-bp"
+                  class:on={st.stop}
+                  type="button"
+                  title={t('chat.planStopHere')}
+                  onclick={() => setPlanStepStop(st.n, !st.stop)}
+                >{t('chat.planStopHere')}</button>
+              {/if}
+              {#if st.note}<span class="plan-step-note">{st.note}</span>{/if}
+            </li>
+          {/each}
+        </ol>
+      {/if}
+    </div>
+    <!-- ประตูส่งไม้ one door earlier: the goal is pinned by pressing ON the plan,
+         so nothing has to be re-typed and nothing can be re-interpreted. No
+         steps, no button — a run with nothing checkable is "try harder for
+         longer", which is what §106.10 declined. -->
+    <!-- The start control only. Stopping moved into the run bar above, where the
+         rest of the run's state is — two places to stop one thing is one place
+         too many. -->
+    {#if (plan.steps ?? []).length > 0 && !plan.running}
+      <div class="plan-foot">
+        <button class="plan-run" type="button" onclick={onStartPlanRun}>{t('chat.planStart')}</button>
+      </div>
+      {#if planRefusal}<p class="plan-refusal">{planRefusal}</p>{/if}
+    {/if}
+    {/if}
+  </div>
+{/snippet}
+
 {#snippet phaseBlock(ph: TurnPhase, key: string, live: boolean, unfolded = false)}
   {@const own = ownSteps(ph.steps)}
   {@const subs = delegated(ph.steps)}
@@ -4290,6 +4551,9 @@
               {/if}
               {#each phasesOf(m.steps ?? []) as ph, p}
                 {@render phaseBlock(ph, phaseKey(ph, `${i}:${p}`), false)}
+                {#if cockpit.plan && wrotePlan(ph.steps)}
+                  {@render planCard(cockpit.plan)}
+                {/if}
               {/each}
               {#if m.ending}
                 <!-- How the turn ended, under the last thing the model said.
@@ -4681,6 +4945,9 @@
                  skips that check only while live). -->
             {#each livePhases as ph, p}
               {@render phaseBlock(ph, phaseKey(ph, `live:${p}`), true)}
+              {#if cockpit.plan && wrotePlan(ph.steps)}
+                {@render planCard(cockpit.plan)}
+              {/if}
             {/each}
             {#if cockpit.ask}
               <div class="ask-panel">
@@ -5270,7 +5537,35 @@
     </div>
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <!-- drag/drop target for a workbench tab; the textarea/buttons inside remain the real interactive elements -->
-    <div class="box" class:drag-over={dragOver} ondragover={onComposerDragOver} ondragleave={() => (dragOver = false)} ondrop={onComposerDrop}>
+    <div class="box" class:drag-over={dragOver} class:running={!!cockpit.plan?.running} ondragover={onComposerDragOver} ondragleave={() => (dragOver = false)} ondrop={onComposerDrop}>
+      <!-- THE RUN, FUSED TO THE BOX. It was a strip floating above the composer
+           until the owner saw it on a real screen: wider than the box it sat
+           over, and reading as a system banner rather than as part of the
+           conversation. Two things were wrong and only one of them was width.
+           The width was `.pinstrip` missing from the writing column in
+           style.css — whose own comment already named the background-work card
+           and the suggestion chips as having made that exact mistake before.
+           The other was that a bar with a gap under it is a second object; this
+           shares the box's border and its rounded corners, so it is the composer
+           in another state.
+           The progress line is the seam between the two, so it costs no height. -->
+      {#if cockpit.plan?.running}
+        {@const runningPlan = cockpit.plan}
+        {@const now = planNow(runningPlan)}
+        {@const held = runningPlan.paused ?? ''}
+        <div class="cbox-run" class:held>
+          <span class={held ? 'pausedot' : 'livedot'}></span>
+          <span class="cbox-run-step">{held || (now ? now.text : runningPlan.title)}</span>
+          <span class="cbox-run-n">{planDone(runningPlan)}/{(runningPlan.steps ?? []).length}</span>
+          {#if held}
+            <button class="cbox-go" type="button" onclick={resumePlanRun}>{t('chat.planGo')}</button>
+          {:else}
+            <button class="cbox-b" type="button" onclick={pausePlanRun}>{t('chat.planPause')}</button>
+          {/if}
+          <button class="cbox-b" type="button" onclick={onStopPlanRun}>{t('chat.planStop')}</button>
+          <div class="cbox-run-track"><i style="width:{(runningPlan.steps ?? []).length ? Math.round((planDone(runningPlan) / (runningPlan.steps ?? []).length) * 100) : 0}%"></i></div>
+        </div>
+      {/if}
       <!-- Inside the box, above the text, the way every chat app does it: what
            is attached is part of the message being written, not a banner
            floating above the thing you are typing in. -->
@@ -5363,9 +5658,11 @@
           rows="1"
           placeholder={ghost
             ? ''
-            : cockpit.chair
-              ? t('chat.inputToAgent', { name: cockpit.chair })
-              : t('chat.inputPlaceholder', { key: shortcutLabel('palette') })}
+            : cockpit.plan?.running
+              ? t('chat.inputDuringRun')
+              : cockpit.chair
+                ? t('chat.inputToAgent', { name: cockpit.chair })
+                : t('chat.inputPlaceholder', { key: shortcutLabel('palette') })}
           bind:this={inputEl}
           bind:value={draft}
           onkeydown={onKeydown}
@@ -5485,6 +5782,7 @@
                changes is whether the assistant can touch the machine. -->
           <button
             type="button" class="stance-chip" class:on={!!cockpit.stance}
+            data-stance={cockpit.stance}
             title={t('stance.title')} aria-label={t('stance.title')}
             onclick={(e) => { e.stopPropagation(); const open = !stanceMenuOpen; closeComposerMenus(); stanceMenuOpen = open }}
           >

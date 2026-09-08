@@ -197,6 +197,34 @@ type TurnOptions struct {
 	// a delivery cannot. So this streams freely and OnContentReset erases it
 	// the instant the round turns out not to be the answer.
 	OnContent func(chunk string)
+	// OnGoalCheck, if set, is asked whether the turn may end — at the moment the
+	// model stops calling tools and would otherwise hand its answer over.
+	//
+	// **This is มุ่งเป้า, and it is deliberately not a loop of its own.** §106.10
+	// declined the mode in 2026-08 partly because it "filters nothing and adds a
+	// control loop in the turn executor, with a verification call every round
+	// and a cost that multiplies". That objection was about the shape somebody
+	// would have built then. The shape that exists now is one the loop already
+	// has: a turn that was going to end is kept alive when an INTERJECTION
+	// arrives, and has been since the user could type into a running turn. This
+	// is that seam with a different author — the checker's verdict rather than
+	// the user's sentence — so มุ่งเป้า is a hook at one existing branch instead
+	// of a second engine.
+	//
+	// The cost objection is answered by WHERE it is asked, not by a budget: once
+	// per turn-ending, not once per round. A run that works for thirty rounds
+	// and then stops is checked once. A run that is sent back is checked again
+	// when it next tries to stop, which is the only moment the answer can have
+	// changed.
+	//
+	// Returns the text to fold into the context and continue with, or "" to let
+	// the turn end. The checker itself, its ceiling, and the judgement of what
+	// "done" means all live in the caller — this package holds no opinion about
+	// any of them, exactly as it holds none about what a tool does.
+	//
+	// answer is what the model was about to hand over, so the check can be about
+	// what it SAID as well as about what it did.
+	OnGoalCheck func(answer string) string
 	// OnContentReset discards whatever OnContent has shown so far. Called after
 	// every provider call whose text is not going to be surfaced as the reply,
 	// and once more immediately before the reply is delivered — so the preview
@@ -240,7 +268,13 @@ type Executor struct {
 	// prompt too. It used to be a plain field fixed at construction, and
 	// switching mid-turn changed nothing until the next one — the engine was
 	// rebuilt around the executor the running turn still held.
-	approvalMode   atomic.Pointer[safety.ApprovalMode]
+	approvalMode atomic.Pointer[safety.ApprovalMode]
+	// goalCheck is มุ่งเป้า, live for the same reason approvalMode is: it is a
+	// standing decision the user makes with a press, and a run can be started or
+	// stopped while a turn is in flight. An atomic rather than a field on
+	// turnOptions, because that struct is copied per turn on the caller's
+	// goroutine and read on the loop's.
+	goalCheck      atomic.Pointer[func(string) string]
 	permissions    safety.PermissionConfig
 	summaryTimeout time.Duration
 	summaryLimit   int
@@ -340,6 +374,26 @@ func NewExecutor(opts ExecutorOptions) *Executor {
 // SetApprovalMode swaps the mode a running executor enforces. Safe from another
 // goroutine, which is the point: the desktop's Settings dropdown is on the UI
 // thread and the turn it has to affect is already running on another one.
+// SetGoalCheck installs (or clears, with nil) the question asked when a turn is
+// about to end — มุ่งเป้า.
+//
+// A setter rather than a field on every Execute call, and for the same reason
+// SetApprovalMode is one: the executor outlives the turn, and what this changes
+// is a standing decision the user made with a press, not an argument to one
+// question. Nil is the ordinary state and the one every other stance is in.
+//
+// Stored atomically, like the approval mode: a run can be started from the
+// window while a turn is in flight, and a hook read on the loop's goroutine
+// while it is written on the UI's is a data race that would show up as a turn
+// mysteriously refusing to end.
+func (e *Executor) SetGoalCheck(check func(answer string) string) {
+	if check == nil {
+		e.goalCheck.Store(nil)
+		return
+	}
+	e.goalCheck.Store(&check)
+}
+
 func (e *Executor) SetApprovalMode(mode safety.ApprovalMode) {
 	if mode == "" {
 		mode = safety.ApprovalAsk
@@ -929,6 +983,11 @@ func (e *Executor) ExecuteWithAttachments(
 	// A copy, not a write to e.turnOptions: the executor outlives the turn, and
 	// a field set here would still be set on the next question.
 	turnOptions := e.turnOptions
+	// Read here rather than at NewExecutor, so a run started after the executor
+	// was built is the one this turn answers to.
+	if check := e.goalCheck.Load(); check != nil {
+		turnOptions.OnGoalCheck = *check
+	}
 	turnOptions.Images = images
 	turnOptions.Documents = documents
 	return e.execute(ctx, line, intent, onChunk, onReasoningChunk, onToolComplete, turnOptions)

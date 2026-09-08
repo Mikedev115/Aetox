@@ -79,6 +79,24 @@ type App struct {
 	convs     *conversations
 	convsOnce sync.Once
 
+	// goalRuns is the set of conversations carrying out their plan right now
+	// (goal_run.go). Keyed by session for the same reason everything else here
+	// is: a run belongs to one chat, and a window showing another must not offer
+	// to stop it.
+	//
+	// Built lazily through goalRunSet() rather than in NewApp, because most of
+	// this package's tests construct a zero App and every one of them would
+	// otherwise have to know about a field that means nothing to it.
+	goalRunsOnce sync.Once
+	goalRunsSet  *goalRuns
+
+	// handEdited marks conversations whose plan the USER changed and whose
+	// model has not been told yet (plan_edit.go). Guarded by the goal-run set's
+	// mutex rather than one of its own: both are small maps touched from the
+	// window and read from a turn, and a second lock beside the first is a
+	// second thing to get the order wrong with.
+	handEdited map[string]bool
+
 	// skillTuneRunning guards the self-optimize drafter so at most one runs at a
 	// time: it spends a model call, and a turn that flags a skill fires from the
 	// turn's goroutine, so two overlapping turns must not both draft the same
@@ -4540,6 +4558,16 @@ func (a *App) everySessionSkills(conv *conversation, sandboxRoot string) []skill
 		&deskTerminalSkill{app: a, conv: conv},
 		&askUserSkill{app: a, conv: conv},
 		&todoWriteSkill{app: a, conv: conv},
+		// One tool for the plan, three actions inside it (plan.go). Here rather
+		// than in defaults.go for the same reason `desk` is: it needs the
+		// conversation, because a plan belongs to one and to no other.
+		//
+		// Unconditional, though only วางแผน can WRITE one: `plan_read` is what
+		// lets ลงมือ carry out a plan without reading it back out of the
+		// transcript and interpreting it a second time. The stance decides which
+		// of the three actions survive (internal/mode.planKeeps); this line
+		// decides only that the pack exists.
+		&planSkill{app: a, conv: conv},
 		&sessionSearchSkill{app: a},
 		// `suggest_task` is deliberately absent (owner's call, 2026-08-29), and
 		// this is a switch rather than a deletion — the same shape defaults.go

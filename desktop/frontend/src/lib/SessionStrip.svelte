@@ -15,7 +15,17 @@
   //
   // Four sections, and all four are readings of something that already
   // exists. Nothing here is a second copy of a fact:
-  //   แผน         — cockpit.todos, written by todo_write
+  //   สิ่งที่ต้องทำ  — cockpit.todos, written by todo_write
+  //
+  // That first section was called แผน until 2026-09-08, and the rename is a
+  // vocabulary fix rather than a wording preference. A plan is now a real thing
+  // in this app — a stored document with headings, written by the `plan` tool
+  // and drawn as a card (desktop/plan.go) — so a panel calling the todo
+  // checklist by the same word means the user has two different things under one
+  // name, which is exactly what §106's sweep took the word โหมด apart to stop.
+  // The checklist is what is left to do in this turn; the plan is what the work
+  // is. The variable names below still say `todos`, which was always the honest
+  // name for them.
   //   แหล่งที่มา   — SessionSources, read off tool_runs (desktop/sources.go)
   //   ไฟล์ที่สร้างหรือแก้   — SessionEdits, read off the same table (session_edits.go)
   //   repo        — GitChangedFiles + the project's branch

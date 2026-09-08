@@ -422,7 +422,7 @@ func BuildWithReport(surface Surface, scope Scope, desk Desk) (string, Loaded) {
 		// this layer is simply absent, so nothing tells the model to write a
 		// fence the user would read as punctuation.
 		if desk.Planning {
-			b.WriteString(planCard())
+			b.WriteString(planCard(desk))
 		}
 	}
 	// longform is about writing the answer to a file with `write`, narration is
@@ -1079,11 +1079,21 @@ func panel() string {
 }
 
 // planCard tells the model that on this surface a plan is drawn as an object of
-// its own — a titled card in the transcript — and what to wrap it in so that
-// happens.
+// its own, and how to put it there.
+//
+// **Two mechanisms, and which is right is a question about the DESK rather than
+// about the surface.** Where the `plan` tool is carried (desktop/plan.go) the
+// plan is a stored row and the card draws itself from it, so the model calls a
+// tool and spends nothing on the picture — and an amend costs the section that
+// changed instead of the document that did not. Where it is not carried, a
+// surface that can still draw a card gets the original contract: a fenced block
+// the renderer intercepts on its language.
+//
+// Gated on carrying the tool rather than on a build or a stance, so the fence
+// stays the honest answer for any surface that draws cards without one.
 //
 // **Only the wrapper is here. What a plan *is* stays in the stance** (§106.11,
-// mode.planShape): the four headings are policy that holds on every surface,
+// mode.planShape): the headings are policy that holds on every surface,
 // and this layer is the one sentence that is true only where something can draw
 // a card. Splitting it the other way would put the shape in two places, which
 // is the debt §106.11 was written to avoid — and it would mean a terminal
@@ -1100,10 +1110,25 @@ func panel() string {
 // fence, and what the user gets is a card holding the first third of a plan with
 // the rest spilled underneath it as loose prose — no error, and nothing about
 // the result points at the cause.
-func planCard() string {
+func planCard(desk Desk) string {
+	// Where the plan can be a stored object, it is one. The fence below is the
+	// answer for a surface that draws cards and has no tool to draw one from.
+	if desk.carries("plan") {
+		return "Your plan is a document of its own here, drawn beside the conversation, so put it in the " +
+			"`plan` tool rather than in your answer: `write` the first time, `amend` after that, with a " +
+			"`title` naming the job in one line and one section per heading.\n" +
+			"It stays on screen once written, so writing it out again in your reply is the same plan " +
+			"twice — once where it belongs and once at your own expense. Say in a line what you did, " +
+			"and stop.\n" +
+			"`amend` takes only the sections that changed and leaves the rest exactly as they were. " +
+			"That is what it is for: sending back a section nobody asked about costs what writing it " +
+			"cost the first time.\n" +
+			"The plan's checklist goes in `steps`, and `plan` itself will tell you the rest of what that " +
+			"means the first time you write one.\n"
+	}
 	return "Your plan is drawn here as a card of its own, titled, and set apart from the conversation " +
 		"around it, so write it inside a fenced block tagged `plan`, and make the first line inside that " +
-		"block a `# ` heading naming the job in one line. The four headings go under it, unchanged.\n" +
+		"block a `# ` heading naming the job in one line. The headings go under it, unchanged.\n" +
 		"Nothing else belongs in the block, and almost nothing belongs outside it: a sentence before the " +
 		"card if something genuinely has to be said first, and no summary after it, the card is the " +
 		"answer, and repeating it underneath is the same plan twice.\n" +

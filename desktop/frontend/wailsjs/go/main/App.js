@@ -114,6 +114,10 @@ export function BrowserCloseForTeardown(arg1) {
   return window['go']['main']['App']['BrowserCloseForTeardown'](arg1);
 }
 
+export function BrowserDetach(arg1) {
+  return window['go']['main']['App']['BrowserDetach'](arg1);
+}
+
 export function BrowserDevices() {
   return window['go']['main']['App']['BrowserDevices']();
 }
@@ -134,9 +138,6 @@ export function BrowserOpen(arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
   return window['go']['main']['App']['BrowserOpen'](arg1, arg2, arg3, arg4, arg5, arg6, arg7);
 }
 
-export function BrowserDetach(arg1) {
-  return window['go']['main']['App']['BrowserDetach'](arg1);
-}
 export function BrowserOpenDevTools(arg1) {
   return window['go']['main']['App']['BrowserOpenDevTools'](arg1);
 }
@@ -151,6 +152,10 @@ export function BrowserSetBounds(arg1, arg2, arg3, arg4, arg5) {
 
 export function BrowserSetDevice(arg1, arg2) {
   return window['go']['main']['App']['BrowserSetDevice'](arg1, arg2);
+}
+
+export function BrowserSetScreenShape(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['BrowserSetScreenShape'](arg1, arg2, arg3, arg4);
 }
 
 export function BrowserSetVisible(arg1, arg2) {
@@ -717,6 +722,10 @@ export function PairedDevices() {
   return window['go']['main']['App']['PairedDevices']();
 }
 
+export function PausePlanRun(arg1) {
+  return window['go']['main']['App']['PausePlanRun'](arg1);
+}
+
 export function PendingChangeByID(arg1) {
   return window['go']['main']['App']['PendingChangeByID'](arg1);
 }
@@ -755,6 +764,10 @@ export function PickPresetImage(arg1) {
 
 export function PlacementTargets() {
   return window['go']['main']['App']['PlacementTargets']();
+}
+
+export function PlanRunning(arg1) {
+  return window['go']['main']['App']['PlanRunning'](arg1);
 }
 
 export function PreparedReplyOn() {
@@ -901,6 +914,10 @@ export function RestorePoints() {
   return window['go']['main']['App']['RestorePoints']();
 }
 
+export function ResumePlanRun(arg1) {
+  return window['go']['main']['App']['ResumePlanRun'](arg1);
+}
+
 export function RetryActiveProvider() {
   return window['go']['main']['App']['RetryActiveProvider']();
 }
@@ -977,6 +994,10 @@ export function SavePicture(arg1) {
   return window['go']['main']['App']['SavePicture'](arg1);
 }
 
+export function SavePlanText(arg1, arg2) {
+  return window['go']['main']['App']['SavePlanText'](arg1, arg2);
+}
+
 export function SavePromptPreset(arg1, arg2) {
   return window['go']['main']['App']['SavePromptPreset'](arg1, arg2);
 }
@@ -1011,6 +1032,10 @@ export function SessionEdits(arg1) {
 
 export function SessionMode(arg1) {
   return window['go']['main']['App']['SessionMode'](arg1);
+}
+
+export function SessionPlan(arg1) {
+  return window['go']['main']['App']['SessionPlan'](arg1);
 }
 
 export function SessionSourceCount(arg1) {
@@ -1071,6 +1096,10 @@ export function SetLearningEnabled(arg1) {
 
 export function SetMCPServerTargets(arg1, arg2) {
   return window['go']['main']['App']['SetMCPServerTargets'](arg1, arg2);
+}
+
+export function SetPlanStepStop(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetPlanStepStop'](arg1, arg2, arg3);
 }
 
 export function SetPreparedReplyOn(arg1) {
@@ -1217,6 +1246,10 @@ export function StartMobileRemote() {
   return window['go']['main']['App']['StartMobileRemote']();
 }
 
+export function StartPlanRun(arg1) {
+  return window['go']['main']['App']['StartPlanRun'](arg1);
+}
+
 export function StartSignIn(arg1) {
   return window['go']['main']['App']['StartSignIn'](arg1);
 }
@@ -1239,6 +1272,10 @@ export function StopBrowsing() {
 
 export function StopMobileRemote() {
   return window['go']['main']['App']['StopMobileRemote']();
+}
+
+export function StopPlanRun(arg1) {
+  return window['go']['main']['App']['StopPlanRun'](arg1);
 }
 
 export function StopQueuedTasks() {

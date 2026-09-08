@@ -30,6 +30,8 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'sidebar.switchProject': '全部项目',
   'sidebar.showMore': '显示更多',
   'sidebar.showLess': '收起',
+  'sidebar.chatWorking': '正在处理这个对话',
+  'sidebar.chatUnread': '已完成，还没打开看过',
   'sidebar.deleteSession': '删除对话',
   'sidebar.confirmDelete': '确定？',
   'sidebar.exportSession': '导出对话',
@@ -281,8 +283,8 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
 
   // ---- 房间概览 ----
   'summary.toggle': '这个房间的概览',
-  'strip.plan': '计划',
-  'strip.planEmpty': '这个房间还没有计划',
+  'strip.plan': '待办',
+  'strip.planEmpty': '这个房间还没有待办',
   'summary.clearPlan': '放下这份计划',
   'summary.sources': '来源',
   'summary.sourcesEmpty': '这个房间还没有打开过文件或网页',

@@ -20,7 +20,7 @@
     cockpit, sendUserMessage, loadRealState, openFile,
     switchProvider, switchThinkLevel,
     switchModel, cancelPendingModel, applyModelRowChanged, submitAPIKey, setActiveView, restoreActiveView, closeFile, applyAgentStatus, applyToolEvent,
-    applyAgentChunk, applyReasoningChunk, applyModelLoading, attachImageFromPath, attachFileFromPath, fileKind,
+    applyAgentChunk, applyReasoningChunk, applyModelLoading, applyPlanUpdate, attachImageFromPath, attachFileFromPath, fileKind,
     applyAskUser, applyAskDone, applyTodos, applyMissedInterjections, applyTaskChips, applyUsageRound,
     applyPreparedReplies,
     applyPendingLearned, refreshPendingLearned, refreshPendingIssues, applyAgentDone, isOverlayView, closeOverlay,
@@ -186,6 +186,10 @@
     // run for ten minutes (desktop/browser_wait.go), so it reports its own
     // progress on a channel of its own and the busy bar counts along.
     const offBrowserWaiting = watchBrowserWaits()
+    // The plan card redraws from this rather than from anything the model
+    // typed (desktop/plan.go): the tool holds the document, the window
+    // draws it, and an amend costs the section that changed.
+    const offPlan = EventsOn('plan:update', applyPlanUpdate)
     const offAgentChunk = EventsOn('agent:chunk', applyAgentChunk)
     // The ending for a turn this window has no promise for — a webview reload
     // killed the SendMessage promise, the engine kept working, and this event
@@ -306,6 +310,7 @@
       offAgentTool()
       offBusyTool()
       offBrowserWaiting()
+      offPlan()
       offAgentChunk()
       offAgentDone()
       offBusyDone()

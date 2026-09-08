@@ -21,6 +21,8 @@ export const th = {
   'sidebar.rowMenu': 'เพิ่มเติม',
   'sidebar.pinChat': 'ปักหมุดแชทนี้',
   'sidebar.unpinChat': 'เอาหมุดออก',
+  'sidebar.chatWorking': 'กำลังทำงานอันนี้อยู่',
+  'sidebar.chatUnread': 'ทำเสร็จแล้ว ยังไม่ได้เปิดอ่าน',
   'sidebar.pinned': 'ปักหมุดไว้',
   'sidebar.chatsInSpace': 'แชทใน {name}',
   'sidebar.unpinProject': 'เอาหมุดออก',
@@ -283,6 +285,26 @@ export const th = {
   'chat.modelIdPlaceholder': 'model id',
   'chat.copyCode': 'คัดลอก',
   'chat.planCard': 'แผน',
+  'chat.planRevision': 'แก้ครั้งที่ {n}',
+  'chat.planStart': 'ลงมือตามแผนนี้',
+  'chat.planStartMessage': 'ลงมือตามแผนนี้เลยครับ',
+  'chat.planStop': 'หยุด',
+  'chat.planPause': 'พัก',
+  'chat.planGo': 'ไปต่อ',
+  'chat.planStopHere': 'พักตรงนี้',
+  'chat.inputDuringRun': 'บอกอะไรก็ได้ระหว่างมันทำ — จะไปถึงมันตอนจบขั้นตอนนี้',
+
+  'chat.planRunning': 'กำลังลงมือ — {done}/{total}',
+  'chat.planSentBack': 'ส่งกลับ {n}',
+  'chat.planMinutes': '{n} นาที',
+  'chat.planJustNow': 'เพิ่งเริ่ม',
+  'chat.planEdit': 'แก้',
+  'chat.planEditSave': 'บันทึก',
+  'chat.planEditCancel': 'ยกเลิก',
+  'chat.planEditHint': 'หัวข้อเขียน **ชื่อหัวข้อ** · ขั้นตอนเขียน 1. 2. 3.',
+  'chat.planJump': 'ดูแผน',
+
+
   'chat.copyDrawing': 'คัดลอก',
   'chat.saveDrawing': 'บันทึก',
   'chat.savedDrawing': 'บันทึกแล้ว',
@@ -310,8 +332,8 @@ export const th = {
 
   // แถบสถานะห้องเหนือช่องพิมพ์ — ป้ายบนชิปคือตัวบอกว่าข้างในมีอะไร ตัวเลขเลยอยู่บนชิป ไม่ได้ซ่อนไว้ข้างใน
   'summary.toggle': 'สรุปห้องนี้',
-  'strip.plan': 'แผน',
-  'strip.planEmpty': 'ยังไม่มีแผนในห้องนี้',
+  'strip.plan': 'สิ่งที่ต้องทำ',
+  'strip.planEmpty': 'ยังไม่มีสิ่งที่ต้องทำในห้องนี้',
   // แผนที่ทำครบแล้วหายเองตอนเทิร์นถัดไป ปุ่มนี้ไว้สำหรับแผนที่เลิกกลางคัน
   'summary.clearPlan': 'ล้างแผนนี้ทิ้ง',
   'summary.sources': 'แหล่งที่มา',

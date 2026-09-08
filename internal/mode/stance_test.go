@@ -170,3 +170,76 @@ func TestAStanceDirectionDescribesTheWorkAndNotTheWorker(t *testing.T) {
 		}
 	}
 }
+
+// วางแผน never asked the user anything, and the owner paid for that in whole
+// turns: a plan built around a guess, then rebuilt once the guess was named
+// (2026-09-08).
+//
+// Four things were suppressing the question at once, and this test holds the
+// two that live in this file. `ask_user` was on the allow-list the whole time —
+// what was missing was any sentence telling the stance it had it, and one at
+// the end telling it not to end a turn with a question, which was meant about
+// permission and read as a rule about questions.
+func TestPlanAsksAboutTheWorkBeforeItReads(t *testing.T) {
+	d := StancePlan.Direction()
+	if !strings.Contains(d, "ask_user") {
+		t.Error("the plan direction never names the tool it is meant to ask with")
+	}
+	// The order is the mechanism, not the manners. Asked after the reading, a
+	// question arrives with the budget already spent on the wrong branch.
+	ask := strings.Index(d, "BEFORE the deep reading")
+	if ask < 0 {
+		t.Fatal("nothing tells the stance to ask before it reads")
+	}
+	// Anchored on the first sentence that demands a plan. What the test is about
+	// is the ORDER, so it moves with the wording rather than pinning it — and
+	// the wording stays surface-agnostic on purpose: HOW a plan reaches the
+	// screen (a `plan` tool where there is one, a fence where there is not) is
+	// internal/prompt.planCard's question, never this one (§106.12).
+	if shape := strings.Index(d, "Give the plan under these headings"); shape < ask {
+		t.Error("the plan is demanded before the question is invited — the question then arrives too late to change anything")
+	}
+	// The sentence that used to close this direction. It said "End with the
+	// plan, not with a question", meaning do not beg to leave the stance, and a
+	// model in the last-and-loudest position of a prompt read it as "never ask".
+	if strings.Contains(d, "not with a question") {
+		t.Error("the closing sentence forbids questions again — say permission, and say it about permission only")
+	}
+}
+
+// A plan that already exists is amended, not written out again from the top.
+//
+// Every turn in this stance used to be turn one: the direction demanded a whole
+// plan under every heading with no branch for "this one already exists", so a
+// user correcting a single step paid for the entire document a second time,
+// plus the reading that produced it.
+func TestPlanAmendsThePlanItAlreadyHas(t *testing.T) {
+	d := strings.ToLower(StancePlan.Direction())
+	for _, want := range []string{"amends it", "already read"} {
+		if !strings.Contains(d, want) {
+			t.Errorf("the plan direction says nothing about %q — a revision costs a whole rewrite without it", want)
+		}
+	}
+}
+
+// A plan whose finish cannot be checked is a wish with numbered steps — and it
+// is what มุ่งเป้า would have to aim at, so the heading is load-bearing twice.
+func TestThePlanSaysHowItWillBeKnownToHaveWorked(t *testing.T) {
+	var found bool
+	for _, h := range PlanHeadings() {
+		if strings.Contains(strings.ToLower(h), "know it worked") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("no heading asks for a finish condition: %v", PlanHeadings())
+	}
+	// The prompt is built from the same list, so the two cannot drift inside
+	// this file — but only while the direction actually renders it.
+	d := StancePlan.Direction()
+	for _, h := range PlanHeadings() {
+		if !strings.Contains(d, h) {
+			t.Errorf("heading %q is in the shape and not in the prompt", h)
+		}
+	}
+}

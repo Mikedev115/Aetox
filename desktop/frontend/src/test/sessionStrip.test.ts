@@ -83,10 +83,10 @@ describe('the session summary button', () => {
     render(SessionStrip)
 
     await openPanel()
-    for (const heading of ['แผน', 'แหล่งที่มา', 'ไฟล์ที่สร้างหรือแก้', 'ที่เก็บโค้ด']) {
+    for (const heading of ['สิ่งที่ต้องทำ', 'แหล่งที่มา', 'ไฟล์ที่สร้างหรือแก้', 'ที่เก็บโค้ด']) {
       expect(screen.getByText(heading)).toBeTruthy()
     }
-    expect(screen.getByText('ยังไม่มีแผนในห้องนี้')).toBeTruthy()
+    expect(screen.getByText('ยังไม่มีสิ่งที่ต้องทำในห้องนี้')).toBeTruthy()
     expect(screen.getByText('ห้องนี้ยังไม่ได้เปิดไฟล์หรือเว็บอะไร')).toBeTruthy()
     expect(screen.getByText('ห้องนี้ยังไม่ได้แก้ไฟล์ไหน')).toBeTruthy()
     expect(screen.getByText('ห้องนี้ไม่ได้โฟกัสโปรเจกต์')).toBeTruthy()
@@ -272,7 +272,7 @@ describe('the session summary button', () => {
 
     await fireEvent.click(container.querySelector('.summary-clear')!)
     expect(screen.queryByText('เขียน migration v8')).toBeNull()
-    expect(screen.getByText('ยังไม่มีแผนในห้องนี้')).toBeTruthy()
+    expect(screen.getByText('ยังไม่มีสิ่งที่ต้องทำในห้องนี้')).toBeTruthy()
     expect(container.querySelector('.summary-badge')).toBeNull()
   })
 

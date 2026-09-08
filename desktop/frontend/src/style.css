@@ -777,6 +777,9 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   100% { transform:translateX(300%); }
 }
 @media (prefers-reduced-motion: reduce) {
+  /* The run bar's dot. It is there to say a long run is alive; somebody who
+     has asked for no motion is told the same thing by the count and the bar. */
+  .livedot { animation:none; }
   .ver-bar.indeterminate .ver-bar-fill { animation:none; width:100%; opacity:.5; }
 }
 
@@ -2964,31 +2967,252 @@ button.phase-head:hover { color:var(--text-muted); }
    prose sit to each other. A card is an object in the answer, not a line of it,
    so it stands off by more than the prose rhythm rather than less — the same
    reason the equations and the action row got theirs (owner, 16 ส.ค.). */
-.markdown-body .plan-card {
+/* Unscoped from .markdown-body on 2026-09-08. The prefix was never about the
+   markdown: it was there because a plan had exactly one home, inside the
+   fence the model typed. The card is now also drawn from the stored plan
+   (desktop/plan.go), as a sibling of the timeline rather than a child of the
+   prose, and one card has to have one set of rules — the alternative is the
+   same box styled twice and drifting. */
+.plan-card {
   margin:1.1em 0; padding:16px;
   background:var(--surface-raised); border:1px solid var(--border-subtle); border-radius:var(--r-lg);
 }
-.markdown-body .plan-head { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
-.markdown-body .plan-kind {
+.plan-head { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+.plan-kind {
   display:inline-flex; align-items:center; gap:6px; margin-right:auto;
   font-size:var(--fs-2xs); color:var(--text-dim); letter-spacing:.02em;
 }
 /* Hover-revealed, same as a code block's copy and a drawing's tools — a control
    that is always lit competes with the plan for the eye. */
-.markdown-body .plan-copy {
+.plan-copy {
   font-size:var(--fs-xs); color:var(--text-muted); background:none; border:none;
   padding:2px 8px; border-radius:var(--r-sm); cursor:pointer; opacity:0; transition:opacity var(--dur-tint);
 }
-.markdown-body .plan-card:hover .plan-copy, .markdown-body .plan-copy:focus-visible { opacity:1; }
-.markdown-body .plan-copy:hover { background:var(--surface-hover); color:var(--text-primary); }
-.markdown-body .plan-title {
+.plan-card:hover .plan-copy, .plan-copy:focus-visible { opacity:1; }
+.plan-copy:hover { background:var(--surface-hover); color:var(--text-primary); }
+.plan-title {
   margin:0 0 .6em; font-size:var(--fs-2xl); font-weight:650;
   line-height:1.3; color:var(--text-primary);
 }
 /* The body is ordinary markdown; it only needs its outer margins taken off so
    the card's own padding is the only spacing around it. */
-.markdown-body .plan-body > :first-child { margin-top:0; }
-.markdown-body .plan-body > :last-child { margin-bottom:0; }
+.plan-body > :first-child { margin-top:0; }
+.plan-body > :last-child { margin-bottom:0; }
+
+/* Which revision this is. A plan that changes with no mark on it reads as a
+   plan the user misremembered, and the mark has to be quiet: it sits in the
+   header at the smallest size, in dim ink, because it is provenance rather
+   than content. Absent on a first draft — "revision 1" is noise. */
+.plan-rev { font-size:var(--fs-2xs); color:var(--text-dim); }
+/* A section heading inside the card. Its own rule rather than markdown h4,
+   because these are the shape (internal/mode.planShape) rather than something
+   the model chose to write — they read as labels of the card, not as prose.
+
+   --text-primary, not --text-muted, and the first draft got that wrong in a way
+   worth recording: a heading dimmer than the paragraph under it inverts the
+   hierarchy, so the eye lands on the prose and has to climb back up to find out
+   what it is reading. Seen in a snapshot before it shipped. The heading is small
+   and set apart by weight and letter-spacing; it is not made quiet as well. */
+.plan-heading {
+  margin:1.15em 0 .35em; font-size:var(--fs-sm); font-weight:650;
+  color:var(--text-primary); letter-spacing:.01em;
+}
+.plan-body > .plan-heading:first-child { margin-top:0; }
+/* What the last amend touched. The whole point of amending is that the user
+   does not have to re-read the plan to find the change, so the card has to say
+   where it is — a rule marker rather than a background, because a highlighted
+   block would compete with the plan for the eye every time it redraws. */
+.plan-changed {
+  color:var(--text-primary);
+  border-left:2px solid var(--accent); padding-left:8px; margin-left:-10px;
+}
+
+/* THE CHECKLIST — มุ่งเป้า's entire screen (desktop/goal_run.go).
+   The owner's constraint on that mode was to report as little as possible, and
+   the reason is arithmetic rather than taste: narration written beside a round's
+   tool calls goes into the conversation and is re-sent with every later round of
+   the same turn, so narrating a thirty-step run costs quadratically. These rows
+   cost nothing per round — a UI object reading state, not sentences in a
+   context — which is why the card can be the whole report. */
+.plan-steps { list-style:none; margin:.5em 0 0; padding:0; }
+.plan-step {
+  display:grid; grid-template-columns:16px 1fr auto; gap:8px;
+  align-items:baseline; padding:3px 0; font-size:var(--fs-sm); color:var(--text-secondary);
+}
+/* The mark is drawn rather than written, so the four states are told apart at a
+   glance and in any language. A row of words saying "done"/"doing" would be
+   read, and a checklist is a thing you scan. */
+.plan-step-mark {
+  width:13px; height:13px; border-radius:var(--r-sm); justify-self:center;
+  border:1.5px solid var(--border-strong); box-sizing:border-box;
+}
+.plan-step[data-state="doing"] .plan-step-mark {
+  border-color:var(--accent); background:color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.plan-step[data-state="done"] .plan-step-mark { border-color:var(--accent); background:var(--accent); }
+/* Failed is NOT struck through and NOT hidden. A step reported impossible is a
+   finding the user needs — it settles the run exactly as `done` does (the Go
+   side draws the same line in unfinishedSteps) — so it is marked differently and
+   left just as readable. */
+.plan-step[data-state="failed"] .plan-step-mark { border-color:var(--status-danger); background:transparent; }
+.plan-step[data-state="done"] .plan-step-text { color:var(--text-muted); }
+/* --text-muted, not --text-dim, and the first draft got that wrong against its
+   own rule two lines up: a failed step is a FINDING — the reason it failed is
+   the most useful sentence on the card — and setting it in the faintest ink the
+   theme has makes it the least readable one. Seen in a snapshot before it
+   shipped. */
+.plan-step-note { grid-column:2 / -1; display:block; font-size:var(--fs-xs); color:var(--text-muted); }
+
+/* The run control. Inside the card because the plan IS the goal: pressing here
+   pins it, and nothing has to be re-typed or re-interpreted (§106.10's first
+   requirement, got for free by putting the button on the document). */
+.plan-foot { display:flex; align-items:center; gap:10px; margin-top:14px; }
+.plan-run {
+  font-size:var(--fs-xs); padding:5px 12px; border-radius:var(--r-sm); cursor:pointer;
+  background:var(--accent); color:var(--text-on-accent); border:none; font-weight:600;
+}
+.plan-run:hover { background:var(--accent-bright); }
+.plan-running { font-size:var(--fs-xs); color:var(--accent); margin-right:auto; }
+.plan-run-stop {
+  font-size:var(--fs-xs); padding:5px 12px; border-radius:var(--r-sm); cursor:pointer;
+  background:none; color:var(--text-muted); border:1px solid var(--border-subtle);
+}
+.plan-run-stop:hover { color:var(--text-primary); background:var(--surface-hover); }
+/* A refusal is shown, never swallowed: "there is no plan" and "this plan has no
+   checkable steps" send the user to different places, and a button that quietly
+   did nothing would send them to neither. */
+.plan-refusal { margin:8px 0 0; font-size:var(--fs-xs); color:var(--status-danger); }
+
+/* THE RUN BAR (มุ่งเป้า, desktop/goal_run.go). Everything a long run leaves the
+   user wondering, in one strip at the top of the card: which step is running,
+   how far, how long, and how many times the engine sent the turn back.
+   It sits INSIDE the card and bleeds to its edges, because it is the card in
+   another state rather than a second object stacked on it. */
+.runbar {
+  margin:-16px -16px 12px; padding:11px 16px 12px;
+  background:color-mix(in srgb, var(--accent) 10%, transparent);
+  border-bottom:1px solid var(--border-subtle);
+  border-radius:var(--r-lg) var(--r-lg) 0 0;
+}
+.runbar-top { display:flex; align-items:center; gap:10px; }
+.runbar-now {
+  display:flex; align-items:center; gap:7px; margin-right:auto; min-width:0;
+  font-size:var(--fs-sm); font-weight:600;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.runbar-meta { font-size:var(--fs-2xs); color:var(--text-muted); flex:none; }
+.runbar-track {
+  height:3px; margin-top:9px; border-radius:2px;
+  background:color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.runbar-track i {
+  display:block; height:100%; border-radius:2px; background:var(--accent);
+  transition:width var(--dur-glide);
+}
+/* THE ANSWER TO A FAILURE THIS APP HAS ALREADY LEARNED ONCE, at the browser's
+   wait ceiling: a screen that does not move reads as a hang, and the reasonable
+   thing to do about a hang is press Stop. A ten-minute run behind a still card
+   would hand back the whole mode. */
+.livedot {
+  width:7px; height:7px; border-radius:50%; background:var(--accent); flex:none;
+  animation:plan-pulse 1.4s ease-in-out infinite;
+}
+@keyframes plan-pulse { 0%,100% { opacity:1 } 50% { opacity:.25 } }
+/* The step being worked on is the most useful line on the card, so it is the
+   one row set in the body's own ink rather than the list's. */
+.plan-step[data-state="doing"] .plan-step-text { color:var(--text-primary); font-weight:600; }
+
+/* THE RUN, FUSED TO THE COMPOSER BOX.
+   It was a strip floating above the composer until the owner saw it on a real
+   screen. Two things were wrong and only one of them was width.
+   The width was `.pinstrip` missing from the writing column above — whose own
+   comment already named the background-work card and the suggestion chips as
+   having made that exact mistake, which makes this the third time. The other was
+   that a bar with a gap under it is a SECOND OBJECT: it read as a system banner
+   sitting on the conversation rather than as the composer having a state.
+   So it shares the box now — one border, one set of corners, and the progress
+   line is the seam between the run and the input, which costs no height. */
+.composer .box.running { border-color:color-mix(in srgb, var(--accent) 45%, var(--border-default)); }
+.cbox-run {
+  display:flex; align-items:center; gap:8px; position:relative;
+  padding:9px var(--composer-pad-x) 10px;
+  /* Pulled out by the box's OWN padding, not by a guess. Measured against the
+     real stylesheet before shipping and found sitting 12px down and 28px narrow
+     — which is a bar floating inside the box, the same "second object" reading
+     the whole change was made to end, one level in. The box's radius too, so the
+     top corners are the box's corners rather than a near-match beside them. */
+  margin:-12px calc(var(--composer-pad-x) * -1) 0;
+  background:color-mix(in srgb, var(--accent) 10%, transparent);
+  border-bottom:1px solid var(--border-subtle);
+  border-radius:var(--r-xl) var(--r-xl) 0 0;
+}
+/* Held, not stopped: the colour leaves and the light goes out, because a run
+   waiting for the user is not a run doing anything. What it must NOT do is look
+   like it ended — the count and the bar stay exactly where they were. */
+.cbox-run.held { background:var(--surface-raised); }
+.composer .box.running:has(.cbox-run.held) { border-color:var(--border-default); }
+.cbox-run-step {
+  font-size:var(--fs-xs); font-weight:600; margin-right:auto; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.cbox-run-n { font-size:var(--fs-2xs); color:var(--text-muted); flex:none; }
+.cbox-b {
+  font-size:var(--fs-2xs); padding:3px 9px; border-radius:var(--r-sm); cursor:pointer;
+  background:none; color:var(--text-muted); border:1px solid var(--border-subtle); flex:none;
+}
+.cbox-b:hover { color:var(--text-primary); background:var(--surface-hover); }
+.cbox-go {
+  font-size:var(--fs-2xs); padding:3px 11px; border-radius:var(--r-sm); cursor:pointer;
+  background:var(--accent); color:var(--text-on-accent); border:none; font-weight:600; flex:none;
+}
+.cbox-run-track {
+  position:absolute; left:0; right:0; bottom:-1px; height:2px;
+  background:color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.cbox-run-track i {
+  display:block; height:100%; background:var(--accent); transition:width var(--dur-glide);
+}
+/* The light out, same size and place, so the row does not shift when it holds. */
+.pausedot { width:7px; height:7px; border-radius:50%; background:var(--text-muted); flex:none; }
+
+/* A BREAKPOINT — a pause set in advance, which is why it earns a control beside
+   a button that already pauses: พัก only works for somebody sitting in front of
+   the screen, and this mode exists to be walked away from.
+   Hidden until the row is hovered; once SET it stays lit, because an instruction
+   the user gave has to be visible without hunting for it. */
+.plan-step-bp {
+  grid-column:3; justify-self:end; align-self:center; flex:none;
+  font-size:var(--fs-2xs); padding:1px 8px; border-radius:99px; cursor:pointer;
+  background:none; color:var(--text-dim); border:1px solid var(--border-subtle);
+  opacity:0; transition:opacity var(--dur-tint);
+}
+.plan-step:hover .plan-step-bp, .plan-step-bp:focus-visible { opacity:1; }
+.plan-step-bp.on {
+  opacity:1; color:var(--accent); border-color:var(--accent);
+}
+.plan-step.bp { background:color-mix(in srgb, var(--accent) 7%, transparent); }
+
+/* EDITING THE PLAN BY HAND. One box for the whole card — a plan is a document,
+   and a document is edited as one (the owner's call over per-section fields). */
+.plan-edit {
+  font-size:var(--fs-xs); color:var(--text-muted); background:none; border:none;
+  padding:2px 8px; border-radius:var(--r-sm); cursor:pointer;
+  opacity:0; transition:opacity var(--dur-tint);
+}
+/* Revealed on hover like the copy button beside it: a control that is always lit
+   competes with the plan for the eye, and this is the plan's card. */
+.plan-card:hover .plan-edit, .plan-edit:focus-visible { opacity:1; }
+.plan-edit:hover { background:var(--surface-hover); color:var(--text-primary); }
+.plan-edit-box {
+  width:100%; box-sizing:border-box; min-height:280px; resize:vertical;
+  font-family:var(--mono); font-size:var(--fs-sm); line-height:1.7;
+  color:var(--text-primary); background:var(--surface-sunken);
+  border:1px solid var(--border-default); border-radius:var(--r-md); padding:12px 14px;
+}
+.plan-edit-box:focus { outline:none; border-color:var(--border-input-focus); }
+.plan-edit-hint { font-size:var(--fs-2xs); color:var(--text-dim); margin-right:auto; }
+
+
 
 .markdown-body .codeblock pre { margin:0; border:none; border-radius:0; background:none; padding:.5em .9em .8em; }
 .markdown-body .codeblock code.hljs { display:block; background:transparent; padding:0; overflow-x:auto; color:var(--syn-fg); }
@@ -3560,22 +3784,58 @@ button.phase-head:hover { color:var(--text-muted); }
    sets before typing sit against the text: what is going with the message, and
    how the turn will be run. The right end is for the readouts. */
 .stance-pick { position:relative; }
+/* SUNKEN, not raised, and the fix is a subtraction of light rather than of
+   fill. It carried `background:var(--surface-raised)` — which is exactly what
+   `.composer .box` is filled with, so the chip was painted in its own
+   container's colour and survived only as a faint border. Taking the fill away
+   entirely was the first attempt and was still unreadable: what was left was a
+   `--border-subtle` outline, three values off the box behind it, which reads as
+   floating text rather than as a control. Owner, twice: *"มันยังกลืนอยู่"*.
+   A well is the honest answer. --surface-sunken sits BELOW the box it is in, so
+   the separation comes from depth and needs no colour — which keeps the promise
+   the comment above makes, that the default mode does not demand attention. It
+   only has to be legible. */
 .stance-chip {
   display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:var(--r-md);
   font-size:var(--fs-sm); font-weight:600; cursor:pointer; white-space:nowrap;
-  color:var(--text-secondary);
-  border:1px solid var(--border-subtle); background:var(--surface-raised);
+  color:var(--text-primary);
+  border:1px solid var(--border-default); background:var(--surface-sunken);
 }
+/* THE ICON CARRIES THE MODE, and that is worth more than it looks.
+   Until this week the dial only ever moved because the user moved it, so being
+   able to tell three modes apart at a glance was a convenience. Starting a run
+   from the plan card crosses the session into ลงมือ by itself (goal_run.go), so
+   now the window has to answer "which mode am I in" for a change nobody made
+   with this control. A colour is read before a word is, and "ลงมือ" and
+   "วางแผน" are two Thai words of the same length and shape.
+   The direct-child selector keeps the caret out of it: that is chrome, and it
+   belongs to the menu rather than to the mode. */
+.stance-chip > svg { color:var(--text-muted); }
+.stance-chip.on > svg { color:inherit; }
 .stance-chip:hover { background:var(--surface-hover); color:var(--text-primary); }
 .stance-chip .caret { display:inline-flex; color:var(--text-dim); }
 /* Lit, not alarming. Not a warning — the user chose it — but a state the
    composer keeps saying out loud. The ordinary mode is legible in the plain
    chip above; this is what makes a mode that withholds tools unmissable. */
+/* ONE LIT TREATMENT, ONE HUE THAT MOVES.
+   It was a single colour for both non-default stances, which made the colour say
+   "not the default" and never "which one" — and that is exactly the job the
+   colour was given a paragraph above, on the argument that a hue is read before
+   a word is. Two of three modes sharing one hue answers half the question.
+   `--interactive` rather than a new token: every theme already declares it, and
+   in every one of the thirteen it is a genuinely different hue from `--accent`
+   — cyan/blue in Aetox's own, purple/blue in Catppuccin, purple/cyan in Dracula.
+   A token invented here would have to be chosen thirteen times by somebody who
+   cannot see twelve of those palettes.
+   วางแผน keeps --accent because the plan card's compass is already that colour,
+   and the dial and the thing it produces should not disagree. */
 .stance-chip.on {
-  color:var(--accent, #6ea8fe);
-  background:color-mix(in srgb, var(--accent, #6ea8fe) 14%, transparent);
-  border-color:color-mix(in srgb, var(--accent, #6ea8fe) 40%, transparent);
+  --stance-hue:var(--accent, #6ea8fe);
+  color:var(--stance-hue);
+  background:color-mix(in srgb, var(--stance-hue) 14%, transparent);
+  border-color:color-mix(in srgb, var(--stance-hue) 40%, transparent);
 }
+.stance-chip.on[data-stance="consult"] { --stance-hue:var(--interactive); }
 .stance-chip.on .caret { color:inherit; opacity:.7; }
 /* ---------- attach menu ----------
    The + button's own menu, sharing .stance-item with the one beside it: two

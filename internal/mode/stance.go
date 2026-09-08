@@ -119,7 +119,7 @@ var planKeeps = map[string]bool{
 	// be built on and was missing here only because it landed after this list
 	// was written.
 	"diagnostics": true, "symbol": true, "repo_map": true,
-	"github":      true, "github_search": true, "github_read_file": true,
+	"github": true, "github_search": true, "github_read_file": true,
 	"github_list_files": true, "github_repo_summary": true,
 	// Pull requests, the reading half only. This is the first pack วางแผน
 	// carries in PART rather than whole or not at all - `pr_create` and
@@ -138,6 +138,43 @@ var planKeeps = map[string]bool{
 	// later, and a mode that changes nothing should not be leaving anything
 	// behind to be decided.
 	"ask_user": true, "todo_write": true, "calc": true, "time": true,
+	// The plan itself (desktop/plan.go), all three actions, and the whole pack
+	// by name so `Carries` answers for it in one word.
+	//
+	// **Two of them write, and that is not a hole in this stance's promise.**
+	// วางแผน says it changes nothing on the user's machine, and a plan is a row
+	// in the app's own database — the same ground `todo_write` stands on two
+	// lines up. `memory` is the tool that shows where the real line is: it is
+	// withheld even though it only PROPOSES, because what it proposes is a
+	// change to something the user will live with afterwards. A plan is this
+	// stance's own output, so refusing to let it write one would be refusing the
+	// mode its product.
+	//
+	// `plan_read` is here for วางแผน's own use — amending needs to see what is
+	// there — and it reaches every OTHER stance without a line anywhere, because
+	// a stance subtracts and ลงมือ subtracts nothing. That is the half this pack
+	// was split for: the acting session reads the plan instead of interpreting
+	// it back out of the transcript.
+	// **The bare pack name is deliberately ABSENT, and it is the first entry
+	// here where that matters.** AllowsAction answers yes if the ACTION is on
+	// this list OR if the TOOL is — which is how `"desk": true` says "this pack,
+	// whole" in one word. Writing `"plan": true` therefore handed over every
+	// action including `plan_step`, silently, defeating the withholding three
+	// lines down that was the whole point. Caught by a test on 2026-09-08, after
+	// shipping; nothing about the behaviour looked wrong, because a stance that
+	// grants too much fails by working.
+	//
+	// `Carries` still carries the pack: it asks PackedActions and keeps a pack
+	// where ANY action survives, so naming the three is enough for the tool to
+	// be on the desk.
+	"plan_write": true, "plan_amend": true, "plan_read": true,
+	// `plan_step` is NOT here, and it is the first entry whose absence is about
+	// วางแผน's promise rather than about tokens. Marking a step done is a
+	// statement that work HAPPENED, and this is the stance that changes nothing
+	// — a plan whose steps were ticked while nothing ran would be the one lie
+	// this mode is built to make impossible. It belongs to ลงมือ, where the
+	// work is, and reaches it without a line anywhere because a stance
+	// subtracts and ลงมือ subtracts nothing.
 	"skills_list": true, "skill_view": true, "session_search": true,
 	// The desk, whole. It is the one pack วางแผน can carry entire, and for a
 	// reason worth stating rather than discovering: every action in it only
@@ -147,22 +184,23 @@ var planKeeps = map[string]bool{
 	"desk": true, "desk_list": true, "help": true, "echo": true,
 }
 
-// planShape is the four headings a plan comes back under, with what belongs
+// planShape is the headings a plan comes back under, with what belongs
 // beneath each — and it is the one place the shape is written down.
 //
-// **Two callers produce a plan, and they are not the same caller.** This stance
-// is the main agent writing to the person who will decide; the `plan` sub-agent
-// profile (internal/subagent/profiles/subagents/plan.md) is a delegate writing
-// to the main agent that will act. They differ legitimately in the gloss under
-// each heading — that profile is a coding helper and can say "the file and line
-// you read it in", while a stance is available at every desk and cannot assume
-// the work has files at all.
+// **This was written to be shared with a second caller, and that caller is
+// gone.** §106.11 built it against `profiles/subagents/plan.md` — a delegate
+// writing a plan for the main agent, where this stance writes one for the
+// person who will decide — and pinned the two together with
+// subagent.TestThePlanProfileKeepsTheSharedPlanShape so that drift would be a
+// failing test rather than a discovery somebody makes months later.
 //
-// What they must not differ on is the headings, and that is what this list is
-// for. A user who asks for a plan twice and is handed two different shapes has
-// learned the shape of neither. subagent.TestThePlanProfileKeepsTheSharedPlanShape
-// is the coupling that makes drift a failing test rather than a discovery
-// somebody makes months later.
+// The profile was deleted at some point after that and took the test with it,
+// which left PlanHeadings() with no callers and this comment describing a
+// coupling to a file that is not there. Recorded rather than quietly tidied
+// away, because the reasoning is still the reason the list exists: a user who
+// asks for a plan twice and is handed two different shapes has learned the
+// shape of neither. The moment a second caller returns — and the `plan` tool
+// is one — it reads the shape from here and gets pinned the same way.
 //
 // Why a shape at all, when the direction below already said what to talk about:
 // it said what to *mention* and never what to *produce*, so the turn came back
@@ -188,9 +226,17 @@ var planShape = []struct{ Heading, Under string }{
 			"not an empty heading.",
 	},
 	{
+		"How you will know it worked",
+		"what someone checks once the steps are done, in terms they can actually check — a test that " +
+			"passes, a number that moves, a screen that draws. A plan whose finish cannot be checked is " +
+			"a wish with numbered steps.",
+	},
+	{
 		"What you are unsure of",
-		"the questions whose answers would change the plan, specific enough that someone can answer them " +
-			"without redoing your reading.",
+		"what is STILL open after you have asked. If an answer would change the plan, it is a question " +
+			"and it belongs in `ask_user` before you write, not in a list afterwards. What is left here " +
+			"is what asking could not settle — a thing only running the work will tell you, or a call " +
+			"the user has to make with the plan already in front of them.",
 	},
 }
 
@@ -396,18 +442,33 @@ func (s Stance) Direction() string {
 		return "This turn is planning work: you can look at anything and change nothing. " +
 			"Reading, searching, fetching and inspecting are all available; writing, editing, running " +
 			"commands and handing work to an agent are not, because the user asked for the plan first.\n\n" +
-			"Go and look before you plan. A plan written without opening the files it is about is a guess " +
-			"with numbered steps, and the reading tools are here precisely so it does not have to be one.\n\n" +
-			"Then give the plan under these four headings, in this order and in these words:\n" +
+			"Look enough to know what to ASK, ask, and then look properly. A question costs one round; " +
+			"reading your way down the wrong branch costs the whole turn and produces a plan for a job " +
+			"nobody wanted. So where the brief leaves open something that would change the approach — which " +
+			"of two things is being built, which of two places it goes, what the finished thing has to do — " +
+			"put it to the user with `ask_user`, with concrete options, BEFORE the deep reading. Ask about " +
+			"the work, never about permission, and ask about the few things that change the plan rather " +
+			"than everything you noticed.\n\n" +
+			"Then go and look. A plan written without opening the files it is about is a guess with " +
+			"numbered steps, and the reading tools are here precisely so it does not have to be one.\n\n" +
+			"Give the plan under these headings, in this order and in these words:\n" +
+			"did, and stop.\n\n" +
 			planShapeBlock() + "\n" +
-			"A small job does not need a long plan — a heading can be a single line, and saying so is the " +
+			"A small job does not need a long plan — a section can be a single line, and saying so is the " +
 			"correct plan rather than a lazy one. It still gets the shape: the user turned this dial to be " +
 			"handed a plan, and a plan they can read the same way every time is the thing they turned it " +
-			"for. Keep anything you quote short enough to identify what you mean; this is the plan, not the " +
-			"work.\n\n" +
+			"for. Keep anything you quote short enough to " +
+			"identify what you mean; this is the plan, not the work.\n\n" +
+			"IF A PLAN ALREADY EXISTS IN THIS CONVERSATION, THIS TURN AMENDS IT. It is one plan being " +
+			"worked on, not a new plan every time somebody says something about it. Change what the " +
+			"user's words actually change, give back the headings that changed and one line saying what " +
+			"moved, and leave the rest standing — repeating a heading nobody touched costs them what " +
+			"writing it cost the first time. What you have already read in this conversation you have " +
+			"already read: do not open it again to write down what it says a second time.\n\n" +
 			"Do not ask for permission to proceed and do not offer to do it anyway: the user turned this " +
-			"dial deliberately and turning it back is one press. End with the plan, not with a question " +
-			"about whether to start."
+			"dial deliberately and turning it back is one press. That is about permission, and permission " +
+			"only. A question about the WORK is a different thing and is wanted — asked early, with " +
+			"`ask_user`, not saved up to be listed underneath a plan already written around the guess."
 	}
 	if s != StanceConsult {
 		return ""

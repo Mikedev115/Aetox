@@ -26,9 +26,9 @@ The reason it belongs in a program and not in a session: a number read once is a
 
 So the split is not organisational, it is structural. Spend lives in one table and waste lives in the other, and that is why they are two programs rather than one page with more tabs.
 
-## The six sections and how to read them
+## The seven sections and how to read them
 
-> Four when written; **CACHE BREAKS** joined 2026-08-28 as ระดับ 1 of the Aider
+> Four when written; **PLAN REWRITES** joined 2026-09-08 (below); **CACHE BREAKS** joined 2026-08-28 as ระดับ 1 of the Aider
 > adoption plan ([docs/aider-study/EXECUTION.md](docs/aider-study/EXECUTION.md)),
 > and **TRIAL** on 2026-08-30 — the seven-day follow-up on that plan's mechanics
 > (repo_map, symbol/references, rename, the read >=50KB pass line), baselines
@@ -69,6 +69,20 @@ First run (2026-08-28, 7 days): 173 breaks, 4.69M tokens dropped — `qwen3.7-pl
 ### OUTPUT VOLUME
 
 Bytes each tool put into a context. The plain answer to "what fills a conversation", which is reliably not what it feels like.
+
+### PLAN REWRITES
+
+*(Joined 2026-09-08, on the owner's report that วางแผน rewrites the whole plan instead of amending it — DECISIONS §106, the planning overhaul.)*
+
+Plan cards, counted per conversation. Two plans in two conversations are two plans; two plans in ONE conversation is the second written over the first, and only the second and later are charged.
+
+It is measured off the transcript rather than off `tool_runs`, because writing a plan is not a tool call — it is the assistant's own words inside a ```` ```plan ```` fence, and that fence, added for the card (§106.12), is the only mark that separates a plan from an answer that happens to have headings. The audit reads a rendering decision as a measurement, which is worth noticing: **the section could not have existed before the card did.**
+
+Beside each such conversation sits REPEAT WASTE's own test, narrowed to it: a plan rebuilt from the top opens what it opened the first time, and that half costs input rather than output.
+
+First run (2026-09-08, all time): **70% of every byte of plan ever written on this machine was written over a plan that already existed** — 34,036 bytes against 14,281 of first drafts. One conversation wrote its plan four times and re-read 15,971 bytes it had already read.
+
+**Read it with the sample size in view: two conversations, on three and a half weeks of history since the card shipped.** It is not a statistic. It is the owner's own complaint with a number on it, and it is the *before* that the overhaul's *after* is supposed to beat.
 
 ## Baseline, 2026-08-20
 

@@ -71,6 +71,12 @@ type toolCase struct {
 	// drive runs alongside the call, for tools that block on something else
 	// happening (ask_user waits for a human).
 	drive func(t *testing.T, a *App)
+	// setUp runs BEFORE the call, for a tool whose work needs something already
+	// in the store. `drive` cannot serve: it runs alongside, which is right for
+	// a tool that blocks on a human and wrong for one that needs a row to exist
+	// before it is asked about. The table's cases run in map order, so a case
+	// must never lean on another having gone first.
+	setUp func(t *testing.T, a *App)
 	// realUserProfile puts %USERPROFILE% back for the duration of this one
 	// call. See useRealUserProfile — it is about a third-party binary, not
 	// about the tool.
@@ -98,6 +104,13 @@ func TestEveryToolRunsThroughTheRealDispatcher(t *testing.T) {
 	// its work is a file on disk, not a pane on screen, so it resolves paths the
 	// way the file tools do.
 	app.cur().cfg.SandboxRoot = root
+	// A bare &App{} opens on a conversation with no id — the real state a
+	// launched window is in before its first turn is stored (conversation.go),
+	// and not the state a tool ever runs in, because a tool runs inside a turn.
+	// `plan` is the first tool to notice: a plan belongs to a conversation and
+	// refuses to be written for one that is not a row yet, so without this the
+	// harness would report the tool broken for being right.
+	app.cur().id = newSessionID()
 	// Several tools below open the store (session_search, memory, suggest_task),
 	// and on Windows an open file cannot be removed — so without this the data
 	// root's own cleanup fails and takes the test with it. Registered after
@@ -241,6 +254,9 @@ func runTool(t *testing.T, d *skill.Dispatcher, app *App, name string, tc toolCa
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
+	if tc.setUp != nil {
+		tc.setUp(t, app)
+	}
 	if tc.drive != nil {
 		go tc.drive(t, app)
 	}
@@ -411,6 +427,29 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 		"todo_write": {args: map[string]any{"todos": []any{
 			map[string]any{"content": "prove the tool runs", "status": "completed"},
 		}}},
+		// The conversation's plan (plan.go). All three run for real, against the
+		// isolated database this test already stands up, and the order matters:
+		// `write` first so `amend` has something to amend and `read` has
+		// something to read. Go runs a map's cases in random order, so each one
+		// is written to stand alone — `amend` on an empty conversation is a
+		// write, and `read` on one answers "no plan yet" rather than failing.
+		"plan_write": {args: map[string]any{"action": "write", "title": "prove the tool runs", "sections": []any{
+			map[string]any{"heading": "What to change", "body": "1. this"},
+		}}},
+		"plan_amend": {args: map[string]any{"action": "amend", "sections": []any{
+			map[string]any{"heading": "What to change", "body": "1. that instead"},
+		}}},
+		"plan_read": {args: map[string]any{"action": "read"}},
+		// `step` needs a plan with steps in it, and Go runs these cases in
+		// random order — so it writes its own rather than leaning on plan_write
+		// having gone first. Every case here stands alone for that reason.
+		"plan_step": {args: map[string]any{"action": "step", "n": 1, "state": "done"}, setUp: func(_ *testing.T, app *App) {
+			_, _ = (&planSkill{app: app, conv: app.cur()}).run(map[string]any{
+				"action":   "write",
+				"sections": []any{map[string]any{"heading": "What to change", "body": "see the steps"}},
+				"steps":    []any{"prove the tool runs"},
+			})
+		}},
 		// Progressive skill loading: a fixture skill is installed into the
 		// (isolated) discovery dir by writeCoverageSkill, so the list has one
 		// real entry and the view has a real body to return.

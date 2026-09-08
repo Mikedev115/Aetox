@@ -316,8 +316,33 @@ export const RemoveSpaceContext = arr()
 // is a machine that has never fetched the catalog — and the state in which the
 // menu must show no source line at all rather than a sentence about nothing.
 export const ModelPriceSource = vi.fn(async (..._args: any[]) => ({ name: '', fetched: '' }))
+// The stance dial (§106). '' is ลงมือ, which is the default and the honest
+// answer for a fresh session — and, since a run started from the plan card
+// crosses into it by itself, the value the window has to be able to re-read.
+export const Stance = str()
+export const Stances = vi.fn(async () => ['', 'plan', 'consult'])
+export const SetStance = str()
 export const SessionMode = str()
 export const SessionAgent = str()
+// The conversation's plan (desktop/plan.go). An empty title with no sections is
+// a chat that has never had one, which is the honest default for a mock and the
+// state the card must draw as nothing at all rather than as an empty card.
+export const SessionPlan = vi.fn(async (..._args: any[]) => ({ title: '', sections: [], version: 0, updated: '' }))
+// มุ่งเป้า (desktop/goal_run.go). StartPlanRun answers with a refusal, or a flag
+// saying the run began — the window sends the opening message itself, so the
+// default here is the ordinary case: it started, and nothing was refused.
+export const StartPlanRun = vi.fn(async (..._args: any[]) => ({ refusal: '', started: true }))
+export const StopPlanRun = noop()
+export const PlanRunning = vi.fn(async (..._args: any[]) => false)
+// A plan the user edited by hand (desktop/plan_edit.go). Answers with a REFUSAL
+// string and '' for success, the same shape StartPlanRun uses.
+export const SavePlanText = str()
+// พัก / ไปต่อ / จุดพัก (desktop/goal_run.go). All void: the card redraws from the
+// `plan:update` each one emits, never from a return value — one path onto the
+// screen, the same one the model's own writes take.
+export const PausePlanRun = noop()
+export const ResumePlanRun = noop()
+export const SetPlanStepStop = noop()
 export const SessionTranscript = arr()
 // แหล่งที่มา (desktop/sources.go). The count is separate from the list because
 // the list is capped and the panel has to say how much it is not showing.

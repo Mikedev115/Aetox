@@ -204,7 +204,12 @@ func TestEveryDeclaredActionIsWiredToAnImplementation(t *testing.T) {
 			// driven per action where they do live —
 			// desktop/tool_coverage_test.go, and internal/subagent's own tests,
 			// which call every action through the dispatcher for real.
-			if tool == "browser" || tool == "desk" || tool == "video" || tool == "task" {
+			//
+			// `plan` joined them on 2026-09-08 for the plainest version of the
+			// same reason: a plan is keyed to a conversation and stored in the
+			// app's database, and neither of those exists in a registry this
+			// package can build.
+			if tool == "browser" || tool == "desk" || tool == "video" || tool == "task" || tool == "plan" {
 				continue
 			}
 			t.Errorf("%s is declared as a pack but is not registered", tool)

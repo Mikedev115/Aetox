@@ -775,6 +775,42 @@ func (a *Agent) RespondWithTools(
 				}
 				continue
 			}
+			// The turn is about to end. มุ่งเป้า is the one thing that can say
+			// otherwise, and it is asked HERE — after the interjection check
+			// above, at the same branch and for the same reason: this is the
+			// only moment in the loop where an answer exists and has not yet
+			// been handed over.
+			//
+			// Asked once per attempt to finish, never once per round. A run that
+			// works for thirty rounds and then stops is checked once; the answer
+			// cannot have changed at any earlier point, so asking earlier would
+			// buy a verification call per round for nothing — which is the cost
+			// §106.10 declined this mode over.
+			//
+			// The verdict goes in as a user turn, exactly as an interjection
+			// does, because that is what it is: somebody telling the model the
+			// work is not finished. Nothing here judges the work — the caller
+			// owns the checker, the ceiling and the definition of done.
+			if opts.OnGoalCheck != nil {
+				if verdict := strings.TrimSpace(opts.OnGoalCheck(content)); verdict != "" {
+					debuglog.Msg("goal check sent the turn back (%d chars)", len(verdict))
+					// The answer is written down before the verdict, the same
+					// order the interjection path uses: the model finished
+					// saying this, and THEN was told it was not done. Skipping
+					// it would leave the next round arguing with a verdict about
+					// an answer that is not in its own history.
+					if opts.OnRound != nil {
+						opts.OnRound(turn.RoundEvent{Text: content, Demoted: true})
+					}
+					a.context.AddMessage(model.Message{
+						Role:             model.RoleAssistant,
+						Content:          recorded,
+						ReasoningContent: strings.TrimSpace(response.ReasoningContent),
+					})
+					a.context.Add(model.RoleUser, verdict)
+					continue
+				}
+			}
 			if opts.OnRound != nil {
 				opts.OnRound(turn.RoundEvent{Text: content, Final: true})
 			}

@@ -3,14 +3,14 @@
 // incremental updates here — append a chat message, advance a timeline step) and
 // the UI reacts. Do not reassign `cockpit` itself; mutate its properties.
 
-import { emptyCockpitState, emptyTurnSpend, emptySessionSpend, type SessionSpend as SessionSpendTotals, type CockpitState, type ParkedTurn, type TreeNode, type Session, type ToolStep, type ToolEvent, type ChatMessage, type MessageVariant, type TurnPart, type PendingFile, type PendingImage, type ModelLoading, type StoreFault, type PreparedReply } from '../types'
+import { emptyCockpitState, emptyTurnSpend, emptySessionSpend, type SessionSpend as SessionSpendTotals, type CockpitState, type ParkedTurn, type TreeNode, type Session, type ToolStep, type ToolEvent, type ChatMessage, type MessageVariant, type TurnPart, type PendingFile, type PendingImage, type ModelLoading, type StoreFault, type PreparedReply, type Plan } from '../types'
 import type { CockpitSource } from '../services/cockpit'
 import {
   SendMessage, GetProjectStatus, GetModelInfo, OpenProjectFolder, OpenProjectPath,
   SwitchProvider, SwitchThinkLevel, SwitchApprovalMode, SetProviderWireFormat,
   SwitchModel, CancelPendingModel, SetAPIKey, SetProviderBaseURL, ProjectTree, ReadFile,
   BrowseFolder, BrowseRoot, StopBrowsing,
-  ListSessions, LoadSession, NewSession, NewSessionAt, NewChairSession, NewSessionInSpace, CurrentSpace, SessionsInSpace, Spaces, SessionMode, SessionAgent, CurrentSessionID, SearchSessions, DeleteSession,
+  ListSessions, LoadSession, NewSession, NewSessionAt, NewChairSession, NewSessionInSpace, CurrentSpace, SessionsInSpace, Spaces, SessionMode, SessionAgent, SessionPlan, StartPlanRun, StopPlanRun, SavePlanText, PausePlanRun, ResumePlanRun, SetPlanStepStop, CurrentSessionID, SearchSessions, DeleteSession,
   SessionTranscript, TurnInFlight,
   SaveChatImage, SaveChatImageData, SaveChatFile, ReadImageDataURL, CancelTurn, BrowserGetText, RecentProjects,
   ListSessionsForDoor, SearchSessionsForDoor, LoadSessionAnyProject, ClearProjectFocus, ForgetProject, HistoryFault,
@@ -65,8 +65,46 @@ function seedModelFromCache(): Partial<CockpitState['model']> {
   }
 }
 
+/** The finished-but-unopened marks, kept across a reload.
+ *
+ * In localStorage rather than in memory because of what the mark MEANS: work
+ * finished and nobody has read it yet. Closing the window does not read it, and
+ * a mark that only lives as long as the window would go out precisely when the
+ * user walked furthest away from the work — which is the case it exists for.
+ *
+ * Capped, and pruned from the front. A key is only removed when its chat is
+ * opened, so a user who leaves a dozen of these standing for a month would
+ * otherwise grow this map for the life of the install; the oldest marks are
+ * also the ones least likely to still be news. */
+const UNREAD_KEY = 'chatsUnread'
+const UNREAD_MAX = 100
+
+function seedUnread(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(UNREAD_KEY)
+    const held = raw ? (JSON.parse(raw) as Record<string, boolean>) : {}
+    // Only the true ones: a stored `false` is a chat that has been read, and
+    // carrying it forward would keep the map growing with nothing in it.
+    return Object.fromEntries(Object.entries(held).filter(([, on]) => on))
+  } catch {
+    return {}
+  }
+}
+
+function saveUnread(): void {
+  try {
+    const ids = Object.keys(cockpit.unread).filter((id) => cockpit.unread[id])
+    const kept = ids.slice(-UNREAD_MAX)
+    localStorage.setItem(UNREAD_KEY, JSON.stringify(Object.fromEntries(kept.map((id) => [id, true]))))
+  } catch {
+    // localStorage unavailable/full. The dot still works for this run; only
+    // its survival across a reload is lost, which is not worth a throw here.
+  }
+}
+
 export const cockpit = $state<CockpitState>(emptyCockpitState())
 Object.assign(cockpit.model, seedModelFromCache())
+Object.assign(cockpit.unread, seedUnread())
 
 export async function hydrate(source: CockpitSource): Promise<void> {
   Object.assign(cockpit, await source.load())
@@ -849,6 +887,10 @@ export async function applyAgentDone(status: { sessionId: string }): Promise<voi
   // shell, and it is the only thing that takes the sidebar's ring off.
   if (ended && ended !== cockpit.openSession && cockpit.parked[ended]) {
     delete cockpit.parked[ended]
+    // A turn this window reattached to after a reload, ending off screen. The
+    // dot is the only thing left saying it happened — the live detail died
+    // with the previous webview, so there is nothing else to come back to.
+    markUnread(ended)
     await refreshSessions()
     await refreshGlobalHistory()
     return
@@ -859,6 +901,22 @@ export async function applyAgentDone(status: { sessionId: string }): Promise<voi
   const orphanOnScreen = ended === cockpit.openSession && cockpit.awaitingReply
   if (!reattachedTurn && !orphanOnScreen) return
   reattachedTurn = false
+  // The flag says a turn this window walked in on has ended. It does not say
+  // the turn was THIS chat's — the user can open another conversation while it
+  // runs, and the reattached turn then ends somewhere the screen is no longer
+  // pointing. Everything below is aimed at the chat on screen: it wipes the
+  // live block and re-reads a transcript into it. Aimed at the wrong chat it
+  // is the bug it was written to fix, one chat over.
+  //
+  // The parked branch above catches this whenever the other chat left a record
+  // behind; this catches it when it did not, which is every chat the user
+  // opened and read rather than worked.
+  if (ended && cockpit.openSession && ended !== cockpit.openSession) {
+    markUnread(ended)
+    await refreshSessions()
+    await refreshGlobalHistory()
+    return
+  }
   cockpit.awaitingReply = false
   cockpit.turnSession = ''
   cockpit.agentStatus = ''
@@ -869,15 +927,27 @@ export async function applyAgentDone(status: { sessionId: string }): Promise<voi
   cockpit.reasoningText = ''
   cockpit.modelLoading = null
   cockpit.sessionError = ''
-  const id = await CurrentSessionID()
-  if (status?.sessionId === id) {
-    try {
-      const messages = await SessionTranscript(id)
+  // The chat on screen, which the guard above has just proved is the one whose
+  // turn ended. It used to be CurrentSessionID() — the ENGINE's chat, which is
+  // a different question and drifts away from this one the moment the user
+  // opens another conversation. Read here it could answer with a session this
+  // window is not showing, and the re-read below would then paint that
+  // session's transcript over the one the user is looking at.
+  const id = cockpit.openSession || ended
+  try {
+    const messages = await SessionTranscript(id)
+    // Never blank the window on an empty read. This runs at the end of a turn,
+    // so the store has at least the question in it — an empty answer means the
+    // read failed to find the session, not that the conversation is empty, and
+    // assigning it drops the user back to the welcome screen with their whole
+    // chat gone. restoreLiveTranscript has always guarded its read this way;
+    // this one did not, and it is the same read.
+    if (messages.length > 0) {
       cockpit.chat = restoreTranscript(messages)
       hydrateImages()
-    } catch {
-      // The store still holds the turn; the next open shows it.
     }
+  } catch {
+    // The store still holds the turn; the next open shows it.
   }
   await refreshWorkspace()
   await refreshUndo()
@@ -937,6 +1007,47 @@ export function sessionWorking(s: { id: string }): boolean {
   if (cockpit.turnSession && s.id === cockpit.turnSession) return true
   if (turnKnown(s.id)) return true
   return !!cockpit.parked[s.id]?.awaitingReply
+}
+
+/** Whether this row's conversation finished a turn that nobody has read.
+ *
+ * The list's second dot, and the answer to the complaint the ring could not
+ * answer: the ring says which chat is still going, and goes out when the turn
+ * ends — at which point the row looks exactly like the forty rows above it that
+ * have been idle since yesterday. Nothing on screen said "this one finished
+ * while you were away". Now the green dot becomes an amber one and stays until
+ * the chat is opened.
+ *
+ * Same signature as sessionWorking for the same reason: three lists draw a chat
+ * row, and one of them draws it from `main.SessionMeta` rather than from the
+ * sidebar's `Session`. */
+export function sessionUnread(s: { id: string }): boolean {
+  // Working beats unread. A chat that finished a turn and was handed another
+  // one is going, not waiting to be read, and two dots on one row would be the
+  // row saying both.
+  if (sessionWorking(s)) return false
+  return !!cockpit.unread[s.id]
+}
+
+/** Mark a chat as holding a finished turn nobody has read.
+ *
+ * Refuses the chat on screen: the answer landed in front of the user, and a
+ * row that is already open cannot be unread. Everything else that ends a turn
+ * routes through here rather than writing the map itself, so the "not the one
+ * on screen" rule cannot be forgotten by the next caller. */
+function markUnread(id: string): void {
+  if (!id || id === cockpit.openSession) return
+  cockpit.unread[id] = true
+  saveUnread()
+}
+
+/** Opened, therefore read. Called from arriveAt, which is the one door every
+ *  chat is opened through — putting it anywhere else means a door that clears
+ *  it and a door that does not. */
+function clearUnread(id: string): void {
+  if (!id || !cockpit.unread[id]) return
+  delete cockpit.unread[id]
+  saveUnread()
 }
 
 /** Park the chat leaving the screen, if it still has work in it.
@@ -1881,6 +1992,10 @@ async function runLiveTurn(call: (turn: LiveTurnRef) => Promise<void>): Promise<
     // The "still working" banner (turnStillRunning) explained a refusal that
     // just stopped being true. A stale one over an idle chat would be a lie.
     cockpit.sessionError = ''
+    // The turn is over; if it ended somewhere the user was not looking, the
+    // row takes over the telling. markUnread itself refuses the chat on
+    // screen, so this needs no condition of its own.
+    markUnread(ran)
   }
   await refreshWorkspace()
   // The turn may have started delegations it chose not to collect — they are
@@ -2237,6 +2352,181 @@ export function applyPreparedReplies(
   const list = stamped ? stamped.data : (ev as PreparedReply[])
   cockpit.prepared = Array.isArray(list) ? list.filter((r) => r?.text) : []
   cockpit.preparedAt = 0
+}
+
+/** The plan changed — `plan write` or `plan amend` landed (desktop/plan.go).
+ *
+ * Stamped and routed, because a plan is one conversation's: a chat replanning in
+ * the background must not redraw the card in front of somebody reading another
+ * one. That is §187 and §234's rule, applied on the way in this time — the way
+ * out is handled in arriveAt, where the plan is dropped and re-read.
+ *
+ * Dropped rather than parked for a background chat, which costs nothing: the row
+ * is already written by the time this event goes out, so opening that chat finds
+ * the plan waiting in the database rather than in a variable here.
+ */
+export function applyPlanUpdate(ev: SessionEvent<Plan> | Plan): void {
+  const stamped = ev && typeof ev === 'object' && 'sessionId' in (ev as object)
+    ? (ev as SessionEvent<Plan>)
+    : null
+  const id = stamped?.sessionId ?? ''
+  if (id && cockpit.openSession && id !== cockpit.openSession) return
+  const plan = stamped ? stamped.data : (ev as Plan)
+  cockpit.plan = plan && Array.isArray(plan.sections) && plan.sections.length > 0 ? plan : null
+}
+
+/** Start carrying out the plan on screen — the button on the card (มุ่งเป้า,
+ *  desktop/goal_run.go).
+ *
+ *  Answers with the engine's refusal, or '' when the run began. A refusal is
+ *  shown rather than swallowed: "there is no plan" and "this plan has no
+ *  checkable steps" send the user to different places, and a button that
+ *  silently did nothing would send them to neither. */
+export async function startPlanRun(): Promise<string> {
+  const id = cockpit.openSession
+  if (!id) return ''
+  const started = await StartPlanRun(id)
+  if (started?.refusal) return started.refusal
+  // **AND THEN IT HAS TO SEND SOMETHING.** Starting a run switches the stance,
+  // registers the run and installs the goal check — and none of that makes
+  // anything happen, because the check only fires when a turn is about to END.
+  // The first real press left the bar at 0/5 with the light on, waiting for the
+  // user to type. A button that says "carry this out" and only arms the
+  // machinery is a button that lies.
+  //
+  // Sent as an ordinary user turn, which is honest rather than a trick: the user
+  // did instruct it, with a button instead of a keyboard, and the transcript
+  // shows exactly that.
+  //
+  // SHORT, and a translated string rather than the engine handing one over. The
+  // first version had Go build a paragraph of instruction in Thai and sent that
+  // — screen text past the locale files, a prompt wearing a user turn, and re-
+  // sent with every later round because a user turn is. What the model needs to
+  // know is planSkill.Guidance now, delivered once. What is left here is what a
+  // person would actually type.
+  // **AND THE DIAL HAS TO MOVE.** StartPlanRun crosses the session from วางแผน
+  // into ลงมือ — without that the run carries no `write`, no `shell`, not even
+  // `plan_step` — but it does it INSIDE the engine, and the dial reads
+  // `cockpit.stance`, which is only ever written when the user works the dial
+  // themselves. So the engine was in ลงมือ and the window still said วางแผน:
+  // the run worked and the screen lied about which mode it was in.
+  //
+  // Asked rather than assumed, the same way every door re-reads it after a
+  // switch: the engine owns the value, and a window that writes what it thinks
+  // the answer is has two copies of one fact.
+  //
+  // Before the send, not after: sendUserMessage starts a turn, and the stance is
+  // one of the things this app refuses to read or move under one.
+  cockpit.stance = await Stance()
+  if (started?.started) void sendUserMessage(t('chat.planStartMessage'))
+  return ''
+}
+
+/** Hold the run where it stands, or let it go on again.
+ *
+ * Neither answers anything: the card redraws from the `plan:update` each one
+ * emits, which is the same path the model's own writes take. One way onto the
+ * screen means a hold and an amend cannot end up drawing differently. */
+export async function pausePlanRun(): Promise<void> {
+  if (cockpit.openSession) await PausePlanRun(cockpit.openSession)
+}
+
+export async function resumePlanRun(): Promise<void> {
+  if (cockpit.openSession) await ResumePlanRun(cockpit.openSession)
+}
+
+/** Put a breakpoint on a step, or take one off — "stop before you do that one".
+ *  On the plan rather than on the run, so it is settable before anything starts,
+ *  which is when somebody reading a fresh plan notices the step they want to
+ *  see. */
+export async function setPlanStepStop(n: number, on: boolean): Promise<void> {
+  if (cockpit.openSession) await SetPlanStepStop(cockpit.openSession, n, on)
+}
+
+/** Save a plan the user edited by hand (desktop/plan_edit.go).
+ *
+ * Answers with the engine's refusal or '' — an empty box and a plan that will
+ * not parse are two different refusals, and both are worth showing rather than
+ * leaving the user looking at a Save button that did nothing.
+ *
+ * The card redraws from the `plan:update` the save emits, not from anything
+ * returned here: one path onto the screen, the same one the model's own writes
+ * take, so a hand edit and an amend cannot end up drawing differently. */
+export async function savePlanText(text: string): Promise<string> {
+  const id = cockpit.openSession
+  if (!id) return ''
+  return (await SavePlanText(id, text)) ?? ''
+}
+
+/** Put the run down. The turn it is in keeps going — the user stopped the RUN,
+ *  and the Stop button beside the composer is what does the other thing. */
+export async function stopPlanRun(): Promise<void> {
+  const id = cockpit.openSession
+  if (!id) return
+  await StopPlanRun(id)
+}
+
+/** Ask the engine for a chat's plan. Called on every arrival, and answering
+ *  null for the chats that have never had one — which is most of them. */
+async function refreshPlan(id: string): Promise<void> {
+  if (!id) {
+    cockpit.plan = null
+    return
+  }
+  try {
+    const plan = (await SessionPlan(id)) as Plan | null
+    // A late answer for a chat the user has already left is thrown away rather
+    // than drawn. Two quick switches otherwise land the first chat's plan on the
+    // second, which is the same bug this whole re-read exists to avoid.
+    if (id !== cockpit.openSession) return
+    cockpit.plan = plan && Array.isArray(plan.sections) && plan.sections.length > 0 ? plan : null
+  } catch {
+    cockpit.plan = null
+  }
+}
+
+/** Wording waiting for chats that are not on screen, by session id.
+ *
+ * Its own map rather than a field on `cockpit.parked`: that set holds chats
+ * caught mid-turn, and a prepared wording only exists once a turn has ENDED, so
+ * the two are never true at the same time about the same chat.
+ *
+ * Not persisted, and it should not be. This is an offer about the sentence
+ * somebody was in the middle of not typing; it is worth surviving a click on
+ * the sidebar and is not worth surviving a restart, where it would surface
+ * under a question the user has long since answered some other way. */
+const preparedParked: Record<string, { list: PreparedReply[]; at: number }> = {}
+
+/** Take the wording off screen and hold it for the chat that owns it. */
+function parkPrepared(id: string): void {
+  if (!id) return
+  if (cockpit.prepared.length === 0) {
+    delete preparedParked[id]
+    return
+  }
+  preparedParked[id] = { list: cockpit.prepared, at: cockpit.preparedAt }
+  cockpit.prepared = []
+  cockpit.preparedAt = 0
+}
+
+/** Put back whatever was held for the chat arriving, or leave the composer with
+ *  nothing on offer — which is the answer for every chat that never had one. */
+function restorePrepared(id: string): void {
+  const held = id ? preparedParked[id] : undefined
+  if (!held) {
+    cockpit.prepared = []
+    cockpit.preparedAt = 0
+    return
+  }
+  delete preparedParked[id]
+  cockpit.prepared = held.list
+  cockpit.preparedAt = held.at
+}
+
+/** Forget a chat's wording outright — it is being deleted, so there is nothing
+ *  left for the offer to be an answer to. */
+function dropPreparedFor(id: string): void {
+  delete preparedParked[id]
 }
 
 /** Put the wording down untaken — the user typed something of their own, sent
@@ -3346,6 +3636,34 @@ export function restoreActiveView(): void {
  * overwritten, then either restore what is arriving (it was working when it
  * left) or start it clean.
  *
+ * **ADDING A FIELD TO `cockpit`? Decide here what happens to it on a switch.**
+ * Three bugs have been that decision going unmade — the desk file tab (§187),
+ * the undo chip, and the wording Tab types (2026-09-08) — and all three read the
+ * same way to the user: another conversation's work turning up in this one.
+ *
+ * They were missed for the same reason each time, and it is not carelessness.
+ * The ARRIVING event was already guarded in all three: it carries a sessionId
+ * and the store drops what is not the chat on screen. That is the door people
+ * inspect, and it is not the door the state comes through — the state was
+ * already sitting on `cockpit`, put there while the chat WAS on screen, and
+ * nothing took it off on the way out. A guard on the way in cannot see that.
+ *
+ * The four answers, and how to pick:
+ *
+ *   - **Nothing** — it is the app's, not a chat's.
+ *   - **Drop it here and ask again** — right whenever the engine still knows it
+ *     (undoFiles/refreshUndo, taskChips/refreshTaskChips, desk, stance, model).
+ *     Cheap, and it cannot go stale.
+ *   - **parkLive/restoreLive** — live turn state, so a chat left working comes
+ *     back mid-flight. Note the gate: `awaitingReply`. Anything that exists
+ *     because a turn ENDED can never qualify, which is the trap `prepared` fell
+ *     into.
+ *   - **A map of its own** — it is pushed once and stored nowhere, so dropping
+ *     it destroys something nobody can hand back. `preparedParked` is the one.
+ *
+ * src/test/cockpitBelongsToAChat.test.ts fails on a field with no answer, so
+ * this is a question you get asked rather than one you have to remember.
+ *
  * Returns true when the arriving chat came back from the parked set, in which
  * case its messages are already on screen and the caller must not replace them
  * with a transcript read out of the store — the live ones are ahead of it. */
@@ -3358,8 +3676,13 @@ function arriveAt(id: string): boolean {
     cockpit.sessionError = ''
     return true
   }
-  parkLive(cockpit.openSession)
+  const leaving = cockpit.openSession
+  parkLive(leaving)
   cockpit.openSession = id
+  // Opened, therefore read. The amber dot is a message TO this door, and this
+  // is where it is delivered — see the note on `unread` in types.ts for why
+  // every other candidate spot is a door somebody would forget.
+  clearUnread(id)
   cockpit.sessionError = ''
   // The bill on screen is the arriving chat's. Cleared before the read rather
   // than left up during it, so no frame shows the conversation being left under
@@ -3378,6 +3701,34 @@ function arriveAt(id: string): boolean {
   // conversation wrote. Clearing it before the arrival is what makes the gap
   // read as "nothing offered" instead of as somebody else's work.
   cockpit.undoFiles = []
+  // The plan is the chat's (desktop/plan.go), and it is DROPPED here rather than
+  // parked for the reason the undo chip above is: the engine still has it, in a
+  // row keyed by session id, so `SessionPlan` can be asked again and the answer
+  // cannot go stale. Cleared before the read rather than left standing during
+  // it, so no frame shows the plan of the conversation being left under the one
+  // being opened.
+  cockpit.plan = null
+  void refreshPlan(id)
+  // The wording Tab types belongs to the chat whose question it answers, and
+  // until 2026-09-08 it rode across every switch: leave a chat that had just
+  // been offered one, arrive at another, press Tab, and the composer typed an
+  // answer to a question asked in a conversation you were no longer looking at.
+  //
+  // The arrival half was already guarded — applyPreparedReplies drops a wording
+  // stamped with another session — so the leak came in through the door nobody
+  // watched: the wording was already on `cockpit` when the switch happened, and
+  // nothing here took it off. The same shape as the undo chip above, and the
+  // same fix, with one difference that decides park-versus-drop.
+  //
+  // The undo chip is DROPPED here because the engine can be asked for it again
+  // (refreshUndo). A wording cannot: it is pushed once, on `composer:prepared`,
+  // and nothing stores it — dropping it would mean a glance at another chat
+  // destroys an offer that cost a model call to write. So it is parked, and
+  // parked in its own map rather than in `cockpit.parked`, which only holds
+  // chats that were mid-turn: a wording exists precisely BECAUSE the turn ended,
+  // so it would never meet parkLive's condition.
+  parkPrepared(leaving)
+  restorePrepared(id)
   markOnScreen(id)
   // The tray belongs to the chat too (suggest_task chips are raised by a
   // conversation about its own work), so it is re-read for the one arriving
@@ -3460,6 +3811,10 @@ export async function deleteSession(session: Session): Promise<void> {
   if (sessionWorking(session)) return
   await DeleteSession(session.id)
   removeWorkbenchState(session.id)
+  // A wording held for this chat has nothing left to be an answer to. Held in a
+  // map keyed by session id, it would otherwise sit there for the life of the
+  // window and reappear if the id were ever reused.
+  dropPreparedFor(session.id)
   if (session.active) cockpit.chat = []
   await refreshSessions()
   await refreshGlobalHistory()

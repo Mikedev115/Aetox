@@ -71,6 +71,8 @@ export function BrowserClose(arg1:string):Promise<void>;
 
 export function BrowserCloseForTeardown(arg1:string):Promise<void>;
 
+export function BrowserDetach(arg1:string):Promise<void>;
+
 export function BrowserDevices():Promise<Array<main.deviceProfile>>;
 
 export function BrowserForward(arg1:string):Promise<void>;
@@ -81,7 +83,6 @@ export function BrowserNavigate(arg1:string,arg2:string,arg3:string):Promise<voi
 
 export function BrowserOpen(arg1:string,arg2:string,arg3:string,arg4:number,arg5:number,arg6:number,arg7:number):Promise<void>;
 
-export function BrowserDetach(arg1:string):Promise<void>;
 export function BrowserOpenDevTools(arg1:string):Promise<void>;
 
 export function BrowserReload(arg1:string):Promise<void>;
@@ -89,6 +90,8 @@ export function BrowserReload(arg1:string):Promise<void>;
 export function BrowserSetBounds(arg1:string,arg2:number,arg3:number,arg4:number,arg5:number):Promise<void>;
 
 export function BrowserSetDevice(arg1:string,arg2:string):Promise<void>;
+
+export function BrowserSetScreenShape(arg1:string,arg2:number,arg3:number,arg4:number):Promise<void>;
 
 export function BrowserSetVisible(arg1:string,arg2:boolean):Promise<void>;
 
@@ -372,6 +375,8 @@ export function OpenSubagentsFolder():Promise<void>;
 
 export function PairedDevices():Promise<Array<main.RemoteDevice>>;
 
+export function PausePlanRun(arg1:string):Promise<void>;
+
 export function PendingChangeByID(arg1:number):Promise<main.PendingChange>;
 
 export function PendingIssueCount():Promise<number>;
@@ -391,6 +396,8 @@ export function PickAttachments(arg1:string):Promise<Array<string>>;
 export function PickPresetImage(arg1:string):Promise<string>;
 
 export function PlacementTargets():Promise<Array<main.PlacementTarget>>;
+
+export function PlanRunning(arg1:string):Promise<boolean>;
 
 export function PreparedReplyOn():Promise<boolean>;
 
@@ -464,6 +471,8 @@ export function RestartToUpdate():Promise<void>;
 
 export function RestorePoints():Promise<Array<main.RestorePoint>>;
 
+export function ResumePlanRun(arg1:string):Promise<void>;
+
 export function RetryActiveProvider():Promise<main.ModelInfo>;
 
 export function RetryFailedTurn(arg1:string):Promise<main.TurnReply>;
@@ -502,6 +511,8 @@ export function SaveMCPServer(arg1:string,arg2:config.MCPServerConfig):Promise<v
 
 export function SavePicture(arg1:string):Promise<string>;
 
+export function SavePlanText(arg1:string,arg2:string):Promise<string>;
+
 export function SavePromptPreset(arg1:string,arg2:string):Promise<void>;
 
 export function SaveSubagentProfile(arg1:string,arg2:string):Promise<void>;
@@ -519,6 +530,8 @@ export function SessionAgent(arg1:string):Promise<string>;
 export function SessionEdits(arg1:string):Promise<main.EditPage>;
 
 export function SessionMode(arg1:string):Promise<string>;
+
+export function SessionPlan(arg1:string):Promise<main.Plan>;
 
 export function SessionSourceCount(arg1:string):Promise<number>;
 
@@ -549,6 +562,8 @@ export function SetImageModelName(arg1:string):Promise<void>;
 export function SetLearningEnabled(arg1:boolean):Promise<void>;
 
 export function SetMCPServerTargets(arg1:string,arg2:Array<string>):Promise<void>;
+
+export function SetPlanStepStop(arg1:string,arg2:number,arg3:boolean):Promise<void>;
 
 export function SetPreparedReplyOn(arg1:boolean):Promise<void>;
 
@@ -622,6 +637,8 @@ export function StartMCPSignIn(arg1:string,arg2:string):Promise<main.SignInPromp
 
 export function StartMobileRemote():Promise<main.RemoteStatus>;
 
+export function StartPlanRun(arg1:string):Promise<main.PlanRunStart>;
+
 export function StartSignIn(arg1:string):Promise<main.SignInPrompt>;
 
 export function StartSpeech(arg1:string):Promise<string>;
@@ -633,6 +650,8 @@ export function StopBackgroundTask(arg1:string):Promise<boolean>;
 export function StopBrowsing():Promise<void>;
 
 export function StopMobileRemote():Promise<main.RemoteStatus>;
+
+export function StopPlanRun(arg1:string):Promise<void>;
 
 export function StopQueuedTasks():Promise<number>;
 

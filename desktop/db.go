@@ -691,6 +691,63 @@ CREATE TABLE IF NOT EXISTS project_folders (
 			return err
 		},
 	},
+	{
+		version: 20,
+		name:    "plans",
+		apply: func(tx *sql.Tx) error {
+			// A plan gets a row of its own, which is the whole of the change
+			// the owner asked for on 2026-09-08 and the reason everything else
+			// in the overhaul becomes possible.
+			//
+			// Until now a plan was a ```plan fence in one assistant message and
+			// nothing more. That is enough to DRAW one (§106.12) and not enough
+			// to do anything else with: there is no id, no version, and nothing
+			// a later turn can point at — so "change step 3" had no step 3 to
+			// change, and the only way to revise a plan was to write the whole
+			// document again. Measured on this machine before the change: 70%
+			// of every byte of plan ever written was written over a plan that
+			// already existed (TOKEN-AUDIT.md, PLAN REWRITES).
+			//
+			// **One plan per conversation**, which is why session_id is the key
+			// rather than a column. It follows the stance's own framing — the
+			// turn produces THE plan, and the card IS the answer — and it is
+			// what makes `amend` mean something without the model having to
+			// carry an id around. A conversation that genuinely needs a second
+			// plan is a second conversation, which is also how ประตูส่งไม้ will
+			// hand one over.
+			//
+			// The sections are JSON in one column rather than a second table.
+			// The shape is small and fixed (mode.PlanHeadings), it is read and
+			// written whole, and nothing will ever query inside it — a
+			// plan_sections table would buy joins nobody needs and a migration
+			// every time the shape moves. JSON is also what makes `amend`
+			// exact: a section is replaced by NAME, so nothing has to parse a
+			// plan back out of the markdown it was rendered into.
+			//
+			// Persisted, unlike the todo list next door in ask_user.go, and the
+			// difference is the point rather than an inconsistency. A checklist
+			// describes a turn that is happening; a plan is meant to outlive the
+			// turn that wrote it — read back in ลงมือ so the acting session does
+			// not re-derive it, and aimed at by มุ่งเป้า. A plan that did not
+			// survive a reload would be a plan you cannot act on tomorrow.
+			_, err := tx.Exec(`
+			  CREATE TABLE IF NOT EXISTS plans (
+			    session_id TEXT PRIMARY KEY,
+			    title      TEXT NOT NULL DEFAULT '',
+			    sections   TEXT NOT NULL DEFAULT '[]',
+			    -- The plan's checklist, structured rather than parsed out of the
+			    -- "What to change" prose. That is what makes มุ่งเป้า's first gate
+			    -- mechanical (goal_run.go): to know whether step 3 is done off a
+			    -- markdown list you would have to READ it, which is a judgement,
+			    -- which is the one thing §106.10 says the checker must not be.
+			    steps      TEXT NOT NULL DEFAULT '[]',
+			    version    INTEGER NOT NULL DEFAULT 1,
+			    created    TEXT NOT NULL DEFAULT '',
+			    updated    TEXT NOT NULL DEFAULT ''
+			  )`)
+			return err
+		},
+	},
 }
 
 // latestSchemaVersion is what this build understands.

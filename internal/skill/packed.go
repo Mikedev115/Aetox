@@ -223,6 +223,28 @@ var packs = map[string]*pack{
 			"focus": "desk_focus",
 		},
 	},
+	// The conversation's plan, at three depths (desktop/plan.go). The pack has
+	// to be cut inside, and it is the first one where the cut is the WHOLE
+	// point rather than a cost: `plan_read` only looks and belongs to every
+	// stance, `plan_write` and `plan_amend` change a stored plan and belong to
+	// วางแผน. Without a per-action cut the tool would have to be all-or-nothing,
+	// and the two useful halves are on opposite sides of that line —
+	// AllowsAction (internal/mode) is what makes it possible.
+	//
+	// `read` is the fallback for the reason planSkill.run gives: an unnamed
+	// action has to guess in the harmless direction, and a `write` guessed
+	// wrong overwrites the plan with whatever happened to be in the arguments.
+	"plan": {
+		tool:     "plan",
+		fallback: "read",
+		actions:  []string{"write", "amend", "read", "step"},
+		names: map[string]string{
+			"write": "plan_write",
+			"amend": "plan_amend",
+			"read":  "plan_read",
+			"step":  "plan_step",
+		},
+	},
 	"github": {
 		tool: "github",
 		// No fallback. Reading a file and searching for a repository are not

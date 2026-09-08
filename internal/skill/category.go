@@ -46,17 +46,17 @@ var CategoryOrder = []string{
 
 var toolCategories = map[string]string{
 	// Reading and changing what is on disk — the hands.
-	"read":          CategoryFiles,
+	"read": CategoryFiles,
 	// The tool the model is offered, and the four action names it gates on
 	// inside (change_pack.go). `append` is not listed: it is `edit`'s
 	// permission under another word, so the name a desk or a profile writes is
 	// still `edit`.
-	"change":        CategoryFiles,
-	"write":         CategoryFiles,
-	"edit":          CategoryFiles,
-	"edits":   CategoryFiles,
-	"delete":        CategoryFiles,
-	"list":          CategoryFiles,
+	"change": CategoryFiles,
+	"write":  CategoryFiles,
+	"edit":   CategoryFiles,
+	"edits":  CategoryFiles,
+	"delete": CategoryFiles,
+	"list":   CategoryFiles,
 	// The tool the model is offered, and the three action names it gates on
 	// inside (search_pack.go) - both spellings listed, same reason as shell's.
 	"search":        CategoryFiles,
@@ -197,12 +197,12 @@ var toolCategories = map[string]string{
 	// gates on inside (pr_pack.go). Filed under code because that is what it is
 	// from outside - the developer's own repository - and it rides the same
 	// GitHub connection the github tools do.
-	"pr":                  CategoryCode,
-	"pr_list":             CategoryCode,
-	"pr_read":             CategoryCode,
-	"pr_checks":           CategoryCode,
-	"pr_create":           CategoryCode,
-	"pr_comment":          CategoryCode,
+	"pr":         CategoryCode,
+	"pr_list":    CategoryCode,
+	"pr_read":    CategoryCode,
+	"pr_checks":  CategoryCode,
+	"pr_create":  CategoryCode,
+	"pr_comment": CategoryCode,
 
 	"github":              CategoryCode,
 	"github_search":       CategoryCode,
@@ -212,13 +212,29 @@ var toolCategories = map[string]string{
 
 	// How the assistant runs itself: delegating, asking, remembering, and
 	// reaching the documents and history it is not carrying.
-	"task":           CategoryAgent,
-	"task_result":    CategoryAgent,
-	"task_answer":    CategoryAgent,
-	"task_plan":      CategoryAgent,
-	"ask_main":       CategoryAgent,
-	"ask_user":       CategoryAgent,
-	"todo_write":     CategoryAgent,
+	"task":        CategoryAgent,
+	"task_result": CategoryAgent,
+	"task_answer": CategoryAgent,
+	"task_plan":   CategoryAgent,
+	"ask_main":    CategoryAgent,
+	"ask_user":    CategoryAgent,
+	"todo_write":  CategoryAgent,
+	// The conversation's plan (desktop/plan.go). CategoryAgent, next to
+	// `todo_write`, and for the same reason: it writes to the app's own store so
+	// the user can watch the work take shape, and it touches nothing on their
+	// machine. All four spellings, the same as `desk` and the browser above —
+	// the pack the model is offered, and the three action names every gate
+	// judges by inside it.
+	//
+	// One category for all three even though วางแผน keeps only one of them. The
+	// axes are different questions: a category says what kind of act this is,
+	// and a stance says which acts this turn may make. Splitting `plan_read`
+	// into a category of its own to express "the safe one" would put the
+	// stance's answer in the desk's vocabulary.
+	"plan":           CategoryAgent,
+	"plan_write":     CategoryAgent,
+	"plan_amend":     CategoryAgent,
+	"plan_read":      CategoryAgent,
 	"suggest_task":   CategoryAgent,
 	"memory":         CategoryAgent,
 	"session_search": CategoryAgent,
