@@ -14,9 +14,10 @@ import {
   Connections, ConnectAccount, SetConnectionTargets, VerifyConnection, DisconnectAccount,
   AcceptsAPIKey, APIKeyHint, HasAPIKey, ProviderAPIKeyURL, ProviderReady, PriceModels, TestProviderConnection,
   ListSpeechEngines, ListTTSEngines, SetSpeechEngine, SetSpeechModelName,
+  ListImageEngines, SetImageEngine,
 } from './mocks/wailsApp'
 import { BrowserOpenURL } from './mocks/wailsRuntime'
-import { applyTypeScale } from '../lib/typeScale.svelte'
+import { applyTypeScale, initTypeScale, typeScale, TYPE_SCALES, DEFAULT_TYPE_SCALE } from '../lib/typeScale.svelte'
 import { DEFAULT_SYSTEM_PX } from '../lib/systemFont.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 
@@ -29,6 +30,9 @@ const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-$
 
 beforeEach(() => {
   cockpit.settingsIntent = null
+  // The voice-device test hands jsdom a navigator with mediaDevices on it;
+  // without this every test after it inherits one.
+  vi.unstubAllGlobals()
   // Said here rather than left to the module fixture: clearAllMocks resets
   // calls, not implementations, so the resolved value the agent-switch test
   // sets would stay in place and every later test would render a page that had
@@ -440,7 +444,7 @@ describe('Settings pages', () => {
       .find((r) => r.textContent?.includes('เจ้านี้มีหลายโมเดล'))!
     expect(modelRow).toBeTruthy()
     const select = modelRow.querySelector('select') as HTMLSelectElement
-    expect(select.value).toBe('whisper-1')
+    await waitFor(() => expect(select.value).toBe('whisper-1'))
     await fireEvent.change(select, { target: { value: 'gpt-4o-transcribe' } })
     await waitFor(() => expect(vi.mocked(SetSpeechModelName)).toHaveBeenCalledWith('gpt-4o-transcribe'))
 
@@ -450,6 +454,109 @@ describe('Settings pages', () => {
     const modelRows = Array.from(container.querySelectorAll('.set-row'))
       .filter((r) => r.textContent?.includes('เจ้านี้มีหลายโมเดล'))
     expect(modelRows).toHaveLength(1)
+  })
+
+  // The two rows that are about hardware rather than vendors. getUserMedia
+  // used to be handed a bare {audio:true}, so the recording came from whatever
+  // Windows called default — on a machine with a headset jack holding nothing
+  // and NVIDIA Broadcast's virtual mic in the list, a coin toss that surfaces
+  // as "ไม่ได้ยินเสียงพูดในบันทึก": an error about the user's voice for a fault
+  // in routing (owner, 8 ก.ย. 2026). The lists come from the browser, so this
+  // stubs the browser rather than asserting any device exists.
+  it('the voice page picks the mic and the speaker, and remembers them', async () => {
+    localStorage.removeItem('aetox-audio-input')
+    localStorage.removeItem('aetox-audio-output')
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      mediaDevices: {
+        enumerateDevices: async () => [
+          { kind: 'audioinput', deviceId: 'usb', label: 'Microphone (DGM20 USB Microphone)' },
+          { kind: 'audioinput', deviceId: 'nv', label: 'Microphone (NVIDIA Broadcast)' },
+          { kind: 'audiooutput', deviceId: 'spk', label: 'Speaker (Realtek(R) Audio)' },
+        ],
+      },
+    })
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'เสียง')
+    await waitFor(() => expect(screen.getByText('ไมค์ที่ใช้')).toBeTruthy())
+
+    const rowFor = (title: string) =>
+      Array.from(container.querySelectorAll('.set-row')).find((r) => r.textContent?.includes(title))!
+
+    // The mic row lists what the machine has, under an option for leaving the
+    // choice where it was.
+    const micSelect = rowFor('ไมค์ที่ใช้').querySelector('select') as HTMLSelectElement
+    await waitFor(() =>
+      expect(Array.from(micSelect.options).map((o) => o.text)).toEqual([
+        'ตัวที่ Windows ตั้งไว้',
+        'Microphone (DGM20 USB Microphone)',
+        'Microphone (NVIDIA Broadcast)',
+      ]),
+    )
+    expect(micSelect.value).toBe('')
+
+    // A device id is a fact about this machine's hardware, so it is kept here
+    // rather than in the app DB — same store as the font sizes.
+    await fireEvent.change(micSelect, { target: { value: 'usb' } })
+    expect(localStorage.getItem('aetox-audio-input')).toBe('usb')
+
+    const spkSelect = rowFor('ลำโพงที่ใช้').querySelector('select') as HTMLSelectElement
+    await fireEvent.change(spkSelect, { target: { value: 'spk' } })
+    expect(localStorage.getItem('aetox-audio-output')).toBe('spk')
+  })
+
+  // A pick that does not land must not leave the control claiming it did:
+  // applyConfig parks a config change while a turn is in flight, so the vendor
+  // the app is actually on can come back unchanged — and then the select must
+  // show the app's answer, not the click. Left one-way, Svelte has no reason
+  // to touch the DOM (the derived id never changed) and the row keeps the
+  // user's option selected while the engine underneath is still the old one.
+  it('the STT vendor select snaps back when the pick does not land', async () => {
+    const engineRow = (over: any) => ({
+      id: '', label: '', install: '', active: false, hasModels: true,
+      installCommand: [], models: [], activeModel: '', ...over,
+    })
+    vi.mocked(ListSpeechEngines).mockResolvedValue([
+      engineRow({ id: 'whisper-cpp', label: 'whisper.cpp (ggml)', active: true }),
+      engineRow({ id: 'faster-whisper', label: 'faster-whisper (CTranslate2)', hasModels: false }),
+    ] as any)
+    vi.mocked(ListTTSEngines).mockResolvedValue([
+      engineRow({ id: 'windows', label: 'เสียง Windows', active: true }),
+    ] as any)
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'เสียง')
+    await waitFor(() => expect(screen.getByText('เจ้าที่ใช้ถอดเสียง')).toBeTruthy())
+
+    const row = Array.from(container.querySelectorAll('.set-row'))
+      .find((r) => r.textContent?.includes('เจ้าที่ใช้ถอดเสียง'))!
+    const select = row.querySelector('select') as HTMLSelectElement
+    await waitFor(() => expect(select.value).toBe('whisper-cpp'))
+
+    await fireEvent.change(select, { target: { value: 'faster-whisper' } })
+    await waitFor(() => expect(vi.mocked(SetSpeechEngine)).toHaveBeenCalledWith('faster-whisper'))
+    await waitFor(() => expect(select.value).toBe('whisper-cpp'))
+  })
+
+  // The picture page's two selects are the same control with a different
+  // catalog behind it, and they were written the same way — so they get the
+  // same guarantee.
+  it('the image vendor select snaps back when the pick does not land', async () => {
+    vi.mocked(ListImageEngines).mockResolvedValue([
+      { id: 'pollinations', label: 'Pollinations', install: '', active: true, hasModels: false, installCommand: [], models: [], activeModel: '' },
+      { id: 'openai', label: 'OpenAI Images', install: '', active: false, hasModels: false, installCommand: [], models: [], activeModel: '' },
+    ] as any)
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'ภาพ')
+    await waitFor(() => expect(screen.getByText('เจ้าที่วาดให้')).toBeTruthy())
+
+    const row = Array.from(container.querySelectorAll('.set-row'))
+      .find((r) => r.textContent?.includes('เจ้าที่วาดให้'))!
+    const select = row.querySelector('select') as HTMLSelectElement
+    await waitFor(() => expect(select.value).toBe('pollinations'))
+
+    await fireEvent.change(select, { target: { value: 'openai' } })
+    await waitFor(() => expect(vi.mocked(SetImageEngine)).toHaveBeenCalledWith('openai'))
+    await waitFor(() => expect(select.value).toBe('pollinations'))
   })
 
   it('Usage page shows per-model aggregates', async () => {
@@ -1631,16 +1738,79 @@ describe('Settings resilience and state', () => {
   })
 })
 
+describe('Settings nav', () => {
+  // Opening a section is opening a page, and a page starts at its top. Every
+  // section shares one scroller, so a click made from the bottom of a long one
+  // used to keep the offset and land the next section mid-list with its heading
+  // off-screen — the owner read that as the row not doing anything at all.
+  // The property is redefined rather than measured: jsdom has no layout, so its
+  // own scrollTop is 0 whatever the page does, and a plain assertion would pass
+  // just as happily with the line deleted.
+  it('puts the reader at the top of the section it opens', async () => {
+    const { container } = render(Settings, { onClose: () => {} })
+    const pane = container.querySelector('.settings-content') as HTMLElement
+    let top = 0
+    Object.defineProperty(pane, 'scrollTop', {
+      get: () => top,
+      set: (v: number) => { top = v },
+      configurable: true,
+    })
+
+    await openSection(container, 'รูปลักษณ์')
+    top = 900
+    await openSection(container, 'สกิล')
+    expect(top).toBe(0)
+  })
+})
+
 describe('Type scale', () => {
   it('each preset writes its factor to the root so every --fs step follows', () => {
-    applyTypeScale('large')
-    expect(document.documentElement.style.getPropertyValue('--fs-scale')).toBe('1.18')
-
-    applyTypeScale('compact')
-    expect(document.documentElement.style.getPropertyValue('--fs-scale')).toBe('0.92')
-
+    // Read off the ladder rather than typed in again: the numbers moved once
+    // (8 ก.ย. 2026) and a test that spells them a second time only ever
+    // reports that somebody edited one of the two places.
+    for (const step of TYPE_SCALES) {
+      applyTypeScale(step.value)
+      expect(document.documentElement.style.getPropertyValue('--fs-scale')).toBe(String(step.scale))
+    }
     applyTypeScale('default')
-    expect(document.documentElement.style.getPropertyValue('--fs-scale')).toBe('1')
+  })
+
+  // The rung the app ships on is below the middle of the ladder, not at the
+  // top of it: แน่น has to stay a step that exists.
+  it('ships on a step that has something smaller under it', () => {
+    const names = TYPE_SCALES.map((s) => s.value)
+    expect(names.indexOf('default')).toBeGreaterThan(0)
+    expect(DEFAULT_TYPE_SCALE).toBeLessThan(1)
+  })
+
+  // main.ts never called this, so the pick was written to localStorage and read
+  // by nobody: every restart came back at the shipped size and the segmented
+  // control agreed with it, which is why it read as the app ignoring the
+  // setting rather than as a control that had lost its value.
+  it('comes back on the step that was picked', () => {
+    applyTypeScale('large')
+    applyTypeScale('default')
+    applyTypeScale('large')
+    initTypeScale()
+    expect(typeScale.name).toBe('large')
+    applyTypeScale('default')
+  })
+
+  // A name written before the ladder moved names a SIZE, and the size is what
+  // has to survive: somebody reading at 0.92 keeps 0.92 whatever it is called
+  // the morning after the update.
+  it('keeps the size a pick made on the old ladder meant', () => {
+    localStorage.setItem('aetox-type-scale', 'compact')
+    localStorage.removeItem('aetox-type-scale-ladder')
+    initTypeScale()
+    expect(typeScale.scale).toBe(0.92)
+    // And only once: on the ladder it was written against, compact means 0.84.
+    initTypeScale()
+    expect(typeScale.scale).toBe(0.92)
+    localStorage.setItem('aetox-type-scale', 'compact')
+    initTypeScale()
+    expect(typeScale.scale).toBe(0.84)
+    applyTypeScale('default')
   })
 
   it('the overall-size box reports the px the user actually sees', async () => {
@@ -1648,12 +1818,13 @@ describe('Type scale', () => {
     const { container } = render(Settings, { onClose: () => {} })
     await openSection(container, 'รูปลักษณ์')
 
-    // The shipped size * 1.18. Written as the constant rather than the number
-    // it currently works out to: what this asserts is that the text scale is
-    // folded in at all — without it the box would keep claiming the untouched
-    // size while the app rendered a fifth larger.
+    // The shipped size, re-scaled from the step it is quoted at to ใหญ่.
+    // Written as the constants rather than the number they work out to: what
+    // this asserts is that the text scale is folded in at all — without it the
+    // box would keep claiming the untouched size while the app rendered larger.
+    const large = TYPE_SCALES.find((s) => s.value === 'large')!.scale
     const box = container.querySelector('input[type="number"]') as HTMLInputElement
-    expect(Number(box.value)).toBeCloseTo(DEFAULT_SYSTEM_PX * 1.18, 1)
+    expect(Number(box.value)).toBeCloseTo((DEFAULT_SYSTEM_PX / DEFAULT_TYPE_SCALE) * large, 1)
     applyTypeScale('default')
   })
 })

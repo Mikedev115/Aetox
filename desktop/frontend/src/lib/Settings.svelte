@@ -9,6 +9,7 @@
   import { systemZoom, applySystemZoom, SYSTEM_BASE_PX } from './systemFont.svelte'
   import { typeScale, applyTypeScale, TYPE_SCALES, type TypeScaleName } from './typeScale.svelte'
   import { i18n, t, setLocale, localeNames, type Locale, type TKey } from './i18n.svelte'
+  import { audioDevices, refreshAudioDevices, setMicId, setSpeakerId, applySpeaker } from './audioDevices.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import ProviderMark from './ProviderMark.svelte'
   import McpMark from './McpMark.svelte'
@@ -1597,6 +1598,18 @@
 
   const activeImageEngine = $derived(imageEngines.find((e) => e.active))
 
+  // Same shape, same reason as the voice card's picks below: the two selects
+  // read state that every load re-asserts, so a pick that does not land
+  // (parked mid-turn, or refused) cannot leave the control claiming it did.
+  let imagePick = $state('')
+  let imageModelPick = $state('')
+
+  async function syncImagePicks() {
+    await tick() // the options are rendered from the rows this load replaced
+    imagePick = imageEngines.find((e) => e.active)?.id ?? ''
+    imageModelPick = imageEngines.find((e) => e.active)?.activeModel ?? ''
+  }
+
   // One click from "this vendor has no key" to the box that takes one.
   async function goToProviderKey(provider: string) {
     openSection('models')
@@ -1604,11 +1617,16 @@
   }
 
   async function loadImagePage() {
-    imageEngines = await ListImageEngines()
-    imageStatus = await ImageStatus()
+    try {
+      imageEngines = await ListImageEngines()
+      imageStatus = await ImageStatus()
+    } finally {
+      await syncImagePicks()
+    }
   }
 
   async function pickImageEngine(id: string) {
+    imagePick = id
     imagePageBusy = true
     imagePageError = ''
     try {
@@ -1616,12 +1634,14 @@
       await loadImagePage()
     } catch (err) {
       imagePageError = String(err)
+      await syncImagePicks()
     } finally {
       imagePageBusy = false
     }
   }
 
   async function pickImageModelName(name: string) {
+    imageModelPick = name
     imagePageBusy = true
     imagePageError = ''
     try {
@@ -1629,6 +1649,7 @@
       await loadImagePage()
     } catch (err) {
       imagePageError = String(err)
+      await syncImagePicks()
     } finally {
       imagePageBusy = false
     }
@@ -1652,18 +1673,58 @@
   const activeSttEngine = $derived(sttEngines.find((e) => e.active))
   const activeTtsEngine = $derived(ttsEngines.find((e) => e.active))
 
+  // The five selects on this card read their own state rather than the row
+  // lists, and syncVoicePicks re-asserts it after every call. A one-way value={derived} cannot correct a pick that did not
+  // land: the derived id comes back UNCHANGED, so Svelte has nothing to
+  // update and the DOM keeps the option the user clicked. That is not
+  // hypothetical — applyConfig parks a config change while a turn is in
+  // flight, so a vendor switched mid-answer leaves the page claiming a vendor
+  // the app is not on, with the model row below it still showing the old
+  // one's files (found from a screenshot, 2026-09-08).
+  let sttPick = $state('')
+  let sttModelPick = $state('')
+  let ttsPick = $state('')
+  let ttsModelPick = $state('')
+  let ttsVoicePick = $state('')
+
+  // After a tick, deliberately: the option lists these five selects choose
+  // from are rendered from the rows this same load just replaced, and a value
+  // written into a select whose options do not exist yet is dropped by the DOM
+  // with nothing to re-run it.
+  async function syncVoicePicks() {
+    await tick()
+    sttPick = sttEngines.find((e) => e.active)?.id ?? ''
+    sttModelPick = sttEngines.find((e) => e.active)?.activeModel ?? ''
+    ttsPick = ttsEngines.find((e) => e.active)?.id ?? ''
+    ttsModelPick = ttsEngines.find((e) => e.active)?.activeModel ?? ''
+    ttsVoicePick = ttsVoicesList.find((v) => v.active)?.id ?? ''
+  }
+
   async function loadVoicePage() {
-    sttEngines = await ListSpeechEngines()
-    ttsEngines = await ListTTSEngines()
-    ttsStatus = await TTSStatus()
-    await loadSpeech()
+    // Hardware first and separately: a webview that cannot enumerate devices
+    // is no reason for the engine pickers below to stay empty.
     try {
-      ttsVoicesList = await ListTTSVoices()
-    } catch (err) {
-      // No voices is not a page failure — the status line already carries the
-      // engine's reason; keep whichever message is more specific.
-      ttsVoicesList = []
-      if (!ttsStatus) ttsStatus = String(err)
+      await refreshAudioDevices()
+    } catch {
+      // Lists stay as they are; the rows fall back to "ตัวที่ Windows ตั้งไว้".
+    }
+    // finally, not the happy path: whatever half of this load succeeded, the
+    // five controls must end up showing what the app is actually on.
+    try {
+      sttEngines = await ListSpeechEngines()
+      ttsEngines = await ListTTSEngines()
+      ttsStatus = await TTSStatus()
+      await loadSpeech()
+      try {
+        ttsVoicesList = await ListTTSVoices()
+      } catch (err) {
+        // No voices is not a page failure — the status line already carries the
+        // engine's reason; keep whichever message is more specific.
+        ttsVoicesList = []
+        if (!ttsStatus) ttsStatus = String(err)
+      }
+    } finally {
+      await syncVoicePicks()
     }
   }
 
@@ -1675,16 +1736,22 @@
       await loadVoicePage()
     } catch (err) {
       voicePageError = String(err)
+      // A refused pick must not stay on screen either: the message says what
+      // went wrong, and the control goes back to what the app is on.
+      await syncVoicePicks()
     } finally {
       voicePageBusy = false
     }
   }
 
-  const pickSttEngine = (id: string) => voiceAction(() => SetSpeechEngine(id))
-  const pickTtsEngine = (id: string) => voiceAction(() => SetTTSEngine(id))
-  const pickTtsVoice = (id: string) => voiceAction(() => SetTTSVoice(id))
-  const pickSttModelName = (name: string) => voiceAction(() => SetSpeechModelName(name))
-  const pickTtsModelName = (name: string) => voiceAction(() => SetTTSModelName(name))
+  // Each pick writes the clicked value into the select's own state before the
+  // call, so that syncVoicePicks writing the app's answer back afterwards is a
+  // CHANGE — which is the only thing that makes Svelte touch the DOM again.
+  const pickSttEngine = (id: string) => { sttPick = id; return voiceAction(() => SetSpeechEngine(id)) }
+  const pickTtsEngine = (id: string) => { ttsPick = id; return voiceAction(() => SetTTSEngine(id)) }
+  const pickTtsVoice = (id: string) => { ttsVoicePick = id; return voiceAction(() => SetTTSVoice(id)) }
+  const pickSttModelName = (name: string) => { sttModelPick = name; return voiceAction(() => SetSpeechModelName(name)) }
+  const pickTtsModelName = (name: string) => { ttsModelPick = name; return voiceAction(() => SetTTSModelName(name)) }
 
   // ---------- ติดตั้ง engine จากในแอป ----------
   // The command on screen IS the command that runs: rows carry the catalog's
@@ -1745,6 +1812,9 @@
     try {
       const url = await SpeakText(t('settings.ttsPreviewText'))
       const audio = new Audio(url)
+      // Through the picked speaker too, or ลองฟัง would be proving a path the
+      // chat does not take.
+      await applySpeaker(audio)
       ttsPreviewAudio = audio
       audio.onended = () => { ttsPreviewing = false; ttsPreviewAudio = null }
       audio.onerror = () => { ttsPreviewing = false; ttsPreviewAudio = null }
@@ -3270,7 +3340,7 @@
       // read as one thing.
       { id: 'tools', label: t('settings.tools'), icon: 'wrench', terms: [SPEECH_TOOL] },
       { id: 'voice', label: t('settings.voice'), icon: 'mic',
-        terms: ['TTS', 'STT', 'whisper', t('settings.sttHeading'), t('settings.ttsHeading'), t('settings.speechModel')] },
+        terms: ['TTS', 'STT', 'whisper', t('settings.sttHeading'), t('settings.ttsHeading'), t('settings.speechModel'), t('settings.audioInput'), t('settings.audioOutput')] },
       // Beside เสียง and not in its own group: both pages configure ONE tool
       // each — that one audio_transcribe and the ฟัง button, this one
       // image_make — so they are the same kind of row and belong together.
@@ -3471,8 +3541,21 @@
     })
   }
 
+  // The one scroller every section shares. Bound so a section change can put
+  // the reader back at the top of it.
+  let contentEl = $state<HTMLDivElement | null>(null)
+
   function openSection(id: string) {
     active = id
+    // Every page starts at its own top. Without this, a click made from the
+    // bottom of a long section (รูปลักษณ์ carries eleven controls) keeps the
+    // pane's scroll offset and lands the next section mid-list with its
+    // heading off-screen above — which does not read as a new page, it reads
+    // as the button having done nothing (owner, 8 ก.ย. 2026, of the สกิล row:
+    // "กดเมนูแล้วหน้าไม่เปลี่ยน").
+    // scrollTop rather than scrollTo({behavior:'smooth'}): the page under the
+    // scroll has been replaced, so there is nothing to travel past.
+    if (contentEl) contentEl.scrollTop = 0
     try {
       sessionStorage.setItem(SECTION_KEY, id)
     } catch {
@@ -4513,7 +4596,7 @@
     {/if}
   </aside>
 
-  <div class="settings-content">
+  <div class="settings-content" bind:this={contentEl}>
     <div class="settings-inner" style:--content-max={active === 'usage' ? '960px' : null}>
     {#if bootError}
       <!-- The whole page used to be one unguarded await chain, so a backend
@@ -5115,6 +5198,22 @@
 
       <div class="group-head"><span class="group-title">{t('settings.sttHeading')}</span></div>
       <div class="settings-card">
+        <!-- The hardware end of the chain, and first because it is the end
+             that fails silently. getUserMedia({audio:true}) takes whatever
+             Windows calls default; on a machine with a headset jack holding
+             nothing and NVIDIA Broadcast's virtual mic in the list, that is a
+             coin toss between a recording and 30 seconds of silence — which
+             comes back worded as if the user had mumbled (owner, 8 ก.ย. 2026). -->
+        <div class="set-row">
+          <div class="set-txt">
+            <div class="t">{t('settings.audioInput')}</div>
+            <div class="d">{audioDevices.labelled ? t('settings.audioInputDesc') : t('settings.audioNamesHidden')}</div>
+          </div>
+          <select class="ctrl" value={audioDevices.micId} onchange={(e) => setMicId(e.currentTarget.value)}>
+            <option value="">{t('settings.audioDefault')}</option>
+            {#each audioDevices.mics as d (d.id)}<option value={d.id}>{d.label}</option>{/each}
+          </select>
+        </div>
         <div class="set-row">
           <div class="set-txt">
             <div class="t">{t('settings.sttEngine')}</div>
@@ -5128,7 +5227,7 @@
             {/if}
             {@render voiceInstall('stt', activeSttEngine, speechStatus)}
           </div>
-          <select class="ctrl" disabled={voicePageBusy} value={activeSttEngine?.id ?? ''} onchange={(e) => pickSttEngine(e.currentTarget.value)}>
+          <select class="ctrl" disabled={voicePageBusy} value={sttPick} onchange={(e) => pickSttEngine(e.currentTarget.value)}>
             {#each sttEngines as eng (eng.id)}<option value={eng.id}>{eng.label}</option>{/each}
           </select>
         </div>
@@ -5214,7 +5313,7 @@
               <div class="t">{t('settings.voiceModel')}</div>
               <div class="d">{t('settings.voiceModelDesc')}</div>
             </div>
-            <select class="ctrl" disabled={voicePageBusy} value={activeSttEngine?.activeModel ?? ''} onchange={(e) => pickSttModelName(e.currentTarget.value)}>
+            <select class="ctrl" disabled={voicePageBusy} value={sttModelPick} onchange={(e) => pickSttModelName(e.currentTarget.value)}>
               {#each activeSttEngine?.models ?? [] as m (m)}<option value={m}>{m}</option>{/each}
             </select>
           </div>
@@ -5230,7 +5329,7 @@
             {#if ttsStatus && voiceInstallBusy !== 'tts'}<div class="d mset-error">{ttsStatus}</div>{/if}
             {@render voiceInstall('tts', activeTtsEngine, ttsStatus)}
           </div>
-          <select class="ctrl" disabled={voicePageBusy} value={activeTtsEngine?.id ?? ''} onchange={(e) => pickTtsEngine(e.currentTarget.value)}>
+          <select class="ctrl" disabled={voicePageBusy} value={ttsPick} onchange={(e) => pickTtsEngine(e.currentTarget.value)}>
             {#each ttsEngines as eng (eng.id)}<option value={eng.id}>{eng.label}</option>{/each}
           </select>
         </div>
@@ -5242,7 +5341,7 @@
               <div class="t">{t('settings.voiceModel')}</div>
               <div class="d">{t('settings.voiceModelDesc')}</div>
             </div>
-            <select class="ctrl" disabled={voicePageBusy} value={activeTtsEngine?.activeModel ?? ''} onchange={(e) => pickTtsModelName(e.currentTarget.value)}>
+            <select class="ctrl" disabled={voicePageBusy} value={ttsModelPick} onchange={(e) => pickTtsModelName(e.currentTarget.value)}>
               {#each activeTtsEngine?.models ?? [] as m (m)}<option value={m}>{m}</option>{/each}
             </select>
           </div>
@@ -5257,9 +5356,21 @@
           <button class="ctrl" disabled={voicePageBusy || !!ttsStatus} onclick={previewTts}>
             {ttsPreviewing ? t('settings.ttsPreviewStop') : t('settings.ttsPreview')}
           </button>
-          <select class="ctrl" disabled={voicePageBusy || ttsVoicesList.length === 0} value={ttsVoicesList.find((v) => v.active)?.id ?? ''} onchange={(e) => pickTtsVoice(e.currentTarget.value)}>
+          <select class="ctrl" disabled={voicePageBusy || ttsVoicesList.length === 0} value={ttsVoicePick} onchange={(e) => pickTtsVoice(e.currentTarget.value)}>
             <option value="">{t('settings.ttsVoiceAuto')}</option>
             {#each ttsVoicesList as v (v.id)}<option value={v.id}>{v.name}{v.lang ? ` (${v.lang})` : ''}</option>{/each}
+          </select>
+        </div>
+        <!-- Last on this card for the same reason the mic is first: read
+             top to bottom, each card is the signal's own path. -->
+        <div class="set-row">
+          <div class="set-txt">
+            <div class="t">{t('settings.audioOutput')}</div>
+            <div class="d">{audioDevices.labelled ? t('settings.audioOutputDesc') : t('settings.audioNamesHidden')}</div>
+          </div>
+          <select class="ctrl" value={audioDevices.speakerId} onchange={(e) => setSpeakerId(e.currentTarget.value)}>
+            <option value="">{t('settings.audioDefault')}</option>
+            {#each audioDevices.speakers as d (d.id)}<option value={d.id}>{d.label}</option>{/each}
           </select>
         </div>
       </div>
@@ -5298,7 +5409,7 @@
               {/if}
             {/if}
           </div>
-          <select class="ctrl" disabled={imagePageBusy} value={activeImageEngine?.id ?? ''} onchange={(e) => pickImageEngine(e.currentTarget.value)}>
+          <select class="ctrl" disabled={imagePageBusy} value={imagePick} onchange={(e) => pickImageEngine(e.currentTarget.value)}>
             {#each imageEngines as eng (eng.id)}<option value={eng.id}>{eng.label}</option>{/each}
           </select>
         </div>
@@ -5310,7 +5421,7 @@
               <div class="t">{t('settings.imageModel')}</div>
               <div class="d">{t('settings.imageModelDesc')}</div>
             </div>
-            <select class="ctrl" disabled={imagePageBusy} value={activeImageEngine?.activeModel ?? ''} onchange={(e) => pickImageModelName(e.currentTarget.value)}>
+            <select class="ctrl" disabled={imagePageBusy} value={imageModelPick} onchange={(e) => pickImageModelName(e.currentTarget.value)}>
               {#each activeImageEngine?.models ?? [] as m (m)}<option value={m}>{m}</option>{/each}
             </select>
           </div>
