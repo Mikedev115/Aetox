@@ -524,31 +524,29 @@ date-stamped, because the rule above does not have an exception for numbers we w
 
 </details>
 
-## Status — v1.5.19
+## Status — v1.5.20
 
-The core is in place. [Release notes](docs/release-notes/v1.5.19.md) ·
+The core is in place. [Release notes](docs/release-notes/v1.5.20.md) ·
 [roadmap](ROADMAP.md) · [architecture](ARCHITECTURE.md).
 
 Three things it does today that are worth knowing about:
 
-- **Type into an answer while it is being written, and your message stays where you typed it.**
-  An interruption is a piece of that turn now, drawn as your own bubble at the point it landed,
-  with the reply to it underneath. It used to be a bubble beside the turn that could only sit
-  above the live block or below it, so a second interruption piled at the bottom away from the
-  answer it caused. It is also written down: a chat reopened tomorrow shows the question and the
-  answer in the order they happened, which nothing kept before.
-- **The tab you are standing in is a shape, not an underline.** The strip sits lower than the
-  pane, the live tab is a raised chip with a neutral outline and a coloured icon, and tabs are as
-  wide as their names rather than cut short by a fixed lane. Opening and closing one takes 180ms
-  of width instead of a jump.
-- **The whole scene library is reachable, and a render is no longer stuck at 1080p.** All 75
-  scenes across four shelves open by any spelling the index teaches — 25 of them were refused
-  before — plus `blank` for the piece none of them is the shape of. A render now takes resolution
-  up to 4K, mov/webm with an alpha channel, PNG sequences, GIF, film frame rates like 23.976, and
-  per-render text variables. All of it was in the engine already and none of it could be asked for.
-
-**Next** — agents working across turns rather than only inside one; a plan handed from the
-assistant door to the code door; a code-door team with defined roles.
+- **Aetox can use the programs already open on your machine, once you say which ones.**
+  It reads a window through Windows accessibility rather than guessing at pixels in a
+  screenshot, so it aims at a control instead of a coordinate and works with models that
+  cannot point at an image at all. Off until you turn it on in ตั้งค่า > การใช้คอมพิวเตอร์;
+  while it is off the model is not given the tool at all, rather than being given one that
+  refuses. Terminals and browsers are declined on purpose and the refusal names the tool that
+  does them properly.
+- **You can see it working, and you keep your mouse.** While it drives something, the edge of
+  the screen carries a moving light and a second pointer marks the control being pressed. Your
+  own cursor never moves: nothing is aimed by coordinate, so the pointer is a report of what was
+  pressed rather than the thing pressing it.
+- **When a reach fails, it says which of the six ways.** A locked screen, a window running with
+  higher privileges, a control that is disabled, one that has moved, one that does not accept
+  that action, and an application that stopped answering are six different sentences with six
+  different fixes. The tool this replaces reported all of them as "failed", which is why it was
+  deleted rather than debugged.
 
 ## Documentation
 

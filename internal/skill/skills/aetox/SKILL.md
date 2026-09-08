@@ -41,7 +41,7 @@ Skills are the deliberate exception and do **not** live here — see below.
 | `<DataRoot>/prompts` | user prompt presets |
 | `<DataRoot>/mcp-servers.json` | MCP server list |
 | `<DataRoot>/connections.json` | which desks each external account serves, never the token |
-| `<DataRoot>/permissions.json` | approval rules |
+| `<DataRoot>/permissions.json` | approval rules, and the programs the user has allowed Aetox to drive (ตั้งค่า > การใช้คอมพิวเตอร์) |
 | `<DataRoot>/hooks.json` | hooks |
 | `<DataRoot>/credentials.json` | provider API keys |
 | `<DataRoot>/oauth.json` | sign-ins |
