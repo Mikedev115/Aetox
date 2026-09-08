@@ -51,6 +51,7 @@ export const BrowserDevices = vi.fn(async (..._args: any[]) => [
   { name: 'Desktop', w: 1280, h: 800, dpr: 1, mobile: false },
 ])
 export const BrowserSetDevice = noop()
+export const BrowserSetScreenShape = noop()
 export const BrowserForward = noop()
 export const BrowserGetText = str()
 export const BrowserNavigate = noop()

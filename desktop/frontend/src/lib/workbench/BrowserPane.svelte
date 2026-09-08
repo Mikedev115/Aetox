@@ -4,6 +4,7 @@
   import { cockpit, isOverlayView } from '../stores/cockpit.svelte'
   import {
     BrowserOpen, BrowserNavigate, BrowserSetBounds, BrowserSetVisible, BrowserSetZoom, BrowserSetDevice,
+    BrowserSetScreenShape,
   } from '../../../wailsjs/go/main/App'
   import { EventsOn } from '../../../wailsjs/runtime/runtime'
   import { isHostWebview } from '../hostWebview'
@@ -30,6 +31,13 @@
 
   /** Pane pixels reserved around the native window, in CSS px. See layout(). */
   const PANE_FRAME = 3
+  // How much body shows round a phone's screen, in pane pixels. Not scaled with
+  // the device: a bezel that shrank with the phone would be two pixels of grey
+  // on a screen small enough to need the frame most.
+  const BEZEL = 10
+  // The screen rectangle the native window was last placed at, and the factor
+  // the device is drawn at. Written by reflow, read by the body around it.
+  let screen = $state({ w: 0, h: 0, scale: 1 })
 
   // The native WebView2 window is a real OS window: it composites above the
   // app's own webview no matter what the DOM does, so anything the app draws
@@ -81,7 +89,7 @@
   // CSS viewport then measures exactly the device's w×h — real browser zoom, so
   // its media queries fire the way they would on the device. No preset = fill
   // the pane at zoom 1.
-  function layout(el: HTMLElement): { rect: [number, number, number, number]; scale: number } {
+  function layout(el: HTMLElement): { rect: [number, number, number, number]; scale: number; w: number; h: number } {
     const box = el.getBoundingClientRect()
     // A few pixels of the pane kept back from the native window, all the way
     // round. ไฟบอกสถานะ's border light is drawn by the app, and the app
@@ -100,22 +108,45 @@
     }
     const s = window.devicePixelRatio
     const vp = tab.viewport
-    const scale = vp ? Math.min(1, r.width / vp.w, r.height / vp.h) : 1
+    // Room for the phone's body, kept back before the screen is fitted. A bezel
+    // drawn over the leftover space would sit under the native window; a bezel
+    // the screen was never made room for would be drawn off the pane.
+    const bezel = vp && vp.radius ? BEZEL : 0
+    const room = { width: Math.max(0, r.width - bezel * 2), height: Math.max(0, r.height - bezel * 2) }
+    const scale = vp ? Math.min(1, room.width / vp.w, room.height / vp.h) : 1
     const w = vp ? vp.w * scale : r.width
     const h = vp ? vp.h * scale : r.height
     const rect: [number, number, number, number] = [
       Math.round((r.x + (r.width - w) / 2) * s), Math.round((r.y + (r.height - h) / 2) * s),
       Math.round(w * s), Math.round(h * s),
     ]
-    return { rect, scale }
+    return { rect, scale, w, h }
   }
 
   /** Re-glue the native window to the pane (and re-apply the emulation zoom). */
   function reflow(): void {
-    if (spectator || !opened || !host) return
-    const { rect, scale } = layout(host)
+    if (spectator || !host) return
+    const { rect, scale, w, h } = layout(host)
+    // Measured before the `opened` gate, because a tab with no page yet has no
+    // native window and still has to show the phone — picking a device has to
+    // do something visible, or the menu reads as dead.
+    //
+    // And measured HERE rather than letterboxed a second time in CSS: two sets
+    // of arithmetic for one rectangle is a bezel that misses the screen by a
+    // pixel at some pane sizes and not others, which is the tell that gives
+    // away a fake phone.
+    screen = { w, h, scale }
+    if (!opened) return
     BrowserSetBounds(tab.id, ...rect)
     BrowserSetZoom(tab.id, scale)
+    const vp = tab.viewport
+    const px = window.devicePixelRatio
+    BrowserSetScreenShape(
+      tab.id,
+      Math.round((vp?.radius ?? 0) * scale * px),
+      Math.round((vp?.notchW ?? 0) * scale * px),
+      Math.round((vp?.notchH ?? 0) * scale * px),
+    )
   }
 
   // Open on first URL; navigate on later URL changes (typed in the address bar).
@@ -325,10 +356,23 @@
          the investigation this note came out of. -->
     <div class="spectator-note">{t('workbench.spectator')}</div>
   {:else if tab.viewport}
-    <!-- CSS letterboxes this to the same box layout() gives the native window,
-         so picking a device preset is visible even before a page is loaded —
-         otherwise an empty tab makes the whole menu look dead. -->
-    <div class="device-frame" style="--dw:{tab.viewport.w}; --dh:{tab.viewport.h}">
+    <!-- The phone itself. The screen is the native window and this is drawn
+         around it: same centre, same size, plus the body. Before a page is
+         loaded there is no native window yet and this is all there is, which is
+         also what keeps picking a device from looking like nothing happened. -->
+    <div
+      class="device-frame" class:body={!!tab.viewport.radius}
+      style="--sw:{screen.w || tab.viewport.w}px; --sh:{screen.h || tab.viewport.h}px; --r:{(tab.viewport.radius ?? 0) * screen.scale}px; --bezel:{tab.viewport.radius ? BEZEL : 0}px"
+    >
+      {#if tab.viewport.notchW}
+        <!-- Drawn, because the window is really CUT here (setShape) and what
+             shows through the cut is whatever is behind it. Black, and shaped
+             like the cut, so the hole reads as the phone rather than as a hole. -->
+        <span
+          class="device-notch" class:island={tab.viewport.notch === 'island'}
+          style="--nw:{(tab.viewport.notchW ?? 0) * screen.scale}px; --nh:{(tab.viewport.notchH ?? 0) * screen.scale}px"
+        ></span>
+      {/if}
       {#if !tab.url}<BrowserStart {tab} />{/if}
     </div>
   {:else if !tab.url}

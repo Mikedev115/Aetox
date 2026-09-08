@@ -56,6 +56,17 @@ var (
 	procEnumWindows              = user32.NewProc("EnumWindows")
 	procIsWindowVisible          = user32.NewProc("IsWindowVisible")
 
+	// Cutting a tab to the shape of a phone screen: rounded corners, and the
+	// notch taken out of the top. See win32Tab.setShape.
+	procSetWindowRgn  = user32.NewProc("SetWindowRgn")
+	procGetClientRect = user32.NewProc("GetClientRect")
+
+	gdi32                  = syscall.NewLazyDLL("gdi32.dll")
+	procCreateRoundRectRgn = gdi32.NewProc("CreateRoundRectRgn")
+	procCreateRectRgn      = gdi32.NewProc("CreateRectRgn")
+	procCombineRgn         = gdi32.NewProc("CombineRgn")
+	procDeleteObject       = gdi32.NewProc("DeleteObject")
+
 	kernel32               = syscall.NewLazyDLL("kernel32.dll")
 	procGetCurrentThreadID = kernel32.NewProc("GetCurrentThreadId")
 
@@ -89,6 +100,10 @@ const (
 	swRestore          = 9
 	wmSize             = 0x0005
 	wmClose            = 0x0010
+
+	// RGN_DIFF: what is in the first region and not in the second — the notch,
+	// subtracted from the screen.
+	rgnDiff = 4
 
 	coinitApartmentThreaded = 0x2
 
@@ -153,6 +168,12 @@ type win32Tab struct {
 	// forget takes this tab out of the host’s hwnd index. Held as a closure
 	// rather than a host pointer so a tab built by a test needs no host.
 	forget func()
+	// The shape this tab’s window is cut to, in device pixels: corner radius,
+	// and the notch to subtract from the top. All zero for a plain rectangle,
+	// which is every tab that is not emulating a phone. Re-applied on every
+	// setBounds, because a region is measured from the window’s own top-left
+	// and is therefore wrong the moment the window changes size.
+	shapeRadius, shapeNotchW, shapeNotchH int
 	// hostThread and reportErr are the tripwire, not the plumbing: see
 	// requireHostThread.
 	hostThread uint32
@@ -273,6 +294,84 @@ func (t *win32Tab) sendBehind() {
 // page over whatever was drawn there. Showing is setVisible's job, and the
 // portable layer (BrowserSetBounds) refuses to surface a hidden tab anyway;
 // this line just stops asking for it.
+// setShape cuts the window to the shape of a phone screen.
+//
+// A device emulator that gets the size right and the shape wrong is a rectangle
+// claiming to be a phone, and the two things anybody actually checks on a mobile
+// layout — is something hidden under the notch, is something lost in the rounded
+// corners — are the two a rectangle cannot show. Drawing a picture of a phone
+// over the pane could not answer them either: the tab is a native window and
+// composites ABOVE everything the app paints, so a bezel drawn in the DOM is a
+// bezel behind the page.
+//
+// SetWindowRgn is the way in, and it is the same trick every desktop app uses
+// for a non-rectangular window: the region is the window’s visible area, in its
+// own coordinates, and Windows clips both the painting and the mouse to it. The
+// page inside is untouched — it still lays out at the full device width, which
+// is what makes the test meaningful.
+//
+// Sizes arrive in DEVICE pixels, already scaled by the caller, because that is
+// the unit a window has. The pane knows the scale it is drawing at; this does
+// not.
+func (t *win32Tab) setShape(radius, notchW, notchH int) {
+	t.shapeRadius, t.shapeNotchW, t.shapeNotchH = radius, notchW, notchH
+	t.applyShape()
+}
+
+// applyShape rebuilds the region for the window’s current size.
+//
+// Called after every move, because a region belongs to the size it was built
+// for: SetWindowRgn takes coordinates relative to the window, so a region made
+// for a 430-wide window clips a 700-wide one to 430.
+//
+// The handle is handed to the system and NOT deleted: SetWindowRgn takes
+// ownership, and freeing it afterwards is a use-after-free Windows will not warn
+// about. The one region this function does own is the notch, which is combined
+// and then deleted.
+func (t *win32Tab) applyShape() {
+	if t.hwnd == 0 {
+		return
+	}
+	// A detached tab is a real window with a frame, and a region is measured
+	// against the window rather than its client area — so the same numbers that
+	// cut a phone out of a child window cut a bite out of somebody's title bar.
+	// It would be shaping the wrong thing anyway: the bezel is drawn by the
+	// panel, and a window that has left the panel has no bezel to be inside.
+	if t.detached || (t.shapeRadius <= 0 && t.shapeNotchW <= 0) {
+		// Back to a plain rectangle. A nil region is how Windows spells that,
+		// and it has to be said out loud — a window keeps its old region when
+		// nobody replaces it, so switching from a phone to เต็มแผง without this
+		// leaves a desktop page with rounded corners and a bite out of the top.
+		procSetWindowRgn.Call(t.hwnd, 0, 1)
+		return
+	}
+	var rc winRect
+	if r, _, _ := procGetClientRect.Call(t.hwnd, uintptr(unsafe.Pointer(&rc))); r == 0 {
+		return
+	}
+	w, h := int(rc.Right-rc.Left), int(rc.Bottom-rc.Top)
+	if w <= 0 || h <= 0 {
+		return
+	}
+	// +1 on the far edges: CreateRoundRectRgn treats them as exclusive, so a
+	// region built from a client rect is one pixel short on the right and the
+	// bottom — a hairline of page missing down two sides of every phone.
+	d := uintptr(t.shapeRadius * 2)
+	rgn, _, _ := procCreateRoundRectRgn.Call(0, 0, uintptr(w+1), uintptr(h+1), d, d)
+	if rgn == 0 {
+		return
+	}
+	if t.shapeNotchW > 0 && t.shapeNotchH > 0 {
+		x := (w - t.shapeNotchW) / 2
+		notch, _, _ := procCreateRectRgn.Call(uintptr(x), 0, uintptr(x+t.shapeNotchW), uintptr(t.shapeNotchH))
+		if notch != 0 {
+			procCombineRgn.Call(rgn, rgn, notch, rgnDiff)
+			procDeleteObject.Call(notch)
+		}
+	}
+	procSetWindowRgn.Call(t.hwnd, rgn, 1)
+}
+
 func (t *win32Tab) setBounds(x, y, w, h int) {
 	t.requireHostThread("setBounds")
 	// A detached window is where the user put it. The pane goes on measuring
@@ -283,6 +382,7 @@ func (t *win32Tab) setBounds(x, y, w, h int) {
 		return
 	}
 	procSetWindowPos.Call(t.hwnd, hwndTop, uintptr(x), uintptr(y), uintptr(w), uintptr(h), swpNoActivate)
+	t.applyShape()
 	t.chromium.Resize()
 }
 

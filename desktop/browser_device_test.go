@@ -214,3 +214,77 @@ func TestTurningTouchOffSendsNoPointCount(t *testing.T) {
 		}
 	}
 }
+
+// Every phone in the list has to know its own shape, and every non-phone has to
+// have none.
+//
+// A device emulator that gets the size right and the shape wrong is a rectangle
+// claiming to be a phone: the two things anybody actually checks on a mobile
+// layout — is something hidden under the notch, is something lost in the
+// corners — are exactly the two a rectangle cannot show. Radius and notch
+// therefore travel with the size, in the same CSS pixels, and the native window
+// is really cut to them (browser_windows.go, applyShape).
+func TestEveryPhoneKnowsTheShapeOfItsScreen(t *testing.T) {
+	for _, d := range browserDevices {
+		if !d.Mobile {
+			if d.Radius != 0 || d.Notch != "" {
+				t.Errorf("%s is not a phone and should not be drawn as one", d.Name)
+			}
+			continue
+		}
+		// A radius of 0 is allowed and is not laziness: the iPhone SE really is
+		// a rectangle with a home button, and rounding it would be drawing a
+		// phone nobody makes. What is not allowed is a cut-out on a screen with
+		// square corners — no such device exists, and it would look like a bug.
+		if d.Notch != "" && d.Radius <= 0 {
+			t.Errorf("%s has a %s and square corners, which is no phone", d.Name, d.Notch)
+		}
+		// A notch is a hole in the screen: it is cut out of the window and the
+		// panel paints black through it, so a name without a size would be a
+		// hole of nothing.
+		if d.Notch != "" && (d.NotchW <= 0 || d.NotchH <= 0) {
+			t.Errorf("%s says %q and gives it no size", d.Name, d.Notch)
+		}
+		if d.Notch == "" && (d.NotchW != 0 || d.NotchH != 0) {
+			t.Errorf("%s is sized for a notch it does not have", d.Name)
+		}
+		if d.Notch != "" && d.Notch != "notch" && d.Notch != "island" {
+			t.Errorf("%s has an unknown cut-out %q — the pane draws two shapes", d.Name, d.Notch)
+		}
+		// The cut has to fit in the screen it is cut from, with room either
+		// side, or it is not a notch but a slice off the top.
+		if d.NotchW > 0 && d.NotchW >= d.W {
+			t.Errorf("%s's notch (%d) is as wide as its screen (%d)", d.Name, d.NotchW, d.W)
+		}
+	}
+}
+
+// The shape reaches the window, scaled by the same factor the phone is drawn
+// at — a 932-tall iPhone in a 700-tall panel has corners three quarters the
+// size, because they are three quarters of a corner.
+func TestTheScreenShapeReachesTheWindow(t *testing.T) {
+	app, b, view := detachedHost(t)
+
+	app.BrowserSetScreenShape("web-agent-1", 41, 94, 28)
+	b.drain()
+
+	if view.shape != [3]int{41, 94, 28} {
+		t.Errorf("shape = %v, want the numbers the pane measured", view.shape)
+	}
+}
+
+// Going back to เต็มแผง has to say so. A window keeps the region nobody
+// replaced, so a desktop page would otherwise keep the rounded corners and the
+// bite out of the top of whatever phone was chosen before it.
+func TestLeavingAPhoneClearsTheShape(t *testing.T) {
+	app, b, view := detachedHost(t)
+
+	app.BrowserSetScreenShape("web-agent-1", 41, 94, 28)
+	b.drain()
+	app.BrowserSetScreenShape("web-agent-1", 0, 0, 0)
+	b.drain()
+
+	if view.shape != [3]int{0, 0, 0} {
+		t.Errorf("shape = %v, want it cleared", view.shape)
+	}
+}

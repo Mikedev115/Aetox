@@ -22,7 +22,11 @@ export type WorkbenchTab = {
   // with — see address.go's `guess` for why a guess without a second try is
   // the bug this closes.
   fallback?: string
-  viewport?: { name: string; w: number; h: number } // browser tabs: device-size emulation; unset = fill the pane
+  // browser tabs: device-size emulation; unset = fill the pane. The whole row
+  // Go handed over, shape included — a phone's corner radius and notch are the
+  // two things a mobile layout is actually checked against, so they travel with
+  // its size rather than being guessed at by the pane (browser_device.go).
+  viewport?: { name: string; w: number; h: number; radius?: number; notch?: string; notchW?: number; notchH?: number }
   path?: string // file tabs
   content?: string // file tabs (initial content; editor keeps its own draft)
   // File tabs the editor cannot render. A spreadsheet the agent just wrote is

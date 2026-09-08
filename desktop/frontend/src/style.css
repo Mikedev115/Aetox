@@ -4544,14 +4544,39 @@ button.phase-head:hover { color:var(--text-muted); }
 }
 /* Device-preset outline. inset:0 + margin:auto centres it on both axes; the
    aspect-ratio/max-* trio is the same fit BrowserPane's layout() computes. */
+/* The phone, drawn around the native window that is its screen.
+   Sized in px from the same numbers layout() placed that window with, so the
+   body cannot drift off the screen by a pixel at some pane sizes and not
+   others. content-box + symmetric padding keeps the SCREEN centred, which is
+   what the native window is centred on too. */
 .device-frame {
-  position:absolute; inset:0; margin:auto; aspect-ratio:var(--dw) / var(--dh);
-  width:calc(var(--dw) * 1px); max-width:100%; max-height:100%;
+  position:absolute; inset:0; margin:auto; box-sizing:content-box;
+  width:var(--sw); height:var(--sh); padding:var(--bezel);
   border:1px solid var(--border-default); border-radius:var(--r-2xs);
   /* The start page renders inside this frame when the tab has no URL yet;
      clipping keeps it inside the rounded outline at large type scales. */
   overflow:hidden;
 }
+/* A device with a shape gets a body: the bezel is the phone, so it is dark in
+   both themes rather than following the app — a white bezel round a white page
+   is not a phone, it is a margin. */
+.device-frame.body {
+  border:none; background:#0b0b0d; border-radius:calc(var(--r) + var(--bezel));
+  box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 8px 24px rgba(0,0,0,.35);
+}
+/* What shows through the cut in the window (browser_windows.go, setShape).
+   Positioned against the padding box, so it sits at the top of the SCREEN. */
+.device-notch {
+  position:absolute; top:var(--bezel); left:50%; transform:translateX(-50%);
+  width:var(--nw); height:var(--nh); background:#0b0b0d;
+  border-radius:0 0 calc(var(--nh) / 2) calc(var(--nh) / 2);
+}
+/* An island is a pill rather than a tab hanging off the edge. It still meets
+   the top of the screen here, because what is drawn has to match what was CUT
+   — and the cut is anchored to the top (setShape). A floating island needs the
+   offset to travel to Win32 as well, which is one more number and a later day;
+   a pill drawn where the hole is not is worse than a pill drawn high. */
+.device-notch.island { border-radius:0 0 calc(var(--nh) / 2) calc(var(--nh) / 2); }
 .insp-body { flex:1; position:relative; overflow:hidden; }
 .insp-slot { position:absolute; inset:0; overflow-y:auto; }
 /* Terminal tabs: xterm owns scrolling, and a slot scrollbar here feeds the

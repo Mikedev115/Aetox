@@ -51,6 +51,15 @@ type tabView interface {
 	// rectangle. A host with no such concept may do nothing, and the tab simply
 	// stays in the panel.
 	detach(title string, w, h int)
+	// setShape cuts the view to a phone screen: a corner radius, and a notch
+	// taken out of the top, both in device pixels. All zero is a plain
+	// rectangle, which is what every tab that is not emulating a phone gets.
+	//
+	// It is a property of the WINDOW rather than something drawn over it,
+	// because a native view composites above everything the app paints — a
+	// bezel in the DOM would be a bezel behind the page. A host with no way to
+	// cut a window may do nothing, and the emulation is a rectangle again.
+	setShape(radius, notchW, notchH int)
 	setZoom(factor float64)
 	openDevTools()
 	destroy()
@@ -2363,6 +2372,17 @@ func (a *App) BrowserReload(id string)  { a.browserEval(id, "location.reload()")
 // BrowserOpenDevTools opens the engine's own DevTools on a tab — find-in-page,
 // console, network, element inspection and its screenshot tools, none of which
 // are worth reimplementing in our toolbar.
+// BrowserSetScreenShape cuts a tab to the shape of the device it is emulating.
+//
+// Sizes arrive in device pixels because that is the unit a window has, and the
+// pane is the only thing that knows the scale it is drawing the phone at — a
+// 932-tall iPhone in a 700-tall panel is drawn at 0.75, and its corners are
+// 0.75 of a corner. Passing CSS pixels here and scaling on this side would put
+// that arithmetic in two places.
+func (a *App) BrowserSetScreenShape(id string, radius, notchW, notchH int) {
+	a.onTab(id, func(v tabView, _ *browserTab) { v.setShape(radius, notchW, notchH) })
+}
+
 func (a *App) BrowserOpenDevTools(id string) {
 	a.onTab(id, func(v tabView, _ *browserTab) { v.openDevTools() })
 }

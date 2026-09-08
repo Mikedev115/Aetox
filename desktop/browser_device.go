@@ -53,6 +53,22 @@ type deviceProfile struct {
 	// Mobile drives the layout mode CDP calls `mobile`: viewport meta honoured,
 	// text autosizing on, scrollbars overlaid rather than reserved.
 	Mobile bool `json:"mobile"`
+	// The shape of the screen, for the pane that draws a phone round it.
+	//
+	// A device emulator that gets the SIZE right and the SHAPE wrong is a
+	// rectangle claiming to be a phone: the two things a person checks on a
+	// mobile layout — is anything under the notch, is anything in the corners —
+	// are exactly the two the rectangle cannot show. So the corner radius and
+	// the cut-out travel with the size, in the same CSS pixels, and the native
+	// window is really cut to them (browser_windows.go, SetWindowRgn) rather
+	// than having a picture of a phone laid over it.
+	//
+	// Radius 0 and Notch "" mean a plain rectangle, which is what a desktop is
+	// and what an emulator should not decorate.
+	Radius int    `json:"radius,omitempty"`
+	Notch  string `json:"notch,omitempty"` // "notch" | "island" | "" for none
+	NotchW int    `json:"notchW,omitempty"`
+	NotchH int    `json:"notchH,omitempty"`
 	// ua is the user agent string, empty on the profiles that keep the engine's
 	// own or derive from it. Unexported: the menu has no use for it, and a
 	// binding that shipped it would be inviting the frontend to have opinions
@@ -82,13 +98,13 @@ const (
 // "what devices are there" — the debt this project keeps refusing. The menu
 // reads it back through BrowserDevices.
 var browserDevices = []deviceProfile{
-	{Name: "Galaxy S8+", W: 360, H: 740, DPR: 4, Mobile: true, platform: "Android", platformVersion: "15"},
+	{Name: "Galaxy S8+", W: 360, H: 740, DPR: 4, Mobile: true, platform: "Android", platformVersion: "15", Radius: 24},
 	{Name: "iPhone SE", W: 375, H: 667, DPR: 2, Mobile: true, ua: uaIPhone, platform: "iOS", platformVersion: "18.5"},
-	{Name: "iPhone 12 Pro", W: 390, H: 844, DPR: 3, Mobile: true, ua: uaIPhone, platform: "iOS", platformVersion: "18.5"},
-	{Name: "Pixel 7", W: 412, H: 915, DPR: 2.625, Mobile: true, platform: "Android", platformVersion: "15"},
-	{Name: "iPhone 14 Pro Max", W: 430, H: 932, DPR: 3, Mobile: true, ua: uaIPhone, platform: "iOS", platformVersion: "18.5"},
-	{Name: "iPad Mini", W: 768, H: 1024, DPR: 2, Mobile: true, ua: uaIPad, platform: "iOS", platformVersion: "18.5"},
-	{Name: "iPad Pro", W: 1024, H: 1366, DPR: 2, Mobile: true, ua: uaIPad, platform: "iOS", platformVersion: "18.5"},
+	{Name: "iPhone 12 Pro", W: 390, H: 844, DPR: 3, Mobile: true, ua: uaIPhone, platform: "iOS", platformVersion: "18.5", Radius: 40, Notch: "notch", NotchW: 164, NotchH: 30},
+	{Name: "Pixel 7", W: 412, H: 915, DPR: 2.625, Mobile: true, platform: "Android", platformVersion: "15", Radius: 28},
+	{Name: "iPhone 14 Pro Max", W: 430, H: 932, DPR: 3, Mobile: true, ua: uaIPhone, platform: "iOS", platformVersion: "18.5", Radius: 55, Notch: "island", NotchW: 125, NotchH: 37},
+	{Name: "iPad Mini", W: 768, H: 1024, DPR: 2, Mobile: true, ua: uaIPad, platform: "iOS", platformVersion: "18.5", Radius: 18},
+	{Name: "iPad Pro", W: 1024, H: 1366, DPR: 2, Mobile: true, ua: uaIPad, platform: "iOS", platformVersion: "18.5", Radius: 18},
 	{Name: "Desktop", W: 1280, H: 800, DPR: 1, Mobile: false, platform: "Windows"},
 }
 
