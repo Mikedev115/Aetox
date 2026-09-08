@@ -2467,6 +2467,7 @@ export namespace main {
 	    notch?: string;
 	    notchW?: number;
 	    notchH?: number;
+	    notchY?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new deviceProfile(source);
@@ -2483,6 +2484,7 @@ export namespace main {
 	        this.notch = source["notch"];
 	        this.notchW = source["notchW"];
 	        this.notchH = source["notchH"];
+	        this.notchY = source["notchY"];
 	    }
 	}
 
