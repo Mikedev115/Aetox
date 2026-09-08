@@ -68,6 +68,18 @@ const (
 	winAccessDeniedByPolicy = 1260
 )
 
+// winForegroundDeclined is not a Windows error number. It is the one situation
+// Windows reports by returning zero and setting NO last error at all, which is
+// exactly the shape that made the removed tool undebuggable, so it gets a code
+// of its own rather than being folded into the access-denied case.
+//
+// SetForegroundWindow declines when the calling process does not own the
+// foreground and the OS decides the raise would be a focus steal. Nothing is
+// wrong, nothing is locked, and the fix is not the one a locked screen needs.
+// Discovered by the live test on 2026-09-09: charmap was on screen, the machine
+// was unlocked, and the reach reported that there was no desktop to act on.
+const winForegroundDeclined uintptr = 1<<31 | 1
+
 // reachRefusal is a NO that the guard decided, not one Windows returned. It is
 // a separate type because the two answer different questions and must never be
 // worded alike: Windows refusing is a fact about the machine, and the guard
@@ -179,6 +191,11 @@ func explainWin32(code uintptr) string {
 		return "The window's program has exited. List the windows again."
 	case winNotEnoughQuota:
 		return "Windows would not accept that much input at once. Send it in smaller pieces."
+	case winForegroundDeclined:
+		return "Windows would not bring that window to the front. It does that when the raise would take focus " +
+			"away from whatever the user is doing, which is not a fault and not a locked screen. " +
+			"The window was not raised; anything aimed at a control in it still works, because that goes through " +
+			"the control rather than through the keyboard."
 	case winAccessDeniedByPolicy:
 		return "A Windows policy on this machine blocks this. An administrator has restricted it; it is not something Aetox can work around."
 	}

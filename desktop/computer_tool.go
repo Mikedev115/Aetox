@@ -488,6 +488,12 @@ func (s *computerSkill) takeTheScreen(t reachTarget, doing string) error {
 		s.app.screen.release(s.sessionID())
 		return err
 	}
+	// The light around the whole screen, not only the strip inside our own
+	// window. The strip is behind the window being driven the moment that window
+	// is raised, which is the moment it matters — the owner, watching this run:
+	// "ขอแสงวิวับที่ทำไว้อ่ะมาครอบจอด้วย ไม่งั้นไม่รู้". See
+	// computer_overlay_windows.go.
+	overlay.show()
 	s.app.emitEvent("computer:driving", sessionEvent[map[string]any]{
 		SessionID: s.sessionID(),
 		Data:      map[string]any{"window": t.Label(), "doing": doing},
@@ -500,11 +506,34 @@ func (s *computerSkill) takeTheScreen(t reachTarget, doing string) error {
 // refused is a chat that has quietly taken the machine away from every other
 // chat and will not give it back until the app restarts.
 func (s *computerSkill) releaseTheScreen() {
+	overlay.hide()
 	s.app.screen.release(s.sessionID())
 	s.app.emitEvent("computer:driving", sessionEvent[map[string]any]{
 		SessionID: s.sessionID(),
 		Data:      map[string]any{"window": "", "doing": ""},
 	})
+}
+
+// raiseForAction brings the window forward and answers with a NOTE rather than
+// an error, because a raise Windows declines must not cancel the action.
+//
+// This is where the owner's foreground choice meets a fact about the operating
+// system. Raising is a product decision, and a good one: a change made in a
+// window the user never saw is a change they cannot check. But Windows declines
+// a raise whenever it judges it a focus steal, which it does routinely and
+// correctly, and the live test hit exactly that — charmap plainly on screen,
+// unlocked machine, raise refused.
+//
+// Neither half of pressing depends on it. Invoke and SetValue go through the
+// control rather than the keyboard, so the press lands whether or not the window
+// came forward. Failing here would trade a working reach for a rule about
+// presentation. `keys` is the exception and says so at its own call site.
+func raiseForAction(t reachTarget) string {
+	err := reachFocusWindow(t.HWND)
+	if err == nil {
+		return ""
+	}
+	return "\n(ไม่ได้ยกหน้าต่างขึ้นมาหน้าสุด: " + explainReach("focus", err) + ")"
 }
 
 func (s *computerSkill) sessionID() string {
@@ -548,9 +577,7 @@ func (s *computerSkill) click(ctx context.Context, start time.Time, cmd string, 
 	}
 	defer s.releaseTheScreen()
 
-	if err := reachFocusWindow(target.HWND); err != nil {
-		return failure(computerToolName, cmd, err, start), err
-	}
+	note := raiseForAction(target)
 	if err := reachClick(target.HWND, node.RuntimeID); err != nil {
 		return failure(computerToolName, cmd, err, start), err
 	}
@@ -561,8 +588,8 @@ func (s *computerSkill) click(ctx context.Context, start time.Time, cmd string, 
 	// a number against a window that has since redrawn, which is the difference
 	// between a clear refusal and a confident click on the wrong control.
 	s.refs.forget()
-	body := fmt.Sprintf("กด %s ใน %s แล้ว\nref ทั้งหมดหมดอายุแล้ว — `read` ใหม่ก่อนกดอย่างอื่น",
-		describeNode(node), target.Label())
+	body := fmt.Sprintf("กด %s ใน %s แล้ว%s\nref ทั้งหมดหมดอายุแล้ว — `read` ใหม่ก่อนกดอย่างอื่น",
+		describeNode(node), target.Label(), note)
 	return success(computerToolName, cmd, body, start), nil
 }
 
@@ -630,7 +657,15 @@ func (s *computerSkill) typeInto(ctx context.Context, start time.Time, cmd strin
 	}
 	defer s.releaseTheScreen()
 
-	if err := reachFocusWindow(target.HWND); err != nil {
+	note := raiseForAction(target)
+	if keys != "" && note != "" {
+		// Text goes through the control and lands either way; a shortcut after
+		// it is addressed to whatever has focus and would land in whatever the
+		// user is actually looking at. Rather than typing and then firing keys
+		// into somebody else's window, this refuses the whole call.
+		err := refuse(
+			"พิมพ์ได้ แต่กดคีย์ลัดต่อไม่ได้เพราะยกหน้าต่างขึ้นมาหน้าสุดไม่สำเร็จ จึงไม่ทำอะไรเลย",
+			"เรียก `focus` แยกก่อน หรือส่งแต่ text โดยไม่ใส่ keys")
 		return failure(computerToolName, cmd, err, start), err
 	}
 	if err := reachType(target.HWND, node.RuntimeID, text); err != nil {
@@ -653,6 +688,7 @@ func (s *computerSkill) typeInto(ctx context.Context, start time.Time, cmd strin
 	if got, err := reachReadBack(target.HWND, node.RuntimeID); err == nil {
 		fmt.Fprintf(&b, "\nตอนนี้ช่องนั้นมีค่า: %q", clip(got, 400))
 	}
+	b.WriteString(note)
 	b.WriteString("\nref ทั้งหมดหมดอายุแล้ว — `read` ใหม่ก่อนทำอย่างอื่น")
 	s.refs.forget()
 	return success(computerToolName, cmd, b.String(), start), nil

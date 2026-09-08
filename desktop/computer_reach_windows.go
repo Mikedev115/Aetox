@@ -298,6 +298,7 @@ func describeElement(el *iUIAutomationElement, nextRef int) (reachNode, bool) {
 	node := reachNode{
 		Ref:  nextRef,
 		Name: name,
+		Kind: ctrl,
 		Role: role,
 	}
 	if id, err := el.runtimeID(); err == nil {

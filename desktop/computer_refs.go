@@ -40,8 +40,18 @@ const reachReadCap = 120
 
 // reachNode is one row of a read.
 type reachNode struct {
-	Ref       int
-	Name      string
+	Ref  int
+	Name string
+	// Role is the control type in the USER's language, because it is written
+	// for a model that is answering a user: "ปุ่ม" on a Thai Windows and
+	// "button" on an English one, from the same control.
+	//
+	// Which is exactly why nothing may branch on it. Kind below is the raw
+	// UIA control-type id, and it is the same integer on every Windows in
+	// every language. A test looking for the editable field by searching Role
+	// for "edit" found nothing on a Thai machine against a window that plainly
+	// had one, which is how this field came to exist.
+	Kind      int32
 	Role      string
 	Value     string
 	Enabled   bool

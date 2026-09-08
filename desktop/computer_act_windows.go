@@ -116,14 +116,15 @@ func reachFocusWindow(hwnd uintptr) error {
 		procAttachThreadInput.Call(self, fgThread, 0)
 	}
 	if ok == 0 {
-		// The failure that matters here is not "the call returned zero", it is
-		// which of the two situations produced it: a locked screen (no input
-		// desktop at all) or a window at higher integrity. errnoOf carries
-		// whichever Windows reported, and explainWin32 turns it into the
-		// sentence with the right fix in it.
+		// Zero here is THREE different situations and the first version of this
+		// code collapsed two of them, which is the exact fault this project was
+		// built to stop making. A locked screen and a higher-integrity window
+		// both set a last error; Windows declining a focus steal sets none, and
+		// mapping that silence to "access denied" told the live test the machine
+		// was locked while the window sat plainly on screen.
 		code := errnoOf(err)
 		if code == 0 {
-			code = winAccessDenied
+			code = winForegroundDeclined
 		}
 		return win32Error{call: "SetForegroundWindow", code: code}
 	}
