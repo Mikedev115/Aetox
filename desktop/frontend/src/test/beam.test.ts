@@ -22,7 +22,7 @@ describe('the running beam', () => {
     expect(css).toContain('.wb.busy-glow { animation:beam-phase')
     // The ring reads the phase; if it ever animates it again, a streamed block
     // is back to restarting sixty times a second.
-    const ring = rule('.sess-row.working::before,')
+    const ring = rule('.wb.busy-glow::before {')
     expect(ring).toContain('var(--beam-phase)')
     expect(ring).not.toContain('animation:')
   })
@@ -32,12 +32,29 @@ describe('the running beam', () => {
   })
 
   it('is worn only by what is still working', () => {
-    for (const selector of ['.sess-row.working', '.proj-group-sess.working', '.wb.busy-glow']) {
-      expect(css).toContain(`${selector}::before`)
-    }
+    expect(css).toContain('.wb.busy-glow::before')
     // A finished delegation is a record, and a record that glows asks to be
     // re-read. `.done`/`.err` must never pick this up.
     expect(css).not.toContain('.bgw-card.done::before')
+  })
+
+  // The chat lists gave it back on 8 ก.ย. A sidebar is a narrow column of rows,
+  // so a light chasing round one outline pulls the eye off the list itself
+  // every three seconds for as long as the turn runs (owner, over the running
+  // app: "เอากรอบสีวิบวับออก"). The dot on the row says the same thing from the
+  // place the eye already lands — and says the state the ring never could.
+  it('is not worn by a chat row, which has a dot instead', () => {
+    for (const selector of ['.sess-row.working::before', '.proj-group-sess.working::before',
+      '.proj-chats li button.working::before']) {
+      expect(css).not.toContain(selector)
+    }
+    // And the clock is off them too — a carrier animating --beam-phase for a
+    // ring that no longer exists is a frame of work every 3s for nothing.
+    expect(css).not.toContain('.sess-row.working,')
+    // Two dots, two states, both still defined: green for the one still going,
+    // amber for one that finished while the user was elsewhere.
+    expect(css).toContain('.dot.green {')
+    expect(css).toContain('.dot.amber {')
   })
 
   // The reply column lost it on 7 ก.ย. A plan, a drawing and a long fence used

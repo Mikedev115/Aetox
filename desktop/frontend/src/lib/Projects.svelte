@@ -20,7 +20,7 @@
   import { onMount } from 'svelte'
   import { Spaces, CreateSpace, DeleteSpace, OpenSpaceFolder, SessionsInSpace, AddSpaceContext, RemoveSpaceContext } from '../../wailsjs/go/main/App'
   import { main } from '../../wailsjs/go/models'
-  import { agoLabel, newSpaceSession, selectGlobalSession, sessionWorking, setActiveView } from './stores/cockpit.svelte'
+  import { agoLabel, newSpaceSession, selectGlobalSession, sessionUnread, sessionWorking, setActiveView } from './stores/cockpit.svelte'
   import { t } from './i18n.svelte'
   import Icon from './Icon.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
@@ -215,13 +215,20 @@
               <ul class="proj-chats">
                 {#each chats as chat (chat.id)}
                   <li>
-                    <!-- Same ring the sidebar draws, on the same fact: this
-                         chat still has a turn running in it. The page is a
-                         list of the project's conversations, so it is one of
+                    <!-- Same dot the sidebar draws, on the same two facts:
+                         green while a turn is running in this chat, amber once
+                         one has finished and nobody has opened it. The page is
+                         a list of the project's conversations, so it is one of
                          the places you walk back to in order to find out. -->
-                    <button class:working={sessionWorking(chat)} onclick={() => openChat(chat)}>
+                    <button class:working={sessionWorking(chat)} class:unread={sessionUnread(chat)}
+                      onclick={() => openChat(chat)}>
                       <Icon name="messageSquare" size={13} />
                       <span class="proj-chat-title">{chat.title}</span>
+                      {#if sessionWorking(chat)}
+                        <span class="dot green" role="img" title={t('sidebar.chatWorking')} aria-label={t('sidebar.chatWorking')}></span>
+                      {:else if sessionUnread(chat)}
+                        <span class="dot amber" role="img" title={t('sidebar.chatUnread')} aria-label={t('sidebar.chatUnread')}></span>
+                      {/if}
                       <span class="proj-chat-ago">{agoLabel(chat.updatedAt)}</span>
                     </button>
                   </li>

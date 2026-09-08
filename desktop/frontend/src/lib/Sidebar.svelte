@@ -5,6 +5,7 @@
     searchGlobalHistory, selectGlobalSession, deleteSession, exportChat, importChat, forgetProject,
     refreshSpaces,
     sessionWorking,
+    sessionUnread,
     newChairSession, openSpace,
   } from './stores/cockpit.svelte'
   import type { Session, SpaceRow } from './types'
@@ -504,6 +505,7 @@
     type="button" class="sess-row"
     class:active={s.active}
     class:working={sessionWorking(s)}
+    class:unread={sessionUnread(s)}
     class:draft={s.draft}
     class:pinned={pinnedChats[s.id]}
     onclick={() => selectGlobalSession(s)}
@@ -516,7 +518,22 @@
          they are is not a history. -->
     <span class="sess-line">
       <span class="t">{s.title}</span>
-      {#if s.active}<span class="dot green"></span>{/if}
+      <!-- One dot, two states, and the row's whole report on the work in it.
+           Green while a turn is running, amber once one has finished in a chat
+           the user was not looking at, nothing otherwise — and never both, which
+           sessionUnread settles rather than this markup.
+
+           It replaced two things at once (owner, 8 ก.ย.). The green dot used to
+           mean `active`, which the selected background already says louder; and
+           "still going" used to be a light chasing round the row's outline,
+           which he asked to be rid of — *"เอากรอบสีวิบวับออก"*. What was left
+           unsaid by either was the state he actually needed: finished, and
+           nobody has read it. -->
+      {#if sessionWorking(s)}
+        <span class="dot green" role="img" title={t('sidebar.chatWorking')} aria-label={t('sidebar.chatWorking')}></span>
+      {:else if sessionUnread(s)}
+        <span class="dot amber" role="img" title={t('sidebar.chatUnread')} aria-label={t('sidebar.chatUnread')}></span>
+      {/if}
     </span>
     <!-- Everything that describes the row rather than names it, on the second
          line where there is room to spare — and that spare room is where the
@@ -788,13 +805,18 @@
             </div>
             {#if !collapsedProjects[g.project.key]}
               {#each expandedProjects[g.project.key] ? g.sessions : g.sessions.slice(0, PROJECT_GROUP_PREVIEW) as s (s.id)}
-                <!-- The ring goes on this list too. It was on .sess-row only,
+                <!-- The mark goes on this list too. It was on .sess-row only,
                      which is the flat history the storefront draws — so on the
                      workshop side, where every chat lives nested under its
                      project, a running turn had no mark anywhere in the column
-                     (owner, 22 ส.ค.). Same fact, same light, same class name. -->
-                <div class="proj-group-sess" class:active={s.active} class:working={sessionWorking(s)} class:draft={s.draft}>
+                     (owner, 22 ส.ค.). Same fact, same dot, same class names. -->
+                <div class="proj-group-sess" class:active={s.active} class:working={sessionWorking(s)} class:unread={sessionUnread(s)} class:draft={s.draft}>
                   <button type="button" class="proj-group-sess-open" onclick={() => selectGlobalSession(s)}>{s.title}</button>
+                  {#if sessionWorking(s)}
+                    <span class="dot green row-dot" role="img" title={t('sidebar.chatWorking')} aria-label={t('sidebar.chatWorking')}></span>
+                  {:else if sessionUnread(s)}
+                    <span class="dot amber row-dot" role="img" title={t('sidebar.chatUnread')} aria-label={t('sidebar.chatUnread')}></span>
+                  {/if}
                   <!-- Floated over the row's right end rather than sitting in
                        it: this row has only one line, and two invisible buttons
                        holding 50px open is 50px the chat's name never gets. -->

@@ -224,6 +224,11 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .chip.badge-count { background:var(--chip-count-bg); border-color:var(--chip-count-border); color:var(--chip-count-text); padding:0 7px; }
 .dot { width:7px; height:7px; border-radius:50%; display:inline-block; background:var(--text-dim); }
 .dot.green { background:var(--status-success); box-shadow:0 0 6px var(--status-success-border); }
+/* Finished, and nobody has opened it. The system's own amber (--status-warn),
+   glowing the way the green one does so the two read as one dot in two states
+   rather than as a dot and a decoration. Not red: nothing is wrong, there is
+   something waiting. */
+.dot.amber { background:var(--status-warn); box-shadow:0 0 6px color-mix(in srgb, var(--status-warn) 45%, transparent); }
 /* Not yet answered. Hollow rather than dim, because a dim filled dot is what
    "off" already looks like and the two are different claims: one is a provider
    that is not usable, the other is a question still in flight. */
@@ -457,6 +462,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .sess-row.active { background:var(--surface-selected); }
 .sess-line { display:flex; align-items:center; gap:8px; min-width:0; }
 .sess-line .ic { width:15px; text-align:center; opacity:.85; flex:none; }
+.sess-line .dot { flex:none; }
 .sess-row .t { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
 /* The description line. Everything on it is flex:none and short, so the empty
    tail is real estate — which is where the hover actions are parked. */
@@ -2354,12 +2360,21 @@ button.phase-head:hover { color:var(--text-muted); }
  * behind it (owner, 7 ก.ย., over a screenshot of exactly that: "ตรงซับเอเจน
  * เอาแสงวิบวับออกด้วย"). Two signals for one fact, and the loud one had to go.
  *
- * The beam stays everywhere else it is used — a session row in the sidebar, the
- * workbench, a plan or code block being written — because none of those has a
- * face to say it for them. */
-.sess-row.working,
-.proj-group-sess.working,
-.proj-chats li button.working,
+ * The beam stayed everywhere else it was used, on the grounds that none of
+ * those had a face to say it for them — and the chat lists then failed the same
+ * test the card had, a day later. See below. */
+/* And the chat lists gave it back on 8 ก.ย., for the second half of the same
+   finding. Four workers were a light show; a sidebar is worse — the rows sit
+   one under another in a narrow column, so a lap of light around one of them
+   drags the eye off the list you are reading, every three seconds, for as long
+   as the turn lasts (owner, over the running app: *"เอากรอบสีวิบวับออก"*).
+   What is left in their place is a dot, which says the same thing from the
+   spot the eye already lands on — and says one more thing the ring never
+   could: amber for a turn that finished while you were somewhere else. See
+   .dot.amber below and `unread` in types.ts.
+
+   The workbench keeps it. It is one strip, not a list, and nothing else on it
+   says the desk is busy. */
 .wb.busy-glow { animation:beam-phase 3s linear infinite; }
 
 /* Positioned always, not only while lit.
@@ -2404,9 +2419,6 @@ button.phase-head:hover { color:var(--text-muted); }
   to { opacity:1; transform:none; }
 }
 @media (prefers-reduced-motion: reduce) { .bgw-card.bgw-in, .bgw-card.bgw-in .bgw-face { animation:none; } }
-.sess-row::before,
-.proj-group-sess::before,
-.proj-chats li button::before,
 .wb::before {
   content:''; position:absolute; inset:0; border-radius:inherit; padding:1.5px;
   pointer-events:none; z-index:1;
@@ -2431,9 +2443,6 @@ button.phase-head:hover { color:var(--text-muted); }
 }
 /* Lit. In fast enough to be there before the eye is; out slow enough that two
    beats of one job do not read as two jobs. */
-.sess-row.working::before,
-.proj-group-sess.working::before,
-.proj-chats li button.working::before,
 .wb.busy-glow::before {
   /* Two comets, each a long fade-in tail behind a bright head cut off sharply
      at the front — the asymmetry is what says which way it is travelling. */
@@ -2449,34 +2458,29 @@ button.phase-head:hover { color:var(--text-muted); }
   opacity:1;
   transition:opacity var(--beam-in) ease-out;
 }
-/* A chat with a turn running in it, wearing the same ring a working delegation
-   wears (owner, 18 ส.ค.: "ให้เซสชั่นนั้นมีเอฟเฟคกำลังทำงาน เหมือนตอนซับเอเจนทำงาน").
-   It is the same fact both times — this one is still going — so it is the same
-   light, not a second vocabulary for the user to learn.
+/* A chat with a turn running in it, and a chat holding a turn that finished
+   while the user was looking somewhere else. Both are said by the dot on the
+   row (.dot.green / .dot.amber, Sidebar.svelte), which is where the ring used
+   to be — the beam block above records why it went.
 
-   The row needs position:relative of its own: unlike the delegation card it was
-   never positioned, and an absolutely-placed ring would anchor to the scroller
-   and travel up the sidebar as the list scrolls. */
+   position:relative stays on both. Neither carries a ring any more, but each
+   has hover actions that float over its right end, and taking the property off
+   a row whose children are placed against it is how those land on the
+   scroller instead. */
 .sess-row { position:relative; }
-.sess-row::before { inset:0; }
-/* The same two lines for the lists that draw a chat row of their own rather
-   than reusing .sess-row: the workshop sidebar's nested project chats, and the
-   โปรเจกต์ page's list. .proj-group-sess is already positioned (its hover
-   actions float over it); the page's button was not, and an unpositioned
-   carrier would anchor its ring to the scroller and slide it up the page. */
 .proj-chats li button { position:relative; }
-.proj-group-sess::before,
-.proj-chats li button::before { inset:0; }
+/* The nested row is one line and the title has all of it, so the dot sits at
+   the end of that line — in flow, not floated, because the row's hover actions
+   ARE floated and two things claiming the same corner is how a dot ends up
+   under a delete button. It steps aside while they are up: the state is still
+   readable on every other row, and the row you are pointing at is the one you
+   are about to open anyway. */
+.proj-group-sess .row-dot { flex:none; margin-right:8px; transition:opacity var(--dur-tint) ease; }
+.proj-group-sess:hover .row-dot, .proj-group-sess:focus-within .row-dot { opacity:0; }
 /* Motion off, signal kept: a steady lit outline still says which one is the
    one still working, which is the whole job. */
 @media (prefers-reduced-motion: reduce) {
-  .sess-row.working,
-  .proj-group-sess.working,
-  .proj-chats li button.working,
   .wb.busy-glow { animation:none; }
-  .sess-row.working::before,
-  .proj-group-sess.working::before,
-  .proj-chats li button.working::before,
   .wb.busy-glow::before {
     background:color-mix(in srgb, var(--interactive) 55%, transparent);
   }
@@ -5561,6 +5565,9 @@ button.phase-head:hover { color:var(--text-muted); }
 .proj-files li { display:flex; align-items:center; gap:8px; padding:6px 10px; font-size:var(--fs-sm); color:var(--text-secondary); }
 .proj-chats li button { display:flex; align-items:center; gap:12px; width:100%; padding:7px 10px; border-radius:var(--r-md); text-align:left; }
 .proj-chats li button:hover { background:var(--surface-row-hover); }
+/* Between the title and the age, not floated: this row has room, and a dot the
+   age can push around is a dot that moves when the age relabels. */
+.proj-chats li button .dot { flex:none; }
 .proj-chat-title { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--fs-sm); color:var(--text-primary); }
 .proj-chat-ago { flex:none; font-size:var(--fs-xs); color:var(--text-dim); }
 
