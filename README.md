@@ -375,7 +375,7 @@ shorter in v1.5.15 without anything being taken away.
 | Group | Tools |
 |:---|:---|
 | **Files** | `change` *(write · edit · append · batch · delete)* `read` `search` *(list · glob · grep)* |
-| **Running commands** | `desk_terminal` `git` `shell` *(run · output · kill · list)* |
+| **Running commands** | `computer` *(list_apps · read · capture · focus · click · type · close)* `desk_terminal` `git` `shell` *(run · output · kill · list)* |
 | **Handing back files** | `doc_write` `sheet_write` |
 | **Reading media** | `media_read` *(image · video · audio)* `pdf_read` |
 | **Web and automation** | `browser` *(open · read · click · type · wait · back · scroll · capture · tabs · dialog · console · network)* `web_fetch` `web_search` |

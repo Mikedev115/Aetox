@@ -62,8 +62,13 @@
 | `browser_other.go` | `//go:build !windows` | | ⏳ | ⏳ | stub ชั่วคราว — ลบทิ้งเมื่อ 3a และ 3b เสร็จทั้งคู่ |
 | `browser_linux.go` | ชื่อไฟล์ | | ✅ | | WebKitGTK (เฟส 3a) |
 | `browser_darwin.go` | ชื่อไฟล์ | | | ✅ | WKWebView (เฟส 3b) |
+| `computer_tool.go`, `computer_guard.go`, `computer_refs.go`, `computer_errors.go` | — | ✅ | ✅ | ✅ | pack, ด่าน, ตาราง ref, คำศัพท์ของความล้มเหลว — ไม่มี Win32 เลย |
+| `computer_reach_windows.go`, `computer_act_windows.go`, `uia_windows.go`, `computer_overlay_windows.go` | ชื่อไฟล์ | ✅ | | | UI Automation ผ่าน COM ที่เขียน binding เอง + SendInput + PrintWindow + หน้าต่างแสงครอบจอ |
+| `computer_reach_other.go`, `computer_act_other.go`, `computer_overlay_other.go` | `//go:build !windows` | | ⏳ | ⏳ | ปฏิเสธอย่างชัดเจน ไม่ใช่ no-op เงียบ — no-op ที่คืนลิสต์ว่างคือการบอกโมเดลว่าเครื่องนี้ไม่มีหน้าต่าง ซึ่งเป็นคำโกหกที่มันจะเอาไปทำต่อ |
 
 `_unix.go` ต้องเขียน `//go:build unix` เอง เพราะ Go ไม่ถือว่า `_unix` เป็นคำลงท้ายพิเศษเหมือน `_windows`/`_linux`/`_darwin` — ใช้ `unix` แทน `!windows` (แบบที่ `internal/proc` ใช้) เพราะตรงกับชื่อไฟล์และไม่ลากไป js/wasm กับ plan9 ที่ `creack/pty` ไม่รองรับ
+
+**การพอร์ต `computer` ไม่ใช่การพอร์ตไฟล์** UI Automation เป็น API ของ Windows และของที่เทียบเท่าบน macOS กับ Linux เป็นคนละตัวที่มี permission model ของตัวเอง (macOS ต้องได้ Accessibility กับ Screen Recording ในการตั้งค่าระบบก่อนถึงจะทำอะไรได้เลย) ครึ่งที่ไม่มี Win32 — pack, ด่าน, ตาราง ref, การจำแนกความล้มเหลว — คอมไพล์และทดสอบได้ทุกแพลตฟอร์มอยู่แล้ว งานที่เหลือจึงเป็นการเขียน `reach*` กับ `overlay` ของ OS นั้น ไม่ใช่การรื้อ ดู [docs/architecture/computer-use-2026-09-07.md](docs/architecture/computer-use-2026-09-07.md) §5
 
 ## ทำเฟส 3a/3b ยังไง — ต้อง implement แค่ 2 interface
 
