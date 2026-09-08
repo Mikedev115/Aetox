@@ -132,7 +132,6 @@ var catalog = []Descriptor{
 		// Per-OS: the package manager differs, and a Linux machine builds from
 		// source, which is not a button.
 		InstallCommand: whisperCPPInstall,
-		Default:        true,
 	},
 	{
 		ID:       "faster-whisper",
@@ -144,6 +143,14 @@ var catalog = []Descriptor{
 		InstallCommand: []string{"pip", "install", "whisper-ctranslate2"},
 		// Size names, not files: the runtime fetches whichever is asked for.
 		Models: []string{fasterWhisperModel, "tiny", "small", "medium", "large-v3"},
+		// The default since 2026-09-08, the owner's call: same weights, more
+		// accurate and faster per model size than whisper.cpp, and it owns its
+		// own weights — so the fresh machine has no ggml file to go and find,
+		// which was whisper.cpp's real cost. The trade is stated where it is
+		// paid: this runtime needs Python, and whisper.cpp is the one Aetox's
+		// speech capability downloads (internal/capability), so a machine
+		// without Python picks whisper.cpp from the same list and is done.
+		Default: true,
 	},
 	{
 		ID:      "openai",

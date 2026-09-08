@@ -38,6 +38,12 @@ func newSpeechTestApp(t *testing.T) (*App, string) {
 // The picker has to see models that are actually on disk, wherever they live.
 func TestListSpeechModelsFindsTheManagedStore(t *testing.T) {
 	a, modelPath := newSpeechTestApp(t)
+	// This picker belongs to the vendors whose models are FILES, and the
+	// catalog default (faster-whisper) is not one — it names its weights. So
+	// the file vendor is named here rather than assumed.
+	if err := a.SetSpeechEngine("whisper-cpp"); err != nil {
+		t.Fatalf("SetSpeechEngine: %v", err)
+	}
 
 	models := a.ListSpeechModels()
 	if len(models) == 0 {
@@ -64,6 +70,9 @@ func TestListSpeechModelsFindsTheManagedStore(t *testing.T) {
 // restart — which here means landing in the preference file resolveConfig reads.
 func TestSetSpeechModelPinsPersistsAndClears(t *testing.T) {
 	a, modelPath := newSpeechTestApp(t)
+	if err := a.SetSpeechEngine("whisper-cpp"); err != nil { // see above: a file vendor
+		t.Fatalf("SetSpeechEngine: %v", err)
+	}
 
 	if err := a.SetSpeechModel(modelPath); err != nil {
 		t.Fatalf("SetSpeechModel: %v", err)

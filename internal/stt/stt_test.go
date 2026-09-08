@@ -101,6 +101,12 @@ func TestLookupEmptyIDResolvesToDefault(t *testing.T) {
 	if !ok || !got.Default {
 		t.Fatalf("Lookup(\"\") = %+v, %v; want the default engine", got, ok)
 	}
+	// Pinned by name, not just by the flag: which vendor a stock install
+	// transcribes with is a decision (2026-09-08), and moving it should have
+	// to be deliberate rather than a side effect of editing the catalog.
+	if got.ID != "faster-whisper" {
+		t.Errorf("default engine = %q, want faster-whisper", got.ID)
+	}
 	if _, ok := Lookup("  WHISPER-CPP "); !ok {
 		t.Error("Lookup should trim and lowercase config values")
 	}
@@ -123,7 +129,7 @@ func TestNewMissingBinaryGivesInstallInstructions(t *testing.T) {
 	stubLookPath(t, func(string) (string, error) { return "", exec.ErrNotFound })
 	modelsDirWith(t, preferredWhisperModel)
 
-	_, err := New(Options{})
+	_, err := New(Options{Engine: "whisper-cpp"})
 	if err == nil {
 		t.Fatal("expected an error when the engine binary is absent")
 	}
@@ -139,7 +145,7 @@ func TestNewMissingModelGivesDownloadInstructions(t *testing.T) {
 	stubLookPath(t, func(name string) (string, error) { return name, nil })
 	dir := modelsDirWith(t)
 
-	_, err := New(Options{})
+	_, err := New(Options{Engine: "whisper-cpp"})
 	if err == nil {
 		t.Fatal("expected an error when no model file is present")
 	}
@@ -157,7 +163,7 @@ func TestResolveModelAcceptsAnyMatchingModel(t *testing.T) {
 	stubLookPath(t, func(name string) (string, error) { return name, nil })
 	dir := modelsDirWith(t, "ggml-tiny-q5_1.bin")
 
-	engine, err := New(Options{})
+	engine, err := New(Options{Engine: "whisper-cpp"})
 	if err != nil {
 		t.Fatalf("a downloaded tiny model should be accepted, got: %v", err)
 	}
@@ -178,7 +184,7 @@ func TestResolveModelPinnedPathWins(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	engine, err := New(Options{ModelPath: pinned})
+	engine, err := New(Options{Engine: "whisper-cpp", ModelPath: pinned})
 	if err != nil {
 		t.Fatalf("New with a pinned model: %v", err)
 	}
@@ -186,14 +192,14 @@ func TestResolveModelPinnedPathWins(t *testing.T) {
 		t.Errorf("modelPath = %q, want the pinned %q", got, pinned)
 	}
 
-	if _, err := New(Options{ModelPath: filepath.Join(dir, "gone.bin")}); err == nil {
+	if _, err := New(Options{Engine: "whisper-cpp", ModelPath: filepath.Join(dir, "gone.bin")}); err == nil {
 		t.Error("a pinned model that no longer exists must fail loudly, not fall back silently")
 	}
 }
 
 func TestInstalledModelsListsWhatTheUIWouldShow(t *testing.T) {
 	dir := modelsDirWith(t, "ggml-base.bin", "ggml-tiny.bin", "notes.txt")
-	desc, _ := Lookup("")
+	desc, _ := Lookup("whisper-cpp")
 
 	// Filter to the managed store: a dev machine may legitimately have Ollama
 	// or LM Studio directories, and those are none of this test's business.
@@ -228,7 +234,7 @@ func TestInstalledModelsMarksExternalStoresUnmanaged(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(external, "ggml-small.bin"), []byte("stub"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	desc, _ := Lookup("")
+	desc, _ := Lookup("whisper-cpp")
 
 	found := InstalledModels(desc, Options{ExtraModelDirs: []string{external}})
 	var external_ *InstalledModel
@@ -324,7 +330,7 @@ func TestWhisperTranscribeCommandLine(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	engine, err := New(Options{})
+	engine, err := New(Options{Engine: "whisper-cpp"})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
