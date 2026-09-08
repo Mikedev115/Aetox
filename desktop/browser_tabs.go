@@ -32,8 +32,10 @@ package main
 // description already uses: read, act, read again.
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Mikedev115/Aetox/internal/skill"
 )
@@ -44,7 +46,7 @@ type browserTabsSkill struct {
 	owner string
 }
 
-func (s *browserTabsSkill) run(action, id string) (skill.Output, error) {
+func (s *browserTabsSkill) run(ctx context.Context, action, id string) (skill.Output, error) {
 	out := skill.Output{Name: "browser_tabs", Command: strings.TrimSpace("browser tabs " + action + " " + id)}
 	a := s.app
 
@@ -60,6 +62,7 @@ func (s *browserTabsSkill) run(action, id string) (skill.Output, error) {
 		out.Success = true
 		out.Content = fmt.Sprintf("ทำงานกับแท็บ %s แล้ว%s refs จากการ read ก่อนหน้าใช้ไม่ได้กับหน้านี้ อ่านใหม่ก่อนคลิก",
 			id, a.browserWhere(AgentTabID(id)))
+		out.Content += a.selectRaiseNote(ctx, id)
 	case "close":
 		// No id means this one. The model has just been working a page and
 		// wants it shut; making it call `list` first to learn an id the tool
@@ -200,6 +203,38 @@ func (a *App) selectAgentTab(id, owner string) error {
 		a.deskEvent(owner, "open-browser", map[string]string{"id": id, "url": url})
 	}
 	return nil
+}
+
+// selectRaiseNote is the other half of the sentence a select gives back, said
+// only when the raise it just asked for did not land.
+//
+// `selectAgentTab` sends an `open-browser` desk event and returns — the event
+// makes the tab's chip active, and BrowserPane turns that into a real
+// BrowserSetVisible(true) only if the pane also has a box on screen with no
+// room drawn over it. A user in ตั้งค่า or โปรเจกต์, or with the โต๊ะ collapsed,
+// leaves the select perfectly successful and the tab exactly as hidden as it
+// was, and the old answer ("ทำงานกับแท็บ ... แล้ว") reported the first half
+// without the second. A model that then tried to photograph the tab was
+// refused, told to select it, told it worked, refused again — five minutes of
+// that on 8 ก.ย. 19:04–19:09, and both halves of the loop were sentences this
+// app wrote.
+//
+// The wait is short and only ever paid by a tab that is already hidden: a raise
+// that is going to land does so in a frame or two, so a select onto a visible
+// desk costs nothing and returns without ever looking at the clock.
+func (a *App) selectRaiseNote(ctx context.Context, id string) string {
+	if a.browsers == nil || a.detachedTab(id) {
+		return ""
+	}
+	tab := a.browsers.tab(id)
+	if tab == nil || !tab.isHidden() {
+		return ""
+	}
+	a.waitShown(ctx, tab, 600*time.Millisecond)
+	if !tab.isHidden() {
+		return ""
+	}
+	return "\nแต่แท็บนี้ยังไม่ถูกวาดบนจอ (ผู้ใช้กำลังดูหน้าอื่นของแอป หรือพาเนลโต๊ะถูกยุบอยู่) — read/click/type ยังใช้ได้ตามปกติ แต่ capture จะไม่มีเฟรมให้ถ่าย และ select ซ้ำก็เปลี่ยนเรื่องนี้ไม่ได้"
 }
 
 func (a *App) closeAgentTab(id string) error {

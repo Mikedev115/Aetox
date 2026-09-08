@@ -257,7 +257,7 @@ type fakeView struct {
 	detachTitle string
 	detachSize  [2]int
 	// The screen shape the pane asked for: radius, notch width, notch height.
-	shape [3]int
+	shape [4]int
 }
 
 func (v *fakeView) navigate(url string)  { v.lastJS = "navigate:" + url }
@@ -274,8 +274,8 @@ func (v *fakeView) capture() <-chan shotResult {
 
 func (v *fakeView) sendBehind() { v.behind = true }
 
-func (v *fakeView) setShape(radius, notchW, notchH int) {
-	v.shape = [3]int{radius, notchW, notchH}
+func (v *fakeView) setShape(radius, notchW, notchH, notchY int) {
+	v.shape = [4]int{radius, notchW, notchH, notchY}
 }
 
 func (v *fakeView) detach(title string, w, h int) {

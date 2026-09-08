@@ -330,7 +330,7 @@ func TestClosingWithNoIDClosesTheTabInHand(t *testing.T) {
 	app := hostWithTabs(t, "web-agent-2", []string{"web-agent-1", "web-agent-2"},
 		"web-agent-1", "web-agent-2")
 
-	out, err := (&browserTabsSkill{app: app}).run("close", "")
+	out, err := (&browserTabsSkill{app: app}).run(t.Context(), "close", "")
 	if err != nil {
 		t.Fatalf("close with no id: %v", err)
 	}
@@ -355,7 +355,7 @@ func TestClosingWithNoIDClosesTheTabInHand(t *testing.T) {
 func TestClosingWithNoIDAndNoTabsSaysSo(t *testing.T) {
 	app := hostWithTabs(t, "", nil)
 
-	_, err := (&browserTabsSkill{app: app}).run("close", "")
+	_, err := (&browserTabsSkill{app: app}).run(t.Context(), "close", "")
 	if err == nil {
 		t.Fatal("want a refusal")
 	}
@@ -369,7 +369,7 @@ func TestClosingWithNoIDAndNoTabsSaysSo(t *testing.T) {
 func TestSelectStillNeedsToBeToldWhich(t *testing.T) {
 	app := hostWithTabs(t, "web-agent-1", []string{"web-agent-1"}, "web-agent-1")
 
-	if _, err := (&browserTabsSkill{app: app}).run("select", ""); err == nil {
+	if _, err := (&browserTabsSkill{app: app}).run(t.Context(), "select", ""); err == nil {
 		t.Error("select with no id was accepted")
 	}
 }
@@ -435,4 +435,47 @@ func TestScrollRidesOnTheReadRight(t *testing.T) {
 		return
 	}
 	t.Error("scroll is not in the browser pack at all")
+}
+
+// A select that made the tab current without getting it on screen says both
+// halves.
+//
+// The half it used to leave out cost five minutes of a real run (8 ก.ย.
+// 19:04–19:09): capture refused because the tab was hidden and named `tabs
+// select` as the fix, select answered "ทำงานกับแท็บ ... แล้ว", capture refused
+// again — thirteen tool-loop iterations of two sentences this app wrote
+// agreeing with each other and being wrong. selectAgentTab only asks the desk
+// to raise the tab; a user sitting in another room of the app, or with the โต๊ะ
+// collapsed, leaves that ask with nowhere to land.
+func TestSelectSaysWhenTheTabIsStillNotOnScreen(t *testing.T) {
+	app := hostWithTabs(t, "web-agent-1", []string{"web-agent-1"}, "web-agent-1")
+	app.browsers.tab("web-agent-1").hidden = true
+
+	out, err := (&browserTabsSkill{app: app}).run(t.Context(), "select", "web-agent-1")
+	if err != nil {
+		t.Fatalf("select: %v", err)
+	}
+	if !strings.Contains(out.Content, "ยังไม่ถูกวาดบนจอ") {
+		t.Errorf("the select claimed a raise that never landed:\n%s", out.Content)
+	}
+	// And it has to close the loop by name, or the model reads "not on screen"
+	// as "select it again".
+	if !strings.Contains(out.Content, "capture") || !strings.Contains(out.Content, "select ซ้ำ") {
+		t.Errorf("the note does not tell the model what this costs it or what not to retry:\n%s", out.Content)
+	}
+}
+
+// And a select onto a desk that is drawing says nothing extra — the note is for
+// the raise that failed, not a disclaimer on every select.
+func TestSelectOnAVisibleDeskAddsNoNote(t *testing.T) {
+	app := hostWithTabs(t, "web-agent-1", []string{"web-agent-1", "web-agent-2"},
+		"web-agent-1", "web-agent-2")
+
+	out, err := (&browserTabsSkill{app: app}).run(t.Context(), "select", "web-agent-2")
+	if err != nil {
+		t.Fatalf("select: %v", err)
+	}
+	if strings.Contains(out.Content, "ยังไม่ถูกวาดบนจอ") {
+		t.Errorf("a tab that is on screen was reported as hidden:\n%s", out.Content)
+	}
 }

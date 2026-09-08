@@ -173,7 +173,7 @@ type win32Tab struct {
 	// which is every tab that is not emulating a phone. Re-applied on every
 	// setBounds, because a region is measured from the window’s own top-left
 	// and is therefore wrong the moment the window changes size.
-	shapeRadius, shapeNotchW, shapeNotchH int
+	shapeRadius, shapeNotchW, shapeNotchH, shapeNotchY int
 	// hostThread and reportErr are the tripwire, not the plumbing: see
 	// requireHostThread.
 	hostThread uint32
@@ -313,8 +313,8 @@ func (t *win32Tab) sendBehind() {
 // Sizes arrive in DEVICE pixels, already scaled by the caller, because that is
 // the unit a window has. The pane knows the scale it is drawing at; this does
 // not.
-func (t *win32Tab) setShape(radius, notchW, notchH int) {
-	t.shapeRadius, t.shapeNotchW, t.shapeNotchH = radius, notchW, notchH
+func (t *win32Tab) setShape(radius, notchW, notchH, notchY int) {
+	t.shapeRadius, t.shapeNotchW, t.shapeNotchH, t.shapeNotchY = radius, notchW, notchH, notchY
 	t.applyShape()
 }
 
@@ -362,8 +362,26 @@ func (t *win32Tab) applyShape() {
 		return
 	}
 	if t.shapeNotchW > 0 && t.shapeNotchH > 0 {
+		// The cut-out is a rounded rectangle whose ends are semicircles, and
+		// where it STARTS is the whole difference between the two shapes a
+		// phone has.
+		//
+		// An island floats: it begins below the top edge, so all four of its
+		// corners are on the screen and it reads as a pill. A notch hangs off
+		// the edge, and the way to get that shape out of the same call is to
+		// start the rectangle ABOVE the screen — the top corners round somewhere
+		// nobody can see, the bottom two round where the eye is, and what is
+		// left is the notch. Rounding all four at y=0 instead would leave two
+		// slivers of page in the top corners of the cut, which is a shape no
+		// phone has ever had.
 		x := (w - t.shapeNotchW) / 2
-		notch, _, _ := procCreateRectRgn.Call(uintptr(x), 0, uintptr(x+t.shapeNotchW), uintptr(t.shapeNotchH))
+		top := t.shapeNotchY
+		if top <= 0 {
+			top = -t.shapeNotchH
+		}
+		nd := uintptr(t.shapeNotchH)
+		notch, _, _ := procCreateRoundRectRgn.Call(
+			uintptr(x), uintptr(top), uintptr(x+t.shapeNotchW+1), uintptr(top+t.shapeNotchH+1), nd, nd)
 		if notch != 0 {
 			procCombineRgn.Call(rgn, rgn, notch, rgnDiff)
 			procDeleteObject.Call(notch)

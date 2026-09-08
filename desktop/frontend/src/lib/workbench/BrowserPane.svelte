@@ -146,6 +146,7 @@
       Math.round((vp?.radius ?? 0) * scale * px),
       Math.round((vp?.notchW ?? 0) * scale * px),
       Math.round((vp?.notchH ?? 0) * scale * px),
+      Math.round((vp?.notchY ?? 0) * scale * px),
     )
   }
 
@@ -370,7 +371,7 @@
              like the cut, so the hole reads as the phone rather than as a hole. -->
         <span
           class="device-notch" class:island={tab.viewport.notch === 'island'}
-          style="--nw:{(tab.viewport.notchW ?? 0) * screen.scale}px; --nh:{(tab.viewport.notchH ?? 0) * screen.scale}px"
+          style="--nw:{(tab.viewport.notchW ?? 0) * screen.scale}px; --nh:{(tab.viewport.notchH ?? 0) * screen.scale}px; --ny:{(tab.viewport.notchY ?? 0) * screen.scale}px"
         ></span>
       {/if}
       {#if !tab.url}<BrowserStart {tab} />{/if}

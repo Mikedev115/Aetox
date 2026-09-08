@@ -380,11 +380,27 @@ func captureFraming(full, marks, sees bool) (bool, bool, []string) {
 
 // captureHiddenErr is the sentence for a view that cannot be photographed
 // because it is not being drawn, in the two shapes that has.
+//
+// Neither shape names `tabs select`, and the on-screen one used to. That advice
+// was a loop with the tool's own raise: capture fires `open-browser` before it
+// photographs, `selectAgentTab` fires exactly the same event and nothing else,
+// so by the time this sentence is reached the thing it was recommending has
+// already been tried and has already failed. The owner watched it run for five
+// minutes on 8 ก.ย. 19:04–19:09 — capture, tabs select, capture, tabs select,
+// thirteen tool-loop iterations, the select answering "ทำงานกับแท็บ ... แล้ว"
+// every time — because the model was doing what it was told.
+//
+// What is actually true at this point is that the desk is not drawing the pane:
+// BrowserPane only shows a tab when its chip is active AND the pane has a box
+// on screen AND no room is drawn over it (its `visible` derives the whole
+// list), so a user sitting in ตั้งค่า or โปรเจกต์, or with the โต๊ะ collapsed,
+// leaves every raise with nowhere to land. No tool can move that; the user can.
+// So the sentence says so and offers the two moves that exist.
 func captureHiddenErr(background bool) error {
 	if background {
 		return errors.New("แชตนี้ไม่ได้อยู่บนจอ หน้าต่างเบราว์เซอร์ของมันจึงถูกซ่อนไว้ และหน้าต่างที่ซ่อนอยู่ไม่วาดเฟรมให้ถ่าย — ใช้ read แทนไปก่อน หรือ capture อีกครั้งเมื่อผู้ใช้กลับมาที่แชตนี้")
 	}
-	return errors.New("แท็บนี้ถูกซ่อนอยู่ (ไม่ใช่แท็บที่แสดงบนจอตอนนี้) จึงไม่มีเฟรมให้ถ่าย — ใช้ tabs select เพื่อดึงขึ้นมาก่อน หรือใช้ read แทน")
+	return errors.New("โต๊ะยังไม่ได้วาดแท็บนี้บนจอ (ผู้ใช้กำลังดูหน้าอื่นของแอป หรือพาเนลโต๊ะถูกยุบอยู่) หน้าต่างที่ไม่ถูกวาดจึงไม่มีเฟรมให้ถ่าย — capture ดึงแท็บขึ้นมาเองก่อนถ่ายทุกครั้งแล้ว และ tabs select ทำสิ่งเดียวกันเป๊ะ ๆ จึงไม่ช่วย อย่าเรียกซ้ำ: ใช้ read เพื่ออ่านหน้านี้แทน แล้วบอกผู้ใช้ให้เปิดโต๊ะขึ้นมาถ้าต้องการภาพจริง ๆ")
 }
 
 // waitShown gives a raise time to land: the pane mounts, BrowserSetVisible

@@ -53,8 +53,15 @@ func TestCaptureNamesWhyAHiddenViewCannotBePhotographed(t *testing.T) {
 		t.Errorf("a background chat's refusal must say the chat is off screen and name read: %s", bg)
 	}
 	fg := captureHiddenErr(false).Error()
-	if !strings.Contains(fg, "tabs select") || strings.Contains(fg, "ไม่ได้อยู่บนจอ") {
-		t.Errorf("an on-screen chat's refusal must point at tabs select, not blame the session: %s", fg)
+	if strings.Contains(fg, "ไม่ได้อยู่บนจอ") {
+		t.Errorf("an on-screen chat's refusal must not blame the session: %s", fg)
+	}
+	// The loop this closes: capture raises the tab itself, tabs select fires
+	// the identical desk event, so recommending it here sent the model round
+	// and round (8 ก.ย. 19:04–19:09). The refusal may mention the call only to
+	// rule it out, and must name what the model can actually do instead.
+	if !strings.Contains(fg, "ไม่ช่วย") || !strings.Contains(fg, "read") {
+		t.Errorf("an on-screen chat's refusal must rule tabs select out and name read: %s", fg)
 	}
 }
 

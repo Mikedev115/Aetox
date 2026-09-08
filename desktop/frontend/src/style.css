@@ -4567,16 +4567,16 @@ button.phase-head:hover { color:var(--text-muted); }
 /* What shows through the cut in the window (browser_windows.go, setShape).
    Positioned against the padding box, so it sits at the top of the SCREEN. */
 .device-notch {
-  position:absolute; top:var(--bezel); left:50%; transform:translateX(-50%);
+  position:absolute; top:calc(var(--bezel) + var(--ny)); left:50%; transform:translateX(-50%);
   width:var(--nw); height:var(--nh); background:#0b0b0d;
   border-radius:0 0 calc(var(--nh) / 2) calc(var(--nh) / 2);
 }
-/* An island is a pill rather than a tab hanging off the edge. It still meets
-   the top of the screen here, because what is drawn has to match what was CUT
-   — and the cut is anchored to the top (setShape). A floating island needs the
-   offset to travel to Win32 as well, which is one more number and a later day;
-   a pill drawn where the hole is not is worse than a pill drawn high. */
-.device-notch.island { border-radius:0 0 calc(var(--nh) / 2) calc(var(--nh) / 2); }
+/* An island floats, so all four of its corners are on the screen and it is a
+   pill. The distance it floats by (--ny) is the same number the hole was cut
+   at, because a shape drawn where the hole is not is worse than either shape.
+   A notch keeps the two-corner radius above: it hangs off the top edge, and its
+   upper corners round somewhere nobody can see. */
+.device-notch.island { border-radius:calc(var(--nh) / 2); }
 .insp-body { flex:1; position:relative; overflow:hidden; }
 .insp-slot { position:absolute; inset:0; overflow-y:auto; }
 /* Terminal tabs: xterm owns scrolling, and a slot scrollbar here feeds the

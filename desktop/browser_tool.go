@@ -498,7 +498,7 @@ func (s *browserSkill) dispatch(ctx context.Context, action string, args map[str
 	case "capture":
 		return (&browserCaptureSkill{app: s.app, owner: s.owner()}).capture(ctx, boolArg(args["full"]), boolArg(args["marks"]))
 	case "tabs":
-		return (&browserTabsSkill{app: s.app, owner: s.owner()}).run(str(args["act"]), str(args["id"]))
+		return (&browserTabsSkill{app: s.app, owner: s.owner()}).run(ctx, str(args["act"]), str(args["id"]))
 	case "wait":
 		return (&browserWaitSkill{app: s.app}).wait(ctx, str(args["text"]), intArg(args["seconds"]))
 	case "back":

@@ -245,8 +245,18 @@ func TestEveryPhoneKnowsTheShapeOfItsScreen(t *testing.T) {
 		if d.Notch != "" && (d.NotchW <= 0 || d.NotchH <= 0) {
 			t.Errorf("%s says %q and gives it no size", d.Name, d.Notch)
 		}
-		if d.Notch == "" && (d.NotchW != 0 || d.NotchH != 0) {
+		if d.Notch == "" && (d.NotchW != 0 || d.NotchH != 0 || d.NotchY != 0) {
 			t.Errorf("%s is sized for a notch it does not have", d.Name)
+		}
+		// Where the cut-out starts IS the difference between the two shapes: an
+		// island floats below the top edge, a notch hangs off it. Getting this
+		// backwards draws the right silhouette in the wrong place, which is the
+		// one mistake a picture of a phone cannot survive.
+		if d.Notch == "island" && d.NotchY <= 0 {
+			t.Errorf("%s is an island that starts at the top edge, which is a notch", d.Name)
+		}
+		if d.Notch == "notch" && d.NotchY != 0 {
+			t.Errorf("%s is a notch that floats, which is an island", d.Name)
 		}
 		if d.Notch != "" && d.Notch != "notch" && d.Notch != "island" {
 			t.Errorf("%s has an unknown cut-out %q — the pane draws two shapes", d.Name, d.Notch)
@@ -265,10 +275,10 @@ func TestEveryPhoneKnowsTheShapeOfItsScreen(t *testing.T) {
 func TestTheScreenShapeReachesTheWindow(t *testing.T) {
 	app, b, view := detachedHost(t)
 
-	app.BrowserSetScreenShape("web-agent-1", 41, 94, 28)
+	app.BrowserSetScreenShape("web-agent-1", 41, 94, 28, 8)
 	b.drain()
 
-	if view.shape != [3]int{41, 94, 28} {
+	if view.shape != [4]int{41, 94, 28, 8} {
 		t.Errorf("shape = %v, want the numbers the pane measured", view.shape)
 	}
 }
@@ -279,12 +289,12 @@ func TestTheScreenShapeReachesTheWindow(t *testing.T) {
 func TestLeavingAPhoneClearsTheShape(t *testing.T) {
 	app, b, view := detachedHost(t)
 
-	app.BrowserSetScreenShape("web-agent-1", 41, 94, 28)
+	app.BrowserSetScreenShape("web-agent-1", 41, 94, 28, 8)
 	b.drain()
-	app.BrowserSetScreenShape("web-agent-1", 0, 0, 0)
+	app.BrowserSetScreenShape("web-agent-1", 0, 0, 0, 0)
 	b.drain()
 
-	if view.shape != [3]int{0, 0, 0} {
+	if view.shape != [4]int{0, 0, 0, 0} {
 		t.Errorf("shape = %v, want it cleared", view.shape)
 	}
 }

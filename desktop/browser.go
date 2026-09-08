@@ -59,7 +59,7 @@ type tabView interface {
 	// because a native view composites above everything the app paints — a
 	// bezel in the DOM would be a bezel behind the page. A host with no way to
 	// cut a window may do nothing, and the emulation is a rectangle again.
-	setShape(radius, notchW, notchH int)
+	setShape(radius, notchW, notchH, notchY int)
 	setZoom(factor float64)
 	openDevTools()
 	destroy()
@@ -2379,8 +2379,8 @@ func (a *App) BrowserReload(id string)  { a.browserEval(id, "location.reload()")
 // 932-tall iPhone in a 700-tall panel is drawn at 0.75, and its corners are
 // 0.75 of a corner. Passing CSS pixels here and scaling on this side would put
 // that arithmetic in two places.
-func (a *App) BrowserSetScreenShape(id string, radius, notchW, notchH int) {
-	a.onTab(id, func(v tabView, _ *browserTab) { v.setShape(radius, notchW, notchH) })
+func (a *App) BrowserSetScreenShape(id string, radius, notchW, notchH, notchY int) {
+	a.onTab(id, func(v tabView, _ *browserTab) { v.setShape(radius, notchW, notchH, notchY) })
 }
 
 func (a *App) BrowserOpenDevTools(id string) {

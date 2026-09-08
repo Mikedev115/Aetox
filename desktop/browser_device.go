@@ -69,6 +69,15 @@ type deviceProfile struct {
 	Notch  string `json:"notch,omitempty"` // "notch" | "island" | "" for none
 	NotchW int    `json:"notchW,omitempty"`
 	NotchH int    `json:"notchH,omitempty"`
+	// NotchY is how far below the top of the screen the cut-out begins.
+	//
+	// Zero for a notch, which hangs off the top edge, and non-zero for an
+	// island, which floats. It is the whole difference between the two shapes
+	// and it has to be a number rather than a rule read off Notch, because the
+	// same number is spent twice — once cutting the hole in the window and once
+	// painting black through it — and a shape drawn where the hole is not is
+	// worse than either shape.
+	NotchY int `json:"notchY,omitempty"`
 	// ua is the user agent string, empty on the profiles that keep the engine's
 	// own or derive from it. Unexported: the menu has no use for it, and a
 	// binding that shipped it would be inviting the frontend to have opinions
@@ -102,7 +111,7 @@ var browserDevices = []deviceProfile{
 	{Name: "iPhone SE", W: 375, H: 667, DPR: 2, Mobile: true, ua: uaIPhone, platform: "iOS", platformVersion: "18.5"},
 	{Name: "iPhone 12 Pro", W: 390, H: 844, DPR: 3, Mobile: true, ua: uaIPhone, platform: "iOS", platformVersion: "18.5", Radius: 40, Notch: "notch", NotchW: 164, NotchH: 30},
 	{Name: "Pixel 7", W: 412, H: 915, DPR: 2.625, Mobile: true, platform: "Android", platformVersion: "15", Radius: 28},
-	{Name: "iPhone 14 Pro Max", W: 430, H: 932, DPR: 3, Mobile: true, ua: uaIPhone, platform: "iOS", platformVersion: "18.5", Radius: 55, Notch: "island", NotchW: 125, NotchH: 37},
+	{Name: "iPhone 14 Pro Max", W: 430, H: 932, DPR: 3, Mobile: true, ua: uaIPhone, platform: "iOS", platformVersion: "18.5", Radius: 55, Notch: "island", NotchW: 125, NotchH: 37, NotchY: 11},
 	{Name: "iPad Mini", W: 768, H: 1024, DPR: 2, Mobile: true, ua: uaIPad, platform: "iOS", platformVersion: "18.5", Radius: 18},
 	{Name: "iPad Pro", W: 1024, H: 1366, DPR: 2, Mobile: true, ua: uaIPad, platform: "iOS", platformVersion: "18.5", Radius: 18},
 	{Name: "Desktop", W: 1280, H: 800, DPR: 1, Mobile: false, platform: "Windows"},
