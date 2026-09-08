@@ -50,7 +50,13 @@ describe('a desk belongs to one conversation', () => {
     // ...and the Go mirror was told, so desk_list and desk close in that chat
     // judge against the desk its user will actually find.
     expect(WorkbenchTabsChanged).toHaveBeenCalledWith('background', [
-      { kind: 'file', name: 'deck.html', path: 'output/background/deck.html', url: '', mine: true },
+      {
+        kind: 'file', name: 'deck.html', path: 'output/background/deck.html', url: '', mine: true,
+        // The address desk focus aims at, and "in front when this chat is
+        // opened" — the only honest reading of active for a desk nobody is
+        // looking at yet.
+        id: 'file-output/background/deck.html', active: true,
+      },
     ])
 
     // Opening the background chat finds the file waiting.

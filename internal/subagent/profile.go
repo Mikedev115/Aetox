@@ -146,7 +146,7 @@ var forcedDenials = []string{
 	// real - it is the only way to read a page that needs its scripts to run -
 	// and the one problem left, a single agent tab shared by everything at
 	// once, is a scope to fix rather than a right to remove.
-	"desk", "desk_open", "desk_list", "desk_close", "desk_terminal",
+	"desk", "desk_open", "desk_list", "desk_close", "desk_focus", "desk_terminal",
 }
 
 // deskSurface is the half of forcedDenials that comes back when somebody is

@@ -215,11 +215,12 @@ var packs = map[string]*pack{
 	"desk": {
 		tool:     "desk",
 		fallback: "open",
-		actions:  []string{"open", "list", "close"},
+		actions:  []string{"open", "list", "close", "focus"},
 		names: map[string]string{
 			"open":  "desk_open",
 			"list":  "desk_list",
 			"close": "desk_close",
+			"focus": "desk_focus",
 		},
 	},
 	"github": {

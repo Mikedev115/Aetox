@@ -133,7 +133,7 @@
     // that decides live desk vs a background chat's saved one. A new desk
     // surface subscribes here and answers "whose desk" in the router's switch,
     // or it draws nothing — never a policy improvised per handler again.
-    const offs = ['open-browser', 'close-browser', 'open-file', 'close-file', 'open-terminal', 'open-media', 'open-cutroom'].map((kind) =>
+    const offs = ['open-browser', 'close-browser', 'open-file', 'close-file', 'focus-tab', 'open-terminal', 'open-media', 'open-cutroom'].map((kind) =>
       EventsOn(`workbench:${kind}`, (payload: Record<string, unknown>) => routeDeskEvent(kind, payload)),
     )
     return () => offs.forEach((off) => off())

@@ -171,6 +171,9 @@ var toolCategories = map[string]string{
 	"desk_open":  CategoryAgent,
 	"desk_list":  CategoryAgent,
 	"desk_close": CategoryAgent,
+	// Moving the view is the same kind of act as putting something in it, and
+	// filed with it for that reason — it reads nothing and writes nothing.
+	"desk_focus": CategoryAgent,
 	// This one really is shell: it starts a shell and types into it. The
 	// specialized desk carries no shell and must not carry this either.
 	"desk_terminal": CategoryShell,

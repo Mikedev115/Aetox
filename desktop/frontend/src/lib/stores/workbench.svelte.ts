@@ -413,6 +413,38 @@ export function closeAgentFileTabFor(sessionId: string, path: string): void {
   patchSavedTabs(sessionId, (tabs) => tabs.filter((t) => !(t.kind === 'file' && t.path === path && t.mine)))
 }
 
+/** `desk focus` — make a tab that is already on the desk the one being drawn.
+ *
+ * Nothing is created, read or closed here: it is one assignment to activeId,
+ * which is exactly why the tool may aim it at a tab the user opened themselves.
+ * Moving the view is not reading what is in it — a browser pane the agent does
+ * not own still refuses every browser action (mustOwn), and this hands over no
+ * address to reach it by.
+ *
+ * Routed like every other desk event (§187): a background chat's focus lands on
+ * that chat's SAVED desk, where it becomes the tab in front the moment its user
+ * opens the chat, and never disturbs the desk somebody is looking at now.
+ *
+ * The id is re-resolved against the live array rather than trusted from the
+ * event, for the reason closeAgentFileTab states: the mirror Go judged against
+ * is one report behind, and an activeId pointing at a tab the user closed in
+ * between is a strip with no pane under it at all. */
+export function focusAgentTabFor(sessionId: string, id: string, path: string): void {
+  if (!sessionId || sessionId === boundSessionId) {
+    const tab = workbench.tabs.find((t) => !!t.id && t.id === id)
+      ?? (path ? workbench.tabs.find((t) => t.kind === 'file' && t.path === path) : undefined)
+    if (tab) workbench.activeId = tab.id
+    return
+  }
+  const saved = readSavedTabs(sessionId)
+  const at = saved.tabs.findIndex((t) => {
+    const savedId = savedTabId(t)
+    return (!!savedId && savedId === id) || (!!path && t.kind === 'file' && t.path === path)
+  })
+  if (at < 0 || at === saved.activeIdx) return
+  writeSavedTabs(sessionId, saved.tabs, at)
+}
+
 /** A page the agent opened (or moved to), routed by whose page it is.
  *
  * On screen: the tab draws (or fronts) in the strip, as it always did. A
@@ -628,6 +660,12 @@ export function routeDeskEvent(kind: string, payload: Record<string, unknown>): 
     case 'close-file':
       closeAgentFileTabFor(sessionId, str('path'))
       return
+    // Pure view, so both destinations exist for the same reason open-file's
+    // do — and neither of them creates anything. A kind whose whole effect is
+    // "look at that one instead" is the safest thing this switch routes.
+    case 'focus-tab':
+      focusAgentTabFor(sessionId, str('tab'), str('path'))
+      return
     // A clip the editor produced. Same two destinations as open-file — it is a
     // file tab underneath — and it carries a struct rather than strings, so it
     // reads `data` where the others read flat keys (sessionEvent, the shape
@@ -706,26 +744,63 @@ export function routeDeskEvent(kind: string, payload: Record<string, unknown>): 
  * conversation, and a file parked only in localStorage would be a tab the
  * agent was told it put down and is then told does not exist. */
 function patchSavedTabs(sessionId: string, change: (tabs: SavedTab[]) => SavedTab[]): void {
-  let saved: { tabs: SavedTab[]; activeIdx: number }
-  try {
-    saved = JSON.parse(localStorage.getItem(wbKey(sessionId)) ?? '') as typeof saved
-  } catch {
-    saved = { tabs: [], activeIdx: -1 }
-  }
+  const saved = readSavedTabs(sessionId)
   const before = saved.tabs ?? []
   const tabs = change(before)
   // A newly arrived file is what that chat will want on top; a removal keeps
   // the focus clamped to a tab that still exists.
   const activeIdx = tabs.length > before.length ? tabs.length - 1 : Math.min(saved.activeIdx, tabs.length - 1)
+  writeSavedTabs(sessionId, tabs, activeIdx)
+}
+
+/** One session's saved desk, or an empty one — never a throw. localStorage
+ *  holds a string somebody may have cleared, and a desk that cannot be parsed
+ *  is a desk with nothing on it. */
+function readSavedTabs(sessionId: string): { tabs: SavedTab[]; activeIdx: number } {
+  try {
+    const saved = JSON.parse(localStorage.getItem(wbKey(sessionId)) ?? '') as { tabs: SavedTab[]; activeIdx: number }
+    return { tabs: saved.tabs ?? [], activeIdx: saved.activeIdx ?? -1 }
+  } catch {
+    return { tabs: [], activeIdx: -1 }
+  }
+}
+
+/** The id a saved tab will have when it is restored.
+ *
+ * A saved desk stores the browser's window name and nothing else (SavedTab),
+ * because that is the only id that has to survive the app closing — every other
+ * kind rebuilds its own. `desk focus` needs to name them all the same way from
+ * both sides of that gap, so the two id rules that live in the openers above
+ * are written down once here: a file is `file-<path>`, a singleton pane is its
+ * own kind. Both have to agree with restoreWorkbench, which calls those
+ * openers. */
+function savedTabId(tab: SavedTab): string {
+  if (tab.kind === 'browser') return tab.id ?? ''
+  if (tab.kind === 'file') return tab.path ? `file-${tab.path}` : ''
+  return tab.kind
+}
+
+/** Store one session's saved desk and tell Go what is on it.
+ *
+ * The two are one act: `desk_list`, `desk close` and `desk focus` all judge
+ * against what WorkbenchTabsChanged last reported for that conversation, so a
+ * desk written to localStorage without the mirror following is a desk the agent
+ * is told it changed and then cannot see. */
+function writeSavedTabs(sessionId: string, tabs: SavedTab[], activeIdx: number): void {
   localStorage.setItem(wbKey(sessionId), JSON.stringify({ tabs, activeIdx }))
   void WorkbenchTabsChanged(
     sessionId,
-    tabs.map((t) => ({
+    tabs.map((t, i) => ({
       kind: t.kind,
       name: t.name,
       path: t.path ?? '',
       url: t.url ?? '',
       mine: t.mine ?? false,
+      id: savedTabId(t),
+      // "In front when this chat is opened" is what active means for a desk
+      // nobody is looking at, and it is the honest answer: it is the tab that
+      // will be showing the moment somebody does look.
+      active: i === activeIdx,
     })) as main.DeskTab[],
   )
 }
@@ -985,6 +1060,15 @@ export function reportDeskTabs(): void {
       path: t.path ?? '',
       url: t.url ?? '',
       mine: t.mine ?? false,
+      // The address `desk focus` aims at, and the one thing on the strip the
+      // mirror never carried. A path names a file tab; nothing named a
+      // terminal, a git pane or the user's own browser tab, so nothing could
+      // ask for one back.
+      id: t.id,
+      // Which tab the person is actually looking at. `desk list` marks it, and
+      // without it the agent could not tell that its own open had just taken
+      // the view away from something they were reading.
+      active: t.id === workbench.activeId,
     })) as main.DeskTab[],
   )
 }

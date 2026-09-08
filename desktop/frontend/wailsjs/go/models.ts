@@ -923,6 +923,8 @@ export namespace main {
 	    path?: string;
 	    url?: string;
 	    mine: boolean;
+	    id?: string;
+	    active?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new DeskTab(source);
@@ -935,6 +937,8 @@ export namespace main {
 	        this.path = source["path"];
 	        this.url = source["url"];
 	        this.mine = source["mine"];
+	        this.id = source["id"];
+	        this.active = source["active"];
 	    }
 	}
 	export class EditedFile {

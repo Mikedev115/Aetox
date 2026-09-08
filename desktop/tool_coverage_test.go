@@ -733,6 +733,7 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 		"desk_open":     {args: map[string]any{"path": "note.md"}, available: never, why: "needs the app window"},
 		"desk_terminal": {args: map[string]any{"command": "echo hi"}, available: never, why: "needs the app window"},
 		"desk_close":    {args: map[string]any{"path": "note.md"}, available: never, why: "needs the app window"},
+		"desk_focus":    {args: map[string]any{"tab": "git"}, available: never, why: "needs the app window"},
 		"desk_list":     {args: map[string]any{}, check: outputContains("โต๊ะ")},
 	}
 }

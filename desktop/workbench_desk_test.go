@@ -426,8 +426,8 @@ func TestADeskNarrowedToTheActionsAProfileNamesRefusesTheRest(t *testing.T) {
 	// silence rule, and the failure it prevents is a tool that refuses every
 	// call while every screen says the agent is equipped.
 	whole := (&deskSkill{app: a, conv: a.cur()}).Narrow(nil).(*deskSkill)
-	if got := whole.allowedActions(); len(got) != 3 {
-		t.Errorf("actions = %v, want all three", got)
+	if got := whole.allowedActions(); len(got) != len(skill.PackedActions("desk")) {
+		t.Errorf("actions = %v, want the whole pack", got)
 	}
 }
 
@@ -485,5 +485,205 @@ func TestDeskOpenTeachesWhatMakesAnHTMLFileADeck(t *testing.T) {
 	// Nothing to say once about an action whose signature already says it all.
 	if got := (&deskSkill{}).Guidance(map[string]any{"action": "nonsense"}); got != "" {
 		t.Errorf("guidance for an unknown action = %q, want empty", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// desk_focus
+// ---------------------------------------------------------------------------
+
+// The verb the surface was missing: bringing back something already on the
+// desk. A terminal and a git pane could not be named at all before the mirror
+// carried ids, which is the half of this that is not about files.
+func TestDeskFocusRaisesATabByItsID(t *testing.T) {
+	a := &App{}
+	a.cur().cfg.SandboxRoot = t.TempDir()
+	events := captureEvents(a)
+	a.WorkbenchTabsChanged(a.cur().id, []DeskTab{
+		{Kind: "file", Name: "note.md", Path: "note.md", ID: "file-note.md", Mine: true, Active: true},
+		{Kind: "terminal", Name: "PowerShell", ID: "pty-7"},
+		{Kind: "browser", Name: "localhost", URL: "http://localhost:5173", ID: "web-agent-1", Mine: true},
+	})
+
+	for _, target := range []string{"pty-7", "PowerShell", "powershell", "web-agent-1"} {
+		t.Run(target, func(t *testing.T) {
+			events.reset()
+			out, err := (&deskFocusSkill{app: a, conv: a.cur()}).focus(target)
+			if err != nil {
+				t.Fatalf("focus(%q): %v", target, err)
+			}
+			if !out.Success {
+				t.Errorf("Success = false: %s", out.Content)
+			}
+			if events.len() != 1 || events.all()[0].Name != "workbench:focus-tab" {
+				t.Fatalf("events = %+v, want one workbench:focus-tab", events.all())
+			}
+			payload, ok := events.all()[0].Data[0].(map[string]string)
+			if !ok || payload["tab"] == "" {
+				t.Fatalf("payload = %+v, want a tab id", events.all()[0].Data[0])
+			}
+			if payload["sessionId"] != a.cur().id {
+				t.Errorf("sessionId = %q, want this chat's — an unowned focus lands on whoever is looking (§187)", payload["sessionId"])
+			}
+		})
+	}
+}
+
+// A file comes back by the path that put it there, and by the path `write`
+// reported rather than the one it landed on — the same resolution open and
+// close make, because a model that had to remember which spelling it used
+// would be remembering an implementation detail of the output folder.
+func TestDeskFocusTakesTheSamePathOpenTakes(t *testing.T) {
+	a := &App{}
+	a.cur().cfg.SandboxRoot = t.TempDir()
+	events := captureEvents(a)
+
+	placed := skill.PlacedPath(a.cur().cfg.SandboxRoot, func() string { return a.outputSubdirOf(a.cur()) }, "deck.html")
+	a.WorkbenchTabsChanged(a.cur().id, []DeskTab{
+		{Kind: "file", Name: "deck.html", Path: placed, ID: "file-" + placed, Mine: true},
+		{Kind: "git", Name: "Git", ID: "git", Active: true},
+	})
+
+	out, err := (&deskFocusSkill{app: a, conv: a.cur()}).focus("deck.html")
+	if err != nil {
+		t.Fatalf("focus: %v", err)
+	}
+	if !strings.Contains(out.Content, placed) {
+		t.Errorf("Content = %q, want the placed path", out.Content)
+	}
+	payload := events.all()[0].Data[0].(map[string]string)
+	if payload["tab"] != "file-"+placed || payload["path"] != placed {
+		t.Errorf("payload = %+v, want both spellings of the file tab", payload)
+	}
+}
+
+// §81 again, through the door it would have walked in: the name of a browser
+// tab is its hostname, so a focus that matched on names would answer "is
+// mail.google.com open?" one guess at a time. An id says a tab exists, which
+// desk_list says already, and says nothing about where it went.
+func TestDeskFocusWillNotConfirmTheUsersBrowsingByName(t *testing.T) {
+	a := &App{}
+	a.cur().cfg.SandboxRoot = t.TempDir()
+	events := captureEvents(a)
+	a.WorkbenchTabsChanged(a.cur().id, []DeskTab{
+		{Kind: "browser", Name: "mail.google.com", URL: "https://mail.google.com/u/0", ID: "web-3"},
+		{Kind: "file", Name: "note.md", Path: "note.md", ID: "file-note.md", Active: true},
+	})
+
+	for _, guess := range []string{"mail.google.com", "mail", "google"} {
+		if _, err := (&deskFocusSkill{app: a, conv: a.cur()}).focus(guess); err == nil {
+			t.Errorf("focus(%q) succeeded — the agent can now test guesses about the user's browsing", guess)
+		}
+	}
+	if events.len() != 0 {
+		t.Fatalf("emitted %+v, want nothing", events.all())
+	}
+
+	// ...and the same tab is still reachable by the id the listing prints,
+	// because raising somebody's page back into view is doing what they asked.
+	if _, err := (&deskFocusSkill{app: a, conv: a.cur()}).focus("web-3"); err != nil {
+		t.Errorf("focus by id: %v — a tab the user opened is theirs to be shown, just not to be read", err)
+	}
+}
+
+// Already in front is an answer, not an event. A model told "done" for a switch
+// that never happened would go on believing it had moved the view.
+func TestDeskFocusOnTheTabAlreadyInFrontDoesNothing(t *testing.T) {
+	a := &App{}
+	a.cur().cfg.SandboxRoot = t.TempDir()
+	events := captureEvents(a)
+	a.WorkbenchTabsChanged(a.cur().id, []DeskTab{
+		{Kind: "file", Name: "note.md", Path: "note.md", ID: "file-note.md", Active: true},
+	})
+
+	out, err := (&deskFocusSkill{app: a, conv: a.cur()}).focus("note.md")
+	if err != nil || !out.Success {
+		t.Fatalf("focus: %v, %q", err, out.Content)
+	}
+	if events.len() != 0 {
+		t.Errorf("emitted %+v, want nothing", events.all())
+	}
+	if !strings.Contains(out.Content, "อยู่หน้าจออยู่แล้ว") {
+		t.Errorf("Content = %q", out.Content)
+	}
+}
+
+// A partial match that fits two tabs is refused with both named. Picking one
+// would make the address mean whatever else happens to be open.
+func TestDeskFocusRefusesAnAmbiguousName(t *testing.T) {
+	a := &App{}
+	a.cur().cfg.SandboxRoot = t.TempDir()
+	events := captureEvents(a)
+	a.WorkbenchTabsChanged(a.cur().id, []DeskTab{
+		{Kind: "file", Name: "plan.md", Path: "docs/plan.md", ID: "file-docs/plan.md"},
+		{Kind: "file", Name: "plan-2.md", Path: "docs/plan-2.md", ID: "file-docs/plan-2.md"},
+	})
+
+	_, err := (&deskFocusSkill{app: a, conv: a.cur()}).focus("plan")
+	if err == nil {
+		t.Fatal("err = nil, want a refusal naming both")
+	}
+	for _, want := range []string{"docs/plan.md", "docs/plan-2.md"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not name %q", err, want)
+		}
+	}
+	if events.len() != 0 {
+		t.Errorf("emitted %+v, want nothing", events.all())
+	}
+}
+
+func TestDeskFocusRefusesWhatIsNotOnTheDesk(t *testing.T) {
+	a := &App{}
+	a.cur().cfg.SandboxRoot = t.TempDir()
+	events := captureEvents(a)
+	a.WorkbenchTabsChanged(a.cur().id, []DeskTab{{Kind: "git", Name: "Git", ID: "git"}})
+
+	for name, target := range map[string]string{"unknown": "nope.md", "empty": ""} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := (&deskFocusSkill{app: a, conv: a.cur()}).focus(target); err == nil {
+				t.Error("err = nil, want a refusal")
+			}
+		})
+	}
+	if events.len() != 0 {
+		t.Errorf("emitted %+v, want nothing", events.all())
+	}
+}
+
+// The other half of the same change: the agent could see what was on the desk
+// and never which tab the person was looking at, so it could not tell that its
+// own open had taken the view away from something they were reading.
+func TestDeskListMarksTheTabTheUserIsLookingAt(t *testing.T) {
+	a := &App{}
+	a.WorkbenchTabsChanged(a.cur().id, []DeskTab{
+		{Kind: "file", Name: "note.md", Path: "note.md", ID: "file-note.md"},
+		{Kind: "terminal", Name: "PowerShell", ID: "pty-7", Active: true},
+	})
+
+	out, err := (&deskListSkill{app: a, conv: a.cur()}).list()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.Content, "* เทอร์มินัล: PowerShell [pty-7]") {
+		t.Errorf("Content = %q, want the terminal marked and addressable", out.Content)
+	}
+	if !strings.Contains(out.Content, "- ไฟล์: note.md") {
+		t.Errorf("Content = %q, want the file listed unmarked", out.Content)
+	}
+	if !strings.Contains(out.Content, "ใช้ focus") {
+		t.Errorf("Content = %q, want the legend for the mark", out.Content)
+	}
+}
+
+// A window from before Active existed reports no active tab, and gets the
+// listing it always had — a legend for a symbol on no row explains nothing.
+func TestDeskListLeavesTheLegendOffWhenNothingIsMarked(t *testing.T) {
+	a := &App{}
+	a.WorkbenchTabsChanged(a.cur().id, []DeskTab{{Kind: "file", Name: "note.md", Path: "note.md"}})
+
+	out, _ := (&deskListSkill{app: a, conv: a.cur()}).list()
+	if strings.Contains(out.Content, "*") {
+		t.Errorf("Content = %q, want no mark and no legend", out.Content)
 	}
 }
