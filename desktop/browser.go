@@ -216,6 +216,11 @@ type aetoxMsg struct {
 	ScrollX int     `json:"scrollX,omitempty"`
 	ScrollY int     `json:"scrollY,omitempty"`
 	Count   int     `json:"count,omitempty"`
+	// "act" from refMarkScript: which refs were drawn onto the page, and (in
+	// Count above) how many were in the frame before the cap. See
+	// browser_refmarks.go — the key printed under a marked capture is built
+	// from these.
+	Marks []int `json:"marks,omitempty"`
 	// "act" from findTextScript: the plain-text matches, described, when
 	// there were several to choose between.
 	Matches   []string `json:"matches,omitempty"`
@@ -559,13 +564,16 @@ type browserActResult struct {
 	// point (aetoxDescribe), the viewport in CSS px with its pixel ratio and
 	// scroll offset, how many interactive elements it holds, the document
 	// title, and for a file input whether it is one and what it accepts.
-	Under     string
-	VW, VH    int
-	DPR       float64
-	ScrollX   int
-	ScrollY   int
-	Count     int
-	Matches   []string
+	Under   string
+	VW, VH  int
+	DPR     float64
+	ScrollX int
+	ScrollY int
+	Count   int
+	Matches []string
+	// The refs refMarkScript drew onto the page, with Count holding how many
+	// were in the frame before its cap.
+	Marks     []int
 	Title     string
 	URL       string
 	FileInput bool
@@ -1970,7 +1978,7 @@ func (h *browserHost) onMessage(id string, tab *browserTab, raw string, source s
 			Mode: m.Mode, Active: m.Active, CX: m.CX, CY: m.CY, CanvasShare: m.CanvasShare,
 			FocusBefore: m.FocusBefore, Focus: m.Focus, Kept: m.Kept, Mouse: m.Mouse,
 			Under: m.Under, VW: m.VW, VH: m.VH, DPR: m.DPR, ScrollX: m.ScrollX, ScrollY: m.ScrollY,
-			Count: m.Count, Matches: m.Matches, Title: m.Title, URL: m.URL,
+			Count: m.Count, Matches: m.Matches, Marks: m.Marks, Title: m.Title, URL: m.URL,
 			FileInput: m.FileInput, Multiple: m.Multiple, Accept: m.Accept,
 		}
 	case "log":

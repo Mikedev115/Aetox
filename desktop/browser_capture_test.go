@@ -20,7 +20,7 @@ func TestBrowserShotStaysOutOfTheProjectRoot(t *testing.T) {
 	root := t.TempDir()
 	a := seed(&App{cfg: config.Config{SandboxRoot: root}, projectFocused: true}, &conversation{id: "s1"})
 
-	rel, err := a.writeBrowserShot([]byte("\x89PNG fake"))
+	rel, err := a.writeBrowserShot([]byte("\x89PNG fake"), false)
 	if err != nil {
 		t.Fatalf("writeBrowserShot() = %v", err)
 	}
@@ -55,7 +55,7 @@ func TestBrowserShotGoesInTheWorkFolderSoTheGalleryCanStackIt(t *testing.T) {
 	root := t.TempDir()
 	a := seed(&App{cfg: config.Config{SandboxRoot: root}, projectFocused: true}, &conversation{id: "s1"})
 
-	rel, err := a.writeBrowserShot([]byte("PNG fake"))
+	rel, err := a.writeBrowserShot([]byte("PNG fake"), false)
 	if err != nil {
 		t.Fatalf("writeBrowserShot() = %v", err)
 	}
@@ -86,11 +86,11 @@ func TestBrowserShotGoesInTheWorkFolderSoTheGalleryCanStackIt(t *testing.T) {
 func TestTwoShotsAreTwoFiles(t *testing.T) {
 	a := seed(&App{cfg: config.Config{SandboxRoot: t.TempDir()}}, &conversation{id: "s1"})
 
-	first, err := a.writeBrowserShot([]byte("one"))
+	first, err := a.writeBrowserShot([]byte("one"), false)
 	if err != nil {
 		t.Fatalf("writeBrowserShot() = %v", err)
 	}
-	second, err := a.writeBrowserShot([]byte("two"))
+	second, err := a.writeBrowserShot([]byte("two"), false)
 	if err != nil {
 		t.Fatalf("writeBrowserShot() = %v", err)
 	}
@@ -103,7 +103,7 @@ func TestTwoShotsAreTwoFiles(t *testing.T) {
 func TestBrowserShotWorksBeforeASessionHasAnID(t *testing.T) {
 	a := seed(&App{cfg: config.Config{SandboxRoot: t.TempDir()}}, newConversation())
 
-	if _, err := a.writeBrowserShot([]byte("png")); err != nil {
+	if _, err := a.writeBrowserShot([]byte("png"), false); err != nil {
 		t.Errorf("writeBrowserShot() with no session id = %v", err)
 	}
 }
@@ -113,7 +113,7 @@ func TestBrowserShotWorksBeforeASessionHasAnID(t *testing.T) {
 func TestBrowserShotRefusesWithNoWorkingFolder(t *testing.T) {
 	a := seed(&App{}, &conversation{id: "s1"})
 
-	if rel, err := a.writeBrowserShot([]byte("png")); err == nil {
+	if rel, err := a.writeBrowserShot([]byte("png"), false); err == nil {
 		t.Errorf("writeBrowserShot() with no sandbox root wrote to %q", rel)
 	}
 }
@@ -124,7 +124,7 @@ func TestCaptureRefusesWithNoPageOpen(t *testing.T) {
 	a := seed(&App{cfg: config.Config{SandboxRoot: t.TempDir()}}, &conversation{id: "s1"})
 	a.browsers = &browserHost{app: a, tabs: map[string]*browserTab{}}
 
-	out, err := (&browserCaptureSkill{app: a}).capture(t.Context(), false)
+	out, err := (&browserCaptureSkill{app: a}).capture(t.Context(), false, false)
 	if err == nil {
 		t.Fatal("capture answered without a page open")
 	}

@@ -62,7 +62,18 @@ var browserShotSeq int64
 // answer, and the visible area is what the user is looking at while the agent
 // works. It earns its keep on the page that does not fit — a long form, a
 // report, a layout whose problem is below the fold.
-func (s *browserCaptureSkill) capture(ctx context.Context, full bool) (skill.Output, error) {
+//
+// marks asks for the page's refs drawn into the picture (browser_refmarks.go),
+// which turns a photograph from something to look at into something to act on:
+// the model reads a number off the page and clicks that ref, instead of
+// measuring a pixel and multiplying it back into a coordinate.
+//
+// Also off by default, and for a reason that is not timidity either. A picture
+// answering "does this layout look wrong" must be the page and nothing else —
+// forty numbered boxes over it is a different picture, of a page nobody has.
+// The two uses are genuinely different questions and the caller knows which one
+// it is asking, which is exactly when a flag is the right shape.
+func (s *browserCaptureSkill) capture(ctx context.Context, full, marks bool) (skill.Output, error) {
 	start := time.Now()
 	out := skill.Output{Name: "browser_capture", Command: "browser capture"}
 	a := s.app
@@ -162,6 +173,46 @@ func (s *browserCaptureSkill) capture(ctx context.Context, full bool) (skill.Out
 	if background {
 		notes = append(notes, "แชตนี้ไม่ได้อยู่บนจอ หน้าต่างเบราว์เซอร์จึงถูกซ่อนไว้ ภาพนี้อาจเป็นเฟรมเก่าของหน้า ไม่ใช่สถานะล่าสุด")
 	}
+
+	// Does the model this picture is for have eyes? Asked here rather than at
+	// the attachment below, because it decides two things now: whether the
+	// numbers are worth drawing at all, and whether the picture goes on the
+	// wire. A model that reads pages with `read` is not helped by labels it
+	// cannot see, and drawing them would be work done on a page the user is
+	// looking at for nobody's benefit.
+	sees := model.ResolveVision(a.cur().cfg.ModelProvider, a.cur().cfg.ModelName)
+	var framingNotes []string
+	full, marks, framingNotes = captureFraming(full, marks, sees)
+	notes = append(notes, framingNotes...)
+
+	var drawnRefs []int
+	var refsInView int
+	var refElements []browserElement
+	if marks {
+		// The refs are stamped by the same pass `read` uses, on purpose and at
+		// the cost of one more round trip: it is the only way the number in the
+		// picture and the number `click` resolves can be the same fact rather
+		// than two facts that agree. Its element list becomes the key printed
+		// under the picture.
+		snap, snapErr := a.browserSnapshot(string(id), "")
+		if snapErr != nil {
+			notes = append(notes, "วางเลขกำกับไม่สำเร็จ ("+snapErr.Error()+") ภาพนี้จึงไม่มีเลข ใช้พิกัดตามสูตรด้านล่างแทน")
+			marks = false
+		} else {
+			refElements = snap.Elements
+			drawn, inView, drawErr := a.drawRefMarks(id, refMarkCap)
+			if drawErr != nil {
+				notes = append(notes, "วางเลขกำกับไม่สำเร็จ ("+drawErr.Error()+") ภาพนี้จึงไม่มีเลข ใช้พิกัดตามสูตรด้านล่างแทน")
+				marks = false
+			} else {
+				drawnRefs, refsInView = drawn, inView
+				// Off again whichever way this returns. The page belongs to the
+				// user and the numbers were for one photograph.
+				defer a.clearRefMarks(id)
+			}
+		}
+	}
+
 	var dataURL string
 	if full {
 		var cutAt int
@@ -221,13 +272,21 @@ func (s *browserCaptureSkill) capture(ctx context.Context, full bool) (skill.Out
 			if inARow > 1 {
 				out.Content += fmt.Sprintf("\nเป็นครั้งที่ %d ติดกันแล้วที่ได้ภาพเดิม", inARow)
 			}
+			// The key is printed even though the picture is not sent again.
+			// The refs were re-stamped a moment ago by the read above, so this
+			// is what the numbers in the picture the caller is already holding
+			// mean NOW — which is the one thing an identical photograph cannot
+			// be relied on to still say for itself.
+			if marks {
+				out.Content += refMarkLegend(drawnRefs, refElements, refsInView)
+			}
 			out.Content += captureNotes(notes)
 			out.RawOutput = out.Content
 			return out, nil
 		}
 	}
 
-	rel, err := a.writeBrowserShot(png)
+	rel, err := a.writeBrowserShot(png, marks)
 	if err != nil {
 		out.Content, out.Stderr = "เก็บภาพไม่สำเร็จ: "+err.Error(), err.Error()
 		out.DurationMs = time.Since(start).Milliseconds()
@@ -245,8 +304,8 @@ func (s *browserCaptureSkill) capture(ctx context.Context, full bool) (skill.Out
 	// the path and the tool it has always had for reading letters out of an
 	// image, which is the same trade visionAttachments makes for a user's
 	// attachment — one question, one answer, asked in both places by the same
-	// function.
-	if model.ResolveVision(a.cur().cfg.ModelProvider, a.cur().cfg.ModelName) {
+	// function (and asked once, above, because the marks turn on the same bit).
+	if sees {
 		// The file that was just written is the full picture; what goes on the
 		// wire is whatever the provider will take of it. Fitted here rather
 		// than before the write, because the copy on disk is the one the user
@@ -268,12 +327,50 @@ func (s *browserCaptureSkill) capture(ctx context.Context, full bool) (skill.Out
 	} else {
 		out.Content = fmt.Sprintf("เก็บภาพของ %s ไว้ที่ %s แล้ว ใช้ image_ocr กับไฟล์นี้เพื่ออ่านข้อความในภาพ", where, rel)
 	}
+	// The key belongs with the picture, above the list of what the picture is
+	// not: it is part of the answer rather than a caveat about it.
+	if marks {
+		out.Content += refMarkLegend(drawnRefs, refElements, refsInView)
+	}
 	out.Content += captureNotes(notes)
 	out.RawOutput = out.Content
 	return out, nil
 }
 
 // pageViewport asks the page how big it is, in the unit a click is aimed in.
+// captureFraming settles what the two flags actually mean for this model,
+// before anything is drawn or photographed.
+//
+// Named rather than inlined for the reason fullCaptureParams is: the policy is
+// two refusals and a sentence each, and both are worth asserting without a live
+// webview. It is also the one place either flag is overridden, so a caller
+// reading capture sees the whole rule at once instead of two ifs half a screen
+// apart.
+//
+//   - **marks without eyes is nothing.** A model that reads pages with `read`
+//     cannot see a label, and drawing forty of them onto a page the user is
+//     looking at would be work done for nobody. It is told what to do instead,
+//     which is the thing it already has and better.
+//   - **marks with full is the wrong pair.** A document-tall photograph is
+//     shrunk by every provider until a 13px chip is a smudge (tallStripNote),
+//     and a y read off one is a document offset rather than a place on screen.
+//     So the picture that could be aimed from is the one that cannot be read,
+//     and the one that can be read cannot be aimed from. The viewport is the
+//     only frame where both are true, and marks are what the caller asked for —
+//     so full is the half that gives way.
+func captureFraming(full, marks, sees bool) (bool, bool, []string) {
+	var notes []string
+	if marks && !sees {
+		marks = false
+		notes = append(notes, "โมเดลนี้อ่านภาพไม่ได้ จึงไม่ได้วางเลขกำกับ ใช้ read เพื่อเอา ref แล้ว click ตามเลขนั้นได้เลย")
+	}
+	if marks && full {
+		full = false
+		notes = append(notes, "ขอทั้ง full และ marks พร้อมกัน — ภาพนี้จึงเป็นเฉพาะส่วนที่เห็นบนจอ เพราะเลขกำกับบนภาพความยาวทั้งเอกสารจะถูกย่อจนอ่านไม่ออก ถ้าต้องกดของที่อยู่นอกจอ ให้เลื่อนแล้วแคปใหม่")
+	}
+	return full, marks, notes
+}
+
 // captureHiddenErr is the sentence for a view that cannot be photographed
 // because it is not being drawn, in the two shapes that has.
 func captureHiddenErr(background bool) error {
@@ -454,12 +551,21 @@ const workSubdir = "work"
 
 // writeBrowserShot puts the picture in the work-file folder and answers with the
 // sandbox-relative path.
-func (a *App) writeBrowserShot(png []byte) (string, error) {
+// marked names the file for what it is. The picture with the numbers on it is
+// not the page — it is what the agent was looking at when it decided which
+// thing to press, which is the one piece of evidence that answers "why did it
+// click that" a day later. A gallery in which both are called page-4.png is a
+// gallery where nobody can tell those two apart.
+func (a *App) writeBrowserShot(png []byte, marked bool) (string, error) {
 	root := strings.TrimSpace(a.cur().cfg.SandboxRoot)
 	if root == "" {
 		return "", fmt.Errorf("no working folder is set")
 	}
-	rel := path.Join(a.workFileDir(), fmt.Sprintf("page-%d.png", atomic.AddInt64(&browserShotSeq, 1)))
+	name := fmt.Sprintf("page-%d.png", atomic.AddInt64(&browserShotSeq, 1))
+	if marked {
+		name = strings.TrimSuffix(name, ".png") + "-marks.png"
+	}
+	rel := path.Join(a.workFileDir(), name)
 	abs := filepath.Join(root, filepath.FromSlash(rel))
 	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
 		return "", err
