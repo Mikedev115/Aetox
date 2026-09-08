@@ -59,6 +59,7 @@
     AppVersion, AppCredit, RecentDebugLog,
     LearningEnabled, SetLearningEnabled, SkillTuneAuto, SetSkillTuneAuto, RunSkillTuneup, ListSkillProposals, ListPendingChanges, ListDecidedChanges,
     PreparedReplyOn, SetPreparedReplyOn,
+    ComputerControlOn, SetComputerControlOn, GrantedComputerApps, RevokeComputerApp,
     ApprovePendingChange, RejectPendingChange, LearnedEntries, LearnedScopeInfos, SaveLearnedEntry, OpenMemoryFolder,
     ForgetMemoryScope, AdoptMemoryScope, RecentProjects,
     ListSystemIssues, MarkIssueReported, ListDecidedIssues,
@@ -321,6 +322,9 @@
   }
 
   let connections = $state<ConnectionRow[]>([])
+  let computerOn = $state(false)
+  let computerApps = $state<string[]>([])
+  let computerError = $state('')
   // Keyed by connection id, because the page draws one card per service and two
   // of them must not share a token box, an error, or a spinner.
   let connToken = $state<Record<string, string>>({})
@@ -647,6 +651,7 @@
           if (!shells.some((s) => s.path === defaultShell)) defaultShell = shells[0]?.path ?? ''
         })(),
         (async () => { preparedOn = await PreparedReplyOn() })(),
+        loadComputer(),
         loadMCP(),
         loadSkills(),
         (async () => {
@@ -3202,6 +3207,54 @@
     }
   }
 
+  // การใช้คอมพิวเตอร์. The switch and the register of programs the user has
+  // said yes to.
+  //
+  // Two things are drawn here rather than one, and the direction doc (§4.2) is
+  // firm about which is which: the ROWS are reaches, not apps. Reading this page
+  // as a list of applications is what produces a dead register — a row appears
+  // because a mechanism reaches it, never the other way round. The list of
+  // granted programs sits UNDER the row that reaches them, as its detail.
+  // The register stays live while the user is looking at it. A yes answered on
+  // an approval card in the chat writes a rule (desktop/computer_permission.go)
+  // and emits this; without the listener the settings page would keep showing
+  // the list as it was when the page opened, and the one moment a user most
+  // wants to see the register update is the moment they just granted something.
+  $effect(() => {
+    const off = EventsOn('computer:apps', (apps: string[]) => {
+      computerApps = apps ?? []
+    })
+    return off
+  })
+
+  async function loadComputer() {
+    try {
+      computerOn = await ComputerControlOn()
+      computerApps = (await GrantedComputerApps()) ?? []
+    } catch {
+      // Preference file unreadable. Leave both at their shipped defaults rather
+      // than drawing a switch whose state nothing confirmed.
+    }
+  }
+
+  async function toggleComputer() {
+    try {
+      await SetComputerControlOn(!computerOn)
+      await loadComputer()
+    } catch (err) {
+      computerError = String(err)
+    }
+  }
+
+  async function revokeComputerApp(name: string) {
+    try {
+      await RevokeComputerApp(name)
+      await loadComputer()
+    } catch (err) {
+      computerError = String(err)
+    }
+  }
+
   async function toggleSkillTuneAuto() {
     try {
       await SetSkillTuneAuto(!skillTuneAutoOn)
@@ -3261,6 +3314,7 @@
     // lands, which is one wasted round trip per open and a race between two
     // in-flight loads for which one gets to set `connections`.
     if (active === 'connections') untrack(() => void loadConnections())
+    if (active === 'computer') untrack(() => void loadComputer())
   })
 
   $effect(() => {
@@ -3359,6 +3413,14 @@
       // a page that no longer exists is a search box that lies.
       { id: 'connections', label: t('settings.connections'), icon: 'globe',
         terms: ['GitHub', t('settings.ghTokenLabel'), 'n8n', 'Windmill', t('settings.connBaseURLLabel')] },
+      // การใช้คอมพิวเตอร์ — reaching programs on this machine that Aetox did
+      // not start. Beside connections rather than under general, because that
+      // is what it is: a register of reaches, each with its own state, modelled
+      // on the page one line up (docs/architecture/computer-use-2026-09-07.md
+      // §4.2). The search terms are the words somebody looking for it would
+      // actually type, including the two program kinds it refuses.
+      { id: 'computer', label: t('settings.computer'), icon: 'monitor',
+        terms: ['UI Automation', 'Chrome', 'Excel', t('settings.computerAnyApp')] },
       { id: 'prompts', label: t('settings.prompts'), icon: 'sparkles', terms: [t('settings.promptNew')] },
     ]},
     { group: t('settings.groupAbout'), items: [
@@ -3506,7 +3568,7 @@
   // section (openSettingsAt), and two spellings of this key would fail silently
   // and look like the page ignoring where it was told to go.
   const SECTION_KEY = SETTINGS_SECTION_KEY
-  const SECTION_IDS = new Set(['general', 'appearance', 'identity', 'learning', 'skilltune', 'models', 'team', 'agents', 'tools', 'skills', 'mcp', 'connections', 'prompts', 'account', 'usage', 'about', 'sponsor'])
+  const SECTION_IDS = new Set(['general', 'appearance', 'identity', 'learning', 'skilltune', 'models', 'team', 'agents', 'tools', 'skills', 'mcp', 'connections', 'computer', 'prompts', 'account', 'usage', 'about', 'sponsor'])
 
   function restoredSection(): string {
     try {
@@ -6628,6 +6690,84 @@
           </div>
         {/each}
       </div>
+    {:else if active === 'computer'}
+      <!-- Rows are REACHES, not apps (direction doc §4.2). A row is here because
+           a mechanism reaches it; the programs a user has said yes to are that
+           row's detail, not rows of their own. Reading this page the other way
+           round is what produces a register of promises. -->
+      <h2>{t('settings.computer')}</h2>
+      <p class="muted set-sub">{t('settings.computerDesc')}</p>
+
+      <div class="settings-card">
+        <!-- Row 1: the one that is real. Its switch is the master switch, so it
+             is not a separate control above the list — the row and the
+             permission are the same thing. -->
+        <div class="set-row">
+          <span class="set-txt">
+            <span class="t">{t('settings.computerAnyApp')}</span>
+            <span class="d">{t('settings.computerAnyAppDesc')}</span>
+          </span>
+          <label class="mswitch">
+            <input type="checkbox" checked={computerOn} onchange={toggleComputer} />
+            <span></span>
+          </label>
+        </div>
+
+        {#if computerOn}
+          <!-- What the yes answers landed as. This is the half both rivals do
+               not have: their approvals expire with the session, so there is
+               nothing to show. Ours are written down precisely so this list can
+               exist and be taken back from. -->
+          {#if computerApps.length === 0}
+            <div class="set-row"><span class="set-txt">
+              <span class="d muted">{t('settings.computerNoApps')}</span>
+            </span></div>
+          {:else}
+            {#each computerApps as app (app)}
+              <div class="set-row">
+                <span class="set-txt">
+                  <span class="t">{app}</span>
+                  <span class="d">{t('settings.computerAppAllowed')}</span>
+                </span>
+                <button class="ctrl" onclick={() => revokeComputerApp(app)}>
+                  {t('settings.computerRevoke')}
+                </button>
+              </div>
+            {/each}
+          {/if}
+        {/if}
+
+        <!-- Rows 2 to 4 stay visible and say why they cannot be switched on.
+             connections.go carries the same rule in a long comment, learned
+             twice the hard way: a control that vanishes in the broken state is
+             a dead end, not a tidy UI. -->
+        <div class="set-row">
+          <span class="set-txt">
+            <span class="t">Google Chrome</span>
+            <span class="d">{t('settings.computerNeedsExtension')}</span>
+          </span>
+          <span class="mcp-badge">{t('settings.computerNotYet')}</span>
+        </div>
+        <div class="set-row">
+          <span class="set-txt">
+            <span class="t">Microsoft Edge</span>
+            <span class="d">{t('settings.computerNeedsExtension')}</span>
+          </span>
+          <span class="mcp-badge">{t('settings.computerNotYet')}</span>
+        </div>
+        <div class="set-row">
+          <span class="set-txt">
+            <span class="t">Microsoft Excel</span>
+            <span class="d">{t('settings.computerExcelDesc')}</span>
+          </span>
+          <span class="mcp-badge">{t('settings.computerNotYet')}</span>
+        </div>
+      </div>
+
+      {#if computerError}
+        <p class="muted set-sub">{computerError}</p>
+      {/if}
+
     {:else if active === 'connections'}
       <!-- One register, one page. The sentence under the title has to cover
            both kinds without flattening them: an account needs a key, a machine

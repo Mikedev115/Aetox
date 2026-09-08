@@ -143,6 +143,8 @@ export function CompleteSignIn(arg1:string,arg2:string):Promise<main.ModelInfo>;
 
 export function CompressArtifacts(arg1:Array<string>):Promise<main.CompressReport>;
 
+export function ComputerControlOn():Promise<boolean>;
+
 export function ConnectAccount(arg1:string,arg2:string,arg3:string,arg4:Array<string>):Promise<connect.Account>;
 
 export function Connections():Promise<Array<connect.Status>>;
@@ -220,6 +222,8 @@ export function GitFileDiff(arg1:string):Promise<string>;
 export function GitSwitchBranch(arg1:string):Promise<string>;
 
 export function GitWorkingTree():Promise<Array<main.GitFileChange>>;
+
+export function GrantedComputerApps():Promise<Array<string>>;
 
 export function GuideTopics():Promise<Array<model.GuideTopic>>;
 
@@ -479,6 +483,8 @@ export function RetryFailedTurn(arg1:string):Promise<main.TurnReply>;
 
 export function RevealSpeechModel(arg1:string):Promise<void>;
 
+export function RevokeComputerApp(arg1:string):Promise<void>;
+
 export function RevokeDevice(arg1:string):Promise<void>;
 
 export function RewindTo(arg1:string):Promise<main.UndoResult>;
@@ -548,6 +554,8 @@ export function SetAPIKey(arg1:string,arg2:string):Promise<main.ModelInfo>;
 export function SetAgentOff(arg1:string,arg2:boolean):Promise<main.DelegateSettings>;
 
 export function SetBusyLayer(arg1:string,arg2:boolean):Promise<Array<main.BusyLayer>>;
+
+export function SetComputerControlOn(arg1:boolean):Promise<void>;
 
 export function SetConnectionStartCommand(arg1:string,arg2:string):Promise<void>;
 

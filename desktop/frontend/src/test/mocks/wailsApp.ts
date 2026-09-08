@@ -243,6 +243,12 @@ export const SkillTuneAuto = boolFn(false)
 export const SetSkillTuneAuto = noop()
 // Ships on, so the mock answers on — a settings page that renders the switch
 // off by default would let a regression in the real default pass unnoticed.
+// Computer control, off with nothing granted: what a fresh install is, and
+// the state the settings page has to draw correctly before any other.
+export const ComputerControlOn = boolFn(false)
+export const SetComputerControlOn = noop()
+export const GrantedComputerApps = arr()
+export const RevokeComputerApp = noop()
 export const PreparedReplyOn = boolFn(true)
 export const SetPreparedReplyOn = noop()
 export const RunSkillTuneup = vi.fn(async (..._args: any[]) => 0)

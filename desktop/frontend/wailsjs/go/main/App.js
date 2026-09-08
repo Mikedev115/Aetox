@@ -258,6 +258,10 @@ export function CompressArtifacts(arg1) {
   return window['go']['main']['App']['CompressArtifacts'](arg1);
 }
 
+export function ComputerControlOn() {
+  return window['go']['main']['App']['ComputerControlOn']();
+}
+
 export function ConnectAccount(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ConnectAccount'](arg1, arg2, arg3, arg4);
 }
@@ -412,6 +416,10 @@ export function GitSwitchBranch(arg1) {
 
 export function GitWorkingTree() {
   return window['go']['main']['App']['GitWorkingTree']();
+}
+
+export function GrantedComputerApps() {
+  return window['go']['main']['App']['GrantedComputerApps']();
 }
 
 export function GuideTopics() {
@@ -930,6 +938,10 @@ export function RevealSpeechModel(arg1) {
   return window['go']['main']['App']['RevealSpeechModel'](arg1);
 }
 
+export function RevokeComputerApp(arg1) {
+  return window['go']['main']['App']['RevokeComputerApp'](arg1);
+}
+
 export function RevokeDevice(arg1) {
   return window['go']['main']['App']['RevokeDevice'](arg1);
 }
@@ -1068,6 +1080,10 @@ export function SetAgentOff(arg1, arg2) {
 
 export function SetBusyLayer(arg1, arg2) {
   return window['go']['main']['App']['SetBusyLayer'](arg1, arg2);
+}
+
+export function SetComputerControlOn(arg1) {
+  return window['go']['main']['App']['SetComputerControlOn'](arg1);
 }
 
 export function SetConnectionStartCommand(arg1, arg2) {
