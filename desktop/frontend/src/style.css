@@ -204,7 +204,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    own edge — that was the whole idea, and a line inside the frame is the
    corner it was drawn to remove. */
 .brand {
-  grid-area:logo; display:flex; align-items:center; gap:10px; padding:0 18px; min-width:0; overflow:hidden;
+  grid-area:logo; display:flex; align-items:center; gap:10px; padding:0 20px; min-width:0; overflow:hidden;
   background:var(--surface-panel);
 }
 /* The card's header. Same surface as .main below it and rounded at the top, so
@@ -706,7 +706,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    see a lit box rather than a name. Same treatment every other text input in
    the app already gets (.identity-input, .ob-input, the composer): drop the
    ring, move the signal into the border. */
-.profile-head .name-input:focus { outline:0; border-color:var(--border-input-focus); }
+.profile-head .name-input:focus { outline:0; border-color:rgba(255,255,255,0.26); }
 .menu-sep { height:1px; background:var(--border-subtle); margin:2px 10px 6px; }
 /* Balances in the profile menu: a glance, not a panel. */
 .acct-menu { display:flex; flex-direction:column; gap:8px; padding:2px 12px 6px; }
@@ -735,8 +735,10 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
      max-width caps how wide the list may make it, and only this lets a narrow
      sidebar make it narrower. */
   margin-left:auto; max-width:150px; min-width:0; padding:3px 6px; border-radius:var(--r-sm); background:var(--surface-panel);
-  border:1px solid var(--border-subtle); color:var(--text-primary); font:inherit; font-size:var(--fs-xs); cursor:pointer;
+  border:1px solid var(--border-default); color:var(--text-primary); font:inherit; font-size:var(--fs-xs); cursor:pointer;
 }
+.lang-select:hover { border-color:rgba(255,255,255,0.22); }
+.lang-select:focus { outline:0; border-color:rgba(255,255,255,0.26); }
 
 /* ---------- the version row in the profile menu ---------- */
 /* Which Aetox this is, and whether a newer one exists. Same 10px rhythm as the
@@ -973,7 +975,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    "อยากให้มีช่องว่างที่ชัดเจน ... เหมือนเว้นบรรทัดจริงๆ"). This is the outermost
    of three gaps that all had to move together: turn, topic (the rule above a
    heading), and figure (.drawing-box). */
-.chat-inner { max-width:1040px; margin:0 auto; width:100%; min-width:0; padding:22px 26px 8px; display:flex; flex-direction:column; gap:30px; font-size:var(--chat-font-size, 15.5px); }
+.chat-inner { max-width:840px; margin:0 auto; width:100%; min-width:0; padding:22px 26px 8px; display:flex; flex-direction:column; gap:30px; font-size:var(--chat-font-size, 15.5px); }
 
 .empty-state { position:relative; overflow:hidden; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:32px; text-align:center; }
 .empty-state h2 { margin:0; font-size:var(--fs-3xl); font-weight:700; }
@@ -1020,13 +1022,19 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .starter-card {
   display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding:14px 16px;
   border:1px solid var(--border-subtle); border-radius:var(--r-lg); background:var(--surface-panel); text-align:left;
+  transition:border-color var(--dur-tint) ease, background var(--dur-tint) ease, box-shadow var(--dur-tint) ease;
   /* Dealt, not drawn: the stagger is what makes four new cards read as a hand
      off a deck rather than the same four boxes changing their minds. --i is the
      card's place in the hand (Chat.svelte). */
   animation:starter-deal .26s ease-out backwards; animation-delay:calc(var(--i, 0) * 40ms);
 }
 @keyframes starter-deal { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
-.starter-card:hover { border-color:var(--border-strong); background:var(--surface-row-hover); }
+.starter-card:hover {
+  border-color:rgba(255,255,255,0.14);
+  background:var(--surface-row-hover);
+  box-shadow:0 4px 12px rgba(0,0,0,0.35);
+}
+.starter-card:active { background:var(--surface-row-hover); box-shadow:0 2px 6px rgba(0,0,0,0.25); transform:scale(0.99); }
 /* Ask for another four. Quiet by design — it sits under the cards and must not
    compete with them for the click. */
 .starter-more {
@@ -3682,7 +3690,7 @@ button.phase-head:hover { color:var(--text-muted); }
    left off this list goes full-bleed and reads as a system banner rather than
    as part of the conversation — which is how the background-work card and the
    suggestion chips both ended up touching the window edge. */
-.composer .box, .project-chips, .api-key-banner, .focus-row, .bgw, .task-chips { max-width:1040px; margin-left:auto; margin-right:auto; }
+.composer .box, .project-chips, .api-key-banner, .focus-row, .bgw, .task-chips { max-width:840px; margin-left:auto; margin-right:auto; }
 /* What the AI is focused on right now — project + branch, mirrored above the input. */
 .focus-row { display:flex; align-items:center; gap:6px; margin-bottom:7px; }
 /* The chips above the input wrap instead of running off the end. They are a
@@ -3697,14 +3705,26 @@ button.phase-head:hover { color:var(--text-muted); }
 .composer > .focus-row .focus-chip { min-width:0; max-width:100%; }
 .composer > .focus-row .focus-chip .t { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .focus-chip {
-  display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:var(--r-full);
-  border:1px solid var(--border-subtle); background:var(--surface-panel);
-  color:var(--text-secondary); font-size:var(--fs-xs); white-space:nowrap;
+  display:inline-flex; align-items:center; gap:6px; padding:4px 11px; border-radius:var(--r-full);
+  border:1px solid rgba(255, 255, 255, 0.12); background:var(--surface-panel);
+  color:var(--text-secondary); font-size:var(--fs-xs); font-weight:500; white-space:nowrap;
+  box-shadow:0 1px 3px rgba(0,0,0,.15);
+  cursor:pointer;
+  transition:background var(--dur-tint) ease, border-color var(--dur-tint) ease, color var(--dur-tint) ease, box-shadow var(--dur-tint) ease, transform var(--dur-tint) ease;
 }
 .focus-chip .ic { font-size:var(--fs-xs); opacity:.9; }
-/* A chip whose setting is missing rather than merely unusual. Used by the
-   automation engine picker with nothing chosen: the agent has no tools in that
-   state, so a quiet chip would be describing a broken room calmly. */
+.focus-chip:hover {
+  background:rgba(255, 255, 255, 0.1);
+  border-color:rgba(255, 255, 255, 0.28);
+  color:#ffffff;
+  box-shadow:0 0 12px rgba(255, 255, 255, 0.06);
+}
+.focus-chip:active, .focus-chip[aria-expanded="true"] {
+  background:rgba(255, 255, 255, 0.16);
+  border-color:rgba(255, 255, 255, 0.4);
+  color:#ffffff;
+  transform:scale(0.98);
+}
 .focus-chip.unset { color:var(--status-warn, var(--text-secondary)); border-color:currentColor; }
 /* Undo the last turn. Present only when that turn changed a file, so it is
    never a button that does nothing — and quiet rather than alarming, because
@@ -3903,9 +3923,33 @@ button.phase-head:hover { color:var(--text-muted); }
    sits at that inner edge — so the variable is the padding's own name again.
    Kept named rather than inlined: the row's comment states the alignment it
    depends on, and a bare 14px there and here is how the two drift apart. */
-.composer .box { --composer-pad-x:14px; position:relative; container-type:inline-size; container-name:composer; border:1px solid var(--border-default); border-radius:var(--r-xl); background:var(--surface-raised); padding:12px var(--composer-pad-x); display:flex; flex-direction:column; gap:10px; }
-.composer .box:focus-within { border-color:var(--border-input-focus); box-shadow:0 0 0 3px var(--overlay-focus); }
-.composer .box.drag-over { border-color:var(--interactive); box-shadow:0 0 0 3px var(--overlay-focus); }
+.composer .box {
+  --composer-pad-x:14px;
+  position:relative;
+  container-type:inline-size;
+  container-name:composer;
+  border:1px solid var(--border-default);
+  border-radius:var(--r-xl);
+  background:var(--surface-raised);
+  padding:12px var(--composer-pad-x);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  box-shadow:0 4px 20px -2px rgba(0,0,0,.3), 0 2px 6px -1px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.05);
+  transition:border-color var(--dur-tint) ease, box-shadow var(--dur-tint) ease;
+}
+.composer .box:hover:not(:focus-within) {
+  border-color:var(--border-strong);
+  box-shadow:0 6px 24px -2px rgba(0,0,0,.36), 0 2px 8px -1px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.07);
+}
+.composer .box:focus-within {
+  border-color:rgba(255, 255, 255, 0.26);
+  box-shadow:0 8px 30px -4px rgba(0,0,0,.42), 0 0 0 3px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.composer .box.drag-over {
+  border-color:rgba(255, 255, 255, 0.4);
+  box-shadow:0 8px 30px -4px rgba(0,0,0,.42), 0 0 0 3px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255,255,255,.1);
+}
 /* Grows with the prompt up to half the window — a pasted table or spec should
    be readable before sending, not squinted at through a 220px slot. */
 .composer .input { width:100%; resize:none; border:none; outline:none; background:none; color:var(--text-primary); font:inherit; font-size:var(--chat-font-size, 15.5px); line-height:1.5; max-height:50vh; overflow-y:auto; }
@@ -3995,22 +4039,22 @@ button.phase-head:hover { color:var(--text-muted); }
    the comment above makes, that the default mode does not demand attention. It
    only has to be legible. */
 .stance-chip {
-  --act-hue: #6366f1;
+  --act-hue: #ffffff;
   display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:var(--r-md);
   font-size:var(--fs-sm); font-weight:600; cursor:pointer; white-space:nowrap;
-  color: #818cf8;
-  border: 1px solid color-mix(in srgb, var(--act-hue) 40%, transparent);
-  background: color-mix(in srgb, var(--act-hue) 14%, transparent);
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  transition: background var(--dur-tint) ease, border-color var(--dur-tint) ease, color var(--dur-tint) ease;
 }
-.stance-chip > svg { color: #818cf8; }
-.stance-chip .caret { display:inline-flex; color: #818cf8; opacity: 0.7; }
+.stance-chip > svg { color: #ffffff; }
+.stance-chip .caret { display:inline-flex; color: #ffffff; opacity: 0.7; }
 .stance-chip:hover {
-  background: color-mix(in srgb, var(--act-hue) 22%, transparent);
-  border-color: color-mix(in srgb, var(--act-hue) 55%, transparent);
-  color: #a5b4fc;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
 }
-.stance-chip:hover > svg, .stance-chip:hover .caret { color: #a5b4fc; }
+.stance-chip:hover > svg, .stance-chip:hover .caret { color: #ffffff; opacity: 0.9; }
 
 .stance-chip.on {
   --stance-hue:var(--accent, #6ea8fe);
@@ -4388,7 +4432,7 @@ button.phase-head:hover { color:var(--text-muted); }
 .ctx-note.ctx-tools-note {
   margin:2px 0 2px 16px; padding-top:0; border-top:0; color:var(--text-dim);
 }
-.composer .send:hover { color:var(--accent); border-color:var(--interactive-hover-border); }
+.composer .send:hover { color:#ffffff; border-color:rgba(255,255,255,0.26); box-shadow:0 0 0 2px rgba(255,255,255,0.06); }
 .composer .send.stop { color:var(--danger, #e5534b); }
 .composer .send.stop:hover { border-color:var(--danger, #e5534b); }
 
@@ -5159,55 +5203,64 @@ button.phase-head:hover { color:var(--text-muted); }
    long for the column. */
 .brand { position:relative; overflow:visible; }
 .brand-btn {
-  display:flex; align-items:center; gap:9px; min-width:0; background:none; border:0;
-  padding:4px 8px; margin:-4px -8px; border-radius:var(--r-md); cursor:pointer; color:inherit;
+  display:inline-flex; align-items:center; gap:8px; min-width:0;
+  padding:6px 10px; margin-left:-4px; border-radius:var(--r-md);
+  background:none; border:0;
+  cursor:pointer; color:inherit;
+  transition:background var(--dur-tint) ease;
 }
-.brand-btn:hover { background:var(--surface-hover); }
+.brand-btn:hover, .brand-btn[aria-expanded="true"] {
+  background:var(--surface-hover);
+}
 .brand-door {
   font-size:var(--fs-xs); color:var(--text-secondary); font-weight:600;
   min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  transition:color var(--dur-tint) ease;
 }
-.brand-caret { display:flex; color:var(--text-dim); }
-/* Detached from the wordmark rather than tucked under it: the menu is a
-   different surface, and a panel touching the control that opened it reads as
-   part of the header instead of as a thing that opened. */
+.brand-btn:hover .brand-door, .brand-btn[aria-expanded="true"] .brand-door {
+  color:#ffffff;
+}
+.brand-caret {
+  display:flex; color:var(--text-dim);
+  transition:color var(--dur-tint) ease;
+}
+.brand-btn:hover .brand-caret, .brand-btn[aria-expanded="true"] .brand-caret {
+  color:var(--text-secondary);
+}
+
 .door-menu {
-  position:absolute; top:calc(100% + 10px); left:12px; z-index:60; min-width:330px;
-  display:flex; flex-direction:column; gap:3px; padding:8px;
-  /* Same box as every other popover: --surface-panel and --border-subtle. It
-     was --surface-raised with --border-default, a lighter card with a stronger
-     outline, which is why this menu read as belonging to a different app than
-     the six it sits beside. What stays different is deliberate and argued
-     below — the icon tiles, the two-line rows, the larger label — because this
-     menu names the two halves of the product and the others pick a tool. The
-     container was never part of that argument. */
-  background:var(--surface-panel); border:1px solid var(--border-subtle);
-  border-radius:var(--r-lg); box-shadow:var(--shadow-menu);
+  position:absolute; top:calc(100% + 10px); left:20px; z-index:60; min-width:320px;
+  display:flex; flex-direction:column; gap:3px; padding:6px;
+  background:var(--surface-panel);
+  border:1px solid var(--border-subtle);
+  border-radius:var(--r-xl);
+  box-shadow:var(--shadow-menu);
 }
 .door-item {
   display:flex; align-items:center; gap:12px; text-align:left; cursor:pointer;
-  background:none; border:0; border-radius:var(--r-md); padding:10px 12px; color:var(--text-primary);
+  background:none; border:0; border-radius:var(--r-lg);
+  padding:8px 10px; color:var(--text-primary);
+  transition:background var(--dur-tint) ease;
 }
-.door-item:hover { background:var(--surface-hover); }
-/* The icon in a tile rather than loose beside the text. Two entries with two
-   bare glyphs read as a list of links; the tile gives each door a face, which
-   is what this menu is choosing between. */
+.door-item:hover {
+  background:var(--surface-hover);
+}
+.door-item.on {
+  background:var(--surface-selected);
+  color:var(--text-selected);
+}
 .door-item .ic {
-  flex:none; width:32px; height:32px; display:grid; place-items:center;
-  border-radius:var(--r-md); background:var(--surface-hover); color:var(--text-secondary);
+  flex:none; width:34px; height:34px; display:grid; place-items:center;
+  border-radius:var(--r-md); background:var(--surface-hover); border:0;
+  color:var(--text-secondary);
 }
-.door-item.on .ic { background:var(--surface-selected); color:var(--interactive); }
-/* Name on one line, blurb on the next — never side by side. The blurb is what
-   tells a first-time user which door is theirs, and a line it shares with the
-   name is a line the eye reads as one long label. */
-.door-item .txt { display:flex; flex-direction:column; gap:3px; min-width:0; flex:1; }
-/* Sized to be read, not to be tidy: this menu names the two halves of the
-   product, and a label the eye has to lean in for makes the choice feel
-   incidental. */
-.door-item .t { font-size:var(--fs-lg); font-weight:600; line-height:1.25; }
-/* Secondary, not dim: this line is meant to be read on the way to a choice,
-   and --text-dim is the tone for things you are allowed to skip. */
-.door-item .d { font-size:var(--fs-xs); color:var(--text-secondary); line-height:1.5; white-space:nowrap; }
+.door-item.on .ic {
+  background:color-mix(in srgb, var(--interactive) 22%, transparent);
+  color:var(--interactive);
+}
+.door-item .txt { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+.door-item .t { font-size:var(--fs-md); font-weight:600; line-height:1.25; color:#ffffff; }
+.door-item .d { font-size:var(--fs-xs); color:var(--text-muted); line-height:1.45; white-space:nowrap; }
 .door-item .tick { display:flex; align-self:center; color:var(--interactive); }
 
 /* A sentence's own action — the hiring note's folder door. A .ctrl box mid-
@@ -7411,8 +7464,8 @@ button.phase-head:hover { color:var(--text-muted); }
   font-size:var(--fs-md); font-weight:700; width:26px; height:26px; border-radius:var(--r-sm);
   border:1px solid var(--border-strong); color:var(--text-secondary);
 }
-.composer .icobtn.slash:hover { border-color:var(--interactive); color:var(--text-primary); }
-.composer .icobtn.slash.active { border-color:var(--interactive); background:var(--surface-selected); color:var(--accent); }
+.composer .icobtn.slash:hover { border-color:rgba(255,255,255,0.26); color:var(--text-primary); box-shadow:0 0 0 2px rgba(255,255,255,0.06); }
+.composer .icobtn.slash.active { border-color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.1); color:#ffffff; }
 .composer .icobtn { font-size:var(--fs-xl); }
 
 
