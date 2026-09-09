@@ -960,6 +960,11 @@ func (a *App) LoadSession(id string) ([]SessionMessage, error) {
 	// reading it from anywhere else would make `conv.transcript` a second
 	// answer to what was said.
 	live := a.convs.find(id)
+	current := a.cur()
+	var outgoingID string
+	if current != nil && current.id != "" && current.id != id {
+		outgoingID = current.id
+	}
 	db, err := a.database()
 	if err != nil {
 		return nil, err
@@ -1108,6 +1113,9 @@ func (a *App) LoadSession(id string) ([]SessionMessage, error) {
 		conv.agent.RestoreHistory(transcriptToModelMessages(messages))
 	}
 	a.showConversation(conv)
+	if outgoingID != "" {
+		a.maybeReviewSession(outgoingID)
+	}
 	return messages, nil
 }
 

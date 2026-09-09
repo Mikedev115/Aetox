@@ -1974,9 +1974,9 @@ type PendingModel struct {
 // pay for" is the shorter path for most people than finding an API key.
 var desktopProviders = []string{
 	// Signed into, not keyed in (internal/oauth).
-	"codex", "openrouter",
+	"codex", "openrouter", "antigravity", "github-copilot",
 	// API key or a local server.
-	"anthropic", "ollama", "lmstudio", "deepseek", "gemini", "openai", "alibaba", "zai",
+	"anthropic", "ollama", "lmstudio", "deepseek", "gemini", "openai", "alibaba", "zai", "kilo",
 	// Same runtime as the row above (OpenAI-compatible, base URL, key), kept off
 	// only because nobody had typed them here. Each endpoint verified up to the
 	// auth wall against the live API (2026-08-14): base URL, path and body shape
@@ -2536,6 +2536,7 @@ func (a *App) TurnInFlight() TurnStatus {
 // happened. See subagent.Mention for the paste that made that distinction cost
 // somebody 78 seconds and their answer.
 func (a *App) SendMessage(text, to string) (TurnReply, error) {
+	a.cancelActiveReview()
 	// The conversation, captured once here and carried for the rest of the turn.
 	// Not the id and not "the chat on screen": by the time this turn ends the
 	// user may be looking at something else, and every row this writes, every
@@ -2595,6 +2596,7 @@ func (a *App) SendMessage(text, to string) (TurnReply, error) {
 	// Tab (prepared_reply.go). It gates itself on the answer actually offering a
 	// choice, so the ordinary turn pays nothing.
 	a.maybePrepareReply(conv, userMsg.Text, agentMsg.Text)
+	a.armSessionIdleReview(sessionID)
 	return replyOf(agentMsg), nil
 }
 
@@ -2699,6 +2701,13 @@ func (a *App) runTurn(conv *conversation, text, to string) (SessionMessage, Sess
 	}
 	sent, images := a.visionAttachments(text)
 	sent, documents := a.documentAttachments(sent)
+	if len(conv.transcript) == 0 {
+		if db, dbErr := a.database(); dbErr == nil {
+			if count, _ := checkFirstTurnRecurrence(db, conv.id, text); count >= 2 {
+				sent = fmt.Sprintf("%s\n\n[Context: You have been asked something similar in %d earlier sessions. If this is a recurring procedure, consider offering a skill or starter card; if it reveals a durable preference, propose it for USER.md.]", sent, count)
+			}
+		}
+	}
 	result, err := conv.chat.RunOnceStreamWithAttachments(ctx, sent, images, documents, func(chunk string) {
 		// The authoritative delivery: replaces whatever the live preview holds,
 		// so the answer lands exactly once no matter what streamed before it.

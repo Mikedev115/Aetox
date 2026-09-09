@@ -255,6 +255,10 @@ type ModelPreference struct {
 	// exactly what an absent-means-off default is for. The user turns it on in
 	// settings; either way a drafted fix only ever applies on their approval.
 	SkillTuneAuto bool `json:"skill_tune_auto,omitempty"`
+	// SessionReviewAuto lets the post-session review loop reflect on finished/idle
+	// sessions in the background and propose additions to USER.md (Hermes ethos).
+	// Positive, so absent means off: background model calls are opt-in.
+	SessionReviewAuto bool `json:"session_review_auto,omitempty"`
 	// PreparedReplyOff turns off the wording written into the composer after a
 	// turn that ended by asking the user something (desktop/prepared_reply.go).
 	// Negative, so absent means on — the opposite spelling from SkillTuneAuto
