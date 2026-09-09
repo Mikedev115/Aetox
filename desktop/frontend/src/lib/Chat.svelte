@@ -3735,15 +3735,19 @@
      height it needs — the cap is about a thing in motion, which is the same
      line .reasoning-body.live draws. -->
 {#snippet toolTimeline(steps: ToolStep[], live: boolean, windowed: boolean)}
-  <!-- toolGlide adds the block that travels to whichever row is live. On a
-       finished timeline read back from the store there is no live row, so it
-       measures once, finds nothing, and stays out of the way. -->
+  <!-- toolGlide adds the block that travels to whichever row is live, and
+       toolArrive deals a batch of new rows out one after another. Both are
+       handed `live` rather than left to discover there is nothing to do: a
+       finished timeline read back from the store has no live row and can gain
+       no new ones, and what they cost on one is not the measurement — it is the
+       observers behind it, one set per timeline, kept for as long as the chat
+       is open. That is the bill a long conversation was paying by the frame. -->
   <div
     class="tool-steps tool-box"
     class:live-window={windowed}
-    use:toolGlide
+    use:toolGlide={live}
     use:toolWindow={windowed}
-    use:toolArrive
+    use:toolArrive={live}
   >
     {#each steps as s}
       {@render toolRow(s, live)}

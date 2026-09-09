@@ -115,10 +115,31 @@ export function toolWindow(node: HTMLElement, opts: boolean | WindowOpts = true)
 
   // Rows arrive, rows change state, and a label can wrap when the pane is
   // resized — all three change what "the bottom" is.
-  const rows = new MutationObserver(schedule)
-  rows.observe(node, { childList: true, subtree: true, characterData: true })
-  const size = new ResizeObserver(schedule)
-  size.observe(node)
+  //
+  // Watched only while the window is ON, which is the difference between a
+  // handful of observers and one per timeline in the transcript. A finished
+  // turn read back from the store carries `on: false` — there is nothing to
+  // cap, so `paint` returns before it measures anything — and it used to carry
+  // these two anyway, for the whole life of the chat. A ResizeObserver is not
+  // free while it sits there: the browser checks every observed element in the
+  // frame's layout step, so a long conversation was paying for hundreds of
+  // measurements a frame to answer a question none of them was being asked.
+  let rows: MutationObserver | null = null
+  let size: ResizeObserver | null = null
+  const watch = () => {
+    if (rows) return
+    rows = new MutationObserver(schedule)
+    rows.observe(node, { childList: true, subtree: true, characterData: true })
+    size = new ResizeObserver(schedule)
+    size.observe(node)
+  }
+  const unwatch = () => {
+    rows?.disconnect()
+    size?.disconnect()
+    rows = null
+    size = null
+  }
+  if (on) watch()
   paint()
 
   return {
@@ -127,12 +148,15 @@ export function toolWindow(node: HTMLElement, opts: boolean | WindowOpts = true)
       on = read2.on
       follow = read2.follow
       if (!follow) pinned = false
+      // A list can be switched on after it mounted — a card reopened while its
+      // turn is still running — so this is a transition in both directions.
+      if (on) watch()
+      else unwatch()
       schedule()
     },
     destroy() {
       node.removeEventListener('scroll', onScroll)
-      rows.disconnect()
-      size.disconnect()
+      unwatch()
       if (frame) cancelAnimationFrame(frame)
       if (ride) cancelAnimationFrame(ride)
     },

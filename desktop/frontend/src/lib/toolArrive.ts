@@ -38,7 +38,11 @@ const STEP_MS = 55
  *  twenty must not be eleven hundred. */
 const CAP = 7
 
-export function toolArrive(node: HTMLElement) {
+/** `on` is whether rows can still land here. A finished timeline has nothing
+ *  left to deal out — the note above says as much — and watching one is a
+ *  watcher per timeline in the conversation for an event that cannot happen. */
+export function toolArrive(node: HTMLElement, on = true) {
+  let live = on
   const deal = (records: MutationRecord[]) => {
     let i = 0
     for (const record of records) {
@@ -53,11 +57,23 @@ export function toolArrive(node: HTMLElement) {
       }
     }
   }
-  const rows = new MutationObserver(deal)
-  rows.observe(node, { childList: true })
+  let rows: MutationObserver | null = null
+  const watch = () => {
+    if (rows) return
+    rows = new MutationObserver(deal)
+    rows.observe(node, { childList: true })
+  }
+  if (live) watch()
   return {
+    update(next = true) {
+      if (next === live) return
+      live = next
+      if (live) watch()
+      else { rows?.disconnect(); rows = null }
+    },
     destroy() {
-      rows.disconnect()
+      rows?.disconnect()
+      rows = null
     },
   }
 }

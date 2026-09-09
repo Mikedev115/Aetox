@@ -68,4 +68,31 @@ describe('the block that follows the live tool row', () => {
 
     expect(node.querySelector('.tool-glide')).toBeNull()
   })
+
+  // A timeline that cannot have a live row is handed `false` rather than left
+  // to discover that for itself. What it cost to let it discover it was not the
+  // measurement — it is the MutationObserver and the ResizeObserver behind it,
+  // one set per timeline, kept for as long as the conversation is open. A long
+  // chat is a few hundred of them watching for an event that cannot happen.
+  it('adds nothing at all to a timeline that is over', () => {
+    const node = timeline(['done', 'done'])
+    toolGlide(node, false)
+
+    expect(node.querySelector('.tool-glide')).toBeNull()
+    expect(node.classList.contains('glide-on')).toBe(false)
+  })
+
+  // The one direction that has to keep working: a card reopened while its turn
+  // is still running mounts finished and is switched on a frame later.
+  it('takes the bar up when a timeline it had written off starts running', () => {
+    const node = timeline(['run'])
+    const glide = toolGlide(node, false)
+    expect(node.querySelector('.tool-glide')).toBeNull()
+
+    glide.update(true)
+
+    expect(node.querySelector('.tool-glide')).not.toBeNull()
+    expect(node.classList.contains('glide-on')).toBe(true)
+  })
+
 })

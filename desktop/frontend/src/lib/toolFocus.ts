@@ -80,18 +80,31 @@ export function toolFocus(node: HTMLElement, on = true) {
   // childList alone left the band sitting on a group that had already come
   // back. Filtered to `class` so this cannot see its own writes: what it writes
   // is data-depth, and a filter that let that through would be a loop.
-  const rows = new MutationObserver(schedule)
-  rows.observe(node, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })
+  //
+  // Only while the list is live, for the reason toolWindow watches only while
+  // its window is on: a finished list has no band to move, `paint` writes the
+  // empty depth once on the way out, and an observer left on it is a watcher
+  // for every finished turn in the conversation.
+  let rows: MutationObserver | null = null
+  const watch = () => {
+    if (rows) return
+    rows = new MutationObserver(schedule)
+    rows.observe(node, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })
+  }
+  if (live) watch()
   paint()
 
   return {
     update(next = true) {
       if (next === live) return
       live = next
+      if (live) watch()
+      else { rows?.disconnect(); rows = null }
       schedule()
     },
     destroy() {
-      rows.disconnect()
+      rows?.disconnect()
+      rows = null
       if (frame) cancelAnimationFrame(frame)
     },
   }

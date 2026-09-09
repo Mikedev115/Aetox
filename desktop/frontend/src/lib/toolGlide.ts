@@ -24,14 +24,20 @@
  * fallback is what draws a sub-agent's steps inside its card, which this action
  * never touches.
  */
-export function toolGlide(node: HTMLElement) {
+/** `on` is whether this timeline can still have a live row in it. A finished
+ *  turn read back from the store cannot — the comment above says the bar
+ *  "measures once, finds nothing, and stays out of the way", and that was true
+ *  of the bar and not of the two observers behind it, which stayed on every
+ *  timeline in the conversation for as long as the conversation was open. */
+export function toolGlide(node: HTMLElement, on = true) {
+  let live = on
   const bar = document.createElement('div')
   bar.className = 'tool-glide'
   // Appended, not prepended: `.tool-step:not(:first-child)` draws the rail
   // between rows, and a foreign FIRST child would make the first real row think
   // it had something above it. Absolutely positioned, so last in the DOM costs
   // nothing visually.
-  node.append(bar)
+  if (live) node.append(bar)
 
   let frame = 0
   // Whether the bar is on screen right now. It is the difference between a
@@ -88,20 +94,48 @@ export function toolGlide(node: HTMLElement) {
 
   // Attributes filtered to `class` on purpose: `place` writes bar.style, and a
   // watcher that also fired on style changes would answer its own writes.
-  const rows = new MutationObserver(schedule)
-  rows.observe(node, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })
-  const size = new ResizeObserver(schedule)
-  size.observe(node)
-  // The first measurement is synchronous, unlike every one after it: a timeline
-  // can mount with a call already running (reopening a chat mid-turn), and a
-  // frame of the per-row block before the bar takes over is a visible flinch on
-  // exactly the row the user came back to look at.
-  place()
+  let rows: MutationObserver | null = null
+  let size: ResizeObserver | null = null
+  const watch = () => {
+    if (rows) return
+    rows = new MutationObserver(schedule)
+    rows.observe(node, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })
+    size = new ResizeObserver(schedule)
+    size.observe(node)
+  }
+  const unwatch = () => {
+    rows?.disconnect()
+    size?.disconnect()
+    rows = null
+    size = null
+  }
+  if (live) {
+    watch()
+    // The first measurement is synchronous, unlike every one after it: a
+    // timeline can mount with a call already running (reopening a chat
+    // mid-turn), and a frame of the per-row block before the bar takes over is
+    // a visible flinch on exactly the row the user came back to look at.
+    place()
+  }
 
   return {
+    update(next = true) {
+      if (next === live) return
+      live = next
+      if (live) {
+        node.append(bar)
+        watch()
+        place()
+        return
+      }
+      unwatch()
+      if (frame) { cancelAnimationFrame(frame); frame = 0 }
+      node.classList.remove('glide-on')
+      shown = false
+      bar.remove()
+    },
     destroy() {
-      rows.disconnect()
-      size.disconnect()
+      unwatch()
       if (frame) cancelAnimationFrame(frame)
       bar.remove()
     },
