@@ -45,6 +45,7 @@ aetox_memory.db
 config/preferences.json
 
 # Temporary / Output Files
+/output/
 summary.txt
 logs/
 *.log
