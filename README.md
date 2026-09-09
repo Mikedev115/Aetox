@@ -528,9 +528,9 @@ date-stamped, because the rule above does not have an exception for numbers we w
 
 </details>
 
-## Status — v1.5.22
+## Status — v1.5.23
 
-The core is in place. [Release notes](docs/release-notes/v1.5.22.md) ·
+The core is in place. [Release notes](docs/release-notes/v1.5.23.md) ·
 [roadmap](ROADMAP.md) · [architecture](ARCHITECTURE.md).
 
 Three things it does today that are worth knowing about:
