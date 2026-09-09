@@ -318,3 +318,32 @@ func TestASingleNumberedLineIsNotAChecklist(t *testing.T) {
 		t.Errorf("a single line became a checklist: %+v", plan.Steps)
 	}
 }
+
+// The two headings desktop relies on to find the finish condition (for มุ่งเป้า)
+// and the steps (when recovering a checklist from prose) must exist in
+// mode.PlanHeadings(). If someone rewords them in internal/mode/stance.go without
+// updating the matching logic, both would fail across the package boundary.
+func TestPlanHeadingsReachable(t *testing.T) {
+	if finishHeading == "" {
+		t.Fatal("finishHeading is empty: 'How you will know it worked' not matched in mode.PlanHeadings()")
+	}
+	if stepsHeading == "" {
+		t.Fatal("stepsHeading is empty: 'What to change' not matched in mode.PlanHeadings()")
+	}
+	var hasFinish, hasSteps bool
+	for _, h := range mode.PlanHeadings() {
+		if h == finishHeading {
+			hasFinish = true
+		}
+		if h == stepsHeading {
+			hasSteps = true
+		}
+	}
+	if !hasFinish {
+		t.Fatalf("finishHeading %q is not in mode.PlanHeadings()", finishHeading)
+	}
+	if !hasSteps {
+		t.Fatalf("stepsHeading %q is not in mode.PlanHeadings()", stepsHeading)
+	}
+}
+

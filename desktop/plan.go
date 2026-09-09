@@ -92,7 +92,7 @@ func planFinishHeading() string {
 			return h
 		}
 	}
-	return ""
+	panic("desktop: plan finish heading ('know it worked') not found in mode.PlanHeadings()")
 }
 
 // PlanStep is one numbered step of the plan, with somewhere to record that it
@@ -667,7 +667,7 @@ func planStepsHeading() string {
 			return h
 		}
 	}
-	return ""
+	panic("desktop: plan steps heading ('to change') not found in mode.PlanHeadings()")
 }
 
 // parsePlanSteps numbers the checklist as it arrives.
