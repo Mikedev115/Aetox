@@ -64,6 +64,14 @@ var methods = map[string]Method{
 		Provider: "codex", Label: "ChatGPT", Kind: "browser", Risk: RiskOpen,
 		Note: "Signs in through the Codex CLI's OAuth client and runs on your ChatGPT plan — the same quota Codex spends. Needs port 1455 free.",
 	},
+	"antigravity": {
+		Provider: "antigravity", Label: "Google Antigravity", Kind: "browser", Risk: RiskRestricted,
+		Note: "Signs in through Google OAuth to access Antigravity model quotas. Uses a third-party harness; use a secondary Google account as third-party harnesses carry policy risks.",
+	},
+	"github-copilot": {
+		Provider: "github-copilot", Label: "GitHub Copilot", Kind: "device", Risk: RiskRestricted,
+		Note: "Signs in through GitHub Device Flow to access Copilot subscription models. Uses an editor client ID; use with awareness of GitHub terms.",
+	},
 }
 
 // refreshers maps a provider to how its access token is renewed. Credentials
@@ -72,7 +80,9 @@ var methods = map[string]Method{
 // hands back an expiring token registers here, or Token() strands the user on a
 // dead credential.
 var refreshers = map[string]func(context.Context, Credential) (Credential, error){
-	"codex": refreshCodex,
+	"codex":          refreshCodex,
+	"antigravity":    refreshAntigravity,
+	"github-copilot": refreshCopilot,
 }
 
 // Methods lists every sign-in Aetox offers, in a stable order.
@@ -209,6 +219,8 @@ func Headers(provider string) map[string]string {
 			headers["chatgpt-account-id"] = cred.Account
 		}
 		return headers
+	case "github-copilot":
+		return CopilotHeaders()
 	default:
 		return nil
 	}
@@ -222,6 +234,10 @@ func Start(ctx context.Context, provider string) (*Pending, error) {
 		return StartOpenRouter()
 	case "codex":
 		return StartCodex()
+	case "antigravity":
+		return StartAntigravity()
+	case "github-copilot":
+		return StartCopilot(ctx)
 	default:
 		return nil, fmt.Errorf("%s has no sign-in — add an API key instead", pvdr.Normalize(provider))
 	}
@@ -239,6 +255,10 @@ func Finish(ctx context.Context, pending *Pending, pasted string) error {
 		return FinishOpenRouter(ctx, pending)
 	case "codex":
 		return FinishCodex(ctx, pending)
+	case "antigravity":
+		return FinishAntigravity(ctx, pending)
+	case "github-copilot":
+		return FinishCopilot(ctx, pending)
 	default:
 		return fmt.Errorf("unknown sign-in: %q", pending.provider)
 	}

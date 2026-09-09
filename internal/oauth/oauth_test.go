@@ -230,7 +230,7 @@ func TestRemovedProviderCredentialsAreDropped(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "oauth.json"), []byte(raw), 0o600); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	for _, provider := range []string{"anthropic", "github-copilot", "qwen", "code-assist"} {
+	for _, provider := range []string{"anthropic", "qwen", "code-assist"} {
 		if _, ok := Get(provider); ok {
 			t.Fatalf("removed provider %q still reads as signed in", provider)
 		}
@@ -238,13 +238,13 @@ func TestRemovedProviderCredentialsAreDropped(t *testing.T) {
 			t.Fatalf("removed provider %q still yields a token source", provider)
 		}
 	}
-	for _, provider := range []string{"openrouter", "codex"} {
+	for _, provider := range []string{"openrouter", "codex", "github-copilot"} {
 		if _, ok := Get(provider); !ok {
 			t.Fatalf("surviving provider %q was dropped along with the removed ones", provider)
 		}
 	}
-	if got := LoggedIn(); len(got) != 2 {
-		t.Fatalf("LoggedIn = %v; want openrouter and codex", got)
+	if got := LoggedIn(); len(got) != 3 {
+		t.Fatalf("LoggedIn = %v; want openrouter, codex, and github-copilot", got)
 	}
 }
 

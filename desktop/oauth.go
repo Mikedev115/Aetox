@@ -150,6 +150,15 @@ func (a *App) ImportableSignIns() []string {
 	if oauth.CodexCLIAvailable() {
 		out = append(out, "codex")
 	}
+	if oauth.AntigravityCLIAvailable() {
+		out = append(out, "antigravity")
+	}
+	if oauth.CopilotCLIAvailable() {
+		out = append(out, "github-copilot")
+	}
+	if oauth.KiloCLIAvailable() {
+		out = append(out, "kilo")
+	}
 	return out
 }
 
@@ -162,6 +171,12 @@ func (a *App) ImportSignIn(providerName string) (ModelInfo, error) {
 	switch canonical {
 	case "codex":
 		err = oauth.ImportCodexCLI()
+	case "antigravity":
+		err = oauth.ImportAntigravityCLI(context.Background())
+	case "github-copilot":
+		err = oauth.ImportCopilotCLI(context.Background())
+	case "kilo":
+		err = oauth.ImportKiloCLI(context.Background())
 	default:
 		return ModelInfo{}, fmt.Errorf("%s has no session to import", canonical)
 	}

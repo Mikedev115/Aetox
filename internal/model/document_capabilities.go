@@ -45,6 +45,7 @@ var documentRuntimes = map[provider.Runtime]bool{
 	provider.RuntimeResponses:        true,
 	provider.RuntimeAnthropic:        true,
 	provider.RuntimeOpenAICompatible: true,
+	provider.RuntimeAntigravity:      true,
 }
 
 // documentMediaTypes is what Aetox will hand over. PDF alone: it is the format

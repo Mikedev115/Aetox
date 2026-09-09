@@ -343,6 +343,18 @@ func discoverModelChoices(p, baseURL, apiKey string) ([]string, error) {
 			baseURL = oauth.Endpoint(canonical)
 		}
 		return DiscoverResponsesModels(ctx, canonical, baseURL, oauth.Headers(canonical), apiKey)
+	case provider.RuntimeAntigravity:
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if apiKey == "" {
+			if token, tokenErr := oauth.Token(ctx, canonical); tokenErr == nil {
+				apiKey = token
+			}
+		}
+		if baseURL == "" {
+			baseURL = oauth.Endpoint(canonical)
+		}
+		return DiscoverAntigravityModels(ctx, canonical, baseURL, apiKey)
 	case provider.RuntimeAnthropic:
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -631,6 +643,9 @@ func DiscoverOpenAICompatibleModels(p, baseURL, apiKey string) ([]string, error)
 	}
 	if apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	for k, v := range oauth.Headers(p) {
+		req.Header.Set(k, v)
 	}
 	resp, err := (&http.Client{Timeout: 3 * time.Second}).Do(req)
 	if err != nil {

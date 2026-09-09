@@ -107,6 +107,7 @@ func TestEveryRuntimeStatesTheSilenceTheSameWay(t *testing.T) {
 		{"chat completions", "opencode-go", "stop"},
 		{"ollama", "ollama", "stop"},
 		{"responses", "codex", ""},
+		{"antigravity", "antigravity", "STOP"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := errEmptyCompletion(tc.provider, tc.finishReason, "", "", 0)

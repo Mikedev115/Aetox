@@ -115,10 +115,9 @@ var storeMu sync.Mutex
 // written since still holds a usable codex credential, and it is read again
 // rather than dropped.
 var removedProviders = map[string]bool{
-	"anthropic":      true,
-	"github-copilot": true,
-	"qwen":           true,
-	"code-assist":    true,
+	"anthropic":   true,
+	"qwen":        true,
+	"code-assist": true,
 }
 
 func load() map[string]Credential {

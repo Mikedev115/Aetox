@@ -32,6 +32,10 @@ const (
 	// what a ChatGPT subscription speaks and the only thing that endpoint
 	// serves.
 	RuntimeResponses Runtime = "responses"
+	// RuntimeAntigravity is Google's Cloud Code / Antigravity wire format:
+	// nested `request` envelope, Gemini content parts, functionCall, and
+	// project routing.
+	RuntimeAntigravity Runtime = "antigravity"
 )
 
 // ModelDefaults holds the static fallback model names for a provider.
@@ -326,6 +330,69 @@ var catalog = map[string]*entry{
 		// name below is only what to try before anyone has signed in.
 		modelDefaults: ModelDefaults{FallbackModel: "gpt-5.5"},
 		capabilities:  Capabilities{ToolCalling: true, Reasoning: true},
+	},
+	// Google Antigravity is a subscription/developer preview tier reached
+	// through Google OAuth. Serves Gemini 3, 3.8 Flash, and Claude models.
+	"antigravity": {
+		canonical:      "antigravity",
+		balanceKind:    BalanceSubscription,
+		quotaSource:    QuotaNone,
+		signInOnly:     true,
+		aliases:        []string{"antigravity", "agy", "google-antigravity"},
+		requiresAPIKey: true,
+		runtime:        RuntimeAntigravity,
+		baseURL:        "https://daily-cloudcode-pa.googleapis.com/v1internal",
+		envKeys:        nil,
+		// DiscoverAntigravityModels dynamically queries daily-cloudcode-pa.googleapis.com
+		// (:fetchAvailableModels) per account; FallbackModel is only used before dynamic discovery.
+		modelDefaults: ModelDefaults{FallbackModel: "gemini-3.8-flash-high"},
+		capabilities:  Capabilities{ToolCalling: true, Reasoning: true},
+	},
+	// github-copilot is reached with a token minted from a GitHub sign-in
+	// (internal/oauth), never a pasted key — RequiresAPIKey stays true so the
+	// UI still treats it as "needs credentials", and the factory accepts a
+	// sign-in as satisfying that.
+	"github-copilot": {
+		canonical:      "github-copilot",
+		aliases:        []string{"github-copilot", "copilot", "githubcopilot", "gh-copilot"},
+		balanceKind:    BalanceSubscription,
+		quotaSource:    QuotaNone,
+		signInOnly:     true,
+		requiresAPIKey: true,
+		runtime:        RuntimeOpenAICompatible,
+		baseURL:        "https://api.githubcopilot.com",
+		envKeys:        []string{"GITHUB_COPILOT_TOKEN"},
+		modelDefaults: ModelDefaults{
+			FallbackModel: "gpt-4o",
+			RecommendedModels: []string{
+				"gpt-4o",
+				"claude-3.5-sonnet",
+				"o3-mini",
+			},
+		},
+		capabilities: Capabilities{ToolCalling: true, Reasoning: true},
+	},
+	// Kilo Code (Kilo AI Gateway) provides access to 500+ models across frontier
+	// and open-weight providers via an OpenAI-compatible endpoint.
+	"kilo": {
+		canonical:      "kilo",
+		aliases:        []string{"kilo", "kilocode", "kilo-code", "kilo-gateway"},
+		balanceKind:    BalanceSubscription,
+		quotaSource:    QuotaNone,
+		requiresAPIKey: true,
+		runtime:        RuntimeOpenAICompatible,
+		baseURL:        "https://api.kilo.ai/api/gateway",
+		envKeys:        []string{"KILO_API_KEY"},
+		apiKeyURL:      "https://app.kilo.ai",
+		modelDefaults: ModelDefaults{
+			FallbackModel: "anthropic/claude-sonnet-4.5",
+			RecommendedModels: []string{
+				"anthropic/claude-sonnet-4.5",
+				"openai/gpt-5.5",
+				"deepseek/deepseek-r1",
+			},
+		},
+		capabilities: Capabilities{ToolCalling: true, Reasoning: true},
 	},
 	// Alibaba Cloud Model Studio (DashScope), named for the company rather than
 	// the model family since 2026-08-24. It was `qwen` for a year, and the row

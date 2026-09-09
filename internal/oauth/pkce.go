@@ -28,9 +28,10 @@ type Pending struct {
 	UserCode        string `json:"user_code,omitempty"`
 	VerificationURI string `json:"verification_uri,omitempty"`
 
-	interval  int
-	expiresIn int
-	provider  string
+	deviceCode string
+	interval   int
+	expiresIn  int
+	provider   string
 	// lb is the local listener waiting for a redirect, for the flows that get
 	// to choose their own redirect URI. Nil for device-code and paste flows.
 	lb *Loopback

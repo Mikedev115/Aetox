@@ -147,11 +147,13 @@ func ResolveThinkingCapabilities(provider, modelName string) ThinkingCapabilitie
 	switch canonicalProvider {
 	case "openai":
 		return cloneThinkingCapabilities(resolveOpenAIThinkingCapabilities(modelID))
-	case "gemini":
+	case "gemini", "antigravity":
 		return cloneThinkingCapabilities(resolveGeminiThinkingCapabilities(modelID))
 	case "openrouter", "anthropic", "deepseek", "kimi", "minimax", "xai",
-		"groq", "opencode", "opencode-go":
+		"groq", "opencode", "opencode-go", "kilo":
 		return resolveFromCatalog(canonicalProvider, modelID, thinkingProfiles[canonicalProvider])
+	case "github-copilot":
+		return cloneThinkingCapabilities(resolveOpenAIThinkingCapabilities(modelID))
 	case "codex":
 		return cloneThinkingCapabilities(responsesThinkingCapabilities)
 	default:

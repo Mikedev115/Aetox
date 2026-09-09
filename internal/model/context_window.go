@@ -53,7 +53,7 @@ func ContextWindowTokens(provider, modelName string) int {
 		return ContextWindowTokens("openai", modelID)
 	case "anthropic":
 		return 200_000
-	case "gemini":
+	case "gemini", "antigravity":
 		return geminiContextWindow(modelID)
 	case "zai":
 		return zaiContextWindow(modelID)
@@ -65,8 +65,13 @@ func ContextWindowTokens(provider, modelName string) int {
 		return thaiLLMContextWindow(modelID)
 	case "kimi":
 		return kimiContextWindow(modelID)
-	case "openrouter":
-		// OpenRouter ids are "vendor/model" — resolve by the underlying vendor.
+	case "github-copilot":
+		if strings.HasPrefix(modelID, "claude") {
+			return 200_000
+		}
+		return ContextWindowTokens("openai", modelID)
+	case "openrouter", "kilo":
+		// OpenRouter and Kilo Gateway ids are "vendor/model" — resolve by the underlying vendor.
 		if vendor, name, ok := strings.Cut(modelID, "/"); ok {
 			return ContextWindowTokens(vendor, name)
 		}
