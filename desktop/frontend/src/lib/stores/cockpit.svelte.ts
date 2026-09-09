@@ -2509,6 +2509,31 @@ async function refreshPlan(id: string): Promise<void> {
   }
 }
 
+/** Read back which stance the chat being opened is run in.
+ *
+ * The twin of refreshPlan above, and dropped for the same reason §234 files
+ * `stance` under re-read: the engine holds it per conversation and the sessions
+ * row persists it, so the window can always ask rather than carry a copy across
+ * a switch.
+ *
+ * Asked of the engine rather than of the id, because Stance() answers for
+ * whatever conversation the engine has open — the same call refreshDesk makes.
+ * The id is here only to throw the answer away when it arrives after the user
+ * has moved on, exactly as refreshPlan throws a late plan away: two quick
+ * switches otherwise land the first chat's dial on the second, which is the
+ * leak this call exists to close. */
+async function refreshStance(id: string): Promise<void> {
+  try {
+    const stance = await Stance()
+    if (id !== cockpit.openSession) return
+    cockpit.stance = stance
+  } catch {
+    // ลงมือ, the stance that withholds nothing — the same honest default
+    // refreshDesk falls back to when the engine cannot be asked.
+    cockpit.stance = ''
+  }
+}
+
 /** Wording waiting for chats that are not on screen, by session id.
  *
  * Its own map rather than a field on `cockpit.parked`: that set holds chats
@@ -3733,6 +3758,21 @@ function arriveAt(id: string): boolean {
   // being opened.
   cockpit.plan = null
   void refreshPlan(id)
+  // The stance is the chat's too, and §234 has always filed it under "dropped,
+  // then asked for again" — but the asking lived only in refreshDesk, which is
+  // the tail of every door EXCEPT afterNewSession. So opening a new chat out of
+  // a วางแผน one left the dial reading วางแผน over an engine that had started at
+  // ลงมือ (startNewSession, desktop/sessions.go, which resets everything but the
+  // desk and the chair), and the first message went to a model still holding
+  // `write`, `change` and `shell` while the chip promised it did not — the
+  // worst shape this bug class has taken, because the lie is about a permission
+  // rather than about a label.
+  //
+  // Dropped HERE rather than in afterNewSession, which is where the missing
+  // tail is: a second tail is a second thing to forget, and forgetting the tail
+  // is the bug. Every door passes through this function.
+  cockpit.stance = ''
+  void refreshStance(id)
   // The wording Tab types belongs to the chat whose question it answers, and
   // until 2026-09-08 it rode across every switch: leave a chat that had just
   // been offered one, arrive at another, press Tab, and the composer typed an

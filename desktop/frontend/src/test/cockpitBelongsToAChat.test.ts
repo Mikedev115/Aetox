@@ -70,8 +70,10 @@ const decided: Record<string, Kind> = {
   // ---- dropped, then asked for again ----
   // Every one of these has an engine-side reader, which is what makes dropping
   // safe: sessionSpend/refreshSessionSpend, undoFiles/refreshUndo,
-  // taskChips/refreshTaskChips, desk & chair & space & stance re-read at the
-  // tail of every door.
+  // taskChips/refreshTaskChips, desk & chair & space re-read at the tail of
+  // every door — and `stance`, which used to rely on that tail and so was
+  // wrong at the one door without it (afterNewSession), dropped inside arriveAt
+  // itself now, beside `plan`.
   sessionSpend: 'dropped', undoFiles: 'dropped', taskChips: 'dropped',
   sessionError: 'dropped', desk: 'dropped', chair: 'dropped', space: 'dropped',
   stance: 'dropped', model: 'dropped', restorePoints: 'dropped',
