@@ -126,3 +126,84 @@ func TestDispatcherKeepsAWholePackIdentical(t *testing.T) {
 		t.Error("shell's schema changed under a filter that allows every action")
 	}
 }
+
+func TestDispatcherRoutesStandaloneActionToPack(t *testing.T) {
+	dir := t.TempDir()
+	registry := NewDefaultRegistry(RegistryOptions{SandboxRoot: dir})
+	d := NewDispatcher(registry)
+
+	// 1. Calling "write" directly routes to "change" (action="write")
+	out, handled, err := d.ExecuteTool(context.Background(), "write", map[string]any{
+		"path":    "hello.txt",
+		"content": "hello world",
+	})
+	if !handled {
+		t.Fatal("expected write to be handled via change pack, got unhandled")
+	}
+	if err != nil {
+		t.Fatalf("unexpected error calling write: %v", err)
+	}
+	if !out.Success {
+		t.Fatalf("expected write to succeed, got output: %+v", out)
+	}
+
+	// 2. Calling "edit" directly routes to "change" (action="edit")
+	out, handled, err = d.ExecuteTool(context.Background(), "edit", map[string]any{
+		"path":    "hello.txt",
+		"find":    "world",
+		"replace": "Aetox",
+	})
+	if !handled {
+		t.Fatal("expected edit to be handled via change pack, got unhandled")
+	}
+	if err != nil {
+		t.Fatalf("unexpected error calling edit: %v", err)
+	}
+	if !out.Success {
+		t.Fatalf("expected edit to succeed, got output: %+v", out)
+	}
+
+	// 3. Calling "grep" directly routes to "search" (action="grep")
+	out, handled, err = d.ExecuteTool(context.Background(), "grep", map[string]any{
+		"pattern": "Aetox",
+	})
+	if !handled {
+		t.Fatal("expected grep to be handled via search pack, got unhandled")
+	}
+	if err != nil {
+		t.Fatalf("unexpected error calling grep: %v", err)
+	}
+	if !out.Success {
+		t.Fatalf("expected grep to succeed, got output: %+v", out)
+	}
+
+	// 4. Calling "list" directly routes to "search" (action="list")
+	out, handled, err = d.ExecuteTool(context.Background(), "list", map[string]any{})
+	if !handled {
+		t.Fatal("expected list to be handled via search pack, got unhandled")
+	}
+	if err != nil {
+		t.Fatalf("unexpected error calling list: %v", err)
+	}
+	if !out.Success {
+		t.Fatalf("expected list to succeed, got output: %+v", out)
+	}
+}
+
+func TestDispatcherRefusesStandaloneActionDeniedByFilter(t *testing.T) {
+	dir := t.TempDir()
+	registry := NewDefaultRegistry(RegistryOptions{SandboxRoot: dir})
+	// Deny write on change pack (e.g. planning stance)
+	d := NewDispatcher(registry).WithActions(func(tool, action string) bool {
+		return !(tool == "change" && action == "write")
+	})
+
+	_, handled, _ := d.ExecuteTool(context.Background(), "write", map[string]any{
+		"path":    "blocked.txt",
+		"content": "cannot write",
+	})
+	if handled {
+		t.Fatal("expected write to be refused when action is denied by filter")
+	}
+}
+

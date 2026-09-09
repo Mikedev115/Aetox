@@ -235,6 +235,35 @@ func (d *Dispatcher) ExecuteTool(ctx context.Context, name string, args map[stri
 	}
 	skill, ok := d.registry.Get(skillName)
 	if !ok || skill == nil || !d.carries(skillName) {
+		// A standalone call may name an action of a packed tool this desk carries
+		// (e.g. the model called "write" directly instead of "change" with action="write",
+		// or "grep" instead of "search" with action="grep").
+		// If the pack is registered, carried, and permits this action, route to it.
+		if packName, action, perm, packed := PackForAction(skillName); packed {
+			if packSkill, packOK := d.registry.Get(packName); packOK && packSkill != nil && d.carries(packName) {
+				if d.narrowActions == nil || d.narrowActions(packName, perm) {
+					cutSkill, cutOK := d.cut(packName, packSkill)
+					if cutOK {
+						if tool, isTool := cutSkill.(Tool); isTool {
+							callArgs := make(map[string]any, len(args)+1)
+							for k, v := range args {
+								callArgs[k] = v
+							}
+							if _, hasAction := callArgs["action"]; !hasAction {
+								callArgs["action"] = action
+							}
+							result, err := tool.ExecuteTool(ctx, callArgs)
+							result = d.teach(guidanceKey(packName, callArgs), skillName, cutSkill, callArgs, result)
+							if err != nil {
+								return result, true, err
+							}
+							return result, true, nil
+						}
+					}
+				}
+			}
+		}
+
 		// A tool this desk does not carry was never in the block the model was
 		// sent, so a call for it is a hallucinated name and answers like one.
 		return Output{}, false, nil

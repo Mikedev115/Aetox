@@ -536,3 +536,50 @@ func PackedCalls(tool string) []PackedCall {
 	}
 	return out
 }
+
+// packResolutionOrder ensures deterministic resolution of standalone action names,
+// checking core file, search, and codebase packs before specialized packs.
+var packResolutionOrder = []string{
+	"change", "search", "codebase", "media_read", "shell",
+	"task", "plan", "desk", "computer", "browser",
+	"github", "pr", "n8n", "windmill", "video",
+}
+
+// PackForAction resolves a standalone action or permission name back to its
+// packed tool, canonical action, and permission name.
+// E.g. "write" -> ("change", "write", "write", true)
+//      "edits" -> ("change", "batch", "edits", true)
+//      "grep"  -> ("search", "grep", "grep", true)
+//      "list"  -> ("search", "list", "list", true)
+func PackForAction(name string) (packTool string, action string, permission string, ok bool) {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		return "", "", "", false
+	}
+	// Pass 1: exact permission name match (e.g. "write", "edits", "list", "grep", "diagnostics")
+	for _, toolName := range packResolutionOrder {
+		p := packs[toolName]
+		if p == nil {
+			continue
+		}
+		for _, a := range p.actions {
+			if p.names[a] == name {
+				return toolName, a, p.names[a], true
+			}
+		}
+	}
+	// Pass 2: action name match (e.g. "batch", "errors", "map")
+	for _, toolName := range packResolutionOrder {
+		p := packs[toolName]
+		if p == nil {
+			continue
+		}
+		for _, a := range p.actions {
+			if a == name {
+				return toolName, a, p.names[a], true
+			}
+		}
+	}
+	return "", "", "", false
+}
+
