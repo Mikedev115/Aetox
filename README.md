@@ -62,8 +62,12 @@ both; the language switch is in Settings and in the first-run wizard. This READM
   a fifth: Git.
 - **It builds slide decks** — one self-contained `.html` file that is yours, editable by hand, and
   openable on any machine with a browser. Exports as `.pdf`, `.png` or `.jpg`.
-- **The browser control layer is ours** — the window is WebView2; the layer that drives it we wrote.
-  A model that cannot see images clicks the right control, with no guessing at coordinates.
+- **The browser control layer is ours** — the window is WebView2; the layer that drives it we
+  designed and built for Aetox specifically. The model does not need to see the screen — our system
+  labels every interactive element on the page and hands the model a plain-text list. The model
+  processes text as always, then clicks by element reference, not by guessing pixel coordinates.
+  A text-only model with no vision drives the browser as accurately as one that can see it.
+  The capability is in the system, not in the model.
 - **It builds websites and systems, not just code in a chat box** — a file tree, a Monaco editor,
   unlimited real PTY terminal tabs, `git`, `grep` and `glob` over the whole tree, and language
   servers the app installs itself.
@@ -524,9 +528,9 @@ date-stamped, because the rule above does not have an exception for numbers we w
 
 </details>
 
-## Status — v1.5.21
+## Status — v1.5.22
 
-The core is in place. [Release notes](docs/release-notes/v1.5.21.md) ·
+The core is in place. [Release notes](docs/release-notes/v1.5.22.md) ·
 [roadmap](ROADMAP.md) · [architecture](ARCHITECTURE.md).
 
 Three things it does today that are worth knowing about:
