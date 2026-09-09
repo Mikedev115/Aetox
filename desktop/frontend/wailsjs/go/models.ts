@@ -1557,6 +1557,26 @@ export namespace main {
 	        this.time = source["time"];
 	    }
 	}
+	export class RecurringRequest {
+	    text: string;
+	    normalized: string;
+	    count: number;
+	    sessionIds: string[];
+	    lastAskedAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RecurringRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.text = source["text"];
+	        this.normalized = source["normalized"];
+	        this.count = source["count"];
+	        this.sessionIds = source["sessionIds"];
+	        this.lastAskedAt = source["lastAskedAt"];
+	    }
+	}
 	export class SessionVariant {
 	    text: string;
 	    reasoning?: string;

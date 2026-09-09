@@ -570,6 +570,10 @@ export function ListReceivedJobs(arg1) {
   return window['go']['main']['App']['ListReceivedJobs'](arg1);
 }
 
+export function ListRecurringRequests() {
+  return window['go']['main']['App']['ListRecurringRequests']();
+}
+
 export function ListSessions() {
   return window['go']['main']['App']['ListSessions']();
 }
@@ -974,6 +978,10 @@ export function RunChatScript(arg1, arg2) {
   return window['go']['main']['App']['RunChatScript'](arg1, arg2);
 }
 
+export function RunSessionReview(arg1) {
+  return window['go']['main']['App']['RunSessionReview'](arg1);
+}
+
 export function RunSkillTuneup() {
   return window['go']['main']['App']['RunSkillTuneup']();
 }
@@ -1066,6 +1074,10 @@ export function SessionPlan(arg1) {
   return window['go']['main']['App']['SessionPlan'](arg1);
 }
 
+export function SessionReviewAuto() {
+  return window['go']['main']['App']['SessionReviewAuto']();
+}
+
 export function SessionSourceCount(arg1) {
   return window['go']['main']['App']['SessionSourceCount'](arg1);
 }
@@ -1148,6 +1160,10 @@ export function SetProviderEnabled(arg1, arg2) {
 
 export function SetProviderWireFormat(arg1) {
   return window['go']['main']['App']['SetProviderWireFormat'](arg1);
+}
+
+export function SetSessionReviewAuto(arg1) {
+  return window['go']['main']['App']['SetSessionReviewAuto'](arg1);
 }
 
 export function SetShell(arg1) {

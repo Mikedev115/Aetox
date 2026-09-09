@@ -58,6 +58,7 @@
     SetConnectionStartCommand, StartConnectionServer, CheckConnectionServer,
     AppVersion, AppCredit, RecentDebugLog,
     LearningEnabled, SetLearningEnabled, SkillTuneAuto, SetSkillTuneAuto, RunSkillTuneup, ListSkillProposals, ListPendingChanges, ListDecidedChanges,
+    SessionReviewAuto, SetSessionReviewAuto, RunSessionReview, ListRecurringRequests,
     PreparedReplyOn, SetPreparedReplyOn,
     ComputerControlOn, SetComputerControlOn, GrantedComputerApps, RevokeComputerApp,
     OpenComputerApps, AllowComputerApp, ProgramIcon, BrowseForComputerApp,
@@ -2942,6 +2943,10 @@
   // agent changes itself" — and the second one is what nobody should have to
   // take on trust.
   let learningOn = $state(true)
+  let sessionReviewAutoOn = $state(false)
+  let sessionReviewBusy = $state(false)
+  let sessionReviewMsg = $state('')
+  let recurringRequests = $state<{ text: string; count: number; normalized: string }[]>([])
   let skillTuneAutoOn = $state(false)
   let skillTuneBusy = $state(false)
   let skillTuneMsg = $state('')
@@ -3091,6 +3096,8 @@
     try {
       learningError = ''
       learningOn = await LearningEnabled()
+      sessionReviewAutoOn = await SessionReviewAuto()
+      recurringRequests = (await ListRecurringRequests()) ?? []
       pendingChanges = await ListPendingChanges()
       decidedChanges = await ListDecidedChanges(20)
       const scopes = await LearnedScopeInfos()
@@ -3184,6 +3191,33 @@
       await loadLearning()
     } catch (err) {
       learningError = String(err)
+    }
+  }
+
+  async function toggleSessionReviewAuto() {
+    try {
+      await SetSessionReviewAuto(!sessionReviewAutoOn)
+      await loadLearning()
+    } catch (err) {
+      learningError = String(err)
+    }
+  }
+
+  async function runSessionReviewNow() {
+    sessionReviewBusy = true
+    sessionReviewMsg = ''
+    try {
+      const n = await RunSessionReview('')
+      if (n > 0) {
+        sessionReviewMsg = t('settings.sessionReviewRanFound', { count: String(n) })
+      } else {
+        sessionReviewMsg = t('settings.sessionReviewNoFacts')
+      }
+      await loadLearning()
+    } catch (err) {
+      learningError = String(err)
+    } finally {
+      sessionReviewBusy = false
     }
   }
 
@@ -5808,6 +5842,45 @@
             <span></span>
           </label>
         </div>
+      </div>
+
+      <div class="settings-card">
+        <div class="set-row">
+          <div class="set-txt">
+            <div class="t">{t('settings.sessionReviewTitle')}</div>
+            <div class="d">{t('settings.sessionReviewHint')}</div>
+          </div>
+          <label class="mswitch">
+            <input type="checkbox" checked={sessionReviewAutoOn} onchange={toggleSessionReviewAuto} />
+            <span></span>
+          </label>
+        </div>
+        <div class="set-row">
+          <div class="set-txt">
+            {#if sessionReviewMsg}<div class="d" style="color:var(--accent)">{sessionReviewMsg}</div>{/if}
+          </div>
+          <button type="button" class="ctrl" disabled={sessionReviewBusy} onclick={runSessionReviewNow}>
+            {sessionReviewBusy ? t('settings.sessionReviewRunning') : t('settings.sessionReviewNow')}
+          </button>
+        </div>
+      </div>
+
+      <h3 class="set-h3">{t('settings.habitsTitle')}</h3>
+      <p class="muted set-sub">{t('settings.habitsDesc')}</p>
+      <div class="settings-card">
+        {#each recurringRequests as req}
+          <div class="learn-row">
+            <div class="learn-main">
+              <div class="learn-body">{req.text}</div>
+            </div>
+            <div class="learn-actions">
+              <span class="learn-scope">{t('settings.habitsCount', { count: String(req.count) })}</span>
+            </div>
+          </div>
+        {/each}
+        {#if recurringRequests.length === 0}
+          <div class="empty">{t('settings.habitsEmpty')}</div>
+        {/if}
       </div>
 
       <h3 class="set-h3">{t('settings.learningPending')}</h3>

@@ -299,6 +299,8 @@ export function ListPromptPresets():Promise<Array<command.Preset>>;
 
 export function ListReceivedJobs(arg1:number):Promise<Array<main.ReceivedJob>>;
 
+export function ListRecurringRequests():Promise<Array<main.RecurringRequest>>;
+
 export function ListSessions():Promise<Array<main.SessionMeta>>;
 
 export function ListSessionsAt(arg1:string):Promise<Array<main.SessionMeta>>;
@@ -501,6 +503,8 @@ export function RunChatCommand(arg1:string):Promise<main.RunBlockResult>;
 
 export function RunChatScript(arg1:string,arg2:string):Promise<main.RunBlockResult>;
 
+export function RunSessionReview(arg1:string):Promise<number>;
+
 export function RunSkillTuneup():Promise<number>;
 
 export function RunnableLanguages():Promise<Record<string, string>>;
@@ -547,6 +551,8 @@ export function SessionMode(arg1:string):Promise<string>;
 
 export function SessionPlan(arg1:string):Promise<main.Plan>;
 
+export function SessionReviewAuto():Promise<boolean>;
+
 export function SessionSourceCount(arg1:string):Promise<number>;
 
 export function SessionSources(arg1:string):Promise<Array<main.Source>>;
@@ -588,6 +594,8 @@ export function SetProviderBaseURL(arg1:string,arg2:string):Promise<main.ModelIn
 export function SetProviderEnabled(arg1:string,arg2:boolean):Promise<Array<string>>;
 
 export function SetProviderWireFormat(arg1:string):Promise<main.ModelInfo>;
+
+export function SetSessionReviewAuto(arg1:boolean):Promise<void>;
 
 export function SetShell(arg1:string):Promise<void>;
 
