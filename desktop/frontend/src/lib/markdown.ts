@@ -9,7 +9,7 @@ import hljs from 'highlight.js/lib/common'
 // style.css maps .hljs-* onto the --syn-* properties applySyntaxTheme() writes,
 // so a fenced block is coloured by whatever theme is on.
 import { fileURL } from './fileUrl'
-import { t } from './i18n.svelte'
+import { i18n, t } from './i18n.svelte'
 import { ICONS } from './icons'
 
 marked.setOptions({ breaks: true, gfm: true })
@@ -31,7 +31,57 @@ let runnable: Record<string, string> = {}
 
 export function setRunnableLanguages(langs: Record<string, string>): void {
   runnable = langs
+  // The Run button is part of a rendered block, so answers drawn before the
+  // engine answered are drawn without one. Thrown away rather than patched:
+  // this happens once, at boot, with a handful of entries in the store.
+  highlighted.clear()
+  drawn.clear()
 }
+
+// ---------- what has already been drawn ----------
+//
+// Rendering an answer is the most expensive thing this file does — marked, then
+// highlight.js per fenced block, then DOMPurify, then a dozen passes over the
+// resulting fragment — and the window asks for it far more often than an answer
+// changes.
+//
+// A finished bubble is re-rendered whenever its message re-renders, and a live
+// turn re-renders the whole slice on EVERY painted frame (streamPace.ts): a
+// 7.5KB answer measured 12ms a render, which is most of a 60fps frame, and a
+// turn's own text got slower to draw the longer it grew. Both are the same
+// waste — the same string turned into the same markup — and both are answered
+// here rather than at either call site.
+//
+// Keyed by the locale as well as the text because the markup carries WORDS: a
+// code block's คัดลอก button is t('chat.copyCode'), so the same answer renders
+// differently in another language. Everything else the render depends on is
+// either pure (fileURL) or cleared above (runnable).
+//
+// A cap and not a clear: eviction is oldest-first, which for a transcript means
+// the top of a long scroll rather than the part anyone is looking at.
+const CACHE_MAX = 300
+
+function remember<V>(cache: Map<string, V>, key: string, make: () => V): V {
+  const seen = cache.get(key)
+  if (seen !== undefined) {
+    // Re-insert so the most-used entries are the last to be evicted.
+    cache.delete(key)
+    cache.set(key, seen)
+    return seen
+  }
+  const made = make()
+  cache.set(key, made)
+  if (cache.size > CACHE_MAX) {
+    const oldest = cache.keys().next().value
+    if (oldest !== undefined) cache.delete(oldest)
+  }
+  return made
+}
+
+/** Highlighted source, keyed by language and text. */
+const highlighted = new Map<string, string>()
+/** Whole rendered answers, keyed by locale and text. */
+const drawn = new Map<string, string>()
 
 // Fenced code blocks render like a normal AI chat: a header bar with the
 // language label and a copy button, plus syntax highlighting. Shell-tagged
@@ -45,9 +95,14 @@ const renderer = {
     // `planCard` layer is what asks the model for this fence; see renderPlan.
     if (language.toLowerCase() === 'plan' && !insidePlan) return renderPlan(text)
     const known = language !== '' && hljs.getLanguage(language) !== undefined
-    const highlighted = known
-      ? hljs.highlight(text, { language }).value
-      : hljs.highlightAuto(text).value
+    // Cached because a streaming answer re-renders every block it has on every
+    // frame, and every block but the last one is the same source it was a
+    // frame ago. highlightAuto is the expensive end of this — it scores the
+    // text against every grammar it has — and it is the branch an untagged
+    // fence takes, which is the commonest fence a model writes.
+    const lit = remember(highlighted, `${known ? language : ''} ${text}`, () =>
+      known ? hljs.highlight(text, { language }).value : hljs.highlightAuto(text).value,
+    )
     const label = known ? language : 'code'
     const tag = language.toLowerCase()
     const kindOf = runnable[tag]
@@ -64,7 +119,7 @@ const renderer = {
       `<div class="codeblock-head"><span class="lang">${label}</span>` +
       run +
       `<button class="code-copy" type="button">${t('chat.copyCode')}</button></div>` +
-      `<pre><code class="hljs">${highlighted}</code></pre>` +
+      `<pre><code class="hljs">${lit}</code></pre>` +
       `</div>`
     )
   },
@@ -548,6 +603,10 @@ function liftDrawings(text: string): { text: string; held: string[] } {
 // `drawing` layer is what asks for them). Nothing here has to allow it — the
 // point of the note is that nothing may quietly forbid it either.
 export function renderMarkdown(text: string): string {
+  return remember(drawn, `${i18n.locale} ${text}`, () => draw(text))
+}
+
+function draw(text: string): string {
   // Cleared per answer, not per app: a citation numbered 1 in one reply has
   // nothing to do with the 1 in the reply above it.
   footnoteAt = new Map()
@@ -1385,16 +1444,21 @@ function fingerprint(text: string): string {
 // half-drawn plan looking finished should know this was tried, and where it
 // went (style.css, the beam block).
 export function renderStreamingMarkdown(text: string): string {
+  // `draw` and not `renderMarkdown`: every slice on the way to an answer is
+  // rendered exactly once — the pacer skips a frame that released nothing
+  // (streamPace.ts) — so remembering them buys nothing and would evict the
+  // finished answers above, which are the ones asked for again. The fenced
+  // blocks inside them are cached either way, and they are the expensive part.
   const open = text.lastIndexOf('<svg')
-  if (open === -1 || text.slice(open).includes('</svg>')) return renderMarkdown(healTail(text))
+  if (open === -1 || text.slice(open).includes('</svg>')) return draw(healTail(text))
 
   const openTagEnd = text.indexOf('>', open)
   // The drawing has not started drawing yet.
-  if (openTagEnd === -1) return renderMarkdown(healTail(text.slice(0, open)))
+  if (openTagEnd === -1) return draw(healTail(text.slice(0, open)))
 
   const lastElement = text.lastIndexOf('<')
   const whole = text.indexOf('>', lastElement) === -1 ? text.slice(0, lastElement) : text
-  return renderMarkdown(whole + '</svg>')
+  return draw(whole + '</svg>')
 }
 
 // Close what the model has not finished writing yet, so a word does not have to
