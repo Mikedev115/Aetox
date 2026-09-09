@@ -93,6 +93,23 @@ type Options struct {
 	// something with nothing to make it with.
 	Stance mode.Stance
 
+	// OnStance is called when the ASSISTANT narrows the stance mid-turn with
+	// the `plan_mode` tool (mode.NewPlanModeTool) — never when the host sets one,
+	// so
+	// a re-bootstrap does not call back into the host that just asked for it.
+	//
+	// A host wires this when something outside the engine holds a second copy of
+	// the fact: the desktop's picker draws it and the sessions row stores it,
+	// and both would go on showing ลงมือ while the dispatcher had quietly
+	// stopped handing over `write`. Nil is the honest answer for a host with no
+	// second copy — the CLI — and the switch still takes effect there.
+	//
+	// The engine is NOT rebuilt for it, which is the whole difference from the
+	// user's own press. See mode.Dial: the filters read the dial at request
+	// time, so the narrowing binds the rest of the turn without replacing the
+	// agent under a turn that is running.
+	OnStance func(mode.Stance)
+
 	// Chair mounts the engine as one of the office's agents instead of the main
 	// assistant — the direct chat §85 added. Mode must be the office desk; the
 	// chair's tools are its profile intersected with that ceiling
@@ -523,7 +540,11 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 	// runs its filter inside ToolDefinitions, not once at construction — so a
 	// server that connects mid-session still appears, and a stance set on this
 	// bootstrap governs every turn it serves.
-	stanceOf := opts.Stance
+	// A dial rather than a copy of the value, because the assistant can now
+	// narrow it mid-turn (mode.NewPlanModeTool) and both filters below have to see
+	// that immediately: a tool withheld half way through a turn must be refused
+	// for the rest of it, on the same dispatcher, with no engine rebuilt.
+	stanceOf := mode.NewDial(opts.Stance, opts.OnStance)
 	deskCarries := func(name string, source skill.Source) bool {
 		return opts.Mode.Carries(name, source) && stanceOf.Carries(name, source)
 	}
@@ -679,6 +700,16 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 	for _, tool := range subagent.NewTaskTools(taskOpts) {
 		if err := registry.Register(tool, skill.SourceBuiltin); err != nil {
 			debuglog.Msg("%s registration skipped: %v", tool.Name(), err)
+		}
+	}
+	// The assistant's own way into วางแผน, over the same dial the two filters
+	// above read. Registered unconditionally and filtered like everything else,
+	// which is what puts it on exactly one desk without a line saying so:
+	// วางแผน's allow-list does not name it and คู่คิด carries nothing, so the one
+	// stance with somewhere to go is the only one holding it.
+	if planMode := mode.NewPlanModeTool(stanceOf); planMode != nil {
+		if err := registry.Register(planMode, skill.SourceBuiltin); err != nil {
+			debuglog.Msg("plan_mode registration skipped: %v", err)
 		}
 	}
 	// The chair's cut, taken here rather than beside its MCP connect above so

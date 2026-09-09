@@ -4155,6 +4155,29 @@ export async function refreshDesk(): Promise<void> {
   }
 }
 
+/** The dial moved without anybody pressing it: the assistant put its own turn
+ *  into วางแผน (internal/mode/plan_mode.go), and the chip has to say so.
+ *
+ *  **The chip is the whole notification.** The switch is deliberately not
+ *  announced, asked about, or interrupted for — the owner's call (9 ก.ย.):
+ *  *"สลับแล้วขึ้นบนปุ่ม"*. What the model wrote about WHY sits on its tool row in
+ *  the timeline, where every other thing it did this turn sits; the composer's
+ *  job is only to stop lying about which mode is in force. StartPlanRun learned
+ *  that one the hard way (goal_run.go) — the run worked and the screen showed
+ *  วางแผน over an engine that had crossed into ลงมือ.
+ *
+ *  Stamped with its session and dropped when it belongs to another chat, the
+ *  same rule applyPlanUpdate is held to (§187, §234): a turn running in the
+ *  background must not move the dial in front of somebody reading a different
+ *  conversation. Nothing needs parking for that case — the engine and the
+ *  sessions row both already hold the new value, so arriveAt reads it back the
+ *  moment that chat is opened. */
+export function applyStanceUpdate(ev: SessionEvent<string>): void {
+  if (!ev || typeof ev !== 'object') return
+  if (ev.sessionId && cockpit.openSession && ev.sessionId !== cockpit.openSession) return
+  cockpit.stance = ev.data ?? ''
+}
+
 /** Turn the dial: how the open session runs from the next turn on (§106).
  *
  * The only session coordinate with a setter. The engine re-bootstraps in place

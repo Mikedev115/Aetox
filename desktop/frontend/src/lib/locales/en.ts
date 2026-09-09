@@ -308,6 +308,16 @@ export const en: Record<keyof typeof th, string> = {
   'chat.planEditCancel': 'Cancel',
   'chat.planEditHint': 'Headings as **Heading**, steps as 1. 2. 3.',
   'chat.planJump': 'Show the plan',
+  'chat.planHead.whatIsThereNow': 'What is there now',
+  'chat.planHead.whatToChange': 'What to change',
+  'chat.planHead.whatCouldGoWrong': 'What could go wrong',
+  'chat.planHead.howYouWillKnowItWorked': 'How you will know it worked',
+  'chat.planHead.whatYouAreUnsureOf': 'What you are unsure of',
+  'chat.planReadyBadge': 'Ready',
+  'chat.planDoneBadge': 'Completed',
+  'chat.planStepCount': '{n} steps',
+  'chat.planOpenInWorkbench': 'Open in panel',
+  'chat.planEmptyHint': 'No plan in this session yet. Start by asking in Plan mode.',
 
 
   'chat.copyDrawing': 'Copy',

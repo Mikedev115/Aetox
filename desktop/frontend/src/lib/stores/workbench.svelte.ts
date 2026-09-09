@@ -10,7 +10,7 @@ import {
 import type { main, ooxml } from '../../../wailsjs/go/models'
 import { t } from '../i18n.svelte'
 
-export type WorkbenchTabKind = 'terminal' | 'browser' | 'files' | 'file' | 'decks' | 'git' | 'repomap' | 'pr' | 'cutroom'
+export type WorkbenchTabKind = 'terminal' | 'browser' | 'files' | 'file' | 'decks' | 'git' | 'repomap' | 'pr' | 'cutroom' | 'plan'
 
 export type WorkbenchTab = {
   id: string
@@ -262,6 +262,17 @@ export function openRepoMapTab(): void {
     workbench.tabs.push({ id: 'repomap', kind: 'repomap', name: t('workbench.repoMapTab') })
   }
   workbench.activeId = 'repomap'
+}
+
+/** Singleton tab: plan viewer & checklist in Workbench. */
+export function openPlanTab(): void {
+  if (!workbench.tabs.some((t) => t.kind === 'plan')) {
+    workbench.tabs.push({ id: 'plan', kind: 'plan', name: t('chat.planCard') })
+  }
+  workbench.activeId = 'plan'
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('reveal-inspector'))
+  }
 }
 
 /** Singleton tab: ห้องตัด — this session's cut as a ledger with a player.

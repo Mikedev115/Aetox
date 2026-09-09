@@ -15,11 +15,12 @@
   import GitPane from './GitPane.svelte'
   import PRPane from './PRPane.svelte'
   import RepoMapPane from './RepoMapPane.svelte'
+  import PlanPane from './PlanPane.svelte'
   import { fileURL } from '../fileUrl'
   import { cockpit } from '../stores/cockpit.svelte'
   import {
     workbench, activateTab, closeTab, removeTab,
-    openFilesTab, openBrowserTab, openTerminalTab, openDecksTab, openGitTab, openPRTab, openRepoMapTab, openCuttingRoomTab, openFileTab, routeDeskEvent, detachTab,
+    openFilesTab, openBrowserTab, openTerminalTab, openDecksTab, openGitTab, openPRTab, openRepoMapTab, openCuttingRoomTab, openFileTab, openPlanTab, routeDeskEvent, detachTab,
     reportDeskTabs,
     openUrlInWorkbench, saveWorkbenchSnapshot, resolveAddressBarInput, labelForUrl,
     deviceList, loadDevices,
@@ -36,7 +37,7 @@
   import { sidle } from '../fold'
   import type { IconName } from '../icons'
 
-  const tabIcon: Record<string, IconName> = { terminal: 'keyboard', browser: 'globe', files: 'copy', file: 'fileText', decks: 'layoutList', cutroom: 'scissors' }
+  const tabIcon: Record<string, IconName> = { terminal: 'keyboard', browser: 'globe', files: 'copy', file: 'fileText', decks: 'layoutList', cutroom: 'scissors', plan: 'compass' }
 
   // Chrome DevTools' default device presets. CSS viewport sizes — BrowserPane
   // turns one into a real window of that aspect + a matching page zoom.
@@ -468,6 +469,9 @@
   <button class="plus-menu-item" onclick={() => pick(openBrowserTab)}><span class="ic"><Icon name="globe" size={14} /></span> {t('workbench.browserMenu')} <span class="kbd">{shortcutLabel('browserTab')}</span></button>
   <button class="plus-menu-item" onclick={() => pick(openFilesTab)}><span class="ic"><Icon name="copy" size={14} /></span> {t('workbench.filesTab')} <span class="kbd">{shortcutLabel('filesTab')}</span></button>
   <button class="plus-menu-item" onclick={() => pick(openDecksTab)}><span class="ic"><Icon name="layoutList" size={14} /></span> {t('workbench.decksTab')}</button>
+  {#if cockpit.plan}
+    <button class="plus-menu-item" onclick={() => pick(openPlanTab)}><span class="ic"><Icon name="compass" size={14} /></span> {t('chat.planCard')}</button>
+  {/if}
   {#if cockpit.desk === 'coding'}
     <div class="plus-menu-head">{t('workbench.codeGroup')}</div>
     <button class="plus-menu-item" onclick={() => pick(openGitTab)}><span class="ic"><Icon name="gitBranch" size={14} /></span> {t('workbench.gitTab')}</button>
@@ -652,6 +656,8 @@
       <div class="insp-slot" class:term-host={tab.kind === 'terminal'} style="display:{workbench.activeId === tab.id ? 'block' : 'none'}">
         {#if tab.kind === 'terminal'}
           <Terminal sessionId={tab.id} onExit={() => removeTab(tab.id)} />
+        {:else if tab.kind === 'plan'}
+          <PlanPane />
         {:else if tab.kind === 'files'}
           <FilesPane />
         {:else if tab.kind === 'decks'}

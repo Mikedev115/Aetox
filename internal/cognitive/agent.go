@@ -35,10 +35,22 @@ const (
 	// for zero is a 400 of its own.
 	minToolLoopMaxTokens = 512
 
-	// Doom-loop guard thresholds, same as OpenCode's (warn at 3 identical
-	// consecutive calls, hard-stop at 5).
-	doomLoopWarn = 3
-	doomLoopStop = 5
+	// Doom-loop guard thresholds. OpenCode's are 3 and 5; these are those
+	// doubled, on the owner's instruction (9 ก.ย.) after a delegate ended
+	// mid-job and the first question asked was what ceilings could have cut it.
+	//
+	// **The direction of the trade is worth stating, because it is not free.**
+	// This is the one guard here that stops work which is still RUNNING rather
+	// than retrying work that failed, so raising it buys a long job the room to
+	// poll the same tool ten times — a render, a build, a page that is not ready
+	// yet — and costs a genuinely stuck model five more rounds before anything
+	// notices. Five rounds of a loop is cheap; a video job abandoned at minute
+	// seven is not, and it is the one the owner has actually been paying for.
+	//
+	// Ctx cancel is still the brake that always works, and the warn line still
+	// fires at half the stop so a loop is visible in the log long before it ends.
+	doomLoopWarn = 6
+	doomLoopStop = 10
 
 	// Compaction (OpenCode/Claude Code-style): when usage crosses the
 	// threshold fraction of the char budget, older turns are summarized by
@@ -65,7 +77,14 @@ const (
 	// problem is a single oversized message rather than an accumulated history.
 	// Summarizing cannot fix that one, and spinning on it turns a clear failure
 	// into a slow one.
-	maxOverflowCompactions = 2
+	//
+	// **Doubled to four on the owner's instruction (9 ก.ย.).** The argument
+	// above is still the argument and is left standing: two more attempts do
+	// not fix a single oversized message, so what this buys is the accumulated
+	// case that needed three or four passes — a long delegate run at 57k of
+	// context, which is exactly the run that was ending early. What it costs is
+	// two extra model calls on the way to a failure that was already certain.
+	maxOverflowCompactions = 4
 
 	// maxDroppedConnectionRetries caps how many times one round may be asked
 	// again after the connection died under it.
@@ -75,7 +94,15 @@ const (
 	// the headers, this covers one that dies after them, and a user who has
 	// lost three connections in a row has a network problem that a fourth
 	// attempt will not out-wait.
-	maxDroppedConnectionRetries = 2
+	//
+	// **Doubled to four on the owner's instruction (9 ก.ย.), and this is the one
+	// where the original reasoning was measuring the wrong thing.** It asked
+	// what a USER should out-wait. What actually dies here is a job — a delegate
+	// seven minutes into a render — and the cost of giving up on that is not one
+	// more attempt, it is every round already paid for. Four is still short
+	// enough that a network which is genuinely down ends the turn rather than
+	// hanging it, and the transport's own budget stacks underneath.
+	maxDroppedConnectionRetries = 4
 
 	// maxEmptyCompletionReplays caps how many times one round may be sent again
 	// after the provider answered with nothing at all (model.ErrEmptyCompletion).
@@ -87,7 +114,13 @@ const (
 	// nothing. What comes after the two is a DIFFERENT request (the nudge),
 	// because repeating a question that has been answered the same way three
 	// times is not a strategy.
-	maxEmptyCompletionReplays = 2
+	//
+	// **Doubled to four on the owner's instruction (9 ก.ย.),** and the sentence
+	// above stays true — the nudge is still what comes after, and it is still
+	// the thing that actually changes the ask. What the extra two buy is the
+	// gateway that is flapping rather than refusing, which is what a long run
+	// through a hosted model meets and what a short chat almost never does.
+	maxEmptyCompletionReplays = 4
 )
 
 // Small local models (Ollama-scale) sometimes reply with nothing at all,
@@ -117,7 +150,12 @@ const interjectionNote = "[system] The user sent this WHILE you were working on 
 // maxDSMLNudges caps corrective retries when the model leaks tool-call markup
 // as text (see model.ContainsLeakedDSML). Each retry is one extra round-trip,
 // so keep it small; past the cap we stop rather than surface raw markup.
-const maxDSMLNudges = 2
+//
+// **Doubled to four on the owner's instruction (9 ก.ย.).** "Past the cap we
+// stop" is the whole reason it moved: the models that leak this are the small
+// and fast ones, glm-flash among them, and stopping there ends a job that was
+// otherwise going fine over a formatting mistake the nudge usually fixes.
+const maxDSMLNudges = 4
 
 // maxAnswerContinuations caps how many times one answer may be picked up again
 // after the model ran out of output tokens mid-sentence.
@@ -128,7 +166,14 @@ const maxDSMLNudges = 2
 // job, not a loop, and the model has to stop on its own eventually because each
 // piece starts nearer the end. The cap is here only so a model that answers
 // every continuation with a fresh essay cannot run forever.
-const maxAnswerContinuations = 3
+//
+// **Doubled to six on the owner's instruction (9 ก.ย.),** and of everything
+// raised that day this is the one whose own comment already asked for it: it
+// caps something that is WORKING. Three pieces is a long report; six is a long
+// report from an agent that also has to say what it did. The sentence about the
+// model stopping on its own is what makes the higher number safe — each piece
+// starts nearer the end, so this only ever binds the pathological case.
+const maxAnswerContinuations = 6
 
 // The instruction that joins the pieces. Every clause in it is load-bearing:
 // left to itself a model asked to continue will re-introduce the topic, or

@@ -20,7 +20,7 @@
     cockpit, sendUserMessage, loadRealState, openFile,
     switchProvider, switchThinkLevel,
     switchModel, cancelPendingModel, applyModelRowChanged, submitAPIKey, setActiveView, restoreActiveView, closeFile, applyAgentStatus, applyToolEvent,
-    applyAgentChunk, applyReasoningChunk, applyModelLoading, applyPlanUpdate, attachImageFromPath, attachFileFromPath, fileKind,
+    applyAgentChunk, applyReasoningChunk, applyModelLoading, applyPlanUpdate, applyStanceUpdate, attachImageFromPath, attachFileFromPath, fileKind,
     applyAskUser, applyAskDone, applyDriving, applyTodos, applyMissedInterjections, applyTaskChips, applyUsageRound,
     applyPreparedReplies,
     applyPendingLearned, refreshPendingLearned, refreshPendingIssues, applyAgentDone, isOverlayView, closeOverlay,
@@ -190,6 +190,12 @@
     // typed (desktop/plan.go): the tool holds the document, the window
     // draws it, and an amend costs the section that changed.
     const offPlan = EventsOn('plan:update', applyPlanUpdate)
+    // The mode chip, when the assistant narrowed its own turn into วางแผน
+    // rather than the user pressing for it (desktop/stance.go). The only path
+    // by which the dial moves with no click of theirs immediately before it,
+    // which is why it needs an event at all — the same reason `model:switched`
+    // has one.
+    const offStance = EventsOn('stance:update', applyStanceUpdate)
     const offAgentChunk = EventsOn('agent:chunk', applyAgentChunk)
     // The ending for a turn this window has no promise for — a webview reload
     // killed the SendMessage promise, the engine kept working, and this event
@@ -308,13 +314,22 @@
         }
       }
     }, false)
+
+    const onRevealInspector = () => {
+      inspectorCollapsed = false
+      localStorage.setItem('inspectorCollapsed', 'false')
+    }
+    window.addEventListener('reveal-inspector', onRevealInspector)
+
     return () => {
+      window.removeEventListener('reveal-inspector', onRevealInspector)
       OnFileDropOff()
       offAgentStatus()
       offAgentTool()
       offBusyTool()
       offBrowserWaiting()
       offPlan()
+      offStance()
       offAgentChunk()
       offAgentDone()
       offBusyDone()

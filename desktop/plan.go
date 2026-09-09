@@ -191,8 +191,8 @@ func (s *planSkill) ToolDefinition() model.ToolDefinition {
 	// shape written down in a second place — the debt §106.11 exists to avoid.
 	var b strings.Builder
 	b.WriteString("This conversation's plan, kept as one document rather than retyped. Actions:\n")
-	b.WriteString("`write` (title, sections, steps) — the plan, first time. Replaces any plan already here.\n")
-	b.WriteString("`amend` (sections, note?) — change only the sections you name. Everything else stands, so do not re-send it.\n")
+	b.WriteString("`write` (title, sections, steps) — initial plan only. Replaces any plan already here.\n")
+	b.WriteString("`amend` (sections, note?, steps?) — update an existing plan. Change only the sections/steps you name. Everything else stands, so do not re-send it.\n")
 	b.WriteString("`read` — the plan as it stands now.\n")
 	b.WriteString("`step` (n, state: doing|done|failed, note?) — mark one step as you carry it out.\n")
 	b.WriteString("Headings, in this order: " + strings.Join(headings, " / ") + "\n")
@@ -212,7 +212,7 @@ func (s *planSkill) ToolDefinition() model.ToolDefinition {
 			"action": map[string]any{"type": "string", "enum": []string{"write", "amend", "read", "step"}},
 			"steps": map[string]any{
 				"type":        "array",
-				"description": "write only: the plan's checklist, in order. One thing to carry out per entry.",
+				"description": "the plan's checklist, in order. One thing to carry out per entry.",
 				"items":       map[string]any{"type": "string"},
 			},
 			"n":        map[string]any{"type": "integer", "description": "step only: which step, as numbered by read."},

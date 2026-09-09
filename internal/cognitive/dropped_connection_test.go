@@ -78,7 +78,7 @@ func TestADroppedConnectionMidAnswerIsAskedAgain(t *testing.T) {
 func TestAConnectionThatKeepsDroppingGivesUpAndSaysSo(t *testing.T) {
 	alwaysDrops := func(model.Request) (model.Response, error) { return model.Response{}, droppedMidAnswer() }
 	provider := &scriptedProvider{steps: []func(model.Request) (model.Response, error){
-		alwaysDrops, alwaysDrops, alwaysDrops, alwaysDrops,
+		alwaysDrops, alwaysDrops, alwaysDrops, alwaysDrops, alwaysDrops,
 	}}
 	agent := NewAgent(AgentConfig{Provider: provider, Model: "deepseek-v4-flash", SystemPrompt: "sys", MaxChars: 1_000_000})
 

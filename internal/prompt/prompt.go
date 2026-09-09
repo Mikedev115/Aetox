@@ -433,12 +433,22 @@ func BuildWithReport(surface Surface, scope Scope, desk Desk) (string, Loaded) {
 	if surface == SurfaceDesktop {
 		b.WriteString(drawing())
 		b.WriteString(panel())
-		// Gated on both, and the pair is the point: the stance decides that this
-		// turn produces a plan, the surface decides whether a plan can be drawn
-		// as an object. In a terminal the same stance produces the same plan and
-		// this layer is simply absent, so nothing tells the model to write a
-		// fence the user would read as punctuation.
-		if desk.Planning {
+		// **Gated on carrying the tool, not on the stance.** It was
+		// `desk.Planning`, true only in วางแผน — while the `plan` tool is carried
+		// by every desk and every stance. So ลงมือ had the tool and nothing at
+		// all telling it that a plan belongs in it: asked for one there, the
+		// model typed a plan into its answer, the old fence renderer drew it as
+		// a card with no checklist and no button, and the owner read that as the
+		// feature having vanished (9 ก.ย.).
+		//
+		// planSkill.Guidance cannot cover it. Guidance rides the FIRST RESULT,
+		// and the failure is that there is never a first call — the one shape of
+		// mistake internal/skill/guidance.go's own note leaves to the signature.
+		// A signature says how to call a tool; it cannot say "and this is the
+		// thing you were about to write out by hand instead".
+		//
+		// The surface gate stays: in a terminal there is no card to draw into.
+		if desk.carries("plan") {
 			b.WriteString(planCard(desk))
 		}
 	}
@@ -1095,19 +1105,33 @@ func panel() string {
 		"something, and one built around a single fact is decoration.\n"
 }
 
-// planCard tells the model that on this surface a plan is drawn as an object of
-// its own, and how to put it there.
+// planCard tells the model that a plan is a document this surface draws for it,
+// and that it therefore never types one out.
 //
-// **Two mechanisms, and which is right is a question about the DESK rather than
-// about the surface.** Where the `plan` tool is carried (desktop/plan.go) the
-// plan is a stored row and the card draws itself from it, so the model calls a
-// tool and spends nothing on the picture — and an amend costs the section that
-// changed instead of the document that did not. Where it is not carried, a
-// surface that can still draw a card gets the original contract: a fenced block
-// the renderer intercepts on its language.
+// **ONE PATH, and it took the owner's temper to see why that matters.** This
+// used to branch: the tool where the desk carried it, and the original ```plan
+// fence (§106.12) where it did not — kept on the reasoning that some surface
+// might draw cards without the tool. No such surface exists. The renderer that
+// draws a fence lives in the desktop's markdown.ts, and every desk on the
+// desktop carries `plan`. It was a branch for a case that cannot happen.
 //
-// Gated on carrying the tool rather than on a build or a stance, so the fence
-// stays the honest answer for any surface that draws cards without one.
+// What it cost was not bytes. Two ways for a plan to reach the screen produce
+// two cards that look alike and behave differently — one with a checklist and a
+// button, one inert — and the user cannot tell which they were handed. That is
+// the debt the owner named on 9 ก.ย.: *"มึงจะสร้างมาแยกทำไมว่ะ"*. The fix is not
+// to teach both paths; it is to stop having two.
+//
+// markdown.ts keeps its fence renderer, and that is not the second path coming
+// back: nothing asks for a fence any more, so it is a reader for transcripts
+// written before this — old messages would otherwise show a bare code block.
+//
+// **Four lines, because this now reaches every desktop session rather than only
+// วางแผน, and the budget guard said so within the minute.** What has to be here
+// is only the part that makes a FIRST CALL happen — everything about how to
+// work a plan well (what amend leaves alone, what a step is, not narrating
+// progress) is planSkill.Guidance, which rides that first result and is paid for
+// once. Guidance was always the right home for it; until this gate moved, the
+// call it rides never happened.
 //
 // **Only the wrapper is here. What a plan *is* stays in the stance** (§106.11,
 // mode.planShape): the headings are policy that holds on every surface,
@@ -1128,30 +1152,10 @@ func panel() string {
 // the rest spilled underneath it as loose prose — no error, and nothing about
 // the result points at the cause.
 func planCard(desk Desk) string {
-	// Where the plan can be a stored object, it is one. The fence below is the
-	// answer for a surface that draws cards and has no tool to draw one from.
-	if desk.carries("plan") {
-		return "Your plan is a document of its own here, drawn beside the conversation, so put it in the " +
-			"`plan` tool rather than in your answer: `write` the first time, `amend` after that, with a " +
-			"`title` naming the job in one line and one section per heading.\n" +
-			"It stays on screen once written, so writing it out again in your reply is the same plan " +
-			"twice — once where it belongs and once at your own expense. Say in a line what you did, " +
-			"and stop.\n" +
-			"`amend` takes only the sections that changed and leaves the rest exactly as they were. " +
-			"That is what it is for: sending back a section nobody asked about costs what writing it " +
-			"cost the first time.\n" +
-			"The plan's checklist goes in `steps`, and `plan` itself will tell you the rest of what that " +
-			"means the first time you write one.\n"
-	}
-	return "Your plan is drawn here as a card of its own, titled, and set apart from the conversation " +
-		"around it, so write it inside a fenced block tagged `plan`, and make the first line inside that " +
-		"block a `# ` heading naming the job in one line. The headings go under it, unchanged.\n" +
-		"Nothing else belongs in the block, and almost nothing belongs outside it: a sentence before the " +
-		"card if something genuinely has to be said first, and no summary after it, the card is the " +
-		"answer, and repeating it underneath is the same plan twice.\n" +
-		"Do not open a fenced block anywhere inside the plan. It closes the plan's own fence, and the " +
-		"result is a card holding the first part of your plan with the rest spilled out below it. " +
-		"Inline `backticks` are safe and are how a filename or a setting should be written.\n"
+	return "A plan is an interactive card drawn for you. Put it in the `plan` tool (`write` " +
+		"first, `amend` after). Never write a plan into your reply as text or prose. The card " +
+		"holds the checklist the user can run with one click; a plan typed in an answer has " +
+		"neither and cannot be run.\n"
 }
 
 // drawing tells the model that the answer surface can render a picture, and

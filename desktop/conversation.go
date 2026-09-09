@@ -123,6 +123,24 @@ type conversation struct {
 	// widened mid-turn waits (§185). Guarded by App.turnMu, not free-standing:
 	// it is read and cleared at the moment the turn ends.
 	pendingCfg *config.Config
+	// stanceRebuild marks a conversation whose engine narrowed its own stance
+	// mid-turn (internal/mode/plan_mode.go) and therefore has a system prompt
+	// describing a stance it is no longer in.
+	//
+	// **Inside the turn that is not a problem, and after it, it is.** The
+	// narrowing binds immediately because the dispatcher's filters read a live
+	// dial (mode.Dial), and the new stance's direction reaches the model as the
+	// tool's own result — later in the context than the prompt, which is exactly
+	// how it wins (§106.4). But that result says "for the rest of this turn",
+	// and the turn ends. From the next message on, the session would filter as
+	// วางแผน while its prompt still described ลงมือ, and the one line telling it
+	// otherwise would be a stale receipt further and further back.
+	//
+	// So the rebuild waits for the boundary, where endTurn already lands a
+	// config parked mid-turn, and for the same reason that one waits: replacing
+	// the agent under a running turn drops the round in flight. Guarded by
+	// App.turnMu with pendingCfg, and read in the same breath.
+	stanceRebuild bool
 	// pendingCheck is what the preflight has made of the queued switch (§232):
 	// "" not attempted (nothing queued, or a runtime whose weights live on this
 	// machine and must not be woken beside a turn in flight), "checking",

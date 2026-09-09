@@ -315,6 +315,23 @@ func FilterRegistry(parent *skill.Registry, p Profile, ceiling *mode.Mode) *skil
 		if name == "memory" {
 			continue
 		}
+		// `plan_mode` is one instance pointing at ONE conversation's dial
+		// (internal/mode/plan_mode.go), and the conversation it points at is the
+		// parent's. A delegate holding it could narrow the stance of the session
+		// that hired it, mid-run, from a context nobody is watching — and
+		// Options.Stance already says a stance is not applied to delegates at
+		// all: a hired agent runs the door's own terms, never the caller's dial
+		// (§106.5). A tool that could set one would be that sentence undone.
+		//
+		// Dropped for every worker here and handed back to CHAIRS by
+		// AttendedRegistry, which is the same shape as `ask_user` and `task` two
+		// hundred lines down and rests on the same distinction: a chair is a
+		// conversation the user is sitting in, with a dial of its own and a
+		// picker drawing it, and a delegate is a job running inside somebody
+		// else's turn.
+		if name == "plan_mode" {
+			continue
+		}
 		if !carries(name, source) {
 			continue
 		}
@@ -427,6 +444,26 @@ func AttendedRegistry(parent *skill.Registry, p Profile, ceiling *mode.Mode) *sk
 		// not already in `filtered`, so a collision cannot happen — and if one
 		// somehow did, the chair simply asks in prose as it did before.
 		_ = filtered.Register(asker, source)
+	}
+	// The dial, given back. FilterRegistry drops `plan_mode` from every worker
+	// because a DELEGATE must not be able to move the stance of the session that
+	// hired it — see the note there — and a chair is the case that rule was not
+	// written about: it is a conversation the user opened and is sitting in,
+	// with its own composer, its own picker, and the same stance filter every
+	// other session runs under (bootstrap, where the chair's dispatcher is built
+	// on the same dial).
+	//
+	// Unconditional, unlike ask_user's opt-in, because there is nothing for a
+	// profile to opt into: this is not a capability the agent was hired with,
+	// it is the way out of a mode the user put it in. What a chair may CARRY is
+	// still decided downstream by the desk and the stance, which is what makes
+	// this safe to hand over without asking the profile.
+	if switcher, ok := parent.Get("plan_mode"); ok {
+		source, known := parent.SourceOf("plan_mode")
+		if !known {
+			source = skill.SourceBuiltin
+		}
+		_ = filtered.Register(switcher, source)
 	}
 	// `deny: task` in the profile still wins, the same way it does for ask_user
 	// — this restores a tool the mechanism took away, it does not overrule the

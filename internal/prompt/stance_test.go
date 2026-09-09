@@ -58,7 +58,7 @@ func TestASessionWithNoToolsIsNotTaughtHowToUseThem(t *testing.T) {
 	// Phrases from the layers that are only ever instructions for using tools.
 	for _, phrase := range []string{
 		"skills_list",            // capability
-		"edits",            // fileEditing
+		"edits",                  // fileEditing
 		"one shell script",       // batchWork
 		"Reach for calc",         // computing
 		"write it to a .md file", // longform
@@ -192,5 +192,52 @@ func TestADeskWithoutAPaneIsNotToldItHasOne(t *testing.T) {
 	}
 	if !strings.Contains(got, "a browser") {
 		t.Errorf("the panes it does hold went missing with the one it does not:\n%s", got)
+	}
+}
+
+// A PLAN NEVER REACHES THE SCREEN TWO WAYS.
+//
+// The instruction used to be gated on the วางแผน stance while the `plan` tool is
+// carried by every desk and every stance. In ลงมือ the model therefore had the
+// tool and nothing telling it a plan belongs in it, so it typed one into its
+// answer and the old fence renderer drew an inert card — the same shape as the
+// real one, with no checklist and no button. Two paths to one thing, and the
+// user cannot tell which they were handed.
+func TestThePlanInstructionFollowsTheToolNotTheStance(t *testing.T) {
+	// No planning stance, and the tool is on the desk — which is ลงมือ, where
+	// the card came back inert.
+	acting := deskAt("", "", false)
+	got := BuildForDesk(SurfaceDesktop, Scope{Root: t.TempDir()}, acting)
+	if !strings.Contains(got, "`plan` tool") {
+		t.Error("a session carrying the plan tool is never told that a plan belongs in it")
+	}
+	if !strings.Contains(got, "Never write a plan into your reply") {
+		t.Error("nothing forbids typing the plan out, which is what produced the inert card")
+	}
+}
+
+// And the fence contract is gone from the prompt entirely: asking for one WAS
+// the second path.
+func TestNothingAsksForAPlanFenceAnyMore(t *testing.T) {
+	acting := deskAt("", "", false)
+	planning := deskAt("", "", false)
+	planning.Planning = true
+	for _, d := range []Desk{acting, planning} {
+		got := BuildForDesk(SurfaceDesktop, Scope{Root: t.TempDir()}, d)
+		if strings.Contains(got, "fenced block tagged") {
+			t.Error("the prompt still asks for a plan fence, so both paths are open")
+		}
+	}
+}
+
+// A desk without the tool is told nothing about plans at all, rather than being
+// handed the old fence contract as a consolation. There is no such desk today;
+// the assertion is what keeps a future one from quietly reopening path two.
+func TestADeskWithoutTheToolIsToldNothingAboutPlans(t *testing.T) {
+	d := deskAt("", "", false)
+	d.Carries = func(name string) bool { return name != "plan" }
+	got := BuildForDesk(SurfaceDesktop, Scope{Root: t.TempDir()}, d)
+	if strings.Contains(got, "`plan` tool") || strings.Contains(got, "fenced block tagged") {
+		t.Error("a desk with no plan tool was told how to produce a plan anyway")
 	}
 }

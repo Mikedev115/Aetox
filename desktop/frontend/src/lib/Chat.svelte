@@ -53,6 +53,7 @@
     setActiveView, newChairSession, newSessionAt, openSettingsAt, setStance,
     sendUserMessage, liveThinkSecs,
     preparedText, nextPrepared, clearPrepared, startPlanRun, stopPlanRun, savePlanText, pausePlanRun, resumePlanRun, setPlanStepStop } from './stores/cockpit.svelte'
+  import { openPlanTab } from './stores/workbench.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import MemoryCard from './MemoryCard.svelte'
   import CodeDiff from './CodeDiff.svelte'
@@ -3200,6 +3201,42 @@
   const wrotePlan = (steps: ToolStep[]) =>
     steps.some((s) => !s.kind && s.name === 'plan' && (s.act === 'write' || s.act === 'amend'))
 
+  const planHeadingLabel = (heading: string) => {
+    const map: Record<string, string> = {
+      'What is there now': 'chat.planHead.whatIsThereNow',
+      'What to change': 'chat.planHead.whatToChange',
+      'What could go wrong': 'chat.planHead.whatCouldGoWrong',
+      'How you will know it worked': 'chat.planHead.howYouWillKnowItWorked',
+      'What you are unsure of': 'chat.planHead.whatYouAreUnsureOf',
+    }
+    const key = map[heading]
+    return key ? t(key as any) : heading
+  }
+
+  /** Only the LATEST phase that wrote or amended a plan anchors the full PlanCard.
+   *  Earlier historical revisions in messages leave their tool timeline row intact
+   *  without repeating duplicate full-sized cards down the chat. */
+  const latestPlanAnchor = $derived.by(() => {
+    for (let p = livePhases.length - 1; p >= 0; p--) {
+      if (wrotePlan(livePhases[p].steps)) {
+        return `live:${p}`
+      }
+    }
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const phs = phasesOf(messages[i].steps ?? [])
+      for (let p = phs.length - 1; p >= 0; p--) {
+        if (wrotePlan(phs[p].steps)) {
+          return `${i}:${p}`
+        }
+      }
+    }
+    return null
+  })
+
+  function openPlanInWorkbench() {
+    openPlanTab()
+  }
+
   /** The card's Copy hands back markdown, the same shape `plan read` returns.
    *  Read off the rendered card instead it would come back with every heading
    *  and list flattened out of it — the note renderPlan in markdown.ts carries
@@ -3244,6 +3281,11 @@
    *  draws in unfinishedSteps. */
   const planDone = (plan: Plan) =>
     (plan.steps ?? []).filter((st) => st.state === 'done' || st.state === 'failed').length
+
+  const planAllDone = (plan: Plan) => {
+    const steps = plan.steps ?? []
+    return steps.length > 0 && steps.every((st) => st.state === 'done' || st.state === 'failed')
+  }
 
   // The plan open for hand editing, as markdown, or null when it is not.
   //
@@ -3807,6 +3849,47 @@
      existed. -->
 
 
+{#snippet planChip(plan: Plan)}
+  <div class="plan-card plan-chip" class:running={plan.running} data-plan={planAsMarkdown(plan)}>
+    <div class="plan-chip-main">
+      <span class="plan-chip-icon"><Icon name="compass" size={16} /></span>
+      <div class="plan-chip-info">
+        <div class="plan-chip-title">
+          {plan.title ? plan.title : t('chat.planCard')}
+          {#if plan.version > 1}
+            <span class="plan-chip-rev">{t('chat.planRevision', { n: String(plan.version) })}</span>
+          {/if}
+        </div>
+        <div class="plan-chip-sub">
+          {(plan.steps ?? []).length > 0 ? t('chat.planStepCount', { n: String((plan.steps ?? []).length) }) : ''}
+          {plan.running ? ` · ${t('chat.planRunning', { done: String(planDone(plan)), total: String((plan.steps ?? []).length) })}` : ''}
+        </div>
+      </div>
+      {#if !plan.running}
+        {#if planAllDone(plan)}
+          <span class="plan-chip-badge done">{t('chat.planDoneBadge')}</span>
+        {:else}
+          <span class="plan-chip-badge">{t('chat.planReadyBadge')}</span>
+        {/if}
+      {:else}
+        <span class="plan-chip-badge running">{t('bgw.running')}</span>
+      {/if}
+    </div>
+    <div class="plan-chip-actions">
+      <button class="plan-chip-btn open-pane" type="button" onclick={openPlanInWorkbench}>
+        <Icon name="externalLink" size={13} />
+        <span>{t('chat.planOpenInWorkbench')}</span>
+      </button>
+      {#if !plan.running && (plan.steps ?? []).length > 0 && !planAllDone(plan)}
+        <button class="plan-chip-btn run-plan" type="button" onclick={onStartPlanRun}>
+          <Icon name="play" size={13} />
+          <span>{t('chat.planStart')}</span>
+        </button>
+      {/if}
+    </div>
+  </div>
+{/snippet}
+
 {#snippet planCard(plan: Plan)}
   <div class="plan-card" class:running={plan.running} data-plan={planAsMarkdown(plan)}>
     <!-- THE RUN BAR. Everything a long run leaves the user wondering, in one
@@ -3870,7 +3953,7 @@
     <div class="plan-body">
       {#each plan.sections as sec}
         <h4 class="plan-heading" class:plan-changed={(plan.changed ?? []).includes(sec.heading)}>
-          {sec.heading}
+          {planHeadingLabel(sec.heading)}
         </h4>
         <div class="markdown-body">{@html renderMarkdown(sec.body)}</div>
       {/each}
@@ -3917,7 +4000,7 @@
     <!-- The start control only. Stopping moved into the run bar above, where the
          rest of the run's state is — two places to stop one thing is one place
          too many. -->
-    {#if (plan.steps ?? []).length > 0 && !plan.running}
+    {#if (plan.steps ?? []).length > 0 && !plan.running && !planAllDone(plan)}
       <div class="plan-foot">
         <button class="plan-run" type="button" onclick={onStartPlanRun}>{t('chat.planStart')}</button>
       </div>
@@ -4579,8 +4662,8 @@
               {/if}
               {#each phasesOf(m.steps ?? []) as ph, p}
                 {@render phaseBlock(ph, phaseKey(ph, `${i}:${p}`), false)}
-                {#if cockpit.plan && wrotePlan(ph.steps)}
-                  {@render planCard(cockpit.plan)}
+                {#if cockpit.plan && latestPlanAnchor === `${i}:${p}`}
+                  {@render planChip(cockpit.plan)}
                 {/if}
               {/each}
               {#if m.ending}
@@ -4973,8 +5056,8 @@
                  skips that check only while live). -->
             {#each livePhases as ph, p}
               {@render phaseBlock(ph, phaseKey(ph, `live:${p}`), true)}
-              {#if cockpit.plan && wrotePlan(ph.steps)}
-                {@render planCard(cockpit.plan)}
+              {#if cockpit.plan && latestPlanAnchor === `live:${p}`}
+                {@render planChip(cockpit.plan)}
               {/if}
             {/each}
             <!-- The takeover strip. Raised before the first acting call touches

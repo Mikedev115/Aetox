@@ -125,7 +125,8 @@ func (s *browserCaptureSkill) capture(ctx context.Context, full, marks bool) (sk
 	if tab != nil {
 		title, url = tab.meta()
 	}
-	if a.detachedTab(string(id)) {
+	detached := a.detachedTab(string(id))
+	if detached {
 		// It left the desk, so there is no chip to make active and no pane to
 		// un-hide — and an open-browser event would draw it a NEW chip on
 		// whatever desk happens to be on screen. Raised at the window instead.
@@ -152,8 +153,19 @@ func (s *browserCaptureSkill) capture(ctx context.Context, full, marks bool) (sk
 	// (§187) — or one the pane has not mounted yet, which a short wait sorts
 	// from the first. Either way the agent is told what is true and what to do
 	// instead, at once, rather than handed a timeout to guess at.
+	// A detached tab is exempt, for the same reason selectRaiseNote exempts it:
+	// `hidden` is the PANEL's want, and a window that has left the panel does
+	// not obey it. The pane that was drawing it unmounts the moment the chip
+	// goes (detachTab -> removeTab), its onDestroy hides the tab it no longer
+	// owns, and win32Tab.setVisible ignores that hide — so the flag latches
+	// true on a window the user can see, with no chip left to ever clear it.
+	// Read literally here, capture refused every photograph of a detached page
+	// for the rest of the run, and blamed the chat for it — which is both the
+	// wrong sentence and the wrong advice, since coming back to the chat does
+	// nothing for a window that is not on its desk. BrowserDetach promises the
+	// tools go on working (browser.go); this is the one that had stopped.
 	background := s.owner != "" && s.owner != a.cur().id
-	if tab != nil && tab.isHidden() {
+	if tab != nil && tab.isHidden() && !detached {
 		if !background {
 			a.waitShown(ctx, tab, 1500*time.Millisecond)
 		}

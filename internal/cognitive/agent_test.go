@@ -206,7 +206,7 @@ func TestRespondWithToolsStopsDoomLoop(t *testing.T) {
 		},
 	}
 	provider := &toolLoopProvider{
-		responses: []model.Response{same, same, same, same, same, same, same},
+		responses: []model.Response{same, same, same, same, same, same, same, same, same, same},
 	}
 	agent := NewAgent(AgentConfig{Provider: provider, Model: "test-model"})
 
@@ -386,7 +386,7 @@ func TestTheCarriedHalfDoesNotFollowTheNextAnswer(t *testing.T) {
 // is a real answer that happens to be unfinished.
 func TestAnAnswerThatNeverStopsGrowingIsStillHandedOver(t *testing.T) {
 	cut := model.Response{Text: "ยาว", FinishReason: model.FinishReasonLength}
-	provider := &toolLoopProvider{responses: []model.Response{cut, cut, cut, cut, cut, cut}}
+	provider := &toolLoopProvider{responses: []model.Response{cut, cut, cut, cut, cut, cut, cut}}
 	agent := NewAgent(AgentConfig{Provider: provider, Model: "test-model"})
 
 	reply, _, err := agent.RespondWithTools(
@@ -414,7 +414,7 @@ func TestRespondWithToolsLeakedDSMLNeverSurfacesRawMarkup(t *testing.T) {
 		"<｜DSML｜parameter name=\"file_path\" string=\"true\">phone.html</｜DSML｜parameter>\n" +
 		"<｜DSML｜parameter name=\"content\" string=\"true\">"}
 	// Always leaks: initial + maxDSMLNudges retries, then the fallback fires.
-	provider := &toolLoopProvider{responses: []model.Response{leak, leak, leak}}
+	provider := &toolLoopProvider{responses: []model.Response{leak, leak, leak, leak, leak}}
 	agent := NewAgent(AgentConfig{Provider: provider, Model: "deepseek-v4-flash"})
 
 	reply, usedTools, err := agent.RespondWithTools(

@@ -305,6 +305,16 @@ export const th = {
   'chat.planEditCancel': 'ยกเลิก',
   'chat.planEditHint': 'หัวข้อเขียน **ชื่อหัวข้อ** · ขั้นตอนเขียน 1. 2. 3.',
   'chat.planJump': 'ดูแผน',
+  'chat.planHead.whatIsThereNow': 'สภาพปัจจุบันและบริบท',
+  'chat.planHead.whatToChange': 'ขั้นตอนการดำเนินการ',
+  'chat.planHead.whatCouldGoWrong': 'จุดที่อาจมีปัญหาหรือความเสี่ยง',
+  'chat.planHead.howYouWillKnowItWorked': 'เกณฑ์วัดความสำเร็จ',
+  'chat.planHead.whatYouAreUnsureOf': 'ประเด็นที่ยังต้องติดตาม',
+  'chat.planReadyBadge': 'พร้อมเริ่มงาน',
+  'chat.planDoneBadge': 'เสร็จสิ้น',
+  'chat.planStepCount': '{n} ขั้นตอน',
+  'chat.planOpenInWorkbench': 'เปิดดูในแถบข้าง',
+  'chat.planEmptyHint': 'ยังไม่มีแผนงานในเซสชันนี้ เริ่มต้นได้โดยการสั่งงานในโหมดวางแผน',
 
 
   'chat.copyDrawing': 'คัดลอก',

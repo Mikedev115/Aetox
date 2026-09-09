@@ -549,11 +549,12 @@ func videoCopyTemplate(template, dest string) (int, error) {
 // contract.
 //
 // **Why this exists.** Until 7 ก.ย. 2569 `video new` had no shape but "copy one
-// of these", and the brief tells the agent copying is the right move — a scene
-// written from nothing is a scene whose timing nobody has tested. Both are
-// true, and together they meant every clip this office has ever made is one of
-// fifty files with the words changed. A blank start is the release valve, not
-// a replacement: it is for the piece none of the fifty is the shape of.
+// of these", and the brief agreed with it — a scene written from nothing is a
+// scene whose timing nobody has tested. Both were true, and together they meant
+// every clip this office had made was one of fifty files with the words changed.
+// On 9 ก.ย. 2569 the brief was turned around to match this action rather than
+// fence it: the shape comes from the piece, the library is where you check
+// whether that shape already exists, and a blank start is an ordinary answer.
 //
 // It comes out of the engine's bundle rather than being a file we wrote,
 // because a blank composition is a statement about the renderer's contract —

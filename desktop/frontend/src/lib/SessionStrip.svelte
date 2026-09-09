@@ -42,7 +42,7 @@
   import { t } from './i18n.svelte'
   import { SessionSources, SessionSourceCount, SessionEdits, GitChangedFiles, CurrentSessionID } from '../../wailsjs/go/main/App'
   import { main } from '../../wailsjs/go/models'
-  import { openFileTab, openUrlInWorkbench } from './stores/workbench.svelte'
+  import { openFileTab, openUrlInWorkbench, openPlanTab } from './stores/workbench.svelte'
   import Icon from './Icon.svelte'
   import type { IconName } from './icons'
 
@@ -59,19 +59,26 @@
   // lists for the length of a disk read would make a refresh look like a wipe.
   let reloading = $state(false)
 
+  const plan = $derived(cockpit.plan)
+  const planSteps = $derived(plan?.steps ?? [])
+  const planStepsDone = $derived(planSteps.filter((st) => st.state === 'done' || st.state === 'failed').length)
+  const planStepsLeft = $derived(planSteps.length - planStepsDone)
+
   const todos = $derived(cockpit.todos)
   const planDone = $derived(todos.filter((td) => td.status === 'completed').length)
   const hasPlan = $derived(todos.length > 0)
+  const hasLivePlan = $derived(!!plan && (planSteps.length > 0 || !!plan.title))
 
   // Rides on the button so the corner is not mute while work is running, and
   // clears once every row is struck through: a finished plan is a record, and a
   // badge that never clears is one nobody reads.
-  //
-  // What is LEFT, not "2/5". A 30px button has room for one number, and of the
-  // two, the one worth putting there is the one that changes what you do next —
-  // "1/3" and "2/4" describe different situations and the same amount of work
-  // remaining. The full ratio is a click away, on rows you can actually read.
-  const badge = $derived(hasPlan && planDone < todos.length ? String(todos.length - planDone) : '')
+  const badge = $derived(
+    planSteps.length > 0 && planStepsLeft > 0
+      ? String(planStepsLeft)
+      : hasPlan && planDone < todos.length
+        ? String(todos.length - planDone)
+        : ''
+  )
 
   // Read on open, not on a timer. Every call here touches the disk — three read
   // the store, one shells out to git — and a panel nobody has opened has no
@@ -124,6 +131,14 @@
 
   const todoIcon = (status: string): IconName =>
     status === 'completed' ? 'check' : status === 'in_progress' ? 'chevronRight' : 'circle'
+
+  const stepIcon = (state?: string): IconName =>
+    state === 'done' ? 'check' : state === 'doing' ? 'chevronRight' : state === 'failed' ? 'x' : 'circle'
+
+  function goToPlan() {
+    open = false
+    openPlanTab()
+  }
 
   async function openSource(s: main.Source) {
     open = false
@@ -187,18 +202,37 @@
 
       <section class="summary-sec">
         <h3>
-          {t('strip.plan')}
-          <!-- The off switch. This list is written only by the model, and once
-               it outlives its turn the only one who can know it has been
-               abandoned is the person who abandoned it. Present only when there
-               is something to put down. -->
-          {#if hasPlan}
+          {hasLivePlan ? t('chat.planCard') : t('strip.plan')}
+          {#if hasLivePlan}
+            <button type="button" class="summary-plan-open" title={t('chat.planOpenInWorkbench')} onclick={goToPlan}>
+              <Icon name="externalLink" size={11} />
+            </button>
+          {:else if hasPlan}
             <button type="button" class="summary-clear" title={t('summary.clearPlan')} onclick={clearPlan}>
               <Icon name="x" size={11} />
             </button>
           {/if}
         </h3>
-        {#if hasPlan}
+        {#if hasLivePlan}
+          {#if plan?.title}
+            <button type="button" class="summary-plan-title" onclick={goToPlan} title={t('chat.planOpenInWorkbench')}>
+              <span class="plan-t-icon"><Icon name="compass" size={12} /></span>
+              <span class="plan-t-text">{plan.title}</span>
+              {#if (plan.version ?? 0) > 1}<span class="plan-t-rev">#{plan.version}</span>{/if}
+            </button>
+          {/if}
+          {#if planSteps.length > 0}
+            {#each planSteps as st}
+              {@const cls = st.state === 'done' ? 'completed' : st.state === 'doing' ? 'in_progress' : st.state === 'failed' ? 'failed' : 'pending'}
+              <div class="todo-item {cls}">
+                <span class="mark"><Icon name={stepIcon(st.state)} size={12} /></span>
+                <span class="t">{st.text}</span>
+              </div>
+            {/each}
+          {:else}
+            <p class="summary-none">{t('strip.planEmpty')}</p>
+          {/if}
+        {:else if hasPlan}
           {#each todos as td}
             <div class="todo-item {td.status}">
               <span class="mark"><Icon name={todoIcon(td.status)} size={12} /></span>

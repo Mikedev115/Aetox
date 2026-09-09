@@ -42,6 +42,7 @@ describe('the session summary button', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     cockpit.todos = []
+    cockpit.plan = null
     cockpit.project = { ...cockpit.project, focused: false, branch: '' }
   })
 
@@ -101,6 +102,30 @@ describe('the session summary button', () => {
     const { container } = render(SessionStrip)
 
     await openPanel()
+    expect([...container.querySelectorAll('.todo-item')].map((e) => e.className)).toEqual([
+      'todo-item completed', 'todo-item in_progress', 'todo-item pending',
+    ])
+  })
+
+  it('lists the plan when cockpit.plan exists', async () => {
+    cockpit.plan = {
+      title: 'สร้าง Dashboard',
+      sections: [],
+      steps: [
+        { n: 1, text: 'เขียน HTML/CSS', state: 'done' },
+        { n: 2, text: 'เพิ่ม SVG Chart', state: 'doing' },
+        { n: 3, text: 'บันทึกไฟล์', state: 'todo' },
+      ],
+      version: 1,
+      updated: '2026-09-09T10:00:00Z',
+    }
+    const { container } = render(SessionStrip)
+
+    await openPanel()
+    expect(screen.getByText('สร้าง Dashboard')).toBeTruthy()
+    expect(screen.getByText('เขียน HTML/CSS')).toBeTruthy()
+    expect(screen.getByText('เพิ่ม SVG Chart')).toBeTruthy()
+    expect(screen.getByText('บันทึกไฟล์')).toBeTruthy()
     expect([...container.querySelectorAll('.todo-item')].map((e) => e.className)).toEqual([
       'todo-item completed', 'todo-item in_progress', 'todo-item pending',
     ])

@@ -136,3 +136,34 @@ func TestTheTabListSaysWhichPagesLeftThePanel(t *testing.T) {
 		t.Errorf("the list does not say the page is in a window of its own:\n%s", list)
 	}
 }
+
+// A detached window can still be photographed, whatever the panel thinks of it.
+//
+// The chip leaves the strip the moment the window is given (detachTab ->
+// removeTab), BrowserPane's onDestroy hides the tab it no longer owns, and
+// win32Tab.setVisible ignores a hide on a detached window — so the tab's
+// `hidden` flag latched true on a window sitting in front of the user, with no
+// chip left to ever clear it. capture read that flag literally and refused
+// every photograph for the rest of the run, blaming a chat the window no
+// longer belongs to. BrowserDetach's promise is that the tools go on working;
+// this is the one that had stopped.
+func TestCaptureStillPhotographsADetachedWindow(t *testing.T) {
+	app, b, _ := detachedHost(t)
+	seed(app, &conversation{id: "on-screen"})
+	tab := app.browsers.tab("web-agent-1")
+	app.browsers.agentID, app.browsers.agentOrder = "web-agent-1", []string{"web-agent-1"}
+	app.browsers.detach("web-agent-1")
+	b.drain()
+	app.BrowserSetVisible("web-agent-1", false) // the pane unmounting behind the detach
+	b.drain()
+	if !tab.isHidden() {
+		t.Fatal("the setup no longer reproduces the panel's hide")
+	}
+
+	// owner != the chat on screen: the shape that used to answer "แชตนี้ไม่ได้
+	// อยู่บนจอ" without so much as asking the window.
+	_, err := (&browserCaptureSkill{app: app, owner: "another-chat"}).capture(t.Context(), false, false)
+	if err != nil && strings.Contains(err.Error(), "ไม่ได้อยู่บนจอ") {
+		t.Errorf("capture refused a detached window as a hidden one: %v", err)
+	}
+}

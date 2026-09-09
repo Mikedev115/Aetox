@@ -2359,11 +2359,14 @@ func (a *App) endTurn(sessionID string) {
 	}
 	delete(a.turns, sessionID)
 	var parked *config.Config
+	restance := false
 	parkedConv := a.convs.find(sessionID)
 	if parkedConv != nil {
 		parked = parkedConv.pendingCfg
 		parkedConv.pendingCfg = nil
 		parkedConv.pendingCheck, parkedConv.pendingNote, parkedConv.pendingProbe = "", "", ""
+		restance = parkedConv.stanceRebuild
+		parkedConv.stanceRebuild = false
 	}
 	a.turnMu.Unlock()
 	// A config change that arrived mid-turn lands now, before anything lets go
@@ -2380,6 +2383,20 @@ func (a *App) endTurn(sessionID string) {
 		if parkedConv == a.cur() {
 			a.emitEvent("model:switched", a.GetModelInfo())
 		}
+	}
+	// The other thing that can be waiting here: an engine that narrowed its own
+	// stance mid-turn and is still carrying the prompt of the stance it left
+	// (conversation.stanceRebuild). Rebuilt now, on the same boundary and for
+	// the same reason the config above waits for it — applyConfig carries the
+	// outgoing agent's context across, so the conversation survives.
+	//
+	// Skipped when a parked config just rebuilt the engine anyway: that pass
+	// read conv.stance, which stanceNarrowedByAgent had already written, so the
+	// prompt is right and a second bootstrap would only cost the user a
+	// rebuild. Nothing to emit either — the picker moved when the switch
+	// happened, not now.
+	if restance && parked == nil && parkedConv != nil {
+		a.applyConfig(parkedConv, parkedConv.cfg)
 	}
 	a.emitEvent("agent:done", TurnStatus{Running: false, SessionID: sessionID})
 	// The work was what kept this chat's engine alive while the user was
@@ -4749,6 +4766,15 @@ func (a *App) applyConfig(conv *conversation, cfg config.Config) {
 		// function — the dial and the engine cannot disagree if there is only
 		// one place the engine reads it.
 		Stance: conv.stance,
+		// And how this turn narrows itself. The engine does the narrowing on a
+		// live dial; this is the window and the row catching up — see
+		// stanceNarrowedByAgent, which is where the reasons are.
+		//
+		// Bound to `conv` rather than reading a.cur(), because the turn that
+		// fires it may be running in a chat the user has since navigated away
+		// from, and per-conversation engines are exactly the thing that makes
+		// that ordinary rather than rare (§187, §234).
+		OnStance: func(next mode.Stance) { a.stanceNarrowedByAgent(conv, next) },
 		// The agent the open session talks to directly (§85), nil for the main
 		// assistant. Resolved fresh from disk on every bootstrap so an edited
 		// profile takes effect the next time its chair is sat at, like every

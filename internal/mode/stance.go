@@ -330,6 +330,49 @@ func NormalizeStance(name string) Stance {
 // StanceAct is "" — see the constant for why that is the right stored value.
 func (s Stance) String() string { return string(s) }
 
+// stanceID is Stance.String() with a word where the empty string is, for the
+// one audience that is neither a database nor a screen: an error message the
+// model reads. `"" → ""` is a refusal naming nothing, and ลงมือ's whole trick
+// is that its stored value is empty (see the constant).
+//
+// An ID, deliberately, and not a label. What a stance is CALLED on screen stays
+// a locale string — the split COMPANY.md §2 keeps between a desk's code name
+// and its room's label — so this must never grow into a second naming of the
+// same thing. It is the same three words the frontend keys its table on.
+func stanceID(s Stance) string {
+	if s == StanceAct {
+		return "act"
+	}
+	return string(s)
+}
+
+// stanceReach is how much of the desk each stance leaves standing, and it is
+// the only place the three are ordered against each other.
+//
+// A total order is honest here rather than convenient: คู่คิด carries nothing,
+// วางแผน carries the tools that only look, and ลงมือ carries everything the
+// desk has — so each one is strictly inside the next. That is what lets
+// Narrows be a comparison instead of a table of pairs, and it is a fact about
+// what the stances DO, not a convention chosen to make this function short. A
+// fourth stance that was not nested inside ลงมือ would not fit here, and it
+// would not fit the axis either (§106.3): a stance may only subtract.
+var stanceReach = map[Stance]int{
+	StanceConsult: 0,
+	StancePlan:    1,
+	StanceAct:     2,
+}
+
+// Narrows reports whether moving from s to `to` only ever takes tools away.
+//
+// The question the assistant's own switch is allowed to ask, and the only one
+// (mode.NewPlanModeTool). The user's dial answers to nobody and moves both
+// ways; a switch the MODEL makes may go one way, because a model that could
+// widen its own stance would be handing itself a tool inside a turn the user is
+// watching run — and because ลงมือ is one press away and that press is theirs.
+func (s Stance) Narrows(to Stance) bool {
+	return stanceReach[to] < stanceReach[s]
+}
+
 // AllowsTool reports whether this stance leaves the named built-in or
 // workbench tool on the desk. The mirror of Mode.AllowsTool, and like it a
 // token decision rather than the safety gate.
@@ -453,7 +496,9 @@ func (s Stance) Direction() string {
 		// on, not a request to be let out of the mode they chose.
 		return "This turn is planning work: you can look at anything and change nothing. " +
 			"Reading, searching, fetching and inspecting are all available; writing, editing, running " +
-			"commands and handing work to an agent are not, because the user asked for the plan first.\n\n" +
+			"commands and handing work to an agent are not, because the user asked for the plan first. " +
+			"Never attempt to write code, create files, or execute work in this stance: this work is drafting the blueprint, not building it.\n\n" +
+			"Always match the language of the user: if the user writes in Thai, write all section descriptions, checklist steps, questions, and replies in Thai.\n\n" +
 			"Look enough to know what to ASK, ask, and then look properly. A question costs one round; " +
 			"reading your way down the wrong branch costs the whole turn and produces a plan for a job " +
 			"nobody wanted. So where the brief leaves open something that would change the approach — which " +
@@ -461,22 +506,26 @@ func (s Stance) Direction() string {
 			"put it to the user with `ask_user`, with concrete options, BEFORE the deep reading. Ask about " +
 			"the work, never about permission, and ask about the few things that change the plan rather " +
 			"than everything you noticed.\n\n" +
+			"NEVER call the `plan` tool on turn 1 when requirements, scope, target audience, or architectural choices are open. " +
+			"Do not guess. First ask the user with `ask_user` with concrete options and conclude the turn. Only when the direction is confirmed and certain should you proceed to inspect and draft the plan.\n\n" +
 			"Then go and look. A plan written without opening the files it is about is a guess with " +
 			"numbered steps, and the reading tools are here precisely so it does not have to be one.\n\n" +
-			"Give the plan under these headings, in this order and in these words:\n" +
-			"did, and stop.\n\n" +
+			"Give the plan under these headings, in this order and in these words, structured inside the `plan` tool (never typed as chat response text):\n\n" +
 			planShapeBlock() + "\n" +
 			"A small job does not need a long plan — a section can be a single line, and saying so is the " +
 			"correct plan rather than a lazy one. It still gets the shape: the user turned this dial to be " +
 			"handed a plan, and a plan they can read the same way every time is the thing they turned it " +
 			"for. Keep anything you quote short enough to " +
 			"identify what you mean; this is the plan, not the work.\n\n" +
+			"NEVER type the plan headings or body as prose in your reply. Put the plan into the `plan` tool: " +
+			"the UI draws an interactive card with runnable checklist steps from it, whereas a plan typed in chat " +
+			"has neither. In your chat message, give at most one short sentence stating the plan is ready.\n\n" +
 			"IF A PLAN ALREADY EXISTS IN THIS CONVERSATION, THIS TURN AMENDS IT. It is one plan being " +
-			"worked on, not a new plan every time somebody says something about it. Change what the " +
-			"user's words actually change, give back the headings that changed and one line saying what " +
-			"moved, and leave the rest standing — repeating a heading nobody touched costs them what " +
-			"writing it cost the first time. What you have already read in this conversation you have " +
-			"already read: do not open it again to write down what it says a second time.\n\n" +
+			"worked on, not a new plan every time somebody says something about it. Call `plan` with action `amend` " +
+			"and provide only the sections or steps that changed. Leave the rest standing — repeating a heading " +
+			"nobody touched costs them what writing it cost the first time. What you have already read in this " +
+			"conversation you have already read: do not open it again to write down what it says a second time. " +
+			"Do not call `write` again when a plan already exists.\n\n" +
 			"Do not ask for permission to proceed and do not offer to do it anyway: the user turned this " +
 			"dial deliberately and turning it back is one press. That is about permission, and permission " +
 			"only. A question about the WORK is a different thing and is wanted — asked early, with " +

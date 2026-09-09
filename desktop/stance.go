@@ -96,3 +96,65 @@ func (a *App) persistStance() {
 	}
 	_, _ = db.Exec(`UPDATE sessions SET stance = ? WHERE id = ?`, a.cur().stance.String(), a.cur().id)
 }
+
+// stanceNarrowedByAgent is what happens when the ASSISTANT turns its own dial
+// down mid-turn (internal/mode/plan_mode.go), handed to bootstrap as
+// Options.OnStance. The engine has already narrowed by the time this runs — the
+// dispatcher reads a live dial, which is the whole point — so this is not the
+// switch. It is everything OUTSIDE the engine that holds a second copy of the
+// same fact.
+//
+// Three of them, and each one is a bug if it is left out:
+//
+//   - conv.stance, or the next re-bootstrap (a model switch, a desk change)
+//     reads the old value off the conversation and quietly widens the session
+//     back without anybody asking for it.
+//   - the sessions row, or reopening the chat comes back in a stance it was not
+//     left in.
+//   - the picker, or the composer goes on drawing ลงมือ over an engine that has
+//     stopped handing out `write`. StartPlanRun already learned this one the
+//     hard way (goal_run.go): the run worked and the screen lied about which
+//     mode it was in.
+//
+// Keyed on the conversation the engine belongs to and NOT on a.cur(), which is
+// the difference between this and SetStance. The user's press is aimed at the
+// chat in front of them; this arrives from a turn that may be running in a chat
+// they have since navigated away from, and writing a.cur() there would move the
+// dial on somebody else's conversation.
+//
+// No re-bootstrap, deliberately. SetStance rebuilds the engine because the user
+// can press the picker between turns and the prompt should be rebuilt with it;
+// this fires INSIDE a turn, where replacing the agent would drop the round in
+// flight. The prompt therefore stays as it was booted, and the stance's own
+// direction reaches the model as the tool's result instead — see the tool.
+func (a *App) stanceNarrowedByAgent(conv *conversation, next mode.Stance) {
+	if conv == nil {
+		return
+	}
+	// The two writes together, under the lock endTurn reads them both through.
+	//
+	// The stance is what the next bootstrap builds from; the flag is what makes
+	// that bootstrap happen, at the boundary, because the engine keeps the
+	// prompt it booted with for the rest of this turn and must not keep it any
+	// longer (conversation.stanceRebuild). Split, endTurn could see the flag
+	// without the stance and rebuild the session back into ลงมือ.
+	//
+	// This is the first write to conv.stance that does NOT come from the window
+	// goroutine — SetStance is a click — so the lock is new here rather than a
+	// habit copied. What still reads it without one is Stance(), which draws the
+	// picker: a beat-late answer there costs nothing, because the event three
+	// lines down is what actually moves the chip.
+	a.turnMu.Lock()
+	conv.stance = next
+	conv.stanceRebuild = true
+	a.turnMu.Unlock()
+	if conv.id != "" {
+		if db, err := a.database(); err == nil {
+			_, _ = db.Exec(`UPDATE sessions SET stance = ? WHERE id = ?`, next.String(), conv.id)
+		}
+	}
+	// Stamped with the session, like every other per-chat event (§187): a window
+	// showing a different conversation must ignore it rather than redraw its own
+	// composer from somebody else's turn.
+	a.emitEvent("stance:update", sessionEvent[string]{SessionID: conv.id, Data: next.String()})
+}

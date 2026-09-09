@@ -565,30 +565,19 @@ export function resolveFace(name: string, size: number, o: FaceOverrides = {}): 
 // read as one person under a light. It reads as the colour having gone wrong,
 // which is the word he used — เพี้ยน.
 //
-// So light is an OVERLAY now, and only that: white at low opacity over the same
-// clipped jaw, plus the glow the machine already threw. White lightens without
-// moving hue or saturation, which is the one way to draw a light landing on
-// somebody that cannot repaint them. Every fill on the person comes from
+// So light is an OVERLAY, and only that. Every fill on the person comes from
 // palette(coverHue(name)) in every state, and the work state is a POSE — the
 // laptop up, the brows, the catchlights — not a colour.
-
-// The lit part of the face has to stop at the jaw, and the jaw is an ellipse.
 //
-// A clip is the only honest way to say that: the alternatives were an arc
-// command (this file draws no arcs, for the reason written above PROP) and an
-// inscribed ellipse, which cannot follow a jaw that narrows as fast as this one
-// does — measured, it spills two units either side of the chin and reads as two
-// lamps rather than one light.
-//
-// The id is derived from the head's own numbers, so two faces wearing the same
-// head share it and it means the same shape in both. That is the property that
-// matters: a duplicated id here can only ever resolve to geometry identical to
-// the one it duplicates. A counter would be unique and would also break the
-// rule at the top of this file — the same name must draw the same markup, on
-// every machine, forever, including twice in one page.
-function jawClip(head: Head): string {
-  return `af-jaw-${head.cy}-${head.rx}-${head.ry}`.replace(/\./g, '_')
-}
+// **The overlay itself was wrong for two more days, in a way this note used to
+// describe approvingly.** It was a flat white polygon clipped to the jaw plus a
+// flat ellipse of light in the air, and both of those are light drawn as a
+// SHAPE — so raising their opacity, which is the only knob a shape has, made
+// the shape more solid rather than the light stronger. The owner's word for
+// what that looks like was ก้อน. screenLight replaces both with one falloff
+// from the lid's top edge, which is the fix the paragraph above was already
+// asking for without knowing it: a hard-edged patch of skin tone is the same
+// failure as two skin tones, arrived at from the other side.
 
 /** The screen, the light it throws, and the face that is looking at it.
  *
@@ -603,7 +592,6 @@ function jawClip(head: Head): string {
  *  screen. */
 function workScene(p: Palette): string {
   return (
-    `<g class="af-glow"><ellipse cx="32" cy="43" rx="17" ry="6" fill="${p.bright}" opacity=".18"/></g>` +
     `<g class="af-kit">` +
     `<path d="M13 60l3-8h32l3 8z" fill="${p.glass}"/>` +
     `<rect x="15" y="44.5" width="34" height="14.5" rx="2.4" fill="${p.dark}"/>` +
@@ -623,10 +611,78 @@ function workScene(p: Palette): string {
  *  `af-pupils` is what looks around, `af-eye` is what blinks. Nothing in here
  *  moves by itself — this function returns the same markup for the same face,
  *  and CSS decides whether any of it is alive. */
+/** The light the screen throws, and the only evidence in the tile that it is on.
+ *
+ * **The screen is never visible, and that is what this has to work around.** The
+ * lid is drawn at y44.5–59 with the face above it, so the viewer is on the
+ * person's side of the machine and what is on screen is facing away. Painting a
+ * lit panel on the back of the lid is the one thing that cannot be right.
+ *
+ * ## Why it is one gradient and not the two things it replaces
+ *
+ * What was here until 9 ก.ย. was a flat white polygon clipped to the head, and
+ * a flat ellipse in the air below the chin. Both were light drawn as a SHAPE,
+ * which is why raising their opacity only ever made the shape more solid — the
+ * owner's word for it was ก้อน. A screen is an area light 34 units wide sitting
+ * two units under the chin and twenty-seven under the brow, so what it does is
+ * fall off: the jaw takes almost all of it and the forehead takes almost none,
+ * with no edge anywhere. A radial gradient centred on the lid's top edge is
+ * that statement, and the falloff draws the terminator by itself.
+ *
+ * ## Clipped to the PERSON, not to the head
+ *
+ * Clipping to the head was the second half of the same mistake: light that
+ * stops exactly at a silhouette is light that was cut out, and the shoulders
+ * and neck are nearer the screen than the face is. So the clip is every shape
+ * the person is made of, and the ears come and go with `f.ears` — which is why
+ * the id has to carry that, or a face with ears and a face without would share
+ * one clipPath and the second would wear the first's.
+ *
+ * It stops there on the owner's instruction ("แสงห้ามกระทบส่วนอื่นเด็ดขาด",
+ * 9 ก.ย.): the tile's ground stays unlit, and so does the machine — which is
+ * free, because this is drawn inside `af-rig` and `workScene` paints the lid
+ * over the top of it.
+ *
+ * `p.bright` rather than white, because the screen is drawn in the agent's own
+ * palette and light leaving it cannot be a colour the thing emitting it is not.
+ * It is also what keeps 7 ก.ย.'s rule intact — every worker went near-white the
+ * moment it started, and the fix then was that light is a LAYER; a layer in the
+ * agent's own hue is that rule kept, not bent.
+ *
+ * `af-glow` is on this and no longer on an ellipse in the air, so `af-flicker`
+ * now dims the light on the person when the screen's content changes. That is
+ * what the keyframe's own note in style.css always said it was for.
+ */
+function screenLight(f: Face): string {
+  const { p, head } = f
+  const clip = `af-lit-${head.cy}-${head.rx}-${head.ry}-${f.ears ? 'e' : 'n'}`.replace(/\./g, '_')
+  const grad = `${clip}-${f.hue}`
+  const light = `hsl(${f.hue} 68% 94%)`
+  return (
+    `<clipPath id="${clip}">` +
+    `<path d="M3 64c0-13 12-19 29-19s29 6 29 19z"/>` +
+    `<path d="M25 45l7 8 7-8z"/>` +
+    `<rect x="27.5" y="35" width="9" height="11"/>` +
+    (f.ears ? `<circle cx="16.5" cy="28" r="3.4"/><circle cx="47.5" cy="28" r="3.4"/>` : ``) +
+    `<ellipse cx="32" cy="${head.cy}" rx="${head.rx}" ry="${head.ry}"/>` +
+    `</clipPath>` +
+    // Centred on the lid's top edge, the line the light actually leaves from,
+    // and stretched horizontally because the emitter is a wide panel rather
+    // than a point.
+    `<radialGradient id="${grad}" gradientUnits="userSpaceOnUse" cx="32" cy="44" r="34"` +
+    ` gradientTransform="translate(32 44) scale(1.35 1) translate(-32 -44)">` +
+    `<stop offset="0" stop-color="${light}" stop-opacity=".76"/>` +
+    `<stop offset=".3" stop-color="${light}" stop-opacity=".46"/>` +
+    `<stop offset=".62" stop-color="${light}" stop-opacity=".18"/>` +
+    `<stop offset="1" stop-color="${light}" stop-opacity="0"/>` +
+    `</radialGradient>` +
+    `<g class="af-glow" clip-path="url(#${clip})"><rect width="64" height="64" fill="url(#${grad})"/></g>`
+  )
+}
+
 export function faceSVG(f: Face): string {
   const { p, head } = f
   const working = f.state === 'work'
-  const jaw = jawClip(head)
 
   let s = `<g class="af-rig">`
   s +=
@@ -638,16 +694,6 @@ export function faceSVG(f: Face): string {
   }
   if (f.hair.behind) s += f.hair.behind(p)
   s += `<ellipse cx="32" cy="${head.cy}" rx="${head.rx}" ry="${head.ry}" fill="${p.skin}"/>`
-  if (working) {
-    // Tilted a little: the machine sits slightly right of centre in the tile,
-    // so the light reaches a shade further up that cheek. Two units of tilt is
-    // invisible as a fact and is what stops the edge reading as a drawn line.
-    const top = head.cy + head.ry * 0.33
-    s +=
-      `<clipPath id="${jaw}"><ellipse cx="32" cy="${head.cy}" rx="${head.rx}" ry="${head.ry}"/></clipPath>` +
-      `<g clip-path="url(#${jaw})">` +
-      `<path d="M12 ${round(top)}L52 ${round(top - 2.2)}V46H12z" fill="#ffffff" opacity=".17"/></g>`
-  }
   if (f.hair.front) s += f.hair.front(p)
   if (working) {
     // The brows are new, and they are the reason this face can be eager at all.
@@ -688,14 +734,11 @@ export function faceSVG(f: Face): string {
       ? `<path d="M29 35q3 2.5 6 0" stroke="#14161a" stroke-width="1.9" fill="none" stroke-linecap="round"/>`
       : `<path d="M29 35h6" stroke="#14161a" stroke-width="1.9" stroke-linecap="round"/>`
   if (f.prop) s += PROP[f.prop](p)
+  // The screen's light, last inside the rig so it falls on everything the
+  // person is made of and on nothing else. See screenLight.
+  if (working) s += screenLight(f)
   s += `</g>`
   if (working) s += workScene(p)
   return s
 }
 
-// Coordinates land in the markup, so they are trimmed rather than printed at
-// float precision: `31.400000000000002` in a path is noise in every diff of
-// every face for the life of the file.
-function round(n: number): number {
-  return Math.round(n * 100) / 100
-}

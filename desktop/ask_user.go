@@ -56,7 +56,7 @@ func (*askUserSkill) ToolDefinition() model.ToolDefinition {
 		Type: "function",
 		Function: model.ToolFunction{
 			Name:        "ask_user",
-			Description: "Ask the user ONE question and wait for the answer. Arguments are flat: a `question` string and an `options` array of plain strings. Use when blocked on a decision only the user can make; never for questions you can resolve yourself.",
+			Description: "Ask the user ONE question and wait for the answer. Arguments are flat: a `question` string and an `options` array of plain strings. Use when clarifying ambiguous goals, choosing between concrete approaches, or when blocked on a decision only the user can make.",
 			Parameters:  payload,
 		},
 	}

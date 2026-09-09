@@ -361,10 +361,18 @@ function renderFootnotes(): string {
   return notes === '' ? '' : `<div class="fn-notes">${notes}</div>`
 }
 
-// A plan arrives as a fenced block tagged `plan` and is drawn as a card of its
-// own: the icon of the dial that produced it, a title, and the plan itself
-// (internal/prompt.planCard asks for exactly this, and only where a surface can
-// draw it — a terminal session gets the same plan with no fence around it).
+// A plan written as a fenced block tagged `plan`, drawn as a card.
+//
+// **NOTHING ASKS FOR THIS ANY MORE.** A plan is a stored document now
+// (desktop/plan.go) and the card that matters is drawn from the row, in
+// Chat.svelte, with its checklist and its button. internal/prompt.planCard tells
+// the model in as many words never to type a plan into its reply.
+//
+// This stays as a READER, not as a second way in. Transcripts written before
+// 9 ก.ย. hold real fences, and without this they would come back as bare code
+// blocks. Keeping two ways for a plan to reach the screen is what produced two
+// cards that looked alike and behaved differently — one you could act on, one
+// inert — which is the thing that was removed rather than taught.
 //
 // The fence is the contract because this renderer already had the seam: a code
 // block gets a header bar and a copy button by being intercepted here on its

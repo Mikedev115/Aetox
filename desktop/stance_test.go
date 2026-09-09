@@ -321,3 +321,82 @@ func TestPlanRefusesABrowserActionItWasNotOffered(t *testing.T) {
 		t.Errorf("refusal was %q, want it to name what this session may use instead", err)
 	}
 }
+
+// THE ASSISTANT'S OWN SWITCH REACHES THE SAME DISPATCHER, MID-TURN.
+//
+// internal/mode proves the dial narrows and refuses to widen. What it cannot
+// prove is the thing this file exists for: that a narrowing which happens
+// inside a running turn, with no engine rebuilt, actually reaches the
+// dispatcher the session is running on. If the filters had snapshotted the
+// stance at bootstrap — which is what they used to do, and what still compiles
+// — the tool would report success, the picker would move, and the model would
+// go on holding `write` for the whole turn.
+func TestThePlanModeToolNarrowsTheLiveEngine(t *testing.T) {
+	a := bootDeskApp(t, "assistant")
+	before := toolNames(a)
+	// `change` rather than `write`: those are acts of one packed entry
+	// (internal/skill/change_pack.go), and naming a tool that is not registered
+	// would make this pass for free.
+	if !hasTool(before, "change") {
+		t.Fatal("test is stale: the assistant desk had no change even at ลงมือ")
+	}
+	if !hasTool(before, "plan_mode") {
+		t.Fatal("ลงมือ is the one stance this tool is for, and it was not on the desk")
+	}
+
+	// Called the way the model calls it — through the session's own dispatcher,
+	// with no SetStance and no re-bootstrap anywhere in the path.
+	out, ok, err := a.deskTools().ExecuteTool(context.Background(), "plan_mode",
+		map[string]any{"why": "งานใหญ่ ขอดูก่อน"})
+	if err != nil || !ok {
+		t.Fatalf("plan_mode: ok=%v err=%v", ok, err)
+	}
+	if !out.Success {
+		t.Fatalf("plan_mode refused: %s", out.Stderr)
+	}
+
+	after := toolNames(a)
+	if hasTool(after, "change") {
+		t.Error("the narrowing did not reach the dispatcher: change is still on the desk")
+	}
+	if !hasTool(after, "read") {
+		t.Error("วางแผน keeps every tool that only looks, and read went missing")
+	}
+	if a.cur().stance != mode.StancePlan {
+		t.Errorf("the conversation was left on %q", a.cur().stance)
+	}
+	// And the window is told, or the composer draws ลงมือ over an engine that
+	// has stopped handing out write — the failure StartPlanRun already made
+	// once (goal_run.go).
+	if !a.cur().stanceRebuild {
+		t.Error("the boundary rebuild was not queued, so the next turn keeps ลงมือ's prompt")
+	}
+}
+
+// And it is one-way. The refusal is what lets a moving stance coexist with a
+// frozen desk (COMPANY.md §6.3): a model that could widen its own would be the
+// first thing here able to hand itself a tool.
+func TestTheAssistantCannotWidenItsOwnStance(t *testing.T) {
+	a := bootDeskApp(t, "assistant")
+	if _, err := a.SetStance(string(mode.StancePlan)); err != nil {
+		t.Fatalf("SetStance: %v", err)
+	}
+	// วางแผน does not carry the switch at all, which is the first line of
+	// defence and the one that costs no tokens: the model is never shown a
+	// control it may not use.
+	if hasTool(toolNames(a), "plan_mode") {
+		t.Error("วางแผน has nowhere to go and must not be offered the switch")
+	}
+	if hasTool(toolNames(a), "change") {
+		t.Error("test is stale: วางแผน handed over change")
+	}
+}
+
+func hasTool(names []string, want string) bool {
+	for _, n := range names {
+		if n == want {
+			return true
+		}
+	}
+	return false
+}

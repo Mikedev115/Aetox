@@ -249,10 +249,16 @@ var toolCategories = map[string]string{
 	// and a stance says which acts this turn may make. Splitting `plan_read`
 	// into a category of its own to express "the safe one" would put the
 	// stance's answer in the desk's vocabulary.
-	"plan":           CategoryAgent,
-	"plan_write":     CategoryAgent,
-	"plan_amend":     CategoryAgent,
-	"plan_read":      CategoryAgent,
+	"plan":       CategoryAgent,
+	"plan_write": CategoryAgent,
+	"plan_amend": CategoryAgent,
+	"plan_read":  CategoryAgent,
+	// Not part of that pack: it moves the DIAL, not the document, and it is the
+	// one of the five that วางแผน must not carry. CategoryAgent all the same —
+	// how this agent works is agent business, and every desk carries that group,
+	// which is right here: the switch is not a capability a desk grants, it is
+	// the way out of one a desk already gave.
+	"plan_mode":      CategoryAgent,
 	"suggest_task":   CategoryAgent,
 	"memory":         CategoryAgent,
 	"session_search": CategoryAgent,

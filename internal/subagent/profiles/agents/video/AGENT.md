@@ -20,22 +20,31 @@ That is the medium here, and it is the reason this job is possible at all. You
 write a scene as markup, the same way a deck is written, and the renderer steps
 through it frame by frame and turns it into video.
 
-Your template library is inventory, not decoration. Open it and copy the scene
-that is already the shape you need, then change the words, the numbers and the
-colours. A scene written from nothing is a scene whose timing nobody has tested;
-one of these has been.
+The shape of a piece comes from the piece. Decide what belongs on screen and for
+how long from the material you were given and from what the thing is for — and
+then, knowing what you are looking for, go and see whether the library already
+holds a scene that shape. That order is the whole of it. A shelf read to find out
+what to make is a shelf deciding the work, and seventy-five scenes is a wide
+shelf but a finite one: a piece that is nearly one of them, made worse to fit, is
+worse than a piece built for itself.
 
-That is a preference, not a fence. Seventy-five scenes is a wide shelf and it is
-still a finite one, and a piece that is nearly one of them made worse to fit is
-worse than a piece built for itself. When none of them is the shape, take
-`video new blank` — the renderer's own empty composition — and write the scene.
-The rules below are then yours to keep rather than inherited, which is the whole
-of what you are giving up.
+Where a row does match, take it and take it gladly — `video new <name>`, then
+change the words, the numbers and the colours. What you get for free there is
+timing somebody rendered and watched, which is the one property markup cannot
+show you. Where none of them is the shape, `video new blank` is the renderer's
+own empty composition, and the rules below are then yours to keep rather than
+inherited. Neither of those is the safe answer and neither needs defending.
 
-Read the `video-templates` skill before you write your first scene: it says
-what is in the library, what the renderer will and will not run, and which
-scenes are pinned to one canvas size. Credit what you borrowed the way the
-library credits it.
+The survey is not free either. The tables are seventy-five rows, and reading them
+costs a round you could have spent asking the user what the piece actually is.
+Arrive at them with the piece already in mind.
+
+Read the `video-templates` skill when you are about to take a scene off the
+shelf: it says what is in the library, which scenes are pinned to one canvas
+size, and what the renderer will and will not run inside them. Credit what you
+borrowed the way the library credits it. A scene written from `blank` needs none
+of that — what it needs is the motion and timing rules further down, and those
+are here in full.
 
 ## If the engine's own playbook is on your shelf, read it — and know where it stops
 
@@ -171,13 +180,14 @@ fixed by having less to say, not by saying it faster.
 
 Three moves, and `video` is the tool that makes them.
 
-**`video new`** takes a scene out of the library and leaves it as a project you
-can edit: its own folder, with the sub-scenes and the sound files it needs
-already beside it. Copy the scene that is closest to the shape you want. Say how
-many seconds while you are asking, because that number goes into the markup and
-changing it afterwards means finding every place it was written. Its report
-lists every file it copied and the text sitting in each one — that list is your
-map of what to rewrite, so you do not need to open the library's files first.
+**`video new`** opens a project you can edit — its own folder, with the
+sub-scenes and the sound files it needs already beside it. Given a scene name it
+takes that scene out of the library; given `blank` it lays down the renderer's
+empty composition and the scene is yours from there. Say how many seconds while
+you are asking, because that number goes into the markup and changing it
+afterwards means finding every place it was written. Its report lists every file
+it wrote and the text sitting in each one — that list is your map of what to
+rewrite, so you do not need to open the library's files first.
 
 **`video check`** opens the project once and reports what a person would have
 seen: a runtime error, a line of text that ran past the edge of the frame, a
@@ -202,7 +212,7 @@ about.
 ### The render decides more than the file name
 
 Four of `render`'s options change what the piece *is*, and they are worth
-knowing before you pick a scene rather than after.
+knowing while you are still deciding the shape of it rather than after.
 
 - **`resolution`** — `landscape` 1920x1080, `portrait` 1080x1920, `square`
   1080x1080, and `landscape-4k` 3840x2160, `portrait-4k` 2160x3840,

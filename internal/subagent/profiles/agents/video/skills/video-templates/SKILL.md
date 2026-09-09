@@ -1,14 +1,18 @@
 ---
 name: video-templates
-description: ฉากวิดีโอที่ก๊อปไปใช้ได้เลย 75 ฉาก ไม่ใช่คำอธิบายว่าฉากควรหน้าตาแบบไหน แบ่งเป็นฉากเคลื่อนไหว 50 แบบ ครบสามอัตราส่วน — นอน 39 ตั้ง 6 จัตุรัส 5สำหรับเรนเดอร์เป็นคลิป (รวมเด็คนักลงทุนและพิตช์เด็คแบบเต็มเรื่อง กับอีก 9 ฉากในภาษาโฆษณาโปรดักต์ที่ถอดจากสเปกและจากการหยุดเฟรมดูคลิปจริง สี่ในนั้นเคลื่อนด้วยสปริงจริงของ Material 3 Expressive และทั้งแปดเป็นฉากเดียวบนชั้นที่ตัวอักษรไทยมีฟอนต์ที่เลือกไว้) และฉากนิ่ง 25 แบบสำหรับปก อินโฟกราฟิก สไลด์ข้อมูล ไดอะแกรมอธิบาย และหน้าจอจำลอง ส่วนใหญ่เป็น HTML ไฟล์เดียวจบ อีก 13 ฉากเป็นโฟลเดอร์เพราะมีฉากย่อยกับไฟล์ประกอบของตัวเอง ใช้ตอนกำลังจะทำฉากขึ้นใหม่แล้วไม่อยากประดิษฐ์เองทุกครั้ง
+description: ฉากวิดีโอที่ก๊อปไปใช้ได้เลย 75 ฉาก ไม่ใช่คำอธิบายว่าฉากควรหน้าตาแบบไหน แบ่งเป็นฉากเคลื่อนไหว 50 แบบ ครบสามอัตราส่วน — นอน 39 ตั้ง 6 จัตุรัส 5สำหรับเรนเดอร์เป็นคลิป (รวมเด็คนักลงทุนและพิตช์เด็คแบบเต็มเรื่อง กับอีก 9 ฉากในภาษาโฆษณาโปรดักต์ที่ถอดจากสเปกและจากการหยุดเฟรมดูคลิปจริง สี่ในนั้นเคลื่อนด้วยสปริงจริงของ Material 3 Expressive และทั้งแปดเป็นฉากเดียวบนชั้นที่ตัวอักษรไทยมีฟอนต์ที่เลือกไว้) และฉากนิ่ง 25 แบบสำหรับปก อินโฟกราฟิก สไลด์ข้อมูล ไดอะแกรมอธิบาย และหน้าจอจำลอง ส่วนใหญ่เป็น HTML ไฟล์เดียวจบ อีก 13 ฉากเป็นโฟลเดอร์เพราะมีฉากย่อยกับไฟล์ประกอบของตัวเอง ใช้ตอนรู้แล้วว่าจะทำฉากรูปไหน แล้วอยากรู้ว่าในชั้นมีแถวที่เป็นรูปนั้นอยู่แล้วหรือไม่
 ---
 
 # Video scene templates
 
-Markup that gets copied, not advice about markup. Pick from the tables, take it
-with `video new`, change the words. A scene written from nothing is a scene
-whose timing nobody has tested; every one of these has been rendered by the
-people who wrote it.
+Markup, not advice about markup. Every scene here was rendered and watched by
+the people who wrote it, so what a row gives you that an empty page cannot is
+timing somebody has already seen move.
+
+Read this as a reference, not a menu. Decide the shape of the piece first, then
+look for the row that is already that shape. Where one is, take it with
+`video new` and change the words. Where none is, the scene is yours to write,
+and that is an ordinary answer rather than a fallback.
 
 **All four shelves are reachable and every spelling in these tables works.**
 `video new social-cover-editorial`, `video new graphic-scenes/social-cover-editorial.html`
@@ -18,11 +22,11 @@ ambiguous. Until 7 ก.ย. 2569 only the motion shelf could be reached and the
 other twenty-five names in these tables were refused, which is worth knowing if
 you carry a memory of being told one of them did not exist.
 
-**And when none of the seventy-five is the shape you need, `video new blank`.**
-That is the renderer's own empty composition — a frame, a registered timeline
-and nothing else. It is the release valve for the piece the shelf does not
-have, not a way around the paragraph above: if one of these is close, start
-from it.
+**`video new blank`** is the renderer's own empty composition — a frame, a
+registered timeline and nothing else. It is what a scene of your own starts
+from, and it is a first-class start: reach for it whenever the piece you are
+building is not one of the rows below. Copy a row because it is the shape, not
+because copying is the safer move.
 
 **The tables below are the complete inventory.** The listing this tool appends
 after the document is capped at 40 entries and the library holds over 100
