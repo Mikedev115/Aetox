@@ -29,6 +29,7 @@
   import { t } from '../i18n.svelte'
   import Icon from '../Icon.svelte'
   import CodeDiff from '../CodeDiff.svelte'
+  import { refreshCodeStatus } from '../stores/codeStatus.svelte'
 
   let room = $state<main.PRRoom | null>(null)
   let loaded = $state(false)
@@ -116,10 +117,18 @@
     await refresh()
   }
 
+  let refreshing = $state(false)
+
   async function refresh() {
-    room = await PullRequestsState(filterState)
-    loaded = true
-    for (const pr of room?.items ?? []) void loadChecks(pr.headSHA)
+    refreshing = true
+    try {
+      room = await PullRequestsState(filterState)
+      loaded = true
+      for (const pr of room?.items ?? []) void loadChecks(pr.headSHA)
+      void refreshCodeStatus()
+    } finally {
+      refreshing = false
+    }
   }
 
   async function loadChecks(sha: string) {
@@ -174,10 +183,12 @@
   <div class="pr-head">
     <span class="repo"><Icon name="gitBranch" size={13} /> {room?.repo || '—'}</span>
     {#if loaded && !room?.reason}
-      <span class="count">{t('prPane.count', { count: String(items.length) })}</span>
+      <span class="count">
+        {filterState === 'open' ? t('prPane.count', { count: String(items.length) }) : t('prPane.countClosed', { count: String(items.length) })}
+      </span>
     {/if}
-    <button type="button" class="icobtn" title={t('prPane.refresh')} onclick={refresh}>
-      <Icon name="loaderCircle" size={13} />
+    <button type="button" class="icobtn" class:spinning={refreshing} title={t('prPane.refresh')} onclick={refresh}>
+      <Icon name="rotateCw" size={13} />
     </button>
     {#if loaded && !room?.reason}
       <button type="button" class="icobtn" title={t('prPane.newTitle')} onclick={startOpening}>
@@ -197,7 +208,7 @@
         class:active={filterState === 'open'}
         onclick={() => setFilter('open')}
       >
-        <Icon name="check" size={12} />
+        <Icon name="gitPullRequest" size={12} />
         <span>{t('prPane.tabOpen')}</span>
       </button>
       <button
@@ -206,7 +217,7 @@
         class:active={filterState === 'closed'}
         onclick={() => setFilter('closed')}
       >
-        <Icon name="package" size={12} />
+        <Icon name="gitMerge" size={12} />
         <span>{t('prPane.tabClosed')}</span>
       </button>
     </div>
@@ -306,8 +317,10 @@
           <button type="button" class="pr-title" onclick={() => toggle(pr)}>
             <span class="chev"><Icon name={open[pr.number] ? 'chevronDown' : 'chevronRight'} size={12} /></span>
             <span class="num">#{pr.number}</span>
-            <span class="ttl">{pr.title}</span>
-            {#if pr.state === 'closed'}
+            <span class="ttl" title={pr.title}>{pr.title}</span>
+            {#if pr.merged}
+              <span class="tag merged">{t('prPane.merged')}</span>
+            {:else if pr.state === 'closed'}
               <span class="tag closed">{t('prPane.closed')}</span>
             {:else if pr.draft}
               <span class="tag">{t('prPane.draft')}</span>
