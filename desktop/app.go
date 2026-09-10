@@ -109,6 +109,10 @@ type App struct {
 	// finished first.
 	preparing atomic.Bool
 
+	// habitSynthesisRunning guards the background habit synthesizer so at most one
+	// runs at a time.
+	habitSynthesisRunning atomic.Bool
+
 	terminalsMu sync.Mutex
 	terminals   map[string]*TerminalSession
 	browsers    *browserHost

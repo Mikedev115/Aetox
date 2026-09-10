@@ -58,6 +58,7 @@ func newJobApp(t *testing.T) *App {
 	// The background skill-tuner would make a real model call when a test rates a
 	// skill bad; unit tests drive the generator directly with a fake drafter.
 	autoTuneSkills = false
+	autoSynthesizeHabits = false
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 	a := seed(&App{cfg: config.Config{}, dbDir: t.TempDir()}, &conversation{id: "20260804-120000.000"})
 	t.Cleanup(func() {

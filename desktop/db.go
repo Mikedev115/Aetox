@@ -213,6 +213,12 @@ CREATE TABLE IF NOT EXISTS ignored_habits (
   sample_text TEXT NOT NULL DEFAULT '',
   ignored_at  TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS synthesized_habits (
+  normalized     TEXT PRIMARY KEY,
+  synthesized_at TEXT NOT NULL,
+  proposal_id    INTEGER NOT NULL DEFAULT 0
+);
 `
 
 // migration is one step from schema version N-1 to N. The version a database
@@ -763,6 +769,19 @@ CREATE TABLE IF NOT EXISTS project_folders (
 			    normalized  TEXT PRIMARY KEY,
 			    sample_text TEXT NOT NULL DEFAULT '',
 			    ignored_at  TEXT NOT NULL
+			  )`)
+			return err
+		},
+	},
+	{
+		version: 22,
+		name:    "synthesized_habits",
+		apply: func(tx *sql.Tx) error {
+			_, err := tx.Exec(`
+			  CREATE TABLE IF NOT EXISTS synthesized_habits (
+			    normalized     TEXT PRIMARY KEY,
+			    synthesized_at TEXT NOT NULL,
+			    proposal_id    INTEGER NOT NULL DEFAULT 0
 			  )`)
 			return err
 		},

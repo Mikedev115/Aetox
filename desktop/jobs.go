@@ -157,6 +157,10 @@ func (a *App) recordJobs(conv *conversation, messageID int64, request, answer st
 	// Cheap detect here, model call only in the background if something is
 	// flagged — and only ever a proposal, never a write.
 	a.maybeTuneSkills()
+
+	// Habit synthesis pipeline: detects recurring tasks (>=3 times) across sessions,
+	// synthesizes workflow patterns, and proposes skills or memory entries for user approval.
+	a.maybeSynthesizeHabits()
 }
 
 // delegateName is which sub-agent ran. The tool runs carry it (the relay in
