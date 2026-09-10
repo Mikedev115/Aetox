@@ -1596,26 +1596,57 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   font-size:var(--fs-2xs); color:var(--text-dim); font-variant-numeric:tabular-nums;
 }
 
-/* Parallel tool fan-out card (breaks out like search-card when running parallel tasks) */
+/* A batch of tool calls the agent ran together.
+ *
+ * NO FRAME OF ITS OWN, and that is the whole of this rule. It used to wear
+ * `.search-card` — the same border, radius and surface the box around it wears
+ * — because it was built from the search card's skeleton. Two frames for one
+ * nest is the box saying "these belong together" twice, and the head below
+ * already says it in words.
+ *
+ * It got there by inheritance rather than by decision, and the two elements are
+ * not the same thing: a search card hangs off the row that ran the search and
+ * holds what came back; this is a stretch OF the box, holding rows that are
+ * rows like any other. Owner, 11 ก.ย., pointing at a screenshot of exactly this:
+ * "ผมไม่อยากให้มีกรอบซ้อนกัน 2 ชั้นอ่ะ เอาชั้นในออกได้ไหม ... แม้จะเป็นงานขนาน
+ * ก็ไม่ควรห่อ".
+ *
+ * What stays is everything that says the SET is a set: the head naming how many
+ * ran together, the count beside it, and the foot's total. The rows are drawn to
+ * the box's own metrics — the same 8px/10px padding as every other row, the
+ * box's hairline between them — so a batch reads as part of the list rather than
+ * as a denser list inside it.
+ */
 .parallel-card {
-  margin:4px 0 8px; padding:8px 10px 6px;
+  margin:0; padding:0;
+  border:0; border-radius:0; background:none;
 }
+/* The box's own gutter, because the head is now a row of it rather than the
+   title bar of a card. Its border-bottom is .search-head's, and it is the one
+   separator the first row must not repeat. */
+.parallel-head { padding:7px 10px; }
 .parallel-head .ic { color:var(--text-secondary); }
 .parallel-head .q { font-weight:500; }
 .parallel-hits {
-  display:flex; flex-direction:column; gap:2px;
+  display:flex; flex-direction:column; gap:0;
   max-height:220px;
 }
 .parallel-hits .tool-step.parallel-hit {
   border:none; background:transparent;
-  padding:4px 6px; margin:0;
-  border-radius:var(--r-sm); min-height:28px;
+  padding:8px 10px; margin:0;
+}
+/* Between the rows, not around them: `+` rather than the box's own
+   `.tool-step + .tool-step`, which the `border:none` above has to override so
+   that the head's line is not doubled by a row's. */
+.parallel-hits .tool-step.parallel-hit + .tool-step.parallel-hit {
+  border-top:1px solid var(--border-subtle);
 }
 .parallel-hits .tool-step.parallel-hit:hover {
   background:var(--surface-row-hover);
 }
 .parallel-foot {
   display:flex; align-items:center; gap:6px;
+  margin:0; padding:6px 10px 8px;
 }
 .tool-step.foldable:hover .fold-caret { color:var(--text-muted); }
 .tool-step .fold-caret { flex:0 0 auto; display:inline-flex; color:var(--text-dim); }

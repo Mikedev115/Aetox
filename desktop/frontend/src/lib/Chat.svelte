@@ -574,6 +574,23 @@
   // click on the header takes the phase off the list, and from that moment the
   // fold belongs to the reader.
   let landing = $state<Record<string, boolean>>({})
+  // Everything in a stretch below this index has been put away, so the box
+  // draws from here. It is what makes a ROUND the unit on screen rather than the
+  // whole stretch: a second batch under one sentence opens a box holding its own
+  // rows instead of re-drawing the batch before it — which grew the box back to
+  // a height it had already folded away and then dropped it again (owner,
+  // 11 ก.ย.: "พับเสร็จแล้วรันซ้ำจุดเดิม เลยขึ้นๆลงๆ").
+  //
+  // Advanced at the two moments a round is genuinely put away: when the app's own
+  // fold finishes (settlePhase), and when a stretch the READER owns goes quiet —
+  // that one never folds itself, so without it its next round would draw the
+  // round before it. Absent for a stretch that has put nothing away, which is
+  // every phase's first round.
+  let folded = $state<Record<string, number>>({})
+  // Which keys the READER owns. A click on the header hands the fold over for
+  // good (togglePhase), and the app must not take it back the next time the
+  // stretch starts working — that would shut a list somebody is reading.
+  const readerOwns = new Set<string>()
   // Which keys this turn has seeded. A plain Set rather than state read back out
   // of `openRows`, so the effect below only ever WRITES the things it changes:
   // an effect that reads the state it writes is the shape that re-runs itself.
@@ -636,8 +653,27 @@
       // for a minute between the two, and the rows sat there finished for all
       // of it. Quiet is the honest end of a stretch of work; the sentence is
       // just the next thing to read.
-      if (running) armed.delete(key)
-      else settlePhase(key)
+      if (running) {
+        armed.delete(key)
+        // A new round in a stretch the app still owns gets the same ending the
+        // first one got. Nothing re-armed this before, so from the second round
+        // on the rows were simply gone the frame the last result landed — no
+        // beat, no movement, which is the other half of what the owner saw on
+        // 11 ก.ย.
+        if (!readerOwns.has(key)) {
+          openRows[key] = true
+          landing[key] = true
+        }
+      } else {
+        // A stretch the reader owns never folds itself, so a round ending here
+        // is the only chance to bound it: without this its next batch would draw
+        // the batch before it again.
+        if (readerOwns.has(key)) {
+          const n = ownCountOf(key)
+          if (n !== null) folded[key] = n
+        }
+        settlePhase(key)
+      }
     }
   })
 
@@ -661,6 +697,12 @@
       // have started another call, because a sentence is what opens a phase and
       // two rounds of tools can arrive under one.
       if (!landing[key] || phaseWorking(key)) return
+      // The round is over, and this is where it leaves the box: everything on
+      // screen is put away and the next round starts past it. Stamped here and
+      // never a moment earlier — the block being folded is still drawing those
+      // rows right up to the frame this closes.
+      const n = ownCountOf(key)
+      if (n !== null) folded[key] = n
       openRows[key] = false
       window.setTimeout(() => { delete landing[key] }, still ? 0 : SETTLE_MS)
     }, now || still ? 0 : LANDING_HOLD_MS)
@@ -674,6 +716,15 @@
     )
   }
 
+  // How many own rows the stretch behind a key holds right now, or null when it
+  // is no longer a live stretch — the turn ended and the record took over from
+  // it. Rounds are counted in these rows, so this is the one measurement both
+  // write sites for `folded` are taken with.
+  function ownCountOf(key: string): number | null {
+    const ph = livePhases.find((p) => phaseKey(p, '') === key)
+    return ph ? ownSteps(ph.steps).length : null
+  }
+
   // The turn ended, so the stretch it was in closed with it — the one phase the
   // effect above always leaves open, and the only one still to settle.
   function settleLanded(now = false) {
@@ -685,6 +736,11 @@
   function togglePhase(key: string, open: boolean) {
     delete landing[key]
     openRows[key] = !open
+    readerOwns.add(key)
+    // Everything on screen is the reader's past now, so a round beginning later
+    // starts past it rather than drawing it a second time.
+    const n = ownCountOf(key)
+    if (n !== null) folded[key] = n
   }
 
   // Which phase this is, asked in terms that do not change when the turn ends.
@@ -3751,9 +3807,22 @@
 {#snippet parallelCard(steps: ToolStep[], live: boolean)}
   {@const running = steps.filter((s) => s.state === 'run')}
   {@const maxSecs = Math.max(...steps.map((s) => (s.state === 'run' ? liveSecs(s) : (s.secs ?? 0))), 0)}
-  <div class="search-card parallel-card">
+  <!-- No `search-card` on this element, and that is the change rather than an
+       omission. It wore one — the same border, radius and surface the box
+       ABOVE it wears — because it was built from the search card's skeleton,
+       and the result was one nest with two frames around it. The head below
+       already says these rows ran together; a second border said it again.
+       Owner, 11 ก.ย.: "ผมไม่อยากให้มีกรอบซ้อนกัน 2 ชั้นอ่ะ เอาชั้นในออกได้ไหม ...
+       แม้จะเป็นงานขนาน ก็ไม่ควรห่อ". The head, the rows and the foot stay —
+       they are what says the SET is a set. See .parallel-card in style.css. -->
+  <div class="parallel-card">
     <div class="search-head parallel-head">
-      <span class="ic"><Icon name="cpu" size={13} /></span>
+      <!-- `layoutList`, and it was `cpu` — a name that is not in the icon set,
+           so this mark has never drawn at all. `cpu` says what the head MEANT
+           (several things at once) and says nothing about what the row shows,
+           which is a batch of rows; this glyph is two of them beside their
+           lines, and it sits at the same left edge as the tiles below it. -->
+      <span class="ic"><Icon name="layoutList" size={13} /></span>
       <span class="q">
         {#if running.length > 0}
           {t('tool.parallelRunning', { n: steps.length })}
@@ -3763,9 +3832,9 @@
       </span>
       <span class="n">
         {#if running.length > 0}
-          {steps.length - running.length}/{steps.length} {t('chat.doneBadge')}
+          {steps.length - running.length}/{steps.length} {t('tool.parallelBadge')}
         {:else}
-          {steps.length} {t('chat.doneBadge')}
+          {steps.length} {t('tool.parallelBadge')}
         {/if}
       </span>
     </div>
@@ -3952,7 +4021,12 @@
        ก่อนจะพูดประโยคถัดไป มันก็พับลงอย่างนุ่มนวล". A DELEGATION still folds at
        none of these moments (shownSubs), which has never been in question. -->
   {@const working = unfolded || (live && runOwn.length > 0)}
-  {@const shownOwn = working ? own : runOwn}
+  // While a call is out the box holds the ROUND it belongs to: this stretch's
+  // own rows from the last fold onward, not every call the stretch has ever
+  // made. A delegate's card is the exception it has always been — `unfolded`
+  // keeps a worker's whole list on screen, and the window is what keeps it from
+  // being a wall.
+  {@const shownOwn = unfolded ? own : working ? own.slice(folded[key] ?? 0) : runOwn}
   <!-- A DELEGATION IS NEVER FOLDED, running or finished, live turn or one read
        back a week later. A tool row is a thing the agent did and folds into a
        count the way a receipt does; a delegation is somebody else's work, with
@@ -3964,6 +4038,15 @@
   {@const shownSubs = subs}
   {@const foldable = !working && doneOwn.length > 0}
   {@const open = openRows[key] ?? false}
+  // What the fold draws: the round that is on screen at the moment it starts
+  // moving. The slice begins at the last thing put away, so the rows the reader
+  // was looking at a frame ago are the rows that leave — never the ones before
+  // them, and never a batch that lands behind the outro (a new call takes
+  // `foldable` away, and this block leaves holding the rows it had).
+  //
+  // Once the reader owns the fold — a click, or a phase the app never adopted —
+  // it is the whole stretch, because that is what opening a receipt asks for.
+  {@const foldedRows = landing[key] ? own.slice(folded[key] ?? 0) : own}
   <div class="phase">
     <!-- The user, cutting in. Above everything else in the phase because it is
          what started the phase: they typed, the model thought, and then it
@@ -4077,7 +4160,7 @@
            click, a stretch that starts working again after it folded — gets the
            movement. -->
       <div class="phase-fold" in:settle={{ duration: landing[key] ? 0 : SETTLE_MS, gap: 8 }} out:settle={{ gap: 8 }}>
-        {@render toolTimeline(doneOwn, live, landing[key] ?? false)}
+        {@render toolTimeline(foldedRows, live, landing[key] ?? false)}
       </div>
     {/if}
     <!-- Delegations first, as they have always been drawn: a sub-agent is the

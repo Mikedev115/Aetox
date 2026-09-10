@@ -598,6 +598,7 @@ export const en: Record<keyof typeof th, string> = {
   'tool.parallelDone': 'Parallel execution of {n} tasks complete',
   'tool.parallelFootRunning': 'Running {run}/{total} tasks · {secs}s',
   'tool.parallelFootDone': 'Finished {total} tasks · {secs}s',
+  'tool.parallelBadge': 'done',
 
   'taskTimeline.title': 'Task Timeline',
   'taskTimeline.changeSummary': 'Change Summary',

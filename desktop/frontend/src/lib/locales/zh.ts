@@ -523,6 +523,7 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'tool.parallelDone': '并行执行 {n} 项任务已完成',
   'tool.parallelFootRunning': '正在运行 {run}/{total} 项任务 · {secs} 秒',
   'tool.parallelFootDone': '完成 {total} 项任务 · {secs} 秒',
+  'tool.parallelBadge': '已完成',
   'chat.gotResults': '{n} 条结果',
   'chat.diffToggle': '查看改了什么',
   'chat.diffMore': '还有 {n} 行未显示',

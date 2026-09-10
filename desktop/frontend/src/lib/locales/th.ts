@@ -593,6 +593,7 @@ export const th = {
   'tool.parallelDone': 'รันขนานกัน {n} งานเสร็จสิ้น',
   'tool.parallelFootRunning': 'กำลังรัน {run}/{total} งาน · {secs} วิ',
   'tool.parallelFootDone': 'เสร็จสิ้น {total} งาน · {secs} วิ',
+  'tool.parallelBadge': 'เสร็จ',
 
   'taskTimeline.title': 'ไทม์ไลน์งาน',
   'taskTimeline.changeSummary': 'สรุปการเปลี่ยนแปลง',

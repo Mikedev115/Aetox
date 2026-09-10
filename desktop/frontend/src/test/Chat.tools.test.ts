@@ -609,6 +609,56 @@ describe('tool timeline collapsing', () => {
     expect(container.querySelector('button.phase-head')).toBeNull()
   })
 
+  // Two rounds under ONE sentence, with nothing said between them — the ordinary
+  // shape of a long run, and the one that used to jump. Without a round being the
+  // unit the box holds, two separate things go wrong at once:
+  //
+  //  - the box drew every call the stretch had made, so a second batch grew it
+  //    back to a height it had already folded away and dropped it again;
+  //  - nothing re-armed the fold after the first one, so from the second round
+  //    on the rows were gone the frame the last result landed — no beat, no
+  //    movement, which the owner read as the same work running twice.
+  //
+  // Owner, 11 ก.ย., over exactly that: "พับเสร็จแล้วรันซ้ำจุดเดิม เลยขึ้นๆลงๆ".
+  it('gives every round in one stretch its own box, and its own fold', async () => {
+    const a = { label: 'read a.go', ref: 'call_a', state: 'done', startedAt: 0, secs: 1 }
+    const bRun = { label: 'read b.go', ref: 'call_b', state: 'run', startedAt: 0 }
+    const b = { ...bRun, state: 'done', secs: 1 }
+    const rows = () => [...container.querySelectorAll('.tool-step')].map((el) => el.textContent ?? '')
+
+    // Watched arriving, so the phase is the app's to fold.
+    const { container, rerender } = render(Chat, {
+      ...baseProps, awaitingReply: true,
+      messages: [{ role: 'user', text: 'go', time: '10:54' }] as any,
+      toolSteps: [{ ...a, state: 'run', secs: undefined }] as any,
+    })
+    await rerender({ toolSteps: [a] } as any)
+    await new Promise((r) => setTimeout(r, 700))
+    await tick()
+    expect(container.querySelectorAll('.tool-step').length).toBe(0)
+
+    // Round two, same sentence. What is on screen is that round: the row round
+    // one left behind is folded, not drawn a second time.
+    await rerender({ toolSteps: [a, bRun] } as any)
+    await tick()
+    expect(rows().length).toBe(1)
+    // Matched without case: the row's verb is upper-cased in CSS, not in the DOM.
+    expect(rows()[0]).toMatch(/read b\.go/i)
+
+    // And it ends the way the first round did — handed to the fold open, then
+    // shut a beat later. Gone in one frame is the other half of the bug.
+    await rerender({ toolSteps: [a, b] } as any)
+    await tick()
+    const head = () => container.querySelector('button.phase-head')
+    expect(head()?.getAttribute('aria-expanded')).toBe('true')
+    expect(rows().length).toBe(1)
+
+    await new Promise((r) => setTimeout(r, 700))
+    await tick()
+    expect(head()?.getAttribute('aria-expanded')).toBe('false')
+    expect(container.querySelectorAll('.tool-step').length).toBe(0)
+  })
+
   // The frame the reply lands used to take the rows with it. They are drawn
   // outside the fold while the turn runs -- nothing folds mid-turn -- and the
   // fold they were handed to started closed, so three rows became a count in
