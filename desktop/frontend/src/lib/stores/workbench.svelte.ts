@@ -10,7 +10,7 @@ import {
 import type { main, ooxml } from '../../../wailsjs/go/models'
 import { t } from '../i18n.svelte'
 
-export type WorkbenchTabKind = 'terminal' | 'browser' | 'files' | 'file' | 'decks' | 'git' | 'repomap' | 'pr' | 'cutroom' | 'plan'
+export type WorkbenchTabKind = 'terminal' | 'browser' | 'files' | 'file' | 'decks' | 'git' | 'repomap' | 'pr' | 'cutroom' | 'plan' | 'artifacts'
 
 export type WorkbenchTab = {
   id: string
@@ -272,6 +272,25 @@ export function openPlanTab(): void {
   workbench.activeId = 'plan'
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('reveal-inspector'))
+  }
+}
+
+/** Singleton tab: session artifacts inspector (Plan, Walkthrough, UI Mockups, Media). */
+export const artifactSelection = $state<{ target: string }>({ target: '' })
+
+export function openArtifactsTab(target?: string): void {
+  if (target) {
+    artifactSelection.target = target
+  }
+  if (!workbench.tabs.some((t) => t.kind === 'artifacts')) {
+    workbench.tabs.push({ id: 'artifacts', kind: 'artifacts', name: t('workbench.artifactsTab') })
+  }
+  workbench.activeId = 'artifacts'
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('reveal-inspector'))
+    if (target) {
+      window.dispatchEvent(new CustomEvent('select-artifact', { detail: target }))
+    }
   }
 }
 
@@ -1175,6 +1194,8 @@ async function restoreWorkbench(sessionId: string): Promise<void> {
     else if (s.kind === 'pr') openPRTab()
     else if (s.kind === 'repomap') openRepoMapTab()
     else if (s.kind === 'cutroom') openCuttingRoomTab()
+    else if (s.kind === 'plan') openPlanTab()
+    else if (s.kind === 'artifacts') openArtifactsTab()
     else if (s.kind === 'file' && s.path) await openFileTab(s.path, s.name, s.mine ?? false)
     else if (s.kind === 'terminal') await restoreTerminalTab(s)
     else if (s.kind === 'browser') {

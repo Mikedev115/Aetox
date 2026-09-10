@@ -16,11 +16,12 @@
   import PRPane from './PRPane.svelte'
   import RepoMapPane from './RepoMapPane.svelte'
   import PlanPane from './PlanPane.svelte'
+  import ArtifactsPane from './ArtifactsPane.svelte'
   import { fileURL } from '../fileUrl'
   import { cockpit } from '../stores/cockpit.svelte'
   import {
     workbench, activateTab, closeTab, removeTab,
-    openFilesTab, openBrowserTab, openTerminalTab, openDecksTab, openGitTab, openPRTab, openRepoMapTab, openCuttingRoomTab, openFileTab, openPlanTab, routeDeskEvent, detachTab,
+    openFilesTab, openBrowserTab, openTerminalTab, openDecksTab, openGitTab, openPRTab, openRepoMapTab, openCuttingRoomTab, openFileTab, openPlanTab, openArtifactsTab, routeDeskEvent, detachTab,
     reportDeskTabs,
     openUrlInWorkbench, saveWorkbenchSnapshot, resolveAddressBarInput, labelForUrl,
     deviceList, loadDevices,
@@ -37,7 +38,7 @@
   import { sidle } from '../fold'
   import type { IconName } from '../icons'
 
-  const tabIcon: Record<string, IconName> = { terminal: 'keyboard', browser: 'globe', files: 'copy', file: 'fileText', decks: 'layoutList', cutroom: 'scissors', plan: 'compass' }
+  const tabIcon: Record<string, IconName> = { terminal: 'keyboard', browser: 'globe', files: 'copy', file: 'fileText', decks: 'layoutList', cutroom: 'scissors', plan: 'compass', artifacts: 'package' }
 
   // Chrome DevTools' default device presets. CSS viewport sizes — BrowserPane
   // turns one into a real window of that aspect + a matching page zoom.
@@ -469,6 +470,7 @@
   <button class="plus-menu-item" onclick={() => pick(openBrowserTab)}><span class="ic"><Icon name="globe" size={14} /></span> {t('workbench.browserMenu')} <span class="kbd">{shortcutLabel('browserTab')}</span></button>
   <button class="plus-menu-item" onclick={() => pick(openFilesTab)}><span class="ic"><Icon name="copy" size={14} /></span> {t('workbench.filesTab')} <span class="kbd">{shortcutLabel('filesTab')}</span></button>
   <button class="plus-menu-item" onclick={() => pick(openDecksTab)}><span class="ic"><Icon name="layoutList" size={14} /></span> {t('workbench.decksTab')}</button>
+  <button class="plus-menu-item" onclick={() => pick(openArtifactsTab)}><span class="ic"><Icon name="package" size={14} /></span> {t('workbench.artifactsTab')}</button>
   {#if cockpit.plan}
     <button class="plus-menu-item" onclick={() => pick(openPlanTab)}><span class="ic"><Icon name="compass" size={14} /></span> {t('chat.planCard')}</button>
   {/if}
@@ -670,6 +672,8 @@
           <RepoMapPane />
         {:else if tab.kind === 'cutroom'}
           <CuttingRoom />
+        {:else if tab.kind === 'artifacts'}
+          <ArtifactsPane />
         {:else if tab.kind === 'file'}
           <!-- Keyed on rev so a re-read actually lands on screen: FileEditor
                copies `content` into its own state once and this pane never
