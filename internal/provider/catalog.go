@@ -318,7 +318,7 @@ var catalog = map[string]*entry{
 		baseURL:        "http://localhost:8000/v1",
 		envKeys:        []string{"OPENAI_COMPATIBLE_API_KEY", "CUSTOM_OPENAI_API_KEY"},
 		modelDefaults:  ModelDefaults{},
-		capabilities:   Capabilities{ToolCalling: true, Reasoning: true},
+		capabilities:   Capabilities{ToolCalling: true},
 	},
 	// codex is a ChatGPT *subscription*, reached at chatgpt.com rather than
 	// api.openai.com and paid for by the user's plan rather than per token —

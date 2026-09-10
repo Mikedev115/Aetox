@@ -1049,3 +1049,47 @@ func TestOpenAISendsMaxCompletionTokensAndNobodyElseDoes(t *testing.T) {
 		t.Errorf("kimi was sent a field only OpenAI takes: %v", body)
 	}
 }
+
+func TestOpenAICompatibleProvider_RetriesWithoutToolsWhenRefused(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		var req struct {
+			Tools []ToolDefinition `json:"tools"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if len(req.Tools) > 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":{"message":"tool calling is not supported with this model","type":"invalid_request_error"}}`))
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"hello\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"))
+	}))
+	defer server.Close()
+
+	p, err := NewOpenAICompatibleProvider(OpenAICompatibleConfig{
+		Provider: "openai-compatible", Model: "groq/compound", APIKey: "test", BaseURL: server.URL,
+	})
+	if err != nil {
+		t.Fatalf("NewOpenAICompatibleProvider: %v", err)
+	}
+
+	resp, err := p.StreamComplete(context.Background(), Request{
+		Messages: []Message{{Role: RoleUser, Content: "hi"}},
+		Tools:    []ToolDefinition{{Type: "function", Function: ToolFunction{Name: "bash"}}},
+	}, nil, nil)
+	if err != nil {
+		t.Fatalf("StreamComplete failed: %v", err)
+	}
+	if resp.Text != "hello" {
+		t.Errorf("got %q, want %q", resp.Text, "hello")
+	}
+	if attempts != 2 {
+		t.Errorf("expected 2 attempts (first with tools, replay without), got %d", attempts)
+	}
+	if p.SupportsToolCalling() {
+		t.Errorf("expected SupportsToolCalling to return false after refusal")
+	}
+}
+

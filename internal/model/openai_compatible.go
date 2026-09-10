@@ -398,6 +398,9 @@ func (p *OpenAICompatibleProvider) Name() string {
 // was wrong about, at the cost of one failed call; this stops the call from
 // being made at all for the ones it has right.
 func (p *OpenAICompatibleProvider) SupportsToolCalling() bool {
+	if p.dropTools(p.model) {
+		return false
+	}
 	return resolveModalities(p.provider, p.model).Tools
 }
 
@@ -551,6 +554,17 @@ func (p *OpenAICompatibleProvider) Complete(ctx context.Context, req Request) (R
 	if p.dropTemperature(model) {
 		payload.Temperature = 0
 	}
+	if p.dropReasoning(model) {
+		payload.Reasoning = nil
+		payload.ReasoningEffort = ""
+		payload.IncludeReasoning = nil
+		payload.Thinking = nil
+		payload.ReasoningSplit = nil
+	}
+	if p.dropTools(model) {
+		payload.Tools = nil
+		payload.ToolChoice = ""
+	}
 
 	send := func() (*http.Response, error) {
 		body, err := json.Marshal(payload)
@@ -599,6 +613,37 @@ func (p *OpenAICompatibleProvider) Complete(ctx context.Context, req Request) (R
 	if temperatureRefused(httpResp.StatusCode, responseBody) && payload.Temperature != 0 {
 		p.rememberTemperatureRefusal(model)
 		payload.Temperature = 0
+		if httpResp, err = send(); err != nil {
+			return Response{}, err
+		}
+		responseBody, err = io.ReadAll(httpResp.Body)
+		httpResp.Body.Close()
+		if err != nil {
+			return Response{}, err
+		}
+	}
+
+	if reasoningRefused(httpResp.StatusCode, responseBody) && (payload.Reasoning != nil || payload.ReasoningEffort != "" || payload.IncludeReasoning != nil || payload.Thinking != nil) {
+		p.rememberReasoningRefusal(model)
+		payload.Reasoning = nil
+		payload.ReasoningEffort = ""
+		payload.IncludeReasoning = nil
+		payload.Thinking = nil
+		payload.ReasoningSplit = nil
+		if httpResp, err = send(); err != nil {
+			return Response{}, err
+		}
+		responseBody, err = io.ReadAll(httpResp.Body)
+		httpResp.Body.Close()
+		if err != nil {
+			return Response{}, err
+		}
+	}
+
+	if toolRefused(httpResp.StatusCode, responseBody) && len(payload.Tools) > 0 {
+		p.rememberToolRefusal(model)
+		payload.Tools = nil
+		payload.ToolChoice = ""
 		if httpResp, err = send(); err != nil {
 			return Response{}, err
 		}
@@ -751,6 +796,17 @@ func (p *OpenAICompatibleProvider) StreamComplete(ctx context.Context, req Reque
 	if p.dropTemperature(model) {
 		payload.Temperature = 0
 	}
+	if p.dropReasoning(model) {
+		payload.Reasoning = nil
+		payload.ReasoningEffort = ""
+		payload.IncludeReasoning = nil
+		payload.Thinking = nil
+		payload.ReasoningSplit = nil
+	}
+	if p.dropTools(model) {
+		payload.Tools = nil
+		payload.ToolChoice = ""
+	}
 
 	send := func() (*http.Response, error) {
 		body, err := json.Marshal(payload)
@@ -778,8 +834,12 @@ func (p *OpenAICompatibleProvider) StreamComplete(ctx context.Context, req Reque
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
 		responseBody, _ := io.ReadAll(httpResp.Body)
 		httpResp.Body.Close()
+		hasReasoning := payload.Reasoning != nil || payload.ReasoningEffort != "" || payload.IncludeReasoning != nil || payload.Thinking != nil || payload.ReasoningSplit != nil
+		hasTools := len(payload.Tools) > 0
 		if !documentPartRefused(httpResp.StatusCode, responseBody, sentDocuments) &&
-			(!temperatureRefused(httpResp.StatusCode, responseBody) || payload.Temperature == 0) {
+			(!temperatureRefused(httpResp.StatusCode, responseBody) || payload.Temperature == 0) &&
+			(!reasoningRefused(httpResp.StatusCode, responseBody) || !hasReasoning) &&
+			(!toolRefused(httpResp.StatusCode, responseBody) || !hasTools) {
 			return Response{}, p.statusError(httpResp, responseBody)
 		}
 		// Safe to replay: the refusal arrives before the first SSE frame, so
@@ -788,9 +848,20 @@ func (p *OpenAICompatibleProvider) StreamComplete(ctx context.Context, req Reque
 		// and nothing below asks the flag again.
 		if documentPartRefused(httpResp.StatusCode, responseBody, sentDocuments) {
 			payload.Messages = convertMessagesToOpenAI(stripDocuments(req.Messages))
-		} else {
+		} else if temperatureRefused(httpResp.StatusCode, responseBody) && payload.Temperature != 0 {
 			p.rememberTemperatureRefusal(model)
 			payload.Temperature = 0
+		} else if reasoningRefused(httpResp.StatusCode, responseBody) && hasReasoning {
+			p.rememberReasoningRefusal(model)
+			payload.Reasoning = nil
+			payload.ReasoningEffort = ""
+			payload.IncludeReasoning = nil
+			payload.Thinking = nil
+			payload.ReasoningSplit = nil
+		} else if toolRefused(httpResp.StatusCode, responseBody) && hasTools {
+			p.rememberToolRefusal(model)
+			payload.Tools = nil
+			payload.ToolChoice = ""
 		}
 		if httpResp, err = send(); err != nil {
 			return Response{}, err
@@ -1152,6 +1223,47 @@ func (p *OpenAICompatibleProvider) dropTemperature(modelID string) bool {
 
 func (p *OpenAICompatibleProvider) rememberTemperatureRefusal(modelID string) {
 	refusedTemperature.Store(p.provider+"/"+modelID, struct{}{})
+}
+
+func reasoningRefused(status int, body []byte) bool {
+	if status != http.StatusBadRequest {
+		return false
+	}
+	said := strings.ToLower(string(body))
+	return strings.Contains(said, "reasoning") || strings.Contains(said, "thinking")
+}
+
+var refusedReasoning sync.Map
+
+func (p *OpenAICompatibleProvider) dropReasoning(modelID string) bool {
+	if _, seen := refusedReasoning.Load(p.provider + "/" + modelID); seen {
+		return true
+	}
+	return false
+}
+
+func (p *OpenAICompatibleProvider) rememberReasoningRefusal(modelID string) {
+	refusedReasoning.Store(p.provider+"/"+modelID, struct{}{})
+}
+
+func toolRefused(status int, body []byte) bool {
+	if status != http.StatusBadRequest {
+		return false
+	}
+	return IsToolBlockRejection(fmt.Errorf("%s", string(body)))
+}
+
+var refusedTools sync.Map
+
+func (p *OpenAICompatibleProvider) dropTools(modelID string) bool {
+	if _, seen := refusedTools.Load(p.provider + "/" + modelID); seen {
+		return true
+	}
+	return false
+}
+
+func (p *OpenAICompatibleProvider) rememberToolRefusal(modelID string) {
+	refusedTools.Store(p.provider+"/"+modelID, struct{}{})
 }
 
 func (p *OpenAICompatibleProvider) usesDeepSeekThinking() bool {
