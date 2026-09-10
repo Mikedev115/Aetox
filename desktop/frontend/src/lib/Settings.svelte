@@ -951,9 +951,10 @@
     // Walking away from a half-finished sign-in must release the listener it
     // opened, not leave it waiting for a redirect nobody will send.
     if (signInPrompt && signInPrompt.provider !== name) await abortSignIn()
+    const switching = selected !== name
     selected = name
     errorMsg = ''
-    keyDraft = ''
+    if (switching) keyDraft = ''
     connTesting = {}
     connResult = {}
     baseURL = await ProviderBaseURL(name)
@@ -1080,10 +1081,18 @@
   let baseURLIsCustom = $state(false)
   const saveBaseURL = (value: string) => run('baseUrl', async () => {
     await setProviderBaseURL(selected, value)
+    if (keyDraft.trim()) {
+      await submitAPIKey(selected, keyDraft.trim())
+      keyDraft = ''
+    }
+    await refreshProviders()
     await selectProvider(selected)
   })
 
   const saveKey = () => run('key', async () => {
+    if (baseURLDraft.trim() !== baseURL) {
+      await setProviderBaseURL(selected, baseURLDraft.trim())
+    }
     const key = keyDraft.trim()
     if (!key) return
     await submitAPIKey(selected, key)
