@@ -37,6 +37,12 @@ func Apply(name, op, before, body string) error {
 	skillPath := filepath.Join(dir, skillFileName)
 
 	if _, err := os.Stat(skillPath); os.IsNotExist(err) {
+		if op == "create" {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				return err
+			}
+			return os.WriteFile(skillPath, []byte(strings.TrimSpace(body)+"\n"), 0o644)
+		}
 		if err := copyBundledSkillOut(name, dir); err != nil {
 			return err
 		}

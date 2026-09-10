@@ -135,6 +135,10 @@ somebody who has never used the app, are its.
 | `aetox-th-locale` | Thai data with one correct answer: BE/CE years, ID checksum, PromptPay, postcodes, VAT/WHT, PDPA |
 | `aetox-translate` | translation that is expensive to get wrong; not one-liners |
 | `aetox-architect` | reading an existing system and writing it up |
+| `aetox-grill` | grilling and stress-testing a plan, design tree rounds, ADRs, and domain modeling |
+| `aetox-spec` | synthesizing grilled architectures and conversations into formal specifications, contracts, and RFCs |
+| `aetox-slice` | slicing specifications into vertical tracer-bullet tasks, DAG dependencies, and context-sized tickets |
+| `aetox-forge` | test-driven implementation (TDD Red-Green-Refactor) per ticket with clean context boundaries |
 | `aetox-debug` | any bug: root cause before remedy, one hypothesis at a time |
 | `aetox-code-review` | reviewing a change before merge |
 | `aetox-testing` | deciding what to test and the discipline of writing them |
