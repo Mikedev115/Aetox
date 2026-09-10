@@ -97,3 +97,15 @@ func TestForgettingQuotasNormalizesTheProviderName(t *testing.T) {
 		t.Errorf("the alias did not reach the stored window: %+v", got.Quotas)
 	}
 }
+
+func TestAntigravityProviderAccountExpectsQuota(t *testing.T) {
+	app := &App{}
+	got := app.providerAccount("antigravity")
+	if !got.ExpectsQuota {
+		t.Error("antigravity account.ExpectsQuota = false; want true")
+	}
+	if got.Balance.Kind != "subscription" {
+		t.Errorf("Kind = %q; want subscription", got.Balance.Kind)
+	}
+}
+

@@ -3949,6 +3949,12 @@ func (a *App) providerAccount(providerName string) ProviderAccount {
 	if len(balance.Quotas) > 0 {
 		account.Quotas = balance.Quotas
 		account.QuotaKnown, account.QuotaFetched = true, true
+		a.quotasMu.Lock()
+		if a.quotas == nil {
+			a.quotas = make(map[string][]model.Quota, 4)
+		}
+		a.quotas[canonical] = balance.Quotas
+		a.quotasMu.Unlock()
 	}
 	return account
 }

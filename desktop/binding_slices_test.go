@@ -49,6 +49,7 @@ func TestBindingsNeverReturnNilSlices(t *testing.T) {
 		"CommandHistory",
 		"GitChangedFiles",
 		"GitWorkingTree",
+		"GitSuggestSplitCommits",
 		"ProjectTree",
 		"WorkspaceFolders",
 		// The rewind list. Empty is its ordinary state — a chat that has not

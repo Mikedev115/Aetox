@@ -166,3 +166,23 @@ func TestTaskToolIsRegisteredForTheMainAgent(t *testing.T) {
 		t.Error("a sub-agent was handed task — it could spawn its own children")
 	}
 }
+
+func TestOpenAgentHomeCreatesAndRevealsFolder(t *testing.T) {
+	a := newSubagentTestApp(t)
+	var opened string
+	a.openDir = func(path string) error {
+		opened = path
+		return nil
+	}
+
+	if err := a.OpenAgentHome("explore"); err != nil {
+		t.Fatalf("OpenAgentHome: %v", err)
+	}
+	expected, _ := config.AgentHome("explore")
+	if opened != expected {
+		t.Errorf("opened = %q, want %q", opened, expected)
+	}
+	if info, err := os.Stat(opened); err != nil || !info.IsDir() {
+		t.Errorf("expected directory to be created: %v", err)
+	}
+}

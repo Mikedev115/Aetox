@@ -161,6 +161,11 @@ func (a *App) OpenAgentSkillsFolder(name string) error {
 	return a.revealProfileHome(func() (string, error) { return config.AgentSkillsPath(name) })
 }
 
+// OpenAgentHome reveals one agent's home directory in the file manager.
+func (a *App) OpenAgentHome(name string) error {
+	return a.revealProfileHome(func() (string, error) { return config.AgentHome(name) })
+}
+
 func (a *App) revealProfileHome(home func() (string, error)) error {
 	dir, err := home()
 	if err != nil {
