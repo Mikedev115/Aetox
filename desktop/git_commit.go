@@ -50,7 +50,7 @@ func (a *App) GitCommitFiles(message string, files []string) error {
 		}
 	}
 
-	cmd := exec.CommandContext(ctx, "git", "-C", root, "commit", "-m", trimmed)
+	cmd := exec.CommandContext(ctx, "git", "-C", root, "-c", "core.quotepath=false", "commit", "-m", trimmed)
 	proc.HideConsole(cmd)
 	proc.KillOnCancel(cmd)
 	out, err := cmd.CombinedOutput()

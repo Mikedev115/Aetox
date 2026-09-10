@@ -103,7 +103,11 @@ func workingTree(ctx context.Context, root string, countUntracked bool) []GitFil
 		if idx := strings.Index(path, " -> "); idx >= 0 {
 			path = path[idx+4:]
 		}
-		path = strings.Trim(path, `"`)
+		if unquoted, err := strconv.Unquote(path); err == nil {
+			path = unquoted
+		} else {
+			path = strings.Trim(path, `"`)
+		}
 		here, inside := underPrefix(path, prefix)
 		if !inside {
 			continue
@@ -227,7 +231,7 @@ func (a *App) gitContext() (context.Context, context.CancelFunc) {
 }
 
 func gitOut(ctx context.Context, root string, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", root}, args...)...)
+	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", root, "-c", "core.quotepath=false"}, args...)...)
 	proc.HideConsole(cmd)
 	proc.KillOnCancel(cmd)
 	raw, err := cmd.Output()
@@ -254,7 +258,13 @@ func numstat(ctx context.Context, root string) map[string][2]int {
 		// answer there: there are no lines to have changed.
 		added, _ := strconv.Atoi(cols[0])
 		removed, _ := strconv.Atoi(cols[1])
-		counts[strings.Trim(cols[2], `"`)] = [2]int{added, removed}
+		p := cols[2]
+		if unquoted, err := strconv.Unquote(p); err == nil {
+			p = unquoted
+		} else {
+			p = strings.Trim(p, `"`)
+		}
+		counts[p] = [2]int{added, removed}
 	}
 	return counts
 }
