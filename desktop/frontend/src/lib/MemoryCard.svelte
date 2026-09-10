@@ -78,20 +78,28 @@
   }
 
   const pending = $derived(change?.state === 'pending')
-  const scope = $derived(scopeLabel(change?.scope ?? ''))
+  const isSkill = $derived(change?.kind === 'skill')
+  const scope = $derived(isSkill ? (change?.scope || 'skill') : scopeLabel(change?.scope ?? ''))
   // The verb goes in the heading, which is why no `op` badge is drawn: "ADD"
   // was the database's own enum, in English, in the middle of a Thai sentence.
   // The one operation the heading cannot fully carry is a replacement, and that
   // one shows the line it overwrites instead.
   const asking = $derived(
-    change?.op === 'remove' ? t('chat.memoryForgetAsk')
+    isSkill
+      ? (change?.op === 'create' ? t('chat.skillCreateAsk') : t('chat.skillTuneAsk'))
+      : change?.op === 'remove' ? t('chat.memoryForgetAsk')
       : change?.op === 'replace' ? t('chat.memoryReplaceAsk')
       : t('chat.memoryAsk'),
   )
   const askIcon = $derived(
-    change?.op === 'remove' ? 'x' : change?.op === 'replace' ? 'refreshCw' : 'brain',
+    isSkill ? 'sparkles'
+      : change?.op === 'remove' ? 'x' : change?.op === 'replace' ? 'refreshCw' : 'brain',
   )
-  const settled = $derived(change?.state === 'approved' ? t('chat.memoryKept') : t('chat.memoryDropped'))
+  const settled = $derived(
+    isSkill
+      ? (change?.state === 'approved' ? (change?.op === 'create' ? t('chat.skillCreated') : t('chat.skillTuned')) : t('chat.skillDropped'))
+      : (change?.state === 'approved' ? t('chat.memoryKept') : t('chat.memoryDropped'))
+  )
   // A removal has no new text, so the line it is about is the one to show.
   const line = $derived(change?.body || change?.before || '')
 </script>

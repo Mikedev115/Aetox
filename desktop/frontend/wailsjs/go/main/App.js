@@ -1406,6 +1406,14 @@ export function SwitchVariant(arg1) {
   return window['go']['main']['App']['SwitchVariant'](arg1);
 }
 
+export function SynthesizeHabit(arg1, arg2) {
+  return window['go']['main']['App']['SynthesizeHabit'](arg1, arg2);
+}
+
+export function SynthesizeHabitForSessions(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['SynthesizeHabitForSessions'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function TTSStatus() {
   return window['go']['main']['App']['TTSStatus']();
 }

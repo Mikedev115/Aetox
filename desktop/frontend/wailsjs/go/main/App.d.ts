@@ -717,6 +717,10 @@ export function SwitchThinkLevel(arg1:string):Promise<main.ModelInfo>;
 
 export function SwitchVariant(arg1:number):Promise<main.RegenerateResult>;
 
+export function SynthesizeHabit(arg1:string,arg2:string):Promise<number>;
+
+export function SynthesizeHabitForSessions(arg1:context.Context,arg2:main.habitSynthesizer,arg3:Array<string>,arg4:string,arg5:string):Promise<main.PendingChange>;
+
 export function TTSStatus():Promise<string>;
 
 export function TerminalAttach(arg1:string):Promise<string>;

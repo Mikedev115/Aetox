@@ -59,6 +59,7 @@
     AppVersion, AppCredit, RecentDebugLog,
     LearningEnabled, SetLearningEnabled, SkillTuneAuto, SetSkillTuneAuto, RunSkillTuneup, ListSkillProposals, ListPendingChanges, ListDecidedChanges,
     SessionReviewAuto, SetSessionReviewAuto, RunSessionReview, ListRecurringRequests, DismissRecurringRequest,
+    SynthesizeHabit,
     PreparedReplyOn, SetPreparedReplyOn,
     ComputerControlOn, SetComputerControlOn, GrantedComputerApps, RevokeComputerApp,
     OpenComputerApps, AllowComputerApp, ProgramIcon, BrowseForComputerApp,
@@ -3008,6 +3009,7 @@
   let learningSubTab = $state<'memory' | 'habits'>('memory')
   let habitExpanded = $state<Record<string, boolean>>({})
   let habitDismissBusy = $state<Record<string, boolean>>({})
+  let habitSynthesizeBusy = $state<Record<string, boolean>>({})
   let skillTuneAutoOn = $state(false)
   let skillTuneBusy = $state(false)
   let skillTuneMsg = $state('')
@@ -3185,6 +3187,19 @@
       learningError = String(err)
     } finally {
       habitDismissBusy[req.normalized] = false
+    }
+  }
+
+  async function synthesizeHabitNow(req: { text: string; count: number; normalized: string }) {
+    habitSynthesizeBusy[req.normalized] = true
+    try {
+      learningError = ''
+      await SynthesizeHabit('', req.text)
+      await loadLearning()
+    } catch (err) {
+      learningError = String(err)
+    } finally {
+      habitSynthesizeBusy[req.normalized] = false
     }
   }
 
@@ -6684,6 +6699,15 @@
               {/if}
               <div class="habit-foot">
                 <div class="habit-actions">
+                  <button
+                    type="button"
+                    class="ctrl tiny ctrl-primary"
+                    disabled={habitSynthesizeBusy[req.normalized]}
+                    onclick={() => synthesizeHabitNow(req)}
+                  >
+                    <Icon name="sparkles" size={13} />
+                    <span>{habitSynthesizeBusy[req.normalized] ? t('settings.habitsSynthesizing') : t('settings.habitsSynthesize')}</span>
+                  </button>
                   <button
                     type="button"
                     class="ctrl tiny"
