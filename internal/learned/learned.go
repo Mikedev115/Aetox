@@ -63,8 +63,9 @@ const MaxBytes = 8 << 10
 // kilobytes of description is not being described, they are being transcribed.
 // Hermes prices the same file at 1,375 bytes; this is larger because Thai
 // spends roughly three bytes on a character English spends one, and the owner's
-// own approved lines are Thai and English mixed.
-const UserMaxBytes = 2 << 10
+// own approved lines are Thai and English mixed. 4 KB gives headroom for ~20-30
+// concise lines without inflating the prompt (~800 tokens max).
+const UserMaxBytes = 4 << 10
 
 // MaxBytesFor is the ceiling that applies to one scope. Everything that writes
 // or truncates asks this rather than reading MaxBytes directly — the two
