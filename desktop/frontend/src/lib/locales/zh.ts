@@ -511,6 +511,10 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'chat.gotResults': '{n} 条结果',
   'chat.diffToggle': '查看改了什么',
   'chat.diffMore': '还有 {n} 行未显示',
+  'chat.fileChanged': '已修改 {n} 个文件',
+  'chat.filesChanged': '已修改 {n} 个文件',
+  'chat.review': 'Review',
+  'chat.openInEditor': '在编辑器中打开',
   'chat.failedCount': '{n} 个失败',
   'chat.usedTools': '用了 {n} 个工具',
   'chat.usedAgents': '智能体：{n}',
@@ -779,6 +783,11 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
 
   // ---- 设置：通用与外观 ----
   'settings.general': '通用',
+  'settings.generalDesc': '配置终端环境、安全审批和智能体行为。',
+  'settings.groupTerminal': '终端与环境',
+  'settings.groupSafety': '安全与审批',
+  'settings.groupBehavior': '智能体行为',
+  'settings.groupSystem': '系统与初始化',
   'settings.appearance': '外观',
   'settings.modelSettings': '模型设置',
   'settings.mcpServers': 'MCP 服务器',

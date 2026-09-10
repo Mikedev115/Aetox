@@ -1233,7 +1233,7 @@ export interface CockpitState {
    * the team page's configure/create doors land in the shared profile editor
    * this way. Carries the *kind* because it came from the roster — Settings
    * must never re-derive it from a file. Consumed and cleared on arrival. */
-  settingsIntent: { section: string; agent?: string; createAgent?: boolean } | null
+  settingsIntent: { section: string; agent?: string; createAgent?: boolean; tab?: string } | null
 }
 
 /** One wording the user might send next, ready for Tab to take.
