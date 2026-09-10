@@ -34,6 +34,7 @@
   import { EventsOn } from '../../../wailsjs/runtime/runtime'
   import { t, type TKey } from '../i18n.svelte'
   import { isShortcut, shortcutLabel } from '../shortcuts'
+  import Icon from '../Icon.svelte'
   import { sidle } from '../fold'
   import type { IconName } from '../icons'
   import { codeStatus, refreshCodeStatus } from '../stores/codeStatus.svelte'

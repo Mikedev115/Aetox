@@ -84,8 +84,8 @@ $effect.root(() => {
   // Refresh on branch or project changes
   $effect(() => {
     const _br = cockpit.project.branch
-    const _dir = cockpit.project.dir
-    if (_dir || _br) {
+    const _path = cockpit.project.path
+    if (_path || _br) {
       scheduleCodeStatusRefresh(300)
     }
   })

@@ -523,7 +523,7 @@ export const SendMessage = turnReply()
 export const RetryFailedTurn = turnReply()
 export const ResendEdited = turnReply()
 const rerun = () => vi.fn(async (..._args: any[]) =>
-  ({ text: '', variants: [] as any[], active: 0 } as { text: string; variants: any[]; active: number; reverted?: string[] }))
+  ({ text: '', variants: [] as any[], active: 0 } as { text: string; parts?: any[]; variants: any[]; active: number; reverted?: string[] }))
 export const RegenerateReply = rerun()
 export const SwitchVariant = rerun()
 export const PendingUndo = arr()

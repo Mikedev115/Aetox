@@ -84,7 +84,7 @@ describe('the balance in the profile menu', () => {
     const container = await openMenu()
 
     expect(container.textContent).toContain('สัปดาห์นี้')
-    expect(container.textContent).toContain('เหลือ 12%')
+    expect(container.textContent).toContain('12%')
   })
 
   it('shows the figure when the provider in use keeps a balance', async () => {

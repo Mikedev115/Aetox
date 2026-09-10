@@ -121,7 +121,7 @@
          and this one is not. -->
     <button
       class="icobtn tip-r" aria-label={t('workbench.artifactsTab')}
-      data-tip={t('workbench.artifactsTab')} onclick={openArtifactsTab}
+      data-tip={t('workbench.artifactsTab')} onclick={() => openArtifactsTab()}
     ><Icon name="package" size={15} /></button>
     <SessionStrip />
     <!-- Always, not only while the sidebar is away (owner, 12 ส.ค.). It was

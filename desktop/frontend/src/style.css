@@ -1023,7 +1023,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding:14px 16px;
   border:1px solid var(--border-subtle); border-radius:var(--r-lg); background:var(--surface-panel); text-align:left;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.03), 0 1px 3px rgba(0,0,0,.2), 0 6px 16px -6px rgba(0,0,0,.3);
-  transition:border-color .2s ease, background .2s ease, box-shadow .2s ease;
+  transition:border-color var(--dur-tint) ease, background var(--dur-tint) ease, box-shadow var(--dur-tint) ease;
   /* Dealt, not drawn: the stagger is what makes four new cards read as a hand
      off a deck rather than the same four boxes changing their minds. --i is the
      card's place in the hand (Chat.svelte). */
@@ -1054,7 +1054,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   @keyframes starter-fade { from { opacity:0; } to { opacity:1; } }
 }
 .starter-card .ic { font-size:var(--fs-2xl); }
-.starter-card .title { color:var(--text-secondary); font-size:var(--fs-lg); line-height:1.4; transition:color .2s ease; }
+.starter-card .title { color:var(--text-secondary); font-size:var(--fs-lg); line-height:1.4; transition:color var(--dur-tint) ease; }
 /* A reply uses the whole reading column — user and agent already sit on their
    own rows, so a narrow bubble buys nothing and squeezes tables/code. Only the
    user's own line stays capped, so it still reads as a right-hand bubble. */
@@ -3952,7 +3952,7 @@ button.phase-head:hover { color:var(--text-muted); }
   flex-direction:column;
   gap:10px;
   box-shadow:0 4px 20px -2px rgba(0,0,0,.3), 0 2px 6px -1px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.04);
-  transition:border-color .2s ease, box-shadow .2s ease, background .2s ease;
+  transition:border-color var(--dur-tint) ease, box-shadow var(--dur-tint) ease, background var(--dur-tint) ease;
 }
 .composer .box:hover:not(:focus-within) {
   border-color:var(--border-strong);
@@ -4875,8 +4875,8 @@ button.phase-head:hover { color:var(--text-muted); }
   pointer-events: none;
 }
 
-.icobtn.spinning :global(svg) {
-  animation: spin 0.8s linear infinite;
+.icobtn.spinning svg {
+  animation: tool-spin 0.8s linear infinite;
 }
 /* The one group heading in this menu, in the shape the sidebar already uses
    for the same job (.side-sub-head): a rule, then a small bold label. Borrowed
@@ -6117,7 +6117,7 @@ button.phase-head:hover { color:var(--text-muted); }
   background:var(--surface-raised);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.03), 0 1px 3px rgba(0,0,0,.22), 0 6px 16px -6px rgba(0,0,0,.35);
   display:flex; flex-direction:column; gap:8px; padding:12px;
-  transition:border-color .2s ease, background .2s ease, box-shadow .2s ease;
+  transition:border-color var(--dur-tint) ease, background var(--dur-tint) ease, box-shadow var(--dur-tint) ease;
 }
 .chair-card.agc:hover {
   background:var(--surface-hover);

@@ -2187,7 +2187,7 @@ export async function regenerateReply(revertFiles: boolean): Promise<void> {
       // sentence is not in the live step list, and this bubble is drawn from
       // that list alone. Without it the re-answer arrives invisible.
       const answered = stepsWithClosing(artifacts.steps, result.text)
-      const variants: MessageVariant[] = result.variants.map((v, i) => ({ ...v, steps: previous[i]?.steps }))
+      const variants: MessageVariant[] = result.variants.map((v, i) => ({ ...v, steps: previous[i]?.steps })) as MessageVariant[]
       variants[result.active] = { ...variants[result.active], steps: answered }
       Object.assign(last, artifacts, {
         text: result.text, parts: result.parts as TurnPart[] | undefined, steps: answered,

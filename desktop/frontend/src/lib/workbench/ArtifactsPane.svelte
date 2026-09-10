@@ -17,9 +17,9 @@
   } from '../../../wailsjs/go/main/App'
   import type { ooxml } from '../../../wailsjs/go/models'
 
-  export type ArtifactKind = 'plan' | 'doc' | 'page' | 'image' | 'sheet' | 'code' | 'other'
+  type ArtifactKind = 'plan' | 'doc' | 'page' | 'image' | 'sheet' | 'code' | 'other'
 
-  export interface SessionArtifactItem {
+  interface SessionArtifactItem {
     id: string
     name: string
     path: string

@@ -279,7 +279,7 @@ export function openPlanTab(): void {
 export const artifactSelection = $state<{ target: string }>({ target: '' })
 
 export function openArtifactsTab(target?: string): void {
-  if (target) {
+  if (typeof target === 'string' && target) {
     artifactSelection.target = target
   }
   if (!workbench.tabs.some((t) => t.kind === 'artifacts')) {
