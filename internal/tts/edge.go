@@ -222,6 +222,9 @@ func edgeDial(ctx context.Context) (*websocket.Conn, error) {
 		if err == nil {
 			return conn, nil
 		}
+		if resp != nil {
+			resp.Body.Close()
+		}
 		if resp != nil && resp.StatusCode == http.StatusForbidden && attempt == 0 && edgeLearnSkew(resp.Header) {
 			continue
 		}

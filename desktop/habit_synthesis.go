@@ -222,9 +222,9 @@ func (a *App) SynthesizeHabitForSessions(ctx context.Context, synthesizer habitS
 		return nil, nil
 	}
 
-	kind := kindMemory
-	scope := learned.UserScope
-	op := learned.OpAdd
+	var kind string
+	var scope string
+	var op string
 	target := ""
 
 	switch prop.Destination {

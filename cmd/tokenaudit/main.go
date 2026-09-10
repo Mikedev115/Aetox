@@ -517,6 +517,7 @@ func planRewrites(db *sql.DB, window string) {
 					dupBytes += b
 				}
 			}
+			_ = d.Err()
 			d.Close()
 		}
 		fmt.Printf("    %-22s %d plans, %d re-read of the same bytes (%d bytes read twice)\n",

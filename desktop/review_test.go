@@ -138,6 +138,9 @@ func TestRunSessionReview(t *testing.T) {
 			t.Errorf("expected state=pending, got %s", state)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows iteration failed: %v", err)
+	}
 	if count != 2 {
 		t.Errorf("expected 2 rows in pending_changes, got %d", count)
 	}

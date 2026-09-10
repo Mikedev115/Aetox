@@ -23,7 +23,6 @@ func TestClosingTheAppStopsEveryTurnAndWaitsForItsEnding(t *testing.T) {
 
 	var ended []string
 	for _, conv := range []*conversation{onScreen, offScreen} {
-		conv := conv
 		if err := a.beginTurn(conv.id); err != nil {
 			t.Fatalf("beginTurn(%s): %v", conv.id, err)
 		}
