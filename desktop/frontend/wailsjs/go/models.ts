@@ -1032,6 +1032,22 @@ export namespace main {
 	        this.current = source["current"];
 	    }
 	}
+	export class GitCommitGroup {
+	    title: string;
+	    message: string;
+	    files: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new GitCommitGroup(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.title = source["title"];
+	        this.message = source["message"];
+	        this.files = source["files"];
+	    }
+	}
 	export class GitFileChange {
 	    path: string;
 	    status: string;
@@ -1255,6 +1271,20 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class PRSuggestion {
+	    title: string;
+	    body: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PRSuggestion(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.title = source["title"];
+	        this.body = source["body"];
+	    }
 	}
 	export class PendingChange {
 	    id: number;

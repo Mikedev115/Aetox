@@ -25,6 +25,8 @@ export function AccountSignOut():Promise<void>;
 
 export function AccountStatus():Promise<main.AccountState>;
 
+export function AddLearnedEntry(arg1:string,arg2:string):Promise<void>;
+
 export function AddMCPServer(arg1:string,arg2:Array<string>):Promise<void>;
 
 export function AddSpaceContext(arg1:string):Promise<Array<string>>;
@@ -189,6 +191,8 @@ export function DeleteSubagentProfile(arg1:string):Promise<void>;
 
 export function DisconnectAccount(arg1:string):Promise<void>;
 
+export function DismissRecurringRequest(arg1:string,arg2:string):Promise<void>;
+
 export function DismissTaskChip(arg1:string):Promise<void>;
 
 export function EnabledProviders():Promise<Array<string>>;
@@ -219,9 +223,15 @@ export function GitBranches():Promise<Array<main.GitBranch>>;
 
 export function GitChangedFiles():Promise<Array<main.ChangedFile>>;
 
+export function GitCommitFiles(arg1:string,arg2:Array<string>):Promise<void>;
+
 export function GitCreateBranch(arg1:string):Promise<string>;
 
 export function GitFileDiff(arg1:string):Promise<string>;
+
+export function GitSuggestCommitMessage(arg1:Array<string>):Promise<string>;
+
+export function GitSuggestSplitCommits():Promise<Array<main.GitCommitGroup>>;
 
 export function GitSwitchBranch(arg1:string):Promise<string>;
 
@@ -347,6 +357,8 @@ export function ModelPriceSource():Promise<main.PriceSource>;
 
 export function ModelStatus():Promise<string>;
 
+export function MoveLearnedEntry(arg1:string,arg2:string,arg3:number):Promise<void>;
+
 export function NewChairSession(arg1:string):Promise<string>;
 
 export function NewSession():Promise<string>;
@@ -354,6 +366,8 @@ export function NewSession():Promise<string>;
 export function NewSessionAt(arg1:string):Promise<string>;
 
 export function NewSessionInSpace(arg1:string):Promise<string>;
+
+export function OpenAgentHome(arg1:string):Promise<void>;
 
 export function OpenAgentSkillsFolder(arg1:string):Promise<void>;
 
@@ -437,6 +451,8 @@ export function PullRequestFiles(arg1:number):Promise<Array<github.PRFile>>;
 
 export function PullRequests():Promise<main.PRRoom>;
 
+export function PullRequestsState(arg1:string):Promise<main.PRRoom>;
+
 export function RateTurn(arg1:number,arg2:string):Promise<void>;
 
 export function ReadFile(arg1:string):Promise<string>;
@@ -485,6 +501,8 @@ export function RestartToUpdate():Promise<void>;
 
 export function RestorePoints():Promise<Array<main.RestorePoint>>;
 
+export function RestoreRecurringRequest(arg1:string):Promise<void>;
+
 export function ResumePlanRun(arg1:string):Promise<void>;
 
 export function RetryActiveProvider():Promise<main.ModelInfo>;
@@ -492,6 +510,8 @@ export function RetryActiveProvider():Promise<main.ModelInfo>;
 export function RetryFailedTurn(arg1:string):Promise<main.TurnReply>;
 
 export function RevealSpeechModel(arg1:string):Promise<void>;
+
+export function ReviewPullRequest(arg1:number):Promise<string>;
 
 export function RevokeComputerApp(arg1:string):Promise<void>;
 
@@ -680,6 +700,8 @@ export function StopPlanRun(arg1:string):Promise<void>;
 export function StopQueuedTasks():Promise<number>;
 
 export function StopSpeech(arg1:string):Promise<void>;
+
+export function SuggestPRDetails(arg1:string,arg2:string):Promise<main.PRSuggestion>;
 
 export function SupportedProviders():Promise<Array<string>>;
 

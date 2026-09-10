@@ -22,6 +22,10 @@ export function AccountStatus() {
   return window['go']['main']['App']['AccountStatus']();
 }
 
+export function AddLearnedEntry(arg1, arg2) {
+  return window['go']['main']['App']['AddLearnedEntry'](arg1, arg2);
+}
+
 export function AddMCPServer(arg1, arg2) {
   return window['go']['main']['App']['AddMCPServer'](arg1, arg2);
 }
@@ -350,6 +354,10 @@ export function DisconnectAccount(arg1) {
   return window['go']['main']['App']['DisconnectAccount'](arg1);
 }
 
+export function DismissRecurringRequest(arg1, arg2) {
+  return window['go']['main']['App']['DismissRecurringRequest'](arg1, arg2);
+}
+
 export function DismissTaskChip(arg1) {
   return window['go']['main']['App']['DismissTaskChip'](arg1);
 }
@@ -410,12 +418,24 @@ export function GitChangedFiles() {
   return window['go']['main']['App']['GitChangedFiles']();
 }
 
+export function GitCommitFiles(arg1, arg2) {
+  return window['go']['main']['App']['GitCommitFiles'](arg1, arg2);
+}
+
 export function GitCreateBranch(arg1) {
   return window['go']['main']['App']['GitCreateBranch'](arg1);
 }
 
 export function GitFileDiff(arg1) {
   return window['go']['main']['App']['GitFileDiff'](arg1);
+}
+
+export function GitSuggestCommitMessage(arg1) {
+  return window['go']['main']['App']['GitSuggestCommitMessage'](arg1);
+}
+
+export function GitSuggestSplitCommits() {
+  return window['go']['main']['App']['GitSuggestSplitCommits']();
 }
 
 export function GitSwitchBranch(arg1) {
@@ -666,6 +686,10 @@ export function ModelStatus() {
   return window['go']['main']['App']['ModelStatus']();
 }
 
+export function MoveLearnedEntry(arg1, arg2, arg3) {
+  return window['go']['main']['App']['MoveLearnedEntry'](arg1, arg2, arg3);
+}
+
 export function NewChairSession(arg1) {
   return window['go']['main']['App']['NewChairSession'](arg1);
 }
@@ -680,6 +704,10 @@ export function NewSessionAt(arg1) {
 
 export function NewSessionInSpace(arg1) {
   return window['go']['main']['App']['NewSessionInSpace'](arg1);
+}
+
+export function OpenAgentHome(arg1) {
+  return window['go']['main']['App']['OpenAgentHome'](arg1);
 }
 
 export function OpenAgentSkillsFolder(arg1) {
@@ -846,6 +874,10 @@ export function PullRequests() {
   return window['go']['main']['App']['PullRequests']();
 }
 
+export function PullRequestsState(arg1) {
+  return window['go']['main']['App']['PullRequestsState'](arg1);
+}
+
 export function RateTurn(arg1, arg2) {
   return window['go']['main']['App']['RateTurn'](arg1, arg2);
 }
@@ -942,6 +974,10 @@ export function RestorePoints() {
   return window['go']['main']['App']['RestorePoints']();
 }
 
+export function RestoreRecurringRequest(arg1) {
+  return window['go']['main']['App']['RestoreRecurringRequest'](arg1);
+}
+
 export function ResumePlanRun(arg1) {
   return window['go']['main']['App']['ResumePlanRun'](arg1);
 }
@@ -956,6 +992,10 @@ export function RetryFailedTurn(arg1) {
 
 export function RevealSpeechModel(arg1) {
   return window['go']['main']['App']['RevealSpeechModel'](arg1);
+}
+
+export function ReviewPullRequest(arg1) {
+  return window['go']['main']['App']['ReviewPullRequest'](arg1);
 }
 
 export function RevokeComputerApp(arg1) {
@@ -1332,6 +1372,10 @@ export function StopQueuedTasks() {
 
 export function StopSpeech(arg1) {
   return window['go']['main']['App']['StopSpeech'](arg1);
+}
+
+export function SuggestPRDetails(arg1, arg2) {
+  return window['go']['main']['App']['SuggestPRDetails'](arg1, arg2);
 }
 
 export function SupportedProviders() {
