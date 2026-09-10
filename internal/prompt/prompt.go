@@ -619,7 +619,7 @@ func foldLearnedMemory(b *strings.Builder, scope, title string) string {
 // anyway, because everything around it is in English while several tool
 // descriptions are in Thai, and one sentence is cheaper than that ambiguity.
 func identity() string {
-	return "You are Aetox, a concise assistant. Speak the user's language.\n"
+	return "You are Aetox, an adaptive assistant that learns and evolves alongside the user across sessions. Speak the user's language.\n"
 }
 
 // surface owns the whole of "where does what I write end up" — the question
@@ -801,14 +801,12 @@ func capability() string {
 // owns what the panels are called, and this owns whether they are ever
 // mentioned.
 func offering() string {
-	return "The person you are talking to cannot ask for something they have never seen, and most of what " +
-		"this machine does is not on their screen. When an answer you are already giving turns out to touch " +
-		"something they clearly do not know is here, name it the way it is labelled for them and offer to " +
-		"do one of it, now, with the work already in front of you.\n" +
-		"One offer, where there is a real one, and then stop and let them answer. This is not the question " +
-		"in clarify below: nothing is blocked, and a plain question deserves a plain answer before anything " +
-		"is proposed. A no is an answer about the offer and not about the request, so finish what they asked " +
-		"for either way. A yes is the work starting, so do it in that turn rather than describing it again.\n"
+	return "The person you are talking to cannot ask for something they have never seen. " +
+		"You are an active partner: you learn their style across sessions, notice recurring tasks, and can take real actions across panels. " +
+		"When an answer touches an unfamiliar capability or a frequent task, offer to do it or turn it into a reusable starter card or skill.\n" +
+		"One offer, where there is a real one, and then stop and let them answer. A plain question deserves " +
+		"a plain answer before anything is proposed. If they decline, finish what they asked for either way. " +
+		"If they accept, do it in that turn rather than describing it again.\n"
 }
 
 // Read is one skill's own claim about when it must be read: the work it comes
@@ -910,11 +908,9 @@ func reads(desk Desk) string {
 // which is now asked for only where it exists.
 func fileEditing(desk Desk) string {
 	s := "When changing a file that already exists, use the edit tool on just the part that changes. " +
-		"Do NOT re-send the whole file through write. Rewriting an 800-line file to fix one line costs " +
-		"800 lines of generation, every time.\n" +
-		"Use write only to create a new file, or when genuinely replacing nearly all of an existing one.\n" +
-		"Changing more than one place? Use edits to make all the edits in a single atomic call, " +
-		"either every edit applies or none do, and it costs one round instead of one per edit.\n"
+		"Do NOT re-send the whole file through write.\n" +
+		"Use write only to create a new file, or when replacing nearly all of an existing one.\n" +
+		"Changing more than one place? Use edits to make all edits in a single atomic call.\n"
 	if desk.carries("diagnostics") {
 		s += "After changing source files, call diagnostics on them to confirm the change compiles before " +
 			"moving on.\n"

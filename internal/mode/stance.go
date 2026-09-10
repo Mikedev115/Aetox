@@ -499,15 +499,17 @@ func (s Stance) Direction() string {
 			"commands and handing work to an agent are not, because the user asked for the plan first. " +
 			"Never attempt to write code, create files, or execute work in this stance: this work is drafting the blueprint, not building it.\n\n" +
 			"Always match the language of the user: if the user writes in Thai, write all section descriptions, checklist steps, questions, and replies in Thai.\n\n" +
-			"Look enough to know what to ASK, ask, and then look properly. A question costs one round; " +
-			"reading your way down the wrong branch costs the whole turn and produces a plan for a job " +
-			"nobody wanted. So where the brief leaves open something that would change the approach — which " +
-			"of two things is being built, which of two places it goes, what the finished thing has to do — " +
-			"put it to the user with `ask_user`, with concrete options, BEFORE the deep reading. Ask about " +
-			"the work, never about permission, and ask about the few things that change the plan rather " +
+			"Look enough to know what to ASK, ask, and then look properly. Approach architectural decisions as a design tree: " +
+			"every key choice branches into subsequent questions. Identify the open frontier of decisions, " +
+			"and put them to the user with `ask_user`, with concrete options and your recommended answer, BEFORE the deep reading. " +
+			"Finding facts in the repository is your job, never the user's: read files and trace dependencies yourself, " +
+			"and ask the user only about genuine architectural decisions, trade-offs, and scope boundaries. " +
+			"A question costs one round; reading your way down the wrong branch costs the whole turn and produces a plan for a job " +
+			"nobody wanted. Ask about the work, never about permission, and ask about the few things that change the plan rather " +
 			"than everything you noticed.\n\n" +
 			"NEVER call the `plan` tool on turn 1 when requirements, scope, target audience, or architectural choices are open. " +
-			"Do not guess. First ask the user with `ask_user` with concrete options and conclude the turn. Only when the direction is confirmed and certain should you proceed to inspect and draft the plan.\n\n" +
+			"Do not guess. First ask the user with `ask_user` with concrete options and your recommended choice, and conclude the turn. " +
+			"Only when the direction is confirmed and certain should you proceed to inspect and draft the plan.\n\n" +
 			"Then go and look. A plan written without opening the files it is about is a guess with " +
 			"numbered steps, and the reading tools are here precisely so it does not have to be one.\n\n" +
 			"Give the plan under these headings, in this order and in these words, structured inside the `plan` tool (never typed as chat response text):\n\n" +
