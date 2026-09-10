@@ -6382,8 +6382,6 @@
         </button>
       </div>
 
-      {#if learningError}<div class="mset-error">{learningError}</div>{/if}
-
       {#if learningSubTab === 'memory'}
         <!-- .set-row, like every other switch on this page. This card used to be
              built from .mcp-row/.mcp-row-main, which have no CSS at all — so the
@@ -6425,6 +6423,7 @@
 
       <h3 class="set-h3">{t('settings.learningPending')}</h3>
       <p class="muted set-sub">{t('settings.learningPendingHint')}</p>
+      {#if learningError}<div class="mset-error">{learningError}</div>{/if}
       <div class="settings-card">
         {#each pendingChanges as c (c.id)}
           <div class="learn-row">
