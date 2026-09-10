@@ -238,3 +238,47 @@ func TestCreatePullRequestNeedsAnAccount(t *testing.T) {
 		t.Errorf("Error = %q, want it to name the missing account", got.Error)
 	}
 }
+
+func TestPullRequestsState(t *testing.T) {
+	app := roomApp(t, map[string]string{
+		"GET /repos/Mikedev115/Aetox/pulls": `[
+			{"number":5,"title":"merged pr","state":"closed",
+			 "user":{"login":"Mike"},"head":{"ref":"feat-old","sha":"def567"},
+			 "base":{"ref":"main"},"additions":50,"deletions":10,
+			 "html_url":"https://github.com/Mikedev115/Aetox/pull/5"}]`,
+	})
+
+	closedRoom := app.PullRequestsState("closed")
+	if closedRoom.Reason != "" {
+		t.Fatalf("Reason = %q, want none", closedRoom.Reason)
+	}
+	if len(closedRoom.Items) != 1 || closedRoom.Items[0].Number != 5 {
+		t.Fatalf("Items = %+v, want #5", closedRoom.Items)
+	}
+	if closedRoom.Items[0].State != "closed" {
+		t.Errorf("State = %q, want closed", closedRoom.Items[0].State)
+	}
+}
+
+func TestSuggestPRDetailsFallback(t *testing.T) {
+	app := roomApp(t, nil)
+	sug, err := app.SuggestPRDetails("feature/xyz", "main")
+	if err != nil {
+		t.Fatalf("SuggestPRDetails failed: %v", err)
+	}
+	if sug.Title == "" {
+		t.Error("SuggestPRDetails returned empty title")
+	}
+	if sug.Body == "" {
+		t.Error("SuggestPRDetails returned empty body")
+	}
+}
+
+func TestReviewPullRequestValidation(t *testing.T) {
+	app := roomApp(t, nil)
+	_, err := app.ReviewPullRequest(0)
+	if err == nil {
+		t.Error("ReviewPullRequest(0) should fail with invalid number")
+	}
+}
+

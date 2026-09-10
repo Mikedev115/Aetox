@@ -14,9 +14,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
 
 	gh "github.com/Mikedev115/Aetox/internal/github"
+	"github.com/Mikedev115/Aetox/internal/model"
 )
 
 // prClient is the room's client, and the one seam a test needs: prAPI and
@@ -29,6 +33,12 @@ func (a *App) prClient() *gh.PRClient {
 // maxRoomPRs is what one list shows. A repository with sixty open pull
 // requests does not need all sixty drawn before anybody has scrolled.
 const maxRoomPRs = 30
+
+// PRSuggestion holds AI-generated title and description for opening a pull request.
+type PRSuggestion struct {
+	Title string `json:"title"`
+	Body  string `json:"body"`
+}
 
 // PRRoom is the whole answer for the pane: the list, and — when there is no
 // list — why.
@@ -49,21 +59,215 @@ type PRRoom struct {
 	Items     []gh.PullRequest `json:"items"`
 }
 
-// PullRequests lists the open pull requests of the project this chat is
-// focused on.
+// PullRequests lists the open pull requests of the project this chat is focused on.
 func (a *App) PullRequests() PRRoom {
+	return a.PullRequestsState("open")
+}
+
+// PullRequestsState lists pull requests matching the requested state ("open", "closed", "all").
+func (a *App) PullRequestsState(state string) PRRoom {
 	room := PRRoom{Items: []gh.PullRequest{}, Connected: gh.Token() != ""} // never nil: §34
 	repo, ok := a.roomRepo(&room)
 	if !ok {
 		return room
 	}
-	items, err := a.prClient().List(context.Background(), repo, "open", maxRoomPRs)
+	s := strings.TrimSpace(state)
+	if s == "" {
+		s = "open"
+	}
+	items, err := a.prClient().List(context.Background(), repo, s, maxRoomPRs)
 	if err != nil {
 		room.Reason = err.Error()
 		return room
 	}
 	room.Items = items
 	return room
+}
+
+// SuggestPRDetails uses AI to draft a PR title and description based on commits between base and head.
+func (a *App) SuggestPRDetails(head, base string) (PRSuggestion, error) {
+	root, ok := a.gitRoot()
+	if !ok {
+		return PRSuggestion{}, errors.New("no git repository focused")
+	}
+
+	ctx, cancel := a.gitContext()
+	defer cancel()
+
+	h := strings.TrimSpace(head)
+	if h == "" {
+		cur, _ := gitOut(ctx, root, "rev-parse", "--abbrev-ref", "HEAD")
+		h = strings.TrimSpace(cur)
+	}
+	if h == "" {
+		return PRSuggestion{}, errors.New("cannot determine current branch")
+	}
+
+	b := strings.TrimSpace(base)
+	if b == "" {
+		var room PRRoom
+		if repo, ok := a.roomRepo(&room); ok {
+			if def, err := a.prClient().DefaultBranch(ctx, repo); err == nil && def != "" {
+				b = def
+			}
+		}
+		if b == "" {
+			b = "main"
+		}
+	}
+
+	logOut, _ := gitOut(ctx, root, "log", b+".."+h, "--oneline")
+	diffStat, _ := gitOut(ctx, root, "diff", "--stat", b+".."+h)
+	diffHunk, _ := gitOut(ctx, root, "diff", b+".."+h)
+	diffLines := strings.Split(diffHunk, "\n")
+	if len(diffLines) > 60 {
+		diffHunk = strings.Join(diffLines[:60], "\n") + "\n... (truncated)"
+	}
+
+	fallbackTitle := "Update " + h
+	lines := strings.Split(strings.TrimSpace(logOut), "\n")
+	if len(lines) > 0 && strings.TrimSpace(lines[0]) != "" {
+		parts := strings.SplitN(lines[0], " ", 2)
+		if len(parts) == 2 && strings.TrimSpace(parts[1]) != "" {
+			fallbackTitle = parts[1]
+		}
+	}
+	fallbackBody := "## Changes\n" + strings.TrimSpace(logOut)
+
+	p, modelName, err := a.oneShotProvider()
+	if err != nil {
+		return PRSuggestion{Title: fallbackTitle, Body: fallbackBody}, nil
+	}
+
+	prompt := fmt.Sprintf(`You are a GitHub Pull Request assistant.
+Analyze the branch changes below and generate a Pull Request Title and Description.
+Branch: %s -> %s
+Commits:
+%s
+
+Diff Summary:
+%s
+
+Diff Preview:
+%s
+
+Format your response as a JSON object with two fields:
+{
+  "title": "A clear, concise Conventional Commit style title (e.g. feat(auth): add token refresh)",
+  "body": "A structured Markdown description including ## Summary, ## Changes, and ## Testing"
+}
+Output ONLY raw JSON, with no code fences or explanations.`, h, b, strings.TrimSpace(logOut), strings.TrimSpace(diffStat), diffHunk)
+
+	req := model.Request{
+		Model: modelName,
+		Messages: []model.Message{
+			{Role: model.RoleUser, Content: prompt},
+		},
+		Temperature: 0.2,
+	}
+
+	resp, err := p.Complete(ctx, req)
+	if err != nil {
+		return PRSuggestion{Title: fallbackTitle, Body: fallbackBody}, nil
+	}
+
+	text := strings.TrimSpace(resp.Text)
+	text = strings.TrimPrefix(text, "```json")
+	text = strings.TrimPrefix(text, "```")
+	text = strings.TrimSuffix(text, "```")
+	text = strings.TrimSpace(text)
+
+	var sug PRSuggestion
+	if err := json.Unmarshal([]byte(text), &sug); err == nil && sug.Title != "" {
+		return sug, nil
+	}
+
+	// Fallback parsing if model returned plain text
+	textLines := strings.Split(text, "\n")
+	if len(textLines) > 0 && strings.TrimSpace(textLines[0]) != "" {
+		sug.Title = strings.TrimSpace(textLines[0])
+		if len(textLines) > 1 {
+			sug.Body = strings.TrimSpace(strings.Join(textLines[1:], "\n"))
+		}
+		return sug, nil
+	}
+
+	return PRSuggestion{Title: fallbackTitle, Body: fallbackBody}, nil
+}
+
+// ReviewPullRequest uses AI to review the code changes and diffs of a pull request.
+func (a *App) ReviewPullRequest(number int) (string, error) {
+	if number <= 0 {
+		return "", errors.New("invalid pull request number")
+	}
+
+	files := a.PullRequestFiles(number)
+	if len(files) == 0 {
+		return "", errors.New("no changed files found for this pull request")
+	}
+
+	var diffBuilder strings.Builder
+	totalLines := 0
+	for _, f := range files {
+		if f.Patch == "" {
+			continue
+		}
+		diffBuilder.WriteString(fmt.Sprintf("\n### File: %s (%s)\n```diff\n", f.Path, f.Status))
+		lines := strings.Split(f.Patch, "\n")
+		for _, l := range lines {
+			diffBuilder.WriteString(l + "\n")
+			totalLines++
+			if totalLines > 120 {
+				diffBuilder.WriteString("... (truncated for review)\n")
+				break
+			}
+		}
+		diffBuilder.WriteString("```\n")
+		if totalLines > 120 {
+			break
+		}
+	}
+
+	p, modelName, err := a.oneShotProvider()
+	if err != nil {
+		return "", fmt.Errorf("provider unavailable: %w", err)
+	}
+
+	ctx, cancel := a.gitContext()
+	defer cancel()
+
+	prompt := fmt.Sprintf(`You are a senior software engineer conducting a code review for GitHub Pull Request #%d.
+Review the code changes below and provide an actionable, constructive review in clean Markdown.
+Changes:
+%s
+
+Please structure your review as follows:
+### 📋 Overview & Highlights
+Brief summary of what this PR accomplishes.
+
+### 🔍 Potential Issues & Edge Cases
+Any bugs, missing validations, unhandled edge cases, or potential regressions. (If none, note that everything looks clean).
+
+### 💡 Suggestions & Code Quality
+Any suggestions for readability, maintainability, or testing.
+
+### 🏁 Recommendation
+State one of: **LGTM (Looks Good to Me)**, **LGTM with Suggestions**, or **Changes Requested**.`, number, diffBuilder.String())
+
+	req := model.Request{
+		Model: modelName,
+		Messages: []model.Message{
+			{Role: model.RoleUser, Content: prompt},
+		},
+		Temperature: 0.2,
+	}
+
+	resp, err := p.Complete(ctx, req)
+	if err != nil {
+		return "", fmt.Errorf("ai review failed: %w", err)
+	}
+
+	return strings.TrimSpace(resp.Text), nil
 }
 
 // PullRequestFiles is one pull request's files, each with GitHub's own unified
