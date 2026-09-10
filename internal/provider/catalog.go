@@ -114,12 +114,15 @@ const (
 	// gateway sends no x-ratelimit-* family at all (measured 2026-08-23), and
 	// the plan it bills against is stated nowhere else on the wire.
 	QuotaOpencodeGo QuotaSource = "opencode-go"
+	// QuotaAntigravity: POST /v1internal:fetchAvailableModels, which carries
+	// quotaInfo (remainingFraction and resetTime) for Gemini and Claude models.
+	QuotaAntigravity QuotaSource = "antigravity"
 )
 
 // Fetched separates the two kinds of quota this registry names.
 //
 // Most sources are a header dialect: the window rides along on turns that were
-// going to happen anyway, so nothing is spent to learn it. These two are an
+// going to happen anyway, so nothing is spent to learn it. These sources are an
 // endpoint that has to be asked, which is why the balance path (which already
 // makes a request per card) carries them instead of NoteQuotas.
 //
@@ -127,7 +130,7 @@ const (
 // about the provider, and a second copy over there could disagree with this
 // one about a row — the exact shape of debt this package exists to prevent.
 func (q QuotaSource) Fetched() bool {
-	return q == QuotaOpenRouter || q == QuotaOpencodeGo
+	return q == QuotaOpenRouter || q == QuotaOpencodeGo || q == QuotaAntigravity
 }
 
 // Spec is the canonical metadata for one supported provider.
@@ -336,7 +339,7 @@ var catalog = map[string]*entry{
 	"antigravity": {
 		canonical:      "antigravity",
 		balanceKind:    BalanceSubscription,
-		quotaSource:    QuotaNone,
+		quotaSource:    QuotaAntigravity,
 		signInOnly:     true,
 		aliases:        []string{"antigravity", "agy", "google-antigravity"},
 		requiresAPIKey: true,
