@@ -265,7 +265,7 @@ var catalog = map[string]*entry{
 		canonical:      "openai",
 		balanceKind:    BalanceWebOnly,
 		quotaSource:    QuotaOpenAIStd,
-		aliases:        []string{"openai", "chatgpt", "gpt", "openai-compatible", "compatible"},
+		aliases:        []string{"openai", "chatgpt", "gpt"},
 		requiresAPIKey: true,
 		// Default to /responses, keep /chat/completions as the alt — the same
 		// call the deepseek row makes below, and for the same reason: the
@@ -302,6 +302,22 @@ var catalog = map[string]*entry{
 		envKeys:        []string{"OPENAI_API_KEY", "OPENAI_TOKEN"},
 		apiKeyURL:      "https://platform.openai.com/api-keys",
 		modelDefaults:  ModelDefaults{FallbackModel: "gpt-4o-mini"},
+		capabilities:   Capabilities{ToolCalling: true, Reasoning: true},
+	},
+	// openai-compatible provides a generic endpoint for any provider, gateway,
+	// or self-hosted service implementing the standard OpenAI chat completions
+	// protocol (/v1/chat/completions, /v1/models). The user supplies their
+	// own base URL, API key, and model name in Settings.
+	"openai-compatible": {
+		canonical:      "openai-compatible",
+		balanceKind:    BalanceWebOnly,
+		quotaSource:    QuotaOpenAIStd,
+		aliases:        []string{"openai-compatible", "custom-openai", "custom", "compatible"},
+		requiresAPIKey: true,
+		runtime:        RuntimeOpenAICompatible,
+		baseURL:        "http://localhost:8000/v1",
+		envKeys:        []string{"OPENAI_COMPATIBLE_API_KEY", "CUSTOM_OPENAI_API_KEY"},
+		modelDefaults:  ModelDefaults{},
 		capabilities:   Capabilities{ToolCalling: true, Reasoning: true},
 	},
 	// codex is a ChatGPT *subscription*, reached at chatgpt.com rather than

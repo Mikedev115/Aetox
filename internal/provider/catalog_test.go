@@ -48,6 +48,10 @@ func TestNormalize_KnownAlias(t *testing.T) {
 		{"dashscope", "alibaba"},
 		{"tongyi", "alibaba"},
 		{"qwen-code", "alibaba"},
+		{"openai-compatible", "openai-compatible"},
+		{"custom-openai", "openai-compatible"},
+		{"custom", "openai-compatible"},
+		{"compatible", "openai-compatible"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -247,6 +251,11 @@ func TestEveryKeyedProviderSaysWhereToGetTheKey(t *testing.T) {
 			}
 			continue
 		}
+		// A generic endpoint connects to arbitrary third-party or self-hosted servers;
+		// there is no single vendor page to link to.
+		if name == "openai-compatible" {
+			continue
+		}
 		got := APIKeyURL(name)
 		if got == "" {
 			t.Errorf("%q asks the user to paste a key with no page to get one from", name)
@@ -299,7 +308,7 @@ func TestDefaultBaseURL(t *testing.T) {
 }
 
 func TestRequiresAPIKey(t *testing.T) {
-	needsKey := []string{"openrouter", "openai", "deepseek", "gemini", "groq",
+	needsKey := []string{"openrouter", "openai", "openai-compatible", "deepseek", "gemini", "groq",
 		"mistral", "kimi", "minimax", "alibaba", "zai", "xai", "thaillm", "anthropic"}
 	for _, p := range needsKey {
 		if !RequiresAPIKey(p) {
