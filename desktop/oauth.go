@@ -142,16 +142,14 @@ func (a *App) CancelSignIn(providerName string) {
 // on this machine, so Settings can offer "use the one you have" instead of a
 // second authorization for the same account.
 //
-// One entry again since §69: the Codex CLI writes a session Aetox can adopt, so
-// someone already signed into it never authorizes the same ChatGPT account
-// twice. Settings hides the button on an empty list.
+// Three entries: the Codex CLI writes a session Aetox can adopt, so someone
+// already signed into it never authorizes the same ChatGPT account twice, and
+// the Copilot and Kilo CLIs do the same for theirs. Settings hides the button on
+// an empty list.
 func (a *App) ImportableSignIns() []string {
 	var out []string
 	if oauth.CodexCLIAvailable() {
 		out = append(out, "codex")
-	}
-	if oauth.AntigravityCLIAvailable() {
-		out = append(out, "antigravity")
 	}
 	if oauth.CopilotCLIAvailable() {
 		out = append(out, "github-copilot")
@@ -171,8 +169,6 @@ func (a *App) ImportSignIn(providerName string) (ModelInfo, error) {
 	switch canonical {
 	case "codex":
 		err = oauth.ImportCodexCLI()
-	case "antigravity":
-		err = oauth.ImportAntigravityCLI(context.Background())
 	case "github-copilot":
 		err = oauth.ImportCopilotCLI(context.Background())
 	case "kilo":

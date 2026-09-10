@@ -1978,7 +1978,7 @@ type PendingModel struct {
 // pay for" is the shorter path for most people than finding an API key.
 var desktopProviders = []string{
 	// Signed into, not keyed in (internal/oauth).
-	"codex", "openrouter", "antigravity", "github-copilot",
+	"codex", "openrouter", "github-copilot",
 	// API key or a local server.
 	"anthropic", "ollama", "lmstudio", "deepseek", "gemini", "openai", "alibaba", "zai", "kilo",
 	// Same runtime as the row above (OpenAI-compatible, base URL, key), kept off
