@@ -237,10 +237,11 @@ func (t *MemoryTool) ToolDefinition() model.ToolDefinition {
 		schema["properties"].(map[string]any)["about"] = map[string]any{
 			"type": "string",
 			"enum": []string{aboutUser, aboutMachine},
-			"description": "Required. user for a fact about the person you are talking to — who they are, " +
+			"description": "Required. user for an enduring fact about the person you are talking to — who they are, " +
 				"what they are building, how they want to be worked with, what a request of theirs " +
-				"reliably turns out to mean. machine for a fact about this computer or this setup — " +
-				"where something lives, what had to be installed, a convention the files hold to.",
+				"reliably turns out to mean. machine for a permanent, global hardware or system constraint " +
+				"that holds across all projects (e.g. global proxy, strict OS limit). NEVER use machine for local directory paths, " +
+				"command output, or script workarounds.",
 		}
 		schema["required"] = []string{"about"}
 	}
@@ -271,13 +272,12 @@ func (t *MemoryTool) ToolDefinition() model.ToolDefinition {
 // one bar - see forWorker for the measurement that split them.
 func (t *MemoryTool) definitionText() string {
 	if t.forWorker() {
-		return "Keep what doing this job teaches you, so the next job of the same kind starts knowing it. " +
-			"Worth keeping: how this user's work actually turns out to be shaped — a convention their files " +
-			"hold to, a step that proved necessary here and is not written down anywhere, what a request of " +
-			"theirs reliably turns out to mean — anything that will still be true next month and would change " +
+		return "Skills come first. Memory is a narrow exception for enduring conventions that apply to EVERY future job of this kind. " +
+			"Worth keeping: how this user's codebase or work is permanently structured — an enduring convention their files hold to, " +
+			"or what a recurring request of theirs reliably turns out to mean — anything that will still be true next month and would change " +
 			"how you do the same job again. " +
-			"Not worth keeping: anything about the job in front of you, anything you could read or search for " +
-			"at the moment you need it, and a conclusion of your own you have not seen borne out. " +
+			"STRICTLY FORBIDDEN: Do NOT propose memories for transient script errors, one-off workarounds, directory paths, " +
+			"local command output, or anything discoverable by reading files or tools at runtime. " +
 			"Write both the fact and the reason in the user's language (the language they communicate with you in), " +
 			"so they can review and approve it naturally. " +
 			"This file is yours alone. Nobody else reads it, nothing you write reaches the assistant or another " +
@@ -286,20 +286,19 @@ func (t *MemoryTool) definitionText() string {
 			"Nothing takes effect until the user approves it, and it reaches you at the start of the next job, " +
 			"not this one."
 	}
-	return "Keep what you learn about this user across sessions, so the next one starts knowing it. " +
-		"Worth keeping: what they tell you about themselves — who they are, what they are building, how " +
-		"they want to be worked with — and anything about their machine or their setup that will " +
-		"still be true next month and would change what you do: a convention they hold to, where " +
-		"something lives, a step that turned out to be necessary here. " +
-		"A fact the user states about themselves is already the evidence for it, so propose it when it " +
-		"is said rather than waiting to be told to. " +
-		"Not worth keeping: anything about the task in front of you, anything you could look up or " +
-		"search for when you need it, and a conclusion of your own you have not seen borne out. " +
+	return "Skills come first. Memory is a narrow exception for enduring facts that apply to EVERY session regardless of task. " +
+		"Worth keeping in USER.md (about: user): what they tell you about themselves — who they are, what they are building, " +
+		"how they want to be worked with. A fact the user states about themselves is already the evidence for it. " +
+		"Worth keeping in MEMORY.md (about: machine): only permanent, global environment constraints that will still be true next month " +
+		"and would change what you do (e.g. hardware limits, global proxy). " +
+		"STRICTLY FORBIDDEN: Do NOT propose memories for transient errors, command failures, script debugging, date/locale formatting quirks, " +
+		"one-off workarounds, directory paths discovered during a task, or anything discoverable by running a command. " +
+		"Never guess user intent or record speculative conclusions. " +
 		"Write both the fact and the reason in the user's language (the language they communicate with you in), " +
 		"so they can review and approve it naturally. " +
-		"Write a fact, never an instruction to yourself: \"they prefer short answers\", not \"always " +
+		"Write a declarative fact, never an instruction to yourself: \"they prefer short answers\", not \"always " +
 		"answer briefly\" — an order kept here outranks what they ask you for next month. " +
-		"How to do a kind of work belongs in the skill for that work, not here. " +
+		"How to do a kind of work belongs in a skill, not here. " +
 		"A remembered line costs context on every request this agent ever makes again, so a wrong or " +
 		"idle one is paid for forever. Nothing here takes effect until the user approves it, and it " +
 		"reaches you at the start of the next session, not this one."
