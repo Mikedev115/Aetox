@@ -193,6 +193,7 @@ export const th = {
   // และ diff ที่ถูกตัดแล้วไม่บอก จะอ่านเหมือนว่านั่นคือทั้งหมด
   'workbench.prTab': 'Pull requests',
   'prPane.count': 'เปิดอยู่ {count}',
+  'prPane.countClosed': 'ปิดแล้ว {count}',
   'prPane.refresh': 'รีเฟรช',
   'prPane.scope': 'แผงนี้แสดงเฉพาะหน้าโค้ดเท่านั้น',
   'prPane.loading': 'กำลังโหลด...',

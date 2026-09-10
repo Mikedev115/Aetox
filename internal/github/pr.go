@@ -59,6 +59,7 @@ type PullRequest struct {
 	Additions      int    `json:"additions"`
 	Deletions      int    `json:"deletions"`
 	ChangedFiles   int    `json:"changedFiles"`
+	Merged         bool   `json:"merged"`
 	URL            string `json:"url"`
 }
 
@@ -374,8 +375,9 @@ type prPayload struct {
 	MergeableState string `json:"mergeable_state"`
 	Additions      int    `json:"additions"`
 	Deletions      int    `json:"deletions"`
-	ChangedFiles   int    `json:"changed_files"`
-	HTMLURL        string `json:"html_url"`
+	ChangedFiles   int     `json:"changed_files"`
+	MergedAt       *string `json:"merged_at"`
+	HTMLURL        string  `json:"html_url"`
 }
 
 func (p prPayload) flatten() PullRequest {
@@ -385,7 +387,8 @@ func (p prPayload) flatten() PullRequest {
 		HeadRef: p.Head.Ref, HeadSHA: p.Head.SHA, BaseRef: p.Base.Ref,
 		Mergeable: p.Mergeable, MergeableState: p.MergeableState,
 		Additions: p.Additions, Deletions: p.Deletions, ChangedFiles: p.ChangedFiles,
-		URL: p.HTMLURL,
+		Merged:    p.MergedAt != nil && *p.MergedAt != "",
+		URL:       p.HTMLURL,
 	}
 }
 

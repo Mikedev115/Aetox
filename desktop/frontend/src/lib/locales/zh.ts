@@ -404,6 +404,7 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'chat.modelLoadingFor': '{secs} 秒',
   'workbench.prTab': 'Pull requests',
   'prPane.count': '{count} 个进行中',
+  'prPane.countClosed': '{count} 个已关闭',
   'prPane.refresh': '刷新',
   'prPane.scope': '此面板仅在代码页显示。',
   'prPane.loading': '加载中…',

@@ -193,6 +193,7 @@ export const en: Record<keyof typeof th, string> = {
   // nothing reads as the whole change.
   'workbench.prTab': 'Pull requests',
   'prPane.count': '{count} open',
+  'prPane.countClosed': '{count} closed',
   'prPane.refresh': 'Refresh',
   'prPane.scope': 'This panel is for the code door only.',
   'prPane.loading': 'Loading...',

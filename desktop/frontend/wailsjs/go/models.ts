@@ -230,6 +230,7 @@ export namespace github {
 	    additions: number;
 	    deletions: number;
 	    changedFiles: number;
+	    merged: boolean;
 	    url: string;
 	
 	    static createFrom(source: any = {}) {
@@ -252,6 +253,7 @@ export namespace github {
 	        this.additions = source["additions"];
 	        this.deletions = source["deletions"];
 	        this.changedFiles = source["changedFiles"];
+	        this.merged = source["merged"];
 	        this.url = source["url"];
 	    }
 	}
