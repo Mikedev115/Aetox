@@ -407,11 +407,26 @@ export function toolFallbackVerb(step: Pick<ToolStep, 'name' | 'act' | 'label'>)
  * and then nothing — which is a worse row than the log line it replaced, and the
  * whole point of keeping `label` was that the old rows keep working.
  */
-export function toolSubject(step: Pick<ToolStep, 'subject' | 'label'>): string {
+export function toolSubject(
+  step: Pick<ToolStep, 'subject' | 'label' | 'name' | 'act'>,
+  contextSteps?: ToolStep[]
+): string {
   if (step.subject) return step.subject
   const label = step.label ?? ''
   const gap = label.indexOf(' ')
-  return gap < 0 ? '' : label.slice(gap + 1)
+  const fromLabel = gap < 0 ? '' : label.slice(gap + 1)
+  if (fromLabel && fromLabel !== 'output' && fromLabel !== 'run' && fromLabel !== 'exec') {
+    return fromLabel
+  }
+  if (contextSteps && contextSteps.length) {
+    for (let i = contextSteps.length - 1; i >= 0; i--) {
+      const prev = contextSteps[i]
+      if (prev !== step && prev.subject && (prev.name === 'shell' || prev.name === 'desk_terminal' || prev.name === 'git')) {
+        return prev.subject
+      }
+    }
+  }
+  return fromLabel || ''
 }
 
 /**

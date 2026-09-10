@@ -1449,7 +1449,19 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   background:var(--tool-hue, var(--accent)); animation:tool-run-bar 1.3s ease-in-out infinite;
 }
 @keyframes tool-run-bar { from { left:-40%; } to { left:100%; } }
-.tool-step .secs { flex:0 0 auto; font-size:var(--fs-xs); color:var(--text-dim); }
+.tool-step .secs { flex:0 0 auto; font-size:var(--fs-xs); color:var(--text-dim); transition:color var(--dur-tint) ease; }
+.tool-step .secs.is-slow,
+.tool-step .secs.is-stalled { color:var(--text-muted); font-weight:500; }
+.tool-step .tool-quick-stop {
+  flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center;
+  width:18px; height:18px; border-radius:var(--r-xs, 4px);
+  border:1px solid var(--border-subtle); background:var(--surface-raised, rgba(255,255,255,0.04));
+  color:var(--text-muted); cursor:pointer; padding:0; margin-left:3px;
+  transition:all var(--dur-tint) ease;
+}
+.tool-step .tool-quick-stop:hover {
+  background:var(--surface-hover, rgba(255,255,255,0.08)); border-color:var(--border-default); color:var(--text-primary);
+}
 .tool-step .tool-stat { flex:0 0 auto; font-size:var(--fs-xs); font-variant-numeric:tabular-nums; }
 .tool-step .tool-stat .add { color:var(--status-success); }
 .tool-step .tool-stat .del { color:var(--status-danger); }
@@ -1582,6 +1594,28 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .search-foot {
   margin-top:6px; padding-top:6px; border-top:1px solid var(--border-subtle);
   font-size:var(--fs-2xs); color:var(--text-dim); font-variant-numeric:tabular-nums;
+}
+
+/* Parallel tool fan-out card (breaks out like search-card when running parallel tasks) */
+.parallel-card {
+  margin:4px 0 8px; padding:8px 10px 6px;
+}
+.parallel-head .ic { color:var(--text-secondary); }
+.parallel-head .q { font-weight:500; }
+.parallel-hits {
+  display:flex; flex-direction:column; gap:2px;
+  max-height:220px;
+}
+.parallel-hits .tool-step.parallel-hit {
+  border:none; background:transparent;
+  padding:4px 6px; margin:0;
+  border-radius:var(--r-sm); min-height:28px;
+}
+.parallel-hits .tool-step.parallel-hit:hover {
+  background:var(--surface-row-hover);
+}
+.parallel-foot {
+  display:flex; align-items:center; gap:6px;
 }
 .tool-step.foldable:hover .fold-caret { color:var(--text-muted); }
 .tool-step .fold-caret { flex:0 0 auto; display:inline-flex; color:var(--text-dim); }

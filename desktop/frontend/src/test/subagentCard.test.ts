@@ -306,6 +306,18 @@ describe('the delegate’s own tool list', () => {
     expect(container.querySelector('.bgw-work')).toBeTruthy()
     expect(container.querySelector('.bgw-work.live-window')).toBeNull()
   })
+
+  it('re-opens onto the live window when toggled while running', async () => {
+    const { container } = render(Chat, { ...baseProps, toolSteps: withChildren } as any)
+    const door = container.querySelector('.bgw-open') as HTMLElement
+    // Close it
+    await fireEvent.click(door)
+    expect(container.querySelector('.bgw-work')).toBeNull()
+
+    // Re-open it
+    await fireEvent.click(door)
+    expect(container.querySelector('.bgw-work.live-window')).toBeTruthy()
+  })
 })
 
 // A tool row is a thing the agent did, and folds into a count the way a receipt

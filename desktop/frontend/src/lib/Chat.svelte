@@ -1762,6 +1762,7 @@
     return () => clearInterval(id)
   })
   function liveSecs(s: ToolStep): number {
+    if (!s.startedAt) return s.secs ?? 0
     return Math.max(0, Math.round((now - s.startedAt) / 1000))
   }
 
@@ -2360,7 +2361,11 @@
     // A click hands the card to the reader for good — the timer that may be
     // about to shut it finds it off the list and leaves it alone.
     delete cardLanding[key]
-    openSteps[key] = !stepsOpen(node)
+    const willOpen = !stepsOpen(node)
+    openSteps[key] = willOpen
+    if (willOpen && pinnedToBottom) {
+      requestAnimationFrame(stickToBottom)
+    }
   }
 
   // The card asks this of itself, through an action rather than from the
@@ -3614,10 +3619,10 @@
 
 <!-- The row's contents, shared by the two elements above so that being
      expandable cannot quietly change what a row says. -->
-{#snippet stepFace(s: ToolStep, live: boolean)}
+{#snippet stepFace(s: ToolStep, live: boolean, contextSteps?: ToolStep[])}
   {@const fam = toolFamily(s)}
   {@const verbKey = toolVerbKey(s)}
-  {@const subject = toolSubject(s)}
+  {@const subject = toolSubject(s, contextSteps)}
   {@const parts = splitSubject(subject)}
   <!-- The tile: which FAMILY of work this is, in one glyph and one colour, at
        the left edge where the eye lands. It replaced the tick-or-ring glyph in
@@ -3696,7 +3701,19 @@
       <span class="prob-badge" title={t('chat.problemsAfter', { n: s.problems })}>!{s.problems}</span>
     {/if}
     {#if s.state === 'run' && live}
-      <span class="secs">· {liveSecs(s)}s</span>
+      {@const secs = liveSecs(s)}
+      <span class="secs" class:is-slow={secs >= 15} class:is-stalled={secs >= 30}>· {secs}s</span>
+      <span
+        role="button"
+        tabindex="0"
+        class="tool-quick-stop"
+        title={t('chat.toolKill')}
+        aria-label={t('chat.toolKill')}
+        onclick={(e) => { e.stopPropagation(); cancelTurn() }}
+        onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); cancelTurn() } }}
+      >
+        <Icon name="square" size={10} />
+      </span>
     {:else if s.secs}
       <span class="secs">· {s.secs}s</span>
     {/if}
@@ -3731,6 +3748,46 @@
   </span>
 {/snippet}
 
+{#snippet parallelCard(steps: ToolStep[], live: boolean)}
+  {@const running = steps.filter((s) => s.state === 'run')}
+  {@const maxSecs = Math.max(...steps.map((s) => (s.state === 'run' ? liveSecs(s) : (s.secs ?? 0))), 0)}
+  <div class="search-card parallel-card">
+    <div class="search-head parallel-head">
+      <span class="ic"><Icon name="cpu" size={13} /></span>
+      <span class="q">
+        {#if running.length > 0}
+          {t('tool.parallelRunning', { n: steps.length })}
+        {:else}
+          {t('tool.parallelDone', { n: steps.length })}
+        {/if}
+      </span>
+      <span class="n">
+        {#if running.length > 0}
+          {steps.length - running.length}/{steps.length} {t('chat.doneBadge')}
+        {:else}
+          {steps.length} {t('chat.doneBadge')}
+        {/if}
+      </span>
+    </div>
+    <div class="search-hits parallel-hits" use:toolWindow={{ follow: false }}>
+      {#each steps as s, i (s.ref || s.label + i)}
+        {@const fam = toolFamily(s)}
+        {@const slot = fam === 'mcp' ? serverSlot(toolServer(s)) : 0}
+        <div class="tool-step parallel-hit f-{fam} h-{slot} {s.state}" title={s.error || undefined}>
+          {@render stepFace(s, live, steps)}
+        </div>
+      {/each}
+    </div>
+    <div class="search-foot parallel-foot">
+      {#if running.length > 0}
+        {t('tool.parallelFootRunning', { run: running.length, total: steps.length, secs: maxSecs })}
+      {:else}
+        {t('tool.parallelFootDone', { total: steps.length, secs: maxSecs })}
+      {/if}
+    </div>
+  </div>
+{/snippet}
+
 <!-- `windowed` is the live list's cap, and only the live list's: a turn in
      flight keeps every call it has made on screen (nothing folds mid-turn any
      more), so without it the block grows for as long as the model keeps
@@ -3738,6 +3795,7 @@
      height it needs — the cap is about a thing in motion, which is the same
      line .reasoning-body.live draws. -->
 {#snippet toolTimeline(steps: ToolStep[], live: boolean, windowed: boolean)}
+  {@const realTools = steps.filter((s) => !s.kind)}
   <!-- toolGlide adds the block that travels to whichever row is live, and
        toolArrive deals a batch of new rows out one after another. Both are
        handed `live` rather than left to discover there is nothing to do: a
@@ -3752,9 +3810,16 @@
     use:toolWindow={windowed}
     use:toolArrive={live}
   >
-    {#each steps as s}
-      {@render toolRow(s, live)}
-    {/each}
+    {#if realTools.length > 1}
+      {#each steps.filter((s) => s.kind) as meta}
+        {@render toolRow(meta, live)}
+      {/each}
+      {@render parallelCard(realTools, live)}
+    {:else}
+      {#each steps as s}
+        {@render toolRow(s, live)}
+      {/each}
+    {/if}
   </div>
 {/snippet}
 
@@ -4328,38 +4393,39 @@
                    receipt.
                    toolFocus is the other half: with twenty rows in a rail,
                    which one is happening has to be readable without hunting. -->
-              <div
-                class="bgw-work"
-                class:live-window={state === 'run'}
-                class:stream={state === 'run'}
-                use:toolWindow={state === 'run'}
-                use:toolFocus={state === 'run'}
-                transition:settle
-              >
-                <!-- The delegate's turn, drawn the way a turn is drawn.
-                     A flat row list was what this used to be, so a worker's own
-                     narration arrived as a 12px muted line in a panel — the
-                     exact demotion §59 removed from the main transcript and
-                     then left in place one level down (owner, 7 ก.ย.: "มันควร
-                     แสดงเหมือนตอนแชทปกติเลย ข้างในกล่องการทำงานของเอเจนอ่ะ").
-                     Same `phasesOf`, same markdown, same rows: a sub-agent's
-                     work is a turn, and there is no altitude at which that
-                     stops being true. Inside the one box rather than a box per
-                     stretch, because the cap and the scrolling window belong to
-                     the card as a whole. -->
-              <!-- THE SAME BLOCKS THE TRANSCRIPT DRAWS, one level in. Not a
-                   parallel markup that resembles them — `phaseBlock` itself
-                   (owner, 7 ก.ย.: "ซับเอเจนอ่ะให้มันแสดง UI เหมือนแชททั่วไปเลย
-                   แค่เข้าไปอยู่ในบล็อคของเอเจน").
-                   Two hand-written versions of this had already drifted from
-                   the original in three ways each — the prose inside the box,
-                   its own size, its own gutter — and each was a separate round
-                   of him pointing at a screenshot. A worker's turn IS a turn;
-                   there is no altitude at which it stops being one.
-                   `ownWork` is why this needs a step at all: see it. -->
-              {#each phasesOf(ownWork(node)) as ph, p}
-                {@render phaseBlock(ph, phaseKey(ph, `${stepsKey(node)}:${p}`), state === 'run', state === 'run')}
-              {/each}
+              <div class="bgw-work-fold" transition:settle>
+                <div
+                  class="bgw-work"
+                  class:live-window={state === 'run'}
+                  class:stream={state === 'run'}
+                  use:toolWindow={state === 'run'}
+                  use:toolFocus={state === 'run'}
+                >
+                  <!-- The delegate's turn, drawn the way a turn is drawn.
+                       A flat row list was what this used to be, so a worker's own
+                       narration arrived as a 12px muted line in a panel — the
+                       exact demotion §59 removed from the main transcript and
+                       then left in place one level down (owner, 7 ก.ย.: "มันควร
+                       แสดงเหมือนตอนแชทปกติเลย ข้างในกล่องการทำงานของเอเจนอ่ะ").
+                       Same `phasesOf`, same markdown, same rows: a sub-agent's
+                       work is a turn, and there is no altitude at which that
+                       stops being true. Inside the one box rather than a box per
+                       stretch, because the cap and the scrolling window belong to
+                       the card as a whole. -->
+                <!-- THE SAME BLOCKS THE TRANSCRIPT DRAWS, one level in. Not a
+                     parallel markup that resembles them — `phaseBlock` itself
+                     (owner, 7 ก.ย.: "ซับเอเจนอ่ะให้มันแสดง UI เหมือนแชททั่วไปเลย
+                     แค่เข้าไปอยู่ในบล็อคของเอเจน").
+                     Two hand-written versions of this had already drifted from
+                     the original in three ways each — the prose inside the box,
+                     its own size, its own gutter — and each was a separate round
+                     of him pointing at a screenshot. A worker's turn IS a turn;
+                     there is no altitude at which it stops being one.
+                     `ownWork` is why this needs a step at all: see it. -->
+                {#each phasesOf(ownWork(node)) as ph, p}
+                  {@render phaseBlock(ph, phaseKey(ph, `${stepsKey(node)}:${p}`), state === 'run', state === 'run')}
+                {/each}
+                </div>
               </div>
             {/if}
           {/if}

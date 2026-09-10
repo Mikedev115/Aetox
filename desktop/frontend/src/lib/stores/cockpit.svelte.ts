@@ -3230,6 +3230,12 @@ export function applyToolEvent(stamped: SessionEvent<ToolEvent> | ToolEvent): vo
     s.state === 'run' && (s.parent ?? '') === (ev.parent ?? '') &&
     (ev.ref && s.ref ? s.ref === ev.ref : s.label === label)
   if (ev.action === 'call') {
+    if (!ev.subject && (ev.name === 'shell' || ev.name === 'shell_output' || ev.act === 'output')) {
+      const prevShell = steps.slice().reverse().find((s) => s.subject && (s.name === 'shell' || s.name === 'desk_terminal'))
+      if (prevShell?.subject) {
+        ev.subject = prevShell.subject
+      }
+    }
     // A call is announced repeatedly while the model writes it — once the tool
     // name is known, then as the content streams — and once more when it
     // actually runs. The row is reused: the counter climbs and the elapsed

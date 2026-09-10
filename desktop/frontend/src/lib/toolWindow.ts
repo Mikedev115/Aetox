@@ -43,7 +43,19 @@ export function toolWindow(node: HTMLElement, opts: boolean | WindowOpts = true)
   // "anywhere".
   let pinned = true
   let lastTop = 0
+  let initial = true
   if (!follow) pinned = false
+
+  // On mount, snap to floor immediately if already laid out: opening a list
+  // should show the latest work (the floor), not start from row 0.
+  if (on && follow) {
+    const to = node.scrollHeight - node.clientHeight
+    if (to > 0) {
+      node.scrollTop = to
+      lastTop = node.scrollTop
+      initial = false
+    }
+  }
 
   // Which ends have something beyond them. Two classes rather than one, because
   // the fade has to say WHICH way there is more: a list masked at the bottom
@@ -54,7 +66,16 @@ export function toolWindow(node: HTMLElement, opts: boolean | WindowOpts = true)
       node.classList.remove('fade-top', 'fade-bot')
       return
     }
-    if (pinned) rideDown()
+    if (pinned) {
+      const to = node.scrollHeight - node.clientHeight
+      if (initial && to > 0) {
+        node.scrollTop = to
+        lastTop = node.scrollTop
+        initial = false
+      } else {
+        rideDown()
+      }
+    }
     const fromBottom = node.scrollHeight - node.scrollTop - node.clientHeight
     node.classList.toggle('fade-top', node.scrollTop > 2)
     node.classList.toggle('fade-bot', fromBottom > 2)
@@ -145,9 +166,20 @@ export function toolWindow(node: HTMLElement, opts: boolean | WindowOpts = true)
   return {
     update(next: boolean | WindowOpts = true) {
       const read2 = read(next)
+      const turningOn = !on && read2.on
       on = read2.on
       follow = read2.follow
       if (!follow) pinned = false
+      if (turningOn && follow) {
+        pinned = true
+        initial = true
+        const to = node.scrollHeight - node.clientHeight
+        if (to > 0) {
+          node.scrollTop = to
+          lastTop = node.scrollTop
+          initial = false
+        }
+      }
       // A list can be switched on after it mounted — a card reopened while its
       // turn is still running — so this is a transition in both directions.
       if (on) watch()
