@@ -6,6 +6,7 @@
   import Wordmark from './Wordmark.svelte'
   import Icon from './Icon.svelte'
   import SessionStrip from './SessionStrip.svelte'
+  import { openArtifactsTab } from './stores/workbench.svelte'
 
   let {
     inspectorCollapsed, onToggleInspector, sidebarCollapsed, onToggleSidebar,
@@ -117,6 +118,10 @@
          repo state as those land. Leftmost of the three so the two panel
          toggles stay adjacent: they are the same kind of act (show a rail),
          and this one is not. -->
+    <button
+      class="icobtn tip-r" aria-label={t('workbench.artifactsTab')}
+      data-tip={t('workbench.artifactsTab')} onclick={openArtifactsTab}
+    ><Icon name="package" size={15} /></button>
     <SessionStrip />
     <!-- Always, not only while the sidebar is away (owner, 12 ส.ค.). It was
          conditional on the reasoning that the sidebar's header carries this

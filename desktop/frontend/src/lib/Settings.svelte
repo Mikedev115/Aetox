@@ -51,18 +51,18 @@
     ModelPriceSource,
     ListSubagentProfiles, ReadSubagentProfile, SaveSubagentProfile, SaveAgentProfile,
     DeleteSubagentProfile, SetSubagentModel, OpenAgentsFolder, ListChairs,
-    AgentSkills, AgentNeeds, OpenAgentSkillsFolder,
+    AgentSkills, AgentNeeds, OpenAgentSkillsFolder, OpenAgentHome,
     ChairStarters, SaveChairStarters, ChairStartersFile,
     SignInMethods, SignInStatus, StartSignIn, CancelSignIn, ImportableSignIns,
     Connections, ConnectAccount, SetConnectionTargets, VerifyConnection, DisconnectAccount,
     SetConnectionStartCommand, StartConnectionServer, CheckConnectionServer,
     AppVersion, AppCredit, RecentDebugLog,
     LearningEnabled, SetLearningEnabled, SkillTuneAuto, SetSkillTuneAuto, RunSkillTuneup, ListSkillProposals, ListPendingChanges, ListDecidedChanges,
-    SessionReviewAuto, SetSessionReviewAuto, RunSessionReview, ListRecurringRequests,
+    SessionReviewAuto, SetSessionReviewAuto, RunSessionReview, ListRecurringRequests, DismissRecurringRequest,
     PreparedReplyOn, SetPreparedReplyOn,
     ComputerControlOn, SetComputerControlOn, GrantedComputerApps, RevokeComputerApp,
     OpenComputerApps, AllowComputerApp, ProgramIcon, BrowseForComputerApp,
-    ApprovePendingChange, RejectPendingChange, LearnedEntries, LearnedScopeInfos, SaveLearnedEntry, OpenMemoryFolder,
+    ApprovePendingChange, RejectPendingChange, LearnedEntries, LearnedScopeInfos, SaveLearnedEntry, AddLearnedEntry, MoveLearnedEntry, OpenMemoryFolder,
     ForgetMemoryScope, AdoptMemoryScope, RecentProjects,
     ListSystemIssues, MarkIssueReported, ListDecidedIssues,
     AccountStatus, StartAccountSignIn, CompleteAccountSignIn, CancelAccountSignIn,
@@ -134,6 +134,20 @@
     identity.loaded && identity.files
       ? identityTemplates().filter((tpl) => !(identity.files || []).some((f) => f.name === tpl.name))
       : [],
+  )
+  const recommendedIdentityTemplates: {
+    name: string
+    icon: IconName
+    descKey: TKey
+    tplKey: TKey
+  }[] = [
+    { name: 'identity.md', icon: 'sparkles', descKey: 'settings.identityDescIdentity', tplKey: 'identity.tplIdentity' },
+    { name: 'thinking.md', icon: 'brain', descKey: 'settings.identityDescThinking', tplKey: 'identity.tplThinking' },
+    { name: 'context.md', icon: 'compass', descKey: 'settings.identityDescContext', tplKey: 'identity.tplContext' },
+    { name: 'skills.md', icon: 'zap', descKey: 'settings.identityDescSkills', tplKey: 'identity.tplSkills' },
+  ]
+  const customIdentityFiles = $derived(
+    (identity.files || []).filter((f) => !recommendedIdentityTemplates.some((r) => r.name === f.name)),
   )
   function addIdentityFile() {
     if (!newIdentityName.trim()) return
@@ -695,6 +709,7 @@
       await loadAgents()
       const row = subagents.find((a) => a.name === intent.agent)
       if (row) await openAgent(row, 'agent')
+      if (intent.tab) agentTab = intent.tab as AgentTab
     }
   })
 
@@ -2325,6 +2340,10 @@
     agentDraftHue = ''
   }
 
+  let showFaceContexts = $state(false)
+  let previewFaceState = $state<'idle' | 'think' | 'work' | 'done' | 'err'>('idle')
+  let previewFaceOff = $state(false)
+
   let agentDraftPrompt = $state('')
   // The role is the whole of what an agent is, and for a bundled one that is a
   // hundred lines of prose — opening the editor to change a model meant
@@ -2407,11 +2426,46 @@
   // describing one mechanism where the engine has three.
   let agentSkills = $state<main.AgentSkillInfo[]>([])
   let agentNeeds = $state<subagent.Requirement[]>([])
+  const unmetAgentNeeds = $derived(agentNeeds.filter((r) => !r.met).length)
   // Its own memory (MEMORY.md in its folder) and its own opening (STARTERS.md),
   // both read-only here. Neither is edited on this page — memory is approved on
   // the Learning page and the opening is a file — but an agent whose page never
   // mentions them is a page that quietly claims they do not exist.
   let agentMemory = $state<string[]>([])
+  let agentNewMemoryText = $state('')
+  let agentAddingMemory = $state(false)
+  let agentMemorySaving = $state(false)
+  let agentMemoryError = $state('')
+
+  async function addAgentMemory(name: string, text: string) {
+    if (!text.trim() || !name.trim()) return
+    agentMemorySaving = true
+    agentMemoryError = ''
+    try {
+      await AddLearnedEntry(name.trim(), text.trim())
+      agentNewMemoryText = ''
+      agentAddingMemory = false
+      agentMemory = await LearnedEntries(name.trim())
+    } catch (err) {
+      agentMemoryError = String(err)
+    } finally {
+      agentMemorySaving = false
+    }
+  }
+
+  async function saveAgentMemoryItem(name: string, index: number, text: string) {
+    agentMemorySaving = true
+    agentMemoryError = ''
+    try {
+      await SaveLearnedEntry(name.trim(), index, text)
+      cancelMemoryEdit()
+      agentMemory = await LearnedEntries(name.trim())
+    } catch (err) {
+      agentMemoryError = String(err)
+    } finally {
+      agentMemorySaving = false
+    }
+  }
   let agentStarters = $state<subagent.StarterSet | null>(null)
   let agentReachFor = $state('') // whose panels are loaded, so a stale answer cannot land on the next agent
 
@@ -2671,6 +2725,8 @@
   // goes out through the matching door, so an edit cannot change what
   // something is as a side effect of where a button happened to be.
   let agentEditKind = $state<'agent' | 'helper'>('helper')
+  type AgentTab = 'identity' | 'brain' | 'reach' | 'knowledge' | 'opening'
+  let agentTab = $state<AgentTab>('identity')
 
   const openAgent = (a: SubagentRow, kind?: 'agent' | 'helper') => runAgent('open:' + a.name, async () => {
     const parsed = parseAgentFile(await ReadSubagentProfile(a.name))
@@ -2693,6 +2749,7 @@
     // Every open starts collapsed, including the second open of the same agent:
     // the state belongs to this reading of the page, not to the file.
     agentBodyOpen = false
+    agentTab = 'identity'
     agentEditing = a
     // A row opened from this page answers from the roster the page already
     // asked for (ListChairs) — never from the file's own fields.
@@ -2720,6 +2777,7 @@
     agentKeptNeeds = []
     agentDraftPrompt = t('settings.agentStarter')
     agentBodyOpen = true // a new agent is opened to be written in, not read
+    agentTab = 'identity'
     agentError = ''
     agentEditKind = kind
     agentSkills = []
@@ -2947,6 +3005,9 @@
   let sessionReviewBusy = $state(false)
   let sessionReviewMsg = $state('')
   let recurringRequests = $state<{ text: string; count: number; normalized: string }[]>([])
+  let learningSubTab = $state<'memory' | 'habits'>('memory')
+  let habitExpanded = $state<Record<string, boolean>>({})
+  let habitDismissBusy = $state<Record<string, boolean>>({})
   let skillTuneAutoOn = $state(false)
   let skillTuneBusy = $state(false)
   let skillTuneMsg = $state('')
@@ -3114,6 +3175,32 @@
     }
   }
 
+  async function dismissHabit(req: { text: string; count: number; normalized: string }) {
+    habitDismissBusy[req.normalized] = true
+    try {
+      learningError = ''
+      await DismissRecurringRequest(req.normalized, req.text)
+      recurringRequests = recurringRequests.filter((r) => r.normalized !== req.normalized)
+    } catch (err) {
+      learningError = String(err)
+    } finally {
+      habitDismissBusy[req.normalized] = false
+    }
+  }
+
+  function toggleHabitExpanded(norm: string) {
+    habitExpanded[norm] = !habitExpanded[norm]
+  }
+
+  function convertHabitToPrompt(req: { text: string; count: number; normalized: string }) {
+    openSection('prompts')
+    newPreset()
+    draftBody = req.text
+    const firstWords = req.text.trim().slice(0, 24).replace(/[\s\n\r]+/g, '-').replace(/[^\w\u0E00-\u0E7F-]/g, '').toLowerCase()
+    draftName = firstWords || 'habit-prompt'
+    presetSnapshot = presetDraftKey()
+  }
+
   async function adoptScope(scope: string, rootPath: string) {
     memoryScopeError = ''
     try {
@@ -3182,6 +3269,57 @@
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       if (memoryDraft.trim()) void commitMemory(scope, index, memoryDraft)
+    }
+  }
+
+  const USER_LINE_PATTERN = /^(user['’s\s]|ผู้ใช้|คุณ\b|who\s+the\s+user)/i
+  function isUserLine(line: string): boolean {
+    return USER_LINE_PATTERN.test(line.trim())
+  }
+
+  const userMemoryGroup = $derived(
+    memoryGroups.find((g) => g.scope === 'user:profile') ?? { scope: 'user:profile', lines: [], orphan: false }
+  )
+  const systemMemoryGroups = $derived(
+    memoryGroups.filter((g) => g.scope !== 'user:profile')
+  )
+  const userLinesInMain = $derived(
+    memoryGroups.find((g) => g.scope === '')?.lines.filter(isUserLine) ?? []
+  )
+
+  async function moveMemory(fromScope: string, toScope: string, index: number) {
+    memorySaving = true
+    try {
+      learningError = ''
+      await MoveLearnedEntry(fromScope, toScope, index)
+      cancelMemoryEdit()
+      await loadLearning()
+    } catch (err) {
+      learningError = String(err)
+    } finally {
+      memorySaving = false
+    }
+  }
+
+  let migrateBusy = $state(false)
+  async function quickMigrateUserLines() {
+    if (migrateBusy) return
+    migrateBusy = true
+    try {
+      learningError = ''
+      const mainGroup = memoryGroups.find((g) => g.scope === '')
+      if (!mainGroup) return
+      // Move backwards so row indices in MainScope don't shift
+      for (let i = mainGroup.lines.length - 1; i >= 0; i--) {
+        if (isUserLine(mainGroup.lines[i])) {
+          await MoveLearnedEntry('', 'user:profile', i)
+        }
+      }
+      await loadLearning()
+    } catch (err) {
+      learningError = String(err)
+    } finally {
+      migrateBusy = false
     }
   }
 
@@ -3660,6 +3798,7 @@
   // is "who learned what" answer for one worker and stay silent about the rest.
   function openMemoryScope(scope: string) {
     memoryFocus = scope
+    learningSubTab = 'memory'
     openSection('learning')
     requestAnimationFrame(() => {
       document.querySelector(`[data-mem-scope="${CSS.escape(scope)}"]`)?.scrollIntoView({ block: 'center' })
@@ -4161,246 +4300,403 @@
     {/if}
     {#if agentError}<div class="mset-error">{agentError}</div>{/if}
 
-    <!-- Five groups, in the order the questions get asked: who is this, what
-         does it think with, what can it reach, what does it know, how does it
-         open. Before this the page was one long card and half the answers were
-         on other pages entirely. -->
-    <div class="ag-sec">{t('settings.agentSecIdentity')}</div>
-    <div class="settings-card">
-      <div class="card-form pp-edit">
-        <label class="pp-field">
-          <span class="eyebrow">{t('settings.agentName')}</span>
-          <input class="ctrl" bind:value={agentDraftName} placeholder="backend" disabled={agentEditing.name !== ''} />
-        </label>
-        <label class="pp-field">
-          <span class="eyebrow">{t('settings.agentDescription')}</span>
-          <input class="ctrl" bind:value={agentDraftDescription} placeholder={t('settings.agentDescriptionPlaceholder')} />
-        </label>
-        <!-- The face this agent wears on the roster, chosen and SHOWN in the
-             same place. Choosing none is a real choice and still the default:
-             the face is then derived from the name, which is right for every
-             profile nobody has opened, and is what the whole roster looked like
-             before this section existed.
-             What was here was one row of the app's line marks and no picture of
-             the outcome anywhere on the page — so the thing you picked (a
-             glyph) was not the thing you got (a person holding something), and
-             eleven of the fifteen marks on offer drew nothing at all while
-             three that shipped agents wear could not be picked (agentFace.ts,
-             the note above PROP). The preview is the fix for the first half,
-             PROP_ICONS for the second. -->
-        <div class="pp-field">
-          <span class="eyebrow">{t('settings.agentFace')}</span>
-          <div class="ag-face">
-            <AgentFace name={facePreviewName} {...draftFace} size={76} />
-            <div class="ag-face-say">
-              <span class="d muted">{faceIsAuto ? t('settings.agentFaceAutoHint') : t('settings.agentFaceHint')}</span>
-              {#if !faceIsAuto}
-                <button type="button" class="ag-face-reset" onclick={resetFace}>
-                  {t('settings.agentFaceReset')}
+    <!-- Five groups organised as a clean segmented tab bar (sub-tabs)
+         instead of a monolithic vertical scroller. Each tab covers one topic:
+         identity, brain, reach, knowledge, and starters. -->
+    <div class="ag-tabs-bar">
+      <div class="seg" role="tablist" aria-label={t('settings.editAgentTitle')}>
+        <button
+          type="button" role="tab" id="ag-tab-identity" aria-controls="ag-panel-identity"
+          aria-selected={agentTab === 'identity'}
+          class:on={agentTab === 'identity'} onclick={() => (agentTab = 'identity')}
+        >
+          <Icon name="userRound" size={14} />
+          <span>{t('settings.agentSecIdentity')}</span>
+        </button>
+        <button
+          type="button" role="tab" id="ag-tab-brain" aria-controls="ag-panel-brain"
+          aria-selected={agentTab === 'brain'}
+          class:on={agentTab === 'brain'} onclick={() => (agentTab = 'brain')}
+        >
+          <Icon name="brain" size={14} />
+          <span>{t('settings.agentSecBrain')}</span>
+        </button>
+        {#if agentEditKind === 'agent'}
+          <button
+            type="button" role="tab" id="ag-tab-reach" aria-controls="ag-panel-reach"
+            aria-selected={agentTab === 'reach'}
+            class:on={agentTab === 'reach'} onclick={() => (agentTab = 'reach')}
+          >
+            <Icon name="plug" size={14} />
+            <span>{t('settings.agentSecReach')}</span>
+            {#if unmetAgentNeeds > 0}
+              <span class="ag-count ag-count-warn">{unmetAgentNeeds}</span>
+            {/if}
+          </button>
+          {#if agentEditing.name}
+            <button
+              type="button" role="tab" id="ag-tab-knowledge" aria-controls="ag-panel-knowledge"
+              aria-selected={agentTab === 'knowledge'}
+              class:on={agentTab === 'knowledge'} onclick={() => (agentTab = 'knowledge')}
+            >
+              <Icon name="puzzle" size={14} />
+              <span>{t('settings.agentSecKnowledge')}</span>
+            </button>
+            <button
+              type="button" role="tab" id="ag-tab-opening" aria-controls="ag-panel-opening"
+              aria-selected={agentTab === 'opening'}
+              class:on={agentTab === 'opening'} onclick={() => (agentTab = 'opening')}
+            >
+              <Icon name="messageSquare" size={14} />
+              <span>{t('settings.agentSecOpening')}</span>
+            </button>
+          {/if}
+        {/if}
+      </div>
+    </div>
+
+    <!-- ── ตัวตน ── -->
+    <div role="tabpanel" id="ag-panel-identity" aria-labelledby="ag-tab-identity"
+      class="ag-tab-panel" class:on={agentTab === 'identity' || (agentEditKind !== 'agent' && agentTab !== 'brain')}>
+      <div class="settings-card">
+        <div class="card-form pp-edit">
+          <label class="pp-field">
+            <span class="eyebrow">{t('settings.agentName')}</span>
+            <input class="ctrl" bind:value={agentDraftName} placeholder="backend" disabled={agentEditing.name !== ''} />
+          </label>
+          <label class="pp-field">
+            <span class="eyebrow">{t('settings.agentDescription')}</span>
+            <input class="ctrl" bind:value={agentDraftDescription} placeholder={t('settings.agentDescriptionPlaceholder')} />
+          </label>
+          <!-- The face this agent wears on the roster, chosen and SHOWN in the
+               same place. Choosing none is a real choice and still the default:
+               the face is then derived from the name, which is right for every
+               profile nobody has opened, and is what the whole roster looked like
+               before this section existed.
+               What was here was one row of the app's line marks and no picture of
+               the outcome anywhere on the page — so the thing you picked (a
+               glyph) was not the thing you got (a person holding something), and
+               eleven of the fifteen marks on offer drew nothing at all while
+               three that shipped agents wear could not be picked (agentFace.ts,
+               the note above PROP). The preview is the fix for the first half,
+               PROP_ICONS for the second. -->
+          <div class="pp-field">
+            <div class="ag-face-header">
+              <span class="eyebrow">{t('settings.agentFace')}</span>
+              <button
+                type="button"
+                class="ctrl tiny"
+                onclick={() => (showFaceContexts = !showFaceContexts)}
+                aria-expanded={showFaceContexts}
+                style="display:inline-flex; align-items:center; gap:5px; cursor:pointer;"
+              >
+                <Icon name="eye" size={13} />
+                <span>{showFaceContexts ? t('settings.agentFaceHideContexts') : t('settings.agentFaceShowContexts')}</span>
+              </button>
+            </div>
+            <div class="ag-face">
+              <AgentFace name={facePreviewName} {...draftFace} size={76} />
+              <div class="ag-face-say">
+                <span class="d muted">{faceIsAuto ? t('settings.agentFaceAutoHint') : t('settings.agentFaceHint')}</span>
+                {#if !faceIsAuto}
+                  <button type="button" class="ag-face-reset" onclick={resetFace}>
+                    {t('settings.agentFaceReset')}
+                  </button>
+                {/if}
+              </div>
+            </div>
+
+            {#if showFaceContexts}
+              <div class="ag-contexts-panel">
+                <div class="ag-contexts-head">
+                  <span class="ag-contexts-title">{t('settings.agentFaceContextsTitle')}</span>
+                  <span class="d muted" style="font-size:var(--fs-2xs);">{t('settings.agentFaceContextsDesc')}</span>
+                </div>
+
+                <div class="ag-contexts-grid">
+                  <!-- 1. Office & Team (38px) -->
+                  <div class="ag-context-card">
+                    <div class="ag-context-label">
+                      <Icon name="userRound" size={14} />
+                      <span>{t('settings.agentFaceContextOffice')}</span>
+                    </div>
+                    <div class="ag-context-sample">
+                      <AgentFace name={facePreviewName} {...draftFace} size={38} off={previewFaceOff} />
+                      <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+                        <span style="font-weight:600; font-size:var(--fs-sm); color:var(--text-primary);">{facePreviewName}</span>
+                        <span class="d muted" style="font-size:var(--fs-2xs);">{previewFaceOff ? t('settings.agentFaceStateOff') : t('settings.agentFaceStateIdle')}</span>
+                      </div>
+                    </div>
+                    <div class="ag-context-states">
+                      <button
+                        type="button"
+                        class="ag-context-btn"
+                        class:on={!previewFaceOff}
+                        onclick={() => (previewFaceOff = false)}
+                      >
+                        {t('settings.agentFaceStateIdle')}
+                      </button>
+                      <button
+                        type="button"
+                        class="ag-context-btn"
+                        class:on={previewFaceOff}
+                        onclick={() => (previewFaceOff = true)}
+                      >
+                        {t('settings.agentFaceStateOff')}
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- 2. Chat & Tasks (34px) -->
+                  <div class="ag-context-card">
+                    <div class="ag-context-label">
+                      <Icon name="messageSquare" size={14} />
+                      <span>{t('settings.agentFaceContextChat')}</span>
+                    </div>
+                    <div class="ag-context-sample">
+                      <AgentFace
+                        name={facePreviewName}
+                        {...draftFace}
+                        size={34}
+                        state={previewFaceState === 'idle' ? '' : previewFaceState}
+                      />
+                      <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+                        <span style="font-weight:600; font-size:var(--fs-sm); color:var(--text-primary);">{facePreviewName}</span>
+                        <span class="d muted" style="font-size:var(--fs-2xs);">
+                          {#if previewFaceState === 'idle'}
+                            {t('settings.agentFaceStateIdle')}
+                          {:else if previewFaceState === 'think'}
+                            {t('settings.agentFaceStateThinking')}
+                          {:else if previewFaceState === 'work'}
+                            {t('settings.agentFaceStateWorking')}
+                          {:else if previewFaceState === 'done'}
+                            {t('settings.agentFaceStateDone')}
+                          {:else if previewFaceState === 'err'}
+                            {t('settings.agentFaceStateError')}
+                          {/if}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="ag-context-states">
+                      {#each [
+                        { id: 'idle', label: t('settings.agentFaceStateIdle') },
+                        { id: 'think', label: t('settings.agentFaceStateThinking') },
+                        { id: 'work', label: t('settings.agentFaceStateWorking') },
+                        { id: 'done', label: t('settings.agentFaceStateDone') },
+                        { id: 'err', label: t('settings.agentFaceStateError') },
+                      ] as st (st.id)}
+                        <button
+                          type="button"
+                          class="ag-context-btn"
+                          class:on={previewFaceState === st.id}
+                          onclick={() => (previewFaceState = st.id as any)}
+                        >
+                          {st.label}
+                        </button>
+                      {/each}
+                    </div>
+                  </div>
+
+                  <!-- 3. Composer & Mention (20px) -->
+                  <div class="ag-context-card">
+                    <div class="ag-context-label">
+                      <Icon name="terminal" size={14} />
+                      <span>{t('settings.agentFaceContextComposer')}</span>
+                    </div>
+                    <div class="ag-context-sample" style="align-items:center;">
+                      <div class="ag-context-chip-composer">
+                        <AgentFace name={facePreviewName} {...draftFace} size={20} />
+                        <span>@{facePreviewName}</span>
+                      </div>
+                    </div>
+                    <span class="d muted" style="font-size:var(--fs-2xs);">{t('settings.agentFaceComposerHint')}</span>
+                  </div>
+                </div>
+              </div>
+            {/if}
+          </div>
+
+          <!-- What it is holding. Still glyphs rather than faces: sixteen heads
+               differing by one small object is a wall of near-identical tiles,
+               and the mark itself is what the eye can tell apart at this size.
+               The preview above is where the outcome is read. -->
+          <div class="pp-field">
+            <span class="eyebrow">{t('settings.agentProp')}</span>
+            <div class="ag-icons">
+              <button type="button" class="ag-icon" class:on={agentDraftIcon === ''}
+                title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
+                onclick={() => (agentDraftIcon = '')}>
+                <Icon name="sparkles" size={16} />
+              </button>
+              {#each PROP_ICONS as name (name)}
+                <button type="button" class="ag-icon" class:on={agentDraftIcon === name}
+                  title={name} aria-label={name} onclick={() => (agentDraftIcon = name)}>
+                  <Icon name={name as IconName} size={16} />
+                </button>
+              {/each}
+            </div>
+            <span class="d muted">{agentDraftIcon === '' ? t('settings.agentIconAutoHint') : agentDraftIcon}</span>
+          </div>
+
+          <!-- Hair and glasses ARE drawn as faces, and for the opposite reason to
+               the row above: the difference between two haircuts is the head
+               itself, so a swatch of the part alone would be a shape nobody
+               recognises. Each button is the whole outcome, holding whatever was
+               picked above, so no cell on this row is a guess. -->
+          <div class="pp-field">
+            <span class="eyebrow">{t('settings.agentHair')}</span>
+            <div class="ag-parts">
+              <button type="button" class="ag-part" class:on={agentDraftHair === ''}
+                title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
+                onclick={() => (agentDraftHair = '')}>
+                <AgentFace name={facePreviewName} {...draftFace} hair={undefined} size={40} />
+              </button>
+              {#each HAIR as h (h.id)}
+                <button type="button" class="ag-part" class:on={agentDraftHair === h.id}
+                  title={h.label} aria-label={h.label} onclick={() => (agentDraftHair = h.id)}>
+                  <AgentFace name={facePreviewName} {...draftFace} hair={h.id} size={40} />
+                </button>
+              {/each}
+            </div>
+          </div>
+
+          <div class="pp-field">
+            <span class="eyebrow">{t('settings.agentAccessory')}</span>
+            <div class="ag-parts">
+              <button type="button" class="ag-part" class:on={agentDraftAccessory === ''}
+                title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
+                onclick={() => (agentDraftAccessory = '')}>
+                <AgentFace name={facePreviewName} {...draftFace} accessory={undefined} size={40} />
+              </button>
+              {#each ACCESSORY_CHOICES as a (a.id)}
+                <button type="button" class="ag-part" class:on={agentDraftAccessory === a.id}
+                  title={a.label} aria-label={a.label} onclick={() => (agentDraftAccessory = a.id)}>
+                  <AgentFace name={facePreviewName} {...draftFace} accessory={a.id} size={40} />
+                </button>
+              {/each}
+            </div>
+          </div>
+
+          <!-- Colour, and the one row where the cell could have been a plain
+               swatch. It is a face for the same reason the two above are: the hue
+               moves the skin, the shirt, the hair and what is held, all at once
+               and by different amounts, so a square of one colour would be a
+               promise about three quarters of what changes. -->
+          <div class="pp-field">
+            <span class="eyebrow">{t('settings.agentHue')}</span>
+            <div class="ag-parts">
+              <button type="button" class="ag-part" class:on={agentDraftHue === ''}
+                title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
+                onclick={() => (agentDraftHue = '')}>
+                <AgentFace name={facePreviewName} {...draftFace} hue={undefined} size={40} />
+              </button>
+              {#each HUES as h (h)}
+                <button type="button" class="ag-part" class:on={agentDraftHue === String(h)}
+                  title={`${h}°`} aria-label={`${h}°`} onclick={() => (agentDraftHue = String(h))}>
+                  <AgentFace name={facePreviewName} {...draftFace} hue={h} size={40} />
+                </button>
+              {/each}
+            </div>
+          </div>
+          <!-- A div rather than the `label` every other field uses: the toggle is
+               a button, and a button inside a label puts the caret in the textarea
+               on every click of it. -->
+          <div class="pp-field">
+            <div class="ag-bodyhead">
+              <span class="eyebrow">{t('settings.agentBody')}</span>
+              {#if agentBodyLong}
+                <button type="button" class="ag-bodymore" onclick={() => (agentBodyOpen = !agentBodyOpen)}>
+                  {agentBodyOpen ? t('settings.agentBodyLess') : t('settings.agentBodyMore', { n: agentBodyLines })}
                 </button>
               {/if}
             </div>
+            <div class="ag-bodywrap" class:collapsed={agentBodyLong && !agentBodyOpen}>
+              <textarea
+                class="ctrl ag-body" bind:value={agentDraftPrompt} spellcheck="false"
+                use:autogrow={agentDraftPrompt}
+                onfocus={() => (agentBodyOpen = true)}
+              ></textarea>
+            </div>
+            <span class="d muted">{t('settings.agentBodyHint')}</span>
           </div>
-        </div>
-
-        <!-- What it is holding. Still glyphs rather than faces: sixteen heads
-             differing by one small object is a wall of near-identical tiles,
-             and the mark itself is what the eye can tell apart at this size.
-             The preview above is where the outcome is read. -->
-        <div class="pp-field">
-          <span class="eyebrow">{t('settings.agentProp')}</span>
-          <div class="ag-icons">
-            <button type="button" class="ag-icon" class:on={agentDraftIcon === ''}
-              title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
-              onclick={() => (agentDraftIcon = '')}>
-              <Icon name="sparkles" size={16} />
-            </button>
-            {#each PROP_ICONS as name (name)}
-              <button type="button" class="ag-icon" class:on={agentDraftIcon === name}
-                title={name} aria-label={name} onclick={() => (agentDraftIcon = name)}>
-                <Icon name={name as IconName} size={16} />
-              </button>
-            {/each}
-          </div>
-          <span class="d muted">{agentDraftIcon === '' ? t('settings.agentIconAutoHint') : agentDraftIcon}</span>
-        </div>
-
-        <!-- Hair and glasses ARE drawn as faces, and for the opposite reason to
-             the row above: the difference between two haircuts is the head
-             itself, so a swatch of the part alone would be a shape nobody
-             recognises. Each button is the whole outcome, holding whatever was
-             picked above, so no cell on this row is a guess. -->
-        <div class="pp-field">
-          <span class="eyebrow">{t('settings.agentHair')}</span>
-          <div class="ag-parts">
-            <button type="button" class="ag-part" class:on={agentDraftHair === ''}
-              title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
-              onclick={() => (agentDraftHair = '')}>
-              <AgentFace name={facePreviewName} {...draftFace} hair={undefined} size={40} />
-            </button>
-            {#each HAIR as h (h.id)}
-              <button type="button" class="ag-part" class:on={agentDraftHair === h.id}
-                title={h.label} aria-label={h.label} onclick={() => (agentDraftHair = h.id)}>
-                <AgentFace name={facePreviewName} {...draftFace} hair={h.id} size={40} />
-              </button>
-            {/each}
-          </div>
-        </div>
-
-        <div class="pp-field">
-          <span class="eyebrow">{t('settings.agentAccessory')}</span>
-          <div class="ag-parts">
-            <button type="button" class="ag-part" class:on={agentDraftAccessory === ''}
-              title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
-              onclick={() => (agentDraftAccessory = '')}>
-              <AgentFace name={facePreviewName} {...draftFace} accessory={undefined} size={40} />
-            </button>
-            {#each ACCESSORY_CHOICES as a (a.id)}
-              <button type="button" class="ag-part" class:on={agentDraftAccessory === a.id}
-                title={a.label} aria-label={a.label} onclick={() => (agentDraftAccessory = a.id)}>
-                <AgentFace name={facePreviewName} {...draftFace} accessory={a.id} size={40} />
-              </button>
-            {/each}
-          </div>
-        </div>
-
-        <!-- Colour, and the one row where the cell could have been a plain
-             swatch. It is a face for the same reason the two above are: the hue
-             moves the skin, the shirt, the hair and what is held, all at once
-             and by different amounts, so a square of one colour would be a
-             promise about three quarters of what changes. -->
-        <div class="pp-field">
-          <span class="eyebrow">{t('settings.agentHue')}</span>
-          <div class="ag-parts">
-            <button type="button" class="ag-part" class:on={agentDraftHue === ''}
-              title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
-              onclick={() => (agentDraftHue = '')}>
-              <AgentFace name={facePreviewName} {...draftFace} hue={undefined} size={40} />
-            </button>
-            {#each HUES as h (h)}
-              <button type="button" class="ag-part" class:on={agentDraftHue === String(h)}
-                title={`${h}°`} aria-label={`${h}°`} onclick={() => (agentDraftHue = String(h))}>
-                <AgentFace name={facePreviewName} {...draftFace} hue={h} size={40} />
-              </button>
-            {/each}
-          </div>
-        </div>
-        <!-- A div rather than the `label` every other field uses: the toggle is
-             a button, and a button inside a label puts the caret in the textarea
-             on every click of it. -->
-        <div class="pp-field">
-          <div class="ag-bodyhead">
-            <span class="eyebrow">{t('settings.agentBody')}</span>
-            {#if agentBodyLong}
-              <button type="button" class="ag-bodymore" onclick={() => (agentBodyOpen = !agentBodyOpen)}>
-                {agentBodyOpen ? t('settings.agentBodyLess') : t('settings.agentBodyMore', { n: agentBodyLines })}
-              </button>
-            {/if}
-          </div>
-          <div class="ag-bodywrap" class:collapsed={agentBodyLong && !agentBodyOpen}>
-            <textarea
-              class="ctrl ag-body" bind:value={agentDraftPrompt} spellcheck="false"
-              use:autogrow={agentDraftPrompt}
-              onfocus={() => (agentBodyOpen = true)}
-            ></textarea>
-          </div>
-          <span class="d muted">{t('settings.agentBodyHint')}</span>
         </div>
       </div>
     </div>
 
-    <!-- ── สมอง ── which model answers, and how long it may go on for. Two
-         settings, one question, and the model one used to be answerable only
-         from the card behind this page: a page called "configure the agent"
-         that could not configure the agent's model. -->
-    <div class="ag-sec">{t('settings.agentSecBrain')}</div>
-    <div class="settings-card">
-      <div class="card-form pp-edit">
-        <label class="pp-field">
-          <span class="eyebrow">{t('settings.agentModelPick')}</span>
-          <select class="ctrl" bind:value={agentDraftModel}>
-            <option value="">{t('settings.agentModelInherit')}</option>
-            {#each agentModels as m}<option value={m}>{m}</option>{/each}
-            {#if agentDraftModel && !agentModels.includes(agentDraftModel)}
-              <option value={agentDraftModel}>{agentDraftModel}</option>
-            {/if}
-          </select>
-          <span class="d muted">{t('settings.agentModelHint')}</span>
-        </label>
-
-        <div class="pp-field">
-          <span class="eyebrow">{t('settings.agentStepsField')}</span>
-          <div class="ag-steprow">
-            <input
-              class="ctrl ag-steps" bind:value={agentDraftSteps} inputmode="numeric" placeholder="40"
-              disabled={agentStepsUnlimited}
-              aria-label={t('settings.agentStepsField')}
-            />
-            <label class="ag-check">
-              <span class="mswitch">
-                <input type="checkbox" checked={agentStepsUnlimited} onchange={toggleStepsUnlimited} />
-                <span></span>
-              </span>
-              {t('settings.agentStepsUnlimited')}
-            </label>
-          </div>
-          <span class="d muted">
-            {agentStepsUnlimited ? t('settings.agentStepsUnlimitedWarn') : t('settings.agentStepsFieldHint')}
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── เอื้อมถึงอะไร ── the group this whole restructure exists for. Read
-         top to bottom it is the engine's own order: the ceiling the desk sets,
-         then what is subtracted from the shared set, then what is added for
-         this one alone. Three mechanisms, three boxes. -->
-    <div class="ag-sec">{t('settings.agentSecReach')}</div>
-    {#if agentEditKind === 'agent' && agentEditing.name}
-      <!-- The ceiling, stated rather than editable. A desk is named in the file
-           and defaults to the office; what matters on screen is that the reader
-           knows a ceiling exists at all — ticking a tool the desk will never
-           hand over is otherwise a switch that does nothing and says nothing.
-           Not drawn while creating: the desk is resolved by the backend when
-           the file lands, and printing a guess at it here would be this page
-           inventing an answer it does not have. -->
+    <!-- ── สมอง ── which model answers, and how long it may go on for. -->
+    <div role="tabpanel" id="ag-panel-brain" aria-labelledby="ag-tab-brain"
+      class="ag-tab-panel" class:on={agentTab === 'brain'}>
       <div class="settings-card">
-        <div class="set-row">
-          <span class="ag-rowicon"><Icon name="package" size={15} /></span>
-          <div class="set-txt">
-            <div class="t">{t('settings.agentDeskTitle')} <span class="tag">{agentEditing.desk || agentKeptDesk || '—'}</span></div>
-            <div class="d">{t('settings.agentDeskHint')}</div>
+        <div class="card-form pp-edit">
+          <label class="pp-field">
+            <span class="eyebrow">{t('settings.agentModelPick')}</span>
+            <select class="ctrl" bind:value={agentDraftModel}>
+              <option value="">{t('settings.agentModelInherit')}</option>
+              {#each agentModels as m}<option value={m}>{m}</option>{/each}
+              {#if agentDraftModel && !agentModels.includes(agentDraftModel)}
+                <option value={agentDraftModel}>{agentDraftModel}</option>
+              {/if}
+            </select>
+            <span class="d muted">{t('settings.agentModelHint')}</span>
+          </label>
+
+          <div class="pp-field">
+            <span class="eyebrow">{t('settings.agentStepsField')}</span>
+            <div class="ag-steprow">
+              <input
+                class="ctrl ag-steps" bind:value={agentDraftSteps} inputmode="numeric" placeholder="40"
+                disabled={agentStepsUnlimited}
+                aria-label={t('settings.agentStepsField')}
+              />
+              <label class="ag-check">
+                <span class="mswitch">
+                  <input type="checkbox" checked={agentStepsUnlimited} onchange={toggleStepsUnlimited} />
+                  <span></span>
+                </span>
+                {t('settings.agentStepsUnlimited')}
+              </label>
+            </div>
+            <span class="d muted">
+              {agentStepsUnlimited ? t('settings.agentStepsUnlimitedWarn') : t('settings.agentStepsFieldHint')}
+            </span>
           </div>
         </div>
       </div>
-    {/if}
-
-    <!-- The tools card stood here and is gone (31 ส.ค.). It summarised a kit
-         every agent now holds identically — "ใช้ได้ทุกตัว" on every card, a
-         sentence that can no longer be false — and behind it sat a seventy-row
-         picker whose only remaining state was `deny`. Owner: "ห้ามใช้
-         เครื่องมือ ทำไมไม่เอาออกด้วย".
-
-         `deny:` still works in the engine and is still written back untouched
-         by this editor, the same rule `desk:` and `needs:` are kept by, and the
-         row badge still reports it. What went is the control, not the
-         capability. -->
+    </div>
 
     {#if agentEditKind === 'agent'}
-      {@render agentMCPBox()}
-      {@render agentNeedsBox()}
+      <!-- ── เอื้อมถึงอะไร ── the ceiling the desk sets, MCP servers, and needs. -->
+      <div role="tabpanel" id="ag-panel-reach" aria-labelledby="ag-tab-reach"
+        class="ag-tab-panel" class:on={agentTab === 'reach'}>
+        {#if agentEditing.name}
+          <div class="settings-card">
+            <div class="set-row">
+              <span class="ag-rowicon"><Icon name="package" size={15} /></span>
+              <div class="set-txt">
+                <div class="t">{t('settings.agentDeskTitle')} <span class="tag">{agentEditing.desk || agentKeptDesk || '—'}</span></div>
+                <div class="d">{t('settings.agentDeskHint')}</div>
+              </div>
+            </div>
+          </div>
+        {/if}
 
-      <!-- Everything below reads a folder that does not exist until the file
-           is saved. Four empty boxes are a worse first impression of a new
-           agent than four boxes that appear once there is something to put in
-           them. -->
+        {@render agentMCPBox()}
+        {@render agentNeedsBox()}
+      </div>
+
       {#if agentEditing.name}
-        <div class="ag-sec">{t('settings.agentSecKnowledge')}</div>
-        {@render agentSkillsBox()}
-        {@render agentMemoryBox()}
+        <!-- ── ความรู้ ── skills and long-term memory for this agent. -->
+        <div role="tabpanel" id="ag-panel-knowledge" aria-labelledby="ag-tab-knowledge"
+          class="ag-tab-panel" class:on={agentTab === 'knowledge'}>
+          {@render agentSkillsBox()}
+          {@render agentMemoryBox()}
+        </div>
 
-        <div class="ag-sec">{t('settings.agentSecOpening')}</div>
-        {@render agentStartersBox()}
+        <!-- ── เปิดบทสนทนา ── conversation starter cards. -->
+        <div role="tabpanel" id="ag-panel-opening" aria-labelledby="ag-tab-opening"
+          class="ag-tab-panel" class:on={agentTab === 'opening'}>
+          {@render agentStartersBox()}
+        </div>
       {/if}
     {/if}
   {/if}
@@ -4583,29 +4879,121 @@
   </div>
 {/snippet}
 
-<!-- Memory is approved on the Learning page and lives in this agent's folder.
-     Shown here as a count and a door: moving the approval flow would be a
-     second place to approve, which is the one thing it must not become. -->
+<!-- Memory is stored in this agent's own folder (agents/<name>/MEMORY.md).
+     Users can view, inline-edit, delete, add entries, or open the folder directly. -->
 {#snippet agentMemoryBox()}
   <div class="settings-card">
-    <div class="set-row">
-      <span class="ag-rowicon"><Icon name="brain" size={15} /></span>
-      <div class="set-txt">
-        <div class="t">{t('settings.agentMemoryTitle')} <span class="tag">{t('settings.itemCount', { n: agentMemory.length })}</span></div>
-        <div class="d">{agentMemory.length > 0 ? agentMemory[0] : t('settings.agentMemoryNone')}</div>
+    <div class="card-form">
+      <div class="eyebrow">
+        {t('settings.agentMemoryTitle')}
+        <span class="ag-count">{agentMemory.length}</span>
       </div>
-      <!-- A door only when there is something behind it. The button was
-           unconditional and went to the learning page with no scope, so an
-           agent showing "0 รายการ" sent the reader to the MAIN agent's memory
-           and looked like it had opened the wrong file. Reported 31 ส.ค.:
-           "ความจำของเอเจนคนนี้ 0 รายการ ทำไมมันยังพาไปความจำของตัวเมนหลัก".
-           An agent with nothing learned has no group on that page at all, so
-           there was never anywhere for this to land. -->
-      {#if agentMemory.length > 0}
-        <button class="ctrl" onclick={() => openMemoryScope(agentDraftName)}>
-          {t('settings.learning')} <Icon name="arrowRight" size={13} />
+      <div class="d muted">{t('settings.agentMemoryHint')}</div>
+    </div>
+
+    {#if agentMemoryError}
+      <div class="set-error" style="margin: 0 16px 12px;">{agentMemoryError}</div>
+    {/if}
+
+    {#each agentMemory as line, i (i)}
+      <div class="mem-row" class:editing={isEditing(agentDraftName, i)}>
+        {#if isEditing(agentDraftName, i)}
+          <!-- svelte-ignore a11y_autofocus -->
+          <textarea
+            class="mem-input" rows="2" autofocus
+            bind:value={memoryDraft}
+            onkeydown={(e) => {
+              if (e.key === 'Escape') cancelMemoryEdit()
+              else if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                if (memoryDraft.trim()) void saveAgentMemoryItem(agentDraftName, i, memoryDraft)
+              }
+            }}
+          ></textarea>
+          <div class="mem-actions">
+            <button
+              type="button" class="ctrl ctrl-primary"
+              disabled={agentMemorySaving || !memoryDraft.trim()}
+              onclick={() => saveAgentMemoryItem(agentDraftName, i, memoryDraft)}
+            >{t('settings.learningMemorySave')}</button>
+            <button type="button" class="ctrl" disabled={agentMemorySaving} onclick={cancelMemoryEdit}
+            >{t('settings.learningMemoryCancel')}</button>
+          </div>
+        {:else}
+          <p class="mem-text">{line}</p>
+          <div class="mem-actions">
+            <button
+              type="button" class="icobtn tiny tip-l" aria-label={t('settings.learningMemoryEdit')}
+              data-tip={t('settings.learningMemoryEdit')} disabled={agentMemorySaving}
+              onclick={() => startMemoryEdit(agentDraftName, i)}
+            ><Icon name="pencil" size={13} /></button>
+            <button
+              type="button" class="icobtn tiny tip-l mem-forget" aria-label={t('settings.learningMemoryForget')}
+              data-tip={t('settings.learningMemoryForget')} disabled={agentMemorySaving}
+              onclick={() => saveAgentMemoryItem(agentDraftName, i, '')}
+            ><Icon name="x" size={13} /></button>
+          </div>
+        {/if}
+      </div>
+    {/each}
+
+    {#if agentMemory.length === 0 && !agentAddingMemory}
+      <div class="set-row">
+        <div class="muted">{t('settings.agentMemoryNone')}</div>
+      </div>
+    {/if}
+
+    {#if agentAddingMemory}
+      <div class="mem-row editing">
+        <!-- svelte-ignore a11y_autofocus -->
+        <textarea
+          class="mem-input" rows="2" autofocus
+          placeholder={t('settings.agentMemoryAddPlaceholder')}
+          bind:value={agentNewMemoryText}
+          onkeydown={(e) => {
+            if (e.key === 'Escape') { agentAddingMemory = false; agentNewMemoryText = '' }
+            else if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              if (agentNewMemoryText.trim()) void addAgentMemory(agentDraftName, agentNewMemoryText)
+            }
+          }}
+        ></textarea>
+        <div class="mem-actions">
+          <button
+            type="button" class="ctrl ctrl-primary"
+            disabled={agentMemorySaving || !agentNewMemoryText.trim()}
+            onclick={() => addAgentMemory(agentDraftName, agentNewMemoryText)}
+          >{t('settings.learningMemorySave')}</button>
+          <button
+            type="button" class="ctrl" disabled={agentMemorySaving}
+            onclick={() => { agentAddingMemory = false; agentNewMemoryText = '' }}
+          >{t('settings.learningMemoryCancel')}</button>
+        </div>
+      </div>
+    {/if}
+
+    <div class="set-row learn-foot">
+      <div class="set-txt">
+        <div class="d muted">{t('settings.agentMemoryFolderHint')}</div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        {#if !agentAddingMemory}
+          <button
+            type="button" class="ctrl ctrl-primary"
+            disabled={!agentEditing?.name}
+            onclick={() => { agentAddingMemory = true; agentNewMemoryText = '' }}
+          >
+            <Icon name="plus" size={13} /> {t('settings.agentMemoryAddBtn')}
+          </button>
+        {/if}
+        <button
+          type="button" class="ctrl"
+          disabled={!agentEditing?.name}
+          onclick={() => OpenAgentHome(agentDraftName.trim())}
+        >
+          <Icon name="folderOpen" size={13} /> {t('settings.agentOpenHomeFolder')}
         </button>
-      {/if}
+      </div>
     </div>
   </div>
 {/snippet}
@@ -4739,6 +5127,11 @@
     {/if}
     {#if active === 'general'}
       <h2>{t('settings.general')}</h2>
+      <p class="muted set-sub">{t('settings.generalDesc')}</p>
+
+      <div class="group-head">
+        <span class="group-title">{t('settings.groupTerminal')}</span>
+      </div>
       <div class="settings-card">
         <div class="set-row">
           <div class="set-txt">
@@ -4755,25 +5148,52 @@
             </select>
           {/if}
         </div>
+      </div>
+
+      <div class="group-head">
+        <span class="group-title">{t('settings.groupSafety')}</span>
+      </div>
+      <div class="settings-card">
         <div class="set-row">
           <div class="set-txt">
             <div class="t">{t('settings.approvalTitle')}</div>
             <div class="d">{t('settings.approvalDesc')}</div>
           </div>
-          <select class="ctrl" value={cockpit.model.approval} onchange={(e) => switchApprovalMode(e.currentTarget.value)}>
-            {#each approvalOptions as opt}<option value={opt.value}>{opt.label}</option>{/each}
-          </select>
+          <div class="seg-ctrl" role="radiogroup" aria-label={t('settings.approvalTitle')}>
+            {#each approvalOptions as opt}
+              <button
+                type="button"
+                class="seg-btn"
+                class:selected={cockpit.model.approval === opt.value}
+                onclick={() => switchApprovalMode(opt.value)}
+              >
+                {opt.label}
+              </button>
+            {/each}
+          </div>
         </div>
+      </div>
+
+      <div class="group-head">
+        <span class="group-title">{t('settings.groupBehavior')}</span>
+      </div>
+      <div class="settings-card">
         <div class="set-row">
           <div class="set-txt">
             <div class="t">{t('settings.preparedReplyTitle')}</div>
             <div class="d">{t('settings.preparedReplyDesc')}</div>
           </div>
-          <label class="mswitch">
+          <label class="mswitch" aria-label={t('settings.preparedReplyTitle')}>
             <input type="checkbox" checked={preparedOn} onchange={togglePreparedReply} />
             <span></span>
           </label>
         </div>
+      </div>
+
+      <div class="group-head">
+        <span class="group-title">{t('settings.groupSystem')}</span>
+      </div>
+      <div class="settings-card">
         <div class="set-row">
           <div class="set-txt">
             <div class="t">{t('settings.firstRunTitle')}</div>
@@ -5031,7 +5451,7 @@
             {#if account}
               <div class="mset-acct">
                 <ProviderAccount {account} />
-                {#if account.balance?.hasAmount}
+                {#if account.balance?.hasAmount || account.quotaFetched}
                   <button class="ctrl tiny" disabled={busy === 'account'} onclick={refreshAccount}>
                     <Icon name="refreshCw" size={13} /> {t('settings.refreshBalance')}
                   </button>
@@ -5773,115 +6193,220 @@
     {:else if active === 'identity'}
       <h2>{t('settings.identity')}</h2>
       <p class="muted set-sub">{t('settings.identityDesc')}</p>
+
+      <div class="group-head">
+        <span class="group-title">{t('settings.identityRecommended')}</span>
+      </div>
       <div class="settings-card">
-        <div class="identity-body">
-          <div class="identity-files">
-            {#each identity.files as f (f.name)}
-              <div class="identity-file" class:active={identity.activeName === f.name}>
-                <button type="button" class="identity-file-open" onclick={() => openIdentityFile(f.name)}>
-                  <span class="ic"><Icon name="fileText" size={14} /></span>
-                  <span class="t">{f.name}</span>
-                </button>
-                <button type="button" class="identity-file-del" aria-label={t('settings.remove')} onclick={() => removeIdentityFile(f.name)}><Icon name="x" size={13} /></button>
+        {#each recommendedIdentityTemplates as item}
+          {@const exists = (identity.files || []).some((f) => f.name === item.name)}
+          {@const isActive = identity.activeName === item.name}
+          <div class="set-row">
+            <div class="set-txt">
+              <div class="t" style="display:flex; align-items:center; gap:8px;">
+                <span class="mono-dim" style="font-weight:600; font-size:var(--fs-md); color:var(--text-primary);">{item.name}</span>
+                {#if isActive}
+                  <span class="badge" style="font-size:var(--fs-2xs); padding:1px 6px; border-radius:999px; background:var(--accent-subtle, rgba(56, 189, 248, 0.15)); color:var(--accent);">{t('settings.identityEditingNow')}</span>
+                {/if}
               </div>
-            {/each}
-            {#if identity.files.length === 0}
-              <div class="empty">{t('settings.noIdentityFiles')}</div>
-            {/if}
-          </div>
-          {#if missingTemplates.length > 0}
-            <div class="identity-templates">
-              {#each missingTemplates as tpl (tpl.name)}
-                <button type="button" class="identity-template" onclick={() => createIdentityFile(tpl.name, tpl.content)}>
-                  <Icon name="plus" size={13} /> {tpl.name}
-                </button>
-              {/each}
+              <div class="d">{t(item.descKey)}</div>
             </div>
-          {/if}
-          <div class="identity-newfile">
+            <div class="set-ctrl">
+              {#if exists}
+                <button
+                  type="button"
+                  class="ctrl"
+                  class:ctrl-primary={isActive}
+                  onclick={() => openIdentityFile(item.name)}
+                >
+                  <Icon name="pencil" size={13} />
+                  {t('settings.identityEditBtn')}
+                </button>
+              {:else}
+                <button
+                  type="button"
+                  class="ctrl"
+                  onclick={() => createIdentityFile(item.name, t(item.tplKey))}
+                >
+                  <Icon name="plus" size={13} />
+                  {t('settings.identityCreateBtn')}
+                </button>
+              {/if}
+            </div>
+          </div>
+        {/each}
+      </div>
+
+      {#if customIdentityFiles.length > 0}
+        <div class="group-head">
+          <span class="group-title">{t('settings.identityCustomFiles')}</span>
+        </div>
+        <div class="settings-card">
+          {#each customIdentityFiles as f (f.name)}
+            {@const isActive = identity.activeName === f.name}
+            <div class="set-row">
+              <div class="set-txt">
+                <div class="t mono-dim" style="font-weight:600;">{f.name}</div>
+              </div>
+              <div class="set-ctrl" style="display:flex; align-items:center; gap:8px;">
+                <button
+                  type="button"
+                  class="ctrl"
+                  class:ctrl-primary={isActive}
+                  onclick={() => openIdentityFile(f.name)}
+                >
+                  <Icon name="pencil" size={13} />
+                  {t('settings.identityEditBtn')}
+                </button>
+                <button
+                  type="button"
+                  class="ctrl"
+                  style="color:var(--status-danger);"
+                  aria-label={t('settings.remove')}
+                  onclick={() => removeIdentityFile(f.name)}
+                >
+                  <Icon name="trash" size={13} />
+                </button>
+              </div>
+            </div>
+          {/each}
+        </div>
+      {/if}
+
+      <div class="group-head">
+        <span class="group-title">{t('settings.identityCustomFile')}</span>
+      </div>
+      <div class="settings-card">
+        <div class="set-row">
+          <div class="set-txt" style="flex:1;">
             <input
-              class="identity-newfile-input" placeholder={t('settings.newIdentityFile')}
+              class="identity-newfile-input"
+              placeholder={t('settings.newIdentityFile')}
               bind:value={newIdentityName}
               onkeydown={(e) => e.key === 'Enter' && addIdentityFile()}
             />
-            <button type="button" class="icobtn tiny" aria-label={t('settings.newIdentityFile')} onclick={addIdentityFile}><Icon name="plus" size={14} /></button>
           </div>
-          {#if identity.activeName}
-            <textarea
-              class="identity-input" placeholder={t('settings.identityPlaceholder')}
-              bind:value={identity.draft}
-            ></textarea>
+          <button
+            type="button"
+            class="ctrl"
+            disabled={!newIdentityName.trim()}
+            onclick={addIdentityFile}
+          >
+            <Icon name="plus" size={13} />
+            {t('settings.identityCreateBtn')}
+          </button>
+        </div>
+      </div>
+
+      {#if identity.activeName}
+        <div class="group-head" style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:baseline; gap:8px;">
+            <span class="group-title">{t('settings.identityEditing', { name: identity.activeName })}</span>
+            {#if identityDirty}
+              <span class="group-count" style="color:var(--status-warning, #e3b341); font-weight:600;">{t('settings.identityUnsaved')}</span>
+            {:else}
+              <span class="group-count" style="color:var(--text-dim);">{t('settings.identitySaved')}</span>
+            {/if}
+          </div>
+          <button
+            type="button"
+            class="ctrl"
+            style="color:var(--status-danger);"
+            onclick={() => removeIdentityFile(identity.activeName)}
+          >
+            <Icon name="trash" size={13} />
+            {t('settings.remove')}
+          </button>
+        </div>
+        <div class="settings-card card-form">
+          <textarea
+            class="identity-input"
+            placeholder={t('settings.identityPlaceholder')}
+            bind:value={identity.draft}
+          ></textarea>
+          <div style="display:flex; justify-content:flex-end;">
             <button
-              type="button" class="ctrl identity-save ctrl-primary"
+              type="button"
+              class="ctrl identity-save ctrl-primary"
               disabled={!identityDirty || identity.saving}
               onclick={saveIdentityFile}
             >
               {identity.saving ? t('settings.saving') : t('settings.save')}
             </button>
-          {/if}
+          </div>
         </div>
-      </div>
+      {/if}
     {:else if active === 'learning'}
       <h2>{t('settings.learning')}</h2>
       <p class="muted set-sub">{t('settings.learningDesc')}</p>
 
+      <div class="set-subtabs">
+        <button
+          type="button"
+          class="set-subtab"
+          class:active={learningSubTab === 'memory'}
+          onclick={() => (learningSubTab = 'memory')}
+        >
+          <Icon name="brain" size={14} />
+          <span>{t('settings.learningSubtabMemory')}</span>
+          {#if cockpit.pendingLearned > 0}
+            <span class="set-subtab-badge">{cockpit.pendingLearned}</span>
+          {/if}
+        </button>
+        <button
+          type="button"
+          class="set-subtab"
+          class:active={learningSubTab === 'habits'}
+          onclick={() => (learningSubTab = 'habits')}
+        >
+          <Icon name="sparkles" size={14} />
+          <span>{t('settings.learningSubtabHabits')}</span>
+          {#if recurringRequests.length > 0}
+            <span class="set-subtab-badge">{recurringRequests.length}</span>
+          {/if}
+        </button>
+      </div>
+
       {#if learningError}<div class="mset-error">{learningError}</div>{/if}
 
-      <!-- .set-row, like every other switch on this page. This card used to be
-           built from .mcp-row/.mcp-row-main, which have no CSS at all — so the
-           text sat flush against the card's border and the switch dropped to
-           its own line underneath. -->
-      <div class="settings-card">
-        <div class="set-row">
-          <div class="set-txt">
-            <div class="t">{t('settings.learningEnabled')}</div>
-            <div class="d">{t('settings.learningEnabledHint')}</div>
-          </div>
-          <label class="mswitch">
-            <input type="checkbox" checked={learningOn} onchange={toggleLearning} />
-            <span></span>
-          </label>
-        </div>
-      </div>
-
-      <div class="settings-card">
-        <div class="set-row">
-          <div class="set-txt">
-            <div class="t">{t('settings.sessionReviewTitle')}</div>
-            <div class="d">{t('settings.sessionReviewHint')}</div>
-          </div>
-          <label class="mswitch">
-            <input type="checkbox" checked={sessionReviewAutoOn} onchange={toggleSessionReviewAuto} />
-            <span></span>
-          </label>
-        </div>
-        <div class="set-row">
-          <div class="set-txt">
-            {#if sessionReviewMsg}<div class="d" style="color:var(--accent)">{sessionReviewMsg}</div>{/if}
-          </div>
-          <button type="button" class="ctrl" disabled={sessionReviewBusy} onclick={runSessionReviewNow}>
-            {sessionReviewBusy ? t('settings.sessionReviewRunning') : t('settings.sessionReviewNow')}
-          </button>
-        </div>
-      </div>
-
-      <h3 class="set-h3">{t('settings.habitsTitle')}</h3>
-      <p class="muted set-sub">{t('settings.habitsDesc')}</p>
-      <div class="settings-card">
-        {#each recurringRequests as req}
-          <div class="learn-row">
-            <div class="learn-main">
-              <div class="learn-body">{req.text}</div>
+      {#if learningSubTab === 'memory'}
+        <!-- .set-row, like every other switch on this page. This card used to be
+             built from .mcp-row/.mcp-row-main, which have no CSS at all — so the
+             text sat flush against the card's border and the switch dropped to
+             its own line underneath. -->
+        <div class="settings-card">
+          <div class="set-row">
+            <div class="set-txt">
+              <div class="t">{t('settings.learningEnabled')}</div>
+              <div class="d">{t('settings.learningEnabledHint')}</div>
             </div>
-            <div class="learn-actions">
-              <span class="learn-scope">{t('settings.habitsCount', { count: String(req.count) })}</span>
-            </div>
+            <label class="mswitch">
+              <input type="checkbox" checked={learningOn} onchange={toggleLearning} />
+              <span></span>
+            </label>
           </div>
-        {/each}
-        {#if recurringRequests.length === 0}
-          <div class="empty">{t('settings.habitsEmpty')}</div>
-        {/if}
-      </div>
+        </div>
+
+        <div class="settings-card">
+          <div class="set-row">
+            <div class="set-txt">
+              <div class="t">{t('settings.sessionReviewTitle')}</div>
+              <div class="d">{t('settings.sessionReviewHint')}</div>
+            </div>
+            <label class="mswitch">
+              <input type="checkbox" checked={sessionReviewAutoOn} onchange={toggleSessionReviewAuto} />
+              <span></span>
+            </label>
+          </div>
+          <div class="set-row">
+            <div class="set-txt">
+              {#if sessionReviewMsg}<div class="d" style="color:var(--accent)">{sessionReviewMsg}</div>{/if}
+            </div>
+            <button type="button" class="ctrl" disabled={sessionReviewBusy} onclick={runSessionReviewNow}>
+              {sessionReviewBusy ? t('settings.sessionReviewRunning') : t('settings.sessionReviewNow')}
+            </button>
+          </div>
+        </div>
 
       <h3 class="set-h3">{t('settings.learningPending')}</h3>
       <p class="muted set-sub">{t('settings.learningPendingHint')}</p>
@@ -5914,15 +6439,93 @@
         {/if}
       </div>
 
-      <h3 class="set-h3">{t('settings.learningMemory')}</h3>
-      <p class="muted set-sub">{t('settings.learningMemoryHint')}</p>
-      <!-- The button used to be a bare child of the card, which has no padding
-           of its own — so it sat hard against the left border while the memory
-           text above it was inset by 16px. Its own row puts the two on one
-           left edge and gives the button the same rule every other card
-           footer has. -->
+      <!-- SECTION 1: ความจำเกี่ยวกับคุณ (About You) -->
+      <h3 class="set-h3 mem-header-split">
+        <span class="mem-header-icon"><Icon name="circleUser" size={17} /></span>
+        <span>{t('settings.learningUserSection')}</span>
+        <span class="mem-badge-file">USER.md</span>
+      </h3>
+      <p class="muted set-sub">{t('settings.learningUserSectionHint')}</p>
+
       <div class="settings-card">
-        {#each memoryGroups as group (group.scope)}
+        {#if userMemoryGroup.lines.length > 0}
+          <div class="mem-scope" data-mem-scope="user:profile" class:mem-focus={memoryFocus === 'user:profile'}>
+            {scopeLabel('user:profile')}
+          </div>
+          {#each userMemoryGroup.lines as line, i (i)}
+            <div class="mem-row" class:editing={isEditing(userMemoryGroup.scope, i)}>
+              {#if isEditing(userMemoryGroup.scope, i)}
+                <!-- svelte-ignore a11y_autofocus -->
+                <textarea
+                  class="mem-input" rows="2" autofocus
+                  bind:value={memoryDraft}
+                  onkeydown={(e) => onMemoryKeydown(e, userMemoryGroup.scope, i)}
+                ></textarea>
+                <div class="mem-actions">
+                  <button
+                    type="button" class="ctrl ctrl-primary"
+                    disabled={memorySaving || !memoryDraft.trim()}
+                    onclick={() => commitMemory(userMemoryGroup.scope, i, memoryDraft)}
+                  >{t('settings.learningMemorySave')}</button>
+                  <button type="button" class="ctrl" disabled={memorySaving} onclick={cancelMemoryEdit}
+                  >{t('settings.learningMemoryCancel')}</button>
+                </div>
+              {:else}
+                <p class="mem-text">{line}</p>
+                <div class="mem-actions">
+                  <button
+                    type="button" class="icobtn tiny tip-l" aria-label={t('settings.learningMemoryEdit')}
+                    data-tip={t('settings.learningMemoryEdit')} disabled={memorySaving}
+                    onclick={() => startMemoryEdit(userMemoryGroup.scope, i)}
+                  ><Icon name="pencil" size={13} /></button>
+                  <button
+                    type="button" class="icobtn tiny tip-l mem-action-move"
+                    aria-label={t('settings.learningMoveToAssistant')}
+                    data-tip={t('settings.learningMoveToAssistant')}
+                    disabled={memorySaving}
+                    onclick={() => moveMemory(userMemoryGroup.scope, '', i)}
+                  ><Icon name="bot" size={13} /></button>
+                  <button
+                    type="button" class="icobtn tiny tip-l mem-forget" aria-label={t('settings.learningMemoryForget')}
+                    data-tip={t('settings.learningMemoryForget')} disabled={memorySaving}
+                    onclick={() => commitMemory(userMemoryGroup.scope, i, '')}
+                  ><Icon name="x" size={13} /></button>
+                </div>
+              {/if}
+            </div>
+          {/each}
+        {:else}
+          <div class="empty mem-empty-user">{t('settings.learningUserEmpty')}</div>
+        {/if}
+      </div>
+
+      <!-- SECTION 2: ความจำของผู้ช่วยและระบบ (Assistant & System Memory) -->
+      <h3 class="set-h3 mem-header-split" style="margin-top:28px;">
+        <span class="mem-header-icon"><Icon name="bot" size={17} /></span>
+        <span>{t('settings.learningAssistantSection')}</span>
+        <span class="mem-badge-file">MEMORY.md</span>
+      </h3>
+      <p class="muted set-sub">{t('settings.learningAssistantSectionHint')}</p>
+
+      {#if userLinesInMain.length > 0}
+        <div class="mem-quick-banner">
+          <div class="mem-quick-txt">
+            <Icon name="sparkles" size={15} />
+            <span>{t('settings.learningQuickMigrateNotice', { count: String(userLinesInMain.length) })}</span>
+          </div>
+          <button
+            type="button"
+            class="ctrl tiny ctrl-primary"
+            disabled={memorySaving || migrateBusy}
+            onclick={quickMigrateUserLines}
+          >
+            {t('settings.learningQuickMigrateAction')}
+          </button>
+        </div>
+      {/if}
+
+      <div class="settings-card">
+        {#each systemMemoryGroups as group (group.scope)}
           <!-- Whose file this block is. Drawn even when there is only one, so
                "ผู้ช่วยหลัก" is stated rather than assumed: once a line can land
                in a desk's or a project's file instead, an unlabelled list is a
@@ -5985,6 +6588,15 @@
                     data-tip={t('settings.learningMemoryEdit')} disabled={memorySaving}
                     onclick={() => startMemoryEdit(group.scope, i)}
                   ><Icon name="pencil" size={13} /></button>
+                  {#if group.scope === ''}
+                    <button
+                      type="button" class="icobtn tiny tip-l mem-action-move"
+                      aria-label={t('settings.learningMoveToUser')}
+                      data-tip={t('settings.learningMoveToUser')}
+                      disabled={memorySaving}
+                      onclick={() => moveMemory(group.scope, 'user:profile', i)}
+                    ><Icon name="circleUser" size={13} /></button>
+                  {/if}
                   <!-- No confirm: the line is one sentence the agent wrote, the
                        file is plain markdown the user owns, and a dialog for
                        every tidy-up is what makes a list nobody tidies. -->
@@ -6001,8 +6613,8 @@
         {#if memoryScopeError}
           <div class="set-error">{memoryScopeError}</div>
         {/if}
-        {#if memoryGroups.length === 0}
-          <div class="empty">{t('settings.learningMemoryEmpty')}</div>
+        {#if systemMemoryGroups.length === 0}
+          <div class="empty">{t('settings.learningAssistantEmpty')}</div>
         {/if}
         <div class="set-row learn-foot">
           <button type="button" class="ctrl" onclick={() => OpenMemoryFolder()}>
@@ -6034,6 +6646,67 @@
                 ? t('settings.learningHistoryLess')
                 : t('settings.learningHistoryMore', { n: decidedChanges.length - DECIDED_PREVIEW })}
             </button>
+          {/if}
+        </div>
+      {/if}
+
+      {:else if learningSubTab === 'habits'}
+        <h3 class="set-h3">{t('settings.habitsTitle')}</h3>
+        <p class="muted set-sub">{t('settings.habitsDesc')}</p>
+        <div class="settings-card">
+          {#each recurringRequests as req (req.normalized)}
+            <div class="habit-card">
+              <div class="habit-head">
+                <span class="learn-scope">{t('settings.habitsCount', { count: String(req.count) })}</span>
+                <button
+                  type="button"
+                  class="icobtn tiny tip-l mem-forget"
+                  aria-label={t('settings.habitsDismiss')}
+                  data-tip={t('settings.habitsDismiss')}
+                  disabled={habitDismissBusy[req.normalized]}
+                  onclick={() => dismissHabit(req)}
+                >
+                  <Icon name="x" size={13} />
+                </button>
+              </div>
+              <div class="habit-body" class:clamped={!habitExpanded[req.normalized]}>
+                {req.text}
+              </div>
+              {#if req.text.length > 120 || req.text.includes('\n')}
+                <button
+                  type="button"
+                  class="habit-toggle"
+                  onclick={() => toggleHabitExpanded(req.normalized)}
+                >
+                  <Icon name={habitExpanded[req.normalized] ? 'chevronUp' : 'chevronDown'} size={12} />
+                  <span>{habitExpanded[req.normalized] ? t('settings.habitsShowLess') : t('settings.habitsShowMore')}</span>
+                </button>
+              {/if}
+              <div class="habit-foot">
+                <div class="habit-actions">
+                  <button
+                    type="button"
+                    class="ctrl tiny"
+                    onclick={() => convertHabitToPrompt(req)}
+                  >
+                    <Icon name="terminal" size={13} />
+                    <span>{t('settings.habitsSavePrompt')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="ctrl tiny mem-forget"
+                    disabled={habitDismissBusy[req.normalized]}
+                    onclick={() => dismissHabit(req)}
+                  >
+                    <Icon name="trash" size={13} />
+                    <span>{t('settings.habitsDismiss')}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          {/each}
+          {#if recurringRequests.length === 0}
+            <div class="empty">{t('settings.habitsEmpty')}</div>
           {/if}
         </div>
       {/if}

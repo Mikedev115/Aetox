@@ -40,7 +40,7 @@
   import { SavePicture } from '../../wailsjs/go/main/App'
   import { renderMarkdown } from './markdown'
   import { filePath, fileURL } from './fileUrl'
-  import { openUrlInWorkbench, openFileTab, setTabDragPayload, TAB_DRAG_MIME } from './stores/workbench.svelte'
+  import { openUrlInWorkbench, openFileTab, openPlanTab, openArtifactsTab, setTabDragPayload, TAB_DRAG_MIME } from './stores/workbench.svelte'
   import {
     cockpit, attachImageFromPath, attachImageFromClipboard, clearPendingImage, attachTabContext, clearPendingContext,
     attachFileFromPath, clearPendingFile, fileKind, attachmentPreview,
@@ -53,10 +53,11 @@
     setActiveView, newChairSession, newSessionAt, openSettingsAt, setStance,
     sendUserMessage, liveThinkSecs,
     preparedText, nextPrepared, clearPrepared, startPlanRun, stopPlanRun, pausePlanRun, resumePlanRun } from './stores/cockpit.svelte'
-  import { openPlanTab } from './stores/workbench.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import MemoryCard from './MemoryCard.svelte'
   import CodeDiff from './CodeDiff.svelte'
+  import FileChangeReview from './FileChangeReview.svelte'
+  import { extractChangedFiles } from './fileChange'
   import Icon from './Icon.svelte'
   import ProviderMark from './ProviderMark.svelte'
   import { ICONS, type IconName } from './icons'
@@ -3201,28 +3202,30 @@
   const wrotePlan = (steps: ToolStep[]) =>
     steps.some((s) => !s.kind && s.name === 'plan' && (s.act === 'write' || s.act === 'amend'))
 
-  /** Only the LATEST phase that wrote or amended a plan anchors the full PlanCard.
-   *  Earlier historical revisions in messages leave their tool timeline row intact
-   *  without repeating duplicate full-sized cards down the chat. */
-  const latestPlanAnchor = $derived.by(() => {
-    for (let p = livePhases.length - 1; p >= 0; p--) {
-      if (wrotePlan(livePhases[p].steps)) {
-        return `live:${p}`
-      }
+  /** Only the LATEST turn that wrote or amended a plan anchors the full PlanCard,
+   *  placed at the END of the turn's response so the user reads the explanation first. */
+  const latestPlanTurn = $derived.by(() => {
+    if (livePhases.some((ph) => wrotePlan(ph.steps))) {
+      return 'live'
     }
     for (let i = messages.length - 1; i >= 0; i--) {
       const phs = phasesOf(messages[i].steps ?? [])
-      for (let p = phs.length - 1; p >= 0; p--) {
-        if (wrotePlan(phs[p].steps)) {
-          return `${i}:${p}`
-        }
+      if (phs.some((ph) => wrotePlan(ph.steps)) || wrotePlan(messages[i].steps ?? [])) {
+        return i
       }
     }
     return null
   })
 
   function openPlanInWorkbench() {
-    openPlanTab()
+    openArtifactsTab('session-plan')
+  }
+
+  function openPlanFeedback() {
+    openPlanInWorkbench()
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('open-plan-feedback'))
+    }, 50)
   }
 
   /** The card's Copy hands back markdown, the same shape `plan read` returns.
@@ -3826,6 +3829,10 @@
       {/if}
     </div>
     <div class="plan-chip-actions">
+      <button class="plan-chip-btn feedback" type="button" onclick={openPlanFeedback} title={t('chat.planReviewFeedback')}>
+        <Icon name="messageSquare" size={13} />
+        <span>{t('chat.planReviewFeedback')}</span>
+      </button>
       <button class="plan-chip-btn open-pane" type="button" onclick={openPlanInWorkbench}>
         <Icon name="externalLink" size={13} />
         <span>{t('chat.planOpenInWorkbench')}</span>
@@ -4499,9 +4506,6 @@
               {/if}
               {#each phasesOf(m.steps ?? []) as ph, p}
                 {@render phaseBlock(ph, phaseKey(ph, `${i}:${p}`), false)}
-                {#if cockpit.plan && latestPlanAnchor === `${i}:${p}`}
-                  {@render planChip(cockpit.plan)}
-                {/if}
               {/each}
               {#if m.ending}
                 <!-- How the turn ended, under the last thing the model said.
@@ -4608,6 +4612,9 @@
               <div class="markdown-body">{@html renderMarkdown(m.text)}</div>
             {/if}
             {/if}
+            {#if cockpit.plan && latestPlanTurn === i}
+              {@render planChip(cockpit.plan)}
+            {/if}
             {#if m.producedFiles?.length}
               <!-- The deliverable, offered where it was asked for. Before this
                    the file existed and the answer named it, and getting to it
@@ -4646,6 +4653,9 @@
             {#if m.error}
               <!-- A re-run that failed. The answer above is still the real one. -->
               <div class="msg-error">{m.error}</div>
+            {/if}
+            {#if showDiffs && extractChangedFiles(m.steps ?? []).length > 0}
+              <FileChangeReview steps={m.steps ?? []} />
             {/if}
             <!-- Actions first, timestamp last (owner, 2026-08-14). What you can
                  do to a reply is what the row is for; when it happened is a
@@ -4893,10 +4903,10 @@
                  skips that check only while live). -->
             {#each livePhases as ph, p}
               {@render phaseBlock(ph, phaseKey(ph, `live:${p}`), true)}
-              {#if cockpit.plan && latestPlanAnchor === `live:${p}`}
-                {@render planChip(cockpit.plan)}
-              {/if}
             {/each}
+            {#if cockpit.plan && latestPlanTurn === 'live'}
+              {@render planChip(cockpit.plan)}
+            {/if}
             <!-- The takeover strip. Raised before the first acting call touches
                  anything and lowered when it returns, so a person reads that
                  their machine is being driven BEFORE the window jumps to the
@@ -4945,6 +4955,9 @@
                   </form>
                 </div>
               </div>
+            {/if}
+            {#if showDiffs && extractChangedFiles(toolSteps).length > 0}
+              <FileChangeReview steps={toolSteps} />
             {/if}
           </div>
         </div>

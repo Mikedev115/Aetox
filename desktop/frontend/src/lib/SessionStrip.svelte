@@ -42,7 +42,7 @@
   import { t } from './i18n.svelte'
   import { SessionSources, SessionSourceCount, SessionEdits, GitChangedFiles, CurrentSessionID } from '../../wailsjs/go/main/App'
   import { main } from '../../wailsjs/go/models'
-  import { openFileTab, openUrlInWorkbench, openPlanTab } from './stores/workbench.svelte'
+  import { openFileTab, openUrlInWorkbench, openPlanTab, openArtifactsTab } from './stores/workbench.svelte'
   import Icon from './Icon.svelte'
   import type { IconName } from './icons'
 
@@ -137,7 +137,12 @@
 
   function goToPlan() {
     open = false
-    openPlanTab()
+    openArtifactsTab('session-plan')
+  }
+
+  function goToArtifacts() {
+    open = false
+    openArtifactsTab()
   }
 
   async function openSource(s: main.Source) {
@@ -269,7 +274,12 @@
       </section>
 
       <section class="summary-sec">
-        <h3>{t('summary.edits')}</h3>
+        <h3>
+          {t('summary.edits')}
+          <button type="button" class="summary-plan-open" title={t('workbench.artifactsTab')} onclick={goToArtifacts}>
+            <Icon name="package" size={11} />
+          </button>
+        </h3>
         {#if visibleEdits.length}
           {#each visibleEdits as f (f.path)}
             <!-- A file that is no longer there is still what this room did, so

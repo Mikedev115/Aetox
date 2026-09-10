@@ -48,6 +48,12 @@
   // Below a fifth left the bar is a warning, not a readout.
   const barTone = (percent: number) => (percent <= 20 ? 'warn' : 'ok')
 
+  const quotaTitle = (q: any) => {
+    const rem = t('account.remaining', { n: String(Math.round(q.remainingPercent)) })
+    const until = untilText(q.resetAt)
+    return until ? `${rem} · ${until}` : rem
+  }
+
   // Part labels and window names arrive from Go as stable keys, so the locale
   // key is built rather than written out. The cast is the cost of that: the
   // key union cannot know a string assembled at runtime. A missing key falls
@@ -90,12 +96,34 @@
     {/if}
 
     {#each quotas as q}
-      <div class="acct-quota">
-        <span class="acct-window">{tk('account.window.' + q.window)}</span>
-        <span class="acct-bar"><span class="acct-fill {barTone(q.remainingPercent)}" style="width:{Math.round(q.remainingPercent)}%"></span></span>
-        <span class="acct-pct">
-          {t('account.remaining', { n: String(Math.round(q.remainingPercent)) })}{#if untilText(q.resetAt)} · {untilText(q.resetAt)}{/if}
-        </span>
+      <div class="acct-quota" class:acct-quota-compact={compact}>
+        {#if compact}
+          <div class="acct-compact-row" title={quotaTitle(q)}>
+            <span class="acct-window">{tk('account.window.' + q.window)}</span>
+            <div class="acct-compact-right">
+              <span class="acct-pct">{Math.round(q.remainingPercent)}%</span>
+              <svg class="acct-ring" width="13" height="13" viewBox="0 0 20 20" aria-hidden="true">
+                <circle class="acct-ring-bg" cx="10" cy="10" r="7.5" fill="none" stroke-width="2.8" />
+                <circle
+                  class="acct-ring-fill {barTone(q.remainingPercent)}"
+                  cx="10" cy="10" r="7.5"
+                  fill="none"
+                  stroke-width="2.8"
+                  stroke-linecap="round"
+                  stroke-dasharray="47.12"
+                  stroke-dashoffset="{47.12 * (1 - Math.min(100, Math.max(0, q.remainingPercent)) / 100)}"
+                  transform="rotate(-90 10 10)"
+                />
+              </svg>
+            </div>
+          </div>
+        {:else}
+          <span class="acct-window">{tk('account.window.' + q.window)}</span>
+          <span class="acct-bar"><span class="acct-fill {barTone(q.remainingPercent)}" style="width:{Math.round(q.remainingPercent)}%"></span></span>
+          <span class="acct-pct">
+            {t('account.remaining', { n: String(Math.round(q.remainingPercent)) })}{#if untilText(q.resetAt)} · {untilText(q.resetAt)}{/if}
+          </span>
+        {/if}
       </div>
     {/each}
 
@@ -147,7 +175,14 @@
   .acct-danger .acct-figure, .acct-danger .acct-note { color: var(--status-danger); }
   .acct-quota { display: flex; align-items: center; gap: 8px; }
   .acct-window { font-size: 12px; color: var(--text-dim); min-width: 74px; }
-  .acct-compact .acct-window { min-width: 0; }
+  .acct-compact .acct-window { min-width: 0; white-space: nowrap; }
+  .acct-compact-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+  .acct-compact-right { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; white-space: nowrap; }
+  .acct-ring { display: inline-block; flex-shrink: 0; vertical-align: middle; }
+  .acct-ring-bg { stroke: var(--surface-sunken); stroke: color-mix(in srgb, var(--text-dim) 25%, transparent); }
+  .acct-ring-fill { transition: stroke-dashoffset 0.3s ease; }
+  .acct-ring-fill.ok { stroke: var(--status-success); }
+  .acct-ring-fill.warn { stroke: var(--status-warn); }
   .acct-bar { flex: 1; height: 6px; border-radius: 3px; background: var(--surface-sunken); overflow: hidden; }
   .acct-fill { display: block; height: 100%; }
   .acct-fill.ok { background: var(--status-success); }
