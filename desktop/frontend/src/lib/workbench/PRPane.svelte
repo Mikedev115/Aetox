@@ -15,7 +15,15 @@
   // file and CodeDiff draws it, so a pull request's hunks look identical to the
   // ones under a chat row and to the ones in the Git pane.
   import { onMount } from 'svelte'
-  import { PullRequests, PullRequestFiles, PullRequestChecks, CreatePullRequest } from '../../../wailsjs/go/main/App'
+  import {
+    PullRequests,
+    PullRequestsState,
+    PullRequestFiles,
+    PullRequestChecks,
+    CreatePullRequest,
+    SuggestPRDetails,
+    ReviewPullRequest,
+  } from '../../../wailsjs/go/main/App'
   import { main, github } from '../../../wailsjs/go/models'
   import { cockpit } from '../stores/cockpit.svelte'
   import { t } from '../i18n.svelte'
@@ -24,34 +32,63 @@
 
   let room = $state<main.PRRoom | null>(null)
   let loaded = $state(false)
+  let filterState = $state<'open' | 'closed'>('open')
   let open = $state<Record<number, boolean>>({})
   let files = $state<Record<number, github.PRFile[]>>({})
   let loading = $state<Record<number, boolean>>({})
-  // A second fold, under the first. Opening a pull request answers "which
-  // files", and that is the question the row was asked; every patch drawn at
-  // the same time answers a question nobody asked yet and buries the list that
-  // did. Keyed by number AND path, because two pull requests touching the same
-  // file are two different rows.
   let openFile = $state<Record<string, boolean>>({})
-  // Keyed by head SHA, not by number: the badge is about a commit, and a
-  // pull request that gets pushed to is a different commit with the same number.
   let checks = $state<Record<string, github.CheckRun[]>>({})
+
+  // AI Review state per PR
+  let reviewing = $state<Record<number, boolean>>({})
+  let reviews = $state<Record<number, string>>({})
+  let openReview = $state<Record<number, boolean>>({})
 
   const items = $derived(room?.items ?? [])
 
-  // Opening one from here. The form is inline rather than a dialog: it is part
-  // of this room's work, and a modal over a list you are reading to decide what
-  // to open is a modal in the way.
+  // Opening one from here.
   let opening = $state(false)
   let form = $state({ title: '', head: '', base: '', body: '', draft: false })
   let submitting = $state(false)
+  let drafting = $state(false)
   let formError = $state('')
 
   function startOpening() {
-    // The branch you are standing on is the branch you almost always mean.
     form = { title: '', head: cockpit.project.branch || '', base: '', body: '', draft: false }
     formError = ''
     opening = true
+  }
+
+  async function handleAIDraft() {
+    drafting = true
+    formError = ''
+    try {
+      const sug = await SuggestPRDetails(form.head, form.base)
+      if (sug?.title) form.title = sug.title
+      if (sug?.body) form.body = sug.body
+    } catch (err: any) {
+      formError = String(err?.message ?? err)
+    } finally {
+      drafting = false
+    }
+  }
+
+  async function handleAIReview(num: number) {
+    if (reviews[num]) {
+      openReview[num] = !openReview[num]
+      return
+    }
+    reviewing[num] = true
+    try {
+      const res = await ReviewPullRequest(num)
+      reviews[num] = res
+      openReview[num] = true
+    } catch (err: any) {
+      reviews[num] = String(err?.message ?? err)
+      openReview[num] = true
+    } finally {
+      reviewing[num] = false
+    }
   }
 
   async function submit() {
@@ -61,23 +98,27 @@
     try {
       const created = await CreatePullRequest(form.title, form.head, form.base, form.body, form.draft)
       if (created.error) {
-        // GitHub's own words. "No commits between main and feature" means push
-        // first, and a form that said "failed" would have thrown that away.
         formError = created.error
         return
       }
       opening = false
+      filterState = 'open'
       await refresh()
     } finally {
       submitting = false
     }
   }
 
+  async function setFilter(next: 'open' | 'closed') {
+    if (filterState === next) return
+    filterState = next
+    loaded = false
+    await refresh()
+  }
+
   async function refresh() {
-    room = await PullRequests()
+    room = await PullRequestsState(filterState)
     loaded = true
-    // Badges after the list, never before it: the rows are the answer and the
-    // checks are an ornament on them, so nothing waits for a CI lookup to draw.
     for (const pr of room?.items ?? []) void loadChecks(pr.headSHA)
   }
 
@@ -107,9 +148,6 @@
     }
   }
 
-  // One word for a commit's CI, or '' when nothing has reported. Failures win,
-  // then anything still running: a reader needs to know whether to go and look,
-  // and "12 passed" beside one failure is not that answer.
   function verdict(sha: string): 'fail' | 'running' | 'pass' | '' {
     const runs = checks[sha]
     if (!runs || runs.length === 0) return ''
@@ -139,7 +177,7 @@
       <span class="count">{t('prPane.count', { count: String(items.length) })}</span>
     {/if}
     <button type="button" class="icobtn" title={t('prPane.refresh')} onclick={refresh}>
-      <Icon name="refreshCw" size={13} />
+      <Icon name="loaderCircle" size={13} />
     </button>
     {#if loaded && !room?.reason}
       <button type="button" class="icobtn" title={t('prPane.newTitle')} onclick={startOpening}>
@@ -147,21 +185,61 @@
       </button>
     {/if}
   </div>
-  <!-- The room says why it is empty rather than leaving the absence to be
-       discovered — the rule GitPane set for the desk that has no project. -->
+
   <p class="pr-scope">{t('prPane.scope')}</p>
+
+  {#if loaded && !room?.reason}
+    <!-- Open vs Closed Tabs -->
+    <div class="pr-tabs" role="tablist">
+      <button
+        type="button"
+        class="pr-tab"
+        class:active={filterState === 'open'}
+        onclick={() => setFilter('open')}
+      >
+        <Icon name="check" size={12} />
+        <span>{t('prPane.tabOpen')}</span>
+      </button>
+      <button
+        type="button"
+        class="pr-tab"
+        class:active={filterState === 'closed'}
+        onclick={() => setFilter('closed')}
+      >
+        <Icon name="package" size={12} />
+        <span>{t('prPane.tabClosed')}</span>
+      </button>
+    </div>
+  {/if}
 
   {#if opening}
     <div class="pr-form">
-      <input class="pr-in" placeholder={t('prPane.newTitleField')} bind:value={form.title} />
+      <div class="pr-title-row">
+        <input class="pr-in" placeholder={t('prPane.newTitleField')} bind:value={form.title} />
+        <button
+          type="button"
+          class="pr-ai-draft-btn"
+          disabled={drafting}
+          onclick={handleAIDraft}
+          title={t('prPane.aiDraft')}
+        >
+          <Icon name="sparkles" size={12} />
+          <span>{drafting ? t('prPane.aiDrafting') : t('prPane.aiDraft')}</span>
+        </button>
+      </div>
+
       <div class="pr-branch-row">
         <input class="pr-in mono" placeholder={t('prPane.newHead')} bind:value={form.head} />
         <span class="arrow">→</span>
         <input class="pr-in mono" placeholder={t('prPane.newBase')} bind:value={form.base} />
       </div>
+
       <textarea class="pr-in pr-body" rows="4" placeholder={t('prPane.newBody')} bind:value={form.body}></textarea>
+
       <label class="pr-draft"><input type="checkbox" bind:checked={form.draft} /> {t('prPane.newDraft')}</label>
+
       {#if formError}<p class="pr-error">{formError}</p>{/if}
+
       <div class="pr-form-buttons">
         <button type="button" class="pr-cancel" onclick={() => (opening = false)}>{t('prPane.newCancel')}</button>
         <button
@@ -171,8 +249,6 @@
           onclick={submit}
         >{submitting ? t('prPane.newOpening') : t('prPane.newConfirm')}</button>
       </div>
-      <!-- The one fact that costs a wasted attempt to learn, said before the
-           attempt: GitHub compares branches it HAS, not the working tree. -->
       <p class="pr-hint">{t('prPane.newPushFirst')}</p>
     </div>
   {/if}
@@ -185,7 +261,44 @@
       <p class="pr-empty hint">{t('prPane.connect')}</p>
     {/if}
   {:else if items.length === 0}
-    <p class="pr-empty">{t('prPane.none')}</p>
+    <!-- Smart Empty State -->
+    <div class="pr-smart-empty">
+      <div class="pr-empty-icon">
+        <Icon name="gitBranch" size={18} />
+      </div>
+      <div class="pr-empty-branch">
+        <Icon name="gitBranch" size={11} />
+        <span>{cockpit.project.branch || 'main'}</span>
+      </div>
+      <p class="pr-empty-title">
+        {filterState === 'open' ? t('prPane.emptyNoOpen') : t('prPane.emptyNoClosed')}
+      </p>
+      {#if filterState === 'open'}
+        <button
+          type="button"
+          class="pr-empty-cta"
+          onclick={startOpening}
+        >
+          <Icon name="plus" size={13} />
+          <span>{t('prPane.createFromBranch')}</span>
+        </button>
+        <button
+          type="button"
+          class="pr-empty-alt"
+          onclick={() => setFilter('closed')}
+        >
+          {t('prPane.viewClosed')} →
+        </button>
+      {:else}
+        <button
+          type="button"
+          class="pr-empty-alt"
+          onclick={() => setFilter('open')}
+        >
+          ← {t('prPane.viewOpen')}
+        </button>
+      {/if}
+    </div>
   {:else}
     <div class="pr-list">
       {#each items as pr (pr.number)}
@@ -194,7 +307,11 @@
             <span class="chev"><Icon name={open[pr.number] ? 'chevronDown' : 'chevronRight'} size={12} /></span>
             <span class="num">#{pr.number}</span>
             <span class="ttl">{pr.title}</span>
-            {#if pr.draft}<span class="tag">{t('prPane.draft')}</span>{/if}
+            {#if pr.state === 'closed'}
+              <span class="tag closed">{t('prPane.closed')}</span>
+            {:else if pr.draft}
+              <span class="tag">{t('prPane.draft')}</span>
+            {/if}
             {#if verdict(pr.headSHA)}
               <span class="ci {verdict(pr.headSHA)}" title={failedNames(pr.headSHA)}>
                 {verdict(pr.headSHA) === 'fail' ? '✗' : verdict(pr.headSHA) === 'running' ? '⋯' : '✓'}
@@ -220,9 +337,6 @@
                     <span class="stat"><span class="add">+{f.additions}</span> <span class="del">-{f.deletions}</span></span>
                   </button>
                   {#if openFile[fileKey(pr.number, f.path)]}
-                    <!-- No patch is not no change: GitHub omits it for a binary
-                         and for anything it judged too large, and an empty box
-                         would read as "this file is unchanged". -->
                     {#if f.patch}
                       <CodeDiff diff={f.patch} />
                     {:else}
@@ -232,7 +346,37 @@
                 </div>
               {/each}
             {/if}
-            <a class="pr-link" href={pr.url} target="_blank" rel="noreferrer">{t('prPane.openOnGitHub')}</a>
+
+            <div class="pr-actions-row">
+              <button
+                type="button"
+                class="pr-ai-review-btn"
+                disabled={reviewing[pr.number]}
+                onclick={() => handleAIReview(pr.number)}
+              >
+                <Icon name="sparkles" size={12} />
+                <span>{reviewing[pr.number] ? t('prPane.aiReviewing') : t('prPane.aiReview')}</span>
+              </button>
+              <a class="pr-link" href={pr.url} target="_blank" rel="noreferrer">{t('prPane.openOnGitHub')}</a>
+            </div>
+
+            {#if openReview[pr.number] && reviews[pr.number]}
+              <div class="pr-ai-review-box">
+                <div class="pr-ai-review-head">
+                  <span>
+                    <Icon name="sparkles" size={12} /> {t('prPane.aiReviewTitle')}
+                  </span>
+                  <button
+                    type="button"
+                    class="icobtn tiny"
+                    onclick={() => (openReview[pr.number] = false)}
+                  >
+                    <Icon name="check" size={12} />
+                  </button>
+                </div>
+                <div class="pr-ai-review-content">{reviews[pr.number]}</div>
+              </div>
+            {/if}
           {/if}
         </div>
       {/each}
