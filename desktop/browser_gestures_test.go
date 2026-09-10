@@ -301,3 +301,37 @@ func TestFindTextScriptTagsTheDeepestSingleMatch(t *testing.T) {
 		t.Error("findTextScript must only tag, never act")
 	}
 }
+
+func TestFileInputScriptResolvesButtonsAndTagsFileInput(t *testing.T) {
+	js := fileInputScript("tok", 3)
+	for _, want := range []string{
+		"aetoxResolveFileInput",
+		"aetoxFindFileInput",
+		"data-aetox-file-input",
+		"aetoxReport(",
+	} {
+		if !strings.Contains(js, want) {
+			t.Errorf("fileInputScript missing %q", want)
+		}
+	}
+	for _, act := range []string{"el.click()", ".set.call(", "textContent=", "insertText"} {
+		if strings.Contains(js, act) {
+			t.Errorf("fileInputScript acts on the page (%s); it must only measure and tag", act)
+		}
+	}
+
+	btnMsg := uploadMessage("pic.png", 1024, browserActResult{
+		Ref:       3,
+		Tag:       "button",
+		Label:     "อัพโหลดไฟล์",
+		Accept:    "image/*",
+		Multiple:  false,
+		FileInput: true,
+	})
+	for _, want := range []string{"pic.png", "1 KB", "button \"อัพโหลดไฟล์\"", "image/*"} {
+		if !strings.Contains(btnMsg, want) {
+			t.Errorf("uploadMessage for button target missing %q: %s", want, btnMsg)
+		}
+	}
+}
+

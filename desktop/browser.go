@@ -543,8 +543,8 @@ func textScript(token, filter string) string {
      a ref could resolve to a node the last read tagged and this one did not. */
   for(var r=0;r<roots.length;r++){
     var stale;
-    try{stale=roots[r].querySelectorAll('[data-aetox-ref]');}catch(e){continue;}
-    for(var q=0;q<stale.length;q++)stale[q].removeAttribute('data-aetox-ref');
+    try{stale=roots[r].querySelectorAll('[data-aetox-ref],[data-aetox-file-input]');}catch(e){continue;}
+    for(var q=0;q<stale.length;q++){stale[q].removeAttribute('data-aetox-ref');stale[q].removeAttribute('data-aetox-file-input');}
   }
   var out=[],elTotal=0;
   for(var r2=0;r2<roots.length;r2++){
@@ -552,10 +552,17 @@ func textScript(token, filter string) string {
     try{els=roots[r2].querySelectorAll(sel);}catch(e){continue;}
     for(var i=0;i<els.length;i++){
       var el=els[i];
+      var isFileInput=(el.tagName==="INPUT"&&String(el.type).toLowerCase()==="file");
       var rect=el.getBoundingClientRect();
-      if(rect.width<=0||rect.height<=0)continue;
+      if(!isFileInput&&(rect.width<=0||rect.height<=0))continue;
       var txt=(el.innerText||el.value||el.getAttribute('aria-label')||el.getAttribute('placeholder')||(el instanceof SVGElement?el.textContent:'')||'').trim().replace(/\s+/g,' ').slice(0,80);
       if(el instanceof SVGElement&&!txt)continue;
+      if(isFileInput&&!txt){
+        var lbl=(el.labels&&el.labels[0]?el.labels[0].innerText:(el.id?(document.querySelector('label[for="'+el.id+'"]')||{}).innerText:'')||'').trim().replace(/\s+/g,' ').slice(0,80);
+        if(lbl)txt=lbl;
+        else if(el.getAttribute('accept'))txt='file ('+el.getAttribute('accept')+')';
+        else txt='file';
+      }
       if(el.tagName==='SELECT'){
         var op=[];
         for(var k=0;k<el.options.length&&k<8;k++)op.push(el.options[k].text.trim());
@@ -566,8 +573,9 @@ func textScript(token, filter string) string {
       if(out.length>=150)continue;
       var ref=out.length+1;
       el.setAttribute('data-aetox-ref',String(ref));
-      var hid=(el.tagName==="INPUT"||el.tagName==="TEXTAREA")&&aetoxTypeMode(el)==="keys";
-      out.push({ref:ref,tag:el.tagName.toLowerCase(),role:el.getAttribute('role')||'',text:txt,focused:el===act,hidden:hid});
+      var hid=(el.tagName==="INPUT"||el.tagName==="TEXTAREA")&&(aetoxTypeMode(el)==="keys"||(isFileInput&&(rect.width<=0||rect.height<=0)));
+      var role=el.getAttribute('role')||(isFileInput?'file':'');
+      out.push({ref:ref,tag:el.tagName.toLowerCase(),role:role,text:txt,focused:el===act,hidden:hid});
     }
   }
   var imgs=[],seenSrc={},imgTotal=0;
@@ -901,23 +909,122 @@ func findTextScript(token, text string) string {
 })()`, aetoxScanJS, aetoxActJS(), aetoxTypeModeJS, aetoxPointJS, mustJSONString(text), string(tok))
 }
 
-// fileInputScript says whether a ref is a file input, and what it takes.
+// aetoxFileInputJS finds the real <input type="file"> when an upload is aimed at
+// a button, label, or upload zone rather than the raw hidden input element.
+const aetoxFileInputJS = `
+  function aetoxClosestDOM(target, list){
+    if(!list||!list.length) return null;
+    var best=list[0], minDist=999999;
+    for(var i=0;i<list.length;i++){
+      var c=list[i];
+      if(target===c) return c;
+      var dist=0, p=target;
+      while(p && dist<minDist){
+        if(p.contains(c)){
+          minDist=dist;
+          best=c;
+          break;
+        }
+        p=p.parentElement;
+        dist++;
+      }
+    }
+    return best;
+  }
+  function aetoxResolveFileInput(el){
+    if(!el) return null;
+    if(el.tagName==="INPUT" && String(el.type).toLowerCase()==="file") return el;
+    try{
+      var child=el.querySelector('input[type="file"]');
+      if(child) return child;
+    }catch(e){}
+    try{
+      var lbl=(el.tagName==="LABEL"?el:(el.closest?el.closest('label'):null));
+      if(lbl){
+        if(lbl.control && lbl.control.tagName==="INPUT" && String(lbl.control.type).toLowerCase()==="file") return lbl.control;
+        if(lbl.htmlFor){
+          var forEl=document.getElementById(lbl.htmlFor);
+          if(forEl && forEl.tagName==="INPUT" && String(forEl.type).toLowerCase()==="file") return forEl;
+        }
+        var lblChild=lbl.querySelector('input[type="file"]');
+        if(lblChild) return lblChild;
+      }
+    }catch(e){}
+    try{
+      var attr=el.getAttribute('aria-controls')||el.getAttribute('data-target')||el.getAttribute('for');
+      if(attr){
+        var byId=document.getElementById(attr)||document.querySelector(attr);
+        if(byId){
+          if(byId.tagName==="INPUT" && String(byId.type).toLowerCase()==="file") return byId;
+          var byIdChild=byId.querySelector('input[type="file"]');
+          if(byIdChild) return byIdChild;
+        }
+      }
+    }catch(e){}
+    try{
+      if(el.form){
+        var formInps=el.form.querySelectorAll('input[type="file"]');
+        if(formInps.length===1) return formInps[0];
+        if(formInps.length>1) return aetoxClosestDOM(el, formInps);
+      }
+    }catch(e){}
+    try{
+      var cur=el.parentElement, depth=0;
+      while(cur && depth<6 && cur!==document.body && cur!==document.documentElement){
+        var nearby=cur.querySelectorAll('input[type="file"]');
+        if(nearby.length===1) return nearby[0];
+        if(nearby.length>1) return aetoxClosestDOM(el, nearby);
+        cur=cur.parentElement;
+        depth++;
+      }
+    }catch(e){}
+    try{
+      var s=aetoxScan();
+      var all=[];
+      for(var r=0;r<s.roots.length;r++){
+        var inps=s.roots[r].querySelectorAll('input[type="file"]');
+        for(var k=0;k<inps.length;k++) all.push(inps[k]);
+      }
+      if(all.length===1) return all[0];
+      if(all.length>1) return aetoxClosestDOM(el, all);
+    }catch(e){}
+    return null;
+  }
+  function aetoxFindFileInput(ref){
+    var s=aetoxScan();
+    for(var i=0;i<s.roots.length;i++){
+      var el;
+      try{el=s.roots[i].querySelector('[data-aetox-file-input="'+ref+'"]');}catch(e){el=null;}
+      if(el) return el;
+    }
+    var orig=aetoxFind(ref);
+    return aetoxResolveFileInput(orig);
+  }
+`
+
+// fileInputScript says whether a ref is or resolves to a file input, and what it takes.
 // Acts on nothing: the file goes in through the engine (DOM.setFileInputFiles),
 // which is the only door a page lets a file through.
 func fileInputScript(token string, ref int) string {
 	tok, _ := json.Marshal(token)
-	return fmt.Sprintf(`(function(){%s%s%s
+	return fmt.Sprintf(`(function(){%s%s%s%s
   var el=aetoxFind(%d),extra={};
   if(el){
-    extra.fileInput=(el.tagName==="INPUT"&&String(el.type).toLowerCase()==="file");
-    extra.multiple=!!el.multiple;
-    extra.accept=String(el.getAttribute("accept")||"");
+    var targetInput=aetoxResolveFileInput(el);
+    if(targetInput){
+      try{targetInput.setAttribute('data-aetox-file-input',String(%d));}catch(e){}
+      extra.fileInput=true;
+      extra.multiple=!!targetInput.multiple;
+      extra.accept=String(targetInput.getAttribute("accept")||"");
+    }else{
+      extra.fileInput=false;
+    }
     try{el.scrollIntoView({block:"center",behavior:"instant"});}catch(e){}
     var p=aetoxPagePoint(el);
     extra.cx=p.x;extra.cy=p.y;
   }
   aetoxReport(%s,%d,el,extra);
-})()`, aetoxScanJS, aetoxActJS(), aetoxPointJS, ref, string(tok), ref)
+})()`, aetoxScanJS, aetoxActJS(), aetoxPointJS, aetoxFileInputJS, ref, ref, string(tok), ref)
 }
 
 // typeScript is the page half of a type, and it decides which of two ways the

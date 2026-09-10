@@ -483,7 +483,7 @@ func (s *browserUploadSkill) upload(t browserTarget, path string) (skill.Output,
 	}
 	kind, answered, err := s.app.browserActOn(string(id), func(token string) string { return fileInputScript(token, res.Ref) })
 	if err == nil && (!answered || !kind.FileInput) {
-		err = fmt.Errorf("%s ไม่ใช่ input type=file — ใส่ไฟล์ได้เฉพาะช่องเลือกไฟล์ ถ้าหน้ามีปุ่ม 'อัปโหลด' ที่เปิดหน้าต่างของระบบ ให้หา input ที่ซ่อนอยู่ใน read", browserActLabel(res.Ref, res, true))
+		err = fmt.Errorf("%s ไม่ใช่ input type=file และไม่พบช่องเลือกไฟล์ที่เชื่อมกับ element นี้", browserActLabel(res.Ref, res, true))
 	}
 	if err != nil {
 		out.Content, out.Stderr = "อัปโหลดไม่ได้: "+err.Error(), err.Error()
@@ -518,7 +518,7 @@ func (a *App) setFileInput(ctx context.Context, id string, ref int, abs string) 
 	if !host.live(id) {
 		return fmt.Errorf("no browser tab %q", id)
 	}
-	expr := fmt.Sprintf(`(function(){%s return aetoxFind(%d);})()`, aetoxScanJS, ref)
+	expr := fmt.Sprintf(`(function(){%s%s return aetoxFindFileInput(%d);})()`, aetoxScanJS, aetoxFileInputJS, ref)
 	evalParams, _ := jsonObject(map[string]any{"expression": expr, "returnByValue": false})
 	raw, err := callEngineOn(ctx, host, id, "Runtime.evaluate", evalParams)
 	if err != nil {
@@ -535,6 +535,10 @@ func (a *App) setFileInput(ctx context.Context, id string, ref int, abs string) 
 	if _, err := callEngineOn(ctx, host, id, "DOM.setFileInputFiles", setParams); err != nil {
 		return fmt.Errorf("DOM.setFileInputFiles: %w", err)
 	}
+	// DOM.setFileInputFiles updates the FileList but does not dispatch change/input events.
+	dispatchExpr := fmt.Sprintf(`(function(){%s%s var el=aetoxFindFileInput(%d); if(el){ el.dispatchEvent(new Event('input', {bubbles:true})); el.dispatchEvent(new Event('change', {bubbles:true})); try{el.removeAttribute('data-aetox-file-input');}catch(e){} }})()`, aetoxScanJS, aetoxFileInputJS, ref)
+	dispatchParams, _ := jsonObject(map[string]any{"expression": dispatchExpr, "returnByValue": true})
+	_, _ = callEngineOn(ctx, host, id, "Runtime.evaluate", dispatchParams)
 	return nil
 }
 
