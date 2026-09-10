@@ -171,4 +171,53 @@ describe('provider account line', () => {
     expect(overheard.container.textContent).toContain('จากการคุยครั้งล่าสุด')
   })
 
+  it('draws antigravity quotas for gemini and claude (5h and weekly)', () => {
+    const now = new Date().toISOString()
+    const { container } = render(ProviderAccount, {
+      account: account({
+        provider: 'antigravity',
+        balance: balance({ kind: 'subscription', hasAmount: false, amount: 0 }),
+        expectsQuota: true, quotaKnown: true, quotaFetched: true,
+        quotas: [
+          { window: 'gemini', remainingPercent: 82, resetAt: new Date(Date.now() + 4 * 3600_000).toISOString(), observedAt: now },
+          { window: 'gemini_week', remainingPercent: 64, resetAt: new Date(Date.now() + 4 * 86400_000).toISOString(), observedAt: now },
+          { window: 'claude', remainingPercent: 100, resetAt: new Date(Date.now() + 4 * 3600_000).toISOString(), observedAt: now },
+          { window: 'claude_week', remainingPercent: 69, resetAt: new Date(Date.now() + 6 * 86400_000).toISOString(), observedAt: now },
+        ],
+      }),
+    })
+    const labels = [...container.querySelectorAll('.acct-window')].map((e) => e.textContent)
+    expect(labels).toEqual(['Gemini (5 ชม.)', 'Gemini (สัปดาห์)', 'Claude (5 ชม.)', 'Claude (สัปดาห์)'])
+    expect(container.textContent).toContain('เหลือ 82%')
+    expect(container.textContent).toContain('เหลือ 64%')
+    expect(container.textContent).toContain('เหลือ 100%')
+    expect(container.textContent).toContain('เหลือ 69%')
+    expect(container.querySelectorAll('.acct-bar').length).toBe(4)
+    expect(container.querySelectorAll('.acct-ring').length).toBe(0)
+  })
+
+  it('renders circular rings beside percentages in compact mode as standard', () => {
+    const now = new Date().toISOString()
+    const { container } = render(ProviderAccount, {
+      account: account({
+        provider: 'antigravity',
+        balance: balance({ kind: 'subscription', hasAmount: false, amount: 0 }),
+        expectsQuota: true, quotaKnown: true, quotaFetched: true,
+        quotas: [
+          { window: 'gemini', remainingPercent: 82, resetAt: new Date(Date.now() + 4 * 3600_000).toISOString(), observedAt: now },
+          { window: 'gemini_week', remainingPercent: 64, resetAt: new Date(Date.now() + 4 * 86400_000).toISOString(), observedAt: now },
+        ],
+      }),
+      compact: true,
+    })
+    expect(container.querySelectorAll('.acct-bar').length).toBe(0)
+    const rings = container.querySelectorAll('.acct-ring')
+    expect(rings.length).toBe(2)
+    expect(container.textContent).toContain('82%')
+    expect(container.textContent).toContain('64%')
+    const row = container.querySelector('.acct-compact-row')
+    expect(row?.getAttribute('title')).toContain('เหลือ 82%')
+  })
+
 })
+

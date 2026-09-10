@@ -6,7 +6,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import Settings from '../lib/Settings.svelte'
 import Sidebar from '../lib/Sidebar.svelte'
 import {
-  ListPendingChanges, ListDecidedChanges, LearnedMemory, LearnedEntries, SaveLearnedEntry,
+  ListPendingChanges, ListDecidedChanges, LearnedMemory, LearnedEntries, SaveLearnedEntry, MoveLearnedEntry,
   LearningEnabled, ApprovePendingChange, RejectPendingChange, SetLearningEnabled,
   PendingLearnedCount, LearnedScopeInfos, ForgetMemoryScope, AdoptMemoryScope, RecentProjects,
 } from './mocks/wailsApp'
@@ -273,6 +273,37 @@ describe('the learning review page', () => {
     expect(box.checked).toBe(true)
     await fireEvent.change(box)
     await waitFor(() => expect(SetLearningEnabled).toHaveBeenCalledWith(false))
+  })
+
+  it('separates user memory from assistant memory and provides move action', async () => {
+    vi.mocked(LearnedScopeInfos).mockResolvedValue([
+      { scope: 'user:profile', orphan: false },
+      { scope: '', orphan: false },
+    ] as any)
+    vi.mocked(LearnedEntries).mockImplementation(async (scope: string) => {
+      if (scope === 'user:profile') return ['ผู้ใช้ชอบภาษาไทย'] as any
+      return ['User is developing Aetox'] as any
+    })
+
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'การเรียนรู้')
+    await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(2))
+
+    // Both sections and badges exist
+    expect(container.textContent).toContain('ความจำเกี่ยวกับคุณ')
+    expect(container.textContent).toContain('ความจำของผู้ช่วยและระบบ')
+    expect(container.textContent).toContain('USER.md')
+    expect(container.textContent).toContain('MEMORY.md')
+
+    // Quick migrate banner is rendered because Main has "User is developing Aetox"
+    expect(container.querySelector('.mem-quick-banner')).toBeTruthy()
+
+    // Move button on the Main assistant row moves to user:profile
+    const mainRow = container.querySelectorAll('.mem-row')[1]
+    const moveBtn = mainRow.querySelector('.mem-action-move')
+    expect(moveBtn).toBeTruthy()
+    await fireEvent.click(moveBtn!)
+    await waitFor(() => expect(MoveLearnedEntry).toHaveBeenCalledWith('', 'user:profile', 0))
   })
 })
 

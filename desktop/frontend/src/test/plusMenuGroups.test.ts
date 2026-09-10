@@ -50,12 +50,12 @@ describe('the group heading, on both surfaces that list the tabs', () => {
       // It heads the group rather than floating above the whole list:
       // everything before it is what every desk gets.
       const rows = rowsOf(container, surface)
-      expect(rows.indexOf('Code pages')).toBe(4)
+      expect(rows.indexOf('Code pages')).toBe(5)
       // Anchored to the heading rather than to the end of the list, so adding
       // a row to the code group does not make this test wrong about where the
       // heading sits.
-      expect(rows.slice(5)).toEqual(['Git', 'Pull requests', 'Code map'])
-      // And exactly one heading: the four rows above have nothing to explain.
+      expect(rows.slice(6)).toEqual(['Git', 'Pull requests', 'Code map'])
+      // And exactly one heading: the rows above have nothing to explain.
       expect(rows.filter((r) => r === 'Code pages')).toHaveLength(1)
     })
 

@@ -41,7 +41,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   cockpit.desk = ''
   cockpit.activeView = 'chat'
-  cockpit.history.length = 0
+  cockpit.history = []
   cockpit.historyFault = null
   setShell('assistant')
   vi.mocked(CurrentSessionID).mockResolvedValue('20260805-120000.000')
@@ -134,7 +134,7 @@ describe('the chat list', () => {
       new Error('ไม่พบโปรเจกต์ของเซสชันนี้ (โฟลเดอร์อาจถูกย้ายหรือลบไปแล้ว)'),
     )
     cockpit.sessionError = ''
-    cockpit.history.push(chat('a', 'เปิดไม่ได้', daysAgo(0, 9)))
+    cockpit.history.push(chat('err-session', 'เปิดไม่ได้', daysAgo(0, 9)))
     render(Sidebar, { onOpenSettings: () => {} })
 
     await fireEvent.click(screen.getByText('เปิดไม่ได้'))

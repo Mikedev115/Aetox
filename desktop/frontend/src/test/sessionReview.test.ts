@@ -5,6 +5,7 @@ import Settings from '../lib/Settings.svelte'
 import {
   LearningEnabled, ListPendingChanges, ListDecidedChanges,
   SessionReviewAuto, SetSessionReviewAuto, RunSessionReview, ListRecurringRequests,
+  DismissRecurringRequest,
 } from './mocks/wailsApp'
 
 const openSection = async (container: HTMLElement, label: string) => {
@@ -32,12 +33,8 @@ describe('session review and habits in settings', () => {
     const { container } = render(Settings, { onClose: () => {} })
     await openSection(container, LEARNING)
 
-    // Verify habits card appears
-    await waitFor(() => expect(screen.getByText('เช็คกำลังไฟ GPU')).toBeTruthy())
-    expect(screen.getByText(/3 ครั้ง/)).toBeTruthy()
-
-    // Verify session review button is present
-    expect(screen.getByText(/ทบทวนเซสชันปัจจุบันเดี๋ยวนี้/)).toBeTruthy()
+    // Verify session review button is present on memory subtab
+    await waitFor(() => expect(screen.getByText(/ทบทวนเซสชันปัจจุบันเดี๋ยวนี้/)).toBeTruthy())
 
     // Click RunSessionReview
     vi.mocked(RunSessionReview).mockResolvedValue(1)
@@ -50,5 +47,19 @@ describe('session review and habits in settings', () => {
     // The second switch is session review auto
     await fireEvent.click(switches[1])
     expect(SetSessionReviewAuto).toHaveBeenCalledWith(true)
+
+    // Switch to Habits subtab
+    const habitsTabBtn = screen.getByText(/คำสั่งที่สั่งบ่อย \(Habits\)/)
+    await fireEvent.click(habitsTabBtn)
+
+    // Verify habits card appears
+    await waitFor(() => expect(screen.getByText('เช็คกำลังไฟ GPU')).toBeTruthy())
+    expect(screen.getByText(/3 ครั้ง/)).toBeTruthy()
+
+    // Test dismiss button
+    const dismissBtns = screen.getAllByText(/ลบ \/ ละเว้น/)
+    expect(dismissBtns.length).toBeGreaterThan(0)
+    await fireEvent.click(dismissBtns[0])
+    expect(DismissRecurringRequest).toHaveBeenCalledWith('กินไฟ gpu', 'เช็คกำลังไฟ GPU')
   })
 })
