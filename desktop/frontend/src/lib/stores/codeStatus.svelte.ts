@@ -24,6 +24,13 @@ export const codeStatus = $state<{
 
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
 
+export function updateCodeStatusFromGitTree(tree: Array<{ added?: number; removed?: number }>): void {
+  codeStatus.gitChangedCount = tree.length
+  codeStatus.gitAdded = tree.reduce((acc, f) => acc + (f.added ?? 0), 0)
+  codeStatus.gitRemoved = tree.reduce((acc, f) => acc + (f.removed ?? 0), 0)
+  codeStatus.lastChecked = Date.now()
+}
+
 export async function refreshCodeStatus(): Promise<void> {
   if (codeStatus.loading) return
   codeStatus.loading = true

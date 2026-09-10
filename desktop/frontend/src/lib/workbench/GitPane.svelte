@@ -24,8 +24,10 @@
     GitSuggestSplitCommits,
   } from '../../../wailsjs/go/main/App'
   import { main } from '../../../wailsjs/go/models'
-  import { cockpit } from '../stores/cockpit.svelte'
+  import { cockpit, sendUserMessage, setActiveView } from '../stores/cockpit.svelte'
   import { openFileTab } from '../stores/workbench.svelte'
+  import { updateCodeStatusFromGitTree } from '../stores/codeStatus.svelte'
+  import { assessDangerousFile, type DangerousFileAssessment } from './gitSecurity'
   import { t } from '../i18n.svelte'
   import Icon from '../Icon.svelte'
   import CodeDiff from '../CodeDiff.svelte'
@@ -63,9 +65,24 @@
   const selectedCount = $derived(files.filter((f) => selectedFiles[f.path]).length)
   const allSelected = $derived(files.length > 0 && files.every((f) => selectedFiles[f.path]))
 
+  const dangerousFiles = $derived(
+    files
+      .map((f) => ({ file: f, assessment: assessDangerousFile(f.path) }))
+      .filter((item): item is { file: main.GitFileChange; assessment: DangerousFileAssessment } => item.assessment !== null)
+  )
+
+  async function handleAskAssistantAboutDangerousFiles() {
+    if (dangerousFiles.length === 0) return
+    const fileList = dangerousFiles.map((df) => `- ${df.file.path} (${df.assessment.reason})`).join('\n')
+    const prompt = t('git.askAssistantPrompt', { files: fileList })
+    setActiveView('chat')
+    void sendUserMessage(prompt)
+  }
+
   async function refresh() {
     files = (await GitWorkingTree()) ?? []
     loaded = true
+    updateCodeStatusFromGitTree(files)
     // Cleanup diffs for removed files
     for (const path of Object.keys(diffs)) {
       if (!files.some((f) => f.path === path)) {
@@ -74,10 +91,10 @@
         delete selectedFiles[path]
       }
     }
-    // Select all by default for newly loaded files
+    // Select all by default for newly loaded files, EXCEPT dangerous/sensitive files for safety
     for (const f of files) {
       if (selectedFiles[f.path] === undefined) {
-        selectedFiles[f.path] = true
+        selectedFiles[f.path] = assessDangerousFile(f.path) === null
       }
     }
     // Filter remaining split groups
@@ -164,12 +181,12 @@
       await GitCommitFiles(trimmed, chosen)
       manualMessage = ''
       alert = { type: 'success', text: t('git.commitSuccess') }
-      await refresh()
       setTimeout(() => { if (alert?.type === 'success') alert = null }, 4000)
     } catch (err: any) {
       alert = { type: 'err', text: t('git.commitFailed', { error: String(err?.message ?? err) }) }
     } finally {
       committing = false
+      await refresh()
     }
   }
 
@@ -214,12 +231,12 @@
     try {
       await GitCommitFiles(msg, chosen)
       alert = { type: 'success', text: `${g.title}: ${t('git.commitSuccess')}` }
-      await refresh()
       setTimeout(() => { if (alert?.type === 'success') alert = null }, 4000)
     } catch (err: any) {
       alert = { type: 'err', text: t('git.commitFailed', { error: String(err?.message ?? err) }) }
     } finally {
       committingGroupIdx = null
+      await refresh()
     }
   }
 
@@ -238,13 +255,13 @@
         }
       }
       alert = { type: 'success', text: t('git.commitSuccess') }
-      await refresh()
       setTimeout(() => { if (alert?.type === 'success') alert = null }, 4000)
     } catch (err: any) {
       alert = { type: 'err', text: t('git.commitFailed', { error: String(err?.message ?? err) }) }
     } finally {
       committingGroupIdx = null
       committingAll = false
+      await refresh()
     }
   }
 
@@ -276,6 +293,43 @@
   <div class="gp-note">{t('git.codeDeskOnly')}</div>
 
   {#if loaded && files.length > 0}
+    <!-- Dangerous File Warning Banner (if any detected) -->
+    {#if dangerousFiles.length > 0}
+      <div class="gp-danger-banner">
+        <div class="gp-danger-main">
+          <div class="gp-danger-icon" aria-hidden="true">
+            <Icon name="alertTriangle" size={16} />
+          </div>
+          <div class="gp-danger-info">
+            <div class="gp-danger-title">
+              {t('git.dangerousWarningTitle', { n: dangerousFiles.length })}
+            </div>
+            <div class="gp-danger-desc">
+              {t('git.dangerousWarningDesc')}
+            </div>
+            <div class="gp-danger-chips">
+              {#each dangerousFiles as df}
+                <span class="gp-danger-chip" title={df.assessment.reason}>
+                  <Icon name="alertTriangle" size={10} />
+                  <span>{name(df.file.path)}</span>
+                </span>
+              {/each}
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="gp-ask-assistant-btn"
+          onclick={handleAskAssistantAboutDangerousFiles}
+          title={t('git.askAssistant')}
+        >
+          <Icon name="sparkles" size={13} />
+          <span>{t('git.askAssistant')}</span>
+        </button>
+      </div>
+    {/if}
+
     <!-- Commit Controls Area -->
     <div class="gp-commit-area">
       <!-- Mode Switch -->
@@ -470,6 +524,13 @@
               {/if}
             </span>
             <span class="gp-name">{name(f.path)}</span>
+            {#if assessDangerousFile(f.path)}
+              {@const danger = assessDangerousFile(f.path)}
+              <span class="gp-row-danger-badge" title={danger?.reason}>
+                <Icon name="alertTriangle" size={10} />
+                <span>{t('git.dangerousBadge')}</span>
+              </span>
+            {/if}
             {#if dir(f.path)}<span class="gp-dir">{dir(f.path)}</span>{/if}
             <span class="gp-stat">
               <span class="add">+{f.added ?? 0}</span><span class="del">-{f.removed ?? 0}</span>
