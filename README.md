@@ -74,7 +74,7 @@ both; the language switch is in Settings and in the first-run wizard. This READM
 - **Capability comes from the app, not from model parameters** — Thai/English OCR and offline
   speech-to-text are tools the app drives, so a 9B/35B model on your own GPU does these jobs as
   well as a frontier one.
-- **23 model providers** — cloud (OpenAI, Anthropic, Gemini, DeepSeek, Groq, and more) and local
+- **24 model providers** — cloud (OpenAI, Anthropic, Gemini, DeepSeek, Groq, and more) and local
   (LM Studio, Ollama), switchable mid-conversation with context intact. Full list under
   [Everything it can do](#everything-it-can-do).
 
@@ -402,10 +402,10 @@ for video work is absent from an ordinary conversation — not hidden from the m
 writers reach only the specialized desk, so the assistant delegates for a `.pptx` rather than
 carrying three tools it rarely needs.
 
-**23 providers, and the window shows every one** — OpenAI · Anthropic · Gemini · DeepSeek ·
-Qwen · Z.ai · OpenRouter · Codex · Groq · Mistral · Kimi · MiniMax · xAI · ThaiLLM ·
-ModelScope · NVIDIA · GitHub Copilot · Kilo · Ollama Cloud · OpenCode Zen · OpenCode Go ·
-LM Studio · Ollama · and the built-in `aetox`. ChatGPT (Codex), GitHub Copilot and OpenRouter
+**24 providers, and the window shows every one** — OpenAI · OpenAI-compatible (your own endpoint) ·
+Anthropic · Gemini · DeepSeek · Qwen · Z.ai · OpenRouter · Codex · Groq · Mistral · Kimi ·
+MiniMax · xAI · ThaiLLM · ModelScope · NVIDIA · GitHub Copilot · Kilo · Ollama Cloud ·
+OpenCode Zen · OpenCode Go · LM Studio · Ollama · and the built-in `aetox`. ChatGPT (Codex), GitHub Copilot and OpenRouter
 sign in; the rest take an API key or a local server address. The catalogue and the picker used to disagree; they no longer
 do, because a provider the engine knows and the window hides is one nobody can reach.
 
@@ -529,9 +529,9 @@ date-stamped, because the rule above does not have an exception for numbers we w
 
 </details>
 
-## Status — v1.5.25
+## Status — v1.5.26
 
-The core is in place. [Release notes](docs/release-notes/v1.5.25.md) ·
+The core is in place. [Release notes](docs/release-notes/v1.5.26.md) ·
 [roadmap](ROADMAP.md) · [architecture](ARCHITECTURE.md).
 
 Three things it does today that are worth knowing about:
