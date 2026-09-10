@@ -1,0 +1,689 @@
+<!doctype html>
+<!--
+  การ์ดเครื่องมือตอนรันขนาน — ก่อน / หลัง
+
+  1) ทำไมไฟล์นี้มีอยู่: เพื่อให้เจ้าของงานเห็น "รูปร่าง" ของการแก้ก่อนแตะโค้ดจริง
+     กล่องเครื่องมือในแชทกระโดดขึ้นลงเมื่อรันขนานหลายรอบใน stretch เดียวกัน
+     (หลักฐาน: src/test/Chat.tools.test.ts) หน้านี้จำลองกลไกนั้นกับสอง
+     ทางแก้ที่ต่างกัน เพื่อเลือกก่อนลงมือ ไม่ใช่หลังลงมือ
+
+  2) ค่าทุกตัววัดจากโค้ดจริง ไม่ใช่ค่าที่กะเอา
+     - พับ (settle) 520ms cubicInOut + fade        lib/fold.ts (SETTLE_MS)
+     - จังหวะรอก่อนพับ (LANDING_HOLD) 480ms        lib/Chat.svelte (LANDING_HOLD_MS)
+     - แถวใหม่โผล่ 120ms · ไล่กันทีละ 55ms         styles/type.css (--swap-row-in, --deal-step)
+     - เพดานกล่องตอนรัน 190px                       style.css (.tool-box.live-window)
+     - ความสูงหนึ่งแถว 36px                         style.css (.tool-step: 8px padding × 2 + ~20px เนื้อใน)
+     - คลาสที่การ์ดงานขนานถือ: .parallel-card ไม่มี .search-card   style.css
+     - easing เข้าฉาก cubic-bezier(.2,.7,.3,1)      styles/type.css (--ease-arrive)
+
+  3) อะไรที่ลองแล้วพัง: เข้าฉากแถวเริ่มจาก opacity:0 พร้อม fill-mode:backwards
+     ทำให้เฟรมแรกของแถวว่าง (สมุดกับดักของสกิล aetox-web-templates ข้อ 5)
+     ที่นี่จึงเริ่มจาก .001 และสถานะพักคือหน้าที่ครบ ไม่ใช่หน้าว่างที่รออนิเมชัน
+-->
+<html lang="th" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>การ์ดเครื่องมือตอนรันขนาน — ก่อน / หลัง</title>
+<style>
+  .w-cmp {
+    --bg: #0d0e11; --surface: #15171b; --sunken: #101215; --raised: #1c1f24;
+    --line: #24272d; --field: #3a3f47;
+    --ink: #e9ecf1; --dim: #9aa3ae; --faint: #6d7681; --accent: #7aa2f7;
+    --ok: #6cc59a; --warn: #e0a458; --bad: #e06c75;
+    --radius: 14px; --radius-sm: 9px; --radius-lg: 20px; --radius-pill: 999px;
+    --settle: 520ms; --beat: 480ms; --rowIn: 120ms; --deal: 55ms;
+    --ease-arrive: cubic-bezier(.2,.7,.3,1);
+    --ease-ride: cubic-bezier(.65,0,.35,1);
+    --e1: 0 1px 2px rgb(0 0 0/.5), 0 2px 6px rgb(0 0 0/.35);
+    --e2: 0 2px 4px rgb(0 0 0/.5), 0 6px 18px rgb(0 0 0/.4);
+    color-scheme: dark;
+  }
+  .w-cmp[data-theme="light"] {
+    --bg: #f6f7f9; --surface: #ffffff; --sunken: #f1f2f5; --raised: #ffffff;
+    --line: #e3e5ea; --field: #b9bec7;
+    --ink: #14161a; --dim: #5a626d; --faint: #8a919b; --accent: #2f5fbf;
+    --ok: #1f7a52; --warn: #a2620d; --bad: #b03a44;
+    --e1: 0 1px 2px rgb(16 20 28/.08), 0 2px 6px rgb(16 20 28/.06);
+    --e2: 0 2px 4px rgb(16 20 28/.08), 0 8px 20px rgb(16 20 28/.08);
+    color-scheme: light;
+  }
+
+  .w-cmp { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.65 "Noto Sans Thai", "Sarabun", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased; }
+  .w-cmp * { box-sizing: border-box; }
+  .w-cmp-skip { position: absolute; left: -9999px; }
+  .w-cmp-skip:focus { left: 12px; top: 12px; z-index: 9; background: var(--raised);
+    color: var(--ink); padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--field); }
+  .w-cmp :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .w-cmp-wrap { max-width: 1180px; margin: 0 auto; padding: clamp(20px, 4vw, 46px) clamp(14px, 3vw, 28px) 64px; }
+  .w-cmp h1 { font-size: clamp(21px, 3vw, 30px); line-height: 1.25; margin: 0 0 10px; letter-spacing: -.01em; }
+  .w-cmp h2 { font-size: clamp(15px, 1.6vw, 17px); margin: 0 0 4px; }
+  .w-cmp h3 { font-size: 14px; margin: 26px 0 8px; color: var(--dim); text-transform: none; }
+  .w-cmp p { margin: 0 0 10px; color: var(--dim); max-width: 74ch; }
+  .w-cmp-lead { font-size: 15px; color: var(--dim); }
+  .w-cmp code { font-family: "Cascadia Code", ui-monospace, "SF Mono", monospace; font-size: 12.5px;
+    background: var(--sunken); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--ink); }
+  .w-cmp a { color: var(--accent); }
+
+  .w-cmp-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    margin: 20px 0 26px; padding: 12px 14px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--e1); }
+  .w-cmp-btn { font: inherit; font-size: 13.5px; color: var(--ink); background: var(--raised);
+    border: 1px solid var(--field); border-radius: var(--radius-pill); padding: 8px 16px; cursor: pointer;
+    transition: border-color 150ms var(--ease-arrive), background 150ms var(--ease-arrive); }
+  .w-cmp-btn:hover { border-color: var(--accent); }
+  .w-cmp-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  .w-cmp-seg { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+  .w-cmp-seg span { font-size: 12.5px; color: var(--faint); }
+
+  .w-cmp-grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
+  .w-cmp-col { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+    padding: 16px; box-shadow: var(--e1); display: flex; flex-direction: column; gap: 12px; }
+  .w-cmp-tag { display: inline-block; font-size: 11px; letter-spacing: .04em; padding: 2px 9px;
+    border-radius: var(--radius-pill); border: 1px solid currentColor; }
+  .w-cmp-tag.now { color: var(--warn); }
+  .w-cmp-tag.fix { color: var(--ok); }
+  .w-cmp-note { font-size: 12.5px; color: var(--faint); margin: 0; }
+
+  /* the simulated transcript viewport */
+  .w-cmp-view { position: relative; height: clamp(292px, 40vh, 372px); overflow: hidden;
+    background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 14px 0; }
+  .w-cmp-thread { display: flex; flex-direction: column; }
+  .w-cmp-asked { align-self: flex-end; max-width: 88%; background: var(--raised);
+    border: 1px solid var(--field); border-radius: var(--radius) var(--radius) 4px var(--radius);
+    padding: 8px 12px; font-size: 13px; margin-bottom: 10px; }
+  .w-cmp-say { font-size: 13.5px; color: var(--ink); margin: 0 0 10px; max-width: none; }
+  .w-cmp-head { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--dim);
+    margin-bottom: 6px; font-variant-numeric: tabular-nums; }
+  .w-cmp-chev { width: 12px; display: inline-flex; color: var(--faint); }
+  .w-cmp-chev::before { content: "›"; font-size: 14px; line-height: 1; }
+  .w-cmp-head.is-open .w-cmp-chev::before { content: "⌄"; }
+  .w-cmp-head.is-fold .w-cmp-chev::before { content: "›"; }
+  /* A live stretch keeps the caret's SLOT and hides the caret: there is nothing
+     to open while something is running, and drawing one promises otherwise. */
+  .w-cmp-head.no-chev .w-cmp-chev { visibility: hidden; }
+
+  .w-cmp-box { overflow: hidden; height: 0; border-radius: var(--radius-sm);
+    transition: height var(--settle) var(--ease-ride), opacity var(--settle) var(--ease-ride); }
+  .w-cmp-box.has-frame { border: 1px solid var(--line); background: var(--sunken); }
+  .w-cmp-row { display: flex; align-items: center; gap: 9px; padding: 8px 10px; font-size: 12.5px;
+    border-top: 1px solid var(--line); }
+  .w-cmp-row:first-child { border-top: 0; }
+  .w-cmp-row.hide { display: none; }
+  .w-cmp-tile { flex: 0 0 auto; width: 18px; height: 18px; border-radius: 5px;
+    background: color-mix(in srgb, var(--accent) 26%, transparent); border: 1px solid var(--line); }
+  .w-cmp-row.run .w-cmp-tile { animation: w-cmp-pulse 1.1s ease-in-out infinite; }
+  .w-cmp-verb { color: var(--dim); flex: 0 0 auto; }
+  .w-cmp-subj { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .w-cmp-secs { margin-left: auto; color: var(--faint); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+  .w-cmp-after { font-size: 13px; color: var(--dim); margin: 12px 0 6px; max-width: none; }
+  .w-cmp-after2 { font-size: 13px; color: var(--faint); margin: 0; max-width: none; }
+
+  /* the reference line: where the paragraph below the box sits when the box is shut */
+  .w-cmp-ref { position: absolute; left: 0; right: 0; border-top: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent); pointer-events: none; }
+  .w-cmp-ref span { position: absolute; right: 6px; top: -17px; font-size: 10.5px; color: var(--accent); }
+  .w-cmp-shift { position: absolute; right: 8px; font-size: 11px; padding: 1px 7px; border-radius: var(--radius-pill);
+    background: var(--raised); border: 1px solid var(--field); color: var(--warn); font-variant-numeric: tabular-nums; }
+
+  .w-cmp-beat { font-size: 12.5px; color: var(--ink); background: var(--sunken); border: 1px solid var(--line);
+    border-radius: var(--radius-sm); padding: 7px 10px; min-height: 34px; margin: 0; max-width: none; }
+  .w-cmp-tally { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+  .w-cmp-tally div { background: var(--sunken); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 10px; }
+  .w-cmp-tally dt { font-size: 11px; color: var(--faint); margin: 0 0 2px; }
+  .w-cmp-tally dd { margin: 0; font-size: 17px; font-variant-numeric: tabular-nums; }
+  .w-cmp-tally dd u { text-decoration: none; font-size: 11.5px; color: var(--faint); margin-left: 3px; }
+  .w-cmp-verdict { font-size: 12.5px; margin: 0; }
+
+  .w-cmp-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  .w-cmp-table th, .w-cmp-table td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .w-cmp-table th { color: var(--faint); font-weight: 500; }
+  .w-cmp-table td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .w-cmp-table caption { text-align: left; color: var(--faint); font-size: 12px; padding-bottom: 6px; }
+  .w-cmp-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--e1); }
+  .w-cmp-foot { margin-top: 34px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--faint); }
+
+  /* --- the frame question: two nested cards, or one ---------------------- */
+  .w-cmp-mark1 { border:1px dashed color-mix(in srgb, var(--accent) 65%, transparent);
+    border-radius: calc(var(--radius) + 6px); padding:6px; }
+  .w-cmp-mark2 { border-style:dashed; border-color: color-mix(in srgb, var(--warn) 75%, transparent); }
+  .w-cmp-toolbox { border:1px solid var(--line); border-radius: var(--radius); background: var(--sunken); overflow:hidden; }
+  .w-cmp-trow { display:flex; align-items:center; gap:9px; padding:8px 10px; font-size:12.5px; }
+  .w-cmp-trow + .w-cmp-trow, .w-cmp-trow + .w-cmp-inner, .w-cmp-inner + .w-cmp-trow { border-top:1px solid var(--line); }
+  /* The same border, radius and surface .tool-box already wears — which is the
+     whole finding: the second frame is the first one said twice. */
+  .w-cmp-inner { border:1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--sunken); margin:4px 8px 8px; padding:8px 10px 6px; }
+  .w-cmp-phead { display:flex; align-items:center; gap:8px; padding-bottom:7px;
+    border-bottom:1px solid var(--line); font-size:12.5px; color:var(--ink); }
+  /* The head as it ships: a row of the box, 7px/10px, its own line under it. */
+  .w-cmp-phead-row { padding:7px 10px; border-bottom:1px solid var(--line); }
+  .w-cmp-phead-row .mark { display:inline-flex; color:var(--text-secondary, var(--dim)); flex:0 0 auto; }
+  .w-cmp-phead .ic { color: var(--text-dim, var(--dim)); }
+  .w-cmp-phead .n, .w-cmp-trow .n { margin-left:auto; color:var(--faint); font-variant-numeric:tabular-nums; }
+  .w-cmp-key { color:var(--bad); }   /* a key with no translation behind it */
+  .w-cmp-prow { display:flex; align-items:center; gap:9px; padding:4px 6px; font-size:12.5px; border-radius:var(--radius-sm); }
+  .w-cmp-pfoot { margin-top:6px; padding-top:6px; border-top:1px solid var(--line);
+    font-size:11px; color:var(--faint); font-variant-numeric:tabular-nums; }
+  .w-cmp-tile.g { background: color-mix(in srgb, var(--ok) 30%, transparent); }
+  .w-cmp-tile.b { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+  .w-cmp-tile.a { background: color-mix(in srgb, var(--warn) 30%, transparent); }
+
+  @keyframes w-cmp-pulse { 50% { opacity: .35; } }
+  @keyframes w-cmp-row-in { from { opacity: .001; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: no-preference) {
+    .w-cmp-row { animation: w-cmp-row-in var(--rowIn) var(--ease-arrive) backwards;
+      animation-delay: calc(var(--i, 0) * var(--deal)); }
+  }
+  @media (max-width: 520px) { .w-cmp-tally { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body class="w-cmp">
+<a class="w-cmp-skip" href="#w-cmp-main">ข้ามไปที่เนื้อหา</a>
+
+<div class="w-cmp-wrap">
+  <header>
+    <h1>การ์ดเครื่องมือตอนรันขนาน — ก่อน / หลัง</h1>
+    <p class="w-cmp-lead">
+      นี่คือ<strong>การจำลองกลไก</strong> ไม่ใช่ภาพหน้าจอ ค่าทุกตัว (480 / 520 / 120 / 55 ms · เพดาน 190px · แถวละ 36px)
+      คัดจากโค้ดจริงของ Aetox และพฤติกรรมฝั่งซ้ายวัดได้จากเทสต์ <code>src/test/Chat.tools.test.ts</code>
+      — “gives every round in one stretch its own box, and its own fold”
+    </p>
+    <p>
+      ปุ่มเดียวรันทั้งสองฝั่งบนนาฬิกาเดียวกัน · เส้นประคือตำแหน่งของย่อหน้าล่าง<em>ตอนกล่องปิด</em> —
+      ถ้าเนื้อหาเลื่อนพ้นเส้น แปลว่าหน้าจอขยับจริง
+    </p>
+  </header>
+
+  <div class="w-cmp-bar">
+    <button class="w-cmp-btn" id="w-cmp-play" aria-pressed="false">เล่นพร้อมกัน</button>
+    <button class="w-cmp-btn" id="w-cmp-reset">เริ่มใหม่</button>
+    <div class="w-cmp-seg">
+      <span>ทางแก้ฝั่งขวา</span>
+      <button class="w-cmp-btn" data-fix="A" aria-pressed="false">A · พับครั้งเดียว</button>
+      <button class="w-cmp-btn" data-fix="B" aria-pressed="true">B · พับทุกรอบ</button>
+      <button class="w-cmp-btn" id="w-cmp-theme" title="สลับสว่าง/มืด">◐</button>
+    </div>
+  </div>
+
+  <main id="w-cmp-main">
+    <div class="w-cmp-grid">
+      <article class="w-cmp-col" data-mode="now">
+        <header>
+          <span class="w-cmp-tag now">ตอนนี้ · v1.5.26</span>
+          <h2>พับทุกครั้งที่ผลลัพธ์สุดท้ายของรอบกลับมา</h2>
+          <p class="w-cmp-note">รอบถัดไปใน stretch เดียวกันถูกวาดใหม่ทั้งชุด แล้วหายวับในเฟรมที่ผลลัพธ์มาถึง</p>
+        </header>
+        <div class="w-cmp-view" data-view>
+          <div class="w-cmp-thread">
+            <div class="w-cmp-asked">ช่วยเช็คบั๊ค UI หน่อย ตอนรันเครื่องมือขนานกันการ์ดมันกระโดดขึ้นลง</div>
+            <p class="w-cmp-say">ตรวจที่วาดการ์ดเครื่องมือก่อน แล้วค่อยวัดว่ากี่จังหวะที่มันขยับ</p>
+            <div class="w-cmp-head" data-head><span class="w-cmp-chev"></span><span data-headtext>ยังไม่ได้ใช้เครื่องมือ</span></div>
+            <div class="w-cmp-box" data-box></div>
+            <p class="w-cmp-after">วิเคราะห์ 27 จุด · สรุปว่ากล่องถูกโยนกางใหม่ทุกรอบ</p>
+            <p class="w-cmp-after2">แล้วเขียนเทสต์คุมพฤติกรรมนี้ไว้</p>
+          </div>
+          <div class="w-cmp-ref" data-ref><span>ตำแหน่งเดิมของย่อหน้าล่าง</span></div>
+          <div class="w-cmp-shift" data-shift>±0 px</div>
+        </div>
+        <p class="w-cmp-beat" data-beat>พร้อม</p>
+        <dl class="w-cmp-tally">
+          <div><dt>กล่องหายจากจอ</dt><dd><span data-hidings>0</span><u>ครั้ง</u></dd></div>
+          <div><dt>แถวที่ถูกวาดใหม่</dt><dd><span data-redrawn>0</span><u>แถว</u></dd></div>
+          <div><dt>หน้าจอขยับรวม</dt><dd><span data-moved>0</span><u>px</u></dd></div>
+        </dl>
+        <p class="w-cmp-verdict" data-verdict>—</p>
+      </article>
+
+      <article class="w-cmp-col" data-mode="fix">
+        <header>
+          <span class="w-cmp-tag fix">หลังแก้</span>
+          <h2 data-fix-title>พับทุกรอบ ที่เลือกใช้</h2>
+          <p class="w-cmp-note" data-fix-note>พับทุกครั้งที่ผลลัพธ์สุดท้ายของรอบกลับมาเหมือนเดิม แต่รอบที่พับแล้วไม่ถูกกางซ้ำ — รอบใหม่มีกล่องของตัวเอง</p>
+        </header>
+        <div class="w-cmp-view" data-view>
+          <div class="w-cmp-thread">
+            <div class="w-cmp-asked">ช่วยเช็คบั๊ค UI หน่อย ตอนรันเครื่องมือขนานกันการ์ดมันกระโดดขึ้นลง</div>
+            <p class="w-cmp-say">ตรวจที่วาดการ์ดเครื่องมือก่อน แล้วค่อยวัดว่ากี่จังหวะที่มันขยับ</p>
+            <div class="w-cmp-head" data-head><span class="w-cmp-chev"></span><span data-headtext>ยังไม่ได้ใช้เครื่องมือ</span></div>
+            <div class="w-cmp-box" data-box></div>
+            <p class="w-cmp-after">วิเคราะห์ 27 จุด · สรุปว่ากล่องถูกโยนกางใหม่ทุกรอบ</p>
+            <p class="w-cmp-after2">แล้วเขียนเทสต์คุมพฤติกรรมนี้ไว้</p>
+          </div>
+          <div class="w-cmp-ref" data-ref><span>ตำแหน่งเดิมของย่อหน้าล่าง</span></div>
+          <div class="w-cmp-shift" data-shift>±0 px</div>
+        </div>
+        <p class="w-cmp-beat" data-beat>พร้อม</p>
+        <dl class="w-cmp-tally">
+          <div><dt>กล่องหายจากจอ</dt><dd><span data-hidings>0</span><u>ครั้ง</u></dd></div>
+          <div><dt>แถวที่ถูกวาดใหม่</dt><dd><span data-redrawn>0</span><u>แถว</u></dd></div>
+          <div><dt>หน้าจอขยับรวม</dt><dd><span data-moved>0</span><u>px</u></dd></div>
+        </dl>
+        <p class="w-cmp-verdict" data-verdict>—</p>
+      </article>
+    </div>
+  </main>
+</div>
+
+  <section class="w-cmp-card" style="margin-top:26px">
+    <h2>กรอบซ้อน 2 ชั้น — ก่อน / หลัง</h2>
+    <p>
+      งานที่รันขนานกันได้ทั้ง <strong>กรอบของกล่องเครื่องมือ</strong> (<code>.tool-box</code>)
+      และ <strong>กรอบของการ์ดของตัวเอง</strong> (<code>.search-card</code>, ที่ <code>.parallel-card</code> ใช้ต่อ)
+      — เส้นขอบ รัศมี และพื้นสีเดียวกันเป๊ะ ทั้งที่ทั้งสองก้อนอยู่ในกล่องเดียวกันอยู่แล้ว
+      เส้นชั้นในจึงไม่ได้บอกอะไรเพิ่ม: หัวของมันบอกอยู่แล้วว่านี่คือชุดที่รันพร้อมกัน
+    </p>
+    <div class="w-cmp-grid" style="margin-top:14px">
+      <article class="w-cmp-col">
+        <header>
+          <span class="w-cmp-tag now">ตอนนี้</span>
+          <h2>สองชั้น</h2>
+          <p class="w-cmp-note">เส้นประน้ำเงิน = ชั้นที่ 1 (กล่องเครื่องมือ) · เส้นประส้ม = ชั้นที่ 2 (การ์ดของงานขนาน)</p>
+        </header>
+        <div class="w-cmp-mark1">
+          <div class="w-cmp-toolbox">
+            <div class="w-cmp-trow">
+              <span class="w-cmp-tile g"></span><span class="w-cmp-verb">อ่าน</span><span class="w-cmp-subj">desktop/frontend/src/lib/Chat.svelte</span><span class="w-cmp-secs">· 1s</span>
+            </div>
+            <div class="w-cmp-inner">
+              <div class="w-cmp-phead">
+                <!-- No icon at all, and that is the fact: the head asked for
+                     `cpu`, which is not in the icon set, so it has never
+                     drawn — an empty 13px slot where the mark should be. -->
+                <span class="ic" style="width:13px"></span><span>รันขนานกัน · 3 งาน</span>
+                <span class="n">1/3 <span class="w-cmp-key">chat.doneBadge</span></span>
+              </div>
+              <div class="w-cmp-prow"><span class="w-cmp-tile b"></span><span class="w-cmp-verb">ค้นในโค้ด</span><span class="w-cmp-subj">desktop/frontend/src</span><span class="w-cmp-secs">· 1s</span></div>
+              <div class="w-cmp-prow"><span class="w-cmp-tile g"></span><span class="w-cmp-verb">อ่าน</span><span class="w-cmp-subj">types.ts</span><span class="w-cmp-secs">· 4s</span></div>
+              <div class="w-cmp-prow"><span class="w-cmp-tile a"></span><span class="w-cmp-verb">รัน</span><span class="w-cmp-subj">go test ./internal/model</span><span class="w-cmp-secs">· 12s</span></div>
+              <div class="w-cmp-pfoot">กำลังรัน 1/3 งาน · 12 วิ</div>
+            </div>
+          </div>
+        </div>
+        <p class="w-cmp-note">
+          ในการ์ดนี้มีอีกสองอย่างที่พังอยู่ และอยู่ในภาพที่คุณส่งมาทั้งคู่:
+          <code>chat.doneBadge</code> — คีย์ที่ไม่มีใน <code>th.ts</code> / <code>en.ts</code> / <code>zh.ts</code>
+          ผู้ใช้จึงเห็นชื่อคีย์ดิบ ๆ ตรงกลางการ์ดในทุกภาษา ·
+          และไอคอนหัวการ์ดที่ขอชื่อ <code>cpu</code> ซึ่งไม่มีในชุดไอคอน ⇒ ไม่เคยขึ้นเลย
+          (ช่อง 13px ว่างอยู่ตรงนั้น ไม่มีใครรู้ เพราะไม่รู้ว่าควรมี)
+        </p>
+      </article>
+      <article class="w-cmp-col">
+        <header>
+          <span class="w-cmp-tag fix">หลังแก้ · ลงโค้ดแล้ว</span>
+          <h2>ชั้นเดียว — งานขนานเป็นท่อนหนึ่งของกล่อง</h2>
+          <p class="w-cmp-note">หัวของชุดยังอยู่ (มันคือสิ่งเดียวที่บอกว่าแถวพวกนี้รันพร้อมกัน) แต่กลายเป็นแถวหนึ่งในกล่อง · แถวใช้เส้นคั่นของกล่อง · บรรทัดสรุปท้ายยังอยู่</p>
+        </header>
+        <div class="w-cmp-toolbox">
+          <div class="w-cmp-trow">
+            <span class="w-cmp-tile g"></span><span class="w-cmp-verb">อ่าน</span><span class="w-cmp-subj">desktop/frontend/src/lib/Chat.svelte</span><span class="w-cmp-secs">· 1s</span>
+          </div>
+          <div class="w-cmp-trow w-cmp-phead-row">
+            <span class="mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 4h7M14 9h7M14 15h7M14 20h7"/></svg></span>
+            <span>รันขนานกัน · 3 งาน</span>
+            <span class="n">1/3 เสร็จ</span>
+          </div>
+          <div class="w-cmp-trow"><span class="w-cmp-tile b"></span><span class="w-cmp-verb">ค้นในโค้ด</span><span class="w-cmp-subj">desktop/frontend/src</span><span class="w-cmp-secs">· 1s</span></div>
+          <div class="w-cmp-trow"><span class="w-cmp-tile g"></span><span class="w-cmp-verb">อ่าน</span><span class="w-cmp-subj">types.ts</span><span class="w-cmp-secs">· 4s</span></div>
+          <div class="w-cmp-trow"><span class="w-cmp-tile a"></span><span class="w-cmp-verb">รัน</span><span class="w-cmp-subj">go test ./internal/model</span><span class="w-cmp-secs">· 12s</span></div>
+          <div class="w-cmp-trow" style="color:var(--faint);font-size:11px">กำลังรัน 1/3 งาน · 12 วิ</div>
+        </div>
+        <p class="w-cmp-note">
+          สิ่งที่ยังอยู่ครบ: หัวชุด · ตัวเลขคู่กับชื่อ · บรรทัดสรุปท้าย · เส้นคั่นระหว่างแถว
+          · สีประจำตระกูลของงาน
+        </p>
+        <p class="w-cmp-note">
+          <strong>ลงโค้ดแล้ว 11 ก.ย.</strong> — <code>style.css</code> เขียน <code>.parallel-card</code> ใหม่
+          (ไม่มีกรอบ/รัศมี/พื้น/ระยะขอบ · แถวใช้ 8px/10px เท่ากับแถวอื่นในกล่อง · หัว 7px/10px · ท้าย 6px 10px 8px),
+          <code>Chat.svelte</code> ถอดคลาส <code>search-card</code> ออกจาก การ์ดใบนี้,
+          แก้คีย์ที่ไม่มีในไฟล์ภาษาเป็น <code>tool.parallelBadge</code> พร้อมใส่คำใน th/en/zh,
+          และแก้ไอคอนหัวการ์ดจาก <code>cpu</code> — ชื่อที่ไม่มีในชุดไอคอน จึงไม่เคยขึ้นเลย —
+          เป็น <code>layoutList</code>
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <section class="w-cmp-card" style="margin-top:26px">
+    <h2>หลักฐาน: ที่วัดได้จากเทสต์จริง</h2>
+    <p>เทิร์นยังรันอยู่ โมเดลไม่ได้พูดอะไรระหว่างสองรอบ — turn ที่มี stretch เดียว สองรอบ</p>
+    <table class="w-cmp-table">
+      <caption><code>npx vitest run src/test/Chat.tools.test.ts</code> · แถวบนจอ / สถานะหัวข้อ<br>(ตอนวัดใช้ไฟล์ probe ชั่วคราว ต่อมาขึ้นเป็นเทสต์ถาวรชื่อ “gives every round in one stretch its own box, and its own fold” แล้ว)</caption>
+      <thead>
+        <tr><th scope="col">จังหวะ</th><th scope="col">แถวบนจอ</th><th scope="col">หัวข้อ</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>รอบ 1 กำลังรัน</td><td class="num">1</td><td>เส้น (ไม่มี caret)</td></tr>
+        <tr><td>ผลลัพธ์รอบ 1 มาถึง</td><td class="num">1</td><td>เปิด — ส่งมอบให้ fold แบบกางอยู่</td></tr>
+        <tr><td>ผ่านไป 480ms</td><td class="num">0</td><td>พับนุ่ม (ตามที่ตั้งใจไว้)</td></tr>
+        <tr><td><strong>รอบ 2 กำลังรัน</strong></td><td class="num">2</td><td><strong>ทั้งชุดถูกกางใหม่ — แถวของรอบ 1 กลับมาด้วย</strong></td></tr>
+        <tr><td><strong>ผลลัพธ์รอบ 2 มาถึง</strong></td><td class="num">0</td><td><strong>หายวับในเฟรมเดียวกัน ไม่มีจังหวะพับเลย</strong></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section style="margin-top:26px">
+    <h3>ทำไมถึงเป็น — เงื่อนไขที่ชนกันสามข้อ (desktop/frontend/src/lib/Chat.svelte)</h3>
+    <table class="w-cmp-table">
+      <thead><tr><th scope="col">ที่</th><th scope="col">เงื่อนไข</th><th scope="col">ผลที่ได้</th></tr></thead>
+      <tbody>
+        <tr><td class="num">~3954</td><td><code>working = live &amp;&amp; runOwn.length &gt; 0</code> · <code>shownOwn = working ? own : runOwn</code></td>
+          <td>รอบใหม่ใน stretch เดิมดึง <em>ทุกแถวของ stretch</em> ออกมาแสดง ไม่ใช่แค่แถวใหม่</td></tr>
+        <tr><td class="num">~3965</td><td><code>foldable = !working &amp;&amp; doneOwn.length &gt; 0</code></td>
+          <td>พับได้ทันทีที่ “ไม่มีอะไรวิ่งอยู่” ซึ่งเกิดทุกรอบ ไม่ใช่ตอน stretch จบ</td></tr>
+        <tr><td class="num">~639</td><td><code>if (running) armed.delete(key) else settlePhase(key)</code></td>
+          <td>หลังพับครั้งแรก <code>landing[key]</code> ถูกล้าง → รอบถัดไปหายแบบไม่มีการเคลื่อนไหว</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section style="margin-top:26px">
+    <h3>สองทางแก้ — ต่างกันที่ “พับตอนไหน”</h3>
+    <table class="w-cmp-table">
+      <thead><tr><th scope="col">ทาง</th><th scope="col">กติกา</th><th scope="col">ได้</th><th scope="col">จ่าย</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>A</strong> พับครั้งเดียว</td>
+          <td>stretch ที่เทิร์นยังทำงานอยู่ = กางค้าง · พับเมื่อ stretch นั้นจบ (โมเดลเริ่มพูด · ผู้ใช้แทรก · เทิร์นจบ)</td>
+          <td>ขยับรวม 380px · พับครั้งเดียว · ไม่มีแถววาดซ้ำ</td>
+          <td>ตอนโมเดลเงียบคิดคำตอบนาน กล่องยังกางอยู่ (เดิมพับไปแล้ว) — ต้องมี caret ให้กดปิดเองได้ทันทีที่ไม่มีอะไรวิ่ง</td>
+        </tr>
+        <tr>
+          <td><strong>B</strong> พับทุกรอบ</td>
+          <td>พับเหมือนเดิมทุกครั้งที่รอบสุดท้ายกลับมา แต่โชว์เฉพาะรอบที่กำลังรัน ไม่กางของเก่าซ้ำ</td>
+          <td>ไม่มีการวาดซ้ำ · งานที่เสร็จยังอยู่ในตัวเลข</td>
+          <td>ยังขึ้นลงทุกรอบ (3 จังหวะ 864px) · รอบที่พับแล้วต้องกดเปิดดูเองได้</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:12px">
+      ตัวเลข “หน้าจอขยับรวม” ทั้งสามแบบ (อ่านจากหน้าจำลองนี้หลังรันจบ): ตอนนี้
+      <strong>1120px / 3 จังหวะ / 21 แถววาดซ้ำ</strong> ·
+      A <strong>380px / 1 จังหวะ / 0</strong> · B <strong>864px / 3 จังหวะ / 0</strong>
+      — <strong>B คือแบบที่ลงโค้ดแล้ว</strong>: จอขยับเท่าเดิม แต่ไม่มีแถววาดซ้ำและไม่มีจังหวะที่หายวับ
+    </p>
+  </section>
+
+<footer class="w-cmp-foot">
+  ไฟล์นี้เป็นของชั่วคราวเพื่อการตัดสินใจ — ลบได้ หรือย้ายไป <code>docs/case-studies/</code> ถ้าอยากเก็บไว้ดู
+</footer>
+
+<script>
+(() => {
+  const ROW_H = 36, CAP = 190, BEAT = 480, SETTLE = 520;
+  const rounds = [
+    [['ค้นในโค้ด', 'desktop/frontend/src'], ['ค้นในโค้ด', 'ระดับคิด|ReasoningLabel'],
+     ['ค้นในโค้ด', 'ระดับการอนุมัติ'], ['อ่าน', 'Chat.svelte 1300-1379'], ['อ่าน', 'locales/th.ts']],
+    [['อ่าน', 'types.ts'], ['อ่าน', 'turnPhases.ts'], ['อ่าน', 'toolWindow.ts'], ['ค้นในโค้ด', 'phase-fold']],
+    [['รัน', 'go test ./internal/model'], ['อ่าน', 'fold.ts'], ['อ่าน', 'toolGlide.ts']],
+  ];
+  // One stretch of work, three rounds of parallel calls, no sentence between them
+  // — which is what a long run looks like (thinking does not open a new stretch).
+  const script = [
+    { t: 600, k: 'call', r: 0 }, { t: 2800, k: 'done', r: 0 },
+    { t: 4500, k: 'call', r: 1 }, { t: 6700, k: 'done', r: 1 },
+    { t: 8300, k: 'call', r: 2 }, { t: 9900, k: 'done', r: 2 },
+    { t: 12100, k: 'answer' },
+  ];
+  const END = 13400;
+
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  class Col {
+    constructor(root, mode) {
+      this.root = root; this.mode = mode;
+      this.view = root.querySelector('[data-view]');
+      this.box = root.querySelector('[data-box]');
+      this.head = root.querySelector('[data-head]');
+      this.headText = root.querySelector('[data-headtext]');
+      this.beatEl = root.querySelector('[data-beat]');
+      this.ref = root.querySelector('[data-ref]');
+      this.shift = root.querySelector('[data-shift]');
+      this.after = root.querySelector('.w-cmp-after');
+      this.n = {
+        hidings: root.querySelector('[data-hidings]'),
+        redrawn: root.querySelector('[data-redrawn]'),
+        moved: root.querySelector('[data-moved]'),
+      };
+      this.verdict = root.querySelector('[data-verdict]');
+      this.timers = [];
+      this.reset();
+    }
+
+    reset() {
+      this.timers.forEach(clearTimeout); this.timers = [];
+      this.data = []; this.h = 0; this.folded = false; this.running = false;
+      this.hidings = 0; this.redrawn = 0; this.moved = 0; this.secs = 0;
+      this.box.innerHTML = ''; this.box.className = 'w-cmp-box'; this.box.style.cssText = '';
+      this.head.className = 'w-cmp-head';
+      this.headText.textContent = 'ยังไม่ได้ใช้เครื่องมือ';
+      this.beatEl.textContent = 'พร้อม · กด “เล่นพร้อมกัน”';
+      this.after.style.marginTop = '';
+      requestAnimationFrame(() => { this.rest(); });
+      this.tally(); this.paint();
+    }
+
+    // ---- plumbing -------------------------------------------------------
+    snap(px) {                       // a height change with no movement — what a re-open is
+      const delta = Math.abs(px - this.h);
+      this.box.style.transition = 'none';
+      this.h = px; this.box.style.height = px + 'px';
+      void this.box.offsetHeight;
+      this.box.style.transition = '';
+      this.moved += delta;
+      this.box.classList.toggle('has-frame', px > 0);
+    }
+    grow(px) { this.snap(px); }      // a row landing grows the box because its content did
+    tally() {
+      this.n.hidings.textContent = this.hidings;
+      this.n.redrawn.textContent = this.redrawn;
+      this.n.moved.textContent = this.moved;
+      this.shift.textContent = '±' + this.moved + ' px รวม';
+      const words = this.mode === 'now'
+        ? `${this.hidings} จังหวะที่กล่องหาย · ${this.redrawn} แถวถูกวาดซ้ำ`
+        : this.mode === 'A'
+          ? `${this.hidings} จังหวะ: กางครั้งเดียว ปิดครั้งเดียว · ไม่มีแถววาดซ้ำ`
+          : `${this.hidings} จังหวะ ต่อ ${this.hidings} รอบ · ไม่มีแถววาดซ้ำ`;
+      this.verdict.textContent = this.data.length ? words : '—';
+    }
+    /* Where the paragraph below sits with the box SHUT — the line the badge
+       measures from. Read from the live layout every time the box is empty
+       rather than captured once at load: the first measurement happens before
+       the Thai web font has arrived, and the resting place moves when it does.
+       That is this page's own hazard and not the app's; the fix is to take the
+       measurement at a moment the answer is true. */
+    rest() {
+      if (this.h > 0) return;
+      this.ref.style.top = this.after.offsetTop + 'px';
+      this.shift.style.display = 'none';
+    }
+    paint() {
+      requestAnimationFrame(() => {
+        if (this.h <= 0) { this.rest(); return; }
+        const gap = this.after.offsetTop - parseFloat(this.ref.style.top || '0');
+        this.shift.style.display = Math.abs(gap) < 1 ? 'none' : '';
+        this.shift.style.top = (this.after.offsetTop - 19) + 'px';
+        this.shift.textContent = (gap > 0 ? '+' : '') + Math.round(gap) + ' px';
+      });
+    }
+    line(text) {
+      this.headText.textContent = text;
+      this.head.classList.toggle('is-open', this.h > 0 && !this.folded);
+      this.head.classList.toggle('is-fold', this.folded);
+      this.head.classList.toggle('no-chev', this.running);
+    }
+    rowEl(line, i, stagger) {
+      const el = document.createElement('div');
+      el.className = 'w-cmp-row run';
+      if (stagger) el.style.setProperty('--i', String(Math.min(i, 7)));
+      el.innerHTML = `<span class="w-cmp-tile"></span><span class="w-cmp-verb">${line[0]}</span>` +
+        `<span class="w-cmp-subj">${line[1]}</span><span class="w-cmp-secs">· 0s</span>`;
+      return el;
+    }
+    // ---- the scripted beats --------------------------------------------
+    call(r) {
+      clearTimeout(this.pending);
+      const mine = rounds[r].map((l) => ({ l, el: null }));
+      const reopening = this.mode === 'now' && this.folded && this.data.length > 0;
+      this.running = true;
+      if (reopening) {
+        this.box.innerHTML = ''; this.folded = false;
+        this.redrawn += this.data.length + mine.length;
+        this.data.forEach((d) => this.box.append(this.rowEl(d.l, 0, false)));
+        mine.forEach((m) => { m.el = this.rowEl(m.l, 0, false); this.box.append(m.el); });
+        this.data = this.data.concat(mine);
+        this.snap(Math.min(CAP, this.data.length * ROW_H));
+      } else if (this.mode === 'B') {
+        this.folded = false;
+        this.data.forEach((d) => { if (d.el) d.el.classList.add('hide') });
+        mine.forEach((m, i) => { m.el = this.rowEl(m.l, i, true); this.box.append(m.el) });
+        this.data = this.data.concat(mine);
+        this.grow(mine.length * ROW_H);
+      } else {
+        this.folded = false;
+        mine.forEach((m, i) => { m.el = this.rowEl(m.l, i, true); this.box.append(m.el) });
+        this.data = this.data.concat(mine);
+        this.grow(Math.min(CAP, this.data.length * ROW_H));
+      }
+      this.line(`ใช้ ${this.data.length} เครื่องมือ · ${this.secs}s`);
+      this.beatEl.textContent = this.caption('call', r, reopening);
+      this.tally(); this.paint();
+    }
+    done(r) {
+      this.running = false;
+      this.data.forEach((d) => { if (d.el) d.el.className = 'w-cmp-row' });
+      this.secs += 3;
+      this.line(`ใช้ ${this.data.length} เครื่องมือ · ${this.secs}s`);
+      this.beatEl.textContent = this.caption('done', r);
+      if (this.mode === 'now') {
+        if (this.folded) { this.snapHide(); }                       // nothing to fold: it snaps out
+        else this.pending = setTimeout(() => this.fold(), reduce ? 0 : BEAT);
+      } else if (this.mode === 'B') {
+        this.pending = setTimeout(() => this.fold(), reduce ? 0 : BEAT);
+      }
+      this.tally(); this.paint();
+    }
+    answer() {
+      this.beatEl.textContent = this.caption('answer');
+      if (this.mode === 'A' && this.h > 0) this.fold();
+    }
+    fold() {
+      if (this.h === 0) return;
+      this.hidings += 1;
+      this.folded = true; this.running = false;
+      this.moved += this.h; this.h = 0;
+      this.box.style.cssText = '';
+      if (reduce) this.box.style.transition = 'none';
+      this.box.style.height = '0px'; this.box.style.opacity = '0';
+      // Emptied when the movement is over, not just zeroed: leaving the rows in
+      // a box whose inline height has been cleared springs it back open a frame
+      // later, which is the page's own bug and not the app's. Nothing draws from
+      // these nodes again — a later round is rebuilt from the labels.
+      setTimeout(() => {
+        this.box.className = 'w-cmp-box'
+        this.box.style.cssText = ''
+        this.box.innerHTML = ''
+        this.data.forEach((d) => { d.el = null })
+      }, reduce ? 0 : SETTLE);
+      this.line(this.headText.textContent);
+      this.tally(); this.paint();
+    }
+    snapHide() {                     // round 2+: gone in the frame the result lands
+      if (this.h === 0) return;
+      this.hidings += 1;
+      this.moved += this.h; this.h = 0;
+      this.box.style.cssText = ''; this.box.className = 'w-cmp-box';
+      this.box.style.height = '0px';
+      this.tally(); this.paint();
+    }
+    caption(ev, r, reopening) {
+      const rows = (this.data || []).length;
+      const n = rounds[r] ? rounds[r].length : 0;
+      if (this.mode === 'now') {
+        if (ev === 'call') return reopening
+          ? `รอบ ${r + 1} · โมเดลยังไม่พูด — ทั้ง ${rows} แถวถูกวาดใหม่ทั้งชุดในเฟรมเดียว`
+          : `รอบ 1 · ${n} เครื่องมือเริ่มรัน · ไล่กันทีละ 55ms`;
+        if (ev === 'done') return this.folded
+          ? `ผลลัพธ์กลับมา — แถวหายวับในเฟรมนี้ ไม่มีจังหวะพับ เพราะถูกพับไปแล้ว`
+          : `ผลลัพธ์กลับมา · นับ 480ms ก่อนพับนุ่ม ๆ (520ms)`;
+        return 'โมเดลเริ่มพูด — กล่องพับไปตั้งแต่ 480ms หลังผลลัพธ์สุดท้าย';
+      }
+      if (this.mode === 'A') {
+        if (ev === 'call') return r === 0
+          ? `รอบ 1 · ${n} เครื่องมือเริ่มรัน · กล่องกางค้างไว้`
+          : `รอบ ${r + 1} · ${n} เครื่องมือ — กล่องเดิมต่อ ไม่มีการกางใหม่`;
+        if (ev === 'done') return 'ผลลัพธ์กลับมา · กล่องยังอยู่ (กดปิดเองได้เพราะไม่มีอะไรวิ่งอยู่)';
+        return 'โมเดลเริ่มพูด — พับครั้งเดียวของทั้ง stretch (520ms)';
+      }
+      if (ev === 'call') return `รอบ ${r + 1} · ${n} เครื่องมือ — รอบก่อนหน้าอยู่หลังตัวเลขแล้ว`;
+      if (ev === 'done') return 'ผลลัพธ์กลับมา · นับ 480ms แล้วพับเฉพาะรอบนี้';
+      return 'โมเดลเริ่มพูด — ทุกรอบถูกพับไปแล้ว';
+    }
+    play() {
+      this.reset();
+      script.forEach((e) => {
+        this.timers.push(setTimeout(() => {
+          if (e.k === 'call') this.call(e.r);
+          else if (e.k === 'done') this.done(e.r);
+          else this.answer();
+        }, reduce ? 0 : e.t));
+      });
+    }
+  }
+
+  const cols = new Map();
+  cols.set('now', new Col(document.querySelector('[data-mode="now"]'), 'now'));
+  let fixCol = new Col(document.querySelector('[data-mode="fix"]'), 'B');
+
+  const playBtn = document.getElementById('w-cmp-play');
+  const stopAll = () => {
+    cols.get('now').timers.forEach(clearTimeout);
+    fixCol.timers.forEach(clearTimeout);
+  };
+  playBtn.addEventListener('click', () => {
+    stopAll();
+    cols.get('now').play();
+    fixCol.play();
+    playBtn.setAttribute('aria-pressed', 'true');
+  });
+  document.getElementById('w-cmp-reset').addEventListener('click', () => {
+    stopAll();
+    cols.get('now').reset(); fixCol.reset();
+    playBtn.setAttribute('aria-pressed', 'false');
+  });
+
+  const fixTitle = document.querySelector('[data-fix-title]');
+  const fixNote = document.querySelector('[data-fix-note]');
+  document.querySelectorAll('[data-fix]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.fix;
+      document.querySelectorAll('[data-fix]').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+      const host = document.querySelector('[data-mode="fix"]');
+      stopAll();
+      fixCol = new Col(host, mode); cols.set('fix', fixCol);
+      fixTitle.textContent = mode === 'A'
+        ? 'พับครั้งเดียว เมื่อ stretch นั้นจบ'
+        : 'พับทุกครั้งที่เงียบ แต่โชว์เฉพาะรอบที่กำลังรัน';
+      fixNote.textContent = mode === 'A'
+        ? 'กล่องเดียวต่อ stretch — กางไว้ตลอดที่เทิร์นยังทำงาน แล้วพับนุ่ม ๆ ครั้งเดียวตอนโมเดลเริ่มพูด'
+        : 'ยังพับทุกครั้งที่ผลลัพธ์สุดท้ายของรอบกลับมา แต่รอบที่พับแล้วไม่ถูกกางซ้ำ';
+      fixCol.ref.style.top = ''; fixCol.reset();
+      playBtn.setAttribute('aria-pressed', 'false');
+    });
+  });
+
+  document.getElementById('w-cmp-theme').addEventListener('click', () => {
+    const el = document.documentElement;
+    el.dataset.theme = el.dataset.theme === 'dark' ? 'light' : 'dark';
+  });
+
+  window.addEventListener('resize', () => { cols.forEach((c) => { c.paint(); }); });
+  // The one move that changes every paragraph's resting place without anybody
+  // touching the page.
+  if (document.fonts?.ready) document.fonts.ready.then(() => cols.forEach((c) => c.paint()));
+})();
+</script>
+</body>
+</html>
