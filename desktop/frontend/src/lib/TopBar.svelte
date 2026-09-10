@@ -7,6 +7,7 @@
   import Icon from './Icon.svelte'
   import SessionStrip from './SessionStrip.svelte'
   import { openArtifactsTab } from './stores/workbench.svelte'
+  import { codeStatus } from './stores/codeStatus.svelte'
 
   let {
     inspectorCollapsed, onToggleInspector, sidebarCollapsed, onToggleSidebar,
@@ -141,6 +142,9 @@
       data-tip="{t('topbar.toggleInspectorTip')} · {shortcutLabel('toggleInspector')}" onclick={onToggleInspector}
     >
       {@render panelIcon(!inspectorCollapsed, true)}
+      {#if inspectorCollapsed && (codeStatus.gitChangedCount > 0 || codeStatus.openPRCount > 0)}
+        <span class="panel-notice-dot" aria-hidden="true"></span>
+      {/if}
     </button>
   </div>
 </div>

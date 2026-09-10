@@ -34,11 +34,15 @@
   import { EventsOn } from '../../../wailsjs/runtime/runtime'
   import { t, type TKey } from '../i18n.svelte'
   import { isShortcut, shortcutLabel } from '../shortcuts'
-  import Icon from '../Icon.svelte'
   import { sidle } from '../fold'
   import type { IconName } from '../icons'
+  import { codeStatus, refreshCodeStatus } from '../stores/codeStatus.svelte'
 
-  const tabIcon: Record<string, IconName> = { terminal: 'keyboard', browser: 'globe', files: 'copy', file: 'fileText', decks: 'layoutList', cutroom: 'scissors', plan: 'compass', artifacts: 'package' }
+  const tabIcon: Record<string, IconName> = {
+    terminal: 'keyboard', browser: 'globe', files: 'copy', file: 'fileText',
+    decks: 'layoutList', cutroom: 'scissors', plan: 'compass', artifacts: 'package',
+    git: 'gitBranch', pr: 'gitPullRequest', repomap: 'graph',
+  }
 
   // Chrome DevTools' default device presets. CSS viewport sizes — BrowserPane
   // turns one into a real window of that aspect + a matching page zoom.
@@ -154,6 +158,7 @@
 
   onMount(() => {
     TerminalShells().then((s) => (shells = s))
+    void refreshCodeStatus()
     // Read once, here rather than when the checklist opens. The panel draws
     // from these on the first browser call of the session, which is long before
     // anybody has a reason to open the menu — and layerOn's shipped-default
@@ -476,9 +481,21 @@
   {/if}
   {#if cockpit.desk === 'coding'}
     <div class="plus-menu-head">{t('workbench.codeGroup')}</div>
-    <button class="plus-menu-item" onclick={() => pick(openGitTab)}><span class="ic"><Icon name="gitBranch" size={14} /></span> {t('workbench.gitTab')}</button>
-    <button class="plus-menu-item" onclick={() => pick(openPRTab)}><span class="ic"><Icon name="gitBranch" size={14} /></span> {t('workbench.prTab')}</button>
-    <button class="plus-menu-item" onclick={() => pick(openRepoMapTab)}><span class="ic"><Icon name="graph" size={14} /></span> {t('workbench.repoMapTab')}</button>
+    <button class="plus-menu-item" onclick={() => pick(openGitTab)}>
+      <span class="ic"><Icon name="gitBranch" size={14} /></span>
+      <span>{t('workbench.gitTab')}</span>
+      {#if codeStatus.gitChangedCount > 0}
+        <span class="menu-badge git" title="{codeStatus.gitChangedCount} changed files">{codeStatus.gitChangedCount}</span>
+      {/if}
+    </button>
+    <button class="plus-menu-item" onclick={() => pick(openPRTab)}>
+      <span class="ic"><Icon name="gitPullRequest" size={14} /></span>
+      <span>{t('workbench.prTab')}</span>
+      {#if codeStatus.openPRCount > 0}
+        <span class="menu-badge pr" title="{codeStatus.openPRCount} open PRs">{codeStatus.openPRCount}</span>
+      {/if}
+    </button>
+    <button class="plus-menu-item" onclick={() => pick(openRepoMapTab)}><span class="ic"><Icon name="graph" size={14} /></span> <span>{t('workbench.repoMapTab')}</span></button>
   {/if}
   <!-- Same gate the code group draws with, one coordinate over: the room is
        the editor's, so its row exists where that chair is sat (§85). The
@@ -511,6 +528,11 @@
       >
         <span class="ic"><Icon name={tabIcon[tab.kind] ?? 'fileText'} size={13} /></span>
         <span class="label">{tab.name}</span>
+        {#if tab.kind === 'git' && codeStatus.gitChangedCount > 0}
+          <span class="tab-badge git">{codeStatus.gitChangedCount}</span>
+        {:else if tab.kind === 'pr' && codeStatus.openPRCount > 0}
+          <span class="tab-badge pr">{codeStatus.openPRCount}</span>
+        {/if}
         <!-- Breathing on the one tab the agent is working. tab.id is the id the
              engine minted (web-agent-N) and busyWork.tab is that same id come
              back on the tool event, so this is an identity check and not a
@@ -527,7 +549,12 @@
       </button>
     {/each}
     <div class="plus-menu-wrap">
-      <button class="icobtn tiny plus-btn" aria-label={t('workbench.addTab')} data-tip={t('workbench.addTab')} onclick={() => (menuOpen = !menuOpen)}><Icon name="plus" size={14} /></button>
+      <button class="icobtn tiny plus-btn" aria-label={t('workbench.addTab')} data-tip={t('workbench.addTab')} onclick={() => (menuOpen = !menuOpen)}>
+        <Icon name="plus" size={14} />
+        {#if (codeStatus.gitChangedCount > 0 || codeStatus.openPRCount > 0) && !workbench.tabs.some((t) => t.kind === 'git' || t.kind === 'pr')}
+          <span class="plus-notice-dot" aria-hidden="true"></span>
+        {/if}
+      </button>
       {#if menuOpen}
         <div class="plus-menu" use:keepOnScreen>{@render tabChoices()}</div>
       {/if}
