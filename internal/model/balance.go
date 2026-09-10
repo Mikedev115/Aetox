@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Mikedev115/Aetox/internal/oauth"
 	"github.com/Mikedev115/Aetox/internal/provider"
 )
 
@@ -95,21 +94,11 @@ func FetchBalance(ctx context.Context, providerName, baseURL, apiKey string) (Ba
 	if kind != provider.BalanceMoney && !fetchesQuota {
 		return base, nil
 	}
-	if strings.TrimSpace(apiKey) == "" && canonical == "antigravity" {
-		if tok, err := oauth.Token(ctx, canonical); err == nil {
-			apiKey = tok
-		}
-	}
 	if strings.TrimSpace(apiKey) == "" {
 		return base, fmt.Errorf("%s: no API key configured", canonical)
 	}
 	if strings.TrimSpace(baseURL) == "" {
-		if canonical == "antigravity" {
-			baseURL = oauth.Endpoint(canonical)
-		}
-		if baseURL == "" {
-			baseURL = provider.DefaultBaseURL(canonical)
-		}
+		baseURL = provider.DefaultBaseURL(canonical)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, balanceTimeout)
@@ -124,8 +113,6 @@ func FetchBalance(ctx context.Context, providerName, baseURL, apiKey string) (Ba
 		return fetchOpenRouterBalance(ctx, base, baseURL, apiKey)
 	case "opencode-go":
 		return fetchOpencodeGoUsage(ctx, base, baseURL, apiKey)
-	case "antigravity":
-		return fetchAntigravityQuota(ctx, base, baseURL, apiKey)
 	default:
 		// The catalog says this provider has money to report but nobody here
 		// knows how to ask. Better to say so than to return a confident zero.
@@ -396,226 +383,6 @@ func fetchOpencodeGoUsage(ctx context.Context, out Balance, baseURL, apiKey stri
 			out.Sufficient = false
 		}
 	}
-	return out, nil
-}
-
-// ---------------------------------------------------------------------------
-// Google Antigravity
-// ---------------------------------------------------------------------------
-
-type antigravityModelsResp struct {
-	DefaultAgentModelID string `json:"defaultAgentModelId"`
-	Models              map[string]struct {
-		DisplayName string `json:"displayName"`
-		QuotaInfo   *struct {
-			RemainingFraction float64 `json:"remainingFraction"`
-			ResetTime         string  `json:"resetTime"`
-		} `json:"quotaInfo"`
-	} `json:"models"`
-}
-
-type antigravityQuotaSummaryResp struct {
-	Groups []struct {
-		DisplayName string `json:"displayName"`
-		Buckets     []struct {
-			BucketID          string  `json:"bucketId"`
-			DisplayName       string  `json:"displayName"`
-			Window            string  `json:"window"`
-			ResetTime         string  `json:"resetTime"`
-			RemainingFraction float64 `json:"remainingFraction"`
-		} `json:"buckets"`
-	} `json:"groups"`
-}
-
-func fetchAntigravityQuota(ctx context.Context, out Balance, baseURL, apiKey string) (Balance, error) {
-	endpoint := strings.TrimSuffix(strings.TrimSpace(baseURL), "/")
-	if endpoint == "" || (strings.Contains(endpoint, "cloudcode-pa.googleapis.com") && !strings.Contains(endpoint, "daily-")) {
-		endpoint = "https://daily-cloudcode-pa.googleapis.com/v1internal"
-	} else if u, err := url.Parse(endpoint); err == nil && u.Path == "" {
-		endpoint += "/v1internal"
-	}
-
-	now := time.Now()
-
-	// 1. Try :retrieveUserQuotaSummary first (returns weekly & 5h limits for Gemini and Claude).
-	summaryReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		endpoint+":retrieveUserQuotaSummary", strings.NewReader("{}"))
-	if err == nil {
-		summaryReq.Header.Set("Content-Type", "application/json")
-		summaryReq.Header.Set("Accept", "application/json")
-		summaryReq.Header.Set("Authorization", "Bearer "+apiKey)
-		summaryReq.Header.Set("User-Agent", "antigravity/2.12.2")
-
-		if resp, err := (&http.Client{Timeout: balanceTimeout}).Do(summaryReq); err == nil {
-			defer resp.Body.Close()
-			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-				body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-				var summary antigravityQuotaSummaryResp
-				if err := json.Unmarshal(body, &summary); err == nil && len(summary.Groups) > 0 {
-					var g5h, gWeek, c5h, cWeek *Quota
-					for _, group := range summary.Groups {
-						lowerGroup := strings.ToLower(group.DisplayName)
-						isGemini := strings.Contains(lowerGroup, "gemini")
-						isClaude := strings.Contains(lowerGroup, "claude") || strings.Contains(lowerGroup, "gpt") || strings.Contains(lowerGroup, "3p")
-
-						for _, b := range group.Buckets {
-							pct := clampPercent(b.RemainingFraction * 100)
-							var resetAt time.Time
-							if b.ResetTime != "" {
-								resetAt = parseResetInstant(b.ResetTime, now)
-							}
-							bLower := strings.ToLower(b.BucketID + " " + b.Window + " " + b.DisplayName)
-							is5h := strings.Contains(bLower, "5h") || strings.Contains(bLower, "five hour")
-							isWeekly := strings.Contains(bLower, "week")
-
-							if isGemini {
-								if is5h && g5h == nil {
-									g5h = &Quota{Window: "gemini", RemainingPercent: pct, ResetAt: resetAt, ObservedAt: now}
-								} else if isWeekly && gWeek == nil {
-									gWeek = &Quota{Window: "gemini_week", RemainingPercent: pct, ResetAt: resetAt, ObservedAt: now}
-								}
-							} else if isClaude {
-								if is5h && c5h == nil {
-									c5h = &Quota{Window: "claude", RemainingPercent: pct, ResetAt: resetAt, ObservedAt: now}
-								} else if isWeekly && cWeek == nil {
-									cWeek = &Quota{Window: "claude_week", RemainingPercent: pct, ResetAt: resetAt, ObservedAt: now}
-								}
-							}
-						}
-					}
-
-					if g5h != nil {
-						out.Quotas = append(out.Quotas, *g5h)
-					}
-					if gWeek != nil {
-						out.Quotas = append(out.Quotas, *gWeek)
-					}
-					if c5h != nil {
-						out.Quotas = append(out.Quotas, *c5h)
-					}
-					if cWeek != nil {
-						out.Quotas = append(out.Quotas, *cWeek)
-					}
-
-					if len(out.Quotas) > 0 {
-						out.FetchedAt = now
-						allExhausted := true
-						for _, q := range out.Quotas {
-							if q.RemainingPercent > 0 {
-								allExhausted = false
-								break
-							}
-						}
-						if allExhausted {
-							out.Sufficient = false
-						}
-						return out, nil
-					}
-				}
-			}
-		}
-	}
-
-	// 2. Fallback: :fetchAvailableModels
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		endpoint+":fetchAvailableModels", strings.NewReader("{}"))
-	if err != nil {
-		return out, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("User-Agent", "antigravity/2.12.2")
-
-	resp, err := (&http.Client{Timeout: balanceTimeout}).Do(req)
-	if err != nil {
-		return out, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return out, err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return out, fmt.Errorf("antigravity quota check failed with status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-
-	var parsed antigravityModelsResp
-	if err := json.Unmarshal(body, &parsed); err != nil {
-		return out, fmt.Errorf("antigravity quota parse failed: %w", err)
-	}
-
-	var geminiQuota, claudeQuota *Quota
-
-	extractQuota := func(window string, qInfo struct {
-		RemainingFraction float64 `json:"remainingFraction"`
-		ResetTime         string  `json:"resetTime"`
-	}) Quota {
-		q := Quota{
-			Window:           window,
-			RemainingPercent: clampPercent(qInfo.RemainingFraction * 100),
-			ObservedAt:       now,
-		}
-		if qInfo.ResetTime != "" {
-			q.ResetAt = parseResetInstant(qInfo.ResetTime, now)
-		}
-		return q
-	}
-
-	if defID := strings.TrimSpace(parsed.DefaultAgentModelID); defID != "" {
-		if m, ok := parsed.Models[defID]; ok && m.QuotaInfo != nil {
-			q := extractQuota("gemini", *m.QuotaInfo)
-			geminiQuota = &q
-		}
-	}
-
-	for id, m := range parsed.Models {
-		if m.QuotaInfo == nil {
-			continue
-		}
-		idLower := strings.ToLower(id)
-		if geminiQuota == nil && strings.HasPrefix(idLower, "gemini") {
-			q := extractQuota("gemini", *m.QuotaInfo)
-			geminiQuota = &q
-		}
-		if claudeQuota == nil && strings.HasPrefix(idLower, "claude") {
-			q := extractQuota("claude", *m.QuotaInfo)
-			claudeQuota = &q
-		}
-	}
-
-	if geminiQuota != nil {
-		out.Quotas = append(out.Quotas, *geminiQuota)
-	}
-	if claudeQuota != nil {
-		out.Quotas = append(out.Quotas, *claudeQuota)
-	}
-
-	if len(out.Quotas) == 0 {
-		for _, m := range parsed.Models {
-			if m.QuotaInfo != nil {
-				q := extractQuota("5h", *m.QuotaInfo)
-				out.Quotas = append(out.Quotas, q)
-				break
-			}
-		}
-	}
-
-	out.FetchedAt = now
-	if len(out.Quotas) > 0 {
-		allExhausted := true
-		for _, q := range out.Quotas {
-			if q.RemainingPercent > 0 {
-				allExhausted = false
-				break
-			}
-		}
-		if allExhausted {
-			out.Sufficient = false
-		}
-	}
-
 	return out, nil
 }
 

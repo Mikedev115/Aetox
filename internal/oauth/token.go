@@ -23,9 +23,10 @@ import (
 // alone — a borrowed OAuth client — and the warning it produced was speculation
 // dressed as a finding, on a flow that has worked throughout. A warning that
 // fires on everything is one users learn to click past, which costs exactly the
-// case it exists for. No sign-in Aetox currently ships is RiskRestricted; the
-// level stays because Antigravity (§66) is the worked example of one that would
-// be, and the next candidate gets measured against it.
+// case it exists for. The level is not vacant: GitHub Copilot (§241) ships at
+// RiskRestricted, because its flow presents an editor's client ID rather than
+// one published for third-party apps. The next candidate gets measured against
+// it.
 type Risk string
 
 const (
@@ -49,10 +50,11 @@ type Method struct {
 // methods is the registry of working sign-ins. A provider absent from here has
 // no OAuth path — Settings offers it an API key field and nothing else.
 //
-// Two entries. §66 cut this to OpenRouter alone on the rule "only flows the
+// Three entries. §66 cut this to OpenRouter alone on the rule "only flows the
 // provider publishes for third-party apps"; §69 put ChatGPT back and §70 dropped
 // the warning that came with it — see the Risk comment above for where the bar
-// sits now. The Note still says what the sign-in does, because that is
+// sits now. §241 added GitHub Copilot; Antigravity came in with it and was
+// retired in §242. The Note still says what the sign-in does, because that is
 // information rather than a caveat: which client it presents, and whose quota
 // the turns come out of.
 var methods = map[string]Method{
@@ -63,10 +65,6 @@ var methods = map[string]Method{
 	"codex": {
 		Provider: "codex", Label: "ChatGPT", Kind: "browser", Risk: RiskOpen,
 		Note: "Signs in through the Codex CLI's OAuth client and runs on your ChatGPT plan — the same quota Codex spends. Needs port 1455 free.",
-	},
-	"antigravity": {
-		Provider: "antigravity", Label: "Google Antigravity", Kind: "browser", Risk: RiskRestricted,
-		Note: "Signs in through Google OAuth to access Antigravity model quotas. Uses a third-party harness; use a secondary Google account as third-party harnesses carry policy risks.",
 	},
 	"github-copilot": {
 		Provider: "github-copilot", Label: "GitHub Copilot", Kind: "device", Risk: RiskRestricted,
@@ -81,7 +79,6 @@ var methods = map[string]Method{
 // dead credential.
 var refreshers = map[string]func(context.Context, Credential) (Credential, error){
 	"codex":          refreshCodex,
-	"antigravity":    refreshAntigravity,
 	"github-copilot": refreshCopilot,
 }
 
@@ -234,8 +231,6 @@ func Start(ctx context.Context, provider string) (*Pending, error) {
 		return StartOpenRouter()
 	case "codex":
 		return StartCodex()
-	case "antigravity":
-		return StartAntigravity()
 	case "github-copilot":
 		return StartCopilot(ctx)
 	default:
@@ -255,8 +250,6 @@ func Finish(ctx context.Context, pending *Pending, pasted string) error {
 		return FinishOpenRouter(ctx, pending)
 	case "codex":
 		return FinishCodex(ctx, pending)
-	case "antigravity":
-		return FinishAntigravity(ctx, pending)
 	case "github-copilot":
 		return FinishCopilot(ctx, pending)
 	default:

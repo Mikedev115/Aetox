@@ -210,17 +210,19 @@ func TestStatusForNeverLeaksTokens(t *testing.T) {
 	}
 }
 
-// Credentials for the four sign-ins that stayed removed — Claude Pro/Max,
-// Copilot, Qwen and Gemini Code Assist — may still sit in an oauth.json written
-// by an older version. They must read as signed out: never refreshed, never
-// sent.
+// Credentials for the sign-ins Aetox no longer offers — Claude Pro/Max (§64),
+// Qwen (§65), Gemini Code Assist (§66) and Antigravity (§242) — may still sit in
+// an oauth.json written by an older version. They must read as signed out: never
+// refreshed, never sent.
 //
-// ChatGPT is in the same file and is the control: §69 brought it back, so a
-// credential §64 would have dropped is read again rather than discarded.
+// ChatGPT and Copilot are in the same file and are the control: §69 and §241
+// brought them back, so a credential §64 would have dropped is read again rather
+// than discarded.
 func TestRemovedProviderCredentialsAreDropped(t *testing.T) {
 	dir := isolateStore(t)
 	raw := `{
   "anthropic":      {"type": "oauth", "access": "a", "refresh": "r"},
+  "antigravity":    {"type": "oauth", "access": "a", "refresh": "r"},
   "codex":          {"type": "oauth", "access": "a", "refresh": "r"},
   "github-copilot": {"type": "oauth", "access": "a", "refresh": "r"},
   "qwen":           {"type": "oauth", "access": "a", "refresh": "r"},
@@ -230,7 +232,7 @@ func TestRemovedProviderCredentialsAreDropped(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "oauth.json"), []byte(raw), 0o600); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	for _, provider := range []string{"anthropic", "qwen", "code-assist"} {
+	for _, provider := range []string{"anthropic", "antigravity", "qwen", "code-assist"} {
 		if _, ok := Get(provider); ok {
 			t.Fatalf("removed provider %q still reads as signed in", provider)
 		}

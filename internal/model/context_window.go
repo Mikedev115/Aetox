@@ -53,7 +53,7 @@ func ContextWindowTokens(provider, modelName string) int {
 		return ContextWindowTokens("openai", modelID)
 	case "anthropic":
 		return 200_000
-	case "gemini", "antigravity":
+	case "gemini":
 		return geminiContextWindow(modelID)
 	case "zai":
 		return zaiContextWindow(modelID)

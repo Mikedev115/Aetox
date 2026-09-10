@@ -32,10 +32,6 @@ const (
 	// what a ChatGPT subscription speaks and the only thing that endpoint
 	// serves.
 	RuntimeResponses Runtime = "responses"
-	// RuntimeAntigravity is Google's Cloud Code / Antigravity wire format:
-	// nested `request` envelope, Gemini content parts, functionCall, and
-	// project routing.
-	RuntimeAntigravity Runtime = "antigravity"
 )
 
 // ModelDefaults holds the static fallback model names for a provider.
@@ -114,9 +110,6 @@ const (
 	// gateway sends no x-ratelimit-* family at all (measured 2026-08-23), and
 	// the plan it bills against is stated nowhere else on the wire.
 	QuotaOpencodeGo QuotaSource = "opencode-go"
-	// QuotaAntigravity: POST /v1internal:fetchAvailableModels, which carries
-	// quotaInfo (remainingFraction and resetTime) for Gemini and Claude models.
-	QuotaAntigravity QuotaSource = "antigravity"
 )
 
 // Fetched separates the two kinds of quota this registry names.
@@ -130,7 +123,7 @@ const (
 // about the provider, and a second copy over there could disagree with this
 // one about a row — the exact shape of debt this package exists to prevent.
 func (q QuotaSource) Fetched() bool {
-	return q == QuotaOpenRouter || q == QuotaOpencodeGo || q == QuotaAntigravity
+	return q == QuotaOpenRouter || q == QuotaOpencodeGo
 }
 
 // Spec is the canonical metadata for one supported provider.
@@ -332,23 +325,6 @@ var catalog = map[string]*entry{
 		// DiscoverResponsesModels answers this per account and per plan; the
 		// name below is only what to try before anyone has signed in.
 		modelDefaults: ModelDefaults{FallbackModel: "gpt-5.5"},
-		capabilities:  Capabilities{ToolCalling: true, Reasoning: true},
-	},
-	// Google Antigravity is a subscription/developer preview tier reached
-	// through Google OAuth. Serves Gemini 3, 3.8 Flash, and Claude models.
-	"antigravity": {
-		canonical:      "antigravity",
-		balanceKind:    BalanceSubscription,
-		quotaSource:    QuotaAntigravity,
-		signInOnly:     true,
-		aliases:        []string{"antigravity", "agy", "google-antigravity"},
-		requiresAPIKey: true,
-		runtime:        RuntimeAntigravity,
-		baseURL:        "https://daily-cloudcode-pa.googleapis.com/v1internal",
-		envKeys:        nil,
-		// DiscoverAntigravityModels dynamically queries daily-cloudcode-pa.googleapis.com
-		// (:fetchAvailableModels) per account; FallbackModel is only used before dynamic discovery.
-		modelDefaults: ModelDefaults{FallbackModel: "gemini-3.8-flash-high"},
 		capabilities:  Capabilities{ToolCalling: true, Reasoning: true},
 	},
 	// github-copilot is reached with a token minted from a GitHub sign-in

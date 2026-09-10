@@ -114,8 +114,17 @@ var storeMu sync.Mutex
 // deliberately absent below. An oauth.json that survived §64 without being
 // written since still holds a usable codex credential, and it is read again
 // rather than dropped.
+//
+// Antigravity (§242) is the first entry here that is not a sign-in left behind
+// by a provider still shipping: the row itself is gone from the catalog, so no
+// API key carries its name either. It arrived in §241 and was retired on the
+// owner's call, which is a plain reason and worth recording as one — the
+// preview quota was reached through Google's own editor client, and the owner
+// does not want to run the tool that way. Its key below stays the literal
+// string, for the oauth.json files v1.5.23 and v1.5.24 wrote.
 var removedProviders = map[string]bool{
 	"anthropic":   true,
+	"antigravity": true,
 	"qwen":        true,
 	"code-assist": true,
 }

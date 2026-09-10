@@ -110,19 +110,6 @@ func NewProvider(opts ProviderOptions) (Provider, error) {
 			BaseURL:  opts.BaseURL,
 			Timeout:  timeout,
 		})
-	case string(pvdr.RuntimeAntigravity):
-		project := ""
-		if cred, ok := oauth.Get(provider); ok {
-			project = cred.Account
-		}
-		return NewAntigravityProvider(AntigravityConfig{
-			Provider:    provider,
-			Model:       opts.Model,
-			BaseURL:     opts.BaseURL,
-			Project:     project,
-			Timeout:     timeout,
-			TokenSource: tokenSource,
-		})
 	default:
 		return nil, fmt.Errorf("unsupported model provider: %q", provider)
 	}

@@ -147,7 +147,7 @@ func ResolveThinkingCapabilities(provider, modelName string) ThinkingCapabilitie
 	switch canonicalProvider {
 	case "openai":
 		return cloneThinkingCapabilities(resolveOpenAIThinkingCapabilities(modelID))
-	case "gemini", "antigravity":
+	case "gemini":
 		return cloneThinkingCapabilities(resolveGeminiThinkingCapabilities(modelID))
 	case "openrouter", "anthropic", "deepseek", "kimi", "minimax", "xai",
 		"groq", "opencode", "opencode-go", "kilo":
