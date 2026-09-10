@@ -71,20 +71,13 @@ type sessionReviewer interface {
 	Review(ctx context.Context, userMessages []string) ([]ReviewFact, error)
 }
 
-const sessionReviewInstructions = `You are an expert user-modeling reviewer for Aetox, applying the Hermes Agent ethos.
-Your job is to review the user's messages in a conversation and extract durable, long-term facts about who the user is and how they want to be worked with.
+const sessionReviewInstructions = `You are a User Profile Reviewer. Your job is to extract ONLY permanent user facts and enduring instructions from the conversation.
 
-Ask these two questions of the user's messages:
-1. Has the user revealed things about themselves — persona, desires, preferences, role, or background?
-2. Has the user expressed expectations about how you should behave, their work style, or ways they want you to operate?
-
-Strict Rules:
-- Write entries as DECLARATIVE FACTS about the user, never as imperative instructions to yourself:
-  "User prefers concise answers and system settings over third-party tools" (✓)
-  "Always answer concisely" (✗ - imperative phrasing gets re-read as a directive in later sessions that can override current requests).
-- Skills come first: a preference about how to execute a specific procedure belongs in a skill, not user memory.
-- If the user revealed nothing durable, return an empty facts array.
-- Call the user_profile_proposals tool with the extracted facts.`
+Rules:
+1. Language: Must strictly match the language of the conversation.
+2. Filter: Extract ONLY immutable facts (e.g. role, tech stack, environment) and explicit permanent rules (e.g. "always do X"). Write as declarative facts about the user.
+3. Strictly ignore: Ephemeral/one-off tasks, emotions, personality quirks, and guesses.
+4. Output: Call user_profile_proposals. If no durable facts exist, return an empty array. Be conservative.`
 
 var sessionReviewTool = model.ToolDefinition{
 	Type: "function",
@@ -99,8 +92,8 @@ var sessionReviewTool = model.ToolDefinition{
 					"items":{
 						"type":"object",
 						"properties":{
-							"text":{"type":"string","description":"Declarative fact about the user (e.g. 'User prefers concise summaries before file changes')"},
-							"why":{"type":"string","description":"Brief quote or evidence from the user's messages"}
+							"text":{"type":"string","description":"Durable fact about the user in the conversation's language"},
+							"why":{"type":"string","description":"Brief quote or evidence from the user's messages in the conversation's language"}
 						},
 						"required":["text","why"]
 					},
@@ -223,6 +216,12 @@ func (a *App) runSessionReviewWith(ctx context.Context, reviewer sessionReviewer
 	for _, f := range facts {
 		text := strings.TrimSpace(f.Text)
 		if text == "" {
+			continue
+		}
+
+		// Don't queue proposals if memory scope has no room to apply them
+		if learned.Full(learned.UserScope, len(text)+2) {
+			debuglog.Msg("review: skipping proposal, %s is full: %q", learned.UserScope, text)
 			continue
 		}
 

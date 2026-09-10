@@ -26,24 +26,20 @@ const habitSynthesisInstructions = `You are Aetox's Habit & Workflow Synthesizer
 Your role is to analyze user requests and the actions/tools executed across multiple sessions (or a single repeated session).
 Your goal is to decide whether this repeated pattern should become an automated Skill or a durable Memory, and propose it cleanly.
 
-Decision Rules:
-1. "skill": If this pattern represents a procedure, script, multi-step workflow, or recurring tool task (e.g. GPU check, git pull-and-test, data conversions).
-   Draft a complete, self-contained SKILL.md content with YAML frontmatter:
-   ---
-   name: <slug>
-   description: <short description in Thai or user language>
-   ---
-   # <Title>
-   <Concise step-by-step instructions and command recipes>
-
-2. "user_profile": If this pattern reveals a durable, long-term fact about who the user is, their working style, or workflow preferences (e.g. 'User prefers concise summaries before file changes', 'User builds applications with Svelte 5 and Go').
-   Write a single declarative fact for USER.md.
-
-3. "machine_memory": If this is a permanent, non-negotiable hardware or environment constraint (e.g. hardware limits, global proxy).
-   Write a single declarative fact for MEMORY.md.
-
-If the user asked for this directly or if a recurring pattern exists, ALWAYS call habit_proposal with your best proposal.
-If there is genuinely nothing durable or worth automating, do not call the tool.`
+Rules:
+1. Language: Must strictly match the language of the conversation/user (e.g. Thai if user speaks Thai).
+2. Decision Rules:
+   - "skill": If this pattern represents a procedure, script, multi-step workflow, or recurring tool task (e.g. GPU check, git pull-and-test, data conversions).
+     Draft a complete, self-contained SKILL.md content with YAML frontmatter:
+     ---
+     name: <slug>
+     description: <short description in the user's language>
+     ---
+     # <Title>
+     <Concise step-by-step instructions and command recipes>
+   - "user_profile": Extract ONLY immutable facts (e.g. role, tech stack, environment) and explicit permanent working rules. Write as a declarative fact about the user in their language. Strictly ignore ephemeral/one-off tasks, emotions, personality quirks, and guesses.
+   - "machine_memory": Permanent, non-negotiable hardware or environment constraint (e.g. hardware limits, global proxy). Write as a declarative fact in the user's language for MEMORY.md.
+3. Be conservative: Propose only if the user explicitly asked or a genuinely durable, recurring pattern exists. If there is nothing durable or worth automating, do not call the tool.`
 
 var habitSynthesisTool = model.ToolDefinition{
 	Type: "function",
@@ -64,15 +60,15 @@ var habitSynthesisTool = model.ToolDefinition{
 				},
 				"title": {
 					"type": "string",
-					"description": "User-facing summary headline in Thai"
+					"description": "User-facing summary headline in the conversation's language"
 				},
 				"body": {
 					"type": "string",
-					"description": "The SKILL.md content (for skill) or declarative fact (for user_profile/machine_memory)"
+					"description": "The SKILL.md content (for skill) or declarative fact in the conversation's language (for user_profile/machine_memory)"
 				},
 				"reason": {
 					"type": "string",
-					"description": "Evidence and reasoning citing what was observed across the sessions"
+					"description": "Evidence and reasoning citing what was observed across the sessions in the conversation's language"
 				}
 			},
 			"required": ["destination", "title", "body", "reason"]
