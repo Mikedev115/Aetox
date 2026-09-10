@@ -826,7 +826,11 @@ func elementLine(el browserElement) string {
 	case el.Focused:
 		mark = " (focused — where the page's keys go now)"
 	case el.Hidden:
-		mark = " (hidden — not on screen; if the page has an editor focused, keys typed here go to that editor)"
+		if role == "file" {
+			mark = " (hidden file input — choose file via upload)"
+		} else {
+			mark = " (hidden — not on screen; if the page has an editor focused, keys typed here go to that editor)"
+		}
 	}
 	return fmt.Sprintf("[%d] %s: %q%s", el.Ref, role, el.Text, mark)
 }
