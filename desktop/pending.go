@@ -536,7 +536,54 @@ func (a *App) SaveLearnedEntry(scope string, index int, text string) error {
 	}
 	// Same event the approval path emits: anything showing memory is looking at
 	// a file that just changed, and one signal beats each surface polling.
-	if a.ctx != nil {
+	if a.emit != nil {
+		a.emit("learning:changed")
+	} else if a.ctx != nil {
+		wailsruntime.EventsEmit(a.ctx, "learning:changed", nil)
+	}
+	return nil
+}
+
+// AddLearnedEntry appends one durable fact into a scope's memory file directly.
+func (a *App) AddLearnedEntry(scope, text string) error {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil
+	}
+	if err := learned.Apply(strings.TrimSpace(scope), learned.OpAdd, "", text); err != nil {
+		return err
+	}
+	if a.emit != nil {
+		a.emit("learning:changed")
+	} else if a.ctx != nil {
+		wailsruntime.EventsEmit(a.ctx, "learning:changed", nil)
+	}
+	return nil
+}
+
+// MoveLearnedEntry transfers one remembered line from fromScope to toScope.
+// For instance, moving a fact about the user from the main assistant's MEMORY.md
+// into the user profile USER.md, or vice versa.
+func (a *App) MoveLearnedEntry(fromScope, toScope string, index int) error {
+	fromScope = strings.TrimSpace(fromScope)
+	toScope = strings.TrimSpace(toScope)
+	if fromScope == toScope {
+		return nil
+	}
+	lines := learned.Entries(fromScope)
+	if index < 0 || index >= len(lines) {
+		return fmt.Errorf("that line is no longer there — reopen the page and try again")
+	}
+	text := lines[index]
+	if err := learned.Apply(toScope, learned.OpAdd, "", text); err != nil {
+		return err
+	}
+	if err := learned.EditEntry(fromScope, index, ""); err != nil {
+		return err
+	}
+	if a.emit != nil {
+		a.emit("learning:changed")
+	} else if a.ctx != nil {
 		wailsruntime.EventsEmit(a.ctx, "learning:changed", nil)
 	}
 	return nil

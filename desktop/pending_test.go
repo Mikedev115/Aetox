@@ -341,3 +341,67 @@ func TestAnOrphanedProjectMemoryIsNamedAndHasItsExits(t *testing.T) {
 		t.Error("the forgotten scope still reads back")
 	}
 }
+
+func TestMoveLearnedEntryTransfersBetweenScopes(t *testing.T) {
+	a := newJobApp(t)
+	events := 0
+	a.emit = func(ev string, _ ...any) {
+		if ev == "learning:changed" {
+			events++
+		}
+	}
+
+	userFact := "User is developing Aetox desktop app"
+	if err := learned.Apply(learned.MainScope, learned.OpAdd, "", userFact); err != nil {
+		t.Fatalf("seed main: %v", err)
+	}
+
+	if err := a.MoveLearnedEntry(learned.MainScope, learned.UserScope, 0); err != nil {
+		t.Fatalf("move: %v", err)
+	}
+
+	// Should be removed from MainScope and present in UserScope
+	if got := learned.Read(learned.MainScope); strings.Contains(got, userFact) {
+		t.Errorf("line was not removed from MainScope: %q", got)
+	}
+	if got := learned.Read(learned.UserScope); !strings.Contains(got, userFact) {
+		t.Errorf("line was not added to UserScope: %q", got)
+	}
+	if events != 1 {
+		t.Errorf("expected 1 learning:changed event, got %d", events)
+	}
+
+	// Move back
+	if err := a.MoveLearnedEntry(learned.UserScope, learned.MainScope, 0); err != nil {
+		t.Fatalf("move back: %v", err)
+	}
+	if got := learned.Read(learned.MainScope); !strings.Contains(got, userFact) {
+		t.Errorf("line was not moved back to MainScope: %q", got)
+	}
+	if got := learned.Read(learned.UserScope); strings.Contains(got, userFact) {
+		t.Errorf("line was not removed from UserScope: %q", got)
+	}
+}
+
+func TestAddLearnedEntryAppendsDirectlyToScope(t *testing.T) {
+	a := newJobApp(t)
+	events := 0
+	a.emit = func(ev string, _ ...any) {
+		if ev == "learning:changed" {
+			events++
+		}
+	}
+
+	fact := "Explore agent knows how to search fast"
+	if err := a.AddLearnedEntry("explore", fact); err != nil {
+		t.Fatalf("AddLearnedEntry: %v", err)
+	}
+
+	if got := learned.Read("explore"); !strings.Contains(got, fact) {
+		t.Errorf("expected %q in explore memory, got %q", fact, got)
+	}
+	if events != 1 {
+		t.Errorf("expected 1 event, got %d", events)
+	}
+}
+

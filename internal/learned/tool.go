@@ -215,7 +215,7 @@ func (t *MemoryTool) ToolDefinition() model.ToolDefinition {
 			},
 			"text": map[string]any{
 				"type":        "string",
-				"description": "The fact, in one sentence. Required for add and replace.",
+				"description": "The fact, in one sentence. Write it in the same language the user communicates in (e.g. Thai if the user speaks Thai). Required for add and replace.",
 			},
 			"old": map[string]any{
 				"type":        "string",
@@ -223,7 +223,7 @@ func (t *MemoryTool) ToolDefinition() model.ToolDefinition {
 			},
 			"why": map[string]any{
 				"type":        "string",
-				"description": "What in this session showed you this. The user reads it when deciding whether to keep it.",
+				"description": "What in this session showed you this, in the user's language. The user reads it when deciding whether to keep it.",
 			},
 		},
 		"additionalProperties": false,
@@ -278,6 +278,8 @@ func (t *MemoryTool) definitionText() string {
 			"how you do the same job again. " +
 			"Not worth keeping: anything about the job in front of you, anything you could read or search for " +
 			"at the moment you need it, and a conclusion of your own you have not seen borne out. " +
+			"Write both the fact and the reason in the user's language (the language they communicate with you in), " +
+			"so they can review and approve it naturally. " +
 			"This file is yours alone. Nobody else reads it, nothing you write reaches the assistant or another " +
 			"worker, and you are the one who will pay for it: a remembered line costs context on every job you " +
 			"are ever given again, so a wrong or idle one is paid for forever. " +
@@ -293,6 +295,8 @@ func (t *MemoryTool) definitionText() string {
 		"is said rather than waiting to be told to. " +
 		"Not worth keeping: anything about the task in front of you, anything you could look up or " +
 		"search for when you need it, and a conclusion of your own you have not seen borne out. " +
+		"Write both the fact and the reason in the user's language (the language they communicate with you in), " +
+		"so they can review and approve it naturally. " +
 		"Write a fact, never an instruction to yourself: \"they prefer short answers\", not \"always " +
 		"answer briefly\" — an order kept here outranks what they ask you for next month. " +
 		"How to do a kind of work belongs in the skill for that work, not here. " +
