@@ -207,6 +207,12 @@ CREATE TABLE IF NOT EXISTS pending_changes (
   decided_at TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_pending_state ON pending_changes(state, id);
+
+CREATE TABLE IF NOT EXISTS ignored_habits (
+  normalized  TEXT PRIMARY KEY,
+  sample_text TEXT NOT NULL DEFAULT '',
+  ignored_at  TEXT NOT NULL
+);
 `
 
 // migration is one step from schema version N-1 to N. The version a database
@@ -744,6 +750,19 @@ CREATE TABLE IF NOT EXISTS project_folders (
 			    version    INTEGER NOT NULL DEFAULT 1,
 			    created    TEXT NOT NULL DEFAULT '',
 			    updated    TEXT NOT NULL DEFAULT ''
+			  )`)
+			return err
+		},
+	},
+	{
+		version: 21,
+		name:    "ignored_habits",
+		apply: func(tx *sql.Tx) error {
+			_, err := tx.Exec(`
+			  CREATE TABLE IF NOT EXISTS ignored_habits (
+			    normalized  TEXT PRIMARY KEY,
+			    sample_text TEXT NOT NULL DEFAULT '',
+			    ignored_at  TEXT NOT NULL
 			  )`)
 			return err
 		},

@@ -2,9 +2,11 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -22,7 +24,7 @@ type RecurringRequest struct {
 }
 
 // Regex for attachment wrappers injected into prompt text.
-var attachmentPattern = regexp.MustCompile(`\[Attached (?:file|image): [^\]]+\]`)
+var attachmentPattern = regexp.MustCompile(`(?i)\n*\[attachment: [^\]]*\]\s*\S*|\[Attached (?:file|image): [^\]]+\]`)
 
 // Thai polite particles and request fillers stripped during normalization.
 var thaiFillers = []string{
@@ -52,10 +54,13 @@ func normalizeMessage(text string) string {
 	// 2. Lowercase for case-insensitive matching
 	text = strings.ToLower(text)
 
-	// 3. Remove punctuation and control characters
+	// 3. Remove punctuation and control characters (preserve dots between digits for versions like 1.5.22)
+	runes := []rune(text)
 	var b strings.Builder
-	for _, r := range text {
-		if unicode.IsPunct(r) || unicode.IsSymbol(r) {
+	for i, r := range runes {
+		if r == '.' && i > 0 && i+1 < len(runes) && unicode.IsDigit(runes[i-1]) && unicode.IsDigit(runes[i+1]) {
+			b.WriteRune(r)
+		} else if unicode.IsPunct(r) || unicode.IsSymbol(r) {
 			b.WriteRune(' ')
 		} else {
 			b.WriteRune(r)
@@ -63,8 +68,16 @@ func normalizeMessage(text string) string {
 	}
 	text = b.String()
 
-	// 4. Collapse spaces
+	// 4. Collapse spaces and strip fillers from words
 	fields := strings.Fields(text)
+	for i, f := range fields {
+		for _, filler := range thaiFillers {
+			if strings.HasSuffix(f, filler) && len(f) > len(filler) {
+				fields[i] = strings.TrimSuffix(f, filler)
+				break
+			}
+		}
+	}
 	text = strings.Join(fields, " ")
 
 	// 5. Strip Thai polite particles and prefixes/suffixes iteratively
@@ -127,43 +140,66 @@ func areRequestsSimilar(a, b string) bool {
 
 	runesA := []rune(a)
 	runesB := []rune(b)
-	minRunes := len(runesA)
-	if len(runesB) < minRunes {
-		minRunes = len(runesB)
+	lenA, lenB := len(runesA), len(runesB)
+	minRunes := lenA
+	maxRunes := lenB
+	if lenB < minRunes {
+		minRunes = lenB
+		maxRunes = lenA
 	}
 
 	if minRunes == 0 {
 		return false
 	}
 
-	// If one contains the other
+	// If one contains the other: require the shorter one to be at least 50% of the longer one
+	// or minRunes >= 15 runes so that short words do not absorb long completely different sentences.
 	if strings.Contains(a, b) || strings.Contains(b, a) {
-		if minRunes >= 3 {
+		if float64(minRunes)/float64(maxRunes) >= 0.5 || minRunes >= 15 {
 			return true
 		}
 	}
 
-	// Check longest common contiguous substring as a proportion of the shorter text
+	// Check longest common contiguous substring as a proportion of both texts
 	lcs := longestCommonSubstringRunes(runesA, runesB)
 	if minRunes >= 6 && float64(lcs)/float64(minRunes) >= 0.55 && lcs >= 6 {
-		return true
+		if float64(lcs)/float64(maxRunes) >= 0.35 {
+			return true
+		}
 	}
 
-	// Word/token overlap check for multi-word phrases
+	// Word/token overlap check for multi-word phrases.
+	// Single characters, pure numbers (e.g. "1", "5"), and duplicate matches must not trigger false clusters.
 	wordsA := strings.Fields(a)
 	wordsB := strings.Fields(b)
 	if len(wordsA) > 1 && len(wordsB) > 1 {
-		common := 0
 		setB := make(map[string]bool, len(wordsB))
 		for _, w := range wordsB {
-			setB[w] = true
+			if len([]rune(w)) > 1 && !isAllDigits(w) {
+				setB[w] = true
+			}
 		}
+
+		uniqueA := make(map[string]bool, len(wordsA))
 		for _, w := range wordsA {
+			if len([]rune(w)) > 1 && !isAllDigits(w) {
+				uniqueA[w] = true
+			}
+		}
+
+		common := 0
+		for w := range uniqueA {
 			if setB[w] {
 				common++
 			}
 		}
-		if common >= 2 || (float64(common)/float64(len(wordsA)) >= 0.5 && common > 0) {
+
+		minWords := len(uniqueA)
+		if len(setB) < minWords {
+			minWords = len(setB)
+		}
+
+		if minWords > 0 && common >= 2 && float64(common)/float64(minWords) >= 0.5 {
 			return true
 		}
 	}
@@ -234,8 +270,24 @@ func clusterRecurringMessages(msgs []sessionUserMsg, minCount int) []RecurringRe
 	return out
 }
 
+// loadIgnoredHabits loads normalized patterns that the user dismissed.
+func loadIgnoredHabits(db *sql.DB) map[string]bool {
+	ignored := make(map[string]bool)
+	if db == nil {
+		return ignored
+	}
+	_ = eachRow(db, "habits: reading ignored habits", `SELECT normalized FROM ignored_habits`, nil, func(rows *sql.Rows) error {
+		var norm string
+		if err := rows.Scan(&norm); err == nil && norm != "" {
+			ignored[norm] = true
+		}
+		return nil
+	})
+	return ignored
+}
+
 // detectRecurringRequests queries SQLite for the first user message of recent sessions
-// and returns clusters that cross minCount.
+// and returns clusters that cross minCount, excluding dismissed habits.
 func detectRecurringRequests(db *sql.DB, minCount, limitSessions int) []RecurringRequest {
 	if db == nil {
 		return nil
@@ -271,7 +323,26 @@ func detectRecurringRequests(db *sql.DB, minCount, limitSessions int) []Recurrin
 		return nil
 	}
 
-	return clusterRecurringMessages(msgs, minCount)
+	clusters := clusterRecurringMessages(msgs, minCount)
+	ignored := loadIgnoredHabits(db)
+	if len(ignored) == 0 {
+		return clusters
+	}
+
+	var filtered []RecurringRequest
+	for _, req := range clusters {
+		isIgnored := false
+		for ign := range ignored {
+			if ign == req.Normalized || areRequestsSimilar(ign, req.Normalized) {
+				isIgnored = true
+				break
+			}
+		}
+		if !isIgnored {
+			filtered = append(filtered, req)
+		}
+	}
+	return filtered
 }
 
 // checkFirstTurnRecurrence checks if the current message matches a recurring pattern
@@ -310,4 +381,35 @@ func (a *App) ListRecurringRequests() []RecurringRequest {
 		return nil
 	}
 	return detectRecurringRequests(db, 2, 100)
+}
+
+// DismissRecurringRequest records a habit pattern in ignored_habits so it won't appear again.
+func (a *App) DismissRecurringRequest(normalized, sampleText string) error {
+	db, err := a.database()
+	if err != nil {
+		return err
+	}
+	if normalized == "" && sampleText != "" {
+		normalized = normalizeMessage(sampleText)
+	}
+	if normalized == "" {
+		return fmt.Errorf("normalized habit pattern is empty")
+	}
+	_, err = db.Exec(`
+		INSERT INTO ignored_habits(normalized, sample_text, ignored_at)
+		VALUES (?, ?, ?)
+		ON CONFLICT(normalized) DO UPDATE SET ignored_at = excluded.ignored_at, sample_text = excluded.sample_text`,
+		normalized, sampleText, time.Now().UTC().Format(time.RFC3339),
+	)
+	return err
+}
+
+// RestoreRecurringRequest removes a habit pattern from ignored_habits.
+func (a *App) RestoreRecurringRequest(normalized string) error {
+	db, err := a.database()
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`DELETE FROM ignored_habits WHERE normalized = ?`, normalized)
+	return err
 }

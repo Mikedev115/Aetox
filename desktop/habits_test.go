@@ -36,6 +36,14 @@ func TestNormalizeMessage(t *testing.T) {
 			input: "Check GPU Power Draw, please?",
 			want:  "check gpu power draw please",
 		},
+		{
+			input: "รูปนี้อ่านให้หน่อยครับ\n\n[attachment: user-attached image — read it with image_ocr] .aetox-attachments/shot.png",
+			want:  "รูปนี้อ่าน",
+		},
+		{
+			input: "บิ้วเป็น 1.5.22 ให้หน่อย",
+			want:  "บิ้วเป็น 1.5.22",
+		},
 	}
 
 	for _, tt := range tests {
@@ -55,6 +63,17 @@ func TestAreRequestsSimilar(t *testing.T) {
 	}
 	if areRequestsSimilar("เช็คกำลังไฟ gpu", "pull โค้ดโปรเจกต์") {
 		t.Errorf("unrelated requests should not be similar")
+	}
+	// Regression: Unrelated prompts with numbers or versions like 1.5.x should not falsely cluster
+	commitPrompt := normalizeMessage("อ่านโค้ดแล้วคอมมิตให้ผมอ่านโค้ดอย่างระเอียดเลยนะ เอาแค่ที่แก้ไป และคอมมิตทีละส่วนห้ามทำให้โค้ดเสียรูปเด็ดขาด และเตรียมบิ้วเป็น 1.5.22 พร้อมปล่อยสู่กิตฮับเขียนรายละเอียดให้ดีว่าเพิ่ม อะไรมาบ้าง")
+	goldPrompt := normalizeMessage("หาราคาทองคำแท่ง 96.5% เฉลี่ยต้นปีย้อนหลัง 5 ปีที่ผ่านมา เทียบกับอัตราเงินเฟ้อไทย ปีเดียวกัน ทำเป็นตารางให้หน่อย")
+	releasePrompt := normalizeMessage("เช็คกิตฮับให้ผมหน่อยปลอ่ย 1.5.21 ออกสู่สาธณะเลย")
+
+	if areRequestsSimilar(commitPrompt, goldPrompt) {
+		t.Errorf("commit prompt and gold inflation prompt should not be similar")
+	}
+	if areRequestsSimilar(commitPrompt, releasePrompt) {
+		t.Errorf("complex commit prompt and simple release prompt should not be similar")
 	}
 }
 
@@ -125,3 +144,51 @@ func TestDetectRecurringRequestsFromDB(t *testing.T) {
 		t.Errorf("expected first turn recurrence count 3, got %d", count)
 	}
 }
+
+func TestDetectRecurringRequestsExcludesIgnored(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("sql.Open failed: %v", err)
+	}
+	defer db.Close()
+
+	schema := `
+	CREATE TABLE messages (
+	  id INTEGER PRIMARY KEY AUTOINCREMENT,
+	  session_id TEXT NOT NULL,
+	  role TEXT NOT NULL,
+	  text TEXT NOT NULL,
+	  time TEXT NOT NULL
+	);
+	CREATE TABLE ignored_habits (
+	  normalized TEXT PRIMARY KEY,
+	  sample_text TEXT NOT NULL DEFAULT '',
+	  ignored_at TEXT NOT NULL
+	);
+	`
+	if _, err := db.Exec(schema); err != nil {
+		t.Fatalf("create table failed: %v", err)
+	}
+
+	_, _ = db.Exec(`INSERT INTO messages(session_id, role, text, time) VALUES('s1', 'user', 'ทดสอบยาว 50 บรรทัด', '2026-09-01 10:00')`)
+	_, _ = db.Exec(`INSERT INTO messages(session_id, role, text, time) VALUES('s2', 'user', 'ทดสอบยาว 50 บรรทัด', '2026-09-02 10:00')`)
+
+	clusters := detectRecurringRequests(db, 2, 100)
+	if len(clusters) != 1 {
+		t.Fatalf("expected 1 cluster before ignore, got %d", len(clusters))
+	}
+
+	// Now ignore this habit
+	norm := clusters[0].Normalized
+	_, err = db.Exec(`INSERT INTO ignored_habits(normalized, sample_text, ignored_at) VALUES(?, ?, '2026-09-10')`, norm, "ทดสอบยาว 50 บรรทัด")
+	if err != nil {
+		t.Fatalf("insert into ignored_habits failed: %v", err)
+	}
+
+	// Should now be excluded
+	after := detectRecurringRequests(db, 2, 100)
+	if len(after) != 0 {
+		t.Errorf("expected 0 clusters after ignore, got %d", len(after))
+	}
+}
+
