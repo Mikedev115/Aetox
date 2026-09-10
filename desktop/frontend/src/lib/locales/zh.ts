@@ -432,6 +432,11 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'git.noDiff': '没有可显示的行改动，可能是二进制文件或仅重命名。',
   'git.openFile': '打开文件',
   'git.refresh': '重新读取',
+  'git.dangerousWarningTitle': '检测到潜在敏感或危险文件 ({n})',
+  'git.dangerousWarningDesc': '这些文件可能包含机密、密钥或数据文件，不建议提交到 Git。',
+  'git.askAssistant': '咨询助手',
+  'git.dangerousBadge': '敏感文件',
+  'git.askAssistantPrompt': '在 Git 提交前检测到潜在敏感或危险文件：\n{files}\n\n助手处理指南 (Action Notes)：\n1. 检查这些文件是否应立即添加到 .gitignore，并提供准确的配置规则。\n2. 若文件已被 Git 跟踪，提供安全取消跟踪命令 (git rm --cached)。\n3. 建议创建模板文件（如 .env.example），供团队使用且避免泄露密钥。\n4. 提供检查 Git 历史记录的建议，确保未曾泄露敏感凭证。',
   // ---- 工具行上的动词 ----
   // 这一行说的是智能体在做什么，而不是哪个函数被调用了。打包（§99）之后工具名本身
   // 已经答不出这个问题——`browser` 是十二句话，`change` 是五句。名字加动作到这些键的
