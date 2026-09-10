@@ -16,7 +16,13 @@
   // files is an ordinary state, and forty `git show` calls to draw a list nobody
   // has looked at yet is work done on the chance it is wanted.
   import { onMount } from 'svelte'
-  import { GitWorkingTree, GitFileDiff } from '../../../wailsjs/go/main/App'
+  import {
+    GitWorkingTree,
+    GitFileDiff,
+    GitCommitFiles,
+    GitSuggestCommitMessage,
+    GitSuggestSplitCommits,
+  } from '../../../wailsjs/go/main/App'
   import { main } from '../../../wailsjs/go/models'
   import { cockpit } from '../stores/cockpit.svelte'
   import { openFileTab } from '../stores/workbench.svelte'
@@ -30,40 +36,81 @@
   let diffs = $state<Record<string, string>>({})
   let loading = $state<Record<string, boolean>>({})
 
+  // Mode: 'split' (AI Smart Split) vs 'manual' (Manual Selection / Single Commit)
+  let mode = $state<'split' | 'manual'>('split')
+
+  // Manual commit state
+  let manualMessage = $state('')
+  let selectedFiles = $state<Record<string, boolean>>({})
+  let generatingMessage = $state(false)
+  let committing = $state(false)
+  let alert = $state<{ type: 'err' | 'success'; text: string } | null>(null)
+
+  // Smart split state
+  let splitGroups = $state<main.GitCommitGroup[]>([])
+  let analyzingSplit = $state(false)
+  let splitGroupFiles = $state<Record<number, Record<string, boolean>>>({})
+  let groupMessages = $state<Record<number, string>>({})
+  let committingGroupIdx = $state<number | null>(null)
+  let committingAll = $state(false)
+
   const branch = $derived(cockpit.project.branch || '')
   const totals = $derived(files.reduce(
     (acc, f) => ({ added: acc.added + (f.added ?? 0), removed: acc.removed + (f.removed ?? 0) }),
     { added: 0, removed: 0 },
   ))
 
+  const selectedCount = $derived(files.filter((f) => selectedFiles[f.path]).length)
+  const allSelected = $derived(files.length > 0 && files.every((f) => selectedFiles[f.path]))
+
   async function refresh() {
     files = (await GitWorkingTree()) ?? []
     loaded = true
-    // A file that stopped being changed while its diff was open would otherwise
-    // keep drawing the hunks it no longer has.
+    // Cleanup diffs for removed files
     for (const path of Object.keys(diffs)) {
       if (!files.some((f) => f.path === path)) {
         delete diffs[path]
         delete open[path]
+        delete selectedFiles[path]
       }
+    }
+    // Select all by default for newly loaded files
+    for (const f of files) {
+      if (selectedFiles[f.path] === undefined) {
+        selectedFiles[f.path] = true
+      }
+    }
+    // Filter remaining split groups
+    if (splitGroups.length > 0) {
+      splitGroups = splitGroups
+        .map((g) => ({
+          ...g,
+          files: g.files.filter((p) => files.some((f) => f.path === p)),
+        }))
+        .filter((g) => g.files.length > 0)
     }
   }
 
   onMount(refresh)
 
-  // Read again the moment a turn ends. The panel's whole job is to say where
-  // the repository stands, and the thing that most often moves it is the agent
-  // that just finished working — a list that still says "clean" while the chat
-  // above it reports three edited files is worse than no list, because it is
-  // confidently wrong. `awaitingReply` going false is the cheapest true signal
-  // that something may have changed; the refresh button stays for everything
-  // else that touches the tree (a commit in a terminal, an editor, the user).
   let wasWorking = false
   $effect(() => {
     const working = cockpit.awaitingReply
     if (wasWorking && !working) void refresh()
     wasWorking = working
   })
+
+  function toggleSelectAll() {
+    const next = !allSelected
+    for (const f of files) {
+      selectedFiles[f.path] = next
+    }
+  }
+
+  function toggleFileSelection(path: string, e: MouseEvent) {
+    e.stopPropagation()
+    selectedFiles[path] = !selectedFiles[path]
+  }
 
   async function toggle(path: string) {
     if (open[path]) {
@@ -78,6 +125,126 @@
       } finally {
         loading[path] = false
       }
+    }
+  }
+
+  async function handleGenerateMessage() {
+    const chosen = files.filter((f) => selectedFiles[f.path]).map((f) => f.path)
+    if (chosen.length === 0) {
+      alert = { type: 'err', text: t('git.noFilesSelected') }
+      return
+    }
+    generatingMessage = true
+    alert = null
+    try {
+      const msg = await GitSuggestCommitMessage(chosen)
+      if (msg) manualMessage = msg
+    } catch (err: any) {
+      alert = { type: 'err', text: String(err?.message ?? err) }
+    } finally {
+      generatingMessage = false
+    }
+  }
+
+  async function handleManualCommit() {
+    const trimmed = manualMessage.trim()
+    if (!trimmed) {
+      alert = { type: 'err', text: t('git.noCommitMessage') }
+      return
+    }
+    const chosen = files.filter((f) => selectedFiles[f.path]).map((f) => f.path)
+    if (chosen.length === 0) {
+      alert = { type: 'err', text: t('git.noFilesSelected') }
+      return
+    }
+
+    committing = true
+    alert = null
+    try {
+      await GitCommitFiles(trimmed, chosen)
+      manualMessage = ''
+      alert = { type: 'success', text: t('git.commitSuccess') }
+      await refresh()
+      setTimeout(() => { if (alert?.type === 'success') alert = null }, 4000)
+    } catch (err: any) {
+      alert = { type: 'err', text: t('git.commitFailed', { error: String(err?.message ?? err) }) }
+    } finally {
+      committing = false
+    }
+  }
+
+  async function handleAnalyzeSplit() {
+    analyzingSplit = true
+    alert = null
+    try {
+      const groups = (await GitSuggestSplitCommits()) ?? []
+      splitGroups = groups
+      groupMessages = {}
+      splitGroupFiles = {}
+      for (let i = 0; i < groups.length; i++) {
+        groupMessages[i] = groups[i].message
+        splitGroupFiles[i] = {}
+        for (const fp of groups[i].files) {
+          splitGroupFiles[i][fp] = true
+        }
+      }
+    } catch (err: any) {
+      alert = { type: 'err', text: String(err?.message ?? err) }
+    } finally {
+      analyzingSplit = false
+    }
+  }
+
+  async function handleCommitGroup(idx: number) {
+    const g = splitGroups[idx]
+    if (!g) return
+    const msg = (groupMessages[idx] ?? g.message).trim()
+    if (!msg) {
+      alert = { type: 'err', text: t('git.noCommitMessage') }
+      return
+    }
+    const chosen = g.files.filter((p) => splitGroupFiles[idx]?.[p] !== false)
+    if (chosen.length === 0) {
+      alert = { type: 'err', text: t('git.noFilesSelected') }
+      return
+    }
+
+    committingGroupIdx = idx
+    alert = null
+    try {
+      await GitCommitFiles(msg, chosen)
+      alert = { type: 'success', text: `${g.title}: ${t('git.commitSuccess')}` }
+      await refresh()
+      setTimeout(() => { if (alert?.type === 'success') alert = null }, 4000)
+    } catch (err: any) {
+      alert = { type: 'err', text: t('git.commitFailed', { error: String(err?.message ?? err) }) }
+    } finally {
+      committingGroupIdx = null
+    }
+  }
+
+  async function handleCommitAllGroups() {
+    if (splitGroups.length === 0) return
+    committingAll = true
+    alert = null
+    try {
+      for (let i = 0; i < splitGroups.length; i++) {
+        const g = splitGroups[i]
+        const msg = (groupMessages[i] ?? g.message).trim()
+        const chosen = g.files.filter((p) => splitGroupFiles[i]?.[p] !== false)
+        if (chosen.length > 0 && msg) {
+          committingGroupIdx = i
+          await GitCommitFiles(msg, chosen)
+        }
+      }
+      alert = { type: 'success', text: t('git.commitSuccess') }
+      await refresh()
+      setTimeout(() => { if (alert?.type === 'success') alert = null }, 4000)
+    } catch (err: any) {
+      alert = { type: 'err', text: t('git.commitFailed', { error: String(err?.message ?? err) }) }
+    } finally {
+      committingGroupIdx = null
+      committingAll = false
     }
   }
 
@@ -106,28 +273,195 @@
     </span>
   </div>
 
-  <!-- Said out loud rather than left to be noticed: this room is on the โค้ด
-       desk and nowhere else, and a person who cannot find it elsewhere deserves
-       to be told why instead of hunting for it. -->
   <div class="gp-note">{t('git.codeDeskOnly')}</div>
+
+  {#if loaded && files.length > 0}
+    <!-- Commit Controls Area -->
+    <div class="gp-commit-area">
+      <!-- Mode Switch -->
+      <div class="gp-modes" role="tablist">
+        <button
+          type="button"
+          class="gp-mode-tab"
+          class:active={mode === 'split'}
+          onclick={() => (mode = 'split')}
+        >
+          <Icon name="sparkles" size={12} />
+          <span>{t('git.modeSplit')}</span>
+        </button>
+        <button
+          type="button"
+          class="gp-mode-tab"
+          class:active={mode === 'manual'}
+          onclick={() => (mode = 'manual')}
+        >
+          <Icon name="check" size={12} />
+          <span>{t('git.modeManual')}</span>
+        </button>
+      </div>
+
+      {#if alert}
+        <div class="gp-alert {alert.type}">{alert.text}</div>
+      {/if}
+
+      {#if mode === 'split'}
+        <!-- Smart Split Section -->
+        <div class="gp-split-section">
+          {#if splitGroups.length === 0}
+            <button
+              type="button"
+              class="gp-commit-btn"
+              disabled={analyzingSplit}
+              onclick={handleAnalyzeSplit}
+            >
+              <Icon name="sparkles" size={13} />
+              <span>{analyzingSplit ? t('git.analyzingSplit') : t('git.smartSplit')}</span>
+            </button>
+          {:else}
+            <div class="gp-split-top">
+              <span class="gp-title">{t('git.splitGroups', { n: splitGroups.length })}</span>
+              <button
+                type="button"
+                class="gp-split-all-btn"
+                disabled={committingAll || committingGroupIdx !== null}
+                onclick={handleCommitAllGroups}
+              >
+                <Icon name="check" size={12} />
+                <span>{t('git.commitAllGroups', { n: splitGroups.length })}</span>
+              </button>
+            </div>
+
+            <div class="gp-split-cards">
+              {#each splitGroups as g, i}
+                <div class="gp-split-card">
+                  <div class="gp-split-card-head">
+                    <span class="gp-split-title">
+                      <Icon name="package" size={12} />
+                      {g.title}
+                    </span>
+                    <span class="gp-stat">
+                      <span class="add">{g.files.length} {t('chat.filesChanged', { n: g.files.length })}</span>
+                    </span>
+                  </div>
+
+                  <input
+                    type="text"
+                    class="gp-split-msg-input"
+                    bind:value={groupMessages[i]}
+                    placeholder={t('git.commitPlaceholder')}
+                  />
+
+                  <div class="gp-split-files">
+                    {#each g.files as fp}
+                      <label class="gp-split-file-item">
+                        <input
+                          type="checkbox"
+                          checked={splitGroupFiles[i]?.[fp] !== false}
+                          onchange={(e) => {
+                            if (!splitGroupFiles[i]) splitGroupFiles[i] = {}
+                            splitGroupFiles[i][fp] = (e.currentTarget as HTMLInputElement).checked
+                          }}
+                        />
+                        <span>{name(fp)}</span>
+                      </label>
+                    {/each}
+                  </div>
+
+                  <div class="gp-split-card-foot">
+                    <button
+                      type="button"
+                      class="gp-split-commit-btn"
+                      disabled={committingGroupIdx === i || committingAll}
+                      onclick={() => handleCommitGroup(i)}
+                    >
+                      <Icon name="check" size={11} />
+                      <span>{committingGroupIdx === i ? t('git.committing') : t('git.commitGroup')}</span>
+                    </button>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {:else}
+        <!-- Manual Commit Section -->
+        <div class="gp-manual-box">
+          <div class="gp-input-wrap">
+            <textarea
+              class="gp-msg-input"
+              bind:value={manualMessage}
+              placeholder={t('git.commitPlaceholder')}
+              onkeydown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                  e.preventDefault()
+                  void handleManualCommit()
+                }
+              }}
+            ></textarea>
+
+            <button
+              type="button"
+              class="gp-gen-btn"
+              disabled={generatingMessage || selectedCount === 0}
+              onclick={handleGenerateMessage}
+              title={t('git.generate')}
+            >
+              <Icon name="sparkles" size={11} />
+              <span>{generatingMessage ? t('git.generating') : t('git.generate')}</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            class="gp-commit-btn"
+            disabled={committing || selectedCount === 0 || !manualMessage.trim()}
+            onclick={handleManualCommit}
+          >
+            <Icon name="check" size={13} />
+            <span>
+              {committing
+                ? t('git.committing')
+                : t('git.commitSelected', { n: selectedCount })}
+            </span>
+          </button>
+        </div>
+      {/if}
+    </div>
+  {/if}
 
   {#if !loaded}
     <div class="gp-empty">{t('git.loading')}</div>
   {:else if files.length === 0}
     <div class="gp-empty">{t('git.clean')}</div>
   {:else}
+    <div class="gp-list-head">
+      <label class="gp-checkbox-label">
+        <input
+          type="checkbox"
+          checked={allSelected}
+          onchange={toggleSelectAll}
+        />
+        <span>{t('git.changesCount', { n: files.length })}</span>
+      </label>
+      <span class="gp-sel-info">
+        {selectedCount} / {files.length} {t('git.selectAll')}
+      </span>
+    </div>
+
     <div class="gp-list">
       {#each files as f (f.path)}
         <div class="gp-file">
-          <!-- Fetching this file's diff wears the same block a running tool
-               call wears in the chat, because it is the same fact: this one is
-               not finished. A second vocabulary here would mean learning two
-               ways to read one thing. -->
           <button
             class="gp-row" class:busy={loading[f.path]}
             aria-expanded={!!open[f.path]} aria-busy={loading[f.path] || undefined}
             onclick={() => toggle(f.path)}
           >
+            <input
+              type="checkbox"
+              class="gp-row-checkbox"
+              checked={selectedFiles[f.path] ?? false}
+              onclick={(e) => toggleFileSelection(f.path, e)}
+            />
             <span class="gp-caret">
               {#if loading[f.path]}
                 <i class="gp-ring"></i>
@@ -145,11 +479,6 @@
           {#if open[f.path]}
             <div class="gp-diff">
               {#if loading[f.path]}
-                <!-- The shape of what is coming, rather than a line of text
-                     saying to wait. A diff arriving replaces three grey lines
-                     with three real ones instead of replacing one sentence with
-                     forty lines, and the sweep across them is the 2.4s the
-                     status phrase above the timeline already uses. -->
                 <div class="gp-skel" role="status" aria-label={t('git.loading')}>
                   <i class="w1"></i><i class="w2"></i><i class="w3"></i>
                 </div>
