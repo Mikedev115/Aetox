@@ -259,5 +259,38 @@ describe('GitPane', () => {
       ['ARCHITECTURE.md'],
     )
   })
+
+  it('detects dangerous files, displays warning banner, unchecks them by default, and supports asking assistant', async () => {
+    vi.mocked(GitWorkingTree).mockResolvedValue([
+      { path: '.env', status: '?', added: 5, removed: 0 },
+      { path: 'src/main.ts', status: 'M', added: 10, removed: 2 },
+    ] as any)
+
+    const { container } = render(GitPane)
+    await waitFor(() => expect(container.querySelectorAll('.gp-row').length).toBe(2))
+
+    // Danger banner should be present
+    const banner = container.querySelector('.gp-danger-banner')
+    expect(banner).not.toBeNull()
+    expect(banner?.textContent).toContain('.env')
+
+    // Dangerous row badge should be rendered for .env
+    const badges = container.querySelectorAll('.gp-row-danger-badge')
+    expect(badges.length).toBe(1)
+    expect(badges[0].textContent).toContain('Sensitive')
+
+    // Checkboxes: .env should be unchecked (false), while src/main.ts should be checked (true)
+    const checkboxes = container.querySelectorAll('.gp-row-checkbox') as NodeListOf<HTMLInputElement>
+    expect(checkboxes.length).toBe(2)
+    expect(checkboxes[0].checked).toBe(false)
+    expect(checkboxes[1].checked).toBe(true)
+
+    // Ask assistant button should be present and switch to chat when clicked
+    const askBtn = container.querySelector('.gp-ask-assistant-btn') as HTMLButtonElement
+    expect(askBtn).not.toBeNull()
+    await fireEvent.click(askBtn)
+    expect(cockpit.activeView).toBe('chat')
+  })
 })
+
 
