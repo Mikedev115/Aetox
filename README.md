@@ -74,7 +74,7 @@ both; the language switch is in Settings and in the first-run wizard. This READM
 - **Capability comes from the app, not from model parameters** — Thai/English OCR and offline
   speech-to-text are tools the app drives, so a 9B/35B model on your own GPU does these jobs as
   well as a frontier one.
-- **22 model providers** — cloud (OpenAI, Anthropic, Gemini, DeepSeek, Groq, and more) and local
+- **23 model providers** — cloud (OpenAI, Anthropic, Gemini, DeepSeek, Groq, and more) and local
   (LM Studio, Ollama), switchable mid-conversation with context intact. Full list under
   [Everything it can do](#everything-it-can-do).
 
@@ -402,10 +402,11 @@ for video work is absent from an ordinary conversation — not hidden from the m
 writers reach only the specialized desk, so the assistant delegates for a `.pptx` rather than
 carrying three tools it rarely needs.
 
-**22 providers, and the window shows every one** — OpenAI · Anthropic · Gemini · DeepSeek ·
+**23 providers, and the window shows every one** — OpenAI · Anthropic · Gemini · DeepSeek ·
 Qwen · Z.ai · OpenRouter · Codex · Groq · Mistral · Kimi · MiniMax · xAI · ThaiLLM ·
-ModelScope · NVIDIA · Ollama Cloud · OpenCode Zen · OpenCode Go · LM Studio · Ollama · and the built-in `aetox`. OpenRouter and Codex sign in; the rest take an
-API key or a local server address. The catalogue and the picker used to disagree; they no longer
+ModelScope · NVIDIA · GitHub Copilot · Kilo · Ollama Cloud · OpenCode Zen · OpenCode Go ·
+LM Studio · Ollama · and the built-in `aetox`. ChatGPT (Codex), GitHub Copilot and OpenRouter
+sign in; the rest take an API key or a local server address. The catalogue and the picker used to disagree; they no longer
 do, because a provider the engine knows and the window hides is one nobody can reach.
 
 Local models are treated as first-class: Aetox asks LM Studio and Ollama which model is *loaded*

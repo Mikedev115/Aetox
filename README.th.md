@@ -72,7 +72,7 @@ Aetox เป็นแอปเดสก์ท็อปบน Windows ที่�
 - **ความสามารถมาจากตัวแอป ไม่ได้มาจากพารามิเตอร์โมเดล** — OCR ไทย/อังกฤษ และการถอดเสียง
   แบบออฟไลน์ เป็นเครื่องมือที่แอปเป็นคนขับให้ โมเดล 9B/35B ที่รันในเครื่องคุณเอง
   จึงทำงานเหล่านี้ได้เท่าโมเดลตัวใหญ่
-- **22 ผู้ให้บริการโมเดล** — ทั้งคลาวด์ (OpenAI, Anthropic, Gemini, DeepSeek, Groq ฯลฯ)
+- **23 ผู้ให้บริการโมเดล** — ทั้งคลาวด์ (OpenAI, Anthropic, Gemini, DeepSeek, Groq ฯลฯ)
   และในเครื่อง (LM Studio, Ollama) สลับกลางบทสนทนาได้โดยบริบทตามไปด้วย ดูรายชื่อครบทั้งหมดที่
   [หัวข้อ "มันทำอะไรได้บ้างทั้งหมด"](#มันทำอะไรได้บ้างทั้งหมด)
 
@@ -395,9 +395,10 @@ update · activate)* หรือ `windmill` *(workspaces · list · read · cre
 ไม่ใช่ซ่อนจากโมเดล แต่ไม่มีอยู่จริง ส่วนเครื่องมือเขียนเอกสารไปถึงแค่โต๊ะเฉพาะทาง
 ผู้ช่วยจึงส่งงานต่อเพื่อขอ `.pptx` แทนที่จะแบกเครื่องมือสามตัวที่ไม่ค่อยได้ใช้
 
-**22 ผู้ให้บริการ และหน้าต่างแสดงครบทุกราย** — OpenAI · Anthropic · Gemini · DeepSeek ·
+**23 ผู้ให้บริการ และหน้าต่างแสดงครบทุกราย** — OpenAI · Anthropic · Gemini · DeepSeek ·
 Qwen · Z.ai · OpenRouter · Codex · Groq · Mistral · Kimi · MiniMax · xAI · ThaiLLM ·
-ModelScope · NVIDIA · Ollama Cloud · OpenCode Zen · OpenCode Go · LM Studio · Ollama · และ `aetox` ที่มีในตัว OpenRouter กับ Codex ใช้การลงชื่อเข้าใช้
+ModelScope · NVIDIA · GitHub Copilot · Kilo · Ollama Cloud · OpenCode Zen · OpenCode Go ·
+LM Studio · Ollama · และ `aetox` ที่มีในตัว ChatGPT (Codex) · GitHub Copilot และ OpenRouter ใช้การลงชื่อเข้าใช้
 ที่เหลือใช้ API key หรือที่อยู่เซิร์ฟเวอร์ในเครื่อง เดิมทะเบียนกับหน้าเลือกไม่ตรงกัน ตอนนี้ตรงแล้ว
 เพราะรายที่เครื่องยนต์รู้จักแต่หน้าต่างไม่แสดง คือรายที่ไม่มีใครไปถึงได้
 
