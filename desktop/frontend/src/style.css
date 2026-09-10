@@ -5681,6 +5681,108 @@ button.phase-head:hover { color:var(--text-muted); }
   color: var(--status-success);
   border: 1px solid color-mix(in srgb, var(--status-success) 30%, transparent);
 }
+
+/* Dangerous / Sensitive File Warning Banner & Row Badge */
+.gp-danger-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--status-warn) 14%, var(--surface-app));
+  border-bottom: 1px solid color-mix(in srgb, var(--status-warn) 35%, transparent);
+}
+.gp-danger-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+.gp-danger-icon {
+  color: var(--status-warn);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.gp-danger-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.gp-danger-title {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.gp-danger-desc {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.gp-danger-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+.gp-danger-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  background: color-mix(in srgb, var(--status-warn) 18%, transparent);
+  color: var(--text-primary);
+  border-radius: var(--r-xs);
+  border: 1px solid color-mix(in srgb, var(--status-warn) 30%, transparent);
+}
+.gp-danger-chip :global(.icon) {
+  color: var(--status-warn);
+}
+.gp-ask-assistant-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  border-radius: var(--r-sm);
+  background: var(--interactive);
+  color: var(--text-on-interactive);
+  border: 1px solid var(--interactive-bright);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: all var(--dur-tint) ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.gp-ask-assistant-btn:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+.gp-ask-assistant-btn:active {
+  transform: translateY(0);
+}
+.gp-ask-assistant-btn :global(.icon) {
+  color: var(--accent-bright);
+}
+.gp-row-danger-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  border-radius: var(--r-xs);
+  background: color-mix(in srgb, var(--status-warn) 16%, transparent);
+  color: var(--status-warn);
+  border: 1px solid color-mix(in srgb, var(--status-warn) 30%, transparent);
+  margin-left: 6px;
+  flex-shrink: 0;
+}
 .gp-list-head {
   display: flex;
   align-items: center;
