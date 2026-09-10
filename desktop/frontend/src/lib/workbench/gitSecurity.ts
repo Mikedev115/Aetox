@@ -7,7 +7,7 @@ export interface DangerousFileAssessment {
 }
 
 export function assessDangerousFile(path: string): DangerousFileAssessment | null {
-  const filename = path.split('/').pop()?.toLowerCase() ?? ''
+  const filename = path.split(/[/\\]/).pop()?.toLowerCase() ?? ''
   const lower = path.toLowerCase()
 
   // 1. Environment & Secret files

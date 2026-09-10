@@ -436,6 +436,11 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'git.dangerousWarningDesc': '这些文件可能包含机密、密钥或数据文件，不建议提交到 Git。',
   'git.askAssistant': '咨询助手',
   'git.dangerousBadge': '敏感文件',
+  'git.dangerCat.secret': '环境变量 / 密钥文件 (.env)',
+  'git.dangerCat.key': '私钥 / 证书文件 (Private Key)',
+  'git.dangerCat.credentials': '访问凭据 / 令牌文件 (Credentials / Tokens)',
+  'git.dangerCat.database': '数据库存储 / 备份转储 (Database Dump)',
+  'git.dangerCat.binary': '可执行文件 / 二进制文件 (Executable Binary)',
   'git.askAssistantPrompt': '在 Git 提交前检测到潜在敏感或危险文件：\n{files}\n\n助手处理指南 (Action Notes)：\n1. 检查这些文件是否应立即添加到 .gitignore，并提供准确的配置规则。\n2. 若文件已被 Git 跟踪，提供安全取消跟踪命令 (git rm --cached)。\n3. 建议创建模板文件（如 .env.example），供团队使用且避免泄露密钥。\n4. 提供检查 Git 历史记录的建议，确保未曾泄露敏感凭证。',
   // ---- 工具行上的动词 ----
   // 这一行说的是智能体在做什么，而不是哪个函数被调用了。打包（§99）之后工具名本身

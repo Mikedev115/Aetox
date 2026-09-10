@@ -73,7 +73,13 @@
 
   async function handleAskAssistantAboutDangerousFiles() {
     if (dangerousFiles.length === 0) return
-    const fileList = dangerousFiles.map((df) => `- ${df.file.path} (${df.assessment.reason})`).join('\n')
+    const fileList = dangerousFiles
+      .map((df) => {
+        const catKey = `git.dangerCat.${df.assessment.category}` as const
+        const reasonStr = t(catKey as any) || df.assessment.reason
+        return `- ${df.file.path} (${reasonStr})`
+      })
+      .join('\n')
     const prompt = t('git.askAssistantPrompt', { files: fileList })
     setActiveView('chat')
     void sendUserMessage(prompt)
@@ -202,7 +208,7 @@
         groupMessages[i] = groups[i].message
         splitGroupFiles[i] = {}
         for (const fp of groups[i].files) {
-          splitGroupFiles[i][fp] = true
+          splitGroupFiles[i][fp] = assessDangerousFile(fp) === null
         }
       }
     } catch (err: any) {
@@ -220,7 +226,7 @@
       alert = { type: 'err', text: t('git.noCommitMessage') }
       return
     }
-    const chosen = g.files.filter((p) => splitGroupFiles[idx]?.[p] !== false)
+    const chosen = g.files.filter((p) => splitGroupFiles[idx]?.[p] === true)
     if (chosen.length === 0) {
       alert = { type: 'err', text: t('git.noFilesSelected') }
       return
@@ -248,7 +254,7 @@
       for (let i = 0; i < splitGroups.length; i++) {
         const g = splitGroups[i]
         const msg = (groupMessages[i] ?? g.message).trim()
-        const chosen = g.files.filter((p) => splitGroupFiles[i]?.[p] !== false)
+        const chosen = g.files.filter((p) => splitGroupFiles[i]?.[p] === true)
         if (chosen.length > 0 && msg) {
           committingGroupIdx = i
           await GitCommitFiles(msg, chosen)
@@ -309,7 +315,7 @@
             </div>
             <div class="gp-danger-chips">
               {#each dangerousFiles as df}
-                <span class="gp-danger-chip" title={df.assessment.reason}>
+                <span class="gp-danger-chip" title={t(`git.dangerCat.${df.assessment.category}` as any) || df.assessment.reason}>
                   <Icon name="alertTriangle" size={10} />
                   <span>{name(df.file.path)}</span>
                 </span>
@@ -392,6 +398,12 @@
                     <span class="gp-split-title">
                       <Icon name="package" size={12} />
                       {g.title}
+                      {#if g.files.some((fp) => assessDangerousFile(fp) !== null)}
+                        <span class="gp-row-danger-badge" title={t('git.dangerousWarningDesc')}>
+                          <Icon name="alertTriangle" size={10} />
+                          <span>{t('git.dangerousBadge')}</span>
+                        </span>
+                      {/if}
                     </span>
                     <span class="gp-stat">
                       <span class="add">{g.files.length} {t('chat.filesChanged', { n: g.files.length })}</span>
@@ -410,13 +422,20 @@
                       <label class="gp-split-file-item">
                         <input
                           type="checkbox"
-                          checked={splitGroupFiles[i]?.[fp] !== false}
+                          checked={splitGroupFiles[i]?.[fp] === true}
                           onchange={(e) => {
                             if (!splitGroupFiles[i]) splitGroupFiles[i] = {}
                             splitGroupFiles[i][fp] = (e.currentTarget as HTMLInputElement).checked
                           }}
                         />
                         <span>{name(fp)}</span>
+                        {#if assessDangerousFile(fp)}
+                          {@const danger = assessDangerousFile(fp)}
+                          <span class="gp-row-danger-badge" title={t(`git.dangerCat.${danger?.category}` as any) || danger?.reason}>
+                            <Icon name="alertTriangle" size={10} />
+                            <span>{t('git.dangerousBadge')}</span>
+                          </span>
+                        {/if}
                       </label>
                     {/each}
                   </div>
@@ -526,7 +545,7 @@
             <span class="gp-name">{name(f.path)}</span>
             {#if assessDangerousFile(f.path)}
               {@const danger = assessDangerousFile(f.path)}
-              <span class="gp-row-danger-badge" title={danger?.reason}>
+              <span class="gp-row-danger-badge" title={t(`git.dangerCat.${danger?.category}` as any) || danger?.reason}>
                 <Icon name="alertTriangle" size={10} />
                 <span>{t('git.dangerousBadge')}</span>
               </span>

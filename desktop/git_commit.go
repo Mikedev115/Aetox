@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/Mikedev115/Aetox/internal/model"
@@ -153,11 +154,75 @@ var gitSplitTool = func() model.ToolDefinition {
 	return def
 }()
 
+// isDangerousPath reports whether a file path points to a sensitive/secret or binary file
+// that should never be automatically proposed for Git commits.
+func isDangerousPath(path string) bool {
+	p := filepath.ToSlash(strings.ToLower(strings.TrimSpace(path)))
+	parts := strings.Split(p, "/")
+	filename := parts[len(parts)-1]
+
+	// 1. Environment & Secrets (.env)
+	if filename == ".env" || (strings.HasPrefix(filename, ".env.") &&
+		!strings.HasSuffix(filename, ".example") &&
+		!strings.HasSuffix(filename, ".sample") &&
+		!strings.HasSuffix(filename, ".template")) ||
+		strings.HasSuffix(filename, ".env") {
+		return true
+	}
+
+	// 2. Private Keys & Certificates
+	for _, ext := range []string{".pem", ".key", ".pkcs12", ".pfx", ".p12"} {
+		if strings.HasSuffix(filename, ext) {
+			return true
+		}
+	}
+	for _, keyName := range []string{"id_rsa", "id_dsa", "id_ecdsa", "id_ed25519"} {
+		if filename == keyName {
+			return true
+		}
+	}
+
+	// 3. Credentials & Tokens
+	for _, cred := range []string{
+		"credentials.json", "credentials.yaml", "credentials.yml",
+		"service-account.json", "service_account.json",
+		".npmrc", ".pypirc",
+	} {
+		if filename == cred {
+			return true
+		}
+	}
+	if strings.Contains(p, ".aws/credentials") {
+		return true
+	}
+
+	// 4. Databases & Executables
+	for _, ext := range []string{".sqlite", ".sqlite3", ".db", ".dump", ".sql.gz", ".sql.bak", ".exe", ".dll", ".so", ".dylib"} {
+		if strings.HasSuffix(filename, ext) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // GitSuggestSplitCommits analyzes the working tree changes, groups them by topic,
 // and returns proposed atomic commits with suggested messages.
 func (a *App) GitSuggestSplitCommits() ([]GitCommitGroup, error) {
 	out := []GitCommitGroup{}
 	tree := a.GitWorkingTree()
+	if len(tree) == 0 {
+		return out, nil
+	}
+
+	// Filter out sensitive or dangerous files from automatic split suggestions
+	var safeTree []GitFileChange
+	for _, f := range tree {
+		if !isDangerousPath(f.Path) {
+			safeTree = append(safeTree, f)
+		}
+	}
+	tree = safeTree
 	if len(tree) == 0 {
 		return out, nil
 	}
