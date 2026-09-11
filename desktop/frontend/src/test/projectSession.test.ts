@@ -16,8 +16,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
 import Projects from '../lib/Projects.svelte'
 import Chat from '../lib/Chat.svelte'
 import Sidebar from '../lib/Sidebar.svelte'
-import { NewSessionInSpace, NewSessionAt, Spaces, SessionsInSpace, CurrentSessionID } from './mocks/wailsApp'
-import { cockpit } from '../lib/stores/cockpit.svelte'
+import { NewSessionInSpace, NewSessionAt, Spaces, SessionsInSpace, CurrentSessionID, SendMessage, BrowseFolderAt, SpaceFolderPath, StopBrowsing } from './mocks/wailsApp'
+import { cockpit, newSessionAt } from '../lib/stores/cockpit.svelte'
+import { DRAFT_KEY } from '../lib/composerDraft'
 
 const deskButton = (label: string): HTMLButtonElement => {
   const el = Array.from(document.querySelectorAll('.desk-btn'))
@@ -69,7 +70,7 @@ describe('starting a chat inside a project', () => {
     render(Projects, { onClose: () => {} })
 
     fireEvent.click(await screen.findByText(project.name, { selector: '.pp-title' }))
-    fireEvent.click(await screen.findByText('เริ่มแชทในโปรเจกต์นี้'))
+    fireEvent.click(await screen.findByLabelText('เริ่มแชทในโปรเจกต์นี้'))
 
     await waitFor(() => expect(NewSessionInSpace).toHaveBeenCalledWith(project.name))
     // The half that was missing. Without it the engine is in the project and
@@ -80,6 +81,67 @@ describe('starting a chat inside a project', () => {
       expect(cockpit.chair).toBe('')
       expect(cockpit.activeView).toBe('chat')
     })
+    // Nothing typed, nothing sent: the blank chat the button always opened.
+    expect(SendMessage).not.toHaveBeenCalled()
+  })
+
+  // The box on the page is a composer (12 ก.ย.). Before that it was a button
+  // drawn as a field, and Enter in a field that then opens an empty chat reads
+  // as a field that lost what you typed.
+  it("sends the first line typed on the page as the new chat's first message", async () => {
+    render(Projects, { onClose: () => {} })
+
+    fireEvent.click(await screen.findByText(project.name, { selector: '.pp-title' }))
+    const box = await screen.findByPlaceholderText(/พิมพ์คำขอแรก/)
+    await fireEvent.input(box, { target: { value: 'ช่วยสรุปไฟล์ในโปรเจกต์นี้' } })
+    await fireEvent.keyDown(box, { key: 'Enter' })
+
+    await waitFor(() => expect(NewSessionInSpace).toHaveBeenCalledWith(project.name))
+    await waitFor(() => expect(SendMessage).toHaveBeenCalledWith('ช่วยสรุปไฟล์ในโปรเจกต์นี้', ''))
+    // In that order: the session first, or the message lands in the chat that
+    // was open before the click.
+    expect(vi.mocked(NewSessionInSpace).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(SendMessage).mock.invocationCallOrder[0])
+  })
+
+  // A starter card puts its prompt in the composer of the chat it opens and
+  // sends nothing — the rule the blank chat's cards follow, kept across the
+  // page boundary by filing the text where the composer looks on mount.
+  it("hands a starter card to the new chat's composer unsent", async () => {
+    vi.mocked(NewSessionInSpace).mockResolvedValue('20260912-090000.000')
+    vi.mocked(CurrentSessionID).mockResolvedValue('20260912-090000.000')
+    localStorage.removeItem(DRAFT_KEY)
+    render(Projects, { onClose: () => {} })
+
+    fireEvent.click(await screen.findByText(project.name, { selector: '.pp-title' }))
+    fireEvent.click(await screen.findByText('หาจุดที่ไฟล์ในโปรเจกต์ขัดกันเอง'))
+
+    await waitFor(() => expect(NewSessionInSpace).toHaveBeenCalledWith(project.name))
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? '{}')
+      expect(stored.session).toBe('20260912-090000.000')
+      expect(stored.text).toMatch(/ขัดกันเอง/)
+    })
+    expect(SendMessage).not.toHaveBeenCalled()
+  })
+})
+
+// The ไฟล์ tab follows the project. A project is not a focus — the assistant
+// still reaches the whole machine — so the tree is pointed at the folder the
+// way browseFolder points it, in memory only, and pointed away again when the
+// chat on screen is in no project. Until 12 ก.ย. the tab of a project chat read
+// "ผู้ช่วยไม่ผูกโปรเจกต์", which was true and no answer.
+describe('the file tree while a project chat is open', () => {
+  it('looks at the project folder, and stops when the chat leaves the project', async () => {
+    vi.mocked(SpaceFolderPath).mockResolvedValue(project.path)
+    render(Projects, { onClose: () => {} })
+    fireEvent.click(await screen.findByText(project.name, { selector: '.pp-title' }))
+    fireEvent.click(await screen.findByLabelText('เริ่มแชทในโปรเจกต์นี้'))
+
+    await waitFor(() => expect(BrowseFolderAt).toHaveBeenCalledWith(project.path))
+    expect(StopBrowsing).not.toHaveBeenCalled()
+
+    await newSessionAt('assistant')
+    await waitFor(() => expect(StopBrowsing).toHaveBeenCalled())
   })
 })
 

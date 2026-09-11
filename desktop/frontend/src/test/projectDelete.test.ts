@@ -24,9 +24,13 @@ const project = {
   updatedAt: new Date().toISOString(),
 }
 
+// Inside the project the delete sits behind the … beside the name (12 ก.ย.):
+// the one gesture that cannot be walked back is not left in the open on a
+// page whose every other button is safe to press.
 const openTheProject = async () => {
   render(Projects, { onClose: () => {} })
   fireEvent.click(await screen.findByText(project.name, { selector: '.pp-title' }))
+  fireEvent.click(await screen.findByLabelText('เพิ่มเติม'))
   return screen.findByText('ลบโปรเจกต์')
 }
 
@@ -92,7 +96,7 @@ describe('deleting a project from the gallery', () => {
 
     expect(await screen.findByText(project.name, { selector: '.confirm-detail' })).toBeTruthy()
     // Still on the list: arming the delete must not walk into the project.
-    expect(screen.queryByText('เริ่มแชทในโปรเจกต์นี้')).toBeNull()
+    expect(screen.queryByLabelText('เริ่มแชทในโปรเจกต์นี้')).toBeNull()
 
     vi.mocked(Spaces).mockResolvedValue([])
     fireEvent.click(screen.getByText('ลบ', { selector: '.confirm-go' }))

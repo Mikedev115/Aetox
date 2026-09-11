@@ -296,6 +296,16 @@
         await openPathsInWorkbench(paths)
         return
       }
+      // Over the โปรเจกต์ page's context card, a drop means "add these to the
+      // project": the page owns the copy (it has the project's name and the
+      // list to redraw), so it is told rather than done here. Only that card
+      // — a drop elsewhere on the page opens nothing, because behind the page
+      // there is no editor to open into.
+      const contextEl = document.querySelector('[data-context-drop]')
+      if (contextEl && withinRect(contextEl.getBoundingClientRect(), x, y)) {
+        window.dispatchEvent(new CustomEvent('space-context-drop', { detail: paths }))
+        return
+      }
       for (const path of paths) {
         // Dropped on the composer, every one of them is an attachment — a clip
         // or a PDF included. They used to open as editor tabs instead, which is

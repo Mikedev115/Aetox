@@ -89,7 +89,7 @@ type SessionVariant struct {
 }
 
 // SessionMeta is one row in the sidebar's history list. Snippet is only set
-// on search results. ProjectKey/ProjectName are only set by the cross-project
+// on search results and on a project's own list (SessionsInSpace). ProjectKey/ProjectName are only set by the cross-project
 // (global) queries — the per-project ones would just repeat the active project.
 type SessionMeta struct {
 	ID        string `json:"id"`

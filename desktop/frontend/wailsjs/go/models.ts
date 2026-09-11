@@ -2088,6 +2088,7 @@ export namespace main {
 	    path: string;
 	    contextPath: string;
 	    contextFiles: string[];
+	    contextModified: Record<string, string>;
 	    chats: number;
 	    updatedAt: string;
 	
@@ -2101,6 +2102,7 @@ export namespace main {
 	        this.path = source["path"];
 	        this.contextPath = source["contextPath"];
 	        this.contextFiles = source["contextFiles"];
+	        this.contextModified = source["contextModified"];
 	        this.chats = source["chats"];
 	        this.updatedAt = source["updatedAt"];
 	    }

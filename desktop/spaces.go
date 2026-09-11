@@ -40,8 +40,14 @@ type Space struct {
 	Path         string   `json:"path"`
 	ContextPath  string   `json:"contextPath"`
 	ContextFiles []string `json:"contextFiles"`
-	Chats        int      `json:"chats"`
-	UpdatedAt    string   `json:"updatedAt"`
+	// ContextModified is when each context file last changed, RFC3339, keyed by
+	// the name in ContextFiles. A second field rather than ContextFiles turning
+	// into a struct: the list is what the prompt and the tests read, and a file
+	// name is the whole answer there. The date is the page's — a row of five
+	// names says nothing about which one is the stale one.
+	ContextModified map[string]string `json:"contextModified"`
+	Chats           int               `json:"chats"`
+	UpdatedAt       string            `json:"updatedAt"`
 }
 
 // contextDirName is the folder inside a space that holds what every session in
@@ -162,11 +168,12 @@ func (a *App) Spaces() []Space {
 
 func (a *App) describeSpace(path, name string, chats int) Space {
 	space := Space{
-		Name:         name,
-		Path:         path,
-		ContextPath:  filepath.Join(path, contextDirName),
-		ContextFiles: []string{},
-		Chats:        chats,
+		Name:            name,
+		Path:            path,
+		ContextPath:     filepath.Join(path, contextDirName),
+		ContextFiles:    []string{},
+		ContextModified: map[string]string{},
+		Chats:           chats,
 	}
 	if info, err := os.Stat(path); err == nil {
 		space.UpdatedAt = info.ModTime().Format(time.RFC3339)
@@ -177,6 +184,10 @@ func (a *App) describeSpace(path, name string, chats int) Space {
 				continue
 			}
 			space.ContextFiles = append(space.ContextFiles, entry.Name())
+			// Best effort: a file whose stat fails is still listed, just undated.
+			if info, err := entry.Info(); err == nil {
+				space.ContextModified[entry.Name()] = info.ModTime().Format(time.RFC3339)
+			}
 		}
 		sort.Strings(space.ContextFiles)
 	}
@@ -408,13 +419,22 @@ func (a *App) SessionsInSpace(name string) []SessionMeta {
 	if dbErr != nil {
 		return out
 	}
+	// Snippet is the assistant's last words, which no other list carries: the
+	// sidebar's rows are one line and the title has it. The project page draws
+	// two, because there a row is one of five conversations that all begin
+	// "ช่วยผม…" and the title alone cannot say which one wrote the post.
+	// Clipped in SQL rather than shipping whole answers for a list of 200.
 	out, _ = queryAll(db, "spaces: sessions", `
-		SELECT id, title, updated_at, mode, agent FROM sessions
-		WHERE project_key = ? AND space = ? ORDER BY updated_at DESC LIMIT 200`,
+		SELECT s.id, s.title, s.updated_at, s.mode, s.agent,
+		       COALESCE((SELECT substr(m.text, 1, 200) FROM messages m
+		                 WHERE m.session_id = s.id AND m.role = 'agent'
+		                 ORDER BY m.id DESC LIMIT 1), '')
+		FROM sessions s
+		WHERE s.project_key = ? AND s.space = ? ORDER BY s.updated_at DESC LIMIT 200`,
 		[]any{projectKey(a.cur().cfg.SandboxRoot), folder},
 		func(rows *sql.Rows) (SessionMeta, error) {
 			var m SessionMeta
-			err := rows.Scan(&m.ID, &m.Title, &m.UpdatedAt, &m.Mode, &m.Agent)
+			err := rows.Scan(&m.ID, &m.Title, &m.UpdatedAt, &m.Mode, &m.Agent, &m.Snippet)
 			return m, err
 		})
 	return out

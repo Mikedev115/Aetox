@@ -6817,53 +6817,127 @@ button.phase-head:hover { color:var(--text-muted); }
 /* Inside one project: the work on the left, what the project carries on the
    right. The rail is narrow and fixed — it is a shelf, and a shelf that grows
    with the window stops reading as one. */
-.proj-crumbs { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:var(--fs-xs); color:var(--text-dim); }
-.proj-crumbs button { color:var(--text-secondary); }
-.proj-crumbs button:hover { color:var(--text-primary); text-decoration:underline; }
-.proj-crumb-here { color:var(--text-primary); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.proj-detail-title { margin:0 0 22px; font-size:var(--fs-2xl); font-weight:700; }
+
+/* One line of navigation: back to the list on the left, out of the page on the
+   right, the project's name between them. Shares the page's content width so
+   it lines up with the title under it rather than hugging the window edge. */
+.proj-crumbline {
+  display:flex; align-items:center; gap:6px; max-width:var(--content-max, 760px); margin:0 auto;
+  font-size:var(--fs-sm);
+}
+.proj-crumbline .settings-back { margin-left:-10px; }
+.proj-crumb-sep { color:var(--text-dim); font-size:var(--fs-xs); }
+.proj-crumb-here { color:var(--text-primary); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:8px 4px; }
+.proj-crumb-grow { flex:1; }
+.proj-esc { display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:var(--r-md); color:var(--text-muted); font-size:var(--fs-xs); }
+.proj-esc:hover { background:var(--surface-row-hover); color:var(--text-primary); }
+.proj-esc kbd { font:inherit; font-size:var(--fs-2xs); padding:1px 6px; border:1px solid var(--border-default); border-radius:var(--r-xs); color:var(--text-dim); }
+
+/* The title block: swatch, name and the numbers the card on the list already
+   shows, then the … menu. .page-title gives it the width and the top margin. */
+.proj-title { display:flex; align-items:center; gap:16px; }
+.proj-title h2 { margin:0; line-height:1.25; }
+.proj-title-text { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.proj-swatch {
+  flex:none; width:52px; height:52px; border-radius:var(--r-md); display:grid; place-items:center; overflow:hidden;
+  background:
+    radial-gradient(120% 120% at 20% 0%, hsl(var(--h) 70% 42% / .55), transparent 60%),
+    linear-gradient(135deg, hsl(var(--h) 45% 18%), hsl(calc(var(--h) + 40) 45% 12%));
+}
+.proj-swatch .pp-mono { font-size:var(--fs-xl); }
+.proj-stats { display:flex; align-items:center; gap:8px; min-width:0; margin:0; font-size:var(--fs-sm); color:var(--text-muted); }
+/* The numbers never wrap; the path is the one thing that gives (the whole of it
+   is in its title). */
+.proj-stats > span { flex:none; white-space:nowrap; }
+.proj-stat-sep { color:var(--text-dim); }
+.proj-stat-path { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; font-family:var(--mono); font-size:var(--fs-xs); color:var(--text-dim); }
+/* Always visible here, unlike the sidebar's row-more, which shows on the row's
+   hover: a page heading is not hovered, and a menu nobody can see is a menu
+   nobody opens. */
+.proj-more { width:30px; height:30px; color:var(--text-muted); border:1px solid var(--border-subtle); }
+.plus-menu.right { left:auto; right:0; }
+.plus-menu-item:disabled { opacity:.5; cursor:default; }
+
 .proj-detail { display:grid; grid-template-columns:minmax(0, 1fr) 300px; gap:26px; align-items:start; }
 @media (max-width: 900px) { .proj-detail { grid-template-columns:1fr; } }
-.proj-work { min-width:0; }
-.proj-start {
-  display:flex; align-items:center; gap:9px; width:100%; margin-bottom:24px; padding:14px 16px;
-  border:1px solid var(--border-subtle); border-radius:var(--r-lg); background:var(--surface-panel);
-  color:var(--text-secondary); font-size:var(--fs-sm); text-align:left;
+.proj-work { min-width:0; display:flex; flex-direction:column; }
+
+/* The composer for a chat that does not exist yet. Same radius and surface as
+   the real one (composer, --r-xl), one line high, the send button borrowed. */
+.proj-composer {
+  display:flex; align-items:center; gap:10px; padding:10px 10px 10px 16px; margin-bottom:12px;
+  border:1px solid var(--border-subtle); border-radius:var(--r-xl); background:var(--surface-panel);
+  transition:border-color var(--dur-tint);
 }
-.proj-start:hover { border-color:var(--border-strong); background:var(--surface-row-hover); color:var(--text-primary); }
+.proj-composer:focus-within { border-color:var(--border-input-focus); }
+.proj-composer-ic { flex:none; color:var(--accent); display:grid; place-items:center; }
+.proj-first {
+  flex:1; min-width:0; resize:none; border:none; background:none; padding:6px 0; margin:0;
+  font:inherit; font-size:var(--fs-md); line-height:1.5; color:var(--text-primary);
+}
+.proj-first::placeholder { color:var(--text-muted); }
+.proj-first:focus { outline:none; }
+.proj-composer .send { flex:none; width:32px; height:32px; border-radius:var(--r-md); display:grid; place-items:center; background:var(--surface-raised); border:1px solid var(--border-default); color:var(--text-muted); }
+.proj-composer .send:hover { color:var(--text-primary); border-color:var(--border-strong); }
+.proj-composer .send:disabled { opacity:.5; }
+
+/* The project's starter cards, compact: a row of doors under the composer
+   rather than the blank chat's four big ones — the decision here is which
+   question, and the title is the whole card. */
+.proj-starters { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin-bottom:22px; }
+@media (max-width: 1100px) { .proj-starters { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+.proj-starter {
+  display:flex; align-items:center; gap:10px; padding:10px 12px; min-width:0;
+  border:1px solid var(--border-subtle); border-radius:var(--r-lg); background:var(--surface-panel);
+  color:var(--text-secondary); font-size:var(--fs-sm); line-height:1.4; text-align:left;
+  transition:border-color var(--dur-tint), background var(--dur-tint);
+}
+.proj-starter svg { flex:none; }
+.proj-starter span { min-width:0; }
+.proj-starter:hover { border-color:var(--border-strong); background:var(--surface-row-hover); color:var(--text-primary); }
+.proj-starter:disabled { opacity:.5; }
+
 .proj-rail { min-width:0; }
 .proj-rail-card { border:1px solid var(--border-subtle); border-radius:var(--r-lg); background:var(--surface-panel); padding:14px 16px 12px; }
-.proj-rail-head { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.proj-rail-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .proj-rail-head h4 { margin:0; flex:1; font-size:var(--fs-sm); font-weight:600; }
-.proj-rail-foot { display:block; font-size:var(--fs-xs); }
-/* Two doors on one line: the folder on the left where the eye already goes,
-   the delete pushed to the far edge and quiet until it is looked at. */
-.proj-rail-feet { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; }
-.proj-del { flex:none; font-size:var(--fs-xs); color:var(--text-dim); }
-.proj-del:hover { color:var(--status-danger); text-decoration:underline; }
-.proj-del:disabled { opacity:.5; }
+.proj-rail-count { font-size:var(--fs-2xs); color:var(--text-dim); }
+.proj-rail-foot { display:block; flex:none; font-size:var(--fs-xs); }
+/* The folder on the left where the eye already goes; the one sentence about
+   what the folder is for on the right, dim, the last thing in the card rather
+   than the first — with files in it the card explains itself. */
+.proj-rail-feet { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-top:10px; }
+.proj-hint { margin:0; min-width:0; font-size:var(--fs-2xs); color:var(--text-dim); line-height:1.5; text-align:right; }
 .proj-drop {
   display:flex; flex-direction:column; align-items:center; gap:8px; width:100%; padding:22px 14px;
   border:1px dashed var(--border-default); border-radius:var(--r-md); background:var(--surface-sunken);
   color:var(--text-dim); font-size:var(--fs-xs); text-align:center; line-height:1.5;
 }
 .proj-drop:hover { border-color:var(--border-strong); color:var(--text-secondary); }
+/* Under a list that already has files: a strip, not a well. */
+.proj-drop.slim { flex-direction:row; justify-content:center; padding:9px 12px; background:none; border-color:var(--border-subtle); }
 .proj-file-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.proj-file-del { flex:none; padding:2px 5px; border-radius:var(--r-xs); color:var(--text-dim); font-size:var(--fs-xs); opacity:0; }
-.proj-files li:hover .proj-file-del, .proj-file-del.confirm { opacity:1; }
+.proj-file-ago { flex:none; font-size:var(--fs-2xs); color:var(--text-dim); }
+.proj-files li:hover .proj-file-ago, .proj-files li:has(.proj-file-del.confirm) .proj-file-ago { display:none; }
+.proj-file-del { flex:none; padding:2px 5px; border-radius:var(--r-xs); color:var(--text-dim); font-size:var(--fs-xs); display:none; }
+.proj-files li:hover .proj-file-del, .proj-file-del.confirm { display:block; }
 .proj-file-del:hover, .proj-file-del.confirm { color:var(--status-danger); }
 .proj-actions { display:flex; gap:8px; flex:none; }
-.proj-hint { margin:0 0 10px; font-size:var(--fs-xs); color:var(--text-dim); line-height:1.5; }
 .proj-none { padding:10px 12px; border:1px dashed var(--border-subtle); border-radius:var(--r-md); color:var(--text-dim); font-size:var(--fs-sm); margin-bottom:22px; }
-.proj-files, .proj-chats { list-style:none; margin:0 0 22px; padding:0; display:flex; flex-direction:column; gap:2px; }
-.proj-files li { display:flex; align-items:center; gap:8px; padding:6px 10px; font-size:var(--fs-sm); color:var(--text-secondary); }
-.proj-chats li button { display:flex; align-items:center; gap:12px; width:100%; padding:7px 10px; border-radius:var(--r-md); text-align:left; }
+.proj-files, .proj-chats { list-style:none; margin:0 0 10px; padding:0; display:flex; flex-direction:column; gap:2px; }
+.proj-chats { margin-bottom:22px; }
+.proj-files li { display:flex; align-items:center; gap:8px; padding:6px 10px; font-size:var(--fs-sm); color:var(--text-secondary); border-radius:var(--r-sm); }
+.proj-files li:hover { background:var(--surface-row-hover); }
+.proj-chats li button { display:flex; align-items:flex-start; gap:12px; width:100%; padding:8px 10px; border-radius:var(--r-md); text-align:left; }
+.proj-chats li button > svg { flex:none; margin-top:4px; color:var(--text-muted); }
 .proj-chats li button:hover { background:var(--surface-row-hover); }
 /* Between the title and the age, not floated: this row has room, and a dot the
    age can push around is a dot that moves when the age relabels. */
-.proj-chats li button .dot { flex:none; }
-.proj-chat-title { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--fs-sm); color:var(--text-primary); }
-.proj-chat-ago { flex:none; font-size:var(--fs-xs); color:var(--text-dim); }
+.proj-chats li button .dot { flex:none; margin-top:7px; }
+.proj-chat-text { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+.proj-chat-title { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--fs-md); color:var(--text-primary); }
+.proj-chat-snip { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--fs-xs); color:var(--text-dim); }
+.proj-chat-ago { flex:none; font-size:var(--fs-xs); color:var(--text-dim); margin-top:3px; }
 
 /* ระบบออโตเมชั่น. Two cards side by side because the choice is between two
    engines and both are deferred — a list would rank them, and nothing has been
