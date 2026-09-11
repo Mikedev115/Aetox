@@ -170,7 +170,7 @@ func TestTheToolBlockStaysWithinItsBudget(t *testing.T) {
 	tokens := total / 4
 
 	sort.Slice(rows, func(i, j int) bool { return rows[i].bytes > rows[j].bytes })
-	// Logged on a pass, not only on a failure. README and docs/index.html
+	// Logged on a pass, not only on a failure. README and the landing page
 	// quote this figure, and while it was only printed when the budget broke
 	// they drifted to two different numbers with no way to tell which was
 	// current. `-run TestTheToolBlockStaysWithinItsBudget -v` is now the

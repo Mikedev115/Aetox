@@ -17,7 +17,7 @@
 
 <p align="center">
   <a href="README.th.md">ภาษาไทย</a> ·
-  <a href="https://mikedev115.github.io/Aetox/">Website</a> ·
+  <a href="https://mikedev115.github.io/aetox-landing/">Website</a> ·
   <a href="https://apps.microsoft.com/detail/9N4KKBRRSCZZ">Microsoft Store</a> ·
   <a href="https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe">Download</a> ·
   <a href="https://www.facebook.com/share/g/1BnXC5EiWg/">Community</a> ·
@@ -32,6 +32,27 @@
 ---
 
 ## What it is
+
+**Aetox is the execution layer for AI** — *models provide intelligence, Aetox provides capability.*
+
+```
+                        MODEL      ← knows what should be done
+                          ↓
+                     ┌─────────┐
+                     │  AETOX  │   ← eyes, ears, hands, tools, permission
+                     │Execution│
+                     │  Layer  │
+                     └────┬────┘
+                          ↓
+            ┌─────────────┼─────────────┐
+            ↓             ↓             ↓
+          Files        Browser        Shell
+            ↓             ↓             ↓
+        documents     websites      programs
+```
+
+> **The north star of this project.** *Do not build an AI that answers more. Build an AI that
+> does more.*
 
 Aetox is a desktop application for Windows that runs an AI agent against your own machine.
 You describe what needs doing; it reads and writes real files, runs real commands in a real
@@ -264,17 +285,52 @@ the other list.
 |  | Assistant | Code |
 |:---|:---|:---|
 | **Where it works** | Your whole machine when no project is focused, or a project folder plus folders you add | The project folder you opened, plus folders you add |
-| **Rooms** | Assistant · Projects · Agent team · Automation · Work | Code |
+| **Rooms** | Assistant · Capabilities · Projects · Specialist agents · Video work · Work | Code |
 | **The right-hand panel** | Available | Available |
 
 The doors separate what the *system* carries, never what the AI is willing to do. The assistant
 has files and a shell and does software work with them; it does not hand a request back because
 it involves code.
 
+A third door, **Aetox Team**, is built but **not open in this build**. It has one room, the
+**Workroom** — a run written down: the steps a job goes through, and which agent sits at each one.
+That page opens and says plainly that the work behind it is not built yet, rather than drawing a
+list it does not have.
+
+## The Code door
+
+The second door is a workshop, not a chat with a coding mode switched on. It opens onto one room,
+**Code**, rooted at the project folder you opened — in this door a project is a fence, where the
+assistant's project is a folder for conversations. Same binary, same settings, same permissions;
+what changes is the ceiling of tools and the room you are standing in.
+
+What you get done in it, all of it on a workbench you are watching:
+
+- **Find out why a test is flaky** — it greps the repo, runs the suite in a real terminal tab,
+  reads the failure, and edits the file.
+- **Know what a name is before you trust it** — language servers the app installs itself report
+  the errors, and a symbol lookup says what an identifier is, where it is declared, and every place
+  that references it. Exact where a search guesses.
+- **See the shape of a repository you did not write** — a code map of the tree, with `grep` and
+  `glob` over all of it.
+- **Open a pull request and read its CI** — per-file diffs with the checks beside them. Merge and
+  close are deliberately absent: closing an argument is one click on a page you already have open.
+- **Undo the last turn** — shadow-git reverts what the previous turn touched.
+- **Read a diff without leaving the conversation** — expand a tool row and the change in that cell
+  shows as git hunks. This is the door that does it.
+
+Eight kinds of workbench tab hold it: `terminal` · `browser` · `files` · `file` · `decks` · `git` ·
+`repomap` · `pr`. Behind them, a Monaco editor, a real ConPTY terminal, and git status with
+`+N −M` against HEAD.
+
+**What is deliberately not on this desk:** no document or spreadsheet writer, no OCR, no PDF or
+audio reader. A deck *about* code is the assistant's door.
+
 ## The team
 
-Five agents ship — `doc`, `sheet`, `github`, `automation`, `deepresearch` — and hiring a
-sixth is dropping a folder into `<DataRoot>/agents/`. No release, no plugin API, no restart.
+Seven agents ship — `doc`, `sheet`, `github`, `automation`, `deepresearch`, `editor`, `video` —
+and hiring an eighth is dropping a folder into `<DataRoot>/agents/`. No release, no plugin API, no
+restart.
 
 An agent's folder is its whole identity: `AGENT.md` (who it is, what desk it sits at, which tools
 it may narrow itself to, which model it pins), `MEMORY.md` (what it has learned), `STARTERS.md`
@@ -295,8 +351,11 @@ from the composer is the third door: your sentence arrives verbatim, mention inc
 paraphrase is where the request goes wrong.
 
 Agents never call each other. The star has one centre; multi-step work is a conveyor through the
-assistant, and the baton is a file path rather than the content. Separately, three **sub-agents**
-(`explore`, `plan`, `general`) are internal helpers — a fixed set, not extensible, deliberately.
+assistant, and the baton is a file path rather than the content. Separately, four **sub-agents**
+(`explore`, `general`, `reviewer`, `tester`) are internal helpers — a fixed set, not extensible,
+deliberately. The last two **cannot write anything at all, on purpose**: a reviewer that fixes what
+it finds is a second author, and then nobody is left reading; a tester that repairs the test it just
+ran is a test nobody watched fail.
 
 ## What it learns, and what you approve
 
