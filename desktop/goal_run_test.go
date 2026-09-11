@@ -458,3 +458,24 @@ func TestTheStepInstructionsAreGuidanceRatherThanAMessage(t *testing.T) {
 		t.Error("guidance is returned for an action that does not exist")
 	}
 }
+
+// Writing a plan is not starting one.
+//
+// The failure this pins is the owner's own, photographed: a card whose steps all
+// read ยังไม่เริ่ม sitting over edits that were already made, with ลงมือ untouched
+// — *"ยังไม่ทันกดลงมือตามแผน เลย แม่งเริ่มไปแล้ว"* (11 ก.ย.). The model wrote the
+// checklist and carried it out in the same turn, so the only control the card
+// offers was a receipt for work already done.
+//
+// It has to ride on `write`, because that is the first call every plan session
+// makes. The same sentence under `step` would reach only a model that is already
+// marking — the trap browser_guidance.go names for the batch.
+func TestWritingAPlanSaysWhosePressStartsIt(t *testing.T) {
+	s := planApp(t)
+	w := s.Guidance(map[string]any{"action": "write"})
+	for _, want := range []string{"ลงมือ", "where the turn ends", "`plan step`"} {
+		if !strings.Contains(w, want) {
+			t.Errorf("the write guidance does not say %q, so a model carrying the plan out as it writes it is never told:\n%s", want, w)
+		}
+	}
+}
