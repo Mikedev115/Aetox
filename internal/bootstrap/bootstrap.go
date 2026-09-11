@@ -197,13 +197,14 @@ type Options struct {
 	// Nil is the native shell: every existing host, and every test.
 	Shell func() proc.Backend
 
-	// ProviderTransport, when set, is the model client's credential
-	// (model.Transport): the host wraps the network in a transport that signs
-	// each request from its own credential store, and the engine built here
-	// never holds a key — it hands cfg.ModelAPIKey through only for the host
-	// that still passes one (the CLI), and nothing else reaches the wire
-	// unsigned. ProviderEndpoint is the base URL a sign-in pinned for this
-	// provider, or "": not a secret, so it travels here in the open. §248.
+	// ProviderTransport is the model client's credential (model.Transport):
+	// the host wraps the network in a transport that signs each request from
+	// its own credential store. The engine built here never holds a key —
+	// config.Config has no field for one (§248 A4), and nothing else reaches
+	// the wire signed. A provider that requires a key and is built with no
+	// transport falls back to the built-in, as it always did with no key.
+	// ProviderEndpoint is the base URL a sign-in pinned for this provider, or
+	// "": not a secret, so it travels here in the open.
 	ProviderTransport model.Transport
 	ProviderEndpoint  string
 
@@ -443,7 +444,6 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 	bootstrapResult := model.BootstrapProvider(model.BootstrapOptions{
 		Provider:         cfg.ModelProvider,
 		Model:            cfg.ModelName,
-		APIKey:           cfg.ModelAPIKey,
 		BaseURL:          cfg.ModelBaseURL,
 		Timeout:          modelTimeout(cfg),
 		WireFormat:       cfg.ModelWireFormat,

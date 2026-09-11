@@ -401,7 +401,7 @@ var catalog = map[string]*entry{
 	// Every old spelling stays an alias, which is the whole migration — the
 	// same mechanism the noop→aetox rename used. A preference file, an enabled
 	// list or a saved key written as "qwen" normalizes to "alibaba" on read
-	// (config.APIKeyForProvider normalizes both sides for that reason).
+	// (credentials.KeyFor normalizes both sides for that reason).
 	//
 	// API key only since v0.8.1 (§65): the qwen-code device flow that used to
 	// stand behind this row never completed a sign-in and is gone.

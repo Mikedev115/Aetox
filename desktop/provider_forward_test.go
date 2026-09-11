@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/credentials"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/oauth"
 )
@@ -16,13 +16,7 @@ import (
 // credentials.json on the wire and none in its own configuration.
 func TestScreenTransportSignsFromTheCredentialStore(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
-	// The key lives in credentials.json; the preference file is what
-	// resolveAPIKeyForProvider reads it through, so both are seeded the way a
-	// real install has both.
-	if err := config.SaveModelPreference(config.ModelPreference{ModelProvider: "groq"}); err != nil {
-		t.Fatalf("seed preference: %v", err)
-	}
-	if err := config.SaveCredentials(config.Credentials{ModelAPIKeys: map[string]string{"groq": "gsk-screen"}}); err != nil {
+	if err := credentials.Set("groq", "gsk-screen"); err != nil {
 		t.Fatalf("seed key: %v", err)
 	}
 	var gotAuth string
@@ -56,7 +50,7 @@ func TestScreenTransportSignsFromTheCredentialStore(t *testing.T) {
 // the credential lives.
 func TestScreenTransportPrefersTheSignIn(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
-	if err := config.SaveCredentials(config.Credentials{ModelAPIKeys: map[string]string{"codex": "sk-ignored"}}); err != nil {
+	if err := credentials.Set("codex", "sk-ignored"); err != nil {
 		t.Fatalf("seed key: %v", err)
 	}
 	if err := oauth.Set("codex", oauth.Credential{Type: "oauth", Access: "tok", Account: "acct_9"}); err != nil {

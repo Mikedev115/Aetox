@@ -134,7 +134,7 @@ var catalog = []Descriptor{
 	},
 	// The three below need no new credential from the user: each reads the key
 	// already entered for that same provider on ตั้งค่า > โมเดล
-	// (config.ProviderAPIKey), which is the whole reason they are worth having
+	// (credentials.ProviderAPIKey), which is the whole reason they are worth having
 	// as separate rows rather than as one "bring your own endpoint" row.
 	{
 		ID:      "openai",

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/credentials"
 )
 
 // Stop pressed in the beginTurn → armTurnCancel gap (openTurn's DB writes sit
@@ -516,14 +517,16 @@ func TestAChatThatRecordedNoModelOpensOnTheDefault(t *testing.T) {
 // another's credentials, which the engine reports as "missing model API key"
 // before falling back to the built-in one. The owner saw that message rather
 // than his model (20 ส.ค.).
-// PROBE: a chat recorded on another provider must come back with that
-// provider's key, not the last one the app happened to hold.
-func TestAReopenedChatGetsItsOwnProvidersKey(t *testing.T) {
+// PROBE: a chat recorded on another provider must come back ON that provider
+// — its name and its address — not on the last one the app happened to hold.
+// The key used to be a third thing to carry across and the one that went
+// wrong; since §248 A4 it is not a config field at all, and follows the
+// provider name through the screen's signing transport.
+func TestAReopenedChatGetsItsOwnProvider(t *testing.T) {
 	a := newTestApp(t, t.TempDir())
 	first := a.cur().id
 	a.cur().cfg.ModelProvider = "openai"
 	a.cur().cfg.ModelName = "gpt-4o"
-	a.cur().cfg.ModelAPIKey = "key-for-openai"
 	a.appendTurn(a.cur(),
 		SessionMessage{Role: "user", Text: "q", Time: "10:00"},
 		SessionMessage{Role: "agent", Text: "a", Time: "10:00"},
@@ -531,15 +534,18 @@ func TestAReopenedChatGetsItsOwnProvidersKey(t *testing.T) {
 
 	a.startNewSession()
 	a.cur().cfg.ModelProvider = "deepseek"
-	a.cur().cfg.ModelAPIKey = "key-for-deepseek"
+	a.cur().cfg.ModelBaseURL = "https://deepseek.example/v1"
 	a.cfg = a.cur().cfg
 
 	if _, err := a.LoadSession(first); err != nil {
 		t.Fatalf("LoadSession: %v", err)
 	}
-	t.Logf("PROBE: provider=%q key=%q", a.cur().cfg.ModelProvider, a.cur().cfg.ModelAPIKey)
-	if a.cur().cfg.ModelAPIKey == "key-for-deepseek" {
-		t.Error("the reopened chat kept the other provider's key")
+	t.Logf("PROBE: provider=%q base=%q", a.cur().cfg.ModelProvider, a.cur().cfg.ModelBaseURL)
+	if a.cur().cfg.ModelProvider != "openai" {
+		t.Errorf("the reopened chat came back on %q, want the provider it was recorded on", a.cur().cfg.ModelProvider)
+	}
+	if a.cur().cfg.ModelBaseURL == "https://deepseek.example/v1" {
+		t.Error("the reopened chat kept the other provider's address")
 	}
 }
 
@@ -823,8 +829,12 @@ func TestAQueuedSwitchIsProvedWhileTheTurnRuns(t *testing.T) {
 	a := newTestApp(t, t.TempDir())
 	conv := dialledChat(t, a)
 	conv.cfg.ModelBaseURL = "http://127.0.0.1:1"
-	conv.cfg.ModelAPIKey = "test-key"
 	conv.cfg.ModelWireFormat = "anthropic"
+	// The probe signs with what the screen holds for this provider, which is
+	// no longer a config field: give it one, so what fails is the endpoint.
+	if err := credentials.Set(conv.cfg.ModelProvider, "test-key"); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := a.beginTurn(conv.id); err != nil {
 		t.Fatalf("beginTurn() = %v", err)

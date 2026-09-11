@@ -77,7 +77,7 @@ func WriteShell(entry ShellEntry) error {
 // only and never rotated, so anything that lands here stays.
 //
 // The registry is debuglog's because it is already the one place secrets are
-// registered (config.LoadCredentials, config.Load). A second list kept here
+// registered (credentials.Load; config.Load for the .env file). A second list kept here
 // would drift, and the drift would stay invisible until someone read the file
 // it failed on.
 func sanitizeCommand(command string) string {

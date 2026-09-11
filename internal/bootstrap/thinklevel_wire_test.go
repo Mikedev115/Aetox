@@ -13,6 +13,11 @@ import (
 	"github.com/Mikedev115/Aetox/internal/safety"
 )
 
+// unsigned stands in for the screen's signing transport: the capture server
+// checks the body, not the credential, and the engine holds no key of its own
+// to attach (§248 A4).
+var unsigned = func(network http.RoundTripper) http.RoundTripper { return network }
+
 // captureProvider is a stand-in for a provider's HTTP endpoint that records the
 // request body and answers with the smallest valid reply. It speaks the
 // Anthropic wire format because that is what DeepSeek — the provider with a
@@ -99,11 +104,10 @@ func TestEngineSendsTheConfiguredThinkLevelOnTheWire(t *testing.T) {
 				ModelProvider: "deepseek",
 				ModelName:     "deepseek-v4-flash",
 				ModelBaseURL:  capture.server.URL,
-				ModelAPIKey:   "test-key",
 				ThinkLevel:    tc.level,
 				SandboxRoot:   t.TempDir(),
 				ApprovalMode:  string(safety.ApprovalAsk),
-			}, Options{Console: DiscardConsole(), Approve: approveNothing})
+			}, Options{Console: DiscardConsole(), Approve: approveNothing, ProviderTransport: unsigned})
 			if err != nil {
 				t.Fatalf("Engine: %v (%s)", err, res.Status)
 			}
@@ -163,11 +167,10 @@ func TestEngineSendsReasoningEffortOnTheOpenAICompatibleWire(t *testing.T) {
 				ModelProvider: "kimi",
 				ModelName:     "kimi-k3",
 				ModelBaseURL:  capture.server.URL,
-				ModelAPIKey:   "test-key",
 				ThinkLevel:    tc.level,
 				SandboxRoot:   t.TempDir(),
 				ApprovalMode:  string(safety.ApprovalAsk),
-			}, Options{Console: DiscardConsole(), Approve: approveNothing})
+			}, Options{Console: DiscardConsole(), Approve: approveNothing, ProviderTransport: unsigned})
 			if err != nil {
 				t.Fatalf("Engine: %v (%s)", err, res.Status)
 			}
@@ -214,11 +217,10 @@ func TestEngineSendsMiniMaxThinkingAsASwitch(t *testing.T) {
 				ModelProvider: "minimax",
 				ModelName:     "MiniMax-M3",
 				ModelBaseURL:  capture.server.URL,
-				ModelAPIKey:   "test-key",
 				ThinkLevel:    tc.level,
 				SandboxRoot:   t.TempDir(),
 				ApprovalMode:  string(safety.ApprovalAsk),
-			}, Options{Console: DiscardConsole(), Approve: approveNothing})
+			}, Options{Console: DiscardConsole(), Approve: approveNothing, ProviderTransport: unsigned})
 			if err != nil {
 				t.Fatalf("Engine: %v (%s)", err, res.Status)
 			}

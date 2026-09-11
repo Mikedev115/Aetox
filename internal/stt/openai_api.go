@@ -26,6 +26,7 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/apierr"
 	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/credentials"
 )
 
 // apiTranscriberSpec is one vendor's wearing of the shared multipart shape.
@@ -107,7 +108,7 @@ func newAPITranscriber(desc Descriptor, opts Options) (Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	key := config.ProviderAPIKey(spec.provider, spec.envVars...)
+	key := credentials.ProviderAPIKey(spec.provider, spec.envVars...)
 	base := strings.TrimRight(config.ProviderBaseURL(spec.provider), "/")
 	if base == "" {
 		base = spec.defaultBase

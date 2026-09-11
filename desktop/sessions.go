@@ -1069,15 +1069,15 @@ func (a *App) LoadSession(id string) ([]SessionMessage, error) {
 			// column existed: those keep the app's default, which is what they
 			// have always opened on.
 			if provider != "" && provider != conv.cfg.ModelProvider {
-				// The provider carries its own key and its own address. Set the
-				// name alone and the engine is pointed at one provider holding
-				// another's credentials, which comes out as "missing model API
-				// key" and a silent fall back to the built-in engine — which is
-				// what the owner got the first time this shipped (20 ส.ค.).
-				// Same three lines SwitchProvider uses, for the same reason.
+				// The provider carries its own address. Set the name alone and
+				// the engine is pointed at one provider on another's endpoint,
+				// which used to come out as "missing model API key" and a silent
+				// fall back to the built-in engine — what the owner got the
+				// first time this shipped (20 ส.ค.). Same lines SwitchProvider
+				// uses, for the same reason; the key follows the provider name
+				// through the screen's transport and is not a config field.
 				conv.cfg.ModelProvider = provider
 				conv.cfg.ModelBaseURL = resolveBaseURLForProvider(provider)
-				conv.cfg.ModelAPIKey = resolveAPIKeyForProvider(provider)
 			}
 			if modelName != "" {
 				conv.cfg.ModelName = modelName

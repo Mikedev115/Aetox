@@ -23,6 +23,7 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/apierr"
 	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/credentials"
 )
 
 const geminiImageBase = "https://generativelanguage.googleapis.com/v1beta"
@@ -39,7 +40,7 @@ func newGeminiImages(desc Descriptor, opts Options) (Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	key := config.ProviderAPIKey("gemini", "GEMINI_API_KEY", "GOOGLE_API_KEY")
+	key := credentials.ProviderAPIKey("gemini", "GEMINI_API_KEY", "GOOGLE_API_KEY")
 	if key == "" {
 		// The fact only; the page that shows this carries the button.
 		return nil, fmt.Errorf("ยังไม่มี API key ของ Gemini")

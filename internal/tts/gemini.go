@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/credentials"
 )
 
 // swapped in tests.
@@ -46,7 +46,7 @@ type geminiSpeech struct {
 }
 
 func newGeminiSpeech(desc Descriptor, opts Options) (Engine, error) {
-	key := config.ProviderAPIKey("gemini", "GEMINI_API_KEY", "GOOGLE_API_KEY")
+	key := credentials.ProviderAPIKey("gemini", "GEMINI_API_KEY", "GOOGLE_API_KEY")
 	if key == "" {
 		return nil, fmt.Errorf("ยังไม่มี API key ของ Gemini — ใส่ได้ที่ ตั้งค่า > โมเดล > Gemini แล้วเสียงอ่านจะใช้ key เดียวกัน")
 	}

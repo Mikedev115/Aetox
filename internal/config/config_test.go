@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -33,8 +32,6 @@ func isolateUserDirs(t *testing.T) string {
 }
 
 func TestLoadDefaults(t *testing.T) {
-	t.Setenv("OPENROUTER_API_KEY", "env-key")
-
 	cwd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("getwd failed: %v", err)
@@ -70,9 +67,6 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.ModelProvider != "openrouter" {
 		t.Fatalf("expected model provider openrouter, got %q", cfg.ModelProvider)
-	}
-	if cfg.ModelAPIKey != "env-key" {
-		t.Fatalf("expected API key from env, got %q", cfg.ModelAPIKey)
 	}
 	if cfg.ThinkLevel != "low" {
 		t.Fatalf("expected default think level low, got %q", cfg.ThinkLevel)
@@ -383,151 +377,6 @@ func TestSwitchingAServerOffForEveryoneSurvivesASave(t *testing.T) {
 	migratedMCPOwners = sync.Once{} // the next launch
 	if got := MCPServersForDesk("assistant"); len(got) != 0 {
 		t.Errorf("the server switched itself back on: %v", got)
-	}
-}
-
-// Secrets and settings need different handling, and one file cannot have two.
-// The preference file is opened to check a locale or a last desk, pasted into
-// bug reports and screenshotted; while the keys lived in it, every one of those
-// ordinary acts leaked them — which is how a key reached a debugging transcript
-// on the day this was split (2026-08-06).
-func TestAPIKeysAreNotInThePreferenceFile(t *testing.T) {
-	isolateUserDirs(t)
-
-	const key = "sk-do-not-let-this-into-the-settings-file"
-	if err := SaveModelPreference(ModelPreference{
-		ModelProvider: "deepseek",
-		UILocale:      "th",
-		LastDesk:      "specialized",
-		ModelAPIKeys:  map[string]string{"deepseek": key},
-	}); err != nil {
-		t.Fatalf("save: %v", err)
-	}
-
-	prefPath, _ := PreferencePath()
-	raw, err := os.ReadFile(prefPath)
-	if err != nil {
-		t.Fatalf("read preferences: %v", err)
-	}
-	if strings.Contains(string(raw), key) {
-		t.Fatalf("the API key is still in the settings file:\n%s", raw)
-	}
-	// The settings themselves must still be there and still readable by hand —
-	// that readability is the whole reason the secrets left.
-	if !strings.Contains(string(raw), "specialized") {
-		t.Fatalf("the settings did not survive the split:\n%s", raw)
-	}
-
-	// Callers hand over one struct and get one back: the storage split is this
-	// package's business, not every call site's.
-	got, ok, err := LoadModelPreference()
-	if err != nil || !ok {
-		t.Fatalf("load: ok=%v err=%v", ok, err)
-	}
-	if got.ModelAPIKeys["deepseek"] != key {
-		t.Fatalf("the key did not come back: %+v", got.ModelAPIKeys)
-	}
-	if got.LastDesk != "specialized" {
-		t.Errorf("settings did not come back: %+v", got)
-	}
-}
-
-// An install written before the split must not lose its keys — losing one means
-// the user cannot reach their own provider until they find and retype it.
-func TestKeysInAnOldPreferenceFileMoveOutOnLoad(t *testing.T) {
-	isolateUserDirs(t)
-
-	const key = "sk-written-before-the-split"
-	prefPath, _ := PreferencePath()
-	if err := os.MkdirAll(filepath.Dir(prefPath), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	old := `{"provider":"deepseek","last_desk":"coding","provider_api_keys":{"deepseek":"` + key + `"}}`
-	if err := os.WriteFile(prefPath, []byte(old), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	got, ok, err := LoadModelPreference()
-	if err != nil || !ok {
-		t.Fatalf("load: ok=%v err=%v", ok, err)
-	}
-	if got.ModelAPIKeys["deepseek"] != key {
-		t.Fatalf("the migration lost the key: %+v", got.ModelAPIKeys)
-	}
-	raw, err := os.ReadFile(prefPath)
-	if err != nil {
-		t.Fatalf("read back: %v", err)
-	}
-	if strings.Contains(string(raw), key) {
-		t.Fatalf("the key is still in the settings file after migrating:\n%s", raw)
-	}
-	// Two copies of a secret is worse than one: the stripped file must not be
-	// the only thing that happened.
-	creds, err := LoadCredentials()
-	if err != nil {
-		t.Fatalf("load credentials: %v", err)
-	}
-	if creds.ModelAPIKeys["deepseek"] != key {
-		t.Fatalf("the key did not land in the credentials file: %+v", creds)
-	}
-}
-
-// Round trip through whatever the platform gives us. On Windows the file is
-// DPAPI-wrapped and must not contain the key in the clear; everywhere else it
-// is plaintext by design (see secret_other.go) and this still pins that the
-// value survives the trip.
-func TestCredentialsRoundTrip(t *testing.T) {
-	isolateUserDirs(t)
-
-	const key = "sk-round-trip"
-	if err := SaveCredentials(Credentials{ModelAPIKeys: map[string]string{"deepseek": key}}); err != nil {
-		t.Fatalf("save: %v", err)
-	}
-	got, err := LoadCredentials()
-	if err != nil {
-		t.Fatalf("load: %v", err)
-	}
-	if got.ModelAPIKeys["deepseek"] != key {
-		t.Fatalf("round trip lost the key: %+v", got)
-	}
-	if runtime.GOOS == "windows" {
-		path, _ := CredentialsPath()
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read: %v", err)
-		}
-		if strings.Contains(string(raw), key) {
-			t.Errorf("the key is in the clear on disk despite DPAPI:\n%s", raw)
-		}
-	}
-}
-
-// The upgrade that renames a provider is the one that can lose a key, and it
-// loses it silently: the file still has it, the card still draws, and the app
-// says there is no key. Every credentials.json written before 2026-08-24 keyed
-// Alibaba Cloud as "qwen".
-func TestKeySavedUnderAnOlderProviderNameStillResolves(t *testing.T) {
-	pref := ModelPreference{ModelAPIKeys: map[string]string{"qwen": "sk-from-an-older-build"}}
-	if got := pref.APIKeyForProvider("alibaba"); got != "sk-from-an-older-build" {
-		t.Errorf("APIKeyForProvider(alibaba) = %q — the key saved as \"qwen\" is unreachable", got)
-	}
-	if got := pref.APIKeyForProvider("qwen"); got != "sk-from-an-older-build" {
-		t.Errorf("APIKeyForProvider(qwen) = %q — the old name has to keep working too", got)
-	}
-}
-
-// And the write side, which is the half that turns one stale row into two live
-// ones. APIKeyForProvider walks a map: with both "qwen" and "alibaba" present
-// it returns whichever Go hands it first, so the key actually sent could
-// change between two runs of the same binary.
-func TestSavingAKeyClearsTheOlderSpelling(t *testing.T) {
-	pref := ModelPreference{ModelAPIKeys: map[string]string{"qwen": "sk-old"}}
-	pref.SetAPIKeyForProvider("alibaba", "sk-new")
-	if _, stale := pref.ModelAPIKeys["qwen"]; stale {
-		t.Error("the entry keyed \"qwen\" survived the write — two rows now answer for one provider")
-	}
-	if got := pref.APIKeyForProvider("alibaba"); got != "sk-new" {
-		t.Errorf("APIKeyForProvider(alibaba) = %q, want the key just saved", got)
 	}
 }
 
