@@ -1,5 +1,6 @@
 ---
 name: aetox-grill
+before: writing a plan whose scope, approach or audience the brief leaves open
 description: Relentlessly interview and stress-test a plan, architecture, or idea before building. Navigates the design tree in rounds along the frontier, provides concrete options with technical recommendations, investigates codebase facts autonomously, records Architecture Decision Records (ADRs), and establishes an unambiguous domain glossary.
 source: https://github.com/Mikedev115 (aetox-grill - inspired by Matt Pocock grill-with-docs)
 license: MIT
@@ -23,22 +24,22 @@ Use this skill to relentlessly stress-test and sharpen any plan, technical desig
    When a question depends on what is in the repository (files, dependencies, database schema, configs, external APIs), go and inspect it yourself with file and shell tools. Never ask the user for facts you can look up. Only ask the user for **Decisions, Trade-offs, and Business Priorities**.
 
 4. **Always Provide a Recommended Answer**:
-   Do not dump raw open questions. For each question in the round, analyze the technical trade-offs and provide your concrete recommendation (`➡️ Recommendation`).
+   Do not dump raw open questions. For each question in the round, analyze the technical trade-offs and provide your concrete recommendation.
 
 ## Interview Round Format
 
-Present each round cleanly:
+Ask with the `ask_user` tool when it is on the desk — one call per question, the options as its
+options, your recommendation first and marked as such — so the user answers by pressing rather
+than typing. The whole frontier goes in one round; the turn ends when the round is asked.
+
+Without the tool, present the round as text, plainly:
 
 ```markdown
-❓ **Q1 - [Decision Topic]**: [Context, problem statement, and concrete options A / B / C]
+**Q1 — [Decision Topic]**: [context, the problem, and concrete options A / B / C]
+**Recommendation**: [the choice, with the technical reason in a line]
 
-➡️ **Recommendation**: [Recommended choice with concise technical rationale]
-
----
-
-❓ **Q2 - [Decision Topic]**: [Context, trade-offs, and options]
-
-➡️ **Recommendation**: [Recommended choice and rationale]
+**Q2 — [Decision Topic]**: …
+**Recommendation**: …
 ```
 
 ## Advancing the Tree
