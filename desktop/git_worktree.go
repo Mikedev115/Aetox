@@ -223,11 +223,7 @@ func (a *App) gitRoot() (string, bool) {
 // `git status`, and a panel answering "nothing" beats an app leaking a git per
 // refresh.
 func (a *App) gitContext() (context.Context, context.CancelFunc) {
-	parent := a.ctx
-	if parent == nil {
-		parent = context.Background()
-	}
-	return context.WithTimeout(parent, 10*time.Second)
+	return context.WithTimeout(a.engineCtx(), 10*time.Second)
 }
 
 func gitOut(ctx context.Context, root string, args ...string) (string, error) {

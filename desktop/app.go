@@ -220,6 +220,16 @@ type App struct {
 	// up was ended by the app closing, not by the user's Stop, and its row
 	// says so (closeReason).
 	closing atomic.Bool
+	// life is the engine's own lifetime: what a turn, a git call, a snapshot
+	// and a catalog refresh hang off, and what finishTurnsForClose ends. Not
+	// a.ctx — that is the WINDOW's lifetime, nil until Wails has started and
+	// gone when it quits — because the engine is on its way to being a process
+	// the window is one client of (§248), and a turn bound to a window would
+	// die with a window that merely reconnects. Made lazily so an App built by
+	// struct literal in a test has one without asking for it.
+	lifeOnce   sync.Once
+	lifeCtx    context.Context
+	lifeCancel context.CancelFunc
 
 	// files is what this app last saw each file on disk as (skill.FileState),
 	// shared by every conversation's tools and by the editor's own save path.
@@ -1626,7 +1636,7 @@ func (a *App) captureSnapshot(conv *conversation, label string) {
 	if store == nil {
 		return
 	}
-	id, err := store.Capture(a.ctx)
+	id, err := store.Capture(a.engineCtx())
 	if err != nil {
 		debuglog.Msg("snapshot capture skipped: %v", err)
 		return
@@ -1739,11 +1749,11 @@ type undoPlan struct {
 // change is not one this side can complete (see conversation.userSaves). What
 // comes out of it is only what the user is known to have saved.
 func (a *App) planUndo(conv *conversation, store *snapshot.Store, id string, after int) (undoPlan, error) {
-	current, err := store.Capture(a.ctx)
+	current, err := store.Capture(a.engineCtx())
 	if err != nil {
 		return undoPlan{}, err
 	}
-	changed, err := store.Changed(a.ctx, id, current)
+	changed, err := store.Changed(a.engineCtx(), id, current)
 	if err != nil {
 		return undoPlan{}, err
 	}
@@ -1866,10 +1876,10 @@ func (a *App) rewind(conv *conversation, store *snapshot.Store, id string, index
 	// Labelled by the window, not here: an empty label is the point that had no
 	// message behind it, and what that row should READ is a translated string
 	// (chat.rewindAfterUndo) rather than one language hardcoded in the engine.
-	if wayBack, capErr := store.Capture(a.ctx); capErr == nil {
+	if wayBack, capErr := store.Capture(a.engineCtx()); capErr == nil {
 		a.recordPoint(conv, wayBack, "")
 	}
-	files, err := store.Restore(a.ctx, id, plan.restore)
+	files, err := store.Restore(a.engineCtx(), id, plan.restore)
 	if err != nil {
 		return UndoResult{}, err
 	}
@@ -2756,17 +2766,10 @@ func (a *App) runTurn(conv *conversation, text, to string) (SessionMessage, Sess
 	if expanded, ok := command.ExpandPreset(text); ok {
 		text = expanded
 	}
-	// a.ctx is the window's lifetime, and it is nil until startup runs. That
-	// used to be unreachable from here — a process with no window had no engine
-	// either, so the check above returned first — and it stopped being
-	// unreachable the moment opening a chat began building its own engine. The
-	// same fallback the workspace door already uses: no window means no
-	// lifetime to be bound by, not a nil to hand to context.WithCancel.
-	parent := a.ctx
-	if parent == nil {
-		parent = context.Background()
-	}
-	ctx, cancel := context.WithCancel(parent)
+	// Off the engine's lifetime, not the window's (see App.lifeCtx): a turn
+	// ends when the user stops it or the engine is closing, never because the
+	// window that showed it went away.
+	ctx, cancel := context.WithCancel(a.engineCtx())
 	turnSession := conv.id
 	if a.armTurnCancel(turnSession, ctx, cancel) {
 		// Stop was pressed before this cancel func existed (the beginTurn →
@@ -5156,9 +5159,7 @@ func (a *App) applyConfig(conv *conversation, cfg config.Config) {
 			for _, err := range errs {
 				debuglog.Msg("mcp: %v", err)
 			}
-			if a.ctx != nil {
-				a.emitEvent("skills:updated", nil)
-			}
+			a.emitEvent("skills:updated", nil)
 		}()
 	}
 }

@@ -536,7 +536,7 @@ func (a *App) RefreshModelFacts() {
 	}
 	// Installs whatever it ends up with, fresh or cached — see
 	// model.RefreshModelCatalog.
-	catalog, err := model.RefreshModelCatalog(a.ctx, root)
+	catalog, err := model.RefreshModelCatalog(a.engineCtx(), root)
 	if err != nil {
 		debuglog.Msg("model catalog: refresh failed: %v", err)
 	}
