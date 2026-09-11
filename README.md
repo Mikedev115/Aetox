@@ -45,6 +45,11 @@ That is why a small local model can still read a picture, transcribe a recording
 deck that opens in PowerPoint: `image_ocr`, `audio_transcribe` and the slide exporter are the
 app's, not the model's.
 
+There is a word for that arrangement. Aetox is a **harness**: the program around a model that
+gives it tools, a loop, and somewhere to work. The model is the engine; the harness is the car.
+That is why the same model can be a different product in two apps — and why a score belongs to a
+model and a harness together rather than to the model alone.
+
 Two concrete jobs, to make that less abstract. *"Go through this folder of receipts and give me
 one spreadsheet"* — it OCRs each image, works out the totals in a JavaScript interpreter
 compiled into the binary and shows you the script beside the answer, then writes a real `.xlsx`
