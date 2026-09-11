@@ -505,13 +505,19 @@ var catalog = map[string]*entry{
 		// includes /anthropic/v1. The plain OpenAI-compatible endpoint is kept
 		// as the alt format (user-selectable in Settings) since it's the
 		// longer-proven path and some routing setups may still prefer it.
+		//
+		// The fallback model below carries the name DeepSeek's API serves the
+		// current line under: V4.1-Flash, released 2026-09-10. The retired
+		// deepseek-v4-flash and deepseek-v4-flash-vision-exp names still route
+		// to it, so either would answer — this is the one the API docs tell a
+		// caller to write, and it is what a cold start should land on.
 		runtime:       RuntimeAnthropic,
 		baseURL:       "https://api.deepseek.com/anthropic/v1",
 		altRuntime:    RuntimeOpenAICompatible,
 		altBaseURL:    "https://api.deepseek.com",
 		envKeys:       []string{"DEEPSEEK_API_KEY"},
 		apiKeyURL:     "https://platform.deepseek.com/api_keys",
-		modelDefaults: ModelDefaults{FallbackModel: "deepseek-v4-flash"},
+		modelDefaults: ModelDefaults{FallbackModel: "deepseek-flash"},
 		capabilities:  Capabilities{ToolCalling: true, Reasoning: true},
 	},
 	"minimax": {

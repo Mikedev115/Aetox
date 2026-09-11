@@ -199,7 +199,7 @@ func TestDefaultModel_FallbackOnly(t *testing.T) {
 		{"noop", "aetox-grid"},
 		{"openrouter", "deepseek/deepseek-r1"},
 		{"openai", "gpt-4o-mini"},
-		{"deepseek", "deepseek-v4-flash"},
+		{"deepseek", "deepseek-flash"},
 		{"gemini", "gemini-2.5-flash"},
 		// Six rows were found pointing at models nobody served on 2026-08-20:
 		// these two, kimi below, and perplexity, together and cohere, which the

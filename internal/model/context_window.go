@@ -150,9 +150,31 @@ func xaiContextWindow(modelID string) int {
 	}
 }
 
+// DeepSeekV4Family reports whether a DeepSeek model belongs to the V4-era line,
+// which is the line that carries the 1M context window and the 384K output
+// ceiling.
+//
+// Two spellings answer yes because they are one model. DeepSeek renamed the line
+// on 2026-09-10 — deepseek-flash is what the API serves V4.1-Flash under now —
+// and retired deepseek-v4-flash and deepseek-v4-flash-vision-exp into
+// compatibility aliases that still route to it, so a config written before the
+// rename keeps the limits it had. Anything starting deepseek-v4 stays covered,
+// which is also where a future deepseek-v4.1-pro would land.
+//
+// One predicate rather than two prefix tests, because two callers need the same
+// answer — the window here and cognitive's output ceiling — and a second copy is
+// how the two start disagreeing about one model. Both uses are the floor for a
+// model the fetched catalog has no row for (the catalog is asked first at both
+// call sites), so a name missing here reads as 128K context and 8,192 output on
+// a model that serves 1M and 384K.
+func DeepSeekV4Family(modelID string) bool {
+	modelID = strings.ToLower(strings.TrimSpace(modelID))
+	return strings.HasPrefix(modelID, "deepseek-v4") || modelID == "deepseek-flash"
+}
+
 func deepseekContextWindow(modelID string) int {
-	if strings.HasPrefix(modelID, "deepseek-v4") {
-		return 1_000_000 // V4 series (incl. -flash): 1M context per DeepSeek docs
+	if DeepSeekV4Family(modelID) {
+		return 1_000_000 // V4 and V4.1 series: 1M context per DeepSeek docs
 	}
 	return 128_000 // deepseek-chat / deepseek-reasoner / V3.x
 }

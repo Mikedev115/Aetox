@@ -690,6 +690,15 @@ func (a *App) ForgetProject(root string) (ProjectStatus, error) {
 	if _, err := db.Exec(`DELETE FROM projects WHERE project_key = ?`, projectKey(root)); err != nil {
 		return a.currentProjectStatus(), err
 	}
+	// The remembered project is a second copy of "the app knows this folder", and
+	// forgetting the row has to take it with it: otherwise the next launch opens
+	// a project the list no longer names, and the only way back is the folder
+	// dialog. Stepping out below clears it as well when this is the open one —
+	// this is the other case, forgotten while standing somewhere else.
+	if pref, ok, err := config.LoadModelPreference(); err == nil && ok &&
+		strings.TrimSpace(pref.LastProject) != "" && projectKey(pref.LastProject) == projectKey(root) {
+		rememberProject("")
+	}
 	if a.projectFocused && projectKey(a.cur().cfg.SandboxRoot) == projectKey(root) {
 		a.focusNone()
 		a.startNewSession()
@@ -931,7 +940,10 @@ func (a *App) LoadSessionAnyProject(id string) ([]SessionMessage, error) {
 		a.retargetTemplate(config.ConfigOptions{RootPath: rootPath, ApprovalMode: string(safety.ApprovalFullAccess)})
 		a.takeProject()
 		a.setWorkspaceRoots(a.storedWorkspaceFolders(rootPath))
-		a.touchProject(a.cur().cfg.SandboxRoot)
+		// rootPath, not a.cur().cfg.SandboxRoot: the conversation being opened is
+		// this project's, and a.cur() is still the one being left — reading the
+		// root off it recorded an entry into the chat you were leaving.
+		a.enterProject(rootPath)
 	}
 	return a.LoadSession(id)
 }
@@ -1319,6 +1331,39 @@ func rememberDesk(desk string) {
 		pref.LastDesk = desk
 		return nil
 	})
+}
+
+// rememberProject records the project the window is standing in, so the next
+// launch opens inside it (config.ModelPreference.LastProject).
+//
+// The empty string is written rather than skipped, and it is the whole reason
+// this is a preference and not a lookup in the projects table: "where I was" and
+// "where I chose to be" are the same question until someone steps out, and then
+// they are not. rememberDesk skips "" because it also means "missing"; here it is
+// the answer.
+//
+// Failing to remember is not worth an error, exactly as it is not for the desk:
+// the window is already in the project, and all that would be lost is the next
+// launch starting somewhere else.
+func rememberProject(root string) {
+	root = strings.TrimSpace(root)
+	_ = config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		if pref.LastProject == root {
+			return config.ErrPreferenceUnchanged
+		}
+		pref.LastProject = root
+		return nil
+	})
+}
+
+// enterProject is the one way the app comes to be standing in a project: the row
+// that puts it on the sidebar's list, and the memory that brings the next launch
+// back here. One call because they are one fact — every path that opens a
+// project wanted both, and a path that wrote only one of them would leave the
+// list and the launch disagreeing about where the user is.
+func (a *App) enterProject(root string) {
+	a.touchProject(root)
+	rememberProject(root)
 }
 
 // CurrentSessionID reports which session the engine is writing to, so the

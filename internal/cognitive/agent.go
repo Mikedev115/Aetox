@@ -289,8 +289,8 @@ func (a *Agent) providerOutputCeiling() int {
 	}
 	switch name {
 	case "deepseek":
-		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(a.model)), "deepseek-v4") {
-			return deepseekV4OutputTokenMax // V4 series allows up to 384K output
+		if model.DeepSeekV4Family(a.model) {
+			return deepseekV4OutputTokenMax // V4 and V4.1 series allow up to 384K output
 		}
 		return 8192 // V3-era API max; larger values are rejected with 400
 	case "openai":

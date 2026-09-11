@@ -74,6 +74,10 @@ func TestContextWindowTokensCuratedModels(t *testing.T) {
 	}{
 		{"deepseek", "deepseek-v4-flash", 1_000_000},
 		{"deepseek", "deepseek-v4", 1_000_000},
+		// V4.1-Flash, under the name the API serves it by since 2026-09-10,
+		// and under the vendor prefix OpenRouter carries.
+		{"deepseek", "deepseek-flash", 1_000_000},
+		{"openrouter", "deepseek/deepseek-flash", 1_000_000},
 		{"deepseek", "deepseek-chat", 128_000},
 		{"deepseek", "deepseek-reasoner", 128_000},
 		{"anthropic", "claude-sonnet-4-5", 200_000},
