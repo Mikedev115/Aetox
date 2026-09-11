@@ -22,7 +22,7 @@
   import Icon from './Icon.svelte'
   import { coverHue } from './coverHue'
   import { armFirstRunReplay } from './firstRun'
-  import { scopeLabel } from './memoryScope'
+  import { scopeLabel, scopeMeta, USER_SCOPE, MAIN_SCOPE } from './memoryScope'
   import { setShell } from './shell.svelte'
   import type { IconName } from './icons'
   import { NAV } from './desks'
@@ -64,7 +64,7 @@
     PreparedReplyOn, SetPreparedReplyOn,
     ComputerControlOn, SetComputerControlOn, GrantedComputerApps, RevokeComputerApp,
     OpenComputerApps, AllowComputerApp, ProgramIcon, BrowseForComputerApp,
-    ApprovePendingChange, RejectPendingChange, LearnedEntries, LearnedScopeInfos, SaveLearnedEntry, AddLearnedEntry, MoveLearnedEntry, OpenMemoryFolder,
+    ApprovePendingChange, ApprovePendingChangeTo, RejectPendingChange, LearnedEntries, LearnedScopeInfos, SaveLearnedEntry, AddLearnedEntry, MoveLearnedEntry, OpenMemoryFolder,
     ForgetMemoryScope, AdoptMemoryScope, RecentProjects,
     ListSystemIssues, MarkIssueReported, ListDecidedIssues,
     AccountStatus, StartAccountSignIn, CompleteAccountSignIn, CancelAccountSignIn,
@@ -3110,7 +3110,11 @@
   // each project's. It was the main agent's alone until a desk and a project
   // could be the destination — and a line approved into a file this page could
   // not show is a line only the folder knows about.
-  let memoryGroups = $state<{ scope: string; lines: string[]; orphan: boolean }[]>([])
+  type MemoryGroup = {
+    scope: string; lines: string[]; orphan: boolean
+    bytes: number; maxBytes: number; full: boolean; projectsUnder: boolean
+  }
+  let memoryGroups = $state<MemoryGroup[]>([])
   // The projects the store still knows, for the orphan group's ย้ายไปที่…
   // picker. Loaded with the memory list because the two are one question:
   // which of these files can a session still arrive at, and where else could
@@ -3239,7 +3243,10 @@
       decidedChanges = await ListDecidedChanges(20)
       const scopes = await LearnedScopeInfos()
       memoryGroups = await Promise.all(
-        scopes.map(async ({ scope, orphan }) => ({ scope, orphan, lines: await LearnedEntries(scope) })),
+        scopes.map(async (info) => ({
+          scope: info.scope, orphan: info.orphan, lines: await LearnedEntries(info.scope),
+          bytes: info.bytes ?? 0, maxBytes: info.maxBytes ?? 0, full: !!info.full, projectsUnder: !!info.projectsUnder,
+        })),
       )
       // Offered as move targets only when an orphan needs one — but loaded
       // here so the picker opens filled rather than after a spinner.
@@ -3366,15 +3373,78 @@
     return USER_LINE_PATTERN.test(line.trim())
   }
 
-  const userMemoryGroup = $derived(
-    memoryGroups.find((g) => g.scope === 'user:profile') ?? { scope: 'user:profile', lines: [], orphan: false }
+  const emptyGroup = (scope: string): MemoryGroup =>
+    ({ scope, lines: [], orphan: false, bytes: 0, maxBytes: 0, full: false, projectsUnder: false })
+  const userMemoryGroup = $derived(memoryGroups.find((g) => g.scope === USER_SCOPE) ?? emptyGroup(USER_SCOPE))
+  // One block per desk (11 ก.ย.): the assistant's shared file first, then every
+  // desk that keeps its own — the Go side lists those even while empty, so a
+  // room is drawn before anything is in it. Project files hang under the desk
+  // whose sessions write them (projectsUnder), not in a list of their own:
+  // a person looking for "what did coding learn" is owed one place to look.
+  const deskGroups = $derived(
+    memoryGroups.filter((g) => g.scope === MAIN_SCOPE || g.scope.startsWith('mode:'))
+      .sort((a, b) => (a.scope === MAIN_SCOPE ? -1 : b.scope === MAIN_SCOPE ? 1 : 0)),
   )
-  const systemMemoryGroups = $derived(
-    memoryGroups.filter((g) => g.scope !== 'user:profile')
-  )
+  const projectGroups = $derived(memoryGroups.filter((g) => g.scope.startsWith('project:')))
+  const projectsHost = $derived(deskGroups.find((g) => g.projectsUnder)?.scope ?? '')
   const userLinesInMain = $derived(
-    memoryGroups.find((g) => g.scope === '')?.lines.filter(isUserLine) ?? []
+    memoryGroups.find((g) => g.scope === MAIN_SCOPE)?.lines.filter(isUserLine) ?? []
   )
+  // Where a line or a proposal can be sent instead: every file the page draws,
+  // minus the one it is in and minus a folder no session can reach.
+  function moveTargets(from: string): string[] {
+    const all = [USER_SCOPE, ...deskGroups.map((g) => g.scope), ...projectGroups.filter((g) => !g.orphan).map((g) => g.scope)]
+    return all.filter((s, i) => s !== from && all.indexOf(s) === i)
+  }
+  // The open "ย้ายไปที่…" menu, one at a time: a row's scope and index, or a
+  // proposal's id. Closed by choosing, by Escape, or by clicking elsewhere.
+  let moveOpen = $state('')
+  function moveKey(scope: string, i: number) { return `${scope}#${i}` }
+  function toggleMove(key: string) { moveOpen = moveOpen === key ? '' : key }
+  function closeMoveOnOutside(e: MouseEvent) {
+    if (moveOpen && !(e.target as HTMLElement)?.closest?.('.mem-move')) moveOpen = ''
+  }
+  $effect(() => {
+    if (!moveOpen) return
+    document.addEventListener('click', closeMoveOnOutside, true)
+    return () => document.removeEventListener('click', closeMoveOnOutside, true)
+  })
+  // Capacity, as the meter draws it. The Go side answers "full" for one more
+  // short line (learned.Full) — the header counts against the ceiling, so a
+  // bytes/max ratio alone would read 95% as room that is not there.
+  function capPct(g: MemoryGroup): number {
+    return g.maxBytes > 0 ? Math.min(100, Math.round((g.bytes / g.maxBytes) * 100)) : 0
+  }
+  function capTone(g: MemoryGroup): 'ok' | 'near' | 'full' {
+    return g.full ? 'full' : capPct(g) >= 80 ? 'near' : 'ok'
+  }
+  // The verb for a proposal, in the user's language — the raw op ("add") was
+  // the database's own enum in the middle of a Thai sentence. The card in the
+  // chat said this first (MemoryCard); the page says the same.
+  function opAsk(c: main.PendingChange): string {
+    if (c.kind === 'skill') return c.op === 'create' ? t('chat.skillCreateAsk') : t('chat.skillTuneAsk')
+    return c.op === 'remove' ? t('settings.learningOpRemove')
+      : c.op === 'replace' ? t('settings.learningOpReplace')
+      : t('settings.learningOpAdd')
+  }
+  // Only a NEW line can be kept somewhere else: a replace or a remove names a
+  // line that lives in one file (ApprovePendingChangeTo refuses the rest).
+  function canRedirect(c: main.PendingChange): boolean {
+    return c.kind === 'memory' && c.op === 'add'
+  }
+  async function decideChangeTo(id: number, scope: string) {
+    moveOpen = ''
+    learningBusy = id
+    try {
+      learningError = ''
+      await ApprovePendingChangeTo(id, scope)
+      await loadLearning()
+    } catch (err) {
+      learningError = String(err)
+    } finally {
+      learningBusy = 0
+    }
+  }
 
   async function moveMemory(fromScope: string, toScope: string, index: number) {
     memorySaving = true
@@ -3879,7 +3949,9 @@
   // by a door that names one — the page itself lists every scope and marks
   // none, which is right when you walked in through the sidebar and wrong when
   // you arrived from one agent's card asking about that agent.
-  let memoryFocus = $state('')
+  // null, not '': the assistant's own scope IS the empty string, and a
+  // default of '' marked its heading as "the one you came for" on every visit.
+  let memoryFocus = $state<string | null>(null)
 
   // The learning page, landed on one scope. `scrollIntoView` rather than a
   // filter: the reader came from a card about one agent and is owed that
@@ -3971,6 +4043,128 @@
         {t('settings.aiFind')}
       </button>
     </div>
+  </div>
+{/snippet}
+
+<!-- One memory file's heading (11 ก.ย.): whose it is, who reads it, the file,
+     and how full it is. The meter is the part that was missing — a full
+     profile was a fact only the tool knew, refusing proposals and skipping
+     the session review with nothing on this page saying so. -->
+{#snippet deskHead(g: MemoryGroup)}
+  {@const meta = scopeMeta(g.scope)}
+  {@const tone = capTone(g)}
+  <div class="mem-scope mem-tone-{meta.tone}" data-mem-scope={g.scope} class:mem-focus={g.scope === memoryFocus}>
+    <span class="mem-scope-ic"><Icon name={meta.icon} size={14} /></span>
+    <span class="mem-scope-name">{meta.label}</span>
+    <span class="learn-aud">{meta.audience}</span>
+    <span class="mem-badge-file">{meta.file}</span>
+    {#if g.orphan}
+      <!-- The folder this file is keyed to moved or was deleted, so no session
+           can ever read it again — a fact only this label states, because on
+           disk the file looks exactly like a live one (§186). A label needs
+           its exits: move the lines to the project the folder became, or let
+           them go. -->
+      <span class="mem-orphan">{t('settings.memoryOrphan')}</span>
+      <span class="mem-orphan-actions">
+        {#if knownProjects.length > 0}
+          <button
+            type="button" class="ctrl tiny"
+            onclick={() => { adoptOpen = adoptOpen === g.scope ? '' : g.scope }}
+          >{t('settings.memoryOrphanMove')}</button>
+        {/if}
+        <button
+          type="button" class="ctrl tiny mem-forget"
+          onclick={() => forgetScope(g.scope)}
+        >{t('settings.memoryOrphanDelete')}</button>
+      </span>
+    {/if}
+    {#if g.maxBytes > 0}
+      <span class="mem-cap mem-cap-{tone}">
+        <span class="mem-cap-bar"><i style="width:{capPct(g)}%"></i></span>
+        <span class="mem-cap-num">{g.bytes.toLocaleString('en-US')} / {g.maxBytes.toLocaleString('en-US')} B</span>
+      </span>
+    {/if}
+  </div>
+  {#if tone !== 'ok'}
+    <div class="mem-cap-note mem-cap-{tone}">
+      <Icon name="alertTriangle" size={13} />
+      <span>{tone === 'full' ? t('settings.memoryFull') : t('settings.memoryNearFull')}</span>
+    </div>
+  {/if}
+{/snippet}
+
+<!-- One remembered line. Keyed by index rather than by text: two remembered
+     lines can be byte-identical, and the index is also what the save
+     addresses. The move button opens a menu of every other file rather than
+     one fixed destination — a line can belong to any desk now. -->
+{#snippet memRow(g: MemoryGroup, line: string, i: number)}
+  <div class="mem-row" class:editing={isEditing(g.scope, i)}>
+    {#if isEditing(g.scope, i)}
+      <!-- svelte-ignore a11y_autofocus -->
+      <textarea
+        class="mem-input" rows="2" autofocus
+        bind:value={memoryDraft}
+        onkeydown={(e) => onMemoryKeydown(e, g.scope, i)}
+      ></textarea>
+      <div class="mem-actions">
+        <button
+          type="button" class="ctrl ctrl-primary"
+          disabled={memorySaving || !memoryDraft.trim()}
+          onclick={() => commitMemory(g.scope, i, memoryDraft)}
+        >{t('settings.learningMemorySave')}</button>
+        <button type="button" class="ctrl" disabled={memorySaving} onclick={cancelMemoryEdit}
+        >{t('settings.learningMemoryCancel')}</button>
+      </div>
+    {:else}
+      <p class="mem-text">{line}</p>
+      <div class="mem-actions">
+        <button
+          type="button" class="icobtn tiny tip-l" aria-label={t('settings.learningMemoryEdit')}
+          data-tip={t('settings.learningMemoryEdit')} disabled={memorySaving}
+          onclick={() => startMemoryEdit(g.scope, i)}
+        ><Icon name="pencil" size={13} /></button>
+        <div class="mem-move">
+          <button
+            type="button" class="icobtn tiny tip-l mem-action-move"
+            class:open={moveOpen === moveKey(g.scope, i)}
+            aria-label={t('settings.learningMoveTo')} aria-expanded={moveOpen === moveKey(g.scope, i)}
+            data-tip={t('settings.learningMoveTo')} disabled={memorySaving}
+            onclick={() => toggleMove(moveKey(g.scope, i))}
+          ><Icon name="arrowRight" size={13} /></button>
+          {#if moveOpen === moveKey(g.scope, i)}
+            {@render moveMenu(
+              t('settings.learningMoveTo'), moveTargets(g.scope),
+              g.scope === MAIN_SCOPE && isUserLine(line) ? USER_SCOPE : '',
+              (to) => { moveOpen = ''; void moveMemory(g.scope, to, i) },
+            )}
+          {/if}
+        </div>
+        <!-- No confirm: the line is one sentence the agent wrote, the file is
+             plain markdown the user owns, and a dialog for every tidy-up is
+             what makes a list nobody tidies. -->
+        <button
+          type="button" class="icobtn tiny tip-l mem-forget" aria-label={t('settings.learningMemoryForget')}
+          data-tip={t('settings.learningMemoryForget')} disabled={memorySaving}
+          onclick={() => commitMemory(g.scope, i, '')}
+        ><Icon name="x" size={13} /></button>
+      </div>
+    {/if}
+  </div>
+{/snippet}
+
+<!-- Where else a line can go. Every entry says who would read it there, in
+     the same tone the rest of the page uses for that file — the menu is the
+     one place the whole map is visible at once. -->
+{#snippet moveMenu(title: string, targets: string[], recommended: string, pick: (scope: string) => void)}
+  <div class="mem-menu" role="menu">
+    <div class="mem-menu-h">{title}</div>
+    {#each targets as to (to)}
+      {@const m = scopeMeta(to)}
+      <button type="button" class="mem-menu-i" class:rec={to === recommended} role="menuitem" onclick={() => pick(to)}>
+        <span class="learn-scope mem-tone-{m.tone}"><Icon name={m.icon} size={11} /> {m.label}</span>
+        <small>{to === recommended ? `${t('settings.learningMoveRecommended')} · ` : ''}{m.audience}</small>
+      </button>
+    {/each}
   </div>
 {/snippet}
 
@@ -6558,11 +6752,19 @@
       {#if learningError}<div class="mset-error">{learningError}</div>{/if}
       <div class="settings-card">
         {#each pendingChanges as c (c.id)}
+          {@const meta = scopeMeta(c.scope)}
           <div class="learn-row">
             <div class="learn-main">
+              <!-- The verb, then whose file, then who will read it: the last is
+                   the decision actually being made (memoryScope.ts). -->
               <div class="learn-head">
-                <span class="learn-scope">{scopeLabel(c.scope)}</span>
-                <span class="learn-op">{c.op}</span>
+                <span class="learn-verb">{opAsk(c)}</span>
+                {#if c.kind === 'skill'}
+                  <span class="learn-scope">{c.scope}</span>
+                {:else}
+                  <span class="learn-scope mem-tone-{meta.tone}"><Icon name={meta.icon} size={11} /> {meta.label}</span>
+                  <span class="learn-aud">{meta.audience}</span>
+                {/if}
               </div>
               {#if c.before}
                 <!-- What it replaces, shown next to what it becomes: approving a
@@ -6577,6 +6779,21 @@
                 onclick={() => decideChange(c.id, true)}>{t('settings.learningApprove')}</button>
               <button type="button" class="ctrl" disabled={learningBusy === c.id}
                 onclick={() => decideChange(c.id, false)}>{t('settings.learningReject')}</button>
+              {#if canRedirect(c)}
+                <!-- "เก็บที่อื่น": the second half of the decision. Without it the
+                     only way to correct a destination was to refuse the line and
+                     hope it was proposed again from the right desk. -->
+                <div class="mem-move">
+                  <button type="button" class="ctrl" disabled={learningBusy === c.id}
+                    aria-expanded={moveOpen === `pending#${c.id}`}
+                    onclick={() => toggleMove(`pending#${c.id}`)}>
+                    {t('settings.learningKeepElsewhere')} <Icon name="chevronDown" size={11} />
+                  </button>
+                  {#if moveOpen === `pending#${c.id}`}
+                    {@render moveMenu(t('settings.learningKeepIn'), moveTargets(c.scope), '', (to) => decideChangeTo(c.id, to))}
+                  {/if}
+                </div>
+              {/if}
             </div>
           </div>
         {/each}
@@ -6585,183 +6802,96 @@
         {/if}
       </div>
 
-      <!-- SECTION 1: ความจำเกี่ยวกับคุณ (About You) -->
+      <!-- SECTION 1: เกี่ยวกับคุณ — one file, every desk. -->
+      {@const userMeta = scopeMeta(USER_SCOPE)}
       <h3 class="set-h3 mem-header-split">
-        <span class="mem-header-icon"><Icon name="circleUser" size={17} /></span>
         <span>{t('settings.learningUserSection')}</span>
-        <span class="mem-badge-file">USER.md</span>
+        <span class="learn-scope mem-tone-user"><Icon name="circleUser" size={11} /> {userMeta.audience}</span>
+        <span class="mem-badge-file">{userMeta.file}</span>
       </h3>
       <p class="muted set-sub">{t('settings.learningUserSectionHint')}</p>
 
-      <div class="settings-card">
+      <div class="settings-card mem-desk">
+        {@render deskHead(userMemoryGroup)}
         {#if userMemoryGroup.lines.length > 0}
-          <div class="mem-scope" data-mem-scope="user:profile" class:mem-focus={memoryFocus === 'user:profile'}>
-            {scopeLabel('user:profile')}
-          </div>
           {#each userMemoryGroup.lines as line, i (i)}
-            <div class="mem-row" class:editing={isEditing(userMemoryGroup.scope, i)}>
-              {#if isEditing(userMemoryGroup.scope, i)}
-                <!-- svelte-ignore a11y_autofocus -->
-                <textarea
-                  class="mem-input" rows="2" autofocus
-                  bind:value={memoryDraft}
-                  onkeydown={(e) => onMemoryKeydown(e, userMemoryGroup.scope, i)}
-                ></textarea>
-                <div class="mem-actions">
-                  <button
-                    type="button" class="ctrl ctrl-primary"
-                    disabled={memorySaving || !memoryDraft.trim()}
-                    onclick={() => commitMemory(userMemoryGroup.scope, i, memoryDraft)}
-                  >{t('settings.learningMemorySave')}</button>
-                  <button type="button" class="ctrl" disabled={memorySaving} onclick={cancelMemoryEdit}
-                  >{t('settings.learningMemoryCancel')}</button>
-                </div>
-              {:else}
-                <p class="mem-text">{line}</p>
-                <div class="mem-actions">
-                  <button
-                    type="button" class="icobtn tiny tip-l" aria-label={t('settings.learningMemoryEdit')}
-                    data-tip={t('settings.learningMemoryEdit')} disabled={memorySaving}
-                    onclick={() => startMemoryEdit(userMemoryGroup.scope, i)}
-                  ><Icon name="pencil" size={13} /></button>
-                  <button
-                    type="button" class="icobtn tiny tip-l mem-action-move"
-                    aria-label={t('settings.learningMoveToAssistant')}
-                    data-tip={t('settings.learningMoveToAssistant')}
-                    disabled={memorySaving}
-                    onclick={() => moveMemory(userMemoryGroup.scope, '', i)}
-                  ><Icon name="bot" size={13} /></button>
-                  <button
-                    type="button" class="icobtn tiny tip-l mem-forget" aria-label={t('settings.learningMemoryForget')}
-                    data-tip={t('settings.learningMemoryForget')} disabled={memorySaving}
-                    onclick={() => commitMemory(userMemoryGroup.scope, i, '')}
-                  ><Icon name="x" size={13} /></button>
-                </div>
-              {/if}
-            </div>
+            {@render memRow(userMemoryGroup, line, i)}
           {/each}
         {:else}
           <div class="empty mem-empty-user">{t('settings.learningUserEmpty')}</div>
         {/if}
       </div>
 
-      <!-- SECTION 2: ความจำของผู้ช่วยและระบบ (Assistant & System Memory) -->
+      <!-- SECTION 2: one block per desk. The assistant's shared file is the
+           assistant's; a desk with its own memory (coding) has its own block,
+           and the projects its sessions write sit under it. -->
       <h3 class="set-h3 mem-header-split" style="margin-top:28px;">
-        <span class="mem-header-icon"><Icon name="bot" size={17} /></span>
         <span>{t('settings.learningAssistantSection')}</span>
-        <span class="mem-badge-file">MEMORY.md</span>
       </h3>
       <p class="muted set-sub">{t('settings.learningAssistantSectionHint')}</p>
 
-      {#if userLinesInMain.length > 0}
-        <div class="mem-quick-banner">
-          <div class="mem-quick-txt">
-            <Icon name="sparkles" size={15} />
-            <span>{t('settings.learningQuickMigrateNotice', { count: String(userLinesInMain.length) })}</span>
-          </div>
-          <button
-            type="button"
-            class="ctrl tiny ctrl-primary"
-            disabled={memorySaving || migrateBusy}
-            onclick={quickMigrateUserLines}
-          >
-            {t('settings.learningQuickMigrateAction')}
-          </button>
+      {#each deskGroups as group (group.scope)}
+        <div class="settings-card mem-desk">
+          {@render deskHead(group)}
+          {#if group.scope === MAIN_SCOPE && userLinesInMain.length > 0}
+            <div class="mem-quick-banner">
+              <div class="mem-quick-txt">
+                <Icon name="sparkles" size={15} />
+                <span>{t('settings.learningQuickMigrateNotice', { count: String(userLinesInMain.length) })}</span>
+              </div>
+              <button
+                type="button"
+                class="ctrl tiny ctrl-primary"
+                disabled={memorySaving || migrateBusy}
+                onclick={quickMigrateUserLines}
+              >
+                {t('settings.learningQuickMigrateAction', { count: String(userLinesInMain.length) })}
+              </button>
+            </div>
+          {/if}
+          {#each group.lines as line, i (i)}
+            {@render memRow(group, line, i)}
+          {/each}
+          {#if group.lines.length === 0}
+            <div class="empty">{group.projectsUnder ? t('settings.memoryDeskEmpty') : t('settings.learningAssistantEmpty')}</div>
+          {/if}
+
+          {#if group.scope === projectsHost}
+            {#if projectGroups.length > 0}
+              <div class="mem-sub-h">{t('settings.memoryProjectsUnder')}</div>
+            {/if}
+            {#each projectGroups as project (project.scope)}
+              <div class="mem-sub">
+                {@render deskHead(project)}
+                {#if project.orphan && adoptOpen === project.scope}
+                  <div class="mem-adopt">
+                    {#each knownProjects as p (p.rootPath)}
+                      <button type="button" class="ctrl tiny" onclick={() => adoptScope(project.scope, p.rootPath)}>{p.name}</button>
+                    {/each}
+                  </div>
+                {/if}
+                {#each project.lines as line, i (i)}
+                  {@render memRow(project, line, i)}
+                {/each}
+              </div>
+            {/each}
+          {/if}
         </div>
+      {/each}
+      {#if memoryScopeError}
+        <div class="set-error">{memoryScopeError}</div>
       {/if}
 
       <div class="settings-card">
-        {#each systemMemoryGroups as group (group.scope)}
-          <!-- Whose file this block is. Drawn even when there is only one, so
-               "ผู้ช่วยหลัก" is stated rather than assumed: once a line can land
-               in a desk's or a project's file instead, an unlabelled list is a
-               list you cannot act on. -->
-          <div class="mem-scope" data-mem-scope={group.scope} class:mem-focus={group.scope === memoryFocus}>
-            {scopeLabel(group.scope)}
-            {#if group.orphan}
-              <!-- The folder this file is keyed to moved or was deleted, so no
-                   session can ever read it again — a fact only this label
-                   states, because on disk the file looks exactly like a live
-                   one (§186). A label needs its exits: move the lines to the
-                   project the folder became, or let them go. -->
-              <span class="mem-orphan">{t('settings.memoryOrphan')}</span>
-              <span class="mem-orphan-actions">
-                {#if knownProjects.length > 0}
-                  <button
-                    type="button" class="ctrl tiny"
-                    onclick={() => { adoptOpen = adoptOpen === group.scope ? '' : group.scope }}
-                  >{t('settings.memoryOrphanMove')}</button>
-                {/if}
-                <button
-                  type="button" class="ctrl tiny mem-forget"
-                  onclick={() => forgetScope(group.scope)}
-                >{t('settings.memoryOrphanDelete')}</button>
-              </span>
-            {/if}
+        <div class="set-row">
+          <div class="set-txt">
+            <div class="t">{t('settings.memoryAgentsRow')}</div>
+            <div class="d">{t('settings.memoryAgentsHint')}</div>
           </div>
-          {#if group.orphan && adoptOpen === group.scope}
-            <div class="mem-adopt">
-              {#each knownProjects as p (p.rootPath)}
-                <button type="button" class="ctrl tiny" onclick={() => adoptScope(group.scope, p.rootPath)}>{p.name}</button>
-              {/each}
-            </div>
-          {/if}
-          <!-- Keyed by index rather than by text: two remembered lines can be
-               byte-identical, and the index is also what the save addresses. -->
-          {#each group.lines as line, i (i)}
-            <div class="mem-row" class:editing={isEditing(group.scope, i)}>
-              {#if isEditing(group.scope, i)}
-                <!-- svelte-ignore a11y_autofocus -->
-                <textarea
-                  class="mem-input" rows="2" autofocus
-                  bind:value={memoryDraft}
-                  onkeydown={(e) => onMemoryKeydown(e, group.scope, i)}
-                ></textarea>
-                <div class="mem-actions">
-                  <button
-                    type="button" class="ctrl ctrl-primary"
-                    disabled={memorySaving || !memoryDraft.trim()}
-                    onclick={() => commitMemory(group.scope, i, memoryDraft)}
-                  >{t('settings.learningMemorySave')}</button>
-                  <button type="button" class="ctrl" disabled={memorySaving} onclick={cancelMemoryEdit}
-                  >{t('settings.learningMemoryCancel')}</button>
-                </div>
-              {:else}
-                <p class="mem-text">{line}</p>
-                <div class="mem-actions">
-                  <button
-                    type="button" class="icobtn tiny tip-l" aria-label={t('settings.learningMemoryEdit')}
-                    data-tip={t('settings.learningMemoryEdit')} disabled={memorySaving}
-                    onclick={() => startMemoryEdit(group.scope, i)}
-                  ><Icon name="pencil" size={13} /></button>
-                  {#if group.scope === ''}
-                    <button
-                      type="button" class="icobtn tiny tip-l mem-action-move"
-                      aria-label={t('settings.learningMoveToUser')}
-                      data-tip={t('settings.learningMoveToUser')}
-                      disabled={memorySaving}
-                      onclick={() => moveMemory(group.scope, 'user:profile', i)}
-                    ><Icon name="circleUser" size={13} /></button>
-                  {/if}
-                  <!-- No confirm: the line is one sentence the agent wrote, the
-                       file is plain markdown the user owns, and a dialog for
-                       every tidy-up is what makes a list nobody tidies. -->
-                  <button
-                    type="button" class="icobtn tiny tip-l mem-forget" aria-label={t('settings.learningMemoryForget')}
-                    data-tip={t('settings.learningMemoryForget')} disabled={memorySaving}
-                    onclick={() => commitMemory(group.scope, i, '')}
-                  ><Icon name="x" size={13} /></button>
-                </div>
-              {/if}
-            </div>
-          {/each}
-        {/each}
-        {#if memoryScopeError}
-          <div class="set-error">{memoryScopeError}</div>
-        {/if}
-        {#if systemMemoryGroups.length === 0}
-          <div class="empty">{t('settings.learningAssistantEmpty')}</div>
-        {/if}
+          <button type="button" class="ctrl" onclick={() => openSection('agents')}>
+            {t('settings.memoryAgentsGo')} <Icon name="arrowRight" size={12} />
+          </button>
+        </div>
         <div class="set-row learn-foot">
           <button type="button" class="ctrl" onclick={() => OpenMemoryFolder()}>
             <Icon name="folderOpen" size={13} /> {t('settings.learningOpenFolder')}
@@ -6774,11 +6904,18 @@
         <p class="muted set-sub">{t('settings.learningHistoryHint')}</p>
         <div class="settings-card">
           {#each decidedExpanded ? decidedChanges : decidedChanges.slice(0, DECIDED_PREVIEW) as c (c.id)}
+            {@const meta = scopeMeta(c.scope)}
             <div class="learn-row past">
               <div class="learn-main">
                 <div class="learn-head">
-                  <span class="learn-scope">{scopeLabel(c.scope)}</span>
-                  <span class="learn-op" class:rejected={c.state === 'rejected'}>{c.state}</span>
+                  <span class="learn-op" class:rejected={c.state === 'rejected'}>
+                    {c.state === 'approved' ? t('settings.learningStateApproved') : t('settings.learningStateRejected')}
+                  </span>
+                  {#if c.kind === 'skill'}
+                    <span class="learn-scope">{c.scope}</span>
+                  {:else}
+                    <span class="learn-scope mem-tone-{meta.tone}"><Icon name={meta.icon} size={11} /> {meta.label}</span>
+                  {/if}
                   <span class="learn-when">{c.decidedAt.slice(0, 10)}</span>
                 </div>
                 <div class="learn-body">{c.body}</div>

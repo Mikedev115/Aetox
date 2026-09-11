@@ -175,6 +175,12 @@ func TestEachDeskSendsOnlyItsOwnTools(t *testing.T) {
 // is still the only thing answering who the assistant is (§44.0), and what one
 // desk learned costs the others nothing — which is the whole reason memory has
 // a desk scope at all.
+//
+// Since 11 ก.ย. that boundary runs both ways: the shared file is the
+// ASSISTANT's, and a desk that keeps its own memory (coding, `memory: project`)
+// no longer reads it. What the profile does — ride everywhere — is exactly
+// what MEMORY.md was measured NOT to deserve: every line it held on the
+// owner's machine was the assistant's, billed to every coding session.
 func TestADeskAddsDirectionAndItsOwnMemory(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 	if err := learned.Apply(learned.ModeScope("coding"), learned.OpAdd, "", "CODING-DESK-MARKER"); err != nil {
@@ -225,8 +231,8 @@ func TestADeskAddsDirectionAndItsOwnMemory(t *testing.T) {
 	if !strings.Contains(coding, "CODING-DESK-MARKER") {
 		t.Error("what the coding desk learned never reached its own prompt")
 	}
-	if !strings.Contains(coding, "CROSS-DESK-MARKER") {
-		t.Error("the shared memory stopped being shared once a desk had one of its own")
+	if strings.Contains(coding, "CROSS-DESK-MARKER") {
+		t.Error("the coding desk is paying for the assistant's memory")
 	}
 
 	assistant := boot("assistant")

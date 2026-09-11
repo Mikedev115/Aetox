@@ -7,7 +7,7 @@ import Settings from '../lib/Settings.svelte'
 import Sidebar from '../lib/Sidebar.svelte'
 import {
   ListPendingChanges, ListDecidedChanges, LearnedMemory, LearnedEntries, SaveLearnedEntry, MoveLearnedEntry,
-  LearningEnabled, ApprovePendingChange, RejectPendingChange, SetLearningEnabled,
+  LearningEnabled, ApprovePendingChange, ApprovePendingChangeTo, RejectPendingChange, SetLearningEnabled,
   PendingLearnedCount, LearnedScopeInfos, ForgetMemoryScope, AdoptMemoryScope, RecentProjects,
 } from './mocks/wailsApp'
 import { cockpit, applyPendingLearned, refreshPendingLearned } from '../lib/stores/cockpit.svelte'
@@ -114,7 +114,7 @@ describe('editing what is already remembered', () => {
   // the page exists to avoid.
   it('shows every memory that holds something, each under whose it is', async () => {
     vi.mocked(LearnedScopeInfos).mockResolvedValue([
-      { scope: '', orphan: false }, { scope: 'mode:coding', orphan: false }, { scope: 'project:Aetox-1a2b3c4d', orphan: false },
+      { scope: '', orphan: false }, { scope: 'mode:coding', orphan: false, projectsUnder: true }, { scope: 'project:Aetox-1a2b3c4d', orphan: false },
     ] as any)
     vi.mocked(LearnedEntries).mockImplementation(async (scope: string) => {
       if (scope === '') return ['เครื่องผู้ใช้เป็น Windows'] as any
@@ -126,11 +126,39 @@ describe('editing what is already remembered', () => {
     await openSection(container, 'การเรียนรู้')
     await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(3))
 
-    const heads = Array.from(container.querySelectorAll('.mem-scope')).map((el) => el.textContent?.trim())
-    expect(heads).toEqual(['ผู้ช่วยหลัก', 'โต๊ะโค้ด', 'โปรเจกต์ Aetox'])
+    // The profile's heading is always drawn (empty here), then one block per
+    // desk, with the project nested under the desk whose sessions write it.
+    const heads = Array.from(container.querySelectorAll('.mem-scope-name')).map((el) => el.textContent?.trim())
+    expect(heads).toEqual(['เกี่ยวกับคุณ', 'โต๊ะผู้ช่วย', 'โต๊ะโค้ด', 'โปรเจกต์ Aetox'])
+    expect(container.querySelector('.mem-sub .mem-scope-name')?.textContent).toContain('Aetox')
+    // Each heading says who reads the file — the label alone never did.
+    const auds = Array.from(container.querySelectorAll('.mem-scope .learn-aud')).map((el) => el.textContent?.trim())
+    expect(auds).toEqual(['ทุกโต๊ะ ทุกซับเอเจนจะเห็น', 'เฉพาะแชทที่โต๊ะผู้ช่วย', 'เฉพาะโต๊ะโค้ด ทุกโปรเจกต์', 'เฉพาะตอนเปิดโฟลเดอร์ Aetox'])
     // The hash half of a project key is identity, not information — a person
-    // recognises the folder, not the digest.
-    expect(container.textContent).not.toContain('1a2b3c4d')
+    // recognises the folder, not the digest. It stays in the file badge only,
+    // because that badge is the name on disk.
+    expect(heads.join(' ')).not.toContain('1a2b3c4d')
+    expect(container.querySelector('.mem-sub .mem-badge-file')?.textContent).toBe('projects/Aetox-1a2b3c4d.md')
+  })
+
+  // The ceiling, on the page. A full profile used to be a fact only the tool
+  // knew — proposals refused, the session review skipping silently.
+  it('draws each file\'s meter and says when one is full', async () => {
+    vi.mocked(LearnedScopeInfos).mockResolvedValue([
+      { scope: 'user:profile', orphan: false, bytes: 3900, maxBytes: 4096, full: true },
+      { scope: '', orphan: false, bytes: 1214, maxBytes: 8192, full: false },
+    ] as any)
+    vi.mocked(LearnedEntries).mockResolvedValue(['x'] as any)
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'การเรียนรู้')
+    await waitFor(() => expect(container.querySelectorAll('.mem-cap').length).toBe(2))
+
+    const caps = Array.from(container.querySelectorAll('.mem-cap'))
+    expect(caps[0].textContent).toContain('3,900 / 4,096')
+    expect(caps[0].classList.contains('mem-cap-full')).toBe(true)
+    expect(caps[1].classList.contains('mem-cap-ok')).toBe(true)
+    expect(container.querySelectorAll('.mem-cap-note').length).toBe(1)
+    expect(container.querySelector('.mem-cap-note')?.textContent).toContain('เต็มแล้ว')
   })
 
   // A project's memory file is keyed by the folder's path, so a moved or
@@ -140,10 +168,11 @@ describe('editing what is already remembered', () => {
   // sign: move the lines to the project the folder became, or let them go.
   it('names an orphaned project memory and offers its two exits', async () => {
     vi.mocked(LearnedScopeInfos).mockResolvedValue([
-      { scope: '', orphan: false }, { scope: 'project:old-app-99aa88bb', orphan: true },
+      { scope: '', orphan: false }, { scope: 'mode:coding', orphan: false, projectsUnder: true },
+      { scope: 'project:old-app-99aa88bb', orphan: true },
     ] as any)
     vi.mocked(LearnedEntries).mockImplementation(async (scope: string) =>
-      (scope === '' ? ['เครื่องผู้ใช้เป็น Windows'] : ['ตกลงกันว่าใช้ PowerShell']) as any)
+      (scope === '' ? ['เครื่องผู้ใช้เป็น Windows'] : scope === 'mode:coding' ? [] : ['ตกลงกันว่าใช้ PowerShell']) as any)
     vi.mocked(RecentProjects).mockResolvedValue([
       { key: 'old-app-11223344', name: 'old-app', rootPath: 'D:/work/old-app', openedAt: '', snippet: '' },
     ] as any)
@@ -154,12 +183,13 @@ describe('editing what is already remembered', () => {
 
     // The live file carries no mark; the orphan carries exactly one.
     expect(container.querySelectorAll('.mem-orphan').length).toBe(1)
-    const heads = Array.from(container.querySelectorAll('.mem-scope'))
-    expect(heads[0].querySelector('.mem-orphan')).toBeNull()
-    expect(heads[1].textContent).toContain('โฟลเดอร์นี้ไม่อยู่แล้ว')
+    const live = container.querySelector('.mem-scope[data-mem-scope=""]')!
+    const orphan = container.querySelector('.mem-scope[data-mem-scope="project:old-app-99aa88bb"]')!
+    expect(live.querySelector('.mem-orphan')).toBeNull()
+    expect(orphan.textContent).toContain('โฟลเดอร์นี้ไม่อยู่แล้ว')
 
     // Exit one: move into a project the store still knows.
-    await fireEvent.click(heads[1].querySelector('.mem-orphan-actions .ctrl')!)
+    await fireEvent.click(orphan.querySelector('.mem-orphan-actions .ctrl')!)
     const target = Array.from(container.querySelectorAll('.mem-adopt .ctrl'))
       .find((el) => el.textContent?.includes('old-app'))
     await fireEvent.click(target!)
@@ -167,7 +197,7 @@ describe('editing what is already remembered', () => {
       expect(AdoptMemoryScope).toHaveBeenCalledWith('project:old-app-99aa88bb', 'D:/work/old-app'))
 
     // Exit two: delete — and it reaches the whole-file door, never a row's.
-    await fireEvent.click(heads[1].querySelector('.mem-orphan-actions .mem-forget')!)
+    await fireEvent.click(orphan.querySelector('.mem-orphan-actions .mem-forget')!)
     await waitFor(() =>
       expect(ForgetMemoryScope).toHaveBeenCalledWith('project:old-app-99aa88bb'))
   })
@@ -176,9 +206,11 @@ describe('editing what is already remembered', () => {
   // rows from zero, so a save that forgot the scope would rewrite line 0 of the
   // main memory while the user was looking at line 0 of a project's.
   it('edits the line in the file it belongs to', async () => {
-    vi.mocked(LearnedScopeInfos).mockResolvedValue([{ scope: '', orphan: false }, { scope: 'project:Aetox-1a2b3c4d', orphan: false }] as any)
+    vi.mocked(LearnedScopeInfos).mockResolvedValue([
+      { scope: '', orphan: false }, { scope: 'mode:coding', orphan: false, projectsUnder: true }, { scope: 'project:Aetox-1a2b3c4d', orphan: false },
+    ] as any)
     vi.mocked(LearnedEntries).mockImplementation(async (scope: string) =>
-      (scope === '' ? ['เครื่องผู้ใช้เป็น Windows'] : ['ตกลงกันว่าใช้ PowerShell']) as any)
+      (scope === '' ? ['เครื่องผู้ใช้เป็น Windows'] : scope === 'mode:coding' ? [] : ['ตกลงกันว่าใช้ PowerShell']) as any)
 
     const { container } = render(Settings, { onClose: () => {} })
     await openSection(container, 'การเรียนรู้')
@@ -208,7 +240,39 @@ describe('the learning review page', () => {
 
     await waitFor(() => expect(screen.getByText('เครื่องนี้ไม่มี Excel ติดตั้ง')).toBeTruthy())
     expect(screen.getByText('เปิดไฟล์ .xlsx แล้วไม่มีโปรแกรมรับ')).toBeTruthy()
-    expect(screen.getByText('ผู้ช่วยหลัก')).toBeTruthy()
+    // The verb in the user's language, never the database's own enum; whose
+    // file, and — since 11 ก.ย. — who reads it, which is the decision.
+    const head = container.querySelector('.learn-row .learn-head')!
+    expect(head.textContent).toContain('ขอจำเรื่องนี้ไว้')
+    expect(head.textContent).toContain('โต๊ะผู้ช่วย')
+    expect(head.textContent).toContain('เฉพาะแชทที่โต๊ะผู้ช่วย')
+    expect(head.textContent).not.toContain('add')
+  })
+
+  // "เก็บที่อื่น": a proposal can be approved into a file other than the one
+  // it was aimed at, and the menu says who would read it there. Only a new
+  // line offers it — a replace names a line that lives in one file.
+  it('lets a new line be kept in a different file', async () => {
+    vi.mocked(LearnedScopeInfos).mockResolvedValue([
+      { scope: 'user:profile', orphan: false }, { scope: '', orphan: false }, { scope: 'mode:coding', orphan: false, projectsUnder: true },
+    ] as any)
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'การเรียนรู้')
+    await waitFor(() => expect(screen.getByText('เครื่องนี้ไม่มี Excel ติดตั้ง')).toBeTruthy())
+
+    await fireEvent.click(screen.getByText('เก็บที่อื่น'))
+    const items = Array.from(container.querySelectorAll('.learn-row .mem-menu-i'))
+    // Every other file, never the one it is already aimed at.
+    expect(items.map((el) => el.querySelector('.learn-scope')?.textContent?.trim())).toEqual(['เกี่ยวกับคุณ', 'โต๊ะโค้ด'])
+    expect(items[0].textContent).toContain('ทุกโต๊ะ ทุกซับเอเจนจะเห็น')
+    await fireEvent.click(items[1])
+    await waitFor(() => expect(ApprovePendingChangeTo).toHaveBeenCalledWith(1, 'mode:coding'))
+
+    vi.mocked(ListPendingChanges).mockResolvedValue([proposal({ op: 'replace', before: 'x', body: 'y' })] as any)
+    const second = render(Settings, { onClose: () => {} })
+    await openSection(second.container, 'การเรียนรู้')
+    await waitFor(() => expect(second.container.textContent).toContain('ขอแก้สิ่งที่จำไว้'))
+    expect(second.container.querySelector('.learn-row .mem-move')).toBeNull()
   })
 
   // A delegate's memory is not the assistant's, and the row has to say so —
@@ -291,18 +355,21 @@ describe('the learning review page', () => {
 
     // Both sections and badges exist
     expect(container.textContent).toContain('ความจำเกี่ยวกับคุณ')
-    expect(container.textContent).toContain('ความจำของผู้ช่วยและระบบ')
+    expect(container.textContent).toContain('ความจำของแต่ละโต๊ะ')
     expect(container.textContent).toContain('USER.md')
     expect(container.textContent).toContain('MEMORY.md')
 
     // Quick migrate banner is rendered because Main has "User is developing Aetox"
     expect(container.querySelector('.mem-quick-banner')).toBeTruthy()
 
-    // Move button on the Main assistant row moves to user:profile
+    // The move button opens a menu of every other file; a line about the user
+    // sitting in the assistant's file has the profile marked as the suggestion.
     const mainRow = container.querySelectorAll('.mem-row')[1]
-    const moveBtn = mainRow.querySelector('.mem-action-move')
-    expect(moveBtn).toBeTruthy()
-    await fireEvent.click(moveBtn!)
+    await fireEvent.click(mainRow.querySelector('.mem-action-move')!)
+    const rec = mainRow.querySelector('.mem-menu-i.rec')!
+    expect(rec.textContent).toContain('เกี่ยวกับคุณ')
+    expect(rec.textContent).toContain('แนะนำ')
+    await fireEvent.click(rec)
     await waitFor(() => expect(MoveLearnedEntry).toHaveBeenCalledWith('', 'user:profile', 0))
   })
 })

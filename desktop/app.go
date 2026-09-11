@@ -4909,7 +4909,12 @@ func (a *App) everySessionSkills(conv *conversation, sandboxRoot string) []skill
 			Scope:        learned.MainScope,
 			Project:      a.focusedProjectRoot(sandboxRoot),
 			ProjectFirst: conv.desk.MemoryRule() == mode.MemoryProject,
-			Proposer:     appProposer{app: a},
+			// With ProjectFirst, this is what gives โต๊ะโค้ด a file of its
+			// own (modes/coding.md) instead of the assistant's MEMORY.md —
+			// the same rule bootstrap.deskFor reads to stop it folding that
+			// file (prompt.Desk.OwnMemory).
+			Desk:     conv.desk.DeskName(),
+			Proposer: appProposer{app: a},
 		},
 	}
 }

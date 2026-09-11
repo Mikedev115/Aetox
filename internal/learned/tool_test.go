@@ -555,3 +555,50 @@ func TestARefusedFactIsAnsweredWithTheRefusal(t *testing.T) {
 		t.Errorf("an approved prior should say it is memory and name the way to revise it: %q", out.Content)
 	}
 }
+
+// A desk that keeps its own memory (Desk set, ProjectFirst — โต๊ะโค้ด since
+// 11 ก.ย.) never lands a line in the assistant's file. Its cross-project word
+// is `this-desk`, an unsaid word with a project focused still means the
+// project, and `everywhere` — a word this desk was not offered — means its own
+// file too, because a line sent to a file this desk does not read is a line
+// nobody reads.
+func TestADeskWithItsOwnMemoryNeverWritesTheAssistantsFile(t *testing.T) {
+	isolate(t)
+	root := filepath.Join(t.TempDir(), "Aetox")
+	rec := &recorder{}
+	tool := &MemoryTool{Scope: MainScope, Project: root, ProjectFirst: true, Desk: "coding", Proposer: rec}
+
+	for _, args := range []map[string]any{
+		{"about": "machine", "text": "ที่นี่ตกลงกันว่า package นี้ถือ retry"},
+		{"about": "machine", "text": "เครื่องนี้ไม่มี Excel", "where": "this-desk"},
+		{"about": "machine", "text": "gofmt กับ CRLF", "where": "everywhere"},
+		{"about": "user", "text": "ผู้ใช้พูดไทย", "where": "this-desk"},
+	} {
+		if _, err := tool.ExecuteTool(context.Background(), args); err != nil {
+			t.Fatalf("add %v: %v", args, err)
+		}
+	}
+	want := []string{ProjectScope(root), ModeScope("coding"), ModeScope("coding"), UserScope}
+	for i, w := range want {
+		if rec.got[i].Scope != w {
+			t.Errorf("proposal %d went to scope %q, want %q", i, rec.got[i].Scope, w)
+		}
+	}
+	params := string(tool.ToolDefinition().Function.Parameters)
+	if !strings.Contains(params, `"this-desk"`) || strings.Contains(params, `"everywhere"`) {
+		t.Errorf("the desk's tool block offers the wrong words:\n%s", params)
+	}
+
+	// Unfocused, the desk's own file is the floor — not the assistant's, and
+	// with one destination there is no `where` at all.
+	bare := &MemoryTool{Scope: MainScope, ProjectFirst: true, Desk: "coding", Proposer: rec}
+	if _, err := run(t, bare, map[string]any{"about": "machine", "text": "shell เป็น PowerShell"}); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	if got := rec.got[len(rec.got)-1].Scope; got != ModeScope("coding") {
+		t.Errorf("an unfocused own-memory desk proposed into %q, want its own file", got)
+	}
+	if strings.Contains(string(bare.ToolDefinition().Function.Parameters), `"where":`) {
+		t.Error("a session with one destination was sent a choice")
+	}
+}

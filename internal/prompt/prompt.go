@@ -212,6 +212,17 @@ type Desk struct {
 	// and because the caller that has the queue (the desktop, through its
 	// Proposer) already hands the desk everything else it knows.
 	Ledger func(scopes []string) Ledger
+	// OwnMemory says this desk keeps its own memory (mode `memory: project`,
+	// 11 ก.ย.): it reads modes/<Name>.md and the focused project's file, and
+	// NOT the assistant's MEMORY.md. The profile (USER.md) is still folded —
+	// that file is about the person, not the room — and a zero Desk, the CLI
+	// and every desk without the rule read the shared file as they always did.
+	//
+	// The split is by who pays: every line the shared file held on the owner's
+	// machine was the assistant's, and every coding session was billed for
+	// them on every request. What the coding desk learns across repositories
+	// gets its own file for the same reason in the other direction.
+	OwnMemory bool
 }
 
 // Ledger is what the queue says about the memory scopes a session writes to.
@@ -519,8 +530,13 @@ func BuildWithReport(surface Surface, scope Scope, desk Desk) (string, Loaded) {
 	// chair is still Aetox, specialised (§44.0); memory is where the boundary
 	// runs.
 	if !desk.Chair {
-		loaded.MemoryPath = foldLearnedMemory(&b, learned.MainScope,
-			"What you have learned and the user approved")
+		// The shared file is the assistant's. A desk with its own memory skips
+		// it — not narrowed, skipped: what that desk reads instead is the
+		// desk fold below, and the split is the point (Desk.OwnMemory).
+		if !desk.OwnMemory {
+			loaded.MemoryPath = foldLearnedMemory(&b, learned.MainScope,
+				"What you have learned and the user approved")
+		}
 		if desk.Name != "" {
 			loaded.DeskMemoryPath = foldLearnedMemory(&b, learned.ModeScope(desk.Name),
 				"What working on "+desk.Name+" has taught you, and the user approved")
@@ -548,7 +564,9 @@ func BuildWithReport(surface Surface, scope Scope, desk Desk) (string, Loaded) {
 	if desk.Ledger != nil {
 		scopes := []string{learned.UserScope}
 		if !desk.Chair {
-			scopes = append(scopes, learned.MainScope)
+			if !desk.OwnMemory {
+				scopes = append(scopes, learned.MainScope)
+			}
 			if desk.Name != "" {
 				scopes = append(scopes, learned.ModeScope(desk.Name))
 			}

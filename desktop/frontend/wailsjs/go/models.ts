@@ -1132,6 +1132,10 @@ export namespace main {
 	}
 	export class MemoryScopeInfo {
 	    scope: string;
+	    bytes: number;
+	    maxBytes: number;
+	    full: boolean;
+	    projectsUnder: boolean;
 	    orphan: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -1141,6 +1145,10 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.scope = source["scope"];
+	        this.bytes = source["bytes"];
+	        this.maxBytes = source["maxBytes"];
+	        this.full = source["full"];
+	        this.projectsUnder = source["projectsUnder"];
 	        this.orphan = source["orphan"];
 	    }
 	}

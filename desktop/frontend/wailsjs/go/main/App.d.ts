@@ -55,6 +55,8 @@ export function AppVersion():Promise<string>;
 
 export function ApprovePendingChange(arg1:number):Promise<void>;
 
+export function ApprovePendingChangeTo(arg1:number,arg2:string):Promise<void>;
+
 export function ArtifactPreview(arg1:string):Promise<main.ArtifactPreview>;
 
 export function BackgroundRuns():Promise<Array<main.BackgroundRun>>;

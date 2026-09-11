@@ -3677,6 +3677,10 @@ button.phase-head:hover { color:var(--text-muted); }
 /* Whose memory it lands in — the question actually being decided, so it sits
    at the far end of the heading rather than buried in a meta row. */
 .memcard-scope { margin-left:auto; flex:none; font-size:var(--fs-xs); color:var(--text-muted); border:1px solid var(--border-subtle); border-radius:999px; padding:1px 8px; }
+/* Who will read it, under the heading: the sentence the label never said. */
+.memcard-aud { padding:4px 14px 0; font-size:var(--fs-xs); color:var(--text-muted); }
+.memcard-foot .mem-move { flex:none; }
+.memcard-foot .memcard-no { display:inline-flex; align-items:center; gap:4px; }
 /* The line it would overwrite. Struck through, above what it becomes. */
 .memcard-was { padding:6px 14px 0; font-size:var(--fs-sm); color:var(--text-dim); text-decoration:line-through; word-break:break-word; }
 .memcard-was + .memcard-line { padding-top:2px; }
@@ -7466,6 +7470,84 @@ button.phase-head:hover { color:var(--text-muted); }
 /* The card's footer action, ruled off from the memory text above it the same
    way two .set-rows are ruled off from each other. */
 .learn-foot { border-top:1px solid var(--border-subtle); padding-top:12px; padding-bottom:12px; }
+
+/* Who reads a memory file, as a colour (11 ก.ย.). One tone per audience, the
+   same on the review list, the card in the chat, the file headings and the
+   move menu — so "ทุกโต๊ะจะเห็น" is recognisable before it is read. The
+   profile takes the theme's violet (the one hue every theme names, as the diff
+   hunk colour); the assistant desk takes the accent; a desk with its own file
+   takes the amber every theme already uses for "modified"; a project is that
+   same amber, outlined, because it is that desk's file narrowed to one folder. */
+.mem-tone-user { --mem-tone:var(--diff-hunk-text); }
+.mem-tone-assistant { --mem-tone:var(--accent); }
+.mem-tone-desk, .mem-tone-project { --mem-tone:var(--status-modified); }
+.mem-tone-agent { --mem-tone:var(--text-muted); }
+.learn-scope.mem-tone-user, .learn-scope.mem-tone-assistant, .learn-scope.mem-tone-desk,
+.learn-scope.mem-tone-project, .learn-scope.mem-tone-agent {
+  display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:1px 8px;
+  color:var(--mem-tone); border-color:color-mix(in srgb, var(--mem-tone) 40%, transparent);
+  background:color-mix(in srgb, var(--mem-tone) 10%, transparent);
+  text-transform:none; letter-spacing:normal; font-weight:500;
+}
+.learn-scope.mem-tone-project { background:transparent; }
+/* The verb of a proposal, where the raw op used to be. */
+.learn-verb { font-size:var(--fs-sm); font-weight:600; color:var(--text-primary); }
+/* Who will read it — the decision being made, in words, beside the name. */
+.learn-aud { font-size:var(--fs-xs); color:var(--text-muted); }
+.learn-head { flex-wrap:wrap; }
+.learn-actions { flex-wrap:wrap; justify-content:flex-end; }
+
+/* One file's heading inside its card: icon, name, audience, file, meter. */
+.mem-desk { overflow:visible; }
+.mem-desk .mem-scope {
+  padding:12px 16px; text-transform:none; letter-spacing:normal; opacity:1;
+  font-size:var(--fs-md); color:var(--text-primary);
+  background:var(--surface-sunken); border-bottom:1px solid var(--border-subtle);
+  border-radius:var(--r-md) var(--r-md) 0 0;
+}
+.mem-scope-ic {
+  display:inline-grid; place-items:center; width:24px; height:24px; border-radius:6px; flex:none;
+  color:var(--mem-tone, var(--accent)); background:color-mix(in srgb, var(--mem-tone, var(--accent)) 12%, transparent);
+}
+.mem-scope-name { font-weight:600; }
+.mem-desk .mem-badge-file { margin-left:2px; }
+/* The meter, at the far end of the heading. Green until the file is near its
+   ceiling; the tool's own "full" answer turns it red. */
+.mem-cap { margin-left:auto; display:inline-flex; align-items:center; gap:8px; font-family:var(--font-mono, monospace); font-size:var(--fs-2xs); color:var(--text-dim); }
+.mem-cap-bar { width:80px; height:5px; border-radius:3px; background:var(--border-default); overflow:hidden; }
+.mem-cap-bar i { display:block; height:100%; background:var(--status-success); }
+.mem-cap-near { color:var(--status-warn); } .mem-cap-near .mem-cap-bar i { background:var(--status-warn); }
+.mem-cap-full { color:var(--status-danger); } .mem-cap-full .mem-cap-bar i { background:var(--status-danger); }
+.mem-cap-note {
+  display:flex; align-items:flex-start; gap:8px; padding:9px 16px; font-size:var(--fs-sm);
+  color:var(--text-secondary); border-bottom:1px solid var(--border-subtle);
+}
+.mem-cap-note.mem-cap-full { background:var(--status-danger-bg); }
+.mem-cap-note.mem-cap-full .icon { color:var(--status-danger); flex:none; }
+.mem-cap-note.mem-cap-near .icon { color:var(--status-warn); flex:none; }
+/* A project's file, nested under the desk whose sessions write it. */
+.mem-sub-h { padding:12px 16px 4px; font-size:var(--fs-2xs); font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); }
+.mem-sub { margin:6px 16px 14px; border:1px solid var(--border-subtle); border-radius:var(--r-md); background:var(--surface-app); }
+.mem-sub .mem-scope { background:transparent; border-radius:var(--r-md) var(--r-md) 0 0; }
+.mem-sub .mem-row { padding-left:14px; padding-right:14px; }
+.mem-desk .mem-quick-banner { margin:0; border-radius:0; border-left:0; border-right:0; border-top:0; }
+/* "ย้ายไปที่…" — an anchor for the menu, on a row and on a proposal. */
+.mem-move { position:relative; display:inline-flex; }
+.mem-action-move.open { background:var(--surface-hover); color:var(--text-primary); }
+.mem-menu {
+  position:absolute; right:0; top:calc(100% + 4px); z-index:20; min-width:280px; padding:6px;
+  background:var(--surface-raised); border:1px solid var(--border-strong); border-radius:var(--r-md);
+  box-shadow:0 12px 30px rgba(0,0,0,.45);
+}
+.mem-menu-h { padding:6px 10px 4px; font-size:var(--fs-2xs); color:var(--text-muted); }
+.mem-menu-i {
+  display:flex; align-items:center; gap:10px; width:100%; padding:7px 10px; border:none; border-radius:var(--r-sm);
+  background:none; color:var(--text-primary); font:inherit; font-size:var(--fs-sm); text-align:left; cursor:pointer;
+}
+.mem-menu-i:hover { background:var(--surface-hover); }
+.mem-menu-i.rec { background:color-mix(in srgb, var(--diff-hunk-text) 10%, transparent); }
+.mem-menu-i small { margin-left:auto; font-size:var(--fs-2xs); color:var(--text-muted); white-space:nowrap; }
+.mem-menu-i .learn-scope { flex:none; }
 
 /* Memory Section Split Headers & Badges */
 .mem-header-split {

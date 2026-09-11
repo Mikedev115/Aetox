@@ -10,7 +10,7 @@
 // "profile", which is a thing that does not exist and reads like one that does.
 import { describe, it, expect, beforeEach } from 'vitest'
 import { setLocale } from '../lib/i18n.svelte'
-import { scopeLabel } from '../lib/memoryScope'
+import { scopeLabel, scopeMeta } from '../lib/memoryScope'
 
 beforeEach(() => setLocale('th'))
 
@@ -21,7 +21,7 @@ describe('scopeLabel', () => {
   })
 
   it('still names the other three scopes', () => {
-    expect(scopeLabel('')).toBe('ผู้ช่วยหลัก')
+    expect(scopeLabel('')).toBe('โต๊ะผู้ช่วย')
     // A desk and a project keep their own shapes; the profile did not become a
     // fourth prefix, so nothing here changed when it was added.
     expect(scopeLabel('mode:coding')).toContain('โต๊ะ')
@@ -34,5 +34,15 @@ describe('scopeLabel', () => {
   it('does not read the profile as a desk in English either', () => {
     setLocale('en')
     expect(scopeLabel('user:profile')).toBe('About you')
+  })
+
+  // Since 11 ก.ย. the name is half of it: who reads the file is the decision
+  // an approval makes, and every surface draws it from here in one tone.
+  it('says who reads each file, in the tone every surface shares', () => {
+    expect(scopeMeta('user:profile')).toMatchObject({ tone: 'user', file: 'USER.md', audience: 'ทุกโต๊ะ ทุกซับเอเจนจะเห็น' })
+    expect(scopeMeta('')).toMatchObject({ tone: 'assistant', file: 'MEMORY.md', audience: 'เฉพาะแชทที่โต๊ะผู้ช่วย' })
+    expect(scopeMeta('mode:coding')).toMatchObject({ tone: 'desk', file: 'modes/coding.md', icon: 'fileCode', audience: 'เฉพาะโต๊ะโค้ด ทุกโปรเจกต์' })
+    expect(scopeMeta('project:Aetox-1a2b3c4d')).toMatchObject({ tone: 'project', file: 'projects/Aetox-1a2b3c4d.md', audience: 'เฉพาะตอนเปิดโฟลเดอร์ Aetox' })
+    expect(scopeMeta('explore')).toMatchObject({ tone: 'agent', label: 'explore', audience: 'เฉพาะซับเอเจน explore' })
   })
 })
