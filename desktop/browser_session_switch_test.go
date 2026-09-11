@@ -68,7 +68,7 @@ func TestCaptureNamesWhyAHiddenViewCannotBePhotographed(t *testing.T) {
 // waitShown returns as soon as the raise lands, and gives up on time when it
 // never does — it is what keeps the on-screen case from paying the full wait.
 func TestWaitShownReturnsWhenTheTabIsShown(t *testing.T) {
-	a := newTestApp()
+	a := newTestApp(t)
 	tab := &browserTab{hidden: true}
 	go func() {
 		tab.visMu.Lock()

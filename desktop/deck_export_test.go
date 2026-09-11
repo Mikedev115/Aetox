@@ -22,7 +22,7 @@ import (
 // Downloads.
 func exportApp(t *testing.T, export engine.DeckExport, err error) *App {
 	t.Helper()
-	a := newTestApp()
+	a := newTestApp(t)
 	a.exports.root = t.TempDir()
 	a.api = engineWith{API: a.api, export: func(string, string) (engine.DeckExport, error) { return export, err }}
 	return a

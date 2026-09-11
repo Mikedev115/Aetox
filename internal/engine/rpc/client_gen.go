@@ -1170,6 +1170,12 @@ func (c *Client) PlanRunning(sessionID string) bool {
 	return out0
 }
 
+func (c *Client) PrepareToClose() {
+	if err := c.call("PrepareToClose", nil, nil); err != nil {
+		c.failed("PrepareToClose", err)
+	}
+}
+
 func (c *Client) PreparedReplyOn() bool {
 	var out0 bool
 	if err := c.call("PreparedReplyOn", nil, &out0); err != nil {

@@ -12,7 +12,7 @@ import (
 
 func hostWithTabs(t *testing.T, current string, order []string, ids ...string) *App {
 	t.Helper()
-	app := newTestApp()
+	app := newTestApp(t)
 	tabs := map[string]*browserTab{}
 	views := map[string]tabView{}
 	for _, id := range ids {

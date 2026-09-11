@@ -53,7 +53,7 @@ func TestSpeechEndToEndThroughTheRealEngine(t *testing.T) {
 	}
 	t.Logf("อ่านด้วยเสียง %s", thai)
 
-	app := newTestApp()
+	app := newTestApp(t)
 	app.api = engineWith{API: app.api, voice: &engine.VoiceSettings{TTSVoice: thai}}
 	t.Cleanup(app.stopAllSpeech)
 	events := make(chan speechChunkEvent, 512)

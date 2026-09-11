@@ -10,7 +10,7 @@ import (
 // nothing for the app as shipped (§248 A6, B1).
 func TestThisWindowLendsTheRealPacks(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
-	a := newTestApp()
+	a := newTestApp(t)
 	tools := appScreen{a}.WindowTools(stubSession{root: t.TempDir()})
 	var browser, machine bool
 	for _, s := range tools {
@@ -31,7 +31,7 @@ func TestThisWindowLendsTheRealPacks(t *testing.T) {
 // that is not listening has nothing resident.
 func TestTheScreenAnswersTheDeskQuestions(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
-	a := newTestApp()
+	a := newTestApp(t)
 	var screen engine.Screen = appScreen{a}
 	if got := screen.DefaultModel("aetox", ""); got == "" {
 		t.Error("the built-in provider has a default model and the screen did not name it")

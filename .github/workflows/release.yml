@@ -82,6 +82,12 @@ jobs:
           $cfg.info.productVersion = $version
           $cfg | ConvertTo-Json -Depth 5 | Set-Content desktop/wails.json -Encoding utf8
 
+      # The engine is a binary of its own beside the app (§248 phase 2). Built
+      # first, into the folder the installer and the packages read from, so
+      # wails build's NSIS step finds it (project.nsi lists it).
+      - name: Build the engine
+        run: go build -trimpath -ldflags "-s -w" -o desktop/build/bin/aetox-engine.exe ./cmd/aetox-engine
+
       - name: Build desktop app + NSIS installer
         working-directory: desktop
         run: wails build -nsis -platform windows/amd64
@@ -94,6 +100,7 @@ jobs:
         run: |
           $want = @(
             "desktop/build/bin/aetox.exe",
+            "desktop/build/bin/aetox-engine.exe",
             "desktop/build/bin/aetox-amd64-installer.exe"
           )
           $missing = @($want | Where-Object { -not (Test-Path $_) })
@@ -147,6 +154,7 @@ jobs:
           New-Item -ItemType Directory -Force $stage | Out-Null
           New-Item -ItemType Directory -Force "$stage\Assets" | Out-Null
           Copy-Item desktop/build/bin/aetox.exe $stage
+          Copy-Item desktop/build/bin/aetox-engine.exe $stage
           Copy-Item desktop/build/windows/msix/Assets/*.png "$stage\Assets"
           Set-Content "$stage\AppxManifest.xml" $xml -Encoding utf8
 
@@ -209,7 +217,7 @@ jobs:
 
       - name: Package portable zip + checksums
         run: |
-          Compress-Archive -Path desktop/build/bin/aetox.exe -DestinationPath aetox-windows-amd64-portable.zip
+          Compress-Archive -Path desktop/build/bin/aetox.exe,desktop/build/bin/aetox-engine.exe -DestinationPath aetox-windows-amd64-portable.zip
           $files = @(
             "desktop/build/bin/aetox-amd64-installer.exe",
             "aetox-windows-amd64-portable.zip"

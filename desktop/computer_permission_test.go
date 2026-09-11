@@ -54,7 +54,7 @@ func TestTheGrantIsWrittenDownAndCanBeTakenBack(t *testing.T) {
 	// user's own must never be the thing under test.
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 
-	app := newTestApp()
+	app := newTestApp(t)
 	// Empty, never nil: a nil slice marshals to JSON null, the settings page
 	// does .length on it, and Svelte aborts the render (ARCHITECTURE.md §34).
 	// The shipped state — off, nothing granted — is exactly when nil shows up.
@@ -102,7 +102,7 @@ func TestRevokingOneProgramLeavesEveryOtherRuleAlone(t *testing.T) {
 		t.Fatalf("writing failed: %v", err)
 	}
 
-	app := newTestApp()
+	app := newTestApp(t)
 	if err := app.RevokeComputerApp("notepad"); err != nil {
 		t.Fatalf("revoking failed: %v", err)
 	}

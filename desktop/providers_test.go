@@ -6,7 +6,7 @@ import "testing"
 // error just because there was nothing to fetch.
 func TestLocalProviderAccountIsNotAnError(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
-	a := newTestApp()
+	a := newTestApp(t)
 	got := a.ProviderAccountFor("ollama")
 	if got.Error != "" {
 		t.Errorf("Error = %q; want empty — there was nothing to fetch", got.Error)
@@ -23,7 +23,7 @@ func TestLocalProviderAccountIsNotAnError(t *testing.T) {
 // a rebuilt provider that signs through the transport, never as a value.
 func TestSetAPIKeyFilesTheKeyAndTellsTheEngine(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
-	a := newTestApp()
+	a := newTestApp(t)
 	if a.HasAPIKey("groq") {
 		t.Fatal("a fresh store claims a key for groq")
 	}

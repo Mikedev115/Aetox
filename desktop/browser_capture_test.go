@@ -11,7 +11,7 @@ import (
 // capture asks whose tab it is before it asks the engine for a picture, so a
 // session with no page open is told so instead of waiting on a webview.
 func TestCaptureRefusesWithNoPageOpen(t *testing.T) {
-	a := newTestApp()
+	a := newTestApp(t)
 	a.browsers = &browserHost{app: a, tabs: map[string]*browserTab{}}
 
 	out, err := (&browserCaptureSkill{app: a}).capture(t.Context(), false, false)

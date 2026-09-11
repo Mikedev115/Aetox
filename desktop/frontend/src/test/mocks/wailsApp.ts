@@ -37,6 +37,9 @@ export const AccountRefresh = vi.fn(async (..._args: any[]) => ({
 // capability ones runs as if there were nothing to offer, which is also what
 // a Linux CI machine really sees.
 export const CapabilityStatuses = arr()
+// The engine process beside the window: connected, always, in a test.
+export const EngineStatus = vi.fn(async (..._args: any[]) => ({ state: 'connected', detail: '', restarts: 0, pid: 1, address: '' }))
+export const RestartEngine = noop()
 export const CapabilitiesInstalling = boolFn(false)
 export const InstallCapabilities = boolFn(true)
 export const BrowserBack = noop()

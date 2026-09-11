@@ -50,7 +50,7 @@ func TestNewMessageTokenUnique(t *testing.T) {
 }
 
 func TestOnMessageRejectsSpoofedMetaURL(t *testing.T) {
-	h := &browserHost{app: newTestApp()}
+	h := &browserHost{app: newTestApp(t)}
 	tab := &browserTab{}
 	// Page at evil.com claims to be accounts.google.com — must be rejected.
 	h.onMessage("tab1", tab, `{"__aetox":"meta","title":"Google","url":"https://accounts.google.com/login"}`, "https://evil.com/")
@@ -62,7 +62,7 @@ func TestOnMessageRejectsSpoofedMetaURL(t *testing.T) {
 }
 
 func TestOnMessageAcceptsGenuineMeta(t *testing.T) {
-	h := &browserHost{app: newTestApp()}
+	h := &browserHost{app: newTestApp(t)}
 	tab := &browserTab{}
 	h.onMessage("tab1", tab, `{"__aetox":"meta","title":"Example","url":"https://example.com/page"}`, "https://example.com/page")
 
@@ -73,14 +73,14 @@ func TestOnMessageAcceptsGenuineMeta(t *testing.T) {
 }
 
 func TestOnMessageRejectsTextWithoutPendingRequest(t *testing.T) {
-	h := &browserHost{app: newTestApp()}
+	h := &browserHost{app: newTestApp(t)}
 	tab := &browserTab{} // textCh is nil: nothing is waiting
 	// Must not panic (sending on a nil channel would block/panic if reached).
 	h.onMessage("tab1", tab, `{"__aetox":"text","token":"whatever","url":"https://example.com/","text":"unsolicited"}`, "https://example.com/")
 }
 
 func TestOnMessageRejectsTextWithWrongToken(t *testing.T) {
-	h := &browserHost{app: newTestApp()}
+	h := &browserHost{app: newTestApp(t)}
 	ch := make(chan browserSnapshot, 1)
 	tab := &browserTab{textCh: ch, textToken: "real-token"}
 
@@ -94,7 +94,7 @@ func TestOnMessageRejectsTextWithWrongToken(t *testing.T) {
 }
 
 func TestOnMessageAcceptsTextWithMatchingToken(t *testing.T) {
-	h := &browserHost{app: newTestApp()}
+	h := &browserHost{app: newTestApp(t)}
 	ch := make(chan browserSnapshot, 1)
 	tab := &browserTab{textCh: ch, textToken: "real-token"}
 
@@ -299,7 +299,7 @@ func (v *fakeView) setBounds(x, y, w, h int) {
 func TestBoundsNeverSurfaceAHiddenTab(t *testing.T) {
 	b := &fakeBackend{}
 	view := &fakeView{}
-	app := newTestApp()
+	app := newTestApp(t)
 	app.browsers = &browserHost{app: app, backend: b,
 		tabs: map[string]*browserTab{"web-1": {}}, views: map[string]tabView{"web-1": view}}
 
@@ -348,7 +348,7 @@ func TestOnTabResolvesAfterAQueuedOpen(t *testing.T) {
 // do not surface a tab the UI has hidden, and re-assert the emulation zoom that
 // a cross-origin navigation resets.
 func TestNavCompletedRaisesReassertsZoomAndAsksForMeta(t *testing.T) {
-	h := &browserHost{app: newTestApp(), tabs: map[string]*browserTab{}}
+	h := &browserHost{app: newTestApp(t), tabs: map[string]*browserTab{}}
 	tab := &browserTab{navDone: make(chan struct{})}
 	tab.zoom = 0.5
 	view := &fakeView{}
@@ -377,7 +377,7 @@ func TestNavCompletedRaisesReassertsZoomAndAsksForMeta(t *testing.T) {
 // A tab the user has switched away from must stay down when its page finishes
 // loading, or it pops over the UI on every background navigation.
 func TestNavCompletedLeavesAHiddenTabHidden(t *testing.T) {
-	h := &browserHost{app: newTestApp(), tabs: map[string]*browserTab{}}
+	h := &browserHost{app: newTestApp(t), tabs: map[string]*browserTab{}}
 	tab := &browserTab{navDone: make(chan struct{}), hidden: true}
 	view := &fakeView{}
 
@@ -465,7 +465,7 @@ func TestOnTabSkipsATabWithNoView(t *testing.T) {
 // fresh tab (the "เปิดใหม่ ๆ รัว ๆ" the owner watched happen on 2026-08-10).
 func TestAReusedTabIsAwaitedAgainRatherThanAnsweringWithTheLastResult(t *testing.T) {
 	tab := &browserTab{}
-	h := &browserHost{app: newTestApp(), tabs: map[string]*browserTab{}}
+	h := &browserHost{app: newTestApp(t), tabs: map[string]*browserTab{}}
 
 	// First navigation lands, and fails.
 	h.navCompleted("web-1", tab, &fakeView{}, false)

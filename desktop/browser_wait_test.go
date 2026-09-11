@@ -92,7 +92,7 @@ func TestDialogsAreReportedOnceAndBounded(t *testing.T) {
 }
 
 func TestDialogNoteIsEmptyWhenThePageSaidNothing(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	app.browsers = &browserHost{app: app, tabs: map[string]*browserTab{"web-agent-1": {}}, views: map[string]tabView{"web-agent-1": &fakeView{}}}
 	if got := app.dialogNote("web-agent-1"); got != "" {
 		t.Errorf("dialogNote() = %q on a quiet page, want nothing appended", got)
@@ -107,7 +107,7 @@ func TestDialogNoteIsEmptyWhenThePageSaidNothing(t *testing.T) {
 // timeout against a webview that will never answer.
 func TestTheNewActionsRefuseWithNoPageOpen(t *testing.T) {
 	newApp := func() *App {
-		app := newTestApp()
+		app := newTestApp(t)
 		app.browsers = &browserHost{app: app, backend: &fakeBackend{}, tabs: map[string]*browserTab{}, views: map[string]tabView{}}
 		return app
 	}
@@ -126,7 +126,7 @@ func TestTheNewActionsRefuseWithNoPageOpen(t *testing.T) {
 // An empty needle would match everything and return instantly, which reads as
 // "it is there" for anything the model was hoping to find.
 func TestWaitRefusesAnEmptyNeedle(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	app.browsers = &browserHost{app: app, backend: &fakeBackend{}, tabs: map[string]*browserTab{}, views: map[string]tabView{}}
 
 	out, err := (&browserWaitSkill{app: app}).wait(context.Background(), "   ", 0)

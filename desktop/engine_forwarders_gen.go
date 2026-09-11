@@ -685,6 +685,10 @@ func (a *App) PlanRunning(sessionID string) bool {
 	return a.api.PlanRunning(sessionID)
 }
 
+func (a *App) PrepareToClose() {
+	a.api.PrepareToClose()
+}
+
 func (a *App) PreparedReplyOn() bool {
 	return a.api.PreparedReplyOn()
 }

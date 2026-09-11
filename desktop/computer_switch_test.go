@@ -48,7 +48,7 @@ func TestAbsentMeansOff(t *testing.T) {
 // directly must not find a way past the switch.
 func TestTheToolRefusesEveryActionWhileOff(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
-	s := newComputerSkill(newTestApp(), nil)
+	s := newComputerSkill(newTestApp(t), nil)
 
 	for _, call := range skill.PackedCalls(computerToolName) {
 		out, err := s.ExecuteTool(t.Context(), map[string]any{"action": call.Action})

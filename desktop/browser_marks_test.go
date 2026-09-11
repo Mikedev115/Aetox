@@ -100,11 +100,11 @@ func TestScrollMarkPointsTheRightWay(t *testing.T) {
 // turning the layer off mid-run would leave the last mark on the page for the
 // rest of its life.
 func TestPageMarksSwitchGatesDrawingOnly(t *testing.T) {
-	on := newTestApp()
+	on := newTestApp(t)
 	if !on.pageMarksOn() {
 		t.Error("the layer ships on and reports off")
 	}
-	off := newTestApp()
+	off := newTestApp(t)
 	off.api = engineWith{API: off.api, marksOff: true}
 	if off.pageMarksOn() {
 		t.Error("the layer was switched off and reports on")
@@ -174,7 +174,7 @@ func TestCursorLivesBesideTheMarksAndDiesBeforeACapture(t *testing.T) {
 // The layer off is no sprite and no wait; the position is remembered either
 // way so the sprite comes back where it should when the layer returns.
 func TestCursorMoveHonoursTheSwitch(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	app.api = engineWith{API: app.api, marksOff: true}
 	app.browsers = &browserHost{app: app, tabs: map[string]*browserTab{"web-agent-1": {}}, views: map[string]tabView{"web-agent-1": &fakeView{}}}
 	if wait := app.markCursorMove("web-agent-1", point{10, 10}, true); wait != 0 {

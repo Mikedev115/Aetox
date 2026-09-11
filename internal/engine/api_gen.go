@@ -185,6 +185,7 @@ type API interface {
 	PictureBytes(relPath string) (ExportFile, error)
 	PlacementTargets() []PlacementTarget
 	PlanRunning(sessionID string) bool
+	PrepareToClose()
 	PreparedReplyOn() bool
 	PriceModels(providerName string, models []string) []ModelListing
 	ProjectFilePath(relPath string) (string, error)

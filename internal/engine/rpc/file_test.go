@@ -100,7 +100,10 @@ func TestTheEngineServesProjectFilesBehindTheToken(t *testing.T) {
 func TestTheScreenProxiesItsFilePathOntoTheEngine(t *testing.T) {
 	addr, content := projectWithFile(t)
 	fallthrough404 := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.NotFound(w, r) })
-	screen := httptest.NewServer(FileProxy("tcp", addr, testToken, fallthrough404))
+	fixed := func(network, address, token string) Endpoint {
+		return func() (string, string, string, bool) { return network, address, token, true }
+	}
+	screen := httptest.NewServer(FileProxy(fixed("tcp", addr, testToken), fallthrough404))
 	t.Cleanup(screen.Close)
 
 	resp, err := http.Get(screen.URL + ScreenFilePrefix + "clip.txt")
@@ -141,7 +144,7 @@ func TestTheScreenProxiesItsFilePathOntoTheEngine(t *testing.T) {
 	}
 
 	// An engine that is not there is a 502 with a sentence, not a hang.
-	dead := httptest.NewServer(FileProxy("tcp", "127.0.0.1:1", testToken, fallthrough404))
+	dead := httptest.NewServer(FileProxy(fixed("tcp", "127.0.0.1:1", testToken), fallthrough404))
 	t.Cleanup(dead.Close)
 	gone, err := http.Get(dead.URL + ScreenFilePrefix + "clip.txt")
 	if err != nil {

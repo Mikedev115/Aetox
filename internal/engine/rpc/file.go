@@ -13,6 +13,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -22,6 +23,8 @@ import (
 
 // FilePath is where the engine's listener serves the open project's files.
 const FilePath = "/file/"
+
+var errNoEngine = errors.New("no engine is running")
 
 // ScreenFilePrefix is the window's own path for them, the one the panes use.
 const ScreenFilePrefix = "/aetox-file/"
@@ -38,13 +41,23 @@ func (s *Server) fileHandler() http.Handler {
 	})
 }
 
+// Endpoint is where the engine listens right now, and the token for it —
+// asked per request, because a local engine that restarted on a TCP port
+// is on another port, and a screen that cached the first would be proxying
+// into nothing. ok is false while no engine is up.
+type Endpoint func() (network, address, token string, ok bool)
+
 // FileProxy is the screen's /aetox-file/: every request under it goes to the
 // engine's /file/ with the token on, and the answer — status, headers, body,
 // a 206 for a Range — comes back as it was. Requests for anything else fall
 // through to next, the way the in-process middleware did.
-func FileProxy(network, address, token string, next http.Handler) http.Handler {
+func FileProxy(endpoint Endpoint, next http.Handler) http.Handler {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.DialContext = func(ctx context.Context, _, _ string) (net.Conn, error) {
+		network, address, _, ok := endpoint()
+		if !ok {
+			return nil, errNoEngine
+		}
 		var d net.Dialer
 		d.Timeout = 10 * time.Second
 		return d.DialContext(ctx, network, address)
@@ -59,7 +72,9 @@ func FileProxy(network, address, token string, next http.Handler) http.Handler {
 			pr.Out.URL.Path = FilePath + strings.TrimPrefix(pr.In.URL.Path, ScreenFilePrefix)
 			pr.Out.URL.RawPath = ""
 			pr.Out.Host = "engine"
-			pr.Out.Header.Set("Authorization", "Bearer "+token)
+			if _, _, token, ok := endpoint(); ok {
+				pr.Out.Header.Set("Authorization", "Bearer "+token)
+			}
 		},
 		Transport: transport,
 		// A streamed response is flushed as it arrives, not when it ends:

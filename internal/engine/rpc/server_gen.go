@@ -793,6 +793,9 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		return e.PlanRunning(p0), nil, true
+	case "PrepareToClose":
+		e.PrepareToClose()
+		return nil, nil, true
 	case "PreparedReplyOn":
 		return e.PreparedReplyOn(), nil, true
 	case "PriceModels":

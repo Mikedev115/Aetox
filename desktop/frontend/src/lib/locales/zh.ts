@@ -126,6 +126,14 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'cap.retry': '再试一次',
   'cap.later': '以后再说',
   'cap.hide': '隐藏',
+  'engine.starting': '正在启动引擎',
+  'engine.restarting': '引擎已停止，正在重新启动',
+  'engine.reconnecting': '正在重新连接引擎',
+  'engine.failed': '引擎已停止工作',
+  'engine.failedNote': '对话都还在——重启引擎即可继续。',
+  'engine.restart': '重启引擎',
+  'engine.restarts': '本次已重启 {n} 次',
+  'engine.hide': '隐藏',
   'cap.failedSafe': '已完成的部分留在硬盘上。再试一次会从那里继续。',
 
   // ---- 身份文件的初始内容 ----
