@@ -195,7 +195,7 @@ func TestBrowserTabRefNamesTheTabWithOrWithoutThePage(t *testing.T) {
 // complaint that started the loop was about the export.
 func TestCaptureOfADeckNamesTheRendererItIsNot(t *testing.T) {
 	dir := t.TempDir()
-	app := newTestApp()
+	app := newTestApp(t)
 
 	deckPath := filepath.Join(dir, "talk.html")
 	if err := os.WriteFile(deckPath, []byte(`<html><body><section class="slide"><h1>Hi</h1></section></body></html>`), 0o644); err != nil {

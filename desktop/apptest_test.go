@@ -1,20 +1,50 @@
 package main
 
 import (
+	"context"
+	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Mikedev115/Aetox/internal/engine"
+	"github.com/Mikedev115/Aetox/internal/engine/rpc"
 )
 
-// newTestApp is the screen a test holds: built the way NewApp builds it, with
-// the engine talking back to this very App, and no window — a.ctx stays nil,
-// so anything that would reach the Wails runtime reaches the test seams
-// (emit, openDir) or nothing.
-func newTestApp() *App {
+const testToken = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+// newTestApp is the screen a test holds: the same client NewApp builds, on
+// a wire to an engine in this process behind a loopback listener — never an
+// in-process engine value, because there is no such path any more (§248
+// decision 2). No window: a.ctx stays nil, so anything that would reach the
+// Wails runtime reaches the test seams (emit, openDir) or nothing. The
+// engine is shut down with the test, so the store it opened is closed
+// before the temp dirs go.
+func newTestApp(t *testing.T) *App {
+	t.Helper()
 	a := &App{}
-	a.eng = engine.NewEngine(appScreen{a})
-	a.api = a.eng
+	a.client = a.newClient()
+	a.api = a.client
+	srv := rpc.NewServer(testToken, engine.NewEngine)
+	hs := httptest.NewServer(srv.Handler())
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := a.client.Connect(ctx, "tcp", strings.TrimPrefix(hs.URL, "http://"), testToken); err != nil {
+		hs.Close()
+		t.Fatalf("connecting the test screen: %v", err)
+	}
+	if _, err := a.client.Hello(ctx, "test", (appScreen{a}).WindowTools(nil), []string{rpc.FeatureWindowTools, rpc.FeatureProviderProxy}); err != nil {
+		hs.Close()
+		t.Fatalf("hello: %v", err)
+	}
+	t.Cleanup(func() {
+		a.client.Close()
+		hs.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		engine.Shutdown(srv.Engine(), ctx)
+	})
 	return a
 }
 

@@ -52,6 +52,12 @@ func (a *Engine) beforeClose(_ context.Context) (prevent bool) {
 	return false
 }
 
+// PrepareToClose is beforeClose as the screen calls it across the wire
+// (§248 phase 2): every turn stopped and written down before the window
+// goes, then the process is told to leave through its stdin. Idempotent,
+// like the shutdown that follows it.
+func (a *Engine) PrepareToClose() { a.finishTurnsForClose(closeGrace) }
+
 // finishTurnsForClose stops every turn and delegate in every conversation and
 // waits, up to grace, for the turns to end. Reports whether they all did.
 //

@@ -1,33 +1,39 @@
 package main
 
-// The screen (§248 B1).
+// The screen (§248 B1, phase 2).
 //
 // App is what Wails binds and what the frontend calls, and since Stage B it
 // is a window and nothing else: every binding that is engine work forwards to
 // the engine (engine_forwarders_gen.go, generated from the engine's exported
 // methods), and every binding that needs a window is written here in
-// desktop/. Today the engine is a value in this process; the field is what
-// becomes a client of a socket in phase 2, and nothing above it has to change
-// for that.
+// desktop/. The engine is a process of its own (cmd/aetox-engine), started
+// beside this one and reached over one socket (engine_local.go); `api` is
+// the client on that socket, and nothing above it knows.
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
+	"time"
 
 	"github.com/Mikedev115/Aetox/internal/engine"
+	"github.com/Mikedev115/Aetox/internal/engine/rpc"
 	"github.com/Mikedev115/Aetox/internal/tts"
 )
 
 type App struct {
 	// api is the engine as the screen calls it: every forwarder
 	// (engine_forwarders_gen.go), every window tool and every door here goes
-	// through this interface and nothing else. In phase 2 it is the RPC
-	// client; a test hands in an engine with one answer changed.
+	// through this interface and nothing else. It is the RPC client; a test
+	// hands in an engine with one answer changed (engineWith).
 	api engine.API
-	// eng is the same engine as a value in this process — what the lifecycle
-	// hooks (engine/lifecycle.go) still take, and the last thing that knows
-	// the engine is in-process. Goes with phase 2.
-	eng *engine.Engine
+	// client is that same client, as the pieces that speak to the engine
+	// outside the bindings need it: the supervisor, the file proxy.
+	client *rpc.Client
+	// engine is the child process and the wire to it (engine_local.go). Nil
+	// in a test, whose engine is in the same process behind a loopback
+	// listener (apptest_test.go).
+	engine *localEngine
 	// ctx is the window's lifetime — what the Wails runtime is called with:
 	// dialogs, window sizing, Quit. Nil until startup has run.
 	ctx context.Context
@@ -79,12 +85,35 @@ type App struct {
 	speakJobs map[string]*speechJob
 }
 
-// NewApp builds the screen and the engine that talks to it.
+// NewApp builds the screen and the client its engine will be reached
+// through. The engine itself starts in startup, once the window has a
+// lifetime; a binding called before it is up waits for the wire
+// (rpc.Client) rather than failing.
 func NewApp() *App {
 	a := &App{}
-	a.eng = engine.NewEngine(appScreen{a})
-	a.api = a.eng
+	a.client = a.newClient()
+	a.api = a.client
+	token, err := rpc.NewToken()
+	if err != nil {
+		panic("aetox: no random token for the engine: " + err.Error())
+	}
+	a.engine = newLocalEngine(a, a.client)
+	a.engine.token = token
 	return a
+}
+
+// newClient is the wire's screen end, with this window's whole Screen
+// served on it: events to the frontend, the provider signer, the window
+// tools, the desk questions (rpc.ServeScreen).
+func (a *App) newClient() *rpc.Client {
+	c := rpc.NewClient(rpc.ClientOptions{
+		OnEvent: func(name string, data json.RawMessage) { a.emitEvent(name, data) },
+		OnFailure: func(method string, err error) {
+			a.emitEvent("engine:status", EngineStatus{State: engineReconnecting, Detail: method + ": " + err.Error()})
+		},
+	})
+	rpc.ServeScreen(c, appScreen{a})
+	return c
 }
 
 // The four Wails lifecycle hooks and the asset middleware, wired in main.go.
@@ -96,7 +125,8 @@ func (a *App) startup(ctx context.Context) {
 	// startup runs, and shown only once the webview has content, so a window
 	// bigger than the screen is corrected while nobody can see it move.
 	a.fitToScreen()
-	engine.Startup(a.eng, ctx)
+	// The engine, as a child of this window for as long as the window lives.
+	go a.engine.run(ctx)
 	// The previous build's exe, renamed aside by a self-update, and the staging
 	// download — this build is running, so by definition neither is needed.
 	// Except the download the user has not restarted into yet; see
@@ -108,10 +138,25 @@ func (a *App) startup(ctx context.Context) {
 	go a.watchForUpdates()
 }
 
-func (a *App) beforeClose(ctx context.Context) (prevent bool) { return engine.BeforeClose(a.eng, ctx) }
+// beforeClose is the X, Quit and the update's restart: the engine is asked
+// to stop every turn and write its ending before the window goes — the
+// same grace the in-process engine took, across the wire, and bounded here
+// too so a wire that is down cannot hold the window open.
+func (a *App) beforeClose(ctx context.Context) (prevent bool) {
+	if conn := a.client.Conn(); conn != nil {
+		wait, cancel := context.WithTimeout(ctx, 8*time.Second)
+		defer cancel()
+		_ = conn.Call(wait, "PrepareToClose", nil, nil)
+	}
+	return false
+}
 
-func (a *App) shutdown(ctx context.Context) {
-	engine.Shutdown(a.eng, ctx)
+func (a *App) shutdown(context.Context) {
+	// The child is told to leave — stdin closed is its cue — and waited for,
+	// so the store it holds is closed before this process is gone.
+	if a.engine != nil {
+		a.engine.shutdown()
+	}
 	// A read-aloud in flight owns a temp folder and a synthesizer. Neither
 	// survives the process, but the folder would (speak.go).
 	a.stopAllSpeech()

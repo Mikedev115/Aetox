@@ -12,6 +12,7 @@
   import Capability from './lib/Capability.svelte'
   import Onboarding from './lib/Onboarding.svelte'
   import Updater from './lib/Updater.svelte'
+  import EngineStatus from './lib/EngineStatus.svelte'
   import CapabilityProgress from './lib/CapabilityProgress.svelte'
   import { listenCapabilities } from './lib/capabilities.svelte'
   import Workbench from './lib/workbench/Workbench.svelte'
@@ -607,3 +608,6 @@
      find them. Renders nothing until there is something to say. -->
 <Updater />
 <CapabilityProgress />
+<!-- The engine is a process beside this window (§248 phase 2); this says
+     when it is not there. Nothing while it is, which is nearly always. -->
+<EngineStatus />

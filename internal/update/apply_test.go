@@ -261,3 +261,68 @@ func writeZip(t *testing.T, path, name string, content []byte) {
 		t.Fatal(err)
 	}
 }
+
+// The zip carries the engine beside the app since §248 phase 2, and the two
+// are swapped by NAME: a zip that lists the engine first must never put it
+// where the app goes. A zip from before the split, with no engine in it,
+// leaves the engine that is there alone.
+func TestSwapPortableSwapsTheEngineBesideTheAppByName(t *testing.T) {
+	dir := t.TempDir()
+	exe := filepath.Join(dir, "aetox.exe")
+	eng := filepath.Join(dir, EngineExe)
+	if err := os.WriteFile(exe, []byte("old app"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(eng, []byte("old engine"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	zipPath := filepath.Join(dir, "portable.zip")
+	writeZipFiles(t, zipPath, [][2]string{{EngineExe, "new engine"}, {"aetox.exe", "new app"}})
+
+	if err := swapPortable(exe, zipPath); err != nil {
+		t.Fatalf("swapPortable: %v", err)
+	}
+	if got, _ := os.ReadFile(exe); string(got) != "new app" {
+		t.Errorf("aetox.exe holds %q", got)
+	}
+	if got, _ := os.ReadFile(eng); string(got) != "new engine" {
+		t.Errorf("%s holds %q", EngineExe, got)
+	}
+	if got, _ := os.ReadFile(eng + ".old"); string(got) != "old engine" {
+		t.Errorf("%s.old holds %q, want the old engine kept aside", EngineExe, got)
+	}
+
+	// An older release's zip: only the app inside. The engine stays.
+	writeZipFiles(t, zipPath, [][2]string{{"aetox.exe", "newer app"}})
+	if err := swapPortable(exe, zipPath); err != nil {
+		t.Fatalf("swapPortable without an engine: %v", err)
+	}
+	if got, _ := os.ReadFile(eng); string(got) != "new engine" {
+		t.Errorf("a zip with no engine touched the engine: %q", got)
+	}
+}
+
+// writeZipFiles is writeZip for several entries, in the order given.
+func writeZipFiles(t *testing.T, path string, files [][2]string) {
+	t.Helper()
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := zip.NewWriter(f)
+	for _, file := range files {
+		entry, err := w.Create(file[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := entry.Write([]byte(file[1])); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+}

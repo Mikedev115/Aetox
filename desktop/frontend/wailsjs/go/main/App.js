@@ -446,6 +446,10 @@ export function EnabledProviders() {
   return window['go']['main']['App']['EnabledProviders']();
 }
 
+export function EngineStatus() {
+  return window['go']['main']['App']['EngineStatus']();
+}
+
 export function EnginesFor(arg1, arg2) {
   return window['go']['main']['App']['EnginesFor'](arg1, arg2);
 }
@@ -950,6 +954,10 @@ export function PlanRunning(arg1) {
   return window['go']['main']['App']['PlanRunning'](arg1);
 }
 
+export function PrepareToClose() {
+  return window['go']['main']['App']['PrepareToClose']();
+}
+
 export function PreparedReplyOn() {
   return window['go']['main']['App']['PreparedReplyOn']();
 }
@@ -1132,6 +1140,10 @@ export function ResolveAddress(arg1) {
 
 export function ResolveWorkbenchURL(arg1) {
   return window['go']['main']['App']['ResolveWorkbenchURL'](arg1);
+}
+
+export function RestartEngine() {
+  return window['go']['main']['App']['RestartEngine']();
 }
 
 export function RestartToUpdate() {

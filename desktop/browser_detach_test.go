@@ -24,7 +24,7 @@ func setMeta(t *browserTab, title, url string) {
 
 func detachedHost(t *testing.T) (*App, *fakeBackend, *fakeView) {
 	t.Helper()
-	app := newTestApp()
+	app := newTestApp(t)
 	b := &fakeBackend{}
 	view := &fakeView{}
 	tab := &browserTab{}
@@ -107,7 +107,7 @@ func TestClosingTheDetachedWindowReportsTheUserClosedIt(t *testing.T) {
 	// The wiring, first: a host built the real way has somewhere for this to go.
 	// Without it the × on a detached frame would destroy the window and tell
 	// nobody, and the agent would go on holding a page that is gone.
-	if newBrowserHost(newTestApp()).onUserClose == nil {
+	if newBrowserHost(newTestApp(t)).onUserClose == nil {
 		t.Fatal("newBrowserHost left the detached window's close unwired")
 	}
 

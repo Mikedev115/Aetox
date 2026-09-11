@@ -91,7 +91,7 @@ func TestClaimPickRejectsAnEmptyTokenOnAnIdleTab(t *testing.T) {
 func TestOnMessageEmitsAPickFromTheRealPage(t *testing.T) {
 	var gotEvent string
 	var gotData []any
-	app := newTestApp()
+	app := newTestApp(t)
 	app.emit = func(event string, data ...any) { gotEvent, gotData = event, data }
 	h := &browserHost{app: app}
 	tab := &browserTab{}
@@ -118,7 +118,7 @@ func TestOnMessageEmitsAPickFromTheRealPage(t *testing.T) {
 
 func TestOnMessageRejectsAPickFromASpoofedOrigin(t *testing.T) {
 	emitted := false
-	app := newTestApp()
+	app := newTestApp(t)
 	app.emit = func(string, ...any) { emitted = true }
 	h := &browserHost{app: app}
 	tab := &browserTab{}
@@ -139,7 +139,7 @@ func TestOnMessageRejectsAPickFromASpoofedOrigin(t *testing.T) {
 
 func TestOnMessageRejectsAnUnsolicitedPick(t *testing.T) {
 	emitted := false
-	app := newTestApp()
+	app := newTestApp(t)
 	app.emit = func(string, ...any) { emitted = true }
 	h := &browserHost{app: app}
 	tab := &browserTab{} // no mode running
@@ -193,7 +193,7 @@ func TestPickScriptFallsBackToOverlappingElements(t *testing.T) {
 
 func TestBrowserCapturePNGHandsBackADataURL(t *testing.T) {
 	b := &fakeBackend{}
-	app := newTestApp()
+	app := newTestApp(t)
 	view := &fakeView{shot: shotResult{PNG: []byte("\x89PNG fake")}}
 	app.browsers = &browserHost{app: app, backend: b, tabs: map[string]*browserTab{"web-1": {}}, views: map[string]tabView{"web-1": view}}
 
@@ -220,7 +220,7 @@ func TestBrowserCapturePNGHandsBackADataURL(t *testing.T) {
 
 func TestBrowserCapturePNGReportsAnEmptyPicture(t *testing.T) {
 	b := &fakeBackend{}
-	app := newTestApp()
+	app := newTestApp(t)
 	app.browsers = &browserHost{app: app, backend: b, tabs: map[string]*browserTab{"web-1": {}}, views: map[string]tabView{"web-1": &fakeView{}}}
 
 	go func() {
@@ -303,7 +303,7 @@ func TestBrowserCapturePNGAsksOnTheHostThread(t *testing.T) {
 	view := &threadNotingView{}
 	view.shot = shotResult{PNG: []byte("\x89PNG fake")}
 	b := &hostThreadBackend{view: view}
-	app := newTestApp()
+	app := newTestApp(t)
 	app.browsers = &browserHost{app: app, backend: b, tabs: map[string]*browserTab{"web-1": {}}, views: map[string]tabView{"web-1": view}}
 
 	go func() {

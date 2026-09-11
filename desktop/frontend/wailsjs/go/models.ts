@@ -2773,6 +2773,26 @@ export namespace main {
 	        this.notchY = source["notchY"];
 	    }
 	}
+	export class EngineStatus {
+	    state: string;
+	    detail: string;
+	    restarts: number;
+	    pid: number;
+	    address: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new EngineStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.state = source["state"];
+	        this.detail = source["detail"];
+	        this.restarts = source["restarts"];
+	        this.pid = source["pid"];
+	        this.address = source["address"];
+	    }
+	}
 	export class StagedInfo {
 	    version: string;
 	    channel: string;

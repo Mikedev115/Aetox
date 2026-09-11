@@ -238,6 +238,8 @@ export function DismissTaskChip(arg1:string):Promise<void>;
 
 export function EnabledProviders():Promise<Array<string>>;
 
+export function EngineStatus():Promise<main.EngineStatus>;
+
 export function EnginesFor(arg1:string,arg2:string):Promise<Array<connect.Status>>;
 
 export function ExportAgentPackage(arg1:string):Promise<string>;
@@ -490,6 +492,8 @@ export function PlacementTargets():Promise<Array<engine.PlacementTarget>>;
 
 export function PlanRunning(arg1:string):Promise<boolean>;
 
+export function PrepareToClose():Promise<void>;
+
 export function PreparedReplyOn():Promise<boolean>;
 
 export function PriceModels(arg1:string,arg2:Array<string>):Promise<Array<engine.ModelListing>>;
@@ -581,6 +585,8 @@ export function ResendEdited(arg1:string,arg2:boolean):Promise<engine.TurnReply>
 export function ResolveAddress(arg1:string):Promise<engine.Address>;
 
 export function ResolveWorkbenchURL(arg1:string):Promise<string|string>;
+
+export function RestartEngine():Promise<void>;
 
 export function RestartToUpdate():Promise<void>;
 

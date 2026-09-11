@@ -5,9 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 )
+
+// connectWait is how long a binding waits for the wire to be up before it
+// fails with ErrDisconnected: the engine is starting, or restarting after a
+// crash, and the frontend's first calls arrive before either is done. Long
+// enough for a cold start and one restart's backoff; short enough that a
+// binding never looks hung to the person who pressed the button.
+var connectWait = 30 * time.Second
 
 // Client is the screen's end: engine.API over the wire (client_gen.go), the
 // engine's events as they arrive, and the handlers for what the engine asks
@@ -18,6 +26,7 @@ type Client struct {
 
 	mu        sync.RWMutex
 	conn      *Conn
+	connected chan struct{} // closed while conn is live, replaced when it goes
 	handlers  map[string]Handler
 	notifiers map[string]Notifier
 }
@@ -36,7 +45,7 @@ type ClientOptions struct {
 
 // NewClient prepares a client; Connect opens the wire.
 func NewClient(opts ClientOptions) *Client {
-	return &Client{opts: opts, handlers: map[string]Handler{}, notifiers: map[string]Notifier{}}
+	return &Client{opts: opts, connected: make(chan struct{}), handlers: map[string]Handler{}, notifiers: map[string]Notifier{}}
 }
 
 // Handle registers the screen's answer to one engine→screen method.
@@ -54,17 +63,58 @@ func (c *Client) OnNotification(method string, n Notifier) {
 	c.notifiers[method] = n
 }
 
-// Connect dials the engine. A client connects once; reconnecting is a new
-// client, because every handler state it holds belongs to one connection.
+// Connect dials the engine. Calling it again after the connection went —
+// the engine restarted, the tunnel came back — puts the new wire under the
+// same client: the handlers stay registered, and a binding that was
+// waiting for a wire gets this one.
 func (c *Client) Connect(ctx context.Context, network, address, token string) error {
 	conn, err := Dial(ctx, network, address, token, c.dispatch, c.notify)
 	if err != nil {
 		return err
 	}
 	c.mu.Lock()
+	old := c.conn
 	c.conn = conn
+	if old == nil {
+		// Nobody was connected, so waiters are on this channel; a live old
+		// connection means it is already closed and they never waited.
+		close(c.connected)
+	}
 	c.mu.Unlock()
+	if old != nil {
+		old.Close()
+	}
+	go func() {
+		<-conn.Done()
+		c.mu.Lock()
+		if c.conn == conn {
+			c.conn = nil
+			c.connected = make(chan struct{})
+		}
+		c.mu.Unlock()
+	}()
 	return nil
+}
+
+// await is the live connection, waiting up to connectWait for one.
+func (c *Client) await(ctx context.Context) (*Conn, error) {
+	deadline := time.NewTimer(connectWait)
+	defer deadline.Stop()
+	for {
+		c.mu.RLock()
+		conn, connected := c.conn, c.connected
+		c.mu.RUnlock()
+		if conn != nil {
+			return conn, nil
+		}
+		select {
+		case <-connected:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-deadline.C:
+			return nil, ErrDisconnected
+		}
+	}
 }
 
 // Conn is the connection underneath, for the pieces of the screen that
@@ -137,11 +187,13 @@ func (c *Client) notify(method string, params json.RawMessage) {
 
 // call is one binding across the wire. The bindings carry no context of
 // their own — the frontend's call has none — so the wait is the connection's
-// lifetime: a call outlives nothing but the wire it is on.
+// lifetime: a call outlives nothing but the wire it is on. With no wire yet
+// it waits for one (await), so the frontend's first calls at launch and its
+// calls through a restart are answered late rather than refused.
 func (c *Client) call(method string, params []any, out any) error {
-	conn := c.Conn()
-	if conn == nil {
-		return ErrDisconnected
+	conn, err := c.await(context.Background())
+	if err != nil {
+		return err
 	}
 	return conn.Call(conn.ctx, method, params, out)
 }

@@ -65,7 +65,7 @@ func TestEveryWindowToolRunsThroughTheRealDispatcher(t *testing.T) {
 	// thrown away with the test.
 	switchOnComputer(t)
 	root := t.TempDir()
-	app := newTestApp()
+	app := newTestApp(t)
 
 	registry := skill.NewDefaultRegistry(skill.RegistryOptions{SandboxRoot: root})
 	for _, s := range (appScreen{app}).WindowTools(stubSession{root: root}) {
@@ -270,7 +270,7 @@ func assertReachable(t *testing.T, d *skill.Dispatcher, name string, args map[st
 // fails the request and takes every other tool down with it. The engine's
 // half of the same check is internal/engine/workbench_tooldef_test.go.
 func TestWindowToolDefinitionsAreWellFormed(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	tools := (appScreen{app}).WindowTools(stubSession{root: t.TempDir()})
 	if len(tools) != 2 {
 		t.Fatalf("the window lends %d tools, want the browser and the machine", len(tools))
@@ -351,7 +351,7 @@ func TestWindowToolDefinitionsAreWellFormed(t *testing.T) {
 func TestTheComputerPackCarriesOnlySignature(t *testing.T) {
 	const packedBase, packedPerAct = 100, 28
 
-	payload, err := json.Marshal(newComputerSkill(newTestApp(), nil).ToolDefinition())
+	payload, err := json.Marshal(newComputerSkill(newTestApp(t), nil).ToolDefinition())
 	if err != nil {
 		t.Fatalf("computer: definition does not marshal: %v", err)
 	}

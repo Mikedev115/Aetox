@@ -15,7 +15,7 @@ import (
 // returned "" would put a dash where the version belongs and nothing would
 // fail. internal/version's own test is what keeps this value honest.
 func TestAppVersionIsTheOneConstant(t *testing.T) {
-	if got := newTestApp().AppVersion(); got != version.Current {
+	if got := newTestApp(t).AppVersion(); got != version.Current {
 		t.Errorf("AppVersion() = %q, want %q", got, version.Current)
 	}
 }
@@ -26,7 +26,7 @@ func TestAppVersionIsTheOneConstant(t *testing.T) {
 func TestCheckForUpdateReportsDisabledAsAStatusNotAnError(t *testing.T) {
 	t.Setenv(update.DisableEnv, "1")
 
-	st, err := newTestApp().CheckForUpdate()
+	st, err := newTestApp(t).CheckForUpdate()
 	if err != nil {
 		t.Fatalf("err = %v, want nil — a disabled check is not a failure", err)
 	}
@@ -47,7 +47,7 @@ func TestCheckForUpdateReportsDisabledAsAStatusNotAnError(t *testing.T) {
 // startup. It must fall back to a real context rather than panic on the way
 // into http.NewRequestWithContext.
 func TestCheckForUpdateSurvivesANilContext(t *testing.T) {
-	a := newTestApp()
+	a := newTestApp(t)
 	if a.ctx != nil {
 		t.Fatal("this test is only meaningful with no Wails context")
 	}
@@ -60,7 +60,7 @@ func TestCheckForUpdateSurvivesANilContext(t *testing.T) {
 // a window that reloaded after the Go side lost its staging (or never had it),
 // and it must refuse rather than quit into the same build.
 func TestRestartToUpdateWithNothingStagedRefuses(t *testing.T) {
-	a := newTestApp()
+	a := newTestApp(t)
 	if err := a.RestartToUpdate(); err == nil {
 		t.Error("RestartToUpdate() = nil with nothing staged — the app would close for no update")
 	}
@@ -83,7 +83,7 @@ func TestAdoptStagedUpdateCarriesThePreviousFailureToTheWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 	var announced []StagedInfo
-	a := newTestApp()
+	a := newTestApp(t)
 	a.emit = func(ev string, data ...any) {
 		if ev == "update:staged" && len(data) == 1 {
 			announced = append(announced, data[0].(StagedInfo))
@@ -121,7 +121,7 @@ func TestAdoptStagedUpdateCarriesThePreviousFailureToTheWindow(t *testing.T) {
 func TestAdoptStagedUpdateIsSilentWhenThereIsNothing(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 	called := false
-	a := newTestApp()
+	a := newTestApp(t)
 	a.emit = func(string, ...any) { called = true }
 	a.adoptStagedUpdate()
 	if called {

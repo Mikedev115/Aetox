@@ -18,7 +18,7 @@ package main
 // path at all, which is a stronger guarantee than validating one.
 
 import (
-	"github.com/Mikedev115/Aetox/internal/engine"
+	"github.com/Mikedev115/Aetox/internal/engine/rpc"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -30,12 +30,21 @@ import (
 const ttsHostPrefix = "/aetox-tts/"
 
 // assetMiddleware chains the two URL spaces the app claims in front of its own
-// embedded assets: the engine's /aetox-file/ (the open project's files) and
-// this file's /aetox-tts/. Order does not matter — the prefixes are disjoint —
-// but the early `next` in each does: anything addressed to neither must leave
-// untouched, or the app's own HTML stops loading and the window comes up blank.
+// embedded assets: /aetox-file/ (the open project's files, proxied onto the
+// engine process's /file/ — rpc.FileProxy) and this file's /aetox-tts/.
+// Order does not matter — the prefixes are disjoint — but the early `next`
+// in each does: anything addressed to neither must leave untouched, or the
+// app's own HTML stops loading and the window comes up blank.
 func (a *App) assetMiddleware(next http.Handler) http.Handler {
-	return engine.AssetMiddleware(a.eng, a.ttsHost(next))
+	return rpc.FileProxy(a.engineEndpoint, a.ttsHost(next))
+}
+
+// engineEndpoint is where the engine listens now, for the file proxy.
+func (a *App) engineEndpoint() (network, address, token string, ok bool) {
+	if a.engine == nil {
+		return "", "", "", false
+	}
+	return a.engine.endpoint()
 }
 
 // ttsHost serves one piece of one read: /aetox-tts/<job>/<seq>.<ext>

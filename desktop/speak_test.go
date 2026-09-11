@@ -54,7 +54,7 @@ func speakApp(t *testing.T, eng tts.Engine) (*App, <-chan speechChunkEvent) {
 	newTTSEngine = func(tts.Options) (tts.Engine, error) { return eng, nil }
 	t.Cleanup(func() { newTTSEngine = prev })
 
-	app := newTestApp()
+	app := newTestApp(t)
 	t.Cleanup(app.stopAllSpeech)
 	events := make(chan speechChunkEvent, 512)
 	app.emit = func(event string, data ...any) {

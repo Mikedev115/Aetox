@@ -145,6 +145,9 @@ Section
     SetOutPath $INSTDIR
 
     !insertmacro wails.files
+    ; The engine beside the app (§248 phase 2, cmd/aetox-engine): built into
+    ; build/bin by the release workflow before wails build runs.
+    File "..\..\bin\aetox-engine.exe"
 
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
     CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"

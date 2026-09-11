@@ -42,7 +42,7 @@ func TestEveryScreenDoorHasItsEngineTwin(t *testing.T) {
 		// machine's Downloads (exports.go), so the path it opens is the
 		// screen's own, and there is nothing on the engine's host to ask.
 	}
-	screen := reflect.TypeOf(newTestApp())
+	screen := reflect.TypeOf(newTestApp(t))
 	eng := reflect.TypeOf(&engine.Engine{})
 	for door, twin := range twins {
 		if _, ok := screen.MethodByName(door); !ok {
@@ -58,7 +58,7 @@ func TestEveryScreenDoorHasItsEngineTwin(t *testing.T) {
 // where the engine refuses — the screen adds no judgment of its own.
 func TestARevealOpensWhatTheEngineAnswers(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
-	a := newTestApp()
+	a := newTestApp(t)
 	var opened string
 	a.openDir = func(p string) error { opened = p; return nil }
 

@@ -173,7 +173,7 @@ func TestARevivedEngineCompletesThePendingWait(t *testing.T) {
 // progress ended with the reason rather than after its timeout.
 func TestReviveGivesUpWhenTheEngineKeepsDying(t *testing.T) {
 	b := &fakeBackend{}
-	app := newTestApp()
+	app := newTestApp(t)
 	h := &browserHost{app: app, backend: b, tabs: map[string]*browserTab{}, views: map[string]tabView{}}
 	app.browsers = h
 	h.open("web-agent-1", "https://a.example/", "", 1, 2, 3, 4)

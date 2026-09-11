@@ -21,7 +21,7 @@ func stubCheck(t *testing.T, st update.Status, err error) {
 // The whole point of the automatic check: the user finds out without having to
 // go looking. One event, carrying the answer.
 func TestAnnounceUpdateTellsTheFrontendWhenThereIsANewerBuild(t *testing.T) {
-	a := newTestApp()
+	a := newTestApp(t)
 	events := captureEmit(t, a)
 	stubCheck(t, update.Status{Current: "0.9.6", Latest: "0.9.7", Available: true, CanAuto: true}, nil)
 
@@ -38,7 +38,7 @@ func TestAnnounceUpdateTellsTheFrontendWhenThereIsANewerBuild(t *testing.T) {
 // already tested. A frontend that had to re-derive it would be a second place
 // answering the same question, free to drift.
 func TestAnnounceUpdateCarriesTheWholeStatus(t *testing.T) {
-	a := newTestApp()
+	a := newTestApp(t)
 	var got []any
 	a.emit = func(_ string, data ...any) { got = data }
 	want := update.Status{
@@ -82,7 +82,7 @@ func TestAnnounceUpdateSaysNothingWhenThereIsNothingToSay(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			a := newTestApp()
+			a := newTestApp(t)
 			events := captureEmit(t, a)
 			stubCheck(t, c.st, c.err)
 
@@ -99,7 +99,7 @@ func TestAnnounceUpdateSaysNothingWhenThereIsNothingToSay(t *testing.T) {
 // http.NewRequestWithContext panics on a nil one. Falls back rather than
 // crashing the app on the way to an optional convenience.
 func TestAnnounceUpdateSurvivesANilContext(t *testing.T) {
-	a := newTestApp()
+	a := newTestApp(t)
 	if a.ctx != nil {
 		t.Fatal("this test is only meaningful with no Wails context")
 	}
@@ -125,7 +125,7 @@ func TestAnnounceUpdateSurvivesANilContext(t *testing.T) {
 // user should not have a goroutine ticking on their behalf at all.
 func TestWatchForUpdatesReturnsImmediatelyWhenSwitchedOff(t *testing.T) {
 	t.Setenv(update.DisableEnv, "1")
-	a := newTestApp()
+	a := newTestApp(t)
 	events := captureEmit(t, a)
 	stubCheck(t, update.Status{Available: true}, nil)
 

@@ -8,7 +8,6 @@ package main
 // the engine remembers.
 
 import (
-	"context"
 	"testing"
 
 	"github.com/Mikedev115/Aetox/internal/engine"
@@ -20,15 +19,12 @@ func seedTTSVoices(a *App, voices ...tts.Voice) {
 }
 
 // voiceApp is a screen whose engine keeps its voice preferences in a temp
-// data root of its own. Writing a pick down rebuilds the engine, which opens
-// the store; on Windows an open file cannot be removed, so the engine is
-// shut down before the temp dirs go.
+// data root of its own (newTestApp shuts the engine down with the test, so
+// the store the pick opens is closed before the temp dirs go).
 func voiceApp(t *testing.T) *App {
 	t.Helper()
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
-	a := newTestApp()
-	t.Cleanup(func() { engine.Shutdown(a.eng, context.Background()) })
-	return a
+	return newTestApp(t)
 }
 
 func TestSetTTSVoiceValidatesAgainstInstalledVoices(t *testing.T) {

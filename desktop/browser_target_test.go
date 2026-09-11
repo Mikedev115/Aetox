@@ -19,7 +19,7 @@ import (
 // target exactly that. A user glancing at their own page mid-turn handed the
 // agent's next click to it.
 func TestAgentTabSurvivesTheUserRaisingTheirOwn(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	app.browsers = &browserHost{app: app, tabs: map[string]*browserTab{
 		"web-agent-1": {url: "https://example.com/agent"},
 		"web-2":       {url: "https://example.com/user"},
@@ -40,7 +40,7 @@ func TestAgentTabSurvivesTheUserRaisingTheirOwn(t *testing.T) {
 // the workbench" was the old wording, and it becomes a lie the moment the target
 // is the agent's own tab: the user can have a screenful of them.
 func TestAgentTabRefusesWhenOnlyTheUserHasTabs(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	app.browsers = &browserHost{app: app, tabs: map[string]*browserTab{
 		"web-2": {url: "https://example.com/user"},
 	}, views: map[string]tabView{"web-2": &fakeView{}}}
@@ -59,7 +59,7 @@ func TestAgentTabRefusesWhenOnlyTheUserHasTabs(t *testing.T) {
 // into a corpse — the reason agentTab checks liveness and not just the
 // name.
 func TestAgentTabRefusesAfterTheUserClosedIt(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	app.browsers = &browserHost{app: app, tabs: map[string]*browserTab{}, views: map[string]tabView{}}
 	app.browsers.agentID = "web-agent-1" // remembered, but the tab is gone from the map
 
@@ -73,7 +73,7 @@ func TestAgentTabRefusesAfterTheUserClosedIt(t *testing.T) {
 // `open` believe the agent had nothing to steer, so it minted a second tab and
 // left the first stranded. Reuse exists to stop exactly that.
 func TestOpenReusesTheAgentTabWhileTheUserLooksElsewhere(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	app.browsers = &browserHost{app: app, tabs: map[string]*browserTab{
 		"web-agent-1": {url: "https://example.com/agent"},
 		"web-2":       {url: "https://example.com/user"},
@@ -94,7 +94,7 @@ func TestOpenReusesTheAgentTabWhileTheUserLooksElsewhere(t *testing.T) {
 // first in a session, which is what it did.
 func TestReuseNavigatesOnTheHostThread(t *testing.T) {
 	b := &fakeBackend{}
-	app := newTestApp()
+	app := newTestApp(t)
 	view := &fakeView{}
 	app.browsers = &browserHost{app: app, backend: b, tabs: map[string]*browserTab{
 		"web-agent-1": {},
@@ -190,7 +190,7 @@ func TestArmingForgetsTheLastNavigationsEngineError(t *testing.T) {
 // action happened in, and with several of them open that is the fact a reader
 // cannot recover from anywhere else.
 func TestBrowserWhereNamesThePageTheActionLandedOn(t *testing.T) {
-	app := newTestApp()
+	app := newTestApp(t)
 	app.browsers = &browserHost{app: app, tabs: map[string]*browserTab{
 		"web-agent-1": {url: "https://example.com/after-click"},
 		"web-agent-2": {}, // navigated nowhere yet
@@ -243,7 +243,7 @@ func TestEveryBrowserActionNamesAPageTheSameWay(t *testing.T) {
 		t.Errorf("the round trip broke: %q, %q", gotTitle, gotURL)
 	}
 
-	app := newTestApp()
+	app := newTestApp(t)
 	app.browsers = &browserHost{app: app, tabs: map[string]*browserTab{
 		"web-agent-1": {title: title, url: url},
 	}, views: map[string]tabView{"web-agent-1": &fakeView{}}}

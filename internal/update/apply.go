@@ -239,67 +239,97 @@ func (s Staged) Restart() error {
 	}
 }
 
-// swapPortable moves exePath over to the exe inside zipPath. The extraction
-// lands next to the target — same directory, same volume — so both renames are
-// metadata moves that either happen or don't; there is no state where the exe
-// is half of each.
+// EngineExe is the engine binary that ships beside the app (§248 phase 2,
+// cmd/aetox-engine). The portable zip carries both, and both are swapped.
+const EngineExe = "aetox-engine.exe"
+
+// swapPortable moves exePath — and the engine beside it, when the zip
+// carries one — over to the exes inside zipPath. Each extraction lands next
+// to its target — same directory, same volume — so every rename is a
+// metadata move that either happens or doesn't; there is no state where an
+// exe is half of each. By name, not by position: a zip with two exes in it
+// must never put the engine where the app goes.
 //
 // It deliberately does not restart anything. After this returns the running
 // process is an old build executing from a renamed file, which Windows is
-// perfectly happy to keep doing, and the next launch — whenever the user gets
-// to it — is the new one.
+// perfectly happy to keep doing — and so is its engine child, from its own
+// renamed file — and the next launch, whenever the user gets to it, is the
+// new one, both halves at once.
 func swapPortable(exePath, zipPath string) error {
-	newPath := exePath + ".new"
-	if err := extractExe(zipPath, newPath); err != nil {
+	dir := filepath.Dir(exePath)
+	app := filepath.Base(exePath)
+	// The app is what the update is; a zip without it is not an update. The
+	// engine is swapped when the zip has one — a release older than the split
+	// has none, and installs nothing beside the app.
+	if err := swapOne(zipPath, dir, app, true); err != nil {
 		return err
 	}
-	oldPath := exePath + ".old"
+	return swapOne(zipPath, dir, EngineExe, false)
+}
+
+// swapOne is the rename trick for one file: extract to .new beside it, move
+// the current one to .old, move .new into place, and put .old back if that
+// last step fails — a machine left with NO aetox.exe is the one outcome
+// strictly worse than a failed update.
+func swapOne(zipPath, dir, name string, required bool) error {
+	target := filepath.Join(dir, name)
+	newPath := target + ".new"
+	found, err := extractNamed(zipPath, name, newPath)
+	if err != nil {
+		return err
+	}
+	if !found {
+		if required {
+			return fmt.Errorf("ไม่พบไฟล์ %s ในชุดอัปเดต", name)
+		}
+		return nil
+	}
+	oldPath := target + ".old"
 	// A leftover from the previous update would make the rename fail; it is
 	// dead weight by definition (this build booted without it).
 	_ = os.Remove(oldPath)
-	if err := os.Rename(exePath, oldPath); err != nil {
-		return fmt.Errorf("ย้ายไฟล์เดิมไม่สำเร็จ: %w", err)
+	if _, statErr := os.Stat(target); statErr == nil {
+		if err := os.Rename(target, oldPath); err != nil {
+			_ = os.Remove(newPath)
+			return fmt.Errorf("ย้ายไฟล์เดิม %s ไม่สำเร็จ: %w", name, err)
+		}
 	}
-	if err := os.Rename(newPath, exePath); err != nil {
-		// Put the old exe back — a machine left with NO aetox.exe is the one
-		// outcome strictly worse than a failed update.
-		_ = os.Rename(oldPath, exePath)
-		return fmt.Errorf("วางไฟล์ใหม่ไม่สำเร็จ: %w", err)
+	if err := os.Rename(newPath, target); err != nil {
+		_ = os.Rename(oldPath, target)
+		return fmt.Errorf("วางไฟล์ใหม่ %s ไม่สำเร็จ: %w", name, err)
 	}
 	return nil
 }
 
-// extractExe pulls the single exe out of the portable zip. By name-suffix, not
-// by position: the zip carries exactly one exe today (release.yml packs only
-// aetox.exe), and matching the suffix keeps this working if a README ever
-// rides along.
-func extractExe(zipPath, dest string) error {
+// extractNamed pulls one file, by its base name, out of the zip. found is
+// false when the zip does not carry it.
+func extractNamed(zipPath, name, dest string) (found bool, err error) {
 	r, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return fmt.Errorf("เปิดไฟล์ zip ไม่สำเร็จ: %w", err)
+		return false, fmt.Errorf("เปิดไฟล์ zip ไม่สำเร็จ: %w", err)
 	}
 	defer r.Close()
 	for _, f := range r.File {
-		if !strings.HasSuffix(strings.ToLower(f.Name), ".exe") {
+		if !strings.EqualFold(filepath.Base(filepath.FromSlash(f.Name)), name) {
 			continue
 		}
 		src, err := f.Open()
 		if err != nil {
-			return err
+			return true, err
 		}
 		defer src.Close()
 		out, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
 		if err != nil {
-			return err
+			return true, err
 		}
 		if _, err := io.Copy(out, src); err != nil {
 			out.Close()
 			_ = os.Remove(dest)
-			return err
+			return true, err
 		}
-		return out.Close()
+		return true, out.Close()
 	}
-	return fmt.Errorf("ไม่พบไฟล์ .exe ในชุดอัปเดต")
+	return false, nil
 }
 
 // verifySHA256 checks the downloaded file against its line in checksums.txt
@@ -445,6 +475,7 @@ func adoptOn(current string, ch Channel) (Staged, bool) {
 func RemoveLeftovers(keepStaged bool) {
 	if exe, err := os.Executable(); err == nil {
 		_ = os.Remove(exe + ".old")
+		_ = os.Remove(filepath.Join(filepath.Dir(exe), EngineExe+".old"))
 	}
 	if keepStaged {
 		return
