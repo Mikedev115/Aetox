@@ -25,6 +25,8 @@ export function AccountSignOut():Promise<void>;
 
 export function AccountStatus():Promise<main.AccountState>;
 
+export function AddCustomProvider(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
+
 export function AddLearnedEntry(arg1:string,arg2:string):Promise<void>;
 
 export function AddMCPServer(arg1:string,arg2:Array<string>):Promise<void>;
@@ -164,6 +166,8 @@ export function CurrentSessionID():Promise<string>;
 export function CurrentShell():Promise<main.ShellOption>;
 
 export function CurrentSpace():Promise<string>;
+
+export function CustomProviders():Promise<Array<main.CustomProviderRow>>;
 
 export function DeckCaptureDrawing(arg1:string,arg2:number,arg3:string):Promise<string>;
 
@@ -482,6 +486,8 @@ export function RegenerateReply(arg1:boolean):Promise<main.RegenerateResult>;
 export function RejectPendingChange(arg1:number):Promise<void>;
 
 export function RelativizePath(arg1:string):Promise<string>;
+
+export function RemoveCustomProvider(arg1:string):Promise<Array<string>>;
 
 export function RemoveExternalSkill(arg1:string):Promise<void>;
 

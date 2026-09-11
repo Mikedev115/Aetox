@@ -15,6 +15,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/hook"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/proc"
+	"github.com/Mikedev115/Aetox/internal/provider"
 	"github.com/Mikedev115/Aetox/internal/safety"
 )
 
@@ -246,6 +247,12 @@ type ModelPreference struct {
 	// user-configurable) actually needs. An absent entry means "catalog
 	// default"; ModelBaseURL is still read as a fallback for old files.
 	ModelBaseURLs map[string]string `json:"provider_base_urls,omitempty"`
+	// CustomProviders are the OpenAI-compatible endpoints the user added as
+	// rows of their own (provider.Custom): one per host, each with its own
+	// key, model and base URL under the other maps here, keyed by ID. The
+	// single "openai-compatible" row stays for anyone already using it; this
+	// list is how a second and third endpoint stop overwriting it.
+	CustomProviders []CustomProvider `json:"custom_providers,omitempty"`
 	// ModelNames holds the model last chosen for each provider, so switching
 	// away and back comes back to it.
 	//
@@ -408,6 +415,27 @@ func (p *ModelPreference) SetShellFor(root string, backend proc.Backend) {
 // (deduped/normalized) — the active provider is NOT force-appended, so
 // explicitly disabling it (e.g. to switch away and hide it) actually takes
 // effect instead of being fought by this function on every read.
+// CustomProvider is the on-disk shape of one user-added endpoint. Mirrors
+// provider.Custom field for field; kept separate so the file format is owned
+// here, where every other field of this file is.
+type CustomProvider struct {
+	ID      string `json:"id"`
+	BaseURL string `json:"base_url"`
+}
+
+// registerCustomProviders hands the file's custom rows to the catalog. Run on
+// every load and every save rather than once at startup: the file is the
+// record and the catalog only answers from a copy of it, so the copy has to
+// follow every change or SetProviderEnabled would refuse a row that was just
+// written (the catalog says unknown) until the next launch.
+func registerCustomProviders(rows []CustomProvider) {
+	out := make([]provider.Custom, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, provider.Custom{ID: r.ID, BaseURL: r.BaseURL})
+	}
+	provider.SetCustom(out)
+}
+
 func ResolvedEnabledProviders(enabled []string, activeProvider string) []string {
 	if len(enabled) == 0 {
 		active := strings.TrimSpace(model.NormalizeProvider(activeProvider))
@@ -479,6 +507,19 @@ func (p *ModelPreference) SetAPIKeyForProvider(provider, apiKey string) {
 	// change between two runs of the same build.
 	p.dropAliasEntries(p.ModelAPIKeys, key)
 	p.ModelAPIKeys[key] = trimmed
+}
+
+// ForgetAPIKeyForProvider drops the key filed under a provider, however it was
+// spelled. The only caller today is removing a custom provider row, whose
+// name is about to mean nothing — a key left under it would sit in the
+// secrets file forever, readable by nobody and deletable from nowhere.
+func (p *ModelPreference) ForgetAPIKeyForProvider(provider string) {
+	key := p.normalizeProviderKey(provider)
+	if key == "" || p.ModelAPIKeys == nil {
+		return
+	}
+	p.dropAliasEntries(p.ModelAPIKeys, key)
+	delete(p.ModelAPIKeys, key)
 }
 
 // dropAliasEntries removes every entry that means the same provider as key but
@@ -1111,6 +1152,7 @@ func LoadModelPreference() (ModelPreference, bool, error) {
 		if legacyRaw, legacyErr := os.ReadFile(legacy); legacyErr == nil {
 			if unmarshalErr := json.Unmarshal(legacyRaw, &pref); unmarshalErr == nil {
 				pref = sanitizePreference(pref)
+				registerCustomProviders(pref.CustomProviders)
 				_ = SaveModelPreference(pref)
 				_ = os.Remove(legacy)
 				return pref, true, nil
@@ -1123,6 +1165,10 @@ func LoadModelPreference() (ModelPreference, bool, error) {
 		return pref, false, err
 	}
 	pref = sanitizePreference(pref)
+	// Before anything normalizes a provider name out of this file: the
+	// enabled list and the per-provider maps may name a custom row, and the
+	// catalog has to know it exists before those names are looked up.
+	registerCustomProviders(pref.CustomProviders)
 	// Keys live in credentials.json now; anything still in the settings file is
 	// from before the split and gets moved on the way past. Callers get one
 	// struct with everything in it either way — the storage split is this
@@ -1223,7 +1269,12 @@ func looksLikeAPIKey(s string) bool {
 // are cleared from the copy that reaches the preference file and left on the
 // caller's struct, which is still the whole picture in memory.
 func SaveModelPreference(pref ModelPreference) error {
-	if len(pref.ModelAPIKeys) > 0 {
+	// Non-nil rather than non-empty: a map that was loaded with keys and had
+	// its last one forgotten (ForgetAPIKeyForProvider) is empty and must still
+	// be written, or the secrets file keeps the key the user just removed.
+	// A nil map is a preference that never touched the secrets and leaves
+	// them alone.
+	if pref.ModelAPIKeys != nil {
 		if err := SaveCredentials(Credentials{ModelAPIKeys: pref.ModelAPIKeys}); err != nil {
 			return err
 		}
@@ -1291,6 +1342,7 @@ func saveModelPreferenceFile(pref ModelPreference) error {
 	if err != nil {
 		return err
 	}
+	registerCustomProviders(pref.CustomProviders)
 
 	// Write-then-rename, not a plain WriteFile: a truncate-then-write loses the
 	// file's contents if a second Aetox process (another window, the CLI)

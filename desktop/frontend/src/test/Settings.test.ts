@@ -7,6 +7,7 @@ import {
   ListSpeechModels, SetSpeechModel, ListTools, SpeechModelDirs, RevealSpeechModel,
   SignInMethods, SignInStatus, StartSignIn, CompleteSignIn, SupportedProviders, EnabledProviders,
   RemoveMCPServer, RemoveExternalSkill, SetProviderEnabled, TerminalShells,
+  CustomProviders, AddCustomProvider, RemoveCustomProvider, ProviderBaseURL,
   SkillsDir, SkillScanIssues, OpenSkillsFolder, InstallSkillFromZip,
   MCPConfigPath, OpenMCPFolder, SaveMCPServer, AppVersion, CheckForUpdate, ListChairs, SaveAgentProfile,
   AgentSkills, AgentNeeds, PlacementTargets, SetMCPServerTargets,
@@ -1684,6 +1685,121 @@ describe('Settings destructive actions', () => {
 
     expect(document.querySelector('.confirm-message')?.textContent).not.toContain('aetox')
     cockpit.model.provider = ''
+  })
+})
+
+// An endpoint the user adds is a row of its own, so a second one never types
+// over the first (owner, 11 ก.ย. 2569). The form opens from the same "+" as
+// the catalog rows and, unlike them, is offered however many are already on
+// the list; the id the engine answers with is the row that gets selected.
+describe('custom OpenAI-compatible endpoints', () => {
+  it('the + list offers an endpoint of your own even when every catalog row is enabled', async () => {
+    vi.mocked(SupportedProviders).mockResolvedValue(['aetox', 'openrouter'] as any)
+    vi.mocked(EnabledProviders).mockResolvedValue(['aetox', 'openrouter'] as any)
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'การตั้งค่าโมเดล')
+    await waitFor(() => expect(container.querySelectorAll('.mset-prov-row').length).toBe(2))
+
+    await fireEvent.click(container.querySelector('.mset-add-toggle')!)
+    const entry = screen.getByText('เพิ่มปลายทาง OpenAI-compatible')
+    expect(entry).toBeTruthy()
+    // The catalog's "all enabled" note must not sit above a list that still
+    // has something to add.
+    expect(container.textContent).not.toContain('เปิดใช้ครบทุก provider แล้ว')
+  })
+
+  it('adding one sends name, URL and key, then lands on the row the engine named', async () => {
+    vi.mocked(SupportedProviders).mockResolvedValue(['aetox'] as any)
+    vi.mocked(EnabledProviders).mockResolvedValue(['aetox'] as any)
+    vi.mocked(AddCustomProvider).mockImplementation(async () => {
+      vi.mocked(SupportedProviders).mockResolvedValue(['aetox', 'my-vllm'] as any)
+      vi.mocked(EnabledProviders).mockResolvedValue(['aetox', 'my-vllm'] as any)
+      vi.mocked(CustomProviders).mockResolvedValue([{ id: 'my-vllm', base_url: 'http://10.0.0.2:8000/v1' }] as any)
+      return 'my-vllm'
+    })
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'การตั้งค่าโมเดล')
+    await waitFor(() => expect(container.querySelectorAll('.mset-prov-row').length).toBe(1))
+    await waitFor(() => expect(container.querySelector('.mset-prov.selected')).toBeTruthy())
+
+    await fireEvent.click(container.querySelector('.mset-add-toggle')!)
+    await fireEvent.click(screen.getByText('เพิ่มปลายทาง OpenAI-compatible'))
+    const inputs = Array.from(container.querySelectorAll('.mset-detail input')) as HTMLInputElement[]
+    expect(inputs.length).toBe(3)
+    await fireEvent.input(inputs[0], { target: { value: 'My vLLM' } })
+    await fireEvent.input(inputs[1], { target: { value: 'http://10.0.0.2:8000/v1' } })
+    await fireEvent.input(inputs[2], { target: { value: 'sk-test' } })
+    await fireEvent.click(screen.getByText('เพิ่ม'))
+
+    await waitFor(() => expect(vi.mocked(AddCustomProvider)).toHaveBeenCalledWith('My vLLM', 'http://10.0.0.2:8000/v1', 'sk-test', ''))
+    // The new row is in the sidebar, selected, and marked as the user's own.
+    await waitFor(() => expect(container.querySelector('.mset-prov.selected')?.textContent).toContain('my-vllm'))
+    expect(container.querySelector('.badge.custom')).toBeTruthy()
+  })
+
+  it("the + under a card's Base URL saves that card as a new row, key carried by the engine", async () => {
+    vi.mocked(SupportedProviders).mockResolvedValue(['aetox', 'openai-compatible'] as any)
+    vi.mocked(EnabledProviders).mockResolvedValue(['aetox', 'openai-compatible'] as any)
+    vi.mocked(HasAPIKey).mockImplementation(async (name: string) => name === 'openai-compatible')
+    vi.mocked(ProviderBaseURL).mockResolvedValue('https://api.deepseek.com' as any)
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'การตั้งค่าโมเดล')
+    await waitFor(() => expect(container.querySelectorAll('.mset-prov-row').length).toBe(2))
+    const row = Array.from(container.querySelectorAll('.mset-prov'))
+      .find((r) => r.textContent?.includes('openai-compatible'))!
+    await fireEvent.click(row)
+    await waitFor(() => expect(container.querySelector('.mset-save-as')).toBeTruthy())
+
+    await fireEvent.click(container.querySelector('.mset-save-as')!)
+    const inputs = Array.from(container.querySelectorAll('.mset-detail input')) as HTMLInputElement[]
+    // The endpoint on the card is already in the form; only a name is owed.
+    expect(inputs[1].value).toBe('https://api.deepseek.com')
+    // And the form says the card's saved key will be reused — the tail is
+    // all this side can see, so the engine does the copying.
+    expect(container.querySelector('.mset-detail')?.textContent).toContain('คีย์ที่บันทึกไว้ของ openai-compatible')
+    await fireEvent.input(inputs[0], { target: { value: 'deepseek-2' } })
+    await fireEvent.click(screen.getByText('เพิ่ม'))
+    await waitFor(() => expect(vi.mocked(AddCustomProvider)).toHaveBeenCalledWith('deepseek-2', 'https://api.deepseek.com', '', 'openai-compatible'))
+  })
+
+  it('an engine refusal stays in the form instead of closing it', async () => {
+    vi.mocked(SupportedProviders).mockResolvedValue(['aetox'] as any)
+    vi.mocked(EnabledProviders).mockResolvedValue(['aetox'] as any)
+    vi.mocked(AddCustomProvider).mockRejectedValue(new Error('"deepseek" เป็นชื่อ provider ที่มีอยู่แล้ว'))
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'การตั้งค่าโมเดล')
+    await waitFor(() => expect(container.querySelectorAll('.mset-prov-row').length).toBe(1))
+    await waitFor(() => expect(container.querySelector('.mset-prov.selected')).toBeTruthy())
+
+    await fireEvent.click(container.querySelector('.mset-add-toggle')!)
+    await fireEvent.click(screen.getByText('เพิ่มปลายทาง OpenAI-compatible'))
+    const inputs = Array.from(container.querySelectorAll('.mset-detail input')) as HTMLInputElement[]
+    await fireEvent.input(inputs[0], { target: { value: 'deepseek' } })
+    await fireEvent.input(inputs[1], { target: { value: 'https://api.deepseek.com' } })
+    await fireEvent.click(screen.getByText('เพิ่ม'))
+
+    await waitFor(() => expect(container.querySelector('.mset-error')?.textContent).toContain('มีอยู่แล้ว'))
+    expect(container.querySelectorAll('.mset-detail input').length).toBe(3)
+  })
+
+  it('the × on a row of your own deletes it, key and all, after a confirm that says so', async () => {
+    vi.mocked(SupportedProviders).mockResolvedValue(['aetox', 'my-vllm'] as any)
+    vi.mocked(EnabledProviders).mockResolvedValue(['aetox', 'my-vllm'] as any)
+    vi.mocked(CustomProviders).mockResolvedValue([{ id: 'my-vllm', base_url: 'http://10.0.0.2:8000/v1' }] as any)
+    vi.mocked(RemoveCustomProvider).mockResolvedValue(['aetox'] as any)
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'การตั้งค่าโมเดล')
+    await waitFor(() => expect(container.querySelectorAll('.mset-prov-row').length).toBe(2))
+
+    const row = Array.from(container.querySelectorAll('.mset-prov-row'))
+      .find((r) => r.textContent?.includes('my-vllm'))!
+    await fireEvent.click(row.querySelector('.icobtn')!)
+    expect(document.querySelector('.confirm-message')?.textContent).toContain('API key')
+    expect(document.querySelector('.confirm-detail')?.textContent?.trim()).toBe('my-vllm')
+
+    await fireEvent.click(document.querySelector('.confirm-go')!)
+    await waitFor(() => expect(vi.mocked(RemoveCustomProvider)).toHaveBeenCalledWith('my-vllm'))
+    expect(vi.mocked(SetProviderEnabled)).not.toHaveBeenCalled()
   })
 })
 

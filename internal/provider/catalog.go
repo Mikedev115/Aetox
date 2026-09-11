@@ -1055,6 +1055,12 @@ func Lookup(name string) (Spec, bool) {
 	canonical := Normalize(name)
 	e, ok := catalog[canonical]
 	if !ok {
+		// Not shipped, but perhaps added: a user's own endpoint (custom.go)
+		// answers exactly like a catalog row so nothing downstream has to
+		// know which kind it is holding.
+		if row, isCustom := lookupCustom(canonical); isCustom {
+			return customSpec(row), true
+		}
 		return Spec{}, false
 	}
 	return Spec{
@@ -1121,9 +1127,15 @@ func QuotaSourceFor(name string) QuotaSource {
 }
 
 // SupportedProviders returns the canonical IDs of every registered
-// provider, in sorted order.
+// provider, in sorted order — the shipped catalog first, then whatever the
+// user added (custom.go), each half sorted on its own so a custom row never
+// lands between two catalog rows and the two halves read as two halves.
 func SupportedProviders() []string {
-	return append([]string{}, canonicalOrder...)
+	out := append([]string{}, canonicalOrder...)
+	for _, row := range Customs() {
+		out = append(out, row.ID)
+	}
+	return out
 }
 
 // RequiresAPIKey reports whether the provider (by canonical or alias

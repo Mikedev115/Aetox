@@ -748,6 +748,20 @@ export namespace main {
 	}
 	
 	
+	export class CustomProviderRow {
+	    id: string;
+	    base_url: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CustomProviderRow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.base_url = source["base_url"];
+	    }
+	}
 	export class DayPoint {
 	    day: string;
 	    model: string;
