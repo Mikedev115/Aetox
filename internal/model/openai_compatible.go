@@ -327,6 +327,13 @@ func (p *OpenAICompatibleProvider) statusError(resp *http.Response, body []byte)
 		}
 		return fmt.Errorf("%s rejected the credentials (401: %s)", p.provider, detail)
 	default:
+		// A 5xx says whose side failed in the status alone: there is no prose in
+		// the body worth reading and no fix on the user's end. Asked first
+		// because the check below reads only the body, and an outage must not
+		// come back dressed as an entitlement problem.
+		if providerDownStatus(resp.StatusCode) {
+			return providerDownError(p.provider, p.baseURL, resp.StatusCode, body, detail)
+		}
 		// A 404 is usually a model id nobody serves, and that message is
 		// already clear. It is also how at least one provider says "the key is
 		// good, the account is not entitled" — a different problem with a

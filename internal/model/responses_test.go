@@ -225,9 +225,10 @@ func TestResponsesSendsSubscriptionHeaders(t *testing.T) {
 // different fixes; a bare status code sends them to the wrong one.
 func TestResponsesStatusErrorsAreActionable(t *testing.T) {
 	cases := map[int]string{
-		http.StatusUnauthorized:    "Sign in again",
-		http.StatusForbidden:       "plan may not include it",
-		http.StatusTooManyRequests: "plan limit reached",
+		http.StatusUnauthorized:        "Sign in again",
+		http.StatusForbidden:           "plan may not include it",
+		http.StatusTooManyRequests:     "plan limit reached",
+		http.StatusInternalServerError: "no answer was produced",
 	}
 	for status, want := range cases {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

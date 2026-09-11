@@ -582,6 +582,23 @@ func TestAnthropicStatusErrorsAreActionable(t *testing.T) {
 			`{"error":{"message":"rate limit exceeded"}}`,
 			"rate limiting this key",
 		},
+		// A 500 on this format too: DeepSeek and the other hosts speaking it break
+		// the same way, and the answer has to name whose side failed rather than
+		// dump the raw body at the user.
+		{
+			"provider down", http.StatusInternalServerError,
+			`Internal server error`,
+			"own servers failed",
+		},
+		// 529 is Anthropic's "overloaded": the provider's own side rather than
+		// this key's pace. It shares a case with 429 only because the format ships
+		// both as one status, and until this it was reported as "rate limiting
+		// this key … (429)" — a number that never arrived.
+		{
+			"provider overloaded", 529,
+			`{"error":{"message":"Overloaded"}}`,
+			"own servers failed",
+		},
 		{
 			"bad key", http.StatusUnauthorized,
 			`{"error":{"message":"invalid x-api-key"}}`,

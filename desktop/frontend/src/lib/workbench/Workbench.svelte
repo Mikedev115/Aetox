@@ -695,7 +695,10 @@
         {:else if tab.kind === 'pr'}
           <PRPane />
         {:else if tab.kind === 'git'}
-          <GitPane />
+          <!-- The pane keeps itself current while it is the tab in front, and
+               that is this expression, not a second opinion about it: the slot
+               above is hidden by the same test. -->
+          <GitPane active={workbench.activeId === tab.id} />
         {:else if tab.kind === 'repomap'}
           <RepoMapPane />
         {:else if tab.kind === 'cutroom'}
