@@ -3,7 +3,7 @@ package tts
 // The OpenAI-shaped speech endpoint (POST /audio/speech), worn by two catalog
 // rows: OpenAI itself and Groq (playai-tts — same wire format, different host
 // and voice roster). Keys come from the credential store the models page
-// already fills (config.ProviderAPIKey), and the base URL honors the same
+// already fills (credentials.ProviderAPIKey), and the base URL honors the same
 // per-provider override the LLM side uses: point OpenAI's base URL at a
 // LocalAI/Speaches box and that row speaks through it, key or no key.
 
@@ -19,6 +19,7 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/apierr"
 	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/credentials"
 )
 
 // apiSpeechSpec is one vendor's wearing of the shared wire format.
@@ -79,7 +80,7 @@ func newAPISpeech(desc Descriptor, opts Options) (Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	key := config.ProviderAPIKey(spec.provider, spec.envVars...)
+	key := credentials.ProviderAPIKey(spec.provider, spec.envVars...)
 	base := strings.TrimRight(config.ProviderBaseURL(spec.provider), "/")
 	if base == "" {
 		base = spec.defaultBase

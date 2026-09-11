@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/credentials"
 )
 
 const elevenDefaultBase = "https://api.elevenlabs.io/v1"
@@ -29,7 +30,7 @@ type elevenLabs struct {
 }
 
 func newElevenLabs(desc Descriptor, opts Options) (Engine, error) {
-	key := config.ProviderAPIKey("elevenlabs", "ELEVENLABS_API_KEY", "ELEVEN_API_KEY")
+	key := credentials.ProviderAPIKey("elevenlabs", "ELEVENLABS_API_KEY", "ELEVEN_API_KEY")
 	if key == "" {
 		return nil, fmt.Errorf("ยังไม่มี API key ของ ElevenLabs — ตั้ง environment variable ELEVENLABS_API_KEY (สมัครที่ elevenlabs.io) แล้วเปิดแอปใหม่")
 	}

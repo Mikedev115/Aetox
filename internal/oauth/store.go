@@ -161,7 +161,7 @@ func save(store map[string]Credential) error {
 		return err
 	}
 	// Encrypted at rest where the platform offers it, the same as the model API
-	// keys in config.SaveCredentials. These are OAuth access and refresh tokens
+	// keys in credentials.Save. These are OAuth access and refresh tokens
 	// — the same class of secret — and holding two classes of credential to two
 	// different standards is a difference nobody decided on, just one that grew.
 	//

@@ -1,5 +1,6 @@
 // Package model_test holds the one test that cannot live inside package model:
-// it needs internal/config to read the key store, and config imports model.
+// it needs internal/credentials to read the key store, and credentials
+// imports model.
 package model_test
 
 import (
@@ -11,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/credentials"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/provider"
 )
@@ -27,7 +28,7 @@ import (
 // like that is the server. Two of those claims were already wrong when this was
 // written, and neither showed up in a green suite.
 //
-// Keys come from config.LoadCredentials(), never from an environment variable
+// Keys come from credentials.Load(), never from an environment variable
 // and never from a test argument: LoadCredentials registers every key it reads
 // with debuglog.Redact, so a key that passes through here cannot reach a log
 // line. Same reasoning as liveProviderKey in live_provider_test.go, pointed at
@@ -62,7 +63,7 @@ func TestLiveEveryConfiguredProvider(t *testing.T) {
 	restore := os.Getenv("AETOX_DATA_ROOT")
 	defer func() { _ = os.Setenv("AETOX_DATA_ROOT", restore) }()
 
-	var creds config.Credentials
+	var creds credentials.Credentials
 	var root string
 	for _, candidate := range candidates {
 		if candidate == "" {
@@ -71,7 +72,7 @@ func TestLiveEveryConfiguredProvider(t *testing.T) {
 		if err := os.Setenv("AETOX_DATA_ROOT", candidate); err != nil {
 			t.Fatalf("setenv: %v", err)
 		}
-		found, err := config.LoadCredentials()
+		found, err := credentials.Load()
 		if err != nil {
 			t.Logf("  (store at %s unreadable: %v)", candidate, err)
 			continue

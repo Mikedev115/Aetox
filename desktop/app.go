@@ -32,6 +32,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/command"
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/connect"
+	"github.com/Mikedev115/Aetox/internal/credentials"
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/learned"
 	"github.com/Mikedev115/Aetox/internal/mcp"
@@ -3248,7 +3249,6 @@ func (a *App) preflightQueued(conv *conversation, next config.Config) {
 	cur := conv.cfg
 	sameEndpoint := canonical == model.NormalizeProvider(cur.ModelProvider) &&
 		strings.TrimSpace(next.ModelBaseURL) == strings.TrimSpace(cur.ModelBaseURL) &&
-		strings.TrimSpace(next.ModelAPIKey) == strings.TrimSpace(cur.ModelAPIKey) &&
 		next.ModelWireFormat == cur.ModelWireFormat
 	if runsWeightsLocally(canonical) || name == "" || sameEndpoint {
 		conv.pendingCheck, conv.pendingNote, conv.pendingProbe = "", "", ""
@@ -3269,12 +3269,9 @@ func (a *App) preflightQueued(conv *conversation, next config.Config) {
 	// and the switch that queued it already resolved both. Falling back to the
 	// resolvers keeps a config that carries neither (a dial that only moved the
 	// model name) pointing where it always did.
-	baseURL, apiKey := next.ModelBaseURL, next.ModelAPIKey
+	baseURL, apiKey := next.ModelBaseURL, resolveAPIKeyForProvider(canonical)
 	if strings.TrimSpace(baseURL) == "" {
 		baseURL = resolveBaseURLForProvider(canonical)
-	}
-	if strings.TrimSpace(apiKey) == "" {
-		apiKey = resolveAPIKeyForProvider(canonical)
 	}
 	a.turnMu.Unlock()
 	a.emitPendingCheck(conv)
@@ -3944,13 +3941,16 @@ func (a *App) AddCustomProvider(name, baseURL, apiKey, keyFrom string) (string, 
 		// leaves an unregistered lowercase id untouched. Safe either way.
 		enabled := config.ResolvedEnabledProviders(pref.EnabledProviders, a.cur().cfg.ModelProvider)
 		pref.EnabledProviders = append(enabled, id)
-		if key != "" {
-			pref.SetAPIKeyForProvider(id, key)
-		}
 		return nil
 	})
 	if err != nil {
 		return "", err
+	}
+	// After the row exists, so the key's provider name normalizes to it.
+	if key != "" {
+		if err := credentials.Set(id, key); err != nil {
+			return "", err
+		}
 	}
 	return id, nil
 }
@@ -3975,7 +3975,6 @@ func (a *App) RemoveCustomProvider(id string) ([]string, error) {
 			}
 		}
 		pref.CustomProviders = kept
-		pref.ForgetAPIKeyForProvider(id)
 		pref.SetBaseURLForProvider(id, "")
 		pref.SetModelForProvider(id, "")
 		current := config.ResolvedEnabledProviders(pref.EnabledProviders, a.cur().cfg.ModelProvider)
@@ -4338,7 +4337,7 @@ func (a *App) SwitchModel(modelName string) (ModelInfo, error) {
 	next := a.dialBase(a.cur())
 	next.ModelName = strings.TrimSpace(modelName)
 	if next.ModelName == "" {
-		next.ModelName = model.ResolveDefaultModel(next.ModelProvider, next.ModelBaseURL, next.ModelAPIKey)
+		next.ModelName = model.ResolveDefaultModel(next.ModelProvider, next.ModelBaseURL, resolveAPIKeyForProvider(next.ModelProvider))
 	}
 	next.ThinkLevel = model.NormalizeThinkingLevel(next.ModelProvider, next.ModelName, next.ThinkLevel)
 	// Filed under the provider it was chosen on, before the rebuild: this is
@@ -4483,7 +4482,7 @@ func (a *App) SetProviderBaseURL(providerName, baseURL string) (ModelInfo, error
 		next.ModelBaseURL = resolveBaseURLForProvider(canonical)
 		// The model name came from the old endpoint's discovery, so it is a
 		// guess about a server we have not spoken to yet — re-resolve it.
-		next.ModelName = model.ResolveDefaultModel(canonical, next.ModelBaseURL, next.ModelAPIKey)
+		next.ModelName = model.ResolveDefaultModel(canonical, next.ModelBaseURL, resolveAPIKeyForProvider(canonical))
 		next.ThinkLevel = model.NormalizeThinkingLevel(canonical, next.ModelName, next.ThinkLevel)
 		a.applyConfig(a.cur(), next)
 	}
@@ -4491,26 +4490,19 @@ func (a *App) SetProviderBaseURL(providerName, baseURL string) (ModelInfo, error
 }
 
 // SetAPIKey persists an API key for a provider and, if it's the active
-// provider, immediately re-bootstraps the engine with it.
+// provider, immediately re-bootstraps the engine — which picks the key up
+// through the screen's signing transport, never from its config (§248 A4).
 func (a *App) SetAPIKey(providerName, apiKey string) (ModelInfo, error) {
 	canonical := model.NormalizeProvider(providerName)
 	key := strings.TrimSpace(apiKey)
 	if key == "" {
 		return ModelInfo{}, fmt.Errorf("API key cannot be empty")
 	}
-
-	err := config.UpdateModelPreference(func(pref *config.ModelPreference) error {
-		pref.SetAPIKeyForProvider(canonical, key)
-		return nil
-	})
-	if err != nil {
+	if err := credentials.Set(canonical, key); err != nil {
 		return ModelInfo{}, err
 	}
-
 	if strings.EqualFold(a.cur().cfg.ModelProvider, canonical) {
-		next := a.cur().cfg
-		next.ModelAPIKey = key
-		a.applyConfig(a.cur(), next)
+		a.applyConfig(a.cur(), a.cur().cfg)
 	}
 	return a.modelSwitchResult()
 }
@@ -4563,13 +4555,12 @@ func rememberModelForProvider(canonicalProvider, modelName string) {
 	})
 }
 
+// resolveAPIKeyForProvider is the screen's one door to a provider key: the
+// store, else the provider's environment variable. It is the screen's alone —
+// the engine reaches the provider through the transport this signs
+// (provider_forward.go) and reads no key of its own (§248 A4).
 func resolveAPIKeyForProvider(canonicalProvider string) string {
-	if pref, ok, _ := config.LoadModelPreference(); ok {
-		if key := pref.APIKeyForProvider(canonicalProvider); key != "" {
-			return key
-		}
-	}
-	return model.ResolveModelAPIKey(canonicalProvider)
+	return credentials.KeyFor(canonicalProvider)
 }
 
 // SupportedThinkLevels lists the thinking levels confirmed real for the current
@@ -4603,11 +4594,10 @@ func (a *App) RetryActiveProvider() ModelInfo {
 	}
 	next := a.cur().cfg
 	next.ModelBaseURL = resolveBaseURLForProvider(next.ModelProvider)
-	next.ModelAPIKey = resolveAPIKeyForProvider(next.ModelProvider)
 	// A failed bootstrap on a local runtime leaves the name empty (the server
 	// had nothing to offer), and that empty name is what fails again.
 	if strings.TrimSpace(next.ModelName) == "" {
-		next.ModelName = model.ResolveDefaultModel(next.ModelProvider, next.ModelBaseURL, next.ModelAPIKey)
+		next.ModelName = model.ResolveDefaultModel(next.ModelProvider, next.ModelBaseURL, resolveAPIKeyForProvider(next.ModelProvider))
 		next.ThinkLevel = model.NormalizeThinkingLevel(next.ModelProvider, next.ModelName, next.ThinkLevel)
 	}
 	a.applyConfig(a.cur(), next)
@@ -4620,8 +4610,7 @@ func (a *App) SwitchProvider(provider string) (ModelInfo, error) {
 	next.ModelProvider = model.NormalizeProvider(provider)
 	next.ModelBaseURL = resolveBaseURLForProvider(next.ModelProvider)
 	next.ModelWireFormat = "" // reset to the new provider's default format
-	next.ModelAPIKey = resolveAPIKeyForProvider(next.ModelProvider)
-	next.ModelName = resolveModelForProvider(next.ModelProvider, next.ModelBaseURL, next.ModelAPIKey)
+	next.ModelName = resolveModelForProvider(next.ModelProvider, next.ModelBaseURL, resolveAPIKeyForProvider(next.ModelProvider))
 	next.ThinkLevel = model.NormalizeThinkingLevel(next.ModelProvider, next.ModelName, "")
 	a.applyConfig(a.cur(), next)
 	return a.dialResult(a.cur())
@@ -5076,9 +5065,8 @@ func (a *App) applyConfig(conv *conversation, cfg config.Config) {
 		Shell: a.shellBackend,
 		// The model credential, as a transport that signs each request from
 		// this screen's stores (provider_forward.go). The engine built below
-		// holds no key of its own: cfg.ModelAPIKey still rides along until §248
-		// A4 removes it, and the wire clients ignore it once a Transport is
-		// set. The signed-in endpoint is not a secret and travels in the open.
+		// holds no key of its own and config carries none (§248). The
+		// signed-in endpoint is not a secret and travels in the open.
 		ProviderTransport: a.providerTransport(model.NormalizeProvider(cfg.ModelProvider), cfg.ModelWireFormat),
 		ProviderEndpoint:  oauth.Endpoint(model.NormalizeProvider(cfg.ModelProvider)),
 		OnToolAction:      func(ev turn.ToolEvent) { a.recordToolAction(conv, ev) },
@@ -5246,9 +5234,6 @@ func resolveConfig(opts config.ConfigOptions) config.Config {
 		cfg.BusyPageMarksOff = pref.BusyPageMarksOff
 		cfg.WorkersOff = pref.WorkersOff
 		cfg.DelegateSet = pref.DelegateSet
-		if key := pref.APIKeyForProvider(cfg.ModelProvider); key != "" {
-			cfg.ModelAPIKey = key
-		}
 		// After pref.ModelBaseURL above, not before: the per-provider entry is
 		// the one the user set for *this* provider, the legacy slot is whatever
 		// provider happened to be active when it was written.
@@ -5256,16 +5241,13 @@ func resolveConfig(opts config.ConfigOptions) config.Config {
 			cfg.ModelBaseURL = v
 		}
 	}
-	if cfg.ModelAPIKey == "" {
-		cfg.ModelAPIKey = model.ResolveModelAPIKey(cfg.ModelProvider)
-	}
 	// Every provider gets its catalog default, aetox included. It used to be
 	// excluded, from when its models were only test fixtures and a made-up name
 	// in the picker would have been noise — but aetox-grid is now a real
 	// default with a real job (it answers the guide, §42), so a fresh install
 	// that shows no model name at all is the wrong end of that trade.
 	if cfg.ModelName == "" {
-		cfg.ModelName = model.ResolveDefaultModel(cfg.ModelProvider, cfg.ModelBaseURL, cfg.ModelAPIKey)
+		cfg.ModelName = model.ResolveDefaultModel(cfg.ModelProvider, cfg.ModelBaseURL, resolveAPIKeyForProvider(cfg.ModelProvider))
 	}
 	cfg.ThinkLevel = model.NormalizeThinkingLevel(cfg.ModelProvider, cfg.ModelName, cfg.ThinkLevel)
 	// Outside the block above, because the install that needs this most is the
@@ -5312,9 +5294,6 @@ func persistModelPreference(cfg config.Config) {
 	// the fields set below — the providers enabled in the picker, the model
 	// remembered per provider and the user's name were gone (DECISIONS §225).
 	_ = config.UpdateModelPreference(func(pref *config.ModelPreference) error {
-		if strings.TrimSpace(cfg.ModelAPIKey) != "" {
-			pref.SetAPIKeyForProvider(canonicalProvider, cfg.ModelAPIKey)
-		}
 		pref.ModelProvider = canonicalProvider
 		pref.ModelName = strings.TrimSpace(cfg.ModelName)
 		baseURL := strings.TrimSpace(cfg.ModelBaseURL)

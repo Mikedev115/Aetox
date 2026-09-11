@@ -10,6 +10,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/audit"
 	"github.com/Mikedev115/Aetox/internal/command"
 	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/credentials"
 	"github.com/Mikedev115/Aetox/internal/learned"
 	"github.com/Mikedev115/Aetox/internal/mode"
 	"github.com/Mikedev115/Aetox/internal/safety"
@@ -78,7 +79,7 @@ func TestTheAetoxSkillNamesTheRealDataRootPaths(t *testing.T) {
 		{"MCP servers", config.MCPServersPath},
 		{"permissions", config.PermissionsPath},
 		{"hooks", config.HooksPath},
-		{"provider keys", config.CredentialsPath},
+		{"provider keys", credentials.Path},
 		{"model preference", config.PreferencePath},
 		{"env file", config.EnvFilePath},
 		{"shell audit log", audit.ShellAuditLogPath},

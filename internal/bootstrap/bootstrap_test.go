@@ -166,7 +166,7 @@ func TestEngineReportsAProviderFallbackWithoutFailing(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.ModelProvider = "openai"
 	cfg.ModelName = "gpt-4o"
-	cfg.ModelAPIKey = "" // no key: provider init fails, aetox takes over
+	// No transport, so no credential: provider init fails, aetox takes over.
 
 	res, err := Engine(cfg, Options{Approve: approveNothing})
 	if err != nil {

@@ -7,7 +7,7 @@ package imagegen
 // implementation, one spec per row.
 //
 // **Keys are not new keys.** Every row here reads the credential the user
-// already entered on ตั้งค่า > โมเดล for that same provider (config.ProviderAPIKey),
+// already entered on ตั้งค่า > โมเดล for that same provider (credentials.ProviderAPIKey),
 // so turning on picture-making for OpenAI costs the user nothing they have not
 // already done. The per-provider base URL override is honored too, which is
 // what lets the OpenAI row serve any self-hosted server speaking the same API.
@@ -32,6 +32,7 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/apierr"
 	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/credentials"
 )
 
 // apiImageSpec is one vendor's wearing of the shared wire format.
@@ -127,7 +128,7 @@ func newAPIImages(desc Descriptor, opts Options) (Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	key := config.ProviderAPIKey(spec.provider, spec.envVars...)
+	key := credentials.ProviderAPIKey(spec.provider, spec.envVars...)
 	base := strings.TrimRight(config.ProviderBaseURL(spec.provider), "/")
 	if base == "" {
 		base = spec.defaultBase

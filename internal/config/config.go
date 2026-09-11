@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/hook"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/proc"
@@ -30,8 +29,11 @@ type Config struct {
 	ThinkLevel         string
 	ModelProvider      string
 	ModelName          string
-	ModelAPIKey        string
-	ModelBaseURL       string
+	// No key here, on purpose (§248 A4). A Config reaches bootstrap.Engine and
+	// so the engine half of the app; the provider key lives in
+	// internal/credentials, which that half cannot import, and reaches the
+	// wire through the transport the screen signs each request with.
+	ModelBaseURL string
 	// ModelWireFormat picks between a provider's alternate wire formats when
 	// it has one (e.g. DeepSeek's OpenAI-compatible vs Anthropic-format
 	// endpoints) — see provider.Spec.AltRuntime. Empty uses the default.
@@ -171,7 +173,6 @@ type ConfigOptions struct {
 	ThinkLevel         string
 	ModelProvider      string
 	ModelName          string
-	ModelAPIKey        string
 	ModelBaseURL       string
 	ModelWireFormat    string
 	ModelTimeout       int
@@ -237,8 +238,13 @@ type ModelPreference struct {
 	// one; a file with no such key means nobody has ever chosen either way. A
 	// launch that reopened the newest row of the projects table would be unable
 	// to tell those two apart, which is why this is not read from there.
-	LastProject  string            `json:"last_project,omitempty"`
-	ModelAPIKeys map[string]string `json:"provider_api_keys,omitempty"`
+	LastProject string `json:"last_project,omitempty"`
+	// No provider_api_keys field: the keys live in credentials.json and are
+	// read and written by internal/credentials alone (§248 A4). An old file
+	// that still carries the field is absorbed by that package on its first
+	// read; this struct cannot carry what it does not know, so a save from
+	// here never writes one back.
+	//
 	// ModelBaseURLs holds per-provider endpoint overrides. ModelBaseURL above
 	// is the older single-slot version, which only ever held the *active*
 	// provider's URL — switching away reset it to the catalog default and the
@@ -464,64 +470,6 @@ func (p *ModelPreference) normalizeProviderKey(provider string) string {
 	return strings.ToLower(strings.TrimSpace(model.NormalizeProvider(provider)))
 }
 
-func (p *ModelPreference) EnsureProviderMap() map[string]string {
-	if p.ModelAPIKeys == nil {
-		p.ModelAPIKeys = make(map[string]string)
-	}
-	return p.ModelAPIKeys
-}
-
-// APIKeyForProvider normalizes BOTH sides of the comparison, and that is the
-// whole migration path for a provider rename. The stored map is keyed by
-// whatever the app was calling the provider on the day the key was saved
-// ("qwen" before 2026-08-24, "alibaba" after); normalizing only the lookup
-// name would turn every one of those files into a key the owner can see in
-// credentials.json and the app swears is not there.
-func (p ModelPreference) APIKeyForProvider(provider string) string {
-	key := p.normalizeProviderKey(provider)
-	if key == "" {
-		return ""
-	}
-	for providerKey, value := range p.ModelAPIKeys {
-		if p.normalizeProviderKey(providerKey) == key {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
-}
-
-func (p *ModelPreference) SetAPIKeyForProvider(provider, apiKey string) {
-	key := p.normalizeProviderKey(provider)
-	if key == "" {
-		return
-	}
-	trimmed := strings.TrimSpace(apiKey)
-	if trimmed == "" {
-		return
-	}
-	p.EnsureProviderMap()
-	// One provider, one row. Writing under the canonical name while an entry
-	// saved under an older one survives would leave two rows both answering to
-	// this provider, and the reader above walks a map — it would return
-	// whichever Go handed it first, so the key that actually gets sent could
-	// change between two runs of the same build.
-	p.dropAliasEntries(p.ModelAPIKeys, key)
-	p.ModelAPIKeys[key] = trimmed
-}
-
-// ForgetAPIKeyForProvider drops the key filed under a provider, however it was
-// spelled. The only caller today is removing a custom provider row, whose
-// name is about to mean nothing — a key left under it would sit in the
-// secrets file forever, readable by nobody and deletable from nowhere.
-func (p *ModelPreference) ForgetAPIKeyForProvider(provider string) {
-	key := p.normalizeProviderKey(provider)
-	if key == "" || p.ModelAPIKeys == nil {
-		return
-	}
-	p.dropAliasEntries(p.ModelAPIKeys, key)
-	delete(p.ModelAPIKeys, key)
-}
-
 // dropAliasEntries removes every entry that means the same provider as key but
 // is spelled differently, leaving key itself alone.
 func (p *ModelPreference) dropAliasEntries(m map[string]string, key string) {
@@ -537,7 +485,7 @@ func (p ModelPreference) BaseURLForProvider(provider string) string {
 	if key == "" {
 		return ""
 	}
-	// Both sides normalized, for the reason APIKeyForProvider spells out: an
+	// Both sides normalized, for the reason credentials.KeyFor spells out: an
 	// endpoint override saved under an older name still belongs to this
 	// provider.
 	for providerKey, value := range p.ModelBaseURLs {
@@ -548,7 +496,7 @@ func (p ModelPreference) BaseURLForProvider(provider string) string {
 	return ""
 }
 
-// SetBaseURLForProvider records a custom endpoint. Unlike SetAPIKeyForProvider,
+// SetBaseURLForProvider records a custom endpoint. Unlike credentials.Set,
 // an empty value is meaningful — it deletes the override so the provider goes
 // back to its catalog default, which is the only way to undo a typo'd port.
 func (p *ModelPreference) SetBaseURLForProvider(provider, baseURL string) {
@@ -637,16 +585,6 @@ func Load(opt ConfigOptions) Config {
 	}
 
 	modelName := strings.TrimSpace(opt.ModelName)
-	modelAPIKey := strings.TrimSpace(opt.ModelAPIKey)
-	if modelAPIKey == "" {
-		modelAPIKey = model.ResolveModelAPIKey(provider)
-	}
-	// The second place a key enters the process, after LoadCredentials: this
-	// one can come from an environment variable or the .env file, which the
-	// credentials file never sees. Registering here as well means every path a
-	// key arrives by is covered, and the debug log cannot print one whichever
-	// way the user supplied it.
-	debuglog.Redact(modelAPIKey)
 	baseURL := strings.TrimSpace(opt.ModelBaseURL)
 	wireFormat := strings.TrimSpace(opt.ModelWireFormat)
 	modelTimeout := opt.ModelTimeout
@@ -678,7 +616,6 @@ func Load(opt ConfigOptions) Config {
 		ThinkLevel:         thinkLevel,
 		ModelProvider:      provider,
 		ModelName:          modelName,
-		ModelAPIKey:        modelAPIKey,
 		ModelBaseURL:       baseURL,
 		ModelWireFormat:    wireFormat,
 		ModelTimeoutSec:    modelTimeout,
@@ -1169,34 +1106,7 @@ func LoadModelPreference() (ModelPreference, bool, error) {
 	// enabled list and the per-provider maps may name a custom row, and the
 	// catalog has to know it exists before those names are looked up.
 	registerCustomProviders(pref.CustomProviders)
-	// Keys live in credentials.json now; anything still in the settings file is
-	// from before the split and gets moved on the way past. Callers get one
-	// struct with everything in it either way — the storage split is this
-	// package's business, not theirs.
-	migrateCredentialsOutOfPreferences(&pref)
-	if creds, err := LoadCredentials(); err == nil && len(creds.ModelAPIKeys) > 0 {
-		pref.ModelAPIKeys = creds.ModelAPIKeys
-	}
 	return pref, true, nil
-}
-
-// ProviderAPIKey is how the speech engines (internal/stt, internal/tts) read
-// the same credential store the model layer does: the key the user entered on
-// the models page serves their voice too, with the provider's usual
-// environment variables as the fallback. Empty means the user has genuinely
-// not provided one — the engines turn that into their own actionable error.
-func ProviderAPIKey(provider string, envVars ...string) string {
-	if pref, ok, _ := LoadModelPreference(); ok {
-		if key := strings.TrimSpace(pref.APIKeyForProvider(provider)); key != "" {
-			return key
-		}
-	}
-	for _, name := range envVars {
-		if key := strings.TrimSpace(os.Getenv(name)); key != "" {
-			return key
-		}
-	}
-	return ""
 }
 
 // ProviderBaseURL is the per-provider endpoint override from the same store.
@@ -1260,26 +1170,9 @@ func looksLikeAPIKey(s string) bool {
 	return false
 }
 
-// SaveModelPreference persists the user's settings, sending the API keys to
-// the credentials file on the way through (see credentials.go).
-//
-// Callers still hand over one struct with the keys in it, because splitting the
-// storage is not a reason to split every call site — a caller that had to
-// remember two saves is a caller that can do one and lose the other. The keys
-// are cleared from the copy that reaches the preference file and left on the
-// caller's struct, which is still the whole picture in memory.
+// SaveModelPreference persists the user's settings. Never a key: the struct
+// has no field for one, and the secrets file is internal/credentials' alone.
 func SaveModelPreference(pref ModelPreference) error {
-	// Non-nil rather than non-empty: a map that was loaded with keys and had
-	// its last one forgotten (ForgetAPIKeyForProvider) is empty and must still
-	// be written, or the secrets file keeps the key the user just removed.
-	// A nil map is a preference that never touched the secrets and leaves
-	// them alone.
-	if pref.ModelAPIKeys != nil {
-		if err := SaveCredentials(Credentials{ModelAPIKeys: pref.ModelAPIKeys}); err != nil {
-			return err
-		}
-		pref.ModelAPIKeys = nil // a value copy: the caller's struct is untouched
-	}
 	return saveModelPreferenceFile(pref)
 }
 

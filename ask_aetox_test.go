@@ -15,6 +15,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/cognitive"
 	"github.com/Mikedev115/Aetox/internal/command"
 	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/credentials"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/prompt"
 	"github.com/Mikedev115/Aetox/internal/safety"
@@ -83,7 +84,7 @@ func TestAskAetox(t *testing.T) {
 	if provider == "" || modelName == "" {
 		t.Skip("no provider/model saved — pick one in the app first")
 	}
-	key := strings.TrimSpace(pref.ModelAPIKeys[provider])
+	key := credentials.StoredKeyFor(provider)
 	if key == "" {
 		key = strings.TrimSpace(os.Getenv("AETOX_API_KEY"))
 	}

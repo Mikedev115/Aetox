@@ -16,6 +16,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/cognitive"
 	"github.com/Mikedev115/Aetox/internal/command"
 	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/credentials"
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/mcp"
 	"github.com/Mikedev115/Aetox/internal/model"
@@ -211,7 +212,6 @@ func main() {
 		ApprovalTimeout:    approvalTimeout,
 		ModelProvider:      modelProvider,
 		ModelName:          modelName,
-		ModelAPIKey:        modelAPIKey,
 		ModelBaseURL:       modelBaseURL,
 		ModelTimeout:       modelTimeout,
 		ModelContextTokens: modelContextTokens,
@@ -220,8 +220,13 @@ func main() {
 
 	modelProvider = cfg.ModelProvider
 	modelName = cfg.ModelName
-	modelAPIKey = cfg.ModelAPIKey
 	modelBaseURL = cfg.ModelBaseURL
+	// A key on the command line is for the provider on the command line, and
+	// for nothing picked later from a menu. Every other key comes from the
+	// store at the moment it is needed (keyFor) — config carries none (§248).
+	if strings.TrimSpace(modelAPIKey) != "" {
+		flagAPIKey, flagAPIKeyProvider = strings.TrimSpace(modelAPIKey), model.NormalizeProvider(modelProvider)
+	}
 	modelContextTokens = cfg.ModelContextTokens
 	thinkLevel = cfg.ThinkLevel
 
@@ -243,9 +248,6 @@ func main() {
 				modelBaseURL = strings.TrimSpace(storedPreference.ModelBaseURL)
 				cfg.ModelBaseURL = modelBaseURL
 			}
-			if key := storedPreference.APIKeyForProvider(modelProvider); key != "" {
-				modelAPIKey = key
-			}
 		}
 	}
 	if !thinkLevelExplicit && !modelNameHasThink && hasStoredPreference && strings.TrimSpace(storedPreference.ThinkLevel) != "" {
@@ -263,15 +265,14 @@ func main() {
 		if ok {
 			modelProvider = selectedProvider
 			modelName = selectedModel
-			modelAPIKey = selectedAPIKey
 			modelBaseURL = selectedBaseURL
 			if !thinkLevelExplicit {
 				thinkLevel = selectedThinkLevel
 			}
 			cfg.ModelProvider = selectedProvider
 			cfg.ModelName = selectedModel
-			cfg.ModelAPIKey = selectedAPIKey
 			cfg.ModelBaseURL = selectedBaseURL
+			rememberKey(selectedProvider, selectedAPIKey)
 			if !thinkLevelExplicit {
 				cfg.ThinkLevel = selectedThinkLevel
 			}
@@ -283,16 +284,12 @@ func main() {
 
 	cfg.ModelProvider = strings.TrimSpace(modelProvider)
 	cfg.ModelName = strings.TrimSpace(modelName)
-	cfg.ModelAPIKey = strings.TrimSpace(modelAPIKey)
-	if cfg.ModelAPIKey == "" {
-		cfg.ModelAPIKey = model.ResolveModelAPIKey(cfg.ModelProvider)
-	}
 	cfg.ModelBaseURL = strings.TrimSpace(modelBaseURL)
 	cfg.ModelContextTokens = modelContextTokens
 
 	if strings.TrimSpace(cfg.ModelName) == "" &&
 		!strings.EqualFold(strings.TrimSpace(cfg.ModelProvider), "aetox") {
-		cfg.ModelName = model.ResolveDefaultModel(cfg.ModelProvider, cfg.ModelBaseURL, cfg.ModelAPIKey)
+		cfg.ModelName = model.ResolveDefaultModel(cfg.ModelProvider, cfg.ModelBaseURL, keyFor(cfg.ModelProvider))
 		modelName = cfg.ModelName
 	}
 	cfg.ThinkLevel = model.NormalizeThinkingLevel(cfg.ModelProvider, cfg.ModelName, thinkLevel)
@@ -482,12 +479,12 @@ func switchProvider(ctx context.Context, cfg *config.Config) (app.ModelSwitchRes
 
 	cfg.ModelProvider = strings.TrimSpace(selectedProvider)
 	cfg.ModelName = strings.TrimSpace(selectedModel)
-	cfg.ModelAPIKey = strings.TrimSpace(selectedAPIKey)
 	cfg.ModelBaseURL = strings.TrimSpace(selectedBaseURL)
 	cfg.ThinkLevel = selectedThinkLevel
+	rememberKey(cfg.ModelProvider, selectedAPIKey)
 
 	if cfg.ModelName == "" && !strings.EqualFold(cfg.ModelProvider, "aetox") {
-		cfg.ModelName = model.ResolveDefaultModel(cfg.ModelProvider, cfg.ModelBaseURL, cfg.ModelAPIKey)
+		cfg.ModelName = model.ResolveDefaultModel(cfg.ModelProvider, cfg.ModelBaseURL, keyFor(cfg.ModelProvider))
 	}
 	cfg.ThinkLevel = model.NormalizeThinkingLevel(cfg.ModelProvider, cfg.ModelName, cfg.ThinkLevel)
 
@@ -553,13 +550,16 @@ func bootstrapModelWithStatus(cfg config.Config) (model.BootstrapResult, string)
 	if timeout <= 0 {
 		timeout = 30 * time.Second
 	}
-	// A sign-in outranks the pasted key, and it is this host's to look up:
-	// the model layer reads no credential store of its own (§248 A3).
+	// A sign-in outranks the pasted key, and both are this host's to look up:
+	// the model layer reads no credential store of its own (§248 A3), and
+	// config carries no key (A4). The CLI is the one host that still hands a
+	// key straight to the provider, because it is the screen and the engine in
+	// one process — the desktop signs through a transport instead.
 	canonical := model.NormalizeProvider(cfg.ModelProvider)
 	result := model.BootstrapProvider(model.BootstrapOptions{
 		Provider:         cfg.ModelProvider,
 		Model:            cfg.ModelName,
-		APIKey:           cfg.ModelAPIKey,
+		APIKey:           keyFor(canonical),
 		BaseURL:          cfg.ModelBaseURL,
 		Timeout:          timeout,
 		TokenSource:      oauth.TokenSource(canonical),
@@ -567,6 +567,32 @@ func bootstrapModelWithStatus(cfg config.Config) (model.BootstrapResult, string)
 		SignedInEndpoint: oauth.Endpoint(canonical),
 	})
 	return result, resolveModelStatus(cfg, result)
+}
+
+// flagAPIKey is --model-api-key, and flagAPIKeyProvider the provider it was
+// given for: a key typed on the command line belongs to that provider alone.
+var flagAPIKey, flagAPIKeyProvider string
+
+// keyFor is the key this CLI reaches a provider with: the command-line key
+// when it was given for this provider, else what the store or the provider's
+// environment variable holds (credentials.KeyFor).
+func keyFor(providerName string) string {
+	canonical := model.NormalizeProvider(providerName)
+	if flagAPIKey != "" && canonical == flagAPIKeyProvider {
+		return flagAPIKey
+	}
+	return credentials.KeyFor(canonical)
+}
+
+// rememberKey stores a key the user just typed for a provider, so the next
+// launch does not ask again. Empty is nothing to remember, not a deletion.
+func rememberKey(providerName, apiKey string) {
+	if strings.TrimSpace(apiKey) == "" {
+		return
+	}
+	if err := credentials.Set(providerName, apiKey); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: cannot save API key: %v\n", err)
+	}
 }
 
 // persistModelPreference writes the CLI's choice — provider, model, endpoint,
@@ -593,9 +619,6 @@ func persistModelPreference(cfg config.Config) error {
 		modelBaseURL = ""
 	}
 	return config.UpdateModelPreference(func(pref *config.ModelPreference) error {
-		if strings.TrimSpace(cfg.ModelAPIKey) != "" {
-			pref.SetAPIKeyForProvider(canonicalProvider, cfg.ModelAPIKey)
-		}
 		pref.ModelProvider = canonicalProvider
 		pref.ModelName = modelName
 		pref.ModelBaseURL = modelBaseURL
@@ -607,7 +630,7 @@ func persistModelPreference(cfg config.Config) error {
 
 func promptModelSelection(cfg config.Config, askThinkLevel bool) (string, string, string, string, string, bool) {
 	reader := bufio.NewReader(os.Stdin)
-	storedPreference, hasStoredPreference, prefErr := config.LoadModelPreference()
+	_, hasStoredPreference, prefErr := config.LoadModelPreference()
 	if prefErr != nil {
 		fmt.Fprintf(os.Stderr, "warning: cannot read model preference: %v\n", prefErr)
 	}
@@ -617,8 +640,7 @@ func promptModelSelection(cfg config.Config, askThinkLevel bool) (string, string
 	for _, p := range providers {
 		label := p
 		if model.RequiresAPIKey(p) {
-			keyFound := model.ResolveModelAPIKey(p) != "" || (hasStoredPreference && storedPreference.APIKeyForProvider(p) != "")
-			label = model.FormatProviderMenuLabel(p, keyFound)
+			label = model.FormatProviderMenuLabel(p, keyFor(p) != "")
 		}
 		providerOptions = append(providerOptions, label)
 	}
@@ -632,7 +654,7 @@ func promptModelSelection(cfg config.Config, askThinkLevel bool) (string, string
 	idx, ok := pickFromMenu(reader, "No model provider configured. Select one.", providerOptions, 0, "Use ↑/↓ then Enter.")
 	if !ok {
 		defaultProvider := providers[0]
-		defaultModel := model.ResolveDefaultModel(defaultProvider, cfg.ModelBaseURL, model.ResolveModelAPIKey(defaultProvider))
+		defaultModel := model.ResolveDefaultModel(defaultProvider, cfg.ModelBaseURL, keyFor(defaultProvider))
 		return defaultProvider, defaultModel, "", cfg.ModelBaseURL, defaultThinkLevel(defaultProvider, defaultModel, cfg.ThinkLevel), false
 	}
 	provider := providers[idx]
@@ -641,13 +663,7 @@ func promptModelSelection(cfg config.Config, askThinkLevel bool) (string, string
 		providerBaseURL = strings.TrimSpace(cfg.ModelBaseURL)
 	}
 
-	key := strings.TrimSpace(storedPreference.APIKeyForProvider(provider))
-	if key == "" && strings.EqualFold(cfg.ModelProvider, provider) {
-		key = strings.TrimSpace(cfg.ModelAPIKey)
-	}
-	if key == "" {
-		key = strings.TrimSpace(model.ResolveModelAPIKey(provider))
-	}
+	key := keyFor(provider)
 
 	// Needing credentials and taking a pasted key are two different facts,
 	// and asking only the first one trapped anyone who picked Codex: it is
