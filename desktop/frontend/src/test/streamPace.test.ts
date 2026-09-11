@@ -222,3 +222,76 @@ describe('the stream pacer', () => {
     expect(third).toBeGreaterThan(first)
   })
 })
+
+// The DOM half of the same complaint, which the owner asked about in his own
+// words on 11 ก.ย.: *"เอเจนคิดตลอดใช่ไหม มันต้องเรนเดอร์ยาวๆตลอด เราจะทำไงให้มัน
+// เบาเครื่อง ... เรา ห่อมันอยู่ละ คือแสดงแค่บางส่วน แต่ตอนทำงานจริงมันเหมือนเรนเดอร์
+// ตลอด"*. The five-line window he means is CSS, so the element still carried
+// every word — and every painted frame re-laid-out all of it. A tail moves the
+// cap into the drawer: what is in the element is the end of the reasoning, and
+// the store keeps the rest.
+describe('the tail window', () => {
+  const line = (i: number) => `${i}. ${'ก'.repeat(80)}\n`
+  /** Long enough that a 4,000-character window holds only the end of it. */
+  const reasoning = (lines: number) => Array.from({ length: lines }, (_, i) => line(i)).join('')
+
+  it('keeps only the end of a long text in the element', () => {
+    const full = reasoning(60)
+    const host = document.createElement('div')
+    pacedText(host, { text: full, tail: 4000 })
+
+    expect(full.length).toBeGreaterThan(4000)
+    const shown = host.textContent ?? ''
+    // The window, plus whatever the cut slid to land on a newline (240 at most).
+    expect(shown.length).toBeLessThanOrEqual(4000 + 240)
+    // A suffix and nothing else: a window moves the start of what is drawn, and
+    // never edits the text to fit.
+    expect(full.endsWith(shown)).toBe(true)
+  })
+
+  it('starts the window on a whole line', () => {
+    const full = reasoning(60)
+    const host = document.createElement('div')
+    pacedText(host, { text: full, tail: 4000 })
+
+    // A cut mid-sentence would make the first thing in the box the second half
+    // of a line, which reads as a glitch rather than as a window onto a stream.
+    expect(/^\d+\. /.test(host.textContent ?? '')).toBe(true)
+  })
+
+  it('drops the window in place of a hard cut when there is no newline near it', () => {
+    const full = 'ก'.repeat(900)
+    const host = document.createElement('div')
+    pacedText(host, { text: full, tail: 200 })
+
+    // One unbroken paragraph has no boundary to slide to, and inventing one —
+    // cutting early — would throw away text to buy a shape nobody asked for.
+    expect(host.textContent).toBe(full.slice(-200))
+  })
+
+  it('drains into the window exactly as it drains into a whole block', () => {
+    const host = document.createElement('div')
+    const action = pacedText(host, { text: 'ก', tail: 200 })
+    const full = reasoning(20)
+    action.update({ text: full, tail: 200 })
+
+    // Pacing is untouched by this: the letters still arrive over frames rather
+    // than in the lump the wire sent.
+    frame()
+    const first = host.textContent ?? ''
+    expect(first.length).toBeLessThan(full.length)
+    expect(full.endsWith(first)).toBe(true)
+
+    drain(400)
+    expect(full.endsWith(host.textContent ?? '')).toBe(true)
+    expect((host.textContent ?? '').length).toBeLessThanOrEqual(200 + 240)
+  })
+
+  it('draws the whole thing when no window is asked for', () => {
+    const full = reasoning(60)
+    const host = document.createElement('div')
+    pacedText(host, { text: full })
+
+    expect(host.textContent).toBe(full)
+  })
+})
