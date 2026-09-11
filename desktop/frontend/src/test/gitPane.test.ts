@@ -132,6 +132,51 @@ describe('GitPane', () => {
     }
   })
 
+  // A read that failed is not a tree that is clean. git ran out of its budget
+  // (owner, 12 ก.ย., on a machine where a git process was taking seconds), and
+  // the honest answer is the rows from the read before it plus a line saying
+  // so — never "nothing changed" over fifty-eight files.
+  it('keeps the last tree and says so when a read fails', async () => {
+    const { container } = render(GitPane)
+    await waitFor(() => expect(container.querySelectorAll('.gp-row').length).toBe(2))
+    expect(container.querySelector('.gp-stale')).toBeNull()
+
+    vi.mocked(GitWorkingTree).mockRejectedValueOnce(new Error('git took too long to answer'))
+    await fireEvent.click(container.querySelector('.gp-head .icobtn') as HTMLElement)
+    await waitFor(() => expect(container.querySelector('.gp-stale')).not.toBeNull())
+    expect(container.querySelectorAll('.gp-row').length).toBe(2)
+    expect(container.querySelector('.gp-commit-area')).not.toBeNull()
+
+    // And the next read that answers clears the line.
+    await fireEvent.click(container.querySelector('.gp-head .icobtn') as HTMLElement)
+    await waitFor(() => expect(container.querySelector('.gp-stale')).toBeNull())
+  })
+
+  // The tick is paced by the read: a git that takes long is asked less often,
+  // not queued behind itself. Four times the read, never under two seconds.
+  it('waits longer between reads when the last one was slow', async () => {
+    vi.useFakeTimers()
+    try {
+      // The mount read takes three seconds of (fake) time to answer.
+      vi.mocked(GitWorkingTree).mockImplementationOnce(
+        () => new Promise((resolve) => setTimeout(() => resolve(CHANGED as any), 3000)),
+      )
+      render(GitPane, { active: true })
+      await vi.advanceTimersByTimeAsync(3000)
+      const afterMount = vi.mocked(GitWorkingTree).mock.calls.length
+      expect(afterMount).toBeGreaterThan(0)
+
+      // The old two-second tick would have read again by now; the paced one
+      // waits four times three seconds.
+      await vi.advanceTimersByTimeAsync(2100)
+      expect(vi.mocked(GitWorkingTree).mock.calls.length).toBe(afterMount)
+      await vi.advanceTimersByTimeAsync(10000)
+      expect(vi.mocked(GitWorkingTree).mock.calls.length).toBeGreaterThan(afterMount)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('says the tree is clean rather than drawing an empty list', async () => {
     vi.mocked(GitWorkingTree).mockResolvedValue([] as any)
     const { container } = render(GitPane)

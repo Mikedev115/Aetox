@@ -627,7 +627,8 @@ func (a *App) GitChangedFiles() []ChangedFile {
 	// silently lacked what the other two had learned (see there).
 	ctx, cancel := a.gitContext()
 	defer cancel()
-	for _, f := range workingTree(ctx, root, false) {
+	rows, _ := workingTree(ctx, root, false) // a failed read is an empty strip; the git room says why
+	for _, f := range rows {
 		out = append(out, ChangedFile{Path: f.Path, Status: f.Status})
 	}
 	return out
@@ -694,7 +695,8 @@ func (a *App) ProjectTree() []TreeNode {
 	func() {
 		ctx, cancel := a.gitContext()
 		defer cancel()
-		for _, f := range workingTree(ctx, root, false) {
+		rows, _ := workingTree(ctx, root, false) // no badges beats no tree
+		for _, f := range rows {
 			if strings.HasSuffix(f.Path, "/") {
 				newDirs = append(newDirs, f.Path)
 				continue

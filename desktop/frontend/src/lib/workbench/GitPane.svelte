@@ -40,6 +40,12 @@
 
   let files = $state<main.GitFileChange[]>([])
   let loaded = $state(false)
+  // The last read failed — git ran out of its budget, most likely — and the
+  // rows on screen are the tree as of the read before it. Said on the face of
+  // the pane rather than drawn as "nothing changed" (owner, 12 ก.ย.).
+  let stale = $state(false)
+  // How long the last read took, which is what paces the next one.
+  let lastReadMs = 0
   let open = $state<Record<string, boolean>>({})
   let diffs = $state<Record<string, string>>({})
   let loading = $state<Record<string, boolean>>({})
@@ -92,7 +98,18 @@
   }
 
   async function refresh() {
-    files = (await GitWorkingTree()) ?? []
+    const started = Date.now()
+    try {
+      files = (await GitWorkingTree()) ?? []
+    } catch {
+      // Keep the last tree. A read that failed is not a tree that is clean,
+      // and the poll will ask again — later than it would have, see below.
+      stale = true
+      lastReadMs = Date.now() - started
+      return
+    }
+    lastReadMs = Date.now() - started
+    stale = false
     loaded = true
     updateCodeStatusFromGitTree(files)
     // Cleanup diffs for removed files
@@ -135,23 +152,39 @@
   // the timer exists only while this is the tab in front (every other slot is
   // `display: none`), and each tick is skipped while the window itself is hidden.
   const POLL_MS = 2000
+  // The tick is paced by the read, not the other way round: a read that took
+  // four seconds is followed by no fewer than sixteen of quiet, so a git that
+  // is slow today — a scanner, a loaded disk, a repository on a share — gets a
+  // pane that reads it less often rather than one that queues process after
+  // process behind it. Two seconds when git is quick, never more than a
+  // quarter minute.
+  const POLL_MAX_MS = 15000
+  const nextTickMs = () => Math.min(POLL_MAX_MS, Math.max(POLL_MS, lastReadMs * 4))
 
   // One read at a time. `git status` on a big tree outlasts a two-second tick,
   // and two reads in flight would race to write `files` — with the older tree
   // able to land last. The guard is deliberately not on `refresh` itself: a press
   // of the button must never be swallowed by a tick that happens to be out.
   let reading = false
+  // The read in flight, so a tick that lands during one can wait for it and
+  // pace itself by how long it took, rather than reading again two seconds
+  // after a read that has not answered yet.
+  let inflight: Promise<void> | null = null
 
   async function poll() {
     // Never while this pane is the thing changing the tree: a commit in flight
     // would have the rows it is committing pulled out from under it.
     if (reading || committing || committingAll || committingGroupIdx !== null || analyzingSplit) return
     reading = true
-    try {
-      await refresh()
-    } finally {
-      reading = false
-    }
+    inflight = (async () => {
+      try {
+        await refresh()
+      } finally {
+        reading = false
+        inflight = null
+      }
+    })()
+    await inflight
   }
 
   // A desk restored from a saved layout can put this tab behind the one in front,
@@ -166,11 +199,22 @@
     // untrack: what `poll` reads is a reason to skip a tick, never a reason to
     // tear the timer down and build it again.
     untrack(() => void poll())
-    const id = setInterval(() => {
-      if (document.visibilityState !== 'visible') return
-      void poll()
-    }, POLL_MS)
-    return () => clearInterval(id)
+    // A timeout chain rather than setInterval, so each wait can be sized by the
+    // read that came before it.
+    let id: ReturnType<typeof setTimeout> | undefined
+    let stopped = false
+    const tick = async () => {
+      if (stopped) return
+      if (inflight) await inflight
+      else if (document.visibilityState === 'visible') await poll()
+      if (stopped) return
+      id = setTimeout(tick, nextTickMs())
+    }
+    id = setTimeout(tick, nextTickMs())
+    return () => {
+      stopped = true
+      if (id !== undefined) clearTimeout(id)
+    }
   })
 
   let wasWorking = false
@@ -357,6 +401,10 @@
   </div>
 
   <div class="gp-note">{t('git.codeDeskOnly')}</div>
+
+  {#if stale}
+    <div class="gp-stale" role="status">{t('git.readSlow')}</div>
+  {/if}
 
   {#if loaded && files.length > 0}
     <!-- Dangerous File Warning Banner (if any detected) -->

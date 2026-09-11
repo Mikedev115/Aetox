@@ -20,7 +20,7 @@ func TestGitCommitFilesSubset(t *testing.T) {
 	}
 
 	// Verify working tree has 2 files
-	tree := a.GitWorkingTree()
+	tree, _ := a.GitWorkingTree()
 	if len(tree) != 2 {
 		t.Fatalf("expected 2 files in working tree, got %d", len(tree))
 	}
@@ -31,7 +31,7 @@ func TestGitCommitFilesSubset(t *testing.T) {
 	}
 
 	// Working tree must now ONLY have extra.txt (kept.txt was committed, extra.txt was NOT lost!)
-	remaining := a.GitWorkingTree()
+	remaining, _ := a.GitWorkingTree()
 	if len(remaining) != 1 {
 		t.Fatalf("expected 1 file remaining in working tree, got %d", len(remaining))
 	}
@@ -50,7 +50,7 @@ func TestGitCommitFilesSubset(t *testing.T) {
 	}
 
 	// Working tree must now be completely clean
-	clean := a.GitWorkingTree()
+	clean, _ := a.GitWorkingTree()
 	if len(clean) != 0 {
 		t.Errorf("expected clean working tree, got %d files", len(clean))
 	}

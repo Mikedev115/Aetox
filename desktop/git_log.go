@@ -28,7 +28,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/Mikedev115/Aetox/internal/proc"
 	"github.com/Mikedev115/Aetox/internal/skill"
@@ -106,24 +105,6 @@ func (a *App) GitLog(before string, limit int) GitLogPage {
 	}
 	page.Commits = append(page.Commits, rows...)
 	return page
-}
-
-// cachedRepoPrefix is repoPrefix remembered per root. Where a project sits
-// inside its repository does not change while the app runs, and every binding
-// in this file shares one ten-second budget with the git it then runs — on a
-// machine where a git process takes seconds to start (a scanner, a loaded
-// disk), the lookup was the call that pushed the real one past the line.
-var repoPrefixes sync.Map // root -> prefix
-
-func cachedRepoPrefix(ctx context.Context, root string) string {
-	if v, ok := repoPrefixes.Load(root); ok {
-		return v.(string)
-	}
-	prefix := repoPrefix(ctx, root)
-	if ctx.Err() == nil {
-		repoPrefixes.Store(root, prefix)
-	}
-	return prefix
 }
 
 // gitLogFormat starts every record with a record separator so a body-less

@@ -21,12 +21,16 @@ package main
 // user's code.
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/proc"
@@ -52,15 +56,26 @@ type GitFileChange struct {
 // `git diff --stat` about the same file would be a bug nobody could explain.
 // An untracked file has no numstat row — nothing to compare against — so its
 // own line count is the addition, which is what git shows once it is added.
-func (a *App) GitWorkingTree() []GitFileChange {
+//
+// **A read that failed is not a tree that is clean.** Outside a project or a
+// repository the answer is an empty list and no error — there is nothing to
+// show. A git that timed out or refused is an error, and the pane keeps the
+// last tree it had rather than drawing "nothing changed" over fifty-eight
+// files (owner, 12 ก.ย., on a machine where a git process was taking seconds:
+// "ทำไมมันค้างแบบนี้"). The room polls, so the next read will say more.
+func (a *App) GitWorkingTree() ([]GitFileChange, error) {
 	out := []GitFileChange{}
 	root, ok := a.gitRoot()
 	if !ok {
-		return out
+		return out, nil
 	}
 	ctx, cancel := a.gitContext()
 	defer cancel()
-	return append(out, workingTree(ctx, root, true)...)
+	rows, err := workingTree(ctx, root, true)
+	if err != nil {
+		return out, err
+	}
+	return append(out, rows...), nil
 }
 
 // workingTree is the one reader of `git status --porcelain` in this app.
@@ -84,14 +99,27 @@ func (a *App) GitWorkingTree() []GitFileChange {
 // to be counted. Worth it for a panel of rows somebody is reading; not worth it
 // for a tree that only needs to know the file is new, and where a folder full of
 // unadded files would mean reading every one of them on every refresh.
-func workingTree(ctx context.Context, root string, countUntracked bool) []GitFileChange {
+//
+// Two processes, not three: where the project sits inside its repository is
+// remembered per root (cachedRepoPrefix), because this runs every two seconds
+// while the git room is in front and again for every file-tree refresh.
+// Measured on the owner's repository, 12 ก.ย.: rev-parse 175 ms, status 264 ms,
+// numstat 342 ms — a fifth of the bill when git is quick, a third when each
+// process takes a second to start, for a fact that never changes.
+func workingTree(ctx context.Context, root string, countUntracked bool) ([]GitFileChange, error) {
 	out := []GitFileChange{}
 	status, err := gitOut(ctx, root, "status", "--porcelain")
 	if err != nil {
-		return out
+		if ctx.Err() != nil {
+			return out, errGitSlow
+		}
+		return out, err
 	}
-	prefix := repoPrefix(ctx, root)
-	counts := numstat(ctx, root)
+	prefix := cachedRepoPrefix(ctx, root)
+	counts, err := numstat(ctx, root)
+	if err != nil {
+		return out, err
+	}
 
 	for _, line := range strings.Split(strings.TrimRight(status, "\n"), "\n") {
 		if len(line) < 4 {
@@ -127,8 +155,13 @@ func workingTree(ctx context.Context, root string, countUntracked bool) []GitFil
 		}
 		out = append(out, row)
 	}
-	return out
+	return out, nil
 }
+
+// errGitSlow is what a read that ran out of its budget says — the one error
+// the room translates, because it is the one the user can do nothing about
+// except wait.
+var errGitSlow = errors.New("git took too long to answer")
 
 // repoPrefix is where root sits inside its repository, as a forward-slashed
 // path ending in "/" — empty when root is the repository itself, which is the
@@ -139,6 +172,24 @@ func repoPrefix(ctx context.Context, root string) string {
 		return ""
 	}
 	return strings.TrimSpace(raw)
+}
+
+// cachedRepoPrefix is repoPrefix remembered per root. Where a project sits
+// inside its repository does not change while the app runs, and every binding
+// in this file shares one ten-second budget with the git it then runs — on a
+// machine where a git process takes seconds to start (a scanner, a loaded
+// disk), the lookup was the call that pushed the real one past the line.
+var repoPrefixes sync.Map // root -> prefix
+
+func cachedRepoPrefix(ctx context.Context, root string) string {
+	if v, ok := repoPrefixes.Load(root); ok {
+		return v.(string)
+	}
+	prefix := repoPrefix(ctx, root)
+	if ctx.Err() == nil {
+		repoPrefixes.Store(root, prefix)
+	}
+	return prefix
 }
 
 // underPrefix re-roots one porcelain path at the project, and says whether it
@@ -239,11 +290,16 @@ func gitOut(ctx context.Context, root string, args ...string) (string, error) {
 
 // numstat maps path -> {added, removed} against HEAD, staged and unstaged
 // together, which is what the working tree actually holds.
-func numstat(ctx context.Context, root string) map[string][2]int {
+func numstat(ctx context.Context, root string) (map[string][2]int, error) {
 	counts := map[string][2]int{}
 	raw, err := gitOut(ctx, root, "diff", "--numstat", "HEAD")
 	if err != nil {
-		return counts
+		if ctx.Err() != nil {
+			return counts, errGitSlow
+		}
+		// A repository with no HEAD yet — nothing committed — has no numstat
+		// and that is not a failure: every row is an untracked file.
+		return counts, nil
 	}
 	for _, line := range strings.Split(strings.TrimRight(raw, "\n"), "\n") {
 		cols := strings.SplitN(line, "\t", 3)
@@ -262,14 +318,46 @@ func numstat(ctx context.Context, root string) map[string][2]int {
 		}
 		counts[p] = [2]int{added, removed}
 	}
-	return counts
+	return counts, nil
 }
 
+// untrackedCountCap is the most of an untracked file that is read to count its
+// lines. Past it the answer is 0 rather than a slower answer: a file that size
+// is a build product or a dump, and "+0" on its row costs nothing to be wrong
+// about, where reading it whole on every two-second tick did.
+const untrackedCountCap = 4 << 20
+
+// fileLineCount is an untracked file's `+N`: its lines, since every one of
+// them is an addition the moment it is added. A binary — a screenshot in
+// .aetox-attachments, an .exe — has no lines and answers 0 after its first
+// eight kilobytes rather than after all of them.
 func fileLineCount(full string) int {
-	data, err := os.ReadFile(full)
-	if err != nil || len(data) == 0 {
+	f, err := os.Open(full)
+	if err != nil {
 		return 0
 	}
-	text := strings.TrimSuffix(string(data), "\n")
-	return strings.Count(text, "\n") + 1
+	defer f.Close()
+	if info, statErr := f.Stat(); statErr != nil || info.IsDir() || info.Size() == 0 || info.Size() > untrackedCountCap {
+		return 0
+	}
+	head := make([]byte, 8<<10)
+	n, _ := io.ReadFull(f, head)
+	head = head[:n]
+	if bytes.IndexByte(head, 0) >= 0 {
+		return 0
+	}
+	count := bytes.Count(head, []byte{'\n'})
+	last := byte(0)
+	if n > 0 {
+		last = head[n-1]
+	}
+	rest, _ := io.ReadAll(f)
+	if len(rest) > 0 {
+		count += bytes.Count(rest, []byte{'\n'})
+		last = rest[len(rest)-1]
+	}
+	if last != '\n' {
+		count++
+	}
+	return count
 }
