@@ -21,11 +21,13 @@ const (
 	MethodRenderDeck       = "screen.renderDeck"
 )
 
-// screenWait is how long the engine waits for a screen to be connected
-// before a question that needs one fails with ErrNoScreen. The screen is
-// the process that started this one, so its absence is a restart or a
-// tunnel that dropped — long enough to ride out a reconnect, short enough
-// that a turn does not sit on a dead question for good.
+// screenWait is how long a turn's request — a provider call, a window tool
+// — waits for a screen to be connected before failing with ErrNoScreen. The
+// screen is the process that started this one, so its absence mid-turn is a
+// restart or a tunnel that dropped: long enough to ride out a reconnect,
+// short enough that a turn does not sit on a dead question for good. The
+// desk questions do not wait at all (ask): a switch made with no screen
+// gets the catalog's answer, the way a noScreen engine does.
 var screenWait = 60 * time.Second
 
 // ScreenPeer is engine.Screen over the wire: whichever screen is connected
@@ -116,11 +118,23 @@ func (p *ScreenPeer) await(ctx context.Context) (*Conn, error) {
 	}
 }
 
-// call asks the screen, waiting for one if none is connected.
+// call asks the screen, waiting for one if none is connected — for what a
+// turn cannot do without: a provider request, a window tool.
 func (p *ScreenPeer) call(ctx context.Context, method string, params any, out any) error {
 	conn, err := p.await(ctx)
 	if err != nil {
 		return err
+	}
+	return conn.Call(ctx, method, params, out)
+}
+
+// ask asks the screen that is connected now, and answers ErrNoScreen at
+// once when there is none — for the desk questions, whose callers have an
+// answer of their own for nobody (the catalog, "", false).
+func (p *ScreenPeer) ask(ctx context.Context, method string, params any, out any) error {
+	conn := p.current()
+	if conn == nil {
+		return ErrNoScreen
 	}
 	return conn.Call(ctx, method, params, out)
 }
@@ -135,21 +149,17 @@ func (p *ScreenPeer) Emit(event string, data any) {
 
 func (p *ScreenPeer) ProviderEndpoint(provider string) string {
 	var out string
-	if err := p.call(context.Background(), MethodProviderEndpoint, []any{provider}, &out); err != nil {
+	if err := p.ask(context.Background(), MethodProviderEndpoint, []any{provider}, &out); err != nil {
 		return ""
 	}
 	return out
 }
 
 func (p *ScreenPeer) AgentTab() string {
-	conn := p.current()
-	if conn == nil {
-		return ""
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	var out string
-	if err := conn.Call(ctx, MethodAgentTab, nil, &out); err != nil {
+	if err := p.ask(ctx, MethodAgentTab, nil, &out); err != nil {
 		return ""
 	}
 	return out
@@ -157,7 +167,7 @@ func (p *ScreenPeer) AgentTab() string {
 
 func (p *ScreenPeer) DefaultModel(provider, baseURL string) string {
 	var out string
-	if err := p.call(context.Background(), MethodDefaultModel, []any{provider, baseURL}, &out); err != nil {
+	if err := p.ask(context.Background(), MethodDefaultModel, []any{provider, baseURL}, &out); err != nil {
 		return ""
 	}
 	return out
@@ -165,13 +175,13 @@ func (p *ScreenPeer) DefaultModel(provider, baseURL string) string {
 
 func (p *ScreenPeer) Probe(provider, modelName, baseURL, wireFormat string) (string, error) {
 	var out string
-	err := p.call(context.Background(), MethodProbe, []any{provider, modelName, baseURL, wireFormat}, &out)
+	err := p.ask(context.Background(), MethodProbe, []any{provider, modelName, baseURL, wireFormat}, &out)
 	return out, err
 }
 
 func (p *ScreenPeer) ModelResident(provider, baseURL, modelName string) bool {
 	var out bool
-	if err := p.call(context.Background(), MethodModelResident, []any{provider, baseURL, modelName}, &out); err != nil {
+	if err := p.ask(context.Background(), MethodModelResident, []any{provider, baseURL, modelName}, &out); err != nil {
 		return false
 	}
 	return out
@@ -179,7 +189,7 @@ func (p *ScreenPeer) ModelResident(provider, baseURL, modelName string) bool {
 
 func (p *ScreenPeer) RenderDeck(ctx context.Context, fileURL string, req engine.DeckRender) (engine.DeckRendered, error) {
 	var out engine.DeckRendered
-	err := p.call(ctx, MethodRenderDeck, []any{fileURL, req}, &out)
+	err := p.ask(ctx, MethodRenderDeck, []any{fileURL, req}, &out)
 	return out, err
 }
 
