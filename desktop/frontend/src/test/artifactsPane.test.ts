@@ -10,9 +10,8 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import ArtifactsPane from '../lib/workbench/ArtifactsPane.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import { workbench } from '../lib/stores/workbench.svelte'
-import {
-  SessionEdits, ListArtifactsForSession, ReadFile,
-} from './mocks/wailsApp'
+import { ReadFile, SessionEdits, ListArtifactsForSession } from './mocks/wailsApp'
+import type { PlanReport } from '../lib/types'
 
 const paneSrc = readFileSync('src/lib/workbench/ArtifactsPane.svelte', 'utf8')
 /** The declarations of the rule whose selector matches exactly.
@@ -29,29 +28,45 @@ function rule(selector: string): string {
   return m[1]
 }
 
+const names = (container: HTMLElement) =>
+  Array.from(container.querySelectorAll('.art-item-name')).map((el) => el.textContent?.trim())
+
+const report = (over: Partial<PlanReport> = {}): PlanReport => ({
+  run: 1,
+  planVersion: 1,
+  title: 'ย้ายพาเนลชิ้นงานให้เหลือแผนกับรายงาน',
+  sections: [
+    { heading: 'What was done', body: 'ตัดการกวาดโฟลเดอร์ output ออก' },
+    { heading: 'How it was checked', body: 'go test ./desktop ผ่าน 214' },
+  ],
+  done: 3, failed: 0, total: 3,
+  elapsedSecs: 840, sentBack: 1,
+  at: '2026-09-12T10:42:00+07:00',
+  ...over,
+})
+
 beforeEach(() => {
   vi.clearAllMocks()
   cockpit.plan = null
+  cockpit.planReports = []
   cockpit.chat = []
   workbench.tabs = []
   workbench.activeId = ''
   // The chat on screen. The pane reads it from the store rather than asking the
   // engine for it (see the note at the call site), so a test states it here.
   cockpit.openSession = 'session-1'
-  vi.mocked(SessionEdits).mockResolvedValue({ files: [], total: 0 })
-  vi.mocked(ListArtifactsForSession).mockResolvedValue({ files: [], range: 'all', total: 0 } as any)
   vi.mocked(ReadFile).mockResolvedValue('')
 })
 
 describe('ArtifactsPane', () => {
-  it('shows empty state when session has no plan and no produced files', async () => {
+  it('shows the empty state when nothing has been handed over', async () => {
     render(ArtifactsPane)
     await waitFor(() => {
-      expect(screen.getByText('ยังไม่มีชิ้นงานในเซสชันนี้')).toBeTruthy()
+      expect(screen.getByText('แชตนี้ยังไม่มีชิ้นงาน')).toBeTruthy()
     })
   })
 
-  it('renders plan as an artifact item when cockpit.plan exists', async () => {
+  it('renders the plan as the first row when cockpit.plan exists', async () => {
     cockpit.plan = {
       title: 'สร้างระบบ Artifacts',
       steps: [
@@ -65,192 +80,120 @@ describe('ArtifactsPane', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText('สร้างระบบ Artifacts').length).toBeGreaterThanOrEqual(1)
-      expect(screen.getByText(/1\/2 ขั้นตอน/)).toBeTruthy()
+      expect(screen.getByText(/1\/2 ขั้น/)).toBeTruthy()
     })
   })
 
-  it('collects produced files from chat messages and displays them with icons and badges', async () => {
+  // ONE REPORT PER ROUND, NEWEST FIRST. The row says what the round came to
+  // without opening it — a finished round by its steps, a held round by the
+  // hold's own words — and the stage draws the report as a card of the plan's
+  // own family, numbers first and the model's words under them.
+  it('lists every round of the plan as a report, newest first, and draws the chosen one', async () => {
+    cockpit.plan = { title: 'ย้ายพาเนล', sections: [{ heading: 'What to change', body: 'x' }], steps: [], version: 3, updated: '' } as any
+    cockpit.planReports = [
+      report({ run: 1, done: 1, failed: 0, total: 3, stopped: 'รอก่อนทำข้อ 2', elapsedSecs: 120 }),
+      report({ run: 2, done: 2, failed: 1, total: 3 }),
+    ]
+
+    const { container } = render(ArtifactsPane)
+    await waitFor(() => expect(names(container)).toEqual(['ย้ายพาเนล', 'รอบที่ 2', 'รอบที่ 1']))
+
+    const metas = Array.from(container.querySelectorAll('.art-item-meta')).map((el) => el.textContent?.trim() ?? '')
+    expect(metas[1]).toContain('3/3 ขั้น')
+    expect(metas[1]).toContain('ล้ม 1')
+    expect(metas[1]).toContain('14 นาที')
+    expect(metas[2]).toContain('รอก่อนทำข้อ 2')
+
+    const rows = container.querySelectorAll('.art-item')
+    await fireEvent.click(rows[1])
+    await waitFor(() => {
+      expect(container.querySelector('.report-hero')).toBeTruthy()
+      expect(screen.getByText('ตรวจอย่างไร ผลเป็นอย่างไร')).toBeTruthy()
+      expect(screen.getByText(/go test \.\/desktop/)).toBeTruthy()
+      // The engine's numbers, not the model's words: the round failed a step,
+      // so the badge is not "finished as planned".
+      expect(screen.queryByText('เสร็จตามแผน')).toBeNull()
+      expect(screen.getByText('ล้ม 1')).toBeTruthy()
+    })
+  })
+
+  // WHAT A TURN HANDED OVER, SORTED — AND NOTHING ELSE.
+  //
+  // The signal is the flag a tool set (skill.Output.Artifacts), and the pane
+  // sorts what it flagged into documents, decks and pages. A picture, a sheet,
+  // and source code are not listed however they arrived: each has a home
+  // already, and this pane was the third copy that buried the plan (owner, 12
+  // ก.ย., with a screenshot of twelve rows: "มันไม่ควรแสดงทุกอย่างดิตรงนี้").
+  it('sorts the handed-over files into documents, slides and pages, and lists nothing else', async () => {
     cockpit.chat = [
       {
         role: 'agent',
         text: 'ทำเสร็จแล้วครับ',
         time: '12:00',
         producedFiles: [
-          'output/session-1/walkthrough.md',
-          'output/session-1/mockup.html',
-          'output/session-1/diagram.png',
+          'output/session-1/findings.md',
+          'output/session-1/สรุปไตรมาส.html',
+          'output/session-1/dashboard.html',
+          'output/session-1/work/page-1.png',
+          'output/session-1/hero.png',
+          'output/session-1/book.xlsx',
+          'desktop/app.go',
+          'output/session-1/brief.docx',
         ],
       },
     ] as any
-
     vi.mocked(ReadFile).mockImplementation(async (path: string) => {
-      if (path.endsWith('.md')) return '# สรุปการทำงาน\n\nระบบใช้งานได้ดี'
-      if (path.endsWith('.html')) return '<h1>Mockup</h1>'
+      if (path.endsWith('สรุปไตรมาส.html')) return '<!doctype html><html><body><section class="slide">1</section><section class="slide">2</section></body></html>'
+      if (path.endsWith('dashboard.html')) return '<!doctype html><html><body><h1>Dashboard</h1></body></html>'
+      if (path.endsWith('.md')) return '# สรุป\n\nใช้งานได้ดี'
       return ''
     })
 
     const { container } = render(ArtifactsPane)
+    await waitFor(() => expect(names(container).length).toBe(4))
 
-    await waitFor(() => {
-      expect(screen.getAllByText('walkthrough.md').length).toBeGreaterThanOrEqual(1)
-      expect(screen.getByText('mockup.html')).toBeTruthy()
-      expect(screen.getByText('diagram.png')).toBeTruthy()
-    })
-
-    // Click on walkthrough.md item in the list to view
-    const itemBtn = container.querySelector('.art-item') as HTMLElement
-    await fireEvent.click(itemBtn)
-    await waitFor(() => {
-      expect(screen.getByText('สรุปการทำงาน')).toBeTruthy()
-    })
-  })
-
-  // SOURCE CODE IS NOT AN ARTIFACT.
-  //
-  // A session that works on this repository edits .go and .svelte files all day,
-  // and every one of them used to land in this list — the turn's produced files
-  // and the session's edits both carry them — where they buried the plan, the
-  // walkthrough and the pictures under a directory listing. The owner, looking
-  // at exactly that (11 ก.ย.): *"ตรงนี้ไม่ควรแสดงโค้ดสิ มันควรแสดงแค่ ไฟล์
-  // ตัวอย่าง หรือ แผน หรืออะไรพวกนี้"*.
-  //
-  // What it edits has two homes already — the turn draws those files with their
-  // diff, and the session strip lists them next to the room's sources — so the
-  // rule is about what this pane is FOR: a thing Aetox made.
-  it('leaves source code out, whatever brought it in', async () => {
-    cockpit.chat = [
-      {
-        role: 'agent',
-        text: 'แก้ให้แล้วครับ',
-        time: '12:00',
-        producedFiles: [
-          'desktop/app.go',
-          'src/lib/Chat.svelte',
-          'docs/walkthrough.md',
-          'scratch/mockup.html',
-          'deck/สรุปงาน.pptx',
-        ],
-      },
-    ] as any
-    vi.mocked(SessionEdits).mockResolvedValue({
-      files: [
-        { path: 'desktop/plan.go', label: 'plan.go', dir: 'desktop', gone: false },
-        { path: 'package.json', label: 'package.json', dir: '', gone: false },
-        { path: 'docs/notes.md', label: 'notes.md', dir: 'docs', gone: false },
-      ],
-      total: 3,
-    } as any)
-
-    const { container } = render(ArtifactsPane)
-    await waitFor(() => expect(container.querySelector('.art-item')).toBeTruthy())
-
-    const names = Array.from(container.querySelectorAll('.art-item-name')).map((el) => el.textContent?.trim())
-    // The deliverables, from both paths.
-    for (const kept of ['walkthrough.md', 'mockup.html', 'สรุปงาน.pptx', 'notes.md']) {
-      expect(names).toContain(kept)
+    // Grouped in the pane's order, each group only when it has something.
+    const heads = Array.from(container.querySelectorAll('.art-group-head')).map((el) => el.textContent?.trim().replace(/\s*\d+$/, ''))
+    expect(heads).toEqual(['เอกสาร', 'สไลด์', 'หน้าเว็บ'])
+    expect(names(container)).toEqual(['findings.md', 'brief.docx', 'สรุปไตรมาส.html', 'dashboard.html'])
+    for (const gone of ['page-1.png', 'hero.png', 'book.xlsx', 'app.go']) {
+      expect(names(container)).not.toContain(gone)
     }
-    // The work itself, from both paths. A .pptx is kept above on purpose: a file
-    // this pane cannot preview is still a thing Aetox made, which is not the
-    // same answer as the project's own source.
-    for (const gone of ['app.go', 'Chat.svelte', 'plan.go', 'package.json']) {
-      expect(names).not.toContain(gone)
-    }
-    // And a chat that produced nothing but code reads as a chat with nothing to
-    // show, rather than as a list of the files it was asked to change.
-    expect(names.length).toBe(4)
+    // The deck knows it is one, and says how long it is.
+    expect(screen.getByText('2 สไลด์')).toBeTruthy()
+
+    // A document opens on the stage.
+    const rows = Array.from(container.querySelectorAll('.art-item')) as HTMLElement[]
+    await fireEvent.click(rows[0])
+    await waitFor(() => expect(screen.getByText('สรุป')).toBeTruthy())
   })
 
-  it('allows filtering by kind', async () => {
+  // A DECK AND A PAGE ARE SENT OFF, NOT PREVIEWED. Each already has a room
+  // that can show it properly; a second preview inside a 320px pane was the
+  // thing the owner could not read. The row says where it goes and goes there,
+  // and the stage keeps whatever it was showing.
+  it('sends a deck to the slides room and a page to the browser instead of drawing them', async () => {
     cockpit.chat = [
-      {
-        role: 'agent',
-        text: 'ผลลัพธ์',
-        time: '12:00',
-        producedFiles: [
-          'output/session-1/notes.md',
-          'output/session-1/page.html',
-        ],
-      },
+      { role: 'agent', text: 'x', time: '12:00', producedFiles: ['output/session-1/notes.md', 'output/session-1/deck.html', 'output/session-1/page.html'] },
     ] as any
-
-    const { container } = render(ArtifactsPane)
-
-    await waitFor(() => {
-      expect(container.querySelector('.art-item')).toBeTruthy()
-    })
-
-    // Click filter UI / เว็บ
-    const pageFilter = screen.getByText('UI / เว็บ')
-    await fireEvent.click(pageFilter)
-
-    await waitFor(() => {
-      const items = Array.from(container.querySelectorAll('.art-item-name')).map((el) => el.textContent?.trim())
-      expect(items).toContain('page.html')
-      expect(items).not.toContain('notes.md')
-    })
-  })
-
-  it('toggles between UI Preview and Source Code for HTML files', async () => {
-    cockpit.chat = [
-      {
-        role: 'agent',
-        text: 'หน้าเว็บ',
-        time: '12:00',
-        producedFiles: ['output/session-1/index.html'],
-      },
-    ] as any
-
-    vi.mocked(ReadFile).mockResolvedValue('<!DOCTYPE html><html><body>Hello World</body></html>')
-
-    const { container } = render(ArtifactsPane)
-
-    await waitFor(() => {
-      expect(screen.getAllByText('index.html').length).toBeGreaterThanOrEqual(1)
-    })
-
-    await waitFor(() => {
-      expect(container.querySelector('iframe.art-iframe')).toBeTruthy()
-    })
-
-    // Toggle to source code
-    const codeBtn = screen.getByText('ซอร์สโค้ด')
-    await fireEvent.click(codeBtn)
-
-    await waitFor(() => {
-      expect(screen.getByText(/Hello World/)).toBeTruthy()
-    })
-  })
-
-  it('deduplicates files referenced by both chat and disk output scan', async () => {
-    cockpit.chat = [
-      {
-        role: 'agent',
-        text: 'สร้างข้อมูล',
-        time: '12:00',
-        producedFiles: ['users_data.csv'],
-      },
-    ] as any
-
-    vi.mocked(ListArtifactsForSession).mockResolvedValue({
-      range: 'all',
-      total: 1,
-      files: [
-        {
-          name: 'users_data.csv',
-          path: 'C:/Users/phrms/aetox/output/20260910/users_data.csv',
-          size: 316,
-          sessionId: 'session-1',
-        } as any,
-      ],
+    vi.mocked(ReadFile).mockImplementation(async (path: string) => {
+      if (path.endsWith('deck.html')) return '<!doctype html><html><body><section class="slide">1</section></body></html>'
+      if (path.endsWith('notes.md')) return 'notes'
+      return '<!doctype html><html><body>page</body></html>'
     })
 
     const { container } = render(ArtifactsPane)
+    await waitFor(() => expect(names(container)).toEqual(['notes.md', 'deck.html', 'page.html']))
+    const tags = Array.from(container.querySelectorAll('.art-handoff')).map((el) => el.textContent?.trim())
+    expect(tags).toEqual(['ห้องสไลด์', 'เบราว์เซอร์'])
 
-    await waitFor(() => {
-      const items = Array.from(container.querySelectorAll('.art-item-name')).map((el) => el.textContent?.trim())
-      const occurrences = items.filter((name) => name === 'users_data.csv')
-      expect(occurrences.length).toBe(1)
-    })
+    const rows = Array.from(container.querySelectorAll('.art-item')) as HTMLElement[]
+    await fireEvent.click(rows[1])
+    await waitFor(() => expect(workbench.tabs.some((t) => t.kind === 'file' && t.path === 'output/session-1/deck.html')).toBe(true))
+    await fireEvent.click(rows[2])
+    await waitFor(() => expect(workbench.tabs.some((t) => t.kind === 'browser' && (t.url ?? '').includes('page.html'))).toBe(true))
+    // The stage still shows the document; a send-off row is never "chosen".
+    expect(container.querySelector('.art-item.active')?.textContent).toContain('notes.md')
   })
 
   it('renders Plan & Stepper 2.0 with hero progress bar and vertical timeline', async () => {
@@ -287,6 +230,29 @@ describe('ArtifactsPane', () => {
       expect(container.querySelector('.step-code')?.textContent).toBe('users_data.csv')
     })
   })
+
+  // NO SWEEP, NO SESSION EDITS. The two sources that used to fill this list
+  // with every file in output/<session> and every file the session touched
+  // are not asked at all — not filtered afterwards, not asked. What is here
+  // came through the flag or the database.
+  it('never sweeps the output folder or the session edits', async () => {
+    cockpit.chat = [{ role: 'agent', text: 'x', time: '12:00', producedFiles: ['output/session-1/notes.md'] }] as any
+    const { container } = render(ArtifactsPane)
+    await waitFor(() => expect(names(container)).toEqual(['notes.md']))
+    expect(vi.mocked(ListArtifactsForSession)).not.toHaveBeenCalled()
+    expect(vi.mocked(SessionEdits)).not.toHaveBeenCalled()
+  })
+
+  it('reads nothing at all while it is behind another tab', async () => {
+    // The pane stays mounted behind the tab in front, so its effect used to run
+    // for the whole turn — every message and every plan step, each one a read,
+    // for a list with no reader (owner, 11 ก.ย.: "ทำไมเปิดอยู่ถึงรอนานและกระตุก").
+    cockpit.chat = [{ role: 'agent', text: 'x', time: '12:00', producedFiles: ['output/session-1/deck.html'] }] as any
+    render(ArtifactsPane, { props: { active: false } })
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(vi.mocked(ReadFile)).not.toHaveBeenCalled()
+  })
 })
 
 // TWO PANES, ONE COLUMN WHEN THERE IS NO ROOM FOR TWO.
@@ -300,13 +266,15 @@ describe('ArtifactsPane', () => {
 //
 // What is pinned here is the pair of numbers that stops it happening again:
 // the stage's basis (the width below which a preview is not worth looking at,
-// and therefore the width at which the layout wraps) and the two heights that
-// keep the wrapped lines from splitting the pane between them.
+// and therefore the width at which the layout turns into a column) and the
+// band's cap, which is what lets a short list show every row rather than a
+// fixed 240px with the send-off rows below the fold.
 describe('the artifacts pane at the width it is allowed to be', () => {
-  it('wraps the stage under the list rather than squeezing it', () => {
-    expect(rule('.art-pane')).toContain('flex-wrap: wrap')
-    // The basis is the wrap point: 220 (list) + 340 (stage) = 560.
+  it('turns into a column rather than squeezing the stage', () => {
+    // The basis is the turning point: 220 (list) + 340 (stage) = 560.
     expect(rule('.art-stage')).toMatch(/flex: ?1 1 340px/)
+    const narrow = paneSrc.slice(paneSrc.indexOf('@container artifacts'))
+    expect(narrow).toContain('flex-direction: column')
   })
 
   it('measures itself rather than the window, since a drag handle sets its width', () => {
@@ -318,44 +286,22 @@ describe('the artifacts pane at the width it is allowed to be', () => {
     expect(paneSrc).toContain('@container artifacts (max-width: 559px)')
   })
 
-  it('gives the stage every pixel the band does not take', () => {
-    // No max-height here: two flex lines left to size themselves split the
-    // pane's free space equally, which would hand the list half a pane for rows
-    // it is not showing. Both heights are definite, so there is nothing to split.
-    const band = paneSrc.slice(paneSrc.indexOf('@container artifacts'))
-    expect(band).toContain('height: min(240px, 42%)')
-    expect(band).toContain('height: calc(100% - min(240px, 42%))')
-  })
-
-  it('asks for the files of one chat, not every file on the machine', async () => {
-    // The whole point of the session-scoped binding: the rows this pane keeps
-    // were always the rows in `output/<id>`, and the walk that found them was
-    // every root this install knows. The pane still drops a row whose sessionId
-    // is not the chat on screen, because a load can land after a switch.
-    render(ArtifactsPane)
-    await waitFor(() => expect(ListArtifactsForSession).toHaveBeenCalled())
-
-    expect(vi.mocked(ListArtifactsForSession).mock.calls.at(-1)?.[0]).toBe('session-1')
-  })
-
-  it('reads nothing at all while it is behind another tab', async () => {
-    // The pane stays mounted behind the tab in front, so its effect used to run
-    // for the whole turn — every message and every plan step, each one a sweep,
-    // for a list with no reader (owner, 11 ก.ย.: "ทำไมเปิดอยู่ถึงรอนานและกระตุก").
-    render(ArtifactsPane, { props: { active: false } })
-    await new Promise((r) => setTimeout(r, 20))
-
-    expect(vi.mocked(ListArtifactsForSession)).not.toHaveBeenCalled()
-    expect(vi.mocked(SessionEdits)).not.toHaveBeenCalled()
+  it('lets the band size to its rows, up to half the pane', () => {
+    // Sized to content with a cap, not a fixed height: a list of six rows is
+    // six rows tall, and the stage takes every pixel under it. A fixed band
+    // cut the last rows off — the deck and the page, the rows this list is
+    // now for.
+    const narrow = paneSrc.slice(paneSrc.indexOf('@container artifacts'))
+    expect(narrow).toContain('max-height: 52%')
+    expect(narrow).toMatch(/\.art-stage \{[^}]*flex: 1 1 0/)
   })
 
   it('keeps the percentage the layout is built on honest', () => {
-    // The list's width and the inspector's floor are what make the wrap happen
-    // at a width this pane really reaches; a change to either is a change to
-    // this whole rule, and this is the line that says so.
+    // The list's width and the inspector's floor are what make the column
+    // happen at a width this pane really reaches; a change to either is a
+    // change to this whole rule, and this is the line that says so.
     expect(rule('.art-list')).toContain('width: 220px')
     const app = readFileSync('src/App.svelte', 'utf8')
     expect(app).toMatch(/inspector:[\s\S]{0,120}?min: 320/)
   })
 })
-

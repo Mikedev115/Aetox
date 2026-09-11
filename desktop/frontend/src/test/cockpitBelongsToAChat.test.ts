@@ -86,6 +86,9 @@ const decided: Record<string, Kind> = {
   // CockpitState and the suite failed until somebody chose. That is the whole
   // instrument working, on the first field added after it existed.
   plan: 'dropped',
+  // The plan's closing reports ride with it: same row-keyed store on the Go
+  // side, cleared in the same breath and asked for again by refreshPlan.
+  planReports: 'dropped',
 
   // ---- carried across, mid-flight ----
   chat: 'parked-live', awaitingReply: 'parked-live', agentStatus: 'parked-live',

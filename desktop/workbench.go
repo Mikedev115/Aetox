@@ -558,7 +558,35 @@ func (s *browserOpenSkill) open(ctx context.Context, url string, newTab bool) (s
 		out.Content += s.app.engineNote(id)
 	}
 	out.RawOutput = out.Content
+	// A page the chat built and opened for the user is handed over, the same
+	// way a file put on the desk is (workbench_desk.go handedOver): a web page
+	// that is not a deck is shown rendered through THIS call, per the desk
+	// tool's own guidance, so this is where the flag has to be set for it.
+	// Resolved against the same root the open resolved against.
+	if rel := handedOverFile(s.app.cur().cfg.SandboxRoot, s.app.outputSubdir(), finalURL); rel != "" {
+		out.Artifacts = []string{rel}
+	}
 	return out, nil
+}
+
+// handedOverFile turns a file:/// address back into the project-relative path
+// `write` reported, when — and only when — it lies in this chat's own output
+// folder. "" for any web address, any file outside the root, and any file of
+// the project: none of those is a thing this chat made.
+func handedOverFile(root, outputSubdir, url string) string {
+	if !strings.HasPrefix(url, "file:///") || strings.TrimSpace(root) == "" {
+		return ""
+	}
+	abs := filepath.FromSlash(strings.TrimPrefix(url, "file:///"))
+	rel, err := filepath.Rel(root, abs)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return ""
+	}
+	rel = filepath.ToSlash(rel)
+	if !handedOver(outputSubdir, rel) {
+		return ""
+	}
+	return rel
 }
 
 // browserOpenedLine is the one place this sentence is written. It is a function

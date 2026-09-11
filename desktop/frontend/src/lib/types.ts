@@ -1005,6 +1005,28 @@ export interface Plan {
   startedAt?: string
 }
 
+/** One round's closing report (Go: main.PlanReport, desktop/plan_report.go) —
+ * the plan's "after", written by the model under fixed headings when the
+ * steps are settled, or where the work got to when the run held. The numbers
+ * are the engine's, copied off the plan and the run at the moment of writing;
+ * only the sections are the model's words. */
+export interface PlanReport {
+  /** 1-based round of this conversation's plan; the report's name on screen. */
+  run: number
+  planVersion: number
+  title: string
+  sections: PlanSection[]
+  done: number
+  failed: number
+  total: number
+  elapsedSecs?: number
+  sentBack?: number
+  /** Why the round stopped short (the hold reason), '' for one that finished. */
+  stopped?: string
+  /** RFC3339. */
+  at: string
+}
+
 export interface CockpitState {
   project: ProjectInfo
   /** Folders added to the focused project, in the order they were added. */
@@ -1209,6 +1231,10 @@ export interface CockpitState {
    *  one — which is most chats, and is why it is null rather than an empty Plan:
    *  "no plan" and "a plan with nothing in it" draw differently. */
   plan: Plan | null
+  /** The closing reports of this conversation's plan, oldest round first
+   *  (desktop/plan_report.go). Empty for the chats whose plan has not been
+   *  carried out — and for every chat without one. */
+  planReports: PlanReport[]
   /** The user's own next message, written for them after a turn that ended by
    *  asking them something (desktop/prepared_reply.go). Best first; the composer
    *  shows one at a time in dim text and Tab takes it. Empty on every turn that
@@ -1299,6 +1325,7 @@ export function emptyCockpitState(): CockpitState {
     todos: [],
     taskChips: [],
     plan: null,
+    planReports: [],
     prepared: [],
     preparedAt: 0,
     pendingLearned: 0,

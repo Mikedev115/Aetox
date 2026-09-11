@@ -112,13 +112,96 @@ func TestTheFinishConditionIsAskedOnce(t *testing.T) {
 	if first := check("finished"); !strings.Contains(first, "go test ./desktop/") {
 		t.Fatalf("the finish condition was not asked at all:\n%s", first)
 	}
-	if second := check("I ran it, it passes"); second != "" {
+	// What comes next is GATE THREE, not the finish condition again: the
+	// closing report (plan_report.go). Mechanical like gate one, so it may
+	// repeat — a report exists or it does not — and it names the action.
+	second := check("I ran it, it passes")
+	if strings.Contains(second, "go test ./desktop/") {
 		t.Errorf("the finish condition was asked twice, so the run argues:\n%s", second)
+	}
+	if !strings.Contains(second, "action: report") {
+		t.Fatalf("the run was let go without its report:\n%s", second)
+	}
+	if third := check("done, I said"); !strings.Contains(third, "action: report") {
+		t.Errorf("the report gate gave up after one ask, and a run can end with nothing written down:\n%s", third)
+	}
+	if s.app.goalRunSet().running(id) == false {
+		t.Fatal("the run ended before its report was written")
+	}
+	call(t, s, map[string]any{"action": "report", "sections": []any{
+		map[string]any{"heading": "What was done", "body": "all three, and the test is green"},
+	}})
+	if last := check("the report is under ชิ้นงาน"); last != "" {
+		t.Errorf("a run with its report written was still pushed on:\n%s", last)
 	}
 	// And the run is put down with the turn, so the card stops saying it is
 	// working without the window having to ask.
 	if s.app.goalRunSet().running(id) {
 		t.Error("the run is still marked running after the turn was allowed to end")
+	}
+}
+
+// ONE REPORT PER ROUND. A run that holds and is resumed is two pieces of work
+// somebody walked away from, and each gets its own note: the hold's says where
+// it got to, the finish's says it is done. The numbers on each are the plan's
+// and the run's at that moment, never the model's.
+func TestEachRoundOfARunWritesItsOwnReport(t *testing.T) {
+	s := goalApp(t)
+	writeRunnablePlan(t, s)
+	id := s.sessionID()
+	s.app.goalRunSet().start(id)
+	call(t, s, map[string]any{"action": "step", "n": 1, "state": "done"})
+	s.app.PausePlanRun(id)
+
+	check := s.app.goalCheck(id)
+	if v := check("holding"); !strings.Contains(v, "action: report") {
+		t.Fatalf("a held run was let go without asking where it got to:\n%s", v)
+	}
+	call(t, s, map[string]any{"action": "report", "sections": []any{
+		// Out of the shape's order and in the wrong case on purpose: the
+		// parser folds and sorts, the way the plan's does.
+		map[string]any{"heading": "what is left", "body": "steps 2 and 3"},
+		map[string]any{"heading": "What was done", "body": "step 1"},
+	}})
+	if v := check("holding"); v != "" {
+		t.Fatalf("a held run with its report written was pushed on:\n%s", v)
+	}
+
+	reps, err := s.app.loadPlanReports(id)
+	if err != nil || len(reps) != 1 {
+		t.Fatalf("after the hold: %d reports, err %v — want exactly one", len(reps), err)
+	}
+	first := reps[0]
+	if first.Run != 1 || first.Done != 1 || first.Total != 3 || first.PlanVersion != 1 {
+		t.Errorf("the hold's report carries the wrong numbers: %+v", first)
+	}
+	if first.Stopped == "" {
+		t.Error("the hold's report does not say the round stopped short")
+	}
+	if len(first.Sections) != 2 || first.Sections[0].Heading != "What was done" || first.Sections[1].Heading != "What is left" {
+		t.Errorf("the sections were not folded onto the shape and ordered: %+v", first.Sections)
+	}
+
+	// ไปต่อ is a new round: it finishes, answers the finish condition, and owes
+	// a report of its own.
+	s.app.ResumePlanRun(id)
+	for n := 2; n <= 3; n++ {
+		call(t, s, map[string]any{"action": "step", "n": n, "state": "done"})
+	}
+	check("finished")       // gate two
+	v := check("it passes") // gate three
+	if !strings.Contains(v, "action: report") {
+		t.Fatalf("the resumed round was let go without a report of its own:\n%s", v)
+	}
+	call(t, s, map[string]any{"action": "report", "sections": []any{
+		map[string]any{"heading": "What was done", "body": "steps 2 and 3"},
+	}})
+	if v := check("done"); v != "" {
+		t.Errorf("the finished round was pushed on after its report:\n%s", v)
+	}
+	reps, _ = s.app.loadPlanReports(id)
+	if len(reps) != 2 || reps[1].Run != 2 || reps[1].Stopped != "" || reps[1].Done != 3 {
+		t.Errorf("the second round's report is wrong or missing: %+v", reps)
 	}
 }
 
@@ -288,7 +371,14 @@ func TestPausingLetsTheTurnEndWithoutLosingTheRun(t *testing.T) {
 	call(t, s, map[string]any{"action": "step", "n": 1, "state": "done"})
 	s.app.PausePlanRun(id)
 
-	if v := s.app.goalCheck(id)("stopping here for now"); v != "" {
+	// A hold asks ONCE for a note on where the work got to (plan_report.go)
+	// and then lets the turn end whether or not one was written: holding is
+	// not a place to argue from.
+	check := s.app.goalCheck(id)
+	if v := check("stopping here for now"); !strings.Contains(v, "action: report") {
+		t.Fatalf("a paused run was let go without asking for its note:\n%s", v)
+	}
+	if v := check("no report from me"); v != "" {
 		t.Fatalf("a paused run still pushed the turn on:\n%s", v)
 	}
 	// The run is STILL THERE. A pause that ended the run would be a stop with a
@@ -336,7 +426,13 @@ func TestABreakpointHoldsTheRunBeforeThatStep(t *testing.T) {
 			drawn = ev.Data
 		}
 	}
-	if v := s.app.goalCheck(id)("carrying on"); v != "" {
+	// The hold asks for its note first (see the pause test), and holds
+	// either way: what must not come back is the next step.
+	check := s.app.goalCheck(id)
+	if v := check("carrying on"); strings.Contains(v, "not marked done") {
+		t.Fatalf("the run walked through a breakpoint:\n%s", v)
+	}
+	if v := check("carrying on"); v != "" {
 		t.Fatalf("the run walked through a breakpoint:\n%s", v)
 	}
 	if drawn.Paused == "" {
@@ -376,7 +472,9 @@ func TestResumingPastABreakpointClearsIt(t *testing.T) {
 	s.app.SetPlanStepStop(id, 1, true)
 	s.app.goalRunSet().start(id)
 
-	if v := s.app.goalCheck(id)("starting"); v != "" {
+	check := s.app.goalCheck(id)
+	check("starting") // the hold asks for its note
+	if v := check("starting"); v != "" {
 		t.Fatal("the breakpoint did not hold")
 	}
 	s.app.ResumePlanRun(id)

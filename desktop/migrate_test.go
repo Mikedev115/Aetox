@@ -376,12 +376,16 @@ func TestOldCallerFaultRowsAreMarkedOnUpgrade(t *testing.T) {
 	if _, err := old.Exec(baselineSchema); err != nil {
 		t.Fatalf("legacy schema: %v", err)
 	}
-	// Run every migration but the last, then write rows the way that build
-	// would have — unmarked.
+	// Run every migration, then rewind to just before the backfill and write
+	// rows the way that build would have — unmarked. Rewound to the backfill's
+	// own version rather than to "the last one", because the backfill is not
+	// the last migration for long: the next table added after it would
+	// otherwise be the only step replayed, and this test would pass by
+	// marking nothing.
 	if err := migrate(old); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	if _, err := old.Exec(fmt.Sprintf("PRAGMA user_version = %d", latestSchemaVersion()-1)); err != nil {
+	if _, err := old.Exec(fmt.Sprintf("PRAGMA user_version = %d", migrationVersion(t, "tool_run_caller_faults")-1)); err != nil {
 		t.Fatalf("rewind: %v", err)
 	}
 	now := time.Now().Format(time.RFC3339)
@@ -417,4 +421,16 @@ func TestOldCallerFaultRowsAreMarkedOnUpgrade(t *testing.T) {
 	if marked != 3 || unmarked != 1 {
 		t.Fatalf("marked %d unmarked %d, want 3 and 1 — the picture failure is not the caller's", marked, unmarked)
 	}
+}
+
+// migrationVersion finds a migration by the name it was written under.
+func migrationVersion(t *testing.T, name string) int {
+	t.Helper()
+	for _, m := range migrations {
+		if m.name == name {
+			return m.version
+		}
+	}
+	t.Fatalf("no migration named %q", name)
+	return 0
 }

@@ -3,14 +3,14 @@
 // incremental updates here — append a chat message, advance a timeline step) and
 // the UI reacts. Do not reassign `cockpit` itself; mutate its properties.
 
-import { emptyCockpitState, emptyTurnSpend, emptySessionSpend, type SessionSpend as SessionSpendTotals, type CockpitState, type ParkedTurn, type TreeNode, type Session, type ToolStep, type ToolEvent, type ChatMessage, type MessageVariant, type TurnPart, type PendingFile, type PendingImage, type ModelLoading, type StoreFault, type PreparedReply, type Plan } from '../types'
+import { emptyCockpitState, emptyTurnSpend, emptySessionSpend, type SessionSpend as SessionSpendTotals, type CockpitState, type ParkedTurn, type TreeNode, type Session, type ToolStep, type ToolEvent, type ChatMessage, type MessageVariant, type TurnPart, type PendingFile, type PendingImage, type ModelLoading, type StoreFault, type PreparedReply, type Plan, type PlanReport } from '../types'
 import type { CockpitSource } from '../services/cockpit'
 import {
   SendMessage, GetProjectStatus, GetModelInfo, OpenProjectFolder, OpenProjectPath,
   SwitchProvider, SwitchThinkLevel, SwitchApprovalMode, SetProviderWireFormat,
   SwitchModel, CancelPendingModel, SetAPIKey, SetProviderBaseURL, ProjectTree, ReadFile,
   BrowseFolder, BrowseFolderAt, BrowseRoot, StopBrowsing, SpaceFolderPath,
-  ListSessions, LoadSession, NewSession, NewSessionAt, NewChairSession, NewSessionInSpace, CurrentSpace, SessionsInSpace, Spaces, SessionMode, SessionAgent, SessionPlan, StartPlanRun, StopPlanRun, SavePlanText, PausePlanRun, ResumePlanRun, SetPlanStepStop, CurrentSessionID, SearchSessions, DeleteSession,
+  ListSessions, LoadSession, NewSession, NewSessionAt, NewChairSession, NewSessionInSpace, CurrentSpace, SessionsInSpace, Spaces, SessionMode, SessionAgent, SessionPlan, SessionPlanReports, StartPlanRun, StopPlanRun, SavePlanText, PausePlanRun, ResumePlanRun, SetPlanStepStop, CurrentSessionID, SearchSessions, DeleteSession,
   SessionTranscript, TurnInFlight,
   SaveChatImage, SaveChatImageData, SaveChatFile, ReadImageDataURL, CancelTurn, BrowserGetText, RecentProjects,
   ListSessionsForDoor, SearchSessionsForDoor, LoadSessionAnyProject, ClearProjectFocus, ForgetProject, HistoryFault,
@@ -2448,6 +2448,19 @@ export function applyPlanUpdate(ev: SessionEvent<Plan> | Plan): void {
   const plan = stamped ? stamped.data : (ev as Plan)
   cockpit.plan = plan && Array.isArray(plan.sections) && plan.sections.length > 0 ? plan : null
 }
+/** A closing report just written (`plan:report`, desktop/plan_report.go).
+ *  Held to the rule applyPlanUpdate is held to: a report from a chat working
+ *  in the background is not this window's to draw. Replaces by round rather
+ *  than appending, because a round reported twice is one report, corrected. */
+export function applyPlanReport(ev: SessionEvent<PlanReport>): void {
+  const id = ev?.sessionId ?? ''
+  if (id && cockpit.openSession && id !== cockpit.openSession) return
+  const rep = ev?.data
+  if (!rep || typeof rep.run !== 'number') return
+  const at = cockpit.planReports.findIndex((r) => r.run === rep.run)
+  if (at >= 0) cockpit.planReports[at] = rep
+  else cockpit.planReports = [...cockpit.planReports, rep].sort((a, b) => a.run - b.run)
+}
 
 /** Start carrying out the plan on screen — the button on the card (มุ่งเป้า,
  *  desktop/goal_run.go).
@@ -2545,17 +2558,25 @@ export async function stopPlanRun(): Promise<void> {
 async function refreshPlan(id: string): Promise<void> {
   if (!id) {
     cockpit.plan = null
+    cockpit.planReports = []
     return
   }
   try {
-    const plan = (await SessionPlan(id)) as Plan | null
+    // The reports ride with the plan: same row-keyed store, same late-answer
+    // rule, and a chat without a plan has none.
+    const [plan, reports] = await Promise.all([
+      SessionPlan(id) as Promise<Plan | null>,
+      SessionPlanReports(id).catch(() => [] as PlanReport[]),
+    ])
     // A late answer for a chat the user has already left is thrown away rather
     // than drawn. Two quick switches otherwise land the first chat's plan on the
     // second, which is the same bug this whole re-read exists to avoid.
     if (id !== cockpit.openSession) return
     cockpit.plan = plan && Array.isArray(plan.sections) && plan.sections.length > 0 ? plan : null
+    cockpit.planReports = Array.isArray(reports) ? (reports as PlanReport[]) : []
   } catch {
     cockpit.plan = null
+    cockpit.planReports = []
   }
 }
 
@@ -3813,6 +3834,7 @@ function arriveAt(id: string): boolean {
   // it, so no frame shows the plan of the conversation being left under the one
   // being opened.
   cockpit.plan = null
+  cockpit.planReports = []
   void refreshPlan(id)
   // The stance is the chat's too, and §234 has always filed it under "dropped,
   // then asked for again" — but the asking lived only in refreshDesk, which is

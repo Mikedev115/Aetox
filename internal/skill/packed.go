@@ -268,12 +268,13 @@ var packs = map[string]*pack{
 	"plan": {
 		tool:     "plan",
 		fallback: "read",
-		actions:  []string{"write", "amend", "read", "step"},
+		actions:  []string{"write", "amend", "read", "step", "report"},
 		names: map[string]string{
-			"write": "plan_write",
-			"amend": "plan_amend",
-			"read":  "plan_read",
-			"step":  "plan_step",
+			"write":  "plan_write",
+			"amend":  "plan_amend",
+			"read":   "plan_read",
+			"step":   "plan_step",
+			"report": "plan_report",
 		},
 	},
 	"github": {
@@ -548,9 +549,10 @@ var packResolutionOrder = []string{
 // PackForAction resolves a standalone action or permission name back to its
 // packed tool, canonical action, and permission name.
 // E.g. "write" -> ("change", "write", "write", true)
-//      "edits" -> ("change", "batch", "edits", true)
-//      "grep"  -> ("search", "grep", "grep", true)
-//      "list"  -> ("search", "list", "list", true)
+//
+//	"edits" -> ("change", "batch", "edits", true)
+//	"grep"  -> ("search", "grep", "grep", true)
+//	"list"  -> ("search", "list", "list", true)
 func PackForAction(name string) (packTool string, action string, permission string, ok bool) {
 	name = strings.ToLower(strings.TrimSpace(name))
 	if name == "" {
@@ -582,4 +584,3 @@ func PackForAction(name string) (packTool string, action string, permission stri
 	}
 	return "", "", "", false
 }
-

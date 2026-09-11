@@ -1469,6 +1469,56 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class PlanReport {
+	    run: number;
+	    planVersion: number;
+	    title: string;
+	    sections: PlanSection[];
+	    done: number;
+	    failed: number;
+	    total: number;
+	    elapsedSecs?: number;
+	    sentBack?: number;
+	    stopped?: string;
+	    at: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PlanReport(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.run = source["run"];
+	        this.planVersion = source["planVersion"];
+	        this.title = source["title"];
+	        this.sections = this.convertValues(source["sections"], PlanSection);
+	        this.done = source["done"];
+	        this.failed = source["failed"];
+	        this.total = source["total"];
+	        this.elapsedSecs = source["elapsedSecs"];
+	        this.sentBack = source["sentBack"];
+	        this.stopped = source["stopped"];
+	        this.at = source["at"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class PlanRunStart {
 	    refusal?: string;
 	    started?: boolean;

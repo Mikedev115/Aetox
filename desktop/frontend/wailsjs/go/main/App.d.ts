@@ -585,6 +585,8 @@ export function SessionMode(arg1:string):Promise<string>;
 
 export function SessionPlan(arg1:string):Promise<main.Plan>;
 
+export function SessionPlanReports(arg1:string):Promise<Array<main.PlanReport>>;
+
 export function SessionReviewAuto():Promise<boolean>;
 
 export function SessionSourceCount(arg1:string):Promise<number>;

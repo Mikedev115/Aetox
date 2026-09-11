@@ -20,7 +20,7 @@
     cockpit, sendUserMessage, loadRealState, openFile,
     switchProvider, switchThinkLevel,
     switchModel, cancelPendingModel, applyModelRowChanged, submitAPIKey, setActiveView, restoreActiveView, closeFile, applyAgentStatus, applyToolEvent,
-    applyAgentChunk, applyReasoningChunk, applyModelLoading, applyPlanUpdate, applyStanceUpdate, attachImageFromPath, attachFileFromPath, fileKind,
+    applyAgentChunk, applyReasoningChunk, applyModelLoading, applyPlanUpdate, applyPlanReport, applyStanceUpdate, attachImageFromPath, attachFileFromPath, fileKind,
     applyAskUser, applyAskDone, applyDriving, applyTodos, applyMissedInterjections, applyTaskChips, applyUsageRound,
     applyPreparedReplies,
     applyPendingLearned, refreshPendingLearned, refreshPendingIssues, applyAgentDone, isOverlayView, closeOverlay,
@@ -190,6 +190,7 @@
     // typed (desktop/plan.go): the tool holds the document, the window
     // draws it, and an amend costs the section that changed.
     const offPlan = EventsOn('plan:update', applyPlanUpdate)
+    const offPlanReport = EventsOn('plan:report', applyPlanReport)
     // The mode chip, when the assistant narrowed its own turn into วางแผน
     // rather than the user pressing for it (desktop/stance.go). The only path
     // by which the dial moves with no click of theirs immediately before it,
@@ -339,6 +340,7 @@
       offBusyTool()
       offBrowserWaiting()
       offPlan()
+      offPlanReport()
       offStance()
       offAgentChunk()
       offAgentDone()

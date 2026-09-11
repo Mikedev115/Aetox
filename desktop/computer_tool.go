@@ -330,9 +330,8 @@ func (s *computerSkill) capture(ctx context.Context, start time.Time, cmd, windo
 	rel, werr := s.app.writeBrowserShot(png, false)
 	body := untrustedPreamble + fmt.Sprintf("ภาพหน้าต่าง %s", target.Label())
 	out := success(computerToolName, cmd, body, start)
-	if werr == nil {
-		out.Artifacts = []string{rel}
-	}
+	// Not an artifact, for browser capture's reason: a picture taken on the
+	// way is a step, and the file is under output/<session>/work for ผลงาน.
 
 	// Same gate and same reason as browser capture: a model with no eyes gets
 	// the path and the tool that reads it, never an image block it cannot see.
