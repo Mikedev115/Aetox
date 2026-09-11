@@ -2062,8 +2062,10 @@
     void cockpit.todos.length
     void cockpit.ask
     void awaitingReply
-    // after DOM update, not before — otherwise we scroll to the old height
-    requestAnimationFrame(paintThinking)
+    // after DOM update, not before — otherwise we scroll to the old height.
+    // Coalesced, because a burst is many store changes between two frames and
+    // each one used to queue its own measurement (see requestThinkPaint).
+    requestThinkPaint()
   })
 
   // Called by the effect above, and again by the pacer after every frame it
@@ -2094,6 +2096,20 @@
   // every earlier line is still in the box to be scrolled back to — clipped,
   // never dropped. The finished panel, opened tomorrow, is still the whole
   // thing: this cap is about a thing in motion, not about the record of it.
+  // How much of the reasoning the live panel holds in the DOM, in characters
+  // (streamPace.ts, `tail`).
+  //
+  // The five-line window is what the READER is given; this is what the ELEMENT
+  // is given, and until 11 ก.ย. it was everything the model had thought: the cap
+  // was CSS, so every painted frame re-laid-out the whole reasoning — minutes of
+  // it, on a thinking model — to show five lines of it. The owner, watching one
+  // run: *"มันต้องเรนเดอร์ยาวๆตลอด เราจะทำไงให้มันเบาเครื่อง"*.
+  //
+  // Forty-odd lines: the window, plus enough scrollback inside it to re-read a
+  // sentence that just went past. The turn's own panel is the only thing this
+  // costs, and nothing is lost — every word is in the store, and the finished
+  // panel that replaces this one draws the whole of it.
+  const THINK_TAIL_CHARS = 4000
   let thinkEl = $state<HTMLDivElement | null>(null)
   let thinkPinned = true
   let lastThinkTop = 0
@@ -2122,6 +2138,25 @@
   // What the pacer calls after each frame it paints: the window follows its own
   // text, the page follows whatever sits under the window. Both are needed —
   // the window scrolls on text the page no longer grows for.
+  // One paint per frame, whoever asked for it.
+  //
+  // Two things ask: this component's effect, once per store change, and the
+  // pacer, once per frame it paints. The pacer needs no help — it draws on an
+  // animation frame, so it cannot ask twice — but a burst of fifty chunks
+  // between two frames is fifty store changes, and every one of them queued a
+  // callback that reads scrollHeight, moves a scroller and reads it again. Fifty
+  // forced layouts of a transcript that changed once, to arrive at the answer
+  // the first one would have given: `paintThinking` is idempotent within a
+  // frame, so the extra forty-nine are pure cost.
+  let thinkFrame = 0
+  function requestThinkPaint() {
+    if (thinkFrame) return
+    thinkFrame = requestAnimationFrame(() => {
+      thinkFrame = 0
+      paintThinking()
+    })
+  }
+
   function paintThinking() {
     const el = thinkEl
     if (el) thinkClipped = el.scrollHeight > el.clientHeight + 1
@@ -5026,7 +5061,7 @@
                   class:clipped={thinkClipped}
                   bind:this={thinkEl}
                   onscroll={onThinkScroll}
-                  use:pacedText={{ text: reasoningText, onPaint: paintThinking }}
+                  use:pacedText={{ text: reasoningText, tail: THINK_TAIL_CHARS, onPaint: paintThinking }}
                 ></div>
               {/if}
             {/if}

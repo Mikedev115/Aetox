@@ -50,6 +50,17 @@
 // What this costs is the end of a reply landing one gap late — the final burst
 // still plays out after the model has stopped talking. That is the whole price,
 // it is paid once, and it buys back every burst before it.
+//
+// The third thing is the DOM, and it is the one the owner asked about by name
+// (11 ก.ย.): "เอเจนคิดตลอดใช่ไหม มันต้องเรนเดอร์ยาวๆตลอด เราจะทำไงให้มันเบาเครื่อง
+// ... เรา ห่อมันอยู่ละ คือ แสดงแค่บางส่วน แต่ตอนทำงานจริงมันเหมือนเรนเดอร์ตลอด".
+// The cap he means is real, and it is CSS: `.reasoning-body.live` shows five
+// lines. What it does not do is keep the element small — every word the model
+// had thought was still in it, so each painted frame re-laid-out the whole
+// reasoning and the cost of watching a turn grew with the length of the turn.
+// `tail` is that cap moved into the thing that draws: the panel holds the end of
+// the reasoning instead of all of it, and nothing is lost, because the store has
+// the text and the finished panel draws every line of it.
 import { morphInto } from './morph'
 import { renderStreamingMarkdown } from './markdown'
 
@@ -101,6 +112,16 @@ export type PacedStream = {
   /** Called after each paint, so a pinned transcript can follow text that now
    *  grows on frames the store knows nothing about. */
   onPaint?: () => void
+  /**
+   * How many characters of the END to keep in the DOM. Unset draws all of it.
+   *
+   * For a surface that is a window onto something only ever growing, keeping
+   * the whole of it costs the frame the whole of it: leaving it out of the
+   * element is the same trade `.reasoning-body.live` already makes with the
+   * screen, one layer down (see the note at the head of this file). Nothing is
+   * dropped — the store holds the text and the finished panel draws all of it.
+   */
+  tail?: number
 }
 
 class Pacer {
@@ -114,11 +135,13 @@ class Pacer {
   private lastFeed = 0
   private gap = MIN_WINDOW_MS
   private started = false
+  private tail = 0
 
   constructor(private draw: Draw, private onPaint?: () => void) {}
 
-  feed(text: string, onPaint?: () => void): void {
+  feed(text: string, onPaint?: () => void, tail = 0): void {
     this.onPaint = onPaint
+    this.tail = tail
     // The first sight of a block is shown whole, never typed out. It is not
     // always one chunk's worth: a session parked and switched back to arrives
     // with everything it had streamed so far, and replaying that letter by
@@ -172,10 +195,13 @@ class Pacer {
   }
 
   private paint(): void {
-    const slice = this.arrived.slice(0, Math.floor(this.shown))
+    const upto = this.arrived.slice(0, Math.floor(this.shown))
+    const slice = this.tail > 0 ? tailOf(upto, this.tail) : upto
     // A frame that releases half a character has nothing new to draw. Caught
     // here rather than inside the drawer so the markdown pass is skipped too,
-    // which is the expensive half.
+    // which is the expensive half. Compared on what would be DRAWN, which with
+    // a tail is a string of about the same length every frame — so what this
+    // skips is still exactly the frame with nothing new on it.
     if (slice === this.slice) return
     this.slice = slice
     this.draw(slice)
@@ -212,11 +238,41 @@ class Pacer {
   }
 }
 
+// How far a cut may slide to land on a line boundary, in characters. Wide
+// enough to catch the next newline in prose, narrow enough that the window is
+// never much longer than it asked to be.
+const LINE_SLACK = 240
+
+/** The end of a growing text, cut on a line boundary so the top of the window is
+ *  a whole line rather than the second half of one.
+ *
+ *  Forward first, back second: a cut that can reach the NEXT newline does not
+ *  have to throw text away to get one, and the fallback only fires on a text
+ *  with no newline anywhere near the cut — one unbroken paragraph, which is what
+ *  this draws until the model writes its first line break.
+ *
+ *  Both searches are cut off at the slack rather than run over the whole string.
+ *  `indexOf` and `lastIndexOf` would each scan to the far end on a text with no
+ *  newline in it, which is one more cost of the shape this whole file exists to
+ *  remove: the work of a frame growing with the length of the turn. Slicing the
+ *  slack out first makes the answer identical and the work the same size at 3 KB
+ *  and at 3 MB. */
+function tailOf(text: string, limit: number): string {
+  if (limit <= 0 || text.length <= limit) return text
+  const cut = text.length - limit
+  const ahead = text.slice(cut, cut + LINE_SLACK + 1).indexOf('\n')
+  if (ahead !== -1) return text.slice(cut + ahead + 1)
+  const from = Math.max(0, cut - LINE_SLACK)
+  const prev = text.lastIndexOf('\n', cut)
+  if (prev >= from) return text.slice(prev + 1)
+  return text.slice(cut)
+}
+
 function paced(param: PacedStream, draw: Draw) {
   const pacer = new Pacer(draw, param.onPaint)
-  pacer.feed(param.text, param.onPaint)
+  pacer.feed(param.text, param.onPaint, param.tail)
   return {
-    update: (next: PacedStream) => pacer.feed(next.text, next.onPaint),
+    update: (next: PacedStream) => pacer.feed(next.text, next.onPaint, next.tail),
     // Nothing is flushed on the way out. The element only leaves when the turn
     // ends, and what replaces it is the finished text drawn in full.
     destroy: () => pacer.stop(),
@@ -238,13 +294,17 @@ export function pacedStream(node: HTMLElement, param: PacedStream) {
   })
 }
 
-/** The same pacing for text drawn as text: `use:pacedText={{ text, onPaint }}`.
+/** The same pacing for text drawn as text: `use:pacedText={{ text, onPaint, tail }}`.
  *
  *  Reasoning is the one that needs it. It is the longest-running thing on
  *  screen with a thinking model, it is where the owner still saw the stutter
  *  after the answer was paced ("ตอนคิดก็กระตุกเหมือนเดิม แต่ตอนตอบเปลี่ยนนิด
  *  นึง"), and being cheap to draw never made it any smoother: the jitter is in
- *  the arrivals, and a cheap paint of a lump is still a lump. */
+ *  the arrivals, and a cheap paint of a lump is still a lump.
+ *
+ *  It is also the one caller that wants `tail`: the live thinking panel is a
+ *  five-line window that a thinking model writes into for minutes, so it is the
+ *  surface where holding the whole text in the DOM costs the most. */
 export function pacedText(node: HTMLElement, param: PacedStream) {
   return paced(param, (text) => {
     node.textContent = text
