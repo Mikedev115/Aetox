@@ -12,10 +12,10 @@
 
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
 import { BusySignal, SetBusyLayer } from '../../../wailsjs/go/main/App'
-import type { main } from '../../../wailsjs/go/models'
+import type { engine } from '../../../wailsjs/go/models'
 import type { ToolEvent } from '../types'
 
-export const busy = $state<{ layers: main.BusyLayer[]; loaded: boolean }>({
+export const busy = $state<{ layers: engine.BusyLayer[]; loaded: boolean }>({
   layers: [],
   loaded: false,
 })

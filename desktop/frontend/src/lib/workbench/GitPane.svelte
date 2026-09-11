@@ -23,7 +23,7 @@
     GitSuggestCommitMessage,
     GitSuggestSplitCommits,
   } from '../../../wailsjs/go/main/App'
-  import { main } from '../../../wailsjs/go/models'
+  import { engine } from '../../../wailsjs/go/models'
   import { cockpit, sendUserMessage, setActiveView } from '../stores/cockpit.svelte'
   import { openFileTab, openGitLogTab } from '../stores/workbench.svelte'
   import { updateCodeStatusFromGitTree, noteCommitLanded } from '../stores/codeStatus.svelte'
@@ -38,7 +38,7 @@
   // looked at, which is what the tests do and what a single-pane caller means.
   let { active = true }: { active?: boolean } = $props()
 
-  let files = $state<main.GitFileChange[]>([])
+  let files = $state<engine.GitFileChange[]>([])
   let loaded = $state(false)
   // The last read failed — git ran out of its budget, most likely — and the
   // rows on screen are the tree as of the read before it. Said on the face of
@@ -61,7 +61,7 @@
   let alert = $state<{ type: 'err' | 'success'; text: string } | null>(null)
 
   // Smart split state
-  let splitGroups = $state<main.GitCommitGroup[]>([])
+  let splitGroups = $state<engine.GitCommitGroup[]>([])
   let analyzingSplit = $state(false)
   let splitGroupFiles = $state<Record<number, Record<string, boolean>>>({})
   let groupMessages = $state<Record<number, string>>({})
@@ -80,7 +80,7 @@
   const dangerousFiles = $derived(
     files
       .map((f) => ({ file: f, assessment: assessDangerousFile(f.path) }))
-      .filter((item): item is { file: main.GitFileChange; assessment: DangerousFileAssessment } => item.assessment !== null)
+      .filter((item): item is { file: engine.GitFileChange; assessment: DangerousFileAssessment } => item.assessment !== null)
   )
 
   async function handleAskAssistantAboutDangerousFiles() {

@@ -177,90 +177,7 @@ export namespace connect {
 
 }
 
-export namespace github {
-	
-	export class CheckRun {
-	    name: string;
-	    status: string;
-	    conclusion: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new CheckRun(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.status = source["status"];
-	        this.conclusion = source["conclusion"];
-	    }
-	}
-	export class PRFile {
-	    path: string;
-	    status: string;
-	    additions: number;
-	    deletions: number;
-	    patch: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new PRFile(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.path = source["path"];
-	        this.status = source["status"];
-	        this.additions = source["additions"];
-	        this.deletions = source["deletions"];
-	        this.patch = source["patch"];
-	    }
-	}
-	export class PullRequest {
-	    number: number;
-	    title: string;
-	    state: string;
-	    draft: boolean;
-	    body: string;
-	    author: string;
-	    headRef: string;
-	    headSHA: string;
-	    baseRef: string;
-	    mergeable?: boolean;
-	    mergeableState: string;
-	    additions: number;
-	    deletions: number;
-	    changedFiles: number;
-	    merged: boolean;
-	    url: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new PullRequest(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.number = source["number"];
-	        this.title = source["title"];
-	        this.state = source["state"];
-	        this.draft = source["draft"];
-	        this.body = source["body"];
-	        this.author = source["author"];
-	        this.headRef = source["headRef"];
-	        this.headSHA = source["headSHA"];
-	        this.baseRef = source["baseRef"];
-	        this.mergeable = source["mergeable"];
-	        this.mergeableState = source["mergeableState"];
-	        this.additions = source["additions"];
-	        this.deletions = source["deletions"];
-	        this.changedFiles = source["changedFiles"];
-	        this.merged = source["merged"];
-	        this.url = source["url"];
-	    }
-	}
-
-}
-
-export namespace main {
+export namespace engine {
 	
 	export class AccountState {
 	    configured: boolean;
@@ -979,6 +896,36 @@ export namespace main {
 	        this.active = source["active"];
 	    }
 	}
+	export class DeviceProfile {
+	    name: string;
+	    w: number;
+	    h: number;
+	    dpr: number;
+	    mobile: boolean;
+	    radius?: number;
+	    notch?: string;
+	    notchW?: number;
+	    notchH?: number;
+	    notchY?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new DeviceProfile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.w = source["w"];
+	        this.h = source["h"];
+	        this.dpr = source["dpr"];
+	        this.mobile = source["mobile"];
+	        this.radius = source["radius"];
+	        this.notch = source["notch"];
+	        this.notchW = source["notchW"];
+	        this.notchH = source["notchH"];
+	        this.notchY = source["notchY"];
+	    }
+	}
 	export class EditedFile {
 	    path: string;
 	    label: string;
@@ -1034,6 +981,22 @@ export namespace main {
 		}
 	}
 	
+	export class ExportFile {
+	    name: string;
+	    data: number[];
+	    note?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportFile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.data = source["data"];
+	        this.note = source["note"];
+	    }
+	}
 	export class GitBranch {
 	    name: string;
 	    current: boolean;
@@ -1046,22 +1009,6 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
 	        this.current = source["current"];
-	    }
-	}
-	export class GitCommitGroup {
-	    title: string;
-	    message: string;
-	    files: string[];
-	
-	    static createFrom(source: any = {}) {
-	        return new GitCommitGroup(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.title = source["title"];
-	        this.message = source["message"];
-	        this.files = source["files"];
 	    }
 	}
 	export class GitCommit {
@@ -1092,6 +1039,22 @@ export namespace main {
 	        this.removed = source["removed"];
 	    }
 	}
+	export class GitCommitGroup {
+	    title: string;
+	    message: string;
+	    files: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new GitCommitGroup(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.title = source["title"];
+	        this.message = source["message"];
+	        this.files = source["files"];
+	    }
+	}
 	export class GitFileChange {
 	    path: string;
 	    status: string;
@@ -1110,22 +1073,6 @@ export namespace main {
 	        this.removed = source["removed"];
 	    }
 	}
-	export class IdentityFile {
-	    name: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new IdentityFile(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	    }
-	}
-	export class MCPServerInfo {
-	    name: string;
-	    command?: string[];
-	    url?: string;
 	export class GitLogPage {
 	    commits: GitCommit[];
 	    more: boolean;
@@ -1158,6 +1105,22 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class IdentityFile {
+	    name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new IdentityFile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	    }
+	}
+	export class MCPServerInfo {
+	    name: string;
+	    command?: string[];
+	    url?: string;
 	    environment?: Record<string, string>;
 	    headers?: Record<string, string>;
 	    cwd?: string;
@@ -2703,34 +2666,87 @@ export namespace main {
 	        this.missing = source["missing"];
 	    }
 	}
-	export class deviceProfile {
+
+}
+
+export namespace github {
+	
+	export class CheckRun {
 	    name: string;
-	    w: number;
-	    h: number;
-	    dpr: number;
-	    mobile: boolean;
-	    radius?: number;
-	    notch?: string;
-	    notchW?: number;
-	    notchH?: number;
-	    notchY?: number;
+	    status: string;
+	    conclusion: string;
 	
 	    static createFrom(source: any = {}) {
-	        return new deviceProfile(source);
+	        return new CheckRun(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
-	        this.w = source["w"];
-	        this.h = source["h"];
-	        this.dpr = source["dpr"];
-	        this.mobile = source["mobile"];
-	        this.radius = source["radius"];
-	        this.notch = source["notch"];
-	        this.notchW = source["notchW"];
-	        this.notchH = source["notchH"];
-	        this.notchY = source["notchY"];
+	        this.status = source["status"];
+	        this.conclusion = source["conclusion"];
+	    }
+	}
+	export class PRFile {
+	    path: string;
+	    status: string;
+	    additions: number;
+	    deletions: number;
+	    patch: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PRFile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.status = source["status"];
+	        this.additions = source["additions"];
+	        this.deletions = source["deletions"];
+	        this.patch = source["patch"];
+	    }
+	}
+	export class PullRequest {
+	    number: number;
+	    title: string;
+	    state: string;
+	    draft: boolean;
+	    body: string;
+	    author: string;
+	    headRef: string;
+	    headSHA: string;
+	    baseRef: string;
+	    mergeable?: boolean;
+	    mergeableState: string;
+	    additions: number;
+	    deletions: number;
+	    changedFiles: number;
+	    merged: boolean;
+	    url: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PullRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.number = source["number"];
+	        this.title = source["title"];
+	        this.state = source["state"];
+	        this.draft = source["draft"];
+	        this.body = source["body"];
+	        this.author = source["author"];
+	        this.headRef = source["headRef"];
+	        this.headSHA = source["headSHA"];
+	        this.baseRef = source["baseRef"];
+	        this.mergeable = source["mergeable"];
+	        this.mergeableState = source["mergeableState"];
+	        this.additions = source["additions"];
+	        this.deletions = source["deletions"];
+	        this.changedFiles = source["changedFiles"];
+	        this.merged = source["merged"];
+	        this.url = source["url"];
 	    }
 	}
 

@@ -16,7 +16,7 @@ export namespace config {
   }
 }
 
-export namespace main {}
+export namespace engine {}
 
 // The agent editor builds a StarterSet to hand to SaveChairStarters, so this
 // one is a runtime value rather than a type. createFrom is what the generated

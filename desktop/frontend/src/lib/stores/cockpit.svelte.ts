@@ -29,7 +29,7 @@ import {
   Stance, Stances, SetStance,
   SessionSpend,
 } from '../../../wailsjs/go/main/App'
-import type { main } from '../../../wailsjs/go/models'
+import type { engine } from '../../../wailsjs/go/models'
 import { t } from '../i18n.svelte'
 import { markOpenedLinks } from '../toolFace'
 import { shell, setShell, shellForDesk, deskForShell, deskFilterFor, homeForShell, SHELLS, type ShellName } from '../shell.svelte'
@@ -111,7 +111,7 @@ export async function hydrate(source: CockpitSource): Promise<void> {
   Object.assign(cockpit, await source.load())
 }
 
-function applyModelInfo(info: main.ModelInfo): void {
+function applyModelInfo(info: engine.ModelInfo): void {
   Object.assign(cockpit.model, {
     provider: info.provider,
     modelName: info.modelName,
@@ -144,7 +144,7 @@ function applyModelInfo(info: main.ModelInfo): void {
  * through applyModelInfo is the return value of something the user just
  * pressed — and Go sends both only for the chat on screen, since a background
  * chat has no picker to correct and refreshDesk re-asks when it opens. */
-export function applyModelRowChanged(info: main.ModelInfo): void {
+export function applyModelRowChanged(info: engine.ModelInfo): void {
   if (!info?.provider) return
   applyModelInfo(info)
 }
@@ -456,7 +456,7 @@ export function attachmentPreview(content: string): string {
  * store keeps the error, this keeps the wording, exactly as turnEndedBubble does
  * for a failure that happens while you are watching.
  */
-export function restoreTranscript(messages: main.SessionMessage[] | null | undefined): ChatMessage[] {
+export function restoreTranscript(messages: engine.SessionMessage[] | null | undefined): ChatMessage[] {
   // A conversation with no rows yet comes back from Go as a nil slice, and a
   // nil slice reaches this window as `null`, not as `[]`. Every caller here
   // then died on `null.map` — inside an async function, so the throw became an
@@ -489,7 +489,7 @@ export function restoreTranscript(messages: main.SessionMessage[] | null | undef
   return out
 }
 
-function restoreAttachments(m: main.SessionMessage): ChatMessage {
+function restoreAttachments(m: engine.SessionMessage): ChatMessage {
   const out: ChatMessage = {
     role: m.role === 'agent' ? 'agent' : 'user',
     text: m.text,
@@ -726,7 +726,7 @@ function hydrateImages(): void {
  * the whole time and the window threw it away. */
 export async function selectGlobalSession(session: Session): Promise<void> {
   setActiveView('chat')
-  let messages: main.SessionMessage[]
+  let messages: engine.SessionMessage[]
   try {
     messages = await LoadSessionAnyProject(session.id)
   } catch (err) {
@@ -1043,7 +1043,7 @@ function turnStillRunning(): boolean {
  * answer changes in one place instead of in every list that draws a row.
  *
  * Takes an id, not a `Session`: the โปรเจกต์ page draws its chats from
- * `main.SessionMeta` straight off the engine, and a signature that only fits
+ * `engine.SessionMeta` straight off the engine, and a signature that only fits
  * the sidebar's row type is how a list ends up not drawing the ring at all. */
 export function sessionWorking(s: { id: string }): boolean {
   // Three answers because there are three places a working chat can be: on
@@ -1067,7 +1067,7 @@ export function sessionWorking(s: { id: string }): boolean {
  * the chat is opened.
  *
  * Same signature as sessionWorking for the same reason: three lists draw a chat
- * row, and one of them draws it from `main.SessionMeta` rather than from the
+ * row, and one of them draws it from `engine.SessionMeta` rather than from the
  * sidebar's `Session`. */
 export function sessionUnread(s: { id: string }): boolean {
   // Working beats unread. A chat that finished a turn and was handed another
@@ -2149,7 +2149,7 @@ function turnArtifacts(turn: LiveTurnRef): Pick<ChatMessage, 'steps' | 'reasonin
  * The step list it carries is `stepsWithClosing`'s, for the reason written
  * there.
  */
-function answeredBubble(reply: main.TurnReply, turn: LiveTurnRef): ChatMessage {
+function answeredBubble(reply: engine.TurnReply, turn: LiveTurnRef): ChatMessage {
   const live = turnArtifacts(turn)
   return {
     role: 'agent',

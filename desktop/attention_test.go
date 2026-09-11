@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Mikedev115/Aetox/internal/engine"
+)
 
 // Both ship on: the signal was built because a question went unannounced, and
 // a signal that has to be found and switched on first announces nothing.
@@ -54,4 +58,15 @@ func TestRequestAttentionHonoursTheSwitch(t *testing.T) {
 	app := &App{}
 	app.SetAttentionSignal(attentionFlash, false)
 	app.RequestAttention() // must return without panicking or blocking
+}
+
+// layersByID is the engine test's helper of the same name, for the switches
+// the screen keeps.
+func layersByID(t *testing.T, list []engine.BusyLayer) map[string]engine.BusyLayer {
+	t.Helper()
+	out := map[string]engine.BusyLayer{}
+	for _, l := range list {
+		out[l.ID] = l
+	}
+	return out
 }

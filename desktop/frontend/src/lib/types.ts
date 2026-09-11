@@ -6,7 +6,7 @@
  *  The same three letters `workingTree` on the Go side hands every surface. */
 export type GitStatus = 'M' | 'U' | 'D' | null
 
-/** Why the local store could not be opened (Go: main.StoreFault).
+/** Why the local store could not be opened (Go: engine.StoreFault).
  *
  *  `tooNew` is the case with a cure the user can act on — the file was migrated
  *  by a newer Aetox and this build is behind it — so it carries both schema
@@ -20,7 +20,7 @@ export interface StoreFault {
   message: string
 }
 
-/** One state of the project this chat can be put back to (Go: main.RestorePoint).
+/** One state of the project this chat can be put back to (Go: engine.RestorePoint).
  *  The label is the message that opened the turn it precedes — a list of times
  *  and tree hashes is a list nobody can pick from. */
 export interface RestorePoint {
@@ -91,7 +91,7 @@ export interface RecentProject {
 /** One โปรเจกต์ at the storefront door (COMPANY.md §84) as the sidebar needs
  *  it: enough to draw a row and open it, and nothing more.
  *
- *  Deliberately not `main.Space`. The binding's type carries `path`,
+ *  Deliberately not `engine.Space`. The binding's type carries `path`,
  *  `contextPath` and the context file names, which are the โปรเจกต์ page's
  *  business — a sidebar row that held them would be a second place those
  *  answers live, and the one that goes stale first. The name IS the key here:
@@ -935,7 +935,7 @@ export interface ParkedTurn {
   queued: string[]
 }
 
-/** One heading of a plan and what is under it (Go: main.PlanSection).
+/** One heading of a plan and what is under it (Go: engine.PlanSection).
  *
  * Its own shape rather than the binding's, the same call §94's note makes about
  * Space: what crosses into the window is a wire format the window owns, and a
@@ -945,7 +945,7 @@ export interface PlanSection {
   body: string
 }
 
-/** This conversation's plan (Go: main.Plan, desktop/plan.go).
+/** This conversation's plan (Go: engine.Plan, desktop/plan.go).
  *
  * `version` counts the writes, so the card can say a plan was revised rather
  * than redrawing silently — a plan that changes with no mark on it reads as a
@@ -955,7 +955,7 @@ export interface PlanSection {
  * stored on the Go side: it is a fact about that call, not about the plan, so a
  * chat reopened days later comes back with it empty and nothing highlighted. */
 /** One numbered step of the plan, with somewhere to record that it happened
- *  (Go: main.PlanStep).
+ *  (Go: engine.PlanStep).
  *
  *  Structured rather than a markdown list inside "What to change", and that is
  *  what makes มุ่งเป้า's first gate mechanical: to know whether step 3 is done
@@ -1005,7 +1005,7 @@ export interface Plan {
   startedAt?: string
 }
 
-/** One round's closing report (Go: main.PlanReport, desktop/plan_report.go) —
+/** One round's closing report (Go: engine.PlanReport, desktop/plan_report.go) —
  * the plan's "after", written by the model under fixed headings when the
  * steps are settled, or where the work got to when the run held. The numbers
  * are the engine's, copied off the plan and the run at the moment of writing;

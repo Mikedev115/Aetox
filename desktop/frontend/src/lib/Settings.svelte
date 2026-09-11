@@ -77,7 +77,7 @@
   // that is not a bug report yet.
   import { COMMUNITY_URL, PAGE_URL, YOUTUBE_URL } from './links'
   import promptPayQR from '../assets/images/promptpay-qr.png'
-  import { config, main, subagent } from '../../wailsjs/go/models'
+  import { config, engine, subagent } from '../../wailsjs/go/models'
   import { cockpit, startChatWith, setActiveView, switchProvider, switchModel, submitAPIKey, switchApprovalMode, switchWireFormat, setProviderBaseURL, retryActiveProvider, completeSignIn, signOutProvider, importSignIn, SETTINGS_SECTION_KEY } from './stores/cockpit.svelte'
   import {
     identity, loadIdentityFiles, openIdentityFile, saveIdentityFile,
@@ -857,7 +857,7 @@
 
   // The Aetox account, which is a different sign-in from the ones above: those
   // decide who pays for a request, this one is who you are to Aetox itself.
-  let aetoxAccount = $state<main.AccountState | null>(null)
+  let aetoxAccount = $state<engine.AccountState | null>(null)
   let aetoxBusy = $state(false)
   let aetoxError = $state('')
 
@@ -1989,8 +1989,8 @@
   // below read three fields the local type said did not exist. The `as Usage`
   // cast on the call is what let it compile anyway. The generated bindings are
   // the one description of what the Go side returns; use them.
-  type UsageRow = main.UsageRow
-  type Usage = main.UsageStats
+  type UsageRow = engine.UsageRow
+  type Usage = engine.UsageStats
 
   let usage = $state<Usage | null>(null)
   let usageError = $state('')
@@ -2441,7 +2441,7 @@
   // re-bootstraps the engine and the block's size is the thing this page is
   // showing. A local edit would be a number that agreed with the switch and
   // disagreed with the request that gets sent.
-  let delegate = $state<main.DelegateSettings | null>(null)
+  let delegate = $state<engine.DelegateSettings | null>(null)
   let delegateBusy = $state('')
   async function loadDelegate() {
     try {
@@ -2501,7 +2501,7 @@
   //
   // Reading them as one box was the complaint, and it was right: the page was
   // describing one mechanism where the engine has three.
-  let agentSkills = $state<main.AgentSkillInfo[]>([])
+  let agentSkills = $state<engine.AgentSkillInfo[]>([])
   let agentNeeds = $state<subagent.Requirement[]>([])
   const unmetAgentNeeds = $derived(agentNeeds.filter((r) => !r.met).length)
   // Its own memory (MEMORY.md in its folder) and its own opening (STARTERS.md),
@@ -3089,9 +3089,9 @@
   let skillTuneAutoOn = $state(false)
   let skillTuneBusy = $state(false)
   let skillTuneMsg = $state('')
-  let skillProposals = $state<main.PendingChange[]>([])
-  let pendingChanges = $state<main.PendingChange[]>([])
-  let decidedChanges = $state<main.PendingChange[]>([])
+  let skillProposals = $state<engine.PendingChange[]>([])
+  let pendingChanges = $state<engine.PendingChange[]>([])
+  let decidedChanges = $state<engine.PendingChange[]>([])
   // The decided list is a record, not a queue: nothing is waiting on it and the
   // reason it is kept at all is so "why does it think that?" can be answered
   // months later. Twenty rows of it sat open above everything else on this page
@@ -3138,8 +3138,8 @@
   // nothing here is a proposal, nothing here can be approved, and nothing here
   // ends up in a file. Sharing state would be the same conflation this split
   // exists to undo (docs/architecture/system-problems-vs-learning-2026-08-18.md).
-  let systemIssues = $state<main.PendingChange[]>([])
-  let decidedIssues = $state<main.PendingChange[]>([])
+  let systemIssues = $state<engine.PendingChange[]>([])
+  let decidedIssues = $state<engine.PendingChange[]>([])
   let issuesExpanded = $state(false)
   let issuesError = $state('')
   let issuesBusy = $state(0)
@@ -3170,11 +3170,11 @@
   // form, where somebody can query the database; in a chat they are noise, and
   // the agent can find the runs from the sentence itself (session_search reads
   // tool_runs).
-  function consultPrompt(c: main.PendingChange): string {
+  function consultPrompt(c: engine.PendingChange): string {
     return t('settings.issuesConsultPrompt', { body: c.body, reason: c.reason })
   }
 
-  async function consultIssue(c: main.PendingChange) {
+  async function consultIssue(c: engine.PendingChange) {
     onClose()
     await startChatWith(consultPrompt(c))
   }
@@ -3208,7 +3208,7 @@
   // the user may read it and close the tab. What this side can honestly record
   // is that the problem was carried out the door, which is exactly what stops
   // it sitting here asking again.
-  async function reportIssue(c: main.PendingChange) {
+  async function reportIssue(c: engine.PendingChange) {
     issuesBusy = c.id
     try {
       issuesError = ''
@@ -3423,7 +3423,7 @@
   // The verb for a proposal, in the user's language — the raw op ("add") was
   // the database's own enum in the middle of a Thai sentence. The card in the
   // chat said this first (MemoryCard); the page says the same.
-  function opAsk(c: main.PendingChange): string {
+  function opAsk(c: engine.PendingChange): string {
     if (c.kind === 'skill') return c.op === 'create' ? t('chat.skillCreateAsk') : t('chat.skillTuneAsk')
     return c.op === 'remove' ? t('settings.learningOpRemove')
       : c.op === 'replace' ? t('settings.learningOpReplace')
@@ -3431,7 +3431,7 @@
   }
   // Only a NEW line can be kept somewhere else: a replace or a remove names a
   // line that lives in one file (ApprovePendingChangeTo refuses the rest).
-  function canRedirect(c: main.PendingChange): boolean {
+  function canRedirect(c: engine.PendingChange): boolean {
     return c.kind === 'memory' && c.op === 'add'
   }
   async function decideChangeTo(id: number, scope: string) {
@@ -3464,7 +3464,7 @@
   // "ให้ผู้ช่วยช่วยสรุป" (11 ก.ย.): when a file is full, the model drafts a
   // shorter list and the user reads it beside the current one before anything
   // is written. One draft open at a time, in the block it belongs to.
-  let consolidation = $state<main.MemoryConsolidation | null>(null)
+  let consolidation = $state<engine.MemoryConsolidation | null>(null)
   let consolidating = $state('')
   let consolidateError = $state<{ scope: string; text: string } | null>(null)
   async function consolidate(scope: string) {
@@ -3894,7 +3894,7 @@
   // the ---, because it is the subject of the report and the user is about to
   // write around it. Everything else on this path is unchanged, which is the
   // point — one door, one prefill, one story about what leaves the machine.
-  async function openIssueForm(kind: 'problem' | 'feedback', cluster?: main.PendingChange): Promise<void> {
+  async function openIssueForm(kind: 'problem' | 'feedback', cluster?: engine.PendingChange): Promise<void> {
     const ua = navigator.userAgent
     const os = ua.includes('Windows') ? 'Windows' : ua.includes('Mac') ? 'macOS' : 'Linux'
     const version = (appVersion ? 'v' + appVersion : t('settings.aboutReportUnknown'))

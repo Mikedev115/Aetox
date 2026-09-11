@@ -30,6 +30,7 @@ package main
 // file, no re-bootstrap, because none of this reaches the engine.
 
 import (
+	"github.com/Mikedev115/Aetox/internal/engine"
 	"strings"
 
 	"github.com/Mikedev115/Aetox/internal/config"
@@ -42,9 +43,9 @@ const (
 )
 
 // AttentionSignal reports both switches in the order they are shown.
-func (a *App) AttentionSignal() []BusyLayer {
+func (a *App) AttentionSignal() []engine.BusyLayer {
 	pref, _, _ := config.LoadModelPreference()
-	return []BusyLayer{
+	return []engine.BusyLayer{
 		{
 			ID:    attentionFlash,
 			Label: "กระพริบบนแถบงาน",
@@ -62,7 +63,7 @@ func (a *App) AttentionSignal() []BusyLayer {
 
 // SetAttentionSignal turns one switch on or off and writes it down. An unknown
 // id is ignored rather than guessed at, the same rule SetBusyLayer follows.
-func (a *App) SetAttentionSignal(id string, on bool) []BusyLayer {
+func (a *App) SetAttentionSignal(id string, on bool) []engine.BusyLayer {
 	switch strings.TrimSpace(id) {
 	case attentionFlash:
 		_ = config.UpdateModelPreference(func(pref *config.ModelPreference) error {
@@ -87,5 +88,5 @@ func (a *App) RequestAttention() {
 	if pref.AttentionFlashOff {
 		return
 	}
-	flashOwnWindow()
+	engine.FlashOwnWindow()
 }

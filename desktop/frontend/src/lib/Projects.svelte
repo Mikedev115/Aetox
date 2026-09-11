@@ -19,7 +19,7 @@
   // when it last changed.
   import { onMount } from 'svelte'
   import { Spaces, CreateSpace, DeleteSpace, OpenSpaceFolder, SessionsInSpace, AddSpaceContext, AddSpaceContextFiles, RemoveSpaceContext } from '../../wailsjs/go/main/App'
-  import { main } from '../../wailsjs/go/models'
+  import { engine } from '../../wailsjs/go/models'
   import { agoLabel, cockpit, newSpaceSession, selectGlobalSession, sendUserMessage, sessionUnread, sessionWorking, setActiveView } from './stores/cockpit.svelte'
   import { t } from './i18n.svelte'
   import Icon from './Icon.svelte'
@@ -30,8 +30,8 @@
 
   let { onClose }: { onClose: () => void } = $props()
 
-  let projects = $state<main.Space[]>([])
-  let chats = $state<main.SessionMeta[]>([])
+  let projects = $state<engine.Space[]>([])
+  let chats = $state<engine.SessionMeta[]>([])
   let openName = $state('')
   let loaded = $state(false)
   let creating = $state(false)
@@ -152,12 +152,12 @@
   // dates come with the next full read, which is asked for rather than guessed
   // at — a copy made a moment ago is "เมื่อกี้" either way.
   function applyContext(name: string, files: string[]) {
-    projects = projects.map((p) => (p.name === name ? main.Space.createFrom({ ...p, contextFiles: files }) : p))
+    projects = projects.map((p) => (p.name === name ? engine.Space.createFrom({ ...p, contextFiles: files }) : p))
     void refresh()
   }
 
   // The file's date, as the row draws it: '' when the disk did not say.
-  function fileAgo(space: main.Space, file: string): string {
+  function fileAgo(space: engine.Space, file: string): string {
     const stamp = space.contextModified?.[file]
     return stamp ? agoLabel(stamp) : ''
   }
@@ -263,7 +263,7 @@
     }
   }
 
-  async function openChat(chat: main.SessionMeta) {
+  async function openChat(chat: engine.SessionMeta) {
     onClose()
     setActiveView('chat')
     await selectGlobalSession({ id: chat.id, title: chat.title, ago: '' })

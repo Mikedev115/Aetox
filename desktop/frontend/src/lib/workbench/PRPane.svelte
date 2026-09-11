@@ -24,14 +24,14 @@
     SuggestPRDetails,
     ReviewPullRequest,
   } from '../../../wailsjs/go/main/App'
-  import { main, github } from '../../../wailsjs/go/models'
+  import { engine, github } from '../../../wailsjs/go/models'
   import { cockpit } from '../stores/cockpit.svelte'
   import { t } from '../i18n.svelte'
   import Icon from '../Icon.svelte'
   import CodeDiff from '../CodeDiff.svelte'
   import { refreshCodeStatus } from '../stores/codeStatus.svelte'
 
-  let room = $state<main.PRRoom | null>(null)
+  let room = $state<engine.PRRoom | null>(null)
   let loaded = $state(false)
   let filterState = $state<'open' | 'closed'>('open')
   let open = $state<Record<number, boolean>>({})

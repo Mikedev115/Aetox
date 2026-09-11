@@ -1,0 +1,1071 @@
+package engine
+
+// Local store: one SQLite file (<UserConfigDir>/aetox/aetox.db) holds every
+// project's chat history — nothing ever leaves the machine. FTS5 with the
+// trigram tokenizer gives substring full-text search that works for Thai
+// (no word boundaries needed) as well as English. Driver is modernc.org/sqlite
+// (pure Go, no CGO), which bundles FTS5.
+//
+// Schema grows here: future tables (agent memories with embedding BLOBs, …)
+// belong in this same file, as a new entry in `migrations`.
+
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/debuglog"
+	"github.com/Mikedev115/Aetox/internal/turn"
+	_ "modernc.org/sqlite"
+)
+
+const baselineSchema = `
+CREATE TABLE IF NOT EXISTS sessions (
+  id          TEXT PRIMARY KEY,
+  project_key TEXT NOT NULL,
+  title       TEXT NOT NULL DEFAULT '',
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_key, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS projects (
+  project_key TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  root_path   TEXT NOT NULL,
+  opened_at   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_projects_opened ON projects(opened_at DESC);
+
+CREATE TABLE IF NOT EXISTS messages (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT NOT NULL,
+  role       TEXT NOT NULL,
+  text       TEXT NOT NULL,
+  time       TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, id);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+  text, content='messages', content_rowid='id', tokenize='trigram'
+);
+CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
+  INSERT INTO messages_fts(rowid, text) VALUES (new.id, new.text);
+END;
+CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
+  INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', old.id, old.text);
+END;
+
+CREATE TABLE IF NOT EXISTS token_usage (
+  id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id           TEXT NOT NULL DEFAULT '',
+  model                TEXT NOT NULL,
+  prompt_tokens        INTEGER NOT NULL,
+  completion_tokens    INTEGER NOT NULL,
+  cached_prompt_tokens INTEGER,
+  time                 TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_token_usage_time ON token_usage(time);
+`
+
+// toolRunsSchema (schema version 2) records one row per completed tool call —
+// what the model sent, what came back, who ran it, how long it took.
+//
+// `messages` remembers the conversation; this remembers the *work*, which is
+// what a later learning pass has to reason over ("receipt jobs where OCR
+// returned under 3 lines"). ToolEvent could never answer that: it carries one
+// Subject for the UI and throws the arguments away.
+//
+// args/output are stored truncated with the true byte length beside them (see
+// recordToolRun): a single `read` of a large file or a `web_fetch` of a long
+// page would otherwise grow aetox.db without bound on the user's machine, and
+// "33 MB, local-first" is a promise about their disk too. output_sha256 is over
+// the *whole* output, so two runs that truncate to the same prefix are still
+// distinguishable.
+//
+// parent_ref is the `task` call that caused this run, empty for the main
+// agent's own calls. The desktop command-history panel deliberately hides a
+// delegate's calls (that panel is "what the main agent did"); the store keeps
+// them, because "which sub-agent is bad at what" is unanswerable without them.
+const toolRunsSchema = `
+CREATE TABLE IF NOT EXISTS tool_runs (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id    TEXT NOT NULL DEFAULT '',
+  ref           TEXT NOT NULL DEFAULT '',
+  parent_ref    TEXT NOT NULL DEFAULT '',
+  agent         TEXT NOT NULL DEFAULT '',
+  tool          TEXT NOT NULL,
+  args          TEXT NOT NULL DEFAULT '',
+  args_bytes    INTEGER NOT NULL DEFAULT 0,
+  output        TEXT NOT NULL DEFAULT '',
+  output_bytes  INTEGER NOT NULL DEFAULT 0,
+  output_sha256 TEXT NOT NULL DEFAULT '',
+  ok            INTEGER NOT NULL DEFAULT 0,
+  error         TEXT NOT NULL DEFAULT '',
+  duration_ms   INTEGER NOT NULL DEFAULT 0,
+  time          TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tool_runs_session ON tool_runs(session_id, id);
+CREATE INDEX IF NOT EXISTS idx_tool_runs_tool ON tool_runs(tool, time);
+`
+
+// toolRunsFTSSchema (schema version 3) makes the work history searchable the
+// same way the chat history already is: trigram FTS5, so Thai substrings match
+// without word boundaries. Indexing the stored (clamped) args/output — not the
+// full originals — is deliberate: the clamp bounds the index the same way it
+// bounds the table, and anything worth finding again ("that OCR that read the
+// wrong amount", "the fetch that hit a login page") shows in the first
+// kilobytes. session_search reads this; nothing else does.
+const toolRunsFTSSchema = `
+CREATE VIRTUAL TABLE IF NOT EXISTS tool_runs_fts USING fts5(
+  tool, args, output, content='tool_runs', content_rowid='id', tokenize='trigram'
+);
+CREATE TRIGGER IF NOT EXISTS tool_runs_ai AFTER INSERT ON tool_runs BEGIN
+  INSERT INTO tool_runs_fts(rowid, tool, args, output) VALUES (new.id, new.tool, new.args, new.output);
+END;
+CREATE TRIGGER IF NOT EXISTS tool_runs_ad AFTER DELETE ON tool_runs BEGIN
+  INSERT INTO tool_runs_fts(tool_runs_fts, rowid, tool, args, output) VALUES ('delete', old.id, old.tool, old.args, old.output);
+END;
+`
+
+// learningSchema (schema version 7) is the floor the learning layers stand on.
+//
+// It was written as 6 and became 7 the same day, because `project_folders`
+// reached that number first. A migration must always take the next free one: a
+// step numbered below a version some database has already passed never runs on
+// it, so the tables would be missing on exactly the machines that had been kept
+// most up to date.
+//
+// `tool_runs` remembers what the agent did. Neither it nor `messages` says
+// whether any of it was any good: `tool_runs.ok` means "the tool did not
+// error", which a confidently wrong OCR passes as easily as a correct one. So
+// nothing in the store could answer "which way of doing this job works" — and
+// a system that cannot answer that cannot improve itself, only change itself.
+//
+// `jobs` is one row per unit of work — a chat turn, or one `task` handed to a
+// delegate. Three columns carry the weight:
+//
+//   - tool_seq ("read>image_ocr>sheet_write") is the shape of the work,
+//     matchable with a plain GROUP BY. Finding "this job has happened five
+//     times" costs a query, not a model call, which is what makes repeat
+//     detection affordable enough to run on every turn.
+//   - outcome is the score, and outcome_source records where it came from, so
+//     a rating the user actually gave is never confused with one inferred
+//     from behaviour.
+//   - agent is the scope: "" for the main agent, else the profile that ran.
+//     Every later layer reads it, because what a delegate learned belongs to
+//     that delegate and must not leak into the main agent's prompt.
+//
+// request/answer are clamped like tool_runs' args/output, and for the same
+// reason: this is the user's disk.
+//
+// `pending_changes` is the door. Anything the agent proposes to learn — a
+// memory line, a skill, a prompt revision — lands here and does nothing until
+// a human approves it. Rows are NOT deleted when approved: the row is the only
+// record of why a learned artifact exists and what it replaced, which is the
+// difference between an agent that shows its work and one that quietly
+// rewrites itself. `before` makes an approval reversible; `evidence` names the
+// job rows the proposal was drawn from.
+const learningSchema = `
+CREATE TABLE IF NOT EXISTS jobs (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id     TEXT NOT NULL DEFAULT '',
+  message_id     INTEGER NOT NULL DEFAULT 0,
+  agent          TEXT NOT NULL DEFAULT '',
+  parent_ref     TEXT NOT NULL DEFAULT '',
+  request        TEXT NOT NULL DEFAULT '',
+  answer         TEXT NOT NULL DEFAULT '',
+  tool_seq       TEXT NOT NULL DEFAULT '',
+  tool_count     INTEGER NOT NULL DEFAULT 0,
+  failed_tools   INTEGER NOT NULL DEFAULT 0,
+  duration_ms    INTEGER NOT NULL DEFAULT 0,
+  outcome        TEXT NOT NULL DEFAULT 'unknown',
+  outcome_source TEXT NOT NULL DEFAULT '',
+  time           TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_jobs_session ON jobs(session_id, id);
+CREATE INDEX IF NOT EXISTS idx_jobs_shape ON jobs(agent, tool_seq, outcome);
+CREATE INDEX IF NOT EXISTS idx_jobs_message ON jobs(message_id);
+
+CREATE TABLE IF NOT EXISTS pending_changes (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind       TEXT NOT NULL,
+  scope      TEXT NOT NULL DEFAULT '',
+  target     TEXT NOT NULL DEFAULT '',
+  op         TEXT NOT NULL DEFAULT 'add',
+  before     TEXT NOT NULL DEFAULT '',
+  body       TEXT NOT NULL DEFAULT '',
+  reason     TEXT NOT NULL DEFAULT '',
+  evidence   TEXT NOT NULL DEFAULT '',
+  source     TEXT NOT NULL DEFAULT '',
+  state      TEXT NOT NULL DEFAULT 'pending',
+  created_at TEXT NOT NULL,
+  decided_at TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_pending_state ON pending_changes(state, id);
+
+CREATE TABLE IF NOT EXISTS ignored_habits (
+  normalized  TEXT PRIMARY KEY,
+  sample_text TEXT NOT NULL DEFAULT '',
+  ignored_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS synthesized_habits (
+  normalized     TEXT PRIMARY KEY,
+  synthesized_at TEXT NOT NULL,
+  proposal_id    INTEGER NOT NULL DEFAULT 0
+);
+`
+
+// migration is one step from schema version N-1 to N. The version a database
+// is on lives in SQLite's own `PRAGMA user_version` rather than a table of our
+// own: it costs no row, no join and no bootstrap ordering problem, and it is
+// written inside the same transaction as the step it describes, so a migration
+// that fails halfway leaves the version behind rather than claiming work it
+// did not do.
+type migration struct {
+	version int
+	name    string
+	apply   func(*sql.Tx) error
+}
+
+// migrations must only ever be appended to. Editing a shipped entry changes
+// what a version *means* on machines that already ran it, which is exactly the
+// drift `user_version` exists to prevent.
+//
+// Version 1 is the schema as it stood before versioning existed. It is written
+// entirely in CREATE ... IF NOT EXISTS plus applyAddedColumns, so it is a no-op
+// on every database already in the wild — those are at user_version 0 with the
+// tables already present, and running step 1 over them changes nothing but the
+// version marker.
+var migrations = []migration{
+	{
+		version: 1,
+		name:    "baseline",
+		apply: func(tx *sql.Tx) error {
+			if _, err := tx.Exec(baselineSchema); err != nil {
+				return err
+			}
+			return applyAddedColumns(tx)
+		},
+	},
+	{
+		version: 2,
+		name:    "tool_runs",
+		apply: func(tx *sql.Tx) error {
+			_, err := tx.Exec(toolRunsSchema)
+			return err
+		},
+	},
+	{
+		version: 3,
+		name:    "tool_runs_fts",
+		apply: func(tx *sql.Tx) error {
+			if _, err := tx.Exec(toolRunsFTSSchema); err != nil {
+				return err
+			}
+			// Databases that lived at version 2 already hold rows the new
+			// triggers never saw; index them now or they would be the one
+			// permanently unsearchable stretch of history.
+			_, err := tx.Exec(`INSERT INTO tool_runs_fts(rowid, tool, args, output)
+				SELECT id, tool, args, output FROM tool_runs`)
+			return err
+		},
+	},
+	{
+		version: 4,
+		name:    "message_variants",
+		apply: func(tx *sql.Tx) error {
+			for _, stmt := range []string{
+				// A regenerated answer is an alternate for the SAME bubble, not a
+				// second bubble: `text` stays the live one, so FTS, session titles
+				// and the context rebuild all keep reading the column they always
+				// did, and none of them learn what a variant is. The alternates
+				// ride alongside as JSON (see storedVariant), which costs one
+				// column instead of a second table and a grouping key.
+				`ALTER TABLE messages ADD COLUMN variants TEXT NOT NULL DEFAULT ''`,
+				// The turn as it actually happened — prose, thinking segments and
+				// tool calls in order (turn.TurnPart). `text` stays the closing
+				// answer alone, so every older reader is unaffected; this is what
+				// lets a reopened session show the work rather than only the
+				// conclusion, which no amount of columns on `text` could.
+				`ALTER TABLE messages ADD COLUMN parts TEXT NOT NULL DEFAULT ''`,
+				`ALTER TABLE messages ADD COLUMN variant_active INTEGER NOT NULL DEFAULT 0`,
+				// Reasoning and its clock were on SessionMessage from the start and
+				// written to nothing: appendTurn inserted role/text/time only, so
+				// reopening a session dropped every "คิดเป็นเวลา Xs" panel it had.
+				// They are stored per variant too, inside the JSON above.
+				`ALTER TABLE messages ADD COLUMN reasoning TEXT NOT NULL DEFAULT ''`,
+				`ALTER TABLE messages ADD COLUMN think_secs INTEGER NOT NULL DEFAULT 0`,
+			} {
+				if _, err := tx.Exec(stmt); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	},
+	{
+		version: 5,
+		name:    "fts_update_triggers",
+		apply: func(tx *sql.Tx) error {
+			for _, stmt := range []string{
+				// An external-content FTS5 table is not a view: nothing updates it
+				// but a trigger, and version 4 shipped `text` as a column that gets
+				// UPDATEd (storeVariants, when the user asks for another answer).
+				// The insert/delete pair alone leaves the index holding a row the
+				// table no longer has, and SQLite then reports the whole database
+				// as "malformed" on the delete that tries to reconcile them — in
+				// the exact place DeleteSession promises to remove a session.
+				//
+				// Written as delete-then-insert rather than an FTS 'update'
+				// command because that is the documented shape for external
+				// content, and because the old value has to come from OLD.
+				`DROP TRIGGER IF EXISTS messages_au`,
+				`CREATE TRIGGER messages_au AFTER UPDATE ON messages BEGIN
+				   INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', old.id, old.text);
+				   INSERT INTO messages_fts(rowid, text) VALUES (new.id, new.text);
+				 END`,
+				// tool_runs has no UPDATE anywhere today. The trigger goes in
+				// anyway: the cost is one unfired trigger, and the alternative is
+				// the same silent corruption the first time somebody adds one.
+				`DROP TRIGGER IF EXISTS tool_runs_au`,
+				`CREATE TRIGGER tool_runs_au AFTER UPDATE ON tool_runs BEGIN
+				   INSERT INTO tool_runs_fts(tool_runs_fts, rowid, tool, args, output) VALUES ('delete', old.id, old.tool, old.args, old.output);
+				   INSERT INTO tool_runs_fts(rowid, tool, args, output) VALUES (new.id, new.tool, new.args, new.output);
+				 END`,
+				// Repair, not just prevention. Anyone who pressed "ตอบใหม่" on
+				// v0.8.6 already has a desynced index, and it will not heal on its
+				// own — rebuild puts it back from the table it shadows.
+				`INSERT INTO messages_fts(messages_fts) VALUES('rebuild')`,
+				`INSERT INTO tool_runs_fts(tool_runs_fts) VALUES('rebuild')`,
+			} {
+				if _, err := tx.Exec(stmt); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	},
+	{
+		version: 6,
+		name:    "project_folders",
+		apply: func(tx *sql.Tx) error {
+			// The folders a user added to a project, and the whole of what the
+			// sandbox gate is widened by (skill.RegistryOptions.ExtraRoots).
+			// Stored per project rather than globally because "this project's
+			// bug comes from that library" is a fact about one project, and a
+			// global list would quietly widen every other project too.
+			//
+			// No enabled/disabled column, no read-only flag: a folder is on the
+			// list or it is not. Any second dimension here becomes a permission
+			// the user has to reason about somewhere other than the list they
+			// can see.
+			_, err := tx.Exec(`
+CREATE TABLE IF NOT EXISTS project_folders (
+  project_key TEXT NOT NULL,
+  path        TEXT NOT NULL,
+  added_at    TEXT NOT NULL,
+  PRIMARY KEY (project_key, path)
+);`)
+			return err
+		},
+	},
+	{
+		version: 7,
+		name:    "learning_floor",
+		apply: func(tx *sql.Tx) error {
+			_, err := tx.Exec(learningSchema)
+			return err
+		},
+	},
+	{
+		version: 8,
+		name:    "session_mode",
+		apply: func(tx *sql.Tx) error {
+			// Which desk this session was opened at (ARCHITECTURE.md §83) —
+			// assistant, coding, specialized, or '' for every session that
+			// predates modes. '' means "the full desk", so an upgraded install
+			// reopens its history with exactly the tools it had; no backfill
+			// could honestly claim to know which mode an old session was.
+			//
+			// On sessions rather than messages because the mode is decided at
+			// creation and never changes — the entire value of a mode is that
+			// the context never contained the other desks' tools, and a column
+			// that could vary per message would say switching is a thing.
+			_, err := tx.Exec(`ALTER TABLE sessions ADD COLUMN mode TEXT NOT NULL DEFAULT ''`)
+			return err
+		},
+	},
+	{
+		version: 9,
+		name:    "session_agent",
+		apply: func(tx *sql.Tx) error {
+			// The session's second coordinate (§85): which agent the user is
+			// talking to directly, '' for every session held with the main
+			// assistant — which is all of them until the office's direct chat
+			// existed, so the default is also the truth about old rows.
+			//
+			// A chair session is mode='specialized' + agent='<chair>'. Same
+			// column name as jobs.agent on purpose: one spelling for "whose
+			// work is this" across the store.
+			_, err := tx.Exec(`ALTER TABLE sessions ADD COLUMN agent TEXT NOT NULL DEFAULT ''`)
+			return err
+		},
+	},
+	{
+		version: 10,
+		name:    "session_space",
+		apply: func(tx *sql.Tx) error {
+			// The session's third coordinate (COMPANY.md §84): which โปรเจกต์
+			// at the storefront door it was held inside, '' for every chat held
+			// outside one — which is all of them until this shipped, so the
+			// default is also the truth about old rows.
+			//
+			// The name of the folder, not a key: `<DataRoot>/project/<name>` is
+			// the only record that a project exists (desktop/spaces.go), so a
+			// number here would be a second identity for something the disk
+			// already names. A renamed folder therefore orphans its chats
+			// rather than following them, which is the honest outcome — the
+			// column records where a conversation was held, and renaming a
+			// folder afterwards does not change where it was held.
+			_, err := tx.Exec(`ALTER TABLE sessions ADD COLUMN space TEXT NOT NULL DEFAULT ''`)
+			return err
+		},
+	},
+	{
+		version: 11,
+		name:    "tool_run_error_kind",
+		apply: func(tx *sql.Tx) error {
+			// Where a failure came from, which the error text cannot say
+			// (turn.ErrorFromProgram). '' means an error this codebase wrote —
+			// the conservative default, and what every reader assumed before the
+			// column existed.
+			if _, err := tx.Exec(
+				`ALTER TABLE tool_runs ADD COLUMN error_kind TEXT NOT NULL DEFAULT ''`); err != nil {
+				return err
+			}
+			// Backfill, and the only place in this file that reads an error's
+			// text to decide what it is. Rows written before the column existed
+			// have no other evidence left, and leaving them unmarked is not
+			// neutral: the summarizer would keep proposing them as lessons
+			// forever, which is the very thing this column exists to stop. New
+			// rows are classified from the error value and never from its
+			// spelling — the pattern here must not grow into a rule anywhere
+			// else.
+			//
+			// `exit status <n>` is Go's own formatting of *exec.ExitError, fixed
+			// in the standard library, which is what makes it safe to match on
+			// once against rows that can no longer be re-derived.
+			_, err := tx.Exec(
+				`UPDATE tool_runs SET error_kind = ?
+				  WHERE ok = 0 AND error GLOB 'exit status [0-9]*'`, turn.ErrorFromProgram)
+			return err
+		},
+	},
+	{
+		version: 12,
+		name:    "message_error_text",
+		apply: func(tx *sql.Tx) error {
+			// Why a turn stopped, on the answer it stopped in the middle of.
+			//
+			// Until now a turn that failed was persisted as half a turn: openTurn
+			// had already written the question, and SendMessage returned before
+			// appendTurn, so the answer — and the fact that there had been an
+			// error at all — existed only in the window's memory. Reload, and the
+			// red box and its ลองใหม่ button were gone, leaving a question sitting
+			// alone with no reply and nothing saying why.
+			//
+			// One column rather than a `failed` flag beside it: non-empty IS
+			// failed, so there is no pair of columns that can disagree about
+			// whether a turn worked. Empty is every message ever written before
+			// this, and every one that succeeds after — the default needs no
+			// backfill because "no error" is what those rows have always meant.
+			//
+			// The raw error string, not a sentence for the user. Which words a
+			// person reads is the frontend's business (cockpit.sendError, and
+			// turnStopped for a cancel), and a Thai sentence frozen into the
+			// database would be the wrong language the day somebody switches.
+			_, err := tx.Exec(
+				`ALTER TABLE messages ADD COLUMN error_text TEXT NOT NULL DEFAULT ''`)
+			return err
+		},
+	},
+	{
+		version: 13,
+		name:    "session_stance",
+		apply: func(tx *sql.Tx) error {
+			// The session's fourth coordinate (DECISIONS.md §106): how the turn
+			// runs, after mode (v8) = which desk, agent (v9) = whose chat, and
+			// space (v10) = which โปรเจกต์.
+			//
+			// '' is ลงมือ — the default stance, today's behaviour, and what
+			// every row written before this column meant. mode.StanceAct is the
+			// empty string for exactly this reason, so the column default and
+			// the zero value in Go say the same thing without either side
+			// translating.
+			//
+			// On the session rather than on each message, because a stance is
+			// state the user set and left set, not a property of one turn. What
+			// a *message* still cannot say is which stance produced it — §106.4
+			// asks for that too, and it is a separate column on `messages` that
+			// this build has not needed yet: ลงมือ and คู่คิด are told apart by
+			// whether the answer touched anything, and the ambiguity §106
+			// warns about arrives with วางแผน, which refuses to write files
+			// while looking exactly like a desk that could.
+			_, err := tx.Exec(
+				`ALTER TABLE sessions ADD COLUMN stance TEXT NOT NULL DEFAULT ''`)
+			return err
+		},
+	},
+	{
+		version: 14,
+		name:    "remote_devices",
+		apply: func(tx *sql.Tx) error {
+			// Which phones may reach this machine (remote.go).
+			//
+			// `id` is the SHA-256 of the device's cookie, never the cookie:
+			// that value is a bearer token, so a table holding the originals
+			// would be a list of working keys for anyone who reads the file.
+			// Verification hashes the presented cookie and looks it up, which
+			// needs no reversal.
+			//
+			// Revoking stamps rather than deletes, for the reason
+			// pending_changes keeps its decided rows: "this phone was let in
+			// on that day and cut off on this one" is the audit trail, and a
+			// table that deletes could never grow one.
+			_, err := tx.Exec(`
+				CREATE TABLE IF NOT EXISTS remote_devices (
+				  id         TEXT PRIMARY KEY,
+				  label      TEXT NOT NULL DEFAULT '',
+				  paired_at  TEXT NOT NULL,
+				  last_seen  TEXT NOT NULL DEFAULT '',
+				  revoked_at TEXT NOT NULL DEFAULT ''
+				)`)
+			return err
+		},
+	},
+	{
+		version: 15,
+		name:    "token_usage.provider",
+		apply: func(tx *sql.Tx) error {
+			// token_usage recorded a model name and never who served it, which
+			// was fine while the numbers were only ever tokens. Money made it
+			// matter: `gpt-5.6-luna` is an OpenAI API model billed per token
+			// AND a model a Codex subscription answers with for a flat monthly
+			// fee, and pricing the second one per token invents a bill nobody
+			// was sent.
+			//
+			// Empty on old rows, which is the honest value for them: nobody
+			// wrote down who served those calls and this migration cannot
+			// invent it. UsageStats falls back to pricing them by model name
+			// and says how much of the total it could account for.
+			_, err := tx.Exec(
+				`ALTER TABLE token_usage ADD COLUMN provider TEXT NOT NULL DEFAULT ''`)
+			return err
+		},
+	},
+	{
+		version: 16,
+		name:    "summarizer_rows_are_issues",
+		apply: func(tx *sql.Tx) error {
+			// The summarizer's clusters stop being memory proposals and become
+			// system problems, which is a different question with a different
+			// verb (docs/architecture/system-problems-vs-learning-2026-08-18.md).
+			//
+			// Old rows have to come along, and not for tidiness. The dedup key
+			// in proposeSystemIssue is (kind, scope, body) — leave these behind
+			// and every cluster the user already decided on comes back on the
+			// new page the first time it runs, asking again about outages from
+			// a week ago. Sixteen decisions, re-opened, on day one.
+			//
+			// So the body is rewritten too, to exactly what issueBody now
+			// produces. Both literals are frozen copies rather than references
+			// to that function on purpose: a migration describes rows as they
+			// were on the day it ran, and one that followed a later edit of the
+			// code would rewrite yesterday's history into today's wording.
+			//
+			// What is dropped is the lesson half of the old sentence — "เลี่ยง
+			// รูปแบบที่ชนเงื่อนไขนี้ตั้งแต่ครั้งแรก", an instruction to the
+			// agent. Nothing on a problem card teaches anyone anything, and a
+			// card that still said it would be the same lie in a new room.
+			//
+			// target goes empty for the same reason it is empty on new rows:
+			// it named the memory file the lesson would have landed in, and an
+			// issue lands nowhere.
+			_, err := tx.Exec(`
+				UPDATE pending_changes
+				   SET kind   = 'issue',
+				       target = '',
+				       body   = replace(
+				                  replace(body,
+				                    ' เคยล้มซ้ำ ๆ ด้วยเหตุเดียวกัน: ',
+				                    ' ล้มซ้ำด้วยเหตุเดียวกัน: '),
+				                  ' — เลี่ยงรูปแบบที่ชนเงื่อนไขนี้ตั้งแต่ครั้งแรก', '')
+				 WHERE source = 'summarizer'`)
+			return err
+		},
+	},
+	{
+		version: 17,
+		name:    "session_keeps_its_own_model",
+		apply: func(tx *sql.Tx) error {
+			// A chat's dials, on the chat (DECISIONS §155).
+			//
+			// §155 gave each conversation its own config and stopped one step
+			// short: the config lived only as long as the engine did. A chat
+			// that went idle and off screen had its engine let go, and
+			// reopening it rebuilt from Engine.cfg — the last model anyone chose
+			// anywhere. So the model still followed the user between chats,
+			// which is exactly the complaint §155 was written to answer, and it
+			// took a probe to see it (owner, 20 ส.ค.: "เช็คดีๆ เหมือนจะไม่ใช่นะ" —
+			// he was right and I had said otherwise).
+			//
+			// Same shape as `stance` (v13): a column on the session, written
+			// when the session row is created, read back when it is reopened.
+			// The alternative — remembering it in memory — is the thing that
+			// just failed, and a chat's model has to survive a restart for the
+			// same reason its desk does.
+			//
+			// Empty means "never recorded", which is every session from before
+			// this migration, and those reopen on the app's default exactly as
+			// they do today. A default is not a lie; a wrong specific value is.
+			for _, col := range []string{"provider", "model", "wire_format", "think_level", "approval_mode"} {
+				if _, err := tx.Exec(
+					`ALTER TABLE sessions ADD COLUMN ` + col + ` TEXT NOT NULL DEFAULT ''`); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	},
+	{
+		version: 18,
+		name:    "research_is_now_deepresearch",
+		apply: func(tx *sql.Tx) error {
+			// The agent named `research` was renamed to `deepresearch` (6 ก.ย.)
+			// and the rename moved its identity folder and its address — and
+			// nothing else. An agent's name is not only what the user types at
+			// it: it is the key its whole past is filed under, in four columns
+			// of this database, and none of them moved with the folder.
+			//
+			// The visible half was a chat that could not be opened at all.
+			// resolveStation refuses a session whose chair profile is gone —
+			// deliberately, because reopening it as the main assistant would be
+			// answering as somebody else — so every session ever held with that
+			// agent became a row in the history list that raises an error and
+			// shows nothing. The transcript was never lost; the name in front
+			// of it was, and that was enough to make it unreachable.
+			//
+			// The quiet half is the learning: every tool run, every delegation
+			// job, and any lesson still waiting for approval is scoped by agent
+			// name, so leaving those behind would hand the renamed agent an
+			// empty past and keep the old one's in the store forever, filed
+			// under a name nothing can read.
+			//
+			// Exact matches only. The name is a whole column value here, never
+			// a substring of one, and a `replace()` would have rewritten every
+			// unrelated row that merely contains the word.
+			for _, stmt := range []string{
+				`UPDATE sessions       SET agent = 'deepresearch' WHERE agent = 'research'`,
+				`UPDATE jobs           SET agent = 'deepresearch' WHERE agent = 'research'`,
+				`UPDATE tool_runs      SET agent = 'deepresearch' WHERE agent = 'research'`,
+				`UPDATE pending_changes SET scope = 'deepresearch' WHERE scope = 'research'`,
+			} {
+				if _, err := tx.Exec(stmt); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	},
+	{
+		version: 19,
+		name:    "token_usage_by_session",
+		apply: func(tx *sql.Tx) error {
+			// token_usage has been indexed by time since it was written, which
+			// is the stats page's question ("what did today cost"). Nothing
+			// indexed the other one, and there was no other one until the
+			// composer's meter started asking what a single chat has cost.
+			//
+			// Two readers now scan by session and both sit on a chat's hot
+			// path: lastPromptUsage on every context refresh, SessionSpend on
+			// every round of every turn. On a table that only grows — 30 MB of
+			// it after a fortnight here — a full scan per round is the kind of
+			// cost that never shows up as a bug, just as an app that gets
+			// slower the longer you use it.
+			_, err := tx.Exec(
+				`CREATE INDEX IF NOT EXISTS idx_token_usage_session ON token_usage(session_id, id)`)
+			return err
+		},
+	},
+	{
+		version: 20,
+		name:    "plans",
+		apply: func(tx *sql.Tx) error {
+			// A plan gets a row of its own, which is the whole of the change
+			// the owner asked for on 2026-09-08 and the reason everything else
+			// in the overhaul becomes possible.
+			//
+			// Until now a plan was a ```plan fence in one assistant message and
+			// nothing more. That is enough to DRAW one (§106.12) and not enough
+			// to do anything else with: there is no id, no version, and nothing
+			// a later turn can point at — so "change step 3" had no step 3 to
+			// change, and the only way to revise a plan was to write the whole
+			// document again. Measured on this machine before the change: 70%
+			// of every byte of plan ever written was written over a plan that
+			// already existed (TOKEN-AUDIT.md, PLAN REWRITES).
+			//
+			// **One plan per conversation**, which is why session_id is the key
+			// rather than a column. It follows the stance's own framing — the
+			// turn produces THE plan, and the card IS the answer — and it is
+			// what makes `amend` mean something without the model having to
+			// carry an id around. A conversation that genuinely needs a second
+			// plan is a second conversation, which is also how ประตูส่งไม้ will
+			// hand one over.
+			//
+			// The sections are JSON in one column rather than a second table.
+			// The shape is small and fixed (mode.PlanHeadings), it is read and
+			// written whole, and nothing will ever query inside it — a
+			// plan_sections table would buy joins nobody needs and a migration
+			// every time the shape moves. JSON is also what makes `amend`
+			// exact: a section is replaced by NAME, so nothing has to parse a
+			// plan back out of the markdown it was rendered into.
+			//
+			// Persisted, unlike the todo list next door in ask_user.go, and the
+			// difference is the point rather than an inconsistency. A checklist
+			// describes a turn that is happening; a plan is meant to outlive the
+			// turn that wrote it — read back in ลงมือ so the acting session does
+			// not re-derive it, and aimed at by มุ่งเป้า. A plan that did not
+			// survive a reload would be a plan you cannot act on tomorrow.
+			_, err := tx.Exec(`
+			  CREATE TABLE IF NOT EXISTS plans (
+			    session_id TEXT PRIMARY KEY,
+			    title      TEXT NOT NULL DEFAULT '',
+			    sections   TEXT NOT NULL DEFAULT '[]',
+			    -- The plan's checklist, structured rather than parsed out of the
+			    -- "What to change" prose. That is what makes มุ่งเป้า's first gate
+			    -- mechanical (goal_run.go): to know whether step 3 is done off a
+			    -- markdown list you would have to READ it, which is a judgement,
+			    -- which is the one thing §106.10 says the checker must not be.
+			    steps      TEXT NOT NULL DEFAULT '[]',
+			    version    INTEGER NOT NULL DEFAULT 1,
+			    created    TEXT NOT NULL DEFAULT '',
+			    updated    TEXT NOT NULL DEFAULT ''
+			  )`)
+			return err
+		},
+	},
+	{
+		version: 21,
+		name:    "ignored_habits",
+		apply: func(tx *sql.Tx) error {
+			_, err := tx.Exec(`
+			  CREATE TABLE IF NOT EXISTS ignored_habits (
+			    normalized  TEXT PRIMARY KEY,
+			    sample_text TEXT NOT NULL DEFAULT '',
+			    ignored_at  TEXT NOT NULL
+			  )`)
+			return err
+		},
+	},
+	{
+		version: 22,
+		name:    "synthesized_habits",
+		apply: func(tx *sql.Tx) error {
+			_, err := tx.Exec(`
+			  CREATE TABLE IF NOT EXISTS synthesized_habits (
+			    normalized     TEXT PRIMARY KEY,
+			    synthesized_at TEXT NOT NULL,
+			    proposal_id    INTEGER NOT NULL DEFAULT 0
+			  )`)
+			return err
+		},
+	},
+	{
+		version: 23,
+		name:    "tool_run_caller_faults",
+		apply: func(tx *sql.Tx) error {
+			// The second and last backfill that reads an error's spelling, for
+			// the same reason as version 11's: rows written before
+			// internal/callfault existed carry no other evidence of what they
+			// were, and left unmarked they would be offered as problems on the
+			// next pass. Three sentences, each authored once in this codebase
+			// and matched here as its own prefix, never as a rule — a refusal
+			// written tomorrow is marked at birth (turn.ErrorFromCaller) or
+			// not at all.
+			_, err := tx.Exec(
+				`UPDATE tool_runs SET error_kind = ?
+				  WHERE ok = 0 AND error_kind = ''
+				    AND (error LIKE 'action is required%'
+				      OR error LIKE 'unknown % action %'
+				      OR error LIKE 'tool % is not exposed to agent here%')`,
+				turn.ErrorFromCaller)
+			return err
+		},
+	},
+	{
+		version: 24,
+		name:    "plan_reports",
+		apply: func(tx *sql.Tx) error {
+			// The plan's "after" (plan_report.go). One row per ROUND of a
+			// conversation's plan rather than one per plan, because a plan is
+			// carried out in rounds — paused at a breakpoint, resumed, stopped
+			// and run again — and each round is work somebody walked away from
+			// and needs told about. The words are JSON under fixed headings
+			// (mode.ReportHeadings), for the reason the plan's sections are;
+			// the numbers beside them are copied off the plan and the run at
+			// the moment of writing, so a report cannot claim a finish the
+			// checklist does not show.
+			_, err := tx.Exec(`
+			  CREATE TABLE IF NOT EXISTS plan_reports (
+			    session_id   TEXT NOT NULL,
+			    run          INTEGER NOT NULL,
+			    plan_version INTEGER NOT NULL DEFAULT 1,
+			    title        TEXT NOT NULL DEFAULT '',
+			    sections     TEXT NOT NULL DEFAULT '[]',
+			    done         INTEGER NOT NULL DEFAULT 0,
+			    failed       INTEGER NOT NULL DEFAULT 0,
+			    total        INTEGER NOT NULL DEFAULT 0,
+			    elapsed_secs INTEGER NOT NULL DEFAULT 0,
+			    sent_back    INTEGER NOT NULL DEFAULT 0,
+			    stopped      TEXT NOT NULL DEFAULT '',
+			    at           TEXT NOT NULL DEFAULT '',
+			    PRIMARY KEY (session_id, run)
+			  )`)
+			return err
+		},
+	},
+}
+
+// latestSchemaVersion is what this build understands.
+func latestSchemaVersion() int {
+	if len(migrations) == 0 {
+		return 0
+	}
+	return migrations[len(migrations)-1].version
+}
+
+// sqlExecQuerier is the overlap between *sql.DB and *sql.Tx that
+// applyAddedColumns needs — it ran against the database directly before
+// migrations existed and now runs inside one.
+type sqlExecQuerier interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	Query(query string, args ...any) (*sql.Rows, error)
+}
+
+// migrate brings an open database up to latestSchemaVersion, one transaction
+// per step.
+//
+// A database from a *newer* build is refused rather than used: this build does
+// not know what a future step changed, and a wrong write into a user's only
+// copy of their history is worse than the feature being unavailable until they
+// upgrade. The app still starts — every caller of database() treats an error as
+// "no history", not as a fatal.
+// schemaTooNewError is the one open failure this build can never talk its way
+// out of: the file was migrated by a NEWER Aetox, so its schema is ahead of
+// everything this binary knows how to read. Retrying cannot help, and opening
+// it anyway would write an older shape over newer data.
+//
+// A type rather than a sentinel for two reasons. The message the user has to
+// see names both numbers, and database() has to tell this apart from "the disk
+// was busy for a second" — until 7 ก.ย. 2026 those were the same cached error,
+// and the second one then lasted for the rest of the process.
+type schemaTooNewError struct{ have, known int }
+
+func (e schemaTooNewError) Error() string {
+	return fmt.Sprintf(
+		"aetox.db is at schema version %d but this build knows only %d — it was written by a newer Aetox. Nothing was changed; upgrade to open this history",
+		e.have, e.known)
+}
+
+func migrate(db *sql.DB) error {
+	var current int
+	if err := db.QueryRow("PRAGMA user_version").Scan(&current); err != nil {
+		return fmt.Errorf("read schema version: %w", err)
+	}
+	if latest := latestSchemaVersion(); current > latest {
+		return schemaTooNewError{have: current, known: latest}
+	}
+	for _, m := range migrations {
+		if m.version <= current {
+			continue
+		}
+		tx, err := db.Begin()
+		if err != nil {
+			return fmt.Errorf("migration %d (%s): begin: %w", m.version, m.name, err)
+		}
+		if err := m.apply(tx); err != nil {
+			_ = tx.Rollback()
+			return fmt.Errorf("migration %d (%s): %w", m.version, m.name, err)
+		}
+		// PRAGMA takes no bound parameter, hence the format — m.version is an
+		// int from this file's own table, never user input.
+		if _, err := tx.Exec(fmt.Sprintf("PRAGMA user_version = %d", m.version)); err != nil {
+			_ = tx.Rollback()
+			return fmt.Errorf("migration %d (%s): set version: %w", m.version, m.name, err)
+		}
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("migration %d (%s): commit: %w", m.version, m.name, err)
+		}
+	}
+	return nil
+}
+
+// addedColumns are columns introduced after a table shipped. The baseline
+// schema is all CREATE TABLE IF NOT EXISTS, which is a no-op on a database that
+// already has the table — so a new column reaches existing installs only from
+// here. Without this the INSERT would fail on every turn, and since usage
+// writes only log their errors, the stats page would quietly stop growing.
+//
+// New work should add a migration instead; this stays because the databases it
+// fixes are already out there, and step 1 has to keep doing what it did.
+//
+// cached_prompt_tokens is nullable on purpose: NULL means "this provider does
+// no cache accounting" (Ollama, LM Studio, and every row written before the
+// column existed), which is not the same as a measured zero hits. SUM skips
+// NULLs and COUNT counts only non-NULLs, so both questions stay answerable.
+var addedColumns = []struct{ table, column, definition string }{
+	{"token_usage", "cached_prompt_tokens", "INTEGER"},
+}
+
+// applyAddedColumns adds any missing column in addedColumns. Safe to run on
+// every open: existing columns are detected first, so nothing is attempted
+// twice and no data is touched.
+func applyAddedColumns(db sqlExecQuerier) error {
+	for _, c := range addedColumns {
+		has, err := hasColumn(db, c.table, c.column)
+		if err != nil {
+			return err
+		}
+		if has {
+			continue
+		}
+		if _, err := db.Exec("ALTER TABLE " + c.table + " ADD COLUMN " + c.column + " " + c.definition); err != nil {
+			return fmt.Errorf("add %s.%s: %w", c.table, c.column, err)
+		}
+	}
+	return nil
+}
+
+func hasColumn(db sqlExecQuerier, table, column string) (bool, error) {
+	// query-direct: db here is a sqlExecQuerier, which is what lets this run
+	// against a *sql.Tx mid-migration as well as the *sql.DB eachRow takes.
+	// One row, one column, and a failure to read it is already fatal below.
+	rows, err := db.Query("SELECT 1 FROM pragma_table_info(?) WHERE name = ?", table, column)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	return rows.Next(), rows.Err()
+}
+
+// database opens (once) the app-wide SQLite store.
+// dbRetryEvery is how often a store that failed to open is tried again. Short
+// enough that the window recovers on its own once the disk lets go, long enough
+// that a genuinely dead store cannot make every list in the app wait out the
+// busy_timeout below.
+const dbRetryEvery = 3 * time.Second
+
+// database opens the store on first use and hands the same handle back after.
+//
+// Two things here are the fix for 7 ก.ย. 2026, the day an installed 1.5.17 was
+// opened over a database a newer build had already migrated to schema 18. Every
+// list in the app came back empty: 77 sessions still on disk, not one of them on
+// screen, and not one line in the log to say why.
+//
+//  1. The failure is logged. Nothing logged it before. The callers swallow the
+//     error and return an empty slice (see ListSessionsForDoor), and eachRow's
+//     logging never runs because no query is ever reached — so the app was
+//     silent in precisely the case where it had the most to say.
+//
+//  2. The failure is not necessarily kept. sync.Once made the first error the
+//     answer for the life of the process, so a store that was busy for one
+//     second — another instance still writing its way out of a shutdown — left
+//     that window with no history until the user restarted it. Only
+//     schemaTooNewError is permanent; everything else is retried, at most once
+//     every dbRetryEvery.
+func (a *Engine) database() (*sql.DB, error) {
+	a.dbMu.Lock()
+	defer a.dbMu.Unlock()
+	if a.db != nil {
+		return a.db, nil
+	}
+	if a.dbErr != nil && (a.dbFatal || time.Now().Before(a.dbRetryAt)) {
+		return nil, a.dbErr
+	}
+	db, err := a.openDatabase()
+	if err != nil {
+		var tooNew schemaTooNewError
+		a.dbErr, a.dbFatal = err, errors.As(err, &tooNew)
+		a.dbRetryAt = time.Now().Add(dbRetryEvery)
+		debuglog.Msg("db: cannot open aetox.db: %v", err)
+		return nil, err
+	}
+	a.db, a.dbErr, a.dbFatal = db, nil, false
+	return a.db, nil
+}
+
+// openDatabase is one attempt at the store — the body database() used to run
+// inside its sync.Once, lifted out so that retrying is calling it again rather
+// than reaching into half-set fields.
+func (a *Engine) openDatabase() (*sql.DB, error) {
+	dir := a.dbDir
+	if dir == "" {
+		var err error
+		dir, err = config.DataRoot()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, err
+	}
+	dsn := "file:" + filepath.ToSlash(filepath.Join(dir, "aetox.db")) +
+		"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, err
+	}
+	if err := migrate(db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	return db, nil
+}
+
+// StoreFault is why the local store could not be opened, in the shape the
+// window needs: a flag to branch on, the two numbers the "newer Aetox" case has
+// to name, and the raw error for whoever reads the bug report.
+type StoreFault struct {
+	Failed  bool   `json:"failed"`
+	TooNew  bool   `json:"tooNew"`
+	Have    int    `json:"have"`
+	Known   int    `json:"known"`
+	Message string `json:"message"`
+}
+
+// HistoryFault is what the sidebar asks when its history came back empty, and
+// the whole point of it is that "there are no chats" and "your chats could not
+// be read" stop looking identical. They looked identical for as long as the
+// list existed, which is how a full database read as an erased one.
+//
+// It asks database() rather than reading the cached error, so the answer is
+// current: a store that has come back since the list was fetched reports no
+// fault, and the banner goes away by itself. The retry throttle above is what
+// keeps that from costing a second open attempt per refresh.
+func (a *Engine) HistoryFault() StoreFault {
+	if _, err := a.database(); err != nil {
+		fault := StoreFault{Failed: true, Message: err.Error()}
+		var tooNew schemaTooNewError
+		if errors.As(err, &tooNew) {
+			fault.TooNew, fault.Have, fault.Known = true, tooNew.have, tooNew.known
+		}
+		return fault
+	}
+	return StoreFault{}
+}

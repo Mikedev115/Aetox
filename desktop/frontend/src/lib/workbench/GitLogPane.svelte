@@ -27,7 +27,7 @@
   //   nothing in what it has.
   import { untrack } from 'svelte'
   import { GitLog, GitCommitChanges, GitCommitFileDiff } from '../../../wailsjs/go/main/App'
-  import { main } from '../../../wailsjs/go/models'
+  import { engine } from '../../../wailsjs/go/models'
   import { cockpit, sendUserMessage, setActiveView } from '../stores/cockpit.svelte'
   import { openFileTab, openGitTab } from '../stores/workbench.svelte'
   import { codeStatus } from '../stores/codeStatus.svelte'
@@ -40,12 +40,12 @@
 
   const PAGE = 50
 
-  let commits = $state<main.GitCommit[]>([])
+  let commits = $state<engine.GitCommit[]>([])
   let more = $state(false)
   let loaded = $state(false)
   let loadingMore = $state(false)
   let open = $state<Record<string, boolean>>({})
-  let files = $state<Record<string, main.GitFileChange[]>>({})
+  let files = $state<Record<string, engine.GitFileChange[]>>({})
   let filesLoading = $state<Record<string, boolean>>({})
   let openFile = $state<Record<string, boolean>>({})
   let diffs = $state<Record<string, string>>({})
@@ -169,14 +169,14 @@
     }
   }
 
-  function ask(c: main.GitCommit) {
+  function ask(c: engine.GitCommit) {
     setActiveView('chat')
     void sendUserMessage(t('gitlog.askPrompt', { hash: c.short, subject: c.subject }))
   }
 
   // ---- reading the subject ----------------------------------------------
 
-  type Row = main.GitCommit & ParsedSubject & { date: Date }
+  type Row = engine.GitCommit & ParsedSubject & { date: Date }
 
   const rows = $derived<Row[]>(commits.map((c) => ({ ...c, ...parseSubject(c.subject), date: new Date(c.at) })))
 

@@ -21,7 +21,7 @@
   // the machine.
   import { onMount } from 'svelte'
   import { VideoReadiness, InstallCapabilities, MarkVideoCheckSeen } from '../../wailsjs/go/main/App'
-  import { main } from '../../wailsjs/go/models'
+  import { engine } from '../../wailsjs/go/models'
   import { capabilities, noteCapabilityRequest } from './capabilities.svelte'
   import { t, type TKey } from './i18n.svelte'
   import Icon from './Icon.svelte'
@@ -35,7 +35,7 @@
     onClose: () => void
   } = $props()
 
-  let report = $state<main.VideoReadiness | null>(null)
+  let report = $state<engine.VideoReadiness | null>(null)
   let checking = $state(true)
   const busy = $derived(capabilities.phase === 'installing')
 

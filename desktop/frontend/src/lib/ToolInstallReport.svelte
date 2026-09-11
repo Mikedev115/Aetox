@@ -19,12 +19,12 @@
   // shape for it would read as a different kind of question.
   import { onMount } from 'svelte'
   import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
-  import { main } from '../../wailsjs/go/models'
+  import { engine } from '../../wailsjs/go/models'
   import { t } from './i18n.svelte'
   import Icon from './Icon.svelte'
 
   let { plan, title, onCancel, onConfirm }: {
-    plan: main.ToolInstallPlan
+    plan: engine.ToolInstallPlan
     title: string
     onCancel: () => void
     onConfirm: () => void
