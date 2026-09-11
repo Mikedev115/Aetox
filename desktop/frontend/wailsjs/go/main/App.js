@@ -94,6 +94,10 @@ export function ArtifactPreview(arg1) {
   return window['go']['main']['App']['ArtifactPreview'](arg1);
 }
 
+export function AttentionSignal() {
+  return window['go']['main']['App']['AttentionSignal']();
+}
+
 export function BackgroundRuns() {
   return window['go']['main']['App']['BackgroundRuns']();
 }
@@ -994,6 +998,10 @@ export function RemoveWorkspaceFolder(arg1) {
   return window['go']['main']['App']['RemoveWorkspaceFolder'](arg1);
 }
 
+export function RequestAttention() {
+  return window['go']['main']['App']['RequestAttention']();
+}
+
 export function RequiresAPIKey(arg1) {
   return window['go']['main']['App']['RequiresAPIKey'](arg1);
 }
@@ -1188,6 +1196,10 @@ export function SetAPIKey(arg1, arg2) {
 
 export function SetAgentOff(arg1, arg2) {
   return window['go']['main']['App']['SetAgentOff'](arg1, arg2);
+}
+
+export function SetAttentionSignal(arg1, arg2) {
+  return window['go']['main']['App']['SetAttentionSignal'](arg1, arg2);
 }
 
 export function SetBusyLayer(arg1, arg2) {

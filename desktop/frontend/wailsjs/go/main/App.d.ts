@@ -61,6 +61,8 @@ export function ApprovePendingChangeTo(arg1:number,arg2:string):Promise<void>;
 
 export function ArtifactPreview(arg1:string):Promise<main.ArtifactPreview>;
 
+export function AttentionSignal():Promise<Array<main.BusyLayer>>;
+
 export function BackgroundRuns():Promise<Array<main.BackgroundRun>>;
 
 export function BackgroundTasks():Promise<Array<main.BackgroundTask>>;
@@ -511,6 +513,8 @@ export function RemoveSpaceContext(arg1:string,arg2:string):Promise<Array<string
 
 export function RemoveWorkspaceFolder(arg1:string):Promise<Array<main.WorkspaceFolder>>;
 
+export function RequestAttention():Promise<void>;
+
 export function RequiresAPIKey(arg1:string):Promise<boolean>;
 
 export function ResendEdited(arg1:string,arg2:boolean):Promise<main.TurnReply>;
@@ -608,6 +612,8 @@ export function SessionsInSpace(arg1:string):Promise<Array<main.SessionMeta>>;
 export function SetAPIKey(arg1:string,arg2:string):Promise<main.ModelInfo>;
 
 export function SetAgentOff(arg1:string,arg2:boolean):Promise<main.DelegateSettings>;
+
+export function SetAttentionSignal(arg1:string,arg2:boolean):Promise<Array<main.BusyLayer>>;
 
 export function SetBusyLayer(arg1:string,arg2:boolean):Promise<Array<main.BusyLayer>>;
 

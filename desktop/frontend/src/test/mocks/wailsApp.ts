@@ -83,6 +83,14 @@ const busyLayers = () => [
 ]
 export const BusySignal = vi.fn(async (..._args: any[]) => busyLayers())
 export const SetBusyLayer = vi.fn(async (..._args: any[]) => busyLayers())
+// เรียกให้หัน (desktop/attention.go): both ship on.
+const attentionLayers = () => [
+  { id: 'flash', label: 'กระพริบบนแถบงาน', note: '', on: true },
+  { id: 'chime', label: 'เสียงเตือน', note: '', on: true },
+]
+export const AttentionSignal = vi.fn(async (..._args: any[]) => attentionLayers())
+export const SetAttentionSignal = vi.fn(async (..._args: any[]) => attentionLayers())
+export const RequestAttention = noop()
 export const CommandHistory = arr()
 export const AppVersion = vi.fn(async () => '0.8.4')
 // Defaults to "checked, nothing new": the About page has to render before any

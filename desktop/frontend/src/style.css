@@ -229,11 +229,36 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    rather than as a dot and a decoration. Not red: nothing is wrong, there is
    something waiting. */
 .dot.amber { background:var(--status-warn); box-shadow:0 0 6px color-mix(in srgb, var(--status-warn) 45%, transparent); }
+/* Stopped on a question for you. The accent, because this is the one state of
+   a running chat that is asking for a hand rather than reporting on itself,
+   and a slow breath rather than a blink: the owner took the chasing outline
+   off these rows (8 ก.ย.), and what is wanted here is "still waiting", not
+   "look, now". The OS's reduced-motion setting outranks it. */
+.dot.ask { background:var(--accent); box-shadow:0 0 6px color-mix(in srgb, var(--accent) 55%, transparent); animation:dot-ask 1.8s ease-in-out infinite; }
+@keyframes dot-ask { 0%, 100% { opacity:1; } 50% { opacity:.35; } }
+@media (prefers-reduced-motion: reduce) { .dot.ask { animation:none; } }
 /* Not yet answered. Hollow rather than dim, because a dim filled dot is what
    "off" already looks like and the two are different claims: one is a provider
    that is not usable, the other is a question still in flight. */
 .dot.unknown { background:transparent; box-shadow:inset 0 0 0 1px var(--text-dim); }
 .topbar .spacer { flex:1; }
+/* A chat you are not looking at has stopped on a question. Sits in the band's
+   empty middle, stays until the question is answered (no toast in this app —
+   a notice that vanishes before it is read is worse than none), and is one
+   button: the whole strip takes you there. The name is bold so the strip
+   reads as "«that chat» is asking", not as a generic alert. */
+.ask-strip {
+  display:inline-flex; align-items:center; gap:8px; min-width:0; max-width:min(44vw, 560px);
+  height:28px; padding:0 10px 0 8px; border-radius:var(--r-sm);
+  border:1px solid color-mix(in srgb, var(--accent) 45%, var(--border-default));
+  background:color-mix(in srgb, var(--accent) 10%, var(--surface-raised));
+  color:var(--text-primary); font-size:var(--fs-sm); cursor:pointer; white-space:nowrap;
+}
+.ask-strip:hover { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, var(--surface-raised)); }
+.ask-strip .dot { flex:none; }
+.ask-strip .who { font-weight:600; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.ask-strip .what { color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.ask-strip .go { flex:none; color:var(--accent); font-weight:600; }
 /* The conversation's name, in the band that used to be empty. Truncates
    rather than wraps or pushes: the row is a fixed 56px and the corner buttons
    are the one thing on it that must never move. */

@@ -24,6 +24,7 @@
   import { armFirstRunReplay } from './firstRun'
   import { scopeLabel, scopeMeta, USER_SCOPE, MAIN_SCOPE } from './memoryScope'
   import { setShell } from './shell.svelte'
+  import { attention, loadAttention, toggleAttention } from './stores/attention.svelte'
   import type { IconName } from './icons'
   import { NAV } from './desks'
   // The shelf and everything that turns one of its entries into a saved server.
@@ -680,6 +681,7 @@
           if (!shells.some((s) => s.path === defaultShell)) defaultShell = shells[0]?.path ?? ''
         })(),
         (async () => { preparedOn = await PreparedReplyOn() })(),
+        loadAttention(),
         loadComputer(),
         loadMCP(),
         loadSkills(),
@@ -5558,6 +5560,33 @@
             <span></span>
           </label>
         </div>
+      </div>
+
+      <!-- เรียกให้หัน (desktop/attention.go). The words come from Go, the way
+           the busy signal's do: the id is ours and the words are the
+           product's, and a second table of names here would be a second place
+           for them to drift from what the switch actually does. -->
+      <div class="group-head">
+        <span class="group-title">{t('settings.groupAttention')}</span>
+      </div>
+      <div class="settings-card">
+        <div class="set-row">
+          <div class="set-txt">
+            <div class="d">{t('settings.attentionHint')}</div>
+          </div>
+        </div>
+        {#each attention.layers as layer (layer.id)}
+          <div class="set-row">
+            <div class="set-txt">
+              <div class="t">{layer.label}</div>
+              <div class="d">{layer.note}</div>
+            </div>
+            <label class="mswitch" aria-label={layer.label}>
+              <input type="checkbox" checked={layer.on} onchange={() => void toggleAttention(layer.id, !layer.on)} />
+              <span></span>
+            </label>
+          </div>
+        {/each}
       </div>
 
       <div class="group-head">

@@ -6,6 +6,7 @@
     refreshSpaces,
     sessionWorking,
     sessionUnread,
+    sessionAsking,
     newChairSession, openSpace,
   } from './stores/cockpit.svelte'
   import type { Session, SpaceRow } from './types'
@@ -506,6 +507,7 @@
     class:active={s.active}
     class:working={sessionWorking(s)}
     class:unread={sessionUnread(s)}
+    class:asking={sessionAsking(s)}
     class:draft={s.draft}
     class:pinned={pinnedChats[s.id]}
     onclick={() => selectGlobalSession(s)}
@@ -528,8 +530,15 @@
            "still going" used to be a light chasing round the row's outline,
            which he asked to be rid of — *"เอากรอบสีวิบวับออก"*. What was left
            unsaid by either was the state he actually needed: finished, and
-           nobody has read it. -->
-      {#if sessionWorking(s)}
+           nobody has read it.
+
+           A third state, 12 ก.ย.: stopped on a question. It hid inside green
+           — a chat waiting for its user is "working" by every flag — and the
+           owner's word for it was เงียบ. Asking wins over working because it
+           is the one state the user has to DO something about. -->
+      {#if sessionAsking(s)}
+        <span class="dot ask" role="img" title={t('sidebar.chatAsking')} aria-label={t('sidebar.chatAsking')}></span>
+      {:else if sessionWorking(s)}
         <span class="dot green" role="img" title={t('sidebar.chatWorking')} aria-label={t('sidebar.chatWorking')}></span>
       {:else if sessionUnread(s)}
         <span class="dot amber" role="img" title={t('sidebar.chatUnread')} aria-label={t('sidebar.chatUnread')}></span>
@@ -810,9 +819,11 @@
                      workshop side, where every chat lives nested under its
                      project, a running turn had no mark anywhere in the column
                      (owner, 22 ส.ค.). Same fact, same dot, same class names. -->
-                <div class="proj-group-sess" class:active={s.active} class:working={sessionWorking(s)} class:unread={sessionUnread(s)} class:draft={s.draft}>
+                <div class="proj-group-sess" class:active={s.active} class:working={sessionWorking(s)} class:unread={sessionUnread(s)} class:asking={sessionAsking(s)} class:draft={s.draft}>
                   <button type="button" class="proj-group-sess-open" onclick={() => selectGlobalSession(s)}>{s.title}</button>
-                  {#if sessionWorking(s)}
+                  {#if sessionAsking(s)}
+                    <span class="dot ask row-dot" role="img" title={t('sidebar.chatAsking')} aria-label={t('sidebar.chatAsking')}></span>
+                  {:else if sessionWorking(s)}
                     <span class="dot green row-dot" role="img" title={t('sidebar.chatWorking')} aria-label={t('sidebar.chatWorking')}></span>
                   {:else if sessionUnread(s)}
                     <span class="dot amber row-dot" role="img" title={t('sidebar.chatUnread')} aria-label={t('sidebar.chatUnread')}></span>

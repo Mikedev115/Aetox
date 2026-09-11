@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from './i18n.svelte'
-  import { cockpit, newSession, switchShell } from './stores/cockpit.svelte'
+  import { cockpit, newSession, switchShell, askingElsewhere, selectGlobalSession, setActiveView } from './stores/cockpit.svelte'
   import { shell, SHELLS, offeredShells } from './shell.svelte'
   import { shortcutLabel } from './shortcuts'
   import Wordmark from './Wordmark.svelte'
@@ -40,6 +40,26 @@
   let doorOpen = $state(false)
   const current = $derived(SHELLS.find((s) => s.name === shell.name) ?? SHELLS[0])
 
+
+  // The chat that has stopped on a question while the user is somewhere else.
+  //
+  // Drawn here, in the band's empty middle, because this band is the one
+  // thing on screen from every chat and every file tab — the card itself is
+  // inside one chat's transcript, and the sidebar row can be scrolled away or
+  // folded. One strip even when two chats are asking: it names the first and
+  // counts the rest, and answering the first puts the next one here.
+  const asking = $derived(askingElsewhere())
+
+  async function goAnswer() {
+    const target = asking[0]
+    if (!target) return
+    if (target.id === cockpit.openSession) {
+      // The card is on screen already, behind another page.
+      setActiveView('chat')
+      return
+    }
+    await selectGlobalSession({ id: target.id, title: target.title, ago: '' })
+  }
 
   function closeOnOutsideClick(e: MouseEvent) {
     if (!(e.target as HTMLElement).closest('.brand')) doorOpen = false
@@ -111,6 +131,15 @@
        narrow window. Against the toggle it has a fixed address. -->
   {#if title}<span class="topbar-title" title={title}>{title}</span>{/if}
   <span class="spacer"></span>
+  {#if asking.length > 0}
+    <button type="button" class="ask-strip" onclick={goAnswer} title={asking[0].question}>
+      <span class="dot ask" aria-hidden="true"></span>
+      <span class="who">{asking[0].title || t('topbar.askingUnnamed')}</span>
+      <span class="what">{asking.length > 1 ? t('topbar.askingMore', { n: asking.length - 1 }) : t('topbar.askingYou')}</span>
+      <span class="go">{t('topbar.askingGo')}</span>
+    </button>
+    <span class="spacer"></span>
+  {/if}
 
   <!-- tip-r on both: these sit flush against the window's right edge, so a
        centred (or left-anchored) tooltip gets clipped by it. -->
