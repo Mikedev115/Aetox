@@ -993,6 +993,13 @@ func (p *AnthropicProvider) statusError(resp *http.Response, body []byte) error 
 		// 402 is the whole statement — the status itself means "pay first".
 		return outOfCreditsError(p.Name(), resp.StatusCode, detail)
 	case http.StatusTooManyRequests, 529:
+		// 529 rides this case only because the format ships "overloaded" and "too
+		// fast" as one status. It is the provider's own side, so it is answered as
+		// that — until now it printed "rate limiting this key … (429)", a number
+		// that never arrived, about a pace that was never the problem.
+		if providerDownStatus(resp.StatusCode) {
+			return providerDownError(p.Name(), p.baseURL, resp.StatusCode, body, detail)
+		}
 		// Same split the OpenAI-compatible path makes, for the same reason: a
 		// host borrowing this format can spend its balance as easily as its
 		// rate limit, and only one of the two is worth waiting out.
@@ -1006,6 +1013,12 @@ func (p *AnthropicProvider) statusError(resp *http.Response, body []byte) error 
 	case http.StatusUnauthorized:
 		return fmt.Errorf("%s rejected the credentials (401: %s)", p.Name(), detail)
 	default:
+		// 500, 502, 503 and 504 land here, and they are the provider's own side
+		// failing. 529 does not: it is answered above with the rate limits,
+		// because on this format "overloaded" and "too fast" arrive together.
+		if providerDownStatus(resp.StatusCode) {
+			return providerDownError(p.Name(), p.baseURL, resp.StatusCode, body, detail)
+		}
 		return fmt.Errorf("%s request failed with status %d: %s", p.Name(), resp.StatusCode, detail)
 	}
 }

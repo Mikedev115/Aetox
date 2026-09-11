@@ -725,6 +725,12 @@ func TestOpenAICompatibleStatusErrorsAreActionable(t *testing.T) {
 		// Retry-After longer than the transport will wait, so the response
 		// comes straight back for the message instead of being retried.
 		{"rate limited", http.StatusTooManyRequests, "3600", `{"error":{"message":"Rate limit reached","type":"tokens","code":"rate_limit_exceeded"}}`, "rate limiting this key"},
+		// What both halves of the sentence below have to say is this one thing:
+		// no answer was produced, and the fault was not the user's. Which half
+		// they get depends on the endpoint, and httptest listens on 127.0.0.1 —
+		// so this table exercises the "server on this machine" wording, and the
+		// hosted wording is pinned in provider_down_test.go.
+		{"provider down", http.StatusInternalServerError, "0", `Internal server error`, "no answer was produced"},
 		{"bad key", http.StatusUnauthorized, "", `{"error":{"message":"Incorrect API key provided"}}`, "rejected the credentials"},
 	}
 	for _, tc := range cases {
@@ -798,6 +804,88 @@ func TestOpenAICompatibleStreamTranslatesInsufficientQuota(t *testing.T) {
 //
 // Verified against the live endpoint on 2026-08-15: echo the field back and the
 // second turn is 200; strip it and the identical request is a 400.
+// The endpoint half of the answer, on the non-streaming path: this same runtime
+// serves lmstudio on 127.0.0.1:1234, where there is no key, no plan and no
+// credits to reassure anybody about, and where "switch to another provider"
+// sends somebody away from the server they are trying to debug.
+func TestOpenAICompatibleReadsAServerOnThisMachineAsLocal(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "0")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":{"message":"llama runner process has terminated","code":500}}`))
+	}))
+	defer server.Close()
+
+	// httptest listens on 127.0.0.1; "localhost" is the name a person actually
+	// configures, and it is what the loopback test reads.
+	provider, err := NewOpenAICompatibleProvider(OpenAICompatibleConfig{
+		Provider: "lmstudio", Model: "local-model", APIKey: "local",
+		BaseURL: strings.Replace(server.URL, "127.0.0.1", "localhost", 1),
+	})
+	if err != nil {
+		t.Fatalf("new provider failed: %v", err)
+	}
+
+	_, err = provider.Complete(context.Background(), Request{
+		Messages: []Message{{Role: RoleUser, Content: "hi"}},
+	})
+	if err == nil {
+		t.Fatal("a 500 from a server on this machine produced no error at all")
+	}
+	for _, want := range []string{"lmstudio", "on this machine", "Check that it is running"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("err = %v; want it to say %q", err, want)
+		}
+	}
+	if strings.Contains(err.Error(), "credits are all fine") {
+		t.Errorf("a server on this machine was told about credits it does not have: %v", err)
+	}
+}
+
+// The reported case, on the path a chat turn actually takes. 2026-09-11:
+// opencode answered 500 to every turn while its model list and its auth
+// endpoint were both still fine, and what reached the user was
+// "opencode request failed with status 500: Internal server error" — a line
+// with nobody's side named in it, which he read as his own balance having run
+// out.
+//
+// The test server listens on 127.0.0.1, which is the endpoint half of this
+// answer taken literally: what a person has there is their own runtime. The
+// hosted wording is pinned in provider_down_test.go.
+func TestOpenAICompatibleStreamSaysWhoseSideFailed(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		// The wait is the provider's to state and this one states none, so zero
+		// keeps the test from spending the transport's backoff on the way to a
+		// sentence that is already decided.
+		w.Header().Set("Retry-After", "0")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("Internal server error"))
+	}))
+	defer server.Close()
+
+	provider, err := NewOpenAICompatibleProvider(OpenAICompatibleConfig{
+		Provider: "opencode", Model: "grok-code", APIKey: "k", BaseURL: server.URL,
+	})
+	if err != nil {
+		t.Fatalf("new provider failed: %v", err)
+	}
+
+	_, err = provider.StreamComplete(context.Background(), Request{
+		Messages: []Message{{Role: RoleUser, Content: "hi"}},
+	}, nil, nil)
+	if err == nil {
+		t.Fatal("a 500 produced no error at all")
+	}
+	for _, want := range []string{"opencode", "no answer was produced"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("err = %v; want it to say %q", err, want)
+		}
+	}
+	if strings.Contains(err.Error(), "out of credits") {
+		t.Errorf("an outage was reported as an empty wallet: %v", err)
+	}
+}
+
 func TestOpenAICompatibleCarriesToolCallExtraContentBothWays(t *testing.T) {
 	const signature = `{"google":{"thought_signature":"EqACCp0CARFNMg9ETsCkiTf5tkZncYrl"}}`
 
@@ -1092,4 +1180,3 @@ func TestOpenAICompatibleProvider_RetriesWithoutToolsWhenRefused(t *testing.T) {
 		t.Errorf("expected SupportsToolCalling to return false after refusal")
 	}
 }
-

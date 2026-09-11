@@ -15,7 +15,7 @@
   // Rows are collapsed on arrival and fetched on expand. A working tree of forty
   // files is an ordinary state, and forty `git show` calls to draw a list nobody
   // has looked at yet is work done on the chance it is wanted.
-  import { onMount } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import {
     GitWorkingTree,
     GitFileDiff,
@@ -31,6 +31,12 @@
   import { t } from '../i18n.svelte'
   import Icon from '../Icon.svelte'
   import CodeDiff from '../CodeDiff.svelte'
+
+  // Whether this is the tab in front — the same test Workbench uses for this
+  // slot's `display`, rather than a second way of asking that could disagree
+  // with it. Defaults to true: a pane rendered on its own is the pane being
+  // looked at, which is what the tests do and what a single-pane caller means.
+  let { active = true }: { active?: boolean } = $props()
 
   let files = $state<main.GitFileChange[]>([])
   let loaded = $state(false)
@@ -114,12 +120,63 @@
     }
   }
 
-  onMount(refresh)
+  // Live while this room is the one being looked at (owner, 2026-09-11:
+  // "แสดงแบบเรียลไทม์ไม่ใช่ต้องมาคอยกดรีเองบ่อยๆ").
+  //
+  // The tree moves for reasons this pane never hears about: the agent edits files
+  // mid-turn, and so does everything else on the machine — an editor, a
+  // formatter, a build, git itself in a terminal beside it. Re-reading only when
+  // the tab was opened and when a turn ended therefore spent its life one edit
+  // behind, with the button in the corner as the only way to catch up. So while
+  // this is the tab in front it re-reads on a timer, and coming back to the tab
+  // re-reads at once rather than waiting out the first tick.
+  //
+  // Two bounds, both about not spending the machine on a pane nobody is reading:
+  // the timer exists only while this is the tab in front (every other slot is
+  // `display: none`), and each tick is skipped while the window itself is hidden.
+  const POLL_MS = 2000
+
+  // One read at a time. `git status` on a big tree outlasts a two-second tick,
+  // and two reads in flight would race to write `files` — with the older tree
+  // able to land last. The guard is deliberately not on `refresh` itself: a press
+  // of the button must never be swallowed by a tick that happens to be out.
+  let reading = false
+
+  async function poll() {
+    // Never while this pane is the thing changing the tree: a commit in flight
+    // would have the rows it is committing pulled out from under it.
+    if (reading || committing || committingAll || committingGroupIdx !== null || analyzingSplit) return
+    reading = true
+    try {
+      await refresh()
+    } finally {
+      reading = false
+    }
+  }
+
+  // A desk restored from a saved layout can put this tab behind the one in front,
+  // and the count on the tab strip is owed an answer either way — so the very
+  // first read does not wait to be looked at.
+  onMount(() => {
+    if (!active) void poll()
+  })
+
+  $effect(() => {
+    if (!active) return
+    // untrack: what `poll` reads is a reason to skip a tick, never a reason to
+    // tear the timer down and build it again.
+    untrack(() => void poll())
+    const id = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      void poll()
+    }, POLL_MS)
+    return () => clearInterval(id)
+  })
 
   let wasWorking = false
   $effect(() => {
     const working = cockpit.awaitingReply
-    if (wasWorking && !working) void refresh()
+    if (wasWorking && !working) void poll()
     wasWorking = working
   })
 

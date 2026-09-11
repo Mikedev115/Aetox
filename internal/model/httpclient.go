@@ -427,20 +427,86 @@ func retryableTransportError(ctx context.Context, err error) bool {
 
 // retryableStatus lists the answers that mean "not now, try again".
 //
+// It is two different failures with one remedy, and providerDownStatus holds
+// the half of it that is about the provider rather than about this key's pace.
+func retryableStatus(status int) bool {
+	return status == http.StatusTooManyRequests || providerDownStatus(status)
+}
+
+// providerDownStatus lists the answers that mean the provider failed the request
+// on its own side, as opposed to "your request was wrong" (a 4xx) or "you are
+// going too fast" (a 429).
+//
+// Everything here is retried by the transport first; this is what the failure is
+// called once those retries are spent. The transport and the sentence share the
+// one list rather than keeping two, so they can never drift apart about which
+// statuses are the provider's fault.
+//
 // 529 is Anthropic's "overloaded" and is not in any RFC; it is included because
 // it is exactly the case this exists for.
-func retryableStatus(status int) bool {
+func providerDownStatus(status int) bool {
 	switch status {
-	case http.StatusTooManyRequests, // 429
-		http.StatusInternalServerError, // 500 — providers use it for transient faults
-		http.StatusBadGateway,          // 502
-		http.StatusServiceUnavailable,  // 503
-		http.StatusGatewayTimeout,      // 504
-		529:                            // Anthropic: overloaded
+	case http.StatusInternalServerError, // 500 — providers use it for transient faults
+		http.StatusBadGateway,         // 502
+		http.StatusServiceUnavailable, // 503
+		http.StatusGatewayTimeout,     // 504
+		529:                           // Anthropic: overloaded
 		return true
 	default:
 		return false
 	}
+}
+
+// providerDownError is the sentence for a 5xx that survived every retry the
+// transport was willing to spend.
+//
+// It exists because the plain sentence for one was read as a billing problem.
+// 2026-09-11: opencode answered 500 to a chat turn and the turn ended as
+// "opencode request failed with status 500: Internal server error". Nothing in
+// that line said whose side had failed, so the owner read it as ไม่มีเงิน and
+// went to check a balance that was never the problem — the same mistake
+// outOfCreditsError above already documents from the other direction, where a
+// real empty wallet was reported as a rate limit instead.
+//
+// The body still gets the last word, because some hosts front their billing
+// check with a 5xx of their own. Saying the credits are fine when they are not
+// is that first mistake pointing the other way, and outOfCredits is the one
+// place that reads the difference.
+//
+// The endpoint decides one more thing, and it is not a detail: these same
+// clients serve the servers people run on their own machine — `lmstudio` on
+// 127.0.0.1:1234, or the plain `openai` row pointed at a llama-server — where a
+// 5xx is that process dying rather than a company having a bad afternoon. There
+// is no key, no plan and no credits there to reassure anybody about, and asking
+// somebody to switch providers instead of restarting the server they own sends
+// them to fix the wrong thing.
+func providerDownError(providerName, endpoint string, status int, body []byte, detail string) error {
+	if outOfCredits(body) {
+		return outOfCreditsError(providerName, status, detail)
+	}
+	if isLoopbackEndpoint(endpoint) {
+		return fmt.Errorf(
+			"%s is the model server running on this machine, and it failed the request on its own side, so no answer was produced. Nothing about the request was wrong: it may still be loading the model, or it may have stopped. Check that it is running, then try again.%s",
+			providerName, statusDetail(status, detail),
+		)
+	}
+	return fmt.Errorf(
+		"%s's own servers failed this request, so no answer was produced. Your key, your plan and your credits are all fine. Try again in a moment, or switch to another provider.%s",
+		providerName, statusDetail(status, detail),
+	)
+}
+
+// statusDetail renders the parenthetical a failure ends with, and leaves it out
+// when there is nothing to put in it.
+//
+// A gateway that answers 504 with an empty body produced "(504: )", which reads
+// like something broke on the way to the message — and it is the longest half of
+// the sentence that says nothing, on the one line the user has to act on.
+func statusDetail(status int, detail string) string {
+	if detail = strings.TrimSpace(detail); detail == "" {
+		return fmt.Sprintf(" (%d)", status)
+	}
+	return fmt.Sprintf(" (%d: %s)", status, detail)
 }
 
 // outOfCreditsMarkers are the ways a provider says "this account has no money

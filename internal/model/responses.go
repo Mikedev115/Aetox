@@ -672,6 +672,11 @@ func (p *ResponsesProvider) statusError(resp *http.Response) error {
 		}
 		return fmt.Errorf("%s plan limit reached. It resets on its own schedule. (429: %s)", p.provider, detail)
 	default:
+		// The 5xx family: the provider failed the request on its own side, and
+		// the status alone says so. Same sentence the other hosted clients give.
+		if providerDownStatus(resp.StatusCode) {
+			return providerDownError(p.provider, p.baseURL, resp.StatusCode, body, detail)
+		}
 		return fmt.Errorf("%s request failed with status %d: %s", p.provider, resp.StatusCode, detail)
 	}
 }

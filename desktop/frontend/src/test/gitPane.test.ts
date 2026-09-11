@@ -77,9 +77,12 @@ describe('GitPane', () => {
   // The list most often goes stale because the agent above it just finished
   // editing. A panel still saying "clean" beside a chat reporting three edited
   // files is worse than no panel: it is confidently wrong.
+  //
+  // Rendered as a tab that is NOT the one in front: this is the turn-end path
+  // on its own, and the live timer has a test of its own below.
   it('reads the tree again when a turn finishes', async () => {
     cockpit.awaitingReply = false
-    const { container } = render(GitPane)
+    const { container } = render(GitPane, { active: false })
     await waitFor(() => expect(container.querySelectorAll('.gp-row').length).toBe(2))
     expect(vi.mocked(GitWorkingTree)).toHaveBeenCalledTimes(1)
 
@@ -87,6 +90,46 @@ describe('GitPane', () => {
     await waitFor(() => expect(vi.mocked(GitWorkingTree)).toHaveBeenCalledTimes(1))
     cockpit.awaitingReply = false
     await waitFor(() => expect(vi.mocked(GitWorkingTree)).toHaveBeenCalledTimes(2))
+  })
+
+  // The other half of staying current, and the one a turn cannot cover: the tree
+  // changes for reasons this pane never hears about — an editor, a formatter, a
+  // build, git in a terminal beside it — so while it is the tab in front it
+  // re-reads on its own rather than waiting to be asked (owner, 2026-09-11:
+  // "แสดงแบบเรียลไทม์ไม่ใช่ต้องมาคอยกดรีเองบ่อยๆ").
+  it('re-reads on a timer while it is the tab in front', async () => {
+    vi.useFakeTimers()
+    try {
+      render(GitPane, { active: true })
+      // The first read is on mount, not on the first tick.
+      await vi.advanceTimersByTimeAsync(0)
+      const mounted = vi.mocked(GitWorkingTree).mock.calls.length
+      expect(mounted).toBeGreaterThan(0)
+
+      // No press, no turn, no event: whatever arrives here is the timer's.
+      await vi.advanceTimersByTimeAsync(2100)
+      expect(vi.mocked(GitWorkingTree).mock.calls.length).toBeGreaterThan(mounted)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // Every other slot in the desk is `display: none`, and a working tree nobody
+  // can see is git processes spent on nothing. Switching away has to stop it.
+  it('stops reading while it is not the tab in front', async () => {
+    vi.useFakeTimers()
+    try {
+      const { rerender } = render(GitPane, { active: true })
+      await vi.advanceTimersByTimeAsync(0)
+
+      await rerender({ active: false })
+      await vi.advanceTimersByTimeAsync(0)
+      const hidden = vi.mocked(GitWorkingTree).mock.calls.length
+      await vi.advanceTimersByTimeAsync(6000)
+      expect(vi.mocked(GitWorkingTree).mock.calls.length).toBe(hidden)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('says the tree is clean rather than drawing an empty list', async () => {
