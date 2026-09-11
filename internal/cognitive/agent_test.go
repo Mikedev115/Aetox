@@ -255,6 +255,7 @@ func TestRespondWithToolsSendsPerProviderMaxTokens(t *testing.T) {
 	}{
 		{"deepseek", "deepseek-chat", 8192},       // V3-era API max — larger values 400
 		{"deepseek", "deepseek-v4-flash", 65536},  // V4 allows up to 384K output; big enough for a whole file in one call
+		{"deepseek", "deepseek-flash", 65536},     // V4.1-Flash, by the name the API serves it by now
 		{"anthropic", "claude-sonnet-4-5", 32000}, // OUTPUT_TOKEN_MAX ceiling
 		{"openai", "gpt-4o", 16384},               // gpt-4o floor
 		{"openrouter", "vendor/model", 8192},      // mixed routed models — conservative

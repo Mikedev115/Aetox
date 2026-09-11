@@ -221,7 +221,22 @@ type ModelPreference struct {
 	// Only ever holds a named desk. The legacy full desk is "" — the same value
 	// as "nothing remembered" — and reopening a pre-desk conversation is not a
 	// statement about where you want to start next time.
-	LastDesk     string            `json:"last_desk,omitempty"`
+	LastDesk string `json:"last_desk,omitempty"`
+	// LastProject is the project the window was last standing in, so a launch
+	// comes back to the folder the work is in instead of to no project at all
+	// (owner, 11 ก.ย.: ออกแอปไปแล้วกลับเข้ามา เผลอสั่งงานลงไป กลายเป็นโปรเจคว่าง —
+	// ทั้งที่แอปจำโปรเจกต์ที่เปิดล่าสุดได้อยู่แล้ว). Same reason as LastDesk: a
+	// choice made in the UI that the engine needs before the first paint, and
+	// here it is needed earlier still — a session's project is stamped when its
+	// first message is written, so the window has to be standing in the folder
+	// before there is a session to stamp.
+	//
+	// "" is a value here, not an absence. It says the user left every project
+	// deliberately (ClearProjectFocus) and means the next launch starts outside
+	// one; a file with no such key means nobody has ever chosen either way. A
+	// launch that reopened the newest row of the projects table would be unable
+	// to tell those two apart, which is why this is not read from there.
+	LastProject  string            `json:"last_project,omitempty"`
 	ModelAPIKeys map[string]string `json:"provider_api_keys,omitempty"`
 	// ModelBaseURLs holds per-provider endpoint overrides. ModelBaseURL above
 	// is the older single-slot version, which only ever held the *active*
