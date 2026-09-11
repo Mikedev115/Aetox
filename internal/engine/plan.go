@@ -534,7 +534,7 @@ func (a *Engine) emitPlan(sessionID string, plan Plan) {
 		plan.StartedAt = run.startedAt
 		plan.Paused = run.paused
 	}
-	a.emitEvent("plan:update", sessionEvent[Plan]{SessionID: sessionID, Data: plan})
+	a.emitEvent("plan:update", SessionEvent[Plan]{SessionID: sessionID, Data: plan})
 }
 
 // planReceipt is what goes back into the conversation, and it is deliberately

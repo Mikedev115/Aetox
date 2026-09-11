@@ -3,7 +3,11 @@ package engine
 import (
 	"archive/zip"
 	"bytes"
-	"encoding/json"
+	"context"
+	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"io"
 	"net/url"
 	"os"
@@ -14,6 +18,23 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/config"
 )
+
+// solidPNG is a picture of one colour, the size asked for — what a screen
+// that can draw hands back for a slide.
+func solidPNG(t *testing.T, w, h int, c color.Color) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			img.Set(x, y, c)
+		}
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
 
 func deckHTML(title string, slides ...string) string {
 	var b strings.Builder
@@ -26,13 +47,13 @@ func deckHTML(title string, slides ...string) string {
 	return b.String()
 }
 
-// deckApp gives the app a project AND a Downloads folder of its own. The second
-// half is not tidiness: without it every run of these tests would drop files
-// into the developer's real Downloads.
+// deckApp gives the engine a project of its own. Where an export lands is
+// the screen's business now (desktop/exports.go), so nothing here can drop a
+// file into the developer's real Downloads.
 func deckApp(t *testing.T) (*Engine, string) {
 	t.Helper()
 	root := t.TempDir()
-	return seed(&Engine{cfg: config.Config{SandboxRoot: root}, exportsRoot: t.TempDir()}, newConversation()), root
+	return seed(&Engine{cfg: config.Config{SandboxRoot: root}}, newConversation()), root
 }
 
 func writeUnder(t *testing.T, root, rel, body string) string {
@@ -193,39 +214,31 @@ func TestListDecksOnAFreshProjectIsEmpty(t *testing.T) {
 	}
 }
 
-// An export lands in the machine's Downloads folder, not beside the deck.
-//
-// It was beside the deck first, on the argument that this app already had one
-// answer to "where do produced files go". That is right for what the agent
-// produces and wrong for what a person asked for by pressing a button: an
-// export is a file somebody is about to attach to an email, and Downloads is
-// where every other program on the machine puts that. Owner's call.
-func TestExportLandsInDownloadsNotBesideTheDeck(t *testing.T) {
+// An export is named for the deck and holds its words; where it lands is the
+// screen's business (desktop/exports.go), which is why nothing here has a
+// Downloads folder. The words have to survive the trip: a .pptx that opens
+// empty is the failure that reads as the feature being broken.
+func TestExportIsNamedForTheDeckAndHoldsItsWords(t *testing.T) {
 	a, root := deckApp(t)
 	rel := "output/s1/เด็ค.html"
 	writeUnder(t, root, rel, deckHTML("ก", "ต้นทุนลดลง ๔๐%", "สามอย่างที่เปลี่ยน"))
 
-	out, err := a.ExportDeck(rel, "pptx")
+	export, err := a.DeckExportFiles(rel, "pptx")
 	if err != nil {
-		t.Fatalf("ExportDeck: %v", err)
+		t.Fatalf("DeckExportFiles: %v", err)
 	}
-	if !filepath.IsAbs(out) {
-		t.Fatalf("got %q, want an absolute path — it is outside the project now", out)
+	if export.Base != "เด็ค" || export.Ext != ".pptx" || export.Folder {
+		t.Errorf("export = %q %q folder=%v, want the deck's own name, .pptx, one file", export.Base, export.Ext, export.Folder)
 	}
-	if filepath.Dir(out) != a.exportsRoot {
-		t.Errorf("landed in %q, want the downloads folder %q", filepath.Dir(out), a.exportsRoot)
-	}
-	if filepath.Base(out) != "เด็ค.pptx" {
-		t.Errorf("named %q, want the deck's own name", filepath.Base(out))
+	if len(export.Files) != 1 || export.Files[0].Name != "เด็ค.pptx" {
+		t.Fatalf("files = %+v, want the one .pptx under the deck's name", names(export))
 	}
 	// The deck itself does not move.
 	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err != nil {
 		t.Errorf("the deck was disturbed: %v", err)
 	}
 
-	// The words have to survive the trip. A .pptx that opens empty is the
-	// failure that reads as the feature being broken.
-	parts := unzipPPTX(t, out)
+	parts := unzipPPTX(t, export.Files[0].Data)
 	slide1 := parts["ppt/slides/slide1.xml"]
 	if !strings.Contains(slide1, "ต้นทุนลดลง ๔๐%") {
 		t.Errorf("slide 1 lost its title:\n%s", slide1)
@@ -241,52 +254,107 @@ func TestExportLandsInDownloadsNotBesideTheDeck(t *testing.T) {
 	}
 }
 
-// Downloads is shared with every other program, and the file already there may
-// be one the user has already sent to somebody. Overwriting it would destroy
-// something this app never made.
-func TestASecondExportDoesNotOverwriteTheFirst(t *testing.T) {
+// names is what an export would write, by name.
+func names(export DeckExport) []string {
+	out := make([]string, 0, len(export.Files))
+	for _, f := range export.Files {
+		out = append(out, f.Name)
+	}
+	return out
+}
+
+// renderScreen is a window that can draw: it answers RenderDeck with one
+// picture per slide (the same solid PNG each time), which is what the
+// picture formats need and what testScreen refuses.
+type renderScreen struct {
+	testScreen
+	slides int
+	shot   []byte
+	asked  []DeckRender
+}
+
+func (s *renderScreen) RenderDeck(_ context.Context, _ string, req DeckRender) (DeckRendered, error) {
+	s.asked = append(s.asked, req)
+	switch req.Kind {
+	case "pdf":
+		return DeckRendered{PDF: []byte("%PDF-1.7 fake")}, nil
+	case "images":
+		out := DeckRendered{}
+		for i := 0; i < s.slides; i++ {
+			out.Images = append(out.Images, s.shot)
+		}
+		return out, nil
+	}
+	return DeckRendered{}, fmt.Errorf("unexpected render %q", req.Kind)
+}
+
+// The picture formats are the screen's to draw — a deck is a file on the
+// engine's host, and what it looks like only a browser can say. The engine
+// asks, then packs what came back: one file per slide in a folder for the
+// picture formats, and a frozen .pptx of the same pictures for pptx-img.
+func TestPictureExportsAskTheScreenForThePixels(t *testing.T) {
 	a, root := deckApp(t)
 	rel := "output/s1/เด็ค.html"
-	writeUnder(t, root, rel, deckHTML("ก", "หนึ่ง"))
+	writeUnder(t, root, rel, deckHTML("ก", "หนึ่ง", "สอง", "สาม"))
+	screen := &renderScreen{slides: 3, shot: solidPNG(t, 16, 9, color.Black)}
+	a.screen = screen
 
-	first, err := a.ExportDeck(rel, "pptx")
+	pdf, err := a.DeckExportFiles(rel, "pdf")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("pdf: %v", err)
 	}
-	second, err := a.ExportDeck(rel, "pptx")
+	if pdf.Folder || len(pdf.Files) != 1 || pdf.Files[0].Name != "เด็ค.pdf" || string(pdf.Files[0].Data) != "%PDF-1.7 fake" {
+		t.Errorf("pdf export = %v folder=%v, want the one PDF the screen drew", names(pdf), pdf.Folder)
+	}
+
+	png, err := a.DeckExportFiles(rel, "png")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("png: %v", err)
 	}
-	if first == second {
-		t.Fatalf("both exports went to %q", first)
+	if !png.Folder || png.Ext != ".png" {
+		t.Errorf("png export folder=%v ext=%q, want a folder of pictures", png.Folder, png.Ext)
 	}
-	for _, p := range []string{first, second} {
-		if _, err := os.Stat(p); err != nil {
-			t.Errorf("%q is not on disk: %v", p, err)
-		}
+	// 01, 02, 03: a ten-slide deck sorts 01..10 in every file browser rather
+	// than 1, 10, 2.
+	if got := strings.Join(names(png), ","); got != "01.png,02.png,03.png" {
+		t.Errorf("png files = %s", got)
+	}
+
+	frozen, err := a.DeckExportFiles(rel, "pptx-img")
+	if err != nil {
+		t.Fatalf("pptx-img: %v", err)
+	}
+	// Both pptx rows carry the same extension, and they are not
+	// interchangeable: one is editable and plain, the other exact and frozen.
+	// Sharing a name would have the second export silently replace the first.
+	if frozen.Base != "เด็ค-img" || frozen.Ext != ".pptx" {
+		t.Errorf("pptx-img = %q %q, want the deck's name with -img and .pptx", frozen.Base, frozen.Ext)
+	}
+	parts := unzipPPTX(t, frozen.Files[0].Data)
+	if _, ok := parts["ppt/slides/slide3.xml"]; !ok {
+		t.Error("the frozen deck lost a slide")
+	}
+	if notes := parts["ppt/notesSlides/notesSlide1.xml"]; !strings.Contains(notes, "พูดช้า ๆ ตรงนี้") {
+		t.Errorf("the frozen deck dropped the presenter's notes:\n%s", notes)
+	}
+
+	// Every one of those went through the screen, with the deck as a file URL.
+	if len(screen.asked) != 3 {
+		t.Errorf("the screen was asked %d times, want once per export", len(screen.asked))
 	}
 }
 
 // A deck may be called anything; a file may not.
 func TestADecksNameIsMadeSafeForAFilename(t *testing.T) {
-	if got := sanitiseFileName(`ราคา: Q4/2026 <ร่าง>`); strings.ContainsAny(got, `<>:"/\|?*`) {
+	if got := SanitiseFileName(`ราคา: Q4/2026 <ร่าง>`); strings.ContainsAny(got, `<>:"/\|?*`) {
 		t.Errorf("sanitiseFileName left something Windows refuses: %q", got)
 	}
-	if got := sanitiseFileName("   "); got != "deck" {
+	if got := SanitiseFileName("   "); got != "deck" {
 		t.Errorf("an empty name = %q, want a usable fallback", got)
 	}
 	// The name is still the deck's. Sanitising must not turn it into a hash.
-	if got := sanitiseFileName("เสนอราคา"); got != "เสนอราคา" {
+	if got := SanitiseFileName("เสนอราคา"); got != "เสนอราคา" {
 		t.Errorf("a perfectly good Thai name was mangled to %q", got)
-	}
-}
-
-// Only a file this session actually exported can be opened, because the opener
-// takes an absolute path and everything else here refuses one on purpose.
-func TestOpenExportRefusesAPathItNeverWrote(t *testing.T) {
-	a, _ := deckApp(t)
-	if _, err := a.ExportPath(filepath.Join(a.exportsRoot, "..", "somebody-elses.pptx")); err == nil {
-		t.Fatal("a path this app never wrote was offered to open")
 	}
 }
 
@@ -301,24 +369,21 @@ func TestExportDeckRefusesAFormatItCannotWrite(t *testing.T) {
 	// fail for the wrong reason and go red the day one existed. What guards the
 	// other direction is TestEveryReadyFormatActuallyWrites.
 	for _, format := range []string{"odp", "key", "mp4", ""} {
-		if _, err := a.ExportDeck(rel, format); err == nil {
-			t.Errorf("ExportDeck(%q) succeeded, but nothing writes that yet", format)
+		if _, err := a.DeckExportFiles(rel, format); err == nil {
+			t.Errorf("DeckExportFiles(%q) succeeded, but nothing writes that yet", format)
 		}
 	}
 }
 
-// needsEngine names the formats whose export drives a real WebView2, and which
-// therefore cannot be exercised from `go test` on a build machine with no
-// window — the same wall §75 hit with Excel, answered the same way: assert
-// everything that is checkable and close the rest out by hand.
-var needsEngine = map[string]bool{"pdf": true, "png": true, "jpg": true, "webp": true, "pptx-img": true}
-
 // The menu and the writer read one list, so a row cannot say "ready" while
-// ExportDeck refuses it, or the reverse.
+// the export refuses it, or the reverse. The formats that need pixels get
+// them from a screen that can draw (renderScreen), so every ready row is
+// written here rather than closed out by hand.
 func TestEveryReadyFormatActuallyWrites(t *testing.T) {
 	a, root := deckApp(t)
 	rel := "output/s1/เด็ค.html"
 	writeUnder(t, root, rel, deckHTML("ก", "หนึ่ง"))
+	a.screen = &renderScreen{slides: 1, shot: solidPNG(t, 16, 9, color.White)}
 
 	formats := a.DeckFormats()
 	if len(formats) == 0 {
@@ -330,55 +395,20 @@ func TestEveryReadyFormatActuallyWrites(t *testing.T) {
 			continue
 		}
 		ready++
-		if needsEngine[f.ID] {
-			continue
-		}
-		out, err := a.ExportDeck(rel, f.ID)
+		out, err := a.DeckExportFiles(rel, f.ID)
 		if err != nil {
 			t.Errorf("%s is marked ready and refused: %v", f.ID, err)
 			continue
 		}
-		if !strings.HasSuffix(out, f.Ext) {
-			t.Errorf("%s wrote %q, which does not end in %q", f.ID, out, f.Ext)
+		if out.Ext != f.Ext {
+			t.Errorf("%s wrote %q, which is not the %q the menu promised", f.ID, out.Ext, f.Ext)
+		}
+		if len(out.Files) == 0 {
+			t.Errorf("%s wrote nothing", f.ID)
 		}
 	}
 	if ready == 0 {
 		t.Error("no format is ready, so the export button can never do anything")
-	}
-}
-
-// The print settings are the whole difference between a PDF that looks like the
-// deck and one that looks like a bug report, and they are checkable here even
-// though the printing is not.
-func TestPrintSettingsKeepTheDeckLookingLikeItself(t *testing.T) {
-	var params map[string]any
-	// 0, 0 is "nothing measured" — the fallback path, which is the one this
-	// test's numbers describe (deckPageWidthInches × deckPageHeightInches).
-	if err := json.Unmarshal([]byte(deckPrintParams(0, 0)), &params); err != nil {
-		t.Fatalf("the print parameters are not valid JSON: %v", err)
-	}
-
-	// Without this every slide with a colour behind it prints white. The file
-	// still opens, so nothing anywhere says why it came out wrong.
-	if params["printBackground"] != true {
-		t.Error("printBackground is off, so every coloured slide would print white")
-	}
-	// With this on, Chromium stamps the file:// URL and today's date across
-	// every slide.
-	if params["displayHeaderFooter"] != false {
-		t.Error("displayHeaderFooter is on, so every slide would carry a URL and a date")
-	}
-	for _, margin := range []string{"marginTop", "marginBottom", "marginLeft", "marginRight"} {
-		if params[margin] != float64(0) {
-			t.Errorf("%s is %v, but the slide IS the page: a margin shrinks the artwork inside its own paper", margin, params[margin])
-		}
-	}
-	// 1280x720 CSS pixels at 96dpi, which is also ooxml's 12192000 EMU.
-	if w := params["paperWidth"]; w != 13.333 {
-		t.Errorf("paperWidth = %v, want 13.333in (1280px at 96dpi)", w)
-	}
-	if h := params["paperHeight"]; h != 7.5 {
-		t.Errorf("paperHeight = %v, want 7.5in (720px at 96dpi)", h)
 	}
 }
 
@@ -387,7 +417,7 @@ func TestPrintSettingsKeepTheDeckLookingLikeItself(t *testing.T) {
 // space that arrives unescaped is a deck the engine cannot find, which prints
 // as its own error page.
 func TestFileURLEscapesEverySegment(t *testing.T) {
-	got := fileURLForPath(`D:\งาน\output\s1\เสนอ ราคา.html`)
+	got := FileURLForPath(`D:\งาน\output\s1\เสนอ ราคา.html`)
 	if !strings.HasPrefix(got, "file:///") {
 		t.Errorf("%q does not start with file:///", got)
 	}
@@ -412,7 +442,7 @@ func TestExportDeckRefusesAPageWithNoSlides(t *testing.T) {
 	rel := "output/s1/index.html"
 	writeUnder(t, root, rel, "<html><body><h1>หน้าเว็บธรรมดา</h1></body></html>")
 
-	_, err := a.ExportDeck(rel, "pptx")
+	_, err := a.DeckExportFiles(rel, "pptx")
 	if err == nil {
 		t.Fatal("a page with no slides was exported")
 	}
@@ -431,25 +461,23 @@ func TestExportDeckStaysInsideTheProject(t *testing.T) {
 		"../outside.html",
 		"output/../../outside.html",
 	} {
-		if _, err := a.ExportDeck(escape, "pptx"); err == nil {
-			t.Errorf("ExportDeck(%q) was allowed out of the project", escape)
+		if _, err := a.DeckExportFiles(escape, "pptx"); err == nil {
+			t.Errorf("DeckExportFiles(%q) was allowed out of the project", escape)
 		}
 	}
 }
 
+// Gone is the one answer the window can translate (§133), so it has to be
+// the sentinel and not a Win32 sentence.
 func TestExportDeckOnAMissingFileSaysItIsGone(t *testing.T) {
 	a, _ := deckApp(t)
-	if _, err := a.ExportDeck("output/s1/หายไป.html", "pptx"); err == nil {
-		t.Fatal("exporting a file that is not there succeeded")
+	if _, err := a.DeckExportFiles("output/s1/หายไป.html", "pptx"); err != ErrFileGone {
+		t.Fatalf("exporting a file that is not there = %v, want ErrFileGone", err)
 	}
 }
 
-func unzipPPTX(t *testing.T, path string) map[string]string {
+func unzipPPTX(t *testing.T, data []byte) map[string]string {
 	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		t.Fatalf("the export is not a readable package: %v", err)
@@ -470,31 +498,6 @@ func unzipPPTX(t *testing.T, path string) map[string]string {
 	return out
 }
 
-// Both pptx rows carry the same extension, and they are not interchangeable:
-// one is editable and plain, the other exact and frozen. If they shared a
-// filename the second export would silently replace the first.
-// Both pptx rows carry the same extension and are not interchangeable: one is
-// editable and plain, the other exact and frozen. Sharing a filename would make
-// the second export silently replace the first.
-func TestTheTwoPptxRowsDoNotShareAFilename(t *testing.T) {
-	a, root := deckApp(t)
-	rel := "output/s1/เด็ค.html"
-	writeUnder(t, root, rel, deckHTML("ก", "หนึ่ง"))
-
-	plain, err := a.ExportDeck(rel, "pptx")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if filepath.Base(plain) != "เด็ค.pptx" {
-		t.Errorf("the editable pptx is named %q", filepath.Base(plain))
-	}
-	// The picture one needs a renderer, so what is checked here is the naming
-	// rule ExportDeck applies rather than the export itself.
-	if filepath.Base(plain) == "เด็ค-img.pptx" {
-		t.Error("the two pptx exports would collide")
-	}
-}
-
 // The skeleton the slides skill hands out has to survive the whole export path,
 // not just the parser.
 //
@@ -505,8 +508,7 @@ func TestTheTwoPptxRowsDoNotShareAFilename(t *testing.T) {
 // and a skeleton that parses but exports empty would look exactly like a working
 // one right up until the click.
 //
-// Runs here rather than in internal/skill because ExportDeck is the Engine's, and
-// `pptx` is the one format that needs no window (needsEngine, above).
+// Runs here rather than in internal/skill because the export is the Engine's.
 func TestTheSlidesSkeletonExportsToARealPPTX(t *testing.T) {
 	skeleton := skeletonFromTheSlidesSkill(t)
 
@@ -514,27 +516,19 @@ func TestTheSlidesSkeletonExportsToARealPPTX(t *testing.T) {
 	rel := "output/s1/skeleton.html"
 	writeUnder(t, root, rel, skeleton)
 
-	landed, err := a.ExportDeck(rel, "pptx")
+	export, err := a.DeckExportFiles(rel, "pptx")
 	if err != nil {
 		t.Fatalf("the documented skeleton does not export: %v", err)
 	}
-	info, err := os.Stat(landed)
-	if err != nil {
-		t.Fatalf("stat %s: %v", landed, err)
-	}
+	data := export.Files[0].Data
 	// A .pptx is a ZIP of XML parts. Anything this small is an empty shell.
-	if info.Size() < 4096 {
-		t.Errorf("%s is %d bytes — too small to hold three slides", landed, info.Size())
+	if len(data) < 4096 {
+		t.Errorf("the export is %d bytes — too small to hold three slides", len(data))
 	}
 
-	zr, err := zip.OpenReader(landed)
-	if err != nil {
-		t.Fatalf("the export is not a readable .pptx: %v", err)
-	}
-	defer zr.Close()
 	slides := 0
-	for _, f := range zr.File {
-		if strings.HasPrefix(f.Name, "ppt/slides/slide") && strings.HasSuffix(f.Name, ".xml") {
+	for name := range unzipPPTX(t, data) {
+		if strings.HasPrefix(name, "ppt/slides/slide") && strings.HasSuffix(name, ".xml") {
 			slides++
 		}
 	}

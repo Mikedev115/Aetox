@@ -10,18 +10,20 @@ import (
 // The workbench tools travel to the model in the same batch as the built-ins,
 // and a provider validates the batch as a whole — one malformed schema here
 // fails the request and takes every other tool down with it. internal/skill has
-// the matching check for its own; this is the other half of what the app sends.
+// the matching check for its own; this is the engine's half of what the app
+// sends, and desktop/window_tools_test.go runs the same check over the
+// window's (the browser, the machine).
 func TestWorkbenchToolDefinitionsAreWellFormed(t *testing.T) {
 	app := &Engine{}
-	tools := []skill.Skill{
-		&browserOpenSkill{app: app},
-		&browserReadSkill{app: app},
-		&browserClickSkill{app: app},
-		&browserTypeSkill{app: app},
+	checkToolDefinitions(t, []skill.Skill{
 		&askUserSkill{app: app, conv: app.cur()},
 		&todoWriteSkill{app: app},
-	}
+	})
+}
 
+// checkToolDefinitions is the check itself, over any set of skills.
+func checkToolDefinitions(t *testing.T, tools []skill.Skill) {
+	t.Helper()
 	seen := map[string]bool{}
 	for _, s := range tools {
 		tool, ok := s.(skill.Tool)

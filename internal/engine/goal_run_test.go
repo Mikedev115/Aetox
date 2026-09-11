@@ -422,7 +422,7 @@ func TestABreakpointHoldsTheRunBeforeThatStep(t *testing.T) {
 	// resume something that is not happening.
 	var drawn Plan
 	s.app.emit = func(event string, data ...any) {
-		if ev, ok := data[0].(sessionEvent[Plan]); ok && event == "plan:update" {
+		if ev, ok := data[0].(SessionEvent[Plan]); ok && event == "plan:update" {
 			drawn = ev.Data
 		}
 	}

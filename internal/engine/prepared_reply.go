@@ -183,7 +183,7 @@ func (a *Engine) maybePrepareReply(conv *conversation, question, answer string) 
 		if a.turnRunningIn(conv.id) {
 			return
 		}
-		a.emitEvent("composer:prepared", sessionEvent[[]PreparedReply]{SessionID: conv.id, Data: replies})
+		a.emitEvent("composer:prepared", SessionEvent[[]PreparedReply]{SessionID: conv.id, Data: replies})
 	}()
 }
 

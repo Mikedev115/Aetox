@@ -148,7 +148,7 @@ func (a *App) adoptStagedUpdate() {
 // (errTurnBusyUpdate) because the shared one ends in advice about switching
 // chats, which is not the door the user is standing in.
 func (a *App) RestartToUpdate() error {
-	if err := a.eng.ReadyToRestart(); err != nil {
+	if err := a.api.ReadyToRestart(); err != nil {
 		return err
 	}
 	a.staged.mu.Lock()

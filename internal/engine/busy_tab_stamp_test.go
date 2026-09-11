@@ -5,14 +5,23 @@ package engine
 // Before this, the panel could tell that the browser was busy and nothing more,
 // so the only honest thing it could do was light the whole panel with five tab
 // chips sitting in it. The stamp is what turns "the agent is working" into "the
-// agent is working HERE", and it is put on by the host because the host is the
-// only side that holds both the tool event and the tabs.
+// agent is working HERE", and it is put on by the engine because the engine is
+// the side that holds the tool event — and it asks the screen which tab, since
+// the tabs are the screen's (§248 B1, Screen.AgentTab).
 
 import (
 	"testing"
 
 	"github.com/Mikedev115/Aetox/internal/turn"
 )
+
+// tabScreen is a window whose agent tab is a fixed answer.
+type tabScreen struct {
+	testScreen
+	tab string
+}
+
+func (s tabScreen) AgentTab() string { return s.tab }
 
 // eventsFrom captures what the window would have been sent.
 func eventsFrom(app *Engine) *[]turn.ToolEvent {
@@ -21,7 +30,7 @@ func eventsFrom(app *Engine) *[]turn.ToolEvent {
 		if len(data) == 0 {
 			return
 		}
-		stamped, ok := data[0].(sessionEvent[turn.ToolEvent])
+		stamped, ok := data[0].(SessionEvent[turn.ToolEvent])
 		if !ok {
 			return
 		}
@@ -31,8 +40,7 @@ func eventsFrom(app *Engine) *[]turn.ToolEvent {
 }
 
 func TestABrowserCallIsStampedWithTheTabItIsWorking(t *testing.T) {
-	app := hostWithTabs(t, "web-agent-2", []string{"web-agent-1", "web-agent-2"},
-		"web-agent-1", "web-agent-2", "web-3")
+	app := &Engine{screen: tabScreen{tab: "web-agent-2"}}
 	seen := eventsFrom(app)
 	conv := &conversation{id: "s1"}
 
@@ -49,7 +57,7 @@ func TestABrowserCallIsStampedWithTheTabItIsWorking(t *testing.T) {
 // Every other tool gets nothing. A write stamped with a browser tab would have
 // the panel light a page that nobody touched.
 func TestOnlyTheBrowserGetsATabStamp(t *testing.T) {
-	app := hostWithTabs(t, "web-agent-1", []string{"web-agent-1"}, "web-agent-1")
+	app := &Engine{screen: tabScreen{tab: "web-agent-1"}}
 	seen := eventsFrom(app)
 
 	app.recordToolAction(&conversation{id: "s1"},
@@ -66,46 +74,22 @@ func TestOnlyTheBrowserGetsATabStamp(t *testing.T) {
 // No tab yet is a real state, and it is the state the very first `open` of a
 // session is in. The panel reads an empty stamp as "light yourself, point at
 // nothing", which is honest; a guessed id would point at somebody else's page.
+// An engine with no screen at all answers the same way.
 func TestABrowserCallBeforeAnyTabIsStampedWithNothing(t *testing.T) {
-	app := &Engine{}
-	seen := eventsFrom(app)
+	for name, app := range map[string]*Engine{
+		"no tab":    {screen: tabScreen{}},
+		"no screen": {},
+	} {
+		seen := eventsFrom(app)
 
-	app.recordToolAction(&conversation{id: "s1"},
-		turn.ToolEvent{Action: "call", Ref: "c1", Name: "browser", Act: "open"})
+		app.recordToolAction(&conversation{id: "s1"},
+			turn.ToolEvent{Action: "call", Ref: "c1", Name: "browser", Act: "open"})
 
-	if len(*seen) != 1 {
-		t.Fatalf("want one event, got %d", len(*seen))
-	}
-	if got := (*seen)[0].Tab; got != "" {
-		t.Errorf("Tab = %q with no browser open at all", got)
-	}
-}
-
-// The one that would have been silent and expensive.
-//
-// agentTab TAKES agentTabClosed — it is said once, to the call that runs into
-// it. The busy signal asks after the tab on every single tool call, so if it
-// asked the same way, it would eat the sentence telling the model its page was
-// closed out from under it, and the model would be told instead that it had
-// never opened one. A UI detail deleting a message meant for the agent.
-func TestTheStampNeverEatsThePageWasClosedMessage(t *testing.T) {
-	app := hostWithTabs(t, "web-agent-1", []string{"web-agent-1"}, "web-agent-1")
-	eventsFrom(app)
-	app.BrowserClose("web-agent-1") // the user's × on the tab strip
-
-	// The panel asks first, the way it does on every call in the turn.
-	if got := app.agentTabPeek(); got != "" {
-		t.Errorf("agentTabPeek() = %q for a tab that is gone", got)
-	}
-	app.recordToolAction(&conversation{id: "s1"},
-		turn.ToolEvent{Action: "call", Ref: "c1", Name: "browser", Act: "read"})
-
-	// And the message is still there for the tool that needs it.
-	_, err := app.agentTab()
-	if err == nil {
-		t.Fatal("the agent still has a page after the user closed it")
-	}
-	if err != errAgentTabClosed {
-		t.Errorf("the agent was told %q, want the page-was-closed message", err)
+		if len(*seen) != 1 {
+			t.Fatalf("%s: want one event, got %d", name, len(*seen))
+		}
+		if got := (*seen)[0].Tab; got != "" {
+			t.Errorf("%s: Tab = %q with no browser open at all", name, got)
+		}
 	}
 }

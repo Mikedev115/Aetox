@@ -1,0 +1,542 @@
+package main
+
+// The agent looking at a page instead of reading it.
+//
+// `read` hands back the page as text and refs, and that is the right answer
+// almost always — it is cheap, it is exact, and it is what a model can act on.
+// What it cannot do is answer a question whose answer was never in the text: a
+// chart, a canvas, a map, a layout that is wrong. For those the page has to be
+// seen, and BrowserCapturePNG has been able to produce the picture since the
+// annotation modes shipped (browser_shot.go). It was simply never a tool: the
+// only thing that could ask for it was the user drawing on a page.
+//
+// Two things had to be true before it could become one, and only one of them
+// was about pictures.
+//
+//   - **Which tab.** A photograph of the wrong page is obvious in a way that
+//     text of the wrong page is not, and until agentTab existed
+//     the browser actions targeted whatever tab was showing. Capture would have
+//     been the first action to make that visible, by handing back a picture of
+//     whatever the user happened to be looking at.
+//   - **Where it lands.** A picture is bytes, and bytes have to go somewhere the
+//     user can reach or the capability is a thing the agent saw and nobody else
+//     can check.
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"errors"
+	"fmt"
+	"image"
+	// Registered for its header alone — a capture is always a PNG, and
+	// tallStripNote reads nothing but its width and height.
+	_ "image/png"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/Mikedev115/Aetox/internal/deck"
+	"github.com/Mikedev115/Aetox/internal/engine"
+	"github.com/Mikedev115/Aetox/internal/model"
+	"github.com/Mikedev115/Aetox/internal/skill"
+)
+
+// owner: see browserSkill.owner — the session the raise's desk event names.
+type browserCaptureSkill struct {
+	app   *App
+	owner string
+}
+
+// Numbered per run rather than per session, which is enough to keep two shots
+// in one turn from being one file — the session folder already separates chats.
+
+// full asks for the whole document rather than the visible part of it.
+//
+// Off by default, and that is the right default rather than a timid one: most
+// pages fit, a full-page picture of a long one is far more bytes for the same
+// answer, and the visible area is what the user is looking at while the agent
+// works. It earns its keep on the page that does not fit — a long form, a
+// report, a layout whose problem is below the fold.
+//
+// marks asks for the page's refs drawn into the picture (browser_refmarks.go),
+// which turns a photograph from something to look at into something to act on:
+// the model reads a number off the page and clicks that ref, instead of
+// measuring a pixel and multiplying it back into a coordinate.
+//
+// Also off by default, and for a reason that is not timidity either. A picture
+// answering "does this layout look wrong" must be the page and nothing else —
+// forty numbered boxes over it is a different picture, of a page nobody has.
+// The two uses are genuinely different questions and the caller knows which one
+// it is asking, which is exactly when a flag is the right shape.
+func (s *browserCaptureSkill) capture(ctx context.Context, full, marks bool) (skill.Output, error) {
+	start := time.Now()
+	out := skill.Output{Name: "browser_capture", Command: "browser capture"}
+	a := s.app
+
+	id, err := a.agentTab()
+	if err != nil {
+		out.Content, out.Stderr = err.Error(), err.Error()
+		out.DurationMs = time.Since(start).Milliseconds()
+		return out, err
+	}
+
+	// Raise the tab before photographing it, rather than hoping it is up.
+	//
+	// A hidden native view is not compositing: BrowserSetVisible(false) is a
+	// Win32 ShowWindow(SW_HIDE), and a window in that state produces no frames,
+	// so a capture of one comes back as the last thing it drew or as nothing at
+	// all. Raising is also the honest half — this tool's whole premise is that
+	// the user watches what the agent does, which cannot be true of a photograph
+	// taken of something they were never shown.
+	//
+	// It is the same event `open` uses, and the frontend's handler only makes an
+	// existing tab active, so nothing re-navigates and the URL is along for the
+	// ride the tab is already on.
+	// Nothing of Aetox's own in the photograph.
+	//
+	// The click ring sits directly over the control it points at, so a capture
+	// taken a moment after a click would hand the model a picture of the page
+	// with a bright circle drawn across the thing it was looking for — and the
+	// model has no way to know the circle is not part of the site.
+	//
+	// This one BLOCKS until the page says the mark is gone. It used to be queued
+	// and left to the 400ms raise below to have landed by, which worked and was
+	// not a guarantee: eval hands a script to the page and returns, so the sleep
+	// was doing a job it was never told about. The wait is bounded at two
+	// seconds and silence is not a failure — see clearPageMarks.
+	a.clearPageMarks(id)
+	// And put the cursor back once the photograph is taken, whichever way
+	// this returns: the user was watching it, and a capture is not an action
+	// that moves the mouse.
+	defer a.restorePageCursor(id)
+
+	// The viewport, asked for before the photograph: what the picture's
+	// pixels map onto. Without this a model that sees a cell in the picture
+	// has no way to turn the pixel into a point it can press.
+	view, viewKnown := a.pageViewport(id)
+
+	var title, url string
+	tab := a.browsers.tab(string(id))
+	if tab != nil {
+		title, url = tab.meta()
+	}
+	detached := a.detachedTab(string(id))
+	if detached {
+		// It left the desk, so there is no chip to make active and no pane to
+		// un-hide — and an open-browser event would draw it a NEW chip on
+		// whatever desk happens to be on screen. Raised at the window instead.
+		a.raiseDetached(string(id))
+	} else {
+		a.deskEvent(s.owner, "open-browser", map[string]string{"id": string(id), "url": url})
+	}
+	select {
+	case <-ctx.Done():
+		out.DurationMs = time.Since(start).Milliseconds()
+		return out, ctx.Err()
+	case <-time.After(400 * time.Millisecond): // the raise has to reach the native view and it has to draw
+	}
+
+	// A hidden view has no picture to give, and asking it for one is eight
+	// seconds of silence. BrowserSetVisible(false) is a Win32 ShowWindow
+	// (SW_HIDE), a hidden window is not composited, and CapturePreview on one
+	// never answers (WebView2Feedback #1077, #2983) — so the 8s deadline in
+	// BrowserCapturePNG was the whole answer, twice in a row, while the
+	// user was on another chat (6 ก.ย. 21:05: two captures, 8.4s each, "the
+	// page did not answer with a picture"). The raise above is what un-hides
+	// a tab of the chat on screen; a tab still hidden after it is either a
+	// background chat's — parked, and staying parked until its chat is opened
+	// (§187) — or one the pane has not mounted yet, which a short wait sorts
+	// from the first. Either way the agent is told what is true and what to do
+	// instead, at once, rather than handed a timeout to guess at.
+	// A detached tab is exempt, for the same reason selectRaiseNote exempts it:
+	// `hidden` is the PANEL's want, and a window that has left the panel does
+	// not obey it. The pane that was drawing it unmounts the moment the chip
+	// goes (detachTab -> removeTab), its onDestroy hides the tab it no longer
+	// owns, and win32Tab.setVisible ignores that hide — so the flag latches
+	// true on a window the user can see, with no chip left to ever clear it.
+	// Read literally here, capture refused every photograph of a detached page
+	// for the rest of the run, and blamed the chat for it — which is both the
+	// wrong sentence and the wrong advice, since coming back to the chat does
+	// nothing for a window that is not on its desk. BrowserDetach promises the
+	// tools go on working (browser.go); this is the one that had stopped.
+	background := s.owner != "" && s.owner != a.api.CurrentSessionID()
+	if tab != nil && tab.isHidden() && !detached {
+		if !background {
+			a.waitShown(ctx, tab, 1500*time.Millisecond)
+		}
+		if tab.isHidden() {
+			err := captureHiddenErr(background)
+			out.Content, out.Stderr = "แคปหน้าเว็บไม่สำเร็จ: "+err.Error(), err.Error()
+			out.DurationMs = time.Since(start).Milliseconds()
+			return out, err
+		}
+	}
+
+	// notes are whatever this picture is not. They are collected as they are
+	// learnt and spent at the bottom, because every one of them is a thing a
+	// caller would otherwise have to infer from a picture that looks perfectly
+	// fine: a page cut off at a height it cannot see, a full-page request
+	// quietly served by the viewport path, and a deck photographed by a
+	// renderer that is not the one that exports it.
+	var notes []string
+	// The raise above only lands when this conversation is the one on screen:
+	// a background chat's page stays parked on its own desk (§187), and a
+	// hidden native view produces no frames — so the picture below can be the
+	// last thing the page drew before it was hidden. Said out loud, because
+	// from the bytes alone a stale frame looks exactly like a fresh one.
+	if background {
+		notes = append(notes, "แชตนี้ไม่ได้อยู่บนจอ หน้าต่างเบราว์เซอร์จึงถูกซ่อนไว้ ภาพนี้อาจเป็นเฟรมเก่าของหน้า ไม่ใช่สถานะล่าสุด")
+	}
+
+	// Does the model this picture is for have eyes? Asked here rather than at
+	// the attachment below, because it decides two things now: whether the
+	// numbers are worth drawing at all, and whether the picture goes on the
+	// wire. A model that reads pages with `read` is not helped by labels it
+	// cannot see, and drawing them would be work done on a page the user is
+	// looking at for nobody's benefit.
+	sees := a.modelSees()
+	var framingNotes []string
+	full, marks, framingNotes = captureFraming(full, marks, sees)
+	notes = append(notes, framingNotes...)
+
+	var drawnRefs []int
+	var refsInView int
+	var refElements []browserElement
+	if marks {
+		// The refs are stamped by the same pass `read` uses, on purpose and at
+		// the cost of one more round trip: it is the only way the number in the
+		// picture and the number `click` resolves can be the same fact rather
+		// than two facts that agree. Its element list becomes the key printed
+		// under the picture.
+		snap, snapErr := a.browserSnapshot(string(id), "")
+		if snapErr != nil {
+			notes = append(notes, "วางเลขกำกับไม่สำเร็จ ("+snapErr.Error()+") ภาพนี้จึงไม่มีเลข ใช้พิกัดตามสูตรด้านล่างแทน")
+			marks = false
+		} else {
+			refElements = snap.Elements
+			drawn, inView, drawErr := a.drawRefMarks(id, refMarkCap)
+			if drawErr != nil {
+				notes = append(notes, "วางเลขกำกับไม่สำเร็จ ("+drawErr.Error()+") ภาพนี้จึงไม่มีเลข ใช้พิกัดตามสูตรด้านล่างแทน")
+				marks = false
+			} else {
+				drawnRefs, refsInView = drawn, inView
+				// Off again whichever way this returns. The page belongs to the
+				// user and the numbers were for one photograph.
+				defer a.clearRefMarks(id)
+			}
+		}
+	}
+
+	var dataURL string
+	if full {
+		var cutAt int
+		dataURL, cutAt, err = a.BrowserCaptureFullPNG(ctx, string(id))
+		switch {
+		case err != nil:
+			// Falling back rather than failing, because the visible area is
+			// still an answer to most questions. Saying so is not optional: a
+			// caller that asked for the whole page and was handed the top of it
+			// without being told would report on a page it never saw.
+			notes = append(notes, "ถ่ายทั้งหน้าไม่สำเร็จ ("+err.Error()+") ภาพนี้จึงเป็นเฉพาะส่วนที่เห็นบนจอ")
+			dataURL, err = a.BrowserCapturePNG(string(id))
+		case cutAt > 0:
+			notes = append(notes, fmt.Sprintf("หน้านี้ยาวกว่าที่ตัวเรนเดอร์วาดได้ ภาพนี้คือ %d พิกเซลแรกจากบนสุด ส่วนที่เหลือไม่ได้อยู่ในภาพ", cutAt))
+		}
+	} else {
+		dataURL, err = a.BrowserCapturePNG(string(id))
+	}
+	if err != nil {
+		out.Content, out.Stderr = "แคปหน้าเว็บไม่สำเร็จ: "+err.Error(), err.Error()
+		out.DurationMs = time.Since(start).Milliseconds()
+		return out, err
+	}
+	png, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(dataURL, "data:image/png;base64,"))
+	if err != nil {
+		out.Content, out.Stderr = "ภาพที่ได้อ่านไม่ออก: "+err.Error(), err.Error()
+		out.DurationMs = time.Since(start).Milliseconds()
+		return out, err
+	}
+
+	if deckNote := a.deckRendererNote(url); deckNote != "" {
+		notes = append(notes, deckNote)
+	}
+
+	// Named the way every other browser action names a page. See browserPageRef.
+	where := engine.BrowserPageRef(title, url)
+	if where == "" {
+		where = "the open page"
+	}
+
+	// "Nothing changed" is an answer, and until the tab began remembering its
+	// last picture it was the one answer this tool could not give. It handed
+	// back the identical image and left the caller to notice for itself, which
+	// no caller ever did — see browserTab.lastShot for what that cost.
+	//
+	// Neither attached nor written a second time, and both halves are the same
+	// point: the caller is already holding this exact image, from the capture
+	// this one is identical to. Sending it again spends the tokens of a picture
+	// to say nothing, and a duplicate under output/<session>/work is a card in
+	// the gallery for a photograph nobody took.
+	sum := sha256.Sum256(png)
+	if tab != nil {
+		if at, inARow, same := tab.lastShot(sum); same {
+			out.Success = true
+			out.DurationMs = time.Since(start).Milliseconds()
+			out.Content = fmt.Sprintf("ภาพของ %s เหมือนกับ %s ทุกไบต์ หน้านี้ไม่ได้เปลี่ยนอะไรเลยตั้งแต่แคปครั้งก่อน จึงไม่ได้เก็บไฟล์ซ้ำและไม่ได้ส่งภาพเดิมมาซ้ำ", where, at)
+			if inARow > 1 {
+				out.Content += fmt.Sprintf("\nเป็นครั้งที่ %d ติดกันแล้วที่ได้ภาพเดิม", inARow)
+			}
+			// The key is printed even though the picture is not sent again.
+			// The refs were re-stamped a moment ago by the read above, so this
+			// is what the numbers in the picture the caller is already holding
+			// mean NOW — which is the one thing an identical photograph cannot
+			// be relied on to still say for itself.
+			if marks {
+				out.Content += refMarkLegend(drawnRefs, refElements, refsInView)
+			}
+			out.Content += captureNotes(notes)
+			out.RawOutput = out.Content
+			return out, nil
+		}
+	}
+
+	rel, err := a.api.SaveBrowserShot(png, marks)
+	if err != nil {
+		out.Content, out.Stderr = "เก็บภาพไม่สำเร็จ: "+err.Error(), err.Error()
+		out.DurationMs = time.Since(start).Milliseconds()
+		return out, err
+	}
+	if tab != nil {
+		tab.rememberShot(sum, rel)
+	}
+
+	out.Success = true
+	out.DurationMs = time.Since(start).Milliseconds()
+	// Deliberately NOT an artifact. A capture is a step of the work, not a
+	// thing handed to the user — the picture goes to the model (below), the
+	// live page is on the desk, and the file is in output/<session>/work for
+	// ผลงาน to sweep. Flagging it put every screenshot of a browsing session
+	// under the answer and into ชิ้นงาน, where they buried the plan (owner, 12
+	// ก.ย.: "มันไม่ควรแสดงทุกอย่างดิตรงนี้").
+
+	// The picture goes to the model only if the model has eyes. A blind one gets
+	// the path and the tool it has always had for reading letters out of an
+	// image, which is the same trade visionAttachments makes for a user's
+	// attachment — one question, one answer, asked in both places by the same
+	// function (and asked once, above, because the marks turn on the same bit).
+	if sees {
+		// The file that was just written is the full picture; what goes on the
+		// wire is whatever the provider will take of it. Fitted here rather
+		// than before the write, because the copy on disk is the one the user
+		// opens and it should be the photograph that was taken.
+		fitted, fitNote := model.FitForWire(model.Image{MediaType: "image/png", Data: png})
+		if fitNote != "" {
+			notes = append(notes, fitNote)
+		}
+		if strip := tallStripNote(png); strip != "" {
+			notes = append(notes, strip)
+		}
+		if viewKnown {
+			if scale := captureScaleNote(view, fitted.Data, full); scale != "" {
+				notes = append(notes, scale)
+			}
+		}
+		out.Images = []model.Image{fitted}
+		out.Content = fmt.Sprintf("ภาพของ %s อยู่ด้านล่าง และเก็บไว้ที่ %s", where, rel)
+	} else {
+		out.Content = fmt.Sprintf("เก็บภาพของ %s ไว้ที่ %s แล้ว ใช้ image_ocr กับไฟล์นี้เพื่ออ่านข้อความในภาพ", where, rel)
+	}
+	// The key belongs with the picture, above the list of what the picture is
+	// not: it is part of the answer rather than a caveat about it.
+	if marks {
+		out.Content += refMarkLegend(drawnRefs, refElements, refsInView)
+	}
+	out.Content += captureNotes(notes)
+	out.RawOutput = out.Content
+	return out, nil
+}
+
+// pageViewport asks the page how big it is, in the unit a click is aimed in.
+// captureFraming settles what the two flags actually mean for this model,
+// before anything is drawn or photographed.
+//
+// Named rather than inlined for the reason fullCaptureParams is: the policy is
+// two refusals and a sentence each, and both are worth asserting without a live
+// webview. It is also the one place either flag is overridden, so a caller
+// reading capture sees the whole rule at once instead of two ifs half a screen
+// apart.
+//
+//   - **marks without eyes is nothing.** A model that reads pages with `read`
+//     cannot see a label, and drawing forty of them onto a page the user is
+//     looking at would be work done for nobody. It is told what to do instead,
+//     which is the thing it already has and better.
+//   - **marks with full is the wrong pair.** A document-tall photograph is
+//     shrunk by every provider until a 13px chip is a smudge (tallStripNote),
+//     and a y read off one is a document offset rather than a place on screen.
+//     So the picture that could be aimed from is the one that cannot be read,
+//     and the one that can be read cannot be aimed from. The viewport is the
+//     only frame where both are true, and marks are what the caller asked for —
+//     so full is the half that gives way.
+func captureFraming(full, marks, sees bool) (bool, bool, []string) {
+	var notes []string
+	if marks && !sees {
+		marks = false
+		notes = append(notes, "โมเดลนี้อ่านภาพไม่ได้ จึงไม่ได้วางเลขกำกับ ใช้ read เพื่อเอา ref แล้ว click ตามเลขนั้นได้เลย")
+	}
+	if marks && full {
+		full = false
+		notes = append(notes, "ขอทั้ง full และ marks พร้อมกัน — ภาพนี้จึงเป็นเฉพาะส่วนที่เห็นบนจอ เพราะเลขกำกับบนภาพความยาวทั้งเอกสารจะถูกย่อจนอ่านไม่ออก ถ้าต้องกดของที่อยู่นอกจอ ให้เลื่อนแล้วแคปใหม่")
+	}
+	return full, marks, notes
+}
+
+// captureHiddenErr is the sentence for a view that cannot be photographed
+// because it is not being drawn, in the two shapes that has.
+//
+// Neither shape names `tabs select`, and the on-screen one used to. That advice
+// was a loop with the tool's own raise: capture fires `open-browser` before it
+// photographs, `selectAgentTab` fires exactly the same event and nothing else,
+// so by the time this sentence is reached the thing it was recommending has
+// already been tried and has already failed. The owner watched it run for five
+// minutes on 8 ก.ย. 19:04–19:09 — capture, tabs select, capture, tabs select,
+// thirteen tool-loop iterations, the select answering "ทำงานกับแท็บ ... แล้ว"
+// every time — because the model was doing what it was told.
+//
+// What is actually true at this point is that the desk is not drawing the pane:
+// BrowserPane only shows a tab when its chip is active AND the pane has a box
+// on screen AND no room is drawn over it (its `visible` derives the whole
+// list), so a user sitting in ตั้งค่า or โปรเจกต์, or with the โต๊ะ collapsed,
+// leaves every raise with nowhere to land. No tool can move that; the user can.
+// So the sentence says so and offers the two moves that exist.
+func captureHiddenErr(background bool) error {
+	if background {
+		return errors.New("แชตนี้ไม่ได้อยู่บนจอ หน้าต่างเบราว์เซอร์ของมันจึงถูกซ่อนไว้ และหน้าต่างที่ซ่อนอยู่ไม่วาดเฟรมให้ถ่าย — ใช้ read แทนไปก่อน หรือ capture อีกครั้งเมื่อผู้ใช้กลับมาที่แชตนี้")
+	}
+	return errors.New("โต๊ะยังไม่ได้วาดแท็บนี้บนจอ (ผู้ใช้กำลังดูหน้าอื่นของแอป หรือพาเนลโต๊ะถูกยุบอยู่) หน้าต่างที่ไม่ถูกวาดจึงไม่มีเฟรมให้ถ่าย — capture ดึงแท็บขึ้นมาเองก่อนถ่ายทุกครั้งแล้ว และ tabs select ทำสิ่งเดียวกันเป๊ะ ๆ จึงไม่ช่วย อย่าเรียกซ้ำ: ใช้ read เพื่ออ่านหน้านี้แทน แล้วบอกผู้ใช้ให้เปิดโต๊ะขึ้นมาถ้าต้องการภาพจริง ๆ")
+}
+
+// waitShown gives a raise time to land: the pane mounts, BrowserSetVisible
+// runs, the tab stops being hidden. Bounded, and silence is the caller's to
+// judge — it reads isHidden again after this returns.
+func (a *App) waitShown(ctx context.Context, tab *browserTab, limit time.Duration) {
+	deadline := time.Now().Add(limit)
+	for tab.isHidden() && time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+}
+
+func (a *App) pageViewport(id AgentTabID) (browserActResult, bool) {
+	res, answered, err := a.browserActOnFor(string(id), viewportScript, stateWait)
+	return res, err == nil && answered && res.VW > 0 && res.VH > 0
+}
+
+// captureScaleNote is how a pixel in the picture becomes a point on the page.
+//
+// The picture is physical pixels (the viewport times the device pixel ratio,
+// times any zoom preset) and may then have been shrunk again for the wire;
+// the model sees the shrunk one, so the multiplier is measured against THAT
+// width, which is the only width it can read a pixel off. A full-page capture
+// is a picture of the document, whose y is a document offset and not a
+// viewport one — said, because a y read off it and pressed lands wherever the
+// viewport happens to be.
+func captureScaleNote(view browserActResult, fitted []byte, full bool) string {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(fitted))
+	if err != nil || cfg.Width <= 0 {
+		return ""
+	}
+	k := float64(view.VW) / float64(cfg.Width)
+	note := fmt.Sprintf("viewport %d×%d CSS px, ภาพ %d×%d px, DPR %.2g: พิกัดที่อ่านจากภาพ × %.3g = x,y สำหรับ click/hover/drag/scroll",
+		view.VW, view.VH, cfg.Width, cfg.Height, view.DPR, k)
+	if full {
+		note += " — ภาพนี้คือทั้งเอกสาร y ในภาพจึงไม่ใช่ y ของ viewport เลื่อนไปให้เห็นจุดที่จะกด แล้ว capture แบบไม่ full ก่อนเล็ง"
+	}
+	return note
+}
+
+// tallStripRatio is how much taller than wide a picture has to be before it is
+// worth warning about. Four screens' worth of page in one column: past that,
+// no provider's downscale leaves the text readable.
+const tallStripRatio = 4
+
+// tallStripNote is what a very tall full-page picture is not: readable.
+//
+// Every provider resizes an image before the model looks at it, and to a budget
+// far below what it accepts — DeepSeek documents a downscale to roughly the
+// pixel count of an 800 x 800 image, Anthropic to a 1568 px long edge. A
+// 1280 x 10800 capture of a fifteen-slide deck therefore arrives as a column
+// about a hundred pixels wide in the model's eyes, which is a picture of a deck
+// with none of the deck legible in it.
+//
+// A note rather than a refusal, and rather than a crop, because the picture is
+// still the right answer to "is anything obviously broken down the page". It is
+// the wrong answer to "read slide 9", and until this said so the model had no
+// way to tell those two apart — it looked at a blur and reported on the slides
+// it could not see (30 ส.ค.).
+func tallStripNote(png []byte) string {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(png))
+	if err != nil || cfg.Width <= 0 || cfg.Height < cfg.Width*tallStripRatio {
+		return ""
+	}
+	return fmt.Sprintf(
+		"ภาพนี้สูง %d กว้าง %d โมเดลย่อภาพก่อนอ่านเสมอ ตัวหนังสือในภาพสูงขนาดนี้จึงเล็กเกินกว่าจะอ่านออก "+
+			"ใช้ดูภาพรวมได้ แต่ถ้าต้องอ่านรายละเอียดหรือตรวจทีละหน้า ให้เลื่อนแล้วถ่ายทีละหน้าจอแทน",
+		cfg.Height, cfg.Width)
+}
+
+// captureNotes is the tail of a capture's answer: each thing the picture is
+// not, on a line of its own, or nothing at all.
+func captureNotes(notes []string) string {
+	if len(notes) == 0 {
+		return ""
+	}
+	return "\n" + strings.Join(notes, "\n")
+}
+
+// deckRendererNote is what a photograph of a deck is not.
+//
+// A deck is not exported by the tab it is being looked at in. deck_render.go
+// opens the file in a window of its own, parked off-screen at exactly
+// deckSlideWidthPx by deckSlideHeightPx, and photographs one slide at a time;
+// a tab on somebody's monitor is neither that size nor that shape. A layout
+// that depends on the window it is in therefore has two answers, and a capture
+// only ever shows one of them.
+//
+// It is a note and not a refusal because the capture is still the right tool
+// most of the time — most of a deck does not care how wide the window is. It
+// exists because on 28 ส.ค. the complaint was "หน้าแรกพังครับ ตอนกดส่งออก" and
+// every verification round that followed was a capture of the on-screen tab,
+// so the renderer that had actually broken was never once looked at.
+//
+// Nothing new is exposed by the read: this is the file the tab in front of the
+// user is already displaying.
+func (a *App) deckRendererNote(pageURL string) string {
+	full := engine.LocalFileBehind(pageURL)
+	if full == "" {
+		return ""
+	}
+	if ext := strings.ToLower(filepath.Ext(full)); ext != ".html" && ext != ".htm" {
+		return ""
+	}
+	// Bounded the way the deck listing bounds itself, and for the same reason:
+	// deciding costs a read and an HTML parse, and a deck with its pictures
+	// inline is megabytes.
+	if info, err := os.Stat(full); err != nil || info.Size() > engine.MaxDeckBytes {
+		return ""
+	}
+	source, err := os.ReadFile(full)
+	if err != nil || !deck.Is(source) {
+		return ""
+	}
+	return fmt.Sprintf(
+		"ไฟล์นี้เป็นเด็ค ภาพนี้คือแท็บบนจอ ไม่ใช่สิ่งที่ตัวส่งออกวาด "+
+			"ตัวส่งออกเปิดเด็คในหน้าต่างของมันเอง กว้าง %d สูง %d พอดี แล้วถ่ายทีละสไลด์ "+
+			"เลย์เอาต์ที่อิงขนาดหน้าต่างจึงออกมาคนละอย่างได้ระหว่างสองที่นี้",
+		deckSlideWidthPx, deckSlideHeightPx)
+}

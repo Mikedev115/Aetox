@@ -13,6 +13,11 @@ package engine
 // so what runs below is the tool's own implementation against a real sandbox,
 // real subprocesses and real files, with nothing stubbed in between.
 //
+// What is not here is what the window lends (Screen.WindowTools): the browser
+// and the machine act on the screen's computer and live in desktop/, and
+// desktop/window_tools_test.go drives them the same way. An engine test has no
+// window, so testScreen lends nothing.
+//
 // Two guards, both aimed at drift rather than at today's code:
 //
 //  1. Every tool in the registry must appear in the table. A tool added without
@@ -43,7 +48,6 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/automation/n8n"
 	"github.com/Mikedev115/Aetox/internal/automation/windmill"
-	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/lsp"
 	"github.com/Mikedev115/Aetox/internal/skill"
 	"github.com/Mikedev115/Aetox/internal/stt"
@@ -92,11 +96,6 @@ func TestEveryToolRunsThroughTheRealDispatcher(t *testing.T) {
 	// third-party binary needs the real value back for the length of its call.
 	realUserProfile := os.Getenv("USERPROFILE")
 	isolateUserDirs(t)
-	// Before workbenchSkills: `computer` is registered only when the user has
-	// turned it on, so with the shipped default off this test would never see
-	// it and its seven actions would ship unexercised — the exact gap the
-	// missing-case guard below exists to close, arriving through the back door.
-	switchOnComputer(t)
 	root := t.TempDir()
 	// diagnostics starts a real gopls and leaves it running on purpose (see
 	// lsp.Shared). Registered after the temp dirs so LIFO shuts it down first:
@@ -255,25 +254,6 @@ func assertModelSurfaceIsIntact(t *testing.T, registry *skill.Registry, dispatch
 
 // runTool calls the dispatcher exactly the way turn/executor.go does, under a
 // deadline so a hung tool fails the test instead of the suite.
-// switchOnComputer turns the computer-control switch on for the duration of a
-// test.
-//
-// It writes the preference file directly rather than calling the binding,
-// because the binding re-applies the whole config to rebuild the engine (the
-// switch decides whether the tool is registered at all) and this test builds its
-// registry by hand. isolateUserDirs has already pointed the data root at a temp
-// dir, so the file written here is thrown away with the test and is never the
-// one belonging to whoever is running it.
-func switchOnComputer(t *testing.T) {
-	t.Helper()
-	if err := config.UpdateModelPreference(func(pref *config.ModelPreference) error {
-		pref.ComputerControlOn = true
-		return nil
-	}); err != nil {
-		t.Fatalf("could not turn computer control on for the test: %v", err)
-	}
-}
-
 func runTool(t *testing.T, d *skill.Dispatcher, app *Engine, name string, tc toolCase) skill.Output {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
@@ -511,22 +491,10 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 				"text":  "เครื่องนี้ไม่มี Excel ติดตั้ง",
 				"why":   "เปิดไฟล์ .xlsx แล้วไม่มีโปรแกรมรับ",
 			},
-			check: func(t *testing.T, out skill.Output, _ string) {
-				// Aetox never lists itself. Not merely refused when aimed at:
-				// absent, so a model never spends a turn finding out it may not.
-				//
-				// Matched on the PROGRAM in parentheses, never on the title. The
-				// first version of this check searched the whole output and fired
-				// on a Chrome window whose page happened to be about Aetox, which
-				// is the same mistake in miniature that the whole tool is built to
-				// avoid: a title is what somebody else wrote, a program name is what
-				// Windows reports.
-				for name := range reachSelfNames {
-					if strings.Contains(strings.ToLower(out.Content), "("+name+")") {
-						t.Errorf("list_apps offered a window belonging to %s: %s", name, out.Content)
-					}
-				}
-			},
+			// The check the comment above always described; what sat here
+			// until §248 B1 was list_apps' check pasted in, which read the
+			// receipt for a window name and passed on any sentence at all.
+			check: outputContains("approve"),
 		},
 		"suggest_task": {
 			args: map[string]any{
@@ -763,97 +731,6 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 			available: never,
 			why:       "not leaving a real comment from a test",
 		},
-
-		// --- needs the running desktop window ---
-		// These reach a real webview or nothing. Headless they must fail
-		// cleanly and immediately, which is what assertReachable checks: the
-		// regression worth catching is a browser tool that hangs the turn.
-		// One tool, eleven actions (desktop/browser_tool.go). Driven at `open`
-		// because that is the action a session starts with and the one whose
-		// argument handling is worth reaching; the rest refuse for the
-		// same reason on the same path — there is no window here.
-		// One case per action since browser joined the packs table — the same
-		// per-act coverage every other packed tool gets. All unrunnable here
-		// for the same one reason, but each action still has to route.
-		//
-		// capture refuses one step earlier than the others, and that is the
-		// point: it asks agentTab which tab is the agent's before
-		// it asks the engine for anything, so a session with no page open is
-		// told so instead of waiting on a webview that will never answer.
-		"browser_open":    {args: map[string]any{"url": "https://example.com"}, available: never, why: "needs the app window"},
-		"browser_read":    {args: map[string]any{}, available: never, why: "needs the app window"},
-		"browser_click":   {args: map[string]any{"ref": 1}, available: never, why: "needs the app window"},
-		"browser_type":    {args: map[string]any{"ref": 1, "text": "x"}, available: never, why: "needs the app window"},
-		"browser_capture": {args: map[string]any{}, available: never, why: "needs the app window"},
-		// tabs is the exception among the browser actions and runs for real: it
-		// reads bookkeeping this process owns, so it needs no window at all —
-		// and a list that answers "you have not opened anything" is exactly
-		// right for a test with no browser.
-		"browser_tabs": {args: map[string]any{"act": "list"}, check: outputContains("open")},
-
-		// The three seeing actions of `computer`.
-		//
-		// list_apps runs for real, with the switch turned on first: the feature
-		// ships off, and a case that only proved the off-refusal would never touch
-		// Win32 at all. isolateUserDirs has already pointed the data root at a temp
-		// dir, so the switch goes on in a preference file thrown away with the test
-		// and never in the one belonging to whoever is running it.
-		//
-		// An empty desktop answers "no other windows are open" and still succeeds,
-		// which is what keeps this runnable on a build agent.
-		"computer_apps": {
-			args: map[string]any{},
-			check: func(t *testing.T, out skill.Output, _ string) {
-				// Aetox never lists itself. Not merely refused when aimed at:
-				// absent, so a model never spends a turn finding out it may not.
-				//
-				// Matched on the PROGRAM in parentheses, never on the whole
-				// output. The first version of this check searched for the word
-				// anywhere and fired on a Chrome window whose page happened to
-				// be about Aetox — the same mistake in miniature that the tool
-				// itself is built to avoid, since a title is what somebody else
-				// wrote and a program name is what Windows reports.
-				for name := range reachSelfNames {
-					if strings.Contains(strings.ToLower(out.Content), "("+name+")") {
-						t.Errorf("list_apps offered a window belonging to %s: %s", name, out.Content)
-					}
-				}
-			},
-		},
-		// read and capture need a window that exists, and no third-party window is
-		// guaranteed on a build agent. What stays checked is what a test without one
-		// can check: they are routed, they come back, and they refuse in words
-		// rather than leaking a Win32 error.
-		"computer_read":    {args: map[string]any{"window": "Notepad"}, available: never, why: "needs a named window open on this machine"},
-		"computer_capture": {args: map[string]any{"window": "Notepad"}, available: never, why: "needs a named window open on this machine"},
-		// The acting four. Never runnable from a test, and the reason is not that
-		// they need a window: it is that they would DRIVE one. A test suite that
-		// clicks in whatever application happens to be open on the machine running
-		// it is a test suite that types into somebody real work.
-		//
-		// What stays checked is what matters most here: each is routed and each
-		// refuses in words. Every one of them refuses without touching Windows at
-		// all, because the switch is off in this environment and that is the first
-		// question the tool asks.
-		"computer_focus": {args: map[string]any{"window": "Notepad"}, available: never, why: "would drive a real window"},
-		"computer_click": {args: map[string]any{"ref": 1}, available: never, why: "would drive a real window"},
-		"computer_type":  {args: map[string]any{"ref": 1, "text": "x"}, available: never, why: "would drive a real window"},
-		"computer_close": {args: map[string]any{"window": "Notepad"}, available: never, why: "would drive a real window"},
-		// wait, back and dialog all need a live page, and all refuse in words
-		// before they touch the engine — which is the behaviour worth having
-		// reachable here even though none of them can run.
-		"browser_wait":   {args: map[string]any{"text": "hello"}, available: never, why: "needs the app window"},
-		"browser_back":   {args: map[string]any{}, available: never, why: "needs the app window"},
-		"browser_dialog": {args: map[string]any{"accept": true}, available: never, why: "needs the app window"},
-		// Both read a buffer that lives in a live document, so they need a page
-		// the same way the rest do. What they format out of that buffer is
-		// covered without one, in browser_log_test.go.
-		"browser_console": {args: map[string]any{}, available: never, why: "needs the app window"},
-		"browser_network": {args: map[string]any{}, available: never, why: "needs the app window"},
-		// upload is the fourth right of its own (6 ก.ย.): it hands a sandbox
-		// file to a page, and it refuses in words before the engine when the
-		// path is missing — which is as far as a test with no window gets.
-		"browser_upload": {args: map[string]any{"ref": 1, "path": "page-1.png"}, available: never, why: "needs the app window"},
 
 		// The agent's reach onto the desk (workbench_desk.go). desk_open and
 		// desk_terminal both end in an event the frontend answers, so there is

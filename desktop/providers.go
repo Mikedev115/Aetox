@@ -43,7 +43,7 @@ func (a *App) AddCustomProvider(name, baseURL, apiKey, keyFrom string) (string, 
 	if key == "" && strings.TrimSpace(keyFrom) != "" {
 		key = resolveAPIKeyForProvider(model.NormalizeProvider(keyFrom))
 	}
-	id, err := a.eng.AddCustomProviderRow(name, baseURL)
+	id, err := a.api.AddCustomProviderRow(name, baseURL)
 	if err != nil {
 		return "", err
 	}
@@ -61,7 +61,7 @@ func (a *App) AddCustomProvider(name, baseURL, apiKey, keyFrom string) (string, 
 // model last picked the engine holds — and returns the refreshed enabled
 // list.
 func (a *App) RemoveCustomProvider(id string) ([]string, error) {
-	next, err := a.eng.RemoveCustomProviderRow(id)
+	next, err := a.api.RemoveCustomProviderRow(id)
 	if err != nil {
 		return nil, err
 	}
@@ -92,12 +92,12 @@ func (a *App) RemoveCustomProvider(id string) ([]string, error) {
 // endpoint today.
 func (a *App) ListModelsForProvider(providerName string) []string {
 	canonical := model.NormalizeProvider(providerName)
-	baseURL := a.eng.ProviderBaseURL(canonical)
+	baseURL := a.api.ProviderBaseURL(canonical)
 	apiKey := resolveAPIKeyForProvider(canonical)
 	if choices, err := model.ModelChoicesWithEndpointAndAPIKey(canonical, baseURL, apiKey); err == nil && len(choices) > 0 {
 		return choices
 	}
-	if choices := a.eng.CatalogModelChoices(canonical); len(choices) > 0 {
+	if choices := a.api.CatalogModelChoices(canonical); len(choices) > 0 {
 		return choices
 	}
 	if choices := model.ModelChoices(canonical); choices != nil {
@@ -132,7 +132,7 @@ func (a *App) providerAccount(providerName string) engine.ProviderAccount {
 	}
 	balance, err := model.FetchBalance(
 		ctx, canonical,
-		a.eng.ProviderBaseURL(canonical),
+		a.api.ProviderBaseURL(canonical),
 		resolveAPIKeyForProvider(canonical),
 	)
 	account.Balance = balance
@@ -142,7 +142,7 @@ func (a *App) providerAccount(providerName string) engine.ProviderAccount {
 
 	// What the engine saw on the headers of turns: the window is the engine's
 	// to observe, the balance the screen's to fetch.
-	quotas, known := a.eng.ProviderQuotas(canonical)
+	quotas, known := a.api.ProviderQuotas(canonical)
 	account.Quotas, account.QuotaKnown = quotas, known
 
 	// Two providers serve their window from an endpoint rather than on the
@@ -153,7 +153,7 @@ func (a *App) providerAccount(providerName string) engine.ProviderAccount {
 	if len(balance.Quotas) > 0 {
 		account.Quotas = balance.Quotas
 		account.QuotaKnown, account.QuotaFetched = true, true
-		a.eng.NoteProviderQuotas(canonical, balance.Quotas)
+		a.api.NoteProviderQuotas(canonical, balance.Quotas)
 	}
 	return account
 }
@@ -167,9 +167,9 @@ func (a *App) providerAccount(providerName string) engine.ProviderAccount {
 // message.
 func (a *App) TestProviderConnection(providerName, modelName string) (string, error) {
 	canonical := model.NormalizeProvider(providerName)
-	baseURL := a.eng.ProviderBaseURL(canonical)
+	baseURL := a.api.ProviderBaseURL(canonical)
 	apiKey := resolveAPIKeyForProvider(canonical)
-	fallback, wireFormat := a.eng.ActiveModelFor(canonical)
+	fallback, wireFormat := a.api.ActiveModelFor(canonical)
 	if fallback == "" {
 		fallback = model.ResolveDefaultModel(canonical, baseURL, apiKey)
 	}
@@ -257,7 +257,7 @@ func (a *App) ProviderReady(providerName string) bool {
 	}
 	// The same judgement the rest of the app makes about a local runtime — can
 	// a model be got out of it — rather than a second definition of "up".
-	return model.ResolveDefaultModel(canonical, a.eng.ProviderBaseURL(canonical), "") != ""
+	return model.ResolveDefaultModel(canonical, a.api.ProviderBaseURL(canonical), "") != ""
 }
 
 // SetAPIKey persists an API key for a provider and, if it's the active
@@ -272,5 +272,5 @@ func (a *App) SetAPIKey(providerName, apiKey string) (engine.ModelInfo, error) {
 	if err := credentials.Set(canonical, key); err != nil {
 		return engine.ModelInfo{}, err
 	}
-	return a.eng.ProviderKeyChanged(canonical)
+	return a.api.ProviderKeyChanged(canonical)
 }

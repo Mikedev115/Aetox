@@ -17,6 +17,7 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/mode"
 	"github.com/Mikedev115/Aetox/internal/model"
+	"github.com/Mikedev115/Aetox/internal/skill"
 )
 
 // The headline. คู่คิด means no tool definitions at all, and the measurement is
@@ -251,8 +252,12 @@ func TestPlanIsNotTaughtToUseTheToolsItWithheld(t *testing.T) {
 // only take it whole — so a plan could not open a page at all, and the seven
 // actions of it that merely look went with the five that act. stance.go said so
 // itself and left it undone.
+//
+// The browser is the window's (§248 B1), so what the window lends here is a
+// pack of its shape (packstub_test.go): the narrowing is the engine's, whoever
+// built the pack, and that is what these two prove.
 func TestPlanCarriesTheBrowserWithItsReadingHalfOnly(t *testing.T) {
-	a := bootDeskApp(t, "assistant")
+	a := bootDeskAppLending(t, "assistant", []skill.Skill{newPackStub("browser")})
 	if _, err := a.SetStance(string(mode.StancePlan)); err != nil {
 		t.Fatalf("SetStance: %v", err)
 	}
@@ -304,7 +309,7 @@ func TestPlanCarriesTheBrowserWithItsReadingHalfOnly(t *testing.T) {
 // "browser click is not available here, this session may use open, read, ..."
 // can do something with that; one told nothing tries again.
 func TestPlanRefusesABrowserActionItWasNotOffered(t *testing.T) {
-	a := bootDeskApp(t, "assistant")
+	a := bootDeskAppLending(t, "assistant", []skill.Skill{newPackStub("browser")})
 	if _, err := a.SetStance(string(mode.StancePlan)); err != nil {
 		t.Fatalf("SetStance: %v", err)
 	}

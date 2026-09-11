@@ -98,7 +98,7 @@ func (a *Engine) emitTaskChips(conv *conversation) {
 	// Stamped like every other agent event: the window draws the tray of the
 	// chat it is showing, and a chip raised in a background conversation must
 	// not appear under a conversation that never saw the work.
-	a.emitEvent("tasks:changed", sessionEvent[[]TaskChip]{SessionID: conv.id, Data: conv.taskChips.list()})
+	a.emitEvent("tasks:changed", SessionEvent[[]TaskChip]{SessionID: conv.id, Data: conv.taskChips.list()})
 }
 
 // suggestTaskSkill is the agent-facing half: a workbench tool the model

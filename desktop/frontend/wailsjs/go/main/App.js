@@ -22,8 +22,16 @@ export function AccountStatus() {
   return window['go']['main']['App']['AccountStatus']();
 }
 
+export function ActiveModelFor(arg1) {
+  return window['go']['main']['App']['ActiveModelFor'](arg1);
+}
+
 export function AddCustomProvider(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['AddCustomProvider'](arg1, arg2, arg3, arg4);
+}
+
+export function AddCustomProviderRow(arg1, arg2) {
+  return window['go']['main']['App']['AddCustomProviderRow'](arg1, arg2);
 }
 
 export function AddLearnedEntry(arg1, arg2) {
@@ -92,6 +100,10 @@ export function AllowComputerApp(arg1) {
 
 export function AnswerUserQuestion(arg1, arg2) {
   return window['go']['main']['App']['AnswerUserQuestion'](arg1, arg2);
+}
+
+export function AnyTurnRunning() {
+  return window['go']['main']['App']['AnyTurnRunning']();
 }
 
 export function AppCredit() {
@@ -274,6 +286,10 @@ export function CapabilityStatuses() {
   return window['go']['main']['App']['CapabilityStatuses']();
 }
 
+export function CatalogModelChoices(arg1) {
+  return window['go']['main']['App']['CatalogModelChoices'](arg1);
+}
+
 export function ChairStarters(arg1, arg2) {
   return window['go']['main']['App']['ChairStarters'](arg1, arg2);
 }
@@ -318,6 +334,10 @@ export function CompressArtifacts(arg1) {
   return window['go']['main']['App']['CompressArtifacts'](arg1);
 }
 
+export function ComputerControlChanged() {
+  return window['go']['main']['App']['ComputerControlChanged']();
+}
+
 export function ComputerControlOn() {
   return window['go']['main']['App']['ComputerControlOn']();
 }
@@ -360,6 +380,10 @@ export function CustomProviders() {
 
 export function DeckCaptureDrawing(arg1, arg2, arg3) {
   return window['go']['main']['App']['DeckCaptureDrawing'](arg1, arg2, arg3);
+}
+
+export function DeckExportFiles(arg1, arg2) {
+  return window['go']['main']['App']['DeckExportFiles'](arg1, arg2);
 }
 
 export function DeckFormats() {
@@ -520,6 +544,10 @@ export function GrantedComputerApps() {
 
 export function GuideTopics() {
   return window['go']['main']['App']['GuideTopics']();
+}
+
+export function HandedOverFile(arg1) {
+  return window['go']['main']['App']['HandedOverFile'](arg1);
 }
 
 export function HasAPIKey(arg1) {
@@ -794,6 +822,10 @@ export function NewSessionInSpace(arg1) {
   return window['go']['main']['App']['NewSessionInSpace'](arg1);
 }
 
+export function NoteProviderQuotas(arg1, arg2) {
+  return window['go']['main']['App']['NoteProviderQuotas'](arg1, arg2);
+}
+
 export function OpenAgentHome(arg1) {
   return window['go']['main']['App']['OpenAgentHome'](arg1);
 }
@@ -856,6 +888,10 @@ export function OpenSpeechModelDir(arg1) {
 
 export function OpenSubagentsFolder() {
   return window['go']['main']['App']['OpenSubagentsFolder']();
+}
+
+export function PageMarksOn() {
+  return window['go']['main']['App']['PageMarksOn']();
 }
 
 export function PairedDevices() {
@@ -954,6 +990,14 @@ export function ProviderBaseURLIsCustom(arg1) {
   return window['go']['main']['App']['ProviderBaseURLIsCustom'](arg1);
 }
 
+export function ProviderKeyChanged(arg1) {
+  return window['go']['main']['App']['ProviderKeyChanged'](arg1);
+}
+
+export function ProviderQuotas(arg1) {
+  return window['go']['main']['App']['ProviderQuotas'](arg1);
+}
+
 export function ProviderReady(arg1) {
   return window['go']['main']['App']['ProviderReady'](arg1);
 }
@@ -1002,6 +1046,10 @@ export function ReadWorkbook(arg1) {
   return window['go']['main']['App']['ReadWorkbook'](arg1);
 }
 
+export function ReadyToRestart() {
+  return window['go']['main']['App']['ReadyToRestart']();
+}
+
 export function RecentAgentPages(arg1) {
   return window['go']['main']['App']['RecentAgentPages'](arg1);
 }
@@ -1038,6 +1086,10 @@ export function RemoveCustomProvider(arg1) {
   return window['go']['main']['App']['RemoveCustomProvider'](arg1);
 }
 
+export function RemoveCustomProviderRow(arg1) {
+  return window['go']['main']['App']['RemoveCustomProviderRow'](arg1);
+}
+
 export function RemoveExternalSkill(arg1) {
   return window['go']['main']['App']['RemoveExternalSkill'](arg1);
 }
@@ -1072,6 +1124,10 @@ export function ResendEdited(arg1, arg2) {
 
 export function ResolveAddress(arg1) {
   return window['go']['main']['App']['ResolveAddress'](arg1);
+}
+
+export function ResolveWorkbenchURL(arg1) {
+  return window['go']['main']['App']['ResolveWorkbenchURL'](arg1);
 }
 
 export function RestartToUpdate() {
@@ -1138,8 +1194,16 @@ export function RunnableLanguages() {
   return window['go']['main']['App']['RunnableLanguages']();
 }
 
+export function SandboxFile(arg1) {
+  return window['go']['main']['App']['SandboxFile'](arg1);
+}
+
 export function SaveAgentProfile(arg1, arg2) {
   return window['go']['main']['App']['SaveAgentProfile'](arg1, arg2);
+}
+
+export function SaveBrowserShot(arg1, arg2) {
+  return window['go']['main']['App']['SaveBrowserShot'](arg1, arg2);
 }
 
 export function SaveChairStarters(arg1, arg2, arg3) {
@@ -1422,8 +1486,16 @@ export function SpeakText(arg1) {
   return window['go']['main']['App']['SpeakText'](arg1);
 }
 
+export function SpeechModelDirPath(arg1) {
+  return window['go']['main']['App']['SpeechModelDirPath'](arg1);
+}
+
 export function SpeechModelDirs() {
   return window['go']['main']['App']['SpeechModelDirs']();
+}
+
+export function SpeechModelFolderPath(arg1) {
+  return window['go']['main']['App']['SpeechModelFolderPath'](arg1);
 }
 
 export function SpeechPlaying(arg1, arg2) {

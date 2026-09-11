@@ -37,7 +37,7 @@ func chunkRecorder(t *testing.T, modelName string) (*Engine, *[]chatChunk) {
 		// (desktop/conversation.go). The recorder asserts that too: a chunk
 		// with no home is the bug this file's sibling tests are about, one
 		// layer down.
-		ev, ok := data[0].(sessionEvent[chatChunk])
+		ev, ok := data[0].(SessionEvent[chatChunk])
 		if !ok {
 			t.Errorf("agent:chunk payload is %T, want a stamped sessionEvent", data[0])
 			return

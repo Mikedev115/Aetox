@@ -261,7 +261,7 @@ func (a *Engine) beginUserQuestion(conv *conversation, question string, options 
 	// can each be waiting on their own, and neither sees the other's — which is
 	// only true because the channel is the conversation's and the card is
 	// addressed to it.
-	a.emitEvent("ask:user", sessionEvent[map[string]any]{SessionID: conv.id, Data: map[string]any{
+	a.emitEvent("ask:user", SessionEvent[map[string]any]{SessionID: conv.id, Data: map[string]any{
 		"question": question,
 		"options":  options,
 	}})
@@ -272,7 +272,7 @@ func (a *Engine) endUserQuestion(conv *conversation) {
 	a.askMu.Lock()
 	defer a.askMu.Unlock()
 	conv.askCh = nil
-	a.emitEvent("ask:done", sessionEvent[any]{SessionID: conv.id})
+	a.emitEvent("ask:done", SessionEvent[any]{SessionID: conv.id})
 }
 
 // AnswerUserQuestion delivers the user's choice to the blocked ask_user tool
@@ -394,7 +394,7 @@ func (s *todoWriteSkill) ExecuteTool(_ context.Context, args map[string]any) (sk
 	// accepts.
 	if s.app.ctx != nil || s.app.emit != nil {
 		if s.conv != nil {
-			s.app.emitEvent("todo:update", sessionEvent[[]todoItem]{SessionID: s.conv.id, Data: items})
+			s.app.emitEvent("todo:update", SessionEvent[[]todoItem]{SessionID: s.conv.id, Data: items})
 		} else {
 			s.app.emitEvent("todo:update", items)
 		}

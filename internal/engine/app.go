@@ -47,23 +47,12 @@ import (
 	"github.com/Mikedev115/Aetox/internal/tts"
 	"github.com/Mikedev115/Aetox/internal/turn"
 	"github.com/Mikedev115/Aetox/internal/version"
-
 )
 
 // Engine struct
 type Engine struct {
 	ctx context.Context
 	cfg config.Config
-
-	// exported is every file the deck export wrote this session. An export lands
-	// in the user's Downloads folder, outside the project, which every other
-	// file binding here refuses on purpose — so OpenExport is gated on this set
-	// rather than on a widened path check. See desktop/decks.go.
-	exportMu sync.Mutex
-	exported map[string]bool
-	// exportsRoot overrides the Downloads folder exports land in. Empty means
-	// the real one. Test seam only.
-	exportsRoot string
 
 	// convs is every chat this process holds an engine for, and which one the
 	// window is looking at. The engine, the agent's context, the registry, the
@@ -113,7 +102,6 @@ type Engine struct {
 
 	terminalsMu sync.Mutex
 	terminals   map[string]*TerminalSession
-	browsers    *browserHost
 
 	// ttsVoiceMu guards ttsVoiceCache — the settings page enumerates voices
 	// while a SpeakText on another goroutine resolves its default from the
@@ -253,16 +241,9 @@ type Engine struct {
 	// closing it) and never held across anything slow.
 	askMu sync.Mutex
 
-	// screen is which chat, if any, is currently driving programs on the
-	// machine (computer_guard.go). On the Engine rather than on a conversation
-	// because the thing it protects is the machine, and there is one of those:
-	// two chats clicking in one window produce a state neither of them
-	// predicted. Held for the length of an acting call, never for a session.
-	driving screenLock
 	// screen is the window as the engine sees it (screen.go): events out,
-	// provider requests signed, window tools lent. Nil is this Engine itself
-	// (screenOf); a test installs another to prove the engine needs nothing
-	// more of a window than these three calls.
+	// provider requests signed, window tools lent, the desk questions
+	// answered. Nil is nobody watching (noScreen).
 	screen Screen
 
 	mcp *mcp.Manager // configured MCP servers; built once, shared by every conversation
@@ -340,14 +321,14 @@ func (a *Engine) recordToolAction(conv *conversation, ev turn.ToolEvent) {
 	// Peeked, never taken: see agentTabPeek for the message this would otherwise
 	// have swallowed.
 	if ev.Name == browserToolName {
-		ev.Tab = a.agentTabPeek()
+		ev.Tab = a.screenOf().AgentTab()
 	}
 	// Same stamp, different fact: the touched file's git letter (git_badge.go).
 	a.stampGitBadge(conv, &ev)
 	// Relay every call/result live to the chat's tool timeline, stamped with the
 	// conversation it happened in — the window draws two chats at once now, and
 	// an unstamped event is one it has to guess the home of.
-	a.emitEvent("agent:tool", sessionEvent[turn.ToolEvent]{SessionID: conv.id, Data: ev})
+	a.emitEvent("agent:tool", SessionEvent[turn.ToolEvent]{SessionID: conv.id, Data: ev})
 	if ev.Action != "call" {
 		return
 	}
@@ -369,7 +350,7 @@ func (a *Engine) recordToolAction(conv *conversation, ev turn.ToolEvent) {
 // "กำลังรันเครื่องมือ...", then "" when done) to the frontend as a live typing/
 // thinking indicator, so the chat doesn't look frozen during a turn.
 func (a *Engine) emitAgentStatus(conv *conversation, status string) {
-	a.emitEvent("agent:status", sessionEvent[string]{SessionID: conv.id, Data: status})
+	a.emitEvent("agent:status", SessionEvent[string]{SessionID: conv.id, Data: status})
 }
 
 // chatChunk is one write to the live answer bubble.
@@ -390,7 +371,7 @@ type chatChunk struct {
 
 // emitChatChunk is the one way anything reaches the live answer bubble.
 func (a *Engine) emitChatChunk(conv *conversation, text string, replace bool) {
-	a.emitEvent("agent:chunk", sessionEvent[chatChunk]{SessionID: conv.id, Data: chatChunk{Text: text, Replace: replace}})
+	a.emitEvent("agent:chunk", SessionEvent[chatChunk]{SessionID: conv.id, Data: chatChunk{Text: text, Replace: replace}})
 }
 
 // previewAnswer shows the model's answer as it is written. Wired session-wide
@@ -711,9 +692,12 @@ func (a *Engine) RelativizePath(absPath string) (string, error) {
 // The sandbox check is not decoration. This launches a program of the OS's
 // choosing on a path a caller supplies, so the path has to be one the user
 // could have clicked in their own project.
-// errFileGone is the one failure the file pane translates for itself rather
+// ErrFileGone is the one failure the file pane translates for itself rather
 // than showing verbatim. Matched by the frontend, so the text is a contract.
-var errFileGone = errors.New("file-gone")
+// ErrFileGone is a file the app produced that is no longer there — the one
+// answer the window can translate, rather than a Win32 sentence that reads
+// as a crash (§133). Exported for the screen's own doors.
+var ErrFileGone = errors.New("file-gone")
 
 // FileStillThere reports whether a path the app previously produced is still on
 // disk.
@@ -793,7 +777,7 @@ func (a *Engine) ProjectFilePath(relPath string) (string, error) {
 		// as the ordinary thing it is. FileStillThere is what stops the
 		// question being asked at all; this covers the gap between asking and
 		// clicking.
-		return "", errFileGone
+		return "", ErrFileGone
 	}
 	if err != nil {
 		return "", err
@@ -2582,13 +2566,13 @@ func (a *Engine) runTurn(conv *conversation, text, to string) (SessionMessage, S
 		}
 		lastThink = time.Now()
 		reasoning.WriteString(chunk)
-		a.emitEvent("agent:reasoning", sessionEvent[string]{SessionID: conv.id, Data: chunk})
+		a.emitEvent("agent:reasoning", SessionEvent[string]{SessionID: conv.id, Data: chunk})
 	})
 	// A message can land in the moment between the loop's last drain and the reply
 	// arriving here. Hand it back to the UI instead of swallowing it — this is the
 	// one case the composer's old queue still exists for.
 	if missed := conv.agent.DrainInterjections(); len(missed) > 0 {
-		a.emitEvent("agent:interjection-missed", sessionEvent[[]string]{SessionID: conv.id, Data: missed})
+		a.emitEvent("agent:interjection-missed", SessionEvent[[]string]{SessionID: conv.id, Data: missed})
 	}
 	now := time.Now().Format("15:04")
 	thinkSecs := 0
@@ -3551,7 +3535,6 @@ func (a *Engine) ClearProjectFocus() (ProjectStatus, error) {
 	return a.currentProjectStatus(), nil
 }
 
-
 // OpenProjectPath switches straight to a previously-opened project by path —
 // used by the sidebar's recent-projects list, skipping the OS folder dialog.
 func (a *Engine) OpenProjectPath(root string) (ProjectStatus, error) {
@@ -4340,7 +4323,7 @@ func (a *Engine) workbenchSkills(conv *conversation, sandboxRoot string) []skill
 	// it has. This is the same argument browserSkill's own description makes
 	// about never advertising an action that will be refused, applied one level
 	// up to the whole tool.
-	drive := computerControlOn()
+	drive := a.computerControlOn()
 	for _, tool := range a.screenOf().WindowTools(conv) {
 		if tool.Name() == computerToolName && !drive {
 			continue
@@ -4948,4 +4931,18 @@ func (a *Engine) letGoOf(conv *conversation) {
 		conv.delegations.StopAll()
 	}
 	a.convs.forget(conv.id)
+}
+
+// computerControlOn reads the setting that decides whether the model is handed
+// the machine at all. Positive-by-absence — absent means OFF, which is what
+// this feature ships as and what both rivals ship theirs as. The spelling
+// rule is config.go's: name it so that the zero value is what the product
+// does out of the box. The window keeps a copy (desktop/computer_guard.go)
+// for the register it draws; this one decides what the model sees.
+func (a *Engine) computerControlOn() bool {
+	pref, ok, _ := config.LoadModelPreference()
+	if !ok {
+		return false
+	}
+	return pref.ComputerControlOn
 }

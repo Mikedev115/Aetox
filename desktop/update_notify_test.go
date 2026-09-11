@@ -4,47 +4,11 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/update"
 )
-
-// emitted is one event the recorder saw; recorder is the locked list of them.
-// The screen's own copy of the engine tests' recorder, for the same reason:
-// the update announces from goroutines.
-type emitted struct{ Name string }
-
-type recorder struct {
-	mu   sync.Mutex
-	seen []emitted
-}
-
-func (r *recorder) add(e emitted) { r.mu.Lock(); r.seen = append(r.seen, e); r.mu.Unlock() }
-
-func (r *recorder) len() int { r.mu.Lock(); defer r.mu.Unlock(); return len(r.seen) }
-
-func (r *recorder) names() []string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	out := make([]string, 0, len(r.seen))
-	for _, e := range r.seen {
-		out = append(out, e.Name)
-	}
-	return out
-}
-
-// captureEmit swaps the Engine's event seam for the same locked recorder
-// captureEvents uses (workbench_desk_test.go), read here as names only. It does
-// not set a.ctx: these tests assert on an emit that must not happen, and giving
-// the Engine a context would change what the code under test decides to fire.
-func captureEmit(t *testing.T, a *App) *recorder {
-	t.Helper()
-	rec := &recorder{}
-	a.emit = func(event string, _ ...any) { rec.add(emitted{Name: event}) }
-	return rec
-}
 
 // stubCheck replaces the package-level check for one test.
 func stubCheck(t *testing.T, st update.Status, err error) {

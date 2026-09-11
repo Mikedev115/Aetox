@@ -156,5 +156,5 @@ func (a *Engine) stanceNarrowedByAgent(conv *conversation, next mode.Stance) {
 	// Stamped with the session, like every other per-chat event (§187): a window
 	// showing a different conversation must ignore it rather than redraw its own
 	// composer from somebody else's turn.
-	a.emitEvent("stance:update", sessionEvent[string]{SessionID: conv.id, Data: next.String()})
+	a.emitEvent("stance:update", SessionEvent[string]{SessionID: conv.id, Data: next.String()})
 }

@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/config"
-	"github.com/Mikedev115/Aetox/internal/credentials"
 )
 
 // Stop pressed in the beginTurn → armTurnCancel gap (openTurn's DB writes sit
@@ -831,11 +830,9 @@ func TestAQueuedSwitchIsProvedWhileTheTurnRuns(t *testing.T) {
 	conv := dialledChat(t, a)
 	conv.cfg.ModelBaseURL = "http://127.0.0.1:1"
 	conv.cfg.ModelWireFormat = "anthropic"
-	// The probe signs with what the screen holds for this provider, which is
-	// no longer a config field: give it one, so what fails is the endpoint.
-	if err := credentials.Set(conv.cfg.ModelProvider, "test-key"); err != nil {
-		t.Fatal(err)
-	}
+	// The probe is the screen's (Screen.Probe), signed with whatever the
+	// screen holds; an engine test's screen holds nothing, so what fails here
+	// is the endpoint, which is the point.
 
 	if err := a.beginTurn(conv.id); err != nil {
 		t.Fatalf("beginTurn() = %v", err)

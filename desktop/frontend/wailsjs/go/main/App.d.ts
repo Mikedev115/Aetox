@@ -3,6 +3,7 @@
 import {engine} from '../models';
 import {subagent} from '../models';
 import {context} from '../models';
+import {main} from '../models';
 import {capability} from '../models';
 import {update} from '../models';
 import {connect} from '../models';
@@ -25,7 +26,11 @@ export function AccountSignOut():Promise<void>;
 
 export function AccountStatus():Promise<engine.AccountState>;
 
+export function ActiveModelFor(arg1:string):Promise<string|string>;
+
 export function AddCustomProvider(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
+
+export function AddCustomProviderRow(arg1:string,arg2:string):Promise<string>;
 
 export function AddLearnedEntry(arg1:string,arg2:string):Promise<void>;
 
@@ -60,6 +65,8 @@ export function AgentsFolderPath():Promise<string>;
 export function AllowComputerApp(arg1:string):Promise<void>;
 
 export function AnswerUserQuestion(arg1:string,arg2:string):Promise<void>;
+
+export function AnyTurnRunning():Promise<boolean>;
 
 export function AppCredit():Promise<string>;
 
@@ -103,7 +110,7 @@ export function BrowserCloseForTeardown(arg1:string):Promise<void>;
 
 export function BrowserDetach(arg1:string):Promise<void>;
 
-export function BrowserDevices():Promise<Array<engine.DeviceProfile>>;
+export function BrowserDevices():Promise<Array<main.DeviceProfile>>;
 
 export function BrowserForward(arg1:string):Promise<void>;
 
@@ -151,6 +158,8 @@ export function CapabilityForServer(arg1:string):Promise<string>;
 
 export function CapabilityStatuses():Promise<Array<capability.Status>>;
 
+export function CatalogModelChoices(arg1:string):Promise<Array<string>>;
+
 export function ChairStarters(arg1:string,arg2:string):Promise<subagent.StarterSet>;
 
 export function ChairStartersFile(arg1:string):Promise<string>;
@@ -173,6 +182,8 @@ export function CompleteSignIn(arg1:string,arg2:string):Promise<engine.ModelInfo
 
 export function CompressArtifacts(arg1:Array<string>):Promise<engine.CompressReport>;
 
+export function ComputerControlChanged():Promise<void>;
+
 export function ComputerControlOn():Promise<boolean>;
 
 export function ConnectAccount(arg1:string,arg2:string,arg3:string,arg4:Array<string>):Promise<connect.Account>;
@@ -194,6 +205,8 @@ export function CurrentSpace():Promise<string>;
 export function CustomProviders():Promise<Array<engine.CustomProviderRow>>;
 
 export function DeckCaptureDrawing(arg1:string,arg2:number,arg3:string):Promise<string>;
+
+export function DeckExportFiles(arg1:string,arg2:string):Promise<engine.DeckExport>;
 
 export function DeckFormats():Promise<Array<engine.DeckFormat>>;
 
@@ -274,6 +287,8 @@ export function GitWorkingTree():Promise<Array<engine.GitFileChange>>;
 export function GrantedComputerApps():Promise<Array<string>>;
 
 export function GuideTopics():Promise<Array<model.GuideTopic>>;
+
+export function HandedOverFile(arg1:string):Promise<string>;
 
 export function HasAPIKey(arg1:string):Promise<boolean>;
 
@@ -411,6 +426,8 @@ export function NewSessionAt(arg1:string):Promise<string>;
 
 export function NewSessionInSpace(arg1:string):Promise<string>;
 
+export function NoteProviderQuotas(arg1:string,arg2:Array<model.Quota>):Promise<void>;
+
 export function OpenAgentHome(arg1:string):Promise<void>;
 
 export function OpenAgentSkillsFolder(arg1:string):Promise<void>;
@@ -419,7 +436,7 @@ export function OpenAgentsFolder():Promise<void>;
 
 export function OpenArtifact(arg1:string):Promise<void>;
 
-export function OpenComputerApps():Promise<Array<engine.ComputerAppRow>>;
+export function OpenComputerApps():Promise<Array<main.ComputerAppRow>>;
 
 export function OpenExport(arg1:string):Promise<void>;
 
@@ -442,6 +459,8 @@ export function OpenSpaceFolder(arg1:string):Promise<void>;
 export function OpenSpeechModelDir(arg1:string):Promise<void>;
 
 export function OpenSubagentsFolder():Promise<void>;
+
+export function PageMarksOn():Promise<boolean>;
 
 export function PairedDevices():Promise<Array<engine.RemoteDevice>>;
 
@@ -491,6 +510,10 @@ export function ProviderBaseURL(arg1:string):Promise<string>;
 
 export function ProviderBaseURLIsCustom(arg1:string):Promise<boolean>;
 
+export function ProviderKeyChanged(arg1:string):Promise<engine.ModelInfo>;
+
+export function ProviderQuotas(arg1:string):Promise<Array<model.Quota>|boolean>;
+
 export function ProviderReady(arg1:string):Promise<boolean>;
 
 export function ProviderWireFormats(arg1:string):Promise<Array<string>>;
@@ -515,6 +538,8 @@ export function ReadSubagentProfile(arg1:string):Promise<string>;
 
 export function ReadWorkbook(arg1:string):Promise<ooxml.WorkbookPreview>;
 
+export function ReadyToRestart():Promise<void>;
+
 export function RecentAgentPages(arg1:number):Promise<Array<engine.AgentPage>>;
 
 export function RecentDebugLog():Promise<Array<string>>;
@@ -533,6 +558,8 @@ export function RelativizePath(arg1:string):Promise<string>;
 
 export function RemoveCustomProvider(arg1:string):Promise<Array<string>>;
 
+export function RemoveCustomProviderRow(arg1:string):Promise<Array<string>>;
+
 export function RemoveExternalSkill(arg1:string):Promise<void>;
 
 export function RemoveMCPServer(arg1:string):Promise<void>;
@@ -550,6 +577,8 @@ export function RequiresAPIKey(arg1:string):Promise<boolean>;
 export function ResendEdited(arg1:string,arg2:boolean):Promise<engine.TurnReply>;
 
 export function ResolveAddress(arg1:string):Promise<engine.Address>;
+
+export function ResolveWorkbenchURL(arg1:string):Promise<string|string>;
 
 export function RestartToUpdate():Promise<void>;
 
@@ -583,7 +612,11 @@ export function RunSkillTuneup():Promise<number>;
 
 export function RunnableLanguages():Promise<Record<string, string>>;
 
+export function SandboxFile(arg1:string):Promise<string>;
+
 export function SaveAgentProfile(arg1:string,arg2:string):Promise<void>;
+
+export function SaveBrowserShot(arg1:Array<number>,arg2:boolean):Promise<string>;
 
 export function SaveChairStarters(arg1:string,arg2:string,arg3:subagent.StarterSet):Promise<void>;
 
@@ -725,7 +758,11 @@ export function Spaces():Promise<Array<engine.Space>>;
 
 export function SpeakText(arg1:string):Promise<string>;
 
+export function SpeechModelDirPath(arg1:string):Promise<string>;
+
 export function SpeechModelDirs():Promise<Array<engine.SpeechDirInfo>>;
+
+export function SpeechModelFolderPath(arg1:string):Promise<string>;
 
 export function SpeechPlaying(arg1:string,arg2:number):Promise<void>;
 
@@ -733,7 +770,7 @@ export function SpeechStatus():Promise<string>;
 
 export function StageUpdate():Promise<void>;
 
-export function StagedUpdate():Promise<engine.StagedInfo>;
+export function StagedUpdate():Promise<main.StagedInfo>;
 
 export function Stance():Promise<string>;
 

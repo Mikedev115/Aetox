@@ -100,7 +100,7 @@ func (a *Engine) watchModelLoad(ctx context.Context, conv *conversation) func() 
 		announced := false
 		defer func() {
 			if announced {
-				a.emitEvent("model:loading", sessionEvent[ModelLoading]{SessionID: conv.id})
+				a.emitEvent("model:loading", SessionEvent[ModelLoading]{SessionID: conv.id})
 			}
 		}()
 		for {
@@ -114,7 +114,7 @@ func (a *Engine) watchModelLoad(ctx context.Context, conv *conversation) func() 
 				announced = true
 			}
 			if announced {
-				a.emitEvent("model:loading", sessionEvent[ModelLoading]{
+				a.emitEvent("model:loading", SessionEvent[ModelLoading]{
 					SessionID: conv.id,
 					Data: ModelLoading{
 						Loading:  true,

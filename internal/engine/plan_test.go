@@ -81,7 +81,7 @@ func TestTheEventNamesWhatTheAmendTouched(t *testing.T) {
 		if event != "plan:update" || len(data) == 0 {
 			return
 		}
-		if ev, ok := data[0].(sessionEvent[Plan]); ok {
+		if ev, ok := data[0].(SessionEvent[Plan]); ok {
 			last = ev.Data
 		}
 	}

@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -25,6 +26,29 @@ func (f *fakeScreen) WindowTools(Session) []skill.Skill                    { ret
 func (f *fakeScreen) DefaultModel(string, string) string                   { return "" }
 func (f *fakeScreen) Probe(string, string, string, string) (string, error) { return "", errNoScreen }
 func (f *fakeScreen) ModelResident(string, string, string) bool            { return false }
+func (f *fakeScreen) AgentTab() string                                     { return "" }
+func (f *fakeScreen) RenderDeck(context.Context, string, DeckRender) (DeckRendered, error) {
+	return DeckRendered{}, errNoScreen
+}
+
+// switchOnComputer turns the computer-control switch on for the duration of a
+// test.
+//
+// It writes the preference file directly rather than calling the binding,
+// because the binding re-applies the whole config to rebuild the engine (the
+// switch decides whether the tool is registered at all) and the tests here
+// build their registry by hand. The data root is a temp dir by then, so the
+// file written here is thrown away with the test and is never the one
+// belonging to whoever is running it.
+func switchOnComputer(t *testing.T) {
+	t.Helper()
+	if err := config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		pref.ComputerControlOn = true
+		return nil
+	}); err != nil {
+		t.Fatalf("could not turn computer control on for the test: %v", err)
+	}
+}
 
 // The engine needs nothing more of a window than the three calls on Screen
 // (§248 A6): with another Screen installed, the browser and the machine come
@@ -39,9 +63,6 @@ func TestTheEngineTakesItsWindowToolsFromTheScreen(t *testing.T) {
 	names := map[string]bool{}
 	for _, s := range a.workbenchSkills(a.cur(), t.TempDir()) {
 		names[s.Name()] = true
-		if _, real := s.(*browserSkill); real {
-			t.Error("the window's own browser pack was built although another Screen was installed")
-		}
 	}
 	if !names["browser"] {
 		t.Error("the browser the screen lent is not among the session's tools")

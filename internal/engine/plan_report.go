@@ -218,7 +218,7 @@ func (a *Engine) emitPlanReport(sessionID string, rep PlanReport) {
 	if a.ctx == nil && a.emit == nil {
 		return
 	}
-	a.emitEvent("plan:report", sessionEvent[PlanReport]{SessionID: sessionID, Data: rep})
+	a.emitEvent("plan:report", SessionEvent[PlanReport]{SessionID: sessionID, Data: rep})
 }
 
 // ---------------------------------------------------------------------------
