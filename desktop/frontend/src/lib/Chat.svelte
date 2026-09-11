@@ -4021,11 +4021,11 @@
        ก่อนจะพูดประโยคถัดไป มันก็พับลงอย่างนุ่มนวล". A DELEGATION still folds at
        none of these moments (shownSubs), which has never been in question. -->
   {@const working = unfolded || (live && runOwn.length > 0)}
-  // While a call is out the box holds the ROUND it belongs to: this stretch's
-  // own rows from the last fold onward, not every call the stretch has ever
-  // made. A delegate's card is the exception it has always been — `unfolded`
-  // keeps a worker's whole list on screen, and the window is what keeps it from
-  // being a wall.
+  <!-- While a call is out the box holds the ROUND it belongs to: this stretch's
+       own rows from the last fold onward, not every call the stretch has ever
+       made. A delegate's card is the exception it has always been — `unfolded`
+       keeps a worker's whole list on screen, and the window is what keeps it from
+       being a wall. -->
   {@const shownOwn = unfolded ? own : working ? own.slice(folded[key] ?? 0) : runOwn}
   <!-- A DELEGATION IS NEVER FOLDED, running or finished, live turn or one read
        back a week later. A tool row is a thing the agent did and folds into a
@@ -4038,14 +4038,14 @@
   {@const shownSubs = subs}
   {@const foldable = !working && doneOwn.length > 0}
   {@const open = openRows[key] ?? false}
-  // What the fold draws: the round that is on screen at the moment it starts
-  // moving. The slice begins at the last thing put away, so the rows the reader
-  // was looking at a frame ago are the rows that leave — never the ones before
-  // them, and never a batch that lands behind the outro (a new call takes
-  // `foldable` away, and this block leaves holding the rows it had).
-  //
-  // Once the reader owns the fold — a click, or a phase the app never adopted —
-  // it is the whole stretch, because that is what opening a receipt asks for.
+  <!-- What the fold draws: the round that is on screen at the moment it starts
+       moving. The slice begins at the last thing put away, so the rows the reader
+       was looking at a frame ago are the rows that leave — never the ones before
+       them, and never a batch that lands behind the outro (a new call takes
+       `foldable` away, and this block leaves holding the rows it had).
+
+       Once the reader owns the fold — a click, or a phase the app never adopted —
+       it is the whole stretch, because that is what opening a receipt asks for. -->
   {@const foldedRows = landing[key] ? own.slice(folded[key] ?? 0) : own}
   <div class="phase">
     <!-- The user, cutting in. Above everything else in the phase because it is
