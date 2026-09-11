@@ -25,12 +25,12 @@ package skill
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/Mikedev115/Aetox/internal/callfault"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/stt"
 )
@@ -67,11 +67,11 @@ func (s *mediaReadSkill) Narrow(named []string) Skill {
 func (s *mediaReadSkill) inner(action string) (Tool, error) {
 	p := packs["media_read"]
 	if _, known := p.names[action]; !known {
-		return nil, fmt.Errorf("unknown media_read action %q, this session may use: %s",
+		return nil, callfault.Newf("unknown media_read action %q, this session may use: %s",
 			action, strings.Join(s.allowedActions(), ", "))
 	}
 	if !slices.Contains(s.allowedActions(), action) {
-		return nil, fmt.Errorf("media_read %s is not available here, this session may use: %s",
+		return nil, callfault.Newf("media_read %s is not available here, this session may use: %s",
 			action, strings.Join(s.allowedActions(), ", "))
 	}
 	switch action {
@@ -159,7 +159,7 @@ func (s *mediaReadSkill) ExecuteTool(ctx context.Context, args map[string]any) (
 	start := time.Now()
 	action := actionOf(args)
 	if action == "" {
-		err := errors.New("action is required, one of: " + strings.Join(s.allowedActions(), ", "))
+		err := callfault.New("action is required, one of: " + strings.Join(s.allowedActions(), ", "))
 		return newToolOutput("media_read", "media_read", "", start, false, err), err
 	}
 	inner, err := s.inner(action)

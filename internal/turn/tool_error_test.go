@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/Mikedev115/Aetox/internal/skill"
+	"github.com/Mikedev115/Aetox/internal/callfault"
 	"github.com/Mikedev115/Aetox/internal/statereport"
 )
 
@@ -184,5 +185,34 @@ func TestAStoppedTurnClassifiesAsCancelNotAsALesson(t *testing.T) {
 	<-dctx.Done()
 	if got := classifyToolError(fmt.Errorf("fetch: %w", dctx.Err())); got != "" {
 		t.Errorf("a timeout classified as %q, want unmarked — repeated timeouts are worth hearing about", got)
+	}
+}
+
+// A refusal about the call itself — the word the model forgot, the action the
+// tool does not have, the tool this seat does not hold — is marked by its
+// author and classified from the mark, never from the sentence. The problems
+// page had raised ten such cards before the mark existed (11 ก.ย.).
+func TestARefusalOfTheCallClassifiesAsTheCallers(t *testing.T) {
+	missing := callfault.New("action is required, one of: list, glob, grep")
+	if got := classifyToolError(missing); got != ErrorFromCaller {
+		t.Errorf("caller fault classified %q, want %q", got, ErrorFromCaller)
+	}
+	if got := classifyToolError(fmt.Errorf("search: %w", missing)); got != ErrorFromCaller {
+		t.Errorf("the mark was lost under a wrap: %q", got)
+	}
+	// The unknown-tool refusal is the same kind, and is the one authored in
+	// this package.
+	if got := classifyToolError(notExposed("write")); got != ErrorFromCaller {
+		t.Errorf("notExposed classified %q, want %q", got, ErrorFromCaller)
+	}
+	// The same sentence unmarked stays the conservative default.
+	if got := classifyToolError(errors.New("action is required, one of: list, glob, grep")); got != "" {
+		t.Errorf("an unmarked refusal must stay unmarked, got %q", got)
+	}
+	// Cancel outranks it, as it outranks every authored mark.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if got := classifyToolError(fmt.Errorf("%w: %s", ctx.Err(), missing.Error())); got != ErrorFromCancel {
+		t.Errorf("a stopped turn under a caller fault classified %q", got)
 	}
 }

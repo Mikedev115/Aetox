@@ -307,3 +307,92 @@ func TestAStoppedTurnsCasualtiesAreNotRaised(t *testing.T) {
 		t.Fatalf("the user's own Stop was raised as a problem to report: %+v", issues)
 	}
 }
+
+// The page's own verdict, 11 ก.ย.: twenty cards raised, twenty waved off, and
+// the one on screen was `search` refused four times for a missing `action`
+// word the model supplied on its very next call. A refusal the caller read
+// and got past is a message that did its job, not a problem for a developer —
+// and the store already knows whether they got past it.
+func TestAFailureTheCallerGotPastIsNotRaised(t *testing.T) {
+	a := newJobApp(t)
+	mark := a.maxToolRunID(a.cur())
+	for i, detail := range []string{"AlphaVar one", "BetaVar two", "GammaVar three"} {
+		ref := "c" + string(rune('1'+i))
+		failShell(a, ref, detail)
+		// The next call is different — the caller changed the command — and
+		// works. That is the whole life of a refusal.
+		a.recordToolRun(a.cur(), turn.ToolRun{Ref: ref + "-ok", Name: "shell",
+			Args: `{"command":"type C:\fixed\` + detail + `.txt"}`, OK: true, Output: "fine"})
+	}
+	a.recordJobs(a.cur(), 1, "เช็คไฟล์", "สำเร็จ", mark, time.Second)
+
+	if issues := a.ListSystemIssues(); len(issues) != 0 {
+		t.Fatalf("a refusal the caller fixed on the next call was raised as a problem: %+v", issues)
+	}
+}
+
+// The opposite finding is kept on purpose: the SAME call failing and then
+// succeeding is a tool that fails sometimes, which is exactly what the page is
+// for. The recovery rule must not read "it worked eventually" as "not a
+// problem".
+func TestTheSameCallFailingThenWorkingIsFlakyAndIsRaised(t *testing.T) {
+	a := newJobApp(t)
+	mark := a.maxToolRunID(a.cur())
+	for _, ref := range []string{"c1", "c2", "c3"} {
+		a.recordToolRun(a.cur(), turn.ToolRun{Ref: ref, Name: "browser_capture",
+			Args: `{"action":"capture"}`, OK: false,
+			Error: "the page did not answer with a picture"})
+		a.recordToolRun(a.cur(), turn.ToolRun{Ref: ref + "-ok", Name: "browser_capture",
+			Args: `{"action":"capture"}`, OK: true, Output: "png"})
+	}
+	a.recordJobs(a.cur(), 1, "ถ่ายหน้าจอ", "สำเร็จ", mark, time.Second)
+
+	issues := a.ListSystemIssues()
+	if len(issues) != 1 {
+		t.Fatalf("a flaky tool — same call, different outcome — should be one issue, got %d", len(issues))
+	}
+	if !strings.Contains(issues[0].Body, "did not answer with a picture") {
+		t.Errorf("body = %q", issues[0].Body)
+	}
+}
+
+// A wall — the failure nobody got past — stays raised. The recovery rule only
+// removes what a later success proves was the caller's; it must not turn the
+// page into one that shows nothing.
+func TestAFailureNobodyGotPastIsStillRaised(t *testing.T) {
+	a := newJobApp(t)
+	mark := a.maxToolRunID(a.cur())
+	for i, detail := range []string{"AlphaVar one", "BetaVar two", "GammaVar three"} {
+		failShell(a, "c"+string(rune('1'+i)), detail)
+	}
+	// A success on a different tool in the same session proves nothing about
+	// shell and must not count as getting past it.
+	a.recordToolRun(a.cur(), turn.ToolRun{Ref: "r1", Name: "read", Args: `{"path":"a.txt"}`, OK: true})
+	a.recordJobs(a.cur(), 1, "เช็คไฟล์", "ไม่สำเร็จ", mark, time.Second)
+
+	if issues := a.ListSystemIssues(); len(issues) != 1 {
+		t.Fatalf("a wall should still be one issue, got %d", len(issues))
+	}
+}
+
+// A refusal about the call itself — a required word left out, an action the
+// tool does not have — is marked by its author (internal/callfault) and never
+// read here, even when the caller walked away from it instead of fixing it.
+// Ten of the twenty cards the page had ever raised were this shape.
+func TestCallerFaultsAreNotRaised(t *testing.T) {
+	a := newJobApp(t)
+	mark := a.maxToolRunID(a.cur())
+	for _, ref := range []string{"c1", "c2", "c3", "c4"} {
+		a.recordToolRun(a.cur(), turn.ToolRun{Ref: ref, Name: "search",
+			Args:      `{"glob":"*.go","pattern":"Thinking"}`,
+			OK:        false,
+			Error:     "action is required, one of: list, glob, grep",
+			ErrorKind: turn.ErrorFromCaller,
+		})
+	}
+	a.recordJobs(a.cur(), 1, "หาโค้ด", "ไม่สำเร็จ", mark, time.Second)
+
+	if issues := a.ListSystemIssues(); len(issues) != 0 {
+		t.Fatalf("a caller's own malformed call was raised as a problem to report: %+v", issues)
+	}
+}

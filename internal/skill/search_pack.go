@@ -29,12 +29,12 @@ package skill
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/Mikedev115/Aetox/internal/callfault"
 	"github.com/Mikedev115/Aetox/internal/model"
 )
 
@@ -73,11 +73,11 @@ func (s *searchSkill) Narrow(named []string) Skill {
 func (s *searchSkill) inner(action string) (Tool, error) {
 	p := packs["search"]
 	if _, known := p.names[action]; !known {
-		return nil, fmt.Errorf("unknown search action %q, this session may use: %s",
+		return nil, callfault.Newf("unknown search action %q, this session may use: %s",
 			action, strings.Join(s.allowedActions(), ", "))
 	}
 	if !slices.Contains(s.allowedActions(), action) {
-		return nil, fmt.Errorf("search %s is not available here, this session may use: %s",
+		return nil, callfault.Newf("search %s is not available here, this session may use: %s",
 			action, strings.Join(s.allowedActions(), ", "))
 	}
 	switch action {
@@ -214,7 +214,7 @@ func (s *searchSkill) ExecuteTool(ctx context.Context, args map[string]any) (Out
 	start := time.Now()
 	action := actionOf(args)
 	if action == "" {
-		err := errors.New("action is required, one of: " + strings.Join(s.allowedActions(), ", "))
+		err := callfault.New("action is required, one of: " + strings.Join(s.allowedActions(), ", "))
 		return newToolOutput("search", "search", "", start, false, err), err
 	}
 	inner, err := s.inner(action)

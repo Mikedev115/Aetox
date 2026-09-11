@@ -78,6 +78,24 @@ import (
 // (internal/statereport), the run records it (ErrorFromWorld), and the
 // error_kind filter below drops it unread. Unmarked stays unfiltered — a
 // failure of unknown origin is still offered, and the user still says no.
+//
+// The fourth break was the page's own verdict (2026-09-11). Twenty cards
+// raised since the split, twenty waved off, none reported; the one on screen
+// that day was `search` refused four times for a missing `action` word, which
+// the model supplied on its next call every time. Owner: *"ไม่ควรให้มัน
+// แจ้งเตือนอย่างเดียว แต่แจ้งเตือนอันที่เป็นปัญหาจริง ๆ"*. §136 had left
+// this pile on the page deliberately — "a filter guessing on their behalf
+// would be the fourth instance of the mistake" — and the user's twenty
+// decisions are the measurement that paragraph asked for. Two answers, neither
+// a guess at the text. The author's mark, again: a refusal about the call
+// rather than the work says so (internal/callfault, ErrorFromCaller) and is
+// dropped by the same error_kind filter. And a fact the store already held:
+// whether anyone got past the failure. A refusal followed by a *different*
+// call of the same tool that succeeded was a message that did its job — the
+// caller changed something and the tool worked — and is not a problem with
+// the tool. The *same* call succeeding later is the opposite finding: nothing
+// about the call changed and the result did, which is the definition of
+// flaky, and stays. So does a failure nobody got past. See recovered below.
 
 // summarizeMinRepeats is how many same-shaped failures make a pattern. Two is
 // a coincidence a human would not want a card for; three is the same wall hit
@@ -116,6 +134,14 @@ func (a *App) summarizeFailures() {
 	// carries a remedy to quote. A program's exit status is excluded here rather
 	// than filtered out later, so a cluster of them never reaches the point of
 	// competing with a real lesson for one of the three proposal slots.
+	//
+	// The two EXISTS columns are the recovery question, asked of the store
+	// rather than of the text: did this session's same agent run this same
+	// tool successfully after this failure — and if so, with the identical
+	// arguments (flaky: kept) or with different ones (the caller fixed the
+	// call: dropped)? Read per row rather than as a WHERE clause so the rule
+	// is one `if` in Go that a test can name, and so the two flags stay
+	// visible next to each other.
 	// The read cursor must be released before the write phase below, which
 	// inserts into pending_changes on this same handle. That used to be a bare
 	// rows.Close() here rather than a defer, which was right about the ordering
@@ -123,13 +149,25 @@ func (a *App) summarizeFailures() {
 	// exactly this point instead.
 	clusters := map[string]*failureCluster{}
 	_ = eachRow(db, "summarize: reading failures", `
-		SELECT id, agent, tool, args, error FROM tool_runs
-		  WHERE ok = 0 AND error <> '' AND error_kind = '' ORDER BY id`, nil,
+		SELECT r.id, r.agent, r.tool, r.args, r.error,
+		       EXISTS(SELECT 1 FROM tool_runs s
+		                WHERE s.session_id = r.session_id AND s.agent = r.agent
+		                  AND s.tool = r.tool AND s.id > r.id AND s.ok = 1
+		                  AND s.args = r.args) AS same_call_ok,
+		       EXISTS(SELECT 1 FROM tool_runs s
+		                WHERE s.session_id = r.session_id AND s.agent = r.agent
+		                  AND s.tool = r.tool AND s.id > r.id AND s.ok = 1) AS any_call_ok
+		  FROM tool_runs r
+		  WHERE r.ok = 0 AND r.error <> '' AND r.error_kind = '' ORDER BY r.id`, nil,
 		func(rows *sql.Rows) error {
 			var id int64
 			var agent, tool, args, errText string
-			if err := rows.Scan(&id, &agent, &tool, &args, &errText); err != nil {
+			var sameCallOK, anyCallOK bool
+			if err := rows.Scan(&id, &agent, &tool, &args, &errText, &sameCallOK, &anyCallOK); err != nil {
 				return err
+			}
+			if recovered(sameCallOK, anyCallOK) {
+				return nil
 			}
 			head := failureHead(errText)
 			if head == "" {
@@ -183,6 +221,18 @@ func (a *App) summarizeFailures() {
 	if proposed > 0 {
 		a.emitLearningChanged()
 	}
+}
+
+// recovered says whether a failure was the caller's to fix, judged by what the
+// caller did next. A later success of the same tool with different arguments
+// means the message was read and acted on — the tool refused a call, the
+// caller changed the call, the tool worked. That is the whole life of a
+// refusal and nothing for a developer to hear about. A later success with the
+// SAME arguments is the opposite: the call did not change and the outcome
+// did, which is a tool that fails sometimes, and exactly worth hearing about.
+// No later success at all is a wall, and a wall is kept.
+func recovered(sameCallOK, anyCallOK bool) bool {
+	return anyCallOK && !sameCallOK
 }
 
 // proposeSystemIssue queues one cluster as a problem waiting to be reported.

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Mikedev115/Aetox/internal/callfault"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/proc"
 	"github.com/Mikedev115/Aetox/internal/statereport"
@@ -77,7 +78,7 @@ func (*gitSkill) ToolDefinition() model.ToolDefinition {
 func (s *gitSkill) ExecuteTool(ctx context.Context, args map[string]any) (Output, error) {
 	action, _ := args["action"].(string)
 	if strings.TrimSpace(action) == "" {
-		err := errors.New("action is required")
+		err := callfault.New("action is required")
 		return newToolOutput("git", "git", "", time.Now(), false, err), err
 	}
 	callArgs := append([]string{action}, anyStringSlice(args["args"])...)

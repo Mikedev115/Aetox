@@ -46,6 +46,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Mikedev115/Aetox/internal/callfault"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/skill"
 )
@@ -289,10 +290,10 @@ func (s *browserSkill) run(ctx context.Context, args map[string]any) (skill.Outp
 func (s *browserSkill) gate(args map[string]any) (string, error) {
 	action := strings.ToLower(strings.TrimSpace(str(args["action"])))
 	if action == "" {
-		return "", fmt.Errorf("action is required — one of %s", strings.Join(s.allowedActions(), ", "))
+		return "", callfault.Newf("action is required — one of %s", strings.Join(s.allowedActions(), ", "))
 	}
 	if !slices.Contains(s.allowedActions(), action) {
-		return "", fmt.Errorf("browser %s is not available here — this session may use: %s",
+		return "", callfault.Newf("browser %s is not available here — this session may use: %s",
 			action, strings.Join(s.allowedActions(), ", "))
 	}
 	return action, nil
@@ -510,7 +511,7 @@ func (s *browserSkill) dispatch(ctx context.Context, action string, args map[str
 	case "console", "network":
 		return (&browserLogSkill{app: s.app, kind: action}).run(ctx)
 	}
-	return skill.Output{Name: "browser"}, fmt.Errorf("unknown browser action %q", action)
+	return skill.Output{Name: "browser"}, callfault.Newf("unknown browser action %q", action)
 }
 
 func str(v any) string {

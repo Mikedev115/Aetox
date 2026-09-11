@@ -39,6 +39,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/Mikedev115/Aetox/internal/callfault"
 	gh "github.com/Mikedev115/Aetox/internal/github"
 	"github.com/Mikedev115/Aetox/internal/model"
 )
@@ -199,14 +200,14 @@ func (s *prSkill) ExecuteTool(ctx context.Context, args map[string]any) (Output,
 		return newToolOutput("pr", "pr "+action, "", start, false, err), err
 	}
 	if action == "" {
-		return fail(errors.New("action is required, one of: " + strings.Join(s.allowedActions(), ", ")))
+		return fail(callfault.New("action is required, one of: " + strings.Join(s.allowedActions(), ", ")))
 	}
 	if _, known := packs["pr"].names[action]; !known {
-		return fail(fmt.Errorf("unknown pr action %q, this session may use: %s",
+		return fail(callfault.Newf("unknown pr action %q, this session may use: %s",
 			action, strings.Join(s.allowedActions(), ", ")))
 	}
 	if !slices.Contains(s.allowedActions(), action) {
-		return fail(fmt.Errorf("pr %s is not available here, this session may use: %s",
+		return fail(callfault.Newf("pr %s is not available here, this session may use: %s",
 			action, strings.Join(s.allowedActions(), ", ")))
 	}
 	if gh.Token() == "" {

@@ -27,13 +27,13 @@ package skill
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Mikedev115/Aetox/internal/callfault"
 	"github.com/Mikedev115/Aetox/internal/model"
 )
 
@@ -72,11 +72,11 @@ func (s *changeSkill) Narrow(named []string) Skill {
 func (s *changeSkill) inner(action string) (Tool, error) {
 	p := packs["change"]
 	if _, known := p.names[action]; !known {
-		return nil, fmt.Errorf("unknown change action %q, this session may use: %s",
+		return nil, callfault.Newf("unknown change action %q, this session may use: %s",
 			action, strings.Join(s.allowedActions(), ", "))
 	}
 	if !slices.Contains(s.allowedActions(), action) {
-		return nil, fmt.Errorf("change %s is not available here, this session may use: %s",
+		return nil, callfault.Newf("change %s is not available here, this session may use: %s",
 			action, strings.Join(s.allowedActions(), ", "))
 	}
 	switch action {
@@ -252,7 +252,7 @@ func (s *changeSkill) ExecuteTool(ctx context.Context, args map[string]any) (Out
 	start := time.Now()
 	action := actionOf(args)
 	if action == "" {
-		err := errors.New("action is required, one of: " + strings.Join(s.allowedActions(), ", "))
+		err := callfault.New("action is required, one of: " + strings.Join(s.allowedActions(), ", "))
 		return newToolOutput("change", "change", "", start, false, err), err
 	}
 	inner, err := s.inner(action)

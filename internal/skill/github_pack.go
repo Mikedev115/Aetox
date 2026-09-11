@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Mikedev115/Aetox/internal/callfault"
 	"github.com/Mikedev115/Aetox/internal/model"
 )
 
@@ -151,11 +152,11 @@ func (s *githubSkill) ExecuteTool(ctx context.Context, args map[string]any) (Out
 func (s *githubSkill) innerFor(action string) (Tool, error) {
 	p := packs["github"]
 	if _, known := p.names[action]; !known {
-		return nil, fmt.Errorf("unknown github action %q, this session may use: %s",
+		return nil, callfault.Newf("unknown github action %q, this session may use: %s",
 			action, strings.Join(s.allowedActions(), ", "))
 	}
 	if !slices.Contains(s.allowedActions(), action) {
-		return nil, fmt.Errorf("github %s is not available here, this session may use: %s",
+		return nil, callfault.Newf("github %s is not available here, this session may use: %s",
 			action, strings.Join(s.allowedActions(), ", "))
 	}
 	switch action {
