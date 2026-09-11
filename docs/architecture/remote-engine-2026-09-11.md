@@ -469,5 +469,39 @@ proxy; MCP OAuth for a server configured on a host that has no browser.
 
 ## 10. Record — what each phase actually did
 
-*(empty until phase 1 lands; every phase appends its measured numbers and the
-tests that pin it, here and in §248.)*
+### Phase 0 — 2026-09-11
+
+This document, DECISIONS §248, the ARCHITECTURE rows, the struck sentence in
+the mobile-remote doc. Commit `d6c6e1d1`.
+
+### Phase 1, Stage A — 2026-09-11/12, six commits on `main`
+
+Every seam of §3, prepared where the code is. Nothing moved packages yet;
+`go build ./... && go test ./...` green at each.
+
+| # | commit | what changed | what pins it |
+|---|---|---|---|
+| A1 | `4e06a434` | the seven direct `wailsruntime.EventsEmit` calls go through `emitEvent`; every writer of a memory file sends `learning:changed` with the count (a nil payload used to blank the badge — `Number(nil) \|\| 0`) | `pending_test.go` recorder |
+| A2 | `dc767f37` | `App.engineCtx()` — the engine's own lifetime; turns, `gitContext`, snapshots, the catalog refresh and the workspace-widen card hang off it, and `finishTurnsForClose` ends it. `a.ctx` is left to dialogs, `Quit`, `EventsEmit` and screen work | `TestEngineWorkOutsideATurnEndsWithTheClose` |
+| A3 | `cd8ac04a` | `model.Transport` — `func(network http.RoundTripper) http.RoundTripper`, a *wrapper* rather than a bare RoundTripper so `retryTransport`/`idleTimeoutBody` stay above it and a retry is re-signed; a provider built with one attaches no credential and requires none; `factory.go` no longer imports `oauth` — `TokenSource`/`Headers`/`SignedInEndpoint` are caller-supplied; `model.AuthScheme` names the header a wire format carries a key in; `bootstrap.Options.ProviderTransport`/`ProviderEndpoint`; `desktop/provider_forward.go` signs from the screen's stores per request | `httpclient_transport_test.go` (client attaches nothing, signer re-entered on retry, key still required without a transport), `provider_forward_test.go` (store key on the wire, sign-in outranks it with its account header) |
+| A4 | `658937a5` | `internal/credentials` owns `credentials.json` (`Load`/`Save`/`KeyFor`/`StoredKeyFor`/`Set`/`Forget`/`ProviderAPIKey`, legacy migration by raw JSON); `config.Config.ModelAPIKey` and `ModelPreference.ModelAPIKeys` deleted; `bootstrap.Engine` passes no key; the CLI resolves its key at the moment of use (`keyFor`) and is the one host that still hands one straight to a provider | `credentials_test.go`; `turn_guard_test.go`'s reopened-chat test now pins provider name and address, the key being structurally absent |
+| A5 | `bbbe4384` | `desktop/screen_doors.go` holds every dialog and reveal under its old binding name; each calls an engine twin that takes a path (`InstallSkillsFromZipAt`, `AddWorkspaceFolderAt`, `BrowseFolderAt`, `ImportSessionFrom`, `SetPresetImageFrom`, `AddSpaceContextFiles`), hands back bytes as `ExportFile` (`SessionExportBytes`, `PictureBytes`, `AgentPackageBytes`) or answers with a host path (`*FolderPath`, `ProjectFilePath`, `ArtifactPath`); six files stop importing Wails | `screen_doors_test.go` — every door has its twin, by reflection |
+| A6 | `95f928c4` | `desktop/screen.go`: `Screen` (`Emit`, `ProviderTransport`, `WindowTools`) and `Session` (`ID`, `Root`); `appScreen` adapts this window (not `App` — every exported `App` method is a binding); `workbenchSkills` = engine `sessionSkills` + what the screen lends, the computer switch still the engine's; `browserSkill`/`computerSkill` hold a `Session` | `screen_test.go` — a fake Screen lends the packs, the real ones are not built, the switch still cuts |
+
+A7 (screen-side test helpers) is folded into Stage B, where the partition of
+the ~120 test files is known rather than guessed.
+
+**Two things Stage A found that narrow §2.1's import ban.** First, the ban is
+on the *engine's own files* and on `internal/model`, not on the transitive
+dependency list: `imagegen`, `stt` and `tts` read a per-host key through
+`credentials.ProviderAPIKey` (decision 5), and `bootstrap`, `github` and
+`automation` read `oauth` for `${connect:}`, the PAT and n8n — all per host,
+all legitimately linked into the engine. What the test in Stage B must
+enforce is that no file under `internal/engine` imports `internal/credentials`
+or calls `oauth.TokenSource`/`Endpoint`/`Headers`/`Token`, and that
+`internal/model` depends on neither store. Second, model discovery
+(`ResolveDefaultModel`, `ModelChoices*`, the discovery half of
+`provider_catalog.go`) still takes a raw key and is still called from
+engine-side files (`SwitchModel`, `SwitchProvider`, `RetryActiveProvider`,
+`resolveConfig`, the skill drafter); Stage B has to move it to the screen —
+the picker is the screen's — or route it through the signed transport.
