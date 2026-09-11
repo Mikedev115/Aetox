@@ -40,6 +40,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/oauth"
 	"github.com/Mikedev115/Aetox/internal/ooxml"
 	"github.com/Mikedev115/Aetox/internal/prompt"
+	"github.com/Mikedev115/Aetox/internal/provider"
 	"github.com/Mikedev115/Aetox/internal/safety"
 	"github.com/Mikedev115/Aetox/internal/skill"
 	"github.com/Mikedev115/Aetox/internal/snapshot"
@@ -3869,7 +3870,125 @@ func (a *App) SupportedProviders() []string {
 			out = append(out, p)
 		}
 	}
+	// The user's own endpoints come after the curated list, never inside it:
+	// the allowlist above is about which catalog rows earn a place in the
+	// picker, and a row the user typed in has already been chosen by them.
+	for _, row := range provider.Customs() {
+		out = append(out, row.ID)
+	}
 	return out
+}
+
+// CustomProviderRow is one user-added endpoint as the settings page sees it.
+type CustomProviderRow struct {
+	ID      string `json:"id"`
+	BaseURL string `json:"base_url"`
+}
+
+// CustomProviders lists the endpoints the user added (provider.Custom), so
+// the settings sidebar knows which rows are theirs to delete outright rather
+// than merely hide.
+func (a *App) CustomProviders() []CustomProviderRow {
+	rows := provider.Customs()
+	out := make([]CustomProviderRow, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, CustomProviderRow{ID: r.ID, BaseURL: r.BaseURL})
+	}
+	return out
+}
+
+// AddCustomProvider creates a provider row of the user's own: an
+// OpenAI-compatible endpoint under a name they chose, with its key filed
+// under that name so the next endpoint they add cannot overwrite it. The row
+// is enabled on the way out, since nobody adds one to keep it hidden. Returns
+// the id the row will be known by everywhere else.
+//
+// The key is optional here only because the page it lands on has a key field
+// of its own — a user who pastes it later is not refused a row today. keyFrom
+// names a provider whose saved key should be copied when apiKey is empty:
+// the "+" under a card's Base URL saves that card as a new row, and the key
+// on the card is one the frontend can only ever see the tail of, so the copy
+// has to happen here. "" copies nothing.
+func (a *App) AddCustomProvider(name, baseURL, apiKey, keyFrom string) (string, error) {
+	id := provider.SlugCustomID(name)
+	if id == "" {
+		return "", fmt.Errorf("ตั้งชื่อด้วยตัวอักษรอังกฤษหรือตัวเลข เช่น deepseek-2 หรือ my-vllm")
+	}
+	if err := provider.ValidateCustomID(id); err != nil {
+		return "", err
+	}
+	url := strings.TrimSuffix(strings.TrimSpace(baseURL), "/")
+	if url == "" {
+		return "", fmt.Errorf("ต้องใส่ base URL")
+	}
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		return "", fmt.Errorf("base URL ต้องขึ้นต้นด้วย http:// หรือ https://")
+	}
+	key := strings.TrimSpace(apiKey)
+	if key == "" && strings.TrimSpace(keyFrom) != "" {
+		key = resolveAPIKeyForProvider(model.NormalizeProvider(keyFrom))
+	}
+	err := config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		for _, row := range pref.CustomProviders {
+			if row.ID == id {
+				return fmt.Errorf("มี provider ชื่อ %q อยู่แล้ว", id)
+			}
+		}
+		pref.CustomProviders = append(pref.CustomProviders, config.CustomProvider{ID: id, BaseURL: url})
+		// The save registers the row with the catalog, so the calls below
+		// find it — but the enabled list is written in the same save, and
+		// ResolvedEnabledProviders normalizes through the catalog, which
+		// leaves an unregistered lowercase id untouched. Safe either way.
+		enabled := config.ResolvedEnabledProviders(pref.EnabledProviders, a.cur().cfg.ModelProvider)
+		pref.EnabledProviders = append(enabled, id)
+		if key != "" {
+			pref.SetAPIKeyForProvider(id, key)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+// RemoveCustomProvider deletes a user-added row and everything filed under
+// its name — the key, the base URL override, the model last picked — and
+// returns the refreshed enabled list. A catalog row cannot be removed this
+// way; that is what SetProviderEnabled(false) is for. Moving the engine off
+// it when it was the active provider is the caller's job, the same as for a
+// disabled row.
+func (a *App) RemoveCustomProvider(id string) ([]string, error) {
+	id = strings.ToLower(strings.TrimSpace(id))
+	if !provider.IsCustom(id) {
+		return nil, fmt.Errorf("%q ไม่ใช่ provider ที่เพิ่มเอง", id)
+	}
+	var next []string
+	err := config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		kept := pref.CustomProviders[:0:0]
+		for _, row := range pref.CustomProviders {
+			if row.ID != id {
+				kept = append(kept, row)
+			}
+		}
+		pref.CustomProviders = kept
+		pref.ForgetAPIKeyForProvider(id)
+		pref.SetBaseURLForProvider(id, "")
+		pref.SetModelForProvider(id, "")
+		current := config.ResolvedEnabledProviders(pref.EnabledProviders, a.cur().cfg.ModelProvider)
+		next = make([]string, 0, len(current))
+		for _, p := range current {
+			if p != id {
+				next = append(next, p)
+			}
+		}
+		pref.EnabledProviders = next
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return next, nil
 }
 
 // EnabledProviders is the subset of SupportedProviders the Settings sidebar

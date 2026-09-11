@@ -35,6 +35,7 @@
     ListModelsForProvider, ProviderBaseURL, ProviderBaseURLIsCustom, ProviderAPIKeyURL, ProviderReady, PriceModels,
     ProviderWireFormats, TestProviderConnection,
     EnabledProviders, SetProviderEnabled,
+    CustomProviders, AddCustomProvider, RemoveCustomProvider,
     ListMCPServers, SaveMCPServer, RemoveMCPServer, TestMCPServer, ToggleMCPServer,
     DelegateSwitches, SetDelegateOff, SetAgentOff,
     PlacementTargets, SetMCPServerTargets,
@@ -235,6 +236,14 @@
   let providers = $state<ProviderRow[]>([])
   let enabledNames = $state<string[]>([])
   let showAddProvider = $state(false)
+  // The endpoints the user added themselves (AddCustomProvider). A row in
+  // here is theirs to delete outright — key and all — where a catalog row's
+  // X only hides it. The draft is the form for the next one; it opens in
+  // the detail pane because the 190px sidebar has no room for three fields.
+  let customNames = $state<Set<string>>(new Set())
+  let customDraftOpen = $state(false)
+  let customDraft = $state({ name: '', baseURL: '', apiKey: '' })
+  let customDraftError = $state('')
   let selected = $state('')
   let baseURL = $state('')
   let wireFormats = $state<string[]>([])
@@ -785,6 +794,7 @@
 
   async function refreshEnabledProviders() {
     enabledNames = await EnabledProviders()
+    customNames = new Set(((await CustomProviders()) ?? []).map((r) => r.id))
   }
 
   async function refreshSignIn() {
@@ -922,6 +932,61 @@
     enabledNames = await SetProviderEnabled(name, true)
     showAddProvider = false
     await selectProvider(name)
+  })
+
+  // customDraftFrom names the card the form was opened from — the "+" under
+  // its Base URL — so the endpoint on that card is what the form starts
+  // with, and its saved key (which this side only ever sees the tail of)
+  // is copied by the engine when no new one is typed. '' from the sidebar.
+  let customDraftFrom = $state('')
+  function openCustomDraft(from = '') {
+    showAddProvider = false
+    customDraftError = ''
+    customDraftFrom = from
+    customDraft = from
+      ? { name: '', baseURL: baseURLDraft.trim() || baseURL, apiKey: keyDraft.trim() }
+      : { name: '', baseURL: '', apiKey: '' }
+    customDraftOpen = true
+  }
+  // The card the form copies a key from has one to copy.
+  const customDraftCopiesKey = $derived(
+    customDraftFrom !== '' && customDraft.apiKey.trim() === '' && (providers.find((p) => p.name === customDraftFrom)?.hasKey ?? false))
+
+  const submitCustomDraft = () => run('custom:add', async () => {
+    customDraftError = ''
+    try {
+      const id = await AddCustomProvider(customDraft.name, customDraft.baseURL, customDraft.apiKey, customDraftFrom)
+      customDraftOpen = false
+      customDraft = { name: '', baseURL: '', apiKey: '' }
+      // The new row has to exist in `providers` before selectProvider can
+      // find it, so the full list is re-read rather than just the enabled set.
+      await refreshProviders()
+      await refreshEnabledProviders()
+      await selectProvider(id)
+    } catch (e) {
+      // Shown in the form, next to the fields that caused it, rather than in
+      // the card's general error slot the form has replaced.
+      customDraftError = String(e).replace(/^Error:\s*/, '')
+    }
+  })
+
+  const removeCustomProvider = (name: string) => askConfirm({
+    title: t('settings.confirmCustomTitle'),
+    message: cockpit.model.provider === name
+      ? t('settings.confirmCustomMessage') + ' ' + t('settings.confirmProviderActive')
+      : t('settings.confirmCustomMessage'),
+    detail: name,
+    confirmLabel: t('settings.remove'),
+    run: () => run('disable:' + name, async () => {
+      const wasActiveEngine = cockpit.model.provider === name
+      enabledNames = await RemoveCustomProvider(name)
+      await refreshProviders()
+      await refreshEnabledProviders()
+      if (selected === name) await selectProvider(enabledNames[0] ?? '')
+      // Same rule as removeProvider below: the engine cannot keep running on
+      // a row that no longer exists.
+      if (wasActiveEngine) await switchProvider('aetox')
+    }),
   })
 
   const removeProvider = (name: string) => askConfirm({
@@ -5400,7 +5465,10 @@
           <div class="settings-group-label eyebrow">{t('settings.providers')}</div>
           {#each enabledRows as p (p.name)}
             <div class="mset-prov-row">
-              <button class="mset-prov" class:selected={selected === p.name} onclick={() => selectProvider(p.name)}>
+              <!-- Closing the add form here, on the click, and not inside
+                   selectProvider: the boot also selects a row, and a form
+                   opened while the page was still loading must survive it. -->
+              <button class="mset-prov" class:selected={selected === p.name} onclick={() => { customDraftOpen = false; selectProvider(p.name) }}>
                 <ProviderMark name={p.name} size={15} />
                 <span class="mset-prov-name">{p.name}</span>
                 <!-- Green only once the engine has said so. Unknown and not
@@ -5413,7 +5481,10 @@
                     : p.ready ? t('settings.providerReady') : t('settings.providerNotReady')}
                 ></span>
               </button>
-              {#if enabledRows.length > 1}
+              {#if customNames.has(p.name)}
+                <button class="icobtn tiny" disabled={busy === 'disable:' + p.name}
+                  aria-label={t('settings.remove')} onclick={() => removeCustomProvider(p.name)}><Icon name="x" size={13} /></button>
+              {:else if enabledRows.length > 1}
                 <button class="icobtn tiny" disabled={busy === 'disable:' + p.name}
                   aria-label={t('settings.remove')} onclick={() => removeProvider(p.name)}><Icon name="x" size={13} /></button>
               {/if}
@@ -5445,18 +5516,62 @@
                   </button>
                 {/each}
               {/if}
-              {#if addableRows.length === 0}
-                <div class="muted set-note">{t('settings.noMoreProviders')}</div>
-              {/if}
+              <!-- Always offered, even when every catalog row is enabled:
+                   this is the one entry that can be added more than once. -->
+              <div class="mset-add-group">{t('settings.groupCustom')}</div>
+              <button class="mset-prov" onclick={() => openCustomDraft()}>
+                <Icon name="plugZap" size={15} />
+                <span class="mset-prov-name">{t('settings.customEndpoint')}</span>
+                <span class="dot">+</span>
+              </button>
             </div>
           {/if}
         </aside>
 
         <div class="mset-detail">
-          {#if selectedRow}
+          {#if customDraftOpen}
+            <div class="mset-head">
+              <Icon name="plugZap" size={22} />
+              <span class="mset-name">{t('settings.customEndpointTitle')}</span>
+            </div>
+            <p class="muted set-hint">{t('settings.customEndpointDesc')}</p>
+            <div class="mset-field">
+              <div class="eyebrow">{t('settings.customNameLabel')}</div>
+              <div class="muted set-hint">{t('settings.customNameHint')}</div>
+              <!-- svelte-ignore a11y_autofocus -->
+              <input class="ctrl key-input" placeholder="deepseek-2" bind:value={customDraft.name} autofocus />
+            </div>
+            <div class="mset-field">
+              <div class="eyebrow">{t('settings.baseUrl')}</div>
+              <input class="ctrl key-input" placeholder="https://api.example.com/v1" bind:value={customDraft.baseURL}
+                onkeydown={(e) => e.key === 'Enter' && submitCustomDraft()} />
+            </div>
+            <div class="mset-field">
+              <div class="eyebrow">{t('settings.apiKeyLabel')}</div>
+              <div class="muted set-hint">
+                {customDraftCopiesKey ? t('settings.customKeyCopied', { provider: customDraftFrom }) : t('settings.customKeyHint')}
+              </div>
+              <input class="ctrl key-input" type="password" autocomplete="off" bind:value={customDraft.apiKey}
+                onkeydown={(e) => e.key === 'Enter' && submitCustomDraft()} />
+            </div>
+            {#if customDraftError}
+              <div class="mset-error">{customDraftError}</div>
+            {/if}
+            <div class="mset-keyrow">
+              <button class="ctrl ctrl-primary"
+                disabled={busy !== '' || customDraft.name.trim() === '' || customDraft.baseURL.trim() === ''}
+                onclick={submitCustomDraft}>
+                {busy === 'custom:add' ? t('settings.saving') : t('settings.customAdd')}
+              </button>
+              <button class="ctrl" disabled={busy !== ''} onclick={() => (customDraftOpen = false)}>{t('settings.cancel')}</button>
+            </div>
+          {:else if selectedRow}
             <div class="mset-head">
               <ProviderMark name={selected} size={22} />
               <span class="mset-name">{selected}</span>
+              {#if customNames.has(selected)}
+                <span class="badge custom" title={t('settings.customBadgeTitle')}>{t('settings.customBadge')}</span>
+              {/if}
               {#if isActiveProvider}
                 <span class="badge on">{t('settings.active')}</span>
               {:else}
@@ -5499,6 +5614,14 @@
                   <button class="ctrl" disabled={busy !== ''} onclick={() => saveBaseURL('')}>{t('settings.baseUrlReset')}</button>
                 {/if}
               </div>
+              {#if selected === 'openai-compatible' || customNames.has(selected)}
+                <!-- The owner's "+": this card holds one endpoint at a time,
+                     and typing a second one over it is how the first got
+                     lost. Saving the card as a row of its own keeps both. -->
+                <button class="ctrl mset-save-as" disabled={busy !== ''} onclick={() => openCustomDraft(selected)}>
+                  <Icon name="plus" size={13} /> {t('settings.customSaveAs')}
+                </button>
+              {/if}
             </div>
 
             {#if wireFormats.length > 1}

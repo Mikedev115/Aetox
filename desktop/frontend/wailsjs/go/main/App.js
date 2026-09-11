@@ -22,6 +22,10 @@ export function AccountStatus() {
   return window['go']['main']['App']['AccountStatus']();
 }
 
+export function AddCustomProvider(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['AddCustomProvider'](arg1, arg2, arg3, arg4);
+}
+
 export function AddLearnedEntry(arg1, arg2) {
   return window['go']['main']['App']['AddLearnedEntry'](arg1, arg2);
 }
@@ -300,6 +304,10 @@ export function CurrentShell() {
 
 export function CurrentSpace() {
   return window['go']['main']['App']['CurrentSpace']();
+}
+
+export function CustomProviders() {
+  return window['go']['main']['App']['CustomProviders']();
 }
 
 export function DeckCaptureDrawing(arg1, arg2, arg3) {
@@ -936,6 +944,10 @@ export function RejectPendingChange(arg1) {
 
 export function RelativizePath(arg1) {
   return window['go']['main']['App']['RelativizePath'](arg1);
+}
+
+export function RemoveCustomProvider(arg1) {
+  return window['go']['main']['App']['RemoveCustomProvider'](arg1);
 }
 
 export function RemoveExternalSkill(arg1) {
