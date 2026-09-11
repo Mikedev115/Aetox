@@ -27,6 +27,7 @@
 | **โทเคนของบล็อกเครื่องมือ + เพดาน** | README ทั้งสอง · `aetox-landing` | `go test ./desktop -run TestTheToolBlockStaysWithinItsBudget -v` | ✋ |
 | **จำนวนเทสต์** | README ทั้งสอง (badge + ตาราง "วัดมา ไม่ใช่อ้าง") · `aetox-landing` (การ์ดสถิติ) | `go test ./... -count=1` · `cd desktop/frontend && npx vitest run` | ✋ |
 | **จำนวนผู้ให้บริการ + รายชื่อ** | README ทั้งสอง (จุดเด่น + §ผู้ให้บริการ) | `internal/provider/catalog.go` — `canonicalOrder` | ✋ |
+| **จำนวนเอเจน + ซับเอเจน** | README ทั้งสอง (§ทีมงาน) · `docs/index.html` | นับ `internal/subagent/profiles/agents/*/` และ `internal/subagent/profiles/subagents/*.md` · `go test ./internal/subagent` ผูกจำนวนไว้ที่ตัวโปรไฟล์ — **แต่ยังไม่ตรวจ README** ต่างจาก `go test ./internal/version` ที่อ่าน README จริง | ✋ |
 | **ขนาด `aetox.exe`** | README ทั้งสอง (4 จุด: ย่อหน้าเปิด · ตารางวัด · ตารางเทียบ Zed · ย่อหน้าวิธีวัด) · `BENCHMARK.md` §4 · `PLATFORM-SUPPORT.md` · `ROADMAP.md` · `aetox-landing` (แถบกราฟ · การ์ดสถิติ · FAQ) | โหลด portable zip ของรุ่นนั้น แตกออก อ่านขนาดไฟล์เดียวข้างใน | 📦 |
 | **ขนาดตัวติดตั้ง** | README ทั้งสอง (§ติดตั้ง + ตารางวัด) · `BENCHMARK.md` §4 · `aetox-landing` (การ์ดสถิติ · ขั้นตอนติดตั้ง) | `gh release view --json assets` | 📦 |
 | **ตัวคูณ "เล็กกว่า X กี่เท่า"** | `BENCHMARK.md` §4 · `PLATFORM-SUPPORT.md` · `aetox-landing` (ท้ายกราฟ) | หารใหม่ทุกครั้งที่ขนาดเปลี่ยน — **นี่คือช่องที่พลาดมาแล้วสองรอบ** | ✋ |
