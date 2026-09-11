@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -357,5 +358,63 @@ func TestMigrationVersionsAreSequential(t *testing.T) {
 		if strings.TrimSpace(m.name) == "" {
 			t.Fatalf("migration %d has no name", m.version)
 		}
+	}
+}
+
+// Rows written before internal/callfault existed carry no mark, and left
+// unmarked they would be offered as problems on the first pass after the
+// upgrade — the exact card that prompted the mark. Version 23 reads the three
+// sentences this codebase authored for those refusals, once, and only over
+// rows that are still unmarked.
+func TestOldCallerFaultRowsAreMarkedOnUpgrade(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "aetox.db")
+	old, err := sql.Open("sqlite", "file:"+filepath.ToSlash(path))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if _, err := old.Exec(baselineSchema); err != nil {
+		t.Fatalf("legacy schema: %v", err)
+	}
+	// Run every migration but the last, then write rows the way that build
+	// would have — unmarked.
+	if err := migrate(old); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	if _, err := old.Exec(fmt.Sprintf("PRAGMA user_version = %d", latestSchemaVersion()-1)); err != nil {
+		t.Fatalf("rewind: %v", err)
+	}
+	now := time.Now().Format(time.RFC3339)
+	for _, e := range []string{
+		"action is required, one of: list, glob, grep",
+		"unknown search action \"grepp\", this session may use: list, glob, grep",
+		"tool \"write\" is not exposed to agent here — either no such tool, or this seat does not hold it",
+		"the page did not answer with a picture",
+	} {
+		if _, err := old.Exec(`INSERT INTO tool_runs(session_id, tool, ok, error, time) VALUES('s', 'x', 0, ?, ?)`, e, now); err != nil {
+			t.Fatalf("insert: %v", err)
+		}
+	}
+	_ = old.Close()
+
+	a := seed(&App{cfg: config.Config{}, dbDir: dir}, newConversation())
+	t.Cleanup(func() {
+		if a.db != nil {
+			_ = a.db.Close()
+		}
+	})
+	db, err := a.database()
+	if err != nil {
+		t.Fatalf("database: %v", err)
+	}
+	var marked, unmarked int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM tool_runs WHERE error_kind = 'caller'`).Scan(&marked); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`SELECT COUNT(*) FROM tool_runs WHERE error_kind = ''`).Scan(&unmarked); err != nil {
+		t.Fatal(err)
+	}
+	if marked != 3 || unmarked != 1 {
+		t.Fatalf("marked %d unmarked %d, want 3 and 1 — the picture failure is not the caller's", marked, unmarked)
 	}
 }

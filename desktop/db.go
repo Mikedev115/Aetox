@@ -786,6 +786,28 @@ CREATE TABLE IF NOT EXISTS project_folders (
 			return err
 		},
 	},
+	{
+		version: 23,
+		name:    "tool_run_caller_faults",
+		apply: func(tx *sql.Tx) error {
+			// The second and last backfill that reads an error's spelling, for
+			// the same reason as version 11's: rows written before
+			// internal/callfault existed carry no other evidence of what they
+			// were, and left unmarked they would be offered as problems on the
+			// next pass. Three sentences, each authored once in this codebase
+			// and matched here as its own prefix, never as a rule — a refusal
+			// written tomorrow is marked at birth (turn.ErrorFromCaller) or
+			// not at all.
+			_, err := tx.Exec(
+				`UPDATE tool_runs SET error_kind = ?
+				  WHERE ok = 0 AND error_kind = ''
+				    AND (error LIKE 'action is required%'
+				      OR error LIKE 'unknown % action %'
+				      OR error LIKE 'tool % is not exposed to agent here%')`,
+				turn.ErrorFromCaller)
+			return err
+		},
+	},
 }
 
 // latestSchemaVersion is what this build understands.

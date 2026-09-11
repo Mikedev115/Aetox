@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Mikedev115/Aetox/internal/callfault"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/skill"
 )
@@ -178,10 +179,10 @@ func (s *computerSkill) Execute(ctx context.Context, input skill.Input) (skill.O
 func (s *computerSkill) gate(args map[string]any) (string, error) {
 	action := strings.ToLower(strings.TrimSpace(str(args["action"])))
 	if action == "" {
-		return "", fmt.Errorf("action is required — one of %s", strings.Join(s.allowedActions(), ", "))
+		return "", callfault.Newf("action is required — one of %s", strings.Join(s.allowedActions(), ", "))
 	}
 	if !slices.Contains(s.allowedActions(), action) {
-		return "", fmt.Errorf("computer %s is not available here — this session may use: %s",
+		return "", callfault.Newf("computer %s is not available here — this session may use: %s",
 			action, strings.Join(s.allowedActions(), ", "))
 	}
 	return action, nil

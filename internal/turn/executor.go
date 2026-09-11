@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Mikedev115/Aetox/internal/callfault"
 	"github.com/Mikedev115/Aetox/internal/command"
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/hook"
@@ -682,6 +683,21 @@ const ErrorFromWorld = "state"
 // user's attention; a card about their own Stop spends it on nothing.
 const ErrorFromCancel = "canceled"
 
+// ErrorFromCaller marks a refusal whose whole remedy is in the call: a
+// required argument left out, an action word the tool does not have, a tool
+// named that this seat does not hold. The tool worked — it read a malformed
+// call and said what was wrong with it — and on the next call the model
+// usually supplies the word.
+//
+// The problems page is where the absence bit, for the third time (2026-09-11):
+// `search` called four times without `action`, four refusals reading "action
+// is required, one of: list, glob, grep", one card asking the owner to report
+// it to the developer. Of the twenty cards that page had raised by then, all
+// twenty were waved off and ten were this shape. Only the author knows the
+// refusal is about the call rather than the work, so the author says it
+// (internal/callfault), the way statereport says "this is weather".
+const ErrorFromCaller = "caller"
+
 // classifyToolError asks the error what it is rather than reading its text.
 // Two cases answer definitively: an author's own statereport mark (checked
 // first among the authored kinds — an explicit statement outranks inference),
@@ -701,6 +717,9 @@ func classifyToolError(err error) string {
 	}
 	if statereport.Is(err) {
 		return ErrorFromWorld
+	}
+	if callfault.Is(err) {
+		return ErrorFromCaller
 	}
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {
@@ -1757,7 +1776,7 @@ type pendingCall struct {
 // repo's source, hunting a way to run the tool by hand). The blocked step is
 // the user's to unblock, and one question reaches them in one call.
 func notExposed(name string) error {
-	return fmt.Errorf("tool %q is not exposed to agent here — either no such tool, or this seat does not hold it. "+
+	return callfault.Newf("tool %q is not exposed to agent here — either no such tool, or this seat does not hold it. "+
 		"Do not hunt for another way to run it; name the blocked step and ask in one call (ask_user, or ask_main from a subagent), or finish what the tools you do hold can do", name)
 }
 

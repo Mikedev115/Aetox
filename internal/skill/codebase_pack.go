@@ -31,12 +31,12 @@ package skill
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/Mikedev115/Aetox/internal/callfault"
 	"github.com/Mikedev115/Aetox/internal/model"
 )
 
@@ -76,11 +76,11 @@ func (s *codebaseSkill) Narrow(named []string) Skill {
 func (s *codebaseSkill) inner(action string) (Tool, error) {
 	p := packs["codebase"]
 	if _, known := p.names[action]; !known {
-		return nil, fmt.Errorf("unknown codebase action %q, this session may use: %s",
+		return nil, callfault.Newf("unknown codebase action %q, this session may use: %s",
 			action, strings.Join(s.allowedActions(), ", "))
 	}
 	if !slices.Contains(s.allowedActions(), action) {
-		return nil, fmt.Errorf("codebase %s is not available here, this session may use: %s",
+		return nil, callfault.Newf("codebase %s is not available here, this session may use: %s",
 			action, strings.Join(s.allowedActions(), ", "))
 	}
 	switch action {
@@ -168,7 +168,7 @@ func (s *codebaseSkill) ExecuteTool(ctx context.Context, args map[string]any) (O
 	start := time.Now()
 	action := actionOf(args)
 	if action == "" {
-		err := errors.New("action is required, one of: " + strings.Join(s.allowedActions(), ", "))
+		err := callfault.New("action is required, one of: " + strings.Join(s.allowedActions(), ", "))
 		return newToolOutput("codebase", "codebase", "", start, false, err), err
 	}
 	inner, err := s.inner(action)

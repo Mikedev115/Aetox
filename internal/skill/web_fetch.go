@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/model"
+	"github.com/Mikedev115/Aetox/internal/statereport"
 
 	"golang.org/x/net/html"
 )
@@ -374,7 +375,11 @@ func (s *webFetchSkill) fetch(ctx context.Context, rawURL, find string, from int
 		return newToolOutput("web_fetch", command, "", start, false, err), err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		err := fmt.Errorf("fetch failed with status %d", resp.StatusCode)
+		// The remote server's answer about itself — gone, forbidden, rate
+		// limited — is weather by statereport's own definition, true tonight
+		// and false tomorrow for reasons nothing here controls. Three cards
+		// (404, 403, 429) reached the problems page before it was said so.
+		err := statereport.Newf("fetch failed with status %d", resp.StatusCode)
 		return newToolOutput("web_fetch", command, "", start, false, err), err
 	}
 
