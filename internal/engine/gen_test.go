@@ -11,8 +11,9 @@ import (
 //go:generate go run ./gen -root ../..
 
 // The generated files are the contract between the screen and the engine
-// (§248 B1): api_gen.go is every exported method of *Engine, and the desktop's
-// forwarders are every one of them the screen does not implement itself. A
+// (§248 B1, phase 2): api_gen.go is every exported method of *Engine, the
+// desktop's forwarders are every one of them the screen does not implement
+// itself, and rpc's client and server are the same list across the socket. A
 // method added or changed without regenerating is caught here, not on the
 // wire.
 func TestGeneratedFilesAreCurrent(t *testing.T) {
@@ -32,6 +33,8 @@ func TestGeneratedFilesAreCurrent(t *testing.T) {
 	for _, pair := range [][2]string{
 		{filepath.Join(out, "api_gen.go"), filepath.Join(root, "internal", "engine", "api_gen.go")},
 		{filepath.Join(out, "engine_forwarders_gen.go"), filepath.Join(root, "desktop", "engine_forwarders_gen.go")},
+		{filepath.Join(out, "client_gen.go"), filepath.Join(root, "internal", "engine", "rpc", "client_gen.go")},
+		{filepath.Join(out, "server_gen.go"), filepath.Join(root, "internal", "engine", "rpc", "server_gen.go")},
 	} {
 		fresh, err := os.ReadFile(pair[0])
 		if err != nil {

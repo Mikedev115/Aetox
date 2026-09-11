@@ -1,14 +1,16 @@
-// Command gen writes the two files that keep the screen and the engine in
-// step (§248 B1): the engine's API interface — every exported method of
-// *Engine — and the screen's forwarders, one binding per API method that the
-// screen does not implement itself.
+// Command gen writes the four files that keep the screen and the engine in
+// step (§248 B1, phase 2): the engine's API interface — every exported
+// method of *Engine — the screen's forwarders, one binding per API method
+// that the screen does not implement itself, and the wire's two halves in
+// internal/engine/rpc: the client that implements the same interface over
+// the socket, and the server's dispatch table.
 //
 // Source of truth is the engine's method set, read from its Go files with
 // go/ast; nothing here is hand-listed. A method the screen defines on its own
 // App (a dialog, a reveal, the browser) is left alone; everything else the
-// frontend can call reaches the engine through a one-line forwarder. In phase
-// 2 the same reading emits the RPC client and server, and the forwarders call
-// a client instead of a value — which is why the API is an interface.
+// frontend can call reaches the engine through a one-line forwarder, which
+// calls the API — a value in one process, the client across a socket — which
+// is why the API is an interface.
 //
 // Run from the repository root:
 //
@@ -195,16 +197,30 @@ func run(root, out string) error {
 	if err != nil {
 		return err
 	}
-	apiPath := filepath.Join(engineDir, "api_gen.go")
-	fwdPath := filepath.Join(desktopDir, "engine_forwarders_gen.go")
-	if out != "" {
-		apiPath = filepath.Join(out, "api_gen.go")
-		fwdPath = filepath.Join(out, "engine_forwarders_gen.go")
-	}
-	if err := os.WriteFile(apiPath, api, 0o644); err != nil {
+	client, err := renderClient(fset, methods, types, imports)
+	if err != nil {
 		return err
 	}
-	return os.WriteFile(fwdPath, fwd, 0o644)
+	server, err := renderServer(fset, methods, types, imports)
+	if err != nil {
+		return err
+	}
+	rpcDir := filepath.Join(engineDir, "rpc")
+	files := map[string][]byte{
+		filepath.Join(engineDir, "api_gen.go"):                api,
+		filepath.Join(desktopDir, "engine_forwarders_gen.go"): fwd,
+		filepath.Join(rpcDir, "client_gen.go"):                client,
+		filepath.Join(rpcDir, "server_gen.go"):                server,
+	}
+	for path, content := range files {
+		if out != "" {
+			path = filepath.Join(out, filepath.Base(path))
+		}
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func goFiles(dir string) ([]string, error) {
