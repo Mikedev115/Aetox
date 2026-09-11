@@ -45,20 +45,18 @@ export async function refreshCodeStatus(): Promise<void> {
   if (codeStatus.loading) return
   codeStatus.loading = true
   try {
-    // 1. Fetch git working tree changes
+    // 1. Fetch git working tree changes. A read that failed (git ran out of
+    //    its budget) keeps the last count: a badge that drops to nothing over
+    //    fifty changed files is a lie, and the next read will say more.
     try {
       const tree = await GitWorkingTree()
       if (Array.isArray(tree)) {
         codeStatus.gitChangedCount = tree.length
         codeStatus.gitAdded = tree.reduce((acc, f) => acc + (f.added ?? 0), 0)
         codeStatus.gitRemoved = tree.reduce((acc, f) => acc + (f.removed ?? 0), 0)
-      } else {
-        codeStatus.gitChangedCount = 0
-        codeStatus.gitAdded = 0
-        codeStatus.gitRemoved = 0
       }
     } catch {
-      codeStatus.gitChangedCount = 0
+      /* keep what was known */
     }
 
     // 2. Fetch open pull requests count

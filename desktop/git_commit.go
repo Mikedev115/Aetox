@@ -210,7 +210,10 @@ func isDangerousPath(path string) bool {
 // and returns proposed atomic commits with suggested messages.
 func (a *App) GitSuggestSplitCommits() ([]GitCommitGroup, error) {
 	out := []GitCommitGroup{}
-	tree := a.GitWorkingTree()
+	tree, err := a.GitWorkingTree()
+	if err != nil {
+		return out, err
+	}
 	if len(tree) == 0 {
 		return out, nil
 	}

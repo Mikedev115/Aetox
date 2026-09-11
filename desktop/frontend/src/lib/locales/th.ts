@@ -242,6 +242,7 @@ export const th = {
   'git.noDiff': 'ไม่มีบรรทัดให้แสดง อาจเป็นไฟล์ไบนารี หรือเปลี่ยนชื่อเฉย ๆ',
   'git.openFile': 'เปิดไฟล์',
   'git.refresh': 'อ่านใหม่',
+  'git.readSlow': 'git ตอบไม่ทัน — แสดงผลจากครั้งก่อนไว้ก่อน จะลองอ่านใหม่ให้เอง',
   'git.commitPlaceholder': 'ข้อความคอมมิต (Ctrl+Enter เพื่อคอมมิต)',
   'git.commitButton': 'คอมมิต',
   'git.commitSelected': 'คอมมิตไฟล์ที่เลือก ({n})',

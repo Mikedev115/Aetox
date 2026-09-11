@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -50,7 +52,11 @@ func TestGitWorkingTreeCountsWhatChanged(t *testing.T) {
 	}
 
 	rows := map[string]GitFileChange{}
-	for _, f := range a.GitWorkingTree() {
+	tree, err := a.GitWorkingTree()
+	if err != nil {
+		t.Fatalf("GitWorkingTree: %v", err)
+	}
+	for _, f := range tree {
 		rows[f.Path] = f
 	}
 	if len(rows) != 2 {
@@ -68,7 +74,7 @@ func TestGitWorkingTreeCountsWhatChanged(t *testing.T) {
 
 func TestGitWorkingTreeCleanTreeHasNoRows(t *testing.T) {
 	_, a := repoAt(t)
-	if got := a.GitWorkingTree(); len(got) != 0 {
+	if got, err := a.GitWorkingTree(); err != nil || len(got) != 0 {
 		t.Errorf("GitWorkingTree() on a clean tree = %+v, want empty", got)
 	}
 }
@@ -81,14 +87,14 @@ func TestGitWorkingTreeEmptyWhenUnfocused(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "kept.txt"), []byte("changed\n"), 0o644); err != nil {
 		t.Fatalf("edit: %v", err)
 	}
-	if got := a.GitWorkingTree(); len(got) != 0 {
+	if got, err := a.GitWorkingTree(); err != nil || len(got) != 0 {
 		t.Errorf("GitWorkingTree() unfocused = %+v, want empty", got)
 	}
 }
 
 func TestGitWorkingTreeOutsideARepo(t *testing.T) {
 	a := seed(&App{cfg: config.Config{SandboxRoot: t.TempDir()}, projectFocused: true}, newConversation())
-	if got := a.GitWorkingTree(); len(got) != 0 {
+	if got, err := a.GitWorkingTree(); err != nil || len(got) != 0 {
 		t.Errorf("GitWorkingTree() outside a repo = %+v, want empty", got)
 	}
 }
@@ -139,5 +145,64 @@ func TestGitFileDiffEmptyWhenNothingChanged(t *testing.T) {
 	_, a := repoAt(t)
 	if got := a.GitFileDiff("kept.txt"); got != "" {
 		t.Errorf("GitFileDiff on an unchanged file = %q, want empty", got)
+	}
+}
+
+// A screenshot dropped into the project is an untracked file with no lines in
+// it, and it used to be read whole on every tick to be told so. Now the first
+// eight kilobytes say "binary" and the answer is 0 — and a file past the cap
+// is 0 without being read at all.
+func TestGitWorkingTreeDoesNotCountBinaryOrHugeUntrackedFiles(t *testing.T) {
+	root, a := repoAt(t)
+	png := append([]byte("\x89PNG\r\n\x1a\n"), make([]byte, 4096)...)
+	if err := os.WriteFile(filepath.Join(root, "shot.png"), png, 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	big := strings.Repeat("line\n", (untrackedCountCap/5)+10)
+	if err := os.WriteFile(filepath.Join(root, "dump.txt"), []byte(big), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "small.txt"), []byte("a\nb\nc"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	tree, err := a.GitWorkingTree()
+	if err != nil {
+		t.Fatalf("GitWorkingTree: %v", err)
+	}
+	rows := map[string]GitFileChange{}
+	for _, f := range tree {
+		rows[f.Path] = f
+	}
+	if got := rows["shot.png"]; got.Status != "U" || got.Added != 0 {
+		t.Errorf("shot.png = %+v, want U +0 (binary has no lines)", got)
+	}
+	if got := rows["dump.txt"]; got.Status != "U" || got.Added != 0 {
+		t.Errorf("dump.txt = %+v, want U +0 (past the cap, not read)", got)
+	}
+	// An unterminated last line still counts as one.
+	if got := rows["small.txt"]; got.Added != 3 {
+		t.Errorf("small.txt = %+v, want +3", got)
+	}
+}
+
+// A read that ran out of its budget is an error, not a clean tree: the room
+// keeps what it had and says git was slow, rather than telling the user that
+// fifty-eight changed files are nothing.
+func TestWorkingTreeReportsARunOutBudgetRatherThanACleanTree(t *testing.T) {
+	root, _ := repoAt(t)
+	if err := os.WriteFile(filepath.Join(root, "kept.txt"), []byte("changed\n"), 0o644); err != nil {
+		t.Fatalf("edit: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	rows, err := workingTree(ctx, root, true)
+	if err == nil {
+		t.Fatalf("workingTree on a spent context = %+v, nil; want an error", rows)
+	}
+	if !errors.Is(err, errGitSlow) {
+		t.Errorf("err = %v, want errGitSlow", err)
+	}
+	if len(rows) != 0 {
+		t.Errorf("rows = %+v, want none beside the error", rows)
 	}
 }

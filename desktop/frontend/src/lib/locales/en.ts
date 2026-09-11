@@ -242,6 +242,7 @@ export const en: Record<keyof typeof th, string> = {
   'git.noDiff': 'No line changes to show. It may be a binary file, or a rename with no edit.',
   'git.openFile': 'Open the file',
   'git.refresh': 'Read it again',
+  'git.readSlow': 'git did not answer in time — showing the previous read; it will be tried again',
   'git.commitPlaceholder': 'Message (Ctrl+Enter to commit)',
   'git.commitButton': 'Commit',
   'git.commitSelected': 'Commit Selected ({n})',
