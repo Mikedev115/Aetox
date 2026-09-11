@@ -33,6 +33,15 @@ import (
 // not opened yet.
 const deferredConnectTimeout = 30 * time.Second
 
+// memoryLedger is the second thing a Proposer may know besides how to queue:
+// what the user already decided about earlier proposals (prompt.Desk.Ledger).
+// Optional, and asked for by type assertion rather than added to
+// learned.Proposer, because the learned package is where a Proposer is
+// defined and it does not know the prompt's types.
+type memoryLedger interface {
+	Ledger(scopes []string) prompt.Ledger
+}
+
 // Options are the parts of an engine a host supplies. Everything else comes
 // from config.Config, so two hosts on the same config get the same engine.
 //
@@ -485,6 +494,13 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 	// for the same reason it got ask_user — the thing that changes is who is
 	// listening, not what the work is (§106.5, subagent.AttendedRegistry).
 	desk = withStance(desk, opts.Stance)
+	// The queue's record of what the user already decided, from the same door
+	// the proposals go through. A Proposer that keeps one (the desktop's) hands
+	// it to the prompt; one that does not (a test's recorder) leaves the prompt
+	// exactly as it was.
+	if ledger, ok := opts.Proposer.(memoryLedger); ok {
+		desk.Ledger = ledger.Ledger
+	}
 	agent := cognitive.NewAgent(cognitive.AgentConfig{
 		Provider:     bootstrapResult.Provider,
 		Model:        cfg.ModelName,

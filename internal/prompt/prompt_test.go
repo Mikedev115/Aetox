@@ -1308,3 +1308,68 @@ func TestAToolLessTurnMakesNoOffers(t *testing.T) {
 		t.Errorf("a turn carrying nothing is told to offer work it cannot start:\n%s", got)
 	}
 }
+
+// The half of the ledger the memory layers cannot show (11 ก.ย.): what is
+// waiting, and what the user refused. It sits with the memory it belongs to —
+// after the approved layers, before the git layer — asks for exactly the
+// scopes those layers read plus the profile, and writes nothing when there is
+// nothing to say.
+func TestTheLedgerFollowsTheMemoryAndNamesTheScopesThisSessionWritesTo(t *testing.T) {
+	dataRoot := t.TempDir()
+	t.Setenv("AETOX_DATA_ROOT", dataRoot)
+	if err := learned.Apply(learned.MainScope, learned.OpAdd, "", "MEMORY-MARKER"); err != nil {
+		t.Fatalf("write memory: %v", err)
+	}
+	projectRoot := t.TempDir()
+	mustWrite(t, filepath.Join(projectRoot, "AETOX.md"), "PROJECT-MARKER")
+
+	var asked []string
+	desk := Desk{Name: "code", Ledger: func(scopes []string) Ledger {
+		asked = scopes
+		return Ledger{
+			Pending:  []string{"PENDING-MARKER"},
+			Rejected: []string{"REJECTED-MARKER " + strings.Repeat("ยาว", 80)},
+		}
+	}}
+	text := BuildForDesk(SurfaceDesktop, Scope{Root: projectRoot}, desk)
+
+	want := []string{learned.UserScope, learned.MainScope, learned.ModeScope("code"), learned.ProjectScope(projectRoot)}
+	if strings.Join(asked, "|") != strings.Join(want, "|") {
+		t.Errorf("ledger asked for %v, want %v", asked, want)
+	}
+	memory := strings.Index(text, "MEMORY-MARKER")
+	pending := strings.Index(text, "PENDING-MARKER")
+	rejected := strings.Index(text, "REJECTED-MARKER")
+	project := strings.Index(text, "PROJECT-MARKER")
+	if memory < 0 || pending < 0 || rejected < 0 || project < 0 {
+		t.Fatalf("a layer is missing:\n%s", text)
+	}
+	if !(memory < pending && pending < rejected && rejected < project) {
+		t.Errorf("order is memory(%d) < pending(%d) < rejected(%d) < project(%d)", memory, pending, rejected, project)
+	}
+	if !strings.Contains(text, "do not propose again, in any wording") {
+		t.Error("the refused list must say a refusal holds in every wording")
+	}
+	if strings.Contains(text, strings.Repeat("ยาว", 80)) {
+		t.Error("a long body should be cut — the model needs to recognise a line, not re-read it")
+	}
+
+	// A chair writes only to the profile, so that is all it is asked about.
+	asked = nil
+	BuildForDesk(SurfaceDesktop, Scope{Root: projectRoot}, Desk{Name: "writer", Chair: true, Ledger: desk.Ledger})
+	if strings.Join(asked, "|") != learned.UserScope {
+		t.Errorf("a chair's ledger asked for %v, want only the profile", asked)
+	}
+
+	// Nothing decided: no heading, and the prompt is what a session with no
+	// ledger at all would get.
+	empty := BuildForDesk(SurfaceDesktop, Scope{Root: projectRoot},
+		Desk{Name: "code", Ledger: func([]string) Ledger { return Ledger{} }})
+	none := BuildForDesk(SurfaceDesktop, Scope{Root: projectRoot}, Desk{Name: "code"})
+	if empty != none {
+		t.Error("an empty ledger must add nothing to the prompt")
+	}
+	if strings.Contains(none, "already decided about your memory proposals") {
+		t.Error("no ledger, no layer")
+	}
+}

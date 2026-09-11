@@ -482,6 +482,7 @@ func TestUnfocusedEngineRoamsFocusedEngineStaysWalled(t *testing.T) {
 	}
 
 	a := &App{} // zero value: projectFocused=false, the unfocused startup state
+	closeStoreAtEnd(t, a)
 	a.applyConfig(a.cur(), config.Config{
 		SandboxRoot:   t.TempDir(),
 		ModelProvider: "aetox",
@@ -959,6 +960,7 @@ func TestFreshInstallDefaultsToTheGuideModel(t *testing.T) {
 func TestReloadKeepsTheRunningModelWhenTheGlobalPreferenceChanges(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 	a := &App{}
+	closeStoreAtEnd(t, a)
 	a.applyConfig(a.cur(), config.Config{
 		SandboxRoot:   t.TempDir(),
 		ModelProvider: "aetox",
@@ -1001,6 +1003,7 @@ func TestReloadLoadsTheSavedModelOnFirstBootstrap(t *testing.T) {
 	}
 
 	a := &App{} // nothing bootstrapped yet — this is App.startup
+	closeStoreAtEnd(t, a)
 	a.reload(config.ConfigOptions{RootPath: t.TempDir()})
 
 	if a.cur().cfg.ModelName != "aetox-think:test" {
@@ -1067,6 +1070,7 @@ func TestCancelTurnDropsWhatWasTypedUnderIt(t *testing.T) {
 func TestSwitchToUnreachableProviderReportsTheFallback(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 	a := &App{}
+	closeStoreAtEnd(t, a)
 	a.applyConfig(a.cur(), config.Config{
 		SandboxRoot:   t.TempDir(),
 		ModelProvider: "lmstudio",
@@ -1091,6 +1095,7 @@ func TestSwitchToUnreachableProviderReportsTheFallback(t *testing.T) {
 func TestSwitchToWorkingProviderReportsNoWarning(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 	a := &App{}
+	closeStoreAtEnd(t, a)
 	a.applyConfig(a.cur(), config.Config{
 		SandboxRoot:   t.TempDir(),
 		ModelProvider: "aetox",
@@ -1114,6 +1119,7 @@ func TestSwitchToWorkingProviderReportsNoWarning(t *testing.T) {
 func TestCustomBaseURLIsWhatEveryProviderPathDials(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 	a := &App{}
+	closeStoreAtEnd(t, a)
 	a.applyConfig(a.cur(), config.Config{
 		SandboxRoot:   t.TempDir(),
 		ModelProvider: "aetox",

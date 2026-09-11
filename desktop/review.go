@@ -23,8 +23,21 @@ import (
 //    nothing writes to disk without human approval.
 // 2. Pre-emption: Can be cancelled immediately when the user sends a new message,
 //    preventing queue contention on local models like Ollama.
-// 3. User digest only: The model sees only the user's own messages, keeping cost and
-//    tokens minimal (< 1 KB for typical sessions).
+// 3. User digest, plus the user's decisions: the model sees the user's own
+//    messages of the session, and what the user has already said yes and no to.
+//
+// The third principle used to end at "only": the design (§4.3 of the doc
+// above) had the reviewer read nothing but the session, and the store measured
+// what that costs (11 ก.ย.). Fifty proposals from this source, two approved.
+// "User communicates in Thai" was proposed six times in six wordings and
+// refused six times; the owner's GitHub handle, approved on the 8th, was
+// proposed again on the 11th and refused for being there already. A reviewer
+// that cannot see the profile cannot know what is in it, and one that cannot
+// see the refusals cannot learn the bar — so every session it re-derived the
+// same obvious facts from the same kind of evidence. It now reads USER.md as
+// it stands, the lines waiting on the page, and the lines turned down, and is
+// told what each list means. The mechanical door (queueMemoryProposal) still
+// stands behind it for the restatements a model produces anyway.
 
 var (
 	activeReviewMu     sync.Mutex
@@ -66,18 +79,38 @@ type ReviewFact struct {
 	Why  string `json:"why"`
 }
 
+// reviewInput is everything the reviewer reads: the session's user messages,
+// and the three lists that say what has already been decided.
+type reviewInput struct {
+	Messages []string
+	// Profile is USER.md as it stands — every line in it was approved. It is
+	// the bar shown by example, and the list of what not to propose again.
+	Profile string
+	// Pending are the lines already waiting for a decision.
+	Pending []string
+	// Rejected are the lines the user turned down, newest first, capped. A
+	// fact refused once is refused in every rewording.
+	Rejected []string
+}
+
 // sessionReviewer abstracts the LLM call for unit testing.
 type sessionReviewer interface {
-	Review(ctx context.Context, userMessages []string) ([]ReviewFact, error)
+	Review(ctx context.Context, in reviewInput) ([]ReviewFact, error)
 }
+
+// reviewRejectedShown caps the refusals the reviewer reads. The store had
+// eighty-odd on 11 ก.ย.; the newest thirty are the current bar, and older ones
+// are still caught by the door behind this pass if a model restates them.
+const reviewRejectedShown = 30
 
 const sessionReviewInstructions = `You are a User Profile Reviewer. Your job is to extract ONLY permanent user facts and enduring instructions from the conversation.
 
 Rules:
 1. Language: Must strictly match the language of the conversation.
 2. Filter: Extract ONLY immutable facts (e.g. role, tech stack, environment) and explicit permanent rules (e.g. "always do X"). Write as declarative facts about the user.
-3. Strictly ignore: Ephemeral/one-off tasks, emotions, personality quirks, and guesses.
-4. Output: Call user_profile_proposals. If no durable facts exist, return an empty array. Be conservative.`
+3. Strictly ignore: Ephemeral/one-off tasks, emotions, personality quirks, and guesses. The language the user writes in, their tone, their typos and how long their messages are are never facts — the assistant already answers in the user's language.
+4. Already decided: You are shown the profile as it stands (approved), what is waiting for a decision, and what the user turned down. Do not propose anything in those lists, nor the same fact in other words. What was approved shows the bar; what was turned down shows what falls under it.
+5. Output: Call user_profile_proposals. If no NEW durable facts exist, return an empty array. Be conservative.`
 
 var sessionReviewTool = model.ToolDefinition{
 	Type: "function",
@@ -108,8 +141,8 @@ var sessionReviewTool = model.ToolDefinition{
 // appSessionReviewer calls the current active model using oneShotProvider.
 type appSessionReviewer struct{ app *App }
 
-func (r appSessionReviewer) Review(ctx context.Context, userMessages []string) ([]ReviewFact, error) {
-	if len(userMessages) == 0 {
+func (r appSessionReviewer) Review(ctx context.Context, in reviewInput) ([]ReviewFact, error) {
+	if len(in.Messages) == 0 {
 		return nil, nil
 	}
 
@@ -118,16 +151,11 @@ func (r appSessionReviewer) Review(ctx context.Context, userMessages []string) (
 		return nil, err
 	}
 
-	var digest strings.Builder
-	for i, msg := range userMessages {
-		digest.WriteString(fmt.Sprintf("User message %d: %s\n\n", i+1, msg))
-	}
-
 	req := model.Request{
 		Model: modelName,
 		Messages: []model.Message{
 			{Role: model.RoleSystem, Content: sessionReviewInstructions},
-			{Role: model.RoleUser, Content: fmt.Sprintf("=== User Messages ===\n\n%s", digest.String())},
+			{Role: model.RoleUser, Content: reviewDigest(in)},
 		},
 		Tools:      []model.ToolDefinition{sessionReviewTool},
 		ToolChoice: "required",
@@ -157,6 +185,61 @@ func (r appSessionReviewer) Review(ctx context.Context, userMessages []string) (
 	}
 
 	return out.Facts, nil
+}
+
+// reviewDigest is the user turn the reviewer reads: what was already decided
+// first, so the session's messages are read against it, then the messages.
+// Each decided list is written only when it has something in it — a fresh
+// install's reviewer reads exactly the digest it read before the lists
+// existed.
+func reviewDigest(in reviewInput) string {
+	var b strings.Builder
+	if strings.TrimSpace(in.Profile) != "" {
+		b.WriteString("=== Profile as it stands (approved by the user — do not propose these again) ===\n\n")
+		b.WriteString(strings.TrimSpace(in.Profile))
+		b.WriteString("\n\n")
+	}
+	writeList := func(title string, lines []string) {
+		if len(lines) == 0 {
+			return
+		}
+		b.WriteString("=== " + title + " ===\n\n")
+		for _, line := range lines {
+			b.WriteString("- " + line + "\n")
+		}
+		b.WriteString("\n")
+	}
+	writeList("Waiting for the user's decision (do not propose again)", in.Pending)
+	writeList("Turned down by the user (do not propose again, in any wording)", in.Rejected)
+	b.WriteString("=== User Messages ===\n\n")
+	for i, msg := range in.Messages {
+		b.WriteString(fmt.Sprintf("User message %d: %s\n\n", i+1, msg))
+	}
+	return b.String()
+}
+
+// decidedMemoryLines reads the queue's own record for the reviewer: what is
+// waiting and what was refused, for the memory kind, newest first. Every
+// scope, not only the profile's — a machine fact the user refused is the same
+// signal about the bar whichever file it was headed for.
+func (a *App) decidedMemoryLines(state string, limit int) []string {
+	db, err := a.database()
+	if err != nil {
+		return nil
+	}
+	var out []string
+	_ = eachRow(db, "review: reading decided lines", `
+		SELECT body FROM pending_changes WHERE kind = ? AND state = ?
+		  ORDER BY id DESC LIMIT `+fmt.Sprint(limit), []any{kindMemory, state},
+		func(rows *sql.Rows) error {
+			var body string
+			if err := rows.Scan(&body); err != nil {
+				return err
+			}
+			out = append(out, body)
+			return nil
+		})
+	return out
 }
 
 // getUserMessagesForSession fetches all user messages from SQLite for a session in order.
@@ -207,7 +290,12 @@ func (a *App) runSessionReviewWith(ctx context.Context, reviewer sessionReviewer
 		return 0, nil
 	}
 
-	facts, err := reviewer.Review(ctx, msgs)
+	facts, err := reviewer.Review(ctx, reviewInput{
+		Messages: msgs,
+		Profile:  learned.Read(learned.UserScope),
+		Pending:  a.decidedMemoryLines(statePending, 200),
+		Rejected: a.decidedMemoryLines(stateRejected, reviewRejectedShown),
+	})
 	if err != nil {
 		return 0, err
 	}
@@ -233,10 +321,17 @@ func (a *App) runSessionReviewWith(ctx context.Context, reviewer sessionReviewer
 			Reason: f.Why,
 		}
 
-		// Propose into pending_changes (source='review')
-		res, err := a.proposeLearnedFromReview(p, sessionID)
+		// Through the same door as the agent's own proposals, which is what
+		// answers "already waiting" and "already decided" for both. A fact the
+		// model restated despite the lists above stops here and is logged as
+		// what it was, not counted as proposed.
+		res, err := a.queueMemoryProposal(p, "review", "session:"+sessionID)
 		if err != nil {
 			debuglog.Msg("review: propose failed for %q: %v", text, err)
+			continue
+		}
+		if res.Prior != nil {
+			debuglog.Msg("review: %q restates #%d (%s), not queued", text, res.Prior.ID, res.Prior.State)
 			continue
 		}
 		if !res.Duplicate {
@@ -249,41 +344,6 @@ func (a *App) runSessionReviewWith(ctx context.Context, reviewer sessionReviewer
 		a.emitLearningChanged()
 	}
 	return proposed, nil
-}
-
-// proposeLearnedFromReview records a proposal with source='review'.
-func (a *App) proposeLearnedFromReview(p learned.Proposal, sessionID string) (learned.Result, error) {
-	db, err := a.database()
-	if err != nil {
-		return learned.Result{}, err
-	}
-
-	target := ""
-	if path, err := learned.FileFor(p.Scope); err == nil {
-		target = path
-	}
-
-	var existing int64
-	err = db.QueryRow(`
-		SELECT id FROM pending_changes
-		 WHERE state = ? AND kind = ? AND scope = ? AND op = ? AND body = ?
-		 LIMIT 1`,
-		statePending, p.Kind, p.Scope, p.Op, p.Body).Scan(&existing)
-	if err == nil {
-		return learned.Result{ID: existing, Duplicate: true}, nil
-	}
-
-	now := time.Now().UTC().Format(time.RFC3339)
-	evidence := fmt.Sprintf("session:%s", sessionID)
-	res, err := db.Exec(`
-		INSERT INTO pending_changes(kind, scope, target, op, before, body, reason, evidence, source, state, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'review', ?, ?)`,
-		p.Kind, p.Scope, target, p.Op, p.Before, p.Body, p.Reason, evidence, statePending, now)
-	if err != nil {
-		return learned.Result{}, err
-	}
-	id, _ := res.LastInsertId()
-	return learned.Result{ID: id}, nil
 }
 
 var (

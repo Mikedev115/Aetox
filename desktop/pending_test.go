@@ -405,3 +405,79 @@ func TestAddLearnedEntryAppendsDirectlyToScope(t *testing.T) {
 	}
 }
 
+// The door remembers what was decided (11 ก.ย.): a fact the user turned down
+// is not queued again — not word for word, and not in other words — and the
+// proposer is told which line it restates and what the user said about it.
+func TestARefusedFactIsNotAskedAgainInAnyWording(t *testing.T) {
+	a := newJobApp(t)
+	first, err := a.proposeLearned(proposal(learned.UserScope, learned.OpAdd, "",
+		"User communicates in Thai and expects replies in Thai"))
+	if err != nil {
+		t.Fatalf("propose: %v", err)
+	}
+	if err := a.RejectPendingChange(first.ID); err != nil {
+		t.Fatalf("reject: %v", err)
+	}
+
+	again, err := a.proposeLearned(proposal(learned.UserScope, learned.OpAdd, "",
+		"User communicates primarily in Thai and expects responses in Thai."))
+	if err != nil {
+		t.Fatalf("propose again: %v", err)
+	}
+	if again.ID != 0 || again.Duplicate || again.Prior == nil {
+		t.Fatalf("a restatement of a refused fact should come back with the refusal, got %+v", again)
+	}
+	if again.Prior.ID != first.ID || again.Prior.State != stateRejected || again.Prior.DecidedAt == "" {
+		t.Errorf("prior = %+v, want the refused row with its decision", again.Prior)
+	}
+	if n := a.PendingLearnedCount(); n != 0 {
+		t.Errorf("%d rows waiting, want none — the user already answered this", n)
+	}
+	// Whichever scope it was headed for: a no is a no.
+	elsewhere, _ := a.proposeLearned(proposal(learned.MainScope, learned.OpAdd, "",
+		"User communicates in Thai and expects Thai-language interaction"))
+	if elsewhere.Prior == nil || elsewhere.Prior.State != stateRejected {
+		t.Errorf("a refusal should hold in every scope, got %+v", elsewhere)
+	}
+}
+
+// A line already in memory is not proposed a second time either, and the
+// answer says so — with the way to revise it, which is `replace`. But the same
+// sentence approved as a fact about the user and proposed as a rule of one
+// project is two facts, so an approval is scoped where a refusal is not.
+func TestARememberedFactIsNotProposedAgainInItsOwnScope(t *testing.T) {
+	a := newJobApp(t)
+	kept, err := a.proposeLearned(proposal(learned.UserScope, learned.OpAdd, "",
+		"ผู้ใช้เป็นคนพัฒนา Aetox คนเดียว (GitHub Mikedev115) และปล่อยรุ่นเองทุกครั้ง"))
+	if err != nil {
+		t.Fatalf("propose: %v", err)
+	}
+	if err := a.ApprovePendingChange(kept.ID); err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+
+	same, _ := a.proposeLearned(proposal(learned.UserScope, learned.OpAdd, "",
+		"ผู้ใช้เป็นผู้พัฒนา Aetox คนเดียว (GitHub Mikedev115) และปล่อยรุ่นเองทุกครั้ง"))
+	if same.Prior == nil || same.Prior.State != stateApproved || same.Prior.ID != kept.ID {
+		t.Fatalf("a fact already remembered should be answered as such, got %+v", same)
+	}
+	other, err := a.proposeLearned(proposal(learned.MainScope, learned.OpAdd, "",
+		"ผู้ใช้เป็นคนพัฒนา Aetox คนเดียว (GitHub Mikedev115) และปล่อยรุ่นเองทุกครั้ง"))
+	if err != nil || other.Prior != nil || other.ID == 0 {
+		t.Errorf("the same sentence in another scope is another fact, got %+v (%v)", other, err)
+	}
+}
+
+// A near match while the first is still waiting points at the card that is
+// already on the page, exactly as the identical text always did.
+func TestARestatementOfAWaitingFactIsTheSameCard(t *testing.T) {
+	a := newJobApp(t)
+	first, _ := a.proposeLearned(proposal(learned.UserScope, learned.OpAdd, "", "ผู้ใช้ใช้ภาษาไทยในการสื่อสารกับผู้ช่วยเสมอ"))
+	second, _ := a.proposeLearned(proposal(learned.UserScope, learned.OpAdd, "", "ผู้ใช้ใช้ภาษาไทยในการสนทนากับผู้ช่วยเสมอ"))
+	if !second.Duplicate || second.ID != first.ID {
+		t.Errorf("want the waiting row, got %+v", second)
+	}
+	if n := a.PendingLearnedCount(); n != 1 {
+		t.Errorf("want one card, got %d", n)
+	}
+}

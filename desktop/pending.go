@@ -10,6 +10,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/learned"
+	"github.com/Mikedev115/Aetox/internal/prompt"
 	"github.com/Mikedev115/Aetox/internal/skill"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -93,10 +94,80 @@ func (p appProposer) Propose(pr learned.Proposal) (learned.Result, error) {
 	return p.app.proposeLearned(pr)
 }
 
+// Ledger is the other half of the door, read by the prompt at session start
+// (bootstrap.memoryLedger → prompt.Desk.Ledger): what is waiting and what the
+// user refused, for the scopes this session writes to. The model reads the
+// approved half already — it is the memory layers — and until 11 ก.ย. read
+// nothing of the other two, so it re-proposed a fact refused two days earlier
+// and the page held five cards restating decided things.
+func (p appProposer) Ledger(scopes []string) prompt.Ledger {
+	return p.app.memoryLedger(scopes)
+}
+
+// ledgerRejectedShown caps the refusals the prompt carries. This rides on every
+// request of the session, so it is the newest few rather than the record — the
+// door behind the tool still holds every refusal ever made.
+const ledgerRejectedShown = 12
+
+func (a *App) memoryLedger(scopes []string) prompt.Ledger {
+	db, err := a.database()
+	if err != nil || len(scopes) == 0 {
+		return prompt.Ledger{}
+	}
+	marks := strings.TrimSuffix(strings.Repeat("?,", len(scopes)), ",")
+	read := func(state string, limit int) []string {
+		args := []any{kindMemory, state}
+		for _, sc := range scopes {
+			args = append(args, sc)
+		}
+		var out []string
+		_ = eachRow(db, "pending: reading the ledger", `
+			SELECT body FROM pending_changes
+			  WHERE kind = ? AND state = ? AND scope IN (`+marks+`)
+			  ORDER BY id DESC LIMIT `+fmt.Sprint(limit), args,
+			func(rows *sql.Rows) error {
+				var body string
+				if err := rows.Scan(&body); err != nil {
+					return err
+				}
+				out = append(out, body)
+				return nil
+			})
+		return out
+	}
+	return prompt.Ledger{
+		Pending:  read(statePending, 50),
+		Rejected: read(stateRejected, ledgerRejectedShown),
+	}
+}
+
 func (a *App) proposeLearned(p learned.Proposal) (learned.Result, error) {
 	if !learningEnabled() {
 		return learned.Result{}, fmt.Errorf("learning is switched off in settings")
 	}
+	return a.queueMemoryProposal(p, "agent", "session:"+a.cur().id)
+}
+
+// queueMemoryProposal is the one door a memory line goes through on its way
+// to the page, whoever is proposing it — the agent mid-turn, the session
+// review afterwards, the habit synthesizer. Three doors used to exist, each
+// with its own idea of "already asked": the agent's checked pending rows for
+// the identical text, the review's checked the same, the synthesizer's checked
+// nothing. What none of them checked was what the user had already SAID.
+//
+// Measured 11 ก.ย. on the owner's store: 93 memory proposals, 9 approved. The
+// same fact refused on the 9th proposed on the 10th, refused, proposed on the
+// 11th; a fact approved on the 11th proposed again in fewer words the same day
+// and refused for being there already. The user was being asked to decide the
+// same thing over and over, and the door — the only place that could know —
+// was not looking. Owner: *"อันไหนที่เคยปฏิเสธไปแล้ว … ไม่ควรขอมาอีก และไม่ควร
+// ขอซ้ำ มันควรจะรู้ด้วยว่าอะไรขออยู่ อะไรขอไปแล้วไม่เอา"*.
+//
+// So the door remembers. A fact already waiting is a duplicate, as before; a
+// fact already decided is answered with the decision and never queued. What
+// "the same fact" means is learned.SameFact — the same sentence in other words
+// — because the identical string was the only form the old check could see.
+func (a *App) queueMemoryProposal(p learned.Proposal, source, evidence string) (learned.Result, error) {
 	db, err := a.database()
 	if err != nil {
 		return learned.Result{}, err
@@ -107,35 +178,97 @@ func (a *App) proposeLearned(p learned.Proposal) (learned.Result, error) {
 		target = path
 	}
 
-	// An identical proposal already waiting is answered as a duplicate rather
-	// than queued again. The agent cannot see the queue — approved memory
-	// reaches it only at the next session — so a second attempt in the same
-	// conversation is the expected behaviour of a model that does not know it
-	// already asked, not a mistake worth an error.
-	var existing int64
-	err = db.QueryRow(
-		`SELECT id FROM pending_changes
-		  WHERE state = ? AND kind = ? AND scope = ? AND op = ? AND body = ? AND before = ?
-		  LIMIT 1`,
-		statePending, p.Kind, p.Scope, p.Op, p.Body, p.Before).Scan(&existing)
-	if err == nil {
-		return learned.Result{ID: existing, Duplicate: true}, nil
-	}
-	if err != sql.ErrNoRows {
+	// The agent cannot see the queue — approved memory reaches it only at the
+	// next session — so a second attempt in the same conversation is the
+	// expected behaviour of a model that does not know it already asked, not a
+	// mistake worth an error. Answered as a duplicate, or with the decision.
+	if prior, found, err := a.priorMemoryDecision(p); err != nil {
 		return learned.Result{}, err
+	} else if found {
+		if prior.State == statePending {
+			return learned.Result{ID: prior.ID, Duplicate: true}, nil
+		}
+		return learned.Result{Prior: &prior}, nil
 	}
 
 	res, err := db.Exec(
 		`INSERT INTO pending_changes(kind, scope, target, op, before, body, reason, evidence, source, state, created_at)
 		 VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
 		p.Kind, p.Scope, target, p.Op, p.Before, p.Body, p.Reason,
-		"session:"+a.cur().id, "agent", statePending, time.Now().Format(time.RFC3339))
+		evidence, source, statePending, time.Now().Format(time.RFC3339))
 	if err != nil {
 		return learned.Result{}, err
 	}
 	id, _ := res.LastInsertId()
 	a.emitLearningChanged()
 	return learned.Result{ID: id}, nil
+}
+
+// priorMemoryDecision is what the store already knows about this fact: the row
+// it restates, if any, and what happened to that row.
+//
+// The identical proposal — same scope, op, before and body — waiting in the
+// queue is a duplicate for every op, as it always was. Beyond that only an
+// `add` is compared by meaning: a replace or remove names a specific line in
+// `before`, and two revisions of one line are two different proposals.
+//
+// Order of precedence when several rows match, because they do: a row still
+// waiting wins (the card is on the page; point at it), then a line already
+// remembered in the SAME scope (it is memory; a revision goes through
+// replace), then a refusal in ANY scope (what the user said no to is no
+// wherever it was going to land). Approved is scoped and rejected is not on
+// purpose — the one line on this store that was approved twice was the same
+// principle kept once as a fact about the user and once as a rule of one
+// project, which is two facts.
+func (a *App) priorMemoryDecision(p learned.Proposal) (learned.Prior, bool, error) {
+	db, err := a.database()
+	if err != nil {
+		return learned.Prior{}, false, err
+	}
+	var pending, approved, rejected *learned.Prior
+	err = eachRow(db, "pending: reading what was already decided", `
+		SELECT id, scope, op, before, body, state, decided_at FROM pending_changes
+		  WHERE kind = ? ORDER BY id DESC`, []any{p.Kind},
+		func(rows *sql.Rows) error {
+			var r learned.Prior
+			var scope, op, before string
+			if err := rows.Scan(&r.ID, &scope, &op, &before, &r.Body, &r.State, &r.DecidedAt); err != nil {
+				return err
+			}
+			identical := scope == p.Scope && op == p.Op && before == p.Before && r.Body == p.Body
+			if identical && r.State == statePending && pending == nil {
+				pending = &r
+				return nil
+			}
+			if p.Op != learned.OpAdd || op != learned.OpAdd || !learned.SameFact(r.Body, p.Body) {
+				return nil
+			}
+			// Newest first, so the first of each kind seen is the latest word.
+			switch r.State {
+			case statePending:
+				if pending == nil {
+					pending = &r
+				}
+			case stateApproved:
+				if approved == nil && scope == p.Scope {
+					approved = &r
+				}
+			case stateRejected:
+				if rejected == nil {
+					rejected = &r
+				}
+			}
+			return nil
+		})
+	if err != nil {
+		return learned.Prior{}, false, err
+	}
+	for _, hit := range []*learned.Prior{pending, approved, rejected} {
+		if hit != nil {
+			return *hit, true, nil
+		}
+	}
+	return learned.Prior{}, false, nil
 }
 
 // ListPendingChanges returns what is waiting for a decision, oldest first —

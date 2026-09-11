@@ -15,7 +15,9 @@ import (
 func newSkillsTestApp(t *testing.T) *App {
 	t.Helper()
 	isolateUserDirs(t)
-	return seed(&App{cfg: config.Config{ModelProvider: "noop", SandboxRoot: t.TempDir()}}, newConversation())
+	a := seed(&App{cfg: config.Config{ModelProvider: "noop", SandboxRoot: t.TempDir()}}, newConversation())
+	closeStoreAtEnd(t, a)
+	return a
 }
 
 func writeTestSkill(t *testing.T, name string) string {
