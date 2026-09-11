@@ -369,6 +369,8 @@ export const SessionAgent = str()
 // a chat that has never had one, which is the honest default for a mock and the
 // state the card must draw as nothing at all rather than as an empty card.
 export const SessionPlan = vi.fn(async (..._args: any[]) => ({ title: '', sections: [], version: 0, updated: '' }))
+// The plan's closing reports, oldest round first (desktop/plan_report.go).
+export const SessionPlanReports = vi.fn(async (..._args: any[]) => [] as any[])
 // มุ่งเป้า (desktop/goal_run.go). StartPlanRun answers with a refusal, or a flag
 // saying the run began — the window sends the opening message itself, so the
 // default here is the ordinary case: it started, and nothing was refused.
@@ -460,8 +462,11 @@ export const ProjectTree = arr()
 // Browsing: a folder the file tree is pointed at while no project is focused.
 // Empty by default, which is what the ผู้ช่วย door looks like on open.
 export const BrowseFolder = str()
+export const BrowseFolderAt = str()
 export const BrowseRoot = str()
 export const StopBrowsing = noop()
+export const SpaceFolderPath = str()
+export const AddSpaceContextFiles = arr()
 export const ProviderBaseURL = str()
 export const PriceModels = arr()
 export const ProviderAPIKeyURL = str()

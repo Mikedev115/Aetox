@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/prompt"
@@ -288,9 +289,15 @@ func TestAddingTheSameFileTwiceKeepsBoth(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	files := a.describeSpace(space.Path, space.Name, 0).ContextFiles
+	described := a.describeSpace(space.Path, space.Name, 0)
+	files := described.ContextFiles
 	if len(files) != 2 {
 		t.Fatalf("context holds %v, want both copies", files)
+	}
+	for _, name := range files {
+		if _, err := time.Parse(time.RFC3339, described.ContextModified[name]); err != nil {
+			t.Errorf("%s is dated %q, want RFC3339: %v", name, described.ContextModified[name], err)
+		}
 	}
 	first, _ := os.ReadFile(filepath.Join(contextDir, "สรุป.md"))
 	if string(first) != "รอบแรก" {
@@ -464,7 +471,7 @@ func TestAProjectsChatsStayOutOfTheGeneralHistory(t *testing.T) {
 	}
 	a.appendTurn(a.cur(),
 		SessionMessage{Role: "user", Text: "สูตรกาแฟเย็น"},
-		SessionMessage{Role: "assistant", Text: "ได้ครับ"},
+		SessionMessage{Role: "agent", Text: "ได้ครับ"},
 	)
 	if _, err := a.NewSessionAt("assistant"); err != nil {
 		t.Fatal(err)
@@ -492,10 +499,13 @@ func TestAProjectsChatsStayOutOfTheGeneralHistory(t *testing.T) {
 		}
 	}
 
-	// The project's own list has it, and only it.
+	// The project's own list has it, and only it — carrying the assistant's
+	// last words, which is the second line the project page draws.
 	inSpace := a.SessionsInSpace("ร้านกาแฟ")
 	if len(inSpace) != 1 || inSpace[0].Title != "สูตรกาแฟเย็น" {
 		t.Errorf("the project lists %v, want its own chat", inSpace)
+	} else if inSpace[0].Snippet != "ได้ครับ" {
+		t.Errorf("the project's row carries snippet %q, want the assistant's last reply", inSpace[0].Snippet)
 	}
 
 	// And search still finds it, saying where it lives.

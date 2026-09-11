@@ -9,7 +9,7 @@ import {
   SendMessage, GetProjectStatus, GetModelInfo, OpenProjectFolder, OpenProjectPath,
   SwitchProvider, SwitchThinkLevel, SwitchApprovalMode, SetProviderWireFormat,
   SwitchModel, CancelPendingModel, SetAPIKey, SetProviderBaseURL, ProjectTree, ReadFile,
-  BrowseFolder, BrowseRoot, StopBrowsing,
+  BrowseFolder, BrowseFolderAt, BrowseRoot, StopBrowsing, SpaceFolderPath,
   ListSessions, LoadSession, NewSession, NewSessionAt, NewChairSession, NewSessionInSpace, CurrentSpace, SessionsInSpace, Spaces, SessionMode, SessionAgent, SessionPlan, StartPlanRun, StopPlanRun, SavePlanText, PausePlanRun, ResumePlanRun, SetPlanStepStop, CurrentSessionID, SearchSessions, DeleteSession,
   SessionTranscript, TurnInFlight,
   SaveChatImage, SaveChatImageData, SaveChatFile, ReadImageDataURL, CancelTurn, BrowserGetText, RecentProjects,
@@ -183,7 +183,57 @@ export async function browseFolder(): Promise<void> {
 
 /** Put the tree back to empty. */
 export async function stopBrowsing(): Promise<void> {
+  browsingForSpace = ''
   await StopBrowsing()
+  await refreshWorkspace()
+}
+
+// The โปรเจกต์ whose folder the tree is looking at BECAUSE a chat inside it is
+// on screen, '' when the tree is showing something else (nothing, or a folder
+// the user pointed it at by hand). Kept so leaving the project puts back only
+// what arriving in it took: a folder somebody browsed to on purpose is theirs
+// to close, not this function's.
+let browsingForSpace = ''
+
+/** Point the tree at the open chat's โปรเจกต์ folder, or away from the last one.
+ *
+ * A project is a group of chats with a folder of files, not a focus — the
+ * assistant still reaches the whole machine (DOOR-ASSISTANT.md, browse_root.go).
+ * So this is the ผู้ช่วย door's "looking, not moving in" gesture, done for the
+ * user rather than by them: the same one string in the engine's memory that
+ * browseFolder moves, nothing persisted, nothing retargeted. Until 12 ก.ย. the
+ * ไฟล์ tab of a chat held inside a project read "ผู้ช่วยไม่ผูกโปรเจกต์" — true,
+ * and no answer to the question the tab is there for.
+ *
+ * Called wherever cockpit.space is set, because that is the fact it follows —
+ * and AWAITED there, though nothing after it needs its answer: every door goes
+ * on to refresh the workspace, and a refresh that overlaps this one reads the
+ * tree before the root moved and writes it back after. Seen on 12 ก.ย.: leave a
+ * project, engine root cleared, window still showing the project's folder.
+ * Refused by the engine while a real project is focused (the tree is showing
+ * that project, and one root is the rule) — and the refusal is the right answer
+ * there, so it is swallowed rather than shown. */
+export async function followSpaceFolder(): Promise<void> {
+  const name = cockpit.space
+  try {
+    if (name) {
+      // Pointed every time rather than remembered as pointed: the engine drops
+      // the browsed root whenever a real project is taken (takeProject), so
+      // "still the same project" here says nothing about what the tree shows.
+      // The walk is skipped when the answer did not change; the pointing costs
+      // one stat.
+      const root = await BrowseFolderAt(await SpaceFolderPath(name))
+      browsingForSpace = name
+      if (root === cockpit.browseRoot && cockpit.tree.length > 0) return
+    } else if (browsingForSpace) {
+      await StopBrowsing()
+      browsingForSpace = ''
+    } else {
+      return
+    }
+  } catch {
+    return // a project is focused, or the folder is gone: the tree keeps what it has
+  }
   await refreshWorkspace()
 }
 
@@ -3964,6 +4014,7 @@ export async function newSessionAt(desk: string): Promise<void> {
   // thing on its side (startNewSession), and the two have to agree or the
   // window keeps drawing a room the session is no longer in.
   cockpit.space = ''
+  await followSpaceFolder()
   setShell(shellForDesk(desk))
   await afterNewSession()
 }
@@ -4015,6 +4066,7 @@ export async function newSpaceSession(space: string): Promise<void> {
   cockpit.desk = 'assistant'
   cockpit.chair = ''
   cockpit.space = space
+  await followSpaceFolder()
   setShell('assistant')
   await afterNewSession()
 }
@@ -4069,6 +4121,7 @@ export async function newChairSession(chair: string): Promise<void> {
   cockpit.desk = 'specialized'
   cockpit.chair = chair
   cockpit.space = '' // for the same reason newSessionAt clears it
+  await followSpaceFolder()
   setShell('assistant') // the office is behind the storefront door (§86)
   await afterNewSession()
 }
@@ -4184,6 +4237,7 @@ export async function refreshDesk(): Promise<void> {
     // chat from history has to put its project back on screen, and the engine
     // is the one that read it off the row.
     cockpit.space = await CurrentSpace()
+    await followSpaceFolder()
     // Asked too, and for a reason the three above do not have: a stance is not
     // fixed at birth, so reopening a chat has to put back the dial it was left
     // on. The engine read it off the row; nothing here could know it.

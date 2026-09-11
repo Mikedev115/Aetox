@@ -32,6 +32,7 @@
   import { EventsOn } from '../../wailsjs/runtime/runtime'
   import type { main, connect, subagent } from '../../wailsjs/go/models'
   import { t, i18n, type TKey } from './i18n.svelte'
+  import { DRAFT_KEY } from './composerDraft'
   import { isShortcut, shortcutLabel } from './shortcuts'
   import { openMicStream, applySpeaker, audioDevices } from './audioDevices.svelte'
   import { currentStep, tally } from './delegateWork'
@@ -927,8 +928,9 @@
   // Stored with the session it was typed in. A single key restored the same
   // half-written message into every conversation the user opened next, which
   // trades one lost draft for a stray one in someone else's chat — the second
-  // is worse, because it looks like something they wrote.
-  const DRAFT_KEY = 'aetox-composer-draft'
+  // is worse, because it looks like something they wrote. The key lives in
+  // composerDraft.ts, where the โปรเจกต์ page can file a starter under a chat
+  // it has just opened.
   let draft = $state('')
   // The wording on offer, or '' when there is none to draw. Only over an empty
   // box, and never while this chat is mid-turn: what is typed during a turn
