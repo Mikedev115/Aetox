@@ -262,16 +262,34 @@ func (a *App) SynthesizeHabitForSessions(ctx context.Context, synthesizer habitS
 		CreatedAt: time.Now().Format(time.RFC3339),
 	}
 
-	res, err := db.Exec(`
-		INSERT INTO pending_changes (kind, scope, target, op, body, reason, source, state, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		change.Kind, change.Scope, change.Target, change.Op, change.Body, change.Reason, change.Source, change.State, change.CreatedAt,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to record habit proposal: %w", err)
+	var id int64
+	if kind == kindMemory {
+		// A memory line goes through the one door every memory proposer uses,
+		// which is what knows whether the user already answered it. This
+		// writer used to insert directly and check nothing — three of its
+		// lines were refused before the door could tell it so.
+		res, err := a.queueMemoryProposal(learned.Proposal{
+			Kind: kind, Scope: scope, Op: op, Body: change.Body, Reason: change.Reason,
+		}, change.Source, "")
+		if err != nil {
+			return nil, fmt.Errorf("failed to record habit proposal: %w", err)
+		}
+		if res.Prior != nil {
+			debuglog.Msg("habit_synthesis: %q restates #%d (%s), not queued", change.Body, res.Prior.ID, res.Prior.State)
+			return nil, nil
+		}
+		id = res.ID
+	} else {
+		res, err := db.Exec(`
+			INSERT INTO pending_changes (kind, scope, target, op, body, reason, source, state, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			change.Kind, change.Scope, change.Target, change.Op, change.Body, change.Reason, change.Source, change.State, change.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to record habit proposal: %w", err)
+		}
+		id, _ = res.LastInsertId()
 	}
-
-	id, _ := res.LastInsertId()
 	change.ID = id
 
 	// Record in synthesized_habits if normalized key is provided

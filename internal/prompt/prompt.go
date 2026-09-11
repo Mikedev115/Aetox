@@ -199,6 +199,31 @@ type Desk struct {
 	// did before stances), and both are pinning something real. One bool that
 	// defaults to false leaves both standing.
 	DrivesMachine bool
+	// Ledger answers what the user has already decided about memory proposals
+	// in the given scopes: what is waiting on the page, and what they turned
+	// down. The memory the user APPROVED is the layers above this one — every
+	// line in them was a proposal once — so those two lists are the only half
+	// the model could not see. Nil (every host without the queue, the CLI,
+	// every test) writes nothing, and the prompt is byte-for-byte what it was.
+	//
+	// A function on the desk rather than a package-level registration like
+	// the shelf, because the answer is per session — which scopes this
+	// session may write to is decided here, in foldLearnedMemory's own list —
+	// and because the caller that has the queue (the desktop, through its
+	// Proposer) already hands the desk everything else it knows.
+	Ledger func(scopes []string) Ledger
+}
+
+// Ledger is what the queue says about the memory scopes a session writes to.
+// Bodies only — the sentence is the identity of a proposal, and it is what the
+// model would restate.
+type Ledger struct {
+	// Pending is waiting for the user's decision. Proposing it again would
+	// draw a second card asking the same question.
+	Pending []string
+	// Rejected is what the user said no to, newest first, capped by the
+	// caller. A refusal holds in every wording.
+	Rejected []string
 }
 
 // carries answers Desk.Carries for the zero value too: a desk that was never
@@ -514,6 +539,25 @@ func BuildWithReport(surface Surface, scope Scope, desk Desk) (string, Loaded) {
 				"What working in "+filepath.Base(sandboxRoot)+" has settled, and the user approved")
 		}
 	}
+	// What the user has already decided about proposals, for the scopes this
+	// session writes to — exactly the scopes folded above, plus the profile,
+	// which every session writes to. Directly under the memory it belongs
+	// with: the approved half is the layers above, and this is the other half.
+	// Varies as decisions are made, so it sits below every layer that does not
+	// and above the git layer, which varies more (the cache ratchet, below).
+	if desk.Ledger != nil {
+		scopes := []string{learned.UserScope}
+		if !desk.Chair {
+			scopes = append(scopes, learned.MainScope)
+			if desk.Name != "" {
+				scopes = append(scopes, learned.ModeScope(desk.Name))
+			}
+			if !scope.Open && sandboxRoot != "" {
+				scopes = append(scopes, learned.ProjectScope(sandboxRoot))
+			}
+		}
+		b.WriteString(ledgerLayer(desk.Ledger(scopes)))
+	}
 	// The repository as it stood when this session opened (Claude Code's move,
 	// adopted 30 ส.ค.): branch, what is uncommitted, the last few commits.
 	// Measured reason: `git` ran 54 times in one week largely re-asking what
@@ -600,6 +644,49 @@ func foldLearnedMemory(b *strings.Builder, scope, title string) string {
 	}
 	b.WriteString(layer(title, "", content))
 	return path
+}
+
+// ledgerLayer tells the model what it cannot otherwise know about its own
+// proposals: which are waiting, and which the user refused. Owner, 11 ก.ย.,
+// looking at five cards restating things already decided: *"มันควรจะรู้ด้วยว่า
+// อะไรขออยู่ อะไรขอไปแล้วไม่เอา ทิศทางประมาณไหนขอแล้วอนุมัติ"*. The approved
+// direction is the memory layers themselves; this layer is the two lists they
+// cannot show. Nothing at all when both are empty — a fresh machine's prompt
+// does not grow a heading for an empty ledger.
+//
+// Bodies are cut at ledgerLineRunes: the model needs to recognise a line, not
+// re-read it, and this rides on every request of the session.
+func ledgerLayer(l Ledger) string {
+	if len(l.Pending) == 0 && len(l.Rejected) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("Every line in the memory above was a proposal the user approved; that is the bar. " +
+		"The memory tool's door already answers a restatement of anything below, so do not spend a call on one.\n")
+	if len(l.Pending) > 0 {
+		b.WriteString("Waiting for the user's decision — do not propose again:\n")
+		for _, line := range l.Pending {
+			b.WriteString("- " + ledgerLine(line) + "\n")
+		}
+	}
+	if len(l.Rejected) > 0 {
+		b.WriteString("Turned down by the user — do not propose again, in any wording; " +
+			"what falls under the bar looks like this:\n")
+		for _, line := range l.Rejected {
+			b.WriteString("- " + ledgerLine(line) + "\n")
+		}
+	}
+	return layer("What the user has already decided about your memory proposals", "", strings.TrimSpace(b.String()))
+}
+
+const ledgerLineRunes = 120
+
+func ledgerLine(s string) string {
+	s = strings.Join(strings.Fields(s), " ")
+	if r := []rune(s); len(r) > ledgerLineRunes {
+		return string(r[:ledgerLineRunes]) + "…"
+	}
+	return s
 }
 
 // identity answers one question and stops: who is speaking, and how.

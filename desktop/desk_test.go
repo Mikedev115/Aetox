@@ -766,3 +766,30 @@ func TestDelegationOffTakesTheHandoverOutOfThePrompt(t *testing.T) {
 		t.Errorf("delegation is off and nothing tells the assistant what to do with a deliverable request:\n%s", off)
 	}
 }
+
+// The queue's record reaches the prompt through the same door the proposals
+// go through (11 ก.ย.): a session built after the user refused a line is told
+// so, and a session built over an empty queue reads the prompt it always did.
+func TestARefusedProposalReachesTheNextSessionsPrompt(t *testing.T) {
+	a := bootDeskApp(t, "assistant")
+	first := a.cur().agent.ContextMessages()[0].Content
+	if strings.Contains(first, "already decided about your memory proposals") {
+		t.Fatal("an empty queue must add no layer")
+	}
+
+	res, err := a.proposeLearned(proposal(learned.UserScope, learned.OpAdd, "",
+		"User communicates in Thai and expects replies in Thai"))
+	if err != nil {
+		t.Fatalf("propose: %v", err)
+	}
+	if err := a.RejectPendingChange(res.ID); err != nil {
+		t.Fatalf("reject: %v", err)
+	}
+	a.applyConfig(a.cur(), a.cur().cfg)
+
+	got := a.cur().agent.ContextMessages()[0].Content
+	if !strings.Contains(got, "already decided about your memory proposals") ||
+		!strings.Contains(got, "expects replies in Thai") {
+		t.Errorf("the refusal did not reach the next prompt:\n%s", got)
+	}
+}

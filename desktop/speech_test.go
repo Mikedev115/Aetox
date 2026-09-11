@@ -27,6 +27,7 @@ func newSpeechTestApp(t *testing.T) (*App, string) {
 	}
 
 	a := &App{}
+	closeStoreAtEnd(t, a)
 	a.applyConfig(a.cur(), config.Config{
 		SandboxRoot:   t.TempDir(),
 		ModelProvider: "aetox",

@@ -11,10 +11,14 @@ import (
 type recorder struct {
 	got       []Proposal
 	duplicate bool
+	prior     *Prior
 }
 
 func (r *recorder) Propose(p Proposal) (Result, error) {
 	r.got = append(r.got, p)
+	if r.prior != nil {
+		return Result{Prior: r.prior}, nil
+	}
 	return Result{ID: int64(len(r.got)), Duplicate: r.duplicate}, nil
 }
 
@@ -518,5 +522,36 @@ func TestAHiddenCharacterIsRefusedBeforeTheQueue(t *testing.T) {
 		"text":  "ผู้ใช้ (GitHub: Mikedev115) กำลังสร้าง Aetox — a Wails v2 desktop agent; speaks Thai.",
 	}); err != nil {
 		t.Fatalf("an ordinary line was refused: %v", err)
+	}
+}
+
+// The door remembers what the user decided, and the tool has to say it in
+// words the model can act on: which line, and that the answer was no. Not an
+// error — the model broke no contract, and a failure here would be a row for
+// the problems page — and no proposal id, because there is no card to draw.
+func TestARefusedFactIsAnsweredWithTheRefusal(t *testing.T) {
+	isolate(t)
+	rec := &recorder{prior: &Prior{ID: 73, State: "rejected",
+		Body: "User communicates in Thai and expects replies in Thai", DecidedAt: "2026-09-10T08:00:00Z"}}
+	tool := &MemoryTool{Scope: MainScope, Proposer: rec}
+	out, err := tool.ExecuteTool(context.Background(), map[string]any{
+		"about": "user", "text": "User communicates primarily in Thai and expects responses in Thai"})
+	if err != nil {
+		t.Fatalf("a prior decision is an answer, not an error: %v", err)
+	}
+	if !out.Success || out.ProposalID != 0 {
+		t.Errorf("success=%v proposal=%d, want a successful receipt with no card", out.Success, out.ProposalID)
+	}
+	for _, want := range []string{"turned this down", "2026-09-10", "expects replies in Thai", "other words"} {
+		if !strings.Contains(out.Content, want) {
+			t.Errorf("the answer should carry %q: %q", want, out.Content)
+		}
+	}
+
+	rec.prior = &Prior{ID: 34, State: "approved", Body: "ผู้ใช้เป็นคนพัฒนา Aetox คนเดียว", DecidedAt: "2026-09-08T08:00:00Z"}
+	out, _ = tool.ExecuteTool(context.Background(), map[string]any{
+		"about": "user", "text": "ผู้ใช้เป็นคนพัฒนา Aetox เพียงคนเดียว"})
+	if !strings.Contains(out.Content, "already remembered") || !strings.Contains(out.Content, "replace") {
+		t.Errorf("an approved prior should say it is memory and name the way to revise it: %q", out.Content)
 	}
 }

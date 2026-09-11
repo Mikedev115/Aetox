@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"testing"
 
 	"github.com/Mikedev115/Aetox/internal/learned"
@@ -12,11 +13,17 @@ import (
 type fakeReviewer struct {
 	facts []ReviewFact
 	err   error
+	// seen is what the reviewer was shown, for the tests that check it was
+	// shown the user's decisions.
+	seen *reviewInput
 }
 
-func (f fakeReviewer) Review(ctx context.Context, userMessages []string) ([]ReviewFact, error) {
+func (f fakeReviewer) Review(ctx context.Context, in reviewInput) ([]ReviewFact, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	if f.seen != nil {
+		*f.seen = in
 	}
 	return f.facts, f.err
 }
@@ -194,5 +201,74 @@ func TestSessionReviewPreemption(t *testing.T) {
 	_, err := app.runSessionReviewWith(ctx, reviewer, "s-cancel")
 	if err == nil {
 		t.Errorf("expected context cancellation error")
+	}
+}
+
+// The measurement that changed the design (11 ก.ย.): fifty review proposals,
+// two approved, the same fact refused in six wordings. The reviewer is now
+// shown what the user already decided — and the door behind it refuses a
+// restatement whether or not the model listened.
+func TestReviewIsShownTheDecisionsAndCannotRestateThem(t *testing.T) {
+	db := setupReviewTestDB(t)
+	defer db.Close()
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+
+	_, _ = db.Exec(`INSERT INTO messages(session_id, role, text, time) VALUES('s-1', 'user', 'ผมพิมพ์ไทยนะครับ', '10:00')`)
+	_, _ = db.Exec(`INSERT INTO messages(session_id, role, text, time) VALUES('s-1', 'user', 'ช่วยดู CI ให้หน่อย', '10:01')`)
+	// What the user already said: one refusal, one line waiting.
+	_, _ = db.Exec(`INSERT INTO pending_changes(kind, scope, op, body, source, state, created_at, decided_at)
+		VALUES('memory', 'user:profile', 'add', 'User communicates in Thai and expects replies in Thai', 'review', 'rejected', '2026-09-09T10:00:00Z', '2026-09-09T11:00:00Z')`)
+	_, _ = db.Exec(`INSERT INTO pending_changes(kind, scope, op, body, source, state, created_at)
+		VALUES('memory', 'user:profile', 'add', 'User runs CI on GitHub Actions', 'agent', 'pending', '2026-09-10T10:00:00Z')`)
+
+	app := &App{db: db}
+	var seen reviewInput
+	reviewer := fakeReviewer{
+		seen: &seen,
+		facts: []ReviewFact{
+			// The refused fact in other words — the sixth spelling.
+			{Text: "User communicates primarily in Thai and expects responses in Thai.", Why: "message 1"},
+			// The waiting fact, word for word.
+			{Text: "User runs CI on GitHub Actions", Why: "message 2"},
+			// A genuinely new one.
+			{Text: "User keeps the Aetox repository at D:\\Aetox\\Aetox", Why: "message 2"},
+		},
+	}
+	n, err := app.runSessionReviewWith(context.Background(), reviewer, "s-1")
+	if err != nil {
+		t.Fatalf("runSessionReviewWith: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("proposed %d, want 1 — the restatement and the duplicate must not count", n)
+	}
+	if len(seen.Rejected) != 1 || len(seen.Pending) != 1 {
+		t.Errorf("the reviewer was shown rejected=%v pending=%v; it must read both lists", seen.Rejected, seen.Pending)
+	}
+	digest := reviewDigest(seen)
+	if !strings.Contains(digest, "Turned down by the user") || !strings.Contains(digest, "expects replies in Thai") {
+		t.Errorf("the digest does not carry the refusal:\n%s", digest)
+	}
+
+	var pending int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pending_changes WHERE state = 'pending'`).Scan(&pending); err != nil {
+		t.Fatal(err)
+	}
+	if pending != 2 {
+		t.Errorf("%d rows waiting, want 2 — the old one and the new fact, never the restatement", pending)
+	}
+	var restated int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM pending_changes WHERE body LIKE 'User communicates primarily%'`).Scan(&restated)
+	if restated != 0 {
+		t.Error("a refused fact in other words reached the queue")
+	}
+}
+
+// With nothing decided yet, the reviewer reads exactly the digest it read
+// before the lists existed — the section headers appear only with content.
+func TestReviewDigestIsUnchangedWhenNothingWasDecided(t *testing.T) {
+	got := reviewDigest(reviewInput{Messages: []string{"สวัสดี", "ช่วยหน่อย"}})
+	want := "=== User Messages ===\n\nUser message 1: สวัสดี\n\nUser message 2: ช่วยหน่อย\n\n"
+	if got != want {
+		t.Errorf("digest with nothing decided:\n%q\nwant\n%q", got, want)
 	}
 }

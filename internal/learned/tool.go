@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Mikedev115/Aetox/internal/callfault"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/skill"
 )
@@ -27,7 +28,22 @@ type Proposal struct {
 // about what happened rather than always claiming success.
 type Result struct {
 	ID        int64
-	Duplicate bool // an identical proposal was already waiting
+	Duplicate bool // the same fact was already waiting; ID is that row's
+	// Prior is set when nothing was queued because the user already answered
+	// this fact — approved it, or turned it down. The door remembers so the
+	// model does not have to: measured 11 ก.ย., a fact refused on the 9th was
+	// proposed again on the 10th in other words, and again on the 11th.
+	Prior *Prior
+}
+
+// Prior is the earlier proposal a new one turned out to restate, and what the
+// user said about it. State is one of the queue's own: "approved" means the
+// line is memory now, "rejected" means the user said no to it.
+type Prior struct {
+	ID        int64
+	State     string
+	Body      string
+	DecidedAt string
 }
 
 // Proposer is the door. Implemented by the desktop app against the
@@ -369,7 +385,9 @@ func (t *MemoryTool) ExecuteTool(_ context.Context, args map[string]any) (skill.
 	//
 	// Refused rather than guessed, and the refusal names both words, because the
 	// model can act on it in the same turn: this is the door §139 opened for a
-	// `replace` that names nothing.
+	// `replace` that names nothing. Every refusal of the call's shape below is
+	// marked as the caller's (internal/callfault): the model can fix each one
+	// on its next call, and the problems page has no business hearing of it.
 	if !t.forWorker() {
 		switch strings.TrimSpace(stringArg(args, "about")) {
 		case aboutUser:
@@ -387,29 +405,29 @@ func (t *MemoryTool) ExecuteTool(_ context.Context, args map[string]any) (skill.
 				}
 			}
 		case "":
-			return fail(fmt.Errorf(
+			return fail(callfault.Newf(
 				"about is required — %q for a fact about the person you are talking to, %q for a fact about this computer or setup",
 				aboutUser, aboutMachine))
 		default:
-			return fail(fmt.Errorf("about must be %q or %q", aboutUser, aboutMachine))
+			return fail(callfault.Newf("about must be %q or %q", aboutUser, aboutMachine))
 		}
 	}
 
 	switch op {
 	case OpAdd:
 		if text == "" {
-			return fail(fmt.Errorf("text is required to remember something"))
+			return fail(callfault.New("text is required to remember something"))
 		}
 	case OpReplace:
 		if text == "" || old == "" {
-			return fail(fmt.Errorf("replace needs both old (what to find) and text (what it becomes)"))
+			return fail(callfault.New("replace needs both old (what to find) and text (what it becomes)"))
 		}
 	case OpRemove:
 		if old == "" {
-			return fail(fmt.Errorf("remove needs old — distinctive words from the line to forget"))
+			return fail(callfault.New("remove needs old — distinctive words from the line to forget"))
 		}
 	default:
-		return fail(fmt.Errorf("unknown op %q — use add, replace or remove", op))
+		return fail(callfault.Newf("unknown op %q — use add, replace or remove", op))
 	}
 
 	// Before the queue rather than before the file: a card the user cannot read
@@ -468,9 +486,38 @@ func (t *MemoryTool) ExecuteTool(_ context.Context, args map[string]any) (skill.
 	if res.Duplicate {
 		return ok("Already waiting for the user to approve — not queued twice.", "memory "+op, res.ID)
 	}
+	// Told as a result rather than an error: the model did nothing wrong by
+	// the tool's contract, and a failure here would be recorded as one and
+	// read by the problems page. What it needs is the sentence the user
+	// already answered and the answer, so the same question is not asked a
+	// third time in a fourth spelling. No proposal id — there is no card to
+	// draw under this answer, and the decided row is not this turn's.
+	if res.Prior != nil {
+		return ok(priorMessage(res.Prior), "memory "+op, 0)
+	}
 	return ok(
 		"Queued for the user to approve. It does not affect this session; once approved it is there from the next one on.",
 		"memory "+op, res.ID)
+}
+
+// priorMessage says what the user already decided about this fact, in words
+// the model can act on. The rejected case is the one that matters: a line the
+// user refused is refused in every rewording, and saying so is what stops the
+// rewordings.
+func priorMessage(p *Prior) string {
+	when := p.DecidedAt
+	if len(when) >= 10 {
+		when = when[:10]
+	}
+	switch p.State {
+	case "rejected":
+		return fmt.Sprintf("Not queued. The user already turned this down (%s): %q. "+
+			"Do not propose it again, or the same thing in other words — a line they refused once is refused.",
+			when, p.Body)
+	default:
+		return fmt.Sprintf("Not queued. This is already remembered (approved %s): %q. "+
+			"If it needs revising, use replace with old naming that line.", when, p.Body)
+	}
 }
 
 func stringArg(args map[string]any, key string) string {
