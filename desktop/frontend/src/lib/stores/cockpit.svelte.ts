@@ -34,6 +34,7 @@ import { t } from '../i18n.svelte'
 import { markOpenedLinks } from '../toolFace'
 import { shell, setShell, shellForDesk, deskForShell, deskFilterFor, homeForShell, SHELLS, type ShellName } from '../shell.svelte'
 import { workbench, switchWorkbenchSession, adoptWorkbenchSession, removeWorkbenchState } from './workbench.svelte'
+import { attend } from './attention.svelte'
 
 // Model info comes from a real Go IPC round-trip (GetModelInfo), which is
 // only as fast as the whole engine bootstrap (provider client, skill
@@ -885,11 +886,7 @@ async function restoreLiveTranscript(): Promise<void> {
   // it would be worse than an empty timeline that fills as events arrive.
   for (const other of turn.working ?? []) {
     if (other && other !== id) {
-      cockpit.parked[other] = {
-        chat: [], awaitingReply: true, agentStatus: '', toolSteps: [],
-        turnFiles: [], turnProposals: [], streamingText: '', reasoningText: '',
-        modelLoading: null, ask: null, driving: null, todos: [], turnSpend: emptyTurnSpend(), queued: [],
-      }
+      cockpit.parked[other] = blankParked()
     }
   }
   if (turn.running && turn.sessionId === id) {
@@ -941,6 +938,7 @@ export async function applyAgentDone(status: { sessionId: string }): Promise<voi
     // dot is the only thing left saying it happened — the live detail died
     // with the previous webview, so there is nothing else to come back to.
     markUnread(ended)
+    attend('done', false)
     await refreshSessions()
     await refreshGlobalHistory()
     return
@@ -1077,6 +1075,51 @@ export function sessionUnread(s: { id: string }): boolean {
   // row saying both.
   if (sessionWorking(s)) return false
   return !!cockpit.unread[s.id]
+}
+
+/** Whether this row's conversation is stopped on a question for the user —
+ * `ask_user`, or the engine asking leave to run something.
+ *
+ * The list's third state, and the one the other two hid. A chat waiting on
+ * its own user is `awaitingReply` like any working chat, so it wore the green
+ * dot — "กำลังทำงาน" — while doing nothing at all, and could wear it for an
+ * hour: the tool has no deadline (executor.go, noDeadlineTools). The owner,
+ * 12 ก.ย.: *"เซสชั่นนั้นจะนิ่งและเงียบไป"*. Asking beats working, because a
+ * question is the one thing about a running chat the user has to act on. */
+export function sessionAsking(s: { id: string }): boolean {
+  return !!liveHome(s.id)?.ask
+}
+
+/** A blank live state for a chat this window holds nothing for but has just
+ * been told is working: the reload stub in loadRealState, and a question
+ * arriving for a chat no turn of this window's started. */
+function blankParked(): ParkedTurn {
+  return {
+    chat: [], awaitingReply: true, agentStatus: '', toolSteps: [],
+    turnFiles: [], turnProposals: [], streamingText: '', reasoningText: '',
+    modelLoading: null, ask: null, driving: null, todos: [], turnSpend: emptyTurnSpend(), queued: [],
+  }
+}
+
+/** The chats stopped on a question that the user is NOT looking at: parked
+ * ones, and the open one whenever another page is over it. The topbar's strip
+ * draws these — with a name where one of the lists has it, and the question
+ * itself where none does, so the strip never reads as "somebody, somewhere".
+ * Empty whenever the card that is asking is on screen. */
+export function askingElsewhere(): { id: string; title: string; question: string }[] {
+  const out: { id: string; title: string; question: string }[] = []
+  const nameOf = (id: string): string =>
+    [cockpit.sessions, cockpit.spaceHistory, cockpit.history]
+      .flatMap((list) => list)
+      .find((row) => row.id === id)?.title ?? ''
+  for (const [id, held] of Object.entries(cockpit.parked)) {
+    if (held.ask) out.push({ id, title: nameOf(id), question: held.ask.question })
+  }
+  if (cockpit.ask && cockpit.activeView !== 'chat') {
+    const id = cockpit.openSession || cockpit.turnSession
+    out.push({ id, title: nameOf(id), question: cockpit.ask.question })
+  }
+  return out
 }
 
 /** Mark a chat as holding a finished turn nobody has read.
@@ -2022,6 +2065,9 @@ async function runLiveTurn(call: (turn: LiveTurnRef) => Promise<void>): Promise<
     // with the session Go still holds while the engine stamps the one it is
     // about to create. §144 built the stamp so the two "cannot drift"; they can,
     // for exactly one turn, and this is the end of that turn.
+    // Asked before the cursor below is let go of, for the reason the order
+    // note above gives: after that, a guessed id has no home to be found in.
+    const endedOnScreen = liveHome(ran) === (cockpit as unknown as ParkedTurn)
     writeLive(ran, (l) => {
       l.awaitingReply = false
       l.agentStatus = ''
@@ -2052,6 +2098,9 @@ async function runLiveTurn(call: (turn: LiveTurnRef) => Promise<void>): Promise<
     // row takes over the telling. markUnread itself refuses the chat on
     // screen, so this needs no condition of its own.
     markUnread(ran)
+    // And the sound and the taskbar, for a person who is not looking at the
+    // row either. attend decides whether an ending on screen earns anything.
+    attend('done', endedOnScreen)
   }
   await refreshWorkspace()
   // The turn may have started delegations it chose not to collect — they are
@@ -2329,14 +2378,37 @@ export function applyAskUser(
   ev: SessionEvent<{ question: string; options: string[] }> | { question: string; options: string[] },
 ): void {
   const payload = forLiveTurn(ev)
-  if (payload === null) return
-  writeLive(eventSession(ev), (l) => { l.ask = payload })
+  const id = eventSession(ev)
+  if (payload === null) {
+    // Every other live event for a chat this window holds nothing for is
+    // dropped, and rightly: a chunk with no home is a chunk drawn into the
+    // wrong chat. A QUESTION with no home is different in kind — the engine
+    // is now blocked on an answer only this window can give, with no deadline
+    // (executor.go, noDeadlineTools), and dropping it is a turn that sits
+    // until Stop. It happened after a dev reload mid-turn, and it can happen
+    // to any turn this window did not start. So the chat is parked, blank but
+    // asking, which is enough for the sidebar row and the topbar strip to say
+    // so and for arriving there to put the card up.
+    const stamped = ev as SessionEvent<{ question: string; options: string[] }>
+    if (!id || !stamped.data?.question) return
+    const held = blankParked()
+    held.ask = stamped.data
+    cockpit.parked[id] = held
+    attend('ask', false)
+    return
+  }
+  writeLive(id, (l) => { l.ask = payload })
   // The addressee only moves when the card being asked about is the one on
   // screen: a parked chat's question waits in its parked state, and stamping
   // it here would make the next click on the VISIBLE card answer it.
-  if (liveHome(eventSession(ev)) === (cockpit as unknown as ParkedTurn)) {
-    askSession = eventSession(ev)
+  const onScreen = liveHome(id) === (cockpit as unknown as ParkedTurn)
+  if (onScreen) {
+    askSession = id
   }
+  // A question is the one live event that reaches past the window: the chime
+  // always (the card may be below the fold or behind another page), the
+  // taskbar when the window is not in front.
+  attend('ask', onScreen && cockpit.activeView === 'chat')
 }
 
 // The takeover banner. Emitted by desktop/computer_tool.go when an acting
@@ -2358,8 +2430,12 @@ export function applyDriving(
 }
 
 export function applyAskDone(ev?: SessionEvent<unknown> | unknown): void {
-  if (ev !== undefined && forLiveTurn(ev) === null) return
+  // Routed by the stamp alone. The event carries no payload — Go sends
+  // `data: null` — and forLiveTurn hands a null payload back as null, which
+  // read as "dropped" and left a parked chat's card up after the engine had
+  // stopped listening. Whether the chat has a home is writeLive's question.
   const id = ev !== undefined ? eventSession(ev) : ''
+  if (id && !liveHome(id)) return
   writeLive(id, (l) => { l.ask = null })
   if (!id || id === askSession || liveHome(id) === (cockpit as unknown as ParkedTurn)) {
     askSession = ''

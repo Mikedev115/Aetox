@@ -11,6 +11,10 @@ export const en: Record<keyof typeof th, string> = {
   'topbar.showSidebar': 'Show sidebar',
   'topbar.hideSidebar': 'Hide sidebar',
   'topbar.toggleSidebarTip': 'Toggle sidebar',
+  'topbar.askingYou': 'is asking you',
+  'topbar.askingMore': 'is asking you, and {n} more',
+  'topbar.askingUnnamed': 'A chat',
+  'topbar.askingGo': 'Answer',
 
   'sidebar.projects': 'Project',
   'sidebar.addProject': 'Add project',
@@ -24,6 +28,7 @@ export const en: Record<keyof typeof th, string> = {
   'sidebar.unpinChat': 'Unpin',
   'sidebar.chatWorking': 'Working on this one now',
   'sidebar.chatUnread': 'Finished — you have not opened it yet',
+  'sidebar.chatAsking': 'Stopped — waiting for your answer',
   'sidebar.pinned': 'Pinned',
   'sidebar.chatsInSpace': 'Chats in {name}',
   'sidebar.unpinProject': 'Unpin',
@@ -962,6 +967,8 @@ export const en: Record<keyof typeof th, string> = {
 
   'settings.preparedReplyTitle': 'Write my reply for me',
   'settings.preparedReplyDesc': 'When an answer ends by asking you something, your reply is written into the composer in dim text — Tab takes it, typing clears it. Turns that leave nothing to decide cost nothing.',
+  'settings.groupAttention': 'Getting your attention',
+  'settings.attentionHint': 'When the agent asks, wants permission, or finishes in a chat you are not looking at, the sidebar row gets a dot and the top bar gets a button that takes you there. These two reach outside the window.',
   'settings.firstRunTitle': 'See the first-run screen',
   'settings.firstRunDesc': 'Forget theme, language, text sizes and panel widths, and show the welcome wizard again. API keys, chat history and engine settings are untouched.',
   'settings.firstRunAction': 'Start over as a fresh install',

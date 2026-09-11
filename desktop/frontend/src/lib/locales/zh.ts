@@ -20,6 +20,10 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'topbar.showSidebar': '显示侧边栏',
   'topbar.hideSidebar': '隐藏侧边栏',
   'topbar.toggleSidebarTip': '切换侧边栏',
+  'topbar.askingYou': '在问你',
+  'topbar.askingMore': '在问你，还有 {n} 个对话',
+  'topbar.askingUnnamed': '某个对话',
+  'topbar.askingGo': '去回答',
 
   // ---- 侧边栏 ----
   'sidebar.projects': '项目',
@@ -32,6 +36,7 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'sidebar.showLess': '收起',
   'sidebar.chatWorking': '正在处理这个对话',
   'sidebar.chatUnread': '已完成，还没打开看过',
+  'sidebar.chatAsking': '已停下，等你回答',
   'sidebar.deleteSession': '删除对话',
   'sidebar.confirmDelete': '确定？',
   'sidebar.exportSession': '导出对话',
@@ -818,6 +823,8 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'settings.approvalDesc': '智能体在不先询问的情况下能做多少事',
   'settings.preparedReplyTitle': '替我把回复写好',
   'settings.preparedReplyDesc': '当回答以提问或给出选项收尾时，你的回复会以灰字预先写在输入框里——按 Tab 采用，动手打字即消失。没有留下决定的回合不产生任何开销。',
+  'settings.groupAttention': '提醒你',
+  'settings.attentionHint': '当智能体在你没在看的对话里提问、请求许可或完成工作时，侧边栏该行会有圆点，顶栏会出现带你过去的按钮。下面这两项会伸到窗口之外。',
   'settings.firstRunTitle': '查看首次启动画面',
   'settings.firstRunDesc': '忘掉主题、语言、字号和面板宽度，重新显示欢迎向导。API 密钥、聊天记录和引擎设置不受影响。',
   'settings.firstRunAction': '当作全新安装重来一遍',

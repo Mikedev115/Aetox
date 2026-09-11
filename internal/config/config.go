@@ -294,6 +294,14 @@ type ModelPreference struct {
 	// in the background on its own schedule, this one only ever spends on a turn
 	// the user just watched finish and puts the result under their cursor.
 	PreparedReplyOff bool `json:"prepared_reply_off,omitempty"`
+	// The two ways the window reaches somebody who is not looking at it
+	// (desktop/attention.go): the taskbar button flashing, and a short tone.
+	// Both ship on and are therefore negative, the busy-signal spelling: the
+	// complaint that built them was a question nobody was told about, and a
+	// signal that has to be switched on first would have been told about
+	// nobody either.
+	AttentionFlashOff bool `json:"attention_flash_off,omitempty"`
+	AttentionChimeOff bool `json:"attention_chime_off,omitempty"`
 	// ComputerControlOn is the master switch for `computer` — driving programs
 	// on the machine that Aetox did not start (docs/architecture/computer-use-2026-09-07.md).
 	// Positive, so absent means OFF, and that is the whole point rather than a

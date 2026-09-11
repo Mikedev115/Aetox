@@ -11,6 +11,10 @@ export const th = {
   'topbar.showSidebar': 'แสดงแถบด้านข้าง',
   'topbar.hideSidebar': 'ซ่อนแถบด้านข้าง',
   'topbar.toggleSidebarTip': 'เปิด/ปิดแถบด้านข้าง',
+  'topbar.askingYou': 'ถามคุณอยู่',
+  'topbar.askingMore': 'ถามคุณอยู่ และอีก {n} แชต',
+  'topbar.askingUnnamed': 'แชตหนึ่ง',
+  'topbar.askingGo': 'ไปตอบ',
 
   'sidebar.projects': 'โปรเจกต์',
   'sidebar.addProject': 'เพิ่มโปรเจกต์',
@@ -23,6 +27,7 @@ export const th = {
   'sidebar.unpinChat': 'เอาหมุดออก',
   'sidebar.chatWorking': 'กำลังทำงานอันนี้อยู่',
   'sidebar.chatUnread': 'ทำเสร็จแล้ว ยังไม่ได้เปิดอ่าน',
+  'sidebar.chatAsking': 'หยุดรอคำตอบจากคุณอยู่',
   'sidebar.pinned': 'ปักหมุดไว้',
   'sidebar.chatsInSpace': 'แชทใน {name}',
   'sidebar.unpinProject': 'เอาหมุดออก',
@@ -964,6 +969,8 @@ export const th = {
 
   'settings.preparedReplyTitle': 'เตรียมคำตอบไว้ให้',
   'settings.preparedReplyDesc': 'เทิร์นที่จบด้วยการถามหรือให้เลือก จะเตรียมคำตอบของคุณไว้ในช่องพิมพ์เป็นตัวจาง กด Tab เพื่อใช้ พิมพ์เองแล้วหาย ส่วนเทิร์นที่ไม่มีอะไรให้ตัดสินใจ ไม่เสียอะไรเลย',
+  'settings.groupAttention': 'เรียกให้หัน',
+  'settings.attentionHint': 'ตอนเอเจนต์ถาม ขออนุญาต หรือทำงานเสร็จในแชตที่คุณไม่ได้ดูอยู่ แถบข้างจะมีจุดบอก และแถบบนจะมีปุ่มพาไปตอบ สองอย่างนี้คือส่วนที่เอื้อมออกไปนอกหน้าต่าง',
   'settings.firstRunTitle': 'ดูหน้าจอเปิดโปรแกรมครั้งแรก',
   'settings.firstRunDesc': 'ลืมธีม ภาษา ขนาดตัวอักษร ขนาดพาเนล และแสดงวิซาร์ดต้อนรับใหม่ ไม่แตะ API key ประวัติแชท หรือการตั้งค่าเครื่องยนต์',
   'settings.firstRunAction': 'เริ่มใหม่เหมือนเพิ่งติดตั้ง',
