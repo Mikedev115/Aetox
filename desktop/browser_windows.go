@@ -63,7 +63,6 @@ var (
 
 	gdi32                  = syscall.NewLazyDLL("gdi32.dll")
 	procCreateRoundRectRgn = gdi32.NewProc("CreateRoundRectRgn")
-	procCreateRectRgn      = gdi32.NewProc("CreateRectRgn")
 	procCombineRgn         = gdi32.NewProc("CombineRgn")
 	procDeleteObject       = gdi32.NewProc("DeleteObject")
 

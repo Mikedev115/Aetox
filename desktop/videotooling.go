@@ -287,20 +287,6 @@ func gsapFile() string {
 	return path
 }
 
-// findHyperframes is the renderer as the readiness panel looks for it: ours
-// first, then whatever the user installed themselves.
-func findHyperframes() string {
-	if cmd := hyperframesCommand(); cmd != "" {
-		return cmd
-	}
-	for _, name := range []string{"hyperframes", "hyperframes.cmd"} {
-		if found, err := exec.LookPath(name); err == nil {
-			return found
-		}
-	}
-	return ""
-}
-
 // VideoEditorEnvironment tells the editor where its ffmpeg is, in its own
 // vocabulary.
 //

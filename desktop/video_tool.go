@@ -1498,8 +1498,6 @@ func argFloat(args map[string]any, key string) float64 {
 	return 0
 }
 
-func argInt(args map[string]any, key string) int { return int(argFloat(args, key)) }
-
 func argBool(args map[string]any, key string) bool {
 	switch v := args[key].(type) {
 	case bool:
