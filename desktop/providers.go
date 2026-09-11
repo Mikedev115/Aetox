@@ -272,5 +272,5 @@ func (a *App) SetAPIKey(providerName, apiKey string) (engine.ModelInfo, error) {
 	if err := credentials.Set(canonical, key); err != nil {
 		return engine.ModelInfo{}, err
 	}
-	return a.api.ProviderKeyChanged(canonical)
+	return a.api.ProviderCredentialChanged(canonical)
 }

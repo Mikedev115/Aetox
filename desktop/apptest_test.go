@@ -28,6 +28,15 @@ type engineWith struct {
 	marksOff    bool
 	// export stands in for the deck export's engine half, when set.
 	export func(relPath, format string) (engine.DeckExport, error)
+	// voice stands in for the engine's voice preferences, when set.
+	voice *engine.VoiceSettings
+}
+
+func (e engineWith) VoiceSettings() engine.VoiceSettings {
+	if e.voice != nil {
+		return *e.voice
+	}
+	return e.API.VoiceSettings()
 }
 
 func (e engineWith) AnyTurnRunning() bool { return e.turnRunning }

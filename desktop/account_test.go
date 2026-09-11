@@ -1,4 +1,4 @@
-package engine
+package main
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ import (
 func TestAccountStatusAnswersSignedOutWithoutASession(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 
-	state := (&Engine{}).AccountStatus()
+	state := newTestApp().AccountStatus()
 	if state.SignedIn {
 		t.Fatal("an empty data root reported a signed-in account")
 	}
@@ -28,10 +28,10 @@ func TestTheAccountPageIsClosedWithoutAnIDServer(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 	t.Setenv("AETOX_ID_URL", "")
 
-	if (&Engine{}).AccountStatus().Configured {
+	if newTestApp().AccountStatus().Configured {
 		t.Fatal("the window would draw a sign-in with nothing behind it")
 	}
-	if _, err := (&Engine{}).StartAccountSignIn("github"); err == nil {
+	if _, err := newTestApp().StartAccountSignIn("github"); err == nil {
 		t.Error("StartAccountSignIn opened a sign-in against no server")
 	}
 }
@@ -40,7 +40,7 @@ func TestAnOverrideOpensTheAccountPage(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 	t.Setenv("AETOX_ID_URL", "http://localhost:8080")
 
-	state := (&Engine{}).AccountStatus()
+	state := newTestApp().AccountStatus()
 	if !state.Configured {
 		t.Fatal("AETOX_ID_URL did not open the page")
 	}
@@ -58,7 +58,7 @@ func TestAccountStatusShowsTheStoredUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	state := (&Engine{}).AccountStatus()
+	state := newTestApp().AccountStatus()
 	if !state.SignedIn {
 		t.Fatal("a stored session did not show as signed in")
 	}
@@ -71,7 +71,7 @@ func TestAccountStatusShowsTheStoredUser(t *testing.T) {
 
 func TestCompletingASignInThatWasNeverStartedFails(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
-	app := &Engine{}
+	app := newTestApp()
 
 	// The window reloading mid-sign-in lands here. It is an error, not a panic
 	// and not a silent success that leaves the card claiming a session.
@@ -87,7 +87,7 @@ func TestCompletingASignInThatWasNeverStartedFails(t *testing.T) {
 
 func TestSigningOutOfNothingIsNotAnError(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
-	if err := (&Engine{}).AccountSignOut(); err != nil {
+	if err := newTestApp().AccountSignOut(); err != nil {
 		t.Fatalf("AccountSignOut with no session: %v", err)
 	}
 }

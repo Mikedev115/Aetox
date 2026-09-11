@@ -153,6 +153,10 @@ var contentTypes = map[string]string{
 // which also means the one rule that matters here is the early `next`: anything
 // not addressed to this prefix must leave untouched, or the app's own HTML and
 // scripts stop loading and the window comes up blank.
+// assetMiddleware is the engine's one URL space, /aetox-file/, in front of
+// whatever the screen chains behind it (desktop/ttshost.go adds the second).
+func (a *Engine) assetMiddleware(next http.Handler) http.Handler { return a.fileHost(next) }
+
 func (a *Engine) fileHost(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.URL.Path, fileHostPrefix) {

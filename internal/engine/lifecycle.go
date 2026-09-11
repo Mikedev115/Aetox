@@ -29,9 +29,10 @@ func BeforeClose(e *Engine, ctx context.Context) (prevent bool) { return e.befor
 // language servers, a read-aloud in flight.
 func Shutdown(e *Engine, ctx context.Context) { e.shutdown(ctx) }
 
-// AssetMiddleware serves the two URL surfaces the panes load directly —
-// /aetox-file/ for the open project's files and /aetox-tts/ for synthesized
-// speech — in front of the frontend's own assets.
+// AssetMiddleware serves the URL surface the panes load directly from the
+// engine — /aetox-file/, the open project's files — in front of the
+// frontend's own assets. Synthesized speech (/aetox-tts/) is the screen's
+// (desktop/ttshost.go).
 func AssetMiddleware(e *Engine, next http.Handler) http.Handler { return e.assetMiddleware(next) }
 
 // WebviewUserDataDir returns where a WebView2 instance should store its

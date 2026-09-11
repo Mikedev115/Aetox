@@ -1,4 +1,4 @@
-package engine
+package main
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/engine"
 	"github.com/Mikedev115/Aetox/internal/tts"
 )
 
@@ -53,13 +53,9 @@ func TestSpeechEndToEndThroughTheRealEngine(t *testing.T) {
 	}
 	t.Logf("อ่านด้วยเสียง %s", thai)
 
-	app := seed(&Engine{cfg: config.Config{SandboxRoot: t.TempDir(), TTSVoice: thai}}, newConversation())
-	t.Cleanup(func() {
-		app.stopAllSpeech()
-		if app.db != nil {
-			_ = app.db.Close()
-		}
-	})
+	app := newTestApp()
+	app.api = engineWith{API: app.api, voice: &engine.VoiceSettings{TTSVoice: thai}}
+	t.Cleanup(app.stopAllSpeech)
 	events := make(chan speechChunkEvent, 512)
 	app.emit = func(event string, data ...any) {
 		if event != "speech:chunk" || len(data) == 0 {

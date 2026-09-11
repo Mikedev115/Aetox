@@ -1,4 +1,4 @@
-package engine
+package main
 
 import (
 	"context"
@@ -12,7 +12,8 @@ import (
 // Aetox account bindings. Separate from oauth.go next door on purpose: that
 // file signs in to a model provider so a request can be paid for, this one
 // signs in to Aetox itself. Nothing here gates anything — the app works signed
-// out, and the account exists so a later store knows who bought what.
+// out, and the account exists so a later store knows who bought what. The
+// account is the screen's (account.json), like every other credential (§248).
 
 // AccountState is everything Settings needs to draw the card, and it never
 // carries a token.
@@ -50,7 +51,7 @@ var pendingAccountSignIn = struct {
 
 // AccountStatus answers from disk. The UI calls it on every render of the
 // settings page, so it must not touch the network.
-func (a *Engine) AccountStatus() AccountState {
+func (a *App) AccountStatus() AccountState {
 	state := AccountState{
 		Configured: account.Configured(),
 		Providers:  account.Providers(),
@@ -64,7 +65,7 @@ func (a *Engine) AccountStatus() AccountState {
 
 // StartAccountSignIn opens a sign-in and returns the URL for the UI to put in
 // front of the user. Nothing is stored until CompleteAccountSignIn succeeds.
-func (a *Engine) StartAccountSignIn(provider string) (string, error) {
+func (a *App) StartAccountSignIn(provider string) (string, error) {
 	pending, err := account.Start(provider)
 	if err != nil {
 		return "", err
@@ -83,7 +84,7 @@ func (a *Engine) StartAccountSignIn(provider string) (string, error) {
 
 // CompleteAccountSignIn blocks until the browser comes back. The UI calls it
 // straight after StartAccountSignIn and shows a waiting state meanwhile.
-func (a *Engine) CompleteAccountSignIn() (AccountState, error) {
+func (a *App) CompleteAccountSignIn() (AccountState, error) {
 	pendingAccountSignIn.Lock()
 	pending, ctx, cancel := pendingAccountSignIn.pending, pendingAccountSignIn.ctx, pendingAccountSignIn.cancel
 	pendingAccountSignIn.Unlock()
@@ -108,7 +109,7 @@ func (a *Engine) CompleteAccountSignIn() (AccountState, error) {
 
 // CancelAccountSignIn gives up on an attempt in flight, releasing the local
 // listener. Safe to call when nothing is pending.
-func (a *Engine) CancelAccountSignIn() {
+func (a *App) CancelAccountSignIn() {
 	pendingAccountSignIn.Lock()
 	defer pendingAccountSignIn.Unlock()
 	if pendingAccountSignIn.pending == nil {
@@ -124,7 +125,7 @@ func (a *Engine) CancelAccountSignIn() {
 // The local half always happens, so the returned error means "you are signed
 // out on this machine but the server was not told" rather than "nothing
 // happened". The UI says exactly that instead of leaving the card signed in.
-func (a *Engine) AccountSignOut() error {
+func (a *App) AccountSignOut() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	return account.SignOut(ctx)
@@ -133,7 +134,7 @@ func (a *Engine) AccountSignOut() error {
 // AccountRefresh asks the server who this session belongs to and writes the
 // answer back. It is the one binding here that touches the network on purpose:
 // it is how a session revoked from the back office stops showing a name.
-func (a *Engine) AccountRefresh() (AccountState, error) {
+func (a *App) AccountRefresh() (AccountState, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	if _, err := account.Me(ctx); err != nil {

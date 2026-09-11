@@ -1,21 +1,15 @@
 package engine
 
-// The voice page's bindings: two vendor pickers, a voice picker, and the mic.
-// TTS voice enumeration costs a real PowerShell run, so every test that needs
-// voices seeds Engine.ttsVoiceCache instead — the cache is the seam, and it keeps
-// the suite off SAPI on Windows and runnable at all everywhere else.
+// The voice page's bindings, the engine's half: two vendor pickers, the
+// named-model picks, and the mic. The voice picker and the reading are the
+// screen's (desktop/voice_test.go).
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/Mikedev115/Aetox/internal/config"
-	"github.com/Mikedev115/Aetox/internal/tts"
 )
-
-func seedTTSVoices(a *Engine, voices ...tts.Voice) {
-	a.ttsVoiceCache = map[string][]tts.Voice{"windows": voices}
-}
 
 // A picker with no marked row reads as "not configured" — the default engine
 // must come back active before anybody has picked anything.
@@ -66,13 +60,14 @@ func TestSetSpeechEnginePersistsAndRejectsUnknown(t *testing.T) {
 }
 
 // Switching vendor clears the voice pick: a voice id is one engine's private
-// naming, and the new engine has never heard of it.
+// naming, and the new engine has never heard of it. The pick itself arrives
+// from the screen, which checked the voice exists (desktop/voice.go).
 func TestSetTTSEngineClearsTheVoicePick(t *testing.T) {
 	a, _ := newSpeechTestApp(t)
-	seedTTSVoices(a, tts.Voice{ID: "Microsoft Pattara - Thai (Thailand)", Lang: "th-TH"})
 
-	if err := a.SetTTSVoice("Microsoft Pattara - Thai (Thailand)"); err != nil {
-		t.Fatalf("SetTTSVoice: %v", err)
+	a.RememberTTSVoice("Microsoft Pattara - Thai (Thailand)")
+	if got := a.VoiceSettings().TTSVoice; got != "Microsoft Pattara - Thai (Thailand)" {
+		t.Fatalf("the pick was not written down: %q", got)
 	}
 	if err := a.SetTTSEngine("windows"); err != nil {
 		t.Fatalf("SetTTSEngine: %v", err)
@@ -83,62 +78,6 @@ func TestSetTTSEngineClearsTheVoicePick(t *testing.T) {
 	pref, _, _ := config.LoadModelPreference()
 	if pref.TTSEngine != "windows" || pref.TTSVoice != "" {
 		t.Errorf("saved preference engine=%q voice=%q", pref.TTSEngine, pref.TTSVoice)
-	}
-}
-
-func TestSetTTSVoiceValidatesAgainstInstalledVoices(t *testing.T) {
-	a, _ := newSpeechTestApp(t)
-	seedTTSVoices(a,
-		tts.Voice{ID: "Microsoft Zira Desktop - English (United States)", Lang: "en-US"},
-		tts.Voice{ID: "Microsoft Pattara - Thai (Thailand)", Lang: "th-TH"},
-	)
-
-	if err := a.SetTTSVoice("Microsoft Gone - Nowhere"); err == nil {
-		t.Fatal("a voice not on this machine must be refused")
-	}
-	if err := a.SetTTSVoice("Microsoft Pattara - Thai (Thailand)"); err != nil {
-		t.Fatalf("SetTTSVoice: %v", err)
-	}
-	voices, err := a.ListTTSVoices()
-	if err != nil {
-		t.Fatalf("ListTTSVoices: %v", err)
-	}
-	active := 0
-	for _, v := range voices {
-		if v.Active {
-			active++
-		}
-	}
-	if active != 1 {
-		t.Errorf("%d voices marked active, want exactly 1", active)
-	}
-	// Empty is a real choice — back to the engine deciding.
-	if err := a.SetTTSVoice(""); err != nil {
-		t.Fatalf("SetTTSVoice(\"\"): %v", err)
-	}
-	if got := a.cur().cfg.TTSVoice; got != "" {
-		t.Errorf("clearing the voice did not stick: %q", got)
-	}
-}
-
-// The policy internal/tts refuses to hold: no pick + Thai UI = the Thai voice,
-// and a locale with no matching voice falls back to the engine's own default
-// rather than refusing to speak.
-func TestDefaultTTSVoicePrefersTheUILanguage(t *testing.T) {
-	a, _ := newSpeechTestApp(t)
-	seedTTSVoices(a,
-		tts.Voice{ID: "Microsoft Zira Desktop - English (United States)", Lang: "en-US"},
-		tts.Voice{ID: "Microsoft Pattara - Thai (Thailand)", Lang: "th-TH"},
-	)
-
-	if got := a.defaultTTSVoice("", "th"); got != "Microsoft Pattara - Thai (Thailand)" {
-		t.Errorf("th locale picked %q", got)
-	}
-	if got := a.defaultTTSVoice("", "en"); got != "Microsoft Zira Desktop - English (United States)" {
-		t.Errorf("en locale picked %q", got)
-	}
-	if got := a.defaultTTSVoice("", "ja"); got != "" {
-		t.Errorf("an unmatched locale must fall back to the engine default, got %q", got)
 	}
 }
 

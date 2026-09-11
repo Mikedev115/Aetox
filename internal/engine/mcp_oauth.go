@@ -8,8 +8,8 @@ import (
 	"github.com/Mikedev115/Aetox/internal/oauth"
 )
 
-// MCP server sign-in bindings — deliberately separate from oauth.go's
-// StartSignIn/CompleteSignIn rather than sharing them.
+// MCP server sign-in bindings — deliberately separate from the screen's
+// StartSignIn/CompleteSignIn (desktop/oauth.go) rather than sharing them.
 //
 // Those exist for "sign in with your own subscription": CompleteSignIn hands
 // back a ModelInfo and re-bootstraps the model engine, because that is what
@@ -23,12 +23,38 @@ import (
 // from oauth.Methods entirely: "a model sign-in buys thinking while a
 // connection buys reach."
 //
+// And this one is the engine's where the provider sign-in is the screen's:
+// the credential it stores is read by `${connect:}` on the host the MCP
+// server runs on (§248 rule 5), so the store has to be that host's. The
+// browser step needs a browser on that host, which a remote engine has none
+// of — v1 does not support it there (design doc §9).
+//
 // The flow itself is generic (internal/oauth/mcpauth.go discovers everything
 // from the server's own URL), so unlike StartSignIn there is no fixed
 // registry of providers to check against here — any server name reaches the
 // same discovery, and a server whose authorization server has no dynamic
 // client registration fails with a specific, readable error rather than
 // "unknown provider".
+
+// SignInPrompt is what the UI shows while waiting. Which fields are filled
+// depends on Kind: "device" fills UserCode and VerificationURI (type this code
+// into that page), "browser" and "paste" fill URL. Shared with the screen's
+// provider sign-in (desktop/oauth.go), which answers with the same shape.
+type SignInPrompt struct {
+	Provider        string `json:"provider"`
+	Kind            string `json:"kind"`
+	URL             string `json:"url"`
+	UserCode        string `json:"user_code,omitempty"`
+	VerificationURI string `json:"verification_uri,omitempty"`
+}
+
+type pendingSignIn struct {
+	pending *oauth.Pending
+	// ctx spans both calls: CompleteMCPSignIn blocks on it, so the cancel is
+	// what actually unblocks a user who changed their mind.
+	ctx    context.Context
+	cancel context.CancelFunc
+}
 
 var pendingMCPSignIns = struct {
 	sync.Mutex

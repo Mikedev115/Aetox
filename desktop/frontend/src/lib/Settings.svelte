@@ -77,7 +77,7 @@
   // that is not a bug report yet.
   import { COMMUNITY_URL, PAGE_URL, YOUTUBE_URL } from './links'
   import promptPayQR from '../assets/images/promptpay-qr.png'
-  import { config, engine, subagent } from '../../wailsjs/go/models'
+  import { config, engine, main, subagent } from '../../wailsjs/go/models'
   import { cockpit, startChatWith, setActiveView, switchProvider, switchModel, submitAPIKey, switchApprovalMode, switchWireFormat, setProviderBaseURL, retryActiveProvider, completeSignIn, signOutProvider, importSignIn, SETTINGS_SECTION_KEY } from './stores/cockpit.svelte'
   import {
     identity, loadIdentityFiles, openIdentityFile, saveIdentityFile,
@@ -857,7 +857,7 @@
 
   // The Aetox account, which is a different sign-in from the ones above: those
   // decide who pays for a request, this one is who you are to Aetox itself.
-  let aetoxAccount = $state<engine.AccountState | null>(null)
+  let aetoxAccount = $state<main.AccountState | null>(null)
   let aetoxBusy = $state(false)
   let aetoxError = $state('')
 

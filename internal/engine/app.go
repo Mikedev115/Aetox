@@ -44,7 +44,6 @@ import (
 	"github.com/Mikedev115/Aetox/internal/skill"
 	"github.com/Mikedev115/Aetox/internal/snapshot"
 	"github.com/Mikedev115/Aetox/internal/subagent"
-	"github.com/Mikedev115/Aetox/internal/tts"
 	"github.com/Mikedev115/Aetox/internal/turn"
 	"github.com/Mikedev115/Aetox/internal/version"
 )
@@ -102,27 +101,6 @@ type Engine struct {
 
 	terminalsMu sync.Mutex
 	terminals   map[string]*TerminalSession
-
-	// ttsVoiceMu guards ttsVoiceCache — the settings page enumerates voices
-	// while a SpeakText on another goroutine resolves its default from the
-	// same list.
-	ttsVoiceMu sync.Mutex
-	// ttsVoiceCache is the installed-voices list per TTS engine id, cached for
-	// the process: enumerating costs a PowerShell run (~1s), and the set only
-	// changes when the user installs a voice into Windows — a restart after
-	// that is acceptable, a second of extra latency on every ฟัง press is not.
-	ttsVoiceCache map[string][]tts.Voice
-
-	// speakMu guards speakJobs — StartSpeech, StopSpeech, the reader goroutine
-	// and the asset-server handler all reach it, and the handler runs on the
-	// webview's own thread.
-	speakMu sync.Mutex
-	// speakJobs is every read-aloud in flight, by job id. Normally at most one
-	// (a second press of ฟัง stops the first), but the map is the registry the
-	// URL host authorizes against, so it is keyed rather than a single field:
-	// a stopped job must become unfindable the instant it stops, and deleting
-	// a key is that. See desktop/speak.go.
-	speakJobs map[string]*speechJob
 
 	// quotasMu guards quotas, which the model clients write from whatever
 	// goroutine a turn is running on.
@@ -3986,18 +3964,33 @@ func (a *Engine) SetProviderBaseURL(providerName, baseURL string) (ModelInfo, er
 	return a.modelSwitchResult()
 }
 
-// ProviderKeyChanged is what the screen tells the engine after a key was
-// saved or removed for a provider (SetAPIKey, desktop/providers.go): if it is
-// the provider on screen, the engine is rebuilt, and picks the new key up
-// through the screen's signing transport — never from its config (§248 A4).
-func (a *Engine) ProviderKeyChanged(providerName string) (ModelInfo, error) {
+// ProviderCredentialChanged is what the screen tells the engine after a
+// credential moved for a provider — a key saved or removed (SetAPIKey), a
+// sign-in landed, a sign-out (desktop/oauth.go). The engine holds none of it
+// (§248 A4): what it does is forget what that provider last reported about
+// the credential being replaced, and rebuild only when the change touches the
+// provider on screen — signing into OpenRouter while running on Ollama should
+// not restart anything. The rebuilt engine picks the new credential up
+// through the screen's signing transport, never from its config.
+func (a *Engine) ProviderCredentialChanged(providerName string) (ModelInfo, error) {
 	canonical := model.NormalizeProvider(providerName)
-	if !strings.EqualFold(a.cur().cfg.ModelProvider, canonical) {
-		// Nothing was rebuilt, so nothing can have failed: the key is filed
-		// for a provider that is not on screen.
+	// Before anything else, and for every credential change rather than only
+	// for sign-out: what this provider last reported was about the credential
+	// being replaced. Signing in over an existing session never passes through
+	// a sign-out, so hanging this on SignOut alone would leave the commonest
+	// way of switching accounts showing the previous account's numbers. See
+	// Engine.forgetQuotas.
+	a.forgetQuotas(canonical)
+	if !strings.EqualFold(model.NormalizeProvider(a.cur().cfg.ModelProvider), canonical) {
+		// Nothing was rebuilt, so nothing can have failed: the credential is
+		// filed for a provider that is not on screen.
 		return a.GetModelInfo(), nil
 	}
-	a.applyConfig(a.cur(), a.cur().cfg)
+	next := a.cur().cfg
+	if strings.TrimSpace(next.ModelName) == "" {
+		next.ModelName = a.defaultModel(canonical, next.ModelBaseURL)
+	}
+	a.applyConfig(a.cur(), next)
 	return a.modelSwitchResult()
 }
 

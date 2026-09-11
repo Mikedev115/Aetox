@@ -1,4 +1,4 @@
-package engine
+package main
 
 // The one way synthesized speech reaches the webview.
 //
@@ -18,6 +18,7 @@ package engine
 // path at all, which is a stronger guarantee than validating one.
 
 import (
+	"github.com/Mikedev115/Aetox/internal/engine"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -29,11 +30,12 @@ import (
 const ttsHostPrefix = "/aetox-tts/"
 
 // assetMiddleware chains the two URL spaces the app claims in front of its own
-// embedded assets. Order does not matter — the prefixes are disjoint — but the
-// early `next` in each does: anything addressed to neither must leave
+// embedded assets: the engine's /aetox-file/ (the open project's files) and
+// this file's /aetox-tts/. Order does not matter — the prefixes are disjoint —
+// but the early `next` in each does: anything addressed to neither must leave
 // untouched, or the app's own HTML stops loading and the window comes up blank.
-func (a *Engine) assetMiddleware(next http.Handler) http.Handler {
-	return a.fileHost(a.ttsHost(next))
+func (a *App) assetMiddleware(next http.Handler) http.Handler {
+	return engine.AssetMiddleware(a.eng, a.ttsHost(next))
 }
 
 // ttsHost serves one piece of one read: /aetox-tts/<job>/<seq>.<ext>
@@ -41,7 +43,7 @@ func (a *Engine) assetMiddleware(next http.Handler) http.Handler {
 // The extension is decoration for anything that sniffs by name; the type comes
 // from the engine that wrote the file, so a cloud vendor's MP3 is never served
 // as the WAV the local engines produce.
-func (a *Engine) ttsHost(next http.Handler) http.Handler {
+func (a *App) ttsHost(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.URL.Path, ttsHostPrefix) {
 			next.ServeHTTP(w, r)

@@ -1,4 +1,4 @@
-package engine
+package main
 
 // The ฟัง button, as a stream rather than as one long wait.
 //
@@ -130,18 +130,18 @@ type speechJob struct {
 //
 // One job at a time, matching the UI: a second press stops the first, the way
 // the single audio element always did.
-func (a *Engine) StartSpeech(text string) (string, error) {
+func (a *App) StartSpeech(text string) (string, error) {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return "", fmt.Errorf("ไม่มีข้อความให้อ่าน")
 	}
-	cfg := a.cur().cfg
-	voice := strings.TrimSpace(cfg.TTSVoice)
+	cfg := a.api.VoiceSettings()
+	voice := cfg.TTSVoice
 	if voice == "" {
 		voice = a.defaultTTSVoice(cfg.TTSEngine, cfg.UILocale)
 	}
-	engineID := strings.TrimSpace(cfg.TTSEngine)
-	model := strings.TrimSpace(cfg.TTSModelName)
+	engineID := cfg.TTSEngine
+	model := cfg.TTSModelName
 	engine, err := newTTSEngine(tts.Options{Engine: engineID, Voice: voice, Model: model})
 	if err != nil {
 		return "", err
@@ -195,7 +195,7 @@ func (a *Engine) StartSpeech(text string) (string, error) {
 
 // runSpeech pumps the reader into the webview, one piece at a time, holding
 // the reader back to speechLookahead pieces past whatever is playing.
-func (a *Engine) runSpeech(ctx context.Context, job *speechJob, engine tts.Engine, text string, opts tts.ReadOptions) {
+func (a *App) runSpeech(ctx context.Context, job *speechJob, engine tts.Engine, text string, opts tts.ReadOptions) {
 	defer close(job.done)
 	pieces := tts.Read(ctx, engine, text, opts)
 	// The channel closing is Read's promise that no piece is still being
@@ -261,7 +261,7 @@ func (job *speechJob) waitFor(ctx context.Context, seq int) bool {
 // what releases the next one, so it must be called for every piece — a webview
 // that stops calling it stops the synthesizer within speechLookahead +
 // speechParallel pieces, which is the intended behaviour and not a stall.
-func (a *Engine) SpeechPlaying(jobID string, seq int) {
+func (a *App) SpeechPlaying(jobID string, seq int) {
 	job := a.speechJob(jobID)
 	if job == nil {
 		return
@@ -285,7 +285,7 @@ func (a *Engine) SpeechPlaying(jobID string, seq int) {
 // Cancelling actually stops work now. The old SpeakText could not: its context
 // was cancelled by its own return, so a stop press left the engine synthesizing
 // a reply nobody would hear.
-func (a *Engine) StopSpeech(jobID string) {
+func (a *App) StopSpeech(jobID string) {
 	a.speakMu.Lock()
 	job := a.speakJobs[jobID]
 	delete(a.speakJobs, jobID)
@@ -296,7 +296,7 @@ func (a *Engine) StopSpeech(jobID string) {
 // stopAllSpeech ends every read in flight. Called when a new one starts, and
 // at shutdown — a job holds a temp folder, and the process exiting is not a
 // reason to leave it behind.
-func (a *Engine) stopAllSpeech() {
+func (a *App) stopAllSpeech() {
 	a.speakMu.Lock()
 	jobs := make([]*speechJob, 0, len(a.speakJobs))
 	for id, job := range a.speakJobs {
@@ -328,7 +328,7 @@ func closeSpeechJob(job *speechJob) {
 	_ = os.RemoveAll(job.dir)
 }
 
-func (a *Engine) speechJob(id string) *speechJob {
+func (a *App) speechJob(id string) *speechJob {
 	a.speakMu.Lock()
 	defer a.speakMu.Unlock()
 	return a.speakJobs[strings.TrimSpace(id)]
@@ -337,7 +337,7 @@ func (a *Engine) speechJob(id string) *speechJob {
 // speechChunkFile answers ttsHost: the file for one piece of one job, and the
 // type to serve it as. An unknown job or piece is simply not found — there is
 // no path to check because no path was ever accepted.
-func (a *Engine) speechChunkFile(jobID string, seq int) (string, string, bool) {
+func (a *App) speechChunkFile(jobID string, seq int) (string, string, bool) {
 	job := a.speechJob(jobID)
 	if job == nil {
 		return "", "", false
@@ -377,7 +377,7 @@ func speechCacheKey(engineID, voice, model string) string {
 // The list is built only once a piece has failed (ReadOptions.Fallbacks):
 // finding Windows' Thai voice means starting PowerShell, and a read whose
 // voice works must not pay that in front of its first piece.
-func (a *Engine) speechFallbacks(locale, engineID, voice, model string) []tts.Fallback {
+func (a *App) speechFallbacks(locale, engineID, voice, model string) []tts.Fallback {
 	var out []tts.Fallback
 	add := func(engine, v, m string) {
 		eng, err := newTTSEngine(tts.Options{Engine: engine, Voice: v, Model: m})

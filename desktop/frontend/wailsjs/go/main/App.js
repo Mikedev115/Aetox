@@ -990,8 +990,8 @@ export function ProviderBaseURLIsCustom(arg1) {
   return window['go']['main']['App']['ProviderBaseURLIsCustom'](arg1);
 }
 
-export function ProviderKeyChanged(arg1) {
-  return window['go']['main']['App']['ProviderKeyChanged'](arg1);
+export function ProviderCredentialChanged(arg1) {
+  return window['go']['main']['App']['ProviderCredentialChanged'](arg1);
 }
 
 export function ProviderQuotas(arg1) {
@@ -1080,6 +1080,10 @@ export function RejectPendingChange(arg1) {
 
 export function RelativizePath(arg1) {
   return window['go']['main']['App']['RelativizePath'](arg1);
+}
+
+export function RememberTTSVoice(arg1) {
+  return window['go']['main']['App']['RememberTTSVoice'](arg1);
 }
 
 export function RemoveCustomProvider(arg1) {
@@ -1728,6 +1732,10 @@ export function VideoReadiness(arg1) {
 
 export function VideoToolingStatus() {
   return window['go']['main']['App']['VideoToolingStatus']();
+}
+
+export function VoiceSettings() {
+  return window['go']['main']['App']['VoiceSettings']();
 }
 
 export function WorkbenchTabsChanged(arg1, arg2) {
