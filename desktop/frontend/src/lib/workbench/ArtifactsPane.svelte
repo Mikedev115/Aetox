@@ -2,6 +2,27 @@
   // พาเนลชิ้นงานในเซสชัน (Session Artifacts)
   // รวบรวมแผนงาน (Plan), เอกสารสรุป (Walkthrough), หน้าเว็บจำลอง (UI Mockup), รูปภาพ และไฟล์ผลงานทั้งหมด
   // ที่สร้างขึ้นในเซสชันปัจจุบัน แสดงผลพรีวิวได้ทันที พร้อมเปิดในแท็บแยกหรือเปิดโฟลเดอร์ภายนอกได้
+
+  // **รหัสต้นทาง (source code) ไม่ใช่ชิ้นงาน** (เจ้าของ, 11 ก.ย.: *"ตรงนี้ไม่ควร
+  // แสดงโค้ดสิ มันควรแสดงแค่ ไฟล์ ตัวอย่าง หรือ แผน หรืออะไรพวกนี้"*).
+  //
+  // A session that works on this repository edits .go/.svelte/.ts files all day,
+  // and every one of them used to arrive here as an "artifact": the pane lists
+  // what a turn produced (producedFiles), what the session edited (SessionEdits)
+  // and what the sweep finds in the chat's output folder. The first two of those
+  // are the project's own files — the work itself — which already have two homes
+  // of their own: the turn draws them with their diff (FileChangeReview), and
+  // แหล่งที่มา / ไฟล์ที่สร้างหรือแก้ in the session strip lists them with the room's
+  // sources. A third copy here told nobody anything new, and it buried the plan,
+  // the walkthrough and the pictures under a directory listing.
+  //
+  // The line drawn is the same one the rest of the app draws: an artifact is a
+  // thing Aetox MADE — a plan, a doc, a mockup, a picture, a deck, a sheet. What
+  // it EDITED to get there is the project, whatever the extension says. So code
+  // is not a kind this pane has (see detectKind), and that is a rule about the
+  // list, not about which source a file arrived through: a .py in the chat's own
+  // output folder is code like any other, and it is reachable from the answer
+  // that wrote it and from ผลงาน.
   import { onMount, tick } from 'svelte'
   import { cockpit } from '../stores/cockpit.svelte'
   import { workbench, openFileTab, openPlanTab, openUrlInWorkbench, artifactSelection } from '../stores/workbench.svelte'
@@ -13,11 +34,20 @@
   import PlanPane from './PlanPane.svelte'
   import SheetPane from './SheetPane.svelte'
   import {
-    ReadFile, ReadWorkbook, SessionEdits, ListArtifactsIn, OpenArtifact, CurrentSessionID,
+    ReadFile, ReadWorkbook, SessionEdits, ListArtifactsForSession, OpenArtifact,
   } from '../../../wailsjs/go/main/App'
   import type { ooxml } from '../../../wailsjs/go/models'
 
-  type ArtifactKind = 'plan' | 'doc' | 'page' | 'image' | 'sheet' | 'code' | 'other'
+  // Whether this is the tab in front — the same test Workbench uses for this
+  // slot's `display`, rather than a second way of asking that could disagree
+  // with it. Defaults to true: a pane rendered on its own is the pane being
+  // looked at, which is what the tests do and what a single-pane caller means
+  // (the same prop, for the same reason, as GitPane).
+  let { active = true }: { active?: boolean } = $props()
+
+  // No 'code', on purpose and not by omission: a source file is not an artifact
+  // (see the note at the head of this file).
+  type ArtifactKind = 'plan' | 'doc' | 'page' | 'image' | 'sheet' | 'other'
 
   interface SessionArtifactItem {
     id: string
@@ -60,17 +90,34 @@
     page: 'globe',
     image: 'image',
     sheet: 'chartColumn',
-    code: 'fileCode',
     other: 'package',
   }
 
-  function detectKind(path: string): ArtifactKind {
+  // What counts as source code rather than an artifact. One list, asked in one
+  // place, so the answer cannot differ between the three ways a file can arrive
+  // at this pane.
+  const sourceExts = [
+    'go', 'ts', 'tsx', 'js', 'jsx', 'mjs', 'svelte', 'py', 'rs', 'rb', 'java', 'kt',
+    'c', 'h', 'cpp', 'hpp', 'cs', 'swift', 'php', 'lua', 'sql', 'sh', 'bash', 'zsh',
+    'ps1', 'bat', 'cmd', 'json', 'jsonc', 'toml', 'yaml', 'yml', 'ini', 'conf', 'env',
+    'css', 'scss', 'sass', 'less', 'map', 'lock', 'mod', 'sum', 'gradle', 'cmake',
+  ]
+
+  /** What sort of thing this file is, or null when it is not an artifact at all.
+   *
+   *  Null is source code, and the flag is the whole rule: a caller that gets it
+   *  leaves the file out of the list rather than inventing a card for it (see
+   *  the note at the head of this file). Every other answer is a real kind, and
+   *  `other` stays one — a .pptx or a .zip the agent produced is a deliverable
+   *  this pane cannot preview, which is not the same thing as the project's own
+   *  source. */
+  function detectKind(path: string): ArtifactKind | null {
     const ext = path.split('.').pop()?.toLowerCase() ?? ''
+    if (sourceExts.includes(ext)) return null
     if (['md', 'markdown', 'txt'].includes(ext)) return 'doc'
     if (['html', 'htm'].includes(ext)) return 'page'
     if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif', 'ico'].includes(ext)) return 'image'
     if (['xlsx', 'csv'].includes(ext)) return 'sheet'
-    if (['go', 'ts', 'js', 'py', 'json', 'css', 'sql', 'sh', 'ps1', 'rs', 'c', 'cpp'].includes(ext)) return 'code'
     return 'other'
   }
 
@@ -135,12 +182,19 @@
         })
       }
 
-      const curSessionId = (await CurrentSessionID().catch(() => '')) || ''
+      // The chat on screen, read from the store rather than asked of the engine:
+      // `cockpit.openSession` is this window's own answer to that question and
+      // is set wherever a chat is opened or switched to (stores/cockpit), while
+      // an engine cursor can be a step behind the window. It is also synchronous,
+      // which is what lets the effect below watch it.
+      const curSessionId = cockpit.openSession
 
       // 2. Produced files from chat messages
       for (const m of cockpit.chat) {
         if (m.producedFiles?.length) {
           for (const rawPath of m.producedFiles) {
+            const kind = detectKind(rawPath)
+            if (!kind) continue
             const at = findMatchingIndex(items, rawPath)
             const name = rawPath.split(/[\\/]/).pop() || rawPath
             if (at >= 0) {
@@ -150,7 +204,7 @@
                 id: `file-${normPath(rawPath)}`,
                 name,
                 path: rawPath,
-                kind: detectKind(rawPath),
+                kind,
                 sublabel: rawPath.includes('/') ? rawPath.split('/').slice(-2, -1)[0] : '',
               })
             }
@@ -162,45 +216,60 @@
       if (curSessionId) {
         const edits = await SessionEdits(curSessionId).catch(() => ({ files: [], total: 0 }))
         for (const ef of edits.files ?? []) {
-          if (!ef.gone) {
-            const at = findMatchingIndex(items, ef.path)
-            const name = ef.label || ef.path.split(/[\\/]/).pop() || ef.path
-            if (at >= 0) {
-              if (ef.path.length > items[at].path.length) items[at].path = ef.path
-              if (ef.dir && !items[at].sublabel) items[at].sublabel = ef.dir
-            } else {
-              items.push({
-                id: `file-${normPath(ef.path)}`,
-                name,
-                path: ef.path,
-                kind: detectKind(ef.path),
-                sublabel: ef.dir || '',
-              })
-            }
+          if (ef.gone) continue
+          const kind = detectKind(ef.path)
+          if (!kind) continue
+          const at = findMatchingIndex(items, ef.path)
+          const name = ef.label || ef.path.split(/[\\/]/).pop() || ef.path
+          if (at >= 0) {
+            if (ef.path.length > items[at].path.length) items[at].path = ef.path
+            if (ef.dir && !items[at].sublabel) items[at].sublabel = ef.dir
+          } else {
+            items.push({
+              id: `file-${normPath(ef.path)}`,
+              name,
+              path: ef.path,
+              kind,
+              sublabel: ef.dir || '',
+            })
           }
         }
 
-        // 4. Output directory sweep for this session
-        const gallery = await ListArtifactsIn('all').catch(() => ({ files: [], range: 'all', total: 0 }))
+        // 4. This chat's own output folder, asked for by name.
+        //
+        // It used to ask for every artifact this install has ever produced and
+        // keep the rows whose sessionId matched, which is a walk of every root
+        // the app knows — the unfocused folder, the open project, and every
+        // project ever opened — for a handful of rows (artifacts.go,
+        // ListArtifactsForSession). The kept rows were always the ones in
+        // `output/<id>`, so the sweep is pointed at that folder instead.
+        //
+        // The sessionId check stays: this load can be in flight while the user
+        // switches chats, and the answer that arrives late is about the chat
+        // they left.
+        const gallery = await ListArtifactsForSession(curSessionId).catch(
+          () => ({ files: [], range: 'all', total: 0 }),
+        )
         for (const art of gallery.files ?? []) {
-          if (art.sessionId === curSessionId) {
-            const at = findMatchingIndex(items, art.path)
-            if (at >= 0) {
-              items[at].path = art.path
-              items[at].size = art.size
-              items[at].modified = art.modified
-              if (art.folder) items[at].sublabel = art.folder
-            } else {
-              items.push({
-                id: `file-${normPath(art.path)}`,
-                name: art.name,
-                path: art.path,
-                kind: detectKind(art.path),
-                size: art.size,
-                modified: art.modified,
-                sublabel: art.folder || '',
-              })
-            }
+          if (art.sessionId !== curSessionId) continue
+          const kind = detectKind(art.path)
+          if (!kind) continue
+          const at = findMatchingIndex(items, art.path)
+          if (at >= 0) {
+            items[at].path = art.path
+            items[at].size = art.size
+            items[at].modified = art.modified
+            if (art.folder) items[at].sublabel = art.folder
+          } else {
+            items.push({
+              id: `file-${normPath(art.path)}`,
+              name: art.name,
+              path: art.path,
+              kind,
+              size: art.size,
+              modified: art.modified,
+              sublabel: art.folder || '',
+            })
           }
         }
       }
@@ -230,7 +299,7 @@
     try {
       if (item.kind === 'sheet' && item.path.toLowerCase().endsWith('.xlsx')) {
         sheetPreview = await ReadWorkbook(item.path)
-      } else if (item.kind === 'doc' || item.kind === 'page' || item.kind === 'code') {
+      } else if (item.kind === 'doc' || item.kind === 'page') {
         activeContent = await ReadFile(item.path)
       }
     } catch {
@@ -241,9 +310,17 @@
   }
 
   $effect(() => {
-    // Reload artifacts when plan or chat updates
-    void cockpit.plan
-    void cockpit.chat.length
+    // Nothing is read while this tab is behind another one.
+    //
+    // The pane stays mounted when it is not the tab in front — Workbench draws
+    // every slot with `display:none` and only the active one with `display:block`
+    // — so this effect used to run for the whole turn: every message written and
+    // every step the plan marked, each one a sweep of the disk, for a list nobody
+    // had on screen.
+    if (!active) return
+    void cockpit.openSession // the list belongs to the chat on screen
+    void cockpit.plan // its checklist row is one of the rows
+    void cockpit.awaitingReply // a turn just ended: what it wrote is on disk now
     void loadArtifacts()
   })
 
@@ -554,7 +631,7 @@
           </div>
         {:else if chosenItem.kind === 'sheet' && sheetPreview}
           <SheetPane path={chosenItem.path} preview={sheetPreview} />
-        {:else if chosenItem.kind === 'code' || activeContent}
+        {:else if activeContent}
           <pre class="art-code"><code>{activeContent}</code></pre>
         {:else}
           <div class="art-unreadable">
@@ -576,13 +653,37 @@
 </div>
 
 <style>
+  /* TWO PANES, ONE COLUMN WHEN THERE IS NO ROOM FOR TWO.
+     The list is a fixed 220px and the stage is whatever is left — which reads
+     as a design until the pane is narrow, and then it is a sliver: the
+     inspector's own floor is 320px (App.svelte, panels.inspector), so at the
+     width this pane is allowed to be, the thing you clicked was a ~100px
+     column beside a 220px list. Clicking a row looked like clicking nothing
+     (owner, 11 ก.ย.: *"ในนี้กดไม่ได้ ผมดูไม่ได้"* — about a page he had just
+     watched the agent build).
+
+     `flex-wrap` is the whole mechanism, and the basis on the stage is the
+     number that decides when it happens: 220 + 340 = 560px. Above it, one
+     row. Below it, the stage wraps under the list at the pane's full width.
+     No breakpoint is written down because none is needed — the wrap is driven
+     by what the two panes are, which is the one thing a width in a media
+     query cannot know: this pane's width follows a drag handle, not the
+     window. */
   .art-pane {
     display: flex;
+    flex-wrap: wrap;
     width: 100%;
     height: 100%;
     min-height: 0;
     overflow: hidden;
     background: var(--surface-app);
+    /* The pane is the container its own layout is asked about, because the
+       width that matters here is this element's and not the viewport's. Named
+       for the same reason .composer .box names its own: a query that says what
+       it is measuring cannot be answered by a container somebody else added
+       around it later (style.css, `container-name:composer`). */
+    container-type: inline-size;
+    container-name: artifacts;
   }
 
   /* Left list */
@@ -594,6 +695,28 @@
     border-right: 1px solid var(--border-default);
     background: var(--surface-panel);
     min-height: 0;
+  }
+
+  /* Wrapped, the list is a band across the top rather than a column down the
+     side: it keeps its own scroll and the stage takes every pixel below it.
+
+     BOTH HEIGHTS ARE WRITTEN OUT, and that is what makes the pair work without
+     the container querying itself. Two flex lines that are left to size
+     themselves split the pane's free space EQUALLY, so an uncapped list would
+     hand the stage half a pane and keep the other half for rows it is not
+     showing anyway. A definite height on each line leaves nothing to split:
+     the band is min(240px, 42%) and the stage is the arithmetic left over. */
+  @container artifacts (max-width: 559px) {
+    .art-list {
+      width: 100%;
+      height: min(240px, 42%);
+      flex: none;
+      border-right: 0;
+      border-bottom: 1px solid var(--border-default);
+    }
+    .art-stage {
+      height: calc(100% - min(240px, 42%));
+    }
   }
 
   .art-head {
@@ -770,9 +893,13 @@
     white-space: nowrap;
   }
 
-  /* Right Stage */
+  /* Right Stage.
+     340px of basis is the other half of the rule above: it is what a preview,
+     an editor or a rendered answer needs to be worth looking at, and it is
+     the number that makes the wrap happen before the stage is squeezed past
+     it. `flex-grow:1` then gives the stage every pixel past that. */
   .art-stage {
-    flex: 1;
+    flex: 1 1 340px;
     min-width: 0;
     min-height: 0;
     display: flex;
