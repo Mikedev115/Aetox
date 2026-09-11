@@ -2076,7 +2076,14 @@ func (a *App) startup(ctx context.Context) {
 	if closed := a.closeInterruptedTurns(); closed > 0 {
 		debuglog.Msg("startup: closed %d turn(s) the previous run left unfinished", closed)
 	}
-	a.focusNone()
+	// Come back to the project the window was standing in, before the session is
+	// born: a launch used to always start outside every project, so leaving the
+	// app mid-project and typing the next instruction on the way back landed it
+	// on no project at all (owner, 11 ก.ย.). Nothing remembered — or a folder
+	// that is since gone — leaves the launch where it has always started.
+	if !a.openAtRememberedProject() {
+		a.focusNone()
+	}
 	a.startNewSession()
 	a.openAtRememberedDesk()
 	// The previous build's exe, renamed aside by a self-update, and the staging
@@ -2092,6 +2099,53 @@ func (a *App) startup(ctx context.Context) {
 	if home, err := os.UserHomeDir(); err == nil {
 		go a.sweepAttachments(home)
 	}
+}
+
+// openAtRememberedProject puts the fresh session inside the project the window
+// was last standing in, and reports whether there was one to open.
+//
+// Called from startup, and only from there — the same rule openAtRememberedDesk
+// follows, and for the same reason: it is the one moment the session is known to
+// be blank, so pointing it at a project cannot throw away a conversation. Later
+// switches are the nav's business.
+//
+// What is read is a choice and not a lookup (config.ModelPreference.LastProject):
+// a project the user left deliberately is remembered as left, and a launch that
+// reopened the newest row of the projects table would not be able to tell that
+// apart from a crash mid-project.
+func (a *App) openAtRememberedProject() bool {
+	pref, ok, err := config.LoadModelPreference()
+	if err != nil || !ok {
+		return false
+	}
+	root := strings.TrimSpace(pref.LastProject)
+	if root == "" {
+		return false
+	}
+	// A folder that is gone is not opened, and the memory of it is dropped here
+	// rather than left for a caller to tidy up: a memory the app cannot honour is
+	// one it should stop keeping, and a launch that kept it would ask the same
+	// dead question every time it started. What is lost is only the folder's
+	// name — nothing on disk, and no chat: the transcripts in it still open as
+	// chats held outside every project (LoadSessionAnyProject). Refusing instead
+	// would leave a start nobody can explain, and this runs before there is a
+	// window to explain it in.
+	if info, statErr := os.Stat(root); statErr != nil || !info.IsDir() {
+		debuglog.Msg("startup: remembered project %s is no longer a folder", root)
+		rememberProject("")
+		return false
+	}
+	// The same three steps OpenProjectPath takes, in the same order and for the
+	// same reason: the folders this project had added come back with it, and the
+	// template the next chat is born from points here before it is built.
+	a.takeProject()
+	a.setWorkspaceRoots(a.storedWorkspaceFolders(root))
+	a.retargetTemplate(config.ConfigOptions{RootPath: root, ApprovalMode: string(safety.ApprovalFullAccess)})
+	// Recorded, not merely read: standing in a project is what the projects table
+	// is a list of, and a launch is the one way in that nothing else would have
+	// recorded (a database wiped while the preference file lived on).
+	a.enterProject(a.cfg.SandboxRoot)
+	return true
 }
 
 // openAtRememberedDesk points the fresh session at the desk the user was last
@@ -2226,6 +2280,11 @@ func (a *App) focusNone() {
 		_ = os.MkdirAll(root, 0o755)
 	}
 	a.projectFocused = false
+	// Stepping out is a choice, and the next launch respects it: reopening the
+	// last project would undo the very act of leaving one. Written here because
+	// focusNone is the only way out of a project, the same way setStation is the
+	// only way between desks (sessions.go, rememberProject).
+	rememberProject("")
 	// Cleared rather than carried: the added folders belong to the project that
 	// is being left, and this mode reaches the machine anyway. The tree's
 	// browsing root goes with them for the same reason (browse_root.go).
@@ -3715,7 +3774,7 @@ func (a *App) OpenProjectFolder() (ProjectStatus, error) {
 	a.setWorkspaceRoots(a.storedWorkspaceFolders(dir))
 	a.retargetTemplate(config.ConfigOptions{RootPath: dir, ApprovalMode: string(safety.ApprovalFullAccess)})
 	a.startNewSession()
-	a.touchProject(a.cur().cfg.SandboxRoot)
+	a.enterProject(a.cur().cfg.SandboxRoot)
 	return a.currentProjectStatus(), nil
 }
 
@@ -3735,7 +3794,7 @@ func (a *App) OpenProjectPath(root string) (ProjectStatus, error) {
 	a.setWorkspaceRoots(a.storedWorkspaceFolders(root))
 	a.retargetTemplate(config.ConfigOptions{RootPath: root, ApprovalMode: string(safety.ApprovalFullAccess)})
 	a.startNewSession()
-	a.touchProject(a.cur().cfg.SandboxRoot)
+	a.enterProject(a.cur().cfg.SandboxRoot)
 	return a.currentProjectStatus(), nil
 }
 
