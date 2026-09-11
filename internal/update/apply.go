@@ -10,10 +10,12 @@ package update
 // can happen while they keep working; restarting costs them whatever they were
 // in the middle of. An update that closes the window the moment the download
 // finishes has spent the second one without asking. So Stage goes as far as it
-// safely can — after it, the exe on disk IS the new build — and stops there;
-// Restart is the sentence the user gets to time themselves. Saying "later" and
-// closing the app normally installs it just the same, because the swap already
-// happened.
+// safely can and stops there; Restart is the sentence the user gets to time
+// themselves. How far "safely can" reaches depends on the channel: on portable
+// the exe on disk IS the new build after Stage, so "later" and closing the app
+// normally install it just the same; on installer only the download can happen
+// with the window open, so "later" means the verified file waits on disk
+// (Adopt) for whichever launch the user finally presses Restart in.
 //
 // Per channel:
 //
@@ -42,6 +44,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -50,6 +53,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/Mikedev115/Aetox/internal/config"
 )
@@ -131,8 +136,14 @@ type Staged struct {
 	// Version is what the app becomes on restart — the one thing a caller has
 	// any business reading, because it is the one thing the user is told.
 	Version string
+	// Channel is exported for the one sentence that differs by it: on portable
+	// the exe on disk is already the new build and closing the window
+	// installs it; on installer nothing has moved yet and only Restart does.
+	// The card has to say which, or it promises something the channel cannot
+	// keep — which it did, and the owner met that promise as "อัปเดตแล้ววน
+	// อยู่ที่เดิม" (11 ก.ย.).
+	Channel Channel
 
-	channel   Channel
 	exe       string // portable: the path already holding the new build
 	installer string // installer: the verified file to run on the way out
 }
@@ -196,11 +207,18 @@ func Stage(ctx context.Context, current string, progress Progress) (Staged, erro
 		if err := swapPortable(exe, path); err != nil {
 			return Staged{}, err
 		}
-		return Staged{Version: st.Latest, channel: channel, exe: exe}, nil
+		return Staged{Version: st.Latest, Channel: channel, exe: exe}, nil
 	case ChannelInstaller:
 		// Nothing on disk has moved: the installer must run with the app
-		// closed, so its whole job waits for Restart.
-		return Staged{Version: st.Latest, channel: channel, installer: path}, nil
+		// closed, so its whole job waits for Restart. Which may be a launch
+		// or two away — the user was told "later" is a real answer — so the
+		// verified download is written down for Adopt to pick up, rather than
+		// living only in this process and dying with it.
+		staged := Staged{Version: st.Latest, Channel: channel, installer: path}
+		if err := writeManifest(dir, staged, sumData, sigData); err != nil {
+			return Staged{}, err
+		}
+		return staged, nil
 	default:
 		return Staged{}, fmt.Errorf("ช่องทาง %s อัปเดตอัตโนมัติไม่ได้", channel)
 	}
@@ -212,12 +230,12 @@ func (s Staged) Restart() error {
 	switch {
 	case !s.Ready():
 		return errors.New("ยังไม่มีชุดอัปเดตที่เตรียมไว้")
-	case s.channel == ChannelPortable:
+	case s.Channel == ChannelPortable:
 		return relaunch(s.exe)
-	case s.channel == ChannelInstaller:
+	case s.Channel == ChannelInstaller:
 		return handOff(s.installer)
 	default:
-		return fmt.Errorf("ช่องทาง %s อัปเดตอัตโนมัติไม่ได้", s.channel)
+		return fmt.Errorf("ช่องทาง %s อัปเดตอัตโนมัติไม่ได้", s.Channel)
 	}
 }
 
@@ -335,20 +353,195 @@ func stagingDir() (string, error) {
 	return dir, os.MkdirAll(dir, 0o700)
 }
 
+// manifestName is the note Stage leaves beside a staged installer so the next
+// launch can find it again (Adopt). The checksums and their signature are kept
+// next to it under their release names, so adopting re-runs the exact
+// verification a fresh download gets — the file has sat in a user-writable
+// directory in between, and "it was fine when we wrote it" is not a check.
+const manifestName = "staged.json"
+
+type manifest struct {
+	Version string  `json:"version"`
+	Channel Channel `json:"channel"`
+	File    string  `json:"file"` // asset name, under the staging dir
+}
+
+func writeManifest(dir string, s Staged, sums, sig []byte) error {
+	if err := os.WriteFile(filepath.Join(dir, checksumsName), sums, 0o600); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(dir, signatureName), sig, 0o600); err != nil {
+		return err
+	}
+	b, err := json.Marshal(manifest{Version: s.Version, Channel: s.Channel, File: filepath.Base(s.installer)})
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, manifestName), b, 0o600)
+}
+
+// Adopt picks up an installer a previous run staged and never restarted into,
+// so the user who said "later" and closed the window finds the update one
+// button away on the next launch instead of one download away. Returns false
+// when there is nothing to adopt — and, deliberately, when the staged version
+// is no longer newer than current: that is the normal morning after a
+// successful update, and the leftovers are RemoveLeftovers' job.
+//
+// Same trust as Stage: the signature says checksums.txt is ours, the checksums
+// say the file matches. A file that fails either is not adopted and is swept.
+func Adopt(current string) (Staged, bool) {
+	return adoptOn(current, Detect())
+}
+
+func adoptOn(current string, ch Channel) (Staged, bool) {
+	dir, err := stagingDir()
+	if err != nil {
+		return Staged{}, false
+	}
+	b, err := os.ReadFile(filepath.Join(dir, manifestName))
+	if err != nil {
+		return Staged{}, false
+	}
+	var m manifest
+	if err := json.Unmarshal(b, &m); err != nil {
+		return Staged{}, false
+	}
+	// Installer only: a portable stage swapped the exe in place and has
+	// nothing to adopt. And the manifest's channel must be this install's —
+	// a data root shared between two copies of the app must not hand one
+	// copy the other's installer.
+	if !Newer(m.Version, current) || m.Channel != ChannelInstaller || ch != ChannelInstaller {
+		return Staged{}, false
+	}
+	// filepath.Base twice over (here and at write): a manifest somebody edited
+	// to point outside the staging dir still names a file inside it.
+	name := filepath.Base(m.File)
+	path := filepath.Join(dir, name)
+	sums, err := os.ReadFile(filepath.Join(dir, checksumsName))
+	if err != nil {
+		return Staged{}, false
+	}
+	sig, err := os.ReadFile(filepath.Join(dir, signatureName))
+	if err != nil {
+		return Staged{}, false
+	}
+	if err := verifySignature(sums, sig); err != nil {
+		return Staged{}, false
+	}
+	if err := verifySHA256(path, name, sums); err != nil {
+		return Staged{}, false
+	}
+	return Staged{Version: m.Version, Channel: m.Channel, installer: path}, true
+}
+
 // RemoveLeftovers sweeps what an update leaves behind: the renamed-aside old
 // exe and the staging directory. Called on startup — by definition, a build
 // that is running no longer needs either. Best-effort: an .old still locked by
 // the exiting previous instance is simply caught on the next boot.
-func RemoveLeftovers() {
+//
+// keepStaged is Adopt's answer: a verified installer the user has not restarted
+// into yet stays, or the next launch would offer the same 24 MB download for a
+// file it just deleted.
+func RemoveLeftovers(keepStaged bool) {
 	if exe, err := os.Executable(); err == nil {
 		_ = os.Remove(exe + ".old")
+	}
+	if keepStaged {
+		return
 	}
 	if root, err := config.DataRoot(); err == nil {
 		_ = os.RemoveAll(filepath.Join(root, "updates"))
 	}
 }
 
+// restartLogName is where the relaunch waiter writes how the hand-off went —
+// outside the staging dir, so a sweep cannot take the evidence with it. One
+// line: `exit=<code>` when the installer ran, `error=<message>` when it could
+// not be started (a declined UAC prompt is the common one).
+//
+// It exists because the waiter used to swallow every outcome with `catch {}`
+// and relaunch the old build regardless, and from inside the window that was
+// indistinguishable from the update never having happened: the same card,
+// the same version, the same button. The owner's words: "อัปเดตแล้ววน
+// อยู่ที่เดิมให้อัปเดตใหม่" (11 ก.ย.).
+const restartLogName = "update-restart.log"
+
+func restartLogPath() (string, error) {
+	root, err := config.DataRoot()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(root, restartLogName), nil
+}
+
+// ReadRestartLog returns the previous hand-off's one line and removes it, so
+// the next launch does not read a failure that has since been fixed. "" when
+// there was no hand-off.
+func ReadRestartLog() string {
+	path, err := restartLogPath()
+	if err != nil {
+		return ""
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	_ = os.Remove(path)
+	return strings.TrimSpace(string(b))
+}
+
+// InstallFailure turns a restart log line into the sentence the card shows,
+// or "" when the hand-off succeeded (or the line is not one this wrote). The
+// declined UAC prompt gets its own words: it is the one failure the user
+// caused with a click and can fix with the next one, and PowerShell's
+// "The operation was canceled by the user" does not say which operation.
+func InstallFailure(line string) string {
+	switch {
+	case line == "" || line == "exit=0":
+		return ""
+	case strings.HasPrefix(line, "exit="):
+		return fmt.Sprintf("ครั้งก่อนตัวติดตั้งจบด้วยรหัส %s — ยังไม่ได้ติดตั้ง ลองกดรีสตาร์ทอีกครั้ง", strings.TrimPrefix(line, "exit="))
+	case strings.HasPrefix(line, "error="):
+		msg := strings.TrimPrefix(line, "error=")
+		if strings.Contains(strings.ToLower(msg), "canceled by the user") {
+			return "ครั้งก่อนหน้าต่างขอสิทธิ์ผู้ดูแล (UAC) ถูกยกเลิก ตัวติดตั้งจึงไม่ได้ทำงาน — กดรีสตาร์ทอีกครั้ง แล้วกด Yes ในหน้าต่างของ Windows"
+		}
+		return "ครั้งก่อนเปิดตัวติดตั้งไม่ได้: " + msg
+	default:
+		return ""
+	}
+}
+
+// stallTimeout is how long a download may go without a single byte before it
+// is given up. Not a total timeout: a 24 MB installer on a slow link takes
+// what it takes, and a cap on that would fail the people it was meant to
+// serve. What it catches is the connection that stops mid-file, which used to
+// leave the card at "กำลังดาวน์โหลด" forever with the process stuck in Read.
+//
+// A var only so the package's own test can make it fire in milliseconds.
+var stallTimeout = 60 * time.Second
+
+// smallTimeout bounds the two tiny fetches (checksums.txt and its signature).
+// Those used to have no bound at all, so a download that reached 100% could
+// still hang on the 193-byte file after it — which read, from the card, as
+// "โหลดไปแล้ว ติดบั๊ค".
+const smallTimeout = 30 * time.Second
+
+// errStalled is what download reports when the stall guard fired, in place of
+// the bare "context canceled" the guard produces.
+func errStalled() error {
+	return fmt.Errorf("ไม่ได้รับข้อมูลเลยนาน %d วินาที — ลองใหม่อีกครั้ง", int(stallTimeout/time.Second))
+}
+
 func download(ctx context.Context, url, dest string, progress Progress) error {
+	// The guard cancels the request when nothing has arrived for stallTimeout;
+	// every chunk pushes the deadline out again.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var stalled atomic.Bool
+	guard := time.AfterFunc(stallTimeout, func() { stalled.Store(true); cancel() })
+	defer guard.Stop()
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -356,7 +549,7 @@ func download(ctx context.Context, url, dest string, progress Progress) error {
 	req.Header.Set("User-Agent", "Aetox-updater")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		return stallErr(err, &stalled)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -375,6 +568,7 @@ func download(ctx context.Context, url, dest string, progress Progress) error {
 	for {
 		n, readErr := resp.Body.Read(buf)
 		if n > 0 {
+			guard.Reset(stallTimeout)
 			if _, writeErr := out.Write(buf[:n]); writeErr != nil {
 				out.Close()
 				return writeErr
@@ -389,13 +583,22 @@ func download(ctx context.Context, url, dest string, progress Progress) error {
 		}
 		if readErr != nil {
 			out.Close()
-			return readErr
+			return stallErr(readErr, &stalled)
 		}
 	}
 	return out.Close()
 }
 
+func stallErr(err error, stalled *atomic.Bool) error {
+	if stalled.Load() {
+		return errStalled()
+	}
+	return err
+}
+
 func downloadSmall(ctx context.Context, url string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, smallTimeout)
+	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err

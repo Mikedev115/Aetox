@@ -100,7 +100,7 @@ export const CheckForUpdate = vi.fn(async () => ({
 // staged one.
 export const StageUpdate = noop()
 export const RestartToUpdate = noop()
-export const StagedUpdate = str()
+export const StagedUpdate = vi.fn(async () => ({ version: '', channel: '', installError: '' }) as any)
 export const CurrentSessionID = str()
 export const DismissTaskChip = noop()
 export const DeleteIdentityFile = noop()

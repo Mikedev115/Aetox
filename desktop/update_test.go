@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -86,7 +88,65 @@ func TestRestartToUpdateWithNothingStagedRefuses(t *testing.T) {
 	if err := a.RestartToUpdate(); err == nil {
 		t.Error("RestartToUpdate() = nil with nothing staged — the app would close for no update")
 	}
-	if v := a.StagedUpdate(); v != "" {
-		t.Errorf("StagedUpdate() = %q on a fresh app, want empty", v)
+	if v := a.StagedUpdate(); v.Version != "" {
+		t.Errorf("StagedUpdate() = %+v on a fresh app, want empty", v)
+	}
+}
+
+// The morning after a "later": the previous hand-off's outcome has to reach
+// the window in words, and only once. The installer itself is adopted or not
+// by internal/update (its own tests); what this pins is that the desktop
+// reads the log BEFORE anything is swept, carries the failure into
+// StagedUpdate, and announces it — the window may already have asked and
+// been told "nothing".
+func TestAdoptStagedUpdateCarriesThePreviousFailureToTheWindow(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("AETOX_DATA_ROOT", root)
+	if err := os.WriteFile(filepath.Join(root, "update-restart.log"),
+		[]byte("error=This command cannot be run due to the error: The operation was canceled by the user.\r\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var announced []StagedInfo
+	a := &App{emit: func(ev string, data ...any) {
+		if ev == "update:staged" && len(data) == 1 {
+			announced = append(announced, data[0].(StagedInfo))
+		}
+	}}
+
+	a.adoptStagedUpdate()
+
+	info := a.StagedUpdate()
+	if info.Version != "" {
+		t.Errorf("adopted %q with nothing staged", info.Version)
+	}
+	if !strings.Contains(info.InstallError, "UAC") {
+		t.Errorf("InstallError = %q, want the declined-UAC sentence", info.InstallError)
+	}
+	if len(announced) != 1 || announced[0] != info {
+		t.Errorf("update:staged = %+v, want exactly one carrying %+v", announced, info)
+	}
+	if _, err := os.Stat(filepath.Join(root, "update-restart.log")); !os.IsNotExist(err) {
+		t.Error("the restart log survived being read — the next launch would show last week's failure")
+	}
+
+	// A fresh stage wipes the old failure: the sentence was about the
+	// previous file, and a new one has not failed at anything.
+	a.stagedMu.Lock()
+	a.installError = ""
+	a.stagedMu.Unlock()
+	if a.StagedUpdate().InstallError != "" {
+		t.Error("InstallError not cleared")
+	}
+}
+
+// Nothing to report, nothing announced: a normal launch must not wake the
+// window's updater for no reason.
+func TestAdoptStagedUpdateIsSilentWhenThereIsNothing(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	called := false
+	a := &App{emit: func(string, ...any) { called = true }}
+	a.adoptStagedUpdate()
+	if called {
+		t.Error("emitted an event with nothing staged and no hand-off to report")
 	}
 }

@@ -51,16 +51,31 @@ func relaunchAfterExit(exe string) error {
 // installer by hand, minus the hands. UAC still shows if the install scope
 // needs it; a cancelled elevation falls through to relaunching the untouched
 // old build, which is the correct failure.
+//
+// The outcome is written to the restart log (restartLogName) on the way past,
+// because "the correct failure" and "nothing happened" look identical from
+// the relaunched window otherwise: same old build, same card, same button.
+// One line — the installer's exit code, or the message Start-Process threw
+// (a declined UAC prompt lands here) — and the next launch turns it into the
+// sentence on the card (InstallFailure). Single-quoted throughout and joined
+// with +, never interpolated in double quotes: the script has to stay free of
+// double quotes to cross as one plain argument (see runWaiter).
 func handOffToInstaller(installer string) error {
 	exe, err := os.Executable()
 	if err != nil {
 		return err
 	}
+	logPath, err := restartLogPath()
+	if err != nil {
+		return err
+	}
 	return runWaiter(fmt.Sprintf(
 		"Wait-Process -Id %d -ErrorAction SilentlyContinue; "+
-			"try { Start-Process -Wait -FilePath '%s' -ArgumentList '/S' } catch {}; "+
+			"try { $p = Start-Process -Wait -PassThru -FilePath '%s' -ArgumentList '/S'; "+
+			"Set-Content -Path '%s' -Value ('exit=' + $p.ExitCode) } "+
+			"catch { Set-Content -Path '%s' -Value ('error=' + $_.Exception.Message) }; "+
 			"Start-Process -FilePath '%s'",
-		os.Getpid(), psq(installer), psq(exe)))
+		os.Getpid(), psq(installer), psq(logPath), psq(logPath), psq(exe)))
 }
 
 // psq escapes one string for a single-quoted PowerShell literal. Single quotes

@@ -109,7 +109,7 @@ func TestStagedRestartRelaunchesThePortableExe(t *testing.T) {
 	relaunch = func(path string) error { relaunched = path; return nil }
 	defer func() { relaunch = orig }()
 
-	s := Staged{Version: "0.9.7", channel: ChannelPortable, exe: `C:\Aetox\aetox.exe`}
+	s := Staged{Version: "0.9.7", Channel: ChannelPortable, exe: `C:\Aetox\aetox.exe`}
 	if !s.Ready() {
 		t.Fatal("a staged update reports itself as nothing")
 	}
@@ -129,7 +129,7 @@ func TestStagedRestartHandsTheInstallerOver(t *testing.T) {
 	handOff = func(path string) error { handed = path; return nil }
 	defer func() { handOff = orig }()
 
-	s := Staged{Version: "0.9.7", channel: ChannelInstaller, installer: `C:\tmp\aetox-installer.exe`}
+	s := Staged{Version: "0.9.7", Channel: ChannelInstaller, installer: `C:\tmp\aetox-installer.exe`}
 	if err := s.Restart(); err != nil {
 		t.Fatalf("Restart: %v", err)
 	}

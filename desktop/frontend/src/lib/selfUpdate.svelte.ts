@@ -13,9 +13,12 @@
 // The phases are two acts, not one, because they cost the user different
 // things (internal/update's Stage/Restart): downloading is bandwidth and can
 // happen while they work; restarting costs them whatever they were in the
-// middle of. So `ready` is a real resting state — the new build is already on
-// disk, and the app will be it whenever they next start it, whether they press
-// the button or just close the window tonight.
+// middle of. So `ready` is a real resting state — the download is verified
+// and on disk, and stays there across launches (internal/update's Adopt) until
+// the restart the user picks the moment for. What "on disk" buys differs by
+// channel, and the card says which: on portable the exe already IS the new
+// build, so closing the window tonight installs it too; on installer only the
+// button does, because an installer has to run with the app closed.
 //
 // What this module does NOT decide: which action a channel deserves. Scoop gets
 // its command, portable and installer get the one-click button, everything else
@@ -27,7 +30,8 @@ import {
   StageUpdate, RestartToUpdate, StagedUpdate, CheckForUpdate, AppVersion,
 } from '../../wailsjs/go/main/App'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
-import type { update } from '../../wailsjs/go/models'
+import type { main, update } from '../../wailsjs/go/models'
+import { t } from './i18n.svelte'
 
 /** idle → downloading → ready → (restarting). `error` can follow either act. */
 export type UpdatePhase = 'idle' | 'downloading' | 'ready' | 'restarting' | 'error'
@@ -64,13 +68,26 @@ export const updater = $state<{
   total: number
   /** The version waiting on disk once phase is 'ready'. */
   staged: string
+  /** Which channel staged it — the one sentence on the ready card differs by
+   *  it. On portable the exe on disk already IS the new build and closing the
+   *  app installs it; on installer nothing has moved and only the restart
+   *  button does. Kept beside `staged` rather than read off `status`, because
+   *  an update adopted at launch is ready before any check has answered. */
+  stagedChannel: string
   /** Empty unless something failed, in which case the build the user is
    *  running is still installed and untouched. */
   error: string
 }>({
   current: '', status: null, announced: false, checking: false, checkError: '',
-  dismissed: false, phase: 'idle', done: 0, total: 0, staged: '', error: '',
+  dismissed: false, phase: 'idle', done: 0, total: 0, staged: '', stagedChannel: '', error: '',
 })
+
+/** How long the window waits for the Go side to actually close it after
+ *  RestartToUpdate resolved. Quitting takes well under a second normally — the
+ *  close hook holds it for at most five while turns write their ending — so a
+ *  window still open after this is one the restart did not take, and a card
+ *  stuck on "กำลังเปิดใหม่…" with no button is the worst thing it can show. */
+const RESTART_GRACE_MS = 30_000
 
 /** True when there is an offer to put in front of the user right now. */
 export function updateOffered(): boolean {
@@ -114,21 +131,59 @@ export function listenForUpdates(): () => void {
     updater.done = p?.done ?? 0
     updater.total = p?.total ?? 0
   })
+  // The Go side's own word on what is staged, sent when it changes without
+  // the window having asked: the launch that adopted an installer a previous
+  // run downloaded (and, with it, why the previous restart came back as the
+  // same build), or a newer release making that installer stale.
+  const offStaged = EventsOn('update:staged', (info: main.StagedInfo) => adoptStaged(info, true))
   // A webview reload (Vite HMR, or a crash of the frontend alone) leaves the Go
   // side holding a staged update this fresh page knows nothing about. Without
   // this the card would vanish and the user would be offered the same download
   // a second time — for a build already sitting on their disk.
-  void StagedUpdate().then((version) => {
-    if (version && updater.phase === 'idle') {
-      updater.staged = version
-      updater.phase = 'ready'
-    }
-  }).catch(() => {
+  //
+  // An empty answer here is NOT a drop: the Go side adopts off the startup
+  // path, so this question can be asked before it has looked and answered
+  // "nothing" a moment before `update:staged` says otherwise — and the reverse
+  // order would clear a card the event just put up.
+  void StagedUpdate().then((info) => adoptStaged(info, false)).catch(() => {
     /* nothing staged, or the binding is unavailable in a test: idle is right */
   })
   return () => {
     offAvailable()
     offProgress()
+    offStaged()
+  }
+}
+
+/** Takes the Go side's answer about a staged update into the phases. Only
+ *  moves between idle and ready — a download or restart in flight owns the
+ *  phase, and the answer will be asked for again when it ends. `emptyIsDrop`
+ *  says whether an empty answer means "let go of what you have" (the event)
+ *  or merely "nothing yet" (the reload query). */
+function adoptStaged(info: main.StagedInfo | null | undefined, emptyIsDrop: boolean): void {
+  if (!info) return
+  if (info.version) {
+    if (updater.phase !== 'idle') return
+    updater.staged = info.version
+    updater.stagedChannel = info.channel ?? ''
+    updater.phase = 'ready'
+    // The card can say what went wrong last time only if it has the words;
+    // an adopted installer whose restart was declined at the UAC prompt is
+    // the case that used to read as "อัปเดตแล้ววนอยู่ที่เดิม".
+    if (info.installError) updater.error = info.installError
+    // A ready update the user has not been told about yet is news, whichever
+    // door — the card carries it, not a check that may never come back.
+    updater.announced = true
+    return
+  }
+  // Nothing staged any more: the installer the card was offering a restart
+  // into has been overtaken (dropStaleStaged) — back to the offer, which
+  // `update:available` fills in.
+  if (emptyIsDrop && updater.phase === 'ready') {
+    updater.staged = ''
+    updater.stagedChannel = ''
+    updater.phase = 'idle'
+    updater.error = info.installError ?? ''
   }
 }
 
@@ -180,6 +235,7 @@ export async function startDownload(): Promise<void> {
   try {
     await StageUpdate()
     updater.staged = updater.status?.latest ?? ''
+    updater.stagedChannel = updater.status?.channel ?? ''
     updater.phase = 'ready'
   } catch (err) {
     updater.error = String(err)
@@ -201,5 +257,14 @@ export async function restartToUpdate(): Promise<void> {
     // back to offering a download that has already happened.
     updater.error = String(err)
     updater.phase = 'ready'
+    return
   }
+  // Resolved means the waiter is up and the Go side will quit in a moment. If
+  // this code is still running well past that moment, the quit did not
+  // happen, and the user needs the button back rather than a spinner.
+  setTimeout(() => {
+    if (updater.phase !== 'restarting') return
+    updater.error = t('update.restartStalled')
+    updater.phase = 'ready'
+  }, RESTART_GRACE_MS)
 }
