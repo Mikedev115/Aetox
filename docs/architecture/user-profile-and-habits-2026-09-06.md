@@ -13,6 +13,8 @@ of every other scope) rather than the audience, and the write side is unchanged:
 a delegate's `memory` schema is never offered `about`, so it cannot reach the
 file at all. See §229.3.
 
+**Amended again on 11 ก.ย. (DECISIONS §247):** `MEMORY.md` is no longer "read by every desk" — it is the assistant desk's own, and โต๊ะโค้ด keeps its cross-project lines in `modes/coding.md` and reads that plus the project's file instead. `USER.md` still goes everywhere; that part stands.
+
 **Trigger.** Owner, 6 ก.ย.: *"ผมว่าจะเพิ่มระบบความจำอีกชั้นคือแบบ จำว่าผู้ใช้ชอบ
 บอกให้ทำอะไรบ่อยๆ หรือ ระบบพยายามจำว่าผู้ใช้เป็นใครอะไรมาจากไหน … ดู hermes
 เป็นแบบอย่าง"*.

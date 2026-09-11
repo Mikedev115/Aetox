@@ -1373,3 +1373,41 @@ func TestTheLedgerFollowsTheMemoryAndNamesTheScopesThisSessionWritesTo(t *testin
 		t.Error("no ledger, no layer")
 	}
 }
+
+// A desk that keeps its own memory (Desk.OwnMemory, 11 ก.ย.) reads the
+// profile, its own file and the project's — and not the assistant's shared
+// file, which is the one layer the split exists to take off its bill. The
+// ledger asks for exactly the scopes that were folded.
+func TestADeskWithItsOwnMemoryDoesNotReadTheSharedFile(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	root := t.TempDir()
+	for scope, marker := range map[string]string{
+		learned.UserScope:           "USER-MARKER",
+		learned.MainScope:           "SHARED-MARKER",
+		learned.ModeScope("coding"): "DESK-MARKER",
+		learned.ProjectScope(root):  "PROJECT-MARKER",
+	} {
+		if err := learned.Apply(scope, learned.OpAdd, "", marker); err != nil {
+			t.Fatalf("seed %s: %v", scope, err)
+		}
+	}
+	var asked []string
+	desk := Desk{Name: "coding", OwnMemory: true, Ledger: func(scopes []string) Ledger {
+		asked = scopes
+		return Ledger{}
+	}}
+	text, loaded := BuildWithReport(SurfaceDesktop, Scope{Root: root}, desk)
+
+	for _, want := range []string{"USER-MARKER", "DESK-MARKER", "PROJECT-MARKER"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("%s never reached the coding desk's prompt", want)
+		}
+	}
+	if strings.Contains(text, "SHARED-MARKER") || loaded.MemoryPath != "" {
+		t.Errorf("the coding desk is still paying for the assistant's memory (path %q)", loaded.MemoryPath)
+	}
+	want := []string{learned.UserScope, learned.ModeScope("coding"), learned.ProjectScope(root)}
+	if strings.Join(asked, "|") != strings.Join(want, "|") {
+		t.Errorf("ledger asked for %v, want %v", asked, want)
+	}
+}

@@ -10,6 +10,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/learned"
+	"github.com/Mikedev115/Aetox/internal/mode"
 	"github.com/Mikedev115/Aetox/internal/prompt"
 	"github.com/Mikedev115/Aetox/internal/skill"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -449,6 +450,23 @@ func (a *App) countPending(kind string) int {
 // marked approved whose change never landed would be a lie in the one place
 // that exists to be trusted.
 func (a *App) ApprovePendingChange(id int64) error {
+	return a.ApprovePendingChangeTo(id, "")
+}
+
+// ApprovePendingChangeTo approves one memory proposal into a scope the USER
+// chose rather than the one the model proposed — "เก็บที่อื่น" on the card
+// and on the review page (11 ก.ย.). Empty means the proposed scope.
+//
+// It exists because the only way to correct a destination before this was to
+// refuse the line and hope it was proposed again from the right desk. The
+// decision a person makes on a proposal is two questions — is this true, and
+// who should know it — and the card asked only the first. The row records the
+// scope it actually landed in, so the ledger and the history tell the truth
+// about where the line went, not where it was aimed.
+//
+// Memory proposals only: a skill proposal's scope is the skill's name, and
+// "somewhere else" is not a thing a skill edit can mean.
+func (a *App) ApprovePendingChangeTo(id int64, scope string) error {
 	db, err := a.database()
 	if err != nil {
 		return err
@@ -462,6 +480,20 @@ func (a *App) ApprovePendingChange(id int64) error {
 	}
 	if c.State != statePending {
 		return fmt.Errorf("this was already decided")
+	}
+	if scope = strings.TrimSpace(scope); scope != "" && scope != c.Scope {
+		if c.Kind != kindMemory {
+			return fmt.Errorf("only a memory proposal can be kept somewhere else")
+		}
+		if c.Op != learned.OpAdd {
+			// A replace or a remove names a line in ONE file; aimed at another
+			// file it would find nothing to change and approve an empty act.
+			return fmt.Errorf("only a new line can be kept somewhere else — this one changes a line that is already in its file")
+		}
+		if _, err := db.Exec(`UPDATE pending_changes SET scope = ? WHERE id = ?`, scope, id); err != nil {
+			return err
+		}
+		c.Scope = scope
 	}
 
 	// An issue has no "apply" and must never grow one: the default branch is
@@ -620,6 +652,21 @@ func (a *App) LearnedScopes() []string {
 // file, and whether anything can still reach it.
 type MemoryScopeInfo struct {
 	Scope string `json:"scope"`
+	// Bytes is what the file holds and MaxBytes what it may hold — the meter
+	// the page draws (11 ก.ย.). Before it, a full profile was a fact only the
+	// tool knew: the model's proposal was refused, the session review skipped
+	// its line with a debug message, and the page showed a list that looked
+	// like it had room. A ceiling nobody can see is a ceiling nobody clears.
+	Bytes    int `json:"bytes"`
+	MaxBytes int `json:"maxBytes"`
+	// Full is the tool's own answer for one more short line (learned.Full),
+	// which is the header-inclusive ceiling Bytes/MaxBytes only approximates.
+	Full bool `json:"full"`
+	// ProjectsUnder marks a desk whose per-project files sit under it on the
+	// page: the desk with the `memory: project` rule, which is the one whose
+	// sessions write them. Project files are keyed by folder, not by desk, so
+	// this is the only thing that says which room they belong to.
+	ProjectsUnder bool `json:"projectsUnder"`
 	// Orphan marks a project scope no session can arrive at any more. The key
 	// is the folder's path (config.ProjectKey), so a project moved or renamed
 	// is a new key — and the old file would sit here forever, correct-looking
@@ -649,9 +696,39 @@ func (a *App) LearnedScopeInfos() []MemoryScopeInfo {
 		}
 	}
 	out := []MemoryScopeInfo{}
-	for _, scope := range learned.Scopes() {
+	seen := map[string]bool{}
+	projectDesks := map[string]bool{}
+	add := func(scope string) {
+		if seen[scope] {
+			return
+		}
+		seen[scope] = true
 		_, isProject := learned.SplitProjectScope(scope)
-		out = append(out, MemoryScopeInfo{Scope: scope, Orphan: isProject && !live[scope]})
+		desk, _ := learned.SplitModeScope(scope)
+		out = append(out, MemoryScopeInfo{
+			Scope:         scope,
+			Orphan:        isProject && !live[scope],
+			Bytes:         len(learned.Read(scope)),
+			MaxBytes:      learned.MaxBytesFor(scope),
+			Full:          learned.Full(scope, 80),
+			ProjectsUnder: desk != "" && projectDesks[desk],
+		})
+	}
+	// The files a session can write are listed even while empty, so the page
+	// can draw each desk's room and its ceiling before anything is in it: the
+	// profile, the assistant's file, and one for every desk that keeps its own
+	// (mode `memory: project`). A file that only appears once it has a line is
+	// a destination the user cannot see a proposal heading for.
+	add(learned.UserScope)
+	add(learned.MainScope)
+	for _, m := range mode.List() {
+		if m.MemoryRule() == mode.MemoryProject {
+			projectDesks[m.DeskName()] = true
+			add(learned.ModeScope(m.DeskName()))
+		}
+	}
+	for _, scope := range learned.Scopes() {
+		add(scope)
 	}
 	return out
 }

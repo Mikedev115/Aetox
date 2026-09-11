@@ -123,7 +123,9 @@ describe('the card itself', () => {
 
     await waitFor(() => expect(screen.getByText('เครื่องนี้ไม่มี Excel ติดตั้ง')).toBeTruthy())
     expect(screen.getByText('ขอจำเรื่องนี้ไว้')).toBeTruthy()
-    expect(screen.getByText('ผู้ช่วยหลัก')).toBeTruthy()
+    expect(container.querySelector('.memcard-scope')?.textContent).toContain('โต๊ะผู้ช่วย')
+    // And who will read it — the decision, in words (11 ก.ย.).
+    expect(container.querySelector('.memcard-aud')?.textContent).toBe('เฉพาะแชทที่โต๊ะผู้ช่วย')
     // Approving an assertion with no provenance is not a decision.
     expect(container.textContent).toContain('เปิดไฟล์ .xlsx แล้วไม่มีโปรแกรมรับ')
     // The caveat every reader assumes wrongly.

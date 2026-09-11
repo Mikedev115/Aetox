@@ -82,6 +82,10 @@ export function ApprovePendingChange(arg1) {
   return window['go']['main']['App']['ApprovePendingChange'](arg1);
 }
 
+export function ApprovePendingChangeTo(arg1, arg2) {
+  return window['go']['main']['App']['ApprovePendingChangeTo'](arg1, arg2);
+}
+
 export function ArtifactPreview(arg1) {
   return window['go']['main']['App']['ArtifactPreview'](arg1);
 }

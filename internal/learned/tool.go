@@ -84,6 +84,30 @@ type MemoryTool struct {
 	// default it always was. With no Project it is inert, so an unfocused
 	// coding session falls back to shared rather than to a junk drawer.
 	ProjectFirst bool
+	// Desk is the name of the desk this session sits at, and with ProjectFirst
+	// it is what makes that desk's memory ITS OWN (11 ก.ย.): a project-first
+	// desk that names itself writes its cross-project lines into modes/<Desk>.md
+	// rather than into the assistant's MEMORY.md, and its `where` offers
+	// this-desk | this-project instead of everywhere | this-project.
+	//
+	// The owner's finding that asked for it: the four lines MEMORY.md held on
+	// his machine were all the assistant's — a GPU, a Framer workflow, an OMEN
+	// laptop — and not one was something โต๊ะโค้ด had ever used, yet every
+	// coding session paid for them, and anything coding learned that was true
+	// across repositories had nowhere of its own to go (§184 closed the desk
+	// scope to writes because no model ever chose it; it was never offered as
+	// the default). USER.md stays the one file every desk shares, because who
+	// somebody is does not change with the room.
+	//
+	// Empty for the assistant, the CLI and every delegate, all of which keep
+	// the shared file as their destination exactly as before.
+	Desk string
+}
+
+// ownMemory reports whether this session's cross-project destination is the
+// desk's own file rather than the assistant's shared one — see Desk.
+func (t *MemoryTool) ownMemory() bool {
+	return t.ProjectFirst && strings.TrimSpace(t.Desk) != ""
 }
 
 func (*MemoryTool) Name() string { return "memory" }
@@ -118,10 +142,14 @@ func (t *MemoryTool) forWorker() bool {
 }
 
 // Destinations the `where` parameter can name, in the order they are offered.
-// There is no desk destination: which file an unqualified line lands in is the
-// desk's own architecture (ProjectFirst), not a choice the model is offered.
+// Which file an unqualified line lands in is the desk's own architecture
+// (ProjectFirst), not a choice the model is offered; `this-desk` is offered
+// only at a desk that keeps its own memory (Desk), where it is that desk's
+// cross-project file and `everywhere` — the assistant's file — is not on the
+// menu at all, because that desk no longer reads it.
 const (
 	whereEverywhere = "everywhere"
+	whereDesk       = "this-desk"
 	whereProject    = "this-project"
 )
 
@@ -143,6 +171,9 @@ const (
 
 func (t *MemoryTool) whereOptions() []string {
 	out := []string{whereEverywhere}
+	if t.ownMemory() {
+		out = []string{whereDesk}
+	}
 	if t.Project != "" {
 		out = append(out, whereProject)
 	}
@@ -161,8 +192,16 @@ func (t *MemoryTool) whereDescription() string {
 	// offer a destination that the same call has already overruled.
 	everywhere := "Only read when about is machine. everywhere for a fact that is true of this computer " +
 		"whatever you are working on."
+	if t.ownMemory() {
+		// This desk's own file: what its work taught that holds in every
+		// repository, and that the assistant desk never pays for.
+		everywhere = "Only read when about is machine. this-desk for something this kind of work taught you " +
+			"that holds in every project — a tool this machine lacks, a convention you follow wherever " +
+			"you write code. Only sessions at this desk read it."
+	}
 	if !projectFirst {
 		everywhere = strings.Replace(everywhere, "everywhere ", "everywhere (default) ", 1)
+		everywhere = strings.Replace(everywhere, "this-desk ", "this-desk (default) ", 1)
 	}
 	b.WriteString(everywhere)
 	if t.Project != "" {
@@ -371,6 +410,11 @@ func (t *MemoryTool) ExecuteTool(_ context.Context, args map[string]any) (skill.
 	// scope that was the only one before this parameter existed. An invented
 	// word is an unsaid word: it means the desk's default, never nowhere.
 	scope := t.Scope
+	if t.ownMemory() {
+		// A desk with its own memory never lands a line in the assistant's
+		// file: unfocused, its cross-project file is the floor.
+		scope = ModeScope(t.Desk)
+	}
 	if t.ProjectFirst && t.Project != "" {
 		scope = ProjectScope(t.Project)
 	}
@@ -397,8 +441,17 @@ func (t *MemoryTool) ExecuteTool(_ context.Context, args map[string]any) (skill.
 			scope = UserScope
 		case aboutMachine:
 			switch strings.TrimSpace(stringArg(args, "where")) {
-			case whereEverywhere:
+			case whereEverywhere, whereDesk:
+				// The cross-project destination, whichever word this desk was
+				// offered for it. A word the desk was NOT offered still means
+				// its cross-project file — `everywhere` at โต๊ะโค้ด is the
+				// desk's own file, never the assistant's, because that desk
+				// does not read the assistant's and a line sent there would be
+				// a line nobody reads.
 				scope = t.Scope
+				if t.ownMemory() {
+					scope = ModeScope(t.Desk)
+				}
 			case whereProject:
 				if t.Project != "" {
 					scope = ProjectScope(t.Project)

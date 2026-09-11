@@ -481,3 +481,41 @@ func TestARestatementOfAWaitingFactIsTheSameCard(t *testing.T) {
 		t.Errorf("want one card, got %d", n)
 	}
 }
+
+// "เก็บที่อื่น" (11 ก.ย.): the person approving decides where a line goes as
+// well as whether it is true. The row records the scope it landed in, so the
+// history says where the line went rather than where it was aimed; and only a
+// new line can be redirected — a replace names a line in one file.
+func TestAnApprovalCanLandSomewhereElse(t *testing.T) {
+	a := newJobApp(t)
+	if _, err := a.proposeLearned(proposal(learned.MainScope, learned.OpAdd, "", "ผู้ใช้ชอบให้ถามก่อนลงมือ")); err != nil {
+		t.Fatalf("propose: %v", err)
+	}
+	id := a.ListPendingChanges()[0].ID
+	if err := a.ApprovePendingChangeTo(id, learned.UserScope); err != nil {
+		t.Fatalf("approve elsewhere: %v", err)
+	}
+	if learned.Read(learned.MainScope) != "" {
+		t.Error("the line still landed where it was aimed")
+	}
+	if !strings.Contains(learned.Read(learned.UserScope), "ถามก่อน") {
+		t.Error("the line never reached the scope the user chose")
+	}
+	if got := a.PendingChangeByID(id); got.Scope != learned.UserScope || got.State != "approved" {
+		t.Errorf("the record says scope %q state %q; want the chosen scope, approved", got.Scope, got.State)
+	}
+
+	if err := learned.Apply(learned.MainScope, learned.OpAdd, "", "เครื่องนี้ไม่มี Excel"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.proposeLearned(proposal(learned.MainScope, learned.OpReplace, "เครื่องนี้ไม่มี Excel", "เครื่องนี้มี Excel แล้ว")); err != nil {
+		t.Fatalf("propose: %v", err)
+	}
+	id = a.ListPendingChanges()[0].ID
+	if err := a.ApprovePendingChangeTo(id, learned.UserScope); err == nil {
+		t.Error("a replace was allowed to aim at a file that does not hold the line")
+	}
+	if a.PendingChangeByID(id).State != "pending" {
+		t.Error("a refused redirect decided the proposal")
+	}
+}

@@ -6827,6 +6827,8 @@ Same shape as `whyNoMatch` in `internal/skill/lineendings.go`: a tool holding th
 
 ## 184. Decision — A Desk Is a Memory Architecture, Not a Memory Destination (2026-08-25)
 
+**Amended by §247 (2026-09-11):** a desk with the `memory: project` rule now keeps its own cross-project file (`modes/<desk>.md`) and no longer reads the assistant's `MEMORY.md`; its `where` offers `this-desk | this-project`. The architecture is still the desk's, and the destination it offers is now its own.
+
 Owner: *"ความจำควรอยู่ระดับโหมด ครับ ผู้ช่วย กับโค้ด สถาปัติกรรมความจำต่างกัน"* — and before that, stating what each desk's memory *is*: ผู้ช่วย shares across every session; โค้ด binds to the project, keeping every significant decision and the code patterns that are right there.
 
 ### 184.1 What was measured before anything moved
@@ -8448,3 +8450,31 @@ Twenty cards since §136, twenty waved off, none reported. Ten were the model's 
 **Rejected — flipping the default so only explicitly marked tool faults are raised.** The real bugs are the errors nobody classified — a library's, a runtime's — and a default that hides the unmarked hides them first.
 
 **Status:** `Direct`. [samefact_test.go](../internal/learned/samefact_test.go) pins the store's pairs; [pending_test.go](../desktop/pending_test.go) the refusal in every wording, the scoped approval, the waiting card; [review_test.go](../desktop/review_test.go) that the reviewer is shown the lists and cannot restate past them; [prompt_test.go](../internal/prompt/prompt_test.go) the ledger's position, scopes and silence when empty; [desk_test.go](../desktop/desk_test.go) a refusal reaching the next session's prompt end to end. [summarize_test.go](../desktop/summarize_test.go) pins the caller mark, the recovered refusal, the flaky tool kept, and the wall kept; [migrate_test.go](../desktop/migrate_test.go) the backfill. Replayed against the owner's store: of the five cards in the first screenshot the door alone would have stopped one (the read-only line, 0.62 against its refusal of the day before) and the waiting *"ภาษาไทยในการสนทนา"* (0.80 against its refusal); the GitHub handle and the document-desk path score under 0.5 against the lines they restate, and are what the reviewer now reads in USER.md and the refused list. The door catches spelling; the lists catch meaning; neither alone was enough. The `search` card would not have been raised.
+
+---
+
+## 247. Decision — USER.md Stays One File, MEMORY.md Splits by Desk, and Every Label Says Who Reads It (2026-09-11)
+
+Owner, with a screenshot of the learning page: *"ตอนนี้มันจำยังไงครับ มันควรจะแยก ความจำของ เอเจนเขียนโค้ดกับ ผู้ช่วยนะ มันปนกันไหมและมีการแยกชัดไหม UI งงไหม"* — and after a mock-up: *"ควรจะแยก USER.md ไม่แยก แต่ MEMORY.md ควรแยก และ UI ควรชัดเจน"*.
+
+### 247.1 What the files said
+
+Read from `%APPDATA%\aetox\memory` before anything moved. `MEMORY.md`, the shared file every desk folded: four lines — a GPU, a GitHub handle, a Framer-cloning workflow, an OMEN laptop. **Every one the assistant's; not one that โต๊ะโค้ด had used**, and every coding session was billed for them on every request. `projects/Aetox-717110eb.md`: two lines, both decisions in this repository — the project axis was clean. `modes/coding.md`: did not exist, because §184 had closed the desk scope to writes (no model ever chose it) while leaving it readable. So what coding learned that held across repositories — "gofmt flips CRLF here", "this machine has no Excel" — had exactly two homes: one project's file, where it was false elsewhere, or the assistant's, where the assistant paid for it. `USER.md` at 3,464 of 4,096 bytes with two lines saying the same thing, and nothing on the page saying how full it was: when it fills, the tool refuses and the session review skips with a debug line — a ceiling nobody could see.
+
+The page itself said *which file* a line was in — "ผู้ช่วยหลัก", "โปรเจกต์ Aetox" — and never *who would read it*, which is the decision an approval makes: a line in the profile costs every request the app sends, a line in a project file costs nothing outside that folder. The review list still printed the store's own `add` between two Thai words.
+
+### 247.2 What moved
+
+**The profile does not split.** Owner's call, and the right one: who somebody is does not change with the room. Every desk, every chair, every worker still reads `USER.md`, at the same 4 KB.
+
+**The shared file becomes the assistant's.** A desk with the `memory: project` rule (โต๊ะโค้ด) now has its own memory in both directions — `prompt.Desk.OwnMemory` stops it folding `MEMORY.md`, and `learned.MemoryTool.Desk` gives its cross-project lines `modes/coding.md` as their floor. Its `where` offers `this-desk | this-project` (project first, as §184 settled); `everywhere` is not on its menu, and a model that says it anyway lands in the desk's file, never the assistant's — a line sent to a file this desk does not read is a line nobody reads. One reading of one manifest rule (`bootstrap.deskFor`, `desktop/app.go`) decides both halves, so the desk that writes its own file is the desk that stops reading the other. The CLI, the assistant desk and every delegate keep the shared file exactly as before. §184's "no desk destination" is amended, not reversed: the desk is still the architecture, and the destination it now offers is its own.
+
+**Price, stated:** a machine fact both desks need no longer crosses on its own. The move menu is the road, and the four lines measured say the road is rarely needed.
+
+**Every label says who reads it.** `memoryScope.ts` answers `{label, audience, tone, icon, file}` for a scope, and every surface draws from it — the review list, the card under the answer, the file headings, the move menu — in one tone per audience (the profile in the theme's violet, the assistant in the accent, a desk and its projects in the theme's amber), with the desk's own icon from the nav rather than an emoji (owner: *"ไม่เอาไอค่อนแบบนี้ เอา มาตรฐานเดียวกับ UI เรา"*). The page is one block per desk, projects nested under the desk whose sessions write them (`MemoryScopeInfo.ProjectsUnder`), each with its meter (`Bytes`/`MaxBytes`, and the tool's own `Full` answer, because the header counts against the ceiling and a ratio alone reads 95% as room). Files a session can write are listed even while empty, so a room is drawn before anything is in it. The verb replaces the raw op.
+
+**"เก็บที่อื่น".** `ApprovePendingChangeTo(id, scope)`: the person approving decides where a line goes as well as whether it is true. Before this the only way to correct a destination was to refuse the line and hope the right desk proposed it again. New lines only — a replace names a line that lives in one file — and the row records the scope it landed in, so the history says where the line went rather than where it was aimed.
+
+**Rejected — keeping the shared file readable at every desk and only splitting the write side.** Safer, and it would have kept the whole bill; the measurement was of the reading cost, and a split that does not move it is a rename.
+
+**Status:** `Direct`. [tool_test.go](../internal/learned/tool_test.go) pins a desk with its own memory never writing the assistant's file and offering the right words; [prompt_test.go](../internal/prompt/prompt_test.go) that such a desk folds profile, desk and project and not the shared file, and asks the ledger for exactly those; [desk_test.go](../desktop/desk_test.go) the boundary end to end from a booted coding desk; [pending_test.go](../desktop/pending_test.go) an approval landing elsewhere and a replace refused; [memoryScope.test.ts](../desktop/frontend/src/test/memoryScope.test.ts), [learningReview.test.ts](../desktop/frontend/src/test/learningReview.test.ts) and [memoryCard.test.ts](../desktop/frontend/src/test/memoryCard.test.ts) the audience on every surface, the meter, the menu, and the raw op gone.
