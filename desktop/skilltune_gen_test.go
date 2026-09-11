@@ -11,11 +11,13 @@ type fakeDrafter struct {
 	op, before, body, reason string
 	calls                    int
 	sawEvidence              string
+	sawRefused               string
 }
 
-func (f *fakeDrafter) Draft(_ context.Context, _, _, evidence string) (string, string, string, string, error) {
+func (f *fakeDrafter) Draft(_ context.Context, _, _, evidence, refused string) (string, string, string, string, error) {
 	f.calls++
 	f.sawEvidence = evidence
+	f.sawRefused = refused
 	return f.op, f.before, f.body, f.reason, nil
 }
 
@@ -108,5 +110,77 @@ func TestGeneratorQueuesNothingWhenTheDrafterDeclines(t *testing.T) {
 	a.generateSkillRefinements(context.Background(), &fakeDrafter{op: "add", body: ""})
 	if rows := pendingByKind(t, a, kindSkill); len(rows) != 0 {
 		t.Fatalf("an empty draft was queued anyway: %+v", rows)
+	}
+}
+
+// The memory queue's finding, on this queue (DECISIONS §246): a refused edit
+// used to be re-drafted on the very next pass from the same misfires, and a
+// model asked twice answers in different words — so the user's no bought one
+// pass of quiet and then a new card. A no stands until a bad rating arrives
+// that is newer than it; and when one does, the drafter is shown what was
+// refused, and the door refuses a restatement of it anyway.
+func TestARefusedSkillEditIsNotRedraftedUntilSomethingNewHappens(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("HOME", home)
+	a := newJobApp(t)
+	for i := int64(1); i <= 3; i++ {
+		skillJob(t, a, i, "aetox-slides", outcomeBad)
+	}
+	db, err := a.database()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Rated yesterday, refused today.
+	if _, err := db.Exec(`UPDATE jobs SET time = '2026-09-10T09:00:00+07:00'`); err != nil {
+		t.Fatal(err)
+	}
+	f := &fakeDrafter{op: "add", body: "เปิดอ่านเทมเพลตก่อนสร้างสไลด์ทุกครั้ง แล้วยึดสีจากเทมเพลตนั้น", reason: "โดน 👎"}
+	a.generateSkillRefinements(context.Background(), f)
+	rows := pendingByKind(t, a, kindSkill)
+	if len(rows) != 1 {
+		t.Fatalf("want one proposal, got %d", len(rows))
+	}
+	var id int64
+	if err := db.QueryRow(`SELECT id FROM pending_changes WHERE kind = ? AND state = ?`, kindSkill, statePending).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.RejectPendingChange(id); err != nil {
+		t.Fatalf("reject: %v", err)
+	}
+
+	// Same misfires, next pass: no model call, no card.
+	f.body = "ก่อนสร้างสไลด์ ให้เปิดอ่านเทมเพลตก่อนทุกครั้ง และใช้สีของเทมเพลตนั้น"
+	a.generateSkillRefinements(context.Background(), f)
+	if f.calls != 1 {
+		t.Errorf("the drafter was called %d times; a refusal with nothing new since must not be re-drafted", f.calls)
+	}
+	if rows := pendingByKind(t, a, kindSkill); len(rows) != 0 {
+		t.Fatalf("a refused edit came back: %+v", rows)
+	}
+
+	// A new bad rating, rated after the refusal: the question is open again —
+	// the drafter is called, shown the refusal, and its restatement of the
+	// refused edit stops at the door.
+	skillJob(t, a, 4, "aetox-slides", outcomeBad)
+	if _, err := db.Exec(`UPDATE jobs SET time = '2099-01-01T00:00:00+07:00' WHERE message_id = 4`); err != nil {
+		t.Fatal(err)
+	}
+	a.generateSkillRefinements(context.Background(), f)
+	if f.calls != 2 {
+		t.Errorf("the drafter was called %d times; new evidence must reopen the question", f.calls)
+	}
+	if !strings.Contains(f.sawRefused, "เปิดอ่านเทมเพลตก่อนสร้างสไลด์ทุกครั้ง") {
+		t.Errorf("the drafter was not shown the refused edit: %q", f.sawRefused)
+	}
+	if rows := pendingByKind(t, a, kindSkill); len(rows) != 0 {
+		t.Fatalf("a restatement of the refused edit was queued: %+v", rows)
+	}
+
+	// A genuinely different edit goes through.
+	f.body = "ถ้าผู้ใช้ส่งโลโก้มา ให้วางไว้มุมขวาล่างของทุกสไลด์"
+	a.generateSkillRefinements(context.Background(), f)
+	if rows := pendingByKind(t, a, kindSkill); len(rows) != 1 {
+		t.Fatalf("a different edit should be queued, got %d rows", len(rows))
 	}
 }
