@@ -221,6 +221,13 @@ export const SearchSessionsForDoor = arr()
 export const HistoryFault = vi.fn(async (..._args: any[]) => ({
   failed: false, tooNew: false, have: 0, known: 0, message: '',
 }))
+// One chat's own produced files (artifacts.go, ListArtifactsForSession). The
+// session artifacts pane asks for this rather than for every artifact on the
+// machine and filtering by hand: an empty page is the honest default for a chat
+// that has produced nothing.
+export const ListArtifactsForSession = vi.fn(async (_id: string = '') => ({
+  files: [] as any[], range: 'all', total: 0,
+}))
 export const ListPromptPresets = arr()
 export const ListTools = arr()
 export const ListExternalSkills = arr()

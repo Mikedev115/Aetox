@@ -150,6 +150,82 @@ func TestAFileWithAnUnreadableTimeIsStillShown(t *testing.T) {
 	}
 }
 
+// ONE CHAT, AND NOTHING ELSE.
+//
+// The session artifacts pane used to ask ListArtifactsIn(RangeAll) — a walk of
+// the unfocused folder, the open project and every project ever opened, a stat
+// per file, a sort of the lot — and keep the rows whose sessionId matched. The
+// rows it kept were always the ones in that chat's own `output/<id>`, so the
+// question is asked of that folder instead (owner, 11 ก.ย.: *"ทำไมเปิดอยู่ถึงรอ
+// นานและกระตุก ทั้งที่ควรจะแบ่งโหลด"*).
+func TestListArtifactsForSessionAnswersAboutOneChatOnly(t *testing.T) {
+	a := bootGalleryApp(t)
+	mine := writeArtifact(t, a, "20260911-101500.000", "notes.md", time.Minute)
+	// Newer than mine, and in a folder of its own: a sweep that had not been
+	// scoped would put this first (the gallery sorts newest-first) and the pane
+	// would then have to drop it by hand.
+	writeArtifact(t, a, "20260911-113000.000", "someone-elses.md", 0)
+	// Loose in output/ rather than in a session folder: no chat to belong to.
+	loose := filepath.Join(a.cur().cfg.SandboxRoot, "output", "loose.md")
+	if err := os.WriteFile(loose, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	page := a.ListArtifactsForSession("20260911-101500.000")
+	if len(page.Files) != 1 || page.Files[0].Path != mine {
+		t.Fatalf("one chat's files, newest first: got %+v", page.Files)
+	}
+	if page.Total != 1 {
+		t.Errorf("Total must count what was found, got %d", page.Total)
+	}
+	if page.Files[0].SessionID != "20260911-101500.000" {
+		t.Errorf("the row must carry the chat it belongs to, got %q", page.Files[0].SessionID)
+	}
+	// The subfolder machinery is the same walk, so a nested deliverable still
+	// arrives with the folder that groups it.
+	writeArtifact(t, a, "20260911-101500.000", "site/index.html", time.Minute)
+	page = a.ListArtifactsForSession("20260911-101500.000")
+	for _, f := range page.Files {
+		if strings.HasSuffix(f.Path, "index.html") && f.Folder != "site" {
+			t.Errorf("a file in a subfolder must keep it as its folder, got %q", f.Folder)
+		}
+	}
+}
+
+// A chat that produced nothing is an empty page, not an error and not a wider
+// search — and neither is a chat id this install has never seen.
+func TestListArtifactsForSessionAnswersEmptyForNothingProduced(t *testing.T) {
+	a := bootGalleryApp(t)
+	writeArtifact(t, a, "other-chat", "x.md", time.Minute)
+	page := a.ListArtifactsForSession("never-existed")
+	if len(page.Files) != 0 || page.Total != 0 {
+		t.Errorf("expected nothing, got %d file(s)", len(page.Files))
+	}
+	// A missing folder is the ordinary state, so the answer must not be an
+	// error the window would draw as a broken list.
+	if page.Range != RangeAll {
+		t.Errorf("range must say what was actually asked, got %q", page.Range)
+	}
+}
+
+// The binding takes a folder name from the window, so it is checked like one.
+// Every one of these would otherwise resolve somewhere else on the disk: `..`
+// walks out of output/, and a separator or a drive letter names a folder this
+// app never swept.
+func TestASessionIdThatIsNotAFolderNameIsRefused(t *testing.T) {
+	a := bootGalleryApp(t)
+	writeArtifact(t, a, "real-chat", "x.md", time.Minute)
+
+	for _, bad := range []string{
+		"", "   ", ".", "..", "../real-chat", "..\\real-chat",
+		"output/../real-chat", `C:\Windows`, "real-chat/../..", "a:b",
+	} {
+		if page := a.ListArtifactsForSession(bad); len(page.Files) != 0 {
+			t.Errorf("%q must not resolve to a folder, got %d file(s)", bad, len(page.Files))
+		}
+	}
+}
+
 // The old binding keeps working: it is the whole gallery, as it always was.
 func TestListArtifactsStillMeansEverything(t *testing.T) {
 	a := bootGalleryApp(t)

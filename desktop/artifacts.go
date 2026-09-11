@@ -194,6 +194,76 @@ func (a *App) ListArtifactsIn(want string) ArtifactPage {
 	return ArtifactPage{Range: RangeAll, Files: []Artifact{}}
 }
 
+// ListArtifactsForSession returns the produced files of ONE conversation.
+//
+// **The session artifacts pane used to ask ListArtifactsIn(RangeAll) and throw
+// away everything else**, which is a walk of every root this install knows — the
+// unfocused folder, the open project, and every project ever opened — with a
+// stat per file, a sort of the lot, and up to maxArtifacts rows across the
+// binding, to keep the handful of rows that belong to the chat on screen. It is
+// asked again on every message and every plan update, and a tab that is behind
+// another one is still mounted, so it ran whether or not anybody was looking
+// (owner, 11 ก.ย.: *"ทำไมเปิดอยู่ถึงรอนานและกระตุก ทั้งที่ควรจะแบ่งโหลด"*).
+//
+// The rows it keeps are exactly the rows a walk of `<root>/output/<id>` finds.
+// That is not a coincidence and not an assumption: `sessionId` on an Artifact is
+// read off the folder name, and sweepSession is handed the same name — so the
+// filter the window was doing by hand is the folder the sweep should have been
+// pointed at all along. Same question, asked of the one folder that answers it.
+//
+// A session id is a folder name, so it is checked like one. The ids are ours
+// (newSessionID), but this is a binding the window can call with anything, and
+// the check is what keeps `..` from walking out of the output tree.
+func (a *App) ListArtifactsForSession(sessionID string) ArtifactPage {
+	out := ArtifactPage{Range: RangeAll, Files: []Artifact{}}
+	sessionID = strings.TrimSpace(sessionID)
+	if !isSessionFolderName(sessionID) {
+		return out
+	}
+	seen := map[string]bool{}
+	for _, root := range a.artifactRoots() {
+		root = strings.TrimSpace(root)
+		if root == "" || seen[strings.ToLower(root)] {
+			continue
+		}
+		seen[strings.ToLower(root)] = true
+		dir := filepath.Join(root, outputDir, sessionID)
+		// A missing folder is the ordinary state — most chats produce nothing —
+		// and reads as no artifacts rather than as an error (sweepArtifacts).
+		if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+			continue
+		}
+		out.Files = append(out.Files, sweepSession(dir, sessionID, root)...)
+	}
+	sort.Slice(out.Files, func(i, j int) bool { return out.Files[i].Modified > out.Files[j].Modified })
+	out.Total = len(out.Files)
+	if len(out.Files) > maxArtifacts {
+		// The same safety valve ListArtifactsIn applies, and Total keeps the
+		// true number for the same reason: a page that shortens itself and says
+		// nothing reads as a page that had nothing to show.
+		out.Files = out.Files[:maxArtifacts]
+	}
+	return out
+}
+
+// isSessionFolderName reports whether s may be used as one folder name under a
+// root's output/.
+//
+// Session ids are timestamps this app made (`20260911-171406.852`), so every
+// rule here is about the one that is not: a value that could reach a different
+// folder, or a different drive. Windows refuses the punctuation too, which is
+// the other half of the same answer — a name that cannot be a folder cannot be
+// one the sweep should look in.
+func isSessionFolderName(s string) bool {
+	if s == "" || s == "." || s == ".." {
+		return false
+	}
+	if strings.ContainsAny(s, `/\`) || strings.ContainsAny(s, `:*?"<>|`) {
+		return false
+	}
+	return true
+}
+
 // widenFrom is the fall-through order for a range that turns out to be empty.
 // An unknown name starts at the week, which is what a fresh window asks for.
 func widenFrom(want string) []string {
