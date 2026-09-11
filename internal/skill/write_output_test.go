@@ -152,3 +152,38 @@ func TestPlacedFallbackPrefersTheLiteralPath(t *testing.T) {
 		t.Errorf("neither exists: got %q, want the original path", got)
 	}
 }
+
+// A DOCUMENT THE CHAT HANDS OVER IS AN ARTIFACT; A FILE OF THE PROJECT IS NOT.
+//
+// `write` flags nothing in general — every code edit in a coding turn would
+// otherwise print a card under the answer — and the one case it flags is the
+// one the longform layer creates: writing, landed in the chat's own output
+// folder. That is what the artifacts pane lists under เอกสาร now that it no
+// longer sweeps the folder (owner, 12 ก.ย.: "มันไม่ควรแสดงทุกอย่างดิตรงนี้").
+func TestAWrittenDocumentInTheOutputFolderIsHandedOver(t *testing.T) {
+	root := t.TempDir()
+	subdir := func() string { return "output/s1" }
+	cases := []struct {
+		name   string
+		skill  *writeSkill
+		path   string
+		handed bool
+	}{
+		{"notes in the output folder", &writeSkill{root: root, outputSubdir: subdir}, "findings.md", true},
+		{"the echoed path", &writeSkill{root: root, outputSubdir: subdir}, "output/s1/notes.txt", true},
+		{"code in the output folder", &writeSkill{root: root, outputSubdir: subdir}, "helper.py", false},
+		{"a page in the output folder", &writeSkill{root: root, outputSubdir: subdir}, "index.html", false},
+		{"a README of the project", &writeSkill{root: root, outputSubdir: func() string { return "" }}, "docs/README.md", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			out, err := c.skill.ExecuteTool(context.Background(), map[string]any{"path": c.path, "content": "x"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := len(out.Artifacts) > 0; got != c.handed {
+				t.Errorf("Artifacts = %v, want handed over = %v", out.Artifacts, c.handed)
+			}
+		})
+	}
+}

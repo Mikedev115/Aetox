@@ -475,6 +475,16 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 				"steps":    []any{"prove the tool runs"},
 			})
 		}},
+		// `report` needs a plan to report on, for the same reason `step` does.
+		"plan_report": {args: map[string]any{"action": "report", "sections": []any{
+			map[string]any{"heading": "What was done", "body": "proved the tool runs"},
+		}}, setUp: func(_ *testing.T, app *App) {
+			_, _ = (&planSkill{app: app, conv: app.cur()}).run(map[string]any{
+				"action":   "write",
+				"sections": []any{map[string]any{"heading": "What to change", "body": "see the steps"}},
+				"steps":    []any{"prove the tool runs"},
+			})
+		}},
 		// Progressive skill loading: a fixture skill is installed into the
 		// (isolated) discovery dir by writeCoverageSkill, so the list has one
 		// real entry and the view has a real body to return.

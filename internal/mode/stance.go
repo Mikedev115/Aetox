@@ -187,6 +187,10 @@ var planKeeps = map[string]bool{
 	// this mode is built to make impossible. It belongs to ลงมือ, where the
 	// work is, and reaches it without a line anywhere because a stance
 	// subtracts and ลงมือ subtracts nothing.
+	//
+	// `plan_report` is absent for the same reason, one step later: a closing
+	// report says what was done and how it was checked, and a stance that did
+	// nothing has nothing true to put under either heading.
 	"skills_list": true, "skill_view": true, "session_search": true,
 	// The desk, whole. It is the one pack วางแผน can carry entire, and for a
 	// reason worth stating rather than discovering: every action in it only
@@ -264,6 +268,64 @@ func PlanHeadings() []string {
 		out = append(out, s.Heading)
 	}
 	return out
+}
+
+// reportShape is the headings a closing report comes back under — the plan's
+// "after", written when the steps are settled (desktop/plan.go `report`).
+//
+// It lives beside planShape because the two are one document read at two
+// moments: the plan says what will be done and how anyone will know, the report
+// says what was done and how it was checked. Antigravity keeps the same pair
+// (implementation_plan.md / walkthrough.md — docs/antigravity-study) and the
+// half we had been missing was the walkthrough: a run's closing words were
+// prose in the last message, unstored, and the pane that lists what a chat
+// produced had nothing to list for the work itself.
+//
+// Three headings, not more. The second is the one that earns its place: it
+// asks for the check to be split into what a machine ran and what the user
+// still has to look at with their own eyes — which, on a UI change, is most of
+// what is left to do.
+var reportShape = []struct{ Heading, Under string }{
+	{
+		"What was done",
+		"what changed, as a list — each entry naming the actual thing it touched, a file or a setting " +
+			"or a page, so it can be found again. Not a retelling of the steps.",
+	},
+	{
+		"How it was checked",
+		"two parts. What was RUN and what came back — the command, the number, the screen. Then what " +
+			"the user has to check themselves, because no test here can: a page to open, a thing to " +
+			"press, a look to take.",
+	},
+	{
+		"What is left",
+		"what this run did not settle: a step marked failed and why, a question that only the user " +
+			"can answer, a thing noticed on the way that is not this plan's business. Empty is a " +
+			"real answer — say so.",
+	},
+}
+
+// ReportHeadings reports the closing report's headings in order, a copy, for
+// the reason PlanHeadings hands back one.
+func ReportHeadings() []string {
+	out := make([]string, 0, len(reportShape))
+	for _, s := range reportShape {
+		out = append(out, s.Heading)
+	}
+	return out
+}
+
+// ReportShapeBlock renders the report's shape the way the plan's is rendered
+// for the prompt. Exported because the caller that states it is the `plan`
+// tool's guidance (desktop/plan.go), sent once with the first result of a run
+// rather than on every request — a report is written once per run, and the
+// stance direction is paid for on every turn.
+func ReportShapeBlock() string {
+	var b strings.Builder
+	for _, s := range reportShape {
+		b.WriteString("**" + s.Heading + "** — " + s.Under + "\n")
+	}
+	return b.String()
 }
 
 // planShapeBlock renders the shape as the prompt states it. Built from

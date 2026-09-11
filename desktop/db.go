@@ -808,6 +808,38 @@ CREATE TABLE IF NOT EXISTS project_folders (
 			return err
 		},
 	},
+	{
+		version: 24,
+		name:    "plan_reports",
+		apply: func(tx *sql.Tx) error {
+			// The plan's "after" (plan_report.go). One row per ROUND of a
+			// conversation's plan rather than one per plan, because a plan is
+			// carried out in rounds — paused at a breakpoint, resumed, stopped
+			// and run again — and each round is work somebody walked away from
+			// and needs told about. The words are JSON under fixed headings
+			// (mode.ReportHeadings), for the reason the plan's sections are;
+			// the numbers beside them are copied off the plan and the run at
+			// the moment of writing, so a report cannot claim a finish the
+			// checklist does not show.
+			_, err := tx.Exec(`
+			  CREATE TABLE IF NOT EXISTS plan_reports (
+			    session_id   TEXT NOT NULL,
+			    run          INTEGER NOT NULL,
+			    plan_version INTEGER NOT NULL DEFAULT 1,
+			    title        TEXT NOT NULL DEFAULT '',
+			    sections     TEXT NOT NULL DEFAULT '[]',
+			    done         INTEGER NOT NULL DEFAULT 0,
+			    failed       INTEGER NOT NULL DEFAULT 0,
+			    total        INTEGER NOT NULL DEFAULT 0,
+			    elapsed_secs INTEGER NOT NULL DEFAULT 0,
+			    sent_back    INTEGER NOT NULL DEFAULT 0,
+			    stopped      TEXT NOT NULL DEFAULT '',
+			    at           TEXT NOT NULL DEFAULT '',
+			    PRIMARY KEY (session_id, run)
+			  )`)
+			return err
+		},
+	},
 }
 
 // latestSchemaVersion is what this build understands.

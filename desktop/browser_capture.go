@@ -317,7 +317,12 @@ func (s *browserCaptureSkill) capture(ctx context.Context, full, marks bool) (sk
 
 	out.Success = true
 	out.DurationMs = time.Since(start).Milliseconds()
-	out.Artifacts = []string{rel}
+	// Deliberately NOT an artifact. A capture is a step of the work, not a
+	// thing handed to the user — the picture goes to the model (below), the
+	// live page is on the desk, and the file is in output/<session>/work for
+	// ผลงาน to sweep. Flagging it put every screenshot of a browsing session
+	// under the answer and into ชิ้นงาน, where they buried the plan (owner, 12
+	// ก.ย.: "มันไม่ควรแสดงทุกอย่างดิตรงนี้").
 
 	// The picture goes to the model only if the model has eyes. A blind one gets
 	// the path and the tool it has always had for reading letters out of an

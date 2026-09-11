@@ -194,7 +194,27 @@ func (s *deskOpenSkill) open(path string) (skill.Output, error) {
 	out.DurationMs = time.Since(start).Milliseconds()
 	out.Content = deskOpenedLine(path)
 	out.RawOutput = out.Content
+	// Putting a file the chat MADE in front of the user is handing it over —
+	// the deck, the page — and that is what the artifact flag means (skill.
+	// Output.Artifacts). A project file opened for a look is not flagged: the
+	// flag is drawn under the answer and listed under ชิ้นงาน, and both are
+	// about what this chat produced, never about what it showed.
+	if handedOver(s.app.outputSubdirOf(s.conv), path) {
+		out.Artifacts = []string{path}
+	}
 	return out, nil
+}
+
+// handedOver reports whether a path names a file in this chat's own output
+// folder — the one place a file the chat opened for the user cannot be the
+// project's own. The same line internal/skill.handedDocument draws for a
+// written document, asked here of a file put on the desk.
+func handedOver(outputSubdir, relPath string) bool {
+	subdir := strings.TrimSpace(outputSubdir)
+	if subdir == "" {
+		return false
+	}
+	return strings.HasPrefix(filepath.ToSlash(relPath), subdir+"/")
 }
 
 // deskOpenedLine is written once, here, so the round-trip test asserts the real

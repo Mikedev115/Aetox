@@ -195,12 +195,17 @@ func (s *planSkill) ToolDefinition() model.ToolDefinition {
 	b.WriteString("`amend` (sections, note?, steps?) — update an existing plan. Change only the sections/steps you name. Everything else stands, so do not re-send it.\n")
 	b.WriteString("`read` — the plan as it stands now.\n")
 	b.WriteString("`step` (n, state: doing|done|failed, note?) — mark one step as you carry it out.\n")
-	b.WriteString("Headings, in this order: " + strings.Join(headings, " / ") + "\n")
+	b.WriteString("`report` (sections) — the closing report, once the steps are settled. One per run.\n")
+	b.WriteString("Plan headings, in this order: " + strings.Join(headings, " / ") + "\n")
+	b.WriteString("Report headings: " + strings.Join(mode.ReportHeadings(), " / ") + "\n")
 
 	section := map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"heading": map[string]any{"type": "string", "enum": headings},
+			// Both shapes' headings, because `sections` is one parameter
+			// carrying either a plan or a report; the action says which, and
+			// each parser folds onto its own list.
+			"heading": map[string]any{"type": "string", "enum": append(slices.Clone(headings), mode.ReportHeadings()...)},
 			"body":    map[string]any{"type": "string", "description": "Markdown. Steps as a numbered list, so a later amend can name one."},
 		},
 		"required":             []string{"heading", "body"},
@@ -209,7 +214,7 @@ func (s *planSkill) ToolDefinition() model.ToolDefinition {
 	return toolDef("plan", b.String(), map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"action": map[string]any{"type": "string", "enum": []string{"write", "amend", "read", "step"}},
+			"action": map[string]any{"type": "string", "enum": []string{"write", "amend", "read", "step", "report"}},
 			"steps": map[string]any{
 				"type":        "array",
 				"description": "the plan's checklist, in order. One thing to carry out per entry.",
@@ -298,6 +303,17 @@ func (s *planSkill) Guidance(args map[string]any) string {
 	case "read":
 		return "The marks come back with it, so this is how a later turn — or a later stance — finds out " +
 			"where the work got to rather than starting from what it remembers."
+	case "report":
+		// The shape is stated here and not in the stance direction, because a
+		// report is written once per run and the direction is paid for on every
+		// turn — the same arithmetic that put the run instructions under `write`.
+		return "The report is the plan's after, and the user reads it instead of your answer — so it " +
+			"carries what the answer would have. Under each heading:\n" + mode.ReportShapeBlock() +
+			"Name files and settings so they can be found again; the card links them. Numbers over " +
+			"adjectives: what a test printed, not that it passed. Keep it to what this run did — the " +
+			"plan already says what was meant.\n" +
+			"Once it is written, the answer is one line: the work is done, the report is under ชิ้นงาน. " +
+			"Restating the report there is paying for it twice."
 	}
 	return ""
 }
@@ -328,8 +344,10 @@ func (s *planSkill) run(args map[string]any) (skill.Output, error) {
 		return s.save(start, action, args)
 	case "step":
 		return s.step(start, args)
+	case "report":
+		return s.report(start, args)
 	}
-	return planFail(fmt.Errorf("plan %s is not an action — use write, amend or read", action))
+	return planFail(fmt.Errorf("plan %s is not an action — use write, amend, read, step or report", action))
 }
 
 func (s *planSkill) sessionID() string {

@@ -1142,6 +1142,10 @@ export function SessionPlan(arg1) {
   return window['go']['main']['App']['SessionPlan'](arg1);
 }
 
+export function SessionPlanReports(arg1) {
+  return window['go']['main']['App']['SessionPlanReports'](arg1);
+}
+
 export function SessionReviewAuto() {
   return window['go']['main']['App']['SessionReviewAuto']();
 }

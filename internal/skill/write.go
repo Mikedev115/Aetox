@@ -266,6 +266,15 @@ func (s *writeSkill) Execute(ctx context.Context, input Input) (Output, error) {
 	}
 	out := newToolOutput("write", "write "+requestPath, output, start, false, nil)
 	out.LinesAdded, out.LinesRemoved = LineDelta(string(previous), content)
+	// A document the chat is handing over is an artifact; a file of the project
+	// is not (see handedDocument). This is the one case `write` flags, and it
+	// is the case the longform layer creates: an explanation, notes, findings,
+	// written to a .md in the chat's own output folder. Before this the answer
+	// pointed at a file the user had to go and find — and ชิ้นงาน, which lists
+	// only what a turn flagged, could not list the one thing the turn was for.
+	if handedDocument(s.outputSubdir, requestPath) {
+		out.Artifacts = []string{requestPath}
+	}
 	// A whole-file write of a file that already existed is usually a small
 	// change wearing a large tool — the prompt sends `write` here for
 	// "replacing nearly all of it", and "nearly" is doing the work. The hunks
@@ -310,4 +319,30 @@ func ensureWriteDir(targetPath string) error {
 		return err
 	}
 	return os.MkdirAll(dir, 0o755)
+}
+
+// handedDocument reports whether a freshly written file is one the chat is
+// handing to the user rather than a file of the project: a document by
+// extension, landed in this chat's own output folder.
+//
+// Both halves are needed. `write` deliberately flags nothing in general —
+// every code edit in a coding turn would otherwise print a card — and the
+// output folder is the one place a written file cannot be the project's own.
+// A .md in the project (a README, a note in docs/) is the project's work and
+// stays unflagged, which is the line the artifacts pane draws too.
+func handedDocument(outputSubdir func() string, placedPath string) bool {
+	switch strings.ToLower(filepath.Ext(placedPath)) {
+	case ".md", ".markdown", ".txt":
+	default:
+		return false
+	}
+	if outputSubdir == nil {
+		return false
+	}
+	subdir := strings.TrimSpace(outputSubdir())
+	if subdir == "" {
+		return false
+	}
+	clean := filepath.ToSlash(placedPath)
+	return strings.HasPrefix(clean, subdir+"/")
 }

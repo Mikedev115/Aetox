@@ -81,6 +81,15 @@ type goalRun struct {
 	// startedAt is RFC3339, for the bar to count up from. The window keeps the
 	// clock; pushing one from here would be an event stream that says nothing.
 	startedAt string
+	// reported records that this ROUND has its closing report (plan_report.go)
+	// — set by `plan report`, read by gate three, and cleared when a paused run
+	// is resumed, because ไปต่อ starts a new round and a new round owes a
+	// report of its own. reportAsked is the once-per-hold companion for a
+	// paused run: a hold asks for a short report once and then lets the turn
+	// end whether or not one was written, since holding is not a place to
+	// argue from.
+	reported    bool
+	reportAsked bool
 	// paused is why the run is holding, and "" when it is not.
 	//
 	// **Pausing is not stopping, and the difference is where it takes effect.**
@@ -169,6 +178,18 @@ func (a *App) goalCheck(sessionID string) func(string) string {
 		// the turn end is the entire mechanism: what was in flight finished, and
 		// the run sits on the card until ไปต่อ.
 		if run.paused != "" {
+			// A held run still owes the person who walked away a note — what
+			// got done before it stopped — and this is the one moment it can
+			// be asked for: the model has finished what it was doing and has
+			// not yet been let go. Asked ONCE (reportAsked) so a hold cannot
+			// become a loop; a report that does not come is a shorter card,
+			// not a stuck run.
+			if !run.reported && !run.reportAsked {
+				run.reportAsked = true
+				run.sentBack++
+				a.emitPlan(sessionID, *plan)
+				return reportVerdict(run.paused)
+			}
 			a.emitPlan(sessionID, *plan)
 			return ""
 		}
@@ -186,6 +207,16 @@ func (a *App) goalCheck(sessionID string) func(string) string {
 			// done unattended.
 			if left[0].Stop {
 				run.paused = fmt.Sprintf("รอก่อนทำข้อ %d", left[0].N)
+				// The hold's report is asked for HERE and not on the next
+				// check, because there is no next check: returning "" ends the
+				// turn, and the paused branch above only runs when a later
+				// turn ends. Same once-only rule as there.
+				if !run.reported && !run.reportAsked {
+					run.reportAsked = true
+					run.sentBack++
+					a.emitPlan(sessionID, *plan)
+					return reportVerdict(run.paused)
+				}
 				a.emitPlan(sessionID, *plan)
 				return ""
 			}
@@ -208,12 +239,42 @@ func (a *App) goalCheck(sessionID string) func(string) string {
 			}
 		}
 
+		// GATE THREE, the report. Mechanical like gate one — a row exists or it
+		// does not — and repeated for the same reason: the steps and the finish
+		// are settled, and the one thing standing between this run and the
+		// person who will read about it is a report that has not been written.
+		if !run.reported {
+			run.sentBack++
+			a.emitPlan(sessionID, *plan)
+			return reportVerdict("")
+		}
+
 		// Done. The run ends with the turn, so the card stops saying it is
 		// working without the window having to ask.
 		a.goalRunSet().stop(sessionID)
 		a.emitPlan(sessionID, *plan)
 		return ""
 	}
+}
+
+// reportVerdict is what a run that has not written its report is told.
+//
+// Short, for the reason unfinishedVerdict is short — it is re-sent with every
+// later round of this turn. The SHAPE of the report is not here: it rides with
+// the first `plan report` result as guidance (plan.go), which is paid for once.
+// held is the pause reason when the run is holding rather than finished, and
+// changes what the report is for: not "the work is done" but "this is where it
+// got to".
+func reportVerdict(held string) string {
+	if held != "" {
+		return "The run is holding (" + held + "). Before this turn ends, write a short closing report " +
+			"for this round with `plan` (action: report): what was done so far, how it was checked, and " +
+			"what is left. Then stop — do not carry on with the next step."
+	}
+	return "Every step is settled and the finish condition is answered. One thing remains before this " +
+		"turn ends: the closing report, with `plan` (action: report) — what was done, how it was " +
+		"checked, what is left. The user reads that instead of your answer, so write it there and " +
+		"keep the answer to a line."
 }
 
 // unfinishedVerdict is what a run that is not done is told.
@@ -392,6 +453,9 @@ func (a *App) ResumePlanRun(sessionID string) {
 		return
 	}
 	run.paused = ""
+	// ไปต่อ is a new round, and a new round owes a report of its own — the one
+	// written at the hold said where the work got to, not where it ended.
+	run.reported, run.reportAsked = false, false
 	plan, err := a.loadPlan(sessionID)
 	if err != nil || plan == nil {
 		return
