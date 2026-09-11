@@ -56,8 +56,10 @@ type browserSkill struct {
 	// Whose conversation this pack speaks for. Every desk event the pack
 	// raises is stamped with it, so a background chat's page lands on that
 	// chat's own desk instead of whichever one is on screen (§187, closed for
-	// the browser 1 ก.ย.). nil only where tests build the pack bare.
-	conv *conversation
+	// the browser 1 ก.ย.). nil only where tests build the pack bare. A
+	// Session rather than the conversation itself: the pack is the window's
+	// (screen.go) and needs nothing of a chat but its id.
+	session Session
 	// actions this caller may use, nil for all of them. Set only by Narrow.
 	actions []string
 }
@@ -65,10 +67,10 @@ type browserSkill struct {
 // owner is the session id the pack's desk events carry — "" when no
 // conversation is attached, which the window draws live (§187.2).
 func (s *browserSkill) owner() string {
-	if s.conv == nil {
+	if s.session == nil {
 		return ""
 	}
-	return s.conv.id
+	return s.session.ID()
 }
 
 func (s *browserSkill) allowedActions() []string {

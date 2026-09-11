@@ -36,8 +36,10 @@ import (
 const computerToolName = "computer"
 
 type computerSkill struct {
-	app     *App
-	conv    *conversation
+	app *App
+	// session is whose chat is driving — a Session, not the conversation,
+	// for the reason browserSkill gives: the pack is the window's.
+	session Session
 	actions []string
 	// refs is a POINTER, and go vet is the reason it had to become one: Narrow
 	// copies this struct, and a copy of a struct holding a sync.Mutex copies the
@@ -52,8 +54,8 @@ type computerSkill struct {
 // nil. A nil one would not panic — the methods would work on a zero value — it
 // would silently give every narrowed copy its own empty table, which is the
 // bug that is hardest to see: refs that vanish for no reason a user could name.
-func newComputerSkill(a *App, conv *conversation) *computerSkill {
-	return &computerSkill{app: a, conv: conv, refs: &reachRefs{}}
+func newComputerSkill(a *App, sess Session) *computerSkill {
+	return &computerSkill{app: a, session: sess, refs: &reachRefs{}}
 }
 
 func (*computerSkill) Name() string { return computerToolName }
@@ -483,11 +485,11 @@ func failure(name, cmd string, err error, start time.Time) skill.Output {
 //     person who sees their cursor move and reads about it afterwards has
 //     already had the fright.
 func (s *computerSkill) takeTheScreen(t reachTarget, doing string) error {
-	if err := s.app.screen.take(s.sessionID(), doing); err != nil {
+	if err := s.app.driving.take(s.sessionID(), doing); err != nil {
 		return err
 	}
 	if _, _, err := reachCursor(); err != nil {
-		s.app.screen.release(s.sessionID())
+		s.app.driving.release(s.sessionID())
 		return err
 	}
 	// The light around the whole screen, not only the strip inside our own
@@ -509,7 +511,7 @@ func (s *computerSkill) takeTheScreen(t reachTarget, doing string) error {
 // chat and will not give it back until the app restarts.
 func (s *computerSkill) releaseTheScreen() {
 	overlay.hide()
-	s.app.screen.release(s.sessionID())
+	s.app.driving.release(s.sessionID())
 	s.app.emitEvent("computer:driving", sessionEvent[map[string]any]{
 		SessionID: s.sessionID(),
 		Data:      map[string]any{"window": "", "doing": ""},
@@ -539,10 +541,10 @@ func raiseForAction(t reachTarget) string {
 }
 
 func (s *computerSkill) sessionID() string {
-	if s.conv == nil {
+	if s.session == nil {
 		return ""
 	}
-	return s.conv.id
+	return s.session.ID()
 }
 
 func (s *computerSkill) focus(ctx context.Context, start time.Time, cmd, window string) (skill.Output, error) {

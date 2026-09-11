@@ -262,7 +262,12 @@ type App struct {
 	// because the thing it protects is the machine, and there is one of those:
 	// two chats clicking in one window produce a state neither of them
 	// predicted. Held for the length of an acting call, never for a session.
-	screen screenLock
+	driving screenLock
+	// screen is the window as the engine sees it (screen.go): events out,
+	// provider requests signed, window tools lent. Nil is this App itself
+	// (screenOf); a test installs another to prove the engine needs nothing
+	// more of a window than these three calls.
+	screen Screen
 
 	mcp *mcp.Manager // configured MCP servers; built once, shared by every conversation
 
@@ -4798,7 +4803,7 @@ func (a *App) chairProfile() *subagent.Profile {
 // proposal ever made in a project against the previous one — the exact failure
 // the per-project scope exists to prevent (§116). A parameter cannot go stale.
 func (a *App) workbenchSkills(conv *conversation, sandboxRoot string) []skill.Skill {
-	skills := a.everySessionSkills(conv, sandboxRoot)
+	skills := a.sessionSkills(conv, sandboxRoot)
 	// The cutting room's door, and the one conditional tool here. Registered
 	// only where the editor's own server is placed (video_desk.go says why:
 	// the room means nothing without the tools that fill it, and a line every
@@ -4806,12 +4811,13 @@ func (a *App) workbenchSkills(conv *conversation, sandboxRoot string) []skill.Sk
 	if conversationHasEditor(conv) {
 		skills = append(skills, &cuttingRoomSkill{app: a, conv: conv})
 	}
-	// Driving programs on this machine, and the second conditional tool here.
+	// What the window lends (screen.go): the browser, and the machine.
 	//
-	// The switch does not merely refuse the calls, it removes the tool: a
-	// feature that is off is not in the block at all (owner, 9 ก.ย. — "แยก tool
-	// เลยนะ ถ้าไม่เปิด ก็ไม่เอาระบบนี้"). Two reasons, and the second is the
-	// stronger one.
+	// Driving programs on this machine is the second conditional tool here,
+	// and the switch is the engine's, not the window's. It does not merely
+	// refuse the calls, it removes the tool: a feature that is off is not in
+	// the block at all (owner, 9 ก.ย. — "แยก tool เลยนะ ถ้าไม่เปิด ก็ไม่เอาระบบนี้").
+	// Two reasons, and the second is the stronger one.
 	//
 	// The cheap one is the tool block: `computer` is ~280 tokens sent on every
 	// request of every session, and this ships off, so almost everyone would be
@@ -4824,19 +4830,21 @@ func (a *App) workbenchSkills(conv *conversation, sandboxRoot string) []skill.Sk
 	// it has. This is the same argument browserSkill's own description makes
 	// about never advertising an action that will be refused, applied one level
 	// up to the whole tool.
-	if computerControlOn() {
-		skills = append(skills, newComputerSkill(a, conv))
+	drive := computerControlOn()
+	for _, tool := range a.screenOf().WindowTools(conv) {
+		if tool.Name() == computerToolName && !drive {
+			continue
+		}
+		skills = append(skills, tool)
 	}
 	return skills
 }
 
-// everySessionSkills is the unconditional set every chat gets.
-func (a *App) everySessionSkills(conv *conversation, sandboxRoot string) []skill.Skill {
+// sessionSkills is the unconditional set every chat gets from the engine's
+// own side — everything a session needs that does not need a window. The
+// browser and the machine come from the screen (Screen.WindowTools).
+func (a *App) sessionSkills(conv *conversation, sandboxRoot string) []skill.Skill {
 	return []skill.Skill{
-		// One tool for the browser, four actions inside it (browser_tool.go).
-		// The four old names are still what `tools:` and `categories:` speak —
-		// they moved from being tools to being the actions' permission keys.
-		&browserSkill{app: a, conv: conv},
 		// One tool for making a video, three actions inside it (video_tool.go).
 		// Here rather than in defaults.go because it needs the app: the project
 		// root, and the same DataRoot lookups the readiness panel uses.
@@ -5066,7 +5074,7 @@ func (a *App) applyConfig(conv *conversation, cfg config.Config) {
 		// this screen's stores (provider_forward.go). The engine built below
 		// holds no key of its own and config carries none (§248). The
 		// signed-in endpoint is not a secret and travels in the open.
-		ProviderTransport: a.providerTransport(model.NormalizeProvider(cfg.ModelProvider), cfg.ModelWireFormat),
+		ProviderTransport: a.screenOf().ProviderTransport(model.NormalizeProvider(cfg.ModelProvider), cfg.ModelWireFormat),
 		ProviderEndpoint:  oauth.Endpoint(model.NormalizeProvider(cfg.ModelProvider)),
 		OnToolAction:      func(ev turn.ToolEvent) { a.recordToolAction(conv, ev) },
 		// A delegate's own turn, kept until this one is assembled and can carry
