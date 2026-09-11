@@ -10,7 +10,7 @@ import {
 import type { main, ooxml } from '../../../wailsjs/go/models'
 import { t } from '../i18n.svelte'
 
-export type WorkbenchTabKind = 'terminal' | 'browser' | 'files' | 'file' | 'decks' | 'git' | 'repomap' | 'pr' | 'cutroom' | 'plan' | 'artifacts'
+export type WorkbenchTabKind = 'terminal' | 'browser' | 'files' | 'file' | 'decks' | 'git' | 'gitlog' | 'repomap' | 'pr' | 'cutroom' | 'plan' | 'artifacts'
 
 export type WorkbenchTab = {
   id: string
@@ -249,6 +249,20 @@ export function openGitTab(): void {
     workbench.tabs.push({ id: 'git', kind: 'git', name: t('workbench.gitTab') })
   }
   workbench.activeId = 'git'
+}
+
+/** Singleton tab: ไทมไลน์ — the project's history, one commit per row (§250).
+ *
+ * โค้ด desk only, the same gate as Git one function up. A room of its own
+ * rather than a mode inside the git room, because the two answer different
+ * questions at different rhythms: the working tree is polled while it is on
+ * screen; history is read a page at a time and only re-read when a commit
+ * lands. */
+export function openGitLogTab(): void {
+  if (!workbench.tabs.some((t) => t.kind === 'gitlog')) {
+    workbench.tabs.push({ id: 'gitlog', kind: 'gitlog', name: t('workbench.gitLogTab') })
+  }
+  workbench.activeId = 'gitlog'
 }
 
 /** Singleton tab: แผนที่โค้ด — the project drawn as dots and lines (owner, 29 ส.ค.).
@@ -1192,6 +1206,7 @@ async function restoreWorkbench(sessionId: string): Promise<void> {
     else if (s.kind === 'decks') openDecksTab()
     else if (s.kind === 'git') openGitTab()
     else if (s.kind === 'pr') openPRTab()
+    else if (s.kind === 'gitlog') openGitLogTab()
     else if (s.kind === 'repomap') openRepoMapTab()
     else if (s.kind === 'cutroom') openCuttingRoomTab()
     else if (s.kind === 'plan') openPlanTab()

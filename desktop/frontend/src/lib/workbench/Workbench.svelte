@@ -13,6 +13,7 @@
   import DeckRoom from './DeckRoom.svelte'
   import CuttingRoom from './CuttingRoom.svelte'
   import GitPane from './GitPane.svelte'
+  import GitLogPane from './GitLogPane.svelte'
   import PRPane from './PRPane.svelte'
   import RepoMapPane from './RepoMapPane.svelte'
   import PlanPane from './PlanPane.svelte'
@@ -21,7 +22,7 @@
   import { cockpit } from '../stores/cockpit.svelte'
   import {
     workbench, activateTab, closeTab, removeTab,
-    openFilesTab, openBrowserTab, openTerminalTab, openDecksTab, openGitTab, openPRTab, openRepoMapTab, openCuttingRoomTab, openFileTab, openPlanTab, openArtifactsTab, routeDeskEvent, detachTab,
+    openFilesTab, openBrowserTab, openTerminalTab, openDecksTab, openGitTab, openGitLogTab, openPRTab, openRepoMapTab, openCuttingRoomTab, openFileTab, openPlanTab, openArtifactsTab, routeDeskEvent, detachTab,
     reportDeskTabs,
     openUrlInWorkbench, saveWorkbenchSnapshot, resolveAddressBarInput, labelForUrl,
     deviceList, loadDevices,
@@ -42,7 +43,7 @@
   const tabIcon: Record<string, IconName> = {
     terminal: 'keyboard', browser: 'globe', files: 'copy', file: 'fileText',
     decks: 'layoutList', cutroom: 'scissors', plan: 'compass', artifacts: 'package',
-    git: 'gitBranch', pr: 'gitPullRequest', repomap: 'graph',
+    git: 'gitBranch', gitlog: 'clock', pr: 'gitPullRequest', repomap: 'graph',
   }
 
   // Chrome DevTools' default device presets. CSS viewport sizes — BrowserPane
@@ -489,6 +490,7 @@
         <span class="menu-badge git" title="{codeStatus.gitChangedCount} changed files">{codeStatus.gitChangedCount}</span>
       {/if}
     </button>
+    <button class="plus-menu-item" onclick={() => pick(openGitLogTab)}><span class="ic"><Icon name="clock" size={14} /></span> <span>{t('workbench.gitLogTab')}</span></button>
     <button class="plus-menu-item" onclick={() => pick(openPRTab)}>
       <span class="ic"><Icon name="gitPullRequest" size={14} /></span>
       <span>{t('workbench.prTab')}</span>
@@ -699,6 +701,11 @@
                that is this expression, not a second opinion about it: the slot
                above is hidden by the same test. -->
           <GitPane active={workbench.activeId === tab.id} />
+        {:else if tab.kind === 'gitlog'}
+          <!-- Same `active` as GitPane, for the opposite reason: this pane does
+               not poll, but it does re-read its first page when it comes back
+               in front, and only then. -->
+          <GitLogPane active={workbench.activeId === tab.id} />
         {:else if tab.kind === 'repomap'}
           <RepoMapPane />
         {:else if tab.kind === 'cutroom'}

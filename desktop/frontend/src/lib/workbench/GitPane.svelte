@@ -25,8 +25,8 @@
   } from '../../../wailsjs/go/main/App'
   import { main } from '../../../wailsjs/go/models'
   import { cockpit, sendUserMessage, setActiveView } from '../stores/cockpit.svelte'
-  import { openFileTab } from '../stores/workbench.svelte'
-  import { updateCodeStatusFromGitTree } from '../stores/codeStatus.svelte'
+  import { openFileTab, openGitLogTab } from '../stores/workbench.svelte'
+  import { updateCodeStatusFromGitTree, noteCommitLanded } from '../stores/codeStatus.svelte'
   import { assessDangerousFile, type DangerousFileAssessment } from './gitSecurity'
   import { t } from '../i18n.svelte'
   import Icon from '../Icon.svelte'
@@ -242,6 +242,7 @@
     alert = null
     try {
       await GitCommitFiles(trimmed, chosen)
+      noteCommitLanded()
       manualMessage = ''
       alert = { type: 'success', text: t('git.commitSuccess') }
       setTimeout(() => { if (alert?.type === 'success') alert = null }, 4000)
@@ -293,6 +294,7 @@
     alert = null
     try {
       await GitCommitFiles(msg, chosen)
+      noteCommitLanded()
       alert = { type: 'success', text: `${g.title}: ${t('git.commitSuccess')}` }
       setTimeout(() => { if (alert?.type === 'success') alert = null }, 4000)
     } catch (err: any) {
@@ -315,6 +317,7 @@
         if (chosen.length > 0 && msg) {
           committingGroupIdx = i
           await GitCommitFiles(msg, chosen)
+          noteCommitLanded()
         }
       }
       alert = { type: 'success', text: t('git.commitSuccess') }
@@ -418,7 +421,13 @@
       </div>
 
       {#if alert}
-        <div class="gp-alert {alert.type}">{alert.text}</div>
+        <div class="gp-alert {alert.type}">
+          {alert.text}
+          {#if alert.type === 'success'}
+            <!-- The commit just made is the newest row of the other room. -->
+            <button type="button" class="gp-alert-link" onclick={openGitLogTab}>{t('git.viewTimeline')} →</button>
+          {/if}
+        </div>
       {/if}
 
       {#if mode === 'split'}

@@ -257,11 +257,17 @@ export function HistoryFault():Promise<main.StoreFault>;
 
 export function ImageStatus():Promise<string>;
 
+export function GitCommitChanges(arg1:string):Promise<Array<main.GitFileChange>>;
+
+export function GitCommitFileDiff(arg1:string,arg2:string):Promise<string>;
+
 export function ImportSession():Promise<string>;
 
 export function ImportSignIn(arg1:string):Promise<main.ModelInfo>;
 
 export function ImportableSignIns():Promise<Array<string>>;
+
+export function GitLog(arg1:string,arg2:number):Promise<main.GitLogPage>;
 
 export function InstallCapabilities(arg1:Array<string>):Promise<boolean>;
 

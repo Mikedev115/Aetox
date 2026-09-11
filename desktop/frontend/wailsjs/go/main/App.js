@@ -486,6 +486,14 @@ export function ImageStatus() {
   return window['go']['main']['App']['ImageStatus']();
 }
 
+export function GitCommitChanges(arg1) {
+  return window['go']['main']['App']['GitCommitChanges'](arg1);
+}
+
+export function GitCommitFileDiff(arg1, arg2) {
+  return window['go']['main']['App']['GitCommitFileDiff'](arg1, arg2);
+}
+
 export function ImportSession() {
   return window['go']['main']['App']['ImportSession']();
 }
@@ -496,6 +504,10 @@ export function ImportSignIn(arg1) {
 
 export function ImportableSignIns() {
   return window['go']['main']['App']['ImportableSignIns']();
+}
+
+export function GitLog(arg1, arg2) {
+  return window['go']['main']['App']['GitLog'](arg1, arg2);
 }
 
 export function InstallCapabilities(arg1) {

@@ -5494,6 +5494,98 @@ button.phase-head:hover { color:var(--text-muted); }
 .gp-input-wrap {
   position: relative;
   display: flex;
+/* ---------- The history, as a room (GitLogPane.svelte, §250) ---------- */
+/* It borrows the git room's header, note, file rows and diff — a file's hunks
+   look the same under a commit as under the working tree — and adds only what
+   a timeline needs: a rail, a dot per commit, a day between runs of them. */
+.gitlog { display:flex; flex-direction:column; height:100%; overflow:hidden; }
+.gl-search {
+  display:inline-flex; align-items:center; gap:6px; padding:3px 8px;
+  border:1px solid var(--border-subtle); border-radius:var(--r-sm);
+  background:var(--surface-sunken); color:var(--text-dim); font-size:var(--fs-xs);
+}
+.gl-search:focus-within { border-color:var(--border-strong); }
+.gl-search input { width:130px; background:none; border:0; outline:0; color:var(--text-primary); font:inherit; }
+.gl-search input::placeholder { color:var(--text-dim); }
+.gl-chips { display:flex; gap:5px; flex-wrap:wrap; padding:8px 12px; border-bottom:1px solid var(--border-subtle); }
+.gl-chip {
+  padding:2px 9px; border-radius:999px; border:1px solid var(--border-subtle);
+  background:none; color:var(--text-muted); font:inherit; font-size:var(--fs-2xs); cursor:pointer;
+}
+.gl-chip:hover { border-color:var(--border-strong); color:var(--text-primary); }
+.gl-chip.on { border-color:transparent; background:color-mix(in srgb, var(--accent) 16%, transparent); color:var(--accent-bright); }
+.gl-chip .n { margin-left:4px; color:var(--text-dim); }
+.gl-chip.on .n { color:inherit; opacity:.7; }
+.gl-scroll { flex:1; min-height:0; overflow-y:auto; padding:6px 12px 14px; }
+/* The working tree as the node above HEAD: what the next commit will be, drawn
+   in the dashed vocabulary the app already uses for "not yet". */
+.gl-ghost {
+  display:flex; align-items:center; gap:8px; width:100%; margin:4px 0 6px; padding:6px 10px 6px 8px;
+  border:1px dashed var(--border-strong); border-radius:var(--r-md); background:none;
+  color:var(--text-secondary); font:inherit; font-size:var(--fs-sm); text-align:left; cursor:pointer;
+}
+.gl-ghost:hover { background:var(--surface-row-hover); }
+.gl-ghost .dot { flex:0 0 auto; width:9px; height:9px; border-radius:50%; border:1.5px dashed var(--text-muted); }
+.gl-ghost .go { display:inline-flex; align-items:center; gap:4px; margin-left:auto; color:var(--accent); font-size:var(--fs-xs); }
+/* Sticky, so the day a row belongs to is on screen however far down it is. */
+.gl-day {
+  position:sticky; top:0; z-index:1; margin:8px 0 2px; padding:4px 0 4px 26px;
+  font-size:var(--fs-2xs); color:var(--text-dim); background:var(--surface-panel);
+}
+.gl-rail { position:relative; margin-left:9px; padding-left:17px; border-left:2px solid var(--border-subtle); }
+.gl-row {
+  position:relative; display:flex; align-items:center; gap:8px; width:100%;
+  margin-left:-4px; padding:6px 8px 6px 4px; border:0; border-radius:var(--r-sm);
+  background:none; color:inherit; font:inherit; text-align:left; cursor:pointer;
+}
+.gl-row:hover { background:var(--surface-row-hover); }
+.gl-row.open { background:var(--surface-raised); }
+.gl-row .dot {
+  position:absolute; left:-24px; top:50%; width:9px; height:9px; margin-top:-5px;
+  border-radius:50%; box-sizing:border-box; border:2px solid var(--text-dim); background:var(--surface-panel);
+}
+.gl-row.head .dot { border-color:var(--accent); background:var(--accent); }
+.gl-row.merge .dot { left:-25px; width:11px; height:11px; margin-top:-6px; border-style:double; }
+.gl-hash { flex:0 0 auto; font-family:var(--mono); font-size:var(--fs-xs); color:var(--text-dim); }
+.gl-tag { flex:0 0 auto; padding:0 6px; border-radius:999px; font-size:var(--fs-2xs); line-height:16px; font-weight:600; }
+.gl-tag.feat { background:color-mix(in srgb, var(--status-success) 16%, transparent); color:var(--status-success); }
+.gl-tag.fix { background:color-mix(in srgb, var(--status-danger) 16%, transparent); color:var(--status-danger); }
+.gl-tag.refactor { background:color-mix(in srgb, var(--status-modified) 16%, transparent); color:var(--status-modified); }
+.gl-tag.docs { background:color-mix(in srgb, var(--accent) 14%, transparent); color:var(--accent-bright); }
+.gl-tag.test { background:color-mix(in srgb, var(--diff-hunk-text) 16%, transparent); color:var(--diff-hunk-text); }
+.gl-tag.other, .gl-tag.merge { background:var(--surface-raised); color:var(--text-muted); }
+.gl-subj { flex:1; min-width:0; font-size:var(--fs-sm); color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.gl-time { flex:0 0 auto; font-size:var(--fs-2xs); color:var(--text-dim); font-variant-numeric:tabular-nums; }
+.gl-row .gp-stat { flex:0 0 auto; min-width:64px; justify-content:flex-end; }
+.gl-detail { margin:2px 0 8px 14px; padding:8px 10px; border:1px solid var(--border-subtle); border-radius:var(--r-md); background:var(--surface-sunken); }
+.gl-meta { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; font-size:var(--fs-xs); color:var(--text-muted); }
+.gl-meta .who { color:var(--text-secondary); }
+.gl-meta .full { font-family:var(--mono); color:var(--text-dim); }
+.gl-scope { color:var(--text-dim); font-size:var(--fs-xs); }
+.gl-act {
+  display:inline-flex; align-items:center; gap:5px; padding:2px 8px;
+  border:1px solid var(--border-subtle); border-radius:var(--r-sm); background:none;
+  color:var(--text-muted); font:inherit; font-size:var(--fs-2xs); cursor:pointer;
+}
+.gl-act:hover { border-color:var(--border-strong); color:var(--text-primary); }
+.gl-act.ask { margin-left:auto; color:var(--accent); }
+.gl-files .gp-row { padding:5px 6px; border-radius:var(--r-sm); }
+.gl-files .gp-diff { padding:2px 0 8px 18px; }
+.gl-more {
+  display:block; margin:12px auto 4px; padding:6px 14px;
+  border:1px solid var(--border-subtle); border-radius:var(--r-sm); background:none;
+  color:var(--text-muted); font:inherit; font-size:var(--fs-xs); cursor:pointer;
+}
+.gl-more:hover { border-color:var(--border-strong); color:var(--text-primary); }
+.gl-more:disabled { opacity:.6; cursor:default; }
+.gl-end { margin:12px 0 4px; text-align:center; font-size:var(--fs-2xs); color:var(--text-dim); }
+/* The link a successful commit offers into the other room. */
+.gp-alert-link {
+  margin-left:8px; padding:0; border:0; background:none; color:inherit; font:inherit;
+  text-decoration:underline; text-underline-offset:2px; cursor:pointer; opacity:.85;
+}
+.gp-alert-link:hover { opacity:1; }
+
   align-items: flex-start;
   border: 1px solid var(--border-default);
   border-radius: var(--r-md);
