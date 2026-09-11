@@ -7,9 +7,12 @@
 binding that is engine work forwards to `internal/engine` through one
 interface ([engine_forwarders_gen.go](engine_forwarders_gen.go), generated),
 and every binding that needs a window — a WebView2 tab, the mouse, a dialog,
-the file manager, a synthesizer, a credential — is written here. Today the
-engine is a value in this process (`App.eng`); phase 2 makes `App.api` an RPC
-client of `cmd/aetox-engine` and nothing above it changes.
+the file manager, a synthesizer, a credential — is written here. The engine
+is a process beside this one, `cmd/aetox-engine`, started and supervised by
+[engine_local.go](engine_local.go) and reached over one socket: `App.api` is
+the `*rpc.Client` on it, and nothing above it knows (§248 phase 2, the same
+day). There is no in-process engine any more — a test's engine is behind a
+loopback listener too (`newTestApp(t)`).
 
 The engine sees this window as `engine.Screen` ([screen.go](screen.go)),
 implemented by `appScreen` — an adapter rather than `App` itself, because
@@ -22,14 +25,15 @@ every exported method of `App` is a binding.
 - `wails dev` (or [wails-dev.bat](wails-dev.bat)) — live dev, frontend hot reload; browser dev server at `http://localhost:34115`. The `.bat` also sets `AETOX_DATA_ROOT` so repeated dev runs don't grow Aetox's own data (preferences, sessions, WebView2 profiles, the downloaded rtk binary) in `%AppData%` without bound — see `internal/config.DataRoot` and [ARCHITECTURE.md §14](../ARCHITECTURE.md). Production builds don't set this env var, so shipped behavior is the normal `%AppData%\aetox` default.
 - `wails build` — production `desktop.exe`.
 - `go run ./internal/engine/gen -root .` after any exported-method change on either side — regenerates `internal/engine/api_gen.go` and [engine_forwarders_gen.go](engine_forwarders_gen.go); `gen_test.go` fails the build when they are stale. Then `wails generate module` from this folder for `frontend/wailsjs/` — Wails groups TS types by Go package, so a type that moves between `engine` and `main` moves namespace.
-- `go test ./desktop/ ./internal/engine/` + `npx svelte-check` in `frontend/` — run all three before calling a change done.
+- `go test ./desktop/ ./internal/engine/ ./internal/engine/rpc/ ./cmd/aetox-engine/` + `npx svelte-check` in `frontend/` — run them before calling a change done. The desktop suite runs every test over the wire; `engine_local_test.go` builds the real engine binary and drives it as a child.
 - Go's own `GOCACHE`/`GOMODCACHE` are machine-wide settings, not project config — if they're growing on `C:`, `go env -w GOCACHE=<path>` / `GOMODCACHE=<path>` moves them anywhere, for every Go project on the machine, not just this one.
 
 ## Go side (package main)
 
 | File | Role |
 |---|---|
-| [app.go](app.go) | `App`: `api engine.API` (the engine as the screen calls it), `eng` (the same engine in-process, for the lifecycle hooks — goes with phase 2), `ctx` (the window's lifetime — dialogs, sizing, Quit), the test seams `emit`/`openDir`, and the state that is the screen's own: the browser host, the machine lock, the read-aloud jobs, what the deck export wrote. `startup` → `engine.Startup`, then the update watch; `shutdown` → `engine.Shutdown`, then `stopAllSpeech`. |
+| [app.go](app.go) | `App`: `api engine.API` (the `*rpc.Client`), `client` (the same, for the pieces outside the bindings), `engine` (the child and the wire, engine_local.go), `ctx` (the window's lifetime — dialogs, sizing, Quit), the test seams `emit`/`openDir`, and the state that is the screen's own: the browser host, the machine lock, the read-aloud jobs, what the deck export wrote. `NewApp` builds the client with the whole Screen served on it (`rpc.ServeScreen`); `startup` starts the child; `beforeClose` → `PrepareToClose` across the wire; `shutdown` tells the child to leave and waits, then `stopAllSpeech`. |
+| [engine_local.go](engine_local.go) | The engine as this window's child (§248 phase 2): `aetox-engine.exe` beside the app (`AETOX_ENGINE` overrides; a development tree falls back to `go run ./cmd/aetox-engine`), a token on its stdin, a unix socket under DataRoot or a loopback port, `hello` with the window's tools. The supervisor redials a dropped wire, restarts a dead child with backoff, gives up after three in a minute until `RestartEngine`; `EngineStatus` and the `engine:status` event feed [EngineStatus.svelte](frontend/src/lib/EngineStatus.svelte), and the frontend reopens the chat on screen after a restart (`resyncAfterEngineRestart`). |
 | [screen.go](screen.go) | `appScreen` — `engine.Screen` for this window: `Emit`, `ProviderTransport` (provider_forward.go), `ProviderEndpoint`, `WindowTools` (the browser and the machine, per session), `AgentTab`, and the three desk questions answered with this machine's key: `DefaultModel`, `Probe`, `ModelResident`. `screen_test.go` — a fake Screen proves the engine asks nothing else. |
 | [provider_forward.go](provider_forward.go) | The screen's half of the model credential (§248 A3): a `model.Transport` that signs each provider request from `credentials.json`/`oauth.json` at the moment it goes out. The engine never holds a key and `config.Config` has no field for one (A4); `internal/engine/deps_test.go` holds that line. |
 | [providers.go](providers.go) · [oauth.go](oauth.go) · [account.go](account.go) | The credential desk: `SetAPIKey`, `HasAPIKey`/`APIKeyHint`, custom OpenAI-compatible rows (each with its own key), `TestProviderConnection` and the model discovery that needs a key, provider sign-in (`StartSignIn`/`CompleteSignIn`/`ImportSignIn`/`SignOut`), the Aetox account. A change is reported to the engine as `ProviderCredentialChanged`, which rebuilds only if it is the provider on screen. |

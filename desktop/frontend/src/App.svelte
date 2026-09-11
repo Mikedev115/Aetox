@@ -25,12 +25,13 @@
     applyAskUser, applyAskDone, applyDriving, applyTodos, applyMissedInterjections, applyTaskChips, applyUsageRound,
     applyPreparedReplies,
     applyPendingLearned, refreshPendingLearned, refreshPendingIssues, applyAgentDone, isOverlayView, closeOverlay,
-    refreshProjectFolders, refreshOpenFiles,
+    refreshProjectFolders, refreshOpenFiles, resyncAfterEngineRestart,
   } from './lib/stores/cockpit.svelte'
   import { shell, shellHasChats } from './lib/shell.svelte'
   import { applyBusyEvent, clearBusyWork, watchBrowserWaits } from './lib/stores/busySignal.svelte'
   import { RelativizePath, CloseAllBrowserTabs } from '../wailsjs/go/main/App'
   import { OnFileDrop, OnFileDropOff, EventsOn } from '../wailsjs/runtime/runtime'
+  import type { main } from '../wailsjs/go/models'
   import { workbench, openPathsInWorkbench, filesChangedOnDisk } from './lib/stores/workbench.svelte'
   import { listenForUpdates } from './lib/selfUpdate.svelte'
   import { clampPanelWidth, fitPanelsToWindow } from './lib/panelSize'
@@ -198,6 +199,13 @@
     // which is why it needs an event at all — the same reason `model:switched`
     // has one.
     const offStance = EventsOn('stance:update', applyStanceUpdate)
+    // The engine is a process beside this window (§248 phase 2). When it has
+    // been started again, the chat on screen is put back in front of the new
+    // one and the window re-reads what it shows; the card that says so is
+    // EngineStatus.svelte, this is the part that acts.
+    const offEngine = EventsOn('engine:status', (st: main.EngineStatus) => {
+      if (st.state === 'connected' && st.restarts > 0) void resyncAfterEngineRestart(st.restarts)
+    })
     const offAgentChunk = EventsOn('agent:chunk', applyAgentChunk)
     // The ending for a turn this window has no promise for — a webview reload
     // killed the SendMessage promise, the engine kept working, and this event
@@ -343,6 +351,7 @@
       offPlan()
       offPlanReport()
       offStance()
+      offEngine()
       offAgentChunk()
       offAgentDone()
       offBusyDone()

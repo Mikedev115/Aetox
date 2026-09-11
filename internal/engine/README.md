@@ -11,10 +11,12 @@ PR rooms, usage — the `~290` bindings that used to be methods on
 §248 B1 (2026-09-12) the compiler holds the line: nothing here can reach the
 Wails runtime, a WebView2 tab, a dialog, or a provider key.
 
-Today the engine is a value in the desktop process. Phase 2 of §248 runs it
-as `cmd/aetox-engine` behind one JSON-RPC socket, on this machine or on a
-Linux host over ssh, and nothing in this package is meant to change for that
-— which is the whole reason for the shape below.
+Since phase 2 (later the same day) the engine is a process:
+[cmd/aetox-engine](../../cmd/aetox-engine/main.go) builds one with
+`NewEngine(screen)` where the screen is [rpc](rpc/)'s `ScreenPeer`, and the
+window reaches it over one JSON-RPC socket — on this machine today, over an
+ssh tunnel in phase 3. Nothing in this package changed for that, which was
+the whole reason for the shape below.
 
 ## The two surfaces
 
@@ -34,20 +36,31 @@ answers.
 
 **Screen → engine: `API`** ([api_gen.go](api_gen.go), generated). Every
 exported method of `*Engine`, as one interface. `desktop/App` holds it as
-`api engine.API` and forwards every engine binding to it
-(`desktop/engine_forwarders_gen.go`, also generated); in phase 2 the RPC
-client implements the same interface. **Every exported method here is
-therefore a frontend binding** — a method the frontend must not see is
-unexported, and the four lifecycle hooks (`Startup`, `BeforeClose`,
-`Shutdown`, `AssetMiddleware`, [lifecycle.go](lifecycle.go)) are package
-functions for that reason. After any change to an exported method:
+`api engine.API` — an `*rpc.Client`, which implements the same interface
+across the socket ([rpc/client_gen.go](rpc/client_gen.go)) — and forwards
+every engine binding to it (`desktop/engine_forwarders_gen.go`, also
+generated); the engine process answers through
+[rpc/server_gen.go](rpc/server_gen.go). **Every exported method here is
+therefore a frontend binding and a wire method** — a method the frontend
+must not see is unexported, and the lifecycle hooks (`Startup`,
+`BeforeClose`, `Shutdown`, `AssetMiddleware`, `FileHandler`, `UseConsole`,
+[lifecycle.go](lifecycle.go)) are package functions for that reason. Keep a
+method's arguments and results plain values: they are JSON on the wire.
+After any change to an exported method:
 
 ```bash
 go run ./internal/engine/gen -root .
 ```
 
-`gen_test.go` regenerates into a temp dir and diffs, so a stale file fails
-the build.
+`gen_test.go` regenerates into a temp dir and diffs all four files, so a
+stale one fails the build.
+
+**The wire itself** is [rpc/](rpc/): `Conn`, `Client`, `Server`,
+`ScreenPeer`, the provider proxy (a model call leaves here unsigned and is
+signed on the screen), the window-tool stubs (`hello` announces them,
+`screen.tool` runs them), `/file/`. The design doc §4 has the message shapes
+and §10 what was measured: about 60 µs a round trip, 62 frames of events per
+test turn.
 
 ## The rule, and the test that holds it
 

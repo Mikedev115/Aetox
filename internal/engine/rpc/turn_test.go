@@ -28,6 +28,13 @@ type chunk struct {
 	} `json:"data"`
 }
 
+// pairs remembers which server a wired client talks to, for the tests that
+// need the engine's own side as well (measure_test.go).
+var (
+	pairsMu sync.Mutex
+	pairs   = map[*Client]*Server{}
+)
+
 // wired is an engine behind a listener and a client on it, with every event
 // kept. The engine's data root is the test's own.
 func wired(t *testing.T) (*Server, *Client, *eventLog) {
@@ -49,6 +56,9 @@ func wired(t *testing.T) (*Server, *Client, *eventLog) {
 		t.Fatalf("connect: %v", err)
 	}
 	t.Cleanup(func() { c.Close() })
+	pairsMu.Lock()
+	pairs[c] = srv
+	pairsMu.Unlock()
 	return srv, c, log
 }
 
@@ -61,6 +71,13 @@ func (l *eventLog) add(name string, data json.RawMessage) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.events = append(l.events, eventParams{Name: name, Data: append(json.RawMessage(nil), data...)})
+}
+
+// all is every event so far, copied.
+func (l *eventLog) all() []eventParams {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]eventParams(nil), l.events...)
 }
 
 func (l *eventLog) named(name string) []json.RawMessage {

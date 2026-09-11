@@ -815,6 +815,34 @@ export async function loadRealState(): Promise<void> {
   }
 }
 
+/** The engine started again under this window (§248 phase 2: it is a process
+ * beside the window, and a crash restarts it). A fresh engine opens on a fresh
+ * session, the way a launch does — so the chat on screen is put back in front
+ * of it, through the same door a click in the history uses, and everything
+ * else the window shows is read again. The transcript is on disk; what the
+ * restart lost is the engine's memory of it, and LoadSessionAnyProject
+ * rebuilds that from the transcript, as a launch would.
+ *
+ * A reconnect that did NOT restart the process (the wire dropped, the engine
+ * lived) loses nothing and is not this. */
+let restartsSeen = 0
+export async function resyncAfterEngineRestart(restarts: number): Promise<void> {
+  if (restarts <= restartsSeen) return
+  restartsSeen = restarts
+  cockpit.awaitingReply = false
+  const id = cockpit.openSession
+  if (id) {
+    try {
+      const messages = await LoadSessionAnyProject(id)
+      cockpit.chat = restoreTranscript(messages)
+      hydrateImages()
+    } catch (err) {
+      cockpit.sessionError = err instanceof Error ? err.message : String(err)
+    }
+  }
+  await loadRealState()
+}
+
 /** True between a mid-turn reload and that turn's agent:done — the window is
  * watching a turn it has no promise for, so the event is its only ending. */
 let reattachedTurn = false
