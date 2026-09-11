@@ -206,3 +206,22 @@ func TestWorkingTreeReportsARunOutBudgetRatherThanACleanTree(t *testing.T) {
 		t.Errorf("rows = %+v, want none beside the error", rows)
 	}
 }
+
+// An index that another process left behind says a file is gone while the
+// disk says it is here: porcelain prints `D ` and `??` for the same path. The
+// pane keys its rows by path, and a duplicate key is a list that does not draw
+// — so the two lines are one row, and the row says the file changed.
+func TestGitWorkingTreeOneRowWhenIndexAndDiskDisagree(t *testing.T) {
+	root, a := repoAt(t)
+	gitIn(t, root, "rm", "-q", "--cached", "kept.txt")
+	tree, err := a.GitWorkingTree()
+	if err != nil {
+		t.Fatalf("GitWorkingTree: %v", err)
+	}
+	if len(tree) != 1 {
+		t.Fatalf("GitWorkingTree = %+v, want one row for kept.txt", tree)
+	}
+	if tree[0].Path != "kept.txt" || tree[0].Status != "M" {
+		t.Errorf("row = %+v, want kept.txt M", tree[0])
+	}
+}

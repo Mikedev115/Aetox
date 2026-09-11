@@ -121,6 +121,13 @@ func workingTree(ctx context.Context, root string, countUntracked bool) ([]GitFi
 		return out, err
 	}
 
+	// One row per path. Porcelain prints a path twice when the index and the
+	// disk disagree about whether it exists — `D ` for a file removed from the
+	// index and `??` for the same file still on disk, which is what an index
+	// left behind by another process looks like (seen 12 ก.ย.: six files, and
+	// the pane's keyed list refusing to draw sixty-three rows over a duplicate
+	// key). Two rows for one file is two truths; one row saying "M" is the fact.
+	at := map[string]int{}
 	for _, line := range strings.Split(strings.TrimRight(status, "\n"), "\n") {
 		if len(line) < 4 {
 			continue
@@ -153,6 +160,16 @@ func workingTree(ctx context.Context, root string, countUntracked bool) ([]GitFi
 		} else if row.Status == "U" && countUntracked {
 			row.Added = fileLineCount(filepath.Join(root, filepath.FromSlash(here)))
 		}
+		if i, seen := at[here]; seen {
+			if out[i].Status != row.Status {
+				out[i].Status = "M"
+			}
+			if row.Added+row.Removed > out[i].Added+out[i].Removed {
+				out[i].Added, out[i].Removed = row.Added, row.Removed
+			}
+			continue
+		}
+		at[here] = len(out)
 		out = append(out, row)
 	}
 	return out, nil
