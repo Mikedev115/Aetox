@@ -166,7 +166,17 @@
     {/if}
 
     {#if updater.phase === 'ready'}
-      <div class="upd-note">{t('update.readyNote')}</div>
+      <!-- Two sentences, because the two channels keep different promises.
+           There used to be one — "close the app as usual and open it again
+           later, same result" — and on the installer channel it was false:
+           nothing had moved on disk, the next launch swept the download, and
+           the card offered the same version again. The owner met that as
+           "อัปเดตแล้ววนอยู่ที่เดิม" (11 ก.ย.). The installer sentence also warns
+           about the UAC prompt, since it arrives from a window that has just
+           closed and looks like nothing the user asked for. -->
+      <div class="upd-note">
+        {updater.stagedChannel === 'installer' ? t('update.readyNoteInstaller') : t('update.readyNote')}
+      </div>
     {/if}
 
     {#if updater.phase !== 'downloading' && updater.phase !== 'restarting'}

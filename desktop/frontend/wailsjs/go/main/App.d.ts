@@ -669,7 +669,7 @@ export function SpeechStatus():Promise<string>;
 
 export function StageUpdate():Promise<void>;
 
-export function StagedUpdate():Promise<string>;
+export function StagedUpdate():Promise<main.StagedInfo>;
 
 export function Stance():Promise<string>;
 

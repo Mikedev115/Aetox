@@ -89,5 +89,23 @@ func (a *App) announceUpdate() {
 	if !st.Available {
 		return
 	}
+	a.dropStaleStaged(st.Latest)
 	a.emitEvent("update:available", st)
+}
+
+// dropStaleStaged forgets an adopted installer that a newer release has since
+// overtaken, so the card offers the newest download rather than a restart into
+// a version that is already behind. Installer channel only: on portable the
+// staged build is already the exe on disk, and there is nothing to un-stage.
+func (a *App) dropStaleStaged(latest string) {
+	a.stagedMu.Lock()
+	defer a.stagedMu.Unlock()
+	if !a.staged.Ready() || a.staged.Channel != update.ChannelInstaller || !update.Newer(latest, a.staged.Version) {
+		return
+	}
+	debuglog.Msg("self-update: dropping staged %s — %s is out", a.staged.Version, latest)
+	a.staged = update.Staged{}
+	a.installError = ""
+	update.RemoveLeftovers(false)
+	a.emitEvent("update:staged", StagedInfo{})
 }

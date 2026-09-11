@@ -2038,6 +2038,8 @@ Check your own work before answering; say so plainly if unsure.
   'update.readyToRestart': 'v{version} is ready',
   // The sentence that makes "Later" a real answer rather than a postponement.
   'update.readyNote': 'It is on disk. Restart now, or just close the app as usual and open it again whenever, same result.',
+  'update.readyNoteInstaller': 'Downloaded and verified. Restart to install — Windows will show an administrator (UAC) prompt; press Yes to let it run. Not now? Close the app; the file waits for the next time you press restart.',
+  'update.restartStalled': 'The app did not close itself. Press restart again, or close it yourself and open it again.',
   'update.restartNow': 'Restart to update',
   'update.failed': 'The update did not go through',
   'update.failedSafe': 'The version you are running is still installed and untouched.',

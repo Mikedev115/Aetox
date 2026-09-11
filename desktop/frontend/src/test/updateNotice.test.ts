@@ -40,7 +40,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   Object.assign(updater, {
     current: '', status: null, announced: false, checking: false, checkError: '',
-    dismissed: false, phase: 'idle', done: 0, total: 0, staged: '', error: '',
+    dismissed: false, phase: 'idle', done: 0, total: 0, staged: '', stagedChannel: '', error: '',
   })
 })
 
@@ -201,12 +201,95 @@ describe('ready to restart', () => {
   // side holding a staged update this fresh page knows nothing about. Offering
   // the same download twice for a build already on disk is the bug.
   it('picks the staged update back up after the window reloads', async () => {
-    vi.mocked(StagedUpdate).mockResolvedValueOnce('0.9.7' as never)
+    vi.mocked(StagedUpdate).mockResolvedValueOnce({ version: '0.9.7', channel: 'portable', installError: '' } as never)
     render(Updater)
     listenForUpdates()
 
     expect(await screen.findByText('v0.9.7 พร้อมแล้ว')).toBeTruthy()
     expect(vi.mocked(StageUpdate)).not.toHaveBeenCalled()
+  })
+
+  // "Later" on the installer channel used to mean "download it again next
+  // time": nothing had moved on disk, the next launch swept the file, and the
+  // card offered the same version. Now the Go side adopts the verified file at
+  // launch and says so — the card has to pick it up as ready, in the
+  // installer's own words (no promise that closing the app installs it), and
+  // with the reason the previous restart came back as the same build.
+  it('picks up an installer a previous run staged, and says why its restart failed', async () => {
+    render(Updater)
+    const off = listenForUpdates()
+    const call = vi.mocked(EventsOn).mock.calls.find((c) => c[0] === 'update:staged')
+    if (!call) throw new Error('nothing subscribed to update:staged')
+    ;(call[1] as (info: unknown) => void)({
+      version: '0.9.7', channel: 'installer',
+      installError: 'ครั้งก่อนหน้าต่างขอสิทธิ์ผู้ดูแล (UAC) ถูกยกเลิก ตัวติดตั้งจึงไม่ได้ทำงาน',
+    })
+
+    expect(await screen.findByText('v0.9.7 พร้อมแล้ว')).toBeTruthy()
+    expect(screen.getByText('รีสตาร์ทเพื่ออัปเดต')).toBeTruthy()
+    expect(screen.queryByText('ดาวน์โหลด')).toBeNull()
+    expect(screen.getByText(/ครั้งก่อนหน้าต่างขอสิทธิ์ผู้ดูแล/)).toBeTruthy()
+    expect(screen.queryByText(/ปิดแอปตามปกติแล้วเปิดใหม่ทีหลังก็ได้เหมือนกัน/)).toBeNull()
+    expect(screen.getByText(/กด Yes ถึงจะติดตั้งได้/)).toBeTruthy()
+    off()
+  })
+
+  // The same sentence must not be shown on portable, where closing the app
+  // really does install it — the exe on disk is already the new build.
+  it('keeps the close-and-reopen promise where it is true', async () => {
+    render(Updater)
+    announce(status({ channel: 'portable' }))
+    await fireEvent.click(await screen.findByText('ดาวน์โหลด'))
+    expect(await screen.findByText(/ปิดแอปตามปกติแล้วเปิดใหม่ทีหลังก็ได้เหมือนกัน/)).toBeTruthy()
+    expect(screen.queryByText(/UAC/)).toBeNull()
+  })
+
+  it('does not make that promise on the installer channel', async () => {
+    render(Updater)
+    announce(status({ channel: 'installer' }))
+    await fireEvent.click(await screen.findByText('ดาวน์โหลด'))
+    expect(await screen.findByText(/กด Yes ถึงจะติดตั้งได้/)).toBeTruthy()
+    expect(screen.queryByText(/ปิดแอปตามปกติแล้วเปิดใหม่ทีหลังก็ได้เหมือนกัน/)).toBeNull()
+  })
+
+  // A newer release overtaking the adopted installer: the Go side drops it
+  // and says so with an empty answer, and the card goes back to offering the
+  // download rather than a restart into a version already behind.
+  it('lets go of a staged installer the Go side has dropped', async () => {
+    render(Updater)
+    const off = listenForUpdates()
+    const call = vi.mocked(EventsOn).mock.calls.find((c) => c[0] === 'update:staged')
+    if (!call) throw new Error('nothing subscribed to update:staged')
+    const staged = call[1] as (info: unknown) => void
+    staged({ version: '0.9.7', channel: 'installer', installError: '' })
+    expect(await screen.findByText('v0.9.7 พร้อมแล้ว')).toBeTruthy()
+
+    staged({ version: '', channel: '', installError: '' })
+    announce(status({ latest: '0.9.8' }))
+    expect(await screen.findByText('มี Aetox v0.9.8 แล้ว')).toBeTruthy()
+    expect(screen.getByText('ดาวน์โหลด')).toBeTruthy()
+    off()
+  })
+
+  // RestartToUpdate resolving means the Go side is about to quit. When it
+  // does not — the window is still here half a minute later — the card must
+  // hand the button back instead of sitting on "กำลังเปิดใหม่…" forever.
+  it('gives the restart button back when the app never closed', async () => {
+    vi.useFakeTimers()
+    try {
+      render(Updater)
+      announce(status())
+      await fireEvent.click(await screen.findByText('ดาวน์โหลด'))
+      await fireEvent.click(await screen.findByText('รีสตาร์ทเพื่ออัปเดต'))
+      await waitFor(() => expect(vi.mocked(RestartToUpdate)).toHaveBeenCalled())
+      expect(updater.phase).toBe('restarting')
+
+      await vi.advanceTimersByTimeAsync(31_000)
+      expect(updater.phase).toBe('ready')
+      expect(updater.error).toMatch(/แอปยังไม่ปิดตัวเอง/)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   // The restart is the one act with a gate on it: it ends the process, and the

@@ -2099,6 +2099,22 @@ export namespace main {
 	        this.where = source["where"];
 	    }
 	}
+	export class StagedInfo {
+	    version: string;
+	    channel: string;
+	    installError: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new StagedInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.version = source["version"];
+	        this.channel = source["channel"];
+	        this.installError = source["installError"];
+	    }
+	}
 	export class StoreFault {
 	    failed: boolean;
 	    tooNew: boolean;

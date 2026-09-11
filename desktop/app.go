@@ -321,6 +321,19 @@ type App struct {
 
 	stagedMu sync.Mutex
 	staged   update.Staged
+	// installError is why the previous restart-to-update came back as the
+	// same build — the waiter's one line, already worded for the card
+	// (update.InstallFailure). "" when it went fine or never happened.
+	installError string
+}
+
+// StagedInfo is what the window asks about a staged update: which version
+// waits, on which channel (the ready sentence differs by it), and whether the
+// last attempt to install it failed and why.
+type StagedInfo struct {
+	Version      string `json:"version"`
+	Channel      string `json:"channel"`
+	InstallError string `json:"installError"`
 }
 
 // ChangedFile is one working-tree change reported by `git status`.
@@ -474,25 +487,65 @@ func (a *App) StageUpdate() error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	debuglog.Msg("self-update: staging from %s", version.Current)
 	staged, err := update.Stage(ctx, version.Current, func(done, total int64) {
 		a.emitEvent("update:progress", map[string]int64{"done": done, "total": total})
 	})
 	if err != nil {
+		debuglog.Msg("self-update: stage failed: %v", err)
 		return err
 	}
+	debuglog.Msg("self-update: staged %s (%s)", staged.Version, staged.Channel)
 	a.stagedMu.Lock()
 	a.staged = staged
+	a.installError = ""
 	a.stagedMu.Unlock()
 	return nil
 }
 
-// StagedUpdate is the version waiting for a restart, or "" if none is. What a
-// window that just reloaded asks, so a staged update survives the webview
-// coming back without the Go side having lost it.
-func (a *App) StagedUpdate() string {
+// StagedUpdate is the update waiting for a restart, or the zero value if none
+// is. What a window that just reloaded asks, so a staged update survives the
+// webview coming back without the Go side having lost it — and what the
+// window asks on every launch, since adoptStagedUpdate may have found one the
+// previous run left behind.
+func (a *App) StagedUpdate() StagedInfo {
 	a.stagedMu.Lock()
 	defer a.stagedMu.Unlock()
-	return a.staged.Version
+	return StagedInfo{
+		Version:      a.staged.Version,
+		Channel:      string(a.staged.Channel),
+		InstallError: a.installError,
+	}
+}
+
+// adoptStagedUpdate is the startup half of "later is a real answer" on the
+// installer channel: read how the previous hand-off went, pick up an
+// installer that was downloaded and verified but never restarted into, and
+// only then sweep the leftovers. In that order — the sweep used to run first
+// and unconditionally, so closing the window on a staged update deleted it,
+// and the next launch offered the same 24 MB download again.
+//
+// Runs off the startup path (hashing a 24 MB file is ~100 ms the first paint
+// does not need), and announces what it found as `update:staged` because the
+// window may already have asked StagedUpdate and been told "nothing".
+func (a *App) adoptStagedUpdate() {
+	if line := update.ReadRestartLog(); line != "" {
+		debuglog.Msg("self-update: previous hand-off: %s", line)
+		a.stagedMu.Lock()
+		a.installError = update.InstallFailure(line)
+		a.stagedMu.Unlock()
+	}
+	staged, ok := update.Adopt(version.Current)
+	if ok {
+		debuglog.Msg("self-update: adopted staged %s (%s) from a previous run", staged.Version, staged.Channel)
+		a.stagedMu.Lock()
+		a.staged = staged
+		a.stagedMu.Unlock()
+	}
+	update.RemoveLeftovers(ok)
+	if info := a.StagedUpdate(); info.Version != "" || info.InstallError != "" {
+		a.emitEvent("update:staged", info)
+	}
 }
 
 // RestartToUpdate is the half the user times: close this build, let the waiter
@@ -509,7 +562,9 @@ func (a *App) RestartToUpdate() error {
 	a.stagedMu.Lock()
 	staged := a.staged
 	a.stagedMu.Unlock()
+	debuglog.Msg("self-update: restarting into %s (%s)", staged.Version, staged.Channel)
 	if err := staged.Restart(); err != nil {
+		debuglog.Msg("self-update: hand-off failed: %v", err)
 		return err
 	}
 	// The relauncher is waiting on this process. Quit on a short delay rather
@@ -2088,7 +2143,9 @@ func (a *App) startup(ctx context.Context) {
 	a.openAtRememberedDesk()
 	// The previous build's exe, renamed aside by a self-update, and the staging
 	// download — this build is running, so by definition neither is needed.
-	go update.RemoveLeftovers()
+	// Except the download the user has not restarted into yet; see
+	// adoptStagedUpdate.
+	go a.adoptStagedUpdate()
 	// And the other end of the same feature: ask whether a newer build exists,
 	// so the answer reaches the user without them going looking for it
 	// (update_notify.go).
