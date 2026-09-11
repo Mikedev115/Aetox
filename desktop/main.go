@@ -2,33 +2,18 @@ package main
 
 import (
 	"embed"
-	"path/filepath"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 
-	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/engine"
 	"github.com/Mikedev115/Aetox/internal/proc"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
-
-// webviewUserDataDir returns where a WebView2 instance should store its
-// profile (cache/cookies/IndexedDB) — always an explicit, Aetox-owned path
-// under config.DataRoot() (ARCHITECTURE.md §14), never Wails'/go-webview2's
-// own silent default (%AppData%\<exe-name>, which used to differ between the
-// dev binary and the real one — two profiles for the same app). Empty return
-// is only a last-resort fallback if DataRoot() itself fails.
-func webviewUserDataDir(name string) string {
-	root, err := config.DataRoot()
-	if err != nil || root == "" {
-		return ""
-	}
-	return filepath.Join(root, "webview", name)
-}
 
 func main() {
 	// Every child this app ever spawns (MCP servers, shells, git, npx chains)
@@ -44,10 +29,10 @@ func main() {
 		// A screen too small for these is what App.fitToScreen (window.go)
 		// exists for — it lowers both the size and the floor to what the
 		// display actually leaves, and it runs before the window is shown.
-		Width:     windowWidth,
-		Height:    windowHeight,
-		MinWidth:  windowMinWidth,
-		MinHeight: windowMinHeight,
+		Width:     engine.WindowWidth,
+		Height:    engine.WindowHeight,
+		MinWidth:  engine.WindowMinWidth,
+		MinHeight: engine.WindowMinHeight,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 			// Files from the open project reach the panes as URLs under
@@ -71,7 +56,7 @@ func main() {
 			EnableFileDrop: true,
 		},
 		Windows: &windows.Options{
-			WebviewUserDataPath: webviewUserDataDir("app"),
+			WebviewUserDataPath: engine.WebviewUserDataDir("app"),
 		},
 	})
 

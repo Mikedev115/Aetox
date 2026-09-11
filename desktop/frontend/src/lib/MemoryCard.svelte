@@ -28,11 +28,11 @@
   import { cockpit } from './stores/cockpit.svelte'
   import { scopeMeta, USER_SCOPE, type ScopeMeta } from './memoryScope'
   import { PendingChangeByID, ApprovePendingChange, ApprovePendingChangeTo, RejectPendingChange, LearnedScopeInfos } from '../../wailsjs/go/main/App'
-  import type { main } from '../../wailsjs/go/models'
+  import type { engine } from '../../wailsjs/go/models'
 
   let { id }: { id: number } = $props()
 
-  let change = $state<main.PendingChange | null>(null)
+  let change = $state<engine.PendingChange | null>(null)
   /** Only ever the decided line's disclosure — a waiting card has nothing shut. */
   let detail = $state(false)
   let busy = $state(false)

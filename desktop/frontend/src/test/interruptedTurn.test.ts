@@ -5,10 +5,10 @@
 // and with the retry chip in the ordinary colour.
 import { describe, it, expect, beforeEach } from 'vitest'
 import { cockpit, restoreTranscript } from '../lib/stores/cockpit.svelte'
-import type { main } from '../../wailsjs/go/models'
+import type { engine } from '../../wailsjs/go/models'
 
-const row = (m: Partial<main.SessionMessage>): main.SessionMessage =>
-  ({ role: 'user', text: '', time: '10:10', ...m }) as main.SessionMessage
+const row = (m: Partial<engine.SessionMessage>): engine.SessionMessage =>
+  ({ role: 'user', text: '', time: '10:10', ...m }) as engine.SessionMessage
 
 beforeEach(() => {
   cockpit.chat = []

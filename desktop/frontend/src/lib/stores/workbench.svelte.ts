@@ -7,7 +7,7 @@ import {
   TerminalStart, TerminalShells, TerminalClose, BrowserClose, BrowserCloseForTeardown, ReadFile, ReadWorkbook,
   RelativizePath, SaveChatFile, WorkbenchTabsChanged, ResolveAddress, BrowserDevices,
 } from '../../../wailsjs/go/main/App'
-import type { main, ooxml } from '../../../wailsjs/go/models'
+import type { engine, ooxml } from '../../../wailsjs/go/models'
 import { t } from '../i18n.svelte'
 
 export type WorkbenchTabKind = 'terminal' | 'browser' | 'files' | 'file' | 'decks' | 'git' | 'gitlog' | 'repomap' | 'pr' | 'cutroom' | 'plan' | 'artifacts'
@@ -867,7 +867,7 @@ function writeSavedTabs(sessionId: string, tabs: SavedTab[], activeIdx: number):
       // nobody is looking at, and it is the honest answer: it is the tab that
       // will be showing the moment somebody does look.
       active: i === activeIdx,
-    })) as main.DeskTab[],
+    })) as engine.DeskTab[],
   )
 }
 
@@ -1109,7 +1109,7 @@ const wbKey = (sessionId: string) => `aetox-workbench:${sessionId}`
  * a list rebuilt from its own actions would be wrong the first time the user
  * closed something. The frontend is where the truth is, so the frontend says. */
 export function reportDeskTabs(): void {
-  // Plain objects, cast rather than built through main.DeskTab.createFrom: the
+  // Plain objects, cast rather than built through engine.DeskTab.createFrom: the
   // binding serializes them to the same JSON, and a value-import of the
   // generated models module would make this file need Wails at runtime — which
   // it does not, and which breaks every test that renders the workbench.
@@ -1135,7 +1135,7 @@ export function reportDeskTabs(): void {
       // without it the agent could not tell that its own open had just taken
       // the view away from something they were reading.
       active: t.id === workbench.activeId,
-    })) as main.DeskTab[],
+    })) as engine.DeskTab[],
   )
 }
 

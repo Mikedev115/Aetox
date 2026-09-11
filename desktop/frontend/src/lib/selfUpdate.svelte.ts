@@ -30,7 +30,7 @@ import {
   StageUpdate, RestartToUpdate, StagedUpdate, CheckForUpdate, AppVersion,
 } from '../../wailsjs/go/main/App'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
-import type { main, update } from '../../wailsjs/go/models'
+import type { engine, update } from '../../wailsjs/go/models'
 import { t } from './i18n.svelte'
 
 /** idle → downloading → ready → (restarting). `error` can follow either act. */
@@ -135,7 +135,7 @@ export function listenForUpdates(): () => void {
   // the window having asked: the launch that adopted an installer a previous
   // run downloaded (and, with it, why the previous restart came back as the
   // same build), or a newer release making that installer stale.
-  const offStaged = EventsOn('update:staged', (info: main.StagedInfo) => adoptStaged(info, true))
+  const offStaged = EventsOn('update:staged', (info: engine.StagedInfo) => adoptStaged(info, true))
   // A webview reload (Vite HMR, or a crash of the frontend alone) leaves the Go
   // side holding a staged update this fresh page knows nothing about. Without
   // this the card would vanish and the user would be offered the same download
@@ -160,7 +160,7 @@ export function listenForUpdates(): () => void {
  *  phase, and the answer will be asked for again when it ends. `emptyIsDrop`
  *  says whether an empty answer means "let go of what you have" (the event)
  *  or merely "nothing yet" (the reload query). */
-function adoptStaged(info: main.StagedInfo | null | undefined, emptyIsDrop: boolean): void {
+function adoptStaged(info: engine.StagedInfo | null | undefined, emptyIsDrop: boolean): void {
   if (!info) return
   if (info.version) {
     if (updater.phase !== 'idle') return

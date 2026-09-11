@@ -8,7 +8,7 @@
   // place a produced file is deleted, by the user, on purpose.
   import { onMount } from 'svelte'
   import { ListArtifactsIn, OpenArtifact, DeleteArtifact, ArtifactPreview, CompressArtifacts } from '../../wailsjs/go/main/App'
-  import { main } from '../../wailsjs/go/models'
+  import { engine } from '../../wailsjs/go/models'
   import { agoLabel, selectGlobalSession, setActiveView } from './stores/cockpit.svelte'
   import { dayBucket, daysAgo } from './dayBucket'
   import { t } from './i18n.svelte'
@@ -18,7 +18,7 @@
 
   let { onClose }: { onClose: () => void } = $props()
 
-  let files = $state<main.Artifact[]>([])
+  let files = $state<engine.Artifact[]>([])
   let loaded = $state(false)
   let error = $state('')
 
@@ -156,8 +156,8 @@
   // the day before.
   type Day = ReturnType<typeof dayBucket>
   type Row =
-    | { kind: 'file'; key: string; head: Day | null; file: main.Artifact }
-    | { kind: 'deck'; key: string; head: Day | null; folder: string; files: main.Artifact[] }
+    | { kind: 'file'; key: string; head: Day | null; file: engine.Artifact }
+    | { kind: 'deck'; key: string; head: Day | null; folder: string; files: engine.Artifact[] }
 
   const rows = $derived.by(() => {
     const out: Row[] = []
@@ -197,7 +197,7 @@
     return folder === 'work' ? t('artifacts.deckWork') : folder
   }
 
-  function deckSize(items: main.Artifact[]): number {
+  function deckSize(items: engine.Artifact[]): number {
     return items.reduce((sum, f) => sum + f.size, 0)
   }
 
@@ -342,7 +342,7 @@
   let squeezed = $state<{ files: number; saved: number; skipped: number } | null>(null)
 
   const IMAGE_EXT = ['png', 'jpg', 'jpeg']
-  const isImage = (f: main.Artifact) => IMAGE_EXT.includes(f.name.split('.').pop()?.toLowerCase() ?? '')
+  const isImage = (f: engine.Artifact) => IMAGE_EXT.includes(f.name.split('.').pop()?.toLowerCase() ?? '')
   const pickedImages = $derived(shownFiles.filter((f) => picked[f.path] && isImage(f)))
 
   async function squeeze() {
@@ -434,7 +434,7 @@
     band = null
   }
 
-  async function open(file: main.Artifact) {
+  async function open(file: engine.Artifact) {
     error = ''
     try {
       await OpenArtifact(file.path)
@@ -444,7 +444,7 @@
     }
   }
 
-  async function remove(file: main.Artifact) {
+  async function remove(file: engine.Artifact) {
     if (confirmPath !== file.path) {
       confirmPath = file.path
       return
@@ -459,7 +459,7 @@
     await refresh()
   }
 
-  async function openSource(file: main.Artifact) {
+  async function openSource(file: engine.Artifact) {
     if (!file.sessionId) return
     // The view moves first, the transcript follows — see Office.svelte.
     setActiveView('chat')
@@ -482,7 +482,7 @@
   // Fetched per card as it scrolls into view, never up front. The sweep is
   // capped at 500 rows and cracking 500 zips open to paint a grid nobody has
   // scrolled to is how a gallery comes to feel broken.
-  let previews = $state<Record<string, main.ArtifactPreview | 'loading'>>({})
+  let previews = $state<Record<string, engine.ArtifactPreview | 'loading'>>({})
 
   // The order previews were last looked at, oldest first, so the ones furthest
   // behind are the ones dropped.
@@ -514,7 +514,7 @@
     } catch {
       // A file deleted underneath us, or one this side will not read. The card
       // keeps its icon; a preview is a bonus, never the reason the row exists.
-      previews[path] = { kind: 'none' } as main.ArtifactPreview
+      previews[path] = { kind: 'none' } as engine.ArtifactPreview
     }
   }
 
@@ -779,7 +779,7 @@
   </div>
 </div>
 
-{#snippet fileCard(f: main.Artifact)}
+{#snippet fileCard(f: engine.Artifact)}
           <div class="art-card" class:picked={picked[f.path]} data-paths={f.path} use:whenVisible={f.path}>
             {@render tick({ kind: 'file', key: f.path, head: null, file: f })}
             <button class="art-open" onclick={() => open(f)} title={f.path}>
@@ -834,7 +834,7 @@
      .html and spreadsheet previews within the hour — the copy simply had fewer
      branches than the original, and nothing said so. `count` is the whole
      difference: 0 for a file, the size of the pile for a folder. -->
-{#snippet thumb(f: main.Artifact, count: number)}
+{#snippet thumb(f: engine.Artifact, count: number)}
   {@const p = previews[f.path]}
   <span class="art-thumb" class:plain={!p || p === 'loading' || p.kind === 'none'}>
     {#if p && p !== 'loading' && p.kind === 'image'}

@@ -13,7 +13,7 @@
   // และไม่มีร่องรอยของแอปนี้ติดอยู่ในนั้น
   import { onDestroy, onMount } from 'svelte'
   import { DeckFormats, ExportDeck, OpenExport, OpenFileExternally } from '../../../wailsjs/go/main/App'
-  import type { main } from '../../../wailsjs/go/models'
+  import type { engine } from '../../../wailsjs/go/models'
   import FileEditor from '../FileEditor.svelte'
   import { DECK_BASE, deckFit, documentScrolls, sendStepKey, slideElements, typedIntoField, visibleIndex } from './deckNav'
   import { deckPick, startDeckPick, stopDeckPick, type PickMode } from './pagePick.svelte'
@@ -304,7 +304,7 @@
   // "เขียนฟอร์แมตนี้ได้ไหม" เป็นข้อเท็จจริงเกี่ยวกับไบนารี ไม่ใช่เกี่ยวกับปุ่ม
   // วันที่ PrintToPdf ลง แถว .pdf จะใช้งานได้เองโดยไม่ต้องแก้ไฟล์นี้ และไม่มี
   // ช่วงเวลาไหนที่สองรายการไม่ตรงกัน
-  let formats = $state<main.DeckFormat[]>([])
+  let formats = $state<engine.DeckFormat[]>([])
   let menuOpen = $state(false)
   let busy = $state(false)
   let landed = $state('')

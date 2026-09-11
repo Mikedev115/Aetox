@@ -16,10 +16,10 @@ import {
   setActiveView, restoreActiveView,
 } from '../lib/stores/cockpit.svelte'
 import { SendMessage } from './mocks/wailsApp'
-import type { main } from '../../wailsjs/go/models'
+import type { engine } from '../../wailsjs/go/models'
 
-const row = (m: Partial<main.SessionMessage>): main.SessionMessage =>
-  ({ role: 'user', text: '', time: '10:10', ...m }) as main.SessionMessage
+const row = (m: Partial<engine.SessionMessage>): engine.SessionMessage =>
+  ({ role: 'user', text: '', time: '10:10', ...m }) as engine.SessionMessage
 
 beforeEach(() => {
   vi.clearAllMocks()

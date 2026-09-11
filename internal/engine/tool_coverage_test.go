@@ -1,0 +1,1301 @@
+package engine
+
+// One test that runs every tool the agent is given, through the real path.
+//
+// Not "the definitions look well-formed" (tool_definitions_test.go already does
+// that) and not "the provider accepts the batch" (live_tools_test.go does that
+// against a real API). This one answers the question those two leave open: if
+// the model calls this tool right now, does anything actually happen?
+//
+// The path is the real one. skill.NewDefaultRegistry plus Engine.workbenchSkills is
+// exactly the set applyConfig hands the agent, and dispatcher.ExecuteTool is the
+// same call internal/turn/executor.go makes when a model's tool call arrives —
+// so what runs below is the tool's own implementation against a real sandbox,
+// real subprocesses and real files, with nothing stubbed in between.
+//
+// Two guards, both aimed at drift rather than at today's code:
+//
+//  1. Every tool in the registry must appear in the table. A tool added without
+//     a case fails the test instead of quietly never being exercised.
+//  2. The set of skills deliberately kept off the model's tool surface is
+//     pinned. A tool that loses its ToolDefinition — and with it any chance of
+//     the model ever calling it — stops being an invisible regression.
+
+import (
+	"archive/zip"
+	"context"
+	"encoding/binary"
+	"encoding/json"
+	"image"
+	"image/color"
+	"image/png"
+	"io"
+	"net"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/Mikedev115/Aetox/internal/automation/n8n"
+	"github.com/Mikedev115/Aetox/internal/automation/windmill"
+	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/lsp"
+	"github.com/Mikedev115/Aetox/internal/skill"
+	"github.com/Mikedev115/Aetox/internal/stt"
+	"github.com/Mikedev115/Aetox/internal/testpdf"
+)
+
+// cliOnlySkills are registered but have no ToolDefinition, so the model is
+// never offered them: CLI-era surface kept for the console. Pinned here so that
+// dropping a real tool off the model's surface fails loudly instead of looking
+// like nothing changed.
+//
+// shell and git left this list on 2026-07-28 (ARCHITECTURE.md §49). ADR 0001
+// had held them back as phase-1 caution; the narrower tools it was waiting for
+// shipped long ago, and until then the agent could edit code without ever being
+// able to run it.
+var cliOnlySkills = []string{"echo", "fs", "help"}
+
+// toolCase is how one tool gets driven. args are what the model would send.
+type toolCase struct {
+	args map[string]any
+	// available reports whether this machine can run the tool at all. nil means
+	// it always can, and then the tool MUST succeed — no excuses accepted.
+	available func() bool
+	// why names the missing piece, for the report line when available is false.
+	why string
+	// drive runs alongside the call, for tools that block on something else
+	// happening (ask_user waits for a human).
+	drive func(t *testing.T, a *Engine)
+	// setUp runs BEFORE the call, for a tool whose work needs something already
+	// in the store. `drive` cannot serve: it runs alongside, which is right for
+	// a tool that blocks on a human and wrong for one that needs a row to exist
+	// before it is asked about. The table's cases run in map order, so a case
+	// must never lean on another having gone first.
+	setUp func(t *testing.T, a *Engine)
+	// realUserProfile puts %USERPROFILE% back for the duration of this one
+	// call. See useRealUserProfile — it is about a third-party binary, not
+	// about the tool.
+	realUserProfile bool
+	// check looks for evidence the tool did its job, rather than returning an
+	// empty success.
+	check func(t *testing.T, out skill.Output, root string)
+}
+
+func TestEveryToolRunsThroughTheRealDispatcher(t *testing.T) {
+	// Captured before the isolation replaces it — the one tool that spawns a
+	// third-party binary needs the real value back for the length of its call.
+	realUserProfile := os.Getenv("USERPROFILE")
+	isolateUserDirs(t)
+	// Before workbenchSkills: `computer` is registered only when the user has
+	// turned it on, so with the shipped default off this test would never see
+	// it and its seven actions would ship unexercised — the exact gap the
+	// missing-case guard below exists to close, arriving through the back door.
+	switchOnComputer(t)
+	root := t.TempDir()
+	// diagnostics starts a real gopls and leaves it running on purpose (see
+	// lsp.Shared). Registered after the temp dirs so LIFO shuts it down first:
+	// otherwise it still holds files inside them and the cleanup fails.
+	t.Cleanup(lsp.CloseShared)
+	writeToolFixtures(t, root)
+
+	app := &Engine{}
+	// The real app never has one without the other, and deck_export is the first
+	// workbench tool that reads the root off the Engine rather than being handed it:
+	// its work is a file on disk, not a pane on screen, so it resolves paths the
+	// way the file tools do.
+	app.cur().cfg.SandboxRoot = root
+	// A bare &Engine{} opens on a conversation with no id — the real state a
+	// launched window is in before its first turn is stored (conversation.go),
+	// and not the state a tool ever runs in, because a tool runs inside a turn.
+	// `plan` is the first tool to notice: a plan belongs to a conversation and
+	// refuses to be written for one that is not a row yet, so without this the
+	// harness would report the tool broken for being right.
+	app.cur().id = newSessionID()
+	// Several tools below open the store (session_search, memory, suggest_task),
+	// and on Windows an open file cannot be removed — so without this the data
+	// root's own cleanup fails and takes the test with it. Registered after
+	// isolateUserDirs so LIFO closes the handle before that directory goes.
+	closeDBOnCleanup(t, app)
+	registry := skill.NewDefaultRegistry(skill.RegistryOptions{SandboxRoot: root})
+	for _, s := range app.workbenchSkills(app.cur(), app.cur().cfg.SandboxRoot) {
+		if err := registry.Register(s, skill.SourceBuiltin); err != nil {
+			t.Fatalf("register %s: %v", s.Name(), err)
+		}
+	}
+	dispatcher := skill.NewDispatcher(registry)
+
+	assertModelSurfaceIsIntact(t, registry, dispatcher)
+
+	cases := toolCases(t, root, dispatcher)
+	var ran, skipped []string
+
+	for _, def := range dispatcher.ToolDefinitions() {
+		// A packed tool is one entry in the block and several acts inside it,
+		// so it is driven once per action rather than once (skill.PackedCalls).
+		// Packing was meant to cost the tool block, not the coverage: `github`
+		// answering for one case while three of its four actions ship
+		// unexercised is exactly the quiet gap this test exists to close.
+		//
+		// Each action is looked up under the name it had before the packing,
+		// which is also the name every gate still judges it by — so the table
+		// below did not have to be rewritten, and a reader of the report still
+		// sees which act ran.
+		for _, call := range callsOf(def.Function.Name) {
+			// By ACTION first, then by the permission name it shares. Two
+			// actions can wear one permission — `change`'s `append` is `edit`
+			// with a flag, `browser`'s `scroll` is `browser_read` — and giving
+			// both the same arguments drives one of them wrong: an append sent
+			// `find` is refused, correctly, by the tool it reached.
+			// Keyed "tool.action" first, then by the permission name the act
+			// shares. Two actions can wear one permission — `change`'s `append`
+			// is `edit` with a flag, `browser`'s `scroll` is `browser_read` —
+			// and giving both the same arguments drives one of them wrong: an
+			// append sent `find` is refused, correctly, by the tool it reached.
+			//
+			// Qualified by the tool because bare action words collide across
+			// packs: `read` is a browser act and a file tool, `list` is n8n's,
+			// windmill's, shell's and search's. An unqualified lookup sent the
+			// browser a file path, which is exactly the kind of quiet wrongness
+			// this test exists to catch.
+			name := call.Permission
+			tc, ok := cases[def.Function.Name+"."+call.Action]
+			if !ok {
+				tc, ok = cases[name]
+			} else {
+				name = def.Function.Name + "." + call.Action
+			}
+			if !ok {
+				t.Errorf("%s is offered to the model but this test does not run it — add a case, or the tool ships unexercised", name)
+				continue
+			}
+			tc.args = withAction(tc.args, call.Action)
+
+			if tc.available != nil && !tc.available() {
+				skipped = append(skipped, name+" ("+tc.why+")")
+				// Still has to be reachable: a tool the dispatcher cannot route
+				// is broken whether or not its dependency is installed.
+				assertReachable(t, dispatcher, def.Function.Name, tc)
+				continue
+			}
+
+			restore := useRealUserProfile(t, tc, realUserProfile)
+			out := runTool(t, dispatcher, app, def.Function.Name, tc)
+			restore()
+			if !out.Success {
+				t.Errorf("%s failed on a machine that can run it: %s", name, firstLine(out.Stderr+out.Content))
+				continue
+			}
+			if tc.check != nil {
+				tc.check(t, out, root)
+			}
+			ran = append(ran, name)
+		}
+	}
+
+	sort.Strings(ran)
+	sort.Strings(skipped)
+	t.Logf("ran for real (%d): %s", len(ran), strings.Join(ran, ", "))
+	if len(skipped) > 0 {
+		t.Logf("reachable but not runnable here (%d): %s", len(skipped), strings.Join(skipped, ", "))
+	}
+}
+
+// callsOf expands one offered tool into the calls that have to be driven: every
+// action of a packed tool, or the tool itself for everything else.
+func callsOf(tool string) []skill.PackedCall {
+	if calls := skill.PackedCalls(tool); len(calls) > 0 {
+		return calls
+	}
+	return []skill.PackedCall{{Permission: tool}}
+}
+
+// withAction copies a case's arguments with the action word added.
+//
+// A copy because the table is built once and its maps are shared: writing the
+// action into the original would leave whichever action ran last sitting in the
+// arguments of a case that never asked for one.
+func withAction(args map[string]any, action string) map[string]any {
+	if action == "" {
+		return args
+	}
+	out := make(map[string]any, len(args)+1)
+	for key, value := range args {
+		out[key] = value
+	}
+	out["action"] = action
+	return out
+}
+
+// assertModelSurfaceIsIntact catches a tool silently dropping off the list the
+// model is sent — the failure mode where everything still compiles, every unit
+// test still passes, and the agent simply never uses that tool again.
+func assertModelSurfaceIsIntact(t *testing.T, registry *skill.Registry, dispatcher *skill.Dispatcher) {
+	t.Helper()
+	exposed := map[string]bool{}
+	for _, d := range dispatcher.ToolDefinitions() {
+		exposed[d.Function.Name] = true
+	}
+	var hidden []string
+	for _, name := range registry.Names() {
+		if !exposed[name] {
+			hidden = append(hidden, name)
+		}
+	}
+	sort.Strings(hidden)
+	if strings.Join(hidden, ",") != strings.Join(cliOnlySkills, ",") {
+		t.Errorf("skills hidden from the model changed\n  now:      %v\n  expected: %v\nA tool losing its ToolDefinition can never be called again — confirm that is intended, then update cliOnlySkills.", hidden, cliOnlySkills)
+	}
+}
+
+// runTool calls the dispatcher exactly the way turn/executor.go does, under a
+// deadline so a hung tool fails the test instead of the suite.
+// switchOnComputer turns the computer-control switch on for the duration of a
+// test.
+//
+// It writes the preference file directly rather than calling the binding,
+// because the binding re-applies the whole config to rebuild the engine (the
+// switch decides whether the tool is registered at all) and this test builds its
+// registry by hand. isolateUserDirs has already pointed the data root at a temp
+// dir, so the file written here is thrown away with the test and is never the
+// one belonging to whoever is running it.
+func switchOnComputer(t *testing.T) {
+	t.Helper()
+	if err := config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		pref.ComputerControlOn = true
+		return nil
+	}); err != nil {
+		t.Fatalf("could not turn computer control on for the test: %v", err)
+	}
+}
+
+func runTool(t *testing.T, d *skill.Dispatcher, app *Engine, name string, tc toolCase) skill.Output {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	if tc.setUp != nil {
+		tc.setUp(t, app)
+	}
+	if tc.drive != nil {
+		go tc.drive(t, app)
+	}
+
+	type result struct {
+		out     skill.Output
+		handled bool
+		err     error
+	}
+	done := make(chan result, 1)
+	go func() {
+		out, handled, err := d.ExecuteTool(ctx, name, tc.args)
+		done <- result{out, handled, err}
+	}()
+
+	select {
+	case r := <-done:
+		if !r.handled {
+			t.Fatalf("%s: the dispatcher did not route it — the model would get 'tool is not exposed to agent'", name)
+		}
+		if r.err != nil && r.out.Success {
+			t.Errorf("%s returned an error and Success=true at once: %v", name, r.err)
+		}
+		return r.out
+	case <-ctx.Done():
+		t.Fatalf("%s never returned — a tool that hangs blocks the whole turn", name)
+		return skill.Output{}
+	}
+}
+
+// assertReachable is the reduced check for a tool whose dependency is absent:
+// it must still be routed and must still come back, rather than hanging or
+// leaking a raw exec error.
+func assertReachable(t *testing.T, d *skill.Dispatcher, name string, tc toolCase) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	done := make(chan bool, 1)
+	go func() {
+		_, handled, _ := d.ExecuteTool(ctx, name, tc.args)
+		done <- handled
+	}()
+	select {
+	case handled := <-done:
+		if !handled {
+			t.Errorf("%s is offered to the model but the dispatcher will not route it", name)
+		}
+	case <-ctx.Done():
+		t.Errorf("%s hung with its dependency missing — it must report, not block the turn", name)
+	}
+}
+
+// startBackgroundFixture launches one long-running command through the real
+// dispatcher and returns its handle, so shell_output and shell_kill are driven
+// against a process that genuinely exists. Without it the only way to exercise
+// them is an invented id, which tests the error path and nothing else.
+func startBackgroundFixture(t *testing.T, d *skill.Dispatcher) string {
+	t.Helper()
+	// One line for both platforms: echo, sleep and `;` are the dialect
+	// PowerShell and sh read the same way. The old cmd spelling chained with
+	// `&`, which PowerShell reads as "background the left side" — the shell
+	// then exited at once and the fixture reported "already finished".
+	command := `sleep 60; echo aetox-bg-done`
+	out, _, err := d.ExecuteTool(context.Background(), "shell", map[string]any{
+		"command":           command,
+		"run_in_background": true,
+	})
+	if err != nil {
+		t.Fatalf("background fixture: %v", err)
+	}
+	id := regexp.MustCompile(`\bbg_\d+\b`).FindString(out.Content)
+	if id == "" {
+		t.Fatalf("background fixture returned no handle: %q", out.Content)
+	}
+	return id
+}
+
+func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[string]toolCase {
+	t.Helper()
+	// Started once and shared by both cases below, which are driven in the
+	// pack's own order — read, then kill. Either way round works on purpose:
+	// a read before the kill finds a job that is still running, and a read
+	// after it finds one that is not, because the handle outlives the process.
+	backgroundID := startBackgroundFixture(t, dispatcher)
+	writeCoverageSkill(t)
+	return map[string]toolCase{
+		// --- pure local: no excuse for these to fail anywhere ---
+		"time": {args: map[string]any{}},
+		// The interpreter is compiled in, so this one has no excuse to fail on
+		// any machine — that is the whole reason it is not `python script.py`.
+		"calc": {args: map[string]any{"script": "1234 * 5678"}, check: outputContains("7006652")},
+		"list": {args: map[string]any{}, check: outputContains("notes.txt")},
+		"read": {args: map[string]any{"path": "notes.txt"}, check: outputContains("alpha")},
+		"grep": {args: map[string]any{"pattern": "alpha"}, check: outputContains("notes.txt")},
+		"glob": {args: map[string]any{"pattern": "*.txt"}, check: outputContains("notes.txt")},
+		// Checked on a symbol, not a filename: a map that listed files without
+		// parsing anything would still contain "main.go" and prove nothing.
+		"repo_map": {args: map[string]any{}, check: outputContains("func main")},
+		"write": {
+			args:  map[string]any{"path": "written.txt", "content": "from the tool\n"},
+			check: fileContains("written.txt", "from the tool"),
+		},
+		"sheet_write": {
+			args: map[string]any{
+				"path": "book.xlsx",
+				"sheets": []any{map[string]any{
+					"name":    "รายการ",
+					"columns": []any{"ชื่อ", "ยอด"},
+					"rows":    []any{[]any{"กาแฟ", 185.5}},
+				}},
+			},
+			check: workbookHasNumericCell("book.xlsx", "185.5"),
+		},
+		// pptx is the one format that needs no window: it reduces the deck's HTML
+		// back to slides and rebuilds them in OOXML, which is the same
+		// ooxml.BuildPPTX the retired slides_write called. The other five are
+		// screenshots taken by WebView2, and this test has no window — so this
+		// case covers the reducer and the writer, and the export bar's own tests
+		// cover the renderer.
+		"deck_export": {
+			args:  map[string]any{"path": "เด็ค.html", "format": "pptx"},
+			check: packageHasPart("เด็ค.pptx", "ppt/slides/slide1.xml", "สรุปยอดขาย"),
+		},
+		"doc_write": {
+			args: map[string]any{
+				"path": "memo.docx",
+				"blocks": []any{
+					map[string]any{"type": "heading", "text": "บันทึกข้อความ", "level": 1},
+					map[string]any{"type": "paragraph", "text": "เรียน ผู้จัดการฝ่ายขาย"},
+					map[string]any{"type": "bullets", "items": []any{"ยอดโตขึ้น ๑๒%"}},
+					map[string]any{"type": "table", "columns": []any{"หมวด", "ยอด"}, "rows": []any{[]any{"อาหาร", "95"}}},
+				},
+			},
+			check: packageHasPart("memo.docx", "word/document.xml", "บันทึกข้อความ"),
+		},
+		"edit": {
+			args:  map[string]any{"path": "notes.txt", "find": "beta", "replace": "BETA"},
+			check: fileContains("notes.txt", "BETA"),
+		},
+		// Its own case, not edit's: an append takes no `find`, and the tool
+		// refuses one that carries it.
+		"change.append": {
+			args:  map[string]any{"path": "notes.txt", "replace": "\nappended-by-coverage"},
+			check: fileContains("notes.txt", "appended-by-coverage"),
+		},
+		"edits": {
+			args: map[string]any{"edits": []any{
+				map[string]any{"path": "edits-me.txt", "find": "two", "replace": "TWO"},
+			}},
+			check: fileContains("edits-me.txt", "TWO"),
+		},
+		// Kept although the tool is no longer registered (internal/skill/
+		// defaults.go, 2026-08-19). The loop below drives what the dispatcher
+		// offers, so an unoffered tool costs nothing here — and the day the
+		// notebook pane switches it back on, its coverage is already written.
+		"notebook_edit": {
+			args:  map[string]any{"path": "nb.ipynb", "cell": 0, "source": "y = 99\n"},
+			check: fileContains("nb.ipynb", "y = 99"),
+		},
+		"delete": {
+			args: map[string]any{"path": "victim.txt"},
+			check: func(t *testing.T, _ skill.Output, root string) {
+				if _, err := os.Stat(filepath.Join(root, "victim.txt")); !os.IsNotExist(err) {
+					t.Errorf("delete reported success but the file is still there")
+				}
+			},
+		},
+		"todo_write": {args: map[string]any{"todos": []any{
+			map[string]any{"content": "prove the tool runs", "status": "completed"},
+		}}},
+		// The conversation's plan (plan.go). All three run for real, against the
+		// isolated database this test already stands up, and the order matters:
+		// `write` first so `amend` has something to amend and `read` has
+		// something to read. Go runs a map's cases in random order, so each one
+		// is written to stand alone — `amend` on an empty conversation is a
+		// write, and `read` on one answers "no plan yet" rather than failing.
+		"plan_write": {args: map[string]any{"action": "write", "title": "prove the tool runs", "sections": []any{
+			map[string]any{"heading": "What to change", "body": "1. this"},
+		}}},
+		"plan_amend": {args: map[string]any{"action": "amend", "sections": []any{
+			map[string]any{"heading": "What to change", "body": "1. that instead"},
+		}}},
+		"plan_read": {args: map[string]any{"action": "read"}},
+		// `step` needs a plan with steps in it, and Go runs these cases in
+		// random order — so it writes its own rather than leaning on plan_write
+		// having gone first. Every case here stands alone for that reason.
+		"plan_step": {args: map[string]any{"action": "step", "n": 1, "state": "done"}, setUp: func(_ *testing.T, app *Engine) {
+			_, _ = (&planSkill{app: app, conv: app.cur()}).run(map[string]any{
+				"action":   "write",
+				"sections": []any{map[string]any{"heading": "What to change", "body": "see the steps"}},
+				"steps":    []any{"prove the tool runs"},
+			})
+		}},
+		// `report` needs a plan to report on, for the same reason `step` does.
+		"plan_report": {args: map[string]any{"action": "report", "sections": []any{
+			map[string]any{"heading": "What was done", "body": "proved the tool runs"},
+		}}, setUp: func(_ *testing.T, app *Engine) {
+			_, _ = (&planSkill{app: app, conv: app.cur()}).run(map[string]any{
+				"action":   "write",
+				"sections": []any{map[string]any{"heading": "What to change", "body": "see the steps"}},
+				"steps":    []any{"prove the tool runs"},
+			})
+		}},
+		// Progressive skill loading: a fixture skill is installed into the
+		// (isolated) discovery dir by writeCoverageSkill, so the list has one
+		// real entry and the view has a real body to return.
+		"skills_list": {
+			args:  map[string]any{},
+			check: outputContains("coverage-skill"),
+		},
+		"skill_view": {
+			args:  map[string]any{"name": "coverage-skill"},
+			check: outputContains("the coverage body"),
+		},
+		// Empty history is this test's reality — "no matches" IS the success
+		// case, proving the query ran against a real database.
+		"session_search": {
+			args:  map[string]any{"query": "nothing-recorded-yet"},
+			check: outputContains("No history matches"),
+		},
+		// The receipt has to say the change is waiting, not that it happened:
+		// a model told "saved" would stop proposing and start assuming, and
+		// nothing reaches memory until a human approves it.
+		"memory": {
+			args: map[string]any{
+				"about": "machine",
+				"text":  "เครื่องนี้ไม่มี Excel ติดตั้ง",
+				"why":   "เปิดไฟล์ .xlsx แล้วไม่มีโปรแกรมรับ",
+			},
+			check: func(t *testing.T, out skill.Output, _ string) {
+				// Aetox never lists itself. Not merely refused when aimed at:
+				// absent, so a model never spends a turn finding out it may not.
+				//
+				// Matched on the PROGRAM in parentheses, never on the title. The
+				// first version of this check searched the whole output and fired
+				// on a Chrome window whose page happened to be about Aetox, which
+				// is the same mistake in miniature that the whole tool is built to
+				// avoid: a title is what somebody else wrote, a program name is what
+				// Windows reports.
+				for name := range reachSelfNames {
+					if strings.Contains(strings.ToLower(out.Content), "("+name+")") {
+						t.Errorf("list_apps offered a window belonging to %s: %s", name, out.Content)
+					}
+				}
+			},
+		},
+		"suggest_task": {
+			args: map[string]any{
+				"title":  "Fix the stale badge",
+				"prompt": "In README.md the CI badge points at a workflow that was renamed; update the URL to the current one.",
+				"tldr":   "The README badge is dead.",
+			},
+			check: func(t *testing.T, out skill.Output, _ string) {
+				if !strings.Contains(out.Content, "Noted") {
+					t.Errorf("suggest_task receipt missing: %q", out.Content)
+				}
+			},
+		},
+		// echo is the one command cmd.exe and sh both spell the same way, and
+		// the point here is the plumbing — a real child process, its output
+		// captured and handed back — not the command itself.
+		"shell": {
+			args:  map[string]any{"command": "echo aetox-shell-ok"},
+			check: outputContains("aetox-shell-ok"),
+		},
+		"shell_kill": {
+			args:  map[string]any{"shell_id": backgroundID},
+			check: outputContains("killed"),
+		},
+		"shell_output": {
+			args: map[string]any{"shell_id": backgroundID},
+			// Reading a killed job still works and still says what happened to
+			// it — the handle outlives the process on purpose.
+			check: outputContains(backgroundID),
+		},
+		"shell_list": {
+			args: map[string]any{},
+			// Runs after kill in the pack's order, which is the interesting
+			// case: a finished job is still listed while it is remembered,
+			// because the model recovering a lost handle is usually looking
+			// for one whose work has already ended.
+			check: outputContains(backgroundID),
+		},
+
+		// ask_user blocks until a human answers — so the test answers, through
+		// the same binding the UI calls. This is the one tool whose real path
+		// includes a round trip back out of the engine.
+		"ask_user": {
+			args:  map[string]any{"question": "does this tool work?", "options": []any{"yes", "no"}},
+			drive: answerTheQuestion("yes"),
+			check: outputContains("yes"),
+		},
+
+		// --- needs a local binary ---
+		"pdf_read": {
+			args:            map[string]any{"path": "doc.pdf"},
+			available:       haveBinary("pdftotext"),
+			why:             "no poppler",
+			realUserProfile: true,
+			check:           outputContains("AETOX PDF OK"),
+		},
+		"image_ocr": {
+			args:      map[string]any{"path": "shot.png"},
+			available: haveBinary("tesseract"),
+			why:       "no tesseract",
+		},
+		// Making a video, one case per act (video_tool.go).
+		//
+		// `new` runs for real and must succeed: it copies a scene out of the
+		// library that ships inside this binary, so there is nothing on the
+		// machine for it to be missing. `statement-title` is the one to drive —
+		// a single self-contained file, which exercises the flat half of the
+		// library, where a folder scene would only prove the copy walks a tree.
+		"video.new": {
+			args: map[string]any{"template": "statement-title", "path": "scenes/first"},
+		},
+		// The other two run somebody else's program, and it arrives by download
+		// rather than inside the binary. Same shape as video_ocr's below:
+		// skipped with a stated reason on a machine that has not installed it,
+		// never silently.
+		"video.check": {
+			args:      map[string]any{"path": "scenes/first"},
+			available: haveSceneRenderer,
+			why:       "no scene renderer installed",
+		},
+		"video.render": {
+			args:      map[string]any{"path": "scenes/first", "quality": "draft"},
+			available: haveSceneRenderer,
+			why:       "no scene renderer installed",
+		},
+		"video_ocr": {
+			// interval_seconds is explicit: the default sampling interval is
+			// longer than a fixture clip, and "no frames extracted" would read
+			// as a broken tool rather than a fixture too short to sample.
+			args:      map[string]any{"path": "clip.mp4", "interval_seconds": 1},
+			available: bothOf(haveBinary("ffmpeg"), fileExists(filepath.Join(root, "clip.mp4"))),
+			why:       "no ffmpeg",
+		},
+		"audio_transcribe": {
+			args:      map[string]any{"path": "tone.wav"},
+			available: bothOf(haveBinary("ffmpeg"), haveSpeechEngine),
+			why:       "no ffmpeg, or no speech model on this machine",
+		},
+		// ffprobe rather than ffmpeg: this tool measures, it does not encode.
+		// The check reads the spine, because an FCPXML with a well-formed
+		// header and an empty spine is a file that opens and holds no edit —
+		// the one failure this tool has that looks like success.
+		"video_project": {
+			args:      map[string]any{"cutfile": "cut.json"},
+			available: bothOf(haveBinary("ffprobe"), fileExists(filepath.Join(root, "clip.mp4"))),
+			why:       "no ffprobe, or no video fixture",
+			check:     fileContains("cut.fcpxml", "<asset-clip"),
+		},
+		"diagnostics": {
+			args:      map[string]any{"path": "main.go"},
+			available: haveBinary("gopls"),
+			why:       "no gopls",
+		},
+		"symbol": {
+			args:      map[string]any{"path": "main.go", "name": "main"},
+			available: haveBinary("gopls"),
+			why:       "no gopls",
+		},
+		"rename": {
+			args:      map[string]any{"path": "renameme.go", "name": "helper", "new_name": "assist"},
+			available: haveBinary("gopls"),
+			why:       "no gopls",
+			check:     fileContains("renameme.go", "func assist"),
+		},
+		// No check: Success already means git was found, the action passed the
+		// read-only allowlist, ensureGitRepo confirmed a real repository and
+		// output came back. Matching on the text would pin git's own wording,
+		// which is localized and version-dependent.
+		"git": {
+			args:      map[string]any{"action": "status", "args": []any{"--short"}},
+			available: haveBinary("git"),
+			why:       "no git",
+		},
+
+		// --- needs the network ---
+		"web_fetch": {
+			args:      map[string]any{"url": "https://example.com"},
+			available: online,
+			why:       "offline",
+			check:     outputContains("Example Domain"),
+		},
+		// The keyless vendor is the one picture engine a test can actually
+		// drive: no key, no GPU, nothing to install. Which also makes this the
+		// only place the endpoint's shape gets checked against the real
+		// service rather than against a fake — if Pollinations changes its
+		// URL, this is what says so.
+		"image_make": {
+			args:      map[string]any{"prompt": "a plain red circle on a white background", "path": "coverage-dot.png"},
+			available: picturesUsable,
+			why:       "offline, or the free picture endpoint is throttling",
+			// Not the filename: image_make renames what it wrote to match the
+			// bytes, so the path in the receipt is not the path asked for.
+			check: outputContains("วาดแล้ว"),
+		},
+		"media_fetch": {
+			args:      map[string]any{"url": "https://github.com/github.png", "path": "cover-github.png"},
+			available: online,
+			why:       "offline",
+			check:     outputContains("png"),
+		},
+		"web_search":          {args: map[string]any{"query": "golang"}, available: online, why: "offline"},
+		"github_repo_summary": {args: map[string]any{"repo_url": "https://github.com/golang/example"}, available: githubUsable, why: "offline, or out of GitHub API quota"},
+		"github_search":       {args: map[string]any{"query": "aetox"}, available: githubUsable, why: "offline, or out of GitHub API quota"},
+		"github_list_files":   {args: map[string]any{"repo_url": "https://github.com/golang/example"}, available: githubUsable, why: "offline, or out of GitHub API quota"},
+		"github_read_file": {
+			args:      map[string]any{"repo_url": "https://github.com/golang/example", "path": "README.md"},
+			available: githubUsable,
+			why:       "offline, or out of GitHub API quota",
+		},
+
+		// The n8n tools reach a server only the user has. There is no public
+		// instance to point a test at and standing one up would mean running
+		// Docker in CI, so what is exercised here is the half that is ours: the
+		// dispatcher routes the call, the tool validates its arguments, and the
+		// not-connected refusal is the sentence the user would actually read.
+		// assertReachable does that on the skipped path.
+		"n8n_workflow_list":     {args: map[string]any{}, available: n8nConnected, why: "no n8n connected on this machine"},
+		"n8n_workflow_read":     {args: map[string]any{"id": "1"}, available: n8nConnected, why: "no n8n connected on this machine"},
+		"n8n_workflow_create":   {args: map[string]any{"name": "aetox test"}, available: n8nConnected, why: "no n8n connected on this machine"},
+		"n8n_workflow_update":   {args: map[string]any{"id": "1", "name": "aetox test"}, available: n8nConnected, why: "no n8n connected on this machine"},
+		"n8n_workflow_activate": {args: map[string]any{"id": "1", "active": false}, available: n8nConnected, why: "no n8n connected on this machine"},
+
+		// Same reasoning for the second engine. Windmill's paths carry one extra
+		// trap worth exercising even here: `u/a/b` is the shape the server
+		// enforces, and the arguments below are valid ones, so a failure on a
+		// connected machine is the client's fault rather than the test's.
+		"windmill_workspace_list": {args: map[string]any{}, available: windmillConnected, why: "no Windmill connected on this machine"},
+		"windmill_flow_list":      {args: map[string]any{"workspace": "dev"}, available: windmillConnected, why: "no Windmill connected on this machine"},
+		"windmill_flow_read":      {args: map[string]any{"workspace": "dev", "path": "u/aetox/probe"}, available: windmillConnected, why: "no Windmill connected on this machine"},
+		"windmill_flow_create":    {args: map[string]any{"workspace": "dev", "path": "u/aetox/probe"}, available: windmillConnected, why: "no Windmill connected on this machine"},
+		"windmill_flow_update":    {args: map[string]any{"workspace": "dev", "path": "u/aetox/probe"}, available: windmillConnected, why: "no Windmill connected on this machine"},
+
+		// The power switches are never thrown from a test: starting the user's
+		// real server would spawn a process this test does not own and cannot
+		// clean up. The reachable half — dispatch routes the call, and with
+		// nothing configured the refusal names the missing address — is what
+		// assertReachable exercises.
+		"n8n_server_start":      {args: map[string]any{}, available: never, why: "not starting the user's server from a test"},
+		"windmill_server_start": {args: map[string]any{}, available: never, why: "not starting the user's server from a test"},
+
+		// plugin_install is driven at its own validation rather than through a
+		// real install: the point here is that the call reaches the tool, and a
+		// test that downloads and installs a plugin to prove it is a test that
+		// fetches arbitrary code from the internet on every run.
+		"plugin_install": {
+			args:      map[string]any{"repo_url": "not-a-repo-url"},
+			available: never,
+			why:       "not installing a plugin from a test",
+		},
+
+		// Pull requests (internal/skill/pr_pack.go). None of the five runs
+		// here, and the two reasons are different in kind.
+		//
+		// The three that read need a connected account AND a repository with
+		// pull requests in it, which no public fixture can promise from a test
+		// machine. They are exercised for real against a stub server in
+		// internal/skill/pr_pack_test.go — every act, every argument shape —
+		// which is the coverage this row cannot give.
+		//
+		// The two that write must never run from a test at all: they would open
+		// a real pull request, or leave a real comment, under whichever account
+		// the machine happens to have connected. `never`, for the same reason
+		// plugin_install is.
+		"pr_list":   {args: map[string]any{"repo": "golang/example"}, available: never, why: "needs a connected account and a repo with pull requests"},
+		"pr_read":   {args: map[string]any{"repo": "golang/example", "number": 1}, available: never, why: "needs a connected account and a repo with pull requests"},
+		"pr_checks": {args: map[string]any{"repo": "golang/example", "number": 1}, available: never, why: "needs a connected account and a repo with pull requests"},
+		"pr_create": {
+			args:      map[string]any{"repo": "golang/example", "title": "x", "head": "x"},
+			available: never,
+			why:       "not opening a real pull request from a test",
+		},
+		"pr_comment": {
+			args:      map[string]any{"repo": "golang/example", "number": 1, "body": "x"},
+			available: never,
+			why:       "not leaving a real comment from a test",
+		},
+
+		// --- needs the running desktop window ---
+		// These reach a real webview or nothing. Headless they must fail
+		// cleanly and immediately, which is what assertReachable checks: the
+		// regression worth catching is a browser tool that hangs the turn.
+		// One tool, eleven actions (desktop/browser_tool.go). Driven at `open`
+		// because that is the action a session starts with and the one whose
+		// argument handling is worth reaching; the rest refuse for the
+		// same reason on the same path — there is no window here.
+		// One case per action since browser joined the packs table — the same
+		// per-act coverage every other packed tool gets. All unrunnable here
+		// for the same one reason, but each action still has to route.
+		//
+		// capture refuses one step earlier than the others, and that is the
+		// point: it asks agentTab which tab is the agent's before
+		// it asks the engine for anything, so a session with no page open is
+		// told so instead of waiting on a webview that will never answer.
+		"browser_open":    {args: map[string]any{"url": "https://example.com"}, available: never, why: "needs the app window"},
+		"browser_read":    {args: map[string]any{}, available: never, why: "needs the app window"},
+		"browser_click":   {args: map[string]any{"ref": 1}, available: never, why: "needs the app window"},
+		"browser_type":    {args: map[string]any{"ref": 1, "text": "x"}, available: never, why: "needs the app window"},
+		"browser_capture": {args: map[string]any{}, available: never, why: "needs the app window"},
+		// tabs is the exception among the browser actions and runs for real: it
+		// reads bookkeeping this process owns, so it needs no window at all —
+		// and a list that answers "you have not opened anything" is exactly
+		// right for a test with no browser.
+		"browser_tabs": {args: map[string]any{"act": "list"}, check: outputContains("open")},
+
+		// The three seeing actions of `computer`.
+		//
+		// list_apps runs for real, with the switch turned on first: the feature
+		// ships off, and a case that only proved the off-refusal would never touch
+		// Win32 at all. isolateUserDirs has already pointed the data root at a temp
+		// dir, so the switch goes on in a preference file thrown away with the test
+		// and never in the one belonging to whoever is running it.
+		//
+		// An empty desktop answers "no other windows are open" and still succeeds,
+		// which is what keeps this runnable on a build agent.
+		"computer_apps": {
+			args: map[string]any{},
+			check: func(t *testing.T, out skill.Output, _ string) {
+				// Aetox never lists itself. Not merely refused when aimed at:
+				// absent, so a model never spends a turn finding out it may not.
+				//
+				// Matched on the PROGRAM in parentheses, never on the whole
+				// output. The first version of this check searched for the word
+				// anywhere and fired on a Chrome window whose page happened to
+				// be about Aetox — the same mistake in miniature that the tool
+				// itself is built to avoid, since a title is what somebody else
+				// wrote and a program name is what Windows reports.
+				for name := range reachSelfNames {
+					if strings.Contains(strings.ToLower(out.Content), "("+name+")") {
+						t.Errorf("list_apps offered a window belonging to %s: %s", name, out.Content)
+					}
+				}
+			},
+		},
+		// read and capture need a window that exists, and no third-party window is
+		// guaranteed on a build agent. What stays checked is what a test without one
+		// can check: they are routed, they come back, and they refuse in words
+		// rather than leaking a Win32 error.
+		"computer_read":    {args: map[string]any{"window": "Notepad"}, available: never, why: "needs a named window open on this machine"},
+		"computer_capture": {args: map[string]any{"window": "Notepad"}, available: never, why: "needs a named window open on this machine"},
+		// The acting four. Never runnable from a test, and the reason is not that
+		// they need a window: it is that they would DRIVE one. A test suite that
+		// clicks in whatever application happens to be open on the machine running
+		// it is a test suite that types into somebody real work.
+		//
+		// What stays checked is what matters most here: each is routed and each
+		// refuses in words. Every one of them refuses without touching Windows at
+		// all, because the switch is off in this environment and that is the first
+		// question the tool asks.
+		"computer_focus": {args: map[string]any{"window": "Notepad"}, available: never, why: "would drive a real window"},
+		"computer_click": {args: map[string]any{"ref": 1}, available: never, why: "would drive a real window"},
+		"computer_type":  {args: map[string]any{"ref": 1, "text": "x"}, available: never, why: "would drive a real window"},
+		"computer_close": {args: map[string]any{"window": "Notepad"}, available: never, why: "would drive a real window"},
+		// wait, back and dialog all need a live page, and all refuse in words
+		// before they touch the engine — which is the behaviour worth having
+		// reachable here even though none of them can run.
+		"browser_wait":   {args: map[string]any{"text": "hello"}, available: never, why: "needs the app window"},
+		"browser_back":   {args: map[string]any{}, available: never, why: "needs the app window"},
+		"browser_dialog": {args: map[string]any{"accept": true}, available: never, why: "needs the app window"},
+		// Both read a buffer that lives in a live document, so they need a page
+		// the same way the rest do. What they format out of that buffer is
+		// covered without one, in browser_log_test.go.
+		"browser_console": {args: map[string]any{}, available: never, why: "needs the app window"},
+		"browser_network": {args: map[string]any{}, available: never, why: "needs the app window"},
+		// upload is the fourth right of its own (6 ก.ย.): it hands a sandbox
+		// file to a page, and it refuses in words before the engine when the
+		// path is missing — which is as far as a test with no window gets.
+		"browser_upload": {args: map[string]any{"ref": 1, "path": "page-1.png"}, available: never, why: "needs the app window"},
+
+		// The agent's reach onto the desk (workbench_desk.go). desk_open and
+		// desk_terminal both end in an event the frontend answers, so there is
+		// nothing here to answer them; their behaviour is covered in
+		// workbench_desk_test.go, and what this file adds is the guarantee that
+		// the dispatcher can still route them.
+		//
+		// desk_list is the exception and runs for real: it reads state this
+		// process owns, so it needs no window at all — and a tool that answers
+		// "the desk is empty" is exactly right for a test with no desk.
+		"desk_open":     {args: map[string]any{"path": "note.md"}, available: never, why: "needs the app window"},
+		"desk_terminal": {args: map[string]any{"command": "echo hi"}, available: never, why: "needs the app window"},
+		"desk_close":    {args: map[string]any{"path": "note.md"}, available: never, why: "needs the app window"},
+		"desk_focus":    {args: map[string]any{"tab": "git"}, available: never, why: "needs the app window"},
+		"desk_list":     {args: map[string]any{}, check: outputContains("โต๊ะ")},
+	}
+}
+
+// --- drivers and predicates -------------------------------------------------
+
+// answerTheQuestion plays the user: it waits for ask_user to register its
+// question, then answers through AnswerUserQuestion, the same binding the UI
+// calls when someone clicks an option.
+func answerTheQuestion(answer string) func(*testing.T, *Engine) {
+	return func(t *testing.T, a *Engine) {
+		deadline := time.Now().Add(10 * time.Second)
+		for time.Now().Before(deadline) {
+			a.askMu.Lock()
+			pending := a.cur().askCh != nil
+			a.askMu.Unlock()
+			if pending {
+				a.AnswerUserQuestion(a.cur().id, answer)
+				return
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+	}
+}
+
+func haveBinary(name string) func() bool {
+	return func() bool {
+		_, err := exec.LookPath(name)
+		return err == nil
+	}
+}
+
+// haveSceneRenderer asks the same question scene_tool.go asks before it runs
+// anything, through the same function.
+//
+// Not haveBinary: the renderer is never on PATH, deliberately (nothing Aetox
+// downloads is), so looking for it there would report "missing" on a machine
+// that has it and skip the case forever.
+func haveSceneRenderer() bool {
+	node, _ := hyperframesParts()
+	return node != ""
+}
+
+func fileExists(path string) func() bool {
+	return func() bool {
+		_, err := os.Stat(path)
+		return err == nil
+	}
+}
+
+func bothOf(a, b func() bool) func() bool {
+	return func() bool { return a() && b() }
+}
+
+func never() bool { return false }
+
+// haveSpeechEngine asks the speech package the same question audio_transcribe
+// asks it — a binary alone is not enough, there has to be a model file too, and
+// guessing at either from here would drift from what the tool actually needs.
+//
+// Note this is normally false under test: isolateUserDirs moves the data root,
+// and the model file lives in the real one. That is the isolation working, not
+// a gap — internal/stt has its own live test for the engine itself.
+func haveSpeechEngine() bool {
+	_, err := stt.New(stt.Options{})
+	return err == nil
+}
+
+// online is a real reachability check, not a guess from an env var: the network
+// tools below are about to make real requests.
+// picturesUsable is online() plus one question that online() cannot answer:
+// whether the keyless picture endpoint will serve us right now.
+//
+// It is a free service with a per-user rate limit, and the limit is shared with
+// whatever the person at this machine has been doing — a run of pictures in the
+// app throttles the test minutes later. Read as a failure, that is a red suite
+// caused by somebody else's counter; read as an availability question, it takes
+// the same skipped path an offline machine takes, where assertReachable still
+// proves the dispatcher routes the call and the refusal is a sentence a user
+// could act on.
+func picturesUsable() bool {
+	if !online() {
+		return false
+	}
+	client := &http.Client{Timeout: 20 * time.Second}
+	resp, err := client.Get("https://image.pollinations.ai/prompt/ping?width=64&height=64&nologo=true")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
+	return resp.StatusCode == http.StatusOK &&
+		strings.HasPrefix(strings.ToLower(resp.Header.Get("Content-Type")), "image/")
+}
+
+func online() bool {
+	conn, err := net.DialTimeout("tcp", "example.com:443", 4*time.Second)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
+
+// n8nConnected reports whether this machine has an n8n attached to run the
+// automation tools against.
+//
+// Almost always false, and deliberately not faked: an httptest server would
+// prove that our client can talk to our own stub, which is the one thing never
+// in doubt. What the real risk is — n8n rejecting a body over a read-only field
+// it will not accept — can only be found against a real instance, and this
+// returning false is the honest record that it has not been.
+func n8nConnected() bool {
+	return n8n.BaseURL() != "" && n8n.Token() != ""
+}
+
+func windmillConnected() bool {
+	return windmill.BaseURL() != "" && windmill.Token() != ""
+}
+
+// githubUsable asks GitHub whether it will answer before four tools are judged
+// on whether it did. Unauthenticated calls are capped at 60 an hour per IP, and
+// running this suite a few times is enough to spend them — after which every
+// github tool returns 403 and looks broken when the only thing wrong is the
+// quota. The rate_limit endpoint itself is not counted against that budget.
+func githubUsable() bool {
+	if !online() {
+		return false
+	}
+	client := &http.Client{Timeout: 8 * time.Second}
+	resp, err := client.Get("https://api.github.com/rate_limit")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	var body struct {
+		Resources struct {
+			Core struct {
+				Remaining int `json:"remaining"`
+			} `json:"core"`
+		} `json:"resources"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return false
+	}
+	// A margin, not zero: four tools are about to spend one call each, and one
+	// of them spends two (metadata, then the file).
+	return body.Resources.Core.Remaining > 6
+}
+
+func outputContains(want string) func(*testing.T, skill.Output, string) {
+	return func(t *testing.T, out skill.Output, _ string) {
+		t.Helper()
+		if !strings.Contains(out.Content, want) {
+			t.Errorf("output does not contain %q — the tool succeeded without doing its job\ngot: %s", want, firstLine(out.Content))
+		}
+	}
+}
+
+func fileContains(rel, want string) func(*testing.T, skill.Output, string) {
+	return func(t *testing.T, _ skill.Output, root string) {
+		t.Helper()
+		data, err := os.ReadFile(filepath.Join(root, rel))
+		if err != nil {
+			t.Errorf("reading %s back: %v", rel, err)
+			return
+		}
+		if !strings.Contains(string(data), want) {
+			t.Errorf("%s on disk does not contain %q — the tool reported success without writing", rel, want)
+		}
+	}
+}
+
+// workbookHasNumericCell proves sheet_write produced a real workbook rather
+// than a file with the right name. fileContains cannot: an .xlsx is a ZIP, so
+// the value is inside a compressed part and no substring of the raw bytes finds
+// it. Checking for the <v> form specifically is the point — a value that landed
+// as an inline string looks identical to the user and cannot be summed.
+func workbookHasNumericCell(rel, value string) func(*testing.T, skill.Output, string) {
+	// Checking for the <v> form specifically is the point — a value that landed
+	// as an inline string looks identical to the user and cannot be summed.
+	return packageHasPart(rel, "xl/worksheets/sheet1.xml", "<v>"+value+"</v>")
+}
+
+// packageHasPart proves an Office tool produced a real package rather than a
+// file with the right name. fileContains cannot: .xlsx and .pptx are ZIPs, so
+// the content lives inside a compressed part and no substring of the raw bytes
+// finds it.
+func packageHasPart(rel, part, want string) func(*testing.T, skill.Output, string) {
+	return func(t *testing.T, _ skill.Output, root string) {
+		t.Helper()
+		zr, err := zip.OpenReader(filepath.Join(root, rel))
+		if err != nil {
+			t.Errorf("%s is not a readable package: %v", rel, err)
+			return
+		}
+		defer zr.Close()
+		for _, f := range zr.File {
+			if f.Name != part {
+				continue
+			}
+			rc, err := f.Open()
+			if err != nil {
+				t.Errorf("opening %s in %s: %v", part, rel, err)
+				return
+			}
+			body, err := io.ReadAll(rc)
+			rc.Close()
+			if err != nil {
+				t.Errorf("reading %s in %s: %v", part, rel, err)
+				return
+			}
+			if !strings.Contains(string(body), want) {
+				t.Errorf("%s: %s does not contain %q — the tool reported success without doing its job", rel, part, want)
+			}
+			return
+		}
+		t.Errorf("%s has no part %s", rel, part)
+	}
+}
+
+func firstLine(s string) string {
+	s = strings.TrimSpace(s)
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		s = s[:i]
+	}
+	if len(s) > 200 {
+		s = s[:200] + "…"
+	}
+	return s
+}
+
+// useRealUserProfile puts the machine's own %USERPROFILE% back for one tool
+// call and returns the undo.
+//
+// The isolation this reverses is not optional in general: os.UserHomeDir reads
+// USERPROFILE on Windows, and app.go's attachment sweep walks the home folder
+// it returns — a test that ran that against a real home would be deleting the
+// user's files, which is the exact class of bug DECISIONS §14.4 records.
+//
+// But it isolates Aetox, and pdftotext is not Aetox. Measured 2026-08-09 on
+// this machine, one variable at a time, against a valid PDF:
+//
+//	USERPROFILE redirected  → exit status 0xc0000005 (access violation), no output
+//	USERPROFILE real        → "AETOX PDF OK", clean
+//
+// HOME, APPDATA, LOCALAPPDATA and XDG_CONFIG_HOME are all fine redirected; it
+// is USERPROFILE alone, and the failure is Git for Windows' pdftotext.exe
+// *crashing* rather than reporting anything — poppler's Windows build reaching
+// for something under the home it was handed. Nothing about that is Aetox's
+// behaviour to assert, and it cost a real debugging session once already
+// because the symptom reads as "pdf_read is broken".
+//
+// Scoped to the single call rather than the whole test so every other tool
+// still runs fully isolated. pdf_read writes nothing outside the sandbox root
+// — it spawns pdftotext and reads its stdout — so there is nothing here for
+// the restored home to be exposed to.
+func useRealUserProfile(t *testing.T, tc toolCase, real string) func() {
+	t.Helper()
+	if !tc.realUserProfile || real == "" {
+		return func() {}
+	}
+	isolated := os.Getenv("USERPROFILE")
+	if err := os.Setenv("USERPROFILE", real); err != nil {
+		t.Fatalf("restoring USERPROFILE: %v", err)
+	}
+	return func() { _ = os.Setenv("USERPROFILE", isolated) }
+}
+
+// --- fixtures ---------------------------------------------------------------
+
+func writeToolFixtures(t *testing.T, root string) {
+	t.Helper()
+	write := func(rel, body string) {
+		if err := os.WriteFile(filepath.Join(root, rel), []byte(body), 0o644); err != nil {
+			t.Fatalf("fixture %s: %v", rel, err)
+		}
+	}
+	if err := os.MkdirAll(filepath.Join(root, "sub"), 0o755); err != nil {
+		t.Fatalf("fixture dir: %v", err)
+	}
+	write("notes.txt", "alpha\nbeta\ngamma\n")
+	write("edits-me.txt", "one\ntwo\nthree\n")
+	write("victim.txt", "delete me\n")
+	write("main.go", "package main\n\nfunc main() {}\n")
+	write("renameme.go", "package main\n\nfunc helper() int { return 1 }\n\nvar _ = helper\n")
+	write(filepath.Join("sub", "inner.txt"), "alpha inside\n")
+	// A deck. The whole of what makes an .html one is a <section class="slide">
+	// (docs/architecture/html-deck-2026-08-19.md), and the anatomy inside it is
+	// what deck_export reduces back to a slide: first heading is the title, <li>
+	// are bullets, <aside class="notes"> is what only the presenter sees.
+	write("เด็ค.html", `<!doctype html>
+<html lang="th"><body>
+<section class="slide">
+  <h1>สรุปยอดขาย</h1>
+  <ul><li>โตขึ้น ๑๒%</li></ul>
+  <aside class="notes">พูดถึงลูกค้าเก่า</aside>
+</section>
+</body></html>
+`)
+	// A structurally complete PDF, xref table and all — see internal/testpdf for
+	// why the shortcut version is worse than it looks.
+	if err := os.WriteFile(filepath.Join(root, "doc.pdf"), testpdf.Minimal("AETOX PDF OK"), 0o644); err != nil {
+		t.Fatalf("fixture doc.pdf: %v", err)
+	}
+	// A minimal but genuine nbformat 4 notebook — notebook_edit parses it as
+	// JSON and writes it back, so a hand-waved fixture would fail for the wrong
+	// reason.
+	write("nb.ipynb", `{
+ "cells": [{"cell_type": "code", "execution_count": null, "metadata": {}, "outputs": [], "source": ["x = 1\n"]}],
+ "metadata": {},
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
+`)
+	writeTestPNG(t, filepath.Join(root, "shot.png"))
+	writeTestWAV(t, filepath.Join(root, "tone.wav"))
+
+	// git refuses to run outside a work tree, so the sandbox has to be one. A
+	// real init rather than a faked .git: ensureGitRepo asks git itself.
+	if _, err := exec.LookPath("git"); err == nil {
+		if err := exec.Command("git", "-C", root, "init", "-q").Run(); err != nil {
+			t.Logf("could not init the git fixture (%v) — git will report as unavailable", err)
+		}
+	}
+
+	// A real one-second video, built from the PNG by the same ffmpeg video_ocr
+	// will use. Skipped silently when ffmpeg is absent — the case above then
+	// reports "no ffmpeg" rather than failing on a missing fixture.
+	if _, err := exec.LookPath("ffmpeg"); err == nil {
+		cmd := exec.Command("ffmpeg", "-y", "-loglevel", "error",
+			"-loop", "1", "-i", filepath.Join(root, "shot.png"),
+			"-t", "3", "-pix_fmt", "yuv420p", filepath.Join(root, "clip.mp4"))
+		if err := cmd.Run(); err != nil {
+			t.Logf("could not build the video fixture (%v) — video_ocr will report as unavailable", err)
+		}
+	}
+
+	// A cutfile over that same clip, so video_project has an edit to export.
+	// Written whether or not ffmpeg built the video: the case is gated on the
+	// clip existing, and a fixture that appears only sometimes is a fixture
+	// nobody can reason about.
+	cut := `{"name":"cut","version":1,` +
+		`"sources":[{"id":"raw","path":"clip.mp4"}],` +
+		`"ops":[{"op":"trim","src":"raw","start":0.5,"duration":1.0},` +
+		`{"op":"add_text","text":"not carried"}]}`
+	if err := os.WriteFile(filepath.Join(root, "cut.json"), []byte(cut), 0o644); err != nil {
+		t.Fatalf("write cut.json fixture: %v", err)
+	}
+}
+
+// writeTestPNG draws black bars on white. Not text, so OCR legitimately finds
+// nothing; the point is a real decodable image rather than bytes named .png.
+func writeTestPNG(t *testing.T, path string) {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 120, 60))
+	for x := 0; x < 120; x++ {
+		for y := 0; y < 60; y++ {
+			img.Set(x, y, color.White)
+		}
+	}
+	for x := 10; x < 110; x++ {
+		for y := 25; y < 35; y++ {
+			img.Set(x, y, color.Black)
+		}
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("png fixture: %v", err)
+	}
+	defer f.Close()
+	if err := png.Encode(f, img); err != nil {
+		t.Fatalf("png fixture: %v", err)
+	}
+}
+
+// writeTestWAV emits a real 16-bit mono PCM header plus a short silence, so
+// ffmpeg and the speech engine get something they can genuinely decode.
+func writeTestWAV(t *testing.T, path string) {
+	t.Helper()
+	const (
+		sampleRate = 16000
+		samples    = sampleRate / 2 // half a second
+		dataBytes  = samples * 2
+	)
+	buf := make([]byte, 0, 44+dataBytes)
+	le32 := func(v uint32) []byte {
+		b := make([]byte, 4)
+		binary.LittleEndian.PutUint32(b, v)
+		return b
+	}
+	le16 := func(v uint16) []byte {
+		b := make([]byte, 2)
+		binary.LittleEndian.PutUint16(b, v)
+		return b
+	}
+	buf = append(buf, []byte("RIFF")...)
+	buf = append(buf, le32(36+dataBytes)...)
+	buf = append(buf, []byte("WAVEfmt ")...)
+	buf = append(buf, le32(16)...) // PCM header size
+	buf = append(buf, le16(1)...)  // PCM
+	buf = append(buf, le16(1)...)  // mono
+	buf = append(buf, le32(sampleRate)...)
+	buf = append(buf, le32(sampleRate*2)...) // byte rate
+	buf = append(buf, le16(2)...)            // block align
+	buf = append(buf, le16(16)...)           // bits per sample
+	buf = append(buf, []byte("data")...)
+	buf = append(buf, le32(dataBytes)...)
+	buf = append(buf, make([]byte, dataBytes)...)
+
+	if err := os.WriteFile(path, buf, 0o644); err != nil {
+		t.Fatalf("wav fixture: %v", err)
+	}
+}
+
+// writeCoverageSkill installs one SKILL.md into the isolated discovery dir so
+// skills_list has a real entry and skill_view a real body. Written to
+// DefaultSkillsDir — under the temp home isolateUserDirs set up — because the
+// progressive tools scan the disk at call time, not a path frozen at registry
+// build.
+func writeCoverageSkill(t *testing.T) {
+	t.Helper()
+	dir := filepath.Join(skill.DefaultSkillsDir(), "coverage-skill")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("skill fixture dir: %v", err)
+	}
+	content := "---\nname: coverage-skill\ndescription: proves discovery works\n---\nthe coverage body\n"
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0o644); err != nil {
+		t.Fatalf("skill fixture: %v", err)
+	}
+}

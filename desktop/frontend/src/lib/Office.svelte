@@ -19,7 +19,7 @@
     ListChairs, ListReceivedJobs, OpenAgentsFolder, AgentGate,
     DelegateSwitches, SetDelegateOff,
   } from '../../wailsjs/go/main/App'
-  import { main, subagent } from '../../wailsjs/go/models'
+  import { engine, subagent } from '../../wailsjs/go/models'
   import { agoLabel, cockpit, newChairSession, selectGlobalSession, setActiveView } from './stores/cockpit.svelte'
   import { t, type TKey } from './i18n.svelte'
   import { dayBucket } from './dayBucket'
@@ -30,8 +30,8 @@
 
   let { onClose }: { onClose: () => void } = $props()
 
-  let chairs = $state<main.Chair[]>([])
-  let jobs = $state<main.ReceivedJob[]>([])
+  let chairs = $state<engine.Chair[]>([])
+  let jobs = $state<engine.ReceivedJob[]>([])
   let loaded = $state(false)
   // Which teammate's work the feed is showing. Empty is everyone, and the
   // filter row is only drawn once more than one name is in the feed — a
@@ -40,13 +40,13 @@
   // Whether each teammate can work, and why not. Answered in Go
   // (App.AgentGate) so this page, ห้องงานวิดีโอ and the chat menu all draw the
   // same verdict on the same agent.
-  let gates = $state<Record<string, main.AgentGate>>({})
+  let gates = $state<Record<string, engine.AgentGate>>({})
   // The roster waits for the verdicts rather than drawing ahead of them. A card
   // that appears usable and is veiled a moment later has already told the
   // reader something untrue; the empty moment is shorter than the wrong one.
   let gated = $state(false)
 
-  async function loadNeeds(roster: main.Chair[]) {
+  async function loadNeeds(roster: engine.Chair[]) {
     const answers = await Promise.all(roster.map((c) => AgentGate(c.name)))
     gates = Object.fromEntries(roster.map((c, i) => [c.name, answers[i]]))
     gated = true
@@ -61,7 +61,7 @@
   // who works here, and it can do that whole job without the switches. Then
   // `banded` is false and the deck is drawn as one group with no switch on any
   // card, which is exactly the page as it stood before today.
-  let delegate = $state<main.DelegateSettings | null>(null)
+  let delegate = $state<engine.DelegateSettings | null>(null)
   let delegateBusy = $state('')
   async function loadDelegate() {
     try {
@@ -78,7 +78,7 @@
     const w = delegate.agents.workers.find((x) => x.name === name)
     return w ? { on: w.on, off: delegate.agents.off } : null
   }
-  function reaches(c: main.Chair): boolean {
+  function reaches(c: engine.Chair): boolean {
     const w = reachOf(c.name)
     return !!w && w.on && !w.off
   }
@@ -113,7 +113,7 @@
   // Walking from a job to the conversation that sent it. The job row carries
   // the caller's session id, which is the only link there is — and the only one
   // there needs to be, since the file it produced went to that session's folder.
-  async function openSource(job: main.ReceivedJob) {
+  async function openSource(job: engine.ReceivedJob) {
     if (!job.sessionId) return
     // The view moves first and the transcript follows. Loading a session
     // switches project, workbench and history behind it — leaving the user
@@ -153,7 +153,7 @@
   // rather than a list. The rows arrive newest-first from Go, so consecutive
   // runs are already the groups.
   const feedGroups = $derived.by(() => {
-    const out: { key: TKey; items: main.ReceivedJob[] }[] = []
+    const out: { key: TKey; items: engine.ReceivedJob[] }[] = []
     for (const j of jobs) {
       if (who && j.chair !== who) continue
       const key = dayBucket(j.time)
@@ -168,7 +168,7 @@
   // its tools, its memory, its prompt. The view moves first for the same
   // reason openSource's does: a click that waits for a bootstrap before
   // showing anything reads as a dead click.
-  async function talkTo(chair: main.Chair) {
+  async function talkTo(chair: engine.Chair) {
     setActiveView('chat')
     await newChairSession(chair.name)
   }
@@ -187,7 +187,7 @@
   // for and could not have reached from here, with no way back to the team
   // they came from. A back button that lands somewhere else is worse than no
   // back button.
-  function configure(c: main.Chair) {
+  function configure(c: engine.Chair) {
     cockpit.settingsIntent = { section: 'team', agent: c.name }
     setActiveView('settings')
   }
@@ -247,7 +247,7 @@
       <!-- One card, drawn twice — once per band. A snippet rather than a copy
            because the two decks differ in nothing except which agents are in
            them, and a second copy is a second thing to keep true. -->
-      {#snippet chairCard(c: main.Chair)}
+      {#snippet chairCard(c: engine.Chair)}
           {@const locked = gates[c.name]?.blocked ?? false}
           <!-- No switch, and the card never cools (owner, 31 ส.ค.): *"มันเหมือน
                ไม่เปิดใช้งาน ทั้งที่มันก็แชทได้ปกติ"*.

@@ -20,9 +20,9 @@
 // These two only say "come back".
 
 import { AttentionSignal, RequestAttention, SetAttentionSignal } from '../../../wailsjs/go/main/App'
-import type { main } from '../../../wailsjs/go/models'
+import type { engine } from '../../../wailsjs/go/models'
 
-export const attention = $state<{ layers: main.BusyLayer[]; loaded: boolean }>({
+export const attention = $state<{ layers: engine.BusyLayer[]; loaded: boolean }>({
   layers: [],
   loaded: false,
 })

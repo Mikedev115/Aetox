@@ -27,7 +27,7 @@
   //     ffmpeg. That was drawn as a warning row until the owner saw it and said
   //     what it should have been: *"เครื่องมือไม่ครบ กูบอกให้ใช้งานไม่ได้ไง"*.
   import { InstallCapabilities, ToolInstallPlan } from '../../wailsjs/go/main/App'
-  import { main } from '../../wailsjs/go/models'
+  import { engine } from '../../wailsjs/go/models'
   import { cockpit, setActiveView } from './stores/cockpit.svelte'
   import { capabilities, noteCapabilityRequest } from './capabilities.svelte'
   import { t, type TKey } from './i18n.svelte'
@@ -39,7 +39,7 @@
     /** What to call this agent on the veil. The room's own words where it has
      *  them ("สร้างวิดีโอใหม่"), the profile name everywhere else. */
     label: string
-    gate: main.AgentGate | null
+    gate: engine.AgentGate | null
     onInstalled?: () => void
     /** A room with a better screen than the generic report takes the press
      *  itself — ห้องงานวิดีโอ opens its readiness panel, which answers the same
@@ -47,7 +47,7 @@
     onPress?: () => void
   } = $props()
 
-  let plan = $state<main.ToolInstallPlan | null>(null)
+  let plan = $state<engine.ToolInstallPlan | null>(null)
   const busy = $derived(capabilities.phase === 'installing')
 
   const SAY: Record<string, TKey> = {

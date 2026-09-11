@@ -30,7 +30,7 @@
     TranscribeMicAudio, StartSpeech, StopSpeech, SpeechPlaying,
   } from '../../wailsjs/go/main/App'
   import { EventsOn } from '../../wailsjs/runtime/runtime'
-  import type { main, connect, subagent } from '../../wailsjs/go/models'
+  import type { engine, connect, subagent } from '../../wailsjs/go/models'
   import { t, i18n, type TKey } from './i18n.svelte'
   import { DRAFT_KEY } from './composerDraft'
   import { isShortcut, shortcutLabel } from './shortcuts'
@@ -1018,7 +1018,7 @@
   // not held: hiring is dropping a file, and a list read at mount would miss
   // an agent hired while the app was running.
   let agentMenuOpen = $state(false)
-  let officeChairs = $state<main.Chair[]>([])
+  let officeChairs = $state<engine.Chair[]>([])
   // The delegation switch, read when the menu opens rather than held at load.
   //
   // Fetched rather than remembered because half of what it shows is a
@@ -1026,7 +1026,7 @@
   // whenever anything about the tools changes. A cached one would be right the
   // day it was cached. Null until the first read, which is why the switch is
   // simply absent for that instant rather than drawn in a guessed state.
-  let delegate = $state<main.DelegateSettings | null>(null)
+  let delegate = $state<engine.DelegateSettings | null>(null)
   let delegateBusy = $state(false)
   // Which teammates cannot work yet, by the same answer the roster's veil reads
   // (AgentLock.svelte). It is here because this menu is the OTHER door into a
@@ -1139,8 +1139,8 @@
   // Hidden entirely when the machine offers only its own shell, which is every
   // machine without WSL: a picker with one item is furniture.
   let shellMenuOpen = $state(false)
-  let shellOptions = $state<main.ShellOption[]>([])
-  let currentShell = $state<main.ShellOption | null>(null)
+  let shellOptions = $state<engine.ShellOption[]>([])
+  let currentShell = $state<engine.ShellOption | null>(null)
 
   async function refreshShells() {
     try {
@@ -1306,7 +1306,7 @@
   // watch for, and polling it would spend a subprocess a second to keep a
   // menu warm that is shut.
   let branchMenuOpen = $state(false)
-  let branches = $state<main.GitBranch[]>([])
+  let branches = $state<engine.GitBranch[]>([])
   let branchQuery = $state('')
   let branchBusy = $state('')
   // git's own refusal, shown verbatim. It names the files standing in the way,
@@ -2872,7 +2872,7 @@
   // click happens — markdown.ts renders the block, this renders what the block
   // did. See style.css `.run-res` for why it is shaped like the code block's
   // own header.
-  function drawRunResult(block: Element, res: main.RunBlockResult): void {
+  function drawRunResult(block: Element, res: engine.RunBlockResult): void {
     block.querySelector('.run-res')?.remove()
 
     const failed = !res.success
@@ -2967,7 +2967,7 @@
   // Seconds to one decimal, because a run is a thing you waited through and
   // "1247 ms" is a number you have to convert before it means anything. The
   // line count is left off when there is nothing to count.
-  function runMeta(res: main.RunBlockResult): string {
+  function runMeta(res: engine.RunBlockResult): string {
     const parts: string[] = []
     if (res.lines > 0) parts.push(t('chat.runLines', { n: String(res.lines) }))
     parts.push(t('chat.runSeconds', { n: (res.durationMs / 1000).toFixed(1) }))

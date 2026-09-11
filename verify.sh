@@ -147,9 +147,9 @@ if [ "$LIVE" = 1 ]; then
   # package: when a live run goes red at 03:00 the stage name should say what
   # broke, not "the live tests".
   stage "provider progress" env AETOX_LIVE=1 go test -count=1 -timeout 15m ./internal/model/ -run TestLive
-  stage "tool batch accepted" env AETOX_LIVE=1 go test -count=1 -timeout 10m ./desktop/ -run TestLiveAllToolsAccepted
-  stage "chat writes files" env AETOX_LIVE=1 go test -count=1 -timeout 10m ./desktop/ -run TestLiveUnfocusedChat
-  stage "sub-agents" env AETOX_LIVE=1 go test -count=1 -timeout 15m ./desktop/ -run 'TestLiveSubAgent|TestLiveTwoSubAgents'
+  stage "tool batch accepted" env AETOX_LIVE=1 go test -count=1 -timeout 10m ./internal/engine/ -run TestLiveAllToolsAccepted
+  stage "chat writes files" env AETOX_LIVE=1 go test -count=1 -timeout 10m ./internal/engine/ -run TestLiveUnfocusedChat
+  stage "sub-agents" env AETOX_LIVE=1 go test -count=1 -timeout 15m ./internal/engine/ -run 'TestLiveSubAgent|TestLiveTwoSubAgents'
 else
   skip "provider progress" "pass --live"
   skip "tool batch accepted" "pass --live"

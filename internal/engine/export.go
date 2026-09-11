@@ -1,0 +1,391 @@
+package engine
+
+import (
+	"database/sql"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+)
+
+// A conversation is the user's, and "theirs" has to mean more than "readable
+// inside this app" — the same rule the memory folder already follows (learned:
+// nothing the agent learns is allowed to be trapped in a format only we read).
+// The transcript was the one thing that still was: living only in aetox.db,
+// with the whole machine as its unit of portability.
+//
+// Two formats, because there are two reasons to take a conversation out:
+//
+//   - **Markdown** is for reading: paste into a report, hand to a colleague,
+//     keep next to the notes. It carries what a person reads — the words —
+//     and drops what the app needs (variants, tool parts, row ids).
+//   - **JSON** is the copy: everything the messages table holds, versioned,
+//     re-importable on any Aetox at full fidelity. This is the one a second
+//     machine wants.
+//
+// What deliberately does not travel: ratings and job rows. They are this
+// machine's record of work done here — evidence for the learning layer — and a
+// transcript that arrives with pre-filled verdicts would teach the next
+// machine lessons nobody on it approved.
+
+// chatExportVersion is the format this build writes, checked on import the
+// same way user_version is checked on open: a file from a newer build is
+// refused rather than half-read, because a wrong import into someone's history
+// is worse than asking them to upgrade.
+const chatExportVersion = 1
+
+type chatExport struct {
+	AetoxChat int    `json:"aetox_chat"`
+	Title     string `json:"title"`
+	Mode      string `json:"mode,omitempty"`
+	Agent     string `json:"agent,omitempty"`
+	Space     string `json:"space,omitempty"`
+	CreatedAt string `json:"created_at,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
+
+	Messages []chatExportMessage `json:"messages"`
+}
+
+// chatExportMessage mirrors one messages row. Variants and Parts ride as raw
+// JSON: the store already holds them encoded, and decoding them here only to
+// re-encode them there would be two chances to drop a field neither side
+// looked at.
+type chatExportMessage struct {
+	Role      string          `json:"role"`
+	Text      string          `json:"text"`
+	Time      string          `json:"time,omitempty"`
+	Reasoning string          `json:"reasoning,omitempty"`
+	ThinkSecs int             `json:"think_secs,omitempty"`
+	Variants  json.RawMessage `json:"variants,omitempty"`
+	Active    int             `json:"variant_active,omitempty"`
+	Parts     json.RawMessage `json:"parts,omitempty"`
+}
+
+// exportableSession reads one session out of the store by id alone — no
+// project_key filter, because the id arrived from a row the user could see and
+// clicked, and "you must focus that project before exporting from it" is a
+// hoop with nobody on the other side.
+func (a *Engine) exportableSession(id string) (chatExport, error) {
+	var e chatExport
+	db, err := a.database()
+	if err != nil {
+		return e, err
+	}
+	e.AetoxChat = chatExportVersion
+	err = db.QueryRow(
+		`SELECT title, mode, agent, space, created_at, updated_at FROM sessions WHERE id = ?`, id).
+		Scan(&e.Title, &e.Mode, &e.Agent, &e.Space, &e.CreatedAt, &e.UpdatedAt)
+	if err != nil {
+		return e, fmt.Errorf("ไม่พบเซสชันนี้")
+	}
+	if err := eachRow(db, "export", `
+		SELECT role, text, time, reasoning, think_secs, variants, variant_active, parts
+		   FROM messages WHERE session_id = ? ORDER BY id`, []any{id},
+		func(rows *sql.Rows) error {
+			var m chatExportMessage
+			var variants, parts string
+			if err := rows.Scan(&m.Role, &m.Text, &m.Time, &m.Reasoning, &m.ThinkSecs, &variants, &m.Active, &parts); err != nil {
+				return err
+			}
+			m.Variants = rawIfValid(variants)
+			m.Parts = rawIfValid(parts)
+			e.Messages = append(e.Messages, m)
+			return nil
+		}); err != nil {
+		// Without this the failure fell through to the "no messages" line
+		// below, which told the user the wrong thing about their own session.
+		return e, err
+	}
+	if len(e.Messages) == 0 {
+		return e, fmt.Errorf("เซสชันนี้ไม่มีข้อความให้ส่งออก")
+	}
+	return e, nil
+}
+
+// rawIfValid passes a stored JSON column through untouched, and drops what
+// does not parse — a corrupt blob should cost that blob, not the export.
+func rawIfValid(stored string) json.RawMessage {
+	if strings.TrimSpace(stored) == "" || !json.Valid([]byte(stored)) {
+		return nil
+	}
+	return json.RawMessage(stored)
+}
+
+// renderChatMarkdown is the human half. Only the live answer of each bubble —
+// variants and tool parts are the app's bookkeeping; the reader asked for the
+// conversation.
+func renderChatMarkdown(e chatExport) string {
+	var b strings.Builder
+	b.WriteString("# " + strings.TrimSpace(e.Title) + "\n\n")
+	b.WriteString(fmt.Sprintf("ส่งออกจาก Aetox — %s\n", exportTimeLabel(time.Now().Format(time.RFC3339))))
+	for _, m := range e.Messages {
+		who := "Aetox"
+		if m.Role == "user" {
+			who = "คุณ"
+		}
+		b.WriteString("\n## " + who)
+		if label := exportTimeLabel(m.Time); label != "" {
+			b.WriteString(" — " + label)
+		}
+		b.WriteString("\n\n" + strings.TrimSpace(m.Text) + "\n")
+	}
+	return b.String()
+}
+
+// exportTimeLabel renders a stored timestamp for a person. Messages carry
+// whatever the frontend sent — RFC3339 on recent builds, a bare clock on the
+// oldest rows — so anything unparseable is shown as it is rather than dropped.
+func exportTimeLabel(stored string) string {
+	if ts, err := time.Parse(time.RFC3339, stored); err == nil {
+		return ts.Format("2006-01-02 15:04")
+	}
+	return strings.TrimSpace(stored)
+}
+
+// ExportFile is something the engine renders for the user to keep: a chat
+// export, a picture the agent made, a packed agent. The bytes and a name to
+// suggest, and nothing about where they go — that is the screen's dialog
+// (screen_doors.go), on the screen's machine, which is not always the engine's.
+type ExportFile struct {
+	Name string `json:"name"`
+	Data []byte `json:"data"`
+	// Note is what the screen shows once the file is saved, when there is
+	// something worth saying beyond the path (the agent package's summary).
+	Note string `json:"note,omitempty"`
+}
+
+// SessionExportBytes renders one session in the named format — "markdown" or
+// "json". The engine's half of ExportSession, and the whole of it a test can
+// exercise without a window.
+func (a *Engine) SessionExportBytes(id, format string) (ExportFile, error) {
+	e, err := a.exportableSession(id)
+	if err != nil {
+		return ExportFile{}, err
+	}
+	var data []byte
+	ext := ".json"
+	switch format {
+	case "markdown":
+		data, ext = []byte(renderChatMarkdown(e)), ".md"
+	case "json":
+		if data, err = json.MarshalIndent(e, "", "  "); err != nil {
+			return ExportFile{}, err
+		}
+	default:
+		return ExportFile{}, fmt.Errorf("unknown export format %q", format)
+	}
+	return ExportFile{Name: exportFilename(e.Title, id) + ext, Data: data}, nil
+}
+
+// writeSessionExport is SessionExportBytes written to a path — kept for the
+// tests that read the file back.
+func (a *Engine) writeSessionExport(id, format, path string) error {
+	file, err := a.SessionExportBytes(id, format)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, file.Data, 0o644)
+}
+
+// exportFilename turns a session title into something a filesystem accepts.
+func exportFilename(title, id string) string {
+	cleaned := strings.Map(func(r rune) rune {
+		if strings.ContainsRune(`\/:*?"<>|`, r) {
+			return -1
+		}
+		return r
+	}, strings.TrimSpace(title))
+	cleaned = strings.Join(strings.Fields(cleaned), " ")
+	if r := []rune(cleaned); len(r) > 40 {
+		cleaned = string(r[:40])
+	}
+	if cleaned == "" {
+		cleaned = id
+	}
+	return "aetox-chat-" + cleaned
+}
+
+// ImportSessionFrom reads an exported JSON file into a brand-new session in
+// the current project, and returns the new id. The pure half of ImportSession.
+//
+// The desk and chair come along verbatim, unchecked. If this machine has no
+// such desk, opening the import will refuse with the same message a deleted
+// desk gets on the machine it was deleted on (LoadSession: putting the file
+// back is the way in) — one rule about missing stations, not two.
+//
+// The space does not come along: it names a project folder on the exporting
+// machine (sessions.space), and stamping it here would file the chat inside a
+// project this machine may not have. The import lands where the user is
+// standing, which is where they chose to put it.
+func (a *Engine) ImportSessionFrom(path string) (string, error) {
+	db, err := a.database()
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	var e chatExport
+	if err := json.Unmarshal(data, &e); err != nil || e.AetoxChat == 0 {
+		return "", fmt.Errorf("ไฟล์นี้ไม่ใช่บทสนทนาที่ส่งออกจาก Aetox")
+	}
+	if e.AetoxChat > chatExportVersion {
+		return "", fmt.Errorf(
+			"ไฟล์นี้ส่งออกจาก Aetox รุ่นใหม่กว่า (รูปแบบ %d, รุ่นนี้รู้จักถึง %d) — อัปเดตแอปก่อนนำเข้า",
+			e.AetoxChat, chatExportVersion)
+	}
+	var messages []chatExportMessage
+	for _, m := range e.Messages {
+		if m.Role == "user" || m.Role == "agent" {
+			messages = append(messages, m)
+		}
+	}
+	if len(messages) == 0 {
+		return "", fmt.Errorf("ไฟล์นี้ไม่มีข้อความให้นำเข้า")
+	}
+
+	title := strings.TrimSpace(e.Title)
+	if title == "" {
+		for _, m := range messages {
+			if m.Role == "user" {
+				title = sessionTitleFrom(m.Text)
+				break
+			}
+		}
+	}
+	now := time.Now().Format(time.RFC3339)
+	created := strings.TrimSpace(e.CreatedAt)
+	if created == "" {
+		created = now
+	}
+
+	id, err := unusedSessionID(db)
+	if err != nil {
+		return "", err
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = tx.Rollback() }()
+	// updated_at is now, not the file's: an import the user just did belongs at
+	// the top of the list they are looking at, not sorted into last month.
+	if _, err := tx.Exec(`
+		INSERT INTO sessions(id, project_key, title, created_at, updated_at, mode, agent, space)
+		VALUES(?,?,?,?,?,?,?,?)`,
+		id, projectKey(a.cur().cfg.SandboxRoot), title, created, now, e.Mode, e.Agent, a.cur().space); err != nil {
+		return "", err
+	}
+	for _, m := range messages {
+		if _, err := tx.Exec(
+			`INSERT INTO messages(session_id, role, text, time, reasoning, think_secs, variants, variant_active, parts)
+			 VALUES(?,?,?,?,?,?,?,?,?)`,
+			id, m.Role, m.Text, m.Time, m.Reasoning, m.ThinkSecs,
+			string(m.Variants), m.Active, string(m.Parts)); err != nil {
+			return "", err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+// unusedSessionID mints an id no stored session holds. Two imports in the same
+// millisecond — or an import in the same millisecond as a new chat — would
+// otherwise collide on the timestamp id and fail the INSERT.
+func unusedSessionID(db *sql.DB) (string, error) {
+	base := newSessionID()
+	id := base
+	for n := 2; ; n++ {
+		var one int
+		err := db.QueryRow(`SELECT 1 FROM sessions WHERE id = ?`, id).Scan(&one)
+		if err == sql.ErrNoRows {
+			return id, nil
+		}
+		if err != nil {
+			return "", err
+		}
+		id = fmt.Sprintf("%s-%d", base, n)
+	}
+}
+
+// SaveDrawing writes a chart the model drew in a reply to a PNG file the user
+// picks. The frontend rasterizes the SVG with the theme's actual colours baked
+// in (a raw .svg coloured by var(--text-secondary) is invisible everywhere
+// outside this app) and hands the finished image here as a data URL — this
+// side only asks where and writes bytes. Returns the path, "" on cancel.
+// SavePicture copies a picture that is already in the workspace to wherever the
+// user chooses. The บันทึก button on a generated picture (Chat.svelte).
+//
+// A COPY, not a re-encode. SaveDrawing above exists because an <svg> in an
+// answer is not a file — its bytes have to be rendered before they can be
+// saved, and PNG is what a canvas produces. A picture from image_make is
+// already a file on disk, usually a JPEG, and pushing it through a canvas to
+// satisfy a PNG-only door would re-encode somebody's picture to get it out of
+// the app it is already inside.
+//
+// The path is the one the CALLER used, which is not always the one the file
+// got — resolveProduced applies the same two corrections the file host does, so
+// the button saves exactly the picture the user is looking at.
+//
+// PictureBytes is the engine's half of SavePicture (screen_doors.go): the file
+// is on the engine's host, the dialog is on the screen's.
+func (a *Engine) PictureBytes(relPath string) (ExportFile, error) {
+	relPath = strings.TrimSpace(relPath)
+	if relPath == "" {
+		return ExportFile{}, fmt.Errorf("ไม่ได้บอกว่าจะบันทึกไฟล์ไหน")
+	}
+	root := strings.TrimSpace(a.cur().cfg.SandboxRoot)
+	if root == "" {
+		return ExportFile{}, fmt.Errorf("ยังไม่ได้เปิดโปรเจกต์")
+	}
+	full, err := a.resolveProduced(root, relPath)
+	if err != nil {
+		return ExportFile{}, err
+	}
+	data, err := os.ReadFile(full)
+	if err != nil {
+		return ExportFile{}, fmt.Errorf("อ่านไฟล์รูปไม่ได้: %w", err)
+	}
+	return ExportFile{Name: filepath.Base(full), Data: data}, nil
+}
+
+// SaveDrawing is the screen's alone: the bytes come from a canvas this window
+// rendered a moment ago, and they go to a file on this machine.
+func (a *Engine) SaveDrawing(dataURL string) (string, error) {
+	data, err := decodePNGDataURL(dataURL)
+	if err != nil {
+		return "", err
+	}
+	path, err := wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{
+		Title:           "บันทึกภาพ",
+		DefaultFilename: "aetox-drawing.png",
+		Filters:         []wailsruntime.FileFilter{{DisplayName: "PNG (*.png)", Pattern: "*.png"}},
+	})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return path, os.WriteFile(path, data, 0o644)
+}
+
+// decodePNGDataURL is the checked half of SaveDrawing: only a PNG data URL,
+// because the bytes come from a canvas this app rendered a moment ago — any
+// other shape means the caller is not the drawing button.
+func decodePNGDataURL(dataURL string) ([]byte, error) {
+	raw, ok := strings.CutPrefix(strings.TrimSpace(dataURL), "data:image/png;base64,")
+	if !ok {
+		return nil, fmt.Errorf("not a PNG data URL")
+	}
+	data, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil || len(data) == 0 {
+		return nil, fmt.Errorf("the image data does not decode")
+	}
+	return data, nil
+}

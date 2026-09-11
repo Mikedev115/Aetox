@@ -27,7 +27,7 @@
   //     answers both, and says which.
   import { onMount } from 'svelte'
   import { AgentGate, ListChairs, VideoCheckSeen } from '../../wailsjs/go/main/App'
-  import { main } from '../../wailsjs/go/models'
+  import { engine } from '../../wailsjs/go/models'
   import { newChairSession, setActiveView } from './stores/cockpit.svelte'
   import { t, type TKey } from './i18n.svelte'
   import Icon from './Icon.svelte'
@@ -52,12 +52,12 @@
   // the two AGENT.md files say — and that is a copy of somebody else's file
   // that nothing keeps in step: an owner who restyles `video` in the editor
   // would restyle it everywhere except the room named after the work it does.
-  let faces = $state<Record<string, main.Chair>>({})
+  let faces = $state<Record<string, engine.Chair>>({})
   const doorFace = (agent: string) => faceOf(faces[agent])
 
   // One question per card, asked of one place, so the class on the card and the
   // sentence on the veil cannot disagree.
-  let gates = $state<Record<string, main.AgentGate>>({})
+  let gates = $state<Record<string, engine.AgentGate>>({})
   // Nothing is drawn until the verdict is in. A card that appears usable and is
   // veiled a moment later has already told the reader something untrue, and it
   // is the one failure a lock cannot have — the empty moment is shorter than

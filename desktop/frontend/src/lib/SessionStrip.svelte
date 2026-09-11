@@ -41,17 +41,17 @@
   import { cockpit, clearPlan } from './stores/cockpit.svelte'
   import { t } from './i18n.svelte'
   import { SessionSources, SessionSourceCount, SessionEdits, GitChangedFiles, CurrentSessionID } from '../../wailsjs/go/main/App'
-  import { main } from '../../wailsjs/go/models'
+  import { engine } from '../../wailsjs/go/models'
   import { openFileTab, openUrlInWorkbench, openPlanTab, openArtifactsTab } from './stores/workbench.svelte'
   import Icon from './Icon.svelte'
   import type { IconName } from './icons'
 
   let open = $state(false)
-  let sources = $state<main.Source[]>([])
+  let sources = $state<engine.Source[]>([])
   let sourceTotal = $state(0)
-  let edits = $state<main.EditedFile[]>([])
+  let edits = $state<engine.EditedFile[]>([])
   let editTotal = $state(0)
-  let changed = $state<main.ChangedFile[]>([])
+  let changed = $state<engine.ChangedFile[]>([])
   let showAllSources = $state(false)
   let showAllEdits = $state(false)
   // Only while a re-read is in the air, so the button can say it heard the
@@ -145,18 +145,18 @@
     openArtifactsTab()
   }
 
-  async function openSource(s: main.Source) {
+  async function openSource(s: engine.Source) {
     open = false
     if (s.kind === 'url') await openUrlInWorkbench(s.path)
     else await openFileTab(s.path, s.label)
   }
 
-  async function openChanged(f: main.ChangedFile) {
+  async function openChanged(f: engine.ChangedFile) {
     open = false
     await openFileTab(f.path, f.path.split(/[\\/]/).pop() ?? f.path)
   }
 
-  async function openEdited(f: main.EditedFile) {
+  async function openEdited(f: engine.EditedFile) {
     open = false
     await openFileTab(f.path, f.label)
   }

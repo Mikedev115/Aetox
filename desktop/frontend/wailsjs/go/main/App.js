@@ -38,8 +38,16 @@ export function AddSpaceContext(arg1) {
   return window['go']['main']['App']['AddSpaceContext'](arg1);
 }
 
+export function AddSpaceContextFiles(arg1, arg2) {
+  return window['go']['main']['App']['AddSpaceContextFiles'](arg1, arg2);
+}
+
 export function AddWorkspaceFolder() {
   return window['go']['main']['App']['AddWorkspaceFolder']();
+}
+
+export function AddWorkspaceFolderAt(arg1) {
+  return window['go']['main']['App']['AddWorkspaceFolderAt'](arg1);
 }
 
 export function AdoptMemoryScope(arg1, arg2) {
@@ -54,12 +62,28 @@ export function AgentGate(arg1) {
   return window['go']['main']['App']['AgentGate'](arg1);
 }
 
+export function AgentHomePath(arg1) {
+  return window['go']['main']['App']['AgentHomePath'](arg1);
+}
+
 export function AgentNeeds(arg1) {
   return window['go']['main']['App']['AgentNeeds'](arg1);
 }
 
+export function AgentPackageBytes(arg1) {
+  return window['go']['main']['App']['AgentPackageBytes'](arg1);
+}
+
 export function AgentSkills(arg1) {
   return window['go']['main']['App']['AgentSkills'](arg1);
+}
+
+export function AgentSkillsFolderPath(arg1) {
+  return window['go']['main']['App']['AgentSkillsFolderPath'](arg1);
+}
+
+export function AgentsFolderPath() {
+  return window['go']['main']['App']['AgentsFolderPath']();
 }
 
 export function AllowComputerApp(arg1) {
@@ -90,6 +114,10 @@ export function ApprovePendingChangeTo(arg1, arg2) {
   return window['go']['main']['App']['ApprovePendingChangeTo'](arg1, arg2);
 }
 
+export function ArtifactPath(arg1) {
+  return window['go']['main']['App']['ArtifactPath'](arg1);
+}
+
 export function ArtifactPreview(arg1) {
   return window['go']['main']['App']['ArtifactPreview'](arg1);
 }
@@ -108,6 +136,10 @@ export function BackgroundTasks() {
 
 export function BrowseFolder() {
   return window['go']['main']['App']['BrowseFolder']();
+}
+
+export function BrowseFolderAt(arg1) {
+  return window['go']['main']['App']['BrowseFolderAt'](arg1);
 }
 
 export function BrowseForComputerApp() {
@@ -442,6 +474,14 @@ export function GitChangedFiles() {
   return window['go']['main']['App']['GitChangedFiles']();
 }
 
+export function GitCommitChanges(arg1) {
+  return window['go']['main']['App']['GitCommitChanges'](arg1);
+}
+
+export function GitCommitFileDiff(arg1, arg2) {
+  return window['go']['main']['App']['GitCommitFileDiff'](arg1, arg2);
+}
+
 export function GitCommitFiles(arg1, arg2) {
   return window['go']['main']['App']['GitCommitFiles'](arg1, arg2);
 }
@@ -452,6 +492,10 @@ export function GitCreateBranch(arg1) {
 
 export function GitFileDiff(arg1) {
   return window['go']['main']['App']['GitFileDiff'](arg1);
+}
+
+export function GitLog(arg1, arg2) {
+  return window['go']['main']['App']['GitLog'](arg1, arg2);
 }
 
 export function GitSuggestCommitMessage(arg1) {
@@ -490,16 +534,12 @@ export function ImageStatus() {
   return window['go']['main']['App']['ImageStatus']();
 }
 
-export function GitCommitChanges(arg1) {
-  return window['go']['main']['App']['GitCommitChanges'](arg1);
-}
-
-export function GitCommitFileDiff(arg1, arg2) {
-  return window['go']['main']['App']['GitCommitFileDiff'](arg1, arg2);
-}
-
 export function ImportSession() {
   return window['go']['main']['App']['ImportSession']();
+}
+
+export function ImportSessionFrom(arg1) {
+  return window['go']['main']['App']['ImportSessionFrom'](arg1);
 }
 
 export function ImportSignIn(arg1) {
@@ -508,10 +548,6 @@ export function ImportSignIn(arg1) {
 
 export function ImportableSignIns() {
   return window['go']['main']['App']['ImportableSignIns']();
-}
-
-export function GitLog(arg1, arg2) {
-  return window['go']['main']['App']['GitLog'](arg1, arg2);
 }
 
 export function InstallCapabilities(arg1) {
@@ -524,6 +560,10 @@ export function InstallSkillFromGitHub(arg1) {
 
 export function InstallSkillFromZip() {
   return window['go']['main']['App']['InstallSkillFromZip']();
+}
+
+export function InstallSkillsFromZipAt(arg1) {
+  return window['go']['main']['App']['InstallSkillsFromZipAt'](arg1);
 }
 
 export function InstallVoiceEngine(arg1, arg2) {
@@ -698,6 +738,10 @@ export function MCPConfigPath() {
   return window['go']['main']['App']['MCPConfigPath']();
 }
 
+export function MCPFolderPath() {
+  return window['go']['main']['App']['MCPFolderPath']();
+}
+
 export function MCPSignInStatus(arg1) {
   return window['go']['main']['App']['MCPSignInStatus'](arg1);
 }
@@ -708,6 +752,10 @@ export function MarkIssueReported(arg1) {
 
 export function MarkVideoCheckSeen() {
   return window['go']['main']['App']['MarkVideoCheckSeen']();
+}
+
+export function MemoryFolderPath() {
+  return window['go']['main']['App']['MemoryFolderPath']();
 }
 
 export function MobileRemoteQR() {
@@ -854,6 +902,10 @@ export function PickPresetImage(arg1) {
   return window['go']['main']['App']['PickPresetImage'](arg1);
 }
 
+export function PictureBytes(arg1) {
+  return window['go']['main']['App']['PictureBytes'](arg1);
+}
+
 export function PlacementTargets() {
   return window['go']['main']['App']['PlacementTargets']();
 }
@@ -874,8 +926,16 @@ export function ProgramIcon(arg1) {
   return window['go']['main']['App']['ProgramIcon'](arg1);
 }
 
+export function ProjectFilePath(arg1) {
+  return window['go']['main']['App']['ProjectFilePath'](arg1);
+}
+
 export function ProjectTree() {
   return window['go']['main']['App']['ProjectTree']();
+}
+
+export function PromptsFolderPath() {
+  return window['go']['main']['App']['PromptsFolderPath']();
 }
 
 export function ProviderAPIKeyURL(arg1) {
@@ -1154,6 +1214,10 @@ export function SessionEdits(arg1) {
   return window['go']['main']['App']['SessionEdits'](arg1);
 }
 
+export function SessionExportBytes(arg1, arg2) {
+  return window['go']['main']['App']['SessionExportBytes'](arg1, arg2);
+}
+
 export function SessionMode(arg1) {
   return window['go']['main']['App']['SessionMode'](arg1);
 }
@@ -1244,6 +1308,10 @@ export function SetPlanStepStop(arg1, arg2, arg3) {
 
 export function SetPreparedReplyOn(arg1) {
   return window['go']['main']['App']['SetPreparedReplyOn'](arg1);
+}
+
+export function SetPresetImageFrom(arg1, arg2) {
+  return window['go']['main']['App']['SetPresetImageFrom'](arg1, arg2);
 }
 
 export function SetProviderBaseURL(arg1, arg2) {
@@ -1338,6 +1406,14 @@ export function SkillsDir() {
   return window['go']['main']['App']['SkillsDir']();
 }
 
+export function SkillsFolderPath() {
+  return window['go']['main']['App']['SkillsFolderPath']();
+}
+
+export function SpaceFolderPath(arg1) {
+  return window['go']['main']['App']['SpaceFolderPath'](arg1);
+}
+
 export function Spaces() {
   return window['go']['main']['App']['Spaces']();
 }
@@ -1430,6 +1506,10 @@ export function StopSpeech(arg1) {
   return window['go']['main']['App']['StopSpeech'](arg1);
 }
 
+export function SubagentsFolderPath() {
+  return window['go']['main']['App']['SubagentsFolderPath']();
+}
+
 export function SuggestPRDetails(arg1, arg2) {
   return window['go']['main']['App']['SuggestPRDetails'](arg1, arg2);
 }
@@ -1464,10 +1544,6 @@ export function SwitchVariant(arg1) {
 
 export function SynthesizeHabit(arg1, arg2) {
   return window['go']['main']['App']['SynthesizeHabit'](arg1, arg2);
-}
-
-export function SynthesizeHabitForSessions(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['main']['App']['SynthesizeHabitForSessions'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function TTSStatus() {

@@ -13,13 +13,13 @@
   import { onMount, onDestroy } from 'svelte'
   import { DeleteDeck, ListDecksIn, ReadFile } from '../../../wailsjs/go/main/App'
   import { EventsOn } from '../../../wailsjs/runtime/runtime'
-  import type { main } from '../../../wailsjs/go/models'
+  import type { engine } from '../../../wailsjs/go/models'
   import { t } from '../i18n.svelte'
   import Icon from '../Icon.svelte'
   import { dayBucket } from '../dayBucket'
   import SlidesPane from './SlidesPane.svelte'
 
-  let decks = $state<main.Deck[]>([])
+  let decks = $state<engine.Deck[]>([])
   let chosen = $state('')
   let content = $state('')
   let loading = $state(true)
