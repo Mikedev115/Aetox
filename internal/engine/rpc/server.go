@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/engine"
 )
 
@@ -17,9 +18,10 @@ import (
 // generated dispatch table, and is the engine's Screen (ScreenPeer) — so
 // events and the engine's own questions reach whichever screen is connected.
 type Server struct {
-	token  string
-	peer   *ScreenPeer
-	engine *engine.Engine
+	token    string
+	peer     *ScreenPeer
+	engine   *engine.Engine
+	dataRoot string
 
 	mu        sync.RWMutex
 	handlers  map[string]Handler
@@ -39,6 +41,8 @@ func NewServer(token string, build func(engine.Screen) *engine.Engine) *Server {
 	}
 	s.engine = build(s.peer)
 	s.peer.server = s
+	s.dataRoot, _ = config.DataRoot()
+	s.Handle(MethodHello, s.hello)
 	// The provider stream's two notifications land on the peer's streams.
 	s.OnNotification(MethodProviderChunk, func(_ string, params json.RawMessage) { s.peer.streams.chunk(params) })
 	s.OnNotification(MethodProviderClose, func(_ string, params json.RawMessage) { s.peer.streams.closed(params) })

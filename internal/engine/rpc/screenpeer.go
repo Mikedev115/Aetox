@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/engine"
-	"github.com/Mikedev115/Aetox/internal/skill"
 )
 
 // The methods the engine asks of the screen, by name on the wire. The
@@ -43,6 +42,8 @@ type ScreenPeer struct {
 	// streams is every provider response on its way from the screen
 	// (provider_proxy.go).
 	streams providerStreams
+	// announced is what the screen said in hello (screen_tool.go).
+	announced announced
 }
 
 func newScreenPeer() *ScreenPeer {
@@ -139,10 +140,6 @@ func (p *ScreenPeer) ProviderEndpoint(provider string) string {
 	}
 	return out
 }
-
-// WindowTools are the screen's packs, as stubs that run each call on the
-// screen (screen_tool.go). Until that commit lands the engine lends none.
-func (p *ScreenPeer) WindowTools(engine.Session) []skill.Skill { return nil }
 
 func (p *ScreenPeer) AgentTab() string {
 	conn := p.current()
