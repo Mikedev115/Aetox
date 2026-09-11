@@ -2,12 +2,10 @@ package rpc
 
 import (
 	"context"
-	"net/http"
 	"sync"
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/engine"
-	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/skill"
 )
 
@@ -29,7 +27,7 @@ const (
 // the process that started this one, so its absence is a restart or a
 // tunnel that dropped — long enough to ride out a reconnect, short enough
 // that a turn does not sit on a dead question for good.
-const screenWait = 60 * time.Second
+var screenWait = 60 * time.Second
 
 // ScreenPeer is engine.Screen over the wire: whichever screen is connected
 // right now, or nobody. Nobody is a real state (design doc §4): events go
@@ -41,6 +39,10 @@ type ScreenPeer struct {
 	mu      sync.Mutex
 	conn    *Conn
 	arrived chan struct{} // closed when a screen is attached
+
+	// streams is every provider response on its way from the screen
+	// (provider_proxy.go).
+	streams providerStreams
 }
 
 func newScreenPeer() *ScreenPeer {
@@ -128,13 +130,6 @@ func (p *ScreenPeer) Emit(event string, data any) {
 	if conn := p.current(); conn != nil {
 		_ = conn.Notify(MethodEvent, map[string]any{"name": event, "data": data})
 	}
-}
-
-// ProviderTransport is the credential the engine does not hold, as a
-// transport that carries the request to the screen (provider_proxy.go).
-// Until that commit lands the transport is the network itself, unsigned.
-func (p *ScreenPeer) ProviderTransport(provider, wireFormat string) model.Transport {
-	return func(network http.RoundTripper) http.RoundTripper { return network }
 }
 
 func (p *ScreenPeer) ProviderEndpoint(provider string) string {
