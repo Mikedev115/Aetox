@@ -29,10 +29,10 @@ func main() {
 		// A screen too small for these is what App.fitToScreen (window.go)
 		// exists for — it lowers both the size and the floor to what the
 		// display actually leaves, and it runs before the window is shown.
-		Width:     engine.WindowWidth,
-		Height:    engine.WindowHeight,
-		MinWidth:  engine.WindowMinWidth,
-		MinHeight: engine.WindowMinHeight,
+		Width:     windowWidth,
+		Height:    windowHeight,
+		MinWidth:  windowMinWidth,
+		MinHeight: windowMinHeight,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 			// Files from the open project reach the panes as URLs under

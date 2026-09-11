@@ -1,4 +1,4 @@
-package engine
+package main
 
 import (
 	"context"
@@ -42,7 +42,7 @@ const (
 // app asked for rather than filled to the corners.
 //
 // ARCHITECTURE.md §117.
-func (a *Engine) fitToScreen() {
+func (a *App) fitToScreen() {
 	screen, ok := currentScreen(a.ctx)
 	if !ok {
 		return

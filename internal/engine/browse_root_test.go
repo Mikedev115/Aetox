@@ -96,8 +96,8 @@ func TestFocusSwitchesDropTheBrowsedFolder(t *testing.T) {
 func TestBrowseFolderRefusesWhileAProjectIsOpen(t *testing.T) {
 	a, _ := browsingApp(t)
 	a.projectFocused = true
-	if _, err := a.BrowseFolder(); err == nil {
-		t.Error("BrowseFolder() was allowed while a project is focused")
+	if _, err := a.BrowseFolderAt(t.TempDir()); err == nil {
+		t.Error("BrowseFolderAt() was allowed while a project is focused")
 	}
 }
 

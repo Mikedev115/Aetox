@@ -48,7 +48,6 @@ import (
 	"github.com/Mikedev115/Aetox/internal/subagent"
 	"github.com/Mikedev115/Aetox/internal/tts"
 	"github.com/Mikedev115/Aetox/internal/turn"
-	"github.com/Mikedev115/Aetox/internal/update"
 	"github.com/Mikedev115/Aetox/internal/version"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -294,22 +293,6 @@ type Engine struct {
 	dbRetryAt time.Time
 	dbDir     string // overrides the default <UserConfigDir>/aetox directory; empty means production default. Test seam only.
 
-	// openDir stands in for openInFileManager, the one door out to the OS file
-	// manager. nil means the real thing.
-	//
-	// It exists because a unit test was opening a File Explorer window on the
-	// developer's machine, every run, for as long as the test had existed: the
-	// assertion is that a file that IS there does not report itself as gone,
-	// and the honest way to ask that question ran the whole binding, explorer
-	// launch and all. Start() does not wait, so by the time the window resolved
-	// the path, t.Cleanup had removed the temp directory — which is why it
-	// arrived at Documents rather than at the file, and why nothing in the test
-	// output ever mentioned it.
-	//
-	// A test seam rather than a skip: what the test wants to know is that the
-	// binding gets as far as opening, and that is exactly what this records.
-	openDir func(string) error
-
 	// emit stands in for wailsruntime.EventsEmit. The indirection exists
 	// because EventsEmit calls log.Fatalf — a hard os.Exit, not an error a
 	// test can recover from — whenever ctx is not Wails-bound, which it never
@@ -325,32 +308,10 @@ type Engine struct {
 	remoteOnce sync.Once
 	remoteSrv  *remoteServer
 
-	// staged is the downloaded, verified update waiting for the user to pick a
-	// moment to restart into (§107). Held here rather than in internal/update
-	// because it is one running app's state, not the package's — and guarded
-	// because StageUpdate runs on whichever goroutine Wails hands it while
-	// RestartToUpdate reads it from another.
 	// capabilities guards the one capability download allowed to be in flight
-	// (capabilities.go). Its own lock rather than stagedMu: they protect
-	// unrelated things, and one mutex covering two is how an unrelated caller
-	// ends up waiting on a 150MB download.
+	// (capabilities.go). Its own lock, because one mutex covering two unrelated
+	// things is how an unrelated caller ends up waiting on a 150MB download.
 	capabilities capabilityInstall
-
-	stagedMu sync.Mutex
-	staged   update.Staged
-	// installError is why the previous restart-to-update came back as the
-	// same build — the waiter's one line, already worded for the card
-	// (update.InstallFailure). "" when it went fine or never happened.
-	installError string
-}
-
-// StagedInfo is what the window asks about a staged update: which version
-// waits, on which channel (the ready sentence differs by it), and whether the
-// last attempt to install it failed and why.
-type StagedInfo struct {
-	Version      string `json:"version"`
-	Channel      string `json:"channel"`
-	InstallError string `json:"installError"`
 }
 
 // ChangedFile is one working-tree change reported by `git status`.
@@ -466,136 +427,6 @@ func (a *Engine) AppCredit() string { return version.Credit }
 // GitHub's own form before anything is submitted — the app itself sends
 // nothing, to anyone, ever.
 func (a *Engine) RecentDebugLog() []string { return debuglog.Recent(30) }
-
-// CheckForUpdate asks GitHub whether a newer release exists. Explicitly, from
-// the button in Settings → About — nothing calls it on a timer yet.
-//
-// ErrDisabled is folded into the returned Status rather than raised: the user
-// switching the check off is not a failure, and rendering it as one would put
-// a red error under a setting they chose. Every other failure does reject, so
-// "could not reach GitHub" reads as what it is.
-func (a *Engine) CheckForUpdate() (update.Status, error) {
-	ctx := a.ctx
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	st, err := update.Check(ctx, version.Current)
-	if errors.Is(err, update.ErrDisabled) {
-		return st, nil
-	}
-	return st, err
-}
-
-// StageUpdate downloads the newer release, verifies its signature and its
-// bytes, and puts this machine one restart away from running it — without
-// touching the window. Progress rides out as `update:progress` in bytes, which
-// is what the download actually knows; turning that into a percentage or a
-// megabyte count is the UI's business.
-//
-// It does not restart, on purpose: see internal/update's Stage. Downloading is
-// cheap for the user, closing their window is not, and one act that did both
-// would spend the second without asking.
-//
-// Deliberately not refused mid-turn. Nothing here interrupts anything — the
-// agent keeps working while the bytes come down, and the gate belongs on
-// RestartToUpdate, which is where the process actually ends.
-func (a *Engine) StageUpdate() error {
-	ctx := a.ctx
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	debuglog.Msg("self-update: staging from %s", version.Current)
-	staged, err := update.Stage(ctx, version.Current, func(done, total int64) {
-		a.emitEvent("update:progress", map[string]int64{"done": done, "total": total})
-	})
-	if err != nil {
-		debuglog.Msg("self-update: stage failed: %v", err)
-		return err
-	}
-	debuglog.Msg("self-update: staged %s (%s)", staged.Version, staged.Channel)
-	a.stagedMu.Lock()
-	a.staged = staged
-	a.installError = ""
-	a.stagedMu.Unlock()
-	return nil
-}
-
-// StagedUpdate is the update waiting for a restart, or the zero value if none
-// is. What a window that just reloaded asks, so a staged update survives the
-// webview coming back without the Go side having lost it — and what the
-// window asks on every launch, since adoptStagedUpdate may have found one the
-// previous run left behind.
-func (a *Engine) StagedUpdate() StagedInfo {
-	a.stagedMu.Lock()
-	defer a.stagedMu.Unlock()
-	return StagedInfo{
-		Version:      a.staged.Version,
-		Channel:      string(a.staged.Channel),
-		InstallError: a.installError,
-	}
-}
-
-// adoptStagedUpdate is the startup half of "later is a real answer" on the
-// installer channel: read how the previous hand-off went, pick up an
-// installer that was downloaded and verified but never restarted into, and
-// only then sweep the leftovers. In that order — the sweep used to run first
-// and unconditionally, so closing the window on a staged update deleted it,
-// and the next launch offered the same 24 MB download again.
-//
-// Runs off the startup path (hashing a 24 MB file is ~100 ms the first paint
-// does not need), and announces what it found as `update:staged` because the
-// window may already have asked StagedUpdate and been told "nothing".
-func (a *Engine) adoptStagedUpdate() {
-	if line := update.ReadRestartLog(); line != "" {
-		debuglog.Msg("self-update: previous hand-off: %s", line)
-		a.stagedMu.Lock()
-		a.installError = update.InstallFailure(line)
-		a.stagedMu.Unlock()
-	}
-	staged, ok := update.Adopt(version.Current)
-	if ok {
-		debuglog.Msg("self-update: adopted staged %s (%s) from a previous run", staged.Version, staged.Channel)
-		a.stagedMu.Lock()
-		a.staged = staged
-		a.stagedMu.Unlock()
-	}
-	update.RemoveLeftovers(ok)
-	if info := a.StagedUpdate(); info.Version != "" || info.InstallError != "" {
-		a.emitEvent("update:staged", info)
-	}
-}
-
-// RestartToUpdate is the half the user times: close this build, let the waiter
-// bring the new one up.
-//
-// Refused mid-turn for the same reason every session switch is — this ends the
-// process, and the process is where the turn lives. Its own sentence
-// (errTurnBusyUpdate) because the shared one ends in advice about switching
-// chats, which is not the door the user is standing in.
-func (a *Engine) RestartToUpdate() error {
-	if a.turnBusy() {
-		return errTurnBusyUpdate
-	}
-	a.stagedMu.Lock()
-	staged := a.staged
-	a.stagedMu.Unlock()
-	debuglog.Msg("self-update: restarting into %s (%s)", staged.Version, staged.Channel)
-	if err := staged.Restart(); err != nil {
-		debuglog.Msg("self-update: hand-off failed: %v", err)
-		return err
-	}
-	// The relauncher is waiting on this process. Quit on a short delay rather
-	// than here: the frontend's await deserves its resolution first, so the
-	// button can honestly say "restarting" instead of the window vanishing
-	// mid-click.
-	go func() {
-		time.Sleep(400 * time.Millisecond)
-		if a.ctx != nil {
-			wailsruntime.Quit(a.ctx)
-		}
-	}()
-	return nil
-}
 
 // CommandHistory returns this session's real tool-call history, most recent first.
 func (a *Engine) CommandHistory() []string {
@@ -2106,10 +1937,6 @@ func (a *Engine) startup(ctx context.Context) {
 	if root, err := config.DataRoot(); err == nil {
 		model.InstallCachedCatalog(root)
 	}
-	// Before anything else on this path: the window is created and centred by
-	// the time startup runs, and shown only once the webview has content, so a
-	// window bigger than the screen is corrected while nobody can see it move.
-	a.fitToScreen()
 	// Providers state their remaining window in the headers of turns the app
 	// was running anyway. Nothing here fetches; this only stops the answer
 	// from being thrown away, which is what happened until now — the headers
@@ -2159,15 +1986,6 @@ func (a *Engine) startup(ctx context.Context) {
 	}
 	a.startNewSession()
 	a.openAtRememberedDesk()
-	// The previous build's exe, renamed aside by a self-update, and the staging
-	// download — this build is running, so by definition neither is needed.
-	// Except the download the user has not restarted into yet; see
-	// adoptStagedUpdate.
-	go a.adoptStagedUpdate()
-	// And the other end of the same feature: ask whether a newer build exists,
-	// so the answer reaches the user without them going looking for it
-	// (update_notify.go).
-	go a.watchForUpdates()
 	// Era cleanup: home itself was the unfocused root until 2026-07-26
 	// (§19.1), and attachments copied there never expired. No session writes
 	// there anymore, so this only ever drains the old pile.
@@ -2401,6 +2219,18 @@ var errTurnBusy = fmt.Errorf("เอเจนกำลังทำงานอ�
 // under the update dialog's "อัปเดตไม่สำเร็จ", where it reads as the update
 // having broken rather than as having been postponed.
 var errTurnBusyUpdate = fmt.Errorf("เอเจนกำลังทำงานอยู่ — รอให้เสร็จ หรือกดหยุดก่อน แล้วค่อยอัปเดต (การอัปเดตต้องปิดแอป)")
+
+// ReadyToRestart is the engine's word on whether the process may end for a
+// self-update right now: nil, or the refusal a turn in flight earns. The
+// update itself is the screen's (desktop/update.go — it ends this process);
+// the fact that a turn is using the brain is the engine's, and so is the
+// sentence.
+func (a *Engine) ReadyToRestart() error {
+	if a.turnBusy() {
+		return errTurnBusyUpdate
+	}
+	return nil
+}
 
 // There is no errTurnBusyModel any more, and the third member of this family
 // is worth an epitaph. The model menu's four engine dials — model, provider,
@@ -5405,17 +5235,6 @@ func readGitBranch(root string) string {
 		return head[:7] // detached HEAD: short commit hash
 	}
 	return head
-}
-
-// revealInFileManager is every "open this in the file manager" button's last
-// step, and the one place the OS door is opened. Routed through the Engine so a
-// test can watch it happen without a window appearing on somebody's desk — see
-// Engine.openDir.
-func (a *Engine) revealInFileManager(path string) error {
-	if a.openDir != nil {
-		return a.openDir(path)
-	}
-	return openInFileManager(path)
 }
 
 // showConversation puts a conversation on screen and lets go of the one that

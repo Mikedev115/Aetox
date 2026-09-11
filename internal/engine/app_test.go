@@ -1204,7 +1204,7 @@ func TestAMissingFileIsReportedAsGoneNotAsAnOSError(t *testing.T) {
 	// The gap between asking and clicking: the answer has to be the one the UI
 	// can translate, not "GetFileAttributesEx …: The system cannot find the
 	// file specified", which reads to a user as a crash.
-	err := a.OpenFileExternally("made.txt")
+	_, err := a.ProjectFilePath("made.txt")
 	if !errors.Is(err, errFileGone) {
 		t.Errorf("opening a deleted file returned %v, want the named gone error", err)
 	}
@@ -1254,16 +1254,9 @@ func TestAnAbsolutePathTheAgentCanWriteIsOneTheWindowCanSee(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The OS door is stubbed, and the stub is the point: this test used to open
-	// a real File Explorer window on whoever ran it, every run, and land it at
-	// Documents because Start() outlived the temp directory. What it means to
-	// ask is "did the binding get as far as opening?", which is what `opened`
-	// records.
-	var opened string
-	a := seed(&Engine{cfg: config.Config{SandboxRoot: root}, openDir: func(p string) error {
-		opened = p
-		return nil
-	}}, newConversation())
+	// The OS door is the screen's now (desktop/screen_doors.go); what the
+	// engine answers is the path, and that is what is asked here.
+	a := seed(&Engine{cfg: config.Config{SandboxRoot: root}}, newConversation())
 	// Focused: the folder was never added, so the honest answer is that the
 	// window cannot say — never that the file is gone.
 	skill.NewDefaultRegistry(skill.RegistryOptions{SandboxRoot: root})
@@ -1277,11 +1270,8 @@ func TestAnAbsolutePathTheAgentCanWriteIsOneTheWindowCanSee(t *testing.T) {
 	if got := a.FileStillThere(doc); got != FileHere {
 		t.Errorf("unfocused: %q, want %q — the engine wrote this file", got, FileHere)
 	}
-	if err := a.OpenFileExternally(doc); errors.Is(err, errFileGone) {
+	if _, err := a.ProjectFilePath(doc); errors.Is(err, errFileGone) {
 		t.Error("opening it reports the file as gone, and it is right there")
-	}
-	if opened == "" {
-		t.Error("the file manager was never asked to open anything")
 	}
 }
 

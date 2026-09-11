@@ -17,16 +17,6 @@ import (
 	"github.com/Mikedev115/Aetox/internal/config"
 )
 
-// Window is what the desktop asks Wails for, in the logical (96dpi) units
-// Wails sizes windows in. fitToScreen measures against the same numbers, so
-// the opening size is stated once.
-const (
-	WindowWidth     = windowWidth
-	WindowHeight    = windowHeight
-	WindowMinWidth  = windowMinWidth
-	WindowMinHeight = windowMinHeight
-)
-
 // Startup is the Wails OnStartup hook: the window's context, the remembered
 // project and desk, the background sweeps.
 func Startup(e *Engine, ctx context.Context) { e.startup(ctx) }

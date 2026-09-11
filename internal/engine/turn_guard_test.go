@@ -144,9 +144,10 @@ func TestTheDoorsThatStillRefuseWhileATurnRuns(t *testing.T) {
 	}
 	busy("DeleteSession(open)", a.DeleteSession(working))
 	// Restarting into a new build kills the process, and the process is where
-	// the turn lives. Downloading one does not, and StageUpdate is deliberately
-	// not on this list (§107) — bytes coming down interrupt nothing.
-	busy("RestartToUpdate", a.RestartToUpdate())
+	// the turn lives. The screen owns the restart (desktop/update.go) and asks
+	// this before it; downloading one does not end anything, and StageUpdate is
+	// deliberately not on this list (§107) — bytes coming down interrupt nothing.
+	busy("ReadyToRestart", a.ReadyToRestart())
 	// The stance rebuilds the engine of the chat on screen, carrying its
 	// context over — which is the same hazard, aimed at one conversation. The
 	// chat on screen IS the working one here.

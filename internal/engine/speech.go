@@ -14,7 +14,6 @@ package engine
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -96,7 +95,10 @@ func (a *Engine) SetSpeechModel(path string) error {
 // ceremony: it turns an "open any folder on this machine" binding, callable
 // from the webview, into one that can only reach a file the scan already
 // found.
-func (a *Engine) RevealSpeechModel(path string) error {
+//
+// SpeechModelFolderPath is the engine's half of RevealSpeechModel
+// (desktop/screen_doors.go): the folder the known model sits in.
+func (a *Engine) SpeechModelFolderPath(path string) (string, error) {
 	path = strings.TrimSpace(path)
 	known := false
 	for _, m := range a.ListSpeechModels() {
@@ -106,9 +108,9 @@ func (a *Engine) RevealSpeechModel(path string) error {
 		}
 	}
 	if !known {
-		return fmt.Errorf("ไม่รู้จักไฟล์โมเดลนี้: %s", path)
+		return "", fmt.Errorf("ไม่รู้จักไฟล์โมเดลนี้: %s", path)
 	}
-	return a.revealInFileManager(filepath.Dir(path))
+	return filepath.Dir(path), nil
 }
 
 // SpeechDirInfo is one scanned folder: the real path to open, and a label to
@@ -159,45 +161,18 @@ func shortenPath(p string) string {
 	return p
 }
 
-// OpenSpeechModelDir opens one of the scanned folders, creating Aetox's own if
-// it does not exist yet — that is where a downloaded model is meant to go.
-func (a *Engine) OpenSpeechModelDir(dir string) error {
+// SpeechModelDirPath checks one of the scanned folders and creates Aetox's
+// own if it does not exist yet — that is where a downloaded model is meant to
+// go. OpenSpeechModelDir (desktop/screen_doors.go) then opens it.
+func (a *Engine) SpeechModelDirPath(dir string) (string, error) {
 	dir = strings.TrimSpace(dir)
 	for _, known := range a.SpeechModelDirs() {
 		if strings.EqualFold(known.Path, dir) {
 			_ = os.MkdirAll(dir, 0o755)
-			return a.revealInFileManager(dir)
+			return dir, nil
 		}
 	}
-	return fmt.Errorf("ไม่ใช่โฟลเดอร์ที่ Aetox ค้นหาโมเดล: %s", dir)
-}
-
-// openInFileManager reveals a directory in the OS file manager. The one place
-// every "open folder" button in the app goes through.
-//
-// Deliberately NOT wrapped in proc.HideConsole. That helper sets HideWindow and
-// CREATE_NO_WINDOW so a background console process (git, a shell) does not flash
-// a black box — but explorer.exe is a GUI program whose window is the entire
-// point, and those flags suppress it. Every folder button in the app was hiding
-// the window it had just asked for, which reads as the button doing nothing.
-//
-// explorer.exe also exits non-zero on success, so Start() (not Run()) is what
-// this wants regardless: launch it and stop caring.
-func openInFileManager(dir string) error {
-	// proc-show-window: launching a GUI program — see the comment above and
-	// TestEveryExecSiteHidesTheConsole. HideConsole here would hide the very
-	// window this function exists to open.
-	// proc-detached: the file manager belongs to the user, not to this call.
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "windows":
-		cmd = exec.Command("explorer", dir)
-	case "darwin":
-		cmd = exec.Command("open", dir)
-	default:
-		cmd = exec.Command("xdg-open", dir)
-	}
-	return cmd.Start()
+	return "", fmt.Errorf("ไม่ใช่โฟลเดอร์ที่ Aetox ค้นหาโมเดล: %s", dir)
 }
 
 // SpeechStatus is what the Settings page shows above the picker: either the

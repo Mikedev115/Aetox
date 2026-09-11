@@ -1,4 +1,4 @@
-package engine
+package main
 
 // The half of self-update the user should never have to remember: running the
 // check. Everything downstream of "a newer Aetox exists" already worked —
@@ -57,7 +57,7 @@ var updateCheck = update.Check
 // reach a window that has only just opened — the previous run's check may have
 // found a release the user never saw because they closed the app — and the
 // conditional request that answers it costs a 304.
-func (a *Engine) watchForUpdates() {
+func (a *App) watchForUpdates() {
 	if update.Disabled() {
 		return
 	}
@@ -74,7 +74,7 @@ func (a *Engine) watchForUpdates() {
 // for Scoop, the release page for anything else), and that decision is already
 // made — and tested — inside internal/update. Re-deriving it in the UI would be
 // a second place answering the same question.
-func (a *Engine) announceUpdate() {
+func (a *App) announceUpdate() {
 	ctx := a.ctx
 	if ctx == nil {
 		ctx = context.Background()
@@ -97,15 +97,15 @@ func (a *Engine) announceUpdate() {
 // overtaken, so the card offers the newest download rather than a restart into
 // a version that is already behind. Installer channel only: on portable the
 // staged build is already the exe on disk, and there is nothing to un-stage.
-func (a *Engine) dropStaleStaged(latest string) {
-	a.stagedMu.Lock()
-	defer a.stagedMu.Unlock()
-	if !a.staged.Ready() || a.staged.Channel != update.ChannelInstaller || !update.Newer(latest, a.staged.Version) {
+func (a *App) dropStaleStaged(latest string) {
+	a.staged.mu.Lock()
+	defer a.staged.mu.Unlock()
+	if !a.staged.staged.Ready() || a.staged.staged.Channel != update.ChannelInstaller || !update.Newer(latest, a.staged.staged.Version) {
 		return
 	}
-	debuglog.Msg("self-update: dropping staged %s — %s is out", a.staged.Version, latest)
-	a.staged = update.Staged{}
-	a.installError = ""
+	debuglog.Msg("self-update: dropping staged %s — %s is out", a.staged.staged.Version, latest)
+	a.staged.staged = update.Staged{}
+	a.staged.installError = ""
 	update.RemoveLeftovers(false)
 	a.emitEvent("update:staged", StagedInfo{})
 }

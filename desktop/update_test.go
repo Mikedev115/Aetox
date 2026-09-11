@@ -1,12 +1,12 @@
-package engine
+package main
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/Mikedev115/Aetox/internal/engine"
 	"github.com/Mikedev115/Aetox/internal/update"
 	"github.com/Mikedev115/Aetox/internal/version"
 )
@@ -16,7 +16,7 @@ import (
 // returned "" would put a dash where the version belongs and nothing would
 // fail. internal/version's own test is what keeps this value honest.
 func TestAppVersionIsTheOneConstant(t *testing.T) {
-	if got := (&Engine{}).AppVersion(); got != version.Current {
+	if got := (&App{eng: engine.NewEngine()}).AppVersion(); got != version.Current {
 		t.Errorf("AppVersion() = %q, want %q", got, version.Current)
 	}
 }
@@ -27,7 +27,7 @@ func TestAppVersionIsTheOneConstant(t *testing.T) {
 func TestCheckForUpdateReportsDisabledAsAStatusNotAnError(t *testing.T) {
 	t.Setenv(update.DisableEnv, "1")
 
-	st, err := (&Engine{}).CheckForUpdate()
+	st, err := (&App{eng: engine.NewEngine()}).CheckForUpdate()
 	if err != nil {
 		t.Fatalf("err = %v, want nil — a disabled check is not a failure", err)
 	}
@@ -48,7 +48,7 @@ func TestCheckForUpdateReportsDisabledAsAStatusNotAnError(t *testing.T) {
 // startup. It must fall back to a real context rather than panic on the way
 // into http.NewRequestWithContext.
 func TestCheckForUpdateSurvivesANilContext(t *testing.T) {
-	a := &Engine{}
+	a := &App{eng: engine.NewEngine()}
 	if a.ctx != nil {
 		t.Fatal("this test is only meaningful with no Wails context")
 	}
@@ -57,34 +57,11 @@ func TestCheckForUpdateSurvivesANilContext(t *testing.T) {
 	}
 }
 
-// Restarting kills the process, and the process is where the turn lives — so
-// the refusal is the same one every session switch gets. The sentence is not:
-// this one arrives on the update card, where advice about switching chats would
-// read as the update itself having broken.
-func TestRestartToUpdateRefusesMidTurnInItsOwnWords(t *testing.T) {
-	a := &Engine{}
-	if err := a.beginTurn(a.cur().id); err != nil {
-		t.Fatalf("beginTurn() = %v", err)
-	}
-	defer a.endTurn(a.cur().id)
-
-	err := a.RestartToUpdate()
-	if err == nil {
-		t.Fatal("RestartToUpdate() = nil while a turn is running — it would kill the turn with the process")
-	}
-	if !errors.Is(err, errTurnBusyUpdate) {
-		t.Errorf("err = %v, want the update-specific refusal", err)
-	}
-	if strings.Contains(err.Error(), "สลับแชท") {
-		t.Error("the refusal points at a door the user is not standing in")
-	}
-}
-
 // Nothing staged, nothing to restart into. Reachable by pressing the button on
 // a window that reloaded after the Go side lost its staging (or never had it),
 // and it must refuse rather than quit into the same build.
 func TestRestartToUpdateWithNothingStagedRefuses(t *testing.T) {
-	a := &Engine{}
+	a := &App{eng: engine.NewEngine()}
 	if err := a.RestartToUpdate(); err == nil {
 		t.Error("RestartToUpdate() = nil with nothing staged — the app would close for no update")
 	}
@@ -107,7 +84,7 @@ func TestAdoptStagedUpdateCarriesThePreviousFailureToTheWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 	var announced []StagedInfo
-	a := &Engine{emit: func(ev string, data ...any) {
+	a := &App{eng: engine.NewEngine(), emit: func(ev string, data ...any) {
 		if ev == "update:staged" && len(data) == 1 {
 			announced = append(announced, data[0].(StagedInfo))
 		}
@@ -131,9 +108,9 @@ func TestAdoptStagedUpdateCarriesThePreviousFailureToTheWindow(t *testing.T) {
 
 	// A fresh stage wipes the old failure: the sentence was about the
 	// previous file, and a new one has not failed at anything.
-	a.stagedMu.Lock()
-	a.installError = ""
-	a.stagedMu.Unlock()
+	a.staged.mu.Lock()
+	a.staged.installError = ""
+	a.staged.mu.Unlock()
 	if a.StagedUpdate().InstallError != "" {
 		t.Error("InstallError not cleared")
 	}
@@ -144,7 +121,7 @@ func TestAdoptStagedUpdateCarriesThePreviousFailureToTheWindow(t *testing.T) {
 func TestAdoptStagedUpdateIsSilentWhenThereIsNothing(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 	called := false
-	a := &Engine{emit: func(string, ...any) { called = true }}
+	a := &App{eng: engine.NewEngine(), emit: func(string, ...any) { called = true }}
 	a.adoptStagedUpdate()
 	if called {
 		t.Error("emitted an event with nothing staged and no hand-off to report")
