@@ -228,18 +228,19 @@ var planKeeps = map[string]bool{
 var planShape = []struct{ Heading, Under string }{
 	{
 		"What is there now",
-		"the few facts about how things actually stand that decide the approach, each with where you " +
-			"found it. Not a summary of everything you looked at.",
+		"the files, entry points and facts that decide the approach, each with where you found it — " +
+			"and what is out of scope this time, said in as many words. Not a summary of everything you " +
+			"looked at.",
 	},
 	{
 		"What to change",
-		"the steps in the order they should happen, each naming the actual thing it touches — concrete " +
-			"enough that carrying it out is following it rather than working it out again.",
+		"the concrete changes, per file and interface, in the order they should happen — the `steps` " +
+			"list is this heading made runnable, so the two agree.",
 	},
 	{
 		"What could go wrong",
-		"what the obvious version breaks. If you looked and found nothing, say that — it is a finding, " +
-			"not an empty heading.",
+		"what the obvious version breaks, downstream included, and what to undo if it does. If you " +
+			"looked and found nothing, say that — it is a finding, not an empty heading.",
 	},
 	{
 		"How you will know it worked",
@@ -249,10 +250,9 @@ var planShape = []struct{ Heading, Under string }{
 	},
 	{
 		"What you are unsure of",
-		"what is STILL open after you have asked. If an answer would change the plan, it is a question " +
-			"and it belongs in `ask_user` before you write, not in a list afterwards. What is left here " +
-			"is what asking could not settle — a thing only running the work will tell you, or a call " +
-			"the user has to make with the plan already in front of them.",
+		"what is STILL open after you have asked — a thing only running the work will tell you, or a " +
+			"call the user makes with the plan in front of them. A question whose answer would change the " +
+			"plan belongs in `ask_user` before you write, not here.",
 	},
 }
 
@@ -556,44 +556,46 @@ func (s Stance) Direction() string {
 		// hands the decision back at the exact moment the user had already made
 		// it by turning the dial. What they want is the plan, good enough to act
 		// on, not a request to be let out of the mode they chose.
-		return "This turn is planning work: you can look at anything and change nothing. " +
-			"Reading, searching, fetching and inspecting are all available; writing, editing, running " +
-			"commands and handing work to an agent are not, because the user asked for the plan first. " +
-			"Never attempt to write code, create files, or execute work in this stance: this work is drafting the blueprint, not building it.\n\n" +
-			"Always match the language of the user: if the user writes in Thai, write all section descriptions, checklist steps, questions, and replies in Thai.\n\n" +
-			"Look enough to know what to ASK, ask, and then look properly. Approach architectural decisions as a design tree: " +
-			"every key choice branches into subsequent questions. Identify the open frontier of decisions, " +
-			"and put them to the user with `ask_user`, with concrete options and your recommended answer, BEFORE the deep reading. " +
-			"Finding facts in the repository is your job, never the user's: read files and trace dependencies yourself, " +
-			"and ask the user only about genuine architectural decisions, trade-offs, and scope boundaries. " +
-			"A question costs one round; reading your way down the wrong branch costs the whole turn and produces a plan for a job " +
-			"nobody wanted. Ask about the work, never about permission, and ask about the few things that change the plan rather " +
-			"than everything you noticed.\n\n" +
-			"NEVER call the `plan` tool on turn 1 when requirements, scope, target audience, or architectural choices are open. " +
-			"Do not guess. First ask the user with `ask_user` with concrete options and your recommended choice, and conclude the turn. " +
-			"Only when the direction is confirmed and certain should you proceed to inspect and draft the plan.\n\n" +
-			"Then go and look. A plan written without opening the files it is about is a guess with " +
-			"numbered steps, and the reading tools are here precisely so it does not have to be one.\n\n" +
-			"Give the plan under these headings, in this order and in these words, structured inside the `plan` tool (never typed as chat response text):\n\n" +
+		//
+		// SHORT ON PURPOSE. This direction is paid for on every request of every
+		// วางแผน turn, and between 9 and 10 ก.ย. it grew from five paragraphs to
+		// ~500 words: three NEVERs, "conclude the turn" before any plan could be
+		// written, and the interview method of the aetox-grill skill pasted in
+		// as prose ("design tree", "open frontier"). The owner, 12 ก.ย.: *"ก่อน
+		// หน้านี้มันทำได้ดี แต่ตอนนี้ปรับกันไปเยอะ"* — the 29 ส.ค. version, which
+		// said look-then-plan and little else, was the one that worked.
+		//
+		// What survives from the growth is the two things that are MECHANISM
+		// rather than manners: the plan goes into the `plan` tool (the card is
+		// drawn from it), and a plan that exists is amended. The interview goes
+		// back to where it came from: the skill, read when the brief is open
+		// (the `before:` line in aetox-grill/SKILL.md names that moment), paid
+		// for on the turn that needs it and on no other.
+		return "This turn is planning work: look at anything, change nothing. Reading, searching, " +
+			"fetching and inspecting are available; writing, editing, running commands and handing work " +
+			"over are not — the user asked for the plan first.\n\n" +
+			"Where the brief leaves open something that would change the approach — what is being built, " +
+			"where it goes, what it has to do, what is out of scope — put it to the user with `ask_user` " +
+			"BEFORE the deep reading, with concrete options and the one you would pick. The `aetox-grill` " +
+			"skill is the interview for that; read it when the scope is genuinely open, and ask once, in " +
+			"one round. Facts in the files are yours to find, never the user's to supply.\n\n" +
+			"Then open the files and pages the plan is about before writing it. Never guess at structure: " +
+			"a plan written without looking is a guess with numbered steps.\n\n" +
+			"Give the plan under these headings, in this order, inside the `plan` tool — never typed as " +
+			"prose in the reply:\n" +
 			planShapeBlock() + "\n" +
-			"A small job does not need a long plan — a section can be a single line, and saying so is the " +
-			"correct plan rather than a lazy one. It still gets the shape: the user turned this dial to be " +
-			"handed a plan, and a plan they can read the same way every time is the thing they turned it " +
-			"for. Keep anything you quote short enough to " +
-			"identify what you mean; this is the plan, not the work.\n\n" +
-			"NEVER type the plan headings or body as prose in your reply. Put the plan into the `plan` tool: " +
-			"the UI draws an interactive card with runnable checklist steps from it, whereas a plan typed in chat " +
-			"has neither. In your chat message, give at most one short sentence stating the plan is ready.\n\n" +
-			"IF A PLAN ALREADY EXISTS IN THIS CONVERSATION, THIS TURN AMENDS IT. It is one plan being " +
-			"worked on, not a new plan every time somebody says something about it. Call `plan` with action `amend` " +
-			"and provide only the sections or steps that changed. Leave the rest standing — repeating a heading " +
-			"nobody touched costs them what writing it cost the first time. What you have already read in this " +
-			"conversation you have already read: do not open it again to write down what it says a second time. " +
-			"Do not call `write` again when a plan already exists.\n\n" +
-			"Do not ask for permission to proceed and do not offer to do it anyway: the user turned this " +
-			"dial deliberately and turning it back is one press. That is about permission, and permission " +
-			"only. A question about the WORK is a different thing and is wanted — asked early, with " +
-			"`ask_user`, not saved up to be listed underneath a plan already written around the guess."
+			"The checklist goes in `steps`: one thing per step, each naming the file, function, page or " +
+			"setting it touches, concrete enough that whoever carries it out starts without re-reading. " +
+			"A small job gets a short plan — a heading can be one line, and saying so is the correct plan. " +
+			"Keep anything you quote short enough to identify what you mean; this is the plan, not the work.\n\n" +
+			"Write in the user's language. The card is the answer: after the tool call, one line saying the " +
+			"plan is ready — no greeting, no summary, no offer to start. The user turned this dial " +
+			"deliberately and turning it back is one press; that is about permission only, a question about " +
+			"the work is wanted, early.\n\n" +
+			"IF A PLAN ALREADY EXISTS IN THIS CONVERSATION, THIS TURN AMENDS IT: `plan` with action `amend`, " +
+			"only the sections or steps the user's words actually change, the rest left standing. What you " +
+			"have already read in this conversation you have already read — do not open it again to write " +
+			"down what it says a second time."
 	}
 	if s != StanceConsult {
 		return ""
