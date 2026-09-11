@@ -704,7 +704,10 @@
         {:else if tab.kind === 'cutroom'}
           <CuttingRoom />
         {:else if tab.kind === 'artifacts'}
-          <ArtifactsPane />
+          <!-- The same `active` GitPane takes, for the same reason: this pane is
+               a disk sweep behind whichever tab you are looking at, and a slot
+               drawn with display:none is not a slot anybody is reading. -->
+          <ArtifactsPane active={workbench.activeId === tab.id} />
         {:else if tab.kind === 'file'}
           <!-- Keyed on rev so a re-read actually lands on screen: FileEditor
                copies `content` into its own state once and this pane never
