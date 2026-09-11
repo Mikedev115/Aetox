@@ -60,6 +60,10 @@ func (a *App) beforeClose(_ context.Context) (prevent bool) {
 // ends the work before the store it would write to is closed.
 func (a *App) finishTurnsForClose(grace time.Duration) bool {
 	a.closing.Store(true)
+	// Everything below the turns — git, snapshots, the catalog refresh, a
+	// widen card parked outside a turn — hangs off the engine's lifetime and
+	// ends with it, once the turns have had their say.
+	defer a.endLife()
 	stopped := a.stopEverything()
 	if !a.turnBusy() {
 		return true
@@ -74,6 +78,24 @@ func (a *App) finishTurnsForClose(grace time.Duration) bool {
 		time.Sleep(20 * time.Millisecond)
 	}
 	return true
+}
+
+// engineCtx is the engine's lifetime (App.lifeCtx): the parent of every turn
+// and of every piece of engine work that runs outside one. Never nil, never
+// the window's context.
+func (a *App) engineCtx() context.Context {
+	a.lifeOnce.Do(func() {
+		a.lifeCtx, a.lifeCancel = context.WithCancel(context.Background())
+	})
+	return a.lifeCtx
+}
+
+// endLife ends the engine's lifetime. Safe before engineCtx was ever asked
+// for, and safe twice: beforeClose and the OnShutdown hook both pass through
+// finishTurnsForClose.
+func (a *App) endLife() {
+	a.engineCtx()
+	a.lifeCancel()
 }
 
 // stopEverything is CancelTurn for every conversation at once, and returns how

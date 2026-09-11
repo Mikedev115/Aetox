@@ -187,3 +187,31 @@ func TestTheSweepRefusesToRunUnderALiveTurn(t *testing.T) {
 	}
 	a.endTurn(a.cur().id)
 }
+
+// Engine work that runs outside a turn — a git call for the panel, a snapshot,
+// the model-catalog refresh — hangs off the engine's own lifetime, which is
+// not the window's (§248 A2): an App that never had a window still has one,
+// and closing ends it after the turns have written their endings.
+func TestEngineWorkOutsideATurnEndsWithTheClose(t *testing.T) {
+	a := newTestApp(t, t.TempDir())
+	if a.ctx != nil {
+		t.Fatal("the test app must have no window context for this to mean anything")
+	}
+	gitCtx, cancel := a.gitContext()
+	defer cancel()
+	select {
+	case <-gitCtx.Done():
+		t.Fatal("the engine's lifetime was over before anything closed")
+	default:
+	}
+
+	a.finishTurnsForClose(time.Second)
+
+	select {
+	case <-gitCtx.Done():
+	case <-time.After(time.Second):
+		t.Fatal("closing the app did not end engine work running outside a turn")
+	}
+	// Idempotent, like the two hooks that both reach finishTurnsForClose.
+	a.finishTurnsForClose(time.Second)
+}

@@ -235,13 +235,10 @@ func (a *App) askWorkspaceWiden(conv *conversation, target string) bool {
 	}
 	a.turnMu.Unlock()
 	if turnCtx == nil {
-		// No turn in flight — a tool running outside one. The app's own context
-		// still closes when the window does, which is the only cancellation left
-		// to respect.
-		turnCtx = a.ctx
-	}
-	if turnCtx == nil {
-		turnCtx = context.Background()
+		// No turn in flight — a tool running outside one. The engine's own
+		// lifetime still ends when the app closes, which is the only
+		// cancellation left to respect.
+		turnCtx = a.engineCtx()
 	}
 
 	question := fmt.Sprintf(
