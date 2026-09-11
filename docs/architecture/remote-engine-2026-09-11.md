@@ -119,14 +119,14 @@ screen machine (Windows)                          host (this machine, or Linux o
 
 | Where | What |
 |---|---|
-| `internal/engine/` (package `engine`, type `Engine`) | everything engine-side above, plus the terminal and `conversation`. **May not import** `wailsapp`, `internal/credentials`, `internal/oauth` — `deps_test.go` runs `go list -deps` and fails the build if they appear. |
+| `internal/engine/` (package `engine`, type `Engine`) | everything engine-side above, plus the terminal and `conversation`. **May not import** `wailsapp` or `internal/credentials`, and may not call `oauth.TokenSource`/`Endpoint`/`Headers`/`Token` — `deps_test.go` parses the package's own files and fails the build if they do (narrower than `go list -deps`, §10 says why). |
 | `internal/engine/api_gen.go` | `type API interface` — every exported method of `*Engine`, generated. |
 | `internal/engine/screen.go` | `Screen` and `Session`: the engine → screen surface (§3). |
 | `internal/engine/rpc/` | JSON-RPC 2.0 over WebSocket: `Conn` (the `internal/lsp` pattern with two id spaces and a goroutine per request), `Server`, `Client` (implements `engine.API`), `ScreenPeer`, the provider-proxy `RoundTripper`, the screen-tool stub, the `/file/` handler; `client_gen.go`, `server_gen.go`. |
 | `internal/engine/rpc/gen/` | the generator — `go/ast` only, no new dependency. Reads the exported methods of `*Engine` (minus `Close`, `Attach`) and emits the interface, the screen's forwarders, the client stubs and the server dispatch table. `TestGeneratedFilesAreCurrent` regenerates into a temp dir and diffs. |
 | `internal/credentials/` | `credentials.json` — load, `KeyFor`, save, forget — moved out of `internal/config`, still wrapped by `atrest`. |
 | `cmd/aetox-engine/` | ~150 lines: `serve --socket <path> | --tcp 127.0.0.1:0`, `--root`, `--token-stdin | --token-file`, `--idle-exit 30m`. Console is `DiscardConsole`; log is `<DataRoot>/logs/engine.log`, a different file from the desktop's so local mode never has two writers on one log. **A binary of its own, not `aetox serve`:** `release.yml` deliberately does not ship the CLI (§30); a fixed file name is what `ps`, `pkill` and `~/.aetox/server/<version>/` need; and the CLI's own future is to become a second screen on this engine, in a later phase. |
-| `desktop/` (package `main`, `App` = the screen) | `main.go`; a new `app.go` of ~250 lines (`ctx`, `api engine.API`, `browsers`, `speakJobs`, the computer-use lock, `openDir`, `emit`, `remoteSrv`, `staged`, `exported`); `browser*.go`, `computer_*.go`, `uia_windows.go`, `speak/speech/voice*.go`, `ttshost.go`, `update_notify.go`, `account.go`, `oauth.go`, `mcp_oauth.go`, `deck_render/reveal/pick.go`, `export.go`, `remote*.go`; new: `engine_forwarders_gen.go`, `engine_local.go`, `engine_remote.go`, `provider_forward.go`, `screen_tools.go`, `engine_status.go`. |
+| `desktop/` (package `main`, `App` = the screen) | `main.go`; a new `app.go` (`ctx`, `api engine.API`, `browsers`, `speakJobs`, the computer-use lock, `openDir`, `emit`, `staged`, `exports`); `browser*.go`, `computer_*.go`, `uia_windows.go`, `speak.go`, the TTS half of `voice.go`, `ttshost.go`, `update*.go`, `account.go`, `oauth.go`, `deck_render/image/pdf/reveal/flatten/pick.go`, `exports.go`, `providers.go`, `screen_doors.go`, `screen.go`; generated: `engine_forwarders_gen.go`; phase 2: `engine_local.go`, `engine_remote.go`, `screen_tools.go`, `engine_status.go`. As built (§10): `mcp_oauth.go`, `remote*.go`, `speech.go` and the STT half of `voice.go` stayed with the engine. |
 
 Files that move to `internal/engine` (renamed `App`→`Engine`, receiver
 `a`→`e`): `app.go`→`engine.go` minus ~400 lines of window (`startup`,
@@ -167,8 +167,12 @@ the engine.
 |---|---|---|
 | `SandboxRoot`, `ApprovalMode`, `AutoApprove`, `MaxRetries`, `ApprovalTimeoutSec`, `ThinkLevel`, `ModelProvider/Name/BaseURL/WireFormat/TimeoutSec/ContextTokens`, `ImageEngine/ModelName`, `UILocale`, `Delegate*`, `WorkersOff` | `Speech*`, `TTS*`, `Busy*` | **`ModelAPIKey`**, `ModelPreference.ModelAPIKeys` |
 
-The wart this buys: in remote mode the TTS voice follows the host. Written
-down; a `screen-preferences.json` split is a later phase if it bites.
+The wart this buys: in remote mode the TTS voice — and the ติดตั้ง button
+for a TTS vendor, which runs on the engine's host (`InstallVoiceEngine`) —
+follow the host. Written down; a `screen-preferences.json` split, with the
+install run where the vendor is used, is a later phase if it bites. As built,
+the screen reads the picks through `VoiceSettings` and writes the one it
+checks on its own machine through `RememberTTSVoice`.
 
 ### 2.4 DataRoot — disjoint writers
 
@@ -490,6 +494,77 @@ Every seam of §3, prepared where the code is. Nothing moved packages yet;
 
 A7 (screen-side test helpers) is folded into Stage B, where the partition of
 the ~120 test files is known rather than guessed.
+
+### Phase 1, Stage B — 2026-09-12, six commits on `claude/engine-carve`, landed as one set
+
+The move, on a worktree branch off `28109eea` (the owner's choice: *"worktree
+branch แล้ว landing ทีเดียว"*), every commit green on `go build ./... && go test
+./desktop/ ./internal/engine/` and the frontend's `svelte-check` + vitest, then
+rebased onto the six commits `main` gained meanwhile (`9992cd46`…`1dbec0d4`)
+before landing — which is where the move's rule was tried on somebody else's
+new files for the first time: `git_log.go`, `plan_report.go` and the working
+tree's failed-read error went to the engine untouched; `attention*.go` (the
+taskbar flash) stayed on the screen; and `open`'s new hand-over flag, which
+had read the sandbox root off the app, became the twin `HandedOverFile`.
+Big-bang first, then evictions: B1a moved *all* 294 desktop Go files into
+`internal/engine` and made the window compile against it, and the five
+commits after it carried the window's clusters back out one at a time, each
+leaving a twin behind. That order kept every step buildable and made the
+question at each file "what does the engine still need to know" rather than
+"what does the window need".
+
+| # | commit | what moved back to the screen | what the engine gained |
+|---|---|---|---|
+| B1a | `131a0c6d` | nothing yet — 294 files `git mv`'d to `internal/engine`, `App`→`Engine`, `desktop/app.go` new with `eng *engine.Engine`; `internal/engine/gen` writes `api_gen.go` (`type API interface`, every exported method) and `desktop/engine_forwarders_gen.go`; `gen_test.go` diffs; `wailsjs/` regenerated, `namespace main`→`engine` in 22 frontend files | the four lifecycle hooks as package functions (`lifecycle.go`), so they are not bindings |
+| B1b | `c551b8a3` | `screen_doors.go`, `window*.go`, `update.go`/`update_notify.go` | `ReadyToRestart`, `SpeechModelFolderPath`/`DirPath`; `desktop/events.go` with `emitEvent` and the `emit` seam |
+| B1c+d | `689dd2a9` | the credential desk (`providers.go`: keys, custom rows, `TestProviderConnection`, the discovery that needs a key), `screen.go`'s desk questions (`DefaultModel`, `Probe`, `ModelResident`), `attach.go`, `OpenProjectFolder` | `NewEngine(screen)`, `noScreen`, `resolveConfig` as a method, `defaultModel` falling back to the catalog, `AddCustomProviderRow`/`RemoveCustomProviderRow`/`CatalogModelChoices`/`ProviderQuotas`/`NoteProviderQuotas`/`ActiveModelFor`, `model.CatalogDefaultModel`; `provider_catalog.go`'s discovery no longer called from engine files |
+| B1e | `c6edd196` | `browser*.go`, `computer_*.go`, `uia_windows.go`, `deck_render/image/pdf/reveal/flatten/pick.go`, `workbench.go`'s browser half, `exports.go` (Downloads is the screen's) | `Screen.RenderDeck` and `Screen.AgentTab`; `DeckExportFiles` (bytes per format); `window_twins.go` — `AnyTurnRunning`, `PageMarksOn`, `ComputerControlChanged`, `ResolveWorkbenchURL`, `SandboxFile`, `SaveBrowserShot`, `HandedOverFile`; `agent_pages.go` — `RecentAgentPages` with `BrowserOpenedLine`/`BrowserPageRef` beside `ParseBrowserOpened`; `App.api engine.API` on the screen with every forwarder and door through it; `deps_test.go` |
+| B1f | `7d839076` | `oauth.go`, `account.go`, `speak.go`, `ttshost.go`, the TTS half of `voice.go` | `ProviderCredentialChanged` (one door for a key, a sign-in, a sign-out — forgets the old quotas, rebuilds if on screen); `VoiceSettings`/`RememberTTSVoice`; `AssetMiddleware` is `/aetox-file/` only, the screen chains `/aetox-tts/` in front |
+| B3 | this commit | the two READMEs, this record, §248's status, the ARCHITECTURE rows | — |
+
+**Where it ended up.** `internal/engine`: 212 Go files, 334 exported methods
+= 334 forwarders on the screen; `desktop/`: 112 Go files, 96 bindings of its
+own — 430 bindings where there were 389, the difference being the twins. The
+frontend sees every name it saw before plus the twins; its one change is the
+generated namespace (`engine.*` for the engine's types, `main.*` for
+`StagedInfo`, `DeviceProfile`, `ComputerAppRow`, `AccountState`,
+`TTSVoiceInfo`) and two `import type` lines.
+
+**What the tests say now.** `internal/engine/deps_test.go` holds the import
+ban and the four `oauth` selectors on the package's own files.
+`screen_doors_test.go` pins every door's twin by reflection. The engine's
+`tool_coverage_test.go` drives every engine tool through the real dispatcher
+and no longer sees the window's two; `desktop/window_tools_test.go` drives
+those the same way (tabs and list_apps for real, the rest routed and refusing
+in words). Where an engine test needed a pack of the window's shape — stance
+narrowing the browser per action, the busy signal's tab stamp — it gets a
+stand-in through `Screen` (`packStub`, `tabScreen`) rather than the real one,
+and the real one is held to the same rules in `desktop/`. Deck exports that
+needed a renderer are no longer skipped: `renderScreen` answers `RenderDeck`
+with a solid PNG per slide, so pdf/png/pptx-img are written by the test and
+read back (`needsEngine` is gone). `desktop/apptest_test.go`'s `engineWith`
+is how a screen test states one fact about the engine — a turn is running,
+the marks are off, this is what the export contains, this is the voice —
+without reaching into a package it cannot see into.
+
+**Three things stayed with the engine that §2.1 had put on the screen, and
+one temporary field.** `mcp_oauth.go`: the credential it stores is read by
+`${connect:}` on the host the MCP server runs on (rule 5), so the store must
+be that host's; a remote engine has no browser for the step and v1 does not
+support it there (§9 already said so). `remote.go`: the parked phone remote
+keeps its device table in `aetox.db` and its adapters call bindings — it is a
+second screen on the same engine, which is what phase 5 makes of it, and
+moving it now would have meant twins for a feature nobody can reach.
+`speech.go` and the STT half of `voice.go`: `audio_transcribe` runs on the
+host, so the STT engine, its model files and the mic's transcription are the
+host's (the mic recording crosses as a data URL, the way it already did).
+And `App.eng *engine.Engine` beside `App.api engine.API`: the lifecycle hooks
+still take the concrete engine, and it is the last thing on the screen that
+knows the engine is in this process — phase 2 deletes it.
+
+**Numbers not measured yet.** Nothing crosses a socket in phase 1, so the RPC
+round trip, the turn latency delta and the event volume are phase 2's to
+record here.
 
 **Two things Stage A found that narrow §2.1's import ban.** First, the ban is
 on the *engine's own files* and on `internal/model`, not on the transitive
