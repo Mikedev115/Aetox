@@ -20,7 +20,11 @@ func (f *fakeScreen) Emit(event string, _ any) { f.events = append(f.events, eve
 func (f *fakeScreen) ProviderTransport(string, string) model.Transport {
 	return func(n http.RoundTripper) http.RoundTripper { return n }
 }
-func (f *fakeScreen) WindowTools(Session) []skill.Skill { return f.tools }
+func (f *fakeScreen) ProviderEndpoint(string) string                       { return "" }
+func (f *fakeScreen) WindowTools(Session) []skill.Skill                    { return f.tools }
+func (f *fakeScreen) DefaultModel(string, string) string                   { return "" }
+func (f *fakeScreen) Probe(string, string, string, string) (string, error) { return "", errNoScreen }
+func (f *fakeScreen) ModelResident(string, string, string) bool            { return false }
 
 // The engine needs nothing more of a window than the three calls on Screen
 // (§248 A6): with another Screen installed, the browser and the machine come
@@ -53,25 +57,5 @@ func TestTheEngineTakesItsWindowToolsFromTheScreen(t *testing.T) {
 	}
 	if !names[computerToolName] {
 		t.Error("with the switch on, the machine the screen lent is missing")
-	}
-}
-
-// Without an installed Screen the window is this Engine, and what it lends is
-// the real packs — the seam changes nothing for the app as shipped.
-func TestThisWindowLendsTheRealPacks(t *testing.T) {
-	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
-	a := seed(&Engine{cfg: config.Config{SandboxRoot: t.TempDir()}}, newConversation())
-	tools := a.screenOf().WindowTools(a.cur())
-	var browser, machine bool
-	for _, s := range tools {
-		switch s.(type) {
-		case *browserSkill:
-			browser = true
-		case *computerSkill:
-			machine = true
-		}
-	}
-	if !browser || !machine {
-		t.Fatalf("this window lends browser=%v machine=%v; want both", browser, machine)
 	}
 }

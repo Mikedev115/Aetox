@@ -89,7 +89,7 @@ func (a *Engine) watchModelLoad(ctx context.Context, conv *conversation) func() 
 		return func() {}
 	}
 	name := strings.TrimSpace(conv.cfg.ModelName)
-	key := resolveAPIKeyForProvider(canonical)
+	screen := a.screenOf()
 
 	done := make(chan struct{})
 	var once sync.Once
@@ -107,7 +107,7 @@ func (a *Engine) watchModelLoad(ctx context.Context, conv *conversation) func() 
 			// Resident is the end of the wait however it is reached — the model
 			// was already in memory when the turn started, or it has just
 			// finished arriving.
-			if model.LocalModelResident(canonical, base, key, name) {
+			if screen.ModelResident(canonical, base, name) {
 				return
 			}
 			if !announced && time.Since(started) >= modelLoadGrace {

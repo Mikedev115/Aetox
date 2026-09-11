@@ -20,12 +20,12 @@ import (
 // API is every exported method of *Engine: what the screen may ask of the
 // engine, in one process today and across a socket in phase 2 (§248).
 type API interface {
-	APIKeyHint(providerName string) string
 	AcceptsAPIKey(providerName string) bool
 	AccountRefresh() (AccountState, error)
 	AccountSignOut() error
 	AccountStatus() AccountState
-	AddCustomProvider(name string, baseURL string, apiKey string, keyFrom string) (string, error)
+	ActiveModelFor(providerName string) (string, string)
+	AddCustomProviderRow(name string, baseURL string) (string, error)
 	AddLearnedEntry(scope string, text string) error
 	AddMCPServer(name string, command []string) error
 	AddSpaceContextFiles(name string, picked []string) ([]string, error)
@@ -84,6 +84,7 @@ type API interface {
 	CapabilitiesInstalling() bool
 	CapabilityForServer(server string) string
 	CapabilityStatuses() []capability.Status
+	CatalogModelChoices(canonical string) []string
 	ChairStarters(name string, locale string) subagent.StarterSet
 	ChairStartersFile(locale string) string
 	CheckConnectionServer(id string) (bool, error)
@@ -144,7 +145,6 @@ type API interface {
 	GitWorkingTree() ([]GitFileChange, error)
 	GrantedComputerApps() []string
 	GuideTopics() []model.GuideTopic
-	HasAPIKey(providerName string) bool
 	HistoryFault() StoreFault
 	ImageStatus() string
 	ImportSessionFrom(path string) (string, error)
@@ -174,7 +174,6 @@ type API interface {
 	ListIdentityFiles() ([]IdentityFile, error)
 	ListImageEngines() []VoiceEngineInfo
 	ListMCPServers() []MCPServerInfo
-	ListModelsForProvider(providerName string) []string
 	ListModes() []mode.Mode
 	ListPendingChanges() []PendingChange
 	ListPromptPresets() []command.Preset
@@ -210,8 +209,8 @@ type API interface {
 	NewSession() (string, error)
 	NewSessionAt(desk string) (string, error)
 	NewSessionInSpace(name string) (string, error)
+	NoteProviderQuotas(providerName string, quotas []model.Quota)
 	OpenComputerApps() []ComputerAppRow
-	OpenProjectFolder() (ProjectStatus, error)
 	OpenProjectPath(root string) (ProjectStatus, error)
 	PairedDevices() []RemoteDevice
 	PausePlanRun(sessionID string)
@@ -221,8 +220,6 @@ type API interface {
 	PendingRestore(id string) []string
 	PendingSkillTuneCount() int
 	PendingUndo() []string
-	PickAttachmentImage() (string, error)
-	PickAttachments(group string) ([]string, error)
 	PictureBytes(relPath string) (ExportFile, error)
 	PlacementTargets() []PlacementTarget
 	PlanRunning(sessionID string) bool
@@ -233,10 +230,10 @@ type API interface {
 	ProjectTree() []TreeNode
 	PromptsFolderPath() (string, error)
 	ProviderAPIKeyURL(providerName string) string
-	ProviderAccountFor(providerName string) ProviderAccount
 	ProviderBaseURL(providerName string) string
 	ProviderBaseURLIsCustom(providerName string) bool
-	ProviderReady(providerName string) bool
+	ProviderKeyChanged(providerName string) (ModelInfo, error)
+	ProviderQuotas(providerName string) ([]model.Quota, bool)
 	ProviderWireFormats(providerName string) []string
 	PullRequestChecks(sha string) []gh.CheckRun
 	PullRequestFiles(number int) []gh.PRFile
@@ -257,7 +254,7 @@ type API interface {
 	RegenerateReply(revertFiles bool) (RegenerateResult, error)
 	RejectPendingChange(id int64) error
 	RelativizePath(absPath string) (string, error)
-	RemoveCustomProvider(id string) ([]string, error)
+	RemoveCustomProviderRow(id string) ([]string, error)
 	RemoveExternalSkill(name string) error
 	RemoveMCPServer(name string) error
 	RemovePresetImage(name string) error
@@ -285,7 +282,6 @@ type API interface {
 	SaveChatFile(sourcePath string) (string, error)
 	SaveChatImage(sourcePath string) (string, error)
 	SaveChatImageData(dataURL string) (string, error)
-	SaveDrawing(dataURL string) (string, error)
 	SaveIdentityFile(name string, content string) error
 	SaveLearnedEntry(scope string, index int, text string) error
 	SaveMCPServer(originalName string, server config.MCPServerConfig) error
@@ -308,7 +304,6 @@ type API interface {
 	SessionSpend(id string) SessionSpend
 	SessionTranscript(id string) ([]SessionMessage, error)
 	SessionsInSpace(name string) []SessionMeta
-	SetAPIKey(providerName string, apiKey string) (ModelInfo, error)
 	SetAgentOff(name string, off bool) DelegateSettings
 	SetBusyLayer(id string, on bool) []BusyLayer
 	SetComputerControlOn(on bool) error
@@ -388,7 +383,6 @@ type API interface {
 	TerminalStart(shellPath string, cols int, rows int) (string, error)
 	TerminalWrite(sessionID string, data string) error
 	TestMCPServer(name string) MCPServerInfo
-	TestProviderConnection(providerName string, modelName string) (string, error)
 	ToggleMCPServer(name string, disabled bool) error
 	ToolBlockTokens() int
 	ToolCounts() ToolCounts

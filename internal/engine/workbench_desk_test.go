@@ -236,7 +236,7 @@ func TestDeskListRedactsTheUsersOwnBrowsing(t *testing.T) {
 }
 
 func TestDeskListEmpty(t *testing.T) {
-	out, err := (&deskListSkill{app: NewEngine(), conv: newConversation()}).list()
+	out, err := (&deskListSkill{app: NewEngine(nil), conv: newConversation()}).list()
 	if err != nil {
 		t.Fatal(err)
 	}

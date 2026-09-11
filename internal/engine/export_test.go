@@ -121,18 +121,3 @@ func TestImportRefusesForeignJSON(t *testing.T) {
 	}
 }
 
-// SaveDrawing accepts exactly one shape: the PNG data URL the drawing button
-// rendered a moment ago. Anything else is not that button.
-func TestDecodePNGDataURLIsStrict(t *testing.T) {
-	if _, err := decodePNGDataURL("data:image/png;base64,aGVsbG8="); err != nil {
-		t.Fatalf("a well-formed PNG data URL was refused: %v", err)
-	}
-	for _, bad := range []string{
-		"", "hello", "data:image/svg+xml;base64,aGVsbG8=",
-		"data:image/png;base64,!!!not-base64!!!", "data:image/png;base64,",
-	} {
-		if _, err := decodePNGDataURL(bad); err == nil {
-			t.Errorf("accepted %q", bad)
-		}
-	}
-}

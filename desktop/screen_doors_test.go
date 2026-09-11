@@ -56,7 +56,7 @@ func TestEveryScreenDoorHasItsEngineTwin(t *testing.T) {
 // where the engine refuses — the screen adds no judgment of its own.
 func TestARevealOpensWhatTheEngineAnswers(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
-	a := &App{eng: engine.NewEngine()}
+	a := newTestApp()
 	var opened string
 	a.openDir = func(p string) error { opened = p; return nil }
 

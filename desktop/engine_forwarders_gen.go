@@ -22,10 +22,6 @@ import (
 	"github.com/Mikedev115/Aetox/internal/subagent"
 )
 
-func (a *App) APIKeyHint(providerName string) string {
-	return a.eng.APIKeyHint(providerName)
-}
-
 func (a *App) AcceptsAPIKey(providerName string) bool {
 	return a.eng.AcceptsAPIKey(providerName)
 }
@@ -42,8 +38,12 @@ func (a *App) AccountStatus() engine.AccountState {
 	return a.eng.AccountStatus()
 }
 
-func (a *App) AddCustomProvider(name string, baseURL string, apiKey string, keyFrom string) (string, error) {
-	return a.eng.AddCustomProvider(name, baseURL, apiKey, keyFrom)
+func (a *App) ActiveModelFor(providerName string) (string, string) {
+	return a.eng.ActiveModelFor(providerName)
+}
+
+func (a *App) AddCustomProviderRow(name string, baseURL string) (string, error) {
+	return a.eng.AddCustomProviderRow(name, baseURL)
 }
 
 func (a *App) AddLearnedEntry(scope string, text string) error {
@@ -276,6 +276,10 @@ func (a *App) CapabilityForServer(server string) string {
 
 func (a *App) CapabilityStatuses() []capability.Status {
 	return a.eng.CapabilityStatuses()
+}
+
+func (a *App) CatalogModelChoices(canonical string) []string {
+	return a.eng.CatalogModelChoices(canonical)
 }
 
 func (a *App) ChairStarters(name string, locale string) subagent.StarterSet {
@@ -518,10 +522,6 @@ func (a *App) GuideTopics() []model.GuideTopic {
 	return a.eng.GuideTopics()
 }
 
-func (a *App) HasAPIKey(providerName string) bool {
-	return a.eng.HasAPIKey(providerName)
-}
-
 func (a *App) HistoryFault() engine.StoreFault {
 	return a.eng.HistoryFault()
 }
@@ -636,10 +636,6 @@ func (a *App) ListImageEngines() []engine.VoiceEngineInfo {
 
 func (a *App) ListMCPServers() []engine.MCPServerInfo {
 	return a.eng.ListMCPServers()
-}
-
-func (a *App) ListModelsForProvider(providerName string) []string {
-	return a.eng.ListModelsForProvider(providerName)
 }
 
 func (a *App) ListModes() []mode.Mode {
@@ -782,12 +778,12 @@ func (a *App) NewSessionInSpace(name string) (string, error) {
 	return a.eng.NewSessionInSpace(name)
 }
 
-func (a *App) OpenComputerApps() []engine.ComputerAppRow {
-	return a.eng.OpenComputerApps()
+func (a *App) NoteProviderQuotas(providerName string, quotas []model.Quota) {
+	a.eng.NoteProviderQuotas(providerName, quotas)
 }
 
-func (a *App) OpenProjectFolder() (engine.ProjectStatus, error) {
-	return a.eng.OpenProjectFolder()
+func (a *App) OpenComputerApps() []engine.ComputerAppRow {
+	return a.eng.OpenComputerApps()
 }
 
 func (a *App) OpenProjectPath(root string) (engine.ProjectStatus, error) {
@@ -824,14 +820,6 @@ func (a *App) PendingSkillTuneCount() int {
 
 func (a *App) PendingUndo() []string {
 	return a.eng.PendingUndo()
-}
-
-func (a *App) PickAttachmentImage() (string, error) {
-	return a.eng.PickAttachmentImage()
-}
-
-func (a *App) PickAttachments(group string) ([]string, error) {
-	return a.eng.PickAttachments(group)
 }
 
 func (a *App) PictureBytes(relPath string) (engine.ExportFile, error) {
@@ -874,10 +862,6 @@ func (a *App) ProviderAPIKeyURL(providerName string) string {
 	return a.eng.ProviderAPIKeyURL(providerName)
 }
 
-func (a *App) ProviderAccountFor(providerName string) engine.ProviderAccount {
-	return a.eng.ProviderAccountFor(providerName)
-}
-
 func (a *App) ProviderBaseURL(providerName string) string {
 	return a.eng.ProviderBaseURL(providerName)
 }
@@ -886,8 +870,12 @@ func (a *App) ProviderBaseURLIsCustom(providerName string) bool {
 	return a.eng.ProviderBaseURLIsCustom(providerName)
 }
 
-func (a *App) ProviderReady(providerName string) bool {
-	return a.eng.ProviderReady(providerName)
+func (a *App) ProviderKeyChanged(providerName string) (engine.ModelInfo, error) {
+	return a.eng.ProviderKeyChanged(providerName)
+}
+
+func (a *App) ProviderQuotas(providerName string) ([]model.Quota, bool) {
+	return a.eng.ProviderQuotas(providerName)
 }
 
 func (a *App) ProviderWireFormats(providerName string) []string {
@@ -970,8 +958,8 @@ func (a *App) RelativizePath(absPath string) (string, error) {
 	return a.eng.RelativizePath(absPath)
 }
 
-func (a *App) RemoveCustomProvider(id string) ([]string, error) {
-	return a.eng.RemoveCustomProvider(id)
+func (a *App) RemoveCustomProviderRow(id string) ([]string, error) {
+	return a.eng.RemoveCustomProviderRow(id)
 }
 
 func (a *App) RemoveExternalSkill(name string) error {
@@ -1082,10 +1070,6 @@ func (a *App) SaveChatImageData(dataURL string) (string, error) {
 	return a.eng.SaveChatImageData(dataURL)
 }
 
-func (a *App) SaveDrawing(dataURL string) (string, error) {
-	return a.eng.SaveDrawing(dataURL)
-}
-
 func (a *App) SaveIdentityFile(name string, content string) error {
 	return a.eng.SaveIdentityFile(name, content)
 }
@@ -1172,10 +1156,6 @@ func (a *App) SessionTranscript(id string) ([]engine.SessionMessage, error) {
 
 func (a *App) SessionsInSpace(name string) []engine.SessionMeta {
 	return a.eng.SessionsInSpace(name)
-}
-
-func (a *App) SetAPIKey(providerName string, apiKey string) (engine.ModelInfo, error) {
-	return a.eng.SetAPIKey(providerName, apiKey)
 }
 
 func (a *App) SetAgentOff(name string, off bool) engine.DelegateSettings {
@@ -1492,10 +1472,6 @@ func (a *App) TerminalWrite(sessionID string, data string) error {
 
 func (a *App) TestMCPServer(name string) engine.MCPServerInfo {
 	return a.eng.TestMCPServer(name)
-}
-
-func (a *App) TestProviderConnection(providerName string, modelName string) (string, error) {
-	return a.eng.TestProviderConnection(providerName, modelName)
 }
 
 func (a *App) ToggleMCPServer(name string, disabled bool) error {

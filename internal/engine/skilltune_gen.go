@@ -10,7 +10,6 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/model"
-	"github.com/Mikedev115/Aetox/internal/oauth"
 	"github.com/Mikedev115/Aetox/internal/skill"
 )
 
@@ -400,25 +399,24 @@ func (a *Engine) oneShotProviderFor(conv *conversation) (model.Provider, string,
 	cfg := conv.cfg
 	canonical := model.NormalizeProvider(cfg.ModelProvider)
 	baseURL := resolveBaseURLForProvider(canonical)
-	apiKey := resolveAPIKeyForProvider(canonical)
 	modelName := strings.TrimSpace(cfg.ModelName)
 	if modelName == "" {
-		modelName = model.ResolveDefaultModel(canonical, baseURL, apiKey)
+		modelName = a.defaultModel(canonical, baseURL)
 	}
 	if modelName == "" {
 		return nil, "", fmt.Errorf("no model is configured to draft with")
 	}
 	// Signed by the screen's transport, like the chat's own provider: this
-	// drafter runs on the engine side and holds no key (§248 A3). The key
-	// above is still read for the model-list lookup, which A4 moves.
+	// drafter runs on the engine side and holds no key (§248 A3).
+	screen := a.screenOf()
 	p, err := model.NewProvider(model.ProviderOptions{
 		Provider:         canonical,
 		Model:            modelName,
 		BaseURL:          baseURL,
 		Timeout:          60 * time.Second,
 		WireFormat:       cfg.ModelWireFormat,
-		Transport:        a.providerTransport(canonical, cfg.ModelWireFormat),
-		SignedInEndpoint: oauth.Endpoint(canonical),
+		Transport:        screen.ProviderTransport(canonical, cfg.ModelWireFormat),
+		SignedInEndpoint: screen.ProviderEndpoint(canonical),
 	})
 	return p, modelName, err
 }

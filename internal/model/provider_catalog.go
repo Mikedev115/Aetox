@@ -159,6 +159,20 @@ func ResolveDefaultModel(p, baseURL, apiKey string) string {
 	return provider.DefaultModel(canonical)
 }
 
+// CatalogDefaultModel is ResolveDefaultModel without the endpoint asked: the
+// fetched catalog's pick, else the static name. What an engine that holds no
+// key can answer on its own (§248 B1); the live half is the screen's.
+func CatalogDefaultModel(p string) string {
+	canonical := provider.Normalize(p)
+	installedCatalogMu.RLock()
+	installed := installedCatalog
+	installedCatalogMu.RUnlock()
+	if picked := installed.DefaultFor(canonical); picked != "" {
+		return picked
+	}
+	return provider.DefaultModel(canonical)
+}
+
 // DefaultBaseURL delegates to provider.DefaultBaseURL.
 func DefaultBaseURL(name string) string {
 	return provider.DefaultBaseURL(name)

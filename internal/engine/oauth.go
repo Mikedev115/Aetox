@@ -208,7 +208,7 @@ func (a *Engine) reloadAfterCredentialChange(canonical string) (ModelInfo, error
 	if strings.EqualFold(model.NormalizeProvider(a.cur().cfg.ModelProvider), canonical) {
 		next := a.cfg
 		if strings.TrimSpace(next.ModelName) == "" {
-			next.ModelName = model.ResolveDefaultModel(canonical, next.ModelBaseURL, resolveAPIKeyForProvider(canonical))
+			next.ModelName = a.defaultModel(canonical, next.ModelBaseURL)
 		}
 		a.applyConfig(a.cur(), next)
 	}

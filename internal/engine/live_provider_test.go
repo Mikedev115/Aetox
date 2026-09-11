@@ -103,8 +103,12 @@ func TestLiveLMStudioCustomBaseURLConnects(t *testing.T) {
 	t.Logf("resolved model: %s", info.ModelName)
 
 	// Discovery only proves GET /v1/models. This is a real completion: the
-	// endpoint, the wire format, and the model id all have to be right.
-	label, err := a.TestProviderConnection("lmstudio", info.ModelName)
+	// endpoint, the wire format, and the model id all have to be right. The
+	// ping is the screen's (desktop/providers.go); the engine asks it through
+	// Screen.Probe, which is what a live test of the engine asks too.
+	wire, _ := a.ActiveModelFor("lmstudio")
+	_ = wire
+	label, err := a.screenOf().Probe("lmstudio", info.ModelName, resolveBaseURLForProvider("lmstudio"), "")
 	if err != nil {
 		t.Fatalf("live completion failed: %v", err)
 	}

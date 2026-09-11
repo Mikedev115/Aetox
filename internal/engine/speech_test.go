@@ -90,7 +90,7 @@ func TestSetSpeechModelPinsPersistsAndClears(t *testing.T) {
 		t.Errorf("saved preference = %q, want %q — the choice would not survive a restart", pref.SpeechModelPath, modelPath)
 	}
 	// The restart itself: resolveConfig is what startup builds its config from.
-	if got := resolveConfig(config.ConfigOptions{RootPath: t.TempDir()}); got.SpeechModelPath != modelPath {
+	if got := (&Engine{}).resolveConfig(config.ConfigOptions{RootPath: t.TempDir()}); got.SpeechModelPath != modelPath {
 		t.Errorf("resolveConfig gave %q, want the saved %q", got.SpeechModelPath, modelPath)
 	}
 

@@ -2,15 +2,12 @@ package engine
 
 import (
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // A conversation is the user's, and "theirs" has to mean more than "readable
@@ -316,15 +313,10 @@ func unusedSessionID(db *sql.DB) (string, error) {
 	}
 }
 
-// SaveDrawing writes a chart the model drew in a reply to a PNG file the user
-// picks. The frontend rasterizes the SVG with the theme's actual colours baked
-// in (a raw .svg coloured by var(--text-secondary) is invisible everywhere
-// outside this app) and hands the finished image here as a data URL — this
-// side only asks where and writes bytes. Returns the path, "" on cancel.
 // SavePicture copies a picture that is already in the workspace to wherever the
 // user chooses. The บันทึก button on a generated picture (Chat.svelte).
 //
-// A COPY, not a re-encode. SaveDrawing above exists because an <svg> in an
+// A COPY, not a re-encode. SaveDrawing (desktop/attach.go) exists because an <svg> in an
 // answer is not a file — its bytes have to be rendered before they can be
 // saved, and PNG is what a canvas produces. A picture from image_make is
 // already a file on disk, usually a JPEG, and pushing it through a canvas to
@@ -355,37 +347,4 @@ func (a *Engine) PictureBytes(relPath string) (ExportFile, error) {
 		return ExportFile{}, fmt.Errorf("อ่านไฟล์รูปไม่ได้: %w", err)
 	}
 	return ExportFile{Name: filepath.Base(full), Data: data}, nil
-}
-
-// SaveDrawing is the screen's alone: the bytes come from a canvas this window
-// rendered a moment ago, and they go to a file on this machine.
-func (a *Engine) SaveDrawing(dataURL string) (string, error) {
-	data, err := decodePNGDataURL(dataURL)
-	if err != nil {
-		return "", err
-	}
-	path, err := wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{
-		Title:           "บันทึกภาพ",
-		DefaultFilename: "aetox-drawing.png",
-		Filters:         []wailsruntime.FileFilter{{DisplayName: "PNG (*.png)", Pattern: "*.png"}},
-	})
-	if err != nil || path == "" {
-		return "", err
-	}
-	return path, os.WriteFile(path, data, 0o644)
-}
-
-// decodePNGDataURL is the checked half of SaveDrawing: only a PNG data URL,
-// because the bytes come from a canvas this app rendered a moment ago — any
-// other shape means the caller is not the drawing button.
-func decodePNGDataURL(dataURL string) ([]byte, error) {
-	raw, ok := strings.CutPrefix(strings.TrimSpace(dataURL), "data:image/png;base64,")
-	if !ok {
-		return nil, fmt.Errorf("not a PNG data URL")
-	}
-	data, err := base64.StdEncoding.DecodeString(raw)
-	if err != nil || len(data) == 0 {
-		return nil, fmt.Errorf("the image data does not decode")
-	}
-	return data, nil
 }

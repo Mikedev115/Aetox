@@ -663,7 +663,7 @@ func TestResolveConfigLoadsApprovalModeFromPreference(t *testing.T) {
 	}
 
 	// opts explicitly asks for a *different* mode — the saved preference must win.
-	cfg := resolveConfig(config.ConfigOptions{ApprovalMode: string(safety.ApprovalAsk)})
+	cfg := (&Engine{}).resolveConfig(config.ConfigOptions{ApprovalMode: string(safety.ApprovalAsk)})
 	if cfg.ApprovalMode != string(safety.ApprovalFullAccess) {
 		t.Errorf("ApprovalMode = %q, want %q (saved preference should override the passed-in default)", cfg.ApprovalMode, safety.ApprovalFullAccess)
 	}
@@ -676,7 +676,7 @@ func TestResolveConfigKeepsOptsApprovalModeWithNoSavedPreference(t *testing.T) {
 	isolateUserDirs(t)
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir()) // empty dir — no preference file exists
 
-	cfg := resolveConfig(config.ConfigOptions{ApprovalMode: string(safety.ApprovalUnsafeOnly)})
+	cfg := (&Engine{}).resolveConfig(config.ConfigOptions{ApprovalMode: string(safety.ApprovalUnsafeOnly)})
 	if cfg.ApprovalMode != string(safety.ApprovalUnsafeOnly) {
 		t.Errorf("ApprovalMode = %q, want %q (opts value should stand when nothing is saved)", cfg.ApprovalMode, safety.ApprovalUnsafeOnly)
 	}
@@ -719,7 +719,7 @@ func TestResolveConfigLoadsWireFormatFromPreference(t *testing.T) {
 		t.Fatalf("setup: %v", err)
 	}
 
-	cfg := resolveConfig(config.ConfigOptions{})
+	cfg := (&Engine{}).resolveConfig(config.ConfigOptions{})
 	if cfg.ModelWireFormat != "openai-compatible" {
 		t.Errorf("ModelWireFormat = %q, want %q (saved preference should load)", cfg.ModelWireFormat, "openai-compatible")
 	}
@@ -943,7 +943,7 @@ func TestApplyConfigInheritsPriorAgentContext(t *testing.T) {
 // first run (ARCHITECTURE.md §43).
 func TestFreshInstallDefaultsToTheGuideModel(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir()) // no model-preference.json anywhere
-	cfg := resolveConfig(config.ConfigOptions{RootPath: t.TempDir()})
+	cfg := (&Engine{}).resolveConfig(config.ConfigOptions{RootPath: t.TempDir()})
 
 	if cfg.ModelProvider != "aetox" {
 		t.Errorf("fresh install provider = %q, want aetox (its own engine, no key needed)", cfg.ModelProvider)

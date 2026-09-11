@@ -32,13 +32,11 @@ import (
 	"github.com/Mikedev115/Aetox/internal/command"
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/connect"
-	"github.com/Mikedev115/Aetox/internal/credentials"
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/learned"
 	"github.com/Mikedev115/Aetox/internal/mcp"
 	"github.com/Mikedev115/Aetox/internal/mode"
 	"github.com/Mikedev115/Aetox/internal/model"
-	"github.com/Mikedev115/Aetox/internal/oauth"
 	"github.com/Mikedev115/Aetox/internal/ooxml"
 	"github.com/Mikedev115/Aetox/internal/prompt"
 	"github.com/Mikedev115/Aetox/internal/provider"
@@ -50,7 +48,6 @@ import (
 	"github.com/Mikedev115/Aetox/internal/turn"
 	"github.com/Mikedev115/Aetox/internal/version"
 
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // Engine struct
@@ -1030,18 +1027,7 @@ const attachmentsDir = ".aetox-attachments"
 
 var attachmentSeq int64
 
-// PickAttachmentImage prompts the user to pick an image file (native dialog)
-// for chat attachment, returning its absolute OS path, or "" if cancelled.
-func (a *Engine) PickAttachmentImage() (string, error) {
-	return wailsruntime.OpenFileDialog(a.ctx, wailsruntime.OpenDialogOptions{
-		Title: "แนบรูปภาพ",
-		Filters: []wailsruntime.FileFilter{
-			{DisplayName: "Images (*.png, *.jpg, *.jpeg, *.gif, *.webp, *.bmp)", Pattern: "*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp"},
-		},
-	})
-}
-
-// SaveChatImage copies an image (picked via PickAttachmentImage, or dropped —
+// SaveChatImage copies an image (picked via the screen's PickAttachmentImage, or dropped —
 // both give a real absolute OS path) into the project's sandbox root, so it
 // becomes a normal relative path any sandboxed skill (image_ocr, read, ...)
 // can already operate on, with no path-escaping special case.
@@ -1186,91 +1172,6 @@ func (a *Engine) saveChatAttachment(sourcePath string, maxBytes int64) (string, 
 		return "", err
 	}
 	return relativeToRoot(root, destPath)
-}
-
-// What the attach menu offers, one list per row.
-//
-// Lists rather than ready-made patterns because the rows and the
-// "everything" line have to agree: the bug that started this was a type
-// (.docx) present everywhere in the app except in one hand-written pattern
-// string, which made a file the app could read invisible in the dialog and
-// gave nobody a way to find out why.
-//
-// The legacy Office trio (.doc/.xls/.ppt) is deliberately absent: `read`
-// opens the OOXML three (skill.officeExt) and refuses those, so listing them
-// here would be a promise the reader cannot keep.
-var (
-	imageAttachExt = []string{"png", "jpg", "jpeg", "gif", "webp", "bmp"}
-	mediaAttachExt = []string{"mp4", "mov", "mkv", "webm", "avi", "mp3", "wav", "m4a", "flac", "ogg"}
-	docAttachExt   = []string{"pdf", "docx", "pptx", "xlsx", "txt", "md", "csv", "json"}
-)
-
-// The rows the composer's attach menu can ask for. Anything else, the empty
-// string included, is the "ไฟล์อื่น" row and filters nothing away.
-const (
-	attachGroupImage    = "image"
-	attachGroupMedia    = "media"
-	attachGroupDocument = "document"
-)
-
-func attachPattern(exts ...[]string) string {
-	var parts []string
-	for _, list := range exts {
-		for _, ext := range list {
-			parts = append(parts, "*."+ext)
-		}
-	}
-	return strings.Join(parts, ";")
-}
-
-// attachFilters is the one list the attach dialog offers, narrowed to the row
-// the user picked in the menu. It sits apart from the picker so the
-// multi-select dialog and any future single-file caller cannot drift into
-// offering different file types.
-//
-// Every group still carries the wider two filters under its own: the menu
-// chooses what the dialog opens on, and never what the person is allowed to
-// come back with.
-func attachFilters(group string) []wailsruntime.FileFilter {
-	var (
-		image      = wailsruntime.FileFilter{DisplayName: "รูปภาพ", Pattern: attachPattern(imageAttachExt)}
-		media      = wailsruntime.FileFilter{DisplayName: "วิดีโอ และเสียง", Pattern: attachPattern(mediaAttachExt)}
-		document   = wailsruntime.FileFilter{DisplayName: "เอกสาร", Pattern: attachPattern(docAttachExt)}
-		everything = wailsruntime.FileFilter{DisplayName: "ไฟล์ที่แนบได้ทั้งหมด", Pattern: attachPattern(imageAttachExt, mediaAttachExt, docAttachExt)}
-		any        = wailsruntime.FileFilter{DisplayName: "ทุกไฟล์", Pattern: "*.*"}
-	)
-	switch group {
-	case attachGroupImage:
-		return []wailsruntime.FileFilter{image, everything, any}
-	case attachGroupMedia:
-		return []wailsruntime.FileFilter{media, everything, any}
-	case attachGroupDocument:
-		return []wailsruntime.FileFilter{document, everything, any}
-	}
-	return []wailsruntime.FileFilter{everything, image, media, document, any}
-}
-
-// PickAttachments prompts for files to attach — images, clips, documents —
-// and allows picking several at once. The composer stages a list, so a
-// single-file dialog was the only reason one question could carry one file.
-// The image-only picker stays for the paths that specifically want one.
-//
-// `group` is the menu row that was pressed, and it only decides which filter
-// the dialog opens on.
-func (a *Engine) PickAttachments(group string) ([]string, error) {
-	paths, err := wailsruntime.OpenMultipleFilesDialog(a.ctx, wailsruntime.OpenDialogOptions{
-		Title:   "แนบไฟล์",
-		Filters: attachFilters(group),
-	})
-	if err != nil {
-		return []string{}, err
-	}
-	// Cancelling gives nil, which marshals to null and is what the frontend
-	// would then call .length on (ARCHITECTURE.md §34).
-	if paths == nil {
-		return []string{}, nil
-	}
-	return paths, nil
 }
 
 // ReadImageDataURL reads a sandboxed image back as a data: URL, for inline
@@ -1918,11 +1819,11 @@ var desktopProviders = []string{
 }
 
 // NewEngine creates a new Engine application struct
-func NewEngine() *Engine {
+func NewEngine(screen Screen) *Engine {
 	// The chat on screen exists before anything is said in it: an app with no
 	// session yet is a conversation with no id, which is a real state and not a
 	// missing one. Built here rather than lazily so nothing races to create it.
-	return &Engine{convs: newConversations()}
+	return &Engine{convs: newConversations(), screen: screen}
 }
 
 // startup is called when the app starts. The context is saved
@@ -3100,12 +3001,13 @@ func (a *Engine) preflightQueued(conv *conversation, next config.Config) {
 	}
 	conv.pendingCheck, conv.pendingNote, conv.pendingProbe = "checking", "", probe
 	wire := next.ModelWireFormat
-	// The parked config's own endpoint and key, not the app-wide resolution:
-	// this is a rehearsal of the request the engine will make at the boundary,
-	// and the switch that queued it already resolved both. Falling back to the
-	// resolvers keeps a config that carries neither (a dial that only moved the
-	// model name) pointing where it always did.
-	baseURL, apiKey := next.ModelBaseURL, resolveAPIKeyForProvider(canonical)
+	// The parked config's own endpoint, not the app-wide resolution: this is a
+	// rehearsal of the request the engine will make at the boundary, and the
+	// switch that queued it already resolved it. Falling back to the resolver
+	// keeps a config that carries none (a dial that only moved the model name)
+	// pointing where it always did. The key is the screen's, and so is the
+	// ping (Screen.Probe).
+	baseURL := next.ModelBaseURL
 	if strings.TrimSpace(baseURL) == "" {
 		baseURL = resolveBaseURLForProvider(canonical)
 	}
@@ -3113,7 +3015,7 @@ func (a *Engine) preflightQueued(conv *conversation, next config.Config) {
 	a.emitPendingCheck(conv)
 
 	go func() {
-		label, err := probeProvider(canonical, name, baseURL, apiKey, wire)
+		label, err := a.screenOf().Probe(canonical, name, baseURL, wire)
 		a.turnMu.Lock()
 		// Superseded, cancelled, or landed while the ping was in the air. A
 		// verdict about a switch nobody is waiting for is worse than none: it
@@ -3649,28 +3551,6 @@ func (a *Engine) ClearProjectFocus() (ProjectStatus, error) {
 	return a.currentProjectStatus(), nil
 }
 
-// OpenProjectFolder lets the user pick a real folder via the native OS dialog, then
-// re-bootstraps the engine to run inside it (same model/provider preference).
-func (a *Engine) OpenProjectFolder() (ProjectStatus, error) {
-	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
-		Title: "Open Aetox Project Folder",
-	})
-	if err != nil {
-		return ProjectStatus{}, err
-	}
-	if strings.TrimSpace(dir) == "" {
-		return projectStatus(a.cur().cfg.SandboxRoot), nil
-	}
-	// Sessions are per project — turns are already persisted incrementally, so
-	// point what a new chat is born with at this folder and open one there.
-	// Nothing that is already running is touched; see retargetTemplate.
-	a.takeProject()
-	a.setWorkspaceRoots(a.storedWorkspaceFolders(dir))
-	a.retargetTemplate(config.ConfigOptions{RootPath: dir, ApprovalMode: string(safety.ApprovalFullAccess)})
-	a.startNewSession()
-	a.enterProject(a.cur().cfg.SandboxRoot)
-	return a.currentProjectStatus(), nil
-}
 
 // OpenProjectPath switches straight to a previously-opened project by path —
 // used by the sidebar's recent-projects list, skipping the OS folder dialog.
@@ -3733,19 +3613,12 @@ func (a *Engine) CustomProviders() []CustomProviderRow {
 	return out
 }
 
-// AddCustomProvider creates a provider row of the user's own: an
-// OpenAI-compatible endpoint under a name they chose, with its key filed
-// under that name so the next endpoint they add cannot overwrite it. The row
-// is enabled on the way out, since nobody adds one to keep it hidden. Returns
-// the id the row will be known by everywhere else.
-//
-// The key is optional here only because the page it lands on has a key field
-// of its own — a user who pastes it later is not refused a row today. keyFrom
-// names a provider whose saved key should be copied when apiKey is empty:
-// the "+" under a card's Base URL saves that card as a new row, and the key
-// on the card is one the frontend can only ever see the tail of, so the copy
-// has to happen here. "" copies nothing.
-func (a *Engine) AddCustomProvider(name, baseURL, apiKey, keyFrom string) (string, error) {
+// AddCustomProviderRow records a user-defined OpenAI-compatible endpoint as a
+// row of the preference file and enables it, answering with its id. The
+// engine's half of AddCustomProvider (desktop/providers.go): the key that may
+// come with a row is the screen's to file, after the row exists so its name
+// normalizes to it.
+func (a *Engine) AddCustomProviderRow(name, baseURL string) (string, error) {
 	id := provider.SlugCustomID(name)
 	if id == "" {
 		return "", fmt.Errorf("ตั้งชื่อด้วยตัวอักษรอังกฤษหรือตัวเลข เช่น deepseek-2 หรือ my-vllm")
@@ -3759,10 +3632,6 @@ func (a *Engine) AddCustomProvider(name, baseURL, apiKey, keyFrom string) (strin
 	}
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		return "", fmt.Errorf("base URL ต้องขึ้นต้นด้วย http:// หรือ https://")
-	}
-	key := strings.TrimSpace(apiKey)
-	if key == "" && strings.TrimSpace(keyFrom) != "" {
-		key = resolveAPIKeyForProvider(model.NormalizeProvider(keyFrom))
 	}
 	err := config.UpdateModelPreference(func(pref *config.ModelPreference) error {
 		for _, row := range pref.CustomProviders {
@@ -3782,22 +3651,17 @@ func (a *Engine) AddCustomProvider(name, baseURL, apiKey, keyFrom string) (strin
 	if err != nil {
 		return "", err
 	}
-	// After the row exists, so the key's provider name normalizes to it.
-	if key != "" {
-		if err := credentials.Set(id, key); err != nil {
-			return "", err
-		}
-	}
 	return id, nil
 }
 
-// RemoveCustomProvider deletes a user-added row and everything filed under
-// its name — the key, the base URL override, the model last picked — and
-// returns the refreshed enabled list. A catalog row cannot be removed this
-// way; that is what SetProviderEnabled(false) is for. Moving the engine off
-// it when it was the active provider is the caller's job, the same as for a
-// disabled row.
-func (a *Engine) RemoveCustomProvider(id string) ([]string, error) {
+// RemoveCustomProviderRow deletes a user-added row and everything filed under
+// its name — the base URL override, the model last picked — and returns the
+// refreshed enabled list. The key filed under it is the screen's to forget
+// (RemoveCustomProvider, desktop/providers.go). A catalog row cannot be
+// removed this way; that is what SetProviderEnabled(false) is for. Moving the
+// engine off it when it was the active provider is the caller's job, the same
+// as for a disabled row.
+func (a *Engine) RemoveCustomProviderRow(id string) ([]string, error) {
 	id = strings.ToLower(strings.TrimSpace(id))
 	if !provider.IsCustom(id) {
 		return nil, fmt.Errorf("%q ไม่ใช่ provider ที่เพิ่มเอง", id)
@@ -3882,39 +3746,6 @@ func (a *Engine) SetProviderEnabled(providerName string, enabled bool) ([]string
 	return next, nil
 }
 
-// ListModelsForProvider answers "what can I pick here": live API discovery
-// first, then the catalog already on this disk, then the static recommended
-// list. An empty result means "no known models" — the frontend should offer a
-// free-text input for a custom model id.
-//
-// The middle step is the one worth explaining. Asking the endpoint is the only
-// answer that is a fact, and it is also the step that fails for ordinary
-// reasons: a key issued for one region on another region's host (Alibaba's
-// Model Studio does exactly this, and answers 401), an offline laptop, a base
-// URL typed with a typo. The chain used to fall from that straight onto one
-// hard-coded name per provider, so the picker showed a shelf of ONE — while
-// model-catalog.json, sitting in the same data root and read by the price
-// column two lines away, described 54 models for that same provider.
-//
-// It stays below live discovery and can never override it: the catalog says
-// what models.dev publishes, not what this account is entitled to on this
-// endpoint today.
-func (a *Engine) ListModelsForProvider(providerName string) []string {
-	canonical := model.NormalizeProvider(providerName)
-	baseURL := resolveBaseURLForProvider(canonical)
-	apiKey := resolveAPIKeyForProvider(canonical)
-	if choices, err := model.ModelChoicesWithEndpointAndAPIKey(canonical, baseURL, apiKey); err == nil && len(choices) > 0 {
-		return choices
-	}
-	if choices := a.catalogModelChoices(canonical); len(choices) > 0 {
-		return choices
-	}
-	if choices := model.ModelChoices(canonical); choices != nil {
-		return choices
-	}
-	return []string{}
-}
-
 // catalogModelChoices is a provider's shelf according to the cached catalog,
 // with the static fallback name folded in.
 //
@@ -3922,6 +3753,14 @@ func (a *Engine) ListModelsForProvider(providerName string) []string {
 // known-good for a cold start, and a catalog that happens not to carry one must
 // not be the reason it disappears out of the menu. Merged before the sort so
 // the list has one order and not "the catalog's, plus one".
+//
+// CatalogModelChoices is the engine's half of ListModelsForProvider
+// (desktop/providers.go): the models the cached catalog lists for a provider,
+// with no endpoint asked.
+func (a *Engine) CatalogModelChoices(canonical string) []string {
+	return a.catalogModelChoices(canonical)
+}
+
 func (a *Engine) catalogModelChoices(canonical string) []string {
 	catalog := a.modelCatalog()
 	if catalog == nil {
@@ -3983,57 +3822,31 @@ type ProviderAccount struct {
 	Error string `json:"error"`
 }
 
-// ProviderAccountFor answers for one provider: the Settings card the user
-// opened, or the one provider actually in use for the profile menu.
-//
-// One at a time on purpose. Fetching every enabled provider at once meant
-// spending a round trip on companies the user was not talking to, to fill rows
-// that no longer exist — the menu shows the provider in use and nothing else.
-//
-// Never returns an error. A provider being unreachable is a fact about that
-// provider, carried in the Error field, not a reason to blank the panel.
-func (a *Engine) ProviderAccountFor(providerName string) ProviderAccount {
-	return a.providerAccount(providerName)
+// ProviderQuotas is what the engine has seen of a provider's remaining window
+// on the headers of turns, and whether it has seen anything at all — the
+// engine's half of ProviderAccountFor (desktop/providers.go).
+func (a *Engine) ProviderQuotas(providerName string) ([]model.Quota, bool) {
+	canonical := model.NormalizeProvider(providerName)
+	a.quotasMu.RLock()
+	defer a.quotasMu.RUnlock()
+	quotas, known := a.quotas[canonical]
+	return quotas, known
 }
 
-func (a *Engine) providerAccount(providerName string) ProviderAccount {
+// NoteProviderQuotas records a window a provider stated somewhere other than a
+// turn's headers — OpenRouter beside its credits, the OpenCode Go plan at
+// /usage — which the screen fetched with the key. Same sink as the headers.
+func (a *Engine) NoteProviderQuotas(providerName string, quotas []model.Quota) {
+	if len(quotas) == 0 {
+		return
+	}
 	canonical := model.NormalizeProvider(providerName)
-	account := ProviderAccount{
-		Provider:     canonical,
-		ExpectsQuota: model.StatesQuota(canonical),
+	a.quotasMu.Lock()
+	if a.quotas == nil {
+		a.quotas = make(map[string][]model.Quota, 4)
 	}
-
-	balance, err := model.FetchBalance(
-		a.ctx, canonical,
-		resolveBaseURLForProvider(canonical),
-		resolveAPIKeyForProvider(canonical),
-	)
-	account.Balance = balance
-	if err != nil {
-		account.Error = err.Error()
-	}
-
-	a.quotasMu.RLock()
-	quotas, known := a.quotas[canonical]
-	a.quotasMu.RUnlock()
-	account.Quotas, account.QuotaKnown = quotas, known
-
-	// Two providers serve their window from an endpoint rather than on the
-	// headers of turns: OpenRouter states it beside the credits, and the
-	// OpenCode Go plan answers all three of its windows at /usage. Both have
-	// an answer before any turn has run, which is the whole point — a fresh
-	// subscription should not have to spend a turn to show what is left.
-	if len(balance.Quotas) > 0 {
-		account.Quotas = balance.Quotas
-		account.QuotaKnown, account.QuotaFetched = true, true
-		a.quotasMu.Lock()
-		if a.quotas == nil {
-			a.quotas = make(map[string][]model.Quota, 4)
-		}
-		a.quotas[canonical] = balance.Quotas
-		a.quotasMu.Unlock()
-	}
-	return account
+	a.quotas[canonical] = quotas
+	a.quotasMu.Unlock()
 }
 
 // rememberQuotas is the sink installed on the model package at startup.
@@ -4094,70 +3907,15 @@ func (a *Engine) ProviderBaseURLIsCustom(providerName string) bool {
 	return resolveBaseURLForProvider(canonical) != model.DefaultBaseURL(canonical)
 }
 
-// TestProviderConnection proves a provider is actually reachable by running a
-// minimal 1-token completion through the same client chat uses — endpoint,
-// key, and wire format all verified in one shot. modelName picks which model
-// to ping, so a model can be proven before switching to it; empty falls back
-// to the active model for this provider, else the catalog default. Returns the
-// latency label on success; the error carries the provider's real failure
-// message.
-func (a *Engine) TestProviderConnection(providerName, modelName string) (string, error) {
+// ActiveModelFor is the model and wire format the chat on screen is using for
+// a provider, or "" when that provider is not the one on screen — what a ping
+// falls back to (TestProviderConnection, desktop/providers.go).
+func (a *Engine) ActiveModelFor(providerName string) (modelName, wireFormat string) {
 	canonical := model.NormalizeProvider(providerName)
-	baseURL := resolveBaseURLForProvider(canonical)
-	apiKey := resolveAPIKeyForProvider(canonical)
-	wireFormat := ""
-	fallback := ""
-	if canonical == model.NormalizeProvider(a.cur().cfg.ModelProvider) {
-		fallback = strings.TrimSpace(a.cur().cfg.ModelName)
-		wireFormat = a.cur().cfg.ModelWireFormat
+	if canonical != model.NormalizeProvider(a.cur().cfg.ModelProvider) {
+		return "", ""
 	}
-	if fallback == "" {
-		fallback = model.ResolveDefaultModel(canonical, baseURL, apiKey)
-	}
-	modelName = strings.TrimSpace(modelName)
-	if modelName == "" {
-		modelName = fallback
-	}
-	return probeProvider(canonical, modelName, baseURL, apiKey, wireFormat)
-}
-
-// probeProvider is the ping itself: a 1-token completion through the same
-// client chat uses, so endpoint, key and wire format are all proven at once.
-//
-// Split out of TestProviderConnection when the queued-switch preflight (§232)
-// needed the same proof about a provider that is NOT the one on screen — the
-// button on the settings page resolves which model to ping from the open chat,
-// and a queue already knows.
-func probeProvider(canonical, modelName, baseURL, apiKey, wireFormat string) (string, error) {
-	// The screen's own ping, so it may hold the key it is proving; the
-	// sign-in, if any, is looked up here for the same reason the CLI does it
-	// — the model layer reads no credential store (§248 A3).
-	p, err := model.NewProvider(model.ProviderOptions{
-		Provider:         canonical,
-		Model:            modelName,
-		APIKey:           apiKey,
-		BaseURL:          baseURL,
-		Timeout:          15 * time.Second,
-		WireFormat:       wireFormat,
-		TokenSource:      oauth.TokenSource(canonical),
-		Headers:          oauth.Headers(canonical),
-		SignedInEndpoint: oauth.Endpoint(canonical),
-	})
-	if err != nil {
-		return "", err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	start := time.Now()
-	_, err = p.Complete(ctx, model.Request{
-		Model:     modelName,
-		Messages:  []model.Message{{Role: model.RoleUser, Content: "ping"}},
-		MaxTokens: 1,
-	})
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s · %dms", modelName, time.Since(start).Milliseconds()), nil
+	return strings.TrimSpace(a.cur().cfg.ModelName), a.cur().cfg.ModelWireFormat
 }
 
 // SwitchModel re-bootstraps the engine on a specific model name for the
@@ -4173,7 +3931,7 @@ func (a *Engine) SwitchModel(modelName string) (ModelInfo, error) {
 	next := a.dialBase(a.cur())
 	next.ModelName = strings.TrimSpace(modelName)
 	if next.ModelName == "" {
-		next.ModelName = model.ResolveDefaultModel(next.ModelProvider, next.ModelBaseURL, resolveAPIKeyForProvider(next.ModelProvider))
+		next.ModelName = a.defaultModel(next.ModelProvider, next.ModelBaseURL)
 	}
 	next.ThinkLevel = model.NormalizeThinkingLevel(next.ModelProvider, next.ModelName, next.ThinkLevel)
 	// Filed under the provider it was chosen on, before the rebuild: this is
@@ -4181,86 +3939,6 @@ func (a *Engine) SwitchModel(modelName string) (ModelInfo, error) {
 	rememberModelForProvider(next.ModelProvider, next.ModelName)
 	a.applyConfig(a.cur(), next)
 	return a.dialResult(a.cur())
-}
-
-// HasAPIKey reports whether a key-requiring provider already has resolvable
-// credentials — a cached key, an env var, or a sign-in. Always true for
-// providers that don't need any.
-func (a *Engine) HasAPIKey(providerName string) bool {
-	canonical := model.NormalizeProvider(providerName)
-	if !model.RequiresAPIKey(canonical) {
-		return true
-	}
-	// A signed-in provider has no key to find and never will — asking the user
-	// for one would be asking for something that does not exist.
-	if oauth.Has(canonical) {
-		return true
-	}
-	return resolveAPIKeyForProvider(canonical) != ""
-}
-
-// APIKeyHint is the last few characters of the key this provider would
-// actually be called with, for a field that is otherwise blank once a key is
-// saved. The row went green, the placeholder said "already set", and neither
-// told the owner *which* key was sitting there — so a key pasted into the
-// wrong row looked exactly like a key pasted into the right one.
-//
-// It reads through resolveAPIKeyForProvider rather than the credential store
-// alone, so what is shown is what would be sent: a pasted key shadows an
-// environment one, and the hint follows that precedence instead of describing
-// a key the engine would not use.
-//
-// Four characters, and only from a key long enough that four is a small part
-// of it. Below that the whole string is dots — a hint is meant to distinguish
-// two keys the owner already holds, not to reconstruct one over someone's
-// shoulder. Signed-in providers return "" because there is no key to hint at.
-func (a *Engine) APIKeyHint(providerName string) string {
-	canonical := model.NormalizeProvider(providerName)
-	if oauth.Has(canonical) {
-		return ""
-	}
-	key := strings.TrimSpace(resolveAPIKeyForProvider(canonical))
-	if key == "" {
-		return ""
-	}
-	const reveal = 4
-	r := []rune(key)
-	if len(r) < reveal*3 {
-		return strings.Repeat("•", 8)
-	}
-	return strings.Repeat("•", 4) + string(r[len(r)-reveal:])
-}
-
-// ProviderReady answers the question the sidebar dot is actually asking: can
-// this provider be used right now?
-//
-// HasAPIKey was standing in for it and is not the same question. It returns
-// true for anything that needs no key, which is every local runtime — so LM
-// Studio and Ollama showed a green dot whether or not a server was listening,
-// on a page that said "no models found" two inches to the right.
-//
-// What "ready" can honestly mean differs by kind, and the split is about what
-// can be checked for free:
-//
-//   - A keyed provider: a key is set, or a sign-in exists. Whether that key
-//     still works is only knowable by spending a request against it, and a
-//     settings page that bills the user for opening it is worse than one that
-//     says "configured".
-//   - A local runtime: the server is answering. This costs a connection to
-//     localhost, which is free, so there is no excuse for guessing — and it is
-//     precisely the case that was lying.
-//   - Aetox's own engine: always, it is built in.
-func (a *Engine) ProviderReady(providerName string) bool {
-	canonical := model.NormalizeProvider(providerName)
-	if model.RequiresAPIKey(canonical) {
-		return a.HasAPIKey(canonical)
-	}
-	if canonical == "aetox" {
-		return true
-	}
-	// The same judgement the rest of the app makes about a local runtime — can
-	// a model be got out of it — rather than a second definition of "up".
-	return model.ResolveDefaultModel(canonical, resolveBaseURLForProvider(canonical), "") != ""
 }
 
 // RequiresAPIKey exposes model.RequiresAPIKey to the frontend.
@@ -4318,29 +3996,37 @@ func (a *Engine) SetProviderBaseURL(providerName, baseURL string) (ModelInfo, er
 		next.ModelBaseURL = resolveBaseURLForProvider(canonical)
 		// The model name came from the old endpoint's discovery, so it is a
 		// guess about a server we have not spoken to yet — re-resolve it.
-		next.ModelName = model.ResolveDefaultModel(canonical, next.ModelBaseURL, resolveAPIKeyForProvider(canonical))
+		next.ModelName = a.defaultModel(canonical, next.ModelBaseURL)
 		next.ThinkLevel = model.NormalizeThinkingLevel(canonical, next.ModelName, next.ThinkLevel)
 		a.applyConfig(a.cur(), next)
 	}
 	return a.modelSwitchResult()
 }
 
-// SetAPIKey persists an API key for a provider and, if it's the active
-// provider, immediately re-bootstraps the engine — which picks the key up
-// through the screen's signing transport, never from its config (§248 A4).
-func (a *Engine) SetAPIKey(providerName, apiKey string) (ModelInfo, error) {
+// ProviderKeyChanged is what the screen tells the engine after a key was
+// saved or removed for a provider (SetAPIKey, desktop/providers.go): if it is
+// the provider on screen, the engine is rebuilt, and picks the new key up
+// through the screen's signing transport — never from its config (§248 A4).
+func (a *Engine) ProviderKeyChanged(providerName string) (ModelInfo, error) {
 	canonical := model.NormalizeProvider(providerName)
-	key := strings.TrimSpace(apiKey)
-	if key == "" {
-		return ModelInfo{}, fmt.Errorf("API key cannot be empty")
+	if !strings.EqualFold(a.cur().cfg.ModelProvider, canonical) {
+		// Nothing was rebuilt, so nothing can have failed: the key is filed
+		// for a provider that is not on screen.
+		return a.GetModelInfo(), nil
 	}
-	if err := credentials.Set(canonical, key); err != nil {
-		return ModelInfo{}, err
-	}
-	if strings.EqualFold(a.cur().cfg.ModelProvider, canonical) {
-		a.applyConfig(a.cur(), a.cur().cfg)
-	}
+	a.applyConfig(a.cur(), a.cur().cfg)
 	return a.modelSwitchResult()
+}
+
+// defaultModel is the model a provider is opened on when none is remembered:
+// the live answer the screen gets with its key, else what the catalog says —
+// which is all an engine with nobody watching can say, and enough for the
+// built-in provider on a fresh install (§43).
+func (a *Engine) defaultModel(provider, baseURL string) string {
+	if name := a.screenOf().DefaultModel(provider, baseURL); name != "" {
+		return name
+	}
+	return model.CatalogDefaultModel(provider)
 }
 
 // resolveBaseURLForProvider is the one place that answers "where do we call
@@ -4368,13 +4054,13 @@ func resolveBaseURLForProvider(canonicalProvider string) string {
 // The remembered name is not trusted blindly — a model can be withdrawn, or
 // the endpoint changed under it — but that is already handled downstream: the
 // engine falls back and modelSwitchResult reports what it actually got.
-func resolveModelForProvider(canonicalProvider, baseURL, apiKey string) string {
+func (a *Engine) resolveModelForProvider(canonicalProvider, baseURL string) string {
 	if pref, ok, _ := config.LoadModelPreference(); ok {
 		if v := pref.ModelForProvider(canonicalProvider); v != "" {
 			return v
 		}
 	}
-	return model.ResolveDefaultModel(canonicalProvider, baseURL, apiKey)
+	return a.defaultModel(canonicalProvider, baseURL)
 }
 
 // rememberModelForProvider files the user's pick under the provider it was
@@ -4389,14 +4075,6 @@ func rememberModelForProvider(canonicalProvider, modelName string) {
 		pref.SetModelForProvider(canonicalProvider, modelName)
 		return nil
 	})
-}
-
-// resolveAPIKeyForProvider is the screen's one door to a provider key: the
-// store, else the provider's environment variable. It is the screen's alone —
-// the engine reaches the provider through the transport this signs
-// (provider_forward.go) and reads no key of its own (§248 A4).
-func resolveAPIKeyForProvider(canonicalProvider string) string {
-	return credentials.KeyFor(canonicalProvider)
 }
 
 // SupportedThinkLevels lists the thinking levels confirmed real for the current
@@ -4433,7 +4111,7 @@ func (a *Engine) RetryActiveProvider() ModelInfo {
 	// A failed bootstrap on a local runtime leaves the name empty (the server
 	// had nothing to offer), and that empty name is what fails again.
 	if strings.TrimSpace(next.ModelName) == "" {
-		next.ModelName = model.ResolveDefaultModel(next.ModelProvider, next.ModelBaseURL, resolveAPIKeyForProvider(next.ModelProvider))
+		next.ModelName = a.defaultModel(next.ModelProvider, next.ModelBaseURL)
 		next.ThinkLevel = model.NormalizeThinkingLevel(next.ModelProvider, next.ModelName, next.ThinkLevel)
 	}
 	a.applyConfig(a.cur(), next)
@@ -4446,7 +4124,7 @@ func (a *Engine) SwitchProvider(provider string) (ModelInfo, error) {
 	next.ModelProvider = model.NormalizeProvider(provider)
 	next.ModelBaseURL = resolveBaseURLForProvider(next.ModelProvider)
 	next.ModelWireFormat = "" // reset to the new provider's default format
-	next.ModelName = resolveModelForProvider(next.ModelProvider, next.ModelBaseURL, resolveAPIKeyForProvider(next.ModelProvider))
+	next.ModelName = a.resolveModelForProvider(next.ModelProvider, next.ModelBaseURL)
 	next.ThinkLevel = model.NormalizeThinkingLevel(next.ModelProvider, next.ModelName, "")
 	a.applyConfig(a.cur(), next)
 	return a.dialResult(a.cur())
@@ -4529,7 +4207,7 @@ func (a *Engine) SwitchApprovalMode(mode string) (ModelInfo, error) {
 // from disk — that is how the user's saved model gets loaded at launch.
 func (a *Engine) reload(opts config.ConfigOptions) {
 	if a.cur().cfg.ModelProvider == "" {
-		a.applyConfig(a.cur(), resolveConfig(opts))
+		a.applyConfig(a.cur(), a.resolveConfig(opts))
 	} else {
 		next := a.cfg
 		next.SandboxRoot = config.Load(opts).SandboxRoot
@@ -4559,7 +4237,7 @@ func (a *Engine) reload(opts config.ConfigOptions) {
 // resolved whole rather than patched.
 func (a *Engine) retargetTemplate(opts config.ConfigOptions) {
 	if a.cur().cfg.ModelProvider == "" {
-		a.cfg = resolveConfig(opts)
+		a.cfg = a.resolveConfig(opts)
 	} else {
 		a.cfg.SandboxRoot = config.Load(opts).SandboxRoot
 	}
@@ -4907,7 +4585,7 @@ func (a *Engine) applyConfig(conv *conversation, cfg config.Config) {
 		// holds no key of its own and config carries none (§248). The
 		// signed-in endpoint is not a secret and travels in the open.
 		ProviderTransport: a.screenOf().ProviderTransport(model.NormalizeProvider(cfg.ModelProvider), cfg.ModelWireFormat),
-		ProviderEndpoint:  oauth.Endpoint(model.NormalizeProvider(cfg.ModelProvider)),
+		ProviderEndpoint:  a.screenOf().ProviderEndpoint(model.NormalizeProvider(cfg.ModelProvider)),
 		OnToolAction:      func(ev turn.ToolEvent) { a.recordToolAction(conv, ev) },
 		// A delegate's own turn, kept until this one is assembled and can carry
 		// it (recordChildParts). The live relay above draws it and stores
@@ -5004,7 +4682,7 @@ func (a *Engine) applyConfig(conv *conversation, cfg config.Config) {
 	}
 }
 
-func resolveConfig(opts config.ConfigOptions) config.Config {
+func (a *Engine) resolveConfig(opts config.ConfigOptions) config.Config {
 	cfg := config.Load(opts)
 
 	pref, hasPref, _ := config.LoadModelPreference()
@@ -5086,7 +4764,7 @@ func resolveConfig(opts config.ConfigOptions) config.Config {
 	// default with a real job (it answers the guide, §42), so a fresh install
 	// that shows no model name at all is the wrong end of that trade.
 	if cfg.ModelName == "" {
-		cfg.ModelName = model.ResolveDefaultModel(cfg.ModelProvider, cfg.ModelBaseURL, resolveAPIKeyForProvider(cfg.ModelProvider))
+		cfg.ModelName = a.defaultModel(cfg.ModelProvider, cfg.ModelBaseURL)
 	}
 	cfg.ThinkLevel = model.NormalizeThinkingLevel(cfg.ModelProvider, cfg.ModelName, cfg.ThinkLevel)
 	// Outside the block above, because the install that needs this most is the
