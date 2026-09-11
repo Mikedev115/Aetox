@@ -319,11 +319,18 @@ func appendConfidenceNote(text string, mean float64, words int) string {
 // runTesseract OCRs one image.
 //
 // It writes to a temp basename rather than reading stdout, because that is what
-// buys the confidence: `txt tsv` asks one pass for both the text and the
-// per-word detail, at a cost measured at 2ms (182ms → 184ms over five runs).
-// Reconstructing the text from the TSV instead would save the file and lose
-// Tesseract's own line breaking, which for Thai is already the weaker part of
-// the output.
+// buys the confidence: asking one pass for both the text and the per-word
+// detail costs 2ms (182ms → 184ms over five runs). Reconstructing the text from
+// the TSV instead would save the file and lose Tesseract's own line breaking,
+// which for Thai is already the weaker part of the output.
+//
+// The two outputs are asked for as -c variables, not as the `txt tsv` config
+// names (12 ก.ย.). A config name is a FILE under tessdata/configs/, and the
+// build internal/capability unpacks into <DataRoot>/tools/tesseract ships
+// eng/osd/tha.traineddata and no configs folder at all — so on the owner's
+// machine every read failed with "read_params_file: Can't open txt", four times
+// on the same arguments, which is exactly the wall the problems page exists to
+// report. The variables are what those two config files set, and need no file.
 func runTesseract(ctx context.Context, imagePath string) (ocrResult, error) {
 	dir, err := os.MkdirTemp("", "aetox-ocr-*")
 	if err != nil {
@@ -333,7 +340,8 @@ func runTesseract(ctx context.Context, imagePath string) (ocrResult, error) {
 
 	base := filepath.Join(dir, "page")
 	binary := resolveTesseract()
-	cmd := exec.CommandContext(ctx, binary, imagePath, base, "-l", "tha+eng", "txt", "tsv")
+	cmd := exec.CommandContext(ctx, binary, imagePath, base, "-l", "tha+eng",
+		"-c", "tessedit_create_txt=1", "-c", "tessedit_create_tsv=1")
 	cmd.Env = tesseractEnv(binary)
 	proc.HideConsole(cmd)
 	var stderr bytes.Buffer
