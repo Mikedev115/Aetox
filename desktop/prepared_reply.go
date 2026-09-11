@@ -251,7 +251,7 @@ func (a *App) prepareReplies(ctx context.Context, conv *conversation, question, 
 	if err != nil {
 		return nil, err
 	}
-	raw := ""
+	var raw string
 	if len(resp.ToolCalls) > 0 {
 		raw = resp.ToolCalls[0].Function.Arguments
 	} else {

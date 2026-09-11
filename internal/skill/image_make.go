@@ -151,7 +151,6 @@ func (s *imageMakeSkill) draw(ctx context.Context, prompt, requestPath string, r
 	// write — see below.
 	original := requestPath
 	requestPath = withExt(requestPath, engine.Ext())
-	renamed := false
 
 	// The same placement rule write, sheet_write and media_fetch follow
 	// (write.go): a relative path in an unfocused session lands in the
@@ -204,7 +203,7 @@ func (s *imageMakeSkill) draw(ctx context.Context, prompt, requestPath string, r
 	}
 	// Noted after the rename, so the record names the file that exists.
 	s.files.Note(targetPath)
-	renamed = !strings.EqualFold(pathExt(original), pathExt(placed))
+	renamed := !strings.EqualFold(pathExt(original), pathExt(placed))
 
 	report := fmt.Sprintf("วาดแล้ว %s (%s, %s", placed, kind, humanBytes(len(body)))
 	if w, h, ok := imageDims(kind, body); ok {

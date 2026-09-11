@@ -308,16 +308,8 @@ func (e *iUIAutomationElement) name() (string, error) {
 	return e.bstr(e.vtbl.GetCurrentName, "get_CurrentName")
 }
 
-func (e *iUIAutomationElement) className() (string, error) {
-	return e.bstr(e.vtbl.GetCurrentClassName, "get_CurrentClassName")
-}
-
 func (e *iUIAutomationElement) localizedControlType() (string, error) {
 	return e.bstr(e.vtbl.GetCurrentLocalizedControlType, "get_CurrentLocalizedControlType")
-}
-
-func (e *iUIAutomationElement) automationID() (string, error) {
-	return e.bstr(e.vtbl.GetCurrentAutomationId, "get_CurrentAutomationId")
 }
 
 func (e *iUIAutomationElement) controlType() (int32, error) {
@@ -341,15 +333,6 @@ func (e *iUIAutomationElement) isOffscreen() (bool, error) {
 // line is enforced rather than hoped for.
 func (e *iUIAutomationElement) isPassword() (bool, error) {
 	return e.boolProp(e.vtbl.GetCurrentIsPassword, "get_CurrentIsPassword")
-}
-
-func (e *iUIAutomationElement) nativeWindowHandle() (uintptr, error) {
-	var h uintptr
-	hr := e.vtbl.GetCurrentNativeWindowHandle.call(e.this(), uintptr(unsafe.Pointer(&h)))
-	if err := hrErr("get_CurrentNativeWindowHandle", hr); err != nil {
-		return 0, err
-	}
-	return h, nil
 }
 
 type uiaRect struct{ Left, Top, Right, Bottom float64 }
@@ -407,10 +390,6 @@ func (e *iUIAutomationElement) findAll(scope int32, cond *iUIAutomationCondition
 		return nil, hresult{code: hrElementNotAvailable, what: "FindAll returned nothing"}
 	}
 	return arr, nil
-}
-
-func (e *iUIAutomationElement) setFocus() error {
-	return hrErr("SetFocus", e.vtbl.SetFocus.call(e.this()))
 }
 
 // patternAs asks the element for one pattern interface. A nil result with a
@@ -756,13 +735,3 @@ func (h *uiaHost) do(fn func(*iUIAutomation) error) error {
 	return <-done
 }
 
-// shutdown stops the thread. Called when the app closes; safe to call twice.
-func (h *uiaHost) shutdown() {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if !h.started {
-		return
-	}
-	h.started = false
-	close(h.stop)
-}

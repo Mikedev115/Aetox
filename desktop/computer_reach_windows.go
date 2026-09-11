@@ -84,7 +84,6 @@ type win32Rect struct{ Left, Top, Right, Bottom int32 }
 func reachListWindows() ([]reachTarget, error) {
 	self := int32(os.Getpid())
 	var out []reachTarget
-	var cbErr error
 
 	cb := syscall.NewCallback(func(hwnd, _ uintptr) uintptr {
 		if vis, _, _ := procIsWindowVisible.Call(hwnd); vis == 0 {
@@ -118,10 +117,6 @@ func reachListWindows() ([]reachTarget, error) {
 	if r, _, err := procEnumWindows.Call(cb, 0); r == 0 && len(out) == 0 {
 		return nil, win32Error{call: "EnumWindows", code: errnoOf(err)}
 	}
-	if cbErr != nil {
-		return nil, cbErr
-	}
-
 	// Aetox's own windows never appear. Not merely refused when aimed at —
 	// absent, so a model never spends a turn discovering it may not.
 	kept := out[:0]

@@ -510,6 +510,7 @@ func planRewrites(db *sql.DB, window string) {
 		  WHERE session_id=? AND ok=1 AND output_sha256<>''
 		  GROUP BY tool, output_sha256 HAVING count(*)>1`, sid)
 		if err == nil {
+			defer d.Close()
 			for d.Next() {
 				var c, b int64
 				if d.Scan(&c, &b) == nil {
@@ -518,7 +519,6 @@ func planRewrites(db *sql.DB, window string) {
 				}
 			}
 			_ = d.Err()
-			d.Close()
 		}
 		fmt.Printf("    %-22s %d plans, %d re-read of the same bytes (%d bytes read twice)\n",
 			shortID(sid), len(cards[sid]), dupCalls, dupBytes)
