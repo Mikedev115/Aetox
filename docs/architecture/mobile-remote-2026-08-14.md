@@ -279,9 +279,16 @@ top.
 
 - Starting new work from the phone with a fresh project, file panes, or a
   terminal. That is the desk, and the desk stays where it is.
-- A separate daemon binary. **One process owns the store, the MCP children,
+- ~~A separate daemon binary. **One process owns the store, the MCP children,
   and the browser.** Two processes over one SQLite file is two versions of the
-  truth. The window minimises; it does not need to close.
+  truth. The window minimises; it does not need to close.~~ **Overturned
+  2026-09-11 by §248** ([remote-engine-2026-09-11.md](remote-engine-2026-09-11.md)):
+  the engine becomes a process of its own so it can run on another host. The
+  objection above was about two *writers*, and the split keeps one: only the
+  engine ever opens `aetox.db` and owns the MCP children; the window owns the
+  browser and nothing of the store. The phone, when it is unparked, is one more
+  client of that engine — through the same door as the desktop, which is rule 2
+  above kept rather than bent.
 - Anything a cloud account would be required for.
 
 ## Security — the two holes the working slice exposed
