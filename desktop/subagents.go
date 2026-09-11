@@ -79,18 +79,19 @@ func (a *App) SetSubagentModel(name, modelName string) error {
 	return subagent.SetModel(name, modelName)
 }
 
-// OpenSubagentsFolder creates the sub-agents' home if needed and reveals it, so
-// adding a profile is "drop a .md file here" — same contract as the prompts
-// folder, and the reason neither has to exist at install time.
-func (a *App) OpenSubagentsFolder() error {
-	return a.revealProfileHome(subagent.Dir)
+// SubagentsFolderPath creates the sub-agents' home if needed and answers with
+// it, so adding a profile is "drop a .md file here" — same contract as the
+// prompts folder, and the reason neither has to exist at install time.
+// OpenSubagentsFolder (screen_doors.go) reveals it.
+func (a *App) SubagentsFolderPath() (string, error) {
+	return profileHome(subagent.Dir)
 }
 
-// OpenAgentsFolder is the agents' half of the same contract — the office
+// AgentsFolderPath is the agents' half of the same contract — the office
 // page's hiring door. Since the homes split, which folder a file lands in is
 // which kind it is, so the two pages must each open their own.
-func (a *App) OpenAgentsFolder() error {
-	return a.revealProfileHome(subagent.AgentsDir)
+func (a *App) AgentsFolderPath() (string, error) {
+	return profileHome(subagent.AgentsDir)
 }
 
 // AgentSkillInfo is one entry on an agent's own shelf, for the editor's สกิล
@@ -157,26 +158,24 @@ func (a *App) AgentNeeds(name string) []subagent.Requirement {
 // the folder is absent in the normal case, and "open the place where they go"
 // is the one moment where an empty folder is the useful answer rather than a
 // cost paid on every dispatch.
-func (a *App) OpenAgentSkillsFolder(name string) error {
-	return a.revealProfileHome(func() (string, error) { return config.AgentSkillsPath(name) })
+func (a *App) AgentSkillsFolderPath(name string) (string, error) {
+	return profileHome(func() (string, error) { return config.AgentSkillsPath(name) })
 }
 
-// OpenAgentHome reveals one agent's home directory in the file manager.
-func (a *App) OpenAgentHome(name string) error {
-	return a.revealProfileHome(func() (string, error) { return config.AgentHome(name) })
+// AgentHomePath is one agent's home directory, created if needed.
+func (a *App) AgentHomePath(name string) (string, error) {
+	return profileHome(func() (string, error) { return config.AgentHome(name) })
 }
 
-func (a *App) revealProfileHome(home func() (string, error)) error {
+func profileHome(home func() (string, error)) (string, error) {
 	dir, err := home()
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
+		return "", err
 	}
-	// One implementation, in speech.go — the three copies of this switch had
-	// all inherited the same window-hiding bug.
-	return a.revealInFileManager(dir)
+	return dir, nil
 }
 
 // AgentGate is why a teammate is behind a lock, and what the one button on it

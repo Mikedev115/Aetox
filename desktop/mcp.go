@@ -268,19 +268,20 @@ func (a *App) MCPConfigPath() string {
 	return path
 }
 
-// OpenMCPFolder reveals the folder holding mcp-servers.json, so a server that
-// will not connect can be inspected or backed up by hand — the same affordance
-// the prompts, sub-agents and skills pages have.
-func (a *App) OpenMCPFolder() error {
+// MCPFolderPath is the folder holding mcp-servers.json, created if needed, so
+// a server that will not connect can be inspected or backed up by hand
+// (OpenMCPFolder, screen_doors.go, reveals it) — the same affordance the
+// prompts, sub-agents and skills pages have.
+func (a *App) MCPFolderPath() (string, error) {
 	path, err := config.MCPServersPath()
 	if err != nil {
-		return err
+		return "", err
 	}
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return err
+		return "", err
 	}
-	return a.revealInFileManager(dir)
+	return dir, nil
 }
 
 // AddMCPServer persists a new local stdio server (name + argv). Kept as the

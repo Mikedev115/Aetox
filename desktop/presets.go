@@ -6,8 +6,6 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/command"
 	"github.com/Mikedev115/Aetox/internal/model"
-
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // ListPromptPresets reports every prompt preset for the Settings page —
@@ -51,19 +49,10 @@ func (a *App) DeletePromptPreset(name string) error {
 	return command.DeletePreset(name)
 }
 
-// PickPresetImage opens the native picker and, if the user chose a file,
-// copies it in as that preset's cover. Returns the cover as a data URI so the
-// card updates without re-reading the whole list.
-func (a *App) PickPresetImage(name string) (string, error) {
-	path, err := wailsruntime.OpenFileDialog(a.ctx, wailsruntime.OpenDialogOptions{
-		Title: "เลือกรูปหน้าปกชุดคำสั่ง",
-		Filters: []wailsruntime.FileFilter{
-			{DisplayName: "Images (*.png, *.jpg, *.jpeg, *.webp, *.gif, *.bmp)", Pattern: "*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp"},
-		},
-	})
-	if err != nil || strings.TrimSpace(path) == "" {
-		return "", err
-	}
+// SetPresetImageFrom copies the image at path in as that preset's cover and
+// returns the cover as a data URI, so the card updates without re-reading the
+// whole list. The engine's half of PickPresetImage (screen_doors.go).
+func (a *App) SetPresetImageFrom(name, path string) (string, error) {
 	if err := command.SavePresetImage(name, path); err != nil {
 		return "", err
 	}
@@ -80,18 +69,17 @@ func (a *App) RemovePresetImage(name string) error {
 	return command.RemovePresetImage(name)
 }
 
-// OpenPromptsFolder creates the prompts directory if needed and reveals it in
-// the OS file manager, so adding a preset is "drop a .md file here". Creating
-// it on demand is why the folder does not need to exist at install time.
-func (a *App) OpenPromptsFolder() error {
+// PromptsFolderPath creates the prompts directory if needed and answers with
+// it, so adding a preset is "drop a .md file here" (OpenPromptsFolder,
+// screen_doors.go, reveals it). Creating it on demand is why the folder does
+// not need to exist at install time.
+func (a *App) PromptsFolderPath() (string, error) {
 	dir, err := command.PresetsDir()
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
+		return "", err
 	}
-	// One implementation, in speech.go — the three copies of this switch had
-	// all inherited the same window-hiding bug.
-	return a.revealInFileManager(dir)
+	return dir, nil
 }

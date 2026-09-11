@@ -10,8 +10,6 @@ import (
 	"time"
 	"unicode"
 
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-
 	"github.com/Mikedev115/Aetox/internal/bootstrap"
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/mode"
@@ -260,17 +258,18 @@ func (a *App) DeleteSpace(name string) error {
 	return os.RemoveAll(path)
 }
 
-// OpenSpaceFolder shows the folder in the file manager — the answer to "where
-// do I put the files?", given rather than described.
-func (a *App) OpenSpaceFolder(name string) error {
+// SpaceFolderPath is where a project's files live — the answer to "where do I
+// put the files?", which OpenSpaceFolder (screen_doors.go) then shows rather
+// than describes.
+func (a *App) SpaceFolderPath(name string) (string, error) {
 	path, err := spacePath(name)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if _, err := os.Stat(path); err != nil {
-		return fmt.Errorf("ยังไม่มีโฟลเดอร์ของโปรเจกต์นี้")
+		return "", fmt.Errorf("ยังไม่มีโฟลเดอร์ของโปรเจกต์นี้")
 	}
-	return a.revealInFileManager(path)
+	return path, nil
 }
 
 // AddSpaceContext copies files the user picks into the project's context
@@ -284,19 +283,16 @@ func (a *App) OpenSpaceFolder(name string) error {
 //
 // Returns the file list rather than nothing so the page redraws from the disk
 // it just changed, instead of from what the frontend assumes happened.
-func (a *App) AddSpaceContext(name string) ([]string, error) {
+//
+// AddSpaceContextFiles is the engine's half of AddSpaceContext
+// (screen_doors.go): the files named are on this host, and so is the project.
+func (a *App) AddSpaceContextFiles(name string, picked []string) ([]string, error) {
 	path, err := spacePath(name)
 	if err != nil {
 		return nil, err
 	}
 	if _, err := os.Stat(path); err != nil {
 		return nil, fmt.Errorf("ยังไม่มีโปรเจกต์ชื่อนี้")
-	}
-	picked, err := wailsruntime.OpenMultipleFilesDialog(a.ctx, wailsruntime.OpenDialogOptions{
-		Title: "เพิ่มไฟล์บริบทของโปรเจกต์",
-	})
-	if err != nil {
-		return nil, err
 	}
 	contextDir := filepath.Join(path, contextDirName)
 	if err := os.MkdirAll(contextDir, 0o755); err != nil {
