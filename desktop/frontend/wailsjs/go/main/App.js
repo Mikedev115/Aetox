@@ -526,6 +526,10 @@ export function ListArtifacts() {
   return window['go']['main']['App']['ListArtifacts']();
 }
 
+export function ListArtifactsForSession(arg1) {
+  return window['go']['main']['App']['ListArtifactsForSession'](arg1);
+}
+
 export function ListArtifactsIn(arg1) {
   return window['go']['main']['App']['ListArtifactsIn'](arg1);
 }

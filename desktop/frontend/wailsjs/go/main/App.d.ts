@@ -277,6 +277,8 @@ export function ListAllSessions():Promise<Array<main.SessionMeta>>;
 
 export function ListArtifacts():Promise<Array<main.Artifact>>;
 
+export function ListArtifactsForSession(arg1:string):Promise<main.ArtifactPage>;
+
 export function ListArtifactsIn(arg1:string):Promise<main.ArtifactPage>;
 
 export function ListChairs():Promise<Array<main.Chair>>;
