@@ -1,7 +1,8 @@
 // Package version is the one place Aetox's own release number lives.
 //
 // It used to live in five: cmd/aetox/main.go's const, desktop/wails.json's
-// productVersion, README's status heading, docs/index.html's badge, and
+// productVersion, README's status heading, the landing page's badge (since
+// moved to its own repo, where it reads GitHub Releases instead), and
 // scoop/aetox.json. Bumping five copies by hand worked only because nothing
 // ever read them back — the moment the app starts *checking* for updates, a
 // missed bump stops being a typo and becomes the app lying to the user about

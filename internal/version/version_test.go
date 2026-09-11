@@ -70,7 +70,9 @@ func TestPublishedDocsCarryCurrent(t *testing.T) {
 		// (v1.1.0 while the app shipped v1.5.2) — a translation is still a
 		// place a reader is told which release this is.
 		{"README.th.md", "## สถานะ — v" + Current, "status heading"},
-		{"docs/index.html", ">v" + Current + " · Windows<", "version badge"},
+		// docs/index.html used to be the third entry. The landing page moved to
+		// its own repo (Mikedev115/aetox-landing) on 2026-09-11 and reads the
+		// number from GitHub Releases at build time, so it has no copy to check.
 	} {
 		if !strings.Contains(repoFile(t, c.file), c.marker) {
 			t.Errorf("%s: %s does not say v%s — bump it (or fix this test if the markup changed)", c.file, c.what, Current)

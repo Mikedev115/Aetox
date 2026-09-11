@@ -18,18 +18,20 @@
 
 ## ตาราง
 
+> `aetox-landing` = รีโป [Mikedev115/aetox-landing](https://github.com/Mikedev115/aetox-landing) — ตัวเลขอยู่ใน `lib/i18n/en.ts` + `th.ts` และค่าคงที่ใน `components/Weight.tsx` · `components/UseCases.tsx` (ย้ายออกจาก `docs/index.html` เมื่อ 11 ก.ย. 2026)
+
 | ตัวเลข | อยู่ที่ | วัดใหม่ด้วย | บังคับ |
 |:---|:---|:---|:---|
-| **เวอร์ชัน** | `internal/version` · `desktop/wails.json` · `scoop/aetox.json` · README ทั้งสอง (หัวข้อสถานะ) · `docs/index.html` (badge) | `go test ./internal/version` | 🔒 |
-| **จำนวนเครื่องมือ + ตารางเครื่องมือ** | README ทั้งสอง (§มันทำอะไรได้บ้างทั้งหมด) · `docs/index.html` · `ARCHITECTURE.md` (ไดอะแกรม) | `go test ./desktop -run TestPrintReadmeToolTable -v` — พิมพ์ตารางออกมาให้ก๊อป | ✋ |
-| **โทเคนของบล็อกเครื่องมือ + เพดาน** | README ทั้งสอง · `docs/index.html` | `go test ./desktop -run TestTheToolBlockStaysWithinItsBudget -v` | ✋ |
-| **จำนวนเทสต์** | README ทั้งสอง (badge + ตาราง "วัดมา ไม่ใช่อ้าง") · `docs/index.html` (การ์ดสถิติ) | `go test ./... -count=1` · `cd desktop/frontend && npx vitest run` | ✋ |
+| **เวอร์ชัน** | `internal/version` · `desktop/wails.json` · `scoop/aetox.json` · README ทั้งสอง (หัวข้อสถานะ) | `go test ./internal/version` · แลนดิ้งเพจอ่านจาก Releases เอง | 🔒 |
+| **จำนวนเครื่องมือ + ตารางเครื่องมือ** | README ทั้งสอง (§มันทำอะไรได้บ้างทั้งหมด) · `aetox-landing` · `ARCHITECTURE.md` (ไดอะแกรม) | `go test ./desktop -run TestPrintReadmeToolTable -v` — พิมพ์ตารางออกมาให้ก๊อป | ✋ |
+| **โทเคนของบล็อกเครื่องมือ + เพดาน** | README ทั้งสอง · `aetox-landing` | `go test ./desktop -run TestTheToolBlockStaysWithinItsBudget -v` | ✋ |
+| **จำนวนเทสต์** | README ทั้งสอง (badge + ตาราง "วัดมา ไม่ใช่อ้าง") · `aetox-landing` (การ์ดสถิติ) | `go test ./... -count=1` · `cd desktop/frontend && npx vitest run` | ✋ |
 | **จำนวนผู้ให้บริการ + รายชื่อ** | README ทั้งสอง (จุดเด่น + §ผู้ให้บริการ) | `internal/provider/catalog.go` — `canonicalOrder` | ✋ |
-| **ขนาด `aetox.exe`** | README ทั้งสอง (4 จุด: ย่อหน้าเปิด · ตารางวัด · ตารางเทียบ Zed · ย่อหน้าวิธีวัด) · `BENCHMARK.md` §4 · `PLATFORM-SUPPORT.md` · `ROADMAP.md` · `docs/index.html` (แถบกราฟ · การ์ดสถิติ · FAQ) | โหลด portable zip ของรุ่นนั้น แตกออก อ่านขนาดไฟล์เดียวข้างใน | 📦 |
-| **ขนาดตัวติดตั้ง** | README ทั้งสอง (§ติดตั้ง + ตารางวัด) · `BENCHMARK.md` §4 · `docs/index.html` (การ์ดสถิติ · ขั้นตอนติดตั้ง) | `gh release view --json assets` | 📦 |
-| **ตัวคูณ "เล็กกว่า X กี่เท่า"** | `BENCHMARK.md` §4 · `PLATFORM-SUPPORT.md` · `docs/index.html` (ท้ายกราฟ) | หารใหม่ทุกครั้งที่ขนาดเปลี่ยน — **นี่คือช่องที่พลาดมาแล้วสองรอบ** | ✋ |
-| **ขนาดคู่แข่ง** | `BENCHMARK.md` §4 · `docs/index.html` (แถบกราฟ) · README ทั้งสอง (ตาราง Zed) | ลงโปรแกรมจริงแล้ววัดจากโฟลเดอร์ติดตั้ง ([BENCHMARK.md](../BENCHMARK.md) ข้อ 5 บอกว่าห้ามนับอะไร) | ✋ |
-| **RAM · เวลาเปิด · จำนวน process** | README ทั้งสอง (แถว ⁽ᵈ⁾) · `BENCHMARK.md` · `docs/index.html` | รีบูตก่อน แล้ว `.\bench.ps1 -Start` | ✋ |
+| **ขนาด `aetox.exe`** | README ทั้งสอง (4 จุด: ย่อหน้าเปิด · ตารางวัด · ตารางเทียบ Zed · ย่อหน้าวิธีวัด) · `BENCHMARK.md` §4 · `PLATFORM-SUPPORT.md` · `ROADMAP.md` · `aetox-landing` (แถบกราฟ · การ์ดสถิติ · FAQ) | โหลด portable zip ของรุ่นนั้น แตกออก อ่านขนาดไฟล์เดียวข้างใน | 📦 |
+| **ขนาดตัวติดตั้ง** | README ทั้งสอง (§ติดตั้ง + ตารางวัด) · `BENCHMARK.md` §4 · `aetox-landing` (การ์ดสถิติ · ขั้นตอนติดตั้ง) | `gh release view --json assets` | 📦 |
+| **ตัวคูณ "เล็กกว่า X กี่เท่า"** | `BENCHMARK.md` §4 · `PLATFORM-SUPPORT.md` · `aetox-landing` (ท้ายกราฟ) | หารใหม่ทุกครั้งที่ขนาดเปลี่ยน — **นี่คือช่องที่พลาดมาแล้วสองรอบ** | ✋ |
+| **ขนาดคู่แข่ง** | `BENCHMARK.md` §4 · `aetox-landing` (แถบกราฟ) · README ทั้งสอง (ตาราง Zed) | ลงโปรแกรมจริงแล้ววัดจากโฟลเดอร์ติดตั้ง ([BENCHMARK.md](../BENCHMARK.md) ข้อ 5 บอกว่าห้ามนับอะไร) | ✋ |
+| **RAM · เวลาเปิด · จำนวน process** | README ทั้งสอง (แถว ⁽ᵈ⁾) · `BENCHMARK.md` · `aetox-landing` | รีบูตก่อน แล้ว `.\bench.ps1 -Start` | ✋ |
 | **ประกอบหนึ่งเทิร์น** | README ทั้งสอง (ตารางวัด) | `.\bench.ps1 -Engine` | ✋ |
 
 ---
