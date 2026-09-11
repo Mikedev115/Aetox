@@ -57,7 +57,7 @@ func TestEveryModelClientBoundsTheFirstByte(t *testing.T) {
 		{"no endpoint given", "", 5 * time.Minute},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			c := newModelHTTPClient(20*time.Second, tc.endpoint)
+			c := newModelHTTPClient(20*time.Second, tc.endpoint, nil)
 			tr := retryLayer(t, c)
 			base, ok := tr.base.(*http.Transport)
 			if !ok {
@@ -87,7 +87,7 @@ func TestAStalledServerEventuallyErrors(t *testing.T) {
 	}))
 	defer func() { close(stall); srv.Close() }()
 
-	c := newModelHTTPClient(20*time.Second, srv.URL)
+	c := newModelHTTPClient(20*time.Second, srv.URL, nil)
 	base := retryLayer(t, c).base.(*http.Transport)
 	base.ResponseHeaderTimeout = 300 * time.Millisecond
 
@@ -125,7 +125,7 @@ func TestAStalledStreamEventuallyErrors(t *testing.T) {
 	}))
 	defer func() { close(stall); srv.Close() }()
 
-	c := newModelHTTPClient(20*time.Second, srv.URL)
+	c := newModelHTTPClient(20*time.Second, srv.URL, nil)
 	retryLayer(t, c).idle = 300 * time.Millisecond
 
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
@@ -169,7 +169,7 @@ func TestASlowButLiveStreamIsNeverInterrupted(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := newModelHTTPClient(20*time.Second, srv.URL)
+	c := newModelHTTPClient(20*time.Second, srv.URL, nil)
 	// Total transfer ~600ms, longest single gap ~100ms: over the budget as a
 	// whole, comfortably under it between bytes.
 	retryLayer(t, c).idle = 300 * time.Millisecond

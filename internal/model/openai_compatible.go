@@ -154,6 +154,9 @@ type OpenAICompatibleConfig struct {
 	// Headers are extra headers this provider's credentials require (Copilot
 	// refuses requests that do not identify an editor client).
 	Headers map[string]string
+	// Transport, when set, signs the request itself; neither APIKey nor
+	// TokenSource is then required or consulted (ProviderOptions.Transport).
+	Transport Transport
 }
 
 type OpenAICompatibleProvider struct {
@@ -188,7 +191,7 @@ func NewOpenAICompatibleProvider(cfg OpenAICompatibleConfig) (*OpenAICompatibleP
 	if model == "" {
 		return nil, ErrMissingModel
 	}
-	if requireAPIKey && apiKey == "" && cfg.TokenSource == nil {
+	if requireAPIKey && apiKey == "" && cfg.TokenSource == nil && cfg.Transport == nil {
 		return nil, ErrMissingAPIKey
 	}
 	if baseURL == "" {
@@ -220,7 +223,7 @@ func NewOpenAICompatibleProvider(cfg OpenAICompatibleConfig) (*OpenAICompatibleP
 		reasoning:   supportsNativeReasoning(provider),
 		tokenSource: cfg.TokenSource,
 		headers:     cfg.Headers,
-		httpClient:  newModelHTTPClient(timeout, baseURL),
+		httpClient:  newModelHTTPClient(timeout, baseURL, cfg.Transport),
 
 		sessionHeader: sessionHeader,
 		sessionID:     sessionID,

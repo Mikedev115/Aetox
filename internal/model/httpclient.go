@@ -37,7 +37,14 @@ import (
 // that IS set — see firstByteBudget. Passing "" is treated as remote, which is
 // the safer of the two guesses: a bound that is too generous only delays an
 // error, while one that is too tight cancels work that was going fine.
-func newModelHTTPClient(connectTimeout time.Duration, endpoint string) *http.Client {
+//
+// wrap, when set, is handed the network transport built here and answers with
+// the one the client will use — the Transport seam of ProviderOptions. It sits
+// UNDER the retry and identity layers on purpose: a retry re-enters it, so a
+// credential it attaches is attached per attempt, the way applyAuth always ran
+// per request; and a wrapper that replaces the network entirely (a proxy) is
+// still retried and still watched for silence by the same code as a socket.
+func newModelHTTPClient(connectTimeout time.Duration, endpoint string, wrap Transport) *http.Client {
 	if connectTimeout <= 0 {
 		connectTimeout = 30 * time.Second
 	}
@@ -74,8 +81,12 @@ func newModelHTTPClient(connectTimeout time.Duration, endpoint string) *http.Cli
 	// silence for the whole budget trips it.
 	budget := firstByteBudget(endpoint)
 	transport.ResponseHeaderTimeout = budget
+	var wire http.RoundTripper = transport
+	if wrap != nil {
+		wire = wrap(transport)
+	}
 	return &http.Client{Transport: &identityTransport{
-		base: &retryTransport{base: transport, idle: budget},
+		base: &retryTransport{base: wire, idle: budget},
 	}}
 }
 

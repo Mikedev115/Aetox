@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -14,6 +15,12 @@ type BootstrapOptions struct {
 	BaseURL    string
 	Timeout    time.Duration
 	WireFormat string
+	// Transport, TokenSource, Headers and SignedInEndpoint pass straight
+	// through to ProviderOptions — see the fields there.
+	Transport        Transport
+	TokenSource      func(context.Context) (string, error)
+	Headers          map[string]string
+	SignedInEndpoint string
 	// Locale reaches exactly one provider — Aetox's own built-in one, which
 	// talks to a user who has configured nothing yet. Every real provider
 	// ignores it (ARCHITECTURE.md §40).
@@ -28,13 +35,17 @@ type BootstrapResult struct {
 
 func BootstrapProvider(opts BootstrapOptions) BootstrapResult {
 	provider, initErr := NewProvider(ProviderOptions{
-		Provider:   opts.Provider,
-		Model:      opts.Model,
-		APIKey:     opts.APIKey,
-		BaseURL:    opts.BaseURL,
-		Timeout:    opts.Timeout,
-		WireFormat: opts.WireFormat,
-		Locale:     opts.Locale,
+		Provider:         opts.Provider,
+		Model:            opts.Model,
+		APIKey:           opts.APIKey,
+		BaseURL:          opts.BaseURL,
+		Timeout:          opts.Timeout,
+		WireFormat:       opts.WireFormat,
+		Locale:           opts.Locale,
+		Transport:        opts.Transport,
+		TokenSource:      opts.TokenSource,
+		Headers:          opts.Headers,
+		SignedInEndpoint: opts.SignedInEndpoint,
 	})
 	if initErr == nil {
 		return BootstrapResult{

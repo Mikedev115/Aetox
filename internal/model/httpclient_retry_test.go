@@ -41,7 +41,7 @@ func TestRetryTransportRetriesRateLimitAndSucceeds(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newModelHTTPClient(5*time.Second, "")
+	client := newModelHTTPClient(5*time.Second, "", nil)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL, strings.NewReader("hello"))
 	if err != nil {
 		t.Fatalf("NewRequest: %v", err)
@@ -70,7 +70,7 @@ func TestRetryTransportDoesNotRetryClientErrors(t *testing.T) {
 			w.WriteHeader(status)
 		}))
 
-		client := newModelHTTPClient(5*time.Second, "")
+		client := newModelHTTPClient(5*time.Second, "", nil)
 		resp, err := client.Do(mustPost(t, server.URL))
 		if err != nil {
 			t.Fatalf("Do: %v", err)
@@ -98,7 +98,7 @@ func TestRetryTransportDoesNotRetryInsufficientQuota(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newModelHTTPClient(5*time.Second, "")
+	client := newModelHTTPClient(5*time.Second, "", nil)
 	resp, err := client.Do(mustPost(t, server.URL))
 	if err != nil {
 		t.Fatalf("Do: %v", err)
@@ -135,7 +135,7 @@ func TestRetryTransportDoesNotRetryABalanceOfZeroInAnyDialect(t *testing.T) {
 			_, _ = w.Write([]byte(body))
 		}))
 
-		client := newModelHTTPClient(5*time.Second, "")
+		client := newModelHTTPClient(5*time.Second, "", nil)
 		resp, err := client.Do(mustPost(t, server.URL))
 		if err != nil {
 			server.Close()
@@ -173,7 +173,7 @@ func TestRetryTransportStillRetriesARealRateLimit(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newModelHTTPClient(5*time.Second, "")
+	client := newModelHTTPClient(5*time.Second, "", nil)
 	resp, err := client.Do(mustPost(t, server.URL))
 	if err != nil {
 		t.Fatalf("Do: %v", err)
@@ -196,7 +196,7 @@ func TestRetryTransportGivesUpOnLongWindows(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newModelHTTPClient(5*time.Second, "")
+	client := newModelHTTPClient(5*time.Second, "", nil)
 	start := time.Now()
 	resp, err := client.Do(mustPost(t, server.URL))
 	if err != nil {
@@ -221,7 +221,7 @@ func TestRetryTransportStopsAtTheAttemptCap(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newModelHTTPClient(5*time.Second, "")
+	client := newModelHTTPClient(5*time.Second, "", nil)
 	resp, err := client.Do(mustPost(t, server.URL))
 	if err != nil {
 		t.Fatalf("Do: %v", err)
@@ -245,7 +245,7 @@ func TestRetryTransportHonorsCancellation(t *testing.T) {
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, server.URL, strings.NewReader("x"))
 
 	start := time.Now()
-	if _, err := newModelHTTPClient(5*time.Second, "").Do(req); err == nil {
+	if _, err := newModelHTTPClient(5*time.Second, "", nil).Do(req); err == nil {
 		t.Fatal("a cancelled request kept waiting out the retry")
 	}
 	if elapsed := time.Since(start); elapsed > 3*time.Second {
@@ -429,7 +429,7 @@ func TestRetryTransportRetriesAQuotaThatNamesItsOwnWait(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newModelHTTPClient(5*time.Second, "")
+	client := newModelHTTPClient(5*time.Second, "", nil)
 	resp, err := client.Do(mustPost(t, server.URL))
 	if err != nil {
 		t.Fatalf("Do: %v", err)

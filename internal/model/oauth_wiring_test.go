@@ -11,13 +11,25 @@ import (
 )
 
 // signIn writes a credential into an isolated store for the duration of one
-// test, so the factory's automatic OAuth resolution can be exercised without
-// touching the developer's real logins.
+// test, so a sign-in can be exercised without touching the developer's real
+// logins.
 func signIn(t *testing.T, provider string, cred oauth.Credential) {
 	t.Helper()
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 	if err := oauth.Set(provider, cred); err != nil {
 		t.Fatalf("seed credential: %v", err)
+	}
+}
+
+// signedIn is what a host hands the factory for a provider it has signed
+// into. The factory reads no credential store of its own (§248 A3): the
+// three lookups that used to happen inside NewProvider are now the caller's,
+// and these tests exercise them the way the CLI and the desktop do.
+func signedIn(provider string) ProviderOptions {
+	return ProviderOptions{
+		TokenSource:      oauth.TokenSource(provider),
+		Headers:          oauth.Headers(provider),
+		SignedInEndpoint: oauth.Endpoint(provider),
 	}
 }
 
@@ -89,7 +101,9 @@ func TestFactoryUsesSignInInsteadOfAPIKey(t *testing.T) {
 
 	// No APIKey at all: a signed-in provider has no key to give, and demanding
 	// one would make the whole feature unreachable.
-	p, err := NewProvider(ProviderOptions{Provider: "open-router", Model: "deepseek/deepseek-r1"})
+	opts := signedIn("openrouter")
+	opts.Provider, opts.Model = "open-router", "deepseek/deepseek-r1"
+	p, err := NewProvider(opts)
 	if err != nil {
 		t.Fatalf("NewProvider: %v", err)
 	}
@@ -105,7 +119,9 @@ func TestFactoryPrefersSignInEndpoint(t *testing.T) {
 		Endpoint: "https://account.example.com/v1",
 	})
 
-	p, err := NewProvider(ProviderOptions{Provider: "openrouter", Model: "deepseek/deepseek-r1"})
+	opts := signedIn("openrouter")
+	opts.Provider, opts.Model = "openrouter", "deepseek/deepseek-r1"
+	p, err := NewProvider(opts)
 	if err != nil {
 		t.Fatalf("NewProvider: %v", err)
 	}
@@ -125,11 +141,9 @@ func TestFactoryKeepsUserBaseURLOverSignInEndpoint(t *testing.T) {
 		Endpoint: "https://account.example.com/v1",
 	})
 
-	p, err := NewProvider(ProviderOptions{
-		Provider: "openrouter",
-		Model:    "deepseek/deepseek-r1",
-		BaseURL:  "http://localhost:8080/v1",
-	})
+	opts := signedIn("openrouter")
+	opts.Provider, opts.Model, opts.BaseURL = "openrouter", "deepseek/deepseek-r1", "http://localhost:8080/v1"
+	p, err := NewProvider(opts)
 	if err != nil {
 		t.Fatalf("NewProvider: %v", err)
 	}

@@ -197,6 +197,16 @@ type Options struct {
 	// Nil is the native shell: every existing host, and every test.
 	Shell func() proc.Backend
 
+	// ProviderTransport, when set, is the model client's credential
+	// (model.Transport): the host wraps the network in a transport that signs
+	// each request from its own credential store, and the engine built here
+	// never holds a key — it hands cfg.ModelAPIKey through only for the host
+	// that still passes one (the CLI), and nothing else reaches the wire
+	// unsigned. ProviderEndpoint is the base URL a sign-in pinned for this
+	// provider, or "": not a secret, so it travels here in the open. §248.
+	ProviderTransport model.Transport
+	ProviderEndpoint  string
+
 	OnToolAction func(turn.ToolEvent)
 	OnToolRun    func(turn.ToolRun)
 	// OnChildParts receives a delegate's finished sequence, under the `task`
@@ -431,13 +441,15 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 
 	providerDone := debuglog.Block("model.BootstrapProvider")
 	bootstrapResult := model.BootstrapProvider(model.BootstrapOptions{
-		Provider:   cfg.ModelProvider,
-		Model:      cfg.ModelName,
-		APIKey:     cfg.ModelAPIKey,
-		BaseURL:    cfg.ModelBaseURL,
-		Timeout:    modelTimeout(cfg),
-		WireFormat: cfg.ModelWireFormat,
-		Locale:     cfg.UILocale,
+		Provider:         cfg.ModelProvider,
+		Model:            cfg.ModelName,
+		APIKey:           cfg.ModelAPIKey,
+		BaseURL:          cfg.ModelBaseURL,
+		Timeout:          modelTimeout(cfg),
+		WireFormat:       cfg.ModelWireFormat,
+		Locale:           cfg.UILocale,
+		Transport:        opts.ProviderTransport,
+		SignedInEndpoint: opts.ProviderEndpoint,
 	})
 	providerDone()
 	if bootstrapResult.Provider == nil {

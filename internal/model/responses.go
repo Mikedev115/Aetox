@@ -38,6 +38,9 @@ type ResponsesConfig struct {
 	APIKey      string
 	TokenSource func(context.Context) (string, error)
 	Headers     map[string]string
+	// Transport, when set, signs the request itself; neither APIKey nor
+	// TokenSource is then required or consulted (ProviderOptions.Transport).
+	Transport Transport
 }
 
 type ResponsesProvider struct {
@@ -59,7 +62,7 @@ func NewResponsesProvider(cfg ResponsesConfig) (*ResponsesProvider, error) {
 	if model == "" {
 		return nil, ErrMissingModel
 	}
-	if strings.TrimSpace(cfg.APIKey) == "" && cfg.TokenSource == nil {
+	if strings.TrimSpace(cfg.APIKey) == "" && cfg.TokenSource == nil && cfg.Transport == nil {
 		return nil, ErrMissingAPIKey
 	}
 	baseURL := strings.TrimSuffix(strings.TrimSpace(cfg.BaseURL), "/")
@@ -79,7 +82,7 @@ func NewResponsesProvider(cfg ResponsesConfig) (*ResponsesProvider, error) {
 		apiKey:      strings.TrimSpace(cfg.APIKey),
 		tokenSource: cfg.TokenSource,
 		headers:     cfg.Headers,
-		httpClient:  newModelHTTPClient(timeout, baseURL),
+		httpClient:  newModelHTTPClient(timeout, baseURL, cfg.Transport),
 	}, nil
 }
 
@@ -334,7 +337,9 @@ func (p *ResponsesProvider) newHTTPRequest(ctx context.Context, body []byte) (*h
 		httpReq.Header.Set("Authorization", "Bearer "+token)
 		return httpReq, nil
 	}
-	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
+	if p.apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
+	}
 	return httpReq, nil
 }
 
