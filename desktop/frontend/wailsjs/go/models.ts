@@ -179,46 +179,6 @@ export namespace connect {
 
 export namespace engine {
 	
-	export class AccountState {
-	    configured: boolean;
-	    signed_in: boolean;
-	    user: account.User;
-	    display: string;
-	    providers: string[];
-	    server: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new AccountState(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.configured = source["configured"];
-	        this.signed_in = source["signed_in"];
-	        this.user = this.convertValues(source["user"], account.User);
-	        this.display = source["display"];
-	        this.providers = source["providers"];
-	        this.server = source["server"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
 	export class Address {
 	    url: string;
 	    fallback: string;
@@ -2223,26 +2183,6 @@ export namespace engine {
 	        this.message = source["message"];
 	    }
 	}
-	export class TTSVoiceInfo {
-	    id: string;
-	    name: string;
-	    lang: string;
-	    gender: string;
-	    active: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new TTSVoiceInfo(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.lang = source["lang"];
-	        this.gender = source["gender"];
-	        this.active = source["active"];
-	    }
-	}
 	export class TaskChip {
 	    id: string;
 	    title: string;
@@ -2619,6 +2559,24 @@ export namespace engine {
 	        this.activeModel = source["activeModel"];
 	    }
 	}
+	export class VoiceSettings {
+	    ttsEngine: string;
+	    ttsVoice: string;
+	    ttsModelName: string;
+	    uiLocale: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new VoiceSettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ttsEngine = source["ttsEngine"];
+	        this.ttsVoice = source["ttsVoice"];
+	        this.ttsModelName = source["ttsModelName"];
+	        this.uiLocale = source["uiLocale"];
+	    }
+	}
 	export class WorkspaceFolder {
 	    path: string;
 	    name: string;
@@ -2723,6 +2681,46 @@ export namespace github {
 
 export namespace main {
 	
+	export class AccountState {
+	    configured: boolean;
+	    signed_in: boolean;
+	    user: account.User;
+	    display: string;
+	    providers: string[];
+	    server: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AccountState(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.configured = source["configured"];
+	        this.signed_in = source["signed_in"];
+	        this.user = this.convertValues(source["user"], account.User);
+	        this.display = source["display"];
+	        this.providers = source["providers"];
+	        this.server = source["server"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class ComputerAppRow {
 	    name: string;
 	    title: string;
@@ -2789,6 +2787,26 @@ export namespace main {
 	        this.version = source["version"];
 	        this.channel = source["channel"];
 	        this.installError = source["installError"];
+	    }
+	}
+	export class TTSVoiceInfo {
+	    id: string;
+	    name: string;
+	    lang: string;
+	    gender: string;
+	    active: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new TTSVoiceInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.lang = source["lang"];
+	        this.gender = source["gender"];
+	        this.active = source["active"];
 	    }
 	}
 

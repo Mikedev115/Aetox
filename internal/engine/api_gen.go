@@ -20,9 +20,6 @@ import (
 // engine, in one process today and across a socket in phase 2 (§248).
 type API interface {
 	AcceptsAPIKey(providerName string) bool
-	AccountRefresh() (AccountState, error)
-	AccountSignOut() error
-	AccountStatus() AccountState
 	ActiveModelFor(providerName string) (string, string)
 	AddCustomProviderRow(name string, baseURL string) (string, error)
 	AddLearnedEntry(scope string, text string) error
@@ -52,10 +49,8 @@ type API interface {
 	BrowseFolderAt(dir string) (string, error)
 	BrowseRoot() string
 	BusySignal() []BusyLayer
-	CancelAccountSignIn()
 	CancelMCPSignIn(serverName string)
 	CancelPendingModel() ModelInfo
-	CancelSignIn(providerName string)
 	CancelTurn()
 	CapabilitiesInstalling() bool
 	CapabilityForServer(server string) string
@@ -66,9 +61,7 @@ type API interface {
 	CheckConnectionServer(id string) (bool, error)
 	ClearProjectFocus() (ProjectStatus, error)
 	CommandHistory() []string
-	CompleteAccountSignIn() (AccountState, error)
 	CompleteMCPSignIn(serverName string) error
-	CompleteSignIn(providerName string, pasted string) (ModelInfo, error)
 	CompressArtifacts(paths []string) (CompressReport, error)
 	ComputerControlChanged()
 	ConnectAccount(id string, token string, baseURL string, targets []string) (connect.Account, error)
@@ -120,8 +113,6 @@ type API interface {
 	HistoryFault() StoreFault
 	ImageStatus() string
 	ImportSessionFrom(path string) (string, error)
-	ImportSignIn(providerName string) (ModelInfo, error)
-	ImportableSignIns() []string
 	InstallCapabilities(capabilities []string) bool
 	InstallSkillFromGitHub(repoURL string) (string, error)
 	InstallSkillsFromZipAt(path string) (string, error)
@@ -161,7 +152,6 @@ type API interface {
 	ListSubagentProfiles() []subagent.Profile
 	ListSystemIssues() []PendingChange
 	ListTTSEngines() []VoiceEngineInfo
-	ListTTSVoices() ([]TTSVoiceInfo, error)
 	ListTaskChips() []TaskChip
 	ListTools() []SkillInfo
 	LoadSession(id string) ([]SessionMessage, error)
@@ -203,7 +193,7 @@ type API interface {
 	ProviderAPIKeyURL(providerName string) string
 	ProviderBaseURL(providerName string) string
 	ProviderBaseURLIsCustom(providerName string) bool
-	ProviderKeyChanged(providerName string) (ModelInfo, error)
+	ProviderCredentialChanged(providerName string) (ModelInfo, error)
 	ProviderQuotas(providerName string) ([]model.Quota, bool)
 	ProviderWireFormats(providerName string) []string
 	PullRequestChecks(sha string) []gh.CheckRun
@@ -225,6 +215,7 @@ type API interface {
 	RegenerateReply(revertFiles bool) (RegenerateResult, error)
 	RejectPendingChange(id int64) error
 	RelativizePath(absPath string) (string, error)
+	RememberTTSVoice(id string)
 	RemoveCustomProviderRow(id string) ([]string, error)
 	RemoveExternalSkill(name string) error
 	RemoveMCPServer(name string) error
@@ -302,41 +293,31 @@ type API interface {
 	SetSubagentModel(name string, modelName string) error
 	SetTTSEngine(id string) error
 	SetTTSModelName(name string) error
-	SetTTSVoice(id string) error
 	SetUILocale(locale string) error
 	SetUserName(name string) error
 	Shells() []ShellOption
-	SignInMethods() []oauth.Method
-	SignInStatus(providerName string) oauth.Status
-	SignOut(providerName string) (ModelInfo, error)
 	SkillScanIssues() []string
 	SkillTuneAuto() bool
 	SkillsDir() string
 	SkillsFolderPath() (string, error)
 	SpaceFolderPath(name string) (string, error)
 	Spaces() []Space
-	SpeakText(text string) (string, error)
 	SpeechModelDirPath(dir string) (string, error)
 	SpeechModelDirs() []SpeechDirInfo
 	SpeechModelFolderPath(path string) (string, error)
-	SpeechPlaying(jobID string, seq int)
 	SpeechStatus() string
 	Stance() string
 	Stances() []string
-	StartAccountSignIn(provider string) (string, error)
 	StartConnectionServer(id string) error
 	StartMCPSignIn(serverName string, resourceURL string) (SignInPrompt, error)
 	StartMobileRemote() RemoteStatus
 	StartPlanRun(sessionID string) PlanRunStart
-	StartSignIn(providerName string) (SignInPrompt, error)
-	StartSpeech(text string) (string, error)
 	StopBackgroundRun(runID string) int
 	StopBackgroundTask(id string) bool
 	StopBrowsing()
 	StopMobileRemote() RemoteStatus
 	StopPlanRun(sessionID string)
 	StopQueuedTasks() int
-	StopSpeech(jobID string)
 	SubagentsFolderPath() (string, error)
 	SuggestPRDetails(head string, base string) (PRSuggestion, error)
 	SupportedProviders() []string
@@ -347,7 +328,6 @@ type API interface {
 	SwitchThinkLevel(level string) (ModelInfo, error)
 	SwitchVariant(index int) (RegenerateResult, error)
 	SynthesizeHabit(sessionID string, hint string) (int64, error)
-	TTSStatus() string
 	TerminalAttach(sessionID string) string
 	TerminalClose(sessionID string) error
 	TerminalResize(sessionID string, cols int, rows int) error
@@ -374,6 +354,7 @@ type API interface {
 	VideoEditorTools() []string
 	VideoReadiness(agent string) VideoReadiness
 	VideoToolingStatus() VideoToolingStatus
+	VoiceSettings() VoiceSettings
 	WorkbenchTabsChanged(sessionID string, tabs []DeskTab)
 	WorkspaceFolders() []WorkspaceFolder
 	WriteFile(relPath string, content string) error

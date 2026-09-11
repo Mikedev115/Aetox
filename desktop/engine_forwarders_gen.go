@@ -25,18 +25,6 @@ func (a *App) AcceptsAPIKey(providerName string) bool {
 	return a.api.AcceptsAPIKey(providerName)
 }
 
-func (a *App) AccountRefresh() (engine.AccountState, error) {
-	return a.api.AccountRefresh()
-}
-
-func (a *App) AccountSignOut() error {
-	return a.api.AccountSignOut()
-}
-
-func (a *App) AccountStatus() engine.AccountState {
-	return a.api.AccountStatus()
-}
-
 func (a *App) ActiveModelFor(providerName string) (string, string) {
 	return a.api.ActiveModelFor(providerName)
 }
@@ -153,20 +141,12 @@ func (a *App) BusySignal() []engine.BusyLayer {
 	return a.api.BusySignal()
 }
 
-func (a *App) CancelAccountSignIn() {
-	a.api.CancelAccountSignIn()
-}
-
 func (a *App) CancelMCPSignIn(serverName string) {
 	a.api.CancelMCPSignIn(serverName)
 }
 
 func (a *App) CancelPendingModel() engine.ModelInfo {
 	return a.api.CancelPendingModel()
-}
-
-func (a *App) CancelSignIn(providerName string) {
-	a.api.CancelSignIn(providerName)
 }
 
 func (a *App) CancelTurn() {
@@ -209,16 +189,8 @@ func (a *App) CommandHistory() []string {
 	return a.api.CommandHistory()
 }
 
-func (a *App) CompleteAccountSignIn() (engine.AccountState, error) {
-	return a.api.CompleteAccountSignIn()
-}
-
 func (a *App) CompleteMCPSignIn(serverName string) error {
 	return a.api.CompleteMCPSignIn(serverName)
-}
-
-func (a *App) CompleteSignIn(providerName string, pasted string) (engine.ModelInfo, error) {
-	return a.api.CompleteSignIn(providerName, pasted)
 }
 
 func (a *App) CompressArtifacts(paths []string) (engine.CompressReport, error) {
@@ -425,14 +397,6 @@ func (a *App) ImportSessionFrom(path string) (string, error) {
 	return a.api.ImportSessionFrom(path)
 }
 
-func (a *App) ImportSignIn(providerName string) (engine.ModelInfo, error) {
-	return a.api.ImportSignIn(providerName)
-}
-
-func (a *App) ImportableSignIns() []string {
-	return a.api.ImportableSignIns()
-}
-
 func (a *App) InstallCapabilities(capabilities []string) bool {
 	return a.api.InstallCapabilities(capabilities)
 }
@@ -587,10 +551,6 @@ func (a *App) ListSystemIssues() []engine.PendingChange {
 
 func (a *App) ListTTSEngines() []engine.VoiceEngineInfo {
 	return a.api.ListTTSEngines()
-}
-
-func (a *App) ListTTSVoices() ([]engine.TTSVoiceInfo, error) {
-	return a.api.ListTTSVoices()
 }
 
 func (a *App) ListTaskChips() []engine.TaskChip {
@@ -757,8 +717,8 @@ func (a *App) ProviderBaseURLIsCustom(providerName string) bool {
 	return a.api.ProviderBaseURLIsCustom(providerName)
 }
 
-func (a *App) ProviderKeyChanged(providerName string) (engine.ModelInfo, error) {
-	return a.api.ProviderKeyChanged(providerName)
+func (a *App) ProviderCredentialChanged(providerName string) (engine.ModelInfo, error) {
+	return a.api.ProviderCredentialChanged(providerName)
 }
 
 func (a *App) ProviderQuotas(providerName string) ([]model.Quota, bool) {
@@ -843,6 +803,10 @@ func (a *App) RejectPendingChange(id int64) error {
 
 func (a *App) RelativizePath(absPath string) (string, error) {
 	return a.api.RelativizePath(absPath)
+}
+
+func (a *App) RememberTTSVoice(id string) {
+	a.api.RememberTTSVoice(id)
 }
 
 func (a *App) RemoveCustomProviderRow(id string) ([]string, error) {
@@ -1153,10 +1117,6 @@ func (a *App) SetTTSModelName(name string) error {
 	return a.api.SetTTSModelName(name)
 }
 
-func (a *App) SetTTSVoice(id string) error {
-	return a.api.SetTTSVoice(id)
-}
-
 func (a *App) SetUILocale(locale string) error {
 	return a.api.SetUILocale(locale)
 }
@@ -1167,18 +1127,6 @@ func (a *App) SetUserName(name string) error {
 
 func (a *App) Shells() []engine.ShellOption {
 	return a.api.Shells()
-}
-
-func (a *App) SignInMethods() []oauth.Method {
-	return a.api.SignInMethods()
-}
-
-func (a *App) SignInStatus(providerName string) oauth.Status {
-	return a.api.SignInStatus(providerName)
-}
-
-func (a *App) SignOut(providerName string) (engine.ModelInfo, error) {
-	return a.api.SignOut(providerName)
 }
 
 func (a *App) SkillScanIssues() []string {
@@ -1205,10 +1153,6 @@ func (a *App) Spaces() []engine.Space {
 	return a.api.Spaces()
 }
 
-func (a *App) SpeakText(text string) (string, error) {
-	return a.api.SpeakText(text)
-}
-
 func (a *App) SpeechModelDirPath(dir string) (string, error) {
 	return a.api.SpeechModelDirPath(dir)
 }
@@ -1221,10 +1165,6 @@ func (a *App) SpeechModelFolderPath(path string) (string, error) {
 	return a.api.SpeechModelFolderPath(path)
 }
 
-func (a *App) SpeechPlaying(jobID string, seq int) {
-	a.api.SpeechPlaying(jobID, seq)
-}
-
 func (a *App) SpeechStatus() string {
 	return a.api.SpeechStatus()
 }
@@ -1235,10 +1175,6 @@ func (a *App) Stance() string {
 
 func (a *App) Stances() []string {
 	return a.api.Stances()
-}
-
-func (a *App) StartAccountSignIn(provider string) (string, error) {
-	return a.api.StartAccountSignIn(provider)
 }
 
 func (a *App) StartConnectionServer(id string) error {
@@ -1255,14 +1191,6 @@ func (a *App) StartMobileRemote() engine.RemoteStatus {
 
 func (a *App) StartPlanRun(sessionID string) engine.PlanRunStart {
 	return a.api.StartPlanRun(sessionID)
-}
-
-func (a *App) StartSignIn(providerName string) (engine.SignInPrompt, error) {
-	return a.api.StartSignIn(providerName)
-}
-
-func (a *App) StartSpeech(text string) (string, error) {
-	return a.api.StartSpeech(text)
 }
 
 func (a *App) StopBackgroundRun(runID string) int {
@@ -1287,10 +1215,6 @@ func (a *App) StopPlanRun(sessionID string) {
 
 func (a *App) StopQueuedTasks() int {
 	return a.api.StopQueuedTasks()
-}
-
-func (a *App) StopSpeech(jobID string) {
-	a.api.StopSpeech(jobID)
 }
 
 func (a *App) SubagentsFolderPath() (string, error) {
@@ -1331,10 +1255,6 @@ func (a *App) SwitchVariant(index int) (engine.RegenerateResult, error) {
 
 func (a *App) SynthesizeHabit(sessionID string, hint string) (int64, error) {
 	return a.api.SynthesizeHabit(sessionID, hint)
-}
-
-func (a *App) TTSStatus() string {
-	return a.api.TTSStatus()
 }
 
 func (a *App) TerminalAttach(sessionID string) string {
@@ -1439,6 +1359,10 @@ func (a *App) VideoReadiness(agent string) engine.VideoReadiness {
 
 func (a *App) VideoToolingStatus() engine.VideoToolingStatus {
 	return a.api.VideoToolingStatus()
+}
+
+func (a *App) VoiceSettings() engine.VoiceSettings {
+	return a.api.VoiceSettings()
 }
 
 func (a *App) WorkbenchTabsChanged(sessionID string, tabs []engine.DeskTab) {

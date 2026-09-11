@@ -1,4 +1,4 @@
-package engine
+package main
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/engine"
 	"github.com/Mikedev115/Aetox/internal/tts"
 )
 
@@ -47,20 +47,15 @@ const speakSample = "ผมกำลังทดสอบเสียงอ่�
 
 // speakApp seeds an app whose speech goes to a fake vendor, and returns the
 // channel every speech:chunk event lands on.
-func speakApp(t *testing.T, eng tts.Engine) (*Engine, <-chan speechChunkEvent) {
+func speakApp(t *testing.T, eng tts.Engine) (*App, <-chan speechChunkEvent) {
 	t.Helper()
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 	prev := newTTSEngine
 	newTTSEngine = func(tts.Options) (tts.Engine, error) { return eng, nil }
 	t.Cleanup(func() { newTTSEngine = prev })
 
-	app := seed(&Engine{cfg: config.Config{SandboxRoot: t.TempDir()}}, newConversation())
-	t.Cleanup(func() {
-		app.stopAllSpeech()
-		if app.db != nil {
-			_ = app.db.Close()
-		}
-	})
+	app := newTestApp()
+	t.Cleanup(app.stopAllSpeech)
 	events := make(chan speechChunkEvent, 512)
 	app.emit = func(event string, data ...any) {
 		if event != "speech:chunk" || len(data) == 0 {
@@ -186,7 +181,7 @@ func TestAFailingVoiceFallsBackAndTheReadGoesOn(t *testing.T) {
 		}
 		return broken, nil
 	}
-	app.cur().cfg.TTSEngine = "edge"
+	app.api = engineWith{API: app.api, voice: &engine.VoiceSettings{TTSEngine: "edge"}}
 	text := strings.Repeat(speakSample, 12)
 	job, err := app.StartSpeech(text)
 	if err != nil {

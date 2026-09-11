@@ -1,4 +1,4 @@
-package engine
+package main
 
 import (
 	"context"
@@ -6,30 +6,22 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Mikedev115/Aetox/internal/engine"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/oauth"
 )
 
 // Sign-in bindings — "use the plan you already pay for" instead of pasting a
 // key. The flows themselves live in internal/oauth; everything here is the
-// desktop's half: hold the in-flight authorization between the two calls the
-// UI makes, and re-bootstrap the engine when a sign-in lands on the provider
-// that is currently active.
-
-// SignInPrompt is what the UI shows while waiting. Which fields are filled
-// depends on Kind: "device" fills UserCode and VerificationURI (type this code
-// into that page), "browser" and "paste" fill URL.
-type SignInPrompt struct {
-	Provider        string `json:"provider"`
-	Kind            string `json:"kind"`
-	URL             string `json:"url"`
-	UserCode        string `json:"user_code,omitempty"`
-	VerificationURI string `json:"verification_uri,omitempty"`
-}
+// screen's half: hold the in-flight authorization between the two calls the
+// UI makes, and tell the engine when a sign-in lands on the provider that is
+// currently active. The store these write (oauth.json) is the screen's, like
+// credentials.json: the engine never reads a token out of it (§248, engine
+// deps_test.go), it asks the screen to sign (provider_forward.go).
 
 // pendingSignIns holds authorizations between StartSignIn and CompleteSignIn.
-// ponytail: package-level rather than a field on Engine because there is exactly
-// one Engine per process; move it onto Engine if the desktop ever hosts two.
+// Package-level rather than a field on App because there is exactly one App
+// per process.
 var pendingSignIns = struct {
 	sync.Mutex
 	byProvider map[string]*pendingSignIn
@@ -46,23 +38,23 @@ type pendingSignIn struct {
 
 // SignInMethods lists every provider Aetox can sign into, with the risk note
 // the UI must show before the user commits.
-func (a *Engine) SignInMethods() []oauth.Method {
+func (a *App) SignInMethods() []oauth.Method {
 	return oauth.Methods()
 }
 
 // SignInStatus reports whether one provider is signed in, and as whom. It
 // never returns a token.
-func (a *Engine) SignInStatus(providerName string) oauth.Status {
+func (a *App) SignInStatus(providerName string) oauth.Status {
 	return oauth.StatusFor(providerName)
 }
 
 // StartSignIn opens a sign-in and returns what to show the user. Nothing is
 // stored until CompleteSignIn succeeds.
-func (a *Engine) StartSignIn(providerName string) (SignInPrompt, error) {
+func (a *App) StartSignIn(providerName string) (engine.SignInPrompt, error) {
 	canonical := model.NormalizeProvider(providerName)
 	method, ok := oauth.MethodFor(canonical)
 	if !ok {
-		return SignInPrompt{}, fmt.Errorf("%s has no sign-in — add an API key instead", canonical)
+		return engine.SignInPrompt{}, fmt.Errorf("%s has no sign-in — add an API key instead", canonical)
 	}
 
 	// Starting a second sign-in for the same provider abandons the first
@@ -74,14 +66,14 @@ func (a *Engine) StartSignIn(providerName string) (SignInPrompt, error) {
 	pending, err := oauth.Start(ctx, canonical)
 	if err != nil {
 		cancel()
-		return SignInPrompt{}, err
+		return engine.SignInPrompt{}, err
 	}
 
 	pendingSignIns.Lock()
 	pendingSignIns.byProvider[canonical] = &pendingSignIn{pending: pending, ctx: ctx, cancel: cancel}
 	pendingSignIns.Unlock()
 
-	return SignInPrompt{
+	return engine.SignInPrompt{
 		Provider:        canonical,
 		Kind:            method.Kind,
 		URL:             pending.URL,
@@ -98,14 +90,14 @@ func (a *Engine) StartSignIn(providerName string) (SignInPrompt, error) {
 //
 // pasted carries the code for providers that make the user copy one and is
 // ignored by the rest.
-func (a *Engine) CompleteSignIn(providerName, pasted string) (ModelInfo, error) {
+func (a *App) CompleteSignIn(providerName, pasted string) (engine.ModelInfo, error) {
 	canonical := model.NormalizeProvider(providerName)
 
 	pendingSignIns.Lock()
 	entry := pendingSignIns.byProvider[canonical]
 	pendingSignIns.Unlock()
 	if entry == nil {
-		return ModelInfo{}, fmt.Errorf("no %s sign-in in progress", canonical)
+		return engine.ModelInfo{}, fmt.Errorf("no %s sign-in in progress", canonical)
 	}
 
 	err := oauth.Finish(entry.ctx, entry.pending, strings.TrimSpace(pasted))
@@ -117,14 +109,14 @@ func (a *Engine) CompleteSignIn(providerName, pasted string) (ModelInfo, error) 
 	entry.pending.Cancel()
 
 	if err != nil {
-		return ModelInfo{}, err
+		return engine.ModelInfo{}, err
 	}
-	return a.reloadAfterCredentialChange(canonical)
+	return a.api.ProviderCredentialChanged(canonical)
 }
 
 // CancelSignIn abandons an in-flight sign-in and frees whatever it holds.
 // Safe to call when nothing is in progress.
-func (a *Engine) CancelSignIn(providerName string) {
+func (a *App) CancelSignIn(providerName string) {
 	canonical := model.NormalizeProvider(providerName)
 
 	pendingSignIns.Lock()
@@ -146,7 +138,7 @@ func (a *Engine) CancelSignIn(providerName string) {
 // already signed into it never authorizes the same ChatGPT account twice, and
 // the Copilot and Kilo CLIs do the same for theirs. Settings hides the button on
 // an empty list.
-func (a *Engine) ImportableSignIns() []string {
+func (a *App) ImportableSignIns() []string {
 	var out []string
 	if oauth.CodexCLIAvailable() {
 		out = append(out, "codex")
@@ -162,7 +154,7 @@ func (a *Engine) ImportableSignIns() []string {
 
 // ImportSignIn adopts that existing session. Explicit action only — the button
 // says which tool it is reading from.
-func (a *Engine) ImportSignIn(providerName string) (ModelInfo, error) {
+func (a *App) ImportSignIn(providerName string) (engine.ModelInfo, error) {
 	canonical := model.NormalizeProvider(providerName)
 
 	var err error
@@ -174,43 +166,22 @@ func (a *Engine) ImportSignIn(providerName string) (ModelInfo, error) {
 	case "kilo":
 		err = oauth.ImportKiloCLI(context.Background())
 	default:
-		return ModelInfo{}, fmt.Errorf("%s has no session to import", canonical)
+		return engine.ModelInfo{}, fmt.Errorf("%s has no session to import", canonical)
 	}
 	if err != nil {
-		return ModelInfo{}, err
+		return engine.ModelInfo{}, err
 	}
-	return a.reloadAfterCredentialChange(canonical)
+	return a.api.ProviderCredentialChanged(canonical)
 }
 
 // SignOut forgets a provider's credential. If it was the active provider the
 // engine is re-bootstrapped, which is what surfaces "needs credentials" in the
 // UI instead of failing on the user's next message.
-func (a *Engine) SignOut(providerName string) (ModelInfo, error) {
+func (a *App) SignOut(providerName string) (engine.ModelInfo, error) {
 	canonical := model.NormalizeProvider(providerName)
 	a.CancelSignIn(canonical)
 	if err := oauth.Logout(canonical); err != nil {
-		return ModelInfo{}, err
+		return engine.ModelInfo{}, err
 	}
-	return a.reloadAfterCredentialChange(canonical)
-}
-
-// reloadAfterCredentialChange re-bootstraps only when the change touches the
-// provider in use — signing into OpenRouter while running on Ollama should not
-// restart anything.
-func (a *Engine) reloadAfterCredentialChange(canonical string) (ModelInfo, error) {
-	// Before anything else, and for every credential change rather than only
-	// for sign-out: what this provider last reported was about the credential
-	// being replaced. Signing in over an existing session never passes through
-	// Logout, so hanging this on SignOut alone would leave the commonest way of
-	// switching accounts showing the previous account's numbers. See
-	// Engine.forgetQuotas.
-	a.forgetQuotas(canonical)
-	if strings.EqualFold(model.NormalizeProvider(a.cur().cfg.ModelProvider), canonical) {
-		next := a.cfg
-		if strings.TrimSpace(next.ModelName) == "" {
-			next.ModelName = a.defaultModel(canonical, next.ModelBaseURL)
-		}
-		a.applyConfig(a.cur(), next)
-	}
-	return a.modelSwitchResult()
+	return a.api.ProviderCredentialChanged(canonical)
 }
