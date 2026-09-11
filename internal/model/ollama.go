@@ -18,6 +18,11 @@ type OllamaConfig struct {
 	Model   string
 	BaseURL string
 	Timeout time.Duration
+	// Transport, when set, replaces the network (ProviderOptions.Transport).
+	// Ollama carries no key, so there is nothing for it to sign — it exists
+	// here so a remote engine's local model reaches the screen's machine, or
+	// does not, by the same door as every other provider.
+	Transport Transport
 }
 
 type OllamaProvider struct {
@@ -45,7 +50,7 @@ func NewOllamaProvider(cfg OllamaConfig) (*OllamaProvider, error) {
 	return &OllamaProvider{
 		model:      model,
 		baseURL:    baseURL,
-		httpClient: newModelHTTPClient(timeout, baseURL),
+		httpClient: newModelHTTPClient(timeout, baseURL, cfg.Transport),
 	}, nil
 }
 

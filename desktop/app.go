@@ -4294,13 +4294,19 @@ func (a *App) TestProviderConnection(providerName, modelName string) (string, er
 // button on the settings page resolves which model to ping from the open chat,
 // and a queue already knows.
 func probeProvider(canonical, modelName, baseURL, apiKey, wireFormat string) (string, error) {
+	// The screen's own ping, so it may hold the key it is proving; the
+	// sign-in, if any, is looked up here for the same reason the CLI does it
+	// — the model layer reads no credential store (§248 A3).
 	p, err := model.NewProvider(model.ProviderOptions{
-		Provider:   canonical,
-		Model:      modelName,
-		APIKey:     apiKey,
-		BaseURL:    baseURL,
-		Timeout:    15 * time.Second,
-		WireFormat: wireFormat,
+		Provider:         canonical,
+		Model:            modelName,
+		APIKey:           apiKey,
+		BaseURL:          baseURL,
+		Timeout:          15 * time.Second,
+		WireFormat:       wireFormat,
+		TokenSource:      oauth.TokenSource(canonical),
+		Headers:          oauth.Headers(canonical),
+		SignedInEndpoint: oauth.Endpoint(canonical),
 	})
 	if err != nil {
 		return "", err
@@ -5067,8 +5073,15 @@ func (a *App) applyConfig(conv *conversation, cfg config.Config) {
 		// Which shell the agent's commands and the user's hooks run in. Read
 		// per call so the composer's picker takes effect on the next command
 		// rather than on the next restart.
-		Shell:        a.shellBackend,
-		OnToolAction: func(ev turn.ToolEvent) { a.recordToolAction(conv, ev) },
+		Shell: a.shellBackend,
+		// The model credential, as a transport that signs each request from
+		// this screen's stores (provider_forward.go). The engine built below
+		// holds no key of its own: cfg.ModelAPIKey still rides along until §248
+		// A4 removes it, and the wire clients ignore it once a Transport is
+		// set. The signed-in endpoint is not a secret and travels in the open.
+		ProviderTransport: a.providerTransport(model.NormalizeProvider(cfg.ModelProvider), cfg.ModelWireFormat),
+		ProviderEndpoint:  oauth.Endpoint(model.NormalizeProvider(cfg.ModelProvider)),
+		OnToolAction:      func(ev turn.ToolEvent) { a.recordToolAction(conv, ev) },
 		// A delegate's own turn, kept until this one is assembled and can carry
 		// it (recordChildParts). The live relay above draws it and stores
 		// nothing; this is what makes it survive being reopened.

@@ -553,12 +553,18 @@ func bootstrapModelWithStatus(cfg config.Config) (model.BootstrapResult, string)
 	if timeout <= 0 {
 		timeout = 30 * time.Second
 	}
+	// A sign-in outranks the pasted key, and it is this host's to look up:
+	// the model layer reads no credential store of its own (§248 A3).
+	canonical := model.NormalizeProvider(cfg.ModelProvider)
 	result := model.BootstrapProvider(model.BootstrapOptions{
-		Provider: cfg.ModelProvider,
-		Model:    cfg.ModelName,
-		APIKey:   cfg.ModelAPIKey,
-		BaseURL:  cfg.ModelBaseURL,
-		Timeout:  timeout,
+		Provider:         cfg.ModelProvider,
+		Model:            cfg.ModelName,
+		APIKey:           cfg.ModelAPIKey,
+		BaseURL:          cfg.ModelBaseURL,
+		Timeout:          timeout,
+		TokenSource:      oauth.TokenSource(canonical),
+		Headers:          oauth.Headers(canonical),
+		SignedInEndpoint: oauth.Endpoint(canonical),
 	})
 	return result, resolveModelStatus(cfg, result)
 }

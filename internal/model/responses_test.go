@@ -313,7 +313,9 @@ func TestResponsesReportsToolProgressWhileArgumentsStream(t *testing.T) {
 func TestResponsesFactoryBuildsCodexFromSignIn(t *testing.T) {
 	signIn(t, "codex", oauthCredential("tok", "acct_9"))
 
-	p, err := NewProvider(ProviderOptions{Provider: "chatgpt-codex", Model: "gpt-5.1-codex"})
+	opts := signedIn("codex")
+	opts.Provider, opts.Model = "chatgpt-codex", "gpt-5.1-codex"
+	p, err := NewProvider(opts)
 	if err != nil {
 		t.Fatalf("NewProvider: %v", err)
 	}

@@ -33,6 +33,9 @@ type AnthropicConfig struct {
 	APIKey   string
 	BaseURL  string
 	Timeout  time.Duration
+	// Transport, when set, signs the request itself; APIKey is then neither
+	// required nor sent (ProviderOptions.Transport).
+	Transport Transport
 }
 
 type AnthropicProvider struct {
@@ -54,7 +57,7 @@ func NewAnthropicProvider(cfg AnthropicConfig) (*AnthropicProvider, error) {
 	if model == "" {
 		return nil, ErrMissingModel
 	}
-	if apiKey == "" {
+	if apiKey == "" && cfg.Transport == nil {
 		return nil, ErrMissingAPIKey
 	}
 	if baseURL == "" {
@@ -79,7 +82,7 @@ func NewAnthropicProvider(cfg AnthropicConfig) (*AnthropicProvider, error) {
 		model:      model,
 		apiKey:     apiKey,
 		baseURL:    baseURL,
-		httpClient: newModelHTTPClient(timeout, baseURL),
+		httpClient: newModelHTTPClient(timeout, baseURL, cfg.Transport),
 	}, nil
 }
 
@@ -585,7 +588,9 @@ func (p *AnthropicProvider) newHTTPRequest(ctx context.Context, body []byte) (*h
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("anthropic-version", anthropicAPIVersion)
-	httpReq.Header.Set("x-api-key", p.apiKey)
+	if p.apiKey != "" {
+		httpReq.Header.Set("x-api-key", p.apiKey)
+	}
 	return httpReq, nil
 }
 
