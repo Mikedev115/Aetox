@@ -180,10 +180,12 @@ In local mode both processes share `<DataRoot>` and **no file has two writers**.
 Engine: `aetox.db`, `model-preference.json`, `memory/`, `modes/`, `agents/`,
 `subagents/`, `tools/`, `identity/`, `permissions.json`, `hooks.json`,
 `mcp-servers.json`, `connections.json`, `snapshots/`, `project/`, `workspace`,
-`shell-audit.log`, `models/`, `bin/`, `prompts/`, `logs/engine.log`. Screen:
+`shell-audit.log`, `models/`, `bin/`, `prompts/`, `logs/engine.log`,
+`engine-<pid>.sock` (the local socket, named for the screen's pid). Screen:
 `credentials.json`, `oauth.json`, `account.json`, `webview/`, `updates/`,
 `update-check.json`, `screen.json` (new — remote hosts and their tokens,
-`atrest`-wrapped), `logs/desktop.log`. This is an invariant, not a description.
+`atrest`-wrapped), `logs/aetox-<time>.log` (debuglog, one file per launch).
+This is an invariant, not a description.
 
 ## 3. The seam, in-process first
 
@@ -562,9 +564,69 @@ And `App.eng *engine.Engine` beside `App.api engine.API`: the lifecycle hooks
 still take the concrete engine, and it is the last thing on the screen that
 knows the engine is in this process — phase 2 deletes it.
 
-**Numbers not measured yet.** Nothing crosses a socket in phase 1, so the RPC
-round trip, the turn latency delta and the event volume are phase 2's to
-record here.
+**Numbers not measured in phase 1.** Nothing crossed a socket yet; they are
+below, under phase 2.
+
+### Phase 2 — 2026-09-12, eight commits on `claude/engine-carve`
+
+The wire, and the flip. Decision 2 is true as of P2-7: `desktop.App` holds no
+`*engine.Engine` any more, `App.api` is an `*rpc.Client` on one socket to
+`cmd/aetox-engine`, and there is no in-process path to drift. Every commit
+green on `go build ./... && go test ./desktop/ ./internal/engine/rpc/
+./cmd/aetox-engine/ ./internal/update/` and the frontend's `svelte-check` +
+vitest; the engine's own suite once at the end.
+
+| # | commit | what it is | pinned by |
+|---|---|---|---|
+| P2-1 | `6b0715ce` | `internal/engine/rpc`: `Conn` — one writer, one reader, a goroutine per request, side-prefixed ids, ping 15 s / pong 30 s, a 512-frame outbound queue as back-pressure; `Error` carrying the Go error's sentence and a `kind` from `Kinds` (`canceled`, `deadline`, `no_screen`, `disconnected`, `method_not_found`); a panicking handler answers an internal error, not a crash; `Listen("unix"|"tcp")` removes a stale socket first; `Accept`/`Dial` check the bearer token in constant time | `conn_test.go` (calls answered out of order, 500 notifications in order, a call back while a call is open, errors keep sentence and kind, void calls answer, a cancelled call frees the wire, a dead peer fails every open call at once, the token); **`spike_unix_test.go` — AF_UNIX on this Windows 11 listens, dials, round-trips** |
+| P2-2 | `7f21d68c` | the generator's two new outputs — `rpc/client_gen.go` (`var _ engine.API = (*Client)(nil)`: `(T, error)` returns the error, bare `T` answers the zero value and tells the failure hook, several values through `callN` as one array) and `rpc/server_gen.go` (positional params: fewer → zero values, more → ignored, wrong → invalid-params naming the position); `Client`, `Server` (`NewServer(token, engine.NewEngine)` — the engine is built with the peer as its screen, since each needs the other first; one screen at a time, the newer replaces the older), `ScreenPeer` = `engine.Screen` over the wire | `gen_test.go` diffs all four files; **`turn_test.go` — a whole turn driven with nothing but the bindings** (`OpenProjectPath` → the three switches → `NewSession` → `SendMessage`), `agent:chunk` crossing with `Replace:true` exactly once and equal to the `TurnReply` |
+| P2-3 | `663ed3e5` | the provider proxy: `providerProxy` is the `model.Transport` under `retryTransport`/`idleTimeoutBody`, one `RoundTrip` = one `provider.open` carrying method, URL, headers, body and the first-byte budget read off the transport it replaced; chunks queue per stream (256 × ≤32 KiB) and a goroutine feeds the pipe so the read loop never blocks on it; cancel — the Stop button, a timeout, a body closed early — withdraws the request on the screen; `ServeProvider(client, Signer)` on the screen, a transport per first-byte budget so connections are reused | `provider_proxy_test.go`: the key at the provider and nowhere in the engine's request, SSE byte-exact with the quota header, cancel reaching the provider, **429 → 200 through `model.NewProvider` on the proxy** (replay and re-sign), no screen fails after the wait |
+| P2-4 | `ad653e4b` | window tools across the wire: `hello` announces each pack's shape (`Announce`: name, description, definition, actions, guidance per action and `steps`), `ScreenPeer.WindowTools` lends a `screenTool` per announcement that is `skill.Tool` + `skill.Packed` + `skill.Guided`; a call crosses as `screen.tool` and comes back as the whole `skill.Output` with the error's mark (`callfault`/`statereport`) intact; `Narrow` asks the screen for the narrowed shape once (`screen.toolCut`, cached); no screen answers as a state report | `screen_tool_test.go`: lent and run with session/root/args and the picture back, marks kept, the narrowed enum and description are the screen's, `ListTools` of a real session carries `browser` as workbench after hello, no screen does not hang |
+| P2-5 | `01c93097` | `/file/` on the engine's listener (`engine.FileHandler`, one resolver behind two doors) behind the token; `rpc.FileProxy` is the screen's `/aetox-file/` — a `ReverseProxy` into the socket, token added, flushed as it streams, Range through both, 502 with a sentence when the engine is gone. Found on the way: the desk questions must not wait for a screen (`ScreenPeer.ask` answers `ErrNoScreen` at once; only a turn's `provider.open` and `screen.tool` wait `screenWait`) | `file_test.go` |
+| P2-6 | `202ff12f` | `cmd/aetox-engine serve (--socket | --tcp) [--root] [--token-stdin | --token-file] [--idle-exit]`; the token on stdin (EOF = the screen is gone, exit) or a file, never argv; one stdout line `{network, address, pid, version}`; `<DataRoot>/logs/engine.log`; `engine.Startup` in the child as before; `aetoxapp.Discard` console + `engine.UseConsole`; cross-compiles `linux/amd64` and `linux/arm64` with `CGO_ENABLED=0` | `main_test.go`: built, served, spoken to, refused a wrong token, gone on stdin close, refuses to start with no token |
+| P2-7 | `beacf7b6` | **the flip.** `desktop/engine_local.go`: the supervisor — unix socket under DataRoot first, `--tcp 127.0.0.1:0` when it cannot listen; a dropped wire is redialed before the process is replaced; a crash restarts with 1/2/4 s backoff, three in a minute → `failed` until `RestartEngine`; `rpc.Client.await` makes every binding wait up to 30 s for a wire, so a restart is a pause and not a screen of errors; `PrepareToClose` across the wire before the window goes; the binary is `AETOX_ENGINE`, else `aetox-engine.exe` beside the app, else `go run ./cmd/aetox-engine` in a development tree. `rpc.ServeScreen(client, appScreen{a})` — the in-process `Screen` served whole. `EngineStatus`/`RestartEngine` bindings, `engine:status`, `EngineStatus.svelte` in the update card's shell. Packaging: `release.yml` builds the engine first, checks it, ships it in the installer (`project.nsi`), the msix stage and the portable zip; `internal/update` swaps both exes by name; `wails-dev.bat` builds it beside the dev binary | **the whole desktop suite over the wire** (`newTestApp(t)` = server + loopback listener + client, the engine shut down with the test); `engine_local_test.go` — the real binary: a turn through the child with events crossing as JSON, a killed child started again with a waiting binding answered, the window's close taking the child with it; `engineStatus.test.ts`; `TestSwapPortableSwapsTheEngineBesideTheAppByName` |
+| P2-8 | this commit | after a restart the frontend puts the chat on screen back in front of the new engine (`resyncAfterEngineRestart`: `LoadSessionAnyProject` + `loadRealState`, once per restart count); the numbers; this record | `engineResync.test.ts`, `measure_test.go` |
+
+**The numbers** (owner's machine, Windows 11, 2026-09-12, `measure_test.go`
+and `engine_local_test.go`, logged not asserted):
+
+| what | measured |
+|---|---|
+| RPC round trip, in-process engine behind a loopback TCP listener, `AppVersion` × 2000 | mean **58 µs**, p95 520 µs, max 660 µs |
+| RPC round trip to the real child over AF_UNIX, `AppVersion` × 500 | mean **64 µs** |
+| a turn on `aetox-render:test`, in-process vs over the wire, p50 of 5 | 1.204 s vs 1.219 s — **+15 ms**, inside the fixture's own noise |
+| events per such turn | **62 frames, 9.2 KB** |
+
+For scale: the plan's comparison point was a `git` spawn at ~190 ms, which
+the Git pane polls every two seconds. A binding across the socket costs a
+three-thousandth of that.
+
+**As built, against §4.** `provider.open` carries the full URL and the wire
+format, not `auth`/`baseURL`/`path`: the screen's own signer
+(`providerTransport`, unchanged) knows the header, and the endpoint a sign-in
+pinned is a separate question the engine already asks (`ProviderEndpoint`),
+so the URL it builds is the one to send. `hello` carries a
+`ToolAnnouncement` per tool (definition, actions, guidance) rather than bare
+definitions, and a narrowed shape is fetched from the screen's own `Narrow`
+(`screen.toolCut`) rather than reconstructed. `/file/<rel>` serves the
+current session's root, as the in-process host did; `?session=` is not read.
+The stdout line is `{network, address, pid, version}`. No-screen waits only
+for what a turn cannot do without (a provider request, a window tool); the
+desk questions answer at once with the catalog's answer. The re-sync after a
+restart is the frontend's (`resyncAfterEngineRestart`), not a replay of calls
+by the Go screen: the frontend is the only side that knows which chat is on
+screen, and reopening it through `LoadSessionAnyProject` is what a launch
+does. `turn_busy` is not a registered kind — there is no such sentinel. The
+client waits for the wire (`connectWait` 30 s) instead of failing while the
+engine restarts, which the design did not say and the first crash test
+showed was needed.
+
+**Left for phase 3.** `Setpgid` for a Linux child is not done (the local
+child is Windows today; stdin-EOF exit covers the rest). The unix socket path
+is `<DataRoot>/engine-<pid>.sock` and `sun_path`'s limit is real: a test's
+long temp root made the child fall back to TCP, which is exactly the fallback
+working, and a production DataRoot is fifty characters. `--idle-exit` and
+`--token-file` are built and untested against a real ssh host.
 
 **Two things Stage A found that narrow §2.1's import ban.** First, the ban is
 on the *engine's own files* and on `internal/model`, not on the transitive

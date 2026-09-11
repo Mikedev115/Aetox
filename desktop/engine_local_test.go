@@ -149,6 +149,21 @@ func TestTheWindowRunsATurnOnItsChildEngine(t *testing.T) {
 	if _, _, _, ok := a.engineEndpoint(); !ok {
 		t.Error("the file proxy has no endpoint while the engine is connected")
 	}
+	// The number §248 asked for: a binding's round trip to the real child,
+	// over whichever socket it got. Logged, never asserted.
+	const n = 500
+	begin := time.Now()
+	for i := 0; i < n; i++ {
+		if a.api.AppVersion() == "" {
+			t.Fatal("AppVersion answered empty")
+		}
+	}
+	t.Logf("round trip to the child over %s (%s), %d calls: mean %s", st.Address, socketKind(a), n, time.Since(begin)/n)
+}
+
+func socketKind(a *App) string {
+	network, _, _, _ := a.engineEndpoint()
+	return network
 }
 
 // A crash restarts the engine; the window's bindings wait through it rather
