@@ -1130,6 +1130,28 @@ export namespace main {
 	        this.err = source["err"];
 	    }
 	}
+	export class MemoryConsolidation {
+	    scope: string;
+	    before: string[];
+	    after: string[];
+	    note: string;
+	    bytes: number;
+	    maxBytes: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new MemoryConsolidation(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.scope = source["scope"];
+	        this.before = source["before"];
+	        this.after = source["after"];
+	        this.note = source["note"];
+	        this.bytes = source["bytes"];
+	        this.maxBytes = source["maxBytes"];
+	    }
+	}
 	export class MemoryScopeInfo {
 	    scope: string;
 	    bytes: number;

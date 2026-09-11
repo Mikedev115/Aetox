@@ -7523,6 +7523,20 @@ button.phase-head:hover { color:var(--text-muted); }
   color:var(--text-secondary); border-bottom:1px solid var(--border-subtle);
 }
 .mem-cap-note.mem-cap-full { background:var(--status-danger-bg); }
+.mem-cap-note .mem-consolidate { margin-left:auto; flex:none; display:inline-flex; align-items:center; gap:5px; }
+/* The model's shorter list beside the current one. Read, then applied. */
+.mem-draft { border-bottom:1px solid var(--border-subtle); background:var(--surface-sunken); }
+.mem-draft-cols { display:grid; grid-template-columns:1fr 1fr; gap:0; }
+.mem-draft-col { padding:10px 16px 6px; min-width:0; }
+.mem-draft-col + .mem-draft-col { border-left:1px solid var(--border-subtle); }
+.mem-draft-h { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:var(--fs-2xs); font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); }
+.mem-draft-h .mono { font-family:var(--font-mono, monospace); font-weight:500; letter-spacing:normal; text-transform:none; color:var(--text-dim); }
+.mem-draft-line { margin:0 0 6px; font-size:var(--fs-sm); color:var(--text-primary); word-break:break-word; }
+.mem-draft-line.was { color:var(--text-dim); }
+.mem-draft-note { padding:8px 16px; font-size:var(--fs-sm); color:var(--text-secondary); border-top:1px solid var(--border-subtle); }
+.mem-draft-actions { display:flex; align-items:center; gap:8px; padding:10px 16px; border-top:1px solid var(--border-subtle); }
+.mem-draft-hint { flex:1; font-size:var(--fs-xs); color:var(--text-dim); }
+@media (max-width:900px) { .mem-draft-cols { grid-template-columns:1fr; } .mem-draft-col + .mem-draft-col { border-left:0; border-top:1px solid var(--border-subtle); } }
 .mem-cap-note.mem-cap-full .icon { color:var(--status-danger); flex:none; }
 .mem-cap-note.mem-cap-near .icon { color:var(--status-warn); flex:none; }
 /* A project's file, nested under the desk whose sessions write it. */
@@ -7548,6 +7562,14 @@ button.phase-head:hover { color:var(--text-muted); }
 .mem-menu-i.rec { background:color-mix(in srgb, var(--diff-hunk-text) 10%, transparent); }
 .mem-menu-i small { margin-left:auto; font-size:var(--fs-2xs); color:var(--text-muted); white-space:nowrap; }
 .mem-menu-i .learn-scope { flex:none; }
+.mem-menu-i.full { opacity:.55; cursor:default; }
+.mem-menu-i.full small { color:var(--status-danger); }
+/* A move that failed, in the block it was tried from — not at the page's top. */
+.mem-move-error {
+  display:flex; align-items:flex-start; gap:8px; padding:9px 16px; font-size:var(--fs-sm);
+  color:var(--text-secondary); background:var(--status-danger-bg); border-bottom:1px solid var(--border-subtle);
+}
+.mem-move-error .icon { color:var(--status-danger); flex:none; }
 
 /* Memory Section Split Headers & Badges */
 .mem-header-split {
