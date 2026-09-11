@@ -39,6 +39,9 @@ func NewServer(token string, build func(engine.Screen) *engine.Engine) *Server {
 	}
 	s.engine = build(s.peer)
 	s.peer.server = s
+	// The provider stream's two notifications land on the peer's streams.
+	s.OnNotification(MethodProviderChunk, func(_ string, params json.RawMessage) { s.peer.streams.chunk(params) })
+	s.OnNotification(MethodProviderClose, func(_ string, params json.RawMessage) { s.peer.streams.closed(params) })
 	return s
 }
 
