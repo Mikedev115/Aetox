@@ -223,6 +223,9 @@ type Engine struct {
 	// provider requests signed, window tools lent, the desk questions
 	// answered. Nil is nobody watching (noScreen).
 	screen Screen
+	// console is where the chat app's console lines go (UseConsole); nil is
+	// the process's stdout, as the desktop has always had it.
+	console aetoxapp.Console
 
 	mcp *mcp.Manager // configured MCP servers; built once, shared by every conversation
 
@@ -4506,7 +4509,7 @@ func (a *Engine) applyConfig(conv *conversation, cfg config.Config) {
 	// compiles cleanly and shows up only as the UI drawing the wrong text.
 	res, bootErr := bootstrap.Engine(cfg, bootstrap.Options{
 		Surface: prompt.SurfaceDesktop,
-		Console: aetoxapp.NewStdIO(),
+		Console: a.consoleOf(),
 		// The desk the open session was created at. Nil — the full desk — until
 		// a session says otherwise, which is what every session before §83 and
 		// every unfiltered path still gets.

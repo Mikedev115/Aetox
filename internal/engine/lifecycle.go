@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"path/filepath"
 
+	aetoxapp "github.com/Mikedev115/Aetox/internal/app"
 	"github.com/Mikedev115/Aetox/internal/config"
 )
 
@@ -40,6 +41,18 @@ func AssetMiddleware(e *Engine, next http.Handler) http.Handler { return e.asset
 // /aetox-file/ is proxied onto. Same resolver, same sandbox, same Range
 // support as the middleware; the caller puts the token check in front.
 func FileHandler(e *Engine, prefix string) http.Handler { return e.fileHandler(prefix) }
+
+// UseConsole is where the chat app's console lines go — stdout in the
+// desktop process, as they always did, and nowhere in the engine process,
+// whose stdout is a protocol line (cmd/aetox-engine). Set before Startup.
+func UseConsole(e *Engine, c aetoxapp.Console) { e.console = c }
+
+func (a *Engine) consoleOf() aetoxapp.Console {
+	if a.console != nil {
+		return a.console
+	}
+	return aetoxapp.NewStdIO()
+}
 
 // WebviewUserDataDir returns where a WebView2 instance should store its
 // profile (cache/cookies/IndexedDB) — always an explicit, Aetox-owned path
