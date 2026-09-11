@@ -271,6 +271,58 @@ func (a *App) priorMemoryDecision(p learned.Proposal) (learned.Prior, bool, erro
 	return learned.Prior{}, false, nil
 }
 
+// priorSkillDecision is priorMemoryDecision for the skill queue: what the
+// store already knows about an edit to one skill. The same edit is the same
+// body — a `replace` and an `add` that put the same paragraph in the file are
+// one proposal — so op and before only sharpen the identical case. Bound to
+// the one skill, because a sentence refused in one SKILL.md says nothing about
+// another.
+func (a *App) priorSkillDecision(skillName, op, before, body string) (learned.Prior, bool, error) {
+	db, err := a.database()
+	if err != nil {
+		return learned.Prior{}, false, err
+	}
+	var pending, approved, rejected *learned.Prior
+	err = eachRow(db, "pending: reading what was already decided about a skill", `
+		SELECT id, op, before, body, state, decided_at FROM pending_changes
+		  WHERE kind = ? AND scope = ? ORDER BY id DESC`, []any{kindSkill, skillName},
+		func(rows *sql.Rows) error {
+			var r learned.Prior
+			var rowOp, rowBefore string
+			if err := rows.Scan(&r.ID, &rowOp, &rowBefore, &r.Body, &r.State, &r.DecidedAt); err != nil {
+				return err
+			}
+			identical := rowOp == op && rowBefore == before && r.Body == body
+			if !identical && !learned.SameFact(r.Body, body) {
+				return nil
+			}
+			switch r.State {
+			case statePending:
+				if pending == nil {
+					pending = &r
+				}
+			case stateApproved:
+				if approved == nil {
+					approved = &r
+				}
+			case stateRejected:
+				if rejected == nil {
+					rejected = &r
+				}
+			}
+			return nil
+		})
+	if err != nil {
+		return learned.Prior{}, false, err
+	}
+	for _, hit := range []*learned.Prior{pending, approved, rejected} {
+		if hit != nil {
+			return *hit, true, nil
+		}
+	}
+	return learned.Prior{}, false, nil
+}
+
 // ListPendingChanges returns what is waiting for a decision, oldest first —
 // the order they were learned in is the order they make sense read in.
 //

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -26,7 +27,9 @@ import (
 // and proposes one edit to its SKILL.md. The App's real implementation calls a
 // model; a test supplies a fake.
 type skillEditDrafter interface {
-	Draft(ctx context.Context, skillName, skillText, evidence string) (op, before, body, reason string, err error)
+	// refused is what the user already turned down for this skill, one edit
+	// per line, so the drafter is not asked to rediscover them.
+	Draft(ctx context.Context, skillName, skillText, evidence, refused string) (op, before, body, reason string, err error)
 }
 
 // generateSkillRefinements drafts an edit for each skill the detector flags and
@@ -41,14 +44,14 @@ func (a *App) generateSkillRefinements(ctx context.Context, drafter skillEditDra
 	// having its own copy of both meant the two could drift apart on which
 	// names count as skills.
 	for _, m := range a.skillMisfires() {
-		if a.hasPendingSkillProposal(m.skill) {
+		if a.hasPendingSkillProposal(m.skill) || a.refusalStillStands(m) {
 			continue
 		}
 		text, err := skill.Body(m.skill)
 		if err != nil {
 			continue
 		}
-		op, before, body, reason, err := drafter.Draft(ctx, m.skill, text, a.skillEvidence(m))
+		op, before, body, reason, err := drafter.Draft(ctx, m.skill, text, a.skillEvidence(m), a.refusedSkillEdits(m.skill))
 		if err != nil {
 			debuglog.Msg("skilltune: drafting %s failed: %v", m.skill, err)
 			continue
@@ -127,6 +130,66 @@ func (a *App) hasPendingSkillProposal(skillName string) bool {
 		kindSkill, skillName, statePending).Scan(&id) == nil
 }
 
+// refusalStillStands is the other gate, and the one the first pass lacked
+// (found 11 ก.ย. with the memory queue's twin, DECISIONS §246): a skill whose
+// last edit the user turned down was re-drafted on the very next pass, from
+// the same misfires, and a model asked the same question twice answers in
+// different words — so the refusal bought one turn of quiet and a new card.
+// A no stands until something new happens: the skill is left alone until a
+// bad rating arrives that is newer than the refusal.
+func (a *App) refusalStillStands(m skillMisfire) bool {
+	db, err := a.database()
+	if err != nil || len(m.jobIDs) == 0 {
+		return false
+	}
+	var decidedAt string
+	if db.QueryRow(
+		`SELECT decided_at FROM pending_changes WHERE kind = ? AND scope = ? AND state <> ?
+		  ORDER BY id DESC LIMIT 1`,
+		kindSkill, m.skill, statePending).Scan(&decidedAt) != nil {
+		return false
+	}
+	var latest string
+	// A row per id rather than IN (?), which database/sql cannot expand; the
+	// list is capped at a handful by the detector.
+	for _, id := range m.jobIDs {
+		var at string
+		if db.QueryRow(`SELECT time FROM jobs WHERE id = ?`, id).Scan(&at) == nil && at > latest {
+			latest = at
+		}
+	}
+	// Only a refusal holds the line: an approved edit changed the file, and
+	// misfires after it are a new question about a new skill.
+	var state string
+	_ = db.QueryRow(
+		`SELECT state FROM pending_changes WHERE kind = ? AND scope = ? AND state <> ?
+		  ORDER BY id DESC LIMIT 1`, kindSkill, m.skill, statePending).Scan(&state)
+	return state == stateRejected && latest != "" && latest <= decidedAt
+}
+
+// refusedSkillEdits is what the user turned down for one skill, newest first,
+// for the drafter to read before it drafts — the same list the memory reviewer
+// reads for the same reason.
+func (a *App) refusedSkillEdits(skillName string) string {
+	db, err := a.database()
+	if err != nil {
+		return ""
+	}
+	var b strings.Builder
+	_ = eachRow(db, "skilltune: reading refused edits", `
+		SELECT op, body FROM pending_changes WHERE kind = ? AND scope = ? AND state = ?
+		  ORDER BY id DESC LIMIT 10`, []any{kindSkill, skillName, stateRejected},
+		func(rows *sql.Rows) error {
+			var op, body string
+			if err := rows.Scan(&op, &body); err != nil {
+				return err
+			}
+			fmt.Fprintf(&b, "- [%s] %s\n", op, oneLine(body, 300))
+			return nil
+		})
+	return strings.TrimRight(b.String(), "\n")
+}
+
 // skillEvidence is the misfires a proposal is grounded in — the request that got
 // a bad answer, the answer, and how it was scored (👎 or a redo). A person reads
 // it to judge whether the edit is warranted; the drafter reads it to know what
@@ -173,10 +236,12 @@ func (a *App) proposeSkillEdit(m skillMisfire, op, before, body, reason string) 
 	if err != nil {
 		return false
 	}
-	var existing int64
-	if db.QueryRow(
-		`SELECT id FROM pending_changes WHERE kind = ? AND scope = ? AND op = ? AND before = ? AND body = ? LIMIT 1`,
-		kindSkill, m.skill, op, before, body).Scan(&existing) == nil {
+	// The identical edit in any state, as before — and, since §246, the same
+	// edit in other words against what the user already answered.
+	if prior, found, err := a.priorSkillDecision(m.skill, op, before, body); err != nil || found {
+		if found {
+			debuglog.Msg("skilltune: %s edit restates #%d (%s), not queued", m.skill, prior.ID, prior.State)
+		}
 		return false
 	}
 	if strings.TrimSpace(reason) == "" {
@@ -251,16 +316,22 @@ var skillEditTool = model.ToolDefinition{
 	},
 }
 
-func (d appDrafter) Draft(ctx context.Context, skillName, skillText, evidence string) (op, before, body, reason string, err error) {
+func (d appDrafter) Draft(ctx context.Context, skillName, skillText, evidence, refused string) (op, before, body, reason string, err error) {
 	p, modelName, err := d.app.oneShotProvider()
 	if err != nil {
 		return "", "", "", "", err
 	}
+	content := fmt.Sprintf(
+		"%s\n\n=== สกิล: %s ===\n%s\n\n=== ผลลัพธ์ที่โดนให้คะแนนแย่ ===\n%s",
+		skillDraftInstructions, skillName, skillText, evidence)
+	// Only when there is something to say, so a skill with no history reads
+	// the prompt it always read.
+	if refused != "" {
+		content += "\n\n=== การแก้ที่ผู้ใช้ไม่เอาแล้ว (อย่าเสนอสิ่งเดียวกันในสำนวนอื่น ถ้าไม่มีทางอื่นที่จะช่วย ให้ body ว่าง) ===\n" + refused
+	}
 	req := model.Request{
-		Model: modelName,
-		Messages: []model.Message{{Role: model.RoleUser, Content: fmt.Sprintf(
-			"%s\n\n=== สกิล: %s ===\n%s\n\n=== ผลลัพธ์ที่โดนให้คะแนนแย่ ===\n%s",
-			skillDraftInstructions, skillName, skillText, evidence)}},
+		Model:      modelName,
+		Messages:   []model.Message{{Role: model.RoleUser, Content: content}},
 		Tools:      []model.ToolDefinition{skillEditTool},
 		ToolChoice: "required",
 		MaxTokens:  1800,

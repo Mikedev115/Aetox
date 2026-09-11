@@ -280,6 +280,14 @@ func (a *App) SynthesizeHabitForSessions(ctx context.Context, synthesizer habitS
 		}
 		id = res.ID
 	} else {
+		// A skill proposal is bound by the same rule at its own door: the
+		// user's earlier answer about this skill stands, in any wording.
+		if prior, found, err := a.priorSkillDecision(scope, op, "", change.Body); err != nil {
+			return nil, fmt.Errorf("failed to record habit proposal: %w", err)
+		} else if found {
+			debuglog.Msg("habit_synthesis: skill %q restates #%d (%s), not queued", scope, prior.ID, prior.State)
+			return nil, nil
+		}
 		res, err := db.Exec(`
 			INSERT INTO pending_changes (kind, scope, target, op, body, reason, source, state, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
