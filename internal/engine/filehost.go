@@ -163,72 +163,88 @@ func (a *Engine) fileHost(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-
 		// r.URL.Path is already percent-decoded by net/http. Decoding it again
 		// would corrupt any real % in a filename and, worse, let %252e%252e
 		// through as ".." — the escape safeSandboxPath is there to stop.
-		rel := strings.TrimPrefix(r.URL.Path, fileHostPrefix)
-		if rel == "" {
-			http.NotFound(w, r)
-			return
-		}
-
-		root := strings.TrimSpace(a.cur().cfg.SandboxRoot)
-		if root == "" {
-			http.Error(w, "no project open", http.StatusNotFound)
-			return
-		}
-		// A produced file has two names: the path the model ASKED for, and the
-		// path placedWrite actually gave it — a session's output/<id> folder
-		// when no project is focused. An <img> in an answer carries the first,
-		// because the model writes ![cat](cat.jpg) out of the same intention
-		// that made the call, not out of the receipt that says where the file
-		// landed. So every picture a chat produced 404'd here (owner, 7 ก.ย.,
-		// with a screenshot of the second image_make call).
-		//
-		// The file TOOLS already answer this with skill.PlacedPath: try the
-		// literal path, fall back to the session's folder, and report the
-		// original when neither exists. The same rule one layer up, and it
-		// grants nothing new — both candidates still go through
-		// safeSandboxPath under the same root.
-		// Two candidate folders, each given the extension tolerance in turn.
-		// They have to compose: a picture asked for as `hero.png` that was
-		// written as `output/<id>/hero.jpg` misses on BOTH counts at once, and
-		// resolving the folder first would leave the extension rule searching
-		// the root while the file sits in the session's folder.
-		//
-		// PlacedWrite rather than PlacedPath: the second candidate is wanted as
-		// a place to look, and PlacedPath only reports one that already holds
-		// the exact name — which is the case that has just failed.
-		full, err := a.resolveProduced(root, rel)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusForbidden)
-			return
-		}
-
-		f, err := os.Open(full)
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-		defer f.Close()
-		info, err := f.Stat()
-		if err != nil || info.IsDir() {
-			http.NotFound(w, r)
-			return
-		}
-
-		if ct := contentTypes[strings.ToLower(filepath.Ext(full))]; ct != "" {
-			w.Header().Set("Content-Type", ct)
-		}
-		// A file the agent is still writing must not be cached under a URL that
-		// never changes; the pane re-reads on every open by design (loadFileTab)
-		// and a cached response would hand back the previous turn's bytes.
-		w.Header().Set("Cache-Control", "no-store")
-
-		// ServeContent, not io.Copy: it answers Range requests, which is the
-		// whole reason a video can be scrubbed without downloading it first,
-		// and it sets Last-Modified and Accept-Ranges to match.
-		http.ServeContent(w, r, info.Name(), info.ModTime(), f)
+		a.serveProjectFile(w, r, strings.TrimPrefix(r.URL.Path, fileHostPrefix))
 	})
+}
+
+// fileHandler is the same host at another prefix: what the engine process
+// serves on its own listener (§248 phase 2, rpc.FilePath), with the screen's
+// /aetox-file/ reverse-proxied onto it. One resolver, two doors.
+func (a *Engine) fileHandler(prefix string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, prefix) {
+			http.NotFound(w, r)
+			return
+		}
+		a.serveProjectFile(w, r, strings.TrimPrefix(r.URL.Path, prefix))
+	})
+}
+
+// serveProjectFile answers one project-relative path from the open project.
+func (a *Engine) serveProjectFile(w http.ResponseWriter, r *http.Request, rel string) {
+	if rel == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	root := strings.TrimSpace(a.cur().cfg.SandboxRoot)
+	if root == "" {
+		http.Error(w, "no project open", http.StatusNotFound)
+		return
+	}
+	// A produced file has two names: the path the model ASKED for, and the
+	// path placedWrite actually gave it — a session's output/<id> folder
+	// when no project is focused. An <img> in an answer carries the first,
+	// because the model writes ![cat](cat.jpg) out of the same intention
+	// that made the call, not out of the receipt that says where the file
+	// landed. So every picture a chat produced 404'd here (owner, 7 ก.ย.,
+	// with a screenshot of the second image_make call).
+	//
+	// The file TOOLS already answer this with skill.PlacedPath: try the
+	// literal path, fall back to the session's folder, and report the
+	// original when neither exists. The same rule one layer up, and it
+	// grants nothing new — both candidates still go through
+	// safeSandboxPath under the same root.
+	// Two candidate folders, each given the extension tolerance in turn.
+	// They have to compose: a picture asked for as `hero.png` that was
+	// written as `output/<id>/hero.jpg` misses on BOTH counts at once, and
+	// resolving the folder first would leave the extension rule searching
+	// the root while the file sits in the session's folder.
+	//
+	// PlacedWrite rather than PlacedPath: the second candidate is wanted as
+	// a place to look, and PlacedPath only reports one that already holds
+	// the exact name — which is the case that has just failed.
+	full, err := a.resolveProduced(root, rel)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	f, err := os.Open(full)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil || info.IsDir() {
+		http.NotFound(w, r)
+		return
+	}
+
+	if ct := contentTypes[strings.ToLower(filepath.Ext(full))]; ct != "" {
+		w.Header().Set("Content-Type", ct)
+	}
+	// A file the agent is still writing must not be cached under a URL that
+	// never changes; the pane re-reads on every open by design (loadFileTab)
+	// and a cached response would hand back the previous turn's bytes.
+	w.Header().Set("Cache-Control", "no-store")
+
+	// ServeContent, not io.Copy: it answers Range requests, which is the
+	// whole reason a video can be scrubbed without downloading it first,
+	// and it sets Last-Modified and Accept-Ranges to match.
+	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
 }

@@ -22,6 +22,7 @@ type Server struct {
 	peer     *ScreenPeer
 	engine   *engine.Engine
 	dataRoot string
+	files    http.Handler
 
 	mu        sync.RWMutex
 	handlers  map[string]Handler
@@ -42,6 +43,7 @@ func NewServer(token string, build func(engine.Screen) *engine.Engine) *Server {
 	s.engine = build(s.peer)
 	s.peer.server = s
 	s.dataRoot, _ = config.DataRoot()
+	s.files = engine.FileHandler(s.engine, FilePath)
 	s.Handle(MethodHello, s.hello)
 	// The provider stream's two notifications land on the peer's streams.
 	s.OnNotification(MethodProviderChunk, func(_ string, params json.RawMessage) { s.peer.streams.chunk(params) })
@@ -70,11 +72,12 @@ func (s *Server) OnNotification(method string, n Notifier) {
 	s.notifiers[method] = n
 }
 
-// Handler is the HTTP side of the listener: the WebSocket upgrade at RPCPath.
-// Later commits of phase 2 mount /file/ beside it, behind the same token.
+// Handler is the HTTP side of the listener: the WebSocket upgrade at
+// RPCPath, and the open project's files at FilePath, behind the same token.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc(RPCPath, s.accept)
+	mux.Handle(FilePath, s.fileHandler())
 	return mux
 }
 

@@ -35,6 +35,12 @@ func Shutdown(e *Engine, ctx context.Context) { e.shutdown(ctx) }
 // (desktop/ttshost.go).
 func AssetMiddleware(e *Engine, next http.Handler) http.Handler { return e.assetMiddleware(next) }
 
+// FileHandler serves the open project's files at prefix — the engine
+// process's own door for them (§248 phase 2), which the screen's
+// /aetox-file/ is proxied onto. Same resolver, same sandbox, same Range
+// support as the middleware; the caller puts the token check in front.
+func FileHandler(e *Engine, prefix string) http.Handler { return e.fileHandler(prefix) }
+
 // WebviewUserDataDir returns where a WebView2 instance should store its
 // profile (cache/cookies/IndexedDB) — always an explicit, Aetox-owned path
 // under config.DataRoot() (ARCHITECTURE.md §14), never Wails'/go-webview2's
