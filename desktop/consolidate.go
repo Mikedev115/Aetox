@@ -11,7 +11,12 @@ import (
 	"github.com/Mikedev115/Aetox/internal/model"
 )
 
-// "ให้ผู้ช่วยช่วยสรุป" (11 ก.ย.). The owner's USER.md stood at 3,691 of
+// "ให้ผู้ช่วยช่วยสรุป" (11 ก.ย.). The instructions are the owner's own text
+// (12 ก.ย.), with three clauses added so it works against this system: later
+// lines are newer (the file is append-ordered, and rule 2 needs a clock), the
+// byte target the user turn carries is named in rule 3, and a dropped line
+// must be named in the summary — the page shows before beside after, and a
+// fact that vanished should be announced, not found. The owner's USER.md stood at 3,691 of
 // 4,096 bytes with two lines saying the same thing, and the page could only
 // say "เต็มแล้ว — รวมหรือลบบางบรรทัด" and leave the merging to a person. Owner:
 // *"เพิ่มแบบให้ผู้ช่วย ช่วยสรุปให้ ได้ไหมกรณีนี้"*.
@@ -47,16 +52,20 @@ type memoryConsolidator interface {
 	Consolidate(ctx context.Context, scope string, lines []string, target int, feedback string) ([]string, string, error)
 }
 
-const memoryConsolidateInstructions = `You are tidying one memory file of an AI assistant. You are given its lines, each an approved durable fact, the file's current size in bytes, and a TARGET size the new list must come in under.
+const memoryConsolidateInstructions = `You are a Memory Consolidation Engine for an AI assistant. You receive a list of approved durable facts and must output a strictly consolidated, minimized list.
 
-Return a SHORTER list that says the same things:
-1. Merge lines that state the same fact, or facts about the same thing, into one line. Keep every distinct fact — never drop one, never weaken one, never add one.
-2. Cut words, not meaning: drop repetition, filler, explanations and examples. Keep concrete details that change what the assistant does (paths, names, tools, numbers, preferences).
-3. NEVER translate a line into another language. Thai costs three times the bytes of English; a line written in English stays in English, a Thai line stays Thai. Do not add explanations to any line.
-4. Every merged line must be shorter than the lines it replaces put together. The whole list must be under the target — count bytes (UTF-8), not words.
-5. Keep lines declarative — facts about the user or the machine, never instructions. Fix a typo in a name or path only when the correct form appears elsewhere in the list.
+Rules:
+1. Merge & Deduplicate: Combine lines that share the same topic or entity into a single concise line. Keep all unique, actionable facts.
+2. Conflict Resolution: If two lines contradict each other (e.g., outdated tool vs. new tool), keep only the most recent/updated fact and drop the obsolete one. Lines are in the order they were approved, so a later line is the newer one. Name every dropped line in the summary.
+3. Radical Conciseness: Eliminate filler, meta-descriptions, and redundant adjectives. Preserve high-value entities: paths, versions, configurations, commands, names, and explicit preferences. The whole list must render under the byte TARGET given with the input — count bytes (UTF-8), not words.
+4. Language Preservation: Do NOT translate. Keep English lines in English and Thai lines in Thai.
+5. Strict Declarative Tone: Output only factual declarative statements about the user or system. Never write instructions (e.g., use "Uses Docker" instead of "Always use Docker").
+6. Path & Syntax Integrity: Do not alter code syntax, file paths, or CLI flags unless correcting a visible typo using another valid line as reference.
 
-Call memory_consolidation with the new list and a one- or two-sentence note, in the language most of the lines use, saying what was merged.`
+Output:
+Call the memory_consolidation tool with:
+- lines: The array of consolidated fact strings.
+- summary: A 1-2 sentence note describing what was merged and what, if anything, was dropped, written in the dominant language of the input.`
 
 var memoryConsolidateTool = model.ToolDefinition{
 	Type: "function",
@@ -67,9 +76,9 @@ var memoryConsolidateTool = model.ToolDefinition{
 			"type":"object",
 			"properties":{
 				"lines":{"type":"array","items":{"type":"string"},"description":"The new list, one fact per line, same language as the originals"},
-				"note":{"type":"string","description":"What was merged or shortened, one or two sentences, in the lines' language"}
+				"summary":{"type":"string","description":"What was merged and what, if anything, was dropped — one or two sentences in the dominant language of the input"}
 			},
-			"required":["lines","note"]
+			"required":["lines","summary"]
 		}`),
 	},
 }
@@ -119,13 +128,13 @@ func (c appMemoryConsolidator) Consolidate(ctx context.Context, scope string, li
 		return nil, "", fmt.Errorf("the model returned no list")
 	}
 	var out struct {
-		Lines []string `json:"lines"`
-		Note  string   `json:"note"`
+		Lines   []string `json:"lines"`
+		Summary string   `json:"summary"`
 	}
 	if err := json.Unmarshal([]byte(raw), &out); err != nil {
 		return nil, "", fmt.Errorf("could not read the model's list: %w", err)
 	}
-	return out.Lines, strings.TrimSpace(out.Note), nil
+	return out.Lines, strings.TrimSpace(out.Summary), nil
 }
 
 // ConsolidateMemory asks the model for a shorter version of one file and
