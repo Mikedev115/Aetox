@@ -285,8 +285,8 @@ func TestADecksNameIsMadeSafeForAFilename(t *testing.T) {
 // takes an absolute path and everything else here refuses one on purpose.
 func TestOpenExportRefusesAPathItNeverWrote(t *testing.T) {
 	a, _ := deckApp(t)
-	if err := a.OpenExport(filepath.Join(a.exportsRoot, "..", "somebody-elses.pptx")); err == nil {
-		t.Fatal("a path this app never wrote was opened")
+	if _, err := a.ExportPath(filepath.Join(a.exportsRoot, "..", "somebody-elses.pptx")); err == nil {
+		t.Fatal("a path this app never wrote was offered to open")
 	}
 }
 

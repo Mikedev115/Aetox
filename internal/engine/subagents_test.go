@@ -167,20 +167,16 @@ func TestTaskToolIsRegisteredForTheMainAgent(t *testing.T) {
 	}
 }
 
-func TestOpenAgentHomeCreatesAndRevealsFolder(t *testing.T) {
+func TestAgentHomePathCreatesTheFolder(t *testing.T) {
 	a := newSubagentTestApp(t)
-	var opened string
-	a.openDir = func(path string) error {
-		opened = path
-		return nil
-	}
 
-	if err := a.OpenAgentHome("explore"); err != nil {
-		t.Fatalf("OpenAgentHome: %v", err)
+	opened, err := a.AgentHomePath("explore")
+	if err != nil {
+		t.Fatalf("AgentHomePath: %v", err)
 	}
 	expected, _ := config.AgentHome("explore")
 	if opened != expected {
-		t.Errorf("opened = %q, want %q", opened, expected)
+		t.Errorf("path = %q, want %q", opened, expected)
 	}
 	if info, err := os.Stat(opened); err != nil || !info.IsDir() {
 		t.Errorf("expected directory to be created: %v", err)

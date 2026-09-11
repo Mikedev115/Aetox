@@ -20,7 +20,6 @@ import (
 	"github.com/Mikedev115/Aetox/internal/ooxml"
 	"github.com/Mikedev115/Aetox/internal/skill"
 	"github.com/Mikedev115/Aetox/internal/subagent"
-	"github.com/Mikedev115/Aetox/internal/update"
 )
 
 func (a *App) APIKeyHint(providerName string) string {
@@ -55,16 +54,8 @@ func (a *App) AddMCPServer(name string, command []string) error {
 	return a.eng.AddMCPServer(name, command)
 }
 
-func (a *App) AddSpaceContext(name string) ([]string, error) {
-	return a.eng.AddSpaceContext(name)
-}
-
 func (a *App) AddSpaceContextFiles(name string, picked []string) ([]string, error) {
 	return a.eng.AddSpaceContextFiles(name, picked)
-}
-
-func (a *App) AddWorkspaceFolder() ([]engine.WorkspaceFolder, error) {
-	return a.eng.AddWorkspaceFolder()
 }
 
 func (a *App) AddWorkspaceFolderAt(dir string) ([]engine.WorkspaceFolder, error) {
@@ -149,10 +140,6 @@ func (a *App) BackgroundRuns() []engine.BackgroundRun {
 
 func (a *App) BackgroundTasks() []engine.BackgroundTask {
 	return a.eng.BackgroundTasks()
-}
-
-func (a *App) BrowseFolder() (string, error) {
-	return a.eng.BrowseFolder()
 }
 
 func (a *App) BrowseFolderAt(dir string) (string, error) {
@@ -303,10 +290,6 @@ func (a *App) CheckConnectionServer(id string) (bool, error) {
 	return a.eng.CheckConnectionServer(id)
 }
 
-func (a *App) CheckForUpdate() (update.Status, error) {
-	return a.eng.CheckForUpdate()
-}
-
 func (a *App) ClearProjectFocus() (engine.ProjectStatus, error) {
 	return a.eng.ClearProjectFocus()
 }
@@ -443,16 +426,12 @@ func (a *App) EnginesFor(family string, agent string) []connect.Status {
 	return a.eng.EnginesFor(family, agent)
 }
 
-func (a *App) ExportAgentPackage(name string) (string, error) {
-	return a.eng.ExportAgentPackage(name)
-}
-
 func (a *App) ExportDeck(relPath string, format string) (string, error) {
 	return a.eng.ExportDeck(relPath, format)
 }
 
-func (a *App) ExportSession(id string, format string) (string, error) {
-	return a.eng.ExportSession(id, format)
+func (a *App) ExportPath(path string) (string, error) {
+	return a.eng.ExportPath(path)
 }
 
 func (a *App) FileStillThere(relPath string) string {
@@ -551,10 +530,6 @@ func (a *App) ImageStatus() string {
 	return a.eng.ImageStatus()
 }
 
-func (a *App) ImportSession() (string, error) {
-	return a.eng.ImportSession()
-}
-
 func (a *App) ImportSessionFrom(path string) (string, error) {
 	return a.eng.ImportSessionFrom(path)
 }
@@ -573,10 +548,6 @@ func (a *App) InstallCapabilities(capabilities []string) bool {
 
 func (a *App) InstallSkillFromGitHub(repoURL string) (string, error) {
 	return a.eng.InstallSkillFromGitHub(repoURL)
-}
-
-func (a *App) InstallSkillFromZip() (string, error) {
-	return a.eng.InstallSkillFromZip()
 }
 
 func (a *App) InstallSkillsFromZipAt(path string) (string, error) {
@@ -811,40 +782,8 @@ func (a *App) NewSessionInSpace(name string) (string, error) {
 	return a.eng.NewSessionInSpace(name)
 }
 
-func (a *App) OpenAgentHome(name string) error {
-	return a.eng.OpenAgentHome(name)
-}
-
-func (a *App) OpenAgentSkillsFolder(name string) error {
-	return a.eng.OpenAgentSkillsFolder(name)
-}
-
-func (a *App) OpenAgentsFolder() error {
-	return a.eng.OpenAgentsFolder()
-}
-
-func (a *App) OpenArtifact(path string) error {
-	return a.eng.OpenArtifact(path)
-}
-
 func (a *App) OpenComputerApps() []engine.ComputerAppRow {
 	return a.eng.OpenComputerApps()
-}
-
-func (a *App) OpenExport(path string) error {
-	return a.eng.OpenExport(path)
-}
-
-func (a *App) OpenFileExternally(relPath string) error {
-	return a.eng.OpenFileExternally(relPath)
-}
-
-func (a *App) OpenMCPFolder() error {
-	return a.eng.OpenMCPFolder()
-}
-
-func (a *App) OpenMemoryFolder() error {
-	return a.eng.OpenMemoryFolder()
 }
 
 func (a *App) OpenProjectFolder() (engine.ProjectStatus, error) {
@@ -853,26 +792,6 @@ func (a *App) OpenProjectFolder() (engine.ProjectStatus, error) {
 
 func (a *App) OpenProjectPath(root string) (engine.ProjectStatus, error) {
 	return a.eng.OpenProjectPath(root)
-}
-
-func (a *App) OpenPromptsFolder() error {
-	return a.eng.OpenPromptsFolder()
-}
-
-func (a *App) OpenSkillsFolder() error {
-	return a.eng.OpenSkillsFolder()
-}
-
-func (a *App) OpenSpaceFolder(name string) error {
-	return a.eng.OpenSpaceFolder(name)
-}
-
-func (a *App) OpenSpeechModelDir(dir string) error {
-	return a.eng.OpenSpeechModelDir(dir)
-}
-
-func (a *App) OpenSubagentsFolder() error {
-	return a.eng.OpenSubagentsFolder()
 }
 
 func (a *App) PairedDevices() []engine.RemoteDevice {
@@ -913,10 +832,6 @@ func (a *App) PickAttachmentImage() (string, error) {
 
 func (a *App) PickAttachments(group string) ([]string, error) {
 	return a.eng.PickAttachments(group)
-}
-
-func (a *App) PickPresetImage(name string) (string, error) {
-	return a.eng.PickPresetImage(name)
 }
 
 func (a *App) PictureBytes(relPath string) (engine.ExportFile, error) {
@@ -1019,6 +934,10 @@ func (a *App) ReadWorkbook(relPath string) (*ooxml.WorkbookPreview, error) {
 	return a.eng.ReadWorkbook(relPath)
 }
 
+func (a *App) ReadyToRestart() error {
+	return a.eng.ReadyToRestart()
+}
+
 func (a *App) RecentAgentPages(limit int) []engine.AgentPage {
 	return a.eng.RecentAgentPages(limit)
 }
@@ -1087,10 +1006,6 @@ func (a *App) ResolveAddress(input string) engine.Address {
 	return a.eng.ResolveAddress(input)
 }
 
-func (a *App) RestartToUpdate() error {
-	return a.eng.RestartToUpdate()
-}
-
 func (a *App) RestorePoints() []engine.RestorePoint {
 	return a.eng.RestorePoints()
 }
@@ -1109,10 +1024,6 @@ func (a *App) RetryActiveProvider() engine.ModelInfo {
 
 func (a *App) RetryFailedTurn(text string) (engine.TurnReply, error) {
 	return a.eng.RetryFailedTurn(text)
-}
-
-func (a *App) RevealSpeechModel(path string) error {
-	return a.eng.RevealSpeechModel(path)
 }
 
 func (a *App) ReviewPullRequest(number int) (string, error) {
@@ -1185,10 +1096,6 @@ func (a *App) SaveLearnedEntry(scope string, index int, text string) error {
 
 func (a *App) SaveMCPServer(originalName string, server config.MCPServerConfig) error {
 	return a.eng.SaveMCPServer(originalName, server)
-}
-
-func (a *App) SavePicture(relPath string) (string, error) {
-	return a.eng.SavePicture(relPath)
 }
 
 func (a *App) SavePlanText(sessionID string, text string) string {
@@ -1431,8 +1338,16 @@ func (a *App) SpeakText(text string) (string, error) {
 	return a.eng.SpeakText(text)
 }
 
+func (a *App) SpeechModelDirPath(dir string) (string, error) {
+	return a.eng.SpeechModelDirPath(dir)
+}
+
 func (a *App) SpeechModelDirs() []engine.SpeechDirInfo {
 	return a.eng.SpeechModelDirs()
+}
+
+func (a *App) SpeechModelFolderPath(path string) (string, error) {
+	return a.eng.SpeechModelFolderPath(path)
 }
 
 func (a *App) SpeechPlaying(jobID string, seq int) {
@@ -1441,14 +1356,6 @@ func (a *App) SpeechPlaying(jobID string, seq int) {
 
 func (a *App) SpeechStatus() string {
 	return a.eng.SpeechStatus()
-}
-
-func (a *App) StageUpdate() error {
-	return a.eng.StageUpdate()
-}
-
-func (a *App) StagedUpdate() engine.StagedInfo {
-	return a.eng.StagedUpdate()
 }
 
 func (a *App) Stance() string {

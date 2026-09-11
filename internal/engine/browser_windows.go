@@ -344,7 +344,8 @@ func (t *win32Tab) applyShape() {
 		procSetWindowRgn.Call(t.hwnd, 0, 1)
 		return
 	}
-	var rc winRect
+	// RECT, as GetClientRect fills it.
+	var rc struct{ Left, Top, Right, Bottom int32 }
 	if r, _, _ := procGetClientRect.Call(t.hwnd, uintptr(unsafe.Pointer(&rc))); r == 0 {
 		return
 	}

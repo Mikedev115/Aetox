@@ -1,4 +1,4 @@
-package engine
+package main
 
 // The doors that need a window: every native dialog the app opens and every
 // "show it in the file manager" button, in one file (§248 A5).
@@ -24,10 +24,14 @@ package engine
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+
+	"github.com/Mikedev115/Aetox/internal/engine"
 )
 
 // ---------------------------------------------------------------- dialogs
@@ -36,10 +40,10 @@ import (
 // Returns the summary of what travelled, "" when the picker was dismissed —
 // cancelling is not a failure and must not raise one, the same contract
 // InstallSkillFromZip keeps.
-func (a *Engine) ExportAgentPackage(name string) (string, error) {
+func (a *App) ExportAgentPackage(name string) (string, error) {
 	// Packed before the dialog opens: an agent that cannot be exported should
 	// refuse while the user is still looking at the button they pressed.
-	file, err := a.AgentPackageBytes(name)
+	file, err := a.eng.AgentPackageBytes(name)
 	if err != nil {
 		return "", err
 	}
@@ -60,10 +64,10 @@ func (a *Engine) ExportAgentPackage(name string) (string, error) {
 // ExportSession asks where to save and writes one session there. Returns the
 // path written, "" when the user closed the dialog — a cancel is a decision,
 // not an error to report.
-func (a *Engine) ExportSession(id, format string) (string, error) {
+func (a *App) ExportSession(id, format string) (string, error) {
 	// Rendered before the dialog opens: a session that cannot be exported
 	// should refuse before asking where to put it.
-	file, err := a.SessionExportBytes(id, format)
+	file, err := a.eng.SessionExportBytes(id, format)
 	if err != nil {
 		return "", err
 	}
@@ -85,8 +89,8 @@ func (a *Engine) ExportSession(id, format string) (string, error) {
 
 // SavePicture asks where to save a picture the agent made and writes it
 // there, byte for byte — see PictureBytes for why not through a canvas.
-func (a *Engine) SavePicture(relPath string) (string, error) {
-	file, err := a.PictureBytes(relPath)
+func (a *App) SavePicture(relPath string) (string, error) {
+	file, err := a.eng.PictureBytes(relPath)
 	if err != nil {
 		return "", err
 	}
@@ -111,7 +115,7 @@ func (a *Engine) SavePicture(relPath string) (string, error) {
 // ImportSession asks for an exported .json file and brings it in as a new
 // session in the current project. Returns the new session's id, "" when the
 // user closed the dialog.
-func (a *Engine) ImportSession() (string, error) {
+func (a *App) ImportSession() (string, error) {
 	path, err := wailsruntime.OpenFileDialog(a.ctx, wailsruntime.OpenDialogOptions{
 		Title:   "นำเข้าบทสนทนา",
 		Filters: []wailsruntime.FileFilter{{DisplayName: "Aetox chat (*.json)", Pattern: "*.json"}},
@@ -119,13 +123,13 @@ func (a *Engine) ImportSession() (string, error) {
 	if err != nil || path == "" {
 		return "", err
 	}
-	return a.ImportSessionFrom(path)
+	return a.eng.ImportSessionFrom(path)
 }
 
 // PickPresetImage opens the native picker and, if the user chose a file,
 // copies it in as that preset's cover. Returns the cover as a data URI so the
 // card updates without re-reading the whole list.
-func (a *Engine) PickPresetImage(name string) (string, error) {
+func (a *App) PickPresetImage(name string) (string, error) {
 	path, err := wailsruntime.OpenFileDialog(a.ctx, wailsruntime.OpenDialogOptions{
 		Title: "เลือกรูปหน้าปกชุดคำสั่ง",
 		Filters: []wailsruntime.FileFilter{
@@ -135,7 +139,7 @@ func (a *Engine) PickPresetImage(name string) (string, error) {
 	if err != nil || strings.TrimSpace(path) == "" {
 		return "", err
 	}
-	return a.SetPresetImageFrom(name, path)
+	return a.eng.SetPresetImageFrom(name, path)
 }
 
 // InstallSkillFromZip asks for a skill archive and installs it.
@@ -146,7 +150,7 @@ func (a *Engine) PickPresetImage(name string) (string, error) {
 //
 // Returns "" with no error when the picker was dismissed — cancelling is not a
 // failure and must not raise one.
-func (a *Engine) InstallSkillFromZip() (string, error) {
+func (a *App) InstallSkillFromZip() (string, error) {
 	path, err := wailsruntime.OpenFileDialog(a.ctx, wailsruntime.OpenDialogOptions{
 		Title:   "เลือกไฟล์ zip ของสกิล",
 		Filters: []wailsruntime.FileFilter{{DisplayName: "Skill archive (*.zip)", Pattern: "*.zip"}},
@@ -154,47 +158,47 @@ func (a *Engine) InstallSkillFromZip() (string, error) {
 	if err != nil || strings.TrimSpace(path) == "" {
 		return "", err
 	}
-	return a.InstallSkillsFromZipAt(path)
+	return a.eng.InstallSkillsFromZipAt(path)
 }
 
 // AddSpaceContext asks for files and copies them into a project's context
 // folder — see AddSpaceContextFiles for what that folder is.
-func (a *Engine) AddSpaceContext(name string) ([]string, error) {
+func (a *App) AddSpaceContext(name string) ([]string, error) {
 	picked, err := wailsruntime.OpenMultipleFilesDialog(a.ctx, wailsruntime.OpenDialogOptions{
 		Title: "เพิ่มไฟล์บริบทของโปรเจกต์",
 	})
 	if err != nil {
 		return nil, err
 	}
-	return a.AddSpaceContextFiles(name, picked)
+	return a.eng.AddSpaceContextFiles(name, picked)
 }
 
 // AddWorkspaceFolder asks the user for a folder and gives it the same rights
 // the project folder has, for this project, until they remove it.
-func (a *Engine) AddWorkspaceFolder() ([]WorkspaceFolder, error) {
-	if !a.projectFocused {
+func (a *App) AddWorkspaceFolder() ([]engine.WorkspaceFolder, error) {
+	if !a.eng.GetProjectStatus().Focused {
 		// Refused before the dialog, with the reason AddWorkspaceFolderAt gives.
-		return a.AddWorkspaceFolderAt("")
+		return a.eng.AddWorkspaceFolderAt("")
 	}
 	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
 		Title: "เพิ่มโฟลเดอร์เข้าโปรเจกต์นี้",
 	})
 	if err != nil {
-		return a.WorkspaceFolders(), err
+		return a.eng.WorkspaceFolders(), err
 	}
 	if strings.TrimSpace(dir) == "" {
-		return a.WorkspaceFolders(), nil // cancelled
+		return a.eng.WorkspaceFolders(), nil // cancelled
 	}
-	return a.AddWorkspaceFolderAt(dir)
+	return a.eng.AddWorkspaceFolderAt(dir)
 }
 
 // BrowseFolder asks for a folder and points the file tree at it. Returns the
 // folder chosen, or what the tree was already showing when the dialog was
 // dismissed.
-func (a *Engine) BrowseFolder() (string, error) {
-	if a.projectFocused {
+func (a *App) BrowseFolder() (string, error) {
+	if a.eng.GetProjectStatus().Focused {
 		// Refused before the dialog, with the reason BrowseFolderAt gives.
-		return a.BrowseFolderAt("")
+		return a.eng.BrowseFolderAt("")
 	}
 	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
 		Title: "Browse a folder",
@@ -202,60 +206,112 @@ func (a *Engine) BrowseFolder() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return a.BrowseFolderAt(dir)
+	return a.eng.BrowseFolderAt(dir)
 }
 
 // ---------------------------------------------------------------- reveals
 
 // reveal opens a path the engine answered with in this machine's file manager
-// (or its default program, for a file): one implementation, in speech.go, on
-// every platform.
-func (a *Engine) reveal(path string, err error) error {
+// (or its default program, for a file): one implementation, on every platform.
+func (a *App) reveal(path string, err error) error {
 	if err != nil {
 		return err
 	}
 	return a.revealInFileManager(path)
 }
 
+// revealInFileManager is every "open this in the file manager" button's last
+// step, and the one place the OS door is opened. Routed through the App so a
+// test can watch it happen without a window appearing on somebody's desk — see
+// App.openDir.
+func (a *App) revealInFileManager(path string) error {
+	if a.openDir != nil {
+		return a.openDir(path)
+	}
+	return openInFileManager(path)
+}
+
+// openInFileManager reveals a directory in the OS file manager. The one place
+// every "open folder" button in the app goes through.
+//
+// Deliberately NOT wrapped in proc.HideConsole. That helper sets HideWindow and
+// CREATE_NO_WINDOW so a background console process (git, a shell) does not flash
+// a black box — but explorer.exe is a GUI program whose window is the entire
+// point, and those flags suppress it. Every folder button in the app was hiding
+// the window it had just asked for, which reads as the button doing nothing.
+//
+// explorer.exe also exits non-zero on success, so Start() (not Run()) is what
+// this wants regardless: launch it and stop caring.
+func openInFileManager(dir string) error {
+	// proc-show-window: launching a GUI program — see the comment above and
+	// TestEveryExecSiteHidesTheConsole. HideConsole here would hide the very
+	// window this function exists to open.
+	// proc-detached: the file manager belongs to the user, not to this call.
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("explorer", dir)
+	case "darwin":
+		cmd = exec.Command("open", dir)
+	default:
+		cmd = exec.Command("xdg-open", dir)
+	}
+	return cmd.Start()
+}
+
+// RevealSpeechModel shows the folder a scanned speech model sits in.
+func (a *App) RevealSpeechModel(path string) error {
+	return a.reveal(a.eng.SpeechModelFolderPath(path))
+}
+
+// OpenSpeechModelDir opens one of the scanned model folders, creating Aetox's
+// own if it does not exist yet — that is where a downloaded model is meant to go.
+func (a *App) OpenSpeechModelDir(dir string) error { return a.reveal(a.eng.SpeechModelDirPath(dir)) }
+
+// OpenExport opens a file this session exported, with whatever the OS uses —
+// the same door the file card uses, so an exported file opens exactly the way
+// every other produced file in this app does.
+func (a *App) OpenExport(path string) error { return a.reveal(a.eng.ExportPath(path)) }
+
 // OpenFileExternally opens a file of the open project with its default program.
-func (a *Engine) OpenFileExternally(relPath string) error {
-	return a.reveal(a.ProjectFilePath(relPath))
+func (a *App) OpenFileExternally(relPath string) error {
+	return a.reveal(a.eng.ProjectFilePath(relPath))
 }
 
 // OpenArtifact opens a produced file from the gallery. Separate from
 // OpenFileExternally, which takes a path relative to the *open project's*
 // sandbox root: an artifact is absolute and routinely belongs to another
 // project's output folder — ArtifactPath bounds it by the gallery's own roots.
-func (a *Engine) OpenArtifact(path string) error {
-	return a.reveal(a.ArtifactPath(path))
+func (a *App) OpenArtifact(path string) error {
+	return a.reveal(a.eng.ArtifactPath(path))
 }
 
 // OpenMCPFolder reveals the folder holding mcp-servers.json.
-func (a *Engine) OpenMCPFolder() error { return a.reveal(a.MCPFolderPath()) }
+func (a *App) OpenMCPFolder() error { return a.reveal(a.eng.MCPFolderPath()) }
 
 // OpenMemoryFolder reveals the memory directory.
-func (a *Engine) OpenMemoryFolder() error { return a.reveal(a.MemoryFolderPath()) }
+func (a *App) OpenMemoryFolder() error { return a.reveal(a.eng.MemoryFolderPath()) }
 
 // OpenPromptsFolder reveals the prompts directory.
-func (a *Engine) OpenPromptsFolder() error { return a.reveal(a.PromptsFolderPath()) }
+func (a *App) OpenPromptsFolder() error { return a.reveal(a.eng.PromptsFolderPath()) }
 
 // OpenSkillsFolder reveals the skills directory.
-func (a *Engine) OpenSkillsFolder() error { return a.reveal(a.SkillsFolderPath()) }
+func (a *App) OpenSkillsFolder() error { return a.reveal(a.eng.SkillsFolderPath()) }
 
 // OpenSpaceFolder shows a project's folder — the answer to "where do I put
 // the files?", given rather than described.
-func (a *Engine) OpenSpaceFolder(name string) error { return a.reveal(a.SpaceFolderPath(name)) }
+func (a *App) OpenSpaceFolder(name string) error { return a.reveal(a.eng.SpaceFolderPath(name)) }
 
 // OpenSubagentsFolder reveals the sub-agents' home.
-func (a *Engine) OpenSubagentsFolder() error { return a.reveal(a.SubagentsFolderPath()) }
+func (a *App) OpenSubagentsFolder() error { return a.reveal(a.eng.SubagentsFolderPath()) }
 
 // OpenAgentsFolder reveals the agents' home — the office page's hiring door.
-func (a *Engine) OpenAgentsFolder() error { return a.reveal(a.AgentsFolderPath()) }
+func (a *App) OpenAgentsFolder() error { return a.reveal(a.eng.AgentsFolderPath()) }
 
 // OpenAgentSkillsFolder reveals one agent's own skills shelf.
-func (a *Engine) OpenAgentSkillsFolder(name string) error {
-	return a.reveal(a.AgentSkillsFolderPath(name))
+func (a *App) OpenAgentSkillsFolder(name string) error {
+	return a.reveal(a.eng.AgentSkillsFolderPath(name))
 }
 
 // OpenAgentHome reveals one agent's home directory.
-func (a *Engine) OpenAgentHome(name string) error { return a.reveal(a.AgentHomePath(name)) }
+func (a *App) OpenAgentHome(name string) error { return a.reveal(a.eng.AgentHomePath(name)) }

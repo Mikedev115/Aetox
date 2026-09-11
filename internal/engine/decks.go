@@ -641,8 +641,10 @@ func (a *Engine) rememberExport(path string) {
 	a.exported[path] = true
 }
 
-// OpenExport opens a file this session exported, with whatever the OS uses.
-func (a *Engine) OpenExport(path string) error {
+// ExportPath checks that a path is a file this session exported and is still
+// there — the engine's half of OpenExport (desktop/screen_doors.go), which
+// then opens it with whatever the OS uses.
+func (a *Engine) ExportPath(path string) (string, error) {
 	a.exportMu.Lock()
 	known := a.exported[path]
 	a.exportMu.Unlock()
@@ -650,12 +652,10 @@ func (a *Engine) OpenExport(path string) error {
 		// Not "permission denied": from here it is the truth. Nothing else has
 		// ever been offered to open, so a path that is not in the set is not a
 		// path this button ever produced.
-		return fmt.Errorf("ไฟล์นี้ไม่ได้มาจากการส่งออกในรอบนี้")
+		return "", fmt.Errorf("ไฟล์นี้ไม่ได้มาจากการส่งออกในรอบนี้")
 	}
 	if _, err := os.Stat(path); err != nil {
-		return errFileGone
+		return "", errFileGone
 	}
-	// Same door the file card uses, so an exported file opens exactly the way
-	// every other produced file in this app does.
-	return a.revealInFileManager(path)
+	return path, nil
 }

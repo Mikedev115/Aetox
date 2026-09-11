@@ -15,7 +15,6 @@ import (
 	"github.com/Mikedev115/Aetox/internal/ooxml"
 	"github.com/Mikedev115/Aetox/internal/skill"
 	"github.com/Mikedev115/Aetox/internal/subagent"
-	"github.com/Mikedev115/Aetox/internal/update"
 )
 
 // API is every exported method of *Engine: what the screen may ask of the
@@ -29,9 +28,7 @@ type API interface {
 	AddCustomProvider(name string, baseURL string, apiKey string, keyFrom string) (string, error)
 	AddLearnedEntry(scope string, text string) error
 	AddMCPServer(name string, command []string) error
-	AddSpaceContext(name string) ([]string, error)
 	AddSpaceContextFiles(name string, picked []string) ([]string, error)
-	AddWorkspaceFolder() ([]WorkspaceFolder, error)
 	AddWorkspaceFolderAt(dir string) ([]WorkspaceFolder, error)
 	AdoptMemoryScope(scope string, targetRoot string) error
 	AgentBlocked(name string) bool
@@ -53,7 +50,6 @@ type API interface {
 	ArtifactPreview(path string) (ArtifactPreview, error)
 	BackgroundRuns() []BackgroundRun
 	BackgroundTasks() []BackgroundTask
-	BrowseFolder() (string, error)
 	BrowseFolderAt(dir string) (string, error)
 	BrowseForComputerApp() (string, error)
 	BrowseRoot() string
@@ -91,7 +87,6 @@ type API interface {
 	ChairStarters(name string, locale string) subagent.StarterSet
 	ChairStartersFile(locale string) string
 	CheckConnectionServer(id string) (bool, error)
-	CheckForUpdate() (update.Status, error)
 	ClearProjectFocus() (ProjectStatus, error)
 	CloseAllBrowserTabs()
 	CommandHistory() []string
@@ -126,9 +121,8 @@ type API interface {
 	DismissTaskChip(id string)
 	EnabledProviders() []string
 	EnginesFor(family string, agent string) []connect.Status
-	ExportAgentPackage(name string) (string, error)
 	ExportDeck(relPath string, format string) (string, error)
-	ExportSession(id string, format string) (string, error)
+	ExportPath(path string) (string, error)
 	FileStillThere(relPath string) string
 	ForgetMemoryScope(scope string) error
 	ForgetProject(root string) (ProjectStatus, error)
@@ -153,13 +147,11 @@ type API interface {
 	HasAPIKey(providerName string) bool
 	HistoryFault() StoreFault
 	ImageStatus() string
-	ImportSession() (string, error)
 	ImportSessionFrom(path string) (string, error)
 	ImportSignIn(providerName string) (ModelInfo, error)
 	ImportableSignIns() []string
 	InstallCapabilities(capabilities []string) bool
 	InstallSkillFromGitHub(repoURL string) (string, error)
-	InstallSkillFromZip() (string, error)
 	InstallSkillsFromZipAt(path string) (string, error)
 	InstallVoiceEngine(side string, id string) error
 	Interject(text string) error
@@ -218,22 +210,9 @@ type API interface {
 	NewSession() (string, error)
 	NewSessionAt(desk string) (string, error)
 	NewSessionInSpace(name string) (string, error)
-	OpenAgentHome(name string) error
-	OpenAgentSkillsFolder(name string) error
-	OpenAgentsFolder() error
-	OpenArtifact(path string) error
 	OpenComputerApps() []ComputerAppRow
-	OpenExport(path string) error
-	OpenFileExternally(relPath string) error
-	OpenMCPFolder() error
-	OpenMemoryFolder() error
 	OpenProjectFolder() (ProjectStatus, error)
 	OpenProjectPath(root string) (ProjectStatus, error)
-	OpenPromptsFolder() error
-	OpenSkillsFolder() error
-	OpenSpaceFolder(name string) error
-	OpenSpeechModelDir(dir string) error
-	OpenSubagentsFolder() error
 	PairedDevices() []RemoteDevice
 	PausePlanRun(sessionID string)
 	PendingChangeByID(id int64) PendingChange
@@ -244,7 +223,6 @@ type API interface {
 	PendingUndo() []string
 	PickAttachmentImage() (string, error)
 	PickAttachments(group string) ([]string, error)
-	PickPresetImage(name string) (string, error)
 	PictureBytes(relPath string) (ExportFile, error)
 	PlacementTargets() []PlacementTarget
 	PlanRunning(sessionID string) bool
@@ -270,6 +248,7 @@ type API interface {
 	ReadImageDataURL(relPath string) (string, error)
 	ReadSubagentProfile(name string) (string, error)
 	ReadWorkbook(relPath string) (*ooxml.WorkbookPreview, error)
+	ReadyToRestart() error
 	RecentAgentPages(limit int) []AgentPage
 	RecentDebugLog() []string
 	RecentProjects() []ProjectMeta
@@ -287,13 +266,11 @@ type API interface {
 	RequiresAPIKey(providerName string) bool
 	ResendEdited(text string, revertFiles bool) (TurnReply, error)
 	ResolveAddress(input string) Address
-	RestartToUpdate() error
 	RestorePoints() []RestorePoint
 	RestoreRecurringRequest(normalized string) error
 	ResumePlanRun(sessionID string)
 	RetryActiveProvider() ModelInfo
 	RetryFailedTurn(text string) (TurnReply, error)
-	RevealSpeechModel(path string) error
 	ReviewPullRequest(number int) (string, error)
 	RevokeComputerApp(name string) error
 	RevokeDevice(id string) error
@@ -312,7 +289,6 @@ type API interface {
 	SaveIdentityFile(name string, content string) error
 	SaveLearnedEntry(scope string, index int, text string) error
 	SaveMCPServer(originalName string, server config.MCPServerConfig) error
-	SavePicture(relPath string) (string, error)
 	SavePlanText(sessionID string, text string) string
 	SavePromptPreset(name string, body string) error
 	SaveSubagentProfile(name string, body string) error
@@ -373,11 +349,11 @@ type API interface {
 	SpaceFolderPath(name string) (string, error)
 	Spaces() []Space
 	SpeakText(text string) (string, error)
+	SpeechModelDirPath(dir string) (string, error)
 	SpeechModelDirs() []SpeechDirInfo
+	SpeechModelFolderPath(path string) (string, error)
 	SpeechPlaying(jobID string, seq int)
 	SpeechStatus() string
-	StageUpdate() error
-	StagedUpdate() StagedInfo
 	Stance() string
 	Stances() []string
 	StartAccountSignIn(provider string) (string, error)

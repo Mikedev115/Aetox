@@ -3,51 +3,9 @@ package engine
 import (
 	"archive/zip"
 	"bytes"
-	"reflect"
 	"strings"
 	"testing"
 )
-
-// Every door that needs a window has a twin that does not (§248 A5): the
-// dialog or the reveal on the screen, the work — a path in, or bytes out —
-// with the engine. The table is the contract; a door added to one side
-// without the other fails here before it fails on a remote host.
-func TestEveryScreenDoorHasItsEngineTwin(t *testing.T) {
-	twins := map[string]string{
-		// dialogs → the engine half that takes a path or hands back bytes
-		"ExportAgentPackage":  "AgentPackageBytes",
-		"ExportSession":       "SessionExportBytes",
-		"SavePicture":         "PictureBytes",
-		"ImportSession":       "ImportSessionFrom",
-		"PickPresetImage":     "SetPresetImageFrom",
-		"InstallSkillFromZip": "InstallSkillsFromZipAt",
-		"AddSpaceContext":     "AddSpaceContextFiles",
-		"AddWorkspaceFolder":  "AddWorkspaceFolderAt",
-		"BrowseFolder":        "BrowseFolderAt",
-		"OpenProjectFolder":   "OpenProjectPath",
-		// reveals → the engine half that answers with the host path
-		"OpenFileExternally":    "ProjectFilePath",
-		"OpenArtifact":          "ArtifactPath",
-		"OpenMCPFolder":         "MCPFolderPath",
-		"OpenMemoryFolder":      "MemoryFolderPath",
-		"OpenPromptsFolder":     "PromptsFolderPath",
-		"OpenSkillsFolder":      "SkillsFolderPath",
-		"OpenSpaceFolder":       "SpaceFolderPath",
-		"OpenSubagentsFolder":   "SubagentsFolderPath",
-		"OpenAgentsFolder":      "AgentsFolderPath",
-		"OpenAgentSkillsFolder": "AgentSkillsFolderPath",
-		"OpenAgentHome":         "AgentHomePath",
-	}
-	typ := reflect.TypeOf(&Engine{})
-	for door, twin := range twins {
-		if _, ok := typ.MethodByName(door); !ok {
-			t.Errorf("screen door %s is gone", door)
-		}
-		if _, ok := typ.MethodByName(twin); !ok {
-			t.Errorf("%s has no engine twin %s", door, twin)
-		}
-	}
-}
 
 // The engine renders; the screen decides where it goes. A rendered export
 // carries the name the dialog will suggest, extension included, and nothing

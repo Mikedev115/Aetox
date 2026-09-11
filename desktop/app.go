@@ -19,6 +19,17 @@ import (
 
 type App struct {
 	eng *engine.Engine
+	// ctx is the window's lifetime — what the Wails runtime is called with:
+	// dialogs, window sizing, Quit. Nil until startup has run.
+	ctx context.Context
+	// openDir stands in for openInFileManager, the one door out to the OS file
+	// manager, so a test can watch a reveal happen without a window appearing
+	// on somebody's desk.
+	openDir func(string) error
+	// emit stands in for wailsruntime.EventsEmit — see emitEvent.
+	emit func(event string, data ...any)
+
+	staged stagedUpdate
 }
 
 // NewApp builds the screen around a fresh engine.
@@ -29,7 +40,23 @@ func NewApp() *App {
 // The four Wails lifecycle hooks and the asset middleware, wired in main.go.
 // Unexported, as they were: not bindings, not for the frontend.
 
-func (a *App) startup(ctx context.Context) { engine.Startup(a.eng, ctx) }
+func (a *App) startup(ctx context.Context) {
+	a.ctx = ctx
+	// Before anything else: the window is created and centred by the time
+	// startup runs, and shown only once the webview has content, so a window
+	// bigger than the screen is corrected while nobody can see it move.
+	a.fitToScreen()
+	engine.Startup(a.eng, ctx)
+	// The previous build's exe, renamed aside by a self-update, and the staging
+	// download — this build is running, so by definition neither is needed.
+	// Except the download the user has not restarted into yet; see
+	// adoptStagedUpdate.
+	go a.adoptStagedUpdate()
+	// And the other end of the same feature: ask whether a newer build exists,
+	// so the answer reaches the user without them going looking for it
+	// (update_notify.go).
+	go a.watchForUpdates()
+}
 
 func (a *App) beforeClose(ctx context.Context) (prevent bool) { return engine.BeforeClose(a.eng, ctx) }
 

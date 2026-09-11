@@ -153,7 +153,7 @@ func TestAddWorkspaceFolderIsRefusedWithNoProjectFocused(t *testing.T) {
 	isolateUserDirs(t)
 	a := seed(&Engine{dbDir: t.TempDir()}, newConversation()) // zero value: unfocused, the startup state
 	closeDBOnCleanup(t, a)
-	if _, err := a.AddWorkspaceFolder(); err == nil {
+	if _, err := a.AddWorkspaceFolderAt(t.TempDir()); err == nil {
 		t.Fatal("adding a folder was allowed with no project focused")
 	}
 }
