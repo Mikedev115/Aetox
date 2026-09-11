@@ -61,3 +61,18 @@ func (c *StdIO) ReadLine() (string, error) {
 
 	return strings.TrimSpace(strings.TrimSuffix(line, "\r\n")), nil
 }
+
+// Discard is a console that prints nothing and has nothing to read: the
+// engine process's (cmd/aetox-engine, §248 phase 2), whose stdout carries
+// one protocol line and whose user is at the far end of a socket. Every
+// word the engine has for a person goes through the screen's events, not
+// here.
+type Discard struct{}
+
+func (Discard) Print(any)                 {}
+func (Discard) Printf(string, ...any)     {}
+func (Discard) Println(...any)            {}
+func (Discard) Errorf(string, ...any)     {}
+func (Discard) ReadLine() (string, error) { return "", io.EOF }
+
+var _ Console = Discard{}
