@@ -29,7 +29,7 @@ func TestExportedChatImportsIntact(t *testing.T) {
 	if err := a.writeSessionExport(id, "json", path); err != nil {
 		t.Fatalf("export: %v", err)
 	}
-	newID, err := a.importSessionFrom(path)
+	newID, err := a.ImportSessionFrom(path)
 	if err != nil {
 		t.Fatalf("import: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestImportRefusesANewerFormat(t *testing.T) {
 	if err := os.WriteFile(path, future, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.importSessionFrom(path); err == nil {
+	if _, err := a.ImportSessionFrom(path); err == nil {
 		t.Fatal("a newer export format was imported by a build that cannot know what is in it")
 	}
 }
@@ -116,7 +116,7 @@ func TestImportRefusesForeignJSON(t *testing.T) {
 	if err := os.WriteFile(path, []byte(`{"name":"package.json","version":"1.0.0"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.importSessionFrom(path); err == nil {
+	if _, err := a.ImportSessionFrom(path); err == nil {
 		t.Fatal("an unrelated JSON file was accepted as a conversation")
 	}
 }

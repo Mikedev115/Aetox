@@ -2,9 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
-
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/Mikedev115/Aetox/internal/agentpkg"
 	"github.com/Mikedev115/Aetox/internal/subagent"
@@ -23,47 +22,48 @@ import (
 // folder over the shipped one lives in internal/subagent. This assembles the
 // two and names the file.
 
-// ExportAgentPackage writes one worker to a .zip the user picks.
-//
-// Returns "" with no error when the picker was dismissed. Cancelling is not a
-// failure and must not raise one, the same contract InstallSkillFromZip keeps.
-func (a *App) ExportAgentPackage(name string) (string, error) {
+// AgentPackageBytes packs one worker into a .zip and hands the bytes back,
+// with the summary the export dialog shows. The engine's half of
+// ExportAgentPackage (screen_doors.go): the package is built from folders on
+// the engine's host, and where the user saves it is the screen's business.
+func (a *App) AgentPackageBytes(name string) (ExportFile, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return "", fmt.Errorf("ไม่รู้ว่าจะส่งออกเอเจนตัวไหน")
+		return ExportFile{}, fmt.Errorf("ไม่รู้ว่าจะส่งออกเอเจนตัวไหน")
 	}
 	// Only agents. A helper is the assistant's own hands in a second context and
 	// has no folder to pack, so the honest answer is the reason rather than an
 	// empty archive (COMPANY.md §4).
 	if kind := subagent.KindOf(name); kind != subagent.KindAgent {
-		return "", fmt.Errorf("%s ไม่ใช่เอเจน จึงไม่มีโฟลเดอร์ให้ส่งออก", name)
+		return ExportFile{}, fmt.Errorf("%s ไม่ใช่เอเจน จึงไม่มีโฟลเดอร์ให้ส่งออก", name)
 	}
 	sources := subagent.PackageSources(name)
 	if len(sources) == 0 {
-		return "", fmt.Errorf("ไม่พบโฟลเดอร์ของ %s", name)
+		return ExportFile{}, fmt.Errorf("ไม่พบโฟลเดอร์ของ %s", name)
 	}
-	// Read before the dialog opens. A broken mcp-servers.json should say so
-	// while the user is still looking at the button they pressed, not after they
-	// have chosen a filename.
+	// A broken mcp-servers.json should say so before anything is packed.
 	servers, err := agentpkg.PlacedServers(name)
 	if err != nil {
-		return "", err
+		return ExportFile{}, err
 	}
-
-	path, err := wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{
-		Title:           "ส่งออกเอเจน",
-		DefaultFilename: name + "-agent.zip",
-		Filters:         []wailsruntime.FileFilter{{DisplayName: "Agent package (*.zip)", Pattern: "*.zip"}},
-	})
-	if err != nil || strings.TrimSpace(path) == "" {
-		return "", err
-	}
-
-	res, err := agentpkg.Export(path, agentpkg.Options{Name: name, Sources: sources, Servers: servers})
+	// agentpkg writes a file; the bytes are what travel. A temp file on this
+	// host, read back and removed, keeps the packer's one contract intact.
+	tmp, err := os.CreateTemp("", "aetox-agent-*.zip")
 	if err != nil {
-		return "", err
+		return ExportFile{}, err
 	}
-	return exportSummary(res), nil
+	tmpPath := tmp.Name()
+	_ = tmp.Close()
+	defer os.Remove(tmpPath)
+	res, err := agentpkg.Export(tmpPath, agentpkg.Options{Name: name, Sources: sources, Servers: servers})
+	if err != nil {
+		return ExportFile{}, err
+	}
+	data, err := os.ReadFile(tmpPath)
+	if err != nil {
+		return ExportFile{}, err
+	}
+	return ExportFile{Name: name + "-agent.zip", Data: data, Note: exportSummary(res)}, nil
 }
 
 // exportSummary says what is in the file and, just as importantly, what is not.

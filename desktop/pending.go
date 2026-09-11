@@ -832,20 +832,20 @@ func (a *App) MoveLearnedEntry(fromScope, toScope string, index int) error {
 	return nil
 }
 
-// OpenMemoryFolder reveals the memory directory in the file manager. The point
-// of keeping this as plain markdown is that the user can take it elsewhere;
-// that is only true if they can find it.
-func (a *App) OpenMemoryFolder() error {
+// MemoryFolderPath is the memory directory, created if needed. The point of
+// keeping memory as plain markdown is that the user can take it elsewhere;
+// that is only true if they can find it (OpenMemoryFolder, screen_doors.go).
+func (a *App) MemoryFolderPath() (string, error) {
 	dir, err := learned.Dir()
 	if err != nil {
-		return err
+		return "", err
 	}
 	// Created on demand: the folder does not exist until the first approval, and
 	// "open" failing on a fresh install would read as the feature being broken.
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
+		return "", err
 	}
-	return a.revealInFileManager(dir)
+	return dir, nil
 }
 
 // learningEnabled is the single switch. Off means the agent stops recording

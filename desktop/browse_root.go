@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // browseNodeCap is how many rows a browsed folder may produce. Past it the walk
@@ -33,21 +31,15 @@ import (
 // the folder somebody picks to look at can be their whole drive.
 const browseNodeCap = 4000
 
-// BrowseFolder asks for a folder and points the file tree at it. Returns the
-// folder chosen, or "" when the dialog was dismissed.
+// BrowseFolderAt points the file tree at a folder and answers with it. The
+// engine's half of BrowseFolder (screen_doors.go), which asks for the folder.
 //
 // Refused while a project is focused: there the tree is showing the project,
 // and a second root would be two answers to "what am I looking at". The door
 // out of a project already exists (ClearProjectFocus) and is a deliberate act.
-func (a *App) BrowseFolder() (string, error) {
+func (a *App) BrowseFolderAt(dir string) (string, error) {
 	if a.projectFocused {
 		return "", fmt.Errorf("มีโปรเจกต์เปิดอยู่แล้ว")
-	}
-	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
-		Title: "Browse a folder",
-	})
-	if err != nil {
-		return "", err
 	}
 	dir = strings.TrimSpace(dir)
 	if dir == "" {

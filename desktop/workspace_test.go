@@ -66,7 +66,7 @@ func TestAddedFolderWidensTheRunningSessionAndRemovalNarrowsIt(t *testing.T) {
 		t.Fatal("a focused project reached a folder nobody added")
 	}
 
-	if _, err := a.addWorkspaceFolder(other); err != nil {
+	if _, err := a.AddWorkspaceFolderAt(other); err != nil {
 		t.Fatalf("adding a folder failed: %v", err)
 	}
 	out, err := listPath(t, a, other)
@@ -96,7 +96,7 @@ func TestAddedFolderIsNamedInTheSystemPrompt(t *testing.T) {
 		}
 	}
 	a := focusedApp(t, root)
-	if _, err := a.addWorkspaceFolder(other); err != nil {
+	if _, err := a.AddWorkspaceFolderAt(other); err != nil {
 		t.Fatalf("adding a folder failed: %v", err)
 	}
 	messages := a.cur().agent.ContextMessages()
@@ -132,7 +132,7 @@ func TestAddWorkspaceFolderRefusesWhatItCannotHonour(t *testing.T) {
 		{"a path that is not a folder", filepath.Join(home, "nope"), "ไม่ใช่โฟลเดอร์"},
 	}
 	for _, tc := range cases {
-		_, err := a.addWorkspaceFolder(tc.dir)
+		_, err := a.AddWorkspaceFolderAt(tc.dir)
 		if err == nil {
 			t.Errorf("%s was accepted onto the list", tc.name)
 			continue
@@ -192,7 +192,7 @@ func TestClearingFocusDropsTheFolderList(t *testing.T) {
 		}
 	}
 	a := focusedApp(t, root)
-	if _, err := a.addWorkspaceFolder(other); err != nil {
+	if _, err := a.AddWorkspaceFolderAt(other); err != nil {
 		t.Fatalf("adding a folder failed: %v", err)
 	}
 

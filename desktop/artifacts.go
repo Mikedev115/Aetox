@@ -487,24 +487,27 @@ func (a *App) insideOutput(path string) (string, bool) {
 // another project's output folder, so routing it through that door would either
 // fail or need the sandbox opened up. This one is bounded by the gallery's own
 // roots instead.
-func (a *App) OpenArtifact(path string) error {
+//
+// ArtifactPath is the engine's half: the checked absolute path, which
+// OpenArtifact (screen_doors.go) then opens.
+func (a *App) ArtifactPath(path string) (string, error) {
 	full, ok := a.insideOutput(path)
 	if !ok {
-		return fmt.Errorf("เปิดได้เฉพาะไฟล์ในโฟลเดอร์ผลงานเท่านั้น")
+		return "", fmt.Errorf("เปิดได้เฉพาะไฟล์ในโฟลเดอร์ผลงานเท่านั้น")
 	}
 	info, err := os.Stat(full)
 	if os.IsNotExist(err) {
 		// The gallery reads the disk live, but a file can go between the sweep
 		// and the click. Say so plainly rather than passing up a Win32 error.
-		return fmt.Errorf("ไฟล์นี้ไม่อยู่แล้ว")
+		return "", fmt.Errorf("ไฟล์นี้ไม่อยู่แล้ว")
 	}
 	if err != nil {
-		return err
+		return "", err
 	}
 	if info.IsDir() {
-		return fmt.Errorf("นี่เป็นโฟลเดอร์ ไม่ใช่ไฟล์ผลงาน")
+		return "", fmt.Errorf("นี่เป็นโฟลเดอร์ ไม่ใช่ไฟล์ผลงาน")
 	}
-	return a.revealInFileManager(full)
+	return full, nil
 }
 
 // DeleteArtifact removes one produced file. The ผลงาน page is the only place a

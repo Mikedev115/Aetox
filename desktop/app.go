@@ -938,14 +938,16 @@ func (a *App) FileStillThere(relPath string) string {
 	return FileHere
 }
 
-func (a *App) OpenFileExternally(relPath string) error {
+// ProjectFilePath is the absolute path of a file in the open project, checked
+// to exist — the engine's half of OpenFileExternally (screen_doors.go).
+func (a *App) ProjectFilePath(relPath string) (string, error) {
 	root := strings.TrimSpace(a.cur().cfg.SandboxRoot)
 	if root == "" {
-		return fmt.Errorf("no project open")
+		return "", fmt.Errorf("no project open")
 	}
 	full, err := safeSandboxPath(root, relPath)
 	if err != nil {
-		return err
+		return "", err
 	}
 	info, err := os.Stat(full)
 	if os.IsNotExist(err) {
@@ -956,18 +958,15 @@ func (a *App) OpenFileExternally(relPath string) error {
 		// as the ordinary thing it is. FileStillThere is what stops the
 		// question being asked at all; this covers the gap between asking and
 		// clicking.
-		return errFileGone
+		return "", errFileGone
 	}
 	if err != nil {
-		return err
+		return "", err
 	}
 	if info.IsDir() {
-		return fmt.Errorf("%q is a directory", relPath)
+		return "", fmt.Errorf("%q is a directory", relPath)
 	}
-	// Same one implementation the three reveal buttons share (speech.go): on
-	// every platform the command it runs opens a file with its default program
-	// just as it opens a folder in the file manager.
-	return a.revealInFileManager(full)
+	return full, nil
 }
 
 // ReadWorkbook renders a .xlsx inside the sandbox root as rows of display

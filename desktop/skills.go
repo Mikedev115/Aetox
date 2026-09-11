@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/skill"
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // ListExternalSkills reports every discovered SKILL.md with its location, for
@@ -50,16 +49,10 @@ func (a *App) SkillScanIssues() []string {
 // skill that arrived by email, by download, as a release asset, or from someone
 // who does not publish it on GitHub at all.
 //
-// Returns "" with no error when the picker was dismissed — cancelling is not a
-// failure and must not raise one.
-func (a *App) InstallSkillFromZip() (string, error) {
-	path, err := wailsruntime.OpenFileDialog(a.ctx, wailsruntime.OpenDialogOptions{
-		Title:   "เลือกไฟล์ zip ของสกิล",
-		Filters: []wailsruntime.FileFilter{{DisplayName: "Skill archive (*.zip)", Pattern: "*.zip"}},
-	})
-	if err != nil || strings.TrimSpace(path) == "" {
-		return "", err
-	}
+// InstallSkillsFromZipAt is the engine's half of InstallSkillFromZip
+// (screen_doors.go): the archive is at path on this host, and the skills go
+// into this host's skills folder.
+func (a *App) InstallSkillsFromZipAt(path string) (string, error) {
 	dir := skill.DefaultSkillsDir()
 	if dir == "" {
 		return "", fmt.Errorf("หาโฟลเดอร์บ้านของผู้ใช้ไม่เจอ")
@@ -73,18 +66,19 @@ func (a *App) InstallSkillFromZip() (string, error) {
 		len(res.Names), res.Files, strings.Join(res.Names, ", "), res.Root), nil
 }
 
-// OpenSkillsFolder creates the skills directory if needed and reveals it, so
-// installing by hand is "drop a folder here" — the same contract the prompts
-// and sub-agents folders already had, and which this page was missing.
-func (a *App) OpenSkillsFolder() error {
+// SkillsFolderPath creates the skills directory if needed and answers with
+// it, so installing by hand is "drop a folder here" — the same contract the
+// prompts and sub-agents folders keep. OpenSkillsFolder (screen_doors.go)
+// reveals it.
+func (a *App) SkillsFolderPath() (string, error) {
 	dir := skill.DefaultSkillsDir()
 	if dir == "" {
-		return fmt.Errorf("หาโฟลเดอร์บ้านของผู้ใช้ไม่เจอ")
+		return "", fmt.Errorf("หาโฟลเดอร์บ้านของผู้ใช้ไม่เจอ")
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
+		return "", err
 	}
-	return a.revealInFileManager(dir)
+	return dir, nil
 }
 
 // InstallSkillFromGitHub runs the plugin_install tool directly (a Settings

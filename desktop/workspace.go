@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/skill"
 )
@@ -55,29 +53,16 @@ func (a *App) WorkspaceFolders() []WorkspaceFolder {
 	return out
 }
 
-// AddWorkspaceFolder asks the user for a folder and gives it the same rights
-// the project folder has, for this project, until they remove it.
-func (a *App) AddWorkspaceFolder() ([]WorkspaceFolder, error) {
+// AddWorkspaceFolderAt gives a folder the same rights the project folder has,
+// for this project, until the user removes it. The engine's half of
+// AddWorkspaceFolder (screen_doors.go), and the whole of it a test can reach
+// without a window.
+func (a *App) AddWorkspaceFolderAt(dir string) ([]WorkspaceFolder, error) {
 	if !a.projectFocused {
 		// Not a wall to work around — with no project focused the tools already
 		// reach the whole machine, so there is nothing this list could add.
 		return a.WorkspaceFolders(), fmt.Errorf("ไม่มีโปรเจกต์ที่โฟกัสอยู่ — โต๊ะนี้เข้าถึงทั้งเครื่องอยู่แล้ว")
 	}
-	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
-		Title: "เพิ่มโฟลเดอร์เข้าโปรเจกต์นี้",
-	})
-	if err != nil {
-		return a.WorkspaceFolders(), err
-	}
-	if strings.TrimSpace(dir) == "" {
-		return a.WorkspaceFolders(), nil // cancelled
-	}
-	return a.addWorkspaceFolder(dir)
-}
-
-// addWorkspaceFolder is AddWorkspaceFolder minus the dialog, so the rules below
-// are reachable from a test without a window.
-func (a *App) addWorkspaceFolder(dir string) ([]WorkspaceFolder, error) {
 	if err := a.recordWorkspaceFolder(dir); err != nil {
 		return a.WorkspaceFolders(), err
 	}

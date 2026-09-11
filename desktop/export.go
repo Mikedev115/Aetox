@@ -147,51 +147,49 @@ func exportTimeLabel(stored string) string {
 	return strings.TrimSpace(stored)
 }
 
-// writeSessionExport renders one session to disk in the named format —
-// "markdown" or "json". The pure half of ExportSession, split so a test can
-// exercise everything but the dialog.
-func (a *App) writeSessionExport(id, format, path string) error {
+// ExportFile is something the engine renders for the user to keep: a chat
+// export, a picture the agent made, a packed agent. The bytes and a name to
+// suggest, and nothing about where they go — that is the screen's dialog
+// (screen_doors.go), on the screen's machine, which is not always the engine's.
+type ExportFile struct {
+	Name string `json:"name"`
+	Data []byte `json:"data"`
+	// Note is what the screen shows once the file is saved, when there is
+	// something worth saying beyond the path (the agent package's summary).
+	Note string `json:"note,omitempty"`
+}
+
+// SessionExportBytes renders one session in the named format — "markdown" or
+// "json". The engine's half of ExportSession, and the whole of it a test can
+// exercise without a window.
+func (a *App) SessionExportBytes(id, format string) (ExportFile, error) {
 	e, err := a.exportableSession(id)
+	if err != nil {
+		return ExportFile{}, err
+	}
+	var data []byte
+	ext := ".json"
+	switch format {
+	case "markdown":
+		data, ext = []byte(renderChatMarkdown(e)), ".md"
+	case "json":
+		if data, err = json.MarshalIndent(e, "", "  "); err != nil {
+			return ExportFile{}, err
+		}
+	default:
+		return ExportFile{}, fmt.Errorf("unknown export format %q", format)
+	}
+	return ExportFile{Name: exportFilename(e.Title, id) + ext, Data: data}, nil
+}
+
+// writeSessionExport is SessionExportBytes written to a path — kept for the
+// tests that read the file back.
+func (a *App) writeSessionExport(id, format, path string) error {
+	file, err := a.SessionExportBytes(id, format)
 	if err != nil {
 		return err
 	}
-	var data []byte
-	switch format {
-	case "markdown":
-		data = []byte(renderChatMarkdown(e))
-	case "json":
-		if data, err = json.MarshalIndent(e, "", "  "); err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("unknown export format %q", format)
-	}
-	return os.WriteFile(path, data, 0o644)
-}
-
-// ExportSession asks where to save and writes one session there. Returns the
-// path written, "" when the user closed the dialog — a cancel is a decision,
-// not an error to report.
-func (a *App) ExportSession(id, format string) (string, error) {
-	// Resolved before the dialog opens: a session that cannot be exported
-	// should refuse before asking where to put it.
-	e, err := a.exportableSession(id)
-	if err != nil {
-		return "", err
-	}
-	ext, display := ".json", "Aetox chat (*.json)"
-	if format == "markdown" {
-		ext, display = ".md", "Markdown (*.md)"
-	}
-	path, err := wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{
-		Title:           "ส่งออกบทสนทนา",
-		DefaultFilename: exportFilename(e.Title, id) + ext,
-		Filters:         []wailsruntime.FileFilter{{DisplayName: display, Pattern: "*" + ext}},
-	})
-	if err != nil || path == "" {
-		return "", err
-	}
-	return path, a.writeSessionExport(id, format, path)
+	return os.WriteFile(path, file.Data, 0o644)
 }
 
 // exportFilename turns a session title into something a filesystem accepts.
@@ -212,7 +210,7 @@ func exportFilename(title, id string) string {
 	return "aetox-chat-" + cleaned
 }
 
-// importSessionFrom reads an exported JSON file into a brand-new session in
+// ImportSessionFrom reads an exported JSON file into a brand-new session in
 // the current project, and returns the new id. The pure half of ImportSession.
 //
 // The desk and chair come along verbatim, unchecked. If this machine has no
@@ -224,7 +222,7 @@ func exportFilename(title, id string) string {
 // machine (sessions.space), and stamping it here would file the chat inside a
 // project this machine may not have. The import lands where the user is
 // standing, which is where they chose to put it.
-func (a *App) importSessionFrom(path string) (string, error) {
+func (a *App) ImportSessionFrom(path string) (string, error) {
 	db, err := a.database()
 	if err != nil {
 		return "", err
@@ -336,43 +334,31 @@ func unusedSessionID(db *sql.DB) (string, error) {
 // The path is the one the CALLER used, which is not always the one the file
 // got — resolveProduced applies the same two corrections the file host does, so
 // the button saves exactly the picture the user is looking at.
-func (a *App) SavePicture(relPath string) (string, error) {
+//
+// PictureBytes is the engine's half of SavePicture (screen_doors.go): the file
+// is on the engine's host, the dialog is on the screen's.
+func (a *App) PictureBytes(relPath string) (ExportFile, error) {
 	relPath = strings.TrimSpace(relPath)
 	if relPath == "" {
-		return "", fmt.Errorf("ไม่ได้บอกว่าจะบันทึกไฟล์ไหน")
+		return ExportFile{}, fmt.Errorf("ไม่ได้บอกว่าจะบันทึกไฟล์ไหน")
 	}
 	root := strings.TrimSpace(a.cur().cfg.SandboxRoot)
 	if root == "" {
-		return "", fmt.Errorf("ยังไม่ได้เปิดโปรเจกต์")
+		return ExportFile{}, fmt.Errorf("ยังไม่ได้เปิดโปรเจกต์")
 	}
 	full, err := a.resolveProduced(root, relPath)
 	if err != nil {
-		return "", err
+		return ExportFile{}, err
 	}
 	data, err := os.ReadFile(full)
 	if err != nil {
-		return "", fmt.Errorf("อ่านไฟล์รูปไม่ได้: %w", err)
+		return ExportFile{}, fmt.Errorf("อ่านไฟล์รูปไม่ได้: %w", err)
 	}
-
-	name := filepath.Base(full)
-	ext := strings.ToLower(filepath.Ext(name))
-	if ext == "" {
-		ext = ".png"
-	}
-	path, err := wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{
-		Title:           "บันทึกภาพ",
-		DefaultFilename: name,
-		Filters: []wailsruntime.FileFilter{{
-			DisplayName: "รูปภาพ (*" + ext + ")",
-			Pattern:     "*" + ext,
-		}},
-	})
-	if err != nil || path == "" {
-		return "", err
-	}
-	return path, os.WriteFile(path, data, 0o644)
+	return ExportFile{Name: filepath.Base(full), Data: data}, nil
 }
 
+// SaveDrawing is the screen's alone: the bytes come from a canvas this window
+// rendered a moment ago, and they go to a file on this machine.
 func (a *App) SaveDrawing(dataURL string) (string, error) {
 	data, err := decodePNGDataURL(dataURL)
 	if err != nil {
@@ -402,18 +388,4 @@ func decodePNGDataURL(dataURL string) ([]byte, error) {
 		return nil, fmt.Errorf("the image data does not decode")
 	}
 	return data, nil
-}
-
-// ImportSession asks for an exported .json file and brings it in as a new
-// session in the current project. Returns the new session's id, "" when the
-// user closed the dialog.
-func (a *App) ImportSession() (string, error) {
-	path, err := wailsruntime.OpenFileDialog(a.ctx, wailsruntime.OpenDialogOptions{
-		Title:   "นำเข้าบทสนทนา",
-		Filters: []wailsruntime.FileFilter{{DisplayName: "Aetox chat (*.json)", Pattern: "*.json"}},
-	})
-	if err != nil || path == "" {
-		return "", err
-	}
-	return a.importSessionFrom(path)
 }
