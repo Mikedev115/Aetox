@@ -319,9 +319,10 @@ What you get done in it, all of it on a workbench you are watching:
 - **Read a diff without leaving the conversation** — expand a tool row and the change in that cell
   shows as git hunks. This is the door that does it.
 
-Eight kinds of workbench tab hold it: `terminal` · `browser` · `files` · `file` · `decks` · `git` ·
-`repomap` · `pr`. Behind them, a Monaco editor, a real ConPTY terminal, and git status with
-`+N −M` against HEAD.
+The workbench beside the chat is where it happens — a real terminal, the browser the agent
+drives, the file tree and a single-file editor, git status against HEAD with `+N −M`, a map of the
+code, and a pull-request room. Behind the file tabs a Monaco editor; behind the terminal tabs a
+real ConPTY.
 
 **What is deliberately not on this desk:** no document or spreadsheet writer, no OCR, no PDF or
 audio reader. A deck *about* code is the assistant's door.
@@ -343,7 +344,7 @@ cheap while the one that has to weigh what it found runs on something strong, an
 follows the work instead of following the hardest task in it. Each keeps **its own memory**, so
 what the deepresearch agent learned about a source does not leak into the document agent's judgement
 about a contract. A single generalist has one model, one memory and one set of tools for every job
-it will ever be handed — and no way for you to add a sixth colleague to it.
+it will ever be handed — and no way for you to add an eighth colleague to it.
 
 You can **delegate** to one — the assistant calls `task` and up to four run concurrently — or you
 can **talk to one directly**, in a session bound to its tools, its memory and its prompt. `@name`
