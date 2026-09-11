@@ -9,7 +9,7 @@ import (
 
 // ask_user must reject calls that would render an unanswerable prompt.
 func TestAskUserValidation(t *testing.T) {
-	s := &askUserSkill{app: NewEngine(), conv: newConversation()}
+	s := &askUserSkill{app: NewEngine(nil), conv: newConversation()}
 
 	if _, err := s.ExecuteTool(context.Background(), map[string]any{
 		"options": []any{"a", "b"},
@@ -328,7 +328,7 @@ func TestAskUserKeepsTheFlatShape(t *testing.T) {
 // Nothing usable is still a refusal — and now the refusal says what the shape
 // should have been, which is the part that was missing.
 func TestAskUserStillRefusesWhenThereIsNoQuestion(t *testing.T) {
-	s := &askUserSkill{app: NewEngine(), conv: newConversation()}
+	s := &askUserSkill{app: NewEngine(nil), conv: newConversation()}
 	_, err := s.ExecuteTool(context.Background(), map[string]any{
 		"options": []any{map[string]any{"nothing": "useful"}},
 	})

@@ -1,4 +1,4 @@
-package engine
+package main
 
 // The screen's half of the model credential (§248 A3).
 //
@@ -26,7 +26,7 @@ import (
 
 // providerTransport is the credential for provider, in the given wire format,
 // as a model.Transport for bootstrap.Options.ProviderTransport.
-func (a *Engine) providerTransport(canonical, wireFormat string) model.Transport {
+func (a *App) providerTransport(canonical, wireFormat string) model.Transport {
 	header, prefix := model.AuthScheme(canonical, wireFormat)
 	return func(network http.RoundTripper) http.RoundTripper {
 		return &signedTransport{provider: canonical, header: header, prefix: prefix, network: network}

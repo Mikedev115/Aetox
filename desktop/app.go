@@ -32,9 +32,11 @@ type App struct {
 	staged stagedUpdate
 }
 
-// NewApp builds the screen around a fresh engine.
+// NewApp builds the screen and the engine that talks to it.
 func NewApp() *App {
-	return &App{eng: engine.NewEngine()}
+	a := &App{}
+	a.eng = engine.NewEngine(appScreen{a})
+	return a
 }
 
 // The four Wails lifecycle hooks and the asset middleware, wired in main.go.

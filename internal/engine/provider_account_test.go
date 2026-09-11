@@ -10,22 +10,23 @@ import (
 // "Never answered" and "answered, states no limits" both arrive as an empty
 // slice and must not collapse into one state on screen: the first is "not
 // known yet, chat once and it appears", the second is "this provider does not
-// report a quota". Only the presence of the key tells them apart.
+// report a quota". Only the presence of the key tells them apart. The screen
+// composes the account card from this (desktop/providers.go); what the engine
+// answers is what it saw on the headers of turns.
 func TestQuotaKnownSeparatesSilenceFromAbsence(t *testing.T) {
 	app := &Engine{}
 
-	unheard := app.providerAccount("groq")
-	if unheard.QuotaKnown {
+	if _, known := app.ProviderQuotas("groq"); known {
 		t.Error("QuotaKnown = true for a provider that has never answered a turn")
 	}
 
 	app.rememberQuotas("groq", nil)
-	answered := app.providerAccount("groq")
-	if !answered.QuotaKnown {
+	quotas, known := app.ProviderQuotas("groq")
+	if !known {
 		t.Error("QuotaKnown = false after the provider answered; want true with no windows")
 	}
-	if len(answered.Quotas) != 0 {
-		t.Errorf("Quotas = %+v; want none", answered.Quotas)
+	if len(quotas) != 0 {
+		t.Errorf("Quotas = %+v; want none", quotas)
 	}
 }
 
@@ -36,65 +37,23 @@ func TestRememberQuotasNormalizesTheProviderName(t *testing.T) {
 	// up canonical names.
 	app.rememberQuotas("claude", []model.Quota{q})
 
-	got := app.providerAccount("anthropic")
-	if !got.QuotaKnown || len(got.Quotas) != 1 || got.Quotas[0].RemainingPercent != 12 {
-		t.Fatalf("anthropic account = %+v; want the window filed under the alias", got)
+	got, known := app.ProviderQuotas("anthropic")
+	if !known || len(got) != 1 || got[0].RemainingPercent != 12 {
+		t.Fatalf("anthropic quotas = %+v (known=%v); want the window filed under the alias", got, known)
 	}
 }
 
-// A local runtime has no wallet and no window, and must not be reported as an
-// error just because there was nothing to fetch.
-func TestLocalProviderAccountIsNotAnError(t *testing.T) {
+// A window the screen fetched with the key — OpenRouter beside its credits —
+// lands in the same sink as the headers, so the next card reads it back.
+func TestNoteProviderQuotasFeedsTheSameSink(t *testing.T) {
 	app := &Engine{}
-	got := app.providerAccount("ollama")
-	if got.Error != "" {
-		t.Errorf("Error = %q; want empty — there was nothing to fetch", got.Error)
+	app.NoteProviderQuotas("openrouter", []model.Quota{{Window: "day", RemainingPercent: 40}})
+	got, known := app.ProviderQuotas("openrouter")
+	if !known || len(got) != 1 || got[0].RemainingPercent != 40 {
+		t.Fatalf("quotas = %+v (known=%v)", got, known)
 	}
-	if got.Balance.Kind != "free" {
-		t.Errorf("Kind = %q; want free", got.Balance.Kind)
-	}
-	if got.Balance.HasAmount {
-		t.Error("a local runtime reported an amount")
-	}
-}
-
-// Switching accounts must not leave the previous one's windows on the card.
-//
-// A quota describes the credential the turn ran on, and nothing refreshes it
-// until another turn runs. Without this, signing into a second ChatGPT plan
-// drew the first plan's bars under the new account's name — and when the first
-// plan was the exhausted one, the switch looked like it had failed. Asserting
-// on QuotaKnown rather than on an empty slice is the whole point: the card has
-// three states and this must land on "not known yet", never on "answered, no
-// limits".
-func TestCredentialChangeForgetsTheOldAccountsQuota(t *testing.T) {
-	app := &Engine{}
-	app.rememberQuotas("codex", []model.Quota{{
-		Window: "month", RemainingPercent: 0, ObservedAt: time.Now(),
-	}})
-	if got := app.providerAccount("codex"); !got.QuotaKnown {
-		t.Fatal("the fixture did not take; nothing is being measured")
-	}
-
-	app.forgetQuotas("codex")
-
-	got := app.providerAccount("codex")
-	if got.QuotaKnown {
-		t.Errorf("QuotaKnown = true after the credential changed; the card still claims %+v", got.Quotas)
-	}
-	if len(got.Quotas) != 0 {
-		t.Errorf("Quotas = %+v after the credential changed; want none", got.Quotas)
+	app.NoteProviderQuotas("openrouter", nil)
+	if got, _ := app.ProviderQuotas("openrouter"); len(got) != 1 {
+		t.Error("an empty note overwrote a window the provider had stated")
 	}
 }
-
-// The alias handling has to match rememberQuotas', or a window filed under the
-// canonical name would survive a sign-out issued under the client's own name.
-func TestForgettingQuotasNormalizesTheProviderName(t *testing.T) {
-	app := &Engine{}
-	app.rememberQuotas("anthropic", []model.Quota{{Window: "week", RemainingPercent: 40}})
-	app.forgetQuotas("claude")
-	if got := app.providerAccount("anthropic"); got.QuotaKnown {
-		t.Errorf("the alias did not reach the stored window: %+v", got.Quotas)
-	}
-}
-

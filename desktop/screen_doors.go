@@ -192,6 +192,22 @@ func (a *App) AddWorkspaceFolder() ([]engine.WorkspaceFolder, error) {
 	return a.eng.AddWorkspaceFolderAt(dir)
 }
 
+// OpenProjectFolder lets the user pick a real folder via the native OS dialog,
+// then opens a chat in it (OpenProjectPath). A dismissed dialog answers with
+// the project as it stands.
+func (a *App) OpenProjectFolder() (engine.ProjectStatus, error) {
+	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
+		Title: "Open Aetox Project Folder",
+	})
+	if err != nil {
+		return engine.ProjectStatus{}, err
+	}
+	if strings.TrimSpace(dir) == "" {
+		return a.eng.GetProjectStatus(), nil
+	}
+	return a.eng.OpenProjectPath(dir)
+}
+
 // BrowseFolder asks for a folder and points the file tree at it. Returns the
 // folder chosen, or what the tree was already showing when the dialog was
 // dismissed.

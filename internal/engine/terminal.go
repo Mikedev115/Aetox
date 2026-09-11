@@ -9,8 +9,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-
 	"github.com/Mikedev115/Aetox/internal/lsp"
 )
 
@@ -75,21 +73,24 @@ func nextTerminalID() string {
 }
 
 // emitEvent sends a frontend event, through a.emit when a test has installed
-// one. See Engine.emit for why the indirection has to exist at all.
+// one, else to whatever screen is watching (Screen.Emit) — which is nobody,
+// silently, for an engine with no screen: an event with no window to reach
+// is not an error, and every emitter used to carry its own nil check for
+// exactly that reason. Holding it here is what lets them all go through one
+// door, and since §248 B1 the door opens onto the screen rather than onto the
+// Wails runtime, which this package no longer names.
 //
-// A nil ctx is silently nothing rather than a crash: an event with no window
-// to reach is not an error, and every emitter used to carry its own `if a.ctx
-// != nil` for exactly that reason. Holding it here is what lets them all go
-// through one door.
+// Variadic for the test seam's sake; every caller sends one datum.
 func (a *Engine) emitEvent(event string, data ...any) {
 	if a.emit != nil {
 		a.emit(event, data...)
 		return
 	}
-	if a.ctx == nil {
-		return
+	var datum any
+	if len(data) > 0 {
+		datum = data[0]
 	}
-	wailsruntime.EventsEmit(a.ctx, event, data...)
+	a.screenOf().Emit(event, datum)
 }
 
 // TerminalShells detects which shells are actually available on this
