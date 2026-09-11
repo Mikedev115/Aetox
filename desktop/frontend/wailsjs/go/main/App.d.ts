@@ -53,6 +53,8 @@ export function AppCredit():Promise<string>;
 
 export function AppVersion():Promise<string>;
 
+export function ApplyMemoryLines(arg1:string,arg2:Array<string>):Promise<void>;
+
 export function ApprovePendingChange(arg1:number):Promise<void>;
 
 export function ApprovePendingChangeTo(arg1:number,arg2:string):Promise<void>;
@@ -158,6 +160,8 @@ export function ComputerControlOn():Promise<boolean>;
 export function ConnectAccount(arg1:string,arg2:string,arg3:string,arg4:Array<string>):Promise<connect.Account>;
 
 export function Connections():Promise<Array<connect.Status>>;
+
+export function ConsolidateMemory(arg1:string):Promise<main.MemoryConsolidation>;
 
 export function CreatePullRequest(arg1:string,arg2:string,arg3:string,arg4:string,arg5:boolean):Promise<main.PRCreated>;
 

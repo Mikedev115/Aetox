@@ -9,6 +9,7 @@ import {
   ListPendingChanges, ListDecidedChanges, LearnedMemory, LearnedEntries, SaveLearnedEntry, MoveLearnedEntry,
   LearningEnabled, ApprovePendingChange, ApprovePendingChangeTo, RejectPendingChange, SetLearningEnabled,
   PendingLearnedCount, LearnedScopeInfos, ForgetMemoryScope, AdoptMemoryScope, RecentProjects,
+  ConsolidateMemory, ApplyMemoryLines,
 } from './mocks/wailsApp'
 import { cockpit, applyPendingLearned, refreshPendingLearned } from '../lib/stores/cockpit.svelte'
 
@@ -129,11 +130,11 @@ describe('editing what is already remembered', () => {
     // The profile's heading is always drawn (empty here), then one block per
     // desk, with the project nested under the desk whose sessions write it.
     const heads = Array.from(container.querySelectorAll('.mem-scope-name')).map((el) => el.textContent?.trim())
-    expect(heads).toEqual(['เกี่ยวกับคุณ', 'โต๊ะผู้ช่วย', 'โต๊ะโค้ด', 'โปรเจกต์ Aetox'])
+    expect(heads).toEqual(['เกี่ยวกับคุณ', 'ผู้ช่วย', 'โค้ด', 'โปรเจกต์ Aetox'])
     expect(container.querySelector('.mem-sub .mem-scope-name')?.textContent).toContain('Aetox')
     // Each heading says who reads the file — the label alone never did.
     const auds = Array.from(container.querySelectorAll('.mem-scope .learn-aud')).map((el) => el.textContent?.trim())
-    expect(auds).toEqual(['ทุกโต๊ะ ทุกซับเอเจนจะเห็น', 'เฉพาะแชทที่โต๊ะผู้ช่วย', 'เฉพาะโต๊ะโค้ด ทุกโปรเจกต์', 'เฉพาะตอนเปิดโฟลเดอร์ Aetox'])
+    expect(auds).toEqual(['ทั้งผู้ช่วย โค้ด และทุกซับเอเจนจะเห็น', 'เฉพาะแชทกับผู้ช่วย', 'เฉพาะโค้ด ทุกโปรเจกต์', 'เฉพาะตอนเปิดโฟลเดอร์ Aetox'])
     // The hash half of a project key is identity, not information — a person
     // recognises the folder, not the digest. It stays in the file badge only,
     // because that badge is the name on disk.
@@ -223,6 +224,79 @@ describe('editing what is already remembered', () => {
       expect(SaveLearnedEntry).toHaveBeenCalledWith('project:Aetox-1a2b3c4d', 0, ''))
   })
 
+  // A full destination (the owner's USER.md at 4,086 of 4,096 bytes) made
+  // "ย้ายทั้ง 4" look like a dead button: Go refused, and the error landed at
+  // the top of the page, off-screen from the block it was pressed in. The
+  // refusal now shows where the press was, the button is disabled ahead of
+  // it, and the move menu marks the full file rather than offering it.
+  it('says in place when the destination is full, and does not offer it', async () => {
+    vi.mocked(LearnedScopeInfos).mockResolvedValue([
+      { scope: 'user:profile', orphan: false, bytes: 4086, maxBytes: 4096, full: true },
+      { scope: '', orphan: false, bytes: 936, maxBytes: 8192, full: false },
+      { scope: 'mode:coding', orphan: false, bytes: 0, maxBytes: 8192, full: false, projectsUnder: true },
+    ] as any)
+    vi.mocked(LearnedEntries).mockImplementation(async (scope: string) =>
+      (scope === '' ? ['User likes cloning Framer templates'] : scope === 'user:profile' ? ['ผู้ใช้พูดไทย'] : []) as any)
+    vi.mocked(MoveLearnedEntry).mockRejectedValue(new Error("this scope's memory is full (4100 bytes, limit 4096)"))
+
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'การเรียนรู้')
+    await waitFor(() => expect(container.querySelector('.mem-quick-banner')).toBeTruthy())
+
+    const migrate = container.querySelector('.mem-quick-banner .ctrl') as HTMLButtonElement
+    expect(migrate.disabled).toBe(true)
+
+    const mainRow = container.querySelectorAll('.mem-row')[1]
+    await fireEvent.click(mainRow.querySelector('.mem-action-move')!)
+    const full = mainRow.querySelector('.mem-menu-i.full') as HTMLButtonElement
+    expect(full.textContent).toContain('เกี่ยวกับคุณ')
+    expect(full.textContent).toContain('เต็มแล้ว')
+    expect(full.disabled).toBe(true)
+
+    // The other target still works, and a refusal from Go shows in the block.
+    const coding = Array.from(mainRow.querySelectorAll('.mem-menu-i')).find((el) => el.textContent?.includes('โค้ด'))!
+    await fireEvent.click(coding)
+    await waitFor(() => expect(MoveLearnedEntry).toHaveBeenCalledWith('', 'mode:coding', 0))
+    const block = container.querySelector('.mem-desk .mem-scope[data-mem-scope=""]')!.closest('.mem-desk')!
+    await waitFor(() => expect(block.querySelector('.mem-move-error')?.textContent).toContain('เต็มแล้ว'))
+  })
+
+  // "ให้ผู้ช่วยช่วยสรุป": a full file offers the model's shorter list, read
+  // beside the current one; nothing is written until the user applies it.
+  it('offers a merged draft for a full file and writes only on apply', async () => {
+    vi.mocked(LearnedScopeInfos).mockResolvedValue([
+      { scope: 'user:profile', orphan: false, bytes: 4086, maxBytes: 4096, full: true },
+      { scope: '', orphan: false, bytes: 100, maxBytes: 8192, full: false },
+    ] as any)
+    vi.mocked(LearnedEntries).mockImplementation(async (scope: string) =>
+      (scope === 'user:profile' ? ['ผู้ใช้เก็บเอกสารที่ D:/docs', 'ผู้ใช้มีโฟลเดอร์ทำงานที่ D:/docs'] : ['x']) as any)
+    vi.mocked(ConsolidateMemory).mockResolvedValue({
+      scope: 'user:profile', before: ['ผู้ใช้เก็บเอกสารที่ D:/docs', 'ผู้ใช้มีโฟลเดอร์ทำงานที่ D:/docs'],
+      after: ['ผู้ใช้เก็บเอกสารและทำงานที่ D:/docs'], note: 'รวมสองบรรทัดเรื่องโฟลเดอร์', bytes: 400, maxBytes: 4096,
+    } as any)
+
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'การเรียนรู้')
+    await waitFor(() => expect(container.querySelector('.mem-cap-note.mem-cap-full')).toBeTruthy())
+
+    // Only the full file offers it.
+    expect(container.querySelectorAll('.mem-consolidate').length).toBe(1)
+    await fireEvent.click(container.querySelector('.mem-consolidate')!)
+    await waitFor(() => expect(container.querySelector('.mem-draft')).toBeTruthy())
+    expect(ConsolidateMemory).toHaveBeenCalledWith('user:profile')
+    expect(ApplyMemoryLines).not.toHaveBeenCalled()
+
+    const draft = container.querySelector('.mem-draft')!
+    expect(draft.querySelectorAll('.mem-draft-line.was').length).toBe(2)
+    expect(draft.querySelectorAll('.mem-draft-line:not(.was)').length).toBe(1)
+    expect(draft.textContent).toContain('รวมสองบรรทัดเรื่องโฟลเดอร์')
+    expect(draft.textContent).toContain('400 B')
+
+    await fireEvent.click(draft.querySelector('.ctrl-primary')!)
+    await waitFor(() => expect(ApplyMemoryLines).toHaveBeenCalledWith('user:profile', ['ผู้ใช้เก็บเอกสารและทำงานที่ D:/docs']))
+    await waitFor(() => expect(container.querySelector('.mem-draft')).toBeNull())
+  })
+
   // The folder is the promise that this is plain markdown you can take away.
   it('keeps the way out to the folder', async () => {
     const container = await openMemory()
@@ -244,8 +318,8 @@ describe('the learning review page', () => {
     // file, and — since 11 ก.ย. — who reads it, which is the decision.
     const head = container.querySelector('.learn-row .learn-head')!
     expect(head.textContent).toContain('ขอจำเรื่องนี้ไว้')
-    expect(head.textContent).toContain('โต๊ะผู้ช่วย')
-    expect(head.textContent).toContain('เฉพาะแชทที่โต๊ะผู้ช่วย')
+    expect(head.textContent).toContain('ผู้ช่วย')
+    expect(head.textContent).toContain('เฉพาะแชทกับผู้ช่วย')
     expect(head.textContent).not.toContain('add')
   })
 
@@ -263,8 +337,8 @@ describe('the learning review page', () => {
     await fireEvent.click(screen.getByText('เก็บที่อื่น'))
     const items = Array.from(container.querySelectorAll('.learn-row .mem-menu-i'))
     // Every other file, never the one it is already aimed at.
-    expect(items.map((el) => el.querySelector('.learn-scope')?.textContent?.trim())).toEqual(['เกี่ยวกับคุณ', 'โต๊ะโค้ด'])
-    expect(items[0].textContent).toContain('ทุกโต๊ะ ทุกซับเอเจนจะเห็น')
+    expect(items.map((el) => el.querySelector('.learn-scope')?.textContent?.trim())).toEqual(['เกี่ยวกับคุณ', 'โค้ด'])
+    expect(items[0].textContent).toContain('ทั้งผู้ช่วย โค้ด และทุกซับเอเจนจะเห็น')
     await fireEvent.click(items[1])
     await waitFor(() => expect(ApprovePendingChangeTo).toHaveBeenCalledWith(1, 'mode:coding'))
 
@@ -355,7 +429,7 @@ describe('the learning review page', () => {
 
     // Both sections and badges exist
     expect(container.textContent).toContain('ความจำเกี่ยวกับคุณ')
-    expect(container.textContent).toContain('ความจำของแต่ละโต๊ะ')
+    expect(container.textContent).toContain('ความจำของผู้ช่วยและโค้ด')
     expect(container.textContent).toContain('USER.md')
     expect(container.textContent).toContain('MEMORY.md')
 

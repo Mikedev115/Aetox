@@ -64,7 +64,7 @@
     PreparedReplyOn, SetPreparedReplyOn,
     ComputerControlOn, SetComputerControlOn, GrantedComputerApps, RevokeComputerApp,
     OpenComputerApps, AllowComputerApp, ProgramIcon, BrowseForComputerApp,
-    ApprovePendingChange, ApprovePendingChangeTo, RejectPendingChange, LearnedEntries, LearnedScopeInfos, SaveLearnedEntry, AddLearnedEntry, MoveLearnedEntry, OpenMemoryFolder,
+    ApprovePendingChange, ApprovePendingChangeTo, RejectPendingChange, LearnedEntries, LearnedScopeInfos, ConsolidateMemory, ApplyMemoryLines, SaveLearnedEntry, AddLearnedEntry, MoveLearnedEntry, OpenMemoryFolder,
     ForgetMemoryScope, AdoptMemoryScope, RecentProjects,
     ListSystemIssues, MarkIssueReported, ListDecidedIssues,
     AccountStatus, StartAccountSignIn, CompleteAccountSignIn, CancelAccountSignIn,
@@ -3446,15 +3446,69 @@
     }
   }
 
+  // A move that failed says so IN THE BLOCK it was tried from. The first
+  // cut sent the error to the page's top — off-screen from the row the
+  // user pressed, so a full destination (USER.md at 4,086 of 4,096 bytes,
+  // owner's screenshot 11 ก.ย.) read as a button that did nothing.
+  let moveError = $state<{ scope: string; text: string } | null>(null)
+  function isFull(scope: string): boolean {
+    return memoryGroups.find((g) => g.scope === scope)?.full ?? false
+  }
+  function moveFailure(toScope: string, err: unknown): string {
+    return String(err).includes('is full')
+      ? t('settings.memoryTargetFull', { name: scopeLabel(toScope) })
+      : String(err)
+  }
+  // "ให้ผู้ช่วยช่วยสรุป" (11 ก.ย.): when a file is full, the model drafts a
+  // shorter list and the user reads it beside the current one before anything
+  // is written. One draft open at a time, in the block it belongs to.
+  let consolidation = $state<main.MemoryConsolidation | null>(null)
+  let consolidating = $state('')
+  let consolidateError = $state<{ scope: string; text: string } | null>(null)
+  async function consolidate(scope: string) {
+    if (consolidating) return
+    consolidating = scope
+    consolidateError = null
+    consolidation = null
+    try {
+      consolidation = await ConsolidateMemory(scope)
+    } catch (err) {
+      // The one failure a person can do something about is named in their
+      // language: the model came back longer twice (the owner's first live
+      // run, 4,862 bytes for a 3,691-byte file). Anything else is the
+      // provider's own words.
+      consolidateError = {
+        scope,
+        text: String(err).includes('not shorter') ? t('settings.memoryConsolidateNotShorter') : String(err),
+      }
+    } finally {
+      consolidating = ''
+    }
+  }
+  async function applyConsolidation() {
+    const draft = consolidation
+    if (!draft) return
+    memorySaving = true
+    try {
+      await ApplyMemoryLines(draft.scope, draft.after)
+      consolidation = null
+      await loadLearning()
+    } catch (err) {
+      consolidateError = { scope: draft.scope, text: String(err) }
+    } finally {
+      memorySaving = false
+    }
+  }
   async function moveMemory(fromScope: string, toScope: string, index: number) {
     memorySaving = true
+    moveError = null
     try {
       learningError = ''
       await MoveLearnedEntry(fromScope, toScope, index)
       cancelMemoryEdit()
       await loadLearning()
     } catch (err) {
-      learningError = String(err)
+      moveError = { scope: fromScope, text: moveFailure(toScope, err) }
     } finally {
       memorySaving = false
     }
@@ -3464,21 +3518,23 @@
   async function quickMigrateUserLines() {
     if (migrateBusy) return
     migrateBusy = true
+    moveError = null
     try {
       learningError = ''
-      const mainGroup = memoryGroups.find((g) => g.scope === '')
+      const mainGroup = memoryGroups.find((g) => g.scope === MAIN_SCOPE)
       if (!mainGroup) return
       // Move backwards so row indices in MainScope don't shift
       for (let i = mainGroup.lines.length - 1; i >= 0; i--) {
         if (isUserLine(mainGroup.lines[i])) {
-          await MoveLearnedEntry('', 'user:profile', i)
+          await MoveLearnedEntry(MAIN_SCOPE, USER_SCOPE, i)
         }
       }
-      await loadLearning()
     } catch (err) {
-      learningError = String(err)
+      moveError = { scope: MAIN_SCOPE, text: moveFailure(USER_SCOPE, err) }
     } finally {
       migrateBusy = false
+      // Whatever moved before a failure has moved; show the file as it is.
+      await loadLearning()
     }
   }
 
@@ -4089,6 +4145,36 @@
     <div class="mem-cap-note mem-cap-{tone}">
       <Icon name="alertTriangle" size={13} />
       <span>{tone === 'full' ? t('settings.memoryFull') : t('settings.memoryNearFull')}</span>
+      <button type="button" class="ctrl tiny mem-consolidate" disabled={!!consolidating || g.lines.length < 2}
+        onclick={() => consolidate(g.scope)}>
+        <Icon name="sparkles" size={12} />
+        {consolidating === g.scope ? t('settings.memoryConsolidating') : t('settings.memoryConsolidate')}
+      </button>
+    </div>
+  {/if}
+  {#if consolidateError?.scope === g.scope}
+    <div class="mem-move-error"><Icon name="alertTriangle" size={13} /><span>{consolidateError.text}</span></div>
+  {/if}
+  {#if consolidation?.scope === g.scope}
+    <!-- The draft, beside what it replaces. Read here, applied here; a list
+         the user has not read is not one the app writes. -->
+    <div class="mem-draft">
+      <div class="mem-draft-cols">
+        <div class="mem-draft-col">
+          <div class="mem-draft-h">{t('settings.memoryDraftBefore')} <span class="mono">{g.bytes.toLocaleString('en-US')} B · {t('settings.memoryLines', { count: String(consolidation.before.length) })}</span></div>
+          {#each consolidation.before as line, i (i)}<p class="mem-draft-line was">{line}</p>{/each}
+        </div>
+        <div class="mem-draft-col">
+          <div class="mem-draft-h">{t('settings.memoryDraftAfter')} <span class="mono">{consolidation.bytes.toLocaleString('en-US')} B · {t('settings.memoryLines', { count: String(consolidation.after.length) })}</span></div>
+          {#each consolidation.after as line, i (i)}<p class="mem-draft-line">{line}</p>{/each}
+        </div>
+      </div>
+      {#if consolidation.note}<div class="mem-draft-note">{consolidation.note}</div>{/if}
+      <div class="mem-draft-actions">
+        <span class="mem-draft-hint">{t('settings.memoryDraftHint')}</span>
+        <button type="button" class="ctrl" disabled={memorySaving} onclick={() => (consolidation = null)}>{t('settings.learningReject')}</button>
+        <button type="button" class="ctrl ctrl-primary" disabled={memorySaving} onclick={applyConsolidation}>{t('settings.memoryDraftApply')}</button>
+      </div>
     </div>
   {/if}
 {/snippet}
@@ -4160,9 +4246,10 @@
     <div class="mem-menu-h">{title}</div>
     {#each targets as to (to)}
       {@const m = scopeMeta(to)}
-      <button type="button" class="mem-menu-i" class:rec={to === recommended} role="menuitem" onclick={() => pick(to)}>
+      <button type="button" class="mem-menu-i" class:rec={to === recommended && !isFull(to)} class:full={isFull(to)}
+        role="menuitem" disabled={isFull(to)} onclick={() => pick(to)}>
         <span class="learn-scope mem-tone-{m.tone}"><Icon name={m.icon} size={11} /> {m.label}</span>
-        <small>{to === recommended ? `${t('settings.learningMoveRecommended')} · ` : ''}{m.audience}</small>
+        <small>{isFull(to) ? t('settings.memoryFullShort') : `${to === recommended ? `${t('settings.learningMoveRecommended')} · ` : ''}${m.audience}`}</small>
       </button>
     {/each}
   </div>
@@ -6813,6 +6900,9 @@
 
       <div class="settings-card mem-desk">
         {@render deskHead(userMemoryGroup)}
+        {#if moveError?.scope === USER_SCOPE}
+          <div class="mem-move-error"><Icon name="alertTriangle" size={13} /><span>{moveError.text}</span></div>
+        {/if}
         {#if userMemoryGroup.lines.length > 0}
           {#each userMemoryGroup.lines as line, i (i)}
             {@render memRow(userMemoryGroup, line, i)}
@@ -6842,12 +6932,16 @@
               <button
                 type="button"
                 class="ctrl tiny ctrl-primary"
-                disabled={memorySaving || migrateBusy}
+                disabled={memorySaving || migrateBusy || isFull(USER_SCOPE)}
+                title={isFull(USER_SCOPE) ? t('settings.memoryTargetFull', { name: scopeLabel(USER_SCOPE) }) : undefined}
                 onclick={quickMigrateUserLines}
               >
                 {t('settings.learningQuickMigrateAction', { count: String(userLinesInMain.length) })}
               </button>
             </div>
+          {/if}
+          {#if moveError?.scope === group.scope}
+            <div class="mem-move-error"><Icon name="alertTriangle" size={13} /><span>{moveError.text}</span></div>
           {/if}
           {#each group.lines as line, i (i)}
             {@render memRow(group, line, i)}
@@ -6869,6 +6963,9 @@
                       <button type="button" class="ctrl tiny" onclick={() => adoptScope(project.scope, p.rootPath)}>{p.name}</button>
                     {/each}
                   </div>
+                {/if}
+                {#if moveError?.scope === project.scope}
+                  <div class="mem-move-error"><Icon name="alertTriangle" size={13} /><span>{moveError.text}</span></div>
                 {/if}
                 {#each project.lines as line, i (i)}
                   {@render memRow(project, line, i)}

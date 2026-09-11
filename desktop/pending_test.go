@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -517,5 +518,92 @@ func TestAnApprovalCanLandSomewhereElse(t *testing.T) {
 	}
 	if a.PendingChangeByID(id).State != "pending" {
 		t.Error("a refused redirect decided the proposal")
+	}
+}
+
+// "ให้ผู้ช่วยช่วยสรุป" (11 ก.ย.): the model proposes a shorter list, nothing
+// is written until the user applies it, a list that is not shorter is refused,
+// and the apply screens every line and holds the ceiling.
+type fakeConsolidator struct {
+	lines []string
+	note  string
+	err   error
+	// second is what the fake answers when told its first list was too long.
+	second []string
+	calls  int
+	fed    string
+}
+
+func (f *fakeConsolidator) Consolidate(_ context.Context, _ string, _ []string, _ int, feedback string) ([]string, string, error) {
+	f.calls++
+	f.fed = feedback
+	if feedback != "" && f.second != nil {
+		return f.second, f.note, nil
+	}
+	return f.lines, f.note, f.err
+}
+
+func TestConsolidationProposesAndOnlyTheUserApplies(t *testing.T) {
+	a := newJobApp(t)
+	for _, l := range []string{
+		"ผู้ใช้เก็บงานเอกสารไว้ที่ D:/Aetox/โต๊ะทำงานเอกสาร Aetox และเรียกว่า โต๊ะทำงานเอกสาร",
+		"ผู้ใช้ใช้ Windows และมีโฟลเดอร์ทำงานอยู่ที่ D:/Aetox/โต้ะทำงานเอกสาร Aetox",
+		"User wants the most concise content possible",
+	} {
+		if err := learned.Apply(learned.UserScope, learned.OpAdd, "", l); err != nil {
+			t.Fatal(err)
+		}
+	}
+	was := learned.Read(learned.UserScope)
+
+	merged := []string{
+		"ผู้ใช้ใช้ Windows เก็บงานเอกสารไว้ที่ D:/Aetox/โต๊ะทำงานเอกสาร Aetox (โต๊ะทำงานเอกสาร)",
+		"User wants the most concise content possible",
+	}
+	out, err := a.consolidateMemoryWith(&fakeConsolidator{lines: merged, note: "รวมสองบรรทัดเรื่องโฟลเดอร์เอกสาร"}, learned.UserScope)
+	if err != nil {
+		t.Fatalf("consolidate: %v", err)
+	}
+	if len(out.Before) != 3 || len(out.After) != 2 || out.Note == "" || out.Bytes <= 0 || out.Bytes >= learned.RenderedSize(learned.UserScope, out.Before) {
+		t.Errorf("proposal is not the shorter list beside the current one: %+v", out)
+	}
+	if learned.Read(learned.UserScope) != was {
+		t.Fatal("proposing wrote the file")
+	}
+
+	// Not shorter — told so once, by how much, and given a second try; a
+	// second miss is refused, and still nothing written.
+	longer := append([]string{}, out.Before...)
+	longer = append(longer, "one more line")
+	stubborn := &fakeConsolidator{lines: longer}
+	if _, err := a.consolidateMemoryWith(stubborn, learned.UserScope); err == nil {
+		t.Error("a list that is not shorter was accepted as a consolidation")
+	}
+	if stubborn.calls != 2 || !strings.Contains(stubborn.fed, "MORE than the file") {
+		t.Errorf("the model was not told what was wrong and asked again: calls=%d feedback=%q", stubborn.calls, stubborn.fed)
+	}
+	if learned.Read(learned.UserScope) != was {
+		t.Fatal("a refused proposal wrote the file")
+	}
+	// A second try that lands is taken.
+	redeemed := &fakeConsolidator{lines: longer, second: merged}
+	if got, err := a.consolidateMemoryWith(redeemed, learned.UserScope); err != nil || len(got.After) != 2 {
+		t.Errorf("a corrected second list was not accepted: %v %+v", err, got)
+	}
+
+	// The user applies what they read.
+	if err := a.ApplyMemoryLines(learned.UserScope, out.After); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if got := learned.Entries(learned.UserScope); len(got) != 2 || got[0] != merged[0] {
+		t.Errorf("apply did not replace the list: %v", got)
+	}
+
+	// A model-drafted line with a hidden character never lands.
+	if err := a.ApplyMemoryLines(learned.UserScope, []string{"ok", "bad\u200bline"}); err == nil {
+		t.Error("a hidden character got through the apply door")
+	}
+	if err := a.ApplyMemoryLines(learned.UserScope, nil); err == nil {
+		t.Error("an empty list cleared the file")
 	}
 }

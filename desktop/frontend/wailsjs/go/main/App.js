@@ -78,6 +78,10 @@ export function AppVersion() {
   return window['go']['main']['App']['AppVersion']();
 }
 
+export function ApplyMemoryLines(arg1, arg2) {
+  return window['go']['main']['App']['ApplyMemoryLines'](arg1, arg2);
+}
+
 export function ApprovePendingChange(arg1) {
   return window['go']['main']['App']['ApprovePendingChange'](arg1);
 }
@@ -288,6 +292,10 @@ export function ConnectAccount(arg1, arg2, arg3, arg4) {
 
 export function Connections() {
   return window['go']['main']['App']['Connections']();
+}
+
+export function ConsolidateMemory(arg1) {
+  return window['go']['main']['App']['ConsolidateMemory'](arg1);
 }
 
 export function CreatePullRequest(arg1, arg2, arg3, arg4, arg5) {

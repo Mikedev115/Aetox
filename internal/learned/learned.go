@@ -500,6 +500,53 @@ func EditEntry(scope string, index int, body string) error {
 	return os.WriteFile(path, []byte(rendered), 0o644)
 }
 
+// SetEntries rewrites one scope's whole list — the door for a consolidation
+// the user has read and accepted (desktop/consolidate.go, 11 ก.ย.): a full
+// file's lines merged into fewer, shown before and after, then applied as one
+// write. Like EditEntry it is the user's own edit through a window rather than
+// an agent's proposal, so there is no approval step; unlike EditEntry the
+// text was drafted by a model, so every line goes through Screen first. Empty
+// lines are dropped, an empty list refused — clearing a file is Forget's job,
+// and a consolidation that keeps nothing kept nothing.
+func SetEntries(scope string, lines []string) error {
+	path, err := FileFor(scope)
+	if err != nil {
+		return err
+	}
+	kept := make([]string, 0, len(lines))
+	for _, l := range lines {
+		l = strings.TrimSpace(l)
+		if l == "" {
+			continue
+		}
+		if err := Screen(l); err != nil {
+			return err
+		}
+		kept = append(kept, l)
+	}
+	if len(kept) == 0 {
+		return fmt.Errorf("a consolidation must keep at least one line")
+	}
+	rendered := render(scope, kept)
+	if limit := MaxBytesFor(scope); len(rendered) > limit {
+		return fmt.Errorf(
+			"this scope's memory is full (%d bytes, limit %d) — the consolidated list is still too long",
+			len(rendered), limit)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(rendered), 0o644)
+}
+
+// RenderedSize is how many bytes the file would hold with exactly these
+// lines — header included, the same number the ceiling is measured against.
+// The consolidation door shows it beside the current size so the user sees
+// what a proposed list would actually save.
+func RenderedSize(scope string, lines []string) int {
+	return len(render(scope, lines))
+}
+
 // Forget deletes one scope's memory file outright. The settings page's own
 // door, pressed by a person — the agent's tool has no route here, and must
 // not: nothing an agent proposes may erase a file wholesale.
