@@ -262,7 +262,25 @@ func (s *planSkill) Guidance(args map[string]any) string {
 			"off one at a time, so a plan that writes them as prose comes back as a document nobody can " +
 			"run. Under the section about the work, say what the work IS; put the things to do in `steps`.\n" +
 			"One step is one thing somebody can finish and say so. \"Make it better\" is not a step; " +
-			"\"raise waitMax to 600\" is."
+			"\"raise waitMax to 600\" is.\n" +
+			// **Whose press starts it**, which was missing until the owner
+			// photographed a card reading ยังไม่เริ่ม over a diff of edits already
+			// made (11 ก.ย.: *"ยังไม่ทันกดลงมือตามแผน เลย แม่งเริ่มไปแล้ว"*). The
+			// model wrote the checklist and then carried it out itself, so the
+			// one control the card offers had nothing left to do — and the two
+			// halves below are that failure read from both sides.
+			//
+			// Told HERE rather than under `step`, and where it is told is the
+			// fix rather than a detail: `write` is the first call every plan
+			// session makes, while the same rule keyed to `step` reaches only
+			// a model already marking — the trap browser_guidance.go names for
+			// the batch, where a rule keyed to its own action is heard by
+			// whoever has already heard it.
+			"**Whose press starts it.** A plan is carried out when the user presses ลงมือ on the card. " +
+			"When the plan is what they asked for, writing it is where the turn ends: hand it back and " +
+			"stop. And when the work itself is what they asked for and you are carrying the plan out as " +
+			"you write it, then mark each step with `plan step` as you go — a checklist still reading " +
+			"ยังไม่เริ่ม over edits that are already made is the card telling them nothing is happening."
 	case "amend":
 		return "Send only the sections that changed. Everything you do not name stands exactly as it was, " +
 			"which is the whole reason this takes sections rather than a document — re-sending a section " +
