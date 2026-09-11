@@ -12,6 +12,11 @@ export const codeStatus = $state<{
   hasFailingPR: boolean
   lastChecked: number
   loading: boolean
+  // Bumped by the git room when a commit lands. The timeline (GitLogPane)
+  // re-reads its first page on the bump rather than polling — history only
+  // moves when this moves, or when something outside the window commits, and
+  // the second case is what coming back to the tab is for.
+  commitsLanded: number
 }>({
   gitChangedCount: 0,
   gitAdded: 0,
@@ -20,7 +25,12 @@ export const codeStatus = $state<{
   hasFailingPR: false,
   lastChecked: 0,
   loading: false,
+  commitsLanded: 0,
 })
+
+export function noteCommitLanded(): void {
+  codeStatus.commitsLanded++
+}
 
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
 

@@ -54,7 +54,7 @@ describe('the group heading, on both surfaces that list the tabs', () => {
       // Anchored to the heading rather than to the end of the list, so adding
       // a row to the code group does not make this test wrong about where the
       // heading sits.
-      expect(rows.slice(6)).toEqual(['Git', 'Pull requests', 'Code map'])
+      expect(rows.slice(6)).toEqual(['Git', 'Timeline', 'Pull requests', 'Code map'])
       // And exactly one heading: the rows above have nothing to explain.
       expect(rows.filter((r) => r === 'Code pages')).toHaveLength(1)
     })
