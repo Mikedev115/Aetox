@@ -10,7 +10,6 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/skill"
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // TaskChip is one piece of side work the agent noticed but did not do: a
@@ -89,22 +88,17 @@ func (a *App) DismissTaskChip(id string) {
 	}
 }
 
-// emitTaskChips pushes the current chip list to the UI. Not emitEvent: that
-// helper assumes either the test seam or a live Wails ctx, and this event
-// also fires from the tool-coverage harness where neither exists — a chip
-// added with nobody listening is still added, just rendered on next mount.
+// emitTaskChips pushes the current chip list to the UI, through the same door
+// as every other event. The tool-coverage harness fires this with neither the
+// test seam nor a window, and emitEvent treats a nil ctx as nothing to reach —
+// a chip added with nobody listening is still added, just rendered on next
+// mount. (This used to carry its own nil check for that case, which was the
+// door's job all along; §248 A1 sends everything through it.)
 func (a *App) emitTaskChips(conv *conversation) {
 	// Stamped like every other agent event: the window draws the tray of the
 	// chat it is showing, and a chip raised in a background conversation must
 	// not appear under a conversation that never saw the work.
-	payload := sessionEvent[[]TaskChip]{SessionID: conv.id, Data: conv.taskChips.list()}
-	if a.emit != nil {
-		a.emit("tasks:changed", payload)
-		return
-	}
-	if a.ctx != nil {
-		wailsruntime.EventsEmit(a.ctx, "tasks:changed", payload)
-	}
+	a.emitEvent("tasks:changed", sessionEvent[[]TaskChip]{SessionID: conv.id, Data: conv.taskChips.list()})
 }
 
 // suggestTaskSkill is the agent-facing half: a workbench tool the model

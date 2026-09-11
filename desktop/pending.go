@@ -13,7 +13,6 @@ import (
 	"github.com/Mikedev115/Aetox/internal/mode"
 	"github.com/Mikedev115/Aetox/internal/prompt"
 	"github.com/Mikedev115/Aetox/internal/skill"
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // The approval door. Everything the agent proposes to learn stops here and
@@ -604,15 +603,13 @@ func (a *App) queryChanges(where string, args ...any) []PendingChange {
 // stays the lessons count because that is the number the gear wears; the
 // problems room reads its own count when the signal arrives, rather than
 // growing this into an object two listeners would have to agree about.
+//
+// Every writer of a memory file sends this one, with the count, and not a bare
+// "learning:changed" of its own: the window does `Number(count) || 0` with
+// whatever arrives, so a nil payload from a hand edit used to blank the badge
+// while proposals were still waiting. One emitter, one payload (§248 A1).
 func (a *App) emitLearningChanged() {
-	payload := a.PendingLearnedCount()
-	if a.emit != nil {
-		a.emit("learning:changed", payload)
-		return
-	}
-	if a.ctx != nil {
-		wailsruntime.EventsEmit(a.ctx, "learning:changed", payload)
-	}
+	a.emitEvent("learning:changed", a.PendingLearnedCount())
 }
 
 // LearnedMemory returns what one scope currently holds, for the settings page
@@ -746,9 +743,7 @@ func (a *App) ForgetMemoryScope(scope string) error {
 	if err := learned.Forget(scope); err != nil {
 		return err
 	}
-	if a.ctx != nil {
-		wailsruntime.EventsEmit(a.ctx, "learning:changed", nil)
-	}
+	a.emitLearningChanged()
 	return nil
 }
 
@@ -777,9 +772,7 @@ func (a *App) AdoptMemoryScope(scope, targetRoot string) error {
 	if err := learned.Forget(scope); err != nil {
 		return err
 	}
-	if a.ctx != nil {
-		wailsruntime.EventsEmit(a.ctx, "learning:changed", nil)
-	}
+	a.emitLearningChanged()
 	return nil
 }
 
@@ -798,11 +791,7 @@ func (a *App) SaveLearnedEntry(scope string, index int, text string) error {
 	}
 	// Same event the approval path emits: anything showing memory is looking at
 	// a file that just changed, and one signal beats each surface polling.
-	if a.emit != nil {
-		a.emit("learning:changed")
-	} else if a.ctx != nil {
-		wailsruntime.EventsEmit(a.ctx, "learning:changed", nil)
-	}
+	a.emitLearningChanged()
 	return nil
 }
 
@@ -815,11 +804,7 @@ func (a *App) AddLearnedEntry(scope, text string) error {
 	if err := learned.Apply(strings.TrimSpace(scope), learned.OpAdd, "", text); err != nil {
 		return err
 	}
-	if a.emit != nil {
-		a.emit("learning:changed")
-	} else if a.ctx != nil {
-		wailsruntime.EventsEmit(a.ctx, "learning:changed", nil)
-	}
+	a.emitLearningChanged()
 	return nil
 }
 
@@ -843,11 +828,7 @@ func (a *App) MoveLearnedEntry(fromScope, toScope string, index int) error {
 	if err := learned.EditEntry(fromScope, index, ""); err != nil {
 		return err
 	}
-	if a.emit != nil {
-		a.emit("learning:changed")
-	} else if a.ctx != nil {
-		wailsruntime.EventsEmit(a.ctx, "learning:changed", nil)
-	}
+	a.emitLearningChanged()
 	return nil
 }
 
