@@ -13,10 +13,19 @@ import (
 // initGitRepo creates a minimal git repo with one commit in a temp dir.
 func initGitRepo(t *testing.T) string {
 	t.Helper()
+	return initGitRepoIn(t, t.TempDir())
+}
+
+// initGitRepoIn is initGitRepo at a directory the test chose — a subfolder of
+// a workspace, or a folder outside one.
+func initGitRepoIn(t *testing.T, dir string) string {
+	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not found in PATH")
 	}
-	dir := t.TempDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 	run := func(args ...string) {
 		cmd := exec.Command("git", args...)
 		cmd.Dir = dir
@@ -123,5 +132,69 @@ func TestGitExecuteCommandKeepsStderrOutOfSuccessfulOutput(t *testing.T) {
 	}
 	if strings.TrimSpace(out) == "" || out == "(command failed)" {
 		t.Errorf("output = %q, want git's stderr explaining the failure", out)
+	}
+}
+
+// The desk is not a repository; the repository is a folder inside it. `path`
+// takes git there, and its absence says how to get there.
+func TestGitSkillPathRunsInsideWorkspace(t *testing.T) {
+	root := t.TempDir()
+	initGitRepoIn(t, filepath.Join(root, "repo"))
+	s := &gitSkill{root: root}
+
+	_, err := s.Execute(context.Background(), Input{"args": []string{"status"}})
+	if err == nil {
+		t.Fatal("status at a non-repository root: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "pass path") {
+		t.Errorf("error = %q, want the remedy (pass path)", err)
+	}
+
+	out, err := s.Execute(context.Background(), Input{"args": []string{"log"}, "path": "repo"})
+	if err != nil {
+		t.Fatalf("git log with path: unexpected error: %v", err)
+	}
+	if !strings.Contains(out.Content, "init") {
+		t.Errorf("Content = %q, want the repo's commit", out.Content)
+	}
+	if !strings.Contains(out.Command, "(in repo)") {
+		t.Errorf("Command = %q, want it to name where the command ran", out.Command)
+	}
+}
+
+// A repository outside the workspace is reachable only the way any file is:
+// when the user added its folder. Refused otherwise — `path` is a door, not a
+// hole.
+func TestGitSkillPathOutsideWorkspace(t *testing.T) {
+	root := t.TempDir()
+	repo := initGitRepo(t)
+	s := &gitSkill{root: root}
+
+	if _, err := s.Execute(context.Background(), Input{"args": []string{"status"}, "path": repo}); err == nil {
+		t.Fatal("path outside the workspace: expected refusal, got nil")
+	}
+
+	setSandboxPolicy(root, false, []string{repo}, nil)
+	t.Cleanup(func() { setSandboxPolicy(root, false, nil, nil) })
+	out, err := s.Execute(context.Background(), Input{"args": []string{"status"}, "path": repo})
+	if err != nil {
+		t.Fatalf("path in an added folder: unexpected error: %v", err)
+	}
+	if !out.Success {
+		t.Error("Success = false, want true")
+	}
+}
+
+// ExecuteTool is the model's door; path has to make it through.
+func TestGitSkillExecuteToolPassesPath(t *testing.T) {
+	root := t.TempDir()
+	initGitRepoIn(t, filepath.Join(root, "repo"))
+	s := &gitSkill{root: root}
+	out, err := s.ExecuteTool(context.Background(), map[string]any{"action": "log", "path": "repo"})
+	if err != nil {
+		t.Fatalf("ExecuteTool with path: unexpected error: %v", err)
+	}
+	if !strings.Contains(out.Content, "init") {
+		t.Errorf("Content = %q, want the repo's commit", out.Content)
 	}
 }

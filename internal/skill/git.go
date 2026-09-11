@@ -58,6 +58,10 @@ func (*gitSkill) ToolDefinition() model.ToolDefinition {
 				"items":       map[string]any{"type": "string"},
 				"description": "Arguments for the action, one per element, e.g. [\"--stat\", \"HEAD~1\"]. Omit for the plain command.",
 			},
+			"path": map[string]any{
+				"type":        "string",
+				"description": "Repository directory to run in, relative to the workspace. Omit for the workspace root.",
+			},
 		},
 		"required":             []string{"action"},
 		"additionalProperties": false,
@@ -66,13 +70,22 @@ func (*gitSkill) ToolDefinition() model.ToolDefinition {
 	return model.ToolDefinition{
 		Type: "function",
 		Function: model.ToolFunction{
-			Name: "git",
-			Description: "Read the repository's git state: " + strings.Join(actions, ", ") + ". " +
-				"Use diff to check what your own edits changed before reporting them done. " +
-				"Read-only, committing, checking out or anything else that writes belongs in shell, where the user approves it.",
-			Parameters: payload,
+			Name:        "git",
+			Description: "Read a repository's git state: " + strings.Join(actions, ", ") + ". Read-only.",
+			Parameters:  payload,
 		},
 	}
+}
+
+// Guidance carries what the block entry used to say about when and where —
+// moved here the day `path` joined the signature, because the entry was
+// already over the standard (block_standard_test.go) and a parameter is worth
+// more in it than a sentence of habit.
+func (*gitSkill) Guidance(map[string]any) string {
+	return "Use diff to check what your own edits changed before reporting them done. " +
+		"Committing, checking out or anything else that writes belongs in shell, where the user approves it.\n" +
+		"When the workspace root is not the repository, pass path — a repository inside the workspace or one the " +
+		"user added alongside it. -C and --git-dir are blocked; path is the way there."
 }
 
 func (s *gitSkill) ExecuteTool(ctx context.Context, args map[string]any) (Output, error) {
@@ -82,7 +95,11 @@ func (s *gitSkill) ExecuteTool(ctx context.Context, args map[string]any) (Output
 		return newToolOutput("git", "git", "", time.Now(), false, err), err
 	}
 	callArgs := append([]string{action}, anyStringSlice(args["args"])...)
-	return s.Execute(ctx, Input{"args": callArgs})
+	input := Input{"args": callArgs}
+	if path, _ := args["path"].(string); strings.TrimSpace(path) != "" {
+		input["path"] = path
+	}
+	return s.Execute(ctx, input)
 }
 
 func (s *gitSkill) Execute(ctx context.Context, input Input) (Output, error) {
@@ -116,21 +133,59 @@ func (s *gitSkill) Execute(ctx context.Context, input Input) (Output, error) {
 	if err := validateGitReadArgs(action, actionArgs); err != nil {
 		return newToolOutput("git", "git "+strings.Join(args, " "), "", start, false, err), err
 	}
+	commandText := "git " + strings.Join(args, " ")
+
+	// Where the command runs. The workspace root unless `path` says otherwise,
+	// and `path` goes through the one door every file tool uses
+	// (resolveSandboxPath): inside the root, or a folder the user added, and
+	// never a credential store. It exists because a reviewer on 11 ก.ย. sat at
+	// a desk that was not a repository while the assistant it was checking
+	// worked in one — `read`, `list` and `glob` all took a path and followed;
+	// git had none, `-C` and `--git-dir` are blocked below, and the model tried
+	// all three before giving up. A repository the user has opened is one the
+	// user has opened; the tool that reads it should not need the desk moved.
+	root, err := resolveSafeWorkspace(s.root)
+	if err != nil {
+		return newToolOutput("git", commandText, "", start, false, err), err
+	}
+	requestPath, _ := input["path"].(string)
+	requestPath = strings.TrimSpace(requestPath)
+	if requestPath != "" {
+		commandText += " (in " + requestPath + ")"
+		dir, err := resolveSandboxPath(s.root, requestPath)
+		if err != nil {
+			return newToolOutput("git", commandText, "", start, false, err), err
+		}
+		info, err := os.Stat(dir)
+		if err != nil {
+			err = callfault.Newf("path: %w", err)
+			return newToolOutput("git", commandText, "", start, false, err), err
+		}
+		if !info.IsDir() {
+			err = callfault.Newf("path is not a directory: %s", requestPath)
+			return newToolOutput("git", commandText, "", start, false, err), err
+		}
+		root = dir
+	}
+
 	// And the same gate every other tool answers to (shell_sandbox.go). The
 	// check above is a denylist of git options someone thought of; this one
 	// asks the only question that generalises — does this argument name
-	// somewhere outside the folders the user chose.
-	if err := guardArgs(s.root, actionArgs); err != nil {
-		return newToolOutput("git", "git "+strings.Join(args, " "), "", start, false, err), err
-	}
-
-	root, err := resolveSafeWorkspace(s.root)
-	if err != nil {
-		return newToolOutput("git", "git "+strings.Join(args, " "), "", start, false, err), err
+	// somewhere outside the folders the user chose. Asked of the directory
+	// the command runs in, so a relative argument means what git will take it
+	// to mean; that directory was itself admitted by the same gate a moment
+	// ago, so nothing under it is new ground.
+	if err := guardArgs(root, actionArgs); err != nil {
+		return newToolOutput("git", commandText, "", start, false, err), err
 	}
 
 	if err := ensureGitRepo(ctx, root); err != nil {
-		return newToolOutput("git", "git "+strings.Join(args, " "), "", start, false, err), err
+		if requestPath == "" {
+			// The desk is not a repository. That is a fact about the desk, and
+			// the remedy is in the call: say where the repository is.
+			err = fmt.Errorf("%w; the workspace root is not a git repository, pass path to run in one elsewhere", err)
+		}
+		return newToolOutput("git", commandText, "", start, false, err), err
 	}
 
 	command := append([]string{action}, actionArgs...)
@@ -147,7 +202,6 @@ func (s *gitSkill) Execute(ctx context.Context, input Input) (Output, error) {
 		truncated = true
 		output += "\n... (output exceeded 1 MiB and was cut)"
 	}
-	commandText := "git " + strings.Join(args, " ")
 	result := newToolOutput("git", commandText, output, start, truncated, err)
 
 	if err != nil {
