@@ -8506,7 +8506,7 @@ The parked phone remote (§mobile-remote doc, 14 Aug) had set three rules for a 
 
 **Order:** phase 0 the documents; phase 1 the carve — seams first in small commits on `main` (the seven direct `EventsEmit`, the turn's lifetime off `a.ctx`, `Transport` through `ProviderOptions` and `bootstrap`, `internal/credentials`, the dialog/reveal split, the `Screen` interface), then one landing that moves ~200 files; phase 2 the wire and the local child; phase 3 ssh; phase 4 the remote behaviour of window tools. About ten weeks of work; the design doc §9 has the commit tables and §10 is where each phase writes what it did.
 
-**Status:** `Proposed, not built`. Nothing in the tree has moved; this entry and the design doc are the whole of the change. Per phase, this section gains its measured numbers — RPC round trip locally, turn latency delta, event volume — and the tests that pin it.
+**Status:** `Proposed, not built` for the split itself; **phase 1 Stage A is `Direct`** (2026-09-12, six commits `4e06a434`…`95f928c4`, the table in the design doc §10): one event door, the engine's own lifetime, `model.Transport` and a factory that reads no credential store, `internal/credentials` with `config.Config.ModelAPIKey` gone, every dialog and reveal split from its work, and `Screen` as the engine's whole view of the window. Nothing has moved packages yet. Per phase from here, this section gains its measured numbers — RPC round trip locally, turn latency delta, event volume — and the tests that pin it.
 
 ### 247.3 The same evening, from the owner using it
 
