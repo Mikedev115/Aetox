@@ -31,6 +31,14 @@ import (
 // store isolated per test.
 func bootDeskApp(t *testing.T, desk string) *Engine {
 	t.Helper()
+	return bootDeskAppLending(t, desk, nil)
+}
+
+// bootDeskAppLending is bootDeskApp with a window that lends the given
+// packs (Screen.WindowTools) — the browser's stand-in, for the tests about
+// what the engine does to a pack it did not build.
+func bootDeskAppLending(t *testing.T, desk string, lent []skill.Skill) *Engine {
+	t.Helper()
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 	// The recorder goes in HERE rather than when a test asks for it: applyConfig
 	// below starts a goroutine that reads `emit` and `ctx`, so a later write to
@@ -38,9 +46,10 @@ func bootDeskApp(t *testing.T, desk string) *Engine {
 	// one through bootRecorders and empties it instead of installing a second.
 	rec := &recorder{}
 	a := seed(&Engine{
-		ctx:   context.Background(),
-		emit:  func(name string, data ...any) { rec.add(emitted{name, data}) },
-		dbDir: t.TempDir(),
+		ctx:    context.Background(),
+		emit:   func(name string, data ...any) { rec.add(emitted{name, data}) },
+		dbDir:  t.TempDir(),
+		screen: &fakeScreen{tools: lent},
 	}, &conversation{id: newSessionID()})
 	bootRecorders.Store(a, rec)
 	t.Cleanup(func() {

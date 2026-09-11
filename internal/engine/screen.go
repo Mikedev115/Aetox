@@ -16,6 +16,7 @@ package engine
 // by the screen with its key, and only the answer comes back.
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -39,6 +40,10 @@ type Screen interface {
 	// and computer — built for one session. The engine decides which of them
 	// a session actually gets (workbenchSkills); the screen only offers.
 	WindowTools(s Session) []skill.Skill
+	// AgentTab names the agent's live browsing tab, "" when there is none —
+	// the stamp every browser tool event carries (recordToolAction), which
+	// only the window that holds the tab can put on.
+	AgentTab() string
 
 	// DefaultModel is the model a provider answers with when asked, on this
 	// endpoint, with the screen's key — "" when it cannot say. The engine
@@ -51,6 +56,29 @@ type Screen interface {
 	// ModelResident says whether a local runtime has the named model in
 	// memory — the end of the wait the loading notice covers.
 	ModelResident(provider, baseURL, modelName string) bool
+
+	// RenderDeck loads a deck in an unseen webview on the screen's machine and
+	// answers with pixels: the whole deck printed to PDF, every slide as a
+	// picture, or one slide. The deck is a file the engine names; what it
+	// looks like is a question only a browser can answer.
+	RenderDeck(ctx context.Context, fileURL string, req DeckRender) (DeckRendered, error)
+}
+
+// DeckRender is what the engine asks the screen to render of a deck.
+type DeckRender struct {
+	// Kind is "pdf", "images" or "slide".
+	Kind string
+	// Format is the picture format for "images" and "slide": png, jpg, webp.
+	Format string
+	// Slide is the 1-based slide for "slide".
+	Slide int
+}
+
+// DeckRendered is the answer: PDF for "pdf", one picture per slide for
+// "images", exactly one picture for "slide".
+type DeckRendered struct {
+	PDF    []byte
+	Images [][]byte
 }
 
 // Session is the little a window tool needs to know about the chat it acts
@@ -76,9 +104,13 @@ func (noScreen) ProviderTransport(string, string) model.Transport {
 }
 func (noScreen) ProviderEndpoint(string) string                       { return "" }
 func (noScreen) WindowTools(Session) []skill.Skill                    { return nil }
+func (noScreen) AgentTab() string                                     { return "" }
 func (noScreen) DefaultModel(string, string) string                   { return "" }
 func (noScreen) Probe(string, string, string, string) (string, error) { return "", errNoScreen }
 func (noScreen) ModelResident(string, string, string) bool            { return false }
+func (noScreen) RenderDeck(context.Context, string, DeckRender) (DeckRendered, error) {
+	return DeckRendered{}, errNoScreen
+}
 
 // screenOf is the Screen this engine talks to, never nil.
 func (a *Engine) screenOf() Screen {

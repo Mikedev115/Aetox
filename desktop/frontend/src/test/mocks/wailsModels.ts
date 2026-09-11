@@ -18,6 +18,10 @@ export namespace config {
 
 export namespace engine {}
 
+// The screen's own types (desktop/, the Go package main) — the update hand-off,
+// the browser devices, the computer-use rows. Types only, so nothing to mock.
+export namespace main {}
+
 // The agent editor builds a StarterSet to hand to SaveChairStarters, so this
 // one is a runtime value rather than a type. createFrom is what the generated
 // class offers and what the caller uses; the real one also revives nested

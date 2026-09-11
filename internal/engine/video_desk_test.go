@@ -33,7 +33,7 @@ func deskApp(t *testing.T) (*Engine, *conversation, *[]MediaOrigin) {
 		if event != "workbench:open-media" || len(data) == 0 {
 			return
 		}
-		ev, ok := data[0].(sessionEvent[MediaOrigin])
+		ev, ok := data[0].(SessionEvent[MediaOrigin])
 		if !ok {
 			t.Fatalf("open-media carried %T, want a session-stamped MediaOrigin", data[0])
 		}

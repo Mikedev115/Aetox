@@ -88,5 +88,5 @@ func (a *App) RequestAttention() {
 	if pref.AttentionFlashOff {
 		return
 	}
-	engine.FlashOwnWindow()
+	flashOwnWindow()
 }

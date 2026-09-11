@@ -56,10 +56,9 @@ func TestBindingsNeverReturnNilSlices(t *testing.T) {
 		// run a turn has nowhere to go back to — which is exactly the case
 		// this test exists for.
 		"RestorePoints",
-		// The programs the user has let Aetox drive. Empty is the shipped
-		// state — the feature is off until switched on and nothing has been
-		// granted — so this is the other case the test exists for.
-		"GrantedComputerApps",
+		// GrantedComputerApps left this list with §248 B1: the programs the
+		// user has let Aetox drive are the screen's (desktop/), and
+		// desktop/computer_permission_test.go holds it to the same rule.
 	}
 	for _, name := range noArgs {
 		method := value.MethodByName(name)

@@ -220,7 +220,7 @@ func changedPaths(t *testing.T, events []emitted) []string {
 		if ev.Name != "workbench:files-changed" || len(ev.Data) == 0 {
 			continue
 		}
-		payload, ok := ev.Data[0].(sessionEvent[[]string])
+		payload, ok := ev.Data[0].(SessionEvent[[]string])
 		if !ok {
 			t.Fatalf("workbench:files-changed carried %T, not a session event", ev.Data[0])
 		}

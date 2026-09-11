@@ -3,16 +3,13 @@
 package main
 
 import (
-	"syscall"
 	"unsafe"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-var (
-	user32                    = syscall.NewLazyDLL("user32.dll")
-	procSystemParametersInfoW = user32.NewProc("SystemParametersInfoW")
-)
+// user32 itself is declared once for the package, in browser_windows.go.
+var procSystemParametersInfoW = user32.NewProc("SystemParametersInfoW")
 
 // SPI_GETWORKAREA — the desktop rectangle left over once the taskbar and any
 // other appbar has taken its edge.

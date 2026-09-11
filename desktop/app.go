@@ -13,11 +13,20 @@ package main
 import (
 	"context"
 	"net/http"
+	"sync"
 
 	"github.com/Mikedev115/Aetox/internal/engine"
 )
 
 type App struct {
+	// api is the engine as the screen calls it: every forwarder
+	// (engine_forwarders_gen.go), every window tool and every door here goes
+	// through this interface and nothing else. In phase 2 it is the RPC
+	// client; a test hands in an engine with one answer changed.
+	api engine.API
+	// eng is the same engine as a value in this process — what the lifecycle
+	// hooks (engine/lifecycle.go) still take, and the last thing that knows
+	// the engine is in-process. Goes with phase 2.
 	eng *engine.Engine
 	// ctx is the window's lifetime — what the Wails runtime is called with:
 	// dialogs, window sizing, Quit. Nil until startup has run.
@@ -30,12 +39,28 @@ type App struct {
 	emit func(event string, data ...any)
 
 	staged stagedUpdate
+	// exports is what the deck export wrote into Downloads this session
+	// (exports.go), so OpenExport can open it and nothing else.
+	exports exports
+
+	// The browser tab host (browser.go) and the machine lock
+	// (computer_guard.go): both act on this window's computer, which is why
+	// they are the screen's and not the engine's.
+	browsersMu sync.Mutex
+	browsers   *browserHost
+	// driving is which chat, if any, is currently driving programs on the
+	// machine. On the App rather than on a conversation because the thing it
+	// protects is the machine, and there is one of those: two chats clicking
+	// in one window produce a state neither of them predicted. Held for the
+	// length of an acting call, never for a session.
+	driving screenLock
 }
 
 // NewApp builds the screen and the engine that talks to it.
 func NewApp() *App {
 	a := &App{}
 	a.eng = engine.NewEngine(appScreen{a})
+	a.api = a.eng
 	return a
 }
 

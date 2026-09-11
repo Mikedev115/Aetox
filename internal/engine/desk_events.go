@@ -37,7 +37,7 @@ func (a *Engine) deskEvent(sessionID, event string, payload map[string]string) {
 // rest of the desk is only now catching up to — and lives here so the gate
 // holds one rule: workbench:* leaves this file or it does not leave.
 func (a *Engine) deskFilesChanged(conv *conversation, paths []string) {
-	a.emitEvent("workbench:files-changed", sessionEvent[[]string]{SessionID: conv.id, Data: paths})
+	a.emitEvent("workbench:files-changed", SessionEvent[[]string]{SessionID: conv.id, Data: paths})
 }
 
 // deskMediaOpened is the third door, for a file the editor produced that opens
@@ -53,5 +53,5 @@ func (a *Engine) deskFilesChanged(conv *conversation, paths []string) {
 // Session-stamped like everything else here: an editor working in a background
 // chat parks its clip on that chat's desk, and the user finds it there.
 func (a *Engine) deskMediaOpened(conv *conversation, origin MediaOrigin) {
-	a.emitEvent("workbench:open-media", sessionEvent[MediaOrigin]{SessionID: conv.id, Data: origin})
+	a.emitEvent("workbench:open-media", SessionEvent[MediaOrigin]{SessionID: conv.id, Data: origin})
 }

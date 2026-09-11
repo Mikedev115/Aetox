@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/skill"
 )
 
 // newMCPTestApp builds an Engine with a temp config dir so binding tests never touch
@@ -118,6 +119,9 @@ func TestAddMCPServerValidation(t *testing.T) {
 // tools — Aetox's own — being listed to the user as add-ons they had installed.
 func TestToolsAndSkillsAreSeparateLists(t *testing.T) {
 	a := newMCPTestApp(t)
+	// The browser is what the window lends (Screen.WindowTools); an engine
+	// test has no window, so this one lends a stand-in under the same name.
+	a.screen = &fakeScreen{tools: []skill.Skill{&stubTool{name: "browser"}}}
 	a.applyConfig(a.cur(), a.cfg) // bootstrap so the registry is populated
 
 	tools := a.ListTools()

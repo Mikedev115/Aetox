@@ -27,7 +27,6 @@ func TestEveryScreenDoorHasItsEngineTwin(t *testing.T) {
 		// reveals → the engine half that answers with the host path
 		"OpenFileExternally":    "ProjectFilePath",
 		"OpenArtifact":          "ArtifactPath",
-		"OpenExport":            "ExportPath",
 		"OpenMCPFolder":         "MCPFolderPath",
 		"OpenMemoryFolder":      "MemoryFolderPath",
 		"OpenPromptsFolder":     "PromptsFolderPath",
@@ -39,8 +38,11 @@ func TestEveryScreenDoorHasItsEngineTwin(t *testing.T) {
 		"OpenAgentHome":         "AgentHomePath",
 		"RevealSpeechModel":     "SpeechModelFolderPath",
 		"OpenSpeechModelDir":    "SpeechModelDirPath",
+		// OpenExport is the one reveal with no twin: an export lands in this
+		// machine's Downloads (exports.go), so the path it opens is the
+		// screen's own, and there is nothing on the engine's host to ask.
 	}
-	screen := reflect.TypeOf(&App{})
+	screen := reflect.TypeOf(newTestApp())
 	eng := reflect.TypeOf(&engine.Engine{})
 	for door, twin := range twins {
 		if _, ok := screen.MethodByName(door); !ok {
@@ -63,7 +65,7 @@ func TestARevealOpensWhatTheEngineAnswers(t *testing.T) {
 	if err := a.OpenMemoryFolder(); err != nil {
 		t.Fatalf("OpenMemoryFolder: %v", err)
 	}
-	want, err := a.eng.MemoryFolderPath()
+	want, err := a.api.MemoryFolderPath()
 	if err != nil {
 		t.Fatal(err)
 	}

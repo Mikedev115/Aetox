@@ -37,10 +37,10 @@ func seed(a *Engine, conv *conversation) *Engine {
 	return a
 }
 
-// testScreen is the window an engine test runs against: the same packs the
-// desktop lends (still built in this package until they move), no events
-// (the a.emit seam is the recorder), and the desk questions answered the way
-// the screen answers them — without a key, which is all a test ever has.
+// testScreen is the window an engine test runs against: no packs (the
+// browser and the machine are the window's, in desktop/), no events (the
+// a.emit seam is the recorder), and the desk questions answered the way the
+// screen answers them — without a key, which is all a test ever has.
 type testScreen struct{ e *Engine }
 
 // Emit is nothing: an engine test has no window to reach, and a test that
@@ -49,8 +49,12 @@ func (s testScreen) Emit(string, any) {}
 func (s testScreen) ProviderTransport(string, string) model.Transport {
 	return func(n http.RoundTripper) http.RoundTripper { return n }
 }
-func (s testScreen) ProviderEndpoint(string) string         { return "" }
-func (s testScreen) WindowTools(sess Session) []skill.Skill { return WindowPacks(s.e, sess) }
+func (s testScreen) ProviderEndpoint(string) string    { return "" }
+func (s testScreen) WindowTools(Session) []skill.Skill { return nil }
+func (s testScreen) AgentTab() string                  { return "" }
+func (s testScreen) RenderDeck(context.Context, string, DeckRender) (DeckRendered, error) {
+	return DeckRendered{}, errNoScreen
+}
 func (s testScreen) DefaultModel(provider, baseURL string) string {
 	return model.ResolveDefaultModel(provider, baseURL, "")
 }

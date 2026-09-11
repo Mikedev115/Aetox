@@ -3,7 +3,6 @@
 package engine
 
 import (
-	"context"
 	"github.com/Mikedev115/Aetox/internal/capability"
 	"github.com/Mikedev115/Aetox/internal/command"
 	"github.com/Mikedev115/Aetox/internal/config"
@@ -39,8 +38,8 @@ type API interface {
 	AgentSkills(name string) []AgentSkillInfo
 	AgentSkillsFolderPath(name string) (string, error)
 	AgentsFolderPath() (string, error)
-	AllowComputerApp(name string) error
 	AnswerUserQuestion(sessionID string, answer string)
+	AnyTurnRunning() bool
 	AppCredit() string
 	AppVersion() string
 	ApplyMemoryLines(scope string, lines []string) error
@@ -51,30 +50,7 @@ type API interface {
 	BackgroundRuns() []BackgroundRun
 	BackgroundTasks() []BackgroundTask
 	BrowseFolderAt(dir string) (string, error)
-	BrowseForComputerApp() (string, error)
 	BrowseRoot() string
-	BrowserBack(id string)
-	BrowserCaptureFullPNG(ctx context.Context, id string) (string, int, error)
-	BrowserCapturePNG(id string) (string, error)
-	BrowserClickRef(id string, ref int) error
-	BrowserClose(id string)
-	BrowserCloseForTeardown(id string)
-	BrowserDetach(id string)
-	BrowserDevices() []DeviceProfile
-	BrowserForward(id string)
-	BrowserGetText(id string) (string, error)
-	BrowserNavigate(id string, url string, fallback string)
-	BrowserOpen(id string, url string, fallback string, x int, y int, w int, h int) error
-	BrowserOpenDevTools(id string)
-	BrowserReload(id string)
-	BrowserSetBounds(id string, x int, y int, w int, h int)
-	BrowserSetDevice(id string, name string) error
-	BrowserSetScreenShape(id string, radius int, notchW int, notchH int, notchY int)
-	BrowserSetVisible(id string, visible bool)
-	BrowserSetZoom(id string, factor float64)
-	BrowserStartPick(id string, opts string) error
-	BrowserStopPick(id string)
-	BrowserTypeRef(id string, ref int, text string, enter bool) error
 	BusySignal() []BusyLayer
 	CancelAccountSignIn()
 	CancelMCPSignIn(serverName string)
@@ -89,13 +65,12 @@ type API interface {
 	ChairStartersFile(locale string) string
 	CheckConnectionServer(id string) (bool, error)
 	ClearProjectFocus() (ProjectStatus, error)
-	CloseAllBrowserTabs()
 	CommandHistory() []string
 	CompleteAccountSignIn() (AccountState, error)
 	CompleteMCPSignIn(serverName string) error
 	CompleteSignIn(providerName string, pasted string) (ModelInfo, error)
 	CompressArtifacts(paths []string) (CompressReport, error)
-	ComputerControlOn() bool
+	ComputerControlChanged()
 	ConnectAccount(id string, token string, baseURL string, targets []string) (connect.Account, error)
 	Connections() []connect.Status
 	ConsolidateMemory(scope string) (MemoryConsolidation, error)
@@ -106,9 +81,8 @@ type API interface {
 	CurrentSpace() string
 	CustomProviders() []CustomProviderRow
 	DeckCaptureDrawing(relPath string, slide int, ink string) (string, error)
+	DeckExportFiles(relPath string, format string) (DeckExport, error)
 	DeckFormats() []DeckFormat
-	DeckPickScript(token string, opts string) string
-	DeckStopPickScript() string
 	DelegateSwitches() DelegateSettings
 	DeleteArtifact(path string) error
 	DeleteDeck(relPath string) error
@@ -122,8 +96,6 @@ type API interface {
 	DismissTaskChip(id string)
 	EnabledProviders() []string
 	EnginesFor(family string, agent string) []connect.Status
-	ExportDeck(relPath string, format string) (string, error)
-	ExportPath(path string) (string, error)
 	FileStillThere(relPath string) string
 	ForgetMemoryScope(scope string) error
 	ForgetProject(root string) (ProjectStatus, error)
@@ -143,8 +115,8 @@ type API interface {
 	GitSuggestSplitCommits() ([]GitCommitGroup, error)
 	GitSwitchBranch(name string) (string, error)
 	GitWorkingTree() ([]GitFileChange, error)
-	GrantedComputerApps() []string
 	GuideTopics() []model.GuideTopic
+	HandedOverFile(fileURL string) string
 	HistoryFault() StoreFault
 	ImageStatus() string
 	ImportSessionFrom(path string) (string, error)
@@ -210,8 +182,8 @@ type API interface {
 	NewSessionAt(desk string) (string, error)
 	NewSessionInSpace(name string) (string, error)
 	NoteProviderQuotas(providerName string, quotas []model.Quota)
-	OpenComputerApps() []ComputerAppRow
 	OpenProjectPath(root string) (ProjectStatus, error)
+	PageMarksOn() bool
 	PairedDevices() []RemoteDevice
 	PausePlanRun(sessionID string)
 	PendingChangeByID(id int64) PendingChange
@@ -225,7 +197,6 @@ type API interface {
 	PlanRunning(sessionID string) bool
 	PreparedReplyOn() bool
 	PriceModels(providerName string, models []string) []ModelListing
-	ProgramIcon(p0 string) string
 	ProjectFilePath(relPath string) (string, error)
 	ProjectTree() []TreeNode
 	PromptsFolderPath() (string, error)
@@ -263,13 +234,13 @@ type API interface {
 	RequiresAPIKey(providerName string) bool
 	ResendEdited(text string, revertFiles bool) (TurnReply, error)
 	ResolveAddress(input string) Address
+	ResolveWorkbenchURL(input string) (string, string)
 	RestorePoints() []RestorePoint
 	RestoreRecurringRequest(normalized string) error
 	ResumePlanRun(sessionID string)
 	RetryActiveProvider() ModelInfo
 	RetryFailedTurn(text string) (TurnReply, error)
 	ReviewPullRequest(number int) (string, error)
-	RevokeComputerApp(name string) error
 	RevokeDevice(id string) error
 	RewindTo(id string) (UndoResult, error)
 	RunChatCommand(command string) (RunBlockResult, error)
@@ -277,7 +248,9 @@ type API interface {
 	RunSessionReview(sessionID string) (int, error)
 	RunSkillTuneup() (int, error)
 	RunnableLanguages() map[string]string
+	SandboxFile(request string) (string, error)
 	SaveAgentProfile(name string, body string) error
+	SaveBrowserShot(png []byte, marked bool) (string, error)
 	SaveChairStarters(name string, locale string, set subagent.StarterSet) error
 	SaveChatFile(sourcePath string) (string, error)
 	SaveChatImage(sourcePath string) (string, error)
@@ -306,7 +279,6 @@ type API interface {
 	SessionsInSpace(name string) []SessionMeta
 	SetAgentOff(name string, off bool) DelegateSettings
 	SetBusyLayer(id string, on bool) []BusyLayer
-	SetComputerControlOn(on bool) error
 	SetConnectionStartCommand(id string, command string) error
 	SetConnectionTargets(id string, targets []string) error
 	SetDelegateOff(kind string, off bool) DelegateSettings

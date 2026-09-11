@@ -35,9 +35,38 @@ func (s appScreen) ProviderTransport(provider, wireFormat string) model.Transpor
 func (s appScreen) ProviderEndpoint(provider string) string { return oauth.Endpoint(provider) }
 
 func (s appScreen) WindowTools(sess engine.Session) []skill.Skill {
-	// The packs still live in the engine package until browser_*.go and
-	// computer_*.go move here; WindowPacks goes with them.
-	return engine.WindowPacks(s.app.eng, sess)
+	return []skill.Skill{
+		// One tool for the browser, nine actions inside it (browser_tool.go).
+		// The old per-action names are still what `tools:` and `categories:`
+		// speak — they moved from being tools to being the actions' keys.
+		&browserSkill{app: s.app, session: sess},
+		// Driving programs on this machine (computer_tool.go). Offered always;
+		// whether a session gets it is the engine's switch, not the window's.
+		newComputerSkill(s.app, sess),
+	}
+}
+
+// AgentTab is the agent's live browsing tab, peeked rather than taken — see
+// agentTabPeek for the message taking it would swallow.
+func (s appScreen) AgentTab() string { return s.app.agentTabPeek() }
+
+// modelSees says whether the model of the chat on screen can read a picture:
+// the gate the browser and the machine share before putting an image on the
+// wire. A model with no eyes gets the path and the tool that reads it.
+func (a *App) modelSees() bool {
+	info := a.api.GetModelInfo()
+	return model.ResolveVision(info.Provider, info.ModelName)
+}
+
+// deskEvent raises one workbench event, stamped with the chat it happened in
+// — the screen's copy of the engine's door (desk_events.go), for the tools
+// that act here.
+func (a *App) deskEvent(sessionID, event string, payload map[string]string) {
+	if payload == nil {
+		payload = map[string]string{}
+	}
+	payload["sessionId"] = sessionID
+	a.emitEvent("workbench:"+event, payload)
 }
 
 func (s appScreen) DefaultModel(provider, baseURL string) string {

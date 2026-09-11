@@ -43,7 +43,7 @@ import (
 func (a *App) ExportAgentPackage(name string) (string, error) {
 	// Packed before the dialog opens: an agent that cannot be exported should
 	// refuse while the user is still looking at the button they pressed.
-	file, err := a.eng.AgentPackageBytes(name)
+	file, err := a.api.AgentPackageBytes(name)
 	if err != nil {
 		return "", err
 	}
@@ -67,7 +67,7 @@ func (a *App) ExportAgentPackage(name string) (string, error) {
 func (a *App) ExportSession(id, format string) (string, error) {
 	// Rendered before the dialog opens: a session that cannot be exported
 	// should refuse before asking where to put it.
-	file, err := a.eng.SessionExportBytes(id, format)
+	file, err := a.api.SessionExportBytes(id, format)
 	if err != nil {
 		return "", err
 	}
@@ -90,7 +90,7 @@ func (a *App) ExportSession(id, format string) (string, error) {
 // SavePicture asks where to save a picture the agent made and writes it
 // there, byte for byte — see PictureBytes for why not through a canvas.
 func (a *App) SavePicture(relPath string) (string, error) {
-	file, err := a.eng.PictureBytes(relPath)
+	file, err := a.api.PictureBytes(relPath)
 	if err != nil {
 		return "", err
 	}
@@ -123,7 +123,7 @@ func (a *App) ImportSession() (string, error) {
 	if err != nil || path == "" {
 		return "", err
 	}
-	return a.eng.ImportSessionFrom(path)
+	return a.api.ImportSessionFrom(path)
 }
 
 // PickPresetImage opens the native picker and, if the user chose a file,
@@ -139,7 +139,7 @@ func (a *App) PickPresetImage(name string) (string, error) {
 	if err != nil || strings.TrimSpace(path) == "" {
 		return "", err
 	}
-	return a.eng.SetPresetImageFrom(name, path)
+	return a.api.SetPresetImageFrom(name, path)
 }
 
 // InstallSkillFromZip asks for a skill archive and installs it.
@@ -158,7 +158,7 @@ func (a *App) InstallSkillFromZip() (string, error) {
 	if err != nil || strings.TrimSpace(path) == "" {
 		return "", err
 	}
-	return a.eng.InstallSkillsFromZipAt(path)
+	return a.api.InstallSkillsFromZipAt(path)
 }
 
 // AddSpaceContext asks for files and copies them into a project's context
@@ -170,26 +170,26 @@ func (a *App) AddSpaceContext(name string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return a.eng.AddSpaceContextFiles(name, picked)
+	return a.api.AddSpaceContextFiles(name, picked)
 }
 
 // AddWorkspaceFolder asks the user for a folder and gives it the same rights
 // the project folder has, for this project, until they remove it.
 func (a *App) AddWorkspaceFolder() ([]engine.WorkspaceFolder, error) {
-	if !a.eng.GetProjectStatus().Focused {
+	if !a.api.GetProjectStatus().Focused {
 		// Refused before the dialog, with the reason AddWorkspaceFolderAt gives.
-		return a.eng.AddWorkspaceFolderAt("")
+		return a.api.AddWorkspaceFolderAt("")
 	}
 	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
 		Title: "เพิ่มโฟลเดอร์เข้าโปรเจกต์นี้",
 	})
 	if err != nil {
-		return a.eng.WorkspaceFolders(), err
+		return a.api.WorkspaceFolders(), err
 	}
 	if strings.TrimSpace(dir) == "" {
-		return a.eng.WorkspaceFolders(), nil // cancelled
+		return a.api.WorkspaceFolders(), nil // cancelled
 	}
-	return a.eng.AddWorkspaceFolderAt(dir)
+	return a.api.AddWorkspaceFolderAt(dir)
 }
 
 // OpenProjectFolder lets the user pick a real folder via the native OS dialog,
@@ -203,18 +203,18 @@ func (a *App) OpenProjectFolder() (engine.ProjectStatus, error) {
 		return engine.ProjectStatus{}, err
 	}
 	if strings.TrimSpace(dir) == "" {
-		return a.eng.GetProjectStatus(), nil
+		return a.api.GetProjectStatus(), nil
 	}
-	return a.eng.OpenProjectPath(dir)
+	return a.api.OpenProjectPath(dir)
 }
 
 // BrowseFolder asks for a folder and points the file tree at it. Returns the
 // folder chosen, or what the tree was already showing when the dialog was
 // dismissed.
 func (a *App) BrowseFolder() (string, error) {
-	if a.eng.GetProjectStatus().Focused {
+	if a.api.GetProjectStatus().Focused {
 		// Refused before the dialog, with the reason BrowseFolderAt gives.
-		return a.eng.BrowseFolderAt("")
+		return a.api.BrowseFolderAt("")
 	}
 	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
 		Title: "Browse a folder",
@@ -222,7 +222,7 @@ func (a *App) BrowseFolder() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return a.eng.BrowseFolderAt(dir)
+	return a.api.BrowseFolderAt(dir)
 }
 
 // ---------------------------------------------------------------- reveals
@@ -277,21 +277,21 @@ func openInFileManager(dir string) error {
 
 // RevealSpeechModel shows the folder a scanned speech model sits in.
 func (a *App) RevealSpeechModel(path string) error {
-	return a.reveal(a.eng.SpeechModelFolderPath(path))
+	return a.reveal(a.api.SpeechModelFolderPath(path))
 }
 
 // OpenSpeechModelDir opens one of the scanned model folders, creating Aetox's
 // own if it does not exist yet — that is where a downloaded model is meant to go.
-func (a *App) OpenSpeechModelDir(dir string) error { return a.reveal(a.eng.SpeechModelDirPath(dir)) }
+func (a *App) OpenSpeechModelDir(dir string) error { return a.reveal(a.api.SpeechModelDirPath(dir)) }
 
 // OpenExport opens a file this session exported, with whatever the OS uses —
 // the same door the file card uses, so an exported file opens exactly the way
 // every other produced file in this app does.
-func (a *App) OpenExport(path string) error { return a.reveal(a.eng.ExportPath(path)) }
+func (a *App) OpenExport(path string) error { return a.reveal(a.exportPath(path)) }
 
 // OpenFileExternally opens a file of the open project with its default program.
 func (a *App) OpenFileExternally(relPath string) error {
-	return a.reveal(a.eng.ProjectFilePath(relPath))
+	return a.reveal(a.api.ProjectFilePath(relPath))
 }
 
 // OpenArtifact opens a produced file from the gallery. Separate from
@@ -299,35 +299,35 @@ func (a *App) OpenFileExternally(relPath string) error {
 // sandbox root: an artifact is absolute and routinely belongs to another
 // project's output folder — ArtifactPath bounds it by the gallery's own roots.
 func (a *App) OpenArtifact(path string) error {
-	return a.reveal(a.eng.ArtifactPath(path))
+	return a.reveal(a.api.ArtifactPath(path))
 }
 
 // OpenMCPFolder reveals the folder holding mcp-servers.json.
-func (a *App) OpenMCPFolder() error { return a.reveal(a.eng.MCPFolderPath()) }
+func (a *App) OpenMCPFolder() error { return a.reveal(a.api.MCPFolderPath()) }
 
 // OpenMemoryFolder reveals the memory directory.
-func (a *App) OpenMemoryFolder() error { return a.reveal(a.eng.MemoryFolderPath()) }
+func (a *App) OpenMemoryFolder() error { return a.reveal(a.api.MemoryFolderPath()) }
 
 // OpenPromptsFolder reveals the prompts directory.
-func (a *App) OpenPromptsFolder() error { return a.reveal(a.eng.PromptsFolderPath()) }
+func (a *App) OpenPromptsFolder() error { return a.reveal(a.api.PromptsFolderPath()) }
 
 // OpenSkillsFolder reveals the skills directory.
-func (a *App) OpenSkillsFolder() error { return a.reveal(a.eng.SkillsFolderPath()) }
+func (a *App) OpenSkillsFolder() error { return a.reveal(a.api.SkillsFolderPath()) }
 
 // OpenSpaceFolder shows a project's folder — the answer to "where do I put
 // the files?", given rather than described.
-func (a *App) OpenSpaceFolder(name string) error { return a.reveal(a.eng.SpaceFolderPath(name)) }
+func (a *App) OpenSpaceFolder(name string) error { return a.reveal(a.api.SpaceFolderPath(name)) }
 
 // OpenSubagentsFolder reveals the sub-agents' home.
-func (a *App) OpenSubagentsFolder() error { return a.reveal(a.eng.SubagentsFolderPath()) }
+func (a *App) OpenSubagentsFolder() error { return a.reveal(a.api.SubagentsFolderPath()) }
 
 // OpenAgentsFolder reveals the agents' home — the office page's hiring door.
-func (a *App) OpenAgentsFolder() error { return a.reveal(a.eng.AgentsFolderPath()) }
+func (a *App) OpenAgentsFolder() error { return a.reveal(a.api.AgentsFolderPath()) }
 
 // OpenAgentSkillsFolder reveals one agent's own skills shelf.
 func (a *App) OpenAgentSkillsFolder(name string) error {
-	return a.reveal(a.eng.AgentSkillsFolderPath(name))
+	return a.reveal(a.api.AgentSkillsFolderPath(name))
 }
 
 // OpenAgentHome reveals one agent's home directory.
-func (a *App) OpenAgentHome(name string) error { return a.reveal(a.eng.AgentHomePath(name)) }
+func (a *App) OpenAgentHome(name string) error { return a.reveal(a.api.AgentHomePath(name)) }

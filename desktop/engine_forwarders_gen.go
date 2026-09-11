@@ -7,7 +7,6 @@ package main
 // method desktop/ defines on App.
 
 import (
-	"context"
 	"github.com/Mikedev115/Aetox/internal/capability"
 	"github.com/Mikedev115/Aetox/internal/command"
 	"github.com/Mikedev115/Aetox/internal/config"
@@ -23,1541 +22,1433 @@ import (
 )
 
 func (a *App) AcceptsAPIKey(providerName string) bool {
-	return a.eng.AcceptsAPIKey(providerName)
+	return a.api.AcceptsAPIKey(providerName)
 }
 
 func (a *App) AccountRefresh() (engine.AccountState, error) {
-	return a.eng.AccountRefresh()
+	return a.api.AccountRefresh()
 }
 
 func (a *App) AccountSignOut() error {
-	return a.eng.AccountSignOut()
+	return a.api.AccountSignOut()
 }
 
 func (a *App) AccountStatus() engine.AccountState {
-	return a.eng.AccountStatus()
+	return a.api.AccountStatus()
 }
 
 func (a *App) ActiveModelFor(providerName string) (string, string) {
-	return a.eng.ActiveModelFor(providerName)
+	return a.api.ActiveModelFor(providerName)
 }
 
 func (a *App) AddCustomProviderRow(name string, baseURL string) (string, error) {
-	return a.eng.AddCustomProviderRow(name, baseURL)
+	return a.api.AddCustomProviderRow(name, baseURL)
 }
 
 func (a *App) AddLearnedEntry(scope string, text string) error {
-	return a.eng.AddLearnedEntry(scope, text)
+	return a.api.AddLearnedEntry(scope, text)
 }
 
 func (a *App) AddMCPServer(name string, command []string) error {
-	return a.eng.AddMCPServer(name, command)
+	return a.api.AddMCPServer(name, command)
 }
 
 func (a *App) AddSpaceContextFiles(name string, picked []string) ([]string, error) {
-	return a.eng.AddSpaceContextFiles(name, picked)
+	return a.api.AddSpaceContextFiles(name, picked)
 }
 
 func (a *App) AddWorkspaceFolderAt(dir string) ([]engine.WorkspaceFolder, error) {
-	return a.eng.AddWorkspaceFolderAt(dir)
+	return a.api.AddWorkspaceFolderAt(dir)
 }
 
 func (a *App) AdoptMemoryScope(scope string, targetRoot string) error {
-	return a.eng.AdoptMemoryScope(scope, targetRoot)
+	return a.api.AdoptMemoryScope(scope, targetRoot)
 }
 
 func (a *App) AgentBlocked(name string) bool {
-	return a.eng.AgentBlocked(name)
+	return a.api.AgentBlocked(name)
 }
 
 func (a *App) AgentGate(name string) engine.AgentGate {
-	return a.eng.AgentGate(name)
+	return a.api.AgentGate(name)
 }
 
 func (a *App) AgentHomePath(name string) (string, error) {
-	return a.eng.AgentHomePath(name)
+	return a.api.AgentHomePath(name)
 }
 
 func (a *App) AgentNeeds(name string) []subagent.Requirement {
-	return a.eng.AgentNeeds(name)
+	return a.api.AgentNeeds(name)
 }
 
 func (a *App) AgentPackageBytes(name string) (engine.ExportFile, error) {
-	return a.eng.AgentPackageBytes(name)
+	return a.api.AgentPackageBytes(name)
 }
 
 func (a *App) AgentSkills(name string) []engine.AgentSkillInfo {
-	return a.eng.AgentSkills(name)
+	return a.api.AgentSkills(name)
 }
 
 func (a *App) AgentSkillsFolderPath(name string) (string, error) {
-	return a.eng.AgentSkillsFolderPath(name)
+	return a.api.AgentSkillsFolderPath(name)
 }
 
 func (a *App) AgentsFolderPath() (string, error) {
-	return a.eng.AgentsFolderPath()
-}
-
-func (a *App) AllowComputerApp(name string) error {
-	return a.eng.AllowComputerApp(name)
+	return a.api.AgentsFolderPath()
 }
 
 func (a *App) AnswerUserQuestion(sessionID string, answer string) {
-	a.eng.AnswerUserQuestion(sessionID, answer)
+	a.api.AnswerUserQuestion(sessionID, answer)
+}
+
+func (a *App) AnyTurnRunning() bool {
+	return a.api.AnyTurnRunning()
 }
 
 func (a *App) AppCredit() string {
-	return a.eng.AppCredit()
+	return a.api.AppCredit()
 }
 
 func (a *App) AppVersion() string {
-	return a.eng.AppVersion()
+	return a.api.AppVersion()
 }
 
 func (a *App) ApplyMemoryLines(scope string, lines []string) error {
-	return a.eng.ApplyMemoryLines(scope, lines)
+	return a.api.ApplyMemoryLines(scope, lines)
 }
 
 func (a *App) ApprovePendingChange(id int64) error {
-	return a.eng.ApprovePendingChange(id)
+	return a.api.ApprovePendingChange(id)
 }
 
 func (a *App) ApprovePendingChangeTo(id int64, scope string) error {
-	return a.eng.ApprovePendingChangeTo(id, scope)
+	return a.api.ApprovePendingChangeTo(id, scope)
 }
 
 func (a *App) ArtifactPath(path string) (string, error) {
-	return a.eng.ArtifactPath(path)
+	return a.api.ArtifactPath(path)
 }
 
 func (a *App) ArtifactPreview(path string) (engine.ArtifactPreview, error) {
-	return a.eng.ArtifactPreview(path)
+	return a.api.ArtifactPreview(path)
 }
 
 func (a *App) BackgroundRuns() []engine.BackgroundRun {
-	return a.eng.BackgroundRuns()
+	return a.api.BackgroundRuns()
 }
 
 func (a *App) BackgroundTasks() []engine.BackgroundTask {
-	return a.eng.BackgroundTasks()
+	return a.api.BackgroundTasks()
 }
 
 func (a *App) BrowseFolderAt(dir string) (string, error) {
-	return a.eng.BrowseFolderAt(dir)
-}
-
-func (a *App) BrowseForComputerApp() (string, error) {
-	return a.eng.BrowseForComputerApp()
+	return a.api.BrowseFolderAt(dir)
 }
 
 func (a *App) BrowseRoot() string {
-	return a.eng.BrowseRoot()
-}
-
-func (a *App) BrowserBack(id string) {
-	a.eng.BrowserBack(id)
-}
-
-func (a *App) BrowserCaptureFullPNG(ctx context.Context, id string) (string, int, error) {
-	return a.eng.BrowserCaptureFullPNG(ctx, id)
-}
-
-func (a *App) BrowserCapturePNG(id string) (string, error) {
-	return a.eng.BrowserCapturePNG(id)
-}
-
-func (a *App) BrowserClickRef(id string, ref int) error {
-	return a.eng.BrowserClickRef(id, ref)
-}
-
-func (a *App) BrowserClose(id string) {
-	a.eng.BrowserClose(id)
-}
-
-func (a *App) BrowserCloseForTeardown(id string) {
-	a.eng.BrowserCloseForTeardown(id)
-}
-
-func (a *App) BrowserDetach(id string) {
-	a.eng.BrowserDetach(id)
-}
-
-func (a *App) BrowserDevices() []engine.DeviceProfile {
-	return a.eng.BrowserDevices()
-}
-
-func (a *App) BrowserForward(id string) {
-	a.eng.BrowserForward(id)
-}
-
-func (a *App) BrowserGetText(id string) (string, error) {
-	return a.eng.BrowserGetText(id)
-}
-
-func (a *App) BrowserNavigate(id string, url string, fallback string) {
-	a.eng.BrowserNavigate(id, url, fallback)
-}
-
-func (a *App) BrowserOpen(id string, url string, fallback string, x int, y int, w int, h int) error {
-	return a.eng.BrowserOpen(id, url, fallback, x, y, w, h)
-}
-
-func (a *App) BrowserOpenDevTools(id string) {
-	a.eng.BrowserOpenDevTools(id)
-}
-
-func (a *App) BrowserReload(id string) {
-	a.eng.BrowserReload(id)
-}
-
-func (a *App) BrowserSetBounds(id string, x int, y int, w int, h int) {
-	a.eng.BrowserSetBounds(id, x, y, w, h)
-}
-
-func (a *App) BrowserSetDevice(id string, name string) error {
-	return a.eng.BrowserSetDevice(id, name)
-}
-
-func (a *App) BrowserSetScreenShape(id string, radius int, notchW int, notchH int, notchY int) {
-	a.eng.BrowserSetScreenShape(id, radius, notchW, notchH, notchY)
-}
-
-func (a *App) BrowserSetVisible(id string, visible bool) {
-	a.eng.BrowserSetVisible(id, visible)
-}
-
-func (a *App) BrowserSetZoom(id string, factor float64) {
-	a.eng.BrowserSetZoom(id, factor)
-}
-
-func (a *App) BrowserStartPick(id string, opts string) error {
-	return a.eng.BrowserStartPick(id, opts)
-}
-
-func (a *App) BrowserStopPick(id string) {
-	a.eng.BrowserStopPick(id)
-}
-
-func (a *App) BrowserTypeRef(id string, ref int, text string, enter bool) error {
-	return a.eng.BrowserTypeRef(id, ref, text, enter)
+	return a.api.BrowseRoot()
 }
 
 func (a *App) BusySignal() []engine.BusyLayer {
-	return a.eng.BusySignal()
+	return a.api.BusySignal()
 }
 
 func (a *App) CancelAccountSignIn() {
-	a.eng.CancelAccountSignIn()
+	a.api.CancelAccountSignIn()
 }
 
 func (a *App) CancelMCPSignIn(serverName string) {
-	a.eng.CancelMCPSignIn(serverName)
+	a.api.CancelMCPSignIn(serverName)
 }
 
 func (a *App) CancelPendingModel() engine.ModelInfo {
-	return a.eng.CancelPendingModel()
+	return a.api.CancelPendingModel()
 }
 
 func (a *App) CancelSignIn(providerName string) {
-	a.eng.CancelSignIn(providerName)
+	a.api.CancelSignIn(providerName)
 }
 
 func (a *App) CancelTurn() {
-	a.eng.CancelTurn()
+	a.api.CancelTurn()
 }
 
 func (a *App) CapabilitiesInstalling() bool {
-	return a.eng.CapabilitiesInstalling()
+	return a.api.CapabilitiesInstalling()
 }
 
 func (a *App) CapabilityForServer(server string) string {
-	return a.eng.CapabilityForServer(server)
+	return a.api.CapabilityForServer(server)
 }
 
 func (a *App) CapabilityStatuses() []capability.Status {
-	return a.eng.CapabilityStatuses()
+	return a.api.CapabilityStatuses()
 }
 
 func (a *App) CatalogModelChoices(canonical string) []string {
-	return a.eng.CatalogModelChoices(canonical)
+	return a.api.CatalogModelChoices(canonical)
 }
 
 func (a *App) ChairStarters(name string, locale string) subagent.StarterSet {
-	return a.eng.ChairStarters(name, locale)
+	return a.api.ChairStarters(name, locale)
 }
 
 func (a *App) ChairStartersFile(locale string) string {
-	return a.eng.ChairStartersFile(locale)
+	return a.api.ChairStartersFile(locale)
 }
 
 func (a *App) CheckConnectionServer(id string) (bool, error) {
-	return a.eng.CheckConnectionServer(id)
+	return a.api.CheckConnectionServer(id)
 }
 
 func (a *App) ClearProjectFocus() (engine.ProjectStatus, error) {
-	return a.eng.ClearProjectFocus()
-}
-
-func (a *App) CloseAllBrowserTabs() {
-	a.eng.CloseAllBrowserTabs()
+	return a.api.ClearProjectFocus()
 }
 
 func (a *App) CommandHistory() []string {
-	return a.eng.CommandHistory()
+	return a.api.CommandHistory()
 }
 
 func (a *App) CompleteAccountSignIn() (engine.AccountState, error) {
-	return a.eng.CompleteAccountSignIn()
+	return a.api.CompleteAccountSignIn()
 }
 
 func (a *App) CompleteMCPSignIn(serverName string) error {
-	return a.eng.CompleteMCPSignIn(serverName)
+	return a.api.CompleteMCPSignIn(serverName)
 }
 
 func (a *App) CompleteSignIn(providerName string, pasted string) (engine.ModelInfo, error) {
-	return a.eng.CompleteSignIn(providerName, pasted)
+	return a.api.CompleteSignIn(providerName, pasted)
 }
 
 func (a *App) CompressArtifacts(paths []string) (engine.CompressReport, error) {
-	return a.eng.CompressArtifacts(paths)
+	return a.api.CompressArtifacts(paths)
 }
 
-func (a *App) ComputerControlOn() bool {
-	return a.eng.ComputerControlOn()
+func (a *App) ComputerControlChanged() {
+	a.api.ComputerControlChanged()
 }
 
 func (a *App) ConnectAccount(id string, token string, baseURL string, targets []string) (connect.Account, error) {
-	return a.eng.ConnectAccount(id, token, baseURL, targets)
+	return a.api.ConnectAccount(id, token, baseURL, targets)
 }
 
 func (a *App) Connections() []connect.Status {
-	return a.eng.Connections()
+	return a.api.Connections()
 }
 
 func (a *App) ConsolidateMemory(scope string) (engine.MemoryConsolidation, error) {
-	return a.eng.ConsolidateMemory(scope)
+	return a.api.ConsolidateMemory(scope)
 }
 
 func (a *App) CreatePullRequest(title string, head string, base string, body string, draft bool) engine.PRCreated {
-	return a.eng.CreatePullRequest(title, head, base, body, draft)
+	return a.api.CreatePullRequest(title, head, base, body, draft)
 }
 
 func (a *App) CreateSpace(name string) (engine.Space, error) {
-	return a.eng.CreateSpace(name)
+	return a.api.CreateSpace(name)
 }
 
 func (a *App) CurrentSessionID() string {
-	return a.eng.CurrentSessionID()
+	return a.api.CurrentSessionID()
 }
 
 func (a *App) CurrentShell() engine.ShellOption {
-	return a.eng.CurrentShell()
+	return a.api.CurrentShell()
 }
 
 func (a *App) CurrentSpace() string {
-	return a.eng.CurrentSpace()
+	return a.api.CurrentSpace()
 }
 
 func (a *App) CustomProviders() []engine.CustomProviderRow {
-	return a.eng.CustomProviders()
+	return a.api.CustomProviders()
 }
 
 func (a *App) DeckCaptureDrawing(relPath string, slide int, ink string) (string, error) {
-	return a.eng.DeckCaptureDrawing(relPath, slide, ink)
+	return a.api.DeckCaptureDrawing(relPath, slide, ink)
+}
+
+func (a *App) DeckExportFiles(relPath string, format string) (engine.DeckExport, error) {
+	return a.api.DeckExportFiles(relPath, format)
 }
 
 func (a *App) DeckFormats() []engine.DeckFormat {
-	return a.eng.DeckFormats()
-}
-
-func (a *App) DeckPickScript(token string, opts string) string {
-	return a.eng.DeckPickScript(token, opts)
-}
-
-func (a *App) DeckStopPickScript() string {
-	return a.eng.DeckStopPickScript()
+	return a.api.DeckFormats()
 }
 
 func (a *App) DelegateSwitches() engine.DelegateSettings {
-	return a.eng.DelegateSwitches()
+	return a.api.DelegateSwitches()
 }
 
 func (a *App) DeleteArtifact(path string) error {
-	return a.eng.DeleteArtifact(path)
+	return a.api.DeleteArtifact(path)
 }
 
 func (a *App) DeleteDeck(relPath string) error {
-	return a.eng.DeleteDeck(relPath)
+	return a.api.DeleteDeck(relPath)
 }
 
 func (a *App) DeleteIdentityFile(name string) error {
-	return a.eng.DeleteIdentityFile(name)
+	return a.api.DeleteIdentityFile(name)
 }
 
 func (a *App) DeletePromptPreset(name string) error {
-	return a.eng.DeletePromptPreset(name)
+	return a.api.DeletePromptPreset(name)
 }
 
 func (a *App) DeleteSession(id string) error {
-	return a.eng.DeleteSession(id)
+	return a.api.DeleteSession(id)
 }
 
 func (a *App) DeleteSpace(name string) error {
-	return a.eng.DeleteSpace(name)
+	return a.api.DeleteSpace(name)
 }
 
 func (a *App) DeleteSubagentProfile(name string) error {
-	return a.eng.DeleteSubagentProfile(name)
+	return a.api.DeleteSubagentProfile(name)
 }
 
 func (a *App) DisconnectAccount(id string) error {
-	return a.eng.DisconnectAccount(id)
+	return a.api.DisconnectAccount(id)
 }
 
 func (a *App) DismissRecurringRequest(normalized string, sampleText string) error {
-	return a.eng.DismissRecurringRequest(normalized, sampleText)
+	return a.api.DismissRecurringRequest(normalized, sampleText)
 }
 
 func (a *App) DismissTaskChip(id string) {
-	a.eng.DismissTaskChip(id)
+	a.api.DismissTaskChip(id)
 }
 
 func (a *App) EnabledProviders() []string {
-	return a.eng.EnabledProviders()
+	return a.api.EnabledProviders()
 }
 
 func (a *App) EnginesFor(family string, agent string) []connect.Status {
-	return a.eng.EnginesFor(family, agent)
-}
-
-func (a *App) ExportDeck(relPath string, format string) (string, error) {
-	return a.eng.ExportDeck(relPath, format)
-}
-
-func (a *App) ExportPath(path string) (string, error) {
-	return a.eng.ExportPath(path)
+	return a.api.EnginesFor(family, agent)
 }
 
 func (a *App) FileStillThere(relPath string) string {
-	return a.eng.FileStillThere(relPath)
+	return a.api.FileStillThere(relPath)
 }
 
 func (a *App) ForgetMemoryScope(scope string) error {
-	return a.eng.ForgetMemoryScope(scope)
+	return a.api.ForgetMemoryScope(scope)
 }
 
 func (a *App) ForgetProject(root string) (engine.ProjectStatus, error) {
-	return a.eng.ForgetProject(root)
+	return a.api.ForgetProject(root)
 }
 
 func (a *App) GetContextBreakdown() engine.ContextBreakdown {
-	return a.eng.GetContextBreakdown()
+	return a.api.GetContextBreakdown()
 }
 
 func (a *App) GetModelInfo() engine.ModelInfo {
-	return a.eng.GetModelInfo()
+	return a.api.GetModelInfo()
 }
 
 func (a *App) GetProjectStatus() engine.ProjectStatus {
-	return a.eng.GetProjectStatus()
+	return a.api.GetProjectStatus()
 }
 
 func (a *App) GetRepoMapGraph(maxNodes int) engine.RepoMapGraph {
-	return a.eng.GetRepoMapGraph(maxNodes)
+	return a.api.GetRepoMapGraph(maxNodes)
 }
 
 func (a *App) GitBranches() []engine.GitBranch {
-	return a.eng.GitBranches()
+	return a.api.GitBranches()
 }
 
 func (a *App) GitChangedFiles() []engine.ChangedFile {
-	return a.eng.GitChangedFiles()
+	return a.api.GitChangedFiles()
 }
 
 func (a *App) GitCommitChanges(hash string) []engine.GitFileChange {
-	return a.eng.GitCommitChanges(hash)
+	return a.api.GitCommitChanges(hash)
 }
 
 func (a *App) GitCommitFileDiff(hash string, path string) string {
-	return a.eng.GitCommitFileDiff(hash, path)
+	return a.api.GitCommitFileDiff(hash, path)
 }
 
 func (a *App) GitCommitFiles(message string, files []string) error {
-	return a.eng.GitCommitFiles(message, files)
+	return a.api.GitCommitFiles(message, files)
 }
 
 func (a *App) GitCreateBranch(name string) (string, error) {
-	return a.eng.GitCreateBranch(name)
+	return a.api.GitCreateBranch(name)
 }
 
 func (a *App) GitFileDiff(path string) string {
-	return a.eng.GitFileDiff(path)
+	return a.api.GitFileDiff(path)
 }
 
 func (a *App) GitLog(before string, limit int) engine.GitLogPage {
-	return a.eng.GitLog(before, limit)
+	return a.api.GitLog(before, limit)
 }
 
 func (a *App) GitSuggestCommitMessage(files []string) (string, error) {
-	return a.eng.GitSuggestCommitMessage(files)
+	return a.api.GitSuggestCommitMessage(files)
 }
 
 func (a *App) GitSuggestSplitCommits() ([]engine.GitCommitGroup, error) {
-	return a.eng.GitSuggestSplitCommits()
+	return a.api.GitSuggestSplitCommits()
 }
 
 func (a *App) GitSwitchBranch(name string) (string, error) {
-	return a.eng.GitSwitchBranch(name)
+	return a.api.GitSwitchBranch(name)
 }
 
 func (a *App) GitWorkingTree() ([]engine.GitFileChange, error) {
-	return a.eng.GitWorkingTree()
-}
-
-func (a *App) GrantedComputerApps() []string {
-	return a.eng.GrantedComputerApps()
+	return a.api.GitWorkingTree()
 }
 
 func (a *App) GuideTopics() []model.GuideTopic {
-	return a.eng.GuideTopics()
+	return a.api.GuideTopics()
+}
+
+func (a *App) HandedOverFile(fileURL string) string {
+	return a.api.HandedOverFile(fileURL)
 }
 
 func (a *App) HistoryFault() engine.StoreFault {
-	return a.eng.HistoryFault()
+	return a.api.HistoryFault()
 }
 
 func (a *App) ImageStatus() string {
-	return a.eng.ImageStatus()
+	return a.api.ImageStatus()
 }
 
 func (a *App) ImportSessionFrom(path string) (string, error) {
-	return a.eng.ImportSessionFrom(path)
+	return a.api.ImportSessionFrom(path)
 }
 
 func (a *App) ImportSignIn(providerName string) (engine.ModelInfo, error) {
-	return a.eng.ImportSignIn(providerName)
+	return a.api.ImportSignIn(providerName)
 }
 
 func (a *App) ImportableSignIns() []string {
-	return a.eng.ImportableSignIns()
+	return a.api.ImportableSignIns()
 }
 
 func (a *App) InstallCapabilities(capabilities []string) bool {
-	return a.eng.InstallCapabilities(capabilities)
+	return a.api.InstallCapabilities(capabilities)
 }
 
 func (a *App) InstallSkillFromGitHub(repoURL string) (string, error) {
-	return a.eng.InstallSkillFromGitHub(repoURL)
+	return a.api.InstallSkillFromGitHub(repoURL)
 }
 
 func (a *App) InstallSkillsFromZipAt(path string) (string, error) {
-	return a.eng.InstallSkillsFromZipAt(path)
+	return a.api.InstallSkillsFromZipAt(path)
 }
 
 func (a *App) InstallVoiceEngine(side string, id string) error {
-	return a.eng.InstallVoiceEngine(side, id)
+	return a.api.InstallVoiceEngine(side, id)
 }
 
 func (a *App) Interject(text string) error {
-	return a.eng.Interject(text)
+	return a.api.Interject(text)
 }
 
 func (a *App) LearnedEntries(scope string) []string {
-	return a.eng.LearnedEntries(scope)
+	return a.api.LearnedEntries(scope)
 }
 
 func (a *App) LearnedMemory(scope string) string {
-	return a.eng.LearnedMemory(scope)
+	return a.api.LearnedMemory(scope)
 }
 
 func (a *App) LearnedScopeInfos() []engine.MemoryScopeInfo {
-	return a.eng.LearnedScopeInfos()
+	return a.api.LearnedScopeInfos()
 }
 
 func (a *App) LearnedScopes() []string {
-	return a.eng.LearnedScopes()
+	return a.api.LearnedScopes()
 }
 
 func (a *App) LearningEnabled() bool {
-	return a.eng.LearningEnabled()
+	return a.api.LearningEnabled()
 }
 
 func (a *App) ListAllSessions() []engine.SessionMeta {
-	return a.eng.ListAllSessions()
+	return a.api.ListAllSessions()
 }
 
 func (a *App) ListArtifacts() []engine.Artifact {
-	return a.eng.ListArtifacts()
+	return a.api.ListArtifacts()
 }
 
 func (a *App) ListArtifactsForSession(sessionID string) engine.ArtifactPage {
-	return a.eng.ListArtifactsForSession(sessionID)
+	return a.api.ListArtifactsForSession(sessionID)
 }
 
 func (a *App) ListArtifactsIn(want string) engine.ArtifactPage {
-	return a.eng.ListArtifactsIn(want)
+	return a.api.ListArtifactsIn(want)
 }
 
 func (a *App) ListChairs() []engine.Chair {
-	return a.eng.ListChairs()
+	return a.api.ListChairs()
 }
 
 func (a *App) ListDecidedChanges(limit int) []engine.PendingChange {
-	return a.eng.ListDecidedChanges(limit)
+	return a.api.ListDecidedChanges(limit)
 }
 
 func (a *App) ListDecidedIssues(limit int) []engine.PendingChange {
-	return a.eng.ListDecidedIssues(limit)
+	return a.api.ListDecidedIssues(limit)
 }
 
 func (a *App) ListDecidedSkillProposals(limit int) []engine.PendingChange {
-	return a.eng.ListDecidedSkillProposals(limit)
+	return a.api.ListDecidedSkillProposals(limit)
 }
 
 func (a *App) ListDecks() []engine.Deck {
-	return a.eng.ListDecks()
+	return a.api.ListDecks()
 }
 
 func (a *App) ListDecksIn(want string) engine.DeckPage {
-	return a.eng.ListDecksIn(want)
+	return a.api.ListDecksIn(want)
 }
 
 func (a *App) ListExternalSkills() []skill.DiscoveredSkill {
-	return a.eng.ListExternalSkills()
+	return a.api.ListExternalSkills()
 }
 
 func (a *App) ListIdentityFiles() ([]engine.IdentityFile, error) {
-	return a.eng.ListIdentityFiles()
+	return a.api.ListIdentityFiles()
 }
 
 func (a *App) ListImageEngines() []engine.VoiceEngineInfo {
-	return a.eng.ListImageEngines()
+	return a.api.ListImageEngines()
 }
 
 func (a *App) ListMCPServers() []engine.MCPServerInfo {
-	return a.eng.ListMCPServers()
+	return a.api.ListMCPServers()
 }
 
 func (a *App) ListModes() []mode.Mode {
-	return a.eng.ListModes()
+	return a.api.ListModes()
 }
 
 func (a *App) ListPendingChanges() []engine.PendingChange {
-	return a.eng.ListPendingChanges()
+	return a.api.ListPendingChanges()
 }
 
 func (a *App) ListPromptPresets() []command.Preset {
-	return a.eng.ListPromptPresets()
+	return a.api.ListPromptPresets()
 }
 
 func (a *App) ListReceivedJobs(limit int) []engine.ReceivedJob {
-	return a.eng.ListReceivedJobs(limit)
+	return a.api.ListReceivedJobs(limit)
 }
 
 func (a *App) ListRecurringRequests() []engine.RecurringRequest {
-	return a.eng.ListRecurringRequests()
+	return a.api.ListRecurringRequests()
 }
 
 func (a *App) ListSessions() []engine.SessionMeta {
-	return a.eng.ListSessions()
+	return a.api.ListSessions()
 }
 
 func (a *App) ListSessionsAt(desk string) []engine.SessionMeta {
-	return a.eng.ListSessionsAt(desk)
+	return a.api.ListSessionsAt(desk)
 }
 
 func (a *App) ListSessionsForDoor(filter engine.DeskFilter) []engine.SessionMeta {
-	return a.eng.ListSessionsForDoor(filter)
+	return a.api.ListSessionsForDoor(filter)
 }
 
 func (a *App) ListSkillProposals() []engine.PendingChange {
-	return a.eng.ListSkillProposals()
+	return a.api.ListSkillProposals()
 }
 
 func (a *App) ListSkills() []engine.SkillInfo {
-	return a.eng.ListSkills()
+	return a.api.ListSkills()
 }
 
 func (a *App) ListSpeechEngines() []engine.VoiceEngineInfo {
-	return a.eng.ListSpeechEngines()
+	return a.api.ListSpeechEngines()
 }
 
 func (a *App) ListSpeechModels() []engine.SpeechModelInfo {
-	return a.eng.ListSpeechModels()
+	return a.api.ListSpeechModels()
 }
 
 func (a *App) ListSubagentProfiles() []subagent.Profile {
-	return a.eng.ListSubagentProfiles()
+	return a.api.ListSubagentProfiles()
 }
 
 func (a *App) ListSystemIssues() []engine.PendingChange {
-	return a.eng.ListSystemIssues()
+	return a.api.ListSystemIssues()
 }
 
 func (a *App) ListTTSEngines() []engine.VoiceEngineInfo {
-	return a.eng.ListTTSEngines()
+	return a.api.ListTTSEngines()
 }
 
 func (a *App) ListTTSVoices() ([]engine.TTSVoiceInfo, error) {
-	return a.eng.ListTTSVoices()
+	return a.api.ListTTSVoices()
 }
 
 func (a *App) ListTaskChips() []engine.TaskChip {
-	return a.eng.ListTaskChips()
+	return a.api.ListTaskChips()
 }
 
 func (a *App) ListTools() []engine.SkillInfo {
-	return a.eng.ListTools()
+	return a.api.ListTools()
 }
 
 func (a *App) LoadSession(id string) ([]engine.SessionMessage, error) {
-	return a.eng.LoadSession(id)
+	return a.api.LoadSession(id)
 }
 
 func (a *App) LoadSessionAnyProject(id string) ([]engine.SessionMessage, error) {
-	return a.eng.LoadSessionAnyProject(id)
+	return a.api.LoadSessionAnyProject(id)
 }
 
 func (a *App) MCPConfigPath() string {
-	return a.eng.MCPConfigPath()
+	return a.api.MCPConfigPath()
 }
 
 func (a *App) MCPFolderPath() (string, error) {
-	return a.eng.MCPFolderPath()
+	return a.api.MCPFolderPath()
 }
 
 func (a *App) MCPSignInStatus(serverName string) oauth.Status {
-	return a.eng.MCPSignInStatus(serverName)
+	return a.api.MCPSignInStatus(serverName)
 }
 
 func (a *App) MarkIssueReported(id int64) error {
-	return a.eng.MarkIssueReported(id)
+	return a.api.MarkIssueReported(id)
 }
 
 func (a *App) MarkVideoCheckSeen() {
-	a.eng.MarkVideoCheckSeen()
+	a.api.MarkVideoCheckSeen()
 }
 
 func (a *App) MemoryFolderPath() (string, error) {
-	return a.eng.MemoryFolderPath()
+	return a.api.MemoryFolderPath()
 }
 
 func (a *App) MobileRemoteQR() string {
-	return a.eng.MobileRemoteQR()
+	return a.api.MobileRemoteQR()
 }
 
 func (a *App) MobileRemoteStatus() engine.RemoteStatus {
-	return a.eng.MobileRemoteStatus()
+	return a.api.MobileRemoteStatus()
 }
 
 func (a *App) ModelPriceSource() engine.PriceSource {
-	return a.eng.ModelPriceSource()
+	return a.api.ModelPriceSource()
 }
 
 func (a *App) ModelStatus() string {
-	return a.eng.ModelStatus()
+	return a.api.ModelStatus()
 }
 
 func (a *App) MoveLearnedEntry(fromScope string, toScope string, index int) error {
-	return a.eng.MoveLearnedEntry(fromScope, toScope, index)
+	return a.api.MoveLearnedEntry(fromScope, toScope, index)
 }
 
 func (a *App) NewChairSession(chair string) (string, error) {
-	return a.eng.NewChairSession(chair)
+	return a.api.NewChairSession(chair)
 }
 
 func (a *App) NewSession() (string, error) {
-	return a.eng.NewSession()
+	return a.api.NewSession()
 }
 
 func (a *App) NewSessionAt(desk string) (string, error) {
-	return a.eng.NewSessionAt(desk)
+	return a.api.NewSessionAt(desk)
 }
 
 func (a *App) NewSessionInSpace(name string) (string, error) {
-	return a.eng.NewSessionInSpace(name)
+	return a.api.NewSessionInSpace(name)
 }
 
 func (a *App) NoteProviderQuotas(providerName string, quotas []model.Quota) {
-	a.eng.NoteProviderQuotas(providerName, quotas)
-}
-
-func (a *App) OpenComputerApps() []engine.ComputerAppRow {
-	return a.eng.OpenComputerApps()
+	a.api.NoteProviderQuotas(providerName, quotas)
 }
 
 func (a *App) OpenProjectPath(root string) (engine.ProjectStatus, error) {
-	return a.eng.OpenProjectPath(root)
+	return a.api.OpenProjectPath(root)
+}
+
+func (a *App) PageMarksOn() bool {
+	return a.api.PageMarksOn()
 }
 
 func (a *App) PairedDevices() []engine.RemoteDevice {
-	return a.eng.PairedDevices()
+	return a.api.PairedDevices()
 }
 
 func (a *App) PausePlanRun(sessionID string) {
-	a.eng.PausePlanRun(sessionID)
+	a.api.PausePlanRun(sessionID)
 }
 
 func (a *App) PendingChangeByID(id int64) engine.PendingChange {
-	return a.eng.PendingChangeByID(id)
+	return a.api.PendingChangeByID(id)
 }
 
 func (a *App) PendingIssueCount() int {
-	return a.eng.PendingIssueCount()
+	return a.api.PendingIssueCount()
 }
 
 func (a *App) PendingLearnedCount() int {
-	return a.eng.PendingLearnedCount()
+	return a.api.PendingLearnedCount()
 }
 
 func (a *App) PendingRestore(id string) []string {
-	return a.eng.PendingRestore(id)
+	return a.api.PendingRestore(id)
 }
 
 func (a *App) PendingSkillTuneCount() int {
-	return a.eng.PendingSkillTuneCount()
+	return a.api.PendingSkillTuneCount()
 }
 
 func (a *App) PendingUndo() []string {
-	return a.eng.PendingUndo()
+	return a.api.PendingUndo()
 }
 
 func (a *App) PictureBytes(relPath string) (engine.ExportFile, error) {
-	return a.eng.PictureBytes(relPath)
+	return a.api.PictureBytes(relPath)
 }
 
 func (a *App) PlacementTargets() []engine.PlacementTarget {
-	return a.eng.PlacementTargets()
+	return a.api.PlacementTargets()
 }
 
 func (a *App) PlanRunning(sessionID string) bool {
-	return a.eng.PlanRunning(sessionID)
+	return a.api.PlanRunning(sessionID)
 }
 
 func (a *App) PreparedReplyOn() bool {
-	return a.eng.PreparedReplyOn()
+	return a.api.PreparedReplyOn()
 }
 
 func (a *App) PriceModels(providerName string, models []string) []engine.ModelListing {
-	return a.eng.PriceModels(providerName, models)
-}
-
-func (a *App) ProgramIcon(p0 string) string {
-	return a.eng.ProgramIcon(p0)
+	return a.api.PriceModels(providerName, models)
 }
 
 func (a *App) ProjectFilePath(relPath string) (string, error) {
-	return a.eng.ProjectFilePath(relPath)
+	return a.api.ProjectFilePath(relPath)
 }
 
 func (a *App) ProjectTree() []engine.TreeNode {
-	return a.eng.ProjectTree()
+	return a.api.ProjectTree()
 }
 
 func (a *App) PromptsFolderPath() (string, error) {
-	return a.eng.PromptsFolderPath()
+	return a.api.PromptsFolderPath()
 }
 
 func (a *App) ProviderAPIKeyURL(providerName string) string {
-	return a.eng.ProviderAPIKeyURL(providerName)
+	return a.api.ProviderAPIKeyURL(providerName)
 }
 
 func (a *App) ProviderBaseURL(providerName string) string {
-	return a.eng.ProviderBaseURL(providerName)
+	return a.api.ProviderBaseURL(providerName)
 }
 
 func (a *App) ProviderBaseURLIsCustom(providerName string) bool {
-	return a.eng.ProviderBaseURLIsCustom(providerName)
+	return a.api.ProviderBaseURLIsCustom(providerName)
 }
 
 func (a *App) ProviderKeyChanged(providerName string) (engine.ModelInfo, error) {
-	return a.eng.ProviderKeyChanged(providerName)
+	return a.api.ProviderKeyChanged(providerName)
 }
 
 func (a *App) ProviderQuotas(providerName string) ([]model.Quota, bool) {
-	return a.eng.ProviderQuotas(providerName)
+	return a.api.ProviderQuotas(providerName)
 }
 
 func (a *App) ProviderWireFormats(providerName string) []string {
-	return a.eng.ProviderWireFormats(providerName)
+	return a.api.ProviderWireFormats(providerName)
 }
 
 func (a *App) PullRequestChecks(sha string) []gh.CheckRun {
-	return a.eng.PullRequestChecks(sha)
+	return a.api.PullRequestChecks(sha)
 }
 
 func (a *App) PullRequestFiles(number int) []gh.PRFile {
-	return a.eng.PullRequestFiles(number)
+	return a.api.PullRequestFiles(number)
 }
 
 func (a *App) PullRequests() engine.PRRoom {
-	return a.eng.PullRequests()
+	return a.api.PullRequests()
 }
 
 func (a *App) PullRequestsState(state string) engine.PRRoom {
-	return a.eng.PullRequestsState(state)
+	return a.api.PullRequestsState(state)
 }
 
 func (a *App) RateTurn(messageID int64, verdict string) {
-	a.eng.RateTurn(messageID, verdict)
+	a.api.RateTurn(messageID, verdict)
 }
 
 func (a *App) ReadFile(relPath string) (string, error) {
-	return a.eng.ReadFile(relPath)
+	return a.api.ReadFile(relPath)
 }
 
 func (a *App) ReadIdentityFile(name string) (string, error) {
-	return a.eng.ReadIdentityFile(name)
+	return a.api.ReadIdentityFile(name)
 }
 
 func (a *App) ReadImageDataURL(relPath string) (string, error) {
-	return a.eng.ReadImageDataURL(relPath)
+	return a.api.ReadImageDataURL(relPath)
 }
 
 func (a *App) ReadSubagentProfile(name string) (string, error) {
-	return a.eng.ReadSubagentProfile(name)
+	return a.api.ReadSubagentProfile(name)
 }
 
 func (a *App) ReadWorkbook(relPath string) (*ooxml.WorkbookPreview, error) {
-	return a.eng.ReadWorkbook(relPath)
+	return a.api.ReadWorkbook(relPath)
 }
 
 func (a *App) ReadyToRestart() error {
-	return a.eng.ReadyToRestart()
+	return a.api.ReadyToRestart()
 }
 
 func (a *App) RecentAgentPages(limit int) []engine.AgentPage {
-	return a.eng.RecentAgentPages(limit)
+	return a.api.RecentAgentPages(limit)
 }
 
 func (a *App) RecentDebugLog() []string {
-	return a.eng.RecentDebugLog()
+	return a.api.RecentDebugLog()
 }
 
 func (a *App) RecentProjects() []engine.ProjectMeta {
-	return a.eng.RecentProjects()
+	return a.api.RecentProjects()
 }
 
 func (a *App) RefreshModelFacts() {
-	a.eng.RefreshModelFacts()
+	a.api.RefreshModelFacts()
 }
 
 func (a *App) RefreshSkills() {
-	a.eng.RefreshSkills()
+	a.api.RefreshSkills()
 }
 
 func (a *App) RegenerateReply(revertFiles bool) (engine.RegenerateResult, error) {
-	return a.eng.RegenerateReply(revertFiles)
+	return a.api.RegenerateReply(revertFiles)
 }
 
 func (a *App) RejectPendingChange(id int64) error {
-	return a.eng.RejectPendingChange(id)
+	return a.api.RejectPendingChange(id)
 }
 
 func (a *App) RelativizePath(absPath string) (string, error) {
-	return a.eng.RelativizePath(absPath)
+	return a.api.RelativizePath(absPath)
 }
 
 func (a *App) RemoveCustomProviderRow(id string) ([]string, error) {
-	return a.eng.RemoveCustomProviderRow(id)
+	return a.api.RemoveCustomProviderRow(id)
 }
 
 func (a *App) RemoveExternalSkill(name string) error {
-	return a.eng.RemoveExternalSkill(name)
+	return a.api.RemoveExternalSkill(name)
 }
 
 func (a *App) RemoveMCPServer(name string) error {
-	return a.eng.RemoveMCPServer(name)
+	return a.api.RemoveMCPServer(name)
 }
 
 func (a *App) RemovePresetImage(name string) error {
-	return a.eng.RemovePresetImage(name)
+	return a.api.RemovePresetImage(name)
 }
 
 func (a *App) RemoveSpaceContext(name string, file string) ([]string, error) {
-	return a.eng.RemoveSpaceContext(name, file)
+	return a.api.RemoveSpaceContext(name, file)
 }
 
 func (a *App) RemoveWorkspaceFolder(path string) ([]engine.WorkspaceFolder, error) {
-	return a.eng.RemoveWorkspaceFolder(path)
+	return a.api.RemoveWorkspaceFolder(path)
 }
 
 func (a *App) RequiresAPIKey(providerName string) bool {
-	return a.eng.RequiresAPIKey(providerName)
+	return a.api.RequiresAPIKey(providerName)
 }
 
 func (a *App) ResendEdited(text string, revertFiles bool) (engine.TurnReply, error) {
-	return a.eng.ResendEdited(text, revertFiles)
+	return a.api.ResendEdited(text, revertFiles)
 }
 
 func (a *App) ResolveAddress(input string) engine.Address {
-	return a.eng.ResolveAddress(input)
+	return a.api.ResolveAddress(input)
+}
+
+func (a *App) ResolveWorkbenchURL(input string) (string, string) {
+	return a.api.ResolveWorkbenchURL(input)
 }
 
 func (a *App) RestorePoints() []engine.RestorePoint {
-	return a.eng.RestorePoints()
+	return a.api.RestorePoints()
 }
 
 func (a *App) RestoreRecurringRequest(normalized string) error {
-	return a.eng.RestoreRecurringRequest(normalized)
+	return a.api.RestoreRecurringRequest(normalized)
 }
 
 func (a *App) ResumePlanRun(sessionID string) {
-	a.eng.ResumePlanRun(sessionID)
+	a.api.ResumePlanRun(sessionID)
 }
 
 func (a *App) RetryActiveProvider() engine.ModelInfo {
-	return a.eng.RetryActiveProvider()
+	return a.api.RetryActiveProvider()
 }
 
 func (a *App) RetryFailedTurn(text string) (engine.TurnReply, error) {
-	return a.eng.RetryFailedTurn(text)
+	return a.api.RetryFailedTurn(text)
 }
 
 func (a *App) ReviewPullRequest(number int) (string, error) {
-	return a.eng.ReviewPullRequest(number)
-}
-
-func (a *App) RevokeComputerApp(name string) error {
-	return a.eng.RevokeComputerApp(name)
+	return a.api.ReviewPullRequest(number)
 }
 
 func (a *App) RevokeDevice(id string) error {
-	return a.eng.RevokeDevice(id)
+	return a.api.RevokeDevice(id)
 }
 
 func (a *App) RewindTo(id string) (engine.UndoResult, error) {
-	return a.eng.RewindTo(id)
+	return a.api.RewindTo(id)
 }
 
 func (a *App) RunChatCommand(command string) (engine.RunBlockResult, error) {
-	return a.eng.RunChatCommand(command)
+	return a.api.RunChatCommand(command)
 }
 
 func (a *App) RunChatScript(lang string, source string) (engine.RunBlockResult, error) {
-	return a.eng.RunChatScript(lang, source)
+	return a.api.RunChatScript(lang, source)
 }
 
 func (a *App) RunSessionReview(sessionID string) (int, error) {
-	return a.eng.RunSessionReview(sessionID)
+	return a.api.RunSessionReview(sessionID)
 }
 
 func (a *App) RunSkillTuneup() (int, error) {
-	return a.eng.RunSkillTuneup()
+	return a.api.RunSkillTuneup()
 }
 
 func (a *App) RunnableLanguages() map[string]string {
-	return a.eng.RunnableLanguages()
+	return a.api.RunnableLanguages()
+}
+
+func (a *App) SandboxFile(request string) (string, error) {
+	return a.api.SandboxFile(request)
 }
 
 func (a *App) SaveAgentProfile(name string, body string) error {
-	return a.eng.SaveAgentProfile(name, body)
+	return a.api.SaveAgentProfile(name, body)
+}
+
+func (a *App) SaveBrowserShot(png []byte, marked bool) (string, error) {
+	return a.api.SaveBrowserShot(png, marked)
 }
 
 func (a *App) SaveChairStarters(name string, locale string, set subagent.StarterSet) error {
-	return a.eng.SaveChairStarters(name, locale, set)
+	return a.api.SaveChairStarters(name, locale, set)
 }
 
 func (a *App) SaveChatFile(sourcePath string) (string, error) {
-	return a.eng.SaveChatFile(sourcePath)
+	return a.api.SaveChatFile(sourcePath)
 }
 
 func (a *App) SaveChatImage(sourcePath string) (string, error) {
-	return a.eng.SaveChatImage(sourcePath)
+	return a.api.SaveChatImage(sourcePath)
 }
 
 func (a *App) SaveChatImageData(dataURL string) (string, error) {
-	return a.eng.SaveChatImageData(dataURL)
+	return a.api.SaveChatImageData(dataURL)
 }
 
 func (a *App) SaveIdentityFile(name string, content string) error {
-	return a.eng.SaveIdentityFile(name, content)
+	return a.api.SaveIdentityFile(name, content)
 }
 
 func (a *App) SaveLearnedEntry(scope string, index int, text string) error {
-	return a.eng.SaveLearnedEntry(scope, index, text)
+	return a.api.SaveLearnedEntry(scope, index, text)
 }
 
 func (a *App) SaveMCPServer(originalName string, server config.MCPServerConfig) error {
-	return a.eng.SaveMCPServer(originalName, server)
+	return a.api.SaveMCPServer(originalName, server)
 }
 
 func (a *App) SavePlanText(sessionID string, text string) string {
-	return a.eng.SavePlanText(sessionID, text)
+	return a.api.SavePlanText(sessionID, text)
 }
 
 func (a *App) SavePromptPreset(name string, body string) error {
-	return a.eng.SavePromptPreset(name, body)
+	return a.api.SavePromptPreset(name, body)
 }
 
 func (a *App) SaveSubagentProfile(name string, body string) error {
-	return a.eng.SaveSubagentProfile(name, body)
+	return a.api.SaveSubagentProfile(name, body)
 }
 
 func (a *App) SearchAllSessions(query string) []engine.SessionMeta {
-	return a.eng.SearchAllSessions(query)
+	return a.api.SearchAllSessions(query)
 }
 
 func (a *App) SearchSessions(query string) []engine.SessionMeta {
-	return a.eng.SearchSessions(query)
+	return a.api.SearchSessions(query)
 }
 
 func (a *App) SearchSessionsForDoor(query string, filter engine.DeskFilter) []engine.SessionMeta {
-	return a.eng.SearchSessionsForDoor(query, filter)
+	return a.api.SearchSessionsForDoor(query, filter)
 }
 
 func (a *App) SendMessage(text string, to string) (engine.TurnReply, error) {
-	return a.eng.SendMessage(text, to)
+	return a.api.SendMessage(text, to)
 }
 
 func (a *App) SessionAgent(id string) string {
-	return a.eng.SessionAgent(id)
+	return a.api.SessionAgent(id)
 }
 
 func (a *App) SessionEdits(sessionID string) engine.EditPage {
-	return a.eng.SessionEdits(sessionID)
+	return a.api.SessionEdits(sessionID)
 }
 
 func (a *App) SessionExportBytes(id string, format string) (engine.ExportFile, error) {
-	return a.eng.SessionExportBytes(id, format)
+	return a.api.SessionExportBytes(id, format)
 }
 
 func (a *App) SessionMode(id string) string {
-	return a.eng.SessionMode(id)
+	return a.api.SessionMode(id)
 }
 
 func (a *App) SessionPlan(sessionID string) engine.Plan {
-	return a.eng.SessionPlan(sessionID)
+	return a.api.SessionPlan(sessionID)
 }
 
 func (a *App) SessionPlanReports(sessionID string) []engine.PlanReport {
-	return a.eng.SessionPlanReports(sessionID)
+	return a.api.SessionPlanReports(sessionID)
 }
 
 func (a *App) SessionReviewAuto() bool {
-	return a.eng.SessionReviewAuto()
+	return a.api.SessionReviewAuto()
 }
 
 func (a *App) SessionSourceCount(sessionID string) int {
-	return a.eng.SessionSourceCount(sessionID)
+	return a.api.SessionSourceCount(sessionID)
 }
 
 func (a *App) SessionSources(sessionID string) []engine.Source {
-	return a.eng.SessionSources(sessionID)
+	return a.api.SessionSources(sessionID)
 }
 
 func (a *App) SessionSpend(id string) engine.SessionSpend {
-	return a.eng.SessionSpend(id)
+	return a.api.SessionSpend(id)
 }
 
 func (a *App) SessionTranscript(id string) ([]engine.SessionMessage, error) {
-	return a.eng.SessionTranscript(id)
+	return a.api.SessionTranscript(id)
 }
 
 func (a *App) SessionsInSpace(name string) []engine.SessionMeta {
-	return a.eng.SessionsInSpace(name)
+	return a.api.SessionsInSpace(name)
 }
 
 func (a *App) SetAgentOff(name string, off bool) engine.DelegateSettings {
-	return a.eng.SetAgentOff(name, off)
+	return a.api.SetAgentOff(name, off)
 }
 
 func (a *App) SetBusyLayer(id string, on bool) []engine.BusyLayer {
-	return a.eng.SetBusyLayer(id, on)
-}
-
-func (a *App) SetComputerControlOn(on bool) error {
-	return a.eng.SetComputerControlOn(on)
+	return a.api.SetBusyLayer(id, on)
 }
 
 func (a *App) SetConnectionStartCommand(id string, command string) error {
-	return a.eng.SetConnectionStartCommand(id, command)
+	return a.api.SetConnectionStartCommand(id, command)
 }
 
 func (a *App) SetConnectionTargets(id string, targets []string) error {
-	return a.eng.SetConnectionTargets(id, targets)
+	return a.api.SetConnectionTargets(id, targets)
 }
 
 func (a *App) SetDelegateOff(kind string, off bool) engine.DelegateSettings {
-	return a.eng.SetDelegateOff(kind, off)
+	return a.api.SetDelegateOff(kind, off)
 }
 
 func (a *App) SetImageEngine(id string) error {
-	return a.eng.SetImageEngine(id)
+	return a.api.SetImageEngine(id)
 }
 
 func (a *App) SetImageModelName(name string) error {
-	return a.eng.SetImageModelName(name)
+	return a.api.SetImageModelName(name)
 }
 
 func (a *App) SetLearningEnabled(on bool) error {
-	return a.eng.SetLearningEnabled(on)
+	return a.api.SetLearningEnabled(on)
 }
 
 func (a *App) SetMCPServerTargets(name string, targets []string) error {
-	return a.eng.SetMCPServerTargets(name, targets)
+	return a.api.SetMCPServerTargets(name, targets)
 }
 
 func (a *App) SetPlanStepStop(sessionID string, n int, on bool) {
-	a.eng.SetPlanStepStop(sessionID, n, on)
+	a.api.SetPlanStepStop(sessionID, n, on)
 }
 
 func (a *App) SetPreparedReplyOn(on bool) error {
-	return a.eng.SetPreparedReplyOn(on)
+	return a.api.SetPreparedReplyOn(on)
 }
 
 func (a *App) SetPresetImageFrom(name string, path string) (string, error) {
-	return a.eng.SetPresetImageFrom(name, path)
+	return a.api.SetPresetImageFrom(name, path)
 }
 
 func (a *App) SetProviderBaseURL(providerName string, baseURL string) (engine.ModelInfo, error) {
-	return a.eng.SetProviderBaseURL(providerName, baseURL)
+	return a.api.SetProviderBaseURL(providerName, baseURL)
 }
 
 func (a *App) SetProviderEnabled(providerName string, enabled bool) ([]string, error) {
-	return a.eng.SetProviderEnabled(providerName, enabled)
+	return a.api.SetProviderEnabled(providerName, enabled)
 }
 
 func (a *App) SetProviderWireFormat(format string) (engine.ModelInfo, error) {
-	return a.eng.SetProviderWireFormat(format)
+	return a.api.SetProviderWireFormat(format)
 }
 
 func (a *App) SetSessionReviewAuto(on bool) error {
-	return a.eng.SetSessionReviewAuto(on)
+	return a.api.SetSessionReviewAuto(on)
 }
 
 func (a *App) SetShell(setting string) error {
-	return a.eng.SetShell(setting)
+	return a.api.SetShell(setting)
 }
 
 func (a *App) SetSkillTuneAuto(on bool) error {
-	return a.eng.SetSkillTuneAuto(on)
+	return a.api.SetSkillTuneAuto(on)
 }
 
 func (a *App) SetSpeechEngine(id string) error {
-	return a.eng.SetSpeechEngine(id)
+	return a.api.SetSpeechEngine(id)
 }
 
 func (a *App) SetSpeechModel(path string) error {
-	return a.eng.SetSpeechModel(path)
+	return a.api.SetSpeechModel(path)
 }
 
 func (a *App) SetSpeechModelName(name string) error {
-	return a.eng.SetSpeechModelName(name)
+	return a.api.SetSpeechModelName(name)
 }
 
 func (a *App) SetStance(name string) (string, error) {
-	return a.eng.SetStance(name)
+	return a.api.SetStance(name)
 }
 
 func (a *App) SetSubagentModel(name string, modelName string) error {
-	return a.eng.SetSubagentModel(name, modelName)
+	return a.api.SetSubagentModel(name, modelName)
 }
 
 func (a *App) SetTTSEngine(id string) error {
-	return a.eng.SetTTSEngine(id)
+	return a.api.SetTTSEngine(id)
 }
 
 func (a *App) SetTTSModelName(name string) error {
-	return a.eng.SetTTSModelName(name)
+	return a.api.SetTTSModelName(name)
 }
 
 func (a *App) SetTTSVoice(id string) error {
-	return a.eng.SetTTSVoice(id)
+	return a.api.SetTTSVoice(id)
 }
 
 func (a *App) SetUILocale(locale string) error {
-	return a.eng.SetUILocale(locale)
+	return a.api.SetUILocale(locale)
 }
 
 func (a *App) SetUserName(name string) error {
-	return a.eng.SetUserName(name)
+	return a.api.SetUserName(name)
 }
 
 func (a *App) Shells() []engine.ShellOption {
-	return a.eng.Shells()
+	return a.api.Shells()
 }
 
 func (a *App) SignInMethods() []oauth.Method {
-	return a.eng.SignInMethods()
+	return a.api.SignInMethods()
 }
 
 func (a *App) SignInStatus(providerName string) oauth.Status {
-	return a.eng.SignInStatus(providerName)
+	return a.api.SignInStatus(providerName)
 }
 
 func (a *App) SignOut(providerName string) (engine.ModelInfo, error) {
-	return a.eng.SignOut(providerName)
+	return a.api.SignOut(providerName)
 }
 
 func (a *App) SkillScanIssues() []string {
-	return a.eng.SkillScanIssues()
+	return a.api.SkillScanIssues()
 }
 
 func (a *App) SkillTuneAuto() bool {
-	return a.eng.SkillTuneAuto()
+	return a.api.SkillTuneAuto()
 }
 
 func (a *App) SkillsDir() string {
-	return a.eng.SkillsDir()
+	return a.api.SkillsDir()
 }
 
 func (a *App) SkillsFolderPath() (string, error) {
-	return a.eng.SkillsFolderPath()
+	return a.api.SkillsFolderPath()
 }
 
 func (a *App) SpaceFolderPath(name string) (string, error) {
-	return a.eng.SpaceFolderPath(name)
+	return a.api.SpaceFolderPath(name)
 }
 
 func (a *App) Spaces() []engine.Space {
-	return a.eng.Spaces()
+	return a.api.Spaces()
 }
 
 func (a *App) SpeakText(text string) (string, error) {
-	return a.eng.SpeakText(text)
+	return a.api.SpeakText(text)
 }
 
 func (a *App) SpeechModelDirPath(dir string) (string, error) {
-	return a.eng.SpeechModelDirPath(dir)
+	return a.api.SpeechModelDirPath(dir)
 }
 
 func (a *App) SpeechModelDirs() []engine.SpeechDirInfo {
-	return a.eng.SpeechModelDirs()
+	return a.api.SpeechModelDirs()
 }
 
 func (a *App) SpeechModelFolderPath(path string) (string, error) {
-	return a.eng.SpeechModelFolderPath(path)
+	return a.api.SpeechModelFolderPath(path)
 }
 
 func (a *App) SpeechPlaying(jobID string, seq int) {
-	a.eng.SpeechPlaying(jobID, seq)
+	a.api.SpeechPlaying(jobID, seq)
 }
 
 func (a *App) SpeechStatus() string {
-	return a.eng.SpeechStatus()
+	return a.api.SpeechStatus()
 }
 
 func (a *App) Stance() string {
-	return a.eng.Stance()
+	return a.api.Stance()
 }
 
 func (a *App) Stances() []string {
-	return a.eng.Stances()
+	return a.api.Stances()
 }
 
 func (a *App) StartAccountSignIn(provider string) (string, error) {
-	return a.eng.StartAccountSignIn(provider)
+	return a.api.StartAccountSignIn(provider)
 }
 
 func (a *App) StartConnectionServer(id string) error {
-	return a.eng.StartConnectionServer(id)
+	return a.api.StartConnectionServer(id)
 }
 
 func (a *App) StartMCPSignIn(serverName string, resourceURL string) (engine.SignInPrompt, error) {
-	return a.eng.StartMCPSignIn(serverName, resourceURL)
+	return a.api.StartMCPSignIn(serverName, resourceURL)
 }
 
 func (a *App) StartMobileRemote() engine.RemoteStatus {
-	return a.eng.StartMobileRemote()
+	return a.api.StartMobileRemote()
 }
 
 func (a *App) StartPlanRun(sessionID string) engine.PlanRunStart {
-	return a.eng.StartPlanRun(sessionID)
+	return a.api.StartPlanRun(sessionID)
 }
 
 func (a *App) StartSignIn(providerName string) (engine.SignInPrompt, error) {
-	return a.eng.StartSignIn(providerName)
+	return a.api.StartSignIn(providerName)
 }
 
 func (a *App) StartSpeech(text string) (string, error) {
-	return a.eng.StartSpeech(text)
+	return a.api.StartSpeech(text)
 }
 
 func (a *App) StopBackgroundRun(runID string) int {
-	return a.eng.StopBackgroundRun(runID)
+	return a.api.StopBackgroundRun(runID)
 }
 
 func (a *App) StopBackgroundTask(id string) bool {
-	return a.eng.StopBackgroundTask(id)
+	return a.api.StopBackgroundTask(id)
 }
 
 func (a *App) StopBrowsing() {
-	a.eng.StopBrowsing()
+	a.api.StopBrowsing()
 }
 
 func (a *App) StopMobileRemote() engine.RemoteStatus {
-	return a.eng.StopMobileRemote()
+	return a.api.StopMobileRemote()
 }
 
 func (a *App) StopPlanRun(sessionID string) {
-	a.eng.StopPlanRun(sessionID)
+	a.api.StopPlanRun(sessionID)
 }
 
 func (a *App) StopQueuedTasks() int {
-	return a.eng.StopQueuedTasks()
+	return a.api.StopQueuedTasks()
 }
 
 func (a *App) StopSpeech(jobID string) {
-	a.eng.StopSpeech(jobID)
+	a.api.StopSpeech(jobID)
 }
 
 func (a *App) SubagentsFolderPath() (string, error) {
-	return a.eng.SubagentsFolderPath()
+	return a.api.SubagentsFolderPath()
 }
 
 func (a *App) SuggestPRDetails(head string, base string) (engine.PRSuggestion, error) {
-	return a.eng.SuggestPRDetails(head, base)
+	return a.api.SuggestPRDetails(head, base)
 }
 
 func (a *App) SupportedProviders() []string {
-	return a.eng.SupportedProviders()
+	return a.api.SupportedProviders()
 }
 
 func (a *App) SupportedThinkLevels() []string {
-	return a.eng.SupportedThinkLevels()
+	return a.api.SupportedThinkLevels()
 }
 
 func (a *App) SwitchApprovalMode(mode string) (engine.ModelInfo, error) {
-	return a.eng.SwitchApprovalMode(mode)
+	return a.api.SwitchApprovalMode(mode)
 }
 
 func (a *App) SwitchModel(modelName string) (engine.ModelInfo, error) {
-	return a.eng.SwitchModel(modelName)
+	return a.api.SwitchModel(modelName)
 }
 
 func (a *App) SwitchProvider(provider string) (engine.ModelInfo, error) {
-	return a.eng.SwitchProvider(provider)
+	return a.api.SwitchProvider(provider)
 }
 
 func (a *App) SwitchThinkLevel(level string) (engine.ModelInfo, error) {
-	return a.eng.SwitchThinkLevel(level)
+	return a.api.SwitchThinkLevel(level)
 }
 
 func (a *App) SwitchVariant(index int) (engine.RegenerateResult, error) {
-	return a.eng.SwitchVariant(index)
+	return a.api.SwitchVariant(index)
 }
 
 func (a *App) SynthesizeHabit(sessionID string, hint string) (int64, error) {
-	return a.eng.SynthesizeHabit(sessionID, hint)
+	return a.api.SynthesizeHabit(sessionID, hint)
 }
 
 func (a *App) TTSStatus() string {
-	return a.eng.TTSStatus()
+	return a.api.TTSStatus()
 }
 
 func (a *App) TerminalAttach(sessionID string) string {
-	return a.eng.TerminalAttach(sessionID)
+	return a.api.TerminalAttach(sessionID)
 }
 
 func (a *App) TerminalClose(sessionID string) error {
-	return a.eng.TerminalClose(sessionID)
+	return a.api.TerminalClose(sessionID)
 }
 
 func (a *App) TerminalResize(sessionID string, cols int, rows int) error {
-	return a.eng.TerminalResize(sessionID, cols, rows)
+	return a.api.TerminalResize(sessionID, cols, rows)
 }
 
 func (a *App) TerminalShells() []engine.ShellProfile {
-	return a.eng.TerminalShells()
+	return a.api.TerminalShells()
 }
 
 func (a *App) TerminalStart(shellPath string, cols int, rows int) (string, error) {
-	return a.eng.TerminalStart(shellPath, cols, rows)
+	return a.api.TerminalStart(shellPath, cols, rows)
 }
 
 func (a *App) TerminalWrite(sessionID string, data string) error {
-	return a.eng.TerminalWrite(sessionID, data)
+	return a.api.TerminalWrite(sessionID, data)
 }
 
 func (a *App) TestMCPServer(name string) engine.MCPServerInfo {
-	return a.eng.TestMCPServer(name)
+	return a.api.TestMCPServer(name)
 }
 
 func (a *App) ToggleMCPServer(name string, disabled bool) error {
-	return a.eng.ToggleMCPServer(name, disabled)
+	return a.api.ToggleMCPServer(name, disabled)
 }
 
 func (a *App) ToolBlockTokens() int {
-	return a.eng.ToolBlockTokens()
+	return a.api.ToolBlockTokens()
 }
 
 func (a *App) ToolCounts() engine.ToolCounts {
-	return a.eng.ToolCounts()
+	return a.api.ToolCounts()
 }
 
 func (a *App) ToolInstallPlan(name string) engine.ToolInstallPlan {
-	return a.eng.ToolInstallPlan(name)
+	return a.api.ToolInstallPlan(name)
 }
 
 func (a *App) TranscribeMicAudio(dataURL string) (string, error) {
-	return a.eng.TranscribeMicAudio(dataURL)
+	return a.api.TranscribeMicAudio(dataURL)
 }
 
 func (a *App) TurnInFlight() engine.TurnStatus {
-	return a.eng.TurnInFlight()
+	return a.api.TurnInFlight()
 }
 
 func (a *App) TurnRating(messageID int64) string {
-	return a.eng.TurnRating(messageID)
+	return a.api.TurnRating(messageID)
 }
 
 func (a *App) UndoLastTurn() (engine.UndoResult, error) {
-	return a.eng.UndoLastTurn()
+	return a.api.UndoLastTurn()
 }
 
 func (a *App) UsageStats() (engine.UsageStats, error) {
-	return a.eng.UsageStats()
+	return a.api.UsageStats()
 }
 
 func (a *App) UseEngine(family string, agent string, id string) error {
-	return a.eng.UseEngine(family, agent, id)
+	return a.api.UseEngine(family, agent, id)
 }
 
 func (a *App) UserName() string {
-	return a.eng.UserName()
+	return a.api.UserName()
 }
 
 func (a *App) VerifyConnection(id string) (connect.Account, error) {
-	return a.eng.VerifyConnection(id)
+	return a.api.VerifyConnection(id)
 }
 
 func (a *App) VideoCheckSeen() bool {
-	return a.eng.VideoCheckSeen()
+	return a.api.VideoCheckSeen()
 }
 
 func (a *App) VideoEditorCommand() []string {
-	return a.eng.VideoEditorCommand()
+	return a.api.VideoEditorCommand()
 }
 
 func (a *App) VideoEditorEnvironment() map[string]string {
-	return a.eng.VideoEditorEnvironment()
+	return a.api.VideoEditorEnvironment()
 }
 
 func (a *App) VideoEditorHelpURL(what string) string {
-	return a.eng.VideoEditorHelpURL(what)
+	return a.api.VideoEditorHelpURL(what)
 }
 
 func (a *App) VideoEditorTools() []string {
-	return a.eng.VideoEditorTools()
+	return a.api.VideoEditorTools()
 }
 
 func (a *App) VideoReadiness(agent string) engine.VideoReadiness {
-	return a.eng.VideoReadiness(agent)
+	return a.api.VideoReadiness(agent)
 }
 
 func (a *App) VideoToolingStatus() engine.VideoToolingStatus {
-	return a.eng.VideoToolingStatus()
+	return a.api.VideoToolingStatus()
 }
 
 func (a *App) WorkbenchTabsChanged(sessionID string, tabs []engine.DeskTab) {
-	a.eng.WorkbenchTabsChanged(sessionID, tabs)
+	a.api.WorkbenchTabsChanged(sessionID, tabs)
 }
 
 func (a *App) WorkspaceFolders() []engine.WorkspaceFolder {
-	return a.eng.WorkspaceFolders()
+	return a.api.WorkspaceFolders()
 }
 
 func (a *App) WriteFile(relPath string, content string) error {
-	return a.eng.WriteFile(relPath, content)
+	return a.api.WriteFile(relPath, content)
 }

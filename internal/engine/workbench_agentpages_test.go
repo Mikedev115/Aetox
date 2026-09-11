@@ -35,13 +35,13 @@ func recordPage(t *testing.T, a *Engine, url, output string, ok bool) {
 // parser silently stopped matching — which is the exact drift it exists to
 // catch.
 func opened(title, url string) string {
-	return browserOpenedLine(title, url)
+	return BrowserOpenedLine(title, url)
 }
 
 // If anyone edits browserOpenSkill.open's Sprintf without editing the parser,
 // this is what fails.
 func TestParseBrowserOpenedRoundTripsTheSkillsOwnFormat(t *testing.T) {
-	title, url := parseBrowserOpened(opened("รายงานยอดขาย", "file:///D:/work/out/report.html"))
+	title, url := ParseBrowserOpened(opened("รายงานยอดขาย", "file:///D:/work/out/report.html"))
 	if title != "รายงานยอดขาย" {
 		t.Errorf("title = %q, want %q", title, "รายงานยอดขาย")
 	}
@@ -68,7 +68,7 @@ func TestParseBrowserOpened(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			title, url := parseBrowserOpened(c.output)
+			title, url := ParseBrowserOpened(c.output)
 			if title != c.title || url != c.url {
 				t.Errorf("got (%q, %q), want (%q, %q)", title, url, c.title, c.url)
 			}

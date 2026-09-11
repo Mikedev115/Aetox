@@ -27,7 +27,7 @@ func TestScreenTransportSignsFromTheCredentialStore(t *testing.T) {
 	}))
 	defer server.Close()
 
-	a := &App{}
+	a := newTestApp()
 	// No APIKey: the engine side never holds one, and the transport is what
 	// satisfies a provider that requires a key.
 	p, err := model.NewProvider(model.ProviderOptions{
@@ -64,7 +64,7 @@ func TestScreenTransportPrefersTheSignIn(t *testing.T) {
 	}))
 	defer server.Close()
 
-	a := &App{}
+	a := newTestApp()
 	p, err := model.NewProvider(model.ProviderOptions{
 		Provider: "codex", Model: "m", BaseURL: server.URL,
 		Transport: a.providerTransport("codex", ""),

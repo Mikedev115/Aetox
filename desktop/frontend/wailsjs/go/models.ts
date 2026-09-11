@@ -563,28 +563,6 @@ export namespace engine {
 	        this.error = source["error"];
 	    }
 	}
-	export class ComputerAppRow {
-	    name: string;
-	    title: string;
-	    allowed: boolean;
-	    icon: string;
-	    blocked: string;
-	    warn: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new ComputerAppRow(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.title = source["title"];
-	        this.allowed = source["allowed"];
-	        this.icon = source["icon"];
-	        this.blocked = source["blocked"];
-	        this.warn = source["warn"];
-	    }
-	}
 	export class ContextTool {
 	    name: string;
 	    tokens: number;
@@ -720,6 +698,58 @@ export namespace engine {
 	        this.sessionId = source["sessionId"];
 	        this.modified = source["modified"];
 	    }
+	}
+	export class ExportFile {
+	    name: string;
+	    data: number[];
+	    note?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportFile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.data = source["data"];
+	        this.note = source["note"];
+	    }
+	}
+	export class DeckExport {
+	    base: string;
+	    ext: string;
+	    folder: boolean;
+	    files: ExportFile[];
+	
+	    static createFrom(source: any = {}) {
+	        return new DeckExport(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.base = source["base"];
+	        this.ext = source["ext"];
+	        this.folder = source["folder"];
+	        this.files = this.convertValues(source["files"], ExportFile);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class DeckFormat {
 	    id: string;
@@ -896,36 +926,6 @@ export namespace engine {
 	        this.active = source["active"];
 	    }
 	}
-	export class DeviceProfile {
-	    name: string;
-	    w: number;
-	    h: number;
-	    dpr: number;
-	    mobile: boolean;
-	    radius?: number;
-	    notch?: string;
-	    notchW?: number;
-	    notchH?: number;
-	    notchY?: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new DeviceProfile(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.w = source["w"];
-	        this.h = source["h"];
-	        this.dpr = source["dpr"];
-	        this.mobile = source["mobile"];
-	        this.radius = source["radius"];
-	        this.notch = source["notch"];
-	        this.notchW = source["notchW"];
-	        this.notchH = source["notchH"];
-	        this.notchY = source["notchY"];
-	    }
-	}
 	export class EditedFile {
 	    path: string;
 	    label: string;
@@ -981,22 +981,7 @@ export namespace engine {
 		}
 	}
 	
-	export class ExportFile {
-	    name: string;
-	    data: number[];
-	    note?: string;
 	
-	    static createFrom(source: any = {}) {
-	        return new ExportFile(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.data = source["data"];
-	        this.note = source["note"];
-	    }
-	}
 	export class GitBranch {
 	    name: string;
 	    current: boolean;
@@ -2218,22 +2203,6 @@ export namespace engine {
 	        this.where = source["where"];
 	    }
 	}
-	export class StagedInfo {
-	    version: string;
-	    channel: string;
-	    installError: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new StagedInfo(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.version = source["version"];
-	        this.channel = source["channel"];
-	        this.installError = source["installError"];
-	    }
-	}
 	export class StoreFault {
 	    failed: boolean;
 	    tooNew: boolean;
@@ -2747,6 +2716,79 @@ export namespace github {
 	        this.changedFiles = source["changedFiles"];
 	        this.merged = source["merged"];
 	        this.url = source["url"];
+	    }
+	}
+
+}
+
+export namespace main {
+	
+	export class ComputerAppRow {
+	    name: string;
+	    title: string;
+	    allowed: boolean;
+	    icon: string;
+	    blocked: string;
+	    warn: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ComputerAppRow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.title = source["title"];
+	        this.allowed = source["allowed"];
+	        this.icon = source["icon"];
+	        this.blocked = source["blocked"];
+	        this.warn = source["warn"];
+	    }
+	}
+	export class DeviceProfile {
+	    name: string;
+	    w: number;
+	    h: number;
+	    dpr: number;
+	    mobile: boolean;
+	    radius?: number;
+	    notch?: string;
+	    notchW?: number;
+	    notchH?: number;
+	    notchY?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new DeviceProfile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.w = source["w"];
+	        this.h = source["h"];
+	        this.dpr = source["dpr"];
+	        this.mobile = source["mobile"];
+	        this.radius = source["radius"];
+	        this.notch = source["notch"];
+	        this.notchW = source["notchW"];
+	        this.notchH = source["notchH"];
+	        this.notchY = source["notchY"];
+	    }
+	}
+	export class StagedInfo {
+	    version: string;
+	    channel: string;
+	    installError: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new StagedInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.version = source["version"];
+	        this.channel = source["channel"];
+	        this.installError = source["installError"];
 	    }
 	}
 

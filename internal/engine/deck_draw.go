@@ -58,52 +58,25 @@ func (a *Engine) DeckCaptureDrawing(relPath string, slide int, ink string) (stri
 		return "", err
 	}
 	if _, err := os.Stat(full); err != nil {
-		return "", errFileGone
+		return "", ErrFileGone
 	}
 	marks, err := decodeInk(ink)
 	if err != nil {
 		return "", err
 	}
-	shot, err := a.captureDeckSlide(context.Background(), fileURLForPath(full), slide)
+	rendered, err := a.screenOf().RenderDeck(context.Background(), FileURLForPath(full), DeckRender{Kind: "slide", Format: "png", Slide: slide})
 	if err != nil {
 		return "", err
 	}
+	if len(rendered.Images) != 1 {
+		return "", fmt.Errorf("ขอภาพหนึ่งใบ ได้มา %d ใบ", len(rendered.Images))
+	}
+	shot := rendered.Images[0]
 	out, err := overlayInk(shot, marks)
 	if err != nil {
 		return "", err
 	}
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(out), nil
-}
-
-// captureDeckSlide is exportDeckImages for exactly one slide.
-//
-// The two passes are not optional and are not this file's to invent: revealing
-// so a slide has its content at all, flattening so it has a place of its own to
-// be clipped to. deck_image.go carries the reasoning for both.
-func (a *Engine) captureDeckSlide(ctx context.Context, fileURL string, slide int) ([]byte, error) {
-	spec, ok := deckImageFormats["png"]
-	if !ok {
-		return nil, fmt.Errorf("ไม่มีตัวเขียนภาพ png")
-	}
-	var shot []byte
-	err := a.withExportTab(ctx, fileURL, func(call engineCaller) error {
-		if _, err := revealEverything(call); err != nil {
-			return err
-		}
-		rects, err := flattenForExport(call)
-		if err != nil {
-			return err
-		}
-		if slide < 1 || slide > len(rects) {
-			return fmt.Errorf("เด็คนี้มี %d สไลด์ ไม่มีใบที่ %d", len(rects), slide)
-		}
-		shot, err = captureSlide(call, spec, rects[slide-1])
-		return err
-	})
-	if err != nil {
-		return nil, err
-	}
-	return shot, nil
 }
 
 // decodeInk turns the frontend's data URL into a picture.

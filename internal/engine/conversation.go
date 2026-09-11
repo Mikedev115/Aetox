@@ -409,7 +409,7 @@ func (c *conversations) forget(id string) {
 //
 // Generic so the payload keeps its own type all the way to the binding, rather
 // than every listener re-parsing an `any`.
-type sessionEvent[T any] struct {
+type SessionEvent[T any] struct {
 	SessionID string `json:"sessionId"`
 	Data      T      `json:"data"`
 }

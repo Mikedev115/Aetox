@@ -43,7 +43,7 @@ func loadWatcher(t *testing.T, resident bool) (*Engine, *conversation, chan Mode
 		if event != "model:loading" || len(data) == 0 {
 			return
 		}
-		ev, ok := data[0].(sessionEvent[ModelLoading])
+		ev, ok := data[0].(SessionEvent[ModelLoading])
 		if !ok {
 			t.Errorf("model:loading payload is %T, want a stamped sessionEvent", data[0])
 			return

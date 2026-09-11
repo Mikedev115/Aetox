@@ -412,7 +412,7 @@ func renderForwarders(fset *token.FileSet, methods []method, own, types map[stri
 		if len(m.results) > 0 {
 			body.WriteString("return ")
 		}
-		body.WriteString("a.eng." + m.name + "(" + strings.Join(args, ", ") + ")\n}\n\n")
+		body.WriteString("a.api." + m.name + "(" + strings.Join(args, ", ") + ")\n}\n\n")
 	}
 
 	var b strings.Builder
