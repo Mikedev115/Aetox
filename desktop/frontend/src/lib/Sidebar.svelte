@@ -27,6 +27,7 @@
   } from './selfUpdate.svelte'
   import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
   import Icon from './Icon.svelte'
+  import CompanionSwitch from './mascot/CompanionSwitch.svelte'
 
   let { onOpenSettings }: { onOpenSettings: () => void } = $props()
 
@@ -1004,6 +1005,7 @@
             {/each}
           </select>
         </div>
+        <CompanionSwitch />
         <div class="menu-sep"></div>
         <!-- One row, one sentence: which Aetox this is, and the only thing
              worth knowing beside it. The second line appears only when there IS

@@ -37,6 +37,7 @@
     off = false,
     look = false,
     sway = false,
+    hop = false,
   }: {
     name?: string
     /** A ROLE row id (roles.ts) — the template the slots start from. */
@@ -52,6 +53,8 @@
     look?: boolean
     /** Sway in place instead — for the one that sits on the screen. */
     sway?: boolean
+    /** One small hop — set for the moment of a reaction. */
+    hop?: boolean
   } & Omit<MascotOptions, 'hue' | 'size'> & { hue?: number } = $props()
 
   // No name is the assistant, in the brand's own hue; a name is an agent, in
@@ -70,6 +73,7 @@
   class="mascot pose-{m.poseId}"
   class:off
   class:sway
+  class:hop
   class:settle={!look}
   style="--t:{rest}deg; --ms-blink:{blink}s; width:{size}px; height:{size}px"
   use:lookAt={{ base: rest, range: lookRange(m.pose), on: look }}
