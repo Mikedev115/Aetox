@@ -23,6 +23,9 @@ export const ICONS = {
   chevronDown: `<path d="m6 9 6 6 6-6" />`,
   chevronRight: `<path d="m9 18 6-6-6-6" />`,
   chevronUp: `<path d="m18 15-6-6-6 6" />`,
+  // The remote folder picker's "up a folder".
+  cornerLeftUp: `<path d="M14 9 9 4 4 9" /><path d="M20 20h-7a4 4 0 0 1-4-4V4" />`,
+  server: `<rect width="20" height="8" x="2" y="2" rx="2" ry="2" /><rect width="20" height="8" x="2" y="14" rx="2" ry="2" /><line x1="6" x2="6.01" y1="6" y2="6" /><line x1="6" x2="6.01" y1="18" y2="18" />`,
   circle: `<circle cx="12" cy="12" r="10" />`,
   // The Aetox account page. Deliberately not `userRound`, which the team page
   // owns: that one is a colleague, this one is you.

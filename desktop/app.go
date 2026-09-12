@@ -45,6 +45,8 @@ type App struct {
 	openDir func(string) error
 	// emit stands in for wailsruntime.EventsEmit — see emitEvent.
 	emit func(event string, data ...any)
+	// reload stands in for wailsruntime.WindowReloadApp — see reloadWindow.
+	reload func()
 
 	staged stagedUpdate
 	// exports is what the deck export wrote into Downloads this session

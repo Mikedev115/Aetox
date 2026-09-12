@@ -389,6 +389,10 @@ func (a *App) HistoryFault() engine.StoreFault {
 	return a.api.HistoryFault()
 }
 
+func (a *App) HomeDir() string {
+	return a.api.HomeDir()
+}
+
 func (a *App) ImageStatus() string {
 	return a.api.ImageStatus()
 }
@@ -475,6 +479,10 @@ func (a *App) ListDecks() []engine.Deck {
 
 func (a *App) ListDecksIn(want string) engine.DeckPage {
 	return a.api.ListDecksIn(want)
+}
+
+func (a *App) ListDir(path string) (engine.DirListing, error) {
+	return a.api.ListDir(path)
 }
 
 func (a *App) ListExternalSkills() []skill.DiscoveredSkill {

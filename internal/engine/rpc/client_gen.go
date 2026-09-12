@@ -628,6 +628,14 @@ func (c *Client) HistoryFault() engine.StoreFault {
 	return out0
 }
 
+func (c *Client) HomeDir() string {
+	var out0 string
+	if err := c.call("HomeDir", nil, &out0); err != nil {
+		c.failed("HomeDir", err)
+	}
+	return out0
+}
+
 func (c *Client) ImageStatus() string {
 	var out0 string
 	if err := c.call("ImageStatus", nil, &out0); err != nil {
@@ -788,6 +796,12 @@ func (c *Client) ListDecksIn(want string) engine.DeckPage {
 		c.failed("ListDecksIn", err)
 	}
 	return out0
+}
+
+func (c *Client) ListDir(path string) (engine.DirListing, error) {
+	var out0 engine.DirListing
+	err := c.call("ListDir", []any{path}, &out0)
+	return out0, err
 }
 
 func (c *Client) ListExternalSkills() []skill.DiscoveredSkill {

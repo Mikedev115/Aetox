@@ -496,6 +496,8 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		return e.HandedOverFile(p0), nil, true
 	case "HistoryFault":
 		return e.HistoryFault(), nil, true
+	case "HomeDir":
+		return e.HomeDir(), nil, true
 	case "ImageStatus":
 		return e.ImageStatus(), nil, true
 	case "ImportSessionFrom":
@@ -600,6 +602,13 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		return e.ListDecksIn(p0), nil, true
+	case "ListDir":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.ListDir(p0)
+		return r0, err, true
 	case "ListExternalSkills":
 		return e.ListExternalSkills(), nil, true
 	case "ListIdentityFiles":
