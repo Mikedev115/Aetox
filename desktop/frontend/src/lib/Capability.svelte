@@ -69,8 +69,8 @@
   import { setActiveView, openSettingsAt, startChatWith } from './stores/cockpit.svelte'
   import { t, type TKey } from './i18n.svelte'
   import Icon from './Icon.svelte'
-  import AgentFace from './AgentFace.svelte'
-  import { faceOf } from './agentFace'
+  import AgentMascot from './mascot/AgentMascot.svelte'
+  import { lookOf } from './mascot/agentLook'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import { NAV } from './desks'
   import type { IconName } from './icons'
@@ -343,7 +343,7 @@
   // hair and glasses too, and an agent drawn with two thirds of what its owner
   // chose is the same "two people to whoever is reading" this comment already
   // warns about one line up.
-  const agentFaceOf = (name: string) => faceOf(agents.find((x) => x.name === name))
+  const agentFaceOf = (name: string) => lookOf(agents.find((x) => x.name === name))
 
   async function load() {
     const [m, k, tl, tg, ag] = await Promise.all([
@@ -723,7 +723,7 @@
                               onclick={() => toggleTarget(s, target.id)}
                             >
                               {#if place === 'agent'}
-                                <AgentFace name={target.name} {...agentFaceOf(target.name)} size={20} off={!isOn} />
+                                <AgentMascot name={target.name} {...agentFaceOf(target.name)} size={20} off={!isOn} />
                               {:else}
                                 <span class="cap-pick-ic"><Icon name={deskIcon(target.id)} size={13} /></span>
                               {/if}

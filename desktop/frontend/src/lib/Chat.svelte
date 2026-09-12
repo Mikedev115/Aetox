@@ -16,8 +16,9 @@
   import Logo from './Logo.svelte'
   import { onMount, tick } from 'svelte'
   import { cubicOut } from 'svelte/easing'
-  import AgentFace from './AgentFace.svelte'
-  import { faceOf, type FaceState } from './agentFace'
+  import AgentMascot from './mascot/AgentMascot.svelte'
+  import { lookOf } from './mascot/agentLook'
+  import type { FaceState } from './mascot/presence'
   import { shell } from './shell.svelte'
   import {
     EnabledProviders, SupportedThinkLevels,
@@ -376,11 +377,11 @@
     return task.state === 'failed' ? 'err' : 'done'
   }
   // What the PORTRAIT says, which is a different question from what the card
-  // says. agentFace.ts has drawn all of this since the faces landed — the
-  // laptop lifting into frame, the person rocking as they type, the pupils
-  // darting while nothing has been picked up yet, the ring that goes green or
-  // red — and not one caller ever passed `state`, so every face in the app has
-  // been the idle one. This is the wire that was missing, not a new drawing.
+  // says. The mascot draws all of this (poses.ts, through presence.ts's
+  // poseOfFaceState) — the hands going to the keys as it types, the thinking
+  // face while nothing has been picked up yet, the done card or the alert card
+  // when it ends — and before the cartoon faces got this wire (7 ก.ย.) not one
+  // caller ever passed `state`, so every face in the app was the idle one.
   //
   // 'think' and 'work' are told apart by whether the delegate has DONE anything
   // yet — not by whether a row is running this second, which is what it asked
@@ -389,15 +390,14 @@
   // Wrong about the state: a worker two minutes into a job sat there with no
   // laptop for most of it, because the gaps between calls are most of a turn
   // (owner, 7 ก.ย., over a card at 2m28s: "ตอนทำงานทำไมไม่กดคีย์บอร์ด").
-  // Wrong about the movement: af-lift runs once per render of the markup and
-  // the markup is re-handed whenever the state changes, so work → think → work
-  // across every gap re-played the laptop being picked up, put away and picked
-  // up again — "อนิเมชันมันหายไปไหน" is that flicker, not a missing rule.
+  // Wrong about the movement: a pose change re-hands the markup, so work →
+  // think → work across every gap re-played the hands leaving the keys and
+  // coming back — "อนิเมชันมันหายไปไหน" is that flicker, not a missing rule.
   //
-  // The line style.css draws is about GETTING AHEAD of the work: "drawing it
-  // already typing would be the UI getting ahead". Before the first row there
-  // is nothing to be ahead of and the face looks around; after it the machine
-  // is open, and it stays open until the work ends.
+  // The rule is about GETTING AHEAD of the work: drawing it already typing
+  // would be the UI getting ahead. Before the first row there is nothing to
+  // be ahead of and the worker thinks; after it the hands are on the keys,
+  // and they stay there until the work ends.
   //
   // Queued is the empty face, deliberately: nothing has started, so nothing may
   // move. The card already refuses a clock and a spinner there for the same
@@ -4284,16 +4284,19 @@
                changed was the clock, which §105.5 already established cannot
                answer "is this alive".
 
-               The face is 34px because that is where the wardrobe starts
-               working: agentFace.ts drops the held prop below PROP_MIN_PX (32)
-               on purpose, so a smaller portrait is a head and a haircut and
-               nothing that could ever say what the person is doing. -->
+               The face is 34px: under DETAIL_MIN_PX (48, rig.ts) the mascot
+               drops its highlights and the copies a turn would swap in, and
+               what is left — the laptop, the face, the card beside the head —
+               is exactly what says what the worker is doing. The badge and
+               the hue come off the roster (officeChairs), so the worker here
+               is the same one the office draws; a delegate the roster does
+               not list (a helper) wears the logo and the hue of its name. -->
           <div class="bgw-top">
             <!-- No `off` and no drain on a queued face. `off` means the
                  assistant may not hand this one work, which is a fact about the
                  roster; waiting for a slot is a fact about right now, and the
                  card says that in words on the line below. -->
-            <span class="bgw-face"><AgentFace name={node.step.agent ?? ''} size={34} state={faceState(node, state, queued)} /></span>
+            <span class="bgw-face"><AgentMascot name={node.step.agent ?? ''} {...lookOf(officeChairs.find((c) => c.name === node.step.agent))} size={34} state={faceState(node, state, queued)} /></span>
             <div class="bgw-said">
               <!-- Keyed on the text, which is what makes it move.
                    {#key} destroys and rebuilds the span when the label changes,
@@ -5351,10 +5354,10 @@
                   <!-- The same face the roster draws, not a glyph: this list and
                        the office page are the same people, and one agent drawn
                        two ways on two surfaces is two people to whoever is
-                       reading. Small enough that the prop is dropped on its own
-                       (agentFace.ts, PROP_MIN_PX) — at this size the name is
-                       doing the work and a held object is four pixels of noise. -->
-                  <AgentFace name={c.name} {...faceOf(c)} size={20} /><span class="t">{c.name}</span>
+                       reading. Small enough that the drawing is its `lite` self
+                       (rig.ts, DETAIL_MIN_PX) — at this size the name is doing
+                       the work and the badge on the ear is what still reads. -->
+                  <AgentMascot name={c.name} {...lookOf(c)} size={20} /><span class="t">{c.name}</span>
                   {#if locked}<span class="focus-locked"><Icon name="wrench" size={12} /></span>{/if}
                 </button>
                 <!-- The same pill the settings rows wear, and the same two

@@ -59,19 +59,24 @@ describe('the office roster', () => {
     vi.mocked(ListChairs).mockResolvedValue([chair({ icon: 'fileText' })] as any)
     const { container } = render(Office, { onClose: () => {} })
 
-    await waitFor(() => expect(container.querySelector('.agent-face svg')).toBeTruthy())
+    await waitFor(() => expect(container.querySelector('.mascot svg')).toBeTruthy())
+    // The icon is on the ears, and a tile in the roster does not move.
+    expect(container.querySelector('.mascot .ms-earL .ms-badge path')).toBeTruthy()
+    expect(container.querySelector('.mascot.still')).toBeTruthy()
   })
 
-  // The half of that promise the icon cannot keep. A face is drawn from the
-  // NAME, and the prop the agent holds is the only part `icon:` decides — so a
-  // profile that names none still arrives as somebody rather than an empty
-  // square. This is the case that made a drawn face worth having over a stored
-  // picture: it is the shape of every agent a user writes themselves.
+  // The half of that promise the icon cannot keep. A mascot is drawn from the
+  // NAME, and the badge on its ears is the only part `icon:` decides — so a
+  // profile that names none still arrives as somebody, wearing the logo,
+  // rather than an empty square. This is the case that made a drawn face
+  // worth having over a stored picture: it is the shape of every agent a user
+  // writes themselves.
   it('draws a face for a chair whose profile names no icon', async () => {
     vi.mocked(ListChairs).mockResolvedValue([chair({ icon: '' })] as any)
     const { container } = render(Office, { onClose: () => {} })
 
-    await waitFor(() => expect(container.querySelector('.agent-face svg')).toBeTruthy())
+    await waitFor(() => expect(container.querySelector('.mascot svg')).toBeTruthy())
+    expect(container.querySelector('.mascot .ms-earL .ms-badge')?.innerHTML).toContain('M 116.0,742.5')
   })
 
   it('says plainly when a chair has never been handed anything', async () => {
@@ -187,7 +192,7 @@ describe('the roster and delegation', () => {
 
     await waitFor(() => expect(container.querySelectorAll('.chair-card.agc').length).toBe(2))
     expect(container.querySelectorAll('.chair-card.agc.off').length).toBe(0)
-    expect(container.querySelectorAll('.agent-face.off').length).toBe(0)
+    expect(container.querySelectorAll('.mascot.off').length).toBe(0)
     expect(screen.getByText('คุยกับ sheet')).toBeTruthy()
   })
 
