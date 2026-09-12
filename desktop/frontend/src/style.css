@@ -691,13 +691,22 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   width:26px; height:26px; border-radius:50%; background:var(--surface-panel);
   display:grid; place-items:center; font-size:var(--fs-lg); flex:none;
 }
-.side-footer .label { flex:1; font-size:var(--fs-sm); font-weight:600; }
-.side-footer .gear { color:var(--text-dim); font-size:var(--fs-xl); position:relative; }
+.side-footer .label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--fs-sm); font-weight:600; }
+/* The gear is its own button laid over the footer's right end — a sibling of
+   the footer button, since a button cannot hold one — and the footer keeps
+   room for it on the right so the name never runs underneath. */
+.side-footer { padding-right:44px; }
+.side-gear {
+  position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  display:grid; place-items:center; width:30px; height:30px; border-radius:var(--r-sm);
+  color:var(--text-dim);
+}
+.side-gear:hover { color:var(--text-primary); background:var(--surface-hover); }
 /* The agent is waiting to be allowed to remember something. A dot rather than
    a number: what matters here is that there is anything at all, and the count
    is on the row inside that opens it. */
-.side-footer .gear.has-pending::after {
-  content:''; position:absolute; top:-1px; right:-2px; width:6px; height:6px;
+.side-gear.has-pending::after {
+  content:''; position:absolute; top:5px; right:5px; width:6px; height:6px;
   border-radius:50%; background:var(--accent);
 }
 
@@ -725,6 +734,15 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   flex:1; min-width:0; padding:6px 9px; border-radius:var(--r-sm); background:var(--surface-panel);
   border:1px solid var(--border-subtle); color:var(--text-primary); font:inherit; font-size:var(--fs-sm);
 }
+/* The name at rest: the same box as the field, minus the border, so opening
+   the field changes nothing but the outline. Click to edit. */
+.profile-head .name-text {
+  flex:1; min-width:0; padding:6px 9px; border-radius:var(--r-sm); text-align:left;
+  color:var(--text-primary); font-size:var(--fs-sm); font-weight:600;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.profile-head .name-text:hover { background:var(--surface-hover); }
+.profile-head .name-text.unset { color:var(--text-dim); font-weight:500; }
 /* The menu focuses this on open, so its focus state is not a reaction to
    something the user did — it is how the menu arrives. The global 2px
    --focus-ring is cyan on the default theme, which made the first thing you
@@ -6535,6 +6553,11 @@ button.phase-head:hover { color:var(--text-muted); }
 .agc.helper { padding:11px; gap:7px; }
 .agc.helper .chair-face { width:30px; height:30px; }
 .agc.helper .chair-name { font-size:var(--fs-md); }
+/* The source — `built-in:explore` or the file's path — was bare dim text with
+   no pill, and on the card it all but vanished (owner, 12 ก.ย.: "แทบจะกลืน
+   กับพื้นหลัง"). Now the same pill and colour as the chips beside it, in mono;
+   a long path clips with an ellipsis and the full text stays on hover. */
+.agc .chip.mono-dim { font-family:var(--mono); color:var(--text-muted); max-width:100%; overflow:hidden; text-overflow:ellipsis; display:inline-block; line-height:18px; }
 /* The settings deck's own text lines — .set-txt is gone from these cards, so
    the description and the two file notices carry their sizes here. */
 .agc .d { color:var(--text-muted); font-size:var(--fs-sm); line-height:1.45; }

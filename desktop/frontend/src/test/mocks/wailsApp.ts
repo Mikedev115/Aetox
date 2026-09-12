@@ -619,3 +619,5 @@ export const UsageStats = vi.fn(async () => ({
 export const WorkbenchTabsChanged = noop()
 export const WorkspaceFolders = arr()
 export const WriteFile = noop()
+export const UserName = strFn('')
+export const SetUserName = noop()

@@ -4575,21 +4575,14 @@
       {#if a.notice}<div class="d ag-notice">{a.notice}</div>{/if}
       <!-- Only the facts that differ between one helper and the next. The steps
            badge was drawn on every one of them reading "ไม่จำกัดรอบ", which is
-           the same word four times down a column of four — and so was the
-           source, `built-in:<name>` on every bundled card under a heading that
-           already says มากับแอป, in a colour that vanished (owner, 12 ก.ย.:
-           "แทบจะกลืนกับพื้นหลัง", then "ทำให้มันตรงๆสิ"). Gone: the name IS the
-           file's name, the group says whose file it is, and the full path stays
-           on the name's hover, exactly as the เอเจน card above does it. The one
-           thing about the file worth a chip is the same one that card wears —
-           a file of yours shadowing a bundled one. -->
+           the same word four times down a column of four. -->
       <div class="chair-chips">
-        {#if a.overrides}<span class="chip mine">{t('settings.agentOverrides')}</span>{/if}
         {#if a.model}<span class="chip">{a.model}</span>{/if}
         {#if a.deny && a.deny.length > 0}<span class="chip deny" title={denyTip(a)}>{t('settings.agentDenyCount', { n: a.deny.length })}</span>{/if}
         {#if (a.steps ?? 0) > 0}
           <span class="chip" title={t('settings.agentStepsTip', { n: a.steps ?? 0 })}>{t('settings.agentSteps', { n: a.steps ?? 0 })}</span>
         {/if}
+        <span class="chip mono-dim" title={a.path || 'built-in:' + a.name}>{a.path || 'built-in:' + a.name}</span>
       </div>
     </div>
   </div>
