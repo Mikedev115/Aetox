@@ -78,6 +78,15 @@
   // The desk labels the rest of the app uses (the nav, the MCP page's
   // audience chips) — not a wording of this page's own.
   const deskLabel = (desk: string) => (desk === 'coding' ? t('desk.coding') : t('desk.assistant'))
+  // The two sides a team can be on, in the order the doors sit on the
+  // wordmark: the storefront first, the workshop second. Icon and colour are
+  // the desk's own (desks.ts), so a team reads as belonging to a door the
+  // user already knows.
+  const SIDES = [
+    { desk: 'specialized', cls: 'side-assistant', icon: 'sparkles' as const, label: 'settings.teamSideAssistant' as const, note: 'settings.teamDeskAssistantNote' as const },
+    { desk: 'coding', cls: 'side-code', icon: 'fileCode' as const, label: 'settings.teamSideCode' as const, note: 'office.teamDeskCodingNote' as const },
+  ]
+  const sideOf = (desk: string) => SIDES.find((s) => s.desk === desk) ?? SIDES[0]
   // How many of a team are in the assistant's reach right now — the number
   // the rail shows beside each team, so the state is readable before a click.
   function inReach(tm: main.TeamCard): number {
@@ -122,8 +131,8 @@
   type TeamDraft = { name: string; desk: string; description: string; members: string[]; isNew: boolean; path: string }
   let editing = $state<TeamDraft | null>(null)
   let editError = $state('')
-  function newTeam() {
-    editing = { name: '', desk: 'specialized', description: '', members: [], isNew: true, path: '' }
+  function newTeam(desk = 'specialized') {
+    editing = { name: '', desk, description: '', members: [], isNew: true, path: '' }
     editError = ''
   }
   function editTeam(tm: main.TeamCard) {
@@ -213,7 +222,7 @@
     </p>
   </div>
   <!-- The door, where the eye lands first. -->
-  <button class="ctrl ctrl-primary team-new" onclick={newTeam} disabled={!!editing?.isNew}><Icon name="plus" size={14} /> {t('office.newTeam')}</button>
+  <button class="ctrl ctrl-primary team-new" onclick={() => newTeam()} disabled={!!editing?.isNew}><Icon name="plus" size={14} /> {t('office.newTeam')}</button>
 </div>
 {#if error}<div class="mset-error">{error}</div>{/if}
 
@@ -222,18 +231,32 @@
        worth reading before a click — how many of it the assistant may hand
        work to — and the door once more at the foot. -->
   <aside class="mset-side">
-    <div class="settings-group-label eyebrow">{t('settings.teams')}</div>
-    {#each teams as tm (tm.name)}
-      <button class="mset-prov team-row" class:selected={selected === tm.name && !editing?.isNew}
-        class:invalid={!!tm.invalid} onclick={() => pick(tm.name)}>
-        <Icon name="users" size={15} />
-        <span class="mset-prov-name">{teamLabel(tm)}</span>
-        <span class="team-tally" title={t('settings.teamTallyTip')}>{inReach(tm)}/{tm.members.length}</span>
+    <!-- Two sides, never one list (owner, 13 ก.ย.: "แยกชัดๆ อันไหนฝั่งผู้ช่วย
+         อันไหนฝั่งโค้ด"). The side is the desk the team works at, drawn with
+         the desk's own icon from the nav and its own colour, and each side
+         carries its own door — so the code side reads as a place a team can
+         be made even while it is empty. -->
+    {#each SIDES as side (side.desk)}
+      {@const rows = teams.filter((tm) => tm.desk === side.desk)}
+      <div class="settings-group-label eyebrow team-side {side.cls}">
+        <Icon name={side.icon} size={12} /> {t(side.label)}
+      </div>
+      {#each rows as tm (tm.name)}
+        <button class="mset-prov team-row {side.cls}" class:selected={selected === tm.name && !editing?.isNew}
+          class:invalid={!!tm.invalid} onclick={() => pick(tm.name)}>
+          <Icon name="users" size={15} />
+          <span class="mset-prov-name">{teamLabel(tm)}</span>
+          <span class="team-tally" title={t('settings.teamTallyTip')}>{inReach(tm)}/{tm.members.length}</span>
+        </button>
+      {/each}
+      {#if rows.length === 0}
+        <div class="team-side-empty">{t('settings.teamSideEmpty')}</div>
+      {/if}
+      <button class="mset-prov team-add {side.cls}" class:selected={!!editing?.isNew && editing.desk === side.desk}
+        onclick={() => newTeam(side.desk)}>
+        <Icon name="plus" size={14} /> {t('settings.teamNewHere')}
       </button>
     {/each}
-    <button class="mset-prov team-add" class:selected={!!editing?.isNew} onclick={newTeam}>
-      <Icon name="plus" size={14} /> {t('office.newTeam')}
-    </button>
   </aside>
 
   <div class="mset-detail">
@@ -257,14 +280,16 @@
       </div>
       <div class="mset-field">
         <div class="eyebrow">{t('office.teamDesk')}</div>
-        <div class="seg-ctrl" role="radiogroup" aria-label={t('office.teamDesk')}>
-          {#each ['specialized', 'coding'] as desk (desk)}
-            <button type="button" class="seg-btn" class:selected={editing.desk === desk}
-              role="radio" aria-checked={editing.desk === desk}
-              onclick={() => { if (editing) editing.desk = desk }}>{deskLabel(desk)}</button>
+        <div class="seg-ctrl team-desk-pick" role="radiogroup" aria-label={t('office.teamDesk')}>
+          {#each SIDES as side (side.desk)}
+            <button type="button" class="seg-btn {side.cls}" class:selected={editing.desk === side.desk}
+              role="radio" aria-checked={editing.desk === side.desk}
+              onclick={() => { if (editing) editing.desk = side.desk }}>
+              <Icon name={side.icon} size={13} /> {deskLabel(side.desk)}
+            </button>
           {/each}
         </div>
-        <div class="muted set-hint">{editing.desk === 'coding' ? t('office.teamDeskCodingNote') : t('settings.teamDeskAssistantNote')}</div>
+        <div class="muted set-hint">{t(sideOf(editing.desk).note)}</div>
       </div>
       <div class="mset-field">
         <div class="eyebrow">{t('office.teamDescription')}</div>
@@ -303,7 +328,9 @@
       <div class="mset-head">
         <Icon name="users" size={22} />
         <span class="mset-name">{teamLabel(tm)}</span>
-        <span class="chip">{deskLabel(tm.desk)}</span>
+        <!-- The side, as a badge with the desk's icon and colour — the one
+             fact about a team that decides what its members hold. -->
+        <span class="desk-badge {sideOf(tm.desk).cls}"><Icon name={sideOf(tm.desk).icon} size={12} /> {t(sideOf(tm.desk).label)}</span>
         {#if tm.default}<span class="chip">{t('settings.teamShipped')}</span>{/if}
         <div class="pp-bar-gap"></div>
         {#if !tm.default}
@@ -372,7 +399,7 @@
             <div class="t">{t('settings.teamFirstTitle')}</div>
             <div class="d">{t('settings.teamFirstBody')}</div>
           </div>
-          <button class="ctrl ctrl-primary" onclick={newTeam}><Icon name="plus" size={14} /> {t('office.newTeam')}</button>
+          <button class="ctrl ctrl-primary" onclick={() => newTeam()}><Icon name="plus" size={14} /> {t('office.newTeam')}</button>
         </div>
       {/if}
     {:else if loaded}

@@ -1423,11 +1423,13 @@ describe('Settings pages', () => {
     await waitFor(() => expect(container.querySelector('.ag-body')).toBeTruthy())
     // Frontmatter is fields now, so a new agent has none of it to see or
     // mistype — the role box only ever holds guidance on what to write.
+    // Empty, with the guidance as a placeholder (13 ก.ย.): a guidance that was
+    // the VALUE could be saved as the brief, and was — an agent shipped with
+    // 'มันไม่เห็นประวัติแชท' as its whole role and behaved like it.
     const body = container.querySelector('.ag-body') as HTMLTextAreaElement
-    expect(body.value).not.toContain('---')
-    expect(body.value).not.toContain('description:')
-    expect(body.value).not.toContain('steps:')
-    expect(body.value).toContain('บอกว่ามันรับงานแบบไหน')
+    expect(body.value).toBe('')
+    expect(body.placeholder).toContain('เอเจนคนนี้เป็นใคร')
+    expect(body.placeholder).not.toContain('ไม่เห็นประวัติแชท')
     // Nothing pre-selected: an empty allow list means "every tool", exactly as
     // the badge on the list page already promises for a fresh profile.
     expect(container.querySelectorAll('.ag-tool.active').length).toBe(0)
