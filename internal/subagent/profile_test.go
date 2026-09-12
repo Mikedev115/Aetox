@@ -233,35 +233,58 @@ func TestParseUnlimitedFromFrontmatter(t *testing.T) {
 	}
 }
 
-// The face a profile chooses for itself survives the file, and survives it
-// UNTOUCHED. The parts are named by id out of the app's wardrobe
-// (desktop/frontend/src/lib/agentFace.ts) and those ids are camelCase, so a
-// parser that helpfully lowercased them — as it does for `desk:`, where the
-// values really are one word — would turn a face somebody chose into the
-// derived one and never say a word about it.
+// The look a profile chooses for itself survives the file, and survives it
+// UNTOUCHED. The parts are named by id out of the mascot's catalogues
+// (desktop/frontend/src/lib/mascot/) and some of those ids are camelCase
+// (`laptopTerm`), so a parser that helpfully lowercased them — as it does for
+// `desk:`, where the values really are one word — would turn a look somebody
+// chose into the default one and never say a word about it.
 //
 // Absent is the ordinary case and has to stay cheap: blank means the drawing
-// derives that part from the agent's name, which is what every profile nobody
-// has opened says, and what the whole roster looked like before the editor
-// could write these lines at all.
-func TestAProfileKeepsTheFaceItNamesForItself(t *testing.T) {
+// derives that part from the agent's name or the assistant's template, which
+// is what every profile nobody has opened says, and what the whole roster
+// looked like before the editor could write these lines at all.
+func TestAProfileKeepsTheLookItNamesForItself(t *testing.T) {
 	p := parse("backend", `---
 description: d
 icon: terminal
-hair: sidePart
-accessory: glasses
+shell: Dark
+top: chevrons
+face: focused
+accent: copper
+hue: 210
 ---
 You build.`)
-	if p.Icon != "terminal" || p.Hair != "sidePart" || p.Accessory != "glasses" {
-		t.Fatalf("face = %q/%q/%q, want terminal/sidePart/glasses verbatim", p.Icon, p.Hair, p.Accessory)
+	if p.Icon != "terminal" || p.Shell != "Dark" || p.Top != "chevrons" || p.Face != "focused" || p.Accent != "copper" || p.Hue != "210" {
+		t.Fatalf("look = %q/%q/%q/%q/%q/%q, want terminal/Dark/chevrons/focused/copper/210 verbatim", p.Icon, p.Shell, p.Top, p.Face, p.Accent, p.Hue)
 	}
 
 	bare := parse("backend", `---
 description: d
 ---
 You build.`)
-	if bare.Hair != "" || bare.Accessory != "" {
-		t.Errorf("a profile that chose nothing arrives as %q/%q — blank is what tells the drawing to derive it", bare.Hair, bare.Accessory)
+	if bare.Shell != "" || bare.Top != "" || bare.Face != "" || bare.Accent != "" || bare.Hue != "" {
+		t.Errorf("a profile that chose nothing arrives as %q/%q/%q/%q/%q — blank is what tells the drawing to derive it", bare.Shell, bare.Top, bare.Face, bare.Accent, bare.Hue)
+	}
+}
+
+// The cartoon person's two fields are gone from the drawing (12 ก.ย. 2026) but
+// not from the files people wrote: a profile that names a haircut must load
+// exactly as it did, with nothing dropped and nothing said. The field stays
+// readable until no profile on disk carries it; a parser that refused the
+// line would make the day the drawing changed the day a user's agent broke.
+func TestAProfileThatStillNamesAHaircutLoads(t *testing.T) {
+	p := parse("backend", `---
+description: d
+hair: sidePart
+accessory: glasses
+---
+You build.`)
+	if p.Hair != "sidePart" || p.Accessory != "glasses" {
+		t.Errorf("hair/accessory = %q/%q — the deprecated fields must still be carried verbatim", p.Hair, p.Accessory)
+	}
+	if p.Description != "d" || p.Prompt != "You build." {
+		t.Errorf("a deprecated field cost the profile its other fields: %+v", p)
 	}
 }
 
