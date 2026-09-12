@@ -331,6 +331,14 @@ type App struct {
 	companionOnce sync.Once
 	companionSrv  *companionServer
 
+	// gitSplit is the message-writing run behind the git pane's smart split
+	// (git_commit.go). The groups come back at once and the messages stream
+	// in after them, one group at a time; a second click or GitSplitCancel
+	// ends the run in flight, and a run that lost its seat stops emitting.
+	gitSplitMu     sync.Mutex
+	gitSplitCancel context.CancelFunc
+	gitSplitSeq    uint64
+
 	// staged is the downloaded, verified update waiting for the user to pick a
 	// moment to restart into (§107). Held here rather than in internal/update
 	// because it is one running app's state, not the package's — and guarded

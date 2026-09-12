@@ -284,6 +284,8 @@ export function GitFileDiff(arg1:string):Promise<string>;
 
 export function GitLog(arg1:string,arg2:number):Promise<main.GitLogPage>;
 
+export function GitSplitCancel():Promise<void>;
+
 export function GitSuggestCommitMessage(arg1:Array<string>):Promise<string>;
 
 export function GitSuggestSplitCommits():Promise<Array<main.GitCommitGroup>>;
