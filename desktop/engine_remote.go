@@ -35,8 +35,18 @@ import (
 // back into screen.json before the wire is dialed, so a window that dies
 // right after can still reach the engine it started.
 func (e *localEngine) spawnRemote(ctx context.Context, host remote.Host) (*engineProcess, error) {
+	// One status per sentence, not per 32 KiB read: an upload reports its
+	// motion on every chunk, and the first real host got 1,018 events and
+	// log lines for one 32 MB binary — the chip only ever shows a whole
+	// percent anyway.
+	last := ""
 	tun, err := e.driver.Connect(ctx, &host, version.Current, func(s remote.Step) {
-		e.setStatus(engineStarting, stepWords(host, s))
+		words := stepWords(host, s)
+		if words == last {
+			return
+		}
+		last = words
+		e.setStatus(engineStarting, words)
 	})
 	if err != nil {
 		return nil, err
