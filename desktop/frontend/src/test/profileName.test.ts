@@ -53,6 +53,27 @@ describe('the footer name', () => {
     expect(document.activeElement).toBe(container.querySelector('.name-input'))
   })
 
+  // The real click on the name reached the document's outside-click handler
+  // with a target Svelte had already replaced (button → field), and a node
+  // that is not on the page is "outside" everything — the menu shut on the
+  // click meant to open the field. jsdom runs no microtask between listeners,
+  // so the detached target is handed to the document directly.
+  it('does not close the menu on a click whose target the click itself replaced', async () => {
+    const { container } = render(Sidebar, { onOpenSettings: () => {} })
+    ;(container.querySelector('.side-footer') as HTMLElement).click()
+    await waitFor(() => expect(container.querySelector('.name-text')).toBeTruthy())
+    ;(container.querySelector('.name-text') as HTMLElement).click()
+    await waitFor(() => expect(container.querySelector('.name-input')).toBeTruthy())
+
+    const detached = document.createElement('button')
+    const ev = new MouseEvent('click', { bubbles: true })
+    Object.defineProperty(ev, 'target', { value: detached })
+    document.dispatchEvent(ev)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(container.querySelector('.profile-menu')).toBeTruthy()
+    expect(container.querySelector('.name-input')).toBeTruthy()
+  })
+
   it('is saved as it is typed, not only on Enter or blur', async () => {
     const { container } = render(Sidebar, { onOpenSettings: () => {} })
     ;(container.querySelector('.side-footer') as HTMLElement).click()

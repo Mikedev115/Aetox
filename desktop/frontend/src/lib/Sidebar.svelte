@@ -157,6 +157,14 @@
   // is open and each must close on a click that lands anywhere else.
   function closeMenusOnOutsideClick(e: MouseEvent) {
     const el = e.target as HTMLElement
+    // A click whose target is no longer on the page was inside a menu: the
+    // click's own handler replaced the element (the name becoming its field)
+    // and Svelte flushed that between the two listeners, so by the time this
+    // one runs `closest` finds nothing above a detached node and the menu
+    // closed itself on the click meant to edit the name ("กดแล้วมันเด้งปิด",
+    // owner, 12 ก.ย. 2026). Only a real click reproduces it — a synthetic
+    // .click() has no microtask checkpoint between listeners.
+    if (!el.isConnected) return
     if (profileOpen && !el.closest('.side-footer-wrap')) profileOpen = false
     if (rowMenu && !el.closest('.row-menu-wrap')) closeRowMenu()
   }
