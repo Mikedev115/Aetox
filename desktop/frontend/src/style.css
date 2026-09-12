@@ -6583,7 +6583,7 @@ button.phase-head:hover { color:var(--text-muted); }
    storefront wears the app's accent, the workshop an amber the rest of the
    theme does not use for anything else — so a rail row, the badge on the
    pane, and the selected half of the desk choice all say the same thing. */
-.team-set { --side-assistant:var(--accent); --side-code:var(--chart-2); }
+.team-set, .team-side-pick { --side-assistant:var(--accent); --side-code:var(--chart-2); }
 .team-set .team-side { display:flex; align-items:center; gap:6px; }
 .team-set .team-side.side-assistant { color:var(--side-assistant); }
 .team-set .team-side.side-code { color:var(--side-code); }
@@ -6592,23 +6592,19 @@ button.phase-head:hover { color:var(--text-muted); }
 .team-set .team-side-empty { padding:4px 10px 6px; font-size:var(--fs-2xs); color:var(--text-dim); }
 .team-set .team-add { color:var(--text-muted); font-size:var(--fs-md); margin-bottom:6px; }
 .team-set .team-add:hover, .team-set .team-add.selected { color:var(--text-primary); }
-/* The two side switches above the rail (13 ก.ย.): one card per door, side
-   by side, each wearing its side's colour on the mark. */
-.team-sides { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
-.team-sides .team-side-card { margin:0; }
-.team-sides .team-side-card .set-row { padding:12px 14px; }
-.team-sides .team-side-ic { display:inline-flex; flex:none; }
-.team-sides .side-assistant .team-side-ic { color:var(--accent); }
-.team-sides .side-code .team-side-ic { color:var(--chart-2); }
-.team-sides .set-txt .t { font-size:var(--fs-md); }
-.team-sides .set-txt .d { font-size:var(--fs-2xs); }
-@media (max-width: 900px) { .team-sides { grid-template-columns:1fr; } }
+/* The two-way switches — which side the page shows (top) and which desk a
+   team works at (the form) — are the approval row's own .seg-ctrl, untouched
+   but for the desk's icon and, on the chosen half, the side's colour. */
+.team-side-pick { margin-bottom:14px; }
+.team-side-pick .seg-btn .team-tally { font-size:var(--fs-2xs); color:var(--text-dim); font-variant-numeric:tabular-nums; margin-left:2px; }
+.seg-ctrl .seg-btn.side-assistant.selected { color:var(--side-assistant); }
+.seg-ctrl .seg-btn.side-code.selected { color:var(--side-code); }
+.team-door-off { margin:-6px 0 12px; }
+.conn-chip.team-add-agent { border-style:dashed; color:var(--text-muted); }
+.conn-chip.team-add-agent:hover { color:var(--text); border-color:var(--border-strong); }
 .desk-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:var(--r-full); font-size:var(--fs-xs); font-weight:600; border:1px solid transparent; }
 .desk-badge.side-assistant { color:var(--side-assistant, var(--accent)); border-color:color-mix(in srgb, var(--side-assistant, var(--accent)) 45%, transparent); background:color-mix(in srgb, var(--side-assistant, var(--accent)) 12%, transparent); }
 .desk-badge.side-code { color:var(--side-code, var(--chart-2)); border-color:color-mix(in srgb, var(--side-code, var(--chart-2)) 45%, transparent); background:color-mix(in srgb, var(--side-code, var(--chart-2)) 12%, transparent); }
-.team-desk-pick .seg-btn { display:inline-flex; align-items:center; gap:6px; }
-.team-desk-pick .seg-btn.side-assistant.selected { color:var(--side-assistant); background:color-mix(in srgb, var(--side-assistant) 14%, var(--surface-selected)); }
-.team-desk-pick .seg-btn.side-code.selected { color:var(--side-code); background:color-mix(in srgb, var(--side-code) 14%, var(--surface-selected)); }
 .team-set .mset-head .chip { margin-left:2px; }
 .team-set .team-reach { margin:0; }
 .team-set .team-picked { font-weight:400; color:var(--text-dim); letter-spacing:0; text-transform:none; margin-left:4px; }

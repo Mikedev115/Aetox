@@ -2995,6 +2995,10 @@
   // goes out through the matching door, so an edit cannot change what
   // something is as a side effect of where a button happened to be.
   let agentEditKind = $state<'agent' | 'helper'>('helper')
+  // Where an AGENT's editor closes onto. The roster page, normally; the
+  // ทีมเอเจน page when its form's "+ เอเจน" opened the editor, so the person
+  // lands back on the draft they left, with the new agent ticked.
+  let agentBack = $state<'office' | 'teams'>('office')
   type AgentTab = 'identity' | 'avatar' | 'brain' | 'reach' | 'knowledge' | 'opening'
   let agentTab = $state<AgentTab>('identity')
 
@@ -3073,12 +3077,23 @@
   // หน้าแรก ทีมอยู่ตั้งค่า"), so closing it walks back there rather than
   // onto a page that no longer exists; a ซับเอเจน's editor closes onto its
   // own list as it always did.
-  function leaveAgentEditor() {
+  function leaveAgentEditor(saved = '') {
     agentEditing = null
-    if (agentEditKind === 'agent') {
-      setShell('assistant')
-      setActiveView('office')
+    if (agentEditKind !== 'agent') return
+    if (agentBack === 'teams') {
+      agentBack = 'office'
+      cockpit.settingsIntent = { section: 'teams', agent: saved || undefined }
+      openSection('teams')
+      return
     }
+    setShell('assistant')
+    setActiveView('office')
+  }
+  // ทีมเอเจน's form asked for an agent that is not on the roster yet.
+  function newAgentFromTeams() {
+    agentBack = 'teams'
+    openSection('team')
+    newAgent('agent')
   }
   const closeAgentEditor = () =>
     guardUnsaved(agentDraftKey() !== agentSnapshot, leaveAgentEditor)
@@ -3107,7 +3122,7 @@
     if (agentEditKind === 'agent') await SaveAgentProfile(agentDraftName.trim(), body)
     else await SaveSubagentProfile(agentDraftName.trim(), body)
     await loadAgents()
-    leaveAgentEditor()
+    leaveAgentEditor(agentDraftName.trim())
   })
 
   // Two different actions behind one button: deleting a profile the user wrote,
@@ -7149,7 +7164,7 @@
     {:else if active === 'avatar'}
       <AvatarSettings />
     {:else if active === 'teams'}
-      <TeamSettings />
+      <TeamSettings onNewAgent={newAgentFromTeams} />
     {:else if active === 'identity'}
       <h2>{t('settings.identity')}</h2>
       <p class="muted set-sub">{t('settings.identityDesc')}</p>
