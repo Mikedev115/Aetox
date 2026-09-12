@@ -5975,6 +5975,12 @@ button.phase-head:hover { color:var(--text-muted); }
   margin-left: 6px;
   flex-shrink: 0;
 }
+/* The app's own file, not a warning: held out of the tick, said quietly. */
+.gp-row-danger-badge.app {
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  border-color: var(--border-subtle);
+}
 .gp-list-head {
   display: flex;
   align-items: center;

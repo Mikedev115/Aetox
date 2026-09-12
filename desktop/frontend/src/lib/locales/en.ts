@@ -267,6 +267,8 @@ export const en: Record<keyof typeof th, string> = {
   'git.dangerousWarningDesc': 'These files may contain secrets, private keys, or data that should not be committed to Git.',
   'git.askAssistant': 'Ask Assistant',
   'git.dangerousBadge': 'Sensitive',
+  'git.appOwnedBadge': 'App-owned',
+  'git.dangerCat.app': 'An Aetox chat attachment — the app\'s, not the project\'s; it does not belong in git',
   'git.dangerCat.secret': 'Environment / Secrets (.env)',
   'git.dangerCat.key': 'Private Key / Certificate',
   'git.dangerCat.credentials': 'Credentials / Access Tokens',
