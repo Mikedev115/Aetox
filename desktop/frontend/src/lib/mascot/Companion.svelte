@@ -17,7 +17,7 @@
   // here runs per frame.
   import Mascot from './Mascot.svelte'
   import Icon from '../Icon.svelte'
-  import { presenceOf, reportOf, walkTurn } from './presence'
+  import { presenceOf, reportOf, walkTurn, nearAngle } from './presence'
   import { POSE, type PoseId } from './poses'
   import { cockpit } from '../stores/cockpit.svelte'
   import { setCompanionOn } from './companionSetting.svelte'
@@ -61,7 +61,8 @@
   let dragging = $state(false)
   let drag: {
     dx: number; dy: number; x0: number; y0: number; moved: boolean
-    lx: number; ly: number; vx: number; vy: number; at: number
+    /** The direction being turned towards, in degrees, once there is one. */
+    want: number | null; at: number
     target: { x: number; y: number }; raf: number
   } | null = null
   /** Which way it walks while dragged, in the head's own degrees — right,
@@ -71,12 +72,15 @@
   const TURN_DEG_S = 240
   /** How much of the remaining distance to the hand is closed per frame. */
   const FOLLOW = 0.28
-  /** Below this smoothed speed (px per event) the direction is kept. */
-  const STILL_PX = 1.2
+  /** A step shorter than this has no direction worth reading. */
+  const STEP_PX = 2
+  /** A new direction must differ from the one being turned to by more than
+   *  this before it replaces it — a hand wobbles, a walker does not. */
+  const RETARGET_DEG = 25
   /** No movement for this long while held is standing, not walking: it
    *  floats in place, facing the way it was going (owner: "คลิกค้างอยู่ที่เดิม
    *  ควรจะลอยอยู่เฉย ๆ"). */
-  const STOP_MS = 140
+  const STOP_MS = 200
   let moving = $state(false)
   let moveTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -105,7 +109,7 @@
     heading = POSE[pose as PoseId]?.turn ?? 0
     drag = {
       dx: e.clientX - pos.x, dy: e.clientY - pos.y, x0: e.clientX, y0: e.clientY, moved: false,
-      lx: e.clientX, ly: e.clientY, vx: 0, vy: 0, at: performance.now(), target: { ...pos }, raf: 0,
+      want: null, at: performance.now(), target: { ...pos }, raf: 0,
     }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
@@ -114,24 +118,43 @@
     if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < CLICK_PX) return
     drag.moved = true
     dragging = true
-    moving = true
-    clearTimeout(moveTimer)
-    moveTimer = setTimeout(() => (moving = false), STOP_MS)
-    // Smoothed velocity → the direction; the head turns towards it at a
-    // bounded rate (the CSS transition on --t eases the steps between events).
-    drag.vx = drag.vx * 0.7 + (e.clientX - drag.lx) * 0.3
-    drag.vy = drag.vy * 0.7 + (e.clientY - drag.ly) * 0.3
-    drag.lx = e.clientX
-    drag.ly = e.clientY
+    // Where it may go: the hand's spot, kept inside the window. At an edge
+    // the grip is re-anchored to the clamped spot, so the way back starts
+    // the moment the hand turns round instead of only once the hand is back
+    // where it was when the edge was hit — that dead stretch was the "ติด ๆ"
+    // the owner saw at the sides of the window.
+    const t = clamp({ x: e.clientX - drag.dx, y: e.clientY - drag.dy })
+    drag.dx = e.clientX - t.x
+    drag.dy = e.clientY - t.y
+    // Everything below reads the mascot's own displacement, not the hand's:
+    // pressed against an edge it is not walking, so it stands there and
+    // floats, and it does not turn to face a hand sliding along the wall.
+    const mx = t.x - drag.target.x
+    const my = t.y - drag.target.y
+    drag.target = t
     const now = performance.now()
     const dt = Math.min(0.05, (now - drag.at) / 1000)
     drag.at = now
-    if (Math.hypot(drag.vx, drag.vy) >= STILL_PX) {
-      const want = walkTurn(drag.vx, drag.vy, heading, 0)
-      const step = TURN_DEG_S * dt
-      heading += Math.max(-step, Math.min(step, want - heading))
+    const step = Math.hypot(mx, my)
+    if (step >= 0.5) {
+      moving = true
+      clearTimeout(moveTimer)
+      moveTimer = setTimeout(() => (moving = false), STOP_MS)
     }
-    drag.target = clamp({ x: e.clientX - drag.dx, y: e.clientY - drag.dy })
+    // The direction is the latest real step's, held until a clearly
+    // different one comes along (not a blend of recent steps: a blend
+    // sweeps through every angle between two directions when the hand
+    // turns round, and the head chased that sweep the long way about).
+    // The head turns towards it no faster than TURN_DEG_S, the short way.
+    if (step >= STEP_PX) {
+      const h = walkTurn(mx, my, drag.want ?? 0, 0)
+      if (drag.want === null || Math.abs(h - drag.want) > RETARGET_DEG) drag.want = h
+    }
+    if (drag.want !== null) {
+      const goal = nearAngle(drag.want, heading)
+      const turn = TURN_DEG_S * dt
+      heading += Math.max(-turn, Math.min(turn, goal - heading))
+    }
     if (!drag.raf) drag.raf = requestAnimationFrame(follow)
   }
   function follow(): void {
@@ -163,7 +186,8 @@
     // Rewind whole circles now, while the head still snaps; next frame the
     // easing is back and the turn home is the short way round.
     heading = ((((heading + 180) % 360) + 360) % 360) - 180
-    requestAnimationFrame(() => (dragging = false))
+    // A timeout, not a frame: a frame never comes while the window is hidden.
+    setTimeout(() => (dragging = false), 20)
     try {
       localStorage.setItem(POS_KEY, JSON.stringify(pos))
     } catch {
