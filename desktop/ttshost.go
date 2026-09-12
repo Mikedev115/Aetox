@@ -28,12 +28,14 @@ import (
 // ttsHostPrefix is the URL space this owns.
 const ttsHostPrefix = "/aetox-tts/"
 
-// assetMiddleware chains the two URL spaces the app claims in front of its own
-// embedded assets. Order does not matter — the prefixes are disjoint — but the
-// early `next` in each does: anything addressed to neither must leave
-// untouched, or the app's own HTML stops loading and the window comes up blank.
+// assetMiddleware chains the three URL spaces the app claims in front of its
+// own embedded assets: the project's files, the reader's audio, and the
+// studio's shelf (studio_browse.go). Order does not matter — the prefixes are
+// disjoint — but the early `next` in each does: anything addressed to none of
+// them must leave untouched, or the app's own HTML stops loading and the
+// window comes up blank.
 func (a *App) assetMiddleware(next http.Handler) http.Handler {
-	return a.fileHost(a.ttsHost(next))
+	return a.fileHost(a.ttsHost(a.studioHost(next)))
 }
 
 // ttsHost serves one piece of one read: /aetox-tts/<job>/<seq>.<ext>

@@ -111,7 +111,7 @@ func TestEveryToolTheVideoAgentNamesIsAToolThatExists(t *testing.T) {
 	// be edited by hand is the honest cost of a check that would otherwise not
 	// exist at all.
 	for _, name := range []string{
-		"video", "browser", "desk", "desk_terminal",
+		"video", "asset_find", "browser", "desk", "desk_terminal",
 		"ask_user", "memory", "session_search", "task", "todo_write",
 	} {
 		known[name] = true

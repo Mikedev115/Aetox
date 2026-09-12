@@ -31,6 +31,9 @@
   // It used to be written out in this file; ห้องความสามารถ reads the same list,
   // and a preset table with two copies goes stale on one of them (mcpShelf.ts).
   import { MCP_PRESETS, needsPaste, presetConfig, presetFor, type MCPPreset } from './mcpShelf'
+  import { STUDIO_SOURCES } from './studioSources'
+  import StudioBrowser from './StudioBrowser.svelte'
+  import StudioSourcesSheet from './StudioSourcesSheet.svelte'
   import {
     SupportedProviders, HasAPIKey, APIKeyHint, RequiresAPIKey, AcceptsAPIKey, ProviderAccountFor, TerminalShells,
     ListModelsForProvider, ProviderBaseURL, ProviderBaseURLIsCustom, ProviderAPIKeyURL, ProviderReady, PriceModels,
@@ -70,6 +73,7 @@
     ListSystemIssues, MarkIssueReported, ListDecidedIssues,
     AccountStatus, StartAccountSignIn, CompleteAccountSignIn, CancelAccountSignIn,
     AccountSignOut, AccountRefresh,
+    StudioLibraries, StudioScanning, AddStudioLibrary, RescanStudioLibrary, RemoveStudioLibrary, RevealStudioLibrary, CancelStudioScan,
   } from '../../wailsjs/go/main/App'
   import { BrowserOpenURL, EventsOn } from '../../wailsjs/runtime/runtime'
   // Deliberately alongside the issue button rather than instead of it: an issue
@@ -1755,6 +1759,138 @@
     } finally {
       imagePageBusy = false
     }
+  }
+
+  // ---------- คลังสตูดิโอ (desktop/studio_library.go) ----------
+  // Folders the user pointed at, with counts — never the rows. The scan runs
+  // in the engine and reports over two events, the same shape the capability
+  // downloads use; the page only draws what arrives.
+  let studioLibs = $state<main.StudioLibraryView[]>([])
+  let studioScanning = $state(false)
+  let studioProgress = $state<{ root: string; done: number; total: number } | null>(null)
+  let studioError = $state('')
+  // What the last scan found, shown once as a card until dismissed — the
+  // one moment a person wants to know whether the app understood their
+  // folder, and the old page said nothing at all right then.
+  let studioResult = $state<{ files: number; bytes: number; counts: Record<string, number> } | null>(null)
+  // The browser (StudioBrowser.svelte) is open when this is set: a kind from
+  // a tile, a shelf from a card, or both empty for everything. Null is closed.
+  let studioBrowse = $state<{ kind: string; library: string } | null>(null)
+  // The "หาวัตถุดิบเพิ่ม" sheet (StudioSourcesSheet.svelte).
+  let studioSourcesOpen = $state(false)
+  // A tab picks the kind and keeps whatever shelf filter is on; a card's
+  // "ดูของ" picks the shelf and shows every kind of it. Pressing the open tab
+  // again does nothing — a tab row always has one open.
+  function browseStudio(kind = '', library = '') {
+    studioBrowse = { kind, library }
+  }
+  function browseKind(k: string) { browseStudio(k, studioBrowse?.library ?? '') }
+
+  // True until the first answer, so the page draws placeholder cards rather
+  // than an empty strip that then jumps when the shelves arrive.
+  let studioLoading = $state(true)
+  async function loadStudio() {
+    try {
+      studioLibs = (await StudioLibraries()) ?? []
+      studioScanning = await StudioScanning()
+      // The browser opens on the first kind that holds anything, so the
+      // page reads as tabs over content from the first frame — a row of
+      // seven numbers with nothing under them read as a dashboard (owner,
+      // 12 ก.ย.: "ไม่รู้เลยว่ากดได้").
+      if (!studioBrowse) {
+        const first = STUDIO_KINDS.find((k) => studioTotals[k] > 0)
+        if (first) studioBrowse = { kind: first, library: '' }
+      }
+    } catch (err) {
+      studioError = String(err)
+    } finally {
+      studioLoading = false
+    }
+  }
+
+  $effect(() => {
+    const offProgress = EventsOn('studio:progress', (p: { root: string; done: number; total: number }) => {
+      studioScanning = true
+      studioProgress = p
+    })
+    const offDone = EventsOn('studio:done', (d: { ok: boolean; error?: string; files?: number; bytes?: number; counts?: Record<string, number> }) => {
+      studioScanning = false
+      studioProgress = null
+      if (!d.ok) studioError = d.error ?? t('settings.studioScanFailed')
+      else studioResult = { files: d.files ?? 0, bytes: d.bytes ?? 0, counts: d.counts ?? {} }
+      void loadStudio()
+    })
+    return () => { offProgress(); offDone() }
+  })
+
+  async function addStudioFolder() {
+    studioError = ''
+    try {
+      // false is a dismissed dialog or a scan already running — neither is news.
+      if (await AddStudioLibrary()) studioScanning = true
+    } catch (err) {
+      studioError = String(err)
+    }
+  }
+
+  async function rescanStudio(id: string) {
+    studioError = ''
+    try {
+      if (await RescanStudioLibrary(id)) studioScanning = true
+    } catch (err) {
+      studioError = String(err)
+    }
+  }
+
+  // Forgetting a shelf is not deleting it, and the dialog says so: the one
+  // fear a person has pressing this is that thirty gigabytes goes with it.
+  function removeStudio(lib: main.StudioLibraryView) {
+    askConfirm({
+      title: t('settings.studioRemoveTitle'),
+      message: lib.root,
+      detail: t('settings.studioRemoveDetail'),
+      confirmLabel: t('settings.studioRemove'),
+      run: async () => {
+        try {
+          studioLibs = (await RemoveStudioLibrary(lib.id)) ?? []
+        } catch (err) {
+          studioError = String(err)
+        }
+      },
+    })
+  }
+
+  const GB = 1024 * 1024 * 1024
+  const gb = (bytes: number) => bytes >= GB ? `${(bytes / GB).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / (1024 * 1024)))} MB`
+  const STUDIO_KINDS = ['sfx', 'music', 'overlay', 'background', 'clip', 'icon', 'image'] as const
+  const STUDIO_KIND_ICON: Record<string, IconName> = { sfx: 'volume2', music: 'headphones', overlay: 'sparkles', background: 'monitor', clip: 'clapperboard', icon: 'puzzle', image: 'image' }
+  const studioKindLabel = (k: string) => t(`settings.studioKind.${k}` as TKey)
+  // Seven tiles over every shelf. A kind with nothing in it stays on the
+  // strip, dimmed: the strip is also the list of what the shelf can hold.
+  const studioTotals = $derived.by(() => {
+    const out: Record<string, number> = {}
+    for (const k of STUDIO_KINDS) out[k] = 0
+    for (const lib of studioLibs) for (const k of STUDIO_KINDS) out[k] += lib.counts?.[k] ?? 0
+    return out
+  })
+  const studioFolderName = (root: string) => root.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? root
+  // A source counts as imported when a shelf's folder carries its name —
+  // a Drive download keeps the folder's name, so this is the honest match.
+  const studioImported = (folder?: string) => !!folder && studioLibs.some((l) => l.name.toLowerCase() === folder.toLowerCase())
+  // Chips per kind for one shelf or one result, zeros left out.
+  function studioKindChips(counts: Record<string, number> | undefined): { k: string; n: number }[] {
+    return STUDIO_KINDS.map((k) => ({ k, n: counts?.[k] ?? 0 })).filter((c) => c.n > 0)
+  }
+  // One line per shelf: "1,204 files · 12.3 GB · sfx 340 · overlay 88 …", kinds
+  // with nothing in them left out, because a zero is not information.
+  function studioLine(lib: main.StudioLibraryView): string {
+    const parts = [t('settings.studioFiles', { n: lib.files.toLocaleString() }), gb(lib.bytes)]
+    for (const k of STUDIO_KINDS) {
+      const n = lib.counts?.[k] ?? 0
+      if (n > 0) parts.push(`${t(`settings.studioKind.${k}` as TKey)} ${n.toLocaleString()}`)
+    }
+    if (lib.unread > 0) parts.push(t('settings.studioUnread', { n: lib.unread }))
+    return parts.join(' · ')
   }
 
   // ---------- Voice page (STT + TTS, both vendor-switchable) ----------
@@ -3740,6 +3876,7 @@
     if (active === 'skilltune') void loadSkillTune()
     if (active === 'voice') void loadVoicePage()
     if (active === 'image') void loadImagePage()
+    if (active === 'studio') void loadStudio()
   })
 
   $effect(() => {
@@ -3818,6 +3955,12 @@
       // image_make — so they are the same kind of row and belong together.
       { id: 'image', label: t('settings.image'), icon: 'image',
         terms: ['Pollinations', 'DALL-E', 'gpt-image', 'Grok', 'Gemini', 'image_make', t('settings.imageEngine')] },
+      // The studio's shelf of raw material for the two video agents. Beside
+      // เสียง and สร้างภาพ because it is the same kind of row — one page for
+      // one thing the agent reaches for — and not on งานวิดีโอ, which asks
+      // "make or cut?" and should not also be a file manager.
+      { id: 'studio', label: t('settings.studio'), icon: 'clapperboard',
+        terms: ['SFX', 'overlay', 'asset_find', t('settings.studioAdd'), t('settings.studioSources')] },
       { id: 'skills', label: t('settings.skills'), icon: 'puzzle', terms: [t('settings.skillInstall')] },
       { id: 'mcp', label: t('settings.mcpServers'), icon: 'plug', terms: [t('settings.mcpPresets'), t('settings.addServer')] },
       // Below MCP and not beside the model sign-ins: both pages here extend
@@ -6429,6 +6572,127 @@
           </div>
         {/if}
       </div>
+
+    {:else if active === 'studio'}
+      <h2>{t('settings.studio')}</h2>
+      <p class="muted set-sub">{t('settings.studioDesc')}</p>
+
+      {#if studioError}<div class="mset-error">{studioError}</div>{/if}
+
+      <!-- The app's own segmented tab bar (.ag-tabs-bar .seg, the one the
+           agent editor uses), one tab per kind. The first draft drew seven
+           counts in seven boxes and the owner read it as a dashboard; the
+           second drew its own tab shapes and they overran the row. The
+           standard control is the answer to both. Empty kinds stay, dimmed
+           and unpressable: the row is also the list of what a shelf can hold. -->
+      <div class="ag-tabs-bar studio-tabs-bar">
+        <div class="seg studio-seg" role="tablist" aria-label={t('settings.studioKindsLabel')}>
+          {#if studioLoading}
+            {#each STUDIO_KINDS as k (k)}<button type="button" class="skeleton" disabled aria-hidden="true"><span class="sk sk-k"></span></button>{/each}
+          {:else}
+            {#each STUDIO_KINDS as k (k)}
+              {@const on = studioBrowse?.kind === k}
+              <button type="button" role="tab" aria-selected={on} class:on class:zero={studioTotals[k] === 0}
+                disabled={studioTotals[k] === 0} onclick={() => browseKind(k)}
+                title={studioTotals[k] === 0 ? t('settings.studioKindEmpty', { kind: studioKindLabel(k) }) : t('settings.studioBrowseKind', { kind: studioKindLabel(k) })}>
+                <Icon name={STUDIO_KIND_ICON[k]} size={14} />
+                <span class="studio-tab-label">{studioKindLabel(k)}</span>
+                <span class="ag-count studio-tab-count">{studioTotals[k].toLocaleString()}</span>
+              </button>
+            {/each}
+          {/if}
+        </div>
+      </div>
+      {#if studioBrowse}
+        <StudioBrowser kind={studioBrowse.kind} library={studioBrowse.library} onClose={() => (studioBrowse = null)} onClearLibrary={() => browseStudio(studioBrowse?.kind ?? '', '')} />
+      {:else if !studioLoading}
+        <!-- Closed on purpose: say where the content went, in the panel's place. -->
+        <button class="studio-reopen" onclick={() => browseStudio(STUDIO_KINDS.find((k) => studioTotals[k] > 0) ?? '')}>{t('settings.studioReopen')}</button>
+      {/if}
+      <div class="ag-band studio-band">
+        <span class="lab">{t('settings.studioShelves')}</span><span class="n">{studioLibs.length}</span>
+        <span class="rule"></span>
+        <button class="ctrl" onclick={() => (studioSourcesOpen = true)}><Icon name="globe" size={14} /> {t('settings.studioSources')}</button>
+        <button class="ctrl ctrl-primary" disabled={studioScanning} onclick={addStudioFolder}><Icon name="plus" size={14} /> {t('settings.studioAdd')}</button>
+      </div>
+
+      {#if studioResult}
+        <!-- Said once, right after the scan: what the app made of the folder. -->
+        <div class="studio-result">
+          <Icon name="check" size={16} />
+          <div class="body">
+            <div class="t">{t('settings.studioResult', { n: studioResult.files.toLocaleString(), size: gb(studioResult.bytes) })}</div>
+            <div class="chair-chips">
+              {#each studioKindChips(studioResult.counts) as c (c.k)}<span class="chip">{studioKindLabel(c.k)} {c.n.toLocaleString()}</span>{/each}
+            </div>
+          </div>
+          <button class="ctrl" onclick={() => (studioResult = null)}>{t('settings.studioClose')}</button>
+        </div>
+      {/if}
+
+      <div class="office-grid studio-grid">
+        {#if studioLoading}
+          {#each [0, 1] as i (i)}<article class="chair-card agc studio-card skeleton" aria-hidden="true"><div class="chair-body"><span class="sk sk-title"></span><span class="sk sk-line"></span><span class="sk sk-chips"></span></div></article>{/each}
+        {/if}
+        {#if studioScanning}
+          <article class="chair-card agc studio-card studio-scanning">
+            <div class="chair-body">
+              <div class="chair-who">
+                <span class="cap-mark logo studio-mark"><Icon name="folderOpen" size={20} /></span>
+                <span class="chair-name"><span class="nm">{studioProgress ? studioFolderName(studioProgress.root) : t('settings.studioScanning')}</span></span>
+              </div>
+              <div class="studio-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={studioProgress && studioProgress.total ? Math.round(studioProgress.done * 100 / studioProgress.total) : 0}>
+                <span style:width={studioProgress && studioProgress.total ? `${studioProgress.done * 100 / studioProgress.total}%` : '0%'}></span>
+              </div>
+              <div class="d">
+                {#if studioProgress}{t('settings.studioScanning')} · {studioProgress.done.toLocaleString()} / {studioProgress.total.toLocaleString()}{:else}{t('settings.studioCounting')}{/if}
+              </div>
+            </div>
+            <div class="chair-foot">
+              <button class="ctrl" onclick={() => void CancelStudioScan()}>{t('settings.studioCancel')}</button>
+            </div>
+          </article>
+        {/if}
+        {#each studioLibs as lib (lib.id)}
+          <article class="chair-card agc studio-card" class:off={lib.missing}>
+            <div class="chair-body">
+              <div class="chair-who">
+                <span class="cap-mark logo studio-mark" class:builtin={lib.builtin}><Icon name={lib.builtin ? 'clapperboard' : 'folderOpen'} size={20} /></span>
+                <span class="chair-name">
+                  <span class="nm">{lib.name}</span>
+                  <span class="studio-tr">{lib.builtin ? t('settings.studioBuiltin') : t('settings.studioYours')}</span>
+                </span>
+              </div>
+              {#if !lib.builtin}<p class="chair-desc studio-path" title={lib.root}>{lib.root}</p>{/if}
+              {#if lib.builtin}<p class="chair-desc">{t('settings.studioBuiltinDesc')}</p>{/if}
+              <div class="chair-chips">
+                <span class="chip">{t('settings.studioFiles', { n: lib.files.toLocaleString() })}</span>
+                <span class="chip">{gb(lib.bytes)}</span>
+                {#each studioKindChips(lib.counts) as c (c.k)}<span class="chip">{studioKindLabel(c.k)} {c.n.toLocaleString()}</span>{/each}
+                {#if lib.license}<span class="chip mine">{lib.license}</span>{/if}
+                {#if lib.unread > 0}<span class="chip deny">{t('settings.studioUnread', { n: lib.unread })}</span>{/if}
+              </div>
+              <div class="chair-stat" class:studio-ok={!lib.missing}>
+                {#if lib.missing}{t('settings.studioMissing')}{:else}{t('settings.studioReady')}{/if}
+              </div>
+            </div>
+            <div class="chair-foot">
+              <button class="ctrl" class:ctrl-primary={studioBrowse?.library === lib.id} disabled={lib.missing || lib.files === 0} onclick={() => browseStudio('', lib.id)}><Icon name="search" size={13} /> {t('settings.studioBrowse')}</button>
+              <button class="ctrl ctrl-icon" title={t('settings.studioReveal')} aria-label={t('settings.studioReveal')} onclick={() => void RevealStudioLibrary(lib.id)}><Icon name="folderOpen" size={14} /></button>
+              {#if lib.builtin}
+                {#if lib.source}<button class="linklike" onclick={() => BrowserOpenURL(lib.source ?? '')}>{t('settings.studioSourcePage')}</button>{/if}
+              {:else}
+                <button class="ctrl" disabled={studioScanning} onclick={() => rescanStudio(lib.id)}>{t('settings.studioRescan')}</button>
+                <button class="ctrl ctrl-danger" disabled={studioScanning} onclick={() => removeStudio(lib)}>{t('settings.studioRemove')}</button>
+              {/if}
+            </div>
+          </article>
+        {/each}
+      </div>
+
+      {#if studioSourcesOpen}
+        <StudioSourcesSheet imported={studioImported} scanning={studioScanning} onAddFolder={addStudioFolder} onClose={() => (studioSourcesOpen = false)} />
+      {/if}
 
     {:else if active === 'skills'}
       <h2>{t('settings.skills')}</h2>

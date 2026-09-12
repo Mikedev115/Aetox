@@ -33,7 +33,15 @@ export function AddMCPServer(arg1:string,arg2:Array<string>):Promise<void>;
 
 export function AddSpaceContext(arg1:string):Promise<Array<string>>;
 
+export function AddSpaceContextFiles(arg1:string,arg2:Array<string>):Promise<Array<string>>;
+
+export function AddStudioLibrary():Promise<boolean>;
+
+export function AddStudioLibraryAt(arg1:string):Promise<boolean>;
+
 export function AddWorkspaceFolder():Promise<Array<main.WorkspaceFolder>>;
+
+export function AddWorkspaceFolderAt(arg1:string):Promise<Array<main.WorkspaceFolder>>;
 
 export function AdoptMemoryScope(arg1:string,arg2:string):Promise<void>;
 
@@ -41,9 +49,17 @@ export function AgentBlocked(arg1:string):Promise<boolean>;
 
 export function AgentGate(arg1:string):Promise<main.AgentGate>;
 
+export function AgentHomePath(arg1:string):Promise<string>;
+
 export function AgentNeeds(arg1:string):Promise<Array<subagent.Requirement>>;
 
+export function AgentPackageBytes(arg1:string):Promise<main.ExportFile>;
+
 export function AgentSkills(arg1:string):Promise<Array<main.AgentSkillInfo>>;
+
+export function AgentSkillsFolderPath(arg1:string):Promise<string>;
+
+export function AgentsFolderPath():Promise<string>;
 
 export function AllowComputerApp(arg1:string):Promise<void>;
 
@@ -59,6 +75,8 @@ export function ApprovePendingChange(arg1:number):Promise<void>;
 
 export function ApprovePendingChangeTo(arg1:number,arg2:string):Promise<void>;
 
+export function ArtifactPath(arg1:string):Promise<string>;
+
 export function ArtifactPreview(arg1:string):Promise<main.ArtifactPreview>;
 
 export function AttentionSignal():Promise<Array<main.BusyLayer>>;
@@ -68,6 +86,8 @@ export function BackgroundRuns():Promise<Array<main.BackgroundRun>>;
 export function BackgroundTasks():Promise<Array<main.BackgroundTask>>;
 
 export function BrowseFolder():Promise<string>;
+
+export function BrowseFolderAt(arg1:string):Promise<string>;
 
 export function BrowseForComputerApp():Promise<string>;
 
@@ -126,6 +146,8 @@ export function CancelMCPSignIn(arg1:string):Promise<void>;
 export function CancelPendingModel():Promise<main.ModelInfo>;
 
 export function CancelSignIn(arg1:string):Promise<void>;
+
+export function CancelStudioScan():Promise<void>;
 
 export function CancelTurn():Promise<void>;
 
@@ -235,11 +257,17 @@ export function GitBranches():Promise<Array<main.GitBranch>>;
 
 export function GitChangedFiles():Promise<Array<main.ChangedFile>>;
 
+export function GitCommitChanges(arg1:string):Promise<Array<main.GitFileChange>>;
+
+export function GitCommitFileDiff(arg1:string,arg2:string):Promise<string>;
+
 export function GitCommitFiles(arg1:string,arg2:Array<string>):Promise<void>;
 
 export function GitCreateBranch(arg1:string):Promise<string>;
 
 export function GitFileDiff(arg1:string):Promise<string>;
+
+export function GitLog(arg1:string,arg2:number):Promise<main.GitLogPage>;
 
 export function GitSuggestCommitMessage(arg1:Array<string>):Promise<string>;
 
@@ -259,23 +287,21 @@ export function HistoryFault():Promise<main.StoreFault>;
 
 export function ImageStatus():Promise<string>;
 
-export function GitCommitChanges(arg1:string):Promise<Array<main.GitFileChange>>;
-
-export function GitCommitFileDiff(arg1:string,arg2:string):Promise<string>;
-
 export function ImportSession():Promise<string>;
+
+export function ImportSessionFrom(arg1:string):Promise<string>;
 
 export function ImportSignIn(arg1:string):Promise<main.ModelInfo>;
 
 export function ImportableSignIns():Promise<Array<string>>;
-
-export function GitLog(arg1:string,arg2:number):Promise<main.GitLogPage>;
 
 export function InstallCapabilities(arg1:Array<string>):Promise<boolean>;
 
 export function InstallSkillFromGitHub(arg1:string):Promise<string>;
 
 export function InstallSkillFromZip():Promise<string>;
+
+export function InstallSkillsFromZipAt(arg1:string):Promise<string>;
 
 export function InstallVoiceEngine(arg1:string,arg2:string):Promise<void>;
 
@@ -363,11 +389,15 @@ export function LoadSessionAnyProject(arg1:string):Promise<Array<main.SessionMes
 
 export function MCPConfigPath():Promise<string>;
 
+export function MCPFolderPath():Promise<string>;
+
 export function MCPSignInStatus(arg1:string):Promise<oauth.Status>;
 
 export function MarkIssueReported(arg1:number):Promise<void>;
 
 export function MarkVideoCheckSeen():Promise<void>;
+
+export function MemoryFolderPath():Promise<string>;
 
 export function MobileRemoteQR():Promise<string>;
 
@@ -441,6 +471,8 @@ export function PickAttachments(arg1:string):Promise<Array<string>>;
 
 export function PickPresetImage(arg1:string):Promise<string>;
 
+export function PictureBytes(arg1:string):Promise<main.ExportFile>;
+
 export function PlacementTargets():Promise<Array<main.PlacementTarget>>;
 
 export function PlanRunning(arg1:string):Promise<boolean>;
@@ -451,7 +483,11 @@ export function PriceModels(arg1:string,arg2:Array<string>):Promise<Array<main.M
 
 export function ProgramIcon(arg1:string):Promise<string>;
 
+export function ProjectFilePath(arg1:string):Promise<string>;
+
 export function ProjectTree():Promise<Array<main.TreeNode>>;
+
+export function PromptsFolderPath():Promise<string>;
 
 export function ProviderAPIKeyURL(arg1:string):Promise<string>;
 
@@ -511,11 +547,15 @@ export function RemovePresetImage(arg1:string):Promise<void>;
 
 export function RemoveSpaceContext(arg1:string,arg2:string):Promise<Array<string>>;
 
+export function RemoveStudioLibrary(arg1:string):Promise<Array<main.StudioLibraryView>>;
+
 export function RemoveWorkspaceFolder(arg1:string):Promise<Array<main.WorkspaceFolder>>;
 
 export function RequestAttention():Promise<void>;
 
 export function RequiresAPIKey(arg1:string):Promise<boolean>;
+
+export function RescanStudioLibrary(arg1:string):Promise<boolean>;
 
 export function ResendEdited(arg1:string,arg2:boolean):Promise<main.TurnReply>;
 
@@ -534,6 +574,10 @@ export function RetryActiveProvider():Promise<main.ModelInfo>;
 export function RetryFailedTurn(arg1:string):Promise<main.TurnReply>;
 
 export function RevealSpeechModel(arg1:string):Promise<void>;
+
+export function RevealStudioAsset(arg1:string):Promise<void>;
+
+export function RevealStudioLibrary(arg1:string):Promise<void>;
 
 export function ReviewPullRequest(arg1:number):Promise<string>;
 
@@ -591,6 +635,8 @@ export function SessionAgent(arg1:string):Promise<string>;
 
 export function SessionEdits(arg1:string):Promise<main.EditPage>;
 
+export function SessionExportBytes(arg1:string,arg2:string):Promise<main.ExportFile>;
+
 export function SessionMode(arg1:string):Promise<string>;
 
 export function SessionPlan(arg1:string):Promise<main.Plan>;
@@ -636,6 +682,8 @@ export function SetMCPServerTargets(arg1:string,arg2:Array<string>):Promise<void
 export function SetPlanStepStop(arg1:string,arg2:number,arg3:boolean):Promise<void>;
 
 export function SetPreparedReplyOn(arg1:boolean):Promise<void>;
+
+export function SetPresetImageFrom(arg1:string,arg2:string):Promise<string>;
 
 export function SetProviderBaseURL(arg1:string,arg2:string):Promise<main.ModelInfo>;
 
@@ -683,6 +731,10 @@ export function SkillTuneAuto():Promise<boolean>;
 
 export function SkillsDir():Promise<string>;
 
+export function SkillsFolderPath():Promise<string>;
+
+export function SpaceFolderPath(arg1:string):Promise<string>;
+
 export function Spaces():Promise<Array<main.Space>>;
 
 export function SpeakText(arg1:string):Promise<string>;
@@ -728,6 +780,20 @@ export function StopPlanRun(arg1:string):Promise<void>;
 export function StopQueuedTasks():Promise<number>;
 
 export function StopSpeech(arg1:string):Promise<void>;
+
+export function StudioAssets(arg1:main.StudioAssetQuery):Promise<main.StudioAssetPage>;
+
+export function StudioLibraries():Promise<Array<main.StudioLibraryView>>;
+
+export function StudioScanning():Promise<boolean>;
+
+export function StudioSetHidden(arg1:string,arg2:boolean):Promise<void>;
+
+export function StudioSetKind(arg1:string,arg2:string):Promise<void>;
+
+export function StudioThumbs(arg1:Array<string>):Promise<Record<string, string>>;
+
+export function SubagentsFolderPath():Promise<string>;
 
 export function SuggestPRDetails(arg1:string,arg2:string):Promise<main.PRSuggestion>;
 

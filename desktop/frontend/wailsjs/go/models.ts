@@ -1034,6 +1034,22 @@ export namespace main {
 		}
 	}
 	
+	export class ExportFile {
+	    name: string;
+	    data: number[];
+	    note?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportFile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.data = source["data"];
+	        this.note = source["note"];
+	    }
+	}
 	export class GitBranch {
 	    name: string;
 	    current: boolean;
@@ -1046,22 +1062,6 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
 	        this.current = source["current"];
-	    }
-	}
-	export class GitCommitGroup {
-	    title: string;
-	    message: string;
-	    files: string[];
-	
-	    static createFrom(source: any = {}) {
-	        return new GitCommitGroup(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.title = source["title"];
-	        this.message = source["message"];
-	        this.files = source["files"];
 	    }
 	}
 	export class GitCommit {
@@ -1092,6 +1092,22 @@ export namespace main {
 	        this.removed = source["removed"];
 	    }
 	}
+	export class GitCommitGroup {
+	    title: string;
+	    message: string;
+	    files: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new GitCommitGroup(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.title = source["title"];
+	        this.message = source["message"];
+	        this.files = source["files"];
+	    }
+	}
 	export class GitFileChange {
 	    path: string;
 	    status: string;
@@ -1108,18 +1124,6 @@ export namespace main {
 	        this.status = source["status"];
 	        this.added = source["added"];
 	        this.removed = source["removed"];
-	    }
-	}
-	export class IdentityFile {
-	    name: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new IdentityFile(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
 	    }
 	}
 	export class GitLogPage {
@@ -1153,6 +1157,18 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class IdentityFile {
+	    name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new IdentityFile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	    }
 	}
 	export class MCPServerInfo {
 	    name: string;
@@ -2289,6 +2305,162 @@ export namespace main {
 	        this.have = source["have"];
 	        this.known = source["known"];
 	        this.message = source["message"];
+	    }
+	}
+	export class StudioCategory {
+	    name: string;
+	    count: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new StudioCategory(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.count = source["count"];
+	    }
+	}
+	export class StudioAssetView {
+	    id: string;
+	    name: string;
+	    path: string;
+	    kind: string;
+	    category: string;
+	    duration: number;
+	    width: number;
+	    height: number;
+	    alpha: boolean;
+	    bytes: number;
+	    hidden: boolean;
+	    ext: string;
+	    url: string;
+	    thumb: string;
+	    playable: boolean;
+	    library: string;
+	    libraryId: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new StudioAssetView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.path = source["path"];
+	        this.kind = source["kind"];
+	        this.category = source["category"];
+	        this.duration = source["duration"];
+	        this.width = source["width"];
+	        this.height = source["height"];
+	        this.alpha = source["alpha"];
+	        this.bytes = source["bytes"];
+	        this.hidden = source["hidden"];
+	        this.ext = source["ext"];
+	        this.url = source["url"];
+	        this.thumb = source["thumb"];
+	        this.playable = source["playable"];
+	        this.library = source["library"];
+	        this.libraryId = source["libraryId"];
+	    }
+	}
+	export class StudioAssetPage {
+	    rows: StudioAssetView[];
+	    total: number;
+	    page: number;
+	    pages: number;
+	    categories: StudioCategory[];
+	
+	    static createFrom(source: any = {}) {
+	        return new StudioAssetPage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.rows = this.convertValues(source["rows"], StudioAssetView);
+	        this.total = source["total"];
+	        this.page = source["page"];
+	        this.pages = source["pages"];
+	        this.categories = this.convertValues(source["categories"], StudioCategory);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class StudioAssetQuery {
+	    text: string;
+	    kind: string;
+	    category: string;
+	    library: string;
+	    alphaOnly: boolean;
+	    includeHidden: boolean;
+	    page: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new StudioAssetQuery(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.text = source["text"];
+	        this.kind = source["kind"];
+	        this.category = source["category"];
+	        this.library = source["library"];
+	        this.alphaOnly = source["alphaOnly"];
+	        this.includeHidden = source["includeHidden"];
+	        this.page = source["page"];
+	    }
+	}
+	
+	
+	export class StudioLibraryView {
+	    id: string;
+	    name: string;
+	    root: string;
+	    builtin: boolean;
+	    license?: string;
+	    source?: string;
+	    scanned: string;
+	    bytes: number;
+	    files: number;
+	    unread: number;
+	    counts: Record<string, number>;
+	    missing: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new StudioLibraryView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.root = source["root"];
+	        this.builtin = source["builtin"];
+	        this.license = source["license"];
+	        this.source = source["source"];
+	        this.scanned = source["scanned"];
+	        this.bytes = source["bytes"];
+	        this.files = source["files"];
+	        this.unread = source["unread"];
+	        this.counts = source["counts"];
+	        this.missing = source["missing"];
 	    }
 	}
 	export class TTSVoiceInfo {

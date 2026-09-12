@@ -94,6 +94,10 @@ var toolCategories = map[string]string{
 	"video_new":    CategoryDeliverables,
 	"video_check":  CategoryDeliverables,
 	"video_render": CategoryDeliverables,
+	// The studio's shelf (desktop/studio_library.go). Deliverables rather than
+	// media by the same rule as video: it dresses a file somebody watches, and
+	// filing it under media would put a whoosh on every desk that reads a PDF.
+	"asset_find": CategoryDeliverables,
 
 	// Senses a model does not have on its own — the group Aetox exists for.
 	// The tool the model is offered, and the three action names it gates on

@@ -612,6 +612,16 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 			available: haveSceneRenderer,
 			why:       "no scene renderer installed",
 		},
+		// The studio's shelf (studio_library.go). Runs for real against the
+		// isolated data root, where the user has added nothing — and the answer
+		// is still a shelf, because Kenney's Interface Sounds ship inside the
+		// binary (internal/assetlib/builtin.go) and unpack on first use. The
+		// check is that the bundled hundred are counted, which proves the
+		// unpack ran and the catalogue was read from the embedded copy.
+		"asset_find": {
+			args:  map[string]any{"action": "summary"},
+			check: outputContains("sfx 100"),
+		},
 		"video_ocr": {
 			// interval_seconds is explicit: the default sampling interval is
 			// longer than a fixture clip, and "no frames extracted" would read
