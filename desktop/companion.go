@@ -92,6 +92,9 @@ type companionServer struct {
 	// a Win32 layered window on Windows (companion_windows.go), nothing on
 	// the other platforms yet. Nil when the companion is inside the app.
 	body companionBody
+	// store holds the baked frames of the current look and scale
+	// (companion_sprites.go); nil until the window names a set.
+	store *spriteStore
 }
 
 // companionBody is the desktop window as this file needs to know it: it can
