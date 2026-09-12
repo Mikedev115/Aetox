@@ -138,7 +138,7 @@ func TestANewChatCarriesTheTeamOnlyWhereItFits(t *testing.T) {
 		t.Errorf("a new coding chat dropped its team: team=%q err=%v", a.cur().team, err)
 	}
 	// The assistant desk cannot carry a coding team, so the chat lands on the
-	// desk's preferred team: the seeded ทีมเอเจน, which bootDeskApp's fresh
+	// desk's preferred team: the seeded ผู้ช่วยในคอมพิวเตอร์, which bootDeskApp's fresh
 	// data root was given on its first roster read.
 	if _, err := a.NewSessionAt("assistant"); err != nil || a.cur().team != subagent.SeedTeamName {
 		t.Errorf("a new assistant chat did not land on the seeded team: team=%q err=%v", a.cur().team, err)

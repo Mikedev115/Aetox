@@ -18,11 +18,11 @@ const chair = (over: Record<string, unknown> = {}) => ({
   name: 'doc', description: 'เก้าอี้ร่างเอกสาร', tools: [], builtin: true, jobs: 0, lastUsed: '', ...over,
 })
 const team = (over: Record<string, unknown> = {}) => ({
-  name: 'ทีมเอเจน', desk: 'specialized', description: 'ทีมที่แอปตั้งให้', invalid: '', missing: [],
-  members: [chair(), chair({ name: 'sheet' })], path: 'C:/teams/ทีมเอเจน/TEAM.md', ...over,
+  name: 'ผู้ช่วยในคอมพิวเตอร์', desk: 'specialized', description: 'ทีมที่แอปตั้งให้', invalid: '', missing: [],
+  members: [chair(), chair({ name: 'sheet' })], path: 'C:/teams/ผู้ช่วยในคอมพิวเตอร์/TEAM.md', ...over,
 })
 const switches = (over: { agents?: boolean; code?: boolean; on?: string[] } = {}) => ({
-  team: 'ทีมเอเจน',
+  team: 'ผู้ช่วยในคอมพิวเตอร์',
   agents: { off: over.agents ?? false, tokens: 90, workers: [{ name: 'doc', for: '', agent: true, on: (over.on ?? ['doc']).includes('doc') }, { name: 'sheet', for: '', agent: true, on: (over.on ?? ['doc']).includes('sheet') }] },
   code: { off: over.code ?? false, tokens: 40, workers: [] },
   helpers: { off: false, tokens: 0, workers: [] }, tokens: 0,
@@ -37,12 +37,12 @@ beforeEach(() => {
   vi.clearAllMocks()
   cockpit.desk = 'specialized'
   cockpit.chair = ''
-  cockpit.team = 'ทีมเอเจน'
+  cockpit.team = 'ผู้ช่วยในคอมพิวเตอร์'
   cockpit.settingsIntent = null
   vi.mocked(ListTeams).mockImplementation(async () => [team()] as any)
   vi.mocked(DelegateSwitches).mockImplementation(async () => switches() as any)
   vi.mocked(AgentBlocked).mockResolvedValue(false as any)
-  vi.mocked(SessionTeam).mockResolvedValue('ทีมเอเจน' as any)
+  vi.mocked(SessionTeam).mockResolvedValue('ผู้ช่วยในคอมพิวเตอร์' as any)
 })
 
 describe('station chips', () => {
@@ -50,8 +50,8 @@ describe('station chips', () => {
     const { container } = render(StationPick)
 
     expect(who(container).textContent).toContain('ผู้ช่วยหลัก')
-    expect(who(container).textContent).not.toContain('ทีมเอเจน')
-    expect(teamChip(container).textContent).toContain('ทีมเอเจน')
+    expect(who(container).textContent).not.toContain('ผู้ช่วยในคอมพิวเตอร์')
+    expect(teamChip(container).textContent).toContain('ผู้ช่วยในคอมพิวเตอร์')
     expect(container.querySelector('.station-team.none')).toBeNull()
     // The desk's icon: the storefront's spark on the assistant desk.
     expect(wears(who(container), 'sparkles')).toBe(true)
@@ -99,10 +99,10 @@ describe('station chips', () => {
     await waitFor(() => expect(menu(container, 'who').querySelectorAll('.agent-row').length).toBe(2))
     const m = menu(container, 'who')
     expect(m.querySelector('.focus-item.on')?.textContent).toContain('ผู้ช่วยหลัก')
-    expect(m.textContent).not.toContain('ทีมเอเจน') // people only — no team rows here
+    expect(m.textContent).not.toContain('ผู้ช่วยในคอมพิวเตอร์') // people only — no team rows here
     expect(m.querySelector('.delegate-row')).toBeNull()
     await fireEvent.click(screen.getByText('sheet'))
-    await waitFor(() => expect(vi.mocked(NewChairSessionAt).mock.calls[0]).toEqual(['specialized', 'sheet', 'ทีมเอเจน']))
+    await waitFor(() => expect(vi.mocked(NewChairSessionAt).mock.calls[0]).toEqual(['specialized', 'sheet', 'ผู้ช่วยในคอมพิวเตอร์']))
     expect(menu(container, 'who')).toBeNull() // closed on pick
   })
 
@@ -114,7 +114,7 @@ describe('station chips', () => {
     await fireEvent.click(who(container))
     await waitFor(() => expect(menu(container, 'who')).toBeTruthy())
     await fireEvent.click(screen.getByText('ผู้ช่วยหลัก', { selector: '.focus-item' }))
-    await waitFor(() => expect(vi.mocked(NewTeamSession)).toHaveBeenCalledWith('specialized', 'ทีมเอเจน'))
+    await waitFor(() => expect(vi.mocked(NewTeamSession)).toHaveBeenCalledWith('specialized', 'ผู้ช่วยในคอมพิวเตอร์'))
   })
 
   it('TEAM menu: the desk’s teams with the reach beside the current one and the door’s switch under it', async () => {
@@ -147,7 +147,7 @@ describe('station chips', () => {
 
     await fireEvent.click(teamChip(container))
     await waitFor(() => expect(menu(container, 'team').querySelectorAll('.team-row').length).toBe(2))
-    await fireEvent.click(screen.getByText('ทีมเอเจน', { selector: '.team-row .focus-item .t' }))
+    await fireEvent.click(screen.getByText('ผู้ช่วยในคอมพิวเตอร์', { selector: '.team-row .focus-item .t' }))
     expect(vi.mocked(NewTeamSession)).not.toHaveBeenCalled()
     await fireEvent.click(teamChip(container))
     await waitFor(() => expect(menu(container, 'team').querySelectorAll('.team-row').length).toBe(2))

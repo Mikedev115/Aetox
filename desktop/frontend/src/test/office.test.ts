@@ -34,7 +34,7 @@ beforeEach(() => {
   // Teams reach this page as a chip on the card (§256). The seeded team,
   // everybody on it, is the shape these card tests mock.
   vi.mocked(ListTeams).mockImplementation(async () => [{
-    name: 'ทีมเอเจน', desk: 'specialized', description: '', invalid: '',
+    name: 'ผู้ช่วยในคอมพิวเตอร์', desk: 'specialized', description: '', invalid: '',
     missing: [], members: await ListChairs(), path: '',
   }] as any)
 })
@@ -166,7 +166,7 @@ describe('the roster and teams', () => {
   it('draws each agent once and names the teams that list it', async () => {
     vi.mocked(ListChairs).mockResolvedValue([chair(), chair({ name: 'fixer', builtin: false })] as any)
     vi.mocked(ListTeams).mockImplementation(async () => [
-      { name: 'ทีมเอเจน', desk: 'specialized', description: '', invalid: '', missing: [],
+      { name: 'ผู้ช่วยในคอมพิวเตอร์', desk: 'specialized', description: '', invalid: '', missing: [],
         members: [chair()], path: '' },
       { name: 'ทีมโค้ด', desk: 'coding', description: '', invalid: '', missing: [],
         members: [chair(), chair({ name: 'fixer', builtin: false })], path: '' },
@@ -175,7 +175,7 @@ describe('the roster and teams', () => {
 
     await waitFor(() => expect(container.querySelectorAll('.chair-card.agc').length).toBe(2))
     const cards = Array.from(container.querySelectorAll('.chair-card.agc'))
-    expect(cards[0].querySelector('.chair-stat.teams')?.textContent).toContain('ทีมเอเจน · ทีมโค้ด')
+    expect(cards[0].querySelector('.chair-stat.teams')?.textContent).toContain('ผู้ช่วยในคอมพิวเตอร์ · ทีมโค้ด')
     expect(cards[1].querySelector('.chair-stat.teams')?.textContent).toContain('ทีมโค้ด')
     expect(container.querySelector('.mswitch')).toBeNull()
     expect(container.querySelector('.team-sec')).toBeNull()

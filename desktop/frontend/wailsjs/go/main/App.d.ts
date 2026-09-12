@@ -241,6 +241,8 @@ export function ExportDeck(arg1:string,arg2:string):Promise<string>;
 
 export function ExportSession(arg1:string,arg2:string):Promise<string>;
 
+export function FetchAgentBrief(arg1:string):Promise<string>;
+
 export function FileStillThere(arg1:string):Promise<string>;
 
 export function ForgetMemoryScope(arg1:string):Promise<void>;
@@ -474,6 +476,8 @@ export function PendingRestore(arg1:string):Promise<Array<string>>;
 export function PendingSkillTuneCount():Promise<number>;
 
 export function PendingUndo():Promise<Array<string>>;
+
+export function PickAgentBrief():Promise<string>;
 
 export function PickAttachmentImage():Promise<string>;
 

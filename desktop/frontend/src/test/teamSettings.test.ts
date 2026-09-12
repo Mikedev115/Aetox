@@ -4,7 +4,7 @@
 // pinned: the switch at the top picks what the page SHOWS (it is not an
 // on/off — the door's on/off lives in the chat's team menu); the rail names
 // the shown side's teams with their reach tally; the pane draws the picked
-// roster with its members' switches; every team — the seeded ทีมเอเจน
+// roster with its members' switches; every team — the seeded ผู้ช่วยในคอมพิวเตอร์
 // included — is editable and deletable; the door to a new team is visible on
 // either side; the form has no desk choice of its own (the side above already
 // made it) and offers "+ เอเจน" to make a missing agent and come back; the
@@ -20,8 +20,8 @@ const chair = (over: Record<string, unknown> = {}) => ({
   name: 'doc', description: 'เก้าอี้ร่างเอกสาร', tools: [], builtin: true, jobs: 0, lastUsed: '', ...over,
 })
 const seed = () => ({
-  name: 'ทีมเอเจน', desk: 'specialized', description: 'ทีมที่แอปตั้งให้ตอนติดตั้ง แก้หรือลบได้', invalid: '',
-  missing: [], members: [chair()], path: 'C:/teams/ทีมเอเจน/TEAM.md',
+  name: 'ผู้ช่วยในคอมพิวเตอร์', desk: 'specialized', description: 'ทีมที่แอปตั้งให้ตอนติดตั้ง แก้หรือลบได้', invalid: '',
+  missing: [], members: [chair()], path: 'C:/teams/ผู้ช่วยในคอมพิวเตอร์/TEAM.md',
 })
 const codeTeam = (over: Record<string, unknown> = {}) => ({
   name: 'ทีมโค้ด', desk: 'coding', description: 'แก้โค้ด', invalid: '',
@@ -45,7 +45,7 @@ beforeEach(() => {
   vi.mocked(ListChairs).mockResolvedValue([chair(), chair({ name: 'fixer', builtin: false })] as any)
   vi.mocked(ListTeams).mockImplementation(async () => [seed(), codeTeam()] as any)
   vi.mocked(DelegateSwitches).mockImplementation(async (name: string) =>
-    switches(name, name === 'ทีมเอเจน' ? [{ name: 'doc', on: true }] : [{ name: 'fixer', on: false }]) as any)
+    switches(name, name === 'ผู้ช่วยในคอมพิวเตอร์' ? [{ name: 'doc', on: true }] : [{ name: 'fixer', on: false }]) as any)
 })
 
 describe('Settings › ทีมเอเจน', () => {
@@ -62,13 +62,13 @@ describe('Settings › ทีมเอเจน', () => {
     // The rail: the shown side's header, its team with the reach tally, its door.
     expect(container.querySelector('.mset-side .team-side.side-assistant')).toBeTruthy()
     expect(container.querySelector('.mset-side .team-side.side-code')).toBeNull()
-    expect(rail(container)[0].textContent).toContain('ทีมเอเจน')
+    expect(rail(container)[0].textContent).toContain('ผู้ช่วยในคอมพิวเตอร์')
     await waitFor(() => expect(rail(container)[0].textContent).toContain('1/1'))
     expect(container.querySelectorAll('.mset-side .team-add').length).toBe(1)
     // Opens on the side's first team; the seed is a team like any other — a
     // gear, and no master switch of its own in the pane.
     expect(rail(container)[0].classList.contains('selected')).toBe(true)
-    expect(pane(container).querySelector('.mset-name')?.textContent).toBe('ทีมเอเจน')
+    expect(pane(container).querySelector('.mset-name')?.textContent).toBe('ผู้ช่วยในคอมพิวเตอร์')
     expect(pane(container).querySelector('.desk-badge.side-assistant')?.textContent).toContain('ฝั่งผู้ช่วย')
     expect(screen.getByText('แก้ไขทีม', { selector: 'button' })).toBeTruthy()
     expect(pane(container).querySelector('.team-reach')).toBeNull()
@@ -106,7 +106,7 @@ describe('Settings › ทีมเอเจน', () => {
 
   it('cools the rows under a side whose door is off, and says where the door is', async () => {
     vi.mocked(DelegateSwitches).mockImplementation(async (name: string) =>
-      switches(name, name === 'ทีมเอเจน' ? [{ name: 'doc', on: true }] : [{ name: 'fixer', on: true }], { agents: false, code: true }) as any)
+      switches(name, name === 'ผู้ช่วยในคอมพิวเตอร์' ? [{ name: 'doc', on: true }] : [{ name: 'fixer', on: true }], { agents: false, code: true }) as any)
     const { container } = render(TeamSettings)
 
     await waitFor(() => expect(rail(container)[0]?.textContent).toContain('1/1'))
@@ -210,7 +210,7 @@ describe('Settings › ทีมเอเจน', () => {
   })
 
   it('deletes the seeded team too, through a confirm that says the people stay', async () => {
-    cockpit.settingsIntent = { section: 'teams', team: 'ทีมเอเจน' }
+    cockpit.settingsIntent = { section: 'teams', team: 'ผู้ช่วยในคอมพิวเตอร์' }
     render(TeamSettings)
 
     await waitFor(() => expect(screen.getByText('ลบทีม', { selector: 'button.ctrl-danger' })).toBeTruthy())
@@ -218,6 +218,6 @@ describe('Settings › ทีมเอเจน', () => {
     expect(screen.getByText(/เอเจนในทีมยังอยู่ครบ/)).toBeTruthy()
     expect(vi.mocked(DeleteTeam)).not.toHaveBeenCalled()
     await fireEvent.click(screen.getByText('ลบทีม', { selector: '.confirm-go' }))
-    await waitFor(() => expect(vi.mocked(DeleteTeam)).toHaveBeenCalledWith('ทีมเอเจน'))
+    await waitFor(() => expect(vi.mocked(DeleteTeam)).toHaveBeenCalledWith('ผู้ช่วยในคอมพิวเตอร์'))
   })
 })

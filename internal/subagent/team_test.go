@@ -40,10 +40,42 @@ func teamNamed(list []Team, name string) (Team, bool) {
 	return Team{}, false
 }
 
-// A fresh machine gets one team written for it — ทีมเอเจน, the four
-// shipped errands — and nobody else is on any team: the rest of the roster
-// are ordinary specialists (owner, 13 ก.ย.: "ตัวอื่นให้เป็นเอเจนเฉพาะทาง
+// A fresh machine gets one team written for it — ผู้ช่วยในคอมพิวเตอร์, the
+// four shipped errands — and nobody else is on any team: the rest of the
+// roster are ordinary specialists (owner, 13 ก.ย.: "ตัวอื่นให้เป็นเอเจนเฉพาะทาง
 // ธรรมดา").
+// The seed was ทีมเอเจน for a day (13 ก.ย.). A home that still has it under
+// that name is renamed once — members and desk intact — and a home that
+// already has a team of the new name is not touched.
+func TestTheSeedsOldNameIsRenamedOnce(t *testing.T) {
+	isolate(t)
+	if err := SaveTeam(LegacySeedTeamName, mode.Office, "ของเก่า", []string{"doc", "sheet"}); err != nil {
+		t.Fatal(err)
+	}
+	teams := Teams()
+	if len(teams) != 1 || teams[0].Name != SeedTeamName {
+		t.Fatalf("expected the old seed renamed to %q, got %+v", SeedTeamName, teams)
+	}
+	if !slices.Equal(teams[0].Members, []string{"doc", "sheet"}) || teams[0].Description != "ของเก่า" {
+		t.Errorf("the rename lost the file: %+v", teams[0])
+	}
+	if _, ok := LoadTeam(LegacySeedTeamName); ok {
+		t.Error("the old folder is still there")
+	}
+
+	// Both names present: nothing moves.
+	isolate(t)
+	if err := SaveTeam(SeedTeamName, mode.Office, "ใหม่", []string{"doc"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveTeam(LegacySeedTeamName, mode.Office, "เก่า", []string{"sheet"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := Teams(); len(got) != 2 {
+		t.Fatalf("expected both teams kept, got %+v", got)
+	}
+}
+
 func TestAFreshMachineIsSeededWithOneTeamOfFour(t *testing.T) {
 	isolate(t)
 	writeProfile(t, AgentsDir, "ผู้ช่วยขาย", "---\ndescription: ตอบลูกค้า\n---\nsell")

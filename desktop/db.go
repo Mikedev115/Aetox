@@ -862,6 +862,20 @@ CREATE TABLE IF NOT EXISTS project_folders (
 			return err
 		},
 	},
+	{
+		version: 26,
+		name:    "seed_team_renamed",
+		apply: func(tx *sql.Tx) error {
+			// The seeded team was ทีมเอเจน for a day (13 ก.ย.) and is
+			// ผู้ช่วยในคอมพิวเตอร์ since (subagent.SeedTeamName); the folder
+			// is renamed by the engine, and the rows that hire from it follow
+			// here, so a chat from that day reopens on the team it had. The
+			// two names are spelled out rather than read off the constants:
+			// a migration says what it did the day it ran.
+			_, err := tx.Exec(`UPDATE sessions SET team = 'ผู้ช่วยในคอมพิวเตอร์' WHERE team = 'ทีมเอเจน'`)
+			return err
+		},
+	},
 }
 
 // latestSchemaVersion is what this build understands.

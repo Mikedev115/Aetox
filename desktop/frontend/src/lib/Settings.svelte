@@ -9,6 +9,7 @@
   import { systemZoom, applySystemZoom, SYSTEM_BASE_PX } from './systemFont.svelte'
   import { typeScale, applyTypeScale, TYPE_SCALES, type TypeScaleName } from './typeScale.svelte'
   import { i18n, t, setLocale, localeNames, type Locale, type TKey } from './i18n.svelte'
+  import { AGENT_TEMPLATES, templateBody } from './agentTemplates'
   import { audioDevices, refreshAudioDevices, setMicId, setSpeakerId, applySpeaker } from './audioDevices.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import ProviderMark from './ProviderMark.svelte'
@@ -60,7 +61,7 @@
     UsageStats, ListPromptPresets, OpenPromptsFolder,
     SavePromptPreset, DeletePromptPreset, PickPresetImage, RemovePresetImage,
     ModelPriceSource,
-    ListSubagentProfiles, ReadSubagentProfile, SaveSubagentProfile, SaveAgentProfile,
+    ListSubagentProfiles, ReadSubagentProfile, SaveSubagentProfile, SaveAgentProfile, PickAgentBrief, FetchAgentBrief,
     DeleteSubagentProfile, SetSubagentModel, OpenAgentsFolder, ListChairs,
     AgentSkills, AgentNeeds, OpenAgentSkillsFolder, OpenAgentHome,
     ChairStarters, SaveChairStarters, ChairStartersFile,
@@ -2602,6 +2603,60 @@
   let previewFaceOff = $state(false)
 
   let agentDraftPrompt = $state('')
+  // The three roads into the role field beside typing (§256.5, owner 13 ก.ย.:
+  // "เอาแบบเปิดไฟล์ + วางลิงก์แล้วดึง + เทมเพลต"): a file on this machine, a
+  // link to a file kept on GitHub or Google Drive, a template with blanks.
+  // Each lands TEXT in the field and nothing else — the file or link is where
+  // the words came from, not something the agent keeps pointing at. A field
+  // with words in it already asks before they are replaced.
+  let agentFillLink = $state('')
+  let agentFillBusy = $state(false)
+  let agentFillError = $state('')
+  function placeBrief(text: string) {
+    agentFillError = ''
+    if (agentDraftPrompt.trim() === '') {
+      agentDraftPrompt = text
+      agentBodyOpen = true
+      return
+    }
+    askConfirm({
+      title: t('settings.agentFillReplaceTitle'),
+      message: t('settings.agentFillReplaceMessage'),
+      confirmLabel: t('settings.agentFillReplaceAction'),
+      run: () => { agentDraftPrompt = text; agentBodyOpen = true },
+    })
+  }
+  async function fillFromFile() {
+    if (agentFillBusy) return
+    agentFillBusy = true
+    agentFillError = ''
+    try {
+      const text = await PickAgentBrief()
+      if (text) placeBrief(text)
+    } catch (err) {
+      agentFillError = String(err)
+    } finally {
+      agentFillBusy = false
+    }
+  }
+  async function fillFromLink() {
+    const link = agentFillLink.trim()
+    if (!link || agentFillBusy) return
+    agentFillBusy = true
+    agentFillError = ''
+    try {
+      placeBrief(await FetchAgentBrief(link))
+      agentFillLink = ''
+    } catch (err) {
+      agentFillError = String(err)
+    } finally {
+      agentFillBusy = false
+    }
+  }
+  function fillFromTemplate(id: string) {
+    const tp = AGENT_TEMPLATES.find((x) => x.id === id)
+    if (tp) placeBrief(templateBody(tp, i18n.locale))
+  }
   // The role is the whole of what an agent is, and for a bundled one that is a
   // hundred lines of prose — opening the editor to change a model meant
   // scrolling past all of it to reach anything else on the page. So it is a
@@ -5058,6 +5113,23 @@
               ></textarea>
             </div>
             <span class="d muted">{t('settings.agentBodyHint')}</span>
+            <!-- Where the words can come from besides the keyboard: a file, a
+                 link, a template — house controls (.ctrl), one row. The
+                 select resets itself so the same template can be picked
+                 twice; it is a menu, not a value. -->
+            <div class="ag-fill">
+              <button type="button" class="ctrl" onclick={fillFromFile} disabled={agentFillBusy}><Icon name="folderOpen" size={13} /> {t('settings.agentFillFile')}</button>
+              <select class="ctrl ag-fill-tpl" aria-label={t('settings.agentFillTemplate')} value="" disabled={agentFillBusy}
+                onchange={(e) => { fillFromTemplate(e.currentTarget.value); e.currentTarget.value = '' }}>
+                <option value="" disabled>{t('settings.agentFillTemplate')}</option>
+                {#each AGENT_TEMPLATES as tp (tp.id)}<option value={tp.id}>{t(tp.title)}</option>{/each}
+              </select>
+              <input class="ctrl key-input ag-fill-link" type="text" bind:value={agentFillLink} spellcheck="false"
+                placeholder={t('settings.agentFillLinkPlaceholder')} disabled={agentFillBusy}
+                onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); fillFromLink() } }} />
+              <button type="button" class="ctrl" onclick={fillFromLink} disabled={agentFillBusy || !agentFillLink.trim()}><Icon name="download" size={13} /> {t('settings.agentFillFetch')}</button>
+            </div>
+            {#if agentFillError}<div class="mset-error">{agentFillError}</div>{/if}
           </div>
         </div>
       </div>

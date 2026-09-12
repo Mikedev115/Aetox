@@ -1818,6 +1818,18 @@ export const th = {
   'settings.agentDescriptionPlaceholder': 'เอเจนนี้รับงานแบบไหน (โชว์ในหน้ารวม)',
   'settings.agentBody': 'บทบาท',
   'settings.agentBodyHint': 'สั่งมันตรงนี้ รับงานแบบไหน ต้องคืนผลลัพธ์หน้าตายังไง อะไรห้ามทำ มันไม่เห็นประวัติแชท คำสั่งที่ได้คือข้อมูลทั้งหมดที่มี',
+  // สามทางเข้าของช่องบทบาทนอกจากพิมพ์ (§256.5): เปิดไฟล์ วางลิงก์แล้วดึง เทมเพลต
+  'settings.agentFillFile': 'เปิดไฟล์…',
+  'settings.agentFillTemplate': 'เทมเพลต',
+  'settings.agentFillLinkPlaceholder': 'วางลิงก์ไฟล์จาก GitHub / Google Drive / Google Docs',
+  'settings.agentFillFetch': 'ดึง',
+  'settings.agentFillReplaceTitle': 'แทนที่บทบาทเดิม?',
+  'settings.agentFillReplaceMessage': 'ช่องบทบาทมีข้อความอยู่แล้ว เนื้อหาใหม่จะแทนที่ทั้งหมด',
+  'settings.agentFillReplaceAction': 'แทนที่',
+  'settings.agentTplSpecialist': 'ผู้เชี่ยวชาญเฉพาะด้าน',
+  'settings.agentTplSupport': 'ตอบลูกค้า / ฝ่ายขาย',
+  'settings.agentTplReviewer': 'ผู้ตรวจงาน',
+  'settings.agentTplWriter': 'นักเขียนตามสไตล์',
   // The role is shown as a preview until asked for. The count is in the label
   // because "how much is hidden" is what decides whether to open it.
   'settings.agentBodyMore': 'ดูทั้งหมด ({n} บรรทัด)',
