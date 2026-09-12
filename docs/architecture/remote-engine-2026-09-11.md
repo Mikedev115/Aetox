@@ -775,6 +775,34 @@ so a shelf on a host over ssh is browsed and played through the same
 tunnel as the project's files, with no wart to record. Pinned by
 `TestTheScreenProxiesTheShelfOntoTheEngine`.
 
+**Landed, 2026-09-13.** `main` moved a third time while the branch waited —
+89 commits: the mascot and the companion window on the desktop (Win32, no
+WebView2 — the screen's, and it stayed in `desktop/`), agent teams, a
+provider per agent (`provider_for.go`, written in this design's shape
+already and needing only its two seams — `Screen.DefaultModel`,
+`Screen.ProviderEndpoint` — where an engine file may not read the stores),
+the external-CLI engine seam, the git pane's streaming smart split, the new
+icon. `teams.go`, `agent_skills.go`, `cli_engine.go` and `provider_for.go`
+moved to `internal/engine`; `git_commit.go`'s split followed its rename.
+Part-way through, `main`'s history was rewritten under the merge (two
+"update files" commits became real ones, same tree), so the merge commit
+was rebuilt on the right parents by hand (`305333eb`). Fast-forwarded onto
+`main` at `da5028b9`; the last two fixes (`b681909d`) followed the same way.
+Verified on the landed tree: every Go suite (the four red tests in
+`internal/engine` and the four in vitest were red on `main` before the
+merge — other topics' regressions, named in the merge commit), svelte-check
+0 errors, vitest 1743, `wails build`. Live, from the dev app: a cold launch
+straight onto `wsl` with the engine not there — probe 0.85 s, the 32 MB
+binary up in 3.3 s, start 0.6 s, tunnel 1.3 s, **6.3 s to connected**; a
+binding through the tunnel 1.4 ms from the webview; a whole turn on the
+host's engine (`aetox-render:test`) 1.56 s with 58 chunk events; a bash
+terminal on the host streamed through the same wire; a shelf sound from the
+host's engine through the proxy in 20 ms; back to this machine in 3.4 s.
+Two things it taught: the install step reported every 32 KiB as a status
+event — 1,018 of them — now one per sentence; and WSL's VM shuts itself
+down when no `wsl.exe` session is open, whatever sshd is doing inside, which
+is what the first session's "tunnel exit 0" was — a WSL fact, not ours.
+
 **Not done, on purpose.** The streamlocal spike (§5 step 4) — the TCP road is
 built and the socket road is an improvement to make on a host that can prove
 it. `Setpgid` for a local Linux child — still no local child on Linux. A
