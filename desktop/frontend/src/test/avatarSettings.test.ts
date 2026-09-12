@@ -60,6 +60,11 @@ describe('the avatar page', () => {
     expect(parts.length).toBe(SHELL.length + 13 + TOP.length + 2)
     expect(container.querySelectorAll('.ag-part.on').length).toBe(4)
     expect(container.querySelector('.avatar-reset')).toBeNull()
+    // every cell is still; only the preview moves — twenty-five breathing
+    // together was the page the owner called กระตุก
+    for (const cell of parts) expect(cell.querySelector('.mascot')!.classList.contains('still'), 'still').toBe(true)
+    expect(container.querySelector('.avatar-stage .mascot')!.classList.contains('still')).toBe(false)
+    expect(container.querySelector('.avatar-stage .mascot')!.classList.contains('sway')).toBe(true)
   })
 
   it('writes a click straight into the preferences and shows the reset', async () => {

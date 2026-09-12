@@ -149,6 +149,16 @@
 /* out of service (an agent the assistant may not hand work to): same drain AgentFace uses */
 .mascot.off { filter: saturate(.2) brightness(.72); }
 
+/* ---- what may move, at which size ------------------------------------------
+   Motion is paid per frame per mascot, and SVG cannot hand it to the GPU.
+   A picker of twenty-five (ตั้งค่า › อวตาร) breathing, pulsing and floating
+   together was a page that stuttered (owner, 12 ก.ย.). So: `still` moves
+   nothing — a cell in a picker, a tile in a roster — and `lite` (under the
+   detail size, set by Mascot.svelte) keeps only the blink, the one motion
+   that reads at 20px. */
+.mascot.still * { animation: none !important; }
+.mascot.lite .ms-all, .mascot.lite .ms-orb, .mascot.lite .ms-float, .mascot.lite .ms-eyes { animation: none !important; }
+
 @media (prefers-reduced-motion: reduce) {
   .mascot * { animation: none !important; }
   .mascot.settle { transition: none; }

@@ -61,7 +61,7 @@
     <div class="ag-parts">
       {#each SHELL as sh (sh.id)}
         <button type="button" class="ag-part avatar-part" class:on={avatarPrefs.shell === sh.id} title={sh.label} aria-label={sh.label} onclick={() => setAvatarPrefs({ shell: sh.id })}>
-          <Mascot {...opts} shell={sh.id} size={56} />
+          <Mascot {...opts} shell={sh.id} size={56} still />
         </button>
       {/each}
     </div>
@@ -71,11 +71,11 @@
     <span class="eyebrow">{text.hue}</span>
     <div class="ag-parts">
       <button type="button" class="ag-part avatar-part" class:on={avatarPrefs.hue === null} title={text.hueBrand} aria-label={text.hueBrand} onclick={() => setAvatarPrefs({ hue: null })}>
-        <Mascot {...opts} hue={undefined} size={44} />
+        <Mascot {...opts} hue={undefined} size={44} still />
       </button>
       {#each HUES as h (h)}
         <button type="button" class="ag-part avatar-part" class:on={avatarPrefs.hue === h} title={`${h}°`} aria-label={`${h}°`} onclick={() => setAvatarPrefs({ hue: h })}>
-          <Mascot {...opts} hue={h} size={44} />
+          <Mascot {...opts} hue={h} size={44} still />
         </button>
       {/each}
     </div>
@@ -86,7 +86,7 @@
     <div class="ag-parts">
       {#each TOP as t (t.id)}
         <button type="button" class="ag-part avatar-part" class:on={avatarPrefs.top === t.id} title={t.label} aria-label={t.label} onclick={() => setAvatarPrefs({ top: t.id })}>
-          <Mascot {...opts} top={t.id} size={44} />
+          <Mascot {...opts} top={t.id} size={44} still />
         </button>
       {/each}
     </div>
@@ -97,7 +97,7 @@
     <div class="ag-parts">
       {#each FACE.filter((f) => f.identity) as f (f.id)}
         <button type="button" class="ag-part avatar-part" class:on={avatarPrefs.face === f.id} title={f.label} aria-label={f.label} onclick={() => setAvatarPrefs({ face: f.id })}>
-          <Mascot {...opts} face={f.id} size={44} />
+          <Mascot {...opts} face={f.id} size={44} still />
         </button>
       {/each}
     </div>

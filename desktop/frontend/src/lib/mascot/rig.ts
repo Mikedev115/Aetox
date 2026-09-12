@@ -70,8 +70,11 @@ export type Mascot = {
 
 /** The size under which the drawing drops what a tile cannot show anyway. */
 export const DETAIL_MIN_PX = 48
-/** The size from which the screen light and the orb get a real glow filter. */
-export const GLOW_MIN_PX = 96
+/** The size from which the screen light gets a real glow filter. High on
+ *  purpose: a blur under a moving group is recomputed every frame, so the
+ *  companion (104px, swaying) makes do with the gradient halo and only a
+ *  big still-ish preview pays for the filter. */
+export const GLOW_MIN_PX = 160
 
 /** The assistant's own hue — the blue of the mark. */
 export const BRAND_HUE = 218

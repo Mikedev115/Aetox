@@ -15,7 +15,7 @@
   // `look` turns on mouse-follow (lookAt.ts) — for the one mascot the user is
   // facing, never for a roster of tiles.
   import { coverHue } from '../coverHue'
-  import { resolveMascot, mascotSVG, lookRange, BRAND_HUE, type MascotOptions } from './rig'
+  import { resolveMascot, mascotSVG, lookRange, BRAND_HUE, DETAIL_MIN_PX, type MascotOptions } from './rig'
   import { roleOptions } from './roles'
   import { lookAt } from './lookAt'
   import './mascot.css'
@@ -38,6 +38,7 @@
     look = false,
     sway = false,
     hop = false,
+    still = false,
   }: {
     name?: string
     /** A ROLE row id (roles.ts) — the template the slots start from. */
@@ -55,6 +56,9 @@
     sway?: boolean
     /** One small hop — set for the moment of a reaction. */
     hop?: boolean
+    /** No motion at all — for a picker's cells and a roster's tiles, where
+     *  twenty of these breathing together is a page that stutters. */
+    still?: boolean
   } & Omit<MascotOptions, 'hue' | 'size'> & { hue?: number } = $props()
 
   // No name is the assistant, in the brand's own hue; a name is an agent, in
@@ -74,6 +78,8 @@
   class:off
   class:sway
   class:hop
+  class:still
+  class:lite={size < DETAIL_MIN_PX}
   class:settle={!look}
   style="--t:{rest}deg; --ms-blink:{blink}s; width:{size}px; height:{size}px"
   use:lookAt={{ base: rest, range: lookRange(m.pose), on: look }}
