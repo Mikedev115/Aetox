@@ -3,13 +3,14 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import RemoteEngine from '../lib/RemoteEngine.svelte'
 import RemoteDirPicker from '../lib/RemoteDirPicker.svelte'
 import EngineStatus from '../lib/EngineStatus.svelte'
+import TopBar from '../lib/TopBar.svelte'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import {
   RemoteHosts, SaveRemoteHost, ConnectRemote, DisconnectRemote, ListDir, HomeDir,
   OpenProjectFolder, EngineStatus as engineStatus,
 } from './mocks/wailsApp'
 import { engine, resetEngineStore, applyEngineStatus } from '../lib/stores/engine.svelte'
-import { openFolder } from '../lib/stores/cockpit.svelte'
+import { openFolder, cockpit } from '../lib/stores/cockpit.svelte'
 
 // The engine on another machine (§248 phase 3): the Settings section that
 // lists hosts and connects, the picker that browses the host's folders
@@ -150,5 +151,27 @@ describe('EngineStatus on the road to a host', () => {
     expect(screen.getByText('ssh user@box: Permission denied (publickey)')).toBeTruthy()
     expect(screen.getByText('ลองอีกครั้ง')).toBeTruthy()
     expect(screen.getByText('ใช้เครื่องนี้แทน')).toBeTruthy()
+  })
+})
+
+describe('the host badge on the top bar', () => {
+  const props = {
+    inspectorCollapsed: false, onToggleInspector: () => {},
+    sidebarCollapsed: false, onToggleSidebar: () => {},
+  }
+
+  it('names the host while the engine is there, and is absent at home', async () => {
+    const { unmount } = render(TopBar, props)
+    expect(document.querySelector('.host-badge')).toBeNull()
+    unmount()
+
+    applyEngineStatus(status({ mode: 'remote', host: 'box' }))
+    render(TopBar, props)
+    const badge = document.querySelector('.host-badge') as HTMLButtonElement
+    expect(badge).not.toBeNull()
+    expect(badge.textContent).toContain('box')
+    expect(badge.title).toBe('เครื่องยนต์อยู่ที่ box')
+    await fireEvent.click(badge)
+    expect(cockpit.activeView).toBe('settings')
   })
 })

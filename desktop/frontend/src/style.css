@@ -267,6 +267,13 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   max-width:min(46vw, 520px); margin-left:2px;
   font-size:var(--fs-sm); font-weight:600; color:var(--text-secondary);
 }
+/* The host the engine is on, beside the title (TopBar.svelte). */
+.host-badge {
+  display:inline-flex; align-items:center; gap:5px; margin-left:8px; padding:2px 8px;
+  border-radius:999px; border:1px solid var(--accent); color:var(--accent); background:none;
+  font:inherit; font-size:var(--fs-xs); font-weight:600; cursor:pointer; white-space:nowrap;
+}
+.host-badge:hover { background:var(--surface-hover); }
 .winbtns { display:flex; align-items:center; gap:2px; margin-left:4px; }
 .icobtn { width:30px; height:30px; display:grid; place-items:center; border-radius:var(--r-sm); color:var(--text-muted); cursor:pointer; }
 .icobtn:hover { background:var(--surface-hover); color:var(--text-primary); }
