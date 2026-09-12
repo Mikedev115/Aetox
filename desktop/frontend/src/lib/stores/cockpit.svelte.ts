@@ -4300,7 +4300,37 @@ async function afterNewSession(): Promise<void> {
  * So arriving at a door whose desk you are not already at opens a session
  * there, exactly as clicking that desk's button would. Arriving at the door
  * you are already behind does nothing at all. */
-export async function switchShell(name: ShellName): Promise<void> {
+export function switchShell(name: ShellName): Promise<void> {
+  const mine = ++doorAsked
+  return walkThroughDoor(async () => {
+    // Asked again while this was queued: only the latest ask is walked, so a
+    // hand that went code → assistant → code lands on code once, not three
+    // times through three sessions.
+    if (mine !== doorAsked) return
+    await switchShellNow(name)
+  })
+}
+
+// Door walks run one at a time. Each one is several round trips — open a
+// session at the desk, read the team back, open the project — and `cockpit.desk`
+// is written after the first of them. A second walk started in that window
+// read the desk the first had not yet changed, decided it was already there,
+// and only swapped the chrome; the first then finished underneath it, and the
+// window stood at the storefront with the workshop's session, headline and
+// greeting on screen (owner, 12 ก.ย. 2026: "จังหวะตอนสลับโหมดไปมา เหมือนโหลด
+// ไม่ทันแล้วบั๊ก"). The queue is the fix; the asked-counter above keeps a
+// queue of stale clicks from being walked one by one.
+let doorTurn: Promise<void> = Promise.resolve()
+let doorAsked = 0
+function walkThroughDoor(walk: () => Promise<void>): Promise<void> {
+  const turn = doorTurn.then(walk)
+  // The chain must never reject, or every walk after a refused one would be
+  // skipped; the walk itself already reports its refusal (showSessionRefusal).
+  doorTurn = turn.catch(() => {})
+  return turn
+}
+
+async function switchShellNow(name: ShellName): Promise<void> {
   const def = SHELLS.find((s) => s.name === name)
   if (!def || shell.name === name) return
   // Before setShell, or the door's chrome would switch around a chat that
@@ -4343,15 +4373,20 @@ export async function switchShell(name: ShellName): Promise<void> {
  * away what you were doing would make the whole row unusable — while clicking
  * a different one is exactly the "open a new session" that changing desks
  * means (COMPANY.md §2). */
-export async function openDesk(desk: string): Promise<void> {
+export function openDesk(desk: string): Promise<void> {
   setActiveView('chat')
-  // "Already here" is the desk AND the project together. A project chat runs at
-  // the assistant's desk, so comparing desks alone said the user was already at
-  // ผู้ช่วย while they were standing inside a project — and the button did
-  // nothing, with no way back out through the nav. The third coordinate has to
-  // be part of the comparison or it is not the same place.
-  if (cockpit.desk === desk && !cockpit.space) return
-  await newSessionAt(desk)
+  // Through the same queue as the door switch, for the same race: a desk
+  // button pressed while a door was still being walked read a desk that was
+  // about to change.
+  return walkThroughDoor(async () => {
+    // "Already here" is the desk AND the project together. A project chat runs at
+    // the assistant's desk, so comparing desks alone said the user was already at
+    // ผู้ช่วย while they were standing inside a project — and the button did
+    // nothing, with no way back out through the nav. The third coordinate has to
+    // be part of the comparison or it is not the same place.
+    if (cockpit.desk === desk && !cockpit.space) return
+    await newSessionAt(desk)
+  })
 }
 
 /** Read back which desk the engine's current session is at.

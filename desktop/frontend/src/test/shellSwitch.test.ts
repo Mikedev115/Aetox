@@ -109,6 +109,48 @@ describe('the storefront door and project focus', () => {
   })
 })
 
+// A door walk is several round trips, and the desk is written after the first.
+// Two clicks inside that window used to leave the storefront's chrome over the
+// workshop's session (owner, 12 ก.ย. 2026: "จังหวะตอนสลับโหมดไปมา เหมือนโหลด
+// ไม่ทันแล้วบั๊ก"): the second walk read the desk the first had not yet changed,
+// decided it was already there, and only swapped the chrome.
+describe('doors walked in a hurry', () => {
+  it('finishes the first walk before the second reads the desk, and lands on the last door asked', async () => {
+    let finishOpen!: () => void
+    vi.mocked(NewSessionAt).mockImplementationOnce(() => new Promise<void>((r) => { finishOpen = r }))
+    vi.mocked(SessionMode).mockResolvedValue('coding')
+    const first = switchShell('code')
+    await Promise.resolve()
+    expect(vi.mocked(NewSessionAt).mock.calls[0][0]).toBe('coding')
+    expect(cockpit.desk).toBe('assistant') // not written yet — the window the bug lived in
+    // Back to the storefront while the first walk is still in flight.
+    const second = switchShell('assistant')
+    finishOpen()
+    await first
+    await second
+    // The second walk found desk=coding and opened the storefront's own session.
+    expect(vi.mocked(NewSessionAt).mock.calls.map((c) => c[0])).toEqual(['coding', 'assistant'])
+    expect(shell.name).toBe('assistant')
+    expect(cockpit.desk).toBe('assistant')
+  })
+
+  it('walks only the latest of several clicks still waiting their turn', async () => {
+    let finishOpen!: () => void
+    vi.mocked(NewSessionAt).mockImplementationOnce(() => new Promise<void>((r) => { finishOpen = r }))
+    const first = switchShell('code')
+    await Promise.resolve()
+    const a = switchShell('assistant')
+    const b = switchShell('code')
+    const c = switchShell('assistant')
+    finishOpen()
+    await Promise.all([first, a, b, c])
+    // code (walked), then only the last ask — assistant — not the two between.
+    expect(vi.mocked(NewSessionAt).mock.calls.map((x) => x[0])).toEqual(['coding', 'assistant'])
+    expect(shell.name).toBe('assistant')
+    expect(cockpit.desk).toBe('assistant')
+  })
+})
+
 // The band between the sidebar toggle and the corner buttons was a flex spacer
 // and nothing else — chrome at both ends, a deliberate void in the middle
 // (owner, 2026-08-14, holding up a reference where that same row carries the
