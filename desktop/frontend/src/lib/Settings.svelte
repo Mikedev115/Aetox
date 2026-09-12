@@ -2167,7 +2167,10 @@
   const dayKey = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-  const usageRows = $derived(usage ? usage[usagePeriod] : [])
+  // `?? []` because a Go nil slice arrives as JSON null, and a period with no
+  // rows (today, before the first call of the day) used to do exactly that —
+  // `.length` on it threw mid-render and the period buttons looked dead.
+  const usageRows = $derived((usage ? usage[usagePeriod] : null) ?? [])
   const usageTotal = (r: UsageRow) => r.promptTokens + r.completionTokens
   const periodTotal = $derived(usageRows.reduce((sum, r) => sum + usageTotal(r), 0))
 
