@@ -103,11 +103,13 @@ type companionBody interface {
 const companionInputEvent = "companion:input"
 
 // OpenCompanionWindow sends the companion out of the app window to (x, y)
-// physical pixels on the desktop — negative for "wherever". False when the
-// platform cannot, in which case the window keeps drawing its own; the
-// reason is in the log, not the answer, because the only thing the switch
-// can do with it is fall back.
-func (a *App) OpenCompanionWindow(x, y int) bool {
+// physical pixels on the desktop — negative for "wherever" — at the
+// figure's size (logical px; 0 is the default), so it comes up the size it
+// was rather than the default and then a jump. False when the platform
+// cannot, in which case the window keeps drawing its own; the reason is in
+// the log, not the answer, because the only thing the switch can do with
+// it is fall back.
+func (a *App) OpenCompanionWindow(x, y, size int) bool {
 	c := a.companion()
 	c.mu.Lock()
 	if c.body != nil || c.opening {
@@ -126,7 +128,7 @@ func (a *App) OpenCompanionWindow(x, y int) bool {
 		data["kind"] = kind
 		a.emitEvent(companionInputEvent, data)
 	}
-	body, err := openCompanionBody(x, y, sprites, on)
+	body, err := openCompanionBody(x, y, size, sprites, on)
 	c.mu.Lock()
 	c.opening = false
 	if err != nil {

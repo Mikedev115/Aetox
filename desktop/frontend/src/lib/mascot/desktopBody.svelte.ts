@@ -17,7 +17,7 @@ import { allFrames, bakeFrames, firstFrames, keyOf, setHash, type FrameSpec } fr
 
 type Frame = { key: string; w: number; h: number; png: string }
 type Bindings = {
-  OpenCompanionWindow?: (x: number, y: number) => Promise<boolean>
+  OpenCompanionWindow?: (x: number, y: number, size: number) => Promise<boolean>
   CloseCompanionWindow?: () => Promise<void>
   CompanionSpriteKeys?: (hash: string) => Promise<string[]>
   CompanionSprites?: (hash: string, frames: Frame[]) => Promise<unknown>
@@ -60,12 +60,12 @@ export function rememberPos(x: number, y: number): void {
 
 /** Sends the figure out to the desktop. False when the platform cannot, in
  *  which case the brain keeps drawing it here. */
-export async function openBody(): Promise<boolean> {
+export async function openBody(size: number): Promise<boolean> {
   const open = app().OpenCompanionWindow
   if (!open) return false
   const p = savedPos()
   try {
-    desktopBody.up = await open(p.x, p.y)
+    desktopBody.up = await open(p.x, p.y, size)
   } catch {
     desktopBody.up = false
   }

@@ -308,9 +308,11 @@ type companionWindow struct {
 	walk     *walker
 	warmed   int    // the heading key whose neighbours were last warmed
 	button   string // "hide", "mute" or "grip" while one is held
-	// A resize in progress: the figure's size when the grip was taken.
+	// A resize in progress: the figure's size when the grip was taken; and
+	// the size asked for at opening.
 	resizing bool
 	size0    int
+	size     int
 	hover    bool
 	tracking bool
 
@@ -453,8 +455,8 @@ func (f *frameStats) summary() string {
 		mean(f.work), pct(f.work, 1), mean(f.present), pct(f.present, 1), mean(f.flush), pct(f.flush, 1), f.decodes)
 }
 
-func openCompanionBody(x, y int, sprites func(scale float64) spriteSource, on func(kind string, data map[string]any)) (companionBody, error) {
-	w, err := openCompanionWindow(x, y, sprites, on)
+func openCompanionBody(x, y, size int, sprites func(scale float64) spriteSource, on func(kind string, data map[string]any)) (companionBody, error) {
+	w, err := openCompanionWindow(x, y, size, sprites, on)
 	if err != nil {
 		return nil, err
 	}
@@ -465,14 +467,14 @@ func openCompanionBody(x, y int, sprites func(scale float64) spriteSource, on fu
 // (x, y) physical pixels — a spot the caller remembered, or a negative pair
 // meaning "you choose". Returns once the window exists or could not be
 // created.
-func openCompanionWindow(x, y int, sprites func(scale float64) spriteSource, on func(kind string, data map[string]any)) (*companionWindow, error) {
+func openCompanionWindow(x, y, size int, sprites func(scale float64) spriteSource, on func(kind string, data map[string]any)) (*companionWindow, error) {
 	if sprites == nil {
 		sprites = func(float64) spriteSource { return noSprites{} }
 	}
 	if on == nil {
 		on = func(string, map[string]any) {}
 	}
-	w := &companionWindow{ready: make(chan error, 1), gone: make(chan struct{}), x: x, y: y, sprites: sprites, on: on}
+	w := &companionWindow{ready: make(chan error, 1), gone: make(chan struct{}), x: x, y: y, size: size, sprites: sprites, on: on}
 	go w.run()
 	if err := <-w.ready; err != nil {
 		return nil, err
@@ -603,8 +605,12 @@ func (w *companionWindow) run() {
 
 	w.text = newGDIText()
 	// Created at the primary monitor's scale; the read below corrects it
-	// before anything is drawn.
+	// before anything is drawn. The figure's size is the caller's from the
+	// start, so the first frame and the first bake are at it.
 	w.setScale(96)
+	w.comp.setFigure(w.size)
+	w.w, w.h = w.comp.canvasSize()
+	w.canvas = image.NewRGBA(image.Rect(0, 0, w.w, w.h))
 	fx, fy := w.x, w.y
 	chosen := fx < 0 || fy < 0
 	if chosen {
@@ -758,8 +764,12 @@ func companionWndProc(hwnd, msg, wparam, lparam uintptr) uintptr {
 		case wmSetCursor:
 			// The hand over the figure, the corner arrows over the grip, the
 			// arrow over the buttons.
-			switch w.buttonAt(cursorPos()) {
+			c := cursorPos()
+			switch w.buttonAt(c) {
 			case "":
+				if !w.onFigure(c) {
+					break
+				}
 				if hand, _, _ := procLoadCursorW.Call(0, idcHand); hand != 0 {
 					procSetCursor.Call(hand)
 					return 1
@@ -842,6 +852,16 @@ func cursorPos() winPoint {
 	return p
 }
 
+// onFigure is whether the screen point is on the figure's own pixels — the
+// drawn ones, not the frame's touchable ground around them.
+func (w *companionWindow) onFigure(p winPoint) bool {
+	q := image.Pt(int(p.X)-w.x, int(p.Y)-w.y)
+	if !q.In(w.comp.spriteRect()) || !q.In(w.canvas.Bounds()) {
+		return false
+	}
+	return w.canvas.Pix[w.canvas.PixOffset(q.X, q.Y)+3] > 1
+}
+
 // buttonAt is which control the screen point is on, if any: a button, or
 // the corner grip.
 func (w *companionWindow) buttonAt(p winPoint) string {
@@ -860,6 +880,11 @@ func (w *companionWindow) buttonAt(p winPoint) string {
 
 func (w *companionWindow) pressBegin() {
 	c := cursorPos()
+	if !w.onFigure(c) && w.buttonAt(c) == "" {
+		// The frame's ground: hoverable, not holdable (the app's .grab is
+		// the figure alone).
+		return
+	}
 	procSetCapture.Call(w.hwnd)
 	if b := w.buttonAt(c); b != "" {
 		w.button = b

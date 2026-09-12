@@ -317,6 +317,26 @@ func (c *composer) spriteRect() image.Rectangle {
 	return image.Rect(f.Min.X-p, f.Min.Y-p, f.Min.X-p+c.px(float64(c.spriteSize())), f.Min.Y-p+c.px(float64(c.spriteSize())))
 }
 
+// hitRect is what the pointer can hover: the figure, the frame around it
+// and the buttons on its corners.
+func (c *composer) hitRect() image.Rectangle {
+	return c.figureRect().Inset(-c.px(cFrameInset + cButtonOver))
+}
+
+// touchable gives every clear pixel of r the least alpha there is.
+func touchable(dst *image.RGBA, r image.Rectangle) {
+	r = r.Intersect(dst.Bounds())
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		i := dst.PixOffset(r.Min.X, y)
+		row := dst.Pix[i : i+r.Dx()*4]
+		for k := 3; k < len(row); k += 4 {
+			if row[k] == 0 {
+				row[k] = 1
+			}
+		}
+	}
+}
+
 // gripRect is the resize handle: the bottom-right corner of the hover
 // frame.
 func (c *composer) gripRect() image.Rectangle {
@@ -371,6 +391,17 @@ func (c *composer) draw(dst *image.RGBA, s companionScene, now time.Time) image.
 		draw.Draw(dst, r, pic, pic.Bounds().Min, draw.Over)
 		used = used.Union(r)
 	}
+
+	// The frame's ground, all but invisible: the compositor hit-tests a
+	// layered window by alpha, so a pixel at 0 is not the window and the
+	// pointer over it is "gone". The frame, its buttons and its grip sit in
+	// that ground around the figure, and had to be reached by touching the
+	// figure first and then never left — a hover that died on the way to
+	// the × (owner, 13 ก.ย. 2026). One count of alpha over the frame's box
+	// makes it part of the window, as the DOM box is in the app.
+	hit := c.hitRect()
+	touchable(dst, hit)
+	used = used.Union(hit)
 
 	// the bubble
 	if s.Shown != "" {
