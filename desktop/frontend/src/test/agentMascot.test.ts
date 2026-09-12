@@ -10,9 +10,9 @@ import { coverHue } from '../lib/coverHue'
 // a tile in a roster does not move while the one that is working does.
 
 describe('lookOf', () => {
-  it('carries the icon, the hue and the three identity dials, parsed', () => {
-    expect(lookOf({ icon: 'zap', hue: '210', shell: 'dark', top: 'bar', face: 'focused' }))
-      .toEqual({ icon: 'zap', hue: 210, shell: 'dark', top: 'bar', face: 'focused' })
+  it('carries the icon, the colour and the identity dials, parsed', () => {
+    expect(lookOf({ icon: 'zap', hue: '210', accent: 'copper', shell: 'dark', top: 'bar', face: 'focused' }))
+      .toEqual({ icon: 'zap', hue: 210, accent: 'copper', shell: 'dark', top: 'bar', face: 'focused' })
   })
 
   // Blank is the ordinary case — a profile nobody opened — and blank must stay
@@ -57,6 +57,14 @@ describe('AgentMascot', () => {
     expect(mascot({ hue: 150 }).innerHTML).toContain('hsl(150 ')
     expect(mascot({ hue: '150' }).innerHTML).toContain('hsl(150 ')
     expect(mascot({ hue: 'nope' }).innerHTML).toContain(`hsl(${coverHue('deck')} `)
+  })
+
+  // An accent named in the file (or handed over from a persona) beats the
+  // name's hue; a degree in the file still beats the accent (rig.ts).
+  it('wears a named accent over the hue of the name, and a degree over both', () => {
+    expect(mascot({ accent: 'copper' }).innerHTML).toContain('hsl(22 ')
+    expect(mascot({ accent: 'copper' }).innerHTML).not.toContain(`hsl(${coverHue('deck')} `)
+    expect(mascot({ accent: 'copper', hue: 150 }).innerHTML).toContain('hsl(150 ')
   })
 
   it('speaks the card\'s five words as poses', () => {

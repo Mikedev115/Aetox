@@ -14,13 +14,30 @@
 // assistant's own template — never on grey or on an error. The catalogue
 // lookups (shellOf, row) already do that for the part ids; the hue is the one
 // field with arithmetic in it, so it is parsed here.
+import type { IconName } from '../icons'
 import type { MascotOptions } from './rig'
+
+/** What the editor's badge row offers. Every ICONS id is drawable on an ear
+ *  (parts.ts isBadge), so this is a curation, not a constraint: the seven the
+ *  shipped agents wear, the four the helpers wear, and the glyphs that read as
+ *  a job at 16px. A profile that names an icon outside this list keeps it —
+ *  the row simply shows no cell lit. Append to offer another. */
+export const AGENT_BADGES: IconName[] = [
+  'search', 'fileText', 'chartColumn', 'clapperboard', 'slidersHorizontal', 'gitBranch', 'zap',
+  'compass', 'copy', 'eye', 'check',
+  'terminal', 'fileCode', 'globe', 'brain', 'palette', 'headphones', 'package', 'puzzle', 'image',
+  'pencil', 'scissors', 'shield', 'wrench', 'layoutList', 'messageSquare', 'mic', 'monitor', 'keyboard',
+  'sparkles', 'heart', 'graph', 'gitPullRequest', 'smartphone', 'folderOpen', 'timer', 'plug',
+]
 
 /** The look fields exactly as a profile writes them. `hair` and `accessory`
  *  were the cartoon face's and are read no more — see profile.go. */
 export type LookFields = {
   icon?: string
+  /** A degree — full colour, and it wins over `accent` (rig.ts). */
   hue?: string | number
+  /** An ACCENT row id (palette.ts): a hue and how much of it. */
+  accent?: string
   shell?: string
   top?: string
   face?: string
@@ -28,7 +45,7 @@ export type LookFields = {
 
 /** What AgentMascot takes: the `icon:` on the ears, and the four identity
  *  dials the assistant's avatar page offers, parsed. */
-export type AgentLook = Pick<MascotOptions, 'shell' | 'top' | 'face'> & {
+export type AgentLook = Pick<MascotOptions, 'shell' | 'top' | 'face' | 'accent'> & {
   icon?: string
   hue?: number
 }
@@ -50,7 +67,7 @@ export function lookOf(f: LookFields | undefined): AgentLook {
   if (icon) out.icon = icon
   const hue = hueOf(f?.hue)
   if (hue !== undefined) out.hue = hue
-  for (const k of ['shell', 'top', 'face'] as const) {
+  for (const k of ['accent', 'shell', 'top', 'face'] as const) {
     const v = (f?.[k] ?? '').trim()
     if (v) out[k] = v
   }

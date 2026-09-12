@@ -9104,6 +9104,15 @@ button.ctrl, label.ctrl { display:inline-flex; align-items:center; justify-conte
 }
 .ag-part:hover { border-color:var(--border-strong); }
 .ag-part.on { border-color:var(--interactive); background:var(--surface-raised); }
+/* A saved persona, offered to an agent: the whole look in the cell, and the
+   slot's number where the avatar page shows it, so "บุคลิก 2" here is the
+   same one there. */
+.ag-persona { position:relative; }
+.ag-persona-n {
+  position:absolute; right:2px; bottom:1px; font-size:var(--fs-2xs); font-weight:600;
+  color:var(--text-dim); line-height:1; pointer-events:none;
+}
+.ag-part.on .ag-persona-n { color:var(--interactive); }
 
 /* The roster's search box, and the mark on each row — the two things the
    reference UI had that this page did not. The mark is the same one the office
