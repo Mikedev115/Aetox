@@ -4582,7 +4582,7 @@
         {#if (a.steps ?? 0) > 0}
           <span class="chip" title={t('settings.agentStepsTip', { n: a.steps ?? 0 })}>{t('settings.agentSteps', { n: a.steps ?? 0 })}</span>
         {/if}
-        <span class="chip mono-dim">{a.path || 'built-in:' + a.name}</span>
+        <span class="chip mono-dim" title={a.path || 'built-in:' + a.name}>{a.path || 'built-in:' + a.name}</span>
       </div>
     </div>
   </div>
