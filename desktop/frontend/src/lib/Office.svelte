@@ -16,8 +16,8 @@
   // folder a file lands in is which kind it is — a chair file dropped into the
   // sub-agents' folder would wake up sick.
   import {
-    ListChairs, ListReceivedJobs, OpenAgentsFolder, AgentGate,
-    DelegateSwitches, SetDelegateOff,
+    ListChairs, ListReceivedJobs, OpenAgentsFolder, OpenTeamsFolder, AgentGate,
+    DelegateSwitches, SetDelegateOff, ListTeams, SaveTeam, DeleteTeam,
   } from '../../wailsjs/go/main/App'
   import { main, subagent } from '../../wailsjs/go/models'
   import { agoLabel, cockpit, newChairSession, selectGlobalSession, setActiveView } from './stores/cockpit.svelte'
@@ -25,6 +25,7 @@
   import { dayBucket } from './dayBucket'
   import Icon from './Icon.svelte'
   import AgentLock from './AgentLock.svelte'
+  import ConfirmDialog from './ConfirmDialog.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
   import { lookOf } from './mascot/agentLook'
 
@@ -51,59 +52,131 @@
     gates = Object.fromEntries(roster.map((c, i) => [c.name, answers[i]]))
     gated = true
   }
-
-  // Whether the main assistant may hand each of these agents work. It used to
-  // be answerable only from the settings page, which is why this roster — the
-  // page a person actually opens to look at their team — could not say the one
-  // thing that decides whether anyone gets used.
-  //
-  // Absent rather than fatal when the call fails: the roster's job is to show
-  // who works here, and it can do that whole job without the switches. Then
-  // `banded` is false and the deck is drawn as one group with no switch on any
-  // card, which is exactly the page as it stood before today.
-  let delegate = $state<main.DelegateSettings | null>(null)
+  // The page is organised by TEAM since 12 ก.ย. (§251): every roster the
+  // assistant or the code desk can hire from, the default one first, each
+  // with its own members, its own switches and its own doors. Teams are
+  // folders like agents are, read from disk on every visit for the same
+  // reason the roster is.
+  let teams = $state<main.TeamCard[]>([])
+  // Each team's switches, keyed by team name ('' is the default). Absent
+  // rather than fatal when a read fails: the deck is still drawn, as one
+  // group with no switch, which is exactly the page as it stood before.
+  let switches = $state<Record<string, main.DelegateSettings>>({})
   let delegateBusy = $state('')
-  async function loadDelegate() {
+  async function loadTeams() {
     try {
-      delegate = await DelegateSwitches()
+      teams = await ListTeams('')
     } catch {
-      delegate = null
+      teams = []
     }
+    const answers = await Promise.all(teams.map(async (tm) => {
+      try { return await DelegateSwitches(tm.name) } catch { return null }
+    }))
+    const next: Record<string, main.DelegateSettings> = {}
+    teams.forEach((tm, i) => { if (answers[i]) next[tm.name] = answers[i]! })
+    switches = next
   }
 
-  // One agent's reach, looked up in the agents block alone. Helpers live in the
-  // other block and never appear on this page.
-  function reachOf(name: string): { on: boolean; off: boolean } | null {
-    if (!delegate) return null
-    const w = delegate.agents.workers.find((x) => x.name === name)
-    return w ? { on: w.on, off: delegate.agents.off } : null
+  // One agent's reach on ONE team, looked up in that team's agents block. The
+  // same agent may be in reach on one team and switched off on another —
+  // the switches were split per team on purpose (config.TeamSwitches).
+  function reachOf(team: main.TeamCard, name: string): { on: boolean; off: boolean } | null {
+    const s = switches[team.name]
+    if (!s) return null
+    const w = s.agents.workers.find((x) => x.name === name)
+    return w ? { on: w.on, off: s.agents.off } : null
   }
-  function reaches(c: main.Chair): boolean {
-    const w = reachOf(c.name)
+  function reaches(team: main.TeamCard, c: main.Chair): boolean {
+    const w = reachOf(team, c.name)
     return !!w && w.on && !w.off
   }
+  const teamLabel = (tm: main.TeamCard) => (tm.default ? t('office.teamDefault') : tm.name)
+  const deskLabel = (desk: string) => (desk === 'coding' ? t('office.teamDeskCoding') : t('office.teamDeskSpecialized'))
 
-  async function toggleAll() {
-    if (!delegate || delegateBusy) return
-    delegateBusy = 'all'
+  async function toggleTeam(team: main.TeamCard) {
+    const s = switches[team.name]
+    if (!s || delegateBusy) return
+    delegateBusy = team.name
     try {
-      delegate = await SetDelegateOff('agents', delegate.agents.off === false)
+      switches = { ...switches, [team.name]: await SetDelegateOff(team.name, 'agents', s.agents.off === false) }
     } finally {
       delegateBusy = ''
     }
   }
 
-  // The split the page is drawn in. Only drawn as two groups when there is a
-  // switch to answer with and both groups have somebody in them — a heading
-  // over an empty deck is a label for nothing, and on a fresh install (where
-  // delegation ships off) it would put every card under "ยังไม่ได้เปิด" with an
-  // empty group above it.
-  let onDuty = $derived(chairs.filter(reaches))
-  let offDuty = $derived(chairs.filter((c) => !reaches(c)))
-  let banded = $derived(!!delegate && onDuty.length > 0 && offDuty.length > 0)
+  // The split each team's deck is drawn in. Only drawn as two groups when
+  // there is a switch to answer with and both groups have somebody in them —
+  // a heading over an empty deck is a label for nothing, and on a fresh
+  // install (where delegation ships off) it would put every card under
+  // "ยังไม่ได้เปิด" with an empty group above it.
+  const onDuty = (team: main.TeamCard) => team.members.filter((c) => reaches(team, c))
+  const offDuty = (team: main.TeamCard) => team.members.filter((c) => !reaches(team, c))
+  const banded = (team: main.TeamCard) => !!switches[team.name] && onDuty(team).length > 0 && offDuty(team).length > 0
+
+  // The team editor: name, desk, a sentence, and a tick beside every agent
+  // on the roster. One shape for new and existing; the name is fixed once a
+  // folder exists, because it is the folder (and what sessions key on).
+  type TeamDraft = { name: string; desk: string; description: string; members: string[]; isNew: boolean }
+  let teamEditing = $state<TeamDraft | null>(null)
+  let teamError = $state('')
+  let teamBusy = $state(false)
+  function newTeam() {
+    teamEditing = { name: '', desk: 'specialized', description: '', members: [], isNew: true }
+    teamError = ''
+  }
+  function editTeam(tm: main.TeamCard) {
+    teamEditing = {
+      name: tm.name, desk: tm.desk, description: tm.description,
+      members: tm.members.map((c) => c.name), isNew: false,
+    }
+    teamError = ''
+  }
+  function tickMember(name: string, on: boolean) {
+    if (!teamEditing) return
+    const rest = teamEditing.members.filter((m) => m !== name)
+    teamEditing.members = on ? [...rest, name] : rest
+  }
+  async function saveTeam() {
+    if (!teamEditing || teamBusy) return
+    teamBusy = true
+    teamError = ''
+    try {
+      await SaveTeam(teamEditing.name.trim(), teamEditing.desk, teamEditing.description, teamEditing.members)
+      teamEditing = null
+      await loadTeams()
+    } catch (err) {
+      teamError = String(err)
+    } finally {
+      teamBusy = false
+    }
+  }
+  // Deleting a team is deleting a list — the people stay — so the sentence
+  // on the dialog says so, and names the folder for checking.
+  let pendingConfirm = $state<{ title: string; message: string; detail: string; confirmLabel: string; run: () => void } | null>(null)
+  function deleteTeam(tm: main.TeamCard) {
+    pendingConfirm = {
+      title: t('office.confirmTeamDeleteTitle'),
+      message: t('office.confirmTeamDeleteMessage'),
+      detail: tm.path || tm.name,
+      confirmLabel: t('office.confirmTeamDeleteAction'),
+      run: async () => {
+        try {
+          await DeleteTeam(tm.name)
+        } catch (err) {
+          teamError = String(err)
+        }
+        await loadTeams()
+      },
+    }
+  }
+  function runPendingConfirm() {
+    const req = pendingConfirm
+    pendingConfirm = null
+    req?.run()
+  }
 
   onMount(async () => {
-    const [roster, feed] = await Promise.all([ListChairs(), ListReceivedJobs(30), loadDelegate()])
+    const [roster, feed] = await Promise.all([ListChairs(), ListReceivedJobs(30), loadTeams()])
     chairs = roster
     jobs = feed
     await loadNeeds(roster)
@@ -168,9 +241,12 @@
   // its tools, its memory, its prompt. The view moves first for the same
   // reason openSource's does: a click that waits for a bootstrap before
   // showing anything reads as a dead click.
-  async function talkTo(chair: main.Chair) {
+  async function talkTo(chair: main.Chair, team: main.TeamCard) {
     setActiveView('chat')
-    await newChairSession(chair.name)
+    // Seated by the team the card sits under, at that team's desk: the same
+    // agent walks into the office from ทีมผู้ช่วย and into the workshop from a
+    // coding team, and the desk decides what it holds there (§251).
+    await newChairSession(chair.name, team.desk, team.name)
   }
 
   // The two doors into the shared profile editor (Settings holds the one
@@ -209,34 +285,65 @@
 
   <div class="page-body">
     <div class="settings-inner">
-      <!-- The hiring door is a control on the section, not a card in the grid.
+      <!-- The hiring doors are controls on the section, not cards in the grid.
            As a card it was a 180px dashed box holding the first slot, so the
            first thing the eye landed on was the space where nobody is — and it
            pushed a real teammate onto a row of their own. -->
       <div class="sec-head">
         <div class="eyebrow section-label">{t('office.roster')}</div>
-        <!-- The one sentence this page exists to change, said as a sentence
-             rather than left for the reader to infer from a row of switches.
-             It counts live: flipping any card's switch moves a card between the
-             two decks below and changes this number in the same frame. -->
-        {#if delegate}
-          <span class="ag-reach">
-            {#if delegate.agents.off}
-              {t('office.reachNone')}
-            {:else}
-              {t('office.reachSome', { n: onDuty.length, total: chairs.length })}
-            {/if}
-          </span>
-          <label class="mswitch" title={t('office.delegateAll')}>
-            <input
-              type="checkbox" checked={!delegate.agents.off} disabled={delegateBusy !== ''}
-              aria-label={t('office.delegateAll')} onchange={toggleAll}
-            />
-            <span></span>
-          </label>
-        {/if}
+        <span class="ag-reach"></span>
+        <button class="ctrl" onclick={newTeam}><Icon name="users" size={13} /> {t('office.newTeam')}</button>
         <button class="ctrl" onclick={createAgent}><Icon name="plus" size={13} /> {t('office.newAgent')}</button>
       </div>
+
+      <!-- The team editor, above the decks it changes. One form for a new
+           team and an existing one; the name locks once the folder exists. -->
+      {#if teamEditing}
+        <div class="settings-card team-editor">
+          <div class="team-form">
+            <label class="team-field">
+              <span class="eyebrow">{t('office.teamName')}</span>
+              <input class="ctrl" type="text" bind:value={teamEditing.name} disabled={!teamEditing.isNew}
+                placeholder={t('office.teamNamePlaceholder')} spellcheck="false" />
+              {#if teamEditing.isNew}<span class="d muted">{t('office.teamNameHint')}</span>{/if}
+            </label>
+            <div class="team-field">
+              <span class="eyebrow">{t('office.teamDesk')}</span>
+              <div class="team-desks">
+                {#each ['specialized', 'coding'] as desk (desk)}
+                  <button type="button" class="pill" class:on={teamEditing.desk === desk}
+                    onclick={() => { if (teamEditing) teamEditing.desk = desk }}>{deskLabel(desk)}</button>
+                {/each}
+              </div>
+              {#if teamEditing.desk === 'coding'}<span class="d muted">{t('office.teamDeskCodingNote')}</span>{/if}
+            </div>
+            <label class="team-field">
+              <span class="eyebrow">{t('office.teamDescription')}</span>
+              <input class="ctrl" type="text" bind:value={teamEditing.description} />
+            </label>
+            <div class="team-field">
+              <span class="eyebrow">{t('office.teamPick')}</span>
+              <div class="team-pick">
+                {#each chairs as c (c.name)}
+                  {@const on = teamEditing.members.includes(c.name)}
+                  <label class="team-tick" class:on>
+                    <input type="checkbox" checked={on} onchange={(e) => tickMember(c.name, (e.currentTarget as HTMLInputElement).checked)} />
+                    <AgentMascot name={c.name} {...lookOf(c)} size={22} />
+                    <span class="t">{c.name}</span>
+                  </label>
+                {/each}
+              </div>
+              <span class="d muted">{t('office.teamPickHint')}</span>
+            </div>
+            {#if teamError}<div class="folder-error">{teamError}</div>{/if}
+            <div class="team-actions">
+              <button class="ctrl" onclick={() => (teamEditing = null)} disabled={teamBusy}>{t('office.teamCancel')}</button>
+              <button class="ctrl ctrl-primary" onclick={saveTeam} disabled={teamBusy || !teamEditing.name.trim()}>{t('office.teamSave')}</button>
+            </div>
+          </div>
+        </div>
+      {/if}
+
       <!-- A face, not an inventory. The tool chips were six per card and five
            of the six were the same on every card — the office ceiling hands
            everyone the same set, so the list said nothing about who anyone is
@@ -244,10 +351,10 @@
            is for: who this is, what they make, and whether they have done any
            of it. The tools are one click away behind the gear, which is also
            the only place they can be changed. -->
-      <!-- One card, drawn twice — once per band. A snippet rather than a copy
-           because the two decks differ in nothing except which agents are in
+      <!-- One card, drawn once per band of every team. A snippet rather than a
+           copy because the decks differ in nothing except which agents are in
            them, and a second copy is a second thing to keep true. -->
-      {#snippet chairCard(c: main.Chair)}
+      {#snippet chairCard(c: main.Chair, team: main.TeamCard)}
           {@const locked = gates[c.name]?.blocked ?? false}
           <!-- No switch, and the card never cools (owner, 31 ส.ค.): *"มันเหมือน
                ไม่เปิดใช้งาน ทั้งที่มันก็แชทได้ปกติ"*.
@@ -268,13 +375,9 @@
               </div>
               <p class="chair-desc">{c.description}</p>
               <!-- What this agent has actually done, as a quiet line inside the
-                   card rather than a column of the foot (owner, 30 ส.ค.). It is
-                   a fact ABOUT the agent, like the sentence above it; the foot
-                   is where the card's actions are, and a number sharing that
-                   row was what kept the chat button down to an icon.
-                   A chip since 31 ส.ค., beside the one badge that is worth a
-                   slot. Only facts that DIFFER between agents are drawn here —
-                   a badge every card carries is a badge that says nothing. -->
+                   card rather than a column of the foot (owner, 30 ส.ค.). Only
+                   facts that DIFFER between agents are drawn here — a badge
+                   every card carries is a badge that says nothing. -->
               <div class="chair-chips">
                 {#if c.overrides}<span class="chip mine">{t('office.overrides')}</span>{/if}
                 {#if c.jobs > 0}
@@ -285,22 +388,10 @@
               </div>
             </div>
             <!-- The one thing this page is for: walking in and talking to a
-                 specialist (COMPANY.md, the reason the roster sits behind the
-                 storefront and not in another building). It was a 13px sparkles
-                 icon until 30 ส.ค. — the smallest thing on the card, wearing a
-                 mark that means "chat" to nobody. Reported as "ไม่ใช่ไอค่อนโง่ ๆ
-                 แบบปัจจุบัน".
-                 
-                 It takes the whole row and the gear keeps its icon: a cog reads
-                 as settings anywhere, and settings is the errand you run
-                 occasionally rather than the reason you opened the page.
-                 
-                 Named with the agent, not "this agent", because that is what
-                 walking in is — and the row cannot overflow, which the version
-                 sharing a line with the job count could the first time somebody
-                 hired an agent with a long name. -->
+                 specialist. Named with the agent, not "this agent", because
+                 that is what walking in is — and the row cannot overflow. -->
             <div class="chair-foot">
-              <button class="chair-talk" onclick={() => talkTo(c)}>
+              <button class="chair-talk" onclick={() => talkTo(c, team)}>
                 <Icon name="messageSquare" size={14} />
                 <span class="t">{t('office.chatWith', { name: c.name })}</span>
               </button>
@@ -314,39 +405,86 @@
           </div>
       {/snippet}
 
-      <!-- Split by the one thing this page can change, not by who wrote the
-           file. Which band an agent sits in IS its delegation state, so no card
-           needs a badge for it: flip a switch and the card moves between the
-           two decks, and the sentence above counts differently.
-           One deck when there is nothing to split on — no switches loaded, or
-           every agent on the same side of the line. -->
-      {#if banded}
-        <div class="ag-band">
-          <span class="lab">{t('office.bandOn')}</span><span class="n">{onDuty.length}</span>
-          <span class="rule"></span>
-        </div>
-        <div class="office-grid">
-          {#each gated ? onDuty : [] as c (c.name)}{@render chairCard(c)}{/each}
-        </div>
-        <div class="ag-band">
-          <span class="lab">{t('office.bandOff')}</span><span class="n">{offDuty.length}</span>
-          <span class="rule"></span>
-          <span class="say">{t('office.bandOffNote')}</span>
-        </div>
-        <div class="office-grid">
-          {#each gated ? offDuty : [] as c (c.name)}{@render chairCard(c)}{/each}
-        </div>
-      {:else}
-        <div class="office-grid">
-          {#each gated ? chairs : [] as c (c.name)}{@render chairCard(c)}{/each}
-          {#if loaded && chairs.length === 0}
-            <div class="chair-card empty"><div class="chair-body"><p class="chair-desc">{t('office.noChairs')}</p></div></div>
+      <!-- One section per team (§251). Its head carries the facts about the
+           roster — where it works, how many, whether the assistant may hand
+           it work — and its deck is split by the one thing this page can
+           change: which band an agent sits in IS its delegation state on
+           THIS team, so no card needs a badge for it. -->
+      {#each teams as tm (tm.name)}
+        {@const s = switches[tm.name]}
+        <section class="team-sec" class:invalid={!!tm.invalid}>
+          <div class="team-head">
+            <span class="team-ic"><Icon name="users" size={15} /></span>
+            <div class="team-title">
+              <span class="team-name">{teamLabel(tm)}</span>
+              <span class="chip">{deskLabel(tm.desk)}</span>
+              <span class="team-count">{t('office.teamMembersCount', { n: tm.members.length })}</span>
+            </div>
+            {#if tm.description}<span class="team-desc">{tm.description}</span>{/if}
+            <span class="rule"></span>
+            {#if s && !tm.invalid}
+              <span class="ag-reach">
+                {#if s.agents.off}
+                  {t('office.reachNone')}
+                {:else}
+                  {t('office.reachSome', { n: onDuty(tm).length, total: tm.members.length })}
+                {/if}
+              </span>
+              <label class="mswitch" title={t('office.teamDelegate')}>
+                <input
+                  type="checkbox" checked={!s.agents.off} disabled={delegateBusy !== ''}
+                  aria-label={t('office.teamDelegate')} onchange={() => toggleTeam(tm)}
+                />
+                <span></span>
+              </label>
+            {/if}
+            {#if !tm.default}
+              <button class="icobtn tiny tip-l" aria-label={t('office.teamEdit')} data-tip={t('office.teamEdit')}
+                onclick={() => editTeam(tm)}><Icon name="settings" size={13} /></button>
+              <button class="icobtn tiny tip-l" aria-label={t('office.teamDelete')} data-tip={t('office.teamDelete')}
+                onclick={() => deleteTeam(tm)}><Icon name="trash" size={13} /></button>
+            {/if}
+          </div>
+          {#if tm.default}
+            <p class="team-note">{t('office.teamDefaultNote')}</p>
           {/if}
-        </div>
-      {/if}
+          {#if tm.invalid}
+            <p class="team-note bad">{t('office.teamInvalid', { reason: tm.invalid })}</p>
+          {/if}
+          {#if tm.missing.length > 0}
+            <p class="team-note bad">{t('office.teamMissing', { names: tm.missing.join(', ') })}</p>
+          {/if}
+          {#if banded(tm)}
+            <div class="ag-band">
+              <span class="lab">{t('office.bandOn')}</span><span class="n">{onDuty(tm).length}</span>
+              <span class="rule"></span>
+            </div>
+            <div class="office-grid">
+              {#each gated ? onDuty(tm) : [] as c (c.name)}{@render chairCard(c, tm)}{/each}
+            </div>
+            <div class="ag-band">
+              <span class="lab">{t('office.bandOff')}</span><span class="n">{offDuty(tm).length}</span>
+              <span class="rule"></span>
+              <span class="say">{t('office.bandOffNote')}</span>
+            </div>
+            <div class="office-grid">
+              {#each gated ? offDuty(tm) : [] as c (c.name)}{@render chairCard(c, tm)}{/each}
+            </div>
+          {:else}
+            <div class="office-grid">
+              {#each gated ? tm.members : [] as c (c.name)}{@render chairCard(c, tm)}{/each}
+              {#if loaded && tm.members.length === 0}
+                <div class="chair-card empty"><div class="chair-body"><p class="chair-desc">{tm.default ? t('office.noChairs') : t('office.teamEmpty')}</p></div></div>
+              {/if}
+            </div>
+          {/if}
+        </section>
+      {/each}
       <p class="office-note">
         {t('office.hiringNote')}
         <button class="linklike" onclick={() => OpenAgentsFolder()}>{t('office.openAgentsFolder')}</button>
+        · {t('office.teamsNote')}
+        <button class="linklike" onclick={() => OpenTeamsFolder()}>{t('office.openTeamsFolder')}</button>
       </p>
 
       <div class="sec-head feed-head">
@@ -408,3 +546,15 @@
     </div>
   </div>
 </div>
+
+{#if pendingConfirm}
+  {@const req = pendingConfirm}
+  <ConfirmDialog
+    title={req.title}
+    message={req.message}
+    detail={req.detail}
+    confirmLabel={req.confirmLabel}
+    onConfirm={runPendingConfirm}
+    onCancel={() => (pendingConfirm = null)}
+  />
+{/if}

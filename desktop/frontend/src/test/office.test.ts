@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import Office from '../lib/Office.svelte'
 import {
-  ListChairs, ListReceivedJobs, LoadSessionAnyProject, NewChairSession,
+  ListChairs, ListReceivedJobs, LoadSessionAnyProject, NewChairSessionAt, ListTeams, SaveTeam,
   DelegateSwitches, SetAgentOff,
 } from './mocks/wailsApp'
 import { cockpit } from '../lib/stores/cockpit.svelte'
@@ -32,6 +32,13 @@ beforeEach(() => {
   cockpit.settingsIntent = null
   vi.mocked(ListChairs).mockResolvedValue([chair()] as any)
   vi.mocked(ListReceivedJobs).mockResolvedValue([] as any)
+  // The page is organised by team (§251). With no team folder there is one
+  // team, the default, and everybody on the roster is on it — so the tests
+  // below, which are about the cards, still describe the roster they mock.
+  vi.mocked(ListTeams).mockImplementation(async () => [{
+    name: '', desk: 'specialized', description: '', default: true, invalid: '',
+    missing: [], members: await ListChairs(), path: '', delegateOff: false,
+  }] as any)
 })
 
 describe('the office roster', () => {
@@ -133,14 +140,15 @@ describe('the office roster', () => {
   // is walking in and talking to a specialist. Read by its visible text here on
   // purpose: an aria-label would pass this test with the icon back.
   it('opens a direct chat from a button that says so in words', async () => {
-    vi.mocked(NewChairSession).mockResolvedValue('20260805-100000.000' as any)
+    vi.mocked(NewChairSessionAt).mockResolvedValue('20260805-100000.000' as any)
     const { container } = render(Office, { onClose: () => {} })
 
     await waitFor(() => expect(screen.getByText('คุยกับ doc')).toBeTruthy())
     expect(container.querySelector('.chair-talk')?.textContent?.trim()).toBe('คุยกับ doc')
     await fireEvent.click(screen.getByText('คุยกับ doc'))
 
-    await waitFor(() => expect(vi.mocked(NewChairSession).mock.calls[0][0]).toBe('doc'))
+    // Seated by the team the card sits under, at that team's desk.
+    await waitFor(() => expect(vi.mocked(NewChairSessionAt).mock.calls[0]).toEqual(['specialized', 'doc', '']))
     expect(cockpit.activeView).toBe('chat')
     expect(cockpit.chair).toBe('doc')
     expect(cockpit.desk).toBe('specialized')
@@ -170,6 +178,9 @@ describe('the roster and delegation', () => {
     expect(screen.getByText('ยังไม่ได้เปิด')).toBeTruthy()
     // Two decks, one agent each, and the band an agent sits in is its state —
     // which is why no card carries a badge saying the same thing twice.
+    // Waited for, not read at once: the cards land a tick after the bands,
+    // behind the gate verdicts the roster refuses to draw ahead of.
+    await waitFor(() => expect(container.querySelectorAll('.chair-card.agc').length).toBe(2))
     const decks = container.querySelectorAll('.office-grid')
     expect(decks.length).toBe(2)
     expect(decks[0].textContent).toContain('doc')
@@ -317,5 +328,84 @@ describe('the received-work feed', () => {
   it('has an empty state that says what to do rather than nothing', async () => {
     render(Office, { onClose: () => {} })
     await waitFor(() => expect(screen.getByText(/ยังไม่มีงานส่งเข้ามา/)).toBeTruthy())
+  })
+})
+
+// Teams (§251): the page is one section per roster. A user team draws its
+// own members under its own head, its chat door seats the agent at the
+// team's desk, and the editor writes through the one door the engine has.
+describe('the office by team', () => {
+  const team = (over: Record<string, unknown> = {}) => ({
+    name: 'ทีมโค้ด', desk: 'coding', description: 'แก้โค้ด', default: false, invalid: '',
+    missing: [], members: [chair({ name: 'fixer', builtin: false })], path: 'C:/teams/ทีมโค้ด/TEAM.md',
+    delegateOff: false, ...over,
+  })
+  const twoTeams = () => vi.mocked(ListTeams).mockImplementation(async () => [
+    { name: '', desk: 'specialized', description: '', default: true, invalid: '', missing: [],
+      members: await ListChairs(), path: '', delegateOff: false },
+    team(),
+  ] as any)
+
+  it('draws every team as its own section, the default first', async () => {
+    twoTeams()
+    const { container } = render(Office, { onClose: () => {} })
+
+    await waitFor(() => expect(container.querySelectorAll('.team-sec').length).toBe(2))
+    const heads = container.querySelectorAll('.team-head .team-name')
+    expect(heads[0].textContent).toBe('ทีมผู้ช่วย')
+    expect(heads[1].textContent).toBe('ทีมโค้ด')
+    // The desk each roster works at is on the head, because it is what
+    // decides what the members hold there.
+    expect(container.querySelectorAll('.team-sec')[1].textContent).toContain('โต๊ะโค้ด')
+    await waitFor(() => expect(screen.getByText('คุยกับ fixer')).toBeTruthy())
+  })
+
+  it('seats a chat from a team card at that team and its desk', async () => {
+    twoTeams()
+    vi.mocked(NewChairSessionAt).mockResolvedValue('20260912-100000.000' as any)
+    render(Office, { onClose: () => {} })
+
+    await waitFor(() => expect(screen.getByText('คุยกับ fixer')).toBeTruthy())
+    await fireEvent.click(screen.getByText('คุยกับ fixer'))
+    await waitFor(() => expect(vi.mocked(NewChairSessionAt).mock.calls[0]).toEqual(['coding', 'fixer', 'ทีมโค้ด']))
+  })
+
+  // The default team has no file and takes no edits (owner, 12 ก.ย.); a user
+  // team carries the gear and the bin.
+  it('lets a user team be edited and the default team not', async () => {
+    twoTeams()
+    const { container } = render(Office, { onClose: () => {} })
+
+    await waitFor(() => expect(container.querySelectorAll('.team-sec').length).toBe(2))
+    const secs = container.querySelectorAll('.team-sec')
+    expect(secs[0].querySelector('[aria-label="แก้ไขทีม"]')).toBeNull()
+    expect(secs[1].querySelector('[aria-label="แก้ไขทีม"]')).toBeTruthy()
+    expect(screen.getByText(/แก้สมาชิกไม่ได้/)).toBeTruthy()
+  })
+
+  it('saves a new team through the engine door with what was ticked', async () => {
+    twoTeams()
+    const { container } = render(Office, { onClose: () => {} })
+
+    await waitFor(() => expect(screen.getByText('สร้างทีม')).toBeTruthy())
+    await fireEvent.click(screen.getByText('สร้างทีม'))
+    const name = container.querySelector('.team-editor input[type="text"]') as HTMLInputElement
+    await fireEvent.input(name, { target: { value: 'ทีมเอกสาร' } })
+    await fireEvent.click(screen.getByText('โต๊ะโค้ด', { selector: '.team-desks .pill' }))
+    // The coding desk says what it hands the team, before anybody saves.
+    expect(screen.getByText(/ถือเชลล์/)).toBeTruthy()
+    const tick = container.querySelector('.team-tick input') as HTMLInputElement
+    await fireEvent.click(tick)
+    await fireEvent.click(screen.getByText('บันทึกทีม'))
+
+    await waitFor(() => expect(vi.mocked(SaveTeam).mock.calls[0]).toEqual(['ทีมเอกสาร', 'coding', '', ['doc']]))
+  })
+
+  // A stale name is a sentence on the section, never a silent gap.
+  it('names the members a file lists that no agent answers to', async () => {
+    vi.mocked(ListTeams).mockImplementation(async () => [team({ missing: ['ghost'] })] as any)
+    render(Office, { onClose: () => {} })
+
+    await waitFor(() => expect(screen.getByText(/ghost/)).toBeTruthy())
   })
 })

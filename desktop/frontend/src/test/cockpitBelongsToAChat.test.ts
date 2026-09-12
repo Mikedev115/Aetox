@@ -75,7 +75,7 @@ const decided: Record<string, Kind> = {
   // wrong at the one door without it (afterNewSession), dropped inside arriveAt
   // itself now, beside `plan`.
   sessionSpend: 'dropped', undoFiles: 'dropped', taskChips: 'dropped',
-  sessionError: 'dropped', desk: 'dropped', chair: 'dropped', space: 'dropped',
+  sessionError: 'dropped', desk: 'dropped', chair: 'dropped', team: 'dropped', space: 'dropped',
   stance: 'dropped', model: 'dropped', restorePoints: 'dropped',
   // The plan (desktop/plan.go). Dropped and re-read through `SessionPlan`,
   // because it is a row keyed by session id and the engine can always be asked

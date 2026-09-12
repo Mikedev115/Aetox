@@ -2622,9 +2622,11 @@
   // disagreed with the request that gets sent.
   let delegate = $state<main.DelegateSettings | null>(null)
   let delegateBusy = $state('')
+  // The DEFAULT team's switches (§251): this page is the shipped roster's
+  // settings, and a user team's switches live on its card in ทีมเอเจน.
   async function loadDelegate() {
     try {
-      delegate = await DelegateSwitches()
+      delegate = await DelegateSwitches('')
     } catch {
       delegate = null // the switches are simply absent rather than the page failing
     }
@@ -2633,7 +2635,7 @@
     if (!delegate || delegateBusy) return
     delegateBusy = kind
     try {
-      delegate = await SetDelegateOff(kind, delegate[kind].off === false)
+      delegate = await SetDelegateOff('', kind, delegate[kind].off === false)
     } finally {
       delegateBusy = ''
     }
@@ -2654,7 +2656,7 @@
     if (delegateBusy) return
     delegateBusy = name
     try {
-      delegate = await SetAgentOff(name, on)
+      delegate = await SetAgentOff('', name, on)
     } finally {
       delegateBusy = ''
     }

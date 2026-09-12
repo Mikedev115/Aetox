@@ -289,9 +289,9 @@ func (a *App) openTurn(conv *conversation, userMsg SessionMessage) bool {
 	// agent and the project are recorded. Same rule as before: a session is
 	// born with all three and the ON CONFLICT branch touches none of them.
 	if _, err := db.Exec(`
-		INSERT INTO sessions(id, project_key, title, created_at, updated_at, mode, agent, space, stance,
+		INSERT INTO sessions(id, project_key, title, created_at, updated_at, mode, agent, space, stance, team,
 		                     provider, model, wire_format, think_level, approval_mode)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(id) DO UPDATE SET
 			updated_at = excluded.updated_at,
 			-- The dials, unlike the four coordinates above, are meant to be
@@ -305,7 +305,7 @@ func (a *App) openTurn(conv *conversation, userMsg SessionMessage) bool {
 			think_level = excluded.think_level,
 			approval_mode = excluded.approval_mode`,
 		sessionID, projectKey(conv.cfg.SandboxRoot), sessionTitleFrom(userMsg.Text), now, now,
-		conv.desk.DeskName(), conv.chair, conv.space, conv.stance.String(),
+		conv.desk.DeskName(), conv.chair, conv.space, conv.stance.String(), conv.team,
 		conv.cfg.ModelProvider, conv.cfg.ModelName, conv.cfg.ModelWireFormat,
 		conv.cfg.ThinkLevel, conv.cfg.ApprovalMode); err != nil {
 		return false
@@ -340,9 +340,9 @@ func (a *App) appendTurn(conv *conversation, userMsg, agentMsg SessionMessage) i
 	// it was opened with, and stays there (§83); an UPDATE of either column
 	// would be the mid-session switch the whole design refuses.
 	_, _ = tx.Exec(`
-		INSERT INTO sessions(id, project_key, title, created_at, updated_at, mode, agent, space, stance,
+		INSERT INTO sessions(id, project_key, title, created_at, updated_at, mode, agent, space, stance, team,
 		                     provider, model, wire_format, think_level, approval_mode)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(id) DO UPDATE SET
 			updated_at = excluded.updated_at,
 			-- The dials, unlike the four coordinates above, are meant to be
@@ -356,7 +356,7 @@ func (a *App) appendTurn(conv *conversation, userMsg, agentMsg SessionMessage) i
 			think_level = excluded.think_level,
 			approval_mode = excluded.approval_mode`,
 		sessionID, projectKey(conv.cfg.SandboxRoot), sessionTitleFrom(userMsg.Text), now, now,
-		conv.desk.DeskName(), conv.chair, conv.space, conv.stance.String(),
+		conv.desk.DeskName(), conv.chair, conv.space, conv.stance.String(), conv.team,
 		conv.cfg.ModelProvider, conv.cfg.ModelName, conv.cfg.ModelWireFormat,
 		conv.cfg.ThinkLevel, conv.cfg.ApprovalMode)
 	// The question, unless openTurn already wrote it when it was asked —
@@ -502,7 +502,7 @@ func (a *App) startNewSession() {
 	prev := a.cur()
 	conv := newConversation()
 	conv.id = newSessionID()
-	conv.desk, conv.chair = prev.desk, prev.chair
+	conv.desk, conv.chair, conv.team = prev.desk, prev.chair, prev.team
 	a.applyConfig(conv, a.cfg)
 	a.showConversation(conv)
 }
@@ -594,6 +594,29 @@ func (a *App) SessionAgent(id string) string {
 func (a *App) liveChair(id string) string {
 	if id != "" && id == a.cur().id {
 		return a.cur().chair
+	}
+	return ""
+}
+
+// SessionTeam reports which team a stored session hires from (§251): "" for
+// ทีมผู้ช่วย — which is also the answer for a session that does not exist,
+// same shape as SessionAgent above.
+func (a *App) SessionTeam(id string) string {
+	db, err := a.database()
+	if err != nil {
+		return a.liveTeam(id)
+	}
+	var team string
+	if db.QueryRow(`SELECT team FROM sessions WHERE id = ?`, id).Scan(&team) != nil {
+		return a.liveTeam(id)
+	}
+	return team
+}
+
+// liveTeam is liveChair's other half, for the same reason.
+func (a *App) liveTeam(id string) string {
+	if id != "" && id == a.cur().id {
+		return a.cur().team
 	}
 	return ""
 }
@@ -1025,12 +1048,12 @@ func (a *App) LoadSession(id string) ([]SessionMessage, error) {
 		// app's default, and one that recorded its own dials gets them back.
 		conv.cfg = a.cfg
 	}
-	var desk, chair, space, key, stance string
+	var desk, chair, space, key, stance, team string
 	var provider, modelName, wireFormat, thinkLevel, approval string
-	if db.QueryRow(`SELECT mode, agent, space, project_key, stance,
+	if db.QueryRow(`SELECT mode, agent, space, project_key, stance, team,
 	                       provider, model, wire_format, think_level, approval_mode
 	                FROM sessions WHERE id = ?`, id).
-		Scan(&desk, &chair, &space, &key, &stance,
+		Scan(&desk, &chair, &space, &key, &stance, &team,
 			&provider, &modelName, &wireFormat, &thinkLevel, &approval) == nil {
 		// Before setStation, which re-bootstraps when the desk changed: set here
 		// and the engine that comes out of it already knows how this session was
@@ -1040,7 +1063,7 @@ func (a *App) LoadSession(id string) ([]SessionMessage, error) {
 		// build wrote and this one does not implement, and NormalizeStance
 		// answers ลงมือ for it — a reopened conversation must never come back
 		// silently carrying nothing.
-		m, seat, err := resolveStation(desk, chair)
+		m, seat, err := resolveStation(desk, chair, team)
 		if err != nil {
 			return nil, err
 		}
@@ -1055,7 +1078,7 @@ func (a *App) LoadSession(id string) ([]SessionMessage, error) {
 			// NormalizeStance answers ลงมือ for it — a reopened conversation
 			// must never come back silently carrying nothing.
 			conv.stance = mode.NormalizeStance(stance)
-			conv.desk, conv.chair = m, seat
+			conv.desk, conv.chair, conv.team = m, seat, strings.TrimSpace(team)
 			conv.space = a.resolvedSpace(space)
 			// The dials this chat was left on, restored the same way and for
 			// the same reason as the four coordinates above: a conversation's
@@ -1224,30 +1247,89 @@ func (a *App) NewSessionAt(desk string) (string, error) {
 	// conversation before that means the new desk starts on nothing, which is
 	// the entire promise of opening a session at one.
 	a.startNewSession()
-	if err := a.setStation(desk, ""); err != nil {
+	if err := a.setStation(desk, "", teamFor(desk, a.cur().team)); err != nil {
 		return "", err
 	}
 	return a.cur().id, nil
 }
 
 // NewChairSession starts a blank session talking directly to one of the
-// office's agents (§85), and returns its id. The desk is implied: a chair
-// only exists in the office.
+// office's agents (§85), and returns its id. The desk is the office, the team
+// whatever the window is on — the two-argument door below is the general
+// one, kept for the callers that only ever meant the office.
 func (a *App) NewChairSession(chair string) (string, error) {
+	return a.NewChairSessionAt(mode.Office, chair, "")
+}
+
+// NewChairSessionAt opens a direct chat with an agent at a desk (§251): the
+// office for anyone on the roster, the coding desk for an agent a team at
+// that desk names. team is the roster the click came from and may be "" —
+// then the window's own team rides along when it seats the chair, and
+// failing that the first team at the desk that does, so a card on a page
+// that is not organised by team still opens. Outside the office there is no
+// third answer: a chair there IS a team's member, or it is refused.
+func (a *App) NewChairSessionAt(desk, chair, team string) (string, error) {
 	a.startNewSession()
-	if err := a.setStation(mode.Office, chair); err != nil {
+	if strings.TrimSpace(team) == "" {
+		team = seatingTeam(desk, chair, a.cur().team)
+	}
+	if err := a.setStation(desk, chair, team); err != nil {
 		return "", err
 	}
 	return a.cur().id, nil
 }
 
+// seatingTeam is the team a chair chat should carry when the caller named
+// none: the window's own if that triple may exist, else the first team at
+// the desk naming the chair, else the default — which resolveStation then
+// accepts at the office and refuses anywhere else, with the reason.
+func seatingTeam(desk, chair, current string) string {
+	if _, _, err := resolveStation(desk, chair, current); err == nil {
+		return current
+	}
+	for _, t := range subagent.TeamsAt(desk) {
+		if t.Has(chair) {
+			return t.Name
+		}
+	}
+	return subagent.DefaultTeam
+}
+
+// NewTeamSession starts a blank session at a desk on a team — the picker's
+// door (§251). An unknown team, or one whose desk this desk cannot reach, is
+// refused rather than fallen back on: a stale card must not open a session
+// hiring from a roster the user did not choose.
+func (a *App) NewTeamSession(desk, team string) (string, error) {
+	a.startNewSession()
+	if err := a.setStation(desk, "", team); err != nil {
+		return "", err
+	}
+	return a.cur().id, nil
+}
+
+// teamFor answers which team a session opened at desk should carry when the
+// caller did not say: the one the window is on if that desk can reach it,
+// else the default. For the doors that mean "a new chat here" rather than
+// "a chat on that team" — carrying an unreachable team into them would refuse
+// a click that only asked for a blank page.
+func teamFor(desk, current string) string {
+	if current == "" {
+		return ""
+	}
+	if _, _, err := resolveStation(desk, "", current); err != nil {
+		return ""
+	}
+	return current
+}
+
 // setStation points the engine at a desk and, optionally, one of the office's
-// chairs — the single writer of both fields, because they only mean anything
-// as a pair: a chair on any desk but the office is a state the product says
-// cannot exist (§85), and two writers is how it would come to exist anyway.
-// Everything the pair decides — the dispatcher's cut, the system prompt, the
-// memory scope — is built once at bootstrap from these values, so changing
-// either means bootstrapping again; same path a project switch takes.
+// chairs and a team — the single writer of all three, because they only mean
+// anything together: a chair on a desk no team put it at, or a team a desk
+// cannot reach, are states the product says cannot exist (§85, §251), and
+// two writers is how they would come to exist anyway. Everything the triple
+// decides — the dispatcher's cut, the system prompt, the memory scope, the
+// roster — is built once at bootstrap from these values, so changing any of
+// them means bootstrapping again; same path a project switch takes.
 //
 // A no-op when nothing changed, which is the common case: opening one
 // assistant chat after another rebuilds nothing.
@@ -1255,57 +1337,73 @@ func (a *App) NewChairSession(chair string) (string, error) {
 // Refusals are loud and name the file that is missing. Falling back would
 // either widen a session (a stale desk name landing on the full desk) or
 // impersonate someone (a deleted chair answered by the main assistant).
-func (a *App) setStation(desk, chair string) error {
-	desk, chair = strings.TrimSpace(desk), strings.TrimSpace(chair)
-	if desk == a.cur().desk.DeskName() && chair == a.cur().chair {
+func (a *App) setStation(desk, chair, team string) error {
+	desk, chair, team = strings.TrimSpace(desk), strings.TrimSpace(chair), strings.TrimSpace(team)
+	if desk == a.cur().desk.DeskName() && chair == a.cur().chair && team == a.cur().team {
 		return nil
 	}
-	if chair != "" {
-		if desk != mode.Office {
-			return fmt.Errorf("เอเจนนั่งได้เฉพาะในออฟฟิศ — โต๊ะ %q มีเอเจนไม่ได้", desk)
-		}
-		p, ok := subagent.Load(chair)
-		if !ok {
-			return fmt.Errorf("ไม่รู้จักเอเจน %q — ไฟล์โปรไฟล์ของเอเจนนี้อาจถูกลบไปแล้ว", chair)
-		}
-		if p.Desk != mode.Office {
-			return fmt.Errorf("%q ไม่ได้เป็นเอเจนของออฟฟิศ — คุยตรงได้เฉพาะโปรไฟล์ที่ประกาศ desk: specialized", chair)
-		}
+	m, seat, err := resolveStation(desk, chair, team)
+	if err != nil {
+		return err
 	}
-	m, ok := mode.Load(desk)
-	if !ok {
-		return fmt.Errorf("ไม่รู้จักโต๊ะ %q — ไฟล์ของโต๊ะนี้อาจถูกลบไปแล้ว", desk)
-	}
-	a.cur().desk, a.cur().chair = m, chair
+	a.cur().desk, a.cur().chair, a.cur().team = m, seat, team
 	a.applyConfig(a.cur(), a.cfg)
 	rememberDesk(m.DeskName())
 	return nil
 }
 
 // resolveStation is setStation's judgement without its effects: it answers
-// whether this desk and chair are a pair that may exist, and what desk that is.
+// whether this desk, chair and team are a triple that may exist, and what
+// desk that is.
 //
 // Split out because a conversation being BUILT needs the same answer before it
 // has an engine to rebuild — LoadSession opening a stored session at its own
 // desk, where mutating the chat on screen first (which is what setStation does)
 // would move the window to a desk that then turns out to be invalid.
-func resolveStation(desk, chair string) (*mode.Mode, string, error) {
-	desk, chair = strings.TrimSpace(desk), strings.TrimSpace(chair)
-	if chair != "" {
-		if desk != mode.Office {
-			return nil, "", fmt.Errorf("เอเจนนั่งได้เฉพาะในออฟฟิศ — โต๊ะ %q มีเอเจนไม่ได้", desk)
-		}
-		p, ok := subagent.Load(chair)
-		if !ok {
-			return nil, "", fmt.Errorf("ไม่รู้จักเอเจน %q — ไฟล์โปรไฟล์ของเอเจนนี้อาจถูกลบไปแล้ว", chair)
-		}
-		if p.Desk != mode.Office {
-			return nil, "", fmt.Errorf("%q ไม่ได้เป็นเอเจนของออฟฟิศ — คุยตรงได้เฉพาะโปรไฟล์ที่ประกาศ desk: specialized", chair)
-		}
-	}
+//
+// The rules, in the order they are asked:
+//   - a team must exist and be one this desk can reach: its own desk, or a
+//     desk this desk declares in `dispatch:`. "" is the default team and
+//     always fits — an assistant session hires the office, an office session
+//     is the office, and the coding desk simply has no reach on it;
+//   - a chair at the office is any agent on the roster, team or no team, as
+//     it has been since §85;
+//   - a chair anywhere else needs a team at THAT desk naming it — that is the
+//     only thing that puts an agent at the coding desk, and a session whose
+//     team is gone is refused, exactly as one whose profile is gone (§85):
+//     the transcript is intact, but reproducing what that session could do
+//     without the file would mean widening it by guesswork.
+func resolveStation(desk, chair, team string) (*mode.Mode, string, error) {
+	desk, chair, team = strings.TrimSpace(desk), strings.TrimSpace(chair), strings.TrimSpace(team)
 	m, ok := mode.Load(desk)
 	if !ok {
 		return nil, "", fmt.Errorf("ไม่รู้จักโต๊ะ %q — ไฟล์ของโต๊ะนี้อาจถูกลบไปแล้ว", desk)
+	}
+	var roster subagent.Team
+	if team != "" {
+		roster, ok = subagent.LoadTeam(team)
+		if !ok {
+			return nil, "", fmt.Errorf("ไม่รู้จักทีม %q — โฟลเดอร์ของทีมนี้อาจถูกลบไปแล้ว", team)
+		}
+		if roster.Desk != desk && !m.AllowsDispatch(roster.Desk) {
+			return nil, "", fmt.Errorf("ทีม %q ทำงานที่โต๊ะ %s — โต๊ะ %q ส่งงานไปที่นั่นไม่ได้", team, roster.Desk, desk)
+		}
+	}
+	if chair == "" {
+		return m, "", nil
+	}
+	p, ok := subagent.Load(chair)
+	if !ok {
+		return nil, "", fmt.Errorf("ไม่รู้จักเอเจน %q — ไฟล์โปรไฟล์ของเอเจนนี้อาจถูกลบไปแล้ว", chair)
+	}
+	if p.Desk == "" {
+		return nil, "", fmt.Errorf("%q เป็นซับเอเจน — คุยตรงได้เฉพาะเอเจน", chair)
+	}
+	if desk == mode.Office {
+		return m, chair, nil
+	}
+	if team == "" || roster.Desk != desk || !roster.Has(chair) {
+		return nil, "", fmt.Errorf("%q ไม่ได้อยู่ในทีมของโต๊ะ %s — คุยตรงนอกออฟฟิศได้เฉพาะเอเจนที่ทีมของโต๊ะนั้นเรียกชื่อ", chair, desk)
 	}
 	return m, chair, nil
 }

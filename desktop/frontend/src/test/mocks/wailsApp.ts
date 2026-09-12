@@ -365,6 +365,15 @@ export const NewSession = str()
 // render before it renders anything else.
 export const NewSessionAt = str()
 export const NewChairSession = str()
+// Teams (§251): a chair seated by a team, a chat opened on one, the roster
+// the picker draws, and the team page's doors.
+export const NewChairSessionAt = str()
+export const NewTeamSession = str()
+export const SessionTeam = str()
+export const ListTeams = arr()
+export const SaveTeam = noop()
+export const DeleteTeam = noop()
+export const OpenTeamsFolder = noop()
 // โปรเจกต์ (§90): the room's own session door, plus the engine's answer to
 // "which project is the open chat in".
 export const NewSessionInSpace = str()

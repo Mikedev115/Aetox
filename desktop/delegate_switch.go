@@ -20,6 +20,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/connect"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/skill"
@@ -34,6 +35,10 @@ import (
 // while it greyed out every row on the ซับเอเจน page, so somebody looking at
 // their helpers saw a whole page of dead buttons with nothing explaining why.
 type DelegateSettings struct {
+	// Team is whose switches these are: "" for ทีมผู้ช่วย, else a user team's
+	// name (subagent.Team). Echoed so a page holding several blocks cannot
+	// mistake one team's answer for another's.
+	Team string `json:"team"`
 	// Agents is the reach to เอเจน: a colleague who takes a whole job.
 	Agents DelegateReach `json:"agents"`
 	// Helpers is the reach to ซับเอเจน: the assistant's own hands in a second
@@ -123,18 +128,35 @@ func shippedDelegation() (agents bool, workersOff []string) {
 	return true, workersOff
 }
 
-// DelegateSwitches reports both switches and what each is worth.
-func (a *App) DelegateSwitches() DelegateSettings {
+// DelegateSwitches reports both switches and what each is worth, for one
+// team: the default ("") reads the two shipped fields, a user team reads its
+// own entry (config.Config.DelegationFor). The helpers half is the session's,
+// not the team's — hands are not on a roster — and is reported the same
+// whichever team is asked, so the two pages that draw it cannot disagree.
+//
+// The agents rows are the TEAM's members, not every agent on the machine:
+// a switch beside somebody this session could not hire anyway would be a
+// switch that changes nothing.
+func (a *App) DelegateSwitches(team string) DelegateSettings {
 	cfg := a.cur().cfg
+	agentsOn, workersOff := cfg.DelegationFor(team)
 	out := DelegateSettings{
-		Agents:  DelegateReach{Off: !cfg.DelegateAgents},
+		Team:    team,
+		Agents:  DelegateReach{Off: !agentsOn},
 		Helpers: DelegateReach{Off: cfg.DelegateHelpersOff},
 		Tokens:  a.ToolBlockTokens(),
 	}
-	off := lowered(cfg.WorkersOff)
+	off := lowered(workersOff)
+	// Helpers off the whole roster; agents off the team. The default team is
+	// every agent no other team names, so on a machine with no teams this is
+	// the list it has always been.
+	roster, _ := subagent.LoadTeam(team)
 	for _, p := range subagent.List() {
 		if p.Invalid != "" {
 			continue // a profile that will not load is the settings page's own error to show, not a row here
+		}
+		if p.Desk != "" && !roster.Has(p.Name) {
+			continue
 		}
 		row := DelegateWorker{
 			Name:  p.Name,
@@ -152,9 +174,9 @@ func (a *App) DelegateSwitches() DelegateSettings {
 	// it. Both directions from one subtraction: on a kind that is on it reads as
 	// what turning it off gives back, on a kind that is off as what turning it
 	// on will cost.
-	here := a.delegationCost(!cfg.DelegateAgents, cfg.DelegateHelpersOff)
-	out.Agents.Tokens = abs(here - a.delegationCost(cfg.DelegateAgents, cfg.DelegateHelpersOff))
-	out.Helpers.Tokens = abs(here - a.delegationCost(!cfg.DelegateAgents, !cfg.DelegateHelpersOff))
+	here := a.delegationCost(team, !agentsOn, cfg.DelegateHelpersOff)
+	out.Agents.Tokens = abs(here - a.delegationCost(team, agentsOn, cfg.DelegateHelpersOff))
+	out.Helpers.Tokens = abs(here - a.delegationCost(team, !agentsOn, !cfg.DelegateHelpersOff))
 	return out
 }
 
@@ -165,13 +187,18 @@ func (a *App) DelegateSwitches() DelegateSettings {
 // Built fresh rather than read off the registry, because the question is about a
 // state this session is NOT in. Only the roster-shaping options are filled in:
 // nothing here runs, and the definition is all that gets measured.
-func (a *App) delegationCost(noAgents, noHelpers bool) int {
-	tools := subagent.NewTaskTools(subagent.TaskOptions{
+func (a *App) delegationCost(team string, noAgents, noHelpers bool) int {
+	_, workersOff := a.cur().cfg.DelegationFor(team)
+	opts := subagent.TaskOptions{
 		Desk:       a.cur().desk,
-		WorkersOff: a.cur().cfg.WorkersOff,
+		WorkersOff: workersOff,
 		NoAgents:   noAgents,
 		NoHelpers:  noHelpers,
-	})
+	}
+	if roster, ok := subagent.LoadTeam(team); ok {
+		opts.Team = &roster
+	}
+	tools := subagent.NewTaskTools(opts)
 	if len(tools) == 0 {
 		return 0
 	}
@@ -199,43 +226,59 @@ func abs(n int) int {
 // kind is "agents" or "helpers" — the same two words the two settings pages are
 // named for. Anything else is refused rather than guessed at: a typo that fell
 // through to a default would silently flip the switch the caller did not mean.
-func (a *App) SetDelegateOff(kind string, off bool) DelegateSettings {
+//
+// team says whose agents switch this is; "helpers" ignores it, because the
+// session's hands are not a team's to keep. A user team's switch lives in its
+// own entry and never touches DelegateSet — that flag guards the shipped
+// default, and a team the user made has none.
+func (a *App) SetDelegateOff(team, kind string, off bool) DelegateSettings {
+	team = strings.TrimSpace(team)
 	cfg := a.cfg
 	switch strings.ToLower(strings.TrimSpace(kind)) {
 	case "agents":
-		if off == !a.cur().cfg.DelegateAgents {
-			return a.DelegateSwitches() // never re-bootstrap to change nothing
+		agentsOn, _ := a.cur().cfg.DelegationFor(team)
+		if off == !agentsOn {
+			return a.DelegateSwitches(team) // never re-bootstrap to change nothing
 		}
-		cfg.DelegateAgents = !off
+		if team == "" {
+			cfg.DelegateAgents = !off
+			cfg.DelegateSet = true
+		} else {
+			cfg.TeamSwitches = withTeamSwitch(cfg.TeamSwitches, team, func(s *config.TeamSwitch) { s.DelegateOff = off })
+		}
 	case "helpers":
 		if off == a.cur().cfg.DelegateHelpersOff {
-			return a.DelegateSwitches()
+			return a.DelegateSwitches(team)
 		}
 		cfg.DelegateHelpersOff = off
+		cfg.DelegateSet = true
 	default:
-		return a.DelegateSwitches()
+		return a.DelegateSwitches(team)
 	}
 	// Somebody has now answered, so the shipped default stops applying — including
 	// when the answer is the same as the default. Without this the next start would
 	// resolve as "nobody answered" and hand back a state the user had just left.
-	cfg.DelegateSet = true
+	// (DelegateSet, set above on the two shipped fields only.)
 	a.applyConfig(a.cur(), cfg)
-	return a.DelegateSwitches()
+	return a.DelegateSwitches(team)
 }
 
-// SetAgentOff takes one worker out of the assistant's reach, or puts it back.
+// SetAgentOff takes one worker out of the assistant's reach on one team, or
+// puts it back.
 //
 // It does NOT disable the worker: the user still opens a chat with it and still
 // writes @name. Anything the UI says about this has to name whose reach is
 // narrowed, or somebody reads "off" as "gone".
-func (a *App) SetAgentOff(name string, off bool) DelegateSettings {
+func (a *App) SetAgentOff(team, name string, off bool) DelegateSettings {
+	team = strings.TrimSpace(team)
 	name = strings.ToLower(strings.TrimSpace(name))
 	if name == "" {
-		return a.DelegateSwitches()
+		return a.DelegateSwitches(team)
 	}
-	current := lowered(a.cur().cfg.WorkersOff)
+	_, workersOff := a.cur().cfg.DelegationFor(team)
+	current := lowered(workersOff)
 	if slices.Contains(current, name) == off {
-		return a.DelegateSwitches()
+		return a.DelegateSwitches(team)
 	}
 	if off {
 		current = append(current, name)
@@ -243,10 +286,29 @@ func (a *App) SetAgentOff(name string, off bool) DelegateSettings {
 		current = slices.DeleteFunc(current, func(n string) bool { return n == name })
 	}
 	cfg := a.cfg
-	cfg.WorkersOff = current
-	cfg.DelegateSet = true
+	if team == "" {
+		cfg.WorkersOff = current
+		cfg.DelegateSet = true
+	} else {
+		cfg.TeamSwitches = withTeamSwitch(cfg.TeamSwitches, team, func(s *config.TeamSwitch) { s.AgentsOff = current })
+	}
 	a.applyConfig(a.cur(), cfg)
-	return a.DelegateSwitches()
+	return a.DelegateSwitches(team)
+}
+
+// withTeamSwitch returns a copy of the map with one team's entry changed.
+// A copy, because cfg is a value copied off the App and the map inside it is
+// not — writing through it would change the running config before applyConfig
+// had decided to.
+func withTeamSwitch(in map[string]config.TeamSwitch, team string, change func(*config.TeamSwitch)) map[string]config.TeamSwitch {
+	out := make(map[string]config.TeamSwitch, len(in)+1)
+	for k, v := range in {
+		out[k] = v
+	}
+	s := out[team]
+	change(&s)
+	out[team] = s
+	return out
 }
 
 // ToolBlockTokens is roughly what this session's tool block costs per request.

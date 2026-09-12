@@ -2257,8 +2257,8 @@ func (a *App) openAtRememberedDesk() {
 	if pref, ok, err := config.LoadModelPreference(); err == nil && ok && pref.LastDesk != "" {
 		desk = pref.LastDesk
 	}
-	if err := a.setStation(desk, ""); err != nil && desk != mode.Default {
-		_ = a.setStation(mode.Default, "")
+	if err := a.setStation(desk, "", ""); err != nil && desk != mode.Default {
+		_ = a.setStation(mode.Default, "", "")
 	}
 }
 
@@ -4801,6 +4801,23 @@ func (a *App) chairProfile() *subagent.Profile {
 	return &p
 }
 
+// teamRoster resolves a conversation's team to the roster the engine hires
+// from (§251), read from disk per call for the reason chairProfile is: a team
+// is a file, and a held copy would survive an edit. The default team ("") is
+// computed, not absent, so every desktop session carries one — which is what
+// keeps the picker, the `@` menu and `task` reading the same list.
+//
+// A team that no longer resolves answers the default here; the doors that
+// open team sessions (NewTeamSession, LoadSession) refuse that case loudly
+// first, so this is only ever a race with a folder deleted mid-session.
+func (a *App) teamRoster(conv *conversation) *subagent.Team {
+	roster, ok := subagent.LoadTeam(conv.team)
+	if !ok {
+		roster, _ = subagent.LoadTeam(subagent.DefaultTeam)
+	}
+	return &roster
+}
+
 // workbenchSkills are the tools only the desktop app can offer — they need a
 // window, or a human, to mean anything. Everything else the agent gets comes
 // from skill.NewDefaultRegistry.
@@ -5062,6 +5079,8 @@ func (a *App) applyConfig(conv *conversation, cfg config.Config) {
 		// profile takes effect the next time its chair is sat at, like every
 		// other manifest.
 		Chair: a.chairProfile(),
+		// The roster this session hires from, and the desk it works at (§251).
+		Team: a.teamRoster(conv),
 		// The footer's name, so the model can use it (prompt.person). Read
 		// fresh here for the same reason Chair is: a name changed in the
 		// footer takes effect the next time a session is opened or switched,
@@ -5265,6 +5284,9 @@ func resolveConfig(opts config.ConfigOptions) config.Config {
 		cfg.BusyTabDot = pref.BusyTabDot
 		cfg.BusyPageMarksOff = pref.BusyPageMarksOff
 		cfg.WorkersOff = pref.WorkersOff
+		// A user team's reach rides through untouched: it has no shipped
+		// default and no DelegateSet, so what the file says is the answer.
+		cfg.TeamSwitches = pref.TeamSwitches
 		cfg.DelegateSet = pref.DelegateSet
 		// After pref.ModelBaseURL above, not before: the per-provider entry is
 		// the one the user set for *this* provider, the legacy slot is whatever
@@ -5379,6 +5401,13 @@ func persistModelPreference(cfg config.Config) {
 		//
 		// Only ever set, never cleared: no later save of an unrelated setting may take
 		// an answer back.
+		// A user team's switches are written whenever either side holds any:
+		// there is no shipped default to keep out of the file (the reason the
+		// guard below exists), and an entry only appears once somebody flipped
+		// one.
+		if len(cfg.TeamSwitches) > 0 || len(pref.TeamSwitches) > 0 {
+			pref.TeamSwitches = cfg.TeamSwitches
+		}
 		if cfg.DelegateSet || pref.DelegateSet {
 			pref.DelegateAgents = cfg.DelegateAgents
 			pref.DelegateHelpersOff = cfg.DelegateHelpersOff

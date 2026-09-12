@@ -161,6 +161,37 @@ type Config struct {
 	// WorkersOff is the answer "everybody is in reach". EnabledProviders solves the
 	// same problem with an empty list because empty is not a real answer there.
 	DelegateSet bool
+	// TeamSwitches are the two switches above, once more per team the user
+	// made (subagent.Team) — keyed by team name, and never holding the default
+	// team, whose switches ARE DelegateAgents and WorkersOff. Per team because
+	// the owner refused one setting across all of them (12 ก.ย.: "จะไม่เหมา
+	// รวมกันนะ"): an agent on two teams may be in reach on one and switched
+	// off on the other, and a team the user built to hand work to should not
+	// inherit the shipped caution that keeps the default team's reach small.
+	//
+	// Spelled the opposite way from DelegateAgents, on purpose: a team the user
+	// made starts with delegation ON (that is what making one is for), so its
+	// zero value is "on" and the field records the exception.
+	TeamSwitches map[string]TeamSwitch
+}
+
+// TeamSwitch is one user team's reach: whether its session may hand a whole
+// job to a member at all, and which members are kept out of reach.
+type TeamSwitch struct {
+	DelegateOff bool     `json:"delegate_off,omitempty"`
+	AgentsOff   []string `json:"agents_off,omitempty"`
+}
+
+// DelegationFor answers the two reach questions for one team: may the
+// session hand whole jobs to agents, and which members are switched off.
+// The default team ("") reads the two shipped fields; any other team reads
+// its own entry, and one with no entry yet is on with nobody off.
+func (c Config) DelegationFor(team string) (agents bool, off []string) {
+	if team == "" {
+		return c.DelegateAgents, c.WorkersOff
+	}
+	s := c.TeamSwitches[team]
+	return !s.DelegateOff, s.AgentsOff
 }
 
 type ConfigOptions struct {
@@ -349,6 +380,11 @@ type ModelPreference struct {
 	// blank. Written the first time somebody flips one of these switches; a file
 	// from before it existed is read for the same fact in sanitizePreference.
 	DelegateSet bool `json:"delegate_set,omitempty"`
+	// TeamSwitches is Config.TeamSwitches on disk: the reach of each team the
+	// user made, by name. No DelegateSet twin — a user team has no shipped
+	// default to fall back on, so an absent entry simply means nothing was
+	// ever switched, which is the same thing as "on, nobody off".
+	TeamSwitches map[string]TeamSwitch `json:"teams,omitempty"`
 	// EnabledProviders is the set of providers shown in the Settings sidebar
 	// and the chat composer's picker. Empty means "never customized" — callers
 	// resolve that case via ResolvedEnabledProviders rather than persisting a

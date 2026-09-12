@@ -3973,6 +3973,15 @@ button.phase-head:hover { color:var(--text-muted); }
 .agent-row.on > .focus-item { color:var(--accent); }
 .agent-row > .focus-item .ic { width:16px; }
 .agent-row > .mswitch { margin:0 9px 0 6px; }
+/* The picker's team rows (§251). A team is a fold: the name switches, the
+   caret at the end unfolds, and the members hang under it one step in so the
+   list reads as teams with people rather than as one flat roster again. */
+.agent-row.team-row > .focus-item .t { font-weight:600; }
+.agent-row .team-n { margin-left:auto; padding-left:8px; font-size:11px; color:var(--text-dim); font-variant-numeric:tabular-nums; }
+.agent-row .team-fold { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; margin-right:4px; border:0; border-radius:var(--r-sm); background:none; color:var(--text-dim); cursor:pointer; }
+.agent-row .team-fold:hover { background:var(--surface-hover); color:var(--text-primary); }
+.agent-row.member { margin-left:14px; }
+.agent-row.member + .folder-note, .focus-menu .team-row ~ .delegate-row { margin-left:14px; }
 
 /* The right end of a menu row: the state or the address, pushed to the edge so
    the row reads as a list entry rather than as a label floating in a box. The
@@ -6540,6 +6549,37 @@ button.phase-head:hover { color:var(--text-muted); }
 .ag-band .n { font-size:var(--fs-2xs); color:var(--text-dim); font-variant-numeric:tabular-nums; }
 .ag-band .rule { flex:1; height:1px; background:var(--border-subtle); }
 .ag-band .say { font-size:var(--fs-2xs); color:var(--text-dim); }
+
+/* One section per team on the office page (§251). The head is a row: mark,
+   name, desk chip, count, the team's sentence, then the reach and its switch
+   pushed to the edge — the same ag-reach/mswitch pair the section head wore
+   when there was one roster, now once per roster. */
+.team-sec { margin:6px 0 18px; }
+.team-sec.invalid .office-grid { opacity:.55; }
+.team-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; min-height:30px; }
+.team-head .team-ic { display:inline-flex; color:var(--accent); }
+.team-head .team-title { display:flex; align-items:center; gap:8px; min-width:0; }
+.team-head .team-name { font-size:var(--fs-sm); font-weight:600; color:var(--text-primary); white-space:nowrap; }
+.team-head .team-count { font-size:var(--fs-2xs); color:var(--text-dim); font-variant-numeric:tabular-nums; }
+.team-head .team-desc { font-size:var(--fs-2xs); color:var(--text-muted); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.team-head .rule { flex:1; height:1px; background:var(--border-subtle); min-width:12px; }
+.team-note { margin:-4px 0 10px; font-size:var(--fs-2xs); color:var(--text-dim); line-height:1.5; }
+.team-note.bad { color:var(--status-danger); }
+
+/* The editor: a card of fields, the roster as tickable faces. */
+.team-editor { margin-bottom:16px; }
+.team-form { display:flex; flex-direction:column; gap:14px; padding:14px 16px; }
+.team-field { display:flex; flex-direction:column; gap:6px; }
+.team-field .eyebrow { margin:0; }
+.team-field .d.muted { font-size:var(--fs-2xs); color:var(--text-dim); }
+.team-desks { display:flex; gap:6px; }
+.team-pick { display:flex; flex-wrap:wrap; gap:6px; }
+.team-tick { display:inline-flex; align-items:center; gap:6px; padding:4px 10px 4px 6px; border:1px solid var(--border-subtle); border-radius:999px; cursor:pointer; color:var(--text-muted); background:var(--surface-panel); }
+.team-tick:hover { color:var(--text-primary); background:var(--surface-hover); }
+.team-tick.on { border-color:var(--accent); color:var(--text-primary); }
+.team-tick input { position:absolute; opacity:0; width:0; height:0; }
+.team-tick .t { font-size:var(--fs-xs); }
+.team-actions { display:flex; justify-content:flex-end; gap:8px; }
 
 /* The one sentence this page exists to change, written as a sentence. It sat
    as a bare switch over the list before, which left the reader to work out

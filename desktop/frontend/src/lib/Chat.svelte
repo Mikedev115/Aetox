@@ -22,11 +22,11 @@
   import { lookOf } from './mascot/agentLook'
   import type { FaceState } from './mascot/presence'
   import { voice } from './mascot/voice.svelte'
-  import { shell } from './shell.svelte'
+  import { shell, setShell } from './shell.svelte'
   import {
     EnabledProviders, SupportedThinkLevels,
     ListModelsForProvider, PriceModels, ModelPriceSource, RequiresAPIKey, AcceptsAPIKey, HasAPIKey, PickAttachments,
-    GetContextBreakdown, GuideTopics, RunChatCommand, RunChatScript, ListChairs, ChairStarters, CurrentSessionID,
+    GetContextBreakdown, GuideTopics, RunChatCommand, RunChatScript, ListChairs, ListTeams, ChairStarters, CurrentSessionID,
     AgentBlocked,
     DelegateSwitches, SetDelegateOff, SetAgentOff,
     Shells, CurrentShell, SetShell, EnginesFor, UseEngine, VerifyConnection,
@@ -55,7 +55,7 @@
     startTaskChip, dismissTaskChip,
     stopBackgroundTask, stopBackgroundRun, stopQueuedTasks,
     retryFailedTurn, editFailedTurn, regenerateReply, switchVariant, resendEdited, rateReply,
-    setActiveView, newChairSession, newSessionAt, openSettingsAt, setStance,
+    setActiveView, newChairSession, newTeamSession, newSessionAt, openSettingsAt, setStance,
     sendUserMessage, liveThinkSecs,
     preparedText, nextPrepared, clearPrepared, startPlanRun, stopPlanRun, pausePlanRun, resumePlanRun } from './stores/cockpit.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
@@ -1050,24 +1050,53 @@
 
   async function toggleAgentMenu() {
     agentMenuOpen = !agentMenuOpen
-    if (agentMenuOpen) {
-      try {
-        officeChairs = await ListChairs()
-      } catch {
-        officeChairs = []
-      }
-      try {
-        const veils = await Promise.all(officeChairs.map((c) => AgentBlocked(c.name)))
-        chairBlocked = Object.fromEntries(officeChairs.map((c, i) => [c.name, veils[i] ?? false]))
-      } catch {
-        chairBlocked = {}
-      }
-      try {
-        delegate = await DelegateSwitches()
-      } catch {
-        delegate = null
-      }
+    if (agentMenuOpen) await loadPicker()
+  }
+  // The picker is a list of TEAMS (§251), not of every agent on the machine:
+  // the session hires from one roster, and that is the one whose members it
+  // can walk in and talk to. Which teams are offered is the desk's question —
+  // the office's teams behind the storefront, the coding desk's in the
+  // workshop — asked of the engine, never derived here.
+  //
+  // `officeChairs` is the CURRENT team's members, kept under its old name
+  // because the `@` menu and the mention roster read it: the same list the
+  // engine offers `task`, so `@` cannot name somebody the desk would refuse.
+  let pickerTeams = $state<main.TeamCard[]>([])
+  const pickerDesk = $derived(cockpit.desk === 'coding' ? 'coding' : 'specialized')
+  // Which team's members are unfolded in the menu. Opens on the session's own;
+  // clicking another unfolds it without switching, and the switch is the row
+  // inside it — unfolding is looking, choosing is a click that opens a chat.
+  let teamOpen = $state('')
+  async function loadPicker() {
+    try {
+      pickerTeams = await ListTeams(pickerDesk)
+    } catch {
+      pickerTeams = []
     }
+    teamOpen = cockpit.team
+    const current = pickerTeams.find((x) => x.name === cockpit.team)
+    officeChairs = current ? current.members : []
+    try {
+      const veils = await Promise.all(officeChairs.map((c) => AgentBlocked(c.name)))
+      chairBlocked = Object.fromEntries(officeChairs.map((c, i) => [c.name, veils[i] ?? false]))
+    } catch {
+      chairBlocked = {}
+    }
+    try {
+      delegate = await DelegateSwitches(cockpit.team)
+    } catch {
+      delegate = null
+    }
+  }
+  // The label a team wears: its folder name, or the window's word for the
+  // one team that has no folder.
+  const teamLabel = (tm: main.TeamCard) => (tm.default ? t('chat.defaultTeam') : tm.name)
+  // Walking onto another team is a new chat, like walking to another chair:
+  // a session hires from one roster for its whole life (setStation).
+  async function pickTeam(tm: main.TeamCard) {
+    agentMenuOpen = false
+    if (tm.name === cockpit.team && !cockpit.chair) return
+    await newTeamSession(pickerDesk, tm.name)
   }
   // Flipping it re-bootstraps the engine, so the menu stays open and the row
   // stays disabled until the answer comes back — a switch that looks instant
@@ -1094,7 +1123,7 @@
     if (!delegate || delegateBusy) return
     delegateBusy = true
     try {
-      delegate = await SetDelegateOff(kind, delegate[kind].off === false)
+      delegate = await SetDelegateOff(cockpit.team, kind, delegate[kind].off === false)
     } finally {
       delegateBusy = false
     }
@@ -1130,7 +1159,7 @@
     if (reachBusy || delegateBusy) return
     reachBusy = name
     try {
-      delegate = await SetAgentOff(name, on)
+      delegate = await SetAgentOff(cockpit.team, name, on)
     } finally {
       reachBusy = ''
     }
@@ -5196,144 +5225,132 @@
         </button>
       </div>
       {/if}
-      <!-- Who this chat is with, and the way to a different who (§85). Same
-           shape as the focus chip beside it: both answer "what am I pointed
-           at right now". Picking someone always opens a NEW session — a desk
-           or a chair is fixed for a session's life, so the switcher is a door
-           to a fresh one, never a dial on this one.
+      <!-- Who this chat is with, and the way to a different who (§85, §251).
+           Same shape as the focus chip beside it: both answer "what am I
+           pointed at right now". Picking someone always opens a NEW session —
+           a desk, a chair or a team is fixed for a session's life, so the
+           switcher is a door to a fresh one, never a dial on this one.
 
-           Not on the coding desk: the star gives โค้ด no path to the office,
-           and a desk that can hand work to no one must not wear a button that
-           offers to. The code desk talks to exactly one agent, so there is
-           nothing to switch. -->
-      {#if cockpit.desk !== 'coding'}
+           A list of TEAMS since 12 ก.ย. (owner: "จะไม่เอาแสดงเอเจนทั้งหมดอีก
+           แล้ว เราจะแสดงให้เลือกทีม"). The session's own team is unfolded with
+           its members and its switches; another team is one row, and clicking
+           it is walking onto that roster. On the coding desk the same menu
+           offers the coding desk's teams — which is how an agent the user
+           wrote reaches the workshop (§94.3) — and, while there are none, says
+           where to make one instead of hiding. -->
       <div class="focus-pick">
         {#if agentMenuOpen}
           <div class="focus-menu">
             <button type="button" class="focus-item" class:on={!cockpit.chair}
-              onclick={() => { agentMenuOpen = false; if (cockpit.chair) newSessionAt('assistant') }}>
+              onclick={() => { agentMenuOpen = false; if (cockpit.chair) newTeamSession(pickerDesk, cockpit.team) }}>
               <span class="ic"><Icon name="sparkles" size={14} /></span> {t('chat.mainAgent')}
             </button>
-            {#if officeChairs.length > 0}<div class="menu-sep"></div>{/if}
-            {#each officeChairs as c (c.name)}
-              {@const reach = agentReach(c.name)}
-              {@const locked = chairLocked(c.name)}
-              <!-- `on` sits on the ROW, not on the button inside it: the row is what
-                   lights up, so it is also what has to know it is the current one, and
-                   the same fact written in two places is the one that drifts. -->
-              <div class="agent-row" class:on={cockpit.chair === c.name}>
-                <!-- A locked teammate opens the roster instead of a session
-                     they cannot use. Not disabled: a dead row says "no" and
-                     nothing else, where the card over there says which tool is
-                     missing and offers to fetch it. -->
-                <button type="button" class="focus-item" class:locked
-                  title={locked ? t('lock.body') : c.description}
-                  onclick={() => {
-                    agentMenuOpen = false
-                    if (locked) { setActiveView('office'); return }
-                    if (cockpit.chair !== c.name) newChairSession(c.name)
-                  }}>
-                  <!-- The same face the roster draws, not a glyph: this list and
-                       the office page are the same people, and one agent drawn
-                       two ways on two surfaces is two people to whoever is
-                       reading. Small enough that the drawing is its `lite` self
-                       (rig.ts, DETAIL_MIN_PX) — at this size the name is doing
-                       the work and the badge on the ear is what still reads. -->
-                  <AgentMascot name={c.name} {...lookOf(c)} size={20} /><span class="t">{c.name}</span>
-                  {#if locked}<span class="focus-locked"><Icon name="wrench" size={12} /></span>{/if}
+            {#if pickerTeams.length > 0}<div class="menu-sep"></div>{/if}
+            {#each pickerTeams as tm (tm.name)}
+              {@const here = tm.name === cockpit.team}
+              {@const open = tm.name === teamOpen}
+              <!-- The team row. `on` when the session hires from it; the caret
+                   unfolds without switching, the name switches. Two hit targets
+                   on one row, the same split the agent rows below draw. -->
+              <div class="agent-row team-row" class:on={here}>
+                <button type="button" class="focus-item" title={tm.description}
+                  onclick={() => pickTeam(tm)}>
+                  <span class="ic"><Icon name="users" size={14} /></span>
+                  <span class="t">{teamLabel(tm)}</span>
+                  <span class="team-n">{tm.members.length}</span>
                 </button>
-                <!-- The same pill the settings rows wear, and the same two
-                     strings, because it is the same fact: whether the assistant
-                     may hand THIS one a job. A second wording here would be a
-                     second answer to one question. -->
-                {#if reach}
-                  <label class="mswitch" title={t('settings.agentReachTip')}>
-                    <input
-                      type="checkbox" checked={reach.on && !reach.off}
-                      disabled={reach.off || reachBusy !== '' || delegateBusy}
-                      aria-label={t('settings.agentReach')}
-                      onchange={() => toggleAgentReach(c.name, reach.on)}
-                    />
-                    <span></span>
-                  </label>
-                {/if}
+                <button type="button" class="team-fold" aria-label={t('chat.teamMembers')}
+                  onclick={() => (teamOpen = open ? '' : tm.name)}>
+                  <Icon name={open ? 'chevronUp' : 'chevronDown'} size={12} />
+                </button>
               </div>
+              {#if open}
+                {#each tm.members as c (c.name)}
+                  {@const reach = here ? agentReach(c.name) : null}
+                  {@const locked = here && chairLocked(c.name)}
+                  <!-- `on` sits on the ROW, not on the button inside it: the row is what
+                       lights up, so it is also what has to know it is the current one, and
+                       the same fact written in two places is the one that drifts. -->
+                  <div class="agent-row member" class:on={here && cockpit.chair === c.name}>
+                    <!-- A locked teammate opens the roster instead of a session
+                         they cannot use. Not disabled: a dead row says "no" and
+                         nothing else, where the card over there says which tool is
+                         missing and offers to fetch it. -->
+                    <button type="button" class="focus-item" class:locked
+                      title={locked ? t('lock.body') : c.description}
+                      onclick={() => {
+                        agentMenuOpen = false
+                        if (locked) { setActiveView('office'); return }
+                        if (!here || cockpit.chair !== c.name) newChairSession(c.name, pickerDesk, tm.name)
+                      }}>
+                      <!-- The same face the roster draws, not a glyph: this list and
+                           the office page are the same people, and one agent drawn
+                           two ways on two surfaces is two people to whoever is
+                           reading. -->
+                      <AgentMascot name={c.name} {...lookOf(c)} size={20} /><span class="t">{c.name}</span>
+                      {#if locked}<span class="focus-locked"><Icon name="wrench" size={12} /></span>{/if}
+                    </button>
+                    <!-- The same pill the settings rows wear, and the same two
+                         strings, because it is the same fact: whether the assistant
+                         may hand THIS one a job on THIS team. Only on the session's
+                         own team — another team's switches are that team's, and a
+                         pill here would be flipping a roster this chat does not use. -->
+                    {#if reach}
+                      <label class="mswitch" title={t('settings.agentReachTip')}>
+                        <input
+                          type="checkbox" checked={reach.on && !reach.off}
+                          disabled={reach.off || reachBusy !== '' || delegateBusy}
+                          aria-label={t('settings.agentReach')}
+                          onchange={() => toggleAgentReach(c.name, reach.on)}
+                        />
+                        <span></span>
+                      </label>
+                    {/if}
+                  </div>
+                {/each}
+                {#if tm.members.length === 0}
+                  <div class="folder-note">{t('chat.teamEmpty')}</div>
+                {/if}
+                <!-- The master switch on THIS team's reach, inside the fold of the
+                     session's own team: delegation is a fact about a roster now
+                     (config.TeamSwitches), and a switch drawn outside every fold
+                     would have to guess which roster it meant.
+
+                     It says what it costs, because that is what the switch is
+                     for — measured rather than remembered (App.DelegateSwitches). -->
+                {#if here && delegate}
+                  {#each delegateRows as row (row.kind)}
+                    <button type="button" class="focus-item delegate-row" class:on={!row.reach.off}
+                      role="switch" aria-checked={!row.reach.off} disabled={delegateBusy}
+                      onclick={() => toggleDelegate(row.kind)}>
+                      <span class="ic"><Icon name={row.icon} size={14} /></span>
+                      <span class="t">{t(row.label)}</span>
+                      <span class="mswitch-face"></span>
+                    </button>
+                    <div class="folder-note">
+                      {t(row.reach.off ? row.off : row.on, { n: row.reach.tokens.toLocaleString() })}
+                    </div>
+                  {/each}
+                {/if}
+              {/if}
             {/each}
-            <!-- The master switch on the assistant's reach, and it sits HERE
-                 rather than in settings for one reason: delegation ships off,
-                 so a switch nobody walks past is a capability nobody has. This
-                 menu is the one place people already come to think about who
-                 does the work.
-
-                 It says what it costs, because that is what the switch is
-                 for — 730 tokens of every message, measured rather than
-                 remembered (App.DelegateSwitches). A switch whose effect is
-                 invisible is a switch nobody trusts.
-
-                 Not a row in the list above. Clicking a name means "go talk to
-                 this one" and clicking this means "let somebody else be asked",
-                 and one list where a click means two things is a list people
-                 mis-click. -->
-            {#if delegate}
-              <div class="menu-sep"></div>
-              <!-- One row, and it is the เอเจน one. The switch that stood here
-                   until 2026-08-20 governed both kinds, so somebody who wanted a
-                   colleague kept out of their work lost the assistant's own
-                   hands in the same click, with nothing on screen saying so.
-                   Splitting them fixed that; keeping both rows here would have
-                   put a control for something that is on by default into the
-                   menu people open to pick who answers (see delegateRows).
-
-                   role="switch", not a pressed button. It is an on/off state
-                   read at a glance, and the owner asked for it to look like one
-                   (19 ส.ค.: "ทำเป็นสวิชปิดเปิดดีกว่าดูง่ายกว่า") — a row that
-                   only changed colour made you read the note underneath to find
-                   out which way it was set.
-
-                   userRound, because เอเจน already own that glyph and nothing
-                   here gets to invent another: the settings sidebar files เอเจน
-                   under userRound and ซับเอเจน under bot (Settings.svelte, where
-                   the identity page carries a comment about not taking userRound
-                   because "the เอเจน page below owns that"), and the timeline
-                   toggles below count the two piles with the same two. A switch
-                   drawn with a glyph of its own would be a third vocabulary for
-                   a distinction the app has already made twice.
-
-                   The single switch that stood here wore `gitBranch`, argued for
-                   as "the work goes down another path" and chosen partly to
-                   avoid a person glyph reading as one more chair in the list
-                   above. Both reasons expired: gitBranch is the ENGINE glyph
-                   everywhere else on this strip (the engine chip, the session
-                   strip, a connected runtime), so on a delegation row it was
-                   saying the wrong word in the app's own vocabulary; and the
-                   chair-row worry is answered by the switch face rather than by
-                   the icon, since these rows carry a 34px pill on the right
-                   (style.css .mswitch-face) and a chair row carries nothing. -->
-              {#each delegateRows as row (row.kind)}
-                <button type="button" class="focus-item delegate-row" class:on={!row.reach.off}
-                  role="switch" aria-checked={!row.reach.off} disabled={delegateBusy}
-                  onclick={() => toggleDelegate(row.kind)}>
-                  <span class="ic"><Icon name={row.icon} size={14} /></span>
-                  <span class="t">{t(row.label)}</span>
-                  <!-- The same switch the settings rows wear (style.css .mswitch),
-                       worn directly because this row is already the control. -->
-                  <span class="mswitch-face"></span>
-                </button>
-                <div class="folder-note">
-                  {t(row.reach.off ? row.off : row.on, { n: row.reach.tokens.toLocaleString() })}
-                </div>
-              {/each}
+            {#if pickerTeams.length === 0}
+              <!-- The coding desk before anybody has made a team for it. -->
+              <div class="folder-note">{t('chat.noTeamsHere')}</div>
             {/if}
+            <div class="menu-sep"></div>
+            <button type="button" class="focus-item" onclick={() => { agentMenuOpen = false; setShell('assistant'); setActiveView('office') }}>
+              <span class="ic"><Icon name="settings" size={14} /></span> {t('chat.manageTeams')}
+            </button>
             <div class="folder-note">{t('chat.agentSwitchNote')}</div>
           </div>
         {/if}
         <button type="button" class="focus-chip focus-btn" onclick={toggleAgentMenu}>
-          <span class="ic"><Icon name={cockpit.chair ? 'bot' : 'sparkles'} size={13} /></span>
-          <span class="t">{cockpit.chair || t('chat.mainAgent')}</span>
+          <span class="ic"><Icon name={cockpit.chair ? 'bot' : cockpit.team ? 'users' : 'sparkles'} size={13} /></span>
+          <span class="t">{cockpit.chair || cockpit.team || t('chat.mainAgent')}</span>
           <span class="caret"><Icon name={agentMenuOpen ? 'chevronUp' : 'chevronDown'} size={12} /></span>
         </button>
       </div>
-      {/if}
       <!-- The branch, and the way to another one. A `<span>` until now: it drew
            the answer to "where am I" and had no answer to "take me somewhere
            else", which is the question anybody who reads a branch name next
