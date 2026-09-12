@@ -44,6 +44,14 @@ node_modules/
 aetox_memory.db
 config/preferences.json
 
+# What the chat saves when the user attaches a file: one folder per session
+# under the project root, written by the app and swept by it (sessions.go
+# sweepAttachments). The app's, not the project's — and until 2026-09-12 it
+# was ignored only by desktop/.gitignore, which reaches nothing up here, so
+# thirteen screenshots rode into commits. Anchored: the folder is only ever at
+# the root the project was opened at.
+/.aetox-attachments/
+
 # Temporary / Output Files
 /output/
 summary.txt

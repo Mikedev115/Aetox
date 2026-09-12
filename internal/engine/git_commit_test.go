@@ -72,6 +72,22 @@ func TestGitSuggestSplitCommitsEmpty(t *testing.T) {
 	}
 }
 
+// The chat's own attachments are the app's files under the project root, and
+// thirteen of them rode into commits before this rule. Never proposed.
+func TestIsDangerousPathHoldsOutTheAppsAttachments(t *testing.T) {
+	for p, want := range map[string]bool{
+		".aetox-attachments/20260912-041113.536/1789163035789-1.png": true,
+		"sub/.aetox-attachments/x.png":                               true,
+		"docs/attachments/x.png":                                     false,
+		"kept.txt":                                                   false,
+		".env":                                                       true,
+	} {
+		if got := isDangerousPath(p); got != want {
+			t.Errorf("isDangerousPath(%q) = %v, want %v", p, got, want)
+		}
+	}
+}
+
 func TestFallbackSplitGroups(t *testing.T) {
 	tree := []GitFileChange{
 		{Path: "desktop/git_commit.go", Status: "M"},

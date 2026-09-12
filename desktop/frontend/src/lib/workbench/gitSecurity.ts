@@ -3,12 +3,26 @@
 export interface DangerousFileAssessment {
   path: string
   reason: string
-  category: 'secret' | 'key' | 'credentials' | 'database' | 'binary'
+  // 'app': not dangerous, but not the project's either — what the chat saved
+  // when the user attached a file. Never ticked, never proposed, drawn with
+  // its own quiet badge rather than the warning one.
+  category: 'secret' | 'key' | 'credentials' | 'database' | 'binary' | 'app'
 }
+
+/** The folder the chat writes attachments into, under the project root
+ * (desktop/app.go attachmentsDir). */
+export const APP_ATTACHMENTS_DIR = '.aetox-attachments'
 
 export function assessDangerousFile(path: string): DangerousFileAssessment | null {
   const filename = path.split(/[/\\]/).pop()?.toLowerCase() ?? ''
   const lower = path.toLowerCase()
+
+  // 0. The app's own attachments — a screenshot pasted into the chat lands
+  //    here, and thirteen of them rode into commits before this rule (owner,
+  //    12 ก.ย.: "พวกนี้คืออะไร").
+  if (path.split(/[/\\]/).includes(APP_ATTACHMENTS_DIR)) {
+    return { path, reason: 'Aetox chat attachment (the app\'s, not the project\'s)', category: 'app' }
+  }
 
   // 1. Environment & Secret files
   if (

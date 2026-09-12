@@ -161,6 +161,14 @@ func isDangerousPath(path string) bool {
 	parts := strings.Split(p, "/")
 	filename := parts[len(parts)-1]
 
+	// 0. The app's own attachments (attachmentsDir): what the chat saved when
+	// the user pasted a screenshot. Not the project's, never proposed.
+	for _, seg := range parts {
+		if seg == attachmentsDir {
+			return true
+		}
+	}
+
 	// 1. Environment & Secrets (.env)
 	if filename == ".env" || (strings.HasPrefix(filename, ".env.") &&
 		!strings.HasSuffix(filename, ".example") &&
