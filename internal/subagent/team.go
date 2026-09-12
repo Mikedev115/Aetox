@@ -66,10 +66,18 @@ const TeamDefinitionFile = "TEAM.md"
 // the seeded team on first reopen (desktop/sessions.go).
 const NoTeam = ""
 
-// SeedTeamName is the team the app writes on a machine that has none, and
-// seedMembers who is on it: the four shipped agents whose work comes up on
-// any desk (owner, 13 ก.ย.: "เอาแค่ sheet video deepresearch doc ก็พอ").
-const SeedTeamName = "ทีมเอเจน"
+// SeedTeamName is the team the app writes on a machine that has none — the
+// assistant's own helpers on this computer, named so it is not the settings
+// page's name too (owner, 13 ก.ย.: "เปลี่ยนชื่อทีมเป็น ผู้ช่วยในคอมพิวเตอร์
+// ดีกว่า") — and seedMembers who is on it: the four shipped agents whose work
+// comes up on any desk (same day: "เอาแค่ sheet video deepresearch doc ก็พอ").
+const SeedTeamName = "ผู้ช่วยในคอมพิวเตอร์"
+
+// LegacySeedTeamName is what the seed was called for a day. A home that still
+// holds it under that name and nothing under the new one is renamed once
+// (seedTeams); the desktop's session rows and the team's switches follow it
+// (desktop/db.go, desktop/app.go).
+const LegacySeedTeamName = "ทีมเอเจน"
 
 var seedMembers = []string{"deepresearch", "doc", "sheet", "video"}
 
@@ -155,10 +163,10 @@ var (
 	seededRoots map[string]bool
 )
 
-// seedTeams writes ทีมเอเจน when the teams' home does not exist at all. The
+// seedTeams writes the seed when the teams' home does not exist at all. The
 // home's absence is the whole test: a machine that made, renamed or deleted
 // its teams has the folder, and is never seeded again — deleting the seed
-// deletes it.
+// deletes it. A home that exists is only looked at for the seed's old name.
 func seedTeams() {
 	dir, err := TeamsDir()
 	if err != nil {
@@ -174,9 +182,25 @@ func seedTeams() {
 	}
 	seededRoots[dir] = true
 	if _, err := os.Stat(dir); err == nil {
+		renameLegacySeed(dir)
 		return
 	}
 	_ = SaveTeam(SeedTeamName, mode.Office, "ทีมที่แอปตั้งให้ตอนติดตั้ง แก้หรือลบได้", seedMembers)
+}
+
+// renameLegacySeed moves ทีมเอเจน to ผู้ช่วยในคอมพิวเตอร์ on a home that has
+// the old folder and not the new — once, and only the folder: a team is its
+// folder, so the rename is the whole change. A home with both is left alone;
+// the person made a team of the new name themselves.
+func renameLegacySeed(dir string) {
+	old, cur := filepath.Join(dir, LegacySeedTeamName), filepath.Join(dir, SeedTeamName)
+	if _, err := os.Stat(cur); err == nil {
+		return
+	}
+	if _, err := os.Stat(filepath.Join(old, TeamDefinitionFile)); err != nil {
+		return
+	}
+	_ = os.Rename(old, cur)
 }
 
 // TeamsAt reports the healthy teams whose members work at the named desk —

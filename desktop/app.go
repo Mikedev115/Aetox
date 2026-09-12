@@ -5288,6 +5288,14 @@ func resolveConfig(opts config.ConfigOptions) config.Config {
 		// A user team's reach rides through untouched: it has no shipped
 		// default and no DelegateSet, so what the file says is the answer.
 		cfg.TeamSwitches = pref.TeamSwitches
+		// The seed's switches follow its rename (subagent.LegacySeedTeamName),
+		// once, and only if nothing was written under the new name since.
+		if sw, ok := cfg.TeamSwitches[subagent.LegacySeedTeamName]; ok {
+			if _, taken := cfg.TeamSwitches[subagent.SeedTeamName]; !taken {
+				cfg.TeamSwitches[subagent.SeedTeamName] = sw
+			}
+			delete(cfg.TeamSwitches, subagent.LegacySeedTeamName)
+		}
 		cfg.DelegateCodeOff = pref.DelegateCodeOff
 		cfg.DelegateSet = pref.DelegateSet
 		// After pref.ModelBaseURL above, not before: the per-provider entry is

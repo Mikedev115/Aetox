@@ -17,6 +17,7 @@ import {
   ListSpeechEngines, ListTTSEngines, SetSpeechEngine, SetSpeechModelName,
   ListImageEngines, SetImageEngine,
   StudioLibraries, AddStudioLibrary, RemoveStudioLibrary,
+  PickAgentBrief, FetchAgentBrief,
 } from './mocks/wailsApp'
 import { BrowserOpenURL } from './mocks/wailsRuntime'
 import { applyTypeScale, initTypeScale, typeScale, TYPE_SCALES, DEFAULT_TYPE_SCALE } from '../lib/typeScale.svelte'
@@ -2871,5 +2872,67 @@ describe('Settings › ทีมเอเจน', () => {
     await waitFor(() => expect(screen.getByText('ทีมเอเจน', { selector: 'h2' })).toBeTruthy())
     // The door is drawn more than once on purpose (teamSettings.test.ts).
     expect(screen.getAllByText('สร้างทีม').length).toBeGreaterThan(0)
+  })
+})
+
+// The role field's three roads in beside typing (§256.5, owner 13 ก.ย.: "เอา
+// แบบเปิดไฟล์ + วางลิงก์แล้วดึง + เทมเพลต"). What is pinned: each lands text
+// in the field — a template with blanks, a file the engine read, a link the
+// engine fetched — a field with words in it asks before they go, and a fetch
+// that fails says so under the row instead of silently doing nothing.
+describe("the role field's roads in", () => {
+  const newAgent = async () => {
+    cockpit.settingsIntent = { section: 'team', createAgent: true }
+    const r = render(Settings, { onClose: () => {} })
+    await waitFor(() => expect(r.container.querySelector('.ag-fill')).toBeTruthy())
+    return r
+  }
+  const body = (c: HTMLElement) => c.querySelector('.ag-body') as HTMLTextAreaElement
+
+  it('a template fills the empty field with a brief that has blanks to answer', async () => {
+    const { container } = await newAgent()
+    const tpl = container.querySelector('.ag-fill-tpl') as HTMLSelectElement
+    expect(Array.from(tpl.options).map((o) => o.textContent)).toContain('ตอบลูกค้า / ฝ่ายขาย')
+    await fireEvent.change(tpl, { target: { value: 'support' } })
+    await waitFor(() => expect(body(container).value).toContain('# บทบาท'))
+    expect(body(container).value).toContain('[ชื่อร้าน]')
+    expect(tpl.value).toBe('') // a menu, not a value — the same template can be picked again
+  })
+
+  it('a file the engine read lands as the brief; a dismissed picker changes nothing', async () => {
+    vi.mocked(PickAgentBrief).mockResolvedValueOnce('' as any).mockResolvedValueOnce('# บทบาท\nขายของ\n' as any)
+    const { container } = await newAgent()
+    await fireEvent.click(screen.getByText('เปิดไฟล์…'))
+    await waitFor(() => expect(vi.mocked(PickAgentBrief)).toHaveBeenCalledTimes(1))
+    expect(body(container).value).toBe('')
+    await fireEvent.click(screen.getByText('เปิดไฟล์…'))
+    await waitFor(() => expect(body(container).value).toBe('# บทบาท\nขายของ\n'))
+  })
+
+  it('a link is fetched through the engine and lands as the brief; a refusal is shown under the row', async () => {
+    vi.mocked(FetchAgentBrief).mockRejectedValueOnce(new Error('ลิงก์นี้ตอบกลับมาเป็นหน้าเว็บ ไม่ใช่ตัวไฟล์'))
+      .mockResolvedValueOnce('# Role\nsell\n' as any)
+    const { container } = await newAgent()
+    const link = container.querySelector('.ag-fill-link') as HTMLInputElement
+    await fireEvent.input(link, { target: { value: 'https://github.com/mike/agents/blob/main/sales.md' } })
+    await fireEvent.click(screen.getByText('ดึง'))
+    await waitFor(() => expect(vi.mocked(FetchAgentBrief)).toHaveBeenCalledWith('https://github.com/mike/agents/blob/main/sales.md'))
+    await waitFor(() => expect(container.querySelector('.ag-fill ~ .mset-error, .mset-error')?.textContent).toContain('หน้าเว็บ'))
+    expect(body(container).value).toBe('')
+    // Enter in the link box is the same button.
+    await fireEvent.keyDown(link, { key: 'Enter' })
+    await waitFor(() => expect(body(container).value).toBe('# Role\nsell\n'))
+    expect(link.value).toBe('') // consumed — the link is where the words came from, not kept
+    expect(container.querySelector('.mset-error')).toBeNull()
+  })
+
+  it('a field with words in it asks before a template replaces them', async () => {
+    const { container } = await newAgent()
+    await fireEvent.input(body(container), { target: { value: 'ร่างที่พิมพ์เอง' } })
+    await fireEvent.change(container.querySelector('.ag-fill-tpl') as HTMLSelectElement, { target: { value: 'reviewer' } })
+    await waitFor(() => expect(screen.getByText('แทนที่บทบาทเดิม?')).toBeTruthy())
+    expect(body(container).value).toBe('ร่างที่พิมพ์เอง')
+    await fireEvent.click(screen.getByText('แทนที่', { selector: '.confirm-go' }))
+    await waitFor(() => expect(body(container).value).toContain('รายการตรวจ'))
   })
 })

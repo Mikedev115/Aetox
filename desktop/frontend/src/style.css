@@ -9071,6 +9071,11 @@ button.phase-head:hover { color:var(--text-muted); }
   background:linear-gradient(to bottom, transparent, var(--surface-sunken));
 }
 .ag-bodyhead { display:flex; align-items:baseline; gap:10px; }
+/* The role field's roads in (§256.5): one row of house controls under the
+   hint — a file, a template menu, a link and its fetch button. */
+.ag-fill { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:8px; }
+.ag-fill .ag-fill-tpl { max-width:200px; }
+.ag-fill .ag-fill-link { flex:1 1 240px; min-width:0; }
 /* Wears the interactive colour rather than a border: a borderless control in
    neutral ink reads as body text on this palette (see the .ctrl-danger note),
    but one carrying the link colour reads as the link it is. */

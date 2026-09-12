@@ -454,6 +454,10 @@ export function ExportSession(arg1, arg2) {
   return window['go']['main']['App']['ExportSession'](arg1, arg2);
 }
 
+export function FetchAgentBrief(arg1) {
+  return window['go']['main']['App']['FetchAgentBrief'](arg1);
+}
+
 export function FileStillThere(arg1) {
   return window['go']['main']['App']['FileStillThere'](arg1);
 }
@@ -920,6 +924,10 @@ export function PendingSkillTuneCount() {
 
 export function PendingUndo() {
   return window['go']['main']['App']['PendingUndo']();
+}
+
+export function PickAgentBrief() {
+  return window['go']['main']['App']['PickAgentBrief']();
 }
 
 export function PickAttachmentImage() {

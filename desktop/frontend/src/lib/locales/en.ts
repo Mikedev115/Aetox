@@ -1809,6 +1809,17 @@ Check your own work before answering; say so plainly if unsure.
   'settings.agentDescriptionPlaceholder': 'What this sub-agent takes on (shown on the list)',
   'settings.agentBody': 'Role',
   'settings.agentBodyHint': "Its instructions: what kind of task it takes, what its result must look like, what it must never do. It has no chat history, so this is everything it knows.",
+  'settings.agentFillFile': 'Open file…',
+  'settings.agentFillTemplate': 'Template',
+  'settings.agentFillLinkPlaceholder': 'Paste a file link from GitHub / Google Drive / Google Docs',
+  'settings.agentFillFetch': 'Fetch',
+  'settings.agentFillReplaceTitle': 'Replace the current role?',
+  'settings.agentFillReplaceMessage': 'The role field already has text. The new content replaces all of it.',
+  'settings.agentFillReplaceAction': 'Replace',
+  'settings.agentTplSpecialist': 'Domain specialist',
+  'settings.agentTplSupport': 'Customer replies / sales',
+  'settings.agentTplReviewer': 'Reviewer',
+  'settings.agentTplWriter': 'Writer in a voice',
   // The role is shown as a preview until asked for. The count is in the label
   // because "how much is hidden" is what decides whether to open it.
   'settings.agentBodyMore': 'Show all ({n} lines)',
