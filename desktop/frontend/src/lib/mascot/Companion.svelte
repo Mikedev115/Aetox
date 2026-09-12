@@ -11,7 +11,9 @@
   // live state — the on-screen chat's turn — so a tool that runs is a card
   // beside its head and nothing more. What it SAYS is the bubble: the model's
   // own narration between tools, the tail of the answer as it streams, or the
-  // question it is blocked on. Never a command, never a phrase of ours.
+  // question it is blocked on. Never a command, and one phrase of ours only:
+  // the room's own greeting, spoken once as an empty chat comes on screen
+  // (see "what it says"). Everything else in the bubble is the model's.
   //
   // Cost: one SVG drawn once per pose, CSS for everything that moves. Nothing
   // here runs per frame.
@@ -23,6 +25,9 @@
   import { setCompanionOn } from './companionSetting.svelte'
   import { avatarPrefs, assistantOptions } from './avatarPrefs.svelte'
   import { voice } from './voice.svelte'
+  import { profile } from '../stores/profile.svelte'
+  import { startersFor, headlineFor } from '../starters'
+  import { t } from '../i18n.svelte'
 
   const SIZE = 104
   const MARGIN = 8
@@ -39,6 +44,8 @@
   const REACTIONS = ['greeting', 'cheer', 'helping', 'wink'] as const
   /** A wave on arrival — the app opened, or the switch was turned on. */
   const HELLO_MS = 1800
+  /** How long the greeting stays in the bubble when an empty chat arrives. */
+  const GREET_MS = 4000
   /** Left alone this long with nothing to do, it goes to its charger. */
   const DOZE_MS = 5 * 60_000
 
@@ -231,7 +238,7 @@
   $effect(() => {
     const send = feed()
     if (!send) return
-    const s: FeedState = { pose, report, on: true, prefs: { shell: avatarPrefs.shell, accent: avatarPrefs.accent, top: avatarPrefs.top, face: avatarPrefs.face } }
+    const s: FeedState = { pose, report: said, on: true, prefs: { shell: avatarPrefs.shell, accent: avatarPrefs.accent, top: avatarPrefs.top, face: avatarPrefs.face } }
     void send(s).catch(() => {})
   })
   $effect(() => () => {
@@ -301,10 +308,39 @@
     const t = setTimeout(() => (dozing = true), DOZE_MS)
     return () => clearTimeout(t)
   })
+  // ---- the greeting -----------------------------------------------------
+  // The one line of ours it speaks, declared here because the pose below
+  // waves while it is said. When an empty chat comes on
+  // screen — a new chat, a desk switched to, the app opening on one — it says
+  // the question the room prints above the cards, with the user's name where
+  // the desk greets a person (starters.headlineFor), and waves. Not a second
+  // phrase: the same string the room shows, from the same function, so the
+  // two cannot drift. Keyed on the room and the name, so switching between
+  // two empty rooms greets again and a name that loads a beat after launch
+  // corrects the greeting rather than missing it; a chair's opening is the
+  // agent's own and is left to the room. It ends on its own (GREET_MS) and
+  // anything the model says takes the bubble over at once (owner, 12 ก.ย.:
+  // "ทำให้อวตารพูด mike วันนี้มีอะไรให้ช่วยไหม ออกมาด้วย").
+  const emptyRoom = $derived(
+    cockpit.activeView === 'chat' && cockpit.chat.length === 0 && !cockpit.awaitingReply && !cockpit.chair
+      ? `${cockpit.desk}|${cockpit.space}|${cockpit.openSession}|${profile.name}`
+      : '',
+  )
+  let greeting = $state('')
+  $effect(() => {
+    if (!emptyRoom) {
+      greeting = ''
+      return
+    }
+    greeting = headlineFor(startersFor({ desk: cockpit.desk, chair: '', space: cockpit.space }), profile.name, t)
+    const tm = setTimeout(() => (greeting = ''), GREET_MS)
+    return () => clearTimeout(tm)
+  })
+
   const pose = $derived(
     reaction ? reaction
     : dragging && moving ? 'walk'
-    : hello ? 'greeting'
+    : hello || greeting ? 'greeting'
     : !cockpit.awaitingReply && justDone ? (endedBadly ? 'error' : 'success')
     : dozing && !cockpit.awaitingReply ? 'recharge'
     : livePose,
@@ -329,13 +365,15 @@
       question: cockpit.ask?.question,
     }),
   )
+  // The greeting fills the bubble only while the model has nothing to say.
+  const said = $derived(report || greeting)
   // A narration is typed out; the answer's headline is shown as it is, since
   // it is already arriving letter by letter. Whole on any change of source.
   let shown = $state('')
   let typing = $state(false)
   let lastReport = ''
   $effect(() => {
-    const text = report
+    const text = said
     if (text === lastReport) return
     lastReport = text
     if (!text || cockpit.streamingText) {
