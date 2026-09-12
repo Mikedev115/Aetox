@@ -512,6 +512,14 @@ func (r *companionIndex) get(hwnd uintptr) *companionWindow {
 }
 
 func companionWndProc(hwnd, msg, wparam, lparam uintptr) uintptr {
+	// A fault in the body must not take the app with it: this procedure is
+	// the only Go frame under the Windows call, so this is where a panic is
+	// caught, logged, and turned into "this message did nothing".
+	defer func() {
+		if r := recover(); r != nil {
+			debuglog.Msg("companion: recovered in message %#x: %v", msg, r)
+		}
+	}()
 	w := companionWindows.get(hwnd)
 	if w != nil {
 		switch msg {
@@ -742,7 +750,7 @@ func (w *companionWindow) frame() {
 	if w.hidden {
 		return
 	}
-	w.comp.sprites = w.sprites()
+	w.comp.setSprites(w.sprites())
 
 	if w.pressing && w.walk != nil && w.moved {
 		fx, fy, moved := w.walk.tick(now)
