@@ -2867,6 +2867,7 @@ describe('Settings › ทีมเอเจน', () => {
     expect(labels.slice(model, model + 3)).toEqual(['การตั้งค่าโมเดล', 'ซับเอเจน', 'ทีมเอเจน'])
     await openSection(container, 'ทีมเอเจน')
     await waitFor(() => expect(screen.getByText('ทีมเอเจน', { selector: 'h2' })).toBeTruthy())
-    expect(screen.getByText('สร้างทีม')).toBeTruthy()
+    // The door is drawn more than once on purpose (teamSettings.test.ts).
+    expect(screen.getAllByText('สร้างทีม').length).toBeGreaterThan(0)
   })
 })
