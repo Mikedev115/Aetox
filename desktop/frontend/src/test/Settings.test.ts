@@ -1012,9 +1012,11 @@ describe('Settings pages', () => {
 
     // Badges are still read off the profile — the roster informs, it just
     // does not edit. The tool-count badge went away on 31 ส.ค. with the thing
-    // it counted: every worker holds its desk's kit, so the number was the
-    // same word down the column.
-    expect(screen.getByText('built-in:explore')).toBeTruthy()
+    // it counted, and the `built-in:<name>` source on 12 ก.ย. for the same
+    // reason: every card under มากับแอป said it, so it was the same word down
+    // the column. The file's whereabouts stay on the name's hover.
+    expect(screen.queryByText('built-in:explore')).toBeNull()
+    expect(container.querySelector('.agc.helper .chair-name')?.getAttribute('title')).toBe('built-in:explore')
 
     // No doors: nothing to create, configure, or pin. (The description may
     // *mention* creating an agent — it points at the team page — so the check
