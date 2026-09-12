@@ -840,6 +840,28 @@ CREATE TABLE IF NOT EXISTS project_folders (
 			return err
 		},
 	},
+	{
+		version: 25,
+		name:    "session_team",
+		apply: func(tx *sql.Tx) error {
+			// The session's fifth coordinate (DECISIONS §251): which team it
+			// hires from — the roster `task` and `@` reach, and the desk that
+			// roster works at. '' is ทีมผู้ช่วย, the computed default, so every
+			// row from before this column is on the team it always effectively
+			// was. Same shape as mode/agent/space: born with the session, never
+			// changed while it runs.
+			//
+			// Guarded, unlike the earlier column adds, because a test winds a
+			// fully migrated store back to v17 and replays everything after
+			// it (TestRenamedAgentKeepsItsSessionsAndItsLearning) — every step
+			// past 18 has to survive running twice.
+			if has, err := hasColumn(tx, "sessions", "team"); err != nil || has {
+				return err
+			}
+			_, err := tx.Exec(`ALTER TABLE sessions ADD COLUMN team TEXT NOT NULL DEFAULT ''`)
+			return err
+		},
+	},
 }
 
 // latestSchemaVersion is what this build understands.

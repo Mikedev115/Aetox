@@ -16,8 +16,8 @@ import (
 func TestTheMeterCountsTheBlockItWouldActuallySend(t *testing.T) {
 	a := newSwitchApp(t)
 	// Both kinds on: they ship off, and this test is about what turning them off does.
-	a.SetDelegateOff("agents", false)
-	a.SetDelegateOff("helpers", false)
+	a.SetDelegateOff("", "agents", false)
+	a.SetDelegateOff("", "helpers", false)
 
 	before := a.ToolBlockTokens()
 	if before <= 0 {
@@ -28,8 +28,8 @@ func TestTheMeterCountsTheBlockItWouldActuallySend(t *testing.T) {
 		t.Fatal("task is not in the block, so the master switch has nothing to weigh")
 	}
 
-	a.SetDelegateOff("agents", true)
-	after := a.SetDelegateOff("helpers", true)
+	a.SetDelegateOff("", "agents", true)
+	after := a.SetDelegateOff("", "helpers", true)
 	if after.Tokens >= before {
 		t.Errorf("switching delegation off did not shrink the block: %d then %d", before, after.Tokens)
 	}
@@ -63,14 +63,14 @@ func TestTheMeterCountsTheBlockItWouldActuallySend(t *testing.T) {
 // anything about colleagues (owner, 20 ส.ค.: แยกชัดเจน).
 func TestOneKindSwitchesWithoutTheOther(t *testing.T) {
 	a := newSwitchApp(t)
-	a.SetDelegateOff("agents", false)
-	both := a.SetDelegateOff("helpers", false)
+	a.SetDelegateOff("", "agents", false)
+	both := a.SetDelegateOff("", "helpers", false)
 	if both.Agents.Off || both.Helpers.Off {
 		t.Fatal("turning both on did not take")
 	}
 	whole := a.toolTokens("task")
 
-	off := a.SetDelegateOff("agents", true)
+	off := a.SetDelegateOff("", "agents", true)
 	if !off.Agents.Off {
 		t.Error("the เอเจน switch did not take")
 	}
@@ -92,7 +92,7 @@ func TestOneKindSwitchesWithoutTheOther(t *testing.T) {
 // the profile file lives in, and nothing else gets a vote.
 func TestEachBlockHoldsOnlyItsOwnKind(t *testing.T) {
 	a := newSwitchApp(t)
-	switches := a.DelegateSwitches()
+	switches := a.DelegateSwitches("")
 
 	if len(switches.Agents.Workers) == 0 || len(switches.Helpers.Workers) == 0 {
 		t.Fatalf("a block is empty, so this proves nothing: %d เอเจน, %d ซับเอเจน", len(switches.Agents.Workers), len(switches.Helpers.Workers))
@@ -114,13 +114,13 @@ func TestEachBlockHoldsOnlyItsOwnKind(t *testing.T) {
 func TestSwitchedOffWorkersStayOnTheList(t *testing.T) {
 	a := newSwitchApp(t)
 
-	full := allWorkers(a.DelegateSwitches())
+	full := allWorkers(a.DelegateSwitches(""))
 	if len(full) == 0 {
 		t.Fatal("no workers at all, so this test proves nothing")
 	}
 	name := full[0].Name
 
-	after := allWorkers(a.SetAgentOff(name, true))
+	after := allWorkers(a.SetAgentOff("", name, true))
 	if len(after) != len(full) {
 		t.Errorf("switching %s off removed it from the settings list: %d rows then %d", name, len(full), len(after))
 	}
@@ -130,7 +130,7 @@ func TestSwitchedOffWorkersStayOnTheList(t *testing.T) {
 		}
 	}
 	// And back on again, because a one-way switch is a trap.
-	back := allWorkers(a.SetAgentOff(name, false))
+	back := allWorkers(a.SetAgentOff("", name, false))
 	for _, w := range back {
 		if w.Name == name && !w.On {
 			t.Errorf("%s could not be switched back on", name)
@@ -143,7 +143,7 @@ func TestSwitchedOffWorkersStayOnTheList(t *testing.T) {
 func TestEachWorkerRowSaysWhatItIsFor(t *testing.T) {
 	a := newSwitchApp(t)
 
-	for _, w := range allWorkers(a.DelegateSwitches()) {
+	for _, w := range allWorkers(a.DelegateSwitches("")) {
 		if strings.TrimSpace(w.For) == "" {
 			t.Errorf("%s is listed with nothing saying what it is for", w.Name)
 		}
@@ -193,7 +193,7 @@ func newSwitchApp(t *testing.T) *App {
 func TestDelegationShipsOffForAgentsAndOnForHelpers(t *testing.T) {
 	a := newSwitchApp(t)
 
-	switches := a.DelegateSwitches()
+	switches := a.DelegateSwitches("")
 	if !switches.Agents.Off {
 		t.Error("a fresh install hands whole jobs to เอเจน; that switch was supposed to ship off")
 	}
@@ -211,7 +211,7 @@ func TestDelegationShipsOffForAgentsAndOnForHelpers(t *testing.T) {
 		t.Error("nothing to turn on: the settings page shows no workers")
 	}
 
-	on := a.SetDelegateOff("agents", false)
+	on := a.SetDelegateOff("", "agents", false)
 	if on.Agents.Off {
 		t.Fatal("turning เอเจน on did not take")
 	}
@@ -277,13 +277,13 @@ func TestAnsweringOnceStopsTheShippedDefault(t *testing.T) {
 	if a.cur().cfg.DelegateSet {
 		t.Fatal("a config nobody has touched already claims to be an answer")
 	}
-	a.SetAgentOff(shippedReachableAgents[0], true)
+	a.SetAgentOff("", shippedReachableAgents[0], true)
 	if !a.cur().cfg.DelegateSet {
 		t.Error("switching one agent off is an answer and was not recorded as one")
 	}
 
 	b := newSwitchApp(t)
-	b.SetDelegateOff("agents", false)
+	b.SetDelegateOff("", "agents", false)
 	if !b.cur().cfg.DelegateSet {
 		t.Error("flipping the master switch is an answer and was not recorded as one")
 	}

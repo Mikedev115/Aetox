@@ -386,8 +386,8 @@ export function DeckStopPickScript() {
   return window['go']['main']['App']['DeckStopPickScript']();
 }
 
-export function DelegateSwitches() {
-  return window['go']['main']['App']['DelegateSwitches']();
+export function DelegateSwitches(arg1) {
+  return window['go']['main']['App']['DelegateSwitches'](arg1);
 }
 
 export function DeleteArtifact(arg1) {
@@ -416,6 +416,10 @@ export function DeleteSpace(arg1) {
 
 export function DeleteSubagentProfile(arg1) {
   return window['go']['main']['App']['DeleteSubagentProfile'](arg1);
+}
+
+export function DeleteTeam(arg1) {
+  return window['go']['main']['App']['DeleteTeam'](arg1);
 }
 
 export function DisconnectAccount(arg1) {
@@ -734,6 +738,10 @@ export function ListTaskChips() {
   return window['go']['main']['App']['ListTaskChips']();
 }
 
+export function ListTeams(arg1) {
+  return window['go']['main']['App']['ListTeams'](arg1);
+}
+
 export function ListTools() {
   return window['go']['main']['App']['ListTools']();
 }
@@ -794,6 +802,10 @@ export function NewChairSession(arg1) {
   return window['go']['main']['App']['NewChairSession'](arg1);
 }
 
+export function NewChairSessionAt(arg1, arg2, arg3) {
+  return window['go']['main']['App']['NewChairSessionAt'](arg1, arg2, arg3);
+}
+
 export function NewSession() {
   return window['go']['main']['App']['NewSession']();
 }
@@ -804,6 +816,10 @@ export function NewSessionAt(arg1) {
 
 export function NewSessionInSpace(arg1) {
   return window['go']['main']['App']['NewSessionInSpace'](arg1);
+}
+
+export function NewTeamSession(arg1, arg2) {
+  return window['go']['main']['App']['NewTeamSession'](arg1, arg2);
 }
 
 export function OpenAgentHome(arg1) {
@@ -868,6 +884,10 @@ export function OpenSpeechModelDir(arg1) {
 
 export function OpenSubagentsFolder() {
   return window['go']['main']['App']['OpenSubagentsFolder']();
+}
+
+export function OpenTeamsFolder() {
+  return window['go']['main']['App']['OpenTeamsFolder']();
 }
 
 export function PairedDevices() {
@@ -1218,6 +1238,10 @@ export function SaveSubagentProfile(arg1, arg2) {
   return window['go']['main']['App']['SaveSubagentProfile'](arg1, arg2);
 }
 
+export function SaveTeam(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SaveTeam'](arg1, arg2, arg3, arg4);
+}
+
 export function SearchAllSessions(arg1) {
   return window['go']['main']['App']['SearchAllSessions'](arg1);
 }
@@ -1274,6 +1298,10 @@ export function SessionSpend(arg1) {
   return window['go']['main']['App']['SessionSpend'](arg1);
 }
 
+export function SessionTeam(arg1) {
+  return window['go']['main']['App']['SessionTeam'](arg1);
+}
+
 export function SessionTranscript(arg1) {
   return window['go']['main']['App']['SessionTranscript'](arg1);
 }
@@ -1286,8 +1314,8 @@ export function SetAPIKey(arg1, arg2) {
   return window['go']['main']['App']['SetAPIKey'](arg1, arg2);
 }
 
-export function SetAgentOff(arg1, arg2) {
-  return window['go']['main']['App']['SetAgentOff'](arg1, arg2);
+export function SetAgentOff(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetAgentOff'](arg1, arg2, arg3);
 }
 
 export function SetAttentionSignal(arg1, arg2) {
@@ -1310,8 +1338,8 @@ export function SetConnectionTargets(arg1, arg2) {
   return window['go']['main']['App']['SetConnectionTargets'](arg1, arg2);
 }
 
-export function SetDelegateOff(arg1, arg2) {
-  return window['go']['main']['App']['SetDelegateOff'](arg1, arg2);
+export function SetDelegateOff(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetDelegateOff'](arg1, arg2, arg3);
 }
 
 export function SetImageEngine(arg1) {
@@ -1604,6 +1632,10 @@ export function SynthesizeHabitForSessions(arg1, arg2, arg3, arg4, arg5) {
 
 export function TTSStatus() {
   return window['go']['main']['App']['TTSStatus']();
+}
+
+export function TeamsFolderPath() {
+  return window['go']['main']['App']['TeamsFolderPath']();
 }
 
 export function TerminalAttach(arg1) {

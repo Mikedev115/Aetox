@@ -207,7 +207,7 @@ export function DeckPickScript(arg1:string,arg2:string):Promise<string>;
 
 export function DeckStopPickScript():Promise<string>;
 
-export function DelegateSwitches():Promise<main.DelegateSettings>;
+export function DelegateSwitches(arg1:string):Promise<main.DelegateSettings>;
 
 export function DeleteArtifact(arg1:string):Promise<void>;
 
@@ -222,6 +222,8 @@ export function DeleteSession(arg1:string):Promise<void>;
 export function DeleteSpace(arg1:string):Promise<void>;
 
 export function DeleteSubagentProfile(arg1:string):Promise<void>;
+
+export function DeleteTeam(arg1:string):Promise<void>;
 
 export function DisconnectAccount(arg1:string):Promise<void>;
 
@@ -381,6 +383,8 @@ export function ListTTSVoices():Promise<Array<main.TTSVoiceInfo>>;
 
 export function ListTaskChips():Promise<Array<main.TaskChip>>;
 
+export function ListTeams(arg1:string):Promise<Array<main.TeamCard>>;
+
 export function ListTools():Promise<Array<main.SkillInfo>>;
 
 export function LoadSession(arg1:string):Promise<Array<main.SessionMessage>>;
@@ -411,11 +415,15 @@ export function MoveLearnedEntry(arg1:string,arg2:string,arg3:number):Promise<vo
 
 export function NewChairSession(arg1:string):Promise<string>;
 
+export function NewChairSessionAt(arg1:string,arg2:string,arg3:string):Promise<string>;
+
 export function NewSession():Promise<string>;
 
 export function NewSessionAt(arg1:string):Promise<string>;
 
 export function NewSessionInSpace(arg1:string):Promise<string>;
+
+export function NewTeamSession(arg1:string,arg2:string):Promise<string>;
 
 export function OpenAgentHome(arg1:string):Promise<void>;
 
@@ -448,6 +456,8 @@ export function OpenSpaceFolder(arg1:string):Promise<void>;
 export function OpenSpeechModelDir(arg1:string):Promise<void>;
 
 export function OpenSubagentsFolder():Promise<void>;
+
+export function OpenTeamsFolder():Promise<void>;
 
 export function PairedDevices():Promise<Array<main.RemoteDevice>>;
 
@@ -623,6 +633,8 @@ export function SavePromptPreset(arg1:string,arg2:string):Promise<void>;
 
 export function SaveSubagentProfile(arg1:string,arg2:string):Promise<void>;
 
+export function SaveTeam(arg1:string,arg2:string,arg3:string,arg4:Array<string>):Promise<void>;
+
 export function SearchAllSessions(arg1:string):Promise<Array<main.SessionMeta>>;
 
 export function SearchSessions(arg1:string):Promise<Array<main.SessionMeta>>;
@@ -651,13 +663,15 @@ export function SessionSources(arg1:string):Promise<Array<main.Source>>;
 
 export function SessionSpend(arg1:string):Promise<main.SessionSpend>;
 
+export function SessionTeam(arg1:string):Promise<string>;
+
 export function SessionTranscript(arg1:string):Promise<Array<main.SessionMessage>>;
 
 export function SessionsInSpace(arg1:string):Promise<Array<main.SessionMeta>>;
 
 export function SetAPIKey(arg1:string,arg2:string):Promise<main.ModelInfo>;
 
-export function SetAgentOff(arg1:string,arg2:boolean):Promise<main.DelegateSettings>;
+export function SetAgentOff(arg1:string,arg2:string,arg3:boolean):Promise<main.DelegateSettings>;
 
 export function SetAttentionSignal(arg1:string,arg2:boolean):Promise<Array<main.BusyLayer>>;
 
@@ -669,7 +683,7 @@ export function SetConnectionStartCommand(arg1:string,arg2:string):Promise<void>
 
 export function SetConnectionTargets(arg1:string,arg2:Array<string>):Promise<void>;
 
-export function SetDelegateOff(arg1:string,arg2:boolean):Promise<main.DelegateSettings>;
+export function SetDelegateOff(arg1:string,arg2:string,arg3:boolean):Promise<main.DelegateSettings>;
 
 export function SetImageEngine(arg1:string):Promise<void>;
 
@@ -816,6 +830,8 @@ export function SynthesizeHabit(arg1:string,arg2:string):Promise<number>;
 export function SynthesizeHabitForSessions(arg1:context.Context,arg2:main.habitSynthesizer,arg3:Array<string>,arg4:string,arg5:string):Promise<main.PendingChange>;
 
 export function TTSStatus():Promise<string>;
+
+export function TeamsFolderPath():Promise<string>;
 
 export function TerminalAttach(arg1:string):Promise<string>;
 

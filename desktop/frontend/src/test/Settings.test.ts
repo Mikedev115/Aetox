@@ -888,7 +888,7 @@ describe('Settings pages', () => {
     const sw = await screen.findByLabelText('มอบงานให้')
     await fireEvent.change(sw, { target: { checked: false } })
 
-    await waitFor(() => expect(vi.mocked(SetAgentOff)).toHaveBeenCalledWith('deck', true))
+    await waitFor(() => expect(vi.mocked(SetAgentOff)).toHaveBeenCalledWith('', 'deck', true))
   })
 
   // The handshake with the team page. Both halves were tested apart — Office

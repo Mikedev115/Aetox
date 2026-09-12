@@ -94,8 +94,16 @@ type conversation struct {
 	desk *mode.Mode
 	// chair is the session's second coordinate (§85): which of the office's
 	// agents the user is talking to directly, "" for every session held with
-	// the main assistant. Only ever non-empty alongside desk = the office.
+	// the main assistant. Only ever non-empty alongside desk = the office —
+	// or, since teams (§251), alongside the coding desk when a team at that
+	// desk names the chair.
 	chair string
+	// team is which roster this session hires from (subagent.Team, DECISIONS
+	// §251): who `task` and `@` may reach, and the desk that roster works at.
+	// "" is ทีมผู้ช่วย, the computed default. Set when the session is opened,
+	// like desk and chair, and only ever a team the desk can reach — setStation
+	// is its single writer.
+	team string
 	// space is the session's third coordinate: which โปรเจกต์ this chat is held
 	// inside, "" for a chat held outside every project. It moves no wall — see
 	// COMPANY.md §84.

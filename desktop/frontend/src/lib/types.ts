@@ -1077,6 +1077,10 @@ export interface CockpitState {
    *  assistant. Same lifecycle as desk: fixed at birth, read back, never
    *  remembered independently. */
   chair: string
+  /** The team the open session hires from (DECISIONS §251), '' for ทีมผู้ช่วย.
+   *  Same lifecycle as desk and chair: fixed at birth, read back from the
+   *  engine, never remembered independently. It is what the picker opens on. */
+  team: string
   /** The โปรเจกต์ the open session is being held inside (COMPANY.md §84), ''
    *  for a chat held outside every project. Same lifecycle as desk and chair:
    *  fixed when the session is born, read back from the engine when one is
@@ -1303,6 +1307,7 @@ export function emptyCockpitState(): CockpitState {
     activeView: 'chat',
     desk: '',
     chair: '',
+    team: '',
     space: '',
     stance: '',
     stances: [],

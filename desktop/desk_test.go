@@ -286,7 +286,13 @@ func TestAChairIsCappedByTheOfficeCeiling(t *testing.T) {
 	// carve-out this test is for — and if that ever changes, re-point this at
 	// whatever the office still refuses, never quietly delete it.
 	const greedy = "---\ndescription: เก้าอี้ทดสอบ\ndesk: specialized\ntools: doc_write, write, shell, repo_map\n---\nWrite the thing.\n"
-	if err := os.WriteFile(filepath.Join(dir, "greedy.md"), []byte(greedy), 0o644); err != nil {
+	// In its own folder, the shape an agent has had since 2026-08-06: the flat
+	// file this once wrote relied on MigrateAgentHomes, which runs once per
+	// data root — and bootDeskApp above had already run it on this one.
+	if err := os.MkdirAll(filepath.Join(dir, "greedy"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "greedy", config.AgentDefinitionFile), []byte(greedy), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -755,8 +761,8 @@ func TestDelegationOffTakesTheHandoverOutOfThePrompt(t *testing.T) {
 		t.Errorf("delegation is on and the assistant desk was not told to hand deliverable work over:\n%s", on)
 	}
 
-	a.SetDelegateOff("helpers", true)
-	if switches := a.SetDelegateOff("agents", true); !switches.Agents.Off {
+	a.SetDelegateOff("", "helpers", true)
+	if switches := a.SetDelegateOff("", "agents", true); !switches.Agents.Off {
 		t.Fatal("the เอเจน switch did not take")
 	}
 	off := systemPrompt()
