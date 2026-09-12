@@ -3973,15 +3973,17 @@ button.phase-head:hover { color:var(--text-muted); }
 .agent-row.on > .focus-item { color:var(--accent); }
 .agent-row > .focus-item .ic { width:16px; }
 .agent-row > .mswitch { margin:0 9px 0 6px; }
-/* The picker's team rows (§256). A team is a fold: the name switches, the
-   caret at the end unfolds, and the members hang under it one step in so the
-   list reads as teams with people rather than as one flat roster again. */
+/* The station chips (§256, StationPick.svelte): WHO answers, and which TEAM
+   the chat hires from. The team menu's rows carry the roster's size (or the
+   current team's reach) at the right edge; the door's switch hangs under the
+   current team one step in. The team chip dims while there is no team — a
+   state, still a door, not an absence. */
 .agent-row.team-row > .focus-item .t { font-weight:600; }
-.agent-row .team-n { margin-left:auto; padding-left:8px; font-size:11px; color:var(--text-dim); font-variant-numeric:tabular-nums; }
-.agent-row .team-fold { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; margin-right:4px; border:0; border-radius:var(--r-sm); background:none; color:var(--text-dim); cursor:pointer; }
-.agent-row .team-fold:hover { background:var(--surface-hover); color:var(--text-primary); }
-.agent-row.member { margin-left:14px; }
-.agent-row.member + .folder-note, .focus-menu .team-row ~ .delegate-row { margin-left:14px; }
+.agent-row.team-row.invalid > .focus-item .t { text-decoration:line-through; }
+.agent-row .team-n { margin-left:auto; padding-left:8px; font-size:11px; color:var(--text-dim); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.focus-menu .team-row ~ .delegate-row { margin-left:14px; }
+.station-pick .focus-chip .ic { display:inline-flex; align-items:center; }
+.station-team.none .focus-chip .t { color:var(--text-dim); }
 
 /* The right end of a menu row: the state or the address, pushed to the edge so
    the row reads as a list entry rather than as a label floating in a box. The
