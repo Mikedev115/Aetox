@@ -93,20 +93,23 @@
 .mascot .ms-sheet { transform-origin: 32px 0; transform: translateX(calc(8px * sin(var(--t)))) scaleX(max(.06, cos(var(--t)))); }
 
 /* ---- alive --------------------------------------------------------------- */
-.mascot .ms-all { transform-origin: 32px 58px; animation: ms-breathe 3.6s ease-in-out infinite; }
+/* Every looping motion starts at --ms-phase, which Mascot.svelte sets to minus
+   the time it drew the markup: a redraw (a new pose) then picks the loop up
+   where the last drawing left it instead of snapping back to its first frame. */
+.mascot .ms-all { transform-origin: 32px 58px; animation: ms-breathe 3.6s ease-in-out var(--ms-phase, 0s) infinite; }
 @keyframes ms-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.008, 1.018); } }
 /* Blink off the name (Mascot.svelte sets --ms-blink), never on the beat:
    eight of these blinking together would read as one animation. */
-.mascot .ms-blink { transform-box: fill-box; transform-origin: center; animation: ms-blink var(--ms-blink, 5.2s) infinite; }
+.mascot .ms-blink { transform-box: fill-box; transform-origin: center; animation: ms-blink var(--ms-blink, 5.2s) var(--ms-phase, 0s) infinite; }
 @keyframes ms-blink { 0%, 95.5%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.08); } }
-.mascot .ms-orb { transform-box: fill-box; transform-origin: center; animation: ms-pulse 2.8s ease-in-out infinite; }
+.mascot .ms-orb { transform-box: fill-box; transform-origin: center; animation: ms-pulse 2.8s ease-in-out var(--ms-phase, 0s) infinite; }
 @keyframes ms-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .62; } }
-.mascot .ms-float { transform-box: fill-box; transform-origin: center; animation: ms-float 2.4s ease-in-out infinite; }
+.mascot .ms-float { transform-box: fill-box; transform-origin: center; animation: ms-float 2.4s ease-in-out var(--ms-phase, 0s) infinite; }
 @keyframes ms-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
 /* The one that sits on the screen does not turn to follow the pointer (owner:
    "ขยับไปขยับมา ไม่ต้องหันซ้ายขวา") — it sways instead, slowly, on top of its
    breathing, so it is alive without ever looking at anything. */
-.mascot.sway .ms-all { animation: ms-sway 5.6s ease-in-out infinite; }
+.mascot.sway .ms-all { animation: ms-sway 5.6s ease-in-out var(--ms-phase, 0s) infinite; }
 @keyframes ms-sway {
   0%, 100% { transform: rotate(-1.4deg) scale(1, 1); }
   25% { transform: rotate(0deg) scale(1.006, 1.014); }
@@ -116,9 +119,23 @@
 /* clicked: one small hop on top of whatever it is doing (Companion.svelte) */
 .mascot.hop .ms-all { animation: ms-hop .55s cubic-bezier(.3, .9, .3, 1.2); }
 @keyframes ms-hop { 0% { transform: translateY(0) scale(1, 1); } 30% { transform: translateY(-4px) scale(.97, 1.05); } 60% { transform: translateY(0) scale(1.04, .96); } 100% { transform: translateY(0) scale(1, 1); } }
-/* smooth the turn when --t jumps (a pose change, a glance) */
-.mascot.settle { transition: --t .45s ease-out; }
+/* Smooth the change of pose (owner: "เวลามันเปลี่ยนบริบท ทำสมูท ๆ ไม่ใช่เด้งไป
+   เด้งมาทันที"). Three things move between two poses and each is handled
+   where it lives: the head turn is --t; the hands are the six targets below,
+   set on the root by handVars() and read by the arms, so they swing there
+   over the same time; and everything the markup itself changes — the face,
+   the card, what is held — crossfades in Mascot.svelte, the old drawing
+   over the new for a quarter second while the arms, shared by both, are
+   already on their way. */
+.mascot { position: relative; }
+.mascot.settle { transition: --t .45s ease-out, --lhx .42s ease-in-out, --lhy .42s ease-in-out, --ld .42s ease-in-out, --rhx .42s ease-in-out, --rhy .42s ease-in-out, --rd .42s ease-in-out; }
 @property --t { syntax: '<angle>'; inherits: true; initial-value: 0deg; }
+@property --lhx { syntax: '<number>'; inherits: true; initial-value: 21.5; }
+@property --lhy { syntax: '<number>'; inherits: true; initial-value: 52.5; }
+@property --ld { syntax: '<number>'; inherits: true; initial-value: 11; }
+@property --rhx { syntax: '<number>'; inherits: true; initial-value: 42.5; }
+@property --rhy { syntax: '<number>'; inherits: true; initial-value: 52.5; }
+@property --rd { syntax: '<number>'; inherits: true; initial-value: 11; }
 
 /* ---- poses with motion of their own ------------------------------------- */
 .mascot.pose-thinking .ms-eyes, .mascot.pose-asking .ms-eyes { animation: ms-dart 3.2s ease-in-out infinite; }
@@ -142,11 +159,11 @@
 @keyframes ms-swingL { 0%, 100% { transform: translateX(calc((var(--sx) - 32) * (cos(var(--t)) - 1) * 1px)) rotate(14deg); } 50% { transform: translateX(calc((var(--sx) - 32) * (cos(var(--t)) - 1) * 1px)) rotate(-14deg); } }
 @keyframes ms-swingR { 0%, 100% { transform: translateX(calc((var(--sx) - 32) * (cos(var(--t)) - 1) * 1px)) rotate(-14deg); } 50% { transform: translateX(calc((var(--sx) - 32) * (cos(var(--t)) - 1) * 1px)) rotate(14deg); } }
 /* resting: the whole body lies back on its charger and breathes slower */
-.mascot.pose-recharge .ms-all { transform: rotate(-24deg) translate(-3px, 5px); animation: ms-snore 3.2s ease-in-out infinite; }
+.mascot.pose-recharge .ms-all { transform: rotate(-24deg) translate(-3px, 5px); animation: ms-snore 3.2s ease-in-out var(--ms-phase, 0s) infinite; }
 @keyframes ms-snore { 0%, 100% { transform: rotate(-24deg) translate(-3px, 5px) scale(1, 1); } 50% { transform: rotate(-24deg) translate(-3px, 5px) scale(1.01, 1.025); } }
 .mascot.pose-recharge .ms-blink { animation: none; }
 
-/* out of service (an agent the assistant may not hand work to): same drain AgentFace uses */
+/* out of service (an agent the assistant may not hand work to): the same drain the cartoon faces used */
 .mascot.off { filter: saturate(.2) brightness(.72); }
 
 /* ---- what may move, at which size ------------------------------------------

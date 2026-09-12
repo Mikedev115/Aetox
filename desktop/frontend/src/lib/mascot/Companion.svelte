@@ -21,6 +21,7 @@
   import { cockpit } from '../stores/cockpit.svelte'
   import { setCompanionOn } from './companionSetting.svelte'
   import { avatarPrefs, assistantOptions } from './avatarPrefs.svelte'
+  import { voice } from './voice.svelte'
 
   const SIZE = 104
   const MARGIN = 8
@@ -35,6 +36,10 @@
   /** How long a reaction to a click lasts, and which it may be. */
   const REACT_MS = 1600
   const REACTIONS = ['greeting', 'cheer', 'helping', 'wink'] as const
+  /** A wave on arrival — the app opened, or the switch was turned on. */
+  const HELLO_MS = 1800
+  /** Left alone this long with nothing to do, it goes to its charger. */
+  const DOZE_MS = 5 * 60_000
 
   // ---- where it sits ------------------------------------------------------
   let pos = $state(seed())
@@ -140,6 +145,8 @@
 
   // ---- what it is doing ---------------------------------------------------
   const running = $derived(cockpit.toolSteps.filter((s) => s.state === 'run' && !s.parent).map((s) => s.name ?? ''))
+  // A tool of this turn that failed, with nothing running after it yet.
+  const failed = $derived(cockpit.awaitingReply && running.length === 0 && cockpit.toolSteps.some((s) => s.state === 'err' && !s.parent))
   const livePose = $derived(
     presenceOf({
       awaiting: cockpit.awaitingReply,
@@ -148,14 +155,21 @@
       streaming: !!cockpit.streamingText,
       reasoning: !!cockpit.reasoningText,
       asking: !!cockpit.ask,
+      mic: voice.mic,
+      speaking: voice.speaking,
+      failed,
     }),
   )
-  // A turn that just ended earns the success card for a moment, then rest.
+  // A turn that just ended earns a card for a moment, then rest: the check
+  // when it answered, the alert when it did not (a stop is neither).
   let justDone = $state(false)
+  let endedBadly = $state(false)
   let wasAwaiting = false
   $effect(() => {
     const now = cockpit.awaitingReply
     if (wasAwaiting && !now) {
+      const last = cockpit.chat[cockpit.chat.length - 1]
+      endedBadly = !!last?.failed && !last.stopped
       justDone = true
       const t = setTimeout(() => (justDone = false), SUCCESS_MS)
       wasAwaiting = now
@@ -163,7 +177,33 @@
     }
     wasAwaiting = now
   })
-  const pose = $derived(reaction || (!cockpit.awaitingReply && justDone ? 'success' : livePose))
+  // Arriving: one wave, then whatever the chat is doing.
+  let hello = $state(true)
+  $effect(() => {
+    const t = setTimeout(() => (hello = false), HELLO_MS)
+    return () => clearTimeout(t)
+  })
+  // Dozing: nothing to do and nobody about for a while → the charger. Any
+  // turn, click or drag wakes it; the timer restarts whenever the pose it
+  // would otherwise wear changes.
+  let dozing = $state(false)
+  $effect(() => {
+    void livePose
+    void reaction
+    void dragging
+    dozing = false
+    if (cockpit.awaitingReply || dragging || reaction) return
+    const t = setTimeout(() => (dozing = true), DOZE_MS)
+    return () => clearTimeout(t)
+  })
+  const pose = $derived(
+    reaction ? reaction
+    : dragging ? 'walk'
+    : hello ? 'greeting'
+    : !cockpit.awaitingReply && justDone ? (endedBadly ? 'error' : 'success')
+    : dozing && !cockpit.awaitingReply ? 'recharge'
+    : livePose,
+  )
 
   // ---- what it says -------------------------------------------------------
   // The model's latest narration of its own — a delegate's rows carry `parent`

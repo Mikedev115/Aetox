@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { FACE, PANEL, PROP, TOP, isBadge, row } from '../lib/mascot/parts'
 import { POSE, ARM, type PoseId } from '../lib/mascot/poses'
-import { resolveMascot, mascotSVG, DETAIL_MIN_PX, GLOW_MIN_PX } from '../lib/mascot/rig'
+import { resolveMascot, mascotSVG, handVars, DETAIL_MIN_PX, GLOW_MIN_PX } from '../lib/mascot/rig'
 import { palette, SHELL, shellOf, ACCENT, accentOf, accentNearHue, DEFAULT_ACCENT } from '../lib/mascot/palette'
 import { ROLE, roleOf, roleOptions } from '../lib/mascot/roles'
-import { presenceOf, TOOL_POSE, poseOfFaceState, FACE_STATE_POSE, type FaceState } from '../lib/mascot/presence'
+import { presenceOf, TOOL_POSE, FAMILY_POSE, toolPose, poseOfFaceState, FACE_STATE_POSE, type FaceState } from '../lib/mascot/presence'
 
 // The mascot is a catalogue plus a table plus one drawing function, and the
 // rules guarded here are the ones the owner set while watching it drawn — each
@@ -240,6 +240,37 @@ describe('presence', () => {
     expect(presenceOf({ awaiting: true, running: ['something_new'] })).toBe('typing')
   })
 
+  // Every tool the app has lands on a pose — by name where the name says
+  // more, by family (toolFace's table, the one that picks the icon) where it
+  // does not, and bridged MCP tools on typing. So a tool grown tomorrow is
+  // drawn, and the poses the sheet asked for are each somebody's job.
+  it('gives every tool family a pose and the sheet\'s poses a tool', () => {
+    for (const pose of Object.values(FAMILY_POSE)) expect(pose in POSE).toBe(true)
+    expect(toolPose('glob')).toBe('searchFiles')
+    expect(toolPose('browser_open')).toBe('research')
+    expect(toolPose('edit')).toBe('typing')
+    expect(toolPose('git')).toBe('coding')
+    expect(toolPose('computer_click')).toBe('coding')
+    expect(toolPose('diagnostics')).toBe('debugging')
+    expect(toolPose('image_make')).toBe('presenting')
+    expect(toolPose('doc_write')).toBe('presenting')
+    expect(toolPose('task')).toBe('helping')
+    expect(toolPose('memory')).toBe('searchData')
+    expect(toolPose('skill_view')).toBe('searchDocs')
+    expect(toolPose('plan')).toBe('planning')
+    expect(toolPose('acme_lookup')).toBe('typing') // a bridged server's tool
+    // a failed tool with nothing running after it is debugging, not thinking
+    expect(presenceOf({ awaiting: true, failed: true, reasoning: true })).toBe('debugging')
+    expect(presenceOf({ awaiting: true, failed: true, running: ['read'] })).toBe('reading')
+    // which leaves no pose without a way to be worn
+    const reachable = new Set<string>([
+      ...Object.values(TOOL_POSE), ...Object.values(FAMILY_POSE), ...Object.values(FACE_STATE_POSE),
+      'listening', 'answering', 'asking', 'success', 'idle', 'thinking', 'debugging', // presenceOf
+      'greeting', 'cheer', 'helping', 'wink', 'walk', 'recharge', 'error', // Companion.svelte
+    ])
+    for (const id of Object.keys(POSE)) expect(reachable.has(id), `${id} has no trigger`).toBe(true)
+  })
+
   it('answers while prose streams, thinks before it, rests after', () => {
     expect(presenceOf({ awaiting: true, streaming: true })).toBe('answering')
     expect(presenceOf({ awaiting: true, reasoning: true })).toBe('thinking')
@@ -250,6 +281,15 @@ describe('presence', () => {
 
   it('maps every tool to a pose that exists', () => {
     for (const [tool, pose] of Object.entries(TOOL_POSE)) expect(pose in POSE, tool).toBe(true)
+  })
+
+  // A pose change must not snap: the hand targets are on the root, where a
+  // transition can carry them, and the arms only point at them.
+  it('keeps the hand targets on the root so a change of pose glides', () => {
+    const svg = drawn({ pose: 'greeting', size: 76 })
+    expect(svg).toContain('--hx:var(--rhx)')
+    expect(svg).not.toMatch(/--hx:\d/)
+    expect(handVars(resolveMascot({ pose: 'greeting' }))).toBe('--lhx:21.5;--lhy:52.5;--ld:11;--rhx:51.5;--rhy:36.5;--rd:5')
   })
 })
 

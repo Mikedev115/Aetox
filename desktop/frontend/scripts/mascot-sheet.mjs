@@ -30,7 +30,7 @@ const bundled = await build({
   platform: 'neutral',
 })
 const mod = await import('data:text/javascript;base64,' + Buffer.from(bundled.outputFiles[0].text).toString('base64'))
-const { resolveMascot, mascotSVG } = mod
+const { resolveMascot, mascotSVG, handVars } = mod
 
 const rolesMod = await build({ entryPoints: [resolve(frontend, 'src/lib/mascot/roles.ts')], bundle: true, format: 'esm', write: false, platform: 'neutral' })
 const { ROLE, roleOptions } = await import('data:text/javascript;base64,' + Buffer.from(rolesMod.outputFiles[0].text).toString('base64'))
@@ -46,7 +46,7 @@ const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 function mascot(o, size, turn) {
   const m = resolveMascot({ ...o, size })
   const t = turn ?? m.pose.turn
-  return `<span class="mascot pose-${m.poseId} settle" style="--t:${t}deg; --ms-blink:${4.4 + (m.hue % 9) * 0.3}s; width:${size}px; height:${size}px"><svg viewBox="0 0 64 64">${mascotSVG(m)}</svg></span>`
+  return `<span class="mascot pose-${m.poseId} settle" style="--t:${t}deg; ${handVars(m)}; --ms-blink:${4.4 + (m.hue % 9) * 0.3}s; width:${size}px; height:${size}px"><svg viewBox="0 0 64 64">${mascotSVG(m)}</svg></span>`
 }
 const cell = (o, size, title, sub, turn, dark = false) =>
   `<div class="cell${dark ? ' dark' : ''}">${mascot(o, size, turn)}<b>${esc(title)}</b><i>${esc(sub)}</i></div>`
@@ -154,7 +154,7 @@ input[type=range] { width:300px; }
 <script type="module">
 const bundle = ${JSON.stringify(bundled.outputFiles[0].text)}
 const mod = await import('data:text/javascript;base64,' + btoa(unescape(encodeURIComponent(bundle))))
-const { resolveMascot, mascotSVG } = mod
+const { resolveMascot, mascotSVG, handVars } = mod
 const POSE = ${JSON.stringify(Object.fromEntries(Object.entries(POSE).map(([k, v]) => [k, { turn: v.turn }])))}
 const ROLES = { assistant: ${JSON.stringify(ASSISTANT)}, code: ${JSON.stringify(CODE)} }
 const SHELLS = ${JSON.stringify(SHELL.map((s) => s.id))}
@@ -163,7 +163,7 @@ let pose = 'idle', role = 'assistant', turn = 0, shell = 'white', accent = 'ink'
 const box = document.getElementById('liveBox')
 function paint() {
   const m = resolveMascot({ ...ROLES[role], shell, accent, ...(hue >= 0 ? { hue } : {}), pose, size: 440 })
-  box.innerHTML = '<span class="mascot pose-' + m.poseId + '" style="--t:' + turn + 'deg; --ms-blink:5.1s; width:440px; height:440px"><svg viewBox="0 0 64 64">' + mascotSVG(m) + '</svg></span>'
+  box.innerHTML = '<span class="mascot pose-' + m.poseId + ' settle" style="--t:' + turn + 'deg; ' + handVars(m) + '; --ms-blink:5.1s; width:440px; height:440px"><svg viewBox="0 0 64 64">' + mascotSVG(m) + '</svg></span>'
   for (const b of document.querySelectorAll('#poseBtns button')) b.classList.toggle('on', b.dataset.pose === pose)
   for (const b of document.querySelectorAll('[data-role]')) b.classList.toggle('on', b.dataset.role === role)
   for (const b of document.querySelectorAll('[data-shell]')) b.classList.toggle('on', b.dataset.shell === shell)
@@ -212,7 +212,7 @@ html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
 <div class="wrap"><div class="say" id="say" hidden></div><div id="fig"></div></div>
 <script type="module">
 const mod = await import('data:text/javascript;base64,' + btoa(unescape(encodeURIComponent(${JSON.stringify(bundled.outputFiles[0].text)}))))
-const { resolveMascot, mascotSVG } = mod
+const { resolveMascot, mascotSVG, handVars } = mod
 const SIZE = 104
 const fig = document.getElementById('fig'), say = document.getElementById('say')
 let seq = -1, drawn = ''
@@ -222,7 +222,7 @@ function draw(s) {
     drawn = key
     const p = s.prefs ?? {}
     const m = resolveMascot({ badge: 'logo', shell: p.shell, accent: p.accent, top: p.top, face: p.face, pose: s.pose || 'idle', size: SIZE })
-    fig.innerHTML = '<span class="mascot pose-' + m.poseId + ' sway' + (s.on ? '' : ' off') + '" style="--t:' + m.pose.turn + 'deg; --ms-blink:5.1s; width:' + SIZE + 'px; height:' + SIZE + 'px"><svg viewBox="0 0 64 64">' + mascotSVG(m) + '</svg></span>'
+    fig.innerHTML = '<span class="mascot pose-' + m.poseId + ' sway settle' + (s.on ? '' : ' off') + '" style="--t:' + m.pose.turn + 'deg; ' + handVars(m) + '; --ms-blink:5.1s; width:' + SIZE + 'px; height:' + SIZE + 'px"><svg viewBox="0 0 64 64">' + mascotSVG(m) + '</svg></span>'
   }
   say.textContent = s.report || ''
   say.hidden = !s.report

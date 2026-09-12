@@ -1,6 +1,6 @@
 <script lang="ts">
   // The mascot, drawn rather than stored — the robot the owner's sheets
-  // describe, in the same frame AgentFace.svelte gives the cartoon person.
+  // describe, in the frame the cartoon person (until 12 ก.ย. 2026) stood in.
   //
   // Same contract as that component on purpose: a name in, a face out, with
   // nothing read from disk. The hue comes off the name (coverHue) unless a
@@ -15,7 +15,8 @@
   // `look` turns on mouse-follow (lookAt.ts) — for the one mascot the user is
   // facing, never for a roster of tiles.
   import { coverHue } from '../coverHue'
-  import { resolveMascot, mascotSVG, lookRange, DETAIL_MIN_PX, type MascotOptions } from './rig'
+  import { fade } from 'svelte/transition'
+  import { resolveMascot, mascotSVG, lookRange, handVars, DETAIL_MIN_PX, type MascotOptions } from './rig'
   import { roleOptions } from './roles'
   import { lookAt } from './lookAt'
   import './mascot.css'
@@ -72,8 +73,20 @@
   )
   const inner = $derived(mascotSVG(m))
   const rest = $derived(turn ?? m.pose.turn)
-  // Nobody blinks on the beat: the interval is taken off the name, the same
-  // way AgentFace does it, so two mascots side by side never sync up.
+  // A change of pose is a change of markup, and a redraw would snap. So the
+  // drawings crossfade — the old one fades over the new for a moment — while
+  // the head turn and the hand targets, which live on the root and outlive
+  // the redraw, glide (mascot.css .settle). Each drawing carries the moment
+  // it was made as --ms-phase, so its loops continue the last drawing's.
+  const CROSS_MS = 240
+  const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+  const cross = still || reduced ? 0 : CROSS_MS
+  const phase = $derived.by(() => {
+    void inner
+    return typeof performance === 'object' ? -(performance.now() / 1000) : 0
+  })
+  // Nobody blinks on the beat: the interval is taken off the hue, so two
+  // mascots side by side never sync up.
   const blink = $derived(4.4 + (m.hue % 9) * 0.3)
 </script>
 
@@ -85,11 +98,18 @@
   class:still
   class:lite={size < DETAIL_MIN_PX}
   class:settle={!look}
-  style="--t:{rest}deg; --ms-blink:{blink}s; width:{size}px; height:{size}px"
+  style="--t:{rest}deg; {handVars(m)}; --ms-blink:{blink}s; width:{size}px; height:{size}px"
   use:lookAt={{ base: rest, range: lookRange(m.pose), on: look }}
   aria-hidden="true"
 >
   <!-- Our own markup out of rig.ts, never anything a user typed: a profile's
        fields choose a part by id, they do not carry one. -->
-  <svg viewBox="0 0 64 64">{@html inner}</svg>
+  {#key inner}
+    <svg viewBox="0 0 64 64" style="--ms-phase:{phase}s" transition:fade={{ duration: cross }}>{@html inner}</svg>
+  {/key}
 </span>
+
+<style>
+  /* The two drawings of a crossfade sit on top of each other. */
+  .mascot :global(svg) { position: absolute; inset: 0; }
+</style>

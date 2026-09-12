@@ -16,6 +16,19 @@
 
 เปิด/ปิดจากเมนูบัญชี (`CompanionSwitch.svelte`, ค่าใน `companionSetting.svelte.ts`) · เอาเมาส์เข้าใกล้ → กรอบ + ปุ่ม × ซ่อน · คลิก → สุ่มท่าตอบ (greeting / cheer / helping / wink) 1.6 วิ ไม่มีข้อความ · ยังอยู่ในหน้าต่างแอปเท่านั้น — การออกไปนอกหน้าต่าง (หน้าต่าง WebView2 ที่สอง โปร่งใส บนสุด คลิกทะลุ) เป็นงานถัดไปที่ยังไม่ตัดสิน
 
+**ทุกท่ามีสัญญาณจริง** (เทสต์ `gives every tool family a pose and the sheet's poses a tool` ล็อกไว้ว่าไม่มีท่าไหนไร้ทางถูกสวม):
+
+| สัญญาณ | ท่า | ที่ |
+|---|---|---|
+| ไมค์เปิด / กำลังอ่านออกเสียง | listening / answering | `voice.svelte.ts` (Chat กระจกสองค่านี้ออกมา) |
+| โมเดลถาม / ตอบสตรีม / คิด | asking / answering / thinking | `presence.ts` |
+| เครื่องมือรัน — ตามชื่อ ไม่รู้จักชื่อก็ตามตระกูล (`toolFace.ts`) | reading · searchFiles · searchData · searchDocs · research · typing · coding · planning · presenting · helping · debugging (`diagnostics`) | `TOOL_POSE` + `FAMILY_POSE` |
+| เครื่องมือล้มแล้วยังไม่มีตัวถัดไป | debugging | `failed` |
+| เทิร์นจบ — ตอบได้ / ล้ม (ไม่ใช่กดหยุด) | success / error 2.2 วิ | `Companion.svelte` |
+| เปิดแอป-เปิดสวิตช์ / ถูกลาก / ถูกคลิก / เงียบ 5 นาที | greeting / walk / cheer-wink-helping-greeting / recharge | `Companion.svelte` |
+
+**เปลี่ยนท่าแบบสมูท** (เจ้าของ: "ไม่ใช่เด้งไปเด้งมาทันที"): ตำแหน่งมือหกค่าอยู่บนรูท (`handVars()`), แขนอ่านจากรูท → `.settle` transition พาแขนแกว่งไปเอง (.42 วิ) เหมือนที่ `--t` พาหัวหัน · ส่วนที่ markup เปลี่ยน (หน้า การ์ด ของในมือ) crossfade ใน `Mascot.svelte` (`{#key}` + fade .24 วิ) — สองภาพซ้อนกันชั่วครู่ โดยแขนของทั้งคู่อ่านค่าเดียวกันจึงเห็นเป็นแขนเดียว · ลูปทุกอัน (หายใจ กระพริบ ลอย) เริ่มที่ `--ms-phase` = เวลาที่วาด จึงไม่กระตุกกลับเฟรมแรกเมื่อวาดใหม่
+
 ## 2. สี่แกนที่ต้องอิสระต่อกัน
 
 | แกน | ตอบว่า | ใครเปลี่ยน | ไฟล์ | เพิ่มค่าใหม่ = |
