@@ -85,3 +85,42 @@ export function presenceOf(i: PresenceInput): PoseId {
   // Nothing concrete yet — the phrase before the first token.
   return 'thinking'
 }
+
+/** What the companion's bubble shows — only what the assistant SAYS, never
+ *  what it runs (owner, 12 ก.ย.: "ไม่ต้องแสดงว่ามันรันคำสั่งอะไร อันนั้นเป็นไอคอนก็พอ
+ *  แสดงแค่ตอนมันรายงาน"). The running tool is already the card beside the
+ *  head; this is the sentence the model wrote between tools, the tail of the
+ *  answer as it streams, or the question it is blocked on. */
+export type ReportInput = {
+  awaiting: boolean
+  /** The model's latest narration between tool calls (a `note`/`said` row). */
+  note?: string
+  /** The answer arriving. */
+  streamingText?: string
+  /** The question the model is blocked on. */
+  question?: string
+}
+
+/** Characters of the answer the bubble keeps while it streams. */
+export const REPORT_TAIL = 64
+/** Characters of a narration the bubble shows. */
+export const REPORT_MAX = 120
+
+export function reportOf(i: ReportInput): string {
+  if (i.question) return clip(i.question, REPORT_MAX)
+  if (i.streamingText) {
+    const line = lastLine(i.streamingText)
+    return line.length > REPORT_TAIL ? '…' + line.slice(-REPORT_TAIL) : line
+  }
+  if (!i.awaiting) return ''
+  return i.note ? clip(lastLine(i.note), REPORT_MAX) : ''
+}
+
+function lastLine(text: string): string {
+  const lines = text.replace(/[*_`#>]+/g, '').split('\n').map((l) => l.trim()).filter(Boolean)
+  return lines[lines.length - 1] ?? ''
+}
+function clip(text: string, max: number): string {
+  const t = text.trim()
+  return t.length > max ? t.slice(0, max - 1) + '…' : t
+}

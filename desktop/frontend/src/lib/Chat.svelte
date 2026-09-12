@@ -60,8 +60,6 @@
   import FileChangeReview from './FileChangeReview.svelte'
   import { extractChangedFiles } from './fileChange'
   import Icon from './Icon.svelte'
-  import Mascot from './mascot/Mascot.svelte'
-  import { presenceOf } from './mascot/presence'
   import ProviderMark from './ProviderMark.svelte'
   import { ICONS, type IconName } from './icons'
   import { startersFor, dealStarters, STARTER_SLOTS, TEACH_STARTER_KEY } from './starters'
@@ -479,22 +477,6 @@
   // arriving) IS the status; the phrase only fills the gap before any of it.
   const liveStatus = $derived(
     streamingText || reasoningText || liveRunning.length ? '' : agentStatus,
-  )
-  // What the assistant is doing, as the one word the mascot wears. Every
-  // signal the window has is folded in mascot/presence.ts rather than read by
-  // the mascot itself; a .by because micState and speakingId are declared
-  // further down this script.
-  const livePose = $derived.by(() =>
-    presenceOf({
-      awaiting: awaitingReply,
-      status: agentStatus,
-      running: liveRunning.map((s) => s.name ?? ''),
-      streaming: !!streamingText,
-      reasoning: !!reasoningText,
-      asking: !!cockpit.ask,
-      mic: micState === 'rec',
-      speaking: speakingId !== '',
-    }),
   )
   // One icon table for the two places a file chip shows up: the composer's
   // pending chip and the sent bubble's.
@@ -4613,10 +4595,6 @@
            for the same middle of the screen; behind them at this size it is
            the room they are standing in. -->
       <div class="brand-ground"><Logo size={520} animate={false} /></div>
-      <!-- The assistant itself, in front of its mark: the one mascot on the
-           screen that looks at you (lookAt.ts), because on this screen there
-           is nothing else for it to be doing. -->
-      <div class="presence-hero"><Mascot pose="greeting" size={184} look /></div>
       <h2>{headline}</h2>
       <!-- Keyed by title so a re-deal replaces the cards rather than rewriting
            the text inside four cards that never moved — which is what makes the
@@ -5031,10 +5009,6 @@
       {#if awaitingReply}
         <div class="msg bot">
           <div class="bubble typing-bubble">
-            <!-- The assistant at work, in the pose presence derives from what
-                 is actually happening (reading, searching, coding, answering,
-                 asking). Drawn once per pose; the head follows the pointer. -->
-            <div class="presence-row"><Mascot pose={livePose} size={72} look /></div>
             <!-- The whole row, not just its text: with nothing else on it, an
                  empty row would still take its share of the bubble's gap and
                  push the toggles below it down for no reason. -->
@@ -6362,11 +6336,3 @@
       </div>
     </div>
   </div>
-
-<style>
-  /* The mascot's two homes in the chat: the welcome screen, where it stands in
-     front of the mark, and the live turn, where it sits at the head of the
-     bubble. Sized here, drawn in lib/mascot. */
-  .presence-hero { display: flex; justify-content: center; margin: 14px 0 4px; position: relative; z-index: 1; }
-  .presence-row { display: flex; align-items: flex-end; margin-bottom: 2px; }
-</style>
