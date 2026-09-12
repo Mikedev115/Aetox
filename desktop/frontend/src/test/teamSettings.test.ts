@@ -1,10 +1,12 @@
 // Settings › ทีมเอเจน (§256): the one home of a roster, in การตั้งค่าโมเดล's
-// master–detail shape — teams in the rail, one roster in the pane. What is
-// pinned: the rail names every team with its reach tally, the pane draws the
-// picked roster with its switch and its members' switches, the door to a new
-// team is visible three ways, the editor writes through the engine's one
-// door with exactly what was ticked, and the roster page's intents land on
-// the right team.
+// master–detail shape — teams in the rail split by side, one roster in the
+// pane. What is pinned: the two DOOR switches sit above everything and are
+// the only master switches there are; the rail names every team under its
+// side with its reach tally; the pane draws the picked roster with its
+// members' switches; every team — the seeded ทีมเอเจน included — is editable
+// and deletable; the door to a new team is visible on both sides; the editor
+// writes through the engine's one door with exactly what was ticked; and the
+// roster page's intents land on the right team.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import TeamSettings from '../lib/TeamSettings.svelte'
@@ -14,85 +16,89 @@ import { cockpit } from '../lib/stores/cockpit.svelte'
 const chair = (over: Record<string, unknown> = {}) => ({
   name: 'doc', description: 'เก้าอี้ร่างเอกสาร', tools: [], builtin: true, jobs: 0, lastUsed: '', ...over,
 })
-const team = (over: Record<string, unknown> = {}) => ({
-  name: 'ทีมโค้ด', desk: 'coding', description: 'แก้โค้ด', default: false, invalid: '',
-  missing: [], members: [chair({ name: 'fixer', builtin: false })], path: 'C:/teams/ทีมโค้ด/TEAM.md',
-  delegateOff: false, ...over,
+const seed = () => ({
+  name: 'ทีมเอเจน', desk: 'specialized', description: 'ทีมที่แอปตั้งให้ตอนติดตั้ง แก้หรือลบได้', invalid: '',
+  missing: [], members: [chair()], path: 'C:/teams/ทีมเอเจน/TEAM.md',
 })
-const defaultTeam = () => ({
-  name: '', desk: 'specialized', description: '', default: true, invalid: '', missing: [],
-  members: [chair()], path: '', delegateOff: false,
+const codeTeam = (over: Record<string, unknown> = {}) => ({
+  name: 'ทีมโค้ด', desk: 'coding', description: 'แก้โค้ด', invalid: '',
+  missing: [], members: [chair({ name: 'fixer', builtin: false })], path: 'C:/teams/ทีมโค้ด/TEAM.md', ...over,
 })
-const switches = (team: string, workers: { name: string; on: boolean }[], off = false) => ({
-  team, agents: { off, tokens: 0, workers: workers.map((w) => ({ ...w, for: '', agent: true })) },
+const switches = (team: string, workers: { name: string; on: boolean }[], doors = { agents: false, code: false }) => ({
+  team,
+  agents: { off: doors.agents, tokens: 0, workers: workers.map((w) => ({ ...w, for: '', agent: true })) },
+  code: { off: doors.code, tokens: 0, workers: [] },
   helpers: { off: false, tokens: 0, workers: [] }, tokens: 0,
 })
 const rail = (container: HTMLElement) => Array.from(container.querySelectorAll('.mset-side .team-row'))
 const pane = (container: HTMLElement) => container.querySelector('.mset-detail') as HTMLElement
+const doorSwitch = (container: HTMLElement, side: 'side-assistant' | 'side-code') =>
+  container.querySelector(`.team-sides .${side} .mswitch input`) as HTMLInputElement
 
 beforeEach(() => {
   vi.clearAllMocks()
   cockpit.settingsIntent = null
   vi.mocked(ListChairs).mockResolvedValue([chair(), chair({ name: 'fixer', builtin: false })] as any)
-  vi.mocked(ListTeams).mockImplementation(async () => [defaultTeam(), team()] as any)
+  vi.mocked(ListTeams).mockImplementation(async () => [seed(), codeTeam()] as any)
   vi.mocked(DelegateSwitches).mockImplementation(async (name: string) =>
-    switches(name, name === '' ? [{ name: 'doc', on: true }] : [{ name: 'fixer', on: false }]) as any)
+    switches(name, name === 'ทีมเอเจน' ? [{ name: 'doc', on: true }] : [{ name: 'fixer', on: false }]) as any)
 })
 
 describe('Settings › ทีมเอเจน', () => {
-  it('lists every team in the rail with its reach tally, and opens on the shipped team', async () => {
+  it('draws the two door switches above everything, and one team under each side', async () => {
     const { container } = render(TeamSettings)
 
     await waitFor(() => expect(rail(container).length).toBe(2))
+    expect(doorSwitch(container, 'side-assistant')).toBeTruthy()
+    expect(doorSwitch(container, 'side-code')).toBeTruthy()
+    // The rail: each side's header, its team with the reach tally, its door.
+    expect(container.querySelector('.mset-side .team-side.side-assistant')).toBeTruthy()
+    expect(container.querySelector('.mset-side .team-side.side-code')).toBeTruthy()
     expect(rail(container)[0].textContent).toContain('ทีมเอเจน')
-    // The tally lands a tick after the rail: it is read off the switches.
     await waitFor(() => expect(rail(container)[0].textContent).toContain('1/1'))
     expect(rail(container)[1].textContent).toContain('ทีมโค้ด')
     expect(rail(container)[1].textContent).toContain('0/1')
+    expect(container.querySelectorAll('.mset-side .team-add').length).toBe(2)
+    // Opens on the first team; the seed is a team like any other — a gear,
+    // and no master switch of its own in the pane.
     expect(rail(container)[0].classList.contains('selected')).toBe(true)
-    // The pane: the shipped team, its desk, its note, its member with the
-    // member's own switch — and no gear, because it cannot be edited.
     expect(pane(container).querySelector('.mset-name')?.textContent).toBe('ทีมเอเจน')
-    expect(pane(container).textContent).toContain('มากับแอป')
     expect(pane(container).querySelector('.desk-badge.side-assistant')?.textContent).toContain('ฝั่งผู้ช่วย')
-    expect(pane(container).textContent).toContain('แก้สมาชิกไม่ได้')
+    expect(screen.getByText('แก้ไขทีม', { selector: 'button' })).toBeTruthy()
+    expect(pane(container).querySelector('.team-reach')).toBeNull()
     await waitFor(() => expect(pane(container).querySelectorAll('.team-member').length).toBe(1))
     expect((pane(container).querySelector('.team-member .mswitch input') as HTMLInputElement).checked).toBe(true)
-    expect(screen.queryByText('แก้ไขทีม', { selector: 'button' })).toBeNull()
   })
 
-  it('shows the door to a new team three ways while the user has none, and once they do, two', async () => {
-    vi.mocked(ListTeams).mockImplementation(async () => [defaultTeam()] as any)
+  it('says a side has no team yet, and still offers its door', async () => {
+    vi.mocked(ListTeams).mockImplementation(async () => [seed()] as any)
     const { container } = render(TeamSettings)
 
-    await waitFor(() => expect(container.querySelector('.team-callout')).toBeTruthy())
-    expect(container.querySelector('.team-title .team-new')).toBeTruthy()
-    // One door per side, so the code side reads as a place a team can be
-    // made even while it is empty (owner: 'แยกชัดๆ อันไหนฝั่งผู้ช่วย อันไหนฝั่งโค้ด').
-    expect(container.querySelectorAll('.mset-side .team-add').length).toBe(2)
-    expect(container.querySelector('.mset-side .team-side.side-code')).toBeTruthy()
+    await waitFor(() => expect(rail(container).length).toBe(1))
     expect(container.querySelector('.mset-side .team-side-empty')).toBeTruthy()
-    expect(screen.getByText(/อยากได้ทีมของคุณเอง/)).toBeTruthy()
-
-    vi.mocked(ListTeams).mockImplementation(async () => [defaultTeam(), team()] as any)
-    const second = render(TeamSettings)
-    await waitFor(() => expect(rail(second.container).length).toBe(2))
-    expect(second.container.querySelector('.team-callout')).toBeNull()
+    expect(container.querySelectorAll('.mset-side .team-add').length).toBe(2)
+    expect(container.querySelector('.team-title .team-new')).toBeTruthy()
+    // The nudge, while the seed is the only team (drawn once the switches
+    // have loaded, a tick after the rail).
+    await waitFor(() => expect(container.querySelector('.team-callout')).toBeTruthy())
   })
 
-  it('picks a team from the rail and draws that roster, gear included', async () => {
+  it("flips a door's switch by side, and the rows under that side cool", async () => {
+    vi.mocked(SetDelegateOff).mockResolvedValue(switches('ทีมโค้ด', [{ name: 'fixer', on: false }], { agents: false, code: true }) as any)
     const { container } = render(TeamSettings)
 
-    await waitFor(() => expect(rail(container).length).toBe(2))
+    // Loaded through — the tally is read off the switches, so its presence
+    // says the page holds them and a flip has something to update.
+    await waitFor(() => expect(rail(container)[1]?.textContent).toContain('0/1'))
+    await fireEvent.click(doorSwitch(container, 'side-code'))
+    await waitFor(() => expect(vi.mocked(SetDelegateOff)).toHaveBeenCalledWith('code', true))
+    // The answer lands a tick later; the switch reads it back before the rail
+    // is asked to show the cooled roster.
+    await waitFor(() => expect(doorSwitch(container, 'side-code').checked).toBe(false))
     await fireEvent.click(rail(container)[1])
-    await waitFor(() => expect(pane(container).querySelector('.mset-name')?.textContent).toBe('ทีมโค้ด'))
-    expect(pane(container).querySelector('.desk-badge.side-code')?.textContent).toContain('ฝั่งโค้ด')
-    expect(pane(container).textContent).toContain('แก้โค้ด')
-    expect(pane(container).querySelector('.team-member')?.textContent).toContain('fixer')
-    // fixer is off on ทีมโค้ด: its row cools and its switch is unticked.
-    expect((pane(container).querySelector('.team-member .mswitch input') as HTMLInputElement).checked).toBe(false)
-    expect(pane(container).querySelector('.team-member.off')).toBeTruthy()
-    expect(screen.getByText('แก้ไขทีม', { selector: 'button' })).toBeTruthy()
+    await waitFor(() => expect(pane(container).querySelector('.team-members.cool')).toBeTruthy())
+    // The assistant's door was not touched.
+    expect(doorSwitch(container, 'side-assistant').checked).toBe(true)
   })
 
   it("flips a member's reach on the team it sits under, not everywhere", async () => {
@@ -106,15 +112,12 @@ describe('Settings › ทีมเอเจน', () => {
     await waitFor(() => expect(vi.mocked(SetAgentOff)).toHaveBeenCalledWith('ทีมโค้ด', 'fixer', false))
   })
 
-  it("flips the team's own delegation switch by name", async () => {
-    vi.mocked(SetDelegateOff).mockResolvedValue(switches('ทีมโค้ด', [{ name: 'fixer', on: false }], true) as any)
+  it("opens a code-side door with the code desk already chosen", async () => {
     const { container } = render(TeamSettings)
 
-    await waitFor(() => expect(rail(container).length).toBe(2))
-    await fireEvent.click(rail(container)[1])
-    await waitFor(() => expect(pane(container).querySelector('.team-reach .mswitch input')).toBeTruthy())
-    await fireEvent.click(pane(container).querySelector('.team-reach .mswitch input') as HTMLInputElement)
-    await waitFor(() => expect(vi.mocked(SetDelegateOff)).toHaveBeenCalledWith('ทีมโค้ด', 'agents', true))
+    await waitFor(() => expect(container.querySelectorAll('.mset-side .team-add').length).toBe(2))
+    await fireEvent.click(container.querySelectorAll('.mset-side .team-add')[1])
+    await waitFor(() => expect(pane(container).querySelector('.team-desk-pick .seg-btn.side-code.selected')).toBeTruthy())
   })
 
   it('saves a new team through the engine door with what was ticked', async () => {
@@ -148,8 +151,8 @@ describe('Settings › ทีมเอเจน', () => {
     expect(cockpit.settingsIntent).toBeNull() // consumed once
   })
 
-  it('deletes through a confirm that says the people stay', async () => {
-    cockpit.settingsIntent = { section: 'teams', team: 'ทีมโค้ด' }
+  it('deletes the seeded team too, through a confirm that says the people stay', async () => {
+    cockpit.settingsIntent = { section: 'teams', team: 'ทีมเอเจน' }
     render(TeamSettings)
 
     await waitFor(() => expect(screen.getByText('ลบทีม', { selector: 'button.ctrl-danger' })).toBeTruthy())
@@ -157,6 +160,6 @@ describe('Settings › ทีมเอเจน', () => {
     expect(screen.getByText(/เอเจนในทีมยังอยู่ครบ/)).toBeTruthy()
     expect(vi.mocked(DeleteTeam)).not.toHaveBeenCalled()
     await fireEvent.click(screen.getByText('ลบทีม', { selector: '.confirm-go' }))
-    await waitFor(() => expect(vi.mocked(DeleteTeam)).toHaveBeenCalledWith('ทีมโค้ด'))
+    await waitFor(() => expect(vi.mocked(DeleteTeam)).toHaveBeenCalledWith('ทีมเอเจน'))
   })
 })

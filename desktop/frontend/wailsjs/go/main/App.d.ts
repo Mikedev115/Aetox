@@ -683,7 +683,7 @@ export function SetConnectionStartCommand(arg1:string,arg2:string):Promise<void>
 
 export function SetConnectionTargets(arg1:string,arg2:Array<string>):Promise<void>;
 
-export function SetDelegateOff(arg1:string,arg2:string,arg3:boolean):Promise<main.DelegateSettings>;
+export function SetDelegateOff(arg1:string,arg2:boolean):Promise<main.DelegateSettings>;
 
 export function SetImageEngine(arg1:string):Promise<void>;
 

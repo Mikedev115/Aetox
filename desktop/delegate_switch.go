@@ -35,12 +35,17 @@ import (
 // while it greyed out every row on the ซับเอเจน page, so somebody looking at
 // their helpers saw a whole page of dead buttons with nothing explaining why.
 type DelegateSettings struct {
-	// Team is whose switches these are: "" for ทีมผู้ช่วย, else a user team's
-	// name (subagent.Team). Echoed so a page holding several blocks cannot
-	// mistake one team's answer for another's.
+	// Team is whose member rows these are (subagent.Team), "" for a chat on
+	// no team. Echoed so a page holding several blocks cannot mistake one
+	// team's answer for another's.
 	Team string `json:"team"`
-	// Agents is the reach to เอเจน: a colleague who takes a whole job.
+	// Agents is the ASSISTANT door's reach to เอเจน — the switch is the door's
+	// (config.DelegateAgents), the rows are the team's members on that door.
 	Agents DelegateReach `json:"agents"`
+	// Code is the CODE door's twin (config.DelegateCodeOff): its switch, and
+	// no rows — a code team's members are the same rows under Agents when
+	// that team is asked for.
+	Code DelegateReach `json:"code"`
 	// Helpers is the reach to ซับเอเจน: the assistant's own hands in a second
 	// context, for a step of its own work.
 	Helpers DelegateReach `json:"helpers"`
@@ -87,70 +92,42 @@ type DelegateWorker struct {
 	On bool `json:"on"`
 }
 
-// shippedReachableAgents are the เอเจน a machine arrives with in reach.
-//
-// Three rather than none, and rather than all five: an assistant that can hand
-// nothing to anybody is a company with one employee, while five in the block
-// cost ~21 tokens each in every message for colleagues most people never call.
-// The three kept are the errands that come up on any desk, whatever the work
-// is: going out to find something out, writing it up, and putting it in a
-// table. The two left out are the ones that need a thing set up before they can
-// do anything at all — github wants a token, automation wants a server — so
-// arriving in reach would only spend tokens on a colleague who cannot start
-// (owner, 20 ส.ค.).
-//
-// Names rather than a flag in the profile, and it is the honest spelling: this
-// is one choice about how the app arrives, not a property of the agent. It was
-// one name until 20 ส.ค. and the comment then said the day a second earned its
-// place this becomes a list. It did.
-var shippedReachableAgents = []string{"deepresearch", "doc", "sheet"}
-
 // shippedDelegation is the delegation a machine gets before anybody answers the
 // question — read at startup, never written to disk (App.resolveConfig).
 //
-// It reads the roster rather than naming four agents, so an เอเจน installed
-// later arrives OUT of reach like every other one, instead of quietly switching
-// itself on. ซับเอเจน are left out entirely: they are the assistant's own hands
-// and ship on, which is the asymmetry config.Config already spells into the two
-// switch fields.
+// The assistant's switch ships ON and nobody is switched off: since 13 ก.ย.
+// WHO is in reach is the team's business — the seeded ทีมเอเจน names the
+// four errands that come up on any desk (subagent.SeedTeamName) — and this
+// list stopped being where that was decided. It used to switch every agent
+// off but three; a team that names four members says the same thing in the
+// place the user can see and change it.
 func shippedDelegation() (agents bool, workersOff []string) {
-	for _, p := range subagent.List() {
-		if p.Invalid != "" || p.Desk == "" {
-			continue
-		}
-		if slices.ContainsFunc(shippedReachableAgents, func(n string) bool {
-			return strings.EqualFold(p.Name, n)
-		}) {
-			continue
-		}
-		workersOff = append(workersOff, strings.ToLower(p.Name))
-	}
-	return true, workersOff
+	return true, nil
 }
 
-// DelegateSwitches reports both switches and what each is worth, for one
-// team: the default ("") reads the two shipped fields, a user team reads its
-// own entry (config.Config.DelegationFor). The helpers half is the session's,
-// not the team's — hands are not on a roster — and is reported the same
-// whichever team is asked, so the two pages that draw it cannot disagree.
+// DelegateSwitches reports the switches and what each is worth, for one
+// team: the two DOOR switches (may the assistant hand work to a team on its
+// side; may the code desk to one on its side — config.DelegateAgents and
+// DelegateCodeOff), the helpers switch, and the members of the named team
+// with each one's own reach on it (config.TeamSwitches). Both door switches
+// come back on every answer, whichever team was asked, so a page can draw
+// them once at the top without a call of their own.
 //
 // The agents rows are the TEAM's members, not every agent on the machine:
 // a switch beside somebody this session could not hire anyway would be a
-// switch that changes nothing.
+// switch that changes nothing. No team ("") has no rows.
 func (a *App) DelegateSwitches(team string) DelegateSettings {
 	cfg := a.cur().cfg
-	agentsOn, workersOff := cfg.DelegationFor(team)
+	roster, _ := subagent.LoadTeam(team)
+	_, workersOff := cfg.DelegationFor(roster.Desk, team)
 	out := DelegateSettings{
 		Team:    team,
-		Agents:  DelegateReach{Off: !agentsOn},
+		Agents:  DelegateReach{Off: !cfg.DelegateAgents},
+		Code:    DelegateReach{Off: cfg.DelegateCodeOff},
 		Helpers: DelegateReach{Off: cfg.DelegateHelpersOff},
 		Tokens:  a.ToolBlockTokens(),
 	}
 	off := lowered(workersOff)
-	// Helpers off the whole roster; agents off the team. The default team is
-	// every agent no other team names, so on a machine with no teams this is
-	// the list it has always been.
-	roster, _ := subagent.LoadTeam(team)
 	for _, p := range subagent.List() {
 		if p.Invalid != "" {
 			continue // a profile that will not load is the settings page's own error to show, not a row here
@@ -173,10 +150,12 @@ func (a *App) DelegateSwitches(team string) DelegateSettings {
 	// What each switch is worth, with the other one exactly where the user left
 	// it. Both directions from one subtraction: on a kind that is on it reads as
 	// what turning it off gives back, on a kind that is off as what turning it
-	// on will cost.
-	here := a.delegationCost(team, !agentsOn, cfg.DelegateHelpersOff)
-	out.Agents.Tokens = abs(here - a.delegationCost(team, agentsOn, cfg.DelegateHelpersOff))
-	out.Helpers.Tokens = abs(here - a.delegationCost(team, !agentsOn, !cfg.DelegateHelpersOff))
+	// on will cost. Measured on the session's own reach.
+	agentsOn, _ := cfg.DelegationFor(a.cur().desk.DeskName(), a.cur().team)
+	here := a.delegationCost(!agentsOn, cfg.DelegateHelpersOff)
+	out.Agents.Tokens = abs(here - a.delegationCost(agentsOn, cfg.DelegateHelpersOff))
+	out.Code.Tokens = out.Agents.Tokens
+	out.Helpers.Tokens = abs(here - a.delegationCost(!agentsOn, !cfg.DelegateHelpersOff))
 	return out
 }
 
@@ -187,16 +166,14 @@ func (a *App) DelegateSwitches(team string) DelegateSettings {
 // Built fresh rather than read off the registry, because the question is about a
 // state this session is NOT in. Only the roster-shaping options are filled in:
 // nothing here runs, and the definition is all that gets measured.
-func (a *App) delegationCost(team string, noAgents, noHelpers bool) int {
-	_, workersOff := a.cur().cfg.DelegationFor(team)
+func (a *App) delegationCost(noAgents, noHelpers bool) int {
+	_, workersOff := a.cur().cfg.DelegationFor(a.cur().desk.DeskName(), a.cur().team)
 	opts := subagent.TaskOptions{
 		Desk:       a.cur().desk,
 		WorkersOff: workersOff,
 		NoAgents:   noAgents,
 		NoHelpers:  noHelpers,
-	}
-	if roster, ok := subagent.LoadTeam(team); ok {
-		opts.Team = &roster
+		Team:       a.teamRoster(a.cur()),
 	}
 	tools := subagent.NewTaskTools(opts)
 	if len(tools) == 0 {
@@ -220,32 +197,34 @@ func abs(n int) int {
 	return n
 }
 
-// SetDelegateOff flips one kind's switch and re-bootstraps, because what the
-// tool carries is decided when the tools are built.
+// SetDelegateOff flips one switch and re-bootstraps, because what the tool
+// carries is decided when the tools are built.
 //
-// kind is "agents" or "helpers" — the same two words the two settings pages are
-// named for. Anything else is refused rather than guessed at: a typo that fell
-// through to a default would silently flip the switch the caller did not mean.
-//
-// team says whose agents switch this is; "helpers" ignores it, because the
-// session's hands are not a team's to keep. A user team's switch lives in its
-// own entry and never touches DelegateSet — that flag guards the shipped
-// default, and a team the user made has none.
-func (a *App) SetDelegateOff(team, kind string, off bool) DelegateSettings {
-	team = strings.TrimSpace(team)
+// kind is "agents" (the assistant door: may it hand work to a team on its
+// side), "code" (the code door's twin), or "helpers" (the session's own
+// hands). Anything else is refused rather than guessed at: a typo that fell
+// through to a default would silently flip the switch the caller did not
+// mean. The two door switches are the only master switches there are — a
+// team has none of its own (owner, 13 ก.ย.).
+func (a *App) SetDelegateOff(kind string, off bool) DelegateSettings {
 	cfg := a.cfg
+	team := a.cur().team
 	switch strings.ToLower(strings.TrimSpace(kind)) {
 	case "agents":
-		agentsOn, _ := a.cur().cfg.DelegationFor(team)
-		if off == !agentsOn {
+		if off == !a.cur().cfg.DelegateAgents {
 			return a.DelegateSwitches(team) // never re-bootstrap to change nothing
 		}
-		if team == "" {
-			cfg.DelegateAgents = !off
-			cfg.DelegateSet = true
-		} else {
-			cfg.TeamSwitches = withTeamSwitch(cfg.TeamSwitches, team, func(s *config.TeamSwitch) { s.DelegateOff = off })
+		cfg.DelegateAgents = !off
+		// Somebody has now answered, so the shipped default stops applying —
+		// including when the answer is the same as the default. Without this
+		// the next start would resolve as "nobody answered" and hand back a
+		// state the user had just left.
+		cfg.DelegateSet = true
+	case "code":
+		if off == a.cur().cfg.DelegateCodeOff {
+			return a.DelegateSwitches(team)
 		}
+		cfg.DelegateCodeOff = off
 	case "helpers":
 		if off == a.cur().cfg.DelegateHelpersOff {
 			return a.DelegateSwitches(team)
@@ -255,16 +234,13 @@ func (a *App) SetDelegateOff(team, kind string, off bool) DelegateSettings {
 	default:
 		return a.DelegateSwitches(team)
 	}
-	// Somebody has now answered, so the shipped default stops applying — including
-	// when the answer is the same as the default. Without this the next start would
-	// resolve as "nobody answered" and hand back a state the user had just left.
-	// (DelegateSet, set above on the two shipped fields only.)
 	a.applyConfig(a.cur(), cfg)
 	return a.DelegateSwitches(team)
 }
 
-// SetAgentOff takes one worker out of the assistant's reach on one team, or
-// puts it back.
+// SetAgentOff takes one member out of a door's reach on one team, or puts it
+// back. The same agent may be in reach on another team; that is the point of
+// keying the list by team.
 //
 // It does NOT disable the worker: the user still opens a chat with it and still
 // writes @name. Anything the UI says about this has to name whose reach is
@@ -275,7 +251,8 @@ func (a *App) SetAgentOff(team, name string, off bool) DelegateSettings {
 	if name == "" {
 		return a.DelegateSwitches(team)
 	}
-	_, workersOff := a.cur().cfg.DelegationFor(team)
+	roster, _ := subagent.LoadTeam(team)
+	_, workersOff := a.cur().cfg.DelegationFor(roster.Desk, team)
 	current := lowered(workersOff)
 	if slices.Contains(current, name) == off {
 		return a.DelegateSwitches(team)

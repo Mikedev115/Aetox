@@ -6592,6 +6592,17 @@ button.phase-head:hover { color:var(--text-muted); }
 .team-set .team-side-empty { padding:4px 10px 6px; font-size:var(--fs-2xs); color:var(--text-dim); }
 .team-set .team-add { color:var(--text-muted); font-size:var(--fs-md); margin-bottom:6px; }
 .team-set .team-add:hover, .team-set .team-add.selected { color:var(--text-primary); }
+/* The two side switches above the rail (13 ก.ย.): one card per door, side
+   by side, each wearing its side's colour on the mark. */
+.team-sides { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+.team-sides .team-side-card { margin:0; }
+.team-sides .team-side-card .set-row { padding:12px 14px; }
+.team-sides .team-side-ic { display:inline-flex; flex:none; }
+.team-sides .side-assistant .team-side-ic { color:var(--accent); }
+.team-sides .side-code .team-side-ic { color:var(--chart-2); }
+.team-sides .set-txt .t { font-size:var(--fs-md); }
+.team-sides .set-txt .d { font-size:var(--fs-2xs); }
+@media (max-width: 900px) { .team-sides { grid-template-columns:1fr; } }
 .desk-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:var(--r-full); font-size:var(--fs-xs); font-weight:600; border:1px solid transparent; }
 .desk-badge.side-assistant { color:var(--side-assistant, var(--accent)); border-color:color-mix(in srgb, var(--side-assistant, var(--accent)) 45%, transparent); background:color-mix(in srgb, var(--side-assistant, var(--accent)) 12%, transparent); }
 .desk-badge.side-code { color:var(--side-code, var(--chart-2)); border-color:color-mix(in srgb, var(--side-code, var(--chart-2)) 45%, transparent); background:color-mix(in srgb, var(--side-code, var(--chart-2)) 12%, transparent); }

@@ -53,7 +53,28 @@
   // opens: it is the team every machine has.
   let selected = $state('')
   const current = $derived(teams.find((x) => x.name === selected) ?? null)
-  const mine = $derived(teams.filter((x) => !x.default))
+  // The two side switches (owner, 13 ก.ย.: "ทำเป็น 2 สวิตช์ข้างบน แยกฝั่งผู้ช่วย
+  // และฝั่งโค้ด"): whether the ASSISTANT may hand a whole job to a team on
+  // its side, and whether the CODE desk may to a team on its side. Read off
+  // the switches of any team (the engine reports both on every answer), so
+  // the page draws them without a call of their own.
+  const sideOff = $derived.by(() => {
+    const any = Object.values(switches)[0]
+    return { specialized: any ? any.agents.off : false, coding: any ? any.code.off : false }
+  })
+  async function toggleSide(desk: string) {
+    if (busy) return
+    busy = 'side:' + desk
+    try {
+      const kind = desk === 'coding' ? 'code' : 'agents'
+      const next = await SetDelegateOff(kind, !sideOff[desk as 'specialized' | 'coding'])
+      // Both door switches come back on every answer, whichever team was
+      // asked; copy them onto every held block so the page agrees with itself.
+      switches = Object.fromEntries(Object.entries(switches).map(([k, v]) => [k, { ...v, agents: { ...v.agents, off: next.agents.off }, code: next.code } as unknown as main.DelegateSettings]))
+    } finally {
+      busy = ''
+    }
+  }
 
   async function load() {
     try {
@@ -70,11 +91,11 @@
     const next: Record<string, main.DelegateSettings> = {}
     teams.forEach((tm, i) => { if (answers[i]) next[tm.name] = answers[i]! })
     switches = next
-    if (!teams.some((x) => x.name === selected)) selected = ''
+    if (!teams.some((x) => x.name === selected)) selected = teams[0]?.name ?? ''
     loaded = true
   }
 
-  const teamLabel = (tm: main.TeamCard) => (tm.default ? t('office.teamDefault') : tm.name)
+  const teamLabel = (tm: main.TeamCard) => tm.name
   // The desk labels the rest of the app uses (the nav, the MCP page's
   // audience chips) — not a wording of this page's own.
   const deskLabel = (desk: string) => (desk === 'coding' ? t('desk.coding') : t('desk.assistant'))
@@ -91,7 +112,7 @@
   // the rail shows beside each team, so the state is readable before a click.
   function inReach(tm: main.TeamCard): number {
     const s = switches[tm.name]
-    if (!s || s.agents.off) return 0
+    if (!s || sideOff[tm.desk as 'specialized' | 'coding']) return 0
     return tm.members.filter((c) => s.agents.workers.find((w) => w.name === c.name)?.on).length
   }
 
@@ -102,17 +123,7 @@
     const s = switches[team.name]
     if (!s) return null
     const w = s.agents.workers.find((x) => x.name === name)
-    return w ? { on: w.on, off: s.agents.off } : null
-  }
-  async function toggleTeam(team: main.TeamCard) {
-    const s = switches[team.name]
-    if (!s || busy) return
-    busy = 'team:' + team.name
-    try {
-      switches = { ...switches, [team.name]: await SetDelegateOff(team.name, 'agents', s.agents.off === false) }
-    } finally {
-      busy = ''
-    }
+    return w ? { on: w.on, off: sideOff[team.desk as 'specialized' | 'coding'] } : null
   }
   async function toggleMember(team: main.TeamCard, name: string, on: boolean) {
     if (busy) return
@@ -208,7 +219,7 @@
     else if (intent.team && teams.some((x) => x.name === intent.team)) {
       selected = intent.team
       const tm = teams.find((x) => x.name === intent.team)
-      if (tm && !tm.default) editTeam(tm)
+      if (tm) editTeam(tm)
     }
   })
 </script>
@@ -225,6 +236,31 @@
   <button class="ctrl ctrl-primary team-new" onclick={() => newTeam()} disabled={!!editing?.isNew}><Icon name="plus" size={14} /> {t('office.newTeam')}</button>
 </div>
 {#if error}<div class="mset-error">{error}</div>{/if}
+
+<!-- The two switches, above everything, one per side: they are not about a
+     team, they are about a DOOR — may the assistant behind it hand work to
+     the teams on its side. -->
+<div class="team-sides">
+  {#each SIDES as side (side.desk)}
+    {@const off = sideOff[side.desk as 'specialized' | 'coding']}
+    <div class="settings-card team-side-card {side.cls}">
+      <div class="set-row">
+        <span class="team-side-ic"><Icon name={side.icon} size={18} /></span>
+        <div class="set-txt">
+          <div class="t">{t(side.desk === 'coding' ? 'settings.sideCodeDelegate' : 'settings.sideAssistantDelegate')}</div>
+          <div class="d">{t(off ? (side.desk === 'coding' ? 'settings.sideCodeOff' : 'settings.sideAssistantOff') : (side.desk === 'coding' ? 'settings.sideCodeOn' : 'settings.sideAssistantOn'))}</div>
+        </div>
+        <div class="ag-actions">
+          <label class="mswitch">
+            <input type="checkbox" checked={!off} disabled={busy !== ''} onchange={() => toggleSide(side.desk)}
+              aria-label={t(side.desk === 'coding' ? 'settings.sideCodeDelegate' : 'settings.sideAssistantDelegate')} />
+            <span></span>
+          </label>
+        </div>
+      </div>
+    </div>
+  {/each}
+</div>
 
 <div class="settings-card mset team-set">
   <!-- The rail: every team, the default first, each with the one number
@@ -331,45 +367,24 @@
         <!-- The side, as a badge with the desk's icon and colour — the one
              fact about a team that decides what its members hold. -->
         <span class="desk-badge {sideOf(tm.desk).cls}"><Icon name={sideOf(tm.desk).icon} size={12} /> {t(sideOf(tm.desk).label)}</span>
-        {#if tm.default}<span class="chip">{t('settings.teamShipped')}</span>{/if}
         <div class="pp-bar-gap"></div>
-        {#if !tm.default}
-          <button class="ctrl" onclick={() => editTeam(tm)}><Icon name="settings" size={13} /> {t('office.teamEdit')}</button>
-        {/if}
+        <button class="ctrl" onclick={() => editTeam(tm)}><Icon name="settings" size={13} /> {t('office.teamEdit')}</button>
       </div>
       <p class="muted set-hint">
-        {#if tm.default}{t('office.teamDefaultNote')}{:else if tm.description}{tm.description}{:else}{t('settings.teamNoDescription')}{/if}
+        {#if tm.description}{tm.description}{:else}{t('settings.teamNoDescription')}{/if}
       </p>
       {#if tm.invalid}<div class="mset-error">{t('office.teamInvalid', { reason: tm.invalid })}</div>{/if}
       {#if tm.missing.length > 0}<div class="mset-error">{t('office.teamMissing', { names: tm.missing.join(', ') })}</div>{/if}
 
-      {#if s && !tm.invalid}
-        <div class="settings-card reach-card team-reach">
-          <div class="set-row">
-            <div class="set-txt">
-              <div class="t">{t('office.teamDelegate')}</div>
-              <div class="d">{t(s.agents.off ? 'settings.delegateAgentsOff' : 'settings.delegateAgentsOn')}</div>
-            </div>
-            <div class="ag-actions">
-              <label class="mswitch" title={t('office.teamDelegate')}>
-                <input type="checkbox" checked={!s.agents.off} disabled={busy !== ''}
-                  aria-label={t('office.teamDelegate')} onchange={() => toggleTeam(tm)} />
-                <span></span>
-              </label>
-            </div>
-          </div>
-        </div>
-      {/if}
-
       <div class="mset-field">
         <div class="eyebrow">
           {t('office.teamPick')} <span class="team-picked">{tm.members.length}</span>
-          {#if s && !s.agents.off}<span class="team-picked muted">· {t('settings.teamInReach', { n: inReach(tm) })}</span>{/if}
+          {#if s && !sideOff[tm.desk as 'specialized' | 'coding']}<span class="team-picked muted">· {t('settings.teamInReach', { n: inReach(tm) })}</span>{/if}
         </div>
         {#if tm.members.length === 0}
-          <p class="muted set-hint">{tm.default ? t('office.noChairs') : t('office.teamEmpty')}</p>
+          <p class="muted set-hint">{t('office.teamEmpty')}</p>
         {/if}
-        <div class="team-members" class:cool={!!s && s.agents.off}>
+        <div class="team-members" class:cool={sideOff[tm.desk as 'specialized' | 'coding']}>
           {#each tm.members as c (c.name)}
             {@const reach = reachOf(tm, c.name)}
             <div class="team-member" class:off={!!reach && !(reach.on && !reach.off)}>
@@ -393,7 +408,7 @@
       <!-- The nudge, only while the user has no team of their own: what a
            team is for, in one sentence each, and the door. Gone the moment
            the first team exists — a tip for a thing already done is noise. -->
-      {#if tm.default && loaded && mine.length === 0}
+      {#if loaded && teams.length <= 1}
         <div class="team-callout">
           <div class="team-callout-txt">
             <div class="t">{t('settings.teamFirstTitle')}</div>

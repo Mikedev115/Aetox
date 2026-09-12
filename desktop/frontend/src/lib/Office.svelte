@@ -59,8 +59,7 @@
     try {
       const next: Record<string, string[]> = {}
       for (const tm of await ListTeams('')) {
-        const label = tm.default ? t('office.teamDefault') : tm.name
-        for (const m of tm.members) (next[m.name] ??= []).push(label)
+        for (const m of tm.members) (next[m.name] ??= []).push(tm.name)
       }
       teamsOf = next
     } catch {

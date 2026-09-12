@@ -31,11 +31,11 @@ beforeEach(() => {
   cockpit.settingsIntent = null
   vi.mocked(ListChairs).mockResolvedValue([chair()] as any)
   vi.mocked(ListReceivedJobs).mockResolvedValue([] as any)
-  // Teams reach this page as a chip on the card (§256). One team, everybody
-  // on it, is what a machine with no team folder has.
+  // Teams reach this page as a chip on the card (§256). The seeded team,
+  // everybody on it, is the shape these card tests mock.
   vi.mocked(ListTeams).mockImplementation(async () => [{
-    name: '', desk: 'specialized', description: '', default: true, invalid: '',
-    missing: [], members: await ListChairs(), path: '', delegateOff: false,
+    name: 'ทีมเอเจน', desk: 'specialized', description: '', invalid: '',
+    missing: [], members: await ListChairs(), path: '',
   }] as any)
 })
 
@@ -166,10 +166,10 @@ describe('the roster and teams', () => {
   it('draws each agent once and names the teams that list it', async () => {
     vi.mocked(ListChairs).mockResolvedValue([chair(), chair({ name: 'fixer', builtin: false })] as any)
     vi.mocked(ListTeams).mockImplementation(async () => [
-      { name: '', desk: 'specialized', description: '', default: true, invalid: '', missing: [],
-        members: [chair()], path: '', delegateOff: false },
-      { name: 'ทีมโค้ด', desk: 'coding', description: '', default: false, invalid: '', missing: [],
-        members: [chair(), chair({ name: 'fixer', builtin: false })], path: '', delegateOff: false },
+      { name: 'ทีมเอเจน', desk: 'specialized', description: '', invalid: '', missing: [],
+        members: [chair()], path: '' },
+      { name: 'ทีมโค้ด', desk: 'coding', description: '', invalid: '', missing: [],
+        members: [chair(), chair({ name: 'fixer', builtin: false })], path: '' },
     ] as any)
     const { container } = render(Office, { onClose: () => {} })
 

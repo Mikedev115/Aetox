@@ -56,6 +56,11 @@ func bootDeskApp(t *testing.T, desk string) *App {
 		}
 		a.cur().desk = m
 	}
+	// The team a real door would give this chat (setStation via teamFor): the
+	// seeded ทีมเอเจน on a fresh data root, which is what every fixture here
+	// has. A chat with no team hires nobody (§256), and these tests are about
+	// what a desk can reach, so they run on the roster the app would hand out.
+	a.cur().team = subagent.PreferredTeam(desk)
 	a.applyConfig(a.cur(), config.Config{
 		SandboxRoot:   t.TempDir(),
 		ModelProvider: "aetox",
@@ -761,8 +766,8 @@ func TestDelegationOffTakesTheHandoverOutOfThePrompt(t *testing.T) {
 		t.Errorf("delegation is on and the assistant desk was not told to hand deliverable work over:\n%s", on)
 	}
 
-	a.SetDelegateOff("", "helpers", true)
-	if switches := a.SetDelegateOff("", "agents", true); !switches.Agents.Off {
+	a.SetDelegateOff("helpers", true)
+	if switches := a.SetDelegateOff("agents", true); !switches.Agents.Off {
 		t.Fatal("the เอเจน switch did not take")
 	}
 	off := systemPrompt()
