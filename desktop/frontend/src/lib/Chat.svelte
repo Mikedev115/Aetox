@@ -1425,7 +1425,6 @@
   // โหมดทำงาน menu are neighbours wide enough to be drawn on top of each other
   // (owner, 31 ส.ค.). Each trigger now clears the row before setting its own.
   function closeComposerMenus() {
-    attachMenuOpen = false
     stanceMenuOpen = false
     modelMenuOpen = false
     branchMenuOpen = false
@@ -1444,10 +1443,9 @@
     if (rewindMenuOpen && !el.closest('.rewind-pick')) { rewindMenuOpen = false }
     if (ctxMenuOpen && !el.closest('.ctx-pick')) ctxMenuOpen = false
     if (stanceMenuOpen && !el.closest('.stance-pick')) stanceMenuOpen = false
-    if (attachMenuOpen && !el.closest('.attach-pick')) attachMenuOpen = false
     if (branchMenuOpen && !el.closest('.branch-pick')) branchMenuOpen = false
     if (openDropdown && !el.closest('.updrop')) openDropdown = ''
-    if (palette && !el.closest('.pal-pick')) palette = ''
+    if (palette && !el.closest('.attach-pick')) palette = ''
   }
 
   // ---------- Voice: the composer's mic, and the reply's ฟัง button ----------
@@ -2184,6 +2182,14 @@
     resendEdited(text, true)
   }
 
+  // Whether pressing send would do anything — the same test submit() makes,
+  // asked ahead of time so the button can look the part: full colour when
+  // there is something to send, dimmed when there is not (owner, 13 ก.ย.:
+  // "เพิ่มสีตรงนี้ได้ไหมจะได้ชัด").
+  const canSend = $derived(
+    !!draft.trim() || cockpit.pendingImages.length > 0 || cockpit.pendingContexts.length > 0 || cockpit.pendingFiles.length > 0,
+  )
+
   function submit() {
     // While the model is blocked on ask_user, typed text is the free-text answer.
     if (cockpit.ask) {
@@ -2614,10 +2620,22 @@
     if (cockpit.prepared.length > 0 && draft !== preparedText()) clearPrepared()
   }
 
-  // '' = closed. The two composer buttons and the "/" key set it.
-  let palette = $state<'' | 'all' | 'prompts'>('')
+  // '' = closed. The + button and Ctrl+K open it whole; "/" typed into an
+  // empty composer opens it on the presets, "@" at a word boundary on the
+  // agents (Palette.svelte's `focus`).
+  let palette = $state<'' | 'all' | 'prompts' | 'agents'>('')
   function insertFromPalette(text: string) {
     draft = text
+    palette = ''
+    inputEl?.focus()
+  }
+  // A chair picked from the menu rather than typed after "@". insertMention
+  // replaces the "@" the user typed; here there is none, so the token is added
+  // at the end of whatever is written, with a space before it if needed.
+  function mentionFromMenu(name: string) {
+    const sep = draft === '' || /\s$/.test(draft) ? '' : ' '
+    draft = draft + sep + '@' + name + ' '
+    mentionPicked = name
     palette = ''
     inputEl?.focus()
   }
@@ -2625,22 +2643,13 @@
   // One attach button for everything: images keep their thumbnail path, and a
   // clip or document is copied into the sandbox and handed over as a path the
   // tools can open. Splitting this across two buttons was the duplication the
-  // owner spotted (ARCHITECTURE.md §38).
-  // The menu the + button opens, and the one thing each row decides: which
-  // filter the native dialog starts on. It stays a menu rather than going
-  // straight to the dialog because the list of types this app accepts lived
-  // only inside that dialog's collapsed dropdown, where a missing type looked
+  // owner spotted (ARCHITECTURE.md §38) — and the + menu itself (Palette.svelte,
+  // §257) is the same finding one level up: files, prompt presets, agents and
+  // open tabs all go INTO the message, so they share the one door. The file
+  // tiles name each kind and what happens to it, rather than leaving the list
+  // inside the native dialog's collapsed dropdown, where a missing type looked
   // exactly like a type the app cannot take (owner, 31 ส.ค.).
-  let attachMenuOpen = $state(false)
-  const attachGroups = [
-    { group: 'image', icon: 'image', label: 'chat.attachImages', hint: 'chat.attachImagesHint' },
-    { group: 'document', icon: 'fileText', label: 'chat.attachDocs', hint: 'chat.attachDocsHint' },
-    { group: 'media', icon: 'clapperboard', label: 'chat.attachMedia', hint: 'chat.attachMediaHint' },
-    { group: '', icon: 'paperclip', label: 'chat.attachAny', hint: 'chat.attachAnyHint' },
-  ] as const
-
   async function attachViaDialog(group: string) {
-    attachMenuOpen = false
     // Several at once: the dialog is multi-select and the composer stages a
     // list, so picking twenty files gives twenty cards rather than the last one
     // winning. Sequential on purpose — each copy into the sandbox names itself
@@ -3254,21 +3263,23 @@
 
 </script>
 
-<!-- "/" is the prompt list on its own button; Ctrl+K opens the same component in
-     full mode (model, approval, tool counts, shortcuts) — those rows lost their
-     button when "+" became the attach control, not their home. -->
+<!-- Ctrl+K is the + button (Palette.svelte): one menu for everything that goes
+     into the message. "/" and "@" typed into the composer open the same menu
+     narrowed to prompts or agents (onKeydown below). -->
 <!-- Every menu closeMenusOnOutside knows how to close has to be named in the
      guard below, or it only closes on the days another menu happens to be open
      too. The branch picker needed the listener; ctx and stance were already
      relying on a neighbour being open, which is why they sometimes stayed put. -->
 <svelte:window
-  onclick={modelMenuOpen || focusMenuOpen || palette || ctxMenuOpen || stanceMenuOpen || branchMenuOpen || attachMenuOpen || rewindMenuOpen
+  onclick={modelMenuOpen || focusMenuOpen || palette || ctxMenuOpen || stanceMenuOpen || branchMenuOpen || rewindMenuOpen
     ? closeMenusOnOutside
     : undefined}
   onkeydown={(e) => {
     if (isShortcut(e, 'palette')) {
       e.preventDefault()
-      palette = palette === 'all' ? '' : 'all'
+      const open = !palette
+      closeComposerMenus()
+      palette = open ? 'all' : ''
     }
     // Shift+Tab toggles the leash, as in Claude Code. Deliberately only
     // ask ↔ unsafe-only: full-access means no prompt ever again, which is not
@@ -5677,7 +5688,7 @@
               ? t('chat.inputDuringRun')
               : cockpit.chair
                 ? t('chat.inputToAgent', { name: cockpit.chair })
-                : t('chat.inputPlaceholder', { key: shortcutLabel('palette') })}
+                : t('chat.inputPlaceholder')}
           bind:this={inputEl}
           bind:value={draft}
           onkeydown={onKeydown}
@@ -5710,28 +5721,22 @@
              belongs to the text being written, so it sits against the text;
              everything after it is about how the turn will be run. -->
         <div class="attach-pick">
-          {#if attachMenuOpen}
-            <div class="attach-menu">
-              {#each attachGroups as row (row.label)}
-                <button
-                  type="button" class="stance-item"
-                  onclick={() => attachViaDialog(row.group)}
-                >
-                  <span class="ic"><Icon name={row.icon} size={14} /></span>
-                  <span class="t">
-                    <span class="nm">{t(row.label)}</span>
-                    <span class="d">{t(row.hint)}</span>
-                  </span>
-                </button>
-              {/each}
-              <div class="folder-note">{t('chat.attachNote')}</div>
-            </div>
+          {#if palette}
+            <Palette
+              focus={palette === 'all' ? '' : palette}
+              mentions={!awaitingReply}
+              oninsert={insertFromPalette}
+              onmention={mentionFromMenu}
+              onattach={attachViaDialog}
+              onmic={toggleMic}
+              onclose={() => { palette = ''; inputEl?.focus() }}
+            />
           {/if}
           <button
-            class="icobtn" class:active={attachMenuOpen}
-            aria-label={t('chat.attachFile')} data-tip={t('chat.attachFile')}
-            aria-expanded={attachMenuOpen}
-            onclick={(e) => { e.stopPropagation(); const open = !attachMenuOpen; closeComposerMenus(); attachMenuOpen = open }}
+            class="icobtn plus tip-l" class:active={!!palette}
+            aria-label={t('chat.plusTip')} data-tip="{t('chat.plusTip')} · {shortcutLabel('palette')}"
+            aria-expanded={!!palette}
+            onclick={(e) => { e.stopPropagation(); const open = !palette; closeComposerMenus(); palette = open ? 'all' : '' }}
           >+</button>
         </div>
         <!-- The mic sits with attach on the text side of the row (owner's
@@ -5805,22 +5810,6 @@
             <span class="nm">{t(activeStance.label)}</span>
             <span class="caret"><Icon name={stanceMenuOpen ? 'chevronUp' : 'chevronDown'} size={11} /></span>
           </button>
-        </div>
-        <div class="pal-pick">
-          {#if palette}
-            <Palette
-              mode={palette}
-              oninsert={insertFromPalette}
-              onclose={() => { palette = ''; inputEl?.focus() }}
-              onopenmodel={() => { palette = ''; modelMenuOpen = true; refreshThinkLevels() }}
-              onswitchthink={(lvl) => handleThinkChange(lvl)}
-            />
-          {/if}
-          <button
-            class="icobtn slash" class:active={palette !== ''}
-            aria-label={t('palette.promptsTitle')} data-tip={t('palette.promptsTitle')}
-            onclick={(e) => { e.stopPropagation(); const open = !palette; closeComposerMenus(); palette = open ? 'prompts' : '' }}
-          >/</button>
         </div>
         {#if ctx && ctx.usedTokens > 0}
           <div class="ctx-pick">
@@ -6117,7 +6106,7 @@
                 {/if}
                 <!-- Two, not one: a picker with a single entry is not a choice,
                      it just tells the user there is a setting they cannot move.
-                     The command palette has always required two (Palette.svelte);
+                     The think row of the old Ctrl+K palette required two;
                      this row asked for one, so a model with exactly one real
                      level — gpt-5-pro, MiniMax M2.x, which cannot stop thinking
                      — drew a dropdown that did nothing when opened. -->
@@ -6177,14 +6166,14 @@
                conversation the user is not looking at. -->
           {#if draft.trim()}
             <button class="send stop secondary" aria-label={t('chat.stopTurn')} onclick={cancelTurn}><Icon name="square" size={12} /></button>
-            <button class="send" aria-label={t('chat.sendIntoTurn')} title={t('chat.sendIntoTurn')} onclick={submit}>
+            <button class="send ready" aria-label={t('chat.sendIntoTurn')} title={t('chat.sendIntoTurn')} onclick={submit}>
               <Icon name="sendHorizontal" size={15} />
             </button>
           {:else}
             <button class="send stop" aria-label={t('chat.stopTurn')} onclick={cancelTurn}><Icon name="square" size={13} /></button>
           {/if}
         {:else}
-          <button class="send" aria-label="Send" onclick={submit}><Icon name="sendHorizontal" size={15} /></button>
+          <button class="send" class:ready={canSend} aria-label="Send" onclick={submit}><Icon name="sendHorizontal" size={15} /></button>
         {/if}
       </div>
     </div>
