@@ -88,6 +88,18 @@ jobs:
       - name: Build the engine
         run: go build -trimpath -ldflags "-s -w" -o desktop/build/bin/aetox-engine.exe ./cmd/aetox-engine
 
+      # The engine for a Linux host (§248 phase 3, decision 4): not in the
+      # Windows packages, fetched by the app from this release when a host
+      # needs it, verified through the same signed checksums.txt as an
+      # update. Static (no cgo) so it runs on any distribution.
+      - name: Build the engine for Linux hosts
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+        run: |
+          $env:GOARCH = "amd64"; go build -trimpath -ldflags "-s -w" -o aetox-engine-linux-amd64 ./cmd/aetox-engine
+          $env:GOARCH = "arm64"; go build -trimpath -ldflags "-s -w" -o aetox-engine-linux-arm64 ./cmd/aetox-engine
+
       - name: Build desktop app + NSIS installer
         working-directory: desktop
         run: wails build -nsis -platform windows/amd64
@@ -220,7 +232,9 @@ jobs:
           Compress-Archive -Path desktop/build/bin/aetox.exe,desktop/build/bin/aetox-engine.exe -DestinationPath aetox-windows-amd64-portable.zip
           $files = @(
             "desktop/build/bin/aetox-amd64-installer.exe",
-            "aetox-windows-amd64-portable.zip"
+            "aetox-windows-amd64-portable.zip",
+            "aetox-engine-linux-amd64",
+            "aetox-engine-linux-arm64"
           )
           $files | ForEach-Object {
             "{0}  {1}" -f (Get-FileHash $_ -Algorithm SHA256).Hash, (Split-Path $_ -Leaf)
@@ -254,5 +268,7 @@ jobs:
           files: |
             desktop/build/bin/aetox-amd64-installer.exe
             aetox-windows-amd64-portable.zip
+            aetox-engine-linux-amd64
+            aetox-engine-linux-arm64
             checksums.txt
             checksums.txt.sig

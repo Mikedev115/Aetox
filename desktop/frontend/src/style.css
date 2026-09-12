@@ -8496,6 +8496,35 @@ button.phase-head:hover { color:var(--text-muted); }
 .confirm-actions .ctrl-danger { color:var(--status-danger); border-color:var(--status-danger); background:none; font-weight:600; }
 .confirm-actions .ctrl-danger:hover { background:var(--status-danger); color:var(--text-on-interactive); }
 
+/* ---------- remote folder picker (RemoteDirPicker.svelte) ----------
+   The confirm dialog's shell with a list in it: the engine is on a host and
+   the folder to open is there (§248 phase 3). The primary button restates
+   the settings page's .ctrl-primary for the same reason .confirm-actions
+   restates .ctrl. */
+.picker-card { width:min(560px, calc(100vw - 48px)); max-height:min(70vh, 640px); }
+.picker-path { display:flex; gap:6px; align-items:center; }
+.picker-path .ctrl { appearance:none; background:var(--surface-sunken); border:1px solid var(--border-strong); border-radius:var(--r-sm); color:var(--text-secondary); font:inherit; font-size:var(--fs-md); padding:5px 8px; cursor:pointer; }
+.picker-path .ctrl:disabled { opacity:.5; cursor:default; }
+.picker-up { display:inline-flex; align-items:center; }
+.picker-input { flex:1; min-width:0; font-family:var(--mono); font-size:var(--fs-sm); color:var(--text-primary); }
+.picker-error { color:var(--status-danger); font-size:var(--fs-sm); }
+.picker-list { flex:1; min-height:200px; overflow:auto; border:1px solid var(--border-subtle); border-radius:var(--r-md); background:var(--surface-sunken); display:flex; flex-direction:column; }
+.picker-row { appearance:none; background:none; border:0; border-bottom:1px solid var(--border-subtle); color:var(--text-primary); font:inherit; font-size:var(--fs-md); text-align:left; padding:6px 10px; display:flex; align-items:center; gap:8px; cursor:pointer; }
+.picker-row:hover { background:var(--surface-panel); }
+.picker-row.hidden-row { color:var(--text-muted); }
+.picker-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.picker-empty { padding:10px; font-size:var(--fs-sm); }
+.picker-hidden { display:flex; align-items:center; gap:6px; font-size:var(--fs-sm); color:var(--text-secondary); }
+.confirm-actions .ctrl-primary { color:var(--text-on-interactive); background:var(--interactive); border-color:var(--interactive); font-weight:600; }
+.confirm-actions .ctrl-primary:disabled { opacity:.5; cursor:default; }
+
+/* ---------- Settings › เครื่องระยะไกล (RemoteEngine.svelte) ---------- */
+.remote-form { flex-wrap:wrap; }
+.remote-form .ctrl { min-width:180px; flex:1; }
+.remote-form .mcp-row-actions .ctrl { min-width:0; flex:none; }
+.remote-log { margin:0; width:100%; max-height:260px; overflow:auto; padding:8px 10px; border-radius:var(--r-md); background:var(--surface-sunken); border:1px solid var(--border-subtle); font-family:var(--mono); font-size:var(--fs-xs); color:var(--text-secondary); white-space:pre-wrap; word-break:break-all; }
+.remote-error { color:var(--status-danger); }
+
 /* ---------- provider brand marks ----------
    currentColor, so a mark takes the ink of the row it is in and dims with it
    when the row is disabled. No per-theme variant needed. */

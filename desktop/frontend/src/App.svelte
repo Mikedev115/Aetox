@@ -13,6 +13,8 @@
   import Onboarding from './lib/Onboarding.svelte'
   import Updater from './lib/Updater.svelte'
   import EngineStatus from './lib/EngineStatus.svelte'
+  import RemoteDirPicker from './lib/RemoteDirPicker.svelte'
+  import { engine as engineStore } from './lib/stores/engine.svelte'
   import CapabilityProgress from './lib/CapabilityProgress.svelte'
   import { listenCapabilities } from './lib/capabilities.svelte'
   import Workbench from './lib/workbench/Workbench.svelte'
@@ -25,7 +27,7 @@
     applyAskUser, applyAskDone, applyDriving, applyTodos, applyMissedInterjections, applyTaskChips, applyUsageRound,
     applyPreparedReplies,
     applyPendingLearned, refreshPendingLearned, refreshPendingIssues, applyAgentDone, isOverlayView, closeOverlay,
-    refreshProjectFolders, refreshOpenFiles, resyncAfterEngineRestart,
+    refreshProjectFolders, refreshOpenFiles, resyncAfterEngineRestart, openProject,
   } from './lib/stores/cockpit.svelte'
   import { shell, shellHasChats } from './lib/shell.svelte'
   import { applyBusyEvent, clearBusyWork, watchBrowserWaits } from './lib/stores/busySignal.svelte'
@@ -620,3 +622,12 @@
 <!-- The engine is a process beside this window (§248 phase 2); this says
      when it is not there. Nothing while it is, which is nearly always. -->
 <EngineStatus />
+<!-- The folder picker for an engine on a host (§248 phase 3): openFolder
+     raises it instead of the native dialog when the engine is remote. -->
+{#if engineStore.pickerOpen}
+  <RemoteDirPicker
+    host={engineStore.status.host}
+    onPick={(path) => { engineStore.pickerOpen = false; void openProject(path) }}
+    onCancel={() => (engineStore.pickerOpen = false)}
+  />
+{/if}

@@ -62,6 +62,12 @@ signed on the screen), the window-tool stubs (`hello` announces them,
 and §10 what was measured: about 60 µs a round trip, 62 frames of events per
 test turn.
 
+**A host over ssh** is [remote/](remote/) (§248 phase 3): the screen's side
+only — what to say to the system `ssh` to probe a Linux machine, put this
+version's engine there, start it and tunnel to it. Nothing in this package
+knows it is on a host; `HomeDir`/`ListDir` (listdir.go) exist so the screen's
+folder picker can browse where the engine is.
+
 ## The rule, and the test that holds it
 
 [deps_test.go](deps_test.go): no non-test file here imports `wailsapp` or

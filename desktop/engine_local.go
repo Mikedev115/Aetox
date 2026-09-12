@@ -9,8 +9,8 @@ package main
 // be had, a loopback TCP port the engine reports on its stdout. Decision 2
 // of §248 is that this is the ONLY way the screen reaches an engine: there
 // is no in-process path, so every day of use is a day of the socket being
-// tested, and an engine on the far end of an ssh tunnel (phase 3) is the
-// same client with another address.
+// tested, and an engine on the far end of an ssh tunnel (phase 3,
+// engine_remote.go) is the same client with another address.
 //
 // What the supervisor here promises: the engine is running or the status
 // chip says why not; a crash restarts it, with a backoff, and the third
@@ -36,6 +36,7 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/debuglog"
+	"github.com/Mikedev115/Aetox/internal/engine/remote"
 	"github.com/Mikedev115/Aetox/internal/engine/rpc"
 	"github.com/Mikedev115/Aetox/internal/proc"
 	"github.com/Mikedev115/Aetox/internal/version"
@@ -55,6 +56,10 @@ type EngineStatus struct {
 	// curious; empty while there is none.
 	PID     int    `json:"pid"`
 	Address string `json:"address"`
+	// Mode is local, remote or attach — where the engine is; Host is the
+	// remote host's label when Mode is remote.
+	Mode string `json:"mode"`
+	Host string `json:"host"`
 }
 
 const (
@@ -75,11 +80,14 @@ const (
 	stopGrace            = 5 * time.Second
 )
 
-// localEngine is the child and the wire to it.
+// localEngine is the supervisor: the engine — this window's child, an
+// engine somebody else started, or one on a host over ssh — and the wire
+// to it.
 type localEngine struct {
 	app    *App
 	client *rpc.Client
 	token  string
+	driver *remote.Driver
 
 	mu       sync.Mutex
 	proc     *engineProcess
@@ -87,27 +95,59 @@ type localEngine struct {
 	restarts []time.Time
 	kick     chan struct{}
 	stopped  chan struct{}
+	// target is what spawn starts next; switched is set when it changed
+	// since the last connection, which is the window's cue to reload.
+	target   engineTarget
+	switched bool
 }
 
-// engineProcess is one running child.
+// engineTarget is where the next engine is.
+type engineTarget struct {
+	mode string // modeLocal or modeRemote
+	host remote.Host
+}
+
+const (
+	modeLocal  = "local"
+	modeRemote = "remote"
+	modeAttach = "attach"
+)
+
+// engineProcess is one running engine as this window holds it: a child
+// process, or a tunnel to one elsewhere.
 type engineProcess struct {
 	cmd     *exec.Cmd
 	stdin   io.WriteCloser
 	network string
 	address string
 	pid     int
-	exited  chan struct{}
+	exited  <-chan struct{}
 	err     error
+	// leave ends what this window holds when it is not a child of its own:
+	// a tunnel closed, the engine on the host left running.
+	leave func()
+	// remote is the host's label when this is a tunnel.
+	remote string
 }
 
 func newLocalEngine(app *App, client *rpc.Client) *localEngine {
-	return &localEngine{
+	e := &localEngine{
 		app:     app,
 		client:  client,
 		kick:    make(chan struct{}, 1),
 		stopped: make(chan struct{}),
-		status:  EngineStatus{State: engineStarting},
+		status:  EngineStatus{State: engineStarting, Mode: modeLocal},
+		target:  engineTarget{mode: modeLocal},
 	}
+	e.driver = &remote.Driver{Binary: engineBinaryFor, Log: debuglog.Msg}
+	// The host the window was on when it last closed, if it chose one.
+	if c, err := loadScreenConfig(); err == nil && c.ActiveHost != "" {
+		if h, ok := c.host(c.ActiveHost); ok {
+			e.target = engineTarget{mode: modeRemote, host: h}
+			e.status.Mode, e.status.Host = modeRemote, h.Label()
+		}
+	}
+	return e
 }
 
 // endpoint is where the engine listens now — what the file proxy asks per
@@ -153,6 +193,14 @@ func (e *localEngine) setStatus(state, detail string) {
 	} else {
 		e.status.PID, e.status.Address = 0, ""
 	}
+	switch {
+	case e.target.mode == modeRemote:
+		e.status.Mode, e.status.Host = modeRemote, e.target.host.Label()
+	case strings.TrimSpace(os.Getenv("AETOX_ENGINE_ADDR")) != "":
+		e.status.Mode, e.status.Host = modeAttach, ""
+	default:
+		e.status.Mode, e.status.Host = modeLocal, ""
+	}
 	st := e.status
 	e.mu.Unlock()
 	debuglog.Msg("engine: %s %s", state, detail)
@@ -175,7 +223,16 @@ func (e *localEngine) run(ctx context.Context) {
 				e.restarts = nil
 				e.mu.Unlock()
 			}
-			e.setStatus(engineRestarting, "")
+			e.mu.Lock()
+			switching := e.switched
+			e.mu.Unlock()
+			if switching {
+				// Another engine on purpose, not the same one again: the
+				// card should not open with "it stopped".
+				e.setStatus(engineStarting, "")
+			} else {
+				e.setStatus(engineRestarting, "")
+			}
 		}
 		first = false
 
@@ -203,8 +260,14 @@ func (e *localEngine) run(ctx context.Context) {
 			continue
 		}
 		e.setStatus(engineConnected, "")
+		if e.takeSwitched() {
+			// Another engine, another database: every store the frontend
+			// holds is about the one before. Start it over.
+			e.app.reloadWindow()
+		}
 
 		// Live: watch the wire and the process, whichever gives first.
+		asked := false
 		for alive := true; alive; {
 			select {
 			case <-ctx.Done():
@@ -213,9 +276,15 @@ func (e *localEngine) run(ctx context.Context) {
 			case <-e.kick:
 				debuglog.Msg("engine: restart asked for")
 				e.stop(p)
-				alive = false
+				alive, asked = false, true
 			case <-p.exited:
-				e.setStatus(engineRestarting, fmt.Sprintf("เครื่องยนต์หยุดทำงาน (%s)", exitWord(p.err)))
+				if p.remote != "" {
+					// The tunnel, not the engine: the host's engine is
+					// most likely still there, and the next spawn finds it.
+					e.setStatus(engineReconnecting, "การเชื่อมต่อกับ "+p.remote+" ขาด กำลังต่อใหม่")
+				} else {
+					e.setStatus(engineRestarting, fmt.Sprintf("เครื่องยนต์หยุดทำงาน (%s)", exitWord(p.err)))
+				}
 				alive = false
 			case <-e.client.Done():
 				// The wire dropped but the process may live: redial before
@@ -234,12 +303,42 @@ func (e *localEngine) run(ctx context.Context) {
 		e.mu.Lock()
 		e.proc = nil
 		e.mu.Unlock()
+		if asked {
+			// A restart the user asked for, or a switch of engine: not a
+			// crash, so neither the count nor the backoff.
+			continue
+		}
 		e.noteRestart()
 		select {
 		case <-time.After(e.backoff()):
 		case <-ctx.Done():
 			return
 		}
+	}
+}
+
+// takeSwitched reports, once, that the target changed since the last
+// connection.
+func (e *localEngine) takeSwitched() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	was := e.switched
+	e.switched = false
+	return was
+}
+
+// retarget points the supervisor at another engine and kicks it: the one
+// running is stopped (a child) or let go of (a tunnel), and the next spawn
+// is the new target.
+func (e *localEngine) retarget(t engineTarget) {
+	e.mu.Lock()
+	e.target = t
+	e.switched = true
+	e.restarts = nil
+	e.mu.Unlock()
+	select {
+	case e.kick <- struct{}{}:
+	default:
 	}
 }
 
@@ -288,11 +387,18 @@ func (e *localEngine) backoff() time.Duration {
 	return time.Duration(1<<(n-1)) * time.Second
 }
 
-// spawn starts one child and reads where it listens — or, with
-// AETOX_ENGINE_ADDR set, attaches to an engine somebody else started
-// (attach), which is how a remote engine is reached by hand until phase 3
-// does the ssh work itself.
+// spawn starts one child and reads where it listens — or reaches the
+// engine the target names: one on a host over ssh (spawnRemote), or, with
+// AETOX_ENGINE_ADDR set, one somebody else started (attach), the manual
+// road to a host that the Settings page replaced in phase 3 and that
+// remains for a host the page cannot describe.
 func (e *localEngine) spawn(ctx context.Context) (*engineProcess, error) {
+	e.mu.Lock()
+	target := e.target
+	e.mu.Unlock()
+	if target.mode == modeRemote {
+		return e.spawnRemote(ctx, target.host)
+	}
 	if addr := strings.TrimSpace(os.Getenv("AETOX_ENGINE_ADDR")); addr != "" {
 		return e.attach(addr)
 	}
@@ -339,10 +445,11 @@ func (e *localEngine) start(ctx context.Context, bin, dir string, args []string)
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("เริ่ม %s ไม่ได้: %w", filepath.Base(bin), err)
 	}
-	p := &engineProcess{cmd: cmd, stdin: stdin, pid: cmd.Process.Pid, exited: make(chan struct{})}
+	exited := make(chan struct{})
+	p := &engineProcess{cmd: cmd, stdin: stdin, pid: cmd.Process.Pid, exited: exited}
 	go func() {
 		p.err = cmd.Wait()
-		close(p.exited)
+		close(exited)
 	}()
 	// The engine's stderr is ours to keep: its own log is under DataRoot,
 	// this is only what it says on the way in or out.
@@ -452,10 +559,18 @@ func (e *localEngine) attach(addr string) (*engineProcess, error) {
 }
 
 // stop ends the child: stdin closed is its cue to leave on its own; a
-// child that has not left in stopGrace is killed. An attached engine is
-// not ours to stop.
+// child that has not left in stopGrace is killed. A tunnel is closed and
+// the engine behind it left running; an attached engine is not ours to
+// stop at all.
 func (e *localEngine) stop(p *engineProcess) {
-	if p == nil || p.cmd == nil {
+	if p == nil {
+		return
+	}
+	if p.leave != nil {
+		p.leave()
+		return
+	}
+	if p.cmd == nil {
 		return
 	}
 	_ = p.stdin.Close()

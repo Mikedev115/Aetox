@@ -371,6 +371,54 @@ phase 1, `TerminalStart` on Linux spawns `creack/pty`, output leaves as
 `terminal:data:<id>` through the same door, and `TerminalShells` lists the
 host's shells. Nothing to build; something to prove.
 
+**As built (2026-09-12, `internal/engine/remote` + `desktop/engine_remote.go`).**
+The road is the five steps above with these differences. *TCP on the host,
+not a unix socket:* the streamlocal spike could not be run from the machine
+this was built on (no Linux host, no WSL distribution, no Docker), so the
+engine listens on `--tcp 127.0.0.1:0` there and the tunnel is a plain
+`-L 127.0.0.1:<port>:127.0.0.1:<rport>` — the fallback step 4 named, with
+the token as the guard against other users on the host. *The engine is not
+`~/.aetox/server/<ver>/aetox-engine` but `~/.aetox/server/bin/<ver>/aetox-engine`*,
+beside `token`, `engine.pid`, `engine.addr`, `engine.version`, `engine.out`,
+`engine.err` — one directory the screen owns on the host, and the engine's
+own DataRoot (`~/.config/aetox`) untouched by it. *Every script is
+`sh -c '<script>'`* so the host's login shell (fish, csh) is not parsing it,
+and every script begins with `: aetox-<step>` so `ps` on the host says what
+the screen is doing. *The ssh options are fixed:* `BatchMode=yes` (no
+terminal, so no prompt — a key or an agent is the way in),
+`StrictHostKeyChecking=accept-new` (remembered on first sight, refused when
+it changes; a fingerprint dialog is a ceremony nobody performs),
+`ConnectTimeout=15`, and for the tunnel `ExitOnForwardFailure=yes` with
+`ServerAliveInterval=15`/`CountMax=3` so a dead network is noticed in under a
+minute. *The token is minted per start* (`rpc.NewToken`) and lives in
+`screen.json` (atrest-wrapped, the screen's file under DataRoot); a running
+engine is reused only when it is this version AND the screen holds its
+token — otherwise it is stopped and replaced. *The Linux engine comes from
+`internal/update`, not `internal/capability`:* the capability manifest pins
+a sha256 in the source, and the engine of THIS version is built after the
+source is frozen; so `update.FetchEngine` takes it from the release of the
+running version by tag, verifies `checksums.txt` against the release key
+first and the file against the checksums second — the same chain as an
+update — and caches it under `<DataRoot>/updates/engine/<ver>/`, re-hashed
+on every use. A file beside the program or in `AETOX_ENGINE_LINUX_DIR` wins
+over the download (a development tree, a build of one's own).
+*Switching engines reloads the frontend* (`WindowReloadApp`): another
+engine is another database, and every store the window holds is about the
+one before. A switch is not a restart — it does not count toward the three
+a minute — but a tunnel that drops does, and is redialed without touching
+the engine (the next spawn's probe finds it running). *The picker* is
+`RemoteDirPicker.svelte` on `ListDir`/`HomeDir`; only the project door
+(`openFolder`) uses it in v1 — the other native dialogs (add a workspace
+folder, browse a folder, import a file) still open this machine's disks
+when the engine is on a host, and hand it a path it cannot read; phase 4's
+`/file/attach` is the door for those. The manual road stays:
+`AETOX_ENGINE_ADDR` + `AETOX_ENGINE_TOKEN[_FILE]` attach the window to an
+engine somebody else started (`engine_local.go`'s `attach`), for a host the
+Settings page cannot describe. The fake host that pins all of this on
+Windows is `internal/engine/remote/testdata/fakessh`; the real scripts on a
+real sshd are `TestRemoteSmoke` (`scripts/remote-smoke.sh`), which the CI
+Linux job runs with the runner as its own host.
+
 ## 6. Window tools across the wire
 
 | tool | class | why |
@@ -644,3 +692,45 @@ or calls `oauth.TokenSource`/`Endpoint`/`Headers`/`Token`, and that
 engine-side files (`SwitchModel`, `SwitchProvider`, `RetryActiveProvider`,
 `resolveConfig`, the skill drafter); Stage B has to move it to the screen —
 the picker is the screen's — or route it through the signed transport.
+
+**After the live run (`93c76b32`).** The first real turns through the child
+on `wails dev` (a codex sign-in on the screen, `browser open`/`read` on the
+screen through `screen.tool`, the reply streamed back through the provider
+proxy) found two things: the screen had lost its own log file when
+`debuglog.Init` moved into the engine's startup, and the same-second name
+would have had both processes open one file with `O_TRUNC` —
+`debuglog.InitAs(dir, prefix)`, `logs/desktop-<time>.log` beside
+`logs/aetox-<time>.log` (§2.4 updated); and an attach mode —
+`AETOX_ENGINE_ADDR=tcp:host:port|unix:/path` + `AETOX_ENGINE_TOKEN` or
+`AETOX_ENGINE_TOKEN_FILE` — so a window can reach an engine it did not
+start, which was the manual road to a host until phase 3 and remains the
+road to a host the Settings page cannot describe.
+
+### Phase 3 — 2026-09-12, on `claude/engine-carve`
+
+Over ssh. One commit, green on `go build ./... && go test ./desktop/
+./internal/engine/ ./internal/engine/rpc/ ./internal/engine/remote/
+./internal/update/ ./cmd/aetox-engine/`, `svelte-check` (0 errors) and
+vitest (1601). §5's "as built" paragraph has every place the build differs
+from the design; this is what it is.
+
+| piece | what it is | pinned by |
+|---|---|---|
+| `internal/engine/remote` | `Host` (name, target, root, token, version, arch, last use), `CheckTarget` (a target that starts with a dash is an ssh option, so the first character is pinned), `Driver` (`SSH` path or `AETOX_SSH` or PATH; `Binary` — the engine to send for an arch; `IdleExit`), the five scripts as `sh -c` one-liners each opening with `: aetox-<step>`, `Probe`/`Install`/`Start`/`Stop`/`Tail`/`Tunnel`, and `Connect` = probe → (download → install if this version is not there) → (start with a fresh token unless this version is running and the token is held) → tunnel, reporting a `Step` per stage with download/upload progress | `remote_test.go` against `testdata/fakessh` — a program that parses ssh's argv, dispatches on the step marker, keeps a home directory, stores the bytes that arrive on stdin and runs them (the engine built for this OS), and forwards `-L` with a real TCP listener: a fresh host installs+starts+tunnels and a `Hello` crosses; a second `Connect` reuses (probe, tunnel only); a lost token or another version replaces the engine; ssh's own words (`Permission denied (publickey)`) come back; a non-Linux host is refused after the probe alone; a killed tunnel closes `Exited`; `Stop` ends the process and leaves the binary; the quoting; `parseProbe`. `smoke_test.go` — `TestRemoteSmoke` against a real host (`AETOX_REMOTE_SMOKE=user@host`): the scripts on a real sh, `Hello`, `HomeDir`/`ListDir`/`TerminalShells` there, the engine surviving the tunnel's close, `Stop` |
+| `internal/update/engine.go` | `FetchEngine(ctx, version, goos, goarch)` — the release's `aetox-engine-linux-<arch>` by tag, `checksums.txt` + `.sig` from the same release, signature before hash, cached under `updates/engine/<ver>/` and re-hashed on each use; `EngineAssetName` | `engine_test.go`: downloads once and keeps, refetches a tampered copy, refuses a release without the asset, refuses a wrong signature |
+| `desktop/engine_local.go` | the supervisor learns a target (`engineTarget{mode, host}`; `retarget` kicks it and marks a switch), `engineProcess.leave` (a tunnel is closed, not sent EOF), `Mode`/`Host` on `EngineStatus`, a kick-driven exit is not a restart (no count, no backoff), a tunnel's death is `reconnecting` with the host's name, and the window reloads once after a switch lands; the target at launch is `screen.json`'s `active_host` | `engine_remote_test.go` (below) |
+| `desktop/engine_remote.go`, `screen_config.go` | `spawnRemote` (Connect with each step on the chip in Thai, the token written to `screen.json` before the wire is dialed), `engineBinaryFor` (`AETOX_ENGINE_LINUX_DIR` → beside the exe → `update.FetchEngine`), `reloadWindow`; `screen.json` (atrest, 0600, the screen's own; tokens registered with `debuglog.Redact`); bindings `RemoteHosts` (no tokens in the view; which ssh, where the Linux engine comes from), `SaveRemoteHost`, `ForgetRemoteHost` (refused for the active host), `ConnectRemote`, `DisconnectRemote`, `StopRemoteEngine`, `RemoteEngineLog` — all the screen's own, so they answer while the engine is unreachable | `engine_remote_test.go` with the fake host and the real engine: a window goes to a host (steps, `Mode`/`Host`, no restart counted, one reload, the project the row named opened there, the version on the row, the token on disk) and comes back (a child of its own again, a second reload, the host's engine left running); a dropped tunnel is opened again with the same engine behind it; a second window under the same DataRoot starts on the host it was left on; an unreachable host is `failed` with ssh's words and the way back needs no host; the active host cannot be forgotten, an option-shaped target cannot be saved |
+| `internal/engine/listdir.go` | `HomeDir()`, `ListDir(path)` — folders only (symlinks to folders count), hidden last, capped at 2000, the parent to go up to | `listdir_test.go` |
+| frontend | `stores/engine.svelte.ts` (the status as last heard, `pickerOpen`), `EngineStatus.svelte` (the road's steps shown at once with the detail line, `ใช้เครื่องนี้แทน` while on the road or failed, the host named in a failure), `RemoteDirPicker.svelte` (path box + up + list + hidden toggle, in the confirm dialog's shell), `RemoteEngine.svelte` = Settings › เครื่องระยะไกล (where the engine is, the hosts with connect/back/edit/log/stop/remove, the add form, the per-host note), `openFolder` raising the picker when the engine is remote | `remoteEngine.test.ts` (10 tests) |
+| packaging, CI | `release.yml` builds `aetox-engine-linux-{amd64,arm64}` (`CGO_ENABLED=0`, static), lists them in the signed `checksums.txt`, attaches them to the release; `ci.yml` cross-builds both on Windows and runs `scripts/remote-smoke.sh` on the Linux job — the runner as its own host: a throwaway key, `authorized_keys`, sshd started, `TestRemoteSmoke` | the CI run |
+
+**Not done, on purpose.** The streamlocal spike (§5 step 4) — the TCP road is
+built and the socket road is an improvement to make on a host that can prove
+it. `Setpgid` for a local Linux child — still no local child on Linux. A
+window on a host still opens this machine's dialogs for every door but the
+project's (§5 as built); `revealInFileManager` and `OpenExport` still answer
+with a host path. The three-a-minute rule counts tunnel drops: a flaky
+network reaches `failed` after three and asks for a press. `--idle-exit` on
+the host is 30 m fixed. None of this was run against the owner's host yet —
+the fake host pins the screen's side and the CI Linux job the host's; the
+first real host is the next thing to do.

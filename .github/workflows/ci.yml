@@ -105,6 +105,17 @@ jobs:
 
       - run: go test ./...
 
+      # The engine for a Linux host (§248 phase 3) is cross-built from this
+      # Windows tree at release time; a build that only links on Windows
+      # would be found at the tag. Two architectures, no cgo, a few seconds.
+      - name: Engine cross-builds for Linux hosts
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          $env:GOOS = "linux"
+          $env:GOARCH = "amd64"; go build -o "$env:RUNNER_TEMP/aetox-engine-linux-amd64" ./cmd/aetox-engine
+          $env:GOARCH = "arm64"; go build -o "$env:RUNNER_TEMP/aetox-engine-linux-arm64" ./cmd/aetox-engine
+
       - name: Frontend tests
         working-directory: desktop/frontend
         run: npm test
@@ -177,6 +188,14 @@ jobs:
       - name: Test (race)
         if: runner.os == 'Linux'
         run: go test -count=1 -race -timeout 15m ./...
+
+      # The phase-3 road over a real sshd: this runner as its own host, the
+      # scripts in internal/engine/remote run by a real sh, the engine built
+      # here sent up and started with nohup, the tunnel through ssh -L. The
+      # fake host in the Windows suite cannot check any of that.
+      - name: Remote engine smoke (this runner as the host)
+        if: runner.os == 'Linux'
+        run: scripts/remote-smoke.sh
 
       - name: Test
         if: runner.os != 'Linux'

@@ -188,6 +188,8 @@ export function ComputerControlOn():Promise<boolean>;
 
 export function ConnectAccount(arg1:string,arg2:string,arg3:string,arg4:Array<string>):Promise<connect.Account>;
 
+export function ConnectRemote(arg1:string):Promise<void>;
+
 export function Connections():Promise<Array<connect.Status>>;
 
 export function ConsolidateMemory(arg1:string):Promise<engine.MemoryConsolidation>;
@@ -232,6 +234,8 @@ export function DeleteSubagentProfile(arg1:string):Promise<void>;
 
 export function DisconnectAccount(arg1:string):Promise<void>;
 
+export function DisconnectRemote():Promise<void>;
+
 export function DismissRecurringRequest(arg1:string,arg2:string):Promise<void>;
 
 export function DismissTaskChip(arg1:string):Promise<void>;
@@ -253,6 +257,8 @@ export function FileStillThere(arg1:string):Promise<string>;
 export function ForgetMemoryScope(arg1:string):Promise<void>;
 
 export function ForgetProject(arg1:string):Promise<engine.ProjectStatus>;
+
+export function ForgetRemoteHost(arg1:string):Promise<void>;
 
 export function GetContextBreakdown():Promise<engine.ContextBreakdown>;
 
@@ -295,6 +301,8 @@ export function HandedOverFile(arg1:string):Promise<string>;
 export function HasAPIKey(arg1:string):Promise<boolean>;
 
 export function HistoryFault():Promise<engine.StoreFault>;
+
+export function HomeDir():Promise<string>;
 
 export function ImageStatus():Promise<string>;
 
@@ -347,6 +355,8 @@ export function ListDecidedSkillProposals(arg1:number):Promise<Array<engine.Pend
 export function ListDecks():Promise<Array<engine.Deck>>;
 
 export function ListDecksIn(arg1:string):Promise<engine.DeckPage>;
+
+export function ListDir(arg1:string):Promise<engine.DirListing>;
 
 export function ListExternalSkills():Promise<Array<skill.DiscoveredSkill>>;
 
@@ -562,6 +572,10 @@ export function RelativizePath(arg1:string):Promise<string>;
 
 export function RememberTTSVoice(arg1:string):Promise<void>;
 
+export function RemoteEngineLog(arg1:string):Promise<string>;
+
+export function RemoteHosts():Promise<main.RemoteHostsView>;
+
 export function RemoveCustomProvider(arg1:string):Promise<Array<string>>;
 
 export function RemoveCustomProviderRow(arg1:string):Promise<Array<string>>;
@@ -647,6 +661,8 @@ export function SavePicture(arg1:string):Promise<string>;
 export function SavePlanText(arg1:string,arg2:string):Promise<string>;
 
 export function SavePromptPreset(arg1:string,arg2:string):Promise<void>;
+
+export function SaveRemoteHost(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SaveSubagentProfile(arg1:string,arg2:string):Promise<void>;
 
@@ -809,6 +825,8 @@ export function StopMobileRemote():Promise<engine.RemoteStatus>;
 export function StopPlanRun(arg1:string):Promise<void>;
 
 export function StopQueuedTasks():Promise<number>;
+
+export function StopRemoteEngine(arg1:string):Promise<void>;
 
 export function StopSpeech(arg1:string):Promise<void>;
 

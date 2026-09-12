@@ -346,6 +346,10 @@ export function ConnectAccount(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ConnectAccount'](arg1, arg2, arg3, arg4);
 }
 
+export function ConnectRemote(arg1) {
+  return window['go']['main']['App']['ConnectRemote'](arg1);
+}
+
 export function Connections() {
   return window['go']['main']['App']['Connections']();
 }
@@ -434,6 +438,10 @@ export function DisconnectAccount(arg1) {
   return window['go']['main']['App']['DisconnectAccount'](arg1);
 }
 
+export function DisconnectRemote() {
+  return window['go']['main']['App']['DisconnectRemote']();
+}
+
 export function DismissRecurringRequest(arg1, arg2) {
   return window['go']['main']['App']['DismissRecurringRequest'](arg1, arg2);
 }
@@ -476,6 +484,10 @@ export function ForgetMemoryScope(arg1) {
 
 export function ForgetProject(arg1) {
   return window['go']['main']['App']['ForgetProject'](arg1);
+}
+
+export function ForgetRemoteHost(arg1) {
+  return window['go']['main']['App']['ForgetRemoteHost'](arg1);
 }
 
 export function GetContextBreakdown() {
@@ -560,6 +572,10 @@ export function HasAPIKey(arg1) {
 
 export function HistoryFault() {
   return window['go']['main']['App']['HistoryFault']();
+}
+
+export function HomeDir() {
+  return window['go']['main']['App']['HomeDir']();
 }
 
 export function ImageStatus() {
@@ -664,6 +680,10 @@ export function ListDecks() {
 
 export function ListDecksIn(arg1) {
   return window['go']['main']['App']['ListDecksIn'](arg1);
+}
+
+export function ListDir(arg1) {
+  return window['go']['main']['App']['ListDir'](arg1);
 }
 
 export function ListExternalSkills() {
@@ -1094,6 +1114,14 @@ export function RememberTTSVoice(arg1) {
   return window['go']['main']['App']['RememberTTSVoice'](arg1);
 }
 
+export function RemoteEngineLog(arg1) {
+  return window['go']['main']['App']['RemoteEngineLog'](arg1);
+}
+
+export function RemoteHosts() {
+  return window['go']['main']['App']['RemoteHosts']();
+}
+
 export function RemoveCustomProvider(arg1) {
   return window['go']['main']['App']['RemoveCustomProvider'](arg1);
 }
@@ -1264,6 +1292,10 @@ export function SavePlanText(arg1, arg2) {
 
 export function SavePromptPreset(arg1, arg2) {
   return window['go']['main']['App']['SavePromptPreset'](arg1, arg2);
+}
+
+export function SaveRemoteHost(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveRemoteHost'](arg1, arg2, arg3);
 }
 
 export function SaveSubagentProfile(arg1, arg2) {
@@ -1588,6 +1620,10 @@ export function StopPlanRun(arg1) {
 
 export function StopQueuedTasks() {
   return window['go']['main']['App']['StopQueuedTasks']();
+}
+
+export function StopRemoteEngine(arg1) {
+  return window['go']['main']['App']['StopRemoteEngine'](arg1);
 }
 
 export function StopSpeech(arg1) {

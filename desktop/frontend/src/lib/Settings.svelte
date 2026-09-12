@@ -11,6 +11,7 @@
   import { i18n, t, setLocale, localeNames, type Locale, type TKey } from './i18n.svelte'
   import { audioDevices, refreshAudioDevices, setMicId, setSpeakerId, applySpeaker } from './audioDevices.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
+  import RemoteEngine from './RemoteEngine.svelte'
   import ProviderMark from './ProviderMark.svelte'
   import McpMark from './McpMark.svelte'
   import ProviderAccount from './ProviderAccount.svelte'
@@ -3839,6 +3840,12 @@
       // actually type, including the two program kinds it refuses.
       { id: 'computer', label: t('settings.computer'), icon: 'monitor',
         terms: ['UI Automation', 'Chrome', 'Excel', t('settings.computerAnyApp')] },
+      // เครื่องระยะไกล — the engine on another machine over ssh (§248 phase
+      // 3). Beside the computer page because both are about where the work
+      // happens: that one reaches programs on this machine, this one moves
+      // the whole engine to another.
+      { id: 'remote', label: t('settings.remote'), icon: 'server',
+        terms: ['ssh', 'Linux', t('settings.remoteConnect'), t('settings.remoteAdd')] },
       { id: 'prompts', label: t('settings.prompts'), icon: 'sparkles', terms: [t('settings.promptNew')] },
     ]},
     { group: t('settings.groupAbout'), items: [
@@ -8016,6 +8023,8 @@
         <p class="muted set-sub">{computerError}</p>
       {/if}
 
+    {:else if active === 'remote'}
+      <RemoteEngine />
     {:else if active === 'connections'}
       <!-- One register, one page. The sentence under the title has to cover
            both kinds without flattening them: an account needs a key, a machine

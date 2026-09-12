@@ -111,6 +111,7 @@ type API interface {
 	GuideTopics() []model.GuideTopic
 	HandedOverFile(fileURL string) string
 	HistoryFault() StoreFault
+	HomeDir() string
 	ImageStatus() string
 	ImportSessionFrom(path string) (string, error)
 	InstallCapabilities(capabilities []string) bool
@@ -133,6 +134,7 @@ type API interface {
 	ListDecidedSkillProposals(limit int) []PendingChange
 	ListDecks() []Deck
 	ListDecksIn(want string) DeckPage
+	ListDir(path string) (DirListing, error)
 	ListExternalSkills() []skill.DiscoveredSkill
 	ListIdentityFiles() ([]IdentityFile, error)
 	ListImageEngines() []VoiceEngineInfo

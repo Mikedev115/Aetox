@@ -5,6 +5,7 @@
 
 import { emptyCockpitState, emptyTurnSpend, emptySessionSpend, type SessionSpend as SessionSpendTotals, type CockpitState, type ParkedTurn, type TreeNode, type Session, type ToolStep, type ToolEvent, type ChatMessage, type MessageVariant, type TurnPart, type PendingFile, type PendingImage, type ModelLoading, type StoreFault, type PreparedReply, type Plan, type PlanReport } from '../types'
 import type { CockpitSource } from '../services/cockpit'
+import { engine as engineStore, engineIsRemote } from './engine.svelte'
 import {
   SendMessage, GetProjectStatus, GetModelInfo, OpenProjectFolder, OpenProjectPath,
   SwitchProvider, SwitchThinkLevel, SwitchApprovalMode, SetProviderWireFormat,
@@ -1331,6 +1332,13 @@ function writeLive(id: string, change: (live: ParkedTurn) => void): void {
 
 /** Let the user pick a real folder via the native dialog; re-points the engine at it. */
 export async function openFolder(): Promise<void> {
+  // An engine on a host (§248 phase 3) has no use for this machine's
+  // dialog: the folder is there. The picker in App.svelte lists it through
+  // the engine and comes back through openProject.
+  if (engineIsRemote()) {
+    engineStore.pickerOpen = true
+    return
+  }
   // No gate. Opening a project opens a NEW chat in it and leaves the working
   // one running — that is what "หลายเซสชันพร้อมกัน" means, and this line was
   // what stood in front of it (owner, 26 ส.ค.). The catch stays: the engine can
