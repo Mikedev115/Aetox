@@ -41,6 +41,7 @@
     sway = false,
     hop = false,
     still = false,
+    snap = false,
   }: {
     name?: string
     /** A ROLE row id (roles.ts) — the template the slots start from. */
@@ -61,6 +62,10 @@
     /** No motion at all — for a picker's cells and a roster's tiles, where
      *  twenty of these breathing together is a page that stutters. */
     still?: boolean
+    /** Take `turn` as given, without easing towards it — for a caller that
+     *  is already moving the head itself, every event, and for the one
+     *  frame it needs to rewind a wound-up angle by a full circle unseen. */
+    snap?: boolean
   } & Omit<MascotOptions, 'hue' | 'size'> & { hue?: number } = $props()
 
   // No name is the assistant, in the accent it was given or the mark's own
@@ -97,7 +102,7 @@
   class:hop
   class:still
   class:lite={size < DETAIL_MIN_PX}
-  class:settle={!look}
+  class:settle={!look && !snap}
   style="--t:{rest}deg; {handVars(m)}; --ms-blink:{blink}s; width:{size}px; height:{size}px"
   use:lookAt={{ base: rest, range: lookRange(m.pose), on: look }}
   aria-hidden="true"

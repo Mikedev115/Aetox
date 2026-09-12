@@ -18,6 +18,7 @@
   import Mascot from './Mascot.svelte'
   import Icon from '../Icon.svelte'
   import { presenceOf, reportOf, walkTurn } from './presence'
+  import { POSE, type PoseId } from './poses'
   import { cockpit } from '../stores/cockpit.svelte'
   import { setCompanionOn } from './companionSetting.svelte'
   import { avatarPrefs, assistantOptions } from './avatarPrefs.svelte'
@@ -49,6 +50,13 @@
   // off a smoothed velocity, not the last two events, and the head may turn
   // no faster than TURN_DEG_S; the body eases to where the hand is with
   // FOLLOW per frame. Both loops run only while a drag is in progress.
+  //
+  // While it walks the head is driven here, every event, with the CSS
+  // easing off (`snap`): the heading starts from wherever the head is at
+  // the press and is stepped from there, so a press never spins it to a
+  // stale direction ("ทำไมตอนกดจะย้ายมันหมุน"), and a heading that wound up
+  // past a full circle on a looping drag is rewound unseen on release, a
+  // frame before the easing comes back to turn it home.
   let pos = $state(seed())
   let dragging = $state(false)
   let drag: {
@@ -65,6 +73,12 @@
   const FOLLOW = 0.28
   /** Below this smoothed speed (px per event) the direction is kept. */
   const STILL_PX = 1.2
+  /** No movement for this long while held is standing, not walking: it
+   *  floats in place, facing the way it was going (owner: "คลิกค้างอยู่ที่เดิม
+   *  ควรจะลอยอยู่เฉย ๆ"). */
+  const STOP_MS = 140
+  let moving = $state(false)
+  let moveTimer: ReturnType<typeof setTimeout> | undefined
 
   function seed(): { x: number; y: number } {
     try {
@@ -87,6 +101,8 @@
   }
   function onDown(e: PointerEvent): void {
     if (e.button !== 0) return
+    // Start walking from where the head already is.
+    heading = POSE[pose as PoseId]?.turn ?? 0
     drag = {
       dx: e.clientX - pos.x, dy: e.clientY - pos.y, x0: e.clientX, y0: e.clientY, moved: false,
       lx: e.clientX, ly: e.clientY, vx: 0, vy: 0, at: performance.now(), target: { ...pos }, raf: 0,
@@ -98,6 +114,9 @@
     if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < CLICK_PX) return
     drag.moved = true
     dragging = true
+    moving = true
+    clearTimeout(moveTimer)
+    moveTimer = setTimeout(() => (moving = false), STOP_MS)
     // Smoothed velocity → the direction; the head turns towards it at a
     // bounded rate (the CSS transition on --t eases the steps between events).
     drag.vx = drag.vx * 0.7 + (e.clientX - drag.lx) * 0.3
@@ -134,11 +153,17 @@
     if (drag.raf) cancelAnimationFrame(drag.raf)
     if (drag.moved) pos = { ...drag.target }
     drag = null
-    dragging = false
+    clearTimeout(moveTimer)
+    moving = false
     if (wasClick) {
+      dragging = false
       react()
       return
     }
+    // Rewind whole circles now, while the head still snaps; next frame the
+    // easing is back and the turn home is the short way round.
+    heading = ((((heading + 180) % 360) + 360) % 360) - 180
+    requestAnimationFrame(() => (dragging = false))
     try {
       localStorage.setItem(POS_KEY, JSON.stringify(pos))
     } catch {
@@ -163,7 +188,10 @@
       hop = false
     }, REACT_MS)
   }
-  $effect(() => () => clearTimeout(reactTimer))
+  $effect(() => () => {
+    clearTimeout(reactTimer)
+    clearTimeout(moveTimer)
+  })
 
   // ---- the feed ------------------------------------------------------------
   // Everything above is reported to Go (companion.go, SetCompanionState) on
@@ -251,7 +279,7 @@
   })
   const pose = $derived(
     reaction ? reaction
-    : dragging ? 'walk'
+    : dragging && moving ? 'walk'
     : hello ? 'greeting'
     : !cockpit.awaitingReply && justDone ? (endedBadly ? 'error' : 'success')
     : dozing && !cockpit.awaitingReply ? 'recharge'
@@ -323,7 +351,7 @@
   <button class="hide" type="button" title="ซ่อน" aria-label="ซ่อน" onclick={() => setCompanionOn(false)}><Icon name="x" size={11} /></button>
   <!-- A handle, not a control: it has nothing to activate, only somewhere to be. -->
   <div class="grab" role="presentation" onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp}>
-    <Mascot {...assistantOptions(avatarPrefs)} {pose} turn={dragging ? heading : undefined} size={SIZE} sway {hop} />
+    <Mascot {...assistantOptions(avatarPrefs)} {pose} turn={dragging ? heading : undefined} snap={dragging} size={SIZE} sway {hop} />
   </div>
 </div>
 

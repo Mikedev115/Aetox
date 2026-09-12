@@ -71,9 +71,17 @@ describe('the companion', () => {
     await fireEvent.pointerMove(grab, { clientX: 300, clientY: 200, pointerId: 1 })
     await vi.advanceTimersByTimeAsync(20)
     expect(mascot(container).classList.contains('pose-walk')).toBe(true)
-    await fireEvent.pointerUp(grab, { pointerId: 1 })
-    await vi.advanceTimersByTimeAsync(20)
+    // held still: it stands and floats, facing the way it was going
+    await vi.advanceTimersByTimeAsync(200)
     expect(mascot(container).classList.contains('pose-idle')).toBe(true)
+    expect(mascot(container).classList.contains('settle')).toBe(false)
+    await fireEvent.pointerMove(grab, { clientX: 280, clientY: 200, pointerId: 1 })
+    await vi.advanceTimersByTimeAsync(20)
+    expect(mascot(container).classList.contains('pose-walk')).toBe(true)
+    await fireEvent.pointerUp(grab, { pointerId: 1 })
+    await vi.advanceTimersByTimeAsync(40)
+    expect(mascot(container).classList.contains('pose-idle')).toBe(true)
+    expect(mascot(container).classList.contains('settle')).toBe(true)
 
     voice.mic = true
     await vi.advanceTimersByTimeAsync(20)
