@@ -87,6 +87,11 @@ func (h *fakeHost) killEngine() {
 	pid, _ := strconv.Atoi(strings.TrimSpace(string(b)))
 	if p, err := os.FindProcess(pid); err == nil {
 		_ = p.Kill()
+		// Waited for, and then a beat: t.TempDir's cleanup runs next and
+		// Windows keeps an exe locked for a moment after its process is
+		// gone — "Access is denied" on the binary under load otherwise.
+		_, _ = p.Wait()
+		time.Sleep(300 * time.Millisecond)
 	}
 }
 
