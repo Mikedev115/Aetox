@@ -6553,16 +6553,39 @@ button.phase-head:hover { color:var(--text-muted); }
 .ag-band .rule { flex:1; height:1px; background:var(--border-subtle); }
 .ag-band .say { font-size:var(--fs-2xs); color:var(--text-dim); }
 
-/* Settings › ทีม (§256): one card per team, its members as rows under the
-   head. The head's switch is the team's reach, each row's is that member's
-   reach on this team. */
-.team-card .team-card-head .team-ic { display:inline-flex; color:var(--accent); margin-right:2px; }
-.team-card .team-card-head .t { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.team-card .team-count { font-size:var(--fs-2xs); color:var(--text-dim); font-variant-numeric:tabular-nums; font-weight:400; }
-.team-card .team-bad { color:var(--status-danger); }
-.team-card .team-member { padding-left:26px; }
-.team-card .team-member .set-txt { min-width:0; }
-.team-card.invalid .team-member { opacity:.55; }
+/* Settings › ทีมเอเจน (§256): การตั้งค่าโมเดล's master–detail, with a team
+   in the rail and one roster in the pane. Only what that page does not
+   already have is styled here: the tally on a rail row, the member rows, the
+   first-team callout, and the title row that carries the primary door. */
+.team-title { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.team-title h2 { margin-top:0; }
+.team-title .team-new { flex:none; margin-top:4px; }
+.team-title .linklike { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
+.team-set .team-row .team-tally { flex:none; font-size:var(--fs-2xs); color:var(--text-dim); font-variant-numeric:tabular-nums; }
+.team-set .team-row.invalid .mset-prov-name { text-decoration:line-through; color:var(--text-dim); }
+.team-set .team-add { margin-top:6px; border-top:1px solid var(--border-subtle); padding-top:9px; color:var(--text-muted); font-size:var(--fs-md); border-radius:0; }
+.team-set .team-add:hover, .team-set .team-add.selected { color:var(--text-primary); }
+.team-set .mset-head .chip { margin-left:2px; }
+.team-set .team-reach { margin:0; }
+.team-set .team-picked { font-weight:400; color:var(--text-dim); letter-spacing:0; text-transform:none; margin-left:4px; }
+/* The people: one row each, the same box the model list draws a model in
+   (.mrow), with a face where the model name's mono type would be and the
+   member's own switch at the end. A member out of reach cools, as the deck's
+   off band used to — here the state has nowhere else to be drawn. */
+.team-members { display:flex; flex-direction:column; gap:6px; }
+.team-member { display:flex; align-items:center; gap:12px; padding:8px 12px; border:1px solid var(--border-subtle); border-radius:var(--r-md); }
+.team-member .team-member-txt { flex:1; min-width:0; }
+.team-member .t { font-weight:600; font-size:var(--fs-md); color:var(--text-primary); }
+.team-member .d { font-size:var(--fs-xs); color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.team-member.off .t, .team-member.off .d { color:var(--text-dim); }
+.team-members.cool .team-member { opacity:.6; }
+/* The nudge under the shipped team, only while there is no team of the
+   user's: a raised row that says what a team is for and opens the form. */
+.team-callout { display:flex; align-items:center; gap:16px; padding:14px 16px; border:1px dashed var(--border-strong); border-radius:var(--r-lg); background:var(--surface-sunken); }
+.team-callout .team-callout-txt { flex:1; min-width:0; }
+.team-callout .t { font-weight:600; font-size:var(--fs-md); color:var(--text-primary); }
+.team-callout .d { font-size:var(--fs-xs); color:var(--text-muted); margin-top:2px; line-height:1.5; }
+.team-callout .ctrl { flex:none; }
 
 /* The one sentence this page exists to change, written as a sentence. It sat
    as a bare switch over the list before, which left the reader to work out

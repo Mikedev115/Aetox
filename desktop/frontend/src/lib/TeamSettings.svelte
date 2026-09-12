@@ -1,17 +1,28 @@
 <script lang="ts">
-  // Settings › ทีม (DECISIONS §256): where a team is made, named to a desk,
-  // given its members, and where its two switches live. Its own page beside
-  // เอเจน, never a field on the agent editor — owner, 12 ก.ย.: "ตั้งค่าทีมแยก
-  // กับเอเจน". An agent's editor says who the agent is; which lists name it is
-  // the team's business and is edited here.
+  // Settings › ทีมเอเจน (DECISIONS §256): the one home of a roster — where a
+  // team is made, named to a desk, given its members, and where both of its
+  // switches live. The people are on the roster page; this page never draws
+  // a chat door (owner, 12 ก.ย.: "คนอยู่หน้าแรก ทีมอยู่ตั้งค่า").
+  //
+  // The shape is การตั้งค่าโมเดล's, because it is the same kind of page: a
+  // short list of things on the left, the one you picked on the right
+  // (.mset / .mset-side / .mset-detail). A single tall card of every team and
+  // every member was the first cut, and the owner sent it back ("เอามาอยู่
+  // โดดๆแบบนี้ได้ไง") — a list with switches down one edge said nothing about
+  // what a team IS. Here the rail is the teams, and the pane is one roster at
+  // a time: who it hires, at which desk, whether the assistant may hand it
+  // work, and — for a team of the user's — the form that changes it.
+  //
+  // Making a team has to look possible at a glance (owner: "ดูแล้วเพิ่มง่าย
+  // เห็นแล้วรู้ว่าอ๋อ เพิ่มได้"), so the door is drawn three times on purpose:
+  // the primary button beside the title, the last row of the rail, and — on a
+  // machine with no team of the user's yet — a callout under the shipped team
+  // saying what a team is for and offering to make the first one.
   //
   // Its own file rather than a snippet in Settings.svelte for the reason
-  // AvatarSettings is: that file is the shape of every other page, and a team
-  // is not a profile — a card here is a roster, not a person.
-  //
-  // The roster page (Office.svelte) draws the same teams as the rooms you walk
-  // into and sends its gear and its "สร้างทีม" here through settingsIntent —
-  // one editor, two doors, the same rule the agent editor lives by.
+  // AvatarSettings is: a team is not a profile, and that file already holds
+  // the shape of every other page. The roster page and the chat's picker send
+  // their doors here through settingsIntent — one editor, several doors.
   import { onMount } from 'svelte'
   import {
     ListChairs, ListTeams, SaveTeam, DeleteTeam, OpenTeamsFolder,
@@ -27,16 +38,22 @@
   import { lookOf } from './mascot/agentLook'
 
   let teams = $state<main.TeamCard[]>([])
-  // The whole roster, for the editor's tick list: every agent may be on any
+  // The whole roster, for the editor's tick list: any agent may be on any
   // team, whatever team it is on today.
   let chairs = $state<main.Chair[]>([])
   // Each team's switches, keyed by team name ('' is the default). Absent
-  // rather than fatal when a read fails: the list is still drawn, without the
+  // rather than fatal when a read fails: the pane is still drawn, without the
   // switch it cannot honour.
   let switches = $state<Record<string, main.DelegateSettings>>({})
   let loaded = $state(false)
   let error = $state('')
   let busy = $state('')
+
+  // Which team the pane shows. '' is ทีมผู้ช่วย, which is also where the page
+  // opens: it is the team every machine has.
+  let selected = $state('')
+  const current = $derived(teams.find((x) => x.name === selected) ?? null)
+  const mine = $derived(teams.filter((x) => !x.default))
 
   async function load() {
     try {
@@ -53,6 +70,7 @@
     const next: Record<string, main.DelegateSettings> = {}
     teams.forEach((tm, i) => { if (answers[i]) next[tm.name] = answers[i]! })
     switches = next
+    if (!teams.some((x) => x.name === selected)) selected = ''
     loaded = true
   }
 
@@ -60,10 +78,17 @@
   // The desk labels the rest of the app uses (the nav, the MCP page's
   // audience chips) — not a wording of this page's own.
   const deskLabel = (desk: string) => (desk === 'coding' ? t('desk.coding') : t('desk.assistant'))
+  // How many of a team are in the assistant's reach right now — the number
+  // the rail shows beside each team, so the state is readable before a click.
+  function inReach(tm: main.TeamCard): number {
+    const s = switches[tm.name]
+    if (!s || s.agents.off) return 0
+    return tm.members.filter((c) => s.agents.workers.find((w) => w.name === c.name)?.on).length
+  }
 
   // One member's reach on ONE team. The same agent may be in reach on one
   // team and switched off on another (config.TeamSwitches) — which is the
-  // whole reason the switch sits on the member row inside the team card.
+  // whole reason the switch sits on the member row inside the team's pane.
   function reachOf(team: main.TeamCard, name: string): { on: boolean; off: boolean } | null {
     const s = switches[team.name]
     if (!s) return null
@@ -90,9 +115,10 @@
     }
   }
 
-  // The editor: name, desk, a sentence, and a tick beside every agent on the
-  // roster. One shape for new and existing; the name is fixed once a folder
-  // exists, because it is the folder (and what sessions key on).
+  // The editor, drawn in the pane in place of the team: name, desk, a
+  // sentence, and a tick beside every agent on the roster. One shape for new
+  // and existing; the name is fixed once a folder exists, because it is the
+  // folder (and what sessions key on).
   type TeamDraft = { name: string; desk: string; description: string; members: string[]; isNew: boolean; path: string }
   let editing = $state<TeamDraft | null>(null)
   let editError = $state('')
@@ -107,6 +133,10 @@
     }
     editError = ''
   }
+  function pick(name: string) {
+    editing = null
+    selected = name
+  }
   function tickMember(name: string, on: boolean) {
     if (!editing) return
     const rest = editing.members.filter((m) => m !== name)
@@ -116,9 +146,11 @@
     if (!editing || busy) return
     busy = 'save'
     editError = ''
+    const name = editing.name.trim()
     try {
-      await SaveTeam(editing.name.trim(), editing.desk, editing.description, editing.members)
+      await SaveTeam(name, editing.desk, editing.description, editing.members)
       editing = null
+      selected = name
       await load()
     } catch (err) {
       editError = String(err)
@@ -140,6 +172,7 @@
         try {
           await DeleteTeam(name)
           editing = null
+          selected = ''
         } catch (err) {
           error = String(err)
         }
@@ -153,47 +186,74 @@
     req?.run()
   }
 
-  // The roster page's doors land here with the editor already open on the
-  // right team — or on a blank one. Consumed once and cleared, like the agent
-  // editor's intent: one that survived into the next plain visit would reopen
-  // an editor nobody asked for.
+  // The roster page's and the picker's doors land here on the right team —
+  // or on a blank form. Consumed once and cleared, like the agent editor's
+  // intent: one that survived into the next plain visit would reopen a form
+  // nobody asked for.
   onMount(async () => {
     const intent = cockpit.settingsIntent
     if (intent && intent.section === 'teams') cockpit.settingsIntent = null
     await load()
     if (!intent || intent.section !== 'teams') return
     if (intent.createTeam) newTeam()
-    else if (intent.team) {
+    else if (intent.team && teams.some((x) => x.name === intent.team)) {
+      selected = intent.team
       const tm = teams.find((x) => x.name === intent.team)
-      if (tm) editTeam(tm)
+      if (tm && !tm.default) editTeam(tm)
     }
   })
 </script>
 
-{#if editing}
-  <h2>{editing.isNew ? t('office.newTeam') : t('office.teamEdit')}</h2>
-  <p class="muted set-sub">{t('settings.teamEditDesc')}</p>
-  <div class="pp-bar">
-    <button class="ctrl" onclick={() => (editing = null)} disabled={busy !== ''}><Icon name="arrowLeft" size={14} /> {t('settings.agentBack')}</button>
-    <div class="pp-bar-gap"></div>
-    {#if !editing.isNew}
-      <button class="ctrl ctrl-danger" disabled={busy !== ''} onclick={() => editing && deleteTeam(editing.name, editing.path)}>{t('office.teamDelete')}</button>
-    {/if}
-    <button class="ctrl ctrl-primary" onclick={saveTeam} disabled={busy !== '' || !editing.name.trim()}>{t('office.teamSave')}</button>
+<div class="team-title">
+  <div>
+    <h2>{t('settings.teams')}</h2>
+    <p class="muted set-sub">
+      {t('settings.teamsDesc')}
+      <button class="linklike" onclick={() => { setShell('assistant'); setActiveView('office') }}>{t('settings.teamOpenPage')} <Icon name="arrowRight" size={12} /></button>
+    </p>
   </div>
-  <!-- The same form the model page's custom endpoint uses (mset-field +
-       eyebrow + hint + .ctrl), the same two-way choice the approval row
-       uses (seg-ctrl), and the same audience chips the MCP page ticks agents
-       with (conn-chip). Nothing of this page's own: a form that looks like
-       no other form is a form somebody has to learn (owner, 12 ก.ย.: "ดู
-       มาตรฐานหน้าอื่นครับ อย่าพยายามทำแยก คนจะงง"). -->
-  <div class="settings-card">
-    <div class="mset-detail">
+  <!-- The door, where the eye lands first. -->
+  <button class="ctrl ctrl-primary team-new" onclick={newTeam} disabled={!!editing?.isNew}><Icon name="plus" size={14} /> {t('office.newTeam')}</button>
+</div>
+{#if error}<div class="mset-error">{error}</div>{/if}
+
+<div class="settings-card mset team-set">
+  <!-- The rail: every team, the default first, each with the one number
+       worth reading before a click — how many of it the assistant may hand
+       work to — and the door once more at the foot. -->
+  <aside class="mset-side">
+    <div class="settings-group-label eyebrow">{t('settings.teams')}</div>
+    {#each teams as tm (tm.name)}
+      <button class="mset-prov team-row" class:selected={selected === tm.name && !editing?.isNew}
+        class:invalid={!!tm.invalid} onclick={() => pick(tm.name)}>
+        <Icon name="users" size={15} />
+        <span class="mset-prov-name">{teamLabel(tm)}</span>
+        <span class="team-tally" title={t('settings.teamTallyTip')}>{inReach(tm)}/{tm.members.length}</span>
+      </button>
+    {/each}
+    <button class="mset-prov team-add" class:selected={!!editing?.isNew} onclick={newTeam}>
+      <Icon name="plus" size={14} /> {t('office.newTeam')}
+    </button>
+  </aside>
+
+  <div class="mset-detail">
+    {#if editing}
+      <!-- The form. The same fields the model page's custom endpoint draws
+           (mset-field + eyebrow + hint + .ctrl), the same two-way choice the
+           approval row draws (seg-ctrl), and the audience chips the MCP page
+           ticks agents with (conn-chip). Nothing of this page's own: a form
+           that looks like no other form is a form somebody has to learn. -->
+      <div class="mset-head">
+        <Icon name="users" size={22} />
+        <span class="mset-name">{editing.isNew ? t('office.newTeam') : t('office.teamEdit')}</span>
+      </div>
+      <p class="muted set-hint">{t('settings.teamEditDesc')}</p>
       <div class="mset-field">
         <div class="eyebrow">{t('office.teamName')}</div>
         {#if editing.isNew}<div class="muted set-hint">{t('office.teamNameHint')}</div>{/if}
+        <!-- svelte-ignore a11y_autofocus -->
         <input class="ctrl key-input" type="text" bind:value={editing.name} disabled={!editing.isNew}
-          placeholder={t('office.teamNamePlaceholder')} spellcheck="false" />
+          placeholder={t('office.teamNamePlaceholder')} spellcheck="false" autofocus={editing.isNew} />
       </div>
       <div class="mset-field">
         <div class="eyebrow">{t('office.teamDesk')}</div>
@@ -204,14 +264,14 @@
               onclick={() => { if (editing) editing.desk = desk }}>{deskLabel(desk)}</button>
           {/each}
         </div>
-        {#if editing.desk === 'coding'}<div class="muted set-hint">{t('office.teamDeskCodingNote')}</div>{/if}
+        <div class="muted set-hint">{editing.desk === 'coding' ? t('office.teamDeskCodingNote') : t('settings.teamDeskAssistantNote')}</div>
       </div>
       <div class="mset-field">
         <div class="eyebrow">{t('office.teamDescription')}</div>
-        <input class="ctrl key-input" type="text" bind:value={editing.description} />
+        <input class="ctrl key-input" type="text" bind:value={editing.description} placeholder={t('settings.teamDescriptionPlaceholder')} />
       </div>
       <div class="mset-field">
-        <div class="eyebrow">{t('office.teamPick')}</div>
+        <div class="eyebrow">{t('office.teamPick')} <span class="team-picked">{editing.members.length}</span></div>
         <div class="muted set-hint">{t('office.teamPickHint')}</div>
         <div class="conn-targets">
           {#each chairs as c (c.name)}
@@ -225,84 +285,105 @@
         </div>
       </div>
       {#if editError}<div class="mset-error">{editError}</div>{/if}
-    </div>
-  </div>
-{:else}
-  <h2>{t('settings.teams')}</h2>
-  <p class="muted set-sub">{t('settings.teamsDesc')}</p>
-  <div class="pp-bar">
-    <button class="ctrl" onclick={newTeam}><Icon name="plus" size={13} /> {t('office.newTeam')}</button>
-    <button class="ctrl" onclick={() => load()}>{t('settings.refresh')}</button>
-    <button class="ctrl" onclick={() => OpenTeamsFolder()}>{t('settings.teamsFolder')}</button>
-    <div class="pp-bar-gap"></div>
-    <!-- The rooms are on the roster page behind the storefront; this page
-         configures. The door goes with the room (§86). -->
-    <button class="ctrl" onclick={() => { setShell('assistant'); setActiveView('office') }}>{t('settings.teamOpenPage')} <Icon name="arrowRight" size={13} /></button>
-  </div>
-  {#if error}<div class="mset-error">{error}</div>{/if}
-
-  <!-- One card per team: its head (name, desk, sentence, the team's own
-       switch, the gear and the bin for a user team), then its members as rows
-       with each one's reach ON THIS TEAM. -->
-  {#each teams as tm (tm.name)}
-    {@const s = switches[tm.name]}
-    <div class="settings-card team-card" class:invalid={!!tm.invalid}>
-      <div class="set-row team-card-head">
-        <span class="team-ic"><Icon name="users" size={16} /></span>
-        <div class="set-txt">
-          <div class="t">
-            {teamLabel(tm)}
-            <span class="chip">{deskLabel(tm.desk)}</span>
-            <span class="team-count">{t('office.teamMembersCount', { n: tm.members.length })}</span>
-          </div>
-          <div class="d">
-            {#if tm.default}{t('office.teamDefaultNote')}{:else if tm.description}{tm.description}{/if}
-          </div>
-          {#if tm.invalid}<div class="d team-bad">{t('office.teamInvalid', { reason: tm.invalid })}</div>{/if}
-          {#if tm.missing.length > 0}<div class="d team-bad">{t('office.teamMissing', { names: tm.missing.join(', ') })}</div>{/if}
-        </div>
-        <div class="ag-actions">
-          {#if s && !tm.invalid}
-            <label class="mswitch" title={t('office.teamDelegate')}>
-              <input type="checkbox" checked={!s.agents.off} disabled={busy !== ''}
-                aria-label={t('office.teamDelegate')} onchange={() => toggleTeam(tm)} />
-              <span></span>
-            </label>
-          {/if}
-          {#if !tm.default}
-            <button class="icobtn tiny tip-l" aria-label={t('office.teamEdit')} data-tip={t('office.teamEdit')}
-              onclick={() => editTeam(tm)}><Icon name="settings" size={13} /></button>
-            <button class="icobtn tiny tip-l" aria-label={t('office.teamDelete')} data-tip={t('office.teamDelete')}
-              onclick={() => deleteTeam(tm.name, tm.path ?? '')}><Icon name="trash" size={13} /></button>
-          {/if}
-        </div>
+      <div class="mset-keyrow team-actions">
+        <button class="ctrl ctrl-primary" onclick={saveTeam} disabled={busy !== '' || !editing.name.trim()}>{t('office.teamSave')}</button>
+        <button class="ctrl" onclick={() => { editing = null }} disabled={busy !== ''}>{t('office.teamCancel')}</button>
+        <div class="pp-bar-gap"></div>
+        {#if !editing.isNew}
+          <button class="ctrl ctrl-danger" disabled={busy !== ''} onclick={() => editing && deleteTeam(editing.name, editing.path)}>{t('office.teamDelete')}</button>
+        {/if}
       </div>
-      {#each tm.members as c (c.name)}
-        {@const reach = reachOf(tm, c.name)}
-        <div class="set-row team-member">
-          <AgentMascot name={c.name} {...lookOf(c)} size={24} />
-          <div class="set-txt">
-            <div class="t">{c.name}</div>
-            {#if c.description}<div class="d">{c.description}</div>{/if}
-          </div>
-          {#if reach}
+
+    {:else if current}
+      {@const tm = current}
+      {@const s = switches[tm.name]}
+      <!-- One roster. Its head is who it is; the card under it is the one
+           decision about it (may the assistant hand it work); the rows are
+           the people, each with that decision for them alone. -->
+      <div class="mset-head">
+        <Icon name="users" size={22} />
+        <span class="mset-name">{teamLabel(tm)}</span>
+        <span class="chip">{deskLabel(tm.desk)}</span>
+        {#if tm.default}<span class="chip">{t('settings.teamShipped')}</span>{/if}
+        <div class="pp-bar-gap"></div>
+        {#if !tm.default}
+          <button class="ctrl" onclick={() => editTeam(tm)}><Icon name="settings" size={13} /> {t('office.teamEdit')}</button>
+        {/if}
+      </div>
+      <p class="muted set-hint">
+        {#if tm.default}{t('office.teamDefaultNote')}{:else if tm.description}{tm.description}{:else}{t('settings.teamNoDescription')}{/if}
+      </p>
+      {#if tm.invalid}<div class="mset-error">{t('office.teamInvalid', { reason: tm.invalid })}</div>{/if}
+      {#if tm.missing.length > 0}<div class="mset-error">{t('office.teamMissing', { names: tm.missing.join(', ') })}</div>{/if}
+
+      {#if s && !tm.invalid}
+        <div class="settings-card reach-card team-reach">
+          <div class="set-row">
+            <div class="set-txt">
+              <div class="t">{t('office.teamDelegate')}</div>
+              <div class="d">{t(s.agents.off ? 'settings.delegateAgentsOff' : 'settings.delegateAgentsOn')}</div>
+            </div>
             <div class="ag-actions">
-              <label class="mswitch" title={t('settings.agentReachTip')}>
-                <input type="checkbox" checked={reach.on && !reach.off} disabled={reach.off || busy !== ''}
-                  aria-label={t('settings.agentReach')} onchange={() => toggleMember(tm, c.name, reach.on)} />
+              <label class="mswitch" title={t('office.teamDelegate')}>
+                <input type="checkbox" checked={!s.agents.off} disabled={busy !== ''}
+                  aria-label={t('office.teamDelegate')} onchange={() => toggleTeam(tm)} />
                 <span></span>
               </label>
             </div>
-          {/if}
+          </div>
         </div>
-      {/each}
-      {#if loaded && tm.members.length === 0}
-        <div class="set-row"><div class="set-txt"><div class="d">{tm.default ? t('office.noChairs') : t('office.teamEmpty')}</div></div></div>
       {/if}
-    </div>
-  {/each}
-  <p class="muted set-sub">{t('office.teamsNote')}</p>
-{/if}
+
+      <div class="mset-field">
+        <div class="eyebrow">
+          {t('office.teamPick')} <span class="team-picked">{tm.members.length}</span>
+          {#if s && !s.agents.off}<span class="team-picked muted">· {t('settings.teamInReach', { n: inReach(tm) })}</span>{/if}
+        </div>
+        {#if tm.members.length === 0}
+          <p class="muted set-hint">{tm.default ? t('office.noChairs') : t('office.teamEmpty')}</p>
+        {/if}
+        <div class="team-members" class:cool={!!s && s.agents.off}>
+          {#each tm.members as c (c.name)}
+            {@const reach = reachOf(tm, c.name)}
+            <div class="team-member" class:off={!!reach && !(reach.on && !reach.off)}>
+              <AgentMascot name={c.name} {...lookOf(c)} size={28} />
+              <div class="team-member-txt">
+                <div class="t">{c.name}</div>
+                {#if c.description}<div class="d">{c.description}</div>{/if}
+              </div>
+              {#if reach}
+                <label class="mswitch" title={t('settings.agentReachTip')}>
+                  <input type="checkbox" checked={reach.on && !reach.off} disabled={reach.off || busy !== ''}
+                    aria-label={t('settings.agentReach')} onchange={() => toggleMember(tm, c.name, reach.on)} />
+                  <span></span>
+                </label>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      </div>
+
+      <!-- The nudge, only while the user has no team of their own: what a
+           team is for, in one sentence each, and the door. Gone the moment
+           the first team exists — a tip for a thing already done is noise. -->
+      {#if tm.default && loaded && mine.length === 0}
+        <div class="team-callout">
+          <div class="team-callout-txt">
+            <div class="t">{t('settings.teamFirstTitle')}</div>
+            <div class="d">{t('settings.teamFirstBody')}</div>
+          </div>
+          <button class="ctrl ctrl-primary" onclick={newTeam}><Icon name="plus" size={14} /> {t('office.newTeam')}</button>
+        </div>
+      {/if}
+    {:else if loaded}
+      <p class="muted set-hint">{t('office.teamEmpty')}</p>
+    {/if}
+  </div>
+</div>
+<p class="muted set-sub">
+  {t('office.teamsNote')}
+  <button class="linklike" onclick={() => OpenTeamsFolder()}>{t('settings.teamsFolder')}</button>
+</p>
 
 {#if pendingConfirm}
   {@const req = pendingConfirm}
