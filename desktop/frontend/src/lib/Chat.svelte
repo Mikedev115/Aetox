@@ -34,6 +34,7 @@
   } from '../../wailsjs/go/main/App'
   import type { main, connect, subagent } from '../../wailsjs/go/models'
   import { t, i18n, type TKey } from './i18n.svelte'
+  import { deskLabelKey } from './desks'
   import { DRAFT_KEY } from './composerDraft'
   import { isShortcut, shortcutLabel } from './shortcuts'
   import { openMicStream, audioDevices } from './audioDevices.svelte'
@@ -1746,6 +1747,8 @@
   })
 
   const headline = $derived(chairOpening?.headline || headlineFor(roomStarters, profile.name, t))
+
+  const deskName = (id: string) => { const k = deskLabelKey(id); return k ? t(k) : id }
 
   // Everything this room could open with. The grid draws four of them.
   const starterPool: { icon: IconName; title: string; prompt: string }[] = $derived(
@@ -4384,7 +4387,7 @@
   {/if}
 
   {#if messages.length === 0}
-    <div class="empty-state">
+    <div class="empty-state" class:walking={!!cockpit.walkingTo}>
       <!-- The mark as ground rather than as the first item in the column. At
            56px it stood in the stack competing with the question and the cards
            for the same middle of the screen; behind them at this size it is
@@ -5368,7 +5371,21 @@
     </div>
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <!-- drag/drop target for a workbench tab; the textarea/buttons inside remain the real interactive elements -->
-    <div class="box" class:drag-over={dragOver} class:running={!!cockpit.plan?.running} ondragover={onComposerDragOver} ondragleave={() => (dragOver = false)} ondrop={onComposerDrop}>
+    <div class="box" class:drag-over={dragOver} class:running={!!cockpit.plan?.running || !!cockpit.walkingTo} ondragover={onComposerDragOver} ondragleave={() => (dragOver = false)} ondrop={onComposerDrop}>
+      <!-- THE DOOR, on the same strip as the run. A desk press opens a new
+           session, and on a machine where git answers slowly that is seconds
+           of nothing on screen (13 ก.ย. 2026: "กดกลับหน้าผู้ใช้ไม่ได้" — it had,
+           the walk was queued). The strip says where the window is going and
+           nothing about why (owner: "เอาแค่โหลดพอ"). No cancel: the engine is
+           mid-bootstrap and a second press already supersedes the first
+           (askDoor). -->
+      {#if cockpit.walkingTo && !cockpit.plan?.running}
+        <div class="cbox-run cbox-door">
+          <span class="livedot"></span>
+          <span class="cbox-run-step">{t('chat.doorWalking', { desk: deskName(cockpit.walkingTo) })}</span>
+          <div class="cbox-run-track"><i class="indet"></i></div>
+        </div>
+      {/if}
       <!-- THE RUN, FUSED TO THE BOX. It was a strip floating above the composer
            until the owner saw it on a real screen: wider than the box it sat
            over, and reading as a system banner rather than as part of the
@@ -5491,6 +5508,8 @@
             ? ''
             : cockpit.plan?.running
               ? t('chat.inputDuringRun')
+              : cockpit.walkingTo
+                ? t('chat.inputDuringWalk')
               : cockpit.chair
                 ? t('chat.inputToAgent', { name: cockpit.chair })
                 : t('chat.inputPlaceholder')}

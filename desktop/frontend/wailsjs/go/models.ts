@@ -44,6 +44,29 @@ export namespace capability {
 
 }
 
+export namespace cliagent {
+	
+	export class Status {
+	    path: string;
+	    version: string;
+	    ready: boolean;
+	    detail?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Status(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.version = source["version"];
+	        this.ready = source["ready"];
+	        this.detail = source["detail"];
+	    }
+	}
+
+}
+
 export namespace command {
 	
 	export class Preset {
@@ -629,6 +652,117 @@ export namespace main {
 	        this.path = source["path"];
 	        this.status = source["status"];
 	    }
+	}
+	export class CompanionFrame {
+	    key: string;
+	    w: number;
+	    h: number;
+	    png: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CompanionFrame(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.w = source["w"];
+	        this.h = source["h"];
+	        this.png = source["png"];
+	    }
+	}
+	export class CompanionPrefs {
+	    shell: string;
+	    accent: string;
+	    top: string;
+	    face: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CompanionPrefs(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.shell = source["shell"];
+	        this.accent = source["accent"];
+	        this.top = source["top"];
+	        this.face = source["face"];
+	    }
+	}
+	export class CompanionTheme {
+	    bg: string;
+	    fg: string;
+	    muted: string;
+	    border: string;
+	    accent: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CompanionTheme(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.bg = source["bg"];
+	        this.fg = source["fg"];
+	        this.muted = source["muted"];
+	        this.border = source["border"];
+	        this.accent = source["accent"];
+	    }
+	}
+	export class CompanionState {
+	    pose: string;
+	    report: string;
+	    on: boolean;
+	    prefs: CompanionPrefs;
+	    seq: number;
+	    // Go type: time
+	    at: any;
+	    shown?: string;
+	    words?: string[];
+	    cursor?: boolean;
+	    theme: CompanionTheme;
+	    muted?: boolean;
+	    hop?: number;
+	    size?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new CompanionState(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.pose = source["pose"];
+	        this.report = source["report"];
+	        this.on = source["on"];
+	        this.prefs = this.convertValues(source["prefs"], CompanionPrefs);
+	        this.seq = source["seq"];
+	        this.at = this.convertValues(source["at"], null);
+	        this.shown = source["shown"];
+	        this.words = source["words"];
+	        this.cursor = source["cursor"];
+	        this.theme = this.convertValues(source["theme"], CompanionTheme);
+	        this.muted = source["muted"];
+	        this.hop = source["hop"];
+	        this.size = source["size"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	
 	export class CompressReport {

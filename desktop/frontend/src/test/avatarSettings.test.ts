@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, waitFor, fireEvent } from '@testing-library/svelte'
 import AvatarSettings from '../lib/mascot/AvatarSettings.svelte'
 import Companion from '../lib/mascot/Companion.svelte'
-import { avatarPrefs, setAvatarPrefs, resetAvatarPrefs, assistantOptions, DEFAULT_PREFS, personas, savePersona, usePersona, clearPersona, wornPersona, PERSONA_SLOTS } from '../lib/mascot/avatarPrefs.svelte'
+import { avatarPrefs, setAvatarPrefs, resetAvatarPrefs, assistantOptions, DEFAULT_PREFS, personas, addPersona, savePersona, usePersona, removePersona, clearPersonas, wornPersona } from '../lib/mascot/avatarPrefs.svelte'
 import { SHELL, ACCENT } from '../lib/mascot/palette'
 import { TOP, FACE } from '../lib/mascot/parts'
 import { POSE } from '../lib/mascot/poses'
@@ -20,7 +20,7 @@ import { TTSStatus, ListTTSVoices, StartSpeech } from './mocks/wailsApp'
 beforeEach(() => {
   localStorage.clear()
   resetAvatarPrefs()
-  for (let i = 0; i < PERSONA_SLOTS; i++) clearPersona(i)
+  clearPersonas()
   setLocale('th')
   cockpit.awaitingReply = false
   cockpit.toolSteps = []
@@ -64,15 +64,39 @@ describe('avatar preferences', () => {
   // on today's default.
   it('read a hue stored by the earlier build as the nearest accent', async () => {
     localStorage.setItem('avatarPrefs', JSON.stringify({ shell: 'colour', hue: 152, top: 'orb', face: 'neutral' }))
-    localStorage.setItem('avatarPersonas', JSON.stringify([{ shell: 'white', hue: null, top: 'bar', face: 'focused' }]))
+    // …and the six-slot build kept nulls where a slot was empty: they go.
+    localStorage.setItem('avatarPersonas', JSON.stringify([null, { shell: 'white', hue: null, top: 'bar', face: 'focused' }, null]))
     vi.resetModules()
     const fresh = await import('../lib/mascot/avatarPrefs.svelte')
     expect(fresh.avatarPrefs).toMatchObject({ shell: 'colour', accent: 'mint' })
+    expect(fresh.personas.slots.length).toBe(1)
     expect(fresh.personas.slots[0]).toMatchObject({ shell: 'white', accent: 'ink', top: 'bar' })
   })
 })
 
+// The page opens on its first sub-menu, the design — the stage, the poses
+// and the personas; the main avatar's switches are behind the second.
+async function openMain(container: HTMLElement): Promise<void> {
+  await waitFor(() => expect(container.querySelectorAll('.set-subtab').length).toBe(2))
+  await fireEvent.click(container.querySelectorAll('.set-subtab')[1])
+}
+
 describe('the avatar page', () => {
+  it("splits into the design and the main avatar's switches, and opens on the design", async () => {
+    const { container } = render(AvatarSettings)
+    await waitFor(() => expect(container.querySelectorAll('.set-subtab').length).toBe(2))
+    const tabs = container.querySelectorAll('.set-subtab')
+    expect(tabs[0].textContent).toContain('ออกแบบอวตาร')
+    expect(tabs[1].textContent).toContain('ตั้งค่าอวตารหลัก')
+    expect(tabs[0].classList.contains('active')).toBe(true)
+    expect(container.querySelector('.stage')).toBeTruthy()
+    expect(container.querySelector('.mswitch input')).toBeNull()
+    await fireEvent.click(tabs[1])
+    await waitFor(() => expect(container.querySelector('.mswitch input')).toBeTruthy())
+    expect(container.querySelector('.stage')).toBeNull()
+    expect(tabs[1].classList.contains('active')).toBe(true)
+  })
+
   it('offers every shell and top light the catalogue has, and marks the current one', async () => {
     const { container } = render(AvatarSettings)
     await waitFor(() => expect(container.querySelector('h2')?.textContent).toBe('อวตาร'))
@@ -117,30 +141,42 @@ describe('the avatar page', () => {
     await waitFor(() => expect(container.querySelector('.fig-box .mascot')!.classList.contains('pose-walk')).toBe(true))
   })
 
-  // Personas: six slots, save what is worn, wear what was saved, clear.
-  it('keeps six personas and knows which one is worn', async () => {
+  // Personas: no fixed count — + keeps what is worn as one more, remove
+  // closes the gap, and the + card will not keep a twin of a look it has.
+  it('keeps as many personas as + is pressed, and knows which one is worn', async () => {
     const { container } = render(AvatarSettings)
-    await waitFor(() => expect(container.querySelectorAll('.slot').length).toBe(PERSONA_SLOTS))
-    expect(PERSONA_SLOTS).toBe(6)
-    expect(container.querySelectorAll('.slot .empty').length).toBe(PERSONA_SLOTS)
+    await waitFor(() => expect(container.querySelector('.slot.add')).toBeTruthy())
+    expect(container.querySelectorAll('.slot:not(.add)').length).toBe(0)
+    const add = container.querySelector('.slot.add') as HTMLButtonElement
+    await fireEvent.click(add)
+    expect(personas.slots.length).toBe(1)
+    expect(wornPersona()).toBe(0)
+    await waitFor(() => expect(add.disabled).toBe(true)) // the default look is kept now
     setAvatarPrefs({ shell: 'colour', accent: 'mint' })
-    await fireEvent.click(container.querySelectorAll('.slot')[1].querySelector('.acts button')!)
+    await waitFor(() => expect(add.disabled).toBe(false))
+    await fireEvent.click(add)
+    expect(personas.slots.length).toBe(2)
     expect(personas.slots[1]).toMatchObject({ shell: 'colour', accent: 'mint' })
     expect(wornPersona()).toBe(1)
     await waitFor(() => expect(container.querySelectorAll('.slot')[1].classList.contains('worn')).toBe(true))
     expect(JSON.parse(localStorage.getItem('avatarPersonas')!)[1]).toMatchObject({ shell: 'colour', accent: 'mint' })
     resetAvatarPrefs()
-    expect(wornPersona()).toBe(-1)
+    expect(wornPersona()).toBe(0)
     usePersona(1)
     expect(avatarPrefs.shell).toBe('colour')
-    clearPersona(1)
-    expect(personas.slots[1]).toBeNull()
-    usePersona(1)
-    expect(avatarPrefs.shell).toBe('colour') // an empty slot changes nothing
+    // remove the first: the second moves up, and the + card follows the list
+    await fireEvent.click(container.querySelectorAll('.slot')[0].querySelectorAll('.acts button')[2])
+    expect(personas.slots.length).toBe(1)
+    expect(personas.slots[0]).toMatchObject({ shell: 'colour', accent: 'mint' })
+    await waitFor(() => expect(container.querySelectorAll('.slot').length).toBe(2))
+    expect(container.querySelectorAll('.slot')[1].classList.contains('add')).toBe(true)
+    usePersona(5)
+    expect(avatarPrefs.shell).toBe('colour') // a slot that is not there changes nothing
   })
 
   it('carries the on-screen switch', async () => {
     const { container } = render(AvatarSettings)
+    await openMain(container)
     await waitFor(() => expect(container.querySelector('.mswitch input')).toBeTruthy())
     const box = container.querySelector('.mswitch input') as HTMLInputElement
     expect(box.checked).toBe(true)
@@ -153,6 +189,7 @@ describe('the avatar page', () => {
   // for the UI's language — with the way to ตั้งค่า › เสียง beside it.
   it('carries the voice switch, on by default, with nothing to say when a voice speaks the language', async () => {
     const { container } = render(AvatarSettings)
+    await openMain(container)
     await waitFor(() => expect(vi.mocked(ListTTSVoices)).toHaveBeenCalled())
     const box = container.querySelector('.voice-row .mswitch input') as HTMLInputElement
     expect(box.checked).toBe(true)
@@ -173,6 +210,7 @@ describe('the avatar page', () => {
   it("says the engine's own reason when it cannot run, and points at the voice page", async () => {
     vi.mocked(TTSStatus).mockResolvedValue('ไม่พบ PowerShell ในเครื่อง')
     const { container } = render(AvatarSettings)
+    await openMain(container)
     await waitFor(() => expect(container.querySelector('.voice-note:not(.soft)')).toBeTruthy())
     expect(container.querySelector('.voice-note')?.textContent).toContain('ไม่พบ PowerShell ในเครื่อง')
     await fireEvent.click(container.querySelector('.voice-note .link')!)
@@ -183,6 +221,7 @@ describe('the avatar page', () => {
   it('warns when no installed voice speaks the UI language', async () => {
     vi.mocked(ListTTSVoices).mockResolvedValue([{ id: 'z', name: 'Zira', lang: 'en-US', gender: 'Female', active: false }] as any)
     const { container } = render(AvatarSettings)
+    await openMain(container)
     await waitFor(() => expect(container.querySelector('.voice-note:not(.soft)')).toBeTruthy())
     expect(container.querySelector('.voice-note')?.textContent).toContain('ยังไม่มีเสียงสำหรับภาษาที่ใช้อยู่')
   })

@@ -24,11 +24,6 @@ export type AvatarPrefs = {
 
 const KEY = 'avatarPrefs'
 const PERSONA_KEY = 'avatarPersonas'
-/** How many personas a person may keep — the looks an agent designed later
- *  may be given. The owner asked for three (12 ก.ย.: "บุคลิก 1 - 2 - 3"),
- *  then for six the same evening ("เพิ่มได้สูงสุด 6 แบบ"). */
-export const PERSONA_SLOTS = 6
-
 export const DEFAULT_PREFS: AvatarPrefs = { shell: DEFAULT_SHELL, accent: DEFAULT_ACCENT, top: 'orb', face: 'neutral' }
 
 /** What a store may hold: today's four ids, or the accent as the hue in
@@ -88,22 +83,25 @@ export function assistantOptions(p: AvatarPrefs = avatarPrefs): MascotOptions {
 }
 
 // ---- personas ---------------------------------------------------------------
-// A persona is a saved set of the four choices, kept in one of six slots.
-// The assistant wears one at a time; the point of keeping them is the agents a
-// user will design later — a persona is a look ready to be handed to one.
+// A persona is a saved set of the four choices. The list is as long as the
+// user makes it — three, then six fixed slots (12 ก.ย.), then none at all
+// (13 ก.ย.: "ให้เขากด + ไปได้เรื่อยๆ"): + saves what is worn as one more,
+// and removing one closes the gap rather than leaving a hole. The assistant
+// wears one at a time; the point of keeping them is the agents a user will
+// design later — a persona is a look ready to be handed to one.
 
-export type Persona = AvatarPrefs | null
+export type Persona = AvatarPrefs
 
 function seedPersonas(): Persona[] {
-  const empty: Persona[] = Array.from({ length: PERSONA_SLOTS }, () => null)
   try {
     const raw = localStorage.getItem(PERSONA_KEY)
-    if (!raw) return empty
+    if (!raw) return []
     const list = JSON.parse(raw) as unknown
-    if (!Array.isArray(list)) return empty
-    return empty.map((_, i) => (list[i] && typeof list[i] === 'object' ? sane(list[i] as Stored) : null))
+    if (!Array.isArray(list)) return []
+    // A store from the six-slot build has nulls where a slot was empty.
+    return list.filter((p) => p && typeof p === 'object').map((p) => sane(p as Stored))
   } catch {
-    return empty
+    return []
   }
 }
 
@@ -117,9 +115,16 @@ function keepPersonas(): void {
   }
 }
 
-/** Save what the assistant wears now into a slot. */
+/** Keep what the assistant wears now as one more persona; returns its index. */
+export function addPersona(): number {
+  personas.slots.push(sane({ ...avatarPrefs }))
+  keepPersonas()
+  return personas.slots.length - 1
+}
+
+/** Overwrite a persona with what the assistant wears now. */
 export function savePersona(slot: number): void {
-  if (slot < 0 || slot >= PERSONA_SLOTS) return
+  if (slot < 0 || slot >= personas.slots.length) return
   personas.slots[slot] = sane({ ...avatarPrefs })
   keepPersonas()
 }
@@ -130,13 +135,20 @@ export function usePersona(slot: number): void {
   if (p) setAvatarPrefs(p)
 }
 
-export function clearPersona(slot: number): void {
-  if (slot < 0 || slot >= PERSONA_SLOTS) return
-  personas.slots[slot] = null
+/** Drop a persona; the ones after it move up. */
+export function removePersona(slot: number): void {
+  if (slot < 0 || slot >= personas.slots.length) return
+  personas.slots.splice(slot, 1)
+  keepPersonas()
+}
+
+/** Forget every persona (tests, and a store that should start over). */
+export function clearPersonas(): void {
+  personas.slots.length = 0
   keepPersonas()
 }
 
 /** Which slot the current look matches, or -1. */
 export function wornPersona(p: AvatarPrefs = avatarPrefs): number {
-  return personas.slots.findIndex((s) => s && s.shell === p.shell && s.accent === p.accent && s.top === p.top && s.face === p.face)
+  return personas.slots.findIndex((s) => s.shell === p.shell && s.accent === p.accent && s.top === p.top && s.face === p.face)
 }

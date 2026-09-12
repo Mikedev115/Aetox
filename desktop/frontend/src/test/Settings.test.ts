@@ -182,133 +182,15 @@ const openSection = async (container: HTMLElement, label: string) => {
 }
 
 describe('Settings pages', () => {
-  it('MCP page lists servers with transport + tool badges and working toggle', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'MCP servers')
-    // Server rows arrive async from ListMCPServers (presets render instantly
-    // and also contain the names — assert on the badge only servers have).
-    await waitFor(() => expect(screen.getByText('2 เครื่องมือ')).toBeTruthy())
-    expect(screen.getAllByText('http').length).toBeGreaterThan(0) // remote badge (exa)
-
-    // Toggling the disabled server calls the binding with disabled=false.
-    const checkboxes = screen.getAllByRole('checkbox')
-    expect(checkboxes.length).toBe(2) // one switch per server row
-    await fireEvent.change(checkboxes[1]) // exa row (second server)
-    await waitFor(() => expect(vi.mocked(ToggleMCPServer)).toHaveBeenCalledWith('exa', false))
-  })
-
-  // The shelf answered "what is this server" and never "why am I being shown
-  // it, and is it for me". Both lines are here now, and the second is derived:
-  // an agent's `needs:` is where that fact is decided, so the shelf reads it
-  // rather than restating it — otherwise an agent edited to drop a server keeps
-  // being advertised for it from a list nobody remembers to update.
-  it('says why each preset is recommended and which agent asked for it', async () => {
-    vi.mocked(ListSubagentProfiles).mockResolvedValue([
-      { name: 'deepresearch', description: 'หาข้อมูล', prompt: 'role', builtin: true, desk: 'specialized', needs: ['mcp:firecrawl'] },
-      { name: 'deck', description: 'ทำสไลด์', prompt: 'role', builtin: true, desk: 'specialized' },
-      { name: 'automation', description: 'ออโต', prompt: 'role', builtin: true, desk: 'specialized', needs: ['connection:n8n | mcp:windmill'] },
-    ] as any)
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'MCP servers')
-
-    // The reason, in the row, for the entry this test is about.
-    await waitFor(() => expect(container.textContent).toContain('walks a whole site'))
-
-    // And who asked for it — from the profile, not from the preset list.
-    const row = await waitFor(() => {
-      const el = Array.from(container.querySelectorAll('.set-row'))
-        .find((r) => r.querySelector('.t')?.textContent?.trim().startsWith('firecrawl'))
-      if (!el) throw new Error('the firecrawl preset row is not on the page')
-      return el
-    })
-    expect(row.querySelector('.mcp-wanted')?.textContent).toContain('deepresearch')
-
-    // A preset nobody declared stays quiet rather than showing an empty label.
-    const exa = Array.from(container.querySelectorAll('.set-row'))
-      .find((r) => r.querySelector('.t')?.textContent?.trim().startsWith('exa'))
-    expect(exa?.querySelector('.mcp-wanted')).toBeFalsy()
-  })
-
-  // The add form is eight controls for something done rarely, so it is closed
-  // until asked for (owner, 2026-08-14: it was "เรี่ยราด" laid out permanently
-  // under the list).
-  //
-  // The trap this pins is the second half: the same form is what แก้ไข and a
-  // key-needing preset open. A fold that only knew about its own button would
-  // leave those two clicking into nothing, silently — which is worse than the
-  // sprawl it replaced.
-  it('keeps the add-server form closed until something asks for it', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'MCP servers')
-    await waitFor(() => expect(screen.getByText('2 เครื่องมือ')).toBeTruthy())
-
-    const nameBox = () => container.querySelector('input[placeholder="ชื่อ เช่น context7"]')
-    expect(nameBox()).toBeNull()
-
-    // The way in sits in the list's header, beside the folder button.
-    await fireEvent.click(screen.getByText('เพิ่ม SERVER'))
-    await waitFor(() => expect(nameBox()).toBeTruthy())
-
-    // And it can be shut again — a panel that opens and will not close is the
-    // thing the fold was meant to avoid, not a new version of it.
-    await fireEvent.click(screen.getByText('ยกเลิก'))
-    await waitFor(() => expect(nameBox()).toBeNull())
-
-    // แก้ไข opens the very same form, filled in.
-    await fireEvent.click(screen.getAllByText('แก้ไข')[0])
-    await waitFor(() => expect(nameBox()).toBeTruthy())
-    expect((nameBox() as HTMLInputElement).value).toBe('context7')
-  })
-
-  // The allowlist is the one MCP field that is destructive when it round-trips
-  // wrong: a form that shows it blank and saves that blank silently widens the
-  // server back out to everything it offers. So both directions are pinned —
-  // editing shows what is stored, and saving sends it back.
-  it('editing a server shows its tool allowlist and saves it back', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'MCP servers')
-    await waitFor(() => expect(screen.getByText('2 เครื่องมือ')).toBeTruthy())
-
-    const edit = screen.getAllByText('แก้ไข')[0] // context7's row
-    await fireEvent.click(edit)
-
-    const box = await waitFor(() => {
-      const el = container.querySelector<HTMLTextAreaElement>('textarea[placeholder="บรรทัดละหนึ่งชื่อ"]')
-      if (!el) throw new Error('the allowlist box is not on the form')
-      return el
-    })
-    expect(box.value).toBe('resolve-library-id\nget-library-docs')
-
-    await fireEvent.input(box, { target: { value: 'resolve-library-id\n' } })
-    await fireEvent.click(screen.getByText('บันทึก'))
-
-    await waitFor(() => expect(vi.mocked(SaveMCPServer)).toHaveBeenCalled())
-    const [original, sent] = vi.mocked(SaveMCPServer).mock.calls.at(-1) as [string, any]
-    expect(original).toBe('context7')
-    // Trimmed, blanks dropped, and sent as an array rather than omitted — the
-    // engine reads an absent field as "say nothing" and keeps what it has.
-    expect(sent.tools).toEqual(['resolve-library-id'])
-  })
-
-  it('Skills page lists discovered skills with their paths', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'สกิล')
-    await waitFor(() => expect(screen.getByText('gridgeist')).toBeTruthy())
-    expect(screen.getByText('C:/skills/gridgeist')).toBeTruthy()
-  })
-
-  // The two are different things and now get different pages. Mixing them on
-  // one page is what made every tool read as a "skill" the user had installed.
-  it('tools and skills are separate pages, neither showing the other', async () => {
+  // Tools are things the model runs; skills are documents, and since 13 ก.ย.
+  // 2026 they live in ห้องความสามารถ. Mixing them on one page is what made
+  // every tool read as a "skill" the user had installed.
+  it('the tools page shows tools and no skill', async () => {
     const { container } = render(Settings, { onClose: () => {} })
 
     await openSection(container, 'เครื่องมือ')
     await waitFor(() => expect(screen.getByText('browser_open')).toBeTruthy())
     expect(screen.queryByText('gridgeist')).toBeNull()
-
-    await openSection(container, 'สกิล')
-    await waitFor(() => expect(screen.getByText('gridgeist')).toBeTruthy())
-    expect(screen.queryByText('browser_open')).toBeNull()
   })
 
   // Models come from three different tools' folders and their paths are long,
@@ -1143,22 +1025,16 @@ describe('Settings pages', () => {
     ] as any)
     const { container } = await openAgentEditor('deck')
 
-    // The skills box reads its own folder, and says which one shipped — that is
-    // the fact that decides whether the user's file can replace it.
-    await waitFor(() => expect(screen.getByText('invoice')).toBeTruthy())
-    expect(screen.getByText('payroll')).toBeTruthy()
-    expect(screen.getAllByText('มากับแอป').length).toBeGreaterThan(0)
-
-    // The MCP box offers the enabled servers and not the disabled one: a server
-    // that never connects has no tools to carry, whoever it is pointed at.
-    expect(screen.getByText('context7')).toBeTruthy()
-    const rows = Array.from(container.querySelectorAll('.ag-reachrow'))
-    expect(rows.length).toBe(1)
-
-    // Ticking writes the same `for:` list the MCP page writes, through the same
-    // call — one register, two doors into it.
-    await fireEvent.click(rows[0].querySelector('input[type="checkbox"]')!)
-    await waitFor(() => expect(vi.mocked(SetMCPServerTargets)).toHaveBeenCalledWith('context7', ['agent:deck']))
+    // Both boxes COUNT and point at the room. The MCP box was the third editor
+    // of the same `for:` list (12 ก.ย. 2026, owner: ซ้ำซ้อน); the skills box
+    // listed a folder the room lists since 13 ก.ย. The one editor of each is
+    // in ห้องความสามารถ, and no list or switch may come back here.
+    await waitFor(() => expect(vi.mocked(AgentSkills)).toHaveBeenCalledWith('deck'))
+    await waitFor(() => expect(screen.getByText('สกิลเฉพาะตัวนี้').parentElement?.textContent).toContain('2'))
+    expect(screen.queryByText('invoice')).toBeNull()
+    expect(container.querySelectorAll('.ag-reachrow').length).toBe(0)
+    expect(screen.getAllByText(/ห้องความสามารถ/).length).toBe(2)
+    expect(screen.getAllByRole('button', { name: /ความสามารถ/ }).length).toBe(2)
   })
 
   // The engine has computed unmet needs since needs.go was written and only
@@ -1250,7 +1126,7 @@ describe('Settings pages', () => {
   // button exists to remove the *matching* — which of seven presets is this
   // agent's — and it has nothing to offer when there is no entry to match, so
   // pretending otherwise would be a one-click install of nothing.
-  it('falls back to the MCP page for a server it has no preset for', async () => {
+  it('falls back to the room for a server it has no preset for', async () => {
     vi.mocked(ReadSubagentProfile).mockResolvedValue(
       '---\ndescription: ออโตเมชั่น\nneeds: mcp:windmill\n---\nYou wire things up.' as any,
     )
@@ -1614,73 +1490,6 @@ describe('Settings destructive actions', () => {
     await fireEvent.click(btn)
   }
 
-  it('removing an MCP server asks first and does nothing until confirmed', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'MCP servers')
-    await waitFor(() => expect(screen.getByText('2 เครื่องมือ')).toBeTruthy())
-
-    const row = Array.from(container.querySelectorAll('.set-row'))
-      .find((r) => r.textContent?.includes('context7') && r.querySelector('.mswitch'))!
-    await clickRemoveIn(row)
-
-    // The dialog is up and the binding has NOT been called — this is the whole
-    // point: the server survives until the user agrees to lose it.
-    expect(dialog()).toBeTruthy()
-    expect(vi.mocked(RemoveMCPServer)).not.toHaveBeenCalled()
-    // The name being destroyed is shown verbatim, not just described.
-    expect(document.querySelector('.confirm-detail')?.textContent?.trim()).toBe('context7')
-
-    await confirmDialog()
-    await waitFor(() => expect(vi.mocked(RemoveMCPServer)).toHaveBeenCalledWith('context7'))
-  })
-
-  it('cancelling keeps the server', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'MCP servers')
-    await waitFor(() => expect(screen.getByText('2 เครื่องมือ')).toBeTruthy())
-
-    const row = Array.from(container.querySelectorAll('.set-row'))
-      .find((r) => r.textContent?.includes('context7') && r.querySelector('.mswitch'))!
-    await clickRemoveIn(row)
-    await fireEvent.click(document.querySelector('.confirm-cancel')!)
-
-    expect(dialog()).toBeNull()
-    expect(vi.mocked(RemoveMCPServer)).not.toHaveBeenCalled()
-  })
-
-  it('Escape cancels, and focus starts on Cancel so a stray Enter cannot delete', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'MCP servers')
-    await waitFor(() => expect(screen.getByText('2 เครื่องมือ')).toBeTruthy())
-
-    const row = Array.from(container.querySelectorAll('.set-row'))
-      .find((r) => r.textContent?.includes('context7') && r.querySelector('.mswitch'))!
-    await clickRemoveIn(row)
-
-    expect(document.activeElement).toBe(document.querySelector('.confirm-cancel'))
-
-    await fireEvent.keyDown(document.querySelector('.confirm-overlay')!, { key: 'Escape' })
-    await waitFor(() => expect(dialog()).toBeNull())
-    expect(vi.mocked(RemoveMCPServer)).not.toHaveBeenCalled()
-  })
-
-  it('removing a skill asks first and names the folder that will be deleted', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'สกิล')
-    await waitFor(() => expect(screen.getByText('gridgeist')).toBeTruthy())
-
-    const row = Array.from(container.querySelectorAll('.set-row'))
-      .find((r) => r.textContent?.includes('gridgeist'))!
-    await clickRemoveIn(row)
-
-    expect(vi.mocked(RemoveExternalSkill)).not.toHaveBeenCalled()
-    // A folder is about to leave the disk, so the path is what gets checked.
-    expect(document.querySelector('.confirm-detail')?.textContent?.trim()).toBe('C:/skills/gridgeist')
-
-    await confirmDialog()
-    await waitFor(() => expect(vi.mocked(RemoveExternalSkill)).toHaveBeenCalledWith('gridgeist'))
-  })
-
   it('removing the running provider warns that the engine will move', async () => {
     vi.mocked(SupportedProviders).mockResolvedValue(['aetox', 'openrouter'] as any)
     vi.mocked(EnabledProviders).mockResolvedValue(['aetox', 'openrouter'] as any)
@@ -1851,11 +1660,11 @@ describe('Settings resilience and state', () => {
   })
 
   it('reloading reopens the page you were on, not the first one', async () => {
-    sessionStorage.setItem('aetox.settingsSection', 'mcp')
+    sessionStorage.setItem('aetox.settingsSection', 'tools')
     const { container } = render(Settings, { onClose: () => {} })
 
     const activeItem = container.querySelector('.settings-nav-item.active')
-    expect(activeItem?.textContent).toContain('MCP servers')
+    expect(activeItem?.textContent).toContain('เครื่องมือ')
     sessionStorage.clear()
   })
 
@@ -1890,6 +1699,33 @@ describe('Settings resilience and state', () => {
 })
 
 describe('Settings nav', () => {
+  // ตั้งค่า › MCP left the menu on 12 ก.ย. 2026: the room is the one place a
+  // server is handled, and a settings page pointing at it would be an empty
+  // category wearing a page's clothes (DESIGN.md §3).
+  it('has no MCP page, and a stored pointer to it falls back rather than rendering nothing', () => {
+    sessionStorage.setItem('aetox.settingsSection', 'mcp')
+    const { container } = render(Settings, { onClose: () => {} })
+    const labels = Array.from(container.querySelectorAll('.settings-nav-item')).map((n) => n.textContent ?? '')
+    expect(labels.some((l) => /MCP/.test(l))).toBe(false)
+    expect(container.querySelector('.settings-nav-item.active')?.textContent).toContain('ทั่วไป')
+    sessionStorage.clear()
+  })
+
+  // ตั้งค่า › สกิล left the same way on 13 ก.ย. 2026: the shelf, the packs and
+  // the three install roads are the สกิล heading of ห้องความสามารถ. Only
+  // ปรับสกิลอัตโนมัติ stays, because it is the self-optimize loop's page, not
+  // the register's.
+  it('has no skills page either, and never asks the engine for the shelf', () => {
+    sessionStorage.setItem('aetox.settingsSection', 'skills')
+    const { container } = render(Settings, { onClose: () => {} })
+    const labels = Array.from(container.querySelectorAll('.settings-nav-item')).map((n) => (n.textContent ?? '').trim())
+    expect(labels).not.toContain('สกิล')
+    expect(labels).toContain('ปรับสกิลอัตโนมัติ')
+    expect(container.querySelector('.settings-nav-item.active')?.textContent).toContain('ทั่วไป')
+    expect(vi.mocked(ListExternalSkills)).not.toHaveBeenCalled()
+    sessionStorage.clear()
+  })
+
   // Opening a section is opening a page, and a page starts at its top. Every
   // section shares one scroller, so a click made from the bottom of a long one
   // used to keep the offset and land the next section mid-list with its heading
@@ -1977,220 +1813,6 @@ describe('Type scale', () => {
     const box = container.querySelector('input[type="number"]') as HTMLInputElement
     expect(Number(box.value)).toBeCloseTo((DEFAULT_SYSTEM_PX / DEFAULT_TYPE_SCALE) * large, 1)
     applyTypeScale('default')
-  })
-})
-
-// The page used to name its own install path in three places and get two of
-// them wrong — they said ~/.agents/skills, which is opencode's and which Aetox
-// never scans, so anyone following the instructions dropped files where nothing
-// was looking. It now asks the engine.
-describe('Skills page', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    // clearAllMocks wipes call history but keeps implementations, so a
-    // mockResolvedValue from one test would otherwise leak into the next.
-    vi.mocked(SkillScanIssues).mockResolvedValue([] as any)
-    vi.mocked(SkillsDir).mockResolvedValue('C:/Users/x/.aetox/skills')
-  })
-
-  it('shows the folder the engine actually scans, not one of its own', async () => {
-    vi.mocked(SkillsDir).mockResolvedValue('C:/Users/x/.aetox/skills')
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'สกิล')
-
-    await waitFor(() => expect(screen.getByText('C:/Users/x/.aetox/skills')).toBeTruthy())
-    // No hardcoded path may survive anywhere on the page.
-    expect(container.textContent).not.toContain('.agents/skills')
-  })
-
-  it('offers to open that folder, like the prompts and sub-agent pages do', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'สกิล')
-    await waitFor(() => expect(screen.getByText('gridgeist')).toBeTruthy())
-
-    await fireEvent.click(screen.getByText('เปิดโฟลเดอร์'))
-    expect(vi.mocked(OpenSkillsFolder)).toHaveBeenCalled()
-  })
-
-  it('says when a SKILL.md was found but could not be read', async () => {
-    // Previously the scan collected these and the list dropped them, so a file
-    // with broken frontmatter was indistinguishable from an unwatched folder.
-    vi.mocked(SkillScanIssues).mockResolvedValue([
-      'C:/Users/x/.aetox/skills/broken/SKILL.md: missing description',
-    ] as any)
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'สกิล')
-
-    await waitFor(() => expect(container.querySelector('.skill-issues')).toBeTruthy())
-    expect(screen.getByText(/broken\/SKILL\.md/)).toBeTruthy()
-  })
-
-  it('stays quiet when every file read cleanly', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'สกิล')
-    await waitFor(() => expect(screen.getByText('gridgeist')).toBeTruthy())
-    expect(container.querySelector('.skill-issues')).toBeNull()
-  })
-})
-
-// The third install route. A GitHub URL needs the skill published there; the
-// folder button needs it already on this machine. A zip is everything else.
-describe('Skills page — zip install', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.mocked(SkillScanIssues).mockResolvedValue([] as any)
-    vi.mocked(SkillsDir).mockResolvedValue('C:/Users/x/.aetox/skills')
-  })
-
-  it('installs from a picked archive and reports what landed', async () => {
-    vi.mocked(InstallSkillFromZip).mockResolvedValue(
-      'ติดตั้งแล้ว 1 สกิล (5 ไฟล์): pdf\nลงที่: C:/Users/x/.aetox/skills' as any,
-    )
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'สกิล')
-    await waitFor(() => expect(screen.getByText('เลือกไฟล์ zip…')).toBeTruthy())
-
-    await fireEvent.click(screen.getByText('เลือกไฟล์ zip…'))
-    await waitFor(() => expect(container.querySelector('.skill-result')).toBeTruthy())
-    expect(container.querySelector('.skill-result')?.textContent).toContain('5 ไฟล์')
-    // The list has to be re-read, or the skill just installed is not on screen.
-    expect(vi.mocked(ListExternalSkills).mock.calls.length).toBeGreaterThan(1)
-  })
-
-  it('treats a dismissed picker as nothing happening, not as a failure', async () => {
-    // The binding returns "" when the native dialog is cancelled.
-    vi.mocked(InstallSkillFromZip).mockResolvedValue('' as any)
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'สกิล')
-    await waitFor(() => expect(screen.getByText('เลือกไฟล์ zip…')).toBeTruthy())
-
-    await fireEvent.click(screen.getByText('เลือกไฟล์ zip…'))
-    expect(container.querySelector('.skill-result')).toBeNull()
-    expect(container.querySelector('.mset-error')).toBeNull()
-  })
-
-  it('surfaces a refused archive instead of failing silently', async () => {
-    vi.mocked(InstallSkillFromZip).mockRejectedValue(
-      new Error('ไฟล์ zip มีเส้นทางที่ออกนอกโฟลเดอร์ติดตั้ง: ../../evil.txt'),
-    )
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'สกิล')
-    await waitFor(() => expect(screen.getByText('เลือกไฟล์ zip…')).toBeTruthy())
-
-    await fireEvent.click(screen.getByText('เลือกไฟล์ zip…'))
-    await waitFor(() => expect(container.querySelector('.mset-error')).toBeTruthy())
-    expect(container.querySelector('.mset-error')?.textContent).toContain('evil.txt')
-  })
-})
-
-// Four things the MCP page knew and did not say.
-describe('MCP servers page', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.mocked(MCPConfigPath).mockResolvedValue('C:/Users/x/AppData/Roaming/aetox/mcp-servers.json' as any)
-  })
-
-  const openMcp = async (container: HTMLElement) => {
-    await openSection(container, 'MCP servers')
-    await waitFor(() => expect(screen.getByText('2 เครื่องมือ')).toBeTruthy())
-  }
-
-  it('shows the file the servers are persisted to, and opens it', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openMcp(container)
-
-    expect(screen.getByText('C:/Users/x/AppData/Roaming/aetox/mcp-servers.json')).toBeTruthy()
-    await fireEvent.click(screen.getByText('เปิดโฟลเดอร์'))
-    expect(vi.mocked(OpenMCPFolder)).toHaveBeenCalled()
-  })
-
-  // Two of the three colours here were --c-green-500 and --c-red-500 copied by
-  // value, so the dot stayed dark-theme green under a light theme.
-  it('paints the status dot from theme tokens, not hex literals', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openMcp(container)
-
-    const dots = Array.from(container.querySelectorAll('.set-row .dot'))
-      .map((d) => d.getAttribute('style') ?? '')
-    expect(dots.length).toBeGreaterThan(0)
-    for (const style of dots) {
-      expect(style).toMatch(/var\(--/)
-      expect(style).not.toMatch(/#[0-9a-f]{3,6}/i)
-    }
-  })
-
-  // A preset that needs a key used to be written to disk without one, so the
-  // click produced a server that could never connect.
-  //
-  // The shelf carries only key-needing entries now — it lists the servers this
-  // product's own agents ask for by name, not a directory of popular ones — so
-  // addPreset's straight-to-disk branch has no fixture left to drive it and is
-  // deliberately unpinned until a preset without headers is listed again.
-  // This used to assert the opposite — that clicking github opened the form and
-  // saved nothing, because the user still had to paste a token. They no longer
-  // do: the header carries ${connect:github}, resolved at connect time from the
-  // account already connected on the การเชื่อมต่อ page, so nothing is typed and
-  // nothing is copied into mcp-servers.json. The behaviour the old test guarded
-  // is still guarded, one condition along: a header with no reference in it
-  // opens the form instead of saving something that cannot connect.
-  it('saves a preset whose key comes from a connection, without asking for a paste', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openMcp(container)
-
-    const row = Array.from(container.querySelectorAll('.set-row'))
-      .find((r) => r.textContent?.includes('Repos, pull requests, issues, CI'))!
-    await fireEvent.click(row.querySelector('button')!)
-
-    await waitFor(() => expect(vi.mocked(SaveMCPServer)).toHaveBeenCalled())
-    const saved = vi.mocked(SaveMCPServer).mock.calls[0][1] as any
-    expect(saved.headers.Authorization).toBe('Bearer ${connect:github}')
-    // The secret itself is never here. That is the point of the reference.
-    expect(JSON.stringify(saved)).not.toMatch(/gh[pous]_/)
-  })
-
-  // The state the reported github server was actually in: a header naming its
-  // scheme and carrying no credential. It can never authenticate, and the page
-  // used to save it and then report the server's "Bad Request" — true, and
-  // impossible to trace back to the empty box.
-  it('refuses to save a header left as a scheme with no credential', async () => {
-    // The http row from the default mock, so openMcp's own wait still has the
-    // counts it looks for. It has to be the http one: headers only exist on a
-    // remote server, and the stdio row would have none for the guard to read.
-    const { container } = render(Settings, { onClose: () => {} })
-    await openMcp(container)
-
-    const row = Array.from(container.querySelectorAll('.set-row')).find((r) => r.textContent?.includes('exa'))!
-    await fireEvent.click(Array.from(row.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'แก้ไข')!)
-
-    const headers = container.querySelector('.mcp-lines') as HTMLTextAreaElement
-    await fireEvent.input(headers, { target: { value: 'Authorization: Bearer' } })
-    await fireEvent.click(screen.getByText('บันทึก'))
-
-    expect(vi.mocked(SaveMCPServer)).not.toHaveBeenCalled()
-    expect(container.textContent).toContain('Authorization')
-  })
-
-  // Both fields were in the stored config from the start with no way to reach
-  // them, so editing a server silently dropped whatever was set.
-  it('round-trips the working directory and timeout', async () => {
-    vi.mocked(ListMCPServers).mockResolvedValue([
-      { name: 'local', command: ['node', 'server.js'], cwd: 'D:/work', timeoutMs: 45000, disabled: false, status: 'connected', tools: 2 },
-    ] as any)
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'MCP servers')
-    await waitFor(() => expect(screen.getByText('local')).toBeTruthy())
-
-    const row = Array.from(container.querySelectorAll('.set-row')).find((r) => r.textContent?.includes('local'))!
-    await fireEvent.click(Array.from(row.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'แก้ไข')!)
-
-    const inputs = Array.from(container.querySelectorAll('.mcp-more-body input')) as HTMLInputElement[]
-    expect(inputs.map((i) => i.value)).toEqual(['D:/work', '45000'])
-
-    await fireEvent.click(screen.getByText('บันทึก'))
-    await waitFor(() => expect(vi.mocked(SaveMCPServer)).toHaveBeenCalled())
-    const saved = vi.mocked(SaveMCPServer).mock.calls.at(-1)![1] as any
-    expect(saved.cwd).toBe('D:/work')
-    expect(saved.timeoutMs).toBe(45000)
   })
 })
 

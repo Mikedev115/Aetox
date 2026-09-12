@@ -31,7 +31,36 @@ export interface MCPPreset {
   // save a server with nothing behind its header yet. Only this flag
   // separates the two paths.
   oauth?: boolean
+  // Which shelf this sits on. Twenty entries is past the seven a person can
+  // pick from without a question in between (DESIGN.md §1), and the question
+  // a person has is "what kind of thing do I want it to reach", not "which
+  // vendor". Keyed, not a Thai string: the label lives in the locale.
+  group: ShelfGroup
+  // Whether somebody on this team has connected it and used it, and then
+  // written `why` from what happened. False is the honest state for an entry
+  // that clears every rule on paper and has never been pressed — those used
+  // to carry their placeholder INSIDE `why`, in square brackets, and the room
+  // printed the brackets to the user. Since 2026-09-13 the room draws no
+  // unproven entry at all: false is the owner's queue, not a shelf band.
+  proven: boolean
+  // What the server offered when somebody here last connected to it, and
+  // what that tool block costs on every message (the context meter's own
+  // measure: JSON of each definition, ~4 chars a token). A person deciding
+  // whether to add a server is deciding what every later message will carry,
+  // so the card says it before the press, not after. Absent when nobody has
+  // measured it — never guessed. Re-measure with a tools/list when a `why` is
+  // rewritten; the count on the room's card is live and will disagree the day
+  // the vendor changes the list, which is the day to update this.
+  toolCount?: number
+  tokens?: number
+  // When toolCount/tokens were measured, so a stale number can be seen to be
+  // stale rather than trusted.
+  measured?: string
 }
+
+/** The shelves, in the order the room draws them. */
+export const SHELF_GROUPS = ['search', 'code', 'apps', 'local'] as const
+export type ShelfGroup = (typeof SHELF_GROUPS)[number]
 
 // What the shelf is for. **The rule changed on 2026-08-14 and both halves of
 // it are recorded here, because the older one is still good reasoning and the
@@ -122,8 +151,8 @@ export const MCP_PRESETS: MCPPreset[] = [
   // absolute paths only Go knows, and the allowlist is the measured 54-tool
   // bill (desktop/videotooling.go videoEditorTools) that must not exist
   // twice.
-  { name: 'kinocut', desc: 'Cut, subtitle and render video, on this machine', why: 'Aetox reads video and produces none. This is the half that cuts and renders. Install it from ห้องงานวิดีโอ, which fetches it the same way ffmpeg and Tesseract are fetched; this entry is the connection.', command: [] },
-  { name: 'github', desc: 'Repos, pull requests, issues, CI', why: "Aetox's own github tool only reads. This is the half that acts — opening a pull request, commenting, moving an issue.", url: 'https://api.githubcopilot.com/mcp/', headers: ['Authorization: Bearer ${connect:github}'] },
+  { name: 'kinocut', group: 'local', proven: true, desc: 'Cut, subtitle and render video, on this machine', why: 'Aetox reads video and produces none. This is the half that cuts and renders. Install it from ห้องงานวิดีโอ, which fetches it the same way ffmpeg and Tesseract are fetched; this entry is the connection.', command: [] },
+  { name: 'github', group: 'code', proven: true, desc: 'Repos, pull requests, issues, CI', why: "Aetox's own github tool only reads. This is the half that acts — opening a pull request, commenting, moving an issue.", url: 'https://api.githubcopilot.com/mcp/', headers: ['Authorization: Bearer ${connect:github}'] },
   // Second because it is the other one a bundled agent asks for by name — the
   // deepresearch agent ships `needs: mcp:firecrawl`, and the 12 ส.ค. half of the
   // rule above is exactly this case.
@@ -143,12 +172,15 @@ export const MCP_PRESETS: MCPPreset[] = [
   // site) and `firecrawl_agent` (multi-source research, collected later via
   // firecrawl_agent_status) are both things Aetox has no tool for — web_fetch
   // reads one page and web_search returns eight results.
-  { name: 'firecrawl', desc: 'Crawl a whole site, and multi-source research', why: 'Aetox reads one page at a time and gets eight search results. This walks a whole site and researches across many sources at once.', url: 'https://mcp.firecrawl.dev/v2/mcp' },
-  { name: 'context7', desc: 'Up-to-date docs for a library, by version', why: 'Docs for the version actually installed. Fetching a documentation page cannot tell you which release it describes.', url: 'https://mcp.context7.com/mcp' },
-  { name: 'deepwiki', desc: 'Ask questions about any public GitHub repository', why: 'Answers about a repository without cloning it first — reading one that size through file tools costs a whole context.', url: 'https://mcp.deepwiki.com/mcp' },
-  { name: 'exa', desc: 'Web search built for models to read', why: 'Results returned as text to read rather than as pages to open, so an answer costs one call instead of a search and five fetches.', url: 'https://mcp.exa.ai/mcp' },
-  { name: 'huggingface', desc: 'Search models, datasets and spaces', why: 'Aetox has no index of models, datasets or spaces, and a web search finds blog posts about them rather than the things.', url: 'https://huggingface.co/mcp' },
-  { name: 'cloudflare-docs', desc: "Search Cloudflare's documentation", why: "Cloudflare's own index of its own docs, which is a different thing from a web search that happens to land there.", url: 'https://docs.mcp.cloudflare.com/mcp' },
+  // 3 tools and ~2.6k tokens is what the endpoint serves with NO key (scrape,
+  // search, parse). The owner's keyed connection reports 25, so the number on
+  // the card is the floor a fresh add pays, not the ceiling.
+  { name: 'firecrawl', group: 'search', proven: true, toolCount: 3, tokens: 2558, measured: '2026-09-12', desc: 'Crawl a whole site, and multi-source research', why: 'Aetox reads one page at a time and gets eight search results. This walks a whole site and researches across many sources at once.', url: 'https://mcp.firecrawl.dev/v2/mcp' },
+  { name: 'context7', group: 'code', proven: true, toolCount: 2, tokens: 1184, measured: '2026-09-12', desc: 'Up-to-date docs for a library, by version', why: 'Docs for the version actually installed. Fetching a documentation page cannot tell you which release it describes.', url: 'https://mcp.context7.com/mcp' },
+  { name: 'deepwiki', group: 'code', proven: true, toolCount: 3, tokens: 314, measured: '2026-09-12', desc: 'Ask questions about any public GitHub repository', why: 'Answers about a repository without cloning it first — reading one that size through file tools costs a whole context.', url: 'https://mcp.deepwiki.com/mcp' },
+  { name: 'exa', group: 'search', proven: true, toolCount: 2, tokens: 553, measured: '2026-09-12', desc: 'Web search built for models to read', why: 'Results returned as text to read rather than as pages to open, so an answer costs one call instead of a search and five fetches.', url: 'https://mcp.exa.ai/mcp' },
+  { name: 'huggingface', group: 'search', proven: true, toolCount: 4, tokens: 1929, measured: '2026-09-12', desc: 'Search models, datasets and spaces', why: 'Aetox has no index of models, datasets or spaces, and a web search finds blog posts about them rather than the things.', url: 'https://huggingface.co/mcp' },
+  { name: 'cloudflare-docs', group: 'search', proven: true, toolCount: 2, tokens: 294, measured: '2026-09-12', desc: "Search Cloudflare's documentation", why: "Cloudflare's own index of its own docs, which is a different thing from a web search that happens to land there.", url: 'https://docs.mcp.cloudflare.com/mcp' },
   // Added 2026-09-05 (owner: "ใส่ ... ขึ้นชั้นเลยครับ"), from the second
   // research pass recorded in mcpCandidates.ts. These two are the
   // cloudflare-docs shape again — a vendor's own index of its own docs — and
@@ -159,8 +191,8 @@ export const MCP_PRESETS: MCPPreset[] = [
   // names the -Hidden parameter; aws___search_documentation asked about
   // presigned URL expiry came back with the verbatim page section (1 minute
   // to 12 hours in the console, up to 7 days from the SDK).
-  { name: 'microsoft-learn', desc: "Microsoft's own docs: Windows, Azure, .NET, PowerShell, Office", why: "Microsoft's own index of its own docs, which is a different thing from a web search that happens to land there — and a code-sample search web_search cannot do at all. Asked for Get-ChildItem hidden files it returned the exact provider page naming the parameter, not a forum thread about it.", url: 'https://learn.microsoft.com/api/mcp' },
-  { name: 'aws-knowledge', desc: "AWS's own docs, plus regions and per-region service availability", why: "AWS's own docs index, returning the verbatim page section rather than a snippet, so the answer is usually already in the result. Two things no web search returns as data sit beside it: the region list and which services exist in which region.", url: 'https://knowledge-mcp.global.api.aws' },
+  { name: 'microsoft-learn', group: 'search', proven: true, toolCount: 3, tokens: 1016, measured: '2026-09-12', desc: "Microsoft's own docs: Windows, Azure, .NET, PowerShell, Office", why: "Microsoft's own index of its own docs, which is a different thing from a web search that happens to land there — and a code-sample search web_search cannot do at all. Asked for Get-ChildItem hidden files it returned the exact provider page naming the parameter, not a forum thread about it.", url: 'https://learn.microsoft.com/api/mcp' },
+  { name: 'aws-knowledge', group: 'search', proven: true, toolCount: 5, tokens: 1978, measured: '2026-09-12', desc: "AWS's own docs, plus regions and per-region service availability", why: "AWS's own docs index, returning the verbatim page section rather than a snippet, so the answer is usually already in the result. Two things no web search returns as data sit beside it: the region list and which services exist in which region.", url: 'https://knowledge-mcp.global.api.aws' },
   // zapier answers 401 "Expected Bearer token for MCP authentication", and
   // there are two ways to get one: paste the token from the user's own Zapier
   // MCP page, or the sign-in — its authorization server publishes a
@@ -170,7 +202,7 @@ export const MCP_PRESETS: MCPPreset[] = [
   // non-oauth preset must be one click, and a bare `Authorization: Bearer`
   // is a form. The paste still works through แก้ไข for someone who has the
   // token already. `why` is the same placeholder as the rows below it.
-  { name: 'zapier', desc: 'Run actions in ~8000 apps connected through Zapier', why: '[รอเจ้าของลองเข้าสู่ระบบจริงแล้วเขียนใหม่ — ต้องต่อ Zap จริงก่อนถึงจะรู้ว่า "ใช้แล้วเป็นไง"]', url: 'https://mcp.zapier.com/api/mcp/mcp', headers: ['Authorization: Bearer ${connect:zapier}'], oauth: true },
+  { name: 'zapier', group: 'apps', proven: false, desc: 'Run actions in ~8000 apps connected through Zapier', why: '', url: 'https://mcp.zapier.com/api/mcp/mcp', headers: ['Authorization: Bearer ${connect:zapier}'], oauth: true },
 
   // Added 2026-09-03 — the first three presets that need a sign-in rather
   // than a static header. internal/mcp/client.go still connects with a
@@ -191,9 +223,9 @@ export const MCP_PRESETS: MCPPreset[] = [
   // bend for these, and trying one means completing a real browser sign-in
   // first, which is a step only the owner can take. Delete this note once
   // all three carry a real `why`.
-  { name: 'semgrep', desc: 'Scan code for security vulnerabilities', why: '[รอเจ้าของลองเข้าสู่ระบบจริงแล้วเขียนใหม่ — ต้องผ่านหน้าจอ OAuth ก่อนถึงจะรู้ว่า "ใช้แล้วเป็นไง"]', url: 'https://mcp.semgrep.ai/mcp', headers: ['Authorization: Bearer ${connect:semgrep}'], oauth: true },
-  { name: 'grafana', desc: 'Query dashboards, metrics and alerts', why: '[รอเจ้าของลองเข้าสู่ระบบจริงแล้วเขียนใหม่ — ต้องผ่านหน้าจอ OAuth ก่อนถึงจะรู้ว่า "ใช้แล้วเป็นไง"]', url: 'https://mcp.grafana.com/mcp', headers: ['Authorization: Bearer ${connect:grafana}'], oauth: true },
-  { name: 'netlify', desc: 'Deploy and manage a hosted site', why: '[รอเจ้าของลองเข้าสู่ระบบจริงแล้วเขียนใหม่ — ต้องผ่านหน้าจอ OAuth ก่อนถึงจะรู้ว่า "ใช้แล้วเป็นไง"]', url: 'https://netlify-mcp.netlify.app/mcp', headers: ['Authorization: Bearer ${connect:netlify}'], oauth: true },
+  { name: 'semgrep', group: 'apps', proven: false, desc: 'Scan code for security vulnerabilities', why: '', url: 'https://mcp.semgrep.ai/mcp', headers: ['Authorization: Bearer ${connect:semgrep}'], oauth: true },
+  { name: 'grafana', group: 'apps', proven: false, desc: 'Query dashboards, metrics and alerts', why: '', url: 'https://mcp.grafana.com/mcp', headers: ['Authorization: Bearer ${connect:grafana}'], oauth: true },
+  { name: 'netlify', group: 'apps', proven: false, desc: 'Deploy and manage a hosted site', why: '', url: 'https://netlify-mcp.netlify.app/mcp', headers: ['Authorization: Bearer ${connect:netlify}'], oauth: true },
 
   // Added 2026-09-03, separately: notion was one of the four servers this
   // file's own history above names as "blocked by rule 2 until the client
@@ -202,14 +234,41 @@ export const MCP_PRESETS: MCPPreset[] = [
   // too (see mcpCandidates.ts for the discovery trail). Same placeholder
   // rule applies: delete this note and write a real `why` once someone has
   // actually signed in.
-  { name: 'notion', desc: 'Search, read and write pages in a workspace', why: '[รอเจ้าของลองเข้าสู่ระบบจริงแล้วเขียนใหม่ — ต้องผ่านหน้าจอ OAuth ก่อนถึงจะรู้ว่า "ใช้แล้วเป็นไง"]', url: 'https://mcp.notion.com/mcp', headers: ['Authorization: Bearer ${connect:notion}'], oauth: true },
+  { name: 'notion', group: 'apps', proven: false, desc: 'Search, read and write pages in a workspace', why: '', url: 'https://mcp.notion.com/mcp', headers: ['Authorization: Bearer ${connect:notion}'], oauth: true },
   // Added 2026-09-05 with the two docs servers above: the first two of the
   // twenty oauth-dcr rows from the second research pass in mcpCandidates.ts,
   // picked by the owner. Both answered 401 with a resource_metadata pointer
   // and both authorization servers publish a registration_endpoint, so the
   // sign-in path is the one semgrep already walks. Same placeholder rule.
-  { name: 'supabase', desc: 'Run SQL and manage tables, functions and logs in your Supabase projects', why: '[รอเจ้าของลองเข้าสู่ระบบจริงแล้วเขียนใหม่ — ต้องผ่านหน้าจอ OAuth ก่อนถึงจะรู้ว่า "ใช้แล้วเป็นไง"]', url: 'https://mcp.supabase.com/mcp', headers: ['Authorization: Bearer ${connect:supabase}'], oauth: true },
-  { name: 'canva', desc: 'Create and export designs in your Canva account', why: '[รอเจ้าของลองเข้าสู่ระบบจริงแล้วเขียนใหม่ — ต้องผ่านหน้าจอ OAuth ก่อนถึงจะรู้ว่า "ใช้แล้วเป็นไง"]', url: 'https://mcp.canva.com/mcp', headers: ['Authorization: Bearer ${connect:canva}'], oauth: true },
+  { name: 'supabase', group: 'apps', proven: false, desc: 'Run SQL and manage tables, functions and logs in your Supabase projects', why: '', url: 'https://mcp.supabase.com/mcp', headers: ['Authorization: Bearer ${connect:supabase}'], oauth: true },
+  { name: 'canva', group: 'apps', proven: false, desc: 'Create and export designs in your Canva account', why: '', url: 'https://mcp.canva.com/mcp', headers: ['Authorization: Bearer ${connect:canva}'], oauth: true },
+
+  // ---- Five more of the sign-in shape, 2026-09-13 ----
+  //
+  // The vendors' own remote servers, chosen because each reaches something
+  // Aetox has no tool for and each signs in through the browser with no
+  // setup (internal/oauth/mcpauth.go). Every one was probed the same day:
+  // 401 with an OAuth challenge, a real authorization server, PKCE S256, and
+  // a registration_endpoint — Figma's at api.figma.com/v1/oauth/mcp/register,
+  // Sentry's at mcp.sentry.dev/oauth/register, Stripe's at
+  // access.stripe.com/mcp/oauth2/register, Vercel's at
+  // api.vercel.com/login/oauth/register (it had none on 2026-09-03; it does
+  // now), Atlassian's at mcp.atlassian.com/v1/register. Three of the five
+  // needed mcpauth.go taught a shape it had not met (POST-only challenge,
+  // unquoted resource_metadata, no protected-resource document at all);
+  // mcpauth_test.go carries each one. `proven` stays false and `why` empty
+  // by the same rule as the rows above: written after a real sign-in.
+  //
+  // What the room says over these rows changed the same day. It used to say
+  // "ยังไม่ได้ลองจริง" — true, and read by the owner as "may not work".
+  // The fact that separates these from the rows above is that they sign in
+  // through the user's own account, so that is the band's name now
+  // (capability.bandSignIn); `proven` is still the data.
+  { name: 'figma', group: 'apps', proven: false, desc: 'Read the layers, components and variables of a Figma file', why: '', url: 'https://mcp.figma.com/mcp', headers: ['Authorization: Bearer ${connect:figma}'], oauth: true },
+  { name: 'sentry', group: 'code', proven: false, desc: 'Errors, stack traces and issues from your Sentry projects', why: '', url: 'https://mcp.sentry.dev/mcp', headers: ['Authorization: Bearer ${connect:sentry}'], oauth: true },
+  { name: 'stripe', group: 'apps', proven: false, desc: 'Customers, payments and invoices in your Stripe account', why: '', url: 'https://mcp.stripe.com', headers: ['Authorization: Bearer ${connect:stripe}'], oauth: true },
+  { name: 'vercel', group: 'code', proven: false, desc: 'Deployments, build logs and projects on Vercel', why: '', url: 'https://mcp.vercel.com', headers: ['Authorization: Bearer ${connect:vercel}'], oauth: true },
+  { name: 'atlassian', group: 'apps', proven: false, desc: 'Jira issues and Confluence pages in your Atlassian site', why: '', url: 'https://mcp.atlassian.com/v1/mcp', headers: ['Authorization: Bearer ${connect:atlassian}'], oauth: true },
 ]
 
 /** A stdio preset with no command written in the table is the one that has to

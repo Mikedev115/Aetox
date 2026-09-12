@@ -2524,6 +2524,7 @@ export function applyPlanUpdate(ev: SessionEvent<Plan> | Plan): void {
   const plan = stamped ? stamped.data : (ev as Plan)
   cockpit.plan = plan && Array.isArray(plan.sections) && plan.sections.length > 0 ? plan : null
 }
+
 /** A closing report just written (`plan:report`, desktop/plan_report.go).
  *  Held to the rule applyPlanUpdate is held to: a report from a chat working
  *  in the background is not this window's to draw. Replaces by round rather
@@ -4301,14 +4302,34 @@ async function afterNewSession(): Promise<void> {
  * there, exactly as clicking that desk's button would. Arriving at the door
  * you are already behind does nothing at all. */
 export function switchShell(name: ShellName): Promise<void> {
-  const mine = ++doorAsked
+  const mine = askDoor(SHELLS.find((s) => s.name === name)?.desk ?? '')
   return walkThroughDoor(async () => {
     // Asked again while this was queued: only the latest ask is walked, so a
     // hand that went code → assistant → code lands on code once, not three
     // times through three sessions.
     if (mine !== doorAsked) return
-    await switchShellNow(name)
+    try {
+      await switchShellNow(name)
+    } finally {
+      doorDone(mine)
+    }
   })
+}
+
+/** A door press, counted and announced: `walkingTo` is the desk the window
+ *  is on its way to from this instant, whether the walk has started or is
+ *  still behind another in the queue. */
+function askDoor(desk: string): number {
+  const mine = ++doorAsked
+  cockpit.walkingTo = desk
+  return mine
+}
+
+/** The walk for press `mine` has ended. Only the latest press clears the
+ *  announcement: an older walk finishing under a newer press must not tell
+ *  the window it has arrived somewhere it is still leaving. */
+function doorDone(mine: number): void {
+  if (mine === doorAsked) cockpit.walkingTo = ''
 }
 
 // Door walks run one at a time. Each one is several round trips — open a
@@ -4375,17 +4396,22 @@ async function switchShellNow(name: ShellName): Promise<void> {
  * means (COMPANY.md §2). */
 export function openDesk(desk: string): Promise<void> {
   setActiveView('chat')
+  const mine = askDoor(desk)
   // Through the same queue as the door switch, for the same race: a desk
   // button pressed while a door was still being walked read a desk that was
   // about to change.
   return walkThroughDoor(async () => {
-    // "Already here" is the desk AND the project together. A project chat runs at
-    // the assistant's desk, so comparing desks alone said the user was already at
-    // ผู้ช่วย while they were standing inside a project — and the button did
-    // nothing, with no way back out through the nav. The third coordinate has to
-    // be part of the comparison or it is not the same place.
-    if (cockpit.desk === desk && !cockpit.space) return
-    await newSessionAt(desk)
+    try {
+      // "Already here" is the desk AND the project together. A project chat runs at
+      // the assistant's desk, so comparing desks alone said the user was already at
+      // ผู้ช่วย while they were standing inside a project — and the button did
+      // nothing, with no way back out through the nav. The third coordinate has to
+      // be part of the comparison or it is not the same place.
+      if (cockpit.desk === desk && !cockpit.space) return
+      await newSessionAt(desk)
+    } finally {
+      doorDone(mine)
+    }
   })
 }
 

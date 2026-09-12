@@ -121,6 +121,12 @@ type MCPServerInfo struct {
 	For    []string `json:"for"`
 	Status string   `json:"status"` // idle | connected | failed | disabled
 	Tools  int      `json:"tools"`  // tools seen on the last successful connect
+	// Tokens is what those tools cost on every message, estimated the way the
+	// composer's context meter estimates it. 0 until the server has connected.
+	Tokens int `json:"tokens"`
+	// ToolList is every tool the server offered, by the name the allowlist
+	// matches, with its cost. Absent until the server has connected once.
+	ToolList []mcp.ToolCost `json:"toolList,omitempty"`
 	// Allowed is the tool allowlist, if one was written (§97.3) — the names
 	// taken from this server rather than the number it offers, which is why it
 	// is not folded into Tools above. Empty means all of them.
@@ -245,6 +251,8 @@ func (a *App) ListMCPServers() []MCPServerInfo {
 		} else if c := a.findMCPClient(s.Name); c != nil {
 			info.Status = string(c.Status())
 			info.Tools = c.ToolCount()
+			info.Tokens = c.ToolTokens()
+			info.ToolList = c.ToolList()
 			if e := c.Err(); e != nil {
 				info.Err = e.Error()
 			}
@@ -442,6 +450,8 @@ func (a *App) TestMCPServer(name string) MCPServerInfo {
 		info.Err = err.Error()
 	} else {
 		info.Tools = c.ToolCount()
+		info.Tokens = c.ToolTokens()
+		info.ToolList = c.ToolList()
 	}
 	return info
 }

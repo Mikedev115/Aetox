@@ -161,6 +161,14 @@ type conversation struct {
 	pendingNote  string
 	pendingProbe string
 
+	// cliSession is the engine-side conversation id when this chat is answered
+	// by an external program (desktop/cli_engine.go, internal/cliagent): the id
+	// the first turn was started under and every later turn resumes. "" until
+	// that first turn. The history under it is the program's own and lives
+	// wherever it keeps one, which is why the id and not the transcript is
+	// what this side holds.
+	cliSession string
+
 	// lastSnapshot is the tree as it stood before THIS chat's last turn — what
 	// its undo goes back to. "" when there is nothing to go back to.
 	//

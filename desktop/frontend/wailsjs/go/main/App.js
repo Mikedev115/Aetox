@@ -310,8 +310,20 @@ export function CloseAllBrowserTabs() {
   return window['go']['main']['App']['CloseAllBrowserTabs']();
 }
 
+export function CloseCompanionWindow() {
+  return window['go']['main']['App']['CloseCompanionWindow']();
+}
+
 export function CommandHistory() {
   return window['go']['main']['App']['CommandHistory']();
+}
+
+export function CompanionSpriteKeys(arg1) {
+  return window['go']['main']['App']['CompanionSpriteKeys'](arg1);
+}
+
+export function CompanionSprites(arg1, arg2) {
+  return window['go']['main']['App']['CompanionSprites'](arg1, arg2);
 }
 
 export function CompleteAccountSignIn() {
@@ -344,6 +356,10 @@ export function Connections() {
 
 export function ConsolidateMemory(arg1) {
   return window['go']['main']['App']['ConsolidateMemory'](arg1);
+}
+
+export function CopySkillToAgent(arg1, arg2) {
+  return window['go']['main']['App']['CopySkillToAgent'](arg1, arg2);
 }
 
 export function CreatePullRequest(arg1, arg2, arg3, arg4, arg5) {
@@ -452,6 +468,10 @@ export function ExportDeck(arg1, arg2) {
 
 export function ExportSession(arg1, arg2) {
   return window['go']['main']['App']['ExportSession'](arg1, arg2);
+}
+
+export function ExternalEngineStatus(arg1) {
+  return window['go']['main']['App']['ExternalEngineStatus'](arg1);
 }
 
 export function FetchAgentBrief(arg1) {
@@ -842,6 +862,10 @@ export function OpenArtifact(arg1) {
   return window['go']['main']['App']['OpenArtifact'](arg1);
 }
 
+export function OpenCompanionWindow(arg1, arg2, arg3) {
+  return window['go']['main']['App']['OpenCompanionWindow'](arg1, arg2, arg3);
+}
+
 export function OpenComputerApps() {
   return window['go']['main']['App']['OpenComputerApps']();
 }
@@ -1072,6 +1096,10 @@ export function RejectPendingChange(arg1) {
 
 export function RelativizePath(arg1) {
   return window['go']['main']['App']['RelativizePath'](arg1);
+}
+
+export function RemoveAgentSkill(arg1, arg2) {
+  return window['go']['main']['App']['RemoveAgentSkill'](arg1, arg2);
 }
 
 export function RemoveCustomProvider(arg1) {
@@ -1332,6 +1360,10 @@ export function SetAttentionSignal(arg1, arg2) {
 
 export function SetBusyLayer(arg1, arg2) {
   return window['go']['main']['App']['SetBusyLayer'](arg1, arg2);
+}
+
+export function SetCompanionState(arg1) {
+  return window['go']['main']['App']['SetCompanionState'](arg1);
 }
 
 export function SetComputerControlOn(arg1) {
