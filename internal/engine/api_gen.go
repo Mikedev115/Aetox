@@ -25,6 +25,7 @@ type API interface {
 	AddLearnedEntry(scope string, text string) error
 	AddMCPServer(name string, command []string) error
 	AddSpaceContextFiles(name string, picked []string) ([]string, error)
+	AddStudioLibraryAt(dir string) (bool, error)
 	AddWorkspaceFolderAt(dir string) ([]WorkspaceFolder, error)
 	AdoptMemoryScope(scope string, targetRoot string) error
 	AgentBlocked(name string) bool
@@ -51,6 +52,7 @@ type API interface {
 	BusySignal() []BusyLayer
 	CancelMCPSignIn(serverName string)
 	CancelPendingModel() ModelInfo
+	CancelStudioScan()
 	CancelTurn()
 	CapabilitiesInstalling() bool
 	CapabilityForServer(server string) string
@@ -224,8 +226,10 @@ type API interface {
 	RemoveMCPServer(name string) error
 	RemovePresetImage(name string) error
 	RemoveSpaceContext(name string, file string) ([]string, error)
+	RemoveStudioLibrary(id string) ([]StudioLibraryView, error)
 	RemoveWorkspaceFolder(path string) ([]WorkspaceFolder, error)
 	RequiresAPIKey(providerName string) bool
+	RescanStudioLibrary(id string) (bool, error)
 	ResendEdited(text string, revertFiles bool) (TurnReply, error)
 	ResolveAddress(input string) Address
 	ResolveWorkbenchURL(input string) (string, string)
@@ -321,6 +325,14 @@ type API interface {
 	StopMobileRemote() RemoteStatus
 	StopPlanRun(sessionID string)
 	StopQueuedTasks() int
+	StudioAssetPath(id string) (string, error)
+	StudioAssets(q StudioAssetQuery) StudioAssetPage
+	StudioLibraries() []StudioLibraryView
+	StudioLibraryPath(id string) (string, error)
+	StudioScanning() bool
+	StudioSetHidden(id string, hidden bool) error
+	StudioSetKind(id string, kind string) error
+	StudioThumbs(ids []string) map[string]string
 	SubagentsFolderPath() (string, error)
 	SuggestPRDetails(head string, base string) (PRSuggestion, error)
 	SupportedProviders() []string

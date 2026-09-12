@@ -29,11 +29,12 @@ import (
 // ttsHostPrefix is the URL space this owns.
 const ttsHostPrefix = "/aetox-tts/"
 
-// assetMiddleware chains the two URL spaces the app claims in front of its own
-// embedded assets: /aetox-file/ (the open project's files, proxied onto the
-// engine process's /file/ — rpc.FileProxy) and this file's /aetox-tts/.
-// Order does not matter — the prefixes are disjoint — but the early `next`
-// in each does: anything addressed to neither must leave untouched, or the
+// assetMiddleware chains the three URL spaces the app claims in front of its
+// own embedded assets: /aetox-file/ (the open project's files) and
+// /aetox-shelf/ (the studio's shelf), both proxied onto the engine process's
+// /file/ and /shelf/ by rpc.FileProxy, and this file's /aetox-tts/. Order
+// does not matter — the prefixes are disjoint — but the early `next` in each
+// does: anything addressed to none of them must leave untouched, or the
 // app's own HTML stops loading and the window comes up blank.
 func (a *App) assetMiddleware(next http.Handler) http.Handler {
 	return rpc.FileProxy(a.engineEndpoint, a.ttsHost(next))

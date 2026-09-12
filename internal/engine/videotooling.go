@@ -698,6 +698,12 @@ func (a *Engine) VideoReadiness(agent string) VideoReadiness {
 		out.Rows = append(out.Rows, ReadyRow{ID: "templates", State: "ok"})
 	}
 
+	// The studio's shelf, for both agents: the one that makes a video dresses
+	// it from here and the one that cuts footage drops a sound from here. An
+	// empty shelf is "optional", never a cross — a video is made without one
+	// every day, and the row exists so the user knows the shelf is a thing.
+	out.Rows = append(out.Rows, studioReady())
+
 	ffmpeg := findProgram("ffmpeg")
 	ffprobe := findProgram("ffprobe")
 	out.Rows = append(out.Rows, ReadyRow{

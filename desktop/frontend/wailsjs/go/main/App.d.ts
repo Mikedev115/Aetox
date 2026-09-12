@@ -40,6 +40,10 @@ export function AddSpaceContext(arg1:string):Promise<Array<string>>;
 
 export function AddSpaceContextFiles(arg1:string,arg2:Array<string>):Promise<Array<string>>;
 
+export function AddStudioLibrary():Promise<boolean>;
+
+export function AddStudioLibraryAt(arg1:string):Promise<boolean>;
+
 export function AddWorkspaceFolder():Promise<Array<engine.WorkspaceFolder>>;
 
 export function AddWorkspaceFolderAt(arg1:string):Promise<Array<engine.WorkspaceFolder>>;
@@ -149,6 +153,8 @@ export function CancelMCPSignIn(arg1:string):Promise<void>;
 export function CancelPendingModel():Promise<engine.ModelInfo>;
 
 export function CancelSignIn(arg1:string):Promise<void>;
+
+export function CancelStudioScan():Promise<void>;
 
 export function CancelTurn():Promise<void>;
 
@@ -588,11 +594,15 @@ export function RemovePresetImage(arg1:string):Promise<void>;
 
 export function RemoveSpaceContext(arg1:string,arg2:string):Promise<Array<string>>;
 
+export function RemoveStudioLibrary(arg1:string):Promise<Array<engine.StudioLibraryView>>;
+
 export function RemoveWorkspaceFolder(arg1:string):Promise<Array<engine.WorkspaceFolder>>;
 
 export function RequestAttention():Promise<void>;
 
 export function RequiresAPIKey(arg1:string):Promise<boolean>;
+
+export function RescanStudioLibrary(arg1:string):Promise<boolean>;
 
 export function ResendEdited(arg1:string,arg2:boolean):Promise<engine.TurnReply>;
 
@@ -615,6 +625,10 @@ export function RetryActiveProvider():Promise<engine.ModelInfo>;
 export function RetryFailedTurn(arg1:string):Promise<engine.TurnReply>;
 
 export function RevealSpeechModel(arg1:string):Promise<void>;
+
+export function RevealStudioAsset(arg1:string):Promise<void>;
+
+export function RevealStudioLibrary(arg1:string):Promise<void>;
 
 export function ReviewPullRequest(arg1:number):Promise<string>;
 
@@ -829,6 +843,22 @@ export function StopQueuedTasks():Promise<number>;
 export function StopRemoteEngine(arg1:string):Promise<void>;
 
 export function StopSpeech(arg1:string):Promise<void>;
+
+export function StudioAssetPath(arg1:string):Promise<string>;
+
+export function StudioAssets(arg1:engine.StudioAssetQuery):Promise<engine.StudioAssetPage>;
+
+export function StudioLibraries():Promise<Array<engine.StudioLibraryView>>;
+
+export function StudioLibraryPath(arg1:string):Promise<string>;
+
+export function StudioScanning():Promise<boolean>;
+
+export function StudioSetHidden(arg1:string,arg2:boolean):Promise<void>;
+
+export function StudioSetKind(arg1:string,arg2:string):Promise<void>;
+
+export function StudioThumbs(arg1:Array<string>):Promise<Record<string, string>>;
 
 export function SubagentsFolderPath():Promise<string>;
 

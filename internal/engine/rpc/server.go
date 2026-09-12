@@ -23,6 +23,7 @@ type Server struct {
 	engine   *engine.Engine
 	dataRoot string
 	files    http.Handler
+	shelf    http.Handler
 
 	mu        sync.RWMutex
 	handlers  map[string]Handler
@@ -44,6 +45,7 @@ func NewServer(token string, build func(engine.Screen) *engine.Engine) *Server {
 	s.peer.server = s
 	s.dataRoot, _ = config.DataRoot()
 	s.files = engine.FileHandler(s.engine, FilePath)
+	s.shelf = engine.ShelfHandler(s.engine, ShelfPath)
 	s.Handle(MethodHello, s.hello)
 	// The provider stream's two notifications land on the peer's streams.
 	s.OnNotification(MethodProviderChunk, func(_ string, params json.RawMessage) { s.peer.streams.chunk(params) })
@@ -77,7 +79,8 @@ func (s *Server) OnNotification(method string, n Notifier) {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc(RPCPath, s.accept)
-	mux.Handle(FilePath, s.fileHandler())
+	mux.Handle(FilePath, s.guarded(s.files))
+	mux.Handle(ShelfPath, s.guarded(s.shelf))
 	return mux
 }
 

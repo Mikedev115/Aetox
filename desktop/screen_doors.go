@@ -225,6 +225,22 @@ func (a *App) BrowseFolder() (string, error) {
 	return a.api.BrowseFolderAt(dir)
 }
 
+// AddStudioLibrary asks the user which folder holds their video material and
+// starts cataloguing it (studio_library.go). Returns false when the dialog was
+// dismissed or a scan is already running — cancelling is not a failure.
+func (a *App) AddStudioLibrary() (bool, error) {
+	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
+		Title: "เพิ่มโฟลเดอร์วัตถุดิบเข้าคลังสตูดิโอ",
+	})
+	if err != nil {
+		return false, err
+	}
+	if strings.TrimSpace(dir) == "" {
+		return false, nil // cancelled
+	}
+	return a.AddStudioLibraryAt(dir)
+}
+
 // ---------------------------------------------------------------- reveals
 
 // reveal opens a path the engine answered with in this machine's file manager
@@ -273,6 +289,18 @@ func openInFileManager(dir string) error {
 		cmd = exec.Command("xdg-open", dir)
 	}
 	return cmd.Start()
+}
+
+// RevealStudioAsset opens the folder holding one shelf asset, with the file
+// selected where the platform allows; RevealStudioLibrary opens a shelf's
+// folder. Both are the screen's half of a pair: the engine says where
+// (StudioAssetPath, StudioLibraryPath), this machine's file manager shows it.
+func (a *App) RevealStudioAsset(id string) error {
+	return a.reveal(a.api.StudioAssetPath(id))
+}
+
+func (a *App) RevealStudioLibrary(id string) error {
+	return a.reveal(a.api.StudioLibraryPath(id))
 }
 
 // RevealSpeechModel shows the folder a scanned speech model sits in.

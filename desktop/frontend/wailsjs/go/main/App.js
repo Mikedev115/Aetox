@@ -50,6 +50,14 @@ export function AddSpaceContextFiles(arg1, arg2) {
   return window['go']['main']['App']['AddSpaceContextFiles'](arg1, arg2);
 }
 
+export function AddStudioLibrary() {
+  return window['go']['main']['App']['AddStudioLibrary']();
+}
+
+export function AddStudioLibraryAt(arg1) {
+  return window['go']['main']['App']['AddStudioLibraryAt'](arg1);
+}
+
 export function AddWorkspaceFolder() {
   return window['go']['main']['App']['AddWorkspaceFolder']();
 }
@@ -268,6 +276,10 @@ export function CancelPendingModel() {
 
 export function CancelSignIn(arg1) {
   return window['go']['main']['App']['CancelSignIn'](arg1);
+}
+
+export function CancelStudioScan() {
+  return window['go']['main']['App']['CancelStudioScan']();
 }
 
 export function CancelTurn() {
@@ -1146,6 +1158,10 @@ export function RemoveSpaceContext(arg1, arg2) {
   return window['go']['main']['App']['RemoveSpaceContext'](arg1, arg2);
 }
 
+export function RemoveStudioLibrary(arg1) {
+  return window['go']['main']['App']['RemoveStudioLibrary'](arg1);
+}
+
 export function RemoveWorkspaceFolder(arg1) {
   return window['go']['main']['App']['RemoveWorkspaceFolder'](arg1);
 }
@@ -1156,6 +1172,10 @@ export function RequestAttention() {
 
 export function RequiresAPIKey(arg1) {
   return window['go']['main']['App']['RequiresAPIKey'](arg1);
+}
+
+export function RescanStudioLibrary(arg1) {
+  return window['go']['main']['App']['RescanStudioLibrary'](arg1);
 }
 
 export function ResendEdited(arg1, arg2) {
@@ -1200,6 +1220,14 @@ export function RetryFailedTurn(arg1) {
 
 export function RevealSpeechModel(arg1) {
   return window['go']['main']['App']['RevealSpeechModel'](arg1);
+}
+
+export function RevealStudioAsset(arg1) {
+  return window['go']['main']['App']['RevealStudioAsset'](arg1);
+}
+
+export function RevealStudioLibrary(arg1) {
+  return window['go']['main']['App']['RevealStudioLibrary'](arg1);
 }
 
 export function ReviewPullRequest(arg1) {
@@ -1628,6 +1656,38 @@ export function StopRemoteEngine(arg1) {
 
 export function StopSpeech(arg1) {
   return window['go']['main']['App']['StopSpeech'](arg1);
+}
+
+export function StudioAssetPath(arg1) {
+  return window['go']['main']['App']['StudioAssetPath'](arg1);
+}
+
+export function StudioAssets(arg1) {
+  return window['go']['main']['App']['StudioAssets'](arg1);
+}
+
+export function StudioLibraries() {
+  return window['go']['main']['App']['StudioLibraries']();
+}
+
+export function StudioLibraryPath(arg1) {
+  return window['go']['main']['App']['StudioLibraryPath'](arg1);
+}
+
+export function StudioScanning() {
+  return window['go']['main']['App']['StudioScanning']();
+}
+
+export function StudioSetHidden(arg1, arg2) {
+  return window['go']['main']['App']['StudioSetHidden'](arg1, arg2);
+}
+
+export function StudioSetKind(arg1, arg2) {
+  return window['go']['main']['App']['StudioSetKind'](arg1, arg2);
+}
+
+export function StudioThumbs(arg1) {
+  return window['go']['main']['App']['StudioThumbs'](arg1);
 }
 
 export function SubagentsFolderPath() {
