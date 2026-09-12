@@ -4,7 +4,7 @@ import { POSE, ARM, type PoseId } from '../lib/mascot/poses'
 import { resolveMascot, mascotSVG, handVars, DETAIL_MIN_PX, GLOW_MIN_PX } from '../lib/mascot/rig'
 import { palette, SHELL, shellOf, ACCENT, accentOf, accentNearHue, DEFAULT_ACCENT } from '../lib/mascot/palette'
 import { ROLE, roleOf, roleOptions } from '../lib/mascot/roles'
-import { presenceOf, TOOL_POSE, FAMILY_POSE, toolPose, poseOfFaceState, FACE_STATE_POSE, type FaceState } from '../lib/mascot/presence'
+import { presenceOf, TOOL_POSE, FAMILY_POSE, toolPose, walkTurn, poseOfFaceState, FACE_STATE_POSE, type FaceState } from '../lib/mascot/presence'
 
 // The mascot is a catalogue plus a table plus one drawing function, and the
 // rules guarded here are the ones the owner set while watching it drawn — each
@@ -281,6 +281,19 @@ describe('presence', () => {
 
   it('maps every tool to a pose that exists', () => {
     for (const [tool, pose] of Object.entries(TOOL_POSE)) expect(pose in POSE, tool).toBe(true)
+  })
+
+  // Dragged, it walks the way it is going: right, left, up the screen with
+  // its back to us, down towards us — and turns the short way round.
+  it('faces the way it is dragged', () => {
+    expect(walkTurn(10, 0, 0)).toBe(90)
+    expect(walkTurn(-10, 0, 0)).toBe(-90)
+    expect(walkTurn(0, 10, 90)).toBe(0)
+    expect(walkTurn(0, -10, 0)).toBe(180)
+    expect(walkTurn(10, 10, 0)).toBe(45)
+    expect(walkTurn(1, 1, 45)).toBe(45) // too small a step to have a direction
+    expect(walkTurn(-1, -10, 170)).toBeCloseTo(185.7, 0) // 170 → -174 is a 16° turn, not 344°
+    expect(walkTurn(10, 0, -270)).toBe(-270) // the same heading, expressed where we were
   })
 
   // A pose change must not snap: the hand targets are on the root, where a
