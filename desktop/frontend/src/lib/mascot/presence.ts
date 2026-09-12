@@ -130,7 +130,13 @@ export function presenceOf(i: PresenceInput): PoseId {
  *  ซ้าย ขวา"). */
 export function walkTurn(dx: number, dy: number, prev: number, minPx = 3): number {
   if (Math.hypot(dx, dy) < minPx) return prev
-  const h = (Math.atan2(dx, dy) * 180) / Math.PI
+  return nearAngle((Math.atan2(dx, dy) * 180) / Math.PI, prev)
+}
+
+/** The angle equal to `h` (mod 360) that is nearest `prev` — so stepping
+ *  from `prev` towards it is the short way round. On the seam (180° apart)
+ *  it goes the positive way. */
+export function nearAngle(h: number, prev: number): number {
   const r = (((h - prev) % 360) + 360) % 360
   return prev + (r > 180 ? r - 360 : r)
 }
