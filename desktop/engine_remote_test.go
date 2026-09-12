@@ -78,6 +78,10 @@ func remoteFixture(t *testing.T) (a *App, home string, reloads *atomic.Int32) {
 		pid, _ := strconv.Atoi(strings.TrimSpace(string(b)))
 		if p, err := os.FindProcess(pid); err == nil {
 			_ = p.Kill()
+			// Waited for, then a beat, before t.TempDir removes the binary
+			// the fake host ran (remote_test.go says why).
+			_, _ = p.Wait()
+			time.Sleep(300 * time.Millisecond)
 		}
 	})
 	a, _, _ = liveApp(t)
