@@ -66,7 +66,8 @@
   import Icon from './Icon.svelte'
   import ProviderMark from './ProviderMark.svelte'
   import { ICONS, type IconName } from './icons'
-  import { startersFor, dealStarters, STARTER_SLOTS, TEACH_STARTER_KEY } from './starters'
+  import { startersFor, dealStarters, headlineFor, STARTER_SLOTS, TEACH_STARTER_KEY } from './starters'
+  import { profile, loadProfileName } from './stores/profile.svelte'
   import { teachingCardPinned, clearTeachingCard } from './firstRun'
 
   let {
@@ -778,6 +779,9 @@
   // readable without clicking — the point of putting it on this row is that you
   // see it before you approve a command, not after you go looking.
   onMount(refreshShells)
+  // The greeting's name (headlineFor). The sidebar loads it too; the store
+  // reads once for both.
+  onMount(() => { void loadProfileName() })
 
   // The choice is per project, so focusing another one can mean another shell.
   // Without this the chip keeps showing the previous project's answer, which is
@@ -1975,7 +1979,7 @@
     return () => { live = false }
   })
 
-  const headline = $derived(chairOpening?.headline || t(roomStarters.headlineKey))
+  const headline = $derived(chairOpening?.headline || headlineFor(roomStarters, profile.name, t))
 
   // Everything this room could open with. The grid draws four of them.
   const starterPool: { icon: IconName; title: string; prompt: string }[] = $derived(

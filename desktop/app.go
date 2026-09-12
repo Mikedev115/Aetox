@@ -5062,6 +5062,12 @@ func (a *App) applyConfig(conv *conversation, cfg config.Config) {
 		// profile takes effect the next time its chair is sat at, like every
 		// other manifest.
 		Chair: a.chairProfile(),
+		// The footer's name, so the model can use it (prompt.person). Read
+		// fresh here for the same reason Chair is: a name changed in the
+		// footer takes effect the next time a session is opened or switched,
+		// which is when this runs — and never mid-conversation, because the
+		// prompt is the cached prefix (prompt/README.md, reload timing).
+		UserName: a.UserName(),
 		Approve: func(ctx context.Context, command, reason string) (bool, error) {
 			return a.approveToolCall(conv, ctx, command, reason)
 		},

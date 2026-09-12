@@ -58,6 +58,7 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'sidebar.last30Days': '过去 30 天',
   'sidebar.older': '更早',
   'sidebar.setYourName': '设置你的名字',
+  'sidebar.editName': '修改名字',
   'sidebar.settings': '设置',
   'sidebar.mobileRemote': '连接手机',
 
@@ -323,7 +324,8 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   // ---- 空对话上的起步卡片 ----
   // 只翻译标题和标题行：*Prompt 是点击后发给模型的正文，不显示在界面上。
   'start.more': '再换四个',
-  'start.assistant.headline': '今天想把什么事情做完？',
+  'start.assistant.headline': '今天有什么可以帮忙的？',
+  'start.assistant.headlineNamed': '{name}，今天有什么可以帮忙的？',
   'start.assistant.chartTitle': '哪个 AI 模型值得用，画成图表',
   'start.assistant.healthTitle': '检查我电脑的健康状况',
   'start.assistant.moneyTitle': '我今年的钱到底花去哪了',
@@ -336,7 +338,8 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'start.assistant.deckTitle': '用我已有的文件做一份演示稿',
   'start.assistant.teachTitle': '用我自己的工作教我上手，再留下一份指南',
 
-  'start.coding.headline': '我们来做点什么？',
+  'start.coding.headline': '今天想开发哪一部分？',
+  'start.coding.headlineNamed': '{name}，今天想开发哪一部分？',
   'start.coding.fixTitle': '干掉这个 bug，并用测试证明它没了',
   'start.coding.buildTitle': '做一个新功能，当着我的面跑一遍',
   'start.coding.exploreTitle': '从第一个真正执行的文件带我看这个项目',

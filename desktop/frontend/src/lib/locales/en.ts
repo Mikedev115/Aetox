@@ -72,6 +72,7 @@ export const en: Record<keyof typeof th, string> = {
   'sidebar.last30Days': 'Previous 30 days',
   'sidebar.older': 'Older',
   'sidebar.setYourName': 'Set your name',
+  'sidebar.editName': 'Edit name',
   'sidebar.settings': 'Settings',
   'sidebar.mobileRemote': 'Connect a phone',
   'remote.title': 'Connect a phone',
@@ -87,7 +88,8 @@ export const en: Record<keyof typeof th, string> = {
 
   // Starter cards on an empty chat — one set per room, see starters.ts
   'start.more': 'Show me another four',
-  'start.assistant.headline': 'What should we get done today?',
+  'start.assistant.headline': 'Anything I can help with today?',
+  'start.assistant.headlineNamed': 'Anything I can help with today, {name}?',
   'start.assistant.chartTitle': 'Which AI model is worth it, drawn as a chart',
   'start.assistant.chartPrompt': 'Look up which AI models are the most capable and the best value right now. Compare the latest benchmark scores against price per million tokens across every major provider. Use only sources that carry a date, and if you cannot find a real price for a model, leave it out and say which ones you dropped and why. Never guess a number. Then break it down into a single HTML file with a chart plotting capability against price, a table of every figure, and a list of sources with links. Open it for me when it is done.',
   'start.assistant.healthTitle': 'Check my computer’s health',
@@ -111,7 +113,8 @@ export const en: Record<keyof typeof th, string> = {
   'start.assistant.teachTitle': 'Teach me this app using my own work, and leave me a guide',
   'start.assistant.teachPrompt': 'I am new to this app. Teach me by doing, not by describing what you can do. Start by asking me what I actually work on, what repetitive job eats my time, and which files or folders on this machine that job involves. Ask until you have enough, then begin. Do not guess what is on my disk, go and look. Pick ONE job out of my answers, small enough to finish right now, and do it end to end, saying in one short line at each step what you are doing. Only once it is done, explain backwards: which room of the app that happened in, what I would type to run it again myself, and where the file ended up. Then write me one short guide file with three parts — the job you just did and how to repeat it, what this app can do that is genuinely relevant to my work, and three more things worth trying on my own files — and open it. Leave out anything I cannot use yet because it is not set up; if something has to be switched on, say where. Finish by offering exactly one next thing, then wait for my answer.',
 
-  'start.coding.headline': 'What should we build?',
+  'start.coding.headline': 'What should we work on today?',
+  'start.coding.headlineNamed': 'What should we work on today, {name}?',
   'start.coding.fixTitle': 'This bug gone, with a test proving it',
   'start.coding.fixPrompt': 'Find the cause of this bug and fix it. Reproduce it first — if you cannot reproduce it, do not change anything; tell me where you got stuck. Once it reproduces, write a test that fails on it before touching the code: that test is what proves it is fixed, not a feeling that it probably is. Fix the cause, not the place where the symptom shows. If you have to patch downstream because the cause is outside our reach, say plainly that this is what you are doing and why. When it is done, run the whole suite rather than only the new test, then tell me what was actually broken, why it broke, and what now stops it coming back.',
   'start.coding.buildTitle': 'A new feature, run in front of me',
