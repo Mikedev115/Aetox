@@ -96,17 +96,11 @@ export const MCP_CANDIDATES: MCPCandidate[] = [
 
   // ── auth: static-header — real 401 naming a Bearer/key header, vendor
   //    docs confirm a static header is a first-class alternative to OAuth ──
-  {
-    id: 'stripe',
-    category: 'payments',
-    source: 'https://mcp.stripe.com/',
-    auth: 'static-header',
-    gap: 'Aetox has no payment/billing tool of any kind.',
-    overlaps: [],
-    verifiedAt: '2026-09-03',
-    toolCount: null,
-    evidence: 'POST / (no headers) -> 401, header Www-Authenticate: Bearer resource_metadata=https://mcp.stripe.com/.well-known/oauth-protected-resource, body {"error":"Unauthorized. See https://docs.stripe.com/mcp for usage instructions."} — Stripe docs confirm a restricted API key works as a Bearer header, no OAuth required.',
-  },
+  // stripe was here (static-header, https://mcp.stripe.com/) — it was
+  // already on MCP_PRESETS in mcpShelf.ts (the 14 ส.ค. static-key addition,
+  // "a one-line addition whenever it is wanted") the whole time this row
+  // sat unpromoted beside it. Deleted per the rule at the top of this file;
+  // found during the 2026-09-13 backlog triage.
   {
     id: 'cloudflare-api',
     category: 'cloud infrastructure management (Cloudflare account)',
@@ -205,12 +199,14 @@ export const MCP_CANDIDATES: MCPCandidate[] = [
   //    already promoted to MCP_PRESETS in mcpShelf.ts and deleted from here.
   //    notion joined them the same day, moved over to actually be tried
   //    rather than left waiting — see mcpShelf.ts for its `why` once
-  //    someone has signed in for real and written it.
-  //    The three below are the rest of that research pass: the servers
-  //    mcpShelf.ts's own history names as "blocked by rule 2 until the
-  //    client learns OAuth" (Linear, Sentry, Atlassian) plus three more
-  //    checked the same way (Figma, PagerDuty, Slack) — verified
-  //    2026-09-03, after the DCR flow existed, not before. ─────────────────
+  //    someone has signed in for real and written it. Sentry and figma,
+  //    below on 2026-09-03, were promoted the same way on 2026-09-13 and
+  //    are deleted from here too (found during that day's backlog triage).
+  //    Linear is the rest of that research pass: the servers mcpShelf.ts's
+  //    own history names as "blocked by rule 2 until the client learns
+  //    OAuth" (Linear, Sentry, Atlassian) plus three more checked the same
+  //    way (Figma, PagerDuty, Slack) — verified 2026-09-03, after the DCR
+  //    flow existed, not before. ─────────────────────────────────────────
   {
     id: 'linear',
     category: 'project management / issue tracking',
@@ -220,29 +216,7 @@ export const MCP_CANDIDATES: MCPCandidate[] = [
     overlaps: [],
     verifiedAt: '2026-09-03',
     toolCount: null,
-    evidence: 'POST /mcp (no headers) -> 401, header WWW-Authenticate: Bearer realm="OAuth", resource_metadata="https://mcp.linear.app/.well-known/oauth-protected-resource/mcp". Discovery: AS metadata at https://mcp.linear.app/.well-known/oauth-authorization-server has registration_endpoint="https://mcp.linear.app/register". DCR supported — the second of the four named in the shelf history.',
-  },
-  {
-    id: 'sentry',
-    category: 'error tracking / observability',
-    source: 'https://mcp.sentry.dev/mcp',
-    auth: 'oauth-dcr',
-    gap: 'Aetox has no tool that reads a live error-tracking project — nothing pulls an actual event, stack trace, or issue trend from a running Sentry account.',
-    overlaps: [],
-    verifiedAt: '2026-09-03',
-    toolCount: null,
-    evidence: 'POST /mcp (no headers) -> 401, header WWW-Authenticate: Bearer realm="OAuth", resource_metadata="https://mcp.sentry.dev/.well-known/oauth-protected-resource/mcp". Discovery: AS metadata at https://mcp.sentry.dev/.well-known/oauth-authorization-server has registration_endpoint="https://mcp.sentry.dev/oauth/register". DCR supported — the third of the four named in the shelf history.',
-  },
-  {
-    id: 'figma',
-    category: 'design files',
-    source: 'https://mcp.figma.com/mcp',
-    auth: 'oauth-dcr',
-    gap: 'Aetox has no tool that opens an actual Figma file — every design skill on the shelf (aetox-design, aetox-frontend-design, aetox-ui-design, aetox-design-system) is knowledge about designing well, none of them can see what is really on a real canvas.',
-    overlaps: [],
-    verifiedAt: '2026-09-03',
-    toolCount: null,
-    evidence: 'POST /mcp (no headers) -> 401 (plain text body "Unauthorized"), header www-authenticate: Bearer resource_metadata="https://mcp.figma.com/.well-known/oauth-protected-resource", authorization_uri="https://api.figma.com/.well-known/oauth-authorization-server". Discovery: AS metadata at api.figma.com has registration_endpoint="https://api.figma.com/v1/oauth/mcp/register". DCR supported.',
+    evidence: 'POST /mcp (no headers) -> 401, header WWW-Authenticate: Bearer realm="OAuth", resource_metadata="https://mcp.linear.app/.well-known/oauth-protected-resource/mcp". Discovery: AS metadata at https://mcp.linear.app/.well-known/oauth-authorization-server has registration_endpoint="https://mcp.linear.app/register". DCR supported — the second of the four named in the shelf history. Re-probed 2026-09-13: still answers the same 401.',
   },
 
   // ── auth: oauth-manual — OAuth-only, and the authorization server has NO
@@ -251,17 +225,12 @@ export const MCP_CANDIDATES: MCPCandidate[] = [
   //    each vendor by hand (a business step, not a coding one) — out of
   //    scope for internal/oauth/mcpauth.go's generic flow. Listed so the
   //    finding isn't lost, not because a click connects them today. ───────
-  {
-    id: 'atlassian',
-    category: 'issue tracking / wiki (Jira, Confluence)',
-    source: 'https://mcp.atlassian.com/v1/mcp/authv2',
-    auth: 'oauth-manual',
-    gap: 'Aetox has no tool for Jira or Confluence — nothing reads or writes issues, pages, or spaces in a live Atlassian site. The fourth server the shelf history named — checked again now that DCR exists, and still blocked.',
-    overlaps: [],
-    verifiedAt: '2026-09-03',
-    toolCount: null,
-    evidence: 'POST /v1/mcp/authv2 (no headers) -> 401 {"error":"invalid_token"}, header Www-Authenticate naming resource_metadata="https://mcp.atlassian.com/.well-known/oauth-protected-resource/v1/mcp/authv2". Discovery: authorization_servers=["https://auth.atlassian.com/<tenant>"] -> base AS metadata at https://auth.atlassian.com/.well-known/oauth-authorization-server has NO registration_endpoint (only client_id_metadata_document_supported:true, a different mechanism mcpauth.go does not implement) — DCR not supported, needs a pre-registered client_id from Atlassian.',
-  },
+  // atlassian was here (oauth-manual, no registration_endpoint found on
+  // 2026-09-03) — the owner added it to MCP_PRESETS anyway on 2026-09-13
+  // (mcp.atlassian.com/v1/register does answer with a registration_endpoint
+  // as of that date; the manual finding above was simply overtaken by the
+  // vendor shipping DCR since). Deleted from here per the rule at the top
+  // of this file; found during the 2026-09-13 backlog triage.
   {
     id: 'pagerduty',
     category: 'incident management / on-call',
@@ -295,17 +264,12 @@ export const MCP_CANDIDATES: MCPCandidate[] = [
     toolCount: null,
     evidence: '401, header www-authenticate: Bearer resource_metadata="https://api.us.elevenlabs.io/.well-known/oauth-protected-resource", body {"detail":"OAuth bearer token required for the hosted MCP."}. Discovery: AS metadata at https://api.us.elevenlabs.io/.well-known/oauth-authorization-server has authorization_endpoint and token_endpoint but NO registration_endpoint — DCR not supported, needs a pre-registered client_id from ElevenLabs.',
   },
-  {
-    id: 'vercel',
-    category: 'deployment / hosting management',
-    source: 'https://mcp.vercel.com',
-    auth: 'oauth-manual',
-    gap: 'Aetox has no tool to deploy or manage a hosted project (same category as netlify above, different vendor).',
-    overlaps: ['netlify (oauth-dcr, above) — same category, different vendor; netlify is the one that actually connects today'],
-    verifiedAt: '2026-09-03',
-    toolCount: null,
-    evidence: '401 {"error":"invalid_token","error_description":"No authorization provided"}. Discovery: AS metadata at https://vercel.com/.well-known/oauth-authorization-server has no registration_endpoint — DCR not supported, needs a pre-registered client_id from Vercel.',
-  },
+  // vercel was here (oauth-manual, no registration_endpoint found on
+  // 2026-09-03) — the shelf history for the 2026-09-13 sign-in rows says
+  // "Vercel's at api.vercel.com/login/oauth/register (it had none on
+  // 2026-09-03; it does now)", so it was promoted the same way once the
+  // vendor shipped DCR. Deleted from here per the rule at the top of this
+  // file; found during the 2026-09-13 backlog triage.
   {
     id: 'shopify',
     category: 'e-commerce / store management',
@@ -609,4 +573,48 @@ export const MCP_CANDIDATES: MCPCandidate[] = [
     toolCount: null,
     evidence: 'POST / (no headers) -> 401, empty body, header WWW-Authenticate: Bearer realm="Service", error="invalid_request", error_description="The access token was not found.", resource_metadata="https://mcp.box.com/.well-known/oauth-protected-resource". AS metadata at https://api.box.com/.well-known/oauth-authorization-server has NO registration_endpoint.',
   },
+
+  // ── Third pass, 2026-09-13. Split by who Aetox is for rather than run as
+  //    one general sweep — the owner asked for candidates aimed at ordinary
+  //    users, creators who edit video, developers, and business users, so
+  //    a next pass can pick up where this one was cut short rather than
+  //    re-cover ground already probed. Same method: a real `initialize`,
+  //    then for a 401 the RFC 9728 -> RFC 8414 walk for a
+  //    registration_endpoint. Runway ML, DeepL and Mapbox from this pass
+  //    all found one and went straight to MCP_PRESETS in mcpShelf.ts as
+  //    2026-09-13 sign-in rows instead of sitting here — see that file. ──
+
+  // ── auth: oauth-dcr, held back from the shelf for a reason other than
+  //    the auth chain ─────────────────────────────────────────────────────
+  {
+    id: 'attio',
+    category: 'CRM',
+    source: 'https://mcp.attio.com/mcp',
+    auth: 'oauth-dcr',
+    gap: 'Aetox has no CRM tool at all — nothing reads or writes contacts, deals, or notes in a live workspace, for the business-user audience this pass targeted.',
+    overlaps: [],
+    verifiedAt: '2026-09-13',
+    toolCount: null,
+    evidence: 'POST /mcp (no headers) -> 401 {"statusCode":401,"error":"Unauthorized","message":"The requesting user did not present an authentication token","status_code":401}, header www-authenticate: Bearer resource_metadata="https://mcp.attio.com/.well-known/oauth-protected-resource", scope="openid offline_access mcp". Discovery: protected-resource doc names authorization_servers=["https://app.attio.com"]; AS metadata at https://app.attio.com/.well-known/oauth-authorization-server has registration_endpoint="https://app.attio.com/oauth/register". DCR supported — this one clears rule 2 same as runwayml/deepl/mapbox. Held out of mcpShelf.ts on rule 3 of mcpMarks.ts instead: no vector logo found anywhere checked (attio.com/favicon.svg, /icon.svg, /apple-icon.svg, /logo.svg all 404; simple-icons and @lobehub/icons have never heard of it). Promote once a real mark turns up, or once someone decides a lettered tile is fine for this one and adds it to noMark in desktop/mcp_marks_test.go.',
+  },
+
+  // ── Probed live, 401, but the OAuth discovery chain was not finished —
+  //    the research pass was cut short mid-probe. Recorded so the next
+  //    pass starts the discovery walk rather than re-sending the same
+  //    initialize call. None of these have a `gap`/`overlaps` write-up yet
+  //    on purpose: that comes after the chain is known, per this file's own
+  //    method. ───────────────────────────────────────────────────────────
+  //   - replicate (creator/AI-generation category) — https://mcp.replicate.com/mcp
+  //     and /sse both answered; the /.well-known/oauth-protected-resource
+  //     fetch that would name the authorization server was in flight when
+  //     the pass stopped.
+  //   - xero (business/accounting category) — https://mcp.xero.com/mcp
+  //     answers 401 "Jwt is missing" with a bare `WWW-Authenticate: Bearer
+  //     realm="https://mcp.xero.com/mcp"` and no resource_metadata pointer
+  //     at all, which usually means a full manual OAuth app registration
+  //     rather than DCR — worth confirming before assuming oauth-manual.
+  //   - smartsheet (business/PM category) — https://mcp.smartsheet.com/mcp
+  //     answers a bare 401 with no WWW-Authenticate header of any kind;
+  //     Smartsheet's own API docs describe a personal access token, which
+  //     may mean this one is actually static-header once checked properly.
 ]
