@@ -1122,10 +1122,6 @@ export namespace main {
 	        this.name = source["name"];
 	    }
 	}
-	export class MCPServerInfo {
-	    name: string;
-	    command?: string[];
-	    url?: string;
 	export class GitLogPage {
 	    commits: GitCommit[];
 	    more: boolean;
@@ -1158,6 +1154,10 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class MCPServerInfo {
+	    name: string;
+	    command?: string[];
+	    url?: string;
 	    environment?: Record<string, string>;
 	    headers?: Record<string, string>;
 	    cwd?: string;
