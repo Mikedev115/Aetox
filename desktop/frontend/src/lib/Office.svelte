@@ -25,8 +25,8 @@
   import { dayBucket } from './dayBucket'
   import Icon from './Icon.svelte'
   import AgentLock from './AgentLock.svelte'
-  import AgentFace from './AgentFace.svelte'
-  import { faceOf } from './agentFace'
+  import AgentMascot from './mascot/AgentMascot.svelte'
+  import { lookOf } from './mascot/agentLook'
 
   let { onClose }: { onClose: () => void } = $props()
 
@@ -131,11 +131,11 @@
 
   // The face a job wears is its author's, resolved off the roster so one agent
   // cannot show two faces on one page. Only what the profile CHOSE needs
-  // resolving — the mark it holds and, if its owner said so, its hair and
-  // glasses. The person underneath is drawn from the name, so a job whose
-  // profile has since been deleted keeps the same face and loses nothing but
-  // what it was holding.
-  const faces = $derived(new Map(chairs.map((c) => [c.name, faceOf(c)])))
+  // resolving — the badge on its ears and, if its owner said so, its hue,
+  // shell, top light and resting face. The robot underneath is drawn from the
+  // name, so a job whose profile has since been deleted keeps the same colour
+  // and loses nothing but its badge.
+  const faces = $derived(new Map(chairs.map((c) => [c.name, lookOf(c)])))
   function jobFace(name: string) {
     return faces.get(name) ?? {}
   }
@@ -263,7 +263,7 @@
           <div class="chair-card agc" class:locked>
             <div class="chair-body">
               <div class="chair-who">
-                <AgentFace name={c.name} {...faceOf(c)} size={38} />
+                <AgentMascot name={c.name} {...lookOf(c)} size={38} />
                 <span class="chair-name">{c.name}</span>
               </div>
               <p class="chair-desc">{c.description}</p>
@@ -375,7 +375,7 @@
               <!-- The same face as the card above it. The feed names who did
                    the work, so drawing them a second way here would make one
                    agent two people on one page. -->
-              <AgentFace name={j.chair} {...jobFace(j.chair)} size={22} />
+              <AgentMascot name={j.chair} {...jobFace(j.chair)} size={22} />
               <!-- The line the caller wrote, not the arguments the tool call
                    carried. `request` is the machine's copy and stays available
                    on hover for anyone who wants it. -->

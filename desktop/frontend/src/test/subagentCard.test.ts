@@ -418,11 +418,14 @@ describe('a delegate whose work arrived after its turn ended', () => {
   })
 
   // The portrait asks the same list, so it was sitting there with no laptop for
-  // the whole job — the thing faceState was wired up to stop doing.
+  // the whole job — the thing faceState was wired up to stop doing. Typing is
+  // the one card on the page allowed to move: alive, not a roster tile.
   it('puts the delegate’s hands on the machine', () => {
     const { container } = render(Chat, { ...baseProps, awaitingReply: false, messages: [turnThatDelegated] } as any)
 
-    expect(container.querySelector('.bgw-card .agent-face.work')).toBeTruthy()
+    const face = container.querySelector('.bgw-card .mascot.pose-typing')
+    expect(face).toBeTruthy()
+    expect(face!.classList.contains('still')).toBe(false)
   })
 
   // Work in flight is a stream; work that is over is a record.

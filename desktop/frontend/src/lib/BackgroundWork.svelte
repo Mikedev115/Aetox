@@ -25,7 +25,7 @@
   import { t } from './i18n.svelte'
   import Icon from './Icon.svelte'
   import { fold } from './fold'
-  import AgentFace from './AgentFace.svelte'
+  import AgentMascot from './mascot/AgentMascot.svelte'
   import { currentStep, tally } from './delegateWork'
   import { compact, hasSpend, spendLabel, spendTitle } from './spend'
 
@@ -279,12 +279,12 @@
                        was left behind on a tick-or-spinner, so the same worker
                        was a portrait in one panel and an anonymous mark in the
                        next (owner, 7 ก.ย.: "อันนี้อีก UI พัง ล้าหลังไปแล้วมั้ง").
-                       One mark, two facts: WHO, from the wardrobe, and WHAT IS
-                       HAPPENING, from the ring and the movement inside it —
+                       One mark, two facts: WHO, from the hue and the badge, and
+                       WHAT IS HAPPENING, from the pose and the card beside it —
                        which is the argument §105.5 made when it put the face on
                        the card and dropped the glyph beside it. -->
                   <span class="bgw-worker-face">
-                    <AgentFace
+                    <AgentMascot
                       name={task.agent ?? ''}
                       size={20}
                       state={task.state === 'running' ? 'work' : task.state === 'failed' ? 'err' : task.state === 'waiting' || task.state === 'queued' ? '' : 'done'}
@@ -363,7 +363,7 @@
                said it; what the top line owes the reader is WHAT is being
                worked on. -->
           <div class="bgw-top">
-            <span class="bgw-face"><AgentFace name={task.agent} size={34} state={steps.some((s) => s.task === task.id && s.state === 'run') ? 'work' : 'think'} /></span>
+            <span class="bgw-face"><AgentMascot name={task.agent} size={34} state={steps.some((s) => s.task === task.id && s.state === 'run') ? 'work' : 'think'} /></span>
             <div class="bgw-said">
               {#key nowOf(task.id)}
                 <div class="bgw-now" title={nowOf(task.id)}>
@@ -427,7 +427,7 @@
       {:else if task.state === 'waiting'}
         <div class="bgw-card is-waiting">
           <div class="bgw-top">
-            <span class="bgw-face"><AgentFace name={task.agent} size={34} /></span>
+            <span class="bgw-face"><AgentMascot name={task.agent} size={34} /></span>
             <div class="bgw-said">
               <div class="bgw-now" title={task.label}>{task.label}</div>
               <div class="bgw-who">
@@ -479,7 +479,7 @@
              one: how far it had got, and what it had already cost. -->
         <div class="bgw-card is-done" class:is-stopped={task.state === 'stopped'}>
           <div class="bgw-top">
-            <span class="bgw-face"><AgentFace name={task.agent} size={34} state={task.state === 'failed' ? 'err' : task.state === 'stopped' ? '' : 'done'} /></span>
+            <span class="bgw-face"><AgentMascot name={task.agent} size={34} state={task.state === 'failed' ? 'err' : task.state === 'stopped' ? '' : 'done'} /></span>
             <div class="bgw-said">
               <!-- A receipt leads with how it ended, where a running card leads
                    with what it is doing. Same line, same size — the card does
@@ -539,7 +539,7 @@
           <div class="bgw-item" transition:fold>
             <div class="bgw-card is-queued">
               <div class="bgw-top">
-                <span class="bgw-face"><AgentFace name={task.agent} size={34} /></span>
+                <span class="bgw-face"><AgentMascot name={task.agent} size={34} /></span>
                 <div class="bgw-said">
                   <div class="bgw-now" title={task.label}>{task.label}</div>
                   <div class="bgw-who">
