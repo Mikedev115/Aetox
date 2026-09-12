@@ -50,6 +50,12 @@ var bundledModes embed.FS
 // has to be able to say — everything else about a desk is data.
 const Office = "specialized"
 
+// Coding is the workshop's desk — the other desk a team may sit at
+// (subagent.teamDesks). Named for the same reason Office is: the team layer
+// has to say which desks hold a roster, and a string literal repeated across
+// packages is a name nobody can rename.
+const Coding = "coding"
+
 // The two memory architectures a desk can declare (Mode.Memory, §184).
 //
 //   - MemoryShared: an unqualified remembered line lands in MEMORY.md, the
