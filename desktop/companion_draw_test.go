@@ -24,7 +24,7 @@ func (f *fakeSprites) frame(key string) *image.RGBA {
 	}
 	// Like a baked frame: the figure in the middle, the pad transparent;
 	// an icon is a small full square.
-	size, pad := f.size, f.size*cFigPad/cSprite
+	size, pad := f.size, f.size*(cSpriteBox-64)/2/cSpriteBox
 	if strings.HasPrefix(key, "icon-") {
 		size, pad = cIcon, 0
 	}
@@ -64,7 +64,7 @@ var (
 )
 
 func newTestComposer(colors map[string]color.RGBA) (*composer, *fakeSprites, *image.RGBA) {
-	sp := &fakeSprites{size: cSprite, colors: colors}
+	sp := &fakeSprites{size: cFigureDefault * cSpriteBox / 64, colors: colors}
 	c := newComposer(sp, fakeText{}, 1)
 	w, h := c.canvasSize()
 	return c, sp, image.NewRGBA(image.Rect(0, 0, w, h))
@@ -221,7 +221,7 @@ func TestWrapWords(t *testing.T) {
 // On hover the frame and both buttons are drawn; muted, only the speaker is.
 func TestComposerFrameAndButtons(t *testing.T) {
 	c, sp, dst := newTestComposer(map[string]color.RGBA{"idle-p0-open": red, "icon-x": {255, 255, 255, 255}, "icon-volume2": {255, 255, 255, 255}, "icon-volumeX": {255, 255, 255, 255}})
-	sp.size = cSprite
+	sp.size = cFigureDefault * cSpriteBox / 64
 	c.draw(dst, companionScene{Pose: "idle"}, time.Unix(100, 0))
 	hide, mute := c.buttonRects()
 	if dst.RGBAAt(hide.Min.X+11, hide.Min.Y+11).A != 0 || dst.RGBAAt(mute.Min.X+11, mute.Min.Y+11).A != 0 {
@@ -297,7 +297,7 @@ func TestParseColor(t *testing.T) {
 // composer keeps its clock.
 func TestComposerRescalesFramesUntilTheNewSetArrives(t *testing.T) {
 	c, sp, dst := newTestComposer(map[string]color.RGBA{"idle-p0-open": red})
-	sp.size = cSprite * 2 // frames baked at 200%
+	sp.size = cFigureDefault * cSpriteBox / 64 * 2 // frames baked at 200%
 	t0 := time.Unix(100, 0)
 	c.draw(dst, companionScene{Pose: "idle"}, t0)
 	at := c.poseAt
@@ -331,4 +331,56 @@ func TestComposerDrawsNothingWithoutSprites(t *testing.T) {
 	}
 	c.setSprites(nil)
 	c.draw(dst, companionScene{Pose: "idle"}, time.Unix(101, 0))
+}
+
+// The figure is resized within its caps; the sprite box, the canvas and the
+// grip follow it, and a set baked at the default size is resampled to fit.
+func TestComposerResizesTheFigureWithinCaps(t *testing.T) {
+	c, _, _ := newTestComposer(map[string]color.RGBA{"idle-p0-open": red})
+	w0, _ := c.canvasSize()
+	c.setFigure(160)
+	if c.figure != 160 || c.spriteSize() != 200 {
+		t.Fatalf("figure %d sprite %d", c.figure, c.spriteSize())
+	}
+	if w1, _ := c.canvasSize(); w1 <= w0 {
+		t.Fatal("canvas did not grow with the figure")
+	}
+	if c.spriteScale() != 160.0/cFigureDefault {
+		t.Fatalf("sprite scale %v", c.spriteScale())
+	}
+	g := c.gripRect()
+	f := c.figureRect().Inset(-cFrameInset)
+	if g.Max != f.Max || g.Dx() != cGrip {
+		t.Fatalf("grip %v is not the frame's corner %v", g, f)
+	}
+	cw, ch := c.canvasSize()
+	dst := image.NewRGBA(image.Rect(0, 0, cw, ch))
+	c.draw(dst, companionScene{Pose: "idle", Hover: true}, time.Unix(100, 0))
+	fig := c.figureRect()
+	if px := dst.RGBAAt(fig.Max.X-3, fig.Max.Y-3); px.R < 200 {
+		t.Fatalf("default-size frame not resampled to the bigger figure: %+v", px)
+	}
+	inked := 0
+	for y := g.Min.Y; y < g.Max.Y; y++ {
+		for x := g.Min.X; x < g.Max.X; x++ {
+			if dst.RGBAAt(x, y).A > 0 {
+				inked++
+			}
+		}
+	}
+	if inked < 8 {
+		t.Fatalf("no grip drawn on hover (%d px)", inked)
+	}
+	c.setFigure(10)
+	if c.figure != cFigureMin {
+		t.Fatalf("floor: %d", c.figure)
+	}
+	c.setFigure(9999)
+	if c.figure != cFigureMax {
+		t.Fatalf("ceiling: %d", c.figure)
+	}
+	c.setFigure(0)
+	if c.figure != cFigureDefault {
+		t.Fatalf("zero is the default: %d", c.figure)
+	}
 }

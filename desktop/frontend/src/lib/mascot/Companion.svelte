@@ -27,7 +27,7 @@
   import { presenceOf, reportOf, headlineOf, walkTurn, nearAngle } from './presence'
   import { POSE, type PoseId } from './poses'
   import { cockpit } from '../stores/cockpit.svelte'
-  import { companion, setCompanionOn, setCompanionVoice } from './companionSetting.svelte'
+  import { companion, setCompanionOn, setCompanionVoice, setCompanionSize, clampSize } from './companionSetting.svelte'
   import { desktopBody, openBody, closeBody, onBodyInput, bakeFor, rememberPos, themeColors, wordsOf } from './desktopBody.svelte'
   import { speech, speak, stopSpeechIf } from '../speech.svelte'
   import { avatarPrefs, assistantOptions } from './avatarPrefs.svelte'
@@ -36,7 +36,9 @@
   import { startersFor, headlineFor } from '../starters'
   import { t, i18n } from '../i18n.svelte'
 
-  const SIZE = 104
+  /** The figure's size, logical px — the user's, dragged at the corner of
+   *  the hover frame (companionSetting.svelte.ts size). */
+  const SIZE = $derived(companion.size)
   const MARGIN = 8
   const POS_KEY = 'companionPos'
   /** How long the success card stays after a turn ends. */
@@ -219,6 +221,34 @@
     }
   }
 
+  // ---- being resized ---------------------------------------------------------
+  // The corner of the hover frame, bottom-right, is a handle: dragging it
+  // grows or shrinks the figure about its top-left, between SIZE_MIN and
+  // SIZE_MAX, and the number is kept for both places. The bubble, the frame
+  // and the buttons are laid out from the figure's box, so they follow.
+  let resizing = $state(false)
+  let grip: { x0: number; y0: number; size0: number } | null = null
+  function onGripDown(e: PointerEvent): void {
+    if (e.button !== 0) return
+    e.stopPropagation()
+    grip = { x0: e.clientX, y0: e.clientY, size0: SIZE }
+    resizing = true
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  }
+  function onGripMove(e: PointerEvent): void {
+    if (!grip) return
+    const d = Math.max(e.clientX - grip.x0, e.clientY - grip.y0)
+    const next = clampSize(grip.size0 + d)
+    if (next !== SIZE) {
+      setCompanionSize(next)
+      pos = clamp(pos)
+    }
+  }
+  function onGripUp(): void {
+    grip = null
+    resizing = false
+  }
+
   // ---- being clicked ------------------------------------------------------
   // A moment of one of the reactions, with a hop, then back to whatever it
   // was doing. No words: the bubble is for what the model says (presence.ts).
@@ -265,6 +295,7 @@
     theme: { bg: string; fg: string; muted: string; border: string; accent: string }
     muted: boolean
     hop: number
+    size: number
   }
   const feed = (): ((s: FeedState) => Promise<void>) | undefined =>
     (window as unknown as { go?: { main?: { App?: { SetCompanionState?: (s: FeedState) => Promise<void> } } } }).go?.main?.App?.SetCompanionState
@@ -285,12 +316,13 @@
       theme: themeColors(),
       muted: !companion.voice,
       hop: hops,
+      size: SIZE,
     }
     void send(s).catch(() => {})
   })
   $effect(() => () => {
     const send = feed()
-    if (send) void send({ pose: 'idle', report: '', on: false, prefs: prefsOf(), shown: '', words: [], cursor: false, theme: themeColors(), muted: !companion.voice, hop: hops }).catch(() => {})
+    if (send) void send({ pose: 'idle', report: '', on: false, prefs: prefsOf(), shown: '', words: [], cursor: false, theme: themeColors(), muted: !companion.voice, hop: hops, size: SIZE }).catch(() => {})
   })
 
   // ---- the body on the desktop ------------------------------------------------
@@ -338,6 +370,9 @@
           break
         case 'bake':
           desktopBody.scale = input.scale
+          break
+        case 'resize':
+          setCompanionSize(input.size)
           break
       }
     })
@@ -607,6 +642,7 @@
 <div
   class="companion"
   class:dragging
+  class:resizing
   class:flip
   style="transform:translate({pos.x}px,{pos.y}px); width:{SIZE}px; height:{SIZE}px"
   aria-hidden="true"
@@ -618,6 +654,8 @@
        hold", and the one control, which puts the companion away until the
        account menu brings it back. -->
   <div class="frame"></div>
+  <!-- The corner: a grip to resize by. -->
+  <div class="grip" role="presentation" onpointerdown={onGripDown} onpointermove={onGripMove} onpointerup={onGripUp} onpointercancel={onGripUp}></div>
   <button class="hide" type="button" title="ซ่อน" aria-label="ซ่อน" onclick={() => setCompanionOn(false)}><Icon name="x" size={11} /></button>
   <!-- The other control on the frame: the voice, on or off. The same switch
        as the avatar page's row; here because "make it stop talking" is
@@ -645,8 +683,15 @@
   .mute:hover { color: var(--text-primary); }
   /* Muted, it stays visible: a figure that will not talk should say so. */
   .mute.off { opacity: 1; color: var(--text-muted); }
-  .companion:hover .frame, .companion:hover .hide, .companion:hover .mute, .hide:focus-visible, .mute:focus-visible { opacity: 1; }
-  .dragging .frame, .dragging .hide, .dragging .mute { opacity: 0; }
+  .companion:hover .frame, .companion:hover .hide, .companion:hover .mute, .companion:hover .grip, .resizing .frame, .resizing .grip, .hide:focus-visible, .mute:focus-visible { opacity: 1; }
+  .dragging .frame, .dragging .hide, .dragging .mute, .dragging .grip { opacity: 0; }
+  /* the corner grip: two short strokes, the way a window's corner says "pull here" */
+  .grip {
+    position: absolute; right: -6px; bottom: -6px; width: 16px; height: 16px;
+    cursor: nwse-resize; opacity: 0; transition: opacity .15s;
+    background: linear-gradient(135deg, transparent 0 55%, var(--text-muted) 55% 62%, transparent 62% 75%, var(--text-muted) 75% 82%, transparent 82%);
+    border-bottom-right-radius: 14px;
+  }
   /* the report: a small card that exists only while there is something said */
   .say {
     position: absolute; right: calc(100% + 10px); bottom: 30px;

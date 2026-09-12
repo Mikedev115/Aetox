@@ -187,8 +187,9 @@ const (
 	// as "loading" on a figure that is not (owner, 13 ก.ย. 2026: "เอาเมาส์
 	// ไปแตะมันขึ้นโหลดตลอด"). The arrow is the class's; over the figure the
 	// hand says "you can hold this", as cursor: grab does in the app.
-	idcArrow = 32512
-	idcHand  = 32649
+	idcArrow    = 32512
+	idcHand     = 32649
+	idcSizeNWSE = 32642
 
 	// The body's thread runs above normal: its frames have a compositor
 	// deadline every 16.7ms, and the app's other threads (the Go runtime's,
@@ -306,7 +307,10 @@ type companionWindow struct {
 	grabY    int
 	walk     *walker
 	warmed   int    // the heading key whose neighbours were last warmed
-	button   string // "hide" or "mute" while a button is held
+	button   string // "hide", "mute" or "grip" while one is held
+	// A resize in progress: the figure's size when the grip was taken.
+	resizing bool
+	size0    int
 	hover    bool
 	tracking bool
 
@@ -512,7 +516,8 @@ func (w *companionWindow) close() {
 }
 
 // apply is the app window's report: what to be and what to say. A Hop count
-// past the last one seen is a click's reaction.
+// past the last one seen is a click's reaction; a Size other than the
+// figure's resizes it.
 func (w *companionWindow) apply(s CompanionState) {
 	w.do(func() {
 		w.state = s
@@ -520,8 +525,32 @@ func (w *companionWindow) apply(s CompanionState) {
 			w.seen = s.Hop
 			w.scene.HopAt = time.Now()
 		}
+		if !w.resizing {
+			w.setFigure(s.Size, true)
+		}
 		w.frame()
 	})
+}
+
+// setFigure sizes the figure about its top-left: the canvas is remade for
+// it, and — once the size is settled — the app window is asked for frames
+// baked at it; until they come the ones at hand are resampled.
+func (w *companionWindow) setFigure(size int, bake bool) {
+	if size <= 0 {
+		size = cFigureDefault
+	}
+	if size == w.comp.figure {
+		return
+	}
+	fx, fy := w.figureAt()
+	w.comp.setFigure(size)
+	w.w, w.h = w.comp.canvasSize()
+	w.canvas = image.NewRGBA(image.Rect(0, 0, w.w, w.h))
+	f := w.comp.figureRect()
+	w.x, w.y = fx-f.Min.X, fy-f.Min.Y
+	if bake {
+		w.on("bake", map[string]any{"scale": w.comp.spriteScale()})
+	}
 }
 
 // figureAt is where the figure's top-left is on the screen.
@@ -609,7 +638,7 @@ func (w *companionWindow) run() {
 		w.placeFigure(fx, fy)
 	}
 	w.nextBlink = time.Now().Add(blinkWait())
-	w.on("bake", map[string]any{"scale": float64(w.dpi) / 96})
+	w.on("bake", map[string]any{"scale": w.comp.spriteScale()})
 	w.frame()
 	procShowWindow.Call(hwnd, swShowNoActivate)
 	w.setInterval(frameIdleMs)
@@ -727,10 +756,17 @@ func companionWndProc(hwnd, msg, wparam, lparam uintptr) uintptr {
 			w.pressEnd()
 			return 0
 		case wmSetCursor:
-			// The hand over the figure, the arrow over its buttons.
-			if w.buttonAt(cursorPos()) == "" {
+			// The hand over the figure, the corner arrows over the grip, the
+			// arrow over the buttons.
+			switch w.buttonAt(cursorPos()) {
+			case "":
 				if hand, _, _ := procLoadCursorW.Call(0, idcHand); hand != 0 {
 					procSetCursor.Call(hand)
+					return 1
+				}
+			case "grip":
+				if cur, _, _ := procLoadCursorW.Call(0, idcSizeNWSE); cur != 0 {
+					procSetCursor.Call(cur)
 					return 1
 				}
 			}
@@ -745,6 +781,10 @@ func companionWndProc(hwnd, msg, wparam, lparam uintptr) uintptr {
 			if w.pressing {
 				w.pressing = false
 				w.walk = nil
+			}
+			if w.resizing {
+				w.resizing = false
+				w.button = ""
 			}
 			return 0
 		case wmDPIChanged:
@@ -792,7 +832,7 @@ func (w *companionWindow) dpiChanged(dpi int) {
 	f := w.comp.figureRect()
 	w.x, w.y = fx-f.Min.X, fy-f.Min.Y
 	w.frame()
-	w.on("bake", map[string]any{"scale": float64(dpi) / 96})
+	w.on("bake", map[string]any{"scale": w.comp.spriteScale()})
 	debuglog.Msg("companion: dpi now %d → canvas %dx%d, figure at %d,%d", dpi, w.w, w.h, fx, fy)
 }
 
@@ -802,7 +842,8 @@ func cursorPos() winPoint {
 	return p
 }
 
-// buttonAt is which button the screen point is on, if any.
+// buttonAt is which control the screen point is on, if any: a button, or
+// the corner grip.
 func (w *companionWindow) buttonAt(p winPoint) string {
 	hide, mute := w.comp.buttonRects()
 	q := image.Pt(int(p.X)-w.x, int(p.Y)-w.y)
@@ -811,16 +852,23 @@ func (w *companionWindow) buttonAt(p winPoint) string {
 		return "hide"
 	case (w.hover || w.state.Muted) && q.In(mute):
 		return "mute"
+	case w.hover && q.In(w.comp.gripRect()):
+		return "grip"
 	}
 	return ""
 }
 
 func (w *companionWindow) pressBegin() {
 	c := cursorPos()
-	debuglog.Msg("companion: press at %d,%d (hover=%v)", c.X, c.Y, w.hover)
 	procSetCapture.Call(w.hwnd)
 	if b := w.buttonAt(c); b != "" {
 		w.button = b
+		if b == "grip" {
+			w.resizing = true
+			w.pressAt = c
+			w.size0 = w.comp.figure
+			w.setInterval(frameActiveMs)
+		}
 		return
 	}
 	w.pressing = true
@@ -842,6 +890,13 @@ func (w *companionWindow) mouseMove() {
 	if !w.hover {
 		w.hover = true
 		w.frame()
+	}
+	if w.resizing {
+		// The corner follows the hand: the larger of the two deltas, in
+		// logical pixels, added to the size it started at.
+		d := max(int(c.X-w.pressAt.X), int(c.Y-w.pressAt.Y))
+		w.setFigure(w.size0+int(float64(d)*96/float64(w.dpi)), false)
+		return
 	}
 	if !w.pressing || w.walk == nil {
 		return
@@ -869,11 +924,17 @@ func (w *companionWindow) mouseMove() {
 }
 
 func (w *companionWindow) pressEnd() {
-	debuglog.Msg("companion: release (pressing=%v moved=%v button=%q)", w.pressing, w.moved, w.button)
 	if w.button != "" {
 		b := w.button
 		w.button = ""
 		procReleaseCapture.Call()
+		if b == "grip" {
+			w.resizing = false
+			w.on("resize", map[string]any{"size": w.comp.figure})
+			w.on("bake", map[string]any{"scale": w.comp.spriteScale()})
+			w.frame()
+			return
+		}
 		if w.buttonAt(cursorPos()) == b {
 			w.on(b, nil)
 		}
@@ -916,7 +977,7 @@ func (w *companionWindow) decodesSoFar() int {
 			}
 		}
 	}
-	count(w.sprites(float64(w.dpi) / 96))
+	count(w.sprites(w.comp.spriteScale()))
 	return n
 }
 
@@ -927,7 +988,7 @@ func (w *companionWindow) decodesSoFar() int {
 // so the frames a turn is about to need are being read while the current
 // ones draw. Asynchronous; the decode runs outside the store's lock.
 func (w *companionWindow) warmWalk(heading float64) {
-	src := w.sprites(float64(w.dpi) / 96)
+	src := w.sprites(w.comp.spriteScale())
 	ws, ok := src.(interface{ warm([]string) })
 	if !ok {
 		if chain, isChain := src.(chainedSprites); isChain && len(chain) > 0 {
@@ -996,7 +1057,7 @@ func (w *companionWindow) frame() {
 	if w.hidden {
 		return
 	}
-	w.comp.setSprites(w.sprites(float64(w.dpi) / 96))
+	w.comp.setSprites(w.sprites(w.comp.spriteScale()))
 
 	if w.pressing && w.walk != nil && w.moved {
 		fx, fy, moved := w.walk.tick(now)
@@ -1024,7 +1085,7 @@ func (w *companionWindow) frame() {
 	w.scene.Muted = s.Muted
 	// The frame and its buttons are for holding, not for the way there:
 	// hidden while dragging (Companion.svelte .dragging .frame).
-	w.scene.Hover = w.hover && !(w.pressing && w.moved)
+	w.scene.Hover = (w.hover && !(w.pressing && w.moved)) || w.resizing
 	w.scene.Shut = now.Before(w.shutUntil)
 	w.scene.Flip = w.bubbleFlips()
 	if w.scene.Pose == "" {
@@ -1051,7 +1112,7 @@ func (w *companionWindow) frame() {
 	// the screen — which is what the eye sees, not when it was started.
 	w.stats.frame(time.Now(), t1.Sub(t0), t2.Sub(t1), time.Since(t2))
 
-	active := w.pressing || s.Cursor || now.Sub(w.scene.HopAt) < hopMs*time.Millisecond || now.Sub(w.comp.crossAt) < crossMs*time.Millisecond
+	active := w.pressing || w.resizing || s.Cursor || now.Sub(w.scene.HopAt) < hopMs*time.Millisecond || now.Sub(w.comp.crossAt) < crossMs*time.Millisecond
 	if active {
 		w.setInterval(frameActiveMs)
 	} else {

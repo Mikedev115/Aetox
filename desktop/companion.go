@@ -64,6 +64,9 @@ type CompanionState struct {
 	Theme  CompanionTheme `json:"theme"`
 	Muted  bool           `json:"muted,omitempty"`
 	Hop    int            `json:"hop,omitempty"`
+	// Size is the figure's logical size, the user's (companionSetting size);
+	// 0 is the default. The body scales its frames by it.
+	Size int `json:"size,omitempty"`
 }
 
 type companionServer struct {
@@ -95,7 +98,8 @@ type companionBody interface {
 // companionInputEvent is what the body's doings reach the window as:
 // `kind` is click · dragStart · dragEnd · hide · mute · moved (x, y: the
 // figure's top-left, physical px) · bake (scale: frames wanted at this
-// scale). The brain in Companion.svelte answers each.
+// scale) · resize (size: the figure's new logical size, dragged at the
+// corner). The brain in Companion.svelte answers each.
 const companionInputEvent = "companion:input"
 
 // OpenCompanionWindow sends the companion out of the app window to (x, y)

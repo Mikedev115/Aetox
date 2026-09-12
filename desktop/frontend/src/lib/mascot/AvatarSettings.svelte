@@ -18,10 +18,18 @@
   // parts.ts appears here untouched. Under the stage, every pose the rig has,
   // to see the look move.
   //
-  // Personas — six slots to keep a look in and switch between — exist for
-  // the agents a user will design later: a persona is a look ready to be
-  // handed to one. The banner above says whose avatar this is: the
+  // Personas — as many saved looks as the user wants, a + card at the end
+  // of the row — exist for the agents a user will design later: a persona is
+  // a look ready to be handed to one. The banner above says whose avatar this is: the
   // assistant's, the same on every desk (COMPANY.md, one face).
+  //
+  // Two sub-menus (owner, 13 ก.ย.: "แยก ตั้งค่าอวตารหลัก กับ ออกแบบอวตาร"), the
+  // same .set-subtabs bar ตั้งค่า › การเรียนรู้ uses: the first, and the one
+  // the page opens on, is the stage, the poses and the personas; the second
+  // the switches for the main avatar — on the screen, where, whether it
+  // talks. Apart, the switches no longer sit under a forty-cell picker
+  // nobody scrolls past twice; design first because that is what the page
+  // is for (owner: "เอาออกแบบอวตารไว้ก่อนตั้งค่าอวตาร").
   //
   // Words come from avatarText.ts (temporary, see its note); choices go to
   // avatarPrefs.svelte.ts, which the companion reads.
@@ -34,9 +42,9 @@
   import { avatarText } from './avatarText'
   import {
     avatarPrefs, setAvatarPrefs, resetAvatarPrefs, isDefaultPrefs, assistantOptions,
-    personas, savePersona, usePersona, clearPersona, wornPersona, PERSONA_SLOTS,
+    personas, addPersona, savePersona, usePersona, removePersona, wornPersona,
   } from './avatarPrefs.svelte'
-  import { companion, setCompanionOn, setCompanionVoice, setCompanionGreet, setCompanionPlace } from './companionSetting.svelte'
+  import { companion, setCompanionOn, setCompanionVoice, setCompanionGreet, setCompanionPlace, setCompanionSize, SIZE_DEFAULT, SIZE_MIN, SIZE_MAX } from './companionSetting.svelte'
   import { desktopBody } from './desktopBody.svelte'
   import { speech, speak, stopSpeechIf } from '../speech.svelte'
   import { openSettingsAt } from '../stores/cockpit.svelte'
@@ -44,6 +52,7 @@
 
   const text = $derived(avatarText(i18n.locale))
   const opts = $derived(assistantOptions(avatarPrefs))
+  let tab = $state<'design' | 'main'>('design')
   const POSES = Object.keys(POSE) as PoseId[]
   let previewPose = $state<PoseId>('idle')
   const worn = $derived(wornPersona(avatarPrefs))
@@ -154,6 +163,114 @@
   <h2>{text.title}</h2>
   <p class="d muted avatar-blurb">{text.blurb}</p>
 
+  <div class="set-subtabs" role="tablist" aria-label={text.title}>
+    <button type="button" class="set-subtab" role="tab" aria-selected={tab === 'design'} class:active={tab === 'design'} onclick={() => (tab = 'design')}>
+      <Icon name="palette" size={14} />
+      <span>{text.tabDesign}</span>
+    </button>
+    <button type="button" class="set-subtab" role="tab" aria-selected={tab === 'main'} class:active={tab === 'main'} onclick={() => (tab = 'main')}>
+      <Icon name="slidersHorizontal" size={14} />
+      <span>{text.tabMain}</span>
+    </button>
+  </div>
+
+  {#if tab === 'main'}
+  <div class="settings-card">
+    <div class="set-row">
+      <div class="set-txt">
+        <div class="t">{text.onScreen}</div>
+        <div class="d">{text.onScreenDesc}</div>
+      </div>
+      <label class="mswitch">
+        <input type="checkbox" checked={companion.on} aria-label={text.onScreen} onchange={(e) => setCompanionOn(e.currentTarget.checked)} />
+        <span></span>
+      </label>
+    </div>
+    <!-- Where it lives: this window, or a window of its own on the desktop
+         (companionSetting.svelte.ts `place`). A choice, not a replacement —
+         the owner wanted both kept and the cost of each said (13 ก.ย. 2026:
+         "ทำเป็นตัวเลือก … เขียนรายละเอียดบอกก็พอว่ากินทรัพยากรไม่เท่ากัน"). -->
+    <div class="set-row place-row" class:dim={!companion.on}>
+      <div class="set-txt">
+        <div class="t">{text.place}</div>
+        <div class="d">{text.placeDesc}</div>
+        <ul class="place-list">
+          <li class:now={companion.place === 'window'}><b>{text.placeWindow}</b><span>{text.placeWindowDesc}</span></li>
+          <li class:now={companion.place === 'desktop'}><b>{text.placeDesktop}</b><span>{text.placeDesktopDesc}</span></li>
+        </ul>
+        {#if desktopBody.baking}
+          <div class="voice-note soft" role="status">{text.placeBaking}</div>
+        {/if}
+      </div>
+      <div class="seg place-seg" role="radiogroup" aria-label={text.place}>
+        <button type="button" class="seg-btn" class:active={companion.place === 'window'} role="radio" aria-checked={companion.place === 'window'} onclick={() => setCompanionPlace('window')}>
+          <span class="ic"><Icon name="square" size={13} /></span>{text.placeWindow}
+        </button>
+        <button type="button" class="seg-btn" class:active={companion.place === 'desktop'} role="radio" aria-checked={companion.place === 'desktop'} onclick={() => setCompanionPlace('desktop')}>
+          <span class="ic"><Icon name="monitor" size={13} /></span>{text.placeDesktop}
+        </button>
+      </div>
+    </div>
+    <!-- The size: set by dragging the figure's corner, shown here as the
+         number it is, with the way back to the default. -->
+    <div class="set-row size-row" class:dim={!companion.on}>
+      <div class="set-txt">
+        <div class="t">{text.size} <span class="tag">{companion.size} px</span></div>
+        <div class="d">{text.sizeDesc.replace('{min}', String(SIZE_MIN)).replace('{max}', String(SIZE_MAX))}</div>
+      </div>
+      {#if companion.size !== SIZE_DEFAULT}
+        <button type="button" class="chip" onclick={() => setCompanionSize(SIZE_DEFAULT)}>{text.sizeReset}</button>
+      {/if}
+    </div>
+    <!-- The voice: a row under the figure's own, since it is the figure that
+         talks (a hidden companion is a silent one). Below it, why it cannot,
+         when it cannot; and a way to hear it, so "on" can be checked here. -->
+    <div class="set-row voice-row" class:dim={!companion.on}>
+      <div class="set-txt">
+        <div class="t">{text.voice}</div>
+        <div class="d">{text.voiceDesc}</div>
+        {#if companion.voice && voiceNote}
+          <div class="voice-note" class:soft={voiceNote === 'checking'} role="status">
+            {#if voiceNote === 'checking'}
+              {text.voiceChecking}
+            {:else}
+              <Icon name="alertTriangle" size={13} />
+              <span>
+                {voiceNote === 'engine' ? text.voiceNoEngine : text.voiceNoLang}
+                {#if voiceNote === 'engine'}{voiceReason}{/if}
+                <button type="button" class="link" onclick={() => openSettingsAt('voice')}>{text.voiceSettings}</button>
+              </span>
+            {/if}
+          </div>
+        {/if}
+      </div>
+      <div class="set-ctrl voice-ctrl">
+        {#if companion.voice}
+          <button type="button" class="chip" class:on={trying} onclick={tryVoice}>{trying ? '■' : ''} {text.voiceTry}</button>
+        {/if}
+        <label class="mswitch">
+          <input type="checkbox" checked={companion.voice} aria-label={text.voice} onchange={(e) => setCompanionVoice(e.currentTarget.checked)} />
+          <span></span>
+        </label>
+      </div>
+    </div>
+    <!-- One step under the voice: whether hello is among what it says. -->
+    {#if companion.voice}
+      <div class="set-row greet-row" class:dim={!companion.on}>
+        <div class="set-txt">
+          <div class="t">{text.greet}</div>
+          <div class="d">{text.greetDesc}</div>
+        </div>
+        <label class="mswitch">
+          <input type="checkbox" checked={companion.greet} aria-label={text.greet} onchange={(e) => setCompanionGreet(e.currentTarget.checked)} />
+          <span></span>
+        </label>
+      </div>
+    {/if}
+  </div>
+
+  <p class="d muted avatar-note">{text.agentsNote}</p>
+  {:else}
   <div class="avatar-main">
     <span class="star"><Icon name="sparkles" size={14} /></span>
     <span>{text.mainNote}</span>
@@ -244,113 +361,32 @@
     <div class="slots">
       {#each personas.slots as slot, i (i)}
         <div class="slot" class:worn={worn === i}>
-          {#if slot}
-            <Mascot {...assistantOptions(slot)} size={64} still />
-          {:else}
-            <div class="empty">{text.personaEmpty}</div>
-          {/if}
+          <Mascot {...assistantOptions(slot)} size={64} still />
           <div class="meta">
             <b>{text.persona} {i + 1}</b>
-            <span>{worn === i ? text.worn : slot ? '' : text.personaEmpty}</span>
+            <span>{worn === i ? text.worn : ''}</span>
           </div>
           <div class="acts">
-            {#if slot}
-              <button type="button" class="chip pri" disabled={worn === i} onclick={() => usePersona(i)}>{text.use}</button>
-            {/if}
-            <button type="button" class="chip" onclick={() => savePersona(i)}>{text.save}</button>
-            {#if slot}
-              <button type="button" class="chip" onclick={() => clearPersona(i)}>{text.clear}</button>
-            {/if}
+            <button type="button" class="chip pri" disabled={worn === i} onclick={() => usePersona(i)}>{text.use}</button>
+            <button type="button" class="chip" disabled={worn === i} onclick={() => savePersona(i)}>{text.save}</button>
+            <button type="button" class="chip" onclick={() => removePersona(i)}>{text.remove}</button>
           </div>
         </div>
       {/each}
+      <!-- The + card, always last: what is worn now becomes one more
+           persona. Pressed while the look is already kept, it says so
+           instead of keeping a twin. -->
+      <button type="button" class="slot add" disabled={worn >= 0} onclick={() => addPersona()}>
+        <span class="empty"><Icon name="plus" size={22} /></span>
+        <span class="meta">
+          <b>{text.personaAdd}</b>
+          <span>{worn >= 0 ? text.worn : text.personaAddDesc}</span>
+        </span>
+      </button>
     </div>
   </div>
 
-  <div class="settings-card">
-    <div class="set-row">
-      <div class="set-txt">
-        <div class="t">{text.onScreen}</div>
-        <div class="d">{text.onScreenDesc}</div>
-      </div>
-      <label class="mswitch">
-        <input type="checkbox" checked={companion.on} aria-label={text.onScreen} onchange={(e) => setCompanionOn(e.currentTarget.checked)} />
-        <span></span>
-      </label>
-    </div>
-    <!-- Where it lives: this window, or a window of its own on the desktop
-         (companionSetting.svelte.ts `place`). A choice, not a replacement —
-         the owner wanted both kept and the cost of each said (13 ก.ย. 2026:
-         "ทำเป็นตัวเลือก … เขียนรายละเอียดบอกก็พอว่ากินทรัพยากรไม่เท่ากัน"). -->
-    <div class="set-row place-row" class:dim={!companion.on}>
-      <div class="set-txt">
-        <div class="t">{text.place}</div>
-        <div class="d">{text.placeDesc}</div>
-        <ul class="place-list">
-          <li class:now={companion.place === 'window'}><b>{text.placeWindow}</b><span>{text.placeWindowDesc}</span></li>
-          <li class:now={companion.place === 'desktop'}><b>{text.placeDesktop}</b><span>{text.placeDesktopDesc}</span></li>
-        </ul>
-        {#if desktopBody.baking}
-          <div class="voice-note soft" role="status">{text.placeBaking}</div>
-        {/if}
-      </div>
-      <div class="seg place-seg" role="radiogroup" aria-label={text.place}>
-        <button type="button" class="seg-btn" class:active={companion.place === 'window'} role="radio" aria-checked={companion.place === 'window'} onclick={() => setCompanionPlace('window')}>
-          <span class="ic"><Icon name="square" size={13} /></span>{text.placeWindow}
-        </button>
-        <button type="button" class="seg-btn" class:active={companion.place === 'desktop'} role="radio" aria-checked={companion.place === 'desktop'} onclick={() => setCompanionPlace('desktop')}>
-          <span class="ic"><Icon name="monitor" size={13} /></span>{text.placeDesktop}
-        </button>
-      </div>
-    </div>
-    <!-- The voice: a row under the figure's own, since it is the figure that
-         talks (a hidden companion is a silent one). Below it, why it cannot,
-         when it cannot; and a way to hear it, so "on" can be checked here. -->
-    <div class="set-row voice-row" class:dim={!companion.on}>
-      <div class="set-txt">
-        <div class="t">{text.voice}</div>
-        <div class="d">{text.voiceDesc}</div>
-        {#if companion.voice && voiceNote}
-          <div class="voice-note" class:soft={voiceNote === 'checking'} role="status">
-            {#if voiceNote === 'checking'}
-              {text.voiceChecking}
-            {:else}
-              <Icon name="alertTriangle" size={13} />
-              <span>
-                {voiceNote === 'engine' ? text.voiceNoEngine : text.voiceNoLang}
-                {#if voiceNote === 'engine'}{voiceReason}{/if}
-                <button type="button" class="link" onclick={() => openSettingsAt('voice')}>{text.voiceSettings}</button>
-              </span>
-            {/if}
-          </div>
-        {/if}
-      </div>
-      <div class="set-ctrl voice-ctrl">
-        {#if companion.voice}
-          <button type="button" class="chip" class:on={trying} onclick={tryVoice}>{trying ? '■' : ''} {text.voiceTry}</button>
-        {/if}
-        <label class="mswitch">
-          <input type="checkbox" checked={companion.voice} aria-label={text.voice} onchange={(e) => setCompanionVoice(e.currentTarget.checked)} />
-          <span></span>
-        </label>
-      </div>
-    </div>
-    <!-- One step under the voice: whether hello is among what it says. -->
-    {#if companion.voice}
-      <div class="set-row greet-row" class:dim={!companion.on}>
-        <div class="set-txt">
-          <div class="t">{text.greet}</div>
-          <div class="d">{text.greetDesc}</div>
-        </div>
-        <label class="mswitch">
-          <input type="checkbox" checked={companion.greet} aria-label={text.greet} onchange={(e) => setCompanionGreet(e.currentTarget.checked)} />
-          <span></span>
-        </label>
-      </div>
-    {/if}
-  </div>
-
-  <p class="d muted avatar-note">{text.agentsNote}</p>
+  {/if}
 </div>
 
 <style>
@@ -359,7 +395,7 @@
      row of many tabs and wrong for two names that must both read. */
   .place-seg { flex: none; }
   .place-seg .seg-btn { flex: none; min-width: 0; padding: 6px 14px; overflow: visible; }
-  .place-row.dim .set-txt { opacity: .55; }
+  .place-row.dim .set-txt, .size-row.dim .set-txt { opacity: .55; }
   .place-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
   .place-list li { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: baseline; font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.45; }
   .place-list b { font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
@@ -436,6 +472,11 @@
   .slot.worn { border-color: var(--interactive); }
   .slot :global(.mascot) { flex: none; }
   .empty { width: 64px; height: 64px; flex: none; border: 1px dashed var(--border-subtle); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: var(--fs-xs); }
+  .slot.add { appearance: none; font: inherit; text-align: left; border-style: dashed; cursor: pointer; color: inherit; }
+  .slot.add:hover:not(:disabled) { border-color: var(--border-strong); }
+  .slot.add:hover:not(:disabled) .empty { border-color: var(--interactive); color: var(--interactive); }
+  .slot.add:disabled { cursor: default; opacity: .6; }
+  .chip:disabled:not(.pri) { opacity: .5; cursor: default; }
   .meta { flex: 1; min-width: 0; }
   .meta b { display: block; font-size: var(--fs-sm); }
   .meta span { font-size: var(--fs-xs); color: var(--text-muted); }

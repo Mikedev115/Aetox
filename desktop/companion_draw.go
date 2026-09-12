@@ -27,12 +27,17 @@ import (
 
 // Layout, logical pixels (Companion.svelte's numbers).
 const (
-	cSprite  = 130 // bake.ts FIGURE * BOX / 64
-	cFigure  = 104 // Companion.svelte SIZE
-	cFigPad  = (cSprite - cFigure) / 2
-	cCanvasW = 764
-	cCanvasH = 180
-	cFigTop  = 44 // room above for the bubble's rise, the hop and the buttons
+	// The figure's default size (Companion.svelte SIZE_DEFAULT) and the caps
+	// a resize is held between (SIZE_MIN, SIZE_MAX); the baked picture is
+	// BOX/64 of the figure (bake.ts PAD).
+	cFigureDefault = 104
+	cFigureMin     = 64
+	cFigureMax     = 240
+	cSpriteBox     = 80
+	cFigTop        = 44 // room above for the bubble's rise, the hop and the buttons
+	cCanvasBottom  = 8
+	// The corner grip of the hover frame, a resize handle.
+	cGrip = 16
 
 	cBubbleMaxW   = 300
 	cBubbleGap    = 10
@@ -127,6 +132,8 @@ type composer struct {
 	sprites spriteSource
 	text    textPainter
 	scale   float64
+	// The figure's logical size — the user's (CompanionState.Size).
+	figure int
 
 	pose     string
 	poseAt   time.Time
@@ -248,7 +255,36 @@ func newComposer(sprites spriteSource, text textPainter, scale float64) *compose
 	if sprites == nil {
 		sprites = noSprites{}
 	}
-	return &composer{sprites: sprites, text: text, scale: scale}
+	return &composer{sprites: sprites, text: text, scale: scale, figure: cFigureDefault}
+}
+
+// setFigure sizes the figure, within the caps; the sprite box, the canvas
+// and everything laid out from the figure follow. Frames baked at another
+// size are resampled until the window bakes this one (fit).
+func (c *composer) setFigure(size int) {
+	if size <= 0 {
+		size = cFigureDefault
+	}
+	size = max(cFigureMin, min(cFigureMax, size))
+	if size == c.figure {
+		return
+	}
+	c.figure = size
+	c.scaled = nil
+	c.used = image.Rectangle{}
+}
+
+// spriteSize is the baked picture's logical size at the figure's size.
+func (c *composer) spriteSize() int { return c.figure * cSpriteBox / 64 }
+
+// spriteScale is what a baked set for this figure at this scale is named
+// by: the picture's pixels per logical pixel of a default-sized figure,
+// which is how bake.ts sizes it (setHash's scale).
+func (c *composer) spriteScale() float64 { return c.scale * float64(c.figure) / cFigureDefault }
+
+func (c *composer) canvasW() int { return c.spriteSize() + 2*(cBubbleMaxW+cBubbleGap+cArrow+2) }
+func (c *composer) canvasH() int {
+	return cFigTop + c.figure + (c.spriteSize()-c.figure)/2 + cCanvasBottom
 }
 
 // setSprites swaps the source; nil means none.
@@ -262,21 +298,31 @@ func (c *composer) setSprites(s spriteSource) {
 func (c *composer) px(logical float64) int { return int(math.Round(logical * c.scale)) }
 
 // canvasSize is the window's size at this scale.
-func (c *composer) canvasSize() (int, int) { return c.px(cCanvasW), c.px(cCanvasH) }
+func (c *composer) canvasSize() (int, int) {
+	return c.px(float64(c.canvasW())), c.px(float64(c.canvasH()))
+}
 
 // figureRect is where the 104-logical figure sits on the canvas — what the
 // clamp keeps on a monitor and what the pointer is "near".
 func (c *composer) figureRect() image.Rectangle {
-	x := c.px((cCanvasW - cFigure) / 2)
+	x := c.px(float64(c.canvasW()-c.figure) / 2)
 	y := c.px(cFigTop)
-	return image.Rect(x, y, x+c.px(cFigure), y+c.px(cFigure))
+	return image.Rect(x, y, x+c.px(float64(c.figure)), y+c.px(float64(c.figure)))
 }
 
 // spriteRect is where the baked 130-logical picture goes.
 func (c *composer) spriteRect() image.Rectangle {
 	f := c.figureRect()
-	p := c.px(cFigPad)
-	return image.Rect(f.Min.X-p, f.Min.Y-p, f.Min.X-p+c.px(cSprite), f.Min.Y-p+c.px(cSprite))
+	p := c.px(float64(c.spriteSize()-c.figure) / 2)
+	return image.Rect(f.Min.X-p, f.Min.Y-p, f.Min.X-p+c.px(float64(c.spriteSize())), f.Min.Y-p+c.px(float64(c.spriteSize())))
+}
+
+// gripRect is the resize handle: the bottom-right corner of the hover
+// frame.
+func (c *composer) gripRect() image.Rectangle {
+	f := c.figureRect().Inset(-c.px(cFrameInset))
+	g := c.px(cGrip)
+	return image.Rect(f.Max.X-g, f.Max.Y-g, f.Max.X, f.Max.Y)
 }
 
 // buttonRects are the hide (right) and mute (left) circles, drawn on hover.
@@ -604,6 +650,7 @@ func (c *composer) frame(dst *image.RGBA, s companionScene) image.Rectangle {
 		fig := c.figureRect().Inset(-c.px(cFrameInset))
 		dashedRoundRect(dst, fig, float64(c.px(cFrameRadius)), border, float64(c.scale))
 		c.button(dst, hide, "icon-x", bg, border, muted)
+		c.grip(dst, muted)
 		used = used.Union(fig.Inset(-2)).Union(hide.Inset(-1))
 	}
 	icon := "icon-volume2"
@@ -612,6 +659,32 @@ func (c *composer) frame(dst *image.RGBA, s companionScene) image.Rectangle {
 	}
 	c.button(dst, mute, icon, bg, border, muted)
 	return used
+}
+
+// grip draws the resize handle: two short diagonal strokes in the corner,
+// the way a window's corner says "pull here".
+func (c *composer) grip(dst *image.RGBA, ink color.RGBA) {
+	g := c.gripRect()
+	w := float64(c.scale)
+	for _, off := range []float64{5, 10} {
+		// a stroke from (max-off, max) to (max, max-off), 1 logical px wide
+		o := c.px(off)
+		ax, ay := float64(g.Max.X-o), float64(g.Max.Y)-1
+		bx, by := float64(g.Max.X)-1, float64(g.Max.Y-o)
+		shape := func(x, y float64) float64 { return segmentDist(x, y, ax, ay, bx, by) - 0.5*w }
+		paintShape(dst, g.Inset(-1), shape, ink, ink, w)
+	}
+}
+
+// segmentDist is the distance from (x, y) to the segment a–b.
+func segmentDist(x, y, ax, ay, bx, by float64) float64 {
+	dx, dy := bx-ax, by-ay
+	l := dx*dx + dy*dy
+	t := 0.0
+	if l > 0 {
+		t = math.Max(0, math.Min(1, ((x-ax)*dx+(y-ay)*dy)/l))
+	}
+	return math.Hypot(x-(ax+t*dx), y-(ay+t*dy))
 }
 
 func (c *composer) button(dst *image.RGBA, r image.Rectangle, icon string, bg, border, ink color.RGBA) {

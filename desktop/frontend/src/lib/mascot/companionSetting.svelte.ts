@@ -34,6 +34,30 @@ const KEY = 'companionOn'
 const VOICE_KEY = 'companionVoice'
 const GREET_KEY = 'companionGreet'
 const PLACE_KEY = 'companionPlace'
+const SIZE_KEY = 'companionSize'
+
+/** How big the figure is drawn, in logical px — the same number in the
+ *  window and on the desktop. Set by dragging the corner of its hover frame
+ *  (owner, 13 ก.ย. 2026: "ขยายใหญ่และเล็กลงได้ … เอาเพดานสูงสุดด้วย อย่าลืม
+ *  เพดานเล็กสุด"). The floor keeps the face readable; the ceiling keeps it a
+ *  figure on the screen, not a screen. */
+export const SIZE_DEFAULT = 104
+export const SIZE_MIN = 64
+export const SIZE_MAX = 240
+
+export function clampSize(n: number): number {
+  if (!Number.isFinite(n)) return SIZE_DEFAULT
+  return Math.round(Math.max(SIZE_MIN, Math.min(SIZE_MAX, n)))
+}
+
+function seedSize(): number {
+  try {
+    const raw = localStorage.getItem(SIZE_KEY)
+    return raw ? clampSize(Number(raw)) : SIZE_DEFAULT
+  } catch {
+    return SIZE_DEFAULT
+  }
+}
 
 export type CompanionPlace = 'window' | 'desktop'
 
@@ -53,12 +77,22 @@ function seed(key: string): boolean {
   }
 }
 
-export const companion = $state<{ on: boolean; voice: boolean; greet: boolean; place: CompanionPlace }>({
+export const companion = $state<{ on: boolean; voice: boolean; greet: boolean; place: CompanionPlace; size: number }>({
   on: seed(KEY),
   voice: seed(VOICE_KEY),
   greet: seed(GREET_KEY),
   place: seedPlace(),
+  size: seedSize(),
 })
+
+export function setCompanionSize(size: number): void {
+  companion.size = clampSize(size)
+  try {
+    localStorage.setItem(SIZE_KEY, String(companion.size))
+  } catch {
+    // Not remembered, still this size for the session.
+  }
+}
 
 export function setCompanionPlace(place: CompanionPlace): void {
   companion.place = place
