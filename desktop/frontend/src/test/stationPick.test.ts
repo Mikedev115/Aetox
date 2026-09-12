@@ -73,12 +73,27 @@ describe('station chips', () => {
     vi.mocked(ListTeams).mockImplementation(async () => [] as any)
     const { container } = render(StationPick)
 
-    expect(teamChip(container).textContent).toContain('ยังไม่มีทีม')
+    expect(teamChip(container).textContent).toContain('ยังไม่มีทีมช่วย')
     expect(container.querySelector('.station-team.none')).toBeTruthy()
     await fireEvent.click(teamChip(container))
     await waitFor(() => expect(menu(container, 'team')).toBeTruthy())
     expect(menu(container, 'team').textContent).toContain('ยังไม่มีทีมฝั่งโค้ด')
     expect(screen.getByText('จัดการทีม')).toBeTruthy()
+    // No team is the roster this chat is on: its row is lit.
+    expect(menu(container, 'team').querySelector('.team-row.no-team.on')).toBeTruthy()
+  })
+
+  it('TEAM menu: no team is a row too — picking it opens a chat that hires nobody', async () => {
+    vi.mocked(NewTeamSession).mockResolvedValue('20260913-100003.000' as any)
+    const { container } = render(StationPick)
+
+    await fireEvent.click(teamChip(container))
+    await waitFor(() => expect(menu(container, 'team').querySelector('.team-row.no-team')).toBeTruthy())
+    const row = menu(container, 'team').querySelector('.team-row.no-team') as HTMLElement
+    expect(row.classList.contains('on')).toBe(false) // this chat is on ผู้ช่วยในคอมพิวเตอร์
+    expect(row.textContent).toContain('ไม่ใช้ทีมช่วย')
+    await fireEvent.click(row.querySelector('.focus-item') as HTMLElement)
+    await waitFor(() => expect(vi.mocked(NewTeamSession)).toHaveBeenCalledWith('specialized', ''))
   })
 
   it('hides the team chip behind a chair, and wears the chair’s face', async () => {
@@ -123,8 +138,8 @@ describe('station chips', () => {
     const { container } = render(StationPick)
 
     await fireEvent.click(teamChip(container))
-    await waitFor(() => expect(menu(container, 'team').querySelectorAll('.team-row').length).toBe(2))
-    const rows = Array.from(menu(container, 'team').querySelectorAll('.team-row'))
+    await waitFor(() => expect(menu(container, 'team').querySelectorAll('.team-row:not(.no-team)').length).toBe(2))
+    const rows = Array.from(menu(container, 'team').querySelectorAll('.team-row:not(.no-team)'))
     expect(rows[0].classList.contains('on')).toBe(true)
     await waitFor(() => expect(rows[0].textContent).toContain('มอบงานได้ 1/2'))
     expect(rows[1].textContent).toContain('ทีมร้าน')
@@ -146,11 +161,11 @@ describe('station chips', () => {
     const { container } = render(StationPick)
 
     await fireEvent.click(teamChip(container))
-    await waitFor(() => expect(menu(container, 'team').querySelectorAll('.team-row').length).toBe(2))
+    await waitFor(() => expect(menu(container, 'team').querySelectorAll('.team-row:not(.no-team)').length).toBe(2))
     await fireEvent.click(screen.getByText('ผู้ช่วยในคอมพิวเตอร์', { selector: '.team-row .focus-item .t' }))
     expect(vi.mocked(NewTeamSession)).not.toHaveBeenCalled()
     await fireEvent.click(teamChip(container))
-    await waitFor(() => expect(menu(container, 'team').querySelectorAll('.team-row').length).toBe(2))
+    await waitFor(() => expect(menu(container, 'team').querySelectorAll('.team-row:not(.no-team)').length).toBe(2))
     await fireEvent.click(screen.getByText('ทีมร้าน', { selector: '.team-row .focus-item .t' }))
     await waitFor(() => expect(vi.mocked(NewTeamSession)).toHaveBeenCalledWith('specialized', 'ทีมร้าน'))
   })

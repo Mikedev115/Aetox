@@ -19,6 +19,7 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/debuglog"
+	"github.com/Mikedev115/Aetox/internal/subagent"
 	"github.com/Mikedev115/Aetox/internal/turn"
 	_ "modernc.org/sqlite"
 )
@@ -876,6 +877,51 @@ CREATE TABLE IF NOT EXISTS project_folders (
 			return err
 		},
 	},
+	{
+		version: 27,
+		name:    "pre_team_rows_join_the_seed",
+		apply:   preTeamRowsJoinTheSeed,
+	},
+}
+
+// preTeamRowsJoinTheSeed puts every main chat that says no team on its
+// desk's preferred one — once, here, instead of on reopen. Until 13 ก.ย. the
+// upgrade ran in LoadSession, which made an empty team mean two things: a row from
+// before teams existed (every chat then hired everyone, so it must not come
+// back able to hire nobody) and, from the day the picker offered it, a chat
+// somebody opened on no team on purpose — which reopened on the seed and
+// silently un-chose. After this step an empty team means the second thing only. A
+// chair chat is left alone: it hires nobody whichever team it names.
+//
+// subagent.PreferredTeam seeds the teams' home if it is missing, which is
+// what the first roster read would do a moment later anyway.
+func preTeamRowsJoinTheSeed(tx *sql.Tx) error {
+	rows, err := tx.Query(`SELECT DISTINCT mode FROM sessions WHERE team = '' AND agent = ''`)
+	if err != nil {
+		return err
+	}
+	var desks []string
+	for rows.Next() {
+		var desk string
+		if err := rows.Scan(&desk); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		desks = append(desks, desk)
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	for _, desk := range desks {
+		team := subagent.PreferredTeam(desk)
+		if team == subagent.NoTeam {
+			continue
+		}
+		if _, err := tx.Exec(`UPDATE sessions SET team = ? WHERE mode = ? AND team = '' AND agent = ''`, team, desk); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // latestSchemaVersion is what this build understands.
