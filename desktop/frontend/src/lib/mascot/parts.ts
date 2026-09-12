@@ -238,16 +238,16 @@ export const PANEL: Part[] = [
   // A pillow under the head of the sleeper (owner, 12 ก.ย.: "เอาแบตออก เอาหมอน
   // มาให้น้องนอน"). On the ground layer, so the head lies on it; it sits where
   // the head comes to rest once the body leans back (mascot.css pose-recharge)
-  // — low and to the left, past the viewBox's edge (the svg overflows) so it
-  // shows out from under the head — flared at the corners the way a pillow
-  // is, a seam across.
+  // — low and to the left, past the viewBox's edge (the svg overflows) — and
+  // big ("หมอนอันโต ๆ"): the whole sleeper lies on it, it shows all round the
+  // head. Flared at the corners the way a pillow is, a seam across.
   {
     id: 'pillow', label: 'หมอน',
     svg: (p) =>
-      `<ellipse cx="9" cy="62.4" rx="15" ry="2.4" fill="${p.ink}" opacity=".3"/>` +
-      `<path d="M-6 55c0-2.6 3.4-3.4 5.8-2.6h18.4c2.4-.8 5.8 0 5.8 2.6v5c0 2.6-3.4 3.4-5.8 2.6H-.2c-2.4 .8-5.8 0-5.8-2.6z" fill="${p.card}" stroke="${p.cardLine}" stroke-width=".6"/>` +
-      `<path d="M-1 58.4q10 1.8 20 0" fill="none" stroke="${p.cardLine}" stroke-width=".6" opacity=".55" stroke-linecap="round"/>` +
-      `<path d="M-3.5 53.6c3.5-.9 7-1.1 10.5-1.1" fill="none" stroke="#fff" stroke-width=".8" opacity=".8" stroke-linecap="round"/>`,
+      `<ellipse cx="11" cy="64" rx="27" ry="2.8" fill="${p.ink}" opacity=".3"/>` +
+      `<path d="M-14 48c0-3.4 4.4-4.4 7.6-3.4h30c3.2-1 7.6 0 7.6 3.4v11.6c0 3.4-4.4 4.4-7.6 3.4h-30c-3.2 1-7.6 0-7.6-3.4z" fill="${p.card}" stroke="${p.cardLine}" stroke-width=".6"/>` +
+      `<path d="M-8 58q19 3 38 0" fill="none" stroke="${p.cardLine}" stroke-width=".6" opacity=".5" stroke-linecap="round"/>` +
+      `<path d="M-11 46.6c5-1.4 10-1.7 15-1.7" fill="none" stroke="#fff" stroke-width=".9" opacity=".8" stroke-linecap="round"/>`,
   },
 ]
 
