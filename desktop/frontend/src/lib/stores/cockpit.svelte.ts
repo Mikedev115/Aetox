@@ -11,7 +11,7 @@ import {
   SwitchProvider, SwitchThinkLevel, SwitchApprovalMode, SetProviderWireFormat,
   SwitchModel, CancelPendingModel, SetAPIKey, SetProviderBaseURL, ProjectTree, ReadFile,
   BrowseFolder, BrowseFolderAt, BrowseRoot, StopBrowsing, SpaceFolderPath,
-  ListSessions, LoadSession, NewSession, NewSessionAt, NewChairSession, NewSessionInSpace, CurrentSpace, SessionsInSpace, Spaces, SessionMode, SessionAgent, SessionPlan, SessionPlanReports, StartPlanRun, StopPlanRun, SavePlanText, PausePlanRun, ResumePlanRun, SetPlanStepStop, CurrentSessionID, SearchSessions, DeleteSession,
+  ListSessions, LoadSession, NewSession, NewSessionAt, NewChairSessionAt, NewTeamSession, NewSessionInSpace, CurrentSpace, SessionsInSpace, Spaces, SessionMode, SessionAgent, SessionTeam, SessionPlan, SessionPlanReports, StartPlanRun, StopPlanRun, SavePlanText, PausePlanRun, ResumePlanRun, SetPlanStepStop, CurrentSessionID, SearchSessions, DeleteSession,
   SessionTranscript, TurnInFlight,
   SaveChatImage, SaveChatImageData, SaveChatFile, ReadImageDataURL, CancelTurn, BrowserGetText, RecentProjects,
   ListSessionsForDoor, SearchSessionsForDoor, LoadSessionAnyProject, ClearProjectFocus, ForgetProject, HistoryFault,
@@ -2560,6 +2560,7 @@ export function applyPlanUpdate(ev: SessionEvent<Plan> | Plan): void {
   const plan = stamped ? stamped.data : (ev as Plan)
   cockpit.plan = plan && Array.isArray(plan.sections) && plan.sections.length > 0 ? plan : null
 }
+
 /** A closing report just written (`plan:report`, desktop/plan_report.go).
  *  Held to the rule applyPlanUpdate is held to: a report from a chat working
  *  in the background is not this window's to draw. Replaces by round rather
@@ -4144,6 +4145,10 @@ export async function newSessionAt(desk: string): Promise<void> {
   cockpit.sessionError = ''
   cockpit.desk = desk
   cockpit.chair = ''
+  // Read back rather than assumed: the engine keeps the team the window was
+  // on when this desk can reach it and drops to the default when it cannot
+  // (App.teamFor), and only it knows which.
+  cockpit.team = await currentTeam()
   // A chat opened from the nav is in no project — the engine says the same
   // thing on its side (startNewSession), and the two have to agree or the
   // window keeps drawing a room the session is no longer in.
@@ -4199,6 +4204,7 @@ export async function newSpaceSession(space: string): Promise<void> {
   // the desk is the assistant's, and no agent sits in it.
   cockpit.desk = 'assistant'
   cockpit.chair = ''
+  cockpit.team = await currentTeam()
   cockpit.space = space
   await followSpaceFolder()
   setShell('assistant')
@@ -4239,25 +4245,59 @@ export async function openSpace(name: string): Promise<void> {
   }
   await newSpaceSession(name)
 }
-
-/** Open a direct chat with one of the office's agents (§85). The desk is
- *  implied — a chair only exists in the office — and the engine refuses a
- *  name that is not an office agent, so a stale card cannot open a chat as
- *  somebody else. */
-export async function newChairSession(chair: string): Promise<void> {
+/** Open a direct chat with an agent (§85, §256). At the office any agent on
+ *  the roster; at the coding desk only one a team at that desk names — the
+ *  engine refuses the rest, so a stale card cannot open a chat as somebody
+ *  else. `team` is the roster the click came from and may be '', in which
+ *  case the engine finds the team that seats the chair (App.seatingTeam). */
+export async function newChairSession(chair: string, desk = 'specialized', team = ''): Promise<void> {
   try {
-    await NewChairSession(chair)
+    await NewChairSessionAt(desk, chair, team)
   } catch (err) {
     showSessionRefusal(err)
     return
   }
   cockpit.sessionError = ''
-  cockpit.desk = 'specialized'
+  cockpit.desk = desk
   cockpit.chair = chair
+  cockpit.team = await currentTeam()
   cockpit.space = '' // for the same reason newSessionAt clears it
   await followSpaceFolder()
-  setShell('assistant') // the office is behind the storefront door (§86)
+  // The door follows the desk (§86): the office is behind the storefront,
+  // a coding-team chair sits in the workshop.
+  setShell(shellForDesk(desk))
   await afterNewSession()
+}
+
+/** Open a blank chat at a desk on a team (§256) — the picker's door. The
+ *  engine refuses a team the desk cannot reach, so a stale card cannot open
+ *  a session hiring from a roster the user did not choose. */
+export async function newTeamSession(desk: string, team: string): Promise<void> {
+  try {
+    await NewTeamSession(desk, team)
+  } catch (err) {
+    showSessionRefusal(err)
+    return
+  }
+  cockpit.sessionError = ''
+  cockpit.desk = desk
+  cockpit.chair = ''
+  cockpit.team = team
+  cockpit.space = ''
+  await followSpaceFolder()
+  setShell(shellForDesk(desk))
+  await afterNewSession()
+}
+
+/** The team the engine's open session is on, read back rather than assumed:
+ *  the engine decides whether a team rides into a new chat (App.teamFor). */
+async function currentTeam(): Promise<string> {
+  try {
+    const id = await CurrentSessionID()
+    return id ? await SessionTeam(id) : ''
+  } catch {
+    return ''
+  }
 }
 
 async function afterNewSession(): Promise<void> {
@@ -4297,7 +4337,57 @@ async function afterNewSession(): Promise<void> {
  * So arriving at a door whose desk you are not already at opens a session
  * there, exactly as clicking that desk's button would. Arriving at the door
  * you are already behind does nothing at all. */
-export async function switchShell(name: ShellName): Promise<void> {
+export function switchShell(name: ShellName): Promise<void> {
+  const mine = askDoor(SHELLS.find((s) => s.name === name)?.desk ?? '')
+  return walkThroughDoor(async () => {
+    // Asked again while this was queued: only the latest ask is walked, so a
+    // hand that went code → assistant → code lands on code once, not three
+    // times through three sessions.
+    if (mine !== doorAsked) return
+    try {
+      await switchShellNow(name)
+    } finally {
+      doorDone(mine)
+    }
+  })
+}
+
+/** A door press, counted and announced: `walkingTo` is the desk the window
+ *  is on its way to from this instant, whether the walk has started or is
+ *  still behind another in the queue. */
+function askDoor(desk: string): number {
+  const mine = ++doorAsked
+  cockpit.walkingTo = desk
+  return mine
+}
+
+/** The walk for press `mine` has ended. Only the latest press clears the
+ *  announcement: an older walk finishing under a newer press must not tell
+ *  the window it has arrived somewhere it is still leaving. */
+function doorDone(mine: number): void {
+  if (mine === doorAsked) cockpit.walkingTo = ''
+}
+
+// Door walks run one at a time. Each one is several round trips — open a
+// session at the desk, read the team back, open the project — and `cockpit.desk`
+// is written after the first of them. A second walk started in that window
+// read the desk the first had not yet changed, decided it was already there,
+// and only swapped the chrome; the first then finished underneath it, and the
+// window stood at the storefront with the workshop's session, headline and
+// greeting on screen (owner, 12 ก.ย. 2026: "จังหวะตอนสลับโหมดไปมา เหมือนโหลด
+// ไม่ทันแล้วบั๊ก"). The queue is the fix; the asked-counter above keeps a
+// queue of stale clicks from being walked one by one.
+let doorTurn: Promise<void> = Promise.resolve()
+let doorAsked = 0
+function walkThroughDoor(walk: () => Promise<void>): Promise<void> {
+  const turn = doorTurn.then(walk)
+  // The chain must never reject, or every walk after a refused one would be
+  // skipped; the walk itself already reports its refusal (showSessionRefusal).
+  doorTurn = turn.catch(() => {})
+  return turn
+}
+
+async function switchShellNow(name: ShellName): Promise<void> {
   const def = SHELLS.find((s) => s.name === name)
   if (!def || shell.name === name) return
   // Before setShell, or the door's chrome would switch around a chat that
@@ -4340,15 +4430,25 @@ export async function switchShell(name: ShellName): Promise<void> {
  * away what you were doing would make the whole row unusable — while clicking
  * a different one is exactly the "open a new session" that changing desks
  * means (COMPANY.md §2). */
-export async function openDesk(desk: string): Promise<void> {
+export function openDesk(desk: string): Promise<void> {
   setActiveView('chat')
-  // "Already here" is the desk AND the project together. A project chat runs at
-  // the assistant's desk, so comparing desks alone said the user was already at
-  // ผู้ช่วย while they were standing inside a project — and the button did
-  // nothing, with no way back out through the nav. The third coordinate has to
-  // be part of the comparison or it is not the same place.
-  if (cockpit.desk === desk && !cockpit.space) return
-  await newSessionAt(desk)
+  const mine = askDoor(desk)
+  // Through the same queue as the door switch, for the same race: a desk
+  // button pressed while a door was still being walked read a desk that was
+  // about to change.
+  return walkThroughDoor(async () => {
+    try {
+      // "Already here" is the desk AND the project together. A project chat runs at
+      // the assistant's desk, so comparing desks alone said the user was already at
+      // ผู้ช่วย while they were standing inside a project — and the button did
+      // nothing, with no way back out through the nav. The third coordinate has to
+      // be part of the comparison or it is not the same place.
+      if (cockpit.desk === desk && !cockpit.space) return
+      await newSessionAt(desk)
+    } finally {
+      doorDone(mine)
+    }
+  })
 }
 
 /** Read back which desk the engine's current session is at.
@@ -4367,6 +4467,7 @@ export async function refreshDesk(): Promise<void> {
     const id = await CurrentSessionID()
     cockpit.desk = id ? await SessionMode(id) : ''
     cockpit.chair = id ? await SessionAgent(id) : ''
+    cockpit.team = id ? await SessionTeam(id) : ''
     // Asked, not remembered, for the same reason as the two above: reopening a
     // chat from history has to put its project back on screen, and the engine
     // is the one that read it off the row.
@@ -4385,6 +4486,7 @@ export async function refreshDesk(): Promise<void> {
   } catch {
     cockpit.desk = '' // engine not up yet — the full desk is the honest default
     cockpit.chair = ''
+    cockpit.team = ''
     cockpit.stance = '' // and ลงมือ is its counterpart: the stance that withholds nothing
   }
 }

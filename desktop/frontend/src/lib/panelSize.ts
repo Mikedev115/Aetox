@@ -104,3 +104,52 @@ export function fitPanelsToWindow(viewport: number, panels: PanelState[]): numbe
     p.visible ? Math.max(p.min, Math.round(p.width - (over * slack[i]) / slackTotal)) : p.width,
   )
 }
+
+/** A side panel, as the fold needs to see it. */
+export type FoldPanel = {
+  /** Its own floor — the width it would shrink to before anything folds. */
+  min: number
+  /** Whether the user has it open. A panel the user closed is not folded, it
+   *  is closed, and takes no part here. */
+  open: boolean
+}
+
+/**
+ * Which side panels have to leave the screen for the grid to fit a window this
+ * wide — the reason the window used to refuse to go below 1100px at all
+ * (desktop/window.go, owner, 12 ก.ย.: "เหมือนโดนล็อค ห่อให้ถึงครึ่งนึงก็ไม่ได้").
+ *
+ * The rule is the same one the cap and the re-fit already serve: `.main` keeps
+ * its floor. Both of those answer by making a panel narrower; this is what
+ * happens when both panels are already on their floors and the grid still does
+ * not fit. Shrinking is tried first — a fold is measured against the floors,
+ * not the current widths, so a panel gives up its width before it gives up its
+ * column.
+ *
+ * Two panels, so there is an order. The sidebar goes first by default: it is
+ * navigation, and the inspector is where the work is. `prefer` flips that for
+ * a user who asked for the sidebar back while the window was this narrow —
+ * their click is the better evidence of what they want on screen, and it holds
+ * until the window is wide enough not to need a fold at all.
+ *
+ * A panel that is folded is not collapsed: the user's own toggle is left as it
+ * was, so widening the window brings the panel straight back.
+ */
+export function foldPanels(
+  viewport: number,
+  panels: { sidebar: FoldPanel; inspector: FoldPanel },
+  prefer: 'sidebar' | 'inspector' | '' = '',
+): { sidebar: boolean; inspector: boolean } {
+  const fits = (shown: FoldPanel[]) =>
+    shown.reduce((sum, p) => sum + p.min + HANDLE_PX, 0) + MAIN_FLOOR <= viewport
+  const open = { sidebar: panels.sidebar.open, inspector: panels.inspector.open }
+  const folded = { sidebar: false, inspector: false }
+  // The one to give way first, then the other — never both while one would do.
+  const order: ('sidebar' | 'inspector')[] = prefer === 'sidebar' ? ['inspector', 'sidebar'] : ['sidebar', 'inspector']
+  const shown = () => (['sidebar', 'inspector'] as const).filter((k) => open[k] && !folded[k]).map((k) => panels[k])
+  for (const k of order) {
+    if (fits(shown())) break
+    if (open[k]) folded[k] = true
+  }
+  return folded
+}

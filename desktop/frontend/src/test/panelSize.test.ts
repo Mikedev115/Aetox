@@ -4,7 +4,7 @@
 // still reserved its remembered width and still counted its hidden handle, so
 // on a 1417px window the workbench refused the last 286px it was entitled to.
 import { describe, it, expect } from 'vitest'
-import { clampPanelWidth, fitPanelsToWindow, maxPanelWidth, MAIN_FLOOR, HANDLE_PX } from '../lib/panelSize'
+import { clampPanelWidth, fitPanelsToWindow, foldPanels, maxPanelWidth, MAIN_FLOOR, HANDLE_PX } from '../lib/panelSize'
 
 const INSPECTOR_MIN = 320
 const SIDEBAR_WIDTH = 280
@@ -127,5 +127,40 @@ describe('re-fitting the panels when the window changes size', () => {
     // ...and the shell's number is the one that gives the 44px back.
     expect(shell1380[1]).toBe(1058 - 44)
     expect(window1424[1] - shell1380[1]).toBe(1424 - 1380)
+  })
+})
+
+// The third half, from 12 ก.ย.: the window would not go below 1100px because
+// the grid had nowhere to put three columns under that, and the answer was to
+// refuse the window rather than fold a column. Now the columns fold. Every case
+// here is a width the owner can actually drag the window to.
+describe('folding the side panels when even their floors do not fit', () => {
+  const both = { sidebar: { min: 200, open: true }, inspector: { min: 320, open: true } }
+
+  it('folds nothing while shrinking would do', () => {
+    // 200 + 6 + 320 + 6 + 360 = 892: the floors just fit.
+    expect(foldPanels(892, both)).toEqual({ sidebar: false, inspector: false })
+    expect(foldPanels(1440, both)).toEqual({ sidebar: false, inspector: false })
+  })
+
+  it('gives up the sidebar first, and only the sidebar while that is enough', () => {
+    // 320 + 6 + 360 = 686 fits in 720 once the sidebar is gone.
+    expect(foldPanels(891, both)).toEqual({ sidebar: true, inspector: false })
+    expect(foldPanels(720, both)).toEqual({ sidebar: true, inspector: false })
+  })
+
+  it('folds the inspector too when the sidebar alone was not enough', () => {
+    expect(foldPanels(685, both)).toEqual({ sidebar: true, inspector: true })
+  })
+
+  it('keeps the sidebar and folds the inspector when the user asked for the sidebar', () => {
+    expect(foldPanels(720, both, 'sidebar')).toEqual({ sidebar: false, inspector: true })
+  })
+
+  it('never folds a panel the user has closed — closed is not folded', () => {
+    const sidebarOnly = { sidebar: { min: 200, open: true }, inspector: { min: 320, open: false } }
+    // 200 + 6 + 360 = 566 fits in 720 with the sidebar alone.
+    expect(foldPanels(720, sidebarOnly)).toEqual({ sidebar: false, inspector: false })
+    expect(foldPanels(500, sidebarOnly)).toEqual({ sidebar: true, inspector: false })
   })
 })

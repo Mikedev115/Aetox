@@ -65,6 +65,11 @@ func bootDeskAppLending(t *testing.T, desk string, lent []skill.Skill) *Engine {
 		}
 		a.cur().desk = m
 	}
+	// The team a real door would give this chat (setStation via teamFor): the
+	// seeded ผู้ช่วยในคอมพิวเตอร์ on a fresh data root, which is what every fixture here
+	// has. A chat with no team hires nobody (§256), and these tests are about
+	// what a desk can reach, so they run on the roster the app would hand out.
+	a.cur().team = subagent.PreferredTeam(desk)
 	a.applyConfig(a.cur(), config.Config{
 		SandboxRoot:   t.TempDir(),
 		ModelProvider: "aetox",
@@ -295,7 +300,13 @@ func TestAChairIsCappedByTheOfficeCeiling(t *testing.T) {
 	// carve-out this test is for — and if that ever changes, re-point this at
 	// whatever the office still refuses, never quietly delete it.
 	const greedy = "---\ndescription: เก้าอี้ทดสอบ\ndesk: specialized\ntools: doc_write, write, shell, repo_map\n---\nWrite the thing.\n"
-	if err := os.WriteFile(filepath.Join(dir, "greedy.md"), []byte(greedy), 0o644); err != nil {
+	// In its own folder, the shape an agent has had since 2026-08-06: the flat
+	// file this once wrote relied on MigrateAgentHomes, which runs once per
+	// data root — and bootDeskApp above had already run it on this one.
+	if err := os.MkdirAll(filepath.Join(dir, "greedy"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "greedy", config.AgentDefinitionFile), []byte(greedy), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

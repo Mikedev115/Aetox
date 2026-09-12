@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Mikedev115/Aetox/internal/cliagent"
 	"github.com/Mikedev115/Aetox/internal/credentials"
 	"github.com/Mikedev115/Aetox/internal/engine"
 	"github.com/Mikedev115/Aetox/internal/model"
@@ -262,6 +263,15 @@ func (a *App) ProviderReady(providerName string) bool {
 	}
 	if canonical == "aetox" {
 		return true
+	}
+	// A provider served by an external program is ready when the program is
+	// found and signed in — on the engine's machine, which is where it runs
+	// (cli_engine.go); the registry itself is a package the screen can read.
+	// Asked before the catalog's fallback-model check below, which would
+	// answer "yes" for it: a fallback model name says nothing about whether
+	// the program exists.
+	if _, ok := cliagent.For(canonical); ok {
+		return a.api.ExternalEngineStatus(canonical).Ready
 	}
 	// The same judgement the rest of the app makes about a local runtime — can
 	// a model be got out of it — rather than a second definition of "up".

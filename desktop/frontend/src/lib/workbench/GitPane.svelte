@@ -15,14 +15,16 @@
   // Rows are collapsed on arrival and fetched on expand. A working tree of forty
   // files is an ordinary state, and forty `git show` calls to draw a list nobody
   // has looked at yet is work done on the chance it is wanted.
-  import { onMount, untrack } from 'svelte'
+  import { onMount, onDestroy, untrack } from 'svelte'
   import {
     GitWorkingTree,
     GitFileDiff,
     GitCommitFiles,
     GitSuggestCommitMessage,
     GitSuggestSplitCommits,
+    GitSplitCancel,
   } from '../../../wailsjs/go/main/App'
+  import { EventsOn } from '../../../wailsjs/runtime/runtime'
   import { engine } from '../../../wailsjs/go/models'
   import { cockpit, sendUserMessage, setActiveView } from '../stores/cockpit.svelte'
   import { openFileTab, openGitLogTab } from '../stores/workbench.svelte'
@@ -60,13 +62,76 @@
   let committing = $state(false)
   let alert = $state<{ type: 'err' | 'success'; text: string } | null>(null)
 
-  // Smart split state
-  let splitGroups = $state<engine.GitCommitGroup[]>([])
+  // Smart split: one card per proposed commit. The engine answers with the
+  // groups at once — titles and files, messages still empty — and writes the
+  // messages one group at a time afterwards, streaming each into its card
+  // through git:split:chunk / git:split:message / git:split:done. So the
+  // first card reads while the second is being written, and there is no
+  // clock to lose to: the run ends when the model is done or when the user
+  // stops it.
+  //
+  // `id` is the group's index in the engine's answer, which is what its
+  // events are addressed by. It stays put when a committed card drops out of
+  // the list — the array index does not, and a message keyed by that landed
+  // on the next card once.
+  type SplitCard = {
+    id: number
+    title: string
+    files: string[]
+    message: string
+    pick: Record<string, boolean>
+    // 'writing': the model is on it, text arriving. 'model': the model wrote
+    // it. 'fallback': nobody did — the message is a placeholder and `reason`
+    // says why, on the card, so it is never mistaken for the model's.
+    state: 'writing' | 'model' | 'fallback'
+    reason?: string
+  }
+  let splitCards = $state<SplitCard[]>([])
   let analyzingSplit = $state(false)
-  let splitGroupFiles = $state<Record<number, Record<string, boolean>>>({})
-  let groupMessages = $state<Record<number, string>>({})
-  let committingGroupIdx = $state<number | null>(null)
+  const writingAny = $derived(splitCards.some((c) => c.state === 'writing'))
+  let committingGroupId = $state<number | null>(null)
   let committingAll = $state(false)
+
+  // Events that arrive before the groups do — the goroutine starts the
+  // moment the engine returns, and its first chunk can beat the promise to
+  // this side — wait here and are replayed once the cards exist.
+  type SplitEvent = { index: number; text?: string; message?: string; source?: string; reason?: string }
+  let earlySplitEvents: Array<{ kind: 'chunk' | 'message'; p: SplitEvent }> = []
+  const cardById = (id: number) => splitCards.find((c) => c.id === id)
+  function applySplitChunk(p: SplitEvent) {
+    const c = cardById(p.index)
+    if (!c) {
+      if (analyzingSplit) earlySplitEvents.push({ kind: 'chunk', p })
+      return
+    }
+    if (c.state === 'writing') c.message += p.text ?? ''
+  }
+  function applySplitMessage(p: SplitEvent) {
+    const c = cardById(p.index)
+    if (!c) {
+      if (analyzingSplit) earlySplitEvents.push({ kind: 'message', p })
+      return
+    }
+    if (p.message) c.message = p.message
+    c.state = p.source === 'fallback' ? 'fallback' : 'model'
+    c.reason = p.reason
+  }
+  const offSplitChunk = EventsOn('git:split:chunk', applySplitChunk)
+  const offSplitMessage = EventsOn('git:split:message', applySplitMessage)
+  const offSplitDone = EventsOn('git:split:done', () => {
+    for (const c of splitCards) {
+      if (c.state === 'writing') {
+        c.state = 'fallback'
+        c.reason = t('git.splitNoMessage')
+      }
+    }
+  })
+  onDestroy(() => {
+    offSplitChunk()
+    offSplitMessage()
+    offSplitDone()
+    if (writingAny) void GitSplitCancel()
+  })
 
   const branch = $derived(cockpit.project.branch || '')
   const totals = $derived(files.reduce(
@@ -130,14 +195,11 @@
         selectedFiles[f.path] = assessDangerousFile(f.path) === null
       }
     }
-    // Filter remaining split groups
-    if (splitGroups.length > 0) {
-      splitGroups = splitGroups
-        .map((g) => ({
-          ...g,
-          files: g.files.filter((p) => files.some((f) => f.path === p)),
-        }))
-        .filter((g) => g.files.length > 0)
+    // A card whose files are all committed (or gone) leaves the list; the
+    // others keep their id, message and ticks.
+    if (splitCards.length > 0) {
+      for (const c of splitCards) c.files = c.files.filter((p) => files.some((f) => f.path === p))
+      splitCards = splitCards.filter((c) => c.files.length > 0)
     }
   }
 
@@ -178,7 +240,7 @@
   async function poll() {
     // Never while this pane is the thing changing the tree: a commit in flight
     // would have the rows it is committing pulled out from under it.
-    if (reading || committing || committingAll || committingGroupIdx !== null || analyzingSplit) return
+    if (reading || committing || committingAll || committingGroupId !== null || analyzingSplit) return
     reading = true
     inflight = (async () => {
       try {
@@ -305,18 +367,22 @@
   async function handleAnalyzeSplit() {
     analyzingSplit = true
     alert = null
+    splitCards = []
+    earlySplitEvents = []
     try {
       const groups = (await GitSuggestSplitCommits()) ?? []
-      splitGroups = groups
-      groupMessages = {}
-      splitGroupFiles = {}
-      for (let i = 0; i < groups.length; i++) {
-        groupMessages[i] = groups[i].message
-        splitGroupFiles[i] = {}
-        for (const fp of groups[i].files) {
-          splitGroupFiles[i][fp] = assessDangerousFile(fp) === null
-        }
-      }
+      splitCards = groups.map((g, i) => ({
+        id: i,
+        title: g.title,
+        files: g.files,
+        message: g.message ?? '',
+        pick: Object.fromEntries(g.files.map((fp) => [fp, assessDangerousFile(fp) === null])),
+        state: g.source === 'fallback' ? 'fallback' : g.message ? 'model' : 'writing',
+        reason: g.reason,
+      }))
+      const early = earlySplitEvents
+      earlySplitEvents = []
+      for (const e of early) (e.kind === 'chunk' ? applySplitChunk : applySplitMessage)(e.p)
     } catch (err: any) {
       alert = { type: 'err', text: String(err?.message ?? err) }
     } finally {
@@ -324,46 +390,55 @@
     }
   }
 
-  async function handleCommitGroup(idx: number) {
-    const g = splitGroups[idx]
-    if (!g) return
-    const msg = (groupMessages[idx] ?? g.message).trim()
+  // Stop the model mid-run. What it wrote so far stays in the cards, editable;
+  // the cards it had not reached say so instead of waiting forever.
+  async function handleCancelSplit() {
+    await GitSplitCancel()
+    for (const c of splitCards) {
+      if (c.state === 'writing') {
+        c.state = 'fallback'
+        c.reason = t('git.splitCancelled')
+      }
+    }
+  }
+
+  async function handleCommitGroup(card: SplitCard) {
+    const msg = card.message.trim()
     if (!msg) {
       alert = { type: 'err', text: t('git.noCommitMessage') }
       return
     }
-    const chosen = g.files.filter((p) => splitGroupFiles[idx]?.[p] === true)
+    const chosen = card.files.filter((p) => card.pick[p] === true)
     if (chosen.length === 0) {
       alert = { type: 'err', text: t('git.noFilesSelected') }
       return
     }
 
-    committingGroupIdx = idx
+    committingGroupId = card.id
     alert = null
     try {
       await GitCommitFiles(msg, chosen)
       noteCommitLanded()
-      alert = { type: 'success', text: `${g.title}: ${t('git.commitSuccess')}` }
+      alert = { type: 'success', text: `${card.title}: ${t('git.commitSuccess')}` }
       setTimeout(() => { if (alert?.type === 'success') alert = null }, 4000)
     } catch (err: any) {
       alert = { type: 'err', text: t('git.commitFailed', { error: String(err?.message ?? err) }) }
     } finally {
-      committingGroupIdx = null
+      committingGroupId = null
       await refresh()
     }
   }
 
   async function handleCommitAllGroups() {
-    if (splitGroups.length === 0) return
+    if (splitCards.length === 0) return
     committingAll = true
     alert = null
     try {
-      for (let i = 0; i < splitGroups.length; i++) {
-        const g = splitGroups[i]
-        const msg = (groupMessages[i] ?? g.message).trim()
-        const chosen = g.files.filter((p) => splitGroupFiles[i]?.[p] === true)
+      for (const card of splitCards) {
+        const msg = card.message.trim()
+        const chosen = card.files.filter((p) => card.pick[p] === true)
         if (chosen.length > 0 && msg) {
-          committingGroupIdx = i
+          committingGroupId = card.id
           await GitCommitFiles(msg, chosen)
           noteCommitLanded()
         }
@@ -373,11 +448,15 @@
     } catch (err: any) {
       alert = { type: 'err', text: t('git.commitFailed', { error: String(err?.message ?? err) }) }
     } finally {
-      committingGroupIdx = null
+      committingGroupId = null
       committingAll = false
       await refresh()
     }
   }
+
+  // The message box grows with the message — a subject line and a few
+  // bullets, not one line squeezed into an input.
+  const messageRows = (msg: string) => Math.min(8, Math.max(2, msg.split('\n').length + 1))
 
   const name = (path: string) => path.split('/').pop() ?? path
   const dir = (path: string) => {
@@ -485,7 +564,7 @@
       {#if mode === 'split'}
         <!-- Smart Split Section -->
         <div class="gp-split-section">
-          {#if splitGroups.length === 0}
+          {#if splitCards.length === 0}
             <button
               type="button"
               class="gp-commit-btn"
@@ -497,26 +576,45 @@
             </button>
           {:else}
             <div class="gp-split-top">
-              <span class="gp-title">{t('git.splitGroups', { n: splitGroups.length })}</span>
-              <button
-                type="button"
-                class="gp-split-all-btn"
-                disabled={committingAll || committingGroupIdx !== null}
-                onclick={handleCommitAllGroups}
-              >
-                <Icon name="check" size={12} />
-                <span>{t('git.commitAllGroups', { n: splitGroups.length })}</span>
-              </button>
+              <span class="gp-title">{t('git.splitGroups', { n: splitCards.length })}</span>
+              <span class="gp-split-top-actions">
+                {#if writingAny}
+                  <button type="button" class="gp-split-redo-btn" onclick={handleCancelSplit}>
+                    <Icon name="x" size={11} />
+                    <span>{t('git.splitCancel')}</span>
+                  </button>
+                {:else}
+                  <button
+                    type="button"
+                    class="gp-split-redo-btn"
+                    disabled={analyzingSplit || committingAll || committingGroupId !== null}
+                    onclick={handleAnalyzeSplit}
+                    title={t('git.splitRedo')}
+                  >
+                    <Icon name="sparkles" size={11} />
+                    <span>{t('git.splitRedo')}</span>
+                  </button>
+                {/if}
+                <button
+                  type="button"
+                  class="gp-split-all-btn"
+                  disabled={committingAll || committingGroupId !== null || writingAny}
+                  onclick={handleCommitAllGroups}
+                >
+                  <Icon name="check" size={12} />
+                  <span>{t('git.commitAllGroups', { n: splitCards.length })}</span>
+                </button>
+              </span>
             </div>
 
             <div class="gp-split-cards">
-              {#each splitGroups as g, i}
-                <div class="gp-split-card">
+              {#each splitCards as card (card.id)}
+                <div class="gp-split-card" class:writing={card.state === 'writing'}>
                   <div class="gp-split-card-head">
                     <span class="gp-split-title">
                       <Icon name="package" size={12} />
-                      {g.title}
-                      {#if g.files.some((fp) => assessDangerousFile(fp) !== null)}
+                      {card.title}
+                      {#if card.files.some((fp) => assessDangerousFile(fp) !== null)}
                         <span class="gp-row-danger-badge" title={t('git.dangerousWarningDesc')}>
                           <Icon name="alertTriangle" size={10} />
                           <span>{t('git.dangerousBadge')}</span>
@@ -524,26 +622,37 @@
                       {/if}
                     </span>
                     <span class="gp-stat">
-                      <span class="add">{g.files.length} {t('chat.filesChanged', { n: g.files.length })}</span>
+                      <span class="add">{card.files.length} {t('chat.filesChanged', { n: card.files.length })}</span>
                     </span>
                   </div>
 
-                  <input
-                    type="text"
+                  <textarea
                     class="gp-split-msg-input"
-                    bind:value={groupMessages[i]}
-                    placeholder={t('git.commitPlaceholder')}
-                  />
+                    rows={messageRows(card.message)}
+                    readonly={card.state === 'writing'}
+                    bind:value={card.message}
+                    placeholder={card.state === 'writing' ? t('git.splitWriting') : t('git.commitPlaceholder')}
+                  ></textarea>
+                  {#if card.state === 'writing'}
+                    <span class="gp-split-note writing">
+                      <Icon name="sparkles" size={10} />
+                      <span>{t('git.splitWriting')}</span>
+                    </span>
+                  {:else if card.state === 'fallback'}
+                    <span class="gp-split-note fallback">
+                      <Icon name="alertTriangle" size={10} />
+                      <span>{t('git.splitFallback', { reason: card.reason ?? '' })}</span>
+                    </span>
+                  {/if}
 
                   <div class="gp-split-files">
-                    {#each g.files as fp}
+                    {#each card.files as fp}
                       <label class="gp-split-file-item">
                         <input
                           type="checkbox"
-                          checked={splitGroupFiles[i]?.[fp] === true}
+                          checked={card.pick[fp] === true}
                           onchange={(e) => {
-                            if (!splitGroupFiles[i]) splitGroupFiles[i] = {}
-                            splitGroupFiles[i][fp] = (e.currentTarget as HTMLInputElement).checked
+                            card.pick[fp] = (e.currentTarget as HTMLInputElement).checked
                           }}
                         />
                         <span>{name(fp)}</span>
@@ -562,11 +671,11 @@
                     <button
                       type="button"
                       class="gp-split-commit-btn"
-                      disabled={committingGroupIdx === i || committingAll}
-                      onclick={() => handleCommitGroup(i)}
+                      disabled={committingGroupId === card.id || committingAll || card.state === 'writing'}
+                      onclick={() => handleCommitGroup(card)}
                     >
                       <Icon name="check" size={11} />
-                      <span>{committingGroupIdx === i ? t('git.committing') : t('git.commitGroup')}</span>
+                      <span>{committingGroupId === card.id ? t('git.committing') : t('git.commitGroup')}</span>
                     </button>
                   </div>
                 </div>

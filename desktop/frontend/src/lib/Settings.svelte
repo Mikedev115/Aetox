@@ -9,17 +9,23 @@
   import { systemZoom, applySystemZoom, SYSTEM_BASE_PX } from './systemFont.svelte'
   import { typeScale, applyTypeScale, TYPE_SCALES, type TypeScaleName } from './typeScale.svelte'
   import { i18n, t, setLocale, localeNames, type Locale, type TKey } from './i18n.svelte'
+  import { AGENT_TEMPLATES, templateBody } from './agentTemplates'
   import { audioDevices, refreshAudioDevices, setMicId, setSpeakerId, applySpeaker } from './audioDevices.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import RemoteEngine from './RemoteEngine.svelte'
   import ProviderMark from './ProviderMark.svelte'
-  import McpMark from './McpMark.svelte'
   import ProviderAccount from './ProviderAccount.svelte'
-  import AgentFace from './AgentFace.svelte'
-  // The wardrobe itself, so the pickers below offer exactly what the drawing
-  // can draw. Anything hand-listed here instead would be a second catalogue to
-  // keep in step, which is the bug this page just had.
-  import { HAIR, ACCESSORY_CHOICES, PROP_ICONS, HUES, faceOf } from './agentFace'
+  import AgentMascot from './mascot/AgentMascot.svelte'
+  import AvatarSettings from './mascot/AvatarSettings.svelte'
+  import TeamSettings from './TeamSettings.svelte'
+  import { avatarText } from './mascot/avatarText'
+  // The mascot's own catalogues, so the pickers below offer exactly what the
+  // drawing can draw. Anything hand-listed here instead would be a second
+  // catalogue to keep in step, which is the bug this page once had.
+  import { lookOf, AGENT_BADGES } from './mascot/agentLook'
+  import { SHELL, ACCENT } from './mascot/palette'
+  import { FACE, TOP } from './mascot/parts'
+  import { personas } from './mascot/avatarPrefs.svelte'
   import Icon from './Icon.svelte'
   import { coverHue } from './coverHue'
   import { armFirstRunReplay } from './firstRun'
@@ -31,7 +37,7 @@
   // The shelf and everything that turns one of its entries into a saved server.
   // It used to be written out in this file; ห้องความสามารถ reads the same list,
   // and a preset table with two copies goes stale on one of them (mcpShelf.ts).
-  import { MCP_PRESETS, needsPaste, presetConfig, presetFor, type MCPPreset } from './mcpShelf'
+  import { presetConfig, presetFor } from './mcpShelf'
   import { STUDIO_SOURCES } from './studioSources'
   import StudioBrowser from './StudioBrowser.svelte'
   import StudioSourcesSheet from './StudioSourcesSheet.svelte'
@@ -41,12 +47,10 @@
     ProviderWireFormats, TestProviderConnection,
     EnabledProviders, SetProviderEnabled,
     CustomProviders, AddCustomProvider, RemoveCustomProvider,
-    ListMCPServers, SaveMCPServer, RemoveMCPServer, TestMCPServer, ToggleMCPServer,
+    ListMCPServers, SaveMCPServer,
     DelegateSwitches, SetDelegateOff, SetAgentOff,
     PlacementTargets, SetMCPServerTargets,
-    ListExternalSkills, ListTools, InstallSkillFromGitHub, RemoveExternalSkill, RefreshSkills,
-    SkillsDir, SkillScanIssues, OpenSkillsFolder, InstallSkillFromZip,
-    MCPConfigPath, OpenMCPFolder,
+    ListTools,
     ListSpeechModels, SetSpeechModel, SpeechStatus, RevealSpeechModel, SpeechModelDirs, OpenSpeechModelDir,
     ListSpeechEngines, SetSpeechEngine, ListTTSEngines, SetTTSEngine, ListTTSVoices, SetTTSVoice, TTSStatus, SpeakText,
     ListImageEngines, SetImageEngine, SetImageModelName, ImageStatus,
@@ -55,9 +59,9 @@
     UsageStats, ListPromptPresets, OpenPromptsFolder,
     SavePromptPreset, DeletePromptPreset, PickPresetImage, RemovePresetImage,
     ModelPriceSource,
-    ListSubagentProfiles, ReadSubagentProfile, SaveSubagentProfile, SaveAgentProfile,
+    ListSubagentProfiles, ReadSubagentProfile, SaveSubagentProfile, SaveAgentProfile, PickAgentBrief, FetchAgentBrief,
     DeleteSubagentProfile, SetSubagentModel, OpenAgentsFolder, ListChairs,
-    AgentSkills, AgentNeeds, OpenAgentSkillsFolder, OpenAgentHome,
+    AgentSkills, AgentNeeds, OpenAgentHome,
     ChairStarters, SaveChairStarters, ChairStartersFile,
     SignInMethods, SignInStatus, StartSignIn, CancelSignIn, ImportableSignIns,
     Connections, ConnectAccount, SetConnectionTargets, VerifyConnection, DisconnectAccount,
@@ -83,7 +87,7 @@
   import { COMMUNITY_URL, PAGE_URL, YOUTUBE_URL } from './links'
   import promptPayQR from '../assets/images/promptpay-qr.png'
   import { config, engine, main, subagent } from '../../wailsjs/go/models'
-  import { cockpit, startChatWith, setActiveView, switchProvider, switchModel, submitAPIKey, switchApprovalMode, switchWireFormat, setProviderBaseURL, retryActiveProvider, completeSignIn, signOutProvider, importSignIn, SETTINGS_SECTION_KEY } from './stores/cockpit.svelte'
+  import { cockpit, startChatWith, newChairSession, setActiveView, switchProvider, switchModel, submitAPIKey, switchApprovalMode, switchWireFormat, setProviderBaseURL, retryActiveProvider, completeSignIn, signOutProvider, importSignIn, SETTINGS_SECTION_KEY } from './stores/cockpit.svelte'
   import {
     identity, loadIdentityFiles, openIdentityFile, saveIdentityFile,
     createIdentityFile, deleteIdentityFile, identityTemplates,
@@ -689,7 +693,7 @@
         loadAttention(),
         loadComputer(),
         loadMCP(),
-        loadSkills(),
+        loadTools(),
         (async () => {
           await refreshProviders()
           await refreshEnabledProviders()
@@ -712,21 +716,35 @@
   // from the roster, not from re-reading any file. Consumed once and cleared:
   // an intent that survived into the next plain visit would reopen an editor
   // nobody asked for.
+  //
+  // The section itself is already `active` from the first frame (see the
+  // $state below) — only the editor has to wait for the disk. While it does,
+  // the 'team' pane draws a skeleton, not its "the list moved" notice: that
+  // notice with its button sat on screen for a second and a half on every
+  // gear press and read as the page having landed somewhere wrong (owner,
+  // 13 ก.ย. 2026: "กดแล้วโหลดแปลกๆ"). The wait is one round trip for the row,
+  // not loadAgents()' three in a row — the $effect on `active` is already
+  // running that one, and the editor needs only the row plus its own file.
+  let intentPending = $state(cockpit.settingsIntent !== null)
   onMount(async () => {
     const intent = cockpit.settingsIntent
     if (!intent) return
     cockpit.settingsIntent = null
-    openSection(intent.section)
-    if (intent.section !== 'team') return
-    if (intent.createAgent) {
-      newAgent('agent')
-      return
-    }
-    if (intent.agent) {
-      await loadAgents()
-      const row = subagents.find((a) => a.name === intent.agent)
-      if (row) await openAgent(row, 'agent')
-      if (intent.tab) agentTab = intent.tab as AgentTab
+    try {
+      openSection(intent.section)
+      if (intent.section !== 'team') return
+      if (intent.createAgent) {
+        newAgent('agent')
+        return
+      }
+      if (intent.agent) {
+        subagents = await ListSubagentProfiles()
+        const row = subagents.find((a) => a.name === intent.agent)
+        if (row) await openAgent(row, 'agent')
+        if (intent.tab) agentTab = intent.tab as AgentTab
+      }
+    } finally {
+      intentPending = false
     }
   })
 
@@ -1195,150 +1213,12 @@
   // team that actually exist. Not a list typed in here, so hiring an agent
   // puts it on these switches without this page being edited.
   let mcpTargets = $state<MCPTargetRow[]>([])
-  // Which row is expanded. One at a time: the switches are the reason to open
-  // a row, and two rows open at once turns a register into a wall.
-  let mcpOpen = $state('')
-  let mcpQuery = $state('')
   let mcpBusy = $state('')
   let mcpError = $state('')
 
-  // Add/edit form. mcpOriginal === '' means add mode; otherwise it holds the
-  // name of the server being edited.
-  let mcpOriginal = $state('')
-  let mcpKind = $state<'stdio' | 'http'>('stdio')
-  let mcpName = $state('')
-  let mcpCommand = $state('')
-  let mcpUrl = $state('')
-  let mcpEnvText = $state('')
-  let mcpHeadersText = $state('')
-  // Both were in the stored config all along with no field to reach them, so a
-  // server needing a working directory or a slower start could only be set up
-  // by editing the JSON — which the page did not say the location of either.
-  let mcpCwd = $state('')
-  let mcpTimeout = $state('')
-  // One tool name per line, and blank means take all of them. A textarea rather
-  // than a list of checkboxes because the names are not known until the server
-  // has been connected once, and this form is where a server is first written.
-  let mcpToolsText = $state('')
-  // Set when a preset was handed to the form because it needs a key, so the
-  // form can say why it opened instead of just appearing.
-  let mcpNeedsKey = $state(false)
-  // Whether the add/edit form is on screen at all.
-  //
-  // Closed by default: adding a server is a rare act, and eight controls laid
-  // out permanently under the list read as part of the page rather than as a
-  // thing you do. Owner, 2026-08-14: *"ทำเป็นปุ่มกด เพิ่ม SERVER แล้วค่อยแสดง
-  // ดีกว่ามาเรี่ยราดแบบนี้"*.
-  //
-  // **Explicit state rather than derived from the fields**, because the one
-  // state that has to be distinguishable — add mode, freshly opened — is the
-  // one where every field is empty, which is exactly what closed looks like.
-  //
-  // Three things open it and they must all keep doing so: the button, `editMCP`
-  // (the row's แก้ไข), and a preset that needs a key pasted. The second and
-  // third are the ones a naive fold breaks — the click appears to do nothing,
-  // and it does it silently.
-  let mcpFormOpen = $state(false)
-  let mcpFormEl = $state<HTMLElement | null>(null)
-  // Where the servers are persisted. From the engine, not written here.
-  let mcpPath = $state('')
-
-  const mcpFiltered = $derived(mcpServers.filter((s) => {
-    const q = mcpQuery.trim().toLowerCase()
-    if (!q) return true
-    return s.name.toLowerCase().includes(q)
-      || (s.command ?? []).join(' ').toLowerCase().includes(q)
-      || (s.url ?? '').toLowerCase().includes(q)
-  }))
-
-  const mcpFormValid = $derived(
-    mcpName.trim() !== '' && (mcpKind === 'stdio' ? mcpCommand.trim() !== '' : mcpUrl.trim() !== ''),
-  )
-
   async function loadMCP() {
     mcpServers = await ListMCPServers()
-    mcpPath = await MCPConfigPath()
     mcpTargets = await PlacementTargets()
-  }
-
-  const mcpTargetsOf = (s: MCPRow) => s.for ?? []
-  const mcpServesNobody = (s: MCPRow) => mcpTargetsOf(s).length === 0
-
-  // Flipping one switch sends the whole list back, because that is what the
-  // engine stores — a per-target call would need the engine to merge, and two
-  // places deciding what the list is now is how one of them ends up wrong.
-  //
-  // One writer for all three ways the list changes (a chip, a group's เลือกทั้งหมด,
-  // the "switch on the agents that asked" fix): each of them is "here is the
-  // whole new list", and spelling that out three times is three chances for one
-  // of them to forget the reload that makes the panel agree with disk.
-  const putMCPTargets = (s: MCPRow, label: string, next: string[]) => runMCP(label, async () => {
-    await SetMCPServerTargets(s.name, next)
-    await loadMCP()
-  })
-
-  const toggleMCPTarget = (s: MCPRow, id: string) => {
-    const current = mcpTargetsOf(s)
-    return putMCPTargets(s, 'target:' + s.name + ':' + id,
-      current.includes(id) ? current.filter((x) => x !== id) : [...current, id])
-  }
-
-  // A group's own switch. Eleven chips is eleven clicks to say "everywhere",
-  // and "everywhere" is what a person adding a general-purpose server actually
-  // wants — the per-chip list is for the exceptions.
-  const mcpGroupIds = (kind: string) => mcpTargets.filter((x) => x.kind === kind).map((x) => x.id)
-  const mcpGroupOn = (s: MCPRow, kind: string) =>
-    mcpGroupIds(kind).filter((id) => mcpTargetsOf(s).includes(id)).length
-  const toggleMCPGroup = (s: MCPRow, kind: string) => {
-    const ids = mcpGroupIds(kind)
-    const current = mcpTargetsOf(s)
-    const allOn = ids.every((id) => current.includes(id))
-    return putMCPTargets(s, 'group:' + s.name + ':' + kind,
-      allOn ? current.filter((id) => !ids.includes(id))
-            : [...current, ...ids.filter((id) => !current.includes(id))])
-  }
-
-  // The agents that declare `needs: mcp:<this server>`, as placement ids.
-  //
-  // agentsNeeding answers in agent NAMES because that is what a profile writes;
-  // the switches are keyed by placement id. Mapped through mcpTargets rather
-  // than by pasting the "agent:" prefix in here — the prefix is Go's
-  // (config.MCPAgentPrefix), and a second copy of it in the page is a rename
-  // away from silently matching nothing.
-  //
-  // This is the same fact the แนะนำ shelf prints under a preset ("เอเจนที่ขอไว้"),
-  // finally shown on the panel where it is actionable. A server can be
-  // connected, healthy, and switched off for the one agent whose own file says
-  // it cannot work without it, and nothing on this row used to say so.
-  // The glyphs those rows wear, taken from where each kind already keeps its
-  // own. A desk's is the one the sidebar draws for that room (NAV) — the office
-  // desk is `specialized` in the engine and has no nav button of its own, so it
-  // borrows the office page's. An agent's is the `icon:` its profile declares,
-  // which is what AgentFace builds a face out of; PlacementTarget does not carry
-  // it and should not, since the roster this page has already loaded does.
-  const deskIcon = (id: string): IconName =>
-    NAV.find((n) => n.id === id)?.icon ?? (id === 'specialized' ? 'bot' : 'layoutList')
-  // The whole face an agent wears, looked up once and spread into AgentFace, so
-  // a surface that draws somebody cannot draw two thirds of them.
-  const agentFaceOf = (name: string) => faceOf(subagents.find((x) => x.name === name))
-
-  const mcpNeededIds = (s: MCPRow): string[] =>
-    agentsNeeding(s.name)
-      .map((name) => mcpTargets.find((x) => x.kind === 'agent' && x.name === name)?.id)
-      .filter((id): id is string => !!id)
-
-  const mcpNeedMissing = (s: MCPRow): MCPTargetRow[] => {
-    const on = mcpTargetsOf(s)
-    return mcpNeededIds(s)
-      .filter((id) => !on.includes(id))
-      .map((id) => mcpTargets.find((x) => x.id === id))
-      .filter((x): x is MCPTargetRow => !!x)
-  }
-
-  const attachNeeded = (s: MCPRow) => {
-    const current = mcpTargetsOf(s)
-    return putMCPTargets(s, 'needed:' + s.name,
-      [...current, ...mcpNeededIds(s).filter((id) => !current.includes(id))])
   }
 
   async function runMCP(label: string, fn: () => Promise<void>) {
@@ -1352,193 +1232,6 @@
       mcpBusy = ''
     }
   }
-
-  // "KEY=VALUE" / "Header: value" lines → map; blank and separator-less lines
-  // are dropped rather than erroring, the backend trims further.
-  function parseLines(text: string, sep: '=' | ':'): Record<string, string> {
-    const out: Record<string, string> = {}
-    for (const line of text.split('\n')) {
-      const i = line.indexOf(sep)
-      if (i <= 0) continue
-      out[line.slice(0, i).trim()] = line.slice(i + 1).trim()
-    }
-    return out
-  }
-
-  function mapToLines(m: Record<string, string> | undefined, sep: string): string {
-    return Object.entries(m ?? {}).map(([k, v]) => `${k}${sep}${v}`).join('\n')
-  }
-
-  function resetMCPForm() {
-    mcpOriginal = ''
-    mcpKind = 'stdio'
-    mcpName = ''
-    mcpCommand = ''
-    mcpUrl = ''
-    mcpEnvText = ''
-    mcpHeadersText = ''
-    mcpCwd = ''
-    mcpTimeout = ''
-    mcpToolsText = ''
-    mcpNeedsKey = false
-    // Every caller of this — Cancel, a successful save, deleting the server
-    // being edited — is a moment the form is finished with. Closing here rather
-    // than at each call site is what stops one of them from being forgotten.
-    mcpFormOpen = false
-  }
-
-  // Open the form and make sure it is actually looked at. Every way in is a
-  // click *above* where the form appears — the header's button, a row's แก้ไข, a
-  // preset — so without the scroll the answer to "did that work" is somewhere
-  // off the bottom of the page.
-  //
-  // `await tick()` and not a microtask: the form does not exist yet when this
-  // runs. It is created by the `{#if}` reacting to the line above, so
-  // `mcpFormEl` is still null until Svelte has flushed — scrolling before that
-  // is scrolling to nothing, silently.
-  async function openMCPForm() {
-    mcpFormOpen = true
-    await tick()
-    // Optional *call*, not just optional element: the scroll is a courtesy and
-    // must never be the thing that fails. jsdom has no scrollIntoView, so a
-    // plain call turns every test that opens this form into an unhandled
-    // rejection — noise that goes on to hide a real one.
-    mcpFormEl?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
-  }
-
-  function editMCP(s: MCPRow) {
-    mcpOriginal = s.name
-    mcpKind = s.url ? 'http' : 'stdio'
-    mcpName = s.name
-    mcpCommand = (s.command ?? []).join(' ')
-    mcpUrl = s.url ?? ''
-    mcpEnvText = mapToLines(s.environment, '=')
-    mcpHeadersText = mapToLines(s.headers, ': ')
-    mcpCwd = s.cwd ?? ''
-    mcpTimeout = s.timeoutMs ? String(s.timeoutMs) : ''
-    mcpToolsText = (s.allowed ?? []).join('\n')
-    mcpNeedsKey = false
-    mcpError = ''
-    openMCPForm()
-  }
-
-  // An auth header that names its scheme and carries no credential.
-  //
-  // "Authorization: Bearer" is what a preset hands the form so a token can be
-  // pasted after the prefix, and it is also exactly what lands on disk when the
-  // user presses Save without pasting one. The server then answers 400 and the
-  // page reports "Bad Request", which is true and useless: nothing on screen
-  // connects that to the empty box (owner, 2026-08-14, on a github server doing
-  // precisely this).
-  //
-  // Caught here rather than deeper down because this is the only place that
-  // knows the value was typed rather than received. The engine cannot tell an
-  // empty credential from a server that wants none.
-  const AUTH_SCHEMES = ['bearer', 'basic', 'token', 'apikey']
-  function credentiallessHeader(headers: Record<string, string>): string {
-    for (const [key, value] of Object.entries(headers)) {
-      const v = value.trim()
-      // A ${env:X} or ${connect:x} reference is a value — it is resolved at
-      // connect time (internal/bootstrap resolveSecretRefs), and the whole
-      // point of it is that the secret never gets typed here.
-      if (/\$\{(env|connect):[^}]+\}/.test(v)) continue
-      if (v === '') return key
-      if (AUTH_SCHEMES.includes(v.toLowerCase())) return key
-    }
-    return ''
-  }
-
-  const saveMCP = () => runMCP('save', async () => {
-    const headers = mcpKind === 'http' ? parseLines(mcpHeadersText, ':') : {}
-    const empty = credentiallessHeader(headers)
-    if (empty) {
-      // Thrown, not warned: runMCP shows it and nothing is written. A server
-      // saved in this state can never connect, so saving it is not a smaller
-      // failure than refusing to.
-      throw new Error(t('settings.mcpHeaderNoValue', { header: empty }))
-    }
-    const server = new config.MCPServerConfig({
-      name: mcpName.trim(),
-      command: mcpKind === 'stdio' ? mcpCommand.trim().split(/\s+/).filter(Boolean) : [],
-      url: mcpKind === 'http' ? mcpUrl.trim() : '',
-      environment: mcpKind === 'stdio' ? parseLines(mcpEnvText, '=') : {},
-      headers,
-      cwd: mcpCwd.trim(),
-      // A blank box means "no override", which is 0 — not a timeout of zero.
-      timeoutMs: Number.parseInt(mcpTimeout, 10) > 0 ? Number.parseInt(mcpTimeout, 10) : 0,
-      // Always an array, never omitted: the engine keeps whatever it has stored
-      // when this field is absent, so omitting it on an empty box would make
-      // the list unclearable from the only screen that shows it.
-      tools: mcpToolsText.split('\n').map((line) => line.trim()).filter(Boolean),
-    })
-    await SaveMCPServer(mcpOriginal, server)
-    resetMCPForm()
-    await loadMCP()
-  })
-
-  const removeMCP = (name: string) => askConfirm({
-    title: t('settings.confirmMcpTitle'),
-    message: t('settings.confirmMcpMessage'),
-    detail: name,
-    confirmLabel: t('settings.remove'),
-    run: () => runMCP('rm:' + name, async () => {
-      await RemoveMCPServer(name)
-      if (mcpOriginal === name) resetMCPForm()
-      await loadMCP()
-    }),
-  })
-
-  const testMCP = (name: string) => runMCP('test:' + name, async () => {
-    await TestMCPServer(name)
-    await loadMCP()
-  })
-
-  const toggleMCP = (s: MCPRow) => runMCP('toggle:' + s.name, async () => {
-    await ToggleMCPServer(s.name, !s.disabled)
-    await loadMCP()
-  })
-
-
-  const presetTaken = (name: string) => mcpServers.some((s) => s.name.toLowerCase() === name.toLowerCase())
-
-  // Which agents declare they need this server, **read off their own files**
-  // rather than written beside the preset.
-  //
-  // The shelf is where a user asks "why is this here and is it for me", and the
-  // honest answer to the second half is a fact the agent already states: its
-  // `needs:` line. Restating it here would be a second answer to that question,
-  // and it would be the one that goes stale — an agent edited to drop a server
-  // would keep being advertised for it, from a list nobody thinks to update.
-  //
-  // Alternatives are split because one entry may say `connection:n8n |
-  // mcp:windmill`, which counts as needing windmill.
-  const agentsNeeding = (id: string): string[] =>
-    subagents
-      .filter((p) => (p.needs ?? []).some((entry: string) =>
-        entry.split('|').some((alt: string) => alt.trim().toLowerCase() === 'mcp:' + id.toLowerCase())))
-      .map((p) => p.name)
-
-  const addPreset = (p: MCPPreset) => runMCP('preset:' + p.name, async () => {
-    if (p.headers?.length && needsPaste(p.headers)) {
-      // Hand it to the form with the header names already in, rather than
-      // saving something that cannot connect. Nothing is written until the key
-      // is pasted and Save is pressed.
-      resetMCPForm()
-      mcpKind = p.url ? 'http' : 'stdio'
-      mcpName = p.name
-      mcpUrl = p.url ?? ''
-      mcpCommand = (p.command ?? []).join(' ')
-      // An entry that already carries the value's prefix ("Authorization:
-      // Bearer") keeps it and gets one space; a bare header name gets the colon.
-      mcpHeadersText = p.headers.map((h) => (h.includes(':') ? `${h} ` : `${h}: `)).join('\n')
-      mcpNeedsKey = true
-      // After resetMCPForm above, which closes it.
-      openMCPForm()
-      return
-    }
-    await SaveMCPServer('', await presetConfig(p))
-    await loadMCP()
-  })
 
   // Install the server an agent says it is missing, and place the agent on it,
   // from the agent's own card.
@@ -1604,12 +1297,10 @@
     return 'background:var(--text-dim)'
   }
 
-  // ---------- Skills (discovered SKILL.md + plugin install) ----------
-  type SkillRow = { name: string; description: string; dir: string; bundled?: boolean }
-  let extSkills = $state<SkillRow[]>([])
+  // ---------- Tools ----------
   // Read-only: every tool the AI can run — Aetox's own plus anything an MCP
-  // server bridged in. Separate from the skills below, which are documents, not
-  // things it runs.
+  // server bridged in. Skills are documents, not things it runs, and are
+  // handled in ห้องความสามารถ under their own heading (13 ก.ย. 2026).
   let tools = $state<{ name: string; description: string; source: string; category: string }[]>([])
   // Grouped by what a tool is *for*, not by where it came from.
   //
@@ -1633,22 +1324,9 @@
   // the thing it configures is a setting nobody connects to it.
   const SPEECH_TOOL = 'audio_transcribe'
   let speechOpen = $state(false)
-  let skillBusy = $state('')
-  let skillError = $state('')
-  let skillInstallUrl = $state('')
-  let skillInstallResult = $state('')
-  // Where skills actually live, and which SKILL.md files were found but could
-  // not be read. Both come from the engine: a path the page states on its own
-  // authority is a path that can drift from the one being scanned, which is
-  // exactly what had happened.
-  let skillsDir = $state('')
-  let skillIssues = $state<string[]>([])
 
-  async function loadSkills() {
-    extSkills = await ListExternalSkills()
+  async function loadTools() {
     tools = await ListTools()
-    skillsDir = await SkillsDir()
-    skillIssues = (await SkillScanIssues()) ?? []
     await loadSpeech()
   }
 
@@ -1779,6 +1457,16 @@
   let studioBrowse = $state<{ kind: string; library: string } | null>(null)
   // The "หาวัตถุดิบเพิ่ม" sheet (StudioSourcesSheet.svelte).
   let studioSourcesOpen = $state(false)
+  // The shelf is for two agents, and the page should hand you to them —
+  // otherwise a person who has just stocked it goes looking for where the
+  // work happens. Same three moves VideoWork.start makes: leave the page,
+  // show the chat, boot the chair; the view moves first so the click is
+  // not a dead click while the session comes up.
+  async function talkToVideoAgent(agent: 'video' | 'editor') {
+    onClose()
+    setActiveView('chat')
+    await newChairSession(agent)
+  }
   // A tab picks the kind and keeps whatever shelf filter is on; a card's
   // "ดูของ" picks the shelf and shows every kind of it. Pressing the open tab
   // again does nothing — a tab row always has one open.
@@ -2065,53 +1753,6 @@
     }
   }
 
-  async function runSkill(label: string, fn: () => Promise<void>) {
-    skillBusy = label
-    skillError = ''
-    try {
-      await fn()
-    } catch (err) {
-      skillError = String(err)
-    } finally {
-      skillBusy = ''
-    }
-  }
-
-  const installSkill = () => runSkill('install', async () => {
-    skillInstallResult = ''
-    skillInstallResult = await InstallSkillFromGitHub(skillInstallUrl.trim())
-    skillInstallUrl = ''
-    await loadSkills()
-  })
-
-  // The picker is native, so there is nothing to pass in. An empty result means
-  // the dialog was dismissed — cancelling is not a failure and must not leave a
-  // stale report on screen.
-  const installSkillZip = () => runSkill('zip', async () => {
-    skillInstallResult = ''
-    const report = await InstallSkillFromZip()
-    if (!report) return
-    skillInstallResult = report
-    await loadSkills()
-  })
-
-  const removeSkill = (name: string, dir: string) => askConfirm({
-    title: t('settings.confirmSkillTitle'),
-    message: t('settings.confirmSkillMessage'),
-    // The folder, not the name: this deletes something off disk, so the path
-    // is the thing worth checking before agreeing to it.
-    detail: dir || name,
-    confirmLabel: t('settings.remove'),
-    run: () => runSkill('rm:' + name, async () => {
-      await RemoveExternalSkill(name)
-      await loadSkills()
-    }),
-  })
-
-  const refreshSkills = () => runSkill('refresh', async () => {
-    await RefreshSkills()
-    await loadSkills()
-  })
 
   // ---------- Usage stats ----------
   // cacheRows counts the calls whose provider reported cache accounting at all.
@@ -2161,7 +1802,10 @@
   const dayKey = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-  const usageRows = $derived(usage ? usage[usagePeriod] : [])
+  // `?? []` because a Go nil slice arrives as JSON null, and a period with no
+  // rows (today, before the first call of the day) used to do exactly that —
+  // `.length` on it threw mid-render and the period buttons looked dead.
+  const usageRows = $derived((usage ? usage[usagePeriod] : null) ?? [])
   const usageTotal = (r: UsageRow) => r.promptTokens + r.completionTokens
   const periodTotal = $derived(usageRows.reduce((sum, r) => sum + usageTotal(r), 0))
 
@@ -2435,15 +2079,15 @@
   // Only sub-agents live here. The main agent is the assistant — one identity,
   // configured by the identity files — and is not chosen from a list (§44.0).
   type SubagentRow = {
-    name: string; description: string; model?: string
+    name: string; description: string; model?: string; provider?: string
     tools?: string[]; deny?: string[]; steps?: number; prompt: string
     path?: string; builtin: boolean; overrides?: boolean; invalid?: string; notice?: string; icon?: string
-    // The two parts of the face a profile may name for itself. Blank on almost
-    // every row and blank is the answer: the drawing derives them from the name
-    // (agentFace.ts). Carried so that a page which SHOWS an agent shows the one
-    // its owner chose — an override that only the settings editor honoured
-    // would be one person with two faces.
-    hair?: string; accessory?: string; hue?: string
+    // The look a profile may name for itself (profile.go). Blank on almost
+    // every row and blank is the answer: the drawing derives it from the name
+    // (agentLook.ts). Carried so that a page which SHOWS an agent shows the
+    // one its owner chose — an override that only the settings editor
+    // honoured would be one robot with two looks.
+    shell?: string; top?: string; face?: string; accent?: string; hue?: string
     // Already resolved by the backend (applyHomeRules fills the default), which
     // is why the editor shows this rather than the raw `desk:` it keeps: the
     // default is a constant in internal/mode and spelling it again here is how
@@ -2481,9 +2125,14 @@
     mine: subagents.filter((a) => !a.builtin && chairNames.has(a.name)),
     builtin: subagents.filter((a) => a.builtin && chairNames.has(a.name)),
   })
+  // A helper has no "yours" pile: the bundled set is the whole set, and a
+  // file of yours over one of them is a shadow that stays in its place on the
+  // one list, wearing the ทับของแอป chip (12 ก.ย. 2026 — the helpers' door
+  // reopened for the model, the prompt and the look; profile.go
+  // limitHelperShadow is the limit).
   const helperRows = $derived({
-    mine: subagents.filter((a) => !a.builtin && !chairNames.has(a.name)),
-    builtin: subagents.filter((a) => a.builtin && !chairNames.has(a.name)),
+    mine: [] as SubagentRow[],
+    builtin: subagents.filter((a) => (a.builtin || a.overrides) && !chairNames.has(a.name)),
   })
   // Which profiles are agents — asked of ListChairs, the same answer the team
   // page draws, never re-derived from a file's fields here.
@@ -2504,30 +2153,39 @@
   // agent thinks with already lives.
   let agentDraftDescription = $state('')
   let agentDraftModel = $state('')
+  // Which provider the model above lives at (owner, 12 ก.ย.: "ควรเลือกได้แม้แต่
+  // ผู้ให้บริการ"). '' = the chat's, which is what every file said before.
+  let agentDraftProvider = $state('')
   let agentDraftTools = $state<string[]>([])
   let agentDraftDeny = $state<string[]>([])
   let agentDraftSteps = $state('')
   let agentDraftIcon = $state('')
-  // The other two thirds of the face. Same rule as the icon and the same
-  // default: '' means "derive it from the name", which is what every profile
-  // nobody has opened says, and what the roster has always drawn.
-  let agentDraftHair = $state('')
-  let agentDraftAccessory = $state('')
-  // Kept as the string the file carries rather than a number, so what the
-  // editor holds is what the .md says — including a value somebody hand-wrote
-  // that this build does not offer. faceOf() is the one place it becomes a
-  // colour, and it refuses anything that is not 0..360.
+  // The rest of the look — the mascot's identity dials (MASCOT.md §2). Same
+  // rule as the icon and the same default: '' means "derive it", which is
+  // what every profile nobody has opened says, and what the roster has always
+  // drawn: the assistant's template in the hue the name gives.
+  let agentDraftShell = $state('')
+  let agentDraftTop = $state('')
+  let agentDraftFace = $state('')
+  // The colour is one dial with two spellings in the file: `accent:` names an
+  // ACCENT row (a hue and how much of it — the same list the avatar page
+  // offers, which is what lets a persona be handed over whole), and the older
+  // `hue:` is a degree at full colour. The picker writes `accent:` and clears
+  // `hue:`; a file that carries a degree keeps it until a colour is picked.
+  // Both are kept as the string the file carries rather than parsed, so what
+  // the editor holds is what the .md says — including a value somebody
+  // hand-wrote that this build does not offer. lookOf() is the one place a
+  // hue becomes a number, and it refuses anything that is not 0..360.
+  let agentDraftAccent = $state('')
   let agentDraftHue = $state('')
   // What the STARTER CARD picker offers — a hand-picked subset of the app's
   // marks, not all of them: forty icons is a wall to scan and most of them mean
   // nothing on a card. Adding one is adding a name here.
   //
   // This list used to serve the agent's own icon too, and that was the bug: a
-  // card's icon is drawn as itself, an agent's is drawn as something the face
-  // HOLDS, and only the second one has to exist in the wardrobe. Eleven of
-  // these fifteen did not, so picking one changed nothing on the roster and the
-  // page said so nowhere. The face picker reads PROP_ICONS now, off the map
-  // that does the drawing.
+  // card's icon is drawn as itself, an agent's is drawn on the mascot's ears,
+  // and the two rows answer different questions. The badge row reads
+  // AGENT_BADGES (agentLook.ts), every one of which the ear can wear.
   const AGENT_ICONS: IconName[] = [
     'layoutList', 'fileText', 'chartColumn', 'fileCode', 'terminal', 'globe',
     'search', 'brain', 'palette', 'clapperboard', 'headphones', 'package',
@@ -2540,18 +2198,42 @@
   // you type, which is the truest thing this page can say about where a face
   // comes from.
   const facePreviewName = $derived(agentDraftName.trim() || 'backend')
-  const faceIsAuto = $derived(!agentDraftIcon && !agentDraftHair && !agentDraftAccessory && !agentDraftHue)
+  const faceIsAuto = $derived(!agentDraftIcon && !agentDraftShell && !agentDraftTop && !agentDraftFace && !agentDraftAccent && !agentDraftHue)
   // The draft as one object, so the preview and every cell of every row below
   // are fed by the same call the roster is fed by. A row that built its own
-  // overrides would be a second reading of the same four fields.
-  const draftFace = $derived(faceOf({
-    icon: agentDraftIcon, hair: agentDraftHair, accessory: agentDraftAccessory, hue: agentDraftHue,
+  // overrides would be a second reading of the same six fields.
+  const draftFace = $derived(lookOf({
+    icon: agentDraftIcon, shell: agentDraftShell, top: agentDraftTop, face: agentDraftFace, accent: agentDraftAccent, hue: agentDraftHue,
   }))
   const resetFace = () => {
     agentDraftIcon = ''
-    agentDraftHair = ''
-    agentDraftAccessory = ''
+    agentDraftShell = ''
+    agentDraftTop = ''
+    agentDraftFace = ''
+    agentDraftAccent = ''
     agentDraftHue = ''
+  }
+  // A colour picked here is an accent; the degree the file may still carry
+  // would otherwise win over it (rig.ts: a hue is full colour, and first).
+  const pickAccent = (id: string) => {
+    agentDraftAccent = id
+    agentDraftHue = ''
+  }
+  // Wear a persona the user saved on the avatar page — this is what the slots
+  // are for (avatarPrefs.svelte.ts): an agent designed here can put on a look
+  // designed there, all four dials at once. The badge stays the agent's own;
+  // a persona is a look, not an identity.
+  const wearPersona = (i: number) => {
+    const p = personas.slots[i]
+    if (!p) return
+    agentDraftShell = p.shell
+    agentDraftTop = p.top
+    agentDraftFace = p.face
+    pickAccent(p.accent)
+  }
+  const wearsPersona = (i: number) => {
+    const p = personas.slots[i]
+    return !!p && p.shell === agentDraftShell && p.top === agentDraftTop && p.face === agentDraftFace && p.accent === agentDraftAccent && !agentDraftHue
   }
 
   let showFaceContexts = $state(false)
@@ -2559,6 +2241,60 @@
   let previewFaceOff = $state(false)
 
   let agentDraftPrompt = $state('')
+  // The three roads into the role field beside typing (§256.5, owner 13 ก.ย.:
+  // "เอาแบบเปิดไฟล์ + วางลิงก์แล้วดึง + เทมเพลต"): a file on this machine, a
+  // link to a file kept on GitHub or Google Drive, a template with blanks.
+  // Each lands TEXT in the field and nothing else — the file or link is where
+  // the words came from, not something the agent keeps pointing at. A field
+  // with words in it already asks before they are replaced.
+  let agentFillLink = $state('')
+  let agentFillBusy = $state(false)
+  let agentFillError = $state('')
+  function placeBrief(text: string) {
+    agentFillError = ''
+    if (agentDraftPrompt.trim() === '') {
+      agentDraftPrompt = text
+      agentBodyOpen = true
+      return
+    }
+    askConfirm({
+      title: t('settings.agentFillReplaceTitle'),
+      message: t('settings.agentFillReplaceMessage'),
+      confirmLabel: t('settings.agentFillReplaceAction'),
+      run: () => { agentDraftPrompt = text; agentBodyOpen = true },
+    })
+  }
+  async function fillFromFile() {
+    if (agentFillBusy) return
+    agentFillBusy = true
+    agentFillError = ''
+    try {
+      const text = await PickAgentBrief()
+      if (text) placeBrief(text)
+    } catch (err) {
+      agentFillError = String(err)
+    } finally {
+      agentFillBusy = false
+    }
+  }
+  async function fillFromLink() {
+    const link = agentFillLink.trim()
+    if (!link || agentFillBusy) return
+    agentFillBusy = true
+    agentFillError = ''
+    try {
+      placeBrief(await FetchAgentBrief(link))
+      agentFillLink = ''
+    } catch (err) {
+      agentFillError = String(err)
+    } finally {
+      agentFillBusy = false
+    }
+  }
+  function fillFromTemplate(id: string) {
+    const tp = AGENT_TEMPLATES.find((x) => x.id === id)
+    if (tp) placeBrief(templateBody(tp, i18n.locale))
+  }
   // The role is the whole of what an agent is, and for a bundled one that is a
   // hundred lines of prose — opening the editor to change a model meant
   // scrolling past all of it to reach anything else on the page. So it is a
@@ -2580,9 +2316,11 @@
   // disagreed with the request that gets sent.
   let delegate = $state<engine.DelegateSettings | null>(null)
   let delegateBusy = $state('')
+  // The DEFAULT team's switches (§256): this page is the shipped roster's
+  // settings, and a user team's switches live on its card in ทีมเอเจน.
   async function loadDelegate() {
     try {
-      delegate = await DelegateSwitches()
+      delegate = await DelegateSwitches('')
     } catch {
       delegate = null // the switches are simply absent rather than the page failing
     }
@@ -2612,7 +2350,7 @@
     if (delegateBusy) return
     delegateBusy = name
     try {
-      delegate = await SetAgentOff(name, on)
+      delegate = await SetAgentOff('', name, on)
     } finally {
       delegateBusy = ''
     }
@@ -2834,32 +2572,34 @@
   // Every enabled server, not only the ones already ticked: the panel answers
   // "what does this one carry" and "what could it" in one read, and a list of
   // just the ticked ones is a list you cannot add to.
-  const agentServerCandidates = $derived(mcpServers.filter((s) => !s.disabled))
   const agentServerCount = $derived(
-    agentMCPId ? agentServerCandidates.filter((s) => (s.for ?? []).includes(agentMCPId)).length : 0,
+    agentMCPId ? mcpServers.filter((s) => !s.disabled).filter((s) => (s.for ?? []).includes(agentMCPId)).length : 0,
   )
 
   // Toggling here writes the same `for:` list the MCP page writes, through the
   // same call. It applies at once and does not wait for Save — the panel says
   // so, because a switch inside a form with a Save button is otherwise read as
   // part of the draft.
-  const toggleAgentServer = (s: MCPRow) => runMCP('target:' + s.name + ':' + agentMCPId, async () => {
-    if (!agentMCPId) return
-    const current = s.for ?? []
-    const next = current.includes(agentMCPId)
-      ? current.filter((x) => x !== agentMCPId)
-      : [...current, agentMCPId]
-    await SetMCPServerTargets(s.name, next)
-    await loadMCP()
-    // A need met by that click stops being unmet — recomputed rather than
-    // guessed at, since only the engine knows what counts as met.
-    if (agentReachFor) agentNeeds = await AgentNeeds(agentReachFor)
-  })
 
-  // The per-row model dropdown offers the current provider's models — a pin to a
-  // model from some other provider still shows (as its own option) rather than
-  // silently reading as "inherit".
+  // The model dropdown offers the models of the provider the draft names, or
+  // the chat's when it names none — a pin to a model the list does not hold
+  // still shows (as its own option) rather than silently reading as "inherit".
   let agentModels = $state<string[]>([])
+  // Asked per provider, on the provider changing: a list fetched once for the
+  // chat's provider would offer OpenAI's models under a DeepSeek pick.
+  async function loadAgentModels(provider: string) {
+    try {
+      agentModels = await ListModelsForProvider(provider || cockpit.model.provider)
+    } catch {
+      agentModels = [] // no key / offline: the dropdown still offers "inherit"
+    }
+  }
+  const pickAgentProvider = (provider: string) => {
+    agentDraftProvider = provider
+    // A model pinned under one provider is not a model at another.
+    agentDraftModel = ''
+    void loadAgentModels(provider)
+  }
 
   async function loadAgents() {
     subagents = await ListSubagentProfiles()
@@ -2873,11 +2613,7 @@
     } catch {
       chairNames = new Set() // engine not up: rows just carry no room label
     }
-    try {
-      agentModels = await ListModelsForProvider(cockpit.model.provider)
-    } catch {
-      agentModels = [] // no key / offline: the dropdown still offers "inherit"
-    }
+    await loadAgentModels('')
   }
 
   async function runAgent(label: string, fn: () => Promise<void>) {
@@ -2927,9 +2663,9 @@
   // captured when the editor opened (and re-captured on save) to answer the one
   // question the Back button needs answered.
   const agentDraftKey = () => JSON.stringify([
-    agentDraftName, agentDraftDescription, agentDraftModel,
+    agentDraftName, agentDraftDescription, agentDraftModel, agentDraftProvider,
     agentDraftTools, agentDraftDeny, agentDraftSteps, agentDraftPrompt,
-    agentDraftIcon, agentDraftHair, agentDraftAccessory, agentDraftHue,
+    agentDraftIcon, agentDraftShell, agentDraftTop, agentDraftFace, agentDraftAccent, agentDraftHue,
   ])
   let agentSnapshot = ''
 
@@ -2939,7 +2675,11 @@
   // goes out through the matching door, so an edit cannot change what
   // something is as a side effect of where a button happened to be.
   let agentEditKind = $state<'agent' | 'helper'>('helper')
-  type AgentTab = 'identity' | 'brain' | 'reach' | 'knowledge' | 'opening'
+  // Where an AGENT's editor closes onto. The roster page, normally; the
+  // ทีมเอเจน page when its form's "+ เอเจน" opened the editor, so the person
+  // lands back on the draft they left, with the new agent ticked.
+  let agentBack = $state<'office' | 'teams'>('office')
+  type AgentTab = 'identity' | 'avatar' | 'brain' | 'reach' | 'knowledge' | 'opening'
   let agentTab = $state<AgentTab>('identity')
 
   const openAgent = (a: SubagentRow, kind?: 'agent' | 'helper') => runAgent('open:' + a.name, async () => {
@@ -2947,6 +2687,8 @@
     agentDraftName = a.name
     agentDraftDescription = parsed.description
     agentDraftModel = parsed.model
+    agentDraftProvider = parsed.provider
+    if (parsed.provider) void loadAgentModels(parsed.provider)
     agentDraftTools = parsed.tools
     agentDraftDeny = parsed.deny
     // No `steps:` line means no ceiling (§110), so the box opens ticked. Seeded
@@ -2954,8 +2696,10 @@
     // new one does not disable the field under the user's cursor.
     agentDraftSteps = parsed.steps.trim() || STEPS_UNLIMITED
     agentDraftIcon = parsed.icon
-    agentDraftHair = parsed.hair
-    agentDraftAccessory = parsed.accessory
+    agentDraftShell = parsed.shell
+    agentDraftTop = parsed.top
+    agentDraftFace = parsed.face
+    agentDraftAccent = parsed.accent
     agentDraftHue = parsed.hue
     agentKeptDesk = parsed.desk
     agentKeptNeeds = parsed.needs
@@ -2980,16 +2724,25 @@
     agentDraftName = ''
     agentDraftDescription = ''
     agentDraftModel = ''
+    agentDraftProvider = ''
     agentDraftTools = []
     agentDraftDeny = []
     agentDraftSteps = STEPS_UNLIMITED // a new worker starts uncapped, like every shipped one
     agentDraftIcon = ''
-    agentDraftHair = ''
-    agentDraftAccessory = ''
+    agentDraftShell = ''
+    agentDraftTop = ''
+    agentDraftFace = ''
+    agentDraftAccent = ''
     agentDraftHue = ''
     agentKeptDesk = ''
     agentKeptNeeds = []
-    agentDraftPrompt = t('settings.agentStarter')
+    // Empty, with the guidance as a PLACEHOLDER. Until 13 ก.ย. the guidance was
+    // the field's VALUE, and the Save button accepted it — so an agent made in
+    // a hurry shipped with "มันไม่เห็นประวัติแชท คืนแค่ผลลัพธ์" as its whole
+    // brief, and then behaved exactly like that in a chat someone had walked
+    // into to talk (the report that started §256). A placeholder cannot be
+    // saved; the guard on Save (an empty role) does the rest.
+    agentDraftPrompt = ''
     agentBodyOpen = true // a new agent is opened to be written in, not read
     agentTab = 'identity'
     agentError = ''
@@ -2999,19 +2752,45 @@
     agentSnapshot = agentDraftKey()
   }
 
+  // Leaving the editor. An AGENT's editor is reached from the roster page
+  // alone since 12 ก.ย. (there is no ตั้งค่า › เอเจน list any more — "คนอยู่
+  // หน้าแรก ทีมอยู่ตั้งค่า"), so closing it walks back there rather than
+  // onto a page that no longer exists; a ซับเอเจน's editor closes onto its
+  // own list as it always did.
+  function leaveAgentEditor(saved = '') {
+    agentEditing = null
+    if (agentEditKind !== 'agent') return
+    if (agentBack === 'teams') {
+      agentBack = 'office'
+      cockpit.settingsIntent = { section: 'teams', agent: saved || undefined }
+      openSection('teams')
+      return
+    }
+    setShell('assistant')
+    setActiveView('office')
+  }
+  // ทีมเอเจน's form asked for an agent that is not on the roster yet.
+  function newAgentFromTeams() {
+    agentBack = 'teams'
+    openSection('team')
+    newAgent('agent')
+  }
   const closeAgentEditor = () =>
-    guardUnsaved(agentDraftKey() !== agentSnapshot, () => { agentEditing = null })
+    guardUnsaved(agentDraftKey() !== agentSnapshot, leaveAgentEditor)
 
   const saveAgent = () => runAgent('save', async () => {
     const body = serializeAgentFile({
       description: agentDraftDescription,
       model: agentDraftModel,
+      provider: agentDraftProvider,
       tools: agentDraftTools,
       deny: agentDraftDeny,
       steps: agentDraftSteps,
       icon: agentDraftIcon,
-      hair: agentDraftHair,
-      accessory: agentDraftAccessory,
+      shell: agentDraftShell,
+      top: agentDraftTop,
+      face: agentDraftFace,
+      accent: agentDraftAccent,
       hue: agentDraftHue,
       desk: agentKeptDesk,
       needs: agentKeptNeeds,
@@ -3023,7 +2802,7 @@
     if (agentEditKind === 'agent') await SaveAgentProfile(agentDraftName.trim(), body)
     else await SaveSubagentProfile(agentDraftName.trim(), body)
     await loadAgents()
-    agentEditing = null
+    leaveAgentEditor(agentDraftName.trim())
   })
 
   // Two different actions behind one button: deleting a profile the user wrote,
@@ -3039,7 +2818,7 @@
       run: () => runAgent('delete', async () => {
         await DeleteSubagentProfile(agentDraftName.trim())
         await loadAgents()
-        agentEditing = null
+        leaveAgentEditor()
       }),
     })
   }
@@ -3072,8 +2851,8 @@
   // silent loss with a worse ending — an agent on a named desk fell back to the
   // office ceiling. An editor must not delete what it does not draw.
   type AgentFields = {
-    description: string; model: string; tools: string[]; deny: string[]; steps: string; icon: string
-    hair: string; accessory: string; hue: string; desk: string; needs: string[]; body: string
+    description: string; model: string; provider: string; tools: string[]; deny: string[]; steps: string; icon: string
+    shell: string; top: string; face: string; accent: string; hue: string; desk: string; needs: string[]; body: string
   }
 
   // Mirrors internal/subagent/profile.go's parse(): a leading `---`-fenced block
@@ -3085,8 +2864,8 @@
   // never silently emptied under the user.
   function parseAgentFile(raw: string): AgentFields {
     const asPromptOnly = {
-      description: '', model: '', tools: [] as string[], deny: [] as string[],
-      steps: '', icon: '', hair: '', accessory: '', hue: '', desk: '',
+      description: '', model: '', provider: '', tools: [] as string[], deny: [] as string[],
+      steps: '', icon: '', shell: '', top: '', face: '', accent: '', hue: '', desk: '',
       needs: [] as string[], body: raw.trim(),
     }
     const normalized = raw.replace(/\r\n/g, '\n').replace(/^\n+/, '')
@@ -3106,15 +2885,22 @@
     return {
       description: fields.description ?? '',
       model: fields.model ?? '',
+      // A provider name is an id from the catalog, lowercase already.
+      provider: (fields.provider ?? '').trim().toLowerCase(),
       tools: list(fields.tools),
       deny: list(fields.deny),
       steps: (fields.steps ?? '').trim(),
       icon: (fields.icon ?? '').trim(),
-      // Not lowercased: these name a part in the wardrobe by its id, and the
-      // ids are camelCase ('sidePart'). Lowercasing here would turn a face
-      // somebody chose into the derived one, silently, on the way in.
-      hair: (fields.hair ?? '').trim(),
-      accessory: (fields.accessory ?? '').trim(),
+      // Not lowercased: these name a row in a catalogue by its id, and some
+      // ids are camelCase ('laptopTerm'). Lowercasing here would turn a look
+      // somebody chose into the default one, silently, on the way in.
+      // `hair:` and `accessory:` are not read: they were the cartoon face's
+      // (gone 12 ก.ย. 2026), nothing draws them, and a line the editor does
+      // not draw is dropped on the next save — that is the migration.
+      shell: (fields.shell ?? '').trim(),
+      top: (fields.top ?? '').trim(),
+      face: (fields.face ?? '').trim(),
+      accent: (fields.accent ?? '').trim(),
       hue: (fields.hue ?? '').trim(),
       desk: (fields.desk ?? '').trim().toLowerCase(),
       // Not lowercased and not split on anything but the comma: an entry may
@@ -3133,6 +2919,7 @@
   function serializeAgentFile(f: AgentFields): string {
     const lines = ['---', `description: ${f.description.trim()}`]
     if (f.model.trim()) lines.push(`model: ${f.model.trim()}`)
+    if (f.provider.trim()) lines.push(`provider: ${f.provider.trim()}`)
     if (f.tools.length) lines.push(`tools: ${f.tools.join(', ')}`)
     if (f.deny.length) lines.push(`deny: ${f.deny.join(', ')}`)
     // Written back exactly as they were read. The editor shows both and edits
@@ -3145,11 +2932,13 @@
     // one: an absent field means the roster derives it from what the agent
     // makes, which is the right answer for every profile nobody has opened.
     if (f.icon.trim()) lines.push(`icon: ${f.icon.trim()}`)
-    // The same rule for the rest of the face: written only when chosen, absent
+    // The same rule for the rest of the look: written only when chosen, absent
     // when derived. A file full of lines restating the default is a file whose
     // defaults can never change again.
-    if (f.hair.trim()) lines.push(`hair: ${f.hair.trim()}`)
-    if (f.accessory.trim()) lines.push(`accessory: ${f.accessory.trim()}`)
+    if (f.shell.trim()) lines.push(`shell: ${f.shell.trim()}`)
+    if (f.top.trim()) lines.push(`top: ${f.top.trim()}`)
+    if (f.face.trim()) lines.push(`face: ${f.face.trim()}`)
+    if (f.accent.trim()) lines.push(`accent: ${f.accent.trim()}`)
     if (f.hue.trim()) lines.push(`hue: ${f.hue.trim()}`)
     // The keyword, not a number. Leaving the line out would mean the same thing
     // today (the default is no ceiling since §110), but writing it says so in
@@ -3188,12 +2977,8 @@
     agentDraftSteps = agentStepsUnlimited ? '' : STEPS_UNLIMITED
   }
 
-  // The MCP page needs them too, though it draws no agent: each preset says
-  // which agents asked for it, and that is read from the profiles' own `needs:`
-  // (agentsNeeding). Without this the line is simply missing on the one page
-  // where somebody is deciding whether a server is for them.
   $effect(() => {
-    if (active === 'agents' || active === 'team' || active === 'mcp') void loadAgents()
+    if (active === 'agents' || active === 'team') void loadAgents()
     // Both pages, since each now carries its own switch: 'team' is เอเจน and
     // 'agents' is ซับเอเจน (see the render below). Loading on one page only is
     // how the ซับเอเจน page ended up with rows it could not explain.
@@ -3331,7 +3116,7 @@
   // onClose() first, exactly as consultIssue does: the new chat is the answer, so
   // leaving the user on the settings page to discover it would be the wrong
   // ending.
-  async function askAssistant(promptKey: 'settings.aiFindSkillPrompt' | 'settings.aiFindMCPPrompt' | 'settings.aiFindPresetPrompt') {
+  async function askAssistant(promptKey: 'settings.aiFindPresetPrompt') {
     onClose()
     await startChatWith(t(promptKey))
   }
@@ -3915,6 +3700,11 @@
           t('settings.typeScaleTitle'), t('settings.systemZoomTitle'), t('settings.editorFontTitle'),
           t('settings.chatFontTitle'), t('settings.treeFontTitle'), t('settings.codeThemeTitle'),
         ] },
+      // The assistant's mascot: what it looks like and whether it sits on the
+      // screen. Its words live in mascot/avatarText.ts until the locale files
+      // are free (see that file).
+      { id: 'avatar', label: avatarText(i18n.locale).title, icon: 'bot',
+        terms: [avatarText(i18n.locale).onScreen, avatarText(i18n.locale).shell, avatarText(i18n.locale).hue] },
       // The icon is deliberately not `userRound` — the เอเจน page below owns
       // that, and this page is not about a person in the team.
       { id: 'identity', label: t('settings.identity'), icon: 'fileText',
@@ -3939,10 +3729,17 @@
     { group: t('settings.groupModels'), items: [
       { id: 'models', label: t('settings.modelSettings'), icon: 'brain',
         terms: [t('settings.providers'), t('settings.apiKeyLabel'), t('settings.baseUrl'), t('settings.signInLabel'), t('settings.modelList')] },
-      { id: 'team', label: t('settings.team'), icon: 'userRound',
-        terms: [t('settings.teamNew'), t('settings.agentConfigure'), t('desk.office')] },
+      // No เอเจน row (owner, 12 ก.ย.: "เอาเอเจนออกจากหน้าตั้งค่า เหลือแค่ทีมเอเจน").
+      // The people live on the roster page; their editor is still this page's
+      // 'team' section, reached only through a card's gear (settingsIntent)
+      // and closing back onto the roster (leaveAgentEditor).
       { id: 'agents', label: t('settings.subagents'), icon: 'bot',
         terms: [t('settings.subagentsMine'), t('settings.subagentsBuiltin')] },
+      // Teams at the foot of the group, beside agents and never inside the
+      // agent editor (§256): a roster is not a person, and the owner asked for
+      // the two pages apart and this one last ("เพิ่มตั้งค่าทีมเอเจนที่ข้างล่าง").
+      { id: 'teams', label: t('settings.teams'), icon: 'users',
+        terms: [t('office.newTeam'), t('settings.teamSideAssistant'), t('settings.teamSideCode')] },
     ]},
     { group: t('settings.groupTools'), items: [
       // Two pages, not two cards on one: a tool is something the AI runs, a
@@ -3962,8 +3759,6 @@
       // "make or cut?" and should not also be a file manager.
       { id: 'studio', label: t('settings.studio'), icon: 'clapperboard',
         terms: ['SFX', 'overlay', 'asset_find', t('settings.studioAdd'), t('settings.studioSources')] },
-      { id: 'skills', label: t('settings.skills'), icon: 'puzzle', terms: [t('settings.skillInstall')] },
-      { id: 'mcp', label: t('settings.mcpServers'), icon: 'plug', terms: [t('settings.mcpPresets'), t('settings.addServer')] },
       // Below MCP and not beside the model sign-ins: both pages here extend
       // what the agent can reach, which is the question a user arrives with.
       // The icon is deliberately not `plug` — MCP owns that, and two plugs in
@@ -4136,7 +3931,7 @@
   // section (openSettingsAt), and two spellings of this key would fail silently
   // and look like the page ignoring where it was told to go.
   const SECTION_KEY = SETTINGS_SECTION_KEY
-  const SECTION_IDS = new Set(['general', 'appearance', 'identity', 'learning', 'skilltune', 'models', 'team', 'agents', 'tools', 'skills', 'mcp', 'connections', 'computer', 'prompts', 'account', 'usage', 'about', 'sponsor'])
+  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'identity', 'learning', 'skilltune', 'models', 'teams', 'agents', 'tools', 'connections', 'computer', 'prompts', 'account', 'usage', 'about', 'sponsor'])
 
   function restoredSection(): string {
     try {
@@ -4150,7 +3945,11 @@
     return 'general'
   }
 
-  let active = $state(restoredSection())
+  // Seeded from the intent when there is one, so the page's first frame is
+  // the section the gear asked for — not last visit's page for a tick, then
+  // the right one. The intent is consumed in onMount above; at construction it
+  // is still there to read.
+  let active = $state(cockpit.settingsIntent?.section ?? restoredSection())
   let query = $state('')
 
   // Which memory group the learning page should take the reader to. Set only
@@ -4238,7 +4037,7 @@
 
      The button says what pressing it does (opens a chat), not what it hopes will
      happen. Nothing is installed by pressing it. -->
-{#snippet aiFindCard(titleKey: TKey, descKey: TKey, promptKey: 'settings.aiFindSkillPrompt' | 'settings.aiFindMCPPrompt' | 'settings.aiFindPresetPrompt')}
+{#snippet aiFindCard(titleKey: TKey, descKey: TKey, promptKey: 'settings.aiFindPresetPrompt')}
   <div class="settings-card">
     <div class="set-row set-hero">
       <span class="set-hero-ic"><Icon name="sparkles" size={18} /></span>
@@ -4502,7 +4301,7 @@
              this one is headed ซับเอเจน and its rows carry no chat button —
              and that a second visual language for the same kind of thing costs
              more than it explains. -->
-        <AgentFace name={a.name} {...faceOf(a)} size={38} />
+        <AgentMascot name={a.name} {...lookOf(a)} size={38} />
         <span class="chair-name" title={a.path || 'built-in:' + a.name}>{a.name}</span>
         {#if delegate}
           {@const w = reachOf(a.name)}
@@ -4518,6 +4317,19 @@
             </label>
           {/if}
         {/if}
+        <!-- The same cog the เอเจน card wears, opening the same editor through
+             the helper door — which shows only what a helper's owner may
+             change: the model and its ceiling (สมอง), the prompt and the
+             description (ตัวตน, name locked), the look (อวตาร). No reach tab:
+             the kit is the system's, and profile.go keeps it so whatever a
+             hand-edited file says. -->
+        <button
+          class="icobtn tiny tip-l" disabled={agentBusy !== ''}
+          aria-label={t('settings.agentConfigure')} data-tip={t('settings.agentConfigure')}
+          onclick={() => openAgent(a, 'helper')}
+        >
+          <Icon name="settings" size={14} />
+        </button>
       </div>
       <div class="d">{a.description || '—'}</div>
       <!-- A file that cannot run says why, where its owner will look — never a
@@ -4529,14 +4341,21 @@
       {#if a.notice}<div class="d ag-notice">{a.notice}</div>{/if}
       <!-- Only the facts that differ between one helper and the next. The steps
            badge was drawn on every one of them reading "ไม่จำกัดรอบ", which is
-           the same word four times down a column of four. -->
+           the same word four times down a column of four — and so was the
+           source, `built-in:<name>` on every bundled card under a heading that
+           already says มากับแอป, in a colour that vanished (owner, 12 ก.ย.:
+           "แทบจะกลืนกับพื้นหลัง", then "ทำให้มันตรงๆสิ"). Gone: the name IS the
+           file's name, the group says whose file it is, and the full path stays
+           on the name's hover, exactly as the เอเจน card above does it. The one
+           thing about the file worth a chip is the same one that card wears —
+           a file of yours shadowing a bundled one. -->
       <div class="chair-chips">
-        {#if a.model}<span class="chip">{a.model}</span>{/if}
+        {#if a.overrides}<span class="chip mine">{t('settings.agentOverrides')}</span>{/if}
+        {#if a.model || a.provider}<span class="chip">{[a.provider, a.model].filter(Boolean).join(' · ')}</span>{/if}
         {#if a.deny && a.deny.length > 0}<span class="chip deny" title={denyTip(a)}>{t('settings.agentDenyCount', { n: a.deny.length })}</span>{/if}
         {#if (a.steps ?? 0) > 0}
           <span class="chip" title={t('settings.agentStepsTip', { n: a.steps ?? 0 })}>{t('settings.agentSteps', { n: a.steps ?? 0 })}</span>
         {/if}
-        <span class="chip mono-dim">{a.path || 'built-in:' + a.name}</span>
       </div>
     </div>
   </div>
@@ -4568,9 +4387,9 @@
              (§85). The ซับเอเจน page one snippet up keeps the glyph mark on
              purpose: a helper is the assistant's own hands, and a face would
              invite the question of how to hire one. -->
-        <AgentFace
+        <AgentMascot
           name={a.name}
-          {...faceOf(a)}
+          {...lookOf(a)}
           size={38}
           off={!!reachOf(a.name) && !(reachOf(a.name)!.on && !reachOf(a.name)!.off)}
         />
@@ -4649,7 +4468,7 @@
         {#if (a.steps ?? 0) > 0}
           <span class="chip" title={t('settings.agentStepsTip', { n: a.steps ?? 0 })}>{t('settings.agentSteps', { n: a.steps ?? 0 })}</span>
         {/if}
-        {#if a.model}<span class="chip">{a.model}</span>{/if}
+        {#if a.model || a.provider}<span class="chip">{[a.provider, a.model].filter(Boolean).join(' · ')}</span>{/if}
       </div>
     </div>
   </div>
@@ -4783,8 +4602,10 @@
     <p class="muted set-sub">{t('settings.agentsHint')}</p>
   {:else}
     <!-- The helpers are part of the system (owner's call, 2026-08-06): the
-         bundled set is the whole set, so this page reads — no create, no
-         editor, no model pin. One group, because "yours" cannot exist. -->
+         bundled set is the whole set, so there is no create here and "yours"
+         cannot exist as a pile. Since 12 ก.ย. 2026 each one opens in the editor
+         within limits (model, prompt, look) — a shadow file the owner may
+         revert — and stays in its place on this one list. -->
     <div class="group-head">
       <span class="group-title">{t('settings.subagentsBuiltin')}</span>
       <span class="group-count">{rows.builtin.length}</span>
@@ -4835,6 +4656,16 @@
           <Icon name="userRound" size={14} />
           <span>{t('settings.agentSecIdentity')}</span>
         </button>
+        <!-- The look, on its own tab (owner, 12 ก.ย.: "ควรทำหน้าอวตารแยก") —
+             for both kinds: a helper is drawn on the delegate card too. -->
+        <button
+          type="button" role="tab" id="ag-tab-avatar" aria-controls="ag-panel-avatar"
+          aria-selected={agentTab === 'avatar'}
+          class:on={agentTab === 'avatar'} onclick={() => (agentTab = 'avatar')}
+        >
+          <Icon name="bot" size={14} />
+          <span>{t('settings.agentSecAvatar')}</span>
+        </button>
         <button
           type="button" role="tab" id="ag-tab-brain" aria-controls="ag-panel-brain"
           aria-selected={agentTab === 'brain'}
@@ -4879,7 +4710,7 @@
 
     <!-- ── ตัวตน ── -->
     <div role="tabpanel" id="ag-panel-identity" aria-labelledby="ag-tab-identity"
-      class="ag-tab-panel" class:on={agentTab === 'identity' || (agentEditKind !== 'agent' && agentTab !== 'brain')}>
+      class="ag-tab-panel" class:on={agentTab === 'identity' || (agentEditKind !== 'agent' && agentTab !== 'brain' && agentTab !== 'avatar')}>
       <div class="settings-card">
         <div class="card-form pp-edit">
           <label class="pp-field">
@@ -4890,21 +4721,62 @@
             <span class="eyebrow">{t('settings.agentDescription')}</span>
             <input class="ctrl" bind:value={agentDraftDescription} placeholder={t('settings.agentDescriptionPlaceholder')} />
           </label>
-          <!-- The face this agent wears on the roster, chosen and SHOWN in the
-               same place. Choosing none is a real choice and still the default:
-               the face is then derived from the name, which is right for every
-               profile nobody has opened, and is what the whole roster looked like
-               before this section existed.
-               What was here was one row of the app's line marks and no picture of
-               the outcome anywhere on the page — so the thing you picked (a
-               glyph) was not the thing you got (a person holding something), and
-               eleven of the fifteen marks on offer drew nothing at all while
-               three that shipped agents wear could not be picked (agentFace.ts,
-               the note above PROP). The preview is the fix for the first half,
-               PROP_ICONS for the second. -->
+          <!-- A div rather than the `label` every other field uses: the toggle is
+               a button, and a button inside a label puts the caret in the textarea
+               on every click of it. -->
+          <div class="pp-field">
+            <div class="ag-bodyhead">
+              <span class="eyebrow">{t('settings.agentBody')}</span>
+              {#if agentBodyLong}
+                <button type="button" class="ag-bodymore" onclick={() => (agentBodyOpen = !agentBodyOpen)}>
+                  {agentBodyOpen ? t('settings.agentBodyLess') : t('settings.agentBodyMore', { n: agentBodyLines })}
+                </button>
+              {/if}
+            </div>
+            <div class="ag-bodywrap" class:collapsed={agentBodyLong && !agentBodyOpen}>
+              <textarea
+                class="ctrl ag-body" bind:value={agentDraftPrompt} spellcheck="false"
+                placeholder={t('settings.agentStarter')}
+                use:autogrow={agentDraftPrompt}
+                onfocus={() => (agentBodyOpen = true)}
+              ></textarea>
+            </div>
+            <span class="d muted">{t('settings.agentBodyHint')}</span>
+            <!-- Where the words can come from besides the keyboard: a file, a
+                 link, a template — house controls (.ctrl), one row. The
+                 select resets itself so the same template can be picked
+                 twice; it is a menu, not a value. -->
+            <div class="ag-fill">
+              <button type="button" class="ctrl" onclick={fillFromFile} disabled={agentFillBusy}><Icon name="folderOpen" size={13} /> {t('settings.agentFillFile')}</button>
+              <select class="ctrl ag-fill-tpl" aria-label={t('settings.agentFillTemplate')} value="" disabled={agentFillBusy}
+                onchange={(e) => { fillFromTemplate(e.currentTarget.value); e.currentTarget.value = '' }}>
+                <option value="" disabled>{t('settings.agentFillTemplate')}</option>
+                {#each AGENT_TEMPLATES as tp (tp.id)}<option value={tp.id}>{t(tp.title)}</option>{/each}
+              </select>
+              <input class="ctrl key-input ag-fill-link" type="text" bind:value={agentFillLink} spellcheck="false"
+                placeholder={t('settings.agentFillLinkPlaceholder')} disabled={agentFillBusy}
+                onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); fillFromLink() } }} />
+              <button type="button" class="ctrl" onclick={fillFromLink} disabled={agentFillBusy || !agentFillLink.trim()}><Icon name="download" size={13} /> {t('settings.agentFillFetch')}</button>
+            </div>
+            {#if agentFillError}<div class="mset-error">{agentFillError}</div>{/if}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── อวตาร ── the mascot this agent is, everywhere in the app. Its own
+         tab (owner, 12 ก.ย. 2026: "ควรทำหน้าอวตารแยก เพิ่มนะครับ และทำให้มันใช้
+         อวตารที่บันทึกไว้ได้"): the figure the way the avatar page shows the
+         assistant's, the six persona slots as cards you press, and under them
+         the badge and the four identity dials. Same draft, same save — a tab
+         is where it is read, not a second place it is kept. -->
+    <div role="tabpanel" id="ag-panel-avatar" aria-labelledby="ag-tab-avatar"
+      class="ag-tab-panel" class:on={agentTab === 'avatar'}>
+      <div class="settings-card">
+        <div class="card-form pp-edit">
           <div class="pp-field">
             <div class="ag-face-header">
-              <span class="eyebrow">{t('settings.agentFace')}</span>
+              <span class="eyebrow">{t('settings.agentLook')}</span>
               <button
                 type="button"
                 class="ctrl tiny"
@@ -4913,16 +4785,19 @@
                 style="display:inline-flex; align-items:center; gap:5px; cursor:pointer;"
               >
                 <Icon name="eye" size={13} />
-                <span>{showFaceContexts ? t('settings.agentFaceHideContexts') : t('settings.agentFaceShowContexts')}</span>
+                <span>{showFaceContexts ? t('settings.agentLookHideContexts') : t('settings.agentLookShowContexts')}</span>
               </button>
             </div>
-            <div class="ag-face">
-              <AgentFace name={facePreviewName} {...draftFace} size={76} />
+            <!-- The one being faced: big, breathing. Everything else on this
+                 tab is still. -->
+            <div class="ag-face ag-avatar-stage">
+              <AgentMascot name={facePreviewName} {...draftFace} size={168} still={false} />
               <div class="ag-face-say">
-                <span class="d muted">{faceIsAuto ? t('settings.agentFaceAutoHint') : t('settings.agentFaceHint')}</span>
+                <b class="ag-avatar-name">{facePreviewName}</b>
+                <span class="d muted">{faceIsAuto ? t('settings.agentLookAutoHint') : t('settings.agentLookHint')}</span>
                 {#if !faceIsAuto}
                   <button type="button" class="ag-face-reset" onclick={resetFace}>
-                    {t('settings.agentFaceReset')}
+                    {t('settings.agentLookReset')}
                   </button>
                 {/if}
               </div>
@@ -4931,8 +4806,8 @@
             {#if showFaceContexts}
               <div class="ag-contexts-panel">
                 <div class="ag-contexts-head">
-                  <span class="ag-contexts-title">{t('settings.agentFaceContextsTitle')}</span>
-                  <span class="d muted" style="font-size:var(--fs-2xs);">{t('settings.agentFaceContextsDesc')}</span>
+                  <span class="ag-contexts-title">{t('settings.agentLookContextsTitle')}</span>
+                  <span class="d muted" style="font-size:var(--fs-2xs);">{t('settings.agentLookContextsDesc')}</span>
                 </div>
 
                 <div class="ag-contexts-grid">
@@ -4940,13 +4815,13 @@
                   <div class="ag-context-card">
                     <div class="ag-context-label">
                       <Icon name="userRound" size={14} />
-                      <span>{t('settings.agentFaceContextOffice')}</span>
+                      <span>{t('settings.agentLookContextOffice')}</span>
                     </div>
                     <div class="ag-context-sample">
-                      <AgentFace name={facePreviewName} {...draftFace} size={38} off={previewFaceOff} />
+                      <AgentMascot name={facePreviewName} {...draftFace} size={38} off={previewFaceOff} />
                       <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
                         <span style="font-weight:600; font-size:var(--fs-sm); color:var(--text-primary);">{facePreviewName}</span>
-                        <span class="d muted" style="font-size:var(--fs-2xs);">{previewFaceOff ? t('settings.agentFaceStateOff') : t('settings.agentFaceStateIdle')}</span>
+                        <span class="d muted" style="font-size:var(--fs-2xs);">{previewFaceOff ? t('settings.agentLookStateOff') : t('settings.agentLookStateIdle')}</span>
                       </div>
                     </div>
                     <div class="ag-context-states">
@@ -4956,7 +4831,7 @@
                         class:on={!previewFaceOff}
                         onclick={() => (previewFaceOff = false)}
                       >
-                        {t('settings.agentFaceStateIdle')}
+                        {t('settings.agentLookStateIdle')}
                       </button>
                       <button
                         type="button"
@@ -4964,7 +4839,7 @@
                         class:on={previewFaceOff}
                         onclick={() => (previewFaceOff = true)}
                       >
-                        {t('settings.agentFaceStateOff')}
+                        {t('settings.agentLookStateOff')}
                       </button>
                     </div>
                   </div>
@@ -4973,10 +4848,10 @@
                   <div class="ag-context-card">
                     <div class="ag-context-label">
                       <Icon name="messageSquare" size={14} />
-                      <span>{t('settings.agentFaceContextChat')}</span>
+                      <span>{t('settings.agentLookContextChat')}</span>
                     </div>
                     <div class="ag-context-sample">
-                      <AgentFace
+                      <AgentMascot
                         name={facePreviewName}
                         {...draftFace}
                         size={34}
@@ -4986,26 +4861,26 @@
                         <span style="font-weight:600; font-size:var(--fs-sm); color:var(--text-primary);">{facePreviewName}</span>
                         <span class="d muted" style="font-size:var(--fs-2xs);">
                           {#if previewFaceState === 'idle'}
-                            {t('settings.agentFaceStateIdle')}
+                            {t('settings.agentLookStateIdle')}
                           {:else if previewFaceState === 'think'}
-                            {t('settings.agentFaceStateThinking')}
+                            {t('settings.agentLookStateThinking')}
                           {:else if previewFaceState === 'work'}
-                            {t('settings.agentFaceStateWorking')}
+                            {t('settings.agentLookStateWorking')}
                           {:else if previewFaceState === 'done'}
-                            {t('settings.agentFaceStateDone')}
+                            {t('settings.agentLookStateDone')}
                           {:else if previewFaceState === 'err'}
-                            {t('settings.agentFaceStateError')}
+                            {t('settings.agentLookStateError')}
                           {/if}
                         </span>
                       </div>
                     </div>
                     <div class="ag-context-states">
                       {#each [
-                        { id: 'idle', label: t('settings.agentFaceStateIdle') },
-                        { id: 'think', label: t('settings.agentFaceStateThinking') },
-                        { id: 'work', label: t('settings.agentFaceStateWorking') },
-                        { id: 'done', label: t('settings.agentFaceStateDone') },
-                        { id: 'err', label: t('settings.agentFaceStateError') },
+                        { id: 'idle', label: t('settings.agentLookStateIdle') },
+                        { id: 'think', label: t('settings.agentLookStateThinking') },
+                        { id: 'work', label: t('settings.agentLookStateWorking') },
+                        { id: 'done', label: t('settings.agentLookStateDone') },
+                        { id: 'err', label: t('settings.agentLookStateError') },
                       ] as st (st.id)}
                         <button
                           type="button"
@@ -5023,123 +4898,161 @@
                   <div class="ag-context-card">
                     <div class="ag-context-label">
                       <Icon name="terminal" size={14} />
-                      <span>{t('settings.agentFaceContextComposer')}</span>
+                      <span>{t('settings.agentLookContextComposer')}</span>
                     </div>
                     <div class="ag-context-sample" style="align-items:center;">
                       <div class="ag-context-chip-composer">
-                        <AgentFace name={facePreviewName} {...draftFace} size={20} />
+                        <AgentMascot name={facePreviewName} {...draftFace} size={20} />
                         <span>@{facePreviewName}</span>
                       </div>
                     </div>
-                    <span class="d muted" style="font-size:var(--fs-2xs);">{t('settings.agentFaceComposerHint')}</span>
+                    <span class="d muted" style="font-size:var(--fs-2xs);">{t('settings.agentLookComposerHint')}</span>
                   </div>
                 </div>
               </div>
             {/if}
           </div>
 
-          <!-- What it is holding. Still glyphs rather than faces: sixteen heads
-               differing by one small object is a wall of near-identical tiles,
-               and the mark itself is what the eye can tell apart at this size.
-               The preview above is where the outcome is read. -->
+          <!-- The saved personas, as the avatar page draws them: a card per
+               look, worn by THIS agent (its own badge on the ears), and ใช้
+               puts all four dials on the draft at once. With none saved, one
+               dashed card says so — where a look would go is half the
+               invitation to make one. -->
           <div class="pp-field">
-            <span class="eyebrow">{t('settings.agentProp')}</span>
+            <span class="eyebrow">{t('settings.agentPersonas')}</span>
+            <div class="ag-slots">
+              {#each personas.slots as slot, i (i)}
+                <div class="ag-slot" class:worn={wearsPersona(i)}>
+                  <AgentMascot name={facePreviewName} icon={agentDraftIcon || undefined} shell={slot.shell} top={slot.top} face={slot.face} accent={slot.accent} size={56} />
+                  <div class="ag-slot-meta">
+                    <b>{t('settings.agentPersonaUse', { n: i + 1 })}</b>
+                    <span>{wearsPersona(i) ? avatarText(i18n.locale).worn : ''}</span>
+                  </div>
+                  <button type="button" class="ctrl tiny pri" disabled={wearsPersona(i)} aria-label={`${t('settings.agentPersonaUse', { n: i + 1 })} — ${avatarText(i18n.locale).use}`} onclick={() => wearPersona(i)}>{avatarText(i18n.locale).use}</button>
+                </div>
+              {:else}
+                <div class="ag-slot empty">
+                  <div class="ag-slot-empty"><Icon name="bot" size={18} /></div>
+                  <div class="ag-slot-meta"><span>{avatarText(i18n.locale).personaEmpty}</span></div>
+                </div>
+              {/each}
+            </div>
+            <span class="d muted">
+              {t('settings.agentPersonasWhere')}
+              <button type="button" class="ag-face-reset" onclick={() => openSection('avatar')}>{avatarText(i18n.locale).title}</button>
+            </span>
+          </div>
+
+          <!-- The badge on the ears. Glyphs rather than robots: forty heads
+               differing by one small mark on the ear is a wall of near-identical
+               tiles, and the mark itself is what the eye can tell apart at this
+               size. The preview above is where the outcome is read. Every glyph
+               here is one the app's buttons already wear (ICONS), which is the
+               point of putting it on an ear: a person who sees `search` there
+               has seen it on the tool that does it. -->
+          <div class="pp-field">
+            <span class="eyebrow">{t('settings.agentBadge')}</span>
             <div class="ag-icons">
               <button type="button" class="ag-icon" class:on={agentDraftIcon === ''}
                 title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
                 onclick={() => (agentDraftIcon = '')}>
                 <Icon name="sparkles" size={16} />
               </button>
-              {#each PROP_ICONS as name (name)}
+              {#each AGENT_BADGES as name (name)}
                 <button type="button" class="ag-icon" class:on={agentDraftIcon === name}
                   title={name} aria-label={name} onclick={() => (agentDraftIcon = name)}>
-                  <Icon name={name as IconName} size={16} />
+                  <Icon name={name} size={16} />
                 </button>
               {/each}
             </div>
             <span class="d muted">{agentDraftIcon === '' ? t('settings.agentIconAutoHint') : agentDraftIcon}</span>
           </div>
 
-          <!-- Hair and glasses ARE drawn as faces, and for the opposite reason to
-               the row above: the difference between two haircuts is the head
-               itself, so a swatch of the part alone would be a shape nobody
-               recognises. Each button is the whole outcome, holding whatever was
-               picked above, so no cell on this row is a guess. -->
+          <!-- The four identity dials ARE drawn as robots, and for the opposite
+               reason to the badge row: the difference between two shells is the
+               whole body, so a swatch of the part alone would be a shape nobody
+               recognises. Each cell is the whole outcome, wearing whatever was
+               picked in the other rows, so no cell here is a guess — and every
+               cell is still: twenty of these breathing together is a page that
+               stutters (MASCOT.md §3.7). -->
           <div class="pp-field">
-            <span class="eyebrow">{t('settings.agentHair')}</span>
+            <span class="eyebrow">{t('settings.agentShell')}</span>
             <div class="ag-parts">
-              <button type="button" class="ag-part" class:on={agentDraftHair === ''}
+              <button type="button" class="ag-part" class:on={agentDraftShell === ''}
                 title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
-                onclick={() => (agentDraftHair = '')}>
-                <AgentFace name={facePreviewName} {...draftFace} hair={undefined} size={40} />
+                onclick={() => (agentDraftShell = '')}>
+                <AgentMascot name={facePreviewName} {...draftFace} shell={undefined} size={44} />
               </button>
-              {#each HAIR as h (h.id)}
-                <button type="button" class="ag-part" class:on={agentDraftHair === h.id}
-                  title={h.label} aria-label={h.label} onclick={() => (agentDraftHair = h.id)}>
-                  <AgentFace name={facePreviewName} {...draftFace} hair={h.id} size={40} />
-                </button>
-              {/each}
-            </div>
-          </div>
-
-          <div class="pp-field">
-            <span class="eyebrow">{t('settings.agentAccessory')}</span>
-            <div class="ag-parts">
-              <button type="button" class="ag-part" class:on={agentDraftAccessory === ''}
-                title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
-                onclick={() => (agentDraftAccessory = '')}>
-                <AgentFace name={facePreviewName} {...draftFace} accessory={undefined} size={40} />
-              </button>
-              {#each ACCESSORY_CHOICES as a (a.id)}
-                <button type="button" class="ag-part" class:on={agentDraftAccessory === a.id}
-                  title={a.label} aria-label={a.label} onclick={() => (agentDraftAccessory = a.id)}>
-                  <AgentFace name={facePreviewName} {...draftFace} accessory={a.id} size={40} />
+              {#each SHELL as sh (sh.id)}
+                <button type="button" class="ag-part" class:on={agentDraftShell === sh.id}
+                  title={sh.label} aria-label={sh.label} onclick={() => (agentDraftShell = sh.id)}>
+                  <AgentMascot name={facePreviewName} {...draftFace} shell={sh.id} size={44} />
                 </button>
               {/each}
             </div>
           </div>
 
           <!-- Colour, and the one row where the cell could have been a plain
-               swatch. It is a face for the same reason the two above are: the hue
-               moves the skin, the shirt, the hair and what is held, all at once
-               and by different amounts, so a square of one colour would be a
-               promise about three quarters of what changes. -->
+               swatch. It is a robot for the same reason the rows around it are:
+               the accent moves the cap, the ears, the soles and the light on the
+               screen, all at once, and a square of one colour would be a promise
+               about a quarter of what changes. The first cell is the colour the
+               name gives — every agent's, before anyone chose. -->
           <div class="pp-field">
-            <span class="eyebrow">{t('settings.agentHue')}</span>
+            <span class="eyebrow">{t('settings.agentAccent')}</span>
             <div class="ag-parts">
-              <button type="button" class="ag-part" class:on={agentDraftHue === ''}
+              <button type="button" class="ag-part" class:on={agentDraftAccent === '' && agentDraftHue === ''}
                 title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
-                onclick={() => (agentDraftHue = '')}>
-                <AgentFace name={facePreviewName} {...draftFace} hue={undefined} size={40} />
+                onclick={() => { agentDraftAccent = ''; agentDraftHue = '' }}>
+                <AgentMascot name={facePreviewName} {...draftFace} accent={undefined} hue={undefined} size={44} />
               </button>
-              {#each HUES as h (h)}
-                <button type="button" class="ag-part" class:on={agentDraftHue === String(h)}
-                  title={`${h}°`} aria-label={`${h}°`} onclick={() => (agentDraftHue = String(h))}>
-                  <AgentFace name={facePreviewName} {...draftFace} hue={h} size={40} />
+              {#each ACCENT as a (a.id)}
+                <button type="button" class="ag-part" class:on={agentDraftAccent === a.id && agentDraftHue === ''}
+                  title={a.label} aria-label={a.label} onclick={() => pickAccent(a.id)}>
+                  <AgentMascot name={facePreviewName} {...draftFace} accent={a.id} hue={undefined} size={44} />
+                </button>
+              {/each}
+            </div>
+            {#if agentDraftHue}
+              <span class="d muted">{t('settings.agentHueKept', { deg: agentDraftHue })}</span>
+            {/if}
+          </div>
+
+          <div class="pp-field">
+            <span class="eyebrow">{t('settings.agentTop')}</span>
+            <div class="ag-parts">
+              <button type="button" class="ag-part" class:on={agentDraftTop === ''}
+                title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
+                onclick={() => (agentDraftTop = '')}>
+                <AgentMascot name={facePreviewName} {...draftFace} top={undefined} size={44} />
+              </button>
+              {#each TOP as tp (tp.id)}
+                <button type="button" class="ag-part" class:on={agentDraftTop === tp.id}
+                  title={tp.label} aria-label={tp.label} onclick={() => (agentDraftTop = tp.id)}>
+                  <AgentMascot name={facePreviewName} {...draftFace} top={tp.id} size={44} />
                 </button>
               {/each}
             </div>
           </div>
-          <!-- A div rather than the `label` every other field uses: the toggle is
-               a button, and a button inside a label puts the caret in the textarea
-               on every click of it. -->
+
+          <!-- The resting face: only the identity rows of FACE. The others are
+               what a pose lights (thinking, happy, the wink) and a roster tile
+               never chooses those — presence does. -->
           <div class="pp-field">
-            <div class="ag-bodyhead">
-              <span class="eyebrow">{t('settings.agentBody')}</span>
-              {#if agentBodyLong}
-                <button type="button" class="ag-bodymore" onclick={() => (agentBodyOpen = !agentBodyOpen)}>
-                  {agentBodyOpen ? t('settings.agentBodyLess') : t('settings.agentBodyMore', { n: agentBodyLines })}
+            <span class="eyebrow">{t('settings.agentRestFace')}</span>
+            <div class="ag-parts">
+              <button type="button" class="ag-part" class:on={agentDraftFace === ''}
+                title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
+                onclick={() => (agentDraftFace = '')}>
+                <AgentMascot name={facePreviewName} {...draftFace} face={undefined} size={44} />
+              </button>
+              {#each FACE.filter((f) => f.identity) as f (f.id)}
+                <button type="button" class="ag-part" class:on={agentDraftFace === f.id}
+                  title={f.label} aria-label={f.label} onclick={() => (agentDraftFace = f.id)}>
+                  <AgentMascot name={facePreviewName} {...draftFace} face={f.id} size={44} />
                 </button>
-              {/if}
+              {/each}
             </div>
-            <div class="ag-bodywrap" class:collapsed={agentBodyLong && !agentBodyOpen}>
-              <textarea
-                class="ctrl ag-body" bind:value={agentDraftPrompt} spellcheck="false"
-                use:autogrow={agentDraftPrompt}
-                onfocus={() => (agentBodyOpen = true)}
-              ></textarea>
-            </div>
-            <span class="d muted">{t('settings.agentBodyHint')}</span>
           </div>
         </div>
       </div>
@@ -5150,10 +5063,30 @@
       class="ag-tab-panel" class:on={agentTab === 'brain'}>
       <div class="settings-card">
         <div class="card-form pp-edit">
+          <!-- The provider first, then its models (owner, 12 ก.ย.: "ควรเลือกได้
+               แม้แต่ผู้ให้บริการ และเลือกโมเดลได้ ทั้งเอเจนและซับเอเจน"). The rows are
+               การตั้งค่าโมเดล's own — enabledRows, the catalogue's providers the
+               user switched on, in the catalogue's order — not the raw enabled
+               list, which can still name a provider the catalogue dropped
+               (owner: "ควรอิง Providers ที่เปิดไว้หน้าตั้งค่าโมเดล"). One that is
+               off has no key to sign with. Whatever the file names is offered
+               too, so a pin to a provider since switched off still reads as
+               itself. -->
+          <label class="pp-field">
+            <span class="eyebrow">{t('settings.agentProviderPick')}</span>
+            <select class="ctrl" value={agentDraftProvider} onchange={(e) => pickAgentProvider(e.currentTarget.value)}>
+              <option value="">{t('settings.agentProviderInherit')}</option>
+              {#each enabledRows as p (p.name)}<option value={p.name}>{p.name}</option>{/each}
+              {#if agentDraftProvider && !enabledRows.some((p) => p.name === agentDraftProvider)}
+                <option value={agentDraftProvider}>{agentDraftProvider}</option>
+              {/if}
+            </select>
+            <span class="d muted">{t('settings.agentProviderHint')}</span>
+          </label>
           <label class="pp-field">
             <span class="eyebrow">{t('settings.agentModelPick')}</span>
             <select class="ctrl" bind:value={agentDraftModel}>
-              <option value="">{t('settings.agentModelInherit')}</option>
+              <option value="">{agentDraftProvider ? t('settings.agentModelProviderDefault') : t('settings.agentModelInherit')}</option>
               {#each agentModels as m}<option value={m}>{m}</option>{/each}
               {#if agentDraftModel && !agentModels.includes(agentDraftModel)}
                 <option value={agentDraftModel}>{agentDraftModel}</option>
@@ -5228,7 +5161,12 @@
      rather than inside it, because it is the opposite operation: `for:` on a
      server ADDS, skipping this profile's allow-list and reaching past the
      desk's ceiling (internal/subagent/store.go). Reading the two as one list
-     was the complaint, and the complaint was a true statement about the code. -->
+     was the complaint, and the complaint was a true statement about the code.
+
+     Since 12 ก.ย. 2026 this box COUNTS and does not edit. It was the third
+     editor of the same `for:` list (with ตั้งค่า › MCP and the room), and the
+     owner's word for that was ซ้ำซ้อน. The one editor is the room's grid, which
+     answers this box's question ("what does this agent carry") as a column. -->
 {#snippet agentMCPBox()}
   <div class="settings-card">
     <div class="card-form">
@@ -5238,45 +5176,10 @@
       </div>
       <div class="d muted">{t('settings.agentMCPHint')}</div>
     </div>
-    {#if !agentMCPId}
-      <!-- A server's `for:` names an agent, so there is nothing to point at
-           until the file exists. Said plainly instead of drawing switches that
-           would silently write nothing. -->
-      <div class="set-row"><div class="muted">{t('settings.agentMCPSaveFirst')}</div></div>
-    {:else if agentServerCandidates.length === 0}
-      <div class="set-row">
-        <div class="set-txt"><div class="d">{t('settings.agentMCPNone')}</div></div>
-        <button class="ctrl" onclick={() => openSection('mcp')}>{t('settings.mcpServers')} <Icon name="arrowRight" size={13} /></button>
-      </div>
-    {:else}
-      {#each agentServerCandidates as s (s.name)}
-        {@const on = (s.for ?? []).includes(agentMCPId)}
-        <!-- The server's own face (McpMark.svelte), which this list was the last
-             one still drawing without. ตั้งค่า › MCP gives the same five servers
-             their logos; this box gave them five lines of identical grey text —
-             and this is the page where you have to pick one of the five out.
-             One server, two identities on two pages, is two features. -->
-        <label class="set-row ag-reachrow mark-row" class:on>
-          <McpMark name={s.name} size={22} />
-          <div class="set-txt">
-            <div class="t">{s.name}{#if s.tools > 0}<span class="mcp-badge">{t('settings.mcpToolCount', { n: String(s.tools) })}</span>{/if}</div>
-            <div class="d">{s.url || (s.command ?? []).join(' ')}</div>
-          </div>
-          <!-- The app's switch, not the browser's tick. Every other on/off in
-               ตั้งค่า is .mswitch — including this very server's row on the MCP
-               page — so the one raw checkbox left here read as another app's
-               control pasted in, and sat on the left where nothing else does. -->
-          <span class="mswitch">
-            <input
-              type="checkbox" checked={on}
-              disabled={mcpBusy !== ''} onchange={() => toggleAgentServer(s)}
-            />
-            <span></span>
-          </span>
-        </label>
-      {/each}
-      <div class="set-row"><div class="d muted">{t('settings.agentMCPInstant')}</div></div>
-    {/if}
+    <div class="set-row">
+      <div class="set-txt"><div class="d">{t('settings.agentMCPInRoom')}</div></div>
+      <button class="ctrl" onclick={() => setActiveView('capability')}>{t('desk.capability')} <Icon name="arrowRight" size={13} /></button>
+    </div>
   </div>
 {/snippet}
 
@@ -5299,6 +5202,7 @@
           {#if unmet > 0}<span class="ag-count ag-count-warn">{unmet}</span>{/if}
         </div>
         <div class="d muted">{t('settings.agentNeedsHint')}</div>
+        {#if mcpError}<div class="mset-error">{mcpError}</div>{/if}
       </div>
       {#each agentNeeds as req (req.entry)}
         {@const options = req.options ?? []}
@@ -5365,7 +5269,7 @@
       {mcpBusy === 'need:' + o.id ? t('settings.agentNeedInstalling') : t('settings.agentNeedInstall')}
     </button>
   {:else}
-    <button class="ctrl" onclick={() => openSection(o.kind === 'connection' ? 'connections' : 'mcp')}>
+    <button class="ctrl" onclick={() => (o.kind === 'connection' ? openSection('connections') : setActiveView('capability'))}>
       {o.kind === 'connection' ? t('settings.agentNeedConnect') : t('settings.agentNeedServer')}
       <Icon name="arrowRight" size={13} />
     </button>
@@ -5374,29 +5278,19 @@
 
 <!-- Its own shelf. Reads and does not edit, because a skill is a folder: the
      honest control is the one that opens it. -->
+<!-- Count and door only, the MCP box's shape (13 ก.ย.): the list, the
+     folder and the tick that copies a shelf skill in are all on
+     ห้องความสามารถ › ตั้งค่าสกิลสำหรับเอเจนเฉพาะ, and a second list here
+     would be the second editor §253 took out. -->
 {#snippet agentSkillsBox()}
   <div class="settings-card">
     <div class="card-form">
       <div class="eyebrow">{t('settings.agentSkillsTitle')} <span class="ag-count">{agentSkills.length}</span></div>
       <div class="d muted">{t('settings.agentSkillsHint')}</div>
     </div>
-    {#each agentSkills as s (s.name)}
-      <div class="set-row">
-        <span class="ag-rowicon"><Icon name="puzzle" size={15} /></span>
-        <div class="set-txt">
-          <div class="t">{s.name}{#if s.bundled}<span class="tag">{t('settings.agentSkillBundled')}</span>{/if}</div>
-          <div class="d">{s.description || '—'}</div>
-        </div>
-      </div>
-    {/each}
-    {#if agentSkills.length === 0}
-      <div class="set-row"><div class="muted">{t('settings.agentSkillsNone')}</div></div>
-    {/if}
     <div class="set-row">
-      <div class="set-txt"><div class="d muted">{t('settings.agentSkillsFolderHint')}</div></div>
-      <button class="ctrl" disabled={!agentEditing?.name} onclick={() => OpenAgentSkillsFolder(agentDraftName.trim())}>
-        {t('settings.agentSkillsOpenFolder')}
-      </button>
+      <div class="set-txt"><div class="d">{t('settings.agentSkillsInRoom')}</div></div>
+      <button class="ctrl" onclick={() => setActiveView('capability')}>{t('desk.capability')} <Icon name="arrowRight" size={13} /></button>
     </div>
   </div>
 {/snippet}
@@ -6584,6 +6478,13 @@
       <h2>{t('settings.studio')}</h2>
       <p class="muted set-sub">{t('settings.studioDesc')}</p>
 
+      <!-- Where the material goes: the two agents that use it, one press away. -->
+      <div class="studio-agents">
+        <button class="ctrl ctrl-primary" onclick={() => talkToVideoAgent('video')}><Icon name="clapperboard" size={14} /> {t('settings.studioTalkVideo')}</button>
+        <button class="ctrl" onclick={() => talkToVideoAgent('editor')}><Icon name="scissors" size={14} /> {t('settings.studioTalkEditor')}</button>
+        <span class="d">{t('settings.studioTalkNote')}</span>
+      </div>
+
       {#if studioError}<div class="mset-error">{studioError}</div>{/if}
 
       <!-- The app's own segmented tab bar (.ag-tabs-bar .seg, the one the
@@ -6701,126 +6602,33 @@
         <StudioSourcesSheet imported={studioImported} scanning={studioScanning} onAddFolder={addStudioFolder} onClose={() => (studioSourcesOpen = false)} />
       {/if}
 
-    {:else if active === 'skills'}
-      <h2>{t('settings.skills')}</h2>
-      <p class="muted set-sub">{t('settings.skillsDesc')}</p>
-
-      {@render aiFindCard('settings.aiFindSkillTitle', 'settings.aiFindSkillDesc', 'settings.aiFindSkillPrompt')}
-
-      <div class="settings-card">
-        <div class="card-form">
-          <div class="mset-keyrow">
-            <div class="eyebrow eyebrow-grow">{t('settings.skillsInstalled')}</div>
-            <button class="ctrl" disabled={skillBusy !== ''} onclick={() => OpenSkillsFolder()}>
-              {t('settings.skillsFolder')}
-            </button>
-            <button class="ctrl" disabled={skillBusy !== ''} onclick={refreshSkills}>
-              {skillBusy === 'refresh' ? t('settings.refreshing') : t('settings.refresh')}
-            </button>
-          </div>
-          <!-- The real path, read from the engine. Two of the three places this
-               page used to name one had it wrong (~/.agents/skills, which is
-               opencode's and which Aetox never scans), so anyone who followed
-               the instructions put files where nothing was looking. -->
-          <div class="d mono-dim">{skillsDir}</div>
-          <!-- Said once, under the folder it is about. It used to be printed on
-               every bundled row — a three-clause sentence about how to override
-               a bundled skill, repeated down twenty-five rows that all shipped
-               with the app, which is a wall of identical text where a list of
-               names should be. Capability.svelte refused to draw it per card
-               for exactly this reason and left a note saying the register was
-               where the sentence belonged; the register was repeating it too.
-               The row keeps the label, this keeps the explanation. -->
-          {#if extSkills.some((s) => s.bundled)}
-            <div class="d muted">{t('settings.skillBundled')}</div>
-          {/if}
-        </div>
-        {#if skillIssues.length > 0}
-          <!-- Files that are in the right folder and still did not appear. The
-               scan has always collected these and the list has always dropped
-               them, so a broken SKILL.md looked exactly like a folder the app
-               was not reading. -->
-          <div class="set-row skill-issues">
-            <div class="set-txt">
-              <div class="t">{t('settings.skillIssues', { n: skillIssues.length })}</div>
-              {#each skillIssues as issue (issue)}
-                <div class="d mono-dim" title={issue}>{issue}</div>
-              {/each}
-            </div>
-          </div>
-        {/if}
-        {#if extSkills.length === 0}
-          <div class="set-row"><div class="muted">{t('settings.noSkills')}</div></div>
-        {:else}
-          <!-- Keyed by name, not dir: a bundled skill has no folder, so dir is
-               empty and would collide the moment a second one ships. Names are
-               unique across the merged list by construction — a user folder of
-               the same name replaces the bundled entry rather than joining it. -->
-          {#each extSkills as s (s.name)}
-            <div class="set-row mark-row">
-              <!-- The same lettered tile ห้องสมุด gives a skill, with the
-                   `aetox-` prefix dropped for the same reason it drops it
-                   there: twenty of these start with it, so the first two
-                   letters would be `ae` on every tile and the tile would sort
-                   nothing. -->
-              <span class="cap-mark" style="--px:22px; --h:{coverHue(s.name)}" aria-hidden="true">
-                {s.name.replace(/^aetox-/, '').slice(0, 2)}
-              </span>
-              <div class="set-txt">
-                <div class="t">
-                  {s.name}
-                  {#if s.bundled}<span class="tag">{t('capability.bundled')}</span>{/if}
-                </div>
-                <div class="d">{s.description || '—'}</div>
-                <!-- Where it is on disk — which a bundled skill has no answer
-                     to, so it says nothing rather than saying a sentence. -->
-                {#if !s.bundled}<div class="d mono-dim">{s.dir}</div>{/if}
-              </div>
-              {#if !s.bundled}
-                <button class="ctrl ctrl-danger" disabled={skillBusy !== ''} onclick={() => removeSkill(s.name, s.dir)}>
-                  {t('settings.remove')}
-                </button>
-              {/if}
-            </div>
-          {/each}
-        {/if}
-      </div>
-
-      <div class="settings-card">
-        <div class="card-form">
-          <div class="eyebrow">{t('settings.skillInstall')}</div>
-          <div class="mset-keyrow">
-            <input
-              class="ctrl key-input" placeholder={t('settings.skillInstallPlaceholder')}
-              bind:value={skillInstallUrl}
-              onkeydown={(e) => e.key === 'Enter' && skillInstallUrl.trim() && installSkill()}
-            />
-            <button class="ctrl ctrl-primary" disabled={skillBusy !== '' || !skillInstallUrl.trim()} onclick={installSkill}>
-              {skillBusy === 'install' ? t('settings.installing') : t('settings.install')}
-            </button>
-          </div>
-          <div class="d muted">{t('settings.skillInstallHint')}</div>
-
-          <!-- The third way in. A GitHub URL needs the skill to be published
-               there; the folder button needs it to already be on this machine.
-               A zip is what a skill looks like arriving by any other road. -->
-          <div class="mset-keyrow skill-zip">
-            <div class="d muted eyebrow-grow">{t('settings.skillZipHint')}</div>
-            <button class="ctrl" disabled={skillBusy !== ''} onclick={installSkillZip}>
-              {skillBusy === 'zip' ? t('settings.installing') : t('settings.skillZip')}
-            </button>
-          </div>
-          {#if skillInstallResult}<pre class="skill-result">{skillInstallResult}</pre>{/if}
-          {#if skillError}<div class="mset-error">{skillError}</div>{/if}
-        </div>
-      </div>
-
     {:else if active === 'team' || active === 'agents'}
       {@const kind = active === 'team' ? 'agent' : 'helper'}
       {#if agentEditing !== null}
         {@render agentEditorPane()}
-      {:else}
+      {:else if kind === 'helper'}
         {@render profileListPane(kind)}
+      {:else if intentPending}
+        <!-- A gear was pressed and its editor is still being read off the disk.
+             The frame that a heading and a paragraph would fill is the frame
+             the editor is about to take, so the wait draws as a shape, not as
+             a page saying something else. -->
+        <div class="mset-skeleton" aria-label={t('settings.loading')}>
+          <span class="sk sk-head"></span>
+          <span class="sk sk-line"></span>
+          <span class="sk sk-line short"></span>
+          <span class="sk sk-block"></span>
+        </div>
+      {:else}
+        <!-- The agents' list left this page (12 ก.ย.): the people are on the
+             roster page, and this section is only ever entered with an editor
+             open. Landing here without one — a restored section, a gear on an
+             agent whose file has since gone — says where the list went. -->
+        <h2>{t('settings.team')}</h2>
+        <p class="muted set-sub">{t('settings.teamMoved')}</p>
+        <div class="pp-bar">
+          <button class="ctrl" onclick={() => { setShell('assistant'); setActiveView('office') }}>{t('settings.teamOpenPage')} <Icon name="arrowRight" size={13} /></button>
+        </div>
       {/if}
 
     {:else if active === 'prompts'}
@@ -6918,6 +6726,10 @@
           </div>
         </div>
       {/if}
+    {:else if active === 'avatar'}
+      <AvatarSettings />
+    {:else if active === 'teams'}
+      <TeamSettings onNewAgent={newAgentFromTeams} />
     {:else if active === 'identity'}
       <h2>{t('settings.identity')}</h2>
       <p class="muted set-sub">{t('settings.identityDesc')}</p>
@@ -7845,314 +7657,6 @@
             </div>
           {/each}
         {/if}
-      </div>
-    {:else if active === 'mcp'}
-      <h2>{t('settings.mcpServers')}</h2>
-      <p class="muted set-sub">{t('settings.mcpDesc')}</p>
-
-      {@render aiFindCard('settings.aiFindMCPTitle', 'settings.aiFindMCPDesc', 'settings.aiFindMCPPrompt')}
-
-      <div class="settings-card">
-        <div class="card-form">
-          <div class="mset-keyrow">
-            <div class="eyebrow eyebrow-grow">{t('settings.mcpConfigured')}</div>
-            <!-- Beside the list it acts on, not at the bottom of the page under
-                 the form it opens. Adding a server is one of the two things you
-                 come to this card to do, so it sits with the other one. The
-                 form still appears below; openMCPForm scrolls it into view, or
-                 the press looks like it did nothing. -->
-            <button class="ctrl ctrl-icon" disabled={mcpBusy !== ''} onclick={openMCPForm}>
-              <Icon name="plus" size={13} />
-              {t('settings.addServer')}
-            </button>
-            <button class="ctrl" disabled={mcpBusy !== ''} onclick={() => OpenMCPFolder()}>
-              {t('settings.skillsFolder')}
-            </button>
-          </div>
-          <!-- The file the servers live in. A server that will not connect is
-               inspectable and backup-able only if this is findable. -->
-          <div class="d mono-dim">{mcpPath}</div>
-          {#if mcpServers.length > 3}
-            <input class="ctrl" placeholder={t('settings.mcpSearchPlaceholder')} bind:value={mcpQuery} />
-          {/if}
-        </div>
-        {#if mcpServers.length === 0}
-          <div class="set-row"><div class="muted">{t('settings.noMcpServers')}</div></div>
-        {:else}
-          {#each mcpFiltered as s (s.name)}
-            <div class="set-row reg-entry" class:mcp-off={s.disabled}>
-              <!-- The row is the register entry: the header says who this
-                   server is and who it serves, and opening it reveals the
-                   switches. A server connected but pointed at nobody is the
-                   state worth calling out — it works and reaches no one. -->
-              <button
-                class="reg-head"
-                aria-expanded={mcpOpen === s.name}
-                onclick={() => (mcpOpen = mcpOpen === s.name ? '' : s.name)}
-              >
-                <span class="reg-caret" class:open={mcpOpen === s.name}>›</span>
-                <!-- The server's own face, the same one ห้องสมุด draws it with
-                     (McpMark.svelte). This page listed the same servers as
-                     that room and gave them nothing to be recognised by, so
-                     firecrawl wore its logo on one screen and was a line of
-                     text on the next — one server, two identities. -->
-                <McpMark name={s.name} size={22} />
-                <span class="set-txt">
-                  <span class="t">
-                    <span class="dot" style={statusVar(s.status)}></span> {s.name}
-                    <span class="mcp-badge">{s.url ? 'http' : 'stdio'}</span>
-                    {#if s.tools > 0}<span class="mcp-badge">{t('settings.mcpToolCount', { n: String(s.tools) })}</span>{/if}
-                    {#if !s.disabled}
-                      <span class="mcp-badge" class:mcp-badge-warn={mcpServesNobody(s)}>
-                        {mcpServesNobody(s)
-                          ? t('settings.mcpForNobody')
-                          : t('settings.mcpForCount', { n: String(mcpTargetsOf(s).length) })}
-                      </span>
-                    {/if}
-                  </span>
-                  <span class="d">{s.url || (s.command ?? []).join(' ')}{s.err ? ' · ' + s.err : ''}</span>
-                </span>
-              </button>
-              <div class="mcp-row-actions">
-                <label class="mswitch" title={s.disabled ? t('settings.add') : ''}>
-                  <input type="checkbox" checked={!s.disabled} disabled={mcpBusy !== ''} onchange={() => toggleMCP(s)} />
-                  <span></span>
-                </label>
-                <button class="ctrl" disabled={mcpBusy !== '' || s.disabled} onclick={() => testMCP(s.name)}>
-                  {mcpBusy === 'test:' + s.name ? t('settings.testing') : t('settings.test')}
-                </button>
-                <button class="ctrl" disabled={mcpBusy !== ''} onclick={() => editMCP(s)}>{t('settings.edit')}</button>
-                <button class="ctrl ctrl-danger" disabled={mcpBusy !== ''} onclick={() => removeMCP(s.name)}>{t('settings.remove')}</button>
-              </div>
-
-              {#if mcpOpen === s.name}
-                {@const needed = mcpNeededIds(s)}
-                {@const missing = mcpNeedMissing(s)}
-                <div class="mcp-targets">
-                  <div class="d muted mcp-targets-hint">{t('settings.mcpForHint')}</div>
-                  <!-- The one thing this panel could not say before. An agent
-                       states in its own file which server it cannot work
-                       without; until now that was printed on the แนะนำ shelf,
-                       which is the screen you have already left by the time the
-                       server is installed and pointed at nobody. Here it is
-                       actionable, so it comes with the button that acts. -->
-                  {#if missing.length > 0 && !s.disabled}
-                    <div class="mcp-need-warn">
-                      <Icon name="alertTriangle" size={13} />
-                      <span class="mcp-need-txt">
-                        {t('settings.mcpNeedMissing', { names: missing.map((m) => m.name).join(', ') })}
-                      </span>
-                      <button class="ctrl" disabled={mcpBusy !== ''} onclick={() => attachNeeded(s)}>
-                        {t('settings.mcpNeedFix')}
-                      </button>
-                    </div>
-                  {/if}
-                  {#each ['desk', 'agent'] as kind}
-                    {@const rows = mcpTargets.filter((x) => x.kind === kind)}
-                    {#if rows.length > 0}
-                      {@const on = mcpGroupOn(s, kind)}
-                      <div class="mcp-targets-group">
-                        <span class="eyebrow">
-                          {kind === 'desk' ? t('settings.mcpForDesks') : t('settings.mcpForAgents')}
-                        </span>
-                        <span class="mcp-group-count">{on}/{rows.length}</span>
-                        <!-- Eleven chips is eleven clicks to say "everywhere",
-                             and "everywhere" is the common answer. -->
-                        <button
-                          class="mcp-group-all"
-                          disabled={mcpBusy !== '' || s.disabled}
-                          onclick={() => toggleMCPGroup(s, kind)}
-                        >
-                          {on === rows.length ? t('settings.mcpForNone') : t('settings.mcpForAll')}
-                        </button>
-                      </div>
-                      <!-- The roster's own row, not a control invented for
-                           this panel: the face the office page draws, the name,
-                           and the pill the settings rows wear. An agent shown
-                           one way here and another way over there is two people
-                           to whoever is reading (the same argument Chat.svelte's
-                           agent menu makes for using AgentFace at 20px).
-
-                           A grid rather than a column, because this panel is as
-                           wide as the settings page and eleven full-width rows
-                           between one server and the next is a wall. -->
-                      <div class="mcp-places">
-                        {#each rows as target (target.id)}
-                          {@const isOn = mcpTargetsOf(s).includes(target.id)}
-                          {@const asked = needed.includes(target.id)}
-                          <button
-                            class="mcp-place"
-                            role="switch"
-                            aria-checked={isOn}
-                            title={target.detail ?? ''}
-                            disabled={mcpBusy !== '' || s.disabled}
-                            onclick={() => toggleMCPTarget(s, target.id)}
-                          >
-                            {#if kind === 'agent'}
-                              <AgentFace name={target.name} {...agentFaceOf(target.name)} size={22} off={!isOn} />
-                            {:else}
-                              <span class="mcp-place-ic"><Icon name={deskIcon(target.id)} size={14} /></span>
-                            {/if}
-                            <span class="t">{target.name}</span>
-                            {#if asked}
-                              <!-- The same wrench the chair list wears for an
-                                   agent short of the tool it needs, and it is
-                                   the same fact: this profile's own file names
-                                   this server. Amber while it is switched off,
-                                   because that is the one flip on this panel
-                                   that leaves an agent unable to work. -->
-                              <span class="mcp-place-need" class:short={!isOn} title={t('settings.mcpTargetNeedsTip')}>
-                                <Icon name="wrench" size={12} />
-                              </span>
-                            {/if}
-                            <span class="mswitch-face"></span>
-                          </button>
-                        {/each}
-                      </div>
-                    {/if}
-                  {/each}
-                </div>
-              {/if}
-            </div>
-          {/each}
-        {/if}
-      </div>
-
-      <!-- Nothing at all until it is asked for. The eight controls in here used
-           to be laid out permanently under the list, which made a rare act look
-           like part of the page (owner, 2026-08-14: *"ทำเป็นปุ่มกด เพิ่ม SERVER
-           แล้วค่อยแสดง ดีกว่ามาเรี่ยราดแบบนี้"*). The way in is the button up in
-           the list's own header. -->
-      {#if mcpFormOpen}
-      <div class="settings-card" bind:this={mcpFormEl}>
-        <div class="card-form">
-          <div class="eyebrow">{mcpOriginal ? t('settings.editServer') : t('settings.addServer')}</div>
-
-          <div class="mset-keyrow">
-            <select class="ctrl mcp-kind" bind:value={mcpKind}>
-              <option value="stdio">stdio</option>
-              <option value="http">http</option>
-            </select>
-            <input class="ctrl key-input" placeholder={t('settings.mcpNamePlaceholder')} bind:value={mcpName} />
-          </div>
-
-          {#if mcpKind === 'stdio'}
-            <input class="ctrl" placeholder={t('settings.mcpCommandPlaceholder')} bind:value={mcpCommand} />
-          {:else}
-            <input class="ctrl" placeholder={t('settings.mcpUrlPlaceholder')} bind:value={mcpUrl} />
-          {/if}
-
-          {#if mcpKind === 'stdio'}
-            <textarea class="ctrl mcp-lines" rows="2" placeholder={t('settings.mcpEnvPlaceholder')} bind:value={mcpEnvText}></textarea>
-          {:else}
-            <textarea class="ctrl mcp-lines" rows="2" placeholder={t('settings.mcpHeadersPlaceholder')} bind:value={mcpHeadersText}></textarea>
-          {/if}
-          <!-- Said where the key would otherwise be typed. A safer way to write
-               something is worth nothing if it is only in the docs. -->
-          <div class="d muted">{t('settings.mcpSecretHint')}</div>
-
-          <!-- Both fields the stored config always had and the form never
-               offered. They used to sit behind a "ตัวเลือกเพิ่มเติม" fold, which
-               the owner asked to remove on 2026-08-14: a closed disclosure with
-               a generic label is one more thing on the page that says nothing
-               about itself, and a form with a hidden half is a form people do
-               not trust they have finished. The fields are cheap; the lid was
-               the expensive part. -->
-          <div class="mcp-more">
-            <div class="mcp-more-body">
-              <label class="pp-field">
-                <span class="eyebrow">{t('settings.mcpCwd')}</span>
-                <input class="ctrl" placeholder={t('settings.mcpCwdPlaceholder')} bind:value={mcpCwd} />
-              </label>
-              <label class="pp-field">
-                <span class="eyebrow">{t('settings.mcpTimeout')}</span>
-                <div class="mset-keyrow">
-                  <input class="ctrl set-num" inputmode="numeric" placeholder="0" bind:value={mcpTimeout} />
-                  <span class="muted set-unit">ms</span>
-                </div>
-                <span class="d muted">{t('settings.mcpTimeoutHint')}</span>
-              </label>
-              <label class="pp-field">
-                <span class="eyebrow">{t('settings.mcpTools')}</span>
-                <textarea class="ctrl mcp-lines" rows="3" placeholder={t('settings.mcpToolsPlaceholder')} bind:value={mcpToolsText}></textarea>
-                <span class="d muted">{t('settings.mcpToolsHint')}</span>
-              </label>
-            </div>
-          </div>
-
-          <div class="mset-keyrow">
-            <button class="ctrl ctrl-primary" disabled={mcpBusy !== '' || !mcpFormValid} onclick={saveMCP}>
-              {mcpBusy === 'save' ? t('settings.saving') : (mcpOriginal ? t('settings.save') : t('settings.add'))}
-            </button>
-            <!-- Always offered now, where it used to appear only for an edit or
-                 a preset. Once the form is something you opened, Cancel is the
-                 way to close it again — and a panel you can open and not shut
-                 is the thing this whole change was about. -->
-            <button class="ctrl" disabled={mcpBusy !== ''} onclick={resetMCPForm}>{t('settings.cancel')}</button>
-          </div>
-          {#if mcpNeedsKey}
-            <!-- Says why the form filled itself in. Without it the preset's
-                 button appears to have done nothing. -->
-            <div class="d muted">{t('settings.mcpNeedsKey', { name: mcpName })}</div>
-          {/if}
-          {#if mcpError}<div class="mset-error">{mcpError}</div>{/if}
-        </div>
-      </div>
-      {/if}
-
-      <div class="settings-card">
-        <div class="card-form">
-          <div class="eyebrow">{t('settings.mcpPresets')}</div>
-        </div>
-        {#each MCP_PRESETS as p (p.name)}
-          {@const wanted = agentsNeeding(p.name)}
-          <div class="set-row mark-row">
-            <McpMark name={p.name} size={22} />
-            <div class="set-txt">
-              <div class="t">
-                {p.name} <span class="mcp-badge">{p.url ? 'http' : 'stdio'}</span>
-                <!-- A server you sign into rather than paste a key for. The
-                     row said nothing about it and offered the same เพิ่ม as
-                     every other, which wrote an entry whose Authorization
-                     header was still the literal ${connect:...} and never
-                     connected. Saying so is half the fix; the button beside it
-                     is the other half. -->
-                {#if p.oauth}<span class="mcp-badge">{t('capability.needsSignIn')}</span>{/if}
-              </div>
-              <div class="d">{p.desc} · {p.url ?? p.command?.join(' ')}</div>
-              <!-- Why it is on a shelf at all: what it reaches that Aetox has
-                   no tool for. The list was seven names and seven capability
-                   lines, which answered "what is this" and never "why am I
-                   being shown it". -->
-              <div class="d mcp-why">{p.why}</div>
-              {#if wanted.length > 0}
-                <!-- Read off the agents' own `needs:`, so it cannot disagree
-                     with them. This is the line that turns a shelf into an
-                     answer: not "here are seven servers" but "this one is the
-                     one your research agent has been asking for". -->
-                <div class="d mcp-wanted">
-                  <Icon name="bot" size={12} />
-                  {t('settings.mcpPresetFor')} {wanted.join(', ')}
-                </div>
-              {/if}
-            </div>
-            {#if p.oauth && !presetTaken(p.name)}
-              <!-- The sign-in lives in ห้องสมุด, which owns the browser round
-                   trip, the code screen and the cancel — and it stays there.
-                   Copying that flow onto this page is how the two would drift
-                   apart by a fix a month, the same argument `.reg-` is written
-                   under in style.css. So this row hands the job over instead of
-                   pretending it can finish it. -->
-              <button class="ctrl" onclick={() => setActiveView('capability')}>
-                {t('settings.mcpSignInRoom')}
-              </button>
-            {:else}
-              <button class="ctrl" disabled={mcpBusy !== '' || presetTaken(p.name)} onclick={() => addPreset(p)}>
-                {mcpBusy === 'preset:' + p.name ? t('settings.adding') : t('settings.add')}
-              </button>
-            {/if}
-          </div>
-        {/each}
       </div>
     {:else if active === 'computer'}
       <!-- Rows are REACHES, not apps (direction doc §4.2). A row is here because

@@ -19,6 +19,7 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/debuglog"
+	"github.com/Mikedev115/Aetox/internal/subagent"
 	"github.com/Mikedev115/Aetox/internal/turn"
 	_ "modernc.org/sqlite"
 )
@@ -840,6 +841,87 @@ CREATE TABLE IF NOT EXISTS project_folders (
 			return err
 		},
 	},
+	{
+		version: 25,
+		name:    "session_team",
+		apply: func(tx *sql.Tx) error {
+			// The session's fifth coordinate (DECISIONS §256): which team it
+			// hires from — the roster `task` and `@` reach, and the desk that
+			// roster works at. '' is ทีมผู้ช่วย, the computed default, so every
+			// row from before this column is on the team it always effectively
+			// was. Same shape as mode/agent/space: born with the session, never
+			// changed while it runs.
+			//
+			// Guarded, unlike the earlier column adds, because a test winds a
+			// fully migrated store back to v17 and replays everything after
+			// it (TestRenamedAgentKeepsItsSessionsAndItsLearning) — every step
+			// past 18 has to survive running twice.
+			if has, err := hasColumn(tx, "sessions", "team"); err != nil || has {
+				return err
+			}
+			_, err := tx.Exec(`ALTER TABLE sessions ADD COLUMN team TEXT NOT NULL DEFAULT ''`)
+			return err
+		},
+	},
+	{
+		version: 26,
+		name:    "seed_team_renamed",
+		apply: func(tx *sql.Tx) error {
+			// The seeded team was ทีมเอเจน for a day (13 ก.ย.) and is
+			// ผู้ช่วยในคอมพิวเตอร์ since (subagent.SeedTeamName); the folder
+			// is renamed by the engine, and the rows that hire from it follow
+			// here, so a chat from that day reopens on the team it had. The
+			// two names are spelled out rather than read off the constants:
+			// a migration says what it did the day it ran.
+			_, err := tx.Exec(`UPDATE sessions SET team = 'ผู้ช่วยในคอมพิวเตอร์' WHERE team = 'ทีมเอเจน'`)
+			return err
+		},
+	},
+	{
+		version: 27,
+		name:    "pre_team_rows_join_the_seed",
+		apply:   preTeamRowsJoinTheSeed,
+	},
+}
+
+// preTeamRowsJoinTheSeed puts every main chat that says no team on its
+// desk's preferred one — once, here, instead of on reopen. Until 13 ก.ย. the
+// upgrade ran in LoadSession, which made an empty team mean two things: a row from
+// before teams existed (every chat then hired everyone, so it must not come
+// back able to hire nobody) and, from the day the picker offered it, a chat
+// somebody opened on no team on purpose — which reopened on the seed and
+// silently un-chose. After this step an empty team means the second thing only. A
+// chair chat is left alone: it hires nobody whichever team it names.
+//
+// subagent.PreferredTeam seeds the teams' home if it is missing, which is
+// what the first roster read would do a moment later anyway.
+func preTeamRowsJoinTheSeed(tx *sql.Tx) error {
+	rows, err := tx.Query(`SELECT DISTINCT mode FROM sessions WHERE team = '' AND agent = ''`)
+	if err != nil {
+		return err
+	}
+	var desks []string
+	for rows.Next() {
+		var desk string
+		if err := rows.Scan(&desk); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		desks = append(desks, desk)
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	for _, desk := range desks {
+		team := subagent.PreferredTeam(desk)
+		if team == subagent.NoTeam {
+			continue
+		}
+		if _, err := tx.Exec(`UPDATE sessions SET team = ? WHERE mode = ? AND team = '' AND agent = ''`, team, desk); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // latestSchemaVersion is what this build understands.

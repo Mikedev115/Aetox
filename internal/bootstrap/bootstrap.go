@@ -129,6 +129,24 @@ type Options struct {
 	// Nil is every session that is not a chair chat, and changes nothing.
 	Chair *subagent.Profile
 
+	// Team is the roster this session hires agents from and the desk that
+	// roster works at (subagent.Team) — the session's third coordinate after
+	// desk and chair. It decides who `task` may reach and under which ceiling,
+	// and which pair of switches (config.Config.DelegationFor) the reach reads.
+	//
+	// Nil is the reach every host had before teams: every chair at any desk
+	// this desk may dispatch to, on the shipped switches. The CLI passes nil;
+	// the desktop always passes one — a chat that hires from no roster passes
+	// an empty Team (Name == subagent.NoTeam), which hands the model helpers
+	// and no colleagues.
+	Team *subagent.Team
+
+	// UserName is what the person calls themselves (config.ModelPreference
+	// .UserName), handed to the prompt as prompt.Scope.User. Read by the host
+	// rather than here, because a test's Engine must not pick up whoever owns
+	// the machine it runs on. "" is the ordinary case and adds nothing.
+	UserName string
+
 	// Approve is the human approval gate, used by the App and by every
 	// sub-agent.
 	//
@@ -207,6 +225,12 @@ type Options struct {
 	// "": not a secret, so it travels here in the open.
 	ProviderTransport model.Transport
 	ProviderEndpoint  string
+	// ProviderFor builds a signed client for a provider an agent's profile
+	// names (`provider:`), with that provider's default model — the desktop
+	// resolves endpoint, key and sign-in from its own stores, as it does for
+	// the chat's provider above. Nil (the CLI, tests): a profile's provider
+	// line is noted and the session's provider is used.
+	ProviderFor func(provider string) (model.Provider, string, error)
 
 	OnToolAction func(turn.ToolEvent)
 	OnToolRun    func(turn.ToolRun)
@@ -375,9 +399,20 @@ type reach struct {
 //
 // A delegate's own prompt never passes through here: FilterRegistry drops
 // `task` from every child, so that path passes the zero reach outright.
-func canDelegate(cfg config.Config, m *mode.Mode, chair *subagent.Profile) reach {
+func canDelegate(cfg config.Config, m *mode.Mode, chair *subagent.Profile, team *subagent.Team) reach {
 	if chair != nil {
 		return reach{}
+	}
+	// With a team, the roster's desk is what has to be reachable — the same
+	// question `task` asks (subagent.taskTool.teamCeiling), so the prompt and
+	// the tool cannot disagree about whether there is anyone to hand to. And
+	// the switch read is the team's own (config.Config.DelegationFor).
+	if team != nil {
+		if team.Desk != m.DeskName() && !m.AllowsDispatch(team.Desk) {
+			return reach{}
+		}
+		agentsOn, _ := cfg.DelegationFor(m.DeskName(), team.Name)
+		return reach{delegates: agentsOn, switchedOff: !agentsOn}
 	}
 	if !m.AllowsDispatch(mode.Office) && m.DeskName() != mode.Office {
 		return reach{}
@@ -473,6 +508,7 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 		// is what makes it appear. Both from opts.AskWorkspace, so the model is
 		// never told to expect a door this session has not got.
 		CanAsk: opts.AskWorkspace != nil,
+		User:   opts.UserName,
 		Space: prompt.Space{
 			Name:        opts.Space,
 			ContextPath: opts.SpaceContext.Path,
@@ -483,7 +519,7 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 	// desk's direction and its memory are part of the prompt prefix the
 	// provider caches, and a prompt that changed mid-conversation would spend
 	// more on cache misses than either layer saves (internal/learned).
-	handover := canDelegate(cfg, opts.Mode, opts.Chair)
+	handover := canDelegate(cfg, opts.Mode, opts.Chair, opts.Team)
 	desk := deskFor(opts.Mode, opts.Mode.Direction(), handover)
 	desk.DrivesMachine = handedOver(opts.ExtraSkills, "computer")
 	if opts.Chair != nil {
@@ -678,9 +714,17 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 	// Built here rather than inside NewTaskTools so the caller gets a handle on
 	// it: delegates now outlive their turn, and Stop is the host's to press.
 	delegations := subagent.NewDelegations()
+	// Which pair of switches this session's reach reads: the team's own when
+	// there is a team, the two shipped fields when there is none — the same
+	// answer canDelegate gave the prompt above.
+	agentsOn, workersOff := cfg.DelegateAgents, cfg.WorkersOff
+	if opts.Team != nil {
+		agentsOn, workersOff = cfg.DelegationFor(opts.Mode.DeskName(), opts.Team.Name)
+	}
 	taskOpts := subagent.TaskOptions{
 		Provider:    bootstrapResult.Provider,
 		Model:       cfg.ModelName,
+		ProviderFor: opts.ProviderFor,
 		Registry:    registry,
 		Delegations: delegations,
 		// The desk decides the ceiling a delegate runs under and which chairs
@@ -697,9 +741,12 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 		// full reach (subagent.TaskOptions). Every default is right for what it
 		// is, and this is the boundary where one becomes the other — which is
 		// why one line negates and the other does not.
-		NoAgents:   !cfg.DelegateAgents,
+		NoAgents:   !agentsOn,
 		NoHelpers:  cfg.DelegateHelpersOff,
-		WorkersOff: cfg.WorkersOff,
+		WorkersOff: workersOff,
+		// The roster itself, and the desk it works at (subagent.Team). Nil
+		// keeps the reach the CLI and every test built before teams had.
+		Team: opts.Team,
 		// The same assembler the session's own prompt came out of, three lines
 		// up, with the delegate's brief where the desk's direction goes. One
 		// door: a worker reached by `task` and a worker reached by opening a

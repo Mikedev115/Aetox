@@ -604,7 +604,10 @@ func usageBySession(db *sql.DB, id string) ([]UsageRow, error) {
 // answer.
 func scanUsageRows(rows *sql.Rows) ([]UsageRow, error) {
 	defer rows.Close()
-	var result []UsageRow
+	// Empty, never nil: a period with no rows (today, before the first call)
+	// reaches the page as JSON null otherwise, and the table code that does
+	// `rows.length` on it throws mid-render — the period buttons then look dead.
+	result := []UsageRow{}
 	for rows.Next() {
 		var r UsageRow
 		if err := rows.Scan(&r.Model, &r.Provider, &r.PromptTokens, &r.CompletionTokens, &r.CachedTokens, &r.CacheRows, &r.Calls); err != nil {

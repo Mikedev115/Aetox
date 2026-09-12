@@ -61,7 +61,7 @@ func TestAFirstRunOpensAtTheEntrance(t *testing.T) {
 func TestTheWindowReopensAtTheDeskYouLeftItAt(t *testing.T) {
 	a := bootFreshApp(t)
 
-	if err := a.setStation("coding", ""); err != nil {
+	if err := a.setStation("coding", "", ""); err != nil {
 		t.Fatalf("setStation(coding): %v", err)
 	}
 	pref, ok, err := config.LoadModelPreference()
@@ -95,11 +95,11 @@ func TestTheWindowReopensAtTheDeskYouLeftItAt(t *testing.T) {
 // has been remembered, so writing it would silently forget the real answer.
 func TestAPreDeskSessionDoesNotOverwriteTheRememberedDesk(t *testing.T) {
 	a := bootFreshApp(t)
-	if err := a.setStation("coding", ""); err != nil {
+	if err := a.setStation("coding", "", ""); err != nil {
 		t.Fatalf("setStation(coding): %v", err)
 	}
 
-	if err := a.setStation("", ""); err != nil {
+	if err := a.setStation("", "", ""); err != nil {
 		t.Fatalf("setStation(legacy full desk): %v", err)
 	}
 

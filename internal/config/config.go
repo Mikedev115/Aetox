@@ -161,6 +161,40 @@ type Config struct {
 	// WorkersOff is the answer "everybody is in reach". EnabledProviders solves the
 	// same problem with an empty list because empty is not a real answer there.
 	DelegateSet bool
+	// DelegateCodeOff is the CODE door's twin of DelegateAgents: whether a
+	// coding-desk session may hand a whole job to a team on its side. Two
+	// switches, one per door, and not one per team (owner, 13 ก.ย.: "ทำเป็น
+	// 2 สวิตช์ข้างบน แยกฝั่งผู้ช่วยและฝั่งโค้ด") — a team is who, the door's
+	// switch is whether. Spelled negative because it ships ON: a code team
+	// exists only because somebody made one to hand work to.
+	DelegateCodeOff bool
+	// TeamSwitches is what each team keeps out of reach, by team name
+	// (subagent.Team): the same agent may be in reach on one team and off on
+	// another (12 ก.ย.: "จะไม่เหมารวมกันนะ"). Whether the door hands work at
+	// all is the door's switch above, not the team's.
+	TeamSwitches map[string]TeamSwitch
+}
+
+// TeamSwitch is one team's exceptions: the members the door may not hand
+// work to while hiring from this team.
+type TeamSwitch struct {
+	AgentsOff []string `json:"agents_off,omitempty"`
+}
+
+// DelegationFor answers the two reach questions for a session hiring from
+// team at desk: may the door hand whole jobs to agents at all (the side's
+// switch — the assistant's for the office, the code door's for the coding
+// desk), and which members of that team are switched off. No team ("")
+// reads WorkersOff, the list the CLI's full reach still keeps.
+func (c Config) DelegationFor(desk, team string) (agents bool, off []string) {
+	agents = c.DelegateAgents
+	if desk == "coding" {
+		agents = !c.DelegateCodeOff
+	}
+	if team == "" {
+		return agents, c.WorkersOff
+	}
+	return agents, c.TeamSwitches[team].AgentsOff
 }
 
 type ConfigOptions struct {
@@ -349,6 +383,12 @@ type ModelPreference struct {
 	// blank. Written the first time somebody flips one of these switches; a file
 	// from before it existed is read for the same fact in sanitizePreference.
 	DelegateSet bool `json:"delegate_set,omitempty"`
+	// DelegateCodeOff and TeamSwitches are Config's on disk. Neither has a
+	// DelegateSet twin: the code switch ships on and records only the
+	// exception, and a team's list is empty until somebody switches a member
+	// off — absent means "nobody off", which is not a default to protect.
+	DelegateCodeOff bool                  `json:"delegate_code_off,omitempty"`
+	TeamSwitches    map[string]TeamSwitch `json:"teams,omitempty"`
 	// EnabledProviders is the set of providers shown in the Settings sidebar
 	// and the chat composer's picker. Empty means "never customized" — callers
 	// resolve that case via ResolvedEnabledProviders rather than persisting a

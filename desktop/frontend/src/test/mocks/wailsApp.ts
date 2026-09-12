@@ -151,6 +151,7 @@ export const GitSwitchBranch = vi.fn(async (name: string) => name)
 export const GitCommitFiles = vi.fn(async (_msg: string, _files: string[]) => {})
 export const GitSuggestCommitMessage = vi.fn(async (_files: string[]) => 'feat: sample commit')
 export const GitSuggestSplitCommits = vi.fn(async () => [])
+export const GitSplitCancel = vi.fn(async () => {})
 export const GuideTopics = arr()
 export const HasAPIKey = boolFn(false)
 // Empty by default, which is what a provider with no key stored returns. A
@@ -218,6 +219,8 @@ export const SetDelegateOff = rejects()
 // The agent editor's เอื้อมถึงอะไร / ความรู้ / เปิดบทสนทนา panels. Empty by
 // default: a test that cares about one of them says so itself.
 export const AgentSkills = arr()
+export const CopySkillToAgent = noop()
+export const RemoveAgentSkill = noop()
 export const AgentNeeds = arr()
 // The veil over a teammate that cannot work (AgentLock.svelte). False by
 // default so every roster renders as a working one: a test that wants the
@@ -260,6 +263,9 @@ export const SkillsDir = vi.fn(async () => 'C:/Users/x/.aetox/skills')
 export const SkillScanIssues = arr()
 export const OpenSkillsFolder = noop()
 export const InstallSkillFromZip = str()
+// The role field's roads in (§256.5): a file, a link.
+export const PickAgentBrief = str()
+export const FetchAgentBrief = str()
 export const ListIdentityFiles = arr()
 export const ListMCPServers = arr()
 export const ListModelsForProvider = arr()
@@ -377,6 +383,15 @@ export const NewSession = str()
 // render before it renders anything else.
 export const NewSessionAt = str()
 export const NewChairSession = str()
+// Teams (§256): a chair seated by a team, a chat opened on one, the roster
+// the picker draws, and the team page's doors.
+export const NewChairSessionAt = str()
+export const NewTeamSession = str()
+export const SessionTeam = str()
+export const ListTeams = arr()
+export const SaveTeam = noop()
+export const DeleteTeam = noop()
+export const OpenTeamsFolder = noop()
 // โปรเจกต์ (§90): the room's own session door, plus the engine's answer to
 // "which project is the open chat in".
 export const NewSessionInSpace = str()
@@ -631,3 +646,5 @@ export const UsageStats = vi.fn(async () => ({
 export const WorkbenchTabsChanged = noop()
 export const WorkspaceFolders = arr()
 export const WriteFile = noop()
+export const UserName = strFn('')
+export const SetUserName = noop()

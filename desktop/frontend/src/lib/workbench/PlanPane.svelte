@@ -581,11 +581,31 @@
 </div>
 
 <style>
+  /* The scrollbar thumb across this app stays invisible until the pane is
+     hovered (style.css line 119, the owner's own call: "ตัวเลื่อนนี้ฝากซ่อน
+     หน่อยครับ"). Right for a short list, but the stepper can run to nine-plus
+     cards below the fold, and with no thumb showing at rest the last visible
+     card just stops — nothing on screen says there is more underneath
+     (2026-09-12, "ไทมไลน์ด้านล่าง...เหมือนจะเลื่อนไม่ได้"). This is the
+     standard CSS-only scroll-shadow: two gradients pinned to the scrolled
+     content (background-attachment:local) fade the edge where a neighbour is
+     cut off, and two more fixed to the viewport (attachment:scroll) darken
+     over them only while that edge is reachable — at the very top or bottom
+     the matching shadow layer scrolls out and disappears on its own, no JS
+     scroll listener needed. */
   .plan-pane {
     height: 100%;
     overflow-y: auto;
     padding: 16px;
     box-sizing: border-box;
+    background:
+      linear-gradient(var(--surface-app) 30%, transparent),
+      linear-gradient(transparent, var(--surface-app) 70%) bottom,
+      radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.22), transparent),
+      radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.22), transparent) bottom;
+    background-repeat: no-repeat;
+    background-size: 100% 24px, 100% 24px, 100% 10px, 100% 10px;
+    background-attachment: local, local, scroll, scroll;
   }
 
   .plan-pane-empty {
@@ -1061,70 +1081,70 @@
     color: var(--status-warn);
   }
 
-  /* 2. STRUCTURED SECTION CALLOUTS */
+  /* 2. STRUCTURED SECTIONS — a document, not a stack of cards.
+     The boxed-callout look (panel background, border, left colour bar) was
+     the next thing the owner flagged past the column split: it still read as
+     dashboard tiles rather than prose, ครับ "รื้อของเก่าออกให้แสดงเหมือน
+     เอกสารปกติ...เหมือนหน้าแชทอ่านง่ายกว่า" (2026-09-12) — chat's own plan
+     card already solved this (style.css .plan-heading, unscoped from
+     .markdown-body on 2026-09-08) by setting each section apart with a
+     heading rather than a box. So no panel, no border, no padding: a heading
+     line per section and body text at the chat's own reading size
+     (.markdown-body's inherited font, not a shrunk --fs-xs), separated by
+     margin the way headings separate paragraphs anywhere else in the app.
+     The kind colour survives on the heading and its icon — still the
+     fastest way to spot "this one's a risk" scanning down the page — it is
+     just no longer drawn as a chip. */
   .plan-sections-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 12px;
+    display: flex;
+    flex-direction: column;
   }
 
   .plan-sec-callout {
-    background: var(--surface-panel);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--r-md);
-    padding: 12px 14px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    border-left-width: 4px;
+    gap: 4px;
+    padding: 14px 0 0;
+    border-top: 1px solid var(--border-subtle);
   }
 
-  .plan-sec-callout.kind-scope {
-    border-left-color: var(--accent);
-  }
-
-  .plan-sec-callout.kind-risk {
-    border-left-color: var(--status-warn, #f59e0b);
-  }
-
-  .plan-sec-callout.kind-success {
-    border-left-color: var(--status-success, #10b981);
-  }
-
-  .plan-sec-callout.kind-neutral {
-    border-left-color: var(--border-default);
+  .plan-sec-callout:first-child {
+    padding-top: 0;
+    border-top: none;
   }
 
   .sec-callout-head {
     display: flex;
     align-items: center;
     gap: 7px;
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    font-size: var(--fs-sm);
+    font-weight: 650;
+    letter-spacing: 0.01em;
+    color: var(--text-primary);
   }
 
-  .plan-sec-callout.kind-scope .sec-callout-head {
+  .plan-sec-callout.kind-scope .sec-callout-head,
+  .plan-sec-callout.kind-scope .sec-callout-icon {
     color: var(--accent);
   }
 
-  .plan-sec-callout.kind-risk .sec-callout-head {
+  .plan-sec-callout.kind-risk .sec-callout-head,
+  .plan-sec-callout.kind-risk .sec-callout-icon {
     color: var(--status-warn, #f59e0b);
   }
 
-  .plan-sec-callout.kind-success .sec-callout-head {
+  .plan-sec-callout.kind-success .sec-callout-head,
+  .plan-sec-callout.kind-success .sec-callout-icon {
     color: var(--status-success, #10b981);
   }
 
-  .plan-sec-callout.kind-neutral .sec-callout-head {
-    color: var(--text-secondary);
+  .sec-callout-icon {
+    display: inline-flex;
+    color: var(--text-dim);
   }
 
   .sec-callout-body {
-    font-size: var(--fs-xs);
     color: var(--text-secondary);
-    line-height: 1.5;
   }
 
   /* 3. MODERN VERTICAL EXECUTION STEPPER */

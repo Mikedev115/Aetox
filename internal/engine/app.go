@@ -277,6 +277,14 @@ type Engine struct {
 	studio studioScan
 	// thumbs is the shelf's poster render queue (studio_thumbs.go).
 	thumbs studioThumbs
+
+	// gitSplit is the message-writing run behind the git pane's smart split
+	// (git_commit.go). The groups come back at once and the messages stream
+	// in after them, one group at a time; a second click or GitSplitCancel
+	// ends the run in flight, and a run that lost its seat stops emitting.
+	gitSplitMu     sync.Mutex
+	gitSplitCancel context.CancelFunc
+	gitSplitSeq    uint64
 }
 
 // ChangedFile is one working-tree change reported by `git status`.
@@ -1935,8 +1943,8 @@ func (a *Engine) openAtRememberedDesk() {
 	if pref, ok, err := config.LoadModelPreference(); err == nil && ok && pref.LastDesk != "" {
 		desk = pref.LastDesk
 	}
-	if err := a.setStation(desk, ""); err != nil && desk != mode.Default {
-		_ = a.setStation(mode.Default, "")
+	if err := a.setStation(desk, "", ""); err != nil && desk != mode.Default {
+		_ = a.setStation(mode.Default, "", "")
 	}
 }
 
@@ -2531,6 +2539,14 @@ func (a *Engine) runTurn(conv *conversation, text, to string) (SessionMessage, S
 	// again costs the whole run.
 	if conv.pendingTask != "" {
 		return a.runAnswer(conv, ctx, text)
+	}
+	// A chat whose provider is served by a program on this machine is handed
+	// to that program here (cli_engine.go) — before the executor, because the
+	// program runs a loop of its own, and after the snapshot above, so undo
+	// covers the files it edits like anyone else's. Nothing is registered in
+	// this build, so the lookup misses and the turn goes on as it always has.
+	if engine, ok := cliEngineFor(conv.cfg.ModelProvider); ok {
+		return a.runCLIEngineTurn(conv, ctx, engine, text)
 	}
 	sent, images := a.visionAttachments(text)
 	sent, documents := a.documentAttachments(sent)
@@ -4282,6 +4298,24 @@ func (a *Engine) chairProfile() *subagent.Profile {
 	return &p
 }
 
+// teamRoster resolves a conversation's team to the roster the engine hires
+// from (§256), read from disk per call for the reason chairProfile is: a team
+// is a file, and a held copy would survive an edit. Every desktop session
+// hands the engine a roster — a chat on no team hands an empty one, which is
+// "helpers, no colleagues" and not the CLI's full reach — so the picker, the
+// `@` menu and `task` read the same list.
+//
+// A team that no longer resolves answers empty here too; the doors that open
+// team sessions (NewTeamSession, LoadSession) refuse that case loudly first,
+// so this is only ever a race with a folder deleted mid-session.
+func (a *Engine) teamRoster(conv *conversation) *subagent.Team {
+	roster, ok := subagent.LoadTeam(conv.team)
+	if !ok {
+		roster = subagent.Team{Name: subagent.NoTeam, Members: []string{}}
+	}
+	return &roster
+}
+
 // workbenchSkills are the tools only the desktop app can offer — they need a
 // window, or a human, to mean anything. Everything else the agent gets comes
 // from skill.NewDefaultRegistry.
@@ -4543,6 +4577,14 @@ func (a *Engine) applyConfig(conv *conversation, cfg config.Config) {
 		// profile takes effect the next time its chair is sat at, like every
 		// other manifest.
 		Chair: a.chairProfile(),
+		// The roster this session hires from, and the desk it works at (§256).
+		Team: a.teamRoster(conv),
+		// The footer's name, so the model can use it (prompt.person). Read
+		// fresh here for the same reason Chair is: a name changed in the
+		// footer takes effect the next time a session is opened or switched,
+		// which is when this runs — and never mid-conversation, because the
+		// prompt is the cached prefix (prompt/README.md, reload timing).
+		UserName: a.UserName(),
 		Approve: func(ctx context.Context, command, reason string) (bool, error) {
 			return a.approveToolCall(conv, ctx, command, reason)
 		},

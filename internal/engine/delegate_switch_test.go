@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"slices"
 	"strings"
 	"testing"
 
@@ -92,7 +91,7 @@ func TestOneKindSwitchesWithoutTheOther(t *testing.T) {
 // the profile file lives in, and nothing else gets a vote.
 func TestEachBlockHoldsOnlyItsOwnKind(t *testing.T) {
 	a := newSwitchApp(t)
-	switches := a.DelegateSwitches()
+	switches := a.DelegateSwitches("")
 
 	if len(switches.Agents.Workers) == 0 || len(switches.Helpers.Workers) == 0 {
 		t.Fatalf("a block is empty, so this proves nothing: %d เอเจน, %d ซับเอเจน", len(switches.Agents.Workers), len(switches.Helpers.Workers))
@@ -114,13 +113,13 @@ func TestEachBlockHoldsOnlyItsOwnKind(t *testing.T) {
 func TestSwitchedOffWorkersStayOnTheList(t *testing.T) {
 	a := newSwitchApp(t)
 
-	full := allWorkers(a.DelegateSwitches())
+	full := allWorkers(a.DelegateSwitches(""))
 	if len(full) == 0 {
 		t.Fatal("no workers at all, so this test proves nothing")
 	}
 	name := full[0].Name
 
-	after := allWorkers(a.SetAgentOff(name, true))
+	after := allWorkers(a.SetAgentOff("", name, true))
 	if len(after) != len(full) {
 		t.Errorf("switching %s off removed it from the settings list: %d rows then %d", name, len(full), len(after))
 	}
@@ -130,7 +129,7 @@ func TestSwitchedOffWorkersStayOnTheList(t *testing.T) {
 		}
 	}
 	// And back on again, because a one-way switch is a trap.
-	back := allWorkers(a.SetAgentOff(name, false))
+	back := allWorkers(a.SetAgentOff("", name, false))
 	for _, w := range back {
 		if w.Name == name && !w.On {
 			t.Errorf("%s could not be switched back on", name)
@@ -143,7 +142,7 @@ func TestSwitchedOffWorkersStayOnTheList(t *testing.T) {
 func TestEachWorkerRowSaysWhatItIsFor(t *testing.T) {
 	a := newSwitchApp(t)
 
-	for _, w := range allWorkers(a.DelegateSwitches()) {
+	for _, w := range allWorkers(a.DelegateSwitches("")) {
 		if strings.TrimSpace(w.For) == "" {
 			t.Errorf("%s is listed with nothing saying what it is for", w.Name)
 		}
@@ -166,6 +165,9 @@ func newSwitchApp(t *testing.T) *Engine {
 			_ = a.db.Close()
 		}
 	})
+	// On the roster a real door would give it — the seeded team on this fresh
+	// data root — so the agents block has members to switch and to measure.
+	a.cur().team = subagent.PreferredTeam("")
 	a.applyConfig(a.cur(), config.Config{SandboxRoot: t.TempDir(), ModelProvider: "aetox", ModelName: "aetox-tools:test"})
 	return a
 }
@@ -193,7 +195,7 @@ func newSwitchApp(t *testing.T) *Engine {
 func TestDelegationShipsOffForAgentsAndOnForHelpers(t *testing.T) {
 	a := newSwitchApp(t)
 
-	switches := a.DelegateSwitches()
+	switches := a.DelegateSwitches("")
 	if !switches.Agents.Off {
 		t.Error("a fresh install hands whole jobs to เอเจน; that switch was supposed to ship off")
 	}
@@ -223,49 +225,22 @@ func TestDelegationShipsOffForAgentsAndOnForHelpers(t *testing.T) {
 	}
 }
 
-// What a machine arrives with before anybody answers the question.
-//
-// The switch fields still ship the way the test above proves; this is the layer
-// over them, and it exists because "may my assistant hand work to a colleague"
-// answered NO for everybody meant a company whose employees were never asked to
-// do anything. The three shipped in reach are the errands that come up on any
-// desk; the two left out cannot start without a token or a server.
-func TestNobodyAnsweredMeansTheShippedThreeAndNobodyElse(t *testing.T) {
+// What a machine arrives with before anybody answers the question: the
+// assistant's switch on, and nobody switched off — since 13 ก.ย. WHO is in
+// reach is the seeded team's business (subagent.SeedTeamName names four),
+// not a list here. A default that reached into any list would either pick
+// agents twice or take away hands nobody asked to have taken.
+func TestNobodyAnsweredMeansOnAndNobodySwitchedOff(t *testing.T) {
 	agents, off := shippedDelegation()
 	if !agents {
 		t.Fatal("the assistant cannot hand work to anybody on a fresh machine")
 	}
-	lower := lowered(off)
-	for _, want := range shippedReachableAgents {
-		if slices.Contains(lower, want) {
-			t.Errorf("%s is meant to be in reach and it is switched off: %v", want, off)
-		}
+	if len(off) != 0 {
+		t.Errorf("a fresh machine switches %v off — who is in reach is the seeded team's list, not this one", off)
 	}
-	var agentNames, helperNames []string
-	for _, p := range subagent.List() {
-		if p.Invalid != "" {
-			continue
-		}
-		if p.Desk != "" {
-			agentNames = append(agentNames, strings.ToLower(p.Name))
-		} else {
-			helperNames = append(helperNames, strings.ToLower(p.Name))
-		}
-	}
-	for _, name := range agentNames {
-		if slices.Contains(shippedReachableAgents, name) {
-			continue
-		}
-		if !slices.Contains(lower, name) {
-			t.Errorf("%s is in reach on a machine nobody has touched; only %v were meant to be", name, shippedReachableAgents)
-		}
-	}
-	// ซับเอเจน are the assistant's own hands and ship on. A default that reached
-	// into their list would take away hands nobody asked to have taken.
-	for _, name := range helperNames {
-		if slices.Contains(lower, name) {
-			t.Errorf("ซับเอเจน %s was switched off by a default that is only about เอเจน", name)
-		}
+	// And the code door ships on too: a zero config has its switch off-flag false.
+	if (config.Config{}).DelegateCodeOff {
+		t.Error("the code door ships with delegation off")
 	}
 }
 
@@ -277,7 +252,7 @@ func TestAnsweringOnceStopsTheShippedDefault(t *testing.T) {
 	if a.cur().cfg.DelegateSet {
 		t.Fatal("a config nobody has touched already claims to be an answer")
 	}
-	a.SetAgentOff(shippedReachableAgents[0], true)
+	a.SetAgentOff("", "doc", true)
 	if !a.cur().cfg.DelegateSet {
 		t.Error("switching one agent off is an answer and was not recorded as one")
 	}

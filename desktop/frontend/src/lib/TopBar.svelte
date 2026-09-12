@@ -40,6 +40,12 @@
   // control. Same place, and the same gesture, as ChatGPT↔Codex.
   let doorOpen = $state(false)
   const current = $derived(SHELLS.find((s) => s.name === shell.name) ?? SHELLS[0])
+  // While a press is walking, the door wears the TARGET's name and a spinner
+  // where the caret was: it says where it is going, not where it was. The
+  // chrome has already switched (switchShellNow sets the shell first), so
+  // `current` is usually the target already — the spinner is what says the
+  // chat has not caught up yet.
+  const going = $derived(SHELLS.find((s) => s.desk && s.desk === cockpit.walkingTo))
 
 
   // The chat that has stopped on a question while the user is somewhere else.
@@ -98,8 +104,10 @@
     aria-label={t('shell.switch')} onclick={() => (doorOpen = !doorOpen)}
   >
     <Wordmark height={20} />
-    <span class="brand-door">{t(current.labelKey)}</span>
-    <span class="brand-caret"><Icon name={doorOpen ? 'chevronUp' : 'chevronDown'} size={12} /></span>
+    <span class="brand-door" class:walking={!!going}>{t((going ?? current).labelKey)}</span>
+    <span class="brand-caret">
+      {#if going}<span class="walk-spin"><Icon name="loaderCircle" size={12} /></span>{:else}<Icon name={doorOpen ? 'chevronUp' : 'chevronDown'} size={12} />{/if}
+    </span>
   </button>
   {#if doorOpen}
     <div class="door-menu" role="menu">
@@ -107,13 +115,14 @@
            behind it yet stays off the menu rather than showing as a button
            that disappoints (shell.svelte's `offered`). -->
       {#each offeredShells() as s (s.name)}
+        {@const walking = going?.name === s.name}
         <button type="button" class="door-item" class:on={shell.name === s.name} role="menuitem" onclick={() => pick(s.name)}>
-          <span class="ic"><Icon name={s.icon} size={15} /></span>
+          <span class="ic">{#if walking}<span class="walk-spin"><Icon name="loaderCircle" size={15} /></span>{:else}<Icon name={s.icon} size={15} />{/if}</span>
           <span class="txt">
             <span class="t">{t(s.labelKey)}</span>
-            <span class="d">{t(s.blurbKey)}</span>
+            <span class="d">{walking ? t('shell.opening') : t(s.blurbKey)}</span>
           </span>
-          {#if shell.name === s.name}<span class="tick"><Icon name="check" size={13} /></span>{/if}
+          {#if shell.name === s.name && !walking}<span class="tick"><Icon name="check" size={13} /></span>{/if}
         </button>
       {/each}
     </div>

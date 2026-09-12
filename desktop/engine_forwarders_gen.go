@@ -8,6 +8,7 @@ package main
 
 import (
 	"github.com/Mikedev115/Aetox/internal/capability"
+	"github.com/Mikedev115/Aetox/internal/cliagent"
 	"github.com/Mikedev115/Aetox/internal/command"
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/connect"
@@ -221,6 +222,10 @@ func (a *App) ConsolidateMemory(scope string) (engine.MemoryConsolidation, error
 	return a.api.ConsolidateMemory(scope)
 }
 
+func (a *App) CopySkillToAgent(agent string, name string) error {
+	return a.api.CopySkillToAgent(agent, name)
+}
+
 func (a *App) CreatePullRequest(title string, head string, base string, body string, draft bool) engine.PRCreated {
 	return a.api.CreatePullRequest(title, head, base, body, draft)
 }
@@ -257,8 +262,8 @@ func (a *App) DeckFormats() []engine.DeckFormat {
 	return a.api.DeckFormats()
 }
 
-func (a *App) DelegateSwitches() engine.DelegateSettings {
-	return a.api.DelegateSwitches()
+func (a *App) DelegateSwitches(team string) engine.DelegateSettings {
+	return a.api.DelegateSwitches(team)
 }
 
 func (a *App) DeleteArtifact(path string) error {
@@ -289,6 +294,10 @@ func (a *App) DeleteSubagentProfile(name string) error {
 	return a.api.DeleteSubagentProfile(name)
 }
 
+func (a *App) DeleteTeam(name string) error {
+	return a.api.DeleteTeam(name)
+}
+
 func (a *App) DisconnectAccount(id string) error {
 	return a.api.DisconnectAccount(id)
 }
@@ -307,6 +316,10 @@ func (a *App) EnabledProviders() []string {
 
 func (a *App) EnginesFor(family string, agent string) []connect.Status {
 	return a.api.EnginesFor(family, agent)
+}
+
+func (a *App) ExternalEngineStatus(providerName string) cliagent.Status {
+	return a.api.ExternalEngineStatus(providerName)
 }
 
 func (a *App) FileStillThere(relPath string) string {
@@ -367,6 +380,10 @@ func (a *App) GitFileDiff(path string) string {
 
 func (a *App) GitLog(before string, limit int) engine.GitLogPage {
 	return a.api.GitLog(before, limit)
+}
+
+func (a *App) GitSplitCancel() {
+	a.api.GitSplitCancel()
 }
 
 func (a *App) GitSuggestCommitMessage(files []string) (string, error) {
@@ -573,6 +590,10 @@ func (a *App) ListTaskChips() []engine.TaskChip {
 	return a.api.ListTaskChips()
 }
 
+func (a *App) ListTeams(desk string) []engine.TeamCard {
+	return a.api.ListTeams(desk)
+}
+
 func (a *App) ListTools() []engine.SkillInfo {
 	return a.api.ListTools()
 }
@@ -633,6 +654,10 @@ func (a *App) NewChairSession(chair string) (string, error) {
 	return a.api.NewChairSession(chair)
 }
 
+func (a *App) NewChairSessionAt(desk string, chair string, team string) (string, error) {
+	return a.api.NewChairSessionAt(desk, chair, team)
+}
+
 func (a *App) NewSession() (string, error) {
 	return a.api.NewSession()
 }
@@ -643,6 +668,10 @@ func (a *App) NewSessionAt(desk string) (string, error) {
 
 func (a *App) NewSessionInSpace(name string) (string, error) {
 	return a.api.NewSessionInSpace(name)
+}
+
+func (a *App) NewTeamSession(desk string, team string) (string, error) {
+	return a.api.NewTeamSession(desk, team)
 }
 
 func (a *App) NoteProviderQuotas(providerName string, quotas []model.Quota) {
@@ -829,6 +858,10 @@ func (a *App) RememberTTSVoice(id string) {
 	a.api.RememberTTSVoice(id)
 }
 
+func (a *App) RemoveAgentSkill(agent string, name string) error {
+	return a.api.RemoveAgentSkill(agent, name)
+}
+
 func (a *App) RemoveCustomProviderRow(id string) ([]string, error) {
 	return a.api.RemoveCustomProviderRow(id)
 }
@@ -981,6 +1014,10 @@ func (a *App) SaveSubagentProfile(name string, body string) error {
 	return a.api.SaveSubagentProfile(name, body)
 }
 
+func (a *App) SaveTeam(name string, desk string, description string, members []string) error {
+	return a.api.SaveTeam(name, desk, description, members)
+}
+
 func (a *App) SearchAllSessions(query string) []engine.SessionMeta {
 	return a.api.SearchAllSessions(query)
 }
@@ -1037,6 +1074,10 @@ func (a *App) SessionSpend(id string) engine.SessionSpend {
 	return a.api.SessionSpend(id)
 }
 
+func (a *App) SessionTeam(id string) string {
+	return a.api.SessionTeam(id)
+}
+
 func (a *App) SessionTranscript(id string) ([]engine.SessionMessage, error) {
 	return a.api.SessionTranscript(id)
 }
@@ -1045,8 +1086,8 @@ func (a *App) SessionsInSpace(name string) []engine.SessionMeta {
 	return a.api.SessionsInSpace(name)
 }
 
-func (a *App) SetAgentOff(name string, off bool) engine.DelegateSettings {
-	return a.api.SetAgentOff(name, off)
+func (a *App) SetAgentOff(team string, name string, off bool) engine.DelegateSettings {
+	return a.api.SetAgentOff(team, name, off)
 }
 
 func (a *App) SetBusyLayer(id string, on bool) []engine.BusyLayer {
@@ -1315,6 +1356,10 @@ func (a *App) SwitchVariant(index int) (engine.RegenerateResult, error) {
 
 func (a *App) SynthesizeHabit(sessionID string, hint string) (int64, error) {
 	return a.api.SynthesizeHabit(sessionID, hint)
+}
+
+func (a *App) TeamsFolderPath() (string, error) {
+	return a.api.TeamsFolderPath()
 }
 
 func (a *App) TerminalAttach(sessionID string) string {

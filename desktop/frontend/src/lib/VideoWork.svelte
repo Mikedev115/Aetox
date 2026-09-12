@@ -32,8 +32,8 @@
   import { t, type TKey } from './i18n.svelte'
   import Icon from './Icon.svelte'
   import AgentLock from './AgentLock.svelte'
-  import AgentFace from './AgentFace.svelte'
-  import { faceOf } from './agentFace'
+  import AgentMascot from './mascot/AgentMascot.svelte'
+  import { lookOf } from './mascot/agentLook'
   import VideoReady from './VideoReady.svelte'
   import { coverHue } from './coverHue'
 
@@ -53,7 +53,7 @@
   // that nothing keeps in step: an owner who restyles `video` in the editor
   // would restyle it everywhere except the room named after the work it does.
   let faces = $state<Record<string, engine.Chair>>({})
-  const doorFace = (agent: string) => faceOf(faces[agent])
+  const doorFace = (agent: string) => lookOf(faces[agent])
 
   // One question per card, asked of one place, so the class on the card and the
   // sentence on the veil cannot disagree.
@@ -77,8 +77,8 @@
     gates = Object.fromEntries(doors.map((d, i) => [d.agent, answers[i]]))
     // Not awaited with the gates and not allowed to fail the room: a roster the
     // engine cannot answer for costs these two cards the mark they hold, and
-    // the face derived from the name is still a face. A locked card is a
-    // verdict and has to be right; a haircut is not.
+    // the mascot derived from the name is still a mascot. A locked card is a
+    // verdict and has to be right; a badge on an ear is not.
     void ListChairs()
       .then((roster) => { faces = Object.fromEntries(roster.map((c) => [c.name, c])) })
       .catch(() => {})
@@ -130,7 +130,7 @@
                      whole from the roster on the reasoning that this is the same
                      kind of thing being chosen in the same app; a face here and
                      a face there is the rest of that sentence. -->
-                <AgentFace name={d.agent} {...doorFace(d.agent)} size={38} />
+                <AgentMascot name={d.agent} {...doorFace(d.agent)} size={38} />
                 <span class="chair-name">{t(d.title)}</span>
               </div>
               <p class="chair-desc">{t(d.desc)}</p>

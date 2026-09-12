@@ -37,20 +37,23 @@ type ResponsesConfig struct {
 	Timeout     time.Duration
 	APIKey      string
 	TokenSource func(context.Context) (string, error)
-	Headers     map[string]string
+	// TokenRefresh is the one retry a 401 gets — see ProviderOptions.
+	TokenRefresh func(context.Context) (string, error)
+	Headers      map[string]string
 	// Transport, when set, signs the request itself; neither APIKey nor
 	// TokenSource is then required or consulted (ProviderOptions.Transport).
 	Transport Transport
 }
 
 type ResponsesProvider struct {
-	provider    string
-	model       string
-	baseURL     string
-	apiKey      string
-	tokenSource func(context.Context) (string, error)
-	headers     map[string]string
-	httpClient  *http.Client
+	provider     string
+	model        string
+	baseURL      string
+	apiKey       string
+	tokenSource  func(context.Context) (string, error)
+	tokenRefresh func(context.Context) (string, error)
+	headers      map[string]string
+	httpClient   *http.Client
 }
 
 func NewResponsesProvider(cfg ResponsesConfig) (*ResponsesProvider, error) {
@@ -76,13 +79,14 @@ func NewResponsesProvider(cfg ResponsesConfig) (*ResponsesProvider, error) {
 	}
 
 	return &ResponsesProvider{
-		provider:    provider,
-		model:       model,
-		baseURL:     baseURL,
-		apiKey:      strings.TrimSpace(cfg.APIKey),
-		tokenSource: cfg.TokenSource,
-		headers:     cfg.Headers,
-		httpClient:  newModelHTTPClient(timeout, baseURL, cfg.Transport),
+		provider:     provider,
+		model:        model,
+		baseURL:      baseURL,
+		apiKey:       strings.TrimSpace(cfg.APIKey),
+		tokenSource:  cfg.TokenSource,
+		tokenRefresh: cfg.TokenRefresh,
+		headers:      cfg.Headers,
+		httpClient:   newModelHTTPClient(timeout, baseURL, cfg.Transport),
 	}, nil
 }
 
@@ -430,18 +434,38 @@ func (p *ResponsesProvider) StreamComplete(ctx context.Context, req Request, onC
 		return Response{}, err
 	}
 
-	httpReq, err := p.newHTTPRequest(ctx, body)
+	send := func() (*http.Response, error) {
+		httpReq, err := p.newHTTPRequest(ctx, body)
+		if err != nil {
+			return nil, err
+		}
+		httpResp, err := p.httpClient.Do(httpReq)
+		if err != nil {
+			return nil, err
+		}
+		// Before the status check: a 429 states the same rate-limit headers
+		// as a 200, and is precisely the moment the remaining quota is worth
+		// knowing.
+		NoteQuotas(p.Name(), httpResp)
+		return httpResp, nil
+	}
+	httpResp, err := send()
 	if err != nil {
 		return Response{}, err
 	}
-	httpResp, err := p.httpClient.Do(httpReq)
-	if err != nil {
-		return Response{}, err
+	if httpResp.StatusCode == http.StatusUnauthorized && p.tokenRefresh != nil {
+		// The sign-in's word against the store's: renew and send once more.
+		// Safe to replay — nothing has streamed yet. If renewing fails too,
+		// the original 401 is the one to show; that one really does mean
+		// sign in again.
+		if _, err := p.tokenRefresh(ctx); err == nil {
+			httpResp.Body.Close()
+			if httpResp, err = send(); err != nil {
+				return Response{}, err
+			}
+		}
 	}
 	defer httpResp.Body.Close()
-	// Before the status check: a 429 states the same rate-limit headers as a
-	// 200, and is precisely the moment the remaining quota is worth knowing.
-	NoteQuotas(p.Name(), httpResp)
 
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
 		return Response{}, p.statusError(httpResp)

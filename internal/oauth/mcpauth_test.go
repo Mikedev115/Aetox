@@ -102,6 +102,84 @@ func TestDiscoverMCPOAuthFullChain(t *testing.T) {
 	}
 }
 
+// Three shapes found by probing the first-party servers on 2026-09-13,
+// each of which the discovery of 2026-09-03 turned away:
+//   - Figma answers GET /mcp with 405 and challenges only a POST;
+//   - Stripe writes resource_metadata=… without quotes;
+//   - Atlassian challenges with no resource_metadata at all and publishes no
+//     protected-resource document, only RFC 8414 metadata at its origin.
+func TestDiscoverMCPOAuthRealShapes(t *testing.T) {
+	serve := func(challenge func(w http.ResponseWriter, r *http.Request), withPRM bool) *httptest.Server {
+		mux := http.NewServeMux()
+		var srv *httptest.Server
+		mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) { challenge(w, r) })
+		if withPRM {
+			mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
+				_ = json.NewEncoder(w).Encode(map[string]any{"authorization_servers": []string{srv.URL}})
+			})
+		}
+		mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"authorization_endpoint": srv.URL + "/authorize",
+				"token_endpoint":         srv.URL + "/token",
+				"registration_endpoint":  srv.URL + "/register",
+			})
+		})
+		srv = httptest.NewServer(mux)
+		t.Cleanup(srv.Close)
+		return srv
+	}
+	cases := map[string]struct {
+		challenge func(srvURL string) func(w http.ResponseWriter, r *http.Request)
+		withPRM   bool
+	}{
+		"figma: POST-only, GET is 405": {func(srvURL string) func(w http.ResponseWriter, r *http.Request) {
+			return func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					w.WriteHeader(http.StatusMethodNotAllowed)
+					return
+				}
+				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer resource_metadata="%s/.well-known/oauth-protected-resource",scope="mcp:connect"`, srvURL))
+				w.WriteHeader(http.StatusUnauthorized)
+			}
+		}, true},
+		"stripe: unquoted resource_metadata": {func(srvURL string) func(w http.ResponseWriter, r *http.Request) {
+			return func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("WWW-Authenticate", "Bearer resource_metadata="+srvURL+"/.well-known/oauth-protected-resource")
+				w.WriteHeader(http.StatusUnauthorized)
+			}
+		}, true},
+		"atlassian: no pointer, no document, AS at origin": {func(srvURL string) func(w http.ResponseWriter, r *http.Request) {
+			return func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("WWW-Authenticate", `Bearer realm="OAuth", error="invalid_token", error_description="Missing or invalid access token"`)
+				w.WriteHeader(http.StatusUnauthorized)
+			}
+		}, false},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			var srv *httptest.Server
+			srv = serve(func(w http.ResponseWriter, r *http.Request) { tc.challenge(srv.URL)(w, r) }, tc.withPRM)
+			meta, err := discoverMCPOAuth(context.Background(), srv.URL+"/mcp")
+			if err != nil {
+				t.Fatalf("discoverMCPOAuth: %v", err)
+			}
+			if meta.RegistrationEndpoint != srv.URL+"/register" {
+				t.Errorf("RegistrationEndpoint = %q", meta.RegistrationEndpoint)
+			}
+		})
+	}
+}
+
+// A server that does not challenge at all is still nothing to discover.
+func TestDiscoverMCPOAuthNeedsAChallenge(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }))
+	t.Cleanup(srv.Close)
+	if _, err := discoverMCPOAuth(context.Background(), srv.URL+"/mcp"); err == nil || !strings.Contains(err.Error(), "did not challenge") {
+		t.Fatalf("err = %v; want the no-challenge sentence", err)
+	}
+}
+
 // The elevenlabs/vercel/shopify shape, found by actually probing them on
 // 2026-09-03: a real authorization server, real endpoints, no
 // registration_endpoint. StartMCPOAuth must say so rather than fail on some

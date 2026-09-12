@@ -659,6 +659,17 @@ func await(att *startAttempt) error {
 // a foreign process makes every CreateWindowExW child fail with "Access is
 // denied", silently killing all browser tabs.
 //
+// And never take the first visible window of our own either. EnumWindows walks
+// the z-order from the top, and the desktop companion (companion_windows.go)
+// is a TOPMOST layered popup of this very process — so with the figure on the
+// desktop the walk met it before the main window, every browser tab became a
+// child of the mascot, and the moment the companion rebuilt its window (a drag
+// to another monitor on 13 ก.ย. 04:43) Windows took the tabs down with it:
+// "Invalid window handle", the page black, the agent told the engine was
+// gone. A tool window is never the main window; the companion, the offscreen
+// export tab and the computer-use overlay all carry WS_EX_TOOLWINDOW, so that
+// one bit rules out everything this process floats over the desktop.
+//
 // ponytail: enumerating at all is what the port blueprint's rule 1 says not to
 // do ("hold a direct handle from the toolkit"). Wails v2.13 exports no such
 // handle, so retiring this needs a patch to the vendored Wails — planned with
@@ -673,6 +684,9 @@ func findOwnMainWindow() uintptr {
 			return 1 // keep enumerating
 		}
 		if vis, _, _ := procIsWindowVisible.Call(hwnd); vis == 0 {
+			return 1
+		}
+		if ex, _, _ := procGetWindowLongPtrW.Call(hwnd, uintptr(gwlExStyle)); ex&wsExToolWindow != 0 {
 			return 1
 		}
 		found = hwnd

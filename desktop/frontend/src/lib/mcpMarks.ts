@@ -105,4 +105,35 @@ export const MCP_MARKS: Record<string, MCPMark> = {
   deepwiki: { ink: '', svg: `<g transform="translate(-18.528 -18.514) scale(0.33862)"><path d="M75.8 121.1L63.1 113.5L63.1 100.2L75.6 92.3L84.8 96.6L88.6 95.8L91.8 88.9L86.3 83.9L75.2 88.0L63.2 80.6L63.3 66.5L75.6 59.1L88.1 66.2L88.7 74.8L91.2 78.8L95.8 80.0L105.6 76.0L117.2 83.4L116.9 97.8L104.8 104.6L96.1 100.4L91.6 101.2L88.7 105.4L87.6 114.7Z"/></g>` },
   // kinocut.dev favicon.svg — ตัว K เป็นเส้นไม่ใช่พื้น จึงคง stroke ไว้ ทิ้งเกล็ดตกแต่ง
   kinocut: { ink: '#00FFE6', svg: `<g transform="translate(-8.557 -4.055) scale(1.7153)"><g transform="translate(5.6250 3.0000) scale(0.039750)" fill="none" stroke="currentColor" stroke-width="28" stroke-linejoin="round"><path d="M40 20 L90 20 L90 120 L200 20 L270 20 L140 160 L280 300 L210 300 L90 180 L90 300 L40 300 Z"></path></g></g>` },
+  // ---- Added 2026-09-13 with the five sign-in servers of the same day ----
+  // All five from simple-icons (CC0), each already a full-height glyph in the
+  // 24 box, so all five take github's transform: longest side 21, centre on
+  // (12,12), measured with getBBox the same way as the rest. Inks are the
+  // hex each owner publishes — Stripe's indigo, Atlassian's
+  // lighter brand blue (#2684FF, the one of its two blues that reads at 22px
+  // on this tile; #0052CC sinks into it). Sentry and Vercel publish black and
+  // white marks and nothing else, so like github they take the row's text
+  // colour, which is the white one.
+  // figma is the one multi-colour mark in this file, on purpose. Rule 3 above
+  // chose one brand colour per mark because the multi-colour art had been
+  // tried on a white plate and the plate was the problem; Figma's mark IS
+  // its five colours (the owner, seeing the single orange: "มันใช่หรอ"), and
+  // Figma itself shows them on dark. The five shapes are the published
+  // 38x57 geometry, each carrying its own fill, scaled so 57 becomes 21.
+  figma: { ink: '', svg: `<g transform="translate(5.000 1.500) scale(0.36842)"><path fill="#1ABCFE" d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z"/><path fill="#0ACF83" d="M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0z"/><path fill="#FF7262" d="M19 0v19h9.5a9.5 9.5 0 1 0 0-19H19z"/><path fill="#F24E1E" d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z"/><path fill="#A259FF" d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z"/></g>` },
+  sentry: { ink: '', svg: `<g transform="translate(1.500 1.500) scale(0.8750)"><path d="M13.91 2.505c-.873-1.448-2.972-1.448-3.844 0L6.904 7.92a15.478 15.478 0 0 1 8.53 12.811h-2.221A13.301 13.301 0 0 0 5.784 9.814l-2.926 5.06a7.65 7.65 0 0 1 4.435 5.848H2.194a.365.365 0 0 1-.298-.534l1.413-2.402a5.16 5.16 0 0 0-1.614-.913L.296 19.275a2.182 2.182 0 0 0 .812 2.999 2.24 2.24 0 0 0 1.086.288h6.983a9.322 9.322 0 0 0-3.845-8.318l1.11-1.922a11.47 11.47 0 0 1 4.95 10.24h5.915a17.242 17.242 0 0 0-7.885-15.28l2.244-3.845a.37.37 0 0 1 .504-.13c.255.14 9.75 16.708 9.928 16.9a.365.365 0 0 1-.327.543h-2.287c.029.612.029 1.223 0 1.831h2.297a2.206 2.206 0 0 0 1.922-3.31z"/></g>` },
+  stripe: { ink: '#635BFF', svg: `<g transform="translate(1.500 1.500) scale(0.8750)"><path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.594-7.305h.003z"/></g>` },
+  vercel: { ink: '', svg: `<g transform="translate(1.500 1.500) scale(0.8750)"><path d="m12 1.608 12 20.784H0Z"/></g>` },
+  atlassian: { ink: '#2684FF', svg: `<g transform="translate(1.500 1.500) scale(0.8750)"><path d="M7.12 11.084a.683.683 0 00-1.16.126L.075 22.974a.703.703 0 00.63 1.018h8.19a.678.678 0 00.63-.39c1.767-3.65.696-9.203-2.406-12.52zM11.434.386a15.515 15.515 0 00-.906 15.317l3.95 7.9a.703.703 0 00.628.388h8.19a.703.703 0 00.63-1.017L12.63.38a.664.664 0 00-1.196.006z"/></g>` },
+  // ---- Added 2026-09-13 with the three sign-in servers of the same second pass ----
+  // All three take github's transform (standard 24x24 art already filling the
+  // box). Each publishes black as its only brand colour — runway's own
+  // brand guide is monochrome, and simple-icons lists deepl as #0F2B46 and
+  // mapbox as #000000, both of which sink into a dark tile the same way
+  // github's black does — so all three take the row's own text colour.
+  // @lobehub/icons (MIT) for runwayml.
+  runwayml: { ink: '', svg: `<g transform="translate(1.500 1.500) scale(0.8750)"><path d="M17.86 22.992c-2.669.245-4.887-2.876-6.597-4.454C10.398 24.759 1 24.177 1 17.86V6.15c0-.921.244-1.861.733-2.65C2.635 1.977 4.383.98 6.15 1h11.71c6.316 0 6.918 9.398.677 10.243l2.97 2.951c3.252 3.064.808 8.929-3.646 8.797zm-1.428-3.721c1.842 1.898 4.774-1.034 2.876-2.876l-5.132-5.132H11.3v2.876l4.436 4.436.696.696zM4.12 17.842c-.037 2.632 4.117 2.632 4.06 0V6.132c.038-1.316-1.353-2.35-2.612-1.955-.057.019-.113.037-.15.056-.79.301-1.335 1.09-1.317 1.936v11.673h.02zm13.74-9.68c2.632.037 2.632-4.098 0-4.06h-6.973c.526 1.109.395 2.857.413 4.06h6.56z"/></g>` },
+  // simple-icons (CC0) for deepl and mapbox.
+  deepl: { ink: '', svg: `<g transform="translate(1.500 1.500) scale(0.8750)"><path d="M20.907 4.93953 12.68543.18573a1.3577 1.3577 0 0 0-1.3709 0L3.09298 4.9565a1.3766 1.3766 0 0 0-.68639 1.18233v9.52646a1.3766 1.3766 0 0 0 .68639 1.19363l8.22157 4.75946.06223.03583 4.04856 2.3458-.01131-2.06106.0075-1.1446.0038.01885v-.38467c0-.23006.1188-.43371.29605-.56005l.264-.15086.12633-.06977h-.0075l4.80283-2.7795a1.3803 1.3803 0 0 0 .68639-1.19551V6.13505a1.3803 1.3803 0 0 0-.68642-1.19552m-9.85269 9.68863a1.4275 1.4275 0 0 1-.39976 1.3841 1.4086 1.4086 0 0 1-1.97054 0 1.4199 1.4199 0 0 1 0-2.06294 1.4086 1.4086 0 0 1 2.0422.07543l3.32822-1.91585.6864.38656zm5.77019-2.41367a1.4086 1.4086 0 0 1-1.97054 0 1.4256 1.4256 0 0 1-.3696-1.47837l-.0132.0075-3.7525-2.1723-.05657.05656a1.4086 1.4086 0 0 1-1.97053 0 1.4199 1.4199 0 0 1 0-2.06293 1.4086 1.4086 0 0 1 1.97242 0c.3941.37713.52422.91832.39033 1.40672l3.7808 2.20059.01886-.01886a1.4086 1.4086 0 0 1 1.97242 0 1.42746 1.42746 0 0 1 0 2.06105z"/></g>` },
+  mapbox: { ink: '', svg: `<g transform="translate(1.500 1.500) scale(0.8750)"><path d="M12 0C5.372 0 0 5.372 0 12s5.372 12 12 12 12-5.372 12-12S18.628 0 12 0zm5.696 14.943c-4.103 4.103-11.433 2.794-11.433 2.794S4.94 10.421 9.057 6.304c2.281-2.281 6.061-2.187 8.45.189s2.471 6.168.189 8.45zm-4.319-7.91l-1.174 2.416-2.416 1.174 2.416 1.174 1.174 2.416 1.174-2.416 2.416-1.174-2.416-1.174-1.174-2.416z"/></g>` },
 }

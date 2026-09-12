@@ -157,12 +157,21 @@ var deskSurface = []string{"desk", "desk_terminal"}
 // Profile is one sub-agent definition. JSON tags are for the settings page,
 // which renders exactly these fields as its row badges.
 type Profile struct {
-	Name        string   `json:"name"`        // the file's basename; also how `task` selects it
-	Description string   `json:"description"` // shown in the settings row
-	Model       string   `json:"model,omitempty"`
-	Tools       []string `json:"tools,omitempty"` // empty = whatever the registry has
-	Deny        []string `json:"deny,omitempty"`
-	Steps       int      `json:"steps,omitempty"`
+	Name        string `json:"name"`        // the file's basename; also how `task` selects it
+	Description string `json:"description"` // shown in the settings row
+	Model       string `json:"model,omitempty"`
+	// Provider is which provider the model above lives at — a canonical name
+	// from the app's catalog (model.NormalizeProvider), or empty for the one
+	// the chat is using, which is what every profile said before this field
+	// existed. A model name alone is ambiguous the day two providers serve
+	// the same one and wrong the day one serves a model the chat's provider
+	// does not; naming the provider is what lets an agent think on a cheap
+	// local model while the chat runs on a paid one (owner, 12 ก.ย. 2026).
+	// The credential is never here: the host signs the request (§248).
+	Provider string   `json:"provider,omitempty"`
+	Tools    []string `json:"tools,omitempty"` // empty = whatever the registry has
+	Deny     []string `json:"deny,omitempty"`
+	Steps    int      `json:"steps,omitempty"`
 	// Desk makes this profile a *chair* rather than a delegate (COMPANY.md §4):
 	// it names the desk the job runs at, and that desk's manifest becomes the
 	// ceiling on everything below — so a chair that writes `tools: shell` into
@@ -183,28 +192,42 @@ type Profile struct {
 	// A name rather than an image: the file is a .md the user edits by hand,
 	// and a path to a picture would be a second thing to keep alive beside it.
 	Icon string `json:"icon,omitempty"`
-	// Hair and Accessory are the rest of that face, and they follow Icon's rule
-	// exactly: a NAME out of the app's own wardrobe (desktop/frontend/src/lib/
-	// agentFace.ts), never a drawing, so there is still nothing to keep alive
-	// beside the .md.
+	// Shell, Top, Face and Accent are the rest of that face — the mascot's
+	// (desktop/frontend/src/lib/mascot/, docs/MASCOT.md), since 12 ก.ย. 2026 —
+	// and they follow Icon's rule exactly: a NAME out of a catalogue the app
+	// draws from (SHELL, TOP, FACE, ACCENT), never a drawing, so there is still
+	// nothing to keep alive beside the .md. What the body is made of, the light
+	// on its head, the face it rests on, and the colour of its cap and ears.
 	//
-	// Empty is the ordinary case and stays the ordinary case. A face is derived
-	// from the agent's name — that is what lets a file somebody drops in
-	// tomorrow arrive looking like a person with nobody having chosen anything
-	// — and these two only say "not that one, this one" for an owner who cared
+	// Empty is the ordinary case and stays the ordinary case. The look is
+	// derived from the agent's name — that is what lets a file somebody drops in
+	// tomorrow arrive looking like somebody with nobody having chosen anything
+	// — and these only say "not that one, this one" for an owner who cared
 	// enough to open the editor. A name this build does not have falls back to
-	// the derived part rather than to an error, for the same reason Icon does.
-	Hair      string `json:"hair,omitempty"`
-	Accessory string `json:"accessory,omitempty"`
+	// the default part rather than to an error, for the same reason Icon does.
+	Shell  string `json:"shell,omitempty"`
+	Top    string `json:"top,omitempty"`
+	Face   string `json:"face,omitempty"`
+	Accent string `json:"accent,omitempty"`
 	// Hue is the colour, in degrees around the wheel, and it is a STRING here
-	// for the same reason the two above are: this side does not read the file's
+	// for the same reason the ones above are: this side does not read the file's
 	// meaning, it carries what the file says. As an int it would also have no
 	// way to tell "the author wrote 0" — red, a real choice — from "the author
 	// wrote nothing", and the difference between those two is the whole default.
 	//
 	// Blank is again the ordinary case: the colour then comes from coverHue, as
-	// every agent's has since before there was a face to put it on.
+	// every agent's has since before there was a face to put it on. A degree
+	// here is the colour at full strength and wins over Accent; Accent is the
+	// newer of the two and the one the editor writes, because it can also say
+	// "the mark's own black and white" or "copper", which no degree can.
 	Hue string `json:"hue,omitempty"`
+	// Hair and Accessory belonged to the cartoon person the mascot replaced
+	// (12 ก.ย. 2026, DECISIONS §254). Still read, never used: a file that names
+	// a haircut must go on loading — it is the user's file — but nothing draws
+	// one any more, and the editor drops the lines the next time it saves the
+	// file. Delete these two fields when no profile on disk still carries them.
+	Hair      string `json:"hair,omitempty"`
+	Accessory string `json:"accessory,omitempty"`
 	// Needs are the outside things this agent cannot do its job without —
 	// "connection:<id>" for an external account, "mcp:<server>" for a tool
 	// server. See needs.go for the rule that makes this safe: a need is a
@@ -323,6 +346,43 @@ func applyHomeRules(p *Profile, agentHome bool) {
 	}
 }
 
+// limitHelperShadow is what "ปรับแต่งได้จำกัด" means in fields (owner, 12 ก.ย.
+// 2026, reopening the door closed on 2026-08-06): a user's file over a bundled
+// helper may change the model (and provider) it thinks with, its step ceiling, its prompt,
+// its description and its look — and nothing about what it can REACH. Tools,
+// deny, needs and desk come from the bundled file whatever the shadow says,
+// because a helper's kit is the system's: `explore` that could suddenly write
+// is not a customised explore, it is a different worker with explore's name,
+// and the assistant hands it work on the strength of the name. A shadow that
+// tried is told so on the card rather than silently corrected.
+func limitHelperShadow(shadow *Profile, bundled Profile) {
+	tried := []string{}
+	if len(shadow.Tools) > 0 {
+		tried = append(tried, "tools")
+	}
+	if len(shadow.Deny) > 0 {
+		tried = append(tried, "deny")
+	}
+	if len(shadow.Needs) > 0 {
+		tried = append(tried, "needs")
+	}
+	// applyHomeRules already refused a `desk:` line in this home by marking
+	// the file sick; for a shadow the line is ignored like the others — the
+	// bundled helper underneath is what runs, so nothing is unsafe to keep.
+	if shadow.Invalid != "" {
+		tried = append(tried, "desk")
+		shadow.Invalid = ""
+	}
+	shadow.Tools = bundled.Tools
+	shadow.Deny = bundled.Deny
+	shadow.Needs = bundled.Needs
+	shadow.Desk = ""
+	if len(tried) > 0 {
+		shadow.Notice = "ไฟล์นี้เขียน " + strings.Join(tried, ", ") +
+			" เอาไว้ แต่ซับเอเจนปรับได้แค่โมเดล คำสั่ง คำอธิบาย steps และอวตาร — เครื่องมือยังเป็นชุดของแอป"
+	}
+}
+
 // resolve reads all four sources in ownership order — bundled agents, bundled
 // sub-agents, the user's agents, the user's sub-agents — and settles every
 // name once. Within a home a user file shadows a bundled one; across homes the
@@ -352,6 +412,13 @@ func resolve() ([]entry, []Conflict) {
 		applyHomeRules(&p, agentHome)
 		p.Path = path
 		p.Builtin = builtin
+		// A user's file over a bundled helper may change only what a helper's
+		// owner is allowed to change — see limitHelperShadow.
+		if !agentHome && !builtin {
+			if i, taken := byName[name]; taken && !homeOf[name] {
+				limitHelperShadow(&p, entries[i].Profile)
+			}
+		}
 		if i, taken := byName[name]; taken {
 			if homeOf[name] != agentHome {
 				home := "ซับเอเจน"
@@ -387,17 +454,20 @@ func resolve() ([]entry, []Conflict) {
 	for _, src := range sources {
 		for _, path := range src.userFiles() {
 			name := userProfileName(path, src.agentHome)
-			// The sub-agents' home is closed: the helpers are part of the system
-			// and the bundled set is the whole set. A file the user put there is
-			// never read as a profile — but it is on their disk, so it is
-			// reported rather than silently dead (the same promise Conflict has
-			// always made).
+			// The sub-agents' home is half open (owner, 12 ก.ย. 2026 — "ปรับแต่ง
+			// ได้จำกัด … แต่เลือกโมเดลได้"): the bundled set is still the whole
+			// set, so a file naming a NEW helper is never read as a profile —
+			// but it is on their disk, so it is reported rather than silently
+			// dead (the same promise Conflict has always made). A file named
+			// after a bundled helper is its shadow, within limitHelperShadow.
 			if !src.agentHome {
-				conflicts = append(conflicts, Conflict{
-					Name: name, Path: path,
-					Reason: "ซับเอเจนฝังมากับระบบ เพิ่มหรือแก้ไขไม่ได้ — ไฟล์นี้จึงไม่ถูกอ่าน ถ้าตั้งใจสร้างคนทำงานของคุณเอง สร้างเป็นเอเจนที่หน้าทีมเอเจน แล้วลบไฟล์นี้ทิ้งได้",
-				})
-				continue
+				if i, taken := byName[name]; !taken || homeOf[name] || !entries[i].Builtin {
+					conflicts = append(conflicts, Conflict{
+						Name: name, Path: path,
+						Reason: "ซับเอเจนที่มากับแอปคือทั้งหมด เพิ่มตัวใหม่ไม่ได้ — ไฟล์นี้จึงไม่ถูกอ่าน ถ้าตั้งใจสร้างคนทำงานของคุณเอง สร้างเป็นเอเจนที่หน้าทีมเอเจน แล้วลบไฟล์นี้ทิ้งได้",
+					})
+					continue
+				}
 			}
 			raw, err := os.ReadFile(path)
 			if err != nil {
@@ -765,14 +835,19 @@ func parse(name, raw string) Profile {
 		Name:        name,
 		Description: fields["description"],
 		Model:       strings.TrimSpace(fields["model"]),
+		Provider:    strings.TrimSpace(fields["provider"]),
 		Tools:       splitList(fields["tools"]),
 		Deny:        splitList(fields["deny"]),
 		Steps:       steps,
 		Desk:        strings.ToLower(strings.TrimSpace(fields["desk"])),
 		Icon:        strings.TrimSpace(fields["icon"]),
+		Shell:       strings.TrimSpace(fields["shell"]),
+		Top:         strings.TrimSpace(fields["top"]),
+		Face:        strings.TrimSpace(fields["face"]),
+		Accent:      strings.TrimSpace(fields["accent"]),
+		Hue:         strings.TrimSpace(fields["hue"]),
 		Hair:        strings.TrimSpace(fields["hair"]),
 		Accessory:   strings.TrimSpace(fields["accessory"]),
-		Hue:         strings.TrimSpace(fields["hue"]),
 		Needs:       splitList(fields["needs"]),
 		Publisher:   strings.TrimSpace(fields["publisher"]),
 		Package:     strings.TrimSpace(fields["package"]),

@@ -14,7 +14,9 @@ import {
   GitCommitFiles,
   GitSuggestCommitMessage,
   GitSuggestSplitCommits,
+  GitSplitCancel,
 } from './mocks/wailsApp'
+import { EventsOn } from './mocks/wailsRuntime'
 
 const CHANGED = [
   { path: 'internal/skill/hunk.go', status: 'U', added: 284, removed: 0 },
@@ -346,6 +348,88 @@ describe('GitPane', () => {
       'docs: update architecture record',
       ['ARCHITECTURE.md'],
     )
+  })
+
+  // The messages stream in after the groups (DECISIONS: smart split, two
+  // beats). A card with no message yet says the model is writing and cannot
+  // be committed; chunks land in it; the message event closes it.
+  it('streams each group message into its card after the groups arrive', async () => {
+    vi.mocked(GitSuggestSplitCommits).mockResolvedValue([
+      { title: 'hunk parser', message: '', files: ['internal/skill/hunk.go'] },
+      { title: 'architecture record', message: '', files: ['ARCHITECTURE.md'] },
+    ] as any)
+    const { container } = render(GitPane)
+    await waitFor(() => expect(container.querySelector('.gp-split-section')).not.toBeNull())
+    const handler = (name: string) =>
+      vi.mocked(EventsOn).mock.calls.find((c) => c[0] === name)?.[1] as (p: any) => void
+    expect(handler('git:split:chunk')).toBeTypeOf('function')
+
+    await fireEvent.click(container.querySelector('.gp-split-section .gp-commit-btn') as HTMLButtonElement)
+    await waitFor(() => expect(container.querySelectorAll('.gp-split-card').length).toBe(2))
+
+    const cards = () => container.querySelectorAll('.gp-split-card')
+    expect(cards()[0].querySelector('.gp-split-note.writing')).not.toBeNull()
+    expect((cards()[0].querySelector('.gp-split-commit-btn') as HTMLButtonElement).disabled).toBe(true)
+    // The header offers to stop the run, not to commit half-written cards.
+    expect(container.querySelector('.gp-split-all-btn')?.hasAttribute('disabled')).toBe(true)
+    expect(container.querySelector('.gp-split-redo-btn')?.textContent).toContain('Stop writing')
+
+    handler('git:split:chunk')({ index: 0, text: 'feat(skill): parse ' })
+    handler('git:split:chunk')({ index: 0, text: 'hunks\n\n- one' })
+    await waitFor(() =>
+      expect((cards()[0].querySelector('.gp-split-msg-input') as HTMLTextAreaElement).value).toBe('feat(skill): parse hunks\n\n- one'),
+    )
+    handler('git:split:message')({ index: 0, message: 'feat(skill): parse hunks\n\n- one\n- two', source: 'model' })
+    await waitFor(() => expect(cards()[0].querySelector('.gp-split-note')).toBeNull())
+    expect((cards()[0].querySelector('.gp-split-msg-input') as HTMLTextAreaElement).value).toBe('feat(skill): parse hunks\n\n- one\n- two')
+    expect((cards()[0].querySelector('.gp-split-commit-btn') as HTMLButtonElement).disabled).toBe(false)
+    // The second card is still the model's to write.
+    expect(cards()[1].querySelector('.gp-split-note.writing')).not.toBeNull()
+
+    // Nobody wrote the second one: the card says so, and why.
+    handler('git:split:message')({ index: 1, message: 'chore(root): แก้ 1 ไฟล์', source: 'fallback', reason: 'model wrote nothing' })
+    await waitFor(() => expect(cards()[1].querySelector('.gp-split-note.fallback')?.textContent).toContain('model wrote nothing'))
+    expect(container.querySelector('.gp-split-all-btn')?.hasAttribute('disabled')).toBe(false)
+  })
+
+  // Committing the first card must not hand its message to the second — the
+  // messages were keyed by array index once, and the array shifts when a
+  // committed card leaves it.
+  it('keeps each card its own message after the card above it is committed', async () => {
+    vi.mocked(GitSuggestSplitCommits).mockResolvedValue([
+      { title: 'hunk parser', message: 'feat(skill): parse hunks', files: ['internal/skill/hunk.go'] },
+      { title: 'architecture record', message: 'docs: architecture record', files: ['ARCHITECTURE.md'] },
+    ] as any)
+    const { container } = render(GitPane)
+    await waitFor(() => expect(container.querySelector('.gp-split-section')).not.toBeNull())
+    await fireEvent.click(container.querySelector('.gp-split-section .gp-commit-btn') as HTMLButtonElement)
+    await waitFor(() => expect(container.querySelectorAll('.gp-split-card').length).toBe(2))
+
+    // After the commit the tree no longer has hunk.go.
+    vi.mocked(GitWorkingTree).mockResolvedValue([CHANGED[1]] as any)
+    await fireEvent.click(container.querySelectorAll('.gp-split-commit-btn')[0] as HTMLButtonElement)
+    await waitFor(() => expect(container.querySelectorAll('.gp-split-card').length).toBe(1))
+
+    const left = container.querySelector('.gp-split-card') as HTMLElement
+    expect(left.querySelector('.gp-split-title')?.textContent).toContain('architecture record')
+    expect((left.querySelector('.gp-split-msg-input') as HTMLTextAreaElement).value).toBe('docs: architecture record')
+    await fireEvent.click(left.querySelector('.gp-split-commit-btn') as HTMLButtonElement)
+    expect(vi.mocked(GitCommitFiles)).toHaveBeenLastCalledWith('docs: architecture record', ['ARCHITECTURE.md'])
+  })
+
+  it('stops the run on request and leaves the unwritten cards editable', async () => {
+    vi.mocked(GitSuggestSplitCommits).mockResolvedValue([
+      { title: 'hunk parser', message: '', files: ['internal/skill/hunk.go'] },
+    ] as any)
+    const { container } = render(GitPane)
+    await waitFor(() => expect(container.querySelector('.gp-split-section')).not.toBeNull())
+    await fireEvent.click(container.querySelector('.gp-split-section .gp-commit-btn') as HTMLButtonElement)
+    await waitFor(() => expect(container.querySelectorAll('.gp-split-card').length).toBe(1))
+
+    await fireEvent.click(container.querySelector('.gp-split-redo-btn') as HTMLButtonElement)
+    expect(vi.mocked(GitSplitCancel)).toHaveBeenCalled()
+    await waitFor(() => expect(container.querySelector('.gp-split-note.fallback')?.textContent).toContain('Stopped'))
+    expect((container.querySelector('.gp-split-msg-input') as HTMLTextAreaElement).readOnly).toBe(false)
   })
 
   it('detects dangerous files, displays warning banner, unchecks them by default, and supports asking assistant', async () => {

@@ -326,8 +326,20 @@ export function CloseAllBrowserTabs() {
   return window['go']['main']['App']['CloseAllBrowserTabs']();
 }
 
+export function CloseCompanionWindow() {
+  return window['go']['main']['App']['CloseCompanionWindow']();
+}
+
 export function CommandHistory() {
   return window['go']['main']['App']['CommandHistory']();
+}
+
+export function CompanionSpriteKeys(arg1) {
+  return window['go']['main']['App']['CompanionSpriteKeys'](arg1);
+}
+
+export function CompanionSprites(arg1, arg2) {
+  return window['go']['main']['App']['CompanionSprites'](arg1, arg2);
 }
 
 export function CompleteAccountSignIn() {
@@ -368,6 +380,10 @@ export function Connections() {
 
 export function ConsolidateMemory(arg1) {
   return window['go']['main']['App']['ConsolidateMemory'](arg1);
+}
+
+export function CopySkillToAgent(arg1, arg2) {
+  return window['go']['main']['App']['CopySkillToAgent'](arg1, arg2);
 }
 
 export function CreatePullRequest(arg1, arg2, arg3, arg4, arg5) {
@@ -414,8 +430,8 @@ export function DeckStopPickScript() {
   return window['go']['main']['App']['DeckStopPickScript']();
 }
 
-export function DelegateSwitches() {
-  return window['go']['main']['App']['DelegateSwitches']();
+export function DelegateSwitches(arg1) {
+  return window['go']['main']['App']['DelegateSwitches'](arg1);
 }
 
 export function DeleteArtifact(arg1) {
@@ -444,6 +460,10 @@ export function DeleteSpace(arg1) {
 
 export function DeleteSubagentProfile(arg1) {
   return window['go']['main']['App']['DeleteSubagentProfile'](arg1);
+}
+
+export function DeleteTeam(arg1) {
+  return window['go']['main']['App']['DeleteTeam'](arg1);
 }
 
 export function DisconnectAccount(arg1) {
@@ -484,6 +504,14 @@ export function ExportDeck(arg1, arg2) {
 
 export function ExportSession(arg1, arg2) {
   return window['go']['main']['App']['ExportSession'](arg1, arg2);
+}
+
+export function ExternalEngineStatus(arg1) {
+  return window['go']['main']['App']['ExternalEngineStatus'](arg1);
+}
+
+export function FetchAgentBrief(arg1) {
+  return window['go']['main']['App']['FetchAgentBrief'](arg1);
 }
 
 export function FileStillThere(arg1) {
@@ -548,6 +576,10 @@ export function GitFileDiff(arg1) {
 
 export function GitLog(arg1, arg2) {
   return window['go']['main']['App']['GitLog'](arg1, arg2);
+}
+
+export function GitSplitCancel() {
+  return window['go']['main']['App']['GitSplitCancel']();
 }
 
 export function GitSuggestCommitMessage(arg1) {
@@ -786,6 +818,10 @@ export function ListTaskChips() {
   return window['go']['main']['App']['ListTaskChips']();
 }
 
+export function ListTeams(arg1) {
+  return window['go']['main']['App']['ListTeams'](arg1);
+}
+
 export function ListTools() {
   return window['go']['main']['App']['ListTools']();
 }
@@ -846,6 +882,10 @@ export function NewChairSession(arg1) {
   return window['go']['main']['App']['NewChairSession'](arg1);
 }
 
+export function NewChairSessionAt(arg1, arg2, arg3) {
+  return window['go']['main']['App']['NewChairSessionAt'](arg1, arg2, arg3);
+}
+
 export function NewSession() {
   return window['go']['main']['App']['NewSession']();
 }
@@ -856,6 +896,10 @@ export function NewSessionAt(arg1) {
 
 export function NewSessionInSpace(arg1) {
   return window['go']['main']['App']['NewSessionInSpace'](arg1);
+}
+
+export function NewTeamSession(arg1, arg2) {
+  return window['go']['main']['App']['NewTeamSession'](arg1, arg2);
 }
 
 export function NoteProviderQuotas(arg1, arg2) {
@@ -876,6 +920,10 @@ export function OpenAgentsFolder() {
 
 export function OpenArtifact(arg1) {
   return window['go']['main']['App']['OpenArtifact'](arg1);
+}
+
+export function OpenCompanionWindow(arg1, arg2, arg3) {
+  return window['go']['main']['App']['OpenCompanionWindow'](arg1, arg2, arg3);
 }
 
 export function OpenComputerApps() {
@@ -926,6 +974,10 @@ export function OpenSubagentsFolder() {
   return window['go']['main']['App']['OpenSubagentsFolder']();
 }
 
+export function OpenTeamsFolder() {
+  return window['go']['main']['App']['OpenTeamsFolder']();
+}
+
 export function PageMarksOn() {
   return window['go']['main']['App']['PageMarksOn']();
 }
@@ -960,6 +1012,10 @@ export function PendingSkillTuneCount() {
 
 export function PendingUndo() {
   return window['go']['main']['App']['PendingUndo']();
+}
+
+export function PickAgentBrief() {
+  return window['go']['main']['App']['PickAgentBrief']();
 }
 
 export function PickAttachmentImage() {
@@ -1132,6 +1188,10 @@ export function RemoteEngineLog(arg1) {
 
 export function RemoteHosts() {
   return window['go']['main']['App']['RemoteHosts']();
+}
+
+export function RemoveAgentSkill(arg1, arg2) {
+  return window['go']['main']['App']['RemoveAgentSkill'](arg1, arg2);
 }
 
 export function RemoveCustomProvider(arg1) {
@@ -1330,6 +1390,10 @@ export function SaveSubagentProfile(arg1, arg2) {
   return window['go']['main']['App']['SaveSubagentProfile'](arg1, arg2);
 }
 
+export function SaveTeam(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SaveTeam'](arg1, arg2, arg3, arg4);
+}
+
 export function SearchAllSessions(arg1) {
   return window['go']['main']['App']['SearchAllSessions'](arg1);
 }
@@ -1386,6 +1450,10 @@ export function SessionSpend(arg1) {
   return window['go']['main']['App']['SessionSpend'](arg1);
 }
 
+export function SessionTeam(arg1) {
+  return window['go']['main']['App']['SessionTeam'](arg1);
+}
+
 export function SessionTranscript(arg1) {
   return window['go']['main']['App']['SessionTranscript'](arg1);
 }
@@ -1398,8 +1466,8 @@ export function SetAPIKey(arg1, arg2) {
   return window['go']['main']['App']['SetAPIKey'](arg1, arg2);
 }
 
-export function SetAgentOff(arg1, arg2) {
-  return window['go']['main']['App']['SetAgentOff'](arg1, arg2);
+export function SetAgentOff(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetAgentOff'](arg1, arg2, arg3);
 }
 
 export function SetAttentionSignal(arg1, arg2) {
@@ -1408,6 +1476,10 @@ export function SetAttentionSignal(arg1, arg2) {
 
 export function SetBusyLayer(arg1, arg2) {
   return window['go']['main']['App']['SetBusyLayer'](arg1, arg2);
+}
+
+export function SetCompanionState(arg1) {
+  return window['go']['main']['App']['SetCompanionState'](arg1);
 }
 
 export function SetComputerControlOn(arg1) {
@@ -1732,6 +1804,10 @@ export function SynthesizeHabit(arg1, arg2) {
 
 export function TTSStatus() {
   return window['go']['main']['App']['TTSStatus']();
+}
+
+export function TeamsFolderPath() {
+  return window['go']['main']['App']['TeamsFolderPath']();
 }
 
 export function TerminalAttach(arg1) {

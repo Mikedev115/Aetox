@@ -284,6 +284,13 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		}
 		r0, err := e.ConsolidateMemory(p0)
 		return r0, err, true
+	case "CopySkillToAgent":
+		var p0 string
+		var p1 string
+		if err := decodeParams(params, &p0, &p1); err != nil {
+			return nil, err, true
+		}
+		return nil, e.CopySkillToAgent(p0, p1), true
 	case "CreatePullRequest":
 		var p0 string
 		var p1 string
@@ -329,7 +336,11 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 	case "DeckFormats":
 		return e.DeckFormats(), nil, true
 	case "DelegateSwitches":
-		return e.DelegateSwitches(), nil, true
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		return e.DelegateSwitches(p0), nil, true
 	case "DeleteArtifact":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {
@@ -372,6 +383,12 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		return nil, e.DeleteSubagentProfile(p0), true
+	case "DeleteTeam":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		return nil, e.DeleteTeam(p0), true
 	case "DisconnectAccount":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {
@@ -401,6 +418,12 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		return e.EnginesFor(p0, p1), nil, true
+	case "ExternalEngineStatus":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		return e.ExternalEngineStatus(p0), nil, true
 	case "FileStillThere":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {
@@ -476,6 +499,9 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		return e.GitLog(p0, p1), nil, true
+	case "GitSplitCancel":
+		e.GitSplitCancel()
+		return nil, nil, true
 	case "GitSuggestCommitMessage":
 		var p0 []string
 		if err := decodeParams(params, &p0); err != nil {
@@ -672,6 +698,12 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		return e.ListTTSEngines(), nil, true
 	case "ListTaskChips":
 		return e.ListTaskChips(), nil, true
+	case "ListTeams":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		return e.ListTeams(p0), nil, true
 	case "ListTools":
 		return e.ListTools(), nil, true
 	case "LoadSession":
@@ -734,6 +766,15 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		}
 		r0, err := e.NewChairSession(p0)
 		return r0, err, true
+	case "NewChairSessionAt":
+		var p0 string
+		var p1 string
+		var p2 string
+		if err := decodeParams(params, &p0, &p1, &p2); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.NewChairSessionAt(p0, p1, p2)
+		return r0, err, true
 	case "NewSession":
 		r0, err := e.NewSession()
 		return r0, err, true
@@ -750,6 +791,14 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		r0, err := e.NewSessionInSpace(p0)
+		return r0, err, true
+	case "NewTeamSession":
+		var p0 string
+		var p1 string
+		if err := decodeParams(params, &p0, &p1); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.NewTeamSession(p0, p1)
 		return r0, err, true
 	case "NoteProviderQuotas":
 		var p0 string
@@ -982,6 +1031,13 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		}
 		e.RememberTTSVoice(p0)
 		return nil, nil, true
+	case "RemoveAgentSkill":
+		var p0 string
+		var p1 string
+		if err := decodeParams(params, &p0, &p1); err != nil {
+			return nil, err, true
+		}
+		return nil, e.RemoveAgentSkill(p0, p1), true
 	case "RemoveCustomProviderRow":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {
@@ -1228,6 +1284,15 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		return nil, e.SaveSubagentProfile(p0, p1), true
+	case "SaveTeam":
+		var p0 string
+		var p1 string
+		var p2 string
+		var p3 []string
+		if err := decodeParams(params, &p0, &p1, &p2, &p3); err != nil {
+			return nil, err, true
+		}
+		return nil, e.SaveTeam(p0, p1, p2, p3), true
 	case "SearchAllSessions":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {
@@ -1313,6 +1378,12 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		return e.SessionSpend(p0), nil, true
+	case "SessionTeam":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		return e.SessionTeam(p0), nil, true
 	case "SessionTranscript":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {
@@ -1328,11 +1399,12 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		return e.SessionsInSpace(p0), nil, true
 	case "SetAgentOff":
 		var p0 string
-		var p1 bool
-		if err := decodeParams(params, &p0, &p1); err != nil {
+		var p1 string
+		var p2 bool
+		if err := decodeParams(params, &p0, &p1, &p2); err != nil {
 			return nil, err, true
 		}
-		return e.SetAgentOff(p0, p1), nil, true
+		return e.SetAgentOff(p0, p1, p2), nil, true
 	case "SetBusyLayer":
 		var p0 string
 		var p1 bool
@@ -1697,6 +1769,9 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		r0, err := e.SynthesizeHabit(p0, p1)
+		return r0, err, true
+	case "TeamsFolderPath":
+		r0, err := e.TeamsFolderPath()
 		return r0, err, true
 	case "TerminalAttach":
 		var p0 string

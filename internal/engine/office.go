@@ -55,15 +55,17 @@ type Chair struct {
 	// have to know which tool means which mark, and that is a fact about the
 	// engine's tools, not about a card.
 	Icon string `json:"icon"`
-	// The rest of the face, passed through exactly as the profile wrote it —
+	// The rest of the look, passed through exactly as the profile wrote it —
 	// unlike Icon, which is resolved to a mark here. There is nothing to
 	// resolve: blank means "derive it from the name", and the deriving is the
-	// drawing's own job (agentFace.ts), on every surface, from the same input.
-	// Filling in a default here would be this file guessing at a haircut the
-	// hash already answers better.
-	Hair      string `json:"hair,omitempty"`
-	Accessory string `json:"accessory,omitempty"`
-	Hue       string `json:"hue,omitempty"`
+	// drawing's own job (lib/mascot/agentLook.ts), on every surface, from the
+	// same input. Filling in a default here would be this file guessing at a
+	// colour the hash already answers better.
+	Shell  string `json:"shell,omitempty"`
+	Top    string `json:"top,omitempty"`
+	Face   string `json:"face,omitempty"`
+	Accent string `json:"accent,omitempty"`
+	Hue    string `json:"hue,omitempty"`
 }
 
 // chairIcon is the face an agent wears when its profile does not choose one.
@@ -98,41 +100,50 @@ func (a *Engine) ListChairs() []Chair {
 	chairs := subagent.Chairs(mode.Office)
 	out := make([]Chair, 0, len(chairs))
 	for _, p := range chairs {
-		c := Chair{
-			Name:        p.Name,
-			Description: p.Description,
-			Builtin:     p.Builtin,
-			Overrides:   p.Overrides,
-			Path:        p.Path,
-			Hair:        p.Hair,
-			Accessory:   p.Accessory,
-			Hue:         p.Hue,
-		}
-		// The child's registry is the answer to "what can this chair do", so it
-		// is what gets asked — rather than a second reading of the same rules
-		// that could drift from the one the delegate actually runs on.
-		if child := subagent.FilterRegistry(a.cur().registry, p, ceiling); child != nil {
-			c.Tools = child.Names()
-			// What a real chair session adds that this filtered copy cannot:
-			// `memory`, rebuilt bound to the agent's own scope at the moment the
-			// session is built (internal/bootstrap). FilterRegistry narrows the
-			// parent's registry and does no such rebuild, so every agent read as
-			// missing the one tool that makes it able to learn — which is also
-			// the tool all five bundled profiles ask for by name.
-			if p.KeepsOwnMemory() && !slices.Contains(c.Tools, "memory") {
-				c.Tools = append(c.Tools, "memory")
-			}
-			// Only when there was a registry to ask. A nil child means the engine
-			// is not up yet, and an empty held-list would report every tool the
-			// file names as missing — a page that cries wolf on every cold start.
-		}
-		c.Icon = chairIcon(p)
-		if act, ok := used[p.Name]; ok {
-			c.Jobs, c.LastUsed = act.count, act.last
-		}
-		out = append(out, c)
+		out = append(out, a.chairCard(p, ceiling, used))
 	}
 	return out
+}
+
+// chairCard is one agent as a page draws it, under one ceiling — the office's
+// for the roster, a team's desk for a team card (teams.go), which is how the
+// same agent shows a shell on a coding team and none in the office.
+func (a *Engine) chairCard(p subagent.Profile, ceiling *mode.Mode, used map[string]chairActivity) Chair {
+	c := Chair{
+		Name:        p.Name,
+		Description: p.Description,
+		Builtin:     p.Builtin,
+		Overrides:   p.Overrides,
+		Path:        p.Path,
+		Shell:       p.Shell,
+		Top:         p.Top,
+		Face:        p.Face,
+		Accent:      p.Accent,
+		Hue:         p.Hue,
+	}
+	// The child's registry is the answer to "what can this chair do", so it
+	// is what gets asked — rather than a second reading of the same rules
+	// that could drift from the one the delegate actually runs on.
+	if child := subagent.FilterRegistry(a.cur().registry, p, ceiling); child != nil {
+		c.Tools = child.Names()
+		// What a real chair session adds that this filtered copy cannot:
+		// `memory`, rebuilt bound to the agent's own scope at the moment the
+		// session is built (internal/bootstrap). FilterRegistry narrows the
+		// parent's registry and does no such rebuild, so every agent read as
+		// missing the one tool that makes it able to learn — which is also
+		// the tool all five bundled profiles ask for by name.
+		if p.KeepsOwnMemory() && !slices.Contains(c.Tools, "memory") {
+			c.Tools = append(c.Tools, "memory")
+		}
+		// Only when there was a registry to ask. A nil child means the engine
+		// is not up yet, and an empty held-list would report every tool the
+		// file names as missing — a page that cries wolf on every cold start.
+	}
+	c.Icon = chairIcon(p)
+	if act, ok := used[p.Name]; ok {
+		c.Jobs, c.LastUsed = act.count, act.last
+	}
+	return c
 }
 
 // ChairStarters returns how one office agent opens a conversation — the
