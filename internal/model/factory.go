@@ -40,6 +40,12 @@ type ProviderOptions struct {
 	TokenSource      func(context.Context) (string, error)
 	Headers          map[string]string
 	SignedInEndpoint string
+	// TokenRefresh is consulted once when the provider answers 401 to a token
+	// TokenSource handed out: it renews the token whatever the recorded expiry
+	// said, and the request is sent again. The recorded expiry is a belief and
+	// the 401 is the provider's word (oauth.Refresh). Nil means no second try —
+	// the key path, and a sign-in with nothing to renew.
+	TokenRefresh func(context.Context) (string, error)
 	// WireFormat picks between a provider's two wire formats when it has one
 	// (ProviderMetadata.AltRuntime/AltBaseURL) — e.g. "openai-compatible" or
 	// "anthropic" for DeepSeek. Empty uses the catalog's default runtime.
@@ -114,19 +120,21 @@ func NewProvider(opts ProviderOptions) (Provider, error) {
 			Timeout:       timeout,
 			RequireAPIKey: &requireAPIKey,
 			TokenSource:   tokenSource,
+			TokenRefresh:  opts.TokenRefresh,
 			Headers:       opts.Headers,
 			Transport:     opts.Transport,
 		})
 	case string(pvdr.RuntimeResponses):
 		return NewResponsesProvider(ResponsesConfig{
-			Provider:    provider,
-			Model:       opts.Model,
-			APIKey:      opts.APIKey,
-			BaseURL:     opts.BaseURL,
-			Timeout:     timeout,
-			TokenSource: tokenSource,
-			Headers:     opts.Headers,
-			Transport:   opts.Transport,
+			Provider:     provider,
+			Model:        opts.Model,
+			APIKey:       opts.APIKey,
+			BaseURL:      opts.BaseURL,
+			Timeout:      timeout,
+			TokenSource:  tokenSource,
+			TokenRefresh: opts.TokenRefresh,
+			Headers:      opts.Headers,
+			Transport:    opts.Transport,
 		})
 	case string(pvdr.RuntimeAnthropic):
 		return NewAnthropicProvider(AnthropicConfig{
@@ -137,6 +145,10 @@ func NewProvider(opts ProviderOptions) (Provider, error) {
 			Timeout:   timeout,
 			Transport: opts.Transport,
 		})
+	case string(pvdr.RuntimeExternalCLI):
+		// A placeholder on purpose — see ExternalCLIProvider. The turn itself
+		// never comes through here.
+		return NewExternalCLIProvider(provider, opts.Model), nil
 	default:
 		return nil, fmt.Errorf("unsupported model provider: %q", provider)
 	}

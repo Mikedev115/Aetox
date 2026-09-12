@@ -11,7 +11,7 @@
   } from './stores/cockpit.svelte'
   import type { Session, SpaceRow } from './types'
   import {
-    UserName, SetUserName, ListModes, ProviderAccountFor,
+    ListModes, ProviderAccountFor,
     AccountStatus, AccountRefresh, ListTools, DeleteSpace,
   } from '../../wailsjs/go/main/App'
   import ProviderAccount from './ProviderAccount.svelte'
@@ -27,16 +27,23 @@
   } from './selfUpdate.svelte'
   import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
   import Icon from './Icon.svelte'
+  import CompanionSwitch from './mascot/CompanionSwitch.svelte'
+  import { profile, loadProfileName, saveProfileName } from './stores/profile.svelte'
 
   let { onOpenSettings }: { onOpenSettings: () => void } = $props()
 
   let historyQuery = $state('')
   let historySearchTimer: ReturnType<typeof setTimeout> | undefined
 
-  // The name is read back from Aetox's preference file, not localStorage —
-  // see config.ModelPreference.UserName for why it used to vanish.
-  let profileName = $state('')
+  // The name lives in stores/profile.svelte.ts, which the empty chat reads
+  // too; this file shows it and is the one place that edits it.
   let profileOpen = $state(false)
+  // The head of the menu is the name as text. It becomes a field only when
+  // the name itself is clicked: the menu used to open WITH the field, focused,
+  // so every visit to the footer — most of them on the way to settings — began
+  // with a cursor blinking in the name, which read as "change your name?"
+  // rather than as a menu (owner, 12 ก.ย. 2026).
+  let editingName = $state(false)
 
   // The provider in use, and nothing else. Listing the others answered a
   // question nobody asked and made the menu look like it was naming the wrong
@@ -88,20 +95,22 @@
     }
   }
   let nameDraft = $state('')
-  const avatarInitial = $derived((profileName.trim()[0] ?? 'A').toUpperCase())
+  const avatarInitial = $derived((profile.name[0] ?? 'A').toUpperCase())
 
-  onMount(async () => {
-    try {
-      profileName = await UserName()
-      nameDraft = profileName
-    } catch {
-      /* backend not up yet — typing a name still saves it */
-    }
-  })
+  onMount(() => { void loadProfileName() })
 
+  function editName() {
+    nameDraft = profile.name
+    editingName = true
+  }
+  // Saved as it is typed (oninput), not only on Enter or blur: a click
+  // outside closes the menu, which unmounts the field before its blur can
+  // fire, and a name typed that way was lost — which is the name "ชอบเป็น
+  // แบบนี้" the owner kept retyping. Enter and blur then only close the field;
+  // saveProfileName ignores a name that has not changed.
   function saveName() {
-    profileName = nameDraft.trim()
-    void SetUserName(profileName)
+    saveProfileName(nameDraft)
+    editingName = false
   }
 
   // ---------- which Aetox is this, and is there a newer one ----------
@@ -148,6 +157,14 @@
   // is open and each must close on a click that lands anywhere else.
   function closeMenusOnOutsideClick(e: MouseEvent) {
     const el = e.target as HTMLElement
+    // A click whose target is no longer on the page was inside a menu: the
+    // click's own handler replaced the element (the name becoming its field)
+    // and Svelte flushed that between the two listeners, so by the time this
+    // one runs `closest` finds nothing above a detached node and the menu
+    // closed itself on the click meant to edit the name ("กดแล้วมันเด้งปิด",
+    // owner, 12 ก.ย. 2026). Only a real click reproduces it — a synthetic
+    // .click() has no microtask checkpoint between listeners.
+    if (!el.isConnected) return
     if (profileOpen && !el.closest('.side-footer-wrap')) profileOpen = false
     if (rowMenu && !el.closest('.row-menu-wrap')) closeRowMenu()
   }
@@ -156,8 +173,10 @@
     el.focus()
   }
 
+  // A closed menu closes the field with it, so the next opening shows the
+  // name, not a half-typed draft.
   $effect(() => {
-    if (profileOpen) nameDraft = profileName
+    if (!profileOpen) editingName = false
   })
 
   // Claude-style grouped switcher: every known project with its recent chats
@@ -664,15 +683,19 @@
        business (§86): the workshop draws none of the office's, and vice versa. -->
   <nav class="desk-nav" aria-label={t('desk.navLabel')}>
     {#each rooms as entry (entry.id)}
+      {@const walking = entry.kind === 'desk' && cockpit.walkingTo === entry.id}
       <button
         type="button" class="desk-btn"
         class:active={navActive(entry)}
+        class:walking
         class:soon={entry.kind === 'soon'}
         disabled={entry.kind === 'soon'}
         title={entry.kind === 'soon' ? t('desk.soon') : (deskBlurbs[entry.id] || t(entry.blurbKey))}
         onclick={() => onNavClick(entry)}
       >
-        <span class="ic"><Icon name={entry.icon} size={15} /></span>
+        <!-- The same spinner the door wears (TopBar): the row and the door
+             are two views of one walk and must agree. -->
+        <span class="ic">{#if walking}<span class="walk-spin"><Icon name="loaderCircle" size={15} /></span>{:else}<Icon name={entry.icon} size={15} />{/if}</span>
         <span class="t">{t(entry.labelKey)}</span>
         {#if entry.id === 'capability' && toolCount > 0}<span class="room-count">{toolCount}</span>{/if}
         {#if entry.kind === 'soon'}<span class="soon-tag">{t('desk.soon')}</span>{/if}
@@ -936,28 +959,42 @@
       <!-- The name you chose wins; the account name stands in when you never
            chose one, so a signed-in sidebar stops asking for something it
            already knows. -->
-      <span class="label">{profileName || aetox?.display || t('sidebar.setYourName')}</span>
-      <!-- A mark on the way into settings when the agent is waiting to be
-           allowed to remember something. Not a count and not a chip in the
-           conversation: it is not work the user has to do now, but a queue
-           they are never told about is one that never gets emptied — which
-           would turn "nothing takes effect without you" into "nothing takes
-           effect". -->
-      <span class="ic gear" class:has-pending={cockpit.pendingLearned > 0}>
-        <Icon name="settings" size={15} />
-      </span>
+      <span class="label">{profile.name || aetox?.display || t('sidebar.setYourName')}</span>
+    </button>
+    <!-- The gear goes straight to settings — its own button, beside the footer
+         rather than inside it, because that is what the owner pressed it for
+         and it used to open the menu like the rest of the row. The rest of the
+         row still opens the menu: theme, language, the companion, the version.
+         A mark on it when the agent is waiting to be allowed to remember
+         something. Not a count and not a chip in the conversation: it is not
+         work the user has to do now, but a queue they are never told about is
+         one that never gets emptied — which would turn "nothing takes effect
+         without you" into "nothing takes effect". -->
+    <button
+      type="button" class="ic gear side-gear" class:has-pending={cockpit.pendingLearned > 0}
+      title={t('sidebar.settings')} aria-label={t('sidebar.settings')}
+      onclick={() => { profileOpen = false; onOpenSettings() }}
+    >
+      <Icon name="settings" size={15} />
     </button>
     {#if profileOpen}
       <div class="plus-menu profile-menu up">
         <div class="profile-head">
           <span class="avatar lg">{avatarInitial}</span>
-          <input
-            class="name-input" bind:value={nameDraft}
-            placeholder={t('sidebar.setYourName')}
-            use:focusOnMount
-            onkeydown={(e) => e.key === 'Enter' && saveName()}
-            onblur={saveName}
-          />
+          {#if editingName}
+            <input
+              class="name-input" bind:value={nameDraft}
+              placeholder={t('sidebar.setYourName')}
+              use:focusOnMount
+              oninput={() => saveProfileName(nameDraft)}
+              onkeydown={(e) => e.key === 'Enter' && saveName()}
+              onblur={saveName}
+            />
+          {:else}
+            <button type="button" class="name-text" class:unset={!profile.name} title={t('sidebar.editName')} onclick={editName}>
+              {profile.name || t('sidebar.setYourName')}
+            </button>
+          {/if}
         </div>
         <div class="menu-sep"></div>
         {#if aetox?.signed_in}
@@ -1004,6 +1041,7 @@
             {/each}
           </select>
         </div>
+        <CompanionSwitch />
         <div class="menu-sep"></div>
         <!-- One row, one sentence: which Aetox this is, and the only thing
              worth knowing beside it. The second line appears only when there IS

@@ -10,33 +10,47 @@ import (
 	"github.com/Mikedev115/Aetox/internal/skill"
 )
 
-// The helpers' write door is closed (owner's call, 2026-08-06): Save refuses
-// everything, the bundled profile stays untouched, and Delete still works as
-// cleanup for a leftover file the lock made inert.
-func TestSaveRefusesTheClosedHelperHome(t *testing.T) {
+// The helpers' write door is half open (12 ก.ย. 2026, after being shut on
+// 2026-08-06): a bundled name may be shadowed, a new name may not, and
+// deleting the shadow is the revert.
+func TestSaveShadowsABundledHelperAndNothingElse(t *testing.T) {
 	dir := isolate(t)
 
-	err := Save("explore", "---\ndescription: ของผม\n---\nMine.\n")
+	if err := Save("explore", "---\ndescription: ของผม\nmodel: deepseek-v4\n---\nMine.\n"); err != nil {
+		t.Fatalf("Save(explore): %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "explore.md")); err != nil {
+		t.Fatalf("the shadow was not written into the helpers' home: %v", err)
+	}
+	p, _ := Load("explore")
+	if p.Prompt != "Mine." || p.Model != "deepseek-v4" || p.Builtin || !p.Overrides {
+		t.Fatalf("the save did not take effect as a shadow: %+v", p)
+	}
+	if len(p.Tools) != 4 {
+		t.Fatalf("the shadow changed explore's kit: %v", p.Tools)
+	}
+
+	// A name the app does not ship is refused, pointing at the team page.
+	err := Save("backend", "---\ndescription: ของผม\n---\nMine.\n")
 	if err == nil {
-		t.Fatal("Save wrote into the closed helper home")
+		t.Fatal("Save created a new helper")
 	}
 	if !strings.Contains(err.Error(), "เอเจน") {
 		t.Errorf("the refusal does not point at the team page: %v", err)
 	}
-	if p, _ := Load("explore"); p.Prompt == "Mine." || !p.Builtin {
-		t.Fatalf("the refused save still took effect: %+v", p)
+	if _, err := os.Stat(filepath.Join(dir, "backend.md")); !os.IsNotExist(err) {
+		t.Fatal("the refused save still wrote a file")
 	}
 
-	// A leftover file (written before the lock) is inert but still the user's
-	// to remove — Delete is cleanup now, not revert.
-	if err := os.WriteFile(filepath.Join(dir, "explore.md"), []byte("old shadow"), 0o644); err != nil {
-		t.Fatalf("write leftover: %v", err)
-	}
+	// Delete is the revert: the bundled explore is back, untouched.
 	if err := Delete("explore"); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "explore.md")); !os.IsNotExist(err) {
-		t.Fatal("the leftover file was not removed")
+		t.Fatal("the shadow was not removed")
+	}
+	if p, _ := Load("explore"); !p.Builtin || p.Prompt == "Mine." {
+		t.Fatalf("revert did not restore the bundled helper: %+v", p)
 	}
 	if err := Delete("explore"); err != nil {
 		t.Fatalf("second Delete should be a no-op, got %v", err)
@@ -57,8 +71,9 @@ func TestSaveAgentRejectsBadNames(t *testing.T) {
 }
 
 // SetModel must edit one line and leave every other key — including ones this
-// package does not read — exactly as written. It works on agents only; a
-// helper is part of the system and follows the chat's model.
+// package does not read — exactly as written. For an agent the line lands in
+// its AGENT.md; for a helper it lands in a shadow in the helpers' home — the
+// one edit the owner asked for by name (12 ก.ย. 2026).
 func TestSetModelEditsOneLine(t *testing.T) {
 	isolate(t)
 
@@ -89,9 +104,18 @@ func TestSetModelEditsOneLine(t *testing.T) {
 		t.Errorf("model = %q after clearing", p.Model)
 	}
 
-	// The helper refusal, stated where the settings dropdown would hit it.
-	if err := SetModel("explore", "deepseek-v4-flash"); err == nil {
-		t.Fatal("SetModel edited a system helper")
+	// A helper is pinned through its own door: a shadow, the kit untouched.
+	if err := SetModel("explore", "deepseek-v4-flash"); err != nil {
+		t.Fatalf("SetModel(helper): %v", err)
+	}
+	if p, _ := Load("explore"); p.Model != "deepseek-v4-flash" || !p.Overrides || len(p.Tools) != 4 {
+		t.Fatalf("helper pin: %+v", p)
+	}
+	if err := SetModel("explore", ""); err != nil {
+		t.Fatalf("SetModel(helper, clear): %v", err)
+	}
+	if p, _ := Load("explore"); p.Model != "" {
+		t.Errorf("helper model = %q after clearing", p.Model)
 	}
 }
 

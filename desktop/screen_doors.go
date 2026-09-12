@@ -352,6 +352,9 @@ func (a *App) OpenSubagentsFolder() error { return a.reveal(a.api.SubagentsFolde
 // OpenAgentsFolder reveals the agents' home — the office page's hiring door.
 func (a *App) OpenAgentsFolder() error { return a.reveal(a.api.AgentsFolderPath()) }
 
+// OpenTeamsFolder reveals the teams' home — where a team made by hand goes.
+func (a *App) OpenTeamsFolder() error { return a.reveal(a.api.TeamsFolderPath()) }
+
 // OpenAgentSkillsFolder reveals one agent's own skills shelf.
 func (a *App) OpenAgentSkillsFolder(name string) error {
 	return a.reveal(a.api.AgentSkillsFolderPath(name))

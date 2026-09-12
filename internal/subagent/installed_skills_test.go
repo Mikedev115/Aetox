@@ -178,3 +178,33 @@ func TestTheDownloadedShelfIsNotInsideTheWorkersHome(t *testing.T) {
 		t.Fatal("the downloaded shelf and the user's own are the same folder")
 	}
 }
+
+// Who wins a name and who is read first are two different questions. The
+// user's folder still wins a name (the test above); what ships with the
+// worker is listed first. skills_list reads the list from the top, and with
+// twenty of the renderer's skills dropped into the video worker's folder the
+// scene library was the twenty-first line — and unopened (12 ก.ย. 2569).
+func TestWhatShipsWithTheWorkerIsListedBeforeWhatTheUserDroppedIn(t *testing.T) {
+	isolate(t)
+	writeSkill(t, "video", "hyperframes", "router", "the renderer's own router")
+	writeSkill(t, "video", "hyperframes-core", "core", "the renderer's core")
+
+	own, errs := OwnSkills("video")
+	for _, err := range errs {
+		t.Errorf("OwnSkills: %v", err)
+	}
+	if len(own) < 3 {
+		t.Fatalf("shelf has %d skills, want the library plus the two dropped in", len(own))
+	}
+	if own[0].Name != "video-templates" {
+		t.Errorf("first line is %q, want video-templates — the shipped shelf is read first", own[0].Name)
+	}
+	// And the user's own still follow, all of them, once each.
+	names := map[string]int{}
+	for _, s := range own {
+		names[s.Name]++
+	}
+	if names["hyperframes"] != 1 || names["hyperframes-core"] != 1 {
+		t.Errorf("dropped-in skills: %v", names)
+	}
+}

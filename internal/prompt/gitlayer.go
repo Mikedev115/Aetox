@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/proc"
@@ -31,6 +32,19 @@ const (
 	// with what it returns — which is why widening the list below is nearly
 	// free, and why nothing here tries to be clever about doing less of it.
 	gitLayerTimeout = 2 * time.Second
+
+	// gitLayerTTL is how long one snapshot serves every bootstrap of the same
+	// root. Switching desks opens a new session, and a new session builds its
+	// prompt, and this layer was the whole cost of that: measured 2026-09-13
+	// on this machine with other sessions working the same repository, the
+	// three git processes took 3.4–8 s in a row, so every switch spent the full
+	// 2 s timeout above and then threw the answer away — a 2 s freeze on the
+	// button, and no git block in the prompt either. The layer already calls
+	// itself a snapshot; this is the snapshot being one. Fifteen seconds is
+	// longer than anyone presses ผู้ช่วย → โค้ด → ผู้ช่วย and shorter than any
+	// commit takes to matter. A timed-out read is cached too: the next switch
+	// inside the window must be instant, not a second wait for the same git.
+	gitLayerTTL = 15 * time.Second
 
 	// gitLayerMaxDirtyBytes is how much of the uncommitted list is spent, in
 	// bytes rather than in a count of files.
@@ -90,10 +104,40 @@ type dirtyPath struct {
 	mod time.Time
 }
 
+// gitSnapshots is the per-root cache behind gitLayer, keyed by the cleaned
+// root so two spellings of one folder share a snapshot.
+var gitSnapshots = struct {
+	sync.Mutex
+	m map[string]gitSnapshot
+}{m: map[string]gitSnapshot{}}
+
+type gitSnapshot struct {
+	text string
+	at   time.Time
+}
+
 func gitLayer(root string) string {
 	if info, err := os.Stat(filepath.Join(root, ".git")); err != nil || !info.IsDir() {
 		return ""
 	}
+	key := filepath.Clean(root)
+	gitSnapshots.Lock()
+	cached, ok := gitSnapshots.m[key]
+	gitSnapshots.Unlock()
+	if ok && time.Since(cached.at) < gitLayerTTL {
+		return cached.text
+	}
+	text := readGitLayer(root)
+	gitSnapshots.Lock()
+	gitSnapshots.m[key] = gitSnapshot{text: text, at: time.Now()}
+	gitSnapshots.Unlock()
+	return text
+}
+
+// readGitLayer is the uncached read: three git processes, started together
+// so the layer costs the slowest of them rather than their sum. They read
+// different things (HEAD, the index, the log) and none needs another's answer.
+func readGitLayer(root string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), gitLayerTimeout)
 	defer cancel()
 	run := func(args ...string) string {
@@ -106,7 +150,14 @@ func gitLayer(root string) string {
 		return strings.TrimSpace(string(out))
 	}
 
-	branch := run("rev-parse", "--abbrev-ref", "HEAD")
+	var branch, log string
+	var dirty []dirtyPath
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() { defer wg.Done(); branch = run("rev-parse", "--abbrev-ref", "HEAD") }()
+	go func() { defer wg.Done(); dirty = readDirtyPaths(ctx, root) }()
+	go func() { defer wg.Done(); log = run("log", "--oneline", "-5") }()
+	wg.Wait()
 	if branch == "" {
 		return ""
 	}
@@ -114,8 +165,8 @@ func gitLayer(root string) string {
 	b.WriteString("\n## Git, as this session opened\n\n")
 	b.WriteString("A snapshot, not a feed — the tree may have moved since; the git tool answers live.\n")
 	fmt.Fprintf(&b, "Branch: %s\n", branch)
-	writeDirtyPaths(&b, readDirtyPaths(ctx, root))
-	if log := run("log", "--oneline", "-5"); log != "" {
+	writeDirtyPaths(&b, dirty)
+	if log != "" {
 		b.WriteString("Recent commits:\n")
 		for _, line := range strings.Split(log, "\n") {
 			b.WriteString("  " + strings.TrimRight(line, "\r") + "\n")

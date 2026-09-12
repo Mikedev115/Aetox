@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -39,7 +40,20 @@ import (
 // resourceMetadataRef pulls resource_metadata="..." out of a WWW-Authenticate
 // challenge, per RFC 9728 §5.1 — the pointer a protected MCP server hands
 // back on an unauthenticated request, naming where to read the rest.
-var resourceMetadataRef = regexp.MustCompile(`resource_metadata="([^"]+)"`)
+//
+// The quotes are optional. RFC 9728 writes them, and so do Figma, Sentry
+// and Vercel; Stripe (mcp.stripe.com, probed 2026-09-13) writes
+// `resource_metadata=https://…` bare, and a regex that insisted on the
+// quotes turned a working server into "may not support MCP's OAuth
+// discovery".
+var resourceMetadataRef = regexp.MustCompile(`resource_metadata="?([^",\s]+)"?`)
+
+// initializeProbe is the smallest request a Streamable HTTP MCP server will
+// answer: a JSON-RPC initialize. The challenge is fetched with it because a
+// server may serve MCP on POST only — Figma's answers GET with 405 and
+// challenges only a POST — and a probe that only ever asked with GET read
+// that 405 as "did not challenge for authorization".
+const initializeProbe = `{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"aetox","version":"0"}}}`
 
 // protectedResourceMetadata is the RFC 9728 document at that pointer.
 type protectedResourceMetadata struct {
@@ -73,20 +87,17 @@ func discoverMCPOAuth(ctx context.Context, resourceURL string) (*mcpOAuthMeta, e
 	if err != nil {
 		return nil, err
 	}
-	var resource protectedResourceMetadata
-	if err := getJSON(ctx, metaURL, &resource); err != nil {
-		return nil, fmt.Errorf("reading %s: %w", metaURL, err)
-	}
-	if len(resource.AuthorizationServers) == 0 {
-		return nil, fmt.Errorf("%s named no authorization server", metaURL)
+	as, err := authorizationServerFor(ctx, resourceURL, metaURL)
+	if err != nil {
+		return nil, err
 	}
 
-	asMeta, err := discoverAuthorizationServer(ctx, resource.AuthorizationServers[0])
+	asMeta, err := discoverAuthorizationServer(ctx, as)
 	if err != nil {
 		return nil, err
 	}
 	if asMeta.AuthorizationEndpoint == "" || asMeta.TokenEndpoint == "" {
-		return nil, fmt.Errorf("%s is missing an authorization or token endpoint", resource.AuthorizationServers[0])
+		return nil, fmt.Errorf("%s is missing an authorization or token endpoint", as)
 	}
 	return &mcpOAuthMeta{
 		AuthorizationEndpoint: asMeta.AuthorizationEndpoint,
@@ -98,15 +109,33 @@ func discoverMCPOAuth(ctx context.Context, resourceURL string) (*mcpOAuthMeta, e
 // resourceMetadataURL gets the RFC 9728 resource-metadata URL a server names
 // on an unauthenticated request's 401. A GET is enough — every server this
 // was verified against challenges on any method, MCP's own POST included.
+// resourceMetadataURL asks the server for its challenge and returns the
+// resource_metadata pointer in it, or "" when the server challenged without
+// one — which is a real shape (Atlassian, mcp.atlassian.com/v1/mcp, probed
+// 2026-09-13) and not a failure: authorizationServerFor knows where to look
+// next. Only a server that does not challenge at all is nothing to discover.
 func resourceMetadataURL(ctx context.Context, resourceURL string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, resourceURL, nil)
+	challenge := func(method string, body io.Reader) (*http.Response, error) {
+		req, err := http.NewRequestWithContext(ctx, method, resourceURL, body)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("User-Agent", clientUserAgent)
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept", "application/json, text/event-stream")
+		}
+		return httpClient.Do(req)
+	}
+	resp, err := challenge(http.MethodPost, strings.NewReader(initializeProbe))
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("User-Agent", clientUserAgent)
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return "", err
+	if resp.StatusCode != http.StatusUnauthorized {
+		resp.Body.Close()
+		if resp, err = challenge(http.MethodGet, nil); err != nil {
+			return "", err
+		}
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusUnauthorized {
@@ -114,9 +143,63 @@ func resourceMetadataURL(ctx context.Context, resourceURL string) (string, error
 	}
 	m := resourceMetadataRef.FindStringSubmatch(resp.Header.Get("WWW-Authenticate"))
 	if m == nil {
-		return "", fmt.Errorf("%s returned 401 with no resource_metadata reference — this server may not support MCP's OAuth discovery", resourceURL)
+		return "", nil
 	}
 	return m[1], nil
+}
+
+// authorizationServerFor names the authorization server for a resource:
+// the one its protected-resource document names, read from the pointer in
+// the challenge when there was one and from the RFC 9728 well-known
+// locations under the resource when there was not; and, when no such
+// document exists at all, the resource's own origin — the shape MCP's
+// 2025-03-26 authorization spec described, which Atlassian still serves
+// (no protected-resource document anywhere, but a full RFC 8414 document at
+// its origin).
+func authorizationServerFor(ctx context.Context, resourceURL, metaURL string) (string, error) {
+	candidates := []string{}
+	if metaURL != "" {
+		candidates = append(candidates, metaURL)
+	} else {
+		candidates = append(candidates, protectedResourceCandidates(resourceURL)...)
+	}
+	var lastErr error
+	for _, c := range candidates {
+		var resource protectedResourceMetadata
+		if err := getJSON(ctx, c, &resource); err != nil {
+			lastErr = fmt.Errorf("reading %s: %w", c, err)
+			continue
+		}
+		if len(resource.AuthorizationServers) == 0 {
+			return "", fmt.Errorf("%s named no authorization server", c)
+		}
+		return resource.AuthorizationServers[0], nil
+	}
+	if metaURL != "" {
+		return "", lastErr
+	}
+	u, err := url.Parse(resourceURL)
+	if err != nil || u.Host == "" {
+		return "", fmt.Errorf("%s is not a URL an authorization server can be derived from", resourceURL)
+	}
+	return u.Scheme + "://" + u.Host, nil
+}
+
+// protectedResourceCandidates lists where RFC 9728 §3.1 says a resource's
+// metadata may live when the challenge did not say: the well-known segment
+// with the resource's path inserted after it, then at the origin.
+func protectedResourceCandidates(resourceURL string) []string {
+	u, err := url.Parse(resourceURL)
+	if err != nil || u.Host == "" {
+		return nil
+	}
+	origin := u.Scheme + "://" + u.Host
+	path := strings.TrimSuffix(u.Path, "/")
+	var out []string
+	if path != "" {
+		out = append(out, origin+"/.well-known/oauth-protected-resource"+path)
+	}
+	return append(out, origin+"/.well-known/oauth-protected-resource")
 }
 
 // wellKnownCandidates lists the RFC 8414 document URLs to try, in the order

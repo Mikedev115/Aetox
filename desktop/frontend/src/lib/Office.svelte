@@ -16,17 +16,16 @@
   // folder a file lands in is which kind it is — a chair file dropped into the
   // sub-agents' folder would wake up sick.
   import {
-    ListChairs, ListReceivedJobs, OpenAgentsFolder, AgentGate,
-    DelegateSwitches, SetDelegateOff,
+    ListChairs, ListReceivedJobs, OpenAgentsFolder, AgentGate, ListTeams,
   } from '../../wailsjs/go/main/App'
   import { engine, subagent } from '../../wailsjs/go/models'
-  import { agoLabel, cockpit, newChairSession, selectGlobalSession, setActiveView } from './stores/cockpit.svelte'
+  import { agoLabel, cockpit, newChairSession, selectGlobalSession, setActiveView, openSettingsAt } from './stores/cockpit.svelte'
   import { t, type TKey } from './i18n.svelte'
   import { dayBucket } from './dayBucket'
   import Icon from './Icon.svelte'
   import AgentLock from './AgentLock.svelte'
-  import AgentFace from './AgentFace.svelte'
-  import { faceOf } from './agentFace'
+  import AgentMascot from './mascot/AgentMascot.svelte'
+  import { lookOf } from './mascot/agentLook'
 
   let { onClose }: { onClose: () => void } = $props()
 
@@ -51,65 +50,30 @@
     gates = Object.fromEntries(roster.map((c, i) => [c.name, answers[i]]))
     gated = true
   }
-
-  // Whether the main assistant may hand each of these agents work. It used to
-  // be answerable only from the settings page, which is why this roster — the
-  // page a person actually opens to look at their team — could not say the one
-  // thing that decides whether anyone gets used.
-  //
-  // Absent rather than fatal when the call fails: the roster's job is to show
-  // who works here, and it can do that whole job without the switches. Then
-  // `banded` is false and the deck is drawn as one group with no switch on any
-  // card, which is exactly the page as it stood before today.
-  let delegate = $state<engine.DelegateSettings | null>(null)
-  let delegateBusy = $state('')
-  async function loadDelegate() {
+  // Which teams name each agent (§256) — a chip on the card, nothing more.
+  // Teams are configured in ตั้งค่า › ทีมเอเจน; this page is the people, each
+  // drawn once, whichever lists they are on. Read alongside the roster and
+  // never awaited by the cards: a slow read must not hold up the faces.
+  let teamsOf = $state<Record<string, string[]>>({})
+  async function loadTeamChips() {
     try {
-      delegate = await DelegateSwitches()
+      const next: Record<string, string[]> = {}
+      for (const tm of await ListTeams('')) {
+        for (const m of tm.members) (next[m.name] ??= []).push(tm.name)
+      }
+      teamsOf = next
     } catch {
-      delegate = null
+      teamsOf = {}
     }
   }
-
-  // One agent's reach, looked up in the agents block alone. Helpers live in the
-  // other block and never appear on this page.
-  function reachOf(name: string): { on: boolean; off: boolean } | null {
-    if (!delegate) return null
-    const w = delegate.agents.workers.find((x) => x.name === name)
-    return w ? { on: w.on, off: delegate.agents.off } : null
-  }
-  function reaches(c: engine.Chair): boolean {
-    const w = reachOf(c.name)
-    return !!w && w.on && !w.off
-  }
-
-  async function toggleAll() {
-    if (!delegate || delegateBusy) return
-    delegateBusy = 'all'
-    try {
-      delegate = await SetDelegateOff('agents', delegate.agents.off === false)
-    } finally {
-      delegateBusy = ''
-    }
-  }
-
-  // The split the page is drawn in. Only drawn as two groups when there is a
-  // switch to answer with and both groups have somebody in them — a heading
-  // over an empty deck is a label for nothing, and on a fresh install (where
-  // delegation ships off) it would put every card under "ยังไม่ได้เปิด" with an
-  // empty group above it.
-  let onDuty = $derived(chairs.filter(reaches))
-  let offDuty = $derived(chairs.filter((c) => !reaches(c)))
-  let banded = $derived(!!delegate && onDuty.length > 0 && offDuty.length > 0)
 
   onMount(async () => {
-    const [roster, feed] = await Promise.all([ListChairs(), ListReceivedJobs(30), loadDelegate()])
+    const [roster, feed] = await Promise.all([ListChairs(), ListReceivedJobs(30), loadTeamChips()])
     chairs = roster
     jobs = feed
     await loadNeeds(roster)
     loaded = true
   })
-
   // Walking from a job to the conversation that sent it. The job row carries
   // the caller's session id, which is the only link there is — and the only one
   // there needs to be, since the file it produced went to that session's folder.
@@ -131,11 +95,11 @@
 
   // The face a job wears is its author's, resolved off the roster so one agent
   // cannot show two faces on one page. Only what the profile CHOSE needs
-  // resolving — the mark it holds and, if its owner said so, its hair and
-  // glasses. The person underneath is drawn from the name, so a job whose
-  // profile has since been deleted keeps the same face and loses nothing but
-  // what it was holding.
-  const faces = $derived(new Map(chairs.map((c) => [c.name, faceOf(c)])))
+  // resolving — the badge on its ears and, if its owner said so, its hue,
+  // shell, top light and resting face. The robot underneath is drawn from the
+  // name, so a job whose profile has since been deleted keeps the same colour
+  // and loses nothing but its badge.
+  const faces = $derived(new Map(chairs.map((c) => [c.name, lookOf(c)])))
   function jobFace(name: string) {
     return faces.get(name) ?? {}
   }
@@ -163,11 +127,11 @@
     }
     return out
   })
-
   // Walking into an agent's room (§85): a fresh session bound to that agent —
   // its tools, its memory, its prompt. The view moves first for the same
   // reason openSource's does: a click that waits for a bootstrap before
-  // showing anything reads as a dead click.
+  // showing anything reads as a dead click. The engine picks the team that
+  // seats the chair (App.seatingTeam): this page does not know teams.
   async function talkTo(chair: engine.Chair) {
     setActiveView('chat')
     await newChairSession(chair.name)
@@ -209,72 +173,47 @@
 
   <div class="page-body">
     <div class="settings-inner">
-      <!-- The hiring door is a control on the section, not a card in the grid.
+      <!-- The hiring doors are controls on the section, not cards in the grid.
            As a card it was a 180px dashed box holding the first slot, so the
            first thing the eye landed on was the space where nobody is — and it
            pushed a real teammate onto a row of their own. -->
       <div class="sec-head">
         <div class="eyebrow section-label">{t('office.roster')}</div>
-        <!-- The one sentence this page exists to change, said as a sentence
-             rather than left for the reader to infer from a row of switches.
-             It counts live: flipping any card's switch moves a card between the
-             two decks below and changes this number in the same frame. -->
-        {#if delegate}
-          <span class="ag-reach">
-            {#if delegate.agents.off}
-              {t('office.reachNone')}
-            {:else}
-              {t('office.reachSome', { n: onDuty.length, total: chairs.length })}
-            {/if}
-          </span>
-          <label class="mswitch" title={t('office.delegateAll')}>
-            <input
-              type="checkbox" checked={!delegate.agents.off} disabled={delegateBusy !== ''}
-              aria-label={t('office.delegateAll')} onchange={toggleAll}
-            />
-            <span></span>
-          </label>
-        {/if}
+        <span class="ag-reach"></span>
         <button class="ctrl" onclick={createAgent}><Icon name="plus" size={13} /> {t('office.newAgent')}</button>
       </div>
+
       <!-- A face, not an inventory. The tool chips were six per card and five
            of the six were the same on every card — the office ceiling hands
            everyone the same set, so the list said nothing about who anyone is
            while taking half the card to say it. What is left is what the card
            is for: who this is, what they make, and whether they have done any
            of it. The tools are one click away behind the gear, which is also
-           the only place they can be changed. -->
-      <!-- One card, drawn twice — once per band. A snippet rather than a copy
-           because the two decks differ in nothing except which agents are in
-           them, and a second copy is a second thing to keep true. -->
-      {#snippet chairCard(c: engine.Chair)}
+           the only place they can be changed.
+
+           No switch, no band, no team section (owner, 12 ก.ย.: "คนอยู่หน้าแรก
+           ทีมอยู่ตั้งค่า"). Whether the assistant may hand an agent work is a
+           fact about a TEAM now, and it is switched in ตั้งค่า › ทีมเอเจน; a
+           switch here would be the same fact in a second place. -->
+      <div class="office-grid">
+        {#each gated ? chairs : [] as c (c.name)}
           {@const locked = gates[c.name]?.blocked ?? false}
-          <!-- No switch, and the card never cools (owner, 31 ส.ค.): *"มันเหมือน
-               ไม่เปิดใช้งาน ทั้งที่มันก็แชทได้ปกติ"*.
-               The switch and the drained card were both answering "may the MAIN
-               assistant hand this one work", and both were read as "this agent
-               is off" — a card that greys beside an off switch says disabled in
-               two ways at once, and the face made it worse: a person with the
-               colour pulled out of them reads as gone, not as undelegated.
-               The band this card sits under already carries that answer, with a
-               count and a line saying the chat still opens, so the state is on
-               screen once instead of three times. Changing it is the gear,
-               which is where the rest of this agent's settings already live. -->
           <div class="chair-card agc" class:locked>
             <div class="chair-body">
               <div class="chair-who">
-                <AgentFace name={c.name} {...faceOf(c)} size={38} />
+                <AgentMascot name={c.name} {...lookOf(c)} size={38} />
                 <span class="chair-name">{c.name}</span>
+                <!-- On the head, not in the chips row (owner, 13 ก.ย. 2026:
+                     "แปะหัวด้วยชัดๆ อันไหนมากับแอป"): which faces came with
+                     the app and which the user hired is the first thing to
+                     know about a roster that mixes both, so it sits beside
+                     the name where the eye already is. -->
+                {#if c.builtin}<span class="chip builtin">{t('office.builtin')}</span>{/if}
               </div>
               <p class="chair-desc">{c.description}</p>
-              <!-- What this agent has actually done, as a quiet line inside the
-                   card rather than a column of the foot (owner, 30 ส.ค.). It is
-                   a fact ABOUT the agent, like the sentence above it; the foot
-                   is where the card's actions are, and a number sharing that
-                   row was what kept the chat button down to an icon.
-                   A chip since 31 ส.ค., beside the one badge that is worth a
-                   slot. Only facts that DIFFER between agents are drawn here —
-                   a badge every card carries is a badge that says nothing. -->
+              <!-- Only facts that DIFFER between agents: an edited file, the
+                   work it has done, and since §256 the teams that name it —
+                   the one thing about a person this page cannot change. -->
               <div class="chair-chips">
                 {#if c.overrides}<span class="chip mine">{t('office.overrides')}</span>{/if}
                 {#if c.jobs > 0}
@@ -282,23 +221,14 @@
                 {:else}
                   <span class="chair-stat idle">{t('office.neverUsed')}</span>
                 {/if}
+                {#if (teamsOf[c.name] ?? []).length > 0}
+                  <span class="chair-stat teams" title={t('office.teamsOfTip')}><Icon name="users" size={11} /> {(teamsOf[c.name] ?? []).join(' · ')}</span>
+                {/if}
               </div>
             </div>
             <!-- The one thing this page is for: walking in and talking to a
-                 specialist (COMPANY.md, the reason the roster sits behind the
-                 storefront and not in another building). It was a 13px sparkles
-                 icon until 30 ส.ค. — the smallest thing on the card, wearing a
-                 mark that means "chat" to nobody. Reported as "ไม่ใช่ไอค่อนโง่ ๆ
-                 แบบปัจจุบัน".
-                 
-                 It takes the whole row and the gear keeps its icon: a cog reads
-                 as settings anywhere, and settings is the errand you run
-                 occasionally rather than the reason you opened the page.
-                 
-                 Named with the agent, not "this agent", because that is what
-                 walking in is — and the row cannot overflow, which the version
-                 sharing a line with the job count could the first time somebody
-                 hired an agent with a long name. -->
+                 specialist. Named with the agent, not "this agent", because
+                 that is what walking in is — and the row cannot overflow. -->
             <div class="chair-foot">
               <button class="chair-talk" onclick={() => talkTo(c)}>
                 <Icon name="messageSquare" size={14} />
@@ -312,41 +242,15 @@
             <AgentLock agent={c.name} label={c.name} gate={gates[c.name] ?? null}
               onInstalled={() => loadNeeds(chairs)} />
           </div>
-      {/snippet}
-
-      <!-- Split by the one thing this page can change, not by who wrote the
-           file. Which band an agent sits in IS its delegation state, so no card
-           needs a badge for it: flip a switch and the card moves between the
-           two decks, and the sentence above counts differently.
-           One deck when there is nothing to split on — no switches loaded, or
-           every agent on the same side of the line. -->
-      {#if banded}
-        <div class="ag-band">
-          <span class="lab">{t('office.bandOn')}</span><span class="n">{onDuty.length}</span>
-          <span class="rule"></span>
-        </div>
-        <div class="office-grid">
-          {#each gated ? onDuty : [] as c (c.name)}{@render chairCard(c)}{/each}
-        </div>
-        <div class="ag-band">
-          <span class="lab">{t('office.bandOff')}</span><span class="n">{offDuty.length}</span>
-          <span class="rule"></span>
-          <span class="say">{t('office.bandOffNote')}</span>
-        </div>
-        <div class="office-grid">
-          {#each gated ? offDuty : [] as c (c.name)}{@render chairCard(c)}{/each}
-        </div>
-      {:else}
-        <div class="office-grid">
-          {#each gated ? chairs : [] as c (c.name)}{@render chairCard(c)}{/each}
-          {#if loaded && chairs.length === 0}
-            <div class="chair-card empty"><div class="chair-body"><p class="chair-desc">{t('office.noChairs')}</p></div></div>
-          {/if}
-        </div>
-      {/if}
+        {/each}
+        {#if loaded && chairs.length === 0}
+          <div class="chair-card empty"><div class="chair-body"><p class="chair-desc">{t('office.noChairs')}</p></div></div>
+        {/if}
+      </div>
       <p class="office-note">
         {t('office.hiringNote')}
         <button class="linklike" onclick={() => OpenAgentsFolder()}>{t('office.openAgentsFolder')}</button>
+        · <button class="linklike" onclick={() => openSettingsAt('teams')}>{t('office.teamsInSettings')}</button>
       </p>
 
       <div class="sec-head feed-head">
@@ -375,7 +279,7 @@
               <!-- The same face as the card above it. The feed names who did
                    the work, so drawing them a second way here would make one
                    agent two people on one page. -->
-              <AgentFace name={j.chair} {...jobFace(j.chair)} size={22} />
+              <AgentMascot name={j.chair} {...jobFace(j.chair)} size={22} />
               <!-- The line the caller wrote, not the arguments the tool call
                    carried. `request` is the machine's copy and stays available
                    on hover for anyone who wants it. -->

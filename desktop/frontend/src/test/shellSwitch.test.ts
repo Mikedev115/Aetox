@@ -109,6 +109,99 @@ describe('the storefront door and project focus', () => {
   })
 })
 
+// A door walk is several round trips, and the desk is written after the first.
+// Two clicks inside that window used to leave the storefront's chrome over the
+// workshop's session (owner, 12 ก.ย. 2026: "จังหวะตอนสลับโหมดไปมา เหมือนโหลด
+// ไม่ทันแล้วบั๊ก"): the second walk read the desk the first had not yet changed,
+// decided it was already there, and only swapped the chrome.
+describe('doors walked in a hurry', () => {
+  it('finishes the first walk before the second reads the desk, and lands on the last door asked', async () => {
+    let finishOpen!: () => void
+    vi.mocked(NewSessionAt).mockImplementationOnce(() => new Promise<void>((r) => { finishOpen = r }))
+    vi.mocked(SessionMode).mockResolvedValue('coding')
+    const first = switchShell('code')
+    await Promise.resolve()
+    expect(vi.mocked(NewSessionAt).mock.calls[0][0]).toBe('coding')
+    expect(cockpit.desk).toBe('assistant') // not written yet — the window the bug lived in
+    // Back to the storefront while the first walk is still in flight.
+    const second = switchShell('assistant')
+    finishOpen()
+    await first
+    await second
+    // The second walk found desk=coding and opened the storefront's own session.
+    expect(vi.mocked(NewSessionAt).mock.calls.map((c) => c[0])).toEqual(['coding', 'assistant'])
+    expect(shell.name).toBe('assistant')
+    expect(cockpit.desk).toBe('assistant')
+  })
+
+  it('walks only the latest of several clicks still waiting their turn', async () => {
+    let finishOpen!: () => void
+    vi.mocked(NewSessionAt).mockImplementationOnce(() => new Promise<void>((r) => { finishOpen = r }))
+    const first = switchShell('code')
+    await Promise.resolve()
+    const a = switchShell('assistant')
+    const b = switchShell('code')
+    const c = switchShell('assistant')
+    finishOpen()
+    await Promise.all([first, a, b, c])
+    // code (walked), then only the last ask — assistant — not the two between.
+    expect(vi.mocked(NewSessionAt).mock.calls.map((x) => x[0])).toEqual(['coding', 'assistant'])
+    expect(shell.name).toBe('assistant')
+    expect(cockpit.desk).toBe('assistant')
+  })
+})
+
+// The window says where it is going while the walk is queued (13 ก.ย. 2026:
+// a desk switch behind a slow git read looked like a dead button — "กดกลับ
+// หน้าผู้ใช้ไม่ได้", it had, the walk was waiting). Pinned: `walkingTo` is the
+// target from the press, not from when the walk starts; the door and its menu
+// wear it; and only the latest press clears it.
+describe('the door says where it is going', () => {
+  it('announces the target from the press, on the door and in the menu, until the walk lands', async () => {
+    let finishOpen!: () => void
+    vi.mocked(NewSessionAt).mockImplementationOnce(() => new Promise<void>((r) => { finishOpen = r }))
+    render(TopBar, props)
+    const walk = switchShell('code')
+    // Before any round trip: the press itself is the announcement.
+    expect(cockpit.walkingTo).toBe('coding')
+    await Promise.resolve()
+    await waitFor(() => expect(document.querySelector('.brand-door.walking')?.textContent).toBe('โค้ด'))
+    expect(document.querySelector('.brand-caret .walk-spin')).toBeTruthy()
+    await fireEvent.click(screen.getByLabelText(/สลับระหว่าง/))
+    const row = Array.from(document.querySelectorAll('.door-item')).find((x) => x.textContent?.includes('โค้ด'))!
+    expect(row.querySelector('.walk-spin')).toBeTruthy()
+    expect(row.querySelector('.d')?.textContent).toBe('กำลังเปิด…')
+    expect(row.querySelector('.tick')).toBeNull()
+
+    finishOpen()
+    await walk
+    expect(cockpit.walkingTo).toBe('')
+    await waitFor(() => expect(document.querySelector('.brand-door.walking')).toBeNull())
+    expect(document.querySelector('.walk-spin')).toBeNull()
+  })
+
+  it('a newer press takes the announcement over, and the older walk landing does not clear it', async () => {
+    let finishOpen!: () => void
+    vi.mocked(NewSessionAt).mockImplementationOnce(() => new Promise<void>((r) => { finishOpen = r }))
+    const first = switchShell('code')
+    await Promise.resolve()
+    expect(cockpit.walkingTo).toBe('coding')
+    const second = switchShell('assistant')
+    expect(cockpit.walkingTo).toBe('assistant')
+    finishOpen()
+    await first
+    // The first walk is done; the window is still on its way to the second.
+    expect(cockpit.walkingTo).toBe('assistant')
+    await second
+    expect(cockpit.walkingTo).toBe('')
+  })
+
+  it('a press on the door you are already behind still clears itself', async () => {
+    await switchShell('assistant')
+    expect(cockpit.walkingTo).toBe('')
+  })
+})
+
 // The band between the sidebar toggle and the corner buttons was a flex spacer
 // and nothing else — chrome at both ends, a deliberate void in the middle
 // (owner, 2026-08-14, holding up a reference where that same row carries the

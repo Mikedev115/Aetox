@@ -2,7 +2,10 @@ package engine
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 )
 
@@ -109,5 +112,99 @@ func TestFallbackSplitGroups(t *testing.T) {
 	}
 	if !foundDesktop {
 		t.Errorf("expected desktop group with 2 files, got %+v", groups)
+	}
+}
+
+// One git process for the whole tree, split per path — and the new file,
+// which HEAD has no diff for, shown as an all-added file instead of nothing.
+// A path with a space is the case the header split has to survive.
+func TestGitDiffByFileOneProcessAndUntracked(t *testing.T) {
+	root, a := repoAt(t)
+	if err := os.WriteFile(filepath.Join(root, "kept.txt"), []byte("one\nMODIFIED\nthree\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "with space"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "with space", "a b.txt"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = root
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	run("add", "with space/a b.txt")
+	run("commit", "-m", "space")
+	if err := os.WriteFile(filepath.Join(root, "with space", "a b.txt"), []byte("y\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "fresh.go"), []byte("package x\n\nfunc F() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tree, err := a.GitWorkingTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tree) != 3 {
+		t.Fatalf("tree: %+v", tree)
+	}
+	ctx, cancel := a.gitContext()
+	defer cancel()
+	diffs := gitDiffByFile(ctx, root, tree)
+
+	if d := diffs["kept.txt"]; !strings.Contains(d, "+MODIFIED") || !strings.Contains(d, "-two") {
+		t.Errorf("kept.txt diff:\n%s", d)
+	}
+	if d := diffs["kept.txt"]; strings.Contains(d, "\nindex ") {
+		t.Errorf("index line not dropped:\n%s", d)
+	}
+	if d := diffs["with space/a b.txt"]; !strings.Contains(d, "+y") {
+		t.Errorf("path with a space lost its diff: %q (have %v)", d, keys(diffs))
+	}
+	if d := diffs["fresh.go"]; !strings.HasPrefix(d, "(new file)\n+package x") {
+		t.Errorf("untracked file not shown as added lines:\n%s", d)
+	}
+}
+
+func keys(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func TestCleanCommitMessage(t *testing.T) {
+	for in, want := range map[string]string{
+		"```\nfeat(x): y\n\n- a\n```":        "feat(x): y\n\n- a",
+		"```text\nfix(x): y\n```":            "fix(x): y",
+		"\"docs: one line\"":                 "docs: one line",
+		"Commit message:\nchore(a): b\n\n":   "chore(a): b",
+		"feat(git): สอง\r\n\r\n- บรรทัด\r\n": "feat(git): สอง\n\n- บรรทัด",
+	} {
+		if got := cleanCommitMessage(in); got != want {
+			t.Errorf("cleanCommitMessage(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// The placeholder names its files and never says "update files".
+func TestFallbackCommitMessageNamesTheFiles(t *testing.T) {
+	msg := fallbackCommitMessage([]string{"desktop/a.go", "desktop/b.go"})
+	if !strings.HasPrefix(msg, "chore(desktop): ") || strings.Contains(msg, "update files") {
+		t.Errorf("subject: %q", msg)
+	}
+	if !strings.Contains(msg, "- desktop/a.go") || !strings.Contains(msg, "- desktop/b.go") {
+		t.Errorf("files missing:\n%s", msg)
+	}
+	groups := fallbackSplitGroupsWithReason([]GitFileChange{{Path: "x.txt"}}, "no model")
+	if groups[0].Source != gitSplitSourceFallback || groups[0].Reason != "no model" {
+		t.Errorf("fallback not labelled: %+v", groups[0])
 	}
 }

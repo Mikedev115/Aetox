@@ -4,6 +4,7 @@ package engine
 
 import (
 	"github.com/Mikedev115/Aetox/internal/capability"
+	"github.com/Mikedev115/Aetox/internal/cliagent"
 	"github.com/Mikedev115/Aetox/internal/command"
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/connect"
@@ -69,6 +70,7 @@ type API interface {
 	ConnectAccount(id string, token string, baseURL string, targets []string) (connect.Account, error)
 	Connections() []connect.Status
 	ConsolidateMemory(scope string) (MemoryConsolidation, error)
+	CopySkillToAgent(agent string, name string) error
 	CreatePullRequest(title string, head string, base string, body string, draft bool) PRCreated
 	CreateSpace(name string) (Space, error)
 	CurrentSessionID() string
@@ -78,7 +80,7 @@ type API interface {
 	DeckCaptureDrawing(relPath string, slide int, ink string) (string, error)
 	DeckExportFiles(relPath string, format string) (DeckExport, error)
 	DeckFormats() []DeckFormat
-	DelegateSwitches() DelegateSettings
+	DelegateSwitches(team string) DelegateSettings
 	DeleteArtifact(path string) error
 	DeleteDeck(relPath string) error
 	DeleteIdentityFile(name string) error
@@ -86,11 +88,13 @@ type API interface {
 	DeleteSession(id string) error
 	DeleteSpace(name string) error
 	DeleteSubagentProfile(name string) error
+	DeleteTeam(name string) error
 	DisconnectAccount(id string) error
 	DismissRecurringRequest(normalized string, sampleText string) error
 	DismissTaskChip(id string)
 	EnabledProviders() []string
 	EnginesFor(family string, agent string) []connect.Status
+	ExternalEngineStatus(providerName string) cliagent.Status
 	FileStillThere(relPath string) string
 	ForgetMemoryScope(scope string) error
 	ForgetProject(root string) (ProjectStatus, error)
@@ -106,6 +110,7 @@ type API interface {
 	GitCreateBranch(name string) (string, error)
 	GitFileDiff(path string) string
 	GitLog(before string, limit int) GitLogPage
+	GitSplitCancel()
 	GitSuggestCommitMessage(files []string) (string, error)
 	GitSuggestSplitCommits() ([]GitCommitGroup, error)
 	GitSwitchBranch(name string) (string, error)
@@ -157,6 +162,7 @@ type API interface {
 	ListSystemIssues() []PendingChange
 	ListTTSEngines() []VoiceEngineInfo
 	ListTaskChips() []TaskChip
+	ListTeams(desk string) []TeamCard
 	ListTools() []SkillInfo
 	LoadSession(id string) ([]SessionMessage, error)
 	LoadSessionAnyProject(id string) ([]SessionMessage, error)
@@ -172,9 +178,11 @@ type API interface {
 	ModelStatus() string
 	MoveLearnedEntry(fromScope string, toScope string, index int) error
 	NewChairSession(chair string) (string, error)
+	NewChairSessionAt(desk string, chair string, team string) (string, error)
 	NewSession() (string, error)
 	NewSessionAt(desk string) (string, error)
 	NewSessionInSpace(name string) (string, error)
+	NewTeamSession(desk string, team string) (string, error)
 	NoteProviderQuotas(providerName string, quotas []model.Quota)
 	OpenProjectPath(root string) (ProjectStatus, error)
 	PageMarksOn() bool
@@ -221,6 +229,7 @@ type API interface {
 	RejectPendingChange(id int64) error
 	RelativizePath(absPath string) (string, error)
 	RememberTTSVoice(id string)
+	RemoveAgentSkill(agent string, name string) error
 	RemoveCustomProviderRow(id string) ([]string, error)
 	RemoveExternalSkill(name string) error
 	RemoveMCPServer(name string) error
@@ -259,6 +268,7 @@ type API interface {
 	SavePlanText(sessionID string, text string) string
 	SavePromptPreset(name string, body string) error
 	SaveSubagentProfile(name string, body string) error
+	SaveTeam(name string, desk string, description string, members []string) error
 	SearchAllSessions(query string) []SessionMeta
 	SearchSessions(query string) []SessionMeta
 	SearchSessionsForDoor(query string, filter DeskFilter) []SessionMeta
@@ -273,9 +283,10 @@ type API interface {
 	SessionSourceCount(sessionID string) int
 	SessionSources(sessionID string) []Source
 	SessionSpend(id string) SessionSpend
+	SessionTeam(id string) string
 	SessionTranscript(id string) ([]SessionMessage, error)
 	SessionsInSpace(name string) []SessionMeta
-	SetAgentOff(name string, off bool) DelegateSettings
+	SetAgentOff(team string, name string, off bool) DelegateSettings
 	SetBusyLayer(id string, on bool) []BusyLayer
 	SetConnectionStartCommand(id string, command string) error
 	SetConnectionTargets(id string, targets []string) error
@@ -343,6 +354,7 @@ type API interface {
 	SwitchThinkLevel(level string) (ModelInfo, error)
 	SwitchVariant(index int) (RegenerateResult, error)
 	SynthesizeHabit(sessionID string, hint string) (int64, error)
+	TeamsFolderPath() (string, error)
 	TerminalAttach(sessionID string) string
 	TerminalClose(sessionID string) error
 	TerminalResize(sessionID string, cols int, rows int) error

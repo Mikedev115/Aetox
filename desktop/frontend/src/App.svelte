@@ -2,6 +2,8 @@
   import TopBar from './lib/TopBar.svelte'
   import Sidebar from './lib/Sidebar.svelte'
   import Chat from './lib/Chat.svelte'
+  import Companion from './lib/mascot/Companion.svelte'
+  import { companion } from './lib/mascot/companionSetting.svelte'
   import FileEditor from './lib/FileEditor.svelte'
   import Settings from './lib/Settings.svelte'
   import Office from './lib/Office.svelte'
@@ -18,7 +20,7 @@
   import CapabilityProgress from './lib/CapabilityProgress.svelte'
   import { listenCapabilities } from './lib/capabilities.svelte'
   import Workbench from './lib/workbench/Workbench.svelte'
-  import { onMount } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import {
     cockpit, sendUserMessage, loadRealState, openFile,
     switchProvider, switchThinkLevel,
@@ -36,7 +38,7 @@
   import type { main } from '../wailsjs/go/models'
   import { workbench, openPathsInWorkbench, filesChangedOnDisk } from './lib/stores/workbench.svelte'
   import { listenForUpdates } from './lib/selfUpdate.svelte'
-  import { clampPanelWidth, fitPanelsToWindow } from './lib/panelSize'
+  import { clampPanelWidth, fitPanelsToWindow, foldPanels } from './lib/panelSize'
   import { isShortcut } from './lib/shortcuts'
   import Icon from './lib/Icon.svelte'
   import { sidle } from './lib/fold'
@@ -68,11 +70,11 @@
   const panels = {
     sidebar: {
       cssVar: '--sidebar-width', storageKey: 'sidebarWidth', min: 200, defaultPx: 280,
-      isCollapsed: () => sidebarCollapsed,
+      isCollapsed: () => sidebarCollapsed || foldedSidebar,
     },
     inspector: {
       cssVar: '--inspector-width', storageKey: 'inspectorWidth', min: 320, defaultPx: 384,
-      isCollapsed: () => inspectorCollapsed,
+      isCollapsed: () => inspectorCollapsed || foldedInspector,
     },
   }
 
@@ -159,6 +161,24 @@
   })
 
   function refitToWindow(): void {
+    // Fold before fit: a panel that is about to leave the screen must not be
+    // counted when the others are measured. Folding is the last resort and is
+    // judged against the floors — a panel is asked to get narrower before it
+    // is asked to leave (foldPanels).
+    const folded = foldPanels(
+      gridWidth(),
+      {
+        sidebar: { min: panels.sidebar.min, open: !sidebarCollapsed },
+        inspector: { min: panels.inspector.min, open: !inspectorCollapsed },
+      },
+      foldPrefer,
+    )
+    foldedSidebar = folded.sidebar
+    foldedInspector = folded.inspector
+    // Wide enough for everything again: the user's "no, the sidebar" from
+    // the narrow window has nothing left to decide, and the next narrowing
+    // starts from the default order.
+    if (!folded.sidebar && !folded.inspector) foldPrefer = ''
     const list = Object.values(panels)
     const state = list.map((p) => ({ width: currentPx(p), min: p.min, visible: !p.isCollapsed() }))
     fitPanelsToWindow(gridWidth(), state).forEach((px, i) => {
@@ -381,6 +401,21 @@
   let draggingInspector = $state(false)
   let inspectorCollapsed = $state(localStorage.getItem('inspectorCollapsed') === 'true')
   let sidebarCollapsed = $state(localStorage.getItem('sidebarCollapsed') === 'true')
+  // Off screen because the window is too narrow, not because the user closed
+  // it (owner, 12 ก.ย.: the window itself refused to shrink below 1100px, and
+  // the reason was that these columns had nowhere to go). A fold never touches
+  // the user's flag above, so widening the window brings the panel straight
+  // back with nothing to remember. Decided in refitToWindow, alongside the
+  // widths, because it is the same question asked one step further.
+  let foldedSidebar = $state(false)
+  let foldedInspector = $state(false)
+  // Which panel gives way first while the window is narrow. Set by a toggle
+  // on a folded panel: asking for the sidebar back in a window that cannot
+  // hold both means "the sidebar, then" — the inspector folds instead.
+  let foldPrefer = $state<'sidebar' | 'inspector' | ''>('')
+  // What is actually on screen — the user's flag, or the window's verdict.
+  const sidebarHidden = $derived(sidebarCollapsed || foldedSidebar)
+  const inspectorHidden = $derived(inspectorCollapsed || foldedInspector)
 
   // Closing the last workbench tab should reclaim the inspector panel's
   // width, not leave it reserved and blank — opening a tab should bring it back.
@@ -409,16 +444,37 @@
     if (wasInspectorCollapsed && !ic) refit(panels.sidebar)
     wasSidebarCollapsed = sc
     wasInspectorCollapsed = ic
+    // A panel opening is a width the window may not have: the inspector comes
+    // back on its own when a workbench tab opens (above), and in a narrow
+    // window that is the moment the sidebar has to fold for it. Untracked, so
+    // the fold's own state does not feed this effect back into itself.
+    untrack(refitToWindow)
   })
 
+  // A toggle on a panel the WINDOW folded is not a request to close it — it is
+  // already off screen — but to have it back, at the other panel's expense.
+  // The user's own flag stays open; only the fold order changes, and
+  // refitToWindow redraws from that.
   function toggleSidebar() {
+    if (foldedSidebar && !sidebarCollapsed) {
+      foldPrefer = 'sidebar'
+      refitToWindow()
+      return
+    }
     sidebarCollapsed = !sidebarCollapsed
     localStorage.setItem('sidebarCollapsed', String(sidebarCollapsed))
+    refitToWindow()
   }
 
   function toggleInspector() {
+    if (foldedInspector && !inspectorCollapsed) {
+      foldPrefer = 'inspector'
+      refitToWindow()
+      return
+    }
     inspectorCollapsed = !inspectorCollapsed
     localStorage.setItem('inspectorCollapsed', String(inspectorCollapsed))
+    refitToWindow()
   }
 
   // computeSize turns the pointer position into this panel's size — sidebar
@@ -502,13 +558,13 @@
 <div
   class="app"
   bind:this={appEl}
-  class:inspector-collapsed={inspectorCollapsed}
-  class:sidebar-collapsed={sidebarCollapsed}
+  class:inspector-collapsed={inspectorHidden}
+  class:sidebar-collapsed={sidebarHidden}
   class:resizing={draggingSidebar || draggingInspector}
 >
   <TopBar
-    inspectorCollapsed={inspectorCollapsed} onToggleInspector={toggleInspector}
-    sidebarCollapsed={sidebarCollapsed} onToggleSidebar={toggleSidebar}
+    inspectorCollapsed={inspectorHidden} onToggleInspector={toggleInspector}
+    sidebarCollapsed={sidebarHidden} onToggleSidebar={toggleSidebar}
   />
   <Sidebar onOpenSettings={() => setActiveView('settings')} />
   <div
@@ -630,4 +686,9 @@
     onPick={(path) => { engineStore.pickerOpen = false; void openProject(path) }}
     onCancel={() => (engineStore.pickerOpen = false)}
   />
+{/if}
+<!-- The assistant itself, sitting on the screen wherever the user put it —
+     app-level for the same reason: it is not a page's, it is the company's. -->
+{#if companion.on}
+  <Companion />
 {/if}

@@ -1073,10 +1073,22 @@ export interface CockpitState {
    *  and never moves, so this changes only when a different session is opened
    *  (COMPANY.md §6.3). */
   desk: string
+  /** The desk a door press is walking to, '' when none is. Set the moment
+   *  the press is made — before the queue (walkThroughDoor) reaches it — and
+   *  cleared when the latest press has landed, so the window can say where
+   *  it is going while the engine opens the session. A desk switch waits on
+   *  a bootstrap and then on git, and on a machine where git is slow that is
+   *  seconds of a button that looks dead (owner, 13 ก.ย. 2026: "กดกลับหน้า
+   *  ผู้ใช้ไม่ได้"). */
+  walkingTo: string
   /** The agent the open session talks to directly (§85), '' for the main
    *  assistant. Same lifecycle as desk: fixed at birth, read back, never
    *  remembered independently. */
   chair: string
+  /** The team the open session hires from (DECISIONS §256), '' for ทีมผู้ช่วย.
+   *  Same lifecycle as desk and chair: fixed at birth, read back from the
+   *  engine, never remembered independently. It is what the picker opens on. */
+  team: string
   /** The โปรเจกต์ the open session is being held inside (COMPANY.md §84), ''
    *  for a chat held outside every project. Same lifecycle as desk and chair:
    *  fixed when the session is born, read back from the engine when one is
@@ -1259,7 +1271,7 @@ export interface CockpitState {
    * the team page's configure/create doors land in the shared profile editor
    * this way. Carries the *kind* because it came from the roster — Settings
    * must never re-derive it from a file. Consumed and cleared on arrival. */
-  settingsIntent: { section: string; agent?: string; createAgent?: boolean; tab?: string } | null
+  settingsIntent: { section: string; agent?: string; createAgent?: boolean; tab?: string; team?: string; createTeam?: boolean; side?: string } | null
 }
 
 /** One wording the user might send next, ready for Tab to take.
@@ -1302,7 +1314,9 @@ export function emptyCockpitState(): CockpitState {
     openFiles: [],
     activeView: 'chat',
     desk: '',
+    walkingTo: '',
     chair: '',
+    team: '',
     space: '',
     stance: '',
     stances: [],

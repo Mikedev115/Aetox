@@ -315,6 +315,11 @@ type Scope struct {
 	// Space is the โปรเจกต์ this session is being held inside, if any. It
 	// changes nothing about what the session may reach — see the Space type.
 	Space Space
+	// User is what the person typed as their name in the sidebar footer
+	// (config.ModelPreference.UserName), or "" when they never did. Told to
+	// the model because it is the one fact about the person the model cannot
+	// see for itself — see person().
+	User string
 }
 
 // Space is the storefront door's โปรเจกต์: a named folder that groups chats and
@@ -424,6 +429,12 @@ func BuildWithReport(surface Surface, scope Scope, desk Desk) (string, Loaded) {
 	// reach, and it reads as a correction to the sentence above it rather than
 	// as a new rule of its own.
 	b.WriteString(workingIn(scope.Space))
+	// Beside the project, because it is the same kind of fact: something about
+	// this conversation's surroundings that changes nothing about what it may
+	// reach. Who the person is sits with where the work is held, not with the
+	// identity block above (that is who the assistant is) and not with the
+	// tool rules below.
+	b.WriteString(person(scope.User))
 	// Everything from here to clarify() is instruction for using tools. A
 	// session carrying none reads it as a description of moves it cannot make,
 	// so the whole block is skipped rather than gated line by line — see
@@ -1754,6 +1765,28 @@ func workingIn(space Space) string {
 		"The next conversation held here sees the folder and never sees this chat, which is why what " +
 		"goes into it is the user's call rather than yours.\n")
 	return b.String()
+}
+
+// person names the user. §93 bucket: the model cannot know this — the name
+// exists only because the person typed it into the sidebar footer, and until
+// 12 ก.ย. 2026 that field was read by nothing but the footer that showed it
+// (owner: "ชื่อตรงนั้นจะตั้งไว้เสียเปล่า"). One line, because a name is one
+// fact; the sentence after it exists because the first model given a name
+// used it in every reply, which reads as a call-centre script, not a colleague.
+//
+// The name is whatever was typed, so it is flattened to one line and cut
+// short before it goes into a prompt it could otherwise break out of.
+func person(name string) string {
+	name = strings.Join(strings.Fields(name), " ")
+	if name == "" {
+		return ""
+	}
+	if r := []rune(name); len(r) > 40 {
+		name = string(r[:40])
+	}
+	return "The person you are working with calls themselves \"" + name + "\". Use the name the way a " +
+		"colleague would, at a greeting or when handing something back, not in every sentence, and it is " +
+		"only what they typed as their name, so read nothing else about them from it.\n"
 }
 
 // layer heads one folded file with what it is, and names the file only when the

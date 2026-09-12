@@ -55,6 +55,11 @@ const decided: Record<string, Kind> = {
   openFiles: 'app', settingsIntent: 'app', pendingLearned: 'app',
   pendingIssues: 'app', backgroundTasks: 'app', backgroundRuns: 'app',
   backgroundSteps: 'app',
+  // The door being walked to (askDoor/doorDone). It is ABOUT the switch
+  // between chats, not any chat's own: set at the press, cleared when the
+  // latest press lands, and arriveAt has no say in it — a walk is the thing
+  // that makes arriveAt run.
+  walkingTo: 'app',
 
   // ---- which chat is which ----
   openSession: 'identity', turnSession: 'identity', parked: 'identity',
@@ -75,7 +80,7 @@ const decided: Record<string, Kind> = {
   // wrong at the one door without it (afterNewSession), dropped inside arriveAt
   // itself now, beside `plan`.
   sessionSpend: 'dropped', undoFiles: 'dropped', taskChips: 'dropped',
-  sessionError: 'dropped', desk: 'dropped', chair: 'dropped', space: 'dropped',
+  sessionError: 'dropped', desk: 'dropped', chair: 'dropped', team: 'dropped', space: 'dropped',
   stance: 'dropped', model: 'dropped', restorePoints: 'dropped',
   // The plan (desktop/plan.go). Dropped and re-read through `SessionPlan`,
   // because it is a row keyed by session id and the engine can always be asked

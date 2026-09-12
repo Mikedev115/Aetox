@@ -16,25 +16,29 @@
   import Logo from './Logo.svelte'
   import { onMount, tick } from 'svelte'
   import { cubicOut } from 'svelte/easing'
-  import AgentFace from './AgentFace.svelte'
-  import { faceOf, type FaceState } from './agentFace'
+  import Mascot from './mascot/Mascot.svelte'
+  import { avatarPrefs, assistantOptions } from './mascot/avatarPrefs.svelte'
+  import AgentMascot from './mascot/AgentMascot.svelte'
+  import { lookOf } from './mascot/agentLook'
+  import StationPick from './StationPick.svelte'
+  import type { FaceState } from './mascot/presence'
+  import { voice } from './mascot/voice.svelte'
   import { shell } from './shell.svelte'
   import {
     EnabledProviders, SupportedThinkLevels,
     ListModelsForProvider, PriceModels, ModelPriceSource, RequiresAPIKey, AcceptsAPIKey, HasAPIKey, PickAttachments,
-    GetContextBreakdown, GuideTopics, RunChatCommand, RunChatScript, ListChairs, ChairStarters, CurrentSessionID,
-    AgentBlocked,
-    DelegateSwitches, SetDelegateOff, SetAgentOff,
+    GetContextBreakdown, GuideTopics, RunChatCommand, RunChatScript, ListTeams, ChairStarters, CurrentSessionID,
     Shells, CurrentShell, SetShell, EnginesFor, UseEngine, VerifyConnection,
     GitBranches, GitSwitchBranch, GitCreateBranch, GetProjectStatus,
-    TranscribeMicAudio, StartSpeech, StopSpeech, SpeechPlaying,
+    TranscribeMicAudio,
   } from '../../wailsjs/go/main/App'
-  import { EventsOn } from '../../wailsjs/runtime/runtime'
-  import type { engine, connect, subagent } from '../../wailsjs/go/models'
+  import type { connect, engine, subagent } from '../../wailsjs/go/models'
   import { t, i18n, type TKey } from './i18n.svelte'
+  import { deskLabelKey } from './desks'
   import { DRAFT_KEY } from './composerDraft'
   import { isShortcut, shortcutLabel } from './shortcuts'
-  import { openMicStream, applySpeaker, audioDevices } from './audioDevices.svelte'
+  import { openMicStream, audioDevices } from './audioDevices.svelte'
+  import { speech, speak, stopSpeech } from './speech.svelte'
   import { currentStep, tally } from './delegateWork'
   import { hasSpend, spendLabel, spendTitle } from './spend'
   import { copyDrawing, saveDrawing } from './drawingExport'
@@ -51,7 +55,7 @@
     startTaskChip, dismissTaskChip,
     stopBackgroundTask, stopBackgroundRun, stopQueuedTasks,
     retryFailedTurn, editFailedTurn, regenerateReply, switchVariant, resendEdited, rateReply,
-    setActiveView, newChairSession, newSessionAt, openSettingsAt, setStance,
+    setActiveView, newSessionAt, openSettingsAt, setStance,
     sendUserMessage, liveThinkSecs,
     preparedText, nextPrepared, clearPrepared, startPlanRun, stopPlanRun, pausePlanRun, resumePlanRun } from './stores/cockpit.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
@@ -62,7 +66,8 @@
   import Icon from './Icon.svelte'
   import ProviderMark from './ProviderMark.svelte'
   import { ICONS, type IconName } from './icons'
-  import { startersFor, dealStarters, STARTER_SLOTS, TEACH_STARTER_KEY } from './starters'
+  import { startersFor, dealStarters, headlineFor, STARTER_SLOTS, TEACH_STARTER_KEY } from './starters'
+  import { profile, loadProfileName } from './stores/profile.svelte'
   import { teachingCardPinned, clearTeachingCard } from './firstRun'
 
   let {
@@ -376,11 +381,11 @@
     return task.state === 'failed' ? 'err' : 'done'
   }
   // What the PORTRAIT says, which is a different question from what the card
-  // says. agentFace.ts has drawn all of this since the faces landed — the
-  // laptop lifting into frame, the person rocking as they type, the pupils
-  // darting while nothing has been picked up yet, the ring that goes green or
-  // red — and not one caller ever passed `state`, so every face in the app has
-  // been the idle one. This is the wire that was missing, not a new drawing.
+  // says. The mascot draws all of this (poses.ts, through presence.ts's
+  // poseOfFaceState) — the hands going to the keys as it types, the thinking
+  // face while nothing has been picked up yet, the done card or the alert card
+  // when it ends — and before the cartoon faces got this wire (7 ก.ย.) not one
+  // caller ever passed `state`, so every face in the app was the idle one.
   //
   // 'think' and 'work' are told apart by whether the delegate has DONE anything
   // yet — not by whether a row is running this second, which is what it asked
@@ -389,15 +394,14 @@
   // Wrong about the state: a worker two minutes into a job sat there with no
   // laptop for most of it, because the gaps between calls are most of a turn
   // (owner, 7 ก.ย., over a card at 2m28s: "ตอนทำงานทำไมไม่กดคีย์บอร์ด").
-  // Wrong about the movement: af-lift runs once per render of the markup and
-  // the markup is re-handed whenever the state changes, so work → think → work
-  // across every gap re-played the laptop being picked up, put away and picked
-  // up again — "อนิเมชันมันหายไปไหน" is that flicker, not a missing rule.
+  // Wrong about the movement: a pose change re-hands the markup, so work →
+  // think → work across every gap re-played the hands leaving the keys and
+  // coming back — "อนิเมชันมันหายไปไหน" is that flicker, not a missing rule.
   //
-  // The line style.css draws is about GETTING AHEAD of the work: "drawing it
-  // already typing would be the UI getting ahead". Before the first row there
-  // is nothing to be ahead of and the face looks around; after it the machine
-  // is open, and it stays open until the work ends.
+  // The rule is about GETTING AHEAD of the work: drawing it already typing
+  // would be the UI getting ahead. Before the first row there is nothing to
+  // be ahead of and the worker thinks; after it the hands are on the keys,
+  // and they stay there until the work ends.
   //
   // Queued is the empty face, deliberately: nothing has started, so nothing may
   // move. The card already refuses a clock and a spinner there for the same
@@ -775,6 +779,9 @@
   // readable without clicking — the point of putting it on this row is that you
   // see it before you approve a command, not after you go looking.
   onMount(refreshShells)
+  // The greeting's name (headlineFor). The sidebar loads it too; the store
+  // reads once for both.
+  onMount(() => { void loadProfileName() })
 
   // The choice is per project, so focusing another one can mean another shell.
   // Without this the chip keeps showing the previous project's answer, which is
@@ -1014,120 +1021,29 @@
     return isNaN(d.getTime()) ? '' : d.toTimeString().slice(0, 5)
   }
 
-  // The who-am-I-talking-to picker (§85). Roster fetched when the menu opens,
-  // not held: hiring is dropping a file, and a list read at mount would miss
-  // an agent hired while the app was running.
-  let agentMenuOpen = $state(false)
+  // The who-am-I-talking-to picker (§85, §256) is StationPick.svelte since
+  // 13 ก.ย.: two chips, WHO answers and which TEAM the chat hires from, each
+  // with its own menu and its own state.
+  //
+  // What stays here is the current team's roster, under the name the `@`
+  // menu and the worker faces read it by: the same list the engine offers
+  // `task`, so `@` cannot name somebody the desk would refuse, and a
+  // worker's face comes off the same card the roster draws. Re-read on a
+  // station change — a chat hires from one roster for its whole life, so
+  // that is the only time it moves.
   let officeChairs = $state<engine.Chair[]>([])
-  // The delegation switch, read when the menu opens rather than held at load.
-  //
-  // Fetched rather than remembered because half of what it shows is a
-  // measurement — what `task` costs the block right now — and that number moves
-  // whenever anything about the tools changes. A cached one would be right the
-  // day it was cached. Null until the first read, which is why the switch is
-  // simply absent for that instant rather than drawn in a guessed state.
-  let delegate = $state<engine.DelegateSettings | null>(null)
-  let delegateBusy = $state(false)
-  // Which teammates cannot work yet, by the same answer the roster's veil reads
-  // (AgentLock.svelte). It is here because this menu is the OTHER door into a
-  // chair session: the card in เอเจนเฉพาะทาง and this row both call
-  // newChairSession, so a lock on one and not the other is not a stricter door,
-  // it is two doors disagreeing about the same agent — and the one nobody
-  // guarded is the one every user finds.
-  //
-  // Read when the menu opens rather than kept fresh: the answer can only change
-  // by installing or connecting something, which is a trip to another page and
-  // back, and this list is rebuilt on the way back anyway.
-  let chairBlocked = $state<Record<string, boolean>>({})
-  const chairLocked = (name: string) => chairBlocked[name] ?? false
-
-  async function toggleAgentMenu() {
-    agentMenuOpen = !agentMenuOpen
-    if (agentMenuOpen) {
-      try {
-        officeChairs = await ListChairs()
-      } catch {
-        officeChairs = []
-      }
-      try {
-        const veils = await Promise.all(officeChairs.map((c) => AgentBlocked(c.name)))
-        chairBlocked = Object.fromEntries(officeChairs.map((c, i) => [c.name, veils[i] ?? false]))
-      } catch {
-        chairBlocked = {}
-      }
-      try {
-        delegate = await DelegateSwitches()
-      } catch {
-        delegate = null
-      }
-    }
-  }
-  // Flipping it re-bootstraps the engine, so the menu stays open and the row
-  // stays disabled until the answer comes back — a switch that looks instant
-  // and is not is a switch people press twice.
-  // The one switch this menu carries, built here rather than inline so its keys
-  // keep their literal types and `t` still refuses a key the locales do not
-  // have.
-  //
-  // เอเจน only. Both switches stood here for an hour on 2026-08-20 and the
-  // owner took the second one straight back out: a ซับเอเจน is on from the
-  // start and is the assistant's own hands, so a switch for it in the menu you
-  // open to CHOOSE WHO ANSWERS is a control in the wrong room — it belongs on
-  // its settings page, where the rest of what a ซับเอเจน is already is. What
-  // earns a place here is the decision this menu is about: whether somebody
-  // else gets handed the job.
-  const delegateRows = $derived(
-    delegate
-      ? ([
-          { kind: 'agents', reach: delegate.agents, icon: 'userRound', label: 'chat.delegateAgents', on: 'chat.delegateAgentsOn', off: 'chat.delegateAgentsOff' },
-        ] as const)
-      : [],
-  )
-  async function toggleDelegate(kind: 'agents' | 'helpers') {
-    if (!delegate || delegateBusy) return
-    delegateBusy = true
+  async function loadOfficeChairs() {
     try {
-      delegate = await SetDelegateOff(kind, delegate[kind].off === false)
-    } finally {
-      delegateBusy = false
+      const teams = await ListTeams(cockpit.desk === 'coding' ? 'coding' : 'specialized')
+      officeChairs = teams.find((x) => x.name === cockpit.team)?.members ?? []
+    } catch {
+      officeChairs = []
     }
   }
-  // One agent's own switch, on the row that names it.
-  //
-  // The reach has been per-worker since 10 ส.ค. (SetAgentOff, worn by the
-  // settings page): what it lacked was a place in the menu people actually open
-  // when they are deciding who does the work. A switch two pages away from the
-  // decision is a switch nobody finds, which is the same argument that put the
-  // master row below into this menu rather than into settings.
-  //
-  // Two hit targets on one row, deliberately. The name still means "go and talk
-  // to this one" and the pill means "may the assistant hand work here" — two
-  // different questions, and .focus-row is the split this menu already draws
-  // for the engine rows. It is also why the pill is a <label> BESIDE the button
-  // and not inside it: one control cannot answer two questions, and interactive
-  // markup cannot nest anyway.
-  //
-  // Disabled rather than hidden while the master switch is off. A row that lost
-  // its switch would read as an agent that lost its switch, when what is off is
-  // delegation itself — the same choice the settings page made for the same
-  // reason.
-  function agentReach(name: string): { on: boolean; off: boolean } | null {
-    if (!delegate) return null
-    const w = delegate.agents.workers.find((x) => x.name === name)
-    return w ? { on: w.on, off: delegate.agents.off } : null
-  }
-  // Its own busy flag, not delegateBusy: flipping one agent must not grey out
-  // the master row, and the menu stays open through the re-bootstrap either way.
-  let reachBusy = $state('')
-  async function toggleAgentReach(name: string, on: boolean) {
-    if (reachBusy || delegateBusy) return
-    reachBusy = name
-    try {
-      delegate = await SetAgentOff(name, on)
-    } finally {
-      reachBusy = ''
-    }
-  }
+  $effect(() => {
+    void [cockpit.desk, cockpit.team]
+    void loadOfficeChairs()
+  })
   // Which shell the agent's commands run in: this machine's, or a WSL distro.
   //
   // On the composer row rather than on the Settings page because it changes
@@ -1425,7 +1341,6 @@
   // โหมดทำงาน menu are neighbours wide enough to be drawn on top of each other
   // (owner, 31 ส.ค.). Each trigger now clears the row before setting its own.
   function closeComposerMenus() {
-    attachMenuOpen = false
     stanceMenuOpen = false
     modelMenuOpen = false
     branchMenuOpen = false
@@ -1444,10 +1359,9 @@
     if (rewindMenuOpen && !el.closest('.rewind-pick')) { rewindMenuOpen = false }
     if (ctxMenuOpen && !el.closest('.ctx-pick')) ctxMenuOpen = false
     if (stanceMenuOpen && !el.closest('.stance-pick')) stanceMenuOpen = false
-    if (attachMenuOpen && !el.closest('.attach-pick')) attachMenuOpen = false
     if (branchMenuOpen && !el.closest('.branch-pick')) branchMenuOpen = false
     if (openDropdown && !el.closest('.updrop')) openDropdown = ''
-    if (palette && !el.closest('.pal-pick')) palette = ''
+    if (palette && !el.closest('.attach-pick')) palette = ''
   }
 
   // ---------- Voice: the composer's mic, and the reply's ฟัง button ----------
@@ -1520,163 +1434,29 @@
     })
   }
 
-  // Reading a reply aloud: a queue, not a file.
-  //
-  // This used to be one await on SpeakText, which synthesized the whole reply
-  // and handed back one data: URL — so nothing was heard until everything was
-  // ready, and the wait grew with the length of the answer. Now the backend
-  // announces one piece at a time (desktop/speak.go) and this plays them in
-  // order, with the next one already fetched while the current one is talking.
-  //
-  // The one obligation this side has: report every piece as it starts. That
-  // report is what releases the synthesizer to run one more piece ahead, so a
-  // player that goes quiet stops the work rather than letting it run to the
-  // end of a reply nobody is listening to.
-  type SpeechChunk = { job: string; seq: number; url: string; mime: string; last: boolean; error?: string }
-
-  let speakingId = $state('')  // message being read; '' = silent
-  let speakBusyId = $state('') // message waiting on its first piece
-  let speakJob = ''            // the backend read this queue belongs to
-  let speakAudio: HTMLAudioElement | null = null
-  let speakQueue: HTMLAudioElement[] = []
-  let speakLast = false        // the last piece has arrived; nothing more is coming
-  let speakStarting = false    // StartSpeech is in flight and has not named the job yet
-  let speakHeld: SpeechChunk[] = [] // pieces that beat that name back here
-
+  // Reading a reply aloud goes through the window's one player
+  // (speech.svelte.ts, lifted out of here on 12 ก.ย. 2026 so the companion
+  // and this button can never talk over each other). This side keeps only
+  // what is per-message: which bubble's button is lit, and the error banner.
   function speakKey(m: ChatMessage): string {
     return m.id ? String(m.id) : m.text
   }
-
-  // Every piece for this read, as it is synthesized. Wired once for the
-  // component: a read that is stopped is filtered out by its job id, not by
-  // tearing the listener down and building it again.
-  onMount(() => EventsOn('speech:chunk', (c: SpeechChunk) => {
-    // A read is announced before its id gets back here: the backend starts
-    // synthesizing the moment StartSpeech is called, and the first piece can
-    // beat that call's own reply across the bridge. Holding those rather than
-    // dropping them is the difference between a fast first word and a spinner
-    // that never stops.
-    if (speakStarting && !speakJob) {
-      speakHeld.push(c)
-      return
-    }
-    if (!speakJob || c.job !== speakJob) return
-    acceptPiece(c)
-  }))
-
-  function acceptPiece(c: SpeechChunk) {
-    if (c.error) {
-      voiceError = c.error
-      stopSpeaking()
-      return
-    }
-    if (c.last) speakLast = true
-    // preload='auto' is the prefetch: the piece after the one being spoken is
-    // fetched from /aetox-tts/ while there is still audio playing over it,
-    // which is what makes the seam between two pieces inaudible.
-    const audio = new Audio(c.url)
-    audio.preload = 'auto'
-    audio.dataset.seq = String(c.seq)
-    audio.load()
-    speakQueue.push(audio)
-    if (!speakAudio) void playNextPiece()
-  }
-
-  async function playNextPiece() {
-    const audio = speakQueue.shift()
-    if (!audio) {
-      // Out of pieces: either the read is over, or the next one is still being
-      // made and the arriving chunk will call back in here.
-      speakAudio = null
-      if (speakLast) stopSpeaking()
-      return
-    }
-    speakAudio = audio
-    speakBusyId = ''
-    audio.onended = () => { void playNextPiece() }
-    // A piece that will not play is not a reason to stop the read — skip to
-    // the next one, the way a dropped frame is skipped rather than fatal.
-    audio.onerror = () => { void playNextPiece() }
-    if (speakJob) void SpeechPlaying(speakJob, Number(audio.dataset.seq ?? 0)).catch(() => {})
-    // Routed here rather than at creation: setSinkId is a promise, and a piece
-    // built while the one before it is still playing would race play().
-    await applySpeaker(audio)
-    try {
-      await audio.play()
-    } catch {
-      stopSpeaking()
-    }
-  }
-
-  function stopSpeaking() {
-    speakAudio?.pause()
-    speakAudio = null
-    // Dropping the src is what lets a queued fetch be abandoned rather than
-    // run to completion for audio that will never be played.
-    for (const queued of speakQueue) queued.src = ''
-    speakQueue = []
-    speakHeld = []
-    speakLast = false
-    speakingId = ''
-    speakBusyId = ''
-    const job = speakJob
-    speakJob = ''
-    // Both ends of the read close here: the backend cancels the synthesis in
-    // flight and deletes the pieces. This is also the normal end of a finished
-    // read — "the audio is over" and "the files can go" are one moment, and
-    // this is the only side that knows it.
-    if (job) void StopSpeech(job).catch(() => {})
-  }
+  // The mascot on screen listens when the mic is on: the state mirrored out,
+  // nothing read back. (Speaking is mirrored by the player itself.)
+  $effect(() => {
+    voice.mic = micState === 'rec'
+  })
 
   async function toggleSpeak(m: ChatMessage) {
     voiceError = ''
     const key = speakKey(m)
     // Pressing the button of the message being read — or the one still waiting
     // on its first piece — stops it. Waiting used to be uncancellable.
-    if (speakingId === key) {
-      stopSpeaking()
+    if (speech.key === key) {
+      stopSpeech()
       return
     }
-    stopSpeaking()
-    speakBusyId = key
-    speakingId = key
-    speakStarting = true
-    try {
-      const job = await StartSpeech(speechText(m.text))
-      // Stopped while the engine was being resolved — a press this side has
-      // already forgotten. Close the read rather than start playing it.
-      if (speakingId !== key) {
-        void StopSpeech(job).catch(() => {})
-        return
-      }
-      speakJob = job
-      const held = speakHeld
-      speakHeld = []
-      for (const c of held) if (c.job === job) acceptPiece(c)
-    } catch (err) {
-      voiceError = String(err)
-      stopSpeaking()
-    } finally {
-      speakStarting = false
-      speakHeld = []
-    }
-  }
-
-  // What gets spoken: the reply without its markdown scaffolding. The text on
-  // screen renders those marks away; a voice that reads "ดอกจัน" out loud is
-  // reading the source, not the answer.
-  function speechText(md: string): string {
-    return md
-      .replace(/```[\s\S]*?```/g, ' ')
-      .replace(/`([^`]*)`/g, '$1')
-      .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
-      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-      .replace(/^#{1,6}\s+/gm, '')
-      .replace(/^[-*+]\s+/gm, '')
-      .replace(/^>\s?/gm, '')
-      .replace(/[*_~|]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
+    await speak(key, m.text, (err) => { voiceError = err })
   }
 
   // Context meter: how full the model's context window is and what fills it.
@@ -1966,7 +1746,9 @@
     return () => { live = false }
   })
 
-  const headline = $derived(chairOpening?.headline || t(roomStarters.headlineKey))
+  const headline = $derived(chairOpening?.headline || headlineFor(roomStarters, profile.name, t))
+
+  const deskName = (id: string) => { const k = deskLabelKey(id); return k ? t(k) : id }
 
   // Everything this room could open with. The grid draws four of them.
   const starterPool: { icon: IconName; title: string; prompt: string }[] = $derived(
@@ -2318,6 +2100,14 @@
     resendEdited(text, true)
   }
 
+  // Whether pressing send would do anything — the same test submit() makes,
+  // asked ahead of time so the button can look the part: full colour when
+  // there is something to send, dimmed when there is not (owner, 13 ก.ย.:
+  // "เพิ่มสีตรงนี้ได้ไหมจะได้ชัด").
+  const canSend = $derived(
+    !!draft.trim() || cockpit.pendingImages.length > 0 || cockpit.pendingContexts.length > 0 || cockpit.pendingFiles.length > 0,
+  )
+
   function submit() {
     // While the model is blocked on ask_user, typed text is the free-text answer.
     if (cockpit.ask) {
@@ -2394,7 +2184,7 @@
     // exists to stop.
     if (e.key === '@' && !awaitingReply && (draft === '' || /\s$/.test(draft))) {
       mentionOpen = true
-      if (officeChairs.length === 0) ListChairs().then((c) => (officeChairs = c)).catch(() => {})
+      if (officeChairs.length === 0) void loadOfficeChairs()
     }
     if (e.key === 'Escape' && mentionOpen) mentionOpen = false
   }
@@ -2643,7 +2433,7 @@
   // into a worker's room for the rest of the session; this is one sentence,
   // said in the room you are already standing in.
   //
-  // The menu lists agents only (ListChairs). Sub-agents are the assistant's own
+  // The menu lists the team's agents only (officeChairs). Sub-agents are the assistant's own
   // hands and take their work from an agent, so they are not on it and the
   // engine refuses them besides (owner, 30 ส.ค.: ซับเอเจนเรียกไม่ได้).
   let mentionOpen = $state(false)
@@ -2748,10 +2538,22 @@
     if (cockpit.prepared.length > 0 && draft !== preparedText()) clearPrepared()
   }
 
-  // '' = closed. The two composer buttons and the "/" key set it.
-  let palette = $state<'' | 'all' | 'prompts'>('')
+  // '' = closed. The + button and Ctrl+K open it whole; "/" typed into an
+  // empty composer opens it on the presets, "@" at a word boundary on the
+  // agents (Palette.svelte's `focus`).
+  let palette = $state<'' | 'all' | 'prompts' | 'agents'>('')
   function insertFromPalette(text: string) {
     draft = text
+    palette = ''
+    inputEl?.focus()
+  }
+  // A chair picked from the menu rather than typed after "@". insertMention
+  // replaces the "@" the user typed; here there is none, so the token is added
+  // at the end of whatever is written, with a space before it if needed.
+  function mentionFromMenu(name: string) {
+    const sep = draft === '' || /\s$/.test(draft) ? '' : ' '
+    draft = draft + sep + '@' + name + ' '
+    mentionPicked = name
     palette = ''
     inputEl?.focus()
   }
@@ -2759,22 +2561,13 @@
   // One attach button for everything: images keep their thumbnail path, and a
   // clip or document is copied into the sandbox and handed over as a path the
   // tools can open. Splitting this across two buttons was the duplication the
-  // owner spotted (ARCHITECTURE.md §38).
-  // The menu the + button opens, and the one thing each row decides: which
-  // filter the native dialog starts on. It stays a menu rather than going
-  // straight to the dialog because the list of types this app accepts lived
-  // only inside that dialog's collapsed dropdown, where a missing type looked
+  // owner spotted (ARCHITECTURE.md §38) — and the + menu itself (Palette.svelte,
+  // §257) is the same finding one level up: files, prompt presets, agents and
+  // open tabs all go INTO the message, so they share the one door. The file
+  // tiles name each kind and what happens to it, rather than leaving the list
+  // inside the native dialog's collapsed dropdown, where a missing type looked
   // exactly like a type the app cannot take (owner, 31 ส.ค.).
-  let attachMenuOpen = $state(false)
-  const attachGroups = [
-    { group: 'image', icon: 'image', label: 'chat.attachImages', hint: 'chat.attachImagesHint' },
-    { group: 'document', icon: 'fileText', label: 'chat.attachDocs', hint: 'chat.attachDocsHint' },
-    { group: 'media', icon: 'clapperboard', label: 'chat.attachMedia', hint: 'chat.attachMediaHint' },
-    { group: '', icon: 'paperclip', label: 'chat.attachAny', hint: 'chat.attachAnyHint' },
-  ] as const
-
   async function attachViaDialog(group: string) {
-    attachMenuOpen = false
     // Several at once: the dialog is multi-select and the composer stages a
     // list, so picking twenty files gives twenty cards rather than the last one
     // winning. Sequential on purpose — each copy into the sandbox names itself
@@ -3388,21 +3181,23 @@
 
 </script>
 
-<!-- "/" is the prompt list on its own button; Ctrl+K opens the same component in
-     full mode (model, approval, tool counts, shortcuts) — those rows lost their
-     button when "+" became the attach control, not their home. -->
+<!-- Ctrl+K is the + button (Palette.svelte): one menu for everything that goes
+     into the message. "/" and "@" typed into the composer open the same menu
+     narrowed to prompts or agents (onKeydown below). -->
 <!-- Every menu closeMenusOnOutside knows how to close has to be named in the
      guard below, or it only closes on the days another menu happens to be open
      too. The branch picker needed the listener; ctx and stance were already
      relying on a neighbour being open, which is why they sometimes stayed put. -->
 <svelte:window
-  onclick={modelMenuOpen || focusMenuOpen || palette || ctxMenuOpen || stanceMenuOpen || branchMenuOpen || attachMenuOpen || rewindMenuOpen
+  onclick={modelMenuOpen || focusMenuOpen || palette || ctxMenuOpen || stanceMenuOpen || branchMenuOpen || rewindMenuOpen
     ? closeMenusOnOutside
     : undefined}
   onkeydown={(e) => {
     if (isShortcut(e, 'palette')) {
       e.preventDefault()
-      palette = palette === 'all' ? '' : 'all'
+      const open = !palette
+      closeComposerMenus()
+      palette = open ? 'all' : ''
     }
     // Shift+Tab toggles the leash, as in Claude Code. Deliberately only
     // ask ↔ unsafe-only: full-access means no prompt ever again, which is not
@@ -4284,16 +4079,19 @@
                changed was the clock, which §105.5 already established cannot
                answer "is this alive".
 
-               The face is 34px because that is where the wardrobe starts
-               working: agentFace.ts drops the held prop below PROP_MIN_PX (32)
-               on purpose, so a smaller portrait is a head and a haircut and
-               nothing that could ever say what the person is doing. -->
+               The face is 34px: under DETAIL_MIN_PX (48, rig.ts) the mascot
+               drops its highlights and the copies a turn would swap in, and
+               what is left — the laptop, the face, the card beside the head —
+               is exactly what says what the worker is doing. The badge and
+               the hue come off the roster (officeChairs), so the worker here
+               is the same one the office draws; a delegate the roster does
+               not list (a helper) wears the logo and the hue of its name. -->
           <div class="bgw-top">
             <!-- No `off` and no drain on a queued face. `off` means the
                  assistant may not hand this one work, which is a fact about the
                  roster; waiting for a slot is a fact about right now, and the
                  card says that in words on the line below. -->
-            <span class="bgw-face"><AgentFace name={node.step.agent ?? ''} size={34} state={faceState(node, state, queued)} /></span>
+            <span class="bgw-face"><AgentMascot name={node.step.agent ?? ''} {...lookOf(officeChairs.find((c) => c.name === node.step.agent))} size={34} state={faceState(node, state, queued)} /></span>
             <div class="bgw-said">
               <!-- Keyed on the text, which is what makes it move.
                    {#key} destroys and rebuilds the span when the label changes,
@@ -4589,12 +4387,21 @@
   {/if}
 
   {#if messages.length === 0}
-    <div class="empty-state">
+    <div class="empty-state" class:walking={!!cockpit.walkingTo}>
       <!-- The mark as ground rather than as the first item in the column. At
            56px it stood in the stack competing with the question and the cards
            for the same middle of the screen; behind them at this size it is
            the room they are standing in. -->
-      <div class="brand-ground"><Logo size={520} animate={false} /></div>
+      <!-- Two figures on that ground since 12 ก.ย. 2026: the mark, moved off
+           centre to the right, and the assistant's own avatar standing to its
+           left at the same height — a still, in the shell and accent the user
+           picked on the avatar page, so changing the avatar changes this room.
+           Both are ink on the wall, not a companion: the one that moves and
+           talks is Companion.svelte, and this is not a second copy of it. -->
+      <div class="brand-ground pair">
+        <Logo size={520} animate={false} />
+        <Mascot {...assistantOptions(avatarPrefs)} pose="idle" size={520} still />
+      </div>
       <h2>{headline}</h2>
       <!-- Keyed by title so a re-deal replaces the cards rather than rewriting
            the text inside four cards that never moved — which is what makes the
@@ -4951,16 +4758,16 @@
                      message plays at a time, and starting another stops it. -->
                 <button
                   type="button" class="msg-copy msg-speak icobtn tiny"
-                  class:speaking={speakingId === speakKey(m)}
-                  aria-label={speakingId === speakKey(m) ? t('chat.speakStop') : t('chat.speak')}
-                  data-tip={speakingId === speakKey(m) ? t('chat.speakStop') : t('chat.speak')}
-                  aria-pressed={speakingId === speakKey(m)}
+                  class:speaking={speech.key === speakKey(m)}
+                  aria-label={speech.key === speakKey(m) ? t('chat.speakStop') : t('chat.speak')}
+                  data-tip={speech.key === speakKey(m) ? t('chat.speakStop') : t('chat.speak')}
+                  aria-pressed={speech.key === speakKey(m)}
                   onclick={() => toggleSpeak(m)}
                 >
-                  {#if speakBusyId === speakKey(m)}
+                  {#if speech.busyKey === speakKey(m)}
                     <span class="mic-busy"><Icon name="loaderCircle" size={16} /></span>
                   {:else}
-                    <Icon name={speakingId === speakKey(m) ? 'square' : 'volume2'} size={16} />
+                    <Icon name={speech.key === speakKey(m) ? 'square' : 'volume2'} size={16} />
                   {/if}
                 </button>
               {/if}
@@ -5311,144 +5118,9 @@
         </button>
       </div>
       {/if}
-      <!-- Who this chat is with, and the way to a different who (§85). Same
-           shape as the focus chip beside it: both answer "what am I pointed
-           at right now". Picking someone always opens a NEW session — a desk
-           or a chair is fixed for a session's life, so the switcher is a door
-           to a fresh one, never a dial on this one.
-
-           Not on the coding desk: the star gives โค้ด no path to the office,
-           and a desk that can hand work to no one must not wear a button that
-           offers to. The code desk talks to exactly one agent, so there is
-           nothing to switch. -->
-      {#if cockpit.desk !== 'coding'}
-      <div class="focus-pick">
-        {#if agentMenuOpen}
-          <div class="focus-menu">
-            <button type="button" class="focus-item" class:on={!cockpit.chair}
-              onclick={() => { agentMenuOpen = false; if (cockpit.chair) newSessionAt('assistant') }}>
-              <span class="ic"><Icon name="sparkles" size={14} /></span> {t('chat.mainAgent')}
-            </button>
-            {#if officeChairs.length > 0}<div class="menu-sep"></div>{/if}
-            {#each officeChairs as c (c.name)}
-              {@const reach = agentReach(c.name)}
-              {@const locked = chairLocked(c.name)}
-              <!-- `on` sits on the ROW, not on the button inside it: the row is what
-                   lights up, so it is also what has to know it is the current one, and
-                   the same fact written in two places is the one that drifts. -->
-              <div class="agent-row" class:on={cockpit.chair === c.name}>
-                <!-- A locked teammate opens the roster instead of a session
-                     they cannot use. Not disabled: a dead row says "no" and
-                     nothing else, where the card over there says which tool is
-                     missing and offers to fetch it. -->
-                <button type="button" class="focus-item" class:locked
-                  title={locked ? t('lock.body') : c.description}
-                  onclick={() => {
-                    agentMenuOpen = false
-                    if (locked) { setActiveView('office'); return }
-                    if (cockpit.chair !== c.name) newChairSession(c.name)
-                  }}>
-                  <!-- The same face the roster draws, not a glyph: this list and
-                       the office page are the same people, and one agent drawn
-                       two ways on two surfaces is two people to whoever is
-                       reading. Small enough that the prop is dropped on its own
-                       (agentFace.ts, PROP_MIN_PX) — at this size the name is
-                       doing the work and a held object is four pixels of noise. -->
-                  <AgentFace name={c.name} {...faceOf(c)} size={20} /><span class="t">{c.name}</span>
-                  {#if locked}<span class="focus-locked"><Icon name="wrench" size={12} /></span>{/if}
-                </button>
-                <!-- The same pill the settings rows wear, and the same two
-                     strings, because it is the same fact: whether the assistant
-                     may hand THIS one a job. A second wording here would be a
-                     second answer to one question. -->
-                {#if reach}
-                  <label class="mswitch" title={t('settings.agentReachTip')}>
-                    <input
-                      type="checkbox" checked={reach.on && !reach.off}
-                      disabled={reach.off || reachBusy !== '' || delegateBusy}
-                      aria-label={t('settings.agentReach')}
-                      onchange={() => toggleAgentReach(c.name, reach.on)}
-                    />
-                    <span></span>
-                  </label>
-                {/if}
-              </div>
-            {/each}
-            <!-- The master switch on the assistant's reach, and it sits HERE
-                 rather than in settings for one reason: delegation ships off,
-                 so a switch nobody walks past is a capability nobody has. This
-                 menu is the one place people already come to think about who
-                 does the work.
-
-                 It says what it costs, because that is what the switch is
-                 for — 730 tokens of every message, measured rather than
-                 remembered (App.DelegateSwitches). A switch whose effect is
-                 invisible is a switch nobody trusts.
-
-                 Not a row in the list above. Clicking a name means "go talk to
-                 this one" and clicking this means "let somebody else be asked",
-                 and one list where a click means two things is a list people
-                 mis-click. -->
-            {#if delegate}
-              <div class="menu-sep"></div>
-              <!-- One row, and it is the เอเจน one. The switch that stood here
-                   until 2026-08-20 governed both kinds, so somebody who wanted a
-                   colleague kept out of their work lost the assistant's own
-                   hands in the same click, with nothing on screen saying so.
-                   Splitting them fixed that; keeping both rows here would have
-                   put a control for something that is on by default into the
-                   menu people open to pick who answers (see delegateRows).
-
-                   role="switch", not a pressed button. It is an on/off state
-                   read at a glance, and the owner asked for it to look like one
-                   (19 ส.ค.: "ทำเป็นสวิชปิดเปิดดีกว่าดูง่ายกว่า") — a row that
-                   only changed colour made you read the note underneath to find
-                   out which way it was set.
-
-                   userRound, because เอเจน already own that glyph and nothing
-                   here gets to invent another: the settings sidebar files เอเจน
-                   under userRound and ซับเอเจน under bot (Settings.svelte, where
-                   the identity page carries a comment about not taking userRound
-                   because "the เอเจน page below owns that"), and the timeline
-                   toggles below count the two piles with the same two. A switch
-                   drawn with a glyph of its own would be a third vocabulary for
-                   a distinction the app has already made twice.
-
-                   The single switch that stood here wore `gitBranch`, argued for
-                   as "the work goes down another path" and chosen partly to
-                   avoid a person glyph reading as one more chair in the list
-                   above. Both reasons expired: gitBranch is the ENGINE glyph
-                   everywhere else on this strip (the engine chip, the session
-                   strip, a connected runtime), so on a delegation row it was
-                   saying the wrong word in the app's own vocabulary; and the
-                   chair-row worry is answered by the switch face rather than by
-                   the icon, since these rows carry a 34px pill on the right
-                   (style.css .mswitch-face) and a chair row carries nothing. -->
-              {#each delegateRows as row (row.kind)}
-                <button type="button" class="focus-item delegate-row" class:on={!row.reach.off}
-                  role="switch" aria-checked={!row.reach.off} disabled={delegateBusy}
-                  onclick={() => toggleDelegate(row.kind)}>
-                  <span class="ic"><Icon name={row.icon} size={14} /></span>
-                  <span class="t">{t(row.label)}</span>
-                  <!-- The same switch the settings rows wear (style.css .mswitch),
-                       worn directly because this row is already the control. -->
-                  <span class="mswitch-face"></span>
-                </button>
-                <div class="folder-note">
-                  {t(row.reach.off ? row.off : row.on, { n: row.reach.tokens.toLocaleString() })}
-                </div>
-              {/each}
-            {/if}
-            <div class="folder-note">{t('chat.agentSwitchNote')}</div>
-          </div>
-        {/if}
-        <button type="button" class="focus-chip focus-btn" onclick={toggleAgentMenu}>
-          <span class="ic"><Icon name={cockpit.chair ? 'bot' : 'sparkles'} size={13} /></span>
-          <span class="t">{cockpit.chair || t('chat.mainAgent')}</span>
-          <span class="caret"><Icon name={agentMenuOpen ? 'chevronUp' : 'chevronDown'} size={12} /></span>
-        </button>
-      </div>
-      {/if}
+      <!-- Who this chat is with, and which team it hires from — two chips,
+           two menus (StationPick.svelte, §256). -->
+      <StationPick />
       <!-- The branch, and the way to another one. A `<span>` until now: it drew
            the answer to "where am I" and had no answer to "take me somewhere
            else", which is the question anybody who reads a branch name next
@@ -5699,7 +5371,21 @@
     </div>
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <!-- drag/drop target for a workbench tab; the textarea/buttons inside remain the real interactive elements -->
-    <div class="box" class:drag-over={dragOver} class:running={!!cockpit.plan?.running} ondragover={onComposerDragOver} ondragleave={() => (dragOver = false)} ondrop={onComposerDrop}>
+    <div class="box" class:drag-over={dragOver} class:running={!!cockpit.plan?.running || !!cockpit.walkingTo} ondragover={onComposerDragOver} ondragleave={() => (dragOver = false)} ondrop={onComposerDrop}>
+      <!-- THE DOOR, on the same strip as the run. A desk press opens a new
+           session, and on a machine where git answers slowly that is seconds
+           of nothing on screen (13 ก.ย. 2026: "กดกลับหน้าผู้ใช้ไม่ได้" — it had,
+           the walk was queued). The strip says where the window is going and
+           nothing about why (owner: "เอาแค่โหลดพอ"). No cancel: the engine is
+           mid-bootstrap and a second press already supersedes the first
+           (askDoor). -->
+      {#if cockpit.walkingTo && !cockpit.plan?.running}
+        <div class="cbox-run cbox-door">
+          <span class="livedot"></span>
+          <span class="cbox-run-step">{t('chat.doorWalking', { desk: deskName(cockpit.walkingTo) })}</span>
+          <div class="cbox-run-track"><i class="indet"></i></div>
+        </div>
+      {/if}
       <!-- THE RUN, FUSED TO THE BOX. It was a strip floating above the composer
            until the owner saw it on a real screen: wider than the box it sat
            over, and reading as a system banner rather than as part of the
@@ -5822,9 +5508,11 @@
             ? ''
             : cockpit.plan?.running
               ? t('chat.inputDuringRun')
+              : cockpit.walkingTo
+                ? t('chat.inputDuringWalk')
               : cockpit.chair
                 ? t('chat.inputToAgent', { name: cockpit.chair })
-                : t('chat.inputPlaceholder', { key: shortcutLabel('palette') })}
+                : t('chat.inputPlaceholder')}
           bind:this={inputEl}
           bind:value={draft}
           onkeydown={onKeydown}
@@ -5857,28 +5545,22 @@
              belongs to the text being written, so it sits against the text;
              everything after it is about how the turn will be run. -->
         <div class="attach-pick">
-          {#if attachMenuOpen}
-            <div class="attach-menu">
-              {#each attachGroups as row (row.label)}
-                <button
-                  type="button" class="stance-item"
-                  onclick={() => attachViaDialog(row.group)}
-                >
-                  <span class="ic"><Icon name={row.icon} size={14} /></span>
-                  <span class="t">
-                    <span class="nm">{t(row.label)}</span>
-                    <span class="d">{t(row.hint)}</span>
-                  </span>
-                </button>
-              {/each}
-              <div class="folder-note">{t('chat.attachNote')}</div>
-            </div>
+          {#if palette}
+            <Palette
+              focus={palette === 'all' ? '' : palette}
+              mentions={!awaitingReply}
+              oninsert={insertFromPalette}
+              onmention={mentionFromMenu}
+              onattach={attachViaDialog}
+              onmic={toggleMic}
+              onclose={() => { palette = ''; inputEl?.focus() }}
+            />
           {/if}
           <button
-            class="icobtn" class:active={attachMenuOpen}
-            aria-label={t('chat.attachFile')} data-tip={t('chat.attachFile')}
-            aria-expanded={attachMenuOpen}
-            onclick={(e) => { e.stopPropagation(); const open = !attachMenuOpen; closeComposerMenus(); attachMenuOpen = open }}
+            class="icobtn plus tip-l" class:active={!!palette}
+            aria-label={t('chat.plusTip')} data-tip="{t('chat.plusTip')} · {shortcutLabel('palette')}"
+            aria-expanded={!!palette}
+            onclick={(e) => { e.stopPropagation(); const open = !palette; closeComposerMenus(); palette = open ? 'all' : '' }}
           >+</button>
         </div>
         <!-- The mic sits with attach on the text side of the row (owner's
@@ -5952,22 +5634,6 @@
             <span class="nm">{t(activeStance.label)}</span>
             <span class="caret"><Icon name={stanceMenuOpen ? 'chevronUp' : 'chevronDown'} size={11} /></span>
           </button>
-        </div>
-        <div class="pal-pick">
-          {#if palette}
-            <Palette
-              mode={palette}
-              oninsert={insertFromPalette}
-              onclose={() => { palette = ''; inputEl?.focus() }}
-              onopenmodel={() => { palette = ''; modelMenuOpen = true; refreshThinkLevels() }}
-              onswitchthink={(lvl) => handleThinkChange(lvl)}
-            />
-          {/if}
-          <button
-            class="icobtn slash" class:active={palette !== ''}
-            aria-label={t('palette.promptsTitle')} data-tip={t('palette.promptsTitle')}
-            onclick={(e) => { e.stopPropagation(); const open = !palette; closeComposerMenus(); palette = open ? 'prompts' : '' }}
-          >/</button>
         </div>
         {#if ctx && ctx.usedTokens > 0}
           <div class="ctx-pick">
@@ -6264,7 +5930,7 @@
                 {/if}
                 <!-- Two, not one: a picker with a single entry is not a choice,
                      it just tells the user there is a setting they cannot move.
-                     The command palette has always required two (Palette.svelte);
+                     The think row of the old Ctrl+K palette required two;
                      this row asked for one, so a model with exactly one real
                      level — gpt-5-pro, MiniMax M2.x, which cannot stop thinking
                      — drew a dropdown that did nothing when opened. -->
@@ -6324,14 +5990,14 @@
                conversation the user is not looking at. -->
           {#if draft.trim()}
             <button class="send stop secondary" aria-label={t('chat.stopTurn')} onclick={cancelTurn}><Icon name="square" size={12} /></button>
-            <button class="send" aria-label={t('chat.sendIntoTurn')} title={t('chat.sendIntoTurn')} onclick={submit}>
+            <button class="send ready" aria-label={t('chat.sendIntoTurn')} title={t('chat.sendIntoTurn')} onclick={submit}>
               <Icon name="sendHorizontal" size={15} />
             </button>
           {:else}
             <button class="send stop" aria-label={t('chat.stopTurn')} onclick={cancelTurn}><Icon name="square" size={13} /></button>
           {/if}
         {:else}
-          <button class="send" aria-label="Send" onclick={submit}><Icon name="sendHorizontal" size={15} /></button>
+          <button class="send" class:ready={canSend} aria-label="Send" onclick={submit}><Icon name="sendHorizontal" size={15} /></button>
         {/if}
       </div>
     </div>

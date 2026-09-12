@@ -48,6 +48,12 @@ type App struct {
 	// reload stands in for wailsruntime.WindowReloadApp — see reloadWindow.
 	reload func()
 
+	// companionSrv is the assistant's presence, published for a surface
+	// outside this window (companion.go). Lazy like the remote: an install
+	// that never asks for it never listens.
+	companionOnce sync.Once
+	companionSrv  *companionServer
+
 	staged stagedUpdate
 	// exports is what the deck export wrote into Downloads this session
 	// (exports.go), so OpenExport can open it and nothing else.
@@ -161,6 +167,9 @@ func (a *App) beforeClose(ctx context.Context) (prevent bool) {
 }
 
 func (a *App) shutdown(context.Context) {
+	// The figure on the desktop is a window of its own and would outlive
+	// this one for as long as the process does: taken in first.
+	a.CloseCompanionWindow()
 	// The child is told to leave — stdin closed is its cue — and waited for,
 	// so the store it holds is closed before this process is gone.
 	if a.engine != nil {

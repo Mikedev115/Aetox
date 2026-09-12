@@ -7,6 +7,7 @@ import {context} from '../models';
 import {capability} from '../models';
 import {update} from '../models';
 import {connect} from '../models';
+import {cliagent} from '../models';
 import {model} from '../models';
 import {skill} from '../models';
 import {mode} from '../models';
@@ -178,7 +179,13 @@ export function ClearProjectFocus():Promise<engine.ProjectStatus>;
 
 export function CloseAllBrowserTabs():Promise<void>;
 
+export function CloseCompanionWindow():Promise<void>;
+
 export function CommandHistory():Promise<Array<string>>;
+
+export function CompanionSpriteKeys(arg1:string):Promise<Array<string>>;
+
+export function CompanionSprites(arg1:string,arg2:Array<main.CompanionFrame>):Promise<void>;
 
 export function CompleteAccountSignIn():Promise<main.AccountState>;
 
@@ -199,6 +206,8 @@ export function ConnectRemote(arg1:string):Promise<void>;
 export function Connections():Promise<Array<connect.Status>>;
 
 export function ConsolidateMemory(arg1:string):Promise<engine.MemoryConsolidation>;
+
+export function CopySkillToAgent(arg1:string,arg2:string):Promise<void>;
 
 export function CreatePullRequest(arg1:string,arg2:string,arg3:string,arg4:string,arg5:boolean):Promise<engine.PRCreated>;
 
@@ -222,7 +231,7 @@ export function DeckPickScript(arg1:string,arg2:string):Promise<string>;
 
 export function DeckStopPickScript():Promise<string>;
 
-export function DelegateSwitches():Promise<engine.DelegateSettings>;
+export function DelegateSwitches(arg1:string):Promise<engine.DelegateSettings>;
 
 export function DeleteArtifact(arg1:string):Promise<void>;
 
@@ -237,6 +246,8 @@ export function DeleteSession(arg1:string):Promise<void>;
 export function DeleteSpace(arg1:string):Promise<void>;
 
 export function DeleteSubagentProfile(arg1:string):Promise<void>;
+
+export function DeleteTeam(arg1:string):Promise<void>;
 
 export function DisconnectAccount(arg1:string):Promise<void>;
 
@@ -257,6 +268,10 @@ export function ExportAgentPackage(arg1:string):Promise<string>;
 export function ExportDeck(arg1:string,arg2:string):Promise<string>;
 
 export function ExportSession(arg1:string,arg2:string):Promise<string>;
+
+export function ExternalEngineStatus(arg1:string):Promise<cliagent.Status>;
+
+export function FetchAgentBrief(arg1:string):Promise<string>;
 
 export function FileStillThere(arg1:string):Promise<string>;
 
@@ -289,6 +304,8 @@ export function GitCreateBranch(arg1:string):Promise<string>;
 export function GitFileDiff(arg1:string):Promise<string>;
 
 export function GitLog(arg1:string,arg2:number):Promise<engine.GitLogPage>;
+
+export function GitSplitCancel():Promise<void>;
 
 export function GitSuggestCommitMessage(arg1:Array<string>):Promise<string>;
 
@@ -408,6 +425,8 @@ export function ListTTSVoices():Promise<Array<main.TTSVoiceInfo>>;
 
 export function ListTaskChips():Promise<Array<engine.TaskChip>>;
 
+export function ListTeams(arg1:string):Promise<Array<engine.TeamCard>>;
+
 export function ListTools():Promise<Array<engine.SkillInfo>>;
 
 export function LoadSession(arg1:string):Promise<Array<engine.SessionMessage>>;
@@ -438,11 +457,15 @@ export function MoveLearnedEntry(arg1:string,arg2:string,arg3:number):Promise<vo
 
 export function NewChairSession(arg1:string):Promise<string>;
 
+export function NewChairSessionAt(arg1:string,arg2:string,arg3:string):Promise<string>;
+
 export function NewSession():Promise<string>;
 
 export function NewSessionAt(arg1:string):Promise<string>;
 
 export function NewSessionInSpace(arg1:string):Promise<string>;
+
+export function NewTeamSession(arg1:string,arg2:string):Promise<string>;
 
 export function NoteProviderQuotas(arg1:string,arg2:Array<model.Quota>):Promise<void>;
 
@@ -453,6 +476,8 @@ export function OpenAgentSkillsFolder(arg1:string):Promise<void>;
 export function OpenAgentsFolder():Promise<void>;
 
 export function OpenArtifact(arg1:string):Promise<void>;
+
+export function OpenCompanionWindow(arg1:number,arg2:number,arg3:number):Promise<boolean>;
 
 export function OpenComputerApps():Promise<Array<main.ComputerAppRow>>;
 
@@ -478,6 +503,8 @@ export function OpenSpeechModelDir(arg1:string):Promise<void>;
 
 export function OpenSubagentsFolder():Promise<void>;
 
+export function OpenTeamsFolder():Promise<void>;
+
 export function PageMarksOn():Promise<boolean>;
 
 export function PairedDevices():Promise<Array<engine.RemoteDevice>>;
@@ -495,6 +522,8 @@ export function PendingRestore(arg1:string):Promise<Array<string>>;
 export function PendingSkillTuneCount():Promise<number>;
 
 export function PendingUndo():Promise<Array<string>>;
+
+export function PickAgentBrief():Promise<string>;
 
 export function PickAttachmentImage():Promise<string>;
 
@@ -581,6 +610,8 @@ export function RememberTTSVoice(arg1:string):Promise<void>;
 export function RemoteEngineLog(arg1:string):Promise<string>;
 
 export function RemoteHosts():Promise<main.RemoteHostsView>;
+
+export function RemoveAgentSkill(arg1:string,arg2:string):Promise<void>;
 
 export function RemoveCustomProvider(arg1:string):Promise<Array<string>>;
 
@@ -680,6 +711,8 @@ export function SaveRemoteHost(arg1:string,arg2:string,arg3:string):Promise<void
 
 export function SaveSubagentProfile(arg1:string,arg2:string):Promise<void>;
 
+export function SaveTeam(arg1:string,arg2:string,arg3:string,arg4:Array<string>):Promise<void>;
+
 export function SearchAllSessions(arg1:string):Promise<Array<engine.SessionMeta>>;
 
 export function SearchSessions(arg1:string):Promise<Array<engine.SessionMeta>>;
@@ -708,17 +741,21 @@ export function SessionSources(arg1:string):Promise<Array<engine.Source>>;
 
 export function SessionSpend(arg1:string):Promise<engine.SessionSpend>;
 
+export function SessionTeam(arg1:string):Promise<string>;
+
 export function SessionTranscript(arg1:string):Promise<Array<engine.SessionMessage>>;
 
 export function SessionsInSpace(arg1:string):Promise<Array<engine.SessionMeta>>;
 
 export function SetAPIKey(arg1:string,arg2:string):Promise<engine.ModelInfo>;
 
-export function SetAgentOff(arg1:string,arg2:boolean):Promise<engine.DelegateSettings>;
+export function SetAgentOff(arg1:string,arg2:string,arg3:boolean):Promise<engine.DelegateSettings>;
 
 export function SetAttentionSignal(arg1:string,arg2:boolean):Promise<Array<engine.BusyLayer>>;
 
 export function SetBusyLayer(arg1:string,arg2:boolean):Promise<Array<engine.BusyLayer>>;
+
+export function SetCompanionState(arg1:main.CompanionState):Promise<void>;
 
 export function SetComputerControlOn(arg1:boolean):Promise<void>;
 
@@ -881,6 +918,8 @@ export function SwitchVariant(arg1:number):Promise<engine.RegenerateResult>;
 export function SynthesizeHabit(arg1:string,arg2:string):Promise<number>;
 
 export function TTSStatus():Promise<string>;
+
+export function TeamsFolderPath():Promise<string>;
 
 export function TerminalAttach(arg1:string):Promise<string>;
 

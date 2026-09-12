@@ -8,6 +8,7 @@ package rpc
 
 import (
 	"github.com/Mikedev115/Aetox/internal/capability"
+	"github.com/Mikedev115/Aetox/internal/cliagent"
 	"github.com/Mikedev115/Aetox/internal/command"
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/connect"
@@ -352,6 +353,10 @@ func (c *Client) ConsolidateMemory(scope string) (engine.MemoryConsolidation, er
 	return out0, err
 }
 
+func (c *Client) CopySkillToAgent(agent string, name string) error {
+	return c.call("CopySkillToAgent", []any{agent, name}, nil)
+}
+
 func (c *Client) CreatePullRequest(title string, head string, base string, body string, draft bool) engine.PRCreated {
 	var out0 engine.PRCreated
 	if err := c.call("CreatePullRequest", []any{title, head, base, body, draft}, &out0); err != nil {
@@ -418,9 +423,9 @@ func (c *Client) DeckFormats() []engine.DeckFormat {
 	return out0
 }
 
-func (c *Client) DelegateSwitches() engine.DelegateSettings {
+func (c *Client) DelegateSwitches(team string) engine.DelegateSettings {
 	var out0 engine.DelegateSettings
-	if err := c.call("DelegateSwitches", nil, &out0); err != nil {
+	if err := c.call("DelegateSwitches", []any{team}, &out0); err != nil {
 		c.failed("DelegateSwitches", err)
 	}
 	return out0
@@ -454,6 +459,10 @@ func (c *Client) DeleteSubagentProfile(name string) error {
 	return c.call("DeleteSubagentProfile", []any{name}, nil)
 }
 
+func (c *Client) DeleteTeam(name string) error {
+	return c.call("DeleteTeam", []any{name}, nil)
+}
+
 func (c *Client) DisconnectAccount(id string) error {
 	return c.call("DisconnectAccount", []any{id}, nil)
 }
@@ -480,6 +489,14 @@ func (c *Client) EnginesFor(family string, agent string) []connect.Status {
 	var out0 []connect.Status
 	if err := c.call("EnginesFor", []any{family, agent}, &out0); err != nil {
 		c.failed("EnginesFor", err)
+	}
+	return out0
+}
+
+func (c *Client) ExternalEngineStatus(providerName string) cliagent.Status {
+	var out0 cliagent.Status
+	if err := c.call("ExternalEngineStatus", []any{providerName}, &out0); err != nil {
+		c.failed("ExternalEngineStatus", err)
 	}
 	return out0
 }
@@ -590,6 +607,12 @@ func (c *Client) GitLog(before string, limit int) engine.GitLogPage {
 		c.failed("GitLog", err)
 	}
 	return out0
+}
+
+func (c *Client) GitSplitCancel() {
+	if err := c.call("GitSplitCancel", nil, nil); err != nil {
+		c.failed("GitSplitCancel", err)
+	}
 }
 
 func (c *Client) GitSuggestCommitMessage(files []string) (string, error) {
@@ -974,6 +997,14 @@ func (c *Client) ListTaskChips() []engine.TaskChip {
 	return out0
 }
 
+func (c *Client) ListTeams(desk string) []engine.TeamCard {
+	var out0 []engine.TeamCard
+	if err := c.call("ListTeams", []any{desk}, &out0); err != nil {
+		c.failed("ListTeams", err)
+	}
+	return out0
+}
+
 func (c *Client) ListTools() []engine.SkillInfo {
 	var out0 []engine.SkillInfo
 	if err := c.call("ListTools", nil, &out0); err != nil {
@@ -1074,6 +1105,12 @@ func (c *Client) NewChairSession(chair string) (string, error) {
 	return out0, err
 }
 
+func (c *Client) NewChairSessionAt(desk string, chair string, team string) (string, error) {
+	var out0 string
+	err := c.call("NewChairSessionAt", []any{desk, chair, team}, &out0)
+	return out0, err
+}
+
 func (c *Client) NewSession() (string, error) {
 	var out0 string
 	err := c.call("NewSession", nil, &out0)
@@ -1089,6 +1126,12 @@ func (c *Client) NewSessionAt(desk string) (string, error) {
 func (c *Client) NewSessionInSpace(name string) (string, error) {
 	var out0 string
 	err := c.call("NewSessionInSpace", []any{name}, &out0)
+	return out0, err
+}
+
+func (c *Client) NewTeamSession(desk string, team string) (string, error) {
+	var out0 string
+	err := c.call("NewTeamSession", []any{desk, team}, &out0)
 	return out0, err
 }
 
@@ -1415,6 +1458,10 @@ func (c *Client) RememberTTSVoice(id string) {
 	}
 }
 
+func (c *Client) RemoveAgentSkill(agent string, name string) error {
+	return c.call("RemoveAgentSkill", []any{agent, name}, nil)
+}
+
 func (c *Client) RemoveCustomProviderRow(id string) ([]string, error) {
 	var out0 []string
 	err := c.call("RemoveCustomProviderRow", []any{id}, &out0)
@@ -1634,6 +1681,10 @@ func (c *Client) SaveSubagentProfile(name string, body string) error {
 	return c.call("SaveSubagentProfile", []any{name, body}, nil)
 }
 
+func (c *Client) SaveTeam(name string, desk string, description string, members []string) error {
+	return c.call("SaveTeam", []any{name, desk, description, members}, nil)
+}
+
 func (c *Client) SearchAllSessions(query string) []engine.SessionMeta {
 	var out0 []engine.SessionMeta
 	if err := c.call("SearchAllSessions", []any{query}, &out0); err != nil {
@@ -1742,6 +1793,14 @@ func (c *Client) SessionSpend(id string) engine.SessionSpend {
 	return out0
 }
 
+func (c *Client) SessionTeam(id string) string {
+	var out0 string
+	if err := c.call("SessionTeam", []any{id}, &out0); err != nil {
+		c.failed("SessionTeam", err)
+	}
+	return out0
+}
+
 func (c *Client) SessionTranscript(id string) ([]engine.SessionMessage, error) {
 	var out0 []engine.SessionMessage
 	err := c.call("SessionTranscript", []any{id}, &out0)
@@ -1756,9 +1815,9 @@ func (c *Client) SessionsInSpace(name string) []engine.SessionMeta {
 	return out0
 }
 
-func (c *Client) SetAgentOff(name string, off bool) engine.DelegateSettings {
+func (c *Client) SetAgentOff(team string, name string, off bool) engine.DelegateSettings {
 	var out0 engine.DelegateSettings
-	if err := c.call("SetAgentOff", []any{name, off}, &out0); err != nil {
+	if err := c.call("SetAgentOff", []any{team, name, off}, &out0); err != nil {
 		c.failed("SetAgentOff", err)
 	}
 	return out0
@@ -2167,6 +2226,12 @@ func (c *Client) SwitchVariant(index int) (engine.RegenerateResult, error) {
 func (c *Client) SynthesizeHabit(sessionID string, hint string) (int64, error) {
 	var out0 int64
 	err := c.call("SynthesizeHabit", []any{sessionID, hint}, &out0)
+	return out0, err
+}
+
+func (c *Client) TeamsFolderPath() (string, error) {
+	var out0 string
+	err := c.call("TeamsFolderPath", nil, &out0)
 	return out0, err
 }
 

@@ -75,12 +75,29 @@ export interface Starter {
 }
 
 export interface StarterSet {
-  /** The question above the cards. It belongs to the set: "จะให้เราสร้างอะไรดี"
-   *  is the workshop asking, and ผู้ช่วย is not mainly asked to build. */
+  /** The question above the cards. It belongs to the set: "วันนี้จะพัฒนา
+   *  ส่วนไหนดี" is the workshop asking about a codebase that is already there,
+   *  and ผู้ช่วย offers a hand rather than a build. Both open with วันนี้ so
+   *  the two desks sound like one voice when the user switches (12 ก.ย. 2026;
+   *  before that the code desk asked "จะให้เราสร้างอะไรดี", which assumes an
+   *  empty folder the desk almost never opens on). */
   headlineKey: TKey
+  /** The same question with the user's name in it, for the desks that greet
+   *  a person — the name is the footer's (stores/profile). A set without one
+   *  asks the nameless question whoever is there: a project or a chair is
+   *  about the work, not about who walked in. */
+  headlineNamedKey?: TKey
   /** Every card the room could open with. NOT what is drawn — `dealStarters`
    *  hands the window four of these. A set may hold as many as it has. */
   starters: Starter[]
+}
+
+/** The set's question, addressed to `name` where the set has a form for
+ *  that and there is a name to put in it. */
+export function headlineFor(set: StarterSet, name: string, t: (key: TKey, vars?: Record<string, string>) => string): string {
+  const who = name.trim()
+  if (who && set.headlineNamedKey) return t(set.headlineNamedKey, { name: who })
+  return t(set.headlineKey)
 }
 
 /** Keyed by context id: a desk name, or 'project'. `chair` is what any office
@@ -88,6 +105,7 @@ export interface StarterSet {
 const SETS: Record<string, StarterSet> = {
   assistant: {
     headlineKey: 'start.assistant.headline',
+    headlineNamedKey: 'start.assistant.headlineNamed',
     starters: [
       { icon: 'search', titleKey: 'start.assistant.chartTitle', promptKey: 'start.assistant.chartPrompt' },
       { icon: 'monitor', titleKey: 'start.assistant.healthTitle', promptKey: 'start.assistant.healthPrompt' },
@@ -114,6 +132,7 @@ const SETS: Record<string, StarterSet> = {
 
   coding: {
     headlineKey: 'start.coding.headline',
+    headlineNamedKey: 'start.coding.headlineNamed',
     starters: [
       { icon: 'bandage', titleKey: 'start.coding.fixTitle', promptKey: 'start.coding.fixPrompt' },
       { icon: 'wrench', titleKey: 'start.coding.buildTitle', promptKey: 'start.coding.buildPrompt' },

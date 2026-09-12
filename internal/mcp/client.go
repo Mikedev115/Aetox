@@ -21,6 +21,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -142,6 +143,17 @@ type Client struct {
 	procCancel context.CancelFunc
 	procPID    int
 	toolCount  int // tools seen on the last successful Tools(); 0 until then
+	// toolChars is the size of those tools' definitions as the model receives
+	// them, so the room can say what a server costs per message before it is
+	// handed to anyone. Same measure as GetContextBreakdown (JSON of the
+	// definition, ~4 chars a token). 0 until the first Tools().
+	toolChars int
+	// toolList is every tool the server offered on that enumeration, by the
+	// name the allowlist (`tools:` in the config) matches against, with what
+	// each one's definition costs. The room's เครื่องมือ tab draws it as a list
+	// of checkboxes, so a person picks from what the server actually has instead
+	// of typing names into a box.
+	toolList []ToolCost
 	// droppedAt is when the last live session was found dead (see drop), and
 	// zero when the client has never lost one or has been Closed since.
 	droppedAt time.Time
@@ -317,6 +329,8 @@ func (c *Client) drop(session *mcpsdk.ClientSession, err error) {
 	c.status = StatusIdle
 	c.lastErr = fmt.Errorf("connection dropped: %w", err)
 	c.toolCount = 0
+	c.toolChars = 0
+	c.toolList = nil
 	// The backoff is for a session that ended BADLY — the server refusing the
 	// token, the process crashing — where the cause is likely still there.
 	// One that ended cleanly (the server retired an idle session, say) can be
@@ -357,6 +371,13 @@ func (c *Client) withSession(ctx context.Context, op func(*mcpsdk.ClientSession)
 	return op(session)
 }
 
+// ToolCost is one tool as the room lists it: the server's own name for it and
+// the tokens its definition costs on every message it is carried in.
+type ToolCost struct {
+	Name   string `json:"name"`
+	Tokens int    `json:"tokens"`
+}
+
 // Tools lists the server's tools, connecting lazily. On connect failure it
 // returns the error; callers treat that as "this server contributes no tools".
 func (c *Client) Tools(ctx context.Context) ([]*mcpsdk.Tool, error) {
@@ -374,10 +395,38 @@ func (c *Client) Tools(ctx context.Context) ([]*mcpsdk.Tool, error) {
 	if err != nil {
 		return nil, err
 	}
+	chars := 0
+	list := make([]ToolCost, 0, len(tools))
+	for _, t := range tools {
+		n := 0
+		if b, err := json.Marshal(newToolAdapter(c, t).ToolDefinition()); err == nil {
+			n = len(b)
+		}
+		chars += n
+		list = append(list, ToolCost{Name: t.Name, Tokens: (n + 3) / 4})
+	}
 	c.mu.Lock()
 	c.toolCount = len(tools)
+	c.toolChars = chars
+	c.toolList = list
 	c.mu.Unlock()
 	return tools, nil
+}
+
+// ToolList is what the server offered on the last successful Tools(), each
+// with its cost; nil until then, or after Close.
+func (c *Client) ToolList() []ToolCost {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]ToolCost(nil), c.toolList...)
+}
+
+// ToolTokens estimates what the server's tool block costs on every message,
+// from the last successful Tools() enumeration (0 until then, or after Close).
+func (c *Client) ToolTokens() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return (c.toolChars + 3) / 4
 }
 
 // ToolCount reports how many tools the server exposed on the last successful
@@ -496,6 +545,8 @@ func (c *Client) Close() error {
 	c.status = StatusIdle
 	c.lastErr = nil
 	c.toolCount = 0
+	c.toolChars = 0
+	c.toolList = nil
 	// A deliberate close is not a drop: the next call may connect at once.
 	// (The watcher this Close wakes finds c.session already nil and does
 	// nothing — drop only acts on the session it was given.)

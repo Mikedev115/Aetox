@@ -324,7 +324,7 @@ func main() {
 	agent := cognitive.NewAgent(cognitive.AgentConfig{
 		Provider:     bootstrapResult.Provider,
 		Model:        currentConfig.ModelName,
-		SystemPrompt: prompt.Build(prompt.SurfaceCLI, prompt.Scope{Root: cfg.SandboxRoot}),
+		SystemPrompt: prompt.Build(prompt.SurfaceCLI, prompt.Scope{Root: cfg.SandboxRoot, User: storedPreference.UserName}),
 		MaxChars:     bootstrap.ContextChars(currentConfig),
 	})
 
@@ -503,12 +503,18 @@ func switchProvider(ctx context.Context, cfg *config.Config) (app.ModelSwitchRes
 	if err := persistModelPreference(*cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: cannot save model preference: %v\n", err)
 	}
+	// The name the desktop's footer saved; the CLI has no field of its own
+	// for it and reads the shared preference file, like the model choice.
+	var userName string
+	if pref, _, err := config.LoadModelPreference(); err == nil {
+		userName = pref.UserName
+	}
 
 	return app.ModelSwitchResult{
 		Agent: cognitive.NewAgent(cognitive.AgentConfig{
 			Provider:     bootstrapResult.Provider,
 			Model:        cfg.ModelName,
-			SystemPrompt: prompt.Build(prompt.SurfaceCLI, prompt.Scope{Root: cfg.SandboxRoot}),
+			SystemPrompt: prompt.Build(prompt.SurfaceCLI, prompt.Scope{Root: cfg.SandboxRoot, User: userName}),
 			MaxChars:     bootstrap.ContextChars(*cfg),
 		}),
 		ModelStatus:        modelStatus,
@@ -563,6 +569,7 @@ func bootstrapModelWithStatus(cfg config.Config) (model.BootstrapResult, string)
 		BaseURL:          cfg.ModelBaseURL,
 		Timeout:          timeout,
 		TokenSource:      oauth.TokenSource(canonical),
+		TokenRefresh:     oauth.RefreshSource(canonical),
 		Headers:          oauth.Headers(canonical),
 		SignedInEndpoint: oauth.Endpoint(canonical),
 	})
