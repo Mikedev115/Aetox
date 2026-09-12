@@ -1073,6 +1073,14 @@ export interface CockpitState {
    *  and never moves, so this changes only when a different session is opened
    *  (COMPANY.md §6.3). */
   desk: string
+  /** The desk a door press is walking to, '' when none is. Set the moment
+   *  the press is made — before the queue (walkThroughDoor) reaches it — and
+   *  cleared when the latest press has landed, so the window can say where
+   *  it is going while the engine opens the session. A desk switch waits on
+   *  a bootstrap and then on git, and on a machine where git is slow that is
+   *  seconds of a button that looks dead (owner, 13 ก.ย. 2026: "กดกลับหน้า
+   *  ผู้ใช้ไม่ได้"). */
+  walkingTo: string
   /** The agent the open session talks to directly (§85), '' for the main
    *  assistant. Same lifecycle as desk: fixed at birth, read back, never
    *  remembered independently. */
@@ -1306,6 +1314,7 @@ export function emptyCockpitState(): CockpitState {
     openFiles: [],
     activeView: 'chat',
     desk: '',
+    walkingTo: '',
     chair: '',
     team: '',
     space: '',

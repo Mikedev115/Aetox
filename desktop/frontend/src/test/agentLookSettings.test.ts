@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import Settings from '../lib/Settings.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
-import { personas, savePersona, clearPersona, setAvatarPrefs, resetAvatarPrefs, PERSONA_SLOTS } from '../lib/mascot/avatarPrefs.svelte'
+import { personas, addPersona, clearPersonas, setAvatarPrefs, resetAvatarPrefs } from '../lib/mascot/avatarPrefs.svelte'
 import { SHELL, ACCENT } from '../lib/mascot/palette'
 import { FACE, TOP } from '../lib/mascot/parts'
 import {
@@ -41,7 +41,7 @@ beforeEach(() => {
   vi.unstubAllGlobals()
   localStorage.clear()
   resetAvatarPrefs()
-  for (let i = 0; i < PERSONA_SLOTS; i++) clearPersona(i)
+  clearPersonas()
   cockpit.settingsIntent = null
   vi.mocked(DelegateSwitches).mockRejectedValue(new Error('unavailable'))
   vi.mocked(ListMCPServers).mockResolvedValue([])
@@ -116,16 +116,17 @@ describe('the agent look editor', () => {
   })
 
   it('wears a saved persona in one press, and keeps the agent\'s own badge', async () => {
+    addPersona()
     setAvatarPrefs({ shell: 'dark', accent: 'gold', top: 'bar', face: 'focused' })
-    savePersona(1)
+    addPersona()
     expect(personas.slots[1]).toBeTruthy()
     const { container } = await openEditor()
     await fireEvent.click(rowCells(container, 'ไอคอนบนหู').find((b) => b.title === 'search')!)
-    // Six cards, one filled: the filled one wears the persona with THIS
-    // agent's badge, and its ใช้ button puts the four dials on the draft.
+    // A card per saved look, no empties: the second wears the persona with
+    // THIS agent's badge, and its ใช้ button puts the four dials on the draft.
     const slots = container.querySelectorAll('.ag-slot')
-    expect(slots.length).toBe(PERSONA_SLOTS)
-    expect(container.querySelectorAll('.ag-slot.empty').length).toBe(PERSONA_SLOTS - 1)
+    expect(slots.length).toBe(2)
+    expect(container.querySelectorAll('.ag-slot.empty').length).toBe(0)
     expect(slots[1].querySelector('.mascot .ms-earL .ms-badge')?.innerHTML).toContain('<circle cx="11" cy="11" r="8">')
     const use = screen.getByRole('button', { name: 'บุคลิก 2 — ใช้' })
     await fireEvent.click(use)
@@ -139,9 +140,10 @@ describe('the agent look editor', () => {
     expect(file).toContain('icon: search')
   })
 
-  it('shows the empty slots and where to fill one', async () => {
+  it('says when nothing is saved, and where to save one', async () => {
     const { container } = await openEditor()
-    expect(container.querySelectorAll('.ag-slot.empty').length).toBe(PERSONA_SLOTS)
+    expect(container.querySelectorAll('.ag-slot').length).toBe(1)
+    expect(container.querySelectorAll('.ag-slot.empty').length).toBe(1)
     expect(screen.getByText(/บันทึกและแก้บุคลิกได้ที่/)).toBeTruthy()
   })
 

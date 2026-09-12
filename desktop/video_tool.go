@@ -314,6 +314,18 @@ func (s *videoToolSkill) newProject(args map[string]any) (skill.Output, error) {
 		report += fmt.Sprintf(", เติมกรอบคอมโพสิชันให้ตามขนาดที่ฉากวาดไว้เอง ยาว %.4g วินาที", videoRootDuration(full))
 	}
 	report += ")\n" + videoProjectInventory(full)
+	if template == videoBlankTemplate {
+		// Said back on every blank start, because the two agents that chose it
+		// on 12 ก.ย. 2569 had not opened the shelf at all — and a tool result
+		// is the one thing a model reads every time. Not a refusal: blank is a
+		// real answer for a shape the shelf lacks. A reminder of what the shelf
+		// has, so choosing past it is a choice.
+		report += "\nเริ่มจากฉากเปล่า — คลังมีชุดที่คิดกรอบและจังหวะไว้แล้ว: แนวตั้ง 9:16 " +
+			"(vertical-title 4s, vertical-beats 8s, vertical-showcase 6s, vertical-stat 4s, vertical-outro 4s, bold-portrait-title), " +
+			"จัตุรัส (square-title, square-quad, square-stat, square-beats, square-outro), " +
+			"โปรโมตทั้งเรื่อง (product-launch-30s, product-showcase), overlay บนฟุตเทจ (lower-third-name, caption-bar, stat-strap)" +
+			"\nถ้ารูปงานตรงกับชุดไหน `video new <ชื่อ>` แล้วแก้คำจะได้จังหวะที่ผ่านตามาแล้ว — ถ้าไม่ตรงจริง ให้บอกผู้ใช้ว่าดูแถวไหนแล้วและทำไมไม่เข้า"
+	}
 	// The length, said out loud when it was not the caller's to choose.
 	//
 	// `seconds` reaches four of the fifty motion scenes — the ones whose author

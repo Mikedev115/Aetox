@@ -683,15 +683,19 @@
        business (§86): the workshop draws none of the office's, and vice versa. -->
   <nav class="desk-nav" aria-label={t('desk.navLabel')}>
     {#each rooms as entry (entry.id)}
+      {@const walking = entry.kind === 'desk' && cockpit.walkingTo === entry.id}
       <button
         type="button" class="desk-btn"
         class:active={navActive(entry)}
+        class:walking
         class:soon={entry.kind === 'soon'}
         disabled={entry.kind === 'soon'}
         title={entry.kind === 'soon' ? t('desk.soon') : (deskBlurbs[entry.id] || t(entry.blurbKey))}
         onclick={() => onNavClick(entry)}
       >
-        <span class="ic"><Icon name={entry.icon} size={15} /></span>
+        <!-- The same spinner the door wears (TopBar): the row and the door
+             are two views of one walk and must agree. -->
+        <span class="ic">{#if walking}<span class="walk-spin"><Icon name="loaderCircle" size={15} /></span>{:else}<Icon name={entry.icon} size={15} />{/if}</span>
         <span class="t">{t(entry.labelKey)}</span>
         {#if entry.id === 'capability' && toolCount > 0}<span class="room-count">{toolCount}</span>{/if}
         {#if entry.kind === 'soon'}<span class="soon-tag">{t('desk.soon')}</span>{/if}

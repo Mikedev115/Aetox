@@ -6,6 +6,7 @@ import {context} from '../models';
 import {capability} from '../models';
 import {update} from '../models';
 import {connect} from '../models';
+import {cliagent} from '../models';
 import {model} from '../models';
 import {skill} from '../models';
 import {mode} from '../models';
@@ -169,7 +170,13 @@ export function ClearProjectFocus():Promise<main.ProjectStatus>;
 
 export function CloseAllBrowserTabs():Promise<void>;
 
+export function CloseCompanionWindow():Promise<void>;
+
 export function CommandHistory():Promise<Array<string>>;
+
+export function CompanionSpriteKeys(arg1:string):Promise<Array<string>>;
+
+export function CompanionSprites(arg1:string,arg2:Array<main.CompanionFrame>):Promise<void>;
 
 export function CompleteAccountSignIn():Promise<main.AccountState>;
 
@@ -186,6 +193,8 @@ export function ConnectAccount(arg1:string,arg2:string,arg3:string,arg4:Array<st
 export function Connections():Promise<Array<connect.Status>>;
 
 export function ConsolidateMemory(arg1:string):Promise<main.MemoryConsolidation>;
+
+export function CopySkillToAgent(arg1:string,arg2:string):Promise<void>;
 
 export function CreatePullRequest(arg1:string,arg2:string,arg3:string,arg4:string,arg5:boolean):Promise<main.PRCreated>;
 
@@ -240,6 +249,8 @@ export function ExportAgentPackage(arg1:string):Promise<string>;
 export function ExportDeck(arg1:string,arg2:string):Promise<string>;
 
 export function ExportSession(arg1:string,arg2:string):Promise<string>;
+
+export function ExternalEngineStatus(arg1:string):Promise<cliagent.Status>;
 
 export function FetchAgentBrief(arg1:string):Promise<string>;
 
@@ -435,6 +446,8 @@ export function OpenAgentsFolder():Promise<void>;
 
 export function OpenArtifact(arg1:string):Promise<void>;
 
+export function OpenCompanionWindow(arg1:number,arg2:number,arg3:number):Promise<boolean>;
+
 export function OpenComputerApps():Promise<Array<main.ComputerAppRow>>;
 
 export function OpenExport(arg1:string):Promise<void>;
@@ -550,6 +563,8 @@ export function RegenerateReply(arg1:boolean):Promise<main.RegenerateResult>;
 export function RejectPendingChange(arg1:number):Promise<void>;
 
 export function RelativizePath(arg1:string):Promise<string>;
+
+export function RemoveAgentSkill(arg1:string,arg2:string):Promise<void>;
 
 export function RemoveCustomProvider(arg1:string):Promise<Array<string>>;
 
@@ -680,6 +695,8 @@ export function SetAgentOff(arg1:string,arg2:string,arg3:boolean):Promise<main.D
 export function SetAttentionSignal(arg1:string,arg2:boolean):Promise<Array<main.BusyLayer>>;
 
 export function SetBusyLayer(arg1:string,arg2:boolean):Promise<Array<main.BusyLayer>>;
+
+export function SetCompanionState(arg1:main.CompanionState):Promise<void>;
 
 export function SetComputerControlOn(arg1:boolean):Promise<void>;
 

@@ -203,6 +203,12 @@
               <div class="chair-who">
                 <AgentMascot name={c.name} {...lookOf(c)} size={38} />
                 <span class="chair-name">{c.name}</span>
+                <!-- On the head, not in the chips row (owner, 13 ก.ย. 2026:
+                     "แปะหัวด้วยชัดๆ อันไหนมากับแอป"): which faces came with
+                     the app and which the user hired is the first thing to
+                     know about a roster that mixes both, so it sits beside
+                     the name where the eye already is. -->
+                {#if c.builtin}<span class="chip builtin">{t('office.builtin')}</span>{/if}
               </div>
               <p class="chair-desc">{c.description}</p>
               <!-- Only facts that DIFFER between agents: an edited file, the

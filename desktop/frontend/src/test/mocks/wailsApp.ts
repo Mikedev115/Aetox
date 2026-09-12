@@ -206,6 +206,8 @@ export const SetDelegateOff = rejects()
 // The agent editor's เอื้อมถึงอะไร / ความรู้ / เปิดบทสนทนา panels. Empty by
 // default: a test that cares about one of them says so itself.
 export const AgentSkills = arr()
+export const CopySkillToAgent = noop()
+export const RemoveAgentSkill = noop()
 export const AgentNeeds = arr()
 // The veil over a teammate that cannot work (AgentLock.svelte). False by
 // default so every roster renders as a working one: a test that wants the

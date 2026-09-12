@@ -66,6 +66,29 @@ func (t *signedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			return nil, fmt.Errorf("%s sign-in: %w", t.provider, err)
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
+		resp, err := t.network.RoundTrip(req)
+		if err != nil || resp.StatusCode != http.StatusUnauthorized || req.GetBody == nil {
+			return resp, err
+		}
+		// The provider's 401 outranks the expiry the store recorded — the
+		// ChatGPT backend has answered token_expired to a token whose claim
+		// said a week remained. Renew once and send the same request again;
+		// this is the signer's job, not the wire client's, because on this
+		// path the wire client holds no token to renew (§248 A3). A renewal
+		// that fails leaves the original 401 to be reported: that one means
+		// sign in again.
+		token, rerr := oauth.Refresh(req.Context(), t.provider)
+		if rerr != nil {
+			return resp, nil
+		}
+		body, berr := req.GetBody()
+		if berr != nil {
+			return resp, nil
+		}
+		resp.Body.Close()
+		req = req.Clone(req.Context())
+		req.Body = body
+		req.Header.Set("Authorization", "Bearer "+token)
 		return t.network.RoundTrip(req)
 	}
 	if t.header != "" {

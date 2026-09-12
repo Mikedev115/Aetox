@@ -2842,6 +2842,14 @@ func (a *App) runTurn(conv *conversation, text, to string) (SessionMessage, Sess
 	if conv.pendingTask != "" {
 		return a.runAnswer(conv, ctx, text)
 	}
+	// A chat whose provider is served by a program on this machine is handed
+	// to that program here (cli_engine.go) — before the executor, because the
+	// program runs a loop of its own, and after the snapshot above, so undo
+	// covers the files it edits like anyone else's. Nothing is registered in
+	// this build, so the lookup misses and the turn goes on as it always has.
+	if engine, ok := cliEngineFor(conv.cfg.ModelProvider); ok {
+		return a.runCLIEngineTurn(conv, ctx, engine, text)
+	}
 	sent, images := a.visionAttachments(text)
 	sent, documents := a.documentAttachments(sent)
 	if len(conv.transcript) == 0 {
@@ -4322,6 +4330,7 @@ func probeProvider(canonical, modelName, baseURL, apiKey, wireFormat string) (st
 		Timeout:          15 * time.Second,
 		WireFormat:       wireFormat,
 		TokenSource:      oauth.TokenSource(canonical),
+		TokenRefresh:     oauth.RefreshSource(canonical),
 		Headers:          oauth.Headers(canonical),
 		SignedInEndpoint: oauth.Endpoint(canonical),
 	})
@@ -4439,6 +4448,13 @@ func (a *App) ProviderReady(providerName string) bool {
 	}
 	if canonical == "aetox" {
 		return true
+	}
+	// A provider served by an external program is ready when the program is
+	// found and signed in (cli_engine.go). Asked before the catalog's
+	// fallback-model check below, which would answer "yes" for it: a fallback
+	// model name says nothing about whether the program exists.
+	if engine, ok := cliEngineFor(canonical); ok {
+		return engine.Probe(a.engineCtx()).Ready
 	}
 	// The same judgement the rest of the app makes about a local runtime — can
 	// a model be got out of it — rather than a second definition of "up".
