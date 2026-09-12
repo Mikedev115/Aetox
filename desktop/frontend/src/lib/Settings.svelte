@@ -2485,9 +2485,14 @@
     mine: subagents.filter((a) => !a.builtin && chairNames.has(a.name)),
     builtin: subagents.filter((a) => a.builtin && chairNames.has(a.name)),
   })
+  // A helper has no "yours" pile: the bundled set is the whole set, and a
+  // file of yours over one of them is a shadow that stays in its place on the
+  // one list, wearing the ทับของแอป chip (12 ก.ย. 2026 — the helpers' door
+  // reopened for the model, the prompt and the look; profile.go
+  // limitHelperShadow is the limit).
   const helperRows = $derived({
-    mine: subagents.filter((a) => !a.builtin && !chairNames.has(a.name)),
-    builtin: subagents.filter((a) => a.builtin && !chairNames.has(a.name)),
+    mine: [] as SubagentRow[],
+    builtin: subagents.filter((a) => (a.builtin || a.overrides) && !chairNames.has(a.name)),
   })
   // Which profiles are agents — asked of ListChairs, the same answer the team
   // page draws, never re-derived from a file's fields here.
@@ -4564,6 +4569,19 @@
             </label>
           {/if}
         {/if}
+        <!-- The same cog the เอเจน card wears, opening the same editor through
+             the helper door — which shows only what a helper's owner may
+             change: the model and its ceiling (สมอง), the prompt and the
+             description (ตัวตน, name locked), the look (อวตาร). No reach tab:
+             the kit is the system's, and profile.go keeps it so whatever a
+             hand-edited file says. -->
+        <button
+          class="icobtn tiny tip-l" disabled={agentBusy !== ''}
+          aria-label={t('settings.agentConfigure')} data-tip={t('settings.agentConfigure')}
+          onclick={() => openAgent(a, 'helper')}
+        >
+          <Icon name="settings" size={14} />
+        </button>
       </div>
       <div class="d">{a.description || '—'}</div>
       <!-- A file that cannot run says why, where its owner will look — never a
@@ -4829,8 +4847,10 @@
     <p class="muted set-sub">{t('settings.agentsHint')}</p>
   {:else}
     <!-- The helpers are part of the system (owner's call, 2026-08-06): the
-         bundled set is the whole set, so this page reads — no create, no
-         editor, no model pin. One group, because "yours" cannot exist. -->
+         bundled set is the whole set, so there is no create here and "yours"
+         cannot exist as a pile. Since 12 ก.ย. 2026 each one opens in the editor
+         within limits (model, prompt, look) — a shadow file the owner may
+         revert — and stays in its place on this one list. -->
     <div class="group-head">
       <span class="group-title">{t('settings.subagentsBuiltin')}</span>
       <span class="group-count">{rows.builtin.length}</span>
