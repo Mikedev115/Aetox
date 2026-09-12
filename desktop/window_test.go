@@ -33,12 +33,13 @@ func TestFitWindow(t *testing.T) {
 }
 
 // The minimum is lowered to the fitted window and no further: it exists because
-// the cockpit's three columns stop making sense under it, so a screen with room
-// keeps it whole.
+// the chat column stops making sense under it, so a screen with room keeps it
+// whole. A work area shorter than the floor itself (a 540px one, since the
+// floor came down to 540 on 12 ก.ย.) is the case that has to lower it.
 func TestFitWindowLowersFloorOnlyAsFarAsNeeded(t *testing.T) {
-	width, height, _ := fitWindow(1280, 672)
-	if got := min(windowMinHeight, height); got != 672 {
-		t.Errorf("minimum height on a 672px work area = %d; want 672", got)
+	width, height, _ := fitWindow(1280, 500)
+	if got := min(windowMinHeight, height); got != 500 {
+		t.Errorf("minimum height on a 500px work area = %d; want 500", got)
 	}
 	if got := min(windowMinWidth, width); got != windowMinWidth {
 		t.Errorf("minimum width on a 1280px work area = %d; want %d (untouched)", got, windowMinWidth)

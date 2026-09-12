@@ -14,8 +14,17 @@ import (
 const (
 	windowWidth     = 1440
 	windowHeight    = 900
-	windowMinWidth  = 1100
-	windowMinHeight = 700
+	// Half a 1440x900 window, near enough, and the point of the numbers: the
+	// floor used to be 1100x700 on the reasoning that the cockpit's three
+	// columns stop making sense below it — which was true, and which made the
+	// window refuse to be dragged smaller than about two thirds of a laptop
+	// screen (owner, 12 ก.ย.: "เหมือนโดนล็อค ห่อให้ถึงครึ่งนึงก็ไม่ได้"). The
+	// columns now fold instead (frontend App.svelte, panelSize.foldPanels):
+	// the sidebar leaves first, the inspector after it, and the chat keeps
+	// its 360px floor with its composer folding its own row. The window
+	// floor only has to hold that single column plus the sidebar beside it.
+	windowMinWidth  = 720
+	windowMinHeight = 540
 )
 
 // fitToScreen shrinks the window until it fits the screen it opened on.
@@ -35,8 +44,8 @@ const (
 // The minimums move down with the window. SetSize clamps against them before it
 // does anything else, so leaving a 700px floor under a 672px work area would
 // put the window straight back where it was. They are only ever lowered to what
-// the screen allows: the floor exists because the cockpit's three columns stop
-// making sense below it, and nothing here decides it is not needed.
+// the screen allows: the floor exists because the chat column and its composer
+// stop making sense below it, and nothing here decides it is not needed.
 //
 // Only ever shrinks. On a monitor with room the window opens at the size the
 // app asked for rather than filled to the corners.
