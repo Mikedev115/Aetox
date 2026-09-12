@@ -114,7 +114,7 @@ func (a *App) OpenCompanionWindow(x, y int) bool {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		if c.store == nil {
-			return nil
+			return noSprites{}
 		}
 		return c.store
 	}

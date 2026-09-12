@@ -317,3 +317,18 @@ func TestComposerRescalesFramesUntilTheNewSetArrives(t *testing.T) {
 		t.Fatalf("at the frames' own scale they are drawn as they are: %+v", px)
 	}
 }
+
+// A body opened before any set is named draws nothing and does not fall
+// over: the brain names the set a moment later.
+func TestComposerDrawsNothingWithoutSprites(t *testing.T) {
+	c := newComposer(nil, fakeText{}, 1)
+	w, h := c.canvasSize()
+	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+	used := c.draw(dst, companionScene{Pose: "idle", Hover: true, Shown: "hi", Words: []string{"hi"}}, time.Unix(100, 0))
+	if used.Empty() {
+		// the bubble and frame still draw; only the figure is missing
+		t.Fatal("nothing at all was drawn")
+	}
+	c.setSprites(nil)
+	c.draw(dst, companionScene{Pose: "idle"}, time.Unix(101, 0))
+}

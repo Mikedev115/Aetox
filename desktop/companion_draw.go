@@ -95,6 +95,13 @@ type spriteSource interface {
 	frame(key string) *image.RGBA
 }
 
+// noSprites is a source with nothing in it — what the body draws from until
+// the window has named a set. A nil interface here once took the whole
+// process down on the body's first frame (13 ก.ย. 2026).
+type noSprites struct{}
+
+func (noSprites) frame(string) *image.RGBA { return nil }
+
 // textPainter draws and measures text at a pixel size.
 type textPainter interface {
 	// width of s in pixels at fontPx.
@@ -229,7 +236,18 @@ func newComposer(sprites spriteSource, text textPainter, scale float64) *compose
 	if scale <= 0 {
 		scale = 1
 	}
+	if sprites == nil {
+		sprites = noSprites{}
+	}
 	return &composer{sprites: sprites, text: text, scale: scale}
+}
+
+// setSprites swaps the source; nil means none.
+func (c *composer) setSprites(s spriteSource) {
+	if s == nil {
+		s = noSprites{}
+	}
+	c.sprites = s
 }
 
 func (c *composer) px(logical float64) int { return int(math.Round(logical * c.scale)) }
