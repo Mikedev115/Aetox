@@ -33,7 +33,19 @@ change the words, the numbers and the colours. What you get for free there is
 timing somebody rendered and watched, which is the one property markup cannot
 show you. Where none of them is the shape, `video new blank` is the renderer's
 own empty composition, and the rules below are then yours to keep rather than
-inherited. Neither of those is the safe answer and neither needs defending.
+inherited.
+
+**The shelf is the first stop, before any other skill.** Open `video-templates`
+before you open anything of the renderer's own, and before you write a line of
+markup. For a portrait short the vertical set is the starting point — title,
+beats, showcase, stat, outro, built with the platform's safe areas already
+measured — and for a square feed card the square set is; `product-launch-30s`
+is a whole promo. `blank` is for a shape none of the seventy-five has, and when
+you choose it, say in your reply which rows you looked at and why none of them
+fit. Twice on 12 ก.ย. 2569 an agent asked for a 15-second vertical promo read a
+dozen of the renderer's documents, never opened this shelf, started from `blank`
+and wrote the whole thing by hand — and the person who had prepared those
+scenes asked, fairly, what they were for.
 
 The survey is not free either. The tables are seventy-five rows, and reading them
 costs a round you could have spent asking the user what the piece actually is.
@@ -116,10 +128,36 @@ meet all four:
   half that fetches a stock track from somebody's API is the half you cannot
   reach. When one of them tells you to run a script, say which script and what
   it wanted, and solve the same problem with the tools you do have.
+- **Their process.** `intent-interview.md`, `pitch-round.md`, `route-briefs.md`,
+  `routes/*.md`, `workflow-catalog.md`, `capability-menu.md`, `skill-lifecycle.md`
+  and `review-loop.md` describe a workflow *product*: an eight-step intake
+  interview, a "pitch round" of five concepts, a wireframe pass rendered to
+  video and reviewed on a board, one question per field, and the word
+  "mandatory" on most of it. That is how their tool is meant to be driven from a
+  terminal. It is not how this office works, and none of it is mandatory here.
+  The user's message is the brief. Ask only what would change the work — for a
+  short piece that is usually the platform and the length, and often nothing —
+  then make the thing. Do not run an interview, do not offer five concepts
+  unless asked for options, and never render a wireframe or a sketch pass as a
+  video: a render is minutes of somebody's machine, and a wireframe is a video
+  with the one thing they wanted to see taken out. On 12 ก.ย. 2569 an agent
+  read those files, ran the interview, asked the board question, took "yes" as
+  an order to render four still frames, and was asked where the animation had
+  gone. It had followed the wrong author.
 
 When a skill of theirs and this brief disagree about *how the format works*,
-they are right. When they disagree about *how to reach the machine*, this brief
-is right.
+they are right. When they disagree about *how to reach the machine* or *how to
+work with the person in front of you*, this brief is right.
+
+## A storyboard is a table, not a render
+
+When the user asks to see the storyboard, the plan, or the sketches first,
+give them that in the reply: one row per scene — seconds, what is on screen,
+what moves, what it says — and the total. That is the thing they can correct,
+and it costs one message. If they want to *see* a scene before the render,
+`video check` opens the project and reports it in seconds, and a single still
+can be shown from the project folder. Approval of a storyboard is not a
+request for a wireframe video; it is a request for the real one.
 
 ## Motion is CSS keyframes, and the clock is not real
 

@@ -133,19 +133,27 @@ func OwnSkills(name string) ([]skill.DiscoveredSkill, []error) {
 		return nil, []error{err} // an unusable name; Load would already have refused it
 	}
 	own, errs := skill.ScopedSkills([]string{home})
-	// The user's folder first, then what ships with the worker — the same shape
-	// the profile resolver uses for AGENT.md, where editing a shipped worker
-	// means copying it out rather than fighting the app.
-	out := make([]skill.DiscoveredSkill, 0, len(own))
+	// The user's folder WINS a name — the same shape the profile resolver uses
+	// for AGENT.md, where editing a shipped worker means copying it out rather
+	// than fighting the app — but what ships with the worker is LISTED first.
+	//
+	// Order is what skills_list reads out, and the model reads a list from the
+	// top. The video worker ships one skill, its scene library, and the owner
+	// dropped the renderer's own twenty skills into the worker's folder; listed
+	// user-first, the library was the twenty-first line, and on 12 ก.ย. 2569 the
+	// agent read a dozen of the twenty and never opened it. Who wins a name and
+	// who is read first are two different questions, and only the first one
+	// belongs to the user's folder.
+	//
+	// Folded, unlike the first version of this line. The shared shelf's
+	// override match is case-insensitive (bundled_skills.go) and this one was
+	// not, so `Tax-Invoice` in a worker's folder shadowed nothing and shipped
+	// a second copy of the skill beside the one it meant to replace.
 	written := make(map[string]bool, len(own))
 	for _, s := range own {
-		out = append(out, s)
-		// Folded, unlike the first version of this line. The shared shelf's
-		// override match is case-insensitive (bundled_skills.go) and this one was
-		// not, so `Tax-Invoice` in a worker's folder shadowed nothing and shipped
-		// a second copy of the skill beside the one it meant to replace.
 		written[strings.ToLower(s.Name)] = true
 	}
+	out := make([]skill.DiscoveredSkill, 0, len(own))
 	shipped, shippedErrs := skill.EmbeddedSkills(bundledProfiles, bundledSkillsDir(name))
 	for _, s := range shipped {
 		if written[strings.ToLower(s.Name)] {
@@ -154,6 +162,7 @@ func OwnSkills(name string) ([]skill.DiscoveredSkill, []error) {
 		out = append(out, s)
 		written[strings.ToLower(s.Name)] = true
 	}
+	out = append(out, own...)
 	// Third and last: knowledge that arrived as a pinned download. Last because
 	// the first two are ours and the user's, and a folder fetched off the
 	// network must not be able to answer to a name either of them already uses.

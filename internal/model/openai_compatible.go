@@ -151,6 +151,8 @@ type OpenAICompatibleConfig struct {
 	// provider built at startup would otherwise be holding a dead one an hour
 	// into the session. Nil is the API-key path, unchanged.
 	TokenSource func(context.Context) (string, error)
+	// TokenRefresh is the one retry a 401 gets — see ProviderOptions.
+	TokenRefresh func(context.Context) (string, error)
 	// Headers are extra headers this provider's credentials require (Copilot
 	// refuses requests that do not identify an editor client).
 	Headers map[string]string
@@ -166,8 +168,10 @@ type OpenAICompatibleProvider struct {
 	baseURL     string
 	reasoning   bool
 	tokenSource func(context.Context) (string, error)
-	headers     map[string]string
-	httpClient  *http.Client
+	// tokenRefresh is nil on the key path; see resendAfterRefresh.
+	tokenRefresh func(context.Context) (string, error)
+	headers      map[string]string
+	httpClient   *http.Client
 	// sessionHeader is the name this provider wants a conversation id under
 	// (provider.Spec.SessionHeader), empty for the rows that ask for none;
 	// sessionID is the id itself, minted once — see newConversationID.
@@ -216,14 +220,15 @@ func NewOpenAICompatibleProvider(cfg OpenAICompatibleConfig) (*OpenAICompatibleP
 	}
 
 	return &OpenAICompatibleProvider{
-		provider:    provider,
-		model:       model,
-		apiKey:      apiKey,
-		baseURL:     baseURL,
-		reasoning:   supportsNativeReasoning(provider),
-		tokenSource: cfg.TokenSource,
-		headers:     cfg.Headers,
-		httpClient:  newModelHTTPClient(timeout, baseURL, cfg.Transport),
+		provider:     provider,
+		model:        model,
+		apiKey:       apiKey,
+		baseURL:      baseURL,
+		reasoning:    supportsNativeReasoning(provider),
+		tokenSource:  cfg.TokenSource,
+		tokenRefresh: cfg.TokenRefresh,
+		headers:      cfg.Headers,
+		httpClient:   newModelHTTPClient(timeout, baseURL, cfg.Transport),
 
 		sessionHeader: sessionHeader,
 		sessionID:     sessionID,
@@ -284,6 +289,26 @@ func (p *OpenAICompatibleProvider) applyAuth(ctx context.Context, req *http.Requ
 		req.Header.Set("Authorization", "Bearer "+p.apiKey)
 	}
 	return nil
+}
+
+// resendAfterRefresh is the one retry a 401 gets on a signed-in provider:
+// renew the token whatever the store thought of its expiry (oauth.Refresh —
+// the provider's 401 outranks the recorded claim) and send the same request
+// again, which applyAuth signs with the renewed token. Any other status, the
+// key path, or a renewal that fails hands the original response back
+// untouched — that 401 then really does mean "sign in again".
+//
+// Runs before the refusal retries, and independently of them: a token that
+// died is not a fact about the model.
+func (p *OpenAICompatibleProvider) resendAfterRefresh(ctx context.Context, resp *http.Response, send func() (*http.Response, error)) (*http.Response, error) {
+	if resp.StatusCode != http.StatusUnauthorized || p.tokenRefresh == nil {
+		return resp, nil
+	}
+	if _, err := p.tokenRefresh(ctx); err != nil {
+		return resp, nil
+	}
+	resp.Body.Close()
+	return send()
 }
 
 // statusError turns a rejected request into something the user can act on.
@@ -599,6 +624,9 @@ func (p *OpenAICompatibleProvider) Complete(ctx context.Context, req Request) (R
 	if err != nil {
 		return Response{}, err
 	}
+	if httpResp, err = p.resendAfterRefresh(ctx, httpResp, send); err != nil {
+		return Response{}, err
+	}
 	responseBody, err := io.ReadAll(httpResp.Body)
 	httpResp.Body.Close()
 	if err != nil {
@@ -839,6 +867,9 @@ func (p *OpenAICompatibleProvider) StreamComplete(ctx context.Context, req Reque
 	}
 	httpResp, err := send()
 	if err != nil {
+		return Response{}, err
+	}
+	if httpResp, err = p.resendAfterRefresh(ctx, httpResp, send); err != nil {
 		return Response{}, err
 	}
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {

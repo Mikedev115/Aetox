@@ -15,10 +15,11 @@ type BootstrapOptions struct {
 	BaseURL    string
 	Timeout    time.Duration
 	WireFormat string
-	// Transport, TokenSource, Headers and SignedInEndpoint pass straight
-	// through to ProviderOptions — see the fields there.
+	// Transport, TokenSource, TokenRefresh, Headers and SignedInEndpoint pass
+	// straight through to ProviderOptions — see the fields there.
 	Transport        Transport
 	TokenSource      func(context.Context) (string, error)
+	TokenRefresh     func(context.Context) (string, error)
 	Headers          map[string]string
 	SignedInEndpoint string
 	// Locale reaches exactly one provider — Aetox's own built-in one, which
@@ -44,6 +45,7 @@ func BootstrapProvider(opts BootstrapOptions) BootstrapResult {
 		Locale:           opts.Locale,
 		Transport:        opts.Transport,
 		TokenSource:      opts.TokenSource,
+		TokenRefresh:     opts.TokenRefresh,
 		Headers:          opts.Headers,
 		SignedInEndpoint: opts.SignedInEndpoint,
 	})

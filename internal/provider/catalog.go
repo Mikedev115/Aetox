@@ -32,6 +32,17 @@ const (
 	// what a ChatGPT subscription speaks and the only thing that endpoint
 	// serves.
 	RuntimeResponses Runtime = "responses"
+	// RuntimeExternalCLI is not a wire format at all: a row on it is answered
+	// by an agent program already installed on the user's machine, which runs
+	// its own loop with its own tools and its own sign-in, while Aetox is the
+	// window on it (internal/cliagent). internal/model builds only a
+	// placeholder for such a row — the desktop hands the turn to the engine
+	// before the engine's own executor is reached.
+	//
+	// No row uses it yet. The runtime exists so that adding one is adding a
+	// catalog entry and an engine file, with nothing in the turn path, the
+	// timeline or the settings page left to find.
+	RuntimeExternalCLI Runtime = "external-cli"
 )
 
 // ModelDefaults holds the static fallback model names for a provider.
