@@ -160,6 +160,15 @@ const seedRestrictedSignIn = () => seedSignIn(
   { provider: 'example-restricted', url: 'https://example.test/authorize' },
 )
 
+// An agent's editor is reached from the roster page's gear (12 ก.ย., §256) —
+// it arrives here as an intent, so these tests open it the way the roster does.
+const openAgentEditor = async (name: string) => {
+  cockpit.settingsIntent = { section: 'team', agent: name }
+  const r = render(Settings, { onClose: () => {} })
+  await waitFor(() => expect(r.container.querySelector('.ag-body')).toBeTruthy())
+  return r
+}
+
 const openSection = async (container: HTMLElement, label: string) => {
   // Exact label first, substring only as a fallback: "สกิล" (Skills) is a
   // substring of "ปรับสกิลอัตโนมัติ" (Skill tuning), so a bare includes() would
@@ -846,49 +855,31 @@ describe('Settings pages', () => {
   // where you work with them (chat, job history), this is where you configure
   // them. Both pages are drawn from one markup (profileListPane), so the two
   // lists cannot drift into two different ideas of what a profile row is.
-  it('gives agents their own settings page, without the helpers on it', async () => {
-    vi.mocked(ListSubagentProfiles).mockResolvedValue([
-      { name: 'deck', description: 'ทำสไลด์', prompt: 'role', builtin: true, desk: 'specialized' },
-      { name: 'explore', description: 'ค้นไฟล์', prompt: 'role', builtin: true },
-    ] as any)
-    vi.mocked(ListChairs).mockResolvedValue([{ name: 'deck' }] as any)
-
+  //
+  // Since 12 ก.ย. (§256) the agents' LIST is not on this page at all — the
+  // people are on the roster page, teams and their switches are in ทีมเอเจน —
+  // so what is pinned is the absence: no เอเจน row in the nav, and the 'team'
+  // section without an editor points at the roster instead of drawing one.
+  it('has no agent list of its own, and points at the roster page instead', async () => {
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เอเจน')
-
-    await waitFor(() => expect(screen.getByText('ทำสไลด์')).toBeTruthy())
-    expect(screen.queryByText('ค้นไฟล์')).toBeNull()
-    // Stays inside Settings — this row is a section, not a link out.
-    expect(cockpit.activeView).not.toBe('office')
+    const labels = Array.from(container.querySelectorAll('.settings-nav-item')).map((el) => el.textContent?.trim())
+    expect(labels).not.toContain('เอเจน')
+    expect(labels).toContain('ทีมเอเจน')
+    expect(labels).toContain('ซับเอเจน')
+    cockpit.settingsIntent = { section: 'team', agent: 'no-such-agent' }
+    render(Settings, { onClose: () => {} })
+    await waitFor(() => expect(screen.getByText(/รายชื่อเอเจนอยู่ที่หน้าเอเจนเฉพาะทาง/)).toBeTruthy())
   })
 
-  // Moved here from the office page on 31 ส.ค. On a card the switch read as
-  // "this agent is disabled" beside an agent whose chat opens normally, so the
-  // roster kept the state (as a band heading) and gave up the control. This is
-  // the page the gear on every card already opens, and now the only place the
-  // per-agent switch is drawn — so this is where its wiring is pinned.
-  it('hands the agent switch straight to the delegation setting', async () => {
-    vi.mocked(ListSubagentProfiles).mockResolvedValue([
-      { name: 'deck', description: 'ทำสไลด์', prompt: 'role', builtin: true, desk: 'specialized' },
-    ] as any)
-    vi.mocked(ListChairs).mockResolvedValue([{ name: 'deck' }] as any)
-    // `tokens` is what the page's header sentence counts; a fixture without it
-    // renders the roster fine and then throws on the line above it.
-    const switches = (on: boolean) => ({
-      agents: { off: false, tokens: 0, workers: [{ name: 'deck', on }] },
-      helpers: { off: false, tokens: 0, workers: [] },
-      tokens: 0,
-    })
-    vi.mocked(DelegateSwitches).mockResolvedValue(switches(true) as any)
-    vi.mocked(SetAgentOff).mockResolvedValue(switches(false) as any)
-
+  // Closing an agent's editor walks back to the roster page it was opened
+  // from — there is no list here to land on.
+  it('closing the agent editor returns to the roster page', async () => {
+    cockpit.settingsIntent = { section: 'team', agent: 'deck' }
+    cockpit.activeView = 'settings'
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เอเจน')
-
-    const sw = await screen.findByLabelText('มอบงานให้')
-    await fireEvent.change(sw, { target: { checked: false } })
-
-    await waitFor(() => expect(vi.mocked(SetAgentOff)).toHaveBeenCalledWith('', 'deck', true))
+    await waitFor(() => expect(container.querySelector('.ag-body')).toBeTruthy())
+    await fireEvent.click(screen.getByText('กลับไปหน้ารวม'))
+    await waitFor(() => expect(cockpit.activeView).toBe('office'))
   })
 
   // The handshake with the team page. Both halves were tested apart — Office
@@ -1044,23 +1035,6 @@ describe('Settings pages', () => {
     expect(vi.mocked(SaveAgentProfile).mock.calls.length).toBe(agentSaves)
   })
 
-  // A pinned model is a fact about the agent on the list, and a control only in
-  // the editor. It was a dropdown on every entry until 31 ส.ค., which put the
-  // same 172px of grey down the whole column and made the one agent that IS
-  // pinned indistinguishable from the ones that merely inherit — the exception
-  // and the rule drawn identically. Inheriting says nothing now; a pin says its
-  // own name.
-  it('names a pinned model on the card and pins nothing from the list', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เอเจน')
-
-    await waitFor(() => expect(container.querySelectorAll('.chair-card.agc').length).toBe(3))
-    // backend is pinned — to a provider and a model, read as one chip.
-    expect(screen.getByText('deepseek · deepseek-v4')).toBeTruthy()
-    // One chip on one card, not a control on all three.
-    expect(container.querySelectorAll('.chair-card.agc select').length).toBe(0)
-  })
-
   // The provider is picked before the model (owner, 12 ก.ย.: "ควรเลือกได้แม้แต่
   // ผู้ให้บริการ และเลือกโมเดลได้ ทั้งเอเจนและซับเอเจน"): the list is exactly
   // การตั้งค่าโมเดล's — the catalogue's providers the user switched on, in the
@@ -1108,13 +1082,7 @@ describe('Settings pages', () => {
 
   it('editing a built-in agent splits its real file into fields and says what saving does', async () => {
     withPickableTools()
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เอเจน')
-    await waitFor(() => expect(screen.getAllByLabelText('ตั้งค่า').length).toBe(3))
-
-    // The built-in group's first row (deck) — index 2 overall: yours come first.
-    await fireEvent.click(screen.getAllByLabelText('ตั้งค่า')[2])
-    await waitFor(() => expect(container.querySelector('.ag-body')).toBeTruthy())
+    const { container } = await openAgentEditor('deck')
 
     // ReadSubagentProfile's mock is '---\ndescription: ค้นไฟล์\ntools: grep, read\n---\nYou search files.'
     // — the frontmatter must land in its own fields, not sit in the role box
@@ -1147,11 +1115,7 @@ describe('Settings pages', () => {
     vi.mocked(ReadSubagentProfile).mockResolvedValue(
       '---\ndescription: ดูแล GitHub\ntools: read\nneeds: connection:github, mcp:github\ndesk: specialized\n---\nYou mind the repo.' as any,
     )
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เอเจน')
-    await waitFor(() => expect(screen.getAllByLabelText('ตั้งค่า').length).toBe(3))
-    await fireEvent.click(screen.getAllByLabelText('ตั้งค่า')[2])
-    await waitFor(() => expect(container.querySelector('.ag-body')).toBeTruthy())
+    const { container } = await openAgentEditor('deck')
 
     await fireEvent.click(screen.getByText('บันทึก'))
     await waitFor(() => expect(vi.mocked(SaveAgentProfile)).toHaveBeenCalled())
@@ -1176,10 +1140,7 @@ describe('Settings pages', () => {
       { name: 'invoice', description: 'ใบกำกับภาษีต้องมีอะไรบ้าง', bundled: false },
       { name: 'payroll', description: 'โครงไฟล์เงินเดือน', bundled: true },
     ] as any)
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เอเจน')
-    await waitFor(() => expect(screen.getAllByLabelText('ตั้งค่า').length).toBe(3))
-    await fireEvent.click(screen.getAllByLabelText('ตั้งค่า')[2]) // deck
+    const { container } = await openAgentEditor('deck')
 
     // The skills box reads its own folder, and says which one shipped — that is
     // the fact that decides whether the user's file can replace it.
@@ -1212,10 +1173,7 @@ describe('Settings pages', () => {
         options: [{ kind: 'connection', id: 'github', label: 'GitHub', reason: 'unconnected' }],
       },
     ] as any)
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เอเจน')
-    await waitFor(() => expect(screen.getAllByLabelText('ตั้งค่า').length).toBe(3))
-    await fireEvent.click(screen.getAllByLabelText('ตั้งค่า')[2])
+    const { container } = await openAgentEditor('deck')
 
     await waitFor(() => expect(screen.getByText('GitHub')).toBeTruthy())
     // The reason in the user's language, not the code the engine passes.
@@ -1266,10 +1224,7 @@ describe('Settings pages', () => {
         options: [{ kind: 'mcp', id: 'firecrawl', label: 'firecrawl', reason: 'missing' }],
       },
     ] as any)
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เอเจน')
-    await waitFor(() => expect(screen.getAllByLabelText('ตั้งค่า').length).toBe(3))
-    await fireEvent.click(screen.getAllByLabelText('ตั้งค่า')[2])
+    const { container } = await openAgentEditor('deck')
 
     await waitFor(() => expect(screen.getByText(/ติดตั้งให้เลย/)).toBeTruthy())
     await fireEvent.click(screen.getByText(/ติดตั้งให้เลย/))
@@ -1304,10 +1259,7 @@ describe('Settings pages', () => {
         options: [{ kind: 'mcp', id: 'windmill', label: 'windmill', reason: 'missing' }],
       },
     ] as any)
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เอเจน')
-    await waitFor(() => expect(screen.getAllByLabelText('ตั้งค่า').length).toBe(3))
-    await fireEvent.click(screen.getAllByLabelText('ตั้งค่า')[2])
+    const { container } = await openAgentEditor('deck')
 
     await waitFor(() => expect(screen.getByText(/ไปเปิดเซิร์ฟเวอร์/)).toBeTruthy())
     expect(screen.queryByText(/ติดตั้งให้เลย/)).toBeNull()
@@ -1330,10 +1282,7 @@ describe('Settings pages', () => {
         ],
       },
     ] as any)
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เอเจน')
-    await waitFor(() => expect(screen.getAllByLabelText('ตั้งค่า').length).toBe(3))
-    await fireEvent.click(screen.getAllByLabelText('ตั้งค่า')[2])
+    const { container } = await openAgentEditor('deck')
 
     await waitFor(() => expect(container.textContent).toContain('มีอย่างใดอย่างหนึ่งก็พอ'))
     // Both ways of answering it, each with its own state and its own door.
@@ -1359,10 +1308,7 @@ describe('Settings pages', () => {
         ],
       },
     ] as any)
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เอเจน')
-    await waitFor(() => expect(screen.getAllByLabelText('ตั้งค่า').length).toBe(3))
-    await fireEvent.click(screen.getAllByLabelText('ตั้งค่า')[2])
+    const { container } = await openAgentEditor('deck')
 
     await waitFor(() => expect(container.querySelector('.ag-need.met')).toBeTruthy())
     expect(container.querySelectorAll('.ag-need-dot.on').length).toBe(1)
@@ -1374,10 +1320,7 @@ describe('Settings pages', () => {
   // writes has to be what the chat window would have read from a hand-edit.
   it('edits the opening cards and writes them back as the agent’s own file', async () => {
     vi.mocked(ChairStarters).mockResolvedValue({ headline: 'ถามอะไรดี?', cards: [] } as any)
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เอเจน')
-    await waitFor(() => expect(screen.getAllByLabelText('ตั้งค่า').length).toBe(3))
-    await fireEvent.click(screen.getAllByLabelText('ตั้งค่า')[2]) // deck
+    const { container } = await openAgentEditor('deck')
 
     // Four rows to begin with — the floor, because a pool below a full hand
     // deals a widow into the 2-column grid. It is a floor now, not a ceiling.
@@ -1410,10 +1353,7 @@ describe('Settings pages', () => {
   // a user could never give a hired agent a fifth card.
   it('grows the opening past the four the grid draws', async () => {
     vi.mocked(ChairStarters).mockResolvedValue({ headline: 'ถามอะไรดี?', cards: [] } as any)
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เอเจน')
-    await waitFor(() => expect(screen.getAllByLabelText('ตั้งค่า').length).toBe(3))
-    await fireEvent.click(screen.getAllByLabelText('ตั้งค่า')[2]) // deck
+    const { container } = await openAgentEditor('deck')
 
     await waitFor(() => expect(container.querySelectorAll('.ag-starter').length).toBe(4))
     await fireEvent.click(container.querySelector('.ag-starter-add')!)
@@ -1434,17 +1374,14 @@ describe('Settings pages', () => {
   // box has to show when it opens — the field used to say "24" over a file that
   // said nothing. Unticking is how a cap gets asked for, and only a number in
   // the box may become one.
-  const openStepsField = async (container: HTMLElement) => {
-    await openSection(container, 'เอเจน')
-    await waitFor(() => expect(screen.getAllByLabelText('ตั้งค่า').length).toBe(3))
-    await fireEvent.click(screen.getAllByLabelText('ตั้งค่า')[2])
+  const openStepsField = async () => {
+    const { container } = await openAgentEditor('deck')
     await waitFor(() => expect(container.querySelector('.ag-steprow')).toBeTruthy())
-    return container.querySelector('.ag-steps') as HTMLInputElement
+    return { container, box: container.querySelector('.ag-steps') as HTMLInputElement }
   }
 
   it('opens with no loop cap, and says so in the file as a word', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    const box = await openStepsField(container)
+    const { container, box } = await openStepsField()
     // The mocked profile names no `steps:`, so unlimited is what it already is.
     expect(box.disabled).toBe(true)
     expect((container.querySelector('.ag-check input') as HTMLInputElement).checked).toBe(true)
@@ -1455,8 +1392,7 @@ describe('Settings pages', () => {
   })
 
   it('unticking hands the box back so a cap can be typed', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openStepsField(container)
+    const { container } = await openStepsField()
 
     await fireEvent.click(container.querySelector('.ag-check input')!)
     const box = await waitFor(() => {
@@ -1476,21 +1412,15 @@ describe('Settings pages', () => {
   // Deleting a shadow restores the bundled profile, so the button must not say
   // "delete" — the row is not going away.
   it('a shadow offers to revert, not to delete', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เอเจน')
-    await waitFor(() => expect(screen.getAllByLabelText('ตั้งค่า').length).toBe(3))
-
-    await fireEvent.click(screen.getAllByLabelText('ตั้งค่า')[1]) // mine-deck, the shadow
+    const { container } = await openAgentEditor('mine-deck')
     await waitFor(() => expect(screen.getByText('คืนค่าของแอป')).toBeTruthy())
     expect(screen.queryByText('ลบ')).toBeNull()
   })
 
   it('a new agent opens with guidance in the role field, not a raw frontmatter skeleton', async () => {
+    cockpit.settingsIntent = { section: 'team', createAgent: true }
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เอเจน')
-    await waitFor(() => expect(screen.getByText('เพิ่มเอเจนเฉพาะทาง')).toBeTruthy())
-
-    await fireEvent.click(screen.getByText('เพิ่มเอเจนเฉพาะทาง'))
+    await waitFor(() => expect(container.querySelector('.ag-body')).toBeTruthy())
     // Frontmatter is fields now, so a new agent has none of it to see or
     // mistype — the role box only ever holds guidance on what to write.
     const body = container.querySelector('.ag-body') as HTMLTextAreaElement
@@ -2934,7 +2864,7 @@ describe('Settings › ทีมเอเจน', () => {
     const { container } = render(Settings, { onClose: () => {} })
     const labels = Array.from(container.querySelectorAll('.settings-nav-item')).map((el) => el.textContent?.trim())
     const model = labels.indexOf('การตั้งค่าโมเดล')
-    expect(labels.slice(model, model + 4)).toEqual(['การตั้งค่าโมเดล', 'เอเจน', 'ซับเอเจน', 'ทีมเอเจน'])
+    expect(labels.slice(model, model + 3)).toEqual(['การตั้งค่าโมเดล', 'ซับเอเจน', 'ทีมเอเจน'])
     await openSection(container, 'ทีมเอเจน')
     await waitFor(() => expect(screen.getByText('ทีมเอเจน', { selector: 'h2' })).toBeTruthy())
     expect(screen.getByText('สร้างทีม')).toBeTruthy()

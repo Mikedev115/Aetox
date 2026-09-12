@@ -3062,8 +3062,20 @@
     agentSnapshot = agentDraftKey()
   }
 
+  // Leaving the editor. An AGENT's editor is reached from the roster page
+  // alone since 12 ก.ย. (there is no ตั้งค่า › เอเจน list any more — "คนอยู่
+  // หน้าแรก ทีมอยู่ตั้งค่า"), so closing it walks back there rather than
+  // onto a page that no longer exists; a ซับเอเจน's editor closes onto its
+  // own list as it always did.
+  function leaveAgentEditor() {
+    agentEditing = null
+    if (agentEditKind === 'agent') {
+      setShell('assistant')
+      setActiveView('office')
+    }
+  }
   const closeAgentEditor = () =>
-    guardUnsaved(agentDraftKey() !== agentSnapshot, () => { agentEditing = null })
+    guardUnsaved(agentDraftKey() !== agentSnapshot, leaveAgentEditor)
 
   const saveAgent = () => runAgent('save', async () => {
     const body = serializeAgentFile({
@@ -3089,7 +3101,7 @@
     if (agentEditKind === 'agent') await SaveAgentProfile(agentDraftName.trim(), body)
     else await SaveSubagentProfile(agentDraftName.trim(), body)
     await loadAgents()
-    agentEditing = null
+    leaveAgentEditor()
   })
 
   // Two different actions behind one button: deleting a profile the user wrote,
@@ -3105,7 +3117,7 @@
       run: () => runAgent('delete', async () => {
         await DeleteSubagentProfile(agentDraftName.trim())
         await loadAgents()
-        agentEditing = null
+        leaveAgentEditor()
       }),
     })
   }
@@ -4020,8 +4032,10 @@
     { group: t('settings.groupModels'), items: [
       { id: 'models', label: t('settings.modelSettings'), icon: 'brain',
         terms: [t('settings.providers'), t('settings.apiKeyLabel'), t('settings.baseUrl'), t('settings.signInLabel'), t('settings.modelList')] },
-      { id: 'team', label: t('settings.team'), icon: 'userRound',
-        terms: [t('settings.teamNew'), t('settings.agentConfigure'), t('desk.office')] },
+      // No เอเจน row (owner, 12 ก.ย.: "เอาเอเจนออกจากหน้าตั้งค่า เหลือแค่ทีมเอเจน").
+      // The people live on the roster page; their editor is still this page's
+      // 'team' section, reached only through a card's gear (settingsIntent)
+      // and closing back onto the roster (leaveAgentEditor).
       { id: 'agents', label: t('settings.subagents'), icon: 'bot',
         terms: [t('settings.subagentsMine'), t('settings.subagentsBuiltin')] },
       // Teams at the foot of the group, beside agents and never inside the
@@ -4216,7 +4230,7 @@
   // section (openSettingsAt), and two spellings of this key would fail silently
   // and look like the page ignoring where it was told to go.
   const SECTION_KEY = SETTINGS_SECTION_KEY
-  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'identity', 'learning', 'skilltune', 'models', 'team', 'teams', 'agents', 'tools', 'skills', 'mcp', 'connections', 'computer', 'prompts', 'account', 'usage', 'about', 'sponsor'])
+  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'identity', 'learning', 'skilltune', 'models', 'teams', 'agents', 'tools', 'skills', 'mcp', 'connections', 'computer', 'prompts', 'account', 'usage', 'about', 'sponsor'])
 
   function restoredSection(): string {
     try {
@@ -7016,8 +7030,18 @@
       {@const kind = active === 'team' ? 'agent' : 'helper'}
       {#if agentEditing !== null}
         {@render agentEditorPane()}
-      {:else}
+      {:else if kind === 'helper'}
         {@render profileListPane(kind)}
+      {:else}
+        <!-- The agents' list left this page (12 ก.ย.): the people are on the
+             roster page, and this section is only ever entered with an editor
+             open. Landing here without one — a restored section, a gear on an
+             agent whose file has since gone — says where the list went. -->
+        <h2>{t('settings.team')}</h2>
+        <p class="muted set-sub">{t('settings.teamMoved')}</p>
+        <div class="pp-bar">
+          <button class="ctrl" onclick={() => { setShell('assistant'); setActiveView('office') }}>{t('settings.teamOpenPage')} <Icon name="arrowRight" size={13} /></button>
+        </div>
       {/if}
 
     {:else if active === 'prompts'}

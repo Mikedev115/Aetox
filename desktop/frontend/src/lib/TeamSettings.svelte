@@ -57,7 +57,9 @@
   }
 
   const teamLabel = (tm: main.TeamCard) => (tm.default ? t('office.teamDefault') : tm.name)
-  const deskLabel = (desk: string) => (desk === 'coding' ? t('office.teamDeskCoding') : t('office.teamDeskSpecialized'))
+  // The desk labels the rest of the app uses (the nav, the MCP page's
+  // audience chips) — not a wording of this page's own.
+  const deskLabel = (desk: string) => (desk === 'coding' ? t('desk.coding') : t('desk.assistant'))
 
   // One member's reach on ONE team. The same agent may be in reach on one
   // team and switched off on another (config.TeamSwitches) — which is the
@@ -179,41 +181,48 @@
     {/if}
     <button class="ctrl ctrl-primary" onclick={saveTeam} disabled={busy !== '' || !editing.name.trim()}>{t('office.teamSave')}</button>
   </div>
-  <div class="settings-card team-editor">
-    <div class="team-form">
-      <label class="team-field">
-        <span class="eyebrow">{t('office.teamName')}</span>
-        <input class="ctrl" type="text" bind:value={editing.name} disabled={!editing.isNew}
+  <!-- The same form the model page's custom endpoint uses (mset-field +
+       eyebrow + hint + .ctrl), the same two-way choice the approval row
+       uses (seg-ctrl), and the same audience chips the MCP page ticks agents
+       with (conn-chip). Nothing of this page's own: a form that looks like
+       no other form is a form somebody has to learn (owner, 12 ก.ย.: "ดู
+       มาตรฐานหน้าอื่นครับ อย่าพยายามทำแยก คนจะงง"). -->
+  <div class="settings-card">
+    <div class="mset-detail">
+      <div class="mset-field">
+        <div class="eyebrow">{t('office.teamName')}</div>
+        {#if editing.isNew}<div class="muted set-hint">{t('office.teamNameHint')}</div>{/if}
+        <input class="ctrl key-input" type="text" bind:value={editing.name} disabled={!editing.isNew}
           placeholder={t('office.teamNamePlaceholder')} spellcheck="false" />
-        {#if editing.isNew}<span class="d muted">{t('office.teamNameHint')}</span>{/if}
-      </label>
-      <div class="team-field">
-        <span class="eyebrow">{t('office.teamDesk')}</span>
-        <div class="team-desks">
+      </div>
+      <div class="mset-field">
+        <div class="eyebrow">{t('office.teamDesk')}</div>
+        <div class="seg-ctrl" role="radiogroup" aria-label={t('office.teamDesk')}>
           {#each ['specialized', 'coding'] as desk (desk)}
-            <button type="button" class="pill" class:on={editing.desk === desk}
+            <button type="button" class="seg-btn" class:selected={editing.desk === desk}
+              role="radio" aria-checked={editing.desk === desk}
               onclick={() => { if (editing) editing.desk = desk }}>{deskLabel(desk)}</button>
           {/each}
         </div>
-        {#if editing.desk === 'coding'}<span class="d muted">{t('office.teamDeskCodingNote')}</span>{/if}
+        {#if editing.desk === 'coding'}<div class="muted set-hint">{t('office.teamDeskCodingNote')}</div>{/if}
       </div>
-      <label class="team-field">
-        <span class="eyebrow">{t('office.teamDescription')}</span>
-        <input class="ctrl" type="text" bind:value={editing.description} />
-      </label>
-      <div class="team-field">
-        <span class="eyebrow">{t('office.teamPick')}</span>
-        <div class="team-pick">
+      <div class="mset-field">
+        <div class="eyebrow">{t('office.teamDescription')}</div>
+        <input class="ctrl key-input" type="text" bind:value={editing.description} />
+      </div>
+      <div class="mset-field">
+        <div class="eyebrow">{t('office.teamPick')}</div>
+        <div class="muted set-hint">{t('office.teamPickHint')}</div>
+        <div class="conn-targets">
           {#each chairs as c (c.name)}
             {@const on = editing.members.includes(c.name)}
-            <label class="team-tick" class:on>
-              <input type="checkbox" checked={on} onchange={(e) => tickMember(c.name, (e.currentTarget as HTMLInputElement).checked)} />
-              <AgentMascot name={c.name} {...lookOf(c)} size={22} />
-              <span class="t">{c.name}</span>
-            </label>
+            <button type="button" class="conn-chip agent" class:on aria-pressed={on}
+              title={c.description} onclick={() => tickMember(c.name, !on)}>
+              <AgentMascot name={c.name} {...lookOf(c)} size={16} />
+              {c.name}
+            </button>
           {/each}
         </div>
-        <span class="d muted">{t('office.teamPickHint')}</span>
       </div>
       {#if editError}<div class="mset-error">{editError}</div>{/if}
     </div>
