@@ -23,6 +23,10 @@ export type AvatarPrefs = {
 }
 
 const KEY = 'avatarPrefs'
+const PERSONA_KEY = 'avatarPersonas'
+/** How many personas a person may keep. Three, as the owner asked (12 ก.ย.):
+ *  "บุคลิก 1 - 2 - 3" — the looks an agent designed later may be given. */
+export const PERSONA_SLOTS = 3
 
 export const DEFAULT_PREFS: AvatarPrefs = { shell: DEFAULT_SHELL, hue: null, top: 'orb', face: 'neutral' }
 
@@ -72,4 +76,58 @@ export function isDefaultPrefs(p: AvatarPrefs = avatarPrefs): boolean {
 /** The assistant's slots, for Mascot.svelte: the role's own plus these. */
 export function assistantOptions(p: AvatarPrefs = avatarPrefs): MascotOptions & { hue?: number } {
   return { shell: p.shell, top: p.top, face: p.face, ...(p.hue === null ? {} : { hue: p.hue }) }
+}
+
+// ---- personas ---------------------------------------------------------------
+// A persona is a saved set of the four choices, kept in one of three slots.
+// The assistant wears one at a time; the point of keeping them is the agents a
+// user will design later — a persona is a look ready to be handed to one.
+
+export type Persona = AvatarPrefs | null
+
+function seedPersonas(): Persona[] {
+  const empty: Persona[] = Array.from({ length: PERSONA_SLOTS }, () => null)
+  try {
+    const raw = localStorage.getItem(PERSONA_KEY)
+    if (!raw) return empty
+    const list = JSON.parse(raw) as unknown
+    if (!Array.isArray(list)) return empty
+    return empty.map((_, i) => (list[i] && typeof list[i] === 'object' ? sane(list[i] as Partial<AvatarPrefs>) : null))
+  } catch {
+    return empty
+  }
+}
+
+export const personas = $state<{ slots: Persona[] }>({ slots: seedPersonas() })
+
+function keepPersonas(): void {
+  try {
+    localStorage.setItem(PERSONA_KEY, JSON.stringify(personas.slots))
+  } catch {
+    // Not remembered, still held for this session.
+  }
+}
+
+/** Save what the assistant wears now into a slot. */
+export function savePersona(slot: number): void {
+  if (slot < 0 || slot >= PERSONA_SLOTS) return
+  personas.slots[slot] = sane({ ...avatarPrefs })
+  keepPersonas()
+}
+
+/** Wear a saved persona. An empty slot changes nothing. */
+export function usePersona(slot: number): void {
+  const p = personas.slots[slot]
+  if (p) setAvatarPrefs(p)
+}
+
+export function clearPersona(slot: number): void {
+  if (slot < 0 || slot >= PERSONA_SLOTS) return
+  personas.slots[slot] = null
+  keepPersonas()
+}
+
+/** Which slot the current look matches, or -1. */
+export function wornPersona(p: AvatarPrefs = avatarPrefs): number {
+  return personas.slots.findIndex((s) => s && s.shell === p.shell && s.hue === p.hue && s.top === p.top && s.face === p.face)
 }

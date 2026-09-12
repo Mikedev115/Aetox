@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, waitFor, fireEvent } from '@testing-library/svelte'
 import AvatarSettings from '../lib/mascot/AvatarSettings.svelte'
 import Companion from '../lib/mascot/Companion.svelte'
-import { avatarPrefs, setAvatarPrefs, resetAvatarPrefs, assistantOptions, DEFAULT_PREFS } from '../lib/mascot/avatarPrefs.svelte'
+import { avatarPrefs, setAvatarPrefs, resetAvatarPrefs, assistantOptions, DEFAULT_PREFS, personas, savePersona, usePersona, clearPersona, wornPersona, PERSONA_SLOTS } from '../lib/mascot/avatarPrefs.svelte'
 import { SHELL } from '../lib/mascot/palette'
 import { TOP } from '../lib/mascot/parts'
 import { setLocale } from '../lib/i18n.svelte'
@@ -16,6 +16,7 @@ import { cockpit } from '../lib/stores/cockpit.svelte'
 beforeEach(() => {
   localStorage.clear()
   resetAvatarPrefs()
+  for (let i = 0; i < PERSONA_SLOTS; i++) clearPersona(i)
   setLocale('th')
   cockpit.awaitingReply = false
   cockpit.toolSteps = []
@@ -63,8 +64,8 @@ describe('the avatar page', () => {
     // every cell is still; only the preview moves — twenty-five breathing
     // together was the page the owner called กระตุก
     for (const cell of parts) expect(cell.querySelector('.mascot')!.classList.contains('still'), 'still').toBe(true)
-    expect(container.querySelector('.avatar-stage .mascot')!.classList.contains('still')).toBe(false)
-    expect(container.querySelector('.avatar-stage .mascot')!.classList.contains('sway')).toBe(true)
+    expect(container.querySelector('.fig-box .mascot')!.classList.contains('still')).toBe(false)
+    expect(container.querySelector('.fig-box .mascot')!.classList.contains('sway')).toBe(true)
   })
 
   it('writes a click straight into the preferences and shows the reset', async () => {
@@ -73,9 +74,40 @@ describe('the avatar page', () => {
     const dark = container.querySelector('.ag-part[title="ดำ"]')!
     await fireEvent.click(dark)
     expect(avatarPrefs.shell).toBe('dark')
-    await waitFor(() => expect(container.querySelector('.avatar-reset')).toBeTruthy())
-    await fireEvent.click(container.querySelector('.avatar-reset button')!)
+    await waitFor(() => expect(container.querySelector('.reset')).toBeTruthy())
+    await fireEvent.click(container.querySelector('.reset')!)
     expect(avatarPrefs.shell).toBe('white')
+  })
+
+  // The stage: four marks pinned on the figure, one per panel, numbered the
+  // same — so "which row changes which part" is answered by the drawing.
+  it('pins four numbered marks on the figure, one per panel', async () => {
+    const { container } = render(AvatarSettings)
+    await waitFor(() => expect(container.querySelectorAll('.mark').length).toBe(4))
+    expect(Array.from(container.querySelectorAll('.panel .n')).map((n) => n.textContent)).toEqual(['1', '3', '2', '4'])
+    expect(container.querySelectorAll('.leads path').length).toBe(4)
+    expect(container.querySelector('.avatar-main')?.textContent).toContain('อวตารหลักของ Aetox')
+  })
+
+  // Personas: three slots, save what is worn, wear what was saved, clear.
+  it('keeps three personas and knows which one is worn', async () => {
+    const { container } = render(AvatarSettings)
+    await waitFor(() => expect(container.querySelectorAll('.slot').length).toBe(3))
+    expect(container.querySelectorAll('.slot .empty').length).toBe(3)
+    setAvatarPrefs({ shell: 'colour', hue: 150 })
+    await fireEvent.click(container.querySelectorAll('.slot')[1].querySelector('.acts button')!)
+    expect(personas.slots[1]).toMatchObject({ shell: 'colour', hue: 150 })
+    expect(wornPersona()).toBe(1)
+    await waitFor(() => expect(container.querySelectorAll('.slot')[1].classList.contains('worn')).toBe(true))
+    expect(JSON.parse(localStorage.getItem('avatarPersonas')!)[1]).toMatchObject({ shell: 'colour', hue: 150 })
+    resetAvatarPrefs()
+    expect(wornPersona()).toBe(-1)
+    usePersona(1)
+    expect(avatarPrefs.shell).toBe('colour')
+    clearPersona(1)
+    expect(personas.slots[1]).toBeNull()
+    usePersona(1)
+    expect(avatarPrefs.shell).toBe('colour') // an empty slot changes nothing
   })
 
   it('carries the on-screen switch', async () => {

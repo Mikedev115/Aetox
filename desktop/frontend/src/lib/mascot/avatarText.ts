@@ -22,6 +22,17 @@ export type AvatarText = {
   reset: string
   agentsNote: string
   poses: Record<'idle' | 'greeting' | 'typing' | 'answering' | 'success', string>
+  /** The stage's callouts: what each numbered part is, and what its panel changes. */
+  parts: { top: string; shell: string; hue: string; face: string }
+  mainNote: string
+  personas: string
+  personasNote: string
+  persona: string
+  personaEmpty: string
+  use: string
+  save: string
+  clear: string
+  worn: string
 }
 
 const TEXT: Record<string, AvatarText> = {
@@ -39,6 +50,16 @@ const TEXT: Record<string, AvatarText> = {
     reset: 'ค่าเริ่มต้น',
     agentsNote: 'เอเจนและซับเอเจนยังใช้หน้าแบบเดิม — จะย้ายมาใช้ตัวมาสคอตในรอบถัดไป',
     poses: { idle: 'พัก', greeting: 'ทักทาย', typing: 'พิมพ์', answering: 'ตอบ', success: 'เสร็จ' },
+    parts: { top: 'ไฟบนหัว — สัญญาณบนยอด', shell: 'ตัว — วัสดุของหัว ลำตัว แขน ขา', hue: 'accent — หมวก หู พื้นรองเท้า และแสงบนจอ', face: 'หน้า — แสงบนจอตอนพัก' },
+    mainNote: 'นี่คืออวตารหลักของ Aetox — ตัวเดียวกันทุกโต๊ะ ทุกหน้า สิ่งที่เลือกที่นี่คือผู้ช่วยของคุณ',
+    personas: 'บุคลิก',
+    personasNote: 'บันทึกชุดที่ชอบไว้ 3 ชุด สลับใช้ได้ทันที — และเป็นชุดที่จะนำไปใส่ให้เอเจนที่คุณออกแบบเองในอนาคต',
+    persona: 'บุคลิก',
+    personaEmpty: 'ว่าง',
+    use: 'ใช้',
+    save: 'บันทึกชุดนี้',
+    clear: 'ล้าง',
+    worn: 'ใช้อยู่',
   },
   en: {
     title: 'Avatar',
@@ -54,6 +75,16 @@ const TEXT: Record<string, AvatarText> = {
     reset: 'Defaults',
     agentsNote: 'Agents and sub-agents still wear the old faces — the mascot comes to them next.',
     poses: { idle: 'Rest', greeting: 'Greet', typing: 'Type', answering: 'Answer', success: 'Done' },
+    parts: { top: 'Top light — the signal on the crown', shell: 'Body — the material of head, torso, arms, legs', hue: 'Accent — cap, ears, soles and the screen light', face: 'Face — the screen light at rest' },
+    mainNote: "This is Aetox's main avatar — the same one on every desk and page. What you choose here is your assistant.",
+    personas: 'Personas',
+    personasNote: 'Keep three looks and switch between them — the looks you will hand to agents you design later.',
+    persona: 'Persona',
+    personaEmpty: 'Empty',
+    use: 'Use',
+    save: 'Save this look',
+    clear: 'Clear',
+    worn: 'Wearing',
   },
   zh: {
     title: '头像',
@@ -69,6 +100,16 @@ const TEXT: Record<string, AvatarText> = {
     reset: '恢复默认',
     agentsNote: '代理与子代理仍使用旧头像——下一轮再换成吉祥物。',
     poses: { idle: '休息', greeting: '打招呼', typing: '输入', answering: '回答', success: '完成' },
+    parts: { top: '头顶灯——顶部的信号', shell: '机身——头、躯干、手臂、腿的材质', hue: '点缀色——帽子、耳朵、鞋底和屏幕光', face: '表情——休息时的屏幕光' },
+    mainNote: '这是 Aetox 的主头像——每个工作台、每个页面都是同一个。在这里选择的就是你的助手。',
+    personas: '角色',
+    personasNote: '保存三套外观随时切换——将来也可以交给你自己设计的代理。',
+    persona: '角色',
+    personaEmpty: '空',
+    use: '使用',
+    save: '保存此外观',
+    clear: '清除',
+    worn: '使用中',
   },
 }
 
