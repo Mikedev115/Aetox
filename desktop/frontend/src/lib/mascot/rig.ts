@@ -238,10 +238,14 @@ function ear(m: Mascot, side: 'L' | 'R', layer: 'far' | 'near', g: string): stri
 
 // 10/11 · A leg with its foot: a white ball under a blue cap (the hip), then
 // the foot on its blue sole. Tucked under a sitting body, or standing.
-function leg(p: Palette, g: string, cx: number, side: 'L' | 'R', mode: 'tuck' | 'stand', hl: (d: string, w?: number, o?: number) => string): string {
+function leg(p: Palette, g: string, cx: number, side: 'L' | 'R', mode: 'tuck' | 'stand' | 'fold', hl: (d: string, w?: number, o?: number) => string): string {
   const thigh = (cy: number): string =>
     `<circle cx="${cx}" cy="${cy}" r="3.6" fill="url(#${g}sh)" stroke="${p.shellEdge}" stroke-width=".5"/>` +
     `<ellipse cx="${cx}" cy="${cy - 2.6}" rx="2.4" ry="1.1" fill="${p.primaryDn}"/>`
+  // Folded: the foot pulled in under the body and up against it — the thigh
+  // behind the torso (legs are drawn before it), only the sole and a sliver
+  // of the foot showing, closer to the middle than a tucked foot.
+  const fx = cx + (side === 'L' ? 1.6 : -1.6)
   const foot =
     mode === 'tuck'
       ? thigh(52.2) +
@@ -249,9 +253,13 @@ function leg(p: Palette, g: string, cx: number, side: 'L' | 'R', mode: 'tuck' | 
         `<ellipse cx="${cx}" cy="57.8" rx="5.6" ry="2.6" fill="${p.primaryDn}"/><ellipse cx="${cx}" cy="57.2" rx="4.6" ry="1.9" fill="${p.primary}"/>` +
         `<ellipse cx="${cx}" cy="55.2" rx="5" ry="3" fill="url(#${g}sh)"/>` +
         hl(`M${cx - 3} 54a3.6 1.9 0 0 1 4.2-1.1`)
-      : thigh(51) +
-        `<ellipse cx="${cx}" cy="58" rx="5" ry="2.4" fill="${p.primaryDn}"/><ellipse cx="${cx}" cy="56.4" rx="4.6" ry="3" fill="url(#${g}sh)"/>` +
-        hl(`M${cx - 2.8} 55a3.4 1.9 0 0 1 4-1.1`)
+      : mode === 'fold'
+        ? thigh(50.4) +
+          `<ellipse cx="${fx}" cy="54.6" rx="4.4" ry="2.1" fill="${p.primaryDn}"/><ellipse cx="${fx}" cy="54.1" rx="3.6" ry="1.5" fill="${p.primary}"/>` +
+          `<ellipse cx="${fx}" cy="52.6" rx="3.8" ry="2.2" fill="url(#${g}sh)"/>`
+        : thigh(51) +
+          `<ellipse cx="${cx}" cy="58" rx="5" ry="2.4" fill="${p.primaryDn}"/><ellipse cx="${cx}" cy="56.4" rx="4.6" ry="3" fill="url(#${g}sh)"/>` +
+          hl(`M${cx - 2.8} 55a3.4 1.9 0 0 1 4-1.1`)
   return `<g class="ms-leg ms-leg${side}">${foot}</g>`
 }
 

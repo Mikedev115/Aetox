@@ -22,8 +22,9 @@ export type Pose = {
   /** FACE row id. null = the role's own identity face (neutral / focused). */
   face: string | null
   hands: { L: Hand; R: Hand }
-  /** Feet tucked under a sitting body, or standing on legs. */
-  legs: 'tuck' | 'stand'
+  /** Feet tucked under a sitting body, standing on legs, or folded up
+   *  under it — the soles pulled in against the body, a robot powered down. */
+  legs: 'tuck' | 'stand' | 'fold'
   /** PROP row id · 'role' = the role's laptop · null = empty hands. */
   prop: string | null
   /** PANEL row id beside the head. */
@@ -76,7 +77,9 @@ const POSE_ROWS = {
   presenting:  { face: 'happy',    hands: { L: REST.L, R: UP_R },               legs: 'tuck',  prop: 'role', panel: 'chart',     turn: 10,  look: 25 },
   helping:     { face: 'happy',    hands: { L: REST.L, R: [51, 42, 8] },        legs: 'tuck',  prop: 'role', panel: 'heart',     turn: 8,   look: 30 },
   success:     { face: 'excited',  hands: { L: UP_L, R: UP_R },                 legs: 'tuck',  prop: 'role', panel: 'done',      mark: 'sparkle', turn: 0, look: 30 },
-  recharge:    { face: 'dim',      hands: { L: [24, 52, 6], R: [40, 52, 6] },   legs: 'tuck',  prop: null,   panel: 'zzz',       ground: 'charger', turn: 18 },
+  // Asleep on its charger with everything folded in (owner, 12 ก.ย.: "พับแขน
+  // ขากลับ แล้วหลับ"): the arms cross over the belly, the feet fold up under.
+  recharge:    { face: 'dim',      hands: { L: [27.5, 51, 5], R: [36.5, 51, 5] }, legs: 'fold', prop: null,   panel: 'zzz',       ground: 'charger', turn: 18 },
   walk:        { face: null,       hands: { L: [20, 55, 0], R: [44, 55, 0] },   legs: 'stand', prop: null,   panel: null,        turn: 70 },
   listening:   { face: null,       hands: REST,                                 legs: 'tuck',  prop: 'role', panel: 'mic',       turn: -8 },
   // Reactions to being clicked (Companion.svelte) — a moment each, no words.
