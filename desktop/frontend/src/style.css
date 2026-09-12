@@ -2472,8 +2472,8 @@ button.phase-head:hover { color:var(--text-muted); }
 /* THE DELEGATION CARD NO LONGER WEARS THE BEAM.
  *
  * It was added because the card could not say "alive" any other way, and it was
- * the right answer then. It is not now: the portrait does it. AgentFace's `work`
- * state lifts a laptop into frame and rocks the person as they type, which says
+ * the right answer then. It is not now: the portrait does it. AgentMascot's `work`
+ * state puts the robot's hands on the keys and has it type, which says
  * the same thing quieter, in the place the eye already goes, and says WHAT is
  * happening rather than only that something is.
  *
@@ -2731,10 +2731,6 @@ button.phase-head:hover { color:var(--text-muted); }
    sentence rather than with the picture. */
 .bgw-top { display:flex; align-items:flex-start; gap:11px; }
 .bgw-face { flex:none; margin-top:1px; }
-/* 30% where AgentFace's own tile is 26%. Higher specificity than the
-   component's scoped rule on purpose — the roster wants a squarer tile at
-   20px, and a portrait at this size beside running text wants a softer one. */
-.bgw-card .bgw-face .agent-face { border-radius:30%; }
 .bgw-said { flex:1; min-width:0; }
 /* The headline. One line, clipped rather than wrapped: it is a file path more
    often than not, and a card that changes height when the delegate opens a
@@ -3102,7 +3098,6 @@ button.phase-head:hover { color:var(--text-muted); }
 /* The tile keeps the card's own corner so a 20px face and a 34px one read as
    the same object at two sizes. */
 .bgw-worker-face { flex:none; display:flex; }
-.bgw-worker-face .agent-face { border-radius:30%; }
 .bgw-worker-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .bgw-worker-agent { color:var(--text-dim); white-space:nowrap; }
 .bgw-worker-step { margin:1px 0 0 53px; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -9033,10 +9028,11 @@ button.ctrl, label.ctrl { display:inline-flex; align-items:center; justify-conte
 .crumb-sep { flex:none; color:var(--text-dim); }
 .crumb-here { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-primary); }
 
-/* The face picker in the agent editor. Three rows and a preview: what the
-   agent holds, its hair, its glasses, and beside them the person those three
-   answers actually make. The preview is the point — the rows are choices about
-   parts, and a part means nothing until you see who is wearing it.
+/* The look picker in the agent editor. A preview and the rows under it: the
+   badge on the ears, then the mascot's four identity dials — body, colour,
+   top light, resting face — each cell the whole robot wearing the rest of the
+   choices. The preview is the point: the rows are choices about parts, and a
+   part means nothing until you see who is wearing it.
    The first cell of every row is "choose none", which is the default and means
    that part is derived from the agent's name, as the whole roster was before
    any of this existed. */
@@ -9182,126 +9178,6 @@ button.ctrl, label.ctrl { display:inline-flex; align-items:center; justify-conte
 }
 .mprice.free { color:var(--status-success); }
 .mprice.dim { color:var(--text-dim); }
-
-/* ── The agent's face, alive ──────────────────────────────────────────────
-   AgentFace draws the character; these rules decide whether any of it moves.
-   The split is deliberate: agentFace.ts must return the same markup for the
-   same agent forever (its own rule 3), so nothing in there may animate, and
-   nothing here may draw.
-
-   Global rather than scoped to the component, and this is the one thing that
-   makes the file work at all: the character is injected with {@html}, so a
-   Svelte-scoped selector never reaches inside the <svg>. Only the tile itself
-   is styled in AgentFace.svelte, which is markup Svelte compiled.
-
-   The three hooks are `af-rig` (the person), `af-pupils` (what looks around)
-   and `af-eye` (what blinks). A part added to the drawing needs no rule here
-   unless it is meant to move.
-
-   prefers-reduced-motion is already handled globally, above. */
-.agent-face .af-eye {
-  transform-box:fill-box; transform-origin:center;
-  animation:af-blink var(--af-blink, 5.4s) infinite;
-}
-/* A blink is two frames of a whole cycle. Written as a percentage of a long
-   loop rather than as a short animation with a delay, because a delay only
-   staggers the FIRST one — after that every face is back on the same beat. */
-@keyframes af-blink { 0%, 95.5%, 100% { transform:scaleY(1); } 97% { transform:scaleY(.1); } }
-
-/* Thinking looks around. It does not lean, and it has no laptop: the model is
-   deciding what to do, and drawing it already typing would be the UI getting
-   ahead of the work. */
-.agent-face.think .af-pupils { transform-box:view-box; animation:af-dart 3.4s ease-in-out infinite; }
-@keyframes af-dart {
-  0%, 38% { transform:translateX(0); }
-  48%, 66% { transform:translateX(-1.7px); }
-  78%, 100% { transform:translateX(1.3px); }
-}
-
-/* Working types. The whole person rocks a degree and a half either side of a
-   pivot down at the machine — not the head alone, which reads as a nod at
-   nobody, and not far enough to be a motion you catch yourself watching. */
-.agent-face.work .af-rig {
-  transform-box:view-box; transform-origin:32px 58px;
-  animation:af-type 1.6s ease-in-out infinite;
-}
-@keyframes af-type {
-  0%, 100% { transform:translateY(1.4px) rotate(-1.4deg); }
-  50% { transform:translateY(2.4px) rotate(1.4deg); }
-}
-
-/* The machine is lifted into place rather than faded in. It arrives from below
-   the tile because that is where a laptop comes from, and the whole point of
-   the state is that something was picked up and opened.
-   `both` holds the last frame: the animation runs once per render of the
-   markup, and {@html} hands it fresh markup only when the state actually
-   changes. */
-.agent-face.work .af-kit {
-  transform-box:view-box;
-  animation:af-lift .34s cubic-bezier(.2,.9,.25,1) both;
-}
-@keyframes af-lift {
-  from { opacity:0; transform:translateY(15px); }
-  to { opacity:1; transform:none; }
-}
-
-/* The screen catches up a beat after the lid is open, then flickers — steps(),
-   not a smooth pulse, because a screen changes when its CONTENT changes and
-   content arrives in jumps. Irregular stops on purpose: an even rhythm is a
-   heartbeat, and this is meant to read as a page scrolling. */
-.agent-face.work .af-glow {
-  animation: af-glow-in .3s ease .12s both, af-flicker 2.2s ease-in-out .42s infinite;
-}
-@keyframes af-glow-in { from { opacity:0; } to { opacity:1; } }
-@keyframes af-flicker {
-  0%, 100% { opacity: 1; }
-  6% { opacity: .72; }
-  11% { opacity: .98; }
-  17% { opacity: .62; }
-  23% { opacity: 1; }
-  42% { opacity: .88; }
-  48% { opacity: .52; }
-  55% { opacity: .96; }
-  69% { opacity: .78; }
-  75% { opacity: 1; }
-  83% { opacity: .65; }
-  88% { opacity: .94; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .agent-face.work .af-glow { animation: none; opacity: .85; }
-}
-
-/* The ring is put ON, not stamped on.
- *
- * A delegate finishing swaps one box-shadow for another, and with nothing
- * between them the green appeared in the frame the last row landed — the one
- * moment the eye is already on the portrait, answered with a hard cut (owner,
- * 7 ก.ย.: "ทำไมอวตาลไม่ขยับตามบริบท ... ทำไมมันกระแทกมาทันที"). Long enough to
- * be seen arriving, short enough that the card's own words still land first.
- *
- * On the tile itself rather than on the two state rules, so `work → done` and
- * `done → err` and the way back all cost the same. */
-.agent-face { transition:box-shadow var(--dur-settle) ease; }
-@media (prefers-reduced-motion: reduce) { .agent-face { transition:none; } }
-
-/* Finished and failed wear a ring and nothing else. The tick, the clock and
-   the words belong to whatever card is holding the face — one fact, drawn
-   once. This is only the colour that says which way it went, on the thing the
-   eye already went to.
-
-   Written with the element in the selector so it outranks the tile's own ring
-   in AgentFace.svelte whichever stylesheet the browser loaded first, and the
-   top highlight is restated so the tile keeps its lift while wearing one. */
-span.agent-face.done {
-  box-shadow:
-    inset 0 0 0 1.5px color-mix(in srgb, var(--status-success) 70%, transparent),
-    inset 0 1px 0 hsl(var(--h) 60% 62% / .18);
-}
-span.agent-face.err {
-  box-shadow:
-    inset 0 0 0 1.5px color-mix(in srgb, var(--status-danger) 70%, transparent),
-    inset 0 1px 0 hsl(var(--h) 60% 62% / .18);
-}
 
 /* ═══ คลังสตูดิโอ (Settings → studio) ═════════════════════════════════════════
    — docs/architecture/studio-shelf-page-2026-09-12.md §3. */

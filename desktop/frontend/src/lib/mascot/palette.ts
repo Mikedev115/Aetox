@@ -3,8 +3,9 @@
 // Every part of the mascot is drawn from this record and nothing else, which
 // is what lets the owner's standing rule hold by construction rather than by
 // review: the colour is an IDENTITY, it answers who this is, and nothing about
-// what the mascot is doing may touch it (agentFace.ts tells the story of the
-// three repaints that taught that). A pose reaches the screen light, the arms,
+// what the mascot is doing may touch it (the cartoon faces this replaced were
+// repainted three times before that rule was learned). A pose reaches the
+// screen light, the arms,
 // the top indicator and the floating card; it never reaches a hue.
 //
 // Two dials, both identity: the ACCENT — a hue and how much of it, which

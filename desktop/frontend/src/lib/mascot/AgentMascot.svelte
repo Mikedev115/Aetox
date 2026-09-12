@@ -2,8 +2,8 @@
   // An agent, drawn as the mascot — the robot with the agent's own `icon:` on
   // its ears and the hue its name gives it (or the one its file names).
   //
-  // This is the frame the cartoon person (AgentFace.svelte, until 12 ก.ย. 2026)
-  // stood in, kept to its contract on purpose: a name in, a face out, `state`
+  // This is the frame the cartoon person (until 12 ก.ย. 2026) stood in, kept
+  // to its contract on purpose: a name in, a face out, `state`
   // in the card's five words, `off` for one the assistant may not hand work
   // to, `size` in pixels. Seven surfaces drew that person — the office, the
   // delegate card in the chat, the background panel, ห้องความสามารถ, งานวิดีโอ,

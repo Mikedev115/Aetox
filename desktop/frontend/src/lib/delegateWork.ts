@@ -30,8 +30,8 @@ import type { ToolStep } from './types'
  *  matches across the repo would be counted here as forty files anybody read.
  *
  *  Unknown names count as neither, deliberately — the same fallback rule
- *  workerFace and agentFace's PROP already follow: a name this build does not
- *  know draws nothing rather than a guess. The cost of forgetting to add a
+ *  workerFace and the mascot's TOOL_POSE already follow: a name this build
+ *  does not know draws the plain thing rather than a guess. The cost of forgetting to add a
  *  tool here is a chip that undercounts; the cost of guessing is a card that
  *  states a number nobody can check. */
 export const READ_TOOLS = new Set(['read', 'pdf_read', 'media_read', 'github_read_file'])
