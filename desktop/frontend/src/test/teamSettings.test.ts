@@ -44,7 +44,7 @@ describe('Settings › ทีม', () => {
     expect(cards[0].textContent).toContain('ทีมผู้ช่วย')
     expect(cards[0].textContent).toContain('doc')
     expect(cards[1].textContent).toContain('ทีมโค้ด')
-    expect(cards[1].textContent).toContain('โต๊ะโค้ด')
+    expect(cards[1].textContent).toContain('โค้ด')
     expect(cards[1].textContent).toContain('fixer')
     // The switches are the team's: fixer is off on ทีมโค้ด, doc on on the default.
     await waitFor(() => expect(cards[1].querySelectorAll('.team-member .mswitch input').length).toBe(1))
@@ -80,13 +80,14 @@ describe('Settings › ทีม', () => {
 
     await waitFor(() => expect(screen.getByText('สร้างทีม')).toBeTruthy())
     await fireEvent.click(screen.getByText('สร้างทีม'))
-    const name = container.querySelector('.team-editor input[type="text"]') as HTMLInputElement
+    // The house form: mset-field + .ctrl, the seg-ctrl choice, conn-chip ticks —
+    // nothing of this page's own (owner: "ดูมาตรฐานหน้าอื่นครับ").
+    const name = container.querySelector('.mset-field input.ctrl') as HTMLInputElement
     await fireEvent.input(name, { target: { value: 'ทีมเอกสาร' } })
-    await fireEvent.click(screen.getByText('โต๊ะโค้ด', { selector: '.team-desks .pill' }))
+    await fireEvent.click(screen.getByText('โค้ด', { selector: '.seg-ctrl .seg-btn' }))
     // The coding desk says what it hands the team, before anybody saves.
     expect(screen.getByText(/ถือเชลล์/)).toBeTruthy()
-    const tick = container.querySelector('.team-tick input') as HTMLInputElement
-    await fireEvent.click(tick)
+    await fireEvent.click(container.querySelector('.conn-targets .conn-chip') as HTMLElement)
     await fireEvent.click(screen.getByText('บันทึกทีม'))
 
     await waitFor(() => expect(vi.mocked(SaveTeam).mock.calls[0]).toEqual(['ทีมเอกสาร', 'coding', '', ['doc']]))
@@ -97,10 +98,10 @@ describe('Settings › ทีม', () => {
     const { container } = render(TeamSettings)
 
     await waitFor(() => expect(screen.getByText('แก้ไขทีม', { selector: 'h2' })).toBeTruthy())
-    const name = container.querySelector('.team-editor input[type="text"]') as HTMLInputElement
+    const name = container.querySelector('.mset-field input.ctrl') as HTMLInputElement
     expect(name.value).toBe('ทีมโค้ด')
     expect(name.disabled).toBe(true) // the name is the folder
-    const ticked = Array.from(container.querySelectorAll('.team-tick.on .t')).map((n) => n.textContent)
+    const ticked = Array.from(container.querySelectorAll('.conn-chip.on')).map((n) => n.textContent?.trim())
     expect(ticked).toEqual(['fixer'])
     expect(cockpit.settingsIntent).toBeNull() // consumed once
   })

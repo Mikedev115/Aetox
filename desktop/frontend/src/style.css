@@ -6518,6 +6518,9 @@ button.phase-head:hover { color:var(--text-muted); }
   font-variant-numeric:tabular-nums;
 }
 .agc .chair-stat.idle { color:var(--text-dim); }
+/* The teams that name this agent (§256): a quiet fact beside the job count,
+   with the same mark the picker and ตั้งค่า › ทีมเอเจน wear for a team. */
+.agc .chair-stat.teams { display:inline-flex; align-items:center; gap:4px; color:var(--text-dim); }
 
 /* The foot loses its rule too. A divider inside a borderless card is the frame
    coming back in through the middle; the gap and the button's own recessed
@@ -6549,37 +6552,6 @@ button.phase-head:hover { color:var(--text-muted); }
 .ag-band .n { font-size:var(--fs-2xs); color:var(--text-dim); font-variant-numeric:tabular-nums; }
 .ag-band .rule { flex:1; height:1px; background:var(--border-subtle); }
 .ag-band .say { font-size:var(--fs-2xs); color:var(--text-dim); }
-
-/* One section per team on the office page (§256). The head is a row: mark,
-   name, desk chip, count, the team's sentence, then the reach and its switch
-   pushed to the edge — the same ag-reach/mswitch pair the section head wore
-   when there was one roster, now once per roster. */
-.team-sec { margin:6px 0 18px; }
-.team-sec.invalid .office-grid { opacity:.55; }
-.team-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; min-height:30px; }
-.team-head .team-ic { display:inline-flex; color:var(--accent); }
-.team-head .team-title { display:flex; align-items:center; gap:8px; min-width:0; }
-.team-head .team-name { font-size:var(--fs-sm); font-weight:600; color:var(--text-primary); white-space:nowrap; }
-.team-head .team-count { font-size:var(--fs-2xs); color:var(--text-dim); font-variant-numeric:tabular-nums; }
-.team-head .team-desc { font-size:var(--fs-2xs); color:var(--text-muted); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.team-head .rule { flex:1; height:1px; background:var(--border-subtle); min-width:12px; }
-.team-note { margin:-4px 0 10px; font-size:var(--fs-2xs); color:var(--text-dim); line-height:1.5; }
-.team-note.bad { color:var(--status-danger); }
-
-/* The editor: a card of fields, the roster as tickable faces. */
-.team-editor { margin-bottom:16px; }
-.team-form { display:flex; flex-direction:column; gap:14px; padding:14px 16px; }
-.team-field { display:flex; flex-direction:column; gap:6px; }
-.team-field .eyebrow { margin:0; }
-.team-field .d.muted { font-size:var(--fs-2xs); color:var(--text-dim); }
-.team-desks { display:flex; gap:6px; }
-.team-pick { display:flex; flex-wrap:wrap; gap:6px; }
-.team-tick { display:inline-flex; align-items:center; gap:6px; padding:4px 10px 4px 6px; border:1px solid var(--border-subtle); border-radius:999px; cursor:pointer; color:var(--text-muted); background:var(--surface-panel); }
-.team-tick:hover { color:var(--text-primary); background:var(--surface-hover); }
-.team-tick.on { border-color:var(--accent); color:var(--text-primary); }
-.team-tick input { position:absolute; opacity:0; width:0; height:0; }
-.team-tick .t { font-size:var(--fs-xs); }
-.team-actions { display:flex; justify-content:flex-end; gap:8px; }
 
 /* Settings › ทีม (§256): one card per team, its members as rows under the
    head. The head's switch is the team's reach, each row's is that member's

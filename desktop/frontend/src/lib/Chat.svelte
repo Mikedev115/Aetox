@@ -28,7 +28,7 @@
     ListModelsForProvider, PriceModels, ModelPriceSource, RequiresAPIKey, AcceptsAPIKey, HasAPIKey, PickAttachments,
     GetContextBreakdown, GuideTopics, RunChatCommand, RunChatScript, ListChairs, ListTeams, ChairStarters, CurrentSessionID,
     AgentBlocked,
-    DelegateSwitches, SetDelegateOff, SetAgentOff,
+    DelegateSwitches, SetDelegateOff,
     Shells, CurrentShell, SetShell, EnginesFor, UseEngine, VerifyConnection,
     GitBranches, GitSwitchBranch, GitCreateBranch, GetProjectStatus,
     TranscribeMicAudio,
@@ -1126,42 +1126,6 @@
       delegate = await SetDelegateOff(cockpit.team, kind, delegate[kind].off === false)
     } finally {
       delegateBusy = false
-    }
-  }
-  // One agent's own switch, on the row that names it.
-  //
-  // The reach has been per-worker since 10 ส.ค. (SetAgentOff, worn by the
-  // settings page): what it lacked was a place in the menu people actually open
-  // when they are deciding who does the work. A switch two pages away from the
-  // decision is a switch nobody finds, which is the same argument that put the
-  // master row below into this menu rather than into settings.
-  //
-  // Two hit targets on one row, deliberately. The name still means "go and talk
-  // to this one" and the pill means "may the assistant hand work here" — two
-  // different questions, and .focus-row is the split this menu already draws
-  // for the engine rows. It is also why the pill is a <label> BESIDE the button
-  // and not inside it: one control cannot answer two questions, and interactive
-  // markup cannot nest anyway.
-  //
-  // Disabled rather than hidden while the master switch is off. A row that lost
-  // its switch would read as an agent that lost its switch, when what is off is
-  // delegation itself — the same choice the settings page made for the same
-  // reason.
-  function agentReach(name: string): { on: boolean; off: boolean } | null {
-    if (!delegate) return null
-    const w = delegate.agents.workers.find((x) => x.name === name)
-    return w ? { on: w.on, off: delegate.agents.off } : null
-  }
-  // Its own busy flag, not delegateBusy: flipping one agent must not grey out
-  // the master row, and the menu stays open through the re-bootstrap either way.
-  let reachBusy = $state('')
-  async function toggleAgentReach(name: string, on: boolean) {
-    if (reachBusy || delegateBusy) return
-    reachBusy = name
-    try {
-      delegate = await SetAgentOff(cockpit.team, name, on)
-    } finally {
-      reachBusy = ''
     }
   }
   // Which shell the agent's commands run in: this machine's, or a WSL distro.
@@ -5266,7 +5230,6 @@
               </div>
               {#if open}
                 {#each tm.members as c (c.name)}
-                  {@const reach = here ? agentReach(c.name) : null}
                   {@const locked = here && chairLocked(c.name)}
                   <!-- `on` sits on the ROW, not on the button inside it: the row is what
                        lights up, so it is also what has to know it is the current one, and
@@ -5290,22 +5253,10 @@
                       <AgentMascot name={c.name} {...lookOf(c)} size={20} /><span class="t">{c.name}</span>
                       {#if locked}<span class="focus-locked"><Icon name="wrench" size={12} /></span>{/if}
                     </button>
-                    <!-- The same pill the settings rows wear, and the same two
-                         strings, because it is the same fact: whether the assistant
-                         may hand THIS one a job on THIS team. Only on the session's
-                         own team — another team's switches are that team's, and a
-                         pill here would be flipping a roster this chat does not use. -->
-                    {#if reach}
-                      <label class="mswitch" title={t('settings.agentReachTip')}>
-                        <input
-                          type="checkbox" checked={reach.on && !reach.off}
-                          disabled={reach.off || reachBusy !== '' || delegateBusy}
-                          aria-label={t('settings.agentReach')}
-                          onchange={() => toggleAgentReach(c.name, reach.on)}
-                        />
-                        <span></span>
-                      </label>
-                    {/if}
+                    <!-- No per-member switch here since 12 ก.ย.: who on a team is in
+                         reach is set in ตั้งค่า › ทีมเอเจน, the one home of that fact.
+                         What stays is the team's own switch below, because that is
+                         the one thing about a roster somebody changes mid-chat. -->
                   </div>
                 {/each}
                 {#if tm.members.length === 0}
