@@ -72,8 +72,8 @@ describe('the running beam', () => {
   })
 
   // The delegation card gave the beam back. It was added when the card had no
-  // other way to say "alive"; the portrait says it now — AgentFace's `work`
-  // state puts a laptop in front of the person and has them type — and two
+  // other way to say "alive"; the portrait says it now — AgentMascot's `work`
+  // state puts the robot's hands on its laptop and has it type — and two
   // signals for one fact is one too many when four delegations run at once and
   // the transcript is behind four chasing lights.
   //

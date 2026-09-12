@@ -343,7 +343,7 @@
   // own shell, top light, face and accent too, and an agent drawn with half of
   // what its owner chose is the same "two people to whoever is reading" this
   // comment already warns about one line up.
-  const agentFaceOf = (name: string) => lookOf(agents.find((x) => x.name === name))
+  const agentLookOf = (name: string) => lookOf(agents.find((x) => x.name === name))
 
   async function load() {
     const [m, k, tl, tg, ag] = await Promise.all([
@@ -723,7 +723,7 @@
                               onclick={() => toggleTarget(s, target.id)}
                             >
                               {#if place === 'agent'}
-                                <AgentMascot name={target.name} {...agentFaceOf(target.name)} size={20} off={!isOn} />
+                                <AgentMascot name={target.name} {...agentLookOf(target.name)} size={20} off={!isOn} />
                               {:else}
                                 <span class="cap-pick-ic"><Icon name={deskIcon(target.id)} size={13} /></span>
                               {/if}

@@ -5,7 +5,7 @@
 // row the Go side hands the pages (Chair, Profile). One function turns a row
 // into props, because seven surfaces draw an agent and a page converting the
 // row its own way is exactly the drift the cartoon faces spent a commit
-// removing (faceOf, agentFace.ts, now gone).
+// removing (the cartoon face's faceOf, now gone).
 //
 // A value that is blank, mistyped or names a row this build does not have
 // comes back undefined rather than as a colour or a part: these are files

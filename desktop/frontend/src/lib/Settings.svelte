@@ -4949,7 +4949,7 @@
                and under it the same robot at the three sizes the app draws. -->
           <div class="pp-field">
             <div class="ag-face-header">
-              <span class="eyebrow">{t('settings.agentFace')}</span>
+              <span class="eyebrow">{t('settings.agentLook')}</span>
               <button
                 type="button"
                 class="ctrl tiny"
@@ -4958,16 +4958,16 @@
                 style="display:inline-flex; align-items:center; gap:5px; cursor:pointer;"
               >
                 <Icon name="eye" size={13} />
-                <span>{showFaceContexts ? t('settings.agentFaceHideContexts') : t('settings.agentFaceShowContexts')}</span>
+                <span>{showFaceContexts ? t('settings.agentLookHideContexts') : t('settings.agentLookShowContexts')}</span>
               </button>
             </div>
             <div class="ag-face">
               <AgentMascot name={facePreviewName} {...draftFace} size={96} still={false} />
               <div class="ag-face-say">
-                <span class="d muted">{faceIsAuto ? t('settings.agentFaceAutoHint') : t('settings.agentFaceHint')}</span>
+                <span class="d muted">{faceIsAuto ? t('settings.agentLookAutoHint') : t('settings.agentLookHint')}</span>
                 {#if !faceIsAuto}
                   <button type="button" class="ag-face-reset" onclick={resetFace}>
-                    {t('settings.agentFaceReset')}
+                    {t('settings.agentLookReset')}
                   </button>
                 {/if}
               </div>
@@ -4976,8 +4976,8 @@
             {#if showFaceContexts}
               <div class="ag-contexts-panel">
                 <div class="ag-contexts-head">
-                  <span class="ag-contexts-title">{t('settings.agentFaceContextsTitle')}</span>
-                  <span class="d muted" style="font-size:var(--fs-2xs);">{t('settings.agentFaceContextsDesc')}</span>
+                  <span class="ag-contexts-title">{t('settings.agentLookContextsTitle')}</span>
+                  <span class="d muted" style="font-size:var(--fs-2xs);">{t('settings.agentLookContextsDesc')}</span>
                 </div>
 
                 <div class="ag-contexts-grid">
@@ -4985,13 +4985,13 @@
                   <div class="ag-context-card">
                     <div class="ag-context-label">
                       <Icon name="userRound" size={14} />
-                      <span>{t('settings.agentFaceContextOffice')}</span>
+                      <span>{t('settings.agentLookContextOffice')}</span>
                     </div>
                     <div class="ag-context-sample">
                       <AgentMascot name={facePreviewName} {...draftFace} size={38} off={previewFaceOff} />
                       <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
                         <span style="font-weight:600; font-size:var(--fs-sm); color:var(--text-primary);">{facePreviewName}</span>
-                        <span class="d muted" style="font-size:var(--fs-2xs);">{previewFaceOff ? t('settings.agentFaceStateOff') : t('settings.agentFaceStateIdle')}</span>
+                        <span class="d muted" style="font-size:var(--fs-2xs);">{previewFaceOff ? t('settings.agentLookStateOff') : t('settings.agentLookStateIdle')}</span>
                       </div>
                     </div>
                     <div class="ag-context-states">
@@ -5001,7 +5001,7 @@
                         class:on={!previewFaceOff}
                         onclick={() => (previewFaceOff = false)}
                       >
-                        {t('settings.agentFaceStateIdle')}
+                        {t('settings.agentLookStateIdle')}
                       </button>
                       <button
                         type="button"
@@ -5009,7 +5009,7 @@
                         class:on={previewFaceOff}
                         onclick={() => (previewFaceOff = true)}
                       >
-                        {t('settings.agentFaceStateOff')}
+                        {t('settings.agentLookStateOff')}
                       </button>
                     </div>
                   </div>
@@ -5018,7 +5018,7 @@
                   <div class="ag-context-card">
                     <div class="ag-context-label">
                       <Icon name="messageSquare" size={14} />
-                      <span>{t('settings.agentFaceContextChat')}</span>
+                      <span>{t('settings.agentLookContextChat')}</span>
                     </div>
                     <div class="ag-context-sample">
                       <AgentMascot
@@ -5031,26 +5031,26 @@
                         <span style="font-weight:600; font-size:var(--fs-sm); color:var(--text-primary);">{facePreviewName}</span>
                         <span class="d muted" style="font-size:var(--fs-2xs);">
                           {#if previewFaceState === 'idle'}
-                            {t('settings.agentFaceStateIdle')}
+                            {t('settings.agentLookStateIdle')}
                           {:else if previewFaceState === 'think'}
-                            {t('settings.agentFaceStateThinking')}
+                            {t('settings.agentLookStateThinking')}
                           {:else if previewFaceState === 'work'}
-                            {t('settings.agentFaceStateWorking')}
+                            {t('settings.agentLookStateWorking')}
                           {:else if previewFaceState === 'done'}
-                            {t('settings.agentFaceStateDone')}
+                            {t('settings.agentLookStateDone')}
                           {:else if previewFaceState === 'err'}
-                            {t('settings.agentFaceStateError')}
+                            {t('settings.agentLookStateError')}
                           {/if}
                         </span>
                       </div>
                     </div>
                     <div class="ag-context-states">
                       {#each [
-                        { id: 'idle', label: t('settings.agentFaceStateIdle') },
-                        { id: 'think', label: t('settings.agentFaceStateThinking') },
-                        { id: 'work', label: t('settings.agentFaceStateWorking') },
-                        { id: 'done', label: t('settings.agentFaceStateDone') },
-                        { id: 'err', label: t('settings.agentFaceStateError') },
+                        { id: 'idle', label: t('settings.agentLookStateIdle') },
+                        { id: 'think', label: t('settings.agentLookStateThinking') },
+                        { id: 'work', label: t('settings.agentLookStateWorking') },
+                        { id: 'done', label: t('settings.agentLookStateDone') },
+                        { id: 'err', label: t('settings.agentLookStateError') },
                       ] as st (st.id)}
                         <button
                           type="button"
@@ -5068,7 +5068,7 @@
                   <div class="ag-context-card">
                     <div class="ag-context-label">
                       <Icon name="terminal" size={14} />
-                      <span>{t('settings.agentFaceContextComposer')}</span>
+                      <span>{t('settings.agentLookContextComposer')}</span>
                     </div>
                     <div class="ag-context-sample" style="align-items:center;">
                       <div class="ag-context-chip-composer">
@@ -5076,7 +5076,7 @@
                         <span>@{facePreviewName}</span>
                       </div>
                     </div>
-                    <span class="d muted" style="font-size:var(--fs-2xs);">{t('settings.agentFaceComposerHint')}</span>
+                    <span class="d muted" style="font-size:var(--fs-2xs);">{t('settings.agentLookComposerHint')}</span>
                   </div>
                 </div>
               </div>

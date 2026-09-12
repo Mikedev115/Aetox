@@ -77,8 +77,8 @@
     gates = Object.fromEntries(doors.map((d, i) => [d.agent, answers[i]]))
     // Not awaited with the gates and not allowed to fail the room: a roster the
     // engine cannot answer for costs these two cards the mark they hold, and
-    // the face derived from the name is still a face. A locked card is a
-    // verdict and has to be right; a haircut is not.
+    // the mascot derived from the name is still a mascot. A locked card is a
+    // verdict and has to be right; a badge on an ear is not.
     void ListChairs()
       .then((roster) => { faces = Object.fromEntries(roster.map((c) => [c.name, c])) })
       .catch(() => {})

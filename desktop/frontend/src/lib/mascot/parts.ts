@@ -7,7 +7,7 @@
 // (4/6), the light on the face screen (5) and what the hands hold (12).
 // Floating cards and marks are a fifth list that only a pose may reach.
 //
-// Same three rules as agentFace.ts, for the same reasons: a part is named by
+// Three rules, inherited from the cartoon faces this replaced: a part is named by
 // its id and never its position (append, never insert), a row is data with a
 // draw function and not a class (adding one is one line, not a file), and
 // nothing here reads a file or a store — given the same ids and hue this
