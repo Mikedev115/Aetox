@@ -1039,7 +1039,29 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
      fade, and this is the value at the top where none of it is. */
   opacity:.09; animation:watermark-in var(--dur-ground) ease-out both;
 }
-@keyframes watermark-in { from { opacity:0; } to { opacity:.09; } }
+@keyframes watermark-in { from { opacity:0; } to { opacity:var(--ground-ink, .09); } }
+/* The pair: the mark and the user's avatar side by side on the same ground
+   (the empty chat, Chat.svelte). One size for both, taken off the mark's own
+   rule, plus a third clamp: two figures are ~2× as wide as one, so past 44%
+   of the room's width the avatar's ear would leave the left edge before the
+   mask has a chance to fade it — seen at 760px in the mock (12 ก.ย. 2026).
+   Container units, not vw: the room is the chat pane, not the window, and the
+   sidebar's width is not the ground's business. The offsets are fractions of
+   that same size so the two keep their distance at every window.
+   The avatar is a touch brighter than the mark: at the mark's .09 the face
+   fell into the background and read as a smudge; at .16 it is a figure and
+   still a shadow. Its inline width is the roster's default and this ground
+   overrides it — the one place a Mascot's size is the room's to decide. */
+.brand-ground.pair { container-type:inline-size; --ground:min(68vh, 540px, 44cqw); }
+.brand-ground.pair .logo-mark, .brand-ground.pair .mascot {
+  position:absolute; top:50%; left:50%; width:var(--ground); height:auto;
+}
+.brand-ground.pair .logo-mark { transform:translate(calc(-50% + var(--ground) * .36), -50%); }
+.brand-ground.pair .mascot {
+  width:var(--ground) !important; height:var(--ground) !important;
+  transform:translate(calc(-50% - var(--ground) * .62), -50%);
+  --ground-ink:.16; opacity:.16; animation:watermark-in var(--dur-ground) ease-out both;
+}
 /* Positioned siblings, or the absolute mark would paint over every one of them:
    in the same stacking context anything positioned comes after what is not. */
 .empty-state > :not(.brand-ground) { position:relative; z-index:1; }

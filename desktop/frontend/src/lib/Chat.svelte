@@ -17,6 +17,8 @@
   import { onMount, tick } from 'svelte'
   import { cubicOut } from 'svelte/easing'
   import AgentMascot from './mascot/AgentMascot.svelte'
+  import Mascot from './mascot/Mascot.svelte'
+  import { avatarPrefs, assistantOptions } from './mascot/avatarPrefs.svelte'
   import { lookOf } from './mascot/agentLook'
   import type { FaceState } from './mascot/presence'
   import { voice } from './mascot/voice.svelte'
@@ -4604,7 +4606,16 @@
            56px it stood in the stack competing with the question and the cards
            for the same middle of the screen; behind them at this size it is
            the room they are standing in. -->
-      <div class="brand-ground"><Logo size={520} animate={false} /></div>
+      <!-- Two figures on that ground since 12 ก.ย. 2026: the mark, moved off
+           centre to the right, and the assistant's own avatar standing to its
+           left at the same height — a still, in the shell and accent the user
+           picked on the avatar page, so changing the avatar changes this room.
+           Both are ink on the wall, not a companion: the one that moves and
+           talks is Companion.svelte, and this is not a second copy of it. -->
+      <div class="brand-ground pair">
+        <Logo size={520} animate={false} />
+        <Mascot {...assistantOptions(avatarPrefs)} pose="idle" size={520} still />
+      </div>
       <h2>{headline}</h2>
       <!-- Keyed by title so a re-deal replaces the cards rather than rewriting
            the text inside four cards that never moved — which is what makes the
