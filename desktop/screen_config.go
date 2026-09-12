@@ -24,6 +24,11 @@ type screenConfig struct {
 	// starts on next time; empty is this machine.
 	ActiveHost string        `json:"active_host,omitempty"`
 	Hosts      []remote.Host `json:"hosts,omitempty"`
+	// CustomEndpoints is where each custom provider row pointed when it was
+	// added on this screen, by row id — the screen's own record, so a key
+	// filed under that id rides only there when the engine is on a host
+	// (credentialMayRide).
+	CustomEndpoints map[string]string `json:"custom_endpoints,omitempty"`
 }
 
 // screenMu serializes every load-modify-save, for the reason
@@ -139,4 +144,48 @@ func updateHost(name string, change func(h *remote.Host)) error {
 	change(&h)
 	c.put(h)
 	return saveScreenConfig(c)
+}
+
+// rememberCustomEndpoint records where a custom provider row points, and
+// forgetCustomEndpoint drops it with the row.
+func rememberCustomEndpoint(id, baseURL string) error {
+	screenMu.Lock()
+	defer screenMu.Unlock()
+	c, err := loadScreenConfig()
+	if err != nil {
+		return err
+	}
+	if c.CustomEndpoints == nil {
+		c.CustomEndpoints = map[string]string{}
+	}
+	c.CustomEndpoints[id] = strings.TrimSpace(baseURL)
+	return saveScreenConfig(c)
+}
+
+func forgetCustomEndpoint(id string) error {
+	screenMu.Lock()
+	defer screenMu.Unlock()
+	c, err := loadScreenConfig()
+	if err != nil {
+		return err
+	}
+	if _, ok := c.CustomEndpoints[id]; !ok {
+		return nil
+	}
+	delete(c.CustomEndpoints, id)
+	return saveScreenConfig(c)
+}
+
+// customProviderEndpoints is what the screen recorded for a custom row.
+func customProviderEndpoints(id string) []string {
+	screenMu.Lock()
+	c, err := loadScreenConfig()
+	screenMu.Unlock()
+	if err != nil {
+		return nil
+	}
+	if v, ok := c.CustomEndpoints[id]; ok && v != "" {
+		return []string{v}
+	}
+	return nil
 }

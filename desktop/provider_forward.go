@@ -18,8 +18,12 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 
+	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/oauth"
 )
@@ -29,8 +33,55 @@ import (
 func (a *App) providerTransport(canonical, wireFormat string) model.Transport {
 	header, prefix := model.AuthScheme(canonical, wireFormat)
 	return func(network http.RoundTripper) http.RoundTripper {
-		return &signedTransport{provider: canonical, header: header, prefix: prefix, network: network}
+		return &signedTransport{provider: canonical, header: header, prefix: prefix, network: network, mayRide: a.credentialMayRide}
 	}
+}
+
+// credentialMayRide reports whether a credential for provider may be put on
+// a request to this URL.
+//
+// With the engine a child of this process the answer is yes: it runs on
+// this machine's ground, and a URL it built came from settings on this
+// disk. With the engine on a host over ssh (§248 phase 3) the request was
+// built by another machine's process, and a host that has been taken over
+// could ask the screen to sign one addressed to a server of its own — the
+// one way decision 3's key could still leave this machine. So there a
+// credential rides only to where the screen itself knows the provider
+// lives: the catalog's endpoints, the sign-in's endpoint, a custom row's
+// endpoint as recorded when it was added here, and loopback — a runtime on
+// this machine, which is what a host's "localhost" means once the request
+// is sent from here. Anywhere else the request goes out bare and fails at
+// the far end with the provider's own words, rather than carrying the key
+// to whoever asked.
+func (a *App) credentialMayRide(provider string, u *url.URL) bool {
+	if a.engine == nil || !a.engine.remoteNow() {
+		return true
+	}
+	if u == nil {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+	if host == "" {
+		return false
+	}
+	if host == "localhost" || host == "::1" || (net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback()) {
+		return true
+	}
+	known := []string{oauth.Endpoint(provider)}
+	if info, ok := model.LookupProviderInfo(provider); ok {
+		known = append(known, info.BaseURL, info.AltBaseURL)
+	}
+	known = append(known, customProviderEndpoints(provider)...)
+	for _, k := range known {
+		if k == "" {
+			continue
+		}
+		if ku, err := url.Parse(k); err == nil && strings.EqualFold(ku.Hostname(), host) {
+			return true
+		}
+	}
+	debuglog.Msg("provider: %s asked for a credential on %s://%s, which the screen does not know for it — sent unsigned", provider, u.Scheme, u.Host)
+	return false
 }
 
 // signedTransport signs one provider's requests and hands them to the network.
@@ -46,6 +97,9 @@ type signedTransport struct {
 	// (model.AuthScheme); an empty header is a wire format with no key.
 	header, prefix string
 	network        http.RoundTripper
+	// mayRide says whether this request's destination may carry the
+	// credential at all (credentialMayRide); nil means always.
+	mayRide func(provider string, u *url.URL) bool
 }
 
 func (t *signedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -53,6 +107,9 @@ func (t *signedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// us, and a RoundTripper that modifies one is a documented mistake. Clone
 	// carries Body and GetBody across, which is what the retry above needs.
 	req = req.Clone(req.Context())
+	if t.mayRide != nil && !t.mayRide(t.provider, req.URL) {
+		return t.network.RoundTrip(req)
+	}
 	// Extra headers the provider's credentials require — Copilot refuses a
 	// request that does not identify an editor client, the ChatGPT backend
 	// routes on an account id. Not a credential themselves, and wanted on

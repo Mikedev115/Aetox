@@ -53,6 +53,11 @@ func (a *App) AddCustomProvider(name, baseURL, apiKey, keyFrom string) (string, 
 			return "", err
 		}
 	}
+	// The screen's own note of where this row points, for the signer's
+	// check when the engine is on a host (credentialMayRide).
+	if err := rememberCustomEndpoint(id, baseURL); err != nil {
+		return "", err
+	}
 	return id, nil
 }
 
@@ -68,6 +73,9 @@ func (a *App) RemoveCustomProvider(id string) ([]string, error) {
 	// A key left under a name that is about to mean nothing would sit in the
 	// secrets file forever, readable by nobody and deletable from nowhere.
 	if err := credentials.Forget(id); err != nil {
+		return nil, err
+	}
+	if err := forgetCustomEndpoint(id); err != nil {
 		return nil, err
 	}
 	return next, nil
