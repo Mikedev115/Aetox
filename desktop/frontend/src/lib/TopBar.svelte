@@ -8,6 +8,7 @@
   import SessionStrip from './SessionStrip.svelte'
   import { openArtifactsTab } from './stores/workbench.svelte'
   import { codeStatus } from './stores/codeStatus.svelte'
+  import { engine } from './stores/engine.svelte'
 
   let {
     inspectorCollapsed, onToggleInspector, sidebarCollapsed, onToggleSidebar,
@@ -130,6 +131,17 @@
        its own length changes, and it collides with the corner buttons on a
        narrow window. Against the toggle it has a fixed address. -->
   {#if title}<span class="topbar-title" title={title}>{title}</span>{/if}
+  <!-- Where the engine is, when it is not here (§248 phase 3). The window
+       looks the same on a host — that is the design — so this is the one
+       line that says the code, the terminal and the chats on screen are
+       another machine's. A button, because the answer to "where am I" is
+       usually followed by "take me to the page about it". -->
+  {#if engine.status.mode === 'remote'}
+    <button type="button" class="host-badge" title={t('engine.onHost', { host: engine.status.host })} onclick={() => setActiveView('settings')}>
+      <Icon name="server" size={12} />
+      <span>{engine.status.host}</span>
+    </button>
+  {/if}
   <span class="spacer"></span>
   {#if asking.length > 0}
     <button type="button" class="ask-strip" onclick={goAnswer} title={asking[0].question}>

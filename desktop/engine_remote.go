@@ -108,14 +108,17 @@ func engineBinaryFor(ctx context.Context, arch string, progress func(done, total
 }
 
 // reloadWindow starts the frontend over: after a switch of engine every
-// store it holds is about the engine before.
+// store it holds is about the engine before. WindowReload — a plain
+// location.reload() of whatever the webview shows — and not
+// WindowReloadApp, which navigates to the start URL and left the window
+// black on the first real switch (2026-09-12, wails dev on Windows).
 func (a *App) reloadWindow() {
 	if a.reload != nil {
 		a.reload()
 		return
 	}
 	if a.ctx != nil {
-		wailsruntime.WindowReloadApp(a.ctx)
+		wailsruntime.WindowReload(a.ctx)
 	}
 }
 

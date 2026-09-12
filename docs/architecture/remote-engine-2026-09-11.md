@@ -402,9 +402,12 @@ first and the file against the checksums second — the same chain as an
 update — and caches it under `<DataRoot>/updates/engine/<ver>/`, re-hashed
 on every use. A file beside the program or in `AETOX_ENGINE_LINUX_DIR` wins
 over the download (a development tree, a build of one's own).
-*Switching engines reloads the frontend* (`WindowReloadApp`): another
+*Switching engines reloads the frontend* (`WindowReload`, a plain
+`location.reload()` — not `WindowReloadApp`, which navigates to the start
+URL and left the native window black on the first real switch): another
 engine is another database, and every store the window holds is about the
-one before. A switch is not a restart — it does not count toward the three
+one before. The top bar wears the host's name as a badge while the engine is
+there, because the window otherwise looks exactly as it does at home. A switch is not a restart — it does not count toward the three
 a minute — but a tunnel that drops does, and is redialed without touching
 the engine (the next spawn's probe finds it running). *The picker* is
 `RemoteDirPicker.svelte` on `ListDir`/`HomeDir`; only the project door
@@ -749,4 +752,8 @@ the config names `127.0.0.1`; and a key made by Windows `ssh-keygen -N ""`
 from PowerShell carries a literal `""` passphrase, which BatchMode then
 fails on in silence — the key was made in WSL. Neither is Aetox's to fix,
 but the Settings note should say "key-based, tested with `ssh -o
-BatchMode=yes <target>`" — it does not yet.
+BatchMode=yes <target>`" — it does not yet. One thing was: the owner's
+window went black after the switch — `WindowReloadApp` (navigate to the
+start URL) in the native webview; `WindowReload` (reload in place) is what
+a switch does now, and the top bar names the host so "where am I" has an
+answer on screen.
