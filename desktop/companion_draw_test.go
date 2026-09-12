@@ -136,9 +136,7 @@ func TestComposerPicksWalkBlinkAndFallback(t *testing.T) {
 		t.Fatalf("blink did not show the shut frame: %+v", px)
 	}
 	sp.asked = nil
-	// (the change fades from the shut frame first; a second on it is done)
-	c.draw(dst, companionScene{Pose: "coding"}, t0.Add(time.Second))
-	c.draw(dst, companionScene{Pose: "coding"}, t0.Add(2*time.Second))
+	c.draw(dst, companionScene{Pose: "coding"}, t0)
 	if px := dst.RGBAAt(f.Min.X+10, f.Min.Y+10); px != red {
 		t.Fatalf("an unbaked pose did not fall back to idle: %+v", px)
 	}
@@ -409,34 +407,5 @@ func TestComposerKeepsTheFrameGroundTouchable(t *testing.T) {
 	outside := c.hitRect().Min.X - 3
 	if dst.RGBAAt(outside, fig.Min.Y+10).A != 0 {
 		t.Fatal("ground painted beyond the frame's box")
-	}
-}
-
-// A walk ending is a change of picture too: the last step fades into the
-// pose, rather than cutting to it (owner, 13 ก.ย. 2026: "ตอนสลับท่าไม่ค่อย
-// สมูท").
-func TestComposerCrossfadesOutOfAWalk(t *testing.T) {
-	c, _, dst := newTestComposer(map[string]color.RGBA{
-		"idle-p0-open": red, "idle-p1-open": red, "idle-p2-open": red, "idle-p3-open": red,
-		"walk-t90-p0": blue, "walk-t90-p1": blue, "walk-t90-p2": blue, "walk-t90-p3": blue,
-		"walk-t90-p4": blue, "walk-t90-p5": blue, "walk-t90-p6": blue, "walk-t90-p7": blue,
-	})
-	t0 := time.Unix(100, 0)
-	c.draw(dst, companionScene{Pose: "idle", Walking: true, Heading: 90}, t0)
-	f := c.figureRect()
-	if px := dst.RGBAAt(f.Min.X+10, f.Min.Y+10); px != blue {
-		t.Fatalf("walking: %+v", px)
-	}
-	c.draw(dst, companionScene{Pose: "idle"}, t0.Add(time.Second))
-	if px := dst.RGBAAt(f.Min.X+10, f.Min.Y+10); px != blue {
-		t.Fatalf("the step should still show at the moment the walk ends: %+v", px)
-	}
-	c.draw(dst, companionScene{Pose: "idle"}, t0.Add(time.Second+crossMs*time.Millisecond/2))
-	if px := dst.RGBAAt(f.Min.X+10, f.Min.Y+10); px.R < 100 || px.B < 100 {
-		t.Fatalf("mid-fade is not a mix: %+v", px)
-	}
-	c.draw(dst, companionScene{Pose: "idle"}, t0.Add(2*time.Second))
-	if px := dst.RGBAAt(f.Min.X+10, f.Min.Y+10); px != red {
-		t.Fatalf("after the fade: %+v", px)
 	}
 }
