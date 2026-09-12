@@ -114,4 +114,12 @@ describe('gitSecurity: assessDangerousFile', () => {
     expect(assessDangerousFile('package.json')).toBeNull()
     expect(assessDangerousFile('cmd/server/main.go')).toBeNull()
   })
+
+  // The chat's own attachments: held out of the tick like a secret, but as
+  // the app's file rather than a danger — the banner is not for these.
+  it('marks the app-owned attachment folder as app, at any depth', () => {
+    expect(assessDangerousFile('.aetox-attachments/20260912-041113.536/1789163035789-1.png')?.category).toBe('app')
+    expect(assessDangerousFile('sub/.aetox-attachments/x.png')?.category).toBe('app')
+    expect(assessDangerousFile('docs/attachments/x.png')).toBeNull()
+  })
 })

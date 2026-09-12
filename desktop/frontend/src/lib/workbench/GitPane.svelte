@@ -77,10 +77,14 @@
   const selectedCount = $derived(files.filter((f) => selectedFiles[f.path]).length)
   const allSelected = $derived(files.length > 0 && files.every((f) => selectedFiles[f.path]))
 
+  // The banner and the note to the assistant are for secrets, keys, dumps and
+  // binaries. The app's own attachments are held out of the tick like those,
+  // but they are not a warning — nothing leaked, the file is simply not the
+  // project's — so they get the row badge and nothing louder.
   const dangerousFiles = $derived(
     files
       .map((f) => ({ file: f, assessment: assessDangerousFile(f.path) }))
-      .filter((item): item is { file: main.GitFileChange; assessment: DangerousFileAssessment } => item.assessment !== null)
+      .filter((item): item is { file: main.GitFileChange; assessment: DangerousFileAssessment } => item.assessment !== null && item.assessment.category !== 'app')
   )
 
   async function handleAskAssistantAboutDangerousFiles() {
@@ -659,9 +663,9 @@
             <span class="gp-name">{name(f.path)}</span>
             {#if assessDangerousFile(f.path)}
               {@const danger = assessDangerousFile(f.path)}
-              <span class="gp-row-danger-badge" title={t(`git.dangerCat.${danger?.category}` as any) || danger?.reason}>
-                <Icon name="alertTriangle" size={10} />
-                <span>{t('git.dangerousBadge')}</span>
+              <span class="gp-row-danger-badge" class:app={danger?.category === 'app'} title={t(`git.dangerCat.${danger?.category}` as any) || danger?.reason}>
+                <Icon name={danger?.category === 'app' ? 'package' : 'alertTriangle'} size={10} />
+                <span>{danger?.category === 'app' ? t('git.appOwnedBadge') : t('git.dangerousBadge')}</span>
               </span>
             {/if}
             {#if dir(f.path)}<span class="gp-dir">{dir(f.path)}</span>{/if}

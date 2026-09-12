@@ -267,6 +267,8 @@ export const th = {
   'git.dangerousWarningDesc': 'ไฟล์เหล่านี้อาจเป็น Secret, Key หรือไฟล์ข้อมูลที่ไม่ควรส่งขึ้น Git',
   'git.askAssistant': 'แจ้งผู้ช่วย',
   'git.dangerousBadge': 'สำคัญ/อันตราย',
+  'git.appOwnedBadge': 'ของแอป',
+  'git.dangerCat.app': 'ไฟล์แนบในแชทของ Aetox — ของแอป ไม่ใช่ของโปรเจกต์ ไม่ควรขึ้น git',
   'git.dangerCat.secret': 'ตัวแปรระบบ / ข้อมูลความลับ (.env)',
   'git.dangerCat.key': 'คีย์ลับส่วนตัว / ใบรับรอง (Private Key)',
   'git.dangerCat.credentials': 'ข้อมูลเข้าสู่ระบบ / โทเค็น (Credentials / Tokens)',
