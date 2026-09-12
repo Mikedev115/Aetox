@@ -10,9 +10,9 @@
 //   npm run mascots
 //
 // It also overwrites scratch/mascot/index.html when that folder exists, so
-// the :5310 link the owner keeps open shows the same thing — and it writes
-// desktop/companion_page.html, the page the Go feed serves to a surface
-// outside the window (desktop/companion.go): the same rig, polling the feed.
+// the :5310 link the owner keeps open shows the same thing. (The desktop
+// companion no longer needs a page from here: it is drawn by Go from frames
+// the app bakes — lib/mascot/bake.ts, desktop/companion_draw.go.)
 import { build } from 'esbuild'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -188,61 +188,6 @@ const out = resolve(repo, 'docs/mascot.html')
 writeFileSync(out, html)
 console.log('wrote', out)
 
-// ---- the companion page: what a window outside the app shows -----------------
-// Polls ./state (relative, so the token in the path comes along) and draws the
-// mascot the feed describes. Transparent ground, because the window it is
-// meant for is transparent; a plain browser tab shows it on white.
-const companionHtml = `<!doctype html>
-<html lang="th">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Aetox companion</title>
-<style>
-${css}
-html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font: 13px/1.4 system-ui, "Segoe UI", sans-serif; }
-.wrap { position: fixed; inset: 0; display: flex; align-items: flex-end; justify-content: flex-end; padding: 12px; gap: 10px; }
-.say { position: relative; max-width: 260px; background: #f5f8ff; color: #1a2233; border-radius: 12px; padding: 8px 11px; box-shadow: 0 6px 18px rgb(0 0 0 / .35); margin-bottom: 30px; overflow-wrap: anywhere; }
-.say::after { content: ''; position: absolute; right: -6px; bottom: 12px; width: 12px; height: 12px; background: #f5f8ff; transform: rotate(45deg); border-radius: 2px; }
-.say[hidden] { display: none; }
-.off { opacity: .35; }
-</style>
-</head>
-<body>
-<div class="wrap"><div class="say" id="say" hidden></div><div id="fig"></div></div>
-<script type="module">
-const mod = await import('data:text/javascript;base64,' + btoa(unescape(encodeURIComponent(${JSON.stringify(bundled.outputFiles[0].text)}))))
-const { resolveMascot, mascotSVG, handVars } = mod
-const SIZE = 104
-const fig = document.getElementById('fig'), say = document.getElementById('say')
-let seq = -1, drawn = ''
-function draw(s) {
-  const key = JSON.stringify([s.pose, s.prefs, s.on])
-  if (key !== drawn) {
-    drawn = key
-    const p = s.prefs ?? {}
-    const m = resolveMascot({ badge: 'logo', shell: p.shell, accent: p.accent, top: p.top, face: p.face, pose: s.pose || 'idle', size: SIZE })
-    fig.innerHTML = '<span class="mascot pose-' + m.poseId + ' sway settle' + (s.on ? '' : ' off') + '" style="--t:' + m.pose.turn + 'deg; ' + handVars(m) + '; --ms-blink:5.1s; width:' + SIZE + 'px; height:' + SIZE + 'px"><svg viewBox="0 0 64 64">' + mascotSVG(m) + '</svg></span>'
-  }
-  say.textContent = s.report || ''
-  say.hidden = !s.report
-}
-async function poll() {
-  try {
-    const r = await fetch('state', { cache: 'no-store' })
-    if (r.ok) { const s = await r.json(); if (s.seq !== seq) { seq = s.seq; draw(s) } }
-  } catch { /* the app is away; try again */ }
-  setTimeout(poll, 500)
-}
-draw({ pose: 'idle', prefs: {}, on: true, report: '' })
-poll()
-</script>
-</body>
-</html>
-`
-const page = resolve(repo, 'desktop/companion_page.html')
-writeFileSync(page, companionHtml)
-console.log('wrote', page)
 const lab = resolve(repo, 'scratch/mascot/index.html')
 if (existsSync(dirname(lab))) {
   writeFileSync(lab, html)
