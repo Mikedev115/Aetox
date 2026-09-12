@@ -11,6 +11,7 @@
 // Pure: inputs in, a pose id out, no store, no time. The caller decides how
 // long a pose lingers (a success card that flashes for 200ms is not seen).
 import type { PoseId } from './poses'
+import { toolFamily, type ToolFamily } from '../toolFace'
 
 export type PresenceInput = {
   /** A turn is running. */
@@ -31,37 +32,69 @@ export type PresenceInput = {
   speaking?: boolean
   /** The last turn ended and nobody has typed since. */
   justDone?: boolean
+  /** A tool in this turn failed and the model is deciding what to do about
+   *  it — the moment between the error and the next call. */
+  failed?: boolean
 }
 
-/** Tool name → what doing it looks like. Names are the ids `tool_runs` logs
- *  (the packed ones, not their per-action keys): a tool not listed here is
- *  drawn as typing, which is what most of them look like from the outside. */
+/** Tool name → what doing it looks like, for the tools whose look is more
+ *  specific than their family's. Names are the ids the engine sends on a
+ *  ToolStep. Anything not here falls to FAMILY_POSE by way of toolFace's
+ *  family table — the same table that picks the row's icon — so a tool the
+ *  app grows tomorrow, or one bridged from an MCP server, is drawn as what
+ *  its family looks like from the outside rather than as nothing. */
 export const TOOL_POSE: Record<string, PoseId> = {
-  web_search: 'research',
-  web_fetch: 'research',
-  browser: 'research',
+  // Reading one thing, as opposed to looking for it.
   read: 'reading',
   pdf_read: 'reading',
   media_read: 'reading',
-  search: 'searchFiles',
-  codebase: 'searchFiles',
+  image_ocr: 'reading',
+  video_ocr: 'reading',
+  audio_transcribe: 'reading',
+  // Looking through what was said and remembered.
   session_search: 'searchData',
   memory: 'searchData',
+  // Looking through documentation.
   skills_list: 'searchDocs',
   skill_view: 'searchDocs',
   github: 'searchDocs',
-  change: 'typing',
-  rename: 'typing',
-  doc_write: 'typing',
-  sheet_write: 'typing',
-  shell: 'coding',
-  git: 'coding',
-  pr: 'coding',
-  desk_terminal: 'coding',
+  github_search: 'searchDocs',
+  github_read_file: 'searchDocs',
+  github_list_files: 'searchDocs',
+  github_repo_summary: 'searchDocs',
+  help: 'searchDocs',
+  // Finding what is wrong.
+  diagnostics: 'debugging',
+  // Deciding what to do.
   plan: 'planning',
+  plan_mode: 'planning',
   todo_write: 'planning',
-  task: 'helping',
+  suggest_task: 'planning',
+  // Making the thing that will be shown.
+  doc_write: 'presenting',
+  sheet_write: 'presenting',
+  image_make: 'presenting',
+  video_project: 'presenting',
+  cutting_room: 'presenting',
   ask_user: 'asking',
+}
+
+/** What a family of tools looks like when the name says nothing more. */
+export const FAMILY_POSE: Record<ToolFamily, PoseId> = {
+  read: 'searchFiles',
+  write: 'typing',
+  web: 'research',
+  shell: 'coding',
+  media: 'reading',
+  task: 'helping',
+  mcp: 'typing',
+  other: 'typing',
+}
+
+/** The pose for one running tool, by name. */
+export function toolPose(name: string): PoseId {
+  const key = name.trim().toLowerCase()
+  return TOOL_POSE[key] ?? FAMILY_POSE[toolFamily({ name: key, label: key })]
 }
 
 export function presenceOf(i: PresenceInput): PoseId {
@@ -74,13 +107,12 @@ export function presenceOf(i: PresenceInput): PoseId {
   if (i.running && i.running.length) {
     // The innermost tool is the one whose work is visible; a `task` that
     // delegated to a `read` is reading right now.
-    for (let k = i.running.length - 1; k >= 0; k--) {
-      const pose = TOOL_POSE[i.running[k]]
-      if (pose) return pose
-    }
-    return 'typing'
+    return toolPose(i.running[i.running.length - 1])
   }
   if (i.streaming) return 'answering'
+  // Something went wrong a moment ago and nothing has replaced it yet: the
+  // model is looking at the error, not merely thinking.
+  if (i.failed) return 'debugging'
   if (i.reasoning) return 'thinking'
   // Nothing concrete yet — the phrase before the first token.
   return 'thinking'

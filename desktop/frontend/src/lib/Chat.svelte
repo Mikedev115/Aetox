@@ -19,6 +19,7 @@
   import AgentMascot from './mascot/AgentMascot.svelte'
   import { lookOf } from './mascot/agentLook'
   import type { FaceState } from './mascot/presence'
+  import { voice } from './mascot/voice.svelte'
   import { shell } from './shell.svelte'
   import {
     EnabledProviders, SupportedThinkLevels,
@@ -1546,6 +1547,12 @@
   function speakKey(m: ChatMessage): string {
     return m.id ? String(m.id) : m.text
   }
+  // The mascot on screen listens when the mic is on and talks while a reply
+  // is read: the two states mirrored out, nothing read back.
+  $effect(() => {
+    voice.mic = micState === 'rec'
+    voice.speaking = speakingId !== ''
+  })
 
   // Every piece for this read, as it is synthesized. Wired once for the
   // component: a read that is stopped is filtered out by its job id, not by

@@ -116,6 +116,15 @@ export function resolveMascot(o: MascotOptions = {}): Mascot {
   }
 }
 
+/** The pose's hand targets as custom properties for the root element — the
+ *  arms read them from there (mascot.css), and the root is what transitions
+ *  them when the pose changes. Every renderer of the markup sets these
+ *  beside --t: Mascot.svelte, the lab sheet, the companion page. */
+export function handVars(m: Pick<Mascot, 'pose'>): string {
+  const { L, R } = m.pose.hands
+  return `--lhx:${L[0]};--lhy:${L[1]};--ld:${L[2]};--rhx:${R[0]};--rhy:${R[1]};--rd:${R[2]}`
+}
+
 /** The look range presence may use around the pose's own turn, in degrees. */
 export function lookRange(pose: Pose): number {
   return pose.look ?? DEFAULT_LOOK
@@ -158,7 +167,7 @@ export function mascotSVG(m: Mascot): string {
   // ---- behind the body: far ears, far arms, legs, torso
   if (detail) {
     s += ear(m, 'L', 'far', g) + ear(m, 'R', 'far', g)
-    s += arm(p, g, 'L', m.pose.hands.L, 'far', hl) + arm(p, g, 'R', m.pose.hands.R, 'far', hl)
+    s += arm(p, g, 'L', 'far', hl) + arm(p, g, 'R', 'far', hl)
   }
   s += leg(p, g, 25, 'L', m.pose.legs, hl) + leg(p, g, 39, 'R', m.pose.legs, hl)
   s +=
@@ -199,7 +208,7 @@ export function mascotSVG(m: Mascot): string {
   s += ear(m, 'L', 'near', g) + ear(m, 'R', 'near', g)
   // ---- in front of the body: what the hands hold, then the near arms over it
   if (m.prop) s += (detail ? `<ellipse cx="32" cy="52" rx="12" ry="3" fill="url(#${g}ao)"/>` : ``) + `<g class="ms-prop">${m.prop.svg(p, g)}</g>`
-  s += arm(p, g, 'L', m.pose.hands.L, 'near', hl) + arm(p, g, 'R', m.pose.hands.R, 'near', hl)
+  s += arm(p, g, 'L', 'near', hl) + arm(p, g, 'R', 'near', hl)
   s += `</g>`
   // ---- floating UI: neither turns nor breathes
   if (m.mark) s += m.mark(p)
@@ -251,13 +260,16 @@ function leg(p: Palette, g: string, cx: number, side: 'L' | 'R', mode: 'tuck' | 
 // own gradient, so an arm is the same material as the head, with a lit side
 // and a dark rim. The CSS turns the whole thing at the shoulder towards the
 // hand's projected target (mascot.css); the length never changes.
-function arm(p: Palette, g: string, side: 'L' | 'R', hand: Hand, layer: 'far' | 'near', hl: (d: string, w?: number, o?: number) => string): string {
+function arm(p: Palette, g: string, side: 'L' | 'R', layer: 'far' | 'near', hl: (d: string, w?: number, o?: number) => string): string {
   const [sx, sy] = SHOULDER[side]
-  const [hx, hy, d] = hand
   const wx = sx + ARM
   const r = 2.4
+  // The target is read off the root (handVars), not written here: the root
+  // outlives a redraw, so when the pose changes the numbers slide from the
+  // old target to the new one and the arm swings instead of jumping.
+  const v = side === 'L' ? 'l' : 'r'
   return (
-    `<g class="ms-arm ms-arm${side} ${layer}" style="--sx:${sx};--sy:${sy};--hx:${hx};--hy:${hy};--d:${d};transform-origin:${sx}px ${sy}px">` +
+    `<g class="ms-arm ms-arm${side} ${layer}" style="--sx:${sx};--sy:${sy};--hx:var(--${v}hx);--hy:var(--${v}hy);--d:var(--${v}d);transform-origin:${sx}px ${sy}px">` +
     `<g class="ms-upper" style="transform-origin:${sx}px ${sy}px">` +
     `<rect x="${sx - r}" y="${sy - r}" width="${ARM + 2 * r}" height="${2 * r}" rx="${r}" fill="url(#${g}sh)" stroke="${p.shellEdge}" stroke-width=".5"/>` +
     `<circle cx="${sx}" cy="${sy}" r="2.1" fill="${p.joint}"/>` +
