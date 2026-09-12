@@ -139,10 +139,10 @@ function laptop(p: Palette, g: string, glyph: string): string {
     `<g class="ms-deckF"><path d="M21.5 53.4h21v1.8h-21z" fill="${p.slab}"/><path d="M21.5 53.4h21v.5h-21z" fill="#fff" opacity=".28"/></g>` +
     // Lid — 18 × 11.4, back cover towards the viewer with the mark; the screen
     // faces the mascot. Its side faces carry the thickness.
-    `<g class="ms-lid"><path d="M24.2 42h15.6a1.2 1.2 0 0 1 1.2 1.2v10.2H23V43.2a1.2 1.2 0 0 1 1.2-1.2z" fill="url(#${g}slab)"/>` +
-    `<path d="M24.4 43.4h15.2v8.6H24.4z" fill="${p.slabDn}" opacity=".45"/>${glyph}` +
-    `<path d="M24.4 43.4h15.2v8.6H24.4z" fill="url(#${g}gl)"/>` +
-    `<path d="M24.6 42.6h14.8" stroke="#fff" stroke-width=".5" opacity=".35" stroke-linecap="round"/></g>` +
+    `<g class="ms-lid"><path d="M24.6 42.4h14.8a1.2 1.2 0 0 1 1.2 1.1l.6 9.9H22.8l.6-9.9a1.2 1.2 0 0 1 1.2-1.1z" fill="url(#${g}slab)"/>` +
+    `<path d="M25.2 43.8h13.6l.5 8H24.7z" fill="${p.slabDn}" opacity=".45"/>${glyph}` +
+    `<path d="M25.2 43.8h13.6l.5 8H24.7z" fill="url(#${g}gl)"/>` +
+    `<path d="M25 43h14" stroke="#fff" stroke-width=".5" opacity=".35" stroke-linecap="round"/></g>` +
     `<g class="ms-lidL"><path d="M11 42h1.2v11.4H11z" fill="${p.slabDn}"/></g>` +
     `<g class="ms-lidR"><path d="M11 42h1.2v11.4H11z" fill="${p.slabDn}"/></g>`
   )

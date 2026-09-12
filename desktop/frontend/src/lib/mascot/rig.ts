@@ -221,9 +221,11 @@ function leg(p: Palette, g: string, cx: number, side: 'L' | 'R', mode: 'tuck' | 
     `<ellipse cx="${cx}" cy="${cy - 2.6}" rx="2.4" ry="1.1" fill="${p.primaryDn}"/>`
   const foot =
     mode === 'tuck'
-      ? thigh(52.4) +
-        `<ellipse cx="${cx}" cy="57.4" rx="5.4" ry="2.3" fill="${p.primaryDn}"/><ellipse cx="${cx}" cy="55.6" rx="5" ry="3" fill="url(#${g}sh)"/>` +
-        hl(`M${cx - 3} 54.4a3.6 1.9 0 0 1 4.2-1.1`)
+      ? thigh(52.2) +
+        // the foot comes forward, sole to the viewer: a blue disc with a lit rim
+        `<ellipse cx="${cx}" cy="57.8" rx="5.6" ry="2.6" fill="${p.primaryDn}"/><ellipse cx="${cx}" cy="57.2" rx="4.6" ry="1.9" fill="${p.primary}"/>` +
+        `<ellipse cx="${cx}" cy="55.2" rx="5" ry="3" fill="url(#${g}sh)"/>` +
+        hl(`M${cx - 3} 54a3.6 1.9 0 0 1 4.2-1.1`)
       : thigh(51) +
         `<ellipse cx="${cx}" cy="58" rx="5" ry="2.4" fill="${p.primaryDn}"/><ellipse cx="${cx}" cy="56.4" rx="4.6" ry="3" fill="url(#${g}sh)"/>` +
         hl(`M${cx - 2.8} 55a3.4 1.9 0 0 1 4-1.1`)

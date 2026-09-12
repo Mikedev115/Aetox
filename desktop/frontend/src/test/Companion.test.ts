@@ -1,0 +1,108 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { render, waitFor, fireEvent } from '@testing-library/svelte'
+import Companion from '../lib/mascot/Companion.svelte'
+import { cockpit } from '../lib/stores/cockpit.svelte'
+import { reportOf, REPORT_TAIL } from '../lib/mascot/presence'
+
+// The assistant sitting on the screen: what it does is read off the cockpit's
+// live turn, what it says is only what the model said. The drawing is
+// mascot.test.ts's business; this guards the seam and the two rules the owner
+// gave the companion — it never shows a command, and it never turns.
+
+beforeEach(() => {
+  localStorage.clear()
+  cockpit.awaitingReply = false
+  cockpit.agentStatus = ''
+  cockpit.toolSteps = []
+  cockpit.streamingText = ''
+  cockpit.reasoningText = ''
+  cockpit.ask = null
+})
+
+const mascot = (c: HTMLElement) => c.querySelector('.companion .mascot')!
+
+describe('the companion', () => {
+  it('rests, sways and does not follow the pointer', async () => {
+    const { container } = render(Companion)
+    await waitFor(() => expect(mascot(container)).toBeTruthy())
+    expect(mascot(container).classList.contains('pose-idle')).toBe(true)
+    expect(mascot(container).classList.contains('sway')).toBe(true)
+    expect(container.querySelector('.say')).toBeNull()
+  })
+
+  // A running tool is a card beside the head, and no words: the bubble stays
+  // shut until the model says something.
+  it('shows the running tool as a pose, never as text', async () => {
+    cockpit.awaitingReply = true
+    cockpit.toolSteps = [{ name: 'search', label: 'grep TODO', state: 'run', startedAt: 0 }] as any
+    const { container } = render(Companion)
+    await waitFor(() => expect(mascot(container).classList.contains('pose-searchFiles')).toBe(true))
+    expect(container.querySelector('.say')).toBeNull()
+  })
+
+  it('types out what the model reported between tools', async () => {
+    vi.useFakeTimers()
+    cockpit.awaitingReply = true
+    cockpit.toolSteps = [
+      { kind: 'note', label: 'อ่าน config แล้ว มี 3 ค่าที่ยังไม่ตั้ง', state: 'done', startedAt: 0 },
+      { name: 'read', label: 'read config.yaml', state: 'run', startedAt: 0 },
+    ] as any
+    const { container } = render(Companion)
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(container.querySelector('.say')?.textContent).toContain('อ่าน config แล้ว มี 3 ค่าที่ยังไม่ตั้ง')
+    vi.useRealTimers()
+  })
+
+  // A delegate's narration is the delegate's; the assistant's bubble does not
+  // relay it.
+  it('ignores a sub-agent\'s narration', async () => {
+    cockpit.awaitingReply = true
+    cockpit.toolSteps = [{ kind: 'note', label: 'delegate says hi', state: 'done', parent: 'task-1', startedAt: 0 }] as any
+    const { container } = render(Companion)
+    await waitFor(() => expect(mascot(container)).toBeTruthy())
+    expect(container.querySelector('.say')).toBeNull()
+  })
+
+  it('shows the tail of the answer as it streams', async () => {
+    cockpit.awaitingReply = true
+    cockpit.streamingText = 'บรรทัดแรก\n' + 'x'.repeat(100) + 'ท้ายจริง'
+    const { container } = render(Companion)
+    await waitFor(() => expect(container.querySelector('.say')).toBeTruthy())
+    const said = container.querySelector('.say')!.textContent ?? ''
+    expect(said.startsWith('…')).toBe(true)
+    expect(said).toContain('ท้ายจริง')
+    expect(mascot(container).classList.contains('pose-answering')).toBe(true)
+  })
+
+  it('remembers where it was dragged', async () => {
+    const { container } = render(Companion)
+    await waitFor(() => expect(mascot(container)).toBeTruthy())
+    const grab = container.querySelector('.grab')!
+    ;(grab as any).setPointerCapture = () => {}
+    await fireEvent.pointerDown(grab, { clientX: 500, clientY: 400, pointerId: 1 })
+    await fireEvent.pointerMove(grab, { clientX: 300, clientY: 200, pointerId: 1 })
+    await fireEvent.pointerUp(grab, { pointerId: 1 })
+    const saved = JSON.parse(localStorage.getItem('companionPos') ?? '{}')
+    expect(saved.x).toBeGreaterThanOrEqual(8)
+    expect(saved.y).toBeGreaterThanOrEqual(8)
+  })
+})
+
+describe('what the bubble may say', () => {
+  it('is empty while nothing has been said', () => {
+    expect(reportOf({ awaiting: true })).toBe('')
+    expect(reportOf({ awaiting: false, note: 'old news' })).toBe('')
+  })
+  it('prefers the question, then the answer, then the note', () => {
+    expect(reportOf({ awaiting: true, note: 'n', streamingText: 's', question: 'q?' })).toBe('q?')
+    expect(reportOf({ awaiting: true, note: 'n', streamingText: 's' })).toBe('s')
+    expect(reportOf({ awaiting: true, note: 'n' })).toBe('n')
+  })
+  it('keeps only the tail of a long answer and strips markdown marks', () => {
+    const long = '# หัวข้อ\n**' + 'ก'.repeat(90) + '** ท้าย'
+    const out = reportOf({ awaiting: true, streamingText: long })
+    expect(out.startsWith('…')).toBe(true)
+    expect(out.length).toBe(REPORT_TAIL + 1)
+    expect(out).not.toContain('*')
+  })
+})

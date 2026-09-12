@@ -42,14 +42,16 @@ export type Pose = {
 
 /** Shoulders sit on the body's edge. */
 export const SHOULDER = { L: [23.5, 45] as const, R: [40.5, 45] as const }
-/** Shoulder to wrist. The hand's sphere sits just past it. */
-export const ARM = 11
+/** Shoulder to wrist. The hand's sphere sits just past it. Short, as the
+ *  sheet draws it: the hands rest on the lid's lower sides, not far from the
+ *  body. */
+export const ARM = 8
 
-/** Holding the laptop by the ends of its base, at the lip under the lid (depth 11). */
-const REST = { L: [20, 55.5, 11] as const, R: [44, 55.5, 11] as const }
+/** Holding the laptop by the lower sides of its lid, as the sheet draws it (depth 11). */
+const REST = { L: [21.5, 52.5, 11] as const, R: [42.5, 52.5, 11] as const }
 /** Typing: on the base at the lid's edges, where the fingers still show
  *  from the front — the keys themselves are behind the lid. */
-const KEYS = { L: [22.5, 55, 10] as const, R: [41.5, 55, 10] as const }
+const KEYS = { L: [22, 54, 10] as const, R: [42, 54, 10] as const }
 /** Raised beside the head: the arm points at the ear's lower edge (the ears
  *  span y 22–36) and the hand lands at cheek height in front of it — a
  *  short-armed robot does not wave above its own head. */
@@ -58,11 +60,11 @@ const UP_L: Hand = [12.5, 36.5, 5]
 
 const POSE_ROWS = {
   greeting:    { face: 'happy',    hands: { L: REST.L, R: UP_R },               legs: 'tuck',  prop: 'role', panel: 'hi',        turn: 12,  look: 25 },
-  idle:        { face: null,       hands: REST,                                 legs: 'tuck',  prop: 'role', panel: null,        turn: 0 },
+  idle:        { face: null,       hands: REST,                                 legs: 'tuck',  prop: 'role', panel: null,        turn: 14 },
   thinking:    { face: 'thinking', hands: { L: REST.L, R: [44, 41, 11] },       legs: 'tuck',  prop: 'role', panel: 'dots',      turn: -12 },
-  typing:      { face: 'focused',  hands: KEYS,                                 legs: 'tuck',  prop: 'role', panel: null,        mark: 'flick', turn: 4 },
+  typing:      { face: 'focused',  hands: KEYS,                                 legs: 'tuck',  prop: 'role', panel: null,        mark: 'flick', turn: 14 },
   reading:     { face: 'thinking', hands: { L: [24, 52, 8], R: [40, 52, 8] },   legs: 'tuck',  prop: 'doc',  panel: null,        turn: 6 },
-  research:    { face: null,       hands: REST,                                 legs: 'tuck',  prop: 'role', panel: 'web',       turn: 0 },
+  research:    { face: null,       hands: REST,                                 legs: 'tuck',  prop: 'role', panel: 'web',       turn: 10 },
   searchDocs:  { face: 'curious',  hands: { L: [24, 52, 8], R: [40, 52, 8] },   legs: 'tuck',  prop: 'doc',  panel: 'docsearch', turn: 8 },
   searchData:  { face: 'focused',  hands: KEYS,                                 legs: 'tuck',  prop: 'role', panel: 'search',    turn: -6 },
   searchFiles: { face: null,       hands: REST,                                 legs: 'tuck',  prop: 'role', panel: 'files',     turn: 10 },

@@ -103,6 +103,16 @@
 @keyframes ms-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .62; } }
 .mascot .ms-float { transform-box: fill-box; transform-origin: center; animation: ms-float 2.4s ease-in-out infinite; }
 @keyframes ms-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+/* The one that sits on the screen does not turn to follow the pointer (owner:
+   "ขยับไปขยับมา ไม่ต้องหันซ้ายขวา") — it sways instead, slowly, on top of its
+   breathing, so it is alive without ever looking at anything. */
+.mascot.sway .ms-all { animation: ms-sway 5.6s ease-in-out infinite; }
+@keyframes ms-sway {
+  0%, 100% { transform: rotate(-1.4deg) scale(1, 1); }
+  25% { transform: rotate(0deg) scale(1.006, 1.014); }
+  50% { transform: rotate(1.4deg) scale(1, 1); }
+  75% { transform: rotate(0deg) scale(1.006, 1.014); }
+}
 /* smooth the turn when --t jumps (a pose change, a glance) */
 .mascot.settle { transition: --t .45s ease-out; }
 @property --t { syntax: '<angle>'; inherits: true; initial-value: 0deg; }
