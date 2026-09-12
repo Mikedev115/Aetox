@@ -48,6 +48,13 @@ let starting = false                  // StartSpeech is in flight and has not na
 let held: SpeechChunk[] = []          // pieces that beat that name back here
 let onError: ((msg: string) => void) | undefined
 let wired = false
+// Which read is current, as a number rather than as its key: two reads may
+// share a key (the companion greets, the user's name lands, it greets again)
+// and the first's StartSpeech can still be in flight when the second starts.
+// Told apart by key alone, the first came back, saw its own key, and took
+// the job — two readings of the greeting at once, heard as an echo on the
+// first open (owner, 12 ก.ย.: "เสียงมันแบบก้องเหมือนถูกสร้างมาซ้อนกัน").
+let generation = 0
 
 /** Listen for pieces once, the first time anything is read. A read that was
  *  stopped is filtered out by its job id, not by tearing the listener down. */
@@ -128,6 +135,7 @@ export function stopSpeech(): void {
   speech.busyKey = ''
   voice.speaking = false
   onError = undefined
+  generation++
   const ended = job
   job = ''
   // Both ends of the read close here: the backend cancels the synthesis in
@@ -156,11 +164,13 @@ export async function speak(key: string, text: string, report?: (msg: string) =>
   speech.key = key
   voice.speaking = true
   starting = true
+  const mine = generation
   try {
     const started = await StartSpeech(said)
-    // Stopped while the engine was being resolved — a press this side has
-    // already forgotten. Close the read rather than start playing it.
-    if (speech.key !== key) {
+    // Stopped — or replaced, even by a read with the same key — while the
+    // engine was being resolved. Close this read rather than start playing
+    // it over the one that took its place.
+    if (mine !== generation) {
       void StopSpeech(started).catch(() => {})
       return
     }
@@ -169,11 +179,18 @@ export async function speak(key: string, text: string, report?: (msg: string) =>
     held = []
     for (const c of early) if (c.job === started) accept(c)
   } catch (err) {
+    // A superseded read's failure is nobody's news: the read that replaced
+    // it is the one playing, and stopping it here would be the echo's cousin.
+    if (mine !== generation) return
     stopSpeech()
     report?.(String(err))
   } finally {
-    starting = false
-    held = []
+    // Only the read still current may lower the flag: a superseded read's
+    // finally would otherwise drop the pieces the current one is holding.
+    if (mine === generation) {
+      starting = false
+      held = []
+    }
   }
 }
 
