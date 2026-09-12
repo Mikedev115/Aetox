@@ -27,7 +27,7 @@
   import { presenceOf, reportOf, headlineOf, walkTurn, nearAngle } from './presence'
   import { POSE, type PoseId } from './poses'
   import { cockpit } from '../stores/cockpit.svelte'
-  import { companion, setCompanionOn, setCompanionVoice, setCompanionSize, clampSize } from './companionSetting.svelte'
+  import { companion, setCompanionOn, setCompanionVoice, setCompanionSize, clampSize, bubbleMetrics } from './companionSetting.svelte'
   import { desktopBody, openBody, closeBody, onBodyInput, bakeFor, rememberPos, themeColors, wordsOf } from './desktopBody.svelte'
   import { speech, speak, stopSpeechIf } from '../speech.svelte'
   import { avatarPrefs, assistantOptions } from './avatarPrefs.svelte'
@@ -39,6 +39,8 @@
   /** The figure's size, logical px — the user's, dragged at the corner of
    *  the hover frame (companionSetting.svelte.ts size). */
   const SIZE = $derived(companion.size)
+  // the bubble's type and width follow the figure (bubbleMetrics)
+  const SAY = $derived(bubbleMetrics(SIZE))
   const MARGIN = 8
   const POS_KEY = 'companionPos'
   /** How long the success card stays after a turn ends. */
@@ -644,7 +646,7 @@
   class:dragging
   class:resizing
   class:flip
-  style="transform:translate({pos.x}px,{pos.y}px); width:{SIZE}px; height:{SIZE}px"
+  style="transform:translate({pos.x}px,{pos.y}px); width:{SIZE}px; height:{SIZE}px; --say-font:{SAY.font}px; --say-max:{SAY.maxW}px"
   aria-hidden="true"
 >
   {#if shown}
@@ -692,13 +694,16 @@
     background: linear-gradient(135deg, transparent 0 55%, var(--text-muted) 55% 62%, transparent 62% 75%, var(--text-muted) 75% 82%, transparent 82%);
     border-bottom-right-radius: 14px;
   }
-  /* the report: a small card that exists only while there is something said */
+  /* the report: a small card that exists only while there is something said.
+     Its type and width come from the figure's size (bubbleMetrics, set on the
+     root as --say-font/--say-max); the padding, radius and gap are ems of the
+     type, so at the default size these are 8px 11px, 12px and 10px. */
   .say {
-    position: absolute; right: calc(100% + 10px); bottom: 30px;
-    width: max-content; max-width: 300px;
+    position: absolute; right: calc(100% + 0.833em); bottom: 30px;
+    width: max-content; max-width: var(--say-max, 300px);
     background: var(--surface-raised); color: var(--text-primary);
-    border: 1px solid var(--border-subtle); border-radius: 12px; padding: 8px 11px;
-    font-size: var(--fs-xs); line-height: 1.4;
+    border: 1px solid var(--border-subtle); border-radius: 1em; padding: 0.667em 0.917em;
+    font-size: var(--say-font, var(--fs-xs)); line-height: 1.4;
     box-shadow: 0 6px 18px rgb(0 0 0 / 0.3);
     overflow-wrap: anywhere;
     pointer-events: none;
@@ -709,7 +714,7 @@
     background: var(--surface-raised); border-right: 1px solid var(--border-subtle); border-top: 1px solid var(--border-subtle);
     transform: rotate(45deg); border-radius: 2px;
   }
-  .flip .say { right: auto; left: calc(100% + 10px); }
+  .flip .say { right: auto; left: calc(100% + 0.833em); }
   .flip .say::after { right: auto; left: -6px; border-right: 0; border-top: 0; border-left: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); }
   @keyframes say-in { from { opacity: 0; transform: translateY(4px) scale(0.96); } to { opacity: 1; transform: none; } }
   .cur { display: inline-block; width: 1px; height: 1em; background: var(--accent); vertical-align: -2px; margin-left: 1px; animation: cur 1s steps(2) infinite; }

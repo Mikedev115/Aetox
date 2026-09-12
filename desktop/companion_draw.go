@@ -39,6 +39,10 @@ const (
 	// The corner grip of the hover frame, a resize handle.
 	cGrip = 16
 
+	// The bubble at the default figure; bubbleMetrics grows the type and
+	// the width from these with the figure (companionSetting.svelte.ts
+	// bubbleMetrics, the same rule). Gap, padding and radius are ems of
+	// the type at cFontPx.
 	cBubbleMaxW   = 300
 	cBubbleGap    = 10
 	cBubblePadX   = 11
@@ -48,6 +52,14 @@ const (
 	cArrow        = 6
 	cFontPx       = 12
 	cLineH        = 1.4
+	// The type grows at three quarters of the figure's rate, within a
+	// floor and a ceiling; the card's width at a slower one, to a cap, so
+	// a long line folds into more lines rather than across the screen.
+	cBubbleFontRate = 0.75
+	cBubbleFontMin  = 11
+	cBubbleFontMax  = 24
+	cBubbleWRate    = 0.6
+	cBubbleWCap     = 380
 
 	cFrameInset  = 6
 	cFrameRadius = 14
@@ -282,7 +294,36 @@ func (c *composer) spriteSize() int { return c.figure * cSpriteBox / 64 }
 // which is how bake.ts sizes it (setHash's scale).
 func (c *composer) spriteScale() float64 { return c.scale * float64(c.figure) / cFigureDefault }
 
-func (c *composer) canvasW() int { return c.spriteSize() + 2*(cBubbleMaxW+cBubbleGap+cArrow+2) }
+func (c *composer) canvasW() int {
+	_, maxW := bubbleMetrics(c.figure)
+	return c.spriteSize() + 2*(int(math.Ceil(maxW))+c.bubbleGap()+cArrow+2)
+}
+
+// bubbleMetrics is the bubble's type size and the card's widest width, in
+// logical pixels, at a figure size: what the window draws by
+// (companionSetting.svelte.ts bubbleMetrics — keep the two the same). At
+// cFigureDefault they are cFontPx and cBubbleMaxW.
+func bubbleMetrics(figure int) (fontPx, maxW float64) {
+	figure = max(cFigureMin, min(cFigureMax, figure))
+	k := float64(figure) / cFigureDefault
+	fontPx = math.Min(cBubbleFontMax, math.Max(cBubbleFontMin, cFontPx*(1+cBubbleFontRate*(k-1))))
+	fontPx = math.Round(fontPx*10) / 10
+	maxW = math.Min(cBubbleWCap, math.Max(cBubbleMaxW, cBubbleMaxW+cBubbleWRate*float64(figure-cFigureDefault)))
+	return fontPx, math.Round(maxW)
+}
+
+// bubbleEm is a bubble measurement given at the default type size, at the
+// figure's, in pixels of this scale.
+func (c *composer) bubbleEm(atDefault float64) int {
+	fontPx, _ := bubbleMetrics(c.figure)
+	return c.px(atDefault * fontPx / cFontPx)
+}
+
+// bubbleGap is the gap between the card and the figure, logical pixels.
+func (c *composer) bubbleGap() int {
+	fontPx, _ := bubbleMetrics(c.figure)
+	return int(math.Round(cBubbleGap * fontPx / cFontPx))
+}
 func (c *composer) canvasH() int {
 	return cFigTop + c.figure + (c.spriteSize()-c.figure)/2 + cCanvasBottom
 }
@@ -539,20 +580,21 @@ func (c *composer) hopOffset(at, now time.Time) int {
 // opaque rounded card with a 1px border and a small arrow towards the
 // figure, and a blinking bar after the text while it is still arriving.
 func (c *composer) bubble(dst *image.RGBA, s companionScene, now time.Time) image.Rectangle {
-	fontPx := c.px(cFontPx)
+	fontLogical, maxWLogical := bubbleMetrics(c.figure)
+	fontPx := c.px(fontLogical)
 	lineH := c.text.lineHeight(fontPx)
 	if lineH <= 0 {
-		lineH = c.px(cFontPx * cLineH)
+		lineH = c.px(fontLogical * cLineH)
 	}
-	padX, padY := c.px(cBubblePadX), c.px(cBubblePadY)
-	maxText := c.px(cBubbleMaxW) - 2*padX
+	padX, padY := c.bubbleEm(cBubblePadX), c.bubbleEm(cBubblePadY)
+	maxText := c.px(maxWLogical) - 2*padX
 	bg := parseColor(s.Theme.Bg, color.RGBA{0x1f, 0x1f, 0x23, 0xff})
 	border := parseColor(s.Theme.Border, color.RGBA{0x22, 0x22, 0x26, 0xff})
 	fg := parseColor(s.Theme.Fg, color.RGBA{0xf2, 0xf2, 0xf3, 0xff})
 
 	// Wrapped and painted once per text: the key is everything the picture
 	// depends on.
-	key := s.Shown + "|" + s.Theme.Bg + "|" + s.Theme.Fg + "|" + strconv.Itoa(fontPx)
+	key := s.Shown + "|" + s.Theme.Bg + "|" + s.Theme.Fg + "|" + strconv.Itoa(fontPx) + "|" + strconv.Itoa(maxText)
 	if key != c.textKey {
 		lines, textW := wrapWords(s.Words, s.Shown, maxText, func(t string) int { return c.text.measure(t, fontPx) })
 		c.textKey, c.textLines, c.textW = key, lines, textW
@@ -572,14 +614,14 @@ func (c *composer) bubble(dst *image.RGBA, s companionScene, now time.Time) imag
 	fig := c.figureRect()
 	var x int
 	if s.Flip {
-		x = fig.Max.X + c.px(cBubbleGap)
+		x = fig.Max.X + c.px(float64(c.bubbleGap()))
 	} else {
-		x = fig.Min.X - c.px(cBubbleGap) - w
+		x = fig.Min.X - c.px(float64(c.bubbleGap())) - w
 	}
 	y := fig.Max.Y - c.px(cBubbleBottom) - h
 	card := image.Rect(x, y, x+w, y+h)
 
-	fillRoundRect(dst, card, float64(c.px(cBubbleRadius)), bg, border, float64(c.scale))
+	fillRoundRect(dst, card, float64(c.bubbleEm(cBubbleRadius)), bg, border, float64(c.scale))
 	// the arrow: a small diamond on the edge facing the figure, its base
 	// covered by the card so only the point shows
 	arrow := c.px(cArrow)

@@ -1193,7 +1193,8 @@ func (w *companionWindow) bubbleFlips() bool {
 	if !ok {
 		return false
 	}
-	return fx-w.comp.px(cBubbleMaxW+cBubbleGap) < int(mi.Work.Left)
+	_, maxW := bubbleMetrics(w.comp.figure)
+	return fx-w.comp.px(maxW+float64(w.comp.bubbleGap())) < int(mi.Work.Left)
 }
 
 // clampFigure keeps the figure — the part that is not transparent — on the

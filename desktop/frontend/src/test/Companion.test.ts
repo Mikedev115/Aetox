@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, waitFor, fireEvent } from '@testing-library/svelte'
+import { tick } from 'svelte'
 import Companion from '../lib/mascot/Companion.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import { reportOf, REPORT_MAX } from '../lib/mascot/presence'
-import { companion, setCompanionOn, setCompanionVoice, setCompanionGreet, setCompanionSize, SIZE_DEFAULT, SIZE_MIN, SIZE_MAX } from '../lib/mascot/companionSetting.svelte'
+import { companion, setCompanionOn, setCompanionVoice, setCompanionGreet, setCompanionSize, bubbleMetrics, SIZE_DEFAULT, SIZE_MIN, SIZE_MAX } from '../lib/mascot/companionSetting.svelte'
 import { voice } from '../lib/mascot/voice.svelte'
 import { speech, stopSpeech } from '../lib/speech.svelte'
 import { StartSpeech } from './mocks/wailsApp'
@@ -462,5 +463,30 @@ describe('what it says out loud', () => {
     // a grip press is not a click on the figure: no reaction
     expect(mascot(container).classList.contains('pose-cheer')).toBe(false)
     setCompanionSize(SIZE_DEFAULT)
+  })
+
+  // The bubble follows the figure (owner, 13 ก.ย. 2026: "ให้มันขยายตาม แต่
+  // จำกัดความยาวให้มันสูงขึ้นแทน"): at the default size it is what it was —
+  // 12px on a card at most 300px wide; bigger, the type grows at three
+  // quarters of the figure's rate while the width is held to a cap, so a
+  // long answer folds into more lines. Smaller, the type shrinks a little
+  // and the width stays. The same numbers as companion_draw.go bubbleMetrics.
+  it("scales the bubble's type with the figure and holds its width", async () => {
+    expect(bubbleMetrics(SIZE_DEFAULT)).toEqual({ font: 12, maxW: 300 })
+    expect(bubbleMetrics(160)).toEqual({ font: 16.8, maxW: 334 })
+    expect(bubbleMetrics(SIZE_MAX)).toEqual({ font: 23.8, maxW: 380 })
+    expect(bubbleMetrics(SIZE_MIN)).toEqual({ font: 11, maxW: 300 })
+    expect(bubbleMetrics(9999)).toEqual(bubbleMetrics(SIZE_MAX))
+
+    setCompanionSize(200)
+    const { container } = await arrived()
+    const box = container.querySelector('.companion') as HTMLElement
+    const m = bubbleMetrics(200)
+    expect(box.style.getPropertyValue('--say-font')).toBe(`${m.font}px`)
+    expect(box.style.getPropertyValue('--say-max')).toBe(`${m.maxW}px`)
+    setCompanionSize(SIZE_DEFAULT)
+    await tick()
+    expect(box.style.getPropertyValue('--say-font')).toBe('12px')
+    expect(box.style.getPropertyValue('--say-max')).toBe('300px')
   })
 })
