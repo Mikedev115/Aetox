@@ -37,15 +37,59 @@
   let previewPose = $state<(typeof PREVIEW_POSES)[number]>('idle')
   const worn = $derived(wornPersona(avatarPrefs))
 
-  /** The four marks on the figure, in the figure's own 300×300 box: where the
-   *  part is on a 250px mascot drawn 25px in from the left, 16px down. Each
-   *  lead runs from the mark to the side its panel is on. */
-  const MARKS = [
-    { n: 1, x: 150, y: 34, side: 'left' },   // the crown
-    { n: 2, x: 228, y: 122, side: 'right' }, // an ear
-    { n: 3, x: 90, y: 128, side: 'left' },   // the body
-    { n: 4, x: 176, y: 110, side: 'right' }, // the screen
-  ] as const
+  // The leads: a straight line from the part on the figure to the panel that
+  // changes it, measured off the real boxes rather than drawn where the
+  // layout is hoped to be (owner: "เอาผูกกันเลย ไม่ใช่ไปขนาน"). Anchors are
+  // points on the 64-unit mascot; the rest is getBoundingClientRect.
+  const FIG_PX = 250
+  type PartKey = 'top' | 'hue' | 'shell' | 'face'
+  const ANCHORS: { key: PartKey; x: number; y: number }[] = [
+    { key: 'top', x: 32, y: 4.4 },   // the orb on the crown
+    { key: 'hue', x: 51.5, y: 29 },  // the right ear ring
+    { key: 'shell', x: 22, y: 44 },  // the body, low left
+    { key: 'face', x: 44, y: 34 },   // the screen's lower corner
+  ]
+  let stageEl: HTMLDivElement | undefined = $state()
+  let figEl: HTMLDivElement | undefined = $state()
+  const panelEl: Partial<Record<PartKey, HTMLDivElement>> = {}
+  let leads = $state<{ x1: number; y1: number; x2: number; y2: number }[]>([])
+  let stageBox = $state({ w: 0, h: 0 })
+
+  function measure(): void {
+    if (!stageEl || !figEl) return
+    const st = stageEl.getBoundingClientRect()
+    const fg = figEl.getBoundingClientRect()
+    stageBox = { w: st.width, h: st.height }
+    const k = FIG_PX / 64
+    const next: typeof leads = []
+    for (const a of ANCHORS) {
+      const panel = panelEl[a.key]
+      if (!panel) continue
+      const pr = panel.getBoundingClientRect()
+      // Stacked (narrow) layout: the panels sit under the figure, in its
+      // column, and a lead would cross everything to reach them — draw none.
+      if (pr.left < fg.right && pr.right > fg.left) continue
+      const x1 = fg.left - st.left + a.x * k
+      const y1 = fg.top - st.top + a.y * k
+      const left = pr.right <= fg.left + 1
+      const x2 = (left ? pr.right : pr.left) - st.left
+      const y2 = Math.min(Math.max(y1, pr.top - st.top + 22), pr.bottom - st.top - 22)
+      next.push({ x1, y1, x2, y2 })
+    }
+    leads = next
+  }
+  $effect(() => {
+    if (!stageEl) return
+    const ro = new ResizeObserver(() => measure())
+    ro.observe(stageEl)
+    window.addEventListener('resize', measure)
+    const raf = requestAnimationFrame(measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+      cancelAnimationFrame(raf)
+    }
+  })
 </script>
 
 <h2>{text.title}</h2>
@@ -56,10 +100,17 @@
   <span>{text.mainNote}</span>
 </div>
 
-<div class="stage">
-  <!-- ① top light — ③ body -->
-  <div class="panel tl">
-    <h3><span class="n">1</span>{text.top}</h3>
+<div class="stage" bind:this={stageEl}>
+  <svg class="leads" width={stageBox.w} height={stageBox.h} aria-hidden="true">
+    {#each leads as l, i (i)}
+      <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} />
+      <circle cx={l.x1} cy={l.y1} r="4" />
+      <circle cx={l.x2} cy={l.y2} r="3" />
+    {/each}
+  </svg>
+  <!-- top light — body -->
+  <div class="panel tl" bind:this={panelEl.top}>
+    <h3>{text.top}</h3>
     <p class="hint">{text.parts.top}</p>
     <div class="ag-parts">
       {#each TOP as t (t.id)}
@@ -69,8 +120,8 @@
       {/each}
     </div>
   </div>
-  <div class="panel bl">
-    <h3><span class="n">3</span>{text.shell}</h3>
+  <div class="panel bl" bind:this={panelEl.shell}>
+    <h3>{text.shell}</h3>
     <p class="hint">{text.parts.shell}</p>
     <div class="ag-parts">
       {#each SHELL as sh (sh.id)}
@@ -81,19 +132,9 @@
     </div>
   </div>
 
-  <!-- the figure, with its marks and leads -->
+  <!-- the figure; the leads above are measured from this box -->
   <div class="figure">
-    <svg class="leads" viewBox="0 0 300 300" preserveAspectRatio="none" aria-hidden="true">
-      <g fill="none" stroke="var(--interactive)" stroke-width="1.5" stroke-dasharray="4 4" opacity=".75">
-        {#each MARKS as m (m.n)}
-          <path d="M{m.x} {m.y} H {m.side === 'left' ? 0 : 300}" />
-        {/each}
-      </g>
-    </svg>
-    <div class="fig-box"><Mascot {...opts} pose={previewPose} size={250} sway /></div>
-    {#each MARKS as m (m.n)}
-      <span class="mark" style="left:{m.x - 10}px; top:{m.y - 10}px" aria-hidden="true">{m.n}</span>
-    {/each}
+    <div class="fig-box" bind:this={figEl}><Mascot {...opts} pose={previewPose} size={250} sway /></div>
     <div class="poses" role="tablist" aria-label={text.preview}>
       {#each PREVIEW_POSES as p (p)}
         <button type="button" class="ctrl tiny" class:on={previewPose === p} role="tab" aria-selected={previewPose === p} onclick={() => (previewPose = p)}>
@@ -106,9 +147,9 @@
     {/if}
   </div>
 
-  <!-- ② accent — ④ resting face -->
-  <div class="panel tr">
-    <h3><span class="n">2</span>{text.hue}</h3>
+  <!-- accent — resting face -->
+  <div class="panel tr" bind:this={panelEl.hue}>
+    <h3>{text.hue}</h3>
     <p class="hint">{text.parts.hue}</p>
     <div class="ag-parts">
       <button type="button" class="ag-part avatar-part" class:on={avatarPrefs.hue === null} title={text.hueBrand} aria-label={text.hueBrand} onclick={() => setAvatarPrefs({ hue: null })}>
@@ -121,8 +162,8 @@
       {/each}
     </div>
   </div>
-  <div class="panel br">
-    <h3><span class="n">4</span>{text.face}</h3>
+  <div class="panel br" bind:this={panelEl.face}>
+    <h3>{text.face}</h3>
     <p class="hint">{text.parts.face}</p>
     <div class="ag-parts">
       {#each FACE.filter((f) => f.identity) as f (f.id)}
@@ -188,22 +229,22 @@
   .avatar-main .star { color: var(--interactive); display: inline-flex; margin-top: 2px; }
 
   /* ---- the stage ---- */
-  .stage { display: grid; grid-template-columns: minmax(0, 1fr) 300px minmax(0, 1fr); grid-template-rows: auto auto; gap: 18px 0; align-items: start; }
+  .stage { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 300px minmax(0, 1fr); grid-template-rows: auto auto; gap: 18px 0; align-items: start; }
+  .stage > .leads { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 1; }
+  .stage > .leads line { stroke: var(--interactive); stroke-width: 1.5; stroke-dasharray: 5 4; opacity: .8; }
+  .stage > .leads circle { fill: var(--interactive); stroke: var(--surface-app); stroke-width: 2; }
   .panel { background: var(--surface-panel); border: 1px solid var(--border-subtle); border-radius: 14px; padding: 12px 14px; }
   .panel.tl { grid-column: 1; grid-row: 1; margin-right: 18px; }
   .panel.bl { grid-column: 1; grid-row: 2; margin-right: 18px; }
   .panel.tr { grid-column: 3; grid-row: 1; margin-left: 18px; }
   .panel.br { grid-column: 3; grid-row: 2; margin-left: 18px; }
   .panel h3 { margin: 0 0 2px; font-size: var(--fs-md); display: flex; align-items: center; gap: 8px; }
-  .n, .mark { width: 20px; height: 20px; border-radius: 50%; background: var(--interactive); color: var(--text-on-interactive); font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
   .hint { color: var(--text-muted); font-size: var(--fs-xs); margin: 0 0 10px; }
   .avatar-part { padding: 3px; }
   .avatar-part :global(.mascot) { display: block; }
 
   .figure { grid-column: 2; grid-row: 1 / span 2; position: relative; display: flex; flex-direction: column; align-items: center; padding-top: 16px; }
-  .figure .leads { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
   .fig-box { position: relative; }
-  .mark { position: absolute; box-shadow: 0 0 0 3px var(--surface-app); }
   .poses { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; justify-content: center; }
   .poses .on { border-color: var(--interactive); background: var(--surface-raised); }
   .reset { margin-top: 8px; }
@@ -228,7 +269,6 @@
   @media (max-width: 900px) {
     .stage { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
     .figure { grid-column: 1; grid-row: 1; }
-    .figure .leads { display: none; }
     .panel { grid-column: 1 !important; grid-row: auto !important; margin: 0 !important; }
     .slots { grid-template-columns: 1fr; }
   }

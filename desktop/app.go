@@ -325,6 +325,12 @@ type App struct {
 	remoteOnce sync.Once
 	remoteSrv  *remoteServer
 
+	// companionSrv is the assistant's presence, published on loopback for a
+	// surface outside this window (companion.go). Lazy like the remote: an
+	// install that never asks for it never listens.
+	companionOnce sync.Once
+	companionSrv  *companionServer
+
 	// staged is the downloaded, verified update waiting for the user to pick a
 	// moment to restart into (§107). Held here rather than in internal/update
 	// because it is one running app's state, not the package's — and guarded
