@@ -98,7 +98,19 @@ type TaskOptions struct {
 	// is the assistant's reach, and the copy on the switch has to say so — "ปิด
 	// doc" would tell somebody their agent is gone when it is standing right
 	// there.
-	WorkersOff   []string
+	WorkersOff []string
+	// Team is the roster this session hires agents from, and the desk that
+	// roster works at (team.go). A member runs under the TEAM's desk, not the
+	// desk its own file would have put it at — that is what lets an agent the
+	// user wrote work at the code door, hired by the coding desk and handed
+	// back to it (§94.3), holding what that desk holds (§94.2). An agent not
+	// on the team is refused by name, so the roster in the schema and the
+	// dispatch agree: the model is never offered someone it cannot hire.
+	//
+	// Nil is the full reach — every chair at any desk this desk may dispatch
+	// to — which is what every host had before teams existed and what the CLI
+	// still has. Helpers are not on a team; a team is about colleagues.
+	Team         *Team
 	Permissions  safety.PermissionConfig
 	ApprovalMode safety.ApprovalMode
 	Approve      turn.ApprovalPromptFunc
@@ -278,7 +290,41 @@ func (t *taskTool) reach(p Profile) (*mode.Mode, error) {
 	if p.Desk == "" && t.opts.NoHelpers {
 		return nil, fmt.Errorf("%s is a HELPER (ซับเอเจน) — your own hands in a second context — and this session does not use them. Do the step here, in this conversation", p.Name)
 	}
+	// A colleague is reached through the team, when there is one: membership
+	// decides who, the team's desk decides under what. Asked after the two
+	// switches above so that "switched off" and "not on this team" stay two
+	// different sentences — the first is something the person can flip, the
+	// second is something they would edit.
+	if p.Desk != "" && t.opts.Team != nil {
+		if !t.opts.Team.Has(p.Name) {
+			return nil, fmt.Errorf("%s is not on this session's team. Tell the person you are talking to that %s belongs to another team — they can open a chat on that team, or add %s to this one", p.Name, p.Name, p.Name)
+		}
+		return t.teamCeiling()
+	}
 	return t.ceilingFor(p)
+}
+
+// teamCeiling answers which desk's manifest a job on a team member runs
+// under: the team's. The session's own desk when the team sits at it (hiring
+// within a desk), the team's desk when this desk declares it in `dispatch:`
+// (the office, hired from the assistant desk), and a refusal otherwise —
+// which the picker should already have made impossible, and is refused here
+// anyway because a picker is not a gate.
+func (t *taskTool) teamCeiling() (*mode.Mode, error) {
+	here, team := t.opts.Desk, t.opts.Team
+	if team.Desk == "" || team.Desk == here.DeskName() {
+		return here, nil
+	}
+	if !here.AllowsDispatch(team.Desk) {
+		return nil, fmt.Errorf(
+			"this session's team works at the %s desk, and this desk does not hand work to that one. Do it here, or tell the user which kind of session this belongs in",
+			team.Desk)
+	}
+	target, ok := mode.Load(team.Desk)
+	if !ok {
+		return nil, fmt.Errorf("the team says it works at the %q desk, and no such desk exists", team.Desk)
+	}
+	return target, nil
 }
 
 // switchedOff reports whether the user has taken this worker out of the
