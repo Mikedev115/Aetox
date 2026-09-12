@@ -13,6 +13,9 @@ import type { PoseId } from './poses'
 export type AvatarText = {
   title: string
   blurb: string
+  /** The page's two sub-menus: the switches for the main avatar, and the look. */
+  tabMain: string
+  tabDesign: string
   onScreen: string
   onScreenDesc: string
   voice: string
@@ -35,6 +38,10 @@ export type AvatarText = {
   placeWindowDesc: string
   placeDesktopDesc: string
   placeBaking: string
+  /** The figure's size row: the number, how to change it, and the reset. */
+  size: string
+  sizeDesc: string
+  sizeReset: string
   preview: string
   shell: string
   hue: string
@@ -51,9 +58,12 @@ export type AvatarText = {
   personasNote: string
   persona: string
   personaEmpty: string
+  /** The + card: keeps what is worn as one more persona. */
+  personaAdd: string
+  personaAddDesc: string
   use: string
   save: string
-  clear: string
+  remove: string
   worn: string
 }
 
@@ -61,6 +71,8 @@ const TEXT: Record<string, AvatarText> = {
   th: {
     title: 'อวตาร',
     blurb: 'ตัวผู้ช่วยที่นั่งอยู่บนจอ — เลือกสีตัว สี accent ไฟบนหัว และหน้าประจำตัว ทุกอย่างวาดจากโค้ด ไม่มีไฟล์ภาพ',
+    tabMain: 'ตั้งค่าอวตารหลัก',
+    tabDesign: 'ออกแบบอวตาร',
     onScreen: 'ผู้ช่วยบนจอ',
     onScreenDesc: 'ตัวลอยที่ลากไปวางตรงไหนก็ได้ พูดเฉพาะตอนรายงาน ปิดได้จากที่นี่หรือจากปุ่ม × บนตัว',
     voice: 'พูดออกเสียง',
@@ -77,9 +89,12 @@ const TEXT: Record<string, AvatarText> = {
     placeWindow: 'ในแอป',
     placeDesktop: 'ทั่วเดสก์ท็อป',
     placeDesc: 'ตัวเดียวกัน คิดเหมือนกัน พูดเหมือนกัน — ต่างกันแค่ว่าวาดที่ไหนและกินอะไร',
-    placeWindowDesc: 'ลอยอยู่ในหน้าต่าง Aetox เท่านั้น · วาดสดในหน้าต่างนี้ · ไม่ใช้ทรัพยากรเพิ่ม',
-    placeDesktopDesc: 'หน้าต่างเล็กของตัวเอง ลากไปได้ทุกจอ อยู่ต่อแม้ย่อแอป · แรมเพิ่มราว 5 MB, CPU ราว 1% · เปิดครั้งแรกอบภาพประมาณ 3 วินาที · ไม่เปิดเบราว์เซอร์ตัวที่สอง',
+    placeWindowDesc: 'ลอยอยู่ในหน้าต่าง Aetox เท่านั้น ทำงานได้เต็มที่ ไม่กินทรัพยากรเพิ่ม',
+    placeDesktopDesc: 'หน้าต่างเล็กของตัวเอง ลากไปได้ทุกจอ อยู่ต่อแม้ย่อแอป · กินทรัพยากรเพิ่มนิดหน่อย',
     placeBaking: 'กำลังอบภาพให้หุ่นบนเดสก์ท็อป…',
+    size: 'ขนาด',
+    sizeDesc: 'เอาเมาส์ไปชี้ตัวหุ่นแล้วลากมุมขวาล่างของกรอบ — เล็กสุด {min} ใหญ่สุด {max} px ใช้ทั้งในแอปและบนเดสก์ท็อป',
+    sizeReset: 'คืนค่าเริ่มต้น',
     preview: 'ตัวอย่าง',
     shell: 'สีตัว',
     hue: 'สี accent',
@@ -96,17 +111,21 @@ const TEXT: Record<string, AvatarText> = {
     parts: { top: 'ไฟบนหัว — สัญญาณบนยอด', shell: 'ตัว — วัสดุของหัว ลำตัว แขน ขา', hue: 'accent — หมวก หู พื้นรองเท้า และแสงบนจอ · ขาวดำคือค่าเริ่มต้น โทนเดียวกับโลโก้', face: 'หน้า — แสงบนจอตอนพัก' },
     mainNote: 'นี่คืออวตารหลักของ Aetox — ตัวเดียวกันทุกโต๊ะ ทุกหน้า สิ่งที่เลือกที่นี่คือผู้ช่วยของคุณ',
     personas: 'บุคลิก',
-    personasNote: 'บันทึกชุดที่ชอบไว้ได้ 6 ชุด สลับใช้ได้ทันที — และเป็นชุดที่จะนำไปใส่ให้เอเจนที่คุณออกแบบเองในอนาคต',
+    personasNote: 'บันทึกชุดที่ชอบไว้กี่ชุดก็ได้ สลับใช้ได้ทันที — และเป็นชุดที่จะนำไปใส่ให้เอเจนที่คุณออกแบบเองในอนาคต',
     persona: 'บุคลิก',
-    personaEmpty: 'ว่าง',
+    personaEmpty: 'ยังไม่มีบุคลิกที่บันทึกไว้',
+    personaAdd: 'เพิ่มบุคลิก',
+    personaAddDesc: 'บันทึกชุดที่ใส่อยู่ตอนนี้เป็นบุคลิกใหม่',
     use: 'ใช้',
-    save: 'บันทึกชุดนี้',
-    clear: 'ล้าง',
+    save: 'บันทึกทับ',
+    remove: 'ลบ',
     worn: 'ใช้อยู่',
   },
   en: {
     title: 'Avatar',
     blurb: 'The assistant that sits on your screen — pick its finish, accent, top light and resting face. Drawn from code; no image files.',
+    tabMain: 'Main avatar',
+    tabDesign: 'Design',
     onScreen: 'Assistant on screen',
     onScreenDesc: 'A floating figure you can drag anywhere. It speaks only when it reports. Turn it off here or with the × on it.',
     voice: 'Speak aloud',
@@ -123,9 +142,12 @@ const TEXT: Record<string, AvatarText> = {
     placeWindow: 'In the app',
     placeDesktop: 'On the desktop',
     placeDesc: 'The same assistant, thinking and speaking the same — only where it is drawn, and what that costs, differ.',
-    placeWindowDesc: 'Floats inside the Aetox window only · drawn live here · no extra resources',
-    placeDesktopDesc: 'A small window of its own — drag it to any monitor, it stays when the app is minimised · about 5 MB of memory, about 1% CPU · bakes its frames on first open (about 3 s) · no second browser',
+    placeWindowDesc: 'Floats inside the Aetox window only, does everything, no extra resources',
+    placeDesktopDesc: 'A small window of its own — drag it to any monitor, it stays when the app is minimised · uses a little more of the machine',
     placeBaking: 'Baking frames for the desktop figure…',
+    size: 'Size',
+    sizeDesc: 'Point at the figure and drag the bottom-right corner of its frame — {min} to {max} px, the same in the app and on the desktop',
+    sizeReset: 'Reset',
     preview: 'Preview',
     shell: 'Finish',
     hue: 'Accent',
@@ -142,17 +164,21 @@ const TEXT: Record<string, AvatarText> = {
     parts: { top: 'Top light — the signal on the crown', shell: 'Body — the material of head, torso, arms, legs', hue: 'Accent — cap, ears, soles and the screen light · black and white is the default, the two tones of the mark', face: 'Face — the screen light at rest' },
     mainNote: "This is Aetox's main avatar — the same one on every desk and page. What you choose here is your assistant.",
     personas: 'Personas',
-    personasNote: 'Keep up to six looks and switch between them — the looks you will hand to agents you design later.',
+    personasNote: 'Keep as many looks as you like and switch between them — the looks you will hand to agents you design later.',
     persona: 'Persona',
-    personaEmpty: 'Empty',
+    personaEmpty: 'No saved personas yet',
+    personaAdd: 'Add persona',
+    personaAddDesc: 'Keep the look worn now as a new persona',
     use: 'Use',
-    save: 'Save this look',
-    clear: 'Clear',
+    save: 'Overwrite',
+    remove: 'Remove',
     worn: 'Wearing',
   },
   zh: {
     title: '头像',
     blurb: '坐在屏幕上的助手——选择机身颜色、点缀色、头顶灯和默认表情。全部由代码绘制，没有图片文件。',
+    tabMain: '主头像设置',
+    tabDesign: '设计头像',
     onScreen: '桌面助手',
     onScreenDesc: '可拖到任意位置的小助手，只在汇报时说话。可在此处或用它身上的 × 关闭。',
     voice: '朗读',
@@ -169,9 +195,12 @@ const TEXT: Record<string, AvatarText> = {
     placeWindow: '应用内',
     placeDesktop: '桌面上',
     placeDesc: '同一个助手，思考与说话都一样——只是绘制的位置和开销不同。',
-    placeWindowDesc: '只在 Aetox 窗口内浮动 · 在本窗口实时绘制 · 不额外占用资源',
-    placeDesktopDesc: '独立的小窗口，可拖到任意显示器，最小化应用后仍在 · 约 5 MB 内存、约 1% CPU · 首次打开烘焙画面约 3 秒 · 不启动第二个浏览器',
+    placeWindowDesc: '只在 Aetox 窗口内浮动，功能齐全，不额外占用资源',
+    placeDesktopDesc: '独立的小窗口，可拖到任意显示器，最小化应用后仍在 · 略多占用一点资源',
     placeBaking: '正在为桌面助手烘焙画面…',
+    size: '大小',
+    sizeDesc: '把鼠标移到助手上，拖动边框右下角——最小 {min}、最大 {max} px，应用内与桌面通用',
+    sizeReset: '恢复默认',
     preview: '预览',
     shell: '机身',
     hue: '点缀色',
@@ -188,12 +217,14 @@ const TEXT: Record<string, AvatarText> = {
     parts: { top: '头顶灯——顶部的信号', shell: '机身——头、躯干、手臂、腿的材质', hue: '点缀色——帽子、耳朵、鞋底和屏幕光 · 黑白为默认，与标志同色调', face: '表情——休息时的屏幕光' },
     mainNote: '这是 Aetox 的主头像——每个工作台、每个页面都是同一个。在这里选择的就是你的助手。',
     personas: '角色',
-    personasNote: '最多保存六套外观随时切换——将来也可以交给你自己设计的代理。',
+    personasNote: '想保存多少套外观都可以，随时切换——将来也可以交给你自己设计的代理。',
     persona: '角色',
-    personaEmpty: '空',
+    personaEmpty: '还没有保存的角色',
+    personaAdd: '添加角色',
+    personaAddDesc: '把当前外观保存为新角色',
     use: '使用',
-    save: '保存此外观',
-    clear: '清除',
+    save: '覆盖保存',
+    remove: '删除',
     worn: '使用中',
   },
 }

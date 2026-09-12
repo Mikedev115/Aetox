@@ -3,7 +3,7 @@ import { render, waitFor, fireEvent } from '@testing-library/svelte'
 import Companion from '../lib/mascot/Companion.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import { reportOf, REPORT_MAX } from '../lib/mascot/presence'
-import { companion, setCompanionOn, setCompanionVoice, setCompanionGreet } from '../lib/mascot/companionSetting.svelte'
+import { companion, setCompanionOn, setCompanionVoice, setCompanionGreet, setCompanionSize, SIZE_DEFAULT, SIZE_MIN, SIZE_MAX } from '../lib/mascot/companionSetting.svelte'
 import { voice } from '../lib/mascot/voice.svelte'
 import { speech, stopSpeech } from '../lib/speech.svelte'
 import { StartSpeech } from './mocks/wailsApp'
@@ -436,5 +436,31 @@ describe('what it says out loud', () => {
     expect(companion.voice).toBe(true)
     setCompanionVoice(false)
     expect(localStorage.getItem('companionVoice')).toBe('off')
+  })
+
+  // The corner of the hover frame resizes the figure, between the caps, and
+  // the number is kept for both places (owner, 13 ก.ย. 2026: "ขยายใหญ่และ
+  // เล็กลงได้ … เอาเพดานสูงสุดด้วย อย่าลืมเพดานเล็กสุด").
+  it('resizes from the corner grip, within its caps, and remembers', async () => {
+    setCompanionSize(SIZE_DEFAULT)
+    const { container } = await arrived()
+    const grip = container.querySelector('.grip')!
+    ;(grip as any).setPointerCapture = () => {}
+    const box = () => container.querySelector('.companion') as HTMLElement
+    expect(box().style.width).toBe(`${SIZE_DEFAULT}px`)
+    await fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 2, button: 0 })
+    await fireEvent.pointerMove(grip, { clientX: 140, clientY: 120, pointerId: 2 })
+    expect(companion.size).toBe(SIZE_DEFAULT + 40)
+    expect(box().style.width).toBe(`${SIZE_DEFAULT + 40}px`)
+    // past the ceiling it stops; back past the floor it stops there too
+    await fireEvent.pointerMove(grip, { clientX: 2000, clientY: 100, pointerId: 2 })
+    expect(companion.size).toBe(SIZE_MAX)
+    await fireEvent.pointerMove(grip, { clientX: -2000, clientY: -2000, pointerId: 2 })
+    expect(companion.size).toBe(SIZE_MIN)
+    await fireEvent.pointerUp(grip, { pointerId: 2 })
+    expect(localStorage.getItem('companionSize')).toBe(String(SIZE_MIN))
+    // a grip press is not a click on the figure: no reaction
+    expect(mascot(container).classList.contains('pose-cheer')).toBe(false)
+    setCompanionSize(SIZE_DEFAULT)
   })
 })

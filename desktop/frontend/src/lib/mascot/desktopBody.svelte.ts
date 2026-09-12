@@ -29,6 +29,7 @@ export type BodyInput =
   | { kind: 'click' | 'dragStart' | 'dragEnd' | 'hide' | 'mute' }
   | { kind: 'moved'; x: number; y: number }
   | { kind: 'bake'; scale: number }
+  | { kind: 'resize'; size: number }
 
 export const desktopBody = $state<{ up: boolean; scale: number; baking: boolean }>({ up: false, scale: 0, baking: false })
 
