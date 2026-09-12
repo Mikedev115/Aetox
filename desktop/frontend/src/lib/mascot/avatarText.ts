@@ -27,6 +27,12 @@ export type AvatarText = {
   voiceTryText: string
   greet: string
   greetDesc: string
+  /** Where the figure is drawn: this window, or a window of its own on the desktop. */
+  place: string
+  placeWindow: string
+  placeDesktop: string
+  placeDesc: string
+  placeBaking: string
   preview: string
   shell: string
   hue: string
@@ -65,6 +71,12 @@ const TEXT: Record<string, AvatarText> = {
     voiceTryText: 'สวัสดีครับ ผมคือผู้ช่วยของคุณ ถ้าได้ยินแบบนี้แปลว่าพูดได้แล้ว',
     greet: 'ทักทายด้วยเสียง',
     greetDesc: 'พูดคำทักของห้องตอนเปิดแชทใหม่หรือสลับโต๊ะ — ปิดแล้วยังทักในฟองข้อความเหมือนเดิม',
+    place: 'ที่อยู่ของผู้ช่วย',
+    placeWindow: 'ในแอป',
+    placeDesktop: 'ทั่วเดสก์ท็อป',
+    placeDesc:
+      'ในแอป: วาดสดในหน้าต่างนี้ ไม่กินอะไรเพิ่ม · ทั่วเดสก์ท็อป: หน้าต่างเล็กของ Windows ลากไปจอไหนก็ได้ อยู่ต่อแม้ย่อแอป — วาดจากภาพที่อบไว้ (อบครั้งแรกไม่กี่วินาที) แรมเพิ่มไม่กี่ MB ไม่ใช้เบราว์เซอร์ตัวที่สอง',
+    placeBaking: 'กำลังอบภาพให้หุ่นบนเดสก์ท็อป…',
     preview: 'ตัวอย่าง',
     shell: 'สีตัว',
     hue: 'สี accent',
@@ -104,6 +116,12 @@ const TEXT: Record<string, AvatarText> = {
     voiceTryText: 'Hello, I am your assistant. If you can hear this, I can speak.',
     greet: 'Say hello aloud',
     greetDesc: "Speaks the room's greeting when a new chat opens or you switch desks — off, it still greets in the bubble.",
+    place: 'Where it lives',
+    placeWindow: 'In the app',
+    placeDesktop: 'On the desktop',
+    placeDesc:
+      'In the app: drawn live in this window, nothing extra. On the desktop: a small Windows window of its own — drag it to any monitor, it stays when the app is minimised — drawn from baked frames (a few seconds the first time), a few MB of memory, no second browser.',
+    placeBaking: 'Baking frames for the desktop figure…',
     preview: 'Preview',
     shell: 'Finish',
     hue: 'Accent',
@@ -143,6 +161,11 @@ const TEXT: Record<string, AvatarText> = {
     voiceTryText: '你好，我是你的助手。能听到就说明我可以说话了。',
     greet: '语音问候',
     greetDesc: '打开新会话或切换工作台时朗读问候语——关闭后仍会在气泡里问候。',
+    place: '显示位置',
+    placeWindow: '应用内',
+    placeDesktop: '桌面上',
+    placeDesc: '应用内：在本窗口实时绘制，不额外占用。桌面上：一个独立的小型 Windows 窗口，可拖到任意显示器，最小化应用后仍在——用预先烘焙的帧绘制（首次需几秒），多占几 MB 内存，不启动第二个浏览器。',
+    placeBaking: '正在为桌面助手烘焙画面…',
     preview: '预览',
     shell: '机身',
     hue: '点缀色',

@@ -28,12 +28,13 @@
   import { POSE, type PoseId } from './poses'
   import { cockpit } from '../stores/cockpit.svelte'
   import { companion, setCompanionOn, setCompanionVoice } from './companionSetting.svelte'
+  import { desktopBody, openBody, closeBody, onBodyInput, bakeFor, rememberPos, themeColors, wordsOf } from './desktopBody.svelte'
   import { speech, speak, stopSpeechIf } from '../speech.svelte'
   import { avatarPrefs, assistantOptions } from './avatarPrefs.svelte'
   import { voice } from './voice.svelte'
   import { profile } from '../stores/profile.svelte'
   import { startersFor, headlineFor } from '../starters'
-  import { t } from '../i18n.svelte'
+  import { t, i18n } from '../i18n.svelte'
 
   const SIZE = 104
   const MARGIN = 8
@@ -253,19 +254,100 @@
   // wailsjs import on purpose: those generated files carry other sessions'
   // uncommitted regeneration today; the import replaces this line when they
   // land. Outside Wails (tests, a plain browser) there is nothing to report to.
-  type FeedState = { pose: string; report: string; on: boolean; prefs: { shell: string; accent: string; top: string; face: string } }
+  type FeedState = {
+    pose: string
+    report: string
+    on: boolean
+    prefs: { shell: string; accent: string; top: string; face: string }
+    shown: string
+    words: string[]
+    cursor: boolean
+    theme: { bg: string; fg: string; muted: string; border: string; accent: string }
+    muted: boolean
+    hop: number
+  }
   const feed = (): ((s: FeedState) => Promise<void>) | undefined =>
     (window as unknown as { go?: { main?: { App?: { SetCompanionState?: (s: FeedState) => Promise<void> } } } }).go?.main?.App?.SetCompanionState
+  /** Clicks reacted to, counted, so the body hops with each (companion.go Hop). */
+  let hops = $state(0)
+  const prefsOf = () => ({ shell: avatarPrefs.shell, accent: avatarPrefs.accent, top: avatarPrefs.top, face: avatarPrefs.face })
   $effect(() => {
     const send = feed()
     if (!send) return
-    const s: FeedState = { pose, report: said, on: true, prefs: { shell: avatarPrefs.shell, accent: avatarPrefs.accent, top: avatarPrefs.top, face: avatarPrefs.face } }
+    const s: FeedState = {
+      pose,
+      report: said,
+      on: true,
+      prefs: prefsOf(),
+      shown,
+      words: wordsOf(shown, i18n.locale),
+      cursor: typing || !!cockpit.streamingText,
+      theme: themeColors(),
+      muted: !companion.voice,
+      hop: hops,
+    }
     void send(s).catch(() => {})
   })
   $effect(() => () => {
     const send = feed()
-    if (send) void send({ pose: 'idle', report: '', on: false, prefs: { shell: avatarPrefs.shell, accent: avatarPrefs.accent, top: avatarPrefs.top, face: avatarPrefs.face } }).catch(() => {})
+    if (send) void send({ pose: 'idle', report: '', on: false, prefs: prefsOf(), shown: '', words: [], cursor: false, theme: themeColors(), muted: !companion.voice, hop: hops }).catch(() => {})
   })
+
+  // ---- the body on the desktop ------------------------------------------------
+  // With `place` set to the desktop, the figure is Go's window (desktopBody
+  // .svelte.ts) and this component draws nothing — but decides everything
+  // still: the body reports its clicks and drags here and is told the pose
+  // and the words back through the feed above. If the window cannot be
+  // opened (another platform), the figure stays in here as if the switch
+  // had not been thrown.
+  const wantsDesktop = $derived(companion.on && companion.place === 'desktop')
+  $effect(() => {
+    if (!wantsDesktop) {
+      if (desktopBody.up) void closeBody()
+      return
+    }
+    void openBody()
+    return () => void closeBody()
+  })
+  $effect(() => {
+    if (!wantsDesktop) return
+    return onBodyInput((input) => {
+      switch (input.kind) {
+        case 'click':
+          hush()
+          hops++
+          react()
+          break
+        case 'dragStart':
+          dragging = true
+          break
+        case 'dragEnd':
+          dragging = false
+          break
+        case 'moved':
+          rememberPos(input.x, input.y)
+          break
+        case 'hide':
+          setCompanionOn(false)
+          break
+        case 'mute':
+          setCompanionVoice(!companion.voice)
+          break
+        case 'bake':
+          desktopBody.scale = input.scale
+          break
+      }
+    })
+  })
+  // The frames the body draws from, baked for its monitor's scale and for
+  // the look chosen — again whenever either changes.
+  $effect(() => {
+    const scale = desktopBody.scale
+    const opts = assistantOptions(avatarPrefs)
+    if (!wantsDesktop || !desktopBody.up || scale <= 0) return
+    void bakeFor(opts, scale, untrack(() => pose))
+  })
+
   $effect(() => {
     const keep = (): void => {
       pos = clamp(pos)
@@ -518,6 +600,7 @@
   })
 </script>
 
+{#if !desktopBody.up}
 <div
   class="companion"
   class:dragging
@@ -542,6 +625,7 @@
     <Mascot {...assistantOptions(avatarPrefs)} {pose} turn={dragging ? heading : undefined} snap={dragging} size={SIZE} sway {hop} />
   </div>
 </div>
+{/if}
 
 <style>
   /* Above the full-window pages (settings, office, gallery sit at 50) — it is
