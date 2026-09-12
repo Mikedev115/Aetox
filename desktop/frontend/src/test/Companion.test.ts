@@ -125,14 +125,29 @@ describe('the companion', () => {
     await vi.advanceTimersByTimeAsync(2300)
     expect(mascot(container).classList.contains('pose-idle')).toBe(true)
 
-    // five quiet minutes: the charger; a turn wakes it
+    // five quiet minutes: asleep on the pillow; a message startles it awake
+    // (a jolt, hands up) and only then does the work pose take over
     await vi.advanceTimersByTimeAsync(5 * 60_000 + 100)
     expect(mascot(container).classList.contains('pose-recharge')).toBe(true)
     cockpit.awaitingReply = true
     cockpit.toolSteps = []
     cockpit.reasoningText = 'hmm'
-    await vi.advanceTimersByTimeAsync(20)
+    await vi.advanceTimersByTimeAsync(40)
+    expect(mascot(container).classList.contains('pose-startled')).toBe(true)
+    expect(mascot(container).classList.contains('hop')).toBe(true)
+    await vi.advanceTimersByTimeAsync(800)
     expect(mascot(container).classList.contains('pose-thinking')).toBe(true)
+    // asleep again and poked: a slow stretch, then rest — no cheer
+    cockpit.awaitingReply = false
+    cockpit.reasoningText = ''
+    await vi.advanceTimersByTimeAsync(2300 + 5 * 60_000 + 100)
+    expect(mascot(container).classList.contains('pose-recharge')).toBe(true)
+    await fireEvent.pointerDown(grab, { clientX: 500, clientY: 400, pointerId: 2, button: 0 })
+    await fireEvent.pointerUp(grab, { pointerId: 2 })
+    await vi.advanceTimersByTimeAsync(40)
+    expect(mascot(container).classList.contains('pose-wake')).toBe(true)
+    await vi.advanceTimersByTimeAsync(1400)
+    expect(mascot(container).classList.contains('pose-idle')).toBe(true)
     vi.useRealTimers()
   })
 

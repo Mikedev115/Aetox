@@ -266,7 +266,7 @@ describe('presence', () => {
     const reachable = new Set<string>([
       ...Object.values(TOOL_POSE), ...Object.values(FAMILY_POSE), ...Object.values(FACE_STATE_POSE),
       'listening', 'answering', 'asking', 'success', 'idle', 'thinking', 'debugging', // presenceOf
-      'greeting', 'cheer', 'helping', 'wink', 'walk', 'recharge', 'error', // Companion.svelte
+      'greeting', 'cheer', 'helping', 'wink', 'walk', 'recharge', 'error', 'wake', 'startled', // Companion.svelte
     ])
     for (const id of Object.keys(POSE)) expect(reachable.has(id), `${id} has no trigger`).toBe(true)
   })
