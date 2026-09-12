@@ -9293,3 +9293,225 @@ span.agent-face.err {
     inset 0 0 0 1.5px color-mix(in srgb, var(--status-danger) 70%, transparent),
     inset 0 1px 0 hsl(var(--h) 60% 62% / .18);
 }
+
+/* ═══ คลังสตูดิโอ (Settings → studio) ═════════════════════════════════════════
+   — docs/architecture/studio-shelf-page-2026-09-12.md §3. */
+
+
+.studio-mark { --px:38px; width:38px; height:38px; border-radius:10px; display:grid; place-items:center; flex:none; }
+.studio-mark.builtin { color:var(--accent-bright); background:#0f2b30; }
+
+.studio-path { font-family:var(--mono); font-size:var(--fs-2xs); color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; direction:rtl; text-align:left; }
+
+.studio-bar { height:4px; border-radius:2px; background:var(--surface-hover); overflow:hidden; }
+.studio-bar span { display:block; height:100%; background:var(--accent-bright); transition:width var(--dur-tint) ease; }
+
+.studio-result {
+  display:flex; align-items:flex-start; gap:12px; padding:12px 14px; margin:0 0 12px;
+  border:1px solid color-mix(in srgb, var(--accent-bright) 45%, var(--border-subtle));
+  border-radius:var(--r-lg); background:color-mix(in srgb, var(--accent-bright) 8%, var(--surface-raised));
+  color:var(--text-primary);
+}
+.studio-result > svg { color:var(--accent-bright); margin-top:2px; flex:none; }
+.studio-result .body { flex:1; display:flex; flex-direction:column; gap:7px; min-width:0; }
+.studio-result .t { font-weight:600; }
+.studio-result .chip { font-size:var(--fs-2xs); padding:2px 8px; border-radius:999px; background:var(--surface-hover); color:var(--text-secondary); }
+.studio-tr {
+  font-family:var(--mono); font-size:var(--fs-2xs); font-weight:400;
+  color:var(--text-dim); border:1px solid var(--border-default);
+  border-radius:var(--r-xs); padding:0 4px; margin-left:6px; vertical-align:middle;
+}
+/* "Ready" is the normal state and reads in the muted ink, not the dim one that
+   .chair-stat.idle uses for "nothing happening" — a shelf that is ready has
+   something happening. */
+.agc .chair-stat.studio-ok { color:var(--status-success); }
+.agc .chair-stat.studio-ok::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--status-success); margin-right:6px; }
+/* Three footer buttons do not fit a 240px card in Thai; the grid for shelves
+   starts wider, and the folder button is its icon alone. */
+.studio-grid { grid-template-columns:repeat(auto-fill, minmax(min(300px, 100%), 1fr)); }
+/* A shelf's name is a folder name the user chose, and folder names are long
+   ("30GB+ Video Editing Assets"). Two lines rather than an ellipsis at one:
+   the name IS the card, and a name you cannot read is a card you cannot pick. */
+.studio-card .chair-name { white-space:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; line-height:1.25; }
+.studio-card .chair-name .studio-tr { white-space:nowrap; }
+.studio-card .chair-stat { align-self:flex-start; }
+
+
+/* ═══ StudioBrowser — the shelf, page by page ═════════════════════════════ */
+.sb { border:1px solid var(--border-subtle); border-radius:var(--r-lg); background:var(--surface-sunken); padding:12px; margin:0 0 18px; }
+.sb-bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.sb-search { flex:1 1 220px; display:flex; align-items:center; gap:8px; padding:0 10px; height:32px; border:1px solid var(--border-default); border-radius:var(--r-md); background:var(--surface-raised); color:var(--text-muted); }
+.sb-search input { flex:1; min-width:0; background:none; border:none; color:var(--text-primary); font:inherit; outline:none; }
+.sb-kinds { display:flex; flex-wrap:wrap; gap:4px; }
+.sb-kind { font:inherit; font-size:var(--fs-xs); color:var(--text-secondary); background:none; border:1px solid var(--border-subtle); border-radius:999px; padding:3px 10px; cursor:pointer; }
+.sb-kind:hover { color:var(--text-primary); border-color:var(--border-strong); }
+.sb-kind.on { color:var(--text-primary); background:var(--surface-hover); border-color:var(--accent-bright); }
+.sb-cat { max-width:220px; }
+.sb-alpha { display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-xs); color:var(--text-secondary); white-space:nowrap; }
+.sb-close { margin-left:auto; }
+.sb-count { margin:10px 2px 8px; font-size:var(--fs-xs); color:var(--text-muted); font-variant-numeric:tabular-nums; }
+.sb-busy { margin-left:6px; color:var(--text-dim); }
+
+.sb-grid { display:grid; gap:10px; grid-template-columns:repeat(auto-fill, minmax(min(150px, 100%), 1fr)); }
+.sb-tile { display:flex; flex-direction:column; gap:5px; min-width:0; }
+.sb-media {
+  position:relative; aspect-ratio:1; border-radius:var(--r-md); overflow:hidden;
+  background:var(--surface-raised); border:1px solid var(--border-subtle);
+  display:grid; place-items:center;
+}
+/* Transparency shows on a checkerboard, the way every editor shows it — the
+   one way to see that an overlay IS an overlay. */
+.sb-tile.alpha .sb-media {
+  background-color:#2a2a2e;
+  background-image:linear-gradient(45deg, #3a3a40 25%, transparent 25%), linear-gradient(-45deg, #3a3a40 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #3a3a40 75%), linear-gradient(-45deg, transparent 75%, #3a3a40 75%);
+  background-size:14px 14px; background-position:0 0, 0 7px, 7px -7px, -7px 0;
+}
+.sb-media video, .sb-media img { width:100%; height:100%; object-fit:contain; display:block; }
+.sb-play {
+  width:48px; height:48px; border-radius:50%; border:1px solid var(--border-strong);
+  background:var(--surface-hover); color:var(--text-primary); display:grid; place-items:center; cursor:pointer;
+  transition:background var(--dur-tint) ease, transform var(--dur-tint) ease;
+}
+.sb-play:hover { background:var(--accent-bright); color:var(--text-on-interactive); transform:scale(1.05); }
+.sb-tile.playing .sb-play { background:var(--accent-bright); color:var(--text-on-interactive); }
+.sb-tile.playing .sb-media { border-color:var(--accent-bright); }
+.sb-dur, .sb-badge {
+  position:absolute; bottom:6px; font-size:var(--fs-2xs); line-height:16px; padding:0 6px; border-radius:4px;
+  background:rgba(0,0,0,.6); color:#fff; font-variant-numeric:tabular-nums;
+}
+.sb-dur { right:6px; } .sb-badge { left:6px; background:rgba(20,120,90,.85); }
+.sb-name { font-size:var(--fs-xs); color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sb-meta { display:flex; gap:6px; font-size:var(--fs-2xs); color:var(--text-dim); overflow:hidden; white-space:nowrap; }
+.sb-meta span + span::before { content:"·"; margin-right:6px; }
+.sb-cat-name { overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.sb-pages { display:flex; align-items:center; justify-content:center; gap:12px; margin-top:12px; font-size:var(--fs-xs); color:var(--text-muted); font-variant-numeric:tabular-nums; }
+/* A sound is a row: play button, name, length. */
+.sb-grid.sounds { grid-template-columns:repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap:6px; }
+.sb-tile.sound { flex-direction:row; align-items:center; gap:10px; padding:6px 10px 6px 6px; border:1px solid var(--border-subtle); border-radius:var(--r-md); background:var(--surface-raised); }
+.sb-tile.sound .sb-media { width:40px; height:40px; aspect-ratio:auto; border:none; background:none; flex:none; }
+.sb-tile.sound .sb-play { width:40px; height:40px; }
+.sb-tile.sound .sb-dur { position:static; background:none; color:var(--text-dim); padding:0; order:3; margin-left:auto; }
+.sb-tile.sound .sb-name, .sb-tile.sound .sb-meta { min-width:0; }
+.sb-tile.sound .sb-text { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.sb-tile.sound.playing { border-color:var(--accent-bright); }
+
+/* Skeletons, shared by the tabs, the shelf cards and the browser: shapes that
+   pulse, never a spinner alone — the page keeps its layout while it waits. */
+.settings-page .sk { display:block; border-radius:var(--r-sm); background:var(--surface-hover); animation:sk-pulse 1.4s ease-in-out infinite; }
+.settings-page .sk-title { width:55%; height:16px; } .settings-page .sk-line { width:80%; height:10px; margin-top:6px; } .settings-page .sk-chips { width:70%; height:16px; margin-top:6px; border-radius:999px; }
+.studio-card.skeleton { pointer-events:none; }
+.sb-tile.skeleton .sb-media.sk { border:none; }
+.sb-tile.skeleton .sk-line { height:10px; }
+@media (prefers-reduced-motion:reduce) { .settings-page .sk { animation:none } }
+
+/* While a new page is on its way the old rows stay, dimmed and inert, so the
+   grid never flashes empty; the count line shows the spinner. */
+.sb-grid.busy { opacity:.55; pointer-events:none; transition:opacity var(--dur-tint) ease; }
+.sb-busy svg { animation:sb-spin 1s linear infinite; vertical-align:-2px; }
+@keyframes sb-spin { to { transform:rotate(360deg) } }
+/* Media fades in once its bytes arrived, rather than popping. */
+.sb-media .sb-poster { opacity:0; transition:opacity .25s ease; }
+.sb-tile.seen .sb-media .sb-poster { opacity:1; }
+.sb-scope { display:inline-flex; align-items:center; gap:8px; font-size:var(--fs-xs); color:var(--text-secondary); padding:0 8px; height:32px; border:1px solid var(--border-subtle); border-radius:var(--r-md); background:var(--surface-raised); }
+/* display / render / load, on the tile: the kind's icon is what a tile shows
+   before its poster is rendered (pulsing while one is on its way, still when
+   none will come); the poster is the rendered still; .sb-live is the real
+   file, mounted over the poster only while the tile is hovered. */
+.sb-kind-mark { color:var(--text-dim); display:grid; place-items:center; }
+.sb-kind-mark.pending { animation:sk-pulse 1.4s ease-in-out infinite; }
+.sb-poster { width:100%; height:100%; object-fit:contain; display:block; }
+.sb-live { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:inherit; }
+.sb-tile.playable .sb-media { cursor:pointer; }
+.sb-tile.playable:hover .sb-media { border-color:var(--border-strong); }
+
+/* ═══ Studio page: the tab bar and the sources sheet ═════════════════════════
+   Both are the app's own controls, restyled by nothing: .ag-tabs-bar .seg is
+   the agent editor's tab bar, .studio-sheet mirrors Capability.svelte's
+   .cap-sheet (which is component-scoped, so its rules are restated here). */
+.studio-tabs-bar { margin-top:0; container-type:inline-size; }
+/* Seven tabs on every width, never a second line and never a scrollbar: the
+   tab gives up its count, then its label, as the row gets narrower — a
+   laptop at 1366 shows icon+label, a split pane shows icons with the name
+   as a tooltip, and the open tab always keeps its label and count so the
+   row still says where you are. Measured against the bar itself
+   (@container), not the window, so a sidebar or a split does the right thing. */
+.studio-seg { flex-wrap:nowrap; }
+.ag-tabs-bar .studio-seg button { flex:none; }
+@container (max-width: 980px) {
+  .ag-tabs-bar .studio-seg button:not(.on) .studio-tab-count { display:none; }
+}
+@container (max-width: 700px) {
+  .ag-tabs-bar .studio-seg button:not(.on) .studio-tab-label { display:none; }
+  .ag-tabs-bar .studio-seg button { padding:5px 10px; }
+}
+.studio-band .ctrl { margin-left:0; }
+.studio-band .ctrl + .ctrl { margin-left:0; }
+.studio-band .rule { flex:1; }
+.ag-tabs-bar .studio-seg button.zero { color:var(--text-dim); cursor:default; }
+.ag-tabs-bar .studio-seg button.zero .ag-count { color:var(--text-dim); }
+.ag-tabs-bar .studio-seg button.on .ag-count { color:var(--text-secondary); }
+.ag-tabs-bar .studio-seg button.skeleton { pointer-events:none; }
+.ag-tabs-bar .studio-seg button.skeleton .sk-k { width:64px; height:12px; }
+.studio-tabs-bar + .sb { margin-top:-6px; }
+
+.studio-sheet-overlay { position:fixed; inset:0; z-index:60; display:flex; justify-content:flex-end; }
+.studio-sheet-backdrop { position:absolute; inset:0; width:100%; height:100%; background:var(--overlay-scrim); border:0; cursor:default; }
+.studio-sheet {
+  position:relative; width:min(460px, 100vw); height:100%; overflow-y:auto;
+  background:var(--surface-panel); border-left:1px solid var(--border-default);
+  display:flex; flex-direction:column; gap:14px; padding:18px 20px 24px;
+  box-shadow:-20px 0 48px -16px rgba(0,0,0,.6);
+  animation:studio-sheet-in var(--dur-arrive) var(--ease-arrive) both;
+}
+@keyframes studio-sheet-in { from { transform:translateX(24px); opacity:0; } to { transform:none; opacity:1; } }
+@media (prefers-reduced-motion:reduce) { .studio-sheet { animation:none; } }
+.studio-sheet-head { display:flex; align-items:center; gap:10px; }
+.studio-sheet-head h3 { margin:0; flex:1; min-width:0; font-size:var(--fs-lg); font-weight:600; color:var(--text-primary); }
+.studio-sheet-sec { display:flex; flex-direction:column; gap:8px; }
+.studio-sheet-row { display:flex; align-items:flex-start; gap:12px; padding:12px; border:1px solid var(--border-subtle); border-radius:var(--r-lg); background:var(--surface-raised); }
+.studio-sheet-row .studio-mark { background:var(--surface-sunken); color:var(--text-secondary); }
+.studio-sheet-txt { flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
+.studio-sheet-txt .t { font-weight:600; color:var(--text-primary); }
+.studio-sheet-txt .d { font-size:var(--fs-sm); color:var(--text-muted); line-height:1.45; }
+.studio-sheet-row .chair-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:2px; }
+.studio-sheet-row .chip { font-size:var(--fs-2xs); padding:1px 8px; border-radius:999px; background:var(--surface-hover); color:var(--text-secondary); }
+.studio-sheet-row .chip.mine { color:var(--accent-bright); background:#0f2b30; }
+.studio-sheet-row .chip.deny { color:var(--c-red-200, #ffb3ae); background:#2a1614; }
+.studio-sheet-row .ctrl { flex:none; white-space:nowrap; }
+/* The tile's own menu. The ⋯ shows on hover (always, on a hidden row, which
+   exists to be un-hidden); the menu is the app's small popover shape. */
+.sb-tile { position:relative; }
+.sb-more {
+  position:absolute; top:6px; right:6px; width:26px; height:26px; border-radius:6px; display:grid; place-items:center;
+  border:1px solid var(--border-subtle); background:var(--surface-raised); color:var(--text-secondary); cursor:pointer;
+  opacity:0; transition:opacity var(--dur-tint) ease;
+}
+.sb-tile.sound .sb-more { position:static; opacity:1; border-color:transparent; background:none; order:4; margin-left:2px; }
+.sb-tile:hover .sb-more, .sb-tile.menu-open .sb-more, .sb-more:focus-visible { opacity:1; }
+.sb-more:hover { color:var(--text-primary); border-color:var(--border-strong); }
+.sb-menu {
+  position:absolute; top:34px; right:6px; z-index:5; min-width:170px; padding:4px;
+  background:var(--surface-panel); border:1px solid var(--border-default); border-radius:var(--r-md);
+  box-shadow:0 8px 24px -8px rgba(0,0,0,.6); display:flex; flex-direction:column; gap:1px;
+}
+.sb-tile.sound .sb-menu { top:auto; right:8px; }
+.sb-menu button {
+  display:flex; align-items:center; gap:8px; width:100%; text-align:left; font:inherit; font-size:var(--fs-xs);
+  color:var(--text-secondary); background:none; border:0; border-radius:5px; padding:6px 8px; cursor:pointer;
+}
+.sb-menu button:hover { background:var(--surface-hover); color:var(--text-primary); }
+.sb-menu button.on { color:var(--text-primary); font-weight:600; }
+.sb-menu button.on::after { content:"✓"; margin-left:auto; color:var(--accent-bright); }
+.sb-menu-lab { font-size:var(--fs-2xs); color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em; padding:4px 8px 2px; }
+.sb-menu-sep { height:1px; background:var(--border-subtle); margin:3px 4px; }
+/* A hidden row, when the toggle shows it: dimmed, tagged, still menu-able. */
+.sb-tile.hidden-row .sb-media, .sb-tile.hidden-row .sb-text { opacity:.45; }
+.sb-hidden-tag { position:absolute; top:8px; left:8px; font-size:var(--fs-2xs); line-height:16px; padding:0 6px; border-radius:4px; background:rgba(0,0,0,.65); color:#ddd; }
+.sb-tile.sound .sb-hidden-tag { position:static; margin-left:6px; order:2; }
+/* The close button keeps its corner whatever the toolbar wraps into; the two
+   toggles stay side by side as one group. */
+.sb { position:relative; }
+.sb-bar { padding-right:40px; }
+.sb-close { position:absolute; top:12px; right:12px; margin-left:0; }
+.sb-alpha + .sb-alpha { margin-left:2px; }

@@ -205,6 +205,22 @@ func (a *App) BrowseFolder() (string, error) {
 	return a.BrowseFolderAt(dir)
 }
 
+// AddStudioLibrary asks the user which folder holds their video material and
+// starts cataloguing it (studio_library.go). Returns false when the dialog was
+// dismissed or a scan is already running — cancelling is not a failure.
+func (a *App) AddStudioLibrary() (bool, error) {
+	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
+		Title: "เพิ่มโฟลเดอร์วัตถุดิบเข้าคลังสตูดิโอ",
+	})
+	if err != nil {
+		return false, err
+	}
+	if strings.TrimSpace(dir) == "" {
+		return false, nil // cancelled
+	}
+	return a.AddStudioLibraryAt(dir)
+}
+
 // ---------------------------------------------------------------- reveals
 
 // reveal opens a path the engine answered with in this machine's file manager
