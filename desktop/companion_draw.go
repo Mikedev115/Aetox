@@ -55,11 +55,9 @@ const (
 	cButtonOver  = 12
 	cIcon        = 11
 
-	// A touch over Mascot.svelte's CROSS_MS (240): there the head glides to
-	// the new pose's turn under the fade, here the fade alone carries the
-	// change; Companion.svelte REACT/hop (.55s in mascot.css);
+	// Mascot.svelte CROSS_MS; Companion.svelte REACT/hop (.55s in mascot.css);
 	// a blink is shut for about this long (ms-blink 95.5%→100% of 5.2s).
-	crossMs = 320
+	crossMs = 240
 	hopMs   = 550
 	blinkMs = 140
 	// Phases per loop and walk heading step: bake.ts PHASES, WALK_PHASES,
@@ -140,16 +138,13 @@ type composer struct {
 	pose     string
 	poseAt   time.Time
 	prevPose string
+	prevAt   time.Time
 	crossAt  time.Time
 	walkAt   time.Time
-	// What is being walked, the last figure picture shown, and the snapshot
-	// a crossfade fades from.
-	walking  bool
-	lastPic  *image.RGBA
-	fadeFrom *image.RGBA
-	// Scratch for blends: the pose's two phases and the crossfade — two, so
-	// neither overwrites the other.
+	// Scratch for blends: the pose's two phases, the old pose's two during a
+	// crossfade, and the crossfade itself — three, so none overwrites another.
 	blend      *image.RGBA
+	blendUnder *image.RGBA
 	blendCross *image.RGBA
 	// The part of the canvas the last frame touched: what the window shows,
 	// and what the next frame has to clear.
@@ -179,8 +174,7 @@ func (c *composer) rescale(scale float64) {
 	c.scale = scale
 	c.textKey = ""
 	c.textImg = nil
-	c.blend, c.blendCross = nil, nil
-	c.lastPic, c.fadeFrom = nil, nil
+	c.blend, c.blendUnder, c.blendCross = nil, nil, nil
 	c.scaled = nil
 	c.used = image.Rectangle{}
 }
@@ -368,24 +362,10 @@ func (c *composer) buttonRects() (hide, mute image.Rectangle) {
 func (c *composer) draw(dst *image.RGBA, s companionScene, now time.Time) image.Rectangle {
 	clearRect(dst, c.used)
 	used := image.Rectangle{}
-	// A change of what is drawn — the pose, or the walk starting or ending
-	// — is a crossfade from the last picture actually shown (Mascot.svelte
-	// {#key}: the old drawing fades over the new). The snapshot, not the
-	// old pose redrawn: a walk ending has no "old pose" to redraw, only the
-	// last step it was on, and that is what the eye saw last.
-	changed := s.Pose != c.pose || s.Walking != c.walking
-	if changed {
-		if c.lastPic != nil {
-			c.fadeFrom = cloneRGBA(c.fadeFrom, c.lastPic)
-			c.crossAt = now
-		}
-		if s.Pose != c.pose {
-			// The loop carries on from where it was, so breathing does not
-			// catch its breath at every change of pose.
-			c.poseAt = c.carriedStart(c.pose, s.Pose, now)
-			c.prevPose, c.pose = c.pose, s.Pose
-		}
-		c.walking = s.Walking
+	if s.Pose != c.pose {
+		c.prevPose, c.prevAt = c.pose, c.poseAt
+		c.pose, c.poseAt = s.Pose, now
+		c.crossAt = now
 	}
 	if s.Walking && c.walkAt.IsZero() {
 		c.walkAt = now
@@ -395,19 +375,17 @@ func (c *composer) draw(dst *image.RGBA, s companionScene, now time.Time) image.
 
 	// the figure
 	pic := c.picture(s, now, c.pose, c.poseAt, &c.blend)
-	if age := now.Sub(c.crossAt); c.fadeFrom != nil && age < crossMs*time.Millisecond {
-		if pic != nil && c.fadeFrom.Bounds().Size() == pic.Bounds().Size() {
-			// Eased, not linear: the middle of the fade — where the two
-			// drawings ghost — passes quickly, the ends dwell.
-			t := float64(age) / float64(crossMs*time.Millisecond)
-			c.blendCross = lerpRGBA(c.blendCross, pic, c.fadeFrom, 1-easeInOut(t))
+	if age := now.Sub(c.crossAt); c.prevPose != "" && age < crossMs*time.Millisecond && !s.Walking {
+		// The old drawing fades over the new one (Mascot.svelte {#key}).
+		under := c.picture(s, now, c.prevPose, c.prevAt, &c.blendUnder)
+		if under != nil && pic != nil {
+			c.blendCross = lerpRGBA(c.blendCross, pic, under, 1-float64(age)/float64(crossMs*time.Millisecond))
 			pic = c.blendCross
 		} else if pic == nil {
-			pic = c.fadeFrom
+			pic = under
 		}
 	}
 	if pic != nil {
-		c.lastPic = pic
 		r := c.spriteRect()
 		r = r.Add(image.Pt(0, c.hopOffset(s.HopAt, now)))
 		draw.Draw(dst, r, pic, pic.Bounds().Min, draw.Over)
@@ -750,33 +728,6 @@ func (c *composer) button(dst *image.RGBA, r image.Rectangle, icon string, bg, b
 }
 
 // ---- pixels -------------------------------------------------------------------
-
-// carriedStart is a start time for `to` that keeps the loop's phase where
-// `from` had it — the same fraction of a period into the loop.
-func (c *composer) carriedStart(from, to string, now time.Time) time.Time {
-	pf, _ := loopPeriod(from)
-	pt, oneShot := loopPeriod(to)
-	if oneShot || pf <= 0 || pt <= 0 || c.poseAt.IsZero() {
-		return now
-	}
-	frac := math.Mod(now.Sub(c.poseAt).Seconds(), pf) / pf
-	return now.Add(-time.Duration(frac * pt * float64(time.Second)))
-}
-
-// easeInOut is a smoothstep: slow at both ends, quick through the middle.
-func easeInOut(t float64) float64 {
-	t = math.Max(0, math.Min(1, t))
-	return t * t * (3 - 2*t)
-}
-
-// cloneRGBA copies src into buf (reused when the size fits).
-func cloneRGBA(buf, src *image.RGBA) *image.RGBA {
-	if buf == nil || buf.Bounds().Size() != src.Bounds().Size() || buf == src {
-		buf = image.NewRGBA(image.Rectangle{Max: src.Bounds().Size()})
-	}
-	copy(buf.Pix, src.Pix)
-	return buf
-}
 
 // lerpRGBA blends premultiplied a towards b by f into buf (reused when the
 // size fits).
