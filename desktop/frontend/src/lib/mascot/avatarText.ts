@@ -15,6 +15,16 @@ export type AvatarText = {
   blurb: string
   onScreen: string
   onScreenDesc: string
+  voice: string
+  voiceDesc: string
+  /** The voice row's notice: the engine cannot run (its own reason follows). */
+  voiceNoEngine: string
+  /** No installed voice speaks the UI language. */
+  voiceNoLang: string
+  voiceChecking: string
+  voiceSettings: string
+  voiceTry: string
+  voiceTryText: string
   preview: string
   shell: string
   hue: string
@@ -43,6 +53,14 @@ const TEXT: Record<string, AvatarText> = {
     blurb: 'ตัวผู้ช่วยที่นั่งอยู่บนจอ — เลือกสีตัว สี accent ไฟบนหัว และหน้าประจำตัว ทุกอย่างวาดจากโค้ด ไม่มีไฟล์ภาพ',
     onScreen: 'ผู้ช่วยบนจอ',
     onScreenDesc: 'ตัวลอยที่ลากไปวางตรงไหนก็ได้ พูดเฉพาะตอนรายงาน ปิดได้จากที่นี่หรือจากปุ่ม × บนตัว',
+    voice: 'พูดออกเสียง',
+    voiceDesc: 'อ่านคำตอบของห้องที่เปิดอยู่ และคำถามที่มันติดอยู่ ด้วยเสียงของเครื่อง (ตั้งค่า › เสียง) — ระหว่างทำงานยาวจะเงียบจนกว่าจะรายงาน กดที่ตัวมันเพื่อหยุดพูด',
+    voiceNoEngine: 'ตอนนี้พูดไม่ได้ จะเงียบไว้ก่อน —',
+    voiceNoLang: 'ในเครื่องยังไม่มีเสียงสำหรับภาษาที่ใช้อยู่ จะอ่านด้วยเสียงอื่นหรือเงียบไป — เพิ่มเสียงหรือเปลี่ยนเอนจินได้ที่',
+    voiceChecking: 'กำลังตรวจเสียงในเครื่อง…',
+    voiceSettings: 'ตั้งค่า › เสียง',
+    voiceTry: 'ลองพูด',
+    voiceTryText: 'สวัสดีครับ ผมคือผู้ช่วยของคุณ ถ้าได้ยินแบบนี้แปลว่าพูดได้แล้ว',
     preview: 'ตัวอย่าง',
     shell: 'สีตัว',
     hue: 'สี accent',
@@ -72,6 +90,14 @@ const TEXT: Record<string, AvatarText> = {
     blurb: 'The assistant that sits on your screen — pick its finish, accent, top light and resting face. Drawn from code; no image files.',
     onScreen: 'Assistant on screen',
     onScreenDesc: 'A floating figure you can drag anywhere. It speaks only when it reports. Turn it off here or with the × on it.',
+    voice: 'Speak aloud',
+    voiceDesc: "Reads the open chat's answer, and a question it is stuck on, with this machine's voice (Settings › Voice). A long run stays quiet until it reports. Click the figure to stop it.",
+    voiceNoEngine: "Can't speak right now, so it stays quiet —",
+    voiceNoLang: 'No installed voice speaks the current language; it will read with another voice or stay quiet — add one or change engine under',
+    voiceChecking: 'Checking the voices on this machine…',
+    voiceSettings: 'Settings › Voice',
+    voiceTry: 'Try it',
+    voiceTryText: 'Hello, I am your assistant. If you can hear this, I can speak.',
     preview: 'Preview',
     shell: 'Finish',
     hue: 'Accent',
@@ -101,6 +127,14 @@ const TEXT: Record<string, AvatarText> = {
     blurb: '坐在屏幕上的助手——选择机身颜色、点缀色、头顶灯和默认表情。全部由代码绘制，没有图片文件。',
     onScreen: '桌面助手',
     onScreenDesc: '可拖到任意位置的小助手，只在汇报时说话。可在此处或用它身上的 × 关闭。',
+    voice: '朗读',
+    voiceDesc: '用本机的声音（设置 › 语音）朗读当前会话的回答和它卡住的问题。长任务期间保持安静，直到汇报。点击它即可停止。',
+    voiceNoEngine: '现在无法朗读，先保持安静 —',
+    voiceNoLang: '本机没有当前语言的声音，将用其他声音朗读或保持安静 — 可在这里添加声音或更换引擎：',
+    voiceChecking: '正在检查本机声音…',
+    voiceSettings: '设置 › 语音',
+    voiceTry: '试听',
+    voiceTryText: '你好，我是你的助手。能听到就说明我可以说话了。',
     preview: '预览',
     shell: '机身',
     hue: '点缀色',

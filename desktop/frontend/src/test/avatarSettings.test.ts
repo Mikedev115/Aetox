@@ -7,7 +7,10 @@ import { SHELL, ACCENT } from '../lib/mascot/palette'
 import { TOP, FACE } from '../lib/mascot/parts'
 import { POSE } from '../lib/mascot/poses'
 import { setLocale } from '../lib/i18n.svelte'
-import { cockpit } from '../lib/stores/cockpit.svelte'
+import { cockpit, SETTINGS_SECTION_KEY } from '../lib/stores/cockpit.svelte'
+import { setCompanionVoice } from '../lib/mascot/companionSetting.svelte'
+import { stopSpeech } from '../lib/speech.svelte'
+import { TTSStatus, ListTTSVoices, StartSpeech } from './mocks/wailsApp'
 
 // ตั้งค่า › อวตาร: the four dials, drawn as whole outcomes, writing one store
 // the companion reads. What is guarded is that a choice on the page IS what
@@ -23,6 +26,12 @@ beforeEach(() => {
   cockpit.toolSteps = []
   cockpit.streamingText = ''
   cockpit.ask = null
+  sessionStorage.clear()
+  stopSpeech()
+  setCompanionVoice(true)
+  vi.mocked(TTSStatus).mockResolvedValue('')
+  vi.mocked(ListTTSVoices).mockResolvedValue([{ id: 'p', name: 'Pattara', lang: 'th-TH', gender: 'Male', active: false }] as any)
+  vi.mocked(StartSpeech).mockClear()
 })
 
 describe('avatar preferences', () => {
@@ -137,5 +146,38 @@ describe('the avatar page', () => {
     expect(box.checked).toBe(true)
     await fireEvent.click(box)
     expect(localStorage.getItem('companionOn')).toBe('off')
+  })
+
+  // The voice row: on by default, and the one place that says why the
+  // companion is silent when it is — the engine's own reason, or no voice
+  // for the UI's language — with the way to ตั้งค่า › เสียง beside it.
+  it('carries the voice switch, on by default, with nothing to say when a voice speaks the language', async () => {
+    const { container } = render(AvatarSettings)
+    await waitFor(() => expect(vi.mocked(ListTTSVoices)).toHaveBeenCalled())
+    const box = container.querySelector('.voice-row .mswitch input') as HTMLInputElement
+    expect(box.checked).toBe(true)
+    await waitFor(() => expect(container.querySelector('.voice-note')).toBeNull())
+    await fireEvent.click(container.querySelector('.voice-row .chip')!)
+    await waitFor(() => expect(vi.mocked(StartSpeech)).toHaveBeenCalled())
+    await fireEvent.click(box)
+    expect(localStorage.getItem('companionVoice')).toBe('off')
+    expect(container.querySelector('.voice-row .chip')).toBeNull()
+  })
+
+  it("says the engine's own reason when it cannot run, and points at the voice page", async () => {
+    vi.mocked(TTSStatus).mockResolvedValue('ไม่พบ PowerShell ในเครื่อง')
+    const { container } = render(AvatarSettings)
+    await waitFor(() => expect(container.querySelector('.voice-note:not(.soft)')).toBeTruthy())
+    expect(container.querySelector('.voice-note')?.textContent).toContain('ไม่พบ PowerShell ในเครื่อง')
+    await fireEvent.click(container.querySelector('.voice-note .link')!)
+    expect(sessionStorage.getItem(SETTINGS_SECTION_KEY)).toBe('voice')
+    expect(cockpit.activeView).toBe('settings')
+  })
+
+  it('warns when no installed voice speaks the UI language', async () => {
+    vi.mocked(ListTTSVoices).mockResolvedValue([{ id: 'z', name: 'Zira', lang: 'en-US', gender: 'Female', active: false }] as any)
+    const { container } = render(AvatarSettings)
+    await waitFor(() => expect(container.querySelector('.voice-note:not(.soft)')).toBeTruthy())
+    expect(container.querySelector('.voice-note')?.textContent).toContain('ยังไม่มีเสียงสำหรับภาษาที่ใช้อยู่')
   })
 })

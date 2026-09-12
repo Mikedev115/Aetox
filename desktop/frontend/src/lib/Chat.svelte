@@ -31,14 +31,14 @@
     DelegateSwitches, SetDelegateOff, SetAgentOff,
     Shells, CurrentShell, SetShell, EnginesFor, UseEngine, VerifyConnection,
     GitBranches, GitSwitchBranch, GitCreateBranch, GetProjectStatus,
-    TranscribeMicAudio, StartSpeech, StopSpeech, SpeechPlaying,
+    TranscribeMicAudio,
   } from '../../wailsjs/go/main/App'
-  import { EventsOn } from '../../wailsjs/runtime/runtime'
   import type { main, connect, subagent } from '../../wailsjs/go/models'
   import { t, i18n, type TKey } from './i18n.svelte'
   import { DRAFT_KEY } from './composerDraft'
   import { isShortcut, shortcutLabel } from './shortcuts'
-  import { openMicStream, applySpeaker, audioDevices } from './audioDevices.svelte'
+  import { openMicStream, audioDevices } from './audioDevices.svelte'
+  import { speech, speak, stopSpeech } from './speech.svelte'
   import { currentStep, tally } from './delegateWork'
   import { hasSpend, spendLabel, spendTitle } from './spend'
   import { copyDrawing, saveDrawing } from './drawingExport'
@@ -1527,169 +1527,29 @@
     })
   }
 
-  // Reading a reply aloud: a queue, not a file.
-  //
-  // This used to be one await on SpeakText, which synthesized the whole reply
-  // and handed back one data: URL — so nothing was heard until everything was
-  // ready, and the wait grew with the length of the answer. Now the backend
-  // announces one piece at a time (desktop/speak.go) and this plays them in
-  // order, with the next one already fetched while the current one is talking.
-  //
-  // The one obligation this side has: report every piece as it starts. That
-  // report is what releases the synthesizer to run one more piece ahead, so a
-  // player that goes quiet stops the work rather than letting it run to the
-  // end of a reply nobody is listening to.
-  type SpeechChunk = { job: string; seq: number; url: string; mime: string; last: boolean; error?: string }
-
-  let speakingId = $state('')  // message being read; '' = silent
-  let speakBusyId = $state('') // message waiting on its first piece
-  let speakJob = ''            // the backend read this queue belongs to
-  let speakAudio: HTMLAudioElement | null = null
-  let speakQueue: HTMLAudioElement[] = []
-  let speakLast = false        // the last piece has arrived; nothing more is coming
-  let speakStarting = false    // StartSpeech is in flight and has not named the job yet
-  let speakHeld: SpeechChunk[] = [] // pieces that beat that name back here
-
+  // Reading a reply aloud goes through the window's one player
+  // (speech.svelte.ts, lifted out of here on 12 ก.ย. 2026 so the companion
+  // and this button can never talk over each other). This side keeps only
+  // what is per-message: which bubble's button is lit, and the error banner.
   function speakKey(m: ChatMessage): string {
     return m.id ? String(m.id) : m.text
   }
-  // The mascot on screen listens when the mic is on and talks while a reply
-  // is read: the two states mirrored out, nothing read back.
+  // The mascot on screen listens when the mic is on: the state mirrored out,
+  // nothing read back. (Speaking is mirrored by the player itself.)
   $effect(() => {
     voice.mic = micState === 'rec'
-    voice.speaking = speakingId !== ''
   })
-
-  // Every piece for this read, as it is synthesized. Wired once for the
-  // component: a read that is stopped is filtered out by its job id, not by
-  // tearing the listener down and building it again.
-  onMount(() => EventsOn('speech:chunk', (c: SpeechChunk) => {
-    // A read is announced before its id gets back here: the backend starts
-    // synthesizing the moment StartSpeech is called, and the first piece can
-    // beat that call's own reply across the bridge. Holding those rather than
-    // dropping them is the difference between a fast first word and a spinner
-    // that never stops.
-    if (speakStarting && !speakJob) {
-      speakHeld.push(c)
-      return
-    }
-    if (!speakJob || c.job !== speakJob) return
-    acceptPiece(c)
-  }))
-
-  function acceptPiece(c: SpeechChunk) {
-    if (c.error) {
-      voiceError = c.error
-      stopSpeaking()
-      return
-    }
-    if (c.last) speakLast = true
-    // preload='auto' is the prefetch: the piece after the one being spoken is
-    // fetched from /aetox-tts/ while there is still audio playing over it,
-    // which is what makes the seam between two pieces inaudible.
-    const audio = new Audio(c.url)
-    audio.preload = 'auto'
-    audio.dataset.seq = String(c.seq)
-    audio.load()
-    speakQueue.push(audio)
-    if (!speakAudio) void playNextPiece()
-  }
-
-  async function playNextPiece() {
-    const audio = speakQueue.shift()
-    if (!audio) {
-      // Out of pieces: either the read is over, or the next one is still being
-      // made and the arriving chunk will call back in here.
-      speakAudio = null
-      if (speakLast) stopSpeaking()
-      return
-    }
-    speakAudio = audio
-    speakBusyId = ''
-    audio.onended = () => { void playNextPiece() }
-    // A piece that will not play is not a reason to stop the read — skip to
-    // the next one, the way a dropped frame is skipped rather than fatal.
-    audio.onerror = () => { void playNextPiece() }
-    if (speakJob) void SpeechPlaying(speakJob, Number(audio.dataset.seq ?? 0)).catch(() => {})
-    // Routed here rather than at creation: setSinkId is a promise, and a piece
-    // built while the one before it is still playing would race play().
-    await applySpeaker(audio)
-    try {
-      await audio.play()
-    } catch {
-      stopSpeaking()
-    }
-  }
-
-  function stopSpeaking() {
-    speakAudio?.pause()
-    speakAudio = null
-    // Dropping the src is what lets a queued fetch be abandoned rather than
-    // run to completion for audio that will never be played.
-    for (const queued of speakQueue) queued.src = ''
-    speakQueue = []
-    speakHeld = []
-    speakLast = false
-    speakingId = ''
-    speakBusyId = ''
-    const job = speakJob
-    speakJob = ''
-    // Both ends of the read close here: the backend cancels the synthesis in
-    // flight and deletes the pieces. This is also the normal end of a finished
-    // read — "the audio is over" and "the files can go" are one moment, and
-    // this is the only side that knows it.
-    if (job) void StopSpeech(job).catch(() => {})
-  }
 
   async function toggleSpeak(m: ChatMessage) {
     voiceError = ''
     const key = speakKey(m)
     // Pressing the button of the message being read — or the one still waiting
     // on its first piece — stops it. Waiting used to be uncancellable.
-    if (speakingId === key) {
-      stopSpeaking()
+    if (speech.key === key) {
+      stopSpeech()
       return
     }
-    stopSpeaking()
-    speakBusyId = key
-    speakingId = key
-    speakStarting = true
-    try {
-      const job = await StartSpeech(speechText(m.text))
-      // Stopped while the engine was being resolved — a press this side has
-      // already forgotten. Close the read rather than start playing it.
-      if (speakingId !== key) {
-        void StopSpeech(job).catch(() => {})
-        return
-      }
-      speakJob = job
-      const held = speakHeld
-      speakHeld = []
-      for (const c of held) if (c.job === job) acceptPiece(c)
-    } catch (err) {
-      voiceError = String(err)
-      stopSpeaking()
-    } finally {
-      speakStarting = false
-      speakHeld = []
-    }
-  }
-
-  // What gets spoken: the reply without its markdown scaffolding. The text on
-  // screen renders those marks away; a voice that reads "ดอกจัน" out loud is
-  // reading the source, not the answer.
-  function speechText(md: string): string {
-    return md
-      .replace(/```[\s\S]*?```/g, ' ')
-      .replace(/`([^`]*)`/g, '$1')
-      .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
-      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-      .replace(/^#{1,6}\s+/gm, '')
-      .replace(/^[-*+]\s+/gm, '')
-      .replace(/^>\s?/gm, '')
-      .replace(/[*_~|]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
+    await speak(key, m.text, (err) => { voiceError = err })
   }
 
   // Context meter: how full the model's context window is and what fills it.
@@ -4976,16 +4836,16 @@
                      message plays at a time, and starting another stops it. -->
                 <button
                   type="button" class="msg-copy msg-speak icobtn tiny"
-                  class:speaking={speakingId === speakKey(m)}
-                  aria-label={speakingId === speakKey(m) ? t('chat.speakStop') : t('chat.speak')}
-                  data-tip={speakingId === speakKey(m) ? t('chat.speakStop') : t('chat.speak')}
-                  aria-pressed={speakingId === speakKey(m)}
+                  class:speaking={speech.key === speakKey(m)}
+                  aria-label={speech.key === speakKey(m) ? t('chat.speakStop') : t('chat.speak')}
+                  data-tip={speech.key === speakKey(m) ? t('chat.speakStop') : t('chat.speak')}
+                  aria-pressed={speech.key === speakKey(m)}
                   onclick={() => toggleSpeak(m)}
                 >
-                  {#if speakBusyId === speakKey(m)}
+                  {#if speech.busyKey === speakKey(m)}
                     <span class="mic-busy"><Icon name="loaderCircle" size={16} /></span>
                   {:else}
-                    <Icon name={speakingId === speakKey(m) ? 'square' : 'volume2'} size={16} />
+                    <Icon name={speech.key === speakKey(m) ? 'square' : 'volume2'} size={16} />
                   {/if}
                 </button>
               {/if}
