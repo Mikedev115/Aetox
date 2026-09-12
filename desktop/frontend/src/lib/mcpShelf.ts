@@ -269,6 +269,32 @@ export const MCP_PRESETS: MCPPreset[] = [
   { name: 'stripe', group: 'apps', proven: false, desc: 'Customers, payments and invoices in your Stripe account', why: '', url: 'https://mcp.stripe.com', headers: ['Authorization: Bearer ${connect:stripe}'], oauth: true },
   { name: 'vercel', group: 'code', proven: false, desc: 'Deployments, build logs and projects on Vercel', why: '', url: 'https://mcp.vercel.com', headers: ['Authorization: Bearer ${connect:vercel}'], oauth: true },
   { name: 'atlassian', group: 'apps', proven: false, desc: 'Jira issues and Confluence pages in your Atlassian site', why: '', url: 'https://mcp.atlassian.com/v1/mcp', headers: ['Authorization: Bearer ${connect:atlassian}'], oauth: true },
+
+  // ---- Three more of the sign-in shape, 2026-09-13, second pass ----
+  //
+  // A targeted sweep this time rather than a general one: the owner asked
+  // for candidates split by who Aetox is for (ordinary users, creators who
+  // edit video, developers, business users) rather than whatever answered.
+  // These three each fill a gap none of the rows above touch and each
+  // registered a client on the spot when probed the same day — Runway's at
+  // mcp.runwayml.com/register, DeepL's at mcp.deepl.com/.idp/register,
+  // Mapbox's at api.mapbox.com/oauth/register. Same placeholder rule as
+  // every row above: `proven` stays false and `why` stays empty until
+  // someone has actually signed in and used it.
+  //
+  // Attio (CRM, same sweep, same DCR shape at app.attio.com/oauth/register)
+  // was held back from this batch on purpose: it has no published vector
+  // logo anywhere findable (favicon, apple-icon, brand page all 404), and
+  // McpMark's rule for a mark with nothing to draw is to say so in noMark
+  // rather than invent a monogram (see mcpMarks.ts's deepwiki note on the
+  // same question). It sits in mcpCandidates.ts instead until a real mark
+  // turns up. Replicate, Xero and Smartsheet all answered live and 401 the
+  // same session but the OAuth discovery chain wasn't walked to the end
+  // before the research pass was cut short — also in mcpCandidates.ts,
+  // marked unfinished rather than guessed at.
+  { name: 'runwayml', group: 'apps', proven: false, desc: 'Generate and edit video and images with AI models', why: '', url: 'https://mcp.runwayml.com/mcp', headers: ['Authorization: Bearer ${connect:runwayml}'], oauth: true },
+  { name: 'deepl', group: 'apps', proven: false, desc: 'Translate text with DeepL', why: '', url: 'https://mcp.deepl.com/v1/mcp', headers: ['Authorization: Bearer ${connect:deepl}'], oauth: true },
+  { name: 'mapbox', group: 'apps', proven: false, desc: 'Maps, geocoding, routing and map styles', why: '', url: 'https://mcp.mapbox.com/mcp', headers: ['Authorization: Bearer ${connect:mapbox}'], oauth: true },
 ]
 
 /** A stdio preset with no command written in the table is the one that has to
