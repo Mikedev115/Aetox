@@ -727,6 +727,37 @@ from the design; this is what it is.
 | frontend | `stores/engine.svelte.ts` (the status as last heard, `pickerOpen`), `EngineStatus.svelte` (the road's steps shown at once with the detail line, `ใช้เครื่องนี้แทน` while on the road or failed, the host named in a failure), `RemoteDirPicker.svelte` (path box + up + list + hidden toggle, in the confirm dialog's shell), `RemoteEngine.svelte` = Settings › เครื่องระยะไกล (where the engine is, the hosts with connect/back/edit/log/stop/remove, the add form, the per-host note), `openFolder` raising the picker when the engine is remote | `remoteEngine.test.ts` (10 tests) |
 | packaging, CI | `release.yml` builds `aetox-engine-linux-{amd64,arm64}` (`CGO_ENABLED=0`, static), lists them in the signed `checksums.txt`, attaches them to the release; `ci.yml` cross-builds both on Windows and runs `scripts/remote-smoke.sh` on the Linux job — the runner as its own host: a throwaway key, `authorized_keys`, sshd started, `TestRemoteSmoke` | the CI run |
 
+**What a host can and cannot do to the screen (2026-09-13).** Asked
+"ความปลอดภัยล่ะ" after the first real host, the answer was written down as
+the threat model this build actually meets. The host is the user's own
+machine, reached with their key; the engine there has the user's whole
+shell, on purpose, and the token — 32 random bytes per start, on stdin here
+and in a 0600 file there, never argv, DPAPI-wrapped in `screen.json` — is
+what keeps other users of that host out of it (loopback only; the ssh
+channel is the only door in). The one thing a host must never get is the
+model credential (decision 3), and the phase-2 wire had a way to get it
+anyway: `provider.open` carries the full URL, and the screen signed
+whatever it was handed — a taken-over host, or one impersonated at first
+contact under `accept-new`, could have asked for a request to a server of
+its own and received the key on it. Closed in `credentialMayRide`: when the
+engine is on a host, a credential rides only to where the screen itself
+knows the provider lives — the catalog's endpoints, the sign-in's endpoint
+(`oauth.Endpoint`), a custom row's endpoint as recorded in `screen.json`
+when it was added here, and loopback (a runtime on this machine, which is
+what a host's "localhost" means once the request is sent from here).
+Anything else goes out bare and fails at the far end with the provider's
+words. At home nothing changes: the engine is a child of this process on
+this machine's ground. Two consequences to know: a custom base URL set on
+the host for a catalog provider is not signed from here (set it on the
+screen's own row instead), and provider HTTP always leaves from the screen
+machine — a runtime on the host itself is not reachable through the proxy,
+while one on the screen machine is. Still open, and named: `accept-new` is
+trust on first sight (connect once by hand or seed `known_hosts` for a host
+that matters); safety settings are per host and a fresh host starts at
+defaults; whoever holds the token holds the shell, as with the local engine
+today. Pinned by
+`TestOnAHostACredentialRidesOnlyToWhereTheScreenKnowsTheProviderLives`.
+
 **Landing, 2026-09-12.** `main` had moved twice under the branch: the Git
 room and chat attachments (`c1c74d79`, merged as `7be94d44` — rename
 detection carried `git_commit.go`/`git_worktree.go`'s hunks to their new

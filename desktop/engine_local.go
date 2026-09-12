@@ -161,6 +161,15 @@ func (e *localEngine) endpoint() (network, address, token string, ok bool) {
 	return e.proc.network, e.proc.address, e.token, true
 }
 
+// remoteNow reports whether the engine the window is on is another
+// machine's — the one case in which the screen's signer checks where a
+// credential is going (credentialMayRide).
+func (e *localEngine) remoteNow() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.target.mode == modeRemote
+}
+
 // EngineStatus is the chip's binding: the state now, for a frontend that
 // mounted after the event went by.
 func (a *App) EngineStatus() EngineStatus {
