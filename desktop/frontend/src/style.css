@@ -5915,6 +5915,55 @@ button.phase-head:hover { color:var(--text-muted); }
   outline: none;
   border-color: var(--border-strong);
 }
+.gp-split-msg-input {
+  resize: vertical;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.gp-split-msg-input[readonly] {
+  color: var(--text-secondary);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle));
+}
+.gp-split-top-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.gp-split-redo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-2xs);
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all var(--dur-tint) ease;
+}
+.gp-split-redo-btn:hover:not(:disabled) {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+.gp-split-redo-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.gp-split-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+}
+.gp-split-note.writing {
+  color: var(--accent);
+}
+.gp-split-note.fallback {
+  color: var(--status-warn);
+}
 .gp-split-files {
   display: flex;
   flex-direction: column;

@@ -1239,6 +1239,8 @@ export namespace main {
 	    title: string;
 	    message: string;
 	    files: string[];
+	    source?: string;
+	    reason?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new GitCommitGroup(source);
@@ -1249,6 +1251,8 @@ export namespace main {
 	        this.title = source["title"];
 	        this.message = source["message"];
 	        this.files = source["files"];
+	        this.source = source["source"];
+	        this.reason = source["reason"];
 	    }
 	}
 	export class GitFileChange {

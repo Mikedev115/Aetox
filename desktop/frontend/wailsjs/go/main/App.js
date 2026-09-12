@@ -538,6 +538,10 @@ export function GitLog(arg1, arg2) {
   return window['go']['main']['App']['GitLog'](arg1, arg2);
 }
 
+export function GitSplitCancel() {
+  return window['go']['main']['App']['GitSplitCancel']();
+}
+
 export function GitSuggestCommitMessage(arg1) {
   return window['go']['main']['App']['GitSuggestCommitMessage'](arg1);
 }

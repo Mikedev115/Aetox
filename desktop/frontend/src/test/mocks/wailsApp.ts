@@ -139,6 +139,7 @@ export const GitSwitchBranch = vi.fn(async (name: string) => name)
 export const GitCommitFiles = vi.fn(async (_msg: string, _files: string[]) => {})
 export const GitSuggestCommitMessage = vi.fn(async (_files: string[]) => 'feat: sample commit')
 export const GitSuggestSplitCommits = vi.fn(async () => [])
+export const GitSplitCancel = vi.fn(async () => {})
 export const GuideTopics = arr()
 export const HasAPIKey = boolFn(false)
 // Empty by default, which is what a provider with no key stored returns. A
