@@ -225,7 +225,6 @@
   .hide:hover { color: var(--text-primary); }
   .companion:hover .frame, .companion:hover .hide, .hide:focus-visible { opacity: 1; }
   .dragging .frame, .dragging .hide { opacity: 0; }
-  .grab :global(.mascot) { filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.42)); }
   /* the report: a small card that exists only while there is something said */
   .say {
     position: absolute; right: calc(100% + 10px); bottom: 30px;
