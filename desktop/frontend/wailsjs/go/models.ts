@@ -588,8 +588,10 @@ export namespace main {
 	    jobs: number;
 	    lastUsed?: string;
 	    icon: string;
-	    hair?: string;
-	    accessory?: string;
+	    shell?: string;
+	    top?: string;
+	    face?: string;
+	    accent?: string;
 	    hue?: string;
 	
 	    static createFrom(source: any = {}) {
@@ -607,8 +609,10 @@ export namespace main {
 	        this.jobs = source["jobs"];
 	        this.lastUsed = source["lastUsed"];
 	        this.icon = source["icon"];
-	        this.hair = source["hair"];
-	        this.accessory = source["accessory"];
+	        this.shell = source["shell"];
+	        this.top = source["top"];
+	        this.face = source["face"];
+	        this.accent = source["accent"];
 	        this.hue = source["hue"];
 	    }
 	}
@@ -3240,9 +3244,13 @@ export namespace subagent {
 	    steps?: number;
 	    desk?: string;
 	    icon?: string;
+	    shell?: string;
+	    top?: string;
+	    face?: string;
+	    accent?: string;
+	    hue?: string;
 	    hair?: string;
 	    accessory?: string;
-	    hue?: string;
 	    needs?: string[];
 	    publisher?: string;
 	    package?: string;
@@ -3269,9 +3277,13 @@ export namespace subagent {
 	        this.steps = source["steps"];
 	        this.desk = source["desk"];
 	        this.icon = source["icon"];
+	        this.shell = source["shell"];
+	        this.top = source["top"];
+	        this.face = source["face"];
+	        this.accent = source["accent"];
+	        this.hue = source["hue"];
 	        this.hair = source["hair"];
 	        this.accessory = source["accessory"];
-	        this.hue = source["hue"];
 	        this.needs = source["needs"];
 	        this.publisher = source["publisher"];
 	        this.package = source["package"];

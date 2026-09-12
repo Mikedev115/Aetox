@@ -110,9 +110,9 @@
   // The roster, loaded for one reason: an agent's switch wears that agent's own
   // face. PlacementTarget does not carry `icon:` and should not — the roster is
   // where a profile's own drawing already lives, and Settings' panel reads it
-  // from exactly here. All three fields of it: a profile may name its hair and
-  // its glasses too, and half a face is a different person.
-  let agents = $state<{ name: string; icon?: string; hair?: string; accessory?: string; hue?: string }[]>([])
+  // from exactly here. All of it: a profile may name its shell, top light,
+  // face and accent too, and half a look is a different robot.
+  let agents = $state<{ name: string; icon?: string; shell?: string; top?: string; face?: string; accent?: string; hue?: string }[]>([])
   // Which server's placement panel is open. One at a time, like the register:
   // eleven switches under every row at once is the wall the register avoided.
   let openRow = $state('')
@@ -339,10 +339,10 @@
   // way here and another way there is two people to whoever is reading.
   const deskIcon = (id: string): IconName =>
     NAV.find((n) => n.id === id)?.icon ?? (id === 'specialized' ? 'bot' : 'layoutList')
-  // The whole face, not just the mark it holds: a profile may name its own
-  // hair and glasses too, and an agent drawn with two thirds of what its owner
-  // chose is the same "two people to whoever is reading" this comment already
-  // warns about one line up.
+  // The whole look, not just the badge on its ears: a profile may name its
+  // own shell, top light, face and accent too, and an agent drawn with half of
+  // what its owner chose is the same "two people to whoever is reading" this
+  // comment already warns about one line up.
   const agentFaceOf = (name: string) => lookOf(agents.find((x) => x.name === name))
 
   async function load() {

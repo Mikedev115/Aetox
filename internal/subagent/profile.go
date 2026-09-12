@@ -183,28 +183,42 @@ type Profile struct {
 	// A name rather than an image: the file is a .md the user edits by hand,
 	// and a path to a picture would be a second thing to keep alive beside it.
 	Icon string `json:"icon,omitempty"`
-	// Hair and Accessory are the rest of that face, and they follow Icon's rule
-	// exactly: a NAME out of the app's own wardrobe (desktop/frontend/src/lib/
-	// agentFace.ts), never a drawing, so there is still nothing to keep alive
-	// beside the .md.
+	// Shell, Top, Face and Accent are the rest of that face — the mascot's
+	// (desktop/frontend/src/lib/mascot/, docs/MASCOT.md), since 12 ก.ย. 2026 —
+	// and they follow Icon's rule exactly: a NAME out of a catalogue the app
+	// draws from (SHELL, TOP, FACE, ACCENT), never a drawing, so there is still
+	// nothing to keep alive beside the .md. What the body is made of, the light
+	// on its head, the face it rests on, and the colour of its cap and ears.
 	//
-	// Empty is the ordinary case and stays the ordinary case. A face is derived
-	// from the agent's name — that is what lets a file somebody drops in
-	// tomorrow arrive looking like a person with nobody having chosen anything
-	// — and these two only say "not that one, this one" for an owner who cared
+	// Empty is the ordinary case and stays the ordinary case. The look is
+	// derived from the agent's name — that is what lets a file somebody drops in
+	// tomorrow arrive looking like somebody with nobody having chosen anything
+	// — and these only say "not that one, this one" for an owner who cared
 	// enough to open the editor. A name this build does not have falls back to
-	// the derived part rather than to an error, for the same reason Icon does.
-	Hair      string `json:"hair,omitempty"`
-	Accessory string `json:"accessory,omitempty"`
+	// the default part rather than to an error, for the same reason Icon does.
+	Shell  string `json:"shell,omitempty"`
+	Top    string `json:"top,omitempty"`
+	Face   string `json:"face,omitempty"`
+	Accent string `json:"accent,omitempty"`
 	// Hue is the colour, in degrees around the wheel, and it is a STRING here
-	// for the same reason the two above are: this side does not read the file's
+	// for the same reason the ones above are: this side does not read the file's
 	// meaning, it carries what the file says. As an int it would also have no
 	// way to tell "the author wrote 0" — red, a real choice — from "the author
 	// wrote nothing", and the difference between those two is the whole default.
 	//
 	// Blank is again the ordinary case: the colour then comes from coverHue, as
-	// every agent's has since before there was a face to put it on.
+	// every agent's has since before there was a face to put it on. A degree
+	// here is the colour at full strength and wins over Accent; Accent is the
+	// newer of the two and the one the editor writes, because it can also say
+	// "the mark's own black and white" or "copper", which no degree can.
 	Hue string `json:"hue,omitempty"`
+	// Hair and Accessory belonged to the cartoon person the mascot replaced
+	// (12 ก.ย. 2026, DECISIONS §254). Still read, never used: a file that names
+	// a haircut must go on loading — it is the user's file — but nothing draws
+	// one any more, and the editor drops the lines the next time it saves the
+	// file. Delete these two fields when no profile on disk still carries them.
+	Hair      string `json:"hair,omitempty"`
+	Accessory string `json:"accessory,omitempty"`
 	// Needs are the outside things this agent cannot do its job without —
 	// "connection:<id>" for an external account, "mcp:<server>" for a tool
 	// server. See needs.go for the rule that makes this safe: a need is a
@@ -770,9 +784,13 @@ func parse(name, raw string) Profile {
 		Steps:       steps,
 		Desk:        strings.ToLower(strings.TrimSpace(fields["desk"])),
 		Icon:        strings.TrimSpace(fields["icon"]),
+		Shell:       strings.TrimSpace(fields["shell"]),
+		Top:         strings.TrimSpace(fields["top"]),
+		Face:        strings.TrimSpace(fields["face"]),
+		Accent:      strings.TrimSpace(fields["accent"]),
+		Hue:         strings.TrimSpace(fields["hue"]),
 		Hair:        strings.TrimSpace(fields["hair"]),
 		Accessory:   strings.TrimSpace(fields["accessory"]),
-		Hue:         strings.TrimSpace(fields["hue"]),
 		Needs:       splitList(fields["needs"]),
 		Publisher:   strings.TrimSpace(fields["publisher"]),
 		Package:     strings.TrimSpace(fields["package"]),
