@@ -36,7 +36,7 @@
     avatarPrefs, setAvatarPrefs, resetAvatarPrefs, isDefaultPrefs, assistantOptions,
     personas, savePersona, usePersona, clearPersona, wornPersona, PERSONA_SLOTS,
   } from './avatarPrefs.svelte'
-  import { companion, setCompanionOn, setCompanionVoice } from './companionSetting.svelte'
+  import { companion, setCompanionOn, setCompanionVoice, setCompanionGreet } from './companionSetting.svelte'
   import { speech, speak, stopSpeechIf } from '../speech.svelte'
   import { openSettingsAt } from '../stores/cockpit.svelte'
   import { TTSStatus, ListTTSVoices } from '../../../wailsjs/go/main/App'
@@ -309,6 +309,19 @@
         </label>
       </div>
     </div>
+    <!-- One step under the voice: whether hello is among what it says. -->
+    {#if companion.voice}
+      <div class="set-row greet-row" class:dim={!companion.on}>
+        <div class="set-txt">
+          <div class="t">{text.greet}</div>
+          <div class="d">{text.greetDesc}</div>
+        </div>
+        <label class="mswitch">
+          <input type="checkbox" checked={companion.greet} aria-label={text.greet} onchange={(e) => setCompanionGreet(e.currentTarget.checked)} />
+          <span></span>
+        </label>
+      </div>
+    {/if}
   </div>
 
   <p class="d muted avatar-note">{text.agentsNote}</p>
@@ -366,7 +379,8 @@
   .chip.pri:disabled { opacity: .6; cursor: default; }
   .poses { display: flex; gap: 6px; margin: 16px 0 28px; flex-wrap: wrap; justify-content: center; }
   /* ---- the voice row ---- */
-  .voice-row.dim .set-txt { opacity: .55; }
+  .voice-row.dim .set-txt, .greet-row.dim .set-txt { opacity: .55; }
+  .greet-row { padding-left: 22px; }
   .voice-ctrl { display: flex; align-items: center; gap: 10px; }
   .voice-note {
     display: flex; gap: 6px; align-items: flex-start; margin-top: 8px; padding: 6px 10px; border-radius: 8px;

@@ -159,9 +159,15 @@ describe('the avatar page', () => {
     await waitFor(() => expect(container.querySelector('.voice-note')).toBeNull())
     await fireEvent.click(container.querySelector('.voice-row .chip')!)
     await waitFor(() => expect(vi.mocked(StartSpeech)).toHaveBeenCalled())
+    // hello has its own switch, one step under the voice, gone with it
+    const greet = container.querySelector('.greet-row .mswitch input') as HTMLInputElement
+    expect(greet.checked).toBe(true)
+    await fireEvent.click(greet)
+    expect(localStorage.getItem('companionGreet')).toBe('off')
     await fireEvent.click(box)
     expect(localStorage.getItem('companionVoice')).toBe('off')
     expect(container.querySelector('.voice-row .chip')).toBeNull()
+    expect(container.querySelector('.greet-row')).toBeNull()
   })
 
   it("says the engine's own reason when it cannot run, and points at the voice page", async () => {

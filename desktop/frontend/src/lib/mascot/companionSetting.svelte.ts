@@ -1,4 +1,5 @@
-// Whether the assistant sits on the screen at all — and whether it speaks.
+// Whether the assistant sits on the screen at all — whether it speaks — and
+// whether it says hello.
 //
 // (companionSetting, not companion: Windows cannot tell this file from
 // Companion.svelte by case, and neither can the TypeScript program.)
@@ -10,7 +11,10 @@
 // a click on the figure while it is talking (which stops that read, not the
 // switch). Voice is on by default (owner, 12 ก.ย. 2026: "ตั้งเป็นเปิดเป็น
 // ค่าเริ่มต้น") and means nothing while the companion is off — it is the
-// figure that speaks, so a hidden figure is a silent one.
+// figure that speaks, so a hidden figure is a silent one. `greet` sits under
+// `voice`: whether the room's greeting is among what it says out loud (owner,
+// 12 ก.ย.: "ตั้งค่าอีกชั้นนึงว่าจะให้พูดทักทายด้วยไหม") — on by default, moot
+// while voice is off.
 //
 // Remembered in localStorage for now — the same place the window keeps its
 // other per-viewer conveniences — rather than in the Go config, because
@@ -20,6 +24,7 @@
 
 const KEY = 'companionOn'
 const VOICE_KEY = 'companionVoice'
+const GREET_KEY = 'companionGreet'
 
 function seed(key: string): boolean {
   try {
@@ -29,7 +34,7 @@ function seed(key: string): boolean {
   }
 }
 
-export const companion = $state<{ on: boolean; voice: boolean }>({ on: seed(KEY), voice: seed(VOICE_KEY) })
+export const companion = $state<{ on: boolean; voice: boolean; greet: boolean }>({ on: seed(KEY), voice: seed(VOICE_KEY), greet: seed(GREET_KEY) })
 
 export function setCompanionOn(on: boolean): void {
   companion.on = on
@@ -39,6 +44,11 @@ export function setCompanionOn(on: boolean): void {
 export function setCompanionVoice(on: boolean): void {
   companion.voice = on
   remember(VOICE_KEY, on)
+}
+
+export function setCompanionGreet(on: boolean): void {
+  companion.greet = on
+  remember(GREET_KEY, on)
 }
 
 function remember(key: string, on: boolean): void {
