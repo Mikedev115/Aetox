@@ -3,6 +3,7 @@ import { render, waitFor, fireEvent } from '@testing-library/svelte'
 import Companion from '../lib/mascot/Companion.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import { reportOf, REPORT_TAIL } from '../lib/mascot/presence'
+import { companion, setCompanionOn } from '../lib/mascot/companionSetting.svelte'
 
 // The assistant sitting on the screen: what it does is read off the cockpit's
 // live turn, what it says is only what the model said. The drawing is
@@ -74,12 +75,43 @@ describe('the companion', () => {
     expect(mascot(container).classList.contains('pose-answering')).toBe(true)
   })
 
+  // A press that does not travel is a click, and a click is a reaction — a
+  // moment of one of the reaction poses with a hop, then back to rest.
+  it('reacts to a click with a pose, and to a drag with a move', async () => {
+    vi.useFakeTimers()
+    const { container } = render(Companion)
+    const grab = container.querySelector('.grab')!
+    ;(grab as any).setPointerCapture = () => {}
+    await fireEvent.pointerDown(grab, { clientX: 500, clientY: 400, pointerId: 1, button: 0 })
+    await fireEvent.pointerUp(grab, { pointerId: 1 })
+    await vi.advanceTimersByTimeAsync(50)
+    const cls = mascot(container).className
+    expect(cls).toMatch(/pose-(greeting|cheer|helping|wink)/)
+    expect(cls).toContain('hop')
+    await vi.advanceTimersByTimeAsync(1700)
+    expect(mascot(container).classList.contains('pose-idle')).toBe(true)
+    expect(localStorage.getItem('companionPos')).toBeNull()
+    vi.useRealTimers()
+  })
+
+  // The × on the frame puts it away; the account menu's switch is the way back.
+  it('hides on its × and comes back through the setting', async () => {
+    setCompanionOn(true)
+    const { container } = render(Companion)
+    await waitFor(() => expect(mascot(container)).toBeTruthy())
+    await fireEvent.click(container.querySelector('.hide')!)
+    expect(companion.on).toBe(false)
+    expect(localStorage.getItem('companionOn')).toBe('off')
+    setCompanionOn(true)
+    expect(companion.on).toBe(true)
+  })
+
   it('remembers where it was dragged', async () => {
     const { container } = render(Companion)
     await waitFor(() => expect(mascot(container)).toBeTruthy())
     const grab = container.querySelector('.grab')!
     ;(grab as any).setPointerCapture = () => {}
-    await fireEvent.pointerDown(grab, { clientX: 500, clientY: 400, pointerId: 1 })
+    await fireEvent.pointerDown(grab, { clientX: 500, clientY: 400, pointerId: 1, button: 0 })
     await fireEvent.pointerMove(grab, { clientX: 300, clientY: 200, pointerId: 1 })
     await fireEvent.pointerUp(grab, { pointerId: 1 })
     const saved = JSON.parse(localStorage.getItem('companionPos') ?? '{}')

@@ -79,6 +79,9 @@ const POSE_ROWS = {
   recharge:    { face: 'dim',      hands: { L: [24, 52, 6], R: [40, 52, 6] },   legs: 'tuck',  prop: null,   panel: 'zzz',       ground: 'charger', turn: 18 },
   walk:        { face: null,       hands: { L: [20, 55, 0], R: [44, 55, 0] },   legs: 'stand', prop: null,   panel: null,        turn: 70 },
   listening:   { face: null,       hands: REST,                                 legs: 'tuck',  prop: 'role', panel: 'mic',       turn: -8 },
+  // Reactions to being clicked (Companion.svelte) — a moment each, no words.
+  cheer:       { face: 'excited',  hands: { L: UP_L, R: UP_R },                 legs: 'tuck',  prop: 'role', panel: null,        mark: 'sparkle', turn: 0, look: 30 },
+  wink:        { face: 'wink',     hands: { L: REST.L, R: UP_R },               legs: 'tuck',  prop: 'role', panel: null,        turn: 12,  look: 25 },
 } satisfies Record<string, Pose>
 
 export type PoseId = keyof typeof POSE_ROWS

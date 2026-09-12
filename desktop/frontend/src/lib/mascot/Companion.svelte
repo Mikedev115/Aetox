@@ -16,8 +16,10 @@
   // Cost: one SVG drawn once per pose, CSS for everything that moves. Nothing
   // here runs per frame.
   import Mascot from './Mascot.svelte'
+  import Icon from '../Icon.svelte'
   import { presenceOf, reportOf } from './presence'
   import { cockpit } from '../stores/cockpit.svelte'
+  import { setCompanionOn } from './companionSetting.svelte'
 
   const SIZE = 104
   const MARGIN = 8
@@ -27,11 +29,16 @@
   /** Characters typed per tick, and the tick, when a report arrives. */
   const TYPE_STEP = 2
   const TYPE_MS = 28
+  /** A click is a click if the pointer moved less than this; more is a drag. */
+  const CLICK_PX = 4
+  /** How long a reaction to a click lasts, and which it may be. */
+  const REACT_MS = 1600
+  const REACTIONS = ['greeting', 'cheer', 'helping', 'wink'] as const
 
   // ---- where it sits ------------------------------------------------------
   let pos = $state(seed())
   let dragging = $state(false)
-  let drag: { dx: number; dy: number } | null = null
+  let drag: { dx: number; dy: number; x0: number; y0: number; moved: boolean } | null = null
 
   function seed(): { x: number; y: number } {
     try {
@@ -53,24 +60,51 @@
     }
   }
   function onDown(e: PointerEvent): void {
-    drag = { dx: e.clientX - pos.x, dy: e.clientY - pos.y }
-    dragging = true
+    if (e.button !== 0) return
+    drag = { dx: e.clientX - pos.x, dy: e.clientY - pos.y, x0: e.clientX, y0: e.clientY, moved: false }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
   function onMove(e: PointerEvent): void {
     if (!drag) return
+    if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < CLICK_PX) return
+    drag.moved = true
+    dragging = true
     pos = clamp({ x: e.clientX - drag.dx, y: e.clientY - drag.dy })
   }
   function onUp(): void {
     if (!drag) return
+    const wasClick = !drag.moved
     drag = null
     dragging = false
+    if (wasClick) {
+      react()
+      return
+    }
     try {
       localStorage.setItem(POS_KEY, JSON.stringify(pos))
     } catch {
       // A spot that could not be remembered is still the spot for this session.
     }
   }
+
+  // ---- being clicked ------------------------------------------------------
+  // A moment of one of the reactions, with a hop, then back to whatever it
+  // was doing. No words: the bubble is for what the model says (presence.ts).
+  let reaction = $state<string>('')
+  let hop = $state(false)
+  let reactTimer: ReturnType<typeof setTimeout> | undefined
+  function react(): void {
+    const next = REACTIONS[Math.floor(Math.random() * REACTIONS.length)]
+    reaction = next === reaction ? REACTIONS[(REACTIONS.indexOf(next) + 1) % REACTIONS.length] : next
+    hop = false
+    requestAnimationFrame(() => (hop = true))
+    clearTimeout(reactTimer)
+    reactTimer = setTimeout(() => {
+      reaction = ''
+      hop = false
+    }, REACT_MS)
+  }
+  $effect(() => () => clearTimeout(reactTimer))
   $effect(() => {
     const keep = (): void => {
       pos = clamp(pos)
@@ -106,7 +140,7 @@
     }
     wasAwaiting = now
   })
-  const pose = $derived(!cockpit.awaitingReply && justDone ? 'success' : livePose)
+  const pose = $derived(reaction || (!cockpit.awaitingReply && justDone ? 'success' : livePose))
 
   // ---- what it says -------------------------------------------------------
   // The model's latest narration of its own — a delegate's rows carry `parent`
@@ -160,16 +194,27 @@
   {#if shown}
     <div class="say">{shown}{#if typing || cockpit.streamingText}<span class="cur"></span>{/if}</div>
   {/if}
+  <!-- The frame shows on hover: a border to say "this is a thing you can
+       hold", and the one control, which puts the companion away until the
+       account menu brings it back. -->
+  <div class="frame"></div>
+  <button class="hide" type="button" title="ซ่อน" aria-label="ซ่อน" onclick={() => setCompanionOn(false)}><Icon name="x" size={11} /></button>
   <!-- A handle, not a control: it has nothing to activate, only somewhere to be. -->
   <div class="grab" role="presentation" onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp}>
-    <Mascot {pose} size={SIZE} sway />
+    <Mascot {pose} size={SIZE} sway {hop} />
   </div>
 </div>
 
 <style>
   .companion { position: fixed; left: 0; top: 0; z-index: 45; touch-action: none; user-select: none; }
-  .grab { cursor: grab; }
+  .grab { cursor: grab; position: relative; }
   .dragging .grab { cursor: grabbing; }
+  /* the hover frame and its × — present only while the pointer is near */
+  .frame { position: absolute; inset: -6px; border: 1px dashed var(--border-subtle); border-radius: 14px; opacity: 0; transition: opacity .15s; pointer-events: none; }
+  .hide { position: absolute; top: -12px; right: -12px; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border-subtle); background: var(--surface-raised); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .15s; padding: 0; }
+  .hide:hover { color: var(--text-primary); }
+  .companion:hover .frame, .companion:hover .hide, .hide:focus-visible { opacity: 1; }
+  .dragging .frame, .dragging .hide { opacity: 0; }
   .grab :global(.mascot) { filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.42)); }
   /* the report: a small card that exists only while there is something said */
   .say {

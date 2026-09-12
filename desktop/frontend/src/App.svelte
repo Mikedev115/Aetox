@@ -3,6 +3,7 @@
   import Sidebar from './lib/Sidebar.svelte'
   import Chat from './lib/Chat.svelte'
   import Companion from './lib/mascot/Companion.svelte'
+  import { companion } from './lib/mascot/companionSetting.svelte'
   import FileEditor from './lib/FileEditor.svelte'
   import Settings from './lib/Settings.svelte'
   import Office from './lib/Office.svelte'
@@ -610,4 +611,6 @@
 <CapabilityProgress />
 <!-- The assistant itself, sitting on the screen wherever the user put it —
      app-level for the same reason: it is not a page's, it is the company's. -->
-<Companion />
+{#if companion.on}
+  <Companion />
+{/if}

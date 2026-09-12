@@ -113,6 +113,9 @@
   50% { transform: rotate(1.4deg) scale(1, 1); }
   75% { transform: rotate(0deg) scale(1.006, 1.014); }
 }
+/* clicked: one small hop on top of whatever it is doing (Companion.svelte) */
+.mascot.hop .ms-all { animation: ms-hop .55s cubic-bezier(.3, .9, .3, 1.2); }
+@keyframes ms-hop { 0% { transform: translateY(0) scale(1, 1); } 30% { transform: translateY(-4px) scale(.97, 1.05); } 60% { transform: translateY(0) scale(1.04, .96); } 100% { transform: translateY(0) scale(1, 1); } }
 /* smooth the turn when --t jumps (a pose change, a glance) */
 .mascot.settle { transition: --t .45s ease-out; }
 @property --t { syntax: '<angle>'; inherits: true; initial-value: 0deg; }
