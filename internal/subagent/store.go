@@ -31,13 +31,33 @@ func ReadRaw(name string) (string, bool) {
 	return rawFor(name)
 }
 
-// Save was the sub-agents' write door, and now refuses everything: the
-// helpers are part of the system (owner's call, 2026-08-06) — the bundled
-// three are the whole set, so there is nothing a save here could legitimately
-// do. Kept as a door rather than deleted so the refusal lives in the layer
-// that owns the rule, and reads the same whichever caller knocks.
+// Save is the sub-agents' write door, half open (owner, 12 ก.ย. 2026: "ปรับแต่ง
+// ได้จำกัดนะครับ ซับเอเจน แต่เลือกโมเดลได้"). It was shut on 2026-08-06 — the
+// helpers are part of the system — and the half that stays shut is the set:
+// only a name the app ships may be saved, and what lands is a shadow file in
+// the sub-agents' home that the resolver reads within limitHelperShadow
+// (model, steps, prompt, description, look; never the kit). Deleting the
+// shadow is the revert. A new name is refused here, with the door it should
+// use, rather than left for the resolver to report later.
 func Save(name, body string) error {
-	return errors.New("ซับเอเจนฝังมากับระบบ เพิ่มหรือแก้ไขไม่ได้ — ถ้าต้องการคนทำงานแบบของคุณเอง สร้างเป็นเอเจนที่หน้าทีมเอเจน")
+	name = strings.TrimSpace(name)
+	if name == "" || !validName(name) {
+		return errors.New("ชื่อไม่ถูกต้อง")
+	}
+	if strings.TrimSpace(body) == "" {
+		return errors.New("เนื้อหาว่างเปล่า")
+	}
+	if !slices.Contains(bundledNames(bundledHelperDir, false), name) {
+		return errors.New("ซับเอเจนที่มากับแอปคือทั้งหมด เพิ่มตัวใหม่ไม่ได้ — ถ้าต้องการคนทำงานแบบของคุณเอง สร้างเป็นเอเจนที่หน้าทีมเอเจน")
+	}
+	dir, err := Dir()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, name+".md"), []byte(body), 0o644)
 }
 
 // SaveAgent writes an agent's file into the agents' home — the one write door
@@ -121,8 +141,9 @@ func Delete(name string) error {
 	} else if err := os.RemoveAll(home); err != nil {
 		return err
 	}
-	// The sub-agents' home is closed and its files are never read, but one the
-	// user put there before it closed is still theirs to remove from this door.
+	// A helper's shadow lives in the sub-agents' home as <name>.md; removing
+	// it is the revert for a helper, the same way removing AGENT.md is for an
+	// agent. A stray file with a name nothing ships is also theirs to remove.
 	dir, err := Dir()
 	if err != nil {
 		return err
@@ -138,19 +159,23 @@ func Delete(name string) error {
 // user file in the agents' home. An empty model removes the line, which is
 // what "inherit whatever model is selected" means.
 //
-// A helper cannot be pointed anywhere: pinning a model is an edit, and the
-// helpers are part of the system. They follow the chat's model, which is what
-// an absent `model:` line has always meant.
+// A helper goes through its own door (Save), so the pin lands as a shadow in
+// the sub-agents' home — the one edit a helper's owner asked for by name
+// (12 ก.ย. 2026). An absent `model:` line still means "the chat's model".
 func SetModel(name, modelName string) error {
 	raw, ok := ReadRaw(name)
 	if !ok {
 		return errors.New("ไม่พบโปรไฟล์ชื่อ " + name)
 	}
 	p, ok := Load(name)
-	if !ok || p.Desk == "" {
-		return errors.New("ซับเอเจนฝังมากับระบบ แก้ไขไม่ได้ — โมเดลของมันตามโมเดลที่แชทใช้อยู่เสมอ")
+	if !ok {
+		return errors.New("ไม่พบโปรไฟล์ชื่อ " + name)
 	}
-	return SaveAgent(name, setFrontmatterField(raw, "model", strings.TrimSpace(modelName)))
+	body := setFrontmatterField(raw, "model", strings.TrimSpace(modelName))
+	if p.Desk == "" {
+		return Save(name, body)
+	}
+	return SaveAgent(name, body)
 }
 
 // setFrontmatterField replaces, inserts or (on an empty value) drops one

@@ -354,13 +354,15 @@ func TestDenyRulesReachThePermissionLayer(t *testing.T) {
 	}
 }
 
-// The helpers are part of the system (owner's call, 2026-08-06): a user file
-// named after a bundled one does NOT shadow it — the bundled profile stays
-// authoritative, and the file is reported so it never vanishes silently.
-// Shadowing still exists for agents, in their own home (homes_test covers it).
-func TestHelperShadowIsIgnoredBundledWins(t *testing.T) {
+// The helpers are part of the system (owner's call, 2026-08-06) and their
+// door reopened a crack on 12 ก.ย. 2026 ("ปรับแต่งได้จำกัดนะครับ ซับเอเจน แต่
+// เลือกโมเดลได้"): a user file named after a bundled helper shadows it, but
+// only for what a helper's owner may change — the model, the step ceiling,
+// the prompt, the description, the look. What the helper can REACH stays the
+// bundled kit whatever the file says, and the file is told so on its card.
+func TestHelperShadowChangesOnlyWhatItMay(t *testing.T) {
 	dir := isolate(t)
-	body := "---\ndescription: ของผมเอง\nmodel: deepseek-v4\nsteps: 5\n---\nBe mine.\n"
+	body := "---\ndescription: ของผมเอง\nmodel: deepseek-v4\nsteps: 5\ntools: read, grep, shell\ndeny: read\nneeds: mcp:x\naccent: copper\n---\nBe mine.\n"
 	if err := os.WriteFile(filepath.Join(dir, "explore.md"), []byte(body), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -369,26 +371,38 @@ func TestHelperShadowIsIgnoredBundledWins(t *testing.T) {
 	if !ok {
 		t.Fatal("Load(explore) failed")
 	}
-	if !p.Builtin || p.Overrides || p.Model == "deepseek-v4" || p.Prompt == "Be mine." {
-		t.Fatalf("the shadow took effect on a system helper: %+v", p)
+	if p.Builtin || !p.Overrides || p.Model != "deepseek-v4" || p.Prompt != "Be mine." || p.Description != "ของผมเอง" || p.Accent != "copper" {
+		t.Fatalf("the shadow did not take effect where it may: %+v", p)
 	}
-	if len(p.Tools) != 4 {
-		t.Fatalf("bundled explore damaged: %+v", p)
+	if p.MaxToolCalls() != 5 {
+		t.Errorf("steps = %d, want the shadow's 5", p.MaxToolCalls())
+	}
+	if len(p.Tools) != 4 || len(p.Deny) != 0 || len(p.Needs) != 0 || p.Desk != "" {
+		t.Fatalf("the shadow reached past its limits: tools=%v deny=%v needs=%v desk=%q", p.Tools, p.Deny, p.Needs, p.Desk)
+	}
+	if p.Notice == "" || !strings.Contains(p.Notice, "tools") {
+		t.Errorf("a file that tried to change the kit is not told so: %q", p.Notice)
+	}
+	if p.Invalid != "" {
+		t.Errorf("a limited shadow must still run: %q", p.Invalid)
 	}
 	var seen int
 	for _, listed := range List() {
 		if listed.Name == "explore" {
 			seen++
-			if !listed.Builtin {
-				t.Error("List() returned the user's explore, not the bundled one")
+			if listed.Builtin || !listed.Overrides {
+				t.Error("List() returned the bundled explore, not the user's shadow")
 			}
 		}
 	}
 	if seen != 1 {
 		t.Fatalf("explore appears %d times in List()", seen)
 	}
-	if _, ok := findConflict(Conflicts(), "explore"); !ok {
-		t.Fatal("the ignored shadow is not reported — it just vanished")
+	if _, ok := findConflict(Conflicts(), "explore"); ok {
+		t.Fatal("a shadow that is read is also reported as unread")
+	}
+	if got := len(List()); got != 11 {
+		t.Fatalf("List() = %d, want the 11 bundled (one shadowed)", got)
 	}
 }
 

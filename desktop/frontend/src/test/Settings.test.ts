@@ -995,7 +995,12 @@ describe('Settings pages', () => {
   // The helpers are part of the system (owner's call, 2026-08-06): the page
   // reads. No create button, no editor door, no model pin — and only the
   // bundled set is listed, because "yours" cannot exist.
-  it('the sub-agents page is a read-only system roster', async () => {
+  // The helpers are the system's (2026-08-06) and, since 12 ก.ย. 2026, each
+  // one opens in the editor within limits (owner: "ปรับแต่งได้จำกัดนะครับ
+  // ซับเอเจน แต่เลือกโมเดลได้"): a cog per card and no door to create one;
+  // the editor shows สมอง (the model) and no reach tab, the name is locked,
+  // and a save goes out through the helper door.
+  it('the sub-agents page edits a helper within limits and creates nothing', async () => {
     const { container } = render(Settings, { onClose: () => {} })
     await openSection(container, 'ซับเอเจน')
 
@@ -1008,26 +1013,35 @@ describe('Settings pages', () => {
     expect(deck.textContent).toContain('explore')
     expect(deck.textContent).toContain('general')
     expect(deck.textContent).not.toContain('deck')
-    expect(container.textContent).toContain('เพิ่มหรือแก้ไขไม่ได้')
+    expect(container.textContent).toContain('เพิ่มตัวใหม่ไม่ได้')
 
-    // Badges are still read off the profile — the roster informs, it just
-    // does not edit. The tool-count badge went away on 31 ส.ค. with the thing
-    // it counted: every worker holds its desk's kit, so the number was the
-    // same word down the column.
-    expect(screen.getByText('built-in:explore')).toBeTruthy()
+    // The source is not repeated on every card (12 ก.ย.): the group says
+    // มากับแอป, the name is the file's name, the path stays on hover.
+    expect(screen.queryByText('built-in:explore')).toBeNull()
+    expect(container.querySelector('.agc.helper .chair-name')?.getAttribute('title')).toBe('built-in:explore')
 
-    // No doors: nothing to create, configure, or pin. (The description may
-    // *mention* creating an agent — it points at the team page — so the check
-    // is on buttons, not on prose.)
-    // Scoped to the PAGE, not the whole frame. The left nav is a list of
-    // buttons too, and one of its rows is now สร้างภาพ — a page name, not a
-    // door on this page. Reading the frame made the roster look editable
-    // because a different page exists.
+    // No door to create — the bundled set is the whole set. Scoped to the
+    // PAGE, not the whole frame: the left nav is a list of buttons too.
     const page = container.querySelector('.settings-content')!
     const buttonLabels = Array.from(page.querySelectorAll('button')).map((b) => b.textContent ?? '')
     expect(buttonLabels.some((l) => l.includes('สร้าง'))).toBe(false)
-    expect(container.querySelector('.set-row button')).toBeNull()
     expect(container.querySelectorAll('.set-row select.ctrl').length).toBe(0)
+
+    // A cog per card, opening the editor through the helper door.
+    const cogs = deck.querySelectorAll('button[aria-label="ตั้งค่า"]')
+    expect(cogs.length).toBe(2)
+    await fireEvent.click(cogs[0])
+    await waitFor(() => expect(container.querySelector('#ag-panel-identity')).toBeTruthy())
+    expect(screen.getByRole('tab', { name: 'สมอง' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'อวตาร' })).toBeTruthy()
+    expect(screen.queryByRole('tab', { name: 'เอื้อมถึงอะไร' })).toBeNull()
+    expect((container.querySelector('#ag-panel-identity input.ctrl') as HTMLInputElement).disabled).toBe(true)
+
+    const agentSaves = vi.mocked(SaveAgentProfile).mock.calls.length
+    await fireEvent.click(screen.getByText('บันทึก'))
+    await waitFor(() => expect(vi.mocked(SaveSubagentProfile)).toHaveBeenCalled())
+    expect(vi.mocked(SaveSubagentProfile).mock.calls.at(-1)![0]).toBe('explore')
+    expect(vi.mocked(SaveAgentProfile).mock.calls.length).toBe(agentSaves)
   })
 
   // A pinned model is a fact about the agent on the list, and a control only in

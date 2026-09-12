@@ -337,6 +337,43 @@ func applyHomeRules(p *Profile, agentHome bool) {
 	}
 }
 
+// limitHelperShadow is what "ปรับแต่งได้จำกัด" means in fields (owner, 12 ก.ย.
+// 2026, reopening the door closed on 2026-08-06): a user's file over a bundled
+// helper may change the model it thinks with, its step ceiling, its prompt,
+// its description and its look — and nothing about what it can REACH. Tools,
+// deny, needs and desk come from the bundled file whatever the shadow says,
+// because a helper's kit is the system's: `explore` that could suddenly write
+// is not a customised explore, it is a different worker with explore's name,
+// and the assistant hands it work on the strength of the name. A shadow that
+// tried is told so on the card rather than silently corrected.
+func limitHelperShadow(shadow *Profile, bundled Profile) {
+	tried := []string{}
+	if len(shadow.Tools) > 0 {
+		tried = append(tried, "tools")
+	}
+	if len(shadow.Deny) > 0 {
+		tried = append(tried, "deny")
+	}
+	if len(shadow.Needs) > 0 {
+		tried = append(tried, "needs")
+	}
+	// applyHomeRules already refused a `desk:` line in this home by marking
+	// the file sick; for a shadow the line is ignored like the others — the
+	// bundled helper underneath is what runs, so nothing is unsafe to keep.
+	if shadow.Invalid != "" {
+		tried = append(tried, "desk")
+		shadow.Invalid = ""
+	}
+	shadow.Tools = bundled.Tools
+	shadow.Deny = bundled.Deny
+	shadow.Needs = bundled.Needs
+	shadow.Desk = ""
+	if len(tried) > 0 {
+		shadow.Notice = "ไฟล์นี้เขียน " + strings.Join(tried, ", ") +
+			" เอาไว้ แต่ซับเอเจนปรับได้แค่โมเดล คำสั่ง คำอธิบาย steps และอวตาร — เครื่องมือยังเป็นชุดของแอป"
+	}
+}
+
 // resolve reads all four sources in ownership order — bundled agents, bundled
 // sub-agents, the user's agents, the user's sub-agents — and settles every
 // name once. Within a home a user file shadows a bundled one; across homes the
@@ -366,6 +403,13 @@ func resolve() ([]entry, []Conflict) {
 		applyHomeRules(&p, agentHome)
 		p.Path = path
 		p.Builtin = builtin
+		// A user's file over a bundled helper may change only what a helper's
+		// owner is allowed to change — see limitHelperShadow.
+		if !agentHome && !builtin {
+			if i, taken := byName[name]; taken && !homeOf[name] {
+				limitHelperShadow(&p, entries[i].Profile)
+			}
+		}
 		if i, taken := byName[name]; taken {
 			if homeOf[name] != agentHome {
 				home := "ซับเอเจน"
@@ -401,17 +445,20 @@ func resolve() ([]entry, []Conflict) {
 	for _, src := range sources {
 		for _, path := range src.userFiles() {
 			name := userProfileName(path, src.agentHome)
-			// The sub-agents' home is closed: the helpers are part of the system
-			// and the bundled set is the whole set. A file the user put there is
-			// never read as a profile — but it is on their disk, so it is
-			// reported rather than silently dead (the same promise Conflict has
-			// always made).
+			// The sub-agents' home is half open (owner, 12 ก.ย. 2026 — "ปรับแต่ง
+			// ได้จำกัด … แต่เลือกโมเดลได้"): the bundled set is still the whole
+			// set, so a file naming a NEW helper is never read as a profile —
+			// but it is on their disk, so it is reported rather than silently
+			// dead (the same promise Conflict has always made). A file named
+			// after a bundled helper is its shadow, within limitHelperShadow.
 			if !src.agentHome {
-				conflicts = append(conflicts, Conflict{
-					Name: name, Path: path,
-					Reason: "ซับเอเจนฝังมากับระบบ เพิ่มหรือแก้ไขไม่ได้ — ไฟล์นี้จึงไม่ถูกอ่าน ถ้าตั้งใจสร้างคนทำงานของคุณเอง สร้างเป็นเอเจนที่หน้าทีมเอเจน แล้วลบไฟล์นี้ทิ้งได้",
-				})
-				continue
+				if i, taken := byName[name]; !taken || homeOf[name] || !entries[i].Builtin {
+					conflicts = append(conflicts, Conflict{
+						Name: name, Path: path,
+						Reason: "ซับเอเจนที่มากับแอปคือทั้งหมด เพิ่มตัวใหม่ไม่ได้ — ไฟล์นี้จึงไม่ถูกอ่าน ถ้าตั้งใจสร้างคนทำงานของคุณเอง สร้างเป็นเอเจนที่หน้าทีมเอเจน แล้วลบไฟล์นี้ทิ้งได้",
+					})
+					continue
+				}
 			}
 			raw, err := os.ReadFile(path)
 			if err != nil {
