@@ -341,7 +341,7 @@
       void closeBody()
       return
     }
-    void openBody()
+    void openBody(untrack(() => SIZE))
     return () => void closeBody()
   })
   $effect(() => {

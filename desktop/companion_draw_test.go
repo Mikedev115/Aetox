@@ -224,17 +224,18 @@ func TestComposerFrameAndButtons(t *testing.T) {
 	sp.size = cFigureDefault * cSpriteBox / 64
 	c.draw(dst, companionScene{Pose: "idle"}, time.Unix(100, 0))
 	hide, mute := c.buttonRects()
-	if dst.RGBAAt(hide.Min.X+11, hide.Min.Y+11).A != 0 || dst.RGBAAt(mute.Min.X+11, mute.Min.Y+11).A != 0 {
+	// (their ground is touchable — alpha 1 — but nothing is drawn)
+	if dst.RGBAAt(hide.Min.X+11, hide.Min.Y+11).A > 1 || dst.RGBAAt(mute.Min.X+11, mute.Min.Y+11).A > 1 {
 		t.Fatal("buttons drawn without hover")
 	}
 	c.draw(dst, companionScene{Pose: "idle", Hover: true}, time.Unix(100, 0))
-	if dst.RGBAAt(hide.Min.X+11, hide.Min.Y+11).A == 0 || dst.RGBAAt(mute.Min.X+11, mute.Min.Y+11).A == 0 {
+	if dst.RGBAAt(hide.Min.X+11, hide.Min.Y+11).A <= 1 || dst.RGBAAt(mute.Min.X+11, mute.Min.Y+11).A <= 1 {
 		t.Fatal("buttons missing on hover")
 	}
 	f := c.figureRect().Inset(-cFrameInset)
 	dashes := 0
 	for x := f.Min.X + cFrameRadius; x < f.Max.X-cFrameRadius; x++ {
-		if dst.RGBAAt(x, f.Min.Y).A > 0 {
+		if dst.RGBAAt(x, f.Min.Y).A > 1 {
 			dashes++
 		}
 	}
@@ -243,7 +244,7 @@ func TestComposerFrameAndButtons(t *testing.T) {
 	}
 	sp.asked = nil
 	c.draw(dst, companionScene{Pose: "idle", Muted: true}, time.Unix(100, 0))
-	if dst.RGBAAt(mute.Min.X+11, mute.Min.Y+11).A == 0 || dst.RGBAAt(hide.Min.X+11, hide.Min.Y+11).A != 0 {
+	if dst.RGBAAt(mute.Min.X+11, mute.Min.Y+11).A <= 1 || dst.RGBAAt(hide.Min.X+11, hide.Min.Y+11).A > 1 {
 		t.Fatal("muted should show the speaker alone")
 	}
 	if !asked(sp.asked, "icon-volumeX") {
@@ -382,5 +383,29 @@ func TestComposerResizesTheFigureWithinCaps(t *testing.T) {
 	c.setFigure(0)
 	if c.figure != cFigureDefault {
 		t.Fatalf("zero is the default: %d", c.figure)
+	}
+}
+
+// The ground around the figure — where the frame and its buttons appear —
+// is part of the window to the pointer even before it hovers: one count of
+// alpha, invisible, so a hover can start there and survive the way to the ×.
+func TestComposerKeepsTheFrameGroundTouchable(t *testing.T) {
+	c, _, dst := newTestComposer(map[string]color.RGBA{"idle-p0-open": red})
+	used := c.draw(dst, companionScene{Pose: "idle"}, time.Unix(100, 0))
+	hide, _ := c.buttonRects()
+	corner := dst.RGBAAt(hide.Min.X+2, hide.Min.Y+2)
+	if corner.A != 1 || corner.R != 0 {
+		t.Fatalf("button ground without hover: %+v (want alpha 1, no colour)", corner)
+	}
+	if !hide.In(used) {
+		t.Fatal("the button ground is not in the shown region")
+	}
+	fig := c.figureRect()
+	if px := dst.RGBAAt(fig.Min.X+10, fig.Min.Y+10); px != red {
+		t.Fatalf("the figure itself was touched: %+v", px)
+	}
+	outside := c.hitRect().Min.X - 3
+	if dst.RGBAAt(outside, fig.Min.Y+10).A != 0 {
+		t.Fatal("ground painted beyond the frame's box")
 	}
 }
