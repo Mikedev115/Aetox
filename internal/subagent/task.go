@@ -42,7 +42,13 @@ const defaultProfile = "explore"
 type TaskOptions struct {
 	Provider model.Provider
 	Model    string
-	Registry *skill.Registry // the session's registry; the child gets a filtered copy
+	// ProviderFor builds a client for a provider a profile names (`provider:`),
+	// signed the way the session's own was, and reports that provider's
+	// default model for a profile that names the provider but no model. The
+	// host supplies it because the credential is the host's (§248); nil means
+	// a profile's `provider:` is noted and the session's provider is used.
+	ProviderFor func(provider string) (model.Provider, string, error)
+	Registry    *skill.Registry // the session's registry; the child gets a filtered copy
 	// Desk is the mode this session was opened at, and it decides two things:
 	// the ceiling a delegate runs under, and which chairs this desk may hand a
 	// job to (COMPANY.md §3). Nil is the pre-modes full desk — no ceiling, every
@@ -710,9 +716,29 @@ func (t *taskTool) begin(ctx context.Context, args map[string]any, out **running
 		return out, err
 	}
 
-	childModel := t.opts.Model
+	childProvider, childModel := t.opts.Provider, t.opts.Model
 	if profile.Model != "" {
 		childModel = profile.Model
+	}
+	// A profile that names its provider thinks there, on the model it names
+	// or that provider's default. Built per dispatch rather than once: the
+	// key or endpoint may have changed under the session, and the host's
+	// transport reads them per request anyway. A provider that cannot be
+	// built is a failed tool call the model can read, not a delegate that
+	// silently ran somewhere else.
+	if want := strings.TrimSpace(profile.Provider); want != "" {
+		if t.opts.ProviderFor == nil {
+			debuglog.Msg("task: %s names provider %q but this host builds none — using the session's", profile.Name, want)
+		} else {
+			p, defModel, err := t.opts.ProviderFor(want)
+			if err != nil {
+				return t.fail(label, started, fmt.Sprintf("%s is set to think on %s, which could not be reached: %v", profile.Name, want, err))
+			}
+			childProvider = p
+			if profile.Model == "" {
+				childModel = defModel
+			}
+		}
 	}
 
 	// Everything below the goroutine boundary is built here, on the calling
@@ -720,7 +746,7 @@ func (t *taskTool) begin(ctx context.Context, args map[string]any, out **running
 	// rather than surfacing minutes later out of a background run.
 	parentRef := turn.CallID(ctx)
 	child := cognitive.NewAgent(cognitive.AgentConfig{
-		Provider:     t.opts.Provider,
+		Provider:     childProvider,
 		Model:        childModel,
 		SystemPrompt: childPrompt,
 		MaxChars:     t.opts.MaxChars,

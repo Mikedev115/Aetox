@@ -213,6 +213,12 @@ type Options struct {
 	// "": not a secret, so it travels here in the open.
 	ProviderTransport model.Transport
 	ProviderEndpoint  string
+	// ProviderFor builds a signed client for a provider an agent's profile
+	// names (`provider:`), with that provider's default model — the desktop
+	// resolves endpoint, key and sign-in from its own stores, as it does for
+	// the chat's provider above. Nil (the CLI, tests): a profile's provider
+	// line is noted and the session's provider is used.
+	ProviderFor func(provider string) (model.Provider, string, error)
 
 	OnToolAction func(turn.ToolEvent)
 	OnToolRun    func(turn.ToolRun)
@@ -688,6 +694,7 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 	taskOpts := subagent.TaskOptions{
 		Provider:    bootstrapResult.Provider,
 		Model:       cfg.ModelName,
+		ProviderFor: opts.ProviderFor,
 		Registry:    registry,
 		Delegations: delegations,
 		// The desk decides the ceiling a delegate runs under and which chairs

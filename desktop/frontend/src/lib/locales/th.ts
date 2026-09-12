@@ -1790,6 +1790,10 @@ export const th = {
   // The select on a card has no visible label — the card is the context — so
   // the only thing a screen reader has to go on is this.
   'settings.agentModelPick': 'โมเดลของเอเจนนี้',
+  'settings.agentModelProviderDefault': 'โมเดลเริ่มต้นของผู้ให้บริการนี้',
+  'settings.agentProviderPick': 'ผู้ให้บริการ',
+  'settings.agentProviderInherit': 'ตามที่แชทใช้อยู่',
+  'settings.agentProviderHint': 'เลือกเมื่อเอเจนคนนี้ควรคิดที่ผู้ให้บริการอื่นจากแชท เช่น โมเดลถูกในเครื่องสำหรับงานค้นไฟล์ — คีย์และปลายทางใช้ที่ตั้งไว้ในการตั้งค่าโมเดล',
   'settings.agentsFolder': 'เปิดโฟลเดอร์',
   'settings.delegateAgents': 'ให้ผู้ช่วยหลักมอบงานให้เอเจน',
   'settings.delegateAgentsOn': 'ส่งงานทั้งชิ้นให้เพื่อนร่วมงานได้',

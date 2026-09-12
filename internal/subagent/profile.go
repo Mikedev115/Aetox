@@ -157,12 +157,21 @@ var deskSurface = []string{"desk", "desk_terminal"}
 // Profile is one sub-agent definition. JSON tags are for the settings page,
 // which renders exactly these fields as its row badges.
 type Profile struct {
-	Name        string   `json:"name"`        // the file's basename; also how `task` selects it
-	Description string   `json:"description"` // shown in the settings row
-	Model       string   `json:"model,omitempty"`
-	Tools       []string `json:"tools,omitempty"` // empty = whatever the registry has
-	Deny        []string `json:"deny,omitempty"`
-	Steps       int      `json:"steps,omitempty"`
+	Name        string `json:"name"`        // the file's basename; also how `task` selects it
+	Description string `json:"description"` // shown in the settings row
+	Model       string `json:"model,omitempty"`
+	// Provider is which provider the model above lives at — a canonical name
+	// from the app's catalog (model.NormalizeProvider), or empty for the one
+	// the chat is using, which is what every profile said before this field
+	// existed. A model name alone is ambiguous the day two providers serve
+	// the same one and wrong the day one serves a model the chat's provider
+	// does not; naming the provider is what lets an agent think on a cheap
+	// local model while the chat runs on a paid one (owner, 12 ก.ย. 2026).
+	// The credential is never here: the host signs the request (§248).
+	Provider string   `json:"provider,omitempty"`
+	Tools    []string `json:"tools,omitempty"` // empty = whatever the registry has
+	Deny     []string `json:"deny,omitempty"`
+	Steps    int      `json:"steps,omitempty"`
 	// Desk makes this profile a *chair* rather than a delegate (COMPANY.md §4):
 	// it names the desk the job runs at, and that desk's manifest becomes the
 	// ceiling on everything below — so a chair that writes `tools: shell` into
@@ -339,7 +348,7 @@ func applyHomeRules(p *Profile, agentHome bool) {
 
 // limitHelperShadow is what "ปรับแต่งได้จำกัด" means in fields (owner, 12 ก.ย.
 // 2026, reopening the door closed on 2026-08-06): a user's file over a bundled
-// helper may change the model it thinks with, its step ceiling, its prompt,
+// helper may change the model (and provider) it thinks with, its step ceiling, its prompt,
 // its description and its look — and nothing about what it can REACH. Tools,
 // deny, needs and desk come from the bundled file whatever the shadow says,
 // because a helper's kit is the system's: `explore` that could suddenly write
@@ -826,6 +835,7 @@ func parse(name, raw string) Profile {
 		Name:        name,
 		Description: fields["description"],
 		Model:       strings.TrimSpace(fields["model"]),
+		Provider:    strings.TrimSpace(fields["provider"]),
 		Tools:       splitList(fields["tools"]),
 		Deny:        splitList(fields["deny"]),
 		Steps:       steps,

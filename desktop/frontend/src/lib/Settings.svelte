@@ -2439,7 +2439,7 @@
   // Only sub-agents live here. The main agent is the assistant — one identity,
   // configured by the identity files — and is not chosen from a list (§44.0).
   type SubagentRow = {
-    name: string; description: string; model?: string
+    name: string; description: string; model?: string; provider?: string
     tools?: string[]; deny?: string[]; steps?: number; prompt: string
     path?: string; builtin: boolean; overrides?: boolean; invalid?: string; notice?: string; icon?: string
     // The look a profile may name for itself (profile.go). Blank on almost
@@ -2513,6 +2513,9 @@
   // agent thinks with already lives.
   let agentDraftDescription = $state('')
   let agentDraftModel = $state('')
+  // Which provider the model above lives at (owner, 12 ก.ย.: "ควรเลือกได้แม้แต่
+  // ผู้ให้บริการ"). '' = the chat's, which is what every file said before.
+  let agentDraftProvider = $state('')
   let agentDraftTools = $state<string[]>([])
   let agentDraftDeny = $state<string[]>([])
   let agentDraftSteps = $state('')
@@ -2895,10 +2898,25 @@
     if (agentReachFor) agentNeeds = await AgentNeeds(agentReachFor)
   })
 
-  // The per-row model dropdown offers the current provider's models — a pin to a
-  // model from some other provider still shows (as its own option) rather than
-  // silently reading as "inherit".
+  // The model dropdown offers the models of the provider the draft names, or
+  // the chat's when it names none — a pin to a model the list does not hold
+  // still shows (as its own option) rather than silently reading as "inherit".
   let agentModels = $state<string[]>([])
+  // Asked per provider, on the provider changing: a list fetched once for the
+  // chat's provider would offer OpenAI's models under a DeepSeek pick.
+  async function loadAgentModels(provider: string) {
+    try {
+      agentModels = await ListModelsForProvider(provider || cockpit.model.provider)
+    } catch {
+      agentModels = [] // no key / offline: the dropdown still offers "inherit"
+    }
+  }
+  const pickAgentProvider = (provider: string) => {
+    agentDraftProvider = provider
+    // A model pinned under one provider is not a model at another.
+    agentDraftModel = ''
+    void loadAgentModels(provider)
+  }
 
   async function loadAgents() {
     subagents = await ListSubagentProfiles()
@@ -2912,11 +2930,7 @@
     } catch {
       chairNames = new Set() // engine not up: rows just carry no room label
     }
-    try {
-      agentModels = await ListModelsForProvider(cockpit.model.provider)
-    } catch {
-      agentModels = [] // no key / offline: the dropdown still offers "inherit"
-    }
+    await loadAgentModels('')
   }
 
   async function runAgent(label: string, fn: () => Promise<void>) {
@@ -2966,7 +2980,7 @@
   // captured when the editor opened (and re-captured on save) to answer the one
   // question the Back button needs answered.
   const agentDraftKey = () => JSON.stringify([
-    agentDraftName, agentDraftDescription, agentDraftModel,
+    agentDraftName, agentDraftDescription, agentDraftModel, agentDraftProvider,
     agentDraftTools, agentDraftDeny, agentDraftSteps, agentDraftPrompt,
     agentDraftIcon, agentDraftShell, agentDraftTop, agentDraftFace, agentDraftAccent, agentDraftHue,
   ])
@@ -2986,6 +3000,8 @@
     agentDraftName = a.name
     agentDraftDescription = parsed.description
     agentDraftModel = parsed.model
+    agentDraftProvider = parsed.provider
+    if (parsed.provider) void loadAgentModels(parsed.provider)
     agentDraftTools = parsed.tools
     agentDraftDeny = parsed.deny
     // No `steps:` line means no ceiling (§110), so the box opens ticked. Seeded
@@ -3021,6 +3037,7 @@
     agentDraftName = ''
     agentDraftDescription = ''
     agentDraftModel = ''
+    agentDraftProvider = ''
     agentDraftTools = []
     agentDraftDeny = []
     agentDraftSteps = STEPS_UNLIMITED // a new worker starts uncapped, like every shipped one
@@ -3049,6 +3066,7 @@
     const body = serializeAgentFile({
       description: agentDraftDescription,
       model: agentDraftModel,
+      provider: agentDraftProvider,
       tools: agentDraftTools,
       deny: agentDraftDeny,
       steps: agentDraftSteps,
@@ -3117,7 +3135,7 @@
   // silent loss with a worse ending — an agent on a named desk fell back to the
   // office ceiling. An editor must not delete what it does not draw.
   type AgentFields = {
-    description: string; model: string; tools: string[]; deny: string[]; steps: string; icon: string
+    description: string; model: string; provider: string; tools: string[]; deny: string[]; steps: string; icon: string
     shell: string; top: string; face: string; accent: string; hue: string; desk: string; needs: string[]; body: string
   }
 
@@ -3130,7 +3148,7 @@
   // never silently emptied under the user.
   function parseAgentFile(raw: string): AgentFields {
     const asPromptOnly = {
-      description: '', model: '', tools: [] as string[], deny: [] as string[],
+      description: '', model: '', provider: '', tools: [] as string[], deny: [] as string[],
       steps: '', icon: '', shell: '', top: '', face: '', accent: '', hue: '', desk: '',
       needs: [] as string[], body: raw.trim(),
     }
@@ -3151,6 +3169,8 @@
     return {
       description: fields.description ?? '',
       model: fields.model ?? '',
+      // A provider name is an id from the catalog, lowercase already.
+      provider: (fields.provider ?? '').trim().toLowerCase(),
       tools: list(fields.tools),
       deny: list(fields.deny),
       steps: (fields.steps ?? '').trim(),
@@ -3183,6 +3203,7 @@
   function serializeAgentFile(f: AgentFields): string {
     const lines = ['---', `description: ${f.description.trim()}`]
     if (f.model.trim()) lines.push(`model: ${f.model.trim()}`)
+    if (f.provider.trim()) lines.push(`provider: ${f.provider.trim()}`)
     if (f.tools.length) lines.push(`tools: ${f.tools.join(', ')}`)
     if (f.deny.length) lines.push(`deny: ${f.deny.join(', ')}`)
     // Written back exactly as they were read. The editor shows both and edits
@@ -4593,14 +4614,21 @@
       {#if a.notice}<div class="d ag-notice">{a.notice}</div>{/if}
       <!-- Only the facts that differ between one helper and the next. The steps
            badge was drawn on every one of them reading "ไม่จำกัดรอบ", which is
-           the same word four times down a column of four. -->
+           the same word four times down a column of four — and so was the
+           source, `built-in:<name>` on every bundled card under a heading that
+           already says มากับแอป, in a colour that vanished (owner, 12 ก.ย.:
+           "แทบจะกลืนกับพื้นหลัง", then "ทำให้มันตรงๆสิ"). Gone: the name IS the
+           file's name, the group says whose file it is, and the full path stays
+           on the name's hover, exactly as the เอเจน card above does it. The one
+           thing about the file worth a chip is the same one that card wears —
+           a file of yours shadowing a bundled one. -->
       <div class="chair-chips">
-        {#if a.model}<span class="chip">{a.model}</span>{/if}
+        {#if a.overrides}<span class="chip mine">{t('settings.agentOverrides')}</span>{/if}
+        {#if a.model || a.provider}<span class="chip">{[a.provider, a.model].filter(Boolean).join(' · ')}</span>{/if}
         {#if a.deny && a.deny.length > 0}<span class="chip deny" title={denyTip(a)}>{t('settings.agentDenyCount', { n: a.deny.length })}</span>{/if}
         {#if (a.steps ?? 0) > 0}
           <span class="chip" title={t('settings.agentStepsTip', { n: a.steps ?? 0 })}>{t('settings.agentSteps', { n: a.steps ?? 0 })}</span>
         {/if}
-        <span class="chip mono-dim" title={a.path || 'built-in:' + a.name}>{a.path || 'built-in:' + a.name}</span>
       </div>
     </div>
   </div>
@@ -4713,7 +4741,7 @@
         {#if (a.steps ?? 0) > 0}
           <span class="chip" title={t('settings.agentStepsTip', { n: a.steps ?? 0 })}>{t('settings.agentSteps', { n: a.steps ?? 0 })}</span>
         {/if}
-        {#if a.model}<span class="chip">{a.model}</span>{/if}
+        {#if a.model || a.provider}<span class="chip">{[a.provider, a.model].filter(Boolean).join(' · ')}</span>{/if}
       </div>
     </div>
   </div>
@@ -5291,10 +5319,26 @@
       class="ag-tab-panel" class:on={agentTab === 'brain'}>
       <div class="settings-card">
         <div class="card-form pp-edit">
+          <!-- The provider first, then its models (owner, 12 ก.ย.: "ควรเลือกได้
+               แม้แต่ผู้ให้บริการ และเลือกโมเดลได้ ทั้งเอเจนและซับเอเจน"). Only the
+               providers switched on in การตั้งค่าโมเดล are offered — one that is
+               off has no key to sign with — plus whatever the file names, so a
+               pin to a provider since switched off still reads as itself. -->
+          <label class="pp-field">
+            <span class="eyebrow">{t('settings.agentProviderPick')}</span>
+            <select class="ctrl" value={agentDraftProvider} onchange={(e) => pickAgentProvider(e.currentTarget.value)}>
+              <option value="">{t('settings.agentProviderInherit')}</option>
+              {#each enabledNames as p (p)}<option value={p}>{p}</option>{/each}
+              {#if agentDraftProvider && !enabledNames.includes(agentDraftProvider)}
+                <option value={agentDraftProvider}>{agentDraftProvider}</option>
+              {/if}
+            </select>
+            <span class="d muted">{t('settings.agentProviderHint')}</span>
+          </label>
           <label class="pp-field">
             <span class="eyebrow">{t('settings.agentModelPick')}</span>
             <select class="ctrl" bind:value={agentDraftModel}>
-              <option value="">{t('settings.agentModelInherit')}</option>
+              <option value="">{agentDraftProvider ? t('settings.agentModelProviderDefault') : t('settings.agentModelInherit')}</option>
               {#each agentModels as m}<option value={m}>{m}</option>{/each}
               {#if agentDraftModel && !agentModels.includes(agentDraftModel)}
                 <option value={agentDraftModel}>{agentDraftModel}</option>

@@ -6553,11 +6553,6 @@ button.phase-head:hover { color:var(--text-muted); }
 .agc.helper { padding:11px; gap:7px; }
 .agc.helper .chair-face { width:30px; height:30px; }
 .agc.helper .chair-name { font-size:var(--fs-md); }
-/* The source — `built-in:explore` or the file's path — was bare dim text with
-   no pill, and on the card it all but vanished (owner, 12 ก.ย.: "แทบจะกลืน
-   กับพื้นหลัง"). Now the same pill and colour as the chips beside it, in mono;
-   a long path clips with an ellipsis and the full text stays on hover. */
-.agc .chip.mono-dim { font-family:var(--mono); color:var(--text-muted); max-width:100%; overflow:hidden; text-overflow:ellipsis; display:inline-block; line-height:18px; }
 /* The settings deck's own text lines — .set-txt is gone from these cards, so
    the description and the two file notices carry their sizes here. */
 .agc .d { color:var(--text-muted); font-size:var(--fs-sm); line-height:1.45; }
