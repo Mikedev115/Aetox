@@ -22,7 +22,7 @@
   import { lookOf } from './mascot/agentLook'
   import type { FaceState } from './mascot/presence'
   import { voice } from './mascot/voice.svelte'
-  import { shell, setShell } from './shell.svelte'
+  import { shell } from './shell.svelte'
   import {
     EnabledProviders, SupportedThinkLevels,
     ListModelsForProvider, PriceModels, ModelPriceSource, RequiresAPIKey, AcceptsAPIKey, HasAPIKey, PickAttachments,
@@ -5339,7 +5339,7 @@
               <div class="folder-note">{t('chat.noTeamsHere')}</div>
             {/if}
             <div class="menu-sep"></div>
-            <button type="button" class="focus-item" onclick={() => { agentMenuOpen = false; setShell('assistant'); setActiveView('office') }}>
+            <button type="button" class="focus-item" onclick={() => { agentMenuOpen = false; openSettingsAt('teams') }}>
               <span class="ic"><Icon name="settings" size={14} /></span> {t('chat.manageTeams')}
             </button>
             <div class="folder-note">{t('chat.agentSwitchNote')}</div>

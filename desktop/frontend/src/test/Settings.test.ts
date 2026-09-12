@@ -2925,3 +2925,18 @@ describe('model probes run side by side', () => {
     expect(container.querySelector('.mset-error')).toBeNull()
   })
 })
+
+// Settings › ทีมเอเจน (§256): its own row at the foot of the โมเดล AI group,
+// after เอเจน and ซับเอเจน (owner: "เพิ่มตั้งค่าทีมเอเจนที่ข้างล่าง"), opening
+// the team page — never a field on the agent editor.
+describe('Settings › ทีมเอเจน', () => {
+  it('sits last in the model group and opens the team page', async () => {
+    const { container } = render(Settings, { onClose: () => {} })
+    const labels = Array.from(container.querySelectorAll('.settings-nav-item')).map((el) => el.textContent?.trim())
+    const model = labels.indexOf('การตั้งค่าโมเดล')
+    expect(labels.slice(model, model + 4)).toEqual(['การตั้งค่าโมเดล', 'เอเจน', 'ซับเอเจน', 'ทีมเอเจน'])
+    await openSection(container, 'ทีมเอเจน')
+    await waitFor(() => expect(screen.getByText('ทีมเอเจน', { selector: 'h2' })).toBeTruthy())
+    expect(screen.getByText('สร้างทีม')).toBeTruthy()
+  })
+})
