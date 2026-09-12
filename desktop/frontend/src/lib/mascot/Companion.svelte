@@ -52,6 +52,10 @@
   const HELLO_MS = 1800
   /** How long the greeting stays in the bubble when an empty chat arrives. */
   const GREET_MS = 4000
+  /** How long the greeting waits before it is spoken: the user's name can
+   *  arrive a beat after launch and re-key the greeting, and a voice that
+   *  had already started on the nameless one would say it twice. */
+  const GREET_SAY_MS = 400
   /** Left alone this long with nothing to do, it goes to its charger. */
   const DOZE_MS = 5 * 60_000
 
@@ -347,9 +351,18 @@
       greeting = ''
       return
     }
-    greeting = headlineFor(startersFor({ desk: cockpit.desk, chair: '', space: cockpit.space }), profile.name, t)
+    const text = headlineFor(startersFor({ desk: cockpit.desk, chair: '', space: cockpit.space }), profile.name, t)
+    greeting = text
     const tm = setTimeout(() => (greeting = ''), GREET_MS)
-    return () => clearTimeout(tm)
+    // Said out loud too — the wave with nothing behind it read as a bug
+    // (owner, 12 ก.ย.: "ทำไมมันเงียบ"). The one phrase of ours the voice
+    // carries, behind its own switch; the bubble holds the line until the
+    // voice is done with it.
+    const sp = setTimeout(() => untrack(() => { if (companion.greet) say(text) }), GREET_SAY_MS)
+    return () => {
+      clearTimeout(tm)
+      clearTimeout(sp)
+    }
   })
 
   const pose = $derived(
@@ -363,7 +376,8 @@
 
   // ---- what it says out loud ---------------------------------------------
   // The voice (owner, 12 ก.ย. 2026: "เพิ่มให้มันพูดได้ ใช้ TTS ในระบบเลย"): the
-  // on-screen chat's finished answer, and a question it is blocked on, read
+  // on-screen chat's finished answer, a question it is blocked on, and the
+  // room's greeting as an empty chat arrives (see "the greeting"), read
   // through the window's one player (lib/speech.svelte.ts) with the engine
   // and voice of ตั้งค่า › เสียง — the same read the ฟัง button makes, started
   // for the user. NOT the narration between tools: a long run says a line

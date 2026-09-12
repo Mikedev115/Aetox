@@ -25,6 +25,8 @@ export type AvatarText = {
   voiceSettings: string
   voiceTry: string
   voiceTryText: string
+  greet: string
+  greetDesc: string
   preview: string
   shell: string
   hue: string
@@ -61,6 +63,8 @@ const TEXT: Record<string, AvatarText> = {
     voiceSettings: 'ตั้งค่า › เสียง',
     voiceTry: 'ลองพูด',
     voiceTryText: 'สวัสดีครับ ผมคือผู้ช่วยของคุณ ถ้าได้ยินแบบนี้แปลว่าพูดได้แล้ว',
+    greet: 'ทักทายด้วยเสียง',
+    greetDesc: 'พูดคำทักของห้องตอนเปิดแชทใหม่หรือสลับโต๊ะ — ปิดแล้วยังทักในฟองข้อความเหมือนเดิม',
     preview: 'ตัวอย่าง',
     shell: 'สีตัว',
     hue: 'สี accent',
@@ -98,6 +102,8 @@ const TEXT: Record<string, AvatarText> = {
     voiceSettings: 'Settings › Voice',
     voiceTry: 'Try it',
     voiceTryText: 'Hello, I am your assistant. If you can hear this, I can speak.',
+    greet: 'Say hello aloud',
+    greetDesc: "Speaks the room's greeting when a new chat opens or you switch desks — off, it still greets in the bubble.",
     preview: 'Preview',
     shell: 'Finish',
     hue: 'Accent',
@@ -135,6 +141,8 @@ const TEXT: Record<string, AvatarText> = {
     voiceSettings: '设置 › 语音',
     voiceTry: '试听',
     voiceTryText: '你好，我是你的助手。能听到就说明我可以说话了。',
+    greet: '语音问候',
+    greetDesc: '打开新会话或切换工作台时朗读问候语——关闭后仍会在气泡里问候。',
     preview: '预览',
     shell: '机身',
     hue: '点缀色',

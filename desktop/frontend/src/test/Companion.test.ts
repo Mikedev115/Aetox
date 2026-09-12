@@ -3,7 +3,7 @@ import { render, waitFor, fireEvent } from '@testing-library/svelte'
 import Companion from '../lib/mascot/Companion.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import { reportOf, REPORT_MAX } from '../lib/mascot/presence'
-import { companion, setCompanionOn, setCompanionVoice } from '../lib/mascot/companionSetting.svelte'
+import { companion, setCompanionOn, setCompanionVoice, setCompanionGreet } from '../lib/mascot/companionSetting.svelte'
 import { voice } from '../lib/mascot/voice.svelte'
 import { speech, stopSpeech } from '../lib/speech.svelte'
 import { StartSpeech } from './mocks/wailsApp'
@@ -36,6 +36,9 @@ beforeEach(() => {
   voice.speaking = false
   stopSpeech()
   setCompanionVoice(true)
+  // Off in every test but its own: the mock read never ends, and a greeting
+  // spoken at every mount would hold the bubble and the answering pose.
+  setCompanionGreet(false)
   vi.mocked(StartSpeech).mockClear()
 })
 
@@ -385,6 +388,20 @@ describe('what it says out loud', () => {
     await vi.advanceTimersByTimeAsync(50)
     expect(spoken().length).toBe(n)
     vi.useRealTimers()
+  })
+
+  // The greeting is spoken too, after a beat — and once, with the name, when
+  // the name lands just after the nameless greeting was shown.
+  it('speaks the greeting once, with the name that arrives a beat later — behind its own switch', async () => {
+    setCompanionGreet(true)
+    vi.useFakeTimers()
+    render(Companion)
+    await vi.advanceTimersByTimeAsync(100)
+    profile.name = 'mike'
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(spoken()).toEqual([t('start.assistant.headlineNamed', { name: 'mike' })])
+    vi.useRealTimers()
+    expect(localStorage.getItem('companionGreet')).toBe('on')
   })
 
   it('is silent when the engine refuses', async () => {
