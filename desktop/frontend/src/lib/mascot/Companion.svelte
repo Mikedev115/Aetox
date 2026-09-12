@@ -303,7 +303,10 @@
   const wantsDesktop = $derived(companion.on && companion.place === 'desktop')
   $effect(() => {
     if (!wantsDesktop) {
-      if (desktopBody.up) void closeBody()
+      // Always, not only when this page opened it: a page that reloaded
+      // (dev, or a crash of the webview) never ran its cleanup, and the
+      // body it left behind would sit there until the app closed.
+      void closeBody()
       return
     }
     void openBody()
