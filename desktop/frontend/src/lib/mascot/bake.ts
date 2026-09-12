@@ -33,6 +33,12 @@ import { handVars, mascotSVG, resolveMascot, type MascotOptions } from './rig'
 
 /** Samples per loop of a pose. */
 export const PHASES = 4
+/** The walk is sampled finer: legs cross-dissolving between four pictures
+ *  read as a blur, eight read as steps. */
+export const WALK_PHASES = 8
+export function phasesOf(pose: string): number {
+  return pose === 'walk' ? WALK_PHASES : PHASES
+}
 /** Degrees between walk headings. 360 / WALK_STEP frames per phase. */
 export const WALK_STEP = 30
 /** The figure is drawn 64 units wide; a frame keeps this much around it so a
@@ -88,7 +94,7 @@ export function allFrames(): FrameSpec[] {
     out.push({ kind: 'pose', pose, phase: 0, blink: 'shut' })
   }
   for (let turn = -180 + WALK_STEP; turn <= 180; turn += WALK_STEP) {
-    for (let phase = 0; phase < PHASES; phase++) out.push({ kind: 'walk', turn, phase })
+    for (let phase = 0; phase < WALK_PHASES; phase++) out.push({ kind: 'walk', turn, phase })
   }
   for (const icon of FRAME_ICONS) out.push({ kind: 'icon', icon })
   return out
@@ -144,7 +150,7 @@ export function loopOf(pose: string): { period: number; offset: number } {
 /** The moment, in seconds of the pose's own time, that a phase is a picture of. */
 export function momentOf(pose: string, phase: number): number {
   const { period, offset } = loopOf(pose)
-  return offset + (period * phase) / PHASES
+  return offset + (period * phase) / phasesOf(pose)
 }
 
 /** Where a blink is shut in its keyframes (mascot.css ms-blink: 97%). */

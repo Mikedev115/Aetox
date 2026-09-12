@@ -55,10 +55,19 @@ const (
 	crossMs = 240
 	hopMs   = 550
 	blinkMs = 140
-	// Phases per loop and walk heading step: bake.ts PHASES, WALK_STEP.
-	phases   = 4
-	walkStep = 30
+	// Phases per loop and walk heading step: bake.ts PHASES, WALK_PHASES,
+	// WALK_STEP.
+	phases     = 4
+	walkPhases = 8
+	walkStep   = 30
 )
+
+func phasesOf(pose string) int {
+	if pose == "walk" {
+		return walkPhases
+	}
+	return phases
+}
 
 // CompanionTheme is the bubble's and the frame's colours, read by the window
 // off its own stylesheet so the desktop matches the app's theme.
@@ -347,7 +356,7 @@ func (c *composer) picture(s companionScene, now time.Time, pose string, since t
 	if s.Walking {
 		h := walkHeadingKey(s.Heading, walkStep)
 		i, f := c.phaseAt("walk", now.Sub(c.walkAt))
-		ka, kb := walkKey(h, i), walkKey(h, (i+1)%phases)
+		ka, kb := walkKey(h, i), walkKey(h, (i+1)%walkPhases)
 		a := c.fit(ka, c.sprites.frame(ka))
 		b := c.fit(kb, c.sprites.frame(kb))
 		return pair(buf, a, b, f)
@@ -387,15 +396,16 @@ func pair(buf **image.RGBA, a, b *image.RGBA, f float64) *image.RGBA {
 // (wake, startled) holds its last phase.
 func (c *composer) phaseAt(pose string, elapsed time.Duration) (int, float64) {
 	period, oneShot := loopPeriod(pose)
+	n := phasesOf(pose)
 	if period <= 0 {
 		return 0, 0
 	}
 	t := elapsed.Seconds()
 	if oneShot && t >= period {
-		return phases - 1, 0
+		return n - 1, 0
 	}
-	u := math.Mod(t, period) / period * phases
-	i := int(u) % phases
+	u := math.Mod(t, period) / period * float64(n)
+	i := int(u) % n
 	return i, u - math.Floor(u)
 }
 

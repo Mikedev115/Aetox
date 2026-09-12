@@ -8,6 +8,6 @@ import "errors"
 // other platforms keep the companion inside the app window, and the switch
 // that would send it out is answered with "could not" so the window keeps
 // its own copy (Companion.svelte falls back on a false).
-func openCompanionBody(x, y int, sprites func() spriteSource, on func(kind string, data map[string]any)) (companionBody, error) {
+func openCompanionBody(x, y int, sprites func(scale float64) spriteSource, on func(kind string, data map[string]any)) (companionBody, error) {
 	return nil, errors.New("companion: no desktop body on this platform")
 }

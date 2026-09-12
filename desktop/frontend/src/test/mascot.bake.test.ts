@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { POSE } from '../lib/mascot/poses'
 import {
   PHASES,
+  WALK_PHASES,
   WALK_STEP,
   PAD,
   BOX,
@@ -35,9 +36,9 @@ describe('the frame set', () => {
       expect(keys).toContain(`${p}-p0-shut`)
       expect(keys).not.toContain(`${p}-p1-shut`)
     }
-    for (let turn = -180 + WALK_STEP; turn <= 180; turn += WALK_STEP) expect(keys).toContain(`walk-t${turn}-p${PHASES - 1}`)
+    for (let turn = -180 + WALK_STEP; turn <= 180; turn += WALK_STEP) expect(keys).toContain(`walk-t${turn}-p${WALK_PHASES - 1}`)
     for (const icon of FRAME_ICONS) expect(keys).toContain(`icon-${icon}`)
-    expect(frames.length).toBe(poses.length * (PHASES + 1) + (360 / WALK_STEP) * PHASES + FRAME_ICONS.length)
+    expect(frames.length).toBe(poses.length * (PHASES + 1) + (360 / WALK_STEP) * WALK_PHASES + FRAME_ICONS.length)
   })
 
   it('names frames the way the Go side composes them, and reads its own names back', () => {
@@ -63,7 +64,7 @@ describe('what a phase is a picture of', () => {
   it('samples a loop evenly over its period, from its offset', () => {
     expect(momentOf('idle', 0)).toBe(0)
     expect(momentOf('idle', 2)).toBeCloseTo(1.8)
-    expect(momentOf('walk', 1)).toBeCloseTo(0.155)
+    expect(momentOf('walk', 1)).toBeCloseTo(0.0775)
     // the sleeper is only asleep once it has lain down (ms-lie, .9s forwards)
     expect(momentOf('recharge', 0)).toBeCloseTo(0.9)
     expect(loopOf('greeting').period).toBeCloseTo(1.4)

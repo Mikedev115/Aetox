@@ -119,3 +119,34 @@ func TestCompanionSpriteBindingsFollowTheHash(t *testing.T) {
 		t.Fatalf("another scale shares frames: %v", got)
 	}
 }
+
+// Every scale's set stays resident, and a monitor whose set is still baking
+// draws from the same look's other set (resampled by the composer) rather
+// than from nothing — crossing monitors is not a reload.
+func TestCompanionSpritesKeepEveryScaleAndFallBackAcrossThem(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	a := &App{}
+	c := a.companion()
+	if err := a.CompanionSprites("0123abcd-175", []CompanionFrame{{Key: "idle-p0-open", PNG: spritePNG(t, color.RGBA{A: 255})}}); err != nil {
+		t.Fatal(err)
+	}
+	// the window names the 100% set (empty so far) as the figure crosses
+	a.CompanionSpriteKeys("0123abcd-100")
+	if c.spritesAt(1).frame("idle-p0-open") == nil {
+		t.Fatal("at 100% with nothing baked yet, the 175% frame should stand in")
+	}
+	if c.spritesAt(1.75).frame("idle-p0-open") == nil {
+		t.Fatal("the 175% set was dropped when the 100% set was named")
+	}
+	if err := a.CompanionSprites("0123abcd-100", []CompanionFrame{{Key: "idle-p0-open", PNG: spritePNG(t, color.RGBA{R: 255, A: 255})}}); err != nil {
+		t.Fatal(err)
+	}
+	if px := c.spritesAt(1).frame("idle-p0-open").RGBAAt(0, 0); px.R != 255 {
+		t.Fatalf("once baked, the 100%% set's own frame is used: %+v", px)
+	}
+	// another look replaces the current one; the old look's sets are not fallbacks
+	a.CompanionSpriteKeys("ffffffff-175")
+	if c.spritesAt(1.75).frame("idle-p0-open") != nil {
+		t.Fatal("a set of another look was used as a fallback")
+	}
+}

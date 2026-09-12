@@ -286,13 +286,21 @@
       <div class="set-txt">
         <div class="t">{text.place}</div>
         <div class="d">{text.placeDesc}</div>
+        <ul class="place-list">
+          <li class:now={companion.place === 'window'}><b>{text.placeWindow}</b><span>{text.placeWindowDesc}</span></li>
+          <li class:now={companion.place === 'desktop'}><b>{text.placeDesktop}</b><span>{text.placeDesktopDesc}</span></li>
+        </ul>
         {#if desktopBody.baking}
           <div class="voice-note soft" role="status">{text.placeBaking}</div>
         {/if}
       </div>
       <div class="seg place-seg" role="radiogroup" aria-label={text.place}>
-        <button type="button" class="seg-btn" class:active={companion.place === 'window'} role="radio" aria-checked={companion.place === 'window'} onclick={() => setCompanionPlace('window')}>{text.placeWindow}</button>
-        <button type="button" class="seg-btn" class:active={companion.place === 'desktop'} role="radio" aria-checked={companion.place === 'desktop'} onclick={() => setCompanionPlace('desktop')}>{text.placeDesktop}</button>
+        <button type="button" class="seg-btn" class:active={companion.place === 'window'} role="radio" aria-checked={companion.place === 'window'} onclick={() => setCompanionPlace('window')}>
+          <span class="ic"><Icon name="square" size={13} /></span>{text.placeWindow}
+        </button>
+        <button type="button" class="seg-btn" class:active={companion.place === 'desktop'} role="radio" aria-checked={companion.place === 'desktop'} onclick={() => setCompanionPlace('desktop')}>
+          <span class="ic"><Icon name="monitor" size={13} /></span>{text.placeDesktop}
+        </button>
       </div>
     </div>
     <!-- The voice: a row under the figure's own, since it is the figure that
@@ -346,7 +354,17 @@
 </div>
 
 <style>
+  /* The two places sit as a pair sized to their words: the shared .seg
+     stretches its tabs to a column and cuts them, which is right for a
+     row of many tabs and wrong for two names that must both read. */
   .place-seg { flex: none; }
+  .place-seg .seg-btn { flex: none; min-width: 0; padding: 6px 14px; overflow: visible; }
+  .place-row.dim .set-txt { opacity: .55; }
+  .place-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+  .place-list li { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: baseline; font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.45; }
+  .place-list b { font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+  .place-list li.now b { color: var(--text-primary); }
+  .place-list li.now span { color: var(--text-secondary); }
   /* This page is a stage, not a column of prose: it asks the settings pane
      for more than the 760px a settings row wants (style.css .settings-inner,
      which reads --content-max), and lays itself out by the width it gets. */
