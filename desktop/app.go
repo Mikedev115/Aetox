@@ -4803,17 +4803,18 @@ func (a *App) chairProfile() *subagent.Profile {
 
 // teamRoster resolves a conversation's team to the roster the engine hires
 // from (§256), read from disk per call for the reason chairProfile is: a team
-// is a file, and a held copy would survive an edit. The default team ("") is
-// computed, not absent, so every desktop session carries one — which is what
-// keeps the picker, the `@` menu and `task` reading the same list.
+// is a file, and a held copy would survive an edit. Every desktop session
+// hands the engine a roster — a chat on no team hands an empty one, which is
+// "helpers, no colleagues" and not the CLI's full reach — so the picker, the
+// `@` menu and `task` read the same list.
 //
-// A team that no longer resolves answers the default here; the doors that
-// open team sessions (NewTeamSession, LoadSession) refuse that case loudly
-// first, so this is only ever a race with a folder deleted mid-session.
+// A team that no longer resolves answers empty here too; the doors that open
+// team sessions (NewTeamSession, LoadSession) refuse that case loudly first,
+// so this is only ever a race with a folder deleted mid-session.
 func (a *App) teamRoster(conv *conversation) *subagent.Team {
 	roster, ok := subagent.LoadTeam(conv.team)
 	if !ok {
-		roster, _ = subagent.LoadTeam(subagent.DefaultTeam)
+		roster = subagent.Team{Name: subagent.NoTeam, Members: []string{}}
 	}
 	return &roster
 }
@@ -5287,6 +5288,7 @@ func resolveConfig(opts config.ConfigOptions) config.Config {
 		// A user team's reach rides through untouched: it has no shipped
 		// default and no DelegateSet, so what the file says is the answer.
 		cfg.TeamSwitches = pref.TeamSwitches
+		cfg.DelegateCodeOff = pref.DelegateCodeOff
 		cfg.DelegateSet = pref.DelegateSet
 		// After pref.ModelBaseURL above, not before: the per-provider entry is
 		// the one the user set for *this* provider, the legacy slot is whatever
@@ -5408,6 +5410,9 @@ func persistModelPreference(cfg config.Config) {
 		if len(cfg.TeamSwitches) > 0 || len(pref.TeamSwitches) > 0 {
 			pref.TeamSwitches = cfg.TeamSwitches
 		}
+		// The code door's switch ships on and records only the exception, so
+		// it is written straight through — like the busy-signal fields.
+		pref.DelegateCodeOff = cfg.DelegateCodeOff
 		if cfg.DelegateSet || pref.DelegateSet {
 			pref.DelegateAgents = cfg.DelegateAgents
 			pref.DelegateHelpersOff = cfg.DelegateHelpersOff

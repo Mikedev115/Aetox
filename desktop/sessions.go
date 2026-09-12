@@ -1063,6 +1063,16 @@ func (a *App) LoadSession(id string) ([]SessionMessage, error) {
 		// build wrote and this one does not implement, and NormalizeStance
 		// answers ลงมือ for it — a reopened conversation must never come back
 		// silently carrying nothing.
+		// A row from before teams (13 ก.ย.) says no team, and meant the roster
+		// every chat had then. Reopening it on no team would hand the model a
+		// chat that can hire nobody, so a main chat with no team is put on the
+		// desk's preferred one — once, written back, so the window and the
+		// engine read the same row from here on. A chair chat needs no team.
+		if team == subagent.NoTeam && chair == "" {
+			if team = subagent.PreferredTeam(desk); team != subagent.NoTeam {
+				_, _ = db.Exec(`UPDATE sessions SET team = ? WHERE id = ? AND team = ''`, team, id)
+			}
+		}
 		m, seat, err := resolveStation(desk, chair, team)
 		if err != nil {
 			return nil, err
@@ -1292,7 +1302,7 @@ func seatingTeam(desk, chair, current string) string {
 			return t.Name
 		}
 	}
-	return subagent.DefaultTeam
+	return subagent.NoTeam
 }
 
 // NewTeamSession starts a blank session at a desk on a team — the picker's
@@ -1309,17 +1319,19 @@ func (a *App) NewTeamSession(desk, team string) (string, error) {
 
 // teamFor answers which team a session opened at desk should carry when the
 // caller did not say: the one the window is on if that desk can reach it,
-// else the default. For the doors that mean "a new chat here" rather than
-// "a chat on that team" — carrying an unreachable team into them would refuse
-// a click that only asked for a blank page.
+// else the desk's preferred team (subagent.PreferredTeam — the seeded
+// ทีมเอเจน while it exists, else the side's first, else none). For the doors
+// that mean "a new chat here" rather than "a chat on that team" — carrying an
+// unreachable team into them would refuse a click that only asked for a
+// blank page, and carrying none would open a chat that can hand work to
+// nobody without anyone having chosen that.
 func teamFor(desk, current string) string {
-	if current == "" {
-		return ""
+	if current != "" {
+		if _, _, err := resolveStation(desk, "", current); err == nil {
+			return current
+		}
 	}
-	if _, _, err := resolveStation(desk, "", current); err != nil {
-		return ""
-	}
-	return current
+	return subagent.PreferredTeam(desk)
 }
 
 // setStation points the engine at a desk and, optionally, one of the office's

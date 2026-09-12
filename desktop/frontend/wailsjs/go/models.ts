@@ -630,6 +630,7 @@ export namespace main {
 	        this.status = source["status"];
 	    }
 	}
+	
 	export class CompressReport {
 	    files: number;
 	    skipped: number;
@@ -913,6 +914,7 @@ export namespace main {
 	export class DelegateSettings {
 	    team: string;
 	    agents: DelegateReach;
+	    code: DelegateReach;
 	    helpers: DelegateReach;
 	    tokens: number;
 	
@@ -924,6 +926,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.team = source["team"];
 	        this.agents = this.convertValues(source["agents"], DelegateReach);
+	        this.code = this.convertValues(source["code"], DelegateReach);
 	        this.helpers = this.convertValues(source["helpers"], DelegateReach);
 	        this.tokens = source["tokens"];
 	    }
@@ -1188,6 +1191,8 @@ export namespace main {
 	    for: string[];
 	    status: string;
 	    tools: number;
+	    tokens: number;
+	    toolList?: mcp.ToolCost[];
 	    allowed?: string[];
 	    err?: string;
 	
@@ -1208,9 +1213,29 @@ export namespace main {
 	        this.for = source["for"];
 	        this.status = source["status"];
 	        this.tools = source["tools"];
+	        this.tokens = source["tokens"];
+	        this.toolList = this.convertValues(source["toolList"], mcp.ToolCost);
 	        this.allowed = source["allowed"];
 	        this.err = source["err"];
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class MemoryConsolidation {
 	    scope: string;
@@ -2513,12 +2538,10 @@ export namespace main {
 	    name: string;
 	    desk: string;
 	    description: string;
-	    default: boolean;
 	    invalid?: string;
 	    missing: string[];
 	    members: Chair[];
 	    path?: string;
-	    delegateOff: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new TeamCard(source);
@@ -2529,12 +2552,10 @@ export namespace main {
 	        this.name = source["name"];
 	        this.desk = source["desk"];
 	        this.description = source["description"];
-	        this.default = source["default"];
 	        this.invalid = source["invalid"];
 	        this.missing = source["missing"];
 	        this.members = this.convertValues(source["members"], Chair);
 	        this.path = source["path"];
-	        this.delegateOff = source["delegateOff"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -2955,6 +2976,25 @@ export namespace main {
 	        this.notchW = source["notchW"];
 	        this.notchH = source["notchH"];
 	        this.notchY = source["notchY"];
+	    }
+	}
+
+}
+
+export namespace mcp {
+	
+	export class ToolCost {
+	    name: string;
+	    tokens: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ToolCost(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.tokens = source["tokens"];
 	    }
 	}
 

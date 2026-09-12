@@ -135,9 +135,10 @@ type Options struct {
 	// and which pair of switches (config.Config.DelegationFor) the reach reads.
 	//
 	// Nil is the reach every host had before teams: every chair at any desk
-	// this desk may dispatch to, on the two shipped switches. The CLI passes
-	// nil; the desktop passes the session's team, the default one included,
-	// because the default team is computed and not "no team".
+	// this desk may dispatch to, on the shipped switches. The CLI passes nil;
+	// the desktop always passes one — a chat that hires from no roster passes
+	// an empty Team (Name == subagent.NoTeam), which hands the model helpers
+	// and no colleagues.
 	Team *subagent.Team
 
 	// UserName is what the person calls themselves (config.ModelPreference
@@ -410,7 +411,7 @@ func canDelegate(cfg config.Config, m *mode.Mode, chair *subagent.Profile, team 
 		if team.Desk != m.DeskName() && !m.AllowsDispatch(team.Desk) {
 			return reach{}
 		}
-		agentsOn, _ := cfg.DelegationFor(team.Name)
+		agentsOn, _ := cfg.DelegationFor(m.DeskName(), team.Name)
 		return reach{delegates: agentsOn, switchedOff: !agentsOn}
 	}
 	if !m.AllowsDispatch(mode.Office) && m.DeskName() != mode.Office {
@@ -718,7 +719,7 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 	// answer canDelegate gave the prompt above.
 	agentsOn, workersOff := cfg.DelegateAgents, cfg.WorkersOff
 	if opts.Team != nil {
-		agentsOn, workersOff = cfg.DelegationFor(opts.Team.Name)
+		agentsOn, workersOff = cfg.DelegationFor(opts.Mode.DeskName(), opts.Team.Name)
 	}
 	taskOpts := subagent.TaskOptions{
 		Provider:    bootstrapResult.Provider,

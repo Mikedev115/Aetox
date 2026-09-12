@@ -40,60 +40,60 @@ func teamNamed(list []Team, name string) (Team, bool) {
 	return Team{}, false
 }
 
-// With no team folder at all, the machine behaves as it did before teams: one
-// team, every agent on it, sitting in the office.
-func TestAMachineWithNoTeamsHasTheDefaultTeamAndEveryoneIsOnIt(t *testing.T) {
+// A fresh machine gets one team written for it — ทีมเอเจน, the four
+// shipped errands — and nobody else is on any team: the rest of the roster
+// are ordinary specialists (owner, 13 ก.ย.: "ตัวอื่นให้เป็นเอเจนเฉพาะทาง
+// ธรรมดา").
+func TestAFreshMachineIsSeededWithOneTeamOfFour(t *testing.T) {
 	isolate(t)
 	writeProfile(t, AgentsDir, "ผู้ช่วยขาย", "---\ndescription: ตอบลูกค้า\n---\nsell")
 
 	teams := Teams()
-	if len(teams) != 1 || !teams[0].Default || teams[0].Name != DefaultTeam {
-		t.Fatalf("expected the default team alone, got %+v", teams)
+	if len(teams) != 1 || teams[0].Name != SeedTeamName {
+		t.Fatalf("expected the seeded team alone, got %+v", teams)
 	}
-	def := teams[0]
-	if def.Desk != mode.Office {
-		t.Errorf("the default team sits at %q, not the office", def.Desk)
+	seed := teams[0]
+	if seed.Desk != mode.Office {
+		t.Errorf("the seed sits at %q, not the office", seed.Desk)
 	}
-	for _, want := range append([]string{"ผู้ช่วยขาย"}, profileNames(Chairs(mode.Office))...) {
-		if !def.Has(want) {
-			t.Errorf("%s is not on the default team: %v", want, def.Members)
+	if !slices.Equal(seed.Members, seedMembers) {
+		t.Errorf("the seed names %v, want %v", seed.Members, seedMembers)
+	}
+	for _, outside := range []string{"ผู้ช่วยขาย", "automation", "github", "editor", "explore"} {
+		if seed.Has(outside) {
+			t.Errorf("%s is on the seeded team — it should be an ordinary specialist", outside)
 		}
 	}
-	if def.Has("explore") {
-		t.Error("a helper is on the default team — a team is about colleagues")
+	if seed.Path == "" {
+		t.Error("the seed is not a file — it has to be editable and deletable like any team")
+	}
+	if PreferredTeam(mode.Office) != SeedTeamName || PreferredTeam(mode.Coding) != NoTeam {
+		t.Errorf("preferred: office %q coding %q", PreferredTeam(mode.Office), PreferredTeam(mode.Coding))
 	}
 }
 
-// A user's agent that a team names leaves the default team; a bundled one
-// never does — it is switched off, not removed (owner, 12 ก.ย.).
-func TestAnAgentNamedByATeamLeavesTheDefaultTeamUnlessItIsBundled(t *testing.T) {
+// The seed is a team like any other: edited, it stays edited; deleted, it
+// stays deleted — the home's existence is what says "seeded already".
+func TestTheSeedIsAnOrdinaryTeamOnceWritten(t *testing.T) {
 	isolate(t)
-	writeProfile(t, AgentsDir, "reviewer2", "---\ndescription: อ่านโค้ด\n---\nreview")
-	writeTeam(t, "ทีมโค้ด", "---\ndesk: coding\nmembers: reviewer2, doc\n---\n")
-
-	def, ok := LoadTeam(DefaultTeam)
-	if !ok {
-		t.Fatal("the default team did not load")
+	Teams() // seeds
+	if err := SaveTeam(SeedTeamName, mode.Office, "เหลือสองคน", []string{"doc", "sheet"}); err != nil {
+		t.Fatalf("SaveTeam(seed): %v", err)
 	}
-	if def.Has("reviewer2") {
-		t.Error("reviewer2 is on a team of the user's and still on the default team")
+	if tm, ok := LoadTeam(SeedTeamName); !ok || !slices.Equal(tm.Members, []string{"doc", "sheet"}) {
+		t.Errorf("the edited seed read back as %+v", tm)
 	}
-	if !def.Has("doc") {
-		t.Error("doc left the default team for being named by another — a bundled agent cannot be removed from ทีมผู้ช่วย")
+	if err := DeleteTeam(SeedTeamName); err != nil {
+		t.Fatalf("DeleteTeam(seed): %v", err)
 	}
-	code, ok := LoadTeam("ทีมโค้ด")
-	if !ok {
-		t.Fatal("ทีมโค้ด did not load")
+	if len(Teams()) != 0 {
+		t.Errorf("the deleted seed came back: %+v", Teams())
 	}
-	if code.Desk != mode.Coding || !code.Has("reviewer2") || !code.Has("doc") {
-		t.Errorf("ทีมโค้ด read wrong: %+v", code)
+	if PreferredTeam(mode.Office) != NoTeam {
+		t.Error("a machine with no team still prefers one")
 	}
-	// Deleting the team puts the agent back where the rule says it goes.
-	if err := DeleteTeam("ทีมโค้ด"); err != nil {
-		t.Fatalf("DeleteTeam: %v", err)
-	}
-	if def, _ := LoadTeam(DefaultTeam); !def.Has("reviewer2") {
-		t.Error("reviewer2 is on no team after its team was deleted")
+	if _, ok := LoadTeam(NoTeam); ok {
+		t.Error("NoTeam loaded as a team")
 	}
 }
 
@@ -153,9 +153,6 @@ func TestSaveTeamRefusesWhatTheReadWouldOnlyReport(t *testing.T) {
 	if err := SaveTeam("", mode.Office, "", []string{"doc"}); err == nil {
 		t.Error("a nameless team was saved")
 	}
-	if err := SaveTeam(DefaultTeam, mode.Office, "", nil); err == nil {
-		t.Error("the default team took a save — it has no file and cannot be edited")
-	}
 	if err := SaveTeam("a b", mode.Office, "", nil); err == nil {
 		t.Error("a name with a space was saved")
 	}
@@ -208,7 +205,10 @@ func TestATeamMemberRunsUnderTheTeamsDesk(t *testing.T) {
 	if !ceiling.Carries("shell", skill.SourceBuiltin) {
 		t.Error("the coding ceiling does not carry shell — §94.2 says a coding-desk agent holds one")
 	}
-	if _, err := tool.reach(doc); err == nil || !strings.Contains(err.Error(), "team") {
+	// doc is not on the team AND sits at a desk the coding desk never hands
+	// to, so the refusal is the cross-desk one — the model's right next move
+	// is "this belongs in another kind of session", not "add doc to the team".
+	if _, err := tool.reach(doc); err == nil || !strings.Contains(err.Error(), "does not hand work") {
 		t.Errorf("an agent the team does not name was reached, or refused for the wrong reason: %v", err)
 	}
 	if names := profileNames(tool.available()); !slices.Contains(names, "fixer") || slices.Contains(names, "doc") {
@@ -223,11 +223,16 @@ func TestATeamMemberRunsUnderTheTeamsDesk(t *testing.T) {
 
 	// The default team, hired from the assistant desk: the office ceiling, as
 	// before teams existed.
-	def, _ := LoadTeam(DefaultTeam)
+	// The seed, written by hand here: the teams home already exists (the
+	// coding team above), so nothing seeds it.
+	if err := SaveTeam(SeedTeamName, mode.Office, "", seedMembers); err != nil {
+		t.Fatal(err)
+	}
+	def, _ := LoadTeam(SeedTeamName)
 	tool = taskToolOf(t, TaskOptions{Desk: assistant, Team: &def})
 	ceiling, err = tool.reach(doc)
 	if err != nil {
-		t.Fatalf("doc refused from the assistant desk on the default team: %v", err)
+		t.Fatalf("doc refused from the assistant desk on the seeded team: %v", err)
 	}
 	if ceiling.DeskName() != mode.Office {
 		t.Errorf("doc runs under %q from the assistant desk, want the office", ceiling.DeskName())
@@ -247,5 +252,18 @@ func TestATeamMemberRunsUnderTheTeamsDesk(t *testing.T) {
 	tool = taskToolOf(t, TaskOptions{Desk: assistant})
 	if ceiling, err := tool.reach(doc); err != nil || ceiling.DeskName() != mode.Office {
 		t.Errorf("nil team changed the old reach: %v %v", ceiling.DeskName(), err)
+	}
+
+	// A chat on NO team — an empty roster, which is what the desktop hands
+	// over for one — hires no colleague, and says where a team is chosen.
+	none := Team{Name: NoTeam, Members: []string{}}
+	tool = taskToolOf(t, TaskOptions{Desk: assistant, Team: &none})
+	if _, err := tool.reach(doc); err == nil || !strings.Contains(err.Error(), "no team") {
+		t.Errorf("a chat on no team hired doc, or refused for the wrong reason: %v", err)
+	}
+	if explore, ok := Load("explore"); ok {
+		if _, err := tool.reach(explore); err != nil {
+			t.Errorf("a chat on no team lost its helpers: %v", err)
+		}
 	}
 }

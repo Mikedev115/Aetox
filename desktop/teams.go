@@ -15,27 +15,21 @@ import (
 // coding team shows the shell it holds there, and the same agent on the
 // default team shows none.
 type TeamCard struct {
-	// Name is the folder's; "" is ทีมผู้ช่วย, whose label the window supplies
-	// in the user's language, because it has no folder to be named by.
+	// Name is the folder's.
 	Name        string `json:"name"`
 	Desk        string `json:"desk"`
 	Description string `json:"description"`
-	Default     bool   `json:"default"`
 	// Invalid is why the team cannot be hired from, "" when it can.
 	Invalid string `json:"invalid,omitempty"`
 	// Missing are names the file lists that no agent answers to.
 	Missing []string `json:"missing"`
 	Members []Chair  `json:"members"`
 	Path    string   `json:"path,omitempty"`
-	// DelegateOff is this team's agents switch, so a card can show who is in
-	// reach without a second call (DelegateSwitches is the full answer).
-	DelegateOff bool `json:"delegateOff"`
 }
 
 // ListTeams reports the teams a desk can offer — those whose members work
-// at it — or every team when desk is "", the default first. Read from disk
-// per call, like ListChairs: a folder the user just made must be on the next
-// list.
+// at it — or every team when desk is "". Read from disk per call, like
+// ListChairs: a folder the user just made must be on the next list.
 func (a *App) ListTeams(desk string) []TeamCard {
 	used := a.chairActivity()
 	var teams []subagent.Team
@@ -47,17 +41,14 @@ func (a *App) ListTeams(desk string) []TeamCard {
 	out := make([]TeamCard, 0, len(teams)) // never nil: §34
 	for _, t := range teams {
 		ceiling, _ := mode.Load(t.Desk)
-		agentsOn, _ := a.cur().cfg.DelegationFor(t.Name)
 		card := TeamCard{
 			Name:        t.Name,
 			Desk:        t.Desk,
 			Description: t.Description,
-			Default:     t.Default,
 			Invalid:     t.Invalid,
 			Missing:     append([]string{}, t.Missing...),
 			Members:     make([]Chair, 0, len(t.Members)),
 			Path:        t.Path,
-			DelegateOff: !agentsOn,
 		}
 		for _, p := range t.MemberProfiles() {
 			card.Members = append(card.Members, a.chairCard(p, ceiling, used))

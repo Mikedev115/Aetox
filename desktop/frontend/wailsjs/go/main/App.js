@@ -1338,8 +1338,8 @@ export function SetConnectionTargets(arg1, arg2) {
   return window['go']['main']['App']['SetConnectionTargets'](arg1, arg2);
 }
 
-export function SetDelegateOff(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SetDelegateOff'](arg1, arg2, arg3);
+export function SetDelegateOff(arg1, arg2) {
+  return window['go']['main']['App']['SetDelegateOff'](arg1, arg2);
 }
 
 export function SetImageEngine(arg1) {

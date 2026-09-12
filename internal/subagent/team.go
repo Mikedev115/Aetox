@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/mode"
@@ -39,13 +40,20 @@ import (
 // to; what §84 protected is still protected, because a document writer on an
 // office team is still under the office ceiling.
 //
-// **The default team is not a file.** ทีมผู้ช่วย is the bundled agents plus
-// every agent of the user's that no team names, so dropping a folder into
-// agents/ still hires — nobody vanishes for not having been put on a list —
-// and a machine that has never made a team behaves exactly as it did before
-// teams existed. It cannot be edited (owner, 12 ก.ย.): a member the user does
-// not want hired is switched off, not removed, and there is no file on disk
-// to go stale.
+// **The first team is a file the app writes, not a rule.** ทีมเอเจน —
+// deepresearch, doc, sheet and video — is seeded into the teams' home the
+// first time that home does not exist, and from then on it is a team like
+// any other: renamed, cut down, deleted, and never put back (owner, 13 ก.ย.:
+// "ทีมเอเจนควรจะเอาออกได้ด้วย"). Every other agent, shipped or written, is an
+// ordinary specialist: on the roster page to talk to, on no team until
+// somebody ticks it onto one. An earlier cut computed a default team out of
+// "everyone no team names"; it could not be edited and it hid what a team
+// was, so it went.
+//
+// **A session with no team hires nobody.** Its `task` still offers the
+// helpers; the colleagues come only through a roster, and the picker is
+// where one is chosen (App.teamFor picks the seeded team, or the side's first,
+// for a chat that never chose).
 //
 // Home: <DataRoot>/teams/<name>/TEAM.md. A folder rather than a flat file for
 // the reason an agent is one: room for what a team may come to hold.
@@ -53,10 +61,17 @@ import (
 // TeamDefinitionFile is the one file a team folder holds today.
 const TeamDefinitionFile = "TEAM.md"
 
-// DefaultTeam is the id of ทีมผู้ช่วย — empty, which is also what
-// sessions.team stores for a session that never chose, so a conversation
-// from before teams existed is on the default team by construction.
-const DefaultTeam = ""
+// NoTeam is what sessions.team holds for a chat that hires from no roster —
+// also every row from before teams existed, which LoadSession upgrades to
+// the seeded team on first reopen (desktop/sessions.go).
+const NoTeam = ""
+
+// SeedTeamName is the team the app writes on a machine that has none, and
+// seedMembers who is on it: the four shipped agents whose work comes up on
+// any desk (owner, 13 ก.ย.: "เอาแค่ sheet video deepresearch doc ก็พอ").
+const SeedTeamName = "ทีมเอเจน"
+
+var seedMembers = []string{"deepresearch", "doc", "sheet", "video"}
 
 // Team is one roster as the rest of the app sees it.
 type Team struct {
@@ -73,7 +88,6 @@ type Team struct {
 	// list. They never run.
 	Missing []string `json:"missing,omitempty"`
 	Path    string   `json:"path,omitempty"`
-	Default bool     `json:"default"`
 	// Invalid is why this team cannot be hired from, in the user's language,
 	// or "" for a healthy one. A team at a desk no team may sit at is the
 	// case: it stays on the page with its reason, and no picker offers it.
@@ -94,14 +108,75 @@ func TeamsDir() (string, error) {
 	return filepath.Join(root, "teams"), nil
 }
 
-// Teams reports every team: the default first, then the user's, alphabetical.
-// Read from disk on every call, like Chairs — a folder the user just made
-// must be on the next list.
+// Teams reports every team, alphabetical. Read from disk on every call, like
+// Chairs — a folder the user just made must be on the next list. The seed
+// is written first, once per data root, so the first read on a fresh machine
+// already finds ทีมเอเจน.
 func Teams() []Team {
-	users := userTeams()
-	out := make([]Team, 0, len(users)+1)
-	out = append(out, defaultTeam(users))
-	return append(out, users...)
+	seedTeams()
+	return userTeams()
+}
+
+// PreferredTeam is the team a chat at desk should hire from when nobody
+// chose: the seeded team if it still exists somewhere the desk can reach,
+// else the first such team, else none. "Can reach" is the desk's own
+// question (mode.AllowsDispatch): the assistant desk hires the office's
+// teams, the coding desk its own. The roster page's "หนึ่งสิ่งหนึ่งบ้าน"
+// makes the choice explicit everywhere else; this is only the answer for a
+// fresh window and for rows from before teams existed.
+func PreferredTeam(desk string) string {
+	desk = strings.ToLower(strings.TrimSpace(desk))
+	m, _ := mode.Load(desk)
+	var reachable []Team
+	for _, t := range Teams() {
+		if t.Invalid != "" {
+			continue
+		}
+		if t.Desk == desk || m.AllowsDispatch(t.Desk) {
+			reachable = append(reachable, t)
+		}
+	}
+	for _, t := range reachable {
+		if t.Name == SeedTeamName {
+			return t.Name
+		}
+	}
+	if len(reachable) > 0 {
+		return reachable[0].Name
+	}
+	return NoTeam
+}
+
+// seededRoots remembers which data roots this process has already offered
+// the seed to, the same way config.MigrateAgentHomes remembers its move:
+// the check is a stat, but a stat on every roster read is still a stat.
+var (
+	seededMu    sync.Mutex
+	seededRoots map[string]bool
+)
+
+// seedTeams writes ทีมเอเจน when the teams' home does not exist at all. The
+// home's absence is the whole test: a machine that made, renamed or deleted
+// its teams has the folder, and is never seeded again — deleting the seed
+// deletes it.
+func seedTeams() {
+	dir, err := TeamsDir()
+	if err != nil {
+		return
+	}
+	seededMu.Lock()
+	defer seededMu.Unlock()
+	if seededRoots[dir] {
+		return
+	}
+	if seededRoots == nil {
+		seededRoots = map[string]bool{}
+	}
+	seededRoots[dir] = true
+	if _, err := os.Stat(dir); err == nil {
+		return
+	}
+	_ = SaveTeam(SeedTeamName, mode.Office, "ทีมที่แอปตั้งให้ตอนติดตั้ง แก้หรือลบได้", seedMembers)
 }
 
 // TeamsAt reports the healthy teams whose members work at the named desk —
@@ -117,10 +192,13 @@ func TeamsAt(desk string) []Team {
 	return out
 }
 
-// LoadTeam returns the team named name — the default for "" — and false when
-// no such team exists or the one that does cannot be hired from.
+// LoadTeam returns the team named name, and false when no such team exists or
+// the one that does cannot be hired from. NoTeam ("") is never a team.
 func LoadTeam(name string) (Team, bool) {
 	name = strings.TrimSpace(name)
+	if name == NoTeam {
+		return Team{}, false
+	}
 	for _, t := range Teams() {
 		if t.Name == name && t.Invalid == "" {
 			return t, true
@@ -152,26 +230,6 @@ func (t Team) MemberProfiles() []Profile {
 		}
 	}
 	return out
-}
-
-// defaultTeam builds ทีมผู้ช่วย: the bundled agents (and the user's edits
-// of them), plus every agent of the user's that no team names. Computed from
-// the roster and the user's teams rather than stored, so it cannot be out of
-// date with either.
-func defaultTeam(users []Team) Team {
-	named := map[string]bool{}
-	for _, t := range users {
-		for _, m := range t.Members {
-			named[strings.ToLower(m)] = true
-		}
-	}
-	t := Team{Name: DefaultTeam, Desk: mode.Office, Default: true, Members: []string{}}
-	for _, p := range Chairs(mode.Office) {
-		if p.Builtin || p.Overrides || !named[strings.ToLower(p.Name)] {
-			t.Members = append(t.Members, p.Name)
-		}
-	}
-	return t
 }
 
 // userTeams reads every folder under the teams' home, alphabetical. A folder
@@ -258,9 +316,8 @@ func teamDeskAllowed(desk string) bool {
 	return false
 }
 
-// SaveTeam writes a team's file — the one write door teams have. The default
-// team is refused by name: it has no file, and a user who wants a bundled
-// agent out of the assistant's reach switches it off instead.
+// SaveTeam writes a team's file — the one write door teams have, the seed
+// included.
 //
 // Members are checked at the door rather than left for the read to report as
 // Missing: the read forgives a name that went stale after it was written,
@@ -331,8 +388,8 @@ func SaveTeam(name, desk, description string, members []string) error {
 }
 
 // DeleteTeam removes a team's folder. The agents it named are untouched — the
-// list is gone, the people are not — and the ones no other team names are
-// back on the default team by the rule that put them there.
+// list is gone, the people are not. The seed deleted stays deleted: the
+// teams' home still exists, so seedTeams never writes it again.
 func DeleteTeam(name string) error {
 	name = strings.TrimSpace(name)
 	if name == "" || !validName(name) {

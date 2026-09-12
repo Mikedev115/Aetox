@@ -2636,7 +2636,7 @@
     if (!delegate || delegateBusy) return
     delegateBusy = kind
     try {
-      delegate = await SetDelegateOff('', kind, delegate[kind].off === false)
+      delegate = await SetDelegateOff(kind, delegate[kind].off === false)
     } finally {
       delegateBusy = ''
     }
@@ -4048,7 +4048,7 @@
       // agent editor (§256): a roster is not a person, and the owner asked for
       // the two pages apart and this one last ("เพิ่มตั้งค่าทีมเอเจนที่ข้างล่าง").
       { id: 'teams', label: t('settings.teams'), icon: 'users',
-        terms: [t('office.newTeam'), t('office.teamDefault'), t('office.teamDelegate')] },
+        terms: [t('office.newTeam'), t('settings.teamSideAssistant'), t('settings.teamSideCode')] },
     ]},
     { group: t('settings.groupTools'), items: [
       // Two pages, not two cards on one: a tool is something the AI runs, a

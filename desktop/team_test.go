@@ -63,13 +63,13 @@ func TestACodingTeamIsHiredFromTheCodingDeskAndOnlyThere(t *testing.T) {
 		t.Errorf("an office agent is offered at the coding desk: %v", agents)
 	}
 
-	// An office team cannot be carried into the coding desk.
-	if _, err := a.NewTeamSession(mode.Coding, subagent.DefaultTeam); err != nil {
-		t.Fatalf("the default team at the coding desk refused — it is 'no roster', not an error: %v", err)
+	// No team at the coding desk: no roster, not an error — and nobody hired.
+	if _, err := a.NewTeamSession(mode.Coding, subagent.NoTeam); err != nil {
+		t.Fatalf("no team at the coding desk refused — it is 'no roster', not an error: %v", err)
 	}
 	for _, n := range taskAgentEnum(t, a) {
 		if p, ok := subagent.Load(n); ok && p.Desk != "" {
-			t.Errorf("the coding desk on the default team can hire %s — §84 crossed", n)
+			t.Errorf("the coding desk on no team can hire %s — §84 crossed", n)
 		}
 	}
 }
@@ -137,8 +137,11 @@ func TestANewChatCarriesTheTeamOnlyWhereItFits(t *testing.T) {
 	if _, err := a.NewSessionAt(mode.Coding); err != nil || a.cur().team != "ทีมโค้ด" {
 		t.Errorf("a new coding chat dropped its team: team=%q err=%v", a.cur().team, err)
 	}
-	if _, err := a.NewSessionAt("assistant"); err != nil || a.cur().team != subagent.DefaultTeam {
-		t.Errorf("a new assistant chat carried a coding team: team=%q err=%v", a.cur().team, err)
+	// The assistant desk cannot carry a coding team, so the chat lands on the
+	// desk's preferred team: the seeded ทีมเอเจน, which bootDeskApp's fresh
+	// data root was given on its first roster read.
+	if _, err := a.NewSessionAt("assistant"); err != nil || a.cur().team != subagent.SeedTeamName {
+		t.Errorf("a new assistant chat did not land on the seeded team: team=%q err=%v", a.cur().team, err)
 	}
 	if _, err := a.NewTeamSession("assistant", "ทีมโค้ด"); err == nil {
 		t.Error("the assistant desk opened a session on a coding team")
@@ -148,10 +151,12 @@ func TestANewChatCarriesTheTeamOnlyWhereItFits(t *testing.T) {
 	}
 }
 
-// Each team's switches are its own: flipping a member off on one team leaves
-// it in reach on another, and a user team starts with delegation on while
-// the default keeps whatever it had.
-func TestSwitchesAreKeptPerTeam(t *testing.T) {
+// The two door switches are the doors', and a member's reach is the team's:
+// flipping a member off on one team leaves it in reach on another (12 ก.ย.:
+// "จะไม่เหมารวมกันนะ"), the code door's switch moves nothing on the
+// assistant's, and neither team has a master switch of its own (13 ก.ย.:
+// "ทำเป็น 2 สวิตช์ข้างบน แยกฝั่งผู้ช่วยและฝั่งโค้ด").
+func TestSwitchesArePerDoorAndMembersPerTeam(t *testing.T) {
 	a := bootDeskApp(t, "")
 	hire(t, "fixer", "ทีมโค้ด", mode.Coding)
 	if err := subagent.SaveTeam("ทีมเอกสาร", mode.Office, "", []string{"fixer", "doc"}); err != nil {
@@ -159,8 +164,8 @@ func TestSwitchesAreKeptPerTeam(t *testing.T) {
 	}
 
 	code := a.DelegateSwitches("ทีมโค้ด")
-	if code.Team != "ทีมโค้ด" || code.Agents.Off {
-		t.Errorf("a user team does not start with delegation on: %+v", code.Agents)
+	if code.Team != "ทีมโค้ด" || code.Code.Off || code.Agents.Off {
+		t.Errorf("a fresh machine has a door switched off: %+v / %+v", code.Agents, code.Code)
 	}
 	names := func(s DelegateSettings) []string {
 		out := []string{}
@@ -172,8 +177,8 @@ func TestSwitchesAreKeptPerTeam(t *testing.T) {
 	if got := names(code); !slices.Equal(got, []string{"fixer"}) {
 		t.Errorf("the coding team's rows are %v, want its member alone", got)
 	}
-	if got := names(a.DelegateSwitches(subagent.DefaultTeam)); slices.Contains(got, "fixer") || !slices.Contains(got, "doc") {
-		t.Errorf("the default team's rows are %v — fixer is on a team of the user's, doc is bundled", got)
+	if got := names(a.DelegateSwitches(subagent.NoTeam)); len(got) != 0 {
+		t.Errorf("no team has rows: %v", got)
 	}
 
 	docs := a.SetAgentOff("ทีมเอกสาร", "fixer", true)
@@ -191,20 +196,62 @@ func TestSwitchesAreKeptPerTeam(t *testing.T) {
 	if !on(a.DelegateSwitches("ทีมโค้ด"), "fixer") {
 		t.Error("switching fixer off on ทีมเอกสาร switched it off on ทีมโค้ด too — the switches were lumped together")
 	}
-	after := a.SetDelegateOff("ทีมโค้ด", "agents", true)
-	if !after.Agents.Off {
-		t.Error("the coding team's delegation switch did not take")
-	}
-	if a.DelegateSwitches(subagent.DefaultTeam).Agents.Off != !a.cur().cfg.DelegateAgents {
-		t.Error("a user team's switch moved the default team's")
-	}
 	if a.cur().cfg.DelegateSet {
-		t.Error("a user team's switch set DelegateSet — that flag guards the shipped default, which no user team has")
+		t.Error("a team's member switch set DelegateSet — that flag guards the shipped door default, which a team's list is not")
 	}
-	// The helpers half is the session's, whichever team is asked.
-	a.SetDelegateOff("ทีมโค้ด", "helpers", true)
-	if !a.DelegateSwitches(subagent.DefaultTeam).Helpers.Off {
+
+	// The code door's switch, and only the code door's.
+	after := a.SetDelegateOff("code", true)
+	if !after.Code.Off {
+		t.Error("the code door's switch did not take")
+	}
+	if after.Agents.Off {
+		t.Error("switching the code door off switched the assistant's door off")
+	}
+	// A coding session on a coding team now hands to nobody, and an assistant
+	// session on an office team still does.
+	if _, err := a.NewTeamSession(mode.Coding, "ทีมโค้ด"); err != nil {
+		t.Fatal(err)
+	}
+	if got := taskAgentEnum(t, a); slices.Contains(got, "fixer") {
+		t.Errorf("the code door is switched off and still offers %v", got)
+	}
+	if _, err := a.NewTeamSession("assistant", "ทีมเอกสาร"); err != nil {
+		t.Fatal(err)
+	}
+	if got := taskAgentEnum(t, a); !slices.Contains(got, "doc") {
+		t.Errorf("the assistant door is on and offers %v", got)
+	}
+	// The helpers half is the session's, whichever door.
+	a.SetDelegateOff("helpers", true)
+	if !a.DelegateSwitches("ทีมโค้ด").Helpers.Off {
 		t.Error("the helpers switch is per team — hands are not on a roster")
+	}
+}
+
+// A row from before teams reopens on the seeded team, once, and the row
+// says so from then on — a chat that could hire everyone must not come back
+// able to hire nobody.
+func TestAPreTeamSessionReopensOnTheSeededTeam(t *testing.T) {
+	a := bootDeskApp(t, "")
+	if _, err := a.NewTeamSession("assistant", subagent.NoTeam); err != nil {
+		t.Fatal(err)
+	}
+	id := a.cur().id
+	a.appendTurn(a.cur(),
+		SessionMessage{Role: "user", Text: "x", Time: "00:00"},
+		SessionMessage{Role: "agent", Text: "y", Time: "00:00"})
+	if a.SessionTeam(id) != subagent.NoTeam {
+		t.Fatalf("the row was born with a team: %q", a.SessionTeam(id))
+	}
+	if _, err := a.NewSessionAt("assistant"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.LoadSession(id); err != nil {
+		t.Fatalf("LoadSession: %v", err)
+	}
+	if a.cur().team != subagent.SeedTeamName || a.SessionTeam(id) != subagent.SeedTeamName {
+		t.Errorf("reopened on %q, row says %q — want the seeded team both times", a.cur().team, a.SessionTeam(id))
 	}
 }
 

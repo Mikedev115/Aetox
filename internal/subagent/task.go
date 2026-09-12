@@ -302,10 +302,22 @@ func (t *taskTool) reach(p Profile) (*mode.Mode, error) {
 	// different sentences — the first is something the person can flip, the
 	// second is something they would edit.
 	if p.Desk != "" && t.opts.Team != nil {
-		if !t.opts.Team.Has(p.Name) {
-			return nil, fmt.Errorf("%s is not on this session's team. Tell the person you are talking to that %s belongs to another team — they can open a chat on that team, or add %s to this one", p.Name, p.Name, p.Name)
+		if t.opts.Team.Has(p.Name) {
+			return t.teamCeiling()
 		}
-		return t.teamCeiling()
+		// Not on the roster. Three sentences, because the model's next move
+		// differs: an agent whose own desk this desk could never hand to is a
+		// job for another kind of session (the old cross-desk refusal, kept);
+		// a chat that has no roster at all — never chose one, or its team was
+		// deleted — sends the person to the team menu; a chat on a team that
+		// simply does not name this agent sends them to that team's list.
+		if _, err := t.ceilingFor(p); err != nil {
+			return nil, err
+		}
+		if t.opts.Team.Name == NoTeam {
+			return nil, fmt.Errorf("this chat hires from no team, so %s cannot be handed the job. Tell the person they can pick a team from the team menu (ทีมเอเจน), or do the work here", p.Name)
+		}
+		return nil, fmt.Errorf("%s is not on this session's team. Tell the person you are talking to that %s belongs to another team — they can open a chat on that team, or add %s to this one", p.Name, p.Name, p.Name)
 	}
 	return t.ceilingFor(p)
 }

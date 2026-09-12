@@ -1090,7 +1090,7 @@
   }
   // The label a team wears: its folder name, or the window's word for the
   // one team that has no folder.
-  const teamLabel = (tm: main.TeamCard) => (tm.default ? t('chat.defaultTeam') : tm.name)
+  const teamLabel = (tm: main.TeamCard) => tm.name
   // Walking onto another team is a new chat, like walking to another chair:
   // a session hires from one roster for its whole life (setStation).
   async function pickTeam(tm: main.TeamCard) {
@@ -1112,18 +1112,21 @@
   // its settings page, where the rest of what a ซับเอเจน is already is. What
   // earns a place here is the decision this menu is about: whether somebody
   // else gets handed the job.
+  // The DOOR's switch, not the team's (13 ก.ย.): the assistant door's on the
+  // assistant desk, the code door's on the coding desk — the one switch
+  // somebody changes mid-chat, which is why it is here at all.
   const delegateRows = $derived(
     delegate
-      ? ([
-          { kind: 'agents', reach: delegate.agents, icon: 'userRound', label: 'chat.delegateAgents', on: 'chat.delegateAgentsOn', off: 'chat.delegateAgentsOff' },
-        ] as const)
+      ? pickerDesk === 'coding'
+        ? ([{ kind: 'code', reach: delegate.code, icon: 'userRound', label: 'chat.delegateCode', on: 'chat.delegateCodeOn', off: 'chat.delegateCodeOff' }] as const)
+        : ([{ kind: 'agents', reach: delegate.agents, icon: 'userRound', label: 'chat.delegateAgents', on: 'chat.delegateAgentsOn', off: 'chat.delegateAgentsOff' }] as const)
       : [],
   )
-  async function toggleDelegate(kind: 'agents' | 'helpers') {
+  async function toggleDelegate(kind: 'agents' | 'code' | 'helpers') {
     if (!delegate || delegateBusy) return
     delegateBusy = true
     try {
-      delegate = await SetDelegateOff(cockpit.team, kind, delegate[kind].off === false)
+      delegate = await SetDelegateOff(kind, delegate[kind].off === false)
     } finally {
       delegateBusy = false
     }
@@ -5219,6 +5222,7 @@
             <button type="button" class="focus-item" class:on={!cockpit.chair}
               onclick={() => { agentMenuOpen = false; if (cockpit.chair) newTeamSession(pickerDesk, cockpit.team) }}>
               <span class="ic"><Icon name="sparkles" size={14} /></span> {t('chat.mainAgent')}
+              {#if !cockpit.team}<span class="team-n">{t('chat.noTeam')}</span>{/if}
             </button>
             {#if pickerTeams.length > 0}<div class="menu-sep"></div>{/if}
             {#each pickerTeams as tm (tm.name)}
