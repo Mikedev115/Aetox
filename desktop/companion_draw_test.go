@@ -193,6 +193,59 @@ func TestComposerDrawsTheBubbleBesideTheFigure(t *testing.T) {
 	}
 }
 
+// The bubble follows the figure: at the default size the type is 12 on a
+// card at most 300 wide; bigger, the type grows at three quarters of the
+// figure's rate and the width at a slower one, to a cap, so a long line
+// folds into more lines rather than across the screen. Smaller, the type
+// shrinks a little and the width stays.
+func TestBubbleMetricsFollowTheFigure(t *testing.T) {
+	for _, tc := range []struct {
+		figure     int
+		font, maxW float64
+	}{
+		{cFigureDefault, 12, 300},
+		{160, 16.8, 334},
+		{240, 23.8, 380},
+		{cFigureMin, 11, 300},
+		{9999, 23.8, 380},
+	} {
+		font, maxW := bubbleMetrics(tc.figure)
+		if font != tc.font || maxW != tc.maxW {
+			t.Errorf("figure %d: font %v maxW %v, want %v %v", tc.figure, font, maxW, tc.font, tc.maxW)
+		}
+	}
+
+	// drawn bigger: the card's padding and gap scale with the type, the
+	// canvas is wide enough for the widest card, and a long text folds
+	c, _, _ := newTestComposer(map[string]color.RGBA{"idle-p0-open": red})
+	c.setFigure(240)
+	cw, ch := c.canvasSize()
+	dst := image.NewRGBA(image.Rect(0, 0, cw, ch))
+	long := strings.Repeat("word ", 40)
+	s := companionScene{Pose: "idle", Theme: CompanionTheme{Bg: "#202020", Fg: "#f0f0f0", Border: "#404040"}, Shown: long}
+	used := c.draw(dst, s, time.Unix(100, 0))
+	f := c.figureRect()
+	if c.textW > 380-2*c.bubbleEm(cBubblePadX) || c.textW < 300 {
+		t.Fatalf("text width %d at figure 240 (widest card 380)", c.textW)
+	}
+	if len(c.textLines) < 4 {
+		t.Fatalf("long text folded into only %d lines", len(c.textLines))
+	}
+	if used.Min.X < 0 || used.Max.X > cw || used.Min.Y < 0 {
+		t.Fatalf("bubble %v off the canvas %dx%d", used, cw, ch)
+	}
+	// (clear of the rounded corner and of the arrow)
+	right := f.Min.X - c.bubbleGap()
+	y := f.Max.Y - cBubbleBottom - c.bubbleEm(cBubbleRadius) - 4
+	if dst.RGBAAt(right-2, y).A != 255 {
+		t.Fatal("card does not end a scaled gap left of the figure")
+	}
+	// (the sprite's box reaches into the gap, so the gap is red, not clear)
+	if px := dst.RGBAAt(right+2, y); px == (color.RGBA{0x20, 0x20, 0x20, 0xff}) {
+		t.Fatal("card runs into the scaled gap")
+	}
+}
+
 // Words wrap greedily within the card's width; a word wider than the card is
 // cut; the window's segmentation is used only when it adds up to the text.
 func TestWrapWords(t *testing.T) {

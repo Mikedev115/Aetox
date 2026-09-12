@@ -50,6 +50,29 @@ export function clampSize(n: number): number {
   return Math.round(Math.max(SIZE_MIN, Math.min(SIZE_MAX, n)))
 }
 
+/** The bubble's type and width at a figure size — the same rule the desktop
+ *  body draws by (companion_draw.go bubbleMetrics). At SIZE_DEFAULT the
+ *  bubble is what it always was: 12px on a card at most 300px wide. Bigger,
+ *  the type grows at three quarters of the figure's rate (owner, 13 ก.ย. 2026:
+ *  "ให้มันขยายตาม") while the card's width is held back — a long line folds
+ *  into more lines rather than stretching across the screen ("จำกัดความยาว
+ *  ให้มันสูงขึ้นแทน"). Padding, radius and the gap to the figure are ems of
+ *  the type, so the card keeps its proportions. */
+export const BUBBLE_FONT = 12
+export const BUBBLE_MAX_W = 300
+const BUBBLE_FONT_RATE = 0.75
+const BUBBLE_FONT_MIN = 11
+const BUBBLE_FONT_MAX = 24
+const BUBBLE_W_RATE = 0.6
+const BUBBLE_W_CAP = 380
+
+export function bubbleMetrics(size: number): { font: number; maxW: number } {
+  const k = clampSize(size) / SIZE_DEFAULT
+  const font = Math.min(BUBBLE_FONT_MAX, Math.max(BUBBLE_FONT_MIN, BUBBLE_FONT * (1 + BUBBLE_FONT_RATE * (k - 1))))
+  const maxW = Math.min(BUBBLE_W_CAP, Math.max(BUBBLE_MAX_W, BUBBLE_MAX_W + BUBBLE_W_RATE * (clampSize(size) - SIZE_DEFAULT)))
+  return { font: Math.round(font * 10) / 10, maxW: Math.round(maxW) }
+}
+
 function seedSize(): number {
   try {
     const raw = localStorage.getItem(SIZE_KEY)
