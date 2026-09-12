@@ -88,11 +88,14 @@ export function presenceOf(i: PresenceInput): PoseId {
 
 /** What the companion's bubble shows — only what the assistant SAYS, never
  *  what it runs (owner, 12 ก.ย.: "ไม่ต้องแสดงว่ามันรันคำสั่งอะไร อันนั้นเป็นไอคอนก็พอ
- *  แสดงแค่ตอนมันรายงาน"). The running tool is already the card beside the
- *  head; this is the sentence the model wrote between tools, the tail of the
- *  answer as it streams, or the question it is blocked on. */
+ *  แสดงแค่ตอนมันรายงาน"), and of what it says only the HEADLINE — the first
+ *  line of the piece, not its tail and not the whole of it ("แสดงแค่หัวข้อ ๆ
+ *  แสดงแค่บน ๆ ของท่อนนั้น ๆ"). While a tool runs the bubble is shut and the
+ *  card beside the head is the whole story. */
 export type ReportInput = {
   awaiting: boolean
+  /** A tool is running right now. */
+  busy?: boolean
   /** The model's latest narration between tool calls (a `note`/`said` row). */
   note?: string
   /** The answer arriving. */
@@ -101,24 +104,20 @@ export type ReportInput = {
   question?: string
 }
 
-/** Characters of the answer the bubble keeps while it streams. */
-export const REPORT_TAIL = 64
-/** Characters of a narration the bubble shows. */
-export const REPORT_MAX = 120
+/** Characters of a headline the bubble shows before it is cut. */
+export const REPORT_MAX = 96
 
 export function reportOf(i: ReportInput): string {
-  if (i.question) return clip(i.question, REPORT_MAX)
-  if (i.streamingText) {
-    const line = lastLine(i.streamingText)
-    return line.length > REPORT_TAIL ? '…' + line.slice(-REPORT_TAIL) : line
-  }
-  if (!i.awaiting) return ''
-  return i.note ? clip(lastLine(i.note), REPORT_MAX) : ''
+  if (i.question) return clip(firstLine(i.question), REPORT_MAX)
+  if (i.streamingText) return clip(firstLine(i.streamingText), REPORT_MAX)
+  if (!i.awaiting || i.busy) return ''
+  return i.note ? clip(firstLine(i.note), REPORT_MAX) : ''
 }
 
-function lastLine(text: string): string {
+/** The first line with words in it, markdown marks stripped. */
+function firstLine(text: string): string {
   const lines = text.replace(/[*_`#>]+/g, '').split('\n').map((l) => l.trim()).filter(Boolean)
-  return lines[lines.length - 1] ?? ''
+  return lines[0] ?? ''
 }
 function clip(text: string, max: number): string {
   const t = text.trim()

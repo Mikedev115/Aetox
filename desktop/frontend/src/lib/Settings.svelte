@@ -15,6 +15,8 @@
   import McpMark from './McpMark.svelte'
   import ProviderAccount from './ProviderAccount.svelte'
   import AgentFace from './AgentFace.svelte'
+  import AvatarSettings from './mascot/AvatarSettings.svelte'
+  import { avatarText } from './mascot/avatarText'
   // The wardrobe itself, so the pickers below offer exactly what the drawing
   // can draw. Anything hand-listed here instead would be a second catalogue to
   // keep in step, which is the bug this page just had.
@@ -3914,6 +3916,11 @@
           t('settings.typeScaleTitle'), t('settings.systemZoomTitle'), t('settings.editorFontTitle'),
           t('settings.chatFontTitle'), t('settings.treeFontTitle'), t('settings.codeThemeTitle'),
         ] },
+      // The assistant's mascot: what it looks like and whether it sits on the
+      // screen. Its words live in mascot/avatarText.ts until the locale files
+      // are free (see that file).
+      { id: 'avatar', label: avatarText(i18n.locale).title, icon: 'bot',
+        terms: [avatarText(i18n.locale).onScreen, avatarText(i18n.locale).shell, avatarText(i18n.locale).hue] },
       // The icon is deliberately not `userRound` — the เอเจน page below owns
       // that, and this page is not about a person in the team.
       { id: 'identity', label: t('settings.identity'), icon: 'fileText',
@@ -4129,7 +4136,7 @@
   // section (openSettingsAt), and two spellings of this key would fail silently
   // and look like the page ignoring where it was told to go.
   const SECTION_KEY = SETTINGS_SECTION_KEY
-  const SECTION_IDS = new Set(['general', 'appearance', 'identity', 'learning', 'skilltune', 'models', 'team', 'agents', 'tools', 'skills', 'mcp', 'connections', 'computer', 'prompts', 'account', 'usage', 'about', 'sponsor'])
+  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'identity', 'learning', 'skilltune', 'models', 'team', 'agents', 'tools', 'skills', 'mcp', 'connections', 'computer', 'prompts', 'account', 'usage', 'about', 'sponsor'])
 
   function restoredSection(): string {
     try {
@@ -6911,6 +6918,8 @@
           </div>
         </div>
       {/if}
+    {:else if active === 'avatar'}
+      <AvatarSettings />
     {:else if active === 'identity'}
       <h2>{t('settings.identity')}</h2>
       <p class="muted set-sub">{t('settings.identityDesc')}</p>

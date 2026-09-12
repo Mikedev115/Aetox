@@ -20,6 +20,7 @@
   import { presenceOf, reportOf } from './presence'
   import { cockpit } from '../stores/cockpit.svelte'
   import { setCompanionOn } from './companionSetting.svelte'
+  import { avatarPrefs, assistantOptions } from './avatarPrefs.svelte'
 
   const SIZE = 104
   const MARGIN = 8
@@ -153,9 +154,15 @@
     return ''
   })
   const report = $derived(
-    reportOf({ awaiting: cockpit.awaitingReply, note, streamingText: cockpit.streamingText, question: cockpit.ask?.question }),
+    reportOf({
+      awaiting: cockpit.awaitingReply,
+      busy: running.length > 0,
+      note,
+      streamingText: cockpit.streamingText,
+      question: cockpit.ask?.question,
+    }),
   )
-  // A narration is typed out; the streaming tail is shown as it is, because
+  // A narration is typed out; the answer's headline is shown as it is, since
   // it is already arriving letter by letter. Whole on any change of source.
   let shown = $state('')
   let typing = $state(false)
@@ -201,12 +208,15 @@
   <button class="hide" type="button" title="ซ่อน" aria-label="ซ่อน" onclick={() => setCompanionOn(false)}><Icon name="x" size={11} /></button>
   <!-- A handle, not a control: it has nothing to activate, only somewhere to be. -->
   <div class="grab" role="presentation" onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp}>
-    <Mascot {pose} size={SIZE} sway {hop} />
+    <Mascot {...assistantOptions(avatarPrefs)} {pose} size={SIZE} sway {hop} />
   </div>
 </div>
 
 <style>
-  .companion { position: fixed; left: 0; top: 0; z-index: 45; touch-action: none; user-select: none; }
+  /* Above the full-window pages (settings, office, gallery sit at 50) — it is
+     on the screen, not on a page — and below menus, the palette and dialogs
+     (55–70), which are the things a person is actually doing. */
+  .companion { position: fixed; left: 0; top: 0; z-index: 52; touch-action: none; user-select: none; }
   .grab { cursor: grab; position: relative; }
   .dragging .grab { cursor: grabbing; }
   /* the hover frame and its × — present only while the pointer is near */
@@ -219,12 +229,12 @@
   /* the report: a small card that exists only while there is something said */
   .say {
     position: absolute; right: calc(100% + 10px); bottom: 30px;
-    width: max-content; max-width: 260px;
+    width: max-content; max-width: 300px;
     background: var(--surface-raised); color: var(--text-primary);
     border: 1px solid var(--border-subtle); border-radius: 12px; padding: 8px 11px;
     font-size: var(--fs-xs); line-height: 1.4;
     box-shadow: 0 6px 18px rgb(0 0 0 / 0.3);
-    display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    overflow-wrap: anywhere;
     pointer-events: none;
     animation: say-in 0.18s ease-out;
   }

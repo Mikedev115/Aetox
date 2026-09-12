@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, waitFor, fireEvent } from '@testing-library/svelte'
 import Companion from '../lib/mascot/Companion.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
-import { reportOf, REPORT_TAIL } from '../lib/mascot/presence'
+import { reportOf, REPORT_MAX } from '../lib/mascot/presence'
 import { companion, setCompanionOn } from '../lib/mascot/companionSetting.svelte'
 
 // The assistant sitting on the screen: what it does is read off the cockpit's
@@ -41,16 +41,21 @@ describe('the companion', () => {
     expect(container.querySelector('.say')).toBeNull()
   })
 
-  it('types out what the model reported between tools', async () => {
+  it('types out the headline of what the model reported, and shuts while a tool runs', async () => {
     vi.useFakeTimers()
     cockpit.awaitingReply = true
     cockpit.toolSteps = [
-      { kind: 'note', label: 'อ่าน config แล้ว มี 3 ค่าที่ยังไม่ตั้ง', state: 'done', startedAt: 0 },
-      { name: 'read', label: 'read config.yaml', state: 'run', startedAt: 0 },
+      { kind: 'note', label: 'อ่าน config แล้ว มี 3 ค่าที่ยังไม่ตั้ง\nรายละเอียดยาว ๆ ที่ไม่ต้องขึ้น', state: 'done', startedAt: 0 },
     ] as any
     const { container } = render(Companion)
     await vi.advanceTimersByTimeAsync(2000)
     expect(container.querySelector('.say')?.textContent).toContain('อ่าน config แล้ว มี 3 ค่าที่ยังไม่ตั้ง')
+    expect(container.querySelector('.say')?.textContent).not.toContain('รายละเอียด')
+    // a tool starts: icon only
+    cockpit.toolSteps = [...cockpit.toolSteps, { name: 'read', label: 'read config.yaml', state: 'run', startedAt: 0 }] as any
+    await vi.advanceTimersByTimeAsync(100)
+    expect(container.querySelector('.say')).toBeNull()
+    expect(mascot(container).classList.contains('pose-reading')).toBe(true)
     vi.useRealTimers()
   })
 
@@ -64,14 +69,15 @@ describe('the companion', () => {
     expect(container.querySelector('.say')).toBeNull()
   })
 
-  it('shows the tail of the answer as it streams', async () => {
+  it('shows the headline of the answer as it streams, not its tail', async () => {
     cockpit.awaitingReply = true
-    cockpit.streamingText = 'บรรทัดแรก\n' + 'x'.repeat(100) + 'ท้ายจริง'
+    cockpit.streamingText = '## สตอรีบอร์ด TikTok แนวตั้ง\n' + 'x'.repeat(100) + 'ท้ายจริง'
     const { container } = render(Companion)
     await waitFor(() => expect(container.querySelector('.say')).toBeTruthy())
     const said = container.querySelector('.say')!.textContent ?? ''
-    expect(said.startsWith('…')).toBe(true)
-    expect(said).toContain('ท้ายจริง')
+    expect(said).toContain('สตอรีบอร์ด TikTok แนวตั้ง')
+    expect(said).not.toContain('ท้ายจริง')
+    expect(said).not.toContain('#')
     expect(mascot(container).classList.contains('pose-answering')).toBe(true)
   })
 
@@ -130,11 +136,14 @@ describe('what the bubble may say', () => {
     expect(reportOf({ awaiting: true, note: 'n', streamingText: 's' })).toBe('s')
     expect(reportOf({ awaiting: true, note: 'n' })).toBe('n')
   })
-  it('keeps only the tail of a long answer and strips markdown marks', () => {
-    const long = '# หัวข้อ\n**' + 'ก'.repeat(90) + '** ท้าย'
+  it('keeps only the first line, cut short, marks stripped, and nothing while busy', () => {
+    const long = '**' + 'ก'.repeat(200) + '**\nบรรทัดสอง'
     const out = reportOf({ awaiting: true, streamingText: long })
-    expect(out.startsWith('…')).toBe(true)
-    expect(out.length).toBe(REPORT_TAIL + 1)
+    expect(out.length).toBe(REPORT_MAX)
+    expect(out.endsWith('…')).toBe(true)
     expect(out).not.toContain('*')
+    expect(out).not.toContain('บรรทัดสอง')
+    expect(reportOf({ awaiting: true, busy: true, note: 'พูดไว้ก่อนหน้า' })).toBe('')
+    expect(reportOf({ awaiting: true, busy: true, streamingText: 'กำลังตอบ' })).toBe('กำลังตอบ')
   })
 })
