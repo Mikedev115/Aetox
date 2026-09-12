@@ -82,6 +82,11 @@ const POSE_ROWS = {
   // Reactions to being clicked (Companion.svelte) — a moment each, no words.
   cheer:       { face: 'excited',  hands: { L: UP_L, R: UP_R },                 legs: 'tuck',  prop: 'role', panel: null,        mark: 'sparkle', turn: 0, look: 30 },
   wink:        { face: 'wink',     hands: { L: REST.L, R: UP_R },               legs: 'tuck',  prop: 'role', panel: null,        turn: 12,  look: 25 },
+  // An agent whose job failed (the cartoon face's `err` ring, 12 ก.ย.): the
+  // alert card of `debugging`, but no hand up — a hand on the chin, looking at
+  // what went wrong, not waving about it. Distinct from `debugging` on purpose:
+  // that is the assistant chasing a bug, this is a worker reporting one.
+  error:       { face: 'curious',  hands: { L: REST.L, R: [44, 41, 11] },       legs: 'tuck',  prop: 'role', panel: 'alert',     turn: -8 },
 } satisfies Record<string, Pose>
 
 export type PoseId = keyof typeof POSE_ROWS

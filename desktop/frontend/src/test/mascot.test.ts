@@ -4,7 +4,7 @@ import { POSE, ARM, type PoseId } from '../lib/mascot/poses'
 import { resolveMascot, mascotSVG, DETAIL_MIN_PX, GLOW_MIN_PX } from '../lib/mascot/rig'
 import { palette, SHELL, shellOf } from '../lib/mascot/palette'
 import { ROLE, roleOf, roleOptions } from '../lib/mascot/roles'
-import { presenceOf, TOOL_POSE } from '../lib/mascot/presence'
+import { presenceOf, TOOL_POSE, poseOfFaceState, FACE_STATE_POSE, type FaceState } from '../lib/mascot/presence'
 
 // The mascot is a catalogue plus a table plus one drawing function, and the
 // rules guarded here are the ones the owner set while watching it drawn — each
@@ -222,5 +222,36 @@ describe('presence', () => {
 
   it('maps every tool to a pose that exists', () => {
     for (const [tool, pose] of Object.entries(TOOL_POSE)) expect(pose in POSE, tool).toBe(true)
+  })
+})
+
+describe('face state → pose', () => {
+  // The cartoon faces' five words, each landing on a pose that exists. The
+  // delegate cards keep speaking those words; this table is what lets the
+  // mascot stand in for the person under them with nothing else changed.
+  it('maps every card state to a pose that exists', () => {
+    for (const [state, pose] of Object.entries(FACE_STATE_POSE)) expect(pose in POSE, state).toBe(true)
+    expect(poseOfFaceState('')).toBe('idle')
+    expect(poseOfFaceState('think')).toBe('thinking')
+    expect(poseOfFaceState('work')).toBe('typing')
+    expect(poseOfFaceState('done')).toBe('success')
+    expect(poseOfFaceState('err')).toBe('error')
+  })
+
+  // A caller that never passed a state — every roster tile — is the idle one,
+  // and a word this build does not know is not a broken mascot.
+  it('lands on idle for nothing and for nonsense', () => {
+    expect(poseOfFaceState(undefined)).toBe('idle')
+    expect(poseOfFaceState('nope' as FaceState)).toBe('idle')
+  })
+
+  // The failed worker looks at what went wrong: the alert card, the curious
+  // face, a hand at the chin — and nothing raised, so it is not `debugging`.
+  it('draws a failure as an alert card with a hand on the chin', () => {
+    const p = POSE.error
+    expect(p.panel).toBe('alert')
+    expect(p.face).toBe('curious')
+    expect(p.hands.R[0]).toBeLessThan(50)
+    expect(p.hands.R[1]).toBeGreaterThanOrEqual(36)
   })
 })
