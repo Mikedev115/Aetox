@@ -9131,6 +9131,30 @@ button.ctrl, label.ctrl { display:inline-flex; align-items:center; justify-conte
   color:var(--text-dim); line-height:1; pointer-events:none;
 }
 .ag-part.on .ag-persona-n { color:var(--interactive); }
+/* The อวตาร tab of the agent editor: the figure the way the avatar page shows
+   the assistant's, and the persona slots as the same cards (AvatarSettings'
+   .slot), so a persona reads as one thing in both places. */
+.ag-avatar-stage { padding:6px 0 2px; }
+.ag-avatar-stage .ag-face-say { gap:8px; }
+.ag-avatar-name { font-size:var(--fs-lg); color:var(--text-primary); }
+.ag-slots { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
+.ag-slot {
+  display:flex; align-items:center; gap:10px; min-width:0; padding:8px 10px; border-radius:12px;
+  background:var(--surface-raised); border:1px solid var(--border-subtle);
+}
+.ag-slot.worn { border-color:var(--interactive); }
+.ag-slot.empty { border-style:dashed; }
+.ag-slot .mascot { flex:none; }
+.ag-slot-empty {
+  width:56px; height:56px; flex:none; display:flex; align-items:center; justify-content:center;
+  border:1px dashed var(--border-subtle); border-radius:12px; color:var(--text-dim); font-size:var(--fs-xs);
+}
+.ag-slot-meta { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.ag-slot-meta b { font-size:var(--fs-sm); }
+.ag-slot-meta span { font-size:var(--fs-xs); color:var(--text-muted); }
+.ag-slot .pri { background:var(--interactive); color:var(--text-on-interactive); border-color:var(--interactive); }
+.ag-slot .pri:disabled { opacity:.6; cursor:default; }
+@media (max-width: 900px) { .ag-slots { grid-template-columns:1fr; } }
 
 /* The roster's search box, and the mark on each row — the two things the
    reference UI had that this page did not. The mark is the same one the office

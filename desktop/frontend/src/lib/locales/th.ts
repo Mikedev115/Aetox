@@ -1827,6 +1827,7 @@ export const th = {
   'settings.agentSecReach': 'เอื้อมถึงอะไร',
   'settings.agentSecKnowledge': 'ความรู้',
   'settings.agentSecOpening': 'เปิดบทสนทนา',
+  'settings.agentSecAvatar': 'อวตาร',
   'settings.agentModelHint': 'เว้นว่างไว้ = ใช้โมเดลเดียวกับที่คุณเลือกอยู่ในแชท เลือกเจาะจงเมื่อเอเจนคนนี้ต้องการโมเดลคนละตัว',
 
   // เพดานของโต๊ะ — บอกให้รู้ว่ามีเพดานอยู่ ไม่ได้ให้แก้
@@ -2097,7 +2098,7 @@ export const th = {
   'settings.agentLookComposerHint': 'ขนาด 20px เมื่อพิมพ์ @ หรือเลือกสลับเอเจน',
   'settings.agentBadge': 'ไอคอนบนหู',
   'settings.agentPersonas': 'ใช้บุคลิกที่บันทึกไว้',
-  'settings.agentPersonasNone': 'ยังไม่มีบุคลิกที่บันทึกไว้ — บันทึกได้ที่ ตั้งค่า › ส่วนบุคคล › อวตาร',
+  'settings.agentPersonasWhere': 'บันทึกและแก้บุคลิกได้ที่ ตั้งค่า › ส่วนบุคคล ›',
   'settings.agentPersonaUse': 'บุคลิก {n}',
   'settings.agentShell': 'สีตัว',
   'settings.agentAccent': 'สี',
