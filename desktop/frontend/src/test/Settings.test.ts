@@ -16,6 +16,7 @@ import {
   AcceptsAPIKey, APIKeyHint, HasAPIKey, ProviderAPIKeyURL, ProviderReady, PriceModels, TestProviderConnection,
   ListSpeechEngines, ListTTSEngines, SetSpeechEngine, SetSpeechModelName,
   ListImageEngines, SetImageEngine,
+  StudioLibraries, AddStudioLibrary, RemoveStudioLibrary,
 } from './mocks/wailsApp'
 import { BrowserOpenURL } from './mocks/wailsRuntime'
 import { applyTypeScale, initTypeScale, typeScale, TYPE_SCALES, DEFAULT_TYPE_SCALE } from '../lib/typeScale.svelte'
@@ -558,6 +559,59 @@ describe('Settings pages', () => {
     await fireEvent.change(select, { target: { value: 'openai' } })
     await waitFor(() => expect(vi.mocked(SetImageEngine)).toHaveBeenCalledWith('openai'))
     await waitFor(() => expect(select.value).toBe('pollinations'))
+  })
+
+  // The studio shelf page (desktop/studio_library.go), drawn as cards like
+  it('studio shelf draws folder cards with per-kind chips and removes through a confirm', async () => {
+    vi.mocked(StudioLibraries).mockResolvedValue([
+      { id: 'builtin-interface-sounds', name: 'Kenney Interface Sounds', root: 'C:/data/studio/builtin/interface-sounds-1.0', builtin: true, license: 'CC0', source: 'https://kenney.nl/assets/interface-sounds', scanned: '', bytes: 960599, files: 100, unread: 0, counts: { sfx: 100 }, missing: false },
+      { id: 'a1', name: '30GB+ Video Editing Assets', root: 'D:/Downloads/30GB+ Video Editing Assets', builtin: false, scanned: '2026-09-12T03:00:00Z', bytes: 27 * 1024 * 1024 * 1024, files: 1855, unread: 0, counts: { sfx: 143, overlay: 706, clip: 0 }, missing: false },
+      { id: 'b2', name: 'Gone', root: 'E:/Gone', builtin: false, scanned: '', bytes: 0, files: 0, unread: 0, counts: {}, missing: true },
+    ] as any)
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'คลังสตูดิโอ')
+    const cards = await waitFor(() => {
+      const found = Array.from(container.querySelectorAll('.chair-card')).filter((c) => c.querySelector('.chair-name'))
+      expect(found.length).toBe(3)
+      return found
+    })
+    const kenney = cards.find((c) => c.textContent?.includes('Kenney Interface Sounds'))!
+    const pack = cards.find((c) => c.textContent?.includes('30GB+ Video Editing Assets'))!
+    const gone = cards.find((c) => c.textContent?.includes('Gone'))!
+    expect(pack.textContent).toContain('1,855 ไฟล์')
+    expect(pack.textContent).toContain('27.0 GB')
+    expect(pack.textContent).toContain('เสียงประกอบ 143')
+    expect(pack.textContent).not.toContain('คลิป')
+    expect(gone.textContent).toContain('ไม่พบโฟลเดอร์นี้แล้ว')
+    // The bundled shelf says so, carries its licence, and cannot be removed.
+    expect(kenney.textContent).toContain('มากับ Aetox')
+    expect(kenney.textContent).toContain('CC0')
+    expect(Array.from(kenney.querySelectorAll('button')).some((b) => b.textContent?.trim() === 'เอาออก')).toBe(false)
+    // The strip sums every shelf: 100 + 143 sfx.
+    const strip = container.querySelector('.studio-seg')!
+    expect(strip.textContent).toContain('243')
+
+    // Removing asks first, and the dialog says the files are not deleted.
+    const remove = Array.from(pack.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'เอาออก')!
+    await fireEvent.click(remove)
+    expect(vi.mocked(RemoveStudioLibrary)).not.toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByText('ไฟล์ในโฟลเดอร์ไม่ถูกลบ', { exact: false })).toBeTruthy())
+    const confirm = Array.from(document.querySelectorAll('button')).find((b) => b.closest('.confirm-actions') && b.textContent?.trim() === 'เอาออก')!
+    await fireEvent.click(confirm)
+    await waitFor(() => expect(vi.mocked(RemoveStudioLibrary)).toHaveBeenCalledWith('a1'))
+
+    // Where-to-get-more is a sheet off the tab bar, not a section at the foot.
+    const more = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'แหล่งวัตถุดิบ')!
+    await fireEvent.click(more)
+    await waitFor(() => expect(document.querySelector('.studio-sheet')).toBeTruthy())
+    expect(document.querySelector('.studio-sheet')?.textContent).toContain("peen's SFX")
+    await fireEvent.click(document.querySelector('.studio-sheet .icobtn') as HTMLElement)
+    await waitFor(() => expect(document.querySelector('.studio-sheet')).toBeNull())
+
+    // Adding goes through the folder dialog on the engine side.
+    const add = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'เพิ่มโฟลเดอร์')!
+    await fireEvent.click(add)
+    await waitFor(() => expect(vi.mocked(AddStudioLibrary)).toHaveBeenCalled())
   })
 
   it('Usage page shows per-model aggregates', async () => {

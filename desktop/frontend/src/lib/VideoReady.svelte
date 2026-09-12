@@ -24,6 +24,7 @@
   import { engine } from '../../wailsjs/go/models'
   import { capabilities, noteCapabilityRequest } from './capabilities.svelte'
   import { t, type TKey } from './i18n.svelte'
+  import { openSettingsAt } from './stores/cockpit.svelte'
   import Icon from './Icon.svelte'
   import type { IconName } from './icons'
 
@@ -89,6 +90,7 @@
     renderer: 'ready.renderer',
     browser: 'ready.browser',
     gsap: 'ready.gsap',
+    assets: 'ready.assets',
   }
   // What a row says when the check found nothing, per row: "not found anywhere
   // we looked" is a different sentence from "this one is optional".
@@ -100,6 +102,8 @@
     'browser.missing': 'ready.browserMissing',
     'gsap.warn': 'ready.gsapWarn',
     'templates.ok': 'ready.templatesOk',
+    'assets.ok': 'ready.assetsOk',
+    'assets.optional': 'ready.assetsOptional',
   }
   const MARK: Record<string, IconName> = {
     ok: 'check',
@@ -131,13 +135,21 @@
             <span class="k">{t(LABEL[row.id] ?? 'ready.editor')}</span>
             <span class="d">
               {#if SAID[`${row.id}.${row.state}`]}
-                {t(SAID[`${row.id}.${row.state}`])}
+                {t(SAID[`${row.id}.${row.state}`], { n: row.where ?? '' })}
               {:else if row.where}
                 {short(row.where)}
               {/if}
             </span>
             {#if row.state !== 'ok' && row.bytes > 0}
               <span class="sz">{t('lock.mb', { n: mb(row.bytes) })}</span>
+            {/if}
+            <!-- The shelf is the one row this panel cannot fetch: it is the
+                 user's folders, added in Settings. So the row is a door there,
+                 the way the image page's "add key" is a door to the model page
+                 — a sentence that names a place the app can simply walk you to
+                 is a worse version of the button. -->
+            {#if row.id === 'assets'}
+              <button class="linklike" onclick={() => { onClose(); openSettingsAt('studio') }}>{t('ready.assetsOpen')}</button>
             {/if}
           </div>
         {/each}

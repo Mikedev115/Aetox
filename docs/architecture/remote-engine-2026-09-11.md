@@ -727,6 +727,23 @@ from the design; this is what it is.
 | frontend | `stores/engine.svelte.ts` (the status as last heard, `pickerOpen`), `EngineStatus.svelte` (the road's steps shown at once with the detail line, `ใช้เครื่องนี้แทน` while on the road or failed, the host named in a failure), `RemoteDirPicker.svelte` (path box + up + list + hidden toggle, in the confirm dialog's shell), `RemoteEngine.svelte` = Settings › เครื่องระยะไกล (where the engine is, the hosts with connect/back/edit/log/stop/remove, the add form, the per-host note), `openFolder` raising the picker when the engine is remote | `remoteEngine.test.ts` (10 tests) |
 | packaging, CI | `release.yml` builds `aetox-engine-linux-{amd64,arm64}` (`CGO_ENABLED=0`, static), lists them in the signed `checksums.txt`, attaches them to the release; `ci.yml` cross-builds both on Windows and runs `scripts/remote-smoke.sh` on the Linux job — the runner as its own host: a throwaway key, `authorized_keys`, sshd started, `TestRemoteSmoke` | the CI run |
 
+**Landing, 2026-09-12.** `main` had moved twice under the branch: the Git
+room and chat attachments (`c1c74d79`, merged as `7be94d44` — rename
+detection carried `git_commit.go`/`git_worktree.go`'s hunks to their new
+home), and the studio shelf (`fea7ebd6`, 138 files written against the
+pre-split `desktop.App`). The shelf is engine work — a catalogue on disk,
+ffmpeg probes, a tool for the video agents — so `studio_library.go`,
+`studio_thumbs.go` and `studio_browse.go` moved to `internal/engine` with
+`App`→`Engine`; its two reveals became the usual pair (`StudioAssetPath`/
+`StudioLibraryPath` on the engine, `RevealStudio*` on the screen); the
+folder dialog `AddStudioLibrary` was already the screen's half of
+`AddStudioLibraryAt`. Its `/aetox-shelf/` host became the engine's
+`/shelf/` (`engine.ShelfHandler`, mounted by `rpc.Server` behind the token
+beside `/file/`) and the screen's `rpc.FileProxy` now carries both spaces —
+so a shelf on a host over ssh is browsed and played through the same
+tunnel as the project's files, with no wart to record. Pinned by
+`TestTheScreenProxiesTheShelfOntoTheEngine`.
+
 **Not done, on purpose.** The streamlocal spike (§5 step 4) — the TCP road is
 built and the socket road is an improvement to make on a host that can prove
 it. `Setpgid` for a local Linux child — still no local child on Linux. A

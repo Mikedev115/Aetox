@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Mikedev115/Aetox/internal/assetlib"
 	"github.com/Mikedev115/Aetox/internal/engine"
 )
 
@@ -153,5 +154,51 @@ func TestTheScreenProxiesItsFilePathOntoTheEngine(t *testing.T) {
 	gone.Body.Close()
 	if gone.StatusCode != http.StatusBadGateway {
 		t.Errorf("a dead engine got %d, want 502", gone.StatusCode)
+	}
+}
+
+// The studio's shelf rides the same road as the project's files: served by
+// the engine at ShelfPath behind the token, reached through the screen's
+// /aetox-shelf/. The bundled shelf (Kenney's sounds) is on every engine, so
+// one of its ids is a file that must come back, and a path is not an id.
+func TestTheScreenProxiesTheShelfOntoTheEngine(t *testing.T) {
+	addr, _ := projectWithFile(t)
+	fallthrough404 := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.NotFound(w, r) })
+	fixed := func(network, address, token string) Endpoint {
+		return func() (string, string, string, bool) { return network, address, token, true }
+	}
+	screen := httptest.NewServer(FileProxy(fixed("tcp", addr, testToken), fallthrough404))
+	t.Cleanup(screen.Close)
+
+	builtin, err := assetlib.Builtin(os.Getenv("AETOX_DATA_ROOT"))
+	if err != nil || len(builtin) == 0 || len(builtin[0].Assets) == 0 {
+		t.Fatalf("no bundled shelf: %v", err)
+	}
+	lib, as := builtin[0], builtin[0].Assets[0]
+	resp, err := http.Get(screen.URL + ScreenShelfPrefix + lib.ID + "/" + as.ID + ".ogg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 || resp.Header.Get("Content-Type") != "audio/ogg" {
+		t.Fatalf("shelf through the proxy: %d %q", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+	// Straight at the engine, the token is still the door.
+	bare, err := http.Get("http://" + addr + ShelfPath + lib.ID + "/" + as.ID + ".ogg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bare.Body.Close()
+	if bare.StatusCode != http.StatusUnauthorized {
+		t.Errorf("the shelf answered %d without the token", bare.StatusCode)
+	}
+	// A path where an id should be is nothing.
+	nope, err := http.Get(screen.URL + ScreenShelfPrefix + lib.ID + "/x/y.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nope.Body.Close()
+	if nope.StatusCode != http.StatusNotFound {
+		t.Errorf("a path through the shelf answered %d", nope.StatusCode)
 	}
 }

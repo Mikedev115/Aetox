@@ -24,20 +24,39 @@ import (
 // FilePath is where the engine's listener serves the open project's files.
 const FilePath = "/file/"
 
+// ShelfPath is where it serves the studio's shelf (engine.ShelfHandler).
+const ShelfPath = "/shelf/"
+
 var errNoEngine = errors.New("no engine is running")
 
 // ScreenFilePrefix is the window's own path for them, the one the panes use.
 const ScreenFilePrefix = "/aetox-file/"
 
-// fileHandler is the listener's /file/, token-checked.
-func (s *Server) fileHandler() http.Handler {
-	files := s.files
+// ScreenShelfPrefix is the window's path for the shelf — the one the engine's
+// own thumbnail URLs carry, so the two must agree (engine.studioHostPrefix).
+const ScreenShelfPrefix = "/aetox-shelf/"
+
+// screenPrefixes maps each window path onto the engine's.
+var screenPrefixes = [][2]string{{ScreenFilePrefix, FilePath}, {ScreenShelfPrefix, ShelfPath}}
+
+// enginePath is the engine's path for a window path, "" for neither space.
+func enginePath(p string) string {
+	for _, pair := range screenPrefixes {
+		if strings.HasPrefix(p, pair[0]) {
+			return pair[1] + strings.TrimPrefix(p, pair[0])
+		}
+	}
+	return ""
+}
+
+// guarded is one of the listener's HTTP spaces, token-checked.
+func (s *Server) guarded(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !Authorized(r, s.token) {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		files.ServeHTTP(w, r)
+		h.ServeHTTP(w, r)
 	})
 }
 
@@ -47,10 +66,11 @@ func (s *Server) fileHandler() http.Handler {
 // into nothing. ok is false while no engine is up.
 type Endpoint func() (network, address, token string, ok bool)
 
-// FileProxy is the screen's /aetox-file/: every request under it goes to the
-// engine's /file/ with the token on, and the answer — status, headers, body,
-// a 206 for a Range — comes back as it was. Requests for anything else fall
-// through to next, the way the in-process middleware did.
+// FileProxy is the screen's /aetox-file/ and /aetox-shelf/: every request
+// under them goes to the engine's /file/ or /shelf/ with the token on, and
+// the answer — status, headers, body, a 206 for a Range — comes back as it
+// was. Requests for anything else fall through to next, the way the
+// in-process middleware did.
 func FileProxy(endpoint Endpoint, next http.Handler) http.Handler {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.DialContext = func(ctx context.Context, _, _ string) (net.Conn, error) {
@@ -69,7 +89,7 @@ func FileProxy(endpoint Endpoint, next http.Handler) http.Handler {
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.Out.URL.Scheme = "http"
 			pr.Out.URL.Host = "engine"
-			pr.Out.URL.Path = FilePath + strings.TrimPrefix(pr.In.URL.Path, ScreenFilePrefix)
+			pr.Out.URL.Path = enginePath(pr.In.URL.Path)
 			pr.Out.URL.RawPath = ""
 			pr.Out.Host = "engine"
 			if _, _, token, ok := endpoint(); ok {
@@ -85,7 +105,7 @@ func FileProxy(endpoint Endpoint, next http.Handler) http.Handler {
 		},
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, ScreenFilePrefix) {
+		if enginePath(r.URL.Path) == "" {
 			next.ServeHTTP(w, r)
 			return
 		}

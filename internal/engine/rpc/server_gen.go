@@ -61,6 +61,13 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		}
 		r0, err := e.AddSpaceContextFiles(p0, p1)
 		return r0, err, true
+	case "AddStudioLibraryAt":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.AddStudioLibraryAt(p0)
+		return r0, err, true
 	case "AddWorkspaceFolderAt":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {
@@ -195,6 +202,9 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		return nil, nil, true
 	case "CancelPendingModel":
 		return e.CancelPendingModel(), nil, true
+	case "CancelStudioScan":
+		e.CancelStudioScan()
+		return nil, nil, true
 	case "CancelTurn":
 		e.CancelTurn()
 		return nil, nil, true
@@ -1005,6 +1015,13 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		}
 		r0, err := e.RemoveSpaceContext(p0, p1)
 		return r0, err, true
+	case "RemoveStudioLibrary":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.RemoveStudioLibrary(p0)
+		return r0, err, true
 	case "RemoveWorkspaceFolder":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {
@@ -1018,6 +1035,13 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		return e.RequiresAPIKey(p0), nil, true
+	case "RescanStudioLibrary":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.RescanStudioLibrary(p0)
+		return r0, err, true
 	case "ResendEdited":
 		var p0 string
 		var p1 bool
@@ -1572,6 +1596,50 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		return nil, nil, true
 	case "StopQueuedTasks":
 		return e.StopQueuedTasks(), nil, true
+	case "StudioAssetPath":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.StudioAssetPath(p0)
+		return r0, err, true
+	case "StudioAssets":
+		var p0 engine.StudioAssetQuery
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		return e.StudioAssets(p0), nil, true
+	case "StudioLibraries":
+		return e.StudioLibraries(), nil, true
+	case "StudioLibraryPath":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.StudioLibraryPath(p0)
+		return r0, err, true
+	case "StudioScanning":
+		return e.StudioScanning(), nil, true
+	case "StudioSetHidden":
+		var p0 string
+		var p1 bool
+		if err := decodeParams(params, &p0, &p1); err != nil {
+			return nil, err, true
+		}
+		return nil, e.StudioSetHidden(p0, p1), true
+	case "StudioSetKind":
+		var p0 string
+		var p1 string
+		if err := decodeParams(params, &p0, &p1); err != nil {
+			return nil, err, true
+		}
+		return nil, e.StudioSetKind(p0, p1), true
+	case "StudioThumbs":
+		var p0 []string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		return e.StudioThumbs(p0), nil, true
 	case "SubagentsFolderPath":
 		r0, err := e.SubagentsFolderPath()
 		return r0, err, true

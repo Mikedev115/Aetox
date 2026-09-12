@@ -58,6 +58,12 @@ func (c *Client) AddSpaceContextFiles(name string, picked []string) ([]string, e
 	return out0, err
 }
 
+func (c *Client) AddStudioLibraryAt(dir string) (bool, error) {
+	var out0 bool
+	err := c.call("AddStudioLibraryAt", []any{dir}, &out0)
+	return out0, err
+}
+
 func (c *Client) AddWorkspaceFolderAt(dir string) ([]engine.WorkspaceFolder, error) {
 	var out0 []engine.WorkspaceFolder
 	err := c.call("AddWorkspaceFolderAt", []any{dir}, &out0)
@@ -228,6 +234,12 @@ func (c *Client) CancelPendingModel() engine.ModelInfo {
 		c.failed("CancelPendingModel", err)
 	}
 	return out0
+}
+
+func (c *Client) CancelStudioScan() {
+	if err := c.call("CancelStudioScan", nil, nil); err != nil {
+		c.failed("CancelStudioScan", err)
+	}
 }
 
 func (c *Client) CancelTurn() {
@@ -1427,6 +1439,12 @@ func (c *Client) RemoveSpaceContext(name string, file string) ([]string, error) 
 	return out0, err
 }
 
+func (c *Client) RemoveStudioLibrary(id string) ([]engine.StudioLibraryView, error) {
+	var out0 []engine.StudioLibraryView
+	err := c.call("RemoveStudioLibrary", []any{id}, &out0)
+	return out0, err
+}
+
 func (c *Client) RemoveWorkspaceFolder(path string) ([]engine.WorkspaceFolder, error) {
 	var out0 []engine.WorkspaceFolder
 	err := c.call("RemoveWorkspaceFolder", []any{path}, &out0)
@@ -1439,6 +1457,12 @@ func (c *Client) RequiresAPIKey(providerName string) bool {
 		c.failed("RequiresAPIKey", err)
 	}
 	return out0
+}
+
+func (c *Client) RescanStudioLibrary(id string) (bool, error) {
+	var out0 bool
+	err := c.call("RescanStudioLibrary", []any{id}, &out0)
+	return out0, err
 }
 
 func (c *Client) ResendEdited(text string, revertFiles bool) (engine.TurnReply, error) {
@@ -2026,6 +2050,58 @@ func (c *Client) StopQueuedTasks() int {
 	var out0 int
 	if err := c.call("StopQueuedTasks", nil, &out0); err != nil {
 		c.failed("StopQueuedTasks", err)
+	}
+	return out0
+}
+
+func (c *Client) StudioAssetPath(id string) (string, error) {
+	var out0 string
+	err := c.call("StudioAssetPath", []any{id}, &out0)
+	return out0, err
+}
+
+func (c *Client) StudioAssets(q engine.StudioAssetQuery) engine.StudioAssetPage {
+	var out0 engine.StudioAssetPage
+	if err := c.call("StudioAssets", []any{q}, &out0); err != nil {
+		c.failed("StudioAssets", err)
+	}
+	return out0
+}
+
+func (c *Client) StudioLibraries() []engine.StudioLibraryView {
+	var out0 []engine.StudioLibraryView
+	if err := c.call("StudioLibraries", nil, &out0); err != nil {
+		c.failed("StudioLibraries", err)
+	}
+	return out0
+}
+
+func (c *Client) StudioLibraryPath(id string) (string, error) {
+	var out0 string
+	err := c.call("StudioLibraryPath", []any{id}, &out0)
+	return out0, err
+}
+
+func (c *Client) StudioScanning() bool {
+	var out0 bool
+	if err := c.call("StudioScanning", nil, &out0); err != nil {
+		c.failed("StudioScanning", err)
+	}
+	return out0
+}
+
+func (c *Client) StudioSetHidden(id string, hidden bool) error {
+	return c.call("StudioSetHidden", []any{id, hidden}, nil)
+}
+
+func (c *Client) StudioSetKind(id string, kind string) error {
+	return c.call("StudioSetKind", []any{id, kind}, nil)
+}
+
+func (c *Client) StudioThumbs(ids []string) map[string]string {
+	var out0 map[string]string
+	if err := c.call("StudioThumbs", []any{ids}, &out0); err != nil {
+		c.failed("StudioThumbs", err)
 	}
 	return out0
 }

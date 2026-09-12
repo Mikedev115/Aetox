@@ -45,6 +45,10 @@ func (a *App) AddSpaceContextFiles(name string, picked []string) ([]string, erro
 	return a.api.AddSpaceContextFiles(name, picked)
 }
 
+func (a *App) AddStudioLibraryAt(dir string) (bool, error) {
+	return a.api.AddStudioLibraryAt(dir)
+}
+
 func (a *App) AddWorkspaceFolderAt(dir string) ([]engine.WorkspaceFolder, error) {
 	return a.api.AddWorkspaceFolderAt(dir)
 }
@@ -147,6 +151,10 @@ func (a *App) CancelMCPSignIn(serverName string) {
 
 func (a *App) CancelPendingModel() engine.ModelInfo {
 	return a.api.CancelPendingModel()
+}
+
+func (a *App) CancelStudioScan() {
+	a.api.CancelStudioScan()
 }
 
 func (a *App) CancelTurn() {
@@ -841,12 +849,20 @@ func (a *App) RemoveSpaceContext(name string, file string) ([]string, error) {
 	return a.api.RemoveSpaceContext(name, file)
 }
 
+func (a *App) RemoveStudioLibrary(id string) ([]engine.StudioLibraryView, error) {
+	return a.api.RemoveStudioLibrary(id)
+}
+
 func (a *App) RemoveWorkspaceFolder(path string) ([]engine.WorkspaceFolder, error) {
 	return a.api.RemoveWorkspaceFolder(path)
 }
 
 func (a *App) RequiresAPIKey(providerName string) bool {
 	return a.api.RequiresAPIKey(providerName)
+}
+
+func (a *App) RescanStudioLibrary(id string) (bool, error) {
+	return a.api.RescanStudioLibrary(id)
 }
 
 func (a *App) ResendEdited(text string, revertFiles bool) (engine.TurnReply, error) {
@@ -1227,6 +1243,38 @@ func (a *App) StopPlanRun(sessionID string) {
 
 func (a *App) StopQueuedTasks() int {
 	return a.api.StopQueuedTasks()
+}
+
+func (a *App) StudioAssetPath(id string) (string, error) {
+	return a.api.StudioAssetPath(id)
+}
+
+func (a *App) StudioAssets(q engine.StudioAssetQuery) engine.StudioAssetPage {
+	return a.api.StudioAssets(q)
+}
+
+func (a *App) StudioLibraries() []engine.StudioLibraryView {
+	return a.api.StudioLibraries()
+}
+
+func (a *App) StudioLibraryPath(id string) (string, error) {
+	return a.api.StudioLibraryPath(id)
+}
+
+func (a *App) StudioScanning() bool {
+	return a.api.StudioScanning()
+}
+
+func (a *App) StudioSetHidden(id string, hidden bool) error {
+	return a.api.StudioSetHidden(id, hidden)
+}
+
+func (a *App) StudioSetKind(id string, kind string) error {
+	return a.api.StudioSetKind(id, kind)
+}
+
+func (a *App) StudioThumbs(ids []string) map[string]string {
+	return a.api.StudioThumbs(ids)
 }
 
 func (a *App) SubagentsFolderPath() (string, error) {

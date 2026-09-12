@@ -271,6 +271,12 @@ type Engine struct {
 	// (capabilities.go). Its own lock, because one mutex covering two unrelated
 	// things is how an unrelated caller ends up waiting on a 150MB download.
 	capabilities capabilityInstall
+
+	// studio guards the one shelf scan allowed in flight (studio_library.go),
+	// for the reason capabilities has its own lock.
+	studio studioScan
+	// thumbs is the shelf's poster render queue (studio_thumbs.go).
+	thumbs studioThumbs
 }
 
 // ChangedFile is one working-tree change reported by `git status`.
@@ -4343,6 +4349,10 @@ func (a *Engine) sessionSkills(conv *conversation, sandboxRoot string) []skill.S
 		// `tools:` line of the agent that makes videos — the same way doc_write
 		// reaches the document writer and nobody else.
 		&videoToolSkill{app: a},
+		// The studio's shelf of raw material, one tool with three actions
+		// (studio_library.go). Deliverables too, and for the same reason: it
+		// reaches the two video agents and no desk.
+		&assetFindSkill{app: a},
 		// One tool for the desk, three actions inside it (workbench_desk.go).
 		// The terminal is deliberately NOT one of them: the desk pack is the
 		// surface, and a terminal is a thing that lives on it with a back and
