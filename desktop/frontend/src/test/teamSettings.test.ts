@@ -44,7 +44,7 @@ describe('Settings › ทีมเอเจน', () => {
     const { container } = render(TeamSettings)
 
     await waitFor(() => expect(rail(container).length).toBe(2))
-    expect(rail(container)[0].textContent).toContain('ทีมผู้ช่วย')
+    expect(rail(container)[0].textContent).toContain('ทีมเอเจน')
     // The tally lands a tick after the rail: it is read off the switches.
     await waitFor(() => expect(rail(container)[0].textContent).toContain('1/1'))
     expect(rail(container)[1].textContent).toContain('ทีมโค้ด')
@@ -52,8 +52,9 @@ describe('Settings › ทีมเอเจน', () => {
     expect(rail(container)[0].classList.contains('selected')).toBe(true)
     // The pane: the shipped team, its desk, its note, its member with the
     // member's own switch — and no gear, because it cannot be edited.
-    expect(pane(container).querySelector('.mset-name')?.textContent).toBe('ทีมผู้ช่วย')
+    expect(pane(container).querySelector('.mset-name')?.textContent).toBe('ทีมเอเจน')
     expect(pane(container).textContent).toContain('มากับแอป')
+    expect(pane(container).querySelector('.desk-badge.side-assistant')?.textContent).toContain('ฝั่งผู้ช่วย')
     expect(pane(container).textContent).toContain('แก้สมาชิกไม่ได้')
     await waitFor(() => expect(pane(container).querySelectorAll('.team-member').length).toBe(1))
     expect((pane(container).querySelector('.team-member .mswitch input') as HTMLInputElement).checked).toBe(true)
@@ -66,7 +67,11 @@ describe('Settings › ทีมเอเจน', () => {
 
     await waitFor(() => expect(container.querySelector('.team-callout')).toBeTruthy())
     expect(container.querySelector('.team-title .team-new')).toBeTruthy()
-    expect(container.querySelector('.mset-side .team-add')).toBeTruthy()
+    // One door per side, so the code side reads as a place a team can be
+    // made even while it is empty (owner: 'แยกชัดๆ อันไหนฝั่งผู้ช่วย อันไหนฝั่งโค้ด').
+    expect(container.querySelectorAll('.mset-side .team-add').length).toBe(2)
+    expect(container.querySelector('.mset-side .team-side.side-code')).toBeTruthy()
+    expect(container.querySelector('.mset-side .team-side-empty')).toBeTruthy()
     expect(screen.getByText(/อยากได้ทีมของคุณเอง/)).toBeTruthy()
 
     vi.mocked(ListTeams).mockImplementation(async () => [defaultTeam(), team()] as any)
@@ -81,7 +86,7 @@ describe('Settings › ทีมเอเจน', () => {
     await waitFor(() => expect(rail(container).length).toBe(2))
     await fireEvent.click(rail(container)[1])
     await waitFor(() => expect(pane(container).querySelector('.mset-name')?.textContent).toBe('ทีมโค้ด'))
-    expect(pane(container).textContent).toContain('โค้ด')
+    expect(pane(container).querySelector('.desk-badge.side-code')?.textContent).toContain('ฝั่งโค้ด')
     expect(pane(container).textContent).toContain('แก้โค้ด')
     expect(pane(container).querySelector('.team-member')?.textContent).toContain('fixer')
     // fixer is off on ทีมโค้ด: its row cools and its switch is unticked.

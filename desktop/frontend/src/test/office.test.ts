@@ -175,7 +175,7 @@ describe('the roster and teams', () => {
 
     await waitFor(() => expect(container.querySelectorAll('.chair-card.agc').length).toBe(2))
     const cards = Array.from(container.querySelectorAll('.chair-card.agc'))
-    expect(cards[0].querySelector('.chair-stat.teams')?.textContent).toContain('ทีมผู้ช่วย · ทีมโค้ด')
+    expect(cards[0].querySelector('.chair-stat.teams')?.textContent).toContain('ทีมเอเจน · ทีมโค้ด')
     expect(cards[1].querySelector('.chair-stat.teams')?.textContent).toContain('ทีมโค้ด')
     expect(container.querySelector('.mswitch')).toBeNull()
     expect(container.querySelector('.team-sec')).toBeNull()

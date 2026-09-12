@@ -3052,7 +3052,13 @@
     agentDraftHue = ''
     agentKeptDesk = ''
     agentKeptNeeds = []
-    agentDraftPrompt = t('settings.agentStarter')
+    // Empty, with the guidance as a PLACEHOLDER. Until 13 ก.ย. the guidance was
+    // the field's VALUE, and the Save button accepted it — so an agent made in
+    // a hurry shipped with "มันไม่เห็นประวัติแชท คืนแค่ผลลัพธ์" as its whole
+    // brief, and then behaved exactly like that in a chat someone had walked
+    // into to talk (the report that started §256). A placeholder cannot be
+    // saved; the guard on Save (an empty role) does the rest.
+    agentDraftPrompt = ''
     agentBodyOpen = true // a new agent is opened to be written in, not read
     agentTab = 'identity'
     agentError = ''
@@ -5031,6 +5037,7 @@
             <div class="ag-bodywrap" class:collapsed={agentBodyLong && !agentBodyOpen}>
               <textarea
                 class="ctrl ag-body" bind:value={agentDraftPrompt} spellcheck="false"
+                placeholder={t('settings.agentStarter')}
                 use:autogrow={agentDraftPrompt}
                 onfocus={() => (agentBodyOpen = true)}
               ></textarea>
