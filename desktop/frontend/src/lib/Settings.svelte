@@ -14,13 +14,16 @@
   import ProviderMark from './ProviderMark.svelte'
   import McpMark from './McpMark.svelte'
   import ProviderAccount from './ProviderAccount.svelte'
-  import AgentFace from './AgentFace.svelte'
+  import AgentMascot from './mascot/AgentMascot.svelte'
   import AvatarSettings from './mascot/AvatarSettings.svelte'
   import { avatarText } from './mascot/avatarText'
-  // The wardrobe itself, so the pickers below offer exactly what the drawing
-  // can draw. Anything hand-listed here instead would be a second catalogue to
-  // keep in step, which is the bug this page just had.
-  import { HAIR, ACCESSORY_CHOICES, PROP_ICONS, HUES, faceOf } from './agentFace'
+  // The mascot's own catalogues, so the pickers below offer exactly what the
+  // drawing can draw. Anything hand-listed here instead would be a second
+  // catalogue to keep in step, which is the bug this page once had.
+  import { lookOf, AGENT_BADGES } from './mascot/agentLook'
+  import { SHELL, ACCENT } from './mascot/palette'
+  import { FACE, TOP } from './mascot/parts'
+  import { personas } from './mascot/avatarPrefs.svelte'
   import Icon from './Icon.svelte'
   import { coverHue } from './coverHue'
   import { armFirstRunReplay } from './firstRun'
@@ -1321,7 +1324,7 @@
     NAV.find((n) => n.id === id)?.icon ?? (id === 'specialized' ? 'bot' : 'layoutList')
   // The whole face an agent wears, looked up once and spread into AgentFace, so
   // a surface that draws somebody cannot draw two thirds of them.
-  const agentFaceOf = (name: string) => faceOf(subagents.find((x) => x.name === name))
+  const agentFaceOf = (name: string) => lookOf(subagents.find((x) => x.name === name))
 
   const mcpNeededIds = (s: MCPRow): string[] =>
     agentsNeeding(s.name)
@@ -2439,12 +2442,12 @@
     name: string; description: string; model?: string
     tools?: string[]; deny?: string[]; steps?: number; prompt: string
     path?: string; builtin: boolean; overrides?: boolean; invalid?: string; notice?: string; icon?: string
-    // The two parts of the face a profile may name for itself. Blank on almost
-    // every row and blank is the answer: the drawing derives them from the name
-    // (agentFace.ts). Carried so that a page which SHOWS an agent shows the one
-    // its owner chose — an override that only the settings editor honoured
-    // would be one person with two faces.
-    hair?: string; accessory?: string; hue?: string
+    // The look a profile may name for itself (profile.go). Blank on almost
+    // every row and blank is the answer: the drawing derives it from the name
+    // (agentLook.ts). Carried so that a page which SHOWS an agent shows the
+    // one its owner chose — an override that only the settings editor
+    // honoured would be one robot with two looks.
+    shell?: string; top?: string; face?: string; accent?: string; hue?: string
     // Already resolved by the backend (applyHomeRules fills the default), which
     // is why the editor shows this rather than the raw `desk:` it keeps: the
     // default is a constant in internal/mode and spelling it again here is how
@@ -2509,26 +2512,32 @@
   let agentDraftDeny = $state<string[]>([])
   let agentDraftSteps = $state('')
   let agentDraftIcon = $state('')
-  // The other two thirds of the face. Same rule as the icon and the same
-  // default: '' means "derive it from the name", which is what every profile
-  // nobody has opened says, and what the roster has always drawn.
-  let agentDraftHair = $state('')
-  let agentDraftAccessory = $state('')
-  // Kept as the string the file carries rather than a number, so what the
-  // editor holds is what the .md says — including a value somebody hand-wrote
-  // that this build does not offer. faceOf() is the one place it becomes a
-  // colour, and it refuses anything that is not 0..360.
+  // The rest of the look — the mascot's identity dials (MASCOT.md §2). Same
+  // rule as the icon and the same default: '' means "derive it", which is
+  // what every profile nobody has opened says, and what the roster has always
+  // drawn: the assistant's template in the hue the name gives.
+  let agentDraftShell = $state('')
+  let agentDraftTop = $state('')
+  let agentDraftFace = $state('')
+  // The colour is one dial with two spellings in the file: `accent:` names an
+  // ACCENT row (a hue and how much of it — the same list the avatar page
+  // offers, which is what lets a persona be handed over whole), and the older
+  // `hue:` is a degree at full colour. The picker writes `accent:` and clears
+  // `hue:`; a file that carries a degree keeps it until a colour is picked.
+  // Both are kept as the string the file carries rather than parsed, so what
+  // the editor holds is what the .md says — including a value somebody
+  // hand-wrote that this build does not offer. lookOf() is the one place a
+  // hue becomes a number, and it refuses anything that is not 0..360.
+  let agentDraftAccent = $state('')
   let agentDraftHue = $state('')
   // What the STARTER CARD picker offers — a hand-picked subset of the app's
   // marks, not all of them: forty icons is a wall to scan and most of them mean
   // nothing on a card. Adding one is adding a name here.
   //
   // This list used to serve the agent's own icon too, and that was the bug: a
-  // card's icon is drawn as itself, an agent's is drawn as something the face
-  // HOLDS, and only the second one has to exist in the wardrobe. Eleven of
-  // these fifteen did not, so picking one changed nothing on the roster and the
-  // page said so nowhere. The face picker reads PROP_ICONS now, off the map
-  // that does the drawing.
+  // card's icon is drawn as itself, an agent's is drawn on the mascot's ears,
+  // and the two rows answer different questions. The badge row reads
+  // AGENT_BADGES (agentLook.ts), every one of which the ear can wear.
   const AGENT_ICONS: IconName[] = [
     'layoutList', 'fileText', 'chartColumn', 'fileCode', 'terminal', 'globe',
     'search', 'brain', 'palette', 'clapperboard', 'headphones', 'package',
@@ -2541,18 +2550,43 @@
   // you type, which is the truest thing this page can say about where a face
   // comes from.
   const facePreviewName = $derived(agentDraftName.trim() || 'backend')
-  const faceIsAuto = $derived(!agentDraftIcon && !agentDraftHair && !agentDraftAccessory && !agentDraftHue)
+  const faceIsAuto = $derived(!agentDraftIcon && !agentDraftShell && !agentDraftTop && !agentDraftFace && !agentDraftAccent && !agentDraftHue)
   // The draft as one object, so the preview and every cell of every row below
   // are fed by the same call the roster is fed by. A row that built its own
-  // overrides would be a second reading of the same four fields.
-  const draftFace = $derived(faceOf({
-    icon: agentDraftIcon, hair: agentDraftHair, accessory: agentDraftAccessory, hue: agentDraftHue,
+  // overrides would be a second reading of the same six fields.
+  const draftFace = $derived(lookOf({
+    icon: agentDraftIcon, shell: agentDraftShell, top: agentDraftTop, face: agentDraftFace, accent: agentDraftAccent, hue: agentDraftHue,
   }))
   const resetFace = () => {
     agentDraftIcon = ''
-    agentDraftHair = ''
-    agentDraftAccessory = ''
+    agentDraftShell = ''
+    agentDraftTop = ''
+    agentDraftFace = ''
+    agentDraftAccent = ''
     agentDraftHue = ''
+  }
+  // A colour picked here is an accent; the degree the file may still carry
+  // would otherwise win over it (rig.ts: a hue is full colour, and first).
+  const pickAccent = (id: string) => {
+    agentDraftAccent = id
+    agentDraftHue = ''
+  }
+  // Wear a persona the user saved on the avatar page — this is what the slots
+  // are for (avatarPrefs.svelte.ts): an agent designed here can put on a look
+  // designed there, all four dials at once. The badge stays the agent's own;
+  // a persona is a look, not an identity.
+  const saved = $derived(personas.slots.flatMap((p, i) => (p ? [{ p, i }] : [])))
+  const wearPersona = (i: number) => {
+    const p = personas.slots[i]
+    if (!p) return
+    agentDraftShell = p.shell
+    agentDraftTop = p.top
+    agentDraftFace = p.face
+    pickAccent(p.accent)
+  }
+  const wearsPersona = (i: number) => {
+    const p = personas.slots[i]
+    return !!p && p.shell === agentDraftShell && p.top === agentDraftTop && p.face === agentDraftFace && p.accent === agentDraftAccent && !agentDraftHue
   }
 
   let showFaceContexts = $state(false)
@@ -2930,7 +2964,7 @@
   const agentDraftKey = () => JSON.stringify([
     agentDraftName, agentDraftDescription, agentDraftModel,
     agentDraftTools, agentDraftDeny, agentDraftSteps, agentDraftPrompt,
-    agentDraftIcon, agentDraftHair, agentDraftAccessory, agentDraftHue,
+    agentDraftIcon, agentDraftShell, agentDraftTop, agentDraftFace, agentDraftAccent, agentDraftHue,
   ])
   let agentSnapshot = ''
 
@@ -2955,8 +2989,10 @@
     // new one does not disable the field under the user's cursor.
     agentDraftSteps = parsed.steps.trim() || STEPS_UNLIMITED
     agentDraftIcon = parsed.icon
-    agentDraftHair = parsed.hair
-    agentDraftAccessory = parsed.accessory
+    agentDraftShell = parsed.shell
+    agentDraftTop = parsed.top
+    agentDraftFace = parsed.face
+    agentDraftAccent = parsed.accent
     agentDraftHue = parsed.hue
     agentKeptDesk = parsed.desk
     agentKeptNeeds = parsed.needs
@@ -2985,8 +3021,10 @@
     agentDraftDeny = []
     agentDraftSteps = STEPS_UNLIMITED // a new worker starts uncapped, like every shipped one
     agentDraftIcon = ''
-    agentDraftHair = ''
-    agentDraftAccessory = ''
+    agentDraftShell = ''
+    agentDraftTop = ''
+    agentDraftFace = ''
+    agentDraftAccent = ''
     agentDraftHue = ''
     agentKeptDesk = ''
     agentKeptNeeds = []
@@ -3011,8 +3049,10 @@
       deny: agentDraftDeny,
       steps: agentDraftSteps,
       icon: agentDraftIcon,
-      hair: agentDraftHair,
-      accessory: agentDraftAccessory,
+      shell: agentDraftShell,
+      top: agentDraftTop,
+      face: agentDraftFace,
+      accent: agentDraftAccent,
       hue: agentDraftHue,
       desk: agentKeptDesk,
       needs: agentKeptNeeds,
@@ -3074,7 +3114,7 @@
   // office ceiling. An editor must not delete what it does not draw.
   type AgentFields = {
     description: string; model: string; tools: string[]; deny: string[]; steps: string; icon: string
-    hair: string; accessory: string; hue: string; desk: string; needs: string[]; body: string
+    shell: string; top: string; face: string; accent: string; hue: string; desk: string; needs: string[]; body: string
   }
 
   // Mirrors internal/subagent/profile.go's parse(): a leading `---`-fenced block
@@ -3087,7 +3127,7 @@
   function parseAgentFile(raw: string): AgentFields {
     const asPromptOnly = {
       description: '', model: '', tools: [] as string[], deny: [] as string[],
-      steps: '', icon: '', hair: '', accessory: '', hue: '', desk: '',
+      steps: '', icon: '', shell: '', top: '', face: '', accent: '', hue: '', desk: '',
       needs: [] as string[], body: raw.trim(),
     }
     const normalized = raw.replace(/\r\n/g, '\n').replace(/^\n+/, '')
@@ -3111,11 +3151,16 @@
       deny: list(fields.deny),
       steps: (fields.steps ?? '').trim(),
       icon: (fields.icon ?? '').trim(),
-      // Not lowercased: these name a part in the wardrobe by its id, and the
-      // ids are camelCase ('sidePart'). Lowercasing here would turn a face
-      // somebody chose into the derived one, silently, on the way in.
-      hair: (fields.hair ?? '').trim(),
-      accessory: (fields.accessory ?? '').trim(),
+      // Not lowercased: these name a row in a catalogue by its id, and some
+      // ids are camelCase ('laptopTerm'). Lowercasing here would turn a look
+      // somebody chose into the default one, silently, on the way in.
+      // `hair:` and `accessory:` are not read: they were the cartoon face's
+      // (gone 12 ก.ย. 2026), nothing draws them, and a line the editor does
+      // not draw is dropped on the next save — that is the migration.
+      shell: (fields.shell ?? '').trim(),
+      top: (fields.top ?? '').trim(),
+      face: (fields.face ?? '').trim(),
+      accent: (fields.accent ?? '').trim(),
       hue: (fields.hue ?? '').trim(),
       desk: (fields.desk ?? '').trim().toLowerCase(),
       // Not lowercased and not split on anything but the comma: an entry may
@@ -3146,11 +3191,13 @@
     // one: an absent field means the roster derives it from what the agent
     // makes, which is the right answer for every profile nobody has opened.
     if (f.icon.trim()) lines.push(`icon: ${f.icon.trim()}`)
-    // The same rule for the rest of the face: written only when chosen, absent
+    // The same rule for the rest of the look: written only when chosen, absent
     // when derived. A file full of lines restating the default is a file whose
     // defaults can never change again.
-    if (f.hair.trim()) lines.push(`hair: ${f.hair.trim()}`)
-    if (f.accessory.trim()) lines.push(`accessory: ${f.accessory.trim()}`)
+    if (f.shell.trim()) lines.push(`shell: ${f.shell.trim()}`)
+    if (f.top.trim()) lines.push(`top: ${f.top.trim()}`)
+    if (f.face.trim()) lines.push(`face: ${f.face.trim()}`)
+    if (f.accent.trim()) lines.push(`accent: ${f.accent.trim()}`)
     if (f.hue.trim()) lines.push(`hue: ${f.hue.trim()}`)
     // The keyword, not a number. Leaving the line out would mean the same thing
     // today (the default is no ceiling since §110), but writing it says so in
@@ -4502,7 +4549,7 @@
              this one is headed ซับเอเจน and its rows carry no chat button —
              and that a second visual language for the same kind of thing costs
              more than it explains. -->
-        <AgentFace name={a.name} {...faceOf(a)} size={38} />
+        <AgentMascot name={a.name} {...lookOf(a)} size={38} />
         <span class="chair-name" title={a.path || 'built-in:' + a.name}>{a.name}</span>
         {#if delegate}
           {@const w = reachOf(a.name)}
@@ -4568,9 +4615,9 @@
              (§85). The ซับเอเจน page one snippet up keeps the glyph mark on
              purpose: a helper is the assistant's own hands, and a face would
              invite the question of how to hire one. -->
-        <AgentFace
+        <AgentMascot
           name={a.name}
-          {...faceOf(a)}
+          {...lookOf(a)}
           size={38}
           off={!!reachOf(a.name) && !(reachOf(a.name)!.on && !reachOf(a.name)!.off)}
         />
@@ -4897,11 +4944,9 @@
                before this section existed.
                What was here was one row of the app's line marks and no picture of
                the outcome anywhere on the page — so the thing you picked (a
-               glyph) was not the thing you got (a person holding something), and
-               eleven of the fifteen marks on offer drew nothing at all while
-               three that shipped agents wear could not be picked (agentFace.ts,
-               the note above PROP). The preview is the fix for the first half,
-               PROP_ICONS for the second. -->
+               glyph) was not the thing you got. The preview is the fix: the
+               mascot at a size where every dial below can be seen changing it,
+               and under it the same robot at the three sizes the app draws. -->
           <div class="pp-field">
             <div class="ag-face-header">
               <span class="eyebrow">{t('settings.agentFace')}</span>
@@ -4917,7 +4962,7 @@
               </button>
             </div>
             <div class="ag-face">
-              <AgentFace name={facePreviewName} {...draftFace} size={76} />
+              <AgentMascot name={facePreviewName} {...draftFace} size={96} still={false} />
               <div class="ag-face-say">
                 <span class="d muted">{faceIsAuto ? t('settings.agentFaceAutoHint') : t('settings.agentFaceHint')}</span>
                 {#if !faceIsAuto}
@@ -4943,7 +4988,7 @@
                       <span>{t('settings.agentFaceContextOffice')}</span>
                     </div>
                     <div class="ag-context-sample">
-                      <AgentFace name={facePreviewName} {...draftFace} size={38} off={previewFaceOff} />
+                      <AgentMascot name={facePreviewName} {...draftFace} size={38} off={previewFaceOff} />
                       <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
                         <span style="font-weight:600; font-size:var(--fs-sm); color:var(--text-primary);">{facePreviewName}</span>
                         <span class="d muted" style="font-size:var(--fs-2xs);">{previewFaceOff ? t('settings.agentFaceStateOff') : t('settings.agentFaceStateIdle')}</span>
@@ -4976,7 +5021,7 @@
                       <span>{t('settings.agentFaceContextChat')}</span>
                     </div>
                     <div class="ag-context-sample">
-                      <AgentFace
+                      <AgentMascot
                         name={facePreviewName}
                         {...draftFace}
                         size={34}
@@ -5027,7 +5072,7 @@
                     </div>
                     <div class="ag-context-sample" style="align-items:center;">
                       <div class="ag-context-chip-composer">
-                        <AgentFace name={facePreviewName} {...draftFace} size={20} />
+                        <AgentMascot name={facePreviewName} {...draftFace} size={20} />
                         <span>@{facePreviewName}</span>
                       </div>
                     </div>
@@ -5038,84 +5083,136 @@
             {/if}
           </div>
 
-          <!-- What it is holding. Still glyphs rather than faces: sixteen heads
-               differing by one small object is a wall of near-identical tiles,
-               and the mark itself is what the eye can tell apart at this size.
-               The preview above is where the outcome is read. -->
+          <!-- The badge on the ears. Glyphs rather than robots: forty heads
+               differing by one small mark on the ear is a wall of near-identical
+               tiles, and the mark itself is what the eye can tell apart at this
+               size. The preview above is where the outcome is read. Every glyph
+               here is one the app's buttons already wear (ICONS), which is the
+               point of putting it on an ear: a person who sees `search` there
+               has seen it on the tool that does it. -->
           <div class="pp-field">
-            <span class="eyebrow">{t('settings.agentProp')}</span>
+            <span class="eyebrow">{t('settings.agentBadge')}</span>
             <div class="ag-icons">
               <button type="button" class="ag-icon" class:on={agentDraftIcon === ''}
                 title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
                 onclick={() => (agentDraftIcon = '')}>
                 <Icon name="sparkles" size={16} />
               </button>
-              {#each PROP_ICONS as name (name)}
+              {#each AGENT_BADGES as name (name)}
                 <button type="button" class="ag-icon" class:on={agentDraftIcon === name}
                   title={name} aria-label={name} onclick={() => (agentDraftIcon = name)}>
-                  <Icon name={name as IconName} size={16} />
+                  <Icon name={name} size={16} />
                 </button>
               {/each}
             </div>
             <span class="d muted">{agentDraftIcon === '' ? t('settings.agentIconAutoHint') : agentDraftIcon}</span>
           </div>
 
-          <!-- Hair and glasses ARE drawn as faces, and for the opposite reason to
-               the row above: the difference between two haircuts is the head
-               itself, so a swatch of the part alone would be a shape nobody
-               recognises. Each button is the whole outcome, holding whatever was
-               picked above, so no cell on this row is a guess. -->
+          <!-- Wear a look the user already designed. The avatar page keeps
+               six of them for exactly this: an agent made here can put on a
+               persona saved there, all four dials in one press (owner, 12 ก.ย.:
+               "บุคลิก 1 - 2 - 3"). Only the slots with something in them are
+               offered; an empty page says where to fill one. -->
           <div class="pp-field">
-            <span class="eyebrow">{t('settings.agentHair')}</span>
-            <div class="ag-parts">
-              <button type="button" class="ag-part" class:on={agentDraftHair === ''}
-                title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
-                onclick={() => (agentDraftHair = '')}>
-                <AgentFace name={facePreviewName} {...draftFace} hair={undefined} size={40} />
-              </button>
-              {#each HAIR as h (h.id)}
-                <button type="button" class="ag-part" class:on={agentDraftHair === h.id}
-                  title={h.label} aria-label={h.label} onclick={() => (agentDraftHair = h.id)}>
-                  <AgentFace name={facePreviewName} {...draftFace} hair={h.id} size={40} />
-                </button>
-              {/each}
-            </div>
+            <span class="eyebrow">{t('settings.agentPersonas')}</span>
+            {#if saved.length === 0}
+              <span class="d muted">{t('settings.agentPersonasNone')}</span>
+            {:else}
+              <div class="ag-parts">
+                {#each saved as { p, i } (i)}
+                  <button type="button" class="ag-part ag-persona" class:on={wearsPersona(i)}
+                    title={t('settings.agentPersonaUse', { n: i + 1 })} aria-label={t('settings.agentPersonaUse', { n: i + 1 })}
+                    onclick={() => wearPersona(i)}>
+                    <AgentMascot name={facePreviewName} icon={agentDraftIcon || undefined} shell={p.shell} top={p.top} face={p.face} accent={p.accent} size={44} />
+                    <span class="ag-persona-n">{i + 1}</span>
+                  </button>
+                {/each}
+              </div>
+            {/if}
           </div>
 
+          <!-- The four identity dials ARE drawn as robots, and for the opposite
+               reason to the badge row: the difference between two shells is the
+               whole body, so a swatch of the part alone would be a shape nobody
+               recognises. Each cell is the whole outcome, wearing whatever was
+               picked in the other rows, so no cell here is a guess — and every
+               cell is still: twenty of these breathing together is a page that
+               stutters (MASCOT.md §3.7). -->
           <div class="pp-field">
-            <span class="eyebrow">{t('settings.agentAccessory')}</span>
+            <span class="eyebrow">{t('settings.agentShell')}</span>
             <div class="ag-parts">
-              <button type="button" class="ag-part" class:on={agentDraftAccessory === ''}
+              <button type="button" class="ag-part" class:on={agentDraftShell === ''}
                 title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
-                onclick={() => (agentDraftAccessory = '')}>
-                <AgentFace name={facePreviewName} {...draftFace} accessory={undefined} size={40} />
+                onclick={() => (agentDraftShell = '')}>
+                <AgentMascot name={facePreviewName} {...draftFace} shell={undefined} size={44} />
               </button>
-              {#each ACCESSORY_CHOICES as a (a.id)}
-                <button type="button" class="ag-part" class:on={agentDraftAccessory === a.id}
-                  title={a.label} aria-label={a.label} onclick={() => (agentDraftAccessory = a.id)}>
-                  <AgentFace name={facePreviewName} {...draftFace} accessory={a.id} size={40} />
+              {#each SHELL as sh (sh.id)}
+                <button type="button" class="ag-part" class:on={agentDraftShell === sh.id}
+                  title={sh.label} aria-label={sh.label} onclick={() => (agentDraftShell = sh.id)}>
+                  <AgentMascot name={facePreviewName} {...draftFace} shell={sh.id} size={44} />
                 </button>
               {/each}
             </div>
           </div>
 
           <!-- Colour, and the one row where the cell could have been a plain
-               swatch. It is a face for the same reason the two above are: the hue
-               moves the skin, the shirt, the hair and what is held, all at once
-               and by different amounts, so a square of one colour would be a
-               promise about three quarters of what changes. -->
+               swatch. It is a robot for the same reason the rows around it are:
+               the accent moves the cap, the ears, the soles and the light on the
+               screen, all at once, and a square of one colour would be a promise
+               about a quarter of what changes. The first cell is the colour the
+               name gives — every agent's, before anyone chose. -->
           <div class="pp-field">
-            <span class="eyebrow">{t('settings.agentHue')}</span>
+            <span class="eyebrow">{t('settings.agentAccent')}</span>
             <div class="ag-parts">
-              <button type="button" class="ag-part" class:on={agentDraftHue === ''}
+              <button type="button" class="ag-part" class:on={agentDraftAccent === '' && agentDraftHue === ''}
                 title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
-                onclick={() => (agentDraftHue = '')}>
-                <AgentFace name={facePreviewName} {...draftFace} hue={undefined} size={40} />
+                onclick={() => { agentDraftAccent = ''; agentDraftHue = '' }}>
+                <AgentMascot name={facePreviewName} {...draftFace} accent={undefined} hue={undefined} size={44} />
               </button>
-              {#each HUES as h (h)}
-                <button type="button" class="ag-part" class:on={agentDraftHue === String(h)}
-                  title={`${h}°`} aria-label={`${h}°`} onclick={() => (agentDraftHue = String(h))}>
-                  <AgentFace name={facePreviewName} {...draftFace} hue={h} size={40} />
+              {#each ACCENT as a (a.id)}
+                <button type="button" class="ag-part" class:on={agentDraftAccent === a.id && agentDraftHue === ''}
+                  title={a.label} aria-label={a.label} onclick={() => pickAccent(a.id)}>
+                  <AgentMascot name={facePreviewName} {...draftFace} accent={a.id} hue={undefined} size={44} />
+                </button>
+              {/each}
+            </div>
+            {#if agentDraftHue}
+              <span class="d muted">{t('settings.agentHueKept', { deg: agentDraftHue })}</span>
+            {/if}
+          </div>
+
+          <div class="pp-field">
+            <span class="eyebrow">{t('settings.agentTop')}</span>
+            <div class="ag-parts">
+              <button type="button" class="ag-part" class:on={agentDraftTop === ''}
+                title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
+                onclick={() => (agentDraftTop = '')}>
+                <AgentMascot name={facePreviewName} {...draftFace} top={undefined} size={44} />
+              </button>
+              {#each TOP as tp (tp.id)}
+                <button type="button" class="ag-part" class:on={agentDraftTop === tp.id}
+                  title={tp.label} aria-label={tp.label} onclick={() => (agentDraftTop = tp.id)}>
+                  <AgentMascot name={facePreviewName} {...draftFace} top={tp.id} size={44} />
+                </button>
+              {/each}
+            </div>
+          </div>
+
+          <!-- The resting face: only the identity rows of FACE. The others are
+               what a pose lights (thinking, happy, the wink) and a roster tile
+               never chooses those — presence does. -->
+          <div class="pp-field">
+            <span class="eyebrow">{t('settings.agentRestFace')}</span>
+            <div class="ag-parts">
+              <button type="button" class="ag-part" class:on={agentDraftFace === ''}
+                title={t('settings.agentIconAuto')} aria-label={t('settings.agentIconAuto')}
+                onclick={() => (agentDraftFace = '')}>
+                <AgentMascot name={facePreviewName} {...draftFace} face={undefined} size={44} />
+              </button>
+              {#each FACE.filter((f) => f.identity) as f (f.id)}
+                <button type="button" class="ag-part" class:on={agentDraftFace === f.id}
+                  title={f.label} aria-label={f.label} onclick={() => (agentDraftFace = f.id)}>
+                  <AgentMascot name={facePreviewName} {...draftFace} face={f.id} size={44} />
                 </button>
               {/each}
             </div>
@@ -7991,7 +8088,7 @@
                             onclick={() => toggleMCPTarget(s, target.id)}
                           >
                             {#if kind === 'agent'}
-                              <AgentFace name={target.name} {...agentFaceOf(target.name)} size={22} off={!isOn} />
+                              <AgentMascot name={target.name} {...agentFaceOf(target.name)} size={22} off={!isOn} />
                             {:else}
                               <span class="mcp-place-ic"><Icon name={deskIcon(target.id)} size={14} /></span>
                             {/if}

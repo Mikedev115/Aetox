@@ -31,6 +31,7 @@
     size = 38,
     off = false,
     hue = undefined,
+    accent = undefined,
     state = '',
     shell = undefined,
     top = undefined,
@@ -42,8 +43,11 @@
     icon?: string
     size?: number
     off?: boolean
-    /** Degrees, or the string the file carries; anything else = from the name. */
+    /** Degrees, or the string the file carries; anything else = from the name
+     *  (or from `accent`). A degree is full colour and wins over `accent`. */
     hue?: number | string
+    /** An ACCENT row id — the colour the file names, or a persona's. */
+    accent?: string
     /** What the card knows: '' | think | work | done | err. */
     state?: FaceState
     shell?: string
@@ -58,4 +62,4 @@
   const frozen = $derived(still ?? !(state === 'think' || state === 'work'))
 </script>
 
-<Mascot {name} role="assistant" {icon} hue={hueOf(hue)} {shell} {top} {face} {pose} {size} {off} still={frozen} />
+<Mascot {name} role="assistant" {icon} hue={hueOf(hue)} {accent} {shell} {top} {face} {pose} {size} {off} still={frozen} />
