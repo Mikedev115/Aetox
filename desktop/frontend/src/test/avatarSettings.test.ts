@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, waitFor, fireEvent } from '@testing-library/svelte'
 import AvatarSettings from '../lib/mascot/AvatarSettings.svelte'
 import Companion from '../lib/mascot/Companion.svelte'
 import { avatarPrefs, setAvatarPrefs, resetAvatarPrefs, assistantOptions, DEFAULT_PREFS, personas, savePersona, usePersona, clearPersona, wornPersona, PERSONA_SLOTS } from '../lib/mascot/avatarPrefs.svelte'
-import { SHELL } from '../lib/mascot/palette'
-import { TOP } from '../lib/mascot/parts'
+import { SHELL, ACCENT } from '../lib/mascot/palette'
+import { TOP, FACE } from '../lib/mascot/parts'
+import { POSE } from '../lib/mascot/poses'
 import { setLocale } from '../lib/i18n.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 
@@ -25,14 +26,14 @@ beforeEach(() => {
 })
 
 describe('avatar preferences', () => {
-  it('start at the sheet\'s robot: white, brand hue, orb, neutral', () => {
+  it('start at the mark\'s own robot: white, ink, orb, neutral', () => {
     expect(avatarPrefs).toMatchObject(DEFAULT_PREFS)
-    expect(assistantOptions()).toEqual({ shell: 'white', top: 'orb', face: 'neutral' })
+    expect(assistantOptions()).toEqual({ shell: 'white', accent: 'ink', top: 'orb', face: 'neutral' })
   })
 
   it('remember a choice and hand it to the companion', async () => {
-    setAvatarPrefs({ shell: 'colour', hue: 150, top: 'chevrons' })
-    expect(JSON.parse(localStorage.getItem('avatarPrefs')!)).toMatchObject({ shell: 'colour', hue: 150, top: 'chevrons' })
+    setAvatarPrefs({ shell: 'colour', accent: 'mint', top: 'chevrons' })
+    expect(JSON.parse(localStorage.getItem('avatarPrefs')!)).toMatchObject({ shell: 'colour', accent: 'mint', top: 'chevrons' })
     const { container } = render(Companion)
     await waitFor(() => expect(container.querySelector('.companion .mascot')).toBeTruthy())
     const svg = container.querySelector('.companion .mascot')!.innerHTML
@@ -45,10 +46,20 @@ describe('avatar preferences', () => {
   // A preference that names a row the catalogue no longer has — or never had —
   // is the default, not an exception in the middle of drawing the assistant.
   it('land unknown or hostile values on the defaults', () => {
-    setAvatarPrefs({ shell: 'chrome', top: '<script>', face: 'happy', hue: Number.NaN })
+    setAvatarPrefs({ shell: 'chrome', top: '<script>', face: 'happy', accent: 'plaid' })
     expect(avatarPrefs).toMatchObject(DEFAULT_PREFS)
-    setAvatarPrefs({ hue: -30 })
-    expect(avatarPrefs.hue).toBe(330)
+  })
+
+  // A store written before the accents had names held the hue in degrees;
+  // it lands on the nearest named colour, and null (the old brand default)
+  // on today's default.
+  it('read a hue stored by the earlier build as the nearest accent', async () => {
+    localStorage.setItem('avatarPrefs', JSON.stringify({ shell: 'colour', hue: 152, top: 'orb', face: 'neutral' }))
+    localStorage.setItem('avatarPersonas', JSON.stringify([{ shell: 'white', hue: null, top: 'bar', face: 'focused' }]))
+    vi.resetModules()
+    const fresh = await import('../lib/mascot/avatarPrefs.svelte')
+    expect(fresh.avatarPrefs).toMatchObject({ shell: 'colour', accent: 'mint' })
+    expect(fresh.personas.slots[0]).toMatchObject({ shell: 'white', accent: 'ink', top: 'bar' })
   })
 })
 
@@ -56,10 +67,11 @@ describe('the avatar page', () => {
   it('offers every shell and top light the catalogue has, and marks the current one', async () => {
     const { container } = render(AvatarSettings)
     await waitFor(() => expect(container.querySelector('h2')?.textContent).toBe('อวตาร'))
-    const parts = container.querySelectorAll('.ag-part')
-    // shells + (brand + 12 hues) + tops + 2 identity faces
-    expect(parts.length).toBe(SHELL.length + 13 + TOP.length + 2)
-    expect(container.querySelectorAll('.ag-part.on').length).toBe(4)
+    const parts = container.querySelectorAll('.cell')
+    // shells + accents + tops + the identity faces — every row the catalogue has
+    expect(parts.length).toBe(SHELL.length + ACCENT.length + TOP.length + FACE.filter((f) => f.identity).length)
+    expect(FACE.filter((f) => f.identity).length).toBeGreaterThanOrEqual(5)
+    expect(container.querySelectorAll('.cell.on').length).toBe(4)
     expect(container.querySelector('.avatar-reset')).toBeNull()
     // every cell is still; only the preview moves — twenty-five breathing
     // together was the page the owner called กระตุก
@@ -70,8 +82,8 @@ describe('the avatar page', () => {
 
   it('writes a click straight into the preferences and shows the reset', async () => {
     const { container } = render(AvatarSettings)
-    await waitFor(() => expect(container.querySelector('.ag-part')).toBeTruthy())
-    const dark = container.querySelector('.ag-part[title="ดำ"]')!
+    await waitFor(() => expect(container.querySelector('.cell')).toBeTruthy())
+    const dark = container.querySelector('.cell[title="ดำ"]')!
     await fireEvent.click(dark)
     expect(avatarPrefs.shell).toBe('dark')
     await waitFor(() => expect(container.querySelector('.reset')).toBeTruthy())
@@ -88,19 +100,26 @@ describe('the avatar page', () => {
     expect(container.querySelector('.stage > .leads')).toBeTruthy()
     expect(container.querySelector('.panel .n')).toBeNull()
     expect(container.querySelector('.avatar-main')?.textContent).toContain('อวตารหลักของ Aetox')
+    // every pose the rig has, under the stage, each with a word in this language
+    const chips = Array.from(container.querySelectorAll('.poses .chip'))
+    expect(chips.length).toBe(Object.keys(POSE).length)
+    for (const c of chips) expect(Object.keys(POSE), c.textContent!).not.toContain(c.textContent!.trim())
+    await fireEvent.click(chips.find((c) => c.textContent!.trim() === 'เดิน')!)
+    await waitFor(() => expect(container.querySelector('.fig-box .mascot')!.classList.contains('pose-walk')).toBe(true))
   })
 
-  // Personas: three slots, save what is worn, wear what was saved, clear.
-  it('keeps three personas and knows which one is worn', async () => {
+  // Personas: six slots, save what is worn, wear what was saved, clear.
+  it('keeps six personas and knows which one is worn', async () => {
     const { container } = render(AvatarSettings)
-    await waitFor(() => expect(container.querySelectorAll('.slot').length).toBe(3))
-    expect(container.querySelectorAll('.slot .empty').length).toBe(3)
-    setAvatarPrefs({ shell: 'colour', hue: 150 })
+    await waitFor(() => expect(container.querySelectorAll('.slot').length).toBe(PERSONA_SLOTS))
+    expect(PERSONA_SLOTS).toBe(6)
+    expect(container.querySelectorAll('.slot .empty').length).toBe(PERSONA_SLOTS)
+    setAvatarPrefs({ shell: 'colour', accent: 'mint' })
     await fireEvent.click(container.querySelectorAll('.slot')[1].querySelector('.acts button')!)
-    expect(personas.slots[1]).toMatchObject({ shell: 'colour', hue: 150 })
+    expect(personas.slots[1]).toMatchObject({ shell: 'colour', accent: 'mint' })
     expect(wornPersona()).toBe(1)
     await waitFor(() => expect(container.querySelectorAll('.slot')[1].classList.contains('worn')).toBe(true))
-    expect(JSON.parse(localStorage.getItem('avatarPersonas')!)[1]).toMatchObject({ shell: 'colour', hue: 150 })
+    expect(JSON.parse(localStorage.getItem('avatarPersonas')!)[1]).toMatchObject({ shell: 'colour', accent: 'mint' })
     resetAvatarPrefs()
     expect(wornPersona()).toBe(-1)
     usePersona(1)

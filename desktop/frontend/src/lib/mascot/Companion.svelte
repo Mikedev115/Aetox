@@ -115,18 +115,18 @@
   // wailsjs import on purpose: those generated files carry other sessions'
   // uncommitted regeneration today; the import replaces this line when they
   // land. Outside Wails (tests, a plain browser) there is nothing to report to.
-  type FeedState = { pose: string; report: string; on: boolean; prefs: { shell: string; hue: number | null; top: string; face: string } }
+  type FeedState = { pose: string; report: string; on: boolean; prefs: { shell: string; accent: string; top: string; face: string } }
   const feed = (): ((s: FeedState) => Promise<void>) | undefined =>
     (window as unknown as { go?: { main?: { App?: { SetCompanionState?: (s: FeedState) => Promise<void> } } } }).go?.main?.App?.SetCompanionState
   $effect(() => {
     const send = feed()
     if (!send) return
-    const s: FeedState = { pose, report, on: true, prefs: { shell: avatarPrefs.shell, hue: avatarPrefs.hue, top: avatarPrefs.top, face: avatarPrefs.face } }
+    const s: FeedState = { pose, report, on: true, prefs: { shell: avatarPrefs.shell, accent: avatarPrefs.accent, top: avatarPrefs.top, face: avatarPrefs.face } }
     void send(s).catch(() => {})
   })
   $effect(() => () => {
     const send = feed()
-    if (send) void send({ pose: 'idle', report: '', on: false, prefs: { shell: avatarPrefs.shell, hue: avatarPrefs.hue, top: avatarPrefs.top, face: avatarPrefs.face } }).catch(() => {})
+    if (send) void send({ pose: 'idle', report: '', on: false, prefs: { shell: avatarPrefs.shell, accent: avatarPrefs.accent, top: avatarPrefs.top, face: avatarPrefs.face } }).catch(() => {})
   })
   $effect(() => {
     const keep = (): void => {

@@ -24,14 +24,19 @@
 // that cross from behind the body to in front of it as the head turns (the
 // ears, the arms) are drawn twice, a `far` copy under the body and a `near`
 // copy over it, and the copies swap by opacity on the sign of sin t.
-import { palette, shellOf, type Palette } from './palette'
+import { accentOf, palette, shellOf, type Palette } from './palette'
 import { FACE, MARK, PANEL, PROP, TOP, isBadge, icon, row, type BadgeId, type Face, type Part } from './parts'
 import { ARM, DEFAULT_LOOK, POSE, SHOULDER, type Hand, type Pose, type PoseId } from './poses'
 
 /** What a caller may say about the mascot. Everything is optional; the empty
  *  object is the assistant at rest. */
 export type MascotOptions = {
+  /** A hue in degrees is a colour at full chroma — an agent's, off its name.
+   *  Given, it wins over `accent`. */
   hue?: number
+  /** An ACCENT row id (palette.ts): the hue and how much of it. Neither this
+   *  nor `hue` is the default row, the mark's own white and black. */
+  accent?: string
   /** What the body is made of — a SHELL row id (palette.ts). */
   shell?: string
   top?: string
@@ -49,6 +54,8 @@ export type MascotOptions = {
 
 export type Mascot = {
   hue: number
+  /** 0 monochrome … 1 full colour (palette.ts Accent). */
+  chroma: number
   shell: string
   p: Palette
   pose: Pose
@@ -76,11 +83,14 @@ export const DETAIL_MIN_PX = 48
  *  big still-ish preview pays for the filter. */
 export const GLOW_MIN_PX = 160
 
-/** The assistant's own hue — the blue of the mark. */
+/** The brand's own hue — the blue of the UI's accent. The assistant's default
+ *  look is the ACCENT row 'ink', which carries this hue at no chroma. */
 export const BRAND_HUE = 218
 
 export function resolveMascot(o: MascotOptions = {}): Mascot {
-  const hue = o.hue ?? BRAND_HUE
+  const acc = accentOf(o.accent)
+  const hue = o.hue ?? acc.hue
+  const chroma = o.hue === undefined ? acc.chroma : 1
   const poseId: PoseId = o.pose && o.pose in POSE ? (o.pose as PoseId) : 'idle'
   const pose = POSE[poseId]
   const propId = pose.prop === 'role' ? (o.prop ?? 'laptopA') : pose.prop
@@ -88,8 +98,9 @@ export function resolveMascot(o: MascotOptions = {}): Mascot {
   const shell = shellOf(o.shell).id
   return {
     hue,
+    chroma,
     shell,
-    p: palette(hue, shell),
+    p: palette(hue, shell, chroma),
     pose,
     poseId,
     top: row(TOP, o.top, 'orb'),

@@ -108,6 +108,20 @@ export const FACE: Face[] = [
   // Appended after the blueprint's six. A picker never offers these; a pose does.
   { id: 'wink', label: 'Wink', svg: (p) => `<g fill="none" stroke="${p.eye}" stroke-width="2.3" stroke-linecap="round"><path d="M23.4 27.6h5.4"/><path d="M40.6 23.8l-4 3.8 4 3.8"/></g>` },
   { id: 'dim', label: 'Dim', svg: (p) => `<g fill="none" stroke="${p.eye}" stroke-width="2" stroke-linecap="round" opacity=".5"><path d="M23.6 28h5"/><path d="M35.6 28h5"/></g>` },
+  // Three more resting faces (owner, 12 ก.ย.: "หน้าประจำตัว ค่าเริ่มต้นควรมี 5").
+  // Identity rows: a role may rest on them, a picker offers them.
+  {
+    id: 'round', label: 'Round', identity: true,
+    svg: (p) => `<circle class="ms-blink" cx="26" cy="27.4" r="3.4" fill="${p.eye}"/><circle class="ms-blink" cx="38" cy="27.4" r="3.4" fill="${p.eye}"/>`,
+  },
+  {
+    id: 'wide', label: 'Wide', identity: true,
+    svg: (p) => `<ellipse class="ms-blink" cx="26" cy="27.4" rx="3.8" ry="5.6" fill="${p.eye}"/><ellipse class="ms-blink" cx="38" cy="27.4" rx="3.8" ry="5.6" fill="${p.eye}"/>`,
+  },
+  {
+    id: 'visor', label: 'Visor', identity: true,
+    svg: (p) => `<rect class="ms-blink" x="22.6" y="25.2" width="18.8" height="4.4" rx="2.2" fill="${p.eye}"/>`,
+  },
 ]
 
 // ---------------------------------------------------------------------------

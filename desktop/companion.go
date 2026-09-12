@@ -49,12 +49,13 @@ import (
 var companionPage string
 
 // CompanionPrefs is the look the user chose (ตั้งค่า › อวตาร): the same four
-// dials avatarPrefs.svelte.ts keeps. Hue is nil for the brand's own.
+// dials avatarPrefs.svelte.ts keeps, every one a catalogue row id. Blank is
+// that catalogue's default.
 type CompanionPrefs struct {
-	Shell string `json:"shell"`
-	Hue   *int   `json:"hue"`
-	Top   string `json:"top"`
-	Face  string `json:"face"`
+	Shell  string `json:"shell"`
+	Accent string `json:"accent"`
+	Top    string `json:"top"`
+	Face   string `json:"face"`
 }
 
 // CompanionState is one report from the window: the pose presence derived,
