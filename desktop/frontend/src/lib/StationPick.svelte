@@ -114,10 +114,13 @@
     if (cockpit.chair !== c.name) await newChairSession(c.name, desk, cockpit.team)
   }
   // TEAM: walking onto another roster is a new chat, like walking to a chair.
-  async function pickTeam(tm: main.TeamCard) {
+  // No team is a roster too — the empty one — and its row is a door like the
+  // others (owner: "ปุ่มเลือกไม่มีทีมเอเจนไม่เห็นมี"): the chat then hires
+  // nobody and the assistant does everything itself, and it reopens that way.
+  async function pickTeam(name: string) {
     open = ''
-    if (tm.name === cockpit.team && !cockpit.chair) return
-    await newTeamSession(desk, tm.name)
+    if (name === cockpit.team && !cockpit.chair) return
+    await newTeamSession(desk, name)
   }
   // ตั้งค่า › ทีมเอเจน, opened on THIS desk's side — from the code page the
   // page must land on ฝั่งโค้ด, not the assistant's (owner: "พอกดจัดการทีม
@@ -210,7 +213,7 @@
         {#each teams as tm (tm.name)}
           {@const here = tm.name === cockpit.team}
           <div class="agent-row team-row" class:on={here} class:invalid={!!tm.invalid}>
-            <button type="button" class="focus-item" title={tm.invalid || tm.description} onclick={() => pickTeam(tm)}>
+            <button type="button" class="focus-item" title={tm.invalid || tm.description} onclick={() => pickTeam(tm.name)}>
               <span class="ic"><Icon name="users" size={14} /></span>
               <span class="t">{tm.name}</span>
               <span class="team-n">
@@ -233,6 +236,12 @@
         {#if teams.length === 0}
           <div class="folder-note">{t(desk === 'coding' ? 'chat.noTeamsHere' : 'chat.noTeamsAssistant')}</div>
         {/if}
+        <div class="agent-row team-row no-team" class:on={!cockpit.team}>
+          <button type="button" class="focus-item" title={t('chat.pickNoTeamTip')} onclick={() => pickTeam('')}>
+            <span class="ic"><Icon name="userRound" size={14} /></span>
+            <span class="t">{t('chat.pickNoTeam')}</span>
+          </button>
+        </div>
         <div class="menu-sep"></div>
         <button type="button" class="focus-item" onclick={manageTeams}>
           <span class="ic"><Icon name="settings" size={14} /></span> {t('chat.manageTeams')}

@@ -1063,16 +1063,9 @@ func (a *App) LoadSession(id string) ([]SessionMessage, error) {
 		// build wrote and this one does not implement, and NormalizeStance
 		// answers ลงมือ for it — a reopened conversation must never come back
 		// silently carrying nothing.
-		// A row from before teams (13 ก.ย.) says no team, and meant the roster
-		// every chat had then. Reopening it on no team would hand the model a
-		// chat that can hire nobody, so a main chat with no team is put on the
-		// desk's preferred one — once, written back, so the window and the
-		// engine read the same row from here on. A chair chat needs no team.
-		if team == subagent.NoTeam && chair == "" {
-			if team = subagent.PreferredTeam(desk); team != subagent.NoTeam {
-				_, _ = db.Exec(`UPDATE sessions SET team = ? WHERE id = ? AND team = ''`, team, id)
-			}
-		}
+		// A row that says no team means it (13 ก.ย., migration 27): the rows
+		// from before teams existed were put on the seed once, there, so the
+		// chat somebody opened on no team on purpose reopens on no team.
 		m, seat, err := resolveStation(desk, chair, team)
 		if err != nil {
 			return nil, err

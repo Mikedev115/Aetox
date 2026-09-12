@@ -229,10 +229,13 @@ func TestSwitchesArePerDoorAndMembersPerTeam(t *testing.T) {
 	}
 }
 
-// A row from before teams reopens on the seeded team, once, and the row
-// says so from then on — a chat that could hire everyone must not come back
-// able to hire nobody.
-func TestAPreTeamSessionReopensOnTheSeededTeam(t *testing.T) {
+// A chat opened on no team on purpose (the picker's "ไม่ใช้ทีมช่วย") reopens
+// on no team — and the rows from before teams existed, which say the same
+// thing and meant the opposite, are put on the seeded team once by the
+// migration, not on reopen: a chat that could hire everyone must not come
+// back able to hire nobody, and a chat that chose nobody must not come back
+// hiring the seed.
+func TestNoTeamIsAChoiceAndPreTeamRowsJoinTheSeedOnce(t *testing.T) {
 	a := bootDeskApp(t, "")
 	if _, err := a.NewTeamSession("assistant", subagent.NoTeam); err != nil {
 		t.Fatal(err)
@@ -250,8 +253,36 @@ func TestAPreTeamSessionReopensOnTheSeededTeam(t *testing.T) {
 	if _, err := a.LoadSession(id); err != nil {
 		t.Fatalf("LoadSession: %v", err)
 	}
-	if a.cur().team != subagent.SeedTeamName || a.SessionTeam(id) != subagent.SeedTeamName {
-		t.Errorf("reopened on %q, row says %q — want the seeded team both times", a.cur().team, a.SessionTeam(id))
+	if a.cur().team != subagent.NoTeam || a.SessionTeam(id) != subagent.NoTeam {
+		t.Errorf("reopened on %q, row says %q — a chosen no-team must stay one", a.cur().team, a.SessionTeam(id))
+	}
+
+	// The same row, as a pre-team row would be: the migration step moves it.
+	db, err := a.database()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := preTeamRowsJoinTheSeed(tx); err != nil {
+		t.Fatalf("migration: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if a.SessionTeam(id) != subagent.SeedTeamName {
+		t.Errorf("the migration left the row on %q, want the seed", a.SessionTeam(id))
+	}
+	// The migration runs at startup, before any chat is live; a reopen then
+	// reads the row. Here the chat is still held, so it is let go first.
+	a.convs.forget(id)
+	if _, err := a.LoadSession(id); err != nil {
+		t.Fatalf("LoadSession after the move: %v", err)
+	}
+	if a.cur().team != subagent.SeedTeamName {
+		t.Errorf("reopened on %q after the move, want the seed", a.cur().team)
 	}
 }
 
