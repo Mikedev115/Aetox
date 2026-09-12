@@ -62,6 +62,12 @@ type CompanionPrefs struct {
 // the headline the bubble shows (empty when it is shut), whether the
 // companion is switched on at all, and the look. Seq counts reports so a
 // poller can tell "nothing changed" from "changed back".
+//
+// The desktop body (companion_windows.go) draws from the rest: the bubble's
+// text as typed out so far and its words (Intl.Segmenter's — Go cannot break
+// Thai), whether a cursor blinks after it, the theme's colours, the voice
+// switch, and Hop, a count of clicks reacted to, so a reaction the brain
+// decided on hops the body too.
 type CompanionState struct {
 	Pose   string         `json:"pose"`
 	Report string         `json:"report"`
@@ -69,6 +75,13 @@ type CompanionState struct {
 	Prefs  CompanionPrefs `json:"prefs"`
 	Seq    int64          `json:"seq"`
 	At     time.Time      `json:"at"`
+
+	Shown  string         `json:"shown,omitempty"`
+	Words  []string       `json:"words,omitempty"`
+	Cursor bool           `json:"cursor,omitempty"`
+	Theme  CompanionTheme `json:"theme"`
+	Muted  bool           `json:"muted,omitempty"`
+	Hop    int            `json:"hop,omitempty"`
 }
 
 // CompanionFeedInfo is what the window (and a future native window) needs to
@@ -91,18 +104,27 @@ type companionServer struct {
 	// body is the companion's window on the desktop while there is one —
 	// a Win32 layered window on Windows (companion_windows.go), nothing on
 	// the other platforms yet. Nil when the companion is inside the app.
-	body companionBody
+	body    companionBody
+	opening bool
 	// store holds the baked frames of the current look and scale
 	// (companion_sprites.go); nil until the window names a set.
 	store *spriteStore
 }
 
 // companionBody is the desktop window as this file needs to know it: it can
-// be closed, and (to come) shown a frame and asked where it is. The platform
-// files provide openCompanionBody.
+// be told the state and be closed. The platform files provide
+// openCompanionBody, handing the body where frames come from and where the
+// user's doings go.
 type companionBody interface {
+	apply(CompanionState)
 	close()
 }
+
+// companionInputEvent is what the body's doings reach the window as:
+// `kind` is click · dragStart · dragEnd · hide · mute · moved (x, y: the
+// figure's top-left, physical px) · bake (scale: frames wanted at this
+// scale). The brain in Companion.svelte answers each.
+const companionInputEvent = "companion:input"
 
 // OpenCompanionWindow sends the companion out of the app window to (x, y)
 // physical pixels on the desktop — negative for "wherever". False when the
@@ -112,16 +134,41 @@ type companionBody interface {
 func (a *App) OpenCompanionWindow(x, y int) bool {
 	c := a.companion()
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.body != nil {
+	if c.body != nil || c.opening {
+		c.mu.Unlock()
 		return true
 	}
-	body, err := openCompanionBody(x, y)
+	c.opening = true
+	c.mu.Unlock()
+	// Not under the lock: the body's thread asks for the sprite store while
+	// it comes up, and that goes through the same lock.
+	sprites := func() spriteSource {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		if c.store == nil {
+			return nil
+		}
+		return c.store
+	}
+	on := func(kind string, data map[string]any) {
+		if data == nil {
+			data = map[string]any{}
+		}
+		data["kind"] = kind
+		a.emitEvent(companionInputEvent, data)
+	}
+	body, err := openCompanionBody(x, y, sprites, on)
+	c.mu.Lock()
+	c.opening = false
 	if err != nil {
+		c.mu.Unlock()
 		debuglog.Msg("companion window: %v", err)
 		return false
 	}
 	c.body = body
+	state := c.state
+	c.mu.Unlock()
+	body.apply(state)
 	return true
 }
 
@@ -163,6 +210,9 @@ func (a *App) SetCompanionState(s CompanionState) {
 	s.Seq = c.state.Seq + 1
 	s.At = time.Now()
 	c.state = s
+	if c.body != nil {
+		c.body.apply(s)
+	}
 }
 
 // CompanionFeed brings the listener up if it is not, and says where it is.
