@@ -156,7 +156,39 @@ func Token(ctx context.Context, provider string) (string, error) {
 	if !cred.Expired() {
 		return cred.Access, nil
 	}
+	return renew(ctx, canonical, cred)
+}
 
+// Refresh renews this provider's access token now, whatever the recorded
+// expiry says, and returns the new one.
+//
+// The recorded expiry is the client's belief; the provider's 401 is the fact.
+// The two disagreed on 2026-09-12: the ChatGPT token in the store carried an
+// exp claim a week away and the backend answered token_expired to it anyway
+// (a session revoked or rotated elsewhere, most likely — the backend does not
+// say). Token() trusted the claim, so it never refreshed, and the user was
+// told to sign in again while holding a refresh token that would have fixed
+// it. A wire client that gets a 401 on a signed-in provider calls this once
+// and re-sends; only if THIS fails does "sign in again" become the truth.
+func Refresh(ctx context.Context, provider string) (string, error) {
+	canonical := pvdr.Normalize(provider)
+
+	refreshMu.Lock()
+	defer refreshMu.Unlock()
+
+	cred, ok := Get(canonical)
+	if !ok {
+		return "", fmt.Errorf("not signed in to %s", canonical)
+	}
+	if cred.Type == "api" {
+		return "", fmt.Errorf("%s uses a key, which cannot be renewed — the provider rejected it", canonical)
+	}
+	return renew(ctx, canonical, cred)
+}
+
+// renew runs the provider's refresher and writes the result back. Caller holds
+// refreshMu.
+func renew(ctx context.Context, canonical string, cred Credential) (string, error) {
 	refresh, ok := refreshers[canonical]
 	if !ok {
 		// No compiled-in refresher for this name — but a credential
@@ -190,6 +222,19 @@ func TokenSource(provider string) func(context.Context) (string, error) {
 		return nil
 	}
 	return func(ctx context.Context) (string, error) { return Token(ctx, canonical) }
+}
+
+// RefreshSource is TokenSource's partner for the moment the provider says no:
+// a function that renews the token regardless of the recorded expiry, or nil
+// when this provider is not signed in. internal/model calls it once on a 401
+// and re-sends the request with whatever TokenSource yields next, which is
+// the renewed token — Refresh wrote it to the store.
+func RefreshSource(provider string) func(context.Context) (string, error) {
+	canonical := pvdr.Normalize(provider)
+	if !Has(canonical) {
+		return nil
+	}
+	return func(ctx context.Context) (string, error) { return Refresh(ctx, canonical) }
 }
 
 // Endpoint reports a base URL the sign-in itself pinned to this account, or ""

@@ -250,6 +250,21 @@ func ScopedSkills(paths []string) ([]DiscoveredSkill, []error) {
 	return diskSkills(paths)
 }
 
+// Folder is the skill's own folder as a filesystem, wherever the folder lives:
+// the disk for one the user installed, the binary for one that shipped. It is
+// the read side of the copy that puts a shelf skill into an agent's home
+// (desktop.CopySkillToAgent) — a bundled skill has no Dir to copy from, and
+// without this the door could only move the skills the user already owned.
+//
+// nil for a bundled skill that shipped as one document with no sub-FS; a
+// caller copying it has nothing to copy but the body, and says so.
+func (d DiscoveredSkill) Folder() fs.FS {
+	if d.Dir != "" {
+		return os.DirFS(d.Dir)
+	}
+	return d.files
+}
+
 // AsSkill wraps one discovered document as an invokable skill, so a caller
 // holding the detailed form can still register it.
 func (d DiscoveredSkill) AsSkill() Skill {
