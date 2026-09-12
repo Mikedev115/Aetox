@@ -731,6 +731,22 @@ window on a host still opens this machine's dialogs for every door but the
 project's (§5 as built); `revealInFileManager` and `OpenExport` still answer
 with a host path. The three-a-minute rule counts tunnel drops: a flaky
 network reaches `failed` after three and asks for a press. `--idle-exit` on
-the host is 30 m fixed. None of this was run against the owner's host yet —
-the fake host pins the screen's side and the CI Linux job the host's; the
-first real host is the next thing to do.
+the host is 30 m fixed.
+
+**The first real host — 2026-09-12, later the same day.** The owner has no
+Linux machine, so WSL (Ubuntu 26.04, systemd, `openssh-server` on port 2222,
+key-only) on the same PC became the host, reached as `ssh wsl` through
+`~/.ssh/config` — a real sshd, a real `sh`, a real `nohup`, only the network
+is loopback. `TestRemoteSmoke` passed in 7.3 s: probe, the 32 MB binary up
+on stdin, start, tunnel, `Hello`, `HomeDir`/`ListDir`/`TerminalShells` on
+the host, the engine outliving the tunnel, `Stop`. Then the dev app: a row
+`wsl` with root `/home/mikedev`, one press, 1.2 s from "กำลังติดต่อ wsl" to
+connected (probe 0.3 s, start 0.5 s, tunnel 0.3 s), the window reloaded on
+`/home/mikedev` with `bash (default)` in the shell list and the host's log
+under ดู log. Two things the setup taught, recorded for the next host:
+Windows' `localhost` resolves to `::1` first and WSL forwards only IPv4, so
+the config names `127.0.0.1`; and a key made by Windows `ssh-keygen -N ""`
+from PowerShell carries a literal `""` passphrase, which BatchMode then
+fails on in silence — the key was made in WSL. Neither is Aetox's to fix,
+but the Settings note should say "key-based, tested with `ssh -o
+BatchMode=yes <target>`" — it does not yet.
