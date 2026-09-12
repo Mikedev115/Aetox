@@ -59,6 +59,11 @@ var (
 	procTrackMouseEvent  = user32.NewProc("TrackMouseEvent")
 	procSetTimer         = user32.NewProc("SetTimer")
 	procKillTimer        = user32.NewProc("KillTimer")
+	procLoadCursorW      = user32.NewProc("LoadCursorW")
+	procSetCursor        = user32.NewProc("SetCursor")
+
+	procSetThreadPriority = kernel32.NewProc("SetThreadPriority")
+	procGetCurrentThread  = kernel32.NewProc("GetCurrentThread")
 
 	procSHQueryUserNotificationState = shell32.NewProc("SHQueryUserNotificationState")
 
@@ -99,6 +104,20 @@ const (
 
 	tmeLeave = 0x00000002
 
+	wmSetCursor = 0x0020
+	// A window class with no cursor shows whatever was last set — on a
+	// thread that looks busy, the arrow with the spinning ring, which reads
+	// as "loading" on a figure that is not (owner, 13 ก.ย. 2026: "เอาเมาส์
+	// ไปแตะมันขึ้นโหลดตลอด"). The arrow is the class's; over the figure the
+	// hand says "you can hold this", as cursor: grab does in the app.
+	idcArrow = 32512
+	idcHand  = 32649
+
+	// The body's thread runs above normal: its frames have a compositor
+	// deadline every 16.7ms, and the app's other threads (the Go runtime's,
+	// the webview's) have none.
+	threadPriorityAboveNormal = 1
+
 	// A press that moves less than this (logical px) before release is a
 	// click (Companion.svelte CLICK_PX).
 	companionClickPx = 4
@@ -108,14 +127,19 @@ const (
 	// frames a second between them is smooth, and the compositor's share of
 	// each frame is what the idle cost mostly is.
 	companionTimerID = 1
-	frameActiveMs    = 16
-	frameIdleMs      = 100
-	// While the hand moves, frames are driven off the mouse messages
-	// themselves (no faster than this) rather than the timer: WM_TIMER is
-	// posted behind everything else in the queue, and a fast drag floods
-	// the queue with moves, so a timer-paced walk stutters exactly when it
-	// is looked at most closely.
-	frameMinMs = 12
+	// While the hand moves the body runs a render loop: the timer is set to
+	// 1ms — WM_TIMER is the lowest-priority message, delivered only once the
+	// queue holds no input, so every mouse move is seen first — and each
+	// frame ends by waiting for the compositor (DwmFlush), which is what
+	// paces it: one frame per vblank, drawn from wherever the hand is by
+	// then. Neither the mouse's cadence (8ms, beating against a 16.7ms
+	// screen) nor the timer's sets the pace. A frame posted to the queue by
+	// the loop itself was tried first and starved the input entirely —
+	// posted messages come before input (13 ก.ย. 2026: "เลื่อนไม่ได้ ติด ๆ").
+	// Measured on the owner's drags: frames driven off the moves reached
+	// the screen at p95 20ms.
+	frameActiveMs = 1
+	frameIdleMs   = 100
 
 	// A blink comes every 4.4–7s (mascot.css --ms-blink, off the hue) and is
 	// shut for blinkMs.
@@ -288,9 +312,11 @@ var (
 // frameStats is one drag's worth of frame timing.
 type frameStats struct {
 	on        bool
-	intervals []float64 // ms between presented frames
-	work      []float64 // ms to compose+present a frame
-	decodes   int
+	intervals []float64 // ms between frames reaching the screen
+	work      []float64 // ms to compose a frame
+	present   []float64 // ms UpdateLayeredWindow took
+	flush     []float64 // ms DwmFlush waited
+	decodes   int       // PNGs decoded on this thread, mid-frame
 	last      time.Time
 }
 
@@ -298,7 +324,7 @@ func (f *frameStats) begin(now time.Time) {
 	*f = frameStats{on: true, last: now}
 }
 
-func (f *frameStats) frame(now time.Time, work time.Duration) {
+func (f *frameStats) frame(now time.Time, work, present, flush time.Duration) {
 	if !f.on {
 		return
 	}
@@ -307,6 +333,8 @@ func (f *frameStats) frame(now time.Time, work time.Duration) {
 	}
 	f.last = now
 	f.work = append(f.work, float64(work.Microseconds())/1000)
+	f.present = append(f.present, float64(present.Microseconds())/1000)
+	f.flush = append(f.flush, float64(flush.Microseconds())/1000)
 }
 
 // summary is "n frames, interval mean/p95/max ms, work mean/max ms".
@@ -333,8 +361,9 @@ func (f *frameStats) summary() string {
 			over++
 		}
 	}
-	return fmt.Sprintf("%d frames · interval mean %.1f p95 %.1f max %.1f ms (%d gaps >25ms) · work mean %.2f max %.2f ms · decodes %d",
-		len(f.intervals)+1, mean(f.intervals), pct(f.intervals, 0.95), pct(f.intervals, 1), over, mean(f.work), pct(f.work, 1), f.decodes)
+	return fmt.Sprintf("%d frames · interval mean %.1f p95 %.1f max %.1f ms (%d gaps >25ms) · compose mean %.2f max %.2f · present mean %.2f max %.2f · flush mean %.1f max %.1f ms · mid-frame decodes %d",
+		len(f.intervals)+1, mean(f.intervals), pct(f.intervals, 0.95), pct(f.intervals, 1), over,
+		mean(f.work), pct(f.work, 1), mean(f.present), pct(f.present, 1), mean(f.flush), pct(f.flush, 1), f.decodes)
 }
 
 func openCompanionBody(x, y int, sprites func(scale float64) spriteSource, on func(kind string, data map[string]any)) (companionBody, error) {
@@ -437,12 +466,17 @@ func (w *companionWindow) run() {
 	w.threadID = uint32(tid)
 	w.mu.Unlock()
 
+	if h, _, _ := procGetCurrentThread.Call(); h != 0 {
+		procSetThreadPriority.Call(h, threadPriorityAboveNormal)
+	}
 	companionClassOnce.Do(func() {
 		name, _ := syscall.UTF16PtrFromString("AetoxCompanion")
+		arrow, _, _ := procLoadCursorW.Call(0, idcArrow)
 		wc := wndClassExW{
 			Size:      uint32(unsafe.Sizeof(wndClassExW{})),
 			WndProc:   syscall.NewCallback(companionWndProc),
 			ClassName: name,
+			Cursor:    arrow,
 		}
 		if atom, _, err := procRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc))); atom == 0 {
 			debuglog.Msg("companion: RegisterClassExW failed: %v", err)
@@ -548,6 +582,9 @@ func (w *companionWindow) setInterval(ms int) {
 		procTimeEndPeriod.Call(1)
 	}
 	w.interval = ms
+	if ms == frameActiveMs && !companionPacing {
+		ms = 16 // no compositor wait to pace it: the timer alone does
+	}
 	procSetTimer.Call(w.hwnd, companionTimerID, uintptr(ms), 0)
 }
 
@@ -595,10 +632,7 @@ func companionWndProc(hwnd, msg, wparam, lparam uintptr) uintptr {
 	if w != nil {
 		switch msg {
 		case wmTimer:
-			// A frame just drawn off a mouse move is not drawn again.
-			if time.Since(w.lastFrame) >= frameMinMs*time.Millisecond {
-				w.frame()
-			}
+			w.frame()
 			return 0
 		case wmLButtonDown:
 			w.pressBegin()
@@ -609,6 +643,14 @@ func companionWndProc(hwnd, msg, wparam, lparam uintptr) uintptr {
 		case wmLButtonUp:
 			w.pressEnd()
 			return 0
+		case wmSetCursor:
+			// The hand over the figure, the arrow over its buttons.
+			if w.buttonAt(cursorPos()) == "" {
+				if hand, _, _ := procLoadCursorW.Call(0, idcHand); hand != 0 {
+					procSetCursor.Call(hand)
+					return 1
+				}
+			}
 		case wmMouseLeave:
 			w.tracking = false
 			if !w.pressing {
@@ -729,7 +771,6 @@ func (w *companionWindow) mouseMove() {
 		w.warmWalk(w.walk.heading)
 		w.warmed = walkHeadingKey(w.walk.heading, walkStep)
 		w.stats.begin(time.Now())
-		w.stats.decodes = -w.decodesSoFar()
 	}
 	// The hand's spot for the figure, kept on the desktop. At an edge the
 	// grip is re-anchored to the clamped spot, so the way back starts the
@@ -737,11 +778,7 @@ func (w *companionWindow) mouseMove() {
 	f := w.comp.figureRect()
 	tx, ty := clampFigure(int(c.X)-w.grabX, int(c.Y)-w.grabY, f.Dx(), f.Dy())
 	w.grabX, w.grabY = int(c.X)-tx, int(c.Y)-ty
-	now := time.Now()
-	w.walk.move(float64(tx), float64(ty), now)
-	if companionPacing && now.Sub(w.lastFrame) >= frameMinMs*time.Millisecond {
-		w.frame()
-	}
+	w.walk.move(float64(tx), float64(ty), time.Now())
 }
 
 func (w *companionWindow) pressEnd() {
@@ -765,7 +802,6 @@ func (w *companionWindow) pressEnd() {
 		w.placeFigure(int(fx), int(fy))
 		w.walk = nil
 		w.scene.Walking = false
-		w.stats.decodes += w.decodesSoFar()
 		debuglog.Msg("companion: drag %s (pacing %v, dpi %d)", w.stats.summary(), companionPacing, w.dpi)
 		w.on("dragEnd", nil)
 		x, y := w.figureAt()
@@ -909,12 +945,21 @@ func (w *companionWindow) frame() {
 	}
 
 	t0 := time.Now()
+	before := w.decodesSoFar()
 	used := w.comp.draw(w.canvas, w.scene, now)
+	t1 := time.Now()
+	w.stats.decodes += w.decodesSoFar() - before
 	w.present(w.canvas, used)
-	w.stats.frame(now, time.Since(t0))
-	if companionPacing && w.pressing && w.moved {
+	t2 := time.Now()
+	// Whenever the loop runs at its active rate — a drag, a hop, a cursor,
+	// a crossfade — the compositor's wait is what paces it; without the
+	// wait the 1ms timer would draw a thousand frames a second.
+	if companionPacing && w.interval == frameActiveMs {
 		procDwmFlush.Call()
 	}
+	// The interval is measured after the flush — when the frame reached
+	// the screen — which is what the eye sees, not when it was started.
+	w.stats.frame(time.Now(), t1.Sub(t0), t2.Sub(t1), time.Since(t2))
 
 	active := w.pressing || s.Cursor || now.Sub(w.scene.HopAt) < hopMs*time.Millisecond || now.Sub(w.comp.crossAt) < crossMs*time.Millisecond
 	if active {
