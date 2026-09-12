@@ -5100,6 +5100,7 @@ func (a *App) applyConfig(conv *conversation, cfg config.Config) {
 		// signed-in endpoint is not a secret and travels in the open.
 		ProviderTransport: a.screenOf().ProviderTransport(model.NormalizeProvider(cfg.ModelProvider), cfg.ModelWireFormat),
 		ProviderEndpoint:  oauth.Endpoint(model.NormalizeProvider(cfg.ModelProvider)),
+		ProviderFor:       a.providerFor(cfg), // a delegate's own provider, signed the same way (provider_for.go)
 		OnToolAction:      func(ev turn.ToolEvent) { a.recordToolAction(conv, ev) },
 		// A delegate's own turn, kept until this one is assembled and can carry
 		// it (recordChildParts). The live relay above draws it and stores

@@ -104,7 +104,7 @@ beforeEach(() => {
     { name: 'explore', description: 'ค้นไฟล์', tools: ['grep', 'glob', 'list', 'read'], prompt: 'role', builtin: true },
     { name: 'general', description: 'งานซ้ำ', prompt: 'role', builtin: true },
     { name: 'deck', description: 'ทำสไลด์', prompt: 'role', builtin: true, desk: 'specialized' },
-    { name: 'backend', description: 'ของผม', model: 'deepseek-v4', steps: 8, prompt: 'role', path: 'C:/agents/backend.md', builtin: false, desk: 'specialized' },
+    { name: 'backend', description: 'ของผม', model: 'deepseek-v4', provider: 'deepseek', steps: 8, prompt: 'role', path: 'C:/agents/backend.md', builtin: false, desk: 'specialized' },
     { name: 'mine-deck', description: 'ของผมทับ', prompt: 'role', path: 'C:/agents/mine-deck.md', builtin: false, overrides: true, desk: 'specialized' },
   ] as any)
   vi.mocked(ListChairs).mockResolvedValue([{ name: 'deck' }, { name: 'backend' }, { name: 'mine-deck' }] as any)
@@ -1055,9 +1055,39 @@ describe('Settings pages', () => {
     await openSection(container, 'เอเจน')
 
     await waitFor(() => expect(container.querySelectorAll('.chair-card.agc').length).toBe(3))
-    expect(screen.getByText('deepseek-v4')).toBeTruthy() // backend is pinned
+    // backend is pinned — to a provider and a model, read as one chip.
+    expect(screen.getByText('deepseek · deepseek-v4')).toBeTruthy()
     // One chip on one card, not a control on all three.
     expect(container.querySelectorAll('.chair-card.agc select').length).toBe(0)
+  })
+
+  // The provider is picked before the model (owner, 12 ก.ย.: "ควรเลือกได้แม้แต่
+  // ผู้ให้บริการ และเลือกโมเดลได้ ทั้งเอเจนและซับเอเจน"): the list offers the
+  // providers switched on, the model list follows the pick, and both land in
+  // the file as `provider:` / `model:`. Clearing the provider keeps neither.
+  it('pins a provider and a model of it, for an agent and for a helper', async () => {
+    vi.mocked(EnabledProviders).mockResolvedValue(['openai', 'deepseek'] as any)
+    vi.mocked(ListModelsForProvider).mockImplementation(async (p: string) =>
+      (p === 'deepseek' ? ['deepseek-v4', 'deepseek-chat'] : ['gpt-5.6']) as any)
+    vi.mocked(ReadSubagentProfile).mockResolvedValue('---\ndescription: ทำสไลด์\n---\nสร้างสไลด์' as any)
+    cockpit.settingsIntent = { section: 'team', agent: 'deck' }
+    const { container } = render(Settings, { onClose: () => {} })
+    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจน')).toBeTruthy())
+    await fireEvent.click(screen.getByRole('tab', { name: 'สมอง' }))
+
+    const selects = container.querySelectorAll<HTMLSelectElement>('#ag-panel-brain select.ctrl')
+    expect(selects.length).toBe(2)
+    const [provider, model] = selects
+    await waitFor(() => expect(Array.from(provider.options).map((o) => o.value)).toEqual(['', 'openai', 'deepseek']))
+    await fireEvent.change(provider, { target: { value: 'deepseek' } })
+    await waitFor(() => expect(Array.from(model.options).map((o) => o.value)).toContain('deepseek-chat'))
+    await fireEvent.change(model, { target: { value: 'deepseek-chat' } })
+
+    await fireEvent.click(screen.getByText('บันทึก'))
+    await waitFor(() => expect(vi.mocked(SaveAgentProfile)).toHaveBeenCalled())
+    const saved = vi.mocked(SaveAgentProfile).mock.calls.at(-1)![1]
+    expect(saved).toContain('provider: deepseek')
+    expect(saved).toContain('model: deepseek-chat')
   })
 
   // The tool-picker chips are drawn from the live registry (ListTools), not

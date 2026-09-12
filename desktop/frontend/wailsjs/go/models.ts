@@ -3239,6 +3239,7 @@ export namespace subagent {
 	    name: string;
 	    description: string;
 	    model?: string;
+	    provider?: string;
 	    tools?: string[];
 	    deny?: string[];
 	    steps?: number;
@@ -3272,6 +3273,7 @@ export namespace subagent {
 	        this.name = source["name"];
 	        this.description = source["description"];
 	        this.model = source["model"];
+	        this.provider = source["provider"];
 	        this.tools = source["tools"];
 	        this.deny = source["deny"];
 	        this.steps = source["steps"];
