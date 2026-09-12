@@ -191,6 +191,12 @@ export function reportOf(i: ReportInput): string {
   return i.note ? clip(firstLine(i.note), REPORT_MAX) : ''
 }
 
+/** The first line of a text, as the bubble would show it — what the
+ *  companion holds up while it reads that text aloud. */
+export function headlineOf(text: string): string {
+  return clip(firstLine(text), REPORT_MAX)
+}
+
 /** The first line with words in it, markdown marks stripped. */
 function firstLine(text: string): string {
   const lines = text.replace(/[*_`#>]+/g, '').split('\n').map((l) => l.trim()).filter(Boolean)

@@ -36,7 +36,10 @@
     avatarPrefs, setAvatarPrefs, resetAvatarPrefs, isDefaultPrefs, assistantOptions,
     personas, savePersona, usePersona, clearPersona, wornPersona, PERSONA_SLOTS,
   } from './avatarPrefs.svelte'
-  import { companion, setCompanionOn } from './companionSetting.svelte'
+  import { companion, setCompanionOn, setCompanionVoice } from './companionSetting.svelte'
+  import { speech, speak, stopSpeechIf } from '../speech.svelte'
+  import { openSettingsAt } from '../stores/cockpit.svelte'
+  import { TTSStatus, ListTTSVoices } from '../../../wailsjs/go/main/App'
 
   const text = $derived(avatarText(i18n.locale))
   const opts = $derived(assistantOptions(avatarPrefs))
@@ -44,6 +47,52 @@
   let previewPose = $state<PoseId>('idle')
   const worn = $derived(wornPersona(avatarPrefs))
   const FACES = FACE.filter((f) => f.identity)
+
+  // The voice's notice. The companion is silent when it cannot speak (owner,
+  // 12 ก.ย.: "ทำงานไม่ได้ก็เงียบไป มีแจ้งเตือนหน้านี้"), so this page is where
+  // the reason is said: the engine's own refusal (TTSStatus, the same line
+  // ตั้งค่า › เสียง shows), or — the quieter case — an engine that runs but has
+  // no voice for the UI's language, which on a fresh Windows is the usual
+  // one: Thai UI, English voices only. Asked once per visit and again when
+  // the switch is turned on; the Windows check starts PowerShell, so nothing
+  // is shown until it answers.
+  let voiceNote = $state<'' | 'checking' | 'engine' | 'lang'>('')
+  let voiceReason = $state('')
+  async function checkVoice(): Promise<void> {
+    voiceNote = 'checking'
+    voiceReason = ''
+    try {
+      const status = await TTSStatus()
+      if (status) {
+        voiceNote = 'engine'
+        voiceReason = status
+        return
+      }
+      const voices = await ListTTSVoices()
+      const lang = i18n.locale.toLowerCase()
+      const speaks = voices.some((v) => (v.lang ?? '').toLowerCase().startsWith(lang))
+      voiceNote = speaks ? '' : 'lang'
+    } catch (err) {
+      voiceNote = 'engine'
+      voiceReason = String(err)
+    }
+  }
+  $effect(() => {
+    if (companion.voice) void checkVoice()
+  })
+  const TRY_KEY = 'avatar-try'
+  const trying = $derived(speech.key === TRY_KEY)
+  function tryVoice(): void {
+    if (trying) {
+      stopSpeechIf(TRY_KEY)
+      return
+    }
+    void speak(TRY_KEY, text.voiceTryText, (err) => {
+      voiceNote = 'engine'
+      voiceReason = err
+    })
+  }
+  $effect(() => () => stopSpeechIf(TRY_KEY))
 
   // The leads: a straight line from the part on the figure to the panel that
   // changes it, measured off the real boxes rather than drawn where the
@@ -228,6 +277,38 @@
         <span></span>
       </label>
     </div>
+    <!-- The voice: a row under the figure's own, since it is the figure that
+         talks (a hidden companion is a silent one). Below it, why it cannot,
+         when it cannot; and a way to hear it, so "on" can be checked here. -->
+    <div class="set-row voice-row" class:dim={!companion.on}>
+      <div class="set-txt">
+        <div class="t">{text.voice}</div>
+        <div class="d">{text.voiceDesc}</div>
+        {#if companion.voice && voiceNote}
+          <div class="voice-note" class:soft={voiceNote === 'checking'} role="status">
+            {#if voiceNote === 'checking'}
+              {text.voiceChecking}
+            {:else}
+              <Icon name="alertTriangle" size={13} />
+              <span>
+                {voiceNote === 'engine' ? text.voiceNoEngine : text.voiceNoLang}
+                {#if voiceNote === 'engine'}{voiceReason}{/if}
+                <button type="button" class="link" onclick={() => openSettingsAt('voice')}>{text.voiceSettings}</button>
+              </span>
+            {/if}
+          </div>
+        {/if}
+      </div>
+      <div class="set-ctrl voice-ctrl">
+        {#if companion.voice}
+          <button type="button" class="chip" class:on={trying} onclick={tryVoice}>{trying ? '■' : ''} {text.voiceTry}</button>
+        {/if}
+        <label class="mswitch">
+          <input type="checkbox" checked={companion.voice} aria-label={text.voice} onchange={(e) => setCompanionVoice(e.currentTarget.checked)} />
+          <span></span>
+        </label>
+      </div>
+    </div>
   </div>
 
   <p class="d muted avatar-note">{text.agentsNote}</p>
@@ -284,6 +365,17 @@
   .chip.pri { background: var(--interactive); color: var(--text-on-interactive); border-color: var(--interactive); }
   .chip.pri:disabled { opacity: .6; cursor: default; }
   .poses { display: flex; gap: 6px; margin: 16px 0 28px; flex-wrap: wrap; justify-content: center; }
+  /* ---- the voice row ---- */
+  .voice-row.dim .set-txt { opacity: .55; }
+  .voice-ctrl { display: flex; align-items: center; gap: 10px; }
+  .voice-note {
+    display: flex; gap: 6px; align-items: flex-start; margin-top: 8px; padding: 6px 10px; border-radius: 8px;
+    font-size: var(--fs-xs); line-height: 1.45; color: var(--status-warn);
+    background: color-mix(in srgb, var(--status-warn) 10%, transparent); border: 1px solid color-mix(in srgb, var(--status-warn) 30%, transparent);
+  }
+  .voice-note :global(.icon) { flex: none; margin-top: 2px; }
+  .voice-note.soft { color: var(--text-muted); background: transparent; border-color: var(--border-subtle); }
+  .voice-note .link { appearance: none; background: none; border: 0; padding: 0; font: inherit; color: var(--interactive); text-decoration: underline; cursor: pointer; }
 
   /* ---- personas ---- */
   .personas { padding: 12px 16px 14px; }

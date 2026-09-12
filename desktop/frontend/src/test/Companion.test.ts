@@ -3,8 +3,10 @@ import { render, waitFor, fireEvent } from '@testing-library/svelte'
 import Companion from '../lib/mascot/Companion.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import { reportOf, REPORT_MAX } from '../lib/mascot/presence'
-import { companion, setCompanionOn } from '../lib/mascot/companionSetting.svelte'
+import { companion, setCompanionOn, setCompanionVoice } from '../lib/mascot/companionSetting.svelte'
 import { voice } from '../lib/mascot/voice.svelte'
+import { speech, stopSpeech } from '../lib/speech.svelte'
+import { StartSpeech } from './mocks/wailsApp'
 import { profile } from '../lib/stores/profile.svelte'
 import { t } from '../lib/i18n.svelte'
 
@@ -32,6 +34,9 @@ beforeEach(() => {
   profile.loaded = true
   voice.mic = false
   voice.speaking = false
+  stopSpeech()
+  setCompanionVoice(true)
+  vi.mocked(StartSpeech).mockClear()
 })
 
 const mascot = (c: HTMLElement) => c.querySelector('.companion .mascot')!
@@ -274,5 +279,130 @@ describe('what the bubble may say', () => {
     expect(out).not.toContain('บรรทัดสอง')
     expect(reportOf({ awaiting: true, busy: true, note: 'พูดไว้ก่อนหน้า' })).toBe('')
     expect(reportOf({ awaiting: true, busy: true, streamingText: 'กำลังตอบ' })).toBe('กำลังตอบ')
+  })
+})
+
+// The voice (12 ก.ย. 2026): the on-screen chat's finished answer and a
+// blocking question are read through the window's one player; nothing
+// else is — a long run is quiet until it reports — and anything that means
+// "the user is talking now" stops it. Failures are silent here.
+describe('what it says out loud', () => {
+  const spoken = () => vi.mocked(StartSpeech).mock.calls.map((c) => c[0])
+
+  it('reads the finished answer, holds its headline up while reading, and not a failed or stopped turn', async () => {
+    const { container } = await arrived()
+    cockpit.awaitingReply = true
+    // narration between tools is shown, never read
+    cockpit.toolSteps = [{ kind: 'note', label: 'กำลังอ่านไฟล์', state: 'done', startedAt: 0 }] as any
+    await vi.advanceTimersByTimeAsync(50)
+    expect(spoken()).toEqual([])
+    cockpit.chat = [{ role: 'user', text: 'q' }, { role: 'agent', text: '# สรุป' + String.fromCharCode(10) + 'เสร็จแล้วครับ' }] as any
+    cockpit.toolSteps = []
+    cockpit.awaitingReply = false
+    await vi.advanceTimersByTimeAsync(50)
+    expect(spoken()).toEqual(['สรุป เสร็จแล้วครับ'])
+    expect(speech.key).toBe('companion')
+    await vi.advanceTimersByTimeAsync(500)
+    expect(container.querySelector('.say')?.textContent).toBe('สรุป')
+    stopSpeech()
+    await vi.advanceTimersByTimeAsync(50)
+    expect(container.querySelector('.say')).toBeNull()
+
+    cockpit.awaitingReply = true
+    await vi.advanceTimersByTimeAsync(50)
+    cockpit.chat = [{ role: 'agent', text: 'x', failed: true }] as any
+    cockpit.awaitingReply = false
+    await vi.advanceTimersByTimeAsync(50)
+    cockpit.awaitingReply = true
+    await vi.advanceTimersByTimeAsync(50)
+    cockpit.chat = [{ role: 'agent', text: 'x', failed: true, stopped: true }] as any
+    cockpit.awaitingReply = false
+    await vi.advanceTimersByTimeAsync(50)
+    expect(spoken().length).toBe(1)
+    vi.useRealTimers()
+  })
+
+  it('reads a question it is blocked on, once', async () => {
+    await arrived()
+    cockpit.awaitingReply = true
+    cockpit.ask = { question: 'จะให้ลบไหม?', options: [] } as any
+    await vi.advanceTimersByTimeAsync(50)
+    cockpit.ask = { question: 'จะให้ลบไหม?', options: [] } as any
+    await vi.advanceTimersByTimeAsync(50)
+    expect(spoken()).toEqual(['จะให้ลบไหม?'])
+    vi.useRealTimers()
+  })
+
+  it('stops when the user talks instead: a new message, the mic, another chat, the switch, a click', async () => {
+    const { container } = await arrived()
+    const speakNow = async () => {
+      cockpit.awaitingReply = true
+      await vi.advanceTimersByTimeAsync(50)
+      cockpit.chat = [{ role: 'agent', text: 'คำตอบ' }] as any
+      cockpit.awaitingReply = false
+      await vi.advanceTimersByTimeAsync(50)
+      expect(speech.key).toBe('companion')
+    }
+    await speakNow()
+    cockpit.awaitingReply = true
+    await vi.advanceTimersByTimeAsync(50)
+    expect(speech.key).toBe('')
+    cockpit.awaitingReply = false
+    await vi.advanceTimersByTimeAsync(50)
+
+    await speakNow()
+    voice.mic = true
+    await vi.advanceTimersByTimeAsync(50)
+    expect(speech.key).toBe('')
+    voice.mic = false
+
+    await speakNow()
+    cockpit.openSession = 's9'
+    await vi.advanceTimersByTimeAsync(50)
+    expect(speech.key).toBe('')
+
+    await speakNow()
+    const grab = container.querySelector('.grab')!
+    ;(grab as any).setPointerCapture = () => {}
+    await fireEvent.pointerDown(grab, { clientX: 500, clientY: 400, pointerId: 1, button: 0 })
+    await fireEvent.pointerUp(grab, { pointerId: 1 })
+    await vi.advanceTimersByTimeAsync(50)
+    expect(speech.key).toBe('')
+    expect(companion.voice).toBe(true)
+
+    await speakNow()
+    const n = spoken().length
+    await fireEvent.click(container.querySelector('.mute')!)
+    await vi.advanceTimersByTimeAsync(50)
+    expect(companion.voice).toBe(false)
+    expect(speech.key).toBe('')
+    expect(localStorage.getItem('companionVoice')).toBe('off')
+    // switched off, a finished answer is not read
+    cockpit.awaitingReply = true
+    await vi.advanceTimersByTimeAsync(50)
+    cockpit.chat = [{ role: 'agent', text: 'เงียบ' }] as any
+    cockpit.awaitingReply = false
+    await vi.advanceTimersByTimeAsync(50)
+    expect(spoken().length).toBe(n)
+    vi.useRealTimers()
+  })
+
+  it('is silent when the engine refuses', async () => {
+    vi.mocked(StartSpeech).mockRejectedValueOnce(new Error('ไม่มีเสียง'))
+    await arrived()
+    cockpit.awaitingReply = true
+    await vi.advanceTimersByTimeAsync(50)
+    cockpit.chat = [{ role: 'agent', text: 'คำตอบ' }] as any
+    cockpit.awaitingReply = false
+    await vi.advanceTimersByTimeAsync(50)
+    expect(speech.key).toBe('')
+    expect(voice.speaking).toBe(false)
+    vi.useRealTimers()
+  })
+
+  it('is on by default and remembered off', () => {
+    expect(companion.voice).toBe(true)
+    setCompanionVoice(false)
+    expect(localStorage.getItem('companionVoice')).toBe('off')
   })
 })

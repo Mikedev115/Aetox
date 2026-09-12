@@ -15,14 +15,20 @@
   // the room's own greeting, spoken once as an empty chat comes on screen
   // (see "what it says"). Everything else in the bubble is the model's.
   //
+  // Since 12 ก.ย. 2026 it also speaks — the on-screen chat's finished answer
+  // and a question it is blocked on, out loud, through the same engine the
+  // ฟัง button uses (see "what it says out loud").
+  //
   // Cost: one SVG drawn once per pose, CSS for everything that moves. Nothing
   // here runs per frame.
+  import { untrack } from 'svelte'
   import Mascot from './Mascot.svelte'
   import Icon from '../Icon.svelte'
-  import { presenceOf, reportOf, walkTurn, nearAngle } from './presence'
+  import { presenceOf, reportOf, headlineOf, walkTurn, nearAngle } from './presence'
   import { POSE, type PoseId } from './poses'
   import { cockpit } from '../stores/cockpit.svelte'
-  import { setCompanionOn } from './companionSetting.svelte'
+  import { companion, setCompanionOn, setCompanionVoice } from './companionSetting.svelte'
+  import { speech, speak, stopSpeechIf } from '../speech.svelte'
   import { avatarPrefs, assistantOptions } from './avatarPrefs.svelte'
   import { voice } from './voice.svelte'
   import { profile } from '../stores/profile.svelte'
@@ -187,6 +193,9 @@
     moving = false
     if (wasClick) {
       dragging = false
+      // Clicked while talking: that is "shush" (the read ends, the switch
+      // stays as it was), with the same hop as any other click.
+      hush()
       react()
       return
     }
@@ -283,10 +292,16 @@
       const last = cockpit.chat[cockpit.chat.length - 1]
       endedBadly = !!last?.failed && !last.stopped
       justDone = true
+      // The answer, read aloud: only a reply that arrived (not a failure, not
+      // a stop), and only here — the turn of the chat on screen, which is
+      // the one this flag follows (a chat working off screen ends parked).
+      if (last?.role === 'agent' && !last.failed && last.text) untrack(() => say(last.text))
       const t = setTimeout(() => (justDone = false), SUCCESS_MS)
       wasAwaiting = now
       return () => clearTimeout(t)
     }
+    // A new message going out: the user is talking now, so it stops.
+    if (!wasAwaiting && now) untrack(hush)
     wasAwaiting = now
   })
   // Arriving: one wave, then whatever the chat is doing.
@@ -346,6 +361,57 @@
     : livePose,
   )
 
+  // ---- what it says out loud ---------------------------------------------
+  // The voice (owner, 12 ก.ย. 2026: "เพิ่มให้มันพูดได้ ใช้ TTS ในระบบเลย"): the
+  // on-screen chat's finished answer, and a question it is blocked on, read
+  // through the window's one player (lib/speech.svelte.ts) with the engine
+  // and voice of ตั้งค่า › เสียง — the same read the ฟัง button makes, started
+  // for the user. NOT the narration between tools: a long run says a line
+  // per round, and a voice that read every one would still be on round three
+  // when the report came, or talk over itself ("คิดเผื่อตอนมันทำงานยาว …
+  // เสียงชนกัน"). So a run is quiet until it reports, and the bubble carries
+  // the rounds meanwhile.
+  //
+  // One read at a time, newest wins (the player's rule), and it stops the
+  // moment the user is speaking instead: a new message, the mic, another
+  // chat brought on screen, the switch, or a click on the figure. Silent on
+  // any failure — no voice installed, an engine that cannot run — because a
+  // report is not the place for an error; the avatar page says why
+  // (AvatarSettings.svelte), and the ฟัง button still shows its own.
+  const VOICE_KEY = 'companion'
+  const talking = $derived(speech.key === VOICE_KEY)
+  /** The text being read, for the bubble; '' once the read ends. */
+  let spoken = $state('')
+  function say(text: string): void {
+    if (!companion.voice) return
+    spoken = text
+    void speak(VOICE_KEY, text)
+  }
+  function hush(): void {
+    stopSpeechIf(VOICE_KEY)
+  }
+  $effect(() => {
+    if (!talking) spoken = ''
+  })
+  // A question it is blocked on is read as it appears — the one moment in a
+  // run the user has to come back for.
+  let lastAsked = ''
+  $effect(() => {
+    const q = cockpit.ask?.question ?? ''
+    if (q && q !== lastAsked) untrack(() => say(q))
+    lastAsked = q
+  })
+  // untrack: hush reads the player's key, and an effect that tracked it
+  // would run again as a read began — and end it.
+  $effect(() => {
+    void cockpit.openSession
+    untrack(hush)
+  })
+  $effect(() => {
+    if (voice.mic || !companion.voice) untrack(hush)
+  })
+  $effect(() => () => hush())
+
   // ---- what it says -------------------------------------------------------
   // The model's latest narration of its own — a delegate's rows carry `parent`
   // and are its story, not the assistant's.
@@ -365,8 +431,10 @@
       question: cockpit.ask?.question,
     }),
   )
-  // The greeting fills the bubble only while the model has nothing to say.
-  const said = $derived(report || greeting)
+  // While it reads the answer the bubble holds the answer's first line — the
+  // headline the stream showed, kept up until the voice is done with it. The
+  // greeting fills the bubble only while the model has nothing to say.
+  const said = $derived(report || (talking && spoken ? headlineOf(spoken) : '') || greeting)
   // A narration is typed out; the answer's headline is shown as it is, since
   // it is already arriving letter by letter. Whole on any change of source.
   let shown = $state('')
@@ -411,6 +479,10 @@
        account menu brings it back. -->
   <div class="frame"></div>
   <button class="hide" type="button" title="ซ่อน" aria-label="ซ่อน" onclick={() => setCompanionOn(false)}><Icon name="x" size={11} /></button>
+  <!-- The other control on the frame: the voice, on or off. The same switch
+       as the avatar page's row; here because "make it stop talking" is
+       wanted where the talking is. -->
+  <button class="mute" class:off={!companion.voice} type="button" title={companion.voice ? 'ปิดเสียง' : 'เปิดเสียง'} aria-label={companion.voice ? 'ปิดเสียง' : 'เปิดเสียง'} aria-pressed={!companion.voice} onclick={() => setCompanionVoice(!companion.voice)}><Icon name={companion.voice ? 'volume2' : 'volumeX'} size={11} /></button>
   <!-- A handle, not a control: it has nothing to activate, only somewhere to be. -->
   <div class="grab" role="presentation" onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp}>
     <Mascot {...assistantOptions(avatarPrefs)} {pose} turn={dragging ? heading : undefined} snap={dragging} size={SIZE} sway {hop} />
@@ -428,8 +500,12 @@
   .frame { position: absolute; inset: -6px; border: 1px dashed var(--border-subtle); border-radius: 14px; opacity: 0; transition: opacity .15s; pointer-events: none; }
   .hide { position: absolute; top: -12px; right: -12px; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border-subtle); background: var(--surface-raised); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .15s; padding: 0; }
   .hide:hover { color: var(--text-primary); }
-  .companion:hover .frame, .companion:hover .hide, .hide:focus-visible { opacity: 1; }
-  .dragging .frame, .dragging .hide { opacity: 0; }
+  .mute { position: absolute; top: -12px; left: -12px; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border-subtle); background: var(--surface-raised); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .15s; padding: 0; }
+  .mute:hover { color: var(--text-primary); }
+  /* Muted, it stays visible: a figure that will not talk should say so. */
+  .mute.off { opacity: 1; color: var(--text-muted); }
+  .companion:hover .frame, .companion:hover .hide, .companion:hover .mute, .hide:focus-visible, .mute:focus-visible { opacity: 1; }
+  .dragging .frame, .dragging .hide, .dragging .mute { opacity: 0; }
   /* the report: a small card that exists only while there is something said */
   .say {
     position: absolute; right: calc(100% + 10px); bottom: 30px;
