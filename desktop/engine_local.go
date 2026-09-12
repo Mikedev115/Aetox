@@ -288,8 +288,14 @@ func (e *localEngine) backoff() time.Duration {
 	return time.Duration(1<<(n-1)) * time.Second
 }
 
-// spawn starts one child and reads where it listens.
+// spawn starts one child and reads where it listens — or, with
+// AETOX_ENGINE_ADDR set, attaches to an engine somebody else started
+// (attach), which is how a remote engine is reached by hand until phase 3
+// does the ssh work itself.
 func (e *localEngine) spawn(ctx context.Context) (*engineProcess, error) {
+	if addr := strings.TrimSpace(os.Getenv("AETOX_ENGINE_ADDR")); addr != "" {
+		return e.attach(addr)
+	}
 	bin, dir, prefix, err := engineCommand()
 	if err != nil {
 		return nil, err
@@ -416,10 +422,40 @@ func (e *localEngine) connect(ctx context.Context, p *engineProcess) error {
 	return err
 }
 
+// attach is spawn for an engine this window did not start: AETOX_ENGINE_ADDR
+// names it as `tcp:127.0.0.1:7400` or `unix:/path/to/engine.sock`, and the
+// token comes from AETOX_ENGINE_TOKEN or a file named by
+// AETOX_ENGINE_TOKEN_FILE. Nothing is supervised but the wire: a dropped
+// connection is redialed, and an engine that is gone is a status the chip
+// shows until it is back. The manual road to a host over ssh — start the
+// engine there, `ssh -L` the port here, point the window at it — which phase
+// 3 turns into a Settings page.
+func (e *localEngine) attach(addr string) (*engineProcess, error) {
+	network, address, ok := strings.Cut(addr, ":")
+	if !ok || (network != "tcp" && network != "unix") || address == "" {
+		return nil, fmt.Errorf("AETOX_ENGINE_ADDR=%q — want tcp:host:port or unix:/path", addr)
+	}
+	token := strings.TrimSpace(os.Getenv("AETOX_ENGINE_TOKEN"))
+	if file := strings.TrimSpace(os.Getenv("AETOX_ENGINE_TOKEN_FILE")); token == "" && file != "" {
+		b, err := os.ReadFile(file)
+		if err != nil {
+			return nil, fmt.Errorf("AETOX_ENGINE_TOKEN_FILE: %w", err)
+		}
+		token = strings.TrimSpace(string(b))
+	}
+	if token == "" {
+		return nil, errors.New("AETOX_ENGINE_ADDR is set but no token: set AETOX_ENGINE_TOKEN or AETOX_ENGINE_TOKEN_FILE")
+	}
+	e.token = token
+	// No process of ours: exited never closes, and stop has nothing to do.
+	return &engineProcess{network: network, address: address, exited: make(chan struct{})}, nil
+}
+
 // stop ends the child: stdin closed is its cue to leave on its own; a
-// child that has not left in stopGrace is killed.
+// child that has not left in stopGrace is killed. An attached engine is
+// not ours to stop.
 func (e *localEngine) stop(p *engineProcess) {
-	if p == nil {
+	if p == nil || p.cmd == nil {
 		return
 	}
 	_ = p.stdin.Close()

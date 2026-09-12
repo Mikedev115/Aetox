@@ -16,6 +16,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/engine"
 	"github.com/Mikedev115/Aetox/internal/engine/rpc"
 	"github.com/Mikedev115/Aetox/internal/tts"
@@ -125,6 +127,11 @@ func (a *App) startup(ctx context.Context) {
 	// startup runs, and shown only once the webview has content, so a window
 	// bigger than the screen is corrected while nobody can see it move.
 	a.fitToScreen()
+	// The screen's own log, named for the process: the engine writes its own
+	// beside it (debuglog.InitAs says why the name matters).
+	if dataRoot, err := config.DataRoot(); err == nil {
+		debuglog.InitAs(dataRoot, "desktop")
+	}
 	// The engine, as a child of this window for as long as the window lives.
 	go a.engine.run(ctx)
 	// The previous build's exe, renamed aside by a self-update, and the staging

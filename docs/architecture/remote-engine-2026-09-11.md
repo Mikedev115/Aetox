@@ -184,8 +184,10 @@ Engine: `aetox.db`, `model-preference.json`, `memory/`, `modes/`, `agents/`,
 `engine-<pid>.sock` (the local socket, named for the screen's pid). Screen:
 `credentials.json`, `oauth.json`, `account.json`, `webview/`, `updates/`,
 `update-check.json`, `screen.json` (new — remote hosts and their tokens,
-`atrest`-wrapped), `logs/aetox-<time>.log` (debuglog, one file per launch).
-This is an invariant, not a description.
+`atrest`-wrapped), `logs/desktop-<time>.log` (debuglog, one file per launch;
+the engine's is `logs/aetox-<time>.log`, and the two are named for the
+process because they open within the same second). This is an invariant,
+not a description.
 
 ## 3. The seam, in-process first
 

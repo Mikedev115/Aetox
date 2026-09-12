@@ -15,14 +15,23 @@ var (
 	indent int
 )
 
-func Init(baseDir string) {
+// Init opens this process's log under <baseDir>/logs as aetox-<time>.log —
+// the engine's name for it, and the only process's until §248 phase 2.
+func Init(baseDir string) { InitAs(baseDir, "aetox") }
+
+// InitAs is Init with the file named for the process: the screen (desktop)
+// and the engine (aetox-engine) start within the same second under one
+// DataRoot, and a name that carried only the time would have both open one
+// file with O_TRUNC — two writers on one log, the exact thing the split's
+// DataRoot rule forbids.
+func InitAs(baseDir, prefix string) {
 	if writer != nil {
 		return
 	}
 	dir := filepath.Join(baseDir, "logs")
 	os.MkdirAll(dir, 0755)
 
-	name := "aetox-" + time.Now().Format("20060102-150405") + ".log"
+	name := prefix + "-" + time.Now().Format("20060102-150405") + ".log"
 	path := filepath.Join(dir, name)
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
