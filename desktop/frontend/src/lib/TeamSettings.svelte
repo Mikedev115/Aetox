@@ -26,7 +26,7 @@
   import { onMount } from 'svelte'
   import {
     ListChairs, ListTeams, SaveTeam, DeleteTeam, OpenTeamsFolder,
-    DelegateSwitches, SetDelegateOff, SetAgentOff,
+    DelegateSwitches, SetAgentOff,
   } from '../../wailsjs/go/main/App'
   import { main } from '../../wailsjs/go/models'
   import { cockpit, setActiveView } from './stores/cockpit.svelte'
@@ -36,6 +36,10 @@
   import ConfirmDialog from './ConfirmDialog.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
   import { lookOf } from './mascot/agentLook'
+
+  // The one door out of this page: to the agent editor, for an agent that
+  // does not exist yet. Settings owns that editor, so it hands the door in.
+  let { onNewAgent }: { onNewAgent?: () => void } = $props()
 
   let teams = $state<main.TeamCard[]>([])
   // The whole roster, for the editor's tick list: any agent may be on any
@@ -53,28 +57,28 @@
   // opens: it is the team every machine has.
   let selected = $state('')
   const current = $derived(teams.find((x) => x.name === selected) ?? null)
-  // The two side switches (owner, 13 ก.ย.: "ทำเป็น 2 สวิตช์ข้างบน แยกฝั่งผู้ช่วย
-  // และฝั่งโค้ด"): whether the ASSISTANT may hand a whole job to a team on
-  // its side, and whether the CODE desk may to a team on its side. Read off
-  // the switches of any team (the engine reports both on every answer), so
-  // the page draws them without a call of their own.
+  // Which SIDE the page shows — the assistant's teams or the code door's —
+  // chosen by the two-way switch at the top (owner, 13 ก.ย.: "เป็นแบบฝั่ง
+  // ผู้ช่วยและฝั่งโค้ด แยกกัน" — a switch between the two, not an on/off).
+  // One side at a time: the rail lists that side's teams and its door, the
+  // pane the team picked there. Nothing else on this page is an on/off but
+  // a member's own reach on its team.
+  let side = $state<'specialized' | 'coding'>('specialized')
+  const onSide = $derived(teams.filter((tm) => tm.desk === side))
+  function showSide(desk: string) {
+    side = desk === 'coding' ? 'coding' : 'specialized'
+    editing = null
+    const first = teams.find((tm) => tm.desk === side)
+    selected = first ? first.name : ''
+  }
+  // The door's own on/off is not on this page — it is the row in the chat's
+  // team menu — but a door that is off cools the rows under it here, so the
+  // page never shows a switch that does nothing. Read off any team's answer;
+  // the engine reports both doors on every one.
   const sideOff = $derived.by(() => {
     const any = Object.values(switches)[0]
     return { specialized: any ? any.agents.off : false, coding: any ? any.code.off : false }
   })
-  async function toggleSide(desk: string) {
-    if (busy) return
-    busy = 'side:' + desk
-    try {
-      const kind = desk === 'coding' ? 'code' : 'agents'
-      const next = await SetDelegateOff(kind, !sideOff[desk as 'specialized' | 'coding'])
-      // Both door switches come back on every answer, whichever team was
-      // asked; copy them onto every held block so the page agrees with itself.
-      switches = Object.fromEntries(Object.entries(switches).map(([k, v]) => [k, { ...v, agents: { ...v.agents, off: next.agents.off }, code: next.code } as unknown as main.DelegateSettings]))
-    } finally {
-      busy = ''
-    }
-  }
 
   async function load() {
     try {
@@ -91,14 +95,11 @@
     const next: Record<string, main.DelegateSettings> = {}
     teams.forEach((tm, i) => { if (answers[i]) next[tm.name] = answers[i]! })
     switches = next
-    if (!teams.some((x) => x.name === selected)) selected = teams[0]?.name ?? ''
+    if (!teams.some((x) => x.name === selected && x.desk === side)) selected = teams.find((x) => x.desk === side)?.name ?? ''
     loaded = true
   }
 
   const teamLabel = (tm: main.TeamCard) => tm.name
-  // The desk labels the rest of the app uses (the nav, the MCP page's
-  // audience chips) — not a wording of this page's own.
-  const deskLabel = (desk: string) => (desk === 'coding' ? t('desk.coding') : t('desk.assistant'))
   // The two sides a team can be on, in the order the doors sit on the
   // wordmark: the storefront first, the workshop second. Icon and colour are
   // the desk's own (desks.ts), so a team reads as belonging to a door the
@@ -108,6 +109,7 @@
     { desk: 'coding', cls: 'side-code', icon: 'fileCode' as const, label: 'settings.teamSideCode' as const, note: 'office.teamDeskCodingNote' as const },
   ]
   const sideOf = (desk: string) => SIDES.find((s) => s.desk === desk) ?? SIDES[0]
+  const curSide = $derived(sideOf(side))
   // How many of a team are in the assistant's reach right now — the number
   // the rail shows beside each team, so the state is readable before a click.
   function inReach(tm: main.TeamCard): number {
@@ -142,7 +144,26 @@
   type TeamDraft = { name: string; desk: string; description: string; members: string[]; isNew: boolean; path: string }
   let editing = $state<TeamDraft | null>(null)
   let editError = $state('')
-  function newTeam(desk = 'specialized') {
+  // "+ เอเจน" in the tick list: the agent wanted is not on the roster yet.
+  // The draft is parked (this page unmounts while the agent editor is up)
+  // and picked back up on return, with the new agent ticked — so making an
+  // agent mid-form costs nothing typed so far.
+  const DRAFT_KEY = 'aetox.teamDraft'
+  function goNewAgent() {
+    if (!editing || !onNewAgent) return
+    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(editing)) } catch { /* the draft is just not kept */ }
+    onNewAgent()
+  }
+  function takeParkedDraft(): TeamDraft | null {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY)
+      sessionStorage.removeItem(DRAFT_KEY)
+      return raw ? (JSON.parse(raw) as TeamDraft) : null
+    } catch {
+      return null
+    }
+  }
+  function newTeam(desk: string = side) {
     editing = { name: '', desk, description: '', members: [], isNew: true, path: '' }
     editError = ''
   }
@@ -169,9 +190,11 @@
     const name = editing.name.trim()
     try {
       await SaveTeam(name, editing.desk, editing.description, editing.members)
+      const desk = editing.desk
       editing = null
-      selected = name
+      showSide(desk)
       await load()
+      selected = name
     } catch (err) {
       editError = String(err)
     } finally {
@@ -214,12 +237,22 @@
     const intent = cockpit.settingsIntent
     if (intent && intent.section === 'teams') cockpit.settingsIntent = null
     await load()
+    const parked = takeParkedDraft()
+    if (parked) {
+      showSide(parked.desk)
+      editing = parked
+      if (intent?.agent && chairs.some((c) => c.name === intent.agent)) tickMember(intent.agent, true)
+      return
+    }
     if (!intent || intent.section !== 'teams') return
-    if (intent.createTeam) newTeam()
+    if (intent.createTeam) newTeam(side)
     else if (intent.team && teams.some((x) => x.name === intent.team)) {
-      selected = intent.team
       const tm = teams.find((x) => x.name === intent.team)
-      if (tm) editTeam(tm)
+      if (tm) {
+        showSide(tm.desk)
+        selected = tm.name
+        editTeam(tm)
+      }
     }
   })
 </script>
@@ -232,67 +265,54 @@
       <button class="linklike" onclick={() => { setShell('assistant'); setActiveView('office') }}>{t('settings.teamOpenPage')} <Icon name="arrowRight" size={12} /></button>
     </p>
   </div>
-  <!-- The door, where the eye lands first. -->
-  <button class="ctrl ctrl-primary team-new" onclick={() => newTeam()} disabled={!!editing?.isNew}><Icon name="plus" size={14} /> {t('office.newTeam')}</button>
+  <!-- The door, where the eye lands first — on the side being shown. -->
+  <button class="ctrl ctrl-primary team-new" onclick={() => newTeam(side)} disabled={!!editing?.isNew}><Icon name="plus" size={14} /> {t('office.newTeam')}</button>
 </div>
 {#if error}<div class="mset-error">{error}</div>{/if}
 
-<!-- The two switches, above everything, one per side: they are not about a
-     team, they are about a DOOR — may the assistant behind it hand work to
-     the teams on its side. -->
-<div class="team-sides">
-  {#each SIDES as side (side.desk)}
-    {@const off = sideOff[side.desk as 'specialized' | 'coding']}
-    <div class="settings-card team-side-card {side.cls}">
-      <div class="set-row">
-        <span class="team-side-ic"><Icon name={side.icon} size={18} /></span>
-        <div class="set-txt">
-          <div class="t">{t(side.desk === 'coding' ? 'settings.sideCodeDelegate' : 'settings.sideAssistantDelegate')}</div>
-          <div class="d">{t(off ? (side.desk === 'coding' ? 'settings.sideCodeOff' : 'settings.sideAssistantOff') : (side.desk === 'coding' ? 'settings.sideCodeOn' : 'settings.sideAssistantOn'))}</div>
-        </div>
-        <div class="ag-actions">
-          <label class="mswitch">
-            <input type="checkbox" checked={!off} disabled={busy !== ''} onchange={() => toggleSide(side.desk)}
-              aria-label={t(side.desk === 'coding' ? 'settings.sideCodeDelegate' : 'settings.sideAssistantDelegate')} />
-            <span></span>
-          </label>
-        </div>
-      </div>
-    </div>
+<!-- The switch between the two sides, above everything — the approval
+     row's own two-way control, wearing each desk's icon and colour. It picks
+     what the page SHOWS; the door's on/off lives in the chat's team menu. -->
+<div class="seg-ctrl team-side-pick" role="tablist" aria-label={t('settings.teamSides')}>
+  {#each SIDES as s (s.desk)}
+    <button type="button" class="seg-btn {s.cls}" class:selected={side === s.desk}
+      role="tab" aria-selected={side === s.desk} onclick={() => showSide(s.desk)}>
+      <Icon name={s.icon} size={13} /> {t(s.label)}
+      <span class="team-tally">{teams.filter((tm) => tm.desk === s.desk).length}</span>
+    </button>
   {/each}
 </div>
+{#if sideOff[side]}
+  <p class="muted set-hint team-door-off">{t(side === 'coding' ? 'settings.sideCodeOff' : 'settings.sideAssistantOff')} {t('settings.sideOffWhere')}</p>
+{/if}
 
 <div class="settings-card mset team-set">
   <!-- The rail: every team, the default first, each with the one number
        worth reading before a click — how many of it the assistant may hand
        work to — and the door once more at the foot. -->
   <aside class="mset-side">
-    <!-- Two sides, never one list (owner, 13 ก.ย.: "แยกชัดๆ อันไหนฝั่งผู้ช่วย
-         อันไหนฝั่งโค้ด"). The side is the desk the team works at, drawn with
-         the desk's own icon from the nav and its own colour, and each side
-         carries its own door — so the code side reads as a place a team can
-         be made even while it is empty. -->
-    {#each SIDES as side (side.desk)}
-      {@const rows = teams.filter((tm) => tm.desk === side.desk)}
-      <div class="settings-group-label eyebrow team-side {side.cls}">
-        <Icon name={side.icon} size={12} /> {t(side.label)}
-      </div>
-      {#each rows as tm (tm.name)}
-        <button class="mset-prov team-row {side.cls}" class:selected={selected === tm.name && !editing?.isNew}
-          class:invalid={!!tm.invalid} onclick={() => pick(tm.name)}>
-          <Icon name="users" size={15} />
-          <span class="mset-prov-name">{teamLabel(tm)}</span>
-          <span class="team-tally" title={t('settings.teamTallyTip')}>{inReach(tm)}/{tm.members.length}</span>
-        </button>
-      {/each}
-      {#if rows.length === 0}
-        <div class="team-side-empty">{t('settings.teamSideEmpty')}</div>
-      {/if}
-      <button class="mset-prov team-add {side.cls}" class:selected={!!editing?.isNew && editing.desk === side.desk}
-        onclick={() => newTeam(side.desk)}>
-        <Icon name="plus" size={14} /> {t('settings.teamNewHere')}
+    <!-- One side's teams, each with the one number worth reading before a
+         click — how many of it the door may hand work to — and the side's
+         door at the foot, so an empty side still reads as a place a team can
+         be made (owner: "ดูแล้วเพิ่มง่าย เห็นแล้วรู้ว่าอ๋อ เพิ่มได้"). -->
+    <div class="settings-group-label eyebrow team-side {curSide.cls}">
+      <Icon name={curSide.icon} size={12} /> {t(curSide.label)}
+    </div>
+    {#each onSide as tm (tm.name)}
+      <button class="mset-prov team-row {curSide.cls}" class:selected={selected === tm.name && !editing?.isNew}
+        class:invalid={!!tm.invalid} onclick={() => pick(tm.name)}>
+        <Icon name="users" size={15} />
+        <span class="mset-prov-name">{teamLabel(tm)}</span>
+        <span class="team-tally" title={t('settings.teamTallyTip')}>{inReach(tm)}/{tm.members.length}</span>
       </button>
     {/each}
+    {#if loaded && onSide.length === 0}
+      <div class="team-side-empty">{t('settings.teamSideEmpty')}</div>
+    {/if}
+    <button class="mset-prov team-add {curSide.cls}" class:selected={!!editing?.isNew}
+      onclick={() => newTeam(side)}>
+      <Icon name="plus" size={14} /> {t('settings.teamNewHere')}
+    </button>
   </aside>
 
   <div class="mset-detail">
@@ -305,27 +325,17 @@
       <div class="mset-head">
         <Icon name="users" size={22} />
         <span class="mset-name">{editing.isNew ? t('office.newTeam') : t('office.teamEdit')}</span>
+        <!-- The side is a fact from the switch above, not a choice down here
+             (owner: "เราเลือกข้างบนอยู่แล้ว จะมีปุ่มนี้ทำไม"). -->
+        <span class="desk-badge {sideOf(editing.desk).cls}"><Icon name={sideOf(editing.desk).icon} size={12} /> {t(sideOf(editing.desk).label)}</span>
       </div>
-      <p class="muted set-hint">{t('settings.teamEditDesc')}</p>
+      <p class="muted set-hint">{t('settings.teamEditDesc')} {t(sideOf(editing.desk).note)}</p>
       <div class="mset-field">
         <div class="eyebrow">{t('office.teamName')}</div>
         {#if editing.isNew}<div class="muted set-hint">{t('office.teamNameHint')}</div>{/if}
         <!-- svelte-ignore a11y_autofocus -->
         <input class="ctrl key-input" type="text" bind:value={editing.name} disabled={!editing.isNew}
           placeholder={t('office.teamNamePlaceholder')} spellcheck="false" autofocus={editing.isNew} />
-      </div>
-      <div class="mset-field">
-        <div class="eyebrow">{t('office.teamDesk')}</div>
-        <div class="seg-ctrl team-desk-pick" role="radiogroup" aria-label={t('office.teamDesk')}>
-          {#each SIDES as side (side.desk)}
-            <button type="button" class="seg-btn {side.cls}" class:selected={editing.desk === side.desk}
-              role="radio" aria-checked={editing.desk === side.desk}
-              onclick={() => { if (editing) editing.desk = side.desk }}>
-              <Icon name={side.icon} size={13} /> {deskLabel(side.desk)}
-            </button>
-          {/each}
-        </div>
-        <div class="muted set-hint">{t(sideOf(editing.desk).note)}</div>
       </div>
       <div class="mset-field">
         <div class="eyebrow">{t('office.teamDescription')}</div>
@@ -343,6 +353,11 @@
               {c.name}
             </button>
           {/each}
+          {#if onNewAgent}
+            <button type="button" class="conn-chip team-add-agent" title={t('settings.teamAddAgentTip')} onclick={goNewAgent}>
+              <Icon name="plus" size={13} /> {t('settings.teamAddAgent')}
+            </button>
+          {/if}
         </div>
       </div>
       {#if editError}<div class="mset-error">{editError}</div>{/if}
@@ -408,13 +423,13 @@
       <!-- The nudge, only while the user has no team of their own: what a
            team is for, in one sentence each, and the door. Gone the moment
            the first team exists — a tip for a thing already done is noise. -->
-      {#if loaded && teams.length <= 1}
+      {#if loaded && onSide.length <= 1}
         <div class="team-callout">
           <div class="team-callout-txt">
             <div class="t">{t('settings.teamFirstTitle')}</div>
             <div class="d">{t('settings.teamFirstBody')}</div>
           </div>
-          <button class="ctrl ctrl-primary" onclick={() => newTeam()}><Icon name="plus" size={14} /> {t('office.newTeam')}</button>
+          <button class="ctrl ctrl-primary" onclick={() => newTeam(side)}><Icon name="plus" size={14} /> {t('office.newTeam')}</button>
         </div>
       {/if}
     {:else if loaded}
