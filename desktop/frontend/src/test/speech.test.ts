@@ -104,6 +104,40 @@ describe('the one player', () => {
     expect(FakeAudio.made.length).toBe(1)
   })
 
+  // The echo on first open: the greeting, then the greeting again with the
+  // name, same key, the first engine start still in flight. Only the second
+  // may play; the first's job is closed the moment it comes back.
+  it('lets a same-key read replace one whose engine start is still in flight', async () => {
+    let finishFirst!: (job: string) => void
+    vi.mocked(StartSpeech)
+      .mockImplementationOnce(() => new Promise<string>((r) => { finishFirst = r }))
+      .mockResolvedValueOnce('second')
+    const p1 = speak('companion', 'วันนี้มีอะไรให้ช่วยไหม')
+    await speak('companion', 'mike วันนี้มีอะไรให้ช่วยไหม')
+    feed()({ job: 'second', seq: 0, url: 'u-second', mime: 'audio/wav', last: true })
+    await Promise.resolve(); await Promise.resolve()
+    expect(FakeAudio.made.map((a) => a.src)).toEqual(['u-second'])
+    expect(FakeAudio.made[0].paused).toBe(false)
+    finishFirst('first')
+    await p1
+    expect(vi.mocked(StopSpeech)).toHaveBeenCalledWith('first')
+    // the first job's pieces, arriving late, play nothing
+    feed()({ job: 'first', seq: 0, url: 'u-first', mime: 'audio/wav', last: true })
+    expect(FakeAudio.made.length).toBe(1)
+    expect(speech.key).toBe('companion')
+    expect(FakeAudio.made[0].paused).toBe(false)
+    // and a superseded read that fails leaves the current one alone
+    let failFirst!: (e: Error) => void
+    vi.mocked(StartSpeech)
+      .mockImplementationOnce(() => new Promise<string>((_, rej) => { failFirst = rej }))
+      .mockResolvedValueOnce('third')
+    const p2 = speak('companion', 'a')
+    await speak('companion', 'b')
+    failFirst(new Error('late failure'))
+    await p2
+    expect(speech.key).toBe('companion')
+  })
+
   it('stopSpeechIf ends only its own read', async () => {
     vi.mocked(StartSpeech).mockResolvedValueOnce('c')
     await speak('mine', 'x')
