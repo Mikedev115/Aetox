@@ -6581,6 +6581,17 @@ button.phase-head:hover { color:var(--text-muted); }
 .team-tick .t { font-size:var(--fs-xs); }
 .team-actions { display:flex; justify-content:flex-end; gap:8px; }
 
+/* Settings › ทีม (§256): one card per team, its members as rows under the
+   head. The head's switch is the team's reach, each row's is that member's
+   reach on this team. */
+.team-card .team-card-head .team-ic { display:inline-flex; color:var(--accent); margin-right:2px; }
+.team-card .team-card-head .t { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.team-card .team-count { font-size:var(--fs-2xs); color:var(--text-dim); font-variant-numeric:tabular-nums; font-weight:400; }
+.team-card .team-bad { color:var(--status-danger); }
+.team-card .team-member { padding-left:26px; }
+.team-card .team-member .set-txt { min-width:0; }
+.team-card.invalid .team-member { opacity:.55; }
+
 /* The one sentence this page exists to change, written as a sentence. It sat
    as a bare switch over the list before, which left the reader to work out
    what the switch reached. */

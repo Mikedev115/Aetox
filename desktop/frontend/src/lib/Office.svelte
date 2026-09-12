@@ -17,7 +17,7 @@
   // sub-agents' folder would wake up sick.
   import {
     ListChairs, ListReceivedJobs, OpenAgentsFolder, OpenTeamsFolder, AgentGate,
-    DelegateSwitches, SetDelegateOff, ListTeams, SaveTeam, DeleteTeam,
+    DelegateSwitches, SetDelegateOff, ListTeams,
   } from '../../wailsjs/go/main/App'
   import { main, subagent } from '../../wailsjs/go/models'
   import { agoLabel, cockpit, newChairSession, selectGlobalSession, setActiveView } from './stores/cockpit.svelte'
@@ -25,7 +25,6 @@
   import { dayBucket } from './dayBucket'
   import Icon from './Icon.svelte'
   import AgentLock from './AgentLock.svelte'
-  import ConfirmDialog from './ConfirmDialog.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
   import { lookOf } from './mascot/agentLook'
 
@@ -113,68 +112,17 @@
   const offDuty = (team: main.TeamCard) => team.members.filter((c) => !reaches(team, c))
   const banded = (team: main.TeamCard) => !!switches[team.name] && onDuty(team).length > 0 && offDuty(team).length > 0
 
-  // The team editor: name, desk, a sentence, and a tick beside every agent
-  // on the roster. One shape for new and existing; the name is fixed once a
-  // folder exists, because it is the folder (and what sessions key on).
-  type TeamDraft = { name: string; desk: string; description: string; members: string[]; isNew: boolean }
-  let teamEditing = $state<TeamDraft | null>(null)
-  let teamError = $state('')
-  let teamBusy = $state(false)
+  // The team's doors go to Settings › ทีม (§256): this page is where you walk
+  // in and talk, that page is where a roster is made and edited — one editor,
+  // reached through settingsIntent the way the agent editor is.
   function newTeam() {
-    teamEditing = { name: '', desk: 'specialized', description: '', members: [], isNew: true }
-    teamError = ''
+    cockpit.settingsIntent = { section: 'teams', createTeam: true }
+    setActiveView('settings')
   }
-  function editTeam(tm: main.TeamCard) {
-    teamEditing = {
-      name: tm.name, desk: tm.desk, description: tm.description,
-      members: tm.members.map((c) => c.name), isNew: false,
-    }
-    teamError = ''
+  function configureTeam(tm: main.TeamCard) {
+    cockpit.settingsIntent = { section: 'teams', team: tm.name }
+    setActiveView('settings')
   }
-  function tickMember(name: string, on: boolean) {
-    if (!teamEditing) return
-    const rest = teamEditing.members.filter((m) => m !== name)
-    teamEditing.members = on ? [...rest, name] : rest
-  }
-  async function saveTeam() {
-    if (!teamEditing || teamBusy) return
-    teamBusy = true
-    teamError = ''
-    try {
-      await SaveTeam(teamEditing.name.trim(), teamEditing.desk, teamEditing.description, teamEditing.members)
-      teamEditing = null
-      await loadTeams()
-    } catch (err) {
-      teamError = String(err)
-    } finally {
-      teamBusy = false
-    }
-  }
-  // Deleting a team is deleting a list — the people stay — so the sentence
-  // on the dialog says so, and names the folder for checking.
-  let pendingConfirm = $state<{ title: string; message: string; detail: string; confirmLabel: string; run: () => void } | null>(null)
-  function deleteTeam(tm: main.TeamCard) {
-    pendingConfirm = {
-      title: t('office.confirmTeamDeleteTitle'),
-      message: t('office.confirmTeamDeleteMessage'),
-      detail: tm.path || tm.name,
-      confirmLabel: t('office.confirmTeamDeleteAction'),
-      run: async () => {
-        try {
-          await DeleteTeam(tm.name)
-        } catch (err) {
-          teamError = String(err)
-        }
-        await loadTeams()
-      },
-    }
-  }
-  function runPendingConfirm() {
-    const req = pendingConfirm
-    pendingConfirm = null
-    req?.run()
-  }
-
   onMount(async () => {
     const [roster, feed] = await Promise.all([ListChairs(), ListReceivedJobs(30), loadTeams()])
     chairs = roster
@@ -296,53 +244,6 @@
         <button class="ctrl" onclick={createAgent}><Icon name="plus" size={13} /> {t('office.newAgent')}</button>
       </div>
 
-      <!-- The team editor, above the decks it changes. One form for a new
-           team and an existing one; the name locks once the folder exists. -->
-      {#if teamEditing}
-        <div class="settings-card team-editor">
-          <div class="team-form">
-            <label class="team-field">
-              <span class="eyebrow">{t('office.teamName')}</span>
-              <input class="ctrl" type="text" bind:value={teamEditing.name} disabled={!teamEditing.isNew}
-                placeholder={t('office.teamNamePlaceholder')} spellcheck="false" />
-              {#if teamEditing.isNew}<span class="d muted">{t('office.teamNameHint')}</span>{/if}
-            </label>
-            <div class="team-field">
-              <span class="eyebrow">{t('office.teamDesk')}</span>
-              <div class="team-desks">
-                {#each ['specialized', 'coding'] as desk (desk)}
-                  <button type="button" class="pill" class:on={teamEditing.desk === desk}
-                    onclick={() => { if (teamEditing) teamEditing.desk = desk }}>{deskLabel(desk)}</button>
-                {/each}
-              </div>
-              {#if teamEditing.desk === 'coding'}<span class="d muted">{t('office.teamDeskCodingNote')}</span>{/if}
-            </div>
-            <label class="team-field">
-              <span class="eyebrow">{t('office.teamDescription')}</span>
-              <input class="ctrl" type="text" bind:value={teamEditing.description} />
-            </label>
-            <div class="team-field">
-              <span class="eyebrow">{t('office.teamPick')}</span>
-              <div class="team-pick">
-                {#each chairs as c (c.name)}
-                  {@const on = teamEditing.members.includes(c.name)}
-                  <label class="team-tick" class:on>
-                    <input type="checkbox" checked={on} onchange={(e) => tickMember(c.name, (e.currentTarget as HTMLInputElement).checked)} />
-                    <AgentMascot name={c.name} {...lookOf(c)} size={22} />
-                    <span class="t">{c.name}</span>
-                  </label>
-                {/each}
-              </div>
-              <span class="d muted">{t('office.teamPickHint')}</span>
-            </div>
-            {#if teamError}<div class="folder-error">{teamError}</div>{/if}
-            <div class="team-actions">
-              <button class="ctrl" onclick={() => (teamEditing = null)} disabled={teamBusy}>{t('office.teamCancel')}</button>
-              <button class="ctrl ctrl-primary" onclick={saveTeam} disabled={teamBusy || !teamEditing.name.trim()}>{t('office.teamSave')}</button>
-            </div>
-          </div>
-        </div>
-      {/if}
 
       <!-- A face, not an inventory. The tool chips were six per card and five
            of the six were the same on every card — the office ceiling hands
@@ -440,9 +341,7 @@
             {/if}
             {#if !tm.default}
               <button class="icobtn tiny tip-l" aria-label={t('office.teamEdit')} data-tip={t('office.teamEdit')}
-                onclick={() => editTeam(tm)}><Icon name="settings" size={13} /></button>
-              <button class="icobtn tiny tip-l" aria-label={t('office.teamDelete')} data-tip={t('office.teamDelete')}
-                onclick={() => deleteTeam(tm)}><Icon name="trash" size={13} /></button>
+                onclick={() => configureTeam(tm)}><Icon name="settings" size={13} /></button>
             {/if}
           </div>
           {#if tm.default}
@@ -546,15 +445,3 @@
     </div>
   </div>
 </div>
-
-{#if pendingConfirm}
-  {@const req = pendingConfirm}
-  <ConfirmDialog
-    title={req.title}
-    message={req.message}
-    detail={req.detail}
-    confirmLabel={req.confirmLabel}
-    onConfirm={runPendingConfirm}
-    onCancel={() => (pendingConfirm = null)}
-  />
-{/if}

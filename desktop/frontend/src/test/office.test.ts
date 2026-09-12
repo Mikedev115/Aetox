@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import Office from '../lib/Office.svelte'
 import {
-  ListChairs, ListReceivedJobs, LoadSessionAnyProject, NewChairSessionAt, ListTeams, SaveTeam,
+  ListChairs, ListReceivedJobs, LoadSessionAnyProject, NewChairSessionAt, ListTeams,
   DelegateSwitches, SetAgentOff,
 } from './mocks/wailsApp'
 import { cockpit } from '../lib/stores/cockpit.svelte'
@@ -371,34 +371,30 @@ describe('the office by team', () => {
   })
 
   // The default team has no file and takes no edits (owner, 12 ก.ย.); a user
-  // team carries the gear and the bin.
-  it('lets a user team be edited and the default team not', async () => {
+  // team carries a gear — and the gear is a door to Settings › ทีม, where the
+  // one editor lives (§256: team settings beside the agent editor, never a
+  // second editor on this page).
+  it("sends a user team's gear to Settings › ทีม, and gives the default team none", async () => {
     twoTeams()
     const { container } = render(Office, { onClose: () => {} })
 
     await waitFor(() => expect(container.querySelectorAll('.team-sec').length).toBe(2))
     const secs = container.querySelectorAll('.team-sec')
     expect(secs[0].querySelector('[aria-label="แก้ไขทีม"]')).toBeNull()
-    expect(secs[1].querySelector('[aria-label="แก้ไขทีม"]')).toBeTruthy()
     expect(screen.getByText(/แก้สมาชิกไม่ได้/)).toBeTruthy()
+    await fireEvent.click(secs[1].querySelector('[aria-label="แก้ไขทีม"]') as HTMLElement)
+    expect(cockpit.settingsIntent).toEqual({ section: 'teams', team: 'ทีมโค้ด' })
+    expect(cockpit.activeView).toBe('settings')
   })
 
-  it('saves a new team through the engine door with what was ticked', async () => {
+  it('sends "สร้างทีม" to Settings › ทีม with the editor asked to open blank', async () => {
     twoTeams()
-    const { container } = render(Office, { onClose: () => {} })
+    render(Office, { onClose: () => {} })
 
     await waitFor(() => expect(screen.getByText('สร้างทีม')).toBeTruthy())
     await fireEvent.click(screen.getByText('สร้างทีม'))
-    const name = container.querySelector('.team-editor input[type="text"]') as HTMLInputElement
-    await fireEvent.input(name, { target: { value: 'ทีมเอกสาร' } })
-    await fireEvent.click(screen.getByText('โต๊ะโค้ด', { selector: '.team-desks .pill' }))
-    // The coding desk says what it hands the team, before anybody saves.
-    expect(screen.getByText(/ถือเชลล์/)).toBeTruthy()
-    const tick = container.querySelector('.team-tick input') as HTMLInputElement
-    await fireEvent.click(tick)
-    await fireEvent.click(screen.getByText('บันทึกทีม'))
-
-    await waitFor(() => expect(vi.mocked(SaveTeam).mock.calls[0]).toEqual(['ทีมเอกสาร', 'coding', '', ['doc']]))
+    expect(cockpit.settingsIntent).toEqual({ section: 'teams', createTeam: true })
+    expect(cockpit.activeView).toBe('settings')
   })
 
   // A stale name is a sentence on the section, never a silent gap.

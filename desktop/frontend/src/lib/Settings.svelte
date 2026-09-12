@@ -16,6 +16,7 @@
   import ProviderAccount from './ProviderAccount.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
   import AvatarSettings from './mascot/AvatarSettings.svelte'
+  import TeamSettings from './TeamSettings.svelte'
   import { avatarText } from './mascot/avatarText'
   // The mascot's own catalogues, so the pickers below offer exactly what the
   // drawing can draw. Anything hand-listed here instead would be a second
@@ -4023,6 +4024,11 @@
         terms: [t('settings.teamNew'), t('settings.agentConfigure'), t('desk.office')] },
       { id: 'agents', label: t('settings.subagents'), icon: 'bot',
         terms: [t('settings.subagentsMine'), t('settings.subagentsBuiltin')] },
+      // Teams at the foot of the group, beside agents and never inside the
+      // agent editor (§256): a roster is not a person, and the owner asked for
+      // the two pages apart and this one last ("เพิ่มตั้งค่าทีมเอเจนที่ข้างล่าง").
+      { id: 'teams', label: t('settings.teams'), icon: 'users',
+        terms: [t('office.newTeam'), t('office.teamDefault'), t('office.teamDelegate')] },
     ]},
     { group: t('settings.groupTools'), items: [
       // Two pages, not two cards on one: a tool is something the AI runs, a
@@ -4210,7 +4216,7 @@
   // section (openSettingsAt), and two spellings of this key would fail silently
   // and look like the page ignoring where it was told to go.
   const SECTION_KEY = SETTINGS_SECTION_KEY
-  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'identity', 'learning', 'skilltune', 'models', 'team', 'agents', 'tools', 'skills', 'mcp', 'connections', 'computer', 'prompts', 'account', 'usage', 'about', 'sponsor'])
+  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'identity', 'learning', 'skilltune', 'models', 'team', 'teams', 'agents', 'tools', 'skills', 'mcp', 'connections', 'computer', 'prompts', 'account', 'usage', 'about', 'sponsor'])
 
   function restoredSection(): string {
     try {
@@ -7111,6 +7117,8 @@
       {/if}
     {:else if active === 'avatar'}
       <AvatarSettings />
+    {:else if active === 'teams'}
+      <TeamSettings />
     {:else if active === 'identity'}
       <h2>{t('settings.identity')}</h2>
       <p class="muted set-sub">{t('settings.identityDesc')}</p>
