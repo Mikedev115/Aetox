@@ -56,8 +56,11 @@
    *  arrive a beat after launch and re-key the greeting, and a voice that
    *  had already started on the nameless one would say it twice. */
   const GREET_SAY_MS = 400
-  /** Left alone this long with nothing to do, it goes to its charger. */
+  /** Left alone this long with nothing to do, it goes to sleep. */
   const DOZE_MS = 5 * 60_000
+  /** Getting up after being poked, and the jolt of being woken by a message. */
+  const WAKE_MS = 1300
+  const STARTLE_MS = 750
 
   // ---- where it sits ------------------------------------------------------
   // Dragged, it walks: it faces the way it is going and it follows the hand
@@ -222,6 +225,11 @@
   let hop = $state(false)
   let reactTimer: ReturnType<typeof setTimeout> | undefined
   function react(): void {
+    // Asleep, a poke does not get a cheer; it gets a slow stretch.
+    if (asleep) {
+      wakeUp('wake')
+      return
+    }
     const next = REACTIONS[Math.floor(Math.random() * REACTIONS.length)]
     reaction = next === reaction ? REACTIONS[(REACTIONS.indexOf(next) + 1) % REACTIONS.length] : next
     hop = false
@@ -314,19 +322,50 @@
     const t = setTimeout(() => (hello = false), HELLO_MS)
     return () => clearTimeout(t)
   })
-  // Dozing: nothing to do and nobody about for a while → the charger. Any
+  // Dozing: nothing to do and nobody about for a while → the pillow. Any
   // turn, click or drag wakes it; the timer restarts whenever the pose it
-  // would otherwise wear changes.
+  // would otherwise wear changes. `asleep` mirrors `dozing` outside the
+  // reactive graph so the effect can ask "was it asleep?" without depending
+  // on the answer.
+  //
+  // Waking is not a cut (owner: "ค่อย ๆ ลุก … ส่งข้อความตอนนอนควรจะตกใจแล้วลุก
+  // มาทำงาน"): a message while it sleeps startles it — a jolt, both hands
+  // up, then straight to work; anything else (a click, a drag) gets a slow
+  // stretch first. The lean itself eases over .9s in mascot.css either way.
   let dozing = $state(false)
+  let asleep = false
+  let waking = $state<'' | 'wake' | 'startled'>('')
+  let wakeTimer: ReturnType<typeof setTimeout> | undefined
+  function wakeUp(how: 'wake' | 'startled'): void {
+    dozing = false
+    asleep = false
+    waking = how
+    if (how === 'startled') {
+      hop = false
+      requestAnimationFrame(() => (hop = true))
+    }
+    clearTimeout(wakeTimer)
+    wakeTimer = setTimeout(() => {
+      waking = ''
+      hop = false
+    }, how === 'startled' ? STARTLE_MS : WAKE_MS)
+  }
   $effect(() => {
     void livePose
     void reaction
     void dragging
-    dozing = false
-    if (cockpit.awaitingReply || dragging || reaction) return
-    const t = setTimeout(() => (dozing = true), DOZE_MS)
+    void waking
+    const busy = cockpit.awaitingReply || dragging || !!reaction
+    if (asleep) wakeUp(cockpit.awaitingReply ? 'startled' : 'wake')
+    else dozing = false
+    if (busy || waking) return
+    const t = setTimeout(() => {
+      dozing = true
+      asleep = true
+    }, DOZE_MS)
     return () => clearTimeout(t)
   })
+  $effect(() => () => clearTimeout(wakeTimer))
   // ---- the greeting -----------------------------------------------------
   // The one line of ours it speaks, declared here because the pose below
   // waves while it is said. When an empty chat comes on
@@ -367,6 +406,7 @@
 
   const pose = $derived(
     reaction ? reaction
+    : waking ? waking
     : dragging && moving ? 'walk'
     : hello || greeting ? 'greeting'
     : !cockpit.awaitingReply && justDone ? (endedBadly ? 'error' : 'success')

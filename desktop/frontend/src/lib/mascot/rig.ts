@@ -163,7 +163,11 @@ export function mascotSVG(m: Mascot): string {
   // Ground shadow, outside ms-all: the body lifts when it walks, its shadow stays.
   s += `<ellipse cx="32" cy="60.6" rx="18" ry="3" fill="url(#${g}gnd)"/>`
   if (m.ground) s += m.ground.svg(p, g)
-  s += `<g class="ms-all">`
+  // Two groups: ms-all carries what a POSE does to the whole body (the
+  // sleeper's lean) and transitions it, ms-body carries the loops (breathe,
+  // sway, hop, bob, snore). One group could not do both — an animation owns
+  // the transform it plays on, so a lean set beside a loop would snap.
+  s += `<g class="ms-all"><g class="ms-body">`
   // ---- behind the body: far ears, far arms, legs, torso
   if (detail) {
     s += ear(m, 'L', 'far', g) + ear(m, 'R', 'far', g)
@@ -209,7 +213,7 @@ export function mascotSVG(m: Mascot): string {
   // ---- in front of the body: what the hands hold, then the near arms over it
   if (m.prop) s += (detail ? `<ellipse cx="32" cy="52" rx="12" ry="3" fill="url(#${g}ao)"/>` : ``) + `<g class="ms-prop">${m.prop.svg(p, g)}</g>`
   s += arm(p, g, 'L', 'near', hl) + arm(p, g, 'R', 'near', hl)
-  s += `</g>`
+  s += `</g></g>`
   // ---- floating UI: neither turns nor breathes
   if (m.mark) s += m.mark(p)
   if (m.panel) s += m.panel.svg(p, g)

@@ -79,7 +79,7 @@ const POSE_ROWS = {
   success:     { face: 'excited',  hands: { L: UP_L, R: UP_R },                 legs: 'tuck',  prop: 'role', panel: 'done',      mark: 'sparkle', turn: 0, look: 30 },
   // Asleep on its charger with everything folded in (owner, 12 ก.ย.: "พับแขน
   // ขากลับ แล้วหลับ"): the arms cross over the belly, the feet fold up under.
-  recharge:    { face: 'dim',      hands: { L: [27.5, 51, 5], R: [36.5, 51, 5] }, legs: 'fold', prop: null,   panel: 'zzz',       ground: 'charger', turn: 18 },
+  recharge:    { face: 'dim',      hands: { L: [27.5, 51, 5], R: [36.5, 51, 5] }, legs: 'fold', prop: null,   panel: 'zzz',       ground: 'pillow',  turn: 18 },
   walk:        { face: null,       hands: { L: [20, 55, 0], R: [44, 55, 0] },   legs: 'stand', prop: null,   panel: null,        turn: 70 },
   listening:   { face: null,       hands: REST,                                 legs: 'tuck',  prop: 'role', panel: 'mic',       turn: -8 },
   // Reactions to being clicked (Companion.svelte) — a moment each, no words.
@@ -90,6 +90,13 @@ const POSE_ROWS = {
   // what went wrong, not waving about it. Distinct from `debugging` on purpose:
   // that is the assistant chasing a bug, this is a worker reporting one.
   error:       { face: 'curious',  hands: { L: REST.L, R: [44, 41, 11] },       legs: 'tuck',  prop: 'role', panel: 'alert',     turn: -8 },
+  // Leaving sleep (Companion.svelte): poked, it gets up slowly — a stretch
+  // with sleepy eyes, nothing in its hands yet; woken by a message, it is
+  // startled — wide awake, both hands up, a jolt (mascot.css) — and then
+  // the work pose takes over. Owner, 12 ก.ย.: "โดนปลุกควรจะค่อย ๆ ลุก ส่งข้อความ
+  // ตอนนอนควรจะตกใจแล้วลุกมาทำงาน".
+  wake:        { face: 'dim',      hands: { L: UP_L, R: UP_R },                 legs: 'tuck',  prop: null,   panel: null,        turn: 6,   look: 25 },
+  startled:    { face: 'excited',  hands: { L: UP_L, R: UP_R },                 legs: 'tuck',  prop: null,   panel: null,        mark: 'sparkle', turn: 0, look: 25 },
 } satisfies Record<string, Pose>
 
 export type PoseId = keyof typeof POSE_ROWS
