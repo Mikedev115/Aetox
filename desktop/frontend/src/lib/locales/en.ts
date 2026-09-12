@@ -1816,6 +1816,7 @@ Check your own work before answering; say so plainly if unsure.
   'settings.agentSecReach': 'What it can reach',
   'settings.agentSecKnowledge': 'What it knows',
   'settings.agentSecOpening': 'How it opens',
+  'settings.agentSecAvatar': 'Avatar',
   'settings.agentModelHint': 'Left empty it uses whatever model you have selected in chat. Pin one when this agent needs a different model from the rest.',
 
   'settings.agentDeskTitle': 'Desk',
@@ -2073,7 +2074,7 @@ Check your own work before answering; say so plainly if unsure.
   'settings.agentLookComposerHint': '20px avatar when typing @ or switching agents',
   'settings.agentBadge': 'Badge on the ears',
   'settings.agentPersonas': 'Wear a saved persona',
-  'settings.agentPersonasNone': 'No persona saved yet — save one under Settings › Personal › Avatar',
+  'settings.agentPersonasWhere': 'Personas are saved and edited under Settings › Personal ›',
   'settings.agentPersonaUse': 'Persona {n}',
   'settings.agentShell': 'Body',
   'settings.agentAccent': 'Colour',

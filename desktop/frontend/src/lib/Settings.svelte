@@ -2575,7 +2575,6 @@
   // are for (avatarPrefs.svelte.ts): an agent designed here can put on a look
   // designed there, all four dials at once. The badge stays the agent's own;
   // a persona is a look, not an identity.
-  const saved = $derived(personas.slots.flatMap((p, i) => (p ? [{ p, i }] : [])))
   const wearPersona = (i: number) => {
     const p = personas.slots[i]
     if (!p) return
@@ -2974,7 +2973,7 @@
   // goes out through the matching door, so an edit cannot change what
   // something is as a side effect of where a button happened to be.
   let agentEditKind = $state<'agent' | 'helper'>('helper')
-  type AgentTab = 'identity' | 'brain' | 'reach' | 'knowledge' | 'opening'
+  type AgentTab = 'identity' | 'avatar' | 'brain' | 'reach' | 'knowledge' | 'opening'
   let agentTab = $state<AgentTab>('identity')
 
   const openAgent = (a: SubagentRow, kind?: 'agent' | 'helper') => runAgent('open:' + a.name, async () => {
@@ -4882,6 +4881,16 @@
           <Icon name="userRound" size={14} />
           <span>{t('settings.agentSecIdentity')}</span>
         </button>
+        <!-- The look, on its own tab (owner, 12 ก.ย.: "ควรทำหน้าอวตารแยก") —
+             for both kinds: a helper is drawn on the delegate card too. -->
+        <button
+          type="button" role="tab" id="ag-tab-avatar" aria-controls="ag-panel-avatar"
+          aria-selected={agentTab === 'avatar'}
+          class:on={agentTab === 'avatar'} onclick={() => (agentTab = 'avatar')}
+        >
+          <Icon name="bot" size={14} />
+          <span>{t('settings.agentSecAvatar')}</span>
+        </button>
         <button
           type="button" role="tab" id="ag-tab-brain" aria-controls="ag-panel-brain"
           aria-selected={agentTab === 'brain'}
@@ -4926,7 +4935,7 @@
 
     <!-- ── ตัวตน ── -->
     <div role="tabpanel" id="ag-panel-identity" aria-labelledby="ag-tab-identity"
-      class="ag-tab-panel" class:on={agentTab === 'identity' || (agentEditKind !== 'agent' && agentTab !== 'brain')}>
+      class="ag-tab-panel" class:on={agentTab === 'identity' || (agentEditKind !== 'agent' && agentTab !== 'brain' && agentTab !== 'avatar')}>
       <div class="settings-card">
         <div class="card-form pp-edit">
           <label class="pp-field">
@@ -4937,16 +4946,41 @@
             <span class="eyebrow">{t('settings.agentDescription')}</span>
             <input class="ctrl" bind:value={agentDraftDescription} placeholder={t('settings.agentDescriptionPlaceholder')} />
           </label>
-          <!-- The face this agent wears on the roster, chosen and SHOWN in the
-               same place. Choosing none is a real choice and still the default:
-               the face is then derived from the name, which is right for every
-               profile nobody has opened, and is what the whole roster looked like
-               before this section existed.
-               What was here was one row of the app's line marks and no picture of
-               the outcome anywhere on the page — so the thing you picked (a
-               glyph) was not the thing you got. The preview is the fix: the
-               mascot at a size where every dial below can be seen changing it,
-               and under it the same robot at the three sizes the app draws. -->
+          <!-- A div rather than the `label` every other field uses: the toggle is
+               a button, and a button inside a label puts the caret in the textarea
+               on every click of it. -->
+          <div class="pp-field">
+            <div class="ag-bodyhead">
+              <span class="eyebrow">{t('settings.agentBody')}</span>
+              {#if agentBodyLong}
+                <button type="button" class="ag-bodymore" onclick={() => (agentBodyOpen = !agentBodyOpen)}>
+                  {agentBodyOpen ? t('settings.agentBodyLess') : t('settings.agentBodyMore', { n: agentBodyLines })}
+                </button>
+              {/if}
+            </div>
+            <div class="ag-bodywrap" class:collapsed={agentBodyLong && !agentBodyOpen}>
+              <textarea
+                class="ctrl ag-body" bind:value={agentDraftPrompt} spellcheck="false"
+                use:autogrow={agentDraftPrompt}
+                onfocus={() => (agentBodyOpen = true)}
+              ></textarea>
+            </div>
+            <span class="d muted">{t('settings.agentBodyHint')}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── อวตาร ── the mascot this agent is, everywhere in the app. Its own
+         tab (owner, 12 ก.ย. 2026: "ควรทำหน้าอวตารแยก เพิ่มนะครับ และทำให้มันใช้
+         อวตารที่บันทึกไว้ได้"): the figure the way the avatar page shows the
+         assistant's, the six persona slots as cards you press, and under them
+         the badge and the four identity dials. Same draft, same save — a tab
+         is where it is read, not a second place it is kept. -->
+    <div role="tabpanel" id="ag-panel-avatar" aria-labelledby="ag-tab-avatar"
+      class="ag-tab-panel" class:on={agentTab === 'avatar'}>
+      <div class="settings-card">
+        <div class="card-form pp-edit">
           <div class="pp-field">
             <div class="ag-face-header">
               <span class="eyebrow">{t('settings.agentLook')}</span>
@@ -4961,9 +4995,12 @@
                 <span>{showFaceContexts ? t('settings.agentLookHideContexts') : t('settings.agentLookShowContexts')}</span>
               </button>
             </div>
-            <div class="ag-face">
-              <AgentMascot name={facePreviewName} {...draftFace} size={96} still={false} />
+            <!-- The one being faced: big, breathing. Everything else on this
+                 tab is still. -->
+            <div class="ag-face ag-avatar-stage">
+              <AgentMascot name={facePreviewName} {...draftFace} size={168} still={false} />
               <div class="ag-face-say">
+                <b class="ag-avatar-name">{facePreviewName}</b>
                 <span class="d muted">{faceIsAuto ? t('settings.agentLookAutoHint') : t('settings.agentLookHint')}</span>
                 {#if !faceIsAuto}
                   <button type="button" class="ag-face-reset" onclick={resetFace}>
@@ -5083,6 +5120,37 @@
             {/if}
           </div>
 
+          <!-- The saved personas, as the avatar page draws them: a card per
+               slot, the look in it worn by THIS agent (its own badge on the
+               ears), and ใช้ puts all four dials on the draft at once. Empty
+               slots are shown too — where a look would go is half the
+               invitation to make one. -->
+          <div class="pp-field">
+            <span class="eyebrow">{t('settings.agentPersonas')}</span>
+            <div class="ag-slots">
+              {#each personas.slots as slot, i (i)}
+                <div class="ag-slot" class:worn={wearsPersona(i)} class:empty={!slot}>
+                  {#if slot}
+                    <AgentMascot name={facePreviewName} icon={agentDraftIcon || undefined} shell={slot.shell} top={slot.top} face={slot.face} accent={slot.accent} size={56} />
+                  {:else}
+                    <div class="ag-slot-empty">{avatarText(i18n.locale).personaEmpty}</div>
+                  {/if}
+                  <div class="ag-slot-meta">
+                    <b>{t('settings.agentPersonaUse', { n: i + 1 })}</b>
+                    <span>{wearsPersona(i) ? avatarText(i18n.locale).worn : ''}</span>
+                  </div>
+                  {#if slot}
+                    <button type="button" class="ctrl tiny pri" disabled={wearsPersona(i)} aria-label={`${t('settings.agentPersonaUse', { n: i + 1 })} — ${avatarText(i18n.locale).use}`} onclick={() => wearPersona(i)}>{avatarText(i18n.locale).use}</button>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+            <span class="d muted">
+              {t('settings.agentPersonasWhere')}
+              <button type="button" class="ag-face-reset" onclick={() => openSection('avatar')}>{avatarText(i18n.locale).title}</button>
+            </span>
+          </div>
+
           <!-- The badge on the ears. Glyphs rather than robots: forty heads
                differing by one small mark on the ear is a wall of near-identical
                tiles, and the mark itself is what the eye can tell apart at this
@@ -5106,29 +5174,6 @@
               {/each}
             </div>
             <span class="d muted">{agentDraftIcon === '' ? t('settings.agentIconAutoHint') : agentDraftIcon}</span>
-          </div>
-
-          <!-- Wear a look the user already designed. The avatar page keeps
-               six of them for exactly this: an agent made here can put on a
-               persona saved there, all four dials in one press (owner, 12 ก.ย.:
-               "บุคลิก 1 - 2 - 3"). Only the slots with something in them are
-               offered; an empty page says where to fill one. -->
-          <div class="pp-field">
-            <span class="eyebrow">{t('settings.agentPersonas')}</span>
-            {#if saved.length === 0}
-              <span class="d muted">{t('settings.agentPersonasNone')}</span>
-            {:else}
-              <div class="ag-parts">
-                {#each saved as { p, i } (i)}
-                  <button type="button" class="ag-part ag-persona" class:on={wearsPersona(i)}
-                    title={t('settings.agentPersonaUse', { n: i + 1 })} aria-label={t('settings.agentPersonaUse', { n: i + 1 })}
-                    onclick={() => wearPersona(i)}>
-                    <AgentMascot name={facePreviewName} icon={agentDraftIcon || undefined} shell={p.shell} top={p.top} face={p.face} accent={p.accent} size={44} />
-                    <span class="ag-persona-n">{i + 1}</span>
-                  </button>
-                {/each}
-              </div>
-            {/if}
           </div>
 
           <!-- The four identity dials ARE drawn as robots, and for the opposite
@@ -5216,27 +5261,6 @@
                 </button>
               {/each}
             </div>
-          </div>
-          <!-- A div rather than the `label` every other field uses: the toggle is
-               a button, and a button inside a label puts the caret in the textarea
-               on every click of it. -->
-          <div class="pp-field">
-            <div class="ag-bodyhead">
-              <span class="eyebrow">{t('settings.agentBody')}</span>
-              {#if agentBodyLong}
-                <button type="button" class="ag-bodymore" onclick={() => (agentBodyOpen = !agentBodyOpen)}>
-                  {agentBodyOpen ? t('settings.agentBodyLess') : t('settings.agentBodyMore', { n: agentBodyLines })}
-                </button>
-              {/if}
-            </div>
-            <div class="ag-bodywrap" class:collapsed={agentBodyLong && !agentBodyOpen}>
-              <textarea
-                class="ctrl ag-body" bind:value={agentDraftPrompt} spellcheck="false"
-                use:autogrow={agentDraftPrompt}
-                onfocus={() => (agentBodyOpen = true)}
-              ></textarea>
-            </div>
-            <span class="d muted">{t('settings.agentBodyHint')}</span>
           </div>
         </div>
       </div>

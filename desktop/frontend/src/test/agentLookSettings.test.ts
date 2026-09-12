@@ -17,10 +17,14 @@ import {
 // the draft, what a save writes, what the old fields turn into — and the
 // rule that no cell in a picker moves.
 
+// The look lives on its own tab of the editor (owner, 12 ก.ย.: "ควรทำหน้า
+// อวตารแยก") — every test here opens the editor and steps onto it.
 const openEditor = async () => {
   cockpit.settingsIntent = { section: 'team', agent: 'backend' }
   const r = render(Settings, { onClose: () => {} })
   await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจน')).toBeTruthy())
+  await fireEvent.click(screen.getByRole('tab', { name: 'อวตาร' }))
+  await waitFor(() => expect(r.container.querySelector('#ag-panel-avatar.on')).toBeTruthy())
   return r
 }
 const savedFile = async (): Promise<string> => {
@@ -65,7 +69,11 @@ describe('the agent look editor', () => {
     expect(cells.length).toBeGreaterThan(SHELL.length + ACCENT.length + TOP.length)
     for (const m of cells) expect(m.classList.contains('still')).toBe(true)
     // The one being faced may breathe.
-    expect(container.querySelector('.ag-face > .mascot')?.classList.contains('still')).toBe(false)
+    expect(container.querySelector('.ag-avatar-stage > .mascot')?.classList.contains('still')).toBe(false)
+    // The look is not on ตัวตน any more: the name field is, the rows are not.
+    await fireEvent.click(screen.getByRole('tab', { name: 'ตัวตน' }))
+    expect(container.querySelector('#ag-panel-identity.on')).toBeTruthy()
+    expect(container.querySelector('#ag-panel-identity.on .ag-parts')).toBeNull()
   })
 
   it('writes what was picked as ids, and nothing that was not', async () => {
@@ -113,9 +121,16 @@ describe('the agent look editor', () => {
     expect(personas.slots[1]).toBeTruthy()
     const { container } = await openEditor()
     await fireEvent.click(rowCells(container, 'ไอคอนบนหู').find((b) => b.title === 'search')!)
-    const cell = screen.getByRole('button', { name: 'บุคลิก 2' })
-    await fireEvent.click(cell)
-    expect(cell.classList.contains('on')).toBe(true)
+    // Six cards, one filled: the filled one wears the persona with THIS
+    // agent's badge, and its ใช้ button puts the four dials on the draft.
+    const slots = container.querySelectorAll('.ag-slot')
+    expect(slots.length).toBe(PERSONA_SLOTS)
+    expect(container.querySelectorAll('.ag-slot.empty').length).toBe(PERSONA_SLOTS - 1)
+    expect(slots[1].querySelector('.mascot .ms-earL .ms-badge')?.innerHTML).toContain('<circle cx="11" cy="11" r="8">')
+    const use = screen.getByRole('button', { name: 'บุคลิก 2 — ใช้' })
+    await fireEvent.click(use)
+    expect(slots[1].classList.contains('worn')).toBe(true)
+    expect((use as HTMLButtonElement).disabled).toBe(true)
     const file = await savedFile()
     expect(file).toContain('shell: dark')
     expect(file).toContain('accent: gold')
@@ -124,9 +139,10 @@ describe('the agent look editor', () => {
     expect(file).toContain('icon: search')
   })
 
-  it('says where to save one when no persona exists', async () => {
-    await openEditor()
-    expect(screen.getByText(/ยังไม่มีบุคลิกที่บันทึกไว้/)).toBeTruthy()
+  it('shows the empty slots and where to fill one', async () => {
+    const { container } = await openEditor()
+    expect(container.querySelectorAll('.ag-slot.empty').length).toBe(PERSONA_SLOTS)
+    expect(screen.getByText(/บันทึกและแก้บุคลิกได้ที่/)).toBeTruthy()
   })
 
   // The preview across the app: the same robot at the office's, the chat's
