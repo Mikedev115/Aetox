@@ -1,52 +1,34 @@
 package main
 
-// The assistant's presence, published for a surface that is not this window.
+// The assistant's presence, published for the body outside this window.
 //
 // The mascot that sits on the screen (frontend, lib/mascot/Companion.svelte)
-// lives inside the app's own webview and so cannot leave it. The owner wants
-// it to (12 ก.ย. 2026: "ออกไปโลดแล่นบนจอส่วนอื่น เหมือน Codex"), and the way
-// there is a second, transparent, always-on-top WebView2 window of its own —
-// the same kind browser_windows.go already opens for the deck export. That
-// window needs two things this file provides, and both stand on their own
-// before the window exists:
+// is drawn inside the app's own webview, and the owner wants it able to
+// leave it (12 ก.ย. 2026: "ออกไปโลดแล่นบนจอส่วนอื่น เหมือน Codex") — without a
+// second WebView2 ("กินแรมเยอะโดยไม่จำเป็น"). So the figure on the desktop is
+// a window of Go's own (companion_windows.go), drawn from frames the app
+// bakes (companion_sprites.go, lib/mascot/bake.ts), and this file is what
+// the two sides share:
 //
-//   1. A FEED: what the assistant is doing and saying right now, and what it
-//      looks like. The window's presence (presence.ts) already knows; it
-//      pushes here through SetCompanionState on every change, and this serves
-//      the latest as JSON. Nothing is computed twice — the feed is a mirror of
-//      the one presence the app has.
-//   2. A PAGE: companion_page.html, generated from the same rig the app draws
-//      with (`npm run mascots`, scripts/mascot-sheet.mjs), which polls the feed
-//      and draws the mascot. Any surface that can show a web page can show
-//      the assistant: the native window to come, or a plain browser tab today.
+//   - the STATE: what the assistant is doing and saying right now, and what
+//     it looks like. The window's presence (presence.ts) already knows; it
+//     pushes here through SetCompanionState on every change and the body is
+//     told at once. Nothing is computed twice — the body is a mirror of the
+//     one presence the app has.
+//   - the DOORS: OpenCompanionWindow / CloseCompanionWindow for the switch,
+//     CompanionSpriteKeys / CompanionSprites for the frames, and the event
+//     the body's clicks and drags come back on (companionInputEvent).
 //
-// The listener is loopback only and the path carries a token minted per run:
-// a second WebView2 has no access to the app's own asset scheme, so this has
-// to be a real port, and a real port on 127.0.0.1 is reachable by any process
-// of the same user — the token keeps a stray local page from reading what the
-// assistant last said, which is the one thing here worth keeping to ourselves.
-// The remote server (remote.go) was not reused on purpose: it is parked, LAN-
-// facing, and built around pairing, none of which a local companion wants.
+// An earlier layer (a83be484) served the state over a loopback HTTP feed to
+// a page a second webview would load; that surface was decided against and
+// the feed went with it — the state is in memory and the body is in process.
 
 import (
-	"crypto/rand"
-	"crypto/subtle"
-	_ "embed"
-	"encoding/hex"
-	"encoding/json"
-	"errors"
-	"net"
-	"net/http"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 )
-
-//go:embed companion_page.html
-var companionPage string
 
 // CompanionPrefs is the look the user chose (ตั้งค่า › อวตาร): the same four
 // dials avatarPrefs.svelte.ts keeps, every one a catalogue row id. Blank is
@@ -84,23 +66,9 @@ type CompanionState struct {
 	Hop    int            `json:"hop,omitempty"`
 }
 
-// CompanionFeedInfo is what the window (and a future native window) needs to
-// reach the feed: where the page is, and whether anything is listening.
-type CompanionFeedInfo struct {
-	Running bool   `json:"running"`
-	URL     string `json:"url"`
-	Port    int    `json:"port"`
-}
-
-// companionPathPrefix is the URL space, token appended: /c/<token>/…
-const companionPathPrefix = "/c/"
-
 type companionServer struct {
 	mu    sync.Mutex
 	state CompanionState
-	token string
-	srv   *http.Server
-	port  int
 	// body is the companion's window on the desktop while there is one —
 	// a Win32 layered window on Windows (companion_windows.go), nothing on
 	// the other platforms yet. Nil when the companion is inside the app.
@@ -186,23 +154,13 @@ func (a *App) CloseCompanionWindow() {
 }
 
 func (a *App) companion() *companionServer {
-	a.companionOnce.Do(func() { a.companionSrv = &companionServer{token: mintCompanionToken()} })
+	a.companionOnce.Do(func() { a.companionSrv = &companionServer{} })
 	return a.companionSrv
 }
 
-func mintCompanionToken() string {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		// A failed random read is a broken machine; a fixed token is still a
-		// token, and the feed stays loopback-only regardless.
-		return "aetox-companion"
-	}
-	return hex.EncodeToString(b)
-}
-
 // SetCompanionState is the window's report. Called on every change of pose,
-// headline, look or switch — cheap, in memory, no listener needed for it to
-// be recorded, so the feed has the truth the moment something starts to poll.
+// words, look or switch — cheap, in memory — and passed straight to the body
+// when there is one; kept for the body that opens later when there is not.
 func (a *App) SetCompanionState(s CompanionState) {
 	c := a.companion()
 	c.mu.Lock()
@@ -213,100 +171,4 @@ func (a *App) SetCompanionState(s CompanionState) {
 	if c.body != nil {
 		c.body.apply(s)
 	}
-}
-
-// CompanionFeed brings the listener up if it is not, and says where it is.
-func (a *App) CompanionFeed() CompanionFeedInfo {
-	c := a.companion()
-	if err := c.start(); err != nil {
-		debuglog.Msg("companion feed: %v", err)
-		return CompanionFeedInfo{}
-	}
-	return c.info()
-}
-
-// StopCompanionFeed closes the listener. The state is kept; a later
-// CompanionFeed starts again on a fresh port with the same token.
-func (a *App) StopCompanionFeed() CompanionFeedInfo {
-	c := a.companion()
-	c.stop()
-	return c.info()
-}
-
-func (c *companionServer) info() CompanionFeedInfo {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.srv == nil {
-		return CompanionFeedInfo{}
-	}
-	return CompanionFeedInfo{Running: true, Port: c.port, URL: "http://127.0.0.1:" + strconv.Itoa(c.port) + companionPathPrefix + c.token + "/"}
-}
-
-func (c *companionServer) start() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.srv != nil {
-		return nil
-	}
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return err
-	}
-	addr, ok := ln.Addr().(*net.TCPAddr)
-	if !ok {
-		_ = ln.Close()
-		return errors.New("companion feed: listener has no TCP address")
-	}
-	c.port = addr.Port
-	c.srv = &http.Server{Handler: c.handler(), ReadHeaderTimeout: 5 * time.Second}
-	go func(srv *http.Server, ln net.Listener) {
-		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			debuglog.Msg("companion feed stopped: %v", err)
-		}
-	}(c.srv, ln)
-	debuglog.Msg("companion feed listening on 127.0.0.1:%d", c.port)
-	return nil
-}
-
-func (c *companionServer) stop() {
-	c.mu.Lock()
-	srv := c.srv
-	c.srv = nil
-	c.port = 0
-	c.mu.Unlock()
-	if srv != nil {
-		_ = srv.Close()
-	}
-}
-
-// handler serves two things under /c/<token>/: the page at "" and the state
-// at "state". Anything else, including a wrong token, is a 404 that says
-// nothing about whether a token exists.
-func (c *companionServer) handler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		rest, ok := strings.CutPrefix(r.URL.Path, companionPathPrefix)
-		if !ok {
-			http.NotFound(w, r)
-			return
-		}
-		token, leaf, _ := strings.Cut(rest, "/")
-		if subtle.ConstantTimeCompare([]byte(token), []byte(c.token)) != 1 {
-			http.NotFound(w, r)
-			return
-		}
-		w.Header().Set("Cache-Control", "no-store")
-		switch leaf {
-		case "":
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_, _ = w.Write([]byte(companionPage))
-		case "state":
-			c.mu.Lock()
-			s := c.state
-			c.mu.Unlock()
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(s)
-		default:
-			http.NotFound(w, r)
-		}
-	})
 }
