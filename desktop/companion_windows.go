@@ -80,7 +80,84 @@ var (
 	// none is skipped — the difference between 60 frames and 60 smooth ones.
 	dwmapi       = syscall.NewLazyDLL("dwmapi.dll")
 	procDwmFlush = dwmapi.NewProc("DwmFlush")
+
+	// The monitor's own vertical blank, through the kernel-mode thunks GDI
+	// exports: DwmFlush waits for the compositor's frame, which on a desktop
+	// of mixed refresh rates is the primary's — 60Hz here, while the second
+	// monitor runs 144 (owner, 13 ก.ย. 2026: "เอา Hz เท่าจอไม่ได้หรอ"). Waiting
+	// on the blank of the monitor the figure is on gives it that monitor's
+	// rate.
+	procCreateDCW                       = gdi32.NewProc("CreateDCW")
+	procD3DKMTOpenAdapterFromHdc        = gdi32.NewProc("D3DKMTOpenAdapterFromHdc")
+	procD3DKMTCloseAdapter              = gdi32.NewProc("D3DKMTCloseAdapter")
+	procD3DKMTWaitForVerticalBlankEvent = gdi32.NewProc("D3DKMTWaitForVerticalBlankEvent")
+	procGetMonitorInfoExW               = user32.NewProc("GetMonitorInfoW")
 )
+
+type monitorInfoEx struct {
+	monitorInfo
+	Device [32]uint16
+}
+
+type d3dkmtOpenAdapterFromHdc struct {
+	HDC           uintptr
+	Adapter       uint32
+	AdapterLuid   [2]uint32
+	VidPnSourceID uint32
+}
+
+type d3dkmtWaitForVerticalBlankEvent struct {
+	Adapter       uint32
+	Device        uint32
+	VidPnSourceID uint32
+}
+
+// vblankWaiter waits for one monitor's vertical blank.
+type vblankWaiter struct {
+	device  string
+	adapter uint32
+	source  uint32
+}
+
+// openVBlank opens the adapter behind the monitor at the point; nil when
+// the thunks are not there (a remote desktop, an odd driver), in which case
+// the caller falls back to DwmFlush.
+func openVBlank(x, y int) *vblankWaiter {
+	mi := monitorInfoEx{}
+	mi.Size = uint32(unsafe.Sizeof(mi))
+	mon, _, _ := procMonitorFromPoint.Call(packPoint(x, y), monitorDefaultToNearest)
+	if mon == 0 {
+		return nil
+	}
+	if ok, _, _ := procGetMonitorInfoExW.Call(mon, uintptr(unsafe.Pointer(&mi))); ok == 0 {
+		return nil
+	}
+	device := syscall.UTF16ToString(mi.Device[:])
+	display, _ := syscall.UTF16PtrFromString("DISPLAY")
+	dev, _ := syscall.UTF16PtrFromString(device)
+	hdc, _, _ := procCreateDCW.Call(uintptr(unsafe.Pointer(display)), uintptr(unsafe.Pointer(dev)), 0, 0)
+	if hdc == 0 {
+		return nil
+	}
+	defer procDeleteDC.Call(hdc)
+	open := d3dkmtOpenAdapterFromHdc{HDC: hdc}
+	if status, _, _ := procD3DKMTOpenAdapterFromHdc.Call(uintptr(unsafe.Pointer(&open))); status != 0 {
+		return nil
+	}
+	return &vblankWaiter{device: device, adapter: open.Adapter, source: open.VidPnSourceID}
+}
+
+// wait blocks until the monitor's next vertical blank; false if it cannot.
+func (v *vblankWaiter) wait() bool {
+	arg := d3dkmtWaitForVerticalBlankEvent{Adapter: v.adapter, VidPnSourceID: v.source}
+	status, _, _ := procD3DKMTWaitForVerticalBlankEvent.Call(uintptr(unsafe.Pointer(&arg)))
+	return status == 0
+}
+
+func (v *vblankWaiter) close() {
+	arg := struct{ Adapter uint32 }{v.adapter}
+	procD3DKMTCloseAdapter.Call(uintptr(unsafe.Pointer(&arg)))
+}
 
 const (
 	wmDestroy        = 0x0002
@@ -245,6 +322,12 @@ type companionWindow struct {
 	// at fullScreenCheckSeconds.
 	hidden    bool
 	nextCheck time.Time
+
+	// The vertical blank of the monitor the figure is on, opened while the
+	// loop runs at its active rate and reopened when the figure crosses to
+	// another monitor; nil falls back to DwmFlush.
+	vblank       *vblankWaiter
+	vblankDevice string
 
 	// The bitmap handed to UpdateLayeredWindow, kept between frames and
 	// remade only when the shown region changes size — a DIB section and a
@@ -669,6 +752,10 @@ func companionWndProc(hwnd, msg, wparam, lparam uintptr) uintptr {
 			return 0
 		case wmDestroy:
 			procKillTimer.Call(hwnd, companionTimerID)
+			if w.vblank != nil {
+				w.vblank.close()
+				w.vblank = nil
+			}
 			if w.interval == frameActiveMs {
 				procTimeEndPeriod.Call(1)
 			}
@@ -802,7 +889,7 @@ func (w *companionWindow) pressEnd() {
 		w.placeFigure(int(fx), int(fy))
 		w.walk = nil
 		w.scene.Walking = false
-		debuglog.Msg("companion: drag %s (pacing %v, dpi %d)", w.stats.summary(), companionPacing, w.dpi)
+		debuglog.Msg("companion: drag %s (pacing %v, dpi %d, %s vblank=%v)", w.stats.summary(), companionPacing, w.dpi, w.vblankDevice, w.vblank != nil)
 		w.on("dragEnd", nil)
 		x, y := w.figureAt()
 		w.on("moved", map[string]any{"x": x, "y": y})
@@ -952,10 +1039,13 @@ func (w *companionWindow) frame() {
 	w.present(w.canvas, used)
 	t2 := time.Now()
 	// Whenever the loop runs at its active rate — a drag, a hop, a cursor,
-	// a crossfade — the compositor's wait is what paces it; without the
+	// a crossfade — the wait for the monitor's blank is what paces it (the
+	// compositor's frame if the monitor's blank cannot be had); without a
 	// wait the 1ms timer would draw a thousand frames a second.
 	if companionPacing && w.interval == frameActiveMs {
-		procDwmFlush.Call()
+		if v := w.vblankFor(); v == nil || !v.wait() {
+			procDwmFlush.Call()
+		}
 	}
 	// The interval is measured after the flush — when the frame reached
 	// the screen — which is what the eye sees, not when it was started.
@@ -967,6 +1057,35 @@ func (w *companionWindow) frame() {
 	} else {
 		w.setInterval(frameIdleMs)
 	}
+}
+
+// vblankFor is the waiter for the monitor under the figure's centre,
+// reopened when that monitor changes.
+func (w *companionWindow) vblankFor() *vblankWaiter {
+	fx, fy := w.figureAt()
+	f := w.comp.figureRect()
+	mi := monitorInfoEx{}
+	mi.Size = uint32(unsafe.Sizeof(mi))
+	mon, _, _ := procMonitorFromPoint.Call(packPoint(fx+f.Dx()/2, fy+f.Dy()/2), monitorDefaultToNearest)
+	if mon == 0 {
+		return w.vblank
+	}
+	if ok, _, _ := procGetMonitorInfoExW.Call(mon, uintptr(unsafe.Pointer(&mi))); ok == 0 {
+		return w.vblank
+	}
+	device := syscall.UTF16ToString(mi.Device[:])
+	if w.vblank != nil && w.vblankDevice == device {
+		return w.vblank
+	}
+	if w.vblank != nil {
+		w.vblank.close()
+	}
+	w.vblank = openVBlank(fx+f.Dx()/2, fy+f.Dy()/2)
+	w.vblankDevice = device
+	if w.vblank == nil {
+		debuglog.Msg("companion: no vertical blank for %s; pacing by the compositor", device)
+	}
+	return w.vblank
 }
 
 // userIsFullScreen is whether the shell would hold back a notification right
