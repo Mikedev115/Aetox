@@ -245,6 +245,9 @@
       return
     }
     if (!intent || intent.section !== 'teams') return
+    // The chat's team chip sends its own desk's side, so "จัดการทีม" pressed on
+    // the code page lands on ฝั่งโค้ด, not the assistant's.
+    if (intent.side) showSide(intent.side)
     if (intent.createTeam) newTeam(side)
     else if (intent.team && teams.some((x) => x.name === intent.team)) {
       const tm = teams.find((x) => x.name === intent.team)
