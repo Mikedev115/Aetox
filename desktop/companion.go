@@ -88,6 +88,51 @@ type companionServer struct {
 	token string
 	srv   *http.Server
 	port  int
+	// body is the companion's window on the desktop while there is one —
+	// a Win32 layered window on Windows (companion_windows.go), nothing on
+	// the other platforms yet. Nil when the companion is inside the app.
+	body companionBody
+}
+
+// companionBody is the desktop window as this file needs to know it: it can
+// be closed, and (to come) shown a frame and asked where it is. The platform
+// files provide openCompanionBody.
+type companionBody interface {
+	close()
+}
+
+// OpenCompanionWindow sends the companion out of the app window to (x, y)
+// physical pixels on the desktop — negative for "wherever". False when the
+// platform cannot, in which case the window keeps drawing its own; the
+// reason is in the log, not the answer, because the only thing the switch
+// can do with it is fall back.
+func (a *App) OpenCompanionWindow(x, y int) bool {
+	c := a.companion()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.body != nil {
+		return true
+	}
+	body, err := openCompanionBody(x, y)
+	if err != nil {
+		debuglog.Msg("companion window: %v", err)
+		return false
+	}
+	c.body = body
+	return true
+}
+
+// CloseCompanionWindow takes the companion back in: the desktop window is
+// destroyed and the app window draws it again. A no-op when there is none.
+func (a *App) CloseCompanionWindow() {
+	c := a.companion()
+	c.mu.Lock()
+	body := c.body
+	c.body = nil
+	c.mu.Unlock()
+	if body != nil {
+		body.close()
+	}
 }
 
 func (a *App) companion() *companionServer {
