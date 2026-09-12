@@ -16,6 +16,14 @@
 // 12 ก.ย.: "ตั้งค่าอีกชั้นนึงว่าจะให้พูดทักทายด้วยไหม") — on by default, moot
 // while voice is off.
 //
+// `place` is where the figure is drawn (owner, 13 ก.ย. 2026: "ทำเป็นตัวเลือก …
+// ว่าจะแสดงในแอปหรือทั่วเดสก์ท็อป"): 'window' is this window's DOM, the
+// default; 'desktop' is a small window of its own on the desktop, drawn by
+// Go from baked frames (desktopBody.svelte.ts) — it can be dragged to any
+// monitor and stays when the app is minimised, for a few MB more and a
+// first bake of a few seconds. The brain (Companion.svelte) is the same
+// either way.
+//
 // Remembered in localStorage for now — the same place the window keeps its
 // other per-viewer conveniences — rather than in the Go config, because
 // config.go and the settings surface are mid-change in another session today
@@ -25,6 +33,17 @@
 const KEY = 'companionOn'
 const VOICE_KEY = 'companionVoice'
 const GREET_KEY = 'companionGreet'
+const PLACE_KEY = 'companionPlace'
+
+export type CompanionPlace = 'window' | 'desktop'
+
+function seedPlace(): CompanionPlace {
+  try {
+    return localStorage.getItem(PLACE_KEY) === 'desktop' ? 'desktop' : 'window'
+  } catch {
+    return 'window'
+  }
+}
 
 function seed(key: string): boolean {
   try {
@@ -34,7 +53,21 @@ function seed(key: string): boolean {
   }
 }
 
-export const companion = $state<{ on: boolean; voice: boolean; greet: boolean }>({ on: seed(KEY), voice: seed(VOICE_KEY), greet: seed(GREET_KEY) })
+export const companion = $state<{ on: boolean; voice: boolean; greet: boolean; place: CompanionPlace }>({
+  on: seed(KEY),
+  voice: seed(VOICE_KEY),
+  greet: seed(GREET_KEY),
+  place: seedPlace(),
+})
+
+export function setCompanionPlace(place: CompanionPlace): void {
+  companion.place = place
+  try {
+    localStorage.setItem(PLACE_KEY, place)
+  } catch {
+    // Not remembered, still switched for this session.
+  }
+}
 
 export function setCompanionOn(on: boolean): void {
   companion.on = on

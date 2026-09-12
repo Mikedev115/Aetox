@@ -36,7 +36,8 @@
     avatarPrefs, setAvatarPrefs, resetAvatarPrefs, isDefaultPrefs, assistantOptions,
     personas, savePersona, usePersona, clearPersona, wornPersona, PERSONA_SLOTS,
   } from './avatarPrefs.svelte'
-  import { companion, setCompanionOn, setCompanionVoice, setCompanionGreet } from './companionSetting.svelte'
+  import { companion, setCompanionOn, setCompanionVoice, setCompanionGreet, setCompanionPlace } from './companionSetting.svelte'
+  import { desktopBody } from './desktopBody.svelte'
   import { speech, speak, stopSpeechIf } from '../speech.svelte'
   import { openSettingsAt } from '../stores/cockpit.svelte'
   import { TTSStatus, ListTTSVoices } from '../../../wailsjs/go/main/App'
@@ -277,6 +278,23 @@
         <span></span>
       </label>
     </div>
+    <!-- Where it lives: this window, or a window of its own on the desktop
+         (companionSetting.svelte.ts `place`). A choice, not a replacement —
+         the owner wanted both kept and the cost of each said (13 ก.ย. 2026:
+         "ทำเป็นตัวเลือก … เขียนรายละเอียดบอกก็พอว่ากินทรัพยากรไม่เท่ากัน"). -->
+    <div class="set-row place-row" class:dim={!companion.on}>
+      <div class="set-txt">
+        <div class="t">{text.place}</div>
+        <div class="d">{text.placeDesc}</div>
+        {#if desktopBody.baking}
+          <div class="voice-note soft" role="status">{text.placeBaking}</div>
+        {/if}
+      </div>
+      <div class="seg place-seg" role="radiogroup" aria-label={text.place}>
+        <button type="button" class="seg-btn" class:active={companion.place === 'window'} role="radio" aria-checked={companion.place === 'window'} onclick={() => setCompanionPlace('window')}>{text.placeWindow}</button>
+        <button type="button" class="seg-btn" class:active={companion.place === 'desktop'} role="radio" aria-checked={companion.place === 'desktop'} onclick={() => setCompanionPlace('desktop')}>{text.placeDesktop}</button>
+      </div>
+    </div>
     <!-- The voice: a row under the figure's own, since it is the figure that
          talks (a hidden companion is a silent one). Below it, why it cannot,
          when it cannot; and a way to hear it, so "on" can be checked here. -->
@@ -328,6 +346,7 @@
 </div>
 
 <style>
+  .place-seg { flex: none; }
   /* This page is a stage, not a column of prose: it asks the settings pane
      for more than the 760px a settings row wants (style.css .settings-inner,
      which reads --content-max), and lays itself out by the width it gets. */

@@ -278,6 +278,9 @@ func (a *App) TerminalClose(sessionID string) error {
 // window goes; the call below is the same act again, for a close that reached
 // here without it, and it is over at once when there is nothing running.
 func (a *App) shutdown(_ context.Context) {
+	// The figure on the desktop is a window of its own and would outlive
+	// this one for as long as the process does: taken in first.
+	a.CloseCompanionWindow()
 	a.finishTurnsForClose(closeGrace)
 	// Before the store closes: the phone's door reads it on every request, and
 	// a listener still answering after the database is gone would serve errors
