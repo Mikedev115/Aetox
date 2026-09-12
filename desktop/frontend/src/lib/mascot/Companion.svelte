@@ -17,7 +17,7 @@
   // here runs per frame.
   import Mascot from './Mascot.svelte'
   import Icon from '../Icon.svelte'
-  import { presenceOf, reportOf } from './presence'
+  import { presenceOf, reportOf, walkTurn } from './presence'
   import { cockpit } from '../stores/cockpit.svelte'
   import { setCompanionOn } from './companionSetting.svelte'
   import { avatarPrefs, assistantOptions } from './avatarPrefs.svelte'
@@ -42,9 +42,29 @@
   const DOZE_MS = 5 * 60_000
 
   // ---- where it sits ------------------------------------------------------
+  // Dragged, it walks: it faces the way it is going and it follows the hand
+  // a little behind it, the way a thing on legs would, rather than being
+  // pinned under the cursor. The owner's first look at it was "เร็ว เหวี่ยง" —
+  // it whipped round on every wobble of the hand — so the direction is read
+  // off a smoothed velocity, not the last two events, and the head may turn
+  // no faster than TURN_DEG_S; the body eases to where the hand is with
+  // FOLLOW per frame. Both loops run only while a drag is in progress.
   let pos = $state(seed())
   let dragging = $state(false)
-  let drag: { dx: number; dy: number; x0: number; y0: number; moved: boolean } | null = null
+  let drag: {
+    dx: number; dy: number; x0: number; y0: number; moved: boolean
+    lx: number; ly: number; vx: number; vy: number; at: number
+    target: { x: number; y: number }; raf: number
+  } | null = null
+  /** Which way it walks while dragged, in the head's own degrees — right,
+   *  left, away up the screen, or towards the viewer down it. */
+  let heading = $state(0)
+  /** Degrees per second the head may turn while walking. */
+  const TURN_DEG_S = 240
+  /** How much of the remaining distance to the hand is closed per frame. */
+  const FOLLOW = 0.28
+  /** Below this smoothed speed (px per event) the direction is kept. */
+  const STILL_PX = 1.2
 
   function seed(): { x: number; y: number } {
     try {
@@ -67,7 +87,10 @@
   }
   function onDown(e: PointerEvent): void {
     if (e.button !== 0) return
-    drag = { dx: e.clientX - pos.x, dy: e.clientY - pos.y, x0: e.clientX, y0: e.clientY, moved: false }
+    drag = {
+      dx: e.clientX - pos.x, dy: e.clientY - pos.y, x0: e.clientX, y0: e.clientY, moved: false,
+      lx: e.clientX, ly: e.clientY, vx: 0, vy: 0, at: performance.now(), target: { ...pos }, raf: 0,
+    }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
   function onMove(e: PointerEvent): void {
@@ -75,11 +98,41 @@
     if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < CLICK_PX) return
     drag.moved = true
     dragging = true
-    pos = clamp({ x: e.clientX - drag.dx, y: e.clientY - drag.dy })
+    // Smoothed velocity → the direction; the head turns towards it at a
+    // bounded rate (the CSS transition on --t eases the steps between events).
+    drag.vx = drag.vx * 0.7 + (e.clientX - drag.lx) * 0.3
+    drag.vy = drag.vy * 0.7 + (e.clientY - drag.ly) * 0.3
+    drag.lx = e.clientX
+    drag.ly = e.clientY
+    const now = performance.now()
+    const dt = Math.min(0.05, (now - drag.at) / 1000)
+    drag.at = now
+    if (Math.hypot(drag.vx, drag.vy) >= STILL_PX) {
+      const want = walkTurn(drag.vx, drag.vy, heading, 0)
+      const step = TURN_DEG_S * dt
+      heading += Math.max(-step, Math.min(step, want - heading))
+    }
+    drag.target = clamp({ x: e.clientX - drag.dx, y: e.clientY - drag.dy })
+    if (!drag.raf) drag.raf = requestAnimationFrame(follow)
+  }
+  function follow(): void {
+    if (!drag) return
+    drag.raf = 0
+    const { target } = drag
+    const nx = pos.x + (target.x - pos.x) * FOLLOW
+    const ny = pos.y + (target.y - pos.y) * FOLLOW
+    if (Math.hypot(target.x - nx, target.y - ny) < 0.5) {
+      pos = { ...target }
+      return
+    }
+    pos = { x: nx, y: ny }
+    drag.raf = requestAnimationFrame(follow)
   }
   function onUp(): void {
     if (!drag) return
     const wasClick = !drag.moved
+    if (drag.raf) cancelAnimationFrame(drag.raf)
+    if (drag.moved) pos = { ...drag.target }
     drag = null
     dragging = false
     if (wasClick) {
@@ -270,7 +323,7 @@
   <button class="hide" type="button" title="ซ่อน" aria-label="ซ่อน" onclick={() => setCompanionOn(false)}><Icon name="x" size={11} /></button>
   <!-- A handle, not a control: it has nothing to activate, only somewhere to be. -->
   <div class="grab" role="presentation" onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp}>
-    <Mascot {...assistantOptions(avatarPrefs)} {pose} size={SIZE} sway {hop} />
+    <Mascot {...assistantOptions(avatarPrefs)} {pose} turn={dragging ? heading : undefined} size={SIZE} sway {hop} />
   </div>
 </div>
 

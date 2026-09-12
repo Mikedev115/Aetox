@@ -118,6 +118,23 @@ export function presenceOf(i: PresenceInput): PoseId {
   return 'thinking'
 }
 
+/** Which way to face while walking, from the way it is moving on screen.
+ *
+ *  The head turn --t is an azimuth: 0 faces the viewer, +90 looks to the
+ *  viewer's right, 180 turns its back. Walking down the screen is walking
+ *  towards the viewer, so the heading is atan2(dx, dy) with y down — right is
+ *  +90, up is 180, left is -90 — and a step that is too small to have a
+ *  direction keeps the last one. The angle is unwrapped against the previous
+ *  heading so a turn from 170 to -170 is a 20° turn, not a spin the long way
+ *  round through the transition (owner, 12 ก.ย.: "ทำไมเดินไปแค่ข้างหน้า ขึ้น ลง
+ *  ซ้าย ขวา"). */
+export function walkTurn(dx: number, dy: number, prev: number, minPx = 3): number {
+  if (Math.hypot(dx, dy) < minPx) return prev
+  const h = (Math.atan2(dx, dy) * 180) / Math.PI
+  const r = (((h - prev) % 360) + 360) % 360
+  return prev + (r > 180 ? r - 360 : r)
+}
+
 /** What a card knows about an agent, as the cartoon faces spelled it: nothing,
  *  thinking, working, finished, failed. The delegate cards, the background
  *  panel and the settings preview all speak this five-word language (Chat's

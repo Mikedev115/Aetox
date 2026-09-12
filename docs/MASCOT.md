@@ -34,7 +34,7 @@
 | เครื่องมือรัน — ตามชื่อ ไม่รู้จักชื่อก็ตามตระกูล (`toolFace.ts`) | reading · searchFiles · searchData · searchDocs · research · typing · coding · planning · presenting · helping · debugging (`diagnostics`) | `TOOL_POSE` + `FAMILY_POSE` |
 | เครื่องมือล้มแล้วยังไม่มีตัวถัดไป | debugging | `failed` |
 | เทิร์นจบ — ตอบได้ / ล้ม (ไม่ใช่กดหยุด) | success / error 2.2 วิ | `Companion.svelte` |
-| เปิดแอป-เปิดสวิตช์ / ถูกลาก / ถูกคลิก / เงียบ 5 นาที | greeting / walk / cheer-wink-helping-greeting / recharge | `Companion.svelte` |
+| เปิดแอป-เปิดสวิตช์ / ถูกลาก / ถูกคลิก / เงียบ 5 นาที | greeting / walk (หันไปทางที่ถูกลาก — ขวา ซ้าย ขึ้นคือหันหลัง ลงคือหันมา; `walkTurn()` จากความเร็วที่เฉลี่ยแล้ว หัวหมุนไม่เกิน 240°/วิ ตัวตามมือแบบหน่วง) / cheer-wink-helping-greeting / recharge | `Companion.svelte` |
 
 **เปลี่ยนท่าแบบสมูท** (เจ้าของ: "ไม่ใช่เด้งไปเด้งมาทันที"): ตำแหน่งมือหกค่าอยู่บนรูท (`handVars()`), แขนอ่านจากรูท → `.settle` transition พาแขนแกว่งไปเอง (.42 วิ) เหมือนที่ `--t` พาหัวหัน · ส่วนที่ markup เปลี่ยน (หน้า การ์ด ของในมือ) crossfade ใน `Mascot.svelte` (`{#key}` + fade .24 วิ) — สองภาพซ้อนกันชั่วครู่ โดยแขนของทั้งคู่อ่านค่าเดียวกันจึงเห็นเป็นแขนเดียว · ลูปทุกอัน (หายใจ กระพริบ ลอย) เริ่มที่ `--ms-phase` = เวลาที่วาด จึงไม่กระตุกกลับเฟรมแรกเมื่อวาดใหม่
 
