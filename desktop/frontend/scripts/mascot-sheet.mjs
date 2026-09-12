@@ -35,7 +35,7 @@ const { resolveMascot, mascotSVG } = mod
 const rolesMod = await build({ entryPoints: [resolve(frontend, 'src/lib/mascot/roles.ts')], bundle: true, format: 'esm', write: false, platform: 'neutral' })
 const { ROLE, roleOptions } = await import('data:text/javascript;base64,' + Buffer.from(rolesMod.outputFiles[0].text).toString('base64'))
 const paletteMod = await build({ entryPoints: [resolve(frontend, 'src/lib/mascot/palette.ts')], bundle: true, format: 'esm', write: false, platform: 'neutral' })
-const { SHELL } = await import('data:text/javascript;base64,' + Buffer.from(paletteMod.outputFiles[0].text).toString('base64'))
+const { SHELL, ACCENT } = await import('data:text/javascript;base64,' + Buffer.from(paletteMod.outputFiles[0].text).toString('base64'))
 
 const posesMod = await build({ entryPoints: [resolve(frontend, 'src/lib/mascot/poses.ts')], bundle: true, format: 'esm', write: false, platform: 'neutral' })
 const { POSE } = await import('data:text/javascript;base64,' + Buffer.from(posesMod.outputFiles[0].text).toString('base64'))
@@ -69,9 +69,10 @@ const poses = Object.keys(POSE)
 
 const team = TEAM.map(([name, badge], i) => cell({ ...ASSISTANT, hue: (37 * i + 150) % 360, badge, pose: 'typing' }, 130, name, `icon: ${badge}`, [40, -35, 55, -50, 30, -60, 45][i])).join('')
 
-// Every finish on every hue the roster uses — the colour dial the owner asked for.
+// Every finish on a spread of accents — the colour dial the owner asked for.
+// First the default (ink), then the brand, then round the wheel and the metals.
 const finishes = SHELL.map(
-  (sh) => `<div class="row"><span class="l">${esc(sh.label)} <code>${esc(sh.id)}</code></span>${[218, 150, 30, 300, 0, 262].map((hue) => mascot({ ...ASSISTANT, hue, shell: sh.id, pose: 'idle' }, 96, 12)).join('')}</div>`
+  (sh) => `<div class="row"><span class="l">${esc(sh.label)} <code>${esc(sh.id)}</code></span>${['ink', 'brand', 'mint', 'orange', 'magenta', 'gold', 'slate'].map((accent) => mascot({ ...ASSISTANT, accent, shell: sh.id, pose: 'idle' }, 96, 12)).join('')}</div>`
 ).join('')
 
 const roles = ROLE.map((r) => cell(roleOptions(r.id), 150, r.label, `role: ${r.id}`, 0, r.id === 'code')).join('')
@@ -127,14 +128,15 @@ input[type=range] { width:300px; }
       <div class="ctl" id="poseBtns"></div>
       <div class="ctl"><button data-role="assistant" class="on">assistant</button><button data-role="code">code</button></div>
       <div class="ctl" id="shellBtns"></div>
-      <div class="ctl"><span class="st">hue</span> <input id="hue" type="range" min="0" max="359" value="218"> <span id="hv">218°</span></div>
+      <div class="ctl" id="accentBtns"></div>
+      <div class="ctl"><span class="st">hue (เอเจน)</span> <input id="hue" type="range" min="-1" max="359" value="-1"> <span id="hv">—</span></div>
     </div>
   </div>
 
   <h2>Roles — เทมเพลตของทั้งตัว (roles.ts) · เอเจน = assistant + icon ของตัวเอง</h2>
   <div class="sheet">${roles}</div>
 
-  <h2>Finishes — ตัวเดียวกัน เปลี่ยนสีตัวและสี accent (palette.ts SHELL × hue)</h2>
+  <h2>Finishes — ตัวเดียวกัน เปลี่ยนสีตัวและสี accent (palette.ts SHELL × ACCENT: ink · brand · mint · orange · magenta · gold · slate)</h2>
   <div class="finishes">${finishes}</div>
 
   <h2>Turnaround</h2>
@@ -156,18 +158,22 @@ const { resolveMascot, mascotSVG } = mod
 const POSE = ${JSON.stringify(Object.fromEntries(Object.entries(POSE).map(([k, v]) => [k, { turn: v.turn }])))}
 const ROLES = { assistant: ${JSON.stringify(ASSISTANT)}, code: ${JSON.stringify(CODE)} }
 const SHELLS = ${JSON.stringify(SHELL.map((s) => s.id))}
-let pose = 'idle', role = 'assistant', turn = 0, shell = 'white', hue = 218
+const ACCENTS = ${JSON.stringify(ACCENT.map((a) => a.id))}
+let pose = 'idle', role = 'assistant', turn = 0, shell = 'white', accent = 'ink', hue = -1
 const box = document.getElementById('liveBox')
 function paint() {
-  const m = resolveMascot({ ...ROLES[role], shell, hue, pose, size: 440 })
+  const m = resolveMascot({ ...ROLES[role], shell, accent, ...(hue >= 0 ? { hue } : {}), pose, size: 440 })
   box.innerHTML = '<span class="mascot pose-' + m.poseId + '" style="--t:' + turn + 'deg; --ms-blink:5.1s; width:440px; height:440px"><svg viewBox="0 0 64 64">' + mascotSVG(m) + '</svg></span>'
   for (const b of document.querySelectorAll('#poseBtns button')) b.classList.toggle('on', b.dataset.pose === pose)
   for (const b of document.querySelectorAll('[data-role]')) b.classList.toggle('on', b.dataset.role === role)
   for (const b of document.querySelectorAll('[data-shell]')) b.classList.toggle('on', b.dataset.shell === shell)
+  for (const b of document.querySelectorAll('[data-accent]')) b.classList.toggle('on', hue < 0 && b.dataset.accent === accent)
 }
+const AB = document.getElementById('accentBtns')
+for (const id of ACCENTS) { const b = document.createElement('button'); b.textContent = id; b.dataset.accent = id; b.onclick = () => { accent = id; hue = -1; document.getElementById('hue').value = -1; document.getElementById('hv').textContent = '—'; paint() }; AB.append(b) }
 const SB = document.getElementById('shellBtns')
 for (const id of SHELLS) { const b = document.createElement('button'); b.textContent = id; b.dataset.shell = id; b.onclick = () => { shell = id; paint() }; SB.append(b) }
-document.getElementById('hue').oninput = (e) => { hue = Number(e.target.value); document.getElementById('hv').textContent = hue + '°'; paint() }
+document.getElementById('hue').oninput = (e) => { hue = Number(e.target.value); document.getElementById('hv').textContent = hue < 0 ? '—' : hue + '°'; paint() }
 const PB = document.getElementById('poseBtns')
 for (const id of Object.keys(POSE)) { const b = document.createElement('button'); b.textContent = id; b.dataset.pose = id; b.onclick = () => { pose = id; turn = POSE[id].turn; document.getElementById('turn').value = turn; document.getElementById('tv').textContent = turn + '°'; paint() }; PB.append(b) }
 for (const b of document.querySelectorAll('[data-role]')) b.onclick = () => { role = b.dataset.role; paint() }
@@ -215,7 +221,7 @@ function draw(s) {
   if (key !== drawn) {
     drawn = key
     const p = s.prefs ?? {}
-    const m = resolveMascot({ badge: 'logo', shell: p.shell, top: p.top, face: p.face, ...(typeof p.hue === 'number' ? { hue: p.hue } : {}), pose: s.pose || 'idle', size: SIZE })
+    const m = resolveMascot({ badge: 'logo', shell: p.shell, accent: p.accent, top: p.top, face: p.face, pose: s.pose || 'idle', size: SIZE })
     fig.innerHTML = '<span class="mascot pose-' + m.poseId + ' sway' + (s.on ? '' : ' off') + '" style="--t:' + m.pose.turn + 'deg; --ms-blink:5.1s; width:' + SIZE + 'px; height:' + SIZE + 'px"><svg viewBox="0 0 64 64">' + mascotSVG(m) + '</svg></span>'
   }
   say.textContent = s.report || ''

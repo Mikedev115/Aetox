@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { FACE, PANEL, PROP, TOP, isBadge, row } from '../lib/mascot/parts'
 import { POSE, ARM, type PoseId } from '../lib/mascot/poses'
 import { resolveMascot, mascotSVG, DETAIL_MIN_PX, GLOW_MIN_PX } from '../lib/mascot/rig'
-import { palette, SHELL, shellOf } from '../lib/mascot/palette'
+import { palette, SHELL, shellOf, ACCENT, accentOf, accentNearHue, DEFAULT_ACCENT } from '../lib/mascot/palette'
 import { ROLE, roleOf, roleOptions } from '../lib/mascot/roles'
 import { presenceOf, TOOL_POSE, poseOfFaceState, FACE_STATE_POSE, type FaceState } from '../lib/mascot/presence'
 
@@ -27,7 +27,7 @@ describe('mascot catalogue', () => {
   // or reordering these would change what a stored `face:` means.
   it('keeps the six blueprint expressions ahead of anything appended', () => {
     expect(FACE.slice(0, 6).map((f) => f.id)).toEqual(['neutral', 'focused', 'happy', 'thinking', 'excited', 'curious'])
-    expect(FACE.filter((f) => f.identity).map((f) => f.id)).toEqual(['neutral', 'focused'])
+    expect(FACE.filter((f) => f.identity).map((f) => f.id)).toEqual(['neutral', 'focused', 'round', 'wide', 'visor'])
   })
 
   // A hand-written profile with a typo lands on a part, never on an error.
@@ -104,7 +104,7 @@ describe('mascot drawing', () => {
   // body's colours at rest — a pose may add a card in its own colours, it may
   // not tint the person.
   it('never lets a pose change the body\'s colours', () => {
-    const body = palette(218)
+    const body = palette(218, 'white', accentOf(DEFAULT_ACCENT).chroma)
     const bodyColours = [body.shell, body.shellMid, body.shellEdge, body.primary, body.primaryDn, body.screen, body.eye]
     for (const id of Object.keys(POSE) as PoseId[]) {
       const svg = drawn({ pose: id, size: 76 })
@@ -118,6 +118,34 @@ describe('mascot drawing', () => {
     const a = drawn({ hue: 30, size: 76 })
     const b = drawn({ hue: 300, size: 76 })
     expect(a.replace(/hsl\(30 /g, 'hsl(H ').replace(/ms\d+/g, 'ms')).toBe(b.replace(/hsl\(300 /g, 'hsl(H ').replace(/ms\d+/g, 'ms'))
+  })
+
+  // The default is the mark's own two tones (owner, 12 ก.ย.: "โลโก้ Aetox
+  // เป็นสีขาวและดำ อวตารเริ่มต้นก็ควรจะโทนประมาณนั้น"): next to no chroma, a
+  // light grey cap on a white body (not black — "ดำมืด ไม่สดใส"), a white
+  // light on the screen. A hue in degrees — an agent's, off its name — is
+  // always the full colour.
+  it('rests on white and grey, and a hue is always full colour', () => {
+    expect(ACCENT[0].id).toBe(DEFAULT_ACCENT)
+    expect(new Set(ACCENT.map((a) => a.id)).size).toBe(ACCENT.length)
+    const m = resolveMascot({})
+    expect(m.chroma).toBeLessThan(0.1)
+    expect(m.p.shell).toBe('hsl(218 1.6% 97%)')
+    expect(m.p.primary).toBe('hsl(218 5.8% 64.9%)')
+    expect(m.p.eye).toBe('hsl(218 8% 96.3%)')
+    expect(resolveMascot({ hue: 150 }).chroma).toBe(1)
+    expect(resolveMascot({ hue: 150, accent: 'ink' }).chroma).toBe(1)
+    expect(resolveMascot({ accent: 'brand' })).toMatchObject({ hue: 218, chroma: 1 })
+    expect(resolveMascot({ accent: 'no-such-row' }).chroma).toBe(m.chroma)
+    // A muted accent is between: some of its hue, a cap between ink and colour.
+    const gold = resolveMascot({ accent: 'gold' }).p
+    expect(gold.primary).toBe('hsl(46 57.6% 54.8%)')
+    // The monochrome cap flips with the shell so it always reads against it.
+    expect(palette(218, 'dark', 0).primary).toBe('hsl(218 0% 80%)')
+    expect(palette(218, 'white', 0).primary).toBe('hsl(218 0% 66%)')
+    expect(accentOf('nope').id).toBe('ink')
+    expect(accentNearHue(155).id).toBe('mint')
+    expect(accentNearHue(359).id).toBe('red')
   })
 
   // The ear wears the badge the caller named — the same glyph as the button.
@@ -179,7 +207,7 @@ describe('mascot finishes and roles', () => {
       const p = palette(218, sh.id)
       expect(p.screen).toBe(palette(218).screen)
       expect(p.eye).toBe(palette(218).eye)
-      const svg = drawn({ shell: sh.id, size: 76 })
+      const svg = drawn({ hue: 218, shell: sh.id, size: 76 })
       expect(svg).toContain(p.shell)
     }
     expect(palette(218, 'colour').shell).not.toBe(palette(218, 'white').shell)

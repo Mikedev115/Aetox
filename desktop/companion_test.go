@@ -50,10 +50,9 @@ func TestCompanionStateRoundTripsWithASequence(t *testing.T) {
 	if s := read(); s.Seq != 0 || s.Pose != "" {
 		t.Fatalf("before any report: %+v", s)
 	}
-	hue := 150
-	a.SetCompanionState(CompanionState{Pose: "reading", Report: "อ่าน config แล้ว", On: true, Prefs: CompanionPrefs{Shell: "colour", Hue: &hue, Top: "orb", Face: "neutral"}})
+	a.SetCompanionState(CompanionState{Pose: "reading", Report: "อ่าน config แล้ว", On: true, Prefs: CompanionPrefs{Shell: "colour", Accent: "mint", Top: "orb", Face: "neutral"}})
 	s := read()
-	if s.Seq != 1 || s.Pose != "reading" || s.Report != "อ่าน config แล้ว" || !s.On || s.Prefs.Shell != "colour" || s.Prefs.Hue == nil || *s.Prefs.Hue != 150 {
+	if s.Seq != 1 || s.Pose != "reading" || s.Report != "อ่าน config แล้ว" || !s.On || s.Prefs.Shell != "colour" || s.Prefs.Accent != "mint" {
 		t.Fatalf("after one report: %+v", s)
 	}
 	if s.At.IsZero() {
@@ -62,7 +61,7 @@ func TestCompanionStateRoundTripsWithASequence(t *testing.T) {
 	// The same pose reported again is a new sequence: a poller that saw seq 1
 	// must be able to tell a repeat from silence.
 	a.SetCompanionState(CompanionState{Pose: "reading", On: true})
-	if s := read(); s.Seq != 2 || s.Prefs.Hue != nil {
+	if s := read(); s.Seq != 2 || s.Prefs.Accent != "" {
 		t.Fatalf("after a second report: %+v", s)
 	}
 }

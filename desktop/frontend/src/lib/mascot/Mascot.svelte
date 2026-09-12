@@ -15,7 +15,7 @@
   // `look` turns on mouse-follow (lookAt.ts) — for the one mascot the user is
   // facing, never for a roster of tiles.
   import { coverHue } from '../coverHue'
-  import { resolveMascot, mascotSVG, lookRange, BRAND_HUE, DETAIL_MIN_PX, type MascotOptions } from './rig'
+  import { resolveMascot, mascotSVG, lookRange, DETAIL_MIN_PX, type MascotOptions } from './rig'
   import { roleOptions } from './roles'
   import { lookAt } from './lookAt'
   import './mascot.css'
@@ -25,6 +25,7 @@
     role = undefined,
     icon = undefined,
     hue = undefined,
+    accent = undefined,
     shell = undefined,
     top = undefined,
     badge = undefined,
@@ -61,10 +62,13 @@
     still?: boolean
   } & Omit<MascotOptions, 'hue' | 'size'> & { hue?: number } = $props()
 
-  // No name is the assistant, in the brand's own hue; a name is an agent, in
-  // the hue its name gives it — the same rule the cartoon faces follow.
+  // No name is the assistant, in the accent it was given or the mark's own
+  // white and grey; a name is an agent, at full colour in the hue its name
+  // gives it — the same rule the cartoon faces followed — unless its file
+  // named an accent, which a persona handed to it would (a hue in degrees
+  // still wins over both, as in rig.ts).
   const m = $derived(
-    resolveMascot({ ...roleOptions(role, icon, { shell, top, badge, badgeR, face, prop }), hue: hue ?? (name ? coverHue(name) : BRAND_HUE), pose, size }),
+    resolveMascot({ ...roleOptions(role, icon, { accent, shell, top, badge, badgeR, face, prop }), hue: hue ?? (name && !accent ? coverHue(name) : undefined), pose, size }),
   )
   const inner = $derived(mascotSVG(m))
   const rest = $derived(turn ?? m.pose.turn)
