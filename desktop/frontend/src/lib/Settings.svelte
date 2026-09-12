@@ -5322,16 +5322,20 @@
       <div class="settings-card">
         <div class="card-form pp-edit">
           <!-- The provider first, then its models (owner, 12 ก.ย.: "ควรเลือกได้
-               แม้แต่ผู้ให้บริการ และเลือกโมเดลได้ ทั้งเอเจนและซับเอเจน"). Only the
-               providers switched on in การตั้งค่าโมเดล are offered — one that is
-               off has no key to sign with — plus whatever the file names, so a
-               pin to a provider since switched off still reads as itself. -->
+               แม้แต่ผู้ให้บริการ และเลือกโมเดลได้ ทั้งเอเจนและซับเอเจน"). The rows are
+               การตั้งค่าโมเดล's own — enabledRows, the catalogue's providers the
+               user switched on, in the catalogue's order — not the raw enabled
+               list, which can still name a provider the catalogue dropped
+               (owner: "ควรอิง Providers ที่เปิดไว้หน้าตั้งค่าโมเดล"). One that is
+               off has no key to sign with. Whatever the file names is offered
+               too, so a pin to a provider since switched off still reads as
+               itself. -->
           <label class="pp-field">
             <span class="eyebrow">{t('settings.agentProviderPick')}</span>
             <select class="ctrl" value={agentDraftProvider} onchange={(e) => pickAgentProvider(e.currentTarget.value)}>
               <option value="">{t('settings.agentProviderInherit')}</option>
-              {#each enabledNames as p (p)}<option value={p}>{p}</option>{/each}
-              {#if agentDraftProvider && !enabledNames.includes(agentDraftProvider)}
+              {#each enabledRows as p (p.name)}<option value={p.name}>{p.name}</option>{/each}
+              {#if agentDraftProvider && !enabledRows.some((p) => p.name === agentDraftProvider)}
                 <option value={agentDraftProvider}>{agentDraftProvider}</option>
               {/if}
             </select>

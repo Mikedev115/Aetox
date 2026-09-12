@@ -1062,11 +1062,15 @@ describe('Settings pages', () => {
   })
 
   // The provider is picked before the model (owner, 12 ก.ย.: "ควรเลือกได้แม้แต่
-  // ผู้ให้บริการ และเลือกโมเดลได้ ทั้งเอเจนและซับเอเจน"): the list offers the
-  // providers switched on, the model list follows the pick, and both land in
-  // the file as `provider:` / `model:`. Clearing the provider keeps neither.
-  it('pins a provider and a model of it, for an agent and for a helper', async () => {
-    vi.mocked(EnabledProviders).mockResolvedValue(['openai', 'deepseek'] as any)
+  // ผู้ให้บริการ และเลือกโมเดลได้ ทั้งเอเจนและซับเอเจน"): the list is exactly
+  // การตั้งค่าโมเดล's — the catalogue's providers the user switched on, in the
+  // catalogue's order ("ควรอิง Providers ที่เปิดไว้หน้าตั้งค่าโมเดล"): a name still
+  // in the enabled list but gone from the catalogue is not offered, nor is a
+  // catalogue provider that is switched off. The model list follows the pick,
+  // and both land in the file as `provider:` / `model:`.
+  it('offers the model page’s enabled providers, then a model of the pick', async () => {
+    vi.mocked(SupportedProviders).mockResolvedValue(['openai', 'deepseek', 'zai'] as any)
+    vi.mocked(EnabledProviders).mockResolvedValue(['deepseek', 'openai', 'ghost'] as any)
     vi.mocked(ListModelsForProvider).mockImplementation(async (p: string) =>
       (p === 'deepseek' ? ['deepseek-v4', 'deepseek-chat'] : ['gpt-5.6']) as any)
     vi.mocked(ReadSubagentProfile).mockResolvedValue('---\ndescription: ทำสไลด์\n---\nสร้างสไลด์' as any)
