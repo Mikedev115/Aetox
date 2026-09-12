@@ -32,7 +32,7 @@ beforeEach(() => {
   cockpit.settingsIntent = null
   vi.mocked(ListChairs).mockResolvedValue([chair()] as any)
   vi.mocked(ListReceivedJobs).mockResolvedValue([] as any)
-  // The page is organised by team (§251). With no team folder there is one
+  // The page is organised by team (§256). With no team folder there is one
   // team, the default, and everybody on the roster is on it — so the tests
   // below, which are about the cards, still describe the roster they mock.
   vi.mocked(ListTeams).mockImplementation(async () => [{
@@ -331,7 +331,7 @@ describe('the received-work feed', () => {
   })
 })
 
-// Teams (§251): the page is one section per roster. A user team draws its
+// Teams (§256): the page is one section per roster. A user team draws its
 // own members under its own head, its chat door seats the agent at the
 // team's desk, and the editor writes through the one door the engine has.
 describe('the office by team', () => {

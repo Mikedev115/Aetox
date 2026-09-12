@@ -52,7 +52,7 @@
     gates = Object.fromEntries(roster.map((c, i) => [c.name, answers[i]]))
     gated = true
   }
-  // The page is organised by TEAM since 12 ก.ย. (§251): every roster the
+  // The page is organised by TEAM since 12 ก.ย. (§256): every roster the
   // assistant or the code desk can hire from, the default one first, each
   // with its own members, its own switches and its own doors. Teams are
   // folders like agents are, read from disk on every visit for the same
@@ -245,7 +245,7 @@
     setActiveView('chat')
     // Seated by the team the card sits under, at that team's desk: the same
     // agent walks into the office from ทีมผู้ช่วย and into the workshop from a
-    // coding team, and the desk decides what it holds there (§251).
+    // coding team, and the desk decides what it holds there (§256).
     await newChairSession(chair.name, team.desk, team.name)
   }
 
@@ -405,7 +405,7 @@
           </div>
       {/snippet}
 
-      <!-- One section per team (§251). Its head carries the facts about the
+      <!-- One section per team (§256). Its head carries the facts about the
            roster — where it works, how many, whether the assistant may hand
            it work — and its deck is split by the one thing this page can
            change: which band an agent sits in IS its delegation state on

@@ -1,6 +1,6 @@
 package main
 
-// A team at the desktop (§251): the session's third coordinate, and what it
+// A team at the desktop (§256): the session's third coordinate, and what it
 // changes about a real engine — who `task` reaches, which desk a chair chat
 // sits at, and which pair of switches the reach reads.
 

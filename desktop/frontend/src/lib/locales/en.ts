@@ -2022,7 +2022,7 @@ Check your own work before answering; say so plainly if unsure.
   'chat.inputToAgent': 'Message {name}…',
   'chat.mainAgent': 'Main assistant',
   'chat.agentSwitchNote': 'Switching always opens a new chat. This one stays in history.',
-  // Teams (§251) — the picker lists teams, the office groups by them.
+  // Teams (§256) — the picker lists teams, the office groups by them.
   'chat.defaultTeam': 'Assistant team',
   'chat.teamMembers': 'Show members',
   'chat.teamEmpty': 'This team has no members yet',

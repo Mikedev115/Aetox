@@ -4208,7 +4208,7 @@ export async function openSpace(name: string): Promise<void> {
   }
   await newSpaceSession(name)
 }
-/** Open a direct chat with an agent (§85, §251). At the office any agent on
+/** Open a direct chat with an agent (§85, §256). At the office any agent on
  *  the roster; at the coding desk only one a team at that desk names — the
  *  engine refuses the rest, so a stale card cannot open a chat as somebody
  *  else. `team` is the roster the click came from and may be '', in which
@@ -4232,7 +4232,7 @@ export async function newChairSession(chair: string, desk = 'specialized', team 
   await afterNewSession()
 }
 
-/** Open a blank chat at a desk on a team (§251) — the picker's door. The
+/** Open a blank chat at a desk on a team (§256) — the picker's door. The
  *  engine refuses a team the desk cannot reach, so a stale card cannot open
  *  a session hiring from a roster the user did not choose. */
 export async function newTeamSession(desk: string, team: string): Promise<void> {

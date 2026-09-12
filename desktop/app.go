@@ -4802,7 +4802,7 @@ func (a *App) chairProfile() *subagent.Profile {
 }
 
 // teamRoster resolves a conversation's team to the roster the engine hires
-// from (§251), read from disk per call for the reason chairProfile is: a team
+// from (§256), read from disk per call for the reason chairProfile is: a team
 // is a file, and a held copy would survive an edit. The default team ("") is
 // computed, not absent, so every desktop session carries one — which is what
 // keeps the picker, the `@` menu and `task` reading the same list.
@@ -5079,7 +5079,7 @@ func (a *App) applyConfig(conv *conversation, cfg config.Config) {
 		// profile takes effect the next time its chair is sat at, like every
 		// other manifest.
 		Chair: a.chairProfile(),
-		// The roster this session hires from, and the desk it works at (§251).
+		// The roster this session hires from, and the desk it works at (§256).
 		Team: a.teamRoster(conv),
 		// The footer's name, so the model can use it (prompt.person). Read
 		// fresh here for the same reason Chair is: a name changed in the

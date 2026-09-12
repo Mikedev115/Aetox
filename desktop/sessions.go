@@ -598,7 +598,7 @@ func (a *App) liveChair(id string) string {
 	return ""
 }
 
-// SessionTeam reports which team a stored session hires from (§251): "" for
+// SessionTeam reports which team a stored session hires from (§256): "" for
 // ทีมผู้ช่วย — which is also the answer for a session that does not exist,
 // same shape as SessionAgent above.
 func (a *App) SessionTeam(id string) string {
@@ -1261,7 +1261,7 @@ func (a *App) NewChairSession(chair string) (string, error) {
 	return a.NewChairSessionAt(mode.Office, chair, "")
 }
 
-// NewChairSessionAt opens a direct chat with an agent at a desk (§251): the
+// NewChairSessionAt opens a direct chat with an agent at a desk (§256): the
 // office for anyone on the roster, the coding desk for an agent a team at
 // that desk names. team is the roster the click came from and may be "" —
 // then the window's own team rides along when it seats the chair, and
@@ -1296,7 +1296,7 @@ func seatingTeam(desk, chair, current string) string {
 }
 
 // NewTeamSession starts a blank session at a desk on a team — the picker's
-// door (§251). An unknown team, or one whose desk this desk cannot reach, is
+// door (§256). An unknown team, or one whose desk this desk cannot reach, is
 // refused rather than fallen back on: a stale card must not open a session
 // hiring from a roster the user did not choose.
 func (a *App) NewTeamSession(desk, team string) (string, error) {
@@ -1325,7 +1325,7 @@ func teamFor(desk, current string) string {
 // setStation points the engine at a desk and, optionally, one of the office's
 // chairs and a team — the single writer of all three, because they only mean
 // anything together: a chair on a desk no team put it at, or a team a desk
-// cannot reach, are states the product says cannot exist (§85, §251), and
+// cannot reach, are states the product says cannot exist (§85, §256), and
 // two writers is how they would come to exist anyway. Everything the triple
 // decides — the dispatcher's cut, the system prompt, the memory scope, the
 // roster — is built once at bootstrap from these values, so changing any of

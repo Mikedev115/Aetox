@@ -1052,7 +1052,7 @@
     agentMenuOpen = !agentMenuOpen
     if (agentMenuOpen) await loadPicker()
   }
-  // The picker is a list of TEAMS (§251), not of every agent on the machine:
+  // The picker is a list of TEAMS (§256), not of every agent on the machine:
   // the session hires from one roster, and that is the one whose members it
   // can walk in and talk to. Which teams are offered is the desk's question —
   // the office's teams behind the storefront, the coding desk's in the
@@ -5225,7 +5225,7 @@
         </button>
       </div>
       {/if}
-      <!-- Who this chat is with, and the way to a different who (§85, §251).
+      <!-- Who this chat is with, and the way to a different who (§85, §256).
            Same shape as the focus chip beside it: both answer "what am I
            pointed at right now". Picking someone always opens a NEW session —
            a desk, a chair or a team is fixed for a session's life, so the
