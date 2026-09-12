@@ -6,6 +6,7 @@ package main
 // the child gone with it.
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"os"
@@ -16,6 +17,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/Mikedev115/Aetox/internal/engine/rpc"
 )
 
 var (
@@ -257,4 +260,71 @@ func alive(pid int) bool {
 		return err == nil
 	}
 	return p.Signal(nil) == nil
+}
+
+// An engine somebody else started — the manual road to a host over ssh
+// until phase 3 — is attached to by address and token, never stopped, and
+// redialed like the child's wire.
+func TestTheWindowAttachesToAnEngineItDidNotStart(t *testing.T) {
+	bin := builtEngine(t)
+	dataRoot := t.TempDir()
+	token, err := rpc.NewToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokenFile := filepath.Join(t.TempDir(), "token")
+	if err := os.WriteFile(tokenFile, []byte(token+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(bin, "serve", "--tcp", "127.0.0.1:0", "--token-file", tokenFile)
+	cmd.Env = append(os.Environ(), "AETOX_DATA_ROOT="+dataRoot)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	exited := make(chan error, 1)
+	go func() { exited <- cmd.Wait() }()
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		<-exited
+	})
+	var where struct {
+		Network string `json:"network"`
+		Address string `json:"address"`
+	}
+	line, _ := bufio.NewReader(stdout).ReadString('\n')
+	if err := json.Unmarshal([]byte(strings.TrimSpace(line)), &where); err != nil {
+		t.Fatalf("listening line %q: %v", line, err)
+	}
+
+	t.Setenv("AETOX_ENGINE_ADDR", where.Network+":"+where.Address)
+	t.Setenv("AETOX_ENGINE_TOKEN_FILE", tokenFile)
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	a := NewApp()
+	ctx, cancel := context.WithCancel(context.Background())
+	go a.engine.run(ctx)
+	waitForState(t, a, engineConnected, 30*time.Second)
+	st := a.EngineStatus()
+	if st.PID != 0 || st.Address != where.Address {
+		t.Errorf("attached status = %+v; want no pid of ours and the engine's address", st)
+	}
+	if a.api.AppVersion() == "" {
+		t.Error("AppVersion answered empty over the attached wire")
+	}
+	// Closing the window leaves an engine that is not ours running.
+	cancel()
+	a.shutdown(context.Background())
+	select {
+	case <-a.engine.stopped:
+	case <-time.After(15 * time.Second):
+		t.Fatal("the supervisor did not stop")
+	}
+	select {
+	case err := <-exited:
+		t.Errorf("the attached engine was stopped by the window (%v) — it was not ours to stop", err)
+	case <-time.After(500 * time.Millisecond):
+	}
 }
