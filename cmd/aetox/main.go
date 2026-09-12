@@ -569,6 +569,7 @@ func bootstrapModelWithStatus(cfg config.Config) (model.BootstrapResult, string)
 		BaseURL:          cfg.ModelBaseURL,
 		Timeout:          timeout,
 		TokenSource:      oauth.TokenSource(canonical),
+		TokenRefresh:     oauth.RefreshSource(canonical),
 		Headers:          oauth.Headers(canonical),
 		SignedInEndpoint: oauth.Endpoint(canonical),
 	})
