@@ -79,13 +79,14 @@ describe('the avatar page', () => {
     expect(avatarPrefs.shell).toBe('white')
   })
 
-  // The stage: four marks pinned on the figure, one per panel, numbered the
-  // same — so "which row changes which part" is answered by the drawing.
-  it('pins four numbered marks on the figure, one per panel', async () => {
+  // The stage: one panel per part, a lead overlay measured off the real boxes
+  // (jsdom has no layout, so every box is 0×0 and the stacked-layout rule
+  // draws none — the overlay itself and the banner are what can be checked).
+  it('has one panel per part, the lead overlay, and says whose avatar it is', async () => {
     const { container } = render(AvatarSettings)
-    await waitFor(() => expect(container.querySelectorAll('.mark').length).toBe(4))
-    expect(Array.from(container.querySelectorAll('.panel .n')).map((n) => n.textContent)).toEqual(['1', '3', '2', '4'])
-    expect(container.querySelectorAll('.leads path').length).toBe(4)
+    await waitFor(() => expect(container.querySelectorAll('.panel').length).toBe(4))
+    expect(container.querySelector('.stage > .leads')).toBeTruthy()
+    expect(container.querySelector('.panel .n')).toBeNull()
     expect(container.querySelector('.avatar-main')?.textContent).toContain('อวตารหลักของ Aetox')
   })
 
