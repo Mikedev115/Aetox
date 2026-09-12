@@ -122,6 +122,12 @@ export const FACE: Face[] = [
     id: 'visor', label: 'Visor', identity: true,
     svg: (p) => `<rect class="ms-blink" x="22.6" y="25.2" width="18.8" height="4.4" rx="2.2" fill="${p.eye}"/>`,
   },
+  // Heart eyes (owner, 12 ก.ย.: "เพิ่มตาหัวใจ"). Coordinates baked in rather than
+  // a transform attribute: the blink animation owns `transform`.
+  {
+    id: 'heart', label: 'Heart', identity: true,
+    svg: (p) => `<path class="ms-blink" d="M26 30.8C22.2 28.2 22.2 25 24.4 25C25.3 25 26 25.7 26 26.3C26 25.7 26.7 25 27.6 25C29.8 25 29.8 28.2 26 30.8Z" fill="${p.eye}"/><path class="ms-blink" d="M38 30.8C34.2 28.2 34.2 25 36.4 25C37.3 25 38 25.7 38 26.3C38 25.7 38.7 25 39.6 25C41.8 25 41.8 28.2 38 30.8Z" fill="${p.eye}"/>`,
+  },
 ]
 
 // ---------------------------------------------------------------------------

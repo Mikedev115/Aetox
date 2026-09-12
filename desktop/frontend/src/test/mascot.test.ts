@@ -27,7 +27,7 @@ describe('mascot catalogue', () => {
   // or reordering these would change what a stored `face:` means.
   it('keeps the six blueprint expressions ahead of anything appended', () => {
     expect(FACE.slice(0, 6).map((f) => f.id)).toEqual(['neutral', 'focused', 'happy', 'thinking', 'excited', 'curious'])
-    expect(FACE.filter((f) => f.identity).map((f) => f.id)).toEqual(['neutral', 'focused', 'round', 'wide', 'visor'])
+    expect(FACE.filter((f) => f.identity).map((f) => f.id)).toEqual(['neutral', 'focused', 'round', 'wide', 'visor', 'heart'])
   })
 
   // A hand-written profile with a typo lands on a part, never on an error.
