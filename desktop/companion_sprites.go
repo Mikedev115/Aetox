@@ -23,10 +23,13 @@ import (
 	"image"
 	"image/draw"
 	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/Mikedev115/Aetox/internal/config"
@@ -57,6 +60,9 @@ type spriteStore struct {
 	cache map[string]*list.Element
 	lru   *list.List
 	limit int
+	// decodes counts PNGs read from disk since the store was made — a
+	// number the drag statistics report.
+	decodes int
 }
 
 type spriteEntry struct {
@@ -64,10 +70,17 @@ type spriteEntry struct {
 	img *image.RGBA
 }
 
-// spriteCacheLimit is how many decoded frames stay in memory: the two of a
-// crossfade, the neighbours of a loop, a blink, the icons — a dozen is a
-// working set, sixteen leaves room.
-const spriteCacheLimit = 16
+// spriteCacheLimit is how many decoded frames stay in memory per set. A
+// pose loop is four, a crossfade doubles it, a blink and the icons add a
+// few; the walk is the big one — twelve headings by eight phases, 96 — and
+// a drag that turns the figure through them with a small cache decodes a
+// PNG on every other frame (measured 13 ก.ย. 2026: ~100 decodes per drag,
+// frames of 7ms, p95 interval 30ms). The cache does not try to hold the
+// whole walk: it holds the headings near the one being walked, which the
+// body warms ahead (companion_windows.go warmWalk) — 40 frames — and the
+// pose it will return to. 64 at 175% is ~13 MB, at 100% ~4 MB, and only
+// while it walks; the working set at rest is a dozen.
+const spriteCacheLimit = 64
 
 // companionSpriteDir is where a hash's frames live; empty if the data root
 // cannot be found, in which case frames live only in memory.
@@ -155,30 +168,61 @@ func (s *spriteStore) has(key string) bool {
 }
 
 // frame is the decoded picture for a key, from the cache or from disk; nil
-// if the store has no such frame.
+// if the store has no such frame. The decode runs outside the lock: the
+// body's thread is the usual caller and a warm-up goroutine the other, and
+// neither should wait on the other's PNG.
 func (s *spriteStore) frame(key string) *image.RGBA {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if el, ok := s.cache[key]; ok {
 		s.lru.MoveToFront(el)
-		return el.Value.(*spriteEntry).img
+		img := el.Value.(*spriteEntry).img
+		s.mu.Unlock()
+		return img
 	}
-	if !s.keys[key] || s.dir == "" {
+	known, dir := s.keys[key], s.dir
+	s.mu.Unlock()
+	if !known || dir == "" {
 		return nil
 	}
-	raw, err := os.ReadFile(filepath.Join(s.dir, key+".png"))
+	raw, err := os.ReadFile(filepath.Join(dir, key+".png"))
 	if err != nil {
-		delete(s.keys, key)
+		s.forget(key)
 		return nil
 	}
 	img, err := decodeSprite(raw)
 	if err != nil {
 		debuglog.Msg("companion sprite %s on disk is unreadable: %v", key, err)
-		delete(s.keys, key)
+		s.forget(key)
 		return nil
 	}
+	s.mu.Lock()
+	s.decodes++
 	s.remember(key, img)
+	s.mu.Unlock()
 	return img
+}
+
+func (s *spriteStore) decoded() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.decodes
+}
+
+func (s *spriteStore) forget(key string) {
+	s.mu.Lock()
+	delete(s.keys, key)
+	s.mu.Unlock()
+}
+
+// warm decodes keys in the background so the frames are in the cache before
+// they are drawn — the walk's headings when a drag begins, which would
+// otherwise each cost a PNG decode on the body's thread mid-step.
+func (s *spriteStore) warm(keys []string) {
+	go func() {
+		for _, k := range keys {
+			s.frame(k)
+		}
+	}()
 }
 
 // remember caches a decoded frame, evicting the least recently drawn past
@@ -220,20 +264,80 @@ func decodeSprite(raw []byte) (*image.RGBA, error) {
 
 // ---- the bindings ---------------------------------------------------------
 
-// sprites is the store for a hash, made on first mention; a new hash (the
-// look changed, the monitor's scale changed) replaces the old one, whose
-// files stay on disk for the day the user switches back.
+// sprites is the store for a hash, made on first mention and kept: every
+// set named this run stays, so the figure crossing back to a monitor finds
+// its frames decoded. The look (the hash's first half) is remembered as the
+// current one; a set of another look is a stale directory nobody asks for.
 func (c *companionServer) sprites(hash string) *spriteStore {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.store != nil && c.store.hash == hash {
-		return c.store
-	}
 	if !companionHashRe.MatchString(hash) {
 		return nil
 	}
-	c.store = newSpriteStore(hash, companionSpriteDir(hash))
-	return c.store
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.stores == nil {
+		c.stores = map[string]*spriteStore{}
+	}
+	c.rig = hash[:strings.IndexByte(hash, '-')]
+	s, ok := c.stores[hash]
+	if !ok {
+		s = newSpriteStore(hash, companionSpriteDir(hash))
+		c.stores[hash] = s
+	}
+	return s
+}
+
+// spritesAt is what the body draws from on a monitor of `scale`: the
+// current look's set for that scale, and behind it — for the seconds it is
+// still being baked — the same look's fullest other set, which the composer
+// resamples. Nothing, before any set is named.
+func (c *companionServer) spritesAt(scale float64) spriteSource {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.rig == "" {
+		return noSprites{}
+	}
+	want := c.rig + "-" + strconv.Itoa(int(math.Round(scale*100)))
+	var chain []spriteSource
+	if s, ok := c.stores[want]; ok {
+		chain = append(chain, s)
+	}
+	var best *spriteStore
+	for hash, s := range c.stores {
+		if hash == want || !strings.HasPrefix(hash, c.rig+"-") {
+			continue
+		}
+		if best == nil || s.count() > best.count() {
+			best = s
+		}
+	}
+	if best != nil {
+		chain = append(chain, best)
+	}
+	switch len(chain) {
+	case 0:
+		return noSprites{}
+	case 1:
+		return chain[0]
+	}
+	return chainedSprites(chain)
+}
+
+// chainedSprites asks each source in turn.
+type chainedSprites []spriteSource
+
+func (cs chainedSprites) frame(key string) *image.RGBA {
+	for _, s := range cs {
+		if img := s.frame(key); img != nil {
+			return img
+		}
+	}
+	return nil
+}
+
+func (s *spriteStore) count() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.keys)
 }
 
 // CompanionSpriteKeys is what is already baked for a set, so the window

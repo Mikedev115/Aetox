@@ -32,9 +32,12 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"math/rand/v2"
+	"os"
 	"runtime"
+	"sort"
 	"sync"
 	"syscall"
 	"time"
@@ -65,6 +68,13 @@ var (
 	winmm               = syscall.NewLazyDLL("winmm.dll")
 	procTimeBeginPeriod = winmm.NewProc("timeBeginPeriod")
 	procTimeEndPeriod   = winmm.NewProc("timeEndPeriod")
+
+	// DwmFlush waits for the compositor's next frame: called after a
+	// presented frame while the figure moves, it paces the body to the
+	// screen's own refresh, so no two updates land in one composition and
+	// none is skipped — the difference between 60 frames and 60 smooth ones.
+	dwmapi       = syscall.NewLazyDLL("dwmapi.dll")
+	procDwmFlush = dwmapi.NewProc("DwmFlush")
 )
 
 const (
@@ -165,7 +175,7 @@ type companionWindow struct {
 	// Where the frames come from — the store of whatever set the window
 	// last baked (companion_sprites.go); nil until it has — and where the
 	// user's doings go.
-	sprites func() spriteSource
+	sprites func(scale float64) spriteSource
 	on      func(kind string, data map[string]any)
 
 	// Where it is and how big, in physical pixels of whichever monitor it is
@@ -194,6 +204,7 @@ type companionWindow struct {
 	grabX    int
 	grabY    int
 	walk     *walker
+	warmed   int    // the heading key whose neighbours were last warmed
 	button   string // "hide" or "mute" while a button is held
 	hover    bool
 	tracking bool
@@ -202,6 +213,9 @@ type companionWindow struct {
 	shutUntil time.Time
 	interval  int
 	lastFrame time.Time
+	// Frame timing over one drag, logged at its end: the numbers behind
+	// "is it smooth" (owner, 13 ก.ย. 2026: "เอาตัวเลขก่อนและหลังให้ดู").
+	stats frameStats
 
 	// Hidden while the shell says the user is in a full-screen app; checked
 	// at fullScreenCheckSeconds.
@@ -264,9 +278,66 @@ func (d *companionDIB) release() {
 var (
 	companionClassOnce sync.Once
 	companionClass     *uint16
+
+	// AETOX_COMPANION_PACING=off turns the pacing off — frames only from the
+	// timer, no DwmFlush — so the numbers with and without can be read from
+	// one build. A diagnostic, not a setting.
+	companionPacing = os.Getenv("AETOX_COMPANION_PACING") != "off"
 )
 
-func openCompanionBody(x, y int, sprites func() spriteSource, on func(kind string, data map[string]any)) (companionBody, error) {
+// frameStats is one drag's worth of frame timing.
+type frameStats struct {
+	on        bool
+	intervals []float64 // ms between presented frames
+	work      []float64 // ms to compose+present a frame
+	decodes   int
+	last      time.Time
+}
+
+func (f *frameStats) begin(now time.Time) {
+	*f = frameStats{on: true, last: now}
+}
+
+func (f *frameStats) frame(now time.Time, work time.Duration) {
+	if !f.on {
+		return
+	}
+	if !f.last.IsZero() {
+		f.intervals = append(f.intervals, float64(now.Sub(f.last).Microseconds())/1000)
+	}
+	f.last = now
+	f.work = append(f.work, float64(work.Microseconds())/1000)
+}
+
+// summary is "n frames, interval mean/p95/max ms, work mean/max ms".
+func (f *frameStats) summary() string {
+	f.on = false
+	if len(f.intervals) == 0 {
+		return "no frames"
+	}
+	pct := func(v []float64, p float64) float64 {
+		c := append([]float64(nil), v...)
+		sort.Float64s(c)
+		return c[min(len(c)-1, int(float64(len(c))*p))]
+	}
+	mean := func(v []float64) float64 {
+		t := 0.0
+		for _, x := range v {
+			t += x
+		}
+		return t / float64(len(v))
+	}
+	over := 0
+	for _, x := range f.intervals {
+		if x > 25 {
+			over++
+		}
+	}
+	return fmt.Sprintf("%d frames · interval mean %.1f p95 %.1f max %.1f ms (%d gaps >25ms) · work mean %.2f max %.2f ms · decodes %d",
+		len(f.intervals)+1, mean(f.intervals), pct(f.intervals, 0.95), pct(f.intervals, 1), over, mean(f.work), pct(f.work, 1), f.decodes)
+}
+
+func openCompanionBody(x, y int, sprites func(scale float64) spriteSource, on func(kind string, data map[string]any)) (companionBody, error) {
 	w, err := openCompanionWindow(x, y, sprites, on)
 	if err != nil {
 		return nil, err
@@ -278,9 +349,9 @@ func openCompanionBody(x, y int, sprites func() spriteSource, on func(kind strin
 // (x, y) physical pixels — a spot the caller remembered, or a negative pair
 // meaning "you choose". Returns once the window exists or could not be
 // created.
-func openCompanionWindow(x, y int, sprites func() spriteSource, on func(kind string, data map[string]any)) (*companionWindow, error) {
+func openCompanionWindow(x, y int, sprites func(scale float64) spriteSource, on func(kind string, data map[string]any)) (*companionWindow, error) {
 	if sprites == nil {
-		sprites = func() spriteSource { return nil }
+		sprites = func(float64) spriteSource { return noSprites{} }
 	}
 	if on == nil {
 		on = func(string, map[string]any) {}
@@ -447,7 +518,7 @@ func (w *companionWindow) run() {
 func (w *companionWindow) setScale(dpi int) {
 	w.dpi = dpi
 	if w.comp == nil {
-		w.comp = newComposer(w.sprites(), w.text, float64(dpi)/96)
+		w.comp = newComposer(w.sprites(float64(dpi)/96), w.text, float64(dpi)/96)
 	} else {
 		w.comp.rescale(float64(dpi) / 96)
 	}
@@ -655,6 +726,10 @@ func (w *companionWindow) mouseMove() {
 		w.moved = true
 		w.on("dragStart", nil)
 		w.setInterval(frameActiveMs)
+		w.warmWalk(w.walk.heading)
+		w.warmed = walkHeadingKey(w.walk.heading, walkStep)
+		w.stats.begin(time.Now())
+		w.stats.decodes = -w.decodesSoFar()
 	}
 	// The hand's spot for the figure, kept on the desktop. At an edge the
 	// grip is re-anchored to the clamped spot, so the way back starts the
@@ -664,7 +739,7 @@ func (w *companionWindow) mouseMove() {
 	w.grabX, w.grabY = int(c.X)-tx, int(c.Y)-ty
 	now := time.Now()
 	w.walk.move(float64(tx), float64(ty), now)
-	if now.Sub(w.lastFrame) >= frameMinMs*time.Millisecond {
+	if companionPacing && now.Sub(w.lastFrame) >= frameMinMs*time.Millisecond {
 		w.frame()
 	}
 }
@@ -690,6 +765,8 @@ func (w *companionWindow) pressEnd() {
 		w.placeFigure(int(fx), int(fy))
 		w.walk = nil
 		w.scene.Walking = false
+		w.stats.decodes += w.decodesSoFar()
+		debuglog.Msg("companion: drag %s (pacing %v, dpi %d)", w.stats.summary(), companionPacing, w.dpi)
 		w.on("dragEnd", nil)
 		x, y := w.figureAt()
 		w.on("moved", map[string]any{"x": x, "y": y})
@@ -700,6 +777,52 @@ func (w *companionWindow) pressEnd() {
 	w.on("click", nil)
 	w.scene.HopAt = time.Now()
 	w.frame()
+}
+
+// decodesSoFar is how many PNGs the current sources have read from disk.
+func (w *companionWindow) decodesSoFar() int {
+	n := 0
+	var count func(src spriteSource)
+	count = func(src spriteSource) {
+		switch v := src.(type) {
+		case *spriteStore:
+			n += v.decoded()
+		case chainedSprites:
+			for _, c := range v {
+				count(c)
+			}
+		}
+	}
+	count(w.sprites(float64(w.dpi) / 96))
+	return n
+}
+
+// warmWalk has the walk's frames near a heading decoded before a step needs
+// them: this heading and the two either side, every phase — 40 frames, the
+// most a turn can reach within a few frames (walkTurnDegS). Called at the
+// first step and again whenever the walk crosses into another heading key,
+// so the frames a turn is about to need are being read while the current
+// ones draw. Asynchronous; the decode runs outside the store's lock.
+func (w *companionWindow) warmWalk(heading float64) {
+	src := w.sprites(float64(w.dpi) / 96)
+	ws, ok := src.(interface{ warm([]string) })
+	if !ok {
+		if chain, isChain := src.(chainedSprites); isChain && len(chain) > 0 {
+			ws, ok = chain[0].(interface{ warm([]string) })
+		}
+	}
+	if !ok {
+		return
+	}
+	h := walkHeadingKey(heading, walkStep)
+	keys := make([]string, 0, 5*walkPhases)
+	for _, d := range []int{0, walkStep, -walkStep, 2 * walkStep, -2 * walkStep} {
+		hk := walkHeadingKey(float64(h+d), walkStep)
+		for p := 0; p < walkPhases; p++ {
+			keys = append(keys, walkKey(hk, p))
+		}
+	}
+	ws.warm(keys)
 }
 
 // restTurn is the pose's own head turn (poses.ts), for the walk to start
@@ -750,7 +873,7 @@ func (w *companionWindow) frame() {
 	if w.hidden {
 		return
 	}
-	w.comp.setSprites(w.sprites())
+	w.comp.setSprites(w.sprites(float64(w.dpi) / 96))
 
 	if w.pressing && w.walk != nil && w.moved {
 		fx, fy, moved := w.walk.tick(now)
@@ -759,6 +882,10 @@ func (w *companionWindow) frame() {
 		}
 		w.scene.Walking = w.walk.moving
 		w.scene.Heading = w.walk.heading
+		if hk := walkHeadingKey(w.walk.heading, walkStep); hk != w.warmed {
+			w.warmed = hk
+			w.warmWalk(w.walk.heading)
+		}
 	}
 
 	if now.After(w.nextBlink) {
@@ -781,8 +908,13 @@ func (w *companionWindow) frame() {
 		w.scene.Pose = "idle"
 	}
 
+	t0 := time.Now()
 	used := w.comp.draw(w.canvas, w.scene, now)
 	w.present(w.canvas, used)
+	w.stats.frame(now, time.Since(t0))
+	if companionPacing && w.pressing && w.moved {
+		procDwmFlush.Call()
+	}
 
 	active := w.pressing || s.Cursor || now.Sub(w.scene.HopAt) < hopMs*time.Millisecond || now.Sub(w.comp.crossAt) < crossMs*time.Millisecond
 	if active {

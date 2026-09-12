@@ -74,9 +74,13 @@ type companionServer struct {
 	// the other platforms yet. Nil when the companion is inside the app.
 	body    companionBody
 	opening bool
-	// store holds the baked frames of the current look and scale
-	// (companion_sprites.go); nil until the window names a set.
-	store *spriteStore
+	// stores hold the baked frames, one per set the window has named — a
+	// set is one look at one scale (companion_sprites.go). Every monitor's
+	// scale the figure has visited stays resident, so crossing back is not
+	// a reload; rig is the look's half of the latest hash, and a set of the
+	// same look at another scale stands in while this scale's is baking.
+	stores map[string]*spriteStore
+	rig    string
 }
 
 // companionBody is the desktop window as this file needs to know it: it can
@@ -110,14 +114,7 @@ func (a *App) OpenCompanionWindow(x, y int) bool {
 	c.mu.Unlock()
 	// Not under the lock: the body's thread asks for the sprite store while
 	// it comes up, and that goes through the same lock.
-	sprites := func() spriteSource {
-		c.mu.Lock()
-		defer c.mu.Unlock()
-		if c.store == nil {
-			return noSprites{}
-		}
-		return c.store
-	}
+	sprites := func(scale float64) spriteSource { return c.spritesAt(scale) }
 	on := func(kind string, data map[string]any) {
 		if data == nil {
 			data = map[string]any{}
