@@ -86,6 +86,28 @@ export function presenceOf(i: PresenceInput): PoseId {
   return 'thinking'
 }
 
+/** What a card knows about an agent, as the cartoon faces spelled it: nothing,
+ *  thinking, working, finished, failed. The delegate cards, the background
+ *  panel and the settings preview all speak this five-word language (Chat's
+ *  faceState, BackgroundWork's task.state), and each of them should keep
+ *  speaking it — a card's business is whether the job is alive, not which of
+ *  twenty poses that looks like. This is the one seam where the word becomes
+ *  a pose, so the mascot can replace the cartoon person under every card with
+ *  the import line as the only edit. */
+export type FaceState = '' | 'think' | 'work' | 'done' | 'err'
+
+export const FACE_STATE_POSE: Record<FaceState, PoseId> = {
+  '': 'idle',
+  think: 'thinking',
+  work: 'typing',
+  done: 'success',
+  err: 'error',
+}
+
+export function poseOfFaceState(state: FaceState | undefined): PoseId {
+  return FACE_STATE_POSE[state ?? ''] ?? 'idle'
+}
+
 /** What the companion's bubble shows — only what the assistant SAYS, never
  *  what it runs (owner, 12 ก.ย.: "ไม่ต้องแสดงว่ามันรันคำสั่งอะไร อันนั้นเป็นไอคอนก็พอ
  *  แสดงแค่ตอนมันรายงาน"), and of what it says only the HEADLINE — the first
