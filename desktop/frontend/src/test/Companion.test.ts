@@ -5,9 +5,12 @@ import { cockpit } from '../lib/stores/cockpit.svelte'
 import { reportOf, REPORT_MAX } from '../lib/mascot/presence'
 import { companion, setCompanionOn } from '../lib/mascot/companionSetting.svelte'
 import { voice } from '../lib/mascot/voice.svelte'
+import { profile } from '../lib/stores/profile.svelte'
+import { t } from '../lib/i18n.svelte'
 
 // The assistant sitting on the screen: what it does is read off the cockpit's
-// live turn, what it says is only what the model said. The drawing is
+// live turn, what it says is what the model said — plus the one line of ours,
+// the room's greeting as an empty chat arrives. The drawing is
 // mascot.test.ts's business; this guards the seam and the two rules the owner
 // gave the companion — it never shows a command, and it never turns.
 
@@ -20,27 +23,36 @@ beforeEach(() => {
   cockpit.reasoningText = ''
   cockpit.ask = null
   cockpit.chat = []
+  cockpit.activeView = 'chat'
+  cockpit.desk = ''
+  cockpit.chair = ''
+  cockpit.space = ''
+  cockpit.openSession = 's1'
+  profile.name = ''
+  profile.loaded = true
   voice.mic = false
   voice.speaking = false
 })
 
 const mascot = (c: HTMLElement) => c.querySelector('.companion .mascot')!
-/** Mount, and let the wave of arrival pass (HELLO_MS) under fake timers. */
+/** Mount, and let the wave of arrival (HELLO_MS) and the greeting it says on
+ *  an empty chat (GREET_MS) both pass under fake timers. */
 async function arrived() {
   vi.useFakeTimers()
   const r = render(Companion)
-  await vi.advanceTimersByTimeAsync(1900)
+  await vi.advanceTimersByTimeAsync(4100)
   return r
 }
 
 describe('the companion', () => {
-  // It arrives with a wave, then rests: sways, never turns to the pointer.
+  // It arrives with a wave and, on an empty chat, the room's greeting; then it
+  // rests: sways, never turns to the pointer.
   it('waves on arrival, then rests, sways and does not follow the pointer', async () => {
     vi.useFakeTimers()
     const { container } = render(Companion)
     await vi.advanceTimersByTimeAsync(50)
     expect(mascot(container).classList.contains('pose-greeting')).toBe(true)
-    await vi.advanceTimersByTimeAsync(1900)
+    await vi.advanceTimersByTimeAsync(4100)
     expect(mascot(container).classList.contains('pose-idle')).toBe(true)
     expect(mascot(container).classList.contains('sway')).toBe(true)
     expect(mascot(container).classList.contains('settle')).toBe(true)
@@ -196,6 +208,50 @@ describe('the companion', () => {
     const saved = JSON.parse(localStorage.getItem('companionPos') ?? '{}')
     expect(saved.x).toBeGreaterThanOrEqual(8)
     expect(saved.y).toBeGreaterThanOrEqual(8)
+  })
+})
+
+describe('the greeting', () => {
+  // The same line the room prints above its cards, with the name, once, as
+  // the empty chat arrives — and gone on its own.
+  it("says the room's question with the user's name when an empty chat comes on screen, then falls silent", async () => {
+    profile.name = 'mike'
+    vi.useFakeTimers()
+    const { container } = render(Companion)
+    await vi.advanceTimersByTimeAsync(1500)
+    expect(container.querySelector('.say')?.textContent).toBe(t('start.assistant.headlineNamed', { name: 'mike' }))
+    expect(mascot(container).classList.contains('pose-greeting')).toBe(true)
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(container.querySelector('.say')).toBeNull()
+    expect(mascot(container).classList.contains('pose-idle')).toBe(true)
+    vi.useRealTimers()
+  })
+
+  it("greets again on a switch to another empty room, in that room's words", async () => {
+    profile.name = 'mike'
+    const { container } = await arrived()
+    expect(container.querySelector('.say')).toBeNull()
+    cockpit.desk = 'coding'
+    cockpit.openSession = 's2'
+    await vi.advanceTimersByTimeAsync(1500)
+    expect(container.querySelector('.say')?.textContent).toBe(t('start.coding.headlineNamed', { name: 'mike' }))
+    vi.useRealTimers()
+  })
+
+  it("leaves a chair's opening to the room, and stops the moment a turn starts", async () => {
+    cockpit.chair = 'doc'
+    vi.useFakeTimers()
+    const { container } = render(Companion)
+    await vi.advanceTimersByTimeAsync(1500)
+    expect(container.querySelector('.say')).toBeNull()
+    cockpit.chair = ''
+    cockpit.openSession = 's3'
+    await vi.advanceTimersByTimeAsync(1500)
+    expect(container.querySelector('.say')?.textContent).toBe(t('start.assistant.headline'))
+    cockpit.awaitingReply = true
+    await vi.advanceTimersByTimeAsync(50)
+    expect(container.querySelector('.say')).toBeNull()
+    vi.useRealTimers()
   })
 })
 
