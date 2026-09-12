@@ -89,7 +89,7 @@ export const ICONS = {
   undo2: `<path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />`,
   upload: `<path d="M12 3v12" /><path d="m17 8-5-5-5 5" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />`,
   userRound: `<circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" />`,
-  // A team (§251): the roster the picker offers and the office groups by.
+  // A team (§256): the roster the picker offers and the office groups by.
   // lucide users-round — two people, so it reads beside userRound (one
   // agent) as "several of those".
   users: `<path d="M18 21a8 8 0 0 0-16 0" /><circle cx="10" cy="8" r="5" /><path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3" />`,

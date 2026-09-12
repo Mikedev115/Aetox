@@ -2622,7 +2622,7 @@
   // disagreed with the request that gets sent.
   let delegate = $state<main.DelegateSettings | null>(null)
   let delegateBusy = $state('')
-  // The DEFAULT team's switches (§251): this page is the shipped roster's
+  // The DEFAULT team's switches (§256): this page is the shipped roster's
   // settings, and a user team's switches live on its card in ทีมเอเจน.
   async function loadDelegate() {
     try {

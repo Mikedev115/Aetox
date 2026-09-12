@@ -11,7 +11,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/skill"
 )
 
-// The rules a team lives by (team.go, DECISIONS §251), each pinned where it
+// The rules a team lives by (team.go, DECISIONS §256), each pinned where it
 // would otherwise drift: the default team is computed and never a file, a
 // list names people it does not own, and a member runs under the TEAM's desk.
 

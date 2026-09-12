@@ -2049,7 +2049,7 @@ export const th = {
   'chat.inputToAgent': 'พิมพ์ถึง {name}…',
   'chat.mainAgent': 'ผู้ช่วยหลัก',
  'chat.agentSwitchNote': 'สลับ = เปิดแชทใหม่เสมอ แชทเดิมอยู่ในประวัติ',
-  // ทีม (§251) — the picker lists teams, the office groups by them.
+  // ทีม (§256) — the picker lists teams, the office groups by them.
   'chat.defaultTeam': 'ทีมผู้ช่วย',
   'chat.teamMembers': 'ดูสมาชิกในทีม',
   'chat.teamEmpty': 'ทีมนี้ยังไม่มีสมาชิก',

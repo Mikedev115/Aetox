@@ -5,7 +5,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/subagent"
 )
 
-// Bindings for teams (DECISIONS §251): the roster a session hires from, drawn
+// Bindings for teams (DECISIONS §256): the roster a session hires from, drawn
 // by the team page, the chat's picker and the code door's picker. Thin, like
 // subagents.go — every rule about what a team is lives in internal/subagent,
 // so no page can invent a second definition of one.

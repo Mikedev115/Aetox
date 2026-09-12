@@ -3973,7 +3973,7 @@ button.phase-head:hover { color:var(--text-muted); }
 .agent-row.on > .focus-item { color:var(--accent); }
 .agent-row > .focus-item .ic { width:16px; }
 .agent-row > .mswitch { margin:0 9px 0 6px; }
-/* The picker's team rows (§251). A team is a fold: the name switches, the
+/* The picker's team rows (§256). A team is a fold: the name switches, the
    caret at the end unfolds, and the members hang under it one step in so the
    list reads as teams with people rather than as one flat roster again. */
 .agent-row.team-row > .focus-item .t { font-weight:600; }
@@ -6550,7 +6550,7 @@ button.phase-head:hover { color:var(--text-muted); }
 .ag-band .rule { flex:1; height:1px; background:var(--border-subtle); }
 .ag-band .say { font-size:var(--fs-2xs); color:var(--text-dim); }
 
-/* One section per team on the office page (§251). The head is a row: mark,
+/* One section per team on the office page (§256). The head is a row: mark,
    name, desk chip, count, the team's sentence, then the reach and its switch
    pushed to the edge — the same ag-reach/mswitch pair the section head wore
    when there was one roster, now once per roster. */

@@ -13,7 +13,7 @@ import (
 )
 
 // A team is a roster: which agents a session hires from, and the desk they
-// work at while it does (owner's call, 12 ก.ย. 2026 — DECISIONS §251). It is
+// work at while it does (owner's call, 12 ก.ย. 2026 — DECISIONS §256). It is
 // the unit the chat's picker offers instead of every agent on the machine,
 // and the way an agent the user wrote reaches the code door without the
 // star (§84) bending: a team at the coding desk is hired by the coding desk

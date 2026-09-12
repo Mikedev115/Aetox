@@ -365,7 +365,7 @@ export const NewSession = str()
 // render before it renders anything else.
 export const NewSessionAt = str()
 export const NewChairSession = str()
-// Teams (§251): a chair seated by a team, a chat opened on one, the roster
+// Teams (§256): a chair seated by a team, a chat opened on one, the roster
 // the picker draws, and the team page's doors.
 export const NewChairSessionAt = str()
 export const NewTeamSession = str()

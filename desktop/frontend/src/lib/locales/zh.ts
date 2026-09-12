@@ -658,7 +658,7 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'chat.inputToAgent': '给 {name} 发消息…',
   'chat.mainAgent': '主助手',
   'chat.agentSwitchNote': '切换总是会开一个新对话，这一个会留在历史里。',
-  // 团队（§251）
+  // 团队（§256）
   'chat.defaultTeam': '助手团队',
   'chat.teamMembers': '查看成员',
   'chat.teamEmpty': '这个团队还没有成员',
