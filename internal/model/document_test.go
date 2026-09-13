@@ -13,7 +13,7 @@ import "testing"
 // .file_data'" — a message that names the field and not the reason, which is
 // exactly the kind of thing a test should hold rather than a person remember.
 func TestResponsesMessagesCarryDocuments(t *testing.T) {
-	_, input := convertMessagesToResponses([]Message{{
+	_, input := convertMessagesToResponses("codex", false, []Message{{
 		Role:      RoleUser,
 		Content:   "summarise this",
 		Documents: []Document{{Name: "statement.pdf", MediaType: "application/pdf", Data: []byte{1, 2, 3}}},
@@ -36,7 +36,7 @@ func TestResponsesMessagesCarryDocuments(t *testing.T) {
 // A document with no name still has to carry one: the backend rejects the part
 // without it, and a default beats a 400.
 func TestResponsesDocumentAlwaysHasAFilename(t *testing.T) {
-	_, input := convertMessagesToResponses([]Message{{
+	_, input := convertMessagesToResponses("codex", false, []Message{{
 		Role:      RoleUser,
 		Documents: []Document{{MediaType: "application/pdf", Data: []byte{9}}},
 	}})

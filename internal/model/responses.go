@@ -122,9 +122,27 @@ type responsesRequest struct {
 	// sitting in someone else's conversation history.
 	Store    bool `json:"store"`
 	Parallel bool `json:"parallel_tool_calls"`
+	// PromptCacheKey routes this conversation's requests to the machine holding
+	// its cached prefix. The real Codex CLI sends one and Aetox did not, which
+	// is the documented lever for exactly the symptom measured here on
+	// 13 ก.ย. 2026: a growing conversation whose cache hit came and went at
+	// random — 0%, 0%, 67%, 0% across four consecutive turns of one chat, with
+	// nothing about the prefix having changed between them.
+	//
+	// Omitted when empty, which is every host that does not set Request.CacheKey
+	// and every unit test.
+	PromptCacheKey string `json:"prompt_cache_key,omitempty"`
 }
 
 type responsesItem struct {
+	// raw, when set, IS this item: it marshals to exactly these bytes and every
+	// field below is ignored. It carries a block the model produced and the
+	// server expects to see again unchanged — a reasoning item, whose
+	// `encrypted_content` stops being what the server issued the moment it is
+	// re-encoded through a struct this client invented (Message.ReasoningItems).
+	//
+	// Unexported, so encoding/json never emits it as a field of its own.
+	raw  json.RawMessage
 	Type string `json:"type"`
 	Role string `json:"role,omitempty"`
 	// Content is used by message items only.
@@ -134,6 +152,16 @@ type responsesItem struct {
 	Arguments string `json:"arguments,omitempty"`
 	CallID    string `json:"call_id,omitempty"`
 	Output    string `json:"output,omitempty"`
+}
+
+// MarshalJSON writes a verbatim item as itself and everything else the ordinary
+// way. The alias sheds this method, so the fallback cannot recurse.
+func (i responsesItem) MarshalJSON() ([]byte, error) {
+	if len(i.raw) > 0 {
+		return i.raw, nil
+	}
+	type alias responsesItem
+	return json.Marshal(alias(i))
 }
 
 type responsesContent struct {
@@ -169,19 +197,25 @@ type responsesText struct {
 }
 
 func buildResponsesRequest(provider, model string, req Request) (responsesRequest, error) {
-	instructions, input := convertMessagesToResponses(req.Messages)
+	// Settled before the messages are converted, because it decides whether the
+	// history's reasoning blocks go back with them: a `reasoning` item in the
+	// input of a request that carries no `reasoning` field is an item the server
+	// was never going to ask for.
+	effort := responsesEffort(provider, model, req.Reasoning)
+	instructions, input := convertMessagesToResponses(provider, effort != "", req.Messages)
 	if len(input) == 0 {
 		return responsesRequest{}, ErrNoMessages
 	}
 
 	out := responsesRequest{
-		Model:        model,
-		Instructions: instructions,
-		Input:        input,
-		Tools:        convertToolsToResponses(req.Tools),
-		Stream:       true,
-		Store:        false,
-		Parallel:     false,
+		Model:          model,
+		Instructions:   instructions,
+		Input:          input,
+		Tools:          convertToolsToResponses(req.Tools),
+		Stream:         true,
+		Store:          false,
+		Parallel:       false,
+		PromptCacheKey: strings.TrimSpace(req.CacheKey),
 	}
 	if len(out.Tools) > 0 {
 		choice := strings.TrimSpace(req.ToolChoice)
@@ -190,7 +224,7 @@ func buildResponsesRequest(provider, model string, req Request) (responsesReques
 		}
 		out.ToolChoice = choice
 	}
-	if effort := responsesEffort(provider, model, req.Reasoning); effort != "" {
+	if effort != "" {
 		// The summary field is what makes the model's thinking visible at all
 		// on this endpoint — raw chain-of-thought is never exposed, and without
 		// asking, the reasoning happens and streams nothing, leaving Aetox's
@@ -232,7 +266,10 @@ func buildResponsesRequest(provider, model string, req Request) (responsesReques
 // elsewhere are the pair that carry a tool round trip: the assistant's call
 // becomes a function_call item of its own (not a field on a message), and the
 // result comes back as function_call_output keyed by the same call_id.
-func convertMessagesToResponses(msgs []Message) (instructions string, input []responsesItem) {
+// convertMessagesToResponses turns Aetox's flat message list into the typed item
+// list this endpoint wants. provider and replayReasoning decide whether an
+// assistant turn's own thinking rides back with it — see the RoleAssistant case.
+func convertMessagesToResponses(provider string, replayReasoning bool, msgs []Message) (instructions string, input []responsesItem) {
 	var systemParts []string
 
 	for _, m := range msgs {
@@ -250,6 +287,18 @@ func convertMessagesToResponses(msgs []Message) (instructions string, input []re
 			})
 
 		case RoleAssistant:
+			// This turn's thinking goes back ahead of what the turn said and
+			// what it called — the order the model produced them in, and the
+			// order the server expects to find them.
+			//
+			// Filtered to this provider, which is the safety property: a chat
+			// whose model was switched mid-way carries another endpoint's
+			// blocks, and replaying one of those fails the whole request.
+			if replayReasoning {
+				for _, raw := range m.ReasoningItemsFor(provider) {
+					input = append(input, responsesItem{raw: raw})
+				}
+			}
 			if text := strings.TrimSpace(m.Content); text != "" {
 				input = append(input, responsesItem{
 					Type: "message",
@@ -472,6 +521,7 @@ func (p *ResponsesProvider) StreamComplete(ctx context.Context, req Request, onC
 	}
 
 	var text, reasoning strings.Builder
+	var reasoningItems []ReasoningItem
 	builders := map[string]*responsesToolBuilder{}
 	var order []string
 	// Event types this switch does not handle, logged once each per stream.
@@ -554,6 +604,30 @@ func (p *ResponsesProvider) StreamComplete(ctx context.Context, req Request, onC
 			progress.report(builder.order, builder.callID, builder.name, builder.argsBuf.String())
 
 		case "response.output_item.done":
+			// The model's own thinking, encrypted, kept to be replayed on the
+			// next request — see model.Message.ReasoningItems for what never
+			// sending it back was costing.
+			//
+			// Measured shape, 13 ก.ย. 2026 on gpt-5.6-luna:
+			//   {"type":"reasoning","id":"rs_…","encrypted_content":"…",
+			//    "summary":[{"type":"summary_text","text":"…"}],"content":[]}
+			if event.Item != nil && event.Item.Type == "reasoning" {
+				// Read out of the frame a second time rather than off the
+				// struct above: one `item` field cannot be decoded into both a
+				// typed shape and raw bytes — encoding/json drops a duplicated
+				// tag and go vet rejects it — and the typed shape is the one
+				// every other branch needs. Only reasoning frames pay for the
+				// second pass, and there is one per turn.
+				var carrier struct {
+					Item json.RawMessage `json:"item"`
+				}
+				if json.Unmarshal([]byte(data), &carrier) == nil && len(carrier.Item) > 0 {
+					reasoningItems = append(reasoningItems, ReasoningItem{
+						Provider: p.Name(), Raw: carrier.Item,
+					})
+				}
+				return false, nil
+			}
 			if event.Item == nil || event.Item.Type != "function_call" {
 				return false, nil
 			}
@@ -649,6 +723,7 @@ func (p *ResponsesProvider) StreamComplete(ctx context.Context, req Request, onC
 		Model:            respModel,
 		Text:             textOut,
 		ReasoningContent: reasoningOut,
+		ReasoningItems:   reasoningItems,
 		ToolCalls:        toolCalls,
 		Usage:            normalizeUsage(usage),
 	}, nil

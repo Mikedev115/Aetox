@@ -108,7 +108,7 @@ func TestOpenAIMessagesCarryImages(t *testing.T) {
 // path — §69 restored the runtime from a snapshot, and a silently dropped part
 // here reads exactly like a model that looked and saw nothing.
 func TestResponsesMessagesCarryImages(t *testing.T) {
-	_, input := convertMessagesToResponses([]Message{{
+	_, input := convertMessagesToResponses("codex", false, []Message{{
 		Role:    RoleUser,
 		Content: "why is this layout broken?",
 		Images:  []Image{{MediaType: "image/png", Data: []byte{1, 2, 3}}},
@@ -130,7 +130,7 @@ func TestResponsesMessagesCarryImages(t *testing.T) {
 
 // Same guarantee the OpenAI case above states: no image, no parts churn.
 func TestResponsesImageWithoutTextSendsNoEmptyPart(t *testing.T) {
-	_, input := convertMessagesToResponses([]Message{{
+	_, input := convertMessagesToResponses("codex", false, []Message{{
 		Role:   RoleUser,
 		Images: []Image{{MediaType: "image/webp", Data: []byte{7}}},
 	}})

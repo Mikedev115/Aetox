@@ -72,6 +72,32 @@ type Message struct {
 	// charts, scanned pages) and completeness. desktop/app.go caps the size at
 	// which that trade stops being worth making.
 	Documents []Document `json:"-"`
+	// ReasoningItems is the model's own thinking for this turn, kept in the
+	// shape the provider streamed it and handed straight back on the next
+	// request. Set on an assistant message only, and only by providers that
+	// ask for one.
+	//
+	// It exists because a reasoning model on the Responses API with store:false
+	// is told to keep nothing: the thinking it did on round one is returned to
+	// the client encrypted, and the next request has to carry it back or the
+	// server sees an input that diverges from what it produced at the first
+	// assistant turn. Measured cost of not doing it, from the owner's own
+	// token_usage on 13 ก.ย. 2026: codex gpt-5.6-luna cached 43% of its input
+	// deep in a session and gpt-5.6-terra 80%, where every DeepSeek model on
+	// the same machine and the same prompt machinery cached 97%. The request
+	// had asked for `reasoning.encrypted_content` since the day the provider
+	// was written, and nothing had ever sent it back.
+	//
+	// Opaque on purpose, and tagged with the provider that made it: what the
+	// blocks mean is that provider's business, and a conversation whose model
+	// was switched mid-way must not replay one wire format's blocks into
+	// another's endpoint. ReasoningItemsFor is the only way to read them.
+	//
+	// Not `json:"-"`, unlike Images and Documents: these have to survive being
+	// written to the session store and read back, or reopening a conversation
+	// starts it cold at the first assistant turn — the exact gap this field
+	// exists to close.
+	ReasoningItems []ReasoningItem `json:"reasoning_items,omitempty"`
 	// ImagesFromTool marks pictures a tool produced mid-turn rather than ones
 	// the user attached, and it exists so the first kind can be forgotten and
 	// the second never is.
@@ -84,6 +110,45 @@ type Message struct {
 	// that drops the second one to save room has broken the thing it was asked
 	// to do. See memory.Context.forgetOldImages.
 	ImagesFromTool bool `json:"-"`
+}
+
+// ReasoningItem is one block of a model's own thinking, exactly as its provider
+// streamed it, to be handed back verbatim on the next request.
+//
+// Raw rather than parsed fields: Aetox never reads the inside of one. The
+// Responses API sends `{"type":"reasoning","id":"rs_…","encrypted_content":"…",
+// "summary":[…]}` and the bytes are the point — an `encrypted_content` this
+// package re-encoded through a struct it invented is no longer the thing the
+// server issued. Anthropic's signed `thinking` blocks are the same shape of
+// problem and fit here unchanged when that path needs them.
+type ReasoningItem struct {
+	// Provider is the canonical name of the wire format that produced this
+	// block. Load-bearing, not bookkeeping: a user who switches model mid-chat
+	// leaves a history carrying another endpoint's blocks, and replaying those
+	// is a 400 on the whole turn.
+	Provider string `json:"provider"`
+	// Raw is the block as it arrived, ready to be written back into the
+	// request's item list.
+	Raw json.RawMessage `json:"raw"`
+}
+
+// ReasoningItemsFor returns the blocks on this message that belong to provider,
+// and nothing else. The filter is the whole safety property (see
+// ReasoningItem.Provider), so reading the slice directly is a bug — this is the
+// only reader.
+func (m Message) ReasoningItemsFor(provider string) []json.RawMessage {
+	if len(m.ReasoningItems) == 0 {
+		return nil
+	}
+	want := NormalizeProvider(provider)
+	out := make([]json.RawMessage, 0, len(m.ReasoningItems))
+	for _, item := range m.ReasoningItems {
+		if len(item.Raw) == 0 || NormalizeProvider(item.Provider) != want {
+			continue
+		}
+		out = append(out, item.Raw)
+	}
+	return out
 }
 
 // Image is one picture attached to a message, already decoded from whatever the
@@ -195,6 +260,17 @@ type Request struct {
 	ToolChoice  string           `json:"tool_choice,omitempty"`
 	Reasoning   *ReasoningConfig `json:"reasoning,omitempty"`
 	Thinking    *ThinkingConfig  `json:"thinking,omitempty"`
+	// CacheKey groups the requests of one conversation so a provider can route
+	// them to whichever machine already holds their cached prefix. Only the
+	// Responses API reads it today (`prompt_cache_key`, which the real Codex
+	// CLI sends and Aetox did not); every other adapter ignores it.
+	//
+	// A hint and never an identity: it selects a cache shard, so the only
+	// requirement is that one conversation keeps one value and two
+	// conversations do not share one. It must therefore carry nothing about the
+	// user — no account id, no path, no prompt text — and an empty string is
+	// always valid and simply asks for the default routing.
+	CacheKey string `json:"-"`
 	// OnToolCallProgress, if set, tracks a tool call while it is still being
 	// written: first the moment the tool name is known, then again each time
 	// another line of `content` arrives, and once more when the subject (the
@@ -215,8 +291,13 @@ type Response struct {
 	Model            string
 	Text             string
 	ReasoningContent string
-	Usage            *Usage
-	ToolCalls        []ToolCall
+	// ReasoningItems is this turn's thinking in the provider's own shape, to be
+	// recorded on the assistant message it belongs to and replayed on the next
+	// request. See Message.ReasoningItems for why. Empty from every provider
+	// that does not ask for one.
+	ReasoningItems []ReasoningItem
+	Usage          *Usage
+	ToolCalls      []ToolCall
 	// FinishReason is the provider's normalized stop reason. Only
 	// FinishReasonLength is meaningful to callers: the output hit
 	// MaxTokens and anything in it (tool-call JSON especially) may be
