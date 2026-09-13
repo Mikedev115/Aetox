@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -264,5 +265,31 @@ func TestAnsweringOnceStopsTheShippedDefault(t *testing.T) {
 	b.SetDelegateOff("agents", false)
 	if !b.cur().cfg.DelegateSet {
 		t.Error("flipping the master switch is an answer and was not recorded as one")
+	}
+}
+
+// A chat on no team lists no เอเจน — and "no rows" must reach the page as an
+// empty list, never as JSON null. The ซับเอเจน settings page walks every
+// block's workers with .find() to draw each row's switch, and null there threw
+// a TypeError that took the whole page down (owner, 13 ก.ย. 2026: "หน้าซับเอเจน
+// เปิดไม่ได้"). ARCHITECTURE.md §34: a list the screen draws is never nil.
+func TestNoTeamAnswersEmptyWorkerListsNotNull(t *testing.T) {
+	a := newSwitchApp(t)
+	raw, err := json.Marshal(a.DelegateSwitches(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back struct {
+		Agents  struct{ Workers json.RawMessage } `json:"agents"`
+		Code    struct{ Workers json.RawMessage } `json:"code"`
+		Helpers struct{ Workers json.RawMessage } `json:"helpers"`
+	}
+	if err := json.Unmarshal(raw, &back); err != nil {
+		t.Fatal(err)
+	}
+	for name, w := range map[string]json.RawMessage{"agents": back.Agents.Workers, "code": back.Code.Workers, "helpers": back.Helpers.Workers} {
+		if string(w) == "null" || len(w) == 0 {
+			t.Errorf("%s.workers marshals as %q — the page's .find() throws on it", name, w)
+		}
 	}
 }
