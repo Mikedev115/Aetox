@@ -12,7 +12,13 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/Mikedev115/Aetox/internal/machine"
 )
+
+// MachineInfo is the computer this engine runs on — this one at home, the
+// host when the window is on one — for the Settings page's rows.
+func (a *Engine) MachineInfo() machine.Info { return machine.Collect() }
 
 // DirEntry is one folder in a listing.
 type DirEntry struct {

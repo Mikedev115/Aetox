@@ -154,6 +154,8 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'settings.remoteNowLocal': '引擎在本机',
   'settings.remoteNowHost': '引擎在 {host}',
   'settings.remoteNowAttach': '已连接到手动启动的引擎（AETOX_ENGINE_ADDR）',
+  'settings.remoteThisMachine': '本机',
+  'settings.remoteUseThis': '使用本机',
   'settings.remoteHosts': '已知机器',
   'settings.remoteNoHosts': '还没有机器——在下方添加',
   'settings.remoteAdd': '添加机器',

@@ -17,7 +17,8 @@ import { openFolder, cockpit } from '../lib/stores/cockpit.svelte'
 // through the engine, and the status card's words for the road there.
 // i18n defaults to Thai.
 
-const box = { name: 'box', target: 'user@box', root: '/home/u/proj', version: '1.5.28', arch: 'amd64', lastUsed: '' }
+const box = { name: 'box', target: 'user@box', root: '/home/u/proj', version: '1.5.28', arch: 'amd64', lastUsed: '', spec: 'Ubuntu 26.04 LTS · 4 CPU · 8 GB · amd64' }
+const thisPC = { hostname: 'PC', os: 'windows', arch: 'amd64', version: 'Windows 11 (26200)', cpu: 'AMD Ryzen 7', cpus: 16, memBytes: 32 * 2 ** 30 }
 
 function status(st: Record<string, unknown>) {
   return { state: 'connected', detail: '', restarts: 0, pid: 0, address: '', mode: 'local', host: '', ...st } as any
@@ -32,7 +33,7 @@ beforeEach(() => {
   vi.mocked(DisconnectRemote).mockClear()
   vi.mocked(OpenProjectFolder).mockClear()
   vi.mocked(ListDir).mockClear()
-  vi.mocked(RemoteHosts).mockResolvedValue({ active: '', hosts: [box], ssh: 'C:\\ssh.exe', sshError: '', engine: 'release' } as any)
+  vi.mocked(RemoteHosts).mockResolvedValue({ this: thisPC, active: '', hosts: [box], ssh: 'C:\\ssh.exe', sshError: '', engine: 'release' } as any)
   vi.mocked(engineStatus).mockResolvedValue(status({}))
 })
 
@@ -43,12 +44,18 @@ describe('Settings › เครื่องระยะไกล', () => {
     expect(screen.getByText('user@box')).toBeTruthy()
     expect(screen.getByText(/เครื่องยนต์ 1\.5\.28 \(amd64\)/)).toBeTruthy()
     expect(screen.getByText('เครื่องยนต์อยู่ที่เครื่องนี้')).toBeTruthy()
+    // This machine is the first row, with its spec; the host row carries
+    // what its engine said last time.
+    expect(screen.getByText('เครื่องนี้')).toBeTruthy()
+    expect(screen.getByText('PC')).toBeTruthy()
+    expect(screen.getByText(/Windows 11 \(26200\) · 16 CPU · 32 GB · amd64 · AMD Ryzen 7/)).toBeTruthy()
+    expect(screen.getByText('Ubuntu 26.04 LTS · 4 CPU · 8 GB · amd64')).toBeTruthy()
     await fireEvent.click(screen.getByText('เชื่อมต่อ'))
     expect(ConnectRemote).toHaveBeenCalledWith('box')
   })
 
   it('offers the way back when the window is on a host', async () => {
-    vi.mocked(RemoteHosts).mockResolvedValue({ active: 'box', hosts: [box], ssh: 'C:\\ssh.exe', sshError: '', engine: 'release' } as any)
+    vi.mocked(RemoteHosts).mockResolvedValue({ this: thisPC, active: 'box', hosts: [box], ssh: 'C:\\ssh.exe', sshError: '', engine: 'release' } as any)
     applyEngineStatus(status({ mode: 'remote', host: 'box' }))
     render(RemoteEngine)
     await waitFor(() => expect(screen.getByText('เครื่องยนต์อยู่ที่ box')).toBeTruthy())
@@ -67,7 +74,7 @@ describe('Settings › เครื่องระยะไกล', () => {
   })
 
   it('cannot connect without ssh, and says why', async () => {
-    vi.mocked(RemoteHosts).mockResolvedValue({ active: '', hosts: [box], ssh: '', sshError: 'ไม่พบ ssh ในเครื่องนี้', engine: 'release' } as any)
+    vi.mocked(RemoteHosts).mockResolvedValue({ this: thisPC, active: '', hosts: [box], ssh: '', sshError: 'ไม่พบ ssh ในเครื่องนี้', engine: 'release' } as any)
     render(RemoteEngine)
     await waitFor(() => expect(screen.getByText('ไม่พบ ssh ในเครื่องนี้')).toBeTruthy())
     expect((screen.getByText('เชื่อมต่อ') as HTMLButtonElement).disabled).toBe(true)

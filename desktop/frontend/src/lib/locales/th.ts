@@ -1540,6 +1540,8 @@ export const th = {
   'settings.remoteNowLocal': 'เครื่องยนต์อยู่ที่เครื่องนี้',
   'settings.remoteNowHost': 'เครื่องยนต์อยู่ที่ {host}',
   'settings.remoteNowAttach': 'ต่อกับเครื่องยนต์ที่เปิดไว้เอง (AETOX_ENGINE_ADDR)',
+  'settings.remoteThisMachine': 'เครื่องนี้',
+  'settings.remoteUseThis': 'ใช้เครื่องนี้',
   'settings.remoteHosts': 'เครื่องที่รู้จัก',
   'settings.remoteNoHosts': 'ยังไม่มีเครื่องในรายการ — เพิ่มด้านล่าง',
   'settings.remoteAdd': 'เพิ่มเครื่อง',

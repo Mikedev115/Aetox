@@ -14,6 +14,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/connect"
 	"github.com/Mikedev115/Aetox/internal/engine"
 	gh "github.com/Mikedev115/Aetox/internal/github"
+	"github.com/Mikedev115/Aetox/internal/machine"
 	"github.com/Mikedev115/Aetox/internal/mode"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/oauth"
@@ -1043,6 +1044,14 @@ func (c *Client) MCPSignInStatus(serverName string) oauth.Status {
 	var out0 oauth.Status
 	if err := c.call("MCPSignInStatus", []any{serverName}, &out0); err != nil {
 		c.failed("MCPSignInStatus", err)
+	}
+	return out0
+}
+
+func (c *Client) MachineInfo() machine.Info {
+	var out0 machine.Info
+	if err := c.call("MachineInfo", nil, &out0); err != nil {
+		c.failed("MachineInfo", err)
 	}
 	return out0
 }

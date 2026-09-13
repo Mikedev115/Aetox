@@ -731,6 +731,8 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		return e.MCPSignInStatus(p0), nil, true
+	case "MachineInfo":
+		return e.MachineInfo(), nil, true
 	case "MarkIssueReported":
 		var p0 int64
 		if err := decodeParams(params, &p0); err != nil {

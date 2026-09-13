@@ -2986,6 +2986,35 @@ export namespace github {
 
 }
 
+export namespace machine {
+	
+	export class Info {
+	    hostname: string;
+	    os: string;
+	    arch: string;
+	    version: string;
+	    cpu: string;
+	    cpus: number;
+	    memBytes: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Info(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.hostname = source["hostname"];
+	        this.os = source["os"];
+	        this.arch = source["arch"];
+	        this.version = source["version"];
+	        this.cpu = source["cpu"];
+	        this.cpus = source["cpus"];
+	        this.memBytes = source["memBytes"];
+	    }
+	}
+
+}
+
 export namespace main {
 	
 	export class AccountState {
@@ -3223,6 +3252,7 @@ export namespace main {
 	    version: string;
 	    arch: string;
 	    lastUsed: string;
+	    spec: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new RemoteHostView(source);
@@ -3236,9 +3266,11 @@ export namespace main {
 	        this.version = source["version"];
 	        this.arch = source["arch"];
 	        this.lastUsed = source["lastUsed"];
+	        this.spec = source["spec"];
 	    }
 	}
 	export class RemoteHostsView {
+	    this: machine.Info;
 	    active: string;
 	    hosts: RemoteHostView[];
 	    ssh: string;
@@ -3251,6 +3283,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.this = this.convertValues(source["this"], machine.Info);
 	        this.active = source["active"];
 	        this.hosts = this.convertValues(source["hosts"], RemoteHostView);
 	        this.ssh = source["ssh"];

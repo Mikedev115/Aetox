@@ -13,6 +13,7 @@ import {skill} from '../models';
 import {mode} from '../models';
 import {command} from '../models';
 import {oauth} from '../models';
+import {machine} from '../models';
 import {github} from '../models';
 import {ooxml} from '../models';
 import {config} from '../models';
@@ -438,6 +439,8 @@ export function MCPConfigPath():Promise<string>;
 export function MCPFolderPath():Promise<string>;
 
 export function MCPSignInStatus(arg1:string):Promise<oauth.Status>;
+
+export function MachineInfo():Promise<machine.Info>;
 
 export function MarkIssueReported(arg1:number):Promise<void>;
 

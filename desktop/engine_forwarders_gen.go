@@ -14,6 +14,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/connect"
 	"github.com/Mikedev115/Aetox/internal/engine"
 	gh "github.com/Mikedev115/Aetox/internal/github"
+	"github.com/Mikedev115/Aetox/internal/machine"
 	"github.com/Mikedev115/Aetox/internal/mode"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/oauth"
@@ -616,6 +617,10 @@ func (a *App) MCPFolderPath() (string, error) {
 
 func (a *App) MCPSignInStatus(serverName string) oauth.Status {
 	return a.api.MCPSignInStatus(serverName)
+}
+
+func (a *App) MachineInfo() machine.Info {
+	return a.api.MachineInfo()
 }
 
 func (a *App) MarkIssueReported(id int64) error {

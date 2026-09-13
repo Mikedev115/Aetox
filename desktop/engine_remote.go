@@ -25,6 +25,7 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/engine/remote"
+	"github.com/Mikedev115/Aetox/internal/machine"
 	"github.com/Mikedev115/Aetox/internal/update"
 	"github.com/Mikedev115/Aetox/internal/version"
 )
@@ -140,11 +141,16 @@ type RemoteHostView struct {
 	Version  string `json:"version"`
 	Arch     string `json:"arch"`
 	LastUsed string `json:"lastUsed"`
+	// Spec is the machine in one line — live from its engine while the
+	// window is there, remembered from the last time otherwise.
+	Spec string `json:"spec"`
 }
 
-// RemoteHostsView is the Settings page's picture: the hosts, which one the
-// window is on, and whether ssh is there to reach any.
+// RemoteHostsView is the Settings page's picture: this machine, the hosts,
+// which one the window is on, and whether ssh is there to reach any.
 type RemoteHostsView struct {
+	// This is the screen's own machine, for the first row.
+	This   machine.Info     `json:"this"`
 	Active string           `json:"active"`
 	Hosts  []RemoteHostView `json:"hosts"`
 	// SSH is the ssh program that would be used, or empty with SSHError
@@ -164,11 +170,27 @@ func (a *App) RemoteHosts() RemoteHostsView {
 	if err != nil {
 		debuglog.Msg("engine: screen.json: %v", err)
 	}
-	v := RemoteHostsView{Active: c.ActiveHost, Hosts: []RemoteHostView{}}
+	v := RemoteHostsView{This: machine.Collect(), Active: c.ActiveHost, Hosts: []RemoteHostView{}}
+	// The host the window is on answers for itself, and what it says is
+	// kept for the row on days the window is elsewhere.
+	live := ""
+	if c.ActiveHost != "" && a.engine != nil && a.EngineStatus().State == engineConnected {
+		if info := a.api.MachineInfo(); info.Hostname != "" {
+			live = info.Line()
+		}
+	}
 	for _, h := range c.Hosts {
-		row := RemoteHostView{Name: h.Name, Target: h.Target, Root: h.Root, Version: h.Version, Arch: h.Arch}
+		row := RemoteHostView{Name: h.Name, Target: h.Target, Root: h.Root, Version: h.Version, Arch: h.Arch, Spec: h.Spec}
 		if !h.LastUsed.IsZero() {
 			row.LastUsed = h.LastUsed.Format(time.RFC3339)
+		}
+		if h.Name == c.ActiveHost && live != "" {
+			row.Spec = live
+			if h.Spec != live {
+				if err := updateHost(h.Name, func(x *remote.Host) { x.Spec = live }); err != nil {
+					debuglog.Msg("engine: screen.json: %v", err)
+				}
+			}
 		}
 		v.Hosts = append(v.Hosts, row)
 	}

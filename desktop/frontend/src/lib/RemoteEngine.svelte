@@ -15,7 +15,21 @@
   import ConfirmDialog from './ConfirmDialog.svelte'
   import { engine } from './stores/engine.svelte'
 
-  let view = $state<main.RemoteHostsView>({ active: '', hosts: [], ssh: '', sshError: '', engine: '' } as unknown as main.RemoteHostsView)
+  let view = $state<main.RemoteHostsView>({ this: {}, active: '', hosts: [], ssh: '', sshError: '', engine: '' } as unknown as main.RemoteHostsView)
+
+  // The machine in one line, as the Go side spells it (machine.Info.Line):
+  // system · CPUs · memory · arch. The name is the row's title, not part
+  // of the line.
+  function specLine(m: { version?: string; os?: string; cpus?: number; memBytes?: number; arch?: string } | undefined): string {
+    if (!m) return ''
+    const parts: string[] = []
+    if (m.version) parts.push(m.version)
+    else if (m.os) parts.push(m.os)
+    if (m.cpus) parts.push(`${m.cpus} CPU`)
+    if (m.memBytes) parts.push(`${Math.round(m.memBytes / 2 ** 30)} GB`)
+    if (m.arch) parts.push(m.arch)
+    return parts.join(' · ')
+  }
   let name = $state('')
   let target = $state('')
   let root = $state('')
@@ -128,6 +142,22 @@
 
 <h3 class="set-h3">{t('settings.remoteHosts')}</h3>
 <div class="settings-card">
+  <!-- This machine first: the one row that is always there, so the list
+       reads as "the computers the engine can run on" and not as a list of
+       elsewhere. -->
+  <div class="set-row">
+    <span class="set-txt">
+      <span class="t">
+        {t('settings.remoteThisMachine')}
+        {#if view.this?.hostname}<span class="tag">{view.this.hostname}</span>{/if}
+        {#if status.mode !== 'remote'}<span class="mcp-badge">{t('settings.remoteActive')}</span>{/if}
+      </span>
+      <span class="d">{specLine(view.this) + (view.this?.cpu ? ' · ' + view.this.cpu : '')}</span>
+    </span>
+    {#if status.mode === 'remote'}
+      <button class="ctrl ctrl-primary" disabled={busy !== ''} onclick={() => act('disconnect', DisconnectRemote)}>{t('settings.remoteUseThis')}</button>
+    {/if}
+  </div>
   {#if view.hosts.length === 0}
     <div class="set-row"><span class="set-txt"><span class="d muted">{t('settings.remoteNoHosts')}</span></span></div>
   {/if}
@@ -138,6 +168,9 @@
           {h.name}
           {#if h.name !== h.target}<span class="tag">{h.target}</span>{/if}
           {#if view.active === h.name}<span class="mcp-badge">{t('settings.remoteActive')}</span>{/if}
+        </span>
+        <span class="d">
+          {#if h.spec}{h.spec}{:else}{h.target}{/if}
         </span>
         <span class="d">
           {#if h.root}{h.root} · {/if}
