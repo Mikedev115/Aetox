@@ -248,6 +248,8 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 	case "ClearProjectFocus":
 		r0, err := e.ClearProjectFocus()
 		return r0, err, true
+	case "CodeProjectsDir":
+		return e.CodeProjectsDir(), nil, true
 	case "CommandHistory":
 		return e.CommandHistory(), nil, true
 	case "CompleteMCPSignIn":
@@ -292,6 +294,13 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		return nil, e.CopySkillToAgent(p0, p1), true
+	case "CreateCodeProject":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.CreateCodeProject(p0)
+		return r0, err, true
 	case "CreatePullRequest":
 		var p0 string
 		var p1 string
@@ -1423,6 +1432,12 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		return e.SetBusyLayer(p0, p1), nil, true
+	case "SetCodeProjectsDir":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		return nil, e.SetCodeProjectsDir(p0), true
 	case "SetConnectionStartCommand":
 		var p0 string
 		var p1 string

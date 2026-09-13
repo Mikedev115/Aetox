@@ -328,6 +328,13 @@ type ModelPreference struct {
 	// in the background on its own schedule, this one only ever spends on a turn
 	// the user just watched finish and puts the result under their cursor.
 	PreparedReplyOff bool `json:"prepared_reply_off,omitempty"`
+	// CodeProjectsDir is the parent folder the coding desk creates new
+	// projects under (engine.CreateCodeProject). Empty means <home>/aetox-projects.
+	// A folder of the user's own, on purpose apart from DataRoot()/project where
+	// the assistant desk keeps its spaces: one is source trees the user opens in
+	// an editor, the other is conversations with a context/ folder, and the
+	// owner asked that the two never share a place.
+	CodeProjectsDir string `json:"code_projects_dir,omitempty"`
 	// The two ways the window reaches somebody who is not looking at it
 	// (desktop/attention.go): the taskbar button flashing, and a short tone.
 	// Both ship on and are therefore negative, the busy-signal spelling: the

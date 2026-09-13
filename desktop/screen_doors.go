@@ -208,6 +208,27 @@ func (a *App) OpenProjectFolder() (engine.ProjectStatus, error) {
 	return a.api.OpenProjectPath(dir)
 }
 
+// PickCodeProjectsDir asks where the coding desk's new projects should go
+// from now on and remembers the answer (engine.SetCodeProjectsDir). Answers
+// with the folder now in force — the one chosen, or the one already set when
+// the dialog was dismissed.
+func (a *App) PickCodeProjectsDir() (string, error) {
+	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
+		Title:            "โฟลเดอร์ที่จะเก็บโปรเจกต์ใหม่",
+		DefaultDirectory: a.api.CodeProjectsDir(),
+	})
+	if err != nil {
+		return a.api.CodeProjectsDir(), err
+	}
+	if strings.TrimSpace(dir) == "" {
+		return a.api.CodeProjectsDir(), nil // cancelled
+	}
+	if err := a.api.SetCodeProjectsDir(dir); err != nil {
+		return a.api.CodeProjectsDir(), err
+	}
+	return a.api.CodeProjectsDir(), nil
+}
+
 // BrowseFolder asks for a folder and points the file tree at it. Returns the
 // folder chosen, or what the tree was already showing when the dialog was
 // dismissed.

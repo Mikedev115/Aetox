@@ -311,6 +311,14 @@ func (c *Client) ClearProjectFocus() (engine.ProjectStatus, error) {
 	return out0, err
 }
 
+func (c *Client) CodeProjectsDir() string {
+	var out0 string
+	if err := c.call("CodeProjectsDir", nil, &out0); err != nil {
+		c.failed("CodeProjectsDir", err)
+	}
+	return out0
+}
+
 func (c *Client) CommandHistory() []string {
 	var out0 []string
 	if err := c.call("CommandHistory", nil, &out0); err != nil {
@@ -357,6 +365,12 @@ func (c *Client) ConsolidateMemory(scope string) (engine.MemoryConsolidation, er
 
 func (c *Client) CopySkillToAgent(agent string, name string) error {
 	return c.call("CopySkillToAgent", []any{agent, name}, nil)
+}
+
+func (c *Client) CreateCodeProject(name string) (string, error) {
+	var out0 string
+	err := c.call("CreateCodeProject", []any{name}, &out0)
+	return out0, err
 }
 
 func (c *Client) CreatePullRequest(title string, head string, base string, body string, draft bool) engine.PRCreated {
@@ -1851,6 +1865,10 @@ func (c *Client) SetBusyLayer(id string, on bool) []engine.BusyLayer {
 		c.failed("SetBusyLayer", err)
 	}
 	return out0
+}
+
+func (c *Client) SetCodeProjectsDir(dir string) error {
+	return c.call("SetCodeProjectsDir", []any{dir}, nil)
 }
 
 func (c *Client) SetConnectionStartCommand(id string, command string) error {

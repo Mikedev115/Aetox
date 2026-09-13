@@ -526,27 +526,70 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    and selected fill instead of punching a hole in it. */
 .sess-acts.float { position:absolute; right:4px; top:50%; transform:translateY(-50%); margin:0; padding-left:12px; background:inherit; border-radius:var(--r-sm); }
 
-/* Grouped project switcher (Claude-style): folder + bold name, that project's
-   recent chats indented beneath, "show more" to expand past the preview. */
-.proj-group { margin-bottom:18px; }
-.proj-group-row { display:flex; align-items:center; gap:2px; margin-bottom:3px; }
-.proj-group-chev { flex:none; width:18px; padding:7px 0; text-align:center; color:var(--text-dim); font-size:var(--fs-2xs); cursor:pointer; border-radius:var(--r-sm); }
-.proj-group-chev:hover { color:var(--text-primary); background:var(--surface-hover); }
-.proj-group-head { display:flex; align-items:center; gap:8px; flex:1; min-width:0; padding:7px 8px; border-radius:var(--r-sm); cursor:pointer; }
-.proj-group-head:hover { background:var(--surface-row-hover); }
-.proj-group-head.active { background:var(--surface-selected); }
-.proj-group-head .ic { font-size:var(--fs-lg); flex:none; opacity:.9; }
-.proj-group-head .t { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; font-size:var(--fs-sm); }
-.proj-group-head .proj-branch { color:var(--text-dim); font-size:var(--fs-xs); flex:none; }
+/* The list's heading and its two doors in (Sidebar.svelte says why they are
+   here and not a dashed row). The + lights while its form is open so the
+   button and the thing it opened read as one. */
+.proj-sect { display:flex; align-items:center; gap:6px; padding:2px 4px 6px 6px; }
+.proj-sect-t { flex:1; font-size:var(--fs-2xs); font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--text-dim); }
+.proj-sect-acts { display:flex; gap:2px; }
+.proj-sect-btn { width:24px; height:24px; display:grid; place-items:center; border-radius:var(--r-sm); color:var(--text-muted); cursor:pointer; }
+.proj-sect-btn:hover { color:var(--text-primary); background:var(--surface-hover); }
+.proj-sect-btn.on { color:var(--accent); background:var(--surface-hover); }
+/* Name, where it lands, go — a sunken well under the heading, not a dialog.
+   The path line ellipsises from the LEFT (direction:rtl on an ltr-aligned
+   span) so what survives a narrow column is the end of the path, which is
+   the part that changes. */
+.proj-create { display:flex; flex-direction:column; gap:6px; min-width:0; overflow:hidden; margin:0 0 10px; padding:8px; border-radius:var(--r-md); background:var(--surface-sunken); border:1px solid var(--border-subtle); }
+.proj-create-name { width:100%; box-sizing:border-box; padding:5px 8px; border-radius:var(--r-sm); border:1px solid var(--border-strong); background:var(--surface-panel); color:var(--text-primary); font:inherit; font-size:var(--fs-sm); outline:none; }
+.proj-create-name:focus { border-color:var(--border-input-focus); }
+.proj-create-where { display:flex; align-items:center; gap:5px; min-width:0; font-size:var(--fs-2xs); color:var(--text-dim); }
+.proj-create-where .ic { flex:none; display:flex; }
+.proj-create-where .p { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; direction:rtl; text-align:left; font-family:var(--mono); unicode-bidi:plaintext; }
+.proj-create-where .p b { font-weight:600; color:var(--text-muted); }
+.proj-create-move { flex:none; color:var(--text-muted); font-size:var(--fs-2xs); cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+.proj-create-move:hover { color:var(--text-primary); }
+.proj-create-err { font-size:var(--fs-2xs); color:var(--status-danger); }
+.proj-create-acts { display:flex; gap:6px; }
+.proj-create-go, .proj-create-no { padding:4px 9px; border-radius:var(--r-sm); font:inherit; font-size:var(--fs-xs); cursor:pointer; border:1px solid var(--border-strong); color:var(--text-secondary); background:var(--surface-panel); }
+.proj-create-go { background:var(--interactive); border-color:var(--interactive); color:var(--text-on-interactive); font-weight:600; }
+.proj-create-go:hover:not(:disabled) { filter:brightness(1.07); }
+.proj-create-go:disabled { opacity:.5; cursor:default; }
+.proj-create-no:hover { color:var(--text-primary); background:var(--surface-hover); }
+
+/* Grouped project switcher: a plain row per project, its recent chats under
+   it with their age at the right, "ดูทั้งหมด (n)" past the preview. No fill on
+   the project row — a filled band per project was tried on 14 ก.ย. 2026 and
+   became a wall of plates once the list was long; what separates groups is
+   the gap. The project you stand in has the open-folder mark in the accent
+   and a brighter name, never the selected fill: that one is the open chat's
+   alone, and two fills side by side was what read as สีปนกัน. */
+.proj-group { margin-bottom:12px; }
+.proj-group-row { display:flex; align-items:center; gap:2px; margin-bottom:1px; border-radius:var(--r-sm); }
+.proj-group-row:hover { background:var(--surface-row-hover); }
+/* Dragged: the row fades where it was; the row it hangs over shows a rule on
+   its top edge, which is where the drop will put it. */
+.proj-group-row.dragging { opacity:.4; }
+.proj-group-row.dragover { box-shadow:inset 0 2px 0 var(--accent); }
+/* The fold, on the folder: one column says "folder" and "open/closed" both. */
+.proj-group-chev { flex:none; width:26px; height:28px; display:grid; place-items:center; color:var(--text-muted); cursor:pointer; border-radius:var(--r-sm); }
+.proj-group-chev:hover { color:var(--text-primary); }
+.proj-group-row.here .proj-group-chev { color:var(--accent); }
+.proj-group-head { display:flex; align-items:center; gap:8px; flex:1; min-width:0; padding:5px 4px 5px 0; cursor:pointer; text-align:left; }
+.proj-group-head .t { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; font-size:var(--fs-sm); color:var(--text-secondary); }
+.proj-group-head.active .t { color:var(--text-primary); }
+/* nowrap, always: the branch used to break its icon onto one line and its
+   name onto the next while squeezing the project name to "widtht…". */
+.proj-group-head .proj-branch { flex:none; display:inline-flex; align-items:center; gap:3px; white-space:nowrap; color:var(--text-dim); font-size:var(--fs-2xs); font-family:var(--mono); }
+.proj-group-head .proj-count { flex:none; font-size:var(--fs-2xs); color:var(--text-dim); padding:0 6px; }
 /* "Start a chat in this project", on the project's own row. Quiet until the
    row is under the pointer — a column of ten projects must not read as ten
    invitations — but never hidden, because a control that only exists on hover
    is a control nobody finds. */
 .proj-group-new {
   flex:none; width:24px; height:24px; display:grid; place-items:center;
-  border-radius:var(--r-sm); color:var(--text-dim); cursor:pointer;
+  border-radius:var(--r-sm); color:transparent; cursor:pointer;
 }
-.proj-group-row:hover .proj-group-new { color:var(--text-secondary); }
+.proj-group-row:hover .proj-group-new, .proj-group-new:focus-visible { color:var(--text-muted); }
 .proj-group-new:hover { color:var(--text-primary); background:var(--surface-hover); }
 /* Same shape as + beside it, one step quieter: what is behind it — pin, and
    the way off the list — is pressed once in a project's life, where + is the
@@ -573,7 +616,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .proj-group-sess:hover { background:var(--surface-row-hover); color:var(--text-primary); }
 .proj-group-sess.active { background:var(--surface-selected); color:var(--text-selected); }
 .proj-group-sess-open {
-  flex:1; min-width:0; padding:6px 4px 6px 33px;
+  flex:1; min-width:0; padding:5px 4px 5px 26px;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   color:inherit; font-size:var(--fs-xs); text-align:left; cursor:pointer;
 }
@@ -595,7 +638,12 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .sess-exp:hover { background:var(--surface-hover); }
 .sess-exp .fmt { padding:0 4px; border-radius:var(--r-xs); font-weight:600; }
 .sess-exp .fmt:hover { color:var(--accent); background:var(--surface-hover); }
-.proj-group-more { display:block; padding:5px 8px 5px 33px; color:var(--text-dim); font-size:var(--fs-xs); cursor:pointer; }
+/* Age at the row's right end, in the space the hover actions float over:
+   the two are never wanted at once, and the title keeps its width. */
+.proj-group-sess-ago { flex:none; margin-right:8px; font-size:var(--fs-2xs); color:var(--text-dim); font-variant-numeric:tabular-nums; }
+.proj-group-more { display:block; padding:4px 8px 4px 26px; color:var(--text-dim); font-size:var(--fs-xs); cursor:pointer; }
+.proj-group-more:hover { color:var(--text-primary); }
+.proj-group-empty { padding:4px 8px 4px 26px; color:var(--text-dim); font-size:var(--fs-xs); }
 
 /* The title gets out of the buttons' way by FADING, not by being guillotined.
  *
