@@ -349,17 +349,16 @@ func deskFor(m *mode.Mode, direction string, r reach) prompt.Desk {
 // at import time and a skill installed mid-session is in the next prompt built.
 func init() { prompt.UseShelf(skillReads) }
 
-// skillReads is the shelf's own answer to "which skill comes before which
-// work": every SKILL.md that declares `before:`, in name order so the prompt
-// is the same string on every build. The same scan skills_list runs, so what
-// the prompt promises and what the list shows cannot disagree.
+// skillReads is the shelf as the prompt hears of it: every SKILL.md by name
+// and description, and the `before:` claim of each that makes one, in name
+// order so the prompt is the same string on every build. The same scan
+// skills_list runs, so what the prompt lists and what the tool shows cannot
+// disagree. It used to hand over only the claims (see prompt.Read for why the
+// rest joined them).
 func skillReads() []prompt.Read {
 	var out []prompt.Read
 	for _, d := range skill.ListDiscovered(skill.DefaultDiscoveryPaths()) {
-		if d.Before == "" {
-			continue
-		}
-		out = append(out, prompt.Read{Skill: d.Name, Before: d.Before})
+		out = append(out, prompt.Read{Skill: d.Name, Description: d.Description, Before: d.Before})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Skill < out[j].Skill })
 	return out

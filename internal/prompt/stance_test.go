@@ -168,7 +168,7 @@ func TestASessionCarryingNoToolsStillKnowsWhatTheDeskIsFor(t *testing.T) {
 	// It keeps its tool-less silence everywhere it was already silent, though —
 	// this layer must not be a door back in for the paragraphs Desk.ToolLess
 	// exists to withhold.
-	if strings.Contains(got, "skills_list returns them on request") {
+	if strings.Contains(got, "skills_list returns the same shelf") {
 		t.Errorf("the workbench layer let the tool block back in:\n%s", got)
 	}
 }

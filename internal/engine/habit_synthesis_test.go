@@ -131,6 +131,110 @@ func TestSynthesizeHabitForSessions_RoutesToSkill(t *testing.T) {
 	}
 }
 
+// The drafter sees the shelf since 2026-09-14, and a proposal that names an
+// installed skill becomes a section appended to it, never a second skill for
+// the same work. "aetox" is bundled, so it is on every machine's shelf.
+func TestSynthesizeHabitForSessions_ExtendsAnInstalledSkill(t *testing.T) {
+	a := newJobApp(t)
+	db, err := a.database()
+	if err != nil {
+		t.Fatalf("database: %v", err)
+	}
+	sess := "test-sess-extends"
+	_, _ = db.Exec(`INSERT INTO sessions (id, project_key, title, created_at, updated_at) VALUES (?, 'p1', 'Test', datetime('now'), datetime('now'))`, sess)
+	_, _ = db.Exec(`INSERT INTO messages (session_id, role, text, time) VALUES (?, 'user', 'ถามเรื่องแอป', datetime('now'))`, sess)
+
+	fake := &fakeHabitSynthesizer{
+		proposal: &HabitProposal{
+			Destination: "skill",
+			SkillName:   "aetox-faq",
+			Extends:     "Aetox", // case-folded like skill_view
+			Title:       "คำถามที่ถามซ้ำ",
+			Body:        "## คำถามที่พบบ่อย\n- ...",
+			Reason:      "ถามซ้ำสามครั้ง",
+		},
+	}
+	change, err := a.synthesizeHabitForSessions(context.Background(), fake, []string{sess}, "ถามเรื่องแอป", "")
+	if err != nil {
+		t.Fatalf("synthesizeHabitForSessions failed: %v", err)
+	}
+	if change == nil {
+		t.Fatalf("expected a queued change")
+	}
+	if change.Op != "add" || change.Scope != "aetox" {
+		t.Errorf("extending an installed skill must queue add on it, got op=%q scope=%q", change.Op, change.Scope)
+	}
+	if !strings.Contains(change.Body, "คำถามที่พบบ่อย") {
+		t.Errorf("the body is the section to append, got %q", change.Body)
+	}
+}
+
+// A new skill under a name the shelf already holds could never be applied
+// (skill.Apply refuses create on an existing name), so it is not queued.
+func TestSynthesizeHabitForSessions_DropsACreateOverAnInstalledName(t *testing.T) {
+	a := newJobApp(t)
+	db, err := a.database()
+	if err != nil {
+		t.Fatalf("database: %v", err)
+	}
+	sess := "test-sess-taken"
+	_, _ = db.Exec(`INSERT INTO sessions (id, project_key, title, created_at, updated_at) VALUES (?, 'p1', 'Test', datetime('now'), datetime('now'))`, sess)
+	_, _ = db.Exec(`INSERT INTO messages (session_id, role, text, time) VALUES (?, 'user', 'x', datetime('now'))`, sess)
+
+	fake := &fakeHabitSynthesizer{
+		proposal: &HabitProposal{
+			Destination: "skill",
+			SkillName:   "aetox",
+			Title:       "t",
+			Body:        "---\nname: aetox\n---\n# again",
+			Reason:      "r",
+		},
+	}
+	change, err := a.synthesizeHabitForSessions(context.Background(), fake, []string{sess}, "x", "")
+	if err != nil {
+		t.Fatalf("synthesizeHabitForSessions failed: %v", err)
+	}
+	if change != nil {
+		t.Errorf("a create over an installed name must not be queued, got %+v", change)
+	}
+	var n int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM pending_changes WHERE kind = 'skill' AND scope = 'aetox'`).Scan(&n)
+	if n != 0 {
+		t.Errorf("expected no pending row for aetox, got %d", n)
+	}
+}
+
+// An "extends" naming nothing on the shelf is a hallucinated name; the draft
+// falls back to a new skill rather than an add that approval cannot apply.
+func TestSynthesizeHabitForSessions_UnknownExtendsDraftsAnew(t *testing.T) {
+	a := newJobApp(t)
+	db, err := a.database()
+	if err != nil {
+		t.Fatalf("database: %v", err)
+	}
+	sess := "test-sess-unknown"
+	_, _ = db.Exec(`INSERT INTO sessions (id, project_key, title, created_at, updated_at) VALUES (?, 'p1', 'Test', datetime('now'), datetime('now'))`, sess)
+	_, _ = db.Exec(`INSERT INTO messages (session_id, role, text, time) VALUES (?, 'user', 'y', datetime('now'))`, sess)
+
+	fake := &fakeHabitSynthesizer{
+		proposal: &HabitProposal{
+			Destination: "skill",
+			SkillName:   "brand-new-thing",
+			Extends:     "no-such-skill-on-this-shelf",
+			Title:       "t",
+			Body:        "---\nname: brand-new-thing\n---\n# new",
+			Reason:      "r",
+		},
+	}
+	change, err := a.synthesizeHabitForSessions(context.Background(), fake, []string{sess}, "y", "")
+	if err != nil {
+		t.Fatalf("synthesizeHabitForSessions failed: %v", err)
+	}
+	if change == nil || change.Op != "create" || change.Scope != "brand-new-thing" {
+		t.Errorf("unknown extends must fall back to create, got %+v", change)
+	}
+}
+
 func TestSynthesizeHabitForSessions_RoutesToUserProfile(t *testing.T) {
 	a := newJobApp(t)
 	db, err := a.database()
