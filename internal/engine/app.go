@@ -4863,10 +4863,23 @@ func (a *Engine) UserName() string {
 }
 
 func (a *Engine) SetUserName(name string) error {
-	return config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+	if err := config.UpdateModelPreference(func(pref *config.ModelPreference) error {
 		pref.UserName = strings.TrimSpace(name)
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	// The chat on screen learns the name now, not at its next opening. The
+	// prompt is the cached prefix, so this is one cache miss on the next turn
+	// — the owner's call (14 ก.ย. 2026: "อยากให้มันรู้") over the bootstrap-only
+	// rule of prompt/README.md, for the one line a person types about
+	// themselves and then expects to be heard. Through applyConfig like every
+	// placement writer: parked under a running turn, applied by endTurn. Other
+	// open chats pick it up when they are switched to, as they always did.
+	if conv := a.cur(); conv != nil && conv.chat != nil {
+		a.applyConfig(conv, conv.cfg)
+	}
+	return nil
 }
 
 // persistModelPreference saves the current model/approval choice to the same
