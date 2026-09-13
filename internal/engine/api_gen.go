@@ -9,6 +9,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/connect"
 	gh "github.com/Mikedev115/Aetox/internal/github"
+	"github.com/Mikedev115/Aetox/internal/machine"
 	"github.com/Mikedev115/Aetox/internal/mode"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/oauth"
@@ -169,6 +170,7 @@ type API interface {
 	MCPConfigPath() string
 	MCPFolderPath() (string, error)
 	MCPSignInStatus(serverName string) oauth.Status
+	MachineInfo() machine.Info
 	MarkIssueReported(id int64) error
 	MarkVideoCheckSeen()
 	MemoryFolderPath() (string, error)

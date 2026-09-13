@@ -1542,6 +1542,8 @@ export const en: Record<keyof typeof th, string> = {
   'settings.remoteNowLocal': 'The engine is on this machine',
   'settings.remoteNowHost': 'The engine is on {host}',
   'settings.remoteNowAttach': 'Attached to an engine started by hand (AETOX_ENGINE_ADDR)',
+  'settings.remoteThisMachine': 'This machine',
+  'settings.remoteUseThis': 'Use this machine',
   'settings.remoteHosts': 'Known machines',
   'settings.remoteNoHosts': 'No machines yet — add one below',
   'settings.remoteAdd': 'Add a machine',

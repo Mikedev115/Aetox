@@ -846,6 +846,10 @@ export function MCPSignInStatus(arg1) {
   return window['go']['main']['App']['MCPSignInStatus'](arg1);
 }
 
+export function MachineInfo() {
+  return window['go']['main']['App']['MachineInfo']();
+}
+
 export function MarkIssueReported(arg1) {
   return window['go']['main']['App']['MarkIssueReported'](arg1);
 }

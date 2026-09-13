@@ -62,6 +62,9 @@ type Host struct {
 	Version  string    `json:"version,omitempty"`
 	Arch     string    `json:"arch,omitempty"`
 	LastUsed time.Time `json:"last_used,omitempty"`
+	// Spec is the host as its engine described it the last time the window
+	// was there (machine.Info.Line), for the row while it is not.
+	Spec string `json:"spec,omitempty"`
 }
 
 // Label is the host's name on screen.
