@@ -55,6 +55,13 @@ func TestEveryExecSiteHidesTheConsole(t *testing.T) {
 		"third_party":  true, // vendored; the conpty patch sets CREATE_NO_WINDOW itself
 		"node_modules": true,
 		".git":         true,
+		// A program under testdata stands in for something else during a
+		// test (remote/testdata/fakessh is an sshd and a host in one) and
+		// never runs inside the desktop app, so it has no window to flash.
+		"testdata": true,
+		// Gitignored scratch; see TestEverySpawnCanBeStopped for why a hit
+		// in there is a copy of a line already checked where it lives.
+		".claude": true,
 	}
 
 	var missing []string
@@ -158,7 +165,10 @@ func TestEverySpawnCanBeStopped(t *testing.T) {
 	// inside it is a second, older copy of a line that is already being checked
 	// where it lives. Reported, it names a path CI does not have and a fix
 	// nobody can commit.
-	skipDir := map[string]bool{"third_party": true, "node_modules": true, ".git": true, ".claude": true}
+	skipDir := map[string]bool{"third_party": true, "node_modules": true, ".git": true, ".claude": true,
+		// testdata: a test's stand-in program (fakessh) is the thing being
+		// stopped by the test, not a spawn the app owns.
+		"testdata": true}
 
 	var loose []string
 	err = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {

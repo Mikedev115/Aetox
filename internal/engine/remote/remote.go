@@ -506,8 +506,8 @@ func (d *Driver) Tunnel(ctx context.Context, h Host, remoteAddr string) (*Tunnel
 		"-L", local+":"+remoteAddr,
 		h.Target,
 	)
-	// Not CommandContext: the tunnel outlives the call that opened it, and
-	// its end is Close, or ssh's own.
+	// proc-detached: the tunnel outlives the call that opened it, and its
+	// end is Close, or ssh's own.
 	cmd := exec.Command(ssh, args...)
 	proc.HideConsole(cmd)
 	t := &Tunnel{Local: local, cmd: cmd, exited: make(chan struct{})}
