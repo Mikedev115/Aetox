@@ -14,6 +14,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/connect"
 	"github.com/Mikedev115/Aetox/internal/engine"
 	gh "github.com/Mikedev115/Aetox/internal/github"
+	"github.com/Mikedev115/Aetox/internal/hook"
 	"github.com/Mikedev115/Aetox/internal/machine"
 	"github.com/Mikedev115/Aetox/internal/mode"
 	"github.com/Mikedev115/Aetox/internal/model"
@@ -417,6 +418,10 @@ func (a *App) HistoryFault() engine.StoreFault {
 
 func (a *App) HomeDir() string {
 	return a.api.HomeDir()
+}
+
+func (a *App) Hooks() engine.HooksView {
+	return a.api.Hooks()
 }
 
 func (a *App) ImageStatus() string {
@@ -993,6 +998,10 @@ func (a *App) SaveChatImage(sourcePath string) (string, error) {
 
 func (a *App) SaveChatImageData(dataURL string) (string, error) {
 	return a.api.SaveChatImageData(dataURL)
+}
+
+func (a *App) SaveHooks(hooks []hook.Hook) error {
+	return a.api.SaveHooks(hooks)
 }
 
 func (a *App) SaveIdentityFile(name string, content string) error {

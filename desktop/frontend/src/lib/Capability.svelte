@@ -64,6 +64,18 @@
   // them. It was ตั้งค่า › เครื่องมือ, and the foot of ของคุณ used to link
   // it; a register on the rail gets no door, the rule สกิล set.
   //
+  // **Hooks is the fourth heading (14 ก.ย.), one page — the first thing on
+  // the rail that never lived in ตั้งค่า.** hooks.json (internal/hook, §57)
+  // had an engine for six weeks and no screen: the user's own command before
+  // or after a tool call, edited by hand or not at all. It is the fourth kind
+  // of thing that changes what the assistant does — a process (MCP), a
+  // document (สกิล), a compiled tool, and now a command of the user's own
+  // around any of them — so it belongs on this rail and nowhere else. The
+  // page is the register, the sheet is the form, the same as MCP; a save
+  // writes the whole file and reaches every live conversation's runner
+  // (Engine.SaveHooks), so the next tool call is guarded by it without a
+  // relaunch.
+  //
   // The register ตั้งค่า still holds (บัญชี) is the next heading, moved the
   // same way.
   //
@@ -136,8 +148,9 @@
     SkillsDir, SkillScanIssues, InstallSkillFromGitHub, InstallSkillFromZip, RemoveExternalSkill,
     RefreshSkills, OpenSkillsFolder, AgentSkills, OpenAgentSkillsFolder, CopySkillToAgent, RemoveAgentSkill,
     SkillTuneAuto, SetSkillTuneAuto, RunSkillTuneup, ListSkillProposals, ApprovePendingChange, RejectPendingChange,
+    Hooks, SaveHooks,
   } from '../../wailsjs/go/main/App'
-  import { config, type engine } from '../../wailsjs/go/models'
+  import { config, type engine, type hook } from '../../wailsjs/go/models'
   import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
   import { cockpit, openSettingsAt, startChatWith } from './stores/cockpit.svelte'
   import { t, type TKey } from './i18n.svelte'
@@ -224,12 +237,12 @@
   // The rail. Opens on ของคุณ when there is anything in it, on ห้องสมุด when
   // there is not: the room's founding point was that an empty register
   // announces nothing, and a full one is what a person came back for.
-  type Page = 'mine' | 'desks' | 'agents' | 'shelf' | 'skills' | 'skagents' | 'skshelf' | 'sktune' | 'tools'
-  // Three headings, one per kind of thing; a new kind is a new heading, never
-  // a tab. The MCP group has four rows, the skill group four and the tool
-  // group one — see the note at the top for why the skill rail has no
-  // placement page per side, why its fourth row is the tune-up queue rather
-  // than one, and why a read-only register is a heading of one row.
+  type Page = 'mine' | 'desks' | 'agents' | 'shelf' | 'skills' | 'skagents' | 'skshelf' | 'sktune' | 'tools' | 'hooks'
+  // Four headings, one per kind of thing; a new kind is a new heading, never
+  // a tab. The MCP group has four rows, the skill group four, the tool group
+  // one and the hook group one — see the note at the top for why the skill
+  // rail has no placement page per side, why its fourth row is the tune-up
+  // queue rather than one, and why the last two are headings of one row.
   type Row = { id: Page; labelKey: TKey; icon: IconName }
   const RAIL: { labelKey: TKey; rows: Row[] }[] = [
     { labelKey: 'capability.navGroupReach', rows: [
@@ -247,6 +260,9 @@
     { labelKey: 'capability.navGroupTools', rows: [
       { id: 'tools', labelKey: 'capability.navTools', icon: 'wrench' },
     ] },
+    { labelKey: 'capability.navGroupHooks', rows: [
+      { id: 'hooks', labelKey: 'capability.navHooks', icon: 'terminal' },
+    ] },
   ]
   let page = $state<Page>('shelf')
   let pageSettled = false
@@ -262,6 +278,7 @@
     if (p === 'mine' && loaded) void probeIdle()
     if (p === 'skagents') void loadAgentSkills()
     if (p === 'sktune') void loadSkillTune()
+    if (p === 'hooks') void loadHooks()
   }
   // A window per long grid (pageWindow.svelte.ts): the DOM this room asks
   // for at once, rationed. 494 bundled skills is 13,700 nodes in one frame
@@ -381,6 +398,62 @@
     const m = /^---\r?\n[\s\S]*?^description:\s*(.+?)\s*$[\s\S]*?^---/m.exec(body || '')
     return m ? m[1].replace(/^["']|["']$/g, '') : ''
   }
+
+  // Hooks: the file as the engine reads it (fresh per visit — it is also
+  // edited by hand), one sheet for a row, and one writer of the file.
+  let hooksView = $state<engine.HooksView | null>(null)
+  let hooksError = $state('')
+  type HookDraft = { at: number; event: string; matcher: string; command: string; blocking: boolean }
+  let hookSheet = $state<HookDraft | null>(null)
+  let confirmHook = $state(-1)
+  async function loadHooks() {
+    try {
+      hooksError = ''
+      hooksView = await Hooks()
+    } catch (err) {
+      hooksError = String(err)
+    }
+  }
+  const hookRows = $derived(hooksView?.hooks ?? [])
+  // `at` is the row being edited, -1 for a new one. Event defaults to before,
+  // the way the file's own default does: a hook written without reading the
+  // docs is far more likely to be a guard than a notifier.
+  const openHook = (at: number) => {
+    const h = at >= 0 ? hookRows[at] : null
+    hookSheet = { at, event: h?.event || 'PreToolUse', matcher: h?.matcher || '', command: h?.command || '', blocking: h?.blocking ?? false }
+  }
+  const closeHook = () => { hookSheet = null }
+  // One writer, the whole list: a hook is a row of a file, and the file is
+  // what the engine loads, so the page never patches one row in place.
+  async function writeHooks(next: hook.Hook[]) {
+    busy = 'save-hooks'
+    try {
+      hooksError = ''
+      await SaveHooks(next)
+      await loadHooks()
+      return true
+    } catch (err) {
+      hooksError = String(err)
+      return false
+    } finally {
+      busy = ''
+    }
+  }
+  async function saveHook() {
+    if (!hookSheet || !hookSheet.command.trim()) return
+    const row = { event: hookSheet.event, matcher: hookSheet.matcher.trim() || '*', command: hookSheet.command.trim(), blocking: hookSheet.blocking } as hook.Hook
+    const next = hookRows.slice()
+    if (hookSheet.at >= 0) next[hookSheet.at] = row
+    else next.push(row)
+    if (await writeHooks(next)) closeHook()
+  }
+  async function removeHookConfirmed() {
+    const at = confirmHook
+    confirmHook = -1
+    if (at < 0) return
+    if (await writeHooks(hookRows.filter((_, i) => i !== at))) closeHook()
+  }
+  const hookEventLabel = (ev: string) => ev === 'PostToolUse' ? t('capability.hookEventPost') : t('capability.hookEventPre')
 
   onMount(async () => {
     await load()
@@ -1523,12 +1596,61 @@
           <p class="office-note foot">{t('capability.toolsFoot')}</p>
         {/if}
       {/if}
+
+      <!-- ================= Hooks ================= -->
+      <!-- The register: one row per hook, what it watches and what it runs,
+           and a click opens the sheet. The file is what the engine loads, so
+           the page shows the file and the sheet writes it whole. -->
+      {#if page === 'hooks'}
+        <h2>{t('capability.navHooks')}</h2>
+        <p class="muted set-sub">{t('capability.hooksLede')}</p>
+        {#if hooksError}<div class="mset-error">{hooksError}</div>{/if}
+        {#if hooksView}
+          <div class="sec-head">
+            <p class="ag-reach cap-line"><b>{t('capability.hooksCount', { n: String(hookRows.length) })}</b></p>
+            <button class="ctrl ctrl-primary" disabled={busy !== ''} onclick={() => openHook(-1)}><Icon name="plus" size={13} /> {t('capability.hookAdd')}</button>
+          </div>
+          <!-- A file that is there and will not parse: bootstrap logged it and
+               ran without hooks; this is where a person finds out. -->
+          {#if hooksView.err}
+            <div class="cap-notice cap-issue">
+              <Icon name="alertTriangle" size={13} />
+              <span>{t('capability.hooksBroken', { err: hooksView.err })}</span>
+            </div>
+          {/if}
+          <div class="settings-card">
+            {#each hookRows as h, i (i)}
+              <div class="set-row">
+                <button class="tool-row" onclick={() => openHook(i)} aria-label={t('capability.hookEdit')}>
+                  <div class="set-txt">
+                    <div class="t">
+                      <span class="hook-when">{hookEventLabel(h.event)}</span>
+                      <span class="mono-dim">{h.matcher === '*' || !h.matcher ? t('capability.hookAllTools') : h.matcher}</span>
+                      {#if h.blocking}<span class="hook-tag">{t('capability.hookBlockTag')}</span>{/if}
+                    </div>
+                    <div class="d mono clamp">{h.command}</div>
+                  </div>
+                </button>
+              </div>
+            {/each}
+            {#if hookRows.length === 0}
+              <div class="empty">{t('capability.hooksEmpty')}</div>
+            {/if}
+          </div>
+          <p class="office-note foot">{t('capability.hooksFoot')}</p>
+          {#if hooksView.path}
+            <p class="office-note">{t('capability.storedAt')} <span class="mono-dim">{hooksView.path}</span></p>
+          {/if}
+        {/if}
+      {/if}
     </div>
   </div>
 
-  <!-- Both sheets sit inside the frame on purpose: style.css scopes .ctrl to
+  <!-- Every sheet sits inside the frame on purpose: style.css scopes .ctrl to
        .settings-page / .page-shell, and a sheet mounted beside the page drew
-       native white inputs and bare buttons (owner, 13 ก.ย.: "CSS ไม่ครบ"). -->
+       native white inputs and bare buttons (owner, 13 ก.ย.: "CSS ไม่ครบ"). The
+       two skill sheets had landed outside it when they moved in; put back
+       14 ก.ย. along with the hook sheet. -->
 
 <!-- The picker: "this one, which servers?" for a side or an agent. The one
      writer of `for:` in the app (`put`), opened from a target card on either
@@ -1768,7 +1890,6 @@
     </div>
   </div>
 {/if}
-</div>
 
 <!-- The agent's skill sheet: what its folder holds, and the shelf to tick
      from. A tick is a copy into the folder (CopySkillToAgent); unticking a
@@ -1869,6 +1990,74 @@
   </div>
 {/if}
 
+<!-- The hook sheet: the one form for a row of hooks.json. Four fields, and
+     the hint under the event changes with it, because "blocking" means two
+     different things before and after a tool has run. -->
+{#if hookSheet}
+  <div class="cap-sheet-overlay" role="presentation" onkeydown={(e) => { if (e.key === 'Escape') closeHook() }}>
+    <button class="cap-sheet-backdrop" aria-label={t('settings.cancel')} onclick={closeHook}></button>
+    <div class="cap-sheet" role="dialog" aria-modal="true" aria-labelledby="cap-hook-title">
+      <div class="cap-sheet-head">
+        <span class="cap-mark" style="--px:30px; --h:150" aria-hidden="true"><Icon name="terminal" size={14} /></span>
+        <h3 id="cap-hook-title">{hookSheet.at >= 0 ? t('capability.hookEdit') : t('capability.hookAdd')}</h3>
+        <button class="icobtn" aria-label={t('settings.cancel')} onclick={closeHook}><Icon name="x" size={15} /></button>
+      </div>
+      <div class="cap-sheet-body">
+        <label class="pp-field">
+          <span class="eyebrow">{t('capability.hookEvent')}</span>
+          <select class="ctrl" bind:value={hookSheet.event}>
+            <option value="PreToolUse">{t('capability.hookEventPre')}</option>
+            <option value="PostToolUse">{t('capability.hookEventPost')}</option>
+          </select>
+          <span class="d muted">{hookSheet.event === 'PostToolUse' ? t('capability.hookEventPostHint') : t('capability.hookEventPreHint')}</span>
+        </label>
+        <label class="pp-field">
+          <span class="eyebrow">{t('capability.hookMatcher')}</span>
+          <input class="ctrl" placeholder="*" bind:value={hookSheet.matcher} />
+          <span class="d muted">{t('capability.hookMatcherHint')}</span>
+        </label>
+        <label class="pp-field">
+          <span class="eyebrow">{t('capability.hookCommand')}</span>
+          <textarea class="ctrl mcp-lines" rows="3" placeholder={t('capability.hookCommandPlaceholder')} bind:value={hookSheet.command}></textarea>
+        </label>
+        <div class="set-row">
+          <div class="set-txt">
+            <div class="t">{t('capability.hookBlocking')}</div>
+            <div class="d">{t('capability.hookBlockingHint')}</div>
+          </div>
+          <label class="mswitch">
+            <input type="checkbox" bind:checked={hookSheet.blocking} />
+            <span></span>
+          </label>
+        </div>
+        {#if hooksError}<div class="mset-error">{hooksError}</div>{/if}
+      </div>
+      <div class="cap-sheet-foot">
+        <button class="ctrl ctrl-primary" disabled={busy !== '' || !hookSheet.command.trim()} onclick={saveHook}>
+          {busy === 'save-hooks' ? t('settings.saving') : (hookSheet.at >= 0 ? t('settings.save') : t('settings.add'))}
+        </button>
+        {#if hookSheet.at >= 0}
+          <span class="grow"></span>
+          <button class="ctrl ctrl-danger" disabled={busy !== ''} onclick={() => (confirmHook = hookSheet!.at)}>{t('settings.remove')}</button>
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if confirmHook >= 0}
+  <ConfirmDialog
+    title={t('capability.confirmHookTitle')}
+    message={t('capability.confirmHookMessage')}
+    detail={hookRows[confirmHook]?.command ?? ''}
+    confirmLabel={t('settings.remove')}
+    onConfirm={removeHookConfirmed}
+    onCancel={() => (confirmHook = -1)}
+  />
+{/if}
+
+</div>
+
 {#if confirmSkill}
   <ConfirmDialog
     title={t('settings.confirmSkillTitle')}
@@ -1893,6 +2082,13 @@
 
 <style>
   .cap-error { margin-bottom: 14px; }
+  /* A hook row: when it fires, what it watches, and the command in the
+     shell's own face. The blocking tag is drawn in the warn tone the
+     unreadable-skill notice uses — it is the one word on the row that means
+     the assistant can be stopped. */
+  .hook-when { margin-right: 8px; }
+  .hook-tag { margin-left: 8px; font-size: var(--fs-2xs); letter-spacing: .06em; text-transform: uppercase; color: var(--status-warn); border: 1px solid color-mix(in srgb, var(--status-warn) 35%, transparent); border-radius: var(--r-sm); padding: 1px 6px; vertical-align: 1px; }
+  .set-txt .d.mono { font-family: var(--mono); font-size: var(--fs-xs); }
   /* The rail's title, under the back button, where ตั้งค่า puts its search
      box: this rail has three rows and nothing to search. */
   .cap-rail-title { padding: 10px 10px 0; font-size: var(--fs-xl, 17px); font-weight: 600; color: var(--text-primary); }

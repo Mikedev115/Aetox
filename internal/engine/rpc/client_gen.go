@@ -14,6 +14,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/connect"
 	"github.com/Mikedev115/Aetox/internal/engine"
 	gh "github.com/Mikedev115/Aetox/internal/github"
+	"github.com/Mikedev115/Aetox/internal/hook"
 	"github.com/Mikedev115/Aetox/internal/machine"
 	"github.com/Mikedev115/Aetox/internal/mode"
 	"github.com/Mikedev115/Aetox/internal/model"
@@ -668,6 +669,14 @@ func (c *Client) HomeDir() string {
 	var out0 string
 	if err := c.call("HomeDir", nil, &out0); err != nil {
 		c.failed("HomeDir", err)
+	}
+	return out0
+}
+
+func (c *Client) Hooks() engine.HooksView {
+	var out0 engine.HooksView
+	if err := c.call("Hooks", nil, &out0); err != nil {
+		c.failed("Hooks", err)
 	}
 	return out0
 }
@@ -1660,6 +1669,10 @@ func (c *Client) SaveChatImageData(dataURL string) (string, error) {
 	var out0 string
 	err := c.call("SaveChatImageData", []any{dataURL}, &out0)
 	return out0, err
+}
+
+func (c *Client) SaveHooks(hooks []hook.Hook) error {
+	return c.call("SaveHooks", []any{hooks}, nil)
 }
 
 func (c *Client) SaveIdentityFile(name string, content string) error {

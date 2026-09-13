@@ -10,6 +10,7 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/engine"
+	"github.com/Mikedev115/Aetox/internal/hook"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/subagent"
 )
@@ -534,6 +535,8 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		return e.HistoryFault(), nil, true
 	case "HomeDir":
 		return e.HomeDir(), nil, true
+	case "Hooks":
+		return e.Hooks(), nil, true
 	case "ImageStatus":
 		return e.ImageStatus(), nil, true
 	case "ImportSessionFrom":
@@ -1243,6 +1246,12 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		}
 		r0, err := e.SaveChatImageData(p0)
 		return r0, err, true
+	case "SaveHooks":
+		var p0 []hook.Hook
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		return nil, e.SaveHooks(p0), true
 	case "SaveIdentityFile":
 		var p0 string
 		var p1 string
