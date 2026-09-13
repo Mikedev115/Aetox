@@ -818,6 +818,7 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'settings.imageDesc': '助手的画图工具。选择由谁来画，之后新增的服务商会自动出现在这里。',
   'settings.imageEngine': '由谁来画',
   'settings.imageAddKey': '去填 API key',
+  'settings.imageSignIn': '去登录 ChatGPT',
   'settings.imageModel': '模型',
   'settings.imageModelDesc': '最上面的是推荐项。',
   'settings.studio': '素材库',

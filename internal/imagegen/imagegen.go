@@ -37,6 +37,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/Mikedev115/Aetox/internal/oauth"
 )
 
 // Engine turns a prompt into an image file. Implementations own nothing: the
@@ -101,7 +103,11 @@ type Descriptor struct {
 	// typed in here goes stale silently. This list is what a machine with no
 	// catalog, or an offline one, still gets to choose from.
 	Models []string
-	// Default marks the vendor chosen when config says nothing.
+	// Default marks the vendor chosen when config says nothing. Set on the
+	// catalog's OWN copy by DefaultID at call time, not stored: which row is
+	// the default depends on whether a ChatGPT sign-in exists (see DefaultID),
+	// and a flag typed into the table could only ever answer for one of the
+	// two machines.
 	Default bool
 }
 
@@ -117,11 +123,12 @@ type Options struct {
 // catalog is the single list of vendors Aetox knows how to draw with. A new
 // vendor is an entry here plus its constructor in newEngine.
 //
-// Pollinations is the default for the same reason `edge` is the free row on the
-// speech side: it needs no key, no install and no GPU, so the first picture a
-// user asks for works on a machine that has only just been unzipped. What it
-// costs is stated in its Install text rather than buried — the prompt goes to
-// somebody else's server.
+// Pollinations is the floor default for the same reason `edge` is the free row
+// on the speech side: it needs no key, no install and no GPU, so the first
+// picture a user asks for works on a machine that has only just been unzipped.
+// What it costs is stated in its Install text rather than buried — the prompt
+// goes to somebody else's server. Which row is the default on THIS machine is
+// DefaultID's answer, not a flag here.
 var catalog = []Descriptor{
 	{
 		ID:    "pollinations",
@@ -130,7 +137,6 @@ var catalog = []Descriptor{
 		// nothing to install.
 		Install: "ฟรี ไม่ต้องตั้งอะไร · คำสั่งวาดส่งไปที่เซิร์ฟเวอร์ของ Pollinations",
 		Models:  []string{"flux", "turbo"},
-		Default: true,
 	},
 	// The three below need no new credential from the user: each reads the key
 	// already entered for that same provider on ตั้งค่า > โมเดล
@@ -141,6 +147,18 @@ var catalog = []Descriptor{
 		Label:   "OpenAI (คลาวด์, ใช้ API key เดิม)",
 		Install: "ใช้ API key เดิมจากหน้าโมเดล · เปลี่ยน Base URL ชี้ไปเซิร์ฟเวอร์ในบ้านได้ · คำสั่งวาดส่งไปที่ OpenAI",
 		Models:  []string{"gpt-image-1", "dall-e-3"},
+	},
+	// The ChatGPT subscription, for a user who signed in to Codex and holds no
+	// OpenAI API key — the more common of the two. Same wire as the row above
+	// (openai_api.go says what was measured); the quota it draws from is the
+	// chat's own, which the Install line says outright because it is the one
+	// thing about this row a user would not guess. No Models: the backend
+	// ignores the field and picks its own picture model, so a picker here
+	// would be a control over nothing.
+	{
+		ID:      "codex",
+		Label:   "ChatGPT / Codex (คลาวด์, ใช้บัญชีที่ล็อกอินไว้)",
+		Install: "ใช้การล็อกอิน ChatGPT เดิมจากหน้าโมเดล · นับโควต้าเดียวกับแชท Codex · เซิร์ฟเวอร์เลือกโมเดลและขนาดเอง · คำสั่งวาดส่งไปที่ OpenAI",
 	},
 	{
 		ID:      "xai",
@@ -182,11 +200,48 @@ var catalog = []Descriptor{
 	},
 }
 
+// floorDefault is the row that draws on a machine with nothing set up at all.
+const floorDefault = "pollinations"
+
+// signedInDefault is the row that draws when the user has signed Aetox into
+// ChatGPT and never picked a picture vendor by hand.
+const signedInDefault = "codex"
+
+// DefaultID is the vendor that runs when config names none: the ChatGPT row
+// while a Codex sign-in exists, the keyless row otherwise.
+//
+// Decided here rather than by the user, and the owner's reasoning for that
+// (13 ก.ย. 2026): the moment someone signs into ChatGPT they are thinking
+// about the chat model, and a question about pictures there is one they have
+// no context to answer yet — while the picture they ask for a week later
+// coming out of the free tier, when their own subscription draws far better
+// and was one dropdown away, reads as the app not having noticed. The floor
+// default already sends the prompt to a third party, so switching to the
+// account the user just handed the app adds no new exposure; what it adds is
+// a quota cost, which the row's own Install line states and which the picture
+// page names as "chosen for you because you are signed in" (engine/image.go).
+//
+// A conditional default is also one that undoes itself: sign out and, with
+// nothing pinned, the floor row is back — no dead setting pointing at a
+// credential that is gone. A vendor the user picked by name is never touched
+// by any of this; that is what the pin means.
+func DefaultID() string {
+	if oauth.Has(signedInDefault) {
+		return signedInDefault
+	}
+	return floorDefault
+}
+
 // Catalog returns every known vendor — default first, then alphabetical — for
-// the settings picker to enumerate.
+// the settings picker to enumerate. The default flag is set on the copies
+// handed out, for this machine as it is right now.
 func Catalog() []Descriptor {
+	def := DefaultID()
 	out := make([]Descriptor, len(catalog))
-	copy(out, catalog)
+	for i, d := range catalog {
+		d.Default = d.ID == def
+		out[i] = d
+	}
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Default != out[j].Default {
 			return out[i].Default
@@ -196,14 +251,16 @@ func Catalog() []Descriptor {
 	return out
 }
 
-// Lookup finds a vendor descriptor by ID. An empty id resolves to the default.
+// Lookup finds a vendor descriptor by ID. An empty id resolves to the default
+// for this machine (DefaultID).
 func Lookup(id string) (Descriptor, bool) {
 	id = strings.ToLower(strings.TrimSpace(id))
+	if id == "" {
+		id = DefaultID()
+	}
 	for _, d := range catalog {
-		if id == "" && d.Default {
-			return d, true
-		}
 		if d.ID == id {
+			d.Default = d.ID == DefaultID()
 			return d, true
 		}
 	}
@@ -226,9 +283,9 @@ func newEngine(desc Descriptor, opts Options) (Engine, error) {
 	switch desc.ID {
 	case "pollinations":
 		return newPollinations(desc, opts)
-	// Two rows, one runtime: these disagree about their models and their sizes
-	// and about nothing else (openai_api.go).
-	case "openai", "xai", "alibaba", "zai", "modelscope":
+	// Six rows, one runtime: these disagree about their models, their sizes
+	// and (for codex) their credential, and about nothing else (openai_api.go).
+	case "openai", "xai", "alibaba", "zai", "modelscope", "codex":
 		return newAPIImages(desc, opts)
 	case "gemini":
 		return newGeminiImages(desc, opts)

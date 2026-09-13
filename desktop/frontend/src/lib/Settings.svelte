@@ -6450,9 +6450,13 @@
                  provider rather than on the models page in general. -->
             {#if imageStatus}
               <div class="d mset-error">{imageStatus}</div>
+              <!-- The same click lands on the same provider row either way;
+                   only the verb differs. The codex row has no key to add —
+                   it rides the ChatGPT sign-in, and its row on the models
+                   page is where that sign-in is made. -->
               {#if activeImageEngine && activeImageEngine.id !== 'pollinations'}
                 <button class="ctrl ctrl-icon" onclick={() => goToProviderKey(activeImageEngine!.id)}>
-                  <Icon name="brain" size={13} /> {t('settings.imageAddKey')}
+                  <Icon name="brain" size={13} /> {t(activeImageEngine.id === 'codex' ? 'settings.imageSignIn' : 'settings.imageAddKey')}
                 </button>
               {/if}
             {/if}

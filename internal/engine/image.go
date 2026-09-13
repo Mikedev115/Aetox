@@ -36,7 +36,22 @@ func (a *Engine) imageOptions() imagegen.Options {
 // same row shape the two voice pickers use. Never nil (ARCHITECTURE.md §34).
 func (a *Engine) ListImageEngines() []VoiceEngineInfo {
 	cfg := a.cur().cfg
-	return engineRows(imageDescriptors(), cfg.ImageEngine, cfg.ImageModelName)
+	rows := engineRows(imageDescriptors(), cfg.ImageEngine, cfg.ImageModelName)
+	// Nothing pinned and the default resolved to the signed-in row: say so
+	// on the page, where the choice is. The user did not pick this vendor —
+	// their sign-in did (imagegen.DefaultID) — and a picture drawn from their
+	// own quota must never look like a setting they cannot account for.
+	if strings.TrimSpace(cfg.ImageEngine) == "" {
+		for i := range rows {
+			if rows[i].Active && rows[i].ID == "codex" {
+				// In place of the row's own first clause ("uses the ChatGPT
+				// sign-in from the models page"), which this sentence already
+				// says — the line stays one line.
+				rows[i].Install = "เลือกให้อัตโนมัติเพราะล็อกอิน ChatGPT อยู่" + strings.TrimPrefix(rows[i].Install, "ใช้การล็อกอิน ChatGPT เดิมจากหน้าโมเดล")
+			}
+		}
+	}
+	return rows
 }
 
 // SetImageEngine picks the picture vendor. Empty goes back to the catalog
