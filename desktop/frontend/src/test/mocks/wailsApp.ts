@@ -553,9 +553,6 @@ export const RemoveExternalSkill = noop()
 export const RemoveMCPServer = noop()
 export const RemoveWorkspaceFolder = arr()
 export const MCPConfigPath = vi.fn(async () => 'C:/Users/x/AppData/Roaming/aetox/mcp-servers.json')
-// The hooks file as the room reads it: empty, at the same root.
-export const Hooks = vi.fn(async () => ({ path: 'C:/Users/x/AppData/Roaming/aetox/hooks.json', hooks: [] as any[] }))
-export const SaveHooks = noop()
 export const OpenMCPFolder = noop()
 export const RequiresAPIKey = boolFn(true)
 // Accepting a pasted key is the norm; Codex is the exception, so a test that

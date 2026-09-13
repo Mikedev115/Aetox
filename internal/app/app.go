@@ -627,14 +627,6 @@ func (a *App) SetApprovalMode(mode safety.ApprovalMode) {
 	}
 }
 
-// ReloadHooks swaps the user's tool hooks for a set just saved on the
-// settings page. The same shape as the two above: the runner is shared by
-// pointer with the executor, so the swap reaches a turn already running, and
-// the next tool call is guarded by what the user just wrote.
-func (a *App) ReloadHooks(cfg hook.Config) {
-	a.hooks.Replace(cfg)
-}
-
 // SetGoalCheck installs the question asked when a turn is about to end, or
 // clears it with nil — มุ่งเป้า (turn.Executor.SetGoalCheck).
 //

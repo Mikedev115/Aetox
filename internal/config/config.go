@@ -803,16 +803,6 @@ func LoadHooks() (hook.Config, error) {
 	return hook.Load(path)
 }
 
-// SaveHooks writes the user's tool hooks whole, the settings page's door to
-// the same file a hand edit reaches.
-func SaveHooks(cfg hook.Config) error {
-	path, err := HooksPath()
-	if err != nil {
-		return err
-	}
-	return hook.Save(path, cfg)
-}
-
 // LoadPermissions reads the user's per-tool permission overrides, if any.
 // Missing file is not an error — it just means no rules are configured yet.
 func LoadPermissions() (safety.PermissionConfig, error) {

@@ -630,10 +630,6 @@ export function HomeDir() {
   return window['go']['main']['App']['HomeDir']();
 }
 
-export function Hooks() {
-  return window['go']['main']['App']['Hooks']();
-}
-
 export function ImageStatus() {
   return window['go']['main']['App']['ImageStatus']();
 }
@@ -1376,10 +1372,6 @@ export function SaveChatImageData(arg1) {
 
 export function SaveDrawing(arg1) {
   return window['go']['main']['App']['SaveDrawing'](arg1);
-}
-
-export function SaveHooks(arg1) {
-  return window['go']['main']['App']['SaveHooks'](arg1);
 }
 
 export function SaveIdentityFile(arg1, arg2) {
