@@ -29,8 +29,8 @@
 | ตัวเลข | อยู่ที่ | วัดใหม่ด้วย | บังคับ |
 |:---|:---|:---|:---|
 | **เวอร์ชัน** | `internal/version` · `desktop/wails.json` · `scoop/aetox.json` · README ทั้งสอง (หัวข้อสถานะ) | `go test ./internal/version` · แลนดิ้งเพจไม่มีสำเนาให้ตรวจ (`lib/version.ts` อ่าน GitHub Releases ตอน build) | 🔒 |
-| **จำนวนเครื่องมือ + ตารางเครื่องมือ** | README ทั้งสอง (§มันทำอะไรได้บ้างทั้งหมด) · `aetox-landing` (`components/Weight.tsx` — `KPI_VALUES` · การ์ดใน `lib/i18n`) · `ARCHITECTURE.md` (ไดอะแกรม) | `go test ./desktop -run TestPrintReadmeToolTable -v` — พิมพ์ตารางออกมาให้ก๊อป | ✋ |
-| **โทเคนของบล็อกเครื่องมือ + เพดาน** | README ทั้งสอง · `aetox-landing` (`lib/i18n/en.ts` + `th.ts`) | `go test ./desktop -run TestTheToolBlockStaysWithinItsBudget -v` | ✋ |
+| **จำนวนเครื่องมือ + ตารางเครื่องมือ** | README ทั้งสอง (§มันทำอะไรได้บ้างทั้งหมด) · `aetox-landing` (`components/Weight.tsx` — `KPI_VALUES` · การ์ดใน `lib/i18n`) · `ARCHITECTURE.md` (ไดอะแกรม) | `go test ./internal/engine -run TestPrintReadmeToolTable -v` (+ `browser`/`computer` ที่หน้าต่างให้ยืม — ไม่อยู่ใน registry ของเครื่องยนต์) — พิมพ์ตารางออกมาให้ก๊อป | ✋ |
+| **โทเคนของบล็อกเครื่องมือ + เพดาน** | README ทั้งสอง · `aetox-landing` (`lib/i18n/en.ts` + `th.ts`) | `go test ./internal/engine -run TestTheToolBlockStaysWithinItsBudget -v` | ✋ |
 | **จำนวนเทสต์** | README ทั้งสอง (badge + ตาราง "วัดมา ไม่ใช่อ้าง") · `aetox-landing` (การ์ดสถิติ) | `go test ./... -count=1` · `cd desktop/frontend && npx vitest run` | ✋ |
 | **จำนวนผู้ให้บริการ + รายชื่อ** | README ทั้งสอง (จุดเด่น + §ผู้ให้บริการ) · `aetox-landing` (`lib/i18n` — ข้อความ "19 providers") | `internal/provider/catalog.go` — `canonicalOrder` | ✋ |
 | **จำนวนเอเจน + ซับเอเจน** | README ทั้งสอง (§ทีมงาน) — **รีโป landing ไม่มีตัวเลขนี้** | นับ `internal/subagent/profiles/agents/*/` และ `internal/subagent/profiles/subagents/*.md` · `go test ./internal/subagent` ผูกจำนวนไว้ที่ตัวโปรไฟล์ — **แต่ยังไม่ตรวจ README** ต่างจาก `go test ./internal/version` ที่อ่าน README จริง | ✋ |
@@ -79,3 +79,11 @@
 **ที่ค้างอยู่จริงตอนนี้ — ตรวจ 11 ก.ย. 2026** — `TestPrintReadmeToolTable` กับ
 `TestTheToolBlockStaysWithinItsBudget` ตอบ **34 tools / ~9,882 tokens** ขณะที่ README เขียน
 28 / ~7,527 และเว็บเขียน 31 / 8,477 · สามที่สามค่า และไม่มีอะไรเทียบให้ตรงกันได้เลย
+
+**อัปเดต 13 ก.ย. 2026 (v1.6.1)** — README ทั้งสองแก้ตามของจริงแล้ว: เครื่องยนต์ 34 tools /
+~9,499 tokens + `browser` ที่หน้าต่างให้ยืม (~832 tokens, วัดด้วยวิธีเดียวกัน bytes/4) = **35 tools /
+~10,300** บนเครื่องที่เพิ่งติดตั้ง `computer` (~281) มาเมื่อเปิดสวิตช์ · ขนาด 80.8 MB สองไฟล์ ·
+ตัวติดตั้ง 33.6 MB · เทสต์ Go 3,371 / UI 1,747 (BENCHMARK.md ข้อ 13) · **เว็บ (`aetox-landing`) ยังเขียน
+48.5 MB ไฟล์เดียว · 21.3 MB · Go 2,479 · UI 1,054 · 19 providers · KPI 31 tools** — ทุกค่าเป็นเท็จแล้ว
+และอยู่ในอีกรีโป (`lib/i18n/en.ts` + `th.ts` บรรทัดสถิติ/FAQ, `components/Weight.tsx` แถว Aetox
+กับ `KPI_VALUES`) ยังไม่ได้แก้

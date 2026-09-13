@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/Mikedev115/Aetox/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/Mikedev115/Aetox?color=2f81f7"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-proprietary%20%C2%B7%20source%20available-blue"></a>
-  <img alt="Tests" src="https://img.shields.io/badge/tests-2%2C479%20Go%20%2B%201%2C054%20UI-brightgreen">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-3%2C371%20Go%20%2B%201%2C747%20UI-brightgreen">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2B-lightgrey">
 </p>
 
@@ -58,8 +58,9 @@ Aetox is a desktop application for Windows that runs an AI agent against your ow
 You describe what needs doing; it reads and writes real files, runs real commands in a real
 shell, and drives a real browser you can watch.
 
-It is one self-contained 48.5 MB executable. There is no runtime to install alongside it, no
-`node_modules`, no bundled copy of Chromium. It talks to whichever model you point it at —
+It is two self-contained executables, 80.8 MB together — `aetox.exe`, the window, and since 1.6.0
+`aetox-engine.exe`, the half that thinks and works, beside it. There is no runtime to install
+alongside them, no `node_modules`, no bundled copy of Chromium. It talks to whichever model you point it at —
 a hosted API, a subscription you already pay for, or a 9B/35B running in LM Studio or Ollama on
 your own GPU (your data never leaves your machine or country — hook it up to Ollama and not a single byte goes anywhere) — and the capability comes from the app rather than from the model's parameters.
 That is why a small local model can still read a picture, transcribe a recording, and hand you a
@@ -85,7 +86,7 @@ both; the language switch is in Settings and in the first-run wizard. This READM
 
 - **Four rooms in the same window as the conversation** — slides, browser, files and terminal. The
   agent works in the room you are looking at, and you can reach in at any point. The Code door adds
-  a fifth: Git.
+  two more: Git, and the Timeline of the project's commits.
 - **It builds slide decks** — one self-contained `.html` file that is yours, editable by hand, and
   openable on any machine with a browser. Exports as `.pdf`, `.png` or `.jpg`.
 - **The browser control layer is ours** — the window is WebView2; the layer that drives it we
@@ -133,7 +134,7 @@ Prefer to click? [apps.microsoft.com/detail/9N4KKBRRSCZZ](https://apps.microsoft
 or paste `ms-windows-store://pdp/?productid=9N4KKBRRSCZZ` into Run (Win+R) to open the Store app
 straight away without the web page.
 
-**Installer** — [aetox-amd64-installer.exe](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe) (21.3 MB)
+**Installer** — [aetox-amd64-installer.exe](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe) (33.6 MB)
 
 Installs into Program Files with a Start menu entry. It carries its own files and nothing else:
 Tesseract, poppler, ffmpeg and the speech model are fetched later by the app itself, and only for a
@@ -146,7 +147,8 @@ scoop install https://raw.githubusercontent.com/Mikedev115/Aetox/main/scoop/aeto
 ```
 
 **Portable** — [the zip](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-windows-amd64-portable.zip),
-unpack, run `aetox.exe`. This is the only channel that can update itself in place.
+unpack, run `aetox.exe`. Since 1.6.0 the zip holds two files — `aetox.exe` and `aetox-engine.exe`
+— and they stay together. This is the only channel that can update itself in place.
 
 > **Pick one channel and stay on it.** Windows gives a packaged app its own data folder, so a Store
 > install and an installer install are two separate Aetoxes on one machine, with separate settings,
@@ -183,8 +185,11 @@ the update rather than falling back.
 
 ### Linux and macOS
 
-Not shipped. The engine and the desktop package both compile and their suites run under `-race`
-on Linux and macOS in CI; the browser pane is stubbed and packaging is not done.
+Not shipped as an app. The engine and the desktop package both compile and their suites run under
+`-race` on Linux and macOS in CI; the browser pane is stubbed and packaging is not done. What
+*does* ship for Linux since 1.6.0 is the engine alone — `aetox-engine-linux-amd64` and `-arm64` on
+every release — as the half that runs on a remote host under ตั้งค่า › เครื่องระยะไกล, driven by
+the Windows window over `ssh`.
 
 **1.0.0 is the Windows release.** Until 2026-08-15 this line read *"1.0.0 ships all three or it is
 not 1.0.0"* — that criterion was **changed by the owner, not met**. Holding a stable Windows build
@@ -197,18 +202,23 @@ already running it. Linux and macOS ship under the same bar, in a later release.
 <summary>Build it yourself</summary>
 
 ```powershell
+go build -o desktop/build/bin/aetox-engine.exe ./cmd/aetox-engine   # the engine, beside the window
 cd desktop
 wails build          # → desktop/build/bin/aetox.exe
 wails build -nsis    # with the installer
 ```
+
+The window looks for `aetox-engine.exe` beside itself first, then falls back to `go run
+./cmd/aetox-engine` inside a dev tree — `wails-dev.bat` builds it for you.
 
 </details>
 
 ## What you can do with it
 
 **All of it happens on the same workbench you are watching.** One window holds four rooms —
-slides, browser, files and terminal — and the Code door adds a fifth, Git, which lays out the
-uncommitted working tree with a per-file diff. The agent does not work behind a curtain and hand
+slides, browser, files and terminal — and the Code door adds two more: Git, which lays out the
+uncommitted working tree with a per-file diff, and Timeline, the project's commit history a page
+at a time. The agent does not work behind a curtain and hand
 you a file at the end: it opens a room, works in that room, and you can reach in and change
 something yourself without waiting for the turn to finish.
 
@@ -250,9 +260,12 @@ model required, and the model that *can* see gets the image itself instead.
 
 <img src="docs/assets/cap-image-ocr.png" alt="OCR pulling Thai text out of an image" width="100%">
 
-**Delegate to a specialist.** Type `@doc`, `@sheet`, `@github`, `@automation` or
-`@deepresearch` and your sentence reaches that agent word for word — not a paraphrase. Each is a folder on disk with its
-own prompt, its own memory, optionally its own model, and its own private skills.
+**Delegate to a specialist.** Pick `@doc`, `@sheet`, `@deepresearch` or `@video` off the `+`
+menu — typing the characters does nothing, on purpose, since the day a pasted draft that merely
+quoted `@reviewer` sent a whole brief to the wrong worker — and your sentence reaches that agent
+word for word, not a paraphrase. The menu lists the team this chat hires from. Each agent is a
+folder on disk with its own prompt, its own memory, optionally its own provider and model, and its
+own private skills.
 
 **Give it a job, not a step.** Work that takes twenty moves is planned before it is worked, and
 `todo_write` puts that plan on screen while it runs, so what you watch is the order it chose
@@ -295,7 +308,7 @@ the other list.
 |  | Assistant | Code |
 |:---|:---|:---|
 | **Where it works** | Your whole machine when no project is focused, or a project folder plus folders you add | The project folder you opened, plus folders you add |
-| **Rooms** | Assistant · Capabilities · Projects · Specialist agents · Video work · Work | Code |
+| **Rooms** | Assistant · Capabilities · Projects · Specialist agents · Video work · Work | Code, with Git and Timeline as tabs |
 | **The right-hand panel** | Available | Available |
 
 The doors separate what the *system* carries, never what the AI is willing to do. The assistant
@@ -388,7 +401,10 @@ Everything lands in one review queue in Settings, and each card shows the body, 
 reason, whose memory it would go into, and — for a replacement — the line it would overwrite.
 Approve or discard. What is kept is plain markdown you can open, edit line by line, or forget in
 place, and every decision is recorded permanently, so *"why does it think that?"* always has an
-answer. One switch turns the whole thing off.
+answer. One switch turns the whole thing off. Since 1.6.0 the door also remembers what you decided:
+a fact you declined is not proposed again in other words, one already kept is not asked twice, and
+the model is told what is pending and what was refused. Memory is kept per desk — `MEMORY.md` is
+the assistant's, the Code desk has its own file — and every label says which desk reads it.
 
 It takes effect from the next session, not this one — a mid-conversation prompt change would
 invalidate the provider's prefix cache, which is the same reason the tool block never moves.
@@ -403,6 +419,13 @@ A **desk** is the tool ceiling of a session. Three ship — `assistant`, `coding
 and a session's desk is fixed for its life. Desks are also what MCP servers and external
 connections are placed on, which is how a tool installed for one kind of work stays out of the
 others.
+
+**Two processes.** Since 1.6.0 the window is a screen and `aetox-engine` is where everything
+happens — the model loop, the files, the shell, MCP, the database — spoken to over one socket even
+on the same machine. The window keeps the things that are the machine's: the browser pane, computer
+use, dialogs, the voice, and every provider key. The engine never holds a key; it hands each request
+to the window to sign, and the window signs only for hosts it knows belong to that provider. That
+split is what lets the engine run on a Linux host over `ssh` with the same code and a longer wire.
 
 **Where it may go.** With a project focused, the workspace is that folder plus any folder you add
 — added folders get read and write with no prompt, the same rights as the root, because a second
@@ -430,7 +453,8 @@ and a command the scanner cannot read — `$(...)`, backticks, `-EncodedCommand`
 **Refused to every file tool, in every mode:** `.ssh` `.aws` `.gnupg` `.azure` `.kube` `.netrc`
 `.git-credentials` `.config/gh` `.aetox`, the Windows Credentials and Protect stores, Chrome /
 Edge / Firefox / Brave profiles, and Aetox's own `credentials.json`, `oauth.json`,
-`mcp-servers.json` and browser profile. Folder-picking refuses them too, so it fails at the door
+`account.json`, `mcp-servers.json`, `screen.json` (the remote hosts and the token that admits the
+window to an engine) and browser profile. Folder-picking refuses them too, so it fails at the door
 rather than as a confusing tool error later.
 
 **Your data.**
@@ -453,26 +477,30 @@ provider sees what its API normally sees, and nothing is routed through us.
 
 A tool count is not a reason to use anything, which is why this is down here.
 
-**28 tools reach the model on a fresh install**; a default assistant session carries fewer,
-because a desk narrows the set. They cost about 7,527 tokens on every request before you have
-typed anything, against a ceiling of 10,400 tokens and 48 tools that a test enforces. Ten of them
-are **packed** — one name in the block, several verbs behind it — which is why the list got
-shorter in v1.5.15 without anything being taken away.
+**35 tools reach the model on a fresh install** — 34 from the engine and `browser`, which the
+window lends across the wire (§248); `computer` joins only once you switch it on. A default
+assistant session carries fewer, because a desk narrows the set. They cost about 10,300 tokens on
+every request before you have typed anything — the engine's 34 are about 9,500, against a ceiling
+of 10,400 tokens and 48 tools that a test enforces on that block, and the browser's definition is
+another ~830. Twelve of them are **packed** — one name in the block, several verbs behind it —
+which is why the list got shorter in v1.5.15 without anything being taken away. Re-measured
+2026-09-13 on v1.6.1.
 
 | Group | Tools |
 |:---|:---|
 | **Files** | `change` *(write · edit · append · batch · delete)* `read` `search` *(list · glob · grep)* |
-| **Running commands** | `computer` *(list_apps · read · capture · focus · click · type · close)* `desk_terminal` `git` `shell` *(run · output · kill · list)* |
-| **Handing back files** | `doc_write` `sheet_write` |
-| **Reading media** | `media_read` *(image · video · audio)* `pdf_read` |
-| **Web and automation** | `browser` *(open · read · click · type · wait · back · scroll · capture · tabs · dialog · console · network)* `web_fetch` `web_search` |
+| **Running commands** | `computer` *(list_apps · read · capture · focus · click · type · close — only once switched on in ตั้งค่า > การใช้คอมพิวเตอร์)* `desk_terminal` `git` `shell` *(run · output · kill · list)* |
+| **Handing back files** | `asset_find` `doc_write` `sheet_write` `video` *(new · check · render)* |
+| **Reading media** | `image_make` `media_read` *(image · video · audio)* `pdf_read` `video_project` |
+| **Web and automation** | `browser` *(open · read · click · type · wait · back · scroll · capture · tabs · dialog · console · network · hover · drag · key · upload)* `media_fetch` `web_fetch` `web_search` |
 | **Code work** | `codebase` *(errors · symbol · map)* `github` *(search · repo_summary · list_files · read_file)* `pr` *(list · read · checks · create · comment)* `rename` |
-| **How the assistant works** | `ask_user` `calc` `desk` *(open · list · close)* `memory` `plugin_install` `session_search` `skill_view` `skills_list` `task` *(start · collect · answer · plan)* `time` `todo_write` |
+| **How the assistant works** | `ask_user` `calc` `desk` *(open · list · close · focus)* `memory` `plan_mode` `plan` *(write · amend · read · step · report)* `plugin_install` `session_search` `skill_view` `skills_list` `task` *(start · collect · answer · plan)* `time` `todo_write` |
 
 That table is generated from the registry the model is actually handed
-(`go test ./desktop -run TestPrintReadmeToolTable -v`), because a hand-kept list of what a program
-contains is a second source of truth for a question the program can answer — and this one drifted
-for months, still naming tools that had been folded into `shell` and `github`.
+(`go test ./internal/engine -run TestPrintReadmeToolTable -v`, plus the two the window lends),
+because a hand-kept list of what a program contains is a second source of truth for a question the
+program can answer — and this one drifted for months, still naming tools that had been folded into
+`shell` and `github`.
 
 Connecting an automation engine adds one more packed tool — `n8n` *(list · read · create · update ·
 activate)* or `windmill` *(workspaces · list · read · create · update)* — and nothing until then:
@@ -543,16 +571,17 @@ has not passed them may not appear here or on the website.
 > The dangerous number is the flattering one, because nobody audits a figure that makes them look
 > good.
 
-**Aetox.** The two size rows and the two test counts were re-measured 2026-08-25 on v1.5.7;
-assembling a turn is from 2026-08-13, and the ⁽ᵈ⁾ rows from 2026-07-27 on v0.9.2.
+**Aetox.** The two size rows and the two test counts were re-measured 2026-09-13 on v1.6.1;
+assembling a turn is from 2026-08-13, and the ⁽ᵈ⁾ rows from 2026-07-27 on v0.9.2 — before the
+engine became a process of its own, so the process count in particular is one short of today.
 
 | | |
 |:---|---:|
-| What you download | 21.3 MB installer |
-| What ends up on disk | **48.5 MB**, one file |
+| What you download | 33.6 MB installer |
+| What ends up on disk | **80.8 MB**, two files — `aetox.exe` 49.2 MB + `aetox-engine.exe` 31.7 MB |
 | Assembling a turn | 0.32 ms · 174.9 KB allocated |
-| Go tests | 2,479 across 43 packages, 0 failures |
-| Frontend tests | 1,054 across 107 files, 0 failures |
+| Go tests | 3,371 across 56 packages, 0 failures |
+| Frontend tests | 1,747 across 175 files, 0 failures |
 | First launch (cold) | 1.77 s ⁽ᵈ⁾ |
 | Every launch after | 0.53 s ⁽ᵈ⁾ |
 | RAM committed | 252 MB ⁽ᵈ⁾ |
@@ -564,12 +593,16 @@ rules on the day — which is the whole difference between an old number and a b
 
 Two things that number honestly. Assembling a turn was 0.12 ms and 96.2 KB when the block held 27
 tools; it is 0.32 ms and 174.9 KB now that it holds more. That is a real regression, and it is
-still three ten-thousandths of a second — the time you wait is the model thinking. And the Go
-suite is green on Windows; **CI on Linux and macOS is red**, six failures, one of them a genuine
-sandbox hole rather than a bad test. Since 2026-08-15 those two jobs are reported rather than
-gating — Windows is what ships, and one shared verdict meant every Windows push went red for a
-port's unfinished edges until nobody read the colour at all. The failures are still on the run
-page and still to be fixed; what changed is that they no longer hide the platform that is done.
+still three ten-thousandths of a second — the time you wait is the model thinking. And the disk
+figure went from 48.5 MB in one file to 80.8 MB in two: the engine is now its own executable, and
+the window still links the engine package for its types and forwarders, so the split added a
+binary without yet shrinking the first one. That is a real cost of §248 and it is written down as
+one. The Go suite is green on Windows; **CI on Linux and macOS is red** — 16 tests on 2026-09-13,
+the port's unfinished edges (shell path rules, WSL, the window tools) rather than the engine.
+Since 2026-08-15 those two jobs are reported rather than gating — Windows is what ships, and one
+shared verdict meant every Windows push went red for a port's unfinished edges until nobody read
+the colour at all. The failures are still on the run page and still to be fixed; what changed is
+that they no longer hide the platform that is done.
 
 **Against Zed**, the harder ruler — native Rust, with a reputation for being light.
 
@@ -578,7 +611,7 @@ page and still to be fixed; what changed is that they no longer hide the platfor
 | First launch (cold) | 1.77 s | 2.12 s |
 | Every launch after | 0.53 s | 0.53 s |
 | RAM committed | 252 MB | 471 MB |
-| Disk | **48.5 MB** | 419 MB |
+| Disk | **80.8 MB** | 419 MB |
 
 Both columns except Aetox's disk figure were measured 2026-07-27 on the same machine under the same
 rules, and neither has been re-measured — Zed is no longer installed here. A tie on warm launch with
@@ -593,9 +626,9 @@ handed a second browser to store.
 <summary>How these were measured, and what does not qualify</summary>
 
 **Disk** — download [the portable zip](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-windows-amd64-portable.zip),
-unpack it, and read the size of the one `aetox.exe` inside: 50,818,560 bytes. Anyone can reproduce
-it in a minute. It replaces the 47.5 MB figure measured on 2026-08-18, which was correct then and
-is not now. Competitor sizes are measured after install from the install folder, never
+unpack it, and add up the two files inside: `aetox.exe` 51,554,816 bytes and `aetox-engine.exe`
+33,197,568 bytes, 84,752,384 together. Anyone can reproduce it in a minute. It replaces the 48.5 MB
+single-file figure measured on 2026-08-25 on v1.5.7, which was correct then and is not now. Competitor sizes are measured after install from the install folder, never
 taken from a download page, and never from a folder holding user profiles or caches.
 
 **Launch, RAM and process count** — `bench.ps1 -Start`, empty project, median of 5 runs after
