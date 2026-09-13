@@ -212,7 +212,10 @@ func installScript(version string) string {
 }
 
 // startScript starts the engine detached — nohup, stdio on files, stdin
-// from /dev/null — so the ssh session that started it can end. The token
+// from /dev/null — so the ssh session that started it can end. Everything
+// it runs is POSIX plus what busybox has, so a minimal image is a host
+// too; the one non-POSIX habit, a fractional sleep, falls back to a whole
+// second on a sleep that refuses it rather than spinning the wait out. The token
 // arrives on stdin and lands in a 0600 file before anything else runs; an
 // engine already recorded as running is stopped first, because a start is
 // asked for only when the one there is the wrong version or has a token
@@ -229,7 +232,7 @@ func startScript(version, root, idle string) string {
 		` > "$d/engine.out" 2> "$d/engine.err" < /dev/null & pid=$!; ` +
 		`i=0; while [ ! -s "$d/engine.out" ]; do ` +
 		`if ! kill -0 "$pid" 2>/dev/null; then echo "engine exited:" >&2; cat "$d/engine.err" >&2; exit 1; fi; ` +
-		`i=$((i+1)); if [ "$i" -gt 200 ]; then echo "engine did not listen in 20s" >&2; exit 1; fi; sleep 0.1; done; ` +
+		`i=$((i+1)); if [ "$i" -gt 200 ]; then echo "engine did not listen in 20s" >&2; exit 1; fi; sleep 0.1 2>/dev/null || sleep 1; done; ` +
 		`head -n 1 "$d/engine.out" > "$d/engine.addr"; echo "$pid" > "$d/engine.pid"; echo ` + version + ` > "$d/engine.version"; ` +
 		`cat "$d/engine.addr"`
 }
