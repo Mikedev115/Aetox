@@ -864,9 +864,10 @@ func workbench(s Surface, d Desk) string {
 // the one wrong answer that hides its own mistake.
 func capability() string {
 	return "The tools listed for you are not everything this machine can do. Skill documents, " +
-		"instructions the user installed for particular jobs, are never sent to you; skills_list " +
-		"returns them on request. Work that someone already wrote down for exactly the task in " +
-		"front of you is invisible until you go and look.\n" +
+		"instructions the user installed for particular jobs, are listed further down by name and " +
+		"one line each; their bodies are never sent, skill_view opens one, and skills_list returns " +
+		"the same shelf on request. Work that someone already wrote down for exactly the task in " +
+		"front of you is one lookup away, and worth nothing until you open it.\n" +
 		"Look at two moments: when you are about to say something cannot be done, and when you are " +
 		"about to build from scratch something that sounds like a job this user does more than once. " +
 		"A lookup that finds nothing costs one cheap round. Telling the user you cannot do something " +
@@ -925,11 +926,43 @@ func offering() string {
 		"If they accept, do it in that turn rather than describing it again.\n"
 }
 
-// Read is one skill's own claim about when it must be read: the work it comes
-// before, in the skill's words.
+// Read is one skill on the machine's shelf as the prompt hears of it: its name,
+// its own one-line description, and — where the skill claims one — the work it
+// must be read before, in the skill's words.
+//
+// Description joined Before on 2026-09-14. Until then the shelf handed over only
+// the `before:` claims, and a skill without one was invisible to the model
+// unless it thought to call skills_list — which, over a fortnight of the
+// owner's sessions, it almost never did: the skills he wrote sat unread while
+// the assistant built the same thing from nothing, and the habit detector then
+// proposed a new skill for work an installed one already covered. Hermes Agent
+// lists every skill in the prompt by name and description and reports that this
+// is what makes agent-written skills get used at all; the index below is that
+// idea at this shelf's size, without its "MUST load" wording (see reads).
 type Read struct {
-	Skill  string
-	Before string
+	Skill       string
+	Description string
+	Before      string
+}
+
+// indexEntryCap bounds one skill's description in the prompt index. Shorter
+// than skills_list's 220: that list is read once on request, this is paid on
+// every turn of every session, and the line only has to say enough to know
+// WHICH skill to open — the pitch is behind skill_view. Cut at a word so a
+// clipped line still reads.
+const indexEntryCap = 100
+
+func clipIndexLine(desc string) string {
+	desc = strings.Join(strings.Fields(desc), " ")
+	runes := []rune(desc)
+	if len(runes) <= indexEntryCap {
+		return desc
+	}
+	cut := string(runes[:indexEntryCap])
+	if i := strings.LastIndexAny(cut, " ,;"); i > indexEntryCap/2 {
+		cut = cut[:i]
+	}
+	return cut + "…"
 }
 
 // shelf is where the machine's `before:` claims come from, registered once by
@@ -999,12 +1032,43 @@ func reads(desk Desk) string {
 	// The lookup still has to happen, so the sentence still says to do it
 	// first. What it no longer does is describe itself as a constraint, because
 	// a model handed a constraint tends to say out loud that it is obeying one.
+	//
+	// The index first, then the claims. The index is every skill by name and
+	// one line, so the model decides for itself which document the work in
+	// hand is covered by; the claims are the skills that decided for it. Not
+	// Hermes' "you MUST load it, err on the side of loading": the coding desk
+	// measured that a longer, louder prompt answers worse (coding.md), and a
+	// model handed a mandate narrates its compliance — the same lesson as the
+	// paragraph above. The one sentence kept from theirs is the one that
+	// changes behaviour: read it even for work you could do without it,
+	// because the skill is how this user wants that work done.
 	var b strings.Builder
-	b.WriteString("Some skills name the work they are read before. When the work in hand is that work, " +
-		"call skill_view for the skill named and read it before starting — it is part of doing the " +
-		"work, not a step worth mentioning.\n")
+	b.WriteString("Skills installed on this machine, one line each; skill_view opens the whole document " +
+		"and skills_list returns the same shelf with fuller descriptions. When the work in hand is " +
+		"what one of these covers, read it before starting — it is part of doing the work, not a " +
+		"step worth mentioning, and it holds even for work you could do without it: the skill is " +
+		"how this user wants that work done.\n")
 	for _, r := range claims {
-		fmt.Fprintf(&b, "- before %s: skill_view %q\n", r.Before, r.Skill)
+		if r.Skill == "" {
+			continue
+		}
+		if desc := clipIndexLine(r.Description); desc != "" {
+			fmt.Fprintf(&b, "- %s: %s\n", r.Skill, desc)
+		} else {
+			fmt.Fprintf(&b, "- %s\n", r.Skill)
+		}
+	}
+	var claimed []Read
+	for _, r := range claims {
+		if r.Before != "" && r.Skill != "" {
+			claimed = append(claimed, r)
+		}
+	}
+	if len(claimed) > 0 {
+		b.WriteString("Some of them name the work they are read before:\n")
+		for _, r := range claimed {
+			fmt.Fprintf(&b, "- before %s: skill_view %q\n", r.Before, r.Skill)
+		}
 	}
 	return b.String()
 }

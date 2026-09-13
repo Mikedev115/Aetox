@@ -45,6 +45,40 @@ func TestReadsNameTheSkillBeforeItsWork(t *testing.T) {
 	}
 }
 
+// The other half of the shelf, since 2026-09-14: every skill by name and one
+// line, whether or not it claims a moment. A skill without `before:` used to be
+// invisible unless the model called skills_list, and it almost never did.
+func TestReadsListEveryInstalledSkill(t *testing.T) {
+	long := strings.Repeat("word ", 40) // 200 runes, well past the cap
+	useShelf(t,
+		Read{Skill: "aetox-web-templates", Description: "Page templates for a web site.", Before: "writing a web page"},
+		Read{Skill: "invoice", Description: long},
+		Read{Skill: "bare"},
+	)
+	got := reads(Desk{Name: "assistant", Carries: func(string) bool { return true }})
+	for _, want := range []string{
+		"- aetox-web-templates: Page templates for a web site.",
+		"- invoice: word word",
+		"- bare\n",
+		`before writing a web page: skill_view "aetox-web-templates"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("reads is missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, long) {
+		t.Errorf("a long description must be clipped in the index:\n%s", got)
+	}
+	if strings.Contains(got, `skill_view "invoice"`) || strings.Contains(got, `skill_view "bare"`) {
+		t.Errorf("a skill with no claim gets an index line, not a claim:\n%s", got)
+	}
+	// Index before claims: the model reads what is on the shelf, then which
+	// of it decided its own moment.
+	if strings.Index(got, "- invoice:") > strings.Index(got, "before writing a web page") {
+		t.Errorf("the index must come before the claims:\n%s", got)
+	}
+}
+
 func TestReadsAreSilentWithNothingToSay(t *testing.T) {
 	useShelf(t)
 	if got := reads(Desk{Carries: func(string) bool { return true }}); got != "" {

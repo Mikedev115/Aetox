@@ -5,21 +5,30 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/learned"
 	"github.com/Mikedev115/Aetox/internal/model"
+	"github.com/Mikedev115/Aetox/internal/skill"
 )
 
 // HabitProposal represents an automated capability synthesized from repeated work.
 type HabitProposal struct {
 	Destination string `json:"destination"` // "skill", "user_profile", or "machine_memory"
-	SkillName   string `json:"skill_name"`   // slug for skill if destination == "skill"
-	Title       string `json:"title"`        // short human summary for the proposal card
-	Body        string `json:"body"`         // SKILL.md markdown or declarative fact
-	Reason      string `json:"reason"`       // evidence citing observed sessions
+	SkillName   string `json:"skill_name"`  // slug for skill if destination == "skill"
+	// Extends names an installed skill this belongs in, and turns the proposal
+	// from a new SKILL.md into a section appended to that one (op "add").
+	// Added 2026-09-14 after the synthesizer, which never saw the shelf,
+	// drafted a full skill for work a bundled one already covered — the
+	// duplicate would not even have applied (skill.Apply refuses "create" on
+	// an existing name), but the user was still asked to read and judge it.
+	Extends string `json:"extends"`
+	Title   string `json:"title"`  // short human summary for the proposal card
+	Body    string `json:"body"`   // SKILL.md markdown or declarative fact
+	Reason  string `json:"reason"` // evidence citing observed sessions
 }
 
 const habitSynthesisInstructions = `You are Aetox's Habit & Workflow Synthesizer.
@@ -30,13 +39,13 @@ Rules:
 1. Language: Must strictly match the language of the conversation/user (e.g. Thai if user speaks Thai).
 2. Decision Rules:
    - "skill": If this pattern represents a procedure, script, multi-step workflow, or recurring tool task (e.g. GPU check, git pull-and-test, data conversions).
-     Draft a complete, self-contained SKILL.md content with YAML frontmatter:
+     First read "Skills already installed" in the user message. If one of them already covers this work, set "extends" to its exact name and write in "body" only what that skill is missing — the steps, commands or pitfalls these sessions showed — as a section to append to it. Never draft a second skill for work an installed one covers.
+     Otherwise draft a new SKILL.md with YAML frontmatter:
      ---
      name: <slug>
-     description: <short description in the user's language>
+     description: <one line, under 80 characters, in the user's language: what the work is and when this applies — the only line the agent sees before opening the skill>
      ---
-     # <Title>
-     <Concise step-by-step instructions and command recipes>
+     then the body. As short as the procedure allows, shaped to the work — headings only where the work has parts, not a fixed outline. The commands and checks the sessions actually used. Rules, not a story about the sessions: no dates, no quoted chat, no narration of what happened.
    - "user_profile": Extract ONLY immutable facts (e.g. role, tech stack, environment) and explicit permanent working rules. Write as a declarative fact about the user in their language. Strictly ignore ephemeral/one-off tasks, emotions, personality quirks, and guesses.
    - "machine_memory": Permanent, non-negotiable hardware or environment constraint (e.g. hardware limits, global proxy). Write as a declarative fact in the user's language for MEMORY.md.
 3. Be conservative: Propose only if the user explicitly asked or a genuinely durable, recurring pattern exists. If there is nothing durable or worth automating, do not call the tool.`
@@ -57,6 +66,10 @@ var habitSynthesisTool = model.ToolDefinition{
 				"skill_name": {
 					"type": "string",
 					"description": "Slug for skill name (e.g. check-gpu-power) if destination is skill"
+				},
+				"extends": {
+					"type": "string",
+					"description": "Exact name of an installed skill (from 'Skills already installed') that this work belongs in; body is then the section to append to it. Empty for a new skill."
 				},
 				"title": {
 					"type": "string",
@@ -95,6 +108,11 @@ func (s appHabitSynthesizer) Synthesize(ctx context.Context, digest, hint string
 	if hint != "" {
 		userPrompt += fmt.Sprintf("\n\n[User Hint / Context: %s]", hint)
 	}
+	// The same shelf the main prompt lists (bootstrap.skillReads): a drafter
+	// that cannot see what is installed can only ever propose a new skill.
+	if index := installedSkillIndex(); index != "" {
+		userPrompt += "\n\n=== Skills already installed ===\n" + index
+	}
 
 	req := model.Request{
 		Model: modelName,
@@ -127,6 +145,37 @@ func (s appHabitSynthesizer) Synthesize(ctx context.Context, digest, hint string
 		return nil, fmt.Errorf("failed to parse habit proposal: %w", err)
 	}
 	return &prop, nil
+}
+
+// installedSkillIndex is the shelf as one line per skill, name and description,
+// for the drafter's prompt. The same scan skills_list and the main prompt run,
+// so the three cannot disagree about what is installed.
+func installedSkillIndex() string {
+	var b strings.Builder
+	for _, d := range installedSkills() {
+		b.WriteString("- " + d.Name)
+		if desc := strings.Join(strings.Fields(d.Description), " "); desc != "" {
+			b.WriteString(": " + oneLine(desc, 160))
+		}
+		b.WriteString("\n")
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
+// installedSkillNames maps a case-folded skill name to the name as installed,
+// which is how skill_view resolves one (bundled_skills.go).
+func installedSkillNames() map[string]string {
+	out := map[string]string{}
+	for _, d := range installedSkills() {
+		out[strings.ToLower(d.Name)] = d.Name
+	}
+	return out
+}
+
+func installedSkills() []skill.DiscoveredSkill {
+	found := skill.ListDiscovered(skill.DefaultDiscoveryPaths())
+	sort.Slice(found, func(i, j int) bool { return found[i].Name < found[j].Name })
+	return found
 }
 
 // buildSessionsDigest gathers messages and tool runs for the given session IDs.
@@ -226,12 +275,30 @@ func (a *Engine) synthesizeHabitForSessions(ctx context.Context, synthesizer hab
 	switch prop.Destination {
 	case "skill":
 		kind = kindSkill
+		installed := installedSkillNames()
+		if extends := strings.ToLower(strings.TrimSpace(prop.Extends)); extends != "" {
+			// The model named a skill to extend. Only a name that is really on
+			// the shelf is honoured — a made-up one would queue an "add" that
+			// approval could not apply.
+			if name, ok := installed[extends]; ok {
+				scope, target, op = name, name, learned.OpAdd
+				break
+			}
+			debuglog.Msg("habit_synthesis: extends %q names no installed skill, drafting anew", prop.Extends)
+		}
 		skillSlug := strings.TrimSpace(prop.SkillName)
 		if skillSlug == "" {
 			skillSlug = "custom-workflow"
 		}
 		// Clean slug
 		skillSlug = strings.ToLower(strings.ReplaceAll(skillSlug, " ", "-"))
+		if name, ok := installed[skillSlug]; ok {
+			// A new skill under a name that is taken. skill.Apply would refuse
+			// it at approval, so the user would be asked to judge a proposal
+			// that cannot land; not queued, and the log says which one.
+			debuglog.Msg("habit_synthesis: %q is already installed, new skill not queued", name)
+			return nil, nil
+		}
 		scope = skillSlug
 		target = skillSlug
 		op = "create"
