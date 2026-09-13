@@ -116,16 +116,28 @@ func studioStore() (*assetlib.Store, string, error) {
 // — the agent's tool, the readiness row, the browser — sees the corrected
 // kind and never sees a hidden row. The browser alone may ask for hidden rows
 // back (studioShelvesAll) to let the user un-hide one.
+//
+// A shelf whose folder is gone is NOT among them (owner, 13 ก.ย. 2026:
+// "ไม่มีก็ไม่ควรแสดงดิ"): a drive unplugged or a folder moved leaves its
+// rows in the catalogue — that is what lets it come back without a rescan —
+// but neither the agent nor the browser may be handed a file that cannot be
+// opened. Only StudioLibraries (the Settings list, studioShelvesListed)
+// still sees such a shelf, marked, so the person can see why and remove it.
 func studioShelves() ([]*assetlib.Library, *assetlib.Store, string, error) {
-	return studioShelvesWith(false)
+	return studioShelvesWith(false, false)
 }
 
 // studioShelvesAll is studioShelves with hidden rows kept and marked.
 func studioShelvesAll() ([]*assetlib.Library, *assetlib.Store, string, error) {
-	return studioShelvesWith(true)
+	return studioShelvesWith(true, false)
 }
 
-func studioShelvesWith(keepHidden bool) ([]*assetlib.Library, *assetlib.Store, string, error) {
+// studioShelvesListed is every shelf the user has added, present or not.
+func studioShelvesListed() ([]*assetlib.Library, *assetlib.Store, string, error) {
+	return studioShelvesWith(false, true)
+}
+
+func studioShelvesWith(keepHidden, keepMissing bool) ([]*assetlib.Library, *assetlib.Store, string, error) {
 	s, root, err := studioStore()
 	if err != nil {
 		return nil, nil, "", err
@@ -133,8 +145,18 @@ func studioShelvesWith(keepHidden bool) ([]*assetlib.Library, *assetlib.Store, s
 	builtin, _ := assetlib.Builtin(root)
 	libs := make([]*assetlib.Library, 0, len(builtin)+len(s.Libraries))
 	libs = append(libs, builtin...)
-	libs = append(libs, s.Libraries...)
+	for _, lib := range s.Libraries {
+		if keepMissing || shelfPresent(lib) {
+			libs = append(libs, lib)
+		}
+	}
 	return s.Apply(libs, keepHidden), s, root, nil
+}
+
+// shelfPresent is whether a shelf's folder is where the catalogue says.
+func shelfPresent(lib *assetlib.Library) bool {
+	st, err := os.Stat(lib.Root)
+	return err == nil && st.IsDir()
 }
 
 // StudioSetKind records the user's correction of one asset's kind ("" puts
@@ -193,7 +215,7 @@ func studioDataRoot() (string, error) { return config.DataRoot() }
 // StudioLibraries lists every shelf, bundled first. Never nil (§34).
 func (a *Engine) StudioLibraries() []StudioLibraryView {
 	out := []StudioLibraryView{}
-	libs, _, _, err := studioShelves()
+	libs, _, _, err := studioShelvesListed()
 	if err != nil {
 		return out
 	}
@@ -223,10 +245,9 @@ func studioView(lib *assetlib.Library) StudioLibraryView {
 		v.Counts[string(k)] = n
 	}
 	// A shelf whose folder is gone (a drive unplugged, a folder renamed) is
-	// still listed, marked, so the user can see why the agent finds nothing.
-	if st, err := os.Stat(lib.Root); err != nil || !st.IsDir() {
-		v.Missing = true
-	}
+	// still listed here, marked, so the user can see why the agent finds
+	// nothing — and only here (studioShelves).
+	v.Missing = !shelfPresent(lib)
 	return v
 }
 

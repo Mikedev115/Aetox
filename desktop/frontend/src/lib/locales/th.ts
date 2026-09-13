@@ -1291,6 +1291,8 @@ export const th = {
   'settings.studioAllFolders': 'ทุกโฟลเดอร์',
   'settings.studioAlphaOnly': 'เฉพาะที่โปร่งใส',
   'settings.studioNoMatch': 'ไม่มีวัตถุดิบที่ตรง — เอเจนก็จะไม่เจอเช่นกัน',
+  'settings.studioGoneHere': 'โฟลเดอร์ของคลัง «{name}» ไม่อยู่ที่เดิมแล้ว ({root}) — ไฟล์จากคลังนี้จึงไม่แสดงและเอเจนไม่เห็น จนกว่าจะย้ายกลับมา หรือถอดคลังออกที่ตั้งค่า › คลังสตูดิโอ',
+  'settings.studioPlayFailed': 'เล่นไม่ได้ — หาไฟล์ไม่เจอ',
   'settings.studioShowing': '{a}–{b} จาก {n}',
   'settings.studioPlay': 'เล่น',
   'settings.studioStop': 'หยุด',

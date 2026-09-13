@@ -197,3 +197,40 @@ func TestStudioCorrectionsReachTheAgentTool(t *testing.T) {
 		t.Errorf("readiness counts hidden rows: %s", row.Where)
 	}
 }
+
+// A shelf whose folder is gone (owner, 13 ก.ย. 2026: "ไม่มีก็ไม่ควรแสดงดิ"):
+// the catalogue keeps its rows so it comes back without a rescan, but the
+// browser and the agent see none of them — only the Settings list still
+// names it, marked, so the person can see why and remove it.
+func TestAGoneShelfIsListedMarkedAndShownNowhereElse(t *testing.T) {
+	_, lib := seedShelf(t)
+	a := &Engine{}
+	if got := a.StudioAssets(StudioAssetQuery{Kind: "sfx"}); got.Total == 0 {
+		t.Fatal("seeded shelf not browsable")
+	}
+	if err := os.RemoveAll(lib.Root); err != nil {
+		t.Fatal(err)
+	}
+
+	page := a.StudioAssets(StudioAssetQuery{Kind: "sfx"})
+	for _, r := range page.Rows {
+		if strings.HasPrefix(r.Path, "SFX/") {
+			t.Fatalf("a gone shelf's row was drawn: %s", r.Path)
+		}
+	}
+	tool := &assetFindSkill{app: a}
+	found, _ := tool.run(context.Background(), map[string]any{"action": "query", "text": "whoosh"})
+	if strings.Contains(found.Content, "whoosh-01") {
+		t.Fatalf("the agent was handed a file that cannot be opened: %s", found.Content)
+	}
+	var listed *StudioLibraryView
+	for _, v := range a.StudioLibraries() {
+		if v.ID == lib.ID {
+			vv := v
+			listed = &vv
+		}
+	}
+	if listed == nil || !listed.Missing {
+		t.Fatalf("the gone shelf must stay on the Settings list, marked: %+v", listed)
+	}
+}

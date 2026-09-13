@@ -103,7 +103,7 @@ type StudioCategory struct {
 // StudioAssets answers one page of the browser. Never nil rows (§34).
 func (a *Engine) StudioAssets(q StudioAssetQuery) StudioAssetPage {
 	out := StudioAssetPage{Rows: []StudioAssetView{}, Categories: []StudioCategory{}, Page: 1, Pages: 1}
-	libs, _, root, err := studioShelvesWith(q.IncludeHidden)
+	libs, _, root, err := studioShelvesWith(q.IncludeHidden, false)
 	if err != nil {
 		return out
 	}

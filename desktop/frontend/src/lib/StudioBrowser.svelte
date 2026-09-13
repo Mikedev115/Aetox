@@ -23,7 +23,7 @@
   //
   // One sound plays at a time — pressing another stops the first — because
   // two whooshes at once tell you nothing about either.
-  import { StudioAssets, StudioThumbs, StudioSetKind, StudioSetHidden, RevealStudioAsset } from '../../wailsjs/go/main/App'
+  import { StudioAssets, StudioThumbs, StudioSetKind, StudioSetHidden, RevealStudioAsset, StudioLibraries } from '../../wailsjs/go/main/App'
   import { EventsOn } from '../../wailsjs/runtime/runtime'
   import { engine } from '../../wailsjs/go/models'
   import type { IconName } from './icons'
@@ -153,18 +153,34 @@
   $effect(() => () => observer?.disconnect())
 
 
+  // ---- shelves whose folder is gone
+  // The catalogue outlives the folder — a drive unplugged, a folder moved —
+  // and the engine draws none of that shelf's rows (studioShelves), so what
+  // this page owes is the reason the rows are not here (owner, 13 ก.ย. 2026:
+  // "ทำไมกดฟังไม่ได้", then "ไม่มีก็ไม่ควรแสดงดิ"). Settings marks such a
+  // shelf; said here too, because this is where the person is looking for
+  // the files.
+  let libs = $state<engine.StudioLibraryView[]>([])
+  $effect(() => { void StudioLibraries().then((l) => { libs = l ?? [] }).catch(() => { libs = [] }) })
+  const goneShown = $derived(libs.filter((l) => l.missing && (!libraryPick || l.id === libraryPick)))
+
   // ---- one sound at a time
   let audio: HTMLAudioElement | undefined
   let playing = $state('')
+  // The row whose play failed, so the tile can say so instead of the button
+  // flipping back to ▶ as if nothing had been pressed.
+  let failed = $state('')
   function toggle(row: engine.StudioAssetView) {
     if (!audio) {
       audio = new Audio()
       audio.addEventListener('ended', () => { playing = '' })
+      audio.addEventListener('error', () => { failed = playing; playing = '' })
     }
     if (playing === row.id) { stop(); return }
+    failed = ''
     audio.src = row.url
     audio.currentTime = 0
-    void audio.play().catch(() => { playing = '' })
+    void audio.play().catch(() => { failed = row.id; playing = '' })
     playing = row.id
   }
   function stop() {
@@ -269,6 +285,10 @@
     </div>
   {/if}
 
+  {#each goneShown as lib (lib.id)}
+    <div class="mset-error sb-gone">{t('settings.studioGoneHere', { name: lib.name, root: lib.root })}</div>
+  {/each}
+
   {#if result}
     <div class="sb-count">
       {#if result.total === 0}{t('settings.studioNoMatch')}{:else}{t('settings.studioShowing', { a: first.toLocaleString(), b: last.toLocaleString(), n: result.total.toLocaleString() })}{/if}
@@ -306,6 +326,7 @@
           <div class="sb-text">
             <div class="sb-name" title={row.path}>{row.name}</div>
             <div class="sb-meta">
+              {#if failed === row.id}<span class="sb-fail">{t('settings.studioPlayFailed')}</span>{/if}
               <span>{kindLabel(row.kind)}</span>
               {#if row.width > 0}<span>{row.width}×{row.height}</span>{/if}
               {#if row.category}<span class="sb-cat-name" title={row.category}>{row.category}</span>{/if}
