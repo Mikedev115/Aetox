@@ -896,6 +896,10 @@ CREATE TABLE IF NOT EXISTS project_folders (
 // subagent.PreferredTeam seeds the teams' home if it is missing, which is
 // what the first roster read would do a moment later anyway.
 func preTeamRowsJoinTheSeed(tx *sql.Tx) error {
+	// query-direct: this runs inside the migration's *sql.Tx, which eachRow
+	// (a *sql.DB) cannot take; the loop below aborts on the first scan error
+	// and asks rows.Err() itself, so a read that failed partway fails the
+	// migration instead of moving fewer chats than it said.
 	rows, err := tx.Query(`SELECT DISTINCT mode FROM sessions WHERE team = '' AND agent = ''`)
 	if err != nil {
 		return err
@@ -908,6 +912,10 @@ func preTeamRowsJoinTheSeed(tx *sql.Tx) error {
 			return err
 		}
 		desks = append(desks, desk)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
 	}
 	if err := rows.Close(); err != nil {
 		return err
