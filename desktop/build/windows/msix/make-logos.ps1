@@ -100,10 +100,18 @@ function Read-Frames([string]$path) {
 
         $ms = New-Object System.IO.MemoryStream(, $blob)
         $frames[$w] = [System.Drawing.Bitmap]::FromStream($ms)
+        # The frame's own bytes, kept for the exact-size outputs below. GDI+
+        # loads a PNG into premultiplied ARGB and saves it back from there,
+        # which rounds every semi-transparent pixel on the way -- the rounded
+        # corners and the soft edge of the current icon (2026-09-13) came out
+        # 12 to 138 pixels different from the frame they were "copied" from,
+        # and TestStoreIconsReuseTheHandDrawnFrameWhereThereIsOne said so.
+        $script:frameBytes[$w] = $blob
     }
     if ($frames.Count -eq 0) { throw "$path carried no readable frame" }
     return $frames
 }
+$script:frameBytes = @{}
 
 # The frame to draw a given output from: the exact size when the .ico has one,
 # otherwise the smallest frame larger than it, otherwise the largest there is.
@@ -137,6 +145,15 @@ function Get-Ink([System.Drawing.Bitmap]$bmp) {
 # that size are copied pixel for pixel -- resampling an image onto itself is
 # not free, it softens edges that were drawn deliberately.
 function Write-Logo([hashtable]$frames, [string]$path, [int]$w, [int]$h) {
+    # An exact-size square frame is written out as the very PNG that sits in
+    # the .ico -- byte for byte, not decoded and re-encoded. See Read-Frames
+    # for why a 1:1 blit through GDI+ is not the same thing.
+    if ($w -eq $h -and $script:frameBytes.ContainsKey($w)) {
+        [System.IO.File]::WriteAllBytes($path, $script:frameBytes[$w])
+        $ink = Get-Ink $frames[$w]
+        if ($ink -eq 0) { throw "$(Split-Path $path -Leaf) came out empty" }
+        return @{ ink = $ink; from = $w }
+    }
     $src = Select-Source $frames ([Math]::Max($w, $h))
     $dst = New-Object System.Drawing.Bitmap($w, $h, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $g = [System.Drawing.Graphics]::FromImage($dst)
