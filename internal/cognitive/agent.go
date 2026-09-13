@@ -2,6 +2,8 @@ package cognitive
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -322,6 +324,18 @@ type Agent struct {
 	model     string
 	context   *memory.Context
 	lastUsage model.Usage
+	// cacheKey groups this conversation's requests so a provider can route them
+	// to whichever machine already holds their cached prefix
+	// (model.Request.CacheKey). Made once per agent, which is once per
+	// conversation: the whole property is that one chat keeps one value and two
+	// chats do not share one.
+	//
+	// Random rather than derived from anything. A key built out of the session
+	// id or the project path would be the same value forever and would carry
+	// something about the user to a third party, and the shard it selects lives
+	// for minutes — so there is nothing to be gained by making it survive a
+	// restart, and something to lose.
+	cacheKey string
 	// fill is what the provider last said this conversation's request weighed.
 	// Zero until the first reply, and again after the history is replaced
 	// wholesale (ClearContext, RestoreHistory), when nothing measured is still
@@ -448,8 +462,22 @@ func NewAgent(cfg AgentConfig) *Agent {
 		model:        cfg.Model,
 		lastUsage:    model.Usage{},
 		maxToolCalls: cfg.MaxToolCalls,
+		cacheKey:     newCacheKey(),
 		context:      memory.NewContext(systemPrompt, 0, cfg.MaxChars),
 	}
+}
+
+// newCacheKey is 128 bits of randomness with a name on the front, so a request
+// that reaches a provider's logs says what the value is for. Falls back to a
+// clock reading if the system source is unavailable: a key that repeats routes
+// two conversations to one shard, which costs a cache hit and nothing else,
+// while refusing to build an agent over it would cost the conversation.
+func newCacheKey() string {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return fmt.Sprintf("aetox-%d", time.Now().UnixNano())
+	}
+	return "aetox-" + hex.EncodeToString(b[:])
 }
 
 func (a *Agent) RespondWithTools(
@@ -740,6 +768,7 @@ func (a *Agent) RespondWithTools(
 					Role:             model.RoleAssistant,
 					Content:          recorded,
 					ReasoningContent: strings.TrimSpace(response.ReasoningContent),
+					ReasoningItems:   response.ReasoningItems,
 				})
 				a.context.Add(model.RoleUser, truncatedAnswerNudge)
 				i--
@@ -788,6 +817,7 @@ func (a *Agent) RespondWithTools(
 				Role:             model.RoleAssistant,
 				Content:          recorded,
 				ReasoningContent: strings.TrimSpace(response.ReasoningContent),
+				ReasoningItems:   response.ReasoningItems,
 			})
 			// The model was ready to stop, but the user typed while it was writing
 			// this. Keeping the turn alive is the whole point of Interject: ending
@@ -851,6 +881,7 @@ func (a *Agent) RespondWithTools(
 						Role:             model.RoleAssistant,
 						Content:          recorded,
 						ReasoningContent: strings.TrimSpace(response.ReasoningContent),
+						ReasoningItems:   response.ReasoningItems,
 					})
 					a.context.Add(model.RoleUser, verdict)
 					continue
@@ -872,6 +903,7 @@ func (a *Agent) RespondWithTools(
 			Role:             model.RoleAssistant,
 			Content:          recorded,
 			ReasoningContent: strings.TrimSpace(response.ReasoningContent),
+			ReasoningItems:   response.ReasoningItems,
 			ToolCalls:        model.SanitizeToolCallArguments(response.ToolCalls),
 		})
 		// Before the tool calls run, so the narration lands in the sequence
@@ -1589,6 +1621,7 @@ func (a *Agent) respondFromContext(ctx context.Context, opts turn.TurnOptions) (
 		Role:             model.RoleAssistant,
 		Content:          reply,
 		ReasoningContent: strings.TrimSpace(response.ReasoningContent),
+		ReasoningItems:   response.ReasoningItems,
 	})
 	return reply, nil
 }
@@ -1652,6 +1685,7 @@ func (a *Agent) RespondStream(ctx context.Context, userMessage string, onChunk f
 				Role:             model.RoleAssistant,
 				Content:          reply,
 				ReasoningContent: strings.TrimSpace(response.ReasoningContent),
+				ReasoningItems:   response.ReasoningItems,
 			})
 			return reply, streamed, nil
 		}
@@ -1674,6 +1708,7 @@ func (a *Agent) RespondStream(ctx context.Context, userMessage string, onChunk f
 		Role:             model.RoleAssistant,
 		Content:          reply,
 		ReasoningContent: strings.TrimSpace(response.ReasoningContent),
+		ReasoningItems:   response.ReasoningItems,
 	})
 	return reply, false, nil
 }
@@ -1764,6 +1799,9 @@ func (a *Agent) buildRequest(messages []model.Message, maxTokens int, temperatur
 		ToolChoice:  toolChoice,
 		// Only meaningful when tools are on the table — see the field's doc.
 		OnToolCallProgress: a.onToolCallProgress,
+		// Every request of this conversation carries the same one, which is
+		// the entire point of it.
+		CacheKey: a.cacheKey,
 	}
 	profile := a.ResolveThinkProfile(opts.ThinkLevel)
 	if effort := profile.ReasoningEffort(); effort != "" {
