@@ -1,6 +1,20 @@
 # Remote: Aetox Is a Server in Your Own House, and the Phone Is Its Remote (2026-08-14)
 
-> ## Status: PARKED 2026-08-14, with a working foundation in the tree
+> ## Status: SUPERSEDED 2026-09-13 by [mobile-remote-2026-09-13.md](mobile-remote-2026-09-13.md)
+>
+> Three of the rules below were overturned by the owner on 13 Sep, deliberately
+> and in writing, which is what §"What the owner still has to settle" asked for:
+> **"Never build a relay"** (narrowly — the work still runs on the owner's
+> machine), **"the phone is a remote control, not a third desk"**, and
+> **LAN-only**. One thing below was also simply wrong by the time it was read:
+> `Approve` was named the majority of the work, and it had already been solved
+> by `ask_user`. The new document carries the reasoning for all four.
+>
+> **What is still true here and worth reading:** why a rented box has no hands,
+> why the phone gets no settings page, how the LAN address is picked, and the
+> client-agnostic API rule. Everything below stands as the record of 14 Aug.
+>
+> ## Status as of 2026-08-14: PARKED, with a working foundation in the tree
 >
 > The direction was locked the same day — *"ยุ ก เต็มๆ"*, the server runs on the
 > owner's own machine, never a rented one — and a working slice was built,
