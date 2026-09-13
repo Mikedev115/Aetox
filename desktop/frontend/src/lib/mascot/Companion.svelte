@@ -24,7 +24,7 @@
   import { untrack } from 'svelte'
   import Mascot from './Mascot.svelte'
   import Icon from '../Icon.svelte'
-  import { presenceOf, reportOf, headlineOf, walkTurn, nearAngle } from './presence'
+  import { presenceOf, reportOf, headlineOf, spokenOf, walkTurn, nearAngle } from './presence'
   import { POSE, type PoseId } from './poses'
   import { cockpit } from '../stores/cockpit.svelte'
   import { companion, setCompanionOn, setCompanionVoice, setCompanionSize, clampSize, bubbleMetrics } from './companionSetting.svelte'
@@ -558,10 +558,14 @@
   const talking = $derived(speech.key === VOICE_KEY)
   /** The text being read, for the bubble; '' once the read ends. */
   let spoken = $state('')
+  // It reads the bubble, not the page: the headline of the answer, the same
+  // cut the bubble shows (spokenOf), never the answer itself — the ฟัง button
+  // is the read of the whole; the companion's word is the summary (owner,
+  // 13 ก.ย.: "ควรจะพูดแค่สรุปสิ่งที่ทำ").
   function say(text: string): void {
     if (!companion.voice) return
     spoken = text
-    void speak(VOICE_KEY, text)
+    void speak(VOICE_KEY, spokenOf(text))
   }
   function hush(): void {
     stopSpeechIf(VOICE_KEY)

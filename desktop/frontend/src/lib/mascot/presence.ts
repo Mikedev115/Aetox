@@ -197,6 +197,19 @@ export function headlineOf(text: string): string {
   return clip(firstLine(text), REPORT_MAX)
 }
 
+/** What the companion SAYS of a text: the same headline the bubble holds up,
+ *  never the whole (owner, 13 ก.ย.: "TTS มันไปพูดตามคำตอบของเอเจน แทนที่จะพูด
+ *  แค่ตามอวตาร … ควรจะพูดแค่สรุปสิ่งที่ทำ คือเราตัดคำอยู่แล้ว"). Cut at the last
+ *  space before the bubble's limit rather than mid-word, and without the
+ *  bubble's ellipsis — a voice has no way to say "…" that is not a stumble. */
+export function spokenOf(text: string): string {
+  const line = firstLine(text)
+  if (line.length <= REPORT_MAX) return line
+  const head = line.slice(0, REPORT_MAX)
+  const gap = head.lastIndexOf(' ')
+  return (gap > REPORT_MAX / 2 ? head.slice(0, gap) : head).trim()
+}
+
 /** The first line with words in it, markdown marks stripped. */
 function firstLine(text: string): string {
   const lines = text.replace(/[*_`#>]+/g, '').split('\n').map((l) => l.trim()).filter(Boolean)

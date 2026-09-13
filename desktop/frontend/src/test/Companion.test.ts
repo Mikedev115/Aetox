@@ -3,7 +3,7 @@ import { render, waitFor, fireEvent } from '@testing-library/svelte'
 import { tick } from 'svelte'
 import Companion from '../lib/mascot/Companion.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
-import { reportOf, REPORT_MAX } from '../lib/mascot/presence'
+import { reportOf, spokenOf, REPORT_MAX } from '../lib/mascot/presence'
 import { companion, setCompanionOn, setCompanionVoice, setCompanionGreet, setCompanionSize, bubbleMetrics, SIZE_DEFAULT, SIZE_MIN, SIZE_MAX } from '../lib/mascot/companionSetting.svelte'
 import { voice } from '../lib/mascot/voice.svelte'
 import { speech, stopSpeech } from '../lib/speech.svelte'
@@ -289,6 +289,16 @@ describe('what the bubble may say', () => {
     expect(reportOf({ awaiting: true, note: 'n', streamingText: 's' })).toBe('s')
     expect(reportOf({ awaiting: true, note: 'n' })).toBe('n')
   })
+  it('is spoken as the same headline, cut at a word and without the ellipsis', () => {
+    expect(spokenOf('# หัวข้อ' + String.fromCharCode(10) + 'ตัวเนื้อยาว ๆ')).toBe('หัวข้อ')
+    const words = Array.from({ length: 40 }, (_, i) => 'คำ' + i).join(' ')
+    const out = spokenOf(words)
+    expect(out.length).toBeLessThanOrEqual(REPORT_MAX)
+    expect(out.endsWith('…')).toBe(false)
+    expect(words.startsWith(out + ' ')).toBe(true)
+    // no space to cut at: the bubble's hard cut, still without the ellipsis
+    expect(spokenOf('ก'.repeat(200))).toBe('ก'.repeat(REPORT_MAX))
+  })
   it('keeps only the first line, cut short, marks stripped, and nothing while busy', () => {
     const long = '**' + 'ก'.repeat(200) + '**\nบรรทัดสอง'
     const out = reportOf({ awaiting: true, streamingText: long })
@@ -319,7 +329,9 @@ describe('what it says out loud', () => {
     cockpit.toolSteps = []
     cockpit.awaitingReply = false
     await vi.advanceTimersByTimeAsync(50)
-    expect(spoken()).toEqual(['สรุป เสร็จแล้วครับ'])
+    // the headline only — the answer's body is the ฟัง button's read, not
+    // the companion's (owner, 13 ก.ย.: "พูดแค่สรุปสิ่งที่ทำ")
+    expect(spoken()).toEqual(['สรุป'])
     expect(speech.key).toBe('companion')
     await vi.advanceTimersByTimeAsync(500)
     expect(container.querySelector('.say')?.textContent).toBe('สรุป')
