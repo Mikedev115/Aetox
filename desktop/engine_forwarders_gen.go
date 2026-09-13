@@ -1339,6 +1339,10 @@ func (a *App) SupportedThinkLevels() []string {
 	return a.api.SupportedThinkLevels()
 }
 
+func (a *App) SupportedThinkLevelsFor(provider string, modelName string) []string {
+	return a.api.SupportedThinkLevelsFor(provider, modelName)
+}
+
 func (a *App) SwitchApprovalMode(mode string) (engine.ModelInfo, error) {
 	return a.api.SwitchApprovalMode(mode)
 }

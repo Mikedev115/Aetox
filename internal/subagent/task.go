@@ -753,6 +753,23 @@ func (t *taskTool) begin(ctx context.Context, args map[string]any, out **running
 		}
 	}
 
+	// How deep the delegate thinks: its own `think:` when the profile has one,
+	// else the chat's level. Either way it is checked against the delegate's
+	// OWN provider and model, not the parent's — the chat may sit at a level
+	// this model does not have (Codex's ultra on a DeepSeek helper), and the
+	// level a provider lacks most often is "off", which think.Resolve reads as
+	// "send nothing" and the model answers at its deepest. Same rule bootstrap
+	// applies to the session's own level, for the same reason.
+	childThink := t.opts.ThinkLevel
+	if profile.Think != "" {
+		childThink = think.NormalizeLevel(profile.Think)
+	}
+	if childProvider != nil {
+		if normalized := model.NormalizeThinkingLevel(childProvider.Name(), childModel, string(childThink)); normalized != "" {
+			childThink = think.NormalizeLevel(normalized)
+		}
+	}
+
 	// Everything below the goroutine boundary is built here, on the calling
 	// goroutine, so a configuration mistake is reported as a failed tool call
 	// rather than surfacing minutes later out of a background run.
@@ -839,7 +856,7 @@ func (t *taskTool) begin(ctx context.Context, args map[string]any, out **running
 			Permissions:  permissions,
 			OnToolAction: relay,
 			OnToolRun:    relayRun,
-			TurnOptions:  turn.TurnOptions{ThinkLevel: t.opts.ThinkLevel},
+			TurnOptions:  turn.TurnOptions{ThinkLevel: childThink},
 		})
 
 		// An explicit Intent is load-bearing: without one the executor parses the

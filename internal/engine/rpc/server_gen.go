@@ -1729,6 +1729,13 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		return e.SupportedProviders(), nil, true
 	case "SupportedThinkLevels":
 		return e.SupportedThinkLevels(), nil, true
+	case "SupportedThinkLevelsFor":
+		var p0 string
+		var p1 string
+		if err := decodeParams(params, &p0, &p1); err != nil {
+			return nil, err, true
+		}
+		return e.SupportedThinkLevelsFor(p0, p1), nil, true
 	case "SwitchApprovalMode":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {

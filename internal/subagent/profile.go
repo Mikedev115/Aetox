@@ -168,10 +168,22 @@ type Profile struct {
 	// does not; naming the provider is what lets an agent think on a cheap
 	// local model while the chat runs on a paid one (owner, 12 ก.ย. 2026).
 	// The credential is never here: the host signs the request (§248).
-	Provider string   `json:"provider,omitempty"`
-	Tools    []string `json:"tools,omitempty"` // empty = whatever the registry has
-	Deny     []string `json:"deny,omitempty"`
-	Steps    int      `json:"steps,omitempty"`
+	Provider string `json:"provider,omitempty"`
+	// Think is how deep this agent thinks — one of the levels the provider
+	// above has for the model above (low, high, ultra…), or empty for the
+	// level the chat is running at, which is what every profile said before
+	// this field existed (owner, 13 ก.ย. 2026: "ทำให้เราปรับระดับความคิดได้").
+	//
+	// Its own dial rather than a side effect of the model pin, because the two
+	// answer different questions: a file-search helper on the chat's own model
+	// still has no business thinking at ultra, and an agent pinned to a cheap
+	// model may be the one that should think hardest on it. A level the
+	// provider does not have falls to that model's default at dispatch, the
+	// same way the chat's own picker does (model.NormalizeThinkingLevel).
+	Think string   `json:"think,omitempty"`
+	Tools []string `json:"tools,omitempty"` // empty = whatever the registry has
+	Deny  []string `json:"deny,omitempty"`
+	Steps int      `json:"steps,omitempty"`
 	// Desk makes this profile a *chair* rather than a delegate (COMPANY.md §4):
 	// it names the desk the job runs at, and that desk's manifest becomes the
 	// ceiling on everything below — so a chair that writes `tools: shell` into
@@ -836,6 +848,7 @@ func parse(name, raw string) Profile {
 		Description: fields["description"],
 		Model:       strings.TrimSpace(fields["model"]),
 		Provider:    strings.TrimSpace(fields["provider"]),
+		Think:       strings.ToLower(strings.TrimSpace(fields["think"])),
 		Tools:       splitList(fields["tools"]),
 		Deny:        splitList(fields["deny"]),
 		Steps:       steps,

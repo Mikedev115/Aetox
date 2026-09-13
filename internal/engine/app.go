@@ -4092,6 +4092,35 @@ func (a *Engine) SupportedThinkLevels() []string {
 	return caps.Levels
 }
 
+// SupportedThinkLevelsFor is the same list for a provider/model an agent's
+// editor is pointing at rather than the one the chat is on. Empty provider
+// means the chat's; empty model means what a delegate pinned to that provider
+// alone would run on — its default model, resolved the way providerFor
+// resolves it — so the levels offered are the levels the dispatch will check
+// against (subagent/task.go). Same never-nil rule as above.
+func (a *Engine) SupportedThinkLevelsFor(provider, modelName string) []string {
+	// Tested before normalizing, not after: provider.Normalize("") answers with
+	// the fallback provider's name rather than "", so normalizing first made
+	// this branch unreachable and an editor inheriting both showed "no dial" on
+	// a chat sitting at max. Caught in the dev app, 13 ก.ย. 2026.
+	provider, modelName = strings.TrimSpace(provider), strings.TrimSpace(modelName)
+	if provider == "" {
+		provider = a.cur().cfg.ModelProvider
+		if modelName == "" {
+			modelName = a.cur().cfg.ModelName
+		}
+	}
+	provider = model.NormalizeProvider(provider)
+	if modelName == "" {
+		modelName = a.defaultModel(provider, resolveBaseURLForProvider(provider))
+	}
+	caps := model.ResolveThinkingCapabilities(provider, modelName)
+	if !caps.Native || caps.Levels == nil {
+		return []string{}
+	}
+	return caps.Levels
+}
+
 // RetryActiveProvider re-bootstraps when the engine is sitting on the aetox
 // fallback, so a provider that has come up since the switch is picked up
 // without the user re-selecting it by hand. No-op when the last bootstrap
