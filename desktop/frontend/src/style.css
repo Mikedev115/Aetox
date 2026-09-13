@@ -6691,8 +6691,8 @@ button.phase-head:hover { color:var(--text-muted); }
    first-team callout, and the title row that carries the primary door. */
 .team-title { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
 .team-title h2 { margin-top:0; }
-.team-title .team-new { flex:none; margin-top:4px; }
-.team-title .linklike { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
+.team-title .team-doors { display:flex; align-items:center; gap:8px; flex:none; margin-top:4px; }
+.team-title .team-doors .ctrl { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
 .team-set .team-row .team-tally { flex:none; font-size:var(--fs-2xs); color:var(--text-dim); font-variant-numeric:tabular-nums; }
 .team-set .team-row.invalid .mset-prov-name { text-decoration:line-through; color:var(--text-dim); }
 /* The two sides a team can be on (§256, 13 ก.ย.: "แยกชัดๆ อันไหนฝั่งผู้ช่วย

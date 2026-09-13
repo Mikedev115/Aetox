@@ -3834,6 +3834,11 @@ export const SETTINGS_SECTION_KEY = 'aetox.settingsSection'
  * one form, one place a token is typed), but the room is where the user is
  * standing when they decide to. Handing them a page they have to search is the
  * kind of small rudeness that makes people give up. */
+export function openCapabilityAt(page: string, agent = ''): void {
+  cockpit.capabilityIntent = { page, ...(agent ? { agent } : {}) }
+  setActiveView('capability')
+}
+
 export function openSettingsAt(section: string): void {
   try {
     sessionStorage.setItem(SETTINGS_SECTION_KEY, section)

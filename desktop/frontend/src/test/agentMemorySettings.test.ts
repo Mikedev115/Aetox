@@ -34,10 +34,10 @@ describe('Agent Memory in Settings', () => {
     render(Settings, { onClose: () => {} })
 
     // Wait for the agent editor pane to open
-    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจน')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
 
     // Switch to knowledge tab
-    const tab = await screen.findByRole('tab', { name: /ความรู้/ })
+    const tab = await screen.findByRole('tab', { name: /สกิลเฉพาะสำหรับเอเจน/ })
     await fireEvent.click(tab)
 
     // In agent editor pane: check memory box empty message
@@ -63,10 +63,10 @@ describe('Agent Memory in Settings', () => {
 
     const { container } = render(Settings, { onClose: () => {} })
 
-    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจน')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
 
     // Switch to knowledge tab
-    const tab = await screen.findByRole('tab', { name: /ความรู้/ })
+    const tab = await screen.findByRole('tab', { name: /สกิลเฉพาะสำหรับเอเจน/ })
     await fireEvent.click(tab)
 
     const addBtn = await screen.findByRole('button', { name: /เพิ่มความจำ/ })
@@ -95,10 +95,10 @@ describe('Agent Memory in Settings', () => {
 
     const { container } = render(Settings, { onClose: () => {} })
 
-    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจน')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
 
     // Switch to knowledge tab
-    const tab = await screen.findByRole('tab', { name: /ความรู้/ })
+    const tab = await screen.findByRole('tab', { name: /สกิลเฉพาะสำหรับเอเจน/ })
     await fireEvent.click(tab)
 
     await waitFor(() => {

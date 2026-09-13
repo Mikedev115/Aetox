@@ -27,6 +27,7 @@
   import { FACE, TOP } from './mascot/parts'
   import { personas } from './mascot/avatarPrefs.svelte'
   import Icon from './Icon.svelte'
+  import McpMark from './McpMark.svelte'
   import { coverHue } from './coverHue'
   import { armFirstRunReplay } from './firstRun'
   import { scopeLabel, scopeMeta, USER_SCOPE, MAIN_SCOPE } from './memoryScope'
@@ -60,7 +61,8 @@
     SavePromptPreset, DeletePromptPreset, PickPresetImage, RemovePresetImage,
     ModelPriceSource,
     ListSubagentProfiles, ReadSubagentProfile, SaveSubagentProfile, SaveAgentProfile, PickAgentBrief, FetchAgentBrief,
-    DeleteSubagentProfile, SetSubagentModel, OpenAgentsFolder, ListChairs,
+    DeleteSubagentProfile, SetSubagentModel, OpenAgentsFolder, OpenAgentSkillsFolder, ListChairs,
+    ListExternalSkills, CopySkillToAgent,
     AgentSkills, AgentNeeds, OpenAgentHome,
     ChairStarters, SaveChairStarters, ChairStartersFile,
     SignInMethods, SignInStatus, StartSignIn, CancelSignIn, ImportableSignIns,
@@ -87,7 +89,7 @@
   import { COMMUNITY_URL, PAGE_URL, YOUTUBE_URL } from './links'
   import promptPayQR from '../assets/images/promptpay-qr.png'
   import { config, engine, main, subagent } from '../../wailsjs/go/models'
-  import { cockpit, startChatWith, newChairSession, setActiveView, switchProvider, switchModel, submitAPIKey, switchApprovalMode, switchWireFormat, setProviderBaseURL, retryActiveProvider, completeSignIn, signOutProvider, importSignIn, SETTINGS_SECTION_KEY } from './stores/cockpit.svelte'
+  import { cockpit, openCapabilityAt, startChatWith, newChairSession, setActiveView, switchProvider, switchModel, submitAPIKey, switchApprovalMode, switchWireFormat, setProviderBaseURL, retryActiveProvider, completeSignIn, signOutProvider, importSignIn, SETTINGS_SECTION_KEY } from './stores/cockpit.svelte'
   import {
     identity, loadIdentityFiles, openIdentityFile, saveIdentityFile,
     createIdentityFile, deleteIdentityFile, identityTemplates,
@@ -742,6 +744,9 @@
         const row = subagents.find((a) => a.name === intent.agent)
         if (row) await openAgent(row, 'agent')
         if (intent.tab) agentTab = intent.tab as AgentTab
+        // An intent naming an agent comes from the roster page (a card's
+        // lock), so the editor's back button walks back there.
+        agentBack = 'office'
       }
     } finally {
       intentPending = false
@@ -1219,6 +1224,7 @@
   async function loadMCP() {
     mcpServers = await ListMCPServers()
     mcpTargets = await PlacementTargets()
+    mcpLoaded = true
   }
 
   async function runMCP(label: string, fn: () => Promise<void>) {
@@ -2426,6 +2432,15 @@
   }
   let agentStarters = $state<subagent.StarterSet | null>(null)
   let agentReachFor = $state('') // whose panels are loaded, so a stale answer cannot land on the next agent
+  // Which of the panels have their answer. Each list is empty for the tick
+  // between opening the editor and the disk answering, and an empty list drawn
+  // as "ยังไม่มีสกิลของตัวเอง" for that tick is a false sentence the reader
+  // sees flash (owner, 13 ก.ย. 2026: "ตอนแรกมันมีแว๊บนึงไม่แสดง"). Until the
+  // answer lands the box draws a skeleton row instead; and each answer lands
+  // on its own, so the skills do not wait for the slowest read in the batch.
+  let agentSkillsReady = $state(false)
+  let agentMemoryReady = $state(false)
+  let mcpLoaded = $state(false)
 
   // ---------- The opening, as a form ----------
   //
@@ -2539,21 +2554,31 @@
     agentNeeds = []
     agentMemory = []
     agentStarters = null
+    agentSkillsReady = false
+    agentMemoryReady = false
     // The MCP register is the source for "which servers is this agent on", and
     // it is already loaded for its own page. Asked for here too, because the
     // editor can be the first page opened in a session.
-    const [skills, needs, memory, starters, file] = await Promise.all([
-      AgentSkills(name),
+    const skillsP = AgentSkills(name).then((skills) => {
+      if (agentReachFor !== name) return // the user moved on while the disk was being read
+      agentSkills = skills
+      agentSkillsReady = true
+    })
+    const memoryP = LearnedEntries(name).then((memory) => {
+      if (agentReachFor !== name) return
+      agentMemory = memory
+      agentMemoryReady = true
+    })
+    const [needs, starters, file] = await Promise.all([
       AgentNeeds(name),
-      LearnedEntries(name),
       ChairStarters(name, i18n.locale),
       ChairStartersFile(i18n.locale),
-      mcpServers.length === 0 ? loadMCP() : Promise.resolve(),
+      skillsP,
+      memoryP,
+      mcpLoaded ? Promise.resolve() : loadMCP(),
     ])
-    if (agentReachFor !== name) return // the user moved on while the disk was being read
-    agentSkills = skills
+    if (agentReachFor !== name) return
     agentNeeds = needs
-    agentMemory = memory
     agentStarters = starters
     startersFile = file
     // Whether these cards are already this agent's own is not a question the
@@ -2578,9 +2603,60 @@
   // Every enabled server, not only the ones already ticked: the panel answers
   // "what does this one carry" and "what could it" in one read, and a list of
   // just the ticked ones is a list you cannot add to.
-  const agentServerCount = $derived(
-    agentMCPId ? mcpServers.filter((s) => !s.disabled).filter((s) => (s.for ?? []).includes(agentMCPId)).length : 0,
+  const agentServers = $derived(
+    agentMCPId ? mcpServers.filter((s) => !s.disabled).filter((s) => (s.for ?? []).includes(agentMCPId)) : [],
   )
+  const agentServerCount = $derived(agentServers.length)
+  // A NEW agent has no placement id until its file exists, so its MCP tab
+  // cannot write `for:` as it goes. It ticks instead (owner, 13 ก.ย. 2026:
+  // "ตอนสร้างทำให้เลือกได้ว่าจะเลือก MCP ไหนที่มีในระบบ"), and Save places the
+  // ticked servers right after the file is written — through the one writer
+  // the room uses (SetMCPServerTargets), so it is a delay, not a second store.
+  let agentNewMCP = $state<string[]>([])
+  const liveServers = $derived(mcpServers.filter((s) => !s.disabled))
+  function toggleNewMCP(name: string) {
+    agentNewMCP = agentNewMCP.includes(name) ? agentNewMCP.filter((n) => n !== name) : [...agentNewMCP, name]
+  }
+  // A SAVED agent's switch writes at once, through the room's one writer —
+  // the whole `for:` list of that server sent back with this agent added or
+  // removed. Since 13 ก.ย. 2026 this box edits again (owner: "ทำไมมันไม่แสดง
+  // MCP" of a box that listed only what was already placed): the room's
+  // picker and this list are the same switch on the same call, not two
+  // stores, and the page a person is standing on when they ask "what can
+  // this one use" is this one.
+  const isOnAgent = (srv: MCPRow) => !!agentMCPId && (srv.for ?? []).includes(agentMCPId)
+  const toggleAgentMCP = (srv: MCPRow) => runMCP('target:' + srv.name, async () => {
+    if (!agentMCPId) return
+    const cur = srv.for ?? []
+    await SetMCPServerTargets(srv.name, isOnAgent(srv) ? cur.filter((x) => x !== agentMCPId) : [...cur, agentMCPId])
+    await loadMCP()
+    if (agentReachFor) agentNeeds = await AgentNeeds(agentReachFor)
+  })
+  // The same shape for skills on a NEW agent: its folder does not exist until
+  // Save, so the shelf is ticked here and Save copies each tick in
+  // (CopySkillToAgent — the room's sheet's own call). A saved agent's skills
+  // are edited on the room's sheet, which lists the whole shelf against what
+  // the folder holds; this box lists the folder.
+  type ShelfSkill = { name: string; description: string; bundled?: boolean }
+  let shelfSkills = $state<ShelfSkill[]>([])
+  let shelfLoaded = $state(false)
+  let agentNewSkills = $state<string[]>([])
+  let shelfQuery = $state('')
+  const shelfShown = $derived.by(() => {
+    const q = shelfQuery.trim().toLowerCase()
+    return q ? shelfSkills.filter((x) => x.name.toLowerCase().includes(q) || x.description.toLowerCase().includes(q)) : shelfSkills
+  })
+  async function loadShelf() {
+    try {
+      shelfSkills = ((await ListExternalSkills()) ?? []) as ShelfSkill[]
+    } catch {
+      shelfSkills = []
+    }
+    shelfLoaded = true
+  }
+  function toggleNewSkill(name: string) {
+    agentNewSkills = agentNewSkills.includes(name) ? agentNewSkills.filter((n) => n !== name) : [...agentNewSkills, name]
+  }
 
   // Toggling here writes the same `for:` list the MCP page writes, through the
   // same call. It applies at once and does not wait for Save — the panel says
@@ -2695,10 +2771,13 @@
   // goes out through the matching door, so an edit cannot change what
   // something is as a side effect of where a button happened to be.
   let agentEditKind = $state<'agent' | 'helper'>('helper')
-  // Where an AGENT's editor closes onto. The roster page, normally; the
-  // ทีมเอเจน page when its form's "+ เอเจน" opened the editor, so the person
-  // lands back on the draft they left, with the new agent ticked.
-  let agentBack = $state<'office' | 'teams'>('office')
+  // Where an AGENT's editor closes onto. Its own list (ตั้งค่า › เอเจนเฉพาะทาง),
+  // normally; the roster page when a card's lock sent the person here to
+  // finish setting someone up (AgentLock's intent), since that is the page
+  // they were on; the ทีมเอเจน page when its form's "+ เอเจน" opened the
+  // editor, so the person lands back on the draft they left, with the new
+  // agent ticked.
+  let agentBack = $state<'list' | 'office' | 'teams'>('list')
   type AgentTab = 'identity' | 'avatar' | 'brain' | 'reach' | 'knowledge' | 'opening'
   let agentTab = $state<AgentTab>('identity')
 
@@ -2771,25 +2850,29 @@
     agentEditKind = kind
     agentSkills = []
     agentNeeds = []
+    agentNewMCP = []
+    agentNewSkills = []
+    shelfQuery = ''
+    if (!mcpLoaded) void loadMCP() // the tick lists need the register and the shelf
+    if (!shelfLoaded) void loadShelf()
     agentSnapshot = agentDraftKey()
   }
 
-  // Leaving the editor. An AGENT's editor is reached from the roster page
-  // alone since 12 ก.ย. (there is no ตั้งค่า › เอเจน list any more — "คนอยู่
-  // หน้าแรก ทีมอยู่ตั้งค่า"), so closing it walks back there rather than
-  // onto a page that no longer exists; a ซับเอเจน's editor closes onto its
-  // own list as it always did.
+  // Leaving the editor. A ซับเอเจน's editor closes onto its own list; an
+  // AGENT's closes onto wherever it was opened from (agentBack), and the
+  // door resets to the list so the next open from this page stays here.
   function leaveAgentEditor(saved = '') {
     agentEditing = null
     if (agentEditKind !== 'agent') return
-    if (agentBack === 'teams') {
-      agentBack = 'office'
+    const back = agentBack
+    agentBack = 'list'
+    if (back === 'teams') {
       cockpit.settingsIntent = { section: 'teams', agent: saved || undefined }
       openSection('teams')
-      return
+    } else if (back === 'office') {
+      setShell('assistant')
+      setActiveView('office')
     }
-    setShell('assistant')
-    setActiveView('office')
   }
   // ทีมเอเจน's form asked for an agent that is not on the roster yet.
   function newAgentFromTeams() {
@@ -2824,9 +2907,34 @@
     // in the wrong home.
     if (agentEditKind === 'agent') await SaveAgentProfile(agentDraftName.trim(), body)
     else await SaveSubagentProfile(agentDraftName.trim(), body)
+    await placeNewAgentMCP(agentDraftName.trim())
+    await copyNewAgentSkills(agentDraftName.trim())
     await loadAgents()
     leaveAgentEditor(agentDraftName.trim())
   })
+  // The new agent's ticked skills, copied into the folder Save just made.
+  async function copyNewAgentSkills(name: string) {
+    if (agentEditKind !== 'agent' || agentNewSkills.length === 0) return
+    const picks = agentNewSkills
+    agentNewSkills = []
+    for (const sk of picks) await CopySkillToAgent(name, sk)
+  }
+  // The new agent's ticked servers, placed once its file — and so its
+  // placement id — exists. Each server's whole `for:` list is sent back with
+  // this agent added, which is what the engine stores per server.
+  async function placeNewAgentMCP(name: string) {
+    if (agentEditKind !== 'agent' || agentNewMCP.length === 0) return
+    const picks = agentNewMCP
+    agentNewMCP = []
+    await loadMCP()
+    const id = mcpTargets.find((x) => x.kind === 'agent' && x.name === name)?.id
+    if (!id) return
+    for (const srv of picks) {
+      const row = mcpServers.find((x) => x.name === srv && !x.disabled)
+      if (row && !(row.for ?? []).includes(id)) await SetMCPServerTargets(srv, [...(row.for ?? []), id])
+    }
+    await loadMCP()
+  }
 
   // Two different actions behind one button: deleting a profile the user wrote,
   // versus dropping an override so a built-in goes back to how it shipped. They
@@ -3755,11 +3863,16 @@
     { group: t('settings.groupModels'), items: [
       { id: 'models', label: t('settings.modelSettings'), icon: 'brain',
         terms: [t('settings.providers'), t('settings.apiKeyLabel'), t('settings.baseUrl'), t('settings.signInLabel'), t('settings.modelList')] },
-      // No เอเจน row (owner, 12 ก.ย.: "เอาเอเจนออกจากหน้าตั้งค่า เหลือแค่ทีมเอเจน").
-      // The people live on the roster page; their editor is still this page's
-      // 'team' section, reached only through a card's gear (settingsIntent)
-      // and closing back onto the roster (leaveAgentEditor).
-      { id: 'agents', label: t('settings.subagents'), icon: 'bot',
+      // The people you talk to, then the helpers the assistant runs, then the
+      // teams that group the first kind. Configuring an agent lives here again
+      // since 13 ก.ย. 2026: for a day (12 ก.ย., "เอาเอเจนออกจากหน้าตั้งค่า")
+      // this row was gone and the editor was reached only through a gear on
+      // the roster page — a room with no door in the rail, and three pages
+      // pointing at each other to explain where the list went. The roster page
+      // is for talking; this row is for everything else about a person.
+      { id: 'team', label: t('settings.team'), icon: 'bot',
+        terms: [t('settings.teamNew'), t('settings.agentsFolder'), t('settings.subagentsMine'), t('settings.subagentsBuiltin')] },
+      { id: 'agents', label: t('settings.subagents'), icon: 'puzzle',
         terms: [t('settings.subagentsMine'), t('settings.subagentsBuiltin')] },
       // Teams at the foot of the group, beside agents and never inside the
       // agent editor (§256): a roster is not a person, and the owner asked for
@@ -3957,7 +4070,7 @@
   // section (openSettingsAt), and two spellings of this key would fail silently
   // and look like the page ignoring where it was told to go.
   const SECTION_KEY = SETTINGS_SECTION_KEY
-  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'identity', 'learning', 'skilltune', 'models', 'teams', 'agents', 'tools', 'connections', 'computer', 'prompts', 'account', 'usage', 'about', 'sponsor'])
+  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'identity', 'learning', 'skilltune', 'models', 'team', 'teams', 'agents', 'tools', 'connections', 'computer', 'prompts', 'account', 'usage', 'about', 'sponsor'])
 
   function restoredSection(): string {
     try {
@@ -4510,19 +4623,15 @@
 
   {#if isAgent}
     <div class="pp-bar">
-      <button class="ctrl" onclick={() => newAgent(kind)}>{t('settings.teamNew')}</button>
       <button class="ctrl" onclick={() => loadAgents()}>{t('settings.refresh')}</button>
       <button class="ctrl" onclick={() => OpenAgentsFolder()}>{t('settings.agentsFolder')}</button>
-      <!-- The roster with its job history and its chat doors is a page of its
-           own; this one configures. Said out loud rather than left for the user
-           to discover, because two places holding one kind of thing is exactly
-           what needs a stated rule. -->
       <div class="pp-bar-gap"></div>
-      <!-- The door goes with the room. เอเจนเฉพาะทาง is the storefront's, and
-           Settings can be opened from either door — landing on the page without
-           moving the door would draw one door's room inside the other's
-           sidebar. -->
-      <button class="ctrl" onclick={() => { setShell('assistant'); setActiveView('office') }}>{t('settings.teamOpenPage')} <Icon name="arrowRight" size={13} /></button>
+      <!-- The door, where the eye lands first — the same shape and place as
+           ทีมเอเจน's สร้างทีม (owner, 13 ก.ย. 2026: "ทำปุ่มเพิ่มเอเจนเฉพาะทาง
+           ให้ชัดหน่อย … พื้นหลังสีเดียวกับสร้างทีม"). It took the slot of the
+           "ไปหน้าเอเจนเฉพาะทาง" button, which the sentence above already says
+           and the rail's row already offers. -->
+      <button class="ctrl ctrl-primary" onclick={() => newAgent(kind)}><Icon name="plus" size={14} /> {t('settings.teamNew')}</button>
     </div>
   {/if}
   {#if agentError}<div class="mset-error">{agentError}</div>{/if}
@@ -4714,7 +4823,11 @@
               <span class="ag-count ag-count-warn">{unmetAgentNeeds}</span>
             {/if}
           </button>
-          {#if agentEditing.name}
+          <!-- Drawn for a NEW agent too. Its skills, memory and opening live
+               in a folder that exists only once it is saved, so the two tabs
+               were hidden until then — and a strip missing two tabs read as
+               the page being unfinished (owner, 13 ก.ย. 2026: "ทำไมมีไม่ครบ").
+               The tabs stay; the panels say what to do first. -->
             <button
               type="button" role="tab" id="ag-tab-knowledge" aria-controls="ag-panel-knowledge"
               aria-selected={agentTab === 'knowledge'}
@@ -4731,7 +4844,6 @@
               <Icon name="messageSquare" size={14} />
               <span>{t('settings.agentSecOpening')}</span>
             </button>
-          {/if}
         {/if}
       </div>
     </div>
@@ -5189,39 +5301,35 @@
     </div>
 
     {#if agentEditKind === 'agent'}
-      <!-- ── เอื้อมถึงอะไร ── the ceiling the desk sets, MCP servers, and needs. -->
+      <!-- ── MCP สำหรับเอเจน ── the servers placed on this agent, and its needs. -->
       <div role="tabpanel" id="ag-panel-reach" aria-labelledby="ag-tab-reach"
         class="ag-tab-panel" class:on={agentTab === 'reach'}>
-        {#if agentEditing.name}
-          <div class="settings-card">
-            <div class="set-row">
-              <span class="ag-rowicon"><Icon name="package" size={15} /></span>
-              <div class="set-txt">
-                <div class="t">{t('settings.agentDeskTitle')} <span class="tag">{agentEditing.desk || agentKeptDesk || '—'}</span></div>
-                <div class="d">{t('settings.agentDeskHint')}</div>
-              </div>
-            </div>
-          </div>
-        {/if}
-
+        <!-- No โต๊ะที่สังกัด card (owner, 13 ก.ย. 2026: "เอาโต๊ะที่สังกัดออกเลย
+             ไม่ต้องแสดง"). The desk is a ceiling the engine applies, not a
+             thing this form lets anyone change; a read-only row naming a
+             code-side id told the reader about the file, not about the agent. -->
         {@render agentMCPBox()}
         {@render agentNeedsBox()}
       </div>
 
-      {#if agentEditing.name}
-        <!-- ── ความรู้ ── skills and long-term memory for this agent. -->
-        <div role="tabpanel" id="ag-panel-knowledge" aria-labelledby="ag-tab-knowledge"
-          class="ag-tab-panel" class:on={agentTab === 'knowledge'}>
-          {@render agentSkillsBox()}
+      <!-- ── สกิลเฉพาะสำหรับเอเจน ── this agent's own skills and memory. -->
+      <div role="tabpanel" id="ag-panel-knowledge" aria-labelledby="ag-tab-knowledge"
+        class="ag-tab-panel" class:on={agentTab === 'knowledge'}>
+        {@render agentSkillsBox()}
+        {#if agentEditing.name}
           {@render agentMemoryBox()}
-        </div>
+        {/if}
+      </div>
 
-        <!-- ── เปิดบทสนทนา ── conversation starter cards. -->
-        <div role="tabpanel" id="ag-panel-opening" aria-labelledby="ag-tab-opening"
-          class="ag-tab-panel" class:on={agentTab === 'opening'}>
+      <!-- ── เปิดบทสนทนา ── conversation starter cards. -->
+      <div role="tabpanel" id="ag-panel-opening" aria-labelledby="ag-tab-opening"
+        class="ag-tab-panel" class:on={agentTab === 'opening'}>
+        {#if agentEditing.name}
           {@render agentStartersBox()}
-        </div>
-      {/if}
+        {:else}
+          {@render saveFirstCard('messageSquare', t('settings.agentSaveFirstOpening'))}
+        {/if}
+      </div>
     {/if}
   {/if}
 {/snippet}
@@ -5232,23 +5340,52 @@
      desk's ceiling (internal/subagent/store.go). Reading the two as one list
      was the complaint, and the complaint was a true statement about the code.
 
-     Since 12 ก.ย. 2026 this box COUNTS and does not edit. It was the third
-     editor of the same `for:` list (with ตั้งค่า › MCP and the room), and the
-     owner's word for that was ซ้ำซ้อน. The one editor is the room's grid, which
-     answers this box's question ("what does this agent carry") as a column. -->
+     On 12 ก.ย. 2026 this box stopped editing — it was the third editor of the
+     same `for:` list (with ตั้งค่า › MCP and the room), and the owner's word
+     for that was ซ้ำซ้อน. On 13 ก.ย. it came back as a list of every live
+     server with a switch (owner: "ทำไมมันไม่แสดง MCP" of a box that listed
+     only what was already placed): the switch and the room's picker are one
+     switch on one call (SetMCPServerTargets), so it is one editor drawn in
+     two places, not two stores. The door is for what this box cannot do —
+     adding, testing, signing in to a server — and opens the room's own page.
+     A NEW agent, with no file to place anything on yet, ticks here and Save
+     places (placeNewAgentMCP). -->
 {#snippet agentMCPBox()}
+  {@const saved = !!agentEditing?.name}
   <div class="settings-card">
-    <div class="card-form">
-      <div class="eyebrow">
-        {t('settings.agentMCPTitle')}
-        <span class="ag-count">{agentServerCount}</span>
-      </div>
-      <div class="d muted">{t('settings.agentMCPHint')}</div>
-    </div>
     <div class="set-row">
-      <div class="set-txt"><div class="d">{t('settings.agentMCPInRoom')}</div></div>
-      <button class="ctrl" onclick={() => setActiveView('capability')}>{t('desk.capability')} <Icon name="arrowRight" size={13} /></button>
+      <span class="ag-rowicon"><Icon name="plug" size={15} /></span>
+      <div class="set-txt">
+        <div class="t">{t('settings.agentMCPTitle')} {#if mcpLoaded}<span class="ag-count">{saved ? agentServerCount : agentNewMCP.length}</span>{/if}</div>
+        <div class="d">{t('settings.agentMCPHint')}</div>
+      </div>
+      <!-- Where a server is added, tested and signed in: the room's own page.
+           Placing is done here; the door is for everything else. -->
+      <button class="ctrl" onclick={() => openCapabilityAt('mine')}>{t('capability.navMine')} <Icon name="arrowRight" size={13} /></button>
     </div>
+    {#if mcpError}<div class="mset-error">{mcpError}</div>{/if}
+    {#if !mcpLoaded}
+      {@render waitRow()}
+    {:else}
+      {#each liveServers as srv (srv.name)}
+        {@const on = saved ? isOnAgent(srv) : agentNewMCP.includes(srv.name)}
+        <label class="set-row ag-reachrow" class:on>
+          <McpMark name={srv.name} size={26} />
+          <div class="set-txt">
+            <div class="t">{srv.name}</div>
+            <div class="d">{srv.tools > 0 ? t('settings.agentMCPTools', { n: srv.tools }) : (srv.url || (srv.command ?? []).join(' '))}</div>
+          </div>
+          <span class="mswitch">
+            <input type="checkbox" checked={on} disabled={saved && (mcpBusy !== '' || !agentMCPId)} aria-label={srv.name}
+              onchange={() => (saved ? toggleAgentMCP(srv) : toggleNewMCP(srv.name))} />
+            <span></span>
+          </span>
+        </label>
+      {/each}
+      <div class="set-row"><div class="set-txt"><div class="d">
+        {liveServers.length === 0 ? t('settings.agentMCPNoneInSystem') : (saved ? t('settings.agentMCPLiveHint') : t('settings.agentMCPNewHint'))}
+      </div></div></div>
+    {/if}
   </div>
 {/snippet}
 
@@ -5346,21 +5483,97 @@
 {/snippet}
 
 <!-- Its own shelf. Reads and does not edit, because a skill is a folder: the
-     honest control is the one that opens it. -->
-<!-- Count and door only, the MCP box's shape (13 ก.ย.): the list, the
-     folder and the tick that copies a shelf skill in are all on
-     ห้องความสามารถ › ตั้งค่าสกิลสำหรับเอเจนเฉพาะ, and a second list here
-     would be the second editor §253 took out. -->
+     honest control is the one that opens it. The list is drawn here (13 ก.ย.,
+     "ทำไมมันไม่แสดง"); adding, removing and copying in from the shared shelf
+     stay on ห้องความสามารถ › ตั้งค่าสกิลสำหรับเอเจนเฉพาะ, which the door opens
+     on this agent's sheet — one editor, as §253 asked. -->
 {#snippet agentSkillsBox()}
+  {@const saved = !!agentEditing?.name}
   <div class="settings-card">
-    <div class="card-form">
-      <div class="eyebrow">{t('settings.agentSkillsTitle')} <span class="ag-count">{agentSkills.length}</span></div>
-      <div class="d muted">{t('settings.agentSkillsHint')}</div>
-    </div>
     <div class="set-row">
-      <div class="set-txt"><div class="d">{t('settings.agentSkillsInRoom')}</div></div>
-      <button class="ctrl" onclick={() => setActiveView('capability')}>{t('desk.capability')} <Icon name="arrowRight" size={13} /></button>
+      <span class="ag-rowicon"><Icon name="puzzle" size={15} /></span>
+      <div class="set-txt">
+        <div class="t">{t('settings.agentSkillsTitle')} {#if saved ? agentSkillsReady : shelfLoaded}<span class="ag-count">{saved ? agentSkills.length : agentNewSkills.length}</span>{/if}</div>
+        <div class="d">{t('settings.agentSkillsHint')}</div>
+      </div>
+      {#if saved}
+        <button class="ctrl ctrl-icon" title={t('settings.agentSkillsOpenFolder')} aria-label={t('settings.agentSkillsOpenFolder')} onclick={() => OpenAgentSkillsFolder(agentDraftName.trim())}><Icon name="folderOpen" size={14} /></button>
+        <button class="ctrl" onclick={() => openCapabilityAt('skagents', agentDraftName.trim())}>{t('capability.navSkillAgents')} <Icon name="arrowRight" size={13} /></button>
+      {:else}
+        <!-- The shelf itself — installing, the folder, what did not read —
+             is the room's สกิลของคุณ page; ticking off it is done here. -->
+        <button class="ctrl" onclick={() => openCapabilityAt('skills')}>{t('capability.navSkills')} <Icon name="arrowRight" size={13} /></button>
+      {/if}
     </div>
+    {#if saved}
+      {#each agentSkills as sk (sk.name)}
+        <div class="set-row">
+          <span class="cap-mark" style="--px:26px; --h:{coverHue(sk.name)}" aria-hidden="true">{sk.name.replace(/^aetox-/, '').slice(0, 2)}</span>
+          <div class="set-txt">
+            <div class="t">{sk.name.replace(/^aetox-/, '')} {#if sk.bundled}<span class="badge on">{t('office.builtin')}</span>{/if}</div>
+            {#if sk.description}<div class="d clamp2">{sk.description}</div>{/if}
+          </div>
+        </div>
+      {/each}
+      {#if !agentSkillsReady}
+        {@render waitRow()}
+      {:else if agentSkills.length === 0}
+        <div class="set-row"><div class="set-txt"><div class="d">{t('settings.agentSkillsNone')}</div></div></div>
+      {/if}
+    {:else if !shelfLoaded}
+      {@render waitRow()}
+    {:else}
+      {#if shelfSkills.length > 6}
+        <div class="set-row">
+          <label class="ag-search">
+            <Icon name="search" size={13} />
+            <input bind:value={shelfQuery} placeholder={t('settings.agentSkillsSearch')} />
+          </label>
+        </div>
+      {/if}
+      {#each shelfShown as sk (sk.name)}
+        {@const on = agentNewSkills.includes(sk.name)}
+        <label class="set-row ag-reachrow" class:on>
+          <span class="cap-mark" style="--px:26px; --h:{coverHue(sk.name)}" aria-hidden="true">{sk.name.replace(/^aetox-/, '').slice(0, 2)}</span>
+          <div class="set-txt">
+            <div class="t">{sk.name.replace(/^aetox-/, '')} {#if sk.bundled}<span class="badge on">{t('capability.bundled')}</span>{/if}</div>
+            {#if sk.description}<div class="d clamp2">{sk.description}</div>{/if}
+          </div>
+          <span class="mswitch">
+            <input type="checkbox" checked={on} aria-label={sk.name} onchange={() => toggleNewSkill(sk.name)} />
+            <span></span>
+          </span>
+        </label>
+      {/each}
+      <div class="set-row"><div class="set-txt"><div class="d">
+        {shelfSkills.length === 0 ? t('settings.agentSkillsNoneOnShelf') : (shelfShown.length === 0 ? t('settings.agentNoMatches') : t('settings.agentSkillsNewHint'))}
+      </div></div></div>
+    {/if}
+  </div>
+{/snippet}
+
+<!-- The tick before a list's answer lands, drawn as the shape of a row and not
+     as the empty state: "ยังไม่มี…" is a sentence, and a sentence that is
+     untrue for 200 ms is still seen. -->
+<!-- A new agent's folder does not exist until Save; what lives in it cannot
+     be edited before then. Said on the tab, in the row shape the tab will
+     have once it can. -->
+{#snippet saveFirstCard(icon: IconName, text: string)}
+  <div class="settings-card">
+    <div class="set-row">
+      <span class="ag-rowicon"><Icon name={icon} size={15} /></span>
+      <div class="set-txt">
+        <div class="t">{t('settings.agentSaveFirstTitle')}</div>
+        <div class="d">{text}</div>
+      </div>
+      <button class="ctrl ctrl-primary" disabled={agentBusy !== '' || !agentDraftName.trim() || !agentDraftPrompt.trim()} onclick={saveAgent}>{t('settings.save')}</button>
+    </div>
+  </div>
+{/snippet}
+
+{#snippet waitRow()}
+  <div class="set-row mset-skeleton ag-waitrow" aria-label={t('settings.loading')}>
+    <span class="sk sk-line short"></span>
   </div>
 {/snippet}
 
@@ -6693,15 +6906,7 @@
           <span class="sk sk-block"></span>
         </div>
       {:else}
-        <!-- The agents' list left this page (12 ก.ย.): the people are on the
-             roster page, and this section is only ever entered with an editor
-             open. Landing here without one — a restored section, a gear on an
-             agent whose file has since gone — says where the list went. -->
-        <h2>{t('settings.team')}</h2>
-        <p class="muted set-sub">{t('settings.teamMoved')}</p>
-        <div class="pp-bar">
-          <button class="ctrl" onclick={() => { setShell('assistant'); setActiveView('office') }}>{t('settings.teamOpenPage')} <Icon name="arrowRight" size={13} /></button>
-        </div>
+        {@render profileListPane(kind)}
       {/if}
 
     {:else if active === 'prompts'}
