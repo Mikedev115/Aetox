@@ -196,6 +196,7 @@
   import Icon from './Icon.svelte'
   import ScopeMark from './ScopeMark.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
+  import RankedFace from './RankedFace.svelte'
   import { lookOf } from './mascot/agentLook'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import { NAV } from './desks'
@@ -1589,7 +1590,9 @@
           <div class="chair-body">
             <div class="chair-who">
               {#if x.kind === 'agent'}
-                <AgentMascot name={x.name} {...agentLookOf(x.name)} size={38} />
+                <!-- The rank on the face, as every other card of a พนักงาน
+                     draws it (owner, 14 ก.ย.: "ทำไมไม่มีขีดยศ"); 48 like theirs. -->
+                <RankedFace tier="agent" size={48}><AgentMascot name={x.name} {...agentLookOf(x.name)} size={48} /></RankedFace>
               {:else}
                 {@const m = deskMeta(x.id)}
                 <span class="mem-scope-ic cap-desk-ic mem-tone-{m.tone}" class:face={!!m.head}><ScopeMark meta={m} size={18} face={38} /></span>
@@ -1905,7 +1908,7 @@
               <div class="chair-card agc cap-target cap-skagent">
                 <div class="chair-body">
                   <div class="chair-who">
-                    <AgentMascot name={x.name} {...agentLookOf(x.name)} size={38} />
+                    <RankedFace tier="agent" size={48}><AgentMascot name={x.name} {...agentLookOf(x.name)} size={48} /></RankedFace>
                     <span class="chair-name"><span class="nm">{x.name}</span></span>
                   </div>
                   <p class="chair-desc" title={personDesc(x)}>{roleOf(x)}</p>

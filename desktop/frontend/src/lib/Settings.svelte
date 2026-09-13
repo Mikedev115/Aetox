@@ -2705,8 +2705,10 @@
   let mainHead = $state<HeadId | null>(null)
   // No avatar tab (owner, 14 ก.ย.: "จะไม่มีอวตาร เพราะมันมีอยู่แล้ว") — the
   // avatar page is the one place a look is chosen, and a tab that only
-  // doored there was a tab.
-  type MainTab = 'identity' | 'brain' | 'reach' | 'memory'
+  // doored there was a tab. No brain tab either (owner, 14 ก.ย.: "เอาหน้าสมอง
+  // ออก เพราะมันอิงกับตอนผู้ใช้เลือกอยู่แล้ว") — the model is the chat header's
+  // pick, one for both desks, and a tab that only restated it was a tab.
+  type MainTab = 'identity' | 'reach' | 'memory'
   let mainTab = $state<MainTab>('identity')
   // The desk's own file (modes/<head>.md), whole — frontmatter and direction
   // — edited here since 14 ก.ย. 2026 (owner: "เอา modes/coding.md มาแสดงให้
@@ -6464,7 +6466,6 @@
           <div class="seg" role="tablist" aria-label={t('settings.mainEditTitle', { name: headLabel(h) })}>
             {#each [
               ['identity', 'userRound', t('settings.agentSecIdentity')],
-              ['brain', 'brain', t('settings.agentSecBrain')],
               ['reach', 'plug', t('settings.mainSecReach')],
               ['memory', 'brain', t('settings.mainSecMemory')],
             ] as [id, icon, label] (id)}
@@ -6594,18 +6595,6 @@
               </div>
             </div>
           {/if}
-        </div>
-
-        <div class="ag-tab-panel" class:on={mainTab === 'brain'}>
-          <div class="settings-card">
-            <div class="set-row">
-              <div class="set-txt">
-                <div class="t">{t('settings.mainBrainRow')}</div>
-                <div class="d">{cockpit.model.provider ? `${cockpit.model.provider} · ${cockpit.model.modelName}${cockpit.model.thinkLevel ? ` · ${cockpit.model.thinkLevel}` : ""}` : "ยังไม่ได้เลือก"} · {t("settings.mainBrainHint")}</div>
-              </div>
-              <button type="button" class="ctrl" onclick={() => openSection('models')}>{t('settings.modelSettings')} <Icon name="arrowRight" size={12} /></button>
-            </div>
-          </div>
         </div>
 
         <!-- การเข้าถึง: doors into ห้องความสามารถ, at the page that answers for

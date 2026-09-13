@@ -1617,8 +1617,6 @@ export const en: Record<keyof typeof th, string> = {
   'settings.mainPersonaHint': 'Still one set shared by both today (identity.md · thinking.md) — edited under Standing instructions, moving here per head in a later step',
   'settings.mainAvatarRow': 'This one\'s look',
   'settings.mainAvatarHint': 'One set per head: shell, colour, top and face — the figure on the {name} desk\'s chat and the one floating on the desktop. Chosen on the avatar page',
-  'settings.mainBrainRow': 'Model in use',
-  'settings.mainBrainHint': 'The same one picked in the chat header; both desks share it. Keys and endpoints are set under Model settings',
   'settings.mainReachMcp': 'MCP servers this desk carries, chosen per desk',
   'settings.mainReachSkills': 'Every desk sees the whole shelf',
   'settings.mainReachTools': 'What runs without connecting anything — a read-only register',
