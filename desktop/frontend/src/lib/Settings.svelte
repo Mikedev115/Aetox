@@ -5091,58 +5091,78 @@
       class="ag-tab-panel" class:on={agentTab === 'brain'}>
       <div class="settings-card">
         <div class="card-form pp-edit">
-          <!-- The provider first, then its models (owner, 12 ก.ย.: "ควรเลือกได้
-               แม้แต่ผู้ให้บริการ และเลือกโมเดลได้ ทั้งเอเจนและซับเอเจน"). The rows are
-               การตั้งค่าโมเดล's own — enabledRows, the catalogue's providers the
-               user switched on, in the catalogue's order — not the raw enabled
-               list, which can still name a provider the catalogue dropped
-               (owner: "ควรอิง Providers ที่เปิดไว้หน้าตั้งค่าโมเดล"). One that is
-               off has no key to sign with. Whatever the file names is offered
-               too, so a pin to a provider since switched off still reads as
-               itself. -->
-          <label class="pp-field">
-            <span class="eyebrow">{t('settings.agentProviderPick')}</span>
-            <select class="ctrl" value={agentDraftProvider} onchange={(e) => pickAgentProvider(e.currentTarget.value)}>
-              <option value="">{t('settings.agentProviderInherit')}</option>
-              {#each enabledRows as p (p.name)}<option value={p.name}>{p.name}</option>{/each}
-              {#if agentDraftProvider && !enabledRows.some((p) => p.name === agentDraftProvider)}
-                <option value={agentDraftProvider}>{agentDraftProvider}</option>
-              {/if}
-            </select>
-            <span class="d muted">{t('settings.agentProviderHint')}</span>
-          </label>
-          <label class="pp-field">
-            <span class="eyebrow">{t('settings.agentModelPick')}</span>
-            <select class="ctrl" bind:value={agentDraftModel}>
-              <option value="">{agentDraftProvider ? t('settings.agentModelProviderDefault') : t('settings.agentModelInherit')}</option>
-              {#each agentModels as m}<option value={m}>{m}</option>{/each}
-              {#if agentDraftModel && !agentModels.includes(agentDraftModel)}
-                <option value={agentDraftModel}>{agentDraftModel}</option>
-              {/if}
-            </select>
-            <span class="d muted">{t('settings.agentModelHint')}</span>
-          </label>
-          <!-- The depth dial, its own field beside the model pin: a helper on
-               the chat's model may still need to think less than the chat, and
-               an agent pinned to a cheap model may be the one that should think
-               hardest on it. The options are the engine's ladder for THIS
-               provider/model, the same list the chat's picker draws from, so a
-               level saved here is one the dispatch will honour rather than
-               fold to the default. A model with no dial says so and offers
-               only inheriting. -->
-          <label class="pp-field">
-            <span class="eyebrow">{t('settings.agentThinkPick')}</span>
-            <select class="ctrl" bind:value={agentDraftThink} disabled={agentThinkLevels.length === 0 && !agentDraftThink}>
-              <option value="">{t('settings.agentThinkInherit')}</option>
-              {#each agentThinkLevels as lvl (lvl)}<option value={lvl}>{lvl}</option>{/each}
-              {#if agentDraftThink && !agentThinkLevels.includes(agentDraftThink)}
-                <option value={agentDraftThink}>{agentDraftThink}</option>
-              {/if}
-            </select>
+          <!-- The three that decide which brain answers, in the shape the
+               chat's own picker uses (.mm-row, style.css): label left, control
+               right, one under another. Owner's call, 13 ก.ย.: "แสดงเป็น
+               ดรอบแบบนี้เลยดีกว่า … เหมือนหน้าแชททำอ่ะ" — they are one decision
+               read together ("this agent thinks HERE, on THIS, THIS deep"),
+               and three stacked full-width fields with a paragraph under each
+               made it read as three unrelated settings.
+
+               The provider rows are การตั้งค่าโมเดล's own — enabledRows, the
+               catalogue's providers the user switched on, in the catalogue's
+               order — not the raw enabled list, which can still name a
+               provider the catalogue dropped (owner: "ควรอิง Providers ที่เปิด
+               ไว้หน้าตั้งค่าโมเดล"). One that is off has no key to sign with.
+               Whatever the file names is offered too, so a pin to a provider
+               since switched off still reads as itself. -->
+          <div class="pp-field ag-brain">
+            <div class="mm-row">
+              <span class="lbl">{t('settings.agentProviderPick')}</span>
+              <select class="ctrl" value={agentDraftProvider} onchange={(e) => pickAgentProvider(e.currentTarget.value)}>
+                <option value="">{t('settings.agentProviderInherit')}</option>
+                {#each enabledRows as p (p.name)}<option value={p.name}>{p.name}</option>{/each}
+                {#if agentDraftProvider && !enabledRows.some((p) => p.name === agentDraftProvider)}
+                  <option value={agentDraftProvider}>{agentDraftProvider}</option>
+                {/if}
+              </select>
+            </div>
+            <div class="mm-row">
+              <span class="lbl">{t('settings.agentModelPick')}</span>
+              <select class="ctrl" bind:value={agentDraftModel}>
+                <option value="">{agentDraftProvider ? t('settings.agentModelProviderDefault') : t('settings.agentModelInherit')}</option>
+                {#each agentModels as m}<option value={m}>{m}</option>{/each}
+                {#if agentDraftModel && !agentModels.includes(agentDraftModel)}
+                  <option value={agentDraftModel}>{agentDraftModel}</option>
+                {/if}
+              </select>
+            </div>
+            <!-- The depth dial belongs to the model above, so the row exists
+                 only when that model can actually think — the same test the
+                 chat's menu makes on this row, and for the same reason: a
+                 dropdown for a setting the model does not have is a control
+                 that reads as broken. It sat there greyed out on every local
+                 runtime until now (owner: "ตัวไหนคิดไม่ได้ก็ซ่อน").
+
+                 The second half of the test is why a file is never silently
+                 eaten: a profile carrying `think:` keeps its row even on a
+                 model with no dial, so switching the model pin to a local
+                 runtime to look at something does not drop a line the author
+                 wrote. The warning under the group then says it will not be
+                 honoured there. -->
+            {#if agentThinkLevels.length > 0 || agentDraftThink}
+              <div class="mm-row">
+                <span class="lbl">{t('settings.agentThinkPick')}</span>
+                <select class="ctrl" bind:value={agentDraftThink}>
+                  <option value="">{t('settings.agentThinkInherit')}</option>
+                  {#each agentThinkLevels as lvl (lvl)}<option value={lvl}>{lvl}</option>{/each}
+                  {#if agentDraftThink && !agentThinkLevels.includes(agentDraftThink)}
+                    <option value={agentDraftThink}>{agentDraftThink}</option>
+                  {/if}
+                </select>
+              </div>
+            {/if}
+            <!-- One line for the group, not one under each row. What all three
+                 share is the only thing a reader has to be told — blank means
+                 the chat's — and saying it three times is what turned the
+                 panel into a wall. The stale warning replaces it only when
+                 there is something actually wrong to report. -->
             <span class="d muted">
-              {agentThinkLevels.length === 0 ? t('settings.agentThinkNone') : t('settings.agentThinkHint')}
+              {agentDraftThink && agentThinkLevels.length === 0
+                ? t('settings.agentThinkStale')
+                : t('settings.agentBrainHint')}
             </span>
-          </label>
+          </div>
 
           <div class="pp-field">
             <span class="eyebrow">{t('settings.agentStepsField')}</span>
