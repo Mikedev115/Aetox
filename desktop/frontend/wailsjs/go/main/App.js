@@ -330,6 +330,10 @@ export function CloseCompanionWindow() {
   return window['go']['main']['App']['CloseCompanionWindow']();
 }
 
+export function CodeProjectsDir() {
+  return window['go']['main']['App']['CodeProjectsDir']();
+}
+
 export function CommandHistory() {
   return window['go']['main']['App']['CommandHistory']();
 }
@@ -384,6 +388,10 @@ export function ConsolidateMemory(arg1) {
 
 export function CopySkillToAgent(arg1, arg2) {
   return window['go']['main']['App']['CopySkillToAgent'](arg1, arg2);
+}
+
+export function CreateCodeProject(arg1) {
+  return window['go']['main']['App']['CreateCodeProject'](arg1);
 }
 
 export function CreatePullRequest(arg1, arg2, arg3, arg4, arg5) {
@@ -1034,6 +1042,10 @@ export function PickAttachments(arg1) {
   return window['go']['main']['App']['PickAttachments'](arg1);
 }
 
+export function PickCodeProjectsDir() {
+  return window['go']['main']['App']['PickCodeProjectsDir']();
+}
+
 export function PickPresetImage(arg1) {
   return window['go']['main']['App']['PickPresetImage'](arg1);
 }
@@ -1488,6 +1500,10 @@ export function SetAttentionSignal(arg1, arg2) {
 
 export function SetBusyLayer(arg1, arg2) {
   return window['go']['main']['App']['SetBusyLayer'](arg1, arg2);
+}
+
+export function SetCodeProjectsDir(arg1) {
+  return window['go']['main']['App']['SetCodeProjectsDir'](arg1);
 }
 
 export function SetCompanionState(arg1) {

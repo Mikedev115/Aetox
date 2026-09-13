@@ -13,6 +13,7 @@
   import {
     ListModes, ProviderAccountFor,
     AccountStatus, AccountRefresh, ListTools, DeleteSpace,
+    CodeProjectsDir, CreateCodeProject, PickCodeProjectsDir,
   } from '../../wailsjs/go/main/App'
   import ProviderAccount from './ProviderAccount.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
@@ -320,17 +321,74 @@
     exportChoiceId = ''
     void exportChat(s, format)
   }
-  const projectGroups = $derived(
-    (cockpit.projects || []).map((p) => ({
+  // The order of the projects is the user's, not the engine's. The engine
+  // lists them by last opened, so opening one moved it to the top — the row
+  // you clicked left from under the pointer every time (owner, 14 ก.ย. 2026:
+  // เด้งไปอยู่บนสุดตลอด). Now the first time a project is seen it goes on top,
+  // and after that it stays where it is until it is dragged somewhere else.
+  // Pinned rows still float above the rest, in this same order.
+  function readOrder(): string[] {
+    try {
+      const raw = localStorage.getItem('projectsOrder')
+      const parsed = raw ? JSON.parse(raw) : []
+      return Array.isArray(parsed) ? parsed.filter((k) => typeof k === 'string') : []
+    } catch {
+      return []
+    }
+  }
+  let projectOrder = $state<string[]>(readOrder())
+  $effect(() => {
+    try { localStorage.setItem('projectsOrder', JSON.stringify(projectOrder)) } catch { /* not remembered, still ordered */ }
+  })
+  // Keys the engine knows that the order does not yet: newest first, on top.
+  $effect(() => {
+    const known = new Set(projectOrder)
+    const fresh = (cockpit.projects || []).map((p) => p.key).filter((k) => !known.has(k))
+    if (fresh.length) projectOrder = [...fresh, ...projectOrder]
+  })
+  const projectGroups = $derived.by(() => {
+    const rank = new Map(projectOrder.map((k, i) => [k, i]))
+    return (cockpit.projects || []).map((p) => ({
       project: p,
       sessions: (cockpit.history || []).filter((s) => s.projectName === p.name),
       pinned: !!pinnedProjects[p.key],
     }))
-      // Pinned first, and stable within each half: the engine's order is
-      // most-recently-opened, which is the order to keep for everything the
-      // user has not spoken about.
-      .sort((a, b) => Number(b.pinned) - Number(a.pinned))
-  )
+      .sort((a, b) => Number(b.pinned) - Number(a.pinned)
+        || (rank.get(a.project.key) ?? Infinity) - (rank.get(b.project.key) ?? Infinity))
+  })
+
+  // Drag one project row over another to put it there. Native drag events on
+  // the row, no library: the list is short and the move is one row at a time.
+  // The drop puts the dragged key at the target's place in projectOrder; the
+  // pin split is untouched, so a pinned row dragged under an unpinned one is
+  // still pinned and still on top.
+  let draggingProject = $state('')
+  let dragOverProject = $state('')
+  function dragStartProject(e: DragEvent, key: string): void {
+    draggingProject = key
+    if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', key) }
+  }
+  function dragOverProjectRow(e: DragEvent, key: string): void {
+    if (!draggingProject || draggingProject === key) return
+    e.preventDefault()
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+    dragOverProject = key
+  }
+  function dropOnProject(e: DragEvent, key: string): void {
+    e.preventDefault()
+    const from = draggingProject
+    draggingProject = ''
+    dragOverProject = ''
+    if (!from || from === key) return
+    const next = projectOrder.filter((k) => k !== from)
+    const at = next.indexOf(key)
+    next.splice(at < 0 ? 0 : at, 0, from)
+    projectOrder = next
+  }
+  function dragEndProject(): void {
+    draggingProject = ''
+    dragOverProject = ''
+  }
 
 
   // One list per door, and no switch between them (§86). Chats and projects
@@ -438,6 +496,63 @@
   function startChatIn(path: string): void {
     setActiveView('chat')
     void openProject(path)
+  }
+
+  // "3 ว." at the row's right end — the age in the width a one-line row can
+  // spare. agoLabel's "3 วันที่แล้ว" is the flat list's, where the age has a
+  // line of its own; here it shares the line with the title, and a title that
+  // gives up a third of itself to a timestamp is the wrong trade.
+  function agoShort(iso?: string): string {
+    if (!iso) return ''
+    const parsed = Date.parse(iso)
+    if (Number.isNaN(parsed)) return ''
+    const mins = Math.max(0, Math.round((Date.now() - parsed) / 60000))
+    if (mins < 1) return t('sidebar.agoNow')
+    if (mins < 60) return t('sidebar.agoMin', { n: mins })
+    const hrs = Math.round(mins / 60)
+    if (hrs < 24) return t('sidebar.agoHr', { n: hrs })
+    return t('sidebar.agoDay', { n: Math.round(hrs / 24) })
+  }
+
+  // Making a project from this column (owner, 14 ก.ย. 2026): + on the
+  // heading opens a name field right under it, Enter makes the folder and
+  // opens a chat there. The folder goes under the coding desk's own parent
+  // (engine.CreateCodeProject), which the line under the field names in full
+  // so nobody has to guess where their code went — and can change from the
+  // same line, because a default nobody can see is a default nobody trusts.
+  let creatingProject = $state(false)
+  let projectDraftName = $state('')
+  let projectCreateError = $state('')
+  let projectCreateBusy = $state(false)
+  let codeProjectsDir = $state('')
+  async function openCreateProject(): Promise<void> {
+    creatingProject = !creatingProject
+    projectCreateError = ''
+    if (creatingProject && !codeProjectsDir) {
+      try { codeProjectsDir = await CodeProjectsDir() } catch { codeProjectsDir = '' }
+    }
+  }
+  function closeCreateProject(): void {
+    creatingProject = false
+    projectDraftName = ''
+    projectCreateError = ''
+  }
+  async function pickCodeProjectsDir(): Promise<void> {
+    try { codeProjectsDir = await PickCodeProjectsDir() } catch (err) { projectCreateError = String(err) }
+  }
+  async function createProject(): Promise<void> {
+    const name = projectDraftName.trim()
+    if (!name || projectCreateBusy) return
+    projectCreateBusy = true
+    projectCreateError = ''
+    try {
+      const path = await CreateCodeProject(name)
+      closeCreateProject()
+      startChatIn(path)
+    } catch (err) {
+      projectCreateError = String(err)
+    }
+    projectCreateBusy = false
   }
 
   // Every chat, always — this column is the chat history, not the chat history
@@ -751,11 +866,42 @@
     {#if showProjects}
       <div class="scroll">
         <!-- No new-session button here: it is on the header row now, where it
-             serves both lists instead of being repeated above each. Adding a
-             project is this list's own action and stays. -->
-        <button type="button" class="proj-add" onclick={openFolder}>
-          <span class="ic"><Icon name="folder" size={14} /></span> {t('sidebar.addProject')}
-        </button>
+             serves both lists instead of being repeated above each. The two
+             ways a project gets on this list are this list's own and sit on
+             its heading: open a folder that exists, or make one — the second
+             opens a name field under the heading rather than a dialog, so the
+             folder and the first chat in it are one Enter away (owner,
+             14 ก.ย. 2026). It used to be one dashed "เพิ่มโปรเจกต์" row, which
+             read as a project itself, and there was no way to make one here. -->
+        <div class="proj-sect">
+          <span class="proj-sect-t">{t('sidebar.projects')}</span>
+          <span class="proj-sect-acts">
+            <button type="button" class="proj-sect-btn tip-r" data-tip={t('sidebar.openExisting')}
+              aria-label={t('sidebar.openExisting')} onclick={openFolder}><Icon name="folder" size={13} /></button>
+            <button type="button" class="proj-sect-btn tip-r" class:on={creatingProject} data-tip={t('sidebar.createProject')}
+              aria-label={t('sidebar.createProject')} aria-expanded={creatingProject} onclick={openCreateProject}><Icon name="plus" size={13} /></button>
+          </span>
+        </div>
+        {#if creatingProject}
+          <form class="proj-create" onsubmit={(e) => { e.preventDefault(); void createProject() }}>
+            <!-- svelte-ignore a11y_autofocus -->
+            <input class="proj-create-name" autofocus bind:value={projectDraftName}
+              placeholder={t('sidebar.createProjectName')} aria-label={t('sidebar.createProjectName')}
+              onkeydown={(e) => { if (e.key === 'Escape') closeCreateProject() }} />
+            <div class="proj-create-where" title={codeProjectsDir}>
+              <span class="ic"><Icon name="folder" size={11} /></span>
+              <span class="p">{codeProjectsDir}{codeProjectsDir ? (codeProjectsDir.includes('\\') ? '\\' : '/') : ''}<b>{projectDraftName.trim() || t('sidebar.createProjectName')}</b></span>
+              <button type="button" class="proj-create-move" onclick={pickCodeProjectsDir}>{t('sidebar.createProjectMove')}</button>
+            </div>
+            {#if projectCreateError}<div class="proj-create-err">{projectCreateError}</div>{/if}
+            <div class="proj-create-acts">
+              <button type="submit" class="proj-create-go" disabled={projectCreateBusy || !projectDraftName.trim()}>
+                {projectCreateBusy ? t('settings.saving') : t('sidebar.createAndChat')}
+              </button>
+              <button type="button" class="proj-create-no" onclick={closeCreateProject}>{t('settings.cancel')}</button>
+            </div>
+          </form>
+        {/if}
         <!-- Searching replaces the grouped list: a hit belongs to whatever
              project it belongs to, and re-nesting it under headings the user
              is not looking at buries the thing they searched for. The box was
@@ -769,15 +915,35 @@
         {:else}
         {#each projectGroups as g (g.project.key)}
           <div class="proj-group">
-            <div class="proj-group-row">
-              <button type="button" class="proj-group-chev" aria-label={g.project.name}
+            <!-- Plain rows (owner, 14 ก.ย. 2026, holding another app's column
+                 beside this one): a filled band per project was tried first
+                 and read fine with six projects, and as a wall of plates with
+                 twelve. So no fill on the project row at all — the name, the
+                 chats under it with their age at the right, and space between
+                 groups is what separates them. The fold sits on the folder
+                 icon (a chevron column beside an icon column was two columns
+                 saying "folder"), and the selected fill belongs to the open
+                 chat alone: the project you stand in says so with the
+                 open-folder mark and a brighter name. Two fills side by side
+                 was what read as สีปนกัน. -->
+            <div class="proj-group-row" class:here={g.project.active} class:folded={collapsedProjects[g.project.key]}
+              class:dragging={draggingProject === g.project.key} class:dragover={dragOverProject === g.project.key}
+              draggable="true" role="listitem"
+              ondragstart={(e) => dragStartProject(e, g.project.key)}
+              ondragover={(e) => dragOverProjectRow(e, g.project.key)}
+              ondragleave={() => { if (dragOverProject === g.project.key) dragOverProject = '' }}
+              ondrop={(e) => dropOnProject(e, g.project.key)}
+              ondragend={dragEndProject}>
+              <button type="button" class="proj-group-chev tip-r" aria-label={g.project.name}
+                data-tip={collapsedProjects[g.project.key] ? t('sidebar.showMore') : t('sidebar.showLess')}
+                aria-expanded={!collapsedProjects[g.project.key]}
                 onclick={() => (collapsedProjects[g.project.key] = !collapsedProjects[g.project.key])}>
-                <Icon name={collapsedProjects[g.project.key] ? 'chevronRight' : 'chevronDown'} size={13} />
+                <Icon name={g.project.active ? 'folderOpen' : 'folder'} size={14} />
               </button>
               <button type="button" class="proj-group-head" class:active={g.project.active} onclick={() => openProject(g.project.path)}>
-                <span class="ic"><Icon name={g.project.active ? 'folderOpen' : 'folder'} size={14} /></span>
                 <span class="t">{g.project.name}</span>
-                {#if g.project.active && cockpit.project.branch}<span class="proj-branch"><Icon name="gitBranch" size={11} /> {cockpit.project.branch}</span>{/if}
+                {#if g.project.active && cockpit.project.branch}<span class="proj-branch"><Icon name="gitBranch" size={10} />{cockpit.project.branch}</span>{/if}
+                {#if collapsedProjects[g.project.key] && g.sessions.length}<span class="proj-count">{g.sessions.length}</span>{/if}
               </button>
               <!-- Starting work in a project was reachable only by clicking its
                    name, which every other list in the app treats as "show me
@@ -844,6 +1010,7 @@
                      (owner, 22 ส.ค.). Same fact, same dot, same class names. -->
                 <div class="proj-group-sess" class:active={s.active} class:working={sessionWorking(s)} class:unread={sessionUnread(s)} class:asking={sessionAsking(s)} class:draft={s.draft}>
                   <button type="button" class="proj-group-sess-open" onclick={() => selectGlobalSession(s)}>{s.title}</button>
+                  {#if !s.draft && agoShort(s.updatedAt)}<span class="proj-group-sess-ago">{agoShort(s.updatedAt)}</span>{/if}
                   {#if sessionAsking(s)}
                     <span class="dot ask row-dot" role="img" title={t('sidebar.chatAsking')} aria-label={t('sidebar.chatAsking')}></span>
                   {:else if sessionWorking(s)}
@@ -875,8 +1042,10 @@
               {/each}
               {#if g.sessions.length > PROJECT_GROUP_PREVIEW}
                 <button type="button" class="proj-group-more" onclick={() => (expandedProjects[g.project.key] = !expandedProjects[g.project.key])}>
-                  {expandedProjects[g.project.key] ? t('sidebar.showLess') : t('sidebar.showMore')}
+                  {expandedProjects[g.project.key] ? t('sidebar.showLess') : t('sidebar.showAllN', { n: g.sessions.length })}
                 </button>
+              {:else if g.sessions.length === 0}
+                <div class="proj-group-empty">{t('projects.noChats')}</div>
               {/if}
             {/if}
           </div>

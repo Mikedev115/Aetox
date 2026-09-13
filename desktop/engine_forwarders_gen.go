@@ -196,6 +196,10 @@ func (a *App) ClearProjectFocus() (engine.ProjectStatus, error) {
 	return a.api.ClearProjectFocus()
 }
 
+func (a *App) CodeProjectsDir() string {
+	return a.api.CodeProjectsDir()
+}
+
 func (a *App) CommandHistory() []string {
 	return a.api.CommandHistory()
 }
@@ -226,6 +230,10 @@ func (a *App) ConsolidateMemory(scope string) (engine.MemoryConsolidation, error
 
 func (a *App) CopySkillToAgent(agent string, name string) error {
 	return a.api.CopySkillToAgent(agent, name)
+}
+
+func (a *App) CreateCodeProject(name string) (string, error) {
+	return a.api.CreateCodeProject(name)
 }
 
 func (a *App) CreatePullRequest(title string, head string, base string, body string, draft bool) engine.PRCreated {
@@ -1106,6 +1114,10 @@ func (a *App) SetAgentOff(team string, name string, off bool) engine.DelegateSet
 
 func (a *App) SetBusyLayer(id string, on bool) []engine.BusyLayer {
 	return a.api.SetBusyLayer(id, on)
+}
+
+func (a *App) SetCodeProjectsDir(dir string) error {
+	return a.api.SetCodeProjectsDir(dir)
 }
 
 func (a *App) SetConnectionStartCommand(id string, command string) error {

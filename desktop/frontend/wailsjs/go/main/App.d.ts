@@ -183,6 +183,8 @@ export function CloseAllBrowserTabs():Promise<void>;
 
 export function CloseCompanionWindow():Promise<void>;
 
+export function CodeProjectsDir():Promise<string>;
+
 export function CommandHistory():Promise<Array<string>>;
 
 export function CompanionSpriteKeys(arg1:string):Promise<Array<string>>;
@@ -210,6 +212,8 @@ export function Connections():Promise<Array<connect.Status>>;
 export function ConsolidateMemory(arg1:string):Promise<engine.MemoryConsolidation>;
 
 export function CopySkillToAgent(arg1:string,arg2:string):Promise<void>;
+
+export function CreateCodeProject(arg1:string):Promise<string>;
 
 export function CreatePullRequest(arg1:string,arg2:string,arg3:string,arg4:string,arg5:boolean):Promise<engine.PRCreated>;
 
@@ -535,6 +539,8 @@ export function PickAttachmentImage():Promise<string>;
 
 export function PickAttachments(arg1:string):Promise<Array<string>>;
 
+export function PickCodeProjectsDir():Promise<string>;
+
 export function PickPresetImage(arg1:string):Promise<string>;
 
 export function PictureBytes(arg1:string):Promise<engine.ExportFile>;
@@ -762,6 +768,8 @@ export function SetAgentOff(arg1:string,arg2:string,arg3:boolean):Promise<engine
 export function SetAttentionSignal(arg1:string,arg2:boolean):Promise<Array<engine.BusyLayer>>;
 
 export function SetBusyLayer(arg1:string,arg2:boolean):Promise<Array<engine.BusyLayer>>;
+
+export function SetCodeProjectsDir(arg1:string):Promise<void>;
 
 export function SetCompanionState(arg1:main.CompanionState):Promise<void>;
 

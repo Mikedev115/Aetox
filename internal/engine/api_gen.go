@@ -65,6 +65,7 @@ type API interface {
 	ChairStartersFile(locale string) string
 	CheckConnectionServer(id string) (bool, error)
 	ClearProjectFocus() (ProjectStatus, error)
+	CodeProjectsDir() string
 	CommandHistory() []string
 	CompleteMCPSignIn(serverName string) error
 	CompressArtifacts(paths []string) (CompressReport, error)
@@ -73,6 +74,7 @@ type API interface {
 	Connections() []connect.Status
 	ConsolidateMemory(scope string) (MemoryConsolidation, error)
 	CopySkillToAgent(agent string, name string) error
+	CreateCodeProject(name string) (string, error)
 	CreatePullRequest(title string, head string, base string, body string, draft bool) PRCreated
 	CreateSpace(name string) (Space, error)
 	CurrentSessionID() string
@@ -293,6 +295,7 @@ type API interface {
 	SessionsInSpace(name string) []SessionMeta
 	SetAgentOff(team string, name string, off bool) DelegateSettings
 	SetBusyLayer(id string, on bool) []BusyLayer
+	SetCodeProjectsDir(dir string) error
 	SetConnectionStartCommand(id string, command string) error
 	SetConnectionTargets(id string, targets []string) error
 	SetDelegateOff(kind string, off bool) DelegateSettings
