@@ -16,7 +16,6 @@ import {oauth} from '../models';
 import {machine} from '../models';
 import {github} from '../models';
 import {ooxml} from '../models';
-import {hook} from '../models';
 import {config} from '../models';
 
 export function APIKeyHint(arg1:string):Promise<string>;
@@ -332,8 +331,6 @@ export function HasAPIKey(arg1:string):Promise<boolean>;
 export function HistoryFault():Promise<engine.StoreFault>;
 
 export function HomeDir():Promise<string>;
-
-export function Hooks():Promise<engine.HooksView>;
 
 export function ImageStatus():Promise<string>;
 
@@ -706,8 +703,6 @@ export function SaveChatImage(arg1:string):Promise<string>;
 export function SaveChatImageData(arg1:string):Promise<string>;
 
 export function SaveDrawing(arg1:string):Promise<string>;
-
-export function SaveHooks(arg1:Array<hook.Hook>):Promise<void>;
 
 export function SaveIdentityFile(arg1:string,arg2:string):Promise<void>;
 

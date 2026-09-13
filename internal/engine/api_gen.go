@@ -9,7 +9,6 @@ import (
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/connect"
 	gh "github.com/Mikedev115/Aetox/internal/github"
-	"github.com/Mikedev115/Aetox/internal/hook"
 	"github.com/Mikedev115/Aetox/internal/machine"
 	"github.com/Mikedev115/Aetox/internal/mode"
 	"github.com/Mikedev115/Aetox/internal/model"
@@ -123,7 +122,6 @@ type API interface {
 	HandedOverFile(fileURL string) string
 	HistoryFault() StoreFault
 	HomeDir() string
-	Hooks() HooksView
 	ImageStatus() string
 	ImportSessionFrom(path string) (string, error)
 	InstallCapabilities(capabilities []string) bool
@@ -268,7 +266,6 @@ type API interface {
 	SaveChatFile(sourcePath string) (string, error)
 	SaveChatImage(sourcePath string) (string, error)
 	SaveChatImageData(dataURL string) (string, error)
-	SaveHooks(hooks []hook.Hook) error
 	SaveIdentityFile(name string, content string) error
 	SaveLearnedEntry(scope string, index int, text string) error
 	SaveMCPServer(originalName string, server config.MCPServerConfig) error

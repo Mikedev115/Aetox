@@ -48,13 +48,13 @@ beforeEach(() => {
 })
 
 describe('the computer-use page', () => {
-  // Where it is: a heading of one row on the room's rail, after Hooks.
+  // Where it is: a heading of one row on the room's rail, after the tool register.
   it('is a heading of the capability rail, not a page of ตั้งค่า', async () => {
     const { container } = render(Capability, { onClose: () => {} })
     await waitFor(() => expect(PlacementTargets).toHaveBeenCalled())
     const groups = Array.from(container.querySelectorAll('.settings-nav .settings-group-label')).map((x) => x.textContent?.trim())
     expect(groups).toContain('การใช้คอมพิวเตอร์')
-    expect(groups.indexOf('การใช้คอมพิวเตอร์')).toBeGreaterThan(groups.indexOf('Hooks'))
+    expect(groups.indexOf('การใช้คอมพิวเตอร์')).toBeGreaterThan(groups.indexOf('เครื่องมือในตัว'))
   })
 
   // Another room's door lands on this page directly (cockpit.capabilityIntent).
