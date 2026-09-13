@@ -212,6 +212,17 @@ type Desk struct {
 	// and because the caller that has the queue (the desktop, through its
 	// Proposer) already hands the desk everything else it knows.
 	Ledger func(scopes []string) Ledger
+	// Team is the roster this chat hires from (subagent.Team.Name), "" for a
+	// chat on no team and for every host without teams — the CLI, every test.
+	//
+	// Told to the model because it is the one coordinate of a session it could
+	// not read for itself. The desk is in its manifest and the roster is in
+	// `task`'s schema, but the TEAM was only ever a Go-side key for switches
+	// and ceilings — so a project rule that said "confirm you are on team X
+	// before touching anything" (2026-09-14) had the model asking the user a
+	// question the app had already answered. A name, not the members: those
+	// stay where they are, in the tool that can reach them.
+	Team string
 	// OwnMemory says this desk keeps its own memory (mode `memory: project`,
 	// 11 ก.ย.): it reads modes/<Name>.md and the focused project's file, and
 	// NOT the assistant's MEMORY.md. The profile (USER.md) is still folded —
@@ -435,6 +446,9 @@ func BuildWithReport(surface Surface, scope Scope, desk Desk) (string, Loaded) {
 	// identity block above (that is who the assistant is) and not with the
 	// tool rules below.
 	b.WriteString(person(scope.User))
+	// Same kind of fact again: which team this chat hires from is about its
+	// surroundings, not its reach — the reach is described by `task` itself.
+	b.WriteString(team(desk))
 	// Everything from here to clarify() is instruction for using tools. A
 	// session carrying none reads it as a description of moves it cannot make,
 	// so the whole block is skipped rather than gated line by line — see
@@ -1854,6 +1868,27 @@ func person(name string) string {
 	return "The person you are working with calls themselves \"" + name + "\". Use the name the way a " +
 		"colleague would, at a greeting or when handing something back, not in every sentence, and it is " +
 		"only what they typed as their name, so read nothing else about them from it.\n"
+}
+
+// team names the roster this chat hires from, once, for a session on one. A
+// chat on no team says nothing — `task` already explains that case at the
+// moment it matters, when a job is handed to someone not on the roster.
+//
+// The desk rides along on a plain desk session and is left off a chair chat,
+// where desk.Name is the chair's own name and "at the doc desk" would be a
+// sentence about the wrong thing.
+func team(desk Desk) string {
+	name := strings.Join(strings.Fields(desk.Team), " ")
+	if name == "" {
+		return ""
+	}
+	where := ""
+	if desk.Name != "" && !desk.Chair {
+		where = " at the " + desk.Name + " desk"
+	}
+	return "This chat is on the team «" + name + "»" + where + ": the colleagues you can hand a whole " +
+		"job to are that team's members, and when the user asks which team or desk this is, that is the " +
+		"answer — you do not need to verify it through a tool.\n"
 }
 
 // layer heads one folded file with what it is, and names the file only when the

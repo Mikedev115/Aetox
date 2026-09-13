@@ -540,6 +540,12 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 		// writing (owner, 25 ส.ค.).
 		desk.Chair = true
 	}
+	// The team's name, for the session's own prompt and nobody else's: a
+	// delegate's BuildPrompt below goes through deskFor bare, because a worker
+	// hired from a roster has no roster of its own to be told about.
+	if opts.Team != nil {
+		desk.Team = opts.Team.Name
+	}
 	// Last, so it narrows whichever of the two desks above was built. A chair
 	// chat is an ordinary session with a person sitting in it, and gets the dial
 	// for the same reason it got ask_user — the thing that changes is who is
