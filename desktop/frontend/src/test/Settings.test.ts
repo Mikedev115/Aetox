@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import Settings from '../lib/Settings.svelte'
 import {
-  ListMCPServers, ToggleMCPServer, ListExternalSkills, UsageStats, ListPromptPresets,
+  ListMCPServers, ToggleMCPServer, ListExternalSkills, UsageStats,
   ListSubagentProfiles, ReadSubagentProfile, SaveSubagentProfile, SetSubagentModel, ListModelsForProvider,
   ListSpeechModels, SetSpeechModel, ListTools, SpeechModelDirs, RevealSpeechModel,
   SignInMethods, SignInStatus, StartSignIn, CompleteSignIn, SupportedProviders, EnabledProviders,
@@ -92,11 +92,6 @@ beforeEach(() => {
       activeDays: 2, currentStreak: 2, topModel: 'deepseek-chat', topModelShare: 77,
     },
   } as any)
-  vi.mocked(ListPromptPresets).mockResolvedValue([
-    // Bundled presets ship cover art; a user preset may have none yet.
-    { name: 'landing', description: 'สร้างแลนดิ้งเพจ', body: 'ทำแลนดิ้งเพจ $ARGUMENTS', path: '', builtin: true, image: 'data:image/svg+xml;base64,PHN2Zy8+' },
-    { name: 'mine', description: 'ชุดคำสั่งของผม', body: 'ของผมเอง', path: 'C:/prompts/mine.md', builtin: false, image: '' },
-  ] as any)
   // The helpers (explore/general) are system-fixed; everything editable is an
   // agent, so the editable fixtures are chairs — a built-in, one of yours, and
   // a shadow whose delete button has to read as a revert.
@@ -631,51 +626,8 @@ describe('Settings pages', () => {
     expect(container.querySelectorAll('.usage-sk .sk').length).toBe(0)
   })
 
-  it('Prompt presets page is a card gallery, badging the bundled ones', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'ชุดคำสั่ง')
-
-    await waitFor(() => expect(container.querySelectorAll('.pp-card').length).toBe(3)) // 2 presets + "new"
-    expect(screen.getByText('สร้างแลนดิ้งเพจ')).toBeTruthy()
-    expect(screen.getAllByText('มากับแอป')).toHaveLength(1)
-    // Shipped cover renders as a real image; the one without falls back to the
-    // generated cover rather than a broken <img>.
-    expect(container.querySelectorAll('.pp-cover img').length).toBe(1)
-    expect(container.querySelectorAll('.pp-cover .pp-mono').length).toBe(1)
-  })
-
-  it('clicking a preset card opens its full text for editing', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'ชุดคำสั่ง')
-    await waitFor(() => expect(container.querySelectorAll('.pp-card').length).toBe(3))
-
-    const card = Array.from(container.querySelectorAll('.pp-card'))
-      .find((el) => el.textContent?.includes('/landing'))!
-    await fireEvent.click(card)
-
-    const body = container.querySelector('.pp-textarea') as HTMLTextAreaElement
-    expect(body).toBeTruthy()
-    expect(body.value).toBe('ทำแลนดิ้งเพจ $ARGUMENTS')
-    // A bundled preset says what saving will do rather than refusing the edit.
-    expect(screen.getByText(/สร้างเป็นของคุณทับไว้/)).toBeTruthy()
-    // Its name is fixed; a new preset is where you get to choose one.
-    expect((container.querySelector('.pp-field input.ctrl') as HTMLInputElement).disabled).toBe(true)
-  })
-
-  // An empty 300px box tells you nothing about what belongs in it.
-  it('a new preset opens on a starter skeleton, not a blank box', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'ชุดคำสั่ง')
-    await waitFor(() => expect(container.querySelector('.pp-new')).toBeTruthy())
-
-    await fireEvent.click(container.querySelector('.pp-new')!)
-    const body = container.querySelector('.pp-textarea') as HTMLTextAreaElement
-    expect(body.value).toContain('$ARGUMENTS')
-    expect(body.value.length).toBeGreaterThan(80)
-    expect(body.placeholder).toBeTruthy()
-    // The one token a preset cannot work without gets its own button.
-    expect(screen.getByText('+ $ARGUMENTS')).toBeTruthy()
-  })
+  // The preset gallery and editor left for ห้องความสามารถ › ชุดคำสั่ง on
+  // 14 ก.ย. 2026; their tests went with them (promptsPage.test.ts).
 
   // เอเจนเฉพาะทาง get their own settings page, listing only them — the roster
   // page is where you talk to them, this is where you configure them (owner,

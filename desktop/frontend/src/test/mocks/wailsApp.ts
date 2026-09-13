@@ -308,6 +308,10 @@ export const RunSessionReview = vi.fn(async (..._args: any[]) => 0)
 export const ListRecurringRequests = arr()
 export const DismissRecurringRequest = noop()
 export const RestoreRecurringRequest = noop()
+// The optimizer's on-demand draft from one cluster: returns the id of the
+// PendingChange it filed. Settings imported it for weeks without a double
+// here; the habits page (ห้องความสามารถ › ชุดคำสั่ง) is the first test to press it.
+export const SynthesizeHabit = vi.fn(async (..._args: any[]) => 0)
 export const ApprovePendingChange = noop()
 export const ApprovePendingChangeTo = noop()
 export const ConsolidateMemory = vi.fn(async () => ({}))
