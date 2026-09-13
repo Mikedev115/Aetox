@@ -6523,14 +6523,21 @@
         <p class="muted set-sub">{t('settings.mainHeadsDesc')}</p>
         <!-- The agent list's card (agentRow), the head's own face in it. Two,
              never a third: the office desk is what an agent's own chat runs
-             on and every agent is a card of its own already. -->
+             on and every agent is a card of its own already. Two cards on a
+             page of their own get the page: one column each, the face at the
+             roster's stage size, the desk's sentence unclamped (owner,
+             14 ก.ย.: "มี 2 ตัว ทำตัวใหญ่กว่านี้ … อยากให้หน้านี้เห็นแค่ 2 ตัว").
+             The rank rides on the face's corner (RankedFace, style E) the way
+             it does on every other face in the app. No memory count on the
+             card: the number said nothing a person acts on from here, and
+             the memory tab is one click in. -->
         <div class="office-grid main-grid">
           {#each HEADS as h (h)}
             <div class="chair-card agc main-card" role="button" tabindex="0"
               onclick={() => openHead(h)} onkeydown={(e) => { if (e.key === 'Enter') openHead(h) }}>
               <div class="chair-body">
                 <div class="chair-who">
-                  <span class="main-face"><Mascot {...headOptions(h)} pose="idle" size={46} still /></span>
+                  <RankedFace tier="head" size={72}><Mascot {...headOptions(h)} pose="idle" size={72} still /></RankedFace>
                   <span class="chair-name">{headLabel(h)}</span>
                   <div class="ag-actions">
                     <button class="icobtn tiny tip-l" aria-label={t('settings.agentConfigure')} data-tip={t('settings.agentConfigure')}
@@ -6540,10 +6547,11 @@
                   </div>
                 </div>
                 <div class="d">{headDesc(h)}</div>
-                <div class="chips">
-                  <span class="tag">{t('settings.mainMemoryLines', { n: headGroup(h).lines.length })}</span>
-                  {#if headPending(h).length > 0}<span class="tag main-tag-warn">{t('settings.mainPendingN', { n: headPending(h).length })}</span>{/if}
-                </div>
+                {#if headPending(h).length > 0}
+                  <div class="chips">
+                    <span class="tag main-tag-warn">{t('settings.mainPendingN', { n: headPending(h).length })}</span>
+                  </div>
+                {/if}
               </div>
             </div>
           {/each}
@@ -6567,7 +6575,7 @@
         {#if learningError}<div class="mset-error">{learningError}</div>{/if}
 
         <div class="main-head">
-          <span class="main-face lg"><Mascot {...headOptions(h)} pose="idle" size={64} still /></span>
+          <RankedFace tier="head" size={64}><Mascot {...headOptions(h)} pose="idle" size={64} still /></RankedFace>
           <div class="main-who">
             <div class="main-name">{headLabel(h)} <span class="badge on">{t('settings.mainHeadBadge')}</span></div>
             <div class="d muted">{headDesc(h)}</div>
@@ -6617,7 +6625,7 @@
         <div class="ag-tab-panel" class:on={mainTab === 'avatar'}>
           <div class="settings-card">
             <div class="main-avatar-row">
-              <span class="main-avatar-big"><Mascot {...headOptions(h)} pose="idle" size={150} still /></span>
+              <RankedFace tier="head" size={150}><Mascot {...headOptions(h)} pose="idle" size={150} still /></RankedFace>
               <div class="main-avatar-txt">
                 <div class="t">{t('settings.mainAvatarRow')}</div>
                 <div class="d">{t('settings.mainAvatarHint', { name: headLabel(h) })}</div>

@@ -1604,7 +1604,6 @@ export const en: Record<keyof typeof th, string> = {
   'settings.youContextHint': 'Who you are, what you do, the project at hand, the machine you use — what you wrote yourself and want known up front every time. Carried to every desk and project (the old context.md of standing instructions)',
   'settings.mainHeads': 'Main assistants',
   'settings.mainHeadsDesc': 'The two that work for you directly — the assistant you talk to every day, and the one that writes code. Each has its own desk, face, brain and memory. Open one to configure it the way every specialist agent is configured.',
-  'settings.mainMemoryLines': '{n} lines remembered',
   'settings.mainPendingN': '{n} awaiting approval',
   'settings.mainSharedNote': 'What is about you — read alike by both and by every agent — is not on this page; it is under',
   'settings.mainEditTitle': 'Configure {name}',

@@ -40,10 +40,14 @@ describe('the list', () => {
     await waitFor(() => expect(cards(container).length).toBe(2))
     const names = cards(container).map((c) => c.querySelector('.chair-name')?.textContent?.trim())
     expect(names).toEqual(['ผู้ช่วย', 'โค้ด'])
-    // The face is the head's own rig, not an icon.
+    // The face is the head's own rig, not an icon, with its rank on the
+    // corner (RankedFace) like every other face in the app.
     expect(cards(container)[0].querySelector('.mascot')).toBeTruthy()
+    expect(cards(container)[0].querySelector('.rank-corner.rank-head')).toBeTruthy()
     await waitFor(() => expect(cards(container)[0].textContent).toContain('ทำได้ทุกอย่างบนเครื่อง'))
-    await waitFor(() => expect(cards(container)[0].textContent).toContain('จำไว้ 2 บรรทัด'))
+    // No memory count on the card (owner, 14 ก.ย.: "จำไว้ 0 บรรทัด เอาออก");
+    // the number is on the memory tab, one click in.
+    expect(cards(container)[0].textContent).not.toContain('บรรทัด')
     // The person's layer is named as elsewhere, never drawn here.
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('ตัวหลัก')
     expect(container.textContent).not.toContain('USER.md')
@@ -75,6 +79,7 @@ describe('a head\'s page', () => {
     await fireEvent.click(cards(container)[0].querySelector('.icobtn')!)
     await waitFor(() => expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('ตั้งค่า ผู้ช่วย'))
     expect(tabs(container).map((t) => t.textContent?.trim())).toEqual(['ตัวตน', 'อวตาร', 'สมอง', 'การเข้าถึง', 'ความจำ'])
+    expect(container.querySelector('.main-head .rank-corner.rank-head')).toBeTruthy()
     expect(container.querySelector('.main-head .mascot')).toBeTruthy()
     // The desk file's line on the first tab, and where the persona still is.
     expect(container.querySelector('.ag-tab-panel.on')?.textContent).toContain('ทำได้ทุกอย่างบนเครื่อง')
