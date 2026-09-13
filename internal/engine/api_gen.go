@@ -92,6 +92,7 @@ type API interface {
 	DeleteSpace(name string) error
 	DeleteSubagentProfile(name string) error
 	DeleteTeam(name string) error
+	DeskStarters(desk string, locale string) subagent.StarterSet
 	DisconnectAccount(id string) error
 	DismissRecurringRequest(normalized string, sampleText string) error
 	DismissTaskChip(id string)
@@ -269,6 +270,7 @@ type API interface {
 	SaveChatImage(sourcePath string) (string, error)
 	SaveChatImageData(dataURL string) (string, error)
 	SaveDeskFile(name string, text string) error
+	SaveDeskStarters(desk string, locale string, set subagent.StarterSet) error
 	SaveIdentityFile(head string, name string, content string) error
 	SaveLearnedEntry(scope string, index int, text string) error
 	SaveMCPServer(originalName string, server config.MCPServerConfig) error

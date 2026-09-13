@@ -219,6 +219,18 @@ func (a *Engine) ChairStartersFile(locale string) string {
 	return config.AgentStartersName(locale)
 }
 
+// DeskStarters / SaveDeskStarters are the two heads' own openings (§266):
+// what the empty chat at ผู้ช่วย or โค้ด asks and the cards under it, kept
+// in modes/<desk>/STARTERS.md and edited on that head's page. The same
+// language rule as a worker's, for the same reason.
+func (a *Engine) DeskStarters(desk, locale string) subagent.StarterSet {
+	return subagent.DeskStarters(desk, locale)
+}
+
+func (a *Engine) SaveDeskStarters(desk, locale string, set subagent.StarterSet) error {
+	return subagent.SaveDeskStarters(desk, locale, set)
+}
+
 type chairActivity struct {
 	count int
 	last  string

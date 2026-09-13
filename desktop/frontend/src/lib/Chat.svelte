@@ -27,7 +27,7 @@
   import {
     EnabledProviders, SupportedThinkLevels,
     ListModelsForProvider, PriceModels, ModelPriceSource, RequiresAPIKey, AcceptsAPIKey, HasAPIKey, PickAttachments,
-    GetContextBreakdown, GuideTopics, RunChatCommand, RunChatScript, ListTeams, ChairStarters, CurrentSessionID,
+    GetContextBreakdown, GuideTopics, RunChatCommand, RunChatScript, ListTeams, ChairStarters, DeskStarters, CurrentSessionID,
     Shells, CurrentShell, SetShell, EnginesFor, UseEngine, VerifyConnection,
     GitBranches, GitSwitchBranch, GitCreateBranch, GetProjectStatus,
     TranscribeMicAudio,
@@ -1746,14 +1746,44 @@
     return () => { live = false }
   })
 
-  const headline = $derived(chairOpening?.headline || headlineFor(roomStarters, profile.name, t))
+  // A desk's own opening (ตัวหลัก › เปิดบทสนทนา, §266): the same file shape a
+  // worker keeps, read for the desk this chat sits at when it is nobody's
+  // chair and no project's. Empty means the window's own cards, as before.
+  let deskOpening = $state<subagent.StarterSet | null>(null)
+  $effect(() => {
+    const desk = cockpit.desk || 'assistant'
+    const locale = i18n.locale
+    if (cockpit.chair || cockpit.space) {
+      deskOpening = null
+      return
+    }
+    let live = true
+    DeskStarters(desk, locale)
+      .then((set) => { if (live) deskOpening = set })
+      .catch(() => { if (live) deskOpening = null })
+    return () => { live = false }
+  })
+  // The person's name goes where the author put {ชื่อ} (or {name}); an author
+  // who wrote no slot gets the name in front, the way the built-in line has it;
+  // no name at all leaves the sentence as written.
+  const withName = (line: string, name: string): string => {
+    const who = name.trim()
+    if (/{(ชื่อ|name)}/.test(line)) return line.replace(/{(ชื่อ|name)}/g, who).replace(/^s+/, '')
+    return who ? `${who} ${line}` : line
+  }
+  const headline = $derived(
+    chairOpening?.headline
+      || (deskOpening?.headline ? withName(deskOpening.headline, profile.name) : '')
+      || headlineFor(roomStarters, profile.name, t),
+  )
 
   const deskName = (id: string) => { const k = deskLabelKey(id); return k ? t(k) : id }
 
   // Everything this room could open with. The grid draws four of them.
+  const ownOpening = $derived(chairOpening?.cards?.length ? chairOpening : deskOpening?.cards?.length ? deskOpening : null)
   const starterPool: { icon: IconName; title: string; prompt: string }[] = $derived(
-    chairOpening && chairOpening.cards?.length
-      ? chairOpening.cards.map((c) => ({
+    ownOpening
+      ? ownOpening.cards.map((c) => ({
           // An agent may name any mark from the app's icon set, and may name
           // none. A name this build does not have would draw an empty box, so
           // it is treated as "none" rather than trusted — the file is written by

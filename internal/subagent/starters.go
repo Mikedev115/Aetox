@@ -292,3 +292,49 @@ func inviteCompletion(prompt string) string {
 	}
 	return prompt
 }
+
+// DeskStarters is a main desk's own opening — ผู้ช่วย's or โค้ด's — read from
+// config.DeskStartersPath the way Starters reads a worker's, minus the bundled
+// half: the app ships no file for a desk, because the window already holds
+// the four cards it draws for one (starters.ts), and a desk with no file of
+// its own is exactly that case. Nothing here is an error, for the same
+// reason Starters gives.
+func DeskStarters(desk, locale string) StarterSet {
+	languages := []string{locale}
+	if config.AgentStartersName(locale) != config.AgentStartersFile {
+		languages = append(languages, "")
+	}
+	for _, lang := range languages {
+		path, err := config.DeskStartersPath(desk, lang)
+		if err != nil {
+			break
+		}
+		if raw, err := os.ReadFile(path); err == nil {
+			return parseStarters(string(raw))
+		}
+	}
+	return StarterSet{Cards: []Starter{}}
+}
+
+// SaveDeskStarters writes a desk's opening, SaveStarters' twin: the same
+// markdown, an empty set removes the file, and a hand edit stays as valid.
+func SaveDeskStarters(desk, locale string, set StarterSet) error {
+	path, err := config.DeskStartersPath(desk, locale)
+	if err != nil {
+		return err
+	}
+	body, err := serializeStarters(set)
+	if err != nil {
+		return err
+	}
+	if body == "" {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(body), 0o644)
+}

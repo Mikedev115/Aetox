@@ -472,6 +472,8 @@ export const SaveChairStarters = noop()
 // Which of STARTERS.md / STARTERS.<lang>.md the editor is writing. The base
 // file, matching the Thai default the tests run in.
 export const ChairStartersFile = vi.fn(async (..._args: any[]) => 'STARTERS.md')
+export const DeskStarters = vi.fn(async (..._args: any[]) => ({ headline: '', cards: [] as any[] }))
+export const SaveDeskStarters = noop()
 export const ListReceivedJobs = arr()
 export const ListSessionsAt = arr()
 export const ListArtifacts = arr()

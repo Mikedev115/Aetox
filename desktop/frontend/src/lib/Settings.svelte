@@ -67,7 +67,7 @@
     DeleteSubagentProfile, SetSubagentModel, OpenAgentsFolder, OpenAgentSkillsFolder, ListChairs,
     ListExternalSkills, CopySkillToAgent,
     AgentSkills, AgentNeeds, OpenAgentHome,
-    ChairStarters, SaveChairStarters, ChairStartersFile,
+    ChairStarters, SaveChairStarters, ChairStartersFile, DeskStarters, SaveDeskStarters,
     SignInMethods, SignInStatus, StartSignIn, CancelSignIn, ImportableSignIns,
     AppVersion, AppCredit, RecentDebugLog,
     LearningEnabled, SetLearningEnabled, ListPendingChanges, ListDecidedChanges, ListModes,
@@ -2076,8 +2076,25 @@
     }
   }
 
+  // Whose opening the form is editing: a worker's (STARTERS.md in its home)
+  // or a main desk's (modes/<desk>/STARTERS.md, §266). One form, one set of
+  // state, two files — the same rows in both places, never two forms.
+  type StartersOwner = { kind: 'chair'; name: string } | { kind: 'desk'; head: HeadId }
+  let startersOwner = $state<StartersOwner>({ kind: 'chair', name: '' })
+  const readStarters = (o: StartersOwner) =>
+    o.kind === 'desk' ? DeskStarters(o.head, i18n.locale) : ChairStarters(o.name, i18n.locale)
+  const writeStarters = (o: StartersOwner, set: subagent.StarterSet) =>
+    o.kind === 'desk' ? SaveDeskStarters(o.head, i18n.locale, set) : SaveChairStarters(o.name, i18n.locale, set)
+  async function loadHeadStarters(h: HeadId) {
+    const [set, file] = await Promise.all([DeskStarters(h, i18n.locale), ChairStartersFile(i18n.locale)])
+    if (mainHead !== h) return
+    startersFile = 'modes/' + h + '/' + file
+    startersInherited = false
+    fillStarters(set)
+  }
+
   const saveStarters = () => runStarters(async () => {
-    await SaveChairStarters(agentDraftName.trim(), i18n.locale, subagent.StarterSet.createFrom({
+    await writeStarters(startersOwner, subagent.StarterSet.createFrom({
       headline: startersHeadline.trim(),
       cards: startersCards
         .filter((c) => c.title.trim() && c.prompt.trim())
@@ -2085,15 +2102,15 @@
     }))
     // Read back rather than assumed: the engine caps, trims and refuses, and
     // the form must end up showing what is now in the file.
-    fillStarters(await ChairStarters(agentDraftName.trim(), i18n.locale))
+    fillStarters(await readStarters(startersOwner))
     startersInherited = false
   })
 
   // Clearing is "I do not want my own opening" — the file goes, and whatever
   // was underneath it answers again: the shipped cards, or the ordinary four.
   const clearStarters = () => runStarters(async () => {
-    await SaveChairStarters(agentDraftName.trim(), i18n.locale, subagent.StarterSet.createFrom({ headline: '', cards: [] }))
-    const back = await ChairStarters(agentDraftName.trim(), i18n.locale)
+    await writeStarters(startersOwner, subagent.StarterSet.createFrom({ headline: '', cards: [] }))
+    const back = await readStarters(startersOwner)
     fillStarters(back)
     startersInherited = (back.cards ?? []).length > 0 || !!back.headline
   })
@@ -2131,6 +2148,7 @@
       agentMemory = memory
       agentMemoryReady = true
     })
+    startersOwner = { kind: 'chair', name }
     const [needs, starters, file] = await Promise.all([
       AgentNeeds(name),
       ChairStarters(name, i18n.locale),
@@ -2708,7 +2726,10 @@
   // doored there was a tab. No brain tab either (owner, 14 ก.ย.: "เอาหน้าสมอง
   // ออก เพราะมันอิงกับตอนผู้ใช้เลือกอยู่แล้ว") — the model is the chat header's
   // pick, one for both desks, and a tab that only restated it was a tab.
-  type MainTab = 'identity' | 'reach' | 'memory'
+  // The agent editor's own tabs, one per thing a head owns (owner, 14 ก.ย.:
+  // "ทำให้มันเหมือนหน้าตั้งค่าเอเจน … สกิลไปไหน เปิดบทสนทนาไปไหน"): MCP with the
+  // switches on the page, the shelf it sees, its opening, its memory.
+  type MainTab = 'identity' | 'mcp' | 'skills' | 'opening' | 'memory'
   let mainTab = $state<MainTab>('identity')
   // The desk's own file (modes/<head>.md), whole — frontmatter and direction
   // — edited here since 14 ก.ย. 2026 (owner: "เอา modes/coding.md มาแสดงให้
@@ -2784,9 +2805,30 @@
   const headDecided = (h: HeadId) => decidedChanges.filter((c) => headScopes(h).includes(c.scope))
   // A delegate's proposals: its scope is its bare name (memoryScope.ts).
   const agentPendingFor = (name: string) => pendingChanges.filter((c) => c.kind !== 'skill' && c.scope === name.trim())
+  // A desk's switch on a server: the desk's id in that server's `for:` list,
+  // written through the room's one writer (SetMCPServerTargets) the way the
+  // agent box does — the room's picker and this switch are one call, not two
+  // stores. PlacementTargets names the desks by their mode name, so the id
+  // is the head's own name.
+  const isOnHead = (srv: MCPRow, h: HeadId) => (srv.for ?? []).includes(h)
+  const toggleHeadMCP = (srv: MCPRow, h: HeadId) => runMCP('target:' + srv.name, async () => {
+    const cur = srv.for ?? []
+    await SetMCPServerTargets(srv.name, isOnHead(srv, h) ? cur.filter((x) => x !== h) : [...cur, h])
+    await loadMCP()
+  })
+  const headServerCount = (h: HeadId) => liveServers.filter((s) => isOnHead(s, h)).length
+  // The shelf, as a desk sees it: all of it (mode.go: a skill is knowledge,
+  // not capability, so no desk is ever without one). Listed here so the page
+  // answers "what does this one know" without a trip to the room.
+  const shelfBundled = $derived(shelfSkills.filter((s) => s.bundled))
+  const shelfMine = $derived(shelfSkills.filter((s) => !s.bundled))
   const openHead = (h: HeadId) => {
     mainHead = h
     mainTab = 'identity'
+    startersOwner = { kind: 'desk', head: h }
+    void loadHeadStarters(h)
+    if (!mcpLoaded) void loadMCP()
+    if (!shelfLoaded) void loadShelf()
     deskOpen = false
     deskMsg = ''
     closeIdentityFile()
@@ -6466,7 +6508,9 @@
           <div class="seg" role="tablist" aria-label={t('settings.mainEditTitle', { name: headLabel(h) })}>
             {#each [
               ['identity', 'userRound', t('settings.agentSecIdentity')],
-              ['reach', 'plug', t('settings.mainSecReach')],
+              ['mcp', 'plug', t('settings.mainSecMcp')],
+              ['skills', 'puzzle', t('settings.mainSecSkills')],
+              ['opening', 'messageSquare', t('settings.agentSecOpening')],
               ['memory', 'brain', t('settings.mainSecMemory')],
             ] as [id, icon, label] (id)}
               <button type="button" role="tab" aria-selected={mainTab === id} class:on={mainTab === id}
@@ -6597,21 +6641,93 @@
           {/if}
         </div>
 
-        <!-- การเข้าถึง: doors into ห้องความสามารถ, at the page that answers for
-             this desk. The room stays the one place any of it is changed. -->
-        <div class="ag-tab-panel" class:on={mainTab === 'reach'}>
+        <!-- ตั้งค่า MCP: the agent box's shape — every live server with this
+             desk's switch on it, writing at once through the room's one
+             writer. The room's picker is the same switch on the same call. -->
+        <div class="ag-tab-panel" class:on={mainTab === 'mcp'}>
           <div class="settings-card">
-            {#each [
-              ['desks', 'plug', t('capability.navDesks'), t('settings.mainReachMcp')],
-              ['skills', 'puzzle', t('capability.navSkills'), t('settings.mainReachSkills')],
-              ['tools', 'wrench', t('capability.navTools'), t('settings.mainReachTools')],
-            ] as [pg, icon, label, hint] (pg)}
-              <div class="set-row">
-                <div class="set-txt"><div class="t">{label}</div><div class="d">{hint}</div></div>
-                <button type="button" class="ctrl" onclick={() => openCapabilityAt(pg)}><Icon name={icon as IconName} size={13} /> {t('settings.mainReachOpen')}</button>
+            <div class="set-row">
+              <span class="ag-rowicon"><Icon name="plug" size={15} /></span>
+              <div class="set-txt">
+                <div class="t">{t('settings.mainMcpTitle', { name: headLabel(h) })} {#if mcpLoaded}<span class="ag-count">{headServerCount(h)}</span>{/if}</div>
+                <div class="d">{t('settings.mainMcpHint')}</div>
               </div>
-            {/each}
+              <button class="ctrl" onclick={() => openCapabilityAt('mine')}>{t('capability.navMine')} <Icon name="arrowRight" size={13} /></button>
+            </div>
+            {#if mcpError}<div class="mset-error">{mcpError}</div>{/if}
+            {#if !mcpLoaded}
+              {@render waitRow()}
+            {:else}
+              {#each liveServers as srv (srv.name)}
+                {@const on = isOnHead(srv, h)}
+                <label class="set-row ag-reachrow" class:on>
+                  <McpMark name={srv.name} size={26} />
+                  <div class="set-txt">
+                    <div class="t">{srv.name}</div>
+                    <div class="d">{srv.tools > 0 ? t('settings.agentMCPTools', { n: srv.tools }) : (srv.url || (srv.command ?? []).join(' '))}</div>
+                  </div>
+                  <span class="mswitch">
+                    <input type="checkbox" checked={on} disabled={mcpBusy !== ''} aria-label={srv.name} onchange={() => toggleHeadMCP(srv, h)} />
+                    <span></span>
+                  </span>
+                </label>
+              {/each}
+              <div class="set-row"><div class="set-txt"><div class="d">
+                {liveServers.length === 0 ? t('settings.agentMCPNoneInSystem') : t('settings.agentMCPLiveHint')}
+              </div></div></div>
+            {/if}
           </div>
+          <div class="settings-card">
+            <div class="set-row">
+              <div class="set-txt"><div class="t">{t('capability.navTools')}</div><div class="d">{t('settings.mainReachTools')}</div></div>
+              <button type="button" class="ctrl" onclick={() => openCapabilityAt('tools')}><Icon name="wrench" size={13} /> {t('settings.mainReachOpen')}</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- สกิล: what this desk knows — the whole shelf, because every desk
+             carries every skill (mode.go). Listed, not ticked: there is no
+             per-desk list to edit, and the room is where the shelf changes. -->
+        <div class="ag-tab-panel" class:on={mainTab === 'skills'}>
+          <div class="settings-card">
+            <div class="set-row">
+              <span class="ag-rowicon"><Icon name="puzzle" size={15} /></span>
+              <div class="set-txt">
+                <div class="t">{t('settings.mainSkillsTitle', { name: headLabel(h) })} {#if shelfLoaded}<span class="ag-count">{shelfSkills.length}</span>{/if}</div>
+                <div class="d">{t('settings.mainSkillsHint')}</div>
+              </div>
+              <button class="ctrl" onclick={() => openCapabilityAt('skills')}>{t('capability.navSkills')} <Icon name="arrowRight" size={13} /></button>
+            </div>
+            {#if !shelfLoaded}
+              {@render waitRow()}
+            {:else}
+              <!-- Forty skills as forty full rows is a page to scroll, not a
+                   shelf to scan: cells in a grid, name and two lines of what
+                   it does, yours first (owner, 14 ก.ย.: "ทำ CSS ดี ๆ"). -->
+              {#if shelfMine.length > 0}
+                <div class="main-shelf-h"><span>{t('capability.bandMine')}</span><span class="n">{shelfMine.length}</span></div>
+                <div class="main-shelf-grid">
+                  {#each shelfMine as s (s.name)}
+                    <div class="main-shelf-cell" title={s.description}><div class="t">{s.name}</div><div class="d">{s.description}</div></div>
+                  {/each}
+                </div>
+              {/if}
+              <div class="main-shelf-h"><span>{t('capability.bandBundled')}</span><span class="n">{shelfBundled.length}</span></div>
+              <div class="main-shelf-grid">
+                {#each shelfBundled as s (s.name)}
+                  <div class="main-shelf-cell" title={s.description}><div class="t">{s.name}</div><div class="d">{s.description}</div></div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        </div>
+
+        <!-- เปิดบทสนทนา: the same form a worker's opening is edited on, aimed
+             at modes/<desk>/STARTERS.md. {ชื่อ} in the headline is where the
+             person's name goes (Chat.svelte withName). -->
+        <div class="ag-tab-panel" class:on={mainTab === 'opening'}>
+          <p class="muted set-sub" style="margin-top:0">{t('settings.mainOpeningHint')}</p>
+          {@render agentStartersBox()}
         </div>
 
         <!-- ความจำ: this head's file, the projects it hosts, its queue and

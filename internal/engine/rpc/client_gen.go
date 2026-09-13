@@ -478,6 +478,14 @@ func (c *Client) DeleteTeam(name string) error {
 	return c.call("DeleteTeam", []any{name}, nil)
 }
 
+func (c *Client) DeskStarters(desk string, locale string) subagent.StarterSet {
+	var out0 subagent.StarterSet
+	if err := c.call("DeskStarters", []any{desk, locale}, &out0); err != nil {
+		c.failed("DeskStarters", err)
+	}
+	return out0
+}
+
 func (c *Client) DisconnectAccount(id string) error {
 	return c.call("DisconnectAccount", []any{id}, nil)
 }
@@ -1688,6 +1696,10 @@ func (c *Client) SaveChatImageData(dataURL string) (string, error) {
 
 func (c *Client) SaveDeskFile(name string, text string) error {
 	return c.call("SaveDeskFile", []any{name, text}, nil)
+}
+
+func (c *Client) SaveDeskStarters(desk string, locale string, set subagent.StarterSet) error {
+	return c.call("SaveDeskStarters", []any{desk, locale, set}, nil)
 }
 
 func (c *Client) SaveIdentityFile(head string, name string, content string) error {

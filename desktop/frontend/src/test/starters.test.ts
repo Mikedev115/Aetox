@@ -15,8 +15,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import Chat from '../lib/Chat.svelte'
-import { ChairStarters } from './mocks/wailsApp'
+import { ChairStarters, DeskStarters } from './mocks/wailsApp'
 import { cockpit } from '../lib/stores/cockpit.svelte'
+import { profile } from '../lib/stores/profile.svelte'
 import { startersFor, dealStarters, STARTER_SLOTS } from '../lib/starters'
 import { TEACH_PIN_KEY } from '../lib/firstRun'
 import { th } from '../lib/locales/th'
@@ -210,6 +211,43 @@ describe('the empty chat on screen', () => {
       // its cards REPLACE the generic ones rather than joining them
       expect(screen.queryByText(th['start.chair.whatTitle'])).toBeNull()
     })
+  })
+
+  // A desk keeps an opening the same way (ตัวหลัก › เปิดบทสนทนา, §266), read
+  // for the desk of a chat that is nobody's chair. {ชื่อ} is where the person's
+  // name goes; a headline with no slot gets the name in front, as the built-in
+  // line has it; and a desk with no file is the built-in line, as before.
+  it('lets a desk open with its own question, with the name where {ชื่อ} is', async () => {
+    vi.mocked(DeskStarters).mockImplementation(async (desk: string) =>
+      (desk === 'coding'
+        ? { headline: 'วันนี้ {ชื่อ} จะแก้ตรงไหน?', cards: [{ title: 'รันเทสต์ทั้งหมด', prompt: 'รันเทสต์ทั้งหมดแล้วบอกผล', icon: 'play' }] }
+        : { headline: '', cards: [] }) as any)
+    profile.name = 'mike'
+    profile.loaded = true
+    cockpit.desk = 'coding'
+
+    render(Chat, chatProps)
+    await waitFor(() => {
+      expect(DeskStarters).toHaveBeenCalledWith('coding', 'th')
+      expect(screen.getByText('วันนี้ mike จะแก้ตรงไหน?')).toBeTruthy()
+      expect(screen.getByText('รันเทสต์ทั้งหมด')).toBeTruthy()
+      expect(screen.queryByText(th['start.coding.reviewTitle'])).toBeNull()
+    })
+    profile.name = ''
+    profile.loaded = false
+  })
+
+  it('puts the name in front of a desk headline written without a slot', async () => {
+    vi.mocked(DeskStarters).mockResolvedValue({ headline: 'เริ่มจากอะไรดี?', cards: [] } as any)
+    profile.name = 'mike'
+    profile.loaded = true
+    cockpit.desk = 'assistant'
+    render(Chat, chatProps)
+    await waitFor(() => expect(screen.getByText('mike เริ่มจากอะไรดี?')).toBeTruthy())
+    // No cards of its own: the desk's built-in hand still deals.
+    await waitFor(() => expect(document.querySelectorAll('.starter-card').length).toBe(STARTER_SLOTS))
+    profile.name = ''
+    profile.loaded = false
   })
 
   // A worker with no opening of its own is the ordinary case, not a blank
