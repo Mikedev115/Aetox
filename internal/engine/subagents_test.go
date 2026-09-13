@@ -3,6 +3,7 @@ package engine
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -100,19 +101,33 @@ func TestSubagentProfileBindings(t *testing.T) {
 		t.Error("unknown profile returned no error")
 	}
 
-	// The helpers are part of the system (owner's call, 2026-08-06): both write
-	// doors refuse, and the bundled profile stays exactly as shipped.
-	if err := a.SaveSubagentProfile("explore", "---\ndescription: mine\n---\nMine.\n"); err == nil {
-		t.Fatal("SaveSubagentProfile wrote over a system helper")
+	// The helpers' door is half open (§255, owner 12 ก.ย. 2026 — it was shut on
+	// 2026-08-06): a bundled name takes a shadow that may change the model,
+	// prompt, description, steps and look, and never the kit. A name the app
+	// does not ship is still refused — the set is the system's.
+	if err := a.SaveSubagentProfile("explore", "---\ndescription: mine\ntools: [write]\n---\nMine.\n"); err != nil {
+		t.Fatalf("SaveSubagentProfile on a bundled helper: %v", err)
 	}
-	if err := a.SetSubagentModel("explore", "aetox-grid"); err == nil {
-		t.Fatal("SetSubagentModel pinned a model onto a system helper")
+	if p, _ := subagent.Load("explore"); p.Prompt != "Mine." || !p.Overrides || p.Notice == "" || slices.Contains(p.Tools, "write") {
+		t.Fatalf("the helper shadow did not take within its limits: %+v", p)
+	}
+	if err := a.SetSubagentModel("explore", "aetox-grid"); err != nil {
+		t.Fatalf("SetSubagentModel on a bundled helper: %v", err)
+	}
+	if p, _ := subagent.Load("explore"); p.Model != "aetox-grid" {
+		t.Fatalf("the model pin did not take on the helper shadow: %+v", p)
+	}
+	if err := a.DeleteSubagentProfile("explore"); err != nil {
+		t.Fatalf("DeleteSubagentProfile: %v", err)
 	}
 	if p, _ := subagent.Load("explore"); !p.Builtin || p.Model != "" {
-		t.Fatalf("a refused write still took effect: %+v", p)
+		t.Fatalf("deleting the helper's shadow did not restore the bundled profile: %+v", p)
+	}
+	if err := a.SaveSubagentProfile("mine", "---\ndescription: mine\n---\nMine.\n"); err == nil {
+		t.Fatal("SaveSubagentProfile created a helper the app does not ship")
 	}
 	dir, _ := subagent.Dir()
-	if _, err := os.Stat(filepath.Join(dir, "explore.md")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, "mine.md")); !os.IsNotExist(err) {
 		t.Fatal("a refused write still left a file in the helpers' home")
 	}
 

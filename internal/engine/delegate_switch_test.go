@@ -91,7 +91,10 @@ func TestOneKindSwitchesWithoutTheOther(t *testing.T) {
 // the profile file lives in, and nothing else gets a vote.
 func TestEachBlockHoldsOnlyItsOwnKind(t *testing.T) {
 	a := newSwitchApp(t)
-	switches := a.DelegateSwitches("")
+	// On the session's own team, not "": since 13 ก.ย. an empty team name is
+	// the choice to hire nobody (§256), so it lists no เอเจน at all and the
+	// เอเจน block would be empty for a reason that has nothing to do with kind.
+	switches := a.DelegateSwitches(a.cur().team)
 
 	if len(switches.Agents.Workers) == 0 || len(switches.Helpers.Workers) == 0 {
 		t.Fatalf("a block is empty, so this proves nothing: %d เอเจน, %d ซับเอเจน", len(switches.Agents.Workers), len(switches.Helpers.Workers))
