@@ -4078,26 +4078,31 @@ func rememberModelForProvider(canonicalProvider, modelName string) {
 	})
 }
 
-// SupportedThinkLevels lists the thinking levels confirmed real for the current
-// provider/model. Providers Aetox has no curated capability data for only get a
-// generic guessed fallback internally (caps.Native == false) — that guess is not
-// shown here, since we can't promise the API actually honors those levels.
+// SupportedThinkLevels lists the thinking levels confirmed real for the model
+// the chat is on — the composer's own picker.
+//
+// One line, because it is the same question SupportedThinkLevelsFor answers and
+// there must not be two bodies that can drift on "which levels does this model
+// have". The answer is the capability table's alone, keyed on provider AND
+// model: no branch here knows a provider by name, so an Ollama model that does
+// state a thinking dial gets one on both screens the day the catalog says so,
+// and the day it stops it disappears from both.
 func (a *Engine) SupportedThinkLevels() []string {
-	// Never nil: a nil slice serializes to JSON null, which the frontend
-	// (thinkLevels.length) crashes on mid-render.
-	caps := model.ResolveThinkingCapabilities(a.cur().cfg.ModelProvider, a.cur().cfg.ModelName)
-	if !caps.Native || caps.Levels == nil {
-		return []string{}
-	}
-	return caps.Levels
+	return a.SupportedThinkLevelsFor("", "")
 }
 
-// SupportedThinkLevelsFor is the same list for a provider/model an agent's
-// editor is pointing at rather than the one the chat is on. Empty provider
-// means the chat's; empty model means what a delegate pinned to that provider
-// alone would run on — its default model, resolved the way providerFor
-// resolves it — so the levels offered are the levels the dispatch will check
-// against (subagent/task.go). Same never-nil rule as above.
+// SupportedThinkLevelsFor is that list for a provider/model an agent's editor
+// is pointing at rather than the one the chat is on. Empty provider means the
+// chat's; empty model means what a delegate pinned to that provider alone would
+// run on — its default model, resolved the way providerFor resolves it — so the
+// levels offered are the levels the dispatch will check against
+// (subagent/task.go).
+//
+// A provider Aetox has no curated capability data for gets a generic guessed
+// fallback internally (caps.Native == false); that guess is not returned here,
+// since we cannot promise the API honors those levels. Never nil either: a nil
+// slice serializes to JSON null, which the frontend (thinkLevels.length)
+// crashes on mid-render.
 func (a *Engine) SupportedThinkLevelsFor(provider, modelName string) []string {
 	// Tested before normalizing, not after: provider.Normalize("") answers with
 	// the fallback provider's name rather than "", so normalizing first made
