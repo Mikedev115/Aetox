@@ -454,6 +454,8 @@ export function MarkVideoCheckSeen():Promise<void>;
 
 export function MemoryFolderPath():Promise<string>;
 
+export function MemoryScopeInfo(arg1:string):Promise<engine.MemoryScopeInfo>;
+
 export function MobileRemoteQR():Promise<string>;
 
 export function MobileRemoteStatus():Promise<engine.RemoteStatus>;

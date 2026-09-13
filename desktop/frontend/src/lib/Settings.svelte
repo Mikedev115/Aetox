@@ -70,7 +70,7 @@
     ChairStarters, SaveChairStarters, ChairStartersFile, DeskStarters, SaveDeskStarters,
     SignInMethods, SignInStatus, StartSignIn, CancelSignIn, ImportableSignIns,
     AppVersion, AppCredit, RecentDebugLog,
-    LearningEnabled, SetLearningEnabled, ListPendingChanges, ListDecidedChanges, ListModes,
+    LearningEnabled, SetLearningEnabled, ListPendingChanges, ListDecidedChanges, ListModes, MemoryScopeInfo,
     ReadDeskFile, SaveDeskFile, ResetDeskFile,
     SessionReviewAuto, SetSessionReviewAuto, RunSessionReview,
     PreparedReplyOn, SetPreparedReplyOn,
@@ -1962,6 +1962,21 @@
   let agentAddingMemory = $state(false)
   let agentMemorySaving = $state(false)
   let agentMemoryError = $state('')
+  // The delegate's memory as the head page draws one (deskHead + memRow):
+  // one block, the face on it, the meter, the same rows. Its meter comes
+  // from MemoryScopeInfo, because LearnedScopeInfos does not list delegates.
+  let agentMemInfo = $state<{ bytes: number; maxBytes: number; full: boolean }>({ bytes: 0, maxBytes: 0, full: false })
+  const agentGroup = $derived<MemoryGroup>({
+    scope: agentDraftName.trim(), lines: agentMemory, orphan: false,
+    bytes: agentMemInfo.bytes, maxBytes: agentMemInfo.maxBytes, full: agentMemInfo.full, projectsUnder: false,
+    look: agentEditing ? lookOf(agentEditing) : undefined,
+  })
+  async function loadAgentMemInfo(name: string) {
+    try {
+      const info = await MemoryScopeInfo(name.trim())
+      if (agentReachFor === name) agentMemInfo = { bytes: info.bytes ?? 0, maxBytes: info.maxBytes ?? 0, full: !!info.full }
+    } catch { /* the meter is a nicety; the rows still draw */ }
+  }
 
   async function addAgentMemory(name: string, text: string) {
     if (!text.trim() || !name.trim()) return
@@ -1986,6 +2001,7 @@
       await SaveLearnedEntry(name.trim(), index, text)
       cancelMemoryEdit()
       agentMemory = await LearnedEntries(name.trim())
+      void loadAgentMemInfo(name)
     } catch (err) {
       agentMemoryError = String(err)
     } finally {
@@ -2148,6 +2164,7 @@
       agentMemory = memory
       agentMemoryReady = true
     })
+    void loadAgentMemInfo(name)
     startersOwner = { kind: 'chair', name }
     const [needs, starters, file] = await Promise.all([
       AgentNeeds(name),
@@ -2820,8 +2837,6 @@
   // The shelf, as a desk sees it: all of it (mode.go: a skill is knowledge,
   // not capability, so no desk is ever without one). Listed here so the page
   // answers "what does this one know" without a trip to the room.
-  const shelfBundled = $derived(shelfSkills.filter((s) => s.bundled))
-  const shelfMine = $derived(shelfSkills.filter((s) => !s.bundled))
   const openHead = (h: HeadId) => {
     mainHead = h
     mainTab = 'identity'
@@ -2880,6 +2895,8 @@
   type MemoryGroup = {
     scope: string; lines: string[]; orphan: boolean
     bytes: number; maxBytes: number; full: boolean; projectsUnder: boolean
+    // A delegate's own dress, so its block wears the face its card does.
+    look?: ReturnType<typeof lookOf>
   }
   let memoryGroups = $state<MemoryGroup[]>([])
   // The projects the store still knows, for the orphan group's ย้ายไปที่…
@@ -3053,6 +3070,12 @@
       // Re-read rather than patching the array: the row positions the next edit
       // sends have to be the file's, and a delete moves every line below it.
       await loadLearning()
+      // A delegate's rows are the same snippet on its own page; its list and
+      // meter are not in memoryGroups, so they are re-read here.
+      if (agentReachFor && scope === agentReachFor) {
+        agentMemory = await LearnedEntries(scope)
+        void loadAgentMemInfo(scope)
+      }
     } catch (err) {
       learningError = String(err)
     } finally {
@@ -3765,7 +3788,7 @@
   {@const meta = scopeMeta(g.scope)}
   {@const tone = capTone(g)}
   <div class="mem-scope mem-tone-{meta.tone}" data-mem-scope={g.scope}>
-    <span class="mem-scope-ic" class:face={!!meta.head}><ScopeMark {meta} size={14} face={30} /></span>
+    <span class="mem-scope-ic" class:face={!!meta.head || (meta.tone === 'agent' && !!g.look)}><ScopeMark {meta} size={14} face={30} look={g.look} /></span>
     <span class="mem-scope-name">{meta.label}</span>
     <span class="learn-aud">{meta.audience}</span>
     <span class="mem-badge-file">{meta.file}</span>
@@ -5122,73 +5145,35 @@
 <!-- Memory is stored in this agent's own folder (agents/<name>/MEMORY.md).
      Users can view, inline-edit, delete, add entries, or open the folder directly. -->
 {#snippet agentMemoryBox()}
-  <div class="settings-card">
-    <!-- What the delegate proposes to remember, decided here since 14 ก.ย.
-         2026 — the queue on การเรียนรู้ that used to hold it is gone. -->
-    {#if agentPendingFor(agentDraftName).length > 0}
-      <div class="card-form">
-        <div class="eyebrow">{t('settings.learningPending')} <span class="ag-count ag-count-warn">{agentPendingFor(agentDraftName).length}</span></div>
-      </div>
+  <!-- The head page's block (deskHead + memRow), so a delegate's memory
+       reads like ผู้ช่วย's and โค้ด's: the face, who reads it, the file, the
+       meter, one row per line (owner, 14 ก.ย. 2026: "พนักงานหรือเอเจนทุกตัวควร
+       จะมีความจำแยกแบบนี้ CSS มาตรฐานเดียวกัน"). The queue the delegate
+       proposes into it sits above, as it does on the head page. -->
+  <h3 class="set-h3">{t('settings.mainMemoryOwn', { name: agentDraftName.trim() })}</h3>
+  <p class="muted set-sub">{t('settings.agentMemoryHint')}</p>
+  {#if agentPendingFor(agentDraftName).length > 0}
+    <div class="settings-card">
       {#each agentPendingFor(agentDraftName) as c (c.id)}{@render pendingRow(c)}{/each}
-    {/if}
-    <div class="card-form">
-      <div class="eyebrow">
-        {t('settings.agentMemoryTitle')}
-        <span class="ag-count">{agentMemory.length}</span>
-      </div>
-      <div class="d muted">{t('settings.agentMemoryHint')}</div>
     </div>
-
+  {/if}
+  <div class="settings-card mem-desk">
+    {@render deskHead(agentGroup)}
     {#if agentMemoryError}
-      <div class="set-error" style="margin: 0 16px 12px;">{agentMemoryError}</div>
+      <div class="mem-move-error"><Icon name="alertTriangle" size={13} /><span>{agentMemoryError}</span></div>
     {/if}
-
-    {#each agentMemory as line, i (i)}
-      <div class="mem-row" class:editing={isEditing(agentDraftName, i)}>
-        {#if isEditing(agentDraftName, i)}
-          <!-- svelte-ignore a11y_autofocus -->
-          <textarea
-            class="mem-input" rows="2" autofocus
-            bind:value={memoryDraft}
-            onkeydown={(e) => {
-              if (e.key === 'Escape') cancelMemoryEdit()
-              else if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                if (memoryDraft.trim()) void saveAgentMemoryItem(agentDraftName, i, memoryDraft)
-              }
-            }}
-          ></textarea>
-          <div class="mem-actions">
-            <button
-              type="button" class="ctrl ctrl-primary"
-              disabled={agentMemorySaving || !memoryDraft.trim()}
-              onclick={() => saveAgentMemoryItem(agentDraftName, i, memoryDraft)}
-            >{t('settings.learningMemorySave')}</button>
-            <button type="button" class="ctrl" disabled={agentMemorySaving} onclick={cancelMemoryEdit}
-            >{t('settings.learningMemoryCancel')}</button>
-          </div>
-        {:else}
-          <p class="mem-text">{line}</p>
-          <div class="mem-actions">
-            <button
-              type="button" class="icobtn tiny tip-l" aria-label={t('settings.learningMemoryEdit')}
-              data-tip={t('settings.learningMemoryEdit')} disabled={agentMemorySaving}
-              onclick={() => startMemoryEdit(agentDraftName, i)}
-            ><Icon name="pencil" size={13} /></button>
-            <button
-              type="button" class="icobtn tiny tip-l mem-forget" aria-label={t('settings.learningMemoryForget')}
-              data-tip={t('settings.learningMemoryForget')} disabled={agentMemorySaving}
-              onclick={() => saveAgentMemoryItem(agentDraftName, i, '')}
-            ><Icon name="x" size={13} /></button>
-          </div>
-        {/if}
-      </div>
-    {/each}
-
-    {#if agentMemory.length === 0 && !agentAddingMemory}
-      <div class="set-row">
-        <div class="muted">{t('settings.agentMemoryNone')}</div>
-      </div>
+    {#if moveError?.scope === agentGroup.scope}
+      <div class="mem-move-error"><Icon name="alertTriangle" size={13} /><span>{moveError.text}</span></div>
+    {/if}
+    {#if !agentMemoryReady}
+      {@render waitRow()}
+    {:else}
+      {#each agentMemory as line, i (i)}
+        {@render memRow(agentGroup, line, i)}
+      {/each}
+      {#if agentMemory.length === 0 && !agentAddingMemory}
+        <div class="empty">{t('settings.agentMemoryNone')}</div>
+      {/if}
     {/if}
 
     {#if agentAddingMemory}
@@ -6701,23 +6686,32 @@
             {#if !shelfLoaded}
               {@render waitRow()}
             {:else}
-              <!-- Forty skills as forty full rows is a page to scroll, not a
-                   shelf to scan: cells in a grid, name and two lines of what
-                   it does, yours first (owner, 14 ก.ย.: "ทำ CSS ดี ๆ"). -->
-              {#if shelfMine.length > 0}
-                <div class="main-shelf-h"><span>{t('capability.bandMine')}</span><span class="n">{shelfMine.length}</span></div>
-                <div class="main-shelf-grid">
-                  {#each shelfMine as s (s.name)}
-                    <div class="main-shelf-cell" title={s.description}><div class="t">{s.name}</div><div class="d">{s.description}</div></div>
-                  {/each}
+              <!-- The agent skills box's own rows, exactly (owner, 14 ก.ย.:
+                   "ควรจะเป็นมาตรฐานเดียวกันทั้งหมด … CSS แบบนี้ดีกว่า"): the mark,
+                   the name with มากับแอป on a bundled one, two lines of what
+                   it does; yours first, and the same search over six. -->
+              {#if shelfSkills.length > 6}
+                <div class="set-row">
+                  <label class="ag-search">
+                    <Icon name="search" size={13} />
+                    <input bind:value={shelfQuery} placeholder={t('settings.agentSkillsSearch')} />
+                  </label>
                 </div>
               {/if}
-              <div class="main-shelf-h"><span>{t('capability.bandBundled')}</span><span class="n">{shelfBundled.length}</span></div>
-              <div class="main-shelf-grid">
-                {#each shelfBundled as s (s.name)}
-                  <div class="main-shelf-cell" title={s.description}><div class="t">{s.name}</div><div class="d">{s.description}</div></div>
-                {/each}
-              </div>
+              {#each [...shelfShown.filter((s) => !s.bundled), ...shelfShown.filter((s) => s.bundled)] as sk (sk.name)}
+                <div class="set-row">
+                  <span class="cap-mark" style="--px:26px; --h:{coverHue(sk.name)}" aria-hidden="true">{sk.name.replace(/^aetox-/, '').slice(0, 2)}</span>
+                  <div class="set-txt">
+                    <div class="t">{sk.name.replace(/^aetox-/, '')} {#if sk.bundled}<span class="badge on">{t('office.builtin')}</span>{/if}</div>
+                    {#if sk.description}<div class="d clamp2">{sk.description}</div>{/if}
+                  </div>
+                </div>
+              {/each}
+              {#if shelfSkills.length === 0 || shelfShown.length === 0}
+                <div class="set-row"><div class="set-txt"><div class="d">
+                  {shelfSkills.length === 0 ? t('settings.agentSkillsNoneOnShelf') : t('settings.agentNoMatches')}
+                </div></div></div>
+              {/if}
             {/if}
           </div>
         </div>

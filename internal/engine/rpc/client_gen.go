@@ -1094,6 +1094,14 @@ func (c *Client) MemoryFolderPath() (string, error) {
 	return out0, err
 }
 
+func (c *Client) MemoryScopeInfo(scope string) engine.MemoryScopeInfo {
+	var out0 engine.MemoryScopeInfo
+	if err := c.call("MemoryScopeInfo", []any{scope}, &out0); err != nil {
+		c.failed("MemoryScopeInfo", err)
+	}
+	return out0
+}
+
 func (c *Client) MobileRemoteQR() string {
 	var out0 string
 	if err := c.call("MobileRemoteQR", nil, &out0); err != nil {

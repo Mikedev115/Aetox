@@ -730,6 +730,21 @@ func (a *Engine) LearnedScopeInfos() []MemoryScopeInfo {
 	return out
 }
 
+// MemoryScopeInfo is one scope's meter — the same row LearnedScopeInfos
+// builds — for a scope that list does not carry: a delegate's (its bare
+// name, agents/<name>/MEMORY.md). The agent page draws its memory in the
+// head page's own block since 14 ก.ย. 2026 ("พนักงานหรือเอเจนทุกตัวควรจะมี
+// ความจำแยกแบบนี้ CSS มาตรฐานเดียวกัน"), and that block wants the ceiling.
+func (a *Engine) MemoryScopeInfo(scope string) MemoryScopeInfo {
+	scope = strings.TrimSpace(scope)
+	return MemoryScopeInfo{
+		Scope:    scope,
+		Bytes:    len(learned.Read(scope)),
+		MaxBytes: learned.MaxBytesFor(scope),
+		Full:     learned.Full(scope, 80),
+	}
+}
+
 // ForgetMemoryScope deletes one project scope's whole memory file — the exit
 // the orphan label needs, because a label without a door is a nagging sign.
 // Project scopes only: every other file has a per-line editor on the same

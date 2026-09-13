@@ -177,6 +177,7 @@ type API interface {
 	MarkIssueReported(id int64) error
 	MarkVideoCheckSeen()
 	MemoryFolderPath() (string, error)
+	MemoryScopeInfo(scope string) MemoryScopeInfo
 	MobileRemoteQR() string
 	MobileRemoteStatus() RemoteStatus
 	ModelPriceSource() PriceSource

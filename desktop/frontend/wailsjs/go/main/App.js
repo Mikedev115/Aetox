@@ -874,6 +874,10 @@ export function MemoryFolderPath() {
   return window['go']['main']['App']['MemoryFolderPath']();
 }
 
+export function MemoryScopeInfo(arg1) {
+  return window['go']['main']['App']['MemoryScopeInfo'](arg1);
+}
+
 export function MobileRemoteQR() {
   return window['go']['main']['App']['MobileRemoteQR']();
 }

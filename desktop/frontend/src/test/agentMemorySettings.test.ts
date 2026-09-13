@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import Settings from '../lib/Settings.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import {
+  MemoryScopeInfo,
   ListSubagentProfiles, ReadSubagentProfile, LearnedEntries,
   AddLearnedEntry, SaveLearnedEntry, OpenAgentHome,
   DelegateSwitches, ListMCPServers, ListExternalSkills, ListTools, ListChairs,
@@ -113,5 +114,25 @@ describe('Agent Memory in Settings', () => {
     // Click delete on the first line
     await fireEvent.click(deleteButtons[0])
     expect(SaveLearnedEntry).toHaveBeenCalledWith('deck', 0, '')
+  })
+
+  // The head page's block, on a delegate (14 ก.ย. 2026, owner: "พนักงานหรือเอเจน
+  // ทุกตัวควรจะมีความจำแยกแบบนี้ CSS มาตรฐานเดียวกัน"): the same heading, the
+  // scope head with its face and the file badge, the meter from the scope's
+  // own info, and the same rows.
+  it("draws the delegate's memory in the head page's own block, with its meter", async () => {
+    vi.mocked(LearnedEntries).mockResolvedValue(['Preference: Thai output'])
+    vi.mocked(MemoryScopeInfo).mockResolvedValue({ scope: 'deck', bytes: 1200, maxBytes: 8192, full: false } as any)
+    cockpit.settingsIntent = { section: 'team', agent: 'deck' }
+    const { container } = render(Settings, { onClose: () => {} })
+    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
+    await fireEvent.click(await screen.findByRole('tab', { name: /สกิลเฉพาะสำหรับเอเจน/ }))
+    const head = await waitFor(() => { const h = container.querySelector('.mem-desk .mem-scope[data-mem-scope="deck"]'); expect(h).toBeTruthy(); return h! })
+    expect(head.querySelector('.mem-scope-name')?.textContent?.trim()).toBe('deck')
+    expect(head.querySelector('.mem-badge-file')?.textContent).toBe('agents/deck/MEMORY.md')
+    expect(head.querySelector('.scope-face .mascot')).toBeTruthy()
+    await waitFor(() => expect(head.querySelector('.mem-cap-num')?.textContent).toContain('1,200 / 8,192'))
+    expect(screen.getByText('ความจำของdeck')).toBeTruthy()
+    expect(container.querySelectorAll('.mem-desk .mem-row').length).toBe(1)
   })
 })
