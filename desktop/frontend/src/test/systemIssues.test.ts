@@ -61,13 +61,19 @@ describe('problems and lessons are two rooms', () => {
     expect(screen.queryByText('อนุมัติ')).toBeNull()
   })
 
-  // The learning page is the half that had to get quieter. It reads its own
-  // list, and a summarizer row is not in it.
+  // The approval queue is the half that had to get quieter. Since 14 ก.ย.
+  // 2026 it is drawn on the head's own page (ตัวหลัก › ผู้ช่วย › ความจำ); it
+  // reads its own list, and a summarizer row is not in it.
   it('leaves the approval queue empty of failures', async () => {
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การเรียนรู้')
+    await openSection(container, 'ตัวหลัก')
+    const card = await waitFor(() => { const c = container.querySelector('.main-card'); expect(c).toBeTruthy(); return c! })
+    await fireEvent.click(card.querySelector('.icobtn')!)
+    const tab = await waitFor(() => { const b = Array.from(container.querySelectorAll('.ag-tabs-bar [role="tab"]')).find((x) => x.textContent?.includes('ความจำ')); expect(b).toBeTruthy(); return b! })
+    await fireEvent.click(tab)
 
-    expect(await screen.findByText('ยังไม่มีอะไรรออนุมัติ')).toBeTruthy()
+    await waitFor(() => expect(container.querySelector('.ag-tab-panel.on .mem-desk')).toBeTruthy())
+    expect(container.querySelector('.learn-row')).toBeNull()
     expect(screen.queryByText(/ไม่พบโปรแกรม Tesseract/)).toBeNull()
   })
 
