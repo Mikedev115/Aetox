@@ -9203,6 +9203,14 @@ button.phase-head:hover { color:var(--text-muted); }
 .pp-newtxt { font-size:var(--fs-sm); }
 .pp-edit { display:flex; flex-direction:column; gap:16px; }
 .pp-field { display:flex; flex-direction:column; gap:7px; }
+/* The agent editor's brain group: the chat's own .mm-row shape, three
+   rows read as one decision. Tighter than the 7px above because the gap
+   between a label and its control's neighbour is not the gap between
+   two settings. The 180px cap .mm-row .ctrl carries is the chat menu's
+   width budget and too narrow for a full model id here, where there is
+   a whole panel to spend. */
+.ag-brain { gap:9px; }
+.ag-brain .mm-row .ctrl { max-width:260px; }
 .pp-coveredit { display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
 .pp-coverbtns { display:flex; flex-direction:column; gap:8px; align-items:flex-start; max-width:300px; }
 .pp-textarea {

@@ -1842,11 +1842,11 @@ export const th = {
   'settings.agentModelProviderDefault': 'โมเดลเริ่มต้นของผู้ให้บริการนี้',
   'settings.agentProviderPick': 'ผู้ให้บริการ',
   'settings.agentProviderInherit': 'ตามที่แชทใช้อยู่',
-  'settings.agentProviderHint': 'เลือกเมื่อเอเจนคนนี้ควรคิดที่ผู้ให้บริการอื่นจากแชท เช่น โมเดลถูกในเครื่องสำหรับงานค้นไฟล์ — คีย์และปลายทางใช้ที่ตั้งไว้ในการตั้งค่าโมเดล',
+  'settings.agentBrainHint': 'เว้นว่างไว้ = ตามที่แชทใช้อยู่ตอนสั่งงาน เลือกเจาะจงเมื่อเอเจนคนนี้ควรคิดคนละอย่างกับแชท — คีย์และปลายทางใช้ที่ตั้งไว้ในการตั้งค่าโมเดล',
   'settings.agentThinkPick': 'ระดับความคิด',
   'settings.agentThinkInherit': 'ตามที่แชทตั้งอยู่',
   'settings.agentThinkHint': 'เว้นว่างไว้ = คิดลึกเท่าที่แชทตั้งอยู่ตอนสั่งงาน เลือกเจาะจงเมื่อเอเจนคนนี้ควรคิดตื้นกว่า (งานค้นไฟล์) หรือลึกกว่า (งานวางแผน) โดยไม่ต้องไปปรับแชท',
-  'settings.agentThinkNone': 'โมเดลที่เลือกอยู่ไม่มีระดับความคิดให้ปรับ',
+  'settings.agentThinkStale': 'โมเดลที่เลือกอยู่ไม่มีระดับความคิด ระดับนี้จะไม่ถูกใช้ แต่ยังเก็บไว้ในไฟล์ให้',
   'settings.agentThinkChip': 'คิด {level}',
   'settings.agentThinkTip': 'ระดับความคิดที่ตั้งไว้ให้เอเจนคนนี้ ไม่ใช่ของแชท',
   'settings.agentsFolder': 'เปิดโฟลเดอร์',
@@ -1902,7 +1902,6 @@ export const th = {
   'settings.agentSecKnowledge': 'ความรู้',
   'settings.agentSecOpening': 'เปิดบทสนทนา',
   'settings.agentSecAvatar': 'อวตาร',
-  'settings.agentModelHint': 'เว้นว่างไว้ = ใช้โมเดลเดียวกับที่คุณเลือกอยู่ในแชท เลือกเจาะจงเมื่อเอเจนคนนี้ต้องการโมเดลคนละตัว',
 
   // เพดานของโต๊ะ — บอกให้รู้ว่ามีเพดานอยู่ ไม่ได้ให้แก้
   'settings.agentDeskTitle': 'โต๊ะที่สังกัด',
