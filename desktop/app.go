@@ -20,6 +20,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/engine"
 	"github.com/Mikedev115/Aetox/internal/engine/rpc"
+	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/tts"
 )
 
@@ -139,6 +140,11 @@ func (a *App) startup(ctx context.Context) {
 	// beside it (debuglog.InitAs says why the name matters).
 	if dataRoot, err := config.DataRoot(); err == nil {
 		debuglog.InitAs(dataRoot, "desktop")
+		// The model list is fetched on THIS side (ListModelsForProvider) and
+		// the thinking ladder is answered on the engine's. What the ChatGPT
+		// backend states per model crosses between them as a file, so the
+		// screen has to know where that file lives before the first fetch.
+		model.InstallCachedResponsesModelFacts(dataRoot)
 	}
 	// The engine, as a child of this window for as long as the window lives.
 	go a.engine.run(ctx)

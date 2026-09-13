@@ -771,6 +771,9 @@ func InstallCachedCatalog(dataRoot string) {
 	if strings.TrimSpace(dataRoot) == "" {
 		return
 	}
+	// The ChatGPT backend's per-model statement rides along: same question
+	// (what can this model do), same file-only discipline, same two callers.
+	InstallCachedResponsesModelFacts(dataRoot)
 	catalog, err := LoadModelCatalog(dataRoot)
 	if err != nil || catalog == nil || len(catalog.Models) == 0 {
 		return

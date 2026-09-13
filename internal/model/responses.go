@@ -767,6 +767,12 @@ func DiscoverResponsesModels(ctx context.Context, providerName, baseURL string, 
 			// "slug", not "id" — this is not the public /v1/models shape.
 			Slug       string `json:"slug"`
 			Visibility string `json:"visibility"`
+			// The thinking dial, per model, in the backend's own words. Read
+			// here rather than typed into a table: see responses_models.go.
+			DefaultReasoningLevel    string `json:"default_reasoning_level"`
+			SupportedReasoningLevels []struct {
+				Effort string `json:"effort"`
+			} `json:"supported_reasoning_levels"`
 		} `json:"models"`
 	}
 	if err := json.Unmarshal(body, &parsed); err != nil {
@@ -774,11 +780,23 @@ func DiscoverResponsesModels(ctx context.Context, providerName, baseURL string, 
 	}
 
 	out := make([]string, 0, len(parsed.Models))
+	facts := make([]ResponsesModelFacts, 0, len(parsed.Models))
 	for _, m := range parsed.Models {
-		if m.Slug != "" {
-			out = append(out, m.Slug)
+		if m.Slug == "" {
+			continue
 		}
+		out = append(out, m.Slug)
+		row := ResponsesModelFacts{Slug: m.Slug, DefaultReasoningLevel: m.DefaultReasoningLevel}
+		for _, l := range m.SupportedReasoningLevels {
+			if l.Effort != "" {
+				row.ReasoningLevels = append(row.ReasoningLevels, l.Effort)
+			}
+		}
+		facts = append(facts, row)
 	}
+	// Hidden rows are kept too (codex-auto-review, gpt-reserve): a slug a
+	// user typed by hand still deserves the ladder the backend states for it.
+	rememberResponsesModelFacts(facts)
 	return out, nil
 }
 

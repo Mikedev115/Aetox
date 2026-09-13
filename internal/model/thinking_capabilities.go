@@ -155,7 +155,9 @@ func ResolveThinkingCapabilities(provider, modelName string) ThinkingCapabilitie
 	case "github-copilot":
 		return cloneThinkingCapabilities(resolveOpenAIThinkingCapabilities(modelID))
 	case "codex":
-		return cloneThinkingCapabilities(responsesThinkingCapabilities)
+		// The backend's own per-model statement when the list has been
+		// fetched; the table below only until then (responses_models.go).
+		return resolveResponsesThinkingCapabilities(modelID)
 	default:
 		// Unreachable while every reasoning-capable provider in the catalog has
 		// a case above; ollama and lmstudio no longer need one of their own,
@@ -248,11 +250,15 @@ func ThinkingBlockType(provider, modelName, level string) (string, bool) {
 // and what a saved setting is spelled in. Every effort value models.dev states
 // falls inside it (checked across all 7,248 models it describes: none, minimal,
 // low, medium, high, xhigh, max and nothing else), which is what lets levels be
-// taken from that catalog without a translation table per provider.
+// taken from that catalog without a translation table per provider. `ultra`
+// joined on 13 ก.ย. 2026 because the ChatGPT backend states it above max for
+// gpt-5.6-sol and -terra (responses_models.go) — until then it was only a
+// synonym Aetox folded onto the deepest rung, and a rung a backend serves
+// must be a rung a saved setting can name.
 //
 // "off" is deliberately absent. It is not a rung, it is the switch, and it
 // sorts below every rung wherever a provider has one.
-var thinkingLadder = []string{"none", "minimal", "low", "medium", "high", "xhigh", "max"}
+var thinkingLadder = []string{"none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"}
 
 func knownThinkingLevel(v string) bool {
 	for _, rung := range thinkingLadder {
@@ -343,9 +349,6 @@ func deriveThinkingAliases(levels []string) map[string]string {
 		if !offered[word] {
 			aliases[word] = shallowest
 		}
-	}
-	if deepest := nearest("max"); deepest != "" && !offered["ultra"] {
-		aliases["ultra"] = deepest
 	}
 	return aliases
 }
@@ -798,9 +801,15 @@ func identityWire(levels ...string) map[string]string {
 // Providers whose thinking knob Aetox drives directly
 // ---------------------------------------------------------------------------
 
-// responsesThinkingCapabilities is the ChatGPT/Codex dial. The Responses API
-// takes a real effort setting, which internal/model/responses.go passes through
-// alongside summary:auto so the thinking is visible while it happens.
+// responsesThinkingCapabilities is the ChatGPT/Codex dial for a machine that
+// has never fetched the model list — the FALLBACK, not the answer. Once
+// /models has been read the backend's own per-model statement replaces it
+// (resolveResponsesThinkingCapabilities), which is where max and ultra come
+// from; this ladder stops at xhigh because that is the one every slug seen so
+// far accepts, and a fallback that could 400 is worse than a shallow one. The
+// Responses API takes a real effort setting, which internal/model/responses.go
+// passes through alongside summary:auto so the thinking is visible while it
+// happens.
 var responsesThinkingCapabilities = ThinkingCapabilities{
 	Supported: true,
 	Native:    true,
