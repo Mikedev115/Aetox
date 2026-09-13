@@ -7263,9 +7263,9 @@
               {#if c.before}
                 <!-- What it replaces, shown next to what it becomes: approving a
                      change without seeing what it overwrites is not a decision. -->
-                <div class="learn-before">{c.before}</div>
+                <div class="learn-before" class:learn-doc={c.kind === 'skill'}>{c.before}</div>
               {/if}
-              <div class="learn-body">{c.body}</div>
+              <div class="learn-body" class:learn-doc={c.kind === 'skill'}>{c.body}</div>
               {#if c.reason}<div class="learn-why">{c.reason}</div>{/if}
             </div>
             <div class="learn-actions">
@@ -7422,7 +7422,7 @@
                   {/if}
                   <span class="learn-when">{c.decidedAt.slice(0, 10)}</span>
                 </div>
-                <div class="learn-body">{c.body}</div>
+                <div class="learn-body" class:learn-doc={c.kind === 'skill'}>{c.body}</div>
               </div>
             </div>
           {/each}

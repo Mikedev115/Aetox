@@ -154,9 +154,9 @@
     {#if change.before}
       <!-- What it overwrites, struck through above what it becomes: approving a
            change without seeing what it replaces is not a decision. -->
-      <div class="memcard-was">{change.before}</div>
+      <div class="memcard-was" class:learn-doc={change.kind === 'skill'}>{change.before}</div>
     {/if}
-    {#if change.body}<div class="memcard-line">{change.body}</div>{/if}
+    {#if change.body}<div class="memcard-line" class:learn-doc={change.kind === 'skill'}>{change.body}</div>{/if}
     {#if change.reason}
       <div class="memcard-why">{t('chat.memoryBecause')} {change.reason}</div>
     {/if}
@@ -202,8 +202,8 @@
     </button>
     {#if detail}
       <div class="memdone-body">
-        {#if change.before}<div class="memcard-was">{change.before}</div>{/if}
-        {#if line}<div class="memdone-line">{line}</div>{/if}
+        {#if change.before}<div class="memcard-was" class:learn-doc={change.kind === 'skill'}>{change.before}</div>{/if}
+        {#if line}<div class="memdone-line" class:learn-doc={change.kind === 'skill'}>{line}</div>{/if}
         {#if change.reason}
           <div class="memcard-why">{t('chat.memoryBecause')} {change.reason}</div>
         {/if}
