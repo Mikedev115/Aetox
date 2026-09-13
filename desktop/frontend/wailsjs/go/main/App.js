@@ -1782,6 +1782,10 @@ export function SupportedThinkLevels() {
   return window['go']['main']['App']['SupportedThinkLevels']();
 }
 
+export function SupportedThinkLevelsFor(arg1, arg2) {
+  return window['go']['main']['App']['SupportedThinkLevelsFor'](arg1, arg2);
+}
+
 export function SwitchApprovalMode(arg1) {
   return window['go']['main']['App']['SwitchApprovalMode'](arg1);
 }

@@ -908,6 +908,8 @@ export function SupportedProviders():Promise<Array<string>>;
 
 export function SupportedThinkLevels():Promise<Array<string>>;
 
+export function SupportedThinkLevelsFor(arg1:string,arg2:string):Promise<Array<string>>;
+
 export function SwitchApprovalMode(arg1:string):Promise<engine.ModelInfo>;
 
 export function SwitchModel(arg1:string):Promise<engine.ModelInfo>;

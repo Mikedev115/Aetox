@@ -43,7 +43,7 @@
   import StudioSourcesSheet from './StudioSourcesSheet.svelte'
   import {
     SupportedProviders, HasAPIKey, APIKeyHint, RequiresAPIKey, AcceptsAPIKey, ProviderAccountFor, TerminalShells,
-    ListModelsForProvider, ProviderBaseURL, ProviderBaseURLIsCustom, ProviderAPIKeyURL, ProviderReady, PriceModels,
+    ListModelsForProvider, SupportedThinkLevelsFor, ProviderBaseURL, ProviderBaseURLIsCustom, ProviderAPIKeyURL, ProviderReady, PriceModels,
     ProviderWireFormats, TestProviderConnection,
     EnabledProviders, SetProviderEnabled,
     CustomProviders, AddCustomProvider, RemoveCustomProvider,
@@ -2079,7 +2079,7 @@
   // Only sub-agents live here. The main agent is the assistant — one identity,
   // configured by the identity files — and is not chosen from a list (§44.0).
   type SubagentRow = {
-    name: string; description: string; model?: string; provider?: string
+    name: string; description: string; model?: string; provider?: string; think?: string
     tools?: string[]; deny?: string[]; steps?: number; prompt: string
     path?: string; builtin: boolean; overrides?: boolean; invalid?: string; notice?: string; icon?: string
     // The look a profile may name for itself (profile.go). Blank on almost
@@ -2156,6 +2156,10 @@
   // Which provider the model above lives at (owner, 12 ก.ย.: "ควรเลือกได้แม้แต่
   // ผู้ให้บริการ"). '' = the chat's, which is what every file said before.
   let agentDraftProvider = $state('')
+  // How deep this agent thinks (owner, 13 ก.ย.: "ทำให้เราปรับระดับความคิดได้").
+  // '' = the chat's level, which is what every file said before; anything else
+  // is one of the levels the provider/model above actually has (agentThinkLevels).
+  let agentDraftThink = $state('')
   let agentDraftTools = $state<string[]>([])
   let agentDraftDeny = $state<string[]>([])
   let agentDraftSteps = $state('')
@@ -2602,6 +2606,20 @@
     agentDraftModel = ''
     void loadAgentModels(provider)
   }
+  // The thinking levels the draft's provider/model has — asked of the engine
+  // rather than typed here, because the ladder is per model (Codex's sol has
+  // ultra, luna stops at max; a local runtime has no dial at all) and the
+  // engine already owns that table for the chat's own picker. Empty means no
+  // dial: the control then says so instead of offering levels the request
+  // would silently drop. Re-asked whenever provider or model changes.
+  let agentThinkLevels = $state<string[]>([])
+  $effect(() => {
+    if (!agentEditing) return
+    const provider = agentDraftProvider, model = agentDraftModel
+    SupportedThinkLevelsFor(provider, model)
+      .then((levels) => { agentThinkLevels = levels })
+      .catch(() => { agentThinkLevels = [] })
+  })
 
   async function loadAgents() {
     subagents = await ListSubagentProfiles()
@@ -2665,7 +2683,7 @@
   // captured when the editor opened (and re-captured on save) to answer the one
   // question the Back button needs answered.
   const agentDraftKey = () => JSON.stringify([
-    agentDraftName, agentDraftDescription, agentDraftModel, agentDraftProvider,
+    agentDraftName, agentDraftDescription, agentDraftModel, agentDraftProvider, agentDraftThink,
     agentDraftTools, agentDraftDeny, agentDraftSteps, agentDraftPrompt,
     agentDraftIcon, agentDraftShell, agentDraftTop, agentDraftFace, agentDraftAccent, agentDraftHue,
   ])
@@ -2690,6 +2708,7 @@
     agentDraftDescription = parsed.description
     agentDraftModel = parsed.model
     agentDraftProvider = parsed.provider
+    agentDraftThink = parsed.think
     if (parsed.provider) void loadAgentModels(parsed.provider)
     agentDraftTools = parsed.tools
     agentDraftDeny = parsed.deny
@@ -2727,6 +2746,7 @@
     agentDraftDescription = ''
     agentDraftModel = ''
     agentDraftProvider = ''
+    agentDraftThink = ''
     agentDraftTools = []
     agentDraftDeny = []
     agentDraftSteps = STEPS_UNLIMITED // a new worker starts uncapped, like every shipped one
@@ -2785,6 +2805,7 @@
       description: agentDraftDescription,
       model: agentDraftModel,
       provider: agentDraftProvider,
+      think: agentDraftThink,
       tools: agentDraftTools,
       deny: agentDraftDeny,
       steps: agentDraftSteps,
@@ -2853,7 +2874,7 @@
   // silent loss with a worse ending — an agent on a named desk fell back to the
   // office ceiling. An editor must not delete what it does not draw.
   type AgentFields = {
-    description: string; model: string; provider: string; tools: string[]; deny: string[]; steps: string; icon: string
+    description: string; model: string; provider: string; think: string; tools: string[]; deny: string[]; steps: string; icon: string
     shell: string; top: string; face: string; accent: string; hue: string; desk: string; needs: string[]; body: string
   }
 
@@ -2866,7 +2887,7 @@
   // never silently emptied under the user.
   function parseAgentFile(raw: string): AgentFields {
     const asPromptOnly = {
-      description: '', model: '', provider: '', tools: [] as string[], deny: [] as string[],
+      description: '', model: '', provider: '', think: '', tools: [] as string[], deny: [] as string[],
       steps: '', icon: '', shell: '', top: '', face: '', accent: '', hue: '', desk: '',
       needs: [] as string[], body: raw.trim(),
     }
@@ -2889,6 +2910,8 @@
       model: fields.model ?? '',
       // A provider name is an id from the catalog, lowercase already.
       provider: (fields.provider ?? '').trim().toLowerCase(),
+      // A level name (low, high, ultra…): lowercase, as the engine reads it.
+      think: (fields.think ?? '').trim().toLowerCase(),
       tools: list(fields.tools),
       deny: list(fields.deny),
       steps: (fields.steps ?? '').trim(),
@@ -2922,6 +2945,7 @@
     const lines = ['---', `description: ${f.description.trim()}`]
     if (f.model.trim()) lines.push(`model: ${f.model.trim()}`)
     if (f.provider.trim()) lines.push(`provider: ${f.provider.trim()}`)
+    if (f.think.trim()) lines.push(`think: ${f.think.trim()}`)
     if (f.tools.length) lines.push(`tools: ${f.tools.join(', ')}`)
     if (f.deny.length) lines.push(`deny: ${f.deny.join(', ')}`)
     // Written back exactly as they were read. The editor shows both and edits
@@ -4354,6 +4378,7 @@
       <div class="chair-chips">
         {#if a.overrides}<span class="chip mine">{t('settings.agentOverrides')}</span>{/if}
         {#if a.model || a.provider}<span class="chip">{[a.provider, a.model].filter(Boolean).join(' · ')}</span>{/if}
+        {#if a.think}<span class="chip" title={t('settings.agentThinkTip')}>{t('settings.agentThinkChip', { level: a.think })}</span>{/if}
         {#if a.deny && a.deny.length > 0}<span class="chip deny" title={denyTip(a)}>{t('settings.agentDenyCount', { n: a.deny.length })}</span>{/if}
         {#if (a.steps ?? 0) > 0}
           <span class="chip" title={t('settings.agentStepsTip', { n: a.steps ?? 0 })}>{t('settings.agentSteps', { n: a.steps ?? 0 })}</span>
@@ -4471,6 +4496,7 @@
           <span class="chip" title={t('settings.agentStepsTip', { n: a.steps ?? 0 })}>{t('settings.agentSteps', { n: a.steps ?? 0 })}</span>
         {/if}
         {#if a.model || a.provider}<span class="chip">{[a.provider, a.model].filter(Boolean).join(' · ')}</span>{/if}
+        {#if a.think}<span class="chip" title={t('settings.agentThinkTip')}>{t('settings.agentThinkChip', { level: a.think })}</span>{/if}
       </div>
     </div>
   </div>
@@ -5095,6 +5121,27 @@
               {/if}
             </select>
             <span class="d muted">{t('settings.agentModelHint')}</span>
+          </label>
+          <!-- The depth dial, its own field beside the model pin: a helper on
+               the chat's model may still need to think less than the chat, and
+               an agent pinned to a cheap model may be the one that should think
+               hardest on it. The options are the engine's ladder for THIS
+               provider/model, the same list the chat's picker draws from, so a
+               level saved here is one the dispatch will honour rather than
+               fold to the default. A model with no dial says so and offers
+               only inheriting. -->
+          <label class="pp-field">
+            <span class="eyebrow">{t('settings.agentThinkPick')}</span>
+            <select class="ctrl" bind:value={agentDraftThink} disabled={agentThinkLevels.length === 0 && !agentDraftThink}>
+              <option value="">{t('settings.agentThinkInherit')}</option>
+              {#each agentThinkLevels as lvl (lvl)}<option value={lvl}>{lvl}</option>{/each}
+              {#if agentDraftThink && !agentThinkLevels.includes(agentDraftThink)}
+                <option value={agentDraftThink}>{agentDraftThink}</option>
+              {/if}
+            </select>
+            <span class="d muted">
+              {agentThinkLevels.length === 0 ? t('settings.agentThinkNone') : t('settings.agentThinkHint')}
+            </span>
           </label>
 
           <div class="pp-field">

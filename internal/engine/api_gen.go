@@ -350,6 +350,7 @@ type API interface {
 	SuggestPRDetails(head string, base string) (PRSuggestion, error)
 	SupportedProviders() []string
 	SupportedThinkLevels() []string
+	SupportedThinkLevelsFor(provider string, modelName string) []string
 	SwitchApprovalMode(mode string) (ModelInfo, error)
 	SwitchModel(modelName string) (ModelInfo, error)
 	SwitchProvider(provider string) (ModelInfo, error)

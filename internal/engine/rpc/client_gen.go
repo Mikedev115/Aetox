@@ -2202,6 +2202,14 @@ func (c *Client) SupportedThinkLevels() []string {
 	return out0
 }
 
+func (c *Client) SupportedThinkLevelsFor(provider string, modelName string) []string {
+	var out0 []string
+	if err := c.call("SupportedThinkLevelsFor", []any{provider, modelName}, &out0); err != nil {
+		c.failed("SupportedThinkLevelsFor", err)
+	}
+	return out0
+}
+
 func (c *Client) SwitchApprovalMode(mode string) (engine.ModelInfo, error) {
 	var out0 engine.ModelInfo
 	err := c.call("SwitchApprovalMode", []any{mode}, &out0)
