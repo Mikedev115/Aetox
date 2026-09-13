@@ -1260,6 +1260,7 @@ export const en: Record<keyof typeof th, string> = {
   'settings.imageDesc': 'The assistant’s drawing tool. Pick who draws; vendors added later show up here on their own.',
   'settings.imageEngine': 'Who draws',
   'settings.imageAddKey': 'Add the API key',
+  'settings.imageSignIn': 'Sign in to ChatGPT',
   'settings.imageModel': 'Model',
   'settings.imageModelDesc': 'The first is the recommended one.',
   'settings.studio': 'Studio shelf',

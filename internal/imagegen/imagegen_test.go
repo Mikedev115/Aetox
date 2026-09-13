@@ -9,9 +9,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Mikedev115/Aetox/internal/oauth"
 )
 
 func TestCatalogPutsTheKeylessRowFirst(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir()) // no sign-in on this machine
 	got := Catalog()
 	if len(got) == 0 {
 		t.Fatal("catalog is empty")
@@ -30,6 +33,7 @@ func TestCatalogPutsTheKeylessRowFirst(t *testing.T) {
 }
 
 func TestLookupEmptyIsTheDefaultAndUnknownIsRefused(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 	d, ok := Lookup("")
 	if !ok || !d.Default {
 		t.Fatalf("empty id did not resolve to the default: %+v ok=%v", d, ok)
@@ -202,5 +206,47 @@ func TestDirOfKeepsTheTempBesideItsDestination(t *testing.T) {
 		if got := dirOf(path); got != want {
 			t.Errorf("dirOf(%q) = %q, want %q", path, got, want)
 		}
+	}
+}
+
+// Signed into ChatGPT and nothing pinned: the default is the ChatGPT row, first
+// in the picker and what an empty Options builds. Sign out and the keyless row
+// is the default again — a conditional default undoes itself, so no setting is
+// left pointing at a credential that is gone (owner, 13 ก.ย. 2026: "ถ้าผู้ใช้
+// ล็อกอิน Codex ไว้แล้วให้มันสลับไปใช้อันเดียวกับ Codex เลย ... ถ้าไม่ได้ใช้ก็เอา
+// ค่าเดิมเป็นเริ่มต้น").
+func TestTheDefaultFollowsTheChatGPTSignIn(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	if DefaultID() != "pollinations" {
+		t.Fatalf("with no sign-in the default is %q, want pollinations", DefaultID())
+	}
+	if err := oauth.Set("codex", oauth.Credential{Type: "oauth", Access: "sess", Account: "acct"}); err != nil {
+		t.Fatal(err)
+	}
+	if DefaultID() != "codex" {
+		t.Fatalf("signed in, the default is %q, want codex", DefaultID())
+	}
+	if got := Catalog(); got[0].ID != "codex" || !got[0].Default {
+		t.Errorf("picker's first row = %q (default=%v), want the ChatGPT row marked default", got[0].ID, got[0].Default)
+	}
+	if d, _ := Lookup(""); d.ID != "codex" {
+		t.Errorf("Lookup(\"\") = %q, want codex", d.ID)
+	}
+	if d, _ := Lookup("pollinations"); d.Default {
+		t.Error("pollinations still reads as the default while signed in")
+	}
+	eng, err := New(Options{})
+	if err != nil || eng.ID() != "codex" {
+		t.Fatalf("empty options built %v (%v), want the codex engine", eng, err)
+	}
+	// Pinned by name, the pin wins whatever the sign-in says.
+	if eng, err := New(Options{Engine: "pollinations"}); err != nil || eng.ID() != "pollinations" {
+		t.Fatalf("a pinned vendor was overridden: %v %v", eng, err)
+	}
+	if err := oauth.Logout("codex"); err != nil {
+		t.Fatal(err)
+	}
+	if DefaultID() != "pollinations" {
+		t.Errorf("signed out, the default is %q, want pollinations back", DefaultID())
 	}
 }

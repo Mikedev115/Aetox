@@ -18,6 +18,19 @@ package imagegen
 // REJECTED by gpt-image-1. So nothing is sent, and both shapes are accepted on
 // the way back: base64 is decoded, a url is fetched. Sending the parameter
 // would make one of the two models fail on a flag that exists to help.
+//
+// **One row wears a sign-in instead of a key.** The ChatGPT backend that serves
+// a Codex subscription (oauth.CodexBaseURL) answers the very same
+// POST /images/generations — measured 13 ก.ย. 2026 on a Plus account: 200,
+// `b64_json`, a 1254×1254 PNG in 15 s, and the x-codex-* quota headers on the
+// way back, so the picture is drawn from the SAME 5-hour / weekly windows the
+// chat draws from, not from a separate credit. What differs from the OpenAI
+// row is the credential (a bearer token that expires and is refreshed, plus
+// the account-id header the sign-in carries) and nothing on the wire. Two
+// things that backend does NOT do: it ignores `model` — a made-up name draws
+// just the same, the server picks its own picture model — and it ignores
+// `size`. So the row offers no model and declares no size support, which is
+// what makes both facts true on the page as well as on the wire.
 
 import (
 	"context"
@@ -33,6 +46,8 @@ import (
 	"github.com/Mikedev115/Aetox/internal/apierr"
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/credentials"
+	"github.com/Mikedev115/Aetox/internal/model"
+	"github.com/Mikedev115/Aetox/internal/oauth"
 )
 
 // apiImageSpec is one vendor's wearing of the shared wire format.
@@ -42,6 +57,12 @@ type apiImageSpec struct {
 	envVars     []string // key fallbacks
 	vendor      string   // shown in errors
 	official    string   // keyless calls allowed only off this host
+	// signIn names the oauth provider whose sign-in this row rides on, for the
+	// one vendor that is reached with a session token rather than a key. Empty
+	// for every key-bearing row. When set, envVars and the key store are not
+	// consulted at all: the token comes from oauth.TokenSource, the base URL
+	// from the sign-in's own Endpoint, and the request carries oauth.Headers.
+	signIn string
 	// supportsSize says whether this vendor accepts a `size` parameter at all.
 	// xAI's image endpoint does not, and sending one there is a 400 on a
 	// request that would otherwise have worked — so width/height are dropped
@@ -108,6 +129,19 @@ var apiImageSpecs = map[string]apiImageSpec{
 		supportsSize: false,
 		ext:          ".png",
 	},
+	// The ChatGPT subscription. Same wire as the openai row; see the package
+	// comment for what was measured and what the backend ignores.
+	"codex": {
+		defaultBase: oauth.CodexBaseURL,
+		provider:    "codex",
+		vendor:      "ChatGPT",
+		official:    oauth.CodexBaseURL,
+		signIn:      "codex",
+		// Sent 1024x1024, got 1254x1254: the backend chooses. Not sending one
+		// is the honest version of that.
+		supportsSize: false,
+		ext:          ".png",
+	},
 }
 
 type apiImages struct {
@@ -117,6 +151,13 @@ type apiImages struct {
 	model   string
 	spec    apiImageSpec
 	client  *http.Client
+	// The sign-in trio, set only for a spec with signIn. tokenSource is asked
+	// per request (a token near expiry is renewed on the way); tokenRefresh is
+	// the one retry a 401 gets, the same discipline internal/model applies —
+	// the recorded expiry is the client's belief and the 401 is the fact.
+	tokenSource  func(context.Context) (string, error)
+	tokenRefresh func(context.Context) (string, error)
+	headers      map[string]string
 }
 
 func newAPIImages(desc Descriptor, opts Options) (Engine, error) {
@@ -127,6 +168,9 @@ func newAPIImages(desc Descriptor, opts Options) (Engine, error) {
 	model, err := resolveNamedModel(desc, opts.Model)
 	if err != nil {
 		return nil, err
+	}
+	if spec.signIn != "" {
+		return newSignedInImages(desc, spec, model)
 	}
 	key := credentials.ProviderAPIKey(spec.provider, spec.envVars...)
 	base := strings.TrimRight(config.ProviderBaseURL(spec.provider), "/")
@@ -149,6 +193,33 @@ func newAPIImages(desc Descriptor, opts Options) (Engine, error) {
 	}, nil
 }
 
+// newSignedInImages builds the row that rides a sign-in. No sign-in is the
+// same kind of fact as no key: stated plainly, and the page that shows it
+// carries the button that walks the user to the models page (Settings.svelte).
+func newSignedInImages(desc Descriptor, spec apiImageSpec, model string) (Engine, error) {
+	source := oauth.TokenSource(spec.signIn)
+	if source == nil {
+		return nil, fmt.Errorf("ยังไม่ได้ล็อกอิน %s", spec.vendor)
+	}
+	// The sign-in's own endpoint first, then the per-provider override the
+	// models page allows, then the catalog default — the order internal/model
+	// resolves the chat's base URL in, so the picture goes where the chat goes.
+	base := strings.TrimRight(oauth.Endpoint(spec.signIn), "/")
+	if base == "" {
+		base = strings.TrimRight(config.ProviderBaseURL(spec.provider), "/")
+	}
+	if base == "" {
+		base = spec.defaultBase
+	}
+	return &apiImages{
+		id: desc.ID, baseURL: base, model: model, spec: spec,
+		client:       &http.Client{Timeout: 3 * time.Minute},
+		tokenSource:  source,
+		tokenRefresh: oauth.RefreshSource(spec.signIn),
+		headers:      oauth.Headers(spec.signIn),
+	}, nil
+}
+
 func (a *apiImages) ID() string  { return a.id }
 func (a *apiImages) Ext() string { return a.spec.ext }
 
@@ -158,7 +229,13 @@ func (a *apiImages) Generate(ctx context.Context, prompt string, req Request, ou
 		return fmt.Errorf("ไม่มีคำสั่งวาด — บอกด้วยว่าจะให้วาดอะไร")
 	}
 
-	body := map[string]any{"model": a.model, "prompt": prompt, "n": 1}
+	body := map[string]any{"prompt": prompt, "n": 1}
+	// A row with no model concept sends none, rather than "model": "" — which
+	// a strict vendor would refuse and a lax one would silently accept, and
+	// either way says something the row does not mean.
+	if a.model != "" {
+		body["model"] = a.model
+	}
 	if a.spec.supportsSize && req.Width > 0 && req.Height > 0 {
 		// Sent verbatim. Which sizes are legal is the vendor's list and it
 		// changes; guessing it here would mean refusing a size that works.
@@ -166,18 +243,25 @@ func (a *apiImages) Generate(ctx context.Context, prompt string, req Request, ou
 	}
 	payload, _ := json.Marshal(body)
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, a.baseURL+"/images/generations", strings.NewReader(string(payload)))
+	resp, err := a.post(ctx, payload)
 	if err != nil {
 		return err
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	if a.apiKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+a.apiKey)
-	}
-
-	resp, err := doWithRetry(a.client, httpReq)
-	if err != nil {
-		return fmt.Errorf("ต่อ %s ไม่ได้: %w", a.spec.vendor, err)
+	// Whatever the answer was, the picture came out of a rate-limit window,
+	// and a 429 states the same headers a 200 does — the moment the number
+	// matters most. NoteQuotas is a no-op for a provider that states none.
+	model.NoteQuotas(a.spec.provider, resp)
+	if resp.StatusCode == http.StatusUnauthorized && a.tokenRefresh != nil {
+		// One renewal, then the request again with whatever the token source
+		// yields next. If the renewal itself fails, the original 401 stands
+		// and is shown: the sign-in is gone and the user must make it again.
+		if _, refreshErr := a.tokenRefresh(ctx); refreshErr == nil {
+			resp.Body.Close()
+			if resp, err = a.post(ctx, payload); err != nil {
+				return err
+			}
+			model.NoteQuotas(a.spec.provider, resp)
+		}
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 64<<20))
@@ -224,6 +308,35 @@ func (a *apiImages) Generate(ctx context.Context, prompt string, req Request, ou
 		return fmt.Errorf("%s ส่งรูปเปล่ามา", a.spec.vendor)
 	}
 	return os.WriteFile(outPath, pic, 0o644)
+}
+
+// post sends one generation request, with whichever credential this row
+// carries: a fixed key, or a token asked for fresh each time — so a token the
+// store renewed between two calls is the one that goes out.
+func (a *apiImages) post(ctx context.Context, payload []byte) (*http.Response, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, a.baseURL+"/images/generations", strings.NewReader(string(payload)))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	for name, value := range a.headers {
+		httpReq.Header.Set(name, value)
+	}
+	switch {
+	case a.tokenSource != nil:
+		token, err := a.tokenSource(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("%s sign-in: %w", a.spec.vendor, err)
+		}
+		httpReq.Header.Set("Authorization", "Bearer "+token)
+	case a.apiKey != "":
+		httpReq.Header.Set("Authorization", "Bearer "+a.apiKey)
+	}
+	resp, err := doWithRetry(a.client, httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("ต่อ %s ไม่ได้: %w", a.spec.vendor, err)
+	}
+	return resp, nil
 }
 
 // fetch pulls the picture from the short-lived URL dall-e-3 hands back instead

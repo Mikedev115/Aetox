@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Mikedev115/Aetox/internal/oauth"
 )
 
 // apiServer stands in for an OpenAI-shaped endpoint and records the body it
@@ -206,5 +208,67 @@ func TestEveryCatalogRowHasARuntime(t *testing.T) {
 		if err != nil && strings.Contains(err.Error(), "ยังไม่มีตัวรัน") {
 			t.Errorf("catalog row %q has no runtime", d.ID)
 		}
+	}
+}
+
+// The ChatGPT row rides the Codex sign-in: a bearer token from the oauth
+// store, the account-id header that sign-in carries, and the endpoint it was
+// pinned to — and no `model`, because the backend ignores the field (a made-up
+// name drew a picture on 13 ก.ย. 2026) and a row must not send what it does
+// not mean.
+func TestTheCodexRowWearsTheSignInNotAKey(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	var gotAuth, gotAccount, gotOriginator string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/images/generations" {
+			t.Errorf("called %s, want /images/generations", r.URL.Path)
+		}
+		gotAuth = r.Header.Get("Authorization")
+		gotAccount = r.Header.Get("chatgpt-account-id")
+		gotOriginator = r.Header.Get("originator")
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if _, sent := body["model"]; sent {
+			t.Errorf("model was sent (%v) — the backend ignores it and the row offers none", body["model"])
+		}
+		if _, sent := body["size"]; sent {
+			t.Errorf("size was sent (%v) — the backend picks its own", body["size"])
+		}
+		b64Answer(w, []byte("\x89PNG\r\n\x1a\nfrom-chatgpt"))
+	}))
+	t.Cleanup(srv.Close)
+	if err := oauth.Set("codex", oauth.Credential{Type: "oauth", Access: "sess-token", Account: "acct-1", Endpoint: srv.URL}); err != nil {
+		t.Fatalf("seed the sign-in: %v", err)
+	}
+
+	eng, err := New(Options{Engine: "codex"})
+	if err != nil {
+		t.Fatalf("New(codex): %v", err)
+	}
+	out := filepath.Join(t.TempDir(), "a.png")
+	if err := eng.Generate(context.Background(), "a red circle", Request{Width: 1024, Height: 1024}, out); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	if got, _ := os.ReadFile(out); !strings.HasPrefix(string(got), "\x89PNG") {
+		t.Fatalf("the picture did not land: %q", got)
+	}
+	if gotAuth != "Bearer sess-token" {
+		t.Errorf("Authorization = %q, want the sign-in's token", gotAuth)
+	}
+	if gotAccount != "acct-1" {
+		t.Errorf("chatgpt-account-id = %q, want acct-1", gotAccount)
+	}
+	if gotOriginator == "" {
+		t.Error("the originator header the backend requires was not sent")
+	}
+}
+
+func TestTheCodexRowWithoutASignInSaysSo(t *testing.T) {
+	// Same kind of fact as a missing key, worded for what is actually
+	// missing: Settings shows it and draws the button to the models page.
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	_, err := New(Options{Engine: "codex"})
+	if err == nil || !strings.Contains(err.Error(), "ล็อกอิน") {
+		t.Fatalf("err = %v, want a not-signed-in answer", err)
 	}
 }
