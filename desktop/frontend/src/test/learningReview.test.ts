@@ -124,17 +124,20 @@ describe('editing what is already remembered', () => {
     })
 
     const { container } = render(Settings, { onClose: () => {} })
+    // The profile's block is เกี่ยวกับคุณ's (14 ก.ย. 2026), drawn even when
+    // empty; การเรียนรู้ keeps one block per desk, with the project nested
+    // under the desk whose sessions write it.
+    await openSection(container, 'เกี่ยวกับคุณ')
+    await waitFor(() => expect(container.querySelectorAll('.mem-scope-name').length).toBe(1))
+    expect(container.querySelector('.mem-scope-name')?.textContent?.trim()).toBe('เกี่ยวกับคุณ')
     await openSection(container, 'การเรียนรู้')
     await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(3))
-
-    // The profile's heading is always drawn (empty here), then one block per
-    // desk, with the project nested under the desk whose sessions write it.
     const heads = Array.from(container.querySelectorAll('.mem-scope-name')).map((el) => el.textContent?.trim())
-    expect(heads).toEqual(['เกี่ยวกับคุณ', 'ผู้ช่วย', 'โค้ด', 'โปรเจกต์ Aetox'])
+    expect(heads).toEqual(['ผู้ช่วย', 'โค้ด', 'โปรเจกต์ Aetox'])
     expect(container.querySelector('.mem-sub .mem-scope-name')?.textContent).toContain('Aetox')
     // Each heading says who reads the file — the label alone never did.
     const auds = Array.from(container.querySelectorAll('.mem-scope .learn-aud')).map((el) => el.textContent?.trim())
-    expect(auds).toEqual(['ทั้งผู้ช่วย โค้ด และทุกลูกมือจะเห็น', 'เฉพาะแชทกับผู้ช่วย', 'เฉพาะโค้ด ทุกโปรเจกต์', 'เฉพาะตอนเปิดโฟลเดอร์ Aetox'])
+    expect(auds).toEqual(['เฉพาะแชทกับผู้ช่วย', 'เฉพาะโค้ด ทุกโปรเจกต์', 'เฉพาะตอนเปิดโฟลเดอร์ Aetox'])
     // The hash half of a project key is identity, not information — a person
     // recognises the folder, not the digest. It stays in the file badge only,
     // because that badge is the name on disk.
@@ -151,15 +154,18 @@ describe('editing what is already remembered', () => {
     ] as any)
     vi.mocked(LearnedEntries).mockResolvedValue(['x'] as any)
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การเรียนรู้')
-    await waitFor(() => expect(container.querySelectorAll('.mem-cap').length).toBe(2))
-
-    const caps = Array.from(container.querySelectorAll('.mem-cap'))
-    expect(caps[0].textContent).toContain('3,900 / 4,096')
-    expect(caps[0].classList.contains('mem-cap-full')).toBe(true)
-    expect(caps[1].classList.contains('mem-cap-ok')).toBe(true)
+    await openSection(container, 'เกี่ยวกับคุณ')
+    await waitFor(() => expect(container.querySelectorAll('.mem-cap').length).toBe(1))
+    const cap = container.querySelector('.mem-cap')!
+    expect(cap.textContent).toContain('3,900 / 4,096')
+    expect(cap.classList.contains('mem-cap-full')).toBe(true)
     expect(container.querySelectorAll('.mem-cap-note').length).toBe(1)
     expect(container.querySelector('.mem-cap-note')?.textContent).toContain('เต็มแล้ว')
+
+    await openSection(container, 'การเรียนรู้')
+    await waitFor(() => expect(container.querySelectorAll('.mem-cap').length).toBe(1))
+    expect(container.querySelector('.mem-cap')!.classList.contains('mem-cap-ok')).toBe(true)
+    expect(container.querySelectorAll('.mem-cap-note').length).toBe(0)
   })
 
   // A project's memory file is keyed by the folder's path, so a moved or
@@ -240,13 +246,15 @@ describe('editing what is already remembered', () => {
     vi.mocked(MoveLearnedEntry).mockRejectedValue(new Error("this scope's memory is full (4100 bytes, limit 4096)"))
 
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การเรียนรู้')
+    // The banner offering the move sits where the lines would land.
+    await openSection(container, 'เกี่ยวกับคุณ')
     await waitFor(() => expect(container.querySelector('.mem-quick-banner')).toBeTruthy())
-
     const migrate = container.querySelector('.mem-quick-banner .ctrl') as HTMLButtonElement
     expect(migrate.disabled).toBe(true)
 
-    const mainRow = container.querySelectorAll('.mem-row')[1]
+    await openSection(container, 'การเรียนรู้')
+    await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(1))
+    const mainRow = container.querySelectorAll('.mem-row')[0]
     await fireEvent.click(mainRow.querySelector('.mem-action-move')!)
     const full = mainRow.querySelector('.mem-menu-i.full') as HTMLButtonElement
     expect(full.textContent).toContain('เกี่ยวกับคุณ')
@@ -276,7 +284,7 @@ describe('editing what is already remembered', () => {
     } as any)
 
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การเรียนรู้')
+    await openSection(container, 'เกี่ยวกับคุณ')
     await waitFor(() => expect(container.querySelector('.mem-cap-note.mem-cap-full')).toBeTruthy())
 
     // Only the full file offers it.
@@ -424,21 +432,26 @@ describe('the learning review page', () => {
     })
 
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การเรียนรู้')
-    await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(2))
-
-    // Both sections and badges exist
+    // Two pages since 14 ก.ย. 2026: the person's file on เกี่ยวกับคุณ, with
+    // the banner for lines that belong there; the assistant's on การเรียนรู้.
+    await openSection(container, 'เกี่ยวกับคุณ')
+    await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(1))
     expect(container.textContent).toContain('ความจำเกี่ยวกับคุณ')
-    expect(container.textContent).toContain('ความจำของผู้ช่วยและโค้ด')
     expect(container.textContent).toContain('USER.md')
-    expect(container.textContent).toContain('MEMORY.md')
-
+    expect(container.textContent).not.toContain('ความจำของผู้ช่วยและโค้ด')
     // Quick migrate banner is rendered because Main has "User is developing Aetox"
     expect(container.querySelector('.mem-quick-banner')).toBeTruthy()
 
+    await openSection(container, 'การเรียนรู้')
+    await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(1))
+    expect(container.textContent).toContain('ความจำของผู้ช่วยและโค้ด')
+    expect(container.textContent).toContain('MEMORY.md')
+    expect(container.textContent).not.toContain('ความจำเกี่ยวกับคุณ')
+    expect(container.querySelector('.mem-quick-banner')).toBeNull()
+
     // The move button opens a menu of every other file; a line about the user
     // sitting in the assistant's file has the profile marked as the suggestion.
-    const mainRow = container.querySelectorAll('.mem-row')[1]
+    const mainRow = container.querySelectorAll('.mem-row')[0]
     await fireEvent.click(mainRow.querySelector('.mem-action-move')!)
     const rec = mainRow.querySelector('.mem-menu-i.rec')!
     expect(rec.textContent).toContain('เกี่ยวกับคุณ')
