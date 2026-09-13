@@ -42,6 +42,7 @@
   // avatarPrefs.svelte.ts, which the companion reads.
   import Mascot from './Mascot.svelte'
   import Icon from '../Icon.svelte'
+  import RankPip from '../RankPip.svelte'
   import { i18n } from '../i18n.svelte'
   import { ACCENT, SHELL } from './palette'
   import { FACE, TOP } from './parts'
@@ -291,7 +292,7 @@
       <button type="button" class="who-card" class:on={editing === h} role="tab" aria-selected={editing === h} onclick={() => (editing = h)}>
         <span class="who-face"><Mascot {...headOptions(h)} size={72} still /></span>
         <span class="who-txt">
-          <span class="who-name">{text.heads[h].name}</span>
+          <span class="who-name">{text.heads[h].name} <RankPip tier="head" /></span>
           <span class="who-where">{text.heads[h].where}</span>
         </span>
         {#if editing === h}<span class="who-now">{text.designing}</span>{/if}
@@ -450,7 +451,7 @@
   .who-face { flex: none; }
   .who-face :global(.mascot) { display: block; }
   .who-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-  .who-name { font-size: var(--fs-lg); font-weight: 600; }
+  .who-name { font-size: var(--fs-lg); font-weight: 600; display: flex; align-items: center; gap: 8px; }
   .who-where { font-size: var(--fs-xs); color: var(--text-muted); }
   .who-now { position: absolute; top: 10px; right: 12px; font-size: var(--fs-2xs); color: var(--interactive); font-weight: 600; }
 

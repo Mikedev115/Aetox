@@ -16,6 +16,7 @@
   import ProviderMark from './ProviderMark.svelte'
   import ProviderAccount from './ProviderAccount.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
+  import RankPip from './RankPip.svelte'
   import AvatarSettings from './mascot/AvatarSettings.svelte'
   import TeamSettings from './TeamSettings.svelte'
   import { avatarText } from './mascot/avatarText'
@@ -4441,7 +4442,7 @@
              and that a second visual language for the same kind of thing costs
              more than it explains. -->
         <AgentMascot name={a.name} {...lookOf(a)} size={38} />
-        <span class="chair-name" title={a.path || 'built-in:' + a.name}>{a.name}</span>
+        <span class="chair-name" title={a.path || 'built-in:' + a.name}>{a.name} <RankPip tier="helper" /></span>
         {#if delegate}
           {@const w = reachOf(a.name)}
           {#if w}
@@ -4533,7 +4534,10 @@
           size={38}
           off={!!reachOf(a.name) && !(reachOf(a.name)!.on && !reachOf(a.name)!.off)}
         />
-        <span class="chair-name" title={a.path || 'built-in:' + a.name}>{a.name}</span>
+        <!-- ยศ inside the name, right after the word (RankPip): the two lists
+             draw the same card on purpose, and the rank plus the page
+             heading are what say which level this is. -->
+        <span class="chair-name" title={a.path || 'built-in:' + a.name}>{a.name} <RankPip tier="agent" /></span>
         <div class="ag-actions">
       <!-- Whether the MAIN assistant may hand this one work. Not whether the
            agent exists: the user still opens a chat with it from the composer
