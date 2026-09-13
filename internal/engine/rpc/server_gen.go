@@ -766,6 +766,12 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 	case "MemoryFolderPath":
 		r0, err := e.MemoryFolderPath()
 		return r0, err, true
+	case "MemoryScopeInfo":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		return e.MemoryScopeInfo(p0), nil, true
 	case "MobileRemoteQR":
 		return e.MobileRemoteQR(), nil, true
 	case "MobileRemoteStatus":

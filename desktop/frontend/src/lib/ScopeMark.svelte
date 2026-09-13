@@ -14,8 +14,13 @@
   import { headOptions } from './mascot/avatarPrefs.svelte'
   import type { ScopeMeta } from './memoryScope'
   import RankedFace from './RankedFace.svelte'
+  import AgentMascot from './mascot/AgentMascot.svelte'
+  import type { AgentLook } from './mascot/agentLook'
 
-  let { meta, size = 14, face = size * 2 }: { meta: ScopeMeta; size?: number; face?: number } = $props()
+  // `look` is a delegate's own dress (agentLook.lookOf) for a scope that is
+  // one — its memory block wears the same face its card does (owner, 14 ก.ย.:
+  // "พนักงานหรือเอเจนทุกตัวควรจะมีความจำแยกแบบนี้ CSS มาตรฐานเดียวกัน").
+  let { meta, size = 14, face = size * 2, look = undefined }: { meta: ScopeMeta; size?: number; face?: number; look?: AgentLook } = $props()
 </script>
 
 {#if meta.head && face >= 24}
@@ -23,6 +28,8 @@
   <span class="scope-face" style="width:{face}px;height:{face}px"><RankedFace tier="head" size={face}><Mascot {...headOptions(meta.head)} size={face} still /></RankedFace></span>
 {:else if meta.head}
   <span class="scope-face" style="width:{face}px;height:{face}px"><Mascot {...headOptions(meta.head)} size={face} still /></span>
+{:else if meta.tone === 'agent' && face >= 24}
+  <span class="scope-face" style="width:{face}px;height:{face}px"><RankedFace tier="agent" size={face}><AgentMascot name={meta.scope} {...(look ?? {})} size={face} /></RankedFace></span>
 {:else}
   <Icon name={meta.icon} {size} />
 {/if}

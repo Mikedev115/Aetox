@@ -140,8 +140,10 @@ describe('a head\'s page', () => {
     await fireEvent.click(cards(container)[0].querySelector('.icobtn')!)
     await fireEvent.click(tabs(container).find((t) => t.textContent?.trim() === 'สกิล')!)
     await waitFor(() => expect(container.querySelector('.ag-tab-panel.on .ag-count')?.textContent).toBe('2'))
-    const names = Array.from(container.querySelectorAll('.ag-tab-panel.on .main-shelf-cell .t')).map((x) => x.textContent?.trim())
-    expect(names).toEqual(['my-deck', 'aetox-slides'])
+    // The agent skills box's own rows: yours first, a bundled one badged.
+    const rows = Array.from(container.querySelectorAll('.ag-tab-panel.on .set-row')).filter((r) => r.querySelector('.cap-mark'))
+    expect(rows.map((r) => r.querySelector('.t')?.textContent?.trim())).toEqual(['my-deck', 'slides มากับแอป'])
+    expect(rows[1].querySelector('.badge')).toBeTruthy()
     expect(container.querySelector('.ag-tab-panel.on input[type="checkbox"]')).toBeNull()
   })
 

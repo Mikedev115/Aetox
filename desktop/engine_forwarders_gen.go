@@ -647,6 +647,10 @@ func (a *App) MemoryFolderPath() (string, error) {
 	return a.api.MemoryFolderPath()
 }
 
+func (a *App) MemoryScopeInfo(scope string) engine.MemoryScopeInfo {
+	return a.api.MemoryScopeInfo(scope)
+}
+
 func (a *App) MobileRemoteQR() string {
 	return a.api.MobileRemoteQR()
 }
