@@ -1290,6 +1290,8 @@ export const en: Record<keyof typeof th, string> = {
   'settings.studioAllFolders': 'All folders',
   'settings.studioAlphaOnly': 'Transparent only',
   'settings.studioNoMatch': 'Nothing matches — the agent would find nothing either',
+  'settings.studioGoneHere': 'The folder of the “{name}” library is not where it was ({root}) — its files are not shown and the agent does not see them until it is back, or the library is removed in Settings › Studio library.',
+  'settings.studioPlayFailed': 'Cannot play — file not found',
   'settings.studioShowing': '{a}–{b} of {n}',
   'settings.studioPlay': 'Play',
   'settings.studioStop': 'Stop',

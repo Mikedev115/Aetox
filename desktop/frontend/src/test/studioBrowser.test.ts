@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, waitFor, fireEvent } from '@testing-library/svelte'
 import StudioBrowser from '../lib/StudioBrowser.svelte'
-import { StudioAssets, StudioThumbs, StudioSetKind, StudioSetHidden } from './mocks/wailsApp'
+import { StudioAssets, StudioThumbs, StudioSetKind, StudioSetHidden, StudioLibraries } from './mocks/wailsApp'
 
 vi.mock('../../wailsjs/go/main/App', () => import('./mocks/wailsApp'))
 vi.mock('../../wailsjs/runtime/runtime', () => import('./mocks/wailsRuntime'))
@@ -139,6 +139,38 @@ describe('StudioBrowser', () => {
   // A correction is one press away on every tile, is written to the store,
   // and changes the row on screen without a re-query; hiding takes the row
   // out of the default view and the count with it.
+  // The catalogue outlives the folder (owner, 13 ก.ย. 2026: "ทำไมกดฟังไม่ได้"
+  // — the whole library had left Downloads). The engine draws none of that
+  // shelf's rows; this page says why, for the shelf being shown.
+  it("says when a shelf's folder is gone", async () => {
+    vi.mocked(StudioLibraries).mockResolvedValue([
+      { id: 'gone', name: '30GB+ Video Editing Assets', root: 'C:/Users/x/Downloads/30GB+ Video Editing Assets', missing: true },
+      { id: 'other', name: 'ok', root: 'D:/ok', missing: false },
+    ] as any)
+    const { container } = render(StudioBrowser, { kind: 'sfx', library: '', onClose: () => {} })
+    await waitFor(() => expect(container.querySelector('.sb-gone')?.textContent).toContain('30GB+ Video Editing Assets'))
+    expect(container.querySelectorAll('.sb-gone').length).toBe(1)
+    // Filtered to a shelf that is present, the note is not about it.
+    await fireEvent.click(container.querySelector('.sb-close')!)
+    const r2 = render(StudioBrowser, { kind: 'sfx', library: 'other', onClose: () => {} })
+    await waitFor(() => expect(vi.mocked(StudioAssets)).toHaveBeenCalled())
+    await new Promise((r) => setTimeout(r, 20))
+    expect(r2.container.querySelector('.sb-gone')).toBeNull()
+  })
+
+  // A play that fails for any other reason says so on its own row rather
+  // than the button flipping back as if nothing had been pressed.
+  it('a failed play says so on the row', async () => {
+    vi.mocked(StudioLibraries).mockResolvedValue([] as any)
+    const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockRejectedValue(new Error('404'))
+    const { container } = render(StudioBrowser, { kind: 'sfx', library: '', onClose: () => {} })
+    const tile = await waitFor(() => { const el = container.querySelector('.sb-tile.sound'); expect(el).toBeTruthy(); return el! })
+    await fireEvent.click(tile.querySelector('.sb-play')!)
+    await waitFor(() => expect(tile.querySelector('.sb-fail')).toBeTruthy())
+    expect(tile.classList.contains('playing')).toBe(false)
+    playSpy.mockRestore()
+  })
+
   it('corrects a kind and hides a file from the tile menu', async () => {
     const { container } = render(StudioBrowser, { kind: '', library: '', onClose: () => {} })
     const tiles = await waitFor(() => { const f = container.querySelectorAll('.sb-tile'); expect(f.length).toBe(4); return Array.from(f) })

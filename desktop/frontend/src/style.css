@@ -9637,6 +9637,10 @@ button.ctrl, label.ctrl { display:inline-flex; align-items:center; justify-conte
 .sb-alpha { display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-xs); color:var(--text-secondary); white-space:nowrap; }
 .sb-close { margin-left:auto; }
 .sb-count { margin:10px 2px 8px; font-size:var(--fs-xs); color:var(--text-muted); font-variant-numeric:tabular-nums; }
+/* A shelf whose folder is gone, said where its rows would have been; and the
+   one row whose play just failed. */
+.sb-gone { margin:10px 2px 0; font-size:var(--fs-sm); line-height:1.5; }
+.sb-fail { color:var(--status-danger); }
 .sb-busy { margin-left:6px; color:var(--text-dim); }
 
 .sb-grid { display:grid; gap:10px; grid-template-columns:repeat(auto-fill, minmax(min(150px, 100%), 1fr)); }
