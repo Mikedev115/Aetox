@@ -8890,3 +8890,43 @@ Owner, on the editor itself, in four messages: *"เอื้อมถึงอ�
 **Rejected — keeping the gear as well.** Two doors into one editor from two pages is exactly the doubling §256.3 was written against; the difference now is that the settings row exists, so the roster page's door can be one button to a page rather than one gear per card.
 
 **Status:** `Direct`. Pinned by [office.test.ts](../desktop/frontend/src/test/office.test.ts) (no gear, no hiring button, no notes, one door to `team`), [Settings.test.ts](../desktop/frontend/src/test/Settings.test.ts) (the row and its order in the group; the list draws agents and not helpers; closing an editor opened from the list lands on the list; the two boxes list what the agent holds and their doors carry the agent; a new agent's ticks are placed on Save) and [capabilityRoom.test.ts](../desktop/frontend/src/test/capabilityRoom.test.ts) (the room arrives on the asked page with the agent's sheet up). COMPANY.md §4 says the two homes.
+
+## 263. Decision — A Delegate's Own Depth, the Reasoning Goes Back, the Cache Key Comes Out, and One Exception on the Shelf (2026-09-13)
+
+Four decisions from the same day, each small enough that a section of its own would be a heading over a paragraph, and each one a rule somebody will want to reread before undoing it.
+
+### 263.1 `think:` is a dial of its own, checked against the delegate's model
+
+Owner: *"ทำให้เราปรับระดับความคิดได้"* — of an agent and of a sub-agent. Until now every delegate thought at the level the chat was running at when it dispatched, so the file-search helper thought at ultra while the chat was planning, and the planner thought at low while the chat was skimming.
+
+- **Its own field, not a side effect of `model`.** Two different questions: a helper on the chat's own model still has no business at ultra, and an agent pinned to a cheap model may be the one that should think hardest on it.
+- **Validated against the delegate's provider and model, never the chat's.** The chat may sit at a level that model does not have (Codex's `ultra` on a DeepSeek helper), and the level a provider most often lacks is `off`, which `think.Resolve` reads as *send nothing* and the model answers at its deepest. `SupportedThinkLevelsFor(provider, model)` is the one ladder both the chat's picker and the agent's editor read (`SupportedThinkLevels` is a one-line call to it with blanks: *"ผมแค่ให้รับค่าเดียวกัน คงไม่ได้ถึงขั้นสร้างทางใหม่จนเป็นหนี้นะ"*), so a saved level is one dispatch will use, not one that folds back to the default in silence.
+- **The row exists only when the model can think**, the same test the chat's menu applies; it was drawn grey on every local runtime, which reads as broken. A file that already carries `think:` on a model with no ladder keeps its row with a warning, so switching the model to look at something else never eats a line the owner wrote.
+- **Not done:** the Ollama/LM Studio ladder. `internal/provider/catalog.go` gives both `ToolCalling` without `Reasoning`, so the door is shut before the model name is read; opening it means the Ollama request path sending `think` for real, or the button does nothing.
+
+Pinned by [think_level_test.go](../internal/subagent/think_level_test.go) and [think_levels_for_test.go](../internal/engine/think_levels_for_test.go) (`TestTheChatAndTheEditorNeverDisagree`).
+
+### 263.2 The model's reasoning goes back with the next turn, whole and in its own provider's name
+
+The Codex provider has asked for `reasoning.encrypted_content` since the day it was written, with a comment beside the line saying *"it has to come back to us to be forwarded on the next round"* — and nothing ever stored or forwarded it. The endpoint is `store:false`, so what the server saw on turn N+1 differed from what it had produced on turn N, from the first answer of every conversation.
+
+`ReasoningItem` keeps the bytes raw: an `encrypted_content` re-encoded through a struct of our own is no longer the thing the server issued. It carries the provider's name, because a chat that switched models mid-way holds blocks from another endpoint and replaying those across the line is a 400 for the whole turn — `ReasoningItemsFor` is the one way out. Pinned by [responses_reasoning_test.go](../internal/model/responses_reasoning_test.go): every byte back, in order, never across providers, and nothing replayed when that turn did not ask to think.
+
+### 263.3 `prompt_cache_key` went in and came out the same day, on a measurement
+
+It went in because the CLI sends one and the docs name it for exactly the symptom measured that morning (0 %, 0 %, 67 %, 0 % on four consecutive turns with an unchanged prefix). Then, on `gpt-5.6-luna` in the running app, the same questions with and without it:
+
+| | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| with a key | 0 % | 0 % | 0 % | 0 % | 0 % |
+| without | 0 % | 87 % | 98 % | 97 % | 84 % |
+
+Without a key the backend routes on the request's own prefix, and Aetox's system prompt is the same ~8.9k tokens in every chat — so every chat warms every other chat's cache. A random key per conversation sent each chat to a shard of its own holding nothing. "Stable routing" was cutting the chat off from what was already warm. The key the docs describe helps when prefixes already differ per user; that is not this app. **If it ever returns, it is a value bound to the shared prefix, never one per conversation.** The reasoning replay of 263.2 stays: it is what the API specifies, and its effect on the cache could not be told from noise with the chats at hand.
+
+### 263.4 `google-workspace` is on the shelf as a written exception
+
+Owner: *"จัดระเบียบ Google Drive"*, then *"เชื่อมตัวอื่นๆ ด้วย"*. Google's own remote Drive server (checked the same day) cannot organise a Drive — preview, search/read/create/copy, no move, rename or delete — and wants a client id Google issued to the app, with no `registration_endpoint` for mcpauth.go to reach. So the row is taylorwilsdon/google_workspace_mcp under `uvx`: one row, because it is one process holding Drive, Gmail, Calendar, Docs and Sheets, and five rows would be the same program five times, each paying its own sign-in.
+
+It breaks the shelf's *"one click, sign-in included"* bar: the person makes an OAuth client in Google Cloud Console first. It is on anyway, and [mcpShelf.ts](../desktop/frontend/src/lib/mcpShelf.ts) says so above the row *as an exception, not a new rule* — a second row of that shape should send somebody back to that paragraph. What keeps it honest is the mechanism that came with it: a preset may carry `env:` lines (the stdio spelling of `headers:`), a line with nothing after its `=` is a blank that opens the form instead of saving (`needsPaste`, github's door), only filled lines are saved (`KEY=` hands the program an empty string where it expects nothing), `presetFor` never hands the row to an agent's own install, and the note under the form (owner: *"ทำ CSS ดีๆหน่อย"*) is one box — server and kind of blank, numbered steps from the preset's `hint`, and *nothing is saved until เพิ่ม* — rather than three grey paragraphs. `proven: false`, `why: ''`, by the rule on every row: written after a real sign-in against a real Drive, which needs a client only the owner can make.
+
+**Status:** `Direct`. Pinned by [capabilityRoom.test.ts](../desktop/frontend/src/test/capabilityRoom.test.ts) (the blank sends the row to the form, only the filled lines are saved, the note's title, five steps and foot).

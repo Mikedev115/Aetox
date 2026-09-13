@@ -165,7 +165,7 @@ kind** — nothing inside decides which it is.
   the bundled ones are all there are, and a user file under a new name in
   `<DataRoot>/subagents` is refused. Since 12 ก.ย. (§255) a file under a
   bundled name is a shadow and may tune that helper — model and provider,
-  prompt, description, `steps`, look — while `tools`, `deny`, `needs` and
+  `think`, prompt, description, `steps`, look — while `tools`, `deny`, `needs` and
   `desk` stay the app's whatever the file says; the card says so when a file
   tried. If asked to add one: the team extends, the hands do not.
 - **Desks** — what is on the desk, never who sits at it. Bundled manifests
@@ -198,6 +198,7 @@ Every field is optional; what absence means is the fact worth knowing:
 | `steps` | No ceiling, a worker runs until the job is done. A positive number caps it exactly; `unlimited` says the default out loud; a typo falls back to the default |
 | `model` | Whatever the session is running |
 | `provider` | The session's provider. Named (a catalogue name), the worker thinks at that provider — on `model` if given, else that provider's default — with the screen's own key for it; a provider that cannot be built fails the call out loud rather than falling back (12 ก.ย.) |
+| `think` | The level the chat is running at. Named (`low`, `high`, `ultra`…), the worker thinks that deep on its *own* provider and model, not the chat's; a level that model does not have falls to its default at dispatch. Its own dial, not a side effect of `model`: a file-search helper on the chat's model still should not think at ultra (13 ก.ย.) |
 | `shell` `top` `face` `accent` | The default look: the robot mascot in the assistant's template wearing this agent's `icon` on its ear, coloured from its name. Each is an id from the mascot catalogue, never a file (§254). `hue` (a number) still wins over `accent` for the files that carry it; `hair` and `accessory` are read and dropped — the cartoon face they dressed is gone |
 | `icon` | The generic mark; name one |
 | `needs` | Nothing declared. `connection:<id>` or `mcp:<server>`, `\|` for either-satisfies. A need **declares and never grants** — but an unmet one locks the worker's card (30 ส.ค.), so write only what it cannot work without (GUIDE.md, "Writing an AGENT.md body") |
