@@ -103,6 +103,16 @@ both; the language switch is in Settings and in the first-run wizard. This READM
 - **24 model providers** — cloud (OpenAI, Anthropic, Gemini, DeepSeek, Groq, and more) and local
   (LM Studio, Ollama), switchable mid-conversation with context intact. Full list under
   [Everything it can do](#everything-it-can-do).
+- **The engine is a process of its own, and it can run on another machine.** Since 1.6.0 the
+  window is a screen and `aetox-engine` does the work beside it, over one socket. Add a Linux
+  host under ตั้งค่า › เครื่องระยะไกล and connect with one click: the app ships the engine over
+  your own `ssh`, starts it, opens the tunnel and looks after it, and the chat, the files, the
+  terminal and Git are that machine's. Your provider keys never leave the machine the window
+  runs on — the engine asks the window to sign each request.
+- **A companion that lives on your desktop.** The robot mascot is drawn from code, has poses for
+  what the assistant is doing, greets you by name and reads its finished answer aloud. Keep it in
+  the window, or let it out onto the desktop as a real Win32 window with no browser behind it —
+  drag it to any monitor, resize it, and it keeps working while you do.
 
 ## Install
 
@@ -339,9 +349,9 @@ it may narrow itself to, which model it pins), `MEMORY.md` (what it has learned)
 can see.
 
 That folder is also where the difference between a clever assistant and a company sits. Each
-agent pins **its own model**, so the one that opens twenty pricing pages can run on something
-cheap while the one that has to weigh what it found runs on something strong, and the bill
-follows the work instead of following the hardest task in it. Each keeps **its own memory**, so
+agent pins **its own model, at its own provider**, so the one that opens twenty pricing pages can
+run on something cheap while the one that has to weigh what it found runs on something strong,
+and the bill follows the work instead of following the hardest task in it. Each keeps **its own memory**, so
 what the deepresearch agent learned about a source does not leak into the document agent's judgement
 about a contract. A single generalist has one model, one memory and one set of tools for every job
 it will ever be handed — and no way for you to add an eighth colleague to it.
@@ -351,12 +361,20 @@ can **talk to one directly**, in a session bound to its tools, its memory and it
 from the composer is the third door: your sentence arrives verbatim, mention included, because a
 paraphrase is where the request goes wrong.
 
+Agents are hired through **teams**. A team is a list of agents bound to one desk
+(`<DataRoot>/teams/<name>/TEAM.md`), each side of the app — ผู้ช่วย and โค้ด — has its own teams,
+and a chat hires from one team for its whole life, or from none. The app seeds one team,
+ผู้ช่วยในคอมพิวเตอร์, and after that it is an ordinary file you can rename, trim or delete. Teams
+are managed under ตั้งค่า › ทีมเอเจน; the chip beside the composer says who answers and which team
+it hires from.
+
 Agents never call each other. The star has one centre; multi-step work is a conveyor through the
 assistant, and the baton is a file path rather than the content. Separately, four **sub-agents**
 (`explore`, `general`, `reviewer`, `tester`) are internal helpers — a fixed set, not extensible,
-deliberately. The last two **cannot write anything at all, on purpose**: a reviewer that fixes what
-it finds is a second author, and then nobody is left reading; a tester that repairs the test it just
-ran is a test nobody watched fail.
+deliberately, though since 1.6.0 you may tune one: its model and provider, its prompt, its step
+ceiling and its look, never what it can reach. The last two **cannot write anything at all, on
+purpose**: a reviewer that fixes what it finds is a second author, and then nobody is left reading;
+a tester that repairs the test it just ran is a test nobody watched fail.
 
 ## What it learns, and what you approve
 
@@ -594,29 +612,34 @@ date-stamped, because the rule above does not have an exception for numbers we w
 
 </details>
 
-## Status — v1.5.28
+## Status — v1.6.0
 
-The core is in place. [Release notes](docs/release-notes/v1.5.28.md) ·
+The core is in place. [Release notes](docs/release-notes/v1.6.0.md) ·
 [roadmap](ROADMAP.md) · [architecture](ARCHITECTURE.md).
 
 Three things it does today that are worth knowing about:
 
-- **Aetox can use the programs already open on your machine, once you say which ones.**
-  It reads a window through Windows accessibility rather than guessing at pixels in a
-  screenshot, so it aims at a control instead of a coordinate and works with models that
-  cannot point at an image at all. Off until you turn it on in ตั้งค่า > การใช้คอมพิวเตอร์;
-  while it is off the model is not given the tool at all, rather than being given one that
-  refuses. Terminals and browsers are declined on purpose and the refusal names the tool that
-  does them properly.
-- **You can see it working, and you keep your mouse.** While it drives something, the edge of
-  the screen carries a moving light and a second pointer marks the control being pressed. Your
-  own cursor never moves: nothing is aimed by coordinate, so the pointer is a report of what was
-  pressed rather than the thing pressing it.
-- **When a reach fails, it says which of the six ways.** A locked screen, a window running with
-  higher privileges, a control that is disabled, one that has moved, one that does not accept
-  that action, and an application that stopped answering are six different sentences with six
-  different fixes. The tool this replaces reported all of them as "failed", which is why it was
-  deleted rather than debugged.
+- **The window and the engine are two processes, and the engine can live on another machine.**
+  Everything that thinks, reads files, runs commands and talks to MCP servers is `aetox-engine`,
+  installed beside `aetox.exe` and spoken to over one socket — locally too, so the remote case
+  is the same code with a longer wire. Under ตั้งค่า › เครื่องระยะไกล you add a Linux host by its
+  `ssh` name; one click ships this release's engine over `ssh`, starts it, opens the tunnel and
+  reconnects if it drops. Your provider keys stay on the machine the window runs on: the engine
+  hands each request to the window to sign, and the window signs only for hosts it knows belong
+  to that provider.
+- **The assistant has a face, and it can sit on your desktop.** One robot mascot for the whole
+  company, drawn from code and dressed per agent; it greets you by name, wears a pose for what
+  is going on (listening, reading, a tool running, an error), sleeps on a pillow after five quiet
+  minutes and reads its finished answer aloud with the machine's own voice. ตั้งค่า › อวตาร lets
+  it out of the window onto the desktop — a per-pixel-transparent Win32 window paced to the
+  refresh of whichever monitor it is on, no second browser — and you can resize it between 64 and
+  240 px and drag it anywhere.
+- **Agents are hired through teams, and the `+` button is the one door into a message.** A team
+  is a list of agents on one desk; a chat hires from one team or from none, and the chip by the
+  composer says who answers and which team it draws on. Each agent, and now each sub-agent, can
+  name its own provider and model. The `+` menu holds files, `/` commands, `@` agents and open
+  tabs in one searchable list, and the window folds its side panels instead of refusing to shrink
+  below 1100 px.
 
 ## Documentation
 
