@@ -48,12 +48,15 @@ export type AvatarText = {
   top: string
   face: string
   reset: string
-  agentsNote: string
   /** A pose appended to POSE without a word here shows its id until it gets one. */
   poses: Partial<Record<PoseId, string>>
   /** The stage's callouts: what each part is, and what its panel changes. */
   parts: { top: string; shell: string; hue: string; face: string }
   mainNote: string
+  /** The two heads, one per desk (avatarPrefs.svelte.ts HeadId): the card
+   *  above the stage that picks which one is being designed. */
+  heads: Record<'assistant' | 'coding', { name: string; where: string }>
+  designing: string
   personas: string
   personasNote: string
   persona: string
@@ -101,7 +104,6 @@ const TEXT: Record<string, AvatarText> = {
     top: 'ไฟบนหัว',
     face: 'หน้าประจำตัว',
     reset: 'ค่าเริ่มต้น',
-    agentsNote: 'เอเจนและซับเอเจนยังใช้หน้าแบบเดิม — จะย้ายมาใช้ตัวมาสคอตในรอบถัดไป',
     poses: {
       idle: 'พัก', greeting: 'ทักทาย', thinking: 'คิด', typing: 'พิมพ์', reading: 'อ่าน', research: 'ค้นเว็บ', searchDocs: 'ค้นเอกสาร',
       searchData: 'ค้นข้อมูล', searchFiles: 'ค้นไฟล์', answering: 'ตอบ', asking: 'ถาม', planning: 'วางแผน', coding: 'เขียนโค้ด',
@@ -109,7 +111,12 @@ const TEXT: Record<string, AvatarText> = {
       cheer: 'เชียร์', wink: 'ขยิบตา', error: 'ผิดพลาด', wake: 'ตื่น', startled: 'ตกใจ',
     },
     parts: { top: 'ไฟบนหัว — สัญญาณบนยอด', shell: 'ตัว — วัสดุของหัว ลำตัว แขน ขา', hue: 'accent — หมวก หู พื้นรองเท้า และแสงบนจอ · ขาวดำคือค่าเริ่มต้น โทนเดียวกับโลโก้', face: 'หน้า — แสงบนจอตอนพัก' },
-    mainNote: 'นี่คืออวตารหลักของ Aetox — ตัวเดียวกันทุกโต๊ะ ทุกหน้า สิ่งที่เลือกที่นี่คือผู้ช่วยของคุณ',
+    mainNote: 'อวตารหลักของ Aetox มีสองตัว ตัวละโต๊ะ — โต๊ะผู้ช่วยตัวหนึ่ง โต๊ะโค้ดอีกตัว เลือกข้างล่างว่ากำลังแต่งตัวไหน ไปโต๊ะไหนก็เจอตัวนั้น',
+    heads: {
+      assistant: { name: 'หัวหน้าผู้ช่วย', where: 'แชทผู้ช่วย · ตัวลอยบนจอ · เสียง' },
+      coding: { name: 'หัวหน้าโค้ด', where: 'โต๊ะโค้ด · โปรเจกต์ที่เปิดอยู่' },
+    },
+    designing: 'กำลังออกแบบ',
     personas: 'บุคลิก',
     personasNote: 'บันทึกชุดที่ชอบไว้กี่ชุดก็ได้ สลับใช้ได้ทันที — และเป็นชุดที่จะนำไปใส่ให้เอเจนที่คุณออกแบบเองในอนาคต',
     persona: 'บุคลิก',
@@ -154,7 +161,6 @@ const TEXT: Record<string, AvatarText> = {
     top: 'Top light',
     face: 'Resting face',
     reset: 'Defaults',
-    agentsNote: 'Agents and sub-agents still wear the old faces — the mascot comes to them next.',
     poses: {
       idle: 'Rest', greeting: 'Greet', thinking: 'Think', typing: 'Type', reading: 'Read', research: 'Web', searchDocs: 'Docs',
       searchData: 'Data', searchFiles: 'Files', answering: 'Answer', asking: 'Ask', planning: 'Plan', coding: 'Code',
@@ -162,7 +168,12 @@ const TEXT: Record<string, AvatarText> = {
       cheer: 'Cheer', wink: 'Wink', error: 'Error', wake: 'Wake', startled: 'Startled',
     },
     parts: { top: 'Top light — the signal on the crown', shell: 'Body — the material of head, torso, arms, legs', hue: 'Accent — cap, ears, soles and the screen light · black and white is the default, the two tones of the mark', face: 'Face — the screen light at rest' },
-    mainNote: "This is Aetox's main avatar — the same one on every desk and page. What you choose here is your assistant.",
+    mainNote: 'Aetox has two main avatars, one per desk — one heads the assistant desk, the other the code desk. Pick below which one you are dressing; each desk shows its own.',
+    heads: {
+      assistant: { name: 'Assistant head', where: 'Assistant chat · the figure on screen · voice' },
+      coding: { name: 'Code head', where: 'Code desk · the open project' },
+    },
+    designing: 'Designing',
     personas: 'Personas',
     personasNote: 'Keep as many looks as you like and switch between them — the looks you will hand to agents you design later.',
     persona: 'Persona',
@@ -207,7 +218,6 @@ const TEXT: Record<string, AvatarText> = {
     top: '头顶灯',
     face: '默认表情',
     reset: '恢复默认',
-    agentsNote: '代理与子代理仍使用旧头像——下一轮再换成吉祥物。',
     poses: {
       idle: '休息', greeting: '打招呼', thinking: '思考', typing: '输入', reading: '阅读', research: '搜网页', searchDocs: '查文档',
       searchData: '查数据', searchFiles: '找文件', answering: '回答', asking: '提问', planning: '规划', coding: '编码',
@@ -215,7 +225,12 @@ const TEXT: Record<string, AvatarText> = {
       cheer: '欢呼', wink: '眨眼', error: '出错', wake: '醒来', startled: '惊醒',
     },
     parts: { top: '头顶灯——顶部的信号', shell: '机身——头、躯干、手臂、腿的材质', hue: '点缀色——帽子、耳朵、鞋底和屏幕光 · 黑白为默认，与标志同色调', face: '表情——休息时的屏幕光' },
-    mainNote: '这是 Aetox 的主头像——每个工作台、每个页面都是同一个。在这里选择的就是你的助手。',
+    mainNote: 'Aetox 有两个主头像，每个工作台一个——助手台一个，代码台一个。在下方选择正在装扮哪一个；到哪个工作台就看到哪一个。',
+    heads: {
+      assistant: { name: '助手负责人', where: '助手聊天 · 屏幕上的小人 · 语音' },
+      coding: { name: '代码负责人', where: '代码工作台 · 打开的项目' },
+    },
+    designing: '正在设计',
     personas: '角色',
     personasNote: '想保存多少套外观都可以，随时切换——将来也可以交给你自己设计的代理。',
     persona: '角色',

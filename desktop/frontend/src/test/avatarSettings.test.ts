@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, waitFor, fireEvent } from '@testing-library/svelte'
 import AvatarSettings from '../lib/mascot/AvatarSettings.svelte'
 import Companion from '../lib/mascot/Companion.svelte'
-import { avatarPrefs, setAvatarPrefs, resetAvatarPrefs, assistantOptions, DEFAULT_PREFS, personas, addPersona, savePersona, usePersona, removePersona, clearPersonas, wornPersona } from '../lib/mascot/avatarPrefs.svelte'
+import { avatarPrefs, setAvatarPrefs, resetAvatarPrefs, assistantOptions, DEFAULT_PREFS, personas, addPersona, savePersona, usePersona, removePersona, clearPersonas, wornPersona, heads, headOf, headOptions, DEFAULT_HEAD_PREFS } from '../lib/mascot/avatarPrefs.svelte'
 import { SHELL, ACCENT } from '../lib/mascot/palette'
 import { TOP, FACE } from '../lib/mascot/parts'
 import { POSE } from '../lib/mascot/poses'
@@ -23,6 +23,7 @@ beforeEach(() => {
   clearPersonas()
   setLocale('th')
   cockpit.awaitingReply = false
+  cockpit.desk = 'assistant'
   cockpit.toolSteps = []
   cockpit.streamingText = ''
   cockpit.ask = null
@@ -74,6 +75,72 @@ describe('avatar preferences', () => {
     expect(fresh.personas.slots.length).toBe(1)
     // A slot saved before accents had names, with no hue: it takes the default accent.
     expect(fresh.personas.slots[0]).toMatchObject({ shell: 'white', accent: 'brand', top: 'bar' })
+  })
+})
+
+// Two heads since 14 ก.ย. 2026: the code desk has a face of its own. What is
+// guarded is that the two stores are separate, that the code head is drawn
+// from the `code` template with its own dials, that the assistant's store
+// keeps its old key (a user's look from before survives), and that the
+// companion changes with the desk on screen.
+describe('two heads', () => {
+  it('keeps one look per desk, the assistant under its old key', () => {
+    expect(headOf('coding')).toBe('coding')
+    expect(headOf('assistant')).toBe('assistant')
+    expect(headOf(undefined)).toBe('assistant')
+    expect(heads.coding).toMatchObject(DEFAULT_HEAD_PREFS.coding)
+    setAvatarPrefs({ shell: 'colour', accent: 'mint' }, 'coding')
+    expect(heads.coding).toMatchObject({ shell: 'colour', accent: 'mint' })
+    expect(avatarPrefs).toMatchObject(DEFAULT_PREFS) // the assistant's did not move
+    expect(JSON.parse(localStorage.getItem('avatarPrefs.coding')!)).toMatchObject({ shell: 'colour', accent: 'mint' })
+    expect(JSON.parse(localStorage.getItem('avatarPrefs')!)).toMatchObject(DEFAULT_PREFS)
+    resetAvatarPrefs('coding')
+    expect(heads.coding).toMatchObject(DEFAULT_HEAD_PREFS.coding)
+  })
+
+  it("draws the code head from the code template — terminal ears, its own dials", () => {
+    const code = headOptions('coding')
+    expect(code).toMatchObject({ badge: 'terminal', prop: 'laptopTerm', shell: 'dark', accent: 'amber', top: 'chevrons', face: 'focused' })
+    const asst = headOptions('assistant')
+    expect(asst).toMatchObject({ badge: 'logo', prop: 'laptopA', shell: 'white', accent: 'brand', top: 'orb' })
+  })
+
+  it('lands a hostile coding store on the coding default, not the assistant one', async () => {
+    localStorage.setItem('avatarPrefs.coding', JSON.stringify({ shell: 'chrome', accent: 'plaid', top: 'x', face: 'y' }))
+    vi.resetModules()
+    const fresh = await import('../lib/mascot/avatarPrefs.svelte')
+    expect(fresh.heads.coding).toMatchObject(fresh.DEFAULT_HEAD_PREFS.coding)
+  })
+
+  it('the companion changes face with the desk on screen', async () => {
+    const { container } = render(Companion)
+    await waitFor(() => expect(container.querySelector('.companion .mascot')).toBeTruthy())
+    // the assistant: orb on top, no terminal glyph on the ears
+    expect(container.querySelector('.companion .mascot')!.innerHTML).toContain('halo')
+    cockpit.desk = 'coding'
+    await waitFor(() => expect(container.querySelector('.companion .mascot')!.innerHTML).toContain('M27 2l3.2 3-3.2 3')) // chevrons
+    expect(container.querySelector('.companion .mascot')!.innerHTML).toContain('hsl(45 ') // amber
+  })
+
+  it('the page dresses whichever head its card picks', async () => {
+    const { container } = render(AvatarSettings)
+    await waitFor(() => expect(container.querySelectorAll('.who-card').length).toBe(2))
+    expect(container.querySelector('.who-card.on')?.textContent).toContain('หัวหน้าผู้ช่วย')
+    await fireEvent.click(container.querySelectorAll('.who-card')[1])
+    await waitFor(() => expect(container.querySelector('.who-card.on')?.textContent).toContain('หัวหน้าโค้ด'))
+    // the stage now shows the coder's look, and a click writes to the coder's store
+    expect(container.querySelector('.cell[title="ดำ"]')!.classList.contains('on')).toBe(true)
+    await fireEvent.click(container.querySelector('.cell[title="ขาว"]')!)
+    expect(heads.coding.shell).toBe('white')
+    expect(avatarPrefs.shell).toBe('white') // the assistant's default, untouched
+    expect(JSON.parse(localStorage.getItem('avatarPrefs.coding')!).shell).toBe('white')
+    // + keeps the coder's look; "use" dresses the coder, not the assistant
+    await fireEvent.click(container.querySelector('.slot.add')!)
+    expect(personas.slots[0]).toMatchObject({ shell: 'white', accent: 'amber' })
+    setAvatarPrefs({ accent: 'mint' }, 'coding')
+    usePersona(0, 'coding')
+    expect(heads.coding.accent).toBe('amber')
+    expect(avatarPrefs.accent).toBe('brand')
   })
 })
 
