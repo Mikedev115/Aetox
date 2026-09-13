@@ -291,7 +291,6 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'capability.needsSignIn': '需要登录',
   'capability.onThisMachine': '本机运行',
   'capability.noServers': '还没接任何 MCP 服务器',
-  'capability.openTools': '打开工具页',
   'capability.bundled': '随应用附带',
 
   // ---- 工作模式 ----

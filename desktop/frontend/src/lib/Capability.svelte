@@ -54,9 +54,18 @@
   //     with the thing. The row is still the learning room's (.learn-row):
   //     the layout was right, only the address was wrong.
   //
-  // The registers ตั้งค่า still holds (บัญชี เครื่องมือในตัว) are the next
-  // headings, moved the same way. Until they move, the foot of ของคุณ links
-  // เครื่องมือ.
+  // **เครื่องมือในตัว is the third heading (14 ก.ย.), one page.** The
+  // register of what the assistant runs without connecting anything —
+  // compiled in, or desktop-only — grouped by what a tool is FOR (the order
+  // is Go's, internal/skill/category.go). Read-only: nothing here is
+  // installed, placed or switched, which is why one row is the whole
+  // heading. Tools an MCP server bridged in are not listed twice; they are
+  // on that server's card, where "ดูรายละเอียด tool ต้องจบที่หน้านี้" put
+  // them. It was ตั้งค่า › เครื่องมือ, and the foot of ของคุณ used to link
+  // it; a register on the rail gets no door, the rule สกิล set.
+  //
+  // The register ตั้งค่า still holds (บัญชี) is the next heading, moved the
+  // same way.
   //
   // **This room is the ONE place an MCP server is handled.** Rebuilt 12 ก.ย.
   // 2026 after the owner read the previous version against the other rooms
@@ -163,7 +172,28 @@
   let servers = $state<MCPRow[]>([])
   let targets = $state<TargetRow[]>([])
   let agents = $state<Profile[]>([])
-  let toolTotal = $state(0)
+  // Every tool the registry holds right now, as ListTools reports it. The
+  // built-in register page lists the ones with no server behind them; the
+  // MCP ones are counted for mcpLive and shown on their server's card.
+  type ToolRow = { name: string; description: string; source: string; category: string }
+  let registry = $state<ToolRow[]>([])
+  const builtinTools = $derived(registry.filter((s) => s.source !== 'mcp'))
+  // Grouped by what a tool is *for*, not by where it came from: one card per
+  // source (builtin, workbench) sorted forty-four rows by an implementation
+  // detail and answered a question nobody asks. The order comes from Go
+  // (internal/skill/category.go) rather than being restated here, so the
+  // grouping the user sees and the grouping the engine knows are one list.
+  const TOOL_CATEGORIES = ['files', 'shell', 'deliverables', 'media', 'web', 'code', 'agent'] as const
+  const toolGroups = $derived(
+    TOOL_CATEGORIES
+      .map((key) => ({ key, items: builtinTools.filter((s) => (s.category || 'agent') === key) }))
+      .filter((g) => g.items.length > 0),
+  )
+  let expandedTool = $state('') // name of the row showing its full description
+  // The speech picker is audio_transcribe's setting and lives on ตั้งค่า ›
+  // เสียง since the composer's mic made it two users; this row keeps a door
+  // there rather than a second copy of it.
+  const SPEECH_TOOL = 'audio_transcribe'
   // Whether this session's own registry holds any MCP tool right now. A chat
   // with no desk set carries EVERY server whatever `for:` says (mode.go), so
   // "the assistant cannot use any" read off `for:` alone would be a false
@@ -194,11 +224,12 @@
   // The rail. Opens on ของคุณ when there is anything in it, on ห้องสมุด when
   // there is not: the room's founding point was that an empty register
   // announces nothing, and a full one is what a person came back for.
-  type Page = 'mine' | 'desks' | 'agents' | 'shelf' | 'skills' | 'skagents' | 'skshelf' | 'sktune'
-  // Two headings, one per kind of thing; a new kind is a new heading, never
-  // a tab. The MCP group has four rows and the skill group four — see the
-  // note at the top for why the skill rail has no placement page per side,
-  // and why its fourth row is the tune-up queue rather than one.
+  type Page = 'mine' | 'desks' | 'agents' | 'shelf' | 'skills' | 'skagents' | 'skshelf' | 'sktune' | 'tools'
+  // Three headings, one per kind of thing; a new kind is a new heading, never
+  // a tab. The MCP group has four rows, the skill group four and the tool
+  // group one — see the note at the top for why the skill rail has no
+  // placement page per side, why its fourth row is the tune-up queue rather
+  // than one, and why a read-only register is a heading of one row.
   type Row = { id: Page; labelKey: TKey; icon: IconName }
   const RAIL: { labelKey: TKey; rows: Row[] }[] = [
     { labelKey: 'capability.navGroupReach', rows: [
@@ -212,6 +243,9 @@
       { id: 'skagents', labelKey: 'capability.navSkillAgents', icon: 'bot' },
       { id: 'skshelf', labelKey: 'capability.navSkillShelf', icon: 'layoutList' },
       { id: 'sktune', labelKey: 'settings.skillTune', icon: 'sparkles' },
+    ] },
+    { labelKey: 'capability.navGroupTools', rows: [
+      { id: 'tools', labelKey: 'capability.navTools', icon: 'wrench' },
     ] },
   ]
   let page = $state<Page>('shelf')
@@ -255,8 +289,8 @@
     ])
     servers = (m ?? []) as MCPRow[]
     signInsLoaded = loadSignIns()
-    toolTotal = (tl ?? []).length
-    mcpLive = (tl ?? []).some((x: { source?: string }) => x.source === 'mcp')
+    registry = (tl ?? []) as ToolRow[]
+    mcpLive = registry.some((x) => x.source === 'mcp')
     targets = (tg ?? []) as TargetRow[]
     agents = (ag ?? []) as Profile[]
     storedAt = path ?? ''
@@ -1095,14 +1129,12 @@
           {@render more(winServers, servers.length)}
         {/if}
         <p class="office-note">{t('capability.mcpShelfFoot')}</p>
-        <p class="office-note">
-          {t('capability.toolsNote', { n: String(toolTotal) })}
-          <button class="linklike" onclick={() => openSettingsAt('tools')}>{t('capability.openTools')}</button>
-          {#if storedAt}
-            · {t('capability.storedAt')} <span class="mono-dim">{storedAt}</span>
+        {#if storedAt}
+          <p class="office-note">
+            {t('capability.storedAt')} <span class="mono-dim">{storedAt}</span>
             <button class="linklike" onclick={() => OpenMCPFolder()}>{t('settings.skillsFolder')}</button>
-          {/if}
-        </p>
+          </p>
+        {/if}
       {/if}
 
       <!-- ================= ตั้งค่า MCP ฝั่งผู้ช่วยและโค้ด ================= -->
@@ -1449,6 +1481,47 @@
             <div class="empty">{t('settings.skillTuneNothing')}</div>
           {/if}
         </div>
+      {/if}
+
+      <!-- ================= เครื่องมือในตัว ================= -->
+      <!-- Moved whole from ตั้งค่า › เครื่องมือ (14 ก.ย. 2026). One line per
+           tool until the row is clicked: a description can run to a
+           paragraph, and forty rows of paragraphs cannot be scanned. -->
+      {#if page === 'tools'}
+        <h2>{t('settings.toolsHeading', { n: builtinTools.length })}</h2>
+        <p class="muted set-sub">{t('capability.toolsLede')}</p>
+        {#if loaded}
+          {#each toolGroups as g (g.key)}
+            <!-- Heading outside the card, not boxed in with the rows: the
+                 card is the list, and a title sealed inside its own border
+                 reads as one more entry in it. -->
+            <div class="group-head">
+              <!-- Template literal, not concatenation: TOOL_CATEGORIES is a
+                   literal union, so this resolves to a real message key and a
+                   category added without its label becomes a compile error. -->
+              <span class="group-title">{t(`settings.toolGroup_${g.key}`)}</span>
+              <span class="group-count">{t('settings.itemCount', { n: g.items.length })}</span>
+            </div>
+            <div class="settings-card">
+              {#each g.items as s (s.name)}
+                <div class="set-row">
+                  <button class="tool-row" onclick={() => (expandedTool = expandedTool === s.name ? '' : s.name)}>
+                    <div class="set-txt">
+                      <div class="t">{s.name}</div>
+                      <div class="d" class:clamp={expandedTool !== s.name}>{s.description || '—'}</div>
+                    </div>
+                  </button>
+                  {#if s.name === SPEECH_TOOL}
+                    <button class="ctrl" onclick={() => openSettingsAt('voice')}>
+                      <Icon name="mic" size={13} /> {t('settings.voiceFromTool')}
+                    </button>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/each}
+          <p class="office-note foot">{t('capability.toolsFoot')}</p>
+        {/if}
       {/if}
     </div>
   </div>

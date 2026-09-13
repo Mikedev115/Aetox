@@ -54,7 +54,6 @@
     ListMCPServers, SaveMCPServer,
     DelegateSwitches, SetDelegateOff, SetAgentOff,
     PlacementTargets, SetMCPServerTargets,
-    ListTools,
     ListSpeechModels, SetSpeechModel, SpeechStatus, RevealSpeechModel, SpeechModelDirs, OpenSpeechModelDir,
     ListSpeechEngines, SetSpeechEngine, ListTTSEngines, SetTTSEngine, ListTTSVoices, SetTTSVoice, TTSStatus, SpeakText,
     ListImageEngines, SetImageEngine, SetImageModelName, ImageStatus,
@@ -698,7 +697,7 @@
         loadAttention(),
         loadComputer(),
         loadMCP(),
-        loadTools(),
+        loadSpeech(),
         (async () => {
           await refreshProviders()
           await refreshEnabledProviders()
@@ -1306,38 +1305,11 @@
     return 'background:var(--text-dim)'
   }
 
-  // ---------- Tools ----------
-  // Read-only: every tool the AI can run — Aetox's own plus anything an MCP
-  // server bridged in. Skills are documents, not things it runs, and are
-  // handled in ห้องความสามารถ under their own heading (13 ก.ย. 2026).
-  let tools = $state<{ name: string; description: string; source: string; category: string }[]>([])
-  // Grouped by what a tool is *for*, not by where it came from.
-  //
-  // It used to be one card per source — builtin, workbench, mcp — which sorts
-  // forty-four rows by an implementation detail and answers a question nobody
-  // asks. "Which of these does the assistant need to carry everywhere?" had
-  // nowhere to be asked from, because the page could not be read at all.
-  //
-  // The order comes from Go (internal/skill/category.go) rather than being
-  // restated here, so the grouping the user sees and the grouping the engine
-  // knows are one list.
-  const TOOL_CATEGORIES = ['files', 'shell', 'deliverables', 'media', 'web', 'code', 'agent'] as const
-  const toolGroups = $derived(
-    TOOL_CATEGORIES
-      .map((key) => ({ key, items: tools.filter((s) => (s.category || 'agent') === key) }))
-      .filter((g) => g.items.length > 0),
-  )
-  let expandedTool = $state('') // name of the row showing its full description
-  // The speech picker belongs to audio_transcribe, so it hangs off that tool's
-  // row rather than sitting in a card of its own — a setting parked away from
-  // the thing it configures is a setting nobody connects to it.
-  const SPEECH_TOOL = 'audio_transcribe'
+  // ---------- Speech ----------
+  // The tool register (what the assistant runs) left for ห้องความสามารถ on
+  // 14 ก.ย. 2026; what stays is the setting audio_transcribe and the mic run
+  // on, which is a choice and not a list.
   let speechOpen = $state(false)
-
-  async function loadTools() {
-    tools = await ListTools()
-    await loadSpeech()
-  }
 
   // ---------- Speech model (what audio_transcribe runs on) ----------
   // Models differ by an order of magnitude in size and accuracy, and a machine
@@ -3838,10 +3810,10 @@
         terms: [t('office.newTeam'), t('settings.teamSideAssistant'), t('settings.teamSideCode')] },
     ]},
     { group: t('settings.groupTools'), items: [
-      // Two pages, not two cards on one: a tool is something the AI runs, a
-      // skill is a document telling it how. Sharing a page is what made them
-      // read as one thing.
-      { id: 'tools', label: t('settings.tools'), icon: 'wrench', terms: [SPEECH_TOOL] },
+      // เครื่องมือ left this menu 14 ก.ย. 2026 for the เครื่องมือในตัว heading of
+      // ห้องความสามารถ (Capability.svelte), the way สกิล and MCP did: what the
+      // assistant can reach is one room. Voice stays — it is a setting, not a
+      // register.
       { id: 'voice', label: t('settings.voice'), icon: 'mic',
         terms: ['TTS', 'STT', 'whisper', t('settings.sttHeading'), t('settings.ttsHeading'), t('settings.speechModel'), t('settings.audioInput'), t('settings.audioOutput')] },
       // Beside เสียง and not in its own group: both pages configure ONE tool
@@ -4027,7 +3999,14 @@
   // section (openSettingsAt), and two spellings of this key would fail silently
   // and look like the page ignoring where it was told to go.
   const SECTION_KEY = SETTINGS_SECTION_KEY
-  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'identity', 'learning', 'models', 'team', 'teams', 'agents', 'tools', 'connections', 'computer', 'prompts', 'account', 'usage', 'about', 'sponsor'])
+  // Every id the rail can draw. Five of them (issues, voice, image, studio,
+  // remote) were missing here for as long as they had existed: a door that
+  // said openSettingsAt('voice') landed on ทั่วไป, quietly, because the
+  // fallback below is the right answer for a page that was DELETED and the
+  // wrong one for a page that was merely forgotten. Found 14 ก.ย. 2026 when
+  // the tool register's door to เสียง moved rooms and got a test that opens
+  // it the way a user does.
+  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'identity', 'learning', 'issues', 'models', 'team', 'teams', 'agents', 'voice', 'image', 'studio', 'connections', 'computer', 'remote', 'prompts', 'account', 'usage', 'about', 'sponsor'])
 
   function restoredSection(): string {
     try {
@@ -6449,46 +6428,6 @@
           {/if}
         </div>
       </div>
-    {:else if active === 'tools'}
-      <h2>{t('settings.toolsHeading', { n: tools.length })}</h2>
-      <p class="muted set-sub">{t('settings.toolsDesc')}</p>
-
-      {#each toolGroups as g (g.key)}
-        <!-- Heading outside the card, not boxed in with the rows: the card is
-             the list, and a title sealed inside its own border reads as one
-             more entry in it. -->
-        <div class="group-head">
-          <!-- Template literal, not concatenation: TOOL_CATEGORIES is a literal
-               union, so this resolves to a real message key and a category added
-               without its label becomes a compile error. -->
-          <span class="group-title">{t(`settings.toolGroup_${g.key}`)}</span>
-          <span class="group-count">{t('settings.itemCount', { n: g.items.length })}</span>
-        </div>
-        <div class="settings-card">
-          {#each g.items as s (s.name)}
-            <div class="set-row">
-              <button
-                class="tool-row"
-                onclick={() => (expandedTool = expandedTool === s.name ? '' : s.name)}
-              >
-                <div class="set-txt">
-                  <div class="t">{s.name}</div>
-                  <div class="d" class:clamp={expandedTool !== s.name}>{s.description || '—'}</div>
-                </div>
-              </button>
-              {#if s.name === SPEECH_TOOL}
-                <!-- The model picker hung off this row while this tool was the
-                     only thing speech served. The composer's mic made it two
-                     users, so the setting moved to its own page — and this row
-                     keeps a door there rather than a second copy of it. -->
-                <button class="ctrl" onclick={() => openSection('voice')}>
-                  <Icon name="mic" size={13} /> {t('settings.voiceFromTool')}
-                </button>
-              {/if}
-            </div>
-          {/each}
-        </div>
-      {/each}
     {:else if active === 'voice'}
       <h2>{t('settings.voice')}</h2>
       <p class="muted set-sub">{t('settings.voiceDesc')}</p>
