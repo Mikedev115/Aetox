@@ -125,6 +125,8 @@
   import { cockpit, openSettingsAt, startChatWith } from './stores/cockpit.svelte'
   import { t, type TKey } from './i18n.svelte'
   import Icon from './Icon.svelte'
+  import RankPip from './RankPip.svelte'
+  import ScopeMark from './ScopeMark.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
   import { lookOf } from './mascot/agentLook'
   import ConfirmDialog from './ConfirmDialog.svelte'
@@ -904,9 +906,10 @@
                 <AgentMascot name={x.name} {...agentLookOf(x.name)} size={38} />
               {:else}
                 {@const m = deskMeta(x.id)}
-                <span class="mem-scope-ic cap-desk-ic mem-tone-{m.tone}"><Icon name={m.icon} size={18} /></span>
+                <span class="mem-scope-ic cap-desk-ic mem-tone-{m.tone}" class:face={!!m.head}><ScopeMark meta={m} size={18} face={38} /></span>
               {/if}
               <span class="chair-name"><span class="nm">{x.kind === 'desk' ? deskMeta(x.id).label : x.name}</span></span>
+              {#if x.kind === 'desk' && deskMeta(x.id).head}<RankPip tier="head" />{/if}
             </div>
             <p class="chair-desc" title={personDesc(x)}>{x.kind === 'desk' ? deskMeta(x.id).audience : roleOf(x)}</p>
             <div class="cap-holds">
@@ -1310,7 +1313,7 @@
           <AgentMascot name={pickTarget.name} {...agentLookOf(pickTarget.name)} size={30} />
         {:else}
           {@const m = deskMeta(pickTarget.id)}
-          <span class="mem-scope-ic cap-desk-ic mem-tone-{m.tone}"><Icon name={m.icon} size={16} /></span>
+          <span class="mem-scope-ic cap-desk-ic mem-tone-{m.tone}" class:face={!!m.head}><ScopeMark meta={m} size={16} face={30} /></span>
         {/if}
         <h3 id="cap-pick-title">{t('capability.pickTitle', { name: targetName(pickFor) })}</h3>
         <button class="icobtn" aria-label={t('settings.cancel')} onclick={closePicker}><Icon name="x" size={15} /></button>

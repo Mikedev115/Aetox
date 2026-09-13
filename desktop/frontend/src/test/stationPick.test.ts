@@ -46,25 +46,30 @@ beforeEach(() => {
 })
 
 describe('station chips', () => {
-  it('draws two chips: the assistant with the spark, and the team by name', async () => {
+  it("draws two chips: the assistant with the assistant head's face, and the team by name", async () => {
     const { container } = render(StationPick)
 
     expect(who(container).textContent).toContain('ผู้ช่วยหลัก')
     expect(who(container).textContent).not.toContain('ผู้ช่วยในคอมพิวเตอร์')
     expect(teamChip(container).textContent).toContain('ผู้ช่วยในคอมพิวเตอร์')
     expect(container.querySelector('.station-team.none')).toBeNull()
-    // The desk's icon: the storefront's spark on the assistant desk.
-    expect(wears(who(container), 'sparkles')).toBe(true)
+    // The desk's head, as a face (14 ก.ย. 2026), not the door's icon: the
+    // assistant wears the orb, and nothing of the coder's chevrons.
+    const face = who(container).querySelector('.mascot')!
+    expect(face).toBeTruthy()
+    expect(face.innerHTML).not.toContain('ms-chev')
+    expect(wears(who(container), 'sparkles')).toBe(false)
   })
 
-  it('wears the code door’s icon on the coding desk, same word', async () => {
+  it("wears the code head's face on the coding desk, same word", async () => {
     cockpit.desk = 'coding'
     cockpit.team = ''
     const { container } = render(StationPick)
 
     expect(who(container).textContent).toContain('ผู้ช่วยหลัก')
-    expect(wears(who(container), 'fileCode')).toBe(true)
-    expect(wears(who(container), 'sparkles')).toBe(false)
+    const face = who(container).querySelector('.mascot')!
+    expect(face.innerHTML).toContain('ms-chev')
+    expect(wears(who(container), 'fileCode')).toBe(false)
   })
 
   it('says "ยังไม่มีทีม" on the team chip, dimmed, and still opens a menu that says where to make one', async () => {

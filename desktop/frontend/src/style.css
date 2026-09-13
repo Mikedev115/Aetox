@@ -7958,6 +7958,10 @@ button.phase-head:hover { color:var(--text-muted); }
   display:inline-grid; place-items:center; width:24px; height:24px; border-radius:6px; flex:none;
   color:var(--mem-tone, var(--accent)); background:color-mix(in srgb, var(--mem-tone, var(--accent)) 12%, transparent);
 }
+/* A desk's box holds the head's face instead of an icon (ScopeMark): no tint
+   behind it — the face has its own colour — and no clip of its ears. */
+.mem-scope-ic.face { background:none; overflow:visible; }
+.learn-scope :global(.scope-face) { margin:-2px 1px -2px 0; }
 .mem-scope-name { font-weight:600; }
 .mem-desk .mem-badge-file { margin-left:2px; }
 /* The meter, at the far end of the heading. Green until the file is near its

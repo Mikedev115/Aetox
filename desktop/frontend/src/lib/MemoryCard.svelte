@@ -24,6 +24,7 @@
    *    asking about a decision already made.
    */
   import Icon from './Icon.svelte'
+  import ScopeMark from './ScopeMark.svelte'
   import { t } from './i18n.svelte'
   import { cockpit } from './stores/cockpit.svelte'
   import { scopeMeta, USER_SCOPE, type ScopeMeta } from './memoryScope'
@@ -142,7 +143,7 @@
       {#if isSkill}
         <span class="memcard-scope">{scope}</span>
       {:else}
-        <span class="memcard-scope learn-scope mem-tone-{meta.tone}"><Icon name={meta.icon} size={11} /> {meta.label}</span>
+        <span class="memcard-scope learn-scope mem-tone-{meta.tone}"><ScopeMark {meta} size={11} face={16} /> {meta.label}</span>
       {/if}
     </div>
     {#if !isSkill}
@@ -173,7 +174,7 @@
               <div class="mem-menu-h">{t('settings.learningKeepIn')}</div>
               {#each targets as m (m.scope)}
                 <button type="button" class="mem-menu-i" role="menuitem" onclick={() => decide(true, m.scope)}>
-                  <span class="learn-scope mem-tone-{m.tone}"><Icon name={m.icon} size={11} /> {m.label}</span>
+                  <span class="learn-scope mem-tone-{m.tone}"><ScopeMark meta={m} size={11} face={16} /> {m.label}</span>
                   <small>{m.audience}</small>
                 </button>
               {/each}
@@ -195,7 +196,7 @@
       {#if isSkill}
         <span class="memdone-scope">{scope}</span>
       {:else}
-        <span class="memdone-scope learn-scope mem-tone-{meta.tone}"><Icon name={meta.icon} size={10} /> {meta.label}</span>
+        <span class="memdone-scope learn-scope mem-tone-{meta.tone}"><ScopeMark {meta} size={10} face={15} /> {meta.label}</span>
       {/if}
       <span class="chev"><Icon name={detail ? 'chevronDown' : 'chevronRight'} size={12} /></span>
     </button>

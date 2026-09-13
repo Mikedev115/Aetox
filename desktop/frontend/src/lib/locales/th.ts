@@ -1837,11 +1837,11 @@ export const th = {
   'settings.subagentsBuiltinHint': 'ฝังมาในตัวแอป ใช้ได้เลยตั้งแต่ติดตั้ง กดตั้งค่าได้ ระบบจะสร้างเป็นไฟล์ของคุณทับไว้ ของเดิมไม่หาย',
   'settings.agentConfigure': 'ตั้งค่า',
   // ยศ — the three ranks, worn beside a face wherever a name stands next to
-  // it (RankPip.svelte). Chosen by the owner 13 ก.ย. 2026 from three sets:
-  // the company one, because these are the words the app's own sentences
-  // already used. A rank is the level's, never a setting.
-  'rank.head': 'หัวหน้า',
-  'rank.agent': 'ผู้เชี่ยวชาญ',
+  // it (RankPip.svelte). The owner's words (14 ก.ย. 2026): the head is
+  // ผู้ช่วย — three bars, on both desks' heads — the agents are พนักงาน, and
+  // the helpers stay ลูกมือ. A rank is the level's, never a setting.
+  'rank.head': 'ผู้ช่วย',
+  'rank.agent': 'พนักงาน',
   'rank.helper': 'ลูกมือ',
   'settings.agentDenyTip': 'ถูกห้ามใช้ ต่อให้เรียกก็ไม่รัน: {list}',
   'settings.agentStepsTip': 'วนทำงานได้มากสุด {n} รอบต่อหนึ่งงาน',

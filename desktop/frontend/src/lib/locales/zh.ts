@@ -1081,7 +1081,7 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'settings.baseUrl': 'Base URL',
   'settings.wireFormat': 'API 格式',
   'settings.baseUrlDesc': '如果服务商跑在别的端口或主机上就改这里，比如 LM Studio 的服务端口、远程的 Ollama 机器，或者一个代理。',
-  'rank.head': '负责人',
-  'rank.agent': '专家',
+  'rank.head': '助手',
+  'rank.agent': '员工',
   'rank.helper': '帮手',
 }

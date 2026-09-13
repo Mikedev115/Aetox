@@ -113,8 +113,8 @@ const TEXT: Record<string, AvatarText> = {
     parts: { top: 'ไฟบนหัว — สัญญาณบนยอด', shell: 'ตัว — วัสดุของหัว ลำตัว แขน ขา', hue: 'accent — หมวก หู พื้นรองเท้า และแสงบนจอ · ขาวดำคือค่าเริ่มต้น โทนเดียวกับโลโก้', face: 'หน้า — แสงบนจอตอนพัก' },
     mainNote: 'อวตารหลักของ Aetox มีสองตัว ตัวละโต๊ะ — โต๊ะผู้ช่วยตัวหนึ่ง โต๊ะโค้ดอีกตัว เลือกข้างล่างว่ากำลังแต่งตัวไหน ไปโต๊ะไหนก็เจอตัวนั้น',
     heads: {
-      assistant: { name: 'หัวหน้าผู้ช่วย', where: 'แชทผู้ช่วย · ตัวลอยบนจอ · เสียง' },
-      coding: { name: 'หัวหน้าโค้ด', where: 'โต๊ะโค้ด · โปรเจกต์ที่เปิดอยู่' },
+      assistant: { name: 'ผู้ช่วย', where: 'แชทผู้ช่วย · ตัวลอยบนจอ · เสียง' },
+      coding: { name: 'โค้ด', where: 'โต๊ะโค้ด · โปรเจกต์ที่เปิดอยู่' },
     },
     designing: 'กำลังออกแบบ',
     personas: 'บุคลิก',
@@ -170,8 +170,8 @@ const TEXT: Record<string, AvatarText> = {
     parts: { top: 'Top light — the signal on the crown', shell: 'Body — the material of head, torso, arms, legs', hue: 'Accent — cap, ears, soles and the screen light · black and white is the default, the two tones of the mark', face: 'Face — the screen light at rest' },
     mainNote: 'Aetox has two main avatars, one per desk — one heads the assistant desk, the other the code desk. Pick below which one you are dressing; each desk shows its own.',
     heads: {
-      assistant: { name: 'Assistant head', where: 'Assistant chat · the figure on screen · voice' },
-      coding: { name: 'Code head', where: 'Code desk · the open project' },
+      assistant: { name: 'Assistant', where: 'Assistant chat · the figure on screen · voice' },
+      coding: { name: 'Code', where: 'Code desk · the open project' },
     },
     designing: 'Designing',
     personas: 'Personas',
@@ -227,8 +227,8 @@ const TEXT: Record<string, AvatarText> = {
     parts: { top: '头顶灯——顶部的信号', shell: '机身——头、躯干、手臂、腿的材质', hue: '点缀色——帽子、耳朵、鞋底和屏幕光 · 黑白为默认，与标志同色调', face: '表情——休息时的屏幕光' },
     mainNote: 'Aetox 有两个主头像，每个工作台一个——助手台一个，代码台一个。在下方选择正在装扮哪一个；到哪个工作台就看到哪一个。',
     heads: {
-      assistant: { name: '助手负责人', where: '助手聊天 · 屏幕上的小人 · 语音' },
-      coding: { name: '代码负责人', where: '代码工作台 · 打开的项目' },
+      assistant: { name: '助手', where: '助手聊天 · 屏幕上的小人 · 语音' },
+      coding: { name: '代码', where: '代码工作台 · 打开的项目' },
     },
     designing: '正在设计',
     personas: '角色',
