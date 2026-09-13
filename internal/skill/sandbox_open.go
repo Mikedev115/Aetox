@@ -402,6 +402,13 @@ var ownSecretFiles = []string{
 	// reference instead of a secret — and this is the belt for the users who
 	// paste the key in anyway.
 	"mcp-servers.json",
+	// The screen's own file (design doc §2.4). Mostly plumbing — the remote
+	// hosts the user added, which one the engine is on — but it also holds
+	// the token that admits the screen to the engine on that host, and a
+	// token in it admits whoever holds it (desktop/screen_config.go). Wrapped
+	// with atrest on disk like credentials.json, and shut here like it: the
+	// wrapper is the belt, this is the braces.
+	"screen.json",
 	// The in-app browser's profile: cookies, tokens and saved logins for
 	// every site the user signed into through it. The list above already
 	// refuses Chrome's, Edge's, Brave's and Firefox's profiles for exactly
@@ -704,7 +711,7 @@ func ownSecretHint(name string) string {
 	case "mcp-servers.json":
 		return "You do not need it to answer questions about MCP: every tool bridged from a server " +
 			"is already in your tool list and says which server it came from. To change which desks " +
-			"and agents a server is switched on for, the user does that in Settings → MCP servers."
+			"and agents a server is switched on for, the user does that in the ห้องความสามารถ room (MCP)."
 	case "credentials.json", "model-preference.json":
 		return "The user manages providers and API keys in Settings."
 	case "oauth.json":
@@ -712,6 +719,10 @@ func ownSecretHint(name string) string {
 	case "account.json":
 		return "This is the user's Aetox account session. Whether they are signed in is shown in " +
 			"Settings → บัญชี Aetox, which is also where they sign in and out."
+	case "screen.json":
+		return "This is the window's own record of remote hosts and the token that admits it to the " +
+			"engine on one of them. Which host the engine is on is shown in Settings → เครื่องระยะไกล, " +
+			"which is also where the user adds, connects to and removes a host."
 	case ".env":
 		return "The user edits this file themselves; you can tell them the path."
 	case "webview":
