@@ -736,7 +736,7 @@ describe('Settings pages', () => {
 
   // เอเจนเฉพาะทาง get their own settings page, listing only them — the roster
   // page is where you talk to them, this is where you configure them (owner,
-  // 13 ก.ย. 2026). Both this list and the ซับเอเจน one are drawn from one
+  // 13 ก.ย. 2026). Both this list and the ลูกมือ one are drawn from one
   // markup (profileListPane), so the two cannot drift into two ideas of what a
   // profile row is. For a day (12 ก.ย.) the row was gone and the section only
   // ever opened with an editor; landing on it without one drew a signpost.
@@ -750,7 +750,7 @@ describe('Settings pages', () => {
     const { container } = render(Settings, { onClose: () => {} })
     const labels = Array.from(container.querySelectorAll('.settings-nav-item')).map((el) => el.textContent?.trim())
     expect(labels).toContain('เอเจนเฉพาะทาง')
-    expect(labels).toContain('ซับเอเจน')
+    expect(labels).toContain('ลูกมือ')
     expect(labels).toContain('ทีมเอเจน')
 
     await openSection(container, 'เอเจนเฉพาะทาง')
@@ -809,7 +809,7 @@ describe('Settings pages', () => {
 
   // Where the back button lands, which is the half the two end-tests missed.
   // An editor opened from this page's own list closes onto this list — not
-  // onto the roster page (that is the lock's road), and not onto ซับเอเจน,
+  // onto the roster page (that is the lock's road), and not onto ลูกมือ,
   // where it once landed because the intent named the wrong section and the
   // editor came up correct anyway.
   it('goes back to its own list, not the helpers or the roster page', async () => {
@@ -829,7 +829,7 @@ describe('Settings pages', () => {
     await fireEvent.click(screen.getByText('กลับไปหน้ารวม'))
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'เอเจนเฉพาะทาง' })).toBeTruthy())
-    expect(screen.queryByRole('heading', { name: 'ซับเอเจน' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'ลูกมือ' })).toBeNull()
     expect(cockpit.activeView).toBe('settings')
   })
 
@@ -855,7 +855,7 @@ describe('Settings pages', () => {
     vi.mocked(ListChairs).mockResolvedValue([{ name: 'deck' }] as any)
 
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'ซับเอเจน')
+    await openSection(container, 'ลูกมือ')
 
     await waitFor(() => expect(screen.getByText('ค้นไฟล์')).toBeTruthy())
     expect(screen.queryByText('deck')).toBeNull()
@@ -873,7 +873,7 @@ describe('Settings pages', () => {
     vi.mocked(ListChairs).mockResolvedValue([] as any)
 
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'ซับเอเจน')
+    await openSection(container, 'ลูกมือ')
 
     await waitFor(() => expect(screen.getByText('หลงบ้าน')).toBeTruthy())
     expect(screen.getByText(/ไฟล์นี้เสีย/)).toBeTruthy()
@@ -884,12 +884,12 @@ describe('Settings pages', () => {
   // bundled set is listed, because "yours" cannot exist.
   // The helpers are the system's (2026-08-06) and, since 12 ก.ย. 2026, each
   // one opens in the editor within limits (owner: "ปรับแต่งได้จำกัดนะครับ
-  // ซับเอเจน แต่เลือกโมเดลได้"): a cog per card and no door to create one;
+  // ลูกมือ แต่เลือกโมเดลได้"): a cog per card and no door to create one;
   // the editor shows สมอง (the model) and no reach tab, the name is locked,
   // and a save goes out through the helper door.
   it('the sub-agents page edits a helper within limits and creates nothing', async () => {
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'ซับเอเจน')
+    await openSection(container, 'ลูกมือ')
 
     await waitFor(() => expect(screen.getByText('ค้นไฟล์')).toBeTruthy())
     // One deck since 31 ส.ค., not a card holding rows: the group heading above
@@ -932,7 +932,7 @@ describe('Settings pages', () => {
   })
 
   // The provider is picked before the model (owner, 12 ก.ย.: "ควรเลือกได้แม้แต่
-  // ผู้ให้บริการ และเลือกโมเดลได้ ทั้งเอเจนและซับเอเจน"): the list is exactly
+  // ผู้ให้บริการ และเลือกโมเดลได้ ทั้งเอเจนและลูกมือ"): the list is exactly
   // การตั้งค่าโมเดล's — the catalogue's providers the user switched on, in the
   // catalogue's order ("ควรอิง Providers ที่เปิดไว้หน้าตั้งค่าโมเดล"): a name still
   // in the enabled list but gone from the catalogue is not offered, nor is a
@@ -2557,14 +2557,14 @@ describe('model probes run side by side', () => {
 })
 
 // Settings › ทีมเอเจน (§256): its own row at the foot of the โมเดล AI group,
-// after เอเจนเฉพาะทาง and ซับเอเจน (owner: "เพิ่มตั้งค่าทีมเอเจนที่ข้างล่าง"),
+// after เอเจนเฉพาะทาง and ลูกมือ (owner: "เพิ่มตั้งค่าทีมเอเจนที่ข้างล่าง"),
 // opening the team page — never a field on the agent editor.
 describe('Settings › ทีมเอเจน', () => {
   it('sits last in the model group and opens the team page', async () => {
     const { container } = render(Settings, { onClose: () => {} })
     const labels = Array.from(container.querySelectorAll('.settings-nav-item')).map((el) => el.textContent?.trim())
     const model = labels.indexOf('การตั้งค่าโมเดล')
-    expect(labels.slice(model, model + 4)).toEqual(['การตั้งค่าโมเดล', 'เอเจนเฉพาะทาง', 'ซับเอเจน', 'ทีมเอเจน'])
+    expect(labels.slice(model, model + 4)).toEqual(['การตั้งค่าโมเดล', 'เอเจนเฉพาะทาง', 'ลูกมือ', 'ทีมเอเจน'])
     await openSection(container, 'ทีมเอเจน')
     await waitFor(() => expect(screen.getByText('ทีมเอเจน', { selector: 'h2' })).toBeTruthy())
     // The door is drawn more than once on purpose (teamSettings.test.ts).
