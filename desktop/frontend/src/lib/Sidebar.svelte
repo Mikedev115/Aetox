@@ -28,6 +28,7 @@
   } from './selfUpdate.svelte'
   import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
   import Icon from './Icon.svelte'
+  import { errText } from './errText'
   import CompanionSwitch from './mascot/CompanionSwitch.svelte'
   import { profile, loadProfileName, saveProfileName } from './stores/profile.svelte'
 
@@ -529,7 +530,7 @@
     creatingProject = !creatingProject
     projectCreateError = ''
     if (creatingProject && !codeProjectsDir) {
-      try { codeProjectsDir = await CodeProjectsDir() } catch { codeProjectsDir = '' }
+      try { codeProjectsDir = await CodeProjectsDir() } catch (err) { codeProjectsDir = ''; projectCreateError = errText(err) }
     }
   }
   function closeCreateProject(): void {
@@ -538,7 +539,7 @@
     projectCreateError = ''
   }
   async function pickCodeProjectsDir(): Promise<void> {
-    try { codeProjectsDir = await PickCodeProjectsDir() } catch (err) { projectCreateError = String(err) }
+    try { codeProjectsDir = await PickCodeProjectsDir() } catch (err) { projectCreateError = errText(err) }
   }
   async function createProject(): Promise<void> {
     const name = projectDraftName.trim()
@@ -550,7 +551,7 @@
       closeCreateProject()
       startChatIn(path)
     } catch (err) {
-      projectCreateError = String(err)
+      projectCreateError = errText(err)
     }
     projectCreateBusy = false
   }
