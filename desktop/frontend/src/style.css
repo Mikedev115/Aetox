@@ -7863,6 +7863,14 @@ button.phase-head:hover { color:var(--text-muted); }
 .learn-before { font-size:var(--fs-sm); color:var(--text-dim); text-decoration:line-through; margin-bottom:2px; word-break:break-word; }
 .learn-body { font-size:var(--fs-lg); word-break:break-word; }
 .learn-why { margin-top:4px; font-size:var(--fs-sm); color:var(--text-dim); word-break:break-word; }
+.learn-blurb { font-size:var(--fs-md); margin-bottom:6px; word-break:break-word; }
+/* A skill proposal's body is a whole SKILL.md, not a one-line fact: keep its
+   line breaks, drop to reading size, cap the height so the approve buttons
+   stay in reach, and stop striking through the old file -- a struck-through
+   page is unreadable; the dim tone and the new one under it say which is which. */
+.learn-doc { white-space:pre-wrap; font-size:var(--fs-sm); line-height:1.55; max-height:22em; overflow:auto;
+  padding:8px 10px; border:1px solid var(--border-subtle); border-radius:var(--r-sm); background:var(--surface-sunken); }
+.learn-before.learn-doc, .memcard-was.learn-doc { text-decoration:none; margin-bottom:6px; }
 .learn-actions { display:flex; gap:8px; flex:none; }
 .learn-row.past { opacity:.72; }
 /* One remembered line, one row. Ruled off from each other like every other
