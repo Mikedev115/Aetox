@@ -87,8 +87,18 @@
   // assistant can do is ห้องความสามารถ). Placed after Hooks rather than
   // beside MCP so the four rows a person already knows do not move.
   //
-  // The registers ตั้งค่า still holds (การเชื่อมต่อ, ชุดคำสั่ง, บัญชี) are the
-  // next headings, moved the same way.
+  // **การเชื่อมต่อ is the sixth heading (14 ก.ย.), one page, moved whole out
+  // of ตั้งค่า.** The accounts and self-run services the assistant acts on
+  // your behalf with (GitHub, n8n, Windmill): one line per service until it
+  // is opened, and inside it the key, the address when the user hosts it,
+  // and who may use it — the same `for:` ids an MCP server carries, so what
+  // a person learns on ของคุณ is true here. A connection is the other kind
+  // of reach an MCP server is (a key instead of a process), which is why it
+  // is on this rail; the register keeps its own row shape (.reg-entry, the
+  // settings register's) because it is a register and not a roster.
+  //
+  // The registers ตั้งค่า still holds (ชุดคำสั่ง, บัญชี) are the next
+  // headings, moved the same way.
   //
   // **This room is the ONE place an MCP server is handled.** Rebuilt 12 ก.ย.
   // 2026 after the owner read the previous version against the other rooms
@@ -162,6 +172,8 @@
     Hooks, SaveHooks,
     ComputerControlOn, SetComputerControlOn, GrantedComputerApps, RevokeComputerApp,
     OpenComputerApps, AllowComputerApp, ProgramIcon, BrowseForComputerApp,
+    Connections, ConnectAccount, SetConnectionTargets, VerifyConnection, DisconnectAccount,
+    SetConnectionStartCommand, StartConnectionServer, CheckConnectionServer,
   } from '../../wailsjs/go/main/App'
   import { config, type engine, type hook } from '../../wailsjs/go/models'
   import { BrowserOpenURL, EventsOn } from '../../wailsjs/runtime/runtime'
@@ -250,13 +262,13 @@
   // The rail. Opens on ของคุณ when there is anything in it, on ห้องสมุด when
   // there is not: the room's founding point was that an empty register
   // announces nothing, and a full one is what a person came back for.
-  type Page = 'mine' | 'desks' | 'agents' | 'shelf' | 'skills' | 'skagents' | 'skshelf' | 'sktune' | 'tools' | 'hooks' | 'computer'
-  // Five headings, one per kind of thing; a new kind is a new heading, never
+  type Page = 'mine' | 'desks' | 'agents' | 'shelf' | 'skills' | 'skagents' | 'skshelf' | 'sktune' | 'tools' | 'hooks' | 'computer' | 'connections'
+  // Six headings, one per kind of thing; a new kind is a new heading, never
   // a tab. The MCP group has four rows, the skill group four, and the tool,
-  // hook and computer groups one each — see the note at the top for why the
-  // skill rail has no placement page per side, why its fourth row is the
-  // tune-up queue rather than one, and why the last three are headings of
-  // one row.
+  // hook, computer and connection groups one each — see the note at the top
+  // for why the skill rail has no placement page per side, why its fourth
+  // row is the tune-up queue rather than one, and why the last four are
+  // headings of one row.
   type Row = { id: Page; labelKey: TKey; icon: IconName }
   const RAIL: { labelKey: TKey; rows: Row[] }[] = [
     { labelKey: 'capability.navGroupReach', rows: [
@@ -280,6 +292,9 @@
     { labelKey: 'settings.computer', rows: [
       { id: 'computer', labelKey: 'capability.navComputer', icon: 'monitor' },
     ] },
+    { labelKey: 'settings.connections', rows: [
+      { id: 'connections', labelKey: 'capability.navConnections', icon: 'globe' },
+    ] },
   ]
   let page = $state<Page>('shelf')
   let pageSettled = false
@@ -297,6 +312,7 @@
     if (p === 'sktune') void loadSkillTune()
     if (p === 'hooks') void loadHooks()
     if (p === 'computer') void loadComputer()
+    if (p === 'connections') void loadConnections()
   }
   // A window per long grid (pageWindow.svelte.ts): the DOM this room asks
   // for at once, rationed. 494 bundled skills is 13,700 nodes in one frame
@@ -529,6 +545,254 @@
   const browseForComputerApp = () => computerDo(BrowseForComputerApp)
   const allowComputerApp = (name: string) => computerDo(() => AllowComputerApp(name))
   const revokeComputerApp = (name: string) => computerDo(() => RevokeComputerApp(name))
+
+  // ---------- Connections (accounts the agent acts on your behalf with) -------
+  // Moved whole from ตั้งค่า (14 ก.ย. 2026). It sat beside the model sign-ins
+  // there because they are the same act from the user's side, and apart from
+  // them because they answer different questions: a sign-in buys thinking, a
+  // connection buys reach — and reach is this room's subject.
+  type ConnectionRow = {
+    id: string; label: string; kind: string; token_url?: string
+    connected: boolean; login?: string; source?: string; env_override: boolean
+    for: string[]; configured: boolean; tools: string[]
+    // A service the user hosts has no address of its own. GitHub is one host
+    // for everybody and states it as a constant; n8n and Windmill live wherever
+    // the user put them, so the row carries the address, the example to show in
+    // an empty field, and the fact that it needs one at all.
+    needs_base_url: boolean; base_url?: string; base_url_hint?: string
+    // Which engines substitute for each other in the composer's picker
+    // (connect.InFamily). Never the page's fact: every service is on it.
+    family?: string
+    // The one agent this connection is locked to, when it has one — the row
+    // draws the fact rather than a picker.
+    home_agent?: string
+    /** Agents this connection already reaches before anybody places it
+     *  (connect.Provider.DefaultAgents). Ticked, because the engine grants it. */
+    default_agents?: string[]
+    // How to bring this one up, for the services the user runs themselves.
+    start_command?: string
+  }
+  let connections = $state<ConnectionRow[]>([])
+  // Keyed by connection id, because the page draws one card per service and two
+  // of them must not share a token box, an error, or a spinner.
+  let connToken = $state<Record<string, string>>({})
+  // The address of a self-hosted service, seeded from what is stored so a
+  // reconnect after a rotated key does not ask the user to retype where their
+  // own server lives.
+  let connBaseURL = $state<Record<string, string>>({})
+  let connError = $state<Record<string, string>>({})
+  // Scopes come from the last live answer rather than from storage: a token's
+  // grants can change on the service's side, and a remembered list would keep
+  // claiming access that was revoked this morning.
+  let connScopes = $state<Record<string, string[]>>({})
+  // The placement chosen *before* connecting. Once connected, the toggles write
+  // straight through, so this only exists for the not-yet-connected card.
+  let connDraft = $state<Record<string, string[]>>({})
+  // '' | '<id>:connect' | '<id>:verify' — one field, so no two buttons anywhere
+  // on the page can both be spinning.
+  let connBusy = $state('')
+  // Which row is open. One at a time, the same as the MCP register: two token
+  // forms on screen is two places to paste into and one of them is wrong.
+  let connOpen = $state('')
+  // The row whose credential is about to be thrown away (the confirm gate).
+  let confirmConn = $state<ConnectionRow | null>(null)
+
+  // What the collapsed row says about placement — the desks by name, because
+  // "2 desks" makes you open the row to find out which two.
+  function placementSummary(row: ConnectionRow): string {
+    if (!row.configured) return t('settings.connForEveryone')
+    const names = row.for.map((id) => targets.find((tt) => tt.id === id)?.name ?? id)
+    return names.join(', ')
+  }
+  // One line per service saying what connecting it buys. Kept here rather than
+  // in the Go catalog because it is a sentence a Thai-first app has to
+  // translate, and a Go string literal cannot be. A service with no line drawn
+  // yet renders nothing rather than a raw key.
+  const connBlurb: Record<string, string> = $derived({ github: t('settings.ghDesc') })
+  // Desks are pre-picked and agents are not — an agent is handed things on
+  // purpose, which is the asymmetry the resolver applies to a connection nobody
+  // has placed yet (config.ConnectionsForAgent). With one exception the catalog
+  // writes down: a service can name the agents it starts at
+  // (connect.Provider.DefaultAgents — GitHub names the github agent). Ticked
+  // here because the engine ALREADY grants it, and a chip drawn unticked over
+  // a grant that is in force is the page saying something untrue.
+  const defaultDraft = (row?: ConnectionRow) => [
+    ...targets.filter((x) => x.kind === 'desk').map((x) => x.id),
+    ...(row?.default_agents ?? [])
+      .map((name) => targets.find((x) => x.kind === 'agent' && x.name === name)?.id)
+      .filter((id): id is string => !!id),
+  ]
+  async function loadConnections() {
+    // The room's own load brings the targets; a door straight onto this page
+    // (arriveAt) can get here first, and a draft built over no targets would
+    // tick nothing.
+    if (targets.length === 0) {
+      try {
+        targets = ((await PlacementTargets()) ?? []) as TargetRow[]
+      } catch {
+        /* the toggles are simply absent rather than the page failing */
+      }
+    }
+    try {
+      connections = ((await Connections()) ?? []) as ConnectionRow[]
+    } catch {
+      connections = []
+      return
+    }
+    for (const row of connections) {
+      // Only when the box is untouched: a reload while the user is mid-typing
+      // must not overwrite what they are typing with what is stored.
+      if (row.needs_base_url && connBaseURL[row.id] === undefined) {
+        connBaseURL[row.id] = row.base_url ?? ''
+      }
+      if (row.needs_base_url && connStart[row.id] === undefined) {
+        connStart[row.id] = row.start_command ?? ''
+      }
+      if (connDraft[row.id]) continue
+      // A connection already placed keeps its list when it is reconnected; one
+      // that has never been placed starts where the resolver would put it.
+      connDraft[row.id] = row.configured ? [...row.for] : defaultDraft(row)
+    }
+  }
+  // What a card's toggles are currently showing: the live placement once it is
+  // connected, the draft while it is not.
+  function placedOf(row: ConnectionRow): string[] {
+    return row.source === 'connection' ? row.for : (connDraft[row.id] ?? [])
+  }
+  function servesNobody(row: ConnectionRow): boolean {
+    return row.configured && row.for.length === 0
+  }
+  async function toggleConnectionTarget(row: ConnectionRow, targetID: string) {
+    const current = placedOf(row)
+    const next = current.includes(targetID)
+      ? current.filter((x) => x !== targetID)
+      : [...current, targetID]
+    if (row.source !== 'connection') {
+      connDraft[row.id] = next // nothing to write yet — it lands with Connect
+      return
+    }
+    if (connBusy) return
+    connBusy = row.id + ':connect'
+    connError[row.id] = ''
+    try {
+      await SetConnectionTargets(row.id, next)
+      connDraft[row.id] = next
+      await loadConnections()
+    } catch (e) {
+      connError[row.id] = String(e)
+    } finally {
+      connBusy = ''
+    }
+  }
+  /** A service the user hosts needs its address before the token means anything;
+   *  the rest need only the token. Read by the button so it cannot be pressed
+   *  into a request that was always going to be refused. */
+  function connectable(row: ConnectionRow): boolean {
+    if (!(connToken[row.id] ?? '').trim()) return false
+    return !row.needs_base_url || (connBaseURL[row.id] ?? '').trim() !== ''
+  }
+  async function connectAccount(row: ConnectionRow) {
+    const token = (connToken[row.id] ?? '').trim()
+    if (!connectable(row) || connBusy) return
+    connBusy = row.id + ':connect'
+    connError[row.id] = ''
+    try {
+      const account = await ConnectAccount(
+        row.id, token, (connBaseURL[row.id] ?? '').trim(), connDraft[row.id] ?? [])
+      connScopes[row.id] = account.scopes ?? []
+      // Cleared on success only. A token that failed stays in the box, because
+      // the usual reason is a truncated paste and retyping the whole thing is a
+      // punishment for the app's own unhelpfulness.
+      connToken[row.id] = ''
+      await loadConnections()
+    } catch (e) {
+      connError[row.id] = String(e)
+    } finally {
+      connBusy = ''
+    }
+  }
+  // Bringing a self-hosted engine up, and asking whether it is up.
+  // `srvState[id]` is 'ok:…' / 'err:…' like the model connection test, so the
+  // two read the same on screen — one shape for "I asked something and here is
+  // what it said", rather than a new spelling per page.
+  let connStart = $state<Record<string, string>>({})
+  let srvBusy = $state('')
+  let srvState = $state<Record<string, string>>({})
+  /** Saved when the field loses focus rather than behind a Save button: it is
+   *  one line, and a command typed and then lost because nobody pressed save is
+   *  the kind of small betrayal this page should not commit. */
+  async function saveStartCommand(row: ConnectionRow) {
+    const next = (connStart[row.id] ?? '').trim()
+    if (next === (row.start_command ?? '')) return
+    try {
+      await SetConnectionStartCommand(row.id, next)
+      await loadConnections()
+    } catch (e) {
+      srvState[row.id] = 'err:' + String(e)
+    }
+  }
+  async function startServer(row: ConnectionRow) {
+    if (srvBusy) return
+    srvBusy = row.id + ':start'
+    srvState[row.id] = ''
+    try {
+      // Saved first: pressing start with an edited, unsaved command would run
+      // the old one and report on the new.
+      await saveStartCommand(row)
+      await StartConnectionServer(row.id)
+      srvState[row.id] = 'ok:' + t('settings.connUp')
+    } catch (e) {
+      srvState[row.id] = 'err:' + String(e)
+    } finally {
+      srvBusy = ''
+    }
+  }
+  async function checkServer(row: ConnectionRow) {
+    if (srvBusy) return
+    srvBusy = row.id + ':check'
+    srvState[row.id] = ''
+    try {
+      const up = await CheckConnectionServer(row.id)
+      srvState[row.id] = up ? 'ok:' + t('settings.connUp') : 'err:' + t('settings.connDown')
+    } catch (e) {
+      srvState[row.id] = 'err:' + String(e)
+    } finally {
+      srvBusy = ''
+    }
+  }
+  /** Disconnecting throws away a credential the user cannot get back — an n8n
+   *  key is shown once at creation and never again — so it goes through the
+   *  same gate as every other loss in this room (ConfirmDialog, below). */
+  async function disconnectConfirmed() {
+    const row = confirmConn
+    confirmConn = null
+    if (!row || connBusy) return
+    connBusy = row.id + ':connect'
+    connError[row.id] = ''
+    try {
+      await DisconnectAccount(row.id)
+      delete connScopes[row.id]
+      await loadConnections()
+    } catch (e) {
+      connError[row.id] = String(e)
+    } finally {
+      connBusy = ''
+    }
+  }
+  async function verifyConnection(row: ConnectionRow) {
+    if (connBusy) return
+    connBusy = row.id + ':verify'
+    connError[row.id] = ''
+    try {
+      const account = await VerifyConnection(row.id)
+      connScopes[row.id] = account.scopes ?? []
+      await loadConnections()
+    } catch (e) {
+      connError[row.id] = String(e)
+    } finally {
+      connBusy = ''
+    }
+  }
 
   onMount(async () => {
     await load()
@@ -1854,6 +2118,255 @@
           <p class="muted set-sub">{computerError}</p>
         {/if}
       {/if}
+
+      <!-- ================= การเชื่อมต่อ ================= -->
+      <!-- Moved whole from ตั้งค่า › การเชื่อมต่อ (14 ก.ย. 2026). One register,
+           one page. The sentence under the title has to cover both kinds
+           without flattening them: an account needs a key, a machine you run
+           needs an address as well, and a user arriving with either one
+           should see themselves in it. -->
+      {#if page === 'connections'}
+        {#snippet serverControls(row: ConnectionRow)}
+          <!-- Its own bordered block, and the heading says which of the two
+               questions this half answers. They were a run of fields under the
+               address and the owner could not tell them apart from the
+               credential check below — which is fair, because "ตรวจสอบ" and
+               "เช็คว่าขึ้นหรือยัง" side by side in one column read as two
+               spellings of one button. -->
+          <div class="conn-part">
+            <div class="conn-part-head">
+              <Icon name="monitor" size={13} />
+              <span>{t('settings.connServerPart')}</span>
+            </div>
+            <div class="d muted">{t('settings.connServerPartHint')}</div>
+
+            <div class="eyebrow conn-eyebrow">{t('settings.connStartLabel')}</div>
+            <div class="mset-keyrow">
+              <input
+                class="ctrl key-input" type="text" autocomplete="off" spellcheck="false"
+                placeholder={t('settings.connStartPlaceholder')}
+                value={connStart[row.id] ?? ''}
+                oninput={(e) => (connStart[row.id] = e.currentTarget.value)}
+                onblur={() => saveStartCommand(row)}
+              />
+              <button
+                class="ctrl"
+                disabled={srvBusy !== '' || !(connStart[row.id] ?? '').trim()}
+                onclick={() => startServer(row)}
+              >
+                {srvBusy === row.id + ':start' ? t('settings.connStarting') : t('settings.connStart')}
+              </button>
+              <button class="ctrl" disabled={srvBusy !== ''} onclick={() => checkServer(row)}>
+                {srvBusy === row.id + ':check' ? t('settings.connChecking') : t('settings.connCheck')}
+              </button>
+            </div>
+            <div class="d muted">{t('settings.connStartHint')}</div>
+            {#if srvState[row.id]}
+              <div class="conn-test" class:ok={srvState[row.id].startsWith('ok:')}>
+                {#if srvState[row.id].startsWith('ok:')}
+                  <Icon name="check" size={13} /> {srvState[row.id].slice(3)}
+                {:else}
+                  {srvState[row.id].slice(4)}
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/snippet}
+
+        <h2>{t('settings.connections')}</h2>
+        <p class="muted set-sub">{t('settings.connectionsDesc')}</p>
+
+        <!-- A register, drawn the way the MCP register in ตั้งค่า drew its
+             own: one line per service until you open it. With four services
+             and a token box each, cards left open would be a wall — and the
+             thing a returning user wants from this page is a glance, not a
+             form. -->
+        <div class="settings-card">
+          {#each connections as row (row.id)}
+            {@const placed = placedOf(row)}
+            {@const open = connOpen === row.id}
+            <div class="set-row reg-entry">
+              <button
+                class="reg-head"
+                aria-expanded={open}
+                onclick={() => (connOpen = open ? '' : row.id)}
+              >
+                <span class="reg-caret" class:open>›</span>
+                <span class="set-txt">
+                  <span class="t">
+                    <span class="dot" class:green={row.connected}></span>
+                    {row.label}
+                    {#if row.source === 'connection'}
+                      <span class="mcp-badge" class:mcp-badge-warn={servesNobody(row)}>
+                        {servesNobody(row) ? t('settings.connForNobody') : placementSummary(row)}
+                      </span>
+                    {/if}
+                  </span>
+                  <span class="d">
+                    {#if row.source === 'connection'}
+                      {t('settings.ghConnectedAs', { login: row.login ?? '' })}
+                    {:else if row.source === 'environment'}
+                      {t('settings.ghFromEnv')}
+                    {:else}
+                      {t('settings.ghNotConnected')}
+                    {/if}
+                  </span>
+                </span>
+              </button>
+              <!-- The one action worth reaching without opening the row. A
+                   connected service has nothing here: disconnecting is not a
+                   thing to do by accident on a list. -->
+              {#if row.source !== 'connection' && !open}
+                <button class="ctrl" onclick={() => (connOpen = row.id)}>
+                  {t('settings.ghConnect')}
+                </button>
+              {/if}
+
+              {#if open}
+                <div class="conn-body">
+                  <div class="d muted">{connBlurb[row.id] ?? ''}</div>
+
+                  {#if row.source === 'environment'}
+                    <div class="d muted">{t('settings.ghFromEnvHint')}</div>
+                  {:else if row.env_override}
+                    <div class="d muted">{t('settings.ghEnvAlso')}</div>
+                  {/if}
+                  {#if connScopes[row.id]}
+                    <div class="d mono-dim">
+                      {connScopes[row.id].length > 0
+                        ? t('settings.ghScopes', { list: connScopes[row.id].join(', ') })
+                        : t('settings.ghScopesUnstated')}
+                    </div>
+                  {/if}
+
+                  <!-- Placement. Same ids and same list as an MCP server's
+                       `for:`, so what a user learns on ของคุณ is true here.
+
+                       Unless the connection is locked to one agent (home_agent):
+                       an engine is that agent's workstation, and a picker with
+                       eight audiences for a thing with one reader is not
+                       flexibility — it is eight ways into "connected everywhere,
+                       usable nowhere" (2026-08-10). The backend enforces the
+                       lock either way; this draws the fact instead of a choice
+                       that would be silently corrected. -->
+                  {#if row.home_agent}
+                    <div class="eyebrow conn-eyebrow">{t('settings.connFor')}</div>
+                    <div class="d muted">{t('settings.connHomeLocked', { agent: row.home_agent })}</div>
+                  {:else}
+                    <div class="eyebrow conn-eyebrow">{t('settings.connFor')}</div>
+                    <div class="conn-targets">
+                      {#each targets as target (target.id)}
+                        <!-- The chip carries the desk's NAME; its description is
+                             a paragraph and belongs on hover. A desk and an
+                             agent are two kinds of audience, and the mark is
+                             the difference (owner, 19 ส.ค.: "รายชื่อเอเจน
+                             เอาให้ชัดสิ ไอค่อนไปไหน"). -->
+                        <button
+                          class="conn-chip"
+                          class:on={placed.includes(target.id)}
+                          class:agent={target.kind === 'agent'}
+                          disabled={connBusy !== ''}
+                          title={target.detail ?? ''}
+                          aria-pressed={placed.includes(target.id)}
+                          onclick={() => toggleConnectionTarget(row, target.id)}
+                        >
+                          <Icon name={target.kind === 'agent' ? 'bot' : 'layoutList'} size={12} />
+                          {target.name}
+                        </button>
+                      {/each}
+                    </div>
+                  {/if}
+
+                  {#if row.source !== 'connection'}
+                    <!-- The address comes first because it is the question the
+                         token cannot answer: a service the user runs is at an
+                         address only they know, and a key checked against the
+                         wrong host fails in a way that reads as a bad key. Not
+                         a password field — it is a setting, and hiding it would
+                         stop the user spotting their own typo. -->
+                    {#if row.needs_base_url}
+                      <div class="eyebrow conn-eyebrow">{t('settings.connBaseURLLabel')}</div>
+                      <input
+                        class="ctrl key-input" type="text" autocomplete="off" spellcheck="false"
+                        placeholder={row.base_url_hint ?? ''}
+                        value={connBaseURL[row.id] ?? ''}
+                        oninput={(e) => (connBaseURL[row.id] = e.currentTarget.value)}
+                        onkeydown={(e) => e.key === 'Enter' && connectAccount(row)}
+                      />
+                      <div class="d muted">{t('settings.connBaseURLHint')}</div>
+                      {@render serverControls(row)}
+                    {/if}
+                    <!-- The service's own words, not GitHub's: these strings
+                         were GitHub's copy hardcoded once, so the n8n row asked
+                         for a "PERSONAL ACCESS TOKEN" starting `ghp_…`. And the
+                         other half says it is the other half — whether the KEY
+                         works is a different question from whether the SERVER
+                         is up. -->
+                    {#if row.needs_base_url}
+                      <div class="conn-part-head standalone">
+                        <Icon name="shield" size={13} />
+                        <span>{t('settings.connAccountPart')}</span>
+                      </div>
+                      <div class="d muted">{t('settings.connAccountPartHint')}</div>
+                    {/if}
+                    <div class="eyebrow conn-eyebrow">
+                      {row.needs_base_url ? t('automation.keyLabel') : t('settings.ghTokenLabel')}
+                    </div>
+                    <div class="mset-keyrow">
+                      <!-- type=password: this is a live credential, and a
+                           settings page is the one screen people screen-share. -->
+                      <input
+                        class="ctrl key-input" type="password" autocomplete="off"
+                        placeholder={row.needs_base_url ? '' : t('settings.ghTokenPlaceholder')}
+                        value={connToken[row.id] ?? ''}
+                        oninput={(e) => (connToken[row.id] = e.currentTarget.value)}
+                        onkeydown={(e) => e.key === 'Enter' && connectAccount(row)}
+                      />
+                      <button
+                        class="ctrl ctrl-primary"
+                        disabled={connBusy !== '' || !connectable(row)}
+                        onclick={() => connectAccount(row)}
+                      >
+                        {connBusy === row.id + ':connect' ? t('settings.ghConnecting') : t('settings.ghConnect')}
+                      </button>
+                    </div>
+                    <div class="d muted">{t('settings.connTokenHint', { name: row.label })}</div>
+                  {/if}
+
+                  <!-- Once connected the address field is gone, and with it the
+                       only place the server controls were drawn — but a server
+                       you connected yesterday is exactly the one that is down
+                       today. So they are here too. -->
+                  {#if row.needs_base_url && row.source === 'connection'}
+                    {@render serverControls(row)}
+                  {/if}
+
+                  <div class="mset-keyrow conn-actions">
+                    <div class="d muted eyebrow-grow"></div>
+                    {#if row.token_url && row.source !== 'connection'}
+                      <button class="ctrl" onclick={() => BrowserOpenURL(row.token_url ?? '')}>
+                        {t('settings.connCreateToken', { name: row.label })}
+                      </button>
+                    {/if}
+                    {#if row.connected}
+                      <button class="ctrl" disabled={connBusy !== ''} onclick={() => verifyConnection(row)}>
+                        {connBusy === row.id + ':verify' ? t('settings.ghVerifying') : t('settings.ghVerify')}
+                      </button>
+                    {/if}
+                    {#if row.source === 'connection'}
+                      <button class="ctrl ctrl-danger" disabled={connBusy !== ''} onclick={() => (confirmConn = row)}>
+                        {t('settings.ghDisconnect')}
+                      </button>
+                    {/if}
+                  </div>
+
+                  {#if connError[row.id]}<div class="mset-error">{connError[row.id]}</div>{/if}
+                </div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
     </div>
   </div>
 
@@ -2264,6 +2777,20 @@
     confirmLabel={t('settings.remove')}
     onConfirm={removeHookConfirmed}
     onCancel={() => (confirmHook = -1)}
+  />
+{/if}
+<!-- Disconnecting throws away a credential the user cannot get back, so it
+     goes through the same gate as every other loss. What survives is worth
+     saying: coming back later means pasting a key, not choosing the desks all
+     over again. -->
+{#if confirmConn}
+  <ConfirmDialog
+    title={t('settings.connDisconnectTitle', { name: confirmConn.label })}
+    message={t('settings.connDisconnectMessage', { name: confirmConn.label })}
+    detail={t('settings.connDisconnectDetail')}
+    confirmLabel={t('settings.ghDisconnect')}
+    onConfirm={disconnectConfirmed}
+    onCancel={() => (confirmConn = null)}
   />
 {/if}
 

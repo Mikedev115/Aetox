@@ -137,7 +137,7 @@ describe('what the room must not have any more', () => {
   // A rail of three pages, each one kind of thing, and no tab bar of KINDS:
   // nothing here switches between MCP, skills and tools (the registers still
   // in ตั้งค่า are linked from the foot, not drawn as rows that point away).
-  it('is a rail of five headings — four MCP pages, four skill pages, one tool page, one hooks page, one computer page — and has no kind tabs', async () => {
+  it('is a rail of six headings — four MCP pages, four skill pages, and one page each for tools, hooks, computer, connections — and has no kind tabs', async () => {
     await open()
     expect(rail().map((x) => x.textContent?.trim())).toEqual([
       'MCP server ของคุณ', 'ตั้งค่า MCP ฝั่งผู้ช่วยและโค้ด', 'ตั้งค่า MCP สำหรับเอเจนเฉพาะทาง', 'ห้องสมุด MCP',
@@ -145,8 +145,9 @@ describe('what the room must not have any more', () => {
       'ทะเบียนเครื่องมือ',
       'Hooks ของคุณ',
       'โปรแกรมที่ให้ควบคุม',
+      'บริการที่เชื่อมไว้',
     ])
-    expect(Array.from(document.querySelectorAll('.settings-nav .settings-group-label')).map((x) => x.textContent?.trim())).toEqual(['MCP', 'สกิล', 'เครื่องมือในตัว', 'Hooks', 'การใช้คอมพิวเตอร์'])
+    expect(Array.from(document.querySelectorAll('.settings-nav .settings-group-label')).map((x) => x.textContent?.trim())).toEqual(['MCP', 'สกิล', 'เครื่องมือในตัว', 'Hooks', 'การใช้คอมพิวเตอร์', 'การเชื่อมต่อ'])
     expect(screen.queryAllByRole('tablist').length).toBe(0) // the sheet's tabs exist only while it is open
     // The registers still in ตั้งค่า are not drawn as rows that point away.
     expect(rail().some((x) => /เครื่องมือในตัว|บัญชี/.test(x.textContent ?? ''))).toBe(false)

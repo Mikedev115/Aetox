@@ -55,7 +55,7 @@
     startTaskChip, dismissTaskChip,
     stopBackgroundTask, stopBackgroundRun, stopQueuedTasks,
     retryFailedTurn, editFailedTurn, regenerateReply, switchVariant, resendEdited, rateReply,
-    setActiveView, newSessionAt, openSettingsAt, setStance,
+    setActiveView, newSessionAt, openCapabilityAt, setStance,
     sendUserMessage, liveThinkSecs,
     preparedText, nextPrepared, clearPrepared, startPlanRun, stopPlanRun, pausePlanRun, resumePlanRun } from './stores/cockpit.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
@@ -1138,7 +1138,7 @@
     // agent tools that fail on their first call. The row says so and offers the
     // register instead.
     if (!engines.find((e) => e.id === id)?.connected) {
-      openSettingsAt('connections')
+      openCapabilityAt('connections')
       return
     }
     if (activeEngine?.id === id) return
@@ -5268,7 +5268,7 @@
                  lives there, and a menu that offers a choice without a way to
                  add to it is a dead end for the user who has none. -->
             <button type="button" class="focus-item"
-              onclick={() => { engineMenuOpen = false; openSettingsAt('connections') }}>
+              onclick={() => { engineMenuOpen = false; openCapabilityAt('connections') }}>
               <span class="ic"><Icon name="settings" size={14} /></span>
               <span class="t">{t('automation.manage')}</span>
             </button>

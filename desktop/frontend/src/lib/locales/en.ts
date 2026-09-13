@@ -2111,6 +2111,7 @@ Check your own work before answering; say so plainly if unsure.
   'capability.navGroupHooks': 'Hooks',
   'capability.navHooks': 'Your hooks',
   'capability.navComputer': 'Programs it may drive',
+  'capability.navConnections': 'Connected services',
   'capability.hooksLede': 'Your own commands run before or after the assistant calls a tool — refuse a command by your own rules, run a formatter after a write, be told when an agent changes something. No plugin, no restart: a save applies to the very next call.',
   'capability.hooksCount': '{n} hooks',
   'capability.hookAdd': 'Add hook',
