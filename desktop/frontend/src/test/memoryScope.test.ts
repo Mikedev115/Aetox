@@ -39,10 +39,10 @@ describe('scopeLabel', () => {
   // Since 11 ก.ย. the name is half of it: who reads the file is the decision
   // an approval makes, and every surface draws it from here in one tone.
   it('says who reads each file, in the tone every surface shares', () => {
-    expect(scopeMeta('user:profile')).toMatchObject({ tone: 'user', file: 'USER.md', audience: 'ทั้งผู้ช่วย โค้ด และทุกซับเอเจนจะเห็น' })
+    expect(scopeMeta('user:profile')).toMatchObject({ tone: 'user', file: 'USER.md', audience: 'ทั้งผู้ช่วย โค้ด และทุกลูกมือจะเห็น' })
     expect(scopeMeta('')).toMatchObject({ tone: 'assistant', file: 'MEMORY.md', audience: 'เฉพาะแชทกับผู้ช่วย' })
     expect(scopeMeta('mode:coding')).toMatchObject({ tone: 'desk', file: 'modes/coding.md', icon: 'fileCode', audience: 'เฉพาะโค้ด ทุกโปรเจกต์' })
     expect(scopeMeta('project:Aetox-1a2b3c4d')).toMatchObject({ tone: 'project', file: 'projects/Aetox-1a2b3c4d.md', audience: 'เฉพาะตอนเปิดโฟลเดอร์ Aetox' })
-    expect(scopeMeta('explore')).toMatchObject({ tone: 'agent', label: 'explore', audience: 'เฉพาะซับเอเจน explore' })
+    expect(scopeMeta('explore')).toMatchObject({ tone: 'agent', label: 'explore', audience: 'เฉพาะลูกมือ explore' })
   })
 })

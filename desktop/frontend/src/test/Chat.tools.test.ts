@@ -1351,7 +1351,7 @@ describe('sub-agent tool events', () => {
     // Two tools of its own (read, task_result) — the delegate's grep is counted
     // inside its block — and one sub-agent.
     expect(toggles[0]).toContain('Used 2 tools')
-    expect(toggles[1]).toContain('Sub-agents: 1')
+    expect(toggles[1]).toContain('Helpers: 1')
     expect(toggles[0]).not.toContain('Sub-agents')
   })
 
@@ -1542,7 +1542,7 @@ describe('sub-agent tool events', () => {
     expect(labels.length).toBe(3)
     expect(labels[0]).toContain('Used 1 tools')
     expect(labels[1]).toContain('Agents: 1')
-    expect(labels[2]).toContain('Sub-agents: 1')
+    expect(labels[2]).toContain('Helpers: 1')
 
     // Each toggle opens only its own pile.
     toggles[1].click()

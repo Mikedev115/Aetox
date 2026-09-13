@@ -134,7 +134,7 @@ describe('editing what is already remembered', () => {
     expect(container.querySelector('.mem-sub .mem-scope-name')?.textContent).toContain('Aetox')
     // Each heading says who reads the file — the label alone never did.
     const auds = Array.from(container.querySelectorAll('.mem-scope .learn-aud')).map((el) => el.textContent?.trim())
-    expect(auds).toEqual(['ทั้งผู้ช่วย โค้ด และทุกซับเอเจนจะเห็น', 'เฉพาะแชทกับผู้ช่วย', 'เฉพาะโค้ด ทุกโปรเจกต์', 'เฉพาะตอนเปิดโฟลเดอร์ Aetox'])
+    expect(auds).toEqual(['ทั้งผู้ช่วย โค้ด และทุกลูกมือจะเห็น', 'เฉพาะแชทกับผู้ช่วย', 'เฉพาะโค้ด ทุกโปรเจกต์', 'เฉพาะตอนเปิดโฟลเดอร์ Aetox'])
     // The hash half of a project key is identity, not information — a person
     // recognises the folder, not the digest. It stays in the file badge only,
     // because that badge is the name on disk.
@@ -338,7 +338,7 @@ describe('the learning review page', () => {
     const items = Array.from(container.querySelectorAll('.learn-row .mem-menu-i'))
     // Every other file, never the one it is already aimed at.
     expect(items.map((el) => el.querySelector('.learn-scope')?.textContent?.trim())).toEqual(['เกี่ยวกับคุณ', 'โค้ด'])
-    expect(items[0].textContent).toContain('ทั้งผู้ช่วย โค้ด และทุกซับเอเจนจะเห็น')
+    expect(items[0].textContent).toContain('ทั้งผู้ช่วย โค้ด และทุกลูกมือจะเห็น')
     await fireEvent.click(items[1])
     await waitFor(() => expect(ApprovePendingChangeTo).toHaveBeenCalledWith(1, 'mode:coding'))
 
