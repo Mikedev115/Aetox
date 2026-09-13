@@ -23,17 +23,19 @@
   import { t } from './i18n.svelte'
   import Icon from './Icon.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
+  import Mascot from './mascot/Mascot.svelte'
+  import { headOf, headOptions } from './mascot/avatarPrefs.svelte'
   import { lookOf } from './mascot/agentLook'
 
   // Which menu is up: at most one, like every other chip on the row.
   let open = $state<'' | 'who' | 'team'>('')
   // The desk decides which teams are offered — the storefront's behind the
-  // assistant, the workshop's on the coding desk — and which icon the
-  // assistant wears: the door's own (desks.ts), so the same word "ผู้ช่วยหลัก"
-  // on the code page does not wear the storefront's spark (owner:
-  // "ไอคอนต้องเปลี่ยนหน้าโค้ด ไม่งั้น UX พัง").
+  // assistant, the workshop's on the coding desk — and which face the
+  // main assistant wears: the desk's own head (avatarPrefs headOf), so the
+  // same word "ผู้ช่วยหลัก" on the code page shows the coder and not the
+  // assistant. It was the door's icon before the heads had faces (owner:
+  // "ไอคอนต้องเปลี่ยนหน้าโค้ด ไม่งั้น UX พัง"); the face keeps that promise.
   const desk = $derived(cockpit.desk === 'coding' ? 'coding' : 'specialized')
-  const deskIcon = $derived(desk === 'coding' ? 'fileCode' : 'sparkles')
 
   let teams = $state<engine.TeamCard[]>([])
   // The team the chat hires from, and its people — the list the WHO menu
@@ -167,7 +169,9 @@
   {#if open === 'who'}
     <div class="focus-menu">
       <button type="button" class="focus-item" class:on={!cockpit.chair} onclick={pickAssistant}>
-        <span class="ic"><Icon name={deskIcon} size={14} /></span> {t('chat.mainAgent')}
+        <!-- The desk's head, as its own face (14 ก.ย. 2026) — the same one
+             on the wall and the floating figure, not a desk glyph. -->
+        <span class="ic"><Mascot {...headOptions(headOf(desk))} size={16} still /></span> {t('chat.mainAgent')}
       </button>
       {#if members.length > 0}<div class="menu-sep"></div>{/if}
       {#each members as c (c.name)}
@@ -196,7 +200,8 @@
     onclick={() => toggle('who')}>
     <span class="ic">
       {#if cockpit.chair && chairCard}<AgentMascot name={chairCard.name} {...lookOf(chairCard)} size={14} />
-      {:else}<Icon name={cockpit.chair ? 'bot' : deskIcon} size={13} />{/if}
+      {:else if cockpit.chair}<Icon name="bot" size={13} />
+      {:else}<Mascot {...headOptions(headOf(desk))} size={15} still />{/if}
     </span>
     <span class="t">{cockpit.chair || t('chat.mainAgent')}</span>
     <span class="caret"><Icon name={open === 'who' ? 'chevronUp' : 'chevronDown'} size={12} /></span>

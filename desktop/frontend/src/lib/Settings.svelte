@@ -17,6 +17,7 @@
   import ProviderAccount from './ProviderAccount.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
   import RankPip from './RankPip.svelte'
+  import ScopeMark from './ScopeMark.svelte'
   import AvatarSettings from './mascot/AvatarSettings.svelte'
   import TeamSettings from './TeamSettings.svelte'
   import { avatarText } from './mascot/avatarText'
@@ -4201,8 +4202,9 @@
   {@const meta = scopeMeta(g.scope)}
   {@const tone = capTone(g)}
   <div class="mem-scope mem-tone-{meta.tone}" data-mem-scope={g.scope} class:mem-focus={g.scope === memoryFocus}>
-    <span class="mem-scope-ic"><Icon name={meta.icon} size={14} /></span>
+    <span class="mem-scope-ic" class:face={!!meta.head}><ScopeMark {meta} size={14} face={30} /></span>
     <span class="mem-scope-name">{meta.label}</span>
+    {#if meta.head}<RankPip tier="head" />{/if}
     <span class="learn-aud">{meta.audience}</span>
     <span class="mem-badge-file">{meta.file}</span>
     {#if g.orphan}
@@ -4339,7 +4341,7 @@
       {@const m = scopeMeta(to)}
       <button type="button" class="mem-menu-i" class:rec={to === recommended && !isFull(to)} class:full={isFull(to)}
         role="menuitem" disabled={isFull(to)} onclick={() => pick(to)}>
-        <span class="learn-scope mem-tone-{m.tone}"><Icon name={m.icon} size={11} /> {m.label}</span>
+        <span class="learn-scope mem-tone-{m.tone}"><ScopeMark meta={m} size={11} face={16} /> {m.label}</span>
         <small>{isFull(to) ? t('settings.memoryFullShort') : `${to === recommended ? `${t('settings.learningMoveRecommended')} · ` : ''}${m.audience}`}</small>
       </button>
     {/each}
@@ -7252,7 +7254,7 @@
                 {#if c.kind === 'skill'}
                   <span class="learn-scope">{c.scope}</span>
                 {:else}
-                  <span class="learn-scope mem-tone-{meta.tone}"><Icon name={meta.icon} size={11} /> {meta.label}</span>
+                  <span class="learn-scope mem-tone-{meta.tone}"><ScopeMark {meta} size={11} face={16} /> {meta.label}</span>
                   <span class="learn-aud">{meta.audience}</span>
                 {/if}
               </div>
@@ -7414,7 +7416,7 @@
                   {#if c.kind === 'skill'}
                     <span class="learn-scope">{c.scope}</span>
                   {:else}
-                    <span class="learn-scope mem-tone-{meta.tone}"><Icon name={meta.icon} size={11} /> {meta.label}</span>
+                    <span class="learn-scope mem-tone-{meta.tone}"><ScopeMark {meta} size={11} face={16} /> {meta.label}</span>
                   {/if}
                   <span class="learn-when">{c.decidedAt.slice(0, 10)}</span>
                 </div>

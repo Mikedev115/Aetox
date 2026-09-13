@@ -19,6 +19,7 @@
 import { t } from './i18n.svelte'
 import { deskLabelKey, NAV } from './desks'
 import type { IconName } from './icons'
+import type { HeadId } from './mascot/avatarPrefs.svelte'
 
 /** The user's own profile (learned.UserScope). Spelled with a colon in Go so a
  *  delegate's name can never collide with it; spelled out here rather than
@@ -46,6 +47,11 @@ export interface ScopeMeta {
   audience: string
   tone: ScopeTone
   icon: IconName
+  /** The head that fronts this scope, when it is one of the two desks: the
+   *  assistant's memory is the assistant's, modes/coding.md is the coder's.
+   *  Drawn as that head's face where the icon used to be (ScopeMark.svelte,
+   *  owner 14 ก.ย. 2026: "เอารูปอวตารเอเจนไปแปะเลย และใส่ยศด้วย"). */
+  head?: HeadId
   /** The file under memory/, for the badge — plain markdown the user can open. */
   file: string
 }
@@ -61,7 +67,7 @@ export function scopeMeta(scope: string): ScopeMeta {
   }
   if (!s) {
     return {
-      scope: s, tone: 'assistant', icon: deskIcon('assistant'), file: 'MEMORY.md',
+      scope: s, tone: 'assistant', icon: deskIcon('assistant'), head: 'assistant', file: 'MEMORY.md',
       label: t('settings.learningScopeMain'),
       audience: t('settings.memoryAudienceAssistant'),
     }
@@ -75,7 +81,7 @@ export function scopeMeta(scope: string): ScopeMeta {
     const key = deskLabelKey(desk)
     const name = key ? t(key) : desk
     return {
-      scope: s, tone: 'desk', icon: deskIcon(desk), file: `modes/${desk}.md`,
+      scope: s, tone: 'desk', icon: deskIcon(desk), ...(desk === 'coding' ? { head: 'coding' as const } : {}), file: `modes/${desk}.md`,
       label: t('settings.learningScopeDesk', { name }),
       audience: t('settings.memoryAudienceDesk', { name }),
     }
