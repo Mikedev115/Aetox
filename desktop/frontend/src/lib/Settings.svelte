@@ -75,8 +75,6 @@
     SessionReviewAuto, SetSessionReviewAuto, RunSessionReview, ListRecurringRequests, DismissRecurringRequest,
     SynthesizeHabit,
     PreparedReplyOn, SetPreparedReplyOn,
-    ComputerControlOn, SetComputerControlOn, GrantedComputerApps, RevokeComputerApp,
-    OpenComputerApps, AllowComputerApp, ProgramIcon, BrowseForComputerApp,
     ApprovePendingChange, ApprovePendingChangeTo, RejectPendingChange, LearnedEntries, LearnedScopeInfos, ConsolidateMemory, ApplyMemoryLines, SaveLearnedEntry, AddLearnedEntry, MoveLearnedEntry, OpenMemoryFolder,
     ForgetMemoryScope, AdoptMemoryScope, RecentProjects,
     ListSystemIssues, MarkIssueReported, ListDecidedIssues,
@@ -362,12 +360,6 @@
   }
 
   let connections = $state<ConnectionRow[]>([])
-  let computerOn = $state(false)
-  let computerApps = $state<string[]>([])
-  type ComputerAppRow = { name: string; title: string; allowed: boolean; blocked: string; warn: string; icon: string }
-  let computerRows = $state<ComputerAppRow[]>([])
-  let computerFixedIcons = $state<Record<string, string>>({})
-  let computerError = $state('')
   // Keyed by connection id, because the page draws one card per service and two
   // of them must not share a token box, an error, or a spinner.
   let connToken = $state<Record<string, string>>({})
@@ -695,7 +687,6 @@
         })(),
         (async () => { preparedOn = await PreparedReplyOn() })(),
         loadAttention(),
-        loadComputer(),
         loadMCP(),
         loadSpeech(),
         (async () => {
@@ -3617,78 +3608,9 @@
     }
   }
 
-  // การใช้คอมพิวเตอร์. The switch and the register of programs the user has
-  // said yes to.
-  //
-  // Two things are drawn here rather than one, and the direction doc (§4.2) is
-  // firm about which is which: the ROWS are reaches, not apps. Reading this page
-  // as a list of applications is what produces a dead register — a row appears
-  // because a mechanism reaches it, never the other way round. The list of
-  // granted programs sits UNDER the row that reaches them, as its detail.
-  // The register stays live while the user is looking at it. A yes answered on
-  // an approval card in the chat writes a rule (desktop/computer_permission.go)
-  // and emits this; without the listener the settings page would keep showing
-  // the list as it was when the page opened, and the one moment a user most
-  // wants to see the register update is the moment they just granted something.
-  $effect(() => {
-    const off = EventsOn('computer:apps', (apps: string[]) => {
-      computerApps = apps ?? []
-    })
-    return off
-  })
-
-  async function loadComputer() {
-    try {
-      computerOn = await ComputerControlOn()
-      computerApps = (await GrantedComputerApps()) ?? []
-      computerRows = ((await OpenComputerApps()) ?? []) as ComputerAppRow[]
-      // The three rows that are not built yet are drawn from a fixed list, so
-      // their logos have to be asked for by name. Missing is fine and common:
-      // a machine without Excel installed gets no Excel icon and the row says
-      // what it always said.
-      const named = await Promise.all(['chrome', 'msedge', 'excel'].map(ProgramIcon))
-      computerFixedIcons = { chrome: named[0] ?? '', msedge: named[1] ?? '', excel: named[2] ?? '' }
-    } catch {
-      // Preference file unreadable. Leave both at their shipped defaults rather
-      // than drawing a switch whose state nothing confirmed.
-    }
-  }
-
-  async function toggleComputer() {
-    try {
-      await SetComputerControlOn(!computerOn)
-      await loadComputer()
-    } catch (err) {
-      computerError = String(err)
-    }
-  }
-
-  async function browseForComputerApp() {
-    try {
-      await BrowseForComputerApp()
-      await loadComputer()
-    } catch (err) {
-      computerError = String(err)
-    }
-  }
-
-  async function allowComputerApp(name: string) {
-    try {
-      await AllowComputerApp(name)
-      await loadComputer()
-    } catch (err) {
-      computerError = String(err)
-    }
-  }
-
-  async function revokeComputerApp(name: string) {
-    try {
-      await RevokeComputerApp(name)
-      await loadComputer()
-    } catch (err) {
-      computerError = String(err)
-    }
-  }
+  // การใช้คอมพิวเตอร์ left this file 14 ก.ย. 2026 for ห้องความสามารถ
+  // (Capability.svelte): a reach out of the app is the same kind of thing as
+  // an MCP server, and every such thing is one room.
 
   async function decideChange(id: number, approve: boolean) {
     learningBusy = id
@@ -3721,7 +3643,6 @@
     // lands, which is one wasted round trip per open and a race between two
     // in-flight loads for which one gets to set `connections`.
     if (active === 'connections') untrack(() => void loadConnections())
-    if (active === 'computer') untrack(() => void loadComputer())
   })
 
   $effect(() => {
@@ -3838,18 +3759,13 @@
       // a page that no longer exists is a search box that lies.
       { id: 'connections', label: t('settings.connections'), icon: 'globe',
         terms: ['GitHub', t('settings.ghTokenLabel'), 'n8n', 'Windmill', t('settings.connBaseURLLabel')] },
-      // การใช้คอมพิวเตอร์ — reaching programs on this machine that Aetox did
-      // not start. Beside connections rather than under general, because that
-      // is what it is: a register of reaches, each with its own state, modelled
-      // on the page one line up (docs/architecture/computer-use-2026-09-07.md
-      // §4.2). The search terms are the words somebody looking for it would
-      // actually type, including the two program kinds it refuses.
-      { id: 'computer', label: t('settings.computer'), icon: 'monitor',
-        terms: ['UI Automation', 'Chrome', 'Excel', t('settings.computerAnyApp')] },
+      // การใช้คอมพิวเตอร์ left this menu 14 ก.ย. 2026 for a heading of its own
+      // in ห้องความสามารถ (Capability.svelte), the way MCP, สกิล and เครื่องมือ
+      // did: a reach out of the app is what that room is for.
       // เครื่องระยะไกล — the engine on another machine over ssh (§248 phase
-      // 3). Beside the computer page because both are about where the work
-      // happens: that one reaches programs on this machine, this one moves
-      // the whole engine to another.
+      // 3). Beside connections because both are about where the work
+      // happens: that one reaches services elsewhere, this one moves the
+      // whole engine to another machine.
       { id: 'remote', label: t('settings.remote'), icon: 'server',
         terms: ['ssh', 'Linux', t('settings.remoteConnect'), t('settings.remoteAdd')] },
       { id: 'prompts', label: t('settings.prompts'), icon: 'sparkles', terms: [t('settings.promptNew')] },
@@ -4006,7 +3922,7 @@
   // wrong one for a page that was merely forgotten. Found 14 ก.ย. 2026 when
   // the tool register's door to เสียง moved rooms and got a test that opens
   // it the way a user does.
-  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'identity', 'learning', 'issues', 'models', 'team', 'teams', 'agents', 'voice', 'image', 'studio', 'connections', 'computer', 'remote', 'prompts', 'account', 'usage', 'about', 'sponsor'])
+  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'identity', 'learning', 'issues', 'models', 'team', 'teams', 'agents', 'voice', 'image', 'studio', 'connections', 'remote', 'prompts', 'account', 'usage', 'about', 'sponsor'])
 
   function restoredSection(): string {
     try {
@@ -7783,139 +7699,6 @@
           {/each}
         {/if}
       </div>
-    {:else if active === 'computer'}
-      <!-- Rows are REACHES, not apps (direction doc §4.2). A row is here because
-           a mechanism reaches it; the programs a user has said yes to are that
-           row's detail, not rows of their own. Reading this page the other way
-           round is what produces a register of promises. -->
-      <h2>{t('settings.computer')}</h2>
-      <p class="muted set-sub">{t('settings.computerDesc')}</p>
-
-      <div class="settings-card">
-        <!-- Row 1: the one that is real. Its switch is the master switch, so it
-             is not a separate control above the list — the row and the
-             permission are the same thing. -->
-        <div class="set-row">
-          <span class="set-txt">
-            <span class="t">{t('settings.computerAnyApp')}</span>
-            <span class="d">{t('settings.computerAnyAppDesc')}</span>
-          </span>
-          <label class="mswitch">
-            <input type="checkbox" checked={computerOn} onchange={toggleComputer} />
-            <span></span>
-          </label>
-        </div>
-
-        {#if computerOn}
-          <!-- Which programs, chosen here rather than asked for mid-turn. The
-               owner's rule (9 ก.ย.): "แล้วต้องเลือกด้วยดิ จะให้ตัวไหนควบคุม".
-               A card raised while an agent waits is answered in a hurry; a list
-               read with nothing waiting is a decision. -->
-          <div class="set-row">
-            <span class="set-txt">
-              <span class="t">{t('settings.computerPick')}</span>
-              <span class="d">{t('settings.computerPickDesc')}</span>
-            </span>
-            <span class="mcp-row-actions">
-              <button class="ctrl" onclick={browseForComputerApp}>{t('settings.computerBrowse')}</button>
-              <button class="ctrl" onclick={loadComputer}>{t('settings.computerRefresh')}</button>
-            </span>
-          </div>
-
-          {#if computerRows.length === 0}
-            <div class="set-row"><span class="set-txt">
-              <span class="d muted">{t('settings.computerNoWindows')}</span>
-            </span></div>
-          {/if}
-
-          {#each computerRows as row (row.name)}
-            <div class="set-row">
-              <!-- The program's own icon, the same picture the taskbar shows.
-                   Drawn beside the name rather than instead of it: a person
-                   picks by recognising the logo and confirms by reading the
-                   name, and a row with only one of those makes them work. -->
-              {#if row.icon}<img class="prog-icon" src={row.icon} alt="" />{:else}<span class="prog-icon prog-icon-none"></span>{/if}
-              <span class="set-txt">
-                <span class="t">{row.name}</span>
-                <span class="d">
-                  {#if row.blocked}
-                    {t('settings.computerUseInstead', { tool: row.blocked })}
-                  {:else if row.warn}
-                    ⚠️ {row.warn}
-                  {:else}
-                    {row.title}
-                  {/if}
-                </span>
-              </span>
-              {#if row.blocked}
-                <!-- NOT "ยังใช้ไม่ได้". A browser here is not a missing
-                     feature, it is a job another tool already does better, and
-                     a badge that says otherwise contradicts the sentence
-                     beside it. -->
-                <span class="mcp-badge">{t('settings.computerElsewhere')}</span>
-              {:else if row.allowed}
-                <button class="ctrl" onclick={() => revokeComputerApp(row.name)}>
-                  {t('settings.computerRevoke')}
-                </button>
-              {:else}
-                <button class="ctrl" onclick={() => allowComputerApp(row.name)}>
-                  {t('settings.computerAllow')}
-                </button>
-              {/if}
-            </div>
-          {/each}
-
-          <!-- A program that was allowed and is not open right now still has the
-               right, so it still has to be visible and revocable — otherwise
-               closing a window would hide a grant that is still in force. -->
-          {#each computerApps.filter((a) => !computerRows.some((r) => r.name === a)) as app (app)}
-            <div class="set-row">
-              <span class="prog-icon prog-icon-none"></span>
-              <span class="set-txt">
-                <span class="t">{app}</span>
-                <span class="d">{t('settings.computerAllowedClosed')}</span>
-              </span>
-              <button class="ctrl" onclick={() => revokeComputerApp(app)}>
-                {t('settings.computerRevoke')}
-              </button>
-            </div>
-          {/each}
-        {/if}
-
-        <!-- Rows 2 to 4 stay visible and say why they cannot be switched on.
-             connections.go carries the same rule in a long comment, learned
-             twice the hard way: a control that vanishes in the broken state is
-             a dead end, not a tidy UI. -->
-        <div class="set-row">
-          {#if computerFixedIcons.chrome}<img class="prog-icon" src={computerFixedIcons.chrome} alt="" />{:else}<span class="prog-icon prog-icon-none"></span>{/if}
-          <span class="set-txt">
-            <span class="t">Google Chrome</span>
-            <span class="d">{t('settings.computerNeedsExtension')}</span>
-          </span>
-          <span class="mcp-badge">{t('settings.computerNotYet')}</span>
-        </div>
-        <div class="set-row">
-          {#if computerFixedIcons.msedge}<img class="prog-icon" src={computerFixedIcons.msedge} alt="" />{:else}<span class="prog-icon prog-icon-none"></span>{/if}
-          <span class="set-txt">
-            <span class="t">Microsoft Edge</span>
-            <span class="d">{t('settings.computerNeedsExtension')}</span>
-          </span>
-          <span class="mcp-badge">{t('settings.computerNotYet')}</span>
-        </div>
-        <div class="set-row">
-          {#if computerFixedIcons.excel}<img class="prog-icon" src={computerFixedIcons.excel} alt="" />{:else}<span class="prog-icon prog-icon-none"></span>{/if}
-          <span class="set-txt">
-            <span class="t">Microsoft Excel</span>
-            <span class="d">{t('settings.computerExcelDesc')}</span>
-          </span>
-          <span class="mcp-badge">{t('settings.computerNotYet')}</span>
-        </div>
-      </div>
-
-      {#if computerError}
-        <p class="muted set-sub">{computerError}</p>
-      {/if}
-
     {:else if active === 'remote'}
       <RemoteEngine />
     {:else if active === 'connections'}
