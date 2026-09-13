@@ -566,6 +566,8 @@
     // an empty `tools:` means to the engine; a Set is the names kept.
     picked: Set<string> | null
     needsKey: boolean
+    // The preset's locale line saying where a pasted value comes from, or ''.
+    hint: TKey | ''
   }
   type SheetTab = 'conn' | 'tools'
   let sheet = $state<Sheet | null>(null)
@@ -595,6 +597,12 @@
   // one Windows path (HYPERFRAMES_BROWSER_PATH=C:/Users/…/chrome-headless-shell/…)
   // wrapped past it and the rest of the line was out of sight (owner, 13 ก.ย.).
   const linesFor = (text: string) => Math.max(4, text.split('\n').length + 1)
+  // A preset's hint is one locale line: steps separated by ' · ', and the
+  // values a person will type or see verbatim (a host, a URL, a command)
+  // between backticks. That is the whole markup, so the locale stays a string
+  // and the note can still set a URL apart from the sentence it sits in.
+  const hintSteps = (text: string) => text.split(' · ').map((s) => s.trim()).filter(Boolean)
+  const codeSegs = (step: string) => step.split('`')
   const mapToLines = (m: Record<string, string> | undefined, sep: string) =>
     Object.entries(m ?? {}).map(([k, v]) => `${k}${sep}${v}`).join('\n')
   function parseLines(text: string, sep: '=' | ':'): Record<string, string> {
@@ -630,7 +638,7 @@
   }
   const blankSheet = (): Sheet => ({
     original: '', kind: 'http', name: '', command: '', url: '',
-    envText: '', headersText: '', cwd: '', timeout: '', picked: null, needsKey: false,
+    envText: '', headersText: '', cwd: '', timeout: '', picked: null, needsKey: false, hint: '',
   })
   const addServer = () => openSheet(blankSheet())
   const editServer = (s: MCPRow) => openSheet({
@@ -638,7 +646,7 @@
     command: (s.command ?? []).join(' '), url: s.url ?? '',
     envText: mapToLines(s.environment, '='), headersText: mapToLines(s.headers, ': '),
     cwd: s.cwd ?? '', timeout: s.timeoutMs ? String(s.timeoutMs) : '',
-    picked: s.allowed?.length ? new Set(s.allowed) : null, needsKey: false,
+    picked: s.allowed?.length ? new Set(s.allowed) : null, needsKey: false, hint: '',
   })
   const sheetValid = $derived(
     !!sheet && sheet.name.trim() !== '' && (sheet.kind === 'stdio' ? sheet.command.trim() !== '' : sheet.url.trim() !== ''),
@@ -724,17 +732,19 @@
 
   // A preset still waiting for a pasted token cannot be finished in one press,
   // so it opens the sheet with the header names filled in instead of saving
-  // something that could never connect. An oauth preset goes through the
-  // browser first (addOAuth); its header reads like a one-click one and
+  // something that could never connect — or, for a program, with its env
+  // lines filled in and the blanks left blank. An oauth preset goes through
+  // the browser first (addOAuth); its header reads like a one-click one and
   // needsPaste alone would wave it through.
   async function add(p: MCPPreset) {
     if (p.oauth) return addOAuth(p)
-    if (p.headers?.length && needsPaste(p.headers)) {
+    if (needsPaste(p.headers, p.env)) {
       return openSheet({
         ...blankSheet(), kind: p.url ? 'http' : 'stdio', name: p.name, url: p.url ?? '',
         command: (p.command ?? []).join(' '),
-        headersText: p.headers.map((h) => (h.includes(':') ? `${h} ` : `${h}: `)).join('\n'),
-        needsKey: true,
+        headersText: (p.headers ?? []).map((h) => (h.includes(':') ? `${h} ` : `${h}: `)).join('\n'),
+        envText: (p.env ?? []).join('\n'),
+        needsKey: true, hint: p.hint ?? '',
       })
     }
     await run(p.name, async () => { await SaveMCPServer('', await presetConfig(p)) })
@@ -1064,7 +1074,7 @@
               {#if p.toolCount}
                 <span class="cap-cost" title={t('capability.measuredOn', { date: p.measured ?? '' })}>{costLine(p.toolCount, p.tokens)}</span>
               {/if}
-              {#if p.headers?.length && needsPaste(p.headers)}<span class="chip">{t('capability.needsKey')}</span>{/if}
+              {#if needsPaste(p.headers, p.env)}<span class="chip">{t('capability.needsKey')}</span>{/if}
               {#if p.oauth}<span class="chip">{t('capability.needsSignIn')}</span>{/if}
               {#if !p.url}<span class="chip">{t('capability.onThisMachine')}</span>{/if}
             </div>
@@ -1459,7 +1469,27 @@
             <textarea class="ctrl mcp-lines" rows={linesFor(sheet.headersText)} placeholder={t('settings.mcpHeadersPlaceholder')} bind:value={sheet.headersText}></textarea>
           {/if}
           <div class="d muted">{t('settings.mcpSecretHint')}</div>
-          {#if sheet.needsKey}<div class="d muted">{t('settings.mcpNeedsKey', { name: sheet.name })}</div>{/if}
+          <!-- What a preset still needs from the person, as one note rather
+               than three muted paragraphs stacked under the form (owner,
+               13 ก.ย.: "ทำ CSS ดีๆหน่อย"): the title says which server and
+               what kind of blank, the steps say where the values come from
+               when the preset carries a hint, and the foot says nothing is
+               saved until เพิ่ม is pressed. -->
+          {#if sheet.needsKey}
+            <div class="cap-keynote">
+              <div class="cap-keynote-t">{t(sheet.kind === 'stdio' ? 'settings.mcpNeedsEnv' : 'settings.mcpNeedsKey', { name: sheet.name })}</div>
+              {#if sheet.hint}
+                <ol class="cap-keynote-steps">
+                  {#each hintSteps(t(sheet.hint)) as step, i (i)}
+                    <li>{#each codeSegs(step) as seg, j (j)}{#if j % 2}<code>{seg}</code>{:else}{seg}{/if}{/each}</li>
+                  {/each}
+                </ol>
+              {:else}
+                <p>{t(sheet.kind === 'stdio' ? 'settings.mcpNeedsEnvHow' : 'settings.mcpNeedsKeyHow')}</p>
+              {/if}
+              <div class="cap-keynote-f">{t('settings.mcpNothingSaved')}</div>
+            </div>
+          {/if}
 
           <!-- ขั้นสูง folds (owner, 13 ก.ย.: "ทำเป็นปุ่มซ่อนไว้ กดพับเปิดได้ก็พอ").
                It opens by itself when either field holds a value, so a stored
@@ -1832,6 +1862,29 @@
   /* One entry per line, never wrapped mid-path: a long value scrolls sideways
      inside its own line, so the line count on screen is the entry count. */
   .cap-sheet-body > textarea.mcp-lines { min-height: 6.5em; line-height: 1.45; white-space: pre; overflow-x: auto; }
+  /* The notes under the form read as notes, not as more form: smaller than
+     the fields, with room between lines for Thai. */
+  .cap-sheet-body > .d { font-size: var(--fs-xs); line-height: 1.55; }
+  /* What a preset still needs: one bordered note with a title, numbered
+     steps, and a foot — the shape a person can act on top to bottom. */
+  .cap-keynote {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 10px 14px 10px 14px;
+    border-left: 2px solid var(--accent); border-radius: 0 var(--r-sm) var(--r-sm) 0;
+    background: var(--surface-sunken);
+    font-size: var(--fs-xs); line-height: 1.55; color: var(--text-secondary);
+  }
+  .cap-keynote-t { font-size: var(--fs-sm); font-weight: 600; color: var(--text-primary); }
+  .cap-keynote p { margin: 0; }
+  .cap-keynote-steps { margin: 0; padding-left: 1.5em; display: flex; flex-direction: column; gap: 6px; }
+  .cap-keynote-steps li { padding-left: 3px; }
+  .cap-keynote-steps li::marker { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .cap-keynote code {
+    font-family: var(--mono); font-size: 0.92em; padding: 1px 5px;
+    border-radius: var(--r-xs); background: var(--surface-code); color: var(--text-code);
+    overflow-wrap: anywhere;
+  }
+  .cap-keynote-f { font-size: var(--fs-2xs); color: var(--text-dim); }
   /* Under the form, not pinned to the bottom of a full-height sheet: pinned,
      the ลบ button sat a screen below the fields and read as absent. */
   .cap-sheet-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 14px; border-top: 1px solid var(--border-subtle); }

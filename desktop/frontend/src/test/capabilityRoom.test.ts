@@ -104,6 +104,19 @@ describe('one shelf, not two', () => {
     expect(needsPaste(['Authorization: Bearer ${env:X}'])).toBe(false)
     expect(needsPaste(['Authorization: Bearer'])).toBe(true)
   })
+  // The stdio spelling of the same blank: an env line with nothing after its
+  // `=`. A line that already carries a value is not a blank, and a program
+  // with only those is one click.
+  it('sends a program with an env blank to the form, and saves only the filled lines', async () => {
+    expect(needsPaste(undefined, ['OAUTHLIB_INSECURE_TRANSPORT=1'])).toBe(false)
+    expect(needsPaste(undefined, ['GOOGLE_OAUTH_CLIENT_ID='])).toBe(true)
+    const gw = MCP_PRESETS.find((p) => p.name === 'google-workspace')!
+    expect(needsPaste(gw.headers, gw.env)).toBe(true)
+    expect(presetFor('google-workspace')).toBeUndefined()
+    const cfg = await presetConfig(gw)
+    expect(cfg.command?.[0]).toBe('uvx')
+    expect(cfg.environment).toEqual({ OAUTHLIB_INSECURE_TRANSPORT: '1' })
+  })
   it('keeps an oauth preset out of the one-click install path despite its header', () => {
     for (const p of MCP_PRESETS.filter((x) => x.oauth)) expect(presetFor(p.name)).toBeUndefined()
     expect(presetFor('firecrawl')?.name).toBe('firecrawl')
@@ -390,6 +403,28 @@ describe('the library', () => {
     await fireEvent.click(card('firecrawl').querySelector('.cap-act')!)
     await waitFor(() => expect(SaveMCPServer).toHaveBeenCalled())
     expect(vi.mocked(SaveMCPServer).mock.calls[0][1].name).toBe('firecrawl')
+  })
+
+  // A program whose env has blanks opens the form with those lines already
+  // written, the same door github's pasted token goes through, and says where
+  // the values come from. Nothing is saved by the press.
+  it('opens the form for a program with env blanks, with the lines written and the hint under them', async () => {
+    await open()
+    expect(within(card('google-workspace')).getByText('ต้องใช้คีย์')).toBeTruthy()
+    await fireEvent.click(card('google-workspace').querySelector('.cap-act')!)
+    const dlg = await screen.findByRole('dialog')
+    expect(SaveMCPServer).not.toHaveBeenCalled()
+    const env = dlg.querySelector<HTMLTextAreaElement>('.mcp-lines')!
+    expect(env.value.split('\n')).toEqual(['GOOGLE_OAUTH_CLIENT_ID=', 'GOOGLE_OAUTH_CLIENT_SECRET=', 'USER_GOOGLE_EMAIL=', 'OAUTHLIB_INSECURE_TRANSPORT=1'])
+    expect((within(dlg).getByPlaceholderText(/uvx|npx/) as HTMLInputElement).value).toMatch(/^uvx workspace-mcp/)
+    // The note: a title naming the server, the hint as numbered steps with
+    // the values a person will type set as code, and the foot.
+    const note = dlg.querySelector('.cap-keynote')!
+    expect(note.querySelector('.cap-keynote-t')?.textContent).toBe('google-workspace ต้องใช้ค่าที่เว้นว่างไว้')
+    expect(note.querySelectorAll('.cap-keynote-steps li').length).toBe(5)
+    expect(Array.from(note.querySelectorAll('code')).map((c) => c.textContent)).toContain('http://localhost:8000/oauth2callback')
+    expect(note.textContent).not.toContain('`')
+    expect(note.querySelector('.cap-keynote-f')?.textContent).toContain('ยังไม่มีอะไรถูกบันทึก')
   })
 
   it('filters by what kind of thing a server reaches', async () => {

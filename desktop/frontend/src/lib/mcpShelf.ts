@@ -14,6 +14,7 @@
 
 import { VideoEditorCommand, VideoEditorEnvironment, VideoEditorTools } from '../../wailsjs/go/main/App'
 import { config } from '../../wailsjs/go/models'
+import type { TKey } from './i18n.svelte'
 
 export interface MCPPreset {
   name: string
@@ -22,6 +23,17 @@ export interface MCPPreset {
   command?: string[]
   url?: string
   headers?: string[]
+  // env is the stdio counterpart of headers: `KEY=value` lines the spawned
+  // program reads. A line with nothing after its `=` is a blank the person
+  // has to fill (needsPaste), the same way a bare `Authorization: Bearer`
+  // is — and for the same reason, so that Add never saves a server whose
+  // program would start and immediately refuse to sign in.
+  env?: string[]
+  // hint names a locale line the form shows under the blanks: where the
+  // value comes from, when that is not obvious from the key's name. A
+  // Google OAuth client is made in a console most people have never opened;
+  // a Firecrawl key is on the page the person just signed up on.
+  hint?: TKey
   tools?: string[]
   // oauth marks a preset whose header resolves ${connect:name} from a
   // credential only a browser sign-in can produce (StartMCPSignIn /
@@ -109,6 +121,19 @@ export type ShelfGroup = (typeof SHELF_GROUPS)[number]
 // dynamically and are on the shelf; elevenlabs / vercel / shopify do not and
 // are held in mcpCandidates.ts. That is the same rule, applied to a client
 // that can now do more — not a relaxation of it.
+//
+// *From 13 ก.ย.:* **one exception to the sharper half, and it is written as
+// an exception rather than a new rule.** google-workspace (the last row)
+// needs the person to make an OAuth client in Google Cloud Console before
+// the sign-in can happen — exactly the "register an app with the provider
+// first" step the paragraph above keeps off the shelf. It is on anyway,
+// because the owner asked for Google Drive by name, Google's own server
+// cannot organise a Drive (see the row), and the only program that can
+// takes its client from the person. What keeps it honest is the form: its
+// two blanks open before anything is saved (needsPaste, the same door
+// github's pasted token goes through), and the hint under them says where
+// the values come from. A second row of this shape should make somebody
+// reread this paragraph, not lean on it.
 //
 // Every URL below was verified on 2026-08-14 by sending a real MCP
 // `initialize` and reading the reply: the unauthenticated ones returned a
@@ -295,6 +320,35 @@ export const MCP_PRESETS: MCPPreset[] = [
   { name: 'runwayml', group: 'apps', proven: false, desc: 'Generate and edit video and images with AI models', why: '', url: 'https://mcp.runwayml.com/mcp', headers: ['Authorization: Bearer ${connect:runwayml}'], oauth: true },
   { name: 'deepl', group: 'apps', proven: false, desc: 'Translate text with DeepL', why: '', url: 'https://mcp.deepl.com/v1/mcp', headers: ['Authorization: Bearer ${connect:deepl}'], oauth: true },
   { name: 'mapbox', group: 'apps', proven: false, desc: 'Maps, geocoding, routing and map styles', why: '', url: 'https://mcp.mapbox.com/mcp', headers: ['Authorization: Bearer ${connect:mapbox}'], oauth: true },
+
+  // ---- google-workspace, 2026-09-13 ----
+  //
+  // The owner's ask was "จัดระเบียบ Google Drive" and then "เชื่อมตัวอื่นๆ
+  // ด้วย". Google's own remote Drive server
+  // (drivemcp.googleapis.com/mcp/v1, checked the same day) cannot do the
+  // first: it is in developer preview with search/read/create/copy and no
+  // move, rename or delete, and it wants a client id Google issued to the
+  // app — no registration_endpoint, the elevenlabs shape mcpauth.go says
+  // it cannot reach. So this is taylorwilsdon/google_workspace_mcp,
+  // spawned with uvx, which carries full Drive plus Gmail, Calendar, Docs
+  // and Sheets in one process. It is one row and not five because it IS
+  // one process: five rows would be the same program running five times,
+  // each paying its own sign-in.
+  //
+  // The two blanks are the OAuth client the person makes in Google Cloud
+  // Console (hint below says where); the program opens the browser for
+  // the Google sign-in itself, on its own loopback port, so Aetox's OAuth
+  // is not in the picture. USER_GOOGLE_EMAIL is the account the tools act
+  // as; left blank, the model asks. OAUTHLIB_INSECURE_TRANSPORT is what
+  // lets its http://localhost callback through the Python OAuth library —
+  // it reaches nothing but that one process. The service list is the
+  // command line, not an allowlist: fewer services is fewer tools on every
+  // message, and the เครื่องมือ tab can trim further after a first connect.
+  //
+  // `proven` false, `why` empty, by the rule above every row: written after
+  // a real sign-in against a real Drive, which needs a client only the owner
+  // can make.
+  { name: 'google-workspace', group: 'apps', proven: false, desc: 'Google Drive, Gmail, Calendar, Docs and Sheets: organise, search, write', why: '', command: ['uvx', 'workspace-mcp', '--tools', 'drive', 'gmail', 'calendar', 'gdocs', 'gsheets'], env: ['GOOGLE_OAUTH_CLIENT_ID=', 'GOOGLE_OAUTH_CLIENT_SECRET=', 'USER_GOOGLE_EMAIL=', 'OAUTHLIB_INSECURE_TRANSPORT=1'], hint: 'capability.hintGoogleWorkspace' },
 ]
 
 /** A stdio preset with no command written in the table is the one that has to
@@ -304,9 +358,12 @@ export const isLocalPreset = (p: MCPPreset): boolean =>
 
 /** A header entry that already carries a ${...} reference needs nothing from
  *  the user: the value resolves at connect time from a secret the app already
- *  holds. Only a header still waiting for a paste opens the form. */
-export const needsPaste = (headers?: string[]): boolean =>
-  (headers ?? []).some((h) => !/\$\{(env|connect):[^}]+\}/.test(h))
+ *  holds. Only a header still waiting for a paste opens the form — or an env
+ *  line with nothing after its `=`, which is the stdio spelling of the same
+ *  blank. */
+export const needsPaste = (headers?: string[], env?: string[]): boolean =>
+  (headers ?? []).some((h) => !/\$\{(env|connect):[^}]+\}/.test(h)) ||
+  (env ?? []).some((e) => e.slice(e.indexOf('=') + 1).trim() === '')
 
 // What to spawn, for the one preset that is a program rather than an endpoint.
 // The table cannot spell it: it is an absolute path into this user's own data
@@ -321,8 +378,20 @@ export const presetCommand = async (p: MCPPreset): Promise<string[]> =>
 // (KINOCUT_FFMPEG_EXECUTABLE), rather than by anything being put on the
 // machine's PATH. Same reason the command is resolved in Go: these are absolute
 // paths into this user's own data folder.
+//
+// Every other stdio preset spells its environment in the table, and only the
+// lines that already carry a value are saved: a blank one is the form's job
+// (needsPaste), and saving `KEY=` would hand the program an empty string
+// where it expects nothing at all.
 export const presetEnvironment = async (p: MCPPreset): Promise<Record<string, string>> =>
-  isLocalPreset(p) ? await VideoEditorEnvironment() : {}
+  isLocalPreset(p) ? await VideoEditorEnvironment() : envOf(p.env)
+
+const envOf = (lines?: string[]): Record<string, string> =>
+  Object.fromEntries(
+    (lines ?? [])
+      .map((e) => [e.slice(0, e.indexOf('=')).trim(), e.slice(e.indexOf('=') + 1).trim()])
+      .filter(([k, v]) => k !== '' && v !== ''),
+  )
 
 // And its allowlist, for the same reason: the measured bill lives in Go and
 // nowhere else. Every other preset takes everything, and says so with [].
@@ -356,4 +425,4 @@ export async function presetConfig(p: MCPPreset): Promise<config.MCPServerConfig
  *  trip — both are deliberately not found here for the same reason: an
  *  agent-declared need is met by one call, and neither of those is one. */
 export const presetFor = (id: string): MCPPreset | undefined =>
-  MCP_PRESETS.find((p) => p.name.toLowerCase() === id.toLowerCase() && !needsPaste(p.headers) && !p.oauth)
+  MCP_PRESETS.find((p) => p.name.toLowerCase() === id.toLowerCase() && !needsPaste(p.headers, p.env) && !p.oauth)
