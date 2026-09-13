@@ -8976,3 +8976,39 @@ The engine that *detects* a recurring request lives with learning (habits.go); t
 Three doors pointed at `connections` in ตั้งค่า: two in Chat.svelte (the engine chip's *จัดการการเชื่อมต่อ*, and picking an engine nobody connected) and one in the agent editor's *needs* row. All three are `openCapabilityAt('connections')` now; the third had been `openSection('connections')`, which after the move would have landed on ทั่วไป in silence — the fault §262 found for `voice` the day before, from the other side. The page fetches its targets itself when a door arrives before the room's own load (a draft built over no targets would tick no desk), and each moved page has a test that opens it the way a door does, through `cockpit.capabilityIntent`.
 
 **Status:** `Direct`. Pinned by [capabilityRoom.test.ts](../desktop/frontend/src/test/capabilityRoom.test.ts) (the six headings and their rows, in order), [computerSettings.test.ts](../desktop/frontend/src/test/computerSettings.test.ts), [connectionsPage.test.ts](../desktop/frontend/src/test/connectionsPage.test.ts) and [promptsPage.test.ts](../desktop/frontend/src/test/promptsPage.test.ts) (each: the heading's place, the door, and the page's own behaviour moved whole). Not done here: the hub index in ARCHITECTURE.md stops at §259 and owes rows for §260–§265.
+
+## 266. Decision — Three Layers, Never Mixed: เกี่ยวกับคุณ · ตัวหลัก · What It Learned; and การเรียนรู้ Stops Being a Page (2026-09-14)
+
+**What started it:** a user told the owner they did not know the main assistant could be customised. It could — but the owner's own reading of the menu said why nobody would know: *ตัวหลักไม่มีหน้า*. Every specialist agent has one page (name, face, brain, reach, memory); the two heads a person actually talks to were spread over คำสั่งประจำตัว, การเรียนรู้, อวตาร, การตั้งค่าโมเดล and the capability room, and a thing with no page reads as a thing that cannot be changed. Renaming a menu row would not have fixed that.
+
+**Owner's call (14 ก.ย.):** *"แยกชั้นดี ๆ อันไหนใช้ร่วมกันได้ แยกเมนูไม่ปนกัน เช่นข้อมูลผู้ใช้ … อันไหนที่มันเฉพาะเอเจนนั้นค่อยเอาไปไว้หน้าเดียวกัน"* — and, on the two heads: *"เปิดมาเจอ 2 ตัวแยกกันแบบนี้อ่ะถูก"*, in the shape agents already have, *"คล้าย ๆ คนจะได้จำง่าย"*. Chosen on a static lab of the real CSS and the real rig ([artifact](https://claude.ai/code/artifact/7589ed8b-675c-4693-bb8c-9c7c7082a5b0)), three rounds, before a line of Svelte.
+
+### 266.1 The three layers
+
+| layer | menu | holds | commit |
+|---|---|---|---|
+| **yours** | ส่วนบุคคล › **เกี่ยวกับคุณ** | your name (the footer's store), `context.md` behind a row (+ / เปิดแก้ไข — the owner's own correction: *"กด + ก่อนค่อยแสดง ไม่กด ก็ไม่แสดง"*), `USER.md` whole with the quick-migrate banner drawn *at the destination*, ทบทวนเซสชันอัตโนมัติ (it writes USER.md, so it sits with the file — owner's instruction), the queue and history of `user:profile` | 32088217, 84e0a114 |
+| **the assistant's** | โมเดล AI › **ตัวหลัก** | two cards, ผู้ช่วย · โค้ด, each with the rig's own face and its desk file's line; a page per head with the agent editor's bar — ตัวตน · อวตาร · สมอง · การเข้าถึง · ความจำ. ความจำ moved whole: `MEMORY.md` / `modes/coding.md`, the projects under whichever desk hosts them, the queue, the history, the folder. The other four tabs are doors until §266.4 | 7333e86a |
+| **what it worked out** | (no page) | a delegate's proposals sit in its own memory box on the agent page; the one switch — *ให้ Aetox เรียนรู้จากงานที่ทำ* — is a system switch and sits under ทั่วไป with the others | 84e0a114 |
+
+Position B, beside เอเจนเฉพาะทาง, over A (first row of ส่วนบุคคล): *"B ดีสุด จำง่าย"* — main, specialists, helpers, teams read as one family.
+
+### 266.2 The page that died
+
+การเรียนรู้ held five things that belonged to four owners. After the moves (and Habits → ชุดคำสั่ง, §265) it held one switch and three rows pointing elsewhere — exactly the "category wearing a page's clothes" §3 of DESIGN.md forbids. Removed whole, with `openMemoryScope` (a door nobody called), the memory subtab, and ten locale keys. Nothing it proved is unproved: every test it had was repointed, not deleted ([learningReview.test.ts](../desktop/frontend/src/test/learningReview.test.ts), [sessionReview.test.ts](../desktop/frontend/src/test/sessionReview.test.ts), [systemIssues.test.ts](../desktop/frontend/src/test/systemIssues.test.ts)), and two files pin the new pages ([aboutYou.test.ts](../desktop/frontend/src/test/aboutYou.test.ts), [mainHeads.test.ts](../desktop/frontend/src/test/mainHeads.test.ts)).
+
+### 266.3 Things decided along the way
+
+- **One row of markup for a proposal, two pages.** The approve/refuse row and the history row became snippets (`pendingRow`, `decidedRow`) drawn on เกี่ยวกับคุณ, on each head, and on a delegate's page — filtered by scope, never copied.
+- **The rail's count** (`cockpit.pendingLearned`) moved from การเรียนรู้ to ตัวหลัก. The engine counts one number; most of it is decided there.
+- **"—" is out** of every Thai string written today, on the owner's word; the dash the app drew for a missing description is gone too.
+- **Hooks** got a page in the morning (908ed2dd) and lost it in the afternoon (4341edb0, the other session, on the owner's word after seeing "0 hook"): a page most users would open empty is a rail row that costs more explaining than it is worth. `internal/hook` and `hooks.json` stay as they were.
+
+### 266.4 Still owed, in order
+
+1. **Identity per head** — `identity.md` / `thinking.md` are one shared set; the lab the owner approved has them per head (`assistant/`, `coding/`) with a name per head and the desk's role editable in the app. A file-layout change with a migration, so it is its own step.
+2. **Greetings** — a list per desk with `{ชื่อ}` in front, "+" without limit, random on each new chat (owner: *"ผมอยากให้คำนี้อ่ะมันเพิ่มได้หลายแบบหรือสุ่มได้"*); today one fixed string per desk in `starters.ts`.
+3. **The door from the chat** — the line under the greeting on the empty chat, and the figure itself, opening the head's page.
+4. A per-desk model default (สมอง) and the desk's tool kit / connections editable from การเข้าถึง — the "ใหม่" rows of the lab that touch the engine most.
+
+**Status:** `Direct`. Four commits on main this pass; the other session's half of the day is §265.
