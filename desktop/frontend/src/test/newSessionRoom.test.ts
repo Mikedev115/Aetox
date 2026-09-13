@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { cockpit, newSession, startTaskChip } from '../lib/stores/cockpit.svelte'
 import { shell } from '../lib/shell.svelte'
-import { NewSession, NewSessionAt, DismissTaskChip } from './mocks/wailsApp'
+import { NewSession, NewSessionAt, NewSessionInSpace, DismissTaskChip } from './mocks/wailsApp'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -51,11 +51,30 @@ describe('new chat', () => {
     expect(cockpit.activeView).toBe('chat')
   })
 
-  it('leaves the project behind, which is what the engine already did', async () => {
-    cockpit.space = 'D:/work/aetox'
+  // A project is where the work is filed, not a room: a new chat about the
+  // same work goes in the same folder (owner, 13 ก.ย. — pressing + inside a
+  // project used to land on the storefront's blank page).
+  it('stays inside the project it was pressed in', async () => {
+    cockpit.space = 'aetox-promo'
+    cockpit.desk = 'assistant'
 
     await newSession()
 
+    expect(vi.mocked(NewSessionInSpace)).toHaveBeenCalledWith('aetox-promo')
+    expect(vi.mocked(NewSessionAt)).not.toHaveBeenCalled()
+    expect(cockpit.space).toBe('aetox-promo')
+    expect(cockpit.desk).toBe('assistant')
+    expect(cockpit.activeView).toBe('chat')
+  })
+
+  it('a project is not carried through the workshop door', async () => {
+    shell.name = 'code'
+    cockpit.desk = 'coding'
+    cockpit.space = 'aetox-promo'
+
+    await newSession()
+
+    expect(vi.mocked(NewSessionAt)).toHaveBeenCalledWith('coding')
     expect(cockpit.space).toBe('')
   })
 

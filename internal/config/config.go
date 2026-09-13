@@ -336,6 +336,10 @@ type ModelPreference struct {
 	// nobody either.
 	AttentionFlashOff bool `json:"attention_flash_off,omitempty"`
 	AttentionChimeOff bool `json:"attention_chime_off,omitempty"`
+	// The third reach, added 13 ก.ย. 2026 when the first two were not enough
+	// (attention.go): a Windows notification, the one signal a person in
+	// another program recognises as one. Negative for the same reason.
+	AttentionToastOff bool `json:"attention_toast_off,omitempty"`
 	// ComputerControlOn is the master switch for `computer` — driving programs
 	// on the machine that Aetox did not start (docs/architecture/computer-use-2026-09-07.md).
 	// Positive, so absent means OFF, and that is the whole point rather than a

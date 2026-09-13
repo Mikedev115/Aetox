@@ -96,14 +96,17 @@ const busyLayers = () => [
 ]
 export const BusySignal = vi.fn(async (..._args: any[]) => busyLayers())
 export const SetBusyLayer = vi.fn(async (..._args: any[]) => busyLayers())
-// เรียกให้หัน (desktop/attention.go): both ship on.
+// เรียกให้หัน (desktop/attention.go): all three ship on.
 const attentionLayers = () => [
+  { id: 'toast', label: 'แจ้งเตือนของ Windows', note: '', on: true },
   { id: 'flash', label: 'กระพริบบนแถบงาน', note: '', on: true },
   { id: 'chime', label: 'เสียงเตือน', note: '', on: true },
 ]
 export const AttentionSignal = vi.fn(async (..._args: any[]) => attentionLayers())
 export const SetAttentionSignal = vi.fn(async (..._args: any[]) => attentionLayers())
-export const RequestAttention = noop()
+// Answers "not away", the way a Go with no window does; a test that wants the
+// OS to say otherwise resolves it to true.
+export const RequestAttention = vi.fn(async (..._args: any[]) => false)
 export const CommandHistory = arr()
 export const AppVersion = vi.fn(async () => '0.8.4')
 // Defaults to "checked, nothing new": the About page has to render before any
