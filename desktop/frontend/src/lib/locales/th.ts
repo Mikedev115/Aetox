@@ -2150,6 +2150,7 @@ export const th = {
   'capability.navGroupHooks': 'Hooks',
   'capability.navHooks': 'Hooks ของคุณ',
   'capability.navComputer': 'โปรแกรมที่ให้ควบคุม',
+  'capability.navConnections': 'บริการที่เชื่อมไว้',
   'capability.hooksLede': 'คำสั่งของคุณเองที่รันก่อนหรือหลังผู้ช่วยเรียกเครื่องมือ — กันคำสั่งที่คุณไม่อนุญาตตามกฎของคุณเอง รัน formatter หลังเขียนไฟล์ หรือแจ้งคุณเมื่อเอเจนแก้อะไร ไม่ต้องมีปลั๊กอิน ไม่ต้องรีสตาร์ต เซฟแล้วมีผลกับการเรียกครั้งถัดไปทันที',
   'capability.hooksCount': '{n} hook',
   'capability.hookAdd': 'เพิ่ม hook',
