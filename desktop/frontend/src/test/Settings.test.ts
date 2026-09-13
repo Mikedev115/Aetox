@@ -860,6 +860,12 @@ describe('Settings pages', () => {
     await waitFor(() => expect(screen.getByText('ค้นไฟล์')).toBeTruthy())
     expect(screen.queryByText('deck')).toBeNull()
     expect(screen.queryByText('เก้าอี้สไลด์')).toBeNull()
+    // every helper wears the bottom rank beside its name: one bar, ลูกมือ
+    const pips = container.querySelectorAll('.chair-card .rank-helper')
+    expect(pips.length).toBeGreaterThan(0)
+    expect(pips[0].querySelectorAll('.rank-bars i').length).toBe(1)
+    expect(pips[0].textContent).toContain('ลูกมือ')
+    expect(container.querySelector('.chair-card .rank-agent')).toBeNull()
   })
 
   // A file that cannot run is shown with its reason — never silently dropped,
