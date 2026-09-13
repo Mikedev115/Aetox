@@ -30,7 +30,7 @@
   import Icon from './Icon.svelte'
   import AgentLock from './AgentLock.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
-  import RankPip from './RankPip.svelte'
+  import RankedFace from './RankedFace.svelte'
   import { lookOf } from './mascot/agentLook'
 
   let { onClose }: { onClose: () => void } = $props()
@@ -183,15 +183,11 @@
           <div class="chair-card agc" class:locked>
             <div class="chair-body">
               <div class="chair-who">
-                <AgentMascot name={c.name} {...lookOf(c)} size={38} />
-                <!-- The rank under the name (RankPip), in the name's own
-                     column so neither clips the other: a roster is the one
-                     page that mixes who you may talk to, so each face says
-                     which level it is before where it came from. -->
-                <span class="chair-id">
-                  <span class="chair-name">{c.name}</span>
-                  <RankPip tier="agent" />
-                </span>
+                <!-- The rank on the face's corner (RankedFace): a roster is
+                     the one page that mixes who you may talk to, so each
+                     face says which level it is before where it came from. -->
+                <RankedFace tier="agent" size={38}><AgentMascot name={c.name} {...lookOf(c)} size={38} /></RankedFace>
+                <span class="chair-name">{c.name}</span>
                 <!-- On the head, not in the chips row (owner, 13 ก.ย. 2026:
                      "แปะหัวด้วยชัดๆ อันไหนมากับแอป"): which faces came with
                      the app and which the user hired is the first thing to

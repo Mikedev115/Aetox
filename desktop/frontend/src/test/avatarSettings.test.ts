@@ -127,9 +127,10 @@ describe('two heads', () => {
     const { container } = render(AvatarSettings)
     await waitFor(() => expect(container.querySelectorAll('.who-card').length).toBe(2))
     expect(container.querySelector('.who-card.on')?.textContent).toContain('ผู้ช่วย')
-    // both heads wear the top rank: three bars and the word (RankPip)
-    expect(container.querySelectorAll('.who-card .rank-head').length).toBe(2)
-    expect(container.querySelectorAll('.who-card .rank-head')[0].querySelectorAll('.rank-bars i').length).toBe(3)
+    // both heads wear the top rank on the face's corner: three bars (RankedFace)
+    expect(container.querySelectorAll('.who-card .rank-corner.rank-head').length).toBe(2)
+    expect(container.querySelectorAll('.who-card .rank-corner.rank-head')[0].querySelectorAll('.rank-bars i').length).toBe(3)
+    expect(container.querySelectorAll('.who-card .rank-corner.rank-head')[0].getAttribute('title')).toBe('ผู้ช่วย')
     await fireEvent.click(container.querySelectorAll('.who-card')[1])
     await waitFor(() => expect(container.querySelector('.who-card.on')?.textContent).toContain('โค้ด'))
     // the stage now shows the coder's look (chevrons lit), and a click writes to the coder's store
