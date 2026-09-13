@@ -86,4 +86,5 @@
 ตัวติดตั้ง 33.6 MB · เทสต์ Go 3,371 / UI 1,747 (BENCHMARK.md ข้อ 13) · **เว็บ (`aetox-landing`) ยังเขียน
 48.5 MB ไฟล์เดียว · 21.3 MB · Go 2,479 · UI 1,054 · 19 providers · KPI 31 tools** — ทุกค่าเป็นเท็จแล้ว
 และอยู่ในอีกรีโป (`lib/i18n/en.ts` + `th.ts` บรรทัดสถิติ/FAQ, `components/Weight.tsx` แถว Aetox
-กับ `KPI_VALUES`) ยังไม่ได้แก้
+กับ `KPI_VALUES`) — **แก้แล้วบ่ายวันเดียวกัน** (`aetox-landing` ab95a0f: 80.8 สองไฟล์ · 33.6 · 3,371/1,747 ·
+35 tools · 24 providers + dialog เพิ่ม codex/opencode zen/opencode go) และ deploy ผ่าน push ของรีโปนั้นเอง
