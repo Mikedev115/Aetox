@@ -98,9 +98,13 @@ func (s *changeSkill) ToolDefinition() model.ToolDefinition {
 	allowed := s.allowedActions()
 
 	lines := map[string]string{
-		"write":  "`write` (path, content), a whole file, 300 lines per call at most: send 300 and carry on with append.",
+		// The cap is stated with its unit, because a cap stated in bare lines
+		// was met by a 9-line server.ts with 1,822-character lines (§264).
+		// The mid-word sentence that paid for these words is in edit's
+		// Guidance, where it already was.
+		"write":  "`write` (path, content), a whole file, 300 lines per call at most, counted at normal width: a long line is several, so packing code buys nothing. Send 300 and carry on with append.",
 		"edit":   "`edit` (path, find, replace, all?), replace an exact string. find must be unique in the file unless all=true. Empty replace deletes what matched.",
-		"append": "`append` (path, replace), add text to the end of a file. Carries on a file that write had to cut; no separator is added, so a file cut mid-word continues mid-word. 300 lines per call, same as write.",
+		"append": "`append` (path, replace), add text to the end of a file; carries on a file that write had to cut. 300 lines per call, same as write.",
 		"batch":  "`batch` (edits, path?), several edits across one or more files, all applied or none. Prefer it over repeated edit calls when one change touches several places.",
 		"delete": "`delete` (path, recursive?), remove a file, or a folder and everything in it with recursive.",
 	}
