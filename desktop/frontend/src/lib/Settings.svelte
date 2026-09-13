@@ -2341,7 +2341,9 @@
   function reachOf(name: string): { on: boolean; off: boolean } | null {
     if (!delegate) return null
     for (const block of [delegate.agents, delegate.helpers]) {
-      const w = block.workers.find((x) => x.name === name)
+      // An older engine answers a no-team chat with `workers: null`; a page
+      // must not fall over on the shape of a build it did not ship with.
+      const w = (block.workers ?? []).find((x) => x.name === name)
       if (w) return { on: w.on, off: block.off }
     }
     return null

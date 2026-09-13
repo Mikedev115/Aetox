@@ -120,11 +120,15 @@ func (a *Engine) DelegateSwitches(team string) DelegateSettings {
 	cfg := a.cur().cfg
 	roster, _ := subagent.LoadTeam(team)
 	_, workersOff := cfg.DelegationFor(roster.Desk, team)
+	// Every Workers slice is born empty, never nil (ARCHITECTURE.md §34): a
+	// chat on no team has no agent rows, and that used to leave `agents.workers`
+	// as JSON null — which the page's reachOf() walked with .find() and threw,
+	// taking the whole ซับเอเจน page down with it (owner, 13 ก.ย. 2026).
 	out := DelegateSettings{
 		Team:    team,
-		Agents:  DelegateReach{Off: !cfg.DelegateAgents},
-		Code:    DelegateReach{Off: cfg.DelegateCodeOff},
-		Helpers: DelegateReach{Off: cfg.DelegateHelpersOff},
+		Agents:  DelegateReach{Off: !cfg.DelegateAgents, Workers: []DelegateWorker{}},
+		Code:    DelegateReach{Off: cfg.DelegateCodeOff, Workers: []DelegateWorker{}},
+		Helpers: DelegateReach{Off: cfg.DelegateHelpersOff, Workers: []DelegateWorker{}},
 		Tokens:  a.ToolBlockTokens(),
 	}
 	off := lowered(workersOff)
