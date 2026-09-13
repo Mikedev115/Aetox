@@ -9,7 +9,7 @@ import {
   ListPendingChanges, ListDecidedChanges, LearnedMemory, LearnedEntries, SaveLearnedEntry, MoveLearnedEntry,
   LearningEnabled, ApprovePendingChange, ApprovePendingChangeTo, RejectPendingChange, SetLearningEnabled,
   PendingLearnedCount, LearnedScopeInfos, ForgetMemoryScope, AdoptMemoryScope, RecentProjects,
-  ConsolidateMemory, ApplyMemoryLines,
+  ConsolidateMemory, ApplyMemoryLines, ListSubagentProfiles, ReadSubagentProfile,
 } from './mocks/wailsApp'
 import { cockpit, applyPendingLearned, refreshPendingLearned } from '../lib/stores/cockpit.svelte'
 
@@ -26,6 +26,25 @@ const openSection = async (container: HTMLElement, label: string) => {
     .find((el) => el.textContent?.includes(label))
   if (!item) throw new Error(`nav item "${label}" not found`)
   await fireEvent.click(item)
+}
+
+// ตัวหลัก › <head> › ความจำ — where a desk's file, its projects and its queue
+// live since 14 ก.ย. 2026. The card's gear opens the editor; the tab is the
+// agent editor's own bar.
+const openHeadMemory = async (container: HTMLElement, head: 'ผู้ช่วย' | 'โค้ด') => {
+  await openSection(container, 'ตัวหลัก')
+  const card = await waitFor(() => {
+    const c = Array.from(container.querySelectorAll('.main-card')).find((x) => x.querySelector('.chair-name')?.textContent?.trim() === head)
+    expect(c).toBeTruthy()
+    return c!
+  })
+  await fireEvent.click(card.querySelector('.icobtn')!)
+  const tab = await waitFor(() => {
+    const b = Array.from(container.querySelectorAll('.ag-tabs-bar [role="tab"]')).find((x) => x.textContent?.includes('ความจำ'))
+    expect(b).toBeTruthy()
+    return b!
+  })
+  await fireEvent.click(tab)
 }
 
 beforeEach(() => {
@@ -54,7 +73,7 @@ describe('editing what is already remembered', () => {
       ['เครื่องผู้ใช้เป็น Windows', shell('1'), shell('2'), shell('124')] as any,
     )
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การเรียนรู้')
+    await openHeadMemory(container, 'ผู้ช่วย')
     await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(4))
     return container
   }
@@ -130,14 +149,20 @@ describe('editing what is already remembered', () => {
     await openSection(container, 'เกี่ยวกับคุณ')
     await waitFor(() => expect(container.querySelectorAll('.mem-scope-name').length).toBe(1))
     expect(container.querySelector('.mem-scope-name')?.textContent?.trim()).toBe('เกี่ยวกับคุณ')
-    await openSection(container, 'การเรียนรู้')
-    await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(3))
+    // And ตัวหลัก: the assistant's page holds its file alone; the coder's
+    // holds its own with the project nested under it (projectsUnder).
+    await openHeadMemory(container, 'ผู้ช่วย')
+    await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(1))
+    expect(Array.from(container.querySelectorAll('.mem-scope-name')).map((el) => el.textContent?.trim())).toEqual(['ผู้ช่วย'])
+    await fireEvent.click(Array.from(container.querySelectorAll('.pp-bar .ctrl')).find((b) => b.textContent?.includes('ไปที่ โค้ด'))!)
+    await fireEvent.click(Array.from(container.querySelectorAll('.ag-tabs-bar [role="tab"]')).find((x) => x.textContent?.includes('ความจำ'))!)
+    await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(2))
     const heads = Array.from(container.querySelectorAll('.mem-scope-name')).map((el) => el.textContent?.trim())
-    expect(heads).toEqual(['ผู้ช่วย', 'โค้ด', 'โปรเจกต์ Aetox'])
+    expect(heads).toEqual(['โค้ด', 'โปรเจกต์ Aetox'])
     expect(container.querySelector('.mem-sub .mem-scope-name')?.textContent).toContain('Aetox')
     // Each heading says who reads the file — the label alone never did.
     const auds = Array.from(container.querySelectorAll('.mem-scope .learn-aud')).map((el) => el.textContent?.trim())
-    expect(auds).toEqual(['เฉพาะแชทกับผู้ช่วย', 'เฉพาะโค้ด ทุกโปรเจกต์', 'เฉพาะตอนเปิดโฟลเดอร์ Aetox'])
+    expect(auds).toEqual(['เฉพาะโค้ด ทุกโปรเจกต์', 'เฉพาะตอนเปิดโฟลเดอร์ Aetox'])
     // The hash half of a project key is identity, not information — a person
     // recognises the folder, not the digest. It stays in the file badge only,
     // because that badge is the name on disk.
@@ -162,7 +187,7 @@ describe('editing what is already remembered', () => {
     expect(container.querySelectorAll('.mem-cap-note').length).toBe(1)
     expect(container.querySelector('.mem-cap-note')?.textContent).toContain('เต็มแล้ว')
 
-    await openSection(container, 'การเรียนรู้')
+    await openHeadMemory(container, 'ผู้ช่วย')
     await waitFor(() => expect(container.querySelectorAll('.mem-cap').length).toBe(1))
     expect(container.querySelector('.mem-cap')!.classList.contains('mem-cap-ok')).toBe(true)
     expect(container.querySelectorAll('.mem-cap-note').length).toBe(0)
@@ -185,12 +210,12 @@ describe('editing what is already remembered', () => {
     ] as any)
 
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การเรียนรู้')
-    await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(2))
+    await openHeadMemory(container, 'โค้ด')
+    await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(1))
 
     // The live file carries no mark; the orphan carries exactly one.
     expect(container.querySelectorAll('.mem-orphan').length).toBe(1)
-    const live = container.querySelector('.mem-scope[data-mem-scope=""]')!
+    const live = container.querySelector('.mem-scope[data-mem-scope="mode:coding"]')!
     const orphan = container.querySelector('.mem-scope[data-mem-scope="project:old-app-99aa88bb"]')!
     expect(live.querySelector('.mem-orphan')).toBeNull()
     expect(orphan.textContent).toContain('โฟลเดอร์นี้ไม่อยู่แล้ว')
@@ -220,10 +245,10 @@ describe('editing what is already remembered', () => {
       (scope === '' ? ['เครื่องผู้ใช้เป็น Windows'] : scope === 'mode:coding' ? [] : ['ตกลงกันว่าใช้ PowerShell']) as any)
 
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การเรียนรู้')
-    await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(2))
+    await openHeadMemory(container, 'โค้ด')
+    await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(1))
 
-    const projectRow = container.querySelectorAll('.mem-row')[1]
+    const projectRow = container.querySelectorAll('.mem-row')[0]
     await fireEvent.click(projectRow.querySelector('.mem-forget')!)
 
     await waitFor(() =>
@@ -252,7 +277,7 @@ describe('editing what is already remembered', () => {
     const migrate = container.querySelector('.mem-quick-banner .ctrl') as HTMLButtonElement
     expect(migrate.disabled).toBe(true)
 
-    await openSection(container, 'การเรียนรู้')
+    await openHeadMemory(container, 'ผู้ช่วย')
     await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(1))
     const mainRow = container.querySelectorAll('.mem-row')[0]
     await fireEvent.click(mainRow.querySelector('.mem-action-move')!)
@@ -318,7 +343,7 @@ describe('the learning review page', () => {
   // with no provenance, which is the thing this page exists to prevent.
   it('shows what would be remembered, whose memory it is, and why', async () => {
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การเรียนรู้')
+    await openHeadMemory(container, 'ผู้ช่วย')
 
     await waitFor(() => expect(screen.getByText('เครื่องนี้ไม่มี Excel ติดตั้ง')).toBeTruthy())
     expect(screen.getByText('เปิดไฟล์ .xlsx แล้วไม่มีโปรแกรมรับ')).toBeTruthy()
@@ -339,7 +364,7 @@ describe('the learning review page', () => {
       { scope: 'user:profile', orphan: false }, { scope: '', orphan: false }, { scope: 'mode:coding', orphan: false, projectsUnder: true },
     ] as any)
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การเรียนรู้')
+    await openHeadMemory(container, 'ผู้ช่วย')
     await waitFor(() => expect(screen.getByText('เครื่องนี้ไม่มี Excel ติดตั้ง')).toBeTruthy())
 
     await fireEvent.click(screen.getByText('เก็บที่อื่น'))
@@ -352,19 +377,28 @@ describe('the learning review page', () => {
 
     vi.mocked(ListPendingChanges).mockResolvedValue([proposal({ op: 'replace', before: 'x', body: 'y' })] as any)
     const second = render(Settings, { onClose: () => {} })
-    await openSection(second.container, 'การเรียนรู้')
+    await openHeadMemory(second.container, 'ผู้ช่วย')
     await waitFor(() => expect(second.container.textContent).toContain('ขอแก้สิ่งที่จำไว้'))
     expect(second.container.querySelector('.learn-row .mem-move')).toBeNull()
   })
 
   // A delegate's memory is not the assistant's, and the row has to say so —
   // scope is the difference between "everything you ask it" and "one job".
-  it('names the sub-agent when the proposal is not the main assistant\'s', async () => {
+  it('puts a delegate\'s proposal on the delegate\'s own page, not on a head\'s', async () => {
     vi.mocked(ListPendingChanges).mockResolvedValue([proposal({ scope: 'explore' })] as any)
+    vi.mocked(ListSubagentProfiles).mockResolvedValue([{ name: 'explore', description: 'ค้นไฟล์', prompt: 'role', builtin: true }] as any)
+    vi.mocked(ReadSubagentProfile).mockResolvedValue('---\ndescription: ค้นไฟล์\n---\nYou search files.' as any)
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การเรียนรู้')
+    await openHeadMemory(container, 'ผู้ช่วย')
+    await waitFor(() => expect(container.querySelectorAll('.mem-scope-name').length).toBe(1))
+    expect(container.querySelector('.learn-row')).toBeNull()
 
-    await waitFor(() => expect(screen.getByText('explore')).toBeTruthy())
+    // The intent road opens an editor only through 'team'; a helper's page
+    // is the same editor pane, so it serves to show where the queue landed.
+    cockpit.settingsIntent = { section: 'team', agent: 'explore' }
+    const own = render(Settings, { onClose: () => {} })
+    await waitFor(() => expect(own.container.querySelector('.ag-body')).toBeTruthy())
+    await waitFor(() => expect(own.container.querySelector('.learn-row .learn-scope')?.textContent).toContain('explore'))
   })
 
   // What a change overwrites is part of the decision.
@@ -373,7 +407,7 @@ describe('the learning review page', () => {
       proposal({ op: 'replace', before: 'สแกนเนอร์เขียนลง D:\\Scans', body: 'สแกนเนอร์เขียนลง E:\\Scans' }),
     ] as any)
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การเรียนรู้')
+    await openHeadMemory(container, 'ผู้ช่วย')
 
     await waitFor(() => expect(screen.getByText('สแกนเนอร์เขียนลง D:\\Scans')).toBeTruthy())
     expect(screen.getByText('สแกนเนอร์เขียนลง E:\\Scans')).toBeTruthy()
@@ -381,7 +415,7 @@ describe('the learning review page', () => {
 
   it('approves and discards through to the engine', async () => {
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การเรียนรู้')
+    await openHeadMemory(container, 'ผู้ช่วย')
     await waitFor(() => expect(screen.getByText('อนุมัติ')).toBeTruthy())
 
     await fireEvent.click(screen.getByText('อนุมัติ'))
@@ -403,7 +437,7 @@ describe('the learning review page', () => {
     vi.mocked(ApprovePendingChange).mockRejectedValueOnce(
       new Error("this scope's memory is full (8215 bytes, limit 8192) — merge or drop an existing line first"))
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การเรียนรู้')
+    await openHeadMemory(container, 'ผู้ช่วย')
     await waitFor(() => expect(screen.getByText('อนุมัติ')).toBeTruthy())
 
     await fireEvent.click(screen.getByText('อนุมัติ'))
@@ -442,9 +476,8 @@ describe('the learning review page', () => {
     // Quick migrate banner is rendered because Main has "User is developing Aetox"
     expect(container.querySelector('.mem-quick-banner')).toBeTruthy()
 
-    await openSection(container, 'การเรียนรู้')
+    await openHeadMemory(container, 'ผู้ช่วย')
     await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(1))
-    expect(container.textContent).toContain('ความจำของผู้ช่วยและโค้ด')
     expect(container.textContent).toContain('MEMORY.md')
     expect(container.textContent).not.toContain('ความจำเกี่ยวกับคุณ')
     expect(container.querySelector('.mem-quick-banner')).toBeNull()

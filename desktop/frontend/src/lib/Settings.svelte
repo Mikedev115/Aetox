@@ -16,6 +16,8 @@
   import ProviderMark from './ProviderMark.svelte'
   import ProviderAccount from './ProviderAccount.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
+  import Mascot from './mascot/Mascot.svelte'
+  import { HEADS, headOptions, type HeadId } from './mascot/avatarPrefs.svelte'
   import RankPip from './RankPip.svelte'
   import RankedFace from './RankedFace.svelte'
   import ScopeMark from './ScopeMark.svelte'
@@ -37,7 +39,7 @@
   import { setShell } from './shell.svelte'
   import { attention, loadAttention, toggleAttention } from './stores/attention.svelte'
   import type { IconName } from './icons'
-  import { NAV } from './desks'
+  import { NAV, deskLabelKey } from './desks'
   // The shelf and everything that turns one of its entries into a saved server.
   // It used to be written out in this file; ห้องความสามารถ reads the same list,
   // and a preset table with two copies goes stale on one of them (mcpShelf.ts).
@@ -69,7 +71,7 @@
     ChairStarters, SaveChairStarters, ChairStartersFile,
     SignInMethods, SignInStatus, StartSignIn, CancelSignIn, ImportableSignIns,
     AppVersion, AppCredit, RecentDebugLog,
-    LearningEnabled, SetLearningEnabled, ListPendingChanges, ListDecidedChanges, ListIdentityFiles, ReadIdentityFile, SaveIdentityFile,
+    LearningEnabled, SetLearningEnabled, ListPendingChanges, ListDecidedChanges, ListModes, ListIdentityFiles, ReadIdentityFile, SaveIdentityFile,
     SessionReviewAuto, SetSessionReviewAuto, RunSessionReview, ListRecurringRequests, DismissRecurringRequest,
     SynthesizeHabit,
     PreparedReplyOn, SetPreparedReplyOn,
@@ -86,7 +88,7 @@
   // that is not a bug report yet.
   import { COMMUNITY_URL, PAGE_URL, YOUTUBE_URL } from './links'
   import promptPayQR from '../assets/images/promptpay-qr.png'
-  import { config, engine, main, subagent } from '../../wailsjs/go/models'
+  import { config, engine, main, subagent, type mode } from '../../wailsjs/go/models'
   import { cockpit, openCapabilityAt, startChatWith, newChairSession, setActiveView, switchProvider, switchModel, submitAPIKey, switchApprovalMode, switchWireFormat, setProviderBaseURL, retryActiveProvider, completeSignIn, signOutProvider, importSignIn, SETTINGS_SECTION_KEY } from './stores/cockpit.svelte'
   import {
     identity, loadIdentityFiles, openIdentityFile, saveIdentityFile,
@@ -2447,6 +2449,7 @@
   let agentTab = $state<AgentTab>('identity')
 
   const openAgent = (a: SubagentRow, kind?: 'agent' | 'helper') => runAgent('open:' + a.name, async () => {
+    void loadLearning()
     const parsed = parseAgentFile(await ReadSubagentProfile(a.name))
     agentDraftName = a.name
     agentDraftDescription = parsed.description
@@ -2838,6 +2841,40 @@
     }
   })
 
+  // ---------- ตัวหลัก ----------
+  // Two heads, one page each, the agent editor's shape. What a head owns
+  // today: its face (avatarPrefs), its desk file (modes/<desk>.md, read here
+  // for the card's line), and its memory — MAIN_SCOPE for the assistant,
+  // mode:coding for the coder, with the project files under whichever desk
+  // hosts them. The rest of the tabs are doors to where each thing is still
+  // edited (avatar, models, the capability room) until those move in.
+  let mainHead = $state<HeadId | null>(null)
+  type MainTab = 'identity' | 'avatar' | 'brain' | 'reach' | 'memory'
+  let mainTab = $state<MainTab>('identity')
+  let modes = $state<mode.Mode[]>([])
+  async function loadModes() {
+    try { modes = (await ListModes()) ?? [] } catch { modes = [] }
+  }
+  const headScope = (h: HeadId) => (h === 'assistant' ? MAIN_SCOPE : 'mode:coding')
+  const headLabel = (h: HeadId) => { const k = deskLabelKey(h); return k ? t(k) : h }
+  const headDesc = (h: HeadId) => modes.find((m) => m.name === h)?.description ?? ''
+  const headGroup = (h: HeadId) => memoryGroups.find((g) => g.scope === headScope(h)) ?? emptyGroup(headScope(h))
+  // Every file a head answers for: its own, plus the projects when it is
+  // the desk that hosts them (projectsUnder, from Go).
+  const headScopes = (h: HeadId): string[] =>
+    [headScope(h), ...(projectsHost === headScope(h) ? projectGroups.map((g) => g.scope) : [])]
+  const headPending = (h: HeadId) => pendingChanges.filter((c) => headScopes(h).includes(c.scope))
+  const headDecided = (h: HeadId) => decidedChanges.filter((c) => headScopes(h).includes(c.scope))
+  // A delegate's proposals: its scope is its bare name (memoryScope.ts).
+  const agentPendingFor = (name: string) => pendingChanges.filter((c) => c.kind !== 'skill' && c.scope === name.trim())
+  const openHead = (h: HeadId) => { mainHead = h; mainTab = 'identity' }
+  $effect(() => {
+    if (active === 'main') {
+      void loadLearning()
+      void loadModes()
+    }
+  })
+
   // ---------- Learning ----------
   //
   // This page exists because the agent proposing things is only half the
@@ -3145,9 +3182,7 @@
   // the rest here. A sub-agent's proposal stays here too — its page has the
   // file, not the queue.
   const youPending = $derived(pendingChanges.filter((c) => c.scope === USER_SCOPE))
-  const learningPending = $derived(pendingChanges.filter((c) => c.scope !== USER_SCOPE))
   const youDecided = $derived(decidedChanges.filter((c) => c.scope === USER_SCOPE))
-  const learningDecided = $derived(decidedChanges.filter((c) => c.scope !== USER_SCOPE))
   const userMemoryGroup = $derived(memoryGroups.find((g) => g.scope === USER_SCOPE) ?? emptyGroup(USER_SCOPE))
   // One block per desk (11 ก.ย.): the assistant's shared file first, then every
   // desk that keeps its own — the Go side lists those even while empty, so a
@@ -3464,6 +3499,13 @@
     { group: t('settings.groupModels'), items: [
       { id: 'models', label: t('settings.modelSettings'), icon: 'brain',
         terms: [t('settings.providers'), t('settings.apiKeyLabel'), t('settings.baseUrl'), t('settings.signInLabel'), t('settings.modelList')] },
+      // ตัวหลัก (14 ก.ย. 2026): the two heads a person actually talks to, each
+      // with a page of its own in the shape every agent already has — the
+      // feedback that started this was "ไม่รู้ว่าตัวหลักปรับแต่งได้", and a thing
+      // with no page is a thing that looks unconfigurable. Beside เอเจนเฉพาะทาง
+      // on purpose (owner: "B ดีสุด จำง่าย"): main, specialists, helpers, teams.
+      { id: 'main', label: t('settings.mainHeads'), icon: 'userRound',
+        terms: [t('desk.assistant'), t('desk.coding'), t('settings.learningAssistantSection'), 'MEMORY.md', 'modes/coding.md'] },
       // The people you talk to, then the helpers the assistant runs, then the
       // teams that group the first kind. Configuring an agent lives here again
       // since 13 ก.ย. 2026: for a day (12 ก.ย., "เอาเอเจนออกจากหน้าตั้งค่า")
@@ -3662,7 +3704,7 @@
   // wrong one for a page that was merely forgotten. Found 14 ก.ย. 2026 when
   // the tool register's door to เสียง moved rooms and got a test that opens
   // it the way a user does.
-  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'you', 'identity', 'learning', 'issues', 'models', 'team', 'teams', 'agents', 'voice', 'image', 'studio', 'remote', 'prompts', 'account', 'usage', 'about', 'sponsor'])
+  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'you', 'identity', 'learning', 'issues', 'models', 'main', 'team', 'teams', 'agents', 'voice', 'image', 'studio', 'remote', 'prompts', 'account', 'usage', 'about', 'sponsor'])
 
   function restoredSection(): string {
     try {
@@ -5208,6 +5250,14 @@
      Users can view, inline-edit, delete, add entries, or open the folder directly. -->
 {#snippet agentMemoryBox()}
   <div class="settings-card">
+    <!-- What the delegate proposes to remember, decided here since 14 ก.ย.
+         2026 — the queue on การเรียนรู้ that used to hold it is gone. -->
+    {#if agentPendingFor(agentDraftName).length > 0}
+      <div class="card-form">
+        <div class="eyebrow">{t('settings.learningPending')} <span class="ag-count ag-count-warn">{agentPendingFor(agentDraftName).length}</span></div>
+      </div>
+      {#each agentPendingFor(agentDraftName) as c (c.id)}{@render pendingRow(c)}{/each}
+    {/if}
     <div class="card-form">
       <div class="eyebrow">
         {t('settings.agentMemoryTitle')}
@@ -5413,7 +5463,10 @@
       {#each g.items as it}
         <button class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>
           <span class="ic"><Icon name={it.icon} /></span> {it.label}
-          {#if it.id === 'learning' && cockpit.pendingLearned > 0}
+          <!-- The queue's count on ตัวหลัก, where most of it is decided since
+               14 ก.ย. 2026 (the person's share is on เกี่ยวกับคุณ, a delegate's on
+               its page); the engine counts them as one number. -->
+          {#if it.id === 'main' && cockpit.pendingLearned > 0}
             <span class="nav-count" title={t('settings.learningWaiting', { count: String(cockpit.pendingLearned) })}>
               {cockpit.pendingLearned}
             </span>
@@ -6741,6 +6794,221 @@
           </div>
         </div>
       {/if}
+    {:else if active === 'main'}
+      {#if mainHead === null}
+        <h2>{t('settings.mainHeads')}</h2>
+        <p class="muted set-sub">{t('settings.mainHeadsDesc')}</p>
+        <!-- The agent list's card (agentRow), the head's own face in it. Two,
+             never a third: the office desk is what an agent's own chat runs
+             on and every agent is a card of its own already. -->
+        <div class="office-grid main-grid">
+          {#each HEADS as h (h)}
+            <div class="chair-card agc main-card" role="button" tabindex="0"
+              onclick={() => openHead(h)} onkeydown={(e) => { if (e.key === 'Enter') openHead(h) }}>
+              <div class="chair-body">
+                <div class="chair-who">
+                  <span class="main-face"><Mascot {...headOptions(h)} pose="idle" size={46} still /></span>
+                  <span class="chair-name">{headLabel(h)}</span>
+                  <div class="ag-actions">
+                    <button class="icobtn tiny tip-l" aria-label={t('settings.agentConfigure')} data-tip={t('settings.agentConfigure')}
+                      onclick={(e) => { e.stopPropagation(); openHead(h) }}>
+                      <Icon name="settings" size={14} />
+                    </button>
+                  </div>
+                </div>
+                <div class="d">{headDesc(h) || '—'}</div>
+                <div class="chips">
+                  <span class="tag">{t('settings.mainMemoryLines', { n: headGroup(h).lines.length })}</span>
+                  {#if headPending(h).length > 0}<span class="tag main-tag-warn">{t('settings.mainPendingN', { n: headPending(h).length })}</span>{/if}
+                </div>
+              </div>
+            </div>
+          {/each}
+        </div>
+        <p class="office-note">
+          {t('settings.mainSharedNote')}
+          <button type="button" class="linklike" onclick={() => openSection('you')}>{t('settings.you')}</button>
+        </p>
+      {:else}
+        {@const h = mainHead}
+        {@const g = headGroup(h)}
+        <h2>{t('settings.mainEditTitle', { name: headLabel(h) })}</h2>
+        <p class="muted set-sub">{t('settings.mainEditDesc')}</p>
+        <div class="pp-bar">
+          <button class="ctrl" onclick={() => (mainHead = null)}><Icon name="arrowLeft" size={14} /> {t('settings.agentBack')}</button>
+          <div class="pp-bar-gap"></div>
+          <button class="ctrl" onclick={() => openHead(h === 'assistant' ? 'coding' : 'assistant')}>
+            {t('settings.mainGoOther', { name: headLabel(h === 'assistant' ? 'coding' : 'assistant') })} <Icon name="arrowRight" size={12} />
+          </button>
+        </div>
+        {#if learningError}<div class="mset-error">{learningError}</div>{/if}
+
+        <div class="main-head">
+          <span class="main-face lg"><Mascot {...headOptions(h)} pose="idle" size={64} still /></span>
+          <div class="main-who">
+            <div class="main-name">{headLabel(h)} <span class="badge on">{t('settings.mainHeadBadge')}</span></div>
+            <div class="d muted">{headDesc(h)}</div>
+          </div>
+        </div>
+
+        <div class="ag-tabs-bar">
+          <div class="seg" role="tablist" aria-label={t('settings.mainEditTitle', { name: headLabel(h) })}>
+            {#each [
+              ['identity', 'userRound', t('settings.agentSecIdentity')],
+              ['avatar', 'bot', t('settings.agentSecAvatar')],
+              ['brain', 'brain', t('settings.agentSecBrain')],
+              ['reach', 'plug', t('settings.mainSecReach')],
+              ['memory', 'brain', t('settings.mainSecMemory')],
+            ] as [id, icon, label] (id)}
+              <button type="button" role="tab" aria-selected={mainTab === id} class:on={mainTab === id}
+                onclick={() => (mainTab = id as MainTab)}>
+                <Icon name={icon as IconName} size={14} /><span>{label}</span>
+                {#if id === 'memory' && headPending(h).length > 0}<span class="ag-count ag-count-warn">{headPending(h).length}</span>{/if}
+              </button>
+            {/each}
+          </div>
+        </div>
+
+        <!-- ตัวตน: what the desk file says, and where the persona still is.
+             identity.md / thinking.md are one set for both heads today; they
+             split per head in a later step, and this tab is where they land. -->
+        <div class="ag-tab-panel" class:on={mainTab === 'identity'}>
+          <div class="settings-card">
+            <div class="set-row">
+              <div class="set-txt">
+                <div class="t">{t('settings.mainDeskRow')}</div>
+                <div class="d">{headDesc(h) || '—'}</div>
+              </div>
+              <span class="mono-dim">modes/{h}.md</span>
+            </div>
+            <div class="set-row">
+              <div class="set-txt">
+                <div class="t">{t('settings.mainPersonaRow')}</div>
+                <div class="d">{t('settings.mainPersonaHint')}</div>
+              </div>
+              <button type="button" class="ctrl" onclick={() => openSection('identity')}>{t('settings.identity')} <Icon name="arrowRight" size={12} /></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="ag-tab-panel" class:on={mainTab === 'avatar'}>
+          <div class="settings-card">
+            <div class="main-avatar-row">
+              <span class="main-avatar-big"><Mascot {...headOptions(h)} pose="idle" size={150} still /></span>
+              <div class="main-avatar-txt">
+                <div class="t">{t('settings.mainAvatarRow')}</div>
+                <div class="d">{t('settings.mainAvatarHint', { name: headLabel(h) })}</div>
+                <p><button type="button" class="ctrl" onclick={() => openSection('avatar')}><Icon name="bot" size={13} /> {avatarText(i18n.locale).title}</button></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ag-tab-panel" class:on={mainTab === 'brain'}>
+          <div class="settings-card">
+            <div class="set-row">
+              <div class="set-txt">
+                <div class="t">{t('settings.mainBrainRow')}</div>
+                <div class="d">{cockpit.model.provider ? `${cockpit.model.provider} · ${cockpit.model.modelName}${cockpit.model.thinkLevel ? ` · ${cockpit.model.thinkLevel}` : ""}` : "—"} — {t("settings.mainBrainHint")}</div>
+              </div>
+              <button type="button" class="ctrl" onclick={() => openSection('models')}>{t('settings.modelSettings')} <Icon name="arrowRight" size={12} /></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- การเข้าถึง: doors into ห้องความสามารถ, at the page that answers for
+             this desk. The room stays the one place any of it is changed. -->
+        <div class="ag-tab-panel" class:on={mainTab === 'reach'}>
+          <div class="settings-card">
+            {#each [
+              ['desks', 'plug', t('capability.navDesks'), t('settings.mainReachMcp')],
+              ['skills', 'puzzle', t('capability.navSkills'), t('settings.mainReachSkills')],
+              ['tools', 'wrench', t('capability.navTools'), t('settings.mainReachTools')],
+            ] as [pg, icon, label, hint] (pg)}
+              <div class="set-row">
+                <div class="set-txt"><div class="t">{label}</div><div class="d">{hint}</div></div>
+                <button type="button" class="ctrl" onclick={() => openCapabilityAt(pg)}><Icon name={icon as IconName} size={13} /> {t('settings.mainReachOpen')}</button>
+              </div>
+            {/each}
+          </div>
+        </div>
+
+        <!-- ความจำ: this head's file, the projects it hosts, its queue and
+             its history — moved whole from การเรียนรู้. -->
+        <div class="ag-tab-panel" class:on={mainTab === 'memory'}>
+          {#if headPending(h).length > 0}
+            <h3 class="set-h3">{t('settings.learningPending')}</h3>
+            <p class="muted set-sub">{t('settings.learningPendingHint')}</p>
+            <div class="settings-card">
+              {#each headPending(h) as c (c.id)}{@render pendingRow(c)}{/each}
+            </div>
+          {/if}
+          {#each [g] as group (group.scope)}
+            <div class="settings-card mem-desk">
+              {@render deskHead(group)}
+              {#if moveError?.scope === group.scope}
+                <div class="mem-move-error"><Icon name="alertTriangle" size={13} /><span>{moveError.text}</span></div>
+              {/if}
+              {#each group.lines as line, i (i)}
+                {@render memRow(group, line, i)}
+              {/each}
+              {#if group.lines.length === 0}
+                <div class="empty">{group.projectsUnder ? t('settings.memoryDeskEmpty') : t('settings.learningAssistantEmpty')}</div>
+              {/if}
+
+              {#if group.scope === projectsHost}
+                {#if projectGroups.length > 0}
+                  <div class="mem-sub-h">{t('settings.memoryProjectsUnder')}</div>
+                {/if}
+                {#each projectGroups as project (project.scope)}
+                  <div class="mem-sub">
+                    {@render deskHead(project)}
+                    {#if project.orphan && adoptOpen === project.scope}
+                      <div class="mem-adopt">
+                        {#each knownProjects as p (p.rootPath)}
+                          <button type="button" class="ctrl tiny" onclick={() => adoptScope(project.scope, p.rootPath)}>{p.name}</button>
+                        {/each}
+                      </div>
+                    {/if}
+                    {#if moveError?.scope === project.scope}
+                      <div class="mem-move-error"><Icon name="alertTriangle" size={13} /><span>{moveError.text}</span></div>
+                    {/if}
+                    {#each project.lines as line, i (i)}
+                      {@render memRow(project, line, i)}
+                    {/each}
+                  </div>
+                {/each}
+              {/if}
+            </div>
+          {/each}
+          {#if memoryScopeError}
+            <div class="set-error">{memoryScopeError}</div>
+          {/if}
+          <div class="settings-card">
+            <div class="set-row learn-foot">
+              <div class="set-txt"><div class="d muted">{t('settings.mainMemoryFolderHint')}</div></div>
+              <button type="button" class="ctrl" onclick={() => OpenMemoryFolder()}>
+                <Icon name="folderOpen" size={13} /> {t('settings.learningOpenFolder')}
+              </button>
+            </div>
+          </div>
+          {#if headDecided(h).length > 0}
+            <h3 class="set-h3">{t('settings.learningHistory')}</h3>
+            <p class="muted set-sub">{t('settings.learningHistoryHint')}</p>
+            <div class="settings-card">
+              {#each decidedExpanded ? headDecided(h) : headDecided(h).slice(0, DECIDED_PREVIEW) as c (c.id)}{@render decidedRow(c)}{/each}
+              {#if headDecided(h).length > DECIDED_PREVIEW}
+                <button type="button" class="learn-more" onclick={() => (decidedExpanded = !decidedExpanded)}>
+                  <Icon name={decidedExpanded ? 'chevronUp' : 'chevronDown'} size={12} />
+                  {decidedExpanded
+                    ? t('settings.learningHistoryLess')
+                    : t('settings.learningHistoryMore', { n: headDecided(h).length - DECIDED_PREVIEW })}
+                </button>
+              {/if}
+            </div>
+          {/if}
+        </div>
+      {/if}
     {:else if active === 'you'}
       <h2>{t('settings.you')}</h2>
       <p class="muted set-sub">{t('settings.youDesc')}</p>
@@ -6906,69 +7174,27 @@
           </div>
         </div>
 
-      <h3 class="set-h3">{t('settings.learningPending')}</h3>
-      <p class="muted set-sub">{t('settings.learningPendingHint')}</p>
       {#if learningError}<div class="mset-error">{learningError}</div>{/if}
+      <!-- What was here — the profile's file, the two desks' files with their
+           projects, the queue, the history, the folder — has homes now: the
+           person's on เกี่ยวกับคุณ, each head's on ตัวหลัก, a delegate's on its
+           own page (14 ก.ย. 2026). This page is Habits and the kill switch
+           until Habits moves to ห้องความสามารถ, and then it goes. -->
       <div class="settings-card">
-        {#each learningPending as c (c.id)}{@render pendingRow(c)}{/each}
-        {#if learningPending.length === 0}
-          <div class="empty">{t('settings.learningNothingPending')}</div>
-        {/if}
-      </div>
-
-      <!-- ความจำเกี่ยวกับคุณ left this page for เกี่ยวกับคุณ (14 ก.ย. 2026).
-           What stays is what the assistant worked out on its own. -->
-      <!-- SECTION 2: one block per desk. The assistant's shared file is the
-           assistant's; a desk with its own memory (coding) has its own block,
-           and the projects its sessions write sit under it. -->
-      <h3 class="set-h3 mem-header-split" style="margin-top:28px;">
-        <span>{t('settings.learningAssistantSection')}</span>
-      </h3>
-      <p class="muted set-sub">{t('settings.learningAssistantSectionHint')}</p>
-
-      {#each deskGroups as group (group.scope)}
-        <div class="settings-card mem-desk">
-          {@render deskHead(group)}
-          {#if moveError?.scope === group.scope}
-            <div class="mem-move-error"><Icon name="alertTriangle" size={13} /><span>{moveError.text}</span></div>
-          {/if}
-          {#each group.lines as line, i (i)}
-            {@render memRow(group, line, i)}
-          {/each}
-          {#if group.lines.length === 0}
-            <div class="empty">{group.projectsUnder ? t('settings.memoryDeskEmpty') : t('settings.learningAssistantEmpty')}</div>
-          {/if}
-
-          {#if group.scope === projectsHost}
-            {#if projectGroups.length > 0}
-              <div class="mem-sub-h">{t('settings.memoryProjectsUnder')}</div>
-            {/if}
-            {#each projectGroups as project (project.scope)}
-              <div class="mem-sub">
-                {@render deskHead(project)}
-                {#if project.orphan && adoptOpen === project.scope}
-                  <div class="mem-adopt">
-                    {#each knownProjects as p (p.rootPath)}
-                      <button type="button" class="ctrl tiny" onclick={() => adoptScope(project.scope, p.rootPath)}>{p.name}</button>
-                    {/each}
-                  </div>
-                {/if}
-                {#if moveError?.scope === project.scope}
-                  <div class="mem-move-error"><Icon name="alertTriangle" size={13} /><span>{moveError.text}</span></div>
-                {/if}
-                {#each project.lines as line, i (i)}
-                  {@render memRow(project, line, i)}
-                {/each}
-              </div>
-            {/each}
-          {/if}
+        <div class="set-row">
+          <div class="set-txt">
+            <div class="t">{t('settings.learningUserSection')}</div>
+            <div class="d">{t('settings.learningMovedYou')}</div>
+          </div>
+          <button type="button" class="ctrl" onclick={() => openSection('you')}>{t('settings.you')} <Icon name="arrowRight" size={12} /></button>
         </div>
-      {/each}
-      {#if memoryScopeError}
-        <div class="set-error">{memoryScopeError}</div>
-      {/if}
-
-      <div class="settings-card">
+        <div class="set-row">
+          <div class="set-txt">
+            <div class="t">{t('settings.learningAssistantSection')}</div>
+            <div class="d">{t('settings.learningMovedMain')}</div>
+          </div>
+          <button type="button" class="ctrl" onclick={() => openSection('main')}>{t('settings.mainHeads')} <Icon name="arrowRight" size={12} /></button>
+        </div>
         <div class="set-row">
           <div class="set-txt">
             <div class="t">{t('settings.memoryAgentsRow')}</div>
@@ -6978,28 +7204,7 @@
             {t('settings.memoryAgentsGo')} <Icon name="arrowRight" size={12} />
           </button>
         </div>
-        <div class="set-row learn-foot">
-          <button type="button" class="ctrl" onclick={() => OpenMemoryFolder()}>
-            <Icon name="folderOpen" size={13} /> {t('settings.learningOpenFolder')}
-          </button>
-        </div>
       </div>
-
-      {#if learningDecided.length > 0}
-        <h3 class="set-h3">{t('settings.learningHistory')}</h3>
-        <p class="muted set-sub">{t('settings.learningHistoryHint')}</p>
-        <div class="settings-card">
-          {#each decidedExpanded ? learningDecided : learningDecided.slice(0, DECIDED_PREVIEW) as c (c.id)}{@render decidedRow(c)}{/each}
-          {#if learningDecided.length > DECIDED_PREVIEW}
-            <button type="button" class="learn-more" onclick={() => (decidedExpanded = !decidedExpanded)}>
-              <Icon name={decidedExpanded ? 'chevronUp' : 'chevronDown'} size={12} />
-              {decidedExpanded
-                ? t('settings.learningHistoryLess')
-                : t('settings.learningHistoryMore', { n: learningDecided.length - DECIDED_PREVIEW })}
-            </button>
-          {/if}
-        </div>
-      {/if}
 
       {:else if learningSubTab === 'habits'}
         <h3 class="set-h3">{t('settings.habitsTitle')}</h3>
