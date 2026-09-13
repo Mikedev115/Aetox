@@ -1451,3 +1451,21 @@ func TestADeskWithItsOwnMemoryDoesNotReadTheSharedFile(t *testing.T) {
 		t.Errorf("ledger asked for %v, want %v", asked, want)
 	}
 }
+
+// The team a chat hires from is told once, by name, with the desk beside it —
+// and a chat on no team, which is every CLI session, says nothing about one.
+func TestTeamLayerNamesTheRosterOnlyOnATeamSession(t *testing.T) {
+	if got := BuildForDesk(SurfaceDesktop, Scope{}, Desk{Name: "coding"}); strings.Contains(got, "on the team") {
+		t.Fatalf("a chat on no team still talks about one: %s", got)
+	}
+	got := BuildForDesk(SurfaceDesktop, Scope{}, Desk{Name: "coding", Team: " ทีมเขียนและทดสอบแอพ "})
+	if !strings.Contains(got, "on the team «ทีมเขียนและทดสอบแอพ» at the coding desk") {
+		t.Fatalf("the team and desk are not named together: %s", got)
+	}
+	// A chair chat's desk.Name is the chair, and "at the doc desk" would be
+	// the wrong sentence — the team alone is told there.
+	chair := BuildForDesk(SurfaceDesktop, Scope{}, Desk{Name: "doc", Chair: true, Team: "ทีมเอกสาร"})
+	if !strings.Contains(chair, "on the team «ทีมเอกสาร»:") || strings.Contains(chair, "at the doc desk") {
+		t.Fatalf("a chair chat names its desk as if it were one: %s", chair)
+	}
+}
