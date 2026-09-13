@@ -18,6 +18,7 @@
   import type { main } from '../../wailsjs/go/models'
   import { t } from './i18n.svelte'
   import Icon from './Icon.svelte'
+  import LogoDraw from './LogoDraw.svelte'
   import { engine, applyEngineStatus, loadEngineStatus } from './stores/engine.svelte'
 
   let settled = $state(false)
@@ -62,8 +63,14 @@
 {#if show}
   <div class="upd-card" role="status" aria-live="polite">
     <div class="upd-head">
+      <!-- The mark writing itself while the wait lasts (LogoDraw.svelte);
+           a failure is not a wait and gets the warning sign instead. -->
       <div class="upd-icon">
-        <Icon name={status.state === 'failed' ? 'alertTriangle' : 'refreshCw'} size={20} />
+        {#if status.state === 'failed'}
+          <Icon name="alertTriangle" size={20} />
+        {:else}
+          <LogoDraw size={26} />
+        {/if}
       </div>
       <div class="upd-headings">
         <div class="upd-title">{title}</div>
