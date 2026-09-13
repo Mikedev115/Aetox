@@ -165,11 +165,3 @@ func walkHeadingKey(heading float64, step int) int {
 	}
 	return h
 }
-
-// abs is the one arithmetic helper this file needs; the engine has its own.
-func abs(n int) int {
-	if n < 0 {
-		return -n
-	}
-	return n
-}

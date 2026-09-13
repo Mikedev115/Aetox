@@ -161,12 +161,6 @@ func (s *spriteStore) have() []string {
 	return out
 }
 
-func (s *spriteStore) has(key string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.keys[key]
-}
-
 // frame is the decoded picture for a key, from the cache or from disk; nil
 // if the store has no such frame. The decode runs outside the lock: the
 // body's thread is the usual caller and a warm-up goroutine the other, and
@@ -202,27 +196,10 @@ func (s *spriteStore) frame(key string) *image.RGBA {
 	return img
 }
 
-func (s *spriteStore) decoded() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.decodes
-}
-
 func (s *spriteStore) forget(key string) {
 	s.mu.Lock()
 	delete(s.keys, key)
 	s.mu.Unlock()
-}
-
-// warm decodes keys in the background so the frames are in the cache before
-// they are drawn — the walk's headings when a drag begins, which would
-// otherwise each cost a PNG decode on the body's thread mid-step.
-func (s *spriteStore) warm(keys []string) {
-	go func() {
-		for _, k := range keys {
-			s.frame(k)
-		}
-	}()
 }
 
 // remember caches a decoded frame, evicting the least recently drawn past

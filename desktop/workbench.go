@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -24,10 +23,6 @@ import (
 )
 
 var agentBrowserSeq int64
-
-// urlSchemeRe is the one of the engine's address regexes the browser still
-// needs, to tell a URL from a path; the rest went with resolveAddress.
-var urlSchemeRe = regexp.MustCompile(`(?i)^[a-z][a-z0-9+.-]*://`)
 
 // browserRenderable is what the workbench browser can actually display. A file
 // with no extension at all is let through rather than guessed at.

@@ -79,14 +79,12 @@ func run(root, out string) error {
 		}
 		for _, imp := range file.Imports {
 			path, _ := strconv.Unquote(imp.Path.Value)
-			name := ""
+			// go-sdk style paths (…/v2) name the package by the element
+			// before the version; every import here that matters is
+			// aliased or plainly named, so the base is enough.
+			name := filepath.Base(path)
 			if imp.Name != nil {
 				name = imp.Name.Name
-			} else {
-				name = filepath.Base(path)
-				// go-sdk style paths (…/v2) name the package by the element
-				// before the version; every import here that matters is
-				// aliased or plainly named, so the base is enough.
 			}
 			imports[name] = path
 		}

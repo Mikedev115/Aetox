@@ -67,5 +67,3 @@ func WebviewUserDataDir(name string) string {
 	}
 	return filepath.Join(root, "webview", name)
 }
-
-func webviewUserDataDir(name string) string { return WebviewUserDataDir(name) }

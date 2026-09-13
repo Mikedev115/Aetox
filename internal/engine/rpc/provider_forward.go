@@ -96,7 +96,7 @@ func (f *providerForwarder) open(ctx context.Context, _ string, params json.RawM
 			transport = wrap(transport)
 		}
 	}
-	resp, err := (&http.Client{Transport: transport}).Do(req)
+	resp, err := (&http.Client{Transport: transport}).Do(req) //nolint:bodyclose // the body is handed to stream, which defers its Close — the response outlives this call by design
 	if err != nil {
 		finish()
 		return nil, err
