@@ -11,15 +11,20 @@
   // 2026-08-20 (§158) and the owner sent it straight back: the page is where you
   // walk in to talk to a specialist, and that belongs beside the assistant. The
   // name is the only thing that stayed changed.
+  //
+  // Since 13 ก.ย. 2026 it is the talking room and nothing else (owner: "หน้า
+  // นั้นจะเป็นเลือกคุยอย่างเดียว"). The gear on every card, the hiring button,
+  // the folder link and two paragraphs of signposts all left for ตั้งค่า ›
+  // เอเจนเฉพาะทาง, which is a page again; this page keeps one door there.
+  // Configuring lived here for a day (12 ก.ย.: "คนอยู่หน้าแรก ทีมอยู่ตั้งค่า")
+  // and it read as three pages pointing at each other — the editor still sat
+  // in Settings, in a room with no row in the rail.
   import { onMount } from 'svelte'
-  // The hiring door opens the agents' home. Since the homes split, which
-  // folder a file lands in is which kind it is — a chair file dropped into the
-  // sub-agents' folder would wake up sick.
   import {
-    ListChairs, ListReceivedJobs, OpenAgentsFolder, AgentGate, ListTeams,
+    ListChairs, ListReceivedJobs, AgentGate, ListTeams,
   } from '../../wailsjs/go/main/App'
   import { engine, subagent } from '../../wailsjs/go/models'
-  import { agoLabel, cockpit, newChairSession, selectGlobalSession, setActiveView, openSettingsAt } from './stores/cockpit.svelte'
+  import { agoLabel, newChairSession, selectGlobalSession, setActiveView, openSettingsAt } from './stores/cockpit.svelte'
   import { t, type TKey } from './i18n.svelte'
   import { dayBucket } from './dayBucket'
   import Icon from './Icon.svelte'
@@ -137,29 +142,6 @@
     await newChairSession(chair.name)
   }
 
-  // The two doors into the shared profile editor (Settings holds the one
-  // implementation; two copies of an editor is how they drift). The intent
-  // carries kind='agent' by construction — it comes off this roster — so the
-  // editor saves through the agents' door without ever reading a file to
-  // decide what something is.
-  //
-  // 'team' is เอเจน; 'agents' is the ซับเอเจน page next to it in Settings.
-  // Sending 'agents' still opened the right editor — the handler forces
-  // kind='agent' — so the header read ตั้งค่าเอเจน and everything about the
-  // form was correct. What it got wrong was the page *underneath*: closing the
-  // editor put the user on the ซับเอเจน roster, a page they had not asked
-  // for and could not have reached from here, with no way back to the team
-  // they came from. A back button that lands somewhere else is worse than no
-  // back button.
-  function configure(c: engine.Chair) {
-    cockpit.settingsIntent = { section: 'team', agent: c.name }
-    setActiveView('settings')
-  }
-  function createAgent() {
-    cockpit.settingsIntent = { section: 'team', createAgent: true }
-    setActiveView('settings')
-  }
-
 </script>
 
 <div class="page-shell">
@@ -173,14 +155,13 @@
 
   <div class="page-body">
     <div class="settings-inner">
-      <!-- The hiring doors are controls on the section, not cards in the grid.
-           As a card it was a 180px dashed box holding the first slot, so the
-           first thing the eye landed on was the space where nobody is — and it
-           pushed a real teammate onto a row of their own. -->
+      <!-- One door out, on the section and not on every card: everything
+           about a person that is not talking to them — model, tools, the file,
+           hiring a new one — is ตั้งค่า › เอเจนเฉพาะทาง's. -->
       <div class="sec-head">
         <div class="eyebrow section-label">{t('office.roster')}</div>
         <span class="ag-reach"></span>
-        <button class="ctrl" onclick={createAgent}><Icon name="plus" size={13} /> {t('office.newAgent')}</button>
+        <button class="ctrl" onclick={() => openSettingsAt('team')}><Icon name="settings" size={13} /> {t('office.configure')} <Icon name="arrowRight" size={13} /></button>
       </div>
 
       <!-- A face, not an inventory. The tool chips were six per card and five
@@ -188,8 +169,8 @@
            everyone the same set, so the list said nothing about who anyone is
            while taking half the card to say it. What is left is what the card
            is for: who this is, what they make, and whether they have done any
-           of it. The tools are one click away behind the gear, which is also
-           the only place they can be changed.
+           of it. The tools are on the settings page, which is also the only
+           place they can be changed.
 
            No switch, no band, no team section (owner, 12 ก.ย.: "คนอยู่หน้าแรก
            ทีมอยู่ตั้งค่า"). Whether the assistant may hand an agent work is a
@@ -211,11 +192,11 @@
                 {#if c.builtin}<span class="chip builtin">{t('office.builtin')}</span>{/if}
               </div>
               <p class="chair-desc">{c.description}</p>
-              <!-- Only facts that DIFFER between agents: an edited file, the
-                   work it has done, and since §256 the teams that name it —
-                   the one thing about a person this page cannot change. -->
+              <!-- Only facts that DIFFER between agents and matter to someone
+                   choosing whom to talk to: the work it has done, and since
+                   §256 the teams that name it. Whether its file is edited is
+                   a fact about configuring, and lives with the configuring. -->
               <div class="chair-chips">
-                {#if c.overrides}<span class="chip mine">{t('office.overrides')}</span>{/if}
                 {#if c.jobs > 0}
                   <span class="chair-stat"><span class="n">{c.jobs}</span> {t('office.jobsDone')} · {agoLabel(c.lastUsed ?? '')}</span>
                 {:else}
@@ -234,10 +215,6 @@
                 <Icon name="messageSquare" size={14} />
                 <span class="t">{t('office.chatWith', { name: c.name })}</span>
               </button>
-              <button class="icobtn tiny tip-l" aria-label={t('settings.agentConfigure')}
-                data-tip={t('settings.agentConfigure')} onclick={() => configure(c)}>
-                <Icon name="settings" size={13} />
-              </button>
             </div>
             <AgentLock agent={c.name} label={c.name} gate={gates[c.name] ?? null}
               onInstalled={() => loadNeeds(chairs)} />
@@ -247,11 +224,6 @@
           <div class="chair-card empty"><div class="chair-body"><p class="chair-desc">{t('office.noChairs')}</p></div></div>
         {/if}
       </div>
-      <p class="office-note">
-        {t('office.hiringNote')}
-        <button class="linklike" onclick={() => OpenAgentsFolder()}>{t('office.openAgentsFolder')}</button>
-        · <button class="linklike" onclick={() => openSettingsAt('teams')}>{t('office.teamsInSettings')}</button>
-      </p>
 
       <div class="sec-head feed-head">
         <div class="eyebrow section-label">{t('office.feed')}</div>
@@ -301,14 +273,6 @@
           <div class="set-row"><div class="set-txt"><div class="d">{who ? t('office.noJobsFor', { name: who }) : t('office.noJobs')}</div></div></div>
         </div>
       {/if}
-
-      <!-- Where the rest of them are. This page is the roster — who takes work
-           and what they have done — and it is not every profile the engine
-           runs: the assistant's own delegates never sit here. Saying so is what
-           keeps two pages from reading as one list that disagrees with itself.
-           It sits at the foot because it is a footnote: mid-page it was a wall
-           of prose between the team and their work. -->
-      <p class="office-note foot">{t('office.settingsNote')}</p>
     </div>
   </div>
 </div>

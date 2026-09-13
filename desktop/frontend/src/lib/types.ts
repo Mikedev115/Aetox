@@ -1272,6 +1272,11 @@ export interface CockpitState {
    * this way. Carries the *kind* because it came from the roster — Settings
    * must never re-derive it from a file. Consumed and cleared on arrival. */
   settingsIntent: { section: string; agent?: string; createAgent?: boolean; tab?: string; team?: string; createTeam?: boolean; side?: string } | null
+  /** The same one-shot request for ห้องความสามารถ: which of its pages to open
+   * on, and — for the two per-agent pages — whose sheet to open there. The
+   * agent editor's doors use it, so "จัดสกิล" lands on that agent's sheet and
+   * not on the room's front page. Consumed and cleared on arrival. */
+  capabilityIntent: { page: string; agent?: string } | null
 }
 
 /** One wording the user might send next, ready for Tab to take.
@@ -1345,6 +1350,7 @@ export function emptyCockpitState(): CockpitState {
     pendingLearned: 0,
     pendingIssues: 0,
     settingsIntent: null,
+    capabilityIntent: null,
     pendingImages: [],
     sessionError: '',
     parked: {},

@@ -4,10 +4,10 @@
 // menu and the agent's own settings page only counts. Since 13 ก.ย. it is a
 // rail of four pages in ตั้งค่า's frame: MCP server ของคุณ (readiness only:
 // test, sign in, keys, tools), ตั้งค่า MCP ฝั่งผู้ช่วยและโค้ด and ตั้งค่า MCP
-// สำหรับเอเจนเฉพาะ (placement, a card per target and one picker), ห้องสมุด MCP.
+// สำหรับเอเจนเฉพาะทาง (placement, a card per target and one picker), ห้องสมุด MCP.
 // The same day สกิล became the rail's second heading — three pages moved whole
 // out of ตั้งค่า: สกิลของคุณ (the shelf: what is on it, what did not read,
-// the three install roads), ตั้งค่าสกิลสำหรับเอเจนเฉพาะ (a card per agent and
+// the three install roads), ตั้งค่าสกิลสำหรับเอเจนเฉพาะทาง (a card per agent and
 // one sheet that COPIES a shelf skill into the agent's own folder — there is no
 // `for:` on a skill, every desk carries the whole shelf), ห้องสมุดสกิล.
 //
@@ -52,6 +52,7 @@ const server = (over: Record<string, unknown> = {}) =>
 beforeEach(() => {
   vi.clearAllMocks()
   cockpit.activeView = 'capability'
+  cockpit.capabilityIntent = null
   vi.mocked(ListMCPServers).mockResolvedValue([] as any)
   vi.mocked(ListExternalSkills).mockResolvedValue([] as any)
   vi.mocked(ListSubagentProfiles).mockResolvedValue([] as any)
@@ -126,8 +127,8 @@ describe('what the room must not have any more', () => {
   it('is a rail of two headings — four MCP pages, three skill pages — and has no kind tabs', async () => {
     await open()
     expect(rail().map((x) => x.textContent?.trim())).toEqual([
-      'MCP server ของคุณ', 'ตั้งค่า MCP ฝั่งผู้ช่วยและโค้ด', 'ตั้งค่า MCP สำหรับเอเจนเฉพาะ', 'ห้องสมุด MCP',
-      'สกิลของคุณ', 'ตั้งค่าสกิลสำหรับเอเจนเฉพาะ', 'ห้องสมุดสกิล',
+      'MCP server ของคุณ', 'ตั้งค่า MCP ฝั่งผู้ช่วยและโค้ด', 'ตั้งค่า MCP สำหรับเอเจนเฉพาะทาง', 'ห้องสมุด MCP',
+      'สกิลของคุณ', 'ตั้งค่าสกิลสำหรับเอเจนเฉพาะทาง', 'ห้องสมุดสกิล',
     ])
     expect(Array.from(document.querySelectorAll('.settings-nav .settings-group-label')).map((x) => x.textContent?.trim())).toEqual(['MCP', 'สกิล'])
     expect(screen.queryAllByRole('tablist').length).toBe(0) // the sheet's tabs exist only while it is open
@@ -258,7 +259,7 @@ describe('สกิลของคุณ', () => {
   })
 })
 
-describe('ตั้งค่าสกิลสำหรับเอเจนเฉพาะ', () => {
+describe('ตั้งค่าสกิลสำหรับเอเจนเฉพาะทาง', () => {
   beforeEach(() => {
     vi.mocked(ListExternalSkills).mockResolvedValue(SHELF as any)
     vi.mocked(AgentSkills).mockImplementation(async (name: string) =>
@@ -268,7 +269,7 @@ describe('ตั้งค่าสกิลสำหรับเอเจนเ�
   })
   const openAgents = async () => {
     await open()
-    await railTo('ตั้งค่าสกิลสำหรับเอเจนเฉพาะ')
+    await railTo('ตั้งค่าสกิลสำหรับเอเจนเฉพาะทาง')
     await waitFor(() => expect(vi.mocked(AgentSkills)).toHaveBeenCalledWith('editor'))
   }
 
@@ -309,6 +310,30 @@ describe('ตั้งค่าสกิลสำหรับเอเจนเ�
     await waitFor(() => expect(vi.mocked(RemoveAgentSkill)).toHaveBeenCalledWith('deepresearch', 'gridgeist'))
     await fireEvent.click(within(sheet).getByText('เปิดโฟลเดอร์สกิล'))
     expect(vi.mocked(OpenAgentSkillsFolder)).toHaveBeenCalledWith('deepresearch')
+  })
+})
+
+// The agent editor's doors (ตั้งค่า › เอเจนเฉพาะทาง › MCP / สกิล) ask for a
+// page AND an agent (cockpit.capabilityIntent): the room opens on that page
+// with that agent's sheet already up, instead of on its front page with the
+// reader left to find the card (owner, 13 ก.ย. 2026: "กดปุ่มความสามารถแล้ว
+// ควรพามาหน้าตั้งค่า MCP สำหรับเอเจนเฉพาะทางสิครับ").
+describe('arriving from the agent editor', () => {
+  it("opens the MCP placement page on the agent's picker, and consumes the intent", async () => {
+    cockpit.capabilityIntent = { page: 'agents', agent: 'editor' }
+    await open([{ name: 'context7', command: ['npx'], disabled: false, status: 'connected', tools: 2, for: [] }])
+    await waitFor(() => expect(activePage()).toBe('ตั้งค่า MCP สำหรับเอเจนเฉพาะทาง'))
+    await waitFor(() => expect(document.getElementById('cap-pick-title')?.textContent).toContain('editor'))
+    expect(cockpit.capabilityIntent).toBeNull()
+  })
+
+  it("opens the skill page on the agent's sheet", async () => {
+    vi.mocked(ListExternalSkills).mockResolvedValue(SHELF as any)
+    vi.mocked(AgentSkills).mockResolvedValue([] as any)
+    cockpit.capabilityIntent = { page: 'skagents', agent: 'editor' }
+    await open()
+    await waitFor(() => expect(activePage()).toBe('ตั้งค่าสกิลสำหรับเอเจนเฉพาะทาง'))
+    await waitFor(() => expect(document.querySelector('.cap-sheet h3')?.textContent).toBe('สกิลของ editor'))
   })
 })
 
@@ -608,7 +633,7 @@ describe('placement: two pages, one picker', () => {
   // The agents' page: a card per teammate saying what it is for, what it
   // holds, and what its own file says it needs and has not got. The rail
   // counts the teammates that cannot work yet.
-  it('ตั้งค่า MCP สำหรับเอเจนเฉพาะ is a card per agent with its needs, and its button opens the picker', async () => {
+  it('ตั้งค่า MCP สำหรับเอเจนเฉพาะทาง is a card per agent with its needs, and its button opens the picker', async () => {
     vi.mocked(ListSubagentProfiles).mockResolvedValue(
       [{ name: 'deepresearch', description: 'เอเจนหาข้อมูลเชิงลึก — ไล่หลายแหล่ง', needs: ['mcp:firecrawl'] }, { name: 'editor', description: 'เอเจนตัดต่อวิดีโอ — ดูฟุตเทจ', needs: ['mcp:kinocut'] }] as any)
     await open([server({ status: 'connected', tools: 25, tokens: 3200, for: ['assistant', 'agent:editor'] }), server({ name: 'kinocut', url: '', command: ['kino'], for: [] })])

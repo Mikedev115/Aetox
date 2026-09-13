@@ -10,7 +10,7 @@ import {
   CustomProviders, AddCustomProvider, RemoveCustomProvider, ProviderBaseURL,
   SkillsDir, SkillScanIssues, OpenSkillsFolder, InstallSkillFromZip,
   MCPConfigPath, OpenMCPFolder, SaveMCPServer, AppVersion, CheckForUpdate, ListChairs, SaveAgentProfile,
-  AgentSkills, AgentNeeds, PlacementTargets, SetMCPServerTargets,
+  AgentSkills, AgentNeeds, PlacementTargets, SetMCPServerTargets, CopySkillToAgent,
   ChairStarters, SaveChairStarters, DelegateSwitches, SetAgentOff,
   Connections, ConnectAccount, SetConnectionTargets, VerifyConnection, DisconnectAccount,
   AcceptsAPIKey, APIKeyHint, HasAPIKey, ProviderAPIKeyURL, ProviderReady, PriceModels, TestProviderConnection,
@@ -734,28 +734,40 @@ describe('Settings pages', () => {
     expect(screen.getByText('+ $ARGUMENTS')).toBeTruthy()
   })
 
-  // เอเจน get their own settings page, listing only them — the office page is
-  // where you work with them (chat, job history), this is where you configure
-  // them. Both pages are drawn from one markup (profileListPane), so the two
-  // lists cannot drift into two different ideas of what a profile row is.
-  //
-  // Since 12 ก.ย. (§256) the agents' LIST is not on this page at all — the
-  // people are on the roster page, teams and their switches are in ทีมเอเจน —
-  // so what is pinned is the absence: no เอเจน row in the nav, and the 'team'
-  // section without an editor points at the roster instead of drawing one.
-  it('has no agent list of its own, and points at the roster page instead', async () => {
+  // เอเจนเฉพาะทาง get their own settings page, listing only them — the roster
+  // page is where you talk to them, this is where you configure them (owner,
+  // 13 ก.ย. 2026). Both this list and the ซับเอเจน one are drawn from one
+  // markup (profileListPane), so the two cannot drift into two ideas of what a
+  // profile row is. For a day (12 ก.ย.) the row was gone and the section only
+  // ever opened with an editor; landing on it without one drew a signpost.
+  // Now it draws the list.
+  it('lists the agents on its own page, with the door to hire as the primary button', async () => {
+    vi.mocked(ListSubagentProfiles).mockResolvedValue([
+      { name: 'deck', description: 'ทำสไลด์', prompt: 'role', builtin: true, desk: 'specialized' },
+      { name: 'explore', description: 'ค้นไฟล์', prompt: 'role', builtin: true },
+    ] as any)
+    vi.mocked(ListChairs).mockResolvedValue([{ name: 'deck' }] as any)
     const { container } = render(Settings, { onClose: () => {} })
     const labels = Array.from(container.querySelectorAll('.settings-nav-item')).map((el) => el.textContent?.trim())
-    expect(labels).not.toContain('เอเจน')
-    expect(labels).toContain('ทีมเอเจน')
+    expect(labels).toContain('เอเจนเฉพาะทาง')
     expect(labels).toContain('ซับเอเจน')
-    cockpit.settingsIntent = { section: 'team', agent: 'no-such-agent' }
-    render(Settings, { onClose: () => {} })
-    await waitFor(() => expect(screen.getByText(/รายชื่อเอเจนอยู่ที่หน้าเอเจนเฉพาะทาง/)).toBeTruthy())
+    expect(labels).toContain('ทีมเอเจน')
+
+    await openSection(container, 'เอเจนเฉพาะทาง')
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'เอเจนเฉพาะทาง' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('deck')).toBeTruthy())
+    // Only the people: the assistant's helper is the other page's.
+    expect(screen.queryByText('explore')).toBeNull()
+    // The same shape and place as ทีมเอเจน's สร้างทีม (owner, 13 ก.ย.:
+    // "พื้นหลังสีเดียวกับสร้างทีม"); the door to the roster page is the rail's.
+    const hire = screen.getByText('เพิ่มเอเจนเฉพาะทาง').closest('button')!
+    expect(hire.classList.contains('ctrl-primary')).toBe(true)
+    expect(screen.queryByText(/ไปหน้าเอเจนเฉพาะทาง/)).toBeNull()
   })
 
-  // Closing an agent's editor walks back to the roster page it was opened
-  // from — there is no list here to land on.
+  // Closing an agent's editor walks back to where it was opened from. An
+  // intent naming an agent comes from the roster page (a card's lock), so
+  // that one lands back there.
   it('closing the agent editor returns to the roster page', async () => {
     cockpit.settingsIntent = { section: 'team', agent: 'deck' }
     cockpit.activeView = 'settings'
@@ -784,7 +796,7 @@ describe('Settings pages', () => {
 
     render(Settings, { onClose: () => {} })
 
-    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจน')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
     // Consumed once — an intent left behind would reopen this editor on the
     // next plain visit to Settings.
     expect(cockpit.settingsIntent).toBeNull()
@@ -796,28 +808,29 @@ describe('Settings pages', () => {
   })
 
   // Where the back button lands, which is the half the two end-tests missed.
-  //
-  // The intent used to name section 'agents' — the ซับเอเจน page — and the
-  // editor still came up correct, because the handler forces kind='agent'
-  // regardless. So every assertion above passed while the page *underneath* the
-  // editor was the wrong roster: closing it dropped the user on ซับเอเจน,
-  // somewhere they had not asked to be and could not have got to from the team
-  // page. Only the heading after closing catches that.
-  it('goes back to the team roster, not the helpers', async () => {
+  // An editor opened from this page's own list closes onto this list — not
+  // onto the roster page (that is the lock's road), and not onto ซับเอเจน,
+  // where it once landed because the intent named the wrong section and the
+  // editor came up correct anyway.
+  it('goes back to its own list, not the helpers or the roster page', async () => {
     vi.mocked(ListSubagentProfiles).mockResolvedValue([
       { name: 'deck', description: 'ทำสไลด์', prompt: 'role', builtin: true, desk: 'specialized' },
     ] as any)
     vi.mocked(ListChairs).mockResolvedValue([{ name: 'deck' }] as any)
     vi.mocked(ReadSubagentProfile).mockResolvedValue('---\ndescription: ทำสไลด์\n---\nสร้างสไลด์' as any)
-    cockpit.settingsIntent = { section: 'team', agent: 'deck' }
+    cockpit.activeView = 'settings'
 
-    render(Settings, { onClose: () => {} })
-    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจน')).toBeTruthy())
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'เอเจนเฉพาะทาง')
+    await waitFor(() => expect(screen.getByText('deck')).toBeTruthy())
+    await fireEvent.click(screen.getAllByLabelText('ตั้งค่า')[0])
+    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
 
     await fireEvent.click(screen.getByText('กลับไปหน้ารวม'))
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'เอเจน' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'เอเจนเฉพาะทาง' })).toBeTruthy())
     expect(screen.queryByRole('heading', { name: 'ซับเอเจน' })).toBeNull()
+    expect(cockpit.activeView).toBe('settings')
   })
 
   it('opens a blank agent form when the team page asks to create one', async () => {
@@ -825,7 +838,7 @@ describe('Settings pages', () => {
 
     render(Settings, { onClose: () => {} })
 
-    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจน')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
     expect(cockpit.settingsIntent).toBeNull()
   })
 
@@ -933,7 +946,7 @@ describe('Settings pages', () => {
     vi.mocked(ReadSubagentProfile).mockResolvedValue('---\ndescription: ทำสไลด์\n---\nสร้างสไลด์' as any)
     cockpit.settingsIntent = { section: 'team', agent: 'deck' }
     const { container } = render(Settings, { onClose: () => {} })
-    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจน')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
     await fireEvent.click(screen.getByRole('tab', { name: 'สมอง' }))
 
     const selects = container.querySelectorAll<HTMLSelectElement>('#ag-panel-brain select.ctrl')
@@ -1010,14 +1023,21 @@ describe('Settings pages', () => {
     expect(saved).toContain('tools: read')
   })
 
-  // Three boxes, because the engine has three mechanisms: tools subtract from
-  // the shared set, MCP and skills each add for this one agent alone. Reading
-  // them as one list is what sent the user to three pages to answer "what can
-  // this one reach".
-  it('separates what this agent alone carries — MCP and skills get their own boxes', async () => {
+  // Two boxes, because the engine has two adding mechanisms: MCP and skills
+  // each add for this one agent alone. The MCP box lists every live server
+  // with a switch — a saved agent's switch writes `for:` at once through the
+  // room's one call (owner, 13 ก.ย. 2026: "ทำไมมันไม่แสดง MCP"); the skills
+  // box lists what the folder holds and its door opens the room's sheet on
+  // THIS agent (capabilityIntent).
+  it("lists MCP with live switches and the agent's own skills, and the doors carry the agent", async () => {
     vi.mocked(PlacementTargets).mockResolvedValue([
       { id: 'assistant', name: 'ผู้ช่วย', kind: 'desk' },
       { id: 'agent:deck', name: 'deck', kind: 'agent' },
+    ] as any)
+    vi.mocked(ListMCPServers).mockResolvedValue([
+      { name: 'context7', command: ['npx'], disabled: false, status: 'connected', tools: 2, for: ['agent:deck'] },
+      { name: 'firecrawl', url: 'https://x', disabled: false, status: 'connected', tools: 5, for: ['assistant'] },
+      { name: 'exa', url: 'https://mcp.exa.ai/mcp', disabled: true, status: 'disabled', tools: 0 },
     ] as any)
     vi.mocked(AgentSkills).mockResolvedValue([
       { name: 'invoice', description: 'ใบกำกับภาษีต้องมีอะไรบ้าง', bundled: false },
@@ -1025,16 +1045,71 @@ describe('Settings pages', () => {
     ] as any)
     const { container } = await openAgentEditor('deck')
 
-    // Both boxes COUNT and point at the room. The MCP box was the third editor
-    // of the same `for:` list (12 ก.ย. 2026, owner: ซ้ำซ้อน); the skills box
-    // listed a folder the room lists since 13 ก.ย. The one editor of each is
-    // in ห้องความสามารถ, and no list or switch may come back here.
     await waitFor(() => expect(vi.mocked(AgentSkills)).toHaveBeenCalledWith('deck'))
-    await waitFor(() => expect(screen.getByText('สกิลเฉพาะตัวนี้').parentElement?.textContent).toContain('2'))
-    expect(screen.queryByText('invoice')).toBeNull()
-    expect(container.querySelectorAll('.ag-reachrow').length).toBe(0)
-    expect(screen.getAllByText(/ห้องความสามารถ/).length).toBe(2)
-    expect(screen.getAllByRole('button', { name: /ความสามารถ/ }).length).toBe(2)
+    await waitFor(() => expect(screen.getByText('invoice')).toBeTruthy())
+    expect(screen.getByText('payroll')).toBeTruthy()
+    // Every live server, the placed one on; the disabled one is not offered.
+    await waitFor(() => expect(container.querySelectorAll('.ag-reachrow').length).toBe(2))
+    const rowOf = (name: string) => screen.getByText(name).closest('.ag-reachrow')!
+    expect(rowOf('context7').querySelector('input')!.checked).toBe(true)
+    expect(rowOf('firecrawl').querySelector('input')!.checked).toBe(false)
+    expect(screen.queryByText('exa')).toBeNull()
+
+    await fireEvent.click(rowOf('firecrawl').querySelector('input')!)
+    await waitFor(() => expect(vi.mocked(SetMCPServerTargets)).toHaveBeenCalledWith('firecrawl', ['assistant', 'agent:deck']))
+
+    await fireEvent.click(screen.getByRole('button', { name: /ตั้งค่าสกิลสำหรับเอเจนเฉพาะทาง/ }))
+    expect(cockpit.capabilityIntent).toEqual({ page: 'skagents', agent: 'deck' })
+    expect(cockpit.activeView).toBe('capability')
+    cockpit.activeView = 'settings'
+    await fireEvent.click(screen.getByRole('button', { name: /MCP server ของคุณ/ }))
+    expect(cockpit.capabilityIntent).toEqual({ page: 'mine' })
+  })
+
+  // A new agent has no folder and no placement id yet, so its MCP and skill
+  // tabs tick (owner, 13 ก.ย.: "ตอนสร้างทำให้เลือกได้ว่าจะเลือก MCP ไหนที่มีในระบบ",
+  // "ทำไมไม่มีปุ่มไปหน้าจัดการสกิล หรือปุ่มเพิ่ม") and Save places and copies
+  // the ticks through the room's own calls once the file exists. The two tabs
+  // are drawn on a new agent — a strip missing two tabs read as unfinished.
+  it('a new agent ticks MCP servers and shelf skills, and Save places and copies them', async () => {
+    vi.mocked(ListMCPServers).mockResolvedValue([
+      { name: 'context7', command: ['npx'], disabled: false, status: 'connected', tools: 2, for: ['assistant'] },
+      { name: 'exa', url: 'https://mcp.exa.ai/mcp', disabled: true, status: 'disabled', tools: 0 },
+    ] as any)
+    vi.mocked(ListExternalSkills).mockResolvedValue([
+      { name: 'gridgeist', description: 'grid design', dir: 'C:/skills/gridgeist' },
+      { name: 'invoice', description: 'ใบกำกับภาษี', dir: 'C:/skills/invoice', bundled: true },
+    ] as any)
+    vi.mocked(PlacementTargets).mockResolvedValue([{ id: 'assistant', name: 'ผู้ช่วย', kind: 'desk' }] as any)
+    vi.mocked(SetMCPServerTargets).mockClear()
+    vi.mocked(CopySkillToAgent).mockClear()
+    cockpit.settingsIntent = { section: 'team', createAgent: true }
+    const { container } = render(Settings, { onClose: () => {} })
+    await waitFor(() => expect(container.querySelector('.ag-body')).toBeTruthy())
+    expect(screen.getAllByRole('tab').length).toBe(6)
+
+    await fireEvent.click(screen.getByRole('tab', { name: /MCP/ }))
+    await waitFor(() => expect(screen.getByText('context7')).toBeTruthy())
+    expect(screen.queryByText('exa')).toBeNull() // the disabled one is not offered
+    await fireEvent.click(screen.getByText('context7').closest('.ag-reachrow')!.querySelector('input')!)
+    expect(vi.mocked(SetMCPServerTargets)).not.toHaveBeenCalled() // a tick, not a write
+
+    await fireEvent.click(screen.getByRole('tab', { name: /สกิลเฉพาะสำหรับเอเจน/ }))
+    await waitFor(() => expect(screen.getByText('gridgeist')).toBeTruthy())
+    expect(screen.getByRole('button', { name: /สกิลของคุณ/ })).toBeTruthy()
+    await fireEvent.click(screen.getByText('gridgeist').closest('.ag-reachrow')!.querySelector('input')!)
+    expect(vi.mocked(CopySkillToAgent)).not.toHaveBeenCalled()
+
+    await fireEvent.input(screen.getByPlaceholderText('backend'), { target: { value: 'scout' } })
+    await fireEvent.input(container.querySelector('.ag-body')!, { target: { value: 'You scout.' } })
+    // Once the file exists the register knows the agent.
+    vi.mocked(PlacementTargets).mockResolvedValue([
+      { id: 'assistant', name: 'ผู้ช่วย', kind: 'desk' }, { id: 'agent:scout', name: 'scout', kind: 'agent' },
+    ] as any)
+    await fireEvent.click(screen.getAllByText('บันทึก')[0])
+    await waitFor(() => expect(vi.mocked(SaveAgentProfile)).toHaveBeenCalled())
+    await waitFor(() => expect(vi.mocked(SetMCPServerTargets)).toHaveBeenCalledWith('context7', ['assistant', 'agent:scout']))
+    await waitFor(() => expect(vi.mocked(CopySkillToAgent)).toHaveBeenCalledWith('scout', 'gridgeist'))
   })
 
   // The engine has computed unmet needs since needs.go was written and only
@@ -2482,14 +2557,14 @@ describe('model probes run side by side', () => {
 })
 
 // Settings › ทีมเอเจน (§256): its own row at the foot of the โมเดล AI group,
-// after เอเจน and ซับเอเจน (owner: "เพิ่มตั้งค่าทีมเอเจนที่ข้างล่าง"), opening
-// the team page — never a field on the agent editor.
+// after เอเจนเฉพาะทาง and ซับเอเจน (owner: "เพิ่มตั้งค่าทีมเอเจนที่ข้างล่าง"),
+// opening the team page — never a field on the agent editor.
 describe('Settings › ทีมเอเจน', () => {
   it('sits last in the model group and opens the team page', async () => {
     const { container } = render(Settings, { onClose: () => {} })
     const labels = Array.from(container.querySelectorAll('.settings-nav-item')).map((el) => el.textContent?.trim())
     const model = labels.indexOf('การตั้งค่าโมเดล')
-    expect(labels.slice(model, model + 3)).toEqual(['การตั้งค่าโมเดล', 'ซับเอเจน', 'ทีมเอเจน'])
+    expect(labels.slice(model, model + 4)).toEqual(['การตั้งค่าโมเดล', 'เอเจนเฉพาะทาง', 'ซับเอเจน', 'ทีมเอเจน'])
     await openSection(container, 'ทีมเอเจน')
     await waitFor(() => expect(screen.getByText('ทีมเอเจน', { selector: 'h2' })).toBeTruthy())
     // The door is drawn more than once on purpose (teamSettings.test.ts).

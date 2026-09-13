@@ -100,34 +100,22 @@ describe('the office roster', () => {
     expect(container.querySelector('.chair-stat')?.textContent).toMatch(/3\s*งาน/)
   })
 
-  // The hiring door is the section's own control rather than a card in the
-  // grid. It opens the shared profile editor with kind=agent carried in the
-  // intent — from this roster, kind is known by construction, and the editor
-  // must never re-derive it from a file.
-  it('offers a create-agent door that opens the editor as an agent', async () => {
-    render(Office, { onClose: () => {} })
-    const door = await screen.findByText('เพิ่มเอเจนเฉพาะทาง')
-
-    await fireEvent.click(door)
-
-    // 'team' is เอเจน. Naming the ซับเอเจน page here still opened the right
-    // editor — the handler forces the kind — so the bug hid behind a correct
-    // form and only showed itself when the user closed it.
-    expect(cockpit.settingsIntent).toEqual({ section: 'team', createAgent: true })
-    expect(cockpit.activeView).toBe('settings')
-  })
-
-  // Configure on the card: the agent's desk is its home page, and the gear is
-  // its own door into the one editor.
-  it('sends a card\'s gear to the editor with that agent\'s name', async () => {
-    render(Office, { onClose: () => {} })
+  // The talking room and nothing else (owner, 13 ก.ย. 2026: "หน้านั้นจะเป็น
+  // เลือกคุยอย่างเดียว"). Configuring — the gear that was on every card, the
+  // hiring button, the folder link — is ตั้งค่า › เอเจนเฉพาะทาง's, and this
+  // page keeps one door there. Pinned by absence as much as presence: a gear
+  // creeping back onto the card is the regression.
+  it('keeps one door to settings and no gear on the cards', async () => {
+    const { container } = render(Office, { onClose: () => {} })
     await screen.findByText('เก้าอี้ร่างเอกสาร')
 
-    const gear = screen.getAllByLabelText('ตั้งค่า')[0]
-    await fireEvent.click(gear)
+    expect(screen.queryByLabelText('ตั้งค่า')).toBeNull()
+    expect(screen.queryByText('เพิ่มเอเจนเฉพาะทาง')).toBeNull()
+    expect(container.querySelector('.office-note')).toBeNull()
 
-    expect(cockpit.settingsIntent).toEqual({ section: 'team', agent: 'doc' })
+    await fireEvent.click(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง'))
     expect(cockpit.activeView).toBe('settings')
+    expect(sessionStorage.getItem('aetox.settingsSection')).toBe('team')
   })
 
   // Walking into the room (§85): the card's chat button opens a session bound
@@ -189,11 +177,10 @@ describe('the roster and teams', () => {
     expect(container.querySelector('.chair-stat.teams')).toBeNull()
   })
 
-  it('sends people to ตั้งค่า › ทีมเอเจน for anything about a team', async () => {
+  it('has nothing of its own about teams beyond the chip', async () => {
     render(Office, { onClose: () => {} })
-    await waitFor(() => expect(screen.getByText(/จัดทีมที่/)).toBeTruthy())
-    await fireEvent.click(screen.getByText(/จัดทีมที่/))
-    expect(cockpit.activeView).toBe('settings')
+    await waitFor(() => expect(screen.getByText('เก้าอี้ร่างเอกสาร')).toBeTruthy())
+    expect(screen.queryByText(/จัดทีมที่/)).toBeNull()
     expect(screen.queryByText('สร้างทีม')).toBeNull()
   })
 })

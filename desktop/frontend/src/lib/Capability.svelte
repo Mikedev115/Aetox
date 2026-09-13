@@ -122,7 +122,7 @@
   } from '../../wailsjs/go/main/App'
   import { config } from '../../wailsjs/go/models'
   import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
-  import { openSettingsAt, startChatWith } from './stores/cockpit.svelte'
+  import { cockpit, openSettingsAt, startChatWith } from './stores/cockpit.svelte'
   import { t, type TKey } from './i18n.svelte'
   import Icon from './Icon.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
@@ -256,7 +256,34 @@
     skillsLoaded = true
     if (page === 'skagents' || skillPick) await loadAgentSkills()
   }
-  onMount(async () => { await load(); void probeIdle() })
+  onMount(async () => {
+    await load()
+    void probeIdle()
+    await arriveAt()
+  })
+  // Where another page asked this room to open (cockpit.capabilityIntent):
+  // one of its pages, and on the two per-agent pages that agent's own sheet.
+  // The agent editor's "เลือก MCP" / "จัดสกิล" doors use it — landing on the
+  // room's front page and leaving the reader to find their agent among the
+  // cards was the complaint (owner, 13 ก.ย. 2026: "กดปุ่มความสามารถแล้วควรพามา
+  // หน้าตั้งค่า MCP สำหรับเอเจนเฉพาะสิครับ"). Consumed once.
+  async function arriveAt() {
+    const intent = cockpit.capabilityIntent
+    if (!intent) return
+    cockpit.capabilityIntent = null
+    const pg = intent.page as Page
+    if (!RAIL.some((g) => g.rows.some((r) => r.id === pg))) return
+    pageSettled = true
+    goPage(pg)
+    if (SKILL_PAGES.includes(pg) && !skillsLoaded) await loadSkills()
+    if (!intent.agent) return
+    if (pg === 'agents') {
+      const target = agentTargets.find((x) => x.name === intent.agent)
+      if (target) await openPicker(target.id)
+    } else if (pg === 'skagents') {
+      if (agentTargets.some((x) => x.name === intent.agent)) skillPick = intent.agent
+    }
+  }
 
   // The probe. A server's tool count, its cost and its tool list live on the
   // server and arrive with a connect, so a page of never-connected servers

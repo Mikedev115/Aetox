@@ -716,7 +716,6 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'office.newTeam': '新建团队',
   'office.builtin': '内置',
   'office.teamsOfTip': '这个代理所在的团队——在 设置 › 代理团队 里管理',
-  'office.teamsInSettings': '在 设置 › 代理团队 里管理团队',
   'office.teamDeskCodingNote': '代码侧团队拥有代码入口的 shell 和代码工具，走同一套审批，只能从代码入口选择。',
   'office.teamMembersCount': '{n} 人',
   'office.teamMissing': '文件里已没有对应代理的名字：{names}',

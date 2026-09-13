@@ -30,7 +30,6 @@
   } from '../../wailsjs/go/main/App'
   import { engine } from '../../wailsjs/go/models'
   import { cockpit, setActiveView } from './stores/cockpit.svelte'
-  import { setShell } from './shell.svelte'
   import { t } from './i18n.svelte'
   import Icon from './Icon.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
@@ -263,13 +262,16 @@
 <div class="team-title">
   <div>
     <h2>{t('settings.teams')}</h2>
-    <p class="muted set-sub">
-      {t('settings.teamsDesc')}
-      <button class="linklike" onclick={() => { setShell('assistant'); setActiveView('office') }}>{t('settings.teamOpenPage')} <Icon name="arrowRight" size={12} /></button>
-    </p>
+    <p class="muted set-sub">{t('settings.teamsDesc')}</p>
   </div>
-  <!-- The door, where the eye lands first — on the side being shown. -->
-  <button class="ctrl ctrl-primary team-new" onclick={() => newTeam(side)} disabled={!!editing?.isNew}><Icon name="plus" size={14} /> {t('office.newTeam')}</button>
+  <!-- The door, where the eye lands first — on the side being shown. The
+       way to เอเจนเฉพาะทาง is not repeated here (owner, 13 ก.ย. 2026): the
+       rail already carries that page as its own row, and a header button
+       that only moves you somewhere else competes with the one thing this
+       header is for. -->
+  <div class="team-doors">
+    <button class="ctrl ctrl-primary team-new" onclick={() => newTeam(side)} disabled={!!editing?.isNew}><Icon name="plus" size={14} /> {t('office.newTeam')}</button>
+  </div>
 </div>
 {#if error}<div class="mset-error">{error}</div>{/if}
 
