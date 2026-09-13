@@ -78,7 +78,7 @@ describe('a head\'s page', () => {
     await waitFor(() => expect(cards(container).length).toBe(2))
     await fireEvent.click(cards(container)[0].querySelector('.icobtn')!)
     await waitFor(() => expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('ตั้งค่า ผู้ช่วย'))
-    expect(tabs(container).map((t) => t.textContent?.trim())).toEqual(['ตัวตน', 'อวตาร', 'สมอง', 'การเข้าถึง', 'ความจำ'])
+    expect(tabs(container).map((t) => t.textContent?.trim())).toEqual(['ตัวตน', 'การเข้าถึง', 'ความจำ'])
     expect(container.querySelector('.main-head .rank-corner.rank-head')).toBeTruthy()
     expect(container.querySelector('.main-head .mascot')).toBeTruthy()
     // The desk file's line on the first tab, and where the persona still is.
@@ -110,16 +110,4 @@ describe('a head\'s page', () => {
     expect(cockpit.activeView).toBe('capability')
   })
 
-  it('brain and avatar say what is in use and door to where it is set', async () => {
-    cockpit.model.provider = 'deepseek'
-    cockpit.model.modelName = 'deepseek-chat'
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'ตัวหลัก')
-    await waitFor(() => expect(cards(container).length).toBe(2))
-    await fireEvent.click(cards(container)[0].querySelector('.icobtn')!)
-    await fireEvent.click(tabs(container).find((t) => t.textContent?.includes('สมอง'))!)
-    expect(container.querySelector('.ag-tab-panel.on')?.textContent).toContain('deepseek · deepseek-chat')
-    await fireEvent.click(container.querySelector('.ag-tab-panel.on .ctrl')!)
-    await waitFor(() => expect(container.querySelector('.settings-nav-item.active')?.textContent).toContain('การตั้งค่าโมเดล'))
-  })
 })
