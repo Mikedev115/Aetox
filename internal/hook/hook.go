@@ -26,7 +26,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/debuglog"
@@ -121,7 +123,13 @@ func Load(path string) (Config, error) {
 	if err := json.Unmarshal(raw, &cfg); err != nil {
 		return Config{}, err
 	}
-	// Normalize once here rather than at every comparison.
+	normalize(&cfg)
+	return cfg, nil
+}
+
+// normalize fills the two defaults once, here, rather than at every
+// comparison: an empty event is a guard, an empty matcher is every tool.
+func normalize(cfg *Config) {
 	for i := range cfg.Hooks {
 		if cfg.Hooks[i].Event == "" {
 			cfg.Hooks[i].Event = PreToolUse
@@ -130,12 +138,56 @@ func Load(path string) (Config, error) {
 			cfg.Hooks[i].Matcher = "*"
 		}
 	}
-	return cfg, nil
+}
+
+// Validate says what a hooks page must refuse before Save: an event that is
+// neither of the two, or a hook with nothing to run. A hook with no command
+// is skipped at run time already, but a page that lets one be saved is a page
+// that shows a row doing nothing and does not say so.
+func Validate(cfg Config) error {
+	for i, h := range cfg.Hooks {
+		switch h.Event {
+		case "", PreToolUse, PostToolUse:
+		default:
+			return fmt.Errorf("hook %d: event %q is not PreToolUse or PostToolUse", i+1, h.Event)
+		}
+		if strings.TrimSpace(h.Command) == "" {
+			return fmt.Errorf("hook %d: no command", i+1)
+		}
+	}
+	return nil
+}
+
+// Save writes the hooks file whole. Through a sibling temp file and a rename,
+// so a crash mid-write leaves the old file rather than half of the new one;
+// and pretty-printed, because this file is also edited by hand.
+func Save(path string, cfg Config) error {
+	if err := Validate(cfg); err != nil {
+		return err
+	}
+	if cfg.Hooks == nil {
+		cfg.Hooks = []Hook{}
+	}
+	raw, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, append(raw, '\n'), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 // Runner holds the loaded hooks. The zero value is valid and does nothing,
 // which is what every caller gets when no hooks file exists.
 type Runner struct {
+	// mu guards hooks: Replace swaps them from the settings page while a
+	// turn may be in the middle of Any/Run on another goroutine.
+	mu      sync.RWMutex
 	hooks   []Hook
 	workDir string
 	// backend is the shell hooks run in, and it is deliberately the same one
@@ -166,6 +218,20 @@ func (r *Runner) WithBackend(backend func() proc.Backend) *Runner {
 	return r
 }
 
+// Replace swaps the loaded hooks for a freshly saved set, so a hook written on
+// the settings page guards the very next tool call rather than the next launch.
+// The runner is shared by pointer with every executor built from it, which is
+// what makes one swap here reach all of them.
+func (r *Runner) Replace(cfg Config) {
+	if r == nil {
+		return
+	}
+	normalize(&cfg)
+	r.mu.Lock()
+	r.hooks = cfg.Hooks
+	r.mu.Unlock()
+}
+
 func (r *Runner) shell() proc.Backend {
 	if r == nil || r.backend == nil {
 		return proc.Native()
@@ -182,6 +248,8 @@ func (r *Runner) Any(event Event) bool {
 	if r == nil {
 		return false
 	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	for _, h := range r.hooks {
 		if h.Event == event && strings.TrimSpace(h.Command) != "" {
 			return true
@@ -211,7 +279,12 @@ func (r *Runner) Run(ctx context.Context, event Event, tool string, args map[str
 	}
 	var payload []byte
 	var notes []string
-	for _, h := range r.hooks {
+	// A copy of the slice header, not the lock held across exec: a hook can
+	// run for ten seconds, and a save on the settings page must not wait on it.
+	r.mu.RLock()
+	hooks := r.hooks
+	r.mu.RUnlock()
+	for _, h := range hooks {
 		if h.Event != event || !globMatch(h.Matcher, strings.ToLower(strings.TrimSpace(tool))) {
 			continue
 		}

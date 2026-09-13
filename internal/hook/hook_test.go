@@ -259,3 +259,70 @@ func TestPostToolUseSilenceIsNoNote(t *testing.T) {
 		t.Errorf("Notes = %q for a hook that printed nothing", d.Notes)
 	}
 }
+
+// The settings page's half (14 ก.ย. 2026): what it may not save, that a save
+// is a whole file a hand edit can still read, and that a runner already
+// handed to an executor sees the new set without a relaunch.
+func TestValidateRefusesWhatThePageMustNotSave(t *testing.T) {
+	if err := Validate(Config{Hooks: []Hook{{Event: "OnSave", Command: "echo"}}}); err == nil || !strings.Contains(err.Error(), "OnSave") {
+		t.Fatalf("an unknown event must be refused by name, got %v", err)
+	}
+	if err := Validate(Config{Hooks: []Hook{{Event: PreToolUse, Command: "   "}}}); err == nil || !strings.Contains(err.Error(), "no command") {
+		t.Fatalf("a hook with nothing to run must be refused, got %v", err)
+	}
+	// An empty event is the documented default, not a mistake.
+	if err := Validate(Config{Hooks: []Hook{{Command: "echo"}}}); err != nil {
+		t.Fatalf("empty event is PreToolUse by default: %v", err)
+	}
+}
+
+func TestSaveWritesWhatLoadReadsBack(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "deeper", "hooks.json")
+	want := []Hook{{Event: PostToolUse, Matcher: "write", Command: "gofmt -l .", Blocking: true}}
+	if err := Save(path, Config{Hooks: want}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Hooks) != 1 || got.Hooks[0] != want[0] {
+		t.Fatalf("round trip lost something: %+v", got.Hooks)
+	}
+	// Indented, because the same file is edited by hand; and no temp file
+	// left beside it.
+	raw, _ := os.ReadFile(path)
+	if !strings.Contains(string(raw), "\n  ") {
+		t.Fatalf("hooks.json should be pretty-printed, got %q", raw)
+	}
+	if _, err := os.Stat(path + ".tmp"); !os.IsNotExist(err) {
+		t.Fatalf("temp file left behind: %v", err)
+	}
+	// An empty set is a file saying so, not a file that vanished — Load on a
+	// missing file is the same answer, but a person opening the folder should
+	// find what they saved.
+	if err := Save(path, Config{}); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ = os.ReadFile(path)
+	if !strings.Contains(string(raw), `"hooks": []`) {
+		t.Fatalf("an empty save should write an empty list, got %q", raw)
+	}
+}
+
+func TestReplaceReachesARunnerAlreadyHandedOut(t *testing.T) {
+	r := runnerFor(t)
+	if r.Any(PreToolUse) {
+		t.Fatal("nothing configured yet")
+	}
+	r.Replace(Config{Hooks: []Hook{{Command: "echo hi"}}})
+	if !r.Any(PreToolUse) {
+		t.Fatal("the replaced set must be what Any reads")
+	}
+	r.Replace(Config{})
+	if r.Any(PreToolUse) {
+		t.Fatal("replacing with nothing must clear the set")
+	}
+	var nilRunner *Runner
+	nilRunner.Replace(Config{Hooks: []Hook{{Command: "echo"}}}) // must not panic
+}
