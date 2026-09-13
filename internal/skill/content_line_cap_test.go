@@ -27,6 +27,52 @@ func TestContentLinesDoesNotInventATrailingLine(t *testing.T) {
 	}
 }
 
+// The cap stands in for tokens, and tokens are in the characters. A line is
+// counted once per contentLineWidth characters, so a file folded into a few
+// enormous lines is not under the cap; it is the same file at the same cost.
+func TestContentLinesCountLongLinesAsSeveral(t *testing.T) {
+	wide := strings.Repeat("x", contentLineWidth)
+	cases := map[string]int{
+		wide:                           1, // exactly the width is one line
+		wide + "x":                     2, // one over starts a second
+		wide + wide:                    2,
+		wide + wide + "\n":             2,
+		wide + "x\nshort\n":            3,
+		strings.Repeat("y", 1822):      16, // the tester's server.ts line
+		"\n\n":                         2,  // empty lines are still lines
+		"ก" + strings.Repeat("ข", 119): 1,  // runes, not bytes
+	}
+	for input, want := range cases {
+		if got := contentLines(input); got != want {
+			t.Errorf("contentLines(%d chars, %d newlines) = %d, want %d",
+				len([]rune(input)), strings.Count(input, "\n"), got, want)
+		}
+	}
+}
+
+// A file of few lines that is over the cap by width gets a different note:
+// "send the first 300 lines" is no remedy for a 9-line file. The note names
+// both counts and says that packing does not pay.
+func TestContentLineCapNoteNamesLongLines(t *testing.T) {
+	rows := make([]string, 10)
+	for i := range rows[:9] {
+		rows[i] = strings.Repeat("z", 1822) // 9 × 16 = 144 counted lines
+	}
+	rows[9] = strings.Repeat("w", 120*160) // +160 = 304
+	note := contentLineCapNote("content", strings.Join(rows, "\n"))
+	if note == "" {
+		t.Fatal("a 10-line file 304 lines wide must be remarked on")
+	}
+	for _, want := range []string{"was 10 lines", "304 lines at ordinary width", "120 characters", "packing code", "formatter"} {
+		if !strings.Contains(note, want) {
+			t.Errorf("note is missing %q: %s", want, note)
+		}
+	}
+	if strings.Contains(note, "send the first") {
+		t.Errorf("a width overage must not be told to split by line count: %s", note)
+	}
+}
+
 func TestContentLineCapBoundary(t *testing.T) {
 	if note := contentLineCapNote("content", linesOf(contentLineCap)); note != "" {
 		t.Fatalf("exactly the cap must pass silently, got %q", note)

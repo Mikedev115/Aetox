@@ -45,9 +45,43 @@ import (
 // file genuinely overflows, and only then.
 const contentLineCap = 300
 
-// contentLines counts what the cap counts. A file ending in a newline is not
-// credited with a phantom last line.
+// A line is counted at ordinary width: every started run of contentLineWidth
+// characters is one line. The cap exists to stand in for tokens, and a line
+// carries tokens in proportion to its length, not its count — so a cap that
+// counted newlines was a cap the model could satisfy by removing them. It did.
+// An outside tester (13 ก.ย., GPT-5.6 at low effort) got a server.ts of 9
+// lines, the longest 1,822 characters, from a session that had been told
+// "300 lines per call" and "lines are the one unit you can count": correct,
+// under the cap, and unreadable. Counting width takes the incentive away, and
+// says so where the number is stated, because the number is the only thing the
+// model was ever optimising against.
+//
+// 120 rather than 80: the point is to stop a file being folded into a few
+// enormous lines, not to fine a formatter's occasional long one. Ordinary code
+// stays at one line per line; a 1,822-character line is sixteen.
+const contentLineWidth = 120
+
+// contentLines counts what the cap counts: lines at ordinary width. A file
+// ending in a newline is not credited with a phantom last line, and an empty
+// line is still one line.
 func contentLines(s string) int {
+	if s == "" {
+		return 0
+	}
+	lines := 0
+	for _, line := range strings.SplitAfter(s, "\n") {
+		if line == "" {
+			continue // the phantom after a trailing newline
+		}
+		width := len([]rune(strings.TrimSuffix(line, "\n")))
+		lines += max(1, (width+contentLineWidth-1)/contentLineWidth)
+	}
+	return lines
+}
+
+// physicalLines is the newline count the model sees in its editor, for the
+// note to name when it differs from what was counted.
+func physicalLines(s string) int {
 	if s == "" {
 		return 0
 	}
@@ -66,10 +100,24 @@ func contentLines(s string) int {
 // same content through a different name. The remedy is the same either way,
 // and it is the reason the cap is affordable at all — append continues a file
 // without re-sending it.
+//
+// When long lines are what put the call over, the note says so and names the
+// remedy for that instead: the model that reads "send the first 300 lines"
+// about a 9-line file learns nothing it can use.
 func contentLineCapNote(field, content string) string {
 	lines := contentLines(content)
 	if lines <= contentLineCap {
 		return ""
+	}
+	physical := physicalLines(content)
+	if physical < lines {
+		return fmt.Sprintf(
+			"Note: %s was %d lines, but %d lines at ordinary width (a line counts once per %d characters), "+
+				"over the %d-line guide for one call. It was written whole because it arrived intact, but "+
+				"long lines cost the same output tokens as the short ones they replace, so packing code into "+
+				"few lines does not make a call smaller, only unreadable. Lay code out the way its formatter "+
+				"would, and split a long file with edit mode=append.",
+			field, physical, lines, contentLineWidth, contentLineCap)
 	}
 	return fmt.Sprintf(
 		"Note: %s was %d lines, over the %d-line guide for one call. It was written whole because it "+

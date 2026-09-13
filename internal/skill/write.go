@@ -145,7 +145,12 @@ func (*writeSkill) ToolDefinition() model.ToolDefinition {
 			// ~100s streamed round thrown away. A cap the model must know
 			// BEFORE it starts writing has to ride where the model always is.
 			// Guidance still carries the why (output limits vary by provider).
-			Description: "Write a file, at most 300 lines per call, over that nothing is written; send 300 and append the rest with edit mode=append. A relative path may land in a per-session output folder; the result names the real path, use it for later reads, edits and opens.",
+			//
+			// "over that nothing is written" left on 13 ก.ย.: it stopped being
+			// true at §221 (over the cap is a note, not a refusal), and a threat
+			// the model believes is pressure the model acts on — see §264 for
+			// what a model at low effort did with a cap it thought was a wall.
+			Description: "Write a file, at most 300 lines per call counted at normal width (a long line is several, so packing code buys nothing); send 300 and append the rest with edit mode=append. A relative path may land in a per-session output folder; the result names the real path, use it for later reads, edits and opens.",
 			Parameters:  payload,
 		},
 	}
@@ -159,7 +164,10 @@ func (*writeSkill) Guidance(map[string]any) string {
 		"lines here, the rest with edit mode=append, which does not re-send what is already on disk.\n" +
 		"This is not a style rule. A tool call bigger than the round's output limit is cut off mid-JSON and " +
 		"cannot run at all, and that limit varies by provider and shrinks as the conversation grows. Lines " +
-		"are the one unit you can count while writing.\n" +
+		"of ordinary width are the one unit you can count while writing, and they are counted at that " +
+		"width: a line over 120 characters counts once per 120. Packing a file into a few long lines does " +
+		"not make the call smaller, since the tokens are in the characters, not the newlines; it only makes " +
+		"the file unreadable. Lay code out the way its formatter would.\n" +
 		"A web page you wrote (an .html that is not a slide deck) is shown rendered with browser open <path>, " +
 		"where a browser tool is on this desk; desk open shows only its source."
 }
