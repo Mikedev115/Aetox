@@ -35,9 +35,11 @@ beforeEach(() => {
 })
 
 describe('avatar preferences', () => {
-  it('start at the mark\'s own robot: white, ink, orb, neutral', () => {
+  // Aetox blue on the white shell since 13 ก.ย. 2026 (owner: "ฝากเอาสีนี้เป็น
+  // ค่าเริ่มต้นทีนะครับ", showing the brand accent he had picked for himself).
+  it("start at the mark's own robot: white, brand blue, orb, neutral", () => {
     expect(avatarPrefs).toMatchObject(DEFAULT_PREFS)
-    expect(assistantOptions()).toEqual({ shell: 'white', accent: 'ink', top: 'orb', face: 'neutral' })
+    expect(assistantOptions()).toEqual({ shell: 'white', accent: 'brand', top: 'orb', face: 'neutral' })
   })
 
   it('remember a choice and hand it to the companion', async () => {
@@ -70,7 +72,8 @@ describe('avatar preferences', () => {
     const fresh = await import('../lib/mascot/avatarPrefs.svelte')
     expect(fresh.avatarPrefs).toMatchObject({ shell: 'colour', accent: 'mint' })
     expect(fresh.personas.slots.length).toBe(1)
-    expect(fresh.personas.slots[0]).toMatchObject({ shell: 'white', accent: 'ink', top: 'bar' })
+    // A slot saved before accents had names, with no hue: it takes the default accent.
+    expect(fresh.personas.slots[0]).toMatchObject({ shell: 'white', accent: 'brand', top: 'bar' })
   })
 })
 

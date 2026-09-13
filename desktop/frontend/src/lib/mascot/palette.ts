@@ -98,9 +98,12 @@ export type Accent = {
   chroma: number
 }
 
-// Append only. The first row is the default — the logo's white and black,
-// with the faintest cool cast so the greys read as clean metal, not ash.
-// The wheel runs red to rose at roughly twenty degrees, then the muted ones.
+// Append only. The first row is the logo's white and black, with the faintest
+// cool cast so the greys read as clean metal, not ash; it was the default
+// until 13 ก.ย. 2026, when the owner asked for the second — the Aetox blue he
+// had been running on his own machine (avatarPrefs: white shell, brand
+// accent, orb, neutral) — to be what a fresh install starts on. The wheel
+// runs red to rose at roughly twenty degrees, then the muted ones.
 export const ACCENT: Accent[] = [
   { id: 'ink', label: 'ขาวดำ', hue: 218, chroma: 0.08 },
   { id: 'brand', label: 'น้ำเงิน Aetox', hue: 218, chroma: 1 },
@@ -127,7 +130,7 @@ export const ACCENT: Accent[] = [
   { id: 'olive', label: 'เขียวขี้ม้า', hue: 80, chroma: 0.45 },
 ]
 
-export const DEFAULT_ACCENT = 'ink'
+export const DEFAULT_ACCENT = 'brand'
 
 export function accentOf(id: string | undefined): Accent {
   return ACCENT.find((a) => a.id === id) ?? (ACCENT.find((a) => a.id === DEFAULT_ACCENT) as Accent)

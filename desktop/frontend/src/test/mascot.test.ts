@@ -125,25 +125,30 @@ describe('mascot drawing', () => {
   // light grey cap on a white body (not black — "ดำมืด ไม่สดใส"), a white
   // light on the screen. A hue in degrees — an agent's, off its name — is
   // always the full colour.
+  // Since 13 ก.ย. 2026 the DEFAULT is the second row, the Aetox blue the owner
+  // had picked for himself ("ฝากเอาสีนี้เป็นค่าเริ่มต้นทีนะครับ"); `ink` stays
+  // the first row and keeps the look described above for whoever picks it.
   it('rests on white and grey, and a hue is always full colour', () => {
-    expect(ACCENT[0].id).toBe(DEFAULT_ACCENT)
+    expect(ACCENT[0].id).toBe('ink')
+    expect(DEFAULT_ACCENT).toBe('brand')
     expect(new Set(ACCENT.map((a) => a.id)).size).toBe(ACCENT.length)
-    const m = resolveMascot({})
+    const m = resolveMascot({ accent: 'ink' })
     expect(m.chroma).toBeLessThan(0.1)
     expect(m.p.shell).toBe('hsl(218 1.6% 97%)')
     expect(m.p.primary).toBe('hsl(218 5.8% 64.9%)')
     expect(m.p.eye).toBe('hsl(218 8% 96.3%)')
+    expect(resolveMascot({})).toMatchObject({ hue: 218, chroma: 1 })
     expect(resolveMascot({ hue: 150 }).chroma).toBe(1)
     expect(resolveMascot({ hue: 150, accent: 'ink' }).chroma).toBe(1)
     expect(resolveMascot({ accent: 'brand' })).toMatchObject({ hue: 218, chroma: 1 })
-    expect(resolveMascot({ accent: 'no-such-row' }).chroma).toBe(m.chroma)
+    expect(resolveMascot({ accent: 'no-such-row' }).chroma).toBe(resolveMascot({}).chroma)
     // A muted accent is between: some of its hue, a cap between ink and colour.
     const gold = resolveMascot({ accent: 'gold' }).p
     expect(gold.primary).toBe('hsl(46 57.6% 54.8%)')
     // The monochrome cap flips with the shell so it always reads against it.
     expect(palette(218, 'dark', 0).primary).toBe('hsl(218 0% 80%)')
     expect(palette(218, 'white', 0).primary).toBe('hsl(218 0% 66%)')
-    expect(accentOf('nope').id).toBe('ink')
+    expect(accentOf('nope').id).toBe('brand')
     expect(accentNearHue(155).id).toBe('mint')
     expect(accentNearHue(359).id).toBe('red')
   })
