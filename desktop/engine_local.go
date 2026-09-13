@@ -435,6 +435,11 @@ func (e *localEngine) spawn(ctx context.Context) (*engineProcess, error) {
 }
 
 func (e *localEngine) start(ctx context.Context, bin, dir string, args []string) (*engineProcess, error) {
+	// proc-detached: the engine outlives any one call on purpose — its life is
+	// the screen's, held through the stdin pipe below (EOF = the screen is
+	// gone, and cmd/aetox-engine exits on it), and e.stop is the one hand that
+	// ends it early. A context here would tie the process to whichever caller
+	// happened to spawn it, which is the coupling §248 removed.
 	cmd := exec.Command(bin, args...)
 	cmd.Dir = dir
 	cmd.Env = os.Environ()
