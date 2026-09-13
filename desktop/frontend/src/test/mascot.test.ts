@@ -228,6 +228,23 @@ describe('mascot finishes and roles', () => {
     expect(roleOptions('assistant', 'not-an-icon')).toMatchObject({ badge: 'logo' })
     expect(roleOptions('code', 'search', { top: 'none', shell: 'dark' })).toMatchObject({ top: 'none', badge: 'search', shell: 'dark', prop: 'laptopTerm' })
   })
+
+  // The code head's laptop is a screen at work: its light lands on the
+  // figure (rig.ts screenLight), and the chevrons on its crown are two paths
+  // mascot.css can step (ms-chev). The assistant's laptop is the mark and has
+  // neither — the two heads are told apart by these at any size that draws
+  // detail, and the light is skipped where detail is (a roster tile).
+  it('lights the terminal screen and hooks the chevrons on the code head only', () => {
+    const code = mascotSVG(resolveMascot({ ...roleOptions('code', undefined), size: 200 }))
+    expect(code).toContain('ms-spill')
+    expect(code).toContain('ms-chev')
+    expect(code).toContain('class="ms-lid ms-spill"') // turns with the lid
+    const asst = mascotSVG(resolveMascot({ ...roleOptions('assistant', undefined), size: 200 }))
+    expect(asst).not.toContain('ms-spill')
+    expect(asst).not.toContain('ms-chev')
+    const tile = mascotSVG(resolveMascot({ ...roleOptions('code', undefined), size: 20 }))
+    expect(tile).not.toContain('ms-spill')
+  })
 })
 
 describe('presence', () => {
