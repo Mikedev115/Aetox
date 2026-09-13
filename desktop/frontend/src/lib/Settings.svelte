@@ -4125,7 +4125,13 @@
        If a cost belongs anywhere it is one number in one place, on a page about
        what the assistant is carrying — not a per-switch figure the reader has
        to hold two switches in their head to interpret. -->
-  {#if delegate}
+  <!-- The assistant door's master switch left this page 14 ก.ย. 2026 (owner:
+       "ตอนนี้เป็นระบบทีมเอเจนแล้ว ถ้าเลือกทีมคือส่งงานให้ทีมได้แน่นอน"): the
+       chat's team picker holds the one switch, under the team it applies to
+       (StationPick.svelte), and a second copy here was the drift §83 names.
+       The helpers' switch stays: a ลูกมือ is not a team member, and this is
+       its only home. -->
+  {#if delegate && !isAgent}
     {@const side = isAgent
       ? { kind: 'agents' as const, reach: delegate.agents, label: 'settings.delegateAgents' as const, on: 'settings.delegateAgentsOn' as const, off: 'settings.delegateAgentsOff' as const }
       : { kind: 'helpers' as const, reach: delegate.helpers, label: 'settings.delegateHelpers' as const, on: 'settings.delegateHelpersOn' as const, off: 'settings.delegateHelpersOff' as const }}
