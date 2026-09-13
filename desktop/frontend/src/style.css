@@ -7913,6 +7913,9 @@ button.phase-head:hover { color:var(--text-muted); }
    card's caption, and the page ran together as one column of blocks. */
 .set-h3 { margin:10px 0 6px; font-size:var(--fs-xl); font-weight:600; }
 /* How many proposals are waiting, on the row that opens them. */
+/* The rank's bars at the row's end, before any count (14 ก.ย. 2026). */
+.settings-nav-item .nav-rank { margin-left:auto; display:inline-flex; }
+.settings-nav-item .nav-rank + .nav-count { margin-left:6px; }
 .nav-count { margin-left:auto; min-width:18px; padding:0 5px; border-radius:999px; background:var(--accent); color:var(--surface-app); font-size:var(--fs-xs); font-weight:600; text-align:center; }
 /* Marks the one nav row that is a way out rather than a page — clicking it
    leaves Settings, and an arrow says so before the click does. */

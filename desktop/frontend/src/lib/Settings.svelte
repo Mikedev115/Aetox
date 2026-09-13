@@ -2375,7 +2375,7 @@
   // editor, so the person lands back on the draft they left, with the new
   // agent ticked.
   let agentBack = $state<'list' | 'office' | 'teams'>('list')
-  type AgentTab = 'identity' | 'avatar' | 'brain' | 'reach' | 'knowledge' | 'opening'
+  type AgentTab = 'identity' | 'avatar' | 'brain' | 'reach' | 'knowledge' | 'opening' | 'memory'
   let agentTab = $state<AgentTab>('identity')
 
   const openAgent = (a: SubagentRow, kind?: 'agent' | 'helper') => runAgent('open:' + a.name, async () => {
@@ -3665,6 +3665,24 @@
   let contentEl = $state<HTMLDivElement | null>(null)
 
   function openSection(id: string) {
+    // เอเจนเฉพาะทาง and ลูกมือ share one editor pane (agentEditorPane). With an
+    // editor open on one, the rail row of the other changed `active` and
+    // nothing else — the pane stayed, and the click read as nothing (owner,
+    // 14 ก.ย. 2026: "กดเมนูหน้าอื่น ๆ หรือเอเจนเฉพาะทาง มันกดหน้าลูกมือไม่ได้"). A
+    // rail click means the list, so the editor closes first — through the
+    // same unsaved guard the back button has, and to the list rather than to
+    // wherever the editor was opened from.
+    if ((id === 'agents' || id === 'team') && agentEditing !== null) {
+      guardUnsaved(agentDraftKey() !== agentSnapshot, () => {
+        agentEditing = null
+        agentBack = 'list'
+        showSection(id)
+      })
+      return
+    }
+    showSection(id)
+  }
+  function showSection(id: string) {
     active = id
     // Every page starts at its own top. Without this, a click made from the
     // bottom of a long section (รูปลักษณ์ carries eleven controls) keeps the
@@ -4404,12 +4422,24 @@
               <span>{t('settings.agentSecOpening')}</span>
             </button>
         {/if}
+        <!-- ความจำ: its own tab for every kind (owner, 14 ก.ย. 2026: "เอเจน
+             เฉพาะทางควรจะมีหน้าต่างความจำของตัวเอง มันหายไปไหน"). It sat under
+             สกิล, which a ลูกมือ never even had a tab for. Only a saved profile
+             has a file to show; a new one gets the tab and a save-first card. -->
+        <button
+          type="button" role="tab" id="ag-tab-memory" aria-controls="ag-panel-memory"
+          aria-selected={agentTab === 'memory'}
+          class:on={agentTab === 'memory'} onclick={() => (agentTab = 'memory')}
+        >
+          <Icon name="brain" size={14} />
+          <span>{t('settings.mainSecMemory')}</span>
+        </button>
       </div>
     </div>
 
     <!-- ── ตัวตน ── -->
     <div role="tabpanel" id="ag-panel-identity" aria-labelledby="ag-tab-identity"
-      class="ag-tab-panel" class:on={agentTab === 'identity' || (agentEditKind !== 'agent' && agentTab !== 'brain' && agentTab !== 'avatar')}>
+      class="ag-tab-panel" class:on={agentTab === 'identity' || (agentEditKind !== 'agent' && agentTab !== 'brain' && agentTab !== 'avatar' && agentTab !== 'memory')}>
       <div class="settings-card">
         <div class="card-form pp-edit">
           <label class="pp-field">
@@ -4881,8 +4911,15 @@
       <div role="tabpanel" id="ag-panel-knowledge" aria-labelledby="ag-tab-knowledge"
         class="ag-tab-panel" class:on={agentTab === 'knowledge'}>
         {@render agentSkillsBox()}
+      </div>
+
+      <!-- ── ความจำ ── this agent's own file, the head page's block. -->
+      <div role="tabpanel" id="ag-panel-memory" aria-labelledby="ag-tab-memory"
+        class="ag-tab-panel" class:on={agentTab === 'memory'}>
         {#if agentEditing.name}
           {@render agentMemoryBox()}
+        {:else}
+          {@render saveFirstCard('brain', t('settings.agentMemorySaveFirst'))}
         {/if}
       </div>
 
@@ -5321,6 +5358,12 @@
       {#each g.items as it}
         <button class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>
           <span class="ic"><Icon name={it.icon} /></span> {it.label}
+          <!-- The rank's bars on the three rows that are levels of the company
+               (owner, 14 ก.ย. 2026: "ในหน้าเมนู ทำสัญลักษณ์ยศแปะไว้ด้วย"): the
+               same emblem the faces wear, so the rail reads as the roster. -->
+          {#if it.id === 'main' || it.id === 'team' || it.id === 'agents'}
+            <span class="nav-rank"><RankPip tier={it.id === 'main' ? 'head' : it.id === 'team' ? 'agent' : 'helper'} word={false} /></span>
+          {/if}
           <!-- The queue's count on ตัวหลัก, where most of it is decided since
                14 ก.ย. 2026 (the person's share is on เกี่ยวกับคุณ, a delegate's on
                its page); the engine counts them as one number. -->

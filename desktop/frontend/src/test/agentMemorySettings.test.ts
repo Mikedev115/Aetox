@@ -35,7 +35,7 @@ describe('Agent Memory in Settings', () => {
     render(Settings, { onClose: () => {} })
 
     // Wait for the agent editor pane to open
-    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('tablist', { name: 'ตั้งค่าพนักงาน' })).toBeTruthy())
 
     // Switch to knowledge tab
     const tab = await screen.findByRole('tab', { name: /สกิลเฉพาะสำหรับเอเจน/ })
@@ -64,7 +64,7 @@ describe('Agent Memory in Settings', () => {
 
     const { container } = render(Settings, { onClose: () => {} })
 
-    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('tablist', { name: 'ตั้งค่าพนักงาน' })).toBeTruthy())
 
     // Switch to knowledge tab
     const tab = await screen.findByRole('tab', { name: /สกิลเฉพาะสำหรับเอเจน/ })
@@ -96,7 +96,7 @@ describe('Agent Memory in Settings', () => {
 
     const { container } = render(Settings, { onClose: () => {} })
 
-    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('tablist', { name: 'ตั้งค่าพนักงาน' })).toBeTruthy())
 
     // Switch to knowledge tab
     const tab = await screen.findByRole('tab', { name: /สกิลเฉพาะสำหรับเอเจน/ })
@@ -125,7 +125,7 @@ describe('Agent Memory in Settings', () => {
     vi.mocked(MemoryScopeInfo).mockResolvedValue({ scope: 'deck', bytes: 1200, maxBytes: 8192, full: false } as any)
     cockpit.settingsIntent = { section: 'team', agent: 'deck' }
     const { container } = render(Settings, { onClose: () => {} })
-    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('tablist', { name: 'ตั้งค่าพนักงาน' })).toBeTruthy())
     await fireEvent.click(await screen.findByRole('tab', { name: /สกิลเฉพาะสำหรับเอเจน/ }))
     const head = await waitFor(() => { const h = container.querySelector('.mem-desk .mem-scope[data-mem-scope="deck"]'); expect(h).toBeTruthy(); return h! })
     expect(head.querySelector('.mem-scope-name')?.textContent?.trim()).toBe('deck')
