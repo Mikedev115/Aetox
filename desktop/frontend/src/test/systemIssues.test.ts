@@ -184,8 +184,10 @@ describe('problems and lessons are two rooms', () => {
         .find((el) => el.textContent?.includes('ปัญหาของระบบ'))
       expect(row?.querySelector('.nav-count')?.textContent?.trim()).toBe('3')
     })
-    const learningRow = Array.from(container.querySelectorAll('.settings-nav-item'))
-      .find((el) => el.textContent?.includes('การเรียนรู้'))
-    expect(learningRow?.querySelector('.nav-count')).toBeNull()
+    // The lessons' count is ตัวหลัก's (14 ก.ย. 2026), and a failure cluster
+    // does not touch it.
+    const mainRow = Array.from(container.querySelectorAll('.settings-nav-item'))
+      .find((el) => el.textContent?.includes('ตัวหลัก'))
+    expect(mainRow?.querySelector('.nav-count')).toBeNull()
   })
 })

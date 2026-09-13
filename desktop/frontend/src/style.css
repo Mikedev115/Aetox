@@ -420,6 +420,8 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .you-context { min-height:140px; }
 .you-save { display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .mem-quick-banner.you-banner { margin-bottom:10px; }
+.you-file { font-size:var(--fs-md); font-weight:600; color:var(--text-primary); }
+.you-inline-error { margin:0 16px 12px; }
 .identity-save:disabled { opacity:.5; cursor:default; }
 /* Top of the projects list — not an anonymous ＋ sharing the tab row with
    "new chat", where neither icon says which one it adds. */

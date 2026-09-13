@@ -444,12 +444,15 @@ describe('the learning review page', () => {
     await waitFor(() => expect(screen.getByText(/memory is full/)).toBeTruthy())
   })
 
-  it('carries the kill switch, and turning it off reaches the engine', async () => {
+  // The one switch การเรียนรู้ had is a system switch, so since 14 ก.ย. 2026
+  // it sits under ทั่วไป with the others — and there is no การเรียนรู้ page.
+  it('carries the kill switch under ทั่วไป, and turning it off reaches the engine', async () => {
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การเรียนรู้')
-    await waitFor(() => expect(screen.getByText('ให้ Aetox เรียนรู้จากงานที่ทำ')).toBeTruthy())
+    expect(Array.from(container.querySelectorAll('.settings-nav-item')).some((el) => el.textContent?.trim() === 'การเรียนรู้')).toBe(false)
+    await openSection(container, 'ทั่วไป')
+    const label = await waitFor(() => screen.getByText('ให้ Aetox เรียนรู้จากงานที่ทำ'))
 
-    const box = container.querySelector('.mswitch input') as HTMLInputElement
+    const box = label.closest('.set-row')!.querySelector('.mswitch input') as HTMLInputElement
     expect(box.checked).toBe(true)
     await fireEvent.change(box)
     await waitFor(() => expect(SetLearningEnabled).toHaveBeenCalledWith(false))

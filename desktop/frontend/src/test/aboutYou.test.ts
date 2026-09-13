@@ -43,9 +43,13 @@ describe('เกี่ยวกับคุณ', () => {
     expect(profile.name).toBe('Mike D')
   })
 
-  it('edits context.md as one field and writes it by name', async () => {
+  // The file is a row until asked for (owner: "กด + ก่อนค่อยแสดง ไม่กด ก็ไม่แสดง").
+  it('edits context.md behind its row, and writes it by name', async () => {
     const { container } = render(Settings, { onClose: () => {} })
     await openSection(container, 'เกี่ยวกับคุณ')
+    const open = await waitFor(() => screen.getByText('เปิดแก้ไข'))
+    expect(container.querySelector('textarea[aria-label="สิ่งที่ควรรู้เกี่ยวกับคุณ"]')).toBeNull()
+    await fireEvent.click(open)
     const box = await waitFor(() => container.querySelector('textarea[aria-label="สิ่งที่ควรรู้เกี่ยวกับคุณ"]') as HTMLTextAreaElement)
     await waitFor(() => expect(box.value).toContain('ทำ Aetox อยู่'))
     expect(ReadIdentityFile).toHaveBeenCalledWith('context.md')
@@ -59,17 +63,20 @@ describe('เกี่ยวกับคุณ', () => {
     await waitFor(() => expect(save.disabled).toBe(true))
   })
 
-  // A first-time user has no context.md: the field is empty with the
-  // template as its placeholder, and never an error.
-  it('opens empty, not broken, when the file does not exist yet', async () => {
+  // A first-time user has no context.md: a row with "+", never an error;
+  // "+" writes the template and opens it, as คำสั่งประจำตัว created a file.
+  it('offers to create the file when it does not exist yet, and opens it once made', async () => {
     vi.mocked(ListIdentityFiles).mockResolvedValue([] as any)
     const { container } = render(Settings, { onClose: () => {} })
     await openSection(container, 'เกี่ยวกับคุณ')
-    const box = await waitFor(() => container.querySelector('textarea[aria-label="สิ่งที่ควรรู้เกี่ยวกับคุณ"]') as HTMLTextAreaElement)
-    expect(box.value).toBe('')
-    expect(box.placeholder).toContain('บริบทผู้ใช้')
+    const create = await waitFor(() => screen.getByText('สร้างไฟล์'))
+    expect(container.querySelector('textarea[aria-label="สิ่งที่ควรรู้เกี่ยวกับคุณ"]')).toBeNull()
     expect(ReadIdentityFile).not.toHaveBeenCalled()
     expect(container.querySelector('.mset-error')).toBeNull()
+    await fireEvent.click(create)
+    await waitFor(() => expect(SaveIdentityFile).toHaveBeenCalledWith('context.md', expect.stringContaining('บริบทผู้ใช้')))
+    const box = await waitFor(() => container.querySelector('textarea[aria-label="สิ่งที่ควรรู้เกี่ยวกับคุณ"]') as HTMLTextAreaElement)
+    expect(box.value).toContain('บริบทผู้ใช้')
   })
 
   // The user's file left คำสั่งประจำตัว: one editor per file.

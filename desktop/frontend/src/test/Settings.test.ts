@@ -1723,7 +1723,7 @@ describe('Settings nav', () => {
 
     await openSection(container, 'รูปลักษณ์')
     top = 900
-    await openSection(container, 'การเรียนรู้')
+    await openSection(container, 'เกี่ยวกับคุณ')
     expect(top).toBe(0)
   })
 })
