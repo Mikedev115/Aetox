@@ -717,7 +717,16 @@ func (p *ResponsesProvider) statusError(resp *http.Response) error {
 // codexClientVersion is sent as the required client_version query parameter on
 // the model list. The endpoint rejects the request outright without it, and
 // uses it to decide which models this client is allowed to see.
-const codexClientVersion = "0.145.0"
+//
+// "Allowed to see" is literal, and it is per model, not per account: a new
+// generation is held back from clients older than the Codex CLI that shipped
+// it. Measured 13 Sep 2026 on one account, same token, same minute — 0.145.0
+// listed six models and no gpt-6-astra; 0.154.0 (the CLI installed here) and
+// 0.160.0 listed seven. So "my Codex account has no Astra" is this number
+// being stale, not the plan, and the fix is to raise it to the CLI version
+// that lists the model. Turns on the model itself are not gated this way:
+// gpt-6-astra answered through this provider before the bump.
+const codexClientVersion = "0.154.0"
 
 // DiscoverResponsesModels asks the backend which models this account may use.
 //

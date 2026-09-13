@@ -188,7 +188,11 @@ func kimiContextWindow(modelID string) int {
 
 func openaiContextWindow(modelID string) int {
 	switch {
-	case strings.HasPrefix(modelID, "gpt-5"):
+	case strings.HasPrefix(modelID, "gpt-5"), strings.HasPrefix(modelID, "gpt-6"):
+		// gpt-6 carries the gpt-5 figure until measured: the backend's
+		// /models row states no window, and 128k (the default below) had
+		// the meter under-drawing the headline model by 3x the day it
+		// appeared (gpt-6-astra, 13 Sep 2026).
 		return 400_000
 	case strings.HasPrefix(modelID, "gpt-4.1"):
 		return 1_000_000
