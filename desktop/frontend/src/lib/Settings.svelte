@@ -71,7 +71,7 @@
     Connections, ConnectAccount, SetConnectionTargets, VerifyConnection, DisconnectAccount,
     SetConnectionStartCommand, StartConnectionServer, CheckConnectionServer,
     AppVersion, AppCredit, RecentDebugLog,
-    LearningEnabled, SetLearningEnabled, ListPendingChanges, ListDecidedChanges,
+    LearningEnabled, SetLearningEnabled, ListPendingChanges, ListDecidedChanges, ListIdentityFiles, ReadIdentityFile, SaveIdentityFile,
     SessionReviewAuto, SetSessionReviewAuto, RunSessionReview, ListRecurringRequests, DismissRecurringRequest,
     SynthesizeHabit,
     PreparedReplyOn, SetPreparedReplyOn,
@@ -94,6 +94,7 @@
     identity, loadIdentityFiles, openIdentityFile, saveIdentityFile,
     createIdentityFile, deleteIdentityFile, identityTemplates,
   } from './identity.svelte'
+  import { profile, loadProfileName, saveProfileName } from './stores/profile.svelte'
   import { updater, updatePct, startDownload, restartToUpdate, checkNow } from './selfUpdate.svelte'
 
   let { onClose }: { onClose: () => void } = $props()
@@ -157,11 +158,12 @@
   }[] = [
     { name: 'identity.md', icon: 'sparkles', descKey: 'settings.identityDescIdentity', tplKey: 'identity.tplIdentity' },
     { name: 'thinking.md', icon: 'brain', descKey: 'settings.identityDescThinking', tplKey: 'identity.tplThinking' },
-    { name: 'context.md', icon: 'compass', descKey: 'settings.identityDescContext', tplKey: 'identity.tplContext' },
     { name: 'skills.md', icon: 'zap', descKey: 'settings.identityDescSkills', tplKey: 'identity.tplSkills' },
   ]
+  // context.md is drawn on เกี่ยวกับคุณ, not here: it is the user's own
+  // layer, and listing it twice is two editors of one file.
   const customIdentityFiles = $derived(
-    (identity.files || []).filter((f) => !recommendedIdentityTemplates.some((r) => r.name === f.name)),
+    (identity.files || []).filter((f) => f.name !== YOU_CONTEXT_FILE && !recommendedIdentityTemplates.some((r) => r.name === f.name)),
   )
   function addIdentityFile() {
     if (!newIdentityName.trim()) return
@@ -3092,6 +3094,53 @@
     if (active === 'identity') loadIdentityFiles()
   })
 
+  // ---------- เกี่ยวกับคุณ ----------
+  // context.md as one field, read and written by name rather than through
+  // the identity store's active draft — that draft is คำสั่งประจำตัว's editor,
+  // and two pages steering one cursor is how a save lands in the wrong file.
+  const YOU_CONTEXT_FILE = 'context.md'
+  let youContext = $state('')
+  let youContextSaved = $state('')
+  let youContextBusy = $state(false)
+  let youContextError = $state('')
+  const youContextDirty = $derived(youContext !== youContextSaved)
+  async function loadYouContext() {
+    try {
+      youContextError = ''
+      // A file that is not there yet is an empty field, not an error: the
+      // template is offered as a placeholder, and the first save creates it.
+      const files = await ListIdentityFiles()
+      const has = (files ?? []).some((f: { name: string }) => f.name === YOU_CONTEXT_FILE)
+      const text = has ? await ReadIdentityFile(YOU_CONTEXT_FILE) : ''
+      youContext = text
+      youContextSaved = text
+    } catch (err) {
+      youContextError = String(err)
+    }
+  }
+  async function saveYouContext() {
+    youContextBusy = true
+    try {
+      youContextError = ''
+      await SaveIdentityFile(YOU_CONTEXT_FILE, youContext)
+      youContextSaved = youContext
+      // คำสั่งประจำตัว lists the files; a first save here must show up there.
+      if (identity.loaded) await loadIdentityFiles()
+    } catch (err) {
+      youContextError = String(err)
+    } finally {
+      youContextBusy = false
+    }
+  }
+  let youName = $state('')
+  $effect(() => {
+    if (active === 'you') {
+      void loadLearning()
+      void loadYouContext()
+      void loadProfileName().then(() => { youName = profile.name })
+    }
+  })
+
   // ---------- Learning ----------
   //
   // This page exists because the agent proposing things is only half the
@@ -3395,6 +3444,13 @@
 
   const emptyGroup = (scope: string): MemoryGroup =>
     ({ scope, lines: [], orphan: false, bytes: 0, maxBytes: 0, full: false, projectsUnder: false })
+  // One queue, two pages: what is about the person is decided on เกี่ยวกับคุณ,
+  // the rest here. A sub-agent's proposal stays here too — its page has the
+  // file, not the queue.
+  const youPending = $derived(pendingChanges.filter((c) => c.scope === USER_SCOPE))
+  const learningPending = $derived(pendingChanges.filter((c) => c.scope !== USER_SCOPE))
+  const youDecided = $derived(decidedChanges.filter((c) => c.scope === USER_SCOPE))
+  const learningDecided = $derived(decidedChanges.filter((c) => c.scope !== USER_SCOPE))
   const userMemoryGroup = $derived(memoryGroups.find((g) => g.scope === USER_SCOPE) ?? emptyGroup(USER_SCOPE))
   // One block per desk (11 ก.ย.): the assistant's shared file first, then every
   // desk that keeps its own — the Go side lists those even while empty, so a
@@ -3692,10 +3748,17 @@
       // are free (see that file).
       { id: 'avatar', label: avatarText(i18n.locale).title, icon: 'bot',
         terms: [avatarText(i18n.locale).onScreen, avatarText(i18n.locale).shell, avatarText(i18n.locale).hue] },
+      // เกี่ยวกับคุณ (14 ก.ย. 2026): the one layer every desk and every agent
+      // reads the same — who the user is. Your name, context.md, USER.md and
+      // the session review that writes it, moved here out of การเรียนรู้ and
+      // คำสั่งประจำตัว so a person's own data is never mixed with what the
+      // assistant is (that is ตัวหลัก) or what it worked out on its own.
+      { id: 'you', label: t('settings.you'), icon: 'circleUser',
+        terms: [t('settings.youName'), t('settings.youContext'), t('settings.learningUserSection'), t('settings.sessionReviewTitle'), 'context.md', 'USER.md'] },
       // The icon is deliberately not `userRound` — the เอเจน page below owns
       // that, and this page is not about a person in the team.
       { id: 'identity', label: t('settings.identity'), icon: 'fileText',
-        terms: ['identity.md', 'thinking.md', 'context.md', 'skills.md'] },
+        terms: ['identity.md', 'thinking.md', 'skills.md'] },
       // Next to identity, because they answer the same question from two
       // sides: what the user told the agent, and what the agent worked out.
       { id: 'learning', label: t('settings.learning'), icon: 'brain',
@@ -3922,7 +3985,7 @@
   // wrong one for a page that was merely forgotten. Found 14 ก.ย. 2026 when
   // the tool register's door to เสียง moved rooms and got a test that opens
   // it the way a user does.
-  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'identity', 'learning', 'issues', 'models', 'team', 'teams', 'agents', 'voice', 'image', 'studio', 'connections', 'remote', 'prompts', 'account', 'usage', 'about', 'sponsor'])
+  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'you', 'identity', 'learning', 'issues', 'models', 'team', 'teams', 'agents', 'voice', 'image', 'studio', 'connections', 'remote', 'prompts', 'account', 'usage', 'about', 'sponsor'])
 
   function restoredSection(): string {
     try {
@@ -4048,6 +4111,73 @@
      and how full it is. The meter is the part that was missing — a full
      profile was a fact only the tool knew, refusing proposals and skipping
      the session review with nothing on this page saying so. -->
+{#snippet pendingRow(c: engine.PendingChange)}
+  {@const meta = scopeMeta(c.scope)}
+  <div class="learn-row">
+    <div class="learn-main">
+      <!-- The verb, then whose file, then who will read it: the last is
+           the decision actually being made (memoryScope.ts). -->
+      <div class="learn-head">
+        <span class="learn-verb">{opAsk(c)}</span>
+        {#if c.kind === 'skill'}
+          <span class="learn-scope">{c.scope}</span>
+        {:else}
+          <span class="learn-scope mem-tone-{meta.tone}"><ScopeMark {meta} size={11} face={16} /> {meta.label}</span>
+          <span class="learn-aud">{meta.audience}</span>
+        {/if}
+      </div>
+      {#if c.before}
+        <!-- What it replaces, shown next to what it becomes: approving a
+             change without seeing what it overwrites is not a decision. -->
+        <div class="learn-before" class:learn-doc={c.kind === 'skill'}>{c.before}</div>
+      {/if}
+      <div class="learn-body" class:learn-doc={c.kind === 'skill'}>{c.body}</div>
+      {#if c.reason}<div class="learn-why">{c.reason}</div>{/if}
+    </div>
+    <div class="learn-actions">
+      <button type="button" class="ctrl ctrl-primary" disabled={learningBusy === c.id}
+        onclick={() => decideChange(c.id, true)}>{t('settings.learningApprove')}</button>
+      <button type="button" class="ctrl" disabled={learningBusy === c.id}
+        onclick={() => decideChange(c.id, false)}>{t('settings.learningReject')}</button>
+      {#if canRedirect(c)}
+        <!-- "เก็บที่อื่น": the second half of the decision. Without it the
+             only way to correct a destination was to refuse the line and
+             hope it was proposed again from the right desk. -->
+        <div class="mem-move">
+          <button type="button" class="ctrl" disabled={learningBusy === c.id}
+            aria-expanded={moveOpen === `pending#${c.id}`}
+            onclick={() => toggleMove(`pending#${c.id}`)}>
+            {t('settings.learningKeepElsewhere')} <Icon name="chevronDown" size={11} />
+          </button>
+          {#if moveOpen === `pending#${c.id}`}
+            {@render moveMenu(t('settings.learningKeepIn'), moveTargets(c.scope), '', (to) => decideChangeTo(c.id, to))}
+          {/if}
+        </div>
+      {/if}
+    </div>
+  </div>
+{/snippet}
+
+{#snippet decidedRow(c: engine.PendingChange)}
+  {@const meta = scopeMeta(c.scope)}
+  <div class="learn-row past">
+    <div class="learn-main">
+      <div class="learn-head">
+        <span class="learn-op" class:rejected={c.state === 'rejected'}>
+          {c.state === 'approved' ? t('settings.learningStateApproved') : t('settings.learningStateRejected')}
+        </span>
+        {#if c.kind === 'skill'}
+          <span class="learn-scope">{c.scope}</span>
+        {:else}
+          <span class="learn-scope mem-tone-{meta.tone}"><ScopeMark {meta} size={11} face={16} /> {meta.label}</span>
+        {/if}
+        <span class="learn-when">{c.decidedAt.slice(0, 10)}</span>
+      </div>
+      <div class="learn-body" class:learn-doc={c.kind === 'skill'}>{c.body}</div>
+    </div>
+  </div>
+{/snippet}
+
 {#snippet deskHead(g: MemoryGroup)}
   {@const meta = scopeMeta(g.scope)}
   {@const tone = capTone(g)}
@@ -6980,6 +7110,122 @@
           </div>
         </div>
       {/if}
+    {:else if active === 'you'}
+      <h2>{t('settings.you')}</h2>
+      <p class="muted set-sub">{t('settings.youDesc')}</p>
+      {#if learningError}<div class="mset-error">{learningError}</div>{/if}
+
+      <div class="settings-card">
+        <div class="set-row">
+          <div class="set-txt">
+            <div class="t">{t('settings.youName')}</div>
+            <div class="d">{t('settings.youNameHint')}</div>
+          </div>
+          <!-- The footer's own store, written the footer's own way (on
+               change, fire-and-forget): one name, two doors. -->
+          <input class="ctrl key-input" placeholder={t('settings.youNamePlaceholder')} bind:value={youName}
+            onchange={() => saveProfileName(youName)} aria-label={t('settings.youName')} />
+        </div>
+      </div>
+
+      <h3 class="set-h3">{t('settings.youContext')}</h3>
+      <p class="muted set-sub">{t('settings.youContextHint')}</p>
+      <div class="settings-card card-form">
+        <textarea class="identity-input you-context" placeholder={t('identity.tplContext')} bind:value={youContext}
+          aria-label={t('settings.youContext')}></textarea>
+        {#if youContextError}<div class="mset-error">{youContextError}</div>{/if}
+        <div class="you-save">
+          <span class="mono-dim">{YOU_CONTEXT_FILE}</span>
+          <button type="button" class="ctrl ctrl-primary" disabled={!youContextDirty || youContextBusy} onclick={saveYouContext}>
+            {youContextBusy ? t('settings.saving') : t('settings.save')}
+          </button>
+        </div>
+      </div>
+
+      <!-- The session review writes USER.md, so its switch sits with the
+           file it writes — moved from การเรียนรู้ 14 ก.ย. 2026. -->
+      <div class="settings-card">
+        <div class="set-row">
+          <div class="set-txt">
+            <div class="t">{t('settings.sessionReviewTitle')}</div>
+            <div class="d">{t('settings.sessionReviewHint')}</div>
+          </div>
+          <label class="mswitch">
+            <input type="checkbox" checked={sessionReviewAutoOn} onchange={toggleSessionReviewAuto} />
+            <span></span>
+          </label>
+        </div>
+        <div class="set-row">
+          <div class="set-txt">
+            {#if sessionReviewMsg}<div class="d" style="color:var(--accent)">{sessionReviewMsg}</div>{/if}
+          </div>
+          <button type="button" class="ctrl" disabled={sessionReviewBusy} onclick={runSessionReviewNow}>
+            {sessionReviewBusy ? t('settings.sessionReviewRunning') : t('settings.sessionReviewNow')}
+          </button>
+        </div>
+      </div>
+
+      {#if youPending.length > 0}
+        <h3 class="set-h3">{t('settings.learningPending')}</h3>
+        <p class="muted set-sub">{t('settings.learningPendingHint')}</p>
+        <div class="settings-card">
+          {#each youPending as c (c.id)}{@render pendingRow(c)}{/each}
+        </div>
+      {/if}
+
+      {@const userMeta = scopeMeta(USER_SCOPE)}
+      <h3 class="set-h3 mem-header-split">
+        <span>{t('settings.learningUserSection')}</span>
+        <span class="learn-scope mem-tone-user"><Icon name="circleUser" size={11} /> {userMeta.audience}</span>
+        <span class="mem-badge-file">{userMeta.file}</span>
+      </h3>
+      <p class="muted set-sub">{t('settings.learningUserSectionHint')}</p>
+      <!-- Lines about the person that landed in the assistant's file: offered
+           here, where they will land, rather than where they are. -->
+      {#if userLinesInMain.length > 0}
+        <div class="mem-quick-banner you-banner">
+          <div class="mem-quick-txt">
+            <Icon name="sparkles" size={15} />
+            <span>{t('settings.learningQuickMigrateNotice', { count: String(userLinesInMain.length) })}</span>
+          </div>
+          <button
+            type="button"
+            class="ctrl tiny ctrl-primary"
+            disabled={memorySaving || migrateBusy || isFull(USER_SCOPE)}
+            title={isFull(USER_SCOPE) ? t('settings.memoryTargetFull', { name: scopeLabel(USER_SCOPE) }) : undefined}
+            onclick={quickMigrateUserLines}
+          >
+            {t('settings.learningQuickMigrateAction', { count: String(userLinesInMain.length) })}
+          </button>
+        </div>
+      {/if}
+      <div class="settings-card mem-desk">
+        {@render deskHead(userMemoryGroup)}
+        {#if moveError?.scope === USER_SCOPE}
+          <div class="mem-move-error"><Icon name="alertTriangle" size={13} /><span>{moveError.text}</span></div>
+        {/if}
+        {#if userMemoryGroup.lines.length > 0}
+          {#each userMemoryGroup.lines as line, i (i)}
+            {@render memRow(userMemoryGroup, line, i)}
+          {/each}
+        {:else}
+          <div class="empty mem-empty-user">{t('settings.learningUserEmpty')}</div>
+        {/if}
+        <div class="set-row learn-foot">
+          <button type="button" class="ctrl" onclick={() => OpenMemoryFolder()}>
+            <Icon name="folderOpen" size={13} /> {t('settings.learningOpenFolder')}
+          </button>
+        </div>
+      </div>
+
+      {#if youDecided.length > 0}
+        <h3 class="set-h3">{t('settings.learningHistory')}</h3>
+        <p class="muted set-sub">{t('settings.learningHistoryHint')}</p>
+        <div class="settings-card">
+          {#each youDecided as c (c.id)}{@render decidedRow(c)}{/each}
+        </div>
+      {/if}
+
     {:else if active === 'learning'}
       <h2>{t('settings.learning')}</h2>
       <p class="muted set-sub">{t('settings.learningDesc')}</p>
@@ -7029,105 +7275,18 @@
           </div>
         </div>
 
-        <div class="settings-card">
-          <div class="set-row">
-            <div class="set-txt">
-              <div class="t">{t('settings.sessionReviewTitle')}</div>
-              <div class="d">{t('settings.sessionReviewHint')}</div>
-            </div>
-            <label class="mswitch">
-              <input type="checkbox" checked={sessionReviewAutoOn} onchange={toggleSessionReviewAuto} />
-              <span></span>
-            </label>
-          </div>
-          <div class="set-row">
-            <div class="set-txt">
-              {#if sessionReviewMsg}<div class="d" style="color:var(--accent)">{sessionReviewMsg}</div>{/if}
-            </div>
-            <button type="button" class="ctrl" disabled={sessionReviewBusy} onclick={runSessionReviewNow}>
-              {sessionReviewBusy ? t('settings.sessionReviewRunning') : t('settings.sessionReviewNow')}
-            </button>
-          </div>
-        </div>
-
       <h3 class="set-h3">{t('settings.learningPending')}</h3>
       <p class="muted set-sub">{t('settings.learningPendingHint')}</p>
       {#if learningError}<div class="mset-error">{learningError}</div>{/if}
       <div class="settings-card">
-        {#each pendingChanges as c (c.id)}
-          {@const meta = scopeMeta(c.scope)}
-          <div class="learn-row">
-            <div class="learn-main">
-              <!-- The verb, then whose file, then who will read it: the last is
-                   the decision actually being made (memoryScope.ts). -->
-              <div class="learn-head">
-                <span class="learn-verb">{opAsk(c)}</span>
-                {#if c.kind === 'skill'}
-                  <span class="learn-scope">{c.scope}</span>
-                {:else}
-                  <span class="learn-scope mem-tone-{meta.tone}"><ScopeMark {meta} size={11} face={16} /> {meta.label}</span>
-                  <span class="learn-aud">{meta.audience}</span>
-                {/if}
-              </div>
-              {#if c.before}
-                <!-- What it replaces, shown next to what it becomes: approving a
-                     change without seeing what it overwrites is not a decision. -->
-                <div class="learn-before" class:learn-doc={c.kind === 'skill'}>{c.before}</div>
-              {/if}
-              <div class="learn-body" class:learn-doc={c.kind === 'skill'}>{c.body}</div>
-              {#if c.reason}<div class="learn-why">{c.reason}</div>{/if}
-            </div>
-            <div class="learn-actions">
-              <button type="button" class="ctrl ctrl-primary" disabled={learningBusy === c.id}
-                onclick={() => decideChange(c.id, true)}>{t('settings.learningApprove')}</button>
-              <button type="button" class="ctrl" disabled={learningBusy === c.id}
-                onclick={() => decideChange(c.id, false)}>{t('settings.learningReject')}</button>
-              {#if canRedirect(c)}
-                <!-- "เก็บที่อื่น": the second half of the decision. Without it the
-                     only way to correct a destination was to refuse the line and
-                     hope it was proposed again from the right desk. -->
-                <div class="mem-move">
-                  <button type="button" class="ctrl" disabled={learningBusy === c.id}
-                    aria-expanded={moveOpen === `pending#${c.id}`}
-                    onclick={() => toggleMove(`pending#${c.id}`)}>
-                    {t('settings.learningKeepElsewhere')} <Icon name="chevronDown" size={11} />
-                  </button>
-                  {#if moveOpen === `pending#${c.id}`}
-                    {@render moveMenu(t('settings.learningKeepIn'), moveTargets(c.scope), '', (to) => decideChangeTo(c.id, to))}
-                  {/if}
-                </div>
-              {/if}
-            </div>
-          </div>
-        {/each}
-        {#if pendingChanges.length === 0}
+        {#each learningPending as c (c.id)}{@render pendingRow(c)}{/each}
+        {#if learningPending.length === 0}
           <div class="empty">{t('settings.learningNothingPending')}</div>
         {/if}
       </div>
 
-      <!-- SECTION 1: เกี่ยวกับคุณ — one file, every desk. -->
-      {@const userMeta = scopeMeta(USER_SCOPE)}
-      <h3 class="set-h3 mem-header-split">
-        <span>{t('settings.learningUserSection')}</span>
-        <span class="learn-scope mem-tone-user"><Icon name="circleUser" size={11} /> {userMeta.audience}</span>
-        <span class="mem-badge-file">{userMeta.file}</span>
-      </h3>
-      <p class="muted set-sub">{t('settings.learningUserSectionHint')}</p>
-
-      <div class="settings-card mem-desk">
-        {@render deskHead(userMemoryGroup)}
-        {#if moveError?.scope === USER_SCOPE}
-          <div class="mem-move-error"><Icon name="alertTriangle" size={13} /><span>{moveError.text}</span></div>
-        {/if}
-        {#if userMemoryGroup.lines.length > 0}
-          {#each userMemoryGroup.lines as line, i (i)}
-            {@render memRow(userMemoryGroup, line, i)}
-          {/each}
-        {:else}
-          <div class="empty mem-empty-user">{t('settings.learningUserEmpty')}</div>
-        {/if}
-      </div>
-
+      <!-- ความจำเกี่ยวกับคุณ left this page for เกี่ยวกับคุณ (14 ก.ย. 2026).
+           What stays is what the assistant worked out on its own. -->
       <!-- SECTION 2: one block per desk. The assistant's shared file is the
            assistant's; a desk with its own memory (coding) has its own block,
            and the projects its sessions write sit under it. -->
@@ -7139,23 +7298,6 @@
       {#each deskGroups as group (group.scope)}
         <div class="settings-card mem-desk">
           {@render deskHead(group)}
-          {#if group.scope === MAIN_SCOPE && userLinesInMain.length > 0}
-            <div class="mem-quick-banner">
-              <div class="mem-quick-txt">
-                <Icon name="sparkles" size={15} />
-                <span>{t('settings.learningQuickMigrateNotice', { count: String(userLinesInMain.length) })}</span>
-              </div>
-              <button
-                type="button"
-                class="ctrl tiny ctrl-primary"
-                disabled={memorySaving || migrateBusy || isFull(USER_SCOPE)}
-                title={isFull(USER_SCOPE) ? t('settings.memoryTargetFull', { name: scopeLabel(USER_SCOPE) }) : undefined}
-                onclick={quickMigrateUserLines}
-              >
-                {t('settings.learningQuickMigrateAction', { count: String(userLinesInMain.length) })}
-              </button>
-            </div>
-          {/if}
           {#if moveError?.scope === group.scope}
             <div class="mem-move-error"><Icon name="alertTriangle" size={13} /><span>{moveError.text}</span></div>
           {/if}
@@ -7212,35 +7354,17 @@
         </div>
       </div>
 
-      {#if decidedChanges.length > 0}
+      {#if learningDecided.length > 0}
         <h3 class="set-h3">{t('settings.learningHistory')}</h3>
         <p class="muted set-sub">{t('settings.learningHistoryHint')}</p>
         <div class="settings-card">
-          {#each decidedExpanded ? decidedChanges : decidedChanges.slice(0, DECIDED_PREVIEW) as c (c.id)}
-            {@const meta = scopeMeta(c.scope)}
-            <div class="learn-row past">
-              <div class="learn-main">
-                <div class="learn-head">
-                  <span class="learn-op" class:rejected={c.state === 'rejected'}>
-                    {c.state === 'approved' ? t('settings.learningStateApproved') : t('settings.learningStateRejected')}
-                  </span>
-                  {#if c.kind === 'skill'}
-                    <span class="learn-scope">{c.scope}</span>
-                  {:else}
-                    <span class="learn-scope mem-tone-{meta.tone}"><ScopeMark {meta} size={11} face={16} /> {meta.label}</span>
-                  {/if}
-                  <span class="learn-when">{c.decidedAt.slice(0, 10)}</span>
-                </div>
-                <div class="learn-body" class:learn-doc={c.kind === 'skill'}>{c.body}</div>
-              </div>
-            </div>
-          {/each}
-          {#if decidedChanges.length > DECIDED_PREVIEW}
+          {#each decidedExpanded ? learningDecided : learningDecided.slice(0, DECIDED_PREVIEW) as c (c.id)}{@render decidedRow(c)}{/each}
+          {#if learningDecided.length > DECIDED_PREVIEW}
             <button type="button" class="learn-more" onclick={() => (decidedExpanded = !decidedExpanded)}>
               <Icon name={decidedExpanded ? 'chevronUp' : 'chevronDown'} size={12} />
               {decidedExpanded
                 ? t('settings.learningHistoryLess')
-                : t('settings.learningHistoryMore', { n: decidedChanges.length - DECIDED_PREVIEW })}
+                : t('settings.learningHistoryMore', { n: learningDecided.length - DECIDED_PREVIEW })}
             </button>
           {/if}
         </div>

@@ -29,25 +29,30 @@ beforeEach(() => {
 })
 
 describe('session review and habits in settings', () => {
-  it('renders recurring requests and toggles session review auto', async () => {
+  // The session review writes USER.md, so since 14 ก.ย. 2026 its switch and
+  // its button live on เกี่ยวกับคุณ, with the file — not on การเรียนรู้.
+  it('runs and toggles the session review from เกี่ยวกับคุณ', async () => {
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, LEARNING)
-
-    // Verify session review button is present on memory subtab
+    await openSection(container, 'เกี่ยวกับคุณ')
     await waitFor(() => expect(screen.getByText(/ทบทวนเซสชันปัจจุบันเดี๋ยวนี้/)).toBeTruthy())
 
-    // Click RunSessionReview
     vi.mocked(RunSessionReview).mockResolvedValue(1)
     await fireEvent.click(screen.getByText(/ทบทวนเซสชันปัจจุบันเดี๋ยวนี้/))
     expect(RunSessionReview).toHaveBeenCalled()
 
-    // Toggle session review auto
+    // The page's one switch.
     const switches = container.querySelectorAll('.mswitch input') as NodeListOf<HTMLInputElement>
-    expect(switches.length).toBeGreaterThanOrEqual(2)
-    // The second switch is session review auto
-    await fireEvent.click(switches[1])
+    expect(switches.length).toBe(1)
+    await fireEvent.click(switches[0])
     expect(SetSessionReviewAuto).toHaveBeenCalledWith(true)
+    // And it is gone from การเรียนรู้.
+    await openSection(container, LEARNING)
+    expect(screen.queryByText(/ทบทวนเซสชันปัจจุบันเดี๋ยวนี้/)).toBeNull()
+  })
 
+  it('renders recurring requests on the habits subtab', async () => {
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, LEARNING)
     // Switch to Habits subtab
     const habitsTabBtn = screen.getByText(/คำสั่งที่สั่งบ่อย \(Habits\)/)
     await fireEvent.click(habitsTabBtn)

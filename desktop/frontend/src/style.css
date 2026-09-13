@@ -415,6 +415,11 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 }
 .identity-input:focus { outline:0; border-color:var(--border-input-focus); }
 .identity-save { align-self:flex-end; }
+/* เกี่ยวกับคุณ: context.md as one field. The file name sits with the save
+   button so a person knows which file they just wrote. */
+.you-context { min-height:140px; }
+.you-save { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.mem-quick-banner.you-banner { margin-bottom:10px; }
 .identity-save:disabled { opacity:.5; cursor:default; }
 /* Top of the projects list — not an anonymous ＋ sharing the tab row with
    "new chat", where neither icon says which one it adds. */

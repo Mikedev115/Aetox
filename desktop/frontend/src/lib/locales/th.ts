@@ -1599,6 +1599,13 @@ export const th = {
   // every desk, for every agent. The name now says whose they are.
   'settings.identity': 'คำสั่งประจำตัว',
   'settings.identityDesc': 'สิ่งที่คุณเขียนไว้เอง ติดตัวไปทุกโต๊ะทุกโปรเจกต์ ทุกเอเจนอ่านเหมือนกันหมด คู่กับหน้าการเรียนรู้ ซึ่งเป็นสิ่งที่ Aetox สรุปเอง',
+  'settings.you': 'เกี่ยวกับคุณ',
+  'settings.youDesc': 'ข้อมูลของคุณ — ชั้นเดียวที่ผู้ช่วย โค้ด และทุกเอเจนอ่านเหมือนกัน ไม่ปนกับตัวตนของผู้ช่วย และไม่ปนกับสิ่งที่มันสรุปเองจากงาน',
+  'settings.youName': 'ชื่อของคุณ',
+  'settings.youNameHint': 'ที่ผู้ช่วยใช้เรียกคุณ และที่ขึ้นในคำทักทาย — ตัวเดียวกับท้ายแถบด้านซ้าย',
+  'settings.youNamePlaceholder': 'ชื่อที่อยากให้เรียก',
+  'settings.youContext': 'สิ่งที่ควรรู้เกี่ยวกับคุณ',
+  'settings.youContextHint': 'คุณคือใคร ทำงานอะไร โปรเจกต์ที่กำลังทำ เครื่องที่ใช้ — สิ่งที่คุณเขียนเองและอยากให้รู้ล่วงหน้าทุกครั้ง ติดตัวไปทุกโต๊ะทุกโปรเจกต์ (ไฟล์ context.md เดิมของคำสั่งประจำตัว)',
   'settings.identityPlaceholder': 'เนื้อหาไฟล์นี้จะติดตัว AI ไปทุกโปรเจกต์…',
   'settings.noIdentityFiles': 'ยังไม่มีไฟล์ เพิ่มไฟล์แรกด้านล่าง',
   'settings.newIdentityFile': 'ชื่อไฟล์ใหม่ เช่น custom.md',
