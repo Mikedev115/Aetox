@@ -94,6 +94,14 @@ func TestDesksCarryWhatTheyClaim(t *testing.T) {
 		{assistant, "edit", true},         // files — sorting out this machine is this desk's work
 		{assistant, "shell", true},        // shell: COMPANY.md §2 — safety is the gate, not a missing tool
 		{assistant, "diagnostics", false}, // no code category: developer tools are the coding desk's
+		// Named in `tools:`, because the desk dropped the media CATEGORY on
+		// 31 ส.ค. and image_make was filed under it on 7 ก.ย. — before that it
+		// had no category, fell back to `agent`, and rode the desk by accident.
+		// The filing took it off the desk without a word and the assistant
+		// could not draw for a week (13 ก.ย.). image_ocr and pdf_read survived
+		// the same cut only because they were already named here.
+		{assistant, "image_make", true},
+		{assistant, "video_ocr", false}, // media that was NOT named: the category rule still holds
 
 		{coding, "read", true},        // files
 		{coding, "shell", true},       // shell

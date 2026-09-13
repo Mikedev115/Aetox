@@ -1,7 +1,7 @@
 ---
 description: โต๊ะผู้ช่วย, ทำได้ทุกอย่างบนเครื่อง ยกเว้นเครื่องมือนักพัฒนา จำระยะยาว เอกสาร เว็บ สื่อ ไฟล์ และเชลล์
 categories: agent, web, files, shell
-tools: image_ocr, pdf_read
+tools: image_ocr, pdf_read, image_make
 dispatch: specialized
 memory: shared
 ---
