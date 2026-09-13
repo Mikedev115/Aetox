@@ -33,19 +33,24 @@ Skills are the deliberate exception and do **not** live here — see below.
 |---|---|
 | `<DataRoot>/aetox.db` | SQLite: chat history, tool runs, jobs, projects |
 | `<DataRoot>/identity` | every `*.md` here is folded into the system prompt of every session |
-| `<DataRoot>/memory` | `MEMORY.md` (cross-desk), `projects/<name>-<hash>.md` (per project folder). Where a new line lands is the desk's architecture (§184): ผู้ช่วย → `MEMORY.md`, โค้ด with a project focused → that project's file; `modes/<desk>.md` is hand-written only, still folded into that desk's prompt if present |
+| `<DataRoot>/memory` | `USER.md` (one file, every desk and every worker reads it), `MEMORY.md` (the ผู้ช่วย desk's own since 11 ก.ย. — the โค้ด desk no longer reads it), `modes/coding.md` (the โค้ด desk's cross-project lines), `projects/<name>-<hash>.md` (per project folder). Where a new line lands is the desk's architecture (§184, §247): ผู้ช่วย → `MEMORY.md`, โค้ด with a project focused → that project's file, โค้ด without one → `modes/coding.md`; every label on screen says which desk reads the file |
 | `<DataRoot>/modes` | user desk manifests; a file here overrides the bundled desk of the same name |
 | `<DataRoot>/agents` | one folder per เอเจน: `<name>/AGENT.md` + `<name>/MEMORY.md` + `<name>/STARTERS.md` + `<name>/skills/` + `<name>/mcp.json` |
-| `<DataRoot>/subagents` | ซับเอเจน, read-only in practice, see below |
+| `<DataRoot>/subagents` | ซับเอเจน. A user file under a **bundled** name is a shadow that may change the model (and provider), prompt, description, `steps` and look — never `tools`, `deny`, `needs` or `desk` (§255, 12 ก.ย.); a file under a new name is refused, see below |
+| `<DataRoot>/teams/<name>/TEAM.md` | a team: `desk`, `description`, `members` (agent names). A team hires from one desk only; a chat hires from one team, or from none (§256). The app writes the seeded team `ผู้ช่วยในคอมพิวเตอร์` once, and after that it is an ordinary file — rename, trim or delete it and it stays deleted |
 | `<DataRoot>/project` | โปรเจกต์ of the storefront door |
 | `<DataRoot>/prompts` | user prompt presets |
 | `<DataRoot>/mcp-servers.json` | MCP server list |
+| `<DataRoot>/studio/libraries.json` | คลังสตูดิโอ: the index of the video-asset folders the user pointed the app at (duration, size, alpha, kind, search words). The files themselves stay where the user put them; nothing is copied or re-hosted |
+| `<DataRoot>/companion/<hash>/*.png` | the desktop companion's baked frames, one folder per look × screen scale; a stale set is left behind when the rig changes and can be deleted freely |
 | `<DataRoot>/connections.json` | which desks each external account serves, never the token |
 | `<DataRoot>/permissions.json` | approval rules, and the programs the user has allowed Aetox to drive (ตั้งค่า > การใช้คอมพิวเตอร์) |
 | `<DataRoot>/hooks.json` | hooks |
-| `<DataRoot>/credentials.json` | provider API keys |
+| `<DataRoot>/credentials.json` | provider API keys. Since 1.6.0 only the **screen** (the window process) reads this; the engine process never holds a key and asks the screen to sign each provider request (§248) |
 | `<DataRoot>/oauth.json` | sign-ins |
 | `<DataRoot>/account.json` | the user’s Aetox account, if they signed in, a different thing from the sign-ins above |
+| `<DataRoot>/screen.json` | the screen's own file (§248): the remote hosts the user added under ตั้งค่า › เครื่องระยะไกล, which host the engine is on right now, and the token that admits the screen to that engine — encrypted at rest like `credentials.json`, and refused to your tools for the same reason |
+| `<DataRoot>/logs` | `desktop-<time>.log` is the screen's, `aetox-<time>.log` / `engine.log` the engine's — two processes since 1.6.0, two files; `engine-<pid>.sock` beside them is the wire between the two on this machine |
 | `<DataRoot>/model-preference.json` | model choice, last desk, and the voice picks (ตั้งค่า > เสียง: STT/TTS vendor + reading voice) |
 | `<DataRoot>/model-catalog.json` | cached prices and context windows from models.dev; refetched at launch, and the app runs on this copy when offline |
 | `<DataRoot>/.env` | whatever the user put in it |
@@ -156,10 +161,13 @@ kind** — nothing inside decides which it is.
   folder exists. Reached three ways: their own chat, `task`, or `@<name>`
   picked off the @ menu (typing the characters does nothing; only เอเจน are
   addressable — GUIDE.md, "Addressing").
-- **ซับเอเจน** — your own hands, never chatted with, and closed: the bundled
-  set is the whole set; a user file in `<DataRoot>/subagents` is reported as a
-  conflict, never loaded. If asked to add one: the team extends, the hands do
-  not.
+- **ซับเอเจน** — your own hands, never chatted with, and the *set* is closed:
+  the bundled ones are all there are, and a user file under a new name in
+  `<DataRoot>/subagents` is refused. Since 12 ก.ย. (§255) a file under a
+  bundled name is a shadow and may tune that helper — model and provider,
+  prompt, description, `steps`, look — while `tools`, `deny`, `needs` and
+  `desk` stay the app's whatever the file says; the card says so when a file
+  tried. If asked to add one: the team extends, the hands do not.
 - **Desks** — what is on the desk, never who sits at it. Bundled manifests
   compiled in; a file in `<DataRoot>/modes` with the same name overrides one.
   Writing one: the body names acts, never tool ids (GUIDE.md, "Writing a desk
@@ -189,6 +197,8 @@ Every field is optional; what absence means is the fact worth knowing:
 | `deny` | Nothing refused. `deny` is the safety gate and outranks any grant — since 31 ส.ค. the only per-agent tool decision left |
 | `steps` | No ceiling, a worker runs until the job is done. A positive number caps it exactly; `unlimited` says the default out loud; a typo falls back to the default |
 | `model` | Whatever the session is running |
+| `provider` | The session's provider. Named (a catalogue name), the worker thinks at that provider — on `model` if given, else that provider's default — with the screen's own key for it; a provider that cannot be built fails the call out loud rather than falling back (12 ก.ย.) |
+| `shell` `top` `face` `accent` | The default look: the robot mascot in the assistant's template wearing this agent's `icon` on its ear, coloured from its name. Each is an id from the mascot catalogue, never a file (§254). `hue` (a number) still wins over `accent` for the files that carry it; `hair` and `accessory` are read and dropped — the cartoon face they dressed is gone |
 | `icon` | The generic mark; name one |
 | `needs` | Nothing declared. `connection:<id>` or `mcp:<server>`, `\|` for either-satisfies. A need **declares and never grants** — but an unmet one locks the worker's card (30 ส.ค.), so write only what it cannot work without (GUIDE.md, "Writing an AGENT.md body") |
 | `publisher` `package` `version` `requires-app` | No shipping label. Nothing resolves through them, on purpose: the **local id is the folder name**, so an installed worker can be renamed and keep working |
@@ -239,10 +249,14 @@ Configured in `<DataRoot>/mcp-servers.json`; each entry's `for:` names the
 desks it serves (no name, no server), an optional `tools:` narrows it, and
 `agent:<name>` points it at one เอเจน — which **reaches past its desk's
 ceiling** and is the one way to give a single worker what the office does not
-have. **You have no tool that adds, edits or removes a server** — Settings →
-MCP servers, or การตั้งค่า › เอเจน → "MCP เฉพาะตัวนี้"; the file itself is
+have. **You have no tool that adds, edits or removes a server** — the
+ห้องความสามารถ room (rail heading MCP) is the one place a server is added,
+placed, given its tool allowlist or removed (§253, 13 ก.ย.; the Settings page
+and the per-agent tab that used to do it are gone); the file itself is
 refused to your tools. You never need it: every bridged tool in your list
-already says which server it came from.
+already says which server it came from. A server runs on the machine the
+engine is on, so with the engine on a remote host it is that host's
+`mcp-servers.json` and that host's `${connect:}` credentials (§248).
 
 ## การเชื่อมต่อ, external accounts
 
@@ -299,8 +313,8 @@ folder described as a credential store you are on an old build.
 
 Inside `<DataRoot>`, refused by name:
 
-`credentials.json` · `oauth.json` · `.env` · `model-preference.json` ·
-`mcp-servers.json` · `webview`
+`credentials.json` · `oauth.json` · `account.json` · `.env` ·
+`model-preference.json` · `mcp-servers.json` · `screen.json` · `webview`
 
 And one folder, refused for a different reason:
 **`<DataRoot>/agents/<name>/skills`**. That is a worker's own specialist

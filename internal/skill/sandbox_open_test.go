@@ -428,8 +428,9 @@ func TestARefusedCredentialFileSaysWhereTheAnswerIs(t *testing.T) {
 		t.Fatal("mcp-servers.json must stay refused")
 	}
 	// It must point at what the model can actually do instead, or the model has
-	// nothing to offer but the obstacle.
-	for _, want := range []string{"tool list", "Settings"} {
+	// nothing to offer but the obstacle. The place is the ห้องความสามารถ room
+	// since 13 ก.ย. (§253), not a Settings page.
+	for _, want := range []string{"tool list", "ห้องความสามารถ"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the refusal does not mention %q, so it reads as a dead end:\n%v", want, err)
 		}
