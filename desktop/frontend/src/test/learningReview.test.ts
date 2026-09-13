@@ -150,7 +150,9 @@ describe('editing what is already remembered', () => {
     await waitFor(() => expect(container.querySelectorAll('.mem-scope-name').length).toBe(1))
     expect(container.querySelector('.mem-scope-name')?.textContent?.trim()).toBe('เกี่ยวกับคุณ')
     // And ตัวหลัก: the assistant's page holds its file alone; the coder's
-    // holds its own with the project nested under it (projectsUnder).
+    // holds its own, and the project's as a second layer beneath it
+    // (projectsUnder) — two cards under two titles, never one card with the
+    // project nested inside (owner, 14 ก.ย.: "แยกชั้นกับความจำในโปรเจกต์อีกที").
     await openHeadMemory(container, 'ผู้ช่วย')
     await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(1))
     expect(Array.from(container.querySelectorAll('.mem-scope-name')).map((el) => el.textContent?.trim())).toEqual(['ผู้ช่วย'])
@@ -159,7 +161,11 @@ describe('editing what is already remembered', () => {
     await waitFor(() => expect(container.querySelectorAll('.mem-row').length).toBe(2))
     const heads = Array.from(container.querySelectorAll('.mem-scope-name')).map((el) => el.textContent?.trim())
     expect(heads).toEqual(['โค้ด', 'โปรเจกต์ Aetox'])
-    expect(container.querySelector('.mem-sub .mem-scope-name')?.textContent).toContain('Aetox')
+    expect(container.querySelector('.mem-project .mem-scope-name')?.textContent).toContain('Aetox')
+    expect(container.querySelector('.mem-desk .mem-sub')).toBeNull()
+    const titles = Array.from(container.querySelectorAll('.ag-tab-panel.on .set-h3')).map((el) => el.textContent?.trim())
+    expect(titles).toContain('ความจำของโค้ด')
+    expect(titles).toContain('ความจำในโปรเจกต์')
     // Each heading says who reads the file — the label alone never did.
     const auds = Array.from(container.querySelectorAll('.mem-scope .learn-aud')).map((el) => el.textContent?.trim())
     expect(auds).toEqual(['เฉพาะโค้ด ทุกโปรเจกต์', 'เฉพาะตอนเปิดโฟลเดอร์ Aetox'])
@@ -167,7 +173,7 @@ describe('editing what is already remembered', () => {
     // recognises the folder, not the digest. It stays in the file badge only,
     // because that badge is the name on disk.
     expect(heads.join(' ')).not.toContain('1a2b3c4d')
-    expect(container.querySelector('.mem-sub .mem-badge-file')?.textContent).toBe('projects/Aetox-1a2b3c4d.md')
+    expect(container.querySelector('.mem-project .mem-badge-file')?.textContent).toBe('projects/Aetox-1a2b3c4d.md')
   })
 
   // The ceiling, on the page. A full profile used to be a fact only the tool

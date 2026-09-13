@@ -6624,6 +6624,14 @@
               {#each headPending(h) as c (c.id)}{@render pendingRow(c)}{/each}
             </div>
           {/if}
+          <!-- Two layers, drawn as two (owner, 14 ก.ย.: "โค้ดควรมีความจำของตัวเอง
+               แยกชั้นกับความจำในโปรเจกต์อีกที"): what this head learned across
+               every project is one card under its own title; what a project
+               taught it is a card per project under a second title, beneath.
+               They were one card with the projects nested inside, which read
+               as one memory with sub-folders. -->
+          <h3 class="set-h3">{t('settings.mainMemoryOwn', { name: headLabel(h) })}</h3>
+          <p class="muted set-sub">{t('settings.mainMemoryOwnHint')}</p>
           {#each [g] as group (group.scope)}
             <div class="settings-card mem-desk">
               {@render deskHead(group)}
@@ -6636,32 +6644,37 @@
               {#if group.lines.length === 0}
                 <div class="empty">{group.projectsUnder ? t('settings.memoryDeskEmpty') : t('settings.learningAssistantEmpty')}</div>
               {/if}
-
-              {#if group.scope === projectsHost}
-                {#if projectGroups.length > 0}
-                  <div class="mem-sub-h">{t('settings.memoryProjectsUnder')}</div>
-                {/if}
-                {#each projectGroups as project (project.scope)}
-                  <div class="mem-sub">
-                    {@render deskHead(project)}
-                    {#if project.orphan && adoptOpen === project.scope}
-                      <div class="mem-adopt">
-                        {#each knownProjects as p (p.rootPath)}
-                          <button type="button" class="ctrl tiny" onclick={() => adoptScope(project.scope, p.rootPath)}>{p.name}</button>
-                        {/each}
-                      </div>
-                    {/if}
-                    {#if moveError?.scope === project.scope}
-                      <div class="mem-move-error"><Icon name="alertTriangle" size={13} /><span>{moveError.text}</span></div>
-                    {/if}
-                    {#each project.lines as line, i (i)}
-                      {@render memRow(project, line, i)}
-                    {/each}
-                  </div>
-                {/each}
-              {/if}
             </div>
           {/each}
+
+          {#if g.scope === projectsHost}
+            <h3 class="set-h3">{t('settings.mainMemoryProjects')}</h3>
+            <p class="muted set-sub">{t('settings.mainMemoryProjectsHint')}</p>
+            {#each projectGroups as project (project.scope)}
+              <div class="settings-card mem-desk mem-project">
+                {@render deskHead(project)}
+                {#if project.orphan && adoptOpen === project.scope}
+                  <div class="mem-adopt">
+                    {#each knownProjects as p (p.rootPath)}
+                      <button type="button" class="ctrl tiny" onclick={() => adoptScope(project.scope, p.rootPath)}>{p.name}</button>
+                    {/each}
+                  </div>
+                {/if}
+                {#if moveError?.scope === project.scope}
+                  <div class="mem-move-error"><Icon name="alertTriangle" size={13} /><span>{moveError.text}</span></div>
+                {/if}
+                {#each project.lines as line, i (i)}
+                  {@render memRow(project, line, i)}
+                {/each}
+                {#if project.lines.length === 0}
+                  <div class="empty">{t('settings.learningAssistantEmpty')}</div>
+                {/if}
+              </div>
+            {/each}
+            {#if projectGroups.length === 0}
+              <div class="settings-card"><div class="empty">{t('settings.mainMemoryProjectsEmpty')}</div></div>
+            {/if}
+          {/if}
           {#if memoryScopeError}
             <div class="set-error">{memoryScopeError}</div>
           {/if}

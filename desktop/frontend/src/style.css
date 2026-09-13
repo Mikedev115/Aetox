@@ -8076,10 +8076,10 @@ button.phase-head:hover { color:var(--text-muted); }
 .mem-cap-note.mem-cap-full .icon { color:var(--status-danger); flex:none; }
 .mem-cap-note.mem-cap-near .icon { color:var(--status-warn); flex:none; }
 /* A project's file, nested under the desk whose sessions write it. */
-.mem-sub-h { padding:12px 16px 4px; font-size:var(--fs-2xs); font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); }
-.mem-sub { margin:6px 16px 14px; border:1px solid var(--border-subtle); border-radius:var(--r-md); background:var(--surface-app); }
-.mem-sub .mem-scope { background:transparent; border-radius:var(--r-md) var(--r-md) 0 0; }
-.mem-sub .mem-row { padding-left:14px; padding-right:14px; }
+/* A project's memory is a card of its own under its own title since 14 ก.ย.
+   2026 (it was .mem-sub, nested inside the desk's card): one card per
+   project, the desk's card above them, and a little air between. */
+.mem-project { margin-bottom:10px; }
 .mem-desk .mem-quick-banner { margin:0; border-radius:0; border-left:0; border-right:0; border-top:0; }
 /* "ย้ายไปที่…" — an anchor for the menu, on a row and on a proposal. */
 .mem-move { position:relative; display:inline-flex; }
