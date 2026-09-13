@@ -165,12 +165,17 @@ func (d *Driver) SSHPath() (string, error) {
 // asking the user to compare fingerprints in a dialog is a ceremony almost
 // nobody performs, and refusing every unknown host would make the first
 // connection impossible from inside the app.
+//
+// The log level is ssh's default, not ERROR: Windows' OpenSSH reports a
+// refused connection at INFO, so under ERROR a host that is simply off
+// answered "exit status 255" and nothing else (the first morning after the
+// first real host, 2026-09-13). The one line the default adds — the host
+// key remembered on first sight — is worth having in the log anyway.
 func baseOptions() []string {
 	return []string{
 		"-o", "BatchMode=yes",
 		"-o", "ConnectTimeout=15",
 		"-o", "StrictHostKeyChecking=accept-new",
-		"-o", "LogLevel=ERROR",
 	}
 }
 
@@ -259,8 +264,10 @@ func (d *Driver) run(ctx context.Context, h Host, script string, stdin io.Reader
 	return out.Bytes(), nil
 }
 
-// sshWords is the last thing ssh or the host said, or the exit status when
-// they said nothing.
+// sshWords is the last thing ssh or the host said — or, when they said
+// nothing, the exit status with what it usually means: 255 is ssh's own
+// "could not get there", and a person reading the card needs the next
+// thing to try, not the number.
 func sshWords(stderr string, err error) string {
 	lines := strings.Split(strings.TrimSpace(stderr), "\n")
 	for i := len(lines) - 1; i >= 0; i-- {
@@ -268,7 +275,13 @@ func sshWords(stderr string, err error) string {
 			return l
 		}
 	}
-	return err.Error()
+	if err != nil && strings.HasSuffix(err.Error(), "255") {
+		return "ติดต่อเครื่องไม่ได้ (ssh ออกด้วยรหัส 255 โดยไม่บอกเหตุ) — เครื่องปิดอยู่ sshd ไม่ได้รัน หรือพอร์ตไม่ตรง; ลอง ssh ไปเองในเทอร์มินัลจะเห็นสาเหตุ"
+	}
+	if err != nil {
+		return err.Error()
+	}
+	return "ssh ออกโดยไม่บอกเหตุ"
 }
 
 // Probe asks the host what it is and what is there.

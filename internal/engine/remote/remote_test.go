@@ -7,6 +7,7 @@ package remote
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -360,5 +361,21 @@ func TestParseProbeReadsWhatTheHostSays(t *testing.T) {
 	}
 	if _, err := parseProbe(""); err == nil {
 		t.Error("an empty answer parsed")
+	}
+}
+
+// ssh's own words come back when there are any; when there are none, the
+// exit status is explained rather than quoted — Windows' ssh says nothing
+// under LogLevel=ERROR for a refused connection, which is how "exit status
+// 255" reached the owner's status card.
+func TestSSHWordsExplainASilentExit(t *testing.T) {
+	if got := sshWords("Warning: Permanently added 'x' (ED25519) to the list of known hosts.\nuser@x: Permission denied (publickey).\n", errors.New("exit status 255")); got != "user@x: Permission denied (publickey)." {
+		t.Errorf("with words: %q", got)
+	}
+	if got := sshWords("", errors.New("exit status 255")); !strings.Contains(got, "255") || !strings.Contains(got, "ติดต่อเครื่องไม่ได้") {
+		t.Errorf("silent 255: %q", got)
+	}
+	if got := sshWords("", errors.New("exit status 1")); got != "exit status 1" {
+		t.Errorf("silent 1: %q", got)
 	}
 }
