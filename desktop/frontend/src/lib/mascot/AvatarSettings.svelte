@@ -42,7 +42,7 @@
   // avatarPrefs.svelte.ts, which the companion reads.
   import Mascot from './Mascot.svelte'
   import Icon from '../Icon.svelte'
-  import RankPip from '../RankPip.svelte'
+  import RankedFace from '../RankedFace.svelte'
   import { i18n } from '../i18n.svelte'
   import { ACCENT, SHELL } from './palette'
   import { FACE, TOP } from './parts'
@@ -290,9 +290,9 @@
   <div class="who" role="tablist" aria-label={text.mainNote}>
     {#each HEADS as h (h)}
       <button type="button" class="who-card" class:on={editing === h} role="tab" aria-selected={editing === h} onclick={() => (editing = h)}>
-        <span class="who-face"><Mascot {...headOptions(h)} size={72} still /></span>
+        <span class="who-face"><RankedFace tier="head" size={72}><Mascot {...headOptions(h)} size={72} still /></RankedFace></span>
         <span class="who-txt">
-          <span class="who-name">{text.heads[h].name} <RankPip tier="head" /></span>
+          <span class="who-name">{text.heads[h].name}</span>
           <span class="who-where">{text.heads[h].where}</span>
         </span>
         {#if editing === h}<span class="who-now">{text.designing}</span>{/if}

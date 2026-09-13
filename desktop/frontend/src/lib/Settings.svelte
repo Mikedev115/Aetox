@@ -17,6 +17,7 @@
   import ProviderAccount from './ProviderAccount.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
   import RankPip from './RankPip.svelte'
+  import RankedFace from './RankedFace.svelte'
   import ScopeMark from './ScopeMark.svelte'
   import AvatarSettings from './mascot/AvatarSettings.svelte'
   import TeamSettings from './TeamSettings.svelte'
@@ -4204,7 +4205,6 @@
   <div class="mem-scope mem-tone-{meta.tone}" data-mem-scope={g.scope} class:mem-focus={g.scope === memoryFocus}>
     <span class="mem-scope-ic" class:face={!!meta.head}><ScopeMark {meta} size={14} face={30} /></span>
     <span class="mem-scope-name">{meta.label}</span>
-    {#if meta.head}<RankPip tier="head" />{/if}
     <span class="learn-aud">{meta.audience}</span>
     <span class="mem-badge-file">{meta.file}</span>
     {#if g.orphan}
@@ -4443,11 +4443,8 @@
              this one is headed ซับเอเจน and its rows carry no chat button —
              and that a second visual language for the same kind of thing costs
              more than it explains. -->
-        <AgentMascot name={a.name} {...lookOf(a)} size={38} />
-        <span class="chair-id">
-          <span class="chair-name" title={a.path || 'built-in:' + a.name}>{a.name}</span>
-          <RankPip tier="helper" />
-        </span>
+        <RankedFace tier="helper" size={38}><AgentMascot name={a.name} {...lookOf(a)} size={38} /></RankedFace>
+        <span class="chair-name" title={a.path || 'built-in:' + a.name}>{a.name}</span>
         {#if delegate}
           {@const w = reachOf(a.name)}
           {#if w}
@@ -4533,21 +4530,20 @@
              (§85). The ซับเอเจน page one snippet up keeps the glyph mark on
              purpose: a helper is the assistant's own hands, and a face would
              invite the question of how to hire one. -->
-        <AgentMascot
-          name={a.name}
-          {...lookOf(a)}
-          size={38}
-          off={!!reachOf(a.name) && !(reachOf(a.name)!.on && !reachOf(a.name)!.off)}
-        />
-        <!-- ยศ under the name (RankPip), in a column of its own: beside the
-             name it was the first thing the ellipsis ate on a long name, and
-             then the name itself on a narrow card ("ทำไมบางตัวไม่แสดง"). The
-             two lists draw the same card on purpose; the rank plus the page
-             heading are what say which level this is. -->
-        <span class="chair-id">
-          <span class="chair-name" title={a.path || 'built-in:' + a.name}>{a.name}</span>
-          <RankPip tier="agent" />
-        </span>
+        <!-- ยศ on the face's corner (RankedFace, style E — owner 14 ก.ย.):
+             beside the name it fought the name for the row's width, under it
+             the card grew; on the face it costs nothing and travels with the
+             face everywhere. The two lists draw the same card on purpose;
+             the emblem plus the page heading say which level this is. -->
+        <RankedFace tier="agent" size={38}>
+          <AgentMascot
+            name={a.name}
+            {...lookOf(a)}
+            size={38}
+            off={!!reachOf(a.name) && !(reachOf(a.name)!.on && !reachOf(a.name)!.off)}
+          />
+        </RankedFace>
+        <span class="chair-name" title={a.path || 'built-in:' + a.name}>{a.name}</span>
         <div class="ag-actions">
       <!-- Whether the MAIN assistant may hand this one work. Not whether the
            agent exists: the user still opens a chat with it from the composer
@@ -4946,9 +4942,15 @@
             <!-- The one being faced: big, breathing. Everything else on this
                  tab is still. -->
             <div class="ag-face ag-avatar-stage">
-              <AgentMascot name={facePreviewName} {...draftFace} size={168} still={false} />
+              <!-- The rank on the stage too (owner, 14 ก.ย.: "ตอนสร้างเอเจน …
+                   เลือกอวตาร มียศบอกเลยนะคืออะไร"): the emblem on the face
+                   as it will be everywhere, and the word beside the name
+                   here, where there is room to say it. -->
+              <RankedFace tier={agentEditKind === 'agent' ? 'agent' : 'helper'} size={168}>
+                <AgentMascot name={facePreviewName} {...draftFace} size={168} still={false} />
+              </RankedFace>
               <div class="ag-face-say">
-                <b class="ag-avatar-name">{facePreviewName}</b>
+                <b class="ag-avatar-name">{facePreviewName} <RankPip tier={agentEditKind === 'agent' ? 'agent' : 'helper'} size="md" /></b>
                 <span class="d muted">{faceIsAuto ? t('settings.agentLookAutoHint') : t('settings.agentLookHint')}</span>
                 {#if !faceIsAuto}
                   <button type="button" class="ag-face-reset" onclick={resetFace}>
@@ -4973,7 +4975,7 @@
                       <span>{t('settings.agentLookContextOffice')}</span>
                     </div>
                     <div class="ag-context-sample">
-                      <AgentMascot name={facePreviewName} {...draftFace} size={38} off={previewFaceOff} />
+                      <RankedFace tier={agentEditKind === 'agent' ? 'agent' : 'helper'} size={38}><AgentMascot name={facePreviewName} {...draftFace} size={38} off={previewFaceOff} /></RankedFace>
                       <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
                         <span style="font-weight:600; font-size:var(--fs-sm); color:var(--text-primary);">{facePreviewName}</span>
                         <span class="d muted" style="font-size:var(--fs-2xs);">{previewFaceOff ? t('settings.agentLookStateOff') : t('settings.agentLookStateIdle')}</span>

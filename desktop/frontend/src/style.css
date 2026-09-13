@@ -6614,11 +6614,6 @@ button.phase-head:hover { color:var(--text-muted); }
    whose whole job is being recognised. */
 .agc.off .chair-face { filter:saturate(.2) brightness(.72); }
 .agc .chair-name { font-size:var(--fs-lg); letter-spacing:-.01em; flex:1; }
-/* Name over rank (RankPip.svelte), one column that takes the row's slack:
-   the name keeps its ellipsis, the rank is never what gets clipped, and the
-   row's switch and cog stay at the edge. */
-.agc .chair-id { flex:1; min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
-.agc .chair-id .chair-name { flex:none; max-width:100%; }
 .agc.off .chair-name { color:var(--text-secondary); }
 .agc .chair-desc { font-size:var(--fs-sm); -webkit-line-clamp:2; }
 
