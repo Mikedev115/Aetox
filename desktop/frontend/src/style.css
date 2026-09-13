@@ -4210,7 +4210,7 @@ button.phase-head:hover { color:var(--text-muted); }
   width:36px; height:36px; border-radius:var(--r-md); display:grid; place-items:center;
   background:var(--surface-raised); border:1px solid var(--border-default); color:var(--text-muted);
   transition:background var(--dur-tint) ease, color var(--dur-tint) ease, border-color var(--dur-tint) ease,
-    transform .09s ease, box-shadow .09s ease;
+    transform var(--dur-press) ease, box-shadow var(--dur-press) ease;
 }
 /* Ready to send: the one filled control on the row, so the eye lands on it
    (owner, 13 ก.ย.: "เพิ่มสีตรงนี้ได้ไหมจะได้ชัด"). Idle it stays the quiet
@@ -6718,7 +6718,7 @@ button.phase-head:hover { color:var(--text-muted); }
 .seg-ctrl .seg-btn.side-code.selected { color:var(--side-code); }
 .team-door-off { margin:-6px 0 12px; }
 .conn-chip.team-add-agent { border-style:dashed; color:var(--text-muted); }
-.conn-chip.team-add-agent:hover { color:var(--text); border-color:var(--border-strong); }
+.conn-chip.team-add-agent:hover { color:var(--text-primary); border-color:var(--border-strong); }
 .desk-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:var(--r-full); font-size:var(--fs-xs); font-weight:600; border:1px solid transparent; }
 .desk-badge.side-assistant { color:var(--side-assistant, var(--accent)); border-color:color-mix(in srgb, var(--side-assistant, var(--accent)) 45%, transparent); background:color-mix(in srgb, var(--side-assistant, var(--accent)) 12%, transparent); }
 .desk-badge.side-code { color:var(--side-code, var(--chart-2)); border-color:color-mix(in srgb, var(--side-code, var(--chart-2)) 45%, transparent); background:color-mix(in srgb, var(--side-code, var(--chart-2)) 12%, transparent); }
@@ -9690,7 +9690,7 @@ button.ctrl, label.ctrl { display:inline-flex; align-items:center; justify-conte
 .sb-busy svg { animation:sb-spin 1s linear infinite; vertical-align:-2px; }
 @keyframes sb-spin { to { transform:rotate(360deg) } }
 /* Media fades in once its bytes arrived, rather than popping. */
-.sb-media .sb-poster { opacity:0; transition:opacity .25s ease; }
+.sb-media .sb-poster { opacity:0; transition:opacity var(--dur-arrive) ease; }
 .sb-tile.seen .sb-media .sb-poster { opacity:1; }
 .sb-scope { display:inline-flex; align-items:center; gap:8px; font-size:var(--fs-xs); color:var(--text-secondary); padding:0 8px; height:32px; border:1px solid var(--border-subtle); border-radius:var(--r-md); background:var(--surface-raised); }
 /* display / render / load, on the tile: the kind's icon is what a tile shows

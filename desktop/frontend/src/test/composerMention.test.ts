@@ -19,7 +19,7 @@ import { tick } from 'svelte'
 import Chat from '../lib/Chat.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import { setLocale } from '../lib/i18n.svelte'
-import { GuideTopics, ListChairs } from './mocks/wailsApp'
+import { GuideTopics, ListTeams } from './mocks/wailsApp'
 
 const sent: Array<[string, string | undefined]> = []
 
@@ -52,8 +52,18 @@ beforeEach(() => {
   cockpit.pendingFiles = []
   cockpit.pendingContexts = []
   vi.mocked(GuideTopics).mockResolvedValue([] as any)
-  vi.mocked(ListChairs).mockResolvedValue([
-    { name: 'doc', description: 'เอกสาร', tools: [], builtin: true, icon: 'doc', jobs: 0 },
+  // The @ menu lists the team this chat hires from (13 ก.ย., §256): the
+  // roster is read off ListTeams and narrowed to cockpit.team, so the chat
+  // has to be on a team for anybody to be addressable at all.
+  cockpit.desk = 'specialized'
+  cockpit.chair = ''
+  cockpit.team = 'ผู้ช่วยในคอมพิวเตอร์'
+  vi.mocked(ListTeams).mockResolvedValue([
+    {
+      name: 'ผู้ช่วยในคอมพิวเตอร์', desk: 'specialized', description: 'ทีมที่แอปตั้งให้', invalid: '', missing: [],
+      members: [{ name: 'doc', description: 'เอกสาร', tools: [], builtin: true, icon: 'doc', jobs: 0, lastUsed: '' }],
+      path: 'C:/teams/ผู้ช่วยในคอมพิวเตอร์/TEAM.md',
+    },
   ] as any)
 })
 
