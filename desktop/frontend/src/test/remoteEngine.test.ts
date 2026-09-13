@@ -67,7 +67,10 @@ describe('Settings › เครื่องระยะไกล', () => {
   it('saves a new host from the form', async () => {
     render(RemoteEngine)
     await waitFor(() => expect(RemoteHosts).toHaveBeenCalled())
-    const target = screen.getByLabelText('user@host หรือชื่อจาก ~/.ssh/config') as HTMLInputElement
+    // The form is a dialog behind the + button since 13 ก.ย. (5f343f9a), and
+    // its fields carry labels rather than long placeholders.
+    await fireEvent.click(screen.getByText('เพิ่มเครื่อง'))
+    const target = (await screen.findByPlaceholderText('user@host')) as HTMLInputElement
     await fireEvent.input(target, { target: { value: 'dev@10.0.0.5' } })
     await fireEvent.click(screen.getByText('บันทึก'))
     await waitFor(() => expect(SaveRemoteHost).toHaveBeenCalledWith('', 'dev@10.0.0.5', ''))
