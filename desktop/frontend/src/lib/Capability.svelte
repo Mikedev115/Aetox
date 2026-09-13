@@ -46,6 +46,13 @@
   //     the profile is listed and cannot be removed here; a same-named folder
   //     replaces it, the shelf's own rule.
   //   - **ห้องสมุดสกิล** — the curated open-source packs (skillShelf.ts).
+  //   - **ปรับสกิลอัตโนมัติ** (14 ก.ย.) — the drafts the optimizer writes
+  //     against a shelf skill that keeps getting 👎, and the switch that
+  //     lets it draft on its own. It sat in ตั้งค่า under การเรียนรู้ because
+  //     it borrows that room's approve/refuse row; but what it edits is a
+  //     file on the shelf one row up, and a queue of edits to a thing lives
+  //     with the thing. The row is still the learning room's (.learn-row):
+  //     the layout was right, only the address was wrong.
   //
   // The registers ตั้งค่า still holds (บัญชี เครื่องมือในตัว) are the next
   // headings, moved the same way. Until they move, the foot of ของคุณ links
@@ -119,8 +126,9 @@
     StartMCPSignIn, CompleteMCPSignIn, CancelMCPSignIn, MCPSignInStatus,
     SkillsDir, SkillScanIssues, InstallSkillFromGitHub, InstallSkillFromZip, RemoveExternalSkill,
     RefreshSkills, OpenSkillsFolder, AgentSkills, OpenAgentSkillsFolder, CopySkillToAgent, RemoveAgentSkill,
+    SkillTuneAuto, SetSkillTuneAuto, RunSkillTuneup, ListSkillProposals, ApprovePendingChange, RejectPendingChange,
   } from '../../wailsjs/go/main/App'
-  import { config } from '../../wailsjs/go/models'
+  import { config, type engine } from '../../wailsjs/go/models'
   import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
   import { cockpit, openSettingsAt, startChatWith } from './stores/cockpit.svelte'
   import { t, type TKey } from './i18n.svelte'
@@ -186,10 +194,11 @@
   // The rail. Opens on ของคุณ when there is anything in it, on ห้องสมุด when
   // there is not: the room's founding point was that an empty register
   // announces nothing, and a full one is what a person came back for.
-  type Page = 'mine' | 'desks' | 'agents' | 'shelf' | 'skills' | 'skagents' | 'skshelf'
+  type Page = 'mine' | 'desks' | 'agents' | 'shelf' | 'skills' | 'skagents' | 'skshelf' | 'sktune'
   // Two headings, one per kind of thing; a new kind is a new heading, never
-  // a tab. The MCP group has four rows and the skill group three — see the
-  // note at the top for why the skill rail has no placement page per side.
+  // a tab. The MCP group has four rows and the skill group four — see the
+  // note at the top for why the skill rail has no placement page per side,
+  // and why its fourth row is the tune-up queue rather than one.
   type Row = { id: Page; labelKey: TKey; icon: IconName }
   const RAIL: { labelKey: TKey; rows: Row[] }[] = [
     { labelKey: 'capability.navGroupReach', rows: [
@@ -202,18 +211,23 @@
       { id: 'skills', labelKey: 'capability.navSkills', icon: 'puzzle' },
       { id: 'skagents', labelKey: 'capability.navSkillAgents', icon: 'bot' },
       { id: 'skshelf', labelKey: 'capability.navSkillShelf', icon: 'layoutList' },
+      { id: 'sktune', labelKey: 'settings.skillTune', icon: 'sparkles' },
     ] },
   ]
   let page = $state<Page>('shelf')
   let pageSettled = false
   const goPage = (p: Page) => {
     page = p
+    // A click is a choice: the first load must not overrule it with its own
+    // idea of a front page when it lands a moment later.
+    pageSettled = true
     if (SKILL_PAGES.includes(p) && !skillsLoaded) void loadSkills()
     // A window belongs to a visit, not to the session: leaving a page and
     // coming back should not hand the reader 400 cards it did not ask for.
     winMine.reset(); winBundled.reset(); winShelf.reset(); winSignIn.reset(); winSkShelf.reset(); winServers.reset()
     if (p === 'mine' && loaded) void probeIdle()
     if (p === 'skagents') void loadAgentSkills()
+    if (p === 'sktune') void loadSkillTune()
   }
   // A window per long grid (pageWindow.svelte.ts): the DOM this room asks
   // for at once, rationed. 494 bundled skills is 13,700 nodes in one frame
@@ -257,6 +271,83 @@
     skillsLoaded = true
     if (page === 'skagents' || skillPick) await loadAgentSkills()
   }
+
+  // ปรับสกิลอัตโนมัติ: its own load, not part of loadSkills — the queue is a
+  // few DB rows and the switch one flag, and neither needs the 494-folder
+  // walk. Its error is its own too: a failed approve must stay on this page
+  // beside the row it failed on, not surface as the room's banner.
+  let skillTuneAutoOn = $state(false)
+  let skillTuneBusy = $state(false)
+  let skillTuneMsg = $state('')
+  let skillProposals = $state<engine.PendingChange[]>([])
+  let tuneError = $state('')
+  let tuneBusy = $state(0)
+  async function loadSkillTune() {
+    try {
+      tuneError = ''
+      skillTuneAutoOn = await SkillTuneAuto()
+      skillProposals = (await ListSkillProposals()) ?? []
+    } catch (err) {
+      tuneError = String(err)
+    }
+  }
+  // Written straight through rather than optimistically: this switch decides
+  // whether a model call is spent, and a checkbox that moves before the write
+  // lands is a checkbox that can lie about that.
+  async function toggleSkillTuneAuto() {
+    try {
+      await SetSkillTuneAuto(!skillTuneAutoOn)
+      await loadSkillTune()
+    } catch (err) {
+      tuneError = String(err)
+    }
+  }
+  // The manual trigger: draft now, whatever the auto switch says. It spends one
+  // model call and can take a moment, so the button reports what it found rather
+  // than appearing to do nothing.
+  async function runSkillTuneupNow() {
+    skillTuneBusy = true
+    skillTuneMsg = ''
+    try {
+      const n = await RunSkillTuneup()
+      skillTuneMsg = t('settings.skillTuneRanFound', { count: String(n) })
+      await loadSkillTune()
+    } catch (err) {
+      tuneError = String(err)
+    } finally {
+      skillTuneBusy = false
+    }
+  }
+  async function decideSkillChange(id: number, approve: boolean) {
+    tuneBusy = id
+    try {
+      tuneError = ''
+      if (approve) await ApprovePendingChange(id)
+      else await RejectPendingChange(id)
+      await loadSkillTune()
+      // An approved draft rewrote a file on the shelf; the shelf pages read
+      // it again next time they open rather than showing yesterday's blurb.
+      if (approve) skillsLoaded = false
+    } catch (err) {
+      // Shown rather than swallowed: an approval that could not be applied
+      // leaves the proposal in the list, and a button that appears to do
+      // nothing is how a user concludes the feature is broken.
+      tuneError = String(err)
+    } finally {
+      tuneBusy = 0
+    }
+  }
+  // The verb for a proposal, in the user's language — the same sentence the
+  // chat card says (MemoryCard), so a draft is not labelled two ways.
+  const tuneAsk = (c: engine.PendingChange) =>
+    c.op === 'create' ? t('chat.skillCreateAsk') : t('chat.skillTuneAsk')
+  // The description line of a SKILL.md frontmatter, for the card's subtitle:
+  // the model writes it for a person, the rest of the file is for the model.
+  function skillBlurb(body: string): string {
+    const m = /^---\r?\n[\s\S]*?^description:\s*(.+?)\s*$[\s\S]*?^---/m.exec(body || '')
+    return m ? m[1].replace(/^["']|["']$/g, '') : ''
+  }
+
   onMount(async () => {
     await load()
     void probeIdle()
@@ -1292,6 +1383,72 @@
           · <button class="linklike" onclick={askSkillAssistant}>{t('settings.aiFindSkillTitle')}</button>
         </p>
         <p class="office-note">{t('settings.skillShelfFoot')}</p>
+      {/if}
+
+      <!-- ================= ปรับสกิลอัตโนมัติ ================= -->
+      <!-- Moved whole from ตั้งค่า (14 ก.ย. 2026). The queue borrows the
+           learning room's row (.learn-row): a skill edit and a memory line are
+           reviewed the same way — read what changes, approve or refuse — so a
+           second look would be ornament. What it says and where it applies is
+           the difference, and that is in the copy and the backend. -->
+      {#if page === 'sktune'}
+        <h2>{t('settings.skillTune')}</h2>
+        <p class="muted set-sub">{t('settings.skillTuneIntro')}</p>
+        {#if tuneError}<div class="mset-error">{tuneError}</div>{/if}
+
+        <div class="settings-card">
+          <div class="set-row">
+            <div class="set-txt">
+              <div class="t">{t('settings.skillTuneAutoTitle')}</div>
+              <div class="d">{t('settings.skillTuneAutoHint')}</div>
+            </div>
+            <label class="mswitch">
+              <input type="checkbox" checked={skillTuneAutoOn} onchange={toggleSkillTuneAuto} />
+              <span></span>
+            </label>
+          </div>
+          <div class="set-row">
+            <div class="set-txt">
+              <div class="d">{t('settings.skillTuneManualHint')}</div>
+              {#if skillTuneMsg}<div class="d" style="color:var(--accent)">{skillTuneMsg}</div>{/if}
+            </div>
+            <button type="button" class="ctrl" disabled={skillTuneBusy} onclick={runSkillTuneupNow}>
+              {skillTuneBusy ? t('settings.skillTuneRunning') : t('settings.skillTuneRunNow')}
+            </button>
+          </div>
+        </div>
+
+        <h3 class="set-h3">{t('settings.skillTunePending')}</h3>
+        <p class="muted set-sub">{t('settings.skillTunePendingHint')}</p>
+        <div class="settings-card">
+          {#each skillProposals as c (c.id)}
+            <div class="learn-row">
+              <div class="learn-main">
+                <!-- The sentence first, the same one the chat card says:
+                     "CREATE" beside a slug read as an error to the owner, and
+                     he wrote the thing. Then the skill's own description, the
+                     one line of the file meant for a person. -->
+                <div class="learn-head">
+                  <span class="learn-verb">{tuneAsk(c)}</span>
+                  <span class="learn-scope">{c.scope}</span>
+                </div>
+                {#if skillBlurb(c.body)}<div class="learn-blurb">{skillBlurb(c.body)}</div>{/if}
+                {#if c.before}<div class="learn-before learn-doc">{c.before}</div>{/if}
+                <div class="learn-body learn-doc">{c.body}</div>
+                {#if c.reason}<div class="learn-why">{c.reason}</div>{/if}
+              </div>
+              <div class="learn-actions">
+                <button type="button" class="ctrl ctrl-primary" disabled={tuneBusy === c.id}
+                  onclick={() => decideSkillChange(c.id, true)}>{t('settings.learningApprove')}</button>
+                <button type="button" class="ctrl" disabled={tuneBusy === c.id}
+                  onclick={() => decideSkillChange(c.id, false)}>{t('settings.learningReject')}</button>
+              </div>
+            </div>
+          {/each}
+          {#if skillProposals.length === 0}
+            <div class="empty">{t('settings.skillTuneNothing')}</div>
+          {/if}
+        </div>
       {/if}
     </div>
   </div>

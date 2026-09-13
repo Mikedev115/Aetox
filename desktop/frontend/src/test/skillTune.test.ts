@@ -1,12 +1,14 @@
-// The skill-tuning room: its own axis, its own queue. A drafted skill fix is
-// shown with its diff, applies only on approval, and the switch that decides
-// whether it drafts on its own persists.
+// ปรับสกิลอัตโนมัติ: since 14 ก.ย. 2026 the fourth row under สกิล in ห้องความสามารถ,
+// moved whole out of ตั้งค่า. A drafted skill fix is shown with its diff, applies
+// only on approval, and the switch that decides whether it drafts on its own
+// persists. The rail row, the switch and the queue keep their settings.* keys:
+// the words did not change, only the address.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
-import Settings from '../lib/Settings.svelte'
+import Capability from '../lib/Capability.svelte'
 import {
   ListSkillProposals, SkillTuneAuto, SetSkillTuneAuto, RunSkillTuneup,
-  ApprovePendingChange, LearningEnabled, ListPendingChanges,
+  ApprovePendingChange, ListMCPServers, ListExternalSkills, ListSubagentProfiles, PlacementTargets, ListTools,
 } from './mocks/wailsApp'
 
 const skillProposal = (over: Record<string, unknown> = {}) => ({
@@ -25,19 +27,29 @@ const openSection = async (container: HTMLElement, label: string) => {
 }
 
 const SKILLTUNE = 'ปรับสกิลอัตโนมัติ'
+// The room's first load lands on a page of its own choosing; the click has to
+// come after it, the way a person's does.
+const openRoom = async () => {
+  const r = render(Capability, { onClose: () => {} })
+  await waitFor(() => expect(document.querySelector('.office-grid')).toBeTruthy())
+  return r
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(LearningEnabled).mockResolvedValue(true)
   vi.mocked(SkillTuneAuto).mockResolvedValue(false)
-  vi.mocked(ListPendingChanges).mockResolvedValue([] as any)
+  vi.mocked(ListMCPServers).mockResolvedValue([] as any)
+  vi.mocked(ListExternalSkills).mockResolvedValue([] as any)
+  vi.mocked(ListSubagentProfiles).mockResolvedValue([] as any)
+  vi.mocked(PlacementTargets).mockResolvedValue([] as any)
+  vi.mocked(ListTools).mockResolvedValue([] as any)
   vi.mocked(ListSkillProposals).mockResolvedValue([] as any)
 })
 
 describe('the skill-tuning room', () => {
   it('shows a drafted skill fix with its diff, and applies it only on approval', async () => {
     vi.mocked(ListSkillProposals).mockResolvedValue([skillProposal()] as any)
-    const { container } = render(Settings, { onClose: () => {} })
+    const { container } = await openRoom()
     await openSection(container, SKILLTUNE)
 
     // The skill it edits and what it would add — the diff a person reads before
@@ -52,13 +64,13 @@ describe('the skill-tuning room', () => {
   })
 
   it('empties to a message rather than a blank card', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
+    const { container } = await openRoom()
     await openSection(container, SKILLTUNE)
     await waitFor(() => expect(screen.getByText(/ยังไม่มีอะไรให้ตรวจ/)).toBeTruthy())
   })
 
   it('persists the auto-draft switch', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
+    const { container } = await openRoom()
     await openSection(container, SKILLTUNE)
     const sw = await waitFor(() => container.querySelector('.mswitch input') as HTMLInputElement)
     await fireEvent.click(sw)
@@ -67,7 +79,7 @@ describe('the skill-tuning room', () => {
 
   it('runs a tuneup on demand', async () => {
     vi.mocked(RunSkillTuneup).mockResolvedValue(1 as any)
-    const { container } = render(Settings, { onClose: () => {} })
+    const { container } = await openRoom()
     await openSection(container, SKILLTUNE)
     await fireEvent.click(screen.getByText('ตรวจตอนนี้'))
     expect(RunSkillTuneup).toHaveBeenCalled()

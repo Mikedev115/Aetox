@@ -72,7 +72,7 @@
     Connections, ConnectAccount, SetConnectionTargets, VerifyConnection, DisconnectAccount,
     SetConnectionStartCommand, StartConnectionServer, CheckConnectionServer,
     AppVersion, AppCredit, RecentDebugLog,
-    LearningEnabled, SetLearningEnabled, SkillTuneAuto, SetSkillTuneAuto, RunSkillTuneup, ListSkillProposals, ListPendingChanges, ListDecidedChanges,
+    LearningEnabled, SetLearningEnabled, ListPendingChanges, ListDecidedChanges,
     SessionReviewAuto, SetSessionReviewAuto, RunSessionReview, ListRecurringRequests, DismissRecurringRequest,
     SynthesizeHabit,
     PreparedReplyOn, SetPreparedReplyOn,
@@ -3145,10 +3145,6 @@
   let habitExpanded = $state<Record<string, boolean>>({})
   let habitDismissBusy = $state<Record<string, boolean>>({})
   let habitSynthesizeBusy = $state<Record<string, boolean>>({})
-  let skillTuneAutoOn = $state(false)
-  let skillTuneBusy = $state(false)
-  let skillTuneMsg = $state('')
-  let skillProposals = $state<engine.PendingChange[]>([])
   let pendingChanges = $state<engine.PendingChange[]>([])
   let decidedChanges = $state<engine.PendingChange[]>([])
   // The decided list is a record, not a queue: nothing is waiting on it and the
@@ -3635,16 +3631,6 @@
     }
   }
 
-  async function loadSkillTune() {
-    try {
-      learningError = ''
-      skillTuneAutoOn = await SkillTuneAuto()
-      skillProposals = await ListSkillProposals()
-    } catch (err) {
-      learningError = String(err)
-    }
-  }
-
   // Off means no turn ever spends a call preparing wording, whatever it ended
   // with. Written straight through rather than optimistically: this switch
   // decides whether money is spent, and a checkbox that moves before the write
@@ -3732,41 +3718,13 @@
     }
   }
 
-  async function toggleSkillTuneAuto() {
-    try {
-      await SetSkillTuneAuto(!skillTuneAutoOn)
-      await loadSkillTune()
-    } catch (err) {
-      learningError = String(err)
-    }
-  }
-
-  // The manual trigger: draft now, whatever the auto switch says. It spends one
-  // model call and can take a moment, so the button reports what it found rather
-  // than appearing to do nothing.
-  async function runSkillTuneupNow() {
-    skillTuneBusy = true
-    skillTuneMsg = ''
-    try {
-      const n = await RunSkillTuneup()
-      skillTuneMsg = t('settings.skillTuneRanFound', { count: String(n) })
-      await loadSkillTune()
-    } catch (err) {
-      learningError = String(err)
-    } finally {
-      skillTuneBusy = false
-    }
-  }
-
   async function decideChange(id: number, approve: boolean) {
     learningBusy = id
     try {
       learningError = ''
       if (approve) await ApprovePendingChange(id)
       else await RejectPendingChange(id)
-      // The same door decides both queues; reload whichever one is open.
-      if (active === 'skilltune') await loadSkillTune()
-      else await loadLearning()
+      await loadLearning()
     } catch (err) {
       // Shown rather than swallowed: an approval that could not be applied
       // leaves the proposal in the list, and a button that appears to do
@@ -3796,7 +3754,6 @@
 
   $effect(() => {
     if (active === 'learning') void loadLearning()
-    if (active === 'skilltune') void loadSkillTune()
     if (active === 'voice') void loadVoicePage()
     if (active === 'image') void loadImagePage()
     if (active === 'studio') void loadStudio()
@@ -3850,12 +3807,9 @@
       // sides: what the user told the agent, and what the agent worked out.
       { id: 'learning', label: t('settings.learning'), icon: 'brain',
         terms: [t('settings.learningPending'), t('settings.learningMemory')] },
-      // Its own axis next to learning: refining a skill is a learning too, but it
-      // edits behaviour rather than a remembered fact, and it will grow its own
-      // controls — so it gets its own room from the start rather than being
-      // untangled from the learning queue later.
-      { id: 'skilltune', label: t('settings.skillTune'), icon: 'sparkles',
-        terms: [t('settings.skillTunePending'), t('settings.skillTuneAutoTitle')] },
+      // ปรับสกิลอัตโนมัติ left this menu 14 ก.ย. 2026 for the สกิล heading of
+      // ห้องความสามารถ (Capability.svelte): a queue of edits to a shelf skill
+      // lives beside the shelf.
       // Next to learning because that is where these used to arrive, and the
       // adjacency is the point: what Aetox worked out about you, and what keeps
       // going wrong, are two different things that spent a year in one queue
@@ -4073,7 +4027,7 @@
   // section (openSettingsAt), and two spellings of this key would fail silently
   // and look like the page ignoring where it was told to go.
   const SECTION_KEY = SETTINGS_SECTION_KEY
-  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'identity', 'learning', 'skilltune', 'models', 'team', 'teams', 'agents', 'tools', 'connections', 'computer', 'prompts', 'account', 'usage', 'about', 'sponsor'])
+  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'identity', 'learning', 'models', 'team', 'teams', 'agents', 'tools', 'connections', 'computer', 'prompts', 'account', 'usage', 'about', 'sponsor'])
 
   function restoredSection(): string {
     try {
@@ -7506,69 +7460,6 @@
           {/if}
         </div>
       {/if}
-
-    <!-- The problems room. Structure borrowed whole from the queue above
-         (.settings-card / .learn-row): the layout was right and is already
-         styled, and inventing a second look for a list of rows with two
-         buttons would be ornament, not design. What differs is what it says
-         and what the buttons do — which is the entire change. -->
-    {:else if active === 'skilltune'}
-      <h2>{t('settings.skillTune')}</h2>
-      <p class="muted set-sub">{t('settings.skillTuneIntro')}</p>
-      {#if learningError}<div class="mset-error">{learningError}</div>{/if}
-
-      <div class="settings-card">
-        <div class="set-row">
-          <div class="set-txt">
-            <div class="t">{t('settings.skillTuneAutoTitle')}</div>
-            <div class="d">{t('settings.skillTuneAutoHint')}</div>
-          </div>
-          <label class="mswitch">
-            <input type="checkbox" checked={skillTuneAutoOn} onchange={toggleSkillTuneAuto} />
-            <span></span>
-          </label>
-        </div>
-        <div class="set-row">
-          <div class="set-txt">
-            <div class="d">{t('settings.skillTuneManualHint')}</div>
-            {#if skillTuneMsg}<div class="d" style="color:var(--accent)">{skillTuneMsg}</div>{/if}
-          </div>
-          <button type="button" class="ctrl" disabled={skillTuneBusy} onclick={runSkillTuneupNow}>
-            {skillTuneBusy ? t('settings.skillTuneRunning') : t('settings.skillTuneRunNow')}
-          </button>
-        </div>
-      </div>
-
-      <h3 class="set-h3">{t('settings.skillTunePending')}</h3>
-      <p class="muted set-sub">{t('settings.skillTunePendingHint')}</p>
-      <!-- The queue borrows the learning room's row whole: a skill edit and a
-           memory line are reviewed the same way — read what changes, approve or
-           refuse — so a second look would be ornament. What it says and where it
-           applies is the difference, and that is in the copy and the backend. -->
-      <div class="settings-card">
-        {#each skillProposals as c (c.id)}
-          <div class="learn-row">
-            <div class="learn-main">
-              <div class="learn-head">
-                <span class="learn-scope">{c.scope}</span>
-                <span class="learn-op">{c.op}</span>
-              </div>
-              {#if c.before}<div class="learn-before">{c.before}</div>{/if}
-              <div class="learn-body">{c.body}</div>
-              {#if c.reason}<div class="learn-why">{c.reason}</div>{/if}
-            </div>
-            <div class="learn-actions">
-              <button type="button" class="ctrl ctrl-primary" disabled={learningBusy === c.id}
-                onclick={() => decideChange(c.id, true)}>{t('settings.learningApprove')}</button>
-              <button type="button" class="ctrl" disabled={learningBusy === c.id}
-                onclick={() => decideChange(c.id, false)}>{t('settings.learningReject')}</button>
-            </div>
-          </div>
-        {/each}
-        {#if skillProposals.length === 0}
-          <div class="empty">{t('settings.skillTuneNothing')}</div>
-        {/if}
-      </div>
 
     {:else if active === 'issues'}
       <h2>{t('settings.issues')}</h2>

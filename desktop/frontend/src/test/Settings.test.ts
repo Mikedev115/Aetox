@@ -1794,15 +1794,16 @@ describe('Settings nav', () => {
   })
 
   // ตั้งค่า › สกิล left the same way on 13 ก.ย. 2026: the shelf, the packs and
-  // the three install roads are the สกิล heading of ห้องความสามารถ. Only
-  // ปรับสกิลอัตโนมัติ stays, because it is the self-optimize loop's page, not
-  // the register's.
+  // the three install roads are the สกิล heading of ห้องความสามารถ. ปรับสกิลอัตโนมัติ
+  // stayed one more day as "the self-optimize loop's page, not the register's",
+  // and followed on 14 ก.ย.: what it edits is a file on that register, and a
+  // queue of edits to a thing lives with the thing.
   it('has no skills page either, and never asks the engine for the shelf', () => {
     sessionStorage.setItem('aetox.settingsSection', 'skills')
     const { container } = render(Settings, { onClose: () => {} })
     const labels = Array.from(container.querySelectorAll('.settings-nav-item')).map((n) => (n.textContent ?? '').trim())
     expect(labels).not.toContain('สกิล')
-    expect(labels).toContain('ปรับสกิลอัตโนมัติ')
+    expect(labels).not.toContain('ปรับสกิลอัตโนมัติ')
     expect(container.querySelector('.settings-nav-item.active')?.textContent).toContain('ทั่วไป')
     expect(vi.mocked(ListExternalSkills)).not.toHaveBeenCalled()
     sessionStorage.clear()
@@ -1827,7 +1828,7 @@ describe('Settings nav', () => {
 
     await openSection(container, 'รูปลักษณ์')
     top = 900
-    await openSection(container, 'สกิล')
+    await openSection(container, 'การเรียนรู้')
     expect(top).toBe(0)
   })
 })

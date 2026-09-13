@@ -6,7 +6,7 @@
 // test, sign in, keys, tools), ตั้งค่า MCP ฝั่งผู้ช่วยและโค้ด and ตั้งค่า MCP
 // สำหรับเอเจนเฉพาะทาง (placement, a card per target and one picker), ห้องสมุด MCP.
 // The same day สกิล became the rail's second heading — three pages moved whole
-// out of ตั้งค่า: สกิลของคุณ (the shelf: what is on it, what did not read,
+// out of ตั้งค่า (and a fourth, ปรับสกิลอัตโนมัติ, on 14 ก.ย. — skillTune.test.ts): สกิลของคุณ (the shelf: what is on it, what did not read,
 // the three install roads), ตั้งค่าสกิลสำหรับเอเจนเฉพาะทาง (a card per agent and
 // one sheet that COPIES a shelf skill into the agent's own folder — there is no
 // `for:` on a skill, every desk carries the whole shelf), ห้องสมุดสกิล.
@@ -137,11 +137,11 @@ describe('what the room must not have any more', () => {
   // A rail of three pages, each one kind of thing, and no tab bar of KINDS:
   // nothing here switches between MCP, skills and tools (the registers still
   // in ตั้งค่า are linked from the foot, not drawn as rows that point away).
-  it('is a rail of two headings — four MCP pages, three skill pages — and has no kind tabs', async () => {
+  it('is a rail of two headings — four MCP pages, four skill pages — and has no kind tabs', async () => {
     await open()
     expect(rail().map((x) => x.textContent?.trim())).toEqual([
       'MCP server ของคุณ', 'ตั้งค่า MCP ฝั่งผู้ช่วยและโค้ด', 'ตั้งค่า MCP สำหรับเอเจนเฉพาะทาง', 'ห้องสมุด MCP',
-      'สกิลของคุณ', 'ตั้งค่าสกิลสำหรับเอเจนเฉพาะทาง', 'ห้องสมุดสกิล',
+      'สกิลของคุณ', 'ตั้งค่าสกิลสำหรับเอเจนเฉพาะทาง', 'ห้องสมุดสกิล', 'ปรับสกิลอัตโนมัติ',
     ])
     expect(Array.from(document.querySelectorAll('.settings-nav .settings-group-label')).map((x) => x.textContent?.trim())).toEqual(['MCP', 'สกิล'])
     expect(screen.queryAllByRole('tablist').length).toBe(0) // the sheet's tabs exist only while it is open
