@@ -186,7 +186,7 @@
                 <!-- The rank on the face's corner (RankedFace): a roster is
                      the one page that mixes who you may talk to, so each
                      face says which level it is before where it came from. -->
-                <RankedFace tier="agent" size={38}><AgentMascot name={c.name} {...lookOf(c)} size={38} /></RankedFace>
+                <RankedFace tier="agent" size={48}><AgentMascot name={c.name} {...lookOf(c)} size={48} /></RankedFace>
                 <span class="chair-name">{c.name}</span>
                 <!-- On the head, not in the chips row (owner, 13 ก.ย. 2026:
                      "แปะหัวด้วยชัดๆ อันไหนมากับแอป"): which faces came with
