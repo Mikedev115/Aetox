@@ -3915,7 +3915,7 @@
              this one is headed ซับเอเจน and its rows carry no chat button —
              and that a second visual language for the same kind of thing costs
              more than it explains. -->
-        <RankedFace tier="helper" size={38}><AgentMascot name={a.name} {...lookOf(a)} size={38} /></RankedFace>
+        <RankedFace tier="helper" size={44}><AgentMascot name={a.name} {...lookOf(a)} size={44} /></RankedFace>
         <span class="chair-name" title={a.path || 'built-in:' + a.name}>{a.name}</span>
         {#if delegate}
           {@const w = reachOf(a.name)}
@@ -4007,7 +4007,7 @@
              the card grew; on the face it costs nothing and travels with the
              face everywhere. The two lists draw the same card on purpose;
              the emblem plus the page heading say which level this is. -->
-        <!-- 48 for a พนักงาน, 38 for a ลูกมือ (profileRow), the heads larger
+        <!-- 48 for a พนักงาน, 44 for a ลูกมือ (profileRow), the heads larger
              still: the ranks read in the faces before the word is read
              (owner, 14 ก.ย.: "ทำให้พนักงานตัวใหญ่ขึ้นอีกหน่อย"). -->
         <RankedFace tier="agent" size={48}>
