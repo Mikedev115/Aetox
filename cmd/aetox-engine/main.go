@@ -89,7 +89,7 @@ func serve(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	network, address := "", ""
+	var network, address string
 	switch {
 	case *socket != "" && *tcp != "":
 		return errors.New("--socket and --tcp are one or the other")

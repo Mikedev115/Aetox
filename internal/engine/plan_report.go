@@ -202,16 +202,6 @@ func parseReportSections(raw any) ([]PlanSection, error) {
 	return out, nil
 }
 
-// reportMarkdown renders a report the way a copy off the card writes it out.
-func reportMarkdown(r PlanReport) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "# %s — round %d\n\n", r.Title, r.Run)
-	for _, sec := range r.Sections {
-		b.WriteString("**" + sec.Heading + "**\n" + sec.Body + "\n\n")
-	}
-	return strings.TrimRight(b.String(), "\n")
-}
-
 // emitPlanReport puts the report in front of the user, stamped with its
 // conversation for the reason emitPlan stamps the plan (§187, §234).
 func (a *Engine) emitPlanReport(sessionID string, rep PlanReport) {

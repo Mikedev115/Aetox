@@ -58,7 +58,7 @@ func renderClient(fset *token.FileSet, methods []method, types map[string]bool, 
 		if len(args) > 0 {
 			params = "[]any{" + strings.Join(args, ", ") + "}"
 		}
-		call := ""
+		var call string
 		switch len(outs) {
 		case 0:
 			call = "c.call(" + quote(m.name) + ", " + params + ", nil)"

@@ -169,8 +169,6 @@ const (
 	wmCaptureChanged = 0x0215
 	wmDPIChanged     = 0x02E0
 
-	swpNoZOrder = 0x0004
-
 	// Per-monitor v2: the window is told (WM_DPICHANGED) when it is dragged
 	// onto a monitor with a different scale, and nothing is stretched for it.
 	// DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 is the handle value -4.
@@ -1302,4 +1300,36 @@ func (w *companionWindow) present(img *image.RGBA, used image.Rectangle) {
 	if ok, _, err := procUpdateLayeredWindow.Call(w.hwnd, 0, uintptr(unsafe.Pointer(&at)), uintptr(unsafe.Pointer(&size)), w.dib.mem, uintptr(unsafe.Pointer(&src)), 0, uintptr(unsafe.Pointer(&blend)), ulwAlpha); ok == 0 {
 		debuglog.Msg("companion: UpdateLayeredWindow failed: %v", err)
 	}
+}
+
+// The three helpers below are called from this file only, so they live with
+// their callers rather than in the cross-platform sprite and walk files —
+// on the platforms with no desktop body (companion_other.go) they would be
+// dead code, and the linter says so.
+
+// decoded is how many PNG decodes this store has paid for — the drag
+// statistics read it per store.
+func (s *spriteStore) decoded() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.decodes
+}
+
+// warm decodes keys in the background so the frames are in the cache before
+// they are drawn — the walk's headings when a drag begins, which would
+// otherwise each cost a PNG decode on the body's thread mid-step.
+func (s *spriteStore) warm(keys []string) {
+	go func() {
+		for _, k := range keys {
+			s.frame(k)
+		}
+	}()
+}
+
+// abs is the one arithmetic helper the body needs; the engine has its own.
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
 }

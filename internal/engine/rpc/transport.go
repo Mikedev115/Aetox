@@ -106,7 +106,7 @@ func Dial(ctx context.Context, network, address, token string, h Handler, n Noti
 	}
 	// The URL's host is a placeholder: NetDialContext ignores it, and gorilla
 	// needs one to build the handshake.
-	ws, resp, err := dialer.DialContext(ctx, "ws://engine"+RPCPath, http.Header{"Authorization": {"Bearer " + token}})
+	ws, resp, err := dialer.DialContext(ctx, "ws://engine"+RPCPath, http.Header{"Authorization": {"Bearer " + token}}) //nolint:bodyclose // gorilla: on success the body is the socket, on failure it "does not need to be closed by the application"
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusUnauthorized {
 			return nil, fmt.Errorf("rpc: the engine refused the token")

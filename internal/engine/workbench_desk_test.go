@@ -70,17 +70,6 @@ func (r *recorder) reset() {
 	r.events = nil
 }
 
-// names is the same recording read as event names only — what the tests that
-// assert on which events fired, rather than on their payloads, actually want.
-func (r *recorder) names() []string {
-	all := r.all()
-	out := make([]string, 0, len(all))
-	for _, e := range all {
-		out = append(out, e.Name)
-	}
-	return out
-}
-
 // bootRecorders holds the recorder bootDeskApp wired in while it was still
 // building the Engine, so a test can ask for it afterwards without writing to
 // `a.emit` and `a.ctx` a second time. Those two fields are read by the MCP

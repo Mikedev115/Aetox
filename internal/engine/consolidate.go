@@ -118,11 +118,9 @@ func (c appMemoryConsolidator) Consolidate(ctx context.Context, scope string, li
 	if err != nil {
 		return nil, "", err
 	}
-	raw := ""
+	raw := extractJSONObject(resp.Text)
 	if len(resp.ToolCalls) > 0 {
 		raw = resp.ToolCalls[0].Function.Arguments
-	} else {
-		raw = extractJSONObject(resp.Text)
 	}
 	if raw == "" {
 		return nil, "", fmt.Errorf("the model returned no list")
