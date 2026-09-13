@@ -11,6 +11,8 @@ export const en: Record<keyof typeof th, string> = {
   'topbar.showSidebar': 'Show sidebar',
   'topbar.hideSidebar': 'Hide sidebar',
   'topbar.toggleSidebarTip': 'Toggle sidebar',
+  // The window and the app it talks to are different builds (lib/errText.ts).
+  'app.screenOlderThanBinary': 'The window and the app are different builds. Close Aetox and open it again.',
   'topbar.askingYou': 'is asking you',
   'topbar.askingMore': 'is asking you, and {n} more',
   'topbar.askingUnnamed': 'A chat',

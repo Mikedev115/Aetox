@@ -11,6 +11,8 @@ export const th = {
   'topbar.showSidebar': 'แสดงแถบด้านข้าง',
   'topbar.hideSidebar': 'ซ่อนแถบด้านข้าง',
   'topbar.toggleSidebarTip': 'เปิด/ปิดแถบด้านข้าง',
+  // The window and the app it talks to are different builds (lib/errText.ts).
+  'app.screenOlderThanBinary': 'หน้าจอกับตัวแอปเป็นคนละรุ่น ปิดแอปแล้วเปิดใหม่อีกครั้ง',
   'topbar.askingYou': 'ถามคุณอยู่',
   'topbar.askingMore': 'ถามคุณอยู่ และอีก {n} แชต',
   'topbar.askingUnnamed': 'แชตหนึ่ง',
