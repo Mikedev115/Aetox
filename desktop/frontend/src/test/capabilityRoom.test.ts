@@ -137,13 +137,14 @@ describe('what the room must not have any more', () => {
   // A rail of three pages, each one kind of thing, and no tab bar of KINDS:
   // nothing here switches between MCP, skills and tools (the registers still
   // in ตั้งค่า are linked from the foot, not drawn as rows that point away).
-  it('is a rail of two headings — four MCP pages, four skill pages — and has no kind tabs', async () => {
+  it('is a rail of three headings — four MCP pages, four skill pages, one tool page — and has no kind tabs', async () => {
     await open()
     expect(rail().map((x) => x.textContent?.trim())).toEqual([
       'MCP server ของคุณ', 'ตั้งค่า MCP ฝั่งผู้ช่วยและโค้ด', 'ตั้งค่า MCP สำหรับเอเจนเฉพาะทาง', 'ห้องสมุด MCP',
       'สกิลของคุณ', 'ตั้งค่าสกิลสำหรับเอเจนเฉพาะทาง', 'ห้องสมุดสกิล', 'ปรับสกิลอัตโนมัติ',
+      'ทะเบียนเครื่องมือ',
     ])
-    expect(Array.from(document.querySelectorAll('.settings-nav .settings-group-label')).map((x) => x.textContent?.trim())).toEqual(['MCP', 'สกิล'])
+    expect(Array.from(document.querySelectorAll('.settings-nav .settings-group-label')).map((x) => x.textContent?.trim())).toEqual(['MCP', 'สกิล', 'เครื่องมือในตัว'])
     expect(screen.queryAllByRole('tablist').length).toBe(0) // the sheet's tabs exist only while it is open
     // The registers still in ตั้งค่า are not drawn as rows that point away.
     expect(rail().some((x) => /เครื่องมือในตัว|บัญชี/.test(x.textContent ?? ''))).toBe(false)
@@ -163,14 +164,14 @@ describe('what the room must not have any more', () => {
     await open()
     expect(document.body.textContent).not.toMatch(/\[รอเจ้าของ/)
   })
-  // The one register still in ตั้งค่า is announced in the foot of ของคุณ as a
-  // door to where it lives today; สกิล is on the rail and gets no door.
-  it('names the built-in tools with their count and links that register only', async () => {
+  // Until 14 ก.ย. 2026 the foot of ของคุณ announced the built-in tools with
+  // a door to ตั้งค่า › เครื่องมือ, the one register still living there. It is
+  // on the rail now, and a register on the rail gets no door — the rule สกิล
+  // set the day before.
+  it('has no door to any register: they are all on the rail', async () => {
     await open([server()])
     expect(screen.getByRole('heading', { level: 2 }).textContent).toMatch(/MCP server/)
-    expect(screen.getByText(/เครื่องมือในตัว 2 ชิ้น/)).toBeTruthy()
-    expect(screen.getByText('ตั้งค่า › เครื่องมือ')).toBeTruthy()
-    expect(screen.queryByText('ตั้งค่า › สกิล')).toBeNull()
+    expect(screen.queryByText(/ตั้งค่า › /)).toBeNull()
   })
 })
 
@@ -362,6 +363,71 @@ describe('ห้องสมุดสกิล', () => {
     await waitFor(() => expect(vi.mocked(InstallSkillFromGitHub)).toHaveBeenCalledWith('https://github.com/mattpocock/skills'))
     expect(screen.getByText('ติดตั้งจาก URL หรือ zip')).toBeTruthy()
     expect(screen.getByText('ให้ผู้ช่วยหาสกิลมาให้')).toBeTruthy()
+  })
+})
+
+// ---- เครื่องมือในตัว -------------------------------------------------------
+// Moved whole from ตั้งค่า › เครื่องมือ on 14 ก.ย. 2026, the tests with it.
+describe('ทะเบียนเครื่องมือ', () => {
+  const REGISTRY = [
+    { name: 'browser_open', description: 'open a page', source: 'workbench', category: 'web' },
+    { name: 'read', description: 'read a file', source: 'builtin', category: 'files' },
+    { name: 'audio_transcribe', description: 'transcribe audio', source: 'builtin', category: 'media' },
+    { name: 'notion_search', description: 'search notion', source: 'mcp', category: '' },
+  ]
+  const openRegister = async () => {
+    vi.mocked(ListTools).mockResolvedValue(REGISTRY as any)
+    await open()
+    await fireEvent.click(rail().find((x) => x.textContent?.includes('ทะเบียนเครื่องมือ'))!)
+    await waitFor(() => expect(document.querySelector('.tool-row')).toBeTruthy())
+  }
+
+  // A desktop tool and a built-in one belong here; neither is anything the
+  // user installed, and no skill is a tool. The MCP one has a card of its own
+  // on ของคุณ and is not listed twice.
+  it('lists what runs without a server, counts only those, and shows no skill and no MCP tool', async () => {
+    vi.mocked(ListExternalSkills).mockResolvedValue([{ name: 'gridgeist', description: 'grid design', dir: 'C:/skills/gridgeist' }] as any)
+    await openRegister()
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toContain('3')
+    expect(screen.getByText('browser_open')).toBeTruthy()
+    expect(screen.getByText('read')).toBeTruthy()
+    expect(screen.queryByText('gridgeist')).toBeNull()
+    expect(screen.queryByText('notion_search')).toBeNull()
+  })
+
+  // A server writes its own descriptions and some run to a paragraph. One
+  // line each keeps forty rows scannable; the full text is one click away.
+  it('shows one line per tool until the row is clicked', async () => {
+    await openRegister()
+    const row = Array.from(document.querySelectorAll('.tool-row')).find((r) => r.textContent?.includes('browser_open'))!
+    expect(row.querySelector('.d')!.classList.contains('clamp')).toBe(true)
+    await fireEvent.click(row)
+    expect(row.querySelector('.d')!.classList.contains('clamp')).toBe(false)
+    await fireEvent.click(row)
+    expect(row.querySelector('.d')!.classList.contains('clamp')).toBe(true)
+  })
+
+  // Grouped by what a tool is FOR, not by where it came from: source sorts
+  // the rows by an implementation detail and answers a question nobody asks.
+  it('groups by what a tool is for, heading above the card', async () => {
+    await openRegister()
+    const heads = Array.from(document.querySelectorAll('.group-head')).map((h) => h.textContent)
+    expect(heads.some((h) => h?.includes('เว็บ'))).toBe(true)
+    expect(heads.some((h) => h?.includes('ไฟล์'))).toBe(true)
+    expect(heads.some((h) => h?.includes('ในตัว') || h?.includes('เดสก์ท็อป'))).toBe(false)
+    expect(document.querySelector('.settings-card .group-head')).toBeNull()
+  })
+
+  // The speech picker is audio_transcribe's setting and lives on ตั้งค่า ›
+  // เสียง; the row keeps a door there, not a second copy of the picker.
+  it('doors audio_transcribe to the voice page rather than carrying the picker', async () => {
+    await openRegister()
+    const toolRow = Array.from(document.querySelectorAll('.set-row')).find((r) => r.textContent?.includes('audio_transcribe'))!
+    const door = within(toolRow as HTMLElement).getByText('ตั้งค่าที่หน้า เสียง')
+    await fireEvent.click(door)
+    expect(sessionStorage.getItem('aetox.settingsSection')).toBe('voice')
+    expect(cockpit.activeView).toBe('settings')
+    sessionStorage.clear()
   })
 })
 

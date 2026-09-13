@@ -51,8 +51,8 @@ beforeEach(() => {
   vi.mocked(ListExternalSkills).mockResolvedValue([
     { name: 'gridgeist', description: 'grid design', dir: 'C:/skills/gridgeist' },
   ] as any)
-  // A desktop tool and a built-in one: both belong on the Tools page, and
-  // neither is anything the user installed.
+  // The registry, as the room's tool page would list it; here it only has to
+  // hold audio_transcribe for the voice page's own tests.
   vi.mocked(ListTools).mockResolvedValue([
     { name: 'browser_open', description: 'open a page', source: 'workbench', category: 'web' },
     { name: 'read', description: 'read a file', source: 'builtin', category: 'files' },
@@ -182,71 +182,15 @@ const openSection = async (container: HTMLElement, label: string) => {
 }
 
 describe('Settings pages', () => {
-  // Tools are things the model runs; skills are documents, and since 13 ก.ย.
-  // 2026 they live in ห้องความสามารถ. Mixing them on one page is what made
-  // every tool read as a "skill" the user had installed.
-  it('the tools page shows tools and no skill', async () => {
+  // The tools page left for ห้องความสามารถ on 14 ก.ย. 2026 (its tests went
+  // with it: capabilityRoom.test.ts › ทะเบียนเครื่องมือ). Models come from
+  // three different tools' folders and their paths are long, so the picker
+  // has to show where each one lives and hand the engine the exact path — a
+  // name alone could not tell two ggml-base.bin apart. The picker lived on
+  // audio_transcribe's own row while that tool was the only thing speech
+  // served; the composer's mic made it two users (1 ก.ย.), so it is here.
+  it('the speech model is picked from the voice page', async () => {
     const { container } = render(Settings, { onClose: () => {} })
-
-    await openSection(container, 'เครื่องมือ')
-    await waitFor(() => expect(screen.getByText('browser_open')).toBeTruthy())
-    expect(screen.queryByText('gridgeist')).toBeNull()
-  })
-
-  // Models come from three different tools' folders and their paths are long,
-  // so the picker has to show where each one lives and hand the engine the
-  // exact path — a name alone could not tell two ggml-base.bin apart.
-  // An MCP server writes its own tool descriptions and some run to a paragraph.
-  // One line each keeps 39 rows scannable; the full text is one click away.
-  it('tool descriptions show one line until the row is clicked', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เครื่องมือ')
-
-    await waitFor(() => expect(screen.getByText('browser_open')).toBeTruthy())
-    const row = Array.from(container.querySelectorAll('.tool-row'))
-      .find((r) => r.textContent?.includes('browser_open'))!
-    expect(row.querySelector('.d')!.classList.contains('clamp')).toBe(true)
-
-    await fireEvent.click(row)
-    expect(row.querySelector('.d')!.classList.contains('clamp')).toBe(false)
-
-    await fireEvent.click(row)
-    expect(row.querySelector('.d')!.classList.contains('clamp')).toBe(true)
-  })
-
-  // Grouped by what a tool is FOR, not by where it came from. Source sorts
-  // forty-four rows by an implementation detail and answers a question nobody
-  // asks; "which of these does the assistant need to carry?" could not be asked
-  // from the old page at all, because it could not be read.
-  it('tools are grouped by what they are for, not by where they came from', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เครื่องมือ')
-
-    await waitFor(() => expect(screen.getByText('browser_open')).toBeTruthy())
-    const heads = Array.from(container.querySelectorAll('.group-head')).map((h) => h.textContent)
-    // browser_open is web, read is files — two tools that used to be one group
-    // ("built in" / "desktop") and are two abilities.
-    expect(heads.some((h) => h?.includes('เว็บ'))).toBe(true)
-    expect(heads.some((h) => h?.includes('ไฟล์'))).toBe(true)
-    // The old axis is gone: nothing is filed under where it was compiled.
-    expect(heads.some((h) => h?.includes('ในตัว') || h?.includes('เดสก์ท็อป'))).toBe(false)
-    // Heading and count still sit above the card, not inside it.
-    expect(container.querySelector('.settings-card .group-head')).toBeNull()
-  })
-
-  // The picker lived on audio_transcribe's own row while that tool was the only
-  // thing speech served. The composer's mic made it two users (1 ก.ย.), so the
-  // setting moved to its own page — and the tool row keeps a door there, not a
-  // second copy of the picker.
-  it('the speech model is picked from the voice page, and the tool row doors to it', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เครื่องมือ')
-
-    await waitFor(() => expect(screen.getByText('audio_transcribe')).toBeTruthy())
-    const toolRow = Array.from(container.querySelectorAll('.set-row'))
-      .find((r) => r.textContent?.includes('audio_transcribe'))!
-    expect(toolRow.textContent).toContain('ตั้งค่าที่หน้า เสียง')
-
     await openSection(container, 'เสียง')
     await waitFor(() => expect(screen.getByText('โมเดลถอดเสียง')).toBeTruthy())
     // Closed until asked — the page stays one row per setting.
@@ -1742,11 +1686,11 @@ describe('Settings resilience and state', () => {
   })
 
   it('reloading reopens the page you were on, not the first one', async () => {
-    sessionStorage.setItem('aetox.settingsSection', 'tools')
+    sessionStorage.setItem('aetox.settingsSection', 'voice')
     const { container } = render(Settings, { onClose: () => {} })
 
     const activeItem = container.querySelector('.settings-nav-item.active')
-    expect(activeItem?.textContent).toContain('เครื่องมือ')
+    expect(activeItem?.textContent).toContain('เสียง')
     sessionStorage.clear()
   })
 
