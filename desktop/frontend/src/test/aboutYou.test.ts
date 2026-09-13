@@ -1,15 +1,14 @@
 // เกี่ยวกับคุณ (14 ก.ย. 2026): the one layer every desk and every agent reads
-// the same — the person. Your name, context.md, USER.md and the session review
-// that writes it, in one place, and NOT on การเรียนรู้ or คำสั่งประจำตัว any
-// more. What is pinned here is the page's own two fields; the memory block and
-// the review switch are pinned where they were tested before, repointed
+// the same — the person. Your name, USER.md and the session review that writes
+// it, in one place, and NOT on การเรียนรู้ any more. context.md sat here for a
+// morning and went back to the head's own set (ตัวหลัก › ตัวตน, mainHeads.test.ts).
+// What is pinned here is the page's own field; the memory block and the review
+// switch are pinned where they were tested before, repointed
 // (learningReview.test.ts, sessionReview.test.ts).
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import Settings from '../lib/Settings.svelte'
-import {
-  ListIdentityFiles, ReadIdentityFile, SaveIdentityFile, UserName, SetUserName, LearnedScopeInfos,
-} from './mocks/wailsApp'
+import { UserName, SetUserName, LearnedScopeInfos } from './mocks/wailsApp'
 import { profile } from '../lib/stores/profile.svelte'
 
 const openSection = async (container: HTMLElement, label: string) => {
@@ -24,8 +23,6 @@ beforeEach(() => {
   profile.loaded = false
   vi.mocked(LearnedScopeInfos).mockResolvedValue([] as any)
   vi.mocked(UserName).mockResolvedValue('mike')
-  vi.mocked(ListIdentityFiles).mockResolvedValue([{ name: 'identity.md' }, { name: 'context.md' }] as any)
-  vi.mocked(ReadIdentityFile).mockResolvedValue('# บริบทผู้ใช้\n\n- ทำ Aetox อยู่')
 })
 
 describe('เกี่ยวกับคุณ', () => {
@@ -41,49 +38,5 @@ describe('เกี่ยวกับคุณ', () => {
     await fireEvent.change(name)
     expect(SetUserName).toHaveBeenCalledWith('Mike D')
     expect(profile.name).toBe('Mike D')
-  })
-
-  // The file is a row until asked for (owner: "กด + ก่อนค่อยแสดง ไม่กด ก็ไม่แสดง").
-  it('edits context.md behind its row, and writes it by name', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เกี่ยวกับคุณ')
-    const open = await waitFor(() => screen.getByText('เปิดแก้ไข'))
-    expect(container.querySelector('textarea[aria-label="สิ่งที่ควรรู้เกี่ยวกับคุณ"]')).toBeNull()
-    await fireEvent.click(open)
-    const box = await waitFor(() => container.querySelector('textarea[aria-label="สิ่งที่ควรรู้เกี่ยวกับคุณ"]') as HTMLTextAreaElement)
-    await waitFor(() => expect(box.value).toContain('ทำ Aetox อยู่'))
-    expect(ReadIdentityFile).toHaveBeenCalledWith('context.md')
-    // Nothing to save until it changes.
-    const save = Array.from(container.querySelectorAll('.you-save .ctrl-primary'))[0] as HTMLButtonElement
-    expect(save.disabled).toBe(true)
-    await fireEvent.input(box, { target: { value: '# บริบทผู้ใช้\n\n- ทำ Aetox อยู่\n- เครื่อง Windows' } })
-    expect(save.disabled).toBe(false)
-    await fireEvent.click(save)
-    await waitFor(() => expect(SaveIdentityFile).toHaveBeenCalledWith('context.md', expect.stringContaining('เครื่อง Windows')))
-    await waitFor(() => expect(save.disabled).toBe(true))
-  })
-
-  // A first-time user has no context.md: a row with "+", never an error;
-  // "+" writes the template and opens it, as คำสั่งประจำตัว created a file.
-  it('offers to create the file when it does not exist yet, and opens it once made', async () => {
-    vi.mocked(ListIdentityFiles).mockResolvedValue([] as any)
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เกี่ยวกับคุณ')
-    const create = await waitFor(() => screen.getByText('สร้างไฟล์'))
-    expect(container.querySelector('textarea[aria-label="สิ่งที่ควรรู้เกี่ยวกับคุณ"]')).toBeNull()
-    expect(ReadIdentityFile).not.toHaveBeenCalled()
-    expect(container.querySelector('.mset-error')).toBeNull()
-    await fireEvent.click(create)
-    await waitFor(() => expect(SaveIdentityFile).toHaveBeenCalledWith('context.md', expect.stringContaining('บริบทผู้ใช้')))
-    const box = await waitFor(() => container.querySelector('textarea[aria-label="สิ่งที่ควรรู้เกี่ยวกับคุณ"]') as HTMLTextAreaElement)
-    expect(box.value).toContain('บริบทผู้ใช้')
-  })
-
-  // The user's file left คำสั่งประจำตัว: one editor per file.
-  it('is the only editor of context.md — คำสั่งประจำตัว no longer lists it', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'คำสั่งประจำตัว')
-    await waitFor(() => expect(screen.getByText('identity.md')).toBeTruthy())
-    expect(screen.queryByText('context.md')).toBeNull()
   })
 })

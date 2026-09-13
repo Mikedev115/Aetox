@@ -879,6 +879,22 @@ export namespace engine {
 		}
 	}
 	
+	export class DeskFile {
+	    name: string;
+	    text: string;
+	    overrides: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new DeskFile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.text = source["text"];
+	        this.overrides = source["overrides"];
+	    }
+	}
 	export class DeskFilter {
 	    desks: string[];
 	    exclude: boolean;

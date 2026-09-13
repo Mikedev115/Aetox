@@ -422,6 +422,10 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .mem-quick-banner.you-banner { margin-bottom:10px; }
 .you-file { font-size:var(--fs-md); font-weight:600; color:var(--text-primary); }
 .you-inline-error { margin:0 16px 12px; }
+.you-inline-note { margin:0 16px 12px; font-size:var(--fs-xs); }
+/* The desk file is frontmatter plus a page of prose: taller than a brief, and
+   monospace so the header's `key: value` lines read as the manifest they are. */
+.identity-input.desk-file { min-height:320px; font-family:var(--mono); font-size:var(--fs-sm); }
 .identity-save:disabled { opacity:.5; cursor:default; }
 /* Top of the projects list — not an anonymous ＋ sharing the tab row with
    "new chat", where neither icon says which one it adds. */

@@ -450,8 +450,8 @@ export function DeleteDeck(arg1) {
   return window['go']['main']['App']['DeleteDeck'](arg1);
 }
 
-export function DeleteIdentityFile(arg1) {
-  return window['go']['main']['App']['DeleteIdentityFile'](arg1);
+export function DeleteIdentityFile(arg1, arg2) {
+  return window['go']['main']['App']['DeleteIdentityFile'](arg1, arg2);
 }
 
 export function DeletePromptPreset(arg1) {
@@ -742,8 +742,8 @@ export function ListExternalSkills() {
   return window['go']['main']['App']['ListExternalSkills']();
 }
 
-export function ListIdentityFiles() {
-  return window['go']['main']['App']['ListIdentityFiles']();
+export function ListIdentityFiles(arg1) {
+  return window['go']['main']['App']['ListIdentityFiles'](arg1);
 }
 
 export function ListImageEngines() {
@@ -1138,12 +1138,16 @@ export function RateTurn(arg1, arg2) {
   return window['go']['main']['App']['RateTurn'](arg1, arg2);
 }
 
+export function ReadDeskFile(arg1) {
+  return window['go']['main']['App']['ReadDeskFile'](arg1);
+}
+
 export function ReadFile(arg1) {
   return window['go']['main']['App']['ReadFile'](arg1);
 }
 
-export function ReadIdentityFile(arg1) {
-  return window['go']['main']['App']['ReadIdentityFile'](arg1);
+export function ReadIdentityFile(arg1, arg2) {
+  return window['go']['main']['App']['ReadIdentityFile'](arg1, arg2);
 }
 
 export function ReadImageDataURL(arg1) {
@@ -1258,6 +1262,10 @@ export function ResendEdited(arg1, arg2) {
   return window['go']['main']['App']['ResendEdited'](arg1, arg2);
 }
 
+export function ResetDeskFile(arg1) {
+  return window['go']['main']['App']['ResetDeskFile'](arg1);
+}
+
 export function ResolveAddress(arg1) {
   return window['go']['main']['App']['ResolveAddress'](arg1);
 }
@@ -1370,12 +1378,16 @@ export function SaveChatImageData(arg1) {
   return window['go']['main']['App']['SaveChatImageData'](arg1);
 }
 
+export function SaveDeskFile(arg1, arg2) {
+  return window['go']['main']['App']['SaveDeskFile'](arg1, arg2);
+}
+
 export function SaveDrawing(arg1) {
   return window['go']['main']['App']['SaveDrawing'](arg1);
 }
 
-export function SaveIdentityFile(arg1, arg2) {
-  return window['go']['main']['App']['SaveIdentityFile'](arg1, arg2);
+export function SaveIdentityFile(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveIdentityFile'](arg1, arg2, arg3);
 }
 
 export function SaveLearnedEntry(arg1, arg2, arg3) {

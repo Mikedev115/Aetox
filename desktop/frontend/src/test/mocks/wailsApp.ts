@@ -455,6 +455,14 @@ export const SessionEdits = vi.fn(async (..._args: any[]) => ({ files: [] as any
 // Idle by default: only a test about the mid-turn reload flips this on.
 export const TurnInFlight = vi.fn(async (..._args: any[]) => ({ running: false, sessionId: '', working: [] as string[] }))
 export const ListModes = arr()
+// The desk file as ตัวหลัก › ตัวตน edits it: bundled text, not yet overridden.
+export const ReadDeskFile = vi.fn(async (name: string) => ({ name, text: `---
+description: โต๊ะ ${name}
+---
+
+This session is ${name} work.`, overrides: false }))
+export const SaveDeskFile = noop()
+export const ResetDeskFile = noop()
 export const ListChairs = arr()
 // "This agent keeps no opening of its own" — the state that makes the window
 // fall back to the four cards it draws for any colleague. A test about an

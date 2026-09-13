@@ -760,18 +760,59 @@ func UserGlobalContextPath() (string, error) {
 	return filepath.Join(root, "AETOX.md"), nil
 }
 
-// IdentityDir holds every markdown file that always rides along with the AI
-// across every project — the "AI Identity" layer edited from the desktop
-// sidebar (e.g. context.md, skills.md, whatever the user wants always
-// attached). Every *.md file in it is folded into every system prompt build
-// (internal/prompt.BuildWithReport, ARCHITECTURE.md §11 row 3). Replaces the
-// single-file UserGlobalContextPath.
+// IdentityDir is the root of the "AI Identity" layer — the markdown files
+// that always ride along with the AI across every project (identity.md,
+// thinking.md, context.md, skills.md). Since 14 ก.ย. 2026 it holds one
+// folder per head, IdentityDirFor, and no files of its own: the two heads a
+// person talks to (ผู้ช่วย, โค้ด — §266) each have their own set, edited on
+// that head's own page. Every *.md in the head's folder is folded into that
+// head's system prompt (internal/prompt.BuildWithReport, ARCHITECTURE.md §11
+// row 3). Files that were flat in this folder before the split are moved
+// into both heads' folders on first use (engine.ensureIdentityDirFor).
 func IdentityDir() (string, error) {
 	root, err := DataRoot()
 	if err != nil {
 		return "", err
 	}
 	return filepath.Join(root, "identity"), nil
+}
+
+// IdentityHeads are the folders under IdentityDir, one per head. The names
+// are the desks' (mode.Mode.Name) so the prompt can go from a session's desk
+// to its files without a table.
+var IdentityHeads = []string{"assistant", "coding"}
+
+// IdentityHeadFor is the head whose identity a session at desk reads. Only
+// the coding desk has a set of its own; everything else — the assistant
+// desk, a specialist's chair, the CLI with no desk — reads the assistant's,
+// the same way a chair is still Aetox (§44.0). The rule is one line so it
+// can be read off, and it mirrors memory: coding is the one desk that keeps
+// its own file there too.
+func IdentityHeadFor(desk string) string {
+	if desk == "coding" {
+		return "coding"
+	}
+	return "assistant"
+}
+
+// IdentityDirFor is the folder holding one head's identity files. head must
+// be one of IdentityHeads; anything else is refused rather than creating a
+// folder nothing reads.
+func IdentityDirFor(head string) (string, error) {
+	ok := false
+	for _, h := range IdentityHeads {
+		if h == head {
+			ok = true
+		}
+	}
+	if !ok {
+		return "", fmt.Errorf("unknown identity head %q", head)
+	}
+	root, err := IdentityDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(root, head), nil
 }
 
 func PermissionsPath() (string, error) {

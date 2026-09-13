@@ -7,7 +7,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
 import Settings from '../lib/Settings.svelte'
-import { ListModes, LearnedScopeInfos, LearnedEntries, ListPendingChanges } from './mocks/wailsApp'
+import {
+  ListModes, LearnedScopeInfos, LearnedEntries, ListPendingChanges,
+  ListIdentityFiles, ReadIdentityFile, SaveIdentityFile, ReadDeskFile, SaveDeskFile, ResetDeskFile,
+} from './mocks/wailsApp'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 
 const openSection = async (container: HTMLElement, label: string) => {
@@ -110,4 +113,112 @@ describe('a head\'s page', () => {
     expect(cockpit.activeView).toBe('capability')
   })
 
+})
+
+// ---- ตัวตน ------------------------------------------------------------------
+// The desk file and the head's own identity files, edited here since 14 ก.ย.
+// 2026: "คำสั่งประจำตัวพวกนี้ผูกกับเอเจนหลัก … แยกกันทั้งสองตัว เอาไว้ที่ส่วนตัวตน",
+// "เอา โต๊ะ ออก แล้วเอา modes/coding.md มาแสดงให้คนปรับแต่งได้ … คืนค่าเริ่มต้นได้เสมอ
+// ก่อนคืนค่าให้ถามยืนยัน", "เอา เพิ่มไฟล์คำสั่งใหม่ ออก".
+const openHead = async (which: 0 | 1) => {
+  const r = render(Settings, { onClose: () => {} })
+  await openSection(r.container, 'ตัวหลัก')
+  await waitFor(() => expect(cards(r.container).length).toBe(2))
+  await fireEvent.click(cards(r.container)[which].querySelector('.icobtn')!)
+  await waitFor(() => expect(r.container.querySelector('.ag-tab-panel.on')?.textContent).toContain('modes/'))
+  return r
+}
+const panel = (c: HTMLElement) => c.querySelector('.ag-tab-panel.on') as HTMLElement
+const rowNames = (c: HTMLElement) => Array.from(panel(c).querySelectorAll('.set-row .you-file')).map((x) => x.textContent?.trim())
+
+describe('ตัวตน', () => {
+  beforeEach(() => {
+    vi.mocked(ListIdentityFiles).mockImplementation(async (head: string) =>
+      (head === 'coding' ? [{ name: 'identity.md' }] : [{ name: 'context.md' }, { name: 'notes.md' }]) as any)
+    vi.mocked(ReadIdentityFile).mockResolvedValue('# บริบทผู้ใช้\n\n- ทำ Aetox อยู่')
+  })
+
+  // One folder per head: the list is the head's own, and crossing to the
+  // other head reads the other folder. The four files are always offered;
+  // a hand-made file on disk is still listed; nothing here makes a new one.
+  it("lists the desk file and this head's own four files, and reads the other head's when crossing", async () => {
+    const { container } = await openHead(0)
+    await waitFor(() => expect(ListIdentityFiles).toHaveBeenCalledWith('assistant'))
+    await waitFor(() => expect(rowNames(container)).toEqual(['modes/assistant.md', 'identity.md', 'thinking.md', 'context.md', 'skills.md', 'notes.md']))
+    // context.md exists on this head, identity.md does not: one is opened, the other created.
+    const rows = Array.from(panel(container).querySelectorAll('.set-row'))
+    expect(rows.find((r) => r.textContent?.includes('context.md'))?.textContent).toContain('เปิดแก้ไข')
+    expect(rows.find((r) => r.textContent?.includes('identity.md'))?.textContent).toContain('สร้างไฟล์')
+    expect(container.querySelector('.identity-newfile-input')).toBeNull()
+    expect(panel(container).textContent).not.toContain('เพิ่มไฟล์คำสั่งใหม่')
+
+    await fireEvent.click(Array.from(container.querySelectorAll('.pp-bar .ctrl')).find((b) => b.textContent?.includes('ไปที่ โค้ด'))!)
+    await waitFor(() => expect(ListIdentityFiles).toHaveBeenCalledWith('coding'))
+    await waitFor(() => expect(rowNames(container)).toEqual(['modes/coding.md', 'identity.md', 'thinking.md', 'context.md', 'skills.md']))
+  })
+
+  // The editor is a row until asked for; a save goes to THIS head's folder.
+  it('opens a file behind its row and saves it to this head', async () => {
+    const { container } = await openHead(0)
+    await waitFor(() => expect(rowNames(container)).toContain('context.md'))
+    expect(container.querySelector('textarea[aria-label="context.md"]')).toBeNull()
+    const row = Array.from(panel(container).querySelectorAll('.set-row')).find((r) => r.textContent?.includes('context.md'))!
+    await fireEvent.click(row.querySelector('.ctrl')!)
+    const box = await waitFor(() => container.querySelector('textarea[aria-label="context.md"]') as HTMLTextAreaElement)
+    expect(ReadIdentityFile).toHaveBeenCalledWith('assistant', 'context.md')
+    await waitFor(() => expect(box.value).toContain('ทำ Aetox อยู่'))
+    await fireEvent.input(box, { target: { value: '# บริบทผู้ใช้\n\n- เครื่อง Windows' } })
+    await fireEvent.click(container.querySelector('.identity-save')!)
+    await waitFor(() => expect(SaveIdentityFile).toHaveBeenCalledWith('assistant', 'context.md', expect.stringContaining('เครื่อง Windows')))
+  })
+
+  // "+" writes the template into this head's folder and opens it.
+  it('creates a missing file from its template, for this head', async () => {
+    const { container } = await openHead(1)
+    await waitFor(() => expect(rowNames(container)).toContain('thinking.md'))
+    const row = Array.from(panel(container).querySelectorAll('.set-row')).find((r) => r.textContent?.includes('thinking.md'))!
+    await fireEvent.click(row.querySelector('.ctrl')!)
+    await waitFor(() => expect(SaveIdentityFile).toHaveBeenCalledWith('coding', 'thinking.md', expect.stringMatching(/.+/)))
+    await waitFor(() => expect(container.querySelector('textarea[aria-label="thinking.md"]')).toBeTruthy())
+  })
+
+  // The desk file: the whole text behind its row, a save through the
+  // binding, and the way back to the bundled file — asked first.
+  it('edits the desk file whole, and restores the default only after asking', async () => {
+    const { container } = await openHead(1)
+    await waitFor(() => expect(ReadDeskFile).toHaveBeenCalledWith('coding'))
+    // Not overridden yet: nothing to restore.
+    expect(Array.from(panel(container).querySelectorAll('.ctrl')).some((b) => b.textContent?.includes('คืนค่าเริ่มต้น'))).toBe(false)
+    const deskRow = Array.from(panel(container).querySelectorAll('.set-row')).find((r) => r.textContent?.includes('modes/coding.md'))!
+    await fireEvent.click(deskRow.querySelector('.ctrl')!)
+    const box = await waitFor(() => container.querySelector('textarea[aria-label="modes/coding.md"]') as HTMLTextAreaElement)
+    expect(box.value).toContain('This session is coding work.')
+    const edited = box.value + '\n\nAlways run the tests.'
+    await fireEvent.input(box, { target: { value: edited } })
+    vi.mocked(ReadDeskFile).mockResolvedValue({ name: 'coding', text: edited, overrides: true } as any)
+    await fireEvent.click(Array.from(container.querySelectorAll('.you-save .ctrl-primary'))[0])
+    await waitFor(() => expect(SaveDeskFile).toHaveBeenCalledWith('coding', expect.stringContaining('Always run the tests.')))
+    await waitFor(() => expect(panel(container).textContent).toContain('แก้ไว้เอง'))
+
+    // Now overridden: the way back is offered, and it asks before acting.
+    const reset = await waitFor(() => Array.from(panel(container).querySelectorAll('.ctrl')).find((b) => b.textContent?.includes('คืนค่าเริ่มต้น'))!)
+    await fireEvent.click(reset)
+    expect(ResetDeskFile).not.toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByText('คืนไฟล์โต๊ะเป็นค่าเริ่มต้นของแอป?')).toBeTruthy())
+    const confirm = Array.from(document.querySelectorAll('.confirm-actions button, .modal button')).find((b) => b.textContent?.trim() === 'คืนค่าเริ่มต้น') as HTMLButtonElement
+    await fireEvent.click(confirm)
+    await waitFor(() => expect(ResetDeskFile).toHaveBeenCalledWith('coding'))
+  })
+
+  // context.md is the head's, not the person's: on this tab and nowhere on
+  // เกี่ยวกับคุณ (it sat there for a morning).
+  it('keeps context.md here and off เกี่ยวกับคุณ', async () => {
+    const { container } = await openHead(0)
+    await waitFor(() => expect(rowNames(container)).toContain('context.md'))
+    await openSection(container, 'เกี่ยวกับคุณ')
+    await waitFor(() => expect(screen.getByText('ชื่อของคุณ')).toBeTruthy())
+    expect(container.textContent).not.toContain('context.md')
+    // And there is no คำสั่งประจำตัว page any more.
+    expect(Array.from(container.querySelectorAll('.settings-nav-item')).some((n) => n.textContent?.trim() === 'คำสั่งประจำตัว')).toBe(false)
+  })
 })

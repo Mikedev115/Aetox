@@ -1,41 +1,61 @@
 // The AI's cross-project identity files (config.IdentityDir at DataRoot) —
-// every *.md file here is folded into every system prompt regardless of
-// which project is open (internal/prompt's "Personal instructions" layer).
-// Multiple files (context.md, skills.md, ...), not one blob — independent of
-// any single project's state.
+// every *.md file in a head's folder is folded into that head's system prompt
+// regardless of which project is open (internal/prompt's "Personal
+// instructions" layer). Multiple files (identity.md, thinking.md, context.md,
+// skills.md), not one blob — independent of any single project's state.
+//
+// One folder per head since 14 ก.ย. 2026 (§266): ผู้ช่วย and โค้ด each have
+// their own set, edited on that head's own page (ตั้งค่า › ตัวหลัก › ตัวตน).
+// The store holds one head at a time — the page shows one head at a time —
+// and switching heads drops the open draft, so a save can never land in the
+// other head's folder.
 
 import { ListIdentityFiles, ReadIdentityFile, SaveIdentityFile, DeleteIdentityFile } from '../../wailsjs/go/main/App'
 import { t } from './i18n.svelte'
 
+export type IdentityHead = 'assistant' | 'coding'
+
 export const identity = $state<{
+  head: IdentityHead
   files: { name: string }[]
   activeName: string
   draft: string
   saved: string
   loaded: boolean
   saving: boolean
-}>({ files: [], activeName: '', draft: '', saved: '', loaded: false, saving: false })
+}>({ head: 'assistant', files: [], activeName: '', draft: '', saved: '', loaded: false, saving: false })
 
-export async function loadIdentityFiles(): Promise<void> {
-  identity.files = await ListIdentityFiles()
-  identity.loaded = true
-  if (!identity.activeName && identity.files.length > 0) {
-    await openIdentityFile(identity.files[0].name)
+// Reads the head's folder. Nothing is opened for editing here: the editor is
+// a row until asked for (owner, 14 ก.ย. 2026: "กด + ก่อนค่อยแสดง ไม่กด ก็ไม่แสดง").
+export async function loadIdentityFiles(head: IdentityHead): Promise<void> {
+  if (identity.head !== head) {
+    identity.head = head
+    identity.activeName = ''
+    identity.draft = ''
+    identity.saved = ''
   }
+  identity.files = (await ListIdentityFiles(head)) ?? []
+  identity.loaded = true
 }
 
 export async function openIdentityFile(name: string): Promise<void> {
   identity.activeName = name
-  const text = await ReadIdentityFile(name)
+  const text = await ReadIdentityFile(identity.head, name)
   identity.draft = text
   identity.saved = text
+}
+
+export function closeIdentityFile(): void {
+  identity.activeName = ''
+  identity.draft = ''
+  identity.saved = ''
 }
 
 export async function saveIdentityFile(): Promise<void> {
   if (!identity.activeName) return
   identity.saving = true
   try {
-    await SaveIdentityFile(identity.activeName, identity.draft)
+    await SaveIdentityFile(identity.head, identity.activeName, identity.draft)
     identity.saved = identity.draft
   } finally {
     identity.saving = false
@@ -46,13 +66,13 @@ export async function createIdentityFile(name: string, content = ''): Promise<vo
   const trimmed = name.trim()
   if (!trimmed) return
   const finalName = trimmed.toLowerCase().endsWith('.md') ? trimmed : trimmed + '.md'
-  await SaveIdentityFile(finalName, content)
-  await loadIdentityFiles()
+  await SaveIdentityFile(identity.head, finalName, content)
+  await loadIdentityFiles(identity.head)
   await openIdentityFile(finalName)
 }
 
 // Suggested starting files (ARCHITECTURE.md §11, 2026-07-24) — convention
-// only, the engine treats every *.md in the identity dir identically.
+// only, the engine treats every *.md in the head's folder identically.
 // thinking.md is deliberately "discipline, not steps": step-by-step
 // instructions can interfere with native-reasoning models, values don't.
 //
@@ -72,11 +92,7 @@ export function identityTemplates(): { name: string; content: string }[] {
 }
 
 export async function deleteIdentityFile(name: string): Promise<void> {
-  await DeleteIdentityFile(name)
-  if (identity.activeName === name) {
-    identity.activeName = ''
-    identity.draft = ''
-    identity.saved = ''
-  }
-  await loadIdentityFiles()
+  await DeleteIdentityFile(identity.head, name)
+  if (identity.activeName === name) closeIdentityFile()
+  await loadIdentityFiles(identity.head)
 }
