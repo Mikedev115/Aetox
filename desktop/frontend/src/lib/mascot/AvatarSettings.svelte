@@ -20,8 +20,15 @@
   //
   // Personas — as many saved looks as the user wants, a + card at the end
   // of the row — exist for the agents a user will design later: a persona is
-  // a look ready to be handed to one. The banner above says whose avatar this is: the
-  // assistant's, the same on every desk (COMPANY.md, one face).
+  // a look ready to be handed to one, and either head may wear one.
+  //
+  // Two heads since 14 ก.ย. 2026 (owner: "แยกอวตาร … ถ้าไปหน้าโค้ดก็โหลดอวตารอีกตัว"):
+  // the assistant desk's and the code desk's, each with its own four dials
+  // (avatarPrefs.svelte.ts `heads`). The two cards under the banner say
+  // which one the stage is dressing — cards, not a dropdown, because the
+  // point is seeing them side by side and seeing that they differ. The
+  // template each is drawn from (roles.ts) is the head's own and not a
+  // choice: the `>_` on the coder's ears is what says it is the coder.
   //
   // Two sub-menus (owner, 13 ก.ย.: "แยก ตั้งค่าอวตารหลัก กับ ออกแบบอวตาร"), the
   // same .set-subtabs bar ตั้งค่า › การเรียนรู้ uses: the first, and the one
@@ -41,8 +48,8 @@
   import { POSE, type PoseId } from './poses'
   import { avatarText } from './avatarText'
   import {
-    avatarPrefs, setAvatarPrefs, resetAvatarPrefs, isDefaultPrefs, assistantOptions,
-    personas, addPersona, savePersona, usePersona, removePersona, wornPersona,
+    heads, HEADS, headOptions, setAvatarPrefs, resetAvatarPrefs, isDefaultPrefs, assistantOptions,
+    personas, addPersona, savePersona, usePersona, removePersona, wornPersona, type HeadId,
   } from './avatarPrefs.svelte'
   import { companion, setCompanionOn, setCompanionVoice, setCompanionGreet, setCompanionPlace, setCompanionSize, SIZE_DEFAULT, SIZE_MIN, SIZE_MAX } from './companionSetting.svelte'
   import { desktopBody } from './desktopBody.svelte'
@@ -51,11 +58,14 @@
   import { TTSStatus, ListTTSVoices } from '../../../wailsjs/go/main/App'
 
   const text = $derived(avatarText(i18n.locale))
-  const opts = $derived(assistantOptions(avatarPrefs))
+  // Which head the stage is dressing. Opens on the assistant's.
+  let editing = $state<HeadId>('assistant')
+  const prefs = $derived(heads[editing])
+  const opts = $derived(headOptions(editing))
   let tab = $state<'design' | 'main'>('design')
   const POSES = Object.keys(POSE) as PoseId[]
   let previewPose = $state<PoseId>('idle')
-  const worn = $derived(wornPersona(avatarPrefs))
+  const worn = $derived(wornPersona(prefs))
   const FACES = FACE.filter((f) => f.identity)
 
   // The voice's notice. The companion is silent when it cannot speak (owner,
@@ -269,11 +279,24 @@
     {/if}
   </div>
 
-  <p class="d muted avatar-note">{text.agentsNote}</p>
   {:else}
   <div class="avatar-main">
     <span class="star"><Icon name="sparkles" size={14} /></span>
     <span>{text.mainNote}</span>
+  </div>
+
+  <!-- which head is on the stage -->
+  <div class="who" role="tablist" aria-label={text.mainNote}>
+    {#each HEADS as h (h)}
+      <button type="button" class="who-card" class:on={editing === h} role="tab" aria-selected={editing === h} onclick={() => (editing = h)}>
+        <span class="who-face"><Mascot {...headOptions(h)} size={72} still /></span>
+        <span class="who-txt">
+          <span class="who-name">{text.heads[h].name}</span>
+          <span class="who-where">{text.heads[h].where}</span>
+        </span>
+        {#if editing === h}<span class="who-now">{text.designing}</span>{/if}
+      </button>
+    {/each}
   </div>
 
   <div class="stage" bind:this={stageEl}>
@@ -292,7 +315,7 @@
         <p class="hint">{text.parts.top}</p>
         <div class="cells">
           {#each TOP as t (t.id)}
-            <button type="button" class="cell" class:on={avatarPrefs.top === t.id} title={t.label} aria-label={t.label} onclick={() => setAvatarPrefs({ top: t.id })}>
+            <button type="button" class="cell" class:on={prefs.top === t.id} title={t.label} aria-label={t.label} onclick={() => setAvatarPrefs({ top: t.id }, editing)}>
               <Mascot {...opts} top={t.id} size={48} still />
             </button>
           {/each}
@@ -303,7 +326,7 @@
         <p class="hint">{text.parts.shell}</p>
         <div class="cells">
           {#each SHELL as sh (sh.id)}
-            <button type="button" class="cell" class:on={avatarPrefs.shell === sh.id} title={sh.label} aria-label={sh.label} onclick={() => setAvatarPrefs({ shell: sh.id })}>
+            <button type="button" class="cell" class:on={prefs.shell === sh.id} title={sh.label} aria-label={sh.label} onclick={() => setAvatarPrefs({ shell: sh.id }, editing)}>
               <Mascot {...opts} shell={sh.id} size={48} still />
             </button>
           {/each}
@@ -314,8 +337,8 @@
     <!-- the figure; the leads above are measured from this box -->
     <div class="figure">
       <div class="fig-box" bind:this={figEl}><Mascot {...opts} pose={previewPose} size={FIG_PX} sway /></div>
-      {#if !isDefaultPrefs(avatarPrefs)}
-        <button type="button" class="chip reset" onclick={resetAvatarPrefs}>{text.reset}</button>
+      {#if !isDefaultPrefs(prefs, editing)}
+        <button type="button" class="chip reset" onclick={() => resetAvatarPrefs(editing)}>{text.reset}</button>
       {/if}
     </div>
 
@@ -326,7 +349,7 @@
         <p class="hint">{text.parts.hue}</p>
         <div class="cells">
           {#each ACCENT as a (a.id)}
-            <button type="button" class="cell" class:on={avatarPrefs.accent === a.id} title={a.label} aria-label={a.label} onclick={() => setAvatarPrefs({ accent: a.id })}>
+            <button type="button" class="cell" class:on={prefs.accent === a.id} title={a.label} aria-label={a.label} onclick={() => setAvatarPrefs({ accent: a.id }, editing)}>
               <Mascot {...opts} accent={a.id} size={48} still />
             </button>
           {/each}
@@ -337,7 +360,7 @@
         <p class="hint">{text.parts.face}</p>
         <div class="cells">
           {#each FACES as f (f.id)}
-            <button type="button" class="cell" class:on={avatarPrefs.face === f.id} title={f.label} aria-label={f.label} onclick={() => setAvatarPrefs({ face: f.id })}>
+            <button type="button" class="cell" class:on={prefs.face === f.id} title={f.label} aria-label={f.label} onclick={() => setAvatarPrefs({ face: f.id }, editing)}>
               <Mascot {...opts} face={f.id} size={48} still />
             </button>
           {/each}
@@ -367,8 +390,8 @@
             <span>{worn === i ? text.worn : ''}</span>
           </div>
           <div class="acts">
-            <button type="button" class="chip pri" disabled={worn === i} onclick={() => usePersona(i)}>{text.use}</button>
-            <button type="button" class="chip" disabled={worn === i} onclick={() => savePersona(i)}>{text.save}</button>
+            <button type="button" class="chip pri" disabled={worn === i} onclick={() => usePersona(i, editing)}>{text.use}</button>
+            <button type="button" class="chip" disabled={worn === i} onclick={() => savePersona(i, editing)}>{text.save}</button>
             <button type="button" class="chip" onclick={() => removePersona(i)}>{text.remove}</button>
           </div>
         </div>
@@ -376,7 +399,7 @@
       <!-- The + card, always last: what is worn now becomes one more
            persona. Pressed while the look is already kept, it says so
            instead of keeping a twin. -->
-      <button type="button" class="slot add" disabled={worn >= 0} onclick={() => addPersona()}>
+      <button type="button" class="slot add" disabled={worn >= 0} onclick={() => addPersona(editing)}>
         <span class="empty"><Icon name="plus" size={22} /></span>
         <span class="meta">
           <b>{text.personaAdd}</b>
@@ -414,6 +437,22 @@
     font-size: var(--fs-sm);
   }
   .avatar-main .star { color: var(--interactive); display: inline-flex; margin-top: 2px; }
+
+  /* ---- the two heads: which one the stage is dressing ---- */
+  .who { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 0 18px; }
+  .who-card {
+    appearance: none; font: inherit; text-align: left; color: inherit; cursor: pointer; position: relative;
+    display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 14px; min-width: 0;
+    border: 1px solid var(--border-subtle); background: var(--surface-panel);
+  }
+  .who-card:hover { border-color: var(--border-strong); }
+  .who-card.on { border-color: var(--interactive); background: var(--surface-raised); box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive) 18%, transparent); }
+  .who-face { flex: none; }
+  .who-face :global(.mascot) { display: block; }
+  .who-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .who-name { font-size: var(--fs-lg); font-weight: 600; }
+  .who-where { font-size: var(--fs-xs); color: var(--text-muted); }
+  .who-now { position: absolute; top: 10px; right: 12px; font-size: var(--fs-2xs); color: var(--interactive); font-weight: 600; }
 
   /* ---- the stage: two columns of panels with the figure between them ---- */
   .stage {
@@ -481,7 +520,6 @@
   .meta b { display: block; font-size: var(--fs-sm); }
   .meta span { font-size: var(--fs-xs); color: var(--text-muted); }
   .acts { display: flex; flex-direction: column; gap: 4px; }
-  .avatar-note { margin: 12px 2px 0; }
 
   /* Narrower than three comfortable columns: the figure on top, the four
      panels in two columns beneath it, and no leads (the measure() rule). */
@@ -492,6 +530,7 @@
     .col.left { grid-column: 1; grid-row: 2; }
     .col.right { grid-column: 2; grid-row: 2; }
     .slots { grid-template-columns: 1fr; }
+    .who { grid-template-columns: 1fr; }
   }
   @container (max-width: 560px) {
     .stage { grid-template-columns: minmax(0, 1fr); }

@@ -30,7 +30,7 @@
   import { companion, setCompanionOn, setCompanionVoice, setCompanionSize, clampSize, bubbleMetrics } from './companionSetting.svelte'
   import { desktopBody, openBody, closeBody, onBodyInput, bakeFor, rememberPos, themeColors, wordsOf } from './desktopBody.svelte'
   import { speech, speak, stopSpeechIf } from '../speech.svelte'
-  import { avatarPrefs, assistantOptions } from './avatarPrefs.svelte'
+  import { headOf, headOptions, prefsOf } from './avatarPrefs.svelte'
   import { voice } from './voice.svelte'
   import { profile } from '../stores/profile.svelte'
   import { startersFor, headlineFor } from '../starters'
@@ -303,7 +303,12 @@
     (window as unknown as { go?: { main?: { App?: { SetCompanionState?: (s: FeedState) => Promise<void> } } } }).go?.main?.App?.SetCompanionState
   /** Clicks reacted to, counted, so the body hops with each (companion.go Hop). */
   let hops = $state(0)
-  const prefsOf = () => ({ shell: avatarPrefs.shell, accent: avatarPrefs.accent, top: avatarPrefs.top, face: avatarPrefs.face })
+  // The head on screen is the head of the desk on screen (avatarPrefs
+  // `headOf`): walk from the assistant's room to the code desk and the
+  // figure changes with the room, the way the wall behind the chat does.
+  const head = $derived(headOf(cockpit.desk))
+  const look = $derived(headOptions(head))
+  const prefsNow = () => ({ ...prefsOf(head) })
   $effect(() => {
     const send = feed()
     if (!send) return
@@ -311,7 +316,7 @@
       pose,
       report: said,
       on: true,
-      prefs: prefsOf(),
+      prefs: prefsNow(),
       shown,
       words: wordsOf(shown, i18n.locale),
       cursor: typing || !!cockpit.streamingText,
@@ -324,7 +329,7 @@
   })
   $effect(() => () => {
     const send = feed()
-    if (send) void send({ pose: 'idle', report: '', on: false, prefs: prefsOf(), shown: '', words: [], cursor: false, theme: themeColors(), muted: !companion.voice, hop: hops, size: SIZE }).catch(() => {})
+    if (send) void send({ pose: 'idle', report: '', on: false, prefs: prefsNow(), shown: '', words: [], cursor: false, theme: themeColors(), muted: !companion.voice, hop: hops, size: SIZE }).catch(() => {})
   })
 
   // ---- the body on the desktop ------------------------------------------------
@@ -383,7 +388,7 @@
   // the look chosen — again whenever either changes.
   $effect(() => {
     const scale = desktopBody.scale
-    const opts = assistantOptions(avatarPrefs)
+    const opts = look
     if (!wantsDesktop || !desktopBody.up || scale <= 0) return
     void bakeFor(opts, scale, untrack(() => pose))
   })
@@ -669,7 +674,7 @@
   <button class="mute" class:off={!companion.voice} type="button" title={companion.voice ? 'ปิดเสียง' : 'เปิดเสียง'} aria-label={companion.voice ? 'ปิดเสียง' : 'เปิดเสียง'} aria-pressed={!companion.voice} onclick={() => setCompanionVoice(!companion.voice)}><Icon name={companion.voice ? 'volume2' : 'volumeX'} size={11} /></button>
   <!-- A handle, not a control: it has nothing to activate, only somewhere to be. -->
   <div class="grab" role="presentation" onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp}>
-    <Mascot {...assistantOptions(avatarPrefs)} {pose} turn={dragging ? heading : undefined} snap={dragging} size={SIZE} sway {hop} />
+    <Mascot {...look} {pose} turn={dragging ? heading : undefined} snap={dragging} size={SIZE} sway {hop} />
   </div>
 </div>
 {/if}
