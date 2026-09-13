@@ -12,6 +12,7 @@ package engine
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -26,6 +27,36 @@ import (
 // rather than appearing twice.
 func (a *Engine) ListModes() []mode.Mode {
 	return mode.List()
+}
+
+// DeskFile is a desk's own file as the settings page edits it (ตัวหลัก ›
+// ตัวตน, 14 ก.ย. 2026): the whole text — frontmatter and direction — and
+// whether what is in force is the user's copy or the bundled one.
+type DeskFile struct {
+	Name      string `json:"name"`
+	Text      string `json:"text"`
+	Overrides bool   `json:"overrides"`
+}
+
+// ReadDeskFile returns the desk file a new session at name would load.
+func (a *Engine) ReadDeskFile(name string) (DeskFile, error) {
+	text, overrides, ok := mode.ReadFile(name)
+	if !ok {
+		return DeskFile{}, fmt.Errorf("no desk named %q", name)
+	}
+	return DeskFile{Name: name, Text: text, Overrides: overrides}, nil
+}
+
+// SaveDeskFile writes the user's copy of a desk file; it reaches the next
+// chat opened at that desk (mode.SaveFile).
+func (a *Engine) SaveDeskFile(name, text string) error {
+	return mode.SaveFile(name, text)
+}
+
+// ResetDeskFile drops the user's copy so the bundled desk file is in force
+// again. The page asks the person first; this does not ask twice.
+func (a *Engine) ResetDeskFile(name string) error {
+	return mode.Reset(name)
 }
 
 // Chair is one seat in the office, as the roster shows it: the job description

@@ -518,7 +518,7 @@ func BuildWithReport(surface Surface, scope Scope, desk Desk) (string, Loaded) {
 	}
 
 	var loaded Loaded
-	loaded.UserGlobalPaths = foldIdentityLayers(&b)
+	loaded.UserGlobalPaths = foldIdentityLayers(&b, desk.Name)
 	// Who the user is goes everywhere, and it is the one learned layer that
 	// does (owner's call, 6 ก.ย.: *"ผมว่า USER.md ไปทุกที่เลยดีกว่า"*). A chair
 	// gets it for the reason identity is not gated either — it is talking to the
@@ -607,11 +607,14 @@ func BuildWithReport(surface Surface, scope Scope, desk Desk) (string, Loaded) {
 	return strings.TrimRight(b.String(), "\n"), loaded
 }
 
-// foldIdentityLayers folds every *.md file in the user's identity directory
-// (config.IdentityDir) into b, sorted by filename (os.ReadDir's own order),
-// and returns the paths that actually contributed content.
-func foldIdentityLayers(b *strings.Builder) []string {
-	dir, err := config.IdentityDir()
+// foldIdentityLayers folds every *.md file of the head this desk belongs to
+// (config.IdentityHeadFor → config.IdentityDirFor; since 14 ก.ย. 2026 each
+// head has its own set, §266) into b, sorted by filename (os.ReadDir's own
+// order), and returns the paths that actually contributed content. A chair,
+// a session with no desk and the CLI all read the assistant's set — that is
+// the rule's one line, kept in config so the engine and this fold agree.
+func foldIdentityLayers(b *strings.Builder, desk string) []string {
+	dir, err := config.IdentityDirFor(config.IdentityHeadFor(desk))
 	if err != nil {
 		return nil
 	}

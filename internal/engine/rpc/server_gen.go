@@ -364,10 +364,11 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		return nil, e.DeleteDeck(p0), true
 	case "DeleteIdentityFile":
 		var p0 string
-		if err := decodeParams(params, &p0); err != nil {
+		var p1 string
+		if err := decodeParams(params, &p0, &p1); err != nil {
 			return nil, err, true
 		}
-		return nil, e.DeleteIdentityFile(p0), true
+		return nil, e.DeleteIdentityFile(p0, p1), true
 	case "DeletePromptPreset":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {
@@ -657,7 +658,11 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 	case "ListExternalSkills":
 		return e.ListExternalSkills(), nil, true
 	case "ListIdentityFiles":
-		r0, err := e.ListIdentityFiles()
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.ListIdentityFiles(p0)
 		return r0, err, true
 	case "ListImageEngines":
 		return e.ListImageEngines(), nil, true
@@ -962,6 +967,13 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		}
 		e.RateTurn(p0, p1)
 		return nil, nil, true
+	case "ReadDeskFile":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.ReadDeskFile(p0)
+		return r0, err, true
 	case "ReadFile":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {
@@ -971,10 +983,11 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		return r0, err, true
 	case "ReadIdentityFile":
 		var p0 string
-		if err := decodeParams(params, &p0); err != nil {
+		var p1 string
+		if err := decodeParams(params, &p0, &p1); err != nil {
 			return nil, err, true
 		}
-		r0, err := e.ReadIdentityFile(p0)
+		r0, err := e.ReadIdentityFile(p0, p1)
 		return r0, err, true
 	case "ReadImageDataURL":
 		var p0 string
@@ -1117,6 +1130,12 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		}
 		r0, err := e.ResendEdited(p0, p1)
 		return r0, err, true
+	case "ResetDeskFile":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		return nil, e.ResetDeskFile(p0), true
 	case "ResolveAddress":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {
@@ -1252,13 +1271,21 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		}
 		r0, err := e.SaveChatImageData(p0)
 		return r0, err, true
-	case "SaveIdentityFile":
+	case "SaveDeskFile":
 		var p0 string
 		var p1 string
 		if err := decodeParams(params, &p0, &p1); err != nil {
 			return nil, err, true
 		}
-		return nil, e.SaveIdentityFile(p0, p1), true
+		return nil, e.SaveDeskFile(p0, p1), true
+	case "SaveIdentityFile":
+		var p0 string
+		var p1 string
+		var p2 string
+		if err := decodeParams(params, &p0, &p1, &p2); err != nil {
+			return nil, err, true
+		}
+		return nil, e.SaveIdentityFile(p0, p1, p2), true
 	case "SaveLearnedEntry":
 		var p0 string
 		var p1 int

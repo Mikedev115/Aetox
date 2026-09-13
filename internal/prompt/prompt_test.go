@@ -174,22 +174,43 @@ func TestBuildWithReportFoldsInProjectLayerAndReportsPath(t *testing.T) {
 	}
 }
 
+// Each head reads its own folder (§266, 14 ก.ย. 2026): the coding desk its
+// own, and everything else — no desk, the assistant desk, a chair — the
+// assistant's. A file the other head has is never read across.
 func TestBuildWithReportFoldsInIdentityFiles(t *testing.T) {
 	dataRoot := t.TempDir()
 	t.Setenv("AETOX_DATA_ROOT", dataRoot)
-	identityDir := filepath.Join(dataRoot, "identity")
-	if err := os.MkdirAll(identityDir, 0o755); err != nil {
-		t.Fatal(err)
+	for _, head := range []string{"assistant", "coding"} {
+		if err := os.MkdirAll(filepath.Join(dataRoot, "identity", head), 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
-	mustWrite(t, filepath.Join(identityDir, "context.md"), "always be terse")
-	mustWrite(t, filepath.Join(identityDir, "skills.md"), "use the grep skill first")
+	mustWrite(t, filepath.Join(dataRoot, "identity", "assistant", "context.md"), "always be terse")
+	mustWrite(t, filepath.Join(dataRoot, "identity", "assistant", "skills.md"), "use the grep skill first")
+	mustWrite(t, filepath.Join(dataRoot, "identity", "coding", "identity.md"), "you are the coder")
 
 	text, loaded := BuildWithReport(SurfaceCLI, Scope{Root: t.TempDir()}, Desk{})
 	if !strings.Contains(text, "always be terse") || !strings.Contains(text, "use the grep skill first") {
-		t.Fatalf("identity files not folded in: %s", text)
+		t.Fatalf("assistant identity files not folded in: %s", text)
+	}
+	if strings.Contains(text, "you are the coder") {
+		t.Fatalf("no-desk session read the coding head's file: %s", text)
 	}
 	if len(loaded.UserGlobalPaths) != 2 {
 		t.Fatalf("loaded.UserGlobalPaths = %v, want 2 entries", loaded.UserGlobalPaths)
+	}
+	for _, desk := range []string{"assistant", "specialized"} {
+		text, _ = BuildWithReport(SurfaceCLI, Scope{Root: t.TempDir()}, Desk{Name: desk})
+		if !strings.Contains(text, "always be terse") || strings.Contains(text, "you are the coder") {
+			t.Fatalf("desk %s did not read the assistant's set alone: %s", desk, text)
+		}
+	}
+	text, loaded = BuildWithReport(SurfaceCLI, Scope{Root: t.TempDir()}, Desk{Name: "coding"})
+	if !strings.Contains(text, "you are the coder") || strings.Contains(text, "always be terse") {
+		t.Fatalf("coding desk did not read its own set alone: %s", text)
+	}
+	if len(loaded.UserGlobalPaths) != 1 {
+		t.Fatalf("coding loaded.UserGlobalPaths = %v, want 1 entry", loaded.UserGlobalPaths)
 	}
 }
 

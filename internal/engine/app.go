@@ -900,24 +900,68 @@ type IdentityFile struct {
 	Name string `json:"name"`
 }
 
-// ensureIdentityDir returns config.IdentityDir(), creating it on first use
-// and migrating the old single-file AETOX.md (pre-multi-file AI Identity)
-// into identity/context.md if one exists.
-func ensureIdentityDir() (string, error) {
-	dir, err := config.IdentityDir()
+// ensureIdentityDirFor returns the folder for one head's identity files,
+// creating it on first use. First use also runs the two migrations this
+// layer has accumulated, oldest first: the single-file AETOX.md (pre-2026-07)
+// becomes context.md, and the flat identity/*.md set that both heads shared
+// until 14 ก.ย. 2026 is copied into BOTH heads' folders and then removed —
+// copied, so the day the split lands neither head reads a word less than it
+// did the day before; removed, so there is one place a file can be and the
+// old page's habit of editing the flat set cannot come back by accident.
+func ensureIdentityDirFor(head string) (string, error) {
+	dir, err := config.IdentityDirFor(head)
 	if err != nil {
 		return "", err
 	}
-	if _, statErr := os.Stat(dir); os.IsNotExist(statErr) {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return "", err
-		}
-		if legacyPath, lerr := config.UserGlobalContextPath(); lerr == nil {
-			if data, rerr := os.ReadFile(legacyPath); rerr == nil && len(data) > 0 {
-				_ = os.WriteFile(filepath.Join(dir, "context.md"), data, 0o644)
-				_ = os.Remove(legacyPath)
+	if _, statErr := os.Stat(dir); statErr == nil {
+		return dir, nil
+	}
+	root, err := config.IdentityDir()
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return "", err
+	}
+	// The flat set, if any, plus the older single file folded into it: read
+	// once, then written to every head that has no such file yet.
+	shared := map[string][]byte{}
+	if entries, rerr := os.ReadDir(root); rerr == nil {
+		for _, e := range entries {
+			if e.IsDir() || !strings.EqualFold(filepath.Ext(e.Name()), ".md") {
+				continue
+			}
+			if data, rerr := os.ReadFile(filepath.Join(root, e.Name())); rerr == nil {
+				shared[e.Name()] = data
 			}
 		}
+	}
+	if legacyPath, lerr := config.UserGlobalContextPath(); lerr == nil {
+		if data, rerr := os.ReadFile(legacyPath); rerr == nil && len(data) > 0 {
+			if _, have := shared["context.md"]; !have {
+				shared["context.md"] = data
+			}
+			_ = os.Remove(legacyPath)
+		}
+	}
+	for _, h := range config.IdentityHeads {
+		hd, herr := config.IdentityDirFor(h)
+		if herr != nil {
+			return "", herr
+		}
+		if err := os.MkdirAll(hd, 0o755); err != nil {
+			return "", err
+		}
+		for name, data := range shared {
+			target := filepath.Join(hd, name)
+			if _, statErr := os.Stat(target); statErr == nil {
+				continue
+			}
+			_ = os.WriteFile(target, data, 0o644)
+		}
+	}
+	for name := range shared {
+		_ = os.Remove(filepath.Join(root, name))
 	}
 	return dir, nil
 }
@@ -935,10 +979,10 @@ func safeIdentityName(name string) (string, error) {
 	return name, nil
 }
 
-// ListIdentityFiles lists the markdown files in the AI Identity directory,
+// ListIdentityFiles lists one head's identity files (config.IdentityHeads),
 // sorted by name. Empty (not error) if none exist yet.
-func (a *Engine) ListIdentityFiles() ([]IdentityFile, error) {
-	dir, err := ensureIdentityDir()
+func (a *Engine) ListIdentityFiles(head string) ([]IdentityFile, error) {
+	dir, err := ensureIdentityDirFor(head)
 	if err != nil {
 		return nil, err
 	}
@@ -956,9 +1000,11 @@ func (a *Engine) ListIdentityFiles() ([]IdentityFile, error) {
 	return files, nil
 }
 
-// ReadIdentityFile reads one file from the AI Identity directory by name.
-func (a *Engine) ReadIdentityFile(name string) (string, error) {
-	dir, err := ensureIdentityDir()
+// ReadIdentityFile reads one of a head's identity files by name. A file that
+// is not there reads as "", not as an error: the page draws it as a row to
+// create.
+func (a *Engine) ReadIdentityFile(head, name string) (string, error) {
+	dir, err := ensureIdentityDirFor(head)
 	if err != nil {
 		return "", err
 	}
@@ -976,9 +1022,9 @@ func (a *Engine) ReadIdentityFile(name string) (string, error) {
 	return string(data), nil
 }
 
-// SaveIdentityFile creates or overwrites one file in the AI Identity directory.
-func (a *Engine) SaveIdentityFile(name, content string) error {
-	dir, err := ensureIdentityDir()
+// SaveIdentityFile creates or overwrites one of a head's identity files.
+func (a *Engine) SaveIdentityFile(head, name, content string) error {
+	dir, err := ensureIdentityDirFor(head)
 	if err != nil {
 		return err
 	}
@@ -989,9 +1035,9 @@ func (a *Engine) SaveIdentityFile(name, content string) error {
 	return os.WriteFile(filepath.Join(dir, safeName), []byte(content), 0o644)
 }
 
-// DeleteIdentityFile removes one file from the AI Identity directory.
-func (a *Engine) DeleteIdentityFile(name string) error {
-	dir, err := ensureIdentityDir()
+// DeleteIdentityFile removes one of a head's identity files.
+func (a *Engine) DeleteIdentityFile(head, name string) error {
+	dir, err := ensureIdentityDirFor(head)
 	if err != nil {
 		return err
 	}

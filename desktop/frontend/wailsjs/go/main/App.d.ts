@@ -242,7 +242,7 @@ export function DeleteArtifact(arg1:string):Promise<void>;
 
 export function DeleteDeck(arg1:string):Promise<void>;
 
-export function DeleteIdentityFile(arg1:string):Promise<void>;
+export function DeleteIdentityFile(arg1:string,arg2:string):Promise<void>;
 
 export function DeletePromptPreset(arg1:string):Promise<void>;
 
@@ -388,7 +388,7 @@ export function ListDir(arg1:string):Promise<engine.DirListing>;
 
 export function ListExternalSkills():Promise<Array<skill.DiscoveredSkill>>;
 
-export function ListIdentityFiles():Promise<Array<engine.IdentityFile>>;
+export function ListIdentityFiles(arg1:string):Promise<Array<engine.IdentityFile>>;
 
 export function ListImageEngines():Promise<Array<engine.VoiceEngineInfo>>;
 
@@ -586,9 +586,11 @@ export function PullRequestsState(arg1:string):Promise<engine.PRRoom>;
 
 export function RateTurn(arg1:number,arg2:string):Promise<void>;
 
+export function ReadDeskFile(arg1:string):Promise<engine.DeskFile>;
+
 export function ReadFile(arg1:string):Promise<string>;
 
-export function ReadIdentityFile(arg1:string):Promise<string>;
+export function ReadIdentityFile(arg1:string,arg2:string):Promise<string>;
 
 export function ReadImageDataURL(arg1:string):Promise<string>;
 
@@ -646,6 +648,8 @@ export function RescanStudioLibrary(arg1:string):Promise<boolean>;
 
 export function ResendEdited(arg1:string,arg2:boolean):Promise<engine.TurnReply>;
 
+export function ResetDeskFile(arg1:string):Promise<void>;
+
 export function ResolveAddress(arg1:string):Promise<engine.Address>;
 
 export function ResolveWorkbenchURL(arg1:string):Promise<string|string>;
@@ -702,9 +706,11 @@ export function SaveChatImage(arg1:string):Promise<string>;
 
 export function SaveChatImageData(arg1:string):Promise<string>;
 
+export function SaveDeskFile(arg1:string,arg2:string):Promise<void>;
+
 export function SaveDrawing(arg1:string):Promise<string>;
 
-export function SaveIdentityFile(arg1:string,arg2:string):Promise<void>;
+export function SaveIdentityFile(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SaveLearnedEntry(arg1:string,arg2:number,arg3:string):Promise<void>;
 

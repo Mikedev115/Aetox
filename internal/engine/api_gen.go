@@ -86,7 +86,7 @@ type API interface {
 	DelegateSwitches(team string) DelegateSettings
 	DeleteArtifact(path string) error
 	DeleteDeck(relPath string) error
-	DeleteIdentityFile(name string) error
+	DeleteIdentityFile(head string, name string) error
 	DeletePromptPreset(name string) error
 	DeleteSession(id string) error
 	DeleteSpace(name string) error
@@ -146,7 +146,7 @@ type API interface {
 	ListDecksIn(want string) DeckPage
 	ListDir(path string) (DirListing, error)
 	ListExternalSkills() []skill.DiscoveredSkill
-	ListIdentityFiles() ([]IdentityFile, error)
+	ListIdentityFiles(head string) ([]IdentityFile, error)
 	ListImageEngines() []VoiceEngineInfo
 	ListMCPServers() []MCPServerInfo
 	ListModes() []mode.Mode
@@ -218,8 +218,9 @@ type API interface {
 	PullRequests() PRRoom
 	PullRequestsState(state string) PRRoom
 	RateTurn(messageID int64, verdict string)
+	ReadDeskFile(name string) (DeskFile, error)
 	ReadFile(relPath string) (string, error)
-	ReadIdentityFile(name string) (string, error)
+	ReadIdentityFile(head string, name string) (string, error)
 	ReadImageDataURL(relPath string) (string, error)
 	ReadSubagentProfile(name string) (string, error)
 	ReadWorkbook(relPath string) (*ooxml.WorkbookPreview, error)
@@ -244,6 +245,7 @@ type API interface {
 	RequiresAPIKey(providerName string) bool
 	RescanStudioLibrary(id string) (bool, error)
 	ResendEdited(text string, revertFiles bool) (TurnReply, error)
+	ResetDeskFile(name string) error
 	ResolveAddress(input string) Address
 	ResolveWorkbenchURL(input string) (string, string)
 	RestorePoints() []RestorePoint
@@ -266,7 +268,8 @@ type API interface {
 	SaveChatFile(sourcePath string) (string, error)
 	SaveChatImage(sourcePath string) (string, error)
 	SaveChatImageData(dataURL string) (string, error)
-	SaveIdentityFile(name string, content string) error
+	SaveDeskFile(name string, text string) error
+	SaveIdentityFile(head string, name string, content string) error
 	SaveLearnedEntry(scope string, index int, text string) error
 	SaveMCPServer(originalName string, server config.MCPServerConfig) error
 	SavePlanText(sessionID string, text string) string

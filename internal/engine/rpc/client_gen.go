@@ -454,8 +454,8 @@ func (c *Client) DeleteDeck(relPath string) error {
 	return c.call("DeleteDeck", []any{relPath}, nil)
 }
 
-func (c *Client) DeleteIdentityFile(name string) error {
-	return c.call("DeleteIdentityFile", []any{name}, nil)
+func (c *Client) DeleteIdentityFile(head string, name string) error {
+	return c.call("DeleteIdentityFile", []any{head, name}, nil)
 }
 
 func (c *Client) DeletePromptPreset(name string) error {
@@ -862,9 +862,9 @@ func (c *Client) ListExternalSkills() []skill.DiscoveredSkill {
 	return out0
 }
 
-func (c *Client) ListIdentityFiles() ([]engine.IdentityFile, error) {
+func (c *Client) ListIdentityFiles(head string) ([]engine.IdentityFile, error) {
 	var out0 []engine.IdentityFile
-	err := c.call("ListIdentityFiles", nil, &out0)
+	err := c.call("ListIdentityFiles", []any{head}, &out0)
 	return out0, err
 }
 
@@ -1389,15 +1389,21 @@ func (c *Client) RateTurn(messageID int64, verdict string) {
 	}
 }
 
+func (c *Client) ReadDeskFile(name string) (engine.DeskFile, error) {
+	var out0 engine.DeskFile
+	err := c.call("ReadDeskFile", []any{name}, &out0)
+	return out0, err
+}
+
 func (c *Client) ReadFile(relPath string) (string, error) {
 	var out0 string
 	err := c.call("ReadFile", []any{relPath}, &out0)
 	return out0, err
 }
 
-func (c *Client) ReadIdentityFile(name string) (string, error) {
+func (c *Client) ReadIdentityFile(head string, name string) (string, error) {
 	var out0 string
-	err := c.call("ReadIdentityFile", []any{name}, &out0)
+	err := c.call("ReadIdentityFile", []any{head, name}, &out0)
 	return out0, err
 }
 
@@ -1541,6 +1547,10 @@ func (c *Client) ResendEdited(text string, revertFiles bool) (engine.TurnReply, 
 	return out0, err
 }
 
+func (c *Client) ResetDeskFile(name string) error {
+	return c.call("ResetDeskFile", []any{name}, nil)
+}
+
 func (c *Client) ResolveAddress(input string) engine.Address {
 	var out0 engine.Address
 	if err := c.call("ResolveAddress", []any{input}, &out0); err != nil {
@@ -1676,8 +1686,12 @@ func (c *Client) SaveChatImageData(dataURL string) (string, error) {
 	return out0, err
 }
 
-func (c *Client) SaveIdentityFile(name string, content string) error {
-	return c.call("SaveIdentityFile", []any{name, content}, nil)
+func (c *Client) SaveDeskFile(name string, text string) error {
+	return c.call("SaveDeskFile", []any{name, text}, nil)
+}
+
+func (c *Client) SaveIdentityFile(head string, name string, content string) error {
+	return c.call("SaveIdentityFile", []any{head, name, content}, nil)
 }
 
 func (c *Client) SaveLearnedEntry(scope string, index int, text string) error {

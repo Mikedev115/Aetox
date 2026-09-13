@@ -28,6 +28,7 @@ package mode
 
 import (
 	"embed"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -597,4 +598,67 @@ func userFiles() []string {
 	}
 	sort.Strings(files)
 	return files
+}
+
+// ReadFile returns the text of the desk file a session at name would load —
+// the user's own copy when there is one, otherwise the bundled one — so the
+// settings page shows what is in force, never a template. ok is false for a
+// name nothing answers to.
+func ReadFile(name string) (text string, overrides bool, ok bool) {
+	name = strings.TrimSpace(name)
+	if !validName(name) || name == "" {
+		return "", false, false
+	}
+	if dir, err := Dir(); err == nil {
+		if raw, err := os.ReadFile(filepath.Join(dir, name+".md")); err == nil {
+			return string(raw), true, true
+		}
+	}
+	raw, err := bundledModes.ReadFile("modes/" + name + ".md")
+	if err != nil {
+		return "", false, false
+	}
+	return string(raw), false, true
+}
+
+// SaveFile writes the user's copy of a desk file, the same shadowing a hand-
+// written <DataRoot>/modes/<name>.md has always had (List, Load): a bundled
+// desk edited on its page becomes an override, and Reset takes it back. A
+// session already open keeps the desk it was opened with; the file is read
+// when a session starts (bootstrap), so the edit reaches the next chat.
+func SaveFile(name, content string) error {
+	name = strings.TrimSpace(name)
+	if !validName(name) || name == "" {
+		return fmt.Errorf("invalid desk name %q", name)
+	}
+	dir, err := Dir()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, name+".md"), []byte(content), 0o644)
+}
+
+// Reset removes the user's copy so the bundled desk file is what loads
+// again. Refused for a desk that ships no bundled file: removing that would
+// not restore anything, it would delete the only copy.
+func Reset(name string) error {
+	name = strings.TrimSpace(name)
+	if !validName(name) || name == "" {
+		return fmt.Errorf("invalid desk name %q", name)
+	}
+	if _, err := bundledModes.ReadFile("modes/" + name + ".md"); err != nil {
+		return fmt.Errorf("desk %q has no bundled file to go back to", name)
+	}
+	dir, err := Dir()
+	if err != nil {
+		return err
+	}
+	err = os.Remove(filepath.Join(dir, name+".md"))
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }

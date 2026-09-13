@@ -283,8 +283,8 @@ func (a *App) DeleteDeck(relPath string) error {
 	return a.api.DeleteDeck(relPath)
 }
 
-func (a *App) DeleteIdentityFile(name string) error {
-	return a.api.DeleteIdentityFile(name)
+func (a *App) DeleteIdentityFile(head string, name string) error {
+	return a.api.DeleteIdentityFile(head, name)
 }
 
 func (a *App) DeletePromptPreset(name string) error {
@@ -523,8 +523,8 @@ func (a *App) ListExternalSkills() []skill.DiscoveredSkill {
 	return a.api.ListExternalSkills()
 }
 
-func (a *App) ListIdentityFiles() ([]engine.IdentityFile, error) {
-	return a.api.ListIdentityFiles()
+func (a *App) ListIdentityFiles(head string) ([]engine.IdentityFile, error) {
+	return a.api.ListIdentityFiles(head)
 }
 
 func (a *App) ListImageEngines() []engine.VoiceEngineInfo {
@@ -811,12 +811,16 @@ func (a *App) RateTurn(messageID int64, verdict string) {
 	a.api.RateTurn(messageID, verdict)
 }
 
+func (a *App) ReadDeskFile(name string) (engine.DeskFile, error) {
+	return a.api.ReadDeskFile(name)
+}
+
 func (a *App) ReadFile(relPath string) (string, error) {
 	return a.api.ReadFile(relPath)
 }
 
-func (a *App) ReadIdentityFile(name string) (string, error) {
-	return a.api.ReadIdentityFile(name)
+func (a *App) ReadIdentityFile(head string, name string) (string, error) {
+	return a.api.ReadIdentityFile(head, name)
 }
 
 func (a *App) ReadImageDataURL(relPath string) (string, error) {
@@ -915,6 +919,10 @@ func (a *App) ResendEdited(text string, revertFiles bool) (engine.TurnReply, err
 	return a.api.ResendEdited(text, revertFiles)
 }
 
+func (a *App) ResetDeskFile(name string) error {
+	return a.api.ResetDeskFile(name)
+}
+
 func (a *App) ResolveAddress(input string) engine.Address {
 	return a.api.ResolveAddress(input)
 }
@@ -1003,8 +1011,12 @@ func (a *App) SaveChatImageData(dataURL string) (string, error) {
 	return a.api.SaveChatImageData(dataURL)
 }
 
-func (a *App) SaveIdentityFile(name string, content string) error {
-	return a.api.SaveIdentityFile(name, content)
+func (a *App) SaveDeskFile(name string, text string) error {
+	return a.api.SaveDeskFile(name, text)
+}
+
+func (a *App) SaveIdentityFile(head string, name string, content string) error {
+	return a.api.SaveIdentityFile(head, name, content)
 }
 
 func (a *App) SaveLearnedEntry(scope string, index int, text string) error {
