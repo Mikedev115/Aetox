@@ -695,7 +695,6 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'chat.inProject': '这个对话属于项目 {name}',
   'chat.backToProjects': '返回项目',
   'chat.inputToAgent': '给 {name} 发消息…',
-  'chat.mainAgent': '主助手',
   'chat.agentSwitchNote': '切换总是会开一个新对话，这一个会留在历史里。',
   // 团队（§256）
   'chat.teamEmpty': '这个团队还没有成员',
