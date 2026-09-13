@@ -20,22 +20,28 @@
   import { ListTeams, DelegateSwitches, SetDelegateOff, AgentBlocked } from '../../wailsjs/go/main/App'
   import { engine } from '../../wailsjs/go/models'
   import { cockpit, newChairSession, newTeamSession, setActiveView, openSettingsAt } from './stores/cockpit.svelte'
-  import { t } from './i18n.svelte'
+  import { t, i18n } from './i18n.svelte'
   import Icon from './Icon.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
   import Mascot from './mascot/Mascot.svelte'
   import { headOf, headOptions } from './mascot/avatarPrefs.svelte'
   import { lookOf } from './mascot/agentLook'
+  import { avatarText } from './mascot/avatarText'
 
   // Which menu is up: at most one, like every other chip on the row.
   let open = $state<'' | 'who' | 'team'>('')
   // The desk decides which teams are offered — the storefront's behind the
-  // assistant, the workshop's on the coding desk — and which face the
-  // main assistant wears: the desk's own head (avatarPrefs headOf), so the
-  // same word "ผู้ช่วยหลัก" on the code page shows the coder and not the
-  // assistant. It was the door's icon before the heads had faces (owner:
-  // "ไอคอนต้องเปลี่ยนหน้าโค้ด ไม่งั้น UX พัง"); the face keeps that promise.
+  // assistant, the workshop's on the coding desk — and which head fronts
+  // the chat (avatarPrefs headOf): its face AND its name. It was the door's
+  // icon before the heads had faces (owner: "ไอคอนต้องเปลี่ยนหน้าโค้ด ไม่งั้น
+  // UX พัง"), and one word, "ผู้ช่วยหลัก", on both desks until 14 ก.ย. 2026 —
+  // the two heads had just been split and the chip still called the coder
+  // by the assistant's name (owner: "ทำไมมันเขียนว่าผู้ช่วยหลัก มันคือโค้ด
+  // เนี่ยแยกกันแล้ว"). The name is the avatar page's own card name for the
+  // head (avatarText heads), so the chip and the page agree.
   const desk = $derived(cockpit.desk === 'coding' ? 'coding' : 'specialized')
+  const head = $derived(headOf(desk))
+  const headName = $derived(avatarText(i18n.locale).heads[head].name)
 
   let teams = $state<engine.TeamCard[]>([])
   // The team the chat hires from, and its people — the list the WHO menu
@@ -171,7 +177,7 @@
       <button type="button" class="focus-item" class:on={!cockpit.chair} onclick={pickAssistant}>
         <!-- The desk's head, as its own face (14 ก.ย. 2026) — the same one
              on the wall and the floating figure, not a desk glyph. -->
-        <span class="ic"><Mascot {...headOptions(headOf(desk))} size={16} still /></span> {t('chat.mainAgent')}
+        <span class="ic"><Mascot {...headOptions(head)} size={16} still /></span> {headName}
       </button>
       {#if members.length > 0}<div class="menu-sep"></div>{/if}
       {#each members as c (c.name)}
@@ -201,9 +207,9 @@
     <span class="ic">
       {#if cockpit.chair && chairCard}<AgentMascot name={chairCard.name} {...lookOf(chairCard)} size={14} />
       {:else if cockpit.chair}<Icon name="bot" size={13} />
-      {:else}<Mascot {...headOptions(headOf(desk))} size={15} still />{/if}
+      {:else}<Mascot {...headOptions(head)} size={15} still />{/if}
     </span>
-    <span class="t">{cockpit.chair || t('chat.mainAgent')}</span>
+    <span class="t">{cockpit.chair || headName}</span>
     <span class="caret"><Icon name={open === 'who' ? 'chevronUp' : 'chevronDown'} size={12} /></span>
   </button>
 </div>

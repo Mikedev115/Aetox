@@ -46,10 +46,10 @@ beforeEach(() => {
 })
 
 describe('station chips', () => {
-  it("draws two chips: the assistant with the assistant head's face, and the team by name", async () => {
+  it("draws two chips: the assistant with the assistant head's face and name, and the team by name", async () => {
     const { container } = render(StationPick)
 
-    expect(who(container).textContent).toContain('ผู้ช่วยหลัก')
+    expect(who(container).textContent).toContain('ผู้ช่วย')
     expect(who(container).textContent).not.toContain('ผู้ช่วยในคอมพิวเตอร์')
     expect(teamChip(container).textContent).toContain('ผู้ช่วยในคอมพิวเตอร์')
     expect(container.querySelector('.station-team.none')).toBeNull()
@@ -61,12 +61,13 @@ describe('station chips', () => {
     expect(wears(who(container), 'sparkles')).toBe(false)
   })
 
-  it("wears the code head's face on the coding desk, same word", async () => {
+  it("wears the code head's face AND name on the coding desk — the avatar page's card name, not the assistant's", async () => {
     cockpit.desk = 'coding'
     cockpit.team = ''
     const { container } = render(StationPick)
 
-    expect(who(container).textContent).toContain('ผู้ช่วยหลัก')
+    expect(who(container).textContent).toContain('โค้ด')
+    expect(who(container).textContent).not.toContain('ผู้ช่วย')
     const face = who(container).querySelector('.mascot')!
     expect(face.innerHTML).toContain('ms-chev')
     expect(wears(who(container), 'fileCode')).toBe(false)
@@ -118,7 +119,7 @@ describe('station chips', () => {
     await fireEvent.click(who(container))
     await waitFor(() => expect(menu(container, 'who').querySelectorAll('.agent-row').length).toBe(2))
     const m = menu(container, 'who')
-    expect(m.querySelector('.focus-item.on')?.textContent).toContain('ผู้ช่วยหลัก')
+    expect(m.querySelector('.focus-item.on')?.textContent).toContain('ผู้ช่วย')
     expect(m.textContent).not.toContain('ผู้ช่วยในคอมพิวเตอร์') // people only — no team rows here
     expect(m.querySelector('.delegate-row')).toBeNull()
     await fireEvent.click(screen.getByText('sheet'))
@@ -133,7 +134,7 @@ describe('station chips', () => {
 
     await fireEvent.click(who(container))
     await waitFor(() => expect(menu(container, 'who')).toBeTruthy())
-    await fireEvent.click(screen.getByText('ผู้ช่วยหลัก', { selector: '.focus-item' }))
+    await fireEvent.click(screen.getByText('ผู้ช่วย', { selector: '.focus-item' }))
     await waitFor(() => expect(vi.mocked(NewTeamSession)).toHaveBeenCalledWith('specialized', 'ผู้ช่วยในคอมพิวเตอร์'))
   })
 

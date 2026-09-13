@@ -2225,7 +2225,6 @@ export const th = {
   'chat.inProject': 'แชทนี้อยู่ในโปรเจกต์ {name}',
   'chat.backToProjects': 'กลับหน้าโปรเจกต์',
   'chat.inputToAgent': 'พิมพ์ถึง {name}…',
-  'chat.mainAgent': 'ผู้ช่วยหลัก',
  'chat.agentSwitchNote': 'สลับ = เปิดแชทใหม่เสมอ แชทเดิมอยู่ในประวัติ',
   // ทีม (§256) — the picker lists teams, the office groups by them.
   'chat.teamEmpty': 'ทีมนี้ยังไม่มีสมาชิก',

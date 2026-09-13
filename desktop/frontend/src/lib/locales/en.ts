@@ -2184,7 +2184,6 @@ Check your own work before answering; say so plainly if unsure.
   'chat.inProject': 'This chat is in the project {name}',
   'chat.backToProjects': 'Back to projects',
   'chat.inputToAgent': 'Message {name}…',
-  'chat.mainAgent': 'Main assistant',
   'chat.agentSwitchNote': 'Switching always opens a new chat. This one stays in history.',
   // Teams (§256) — the picker lists teams, the office groups by them.
   'chat.teamEmpty': 'This team has no members yet',
