@@ -4442,7 +4442,10 @@
              and that a second visual language for the same kind of thing costs
              more than it explains. -->
         <AgentMascot name={a.name} {...lookOf(a)} size={38} />
-        <span class="chair-name" title={a.path || 'built-in:' + a.name}>{a.name} <RankPip tier="helper" /></span>
+        <span class="chair-id">
+          <span class="chair-name" title={a.path || 'built-in:' + a.name}>{a.name}</span>
+          <RankPip tier="helper" />
+        </span>
         {#if delegate}
           {@const w = reachOf(a.name)}
           {#if w}
@@ -4534,10 +4537,15 @@
           size={38}
           off={!!reachOf(a.name) && !(reachOf(a.name)!.on && !reachOf(a.name)!.off)}
         />
-        <!-- ยศ inside the name, right after the word (RankPip): the two lists
-             draw the same card on purpose, and the rank plus the page
+        <!-- ยศ under the name (RankPip), in a column of its own: beside the
+             name it was the first thing the ellipsis ate on a long name, and
+             then the name itself on a narrow card ("ทำไมบางตัวไม่แสดง"). The
+             two lists draw the same card on purpose; the rank plus the page
              heading are what say which level this is. -->
-        <span class="chair-name" title={a.path || 'built-in:' + a.name}>{a.name} <RankPip tier="agent" /></span>
+        <span class="chair-id">
+          <span class="chair-name" title={a.path || 'built-in:' + a.name}>{a.name}</span>
+          <RankPip tier="agent" />
+        </span>
         <div class="ag-actions">
       <!-- Whether the MAIN assistant may hand this one work. Not whether the
            agent exists: the user still opens a chat with it from the composer
@@ -4755,6 +4763,7 @@
     <div class="office-grid">
       {#each rows.builtin as a (a.name)}{@render profileRow(a)}{/each}
     </div>
+    <p class="muted set-sub">{t('settings.helpersFoot')}</p>
   {/if}
 {/snippet}
 

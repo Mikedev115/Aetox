@@ -6614,6 +6614,11 @@ button.phase-head:hover { color:var(--text-muted); }
    whose whole job is being recognised. */
 .agc.off .chair-face { filter:saturate(.2) brightness(.72); }
 .agc .chair-name { font-size:var(--fs-lg); letter-spacing:-.01em; flex:1; }
+/* Name over rank (RankPip.svelte), one column that takes the row's slack:
+   the name keeps its ellipsis, the rank is never what gets clipped, and the
+   row's switch and cog stay at the edge. */
+.agc .chair-id { flex:1; min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
+.agc .chair-id .chair-name { flex:none; max-width:100%; }
 .agc.off .chair-name { color:var(--text-secondary); }
 .agc .chair-desc { font-size:var(--fs-sm); -webkit-line-clamp:2; }
 
@@ -7744,8 +7749,12 @@ button.phase-head:hover { color:var(--text-muted); }
 /* Group label for a card below it. Sits on the page background so the card
    underneath reads as the list itself rather than as a titled box. */
 .group-head { display:flex; align-items:baseline; gap:10px; margin:0 0 8px; padding:0 2px; max-width:760px; }
-.group-title { font-size:var(--fs-md); font-weight:600; color:var(--text-primary); }
-.group-count { font-size:var(--fs-xs); color:var(--text-dim); }
+/* The label never wraps: a two-line "มากับ / แอป" beside its count read as two
+   rows of a list. The note on the right is what gives way — it takes the
+   rest of the row and wraps inside it. */
+.group-title { font-size:var(--fs-md); font-weight:600; color:var(--text-primary); white-space:nowrap; }
+.group-count { font-size:var(--fs-xs); color:var(--text-dim); white-space:nowrap; }
+.group-head .group-hint { flex:1 1 0; min-width:0; }
 .settings-page .ctrl, .page-shell .ctrl { appearance:none; -webkit-appearance:none; background:var(--surface-sunken); border:1px solid var(--border-strong); border-radius:var(--r-sm); color:var(--text-secondary); font:inherit; font-size:var(--fs-md); padding:5px 8px; cursor:pointer; }
 .settings-page input.ctrl, .page-shell input.ctrl { cursor:text; }
 /* The three ways to follow the project, side by side in one row's action slot.
