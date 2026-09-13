@@ -644,18 +644,18 @@ describe('Settings pages', () => {
     vi.mocked(ListChairs).mockResolvedValue([{ name: 'deck' }] as any)
     const { container } = render(Settings, { onClose: () => {} })
     const labels = Array.from(container.querySelectorAll('.settings-nav-item')).map((el) => el.textContent?.trim())
-    expect(labels).toContain('เอเจนเฉพาะทาง')
+    expect(labels).toContain('พนักงาน')
     expect(labels).toContain('ลูกมือ')
     expect(labels).toContain('ทีมเอเจน')
 
-    await openSection(container, 'เอเจนเฉพาะทาง')
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'เอเจนเฉพาะทาง' })).toBeTruthy())
+    await openSection(container, 'พนักงาน')
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'พนักงาน' })).toBeTruthy())
     await waitFor(() => expect(screen.getByText('deck')).toBeTruthy())
     // Only the people: the assistant's helper is the other page's.
     expect(screen.queryByText('explore')).toBeNull()
     // The same shape and place as ทีมเอเจน's สร้างทีม (owner, 13 ก.ย.:
     // "พื้นหลังสีเดียวกับสร้างทีม"); the door to the roster page is the rail's.
-    const hire = screen.getByText('เพิ่มเอเจนเฉพาะทาง').closest('button')!
+    const hire = screen.getByText('เพิ่มพนักงาน').closest('button')!
     expect(hire.classList.contains('ctrl-primary')).toBe(true)
     expect(screen.queryByText(/ไปหน้าเอเจนเฉพาะทาง/)).toBeNull()
   })
@@ -691,7 +691,7 @@ describe('Settings pages', () => {
 
     render(Settings, { onClose: () => {} })
 
-    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('tablist', { name: 'ตั้งค่าพนักงาน' })).toBeTruthy())
     // Consumed once — an intent left behind would reopen this editor on the
     // next plain visit to Settings.
     expect(cockpit.settingsIntent).toBeNull()
@@ -716,14 +716,14 @@ describe('Settings pages', () => {
     cockpit.activeView = 'settings'
 
     const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'เอเจนเฉพาะทาง')
+    await openSection(container, 'พนักงาน')
     await waitFor(() => expect(screen.getByText('deck')).toBeTruthy())
     await fireEvent.click(screen.getAllByLabelText('ตั้งค่า')[0])
-    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('tablist', { name: 'ตั้งค่าพนักงาน' })).toBeTruthy())
 
     await fireEvent.click(screen.getByText('กลับไปหน้ารวม'))
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'เอเจนเฉพาะทาง' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'พนักงาน' })).toBeTruthy())
     expect(screen.queryByRole('heading', { name: 'ลูกมือ' })).toBeNull()
     expect(cockpit.activeView).toBe('settings')
   })
@@ -733,7 +733,7 @@ describe('Settings pages', () => {
 
     render(Settings, { onClose: () => {} })
 
-    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('tablist', { name: 'ตั้งค่าพนักงาน' })).toBeTruthy())
     expect(cockpit.settingsIntent).toBeNull()
   })
 
@@ -848,7 +848,7 @@ describe('Settings pages', () => {
     vi.mocked(ReadSubagentProfile).mockResolvedValue('---\ndescription: ทำสไลด์\n---\nสร้างสไลด์' as any)
     cockpit.settingsIntent = { section: 'team', agent: 'deck' }
     const { container } = render(Settings, { onClose: () => {} })
-    await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('tablist', { name: 'ตั้งค่าพนักงาน' })).toBeTruthy())
     await fireEvent.click(screen.getByRole('tab', { name: 'สมอง' }))
 
     const selects = container.querySelectorAll<HTMLSelectElement>('#ag-panel-brain select.ctrl')
@@ -988,7 +988,8 @@ describe('Settings pages', () => {
     cockpit.settingsIntent = { section: 'team', createAgent: true }
     const { container } = render(Settings, { onClose: () => {} })
     await waitFor(() => expect(container.querySelector('.ag-body')).toBeTruthy())
-    expect(screen.getAllByRole('tab').length).toBe(6)
+    // Six of the agent's, plus ความจำ (14 ก.ย. 2026).
+    expect(screen.getAllByRole('tab').length).toBe(7)
 
     await fireEvent.click(screen.getByRole('tab', { name: /MCP/ }))
     await waitFor(() => expect(screen.getByText('context7')).toBeTruthy())
@@ -1676,6 +1677,24 @@ describe('Settings resilience and state', () => {
 })
 
 describe('Settings nav', () => {
+  // เอเจนเฉพาะทาง (พนักงาน) and ลูกมือ share one editor pane. With an editor
+  // open on one, the other's rail row changed only `active` — the pane stayed
+  // and the click read as nothing (owner, 14 ก.ย. 2026: "กดเมนูหน้าอื่น ๆ หรือ
+  // เอเจนเฉพาะทาง มันกดหน้าลูกมือไม่ได้"). A rail row means the list.
+  it("closes an open agent editor when the other list's rail row is clicked", async () => {
+    const { container } = await openAgentEditor('deck')
+    await openSection(container, 'ลูกมือ')
+    await waitFor(() => expect(container.querySelector('.ag-body')).toBeNull())
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('ลูกมือ')
+    expect(container.querySelectorAll('.chair-card.helper').length).toBeGreaterThan(0)
+    // The rank's bars ride the three rows that are levels of the company.
+    const rows = Array.from(container.querySelectorAll('.settings-nav-item'))
+    for (const label of ['ตัวหลัก', 'พนักงาน', 'ลูกมือ']) {
+      expect(rows.find((r) => r.textContent?.includes(label))?.querySelector('.nav-rank .rank')).toBeTruthy()
+    }
+    expect(rows.find((r) => r.textContent?.includes('ทั่วไป'))?.querySelector('.nav-rank')).toBeNull()
+  })
+
   // ตั้งค่า › MCP left the menu on 12 ก.ย. 2026: the room is the one place a
   // server is handled, and a settings page pointing at it would be an empty
   // category wearing a page's clothes (DESIGN.md §3).
@@ -2113,7 +2132,7 @@ describe('Settings › ทีมเอเจน', () => {
     const model = labels.indexOf('การตั้งค่าโมเดล')
     // ตัวหลัก joined the group 14 ก.ย. 2026, first after the model page: the
     // two the user talks to, then the specialists, the helpers, the teams.
-    expect(labels.slice(model, model + 5)).toEqual(['การตั้งค่าโมเดล', 'ตัวหลัก', 'เอเจนเฉพาะทาง', 'ลูกมือ', 'ทีมเอเจน'])
+    expect(labels.slice(model, model + 5)).toEqual(['การตั้งค่าโมเดล', 'ตัวหลัก', 'พนักงาน', 'ลูกมือ', 'ทีมเอเจน'])
     await openSection(container, 'ทีมเอเจน')
     await waitFor(() => expect(screen.getByText('ทีมเอเจน', { selector: 'h2' })).toBeTruthy())
     // The door is drawn more than once on purpose (teamSettings.test.ts).

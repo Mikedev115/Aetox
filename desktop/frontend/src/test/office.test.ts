@@ -110,10 +110,10 @@ describe('the office roster', () => {
     await screen.findByText('เก้าอี้ร่างเอกสาร')
 
     expect(screen.queryByLabelText('ตั้งค่า')).toBeNull()
-    expect(screen.queryByText('เพิ่มเอเจนเฉพาะทาง')).toBeNull()
+    expect(screen.queryByText('เพิ่มพนักงาน')).toBeNull()
     expect(container.querySelector('.office-note')).toBeNull()
 
-    await fireEvent.click(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง'))
+    await fireEvent.click(screen.getByText('ตั้งค่าพนักงาน'))
     expect(cockpit.activeView).toBe('settings')
     expect(sessionStorage.getItem('aetox.settingsSection')).toBe('team')
   })

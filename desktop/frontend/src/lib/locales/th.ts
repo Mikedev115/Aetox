@@ -1608,7 +1608,7 @@ export const th = {
   'settings.mainPendingN': 'รออนุมัติ {n}',
   'settings.mainSharedNote': 'ข้อมูลเกี่ยวกับคุณที่ทั้งสองตัวและทุกเอเจนอ่านเหมือนกัน ไม่อยู่หน้านี้ อยู่ที่',
   'settings.mainEditTitle': 'ตั้งค่า {name}',
-  'settings.mainEditDesc': 'โครงเดียวกับหน้าตั้งค่าเอเจนเฉพาะทาง ทุกอย่างในหน้านี้เป็นของตัวนี้ตัวเดียว',
+  'settings.mainEditDesc': 'โครงเดียวกับหน้าตั้งค่าพนักงาน ทุกอย่างในหน้านี้เป็นของตัวนี้ตัวเดียว',
   'settings.mainGoOther': 'ไปที่ {name}',
   'settings.mainHeadBadge': 'ตัวหลัก',
   'settings.mainSecMemory': 'ความจำ',
@@ -1850,10 +1850,10 @@ export const th = {
   'settings.promptOverrideNote': 'นี่คือชุดคำสั่งที่มากับแอป กดบันทึกจะสร้างเป็นของคุณทับไว้ ของเดิมไม่หาย ลบของคุณเมื่อไหร่ของเดิมก็กลับมา',
   // Two rows, one pair of words (COMPANY.md §4): เอเจน and ลูกมือ.
   // The room on the sidebar keeps its own name (ทีมเอเจน); these are the kinds.
-  'settings.team': 'เอเจนเฉพาะทาง',
+  'settings.team': 'พนักงาน',
   'settings.subagents': 'ลูกมือ',
   'settings.teamDesc': 'ตั้งค่าผู้เชี่ยวชาญแต่ละคน — ใช้โมเดลอะไร มีเครื่องมืออะไร สั่งงานยังไง — และเพิ่มคนใหม่ที่นี่ ส่วนห้องคุยอยู่ที่หน้าเอเจนเฉพาะทาง',
-  'settings.teamNew': 'เพิ่มเอเจนเฉพาะทาง',
+  'settings.teamNew': 'เพิ่มพนักงาน',
   'settings.teamNoneOfMine': 'ยังไม่มีของคุณเอง กดเพิ่มเอเจนเฉพาะทาง หรือกดตั้งค่าตัวที่มากับแอปแล้วบันทึก',
   'settings.teamMineHint': 'ไฟล์ .md ที่คุณเขียนเองในโฟลเดอร์เอเจน แก้ ลบ หรือเพิ่มได้ตามใจ',
   'settings.teamOpenPage': 'ไปหน้าเอเจนเฉพาะทาง',
@@ -1906,7 +1906,7 @@ export const th = {
   'settings.agentReach': 'มอบงานให้',
   'settings.agentReachTip': 'ให้ผู้ช่วยหลักมอบงานให้เอเจนตัวนี้ได้ ปิดแล้วเอเจนยังอยู่ครบ เปิดแชทคุยเองหรือพิมพ์ @ชื่อ ได้เหมือนเดิม',
  'settings.agentsHint': 'ทุกโปรไฟล์คือไฟล์ .md ไฟล์เดียว จะตั้งค่าในนี้หรือแก้ไฟล์ตรงๆ ก็ได้ ตั้งชื่อชนกับของที่มากับแอปได้ ของคุณจะถูกใช้แทน แต่ชื่อของเอเจนกับลูกมือใช้ซ้ำกันไม่ได้ เพราะความจำและประวัติงานผูกกับชื่อ',
-  'settings.editAgentTitle': 'ตั้งค่าเอเจนเฉพาะทาง',
+  'settings.editAgentTitle': 'ตั้งค่าพนักงาน',
   // Was "เปิดมาจากหน้าทีมเอเจน — …", which is true half the time: the เอเจน
   // page in Settings opens the same editor. A sentence that tells a reader
   // where they came from, wrongly, is worse than not saying.
@@ -1991,6 +1991,7 @@ export const th = {
   'settings.agentSkillsNewHint': 'ติ๊กไว้ก่อนได้เลย บันทึกเอเจนแล้วจะคัดลอกเข้าโฟลเดอร์ของเอเจนให้ทันที',
   'settings.agentSaveFirstTitle': 'บันทึกเอเจนก่อน',
   'settings.agentSaveFirstOpening': 'คำถามและการ์ดเปิดบทสนทนาอยู่ในโฟลเดอร์ของเอเจน ซึ่งเกิดตอนบันทึก',
+  'settings.agentMemorySaveFirst': 'ความจำอยู่ในโฟลเดอร์ของเอเจน บันทึกก่อน แล้วค่อยมาดูและแก้ที่นี่',
   'settings.agentSkillsOpenFolder': 'เปิดโฟลเดอร์สกิล',
 
   'settings.agentMemoryTitle': 'ความจำของเอเจนคนนี้',
@@ -2234,7 +2235,7 @@ export const th = {
   // ---- ทีมเอเจน ----
  'office.intro': 'ผู้เชี่ยวชาญเฉพาะทางที่คุยตรงได้เหมือนคุยกับเพื่อนร่วมงาน ถามความเห็น ปรึกษา หรือสั่งงานให้ทำเป็นไฟล์ก็ได้ ผู้ช่วยหลักก็ส่งงานให้เขาได้เหมือนกัน แต่ละคนไม่เห็นบทสนทนาของอีกคน และไม่ส่งงานต่อให้ใคร',
   'office.roster': 'ทีมงาน',
-  'office.configure': 'ตั้งค่าเอเจนเฉพาะทาง',
+  'office.configure': 'ตั้งค่าพนักงาน',
   // เส้นที่หน้านี้มีไว้ให้เปลี่ยน — ผู้ช่วยหลักเอื้อมถึงใครบ้าง เขียนเป็นประโยค
   // ไม่ใช่ปล่อยให้อ่านเอาจากแถวสวิตช์
   'office.reachSome': 'ผู้ช่วยหลักส่งงานให้ได้ {n} จาก {total} คน ที่เหลือยังเปิดห้องคุยเองได้',

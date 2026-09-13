@@ -22,7 +22,7 @@ import {
 const openEditor = async () => {
   cockpit.settingsIntent = { section: 'team', agent: 'backend' }
   const r = render(Settings, { onClose: () => {} })
-  await waitFor(() => expect(screen.getByText('ตั้งค่าเอเจนเฉพาะทาง')).toBeTruthy())
+  await waitFor(() => expect(screen.getByRole('tablist', { name: 'ตั้งค่าพนักงาน' })).toBeTruthy())
   await fireEvent.click(screen.getByRole('tab', { name: 'อวตาร' }))
   await waitFor(() => expect(r.container.querySelector('#ag-panel-avatar.on')).toBeTruthy())
   return r

@@ -16,14 +16,17 @@
   // A rank is the level's and is not a setting on anything.
   import { t } from './i18n.svelte'
 
-  let { tier, size = 'sm' }: { tier: 'head' | 'agent' | 'helper'; size?: 'sm' | 'md' } = $props()
+  // word=false is the bars alone — for a place where the word is already
+  // written beside it, like the rail's row named พนักงาน (owner, 14 ก.ย.:
+  // "ในหน้าเมนู ทำสัญลักษณ์ยศแปะไว้ด้วย"). The word stays as the tooltip.
+  let { tier, size = 'sm', word: showWord = true }: { tier: 'head' | 'agent' | 'helper'; size?: 'sm' | 'md'; word?: boolean } = $props()
   const bars = $derived(tier === 'head' ? 3 : tier === 'agent' ? 2 : 1)
   const word = $derived(tier === 'head' ? t('rank.head') : tier === 'agent' ? t('rank.agent') : t('rank.helper'))
 </script>
 
-<span class="rank rank-{size} rank-{tier}" title={word}>
+<span class="rank rank-{size} rank-{tier}" class:rank-bare={!showWord} title={word} aria-label={word} role="img">
   <span class="rank-bars" aria-hidden="true">{#each Array(bars) as _, i (i)}<i></i>{/each}</span>
-  <span class="rank-word">{word}</span>
+  {#if showWord}<span class="rank-word">{word}</span>{/if}
 </span>
 
 <style>
@@ -33,6 +36,7 @@
     font-size: var(--fs-2xs); font-weight: 600; line-height: 1.4; white-space: nowrap;
   }
   .rank-md { font-size: var(--fs-xs); padding: 2px 9px 2px 7px; }
+  .rank-bare { padding: 3px 6px; gap: 0; }
   .rank-bars { display: inline-flex; gap: 2px; align-items: flex-end; height: .8em; }
   .rank-bars i { display: block; width: 3px; height: 100%; border-radius: 1px; background: currentColor; }
   .rank-md .rank-bars i { width: 3.5px; }

@@ -1844,10 +1844,10 @@ Check your own work before answering; say so plainly if unsure.
   'settings.promptOverrideNote': 'This one ships with Aetox. Saving creates your own copy over it. The original stays; delete yours and it comes back.',
   // Two rows, one pair of words: agents and helpers. The room on the
   // sidebar keeps its own name (Agent team); these are the kinds.
-  'settings.team': 'Specialist agents',
+  'settings.team': 'Staff',
   'settings.subagents': 'Helpers',
   'settings.teamDesc': 'Set up each specialist — which model it runs on, which tools it may be handed, how it takes work — and add new ones here. The room to talk to them is the Specialist agents page.',
-  'settings.teamNew': 'Add a specialist',
+  'settings.teamNew': 'Add staff',
   'settings.teamNoneOfMine': 'None of your own yet. Create one, or configure a built-in and save it.',
   'settings.teamMineHint': '.md files you wrote in the agents folder. Edit, delete or add as you like.',
   'settings.teamOpenPage': 'Open Specialist agents',
@@ -1891,7 +1891,7 @@ Check your own work before answering; say so plainly if unsure.
   'settings.agentReach': 'Can be given work',
   'settings.agentReachTip': 'Whether the main assistant may hand this one a job. Turning it off leaves the agent alone — open a chat with it, or write @name, exactly as before.',
   'settings.agentsHint': 'Every profile is one .md file. Configure it here or edit the file directly. Naming yours after a built-in shadows it, but an agent and a helper can never share a name, because memory and job history key on it.',
-  'settings.editAgentTitle': 'Configure agent',
+  'settings.editAgentTitle': 'Configure staff member',
   'settings.editAgentDesc': 'Saving always lands in the agents’ home, whether you opened this from this page, from Agent teams, or from a card on the Specialist agents page.',
   'settings.agentBack': 'Back to all agents',
   'settings.agentName': 'Name (becomes the filename, and how the assistant calls it)',
@@ -1966,6 +1966,7 @@ Check your own work before answering; say so plainly if unsure.
   'settings.agentSkillsNewHint': 'Tick now; they are copied into the agent’s folder the moment it is saved.',
   'settings.agentSaveFirstTitle': 'Save the agent first',
   'settings.agentSaveFirstOpening': 'The opening questions and cards live in the agent’s folder, which is created on save.',
+  'settings.agentMemorySaveFirst': 'Memory lives in the agent’s folder. Save first, then read and edit it here.',
   'settings.agentSkillsOpenFolder': 'Open skills folder',
 
   'settings.agentMemoryTitle': 'This agent’s memory',
@@ -2194,7 +2195,7 @@ Check your own work before answering; say so plainly if unsure.
   // ---- Agent team ----
   'office.intro': 'Specialists you can talk to like colleagues, ask their opinion, think something through, or hand them a job and get a file back. The assistant can hand them work too. None of them sees another’s conversation, and they hand work to no one.',
   'office.roster': 'The team',
-  'office.configure': 'Configure specialist agents',
+  'office.configure': 'Configure staff',
   // The line this page exists to change — who the main assistant can reach,
   // written as a sentence rather than left to be inferred from a row of switches
   'office.reachSome': 'The assistant can hand work to {n} of {total}. The rest you can still open a chat with yourself.',
