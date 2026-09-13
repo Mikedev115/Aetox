@@ -307,6 +307,10 @@ func (a *App) DeleteTeam(name string) error {
 	return a.api.DeleteTeam(name)
 }
 
+func (a *App) DeskStarters(desk string, locale string) subagent.StarterSet {
+	return a.api.DeskStarters(desk, locale)
+}
+
 func (a *App) DisconnectAccount(id string) error {
 	return a.api.DisconnectAccount(id)
 }
@@ -1013,6 +1017,10 @@ func (a *App) SaveChatImageData(dataURL string) (string, error) {
 
 func (a *App) SaveDeskFile(name string, text string) error {
 	return a.api.SaveDeskFile(name, text)
+}
+
+func (a *App) SaveDeskStarters(desk string, locale string, set subagent.StarterSet) error {
+	return a.api.SaveDeskStarters(desk, locale, set)
 }
 
 func (a *App) SaveIdentityFile(head string, name string, content string) error {

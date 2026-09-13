@@ -9905,3 +9905,14 @@ button.ctrl, label.ctrl { display:inline-flex; align-items:center; justify-conte
 /* The two agents the shelf feeds, right under the page's first sentence. */
 .studio-agents { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:-8px 0 18px; }
 .studio-agents .d { font-size:var(--fs-xs); color:var(--text-dim); margin-left:4px; }
+
+/* ตัวหลัก › สกิล: the shelf as cells, not rows (14 ก.ย. 2026). Forty skills
+   as forty full-width rows was a page to scroll; a grid of name + two lines
+   reads at a glance, and the section title sits inside the card at the
+   card's own rhythm rather than hanging off its left edge. */
+.main-shelf-h { display:flex; align-items:center; gap:8px; padding:12px 16px 6px; font-size:var(--fs-2xs); font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); border-top:1px solid var(--border-subtle); }
+.main-shelf-h .n { font-family:var(--mono); font-weight:500; letter-spacing:0; color:var(--text-dim); font-variant-numeric:tabular-nums; }
+.main-shelf-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:1px; background:var(--border-subtle); border-top:1px solid var(--border-subtle); }
+.main-shelf-cell { background:var(--surface-panel); padding:9px 16px 10px; min-width:0; }
+.main-shelf-cell .t { font-weight:600; font-size:var(--fs-md); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.main-shelf-cell .d { color:var(--text-muted); font-size:var(--fs-xs); line-height:1.4; margin-top:2px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }

@@ -10,6 +10,7 @@ import Settings from '../lib/Settings.svelte'
 import {
   ListModes, LearnedScopeInfos, LearnedEntries, ListPendingChanges,
   ListIdentityFiles, ReadIdentityFile, SaveIdentityFile, ReadDeskFile, SaveDeskFile, ResetDeskFile,
+  ListMCPServers, SetMCPServerTargets, ListExternalSkills, DeskStarters, SaveDeskStarters,
 } from './mocks/wailsApp'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 
@@ -81,7 +82,7 @@ describe('a head\'s page', () => {
     await waitFor(() => expect(cards(container).length).toBe(2))
     await fireEvent.click(cards(container)[0].querySelector('.icobtn')!)
     await waitFor(() => expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('ตั้งค่า ผู้ช่วย'))
-    expect(tabs(container).map((t) => t.textContent?.trim())).toEqual(['ตัวตน', 'การเข้าถึง', 'ความจำ'])
+    expect(tabs(container).map((t) => t.textContent?.trim())).toEqual(['ตัวตน', 'ตั้งค่า MCP', 'สกิล', 'เปิดบทสนทนา', 'ความจำ'])
     expect(container.querySelector('.main-head .rank-corner.rank-head')).toBeTruthy()
     expect(container.querySelector('.main-head .mascot')).toBeTruthy()
     // The desk file's line on the first tab, and where the persona still is.
@@ -96,21 +97,81 @@ describe('a head\'s page', () => {
     await waitFor(() => expect(cards(container).length).toBe(2))
   })
 
-  // Reach is doors into ห้องความสามารถ, at the page that answers for the
-  // desk — the room stays the one place any of it is changed.
-  it('reach doors into the capability room at the matching page', async () => {
+  // The agent editor's MCP box, for a desk: every live server with this
+  // desk's switch on it, written through the room's one writer at once.
+  it('MCP is switches on the page, writing the desk into the server\'s for: list', async () => {
+    vi.mocked(ListMCPServers).mockResolvedValue([
+      { name: 'firecrawl', disabled: false, status: 'ok', tools: 25, for: ['coding'] },
+      { name: 'notion', disabled: false, status: 'idle', tools: 0, for: [] },
+      { name: 'old', disabled: true, status: 'off', tools: 0, for: ['coding'] },
+    ] as any)
     const { container } = render(Settings, { onClose: () => {} })
     await openSection(container, 'ตัวหลัก')
     await waitFor(() => expect(cards(container).length).toBe(2))
     await fireEvent.click(cards(container)[1].querySelector('.icobtn')!)
-    await fireEvent.click(tabs(container).find((t) => t.textContent?.includes('การเข้าถึง'))!)
-    const rows = Array.from(container.querySelectorAll('.ag-tab-panel.on .set-row'))
-    expect(rows.map((r) => r.querySelector('.t')?.textContent?.trim())).toEqual([
-      'ตั้งค่า MCP ฝั่งผู้ช่วยและโค้ด', 'สกิลของคุณ', 'ทะเบียนเครื่องมือ',
-    ])
-    await fireEvent.click(rows[0].querySelector('.ctrl')!)
-    expect(cockpit.capabilityIntent).toEqual({ page: 'desks' })
-    expect(cockpit.activeView).toBe('capability')
+    await fireEvent.click(tabs(container).find((t) => t.textContent?.includes('ตั้งค่า MCP'))!)
+    const rows = await waitFor(() => {
+      const r = Array.from(container.querySelectorAll('.ag-tab-panel.on .ag-reachrow'))
+      expect(r.length).toBe(2)
+      return r
+    })
+    expect(rows.map((r) => r.querySelector('.t')?.textContent?.trim())).toEqual(['firecrawl', 'notion'])
+    expect((rows[0].querySelector('input') as HTMLInputElement).checked).toBe(true)
+    expect((rows[1].querySelector('input') as HTMLInputElement).checked).toBe(false)
+    await fireEvent.click(rows[1].querySelector('input')!)
+    await waitFor(() => expect(SetMCPServerTargets).toHaveBeenCalledWith('notion', ['coding']))
+    await fireEvent.click(rows[0].querySelector('input')!)
+    await waitFor(() => expect(SetMCPServerTargets).toHaveBeenCalledWith('firecrawl', []))
+    // The tool register stays a door: it is read-only everywhere.
+    await fireEvent.click(Array.from(container.querySelectorAll('.ag-tab-panel.on .ctrl')).find((b) => b.textContent?.includes('เปิด'))!)
+    expect(cockpit.capabilityIntent).toEqual({ page: 'tools' })
+  })
+
+  // The shelf, listed: every desk sees all of it, so the tab shows rather
+  // than ticks, and the door leads to where the shelf changes.
+  it('skills lists the whole shelf under this head, yours before bundled', async () => {
+    vi.mocked(ListExternalSkills).mockResolvedValue([
+      { name: 'aetox-slides', description: 'สไลด์', dir: 'x', bundled: true },
+      { name: 'my-deck', description: 'ของผม', dir: 'y' },
+    ] as any)
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'ตัวหลัก')
+    await waitFor(() => expect(cards(container).length).toBe(2))
+    await fireEvent.click(cards(container)[0].querySelector('.icobtn')!)
+    await fireEvent.click(tabs(container).find((t) => t.textContent?.trim() === 'สกิล')!)
+    await waitFor(() => expect(container.querySelector('.ag-tab-panel.on .ag-count')?.textContent).toBe('2'))
+    const names = Array.from(container.querySelectorAll('.ag-tab-panel.on .main-shelf-cell .t')).map((x) => x.textContent?.trim())
+    expect(names).toEqual(['my-deck', 'aetox-slides'])
+    expect(container.querySelector('.ag-tab-panel.on input[type="checkbox"]')).toBeNull()
+  })
+
+  // The opening: the worker's form, aimed at the desk's own file. Read for
+  // this head, written for this head, and the other head reads its own.
+  it('opening edits this desk\'s STARTERS.md through the same form a worker has', async () => {
+    vi.mocked(DeskStarters).mockImplementation(async (desk: string) =>
+      (desk === 'coding'
+        ? { headline: '{ชื่อ} วันนี้จะแก้ตรงไหน?', cards: [{ title: 'รันเทสต์', prompt: 'รันเทสต์ทั้งหมดแล้วบอกผล', icon: 'play' }] }
+        : { headline: '', cards: [] }) as any)
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'ตัวหลัก')
+    await waitFor(() => expect(cards(container).length).toBe(2))
+    await fireEvent.click(cards(container)[1].querySelector('.icobtn')!)
+    await waitFor(() => expect(DeskStarters).toHaveBeenCalledWith('coding', expect.any(String)))
+    await fireEvent.click(tabs(container).find((t) => t.textContent?.includes('เปิดบทสนทนา'))!)
+    const head = await waitFor(() => {
+      const i = container.querySelector('.ag-tab-panel.on input.ctrl') as HTMLInputElement
+      expect(i?.value).toBe('{ชื่อ} วันนี้จะแก้ตรงไหน?')
+      return i
+    })
+    expect(container.querySelector('.ag-tab-panel.on .mono-dim')?.textContent).toContain('modes/coding/STARTERS.md')
+    await fireEvent.input(head, { target: { value: '{ชื่อ} เริ่มจากไฟล์ไหนดี?' } })
+    await fireEvent.click(Array.from(container.querySelectorAll('.ag-tab-panel.on .ctrl-primary')).at(-1)!)
+    await waitFor(() => expect(SaveDeskStarters).toHaveBeenCalledWith('coding', expect.any(String), expect.objectContaining({ headline: '{ชื่อ} เริ่มจากไฟล์ไหนดี?' })))
+    // Crossing heads reads the other file, never this one's rows.
+    await fireEvent.click(Array.from(container.querySelectorAll('.pp-bar .ctrl')).find((b) => b.textContent?.includes('ไปที่ ผู้ช่วย'))!)
+    await waitFor(() => expect(DeskStarters).toHaveBeenCalledWith('assistant', expect.any(String)))
+    await fireEvent.click(tabs(container).find((t) => t.textContent?.includes('เปิดบทสนทนา'))!)
+    await waitFor(() => expect((container.querySelector('.ag-tab-panel.on input.ctrl') as HTMLInputElement).value).toBe(''))
   })
 
 })

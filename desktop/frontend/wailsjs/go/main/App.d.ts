@@ -254,6 +254,8 @@ export function DeleteSubagentProfile(arg1:string):Promise<void>;
 
 export function DeleteTeam(arg1:string):Promise<void>;
 
+export function DeskStarters(arg1:string,arg2:string):Promise<subagent.StarterSet>;
+
 export function DisconnectAccount(arg1:string):Promise<void>;
 
 export function DisconnectRemote():Promise<void>;
@@ -707,6 +709,8 @@ export function SaveChatImage(arg1:string):Promise<string>;
 export function SaveChatImageData(arg1:string):Promise<string>;
 
 export function SaveDeskFile(arg1:string,arg2:string):Promise<void>;
+
+export function SaveDeskStarters(arg1:string,arg2:string,arg3:subagent.StarterSet):Promise<void>;
 
 export function SaveDrawing(arg1:string):Promise<string>;
 

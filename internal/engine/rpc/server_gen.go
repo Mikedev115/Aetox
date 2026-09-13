@@ -399,6 +399,13 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		return nil, e.DeleteTeam(p0), true
+	case "DeskStarters":
+		var p0 string
+		var p1 string
+		if err := decodeParams(params, &p0, &p1); err != nil {
+			return nil, err, true
+		}
+		return e.DeskStarters(p0, p1), nil, true
 	case "DisconnectAccount":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {
@@ -1278,6 +1285,14 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		return nil, e.SaveDeskFile(p0, p1), true
+	case "SaveDeskStarters":
+		var p0 string
+		var p1 string
+		var p2 subagent.StarterSet
+		if err := decodeParams(params, &p0, &p1, &p2); err != nil {
+			return nil, err, true
+		}
+		return nil, e.SaveDeskStarters(p0, p1, p2), true
 	case "SaveIdentityFile":
 		var p0 string
 		var p1 string

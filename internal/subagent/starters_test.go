@@ -341,3 +341,34 @@ func TestSaveStartersCapsAtThePoolCeiling(t *testing.T) {
 		t.Fatalf("got %d cards, want %d", len(got.Cards), maxStarters)
 	}
 }
+
+// A desk's opening (14 ก.ย. 2026): the same file a worker keeps, in
+// modes/<desk>/, read without a bundled fallback and removed by an empty save.
+func TestDeskStartersRoundTripAndClear(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	if got := DeskStarters("assistant", "th"); len(got.Cards) != 0 || got.Headline != "" {
+		t.Fatalf("a desk with no file opens empty, got %+v", got)
+	}
+	set := StarterSet{Headline: "{ชื่อ} วันนี้จะเริ่มจากอะไรดี?", Cards: []Starter{{Title: "สรุปโฟลเดอร์นี้", Prompt: "สรุปว่าโฟลเดอร์นี้มีอะไร:", Icon: "folder"}}}
+	if err := SaveDeskStarters("assistant", "th", set); err != nil {
+		t.Fatal(err)
+	}
+	got := DeskStarters("assistant", "th")
+	if got.Headline != set.Headline || len(got.Cards) != 1 || got.Cards[0].Title != "สรุปโฟลเดอร์นี้" {
+		t.Fatalf("round trip: %+v", got)
+	}
+	// The other desk reads nothing of it.
+	if got := DeskStarters("coding", "th"); len(got.Cards) != 0 {
+		t.Fatalf("coding must not read assistant's file: %+v", got)
+	}
+	// A name that could leave modes/ is refused before any path is built.
+	if err := SaveDeskStarters("../agents", "th", set); err == nil {
+		t.Fatal("a desk name with a path in it must be refused")
+	}
+	if err := SaveDeskStarters("assistant", "th", StarterSet{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := DeskStarters("assistant", "th"); len(got.Cards) != 0 {
+		t.Fatalf("an empty save removes the file, got %+v", got)
+	}
+}

@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -255,4 +256,40 @@ func moveInto(dir string, dest func(string) (string, error)) {
 		}
 		os.Remove(filepath.Join(dir, e.Name()))
 	}
+}
+
+// DeskStartersPath is the opening a main desk keeps for one language —
+// <DataRoot>/modes/<desk>/STARTERS[.<lang>].md, beside the desk file that
+// modes/ already holds (mode.Dir), in a folder of the desk's own so the mode
+// loader, which reads only the files directly in modes/, never folds it.
+// The same format and the same name rule as a worker's (AgentStartersName):
+// the two heads a person talks to have an opening of their own since
+// 14 ก.ย. 2026 (§266), edited on that head's page, and until then the window
+// drew the same four cards for everyone from a list inside itself.
+//
+// Not created here. A desk with no file opens with the window's own cards.
+func DeskStartersPath(desk, locale string) (string, error) {
+	if !validDeskName(desk) {
+		return "", fmt.Errorf("invalid desk name %q", desk)
+	}
+	root, err := DataRoot()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(root, "modes", desk, AgentStartersName(locale)), nil
+}
+
+// validDeskName is what may name a folder under modes/: the desks' own names
+// (mode.Mode.Name — assistant, coding), which are plain lowercase words. The
+// guard is a filename guard, the same reason AgentStartersName has one.
+func validDeskName(desk string) bool {
+	if desk == "" || len(desk) > 32 {
+		return false
+	}
+	for _, r := range desk {
+		if !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9') && r != '-' {
+			return false
+		}
+	}
+	return true
 }

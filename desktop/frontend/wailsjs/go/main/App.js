@@ -474,6 +474,10 @@ export function DeleteTeam(arg1) {
   return window['go']['main']['App']['DeleteTeam'](arg1);
 }
 
+export function DeskStarters(arg1, arg2) {
+  return window['go']['main']['App']['DeskStarters'](arg1, arg2);
+}
+
 export function DisconnectAccount(arg1) {
   return window['go']['main']['App']['DisconnectAccount'](arg1);
 }
@@ -1380,6 +1384,10 @@ export function SaveChatImageData(arg1) {
 
 export function SaveDeskFile(arg1, arg2) {
   return window['go']['main']['App']['SaveDeskFile'](arg1, arg2);
+}
+
+export function SaveDeskStarters(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveDeskStarters'](arg1, arg2, arg3);
 }
 
 export function SaveDrawing(arg1) {
