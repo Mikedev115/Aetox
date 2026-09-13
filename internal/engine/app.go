@@ -4617,7 +4617,14 @@ func (a *Engine) applyConfig(conv *conversation, cfg config.Config) {
 		// signed-in endpoint is not a secret and travels in the open.
 		ProviderTransport: a.screenOf().ProviderTransport(model.NormalizeProvider(cfg.ModelProvider), cfg.ModelWireFormat),
 		ProviderEndpoint:  a.screenOf().ProviderEndpoint(model.NormalizeProvider(cfg.ModelProvider)),
-		OnToolAction:      func(ev turn.ToolEvent) { a.recordToolAction(conv, ev) },
+		// A delegate's own provider (`provider:` in AGENT.md), signed the same
+		// way (provider_for.go). This line was lost in the merge that carried
+		// 62ed2bed onto the carved engine (305333eb), and nothing noticed: a
+		// missing factory is the CLI's ordinary state, so task.go logs and
+		// runs the delegate on the session's provider instead of failing —
+		// TestApplyConfigHandsTheDelegateItsOwnProviderFactory holds it now.
+		ProviderFor:  a.providerFor(cfg),
+		OnToolAction: func(ev turn.ToolEvent) { a.recordToolAction(conv, ev) },
 		// A delegate's own turn, kept until this one is assembled and can carry
 		// it (recordChildParts). The live relay above draws it and stores
 		// nothing; this is what makes it survive being reopened.
