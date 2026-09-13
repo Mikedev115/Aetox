@@ -8762,9 +8762,44 @@ button.phase-head:hover { color:var(--text-muted); }
 .confirm-actions .ctrl-primary:disabled { opacity:.5; cursor:default; }
 
 /* ---------- Settings › เครื่องระยะไกล (RemoteEngine.svelte) ---------- */
-.remote-form { flex-wrap:wrap; }
-.remote-form .ctrl { min-width:180px; flex:1; }
-.remote-form .mcp-row-actions .ctrl { min-width:0; flex:none; }
+/* The list's heading with its one verb on the right: the form itself is a
+   card that appears under the list only while it is being filled in. */
+.remote-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 10px; }
+.remote-head .set-h3 { margin:0; flex:1; min-width:0; }
+.remote-head .ctrl { display:inline-flex; align-items:center; gap:6px; }
+/* A card per machine: head = read it and press the one verb; foot = the
+   date and the quiet maintenance buttons. The active card's edge takes
+   the interactive colour so "where is the engine" reads before any badge. */
+.rm-card { margin-bottom:12px; }
+.rm-card.rm-active { border-color:var(--interactive); }
+.rm-card-head { display:flex; align-items:center; gap:14px; padding:14px 16px; }
+.rm-card-head .set-txt { display:flex; flex-direction:column; gap:3px; }
+.rm-card-head .ctrl { flex:none; }
+.rm-ic { display:flex; color:var(--text-dim); flex:none; }
+.rm-card-foot { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:8px 10px 8px 16px; border-top:1px solid var(--border-subtle); }
+.rm-meta { color:var(--text-dim); font-size:var(--fs-xs); }
+.rm-quiet { display:flex; gap:4px; margin-left:auto; }
+.settings-page .rm-quiet .ctrl { background:none; border-color:transparent; color:var(--text-muted); }
+.settings-page .rm-quiet .ctrl:hover:not(:disabled), .settings-page .rm-quiet .ctrl.on { background:var(--surface-hover); color:var(--text-primary); }
+.settings-page .rm-quiet .ctrl:disabled { opacity:.45; cursor:default; }
+.settings-page .rm-quiet .ctrl-danger:hover:not(:disabled) { background:var(--status-danger); color:var(--text-on-interactive); }
+.rm-card-log { padding:0 16px 14px; border-top:1px solid var(--border-subtle); }
+.rm-card-log .remote-log { margin-top:12px; }
+.rm-empty { padding:6px 2px 14px; color:var(--text-muted); font-size:var(--fs-sm); }
+/* The add/edit form as a dialog: ConfirmDialog's card, wider, with the
+   three labelled fields in the middle and the rules at the foot. */
+.confirm-card.remote-dialog { width:min(560px, calc(100vw - 48px)); gap:18px; padding:22px 24px 20px; }
+.remote-dialog .pp-edit { gap:16px; }
+.settings-page .remote-dialog .ctrl-primary, .settings-page .remote-head .ctrl-primary { padding:6px 14px; }
+.remote-formhead { display:flex; flex-direction:column; gap:2px; }
+.remote-formhead .t { font-weight:700; font-size:var(--fs-xl); color:var(--text-primary); }
+.remote-formhead .d { color:var(--text-muted); font-size:var(--fs-sm); }
+.remote-dialog .pp-field .d { font-size:var(--fs-xs); }
+.remote-dialog .confirm-actions { margin-top:0; }
+/* The rules of the road, set apart from the fields so they read as a note
+   and not as a fourth thing to fill in. */
+.remote-note { display:flex; gap:8px; align-items:flex-start; padding:10px 12px; border-radius:var(--r-md); background:var(--surface-sunken); color:var(--text-muted); font-size:var(--fs-xs); line-height:1.5; }
+.remote-note svg { flex:none; margin-top:2px; color:var(--text-dim); }
 .remote-log { margin:0; width:100%; max-height:260px; overflow:auto; padding:8px 10px; border-radius:var(--r-md); background:var(--surface-sunken); border:1px solid var(--border-subtle); font-family:var(--mono); font-size:var(--fs-xs); color:var(--text-secondary); white-space:pre-wrap; word-break:break-all; }
 .remote-error { color:var(--status-danger); }
 
