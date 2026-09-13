@@ -73,7 +73,10 @@ export const TOP: Part[] = [
     id: 'chevrons',
     label: '>>',
     svg: (p) =>
-      `<g class="ms-orb" fill="none" stroke="${p.primaryUp}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">` +
+      // Each chevron is its own path: mascot.css steps them forward one
+      // after the other (ms-chev), the way `>>` reads — owner, 14 ก.ย. 2026:
+      // "ตรงลูกศรที่หัวอ่ะครับอยากให้มันขยับได้".
+      `<g class="ms-orb ms-chev" fill="none" stroke="${p.primaryUp}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">` +
       `<path d="M27 2l3.2 3-3.2 3"/><path d="M33.2 2l3.2 3-3.2 3"/></g>`,
   },
   { id: 'bar', label: 'แถบไฟ', svg: (p) => `<rect class="ms-orb" x="26" y="5" width="12" height="3" rx="1.5" fill="${p.primaryUp}"/>` },

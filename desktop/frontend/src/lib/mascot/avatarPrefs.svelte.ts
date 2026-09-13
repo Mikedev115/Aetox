@@ -48,13 +48,12 @@ const KEY: Record<HeadId, string> = { assistant: 'avatarPrefs', coding: 'avatarP
 const PERSONA_KEY = 'avatarPersonas'
 
 export const DEFAULT_PREFS: AvatarPrefs = { shell: DEFAULT_SHELL, accent: DEFAULT_ACCENT, top: 'orb', face: 'neutral' }
-/** Each head's starting look. The coder's is the dark, warm figure the
- *  owner looked at while choosing to split them (mockup, 13–14 ก.ย. 2026);
- *  its top and face are the `code` template's own, so the two heads differ
- *  at a glance before anything is chosen. */
+/** Each head's starting look: the owner's character sheet (14 ก.ย. 2026,
+ *  "ค่าเริ่มต้นอ่ะ เอาสีตามนี้เลย") — both white in Aetox blue, and the coder
+ *  told apart by the `code` template's own top and face: chevrons, focused. */
 export const DEFAULT_HEAD_PREFS: Record<HeadId, AvatarPrefs> = {
   assistant: DEFAULT_PREFS,
-  coding: { shell: 'dark', accent: 'amber', top: 'chevrons', face: 'focused' },
+  coding: { shell: 'white', accent: 'brand', top: 'chevrons', face: 'focused' },
 }
 
 /** What a store may hold: today's four ids, or the accent as the hue in

@@ -179,7 +179,9 @@ export function mascotSVG(m: Mascot): string {
     (detail ? `<ellipse cx="32" cy="46.5" rx="9" ry="3.2" fill="url(#${g}ao)"/>` : ``) +
     `<ellipse cx="32" cy="44.6" rx="7" ry="2.6" fill="${p.joint}"/><ellipse cx="32" cy="44" rx="5.2" ry="1.8" fill="${p.primaryDn}"/></g>`
   // ---- the indicator, under the cap so its stem reads as going INTO the head
-  s += `<g class="ms-top">${m.top.svg(p, g)}</g>`
+  // ms-top turns with the head (mascot.css); ms-crown inside it is the
+  // light's own body, the one its moods move.
+  s += `<g class="ms-top"><g class="ms-crown">${m.top.svg(p, g)}</g></g>`
   // ---- head shell, lit from top-left; the light does not turn with the head
   s += `<circle cx="32" cy="27" r="19.5" fill="url(#${g}sh)"/>`
   if (detail) {
@@ -212,12 +214,44 @@ export function mascotSVG(m: Mascot): string {
   s += ear(m, 'L', 'near', g) + ear(m, 'R', 'near', g)
   // ---- in front of the body: what the hands hold, then the near arms over it
   if (m.prop) s += (detail ? `<ellipse cx="32" cy="52" rx="12" ry="3" fill="url(#${g}ao)"/>` : ``) + `<g class="ms-prop">${m.prop.svg(p, g)}</g>`
+  if (m.prop?.id === 'laptopTerm' && detail) s += screenLight(p, g)
   s += arm(p, g, 'L', 'near', hl) + arm(p, g, 'R', 'near', hl)
   s += `</g></g>`
   // ---- floating UI: neither turns nor breathes
   if (m.mark) s += m.mark(p)
   if (m.panel) s += m.panel.svg(p, g)
   return s
+}
+
+// The terminal laptop's screen, lit. The screen faces the mascot (parts.ts
+// laptop: the lid is nearest the viewer, back cover to us), so its light is
+// not a glow towards the viewer but light that leaves the lid's top edge and
+// lands on what is above it — the chin, the lower face, the chest — with a
+// faint cone in the air between and a bloom where it escapes over the edge.
+// Only for the code head's laptop (owner, 14 ก.ย. 2026: "ทำแสงจอนิดนึงก็ได้ …
+// เอาแค่แสงจอ อย่างอื่นไม่เอา"), and soft: the assistant's laptop shows the
+// mark and is not a screen at work. The group wears ms-lid so it turns with
+// the lid; ms-spill is its own hook for the pulse in mascot.css (the light
+// flickers while the hands type, on the same beat as the top light).
+function screenLight(p: Palette, g: string): string {
+  const c = p.eyeGlow
+  return (
+    `<g class="ms-lid ms-spill">` +
+    `<defs>` +
+    `<linearGradient id="${g}spc" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="${c}" stop-opacity=".5"/><stop offset=".35" stop-color="${c}" stop-opacity=".16"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></linearGradient>` +
+    `<radialGradient id="${g}spl" cx=".5" cy="1" r=".85"><stop offset="0" stop-color="${c}" stop-opacity=".5"/><stop offset=".45" stop-color="${c}" stop-opacity=".2"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></radialGradient>` +
+    `<radialGradient id="${g}spb"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".5" stop-color="${c}" stop-opacity=".3"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></radialGradient>` +
+    `<clipPath id="${g}spk"><circle cx="32" cy="27" r="19.5"/><rect x="24" y="43" width="16" height="9.5" rx="4.5"/></clipPath>` +
+    `</defs>` +
+    // the cone in the air, from the lid's top edge up to the face
+    `<polygon points="24.6,42.4 39.4,42.4 47,20 17,20" fill="url(#${g}spc)"/>` +
+    // where it lands: clipped to the head and the chest
+    `<g clip-path="url(#${g}spk)"><ellipse cx="32" cy="44" rx="17" ry="15" fill="url(#${g}spl)"/></g>` +
+    // light escaping over the edge, and the edge itself lit
+    `<ellipse cx="32" cy="42.4" rx="9" ry="2.4" fill="url(#${g}spb)"/>` +
+    `<path d="M24.9 42.6h14.2" stroke="${c}" stroke-width=".9" stroke-linecap="round" opacity=".55"/>` +
+    `</g>`
+  )
 }
 
 // 4/6 · An ear module: ring, dark centre, badge. The left ear is at 12.5, the

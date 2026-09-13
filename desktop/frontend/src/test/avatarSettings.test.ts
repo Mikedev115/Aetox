@@ -100,7 +100,7 @@ describe('two heads', () => {
 
   it("draws the code head from the code template — terminal ears, its own dials", () => {
     const code = headOptions('coding')
-    expect(code).toMatchObject({ badge: 'terminal', prop: 'laptopTerm', shell: 'dark', accent: 'amber', top: 'chevrons', face: 'focused' })
+    expect(code).toMatchObject({ badge: 'terminal', prop: 'laptopTerm', shell: 'white', accent: 'brand', top: 'chevrons', face: 'focused' })
     const asst = headOptions('assistant')
     expect(asst).toMatchObject({ badge: 'logo', prop: 'laptopA', shell: 'white', accent: 'brand', top: 'orb' })
   })
@@ -115,11 +115,12 @@ describe('two heads', () => {
   it('the companion changes face with the desk on screen', async () => {
     const { container } = render(Companion)
     await waitFor(() => expect(container.querySelector('.companion .mascot')).toBeTruthy())
-    // the assistant: orb on top, no terminal glyph on the ears
-    expect(container.querySelector('.companion .mascot')!.innerHTML).toContain('halo')
+    // the assistant: the orb on top, no chevrons, no lit terminal screen
+    expect(container.querySelector('.companion .mascot')!.innerHTML).not.toContain('ms-chev')
+    expect(container.querySelector('.companion .mascot')!.innerHTML).not.toContain('ms-spill')
     cockpit.desk = 'coding'
     await waitFor(() => expect(container.querySelector('.companion .mascot')!.innerHTML).toContain('M27 2l3.2 3-3.2 3')) // chevrons
-    expect(container.querySelector('.companion .mascot')!.innerHTML).toContain('hsl(45 ') // amber
+    expect(container.querySelector('.companion .mascot')!.innerHTML).toContain('ms-spill') // the screen's light
   })
 
   it('the page dresses whichever head its card picks', async () => {
@@ -128,19 +129,19 @@ describe('two heads', () => {
     expect(container.querySelector('.who-card.on')?.textContent).toContain('หัวหน้าผู้ช่วย')
     await fireEvent.click(container.querySelectorAll('.who-card')[1])
     await waitFor(() => expect(container.querySelector('.who-card.on')?.textContent).toContain('หัวหน้าโค้ด'))
-    // the stage now shows the coder's look, and a click writes to the coder's store
-    expect(container.querySelector('.cell[title="ดำ"]')!.classList.contains('on')).toBe(true)
-    await fireEvent.click(container.querySelector('.cell[title="ขาว"]')!)
-    expect(heads.coding.shell).toBe('white')
-    expect(avatarPrefs.shell).toBe('white') // the assistant's default, untouched
-    expect(JSON.parse(localStorage.getItem('avatarPrefs.coding')!).shell).toBe('white')
+    // the stage now shows the coder's look (chevrons lit), and a click writes to the coder's store
+    expect(container.querySelector('.cell[title=">>"]')!.classList.contains('on')).toBe(true)
+    await fireEvent.click(container.querySelector('.cell[title="ดำ"]')!)
+    expect(heads.coding.shell).toBe('dark')
+    expect(avatarPrefs.shell).toBe('white') // the assistant's, untouched
+    expect(JSON.parse(localStorage.getItem('avatarPrefs.coding')!).shell).toBe('dark')
     // + keeps the coder's look; "use" dresses the coder, not the assistant
     await fireEvent.click(container.querySelector('.slot.add')!)
-    expect(personas.slots[0]).toMatchObject({ shell: 'white', accent: 'amber' })
-    setAvatarPrefs({ accent: 'mint' }, 'coding')
+    expect(personas.slots[0]).toMatchObject({ shell: 'dark', top: 'chevrons' })
+    setAvatarPrefs({ shell: 'colour' }, 'coding')
     usePersona(0, 'coding')
-    expect(heads.coding.accent).toBe('amber')
-    expect(avatarPrefs.accent).toBe('brand')
+    expect(heads.coding.shell).toBe('dark')
+    expect(avatarPrefs.shell).toBe('white')
   })
 })
 
