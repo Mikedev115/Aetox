@@ -967,7 +967,7 @@ export async function applyAgentDone(status: { sessionId: string }): Promise<voi
     // dot is the only thing left saying it happened — the live detail died
     // with the previous webview, so there is nothing else to come back to.
     markUnread(ended)
-    attend('done', false)
+    attend('done', false, sessionTitleOf(ended))
     await refreshSessions()
     await refreshGlobalHistory()
     return
@@ -1137,18 +1137,24 @@ function blankParked(): ParkedTurn {
  * Empty whenever the card that is asking is on screen. */
 export function askingElsewhere(): { id: string; title: string; question: string }[] {
   const out: { id: string; title: string; question: string }[] = []
-  const nameOf = (id: string): string =>
-    [cockpit.sessions, cockpit.spaceHistory, cockpit.history]
-      .flatMap((list) => list)
-      .find((row) => row.id === id)?.title ?? ''
   for (const [id, held] of Object.entries(cockpit.parked)) {
-    if (held.ask) out.push({ id, title: nameOf(id), question: held.ask.question })
+    if (held.ask) out.push({ id, title: sessionTitleOf(id), question: held.ask.question })
   }
   if (cockpit.ask && cockpit.activeView !== 'chat') {
     const id = cockpit.openSession || cockpit.turnSession
-    out.push({ id, title: nameOf(id), question: cockpit.ask.question })
+    out.push({ id, title: sessionTitleOf(id), question: cockpit.ask.question })
   }
   return out
+}
+
+/** A chat's name as the window knows it, from whichever list holds the row;
+ * '' for a chat with no row yet (nothing said in it) or none in this window.
+ * Read by the strip and by the notification, which both name a chat the user
+ * is not looking at. */
+export function sessionTitleOf(id: string): string {
+  return [cockpit.sessions, cockpit.spaceHistory, cockpit.history]
+    .flatMap((list) => list)
+    .find((row) => row.id === id)?.title ?? ''
 }
 
 /** Mark a chat as holding a finished turn nobody has read.
@@ -2134,9 +2140,10 @@ async function runLiveTurn(call: (turn: LiveTurnRef) => Promise<void>): Promise<
     // row takes over the telling. markUnread itself refuses the chat on
     // screen, so this needs no condition of its own.
     markUnread(ran)
-    // And the sound and the taskbar, for a person who is not looking at the
-    // row either. attend decides whether an ending on screen earns anything.
-    attend('done', endedOnScreen)
+    // And the sound, the taskbar and the notification, for a person who is
+    // not looking at the row either. attend decides whether an ending on
+    // screen earns anything.
+    attend('done', endedOnScreen, sessionTitleOf(ran))
   }
   await refreshWorkspace()
   // The turn may have started delegations it chose not to collect — they are
@@ -2430,7 +2437,7 @@ export function applyAskUser(
     const held = blankParked()
     held.ask = stamped.data
     cockpit.parked[id] = held
-    attend('ask', false)
+    attend('ask', false, sessionTitleOf(id))
     return
   }
   writeLive(id, (l) => { l.ask = payload })
@@ -2444,7 +2451,7 @@ export function applyAskUser(
   // A question is the one live event that reaches past the window: the chime
   // always (the card may be below the fold or behind another page), the
   // taskbar when the window is not in front.
-  attend('ask', onScreen && cockpit.activeView === 'chat')
+  attend('ask', onScreen && cockpit.activeView === 'chat', sessionTitleOf(id))
 }
 
 // The takeover banner. Emitted by desktop/computer_tool.go when an acting
@@ -4098,15 +4105,28 @@ function showSessionRefusal(err: unknown): void {
  * boundary a keystroke has no business crossing: mid-task in the workshop,
  * Ctrl+N must not put you in the storefront.
  *
- * A new chat is also in no project — the engine has always done that
- * (startNewSession clears a.space); going through newSessionAt is what finally
- * makes the window say the same thing instead of drawing a project the session
- * had already left. */
+ * A โปรเจกต์ is NOT a room, and is kept (owner, 13 ก.ย.: *"ตอนอยู่โหมดโปรเจค
+ * ... ตอนกดเริ่มเซสชั่นใหม่มันโดดไปหน้าแรกแทนที่จะจำได้ว่าอยู่ในโหมดโปรเจคอยู่"*).
+ * Until then this went through newSessionAt, which drops the project the way
+ * the engine's startNewSession does, and pressing + inside a project landed on
+ * the storefront's blank page with the project's chats gone from the sidebar.
+ * The rule above is about specialists' rooms: a chair is a person you were
+ * talking to and "new chat" means someone else. A project is where the work
+ * is filed, and a new chat about the same work belongs in the same folder —
+ * which is also what the rail's own "+" on the project row does. Leaving the
+ * project is a click on its name or on ผู้ช่วย, not a side effect of Ctrl+N.
+ * Only at the assistant's desk, because that is the only desk a project chat
+ * runs at (newSpaceSession). */
 export async function newSession(): Promise<void> {
   // Before the session call, like openDesk: a refusal is reported inside the
   // chat, so a user who pressed this from Settings has to be looking at it.
   setActiveView('chat')
-  await newSessionAt(deskForShell(shell.name))
+  const desk = deskForShell(shell.name)
+  if (cockpit.space && desk === 'assistant') {
+    await newSpaceSession(cockpit.space)
+    return
+  }
+  await newSessionAt(desk)
 }
 
 /** Start a blank session without moving: same desk, same chair, same door.

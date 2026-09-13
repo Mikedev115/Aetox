@@ -1230,8 +1230,8 @@ export function RemoveWorkspaceFolder(arg1) {
   return window['go']['main']['App']['RemoveWorkspaceFolder'](arg1);
 }
 
-export function RequestAttention() {
-  return window['go']['main']['App']['RequestAttention']();
+export function RequestAttention(arg1, arg2, arg3) {
+  return window['go']['main']['App']['RequestAttention'](arg1, arg2, arg3);
 }
 
 export function RequiresAPIKey(arg1) {

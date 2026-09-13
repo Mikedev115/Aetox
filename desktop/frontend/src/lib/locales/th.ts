@@ -982,7 +982,11 @@ export const th = {
   'settings.preparedReplyTitle': 'เตรียมคำตอบไว้ให้',
   'settings.preparedReplyDesc': 'เทิร์นที่จบด้วยการถามหรือให้เลือก จะเตรียมคำตอบของคุณไว้ในช่องพิมพ์เป็นตัวจาง กด Tab เพื่อใช้ พิมพ์เองแล้วหาย ส่วนเทิร์นที่ไม่มีอะไรให้ตัดสินใจ ไม่เสียอะไรเลย',
   'settings.groupAttention': 'เรียกให้หัน',
-  'settings.attentionHint': 'ตอนเอเจนต์ถาม ขออนุญาต หรือทำงานเสร็จในแชตที่คุณไม่ได้ดูอยู่ แถบข้างจะมีจุดบอก และแถบบนจะมีปุ่มพาไปตอบ สองอย่างนี้คือส่วนที่เอื้อมออกไปนอกหน้าต่าง',
+  'settings.attentionHint': 'ตอนเอเจนต์ถาม ขออนุญาต หรือทำงานเสร็จในแชตที่คุณไม่ได้ดูอยู่ แถบข้างจะมีจุดบอก และแถบบนจะมีปุ่มพาไปตอบ สามอย่างนี้คือส่วนที่เอื้อมออกไปนอกหน้าต่าง',
+  // The words on the Windows notification (desktop/attention_windows.go). The
+  // chat's name is its title; this is the line under it.
+  'attention.askToast': 'ถามคุณอยู่ กดเพื่อไปตอบ',
+  'attention.doneToast': 'ทำงานเสร็จแล้ว กดเพื่อกลับไปดู',
   'settings.firstRunTitle': 'ดูหน้าจอเปิดโปรแกรมครั้งแรก',
   'settings.firstRunDesc': 'ลืมธีม ภาษา ขนาดตัวอักษร ขนาดพาเนล และแสดงวิซาร์ดต้อนรับใหม่ ไม่แตะ API key ประวัติแชท หรือการตั้งค่าเครื่องยนต์',
   'settings.firstRunAction': 'เริ่มใหม่เหมือนเพิ่งติดตั้ง',

@@ -632,7 +632,7 @@ export function RemoveStudioLibrary(arg1:string):Promise<Array<engine.StudioLibr
 
 export function RemoveWorkspaceFolder(arg1:string):Promise<Array<engine.WorkspaceFolder>>;
 
-export function RequestAttention():Promise<void>;
+export function RequestAttention(arg1:string,arg2:string,arg3:string):Promise<boolean>;
 
 export function RequiresAPIKey(arg1:string):Promise<boolean>;
 

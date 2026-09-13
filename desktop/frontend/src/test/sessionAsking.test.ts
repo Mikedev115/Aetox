@@ -115,40 +115,89 @@ describe('a question for a chat this window holds nothing for', () => {
 })
 
 describe('reaching outside the window', () => {
-  it('asks the OS to flash only when the window is not focused', () => {
-    setFocusProbe(() => true)
-    attend('ask', true)
-    expect(RequestAttention).not.toHaveBeenCalled()
+  // The chime is WebAudio; jsdom has none. A stand-in AudioContext counts the
+  // notes so the test can hear whether it was asked to play.
+  let played = 0
+  const fakeAudio = () => {
+    played = 0
+    const node = { connect: () => node, start: () => {}, stop: () => {}, gain: { setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, type: '', frequency: { value: 0 } }
+    ;(globalThis as any).AudioContext = class {
+      state = 'running'
+      currentTime = 0
+      destination = node
+      resume() {}
+      createOscillator() { played++; return node }
+      createGain() { return node }
+    }
+  }
+  const flush = () => new Promise((r) => setTimeout(r, 0))
 
-    setFocusProbe(() => false)
-    attend('ask', true)
+  it('asks Go every time, with the chat’s name and what it wants', async () => {
+    setFocusProbe(() => true)
+    attend('ask', true, 'งานยาว')
     expect(RequestAttention).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(RequestAttention).mock.calls[0][0]).toBe('ask')
+    expect(vi.mocked(RequestAttention).mock.calls[0][1]).toBe('งานยาว')
+    expect(vi.mocked(RequestAttention).mock.calls[0][2]).not.toBe('')
+
+    attend('done', false)
+    expect(RequestAttention).toHaveBeenCalledTimes(2)
+    // A chat with no name yet still gets one on the notification.
+    expect(vi.mocked(RequestAttention).mock.calls[1][1]).not.toBe('')
   })
 
-  it('respects the flash switch', () => {
-    attention.layers = [{ id: 'flash', label: '', note: '', on: false }, { id: 'chime', label: '', note: '', on: true }]
+  // The webview's idea of focus used to gate everything; a webview wrong
+  // about its own focus kept every signal in. Go's answer is read too, and
+  // either saying "away" is enough.
+  it('chimes for a finished turn on screen when the desktop says the user is away', async () => {
+    fakeAudio()
+    setFocusProbe(() => true)
+    vi.mocked(RequestAttention).mockResolvedValueOnce(true)
+    attend('done', true)
+    await flush()
+    expect(played).toBe(2)
+  })
+
+  it('a finished turn on screen, window in front by both accounts, is silent', async () => {
+    fakeAudio()
+    setFocusProbe(() => true)
+    attend('done', true)
+    await flush()
+    expect(played).toBe(0)
+  })
+
+  it('the document’s own guess still counts when Go says nothing', async () => {
+    fakeAudio()
+    setFocusProbe(() => false)
+    vi.mocked(RequestAttention).mockRejectedValueOnce(new Error('engine gone'))
+    attend('done', true)
+    await flush()
+    expect(played).toBe(2)
+  })
+
+  it('respects the chime switch', async () => {
+    fakeAudio()
+    attention.layers = [{ id: 'flash', label: '', note: '', on: true }, { id: 'chime', label: '', note: '', on: false }]
     attention.loaded = true
     setFocusProbe(() => false)
-    attend('done', false)
-    expect(RequestAttention).not.toHaveBeenCalled()
+    attend('ask', true)
+    await flush()
+    expect(played).toBe(0)
   })
 
   it('treats an unread switch as on — a question before the settings load still counts', () => {
     expect(attentionOn('flash')).toBe(true)
     expect(attentionOn('chime')).toBe(true)
+    expect(attentionOn('toast')).toBe(true)
   })
 
-  it('a question arriving reaches out; a finished turn on screen does not', () => {
-    setFocusProbe(() => false)
+  it('a question arriving reaches out, named after its chat', () => {
+    cockpit.sessions = [row()]
     cockpit.openSession = 's1'
     cockpit.awaitingReply = true
     cockpit.turnSession = 's1'
     applyAskUser({ sessionId: 's1', data: q })
     expect(RequestAttention).toHaveBeenCalledTimes(1)
-
-    vi.mocked(RequestAttention).mockClear()
-    setFocusProbe(() => true)
-    attend('done', true)
-    expect(RequestAttention).not.toHaveBeenCalled()
+    expect(vi.mocked(RequestAttention).mock.calls[0][1]).toBe('งานยาว')
   })
 })

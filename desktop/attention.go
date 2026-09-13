@@ -10,42 +10,74 @@ package main
 // waits with no deadline (internal/turn/executor.go, noDeadlineTools), so a
 // question nobody was told about is a turn that sits forever.
 //
-// Two signals, both switches, both shipped on:
+// Owner again, 13 ก.ย., a day after the first two signals shipped: *"เวลาเราทิ้ง
+// ให้มันทำงานมันไม่มีแจ้งเตือนครับ คนไม่รู้"*. A taskbar button flashing and two
+// quiet notes are signals a person has to already know about; the one signal
+// everybody on Windows recognises as แจ้งเตือน is the notification in the
+// corner, which §251 had left unbuilt. It is the third switch now.
+//
+// Three signals, all switches, all shipped on:
 //
 //   - **flash** — the taskbar button flashes until the window is brought to the
 //     front. Asked of the operating system only when the window is NOT already
 //     in front, because flashing the window somebody is looking at is noise.
-//     The frontend also checks document.hasFocus() before asking; the check
-//     here is the one that holds when the webview is confused about focus.
 //   - **chime** — a short tone, played by the window itself (WebAudio, no
 //     asset). Go only holds the switch: a tone needs no OS call and the window
 //     is where the event that earns it arrives.
+//   - **toast** — a Windows notification naming the chat and what it wants
+//     (attention_windows.go). Only when the window is not in front, and
+//     pressing it brings the window back. It goes through Shell_NotifyIcon
+//     rather than WinRT so it costs no COM, no package identity and no
+//     PowerShell; the tray icon it needs exists only while there is something
+//     unseen, and goes away the moment the window is in front again.
 //
-// No toast. The app has none by design (see SlidesPane.svelte's note: a notice
-// that vanishes before it is read is worse than none), and what tells the user
-// WHICH chat is asking is the row and the strip in the window — the flash only
-// says "come back".
+// Whether the window is in front is decided HERE, from GetForegroundWindow,
+// and handed back to the window: the frontend used to decide it from
+// document.hasFocus() and only then ask for the flash, so a webview that was
+// wrong about its own focus kept every signal in. The window still has its own
+// guess and uses whichever of the two says "away" — a signal one side missed
+// is worse than one both sides raise.
+//
+// No in-window toast. The app has none by design (see SlidesPane.svelte's note:
+// a notice that vanishes before it is read is worse than none), and what tells
+// the user WHICH chat is asking is the row and the strip in the window.
 //
 // Same shape as the busy signal next door: a preference read straight from the
 // file, no re-bootstrap, because none of this reaches the engine.
 
 import (
-	"github.com/Mikedev115/Aetox/internal/engine"
 	"strings"
 
 	"github.com/Mikedev115/Aetox/internal/config"
+	"github.com/Mikedev115/Aetox/internal/engine"
 )
 
-// The two ids, spelled once.
+// The three ids, spelled once.
 const (
 	attentionFlash = "flash"
 	attentionChime = "chime"
+	attentionToast = "toast"
 )
 
-// AttentionSignal reports both switches in the order they are shown.
+// AttentionSignal reports the switches in the order they are shown.
 func (a *App) AttentionSignal() []engine.BusyLayer {
 	pref, _, _ := config.LoadModelPreference()
+	toastNote := "การแจ้งเตือนที่มุมจอ บอกว่าแชตไหนถาม ขออนุญาต หรือทำงานเสร็จ ตอนหน้าต่างไม่ได้อยู่ข้างหน้า กดที่การแจ้งเตือนเพื่อกลับมา"
+	if windowsNotificationsOff() {
+		// The switch here is not the only one: with Windows' own master
+		// switch off, nothing this app sends is ever drawn, and a row that
+		// said "on" over that would be the owner's 13 ก.ย. complaint again —
+		// found on the machine this was built on, where the test notification
+		// went nowhere until the registry said why.
+		toastNote += " — ตอนนี้ Windows ปิดการแจ้งเตือนไว้ทั้งเครื่อง จึงยังไม่ขึ้น เปิดได้ที่ ตั้งค่า Windows › ระบบ › การแจ้งเตือน"
+	}
 	return []engine.BusyLayer{
+		{
+			ID:    attentionToast,
+			Label: "แจ้งเตือนของ Windows",
+			Note:  toastNote,
+			On:    !pref.AttentionToastOff,
+		},
 		{
 			ID:    attentionFlash,
 			Label: "กระพริบบนแถบงาน",
@@ -75,18 +107,35 @@ func (a *App) SetAttentionSignal(id string, on bool) []engine.BusyLayer {
 			pref.AttentionChimeOff = !on
 			return nil
 		})
+	case attentionToast:
+		_ = config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+			pref.AttentionToastOff = !on
+			return nil
+		})
 	}
 	return a.AttentionSignal()
 }
 
 // RequestAttention asks the operating system to draw the user back to the
-// window. A no-op when the switch is off, when the window is already in front,
-// or on a platform that has no taskbar to flash — every one of those is a
-// silent success, because the caller has nothing to do about any of them.
-func (a *App) RequestAttention() {
-	pref, _, _ := config.LoadModelPreference()
-	if pref.AttentionFlashOff {
-		return
+// window, and answers whether it had to: true when the window was not in
+// front, which is the window's cue to sound the chime for a turn it would
+// otherwise have thought was watched.
+//
+// `kind` is "ask" or "done"; `title` names the chat and `text` says what it
+// wants, both already in the user's language — the notification is the one
+// signal here that carries words. Every switch that is off, a window already
+// in front, and a platform with no taskbar or notification centre are silent
+// successes, because the caller has nothing to do about any of them.
+func (a *App) RequestAttention(kind, title, text string) bool {
+	if !windowAway() {
+		return false
 	}
-	flashOwnWindow()
+	pref, _, _ := config.LoadModelPreference()
+	if !pref.AttentionFlashOff {
+		flashOwnWindow()
+	}
+	if !pref.AttentionToastOff {
+		showAttentionToast(kind, title, text)
+	}
+	return true
 }
