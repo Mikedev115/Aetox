@@ -43,7 +43,9 @@ describe('the register', () => {
   it('is its own heading on the rail, under the three registers', async () => {
     await openHooks()
     const labels = Array.from(document.querySelectorAll('.settings-nav .settings-group-label')).map((x) => x.textContent?.trim())
-    expect(labels).toEqual(['MCP', 'สกิล', 'เครื่องมือในตัว', 'Hooks'])
+    // Fourth, after the three registers; what follows it (14 ก.ย.: the
+    // reaches moved out of ตั้งค่า) is capabilityRoom.test.ts's to pin.
+    expect(labels.slice(0, 4)).toEqual(['MCP', 'สกิล', 'เครื่องมือในตัว', 'Hooks'])
   })
 
   it('shows each hook as when · what · command, and blocking as a word', async () => {

@@ -524,8 +524,6 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'settings.computerAllow': '允许',
   'settings.computerUseInstead': '这类程序 Aetox 改用 `{tool}`',
   'settings.computerAllowedClosed': '已允许，当前未打开',
-  'settings.computerNoApps': '尚未允许任何程序。首次需要时 Aetox 会询问。',
-  'settings.computerAppAllowed': 'Aetox 可以读取并点击此程序',
   'settings.computerRevoke': '撤销',
   'settings.computerNeedsExtension': '需要浏览器扩展，目前还没有',
   'settings.computerExcelDesc': '这台电脑尚不支持。Aetox 会改为生成表格文件。',

@@ -1,14 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
-import Settings from '../lib/Settings.svelte'
+import Capability from '../lib/Capability.svelte'
 import {
   ComputerControlOn, SetComputerControlOn, GrantedComputerApps, RevokeComputerApp,
   OpenComputerApps, AllowComputerApp, BrowseForComputerApp,
+  ListMCPServers, ListSubagentProfiles, PlacementTargets, ListTools,
 } from './mocks/wailsApp'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 
 // การใช้คอมพิวเตอร์ — the register, tested for the two things it is easy to get
-// wrong and that neither TypeScript nor svelte-check would catch.
+// wrong and that neither TypeScript nor svelte-check would catch. Since
+// 14 ก.ย. 2026 it is a heading of ห้องความสามารถ (Capability.svelte), moved
+// whole out of ตั้งค่า; the tests moved with it and open it off the rail.
 //
 // The first is what the page IS. The direction doc (§4.2) warns that reading it
 // as a list of applications produces a dead register: rows are REACHES, and a
@@ -20,7 +23,10 @@ import { cockpit } from '../lib/stores/cockpit.svelte'
 // The second is the default. This ships off, and a page that drew the switch on
 // because a binding threw would be handing out a permission nobody granted.
 
+// The rail row, not the group label: the heading is การใช้คอมพิวเตอร์ and its
+// one row is the register.
 const openSection = async (container: HTMLElement, label: string) => {
+  await waitFor(() => expect(PlacementTargets).toHaveBeenCalled())
   const items = Array.from(container.querySelectorAll('.settings-nav-item'))
   const item = items.find((el) => el.textContent?.trim() === label)
     ?? items.find((el) => el.textContent?.includes(label))
@@ -29,16 +35,39 @@ const openSection = async (container: HTMLElement, label: string) => {
 }
 
 beforeEach(() => {
-  cockpit.settingsIntent = null
+  vi.clearAllMocks()
+  cockpit.activeView = 'capability'
+  cockpit.capabilityIntent = null
+  vi.mocked(ListMCPServers).mockResolvedValue([] as any)
+  vi.mocked(ListSubagentProfiles).mockResolvedValue([] as any)
+  vi.mocked(PlacementTargets).mockResolvedValue([] as any)
+  vi.mocked(ListTools).mockResolvedValue([] as any)
   vi.mocked(ComputerControlOn).mockResolvedValue(false)
   vi.mocked(GrantedComputerApps).mockResolvedValue([])
   vi.mocked(OpenComputerApps).mockResolvedValue([])
 })
 
 describe('the computer-use page', () => {
+  // Where it is: a heading of one row on the room's rail, after Hooks.
+  it('is a heading of the capability rail, not a page of ตั้งค่า', async () => {
+    const { container } = render(Capability, { onClose: () => {} })
+    await waitFor(() => expect(PlacementTargets).toHaveBeenCalled())
+    const groups = Array.from(container.querySelectorAll('.settings-nav .settings-group-label')).map((x) => x.textContent?.trim())
+    expect(groups).toContain('การใช้คอมพิวเตอร์')
+    expect(groups.indexOf('การใช้คอมพิวเตอร์')).toBeGreaterThan(groups.indexOf('Hooks'))
+  })
+
+  // Another room's door lands on this page directly (cockpit.capabilityIntent).
+  it('opens straight from openCapabilityAt', async () => {
+    cockpit.capabilityIntent = { page: 'computer' }
+    const { container } = render(Capability, { onClose: () => {} })
+    await waitFor(() => expect(container.textContent).toContain('อนุญาตให้ควบคุมคอมพิวเตอร์'))
+    expect(container.querySelector('.settings-nav-item.active')?.textContent?.trim()).toBe('โปรแกรมที่ให้ควบคุม')
+  })
+
   it('ships with the switch off', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การใช้คอมพิวเตอร์')
+    const { container } = render(Capability, { onClose: () => {} })
+    await openSection(container, 'โปรแกรมที่ให้ควบคุม')
 
     await waitFor(() => expect(container.textContent).toContain('อนุญาตให้ควบคุมคอมพิวเตอร์'))
     const box = container.querySelector('.mswitch input') as HTMLInputElement
@@ -46,8 +75,8 @@ describe('the computer-use page', () => {
   })
 
   it('keeps the reaches that do not work yet on the page, saying why', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การใช้คอมพิวเตอร์')
+    const { container } = render(Capability, { onClose: () => {} })
+    await openSection(container, 'โปรแกรมที่ให้ควบคุม')
 
     await waitFor(() => expect(container.textContent).toContain('Google Chrome'))
     // A row that vanishes in its broken state is a dead end, not a tidy UI.
@@ -59,8 +88,8 @@ describe('the computer-use page', () => {
   })
 
   it('turns the reach on through the binding rather than optimistically', async () => {
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การใช้คอมพิวเตอร์')
+    const { container } = render(Capability, { onClose: () => {} })
+    await openSection(container, 'โปรแกรมที่ให้ควบคุม')
     await waitFor(() => expect(container.textContent).toContain('อนุญาตให้ควบคุมคอมพิวเตอร์'))
 
     vi.mocked(ComputerControlOn).mockResolvedValue(true)
@@ -80,8 +109,8 @@ describe('the computer-use page', () => {
       { name: 'chrome', title: 'หน้าเว็บ', allowed: false, blocked: 'browser', warn: '', icon: '' },
     ] as any)
 
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การใช้คอมพิวเตอร์')
+    const { container } = render(Capability, { onClose: () => {} })
+    await openSection(container, 'โปรแกรมที่ให้ควบคุม')
 
     // Chosen here, with nothing waiting, rather than answered in a hurry while
     // an agent is parked on the reply.
@@ -96,8 +125,8 @@ describe('the computer-use page', () => {
       { name: 'chrome', title: 'หน้าเว็บ', allowed: false, blocked: 'browser', warn: '', icon: '' },
     ] as any)
 
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การใช้คอมพิวเตอร์')
+    const { container } = render(Capability, { onClose: () => {} })
+    await openSection(container, 'โปรแกรมที่ให้ควบคุม')
 
     // Shown rather than hidden: a user who cannot find Chrome here learns
     // nothing, one who finds it with the reason learns the shape of the product.
@@ -112,8 +141,8 @@ describe('the computer-use page', () => {
     vi.mocked(GrantedComputerApps).mockResolvedValue(['winword'])
     vi.mocked(OpenComputerApps).mockResolvedValue([])
 
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การใช้คอมพิวเตอร์')
+    const { container } = render(Capability, { onClose: () => {} })
+    await openSection(container, 'โปรแกรมที่ให้ควบคุม')
 
     // The grant is still in force whether or not the program is running, so
     // hiding it would hide a permission the user still has.
@@ -128,8 +157,8 @@ describe('the computer-use page', () => {
       { name: 'notepad', title: 'บันทึกย่อ', allowed: false, blocked: '', warn: '', icon: 'data:image/png;base64,AAA' },
     ] as any)
 
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การใช้คอมพิวเตอร์')
+    const { container } = render(Capability, { onClose: () => {} })
+    await openSection(container, 'โปรแกรมที่ให้ควบคุม')
 
     // The picture the taskbar shows, so a person picks by recognising rather
     // than by reading a filename.
@@ -145,8 +174,8 @@ describe('the computer-use page', () => {
       { name: 'oldapp', title: 'โปรแกรมเก่า', allowed: false, blocked: '', warn: '', icon: '' },
     ] as any)
 
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การใช้คอมพิวเตอร์')
+    const { container } = render(Capability, { onClose: () => {} })
+    await openSection(container, 'โปรแกรมที่ให้ควบคุม')
 
     // A placeholder of the same size, not nothing: a list whose rows shift by
     // twenty pixels depending on whether an icon could be read is a list that
@@ -156,8 +185,8 @@ describe('the computer-use page', () => {
 
   it('can add a program that is not running, from the disk', async () => {
     vi.mocked(ComputerControlOn).mockResolvedValue(true)
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การใช้คอมพิวเตอร์')
+    const { container } = render(Capability, { onClose: () => {} })
+    await openSection(container, 'โปรแกรมที่ให้ควบคุม')
 
     // A list of what happens to be open is not the whole question: a person
     // setting this up thinks in terms of the programs they use, and making them
@@ -173,8 +202,8 @@ describe('the computer-use page', () => {
       { name: 'chrome', title: 'หน้าเว็บ', allowed: false, blocked: 'browser', warn: '', icon: '' },
     ] as any)
 
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การใช้คอมพิวเตอร์')
+    const { container } = render(Capability, { onClose: () => {} })
+    await openSection(container, 'โปรแกรมที่ให้ควบคุม')
 
     // It is not a missing feature. It is a job another tool already does
     // better, and a badge saying otherwise contradicts the sentence beside it.
@@ -186,8 +215,8 @@ describe('the computer-use page', () => {
     vi.mocked(OpenComputerApps).mockResolvedValue([
       { name: 'notepad', title: 'บันทึกย่อ', allowed: true, blocked: '', warn: '', icon: '' },
     ] as any)
-    const { container } = render(Settings, { onClose: () => {} })
-    await openSection(container, 'การใช้คอมพิวเตอร์')
+    const { container } = render(Capability, { onClose: () => {} })
+    await openSection(container, 'โปรแกรมที่ให้ควบคุม')
 
     await waitFor(() => expect(container.textContent).toContain('อนุญาตให้ควบคุมคอมพิวเตอร์'))
     // Off means the model does not have the tool at all, so a list of programs
