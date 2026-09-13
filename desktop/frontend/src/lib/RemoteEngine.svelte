@@ -13,6 +13,9 @@
   import type { main } from '../../wailsjs/go/models'
   import { t } from './i18n.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
+  import Icon from './Icon.svelte'
+  import { fold } from './fold'
+  import { tick } from 'svelte'
   import { engine } from './stores/engine.svelte'
 
   let view = $state<main.RemoteHostsView>({ this: {}, active: '', hosts: [], ssh: '', sshError: '', engine: '' } as unknown as main.RemoteHostsView)
@@ -34,6 +37,13 @@
   let target = $state('')
   let root = $state('')
   let editing = $state('')
+  // The form exists only while someone is filling it in — a press on
+  // เพิ่มเครื่อง or แก้ไข opens it as a dialog, บันทึก or ยกเลิก closes it
+  // (owner, 13 ก.ย. 2026: "ทำเป็นปุ่มเพิ่มเครื่อง แล้วค่อยแสดงหน้าให้กรอก").
+  // Three empty fields on a page that is mostly read, not written, made
+  // the page look like a form.
+  let formOpen = $state(false)
+  let targetEl = $state<HTMLInputElement | null>(null)
   let error = $state('')
   let busy = $state('')
   let logFor = $state('')
@@ -62,8 +72,7 @@
     busy = 'save'
     try {
       await SaveRemoteHost(name, target, root)
-      name = target = root = ''
-      editing = ''
+      closeForm()
       await load()
     } catch (err) {
       error = err instanceof Error ? err.message : String(err)
@@ -72,11 +81,48 @@
     }
   }
 
-  function edit(h: main.RemoteHostView) {
-    editing = h.name
-    name = h.name
-    target = h.target
-    root = h.root
+  function openForm(h?: main.RemoteHostView) {
+    error = ''
+    editing = h?.name ?? ''
+    name = h?.name ?? ''
+    target = h?.target ?? ''
+    root = h?.root ?? ''
+    opener = document.activeElement
+    formOpen = true
+    void tick().then(() => targetEl?.focus())
+  }
+
+  // Who opened the dialog gets the focus back when it closes, as
+  // ConfirmDialog does — the press was on a button in the list.
+  let opener: Element | null = null
+
+  function closeForm() {
+    formOpen = false
+    if (opener instanceof HTMLElement && opener.isConnected) opener.focus()
+    opener = null
+    editing = ''
+    name = target = root = ''
+    error = ''
+  }
+
+  // Enter in a field saves, Escape closes, Tab stays inside the dialog —
+  // the keys a three-field dialog owes. Enter is read only on an input:
+  // on a button it is that button's own press.
+  function formKey(e: KeyboardEvent) {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeForm(); return }
+    if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+      e.preventDefault()
+      if (target.trim() && busy === '') void save()
+      return
+    }
+    if (e.key !== 'Tab' || !(e.currentTarget instanceof HTMLElement)) return
+    const focusable = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('input, button:not(:disabled)'))
+      .filter((el) => !el.classList.contains('confirm-backdrop'))
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
   }
 
   async function act(what: string, fn: () => Promise<unknown>) {
@@ -140,12 +186,20 @@
   </div>
 </div>
 
-<h3 class="set-h3">{t('settings.remoteHosts')}</h3>
-<div class="settings-card">
-  <!-- This machine first: the one row that is always there, so the list
-       reads as "the computers the engine can run on" and not as a list of
-       elsewhere. -->
-  <div class="set-row">
+<div class="remote-head">
+  <h3 class="set-h3">{t('settings.remoteHosts')}</h3>
+  <button class="ctrl ctrl-primary" onclick={() => openForm()}>
+    <Icon name="plus" size={14} /> {t('settings.remoteAdd')}
+  </button>
+</div>
+<!-- A card per machine (owner picked แบบ C from the lab, 13 ก.ย. 2026): the
+     head is what you read — icon, name, where it runs, the one verb — and
+     the foot is what you rarely touch: when it was last used, and the quiet
+     maintenance buttons. Five equal buttons on one line was the list the
+     owner called "ชิดเกินไป". -->
+<div class="settings-card rm-card">
+  <div class="rm-card-head">
+    <span class="rm-ic"><Icon name="monitor" size={18} /></span>
     <span class="set-txt">
       <span class="t">
         {t('settings.remoteThisMachine')}
@@ -158,62 +212,95 @@
       <button class="ctrl ctrl-primary" disabled={busy !== ''} onclick={() => act('disconnect', DisconnectRemote)}>{t('settings.remoteUseThis')}</button>
     {/if}
   </div>
-  {#if view.hosts.length === 0}
-    <div class="set-row"><span class="set-txt"><span class="d muted">{t('settings.remoteNoHosts')}</span></span></div>
-  {/if}
-  {#each view.hosts as h (h.name)}
-    <div class="set-row">
+</div>
+{#if view.hosts.length === 0}
+  <div class="rm-empty">{t('settings.remoteNoHosts')}</div>
+{/if}
+{#each view.hosts as h (h.name)}
+  <div class="settings-card rm-card" class:rm-active={view.active === h.name}>
+    <div class="rm-card-head">
+      <span class="rm-ic"><Icon name="server" size={18} /></span>
       <span class="set-txt">
         <span class="t">
           {h.name}
           {#if h.name !== h.target}<span class="tag">{h.target}</span>{/if}
           {#if view.active === h.name}<span class="mcp-badge">{t('settings.remoteActive')}</span>{/if}
         </span>
-        <span class="d">
-          {#if h.spec}{h.spec}{:else}{h.target}{/if}
-        </span>
-        <span class="d">
-          {#if h.root}{h.root} · {/if}
-          {#if h.version}{t('settings.remoteVersion', { version: h.version, arch: h.arch })} · {/if}
-          {when(h.lastUsed)}
-        </span>
+        <span class="d">{#if h.spec}{h.spec}{:else}{h.target}{/if}</span>
       </span>
-      <span class="mcp-row-actions">
-        {#if view.active === h.name}
-          <button class="ctrl" disabled={busy !== ''} onclick={() => act('disconnect', DisconnectRemote)}>{t('settings.remoteDisconnect')}</button>
-        {:else}
-          <button class="ctrl ctrl-primary" disabled={busy !== '' || !!view.sshError} onclick={() => act('connect', () => ConnectRemote(h.name))}>{t('settings.remoteConnect')}</button>
-        {/if}
-        <button class="ctrl" onclick={() => edit(h)}>{t('settings.remoteEdit')}</button>
-        <button class="ctrl" disabled={busy !== ''} onclick={() => showLog(h)}>{t('settings.remoteLog')}</button>
+      {#if view.active === h.name}
+        <button class="ctrl" disabled={busy !== ''} onclick={() => act('disconnect', DisconnectRemote)}>{t('settings.remoteDisconnect')}</button>
+      {:else}
+        <button class="ctrl ctrl-primary" disabled={busy !== '' || !!view.sshError} onclick={() => act('connect', () => ConnectRemote(h.name))}>{t('settings.remoteConnect')}</button>
+      {/if}
+    </div>
+    <div class="rm-card-foot">
+      <span class="d rm-meta">
+        {#if h.root}{h.root} · {/if}
+        {#if h.version}{t('settings.remoteVersion', { version: h.version, arch: h.arch })} · {/if}
+        {when(h.lastUsed)}
+      </span>
+      <span class="rm-quiet">
+        <button class="ctrl" onclick={() => openForm(h)}>{t('settings.remoteEdit')}</button>
+        <button class="ctrl" class:on={logFor === h.name} disabled={busy !== ''} onclick={() => showLog(h)}>{t('settings.remoteLog')}</button>
         <button class="ctrl" disabled={busy !== '' || !h.version} onclick={() => act('stop', () => StopRemoteEngine(h.name))}>{t('settings.remoteStop')}</button>
         <button class="ctrl ctrl-danger" disabled={view.active === h.name} onclick={() => (forgetting = h.name)}>{t('settings.remoteForget')}</button>
       </span>
     </div>
     {#if logFor === h.name}
-      <div class="set-row"><pre class="remote-log">{logText}</pre></div>
+      <div class="rm-card-log" transition:fold><pre class="remote-log">{logText}</pre></div>
     {/if}
-  {/each}
-</div>
-
-<h3 class="set-h3">{editing ? t('settings.remoteEditTitle', { name: editing }) : t('settings.remoteAdd')}</h3>
-<div class="settings-card">
-  <div class="set-row remote-form">
-    <input class="ctrl" bind:value={target} placeholder={t('settings.remoteTarget')} spellcheck="false" aria-label={t('settings.remoteTarget')} />
-    <input class="ctrl" bind:value={name} placeholder={t('settings.remoteName')} spellcheck="false" aria-label={t('settings.remoteName')} />
-    <input class="ctrl" bind:value={root} placeholder={t('settings.remoteRoot')} spellcheck="false" aria-label={t('settings.remoteRoot')} />
-    <span class="mcp-row-actions">
-      <button class="ctrl ctrl-primary" disabled={busy !== '' || !target.trim()} onclick={save}>{t('settings.remoteSave')}</button>
-      {#if editing}
-        <button class="ctrl" onclick={() => { editing = ''; name = target = root = '' }}>{t('settings.cancel')}</button>
-      {/if}
-    </span>
   </div>
-  {#if error}
-    <div class="set-row"><span class="set-txt"><span class="d remote-error">{error}</span></span></div>
-  {/if}
-  <div class="set-row"><span class="set-txt"><span class="d muted">{t('settings.remoteNote')}</span></span></div>
-</div>
+{/each}
+
+{#if formOpen}
+  <!-- The form is a dialog, not a card under the list: with many machines the
+       list is long and a card at its foot is off screen when the press was at
+       its head (owner, 13 ก.ย. 2026: "เวลาเครื่องเยอะ … ทำเป็นป็อปอัปขึ้นก็ได้").
+       Same overlay as ConfirmDialog — a plain fixed layer, not <dialog>, for
+       the reason written there. Escape is stopped here so one press closes
+       the form and not Settings behind it; Tab stays inside. -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <div class="confirm-overlay" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="remote-form-title" onkeydown={formKey}>
+    <button class="confirm-backdrop" aria-label={t('settings.cancel')} onclick={closeForm}></button>
+    <div class="confirm-card remote-dialog">
+      <div class="remote-formhead">
+        <span class="t" id="remote-form-title">{editing ? t('settings.remoteEditTitle', { name: editing }) : t('settings.remoteAdd')}</span>
+        <span class="d">{t('settings.remoteFormSub')}</span>
+      </div>
+      <div class="pp-edit">
+        <label class="pp-field">
+          <span class="eyebrow">{t('settings.remoteTargetLabel')}</span>
+          <input class="ctrl key-input" bind:value={target} bind:this={targetEl} placeholder="user@host" spellcheck="false" autocomplete="off" />
+          <span class="d muted">{t('settings.remoteTarget')}</span>
+        </label>
+        <label class="pp-field">
+          <span class="eyebrow">{t('settings.remoteNameLabel')}</span>
+          <input class="ctrl key-input" bind:value={name} placeholder={t('settings.remoteNamePlaceholder')} spellcheck="false" autocomplete="off" />
+          <span class="d muted">{t('settings.remoteName')}</span>
+        </label>
+        <label class="pp-field">
+          <span class="eyebrow">{t('settings.remoteRootLabel')}</span>
+          <input class="ctrl key-input" bind:value={root} placeholder="~/projects/app" spellcheck="false" autocomplete="off" />
+          <span class="d muted">{t('settings.remoteRoot')}</span>
+        </label>
+      </div>
+      {#if error}
+        <div class="mset-error">{error}</div>
+      {/if}
+      <div class="remote-note">
+        <Icon name="shield" size={14} />
+        <span>{t('settings.remoteNote')}</span>
+      </div>
+      <div class="confirm-actions">
+        <button class="ctrl" disabled={busy !== ''} onclick={closeForm}>{t('settings.cancel')}</button>
+        <button class="ctrl ctrl-primary" disabled={busy !== '' || !target.trim()} onclick={save}>
+          {busy === 'save' ? t('settings.saving') : t('settings.remoteSave')}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 {#if forgetting}
   <ConfirmDialog
