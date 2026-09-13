@@ -8948,3 +8948,31 @@ This is not proven on his run — we cannot replay it — but it is the only lev
 **What must not move.** The two paragraphs the tester asked to keep — *"A turn ends when the work is done, not when a plan for it is written"* (§222) and *"Done means proven by execution"* — are the harness effect he measured. They are in `coding.md` and this change does not touch that file.
 
 **Verified:** `go test ./internal/skill/` green (36.7 s), including `TestToolBlockEntriesCarryOnlyExistenceAndSignature` on the grown entry, and the new `TestContentLinesCountLongLinesAsSeveral` (the 1,822-character line is 16; runes, not bytes; an empty line is still a line) and `TestContentLineCapNoteNamesLongLines` (a 10-line file 304 wide is remarked on, with both counts, and is not told to split by line).
+
+---
+
+## 265. Decision — Everything That Changes What the Assistant Can Do Is One Room: Three More Headings Move In, Whole (2026-09-14)
+
+**Owner's call, 14 ก.ย. 2026:** *everything that changes "ผู้ช่วยทำอะไรได้" lives in ห้องความสามารถ, one room.* By the morning the rail already held MCP (4 pages), สกิล (4), เครื่องมือในตัว (1) and, briefly, Hooks (1) — each moved out of ตั้งค่า whole (§262's manner: *"one thing, one place to change it"*, DESIGN.md §1, the old page gone from the menu rather than left pointing here). This section records the three headings that followed the same afternoon, in one pass split into commits per heading, and the two rules they settled on the way.
+
+### 265.1 What moved, and where each landed on the rail
+
+| heading (rows) | was | commit |
+|---|---|---|
+| **การใช้คอมพิวเตอร์** — โปรแกรมที่ให้ควบคุม | ตั้งค่า › การใช้คอมพิวเตอร์ (the switch, the register of granted programs, the three not-yet reaches) | `58269805` |
+| **การเชื่อมต่อ** — บริการที่เชื่อมไว้ | ตั้งค่า › การเชื่อมต่อ (GitHub token, n8n, Windmill, per-target placement) | `f660288d` |
+| **ชุดคำสั่ง** — ชุดคำสั่งของคุณ · คำสั่งที่สั่งบ่อย | ตั้งค่า › ชุดคำสั่ง (gallery, editor, cover, folder, the "ให้ผู้ช่วยเขียนให้" card) **and** the Habits tab of ตั้งค่า › การเรียนรู้ | `a4e0e0db` |
+
+Rail after the pass: **MCP · สกิล · เครื่องมือในตัว · ชุดคำสั่ง · การใช้คอมพิวเตอร์ · การเชื่อมต่อ.** Hooks was taken out between the second and third commit (`4341edb0`, the owner: a page that says *"0 hook"* to almost everyone is a rail row that costs more explanation than it is worth), so ชุดคำสั่ง — planned to sit *after Hooks because it is the other thing a user writes themselves* — sits after the tool register instead: after the three registers of things that came with the app or were installed, before the two reaches out of it. The two reaches belong in meaning next to MCP, and were put at the end anyway so the rows a person already knew did not move.
+
+Each move is whole, not a copy: markup, state, functions, the menu row, `SECTION_IDS`, the page-open effect, and the tests (computerSettings.test.ts now renders the room; connectionsPage.test.ts and promptsPage.test.ts took the blocks out of Settings.test.ts and sessionReview.test.ts). Words kept their `settings.*` keys — the words did not change, the address did. Each heading is a group label of its own with one row (or two), never a tab: *a new kind of thing is a new heading*, the rule the room set on 13 ก.ย.
+
+### 265.2 Habits is the second row of ชุดคำสั่ง, not a page of การเรียนรู้
+
+The engine that *detects* a recurring request lives with learning (habits.go); the thing a person *does* with one is write a preset so they stop typing it. ปรับสกิลอัตโนมัติ made the same call the same morning (a queue of edits to a thing lives with the thing), and the door proves it: แปลงเป็นชุดคำสั่ง is now `goPage('prompts')` + `newPreset(body, name)` inside one component, where before it was an `openSection('prompts')` into another page's editor state. That coupling is also why the two rows landed in one commit: split, the intermediate tree would have had a door to a page that was no longer there. Synthesis says where its draft went (*ส่งข้อเสนอไปยังรายการรออนุมัติแล้ว* — a key that had existed unused) instead of reloading a page that does not show it. What was left in ตั้งค่า › การเรียนรู้ is the memory tab alone, `learningSubTab` narrowed to `'memory'`, and nothing else in that block touched — สาย B was rebuilding it at the same time and had asked for exactly this signal before removing the block.
+
+### 265.3 Doors follow the page, and a door with no page is found by opening it
+
+Three doors pointed at `connections` in ตั้งค่า: two in Chat.svelte (the engine chip's *จัดการการเชื่อมต่อ*, and picking an engine nobody connected) and one in the agent editor's *needs* row. All three are `openCapabilityAt('connections')` now; the third had been `openSection('connections')`, which after the move would have landed on ทั่วไป in silence — the fault §262 found for `voice` the day before, from the other side. The page fetches its targets itself when a door arrives before the room's own load (a draft built over no targets would tick no desk), and each moved page has a test that opens it the way a door does, through `cockpit.capabilityIntent`.
+
+**Status:** `Direct`. Pinned by [capabilityRoom.test.ts](../desktop/frontend/src/test/capabilityRoom.test.ts) (the six headings and their rows, in order), [computerSettings.test.ts](../desktop/frontend/src/test/computerSettings.test.ts), [connectionsPage.test.ts](../desktop/frontend/src/test/connectionsPage.test.ts) and [promptsPage.test.ts](../desktop/frontend/src/test/promptsPage.test.ts) (each: the heading's place, the door, and the page's own behaviour moved whole). Not done here: the hub index in ARCHITECTURE.md stops at §259 and owes rows for §260–§265.
