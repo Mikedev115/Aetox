@@ -30,10 +30,10 @@ describe('session review in settings', () => {
   it('runs and toggles the session review from เกี่ยวกับคุณ', async () => {
     const { container } = render(Settings, { onClose: () => {} })
     await openSection(container, 'เกี่ยวกับคุณ')
-    await waitFor(() => expect(screen.getByText(/ทบทวนเซสชันปัจจุบันเดี๋ยวนี้/)).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/ทบทวนแชทนี้เดี๋ยวนี้/)).toBeTruthy())
 
     vi.mocked(RunSessionReview).mockResolvedValue(1)
-    await fireEvent.click(screen.getByText(/ทบทวนเซสชันปัจจุบันเดี๋ยวนี้/))
+    await fireEvent.click(screen.getByText(/ทบทวนแชทนี้เดี๋ยวนี้/))
     expect(RunSessionReview).toHaveBeenCalled()
 
     // The page's one switch.
