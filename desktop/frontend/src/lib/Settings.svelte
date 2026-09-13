@@ -70,7 +70,8 @@
     ChairStarters, SaveChairStarters, ChairStartersFile,
     SignInMethods, SignInStatus, StartSignIn, CancelSignIn, ImportableSignIns,
     AppVersion, AppCredit, RecentDebugLog,
-    LearningEnabled, SetLearningEnabled, ListPendingChanges, ListDecidedChanges, ListModes, ListIdentityFiles, ReadIdentityFile, SaveIdentityFile,
+    LearningEnabled, SetLearningEnabled, ListPendingChanges, ListDecidedChanges, ListModes,
+    ReadDeskFile, SaveDeskFile, ResetDeskFile,
     SessionReviewAuto, SetSessionReviewAuto, RunSessionReview,
     PreparedReplyOn, SetPreparedReplyOn,
     ApprovePendingChange, ApprovePendingChangeTo, RejectPendingChange, LearnedEntries, LearnedScopeInfos, ConsolidateMemory, ApplyMemoryLines, SaveLearnedEntry, AddLearnedEntry, MoveLearnedEntry, OpenMemoryFolder,
@@ -90,7 +91,7 @@
   import { cockpit, openCapabilityAt, startChatWith, newChairSession, setActiveView, switchProvider, switchModel, submitAPIKey, switchApprovalMode, switchWireFormat, setProviderBaseURL, retryActiveProvider, completeSignIn, signOutProvider, importSignIn, SETTINGS_SECTION_KEY } from './stores/cockpit.svelte'
   import {
     identity, loadIdentityFiles, openIdentityFile, saveIdentityFile,
-    createIdentityFile, deleteIdentityFile, identityTemplates,
+    createIdentityFile, deleteIdentityFile, closeIdentityFile,
   } from './identity.svelte'
   import { profile, loadProfileName, saveProfileName } from './stores/profile.svelte'
   import { updater, updatePct, startDownload, restartToUpdate, checkNow } from './selfUpdate.svelte'
@@ -139,15 +140,13 @@
     })
   }
 
-  // ---------- AI identity (moved out of the sidebar: it is configuration you
-  // edit once in a while, not a list you navigate between chats) ----------
-  let newIdentityName = $state('')
+  // ---------- AI identity ----------
+  // The files that ride along in a head's every system prompt (one folder per
+  // head, config.IdentityDirFor). Drawn on ตัวหลัก › ตัวตน since 14 ก.ย. 2026
+  // (owner: "คำสั่งประจำตัวพวกนี้ผูกกับเอเจนหลัก … แยกกันทั้งสองตัว เอาไว้ที่ส่วน
+  // ตัวตน") — it was คำสั่งประจำตัว in the menu, one shared set, and before
+  // that the sidebar. The store (identity.svelte.ts) holds one head at a time.
   const identityDirty = $derived(identity.draft !== identity.saved)
-  const missingTemplates = $derived(
-    identity.loaded && identity.files
-      ? identityTemplates().filter((tpl) => !(identity.files || []).some((f) => f.name === tpl.name))
-      : [],
-  )
   const recommendedIdentityTemplates: {
     name: string
     icon: IconName
@@ -156,18 +155,17 @@
   }[] = [
     { name: 'identity.md', icon: 'sparkles', descKey: 'settings.identityDescIdentity', tplKey: 'identity.tplIdentity' },
     { name: 'thinking.md', icon: 'brain', descKey: 'settings.identityDescThinking', tplKey: 'identity.tplThinking' },
+    // context.md was on เกี่ยวกับคุณ for a morning (14 ก.ย.); the owner put
+    // it back with the other three: "ไม่ควรไปอยู่เกี่ยวกับคุณ มันควรผูกกับเอเจน".
+    { name: 'context.md', icon: 'fileText', descKey: 'settings.identityDescContext', tplKey: 'identity.tplContext' },
     { name: 'skills.md', icon: 'zap', descKey: 'settings.identityDescSkills', tplKey: 'identity.tplSkills' },
   ]
-  // context.md is drawn on เกี่ยวกับคุณ, not here: it is the user's own
-  // layer, and listing it twice is two editors of one file.
+  // Files a person made by hand (the old "เพิ่มไฟล์คำสั่งใหม่" box, gone on the
+  // owner's word the same day): still listed while they exist, so a file on
+  // disk is never invisible, but nothing here makes a new one.
   const customIdentityFiles = $derived(
-    (identity.files || []).filter((f) => f.name !== YOU_CONTEXT_FILE && !recommendedIdentityTemplates.some((r) => r.name === f.name)),
+    (identity.files || []).filter((f) => !recommendedIdentityTemplates.some((r) => r.name === f.name)),
   )
-  function addIdentityFile() {
-    if (!newIdentityName.trim()) return
-    createIdentityFile(newIdentityName)
-    newIdentityName = ''
-  }
 
   const removeIdentityFile = (name: string) => askConfirm({
     title: t('settings.confirmIdentityTitle'),
@@ -2684,66 +2682,15 @@
     if (active === 'team' || active === 'agents') void loadDelegate()
   })
 
-  $effect(() => {
-    if (active === 'identity') loadIdentityFiles()
-  })
-
   // ---------- เกี่ยวกับคุณ ----------
-  // context.md as one field, read and written by name rather than through
-  // the identity store's active draft — that draft is คำสั่งประจำตัว's editor,
-  // and two pages steering one cursor is how a save lands in the wrong file.
-  const YOU_CONTEXT_FILE = 'context.md'
-  let youContext = $state('')
-  let youContextSaved = $state('')
-  let youContextExists = $state(false)
-  // The editor is a row until asked for (owner, 14 ก.ย. 2026: "กด + ก่อนค่อย
-  // แสดง ไม่กด ก็ไม่แสดง") — the same shape คำสั่งประจำตัว had for this file.
-  let youContextOpen = $state(false)
-  let youContextBusy = $state(false)
-  let youContextError = $state('')
-  const youContextDirty = $derived(youContext !== youContextSaved)
-  async function loadYouContext() {
-    try {
-      youContextError = ''
-      // A file that is not there yet is an empty field, not an error: the
-      // template is offered as a placeholder, and the first save creates it.
-      const files = await ListIdentityFiles()
-      const has = (files ?? []).some((f: { name: string }) => f.name === YOU_CONTEXT_FILE)
-      youContextExists = has
-      const text = has ? await ReadIdentityFile(YOU_CONTEXT_FILE) : ''
-      youContext = text
-      youContextSaved = text
-    } catch (err) {
-      youContextError = String(err)
-    }
-  }
-  async function saveYouContext() {
-    youContextBusy = true
-    try {
-      youContextError = ''
-      await SaveIdentityFile(YOU_CONTEXT_FILE, youContext)
-      youContextSaved = youContext
-      youContextExists = true
-      // คำสั่งประจำตัว lists the files; a first save here must show up there.
-      if (identity.loaded) await loadIdentityFiles()
-    } catch (err) {
-      youContextError = String(err)
-    } finally {
-      youContextBusy = false
-    }
-  }
-  // "+" writes the template and opens it, the way คำสั่งประจำตัว created a file;
-  // "เปิดแก้ไข" only opens.
-  async function createYouContext() {
-    youContext = t('identity.tplContext')
-    await saveYouContext()
-    if (!youContextError) youContextOpen = true
-  }
+  // The person's name and USER.md. context.md sat here for a morning
+  // (14 ก.ย. 2026) and went back to the identity set on ตัวหลัก › ตัวตน the
+  // same day, on the owner's word: it is the head's standing brief, not the
+  // person's data.
   let youName = $state('')
   $effect(() => {
     if (active === 'you') {
       void loadLearning()
-      void loadYouContext()
       void loadProfileName().then(() => { youName = profile.name })
     }
   })
@@ -2756,8 +2703,69 @@
   // hosts them. The rest of the tabs are doors to where each thing is still
   // edited (avatar, models, the capability room) until those move in.
   let mainHead = $state<HeadId | null>(null)
-  type MainTab = 'identity' | 'avatar' | 'brain' | 'reach' | 'memory'
+  // No avatar tab (owner, 14 ก.ย.: "จะไม่มีอวตาร เพราะมันมีอยู่แล้ว") — the
+  // avatar page is the one place a look is chosen, and a tab that only
+  // doored there was a tab.
+  type MainTab = 'identity' | 'brain' | 'reach' | 'memory'
   let mainTab = $state<MainTab>('identity')
+  // The desk's own file (modes/<head>.md), whole — frontmatter and direction
+  // — edited here since 14 ก.ย. 2026 (owner: "เอา modes/coding.md มาแสดงให้
+  // คนปรับแต่งได้ … ปุ่มคืนค่าเริ่มต้นได้เสมอ ก่อนคืนค่าให้ถามยืนยัน"). A save is
+  // the user's copy shadowing the bundled file, the shadowing a hand-written
+  // modes/<name>.md always had; คืนค่าเริ่มต้น removes that copy. Read when
+  // a session starts, so an edit reaches the next chat, and the page says so.
+  let deskFile = $state<engine.DeskFile | null>(null)
+  let deskDraft = $state('')
+  let deskOpen = $state(false)
+  let deskBusy = $state(false)
+  let deskError = $state('')
+  let deskMsg = $state('')
+  const deskDirty = $derived(deskFile !== null && deskDraft !== deskFile.text)
+  async function loadDeskFile(h: HeadId) {
+    try {
+      deskError = ''
+      deskFile = await ReadDeskFile(h)
+      deskDraft = deskFile.text
+    } catch (err) {
+      deskFile = null
+      deskError = String(err)
+    }
+  }
+  async function saveDeskFile(h: HeadId) {
+    deskBusy = true
+    try {
+      deskError = ''
+      await SaveDeskFile(h, deskDraft)
+      await loadDeskFile(h)
+      await loadModes()
+      deskMsg = t('settings.mainDeskApplies')
+    } catch (err) {
+      deskError = String(err)
+    } finally {
+      deskBusy = false
+    }
+  }
+  const askResetDeskFile = (h: HeadId) => askConfirm({
+    title: t('settings.mainDeskResetTitle'),
+    message: t('settings.mainDeskResetMessage', { name: headLabel(h) }),
+    detail: `modes/${h}.md`,
+    confirmLabel: t('settings.mainDeskReset'),
+    run: () => void resetDeskFile(h),
+  })
+  async function resetDeskFile(h: HeadId) {
+    deskBusy = true
+    try {
+      deskError = ''
+      await ResetDeskFile(h)
+      await loadDeskFile(h)
+      await loadModes()
+      deskMsg = t('settings.mainDeskApplies')
+    } catch (err) {
+      deskError = String(err)
+    } finally {
+      deskBusy = false
+    }
+  }
   let modes = $state<mode.Mode[]>([])
   async function loadModes() {
     try { modes = (await ListModes()) ?? [] } catch { modes = [] }
@@ -2774,7 +2782,15 @@
   const headDecided = (h: HeadId) => decidedChanges.filter((c) => headScopes(h).includes(c.scope))
   // A delegate's proposals: its scope is its bare name (memoryScope.ts).
   const agentPendingFor = (name: string) => pendingChanges.filter((c) => c.kind !== 'skill' && c.scope === name.trim())
-  const openHead = (h: HeadId) => { mainHead = h; mainTab = 'identity' }
+  const openHead = (h: HeadId) => {
+    mainHead = h
+    mainTab = 'identity'
+    deskOpen = false
+    deskMsg = ''
+    closeIdentityFile()
+    void loadDeskFile(h)
+    void loadIdentityFiles(h)
+  }
   $effect(() => {
     if (active === 'main') {
       void loadLearning()
@@ -3315,16 +3331,15 @@
       { id: 'avatar', label: avatarText(i18n.locale).title, icon: 'bot',
         terms: [avatarText(i18n.locale).onScreen, avatarText(i18n.locale).shell, avatarText(i18n.locale).hue] },
       // เกี่ยวกับคุณ (14 ก.ย. 2026): the one layer every desk and every agent
-      // reads the same — who the user is. Your name, context.md, USER.md and
-      // the session review that writes it, moved here out of การเรียนรู้ and
-      // คำสั่งประจำตัว so a person's own data is never mixed with what the
-      // assistant is (that is ตัวหลัก) or what it worked out on its own.
+      // reads the same — who the user is. Your name, USER.md and the session
+      // review that writes it, moved here out of การเรียนรู้ so a person's
+      // own data is never mixed with what the assistant is (that is ตัวหลัก)
+      // or what it worked out on its own.
       { id: 'you', label: t('settings.you'), icon: 'circleUser',
-        terms: [t('settings.youName'), t('settings.youContext'), t('settings.learningUserSection'), t('settings.sessionReviewTitle'), 'context.md', 'USER.md'] },
-      // The icon is deliberately not `userRound` — the เอเจน page below owns
-      // that, and this page is not about a person in the team.
-      { id: 'identity', label: t('settings.identity'), icon: 'fileText',
-        terms: ['identity.md', 'thinking.md', 'skills.md'] },
+        terms: [t('settings.youName'), t('settings.learningUserSection'), t('settings.sessionReviewTitle'), 'USER.md'] },
+      // คำสั่งประจำตัว left this menu 14 ก.ย. 2026 for ตัวหลัก › ตัวตน: the
+      // four files are what a head IS, one set per head, and a head's page
+      // is where that is edited. Its search terms went to the ตัวหลัก row.
       // การเรียนรู้ left this menu 14 ก.ย. 2026: what it held has three homes now
       // (เกี่ยวกับคุณ, ตัวหลัก, ห้องความสามารถ › ชุดคำสั่ง) and its one switch
       // is under ทั่วไป with the other switches of the system.
@@ -3347,7 +3362,7 @@
       // with no page is a thing that looks unconfigurable. Beside เอเจนเฉพาะทาง
       // on purpose (owner: "B ดีสุด จำง่าย"): main, specialists, helpers, teams.
       { id: 'main', label: t('settings.mainHeads'), icon: 'userRound',
-        terms: [t('desk.assistant'), t('desk.coding'), t('settings.learningAssistantSection'), 'MEMORY.md', 'modes/coding.md'] },
+        terms: [t('desk.assistant'), t('desk.coding'), t('settings.learningAssistantSection'), t('settings.identity'), 'MEMORY.md', 'modes/coding.md', 'identity.md', 'thinking.md', 'context.md', 'skills.md'] },
       // The people you talk to, then the helpers the assistant runs, then the
       // teams that group the first kind. Configuring an agent lives here again
       // since 13 ก.ย. 2026: for a day (12 ก.ย., "เอาเอเจนออกจากหน้าตั้งค่า")
@@ -3549,7 +3564,7 @@
   // wrong one for a page that was merely forgotten. Found 14 ก.ย. 2026 when
   // the tool register's door to เสียง moved rooms and got a test that opens
   // it the way a user does.
-  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'you', 'identity', 'issues', 'models', 'main', 'team', 'teams', 'agents', 'voice', 'image', 'studio', 'remote', 'account', 'usage', 'about', 'sponsor'])
+  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'you', 'issues', 'models', 'main', 'team', 'teams', 'agents', 'voice', 'image', 'studio', 'remote', 'account', 'usage', 'about', 'sponsor'])
 
   function restoredSection(): string {
     try {
@@ -3992,11 +4007,14 @@
              the card grew; on the face it costs nothing and travels with the
              face everywhere. The two lists draw the same card on purpose;
              the emblem plus the page heading say which level this is. -->
-        <RankedFace tier="agent" size={38}>
+        <!-- 48 for a พนักงาน, 38 for a ลูกมือ (profileRow), the heads larger
+             still: the ranks read in the faces before the word is read
+             (owner, 14 ก.ย.: "ทำให้พนักงานตัวใหญ่ขึ้นอีกหน่อย"). -->
+        <RankedFace tier="agent" size={48}>
           <AgentMascot
             name={a.name}
             {...lookOf(a)}
-            size={38}
+            size={48}
             off={!!reachOf(a.name) && !(reachOf(a.name)!.on && !reachOf(a.name)!.off)}
           />
         </RankedFace>
@@ -6377,152 +6395,6 @@
       <AvatarSettings />
     {:else if active === 'teams'}
       <TeamSettings onNewAgent={newAgentFromTeams} />
-    {:else if active === 'identity'}
-      <h2>{t('settings.identity')}</h2>
-      <p class="muted set-sub">{t('settings.identityDesc')}</p>
-
-      <div class="group-head">
-        <span class="group-title">{t('settings.identityRecommended')}</span>
-      </div>
-      <div class="settings-card">
-        {#each recommendedIdentityTemplates as item}
-          {@const exists = (identity.files || []).some((f) => f.name === item.name)}
-          {@const isActive = identity.activeName === item.name}
-          <div class="set-row">
-            <div class="set-txt">
-              <div class="t" style="display:flex; align-items:center; gap:8px;">
-                <span class="mono-dim" style="font-weight:600; font-size:var(--fs-md); color:var(--text-primary);">{item.name}</span>
-                {#if isActive}
-                  <span class="badge" style="font-size:var(--fs-2xs); padding:1px 6px; border-radius:999px; background:var(--accent-subtle, rgba(56, 189, 248, 0.15)); color:var(--accent);">{t('settings.identityEditingNow')}</span>
-                {/if}
-              </div>
-              <div class="d">{t(item.descKey)}</div>
-            </div>
-            <div class="set-ctrl">
-              {#if exists}
-                <button
-                  type="button"
-                  class="ctrl"
-                  class:ctrl-primary={isActive}
-                  onclick={() => openIdentityFile(item.name)}
-                >
-                  <Icon name="pencil" size={13} />
-                  {t('settings.identityEditBtn')}
-                </button>
-              {:else}
-                <button
-                  type="button"
-                  class="ctrl"
-                  onclick={() => createIdentityFile(item.name, t(item.tplKey))}
-                >
-                  <Icon name="plus" size={13} />
-                  {t('settings.identityCreateBtn')}
-                </button>
-              {/if}
-            </div>
-          </div>
-        {/each}
-      </div>
-
-      {#if customIdentityFiles.length > 0}
-        <div class="group-head">
-          <span class="group-title">{t('settings.identityCustomFiles')}</span>
-        </div>
-        <div class="settings-card">
-          {#each customIdentityFiles as f (f.name)}
-            {@const isActive = identity.activeName === f.name}
-            <div class="set-row">
-              <div class="set-txt">
-                <div class="t mono-dim" style="font-weight:600;">{f.name}</div>
-              </div>
-              <div class="set-ctrl" style="display:flex; align-items:center; gap:8px;">
-                <button
-                  type="button"
-                  class="ctrl"
-                  class:ctrl-primary={isActive}
-                  onclick={() => openIdentityFile(f.name)}
-                >
-                  <Icon name="pencil" size={13} />
-                  {t('settings.identityEditBtn')}
-                </button>
-                <button
-                  type="button"
-                  class="ctrl"
-                  style="color:var(--status-danger);"
-                  aria-label={t('settings.remove')}
-                  onclick={() => removeIdentityFile(f.name)}
-                >
-                  <Icon name="trash" size={13} />
-                </button>
-              </div>
-            </div>
-          {/each}
-        </div>
-      {/if}
-
-      <div class="group-head">
-        <span class="group-title">{t('settings.identityCustomFile')}</span>
-      </div>
-      <div class="settings-card">
-        <div class="set-row">
-          <div class="set-txt" style="flex:1;">
-            <input
-              class="identity-newfile-input"
-              placeholder={t('settings.newIdentityFile')}
-              bind:value={newIdentityName}
-              onkeydown={(e) => e.key === 'Enter' && addIdentityFile()}
-            />
-          </div>
-          <button
-            type="button"
-            class="ctrl"
-            disabled={!newIdentityName.trim()}
-            onclick={addIdentityFile}
-          >
-            <Icon name="plus" size={13} />
-            {t('settings.identityCreateBtn')}
-          </button>
-        </div>
-      </div>
-
-      {#if identity.activeName}
-        <div class="group-head" style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="display:flex; align-items:baseline; gap:8px;">
-            <span class="group-title">{t('settings.identityEditing', { name: identity.activeName })}</span>
-            {#if identityDirty}
-              <span class="group-count" style="color:var(--status-warning, #e3b341); font-weight:600;">{t('settings.identityUnsaved')}</span>
-            {:else}
-              <span class="group-count" style="color:var(--text-dim);">{t('settings.identitySaved')}</span>
-            {/if}
-          </div>
-          <button
-            type="button"
-            class="ctrl"
-            style="color:var(--status-danger);"
-            onclick={() => removeIdentityFile(identity.activeName)}
-          >
-            <Icon name="trash" size={13} />
-            {t('settings.remove')}
-          </button>
-        </div>
-        <div class="settings-card card-form">
-          <textarea
-            class="identity-input"
-            placeholder={t('settings.identityPlaceholder')}
-            bind:value={identity.draft}
-          ></textarea>
-          <div style="display:flex; justify-content:flex-end;">
-            <button
-              type="button"
-              class="ctrl identity-save ctrl-primary"
-              disabled={!identityDirty || identity.saving}
-              onclick={saveIdentityFile}
-            >
-              {identity.saving ? t('settings.saving') : t('settings.save')}
-            </button>
-          </div>
-        </div>
-      {/if}
     {:else if active === 'main'}
       {#if mainHead === null}
         <h2>{t('settings.mainHeads')}</h2>
@@ -6592,7 +6464,6 @@
           <div class="seg" role="tablist" aria-label={t('settings.mainEditTitle', { name: headLabel(h) })}>
             {#each [
               ['identity', 'userRound', t('settings.agentSecIdentity')],
-              ['avatar', 'bot', t('settings.agentSecAvatar')],
               ['brain', 'brain', t('settings.agentSecBrain')],
               ['reach', 'plug', t('settings.mainSecReach')],
               ['memory', 'brain', t('settings.mainSecMemory')],
@@ -6606,39 +6477,123 @@
           </div>
         </div>
 
-        <!-- ตัวตน: what the desk file says, and where the persona still is.
-             identity.md / thinking.md are one set for both heads today; they
-             split per head in a later step, and this tab is where they land. -->
+        <!-- ตัวตน: the desk file (modes/<head>.md, whole, with a way back to
+             the bundled one), then the head's own identity files — one folder
+             per head (config.IdentityDirFor), moved whole from ตั้งค่า ›
+             คำสั่งประจำตัว on 14 ก.ย. 2026. Both editors are a row until asked
+             for; the "add a file" box did not come (owner: "เอา เพิ่มไฟล์
+             คำสั่งใหม่ ออก"). -->
         <div class="ag-tab-panel" class:on={mainTab === 'identity'}>
+          <h3 class="set-h3">{t('settings.mainDeskFile')}</h3>
+          <p class="muted set-sub">{t('settings.mainDeskFileHint')}</p>
           <div class="settings-card">
             <div class="set-row">
               <div class="set-txt">
-                <div class="t">{t('settings.mainDeskRow')}</div>
+                <div class="t"><span class="mono-dim you-file">modes/{h}.md</span>
+                  {#if deskFile?.overrides}<span class="badge on">{t('settings.mainDeskOverrides')}</span>{/if}
+                </div>
                 <div class="d">{headDesc(h)}</div>
               </div>
-              <span class="mono-dim">modes/{h}.md</span>
-            </div>
-            <div class="set-row">
-              <div class="set-txt">
-                <div class="t">{t('settings.mainPersonaRow')}</div>
-                <div class="d">{t('settings.mainPersonaHint')}</div>
+              <div class="set-ctrl" style="display:flex; align-items:center; gap:8px;">
+                {#if deskFile?.overrides}
+                  <button type="button" class="ctrl" disabled={deskBusy} onclick={() => askResetDeskFile(h)}>
+                    <Icon name="rotateCw" size={13} /> {t('settings.mainDeskReset')}
+                  </button>
+                {/if}
+                <button type="button" class="ctrl" class:ctrl-primary={deskOpen} disabled={deskFile === null} onclick={() => (deskOpen = !deskOpen)}>
+                  <Icon name="pencil" size={13} /> {t('settings.identityEditBtn')}
+                </button>
               </div>
-              <button type="button" class="ctrl" onclick={() => openSection('identity')}>{t('settings.identity')} <Icon name="arrowRight" size={12} /></button>
             </div>
+            {#if deskError}<div class="mset-error you-inline-error">{deskError}</div>{/if}
+            {#if deskMsg && !deskOpen}<div class="d muted you-inline-note">{deskMsg}</div>{/if}
           </div>
-        </div>
+          {#if deskOpen && deskFile}
+            <div class="settings-card card-form">
+              <textarea class="identity-input desk-file" bind:value={deskDraft} spellcheck="false"
+                aria-label={`modes/${h}.md`}></textarea>
+              <div class="you-save">
+                <span class="d muted">{deskMsg || t('settings.mainDeskEditHint')}</span>
+                <button type="button" class="ctrl ctrl-primary" disabled={!deskDirty || deskBusy} onclick={() => saveDeskFile(h)}>
+                  {deskBusy ? t('settings.saving') : t('settings.save')}
+                </button>
+              </div>
+            </div>
+          {/if}
 
-        <div class="ag-tab-panel" class:on={mainTab === 'avatar'}>
+          <h3 class="set-h3">{t('settings.identity')}</h3>
+          <p class="muted set-sub">{t('settings.mainIdentityHint', { name: headLabel(h) })}</p>
           <div class="settings-card">
-            <div class="main-avatar-row">
-              <RankedFace tier="head" size={150}><Mascot {...headOptions(h)} pose="idle" size={150} still /></RankedFace>
-              <div class="main-avatar-txt">
-                <div class="t">{t('settings.mainAvatarRow')}</div>
-                <div class="d">{t('settings.mainAvatarHint', { name: headLabel(h) })}</div>
-                <p><button type="button" class="ctrl" onclick={() => openSection('avatar')}><Icon name="bot" size={13} /> {avatarText(i18n.locale).title}</button></p>
+            {#each recommendedIdentityTemplates as item (item.name)}
+              {@const exists = (identity.files || []).some((f) => f.name === item.name)}
+              {@const isActive = identity.activeName === item.name}
+              <div class="set-row">
+                <div class="set-txt">
+                  <div class="t"><span class="mono-dim you-file">{item.name}</span>
+                    {#if isActive}<span class="badge on">{t('settings.identityEditingNow')}</span>{/if}
+                  </div>
+                  <div class="d">{t(item.descKey)}</div>
+                </div>
+                <div class="set-ctrl">
+                  {#if exists}
+                    <button type="button" class="ctrl" class:ctrl-primary={isActive} onclick={() => (isActive ? closeIdentityFile() : openIdentityFile(item.name))}>
+                      <Icon name="pencil" size={13} />
+                      {t('settings.identityEditBtn')}
+                    </button>
+                  {:else}
+                    <button type="button" class="ctrl" onclick={() => createIdentityFile(item.name, t(item.tplKey))}>
+                      <Icon name="plus" size={13} />
+                      {t('settings.identityCreateBtn')}
+                    </button>
+                  {/if}
+                </div>
+              </div>
+            {/each}
+            {#each customIdentityFiles as f (f.name)}
+              {@const isActive = identity.activeName === f.name}
+              <div class="set-row">
+                <div class="set-txt">
+                  <div class="t"><span class="mono-dim you-file">{f.name}</span></div>
+                  <div class="d">{t('settings.identityCustomFiles')}</div>
+                </div>
+                <div class="set-ctrl" style="display:flex; align-items:center; gap:8px;">
+                  <button type="button" class="ctrl" class:ctrl-primary={isActive} onclick={() => (isActive ? closeIdentityFile() : openIdentityFile(f.name))}>
+                    <Icon name="pencil" size={13} />
+                    {t('settings.identityEditBtn')}
+                  </button>
+                  <button type="button" class="ctrl" style="color:var(--status-danger);" aria-label={t('settings.remove')} onclick={() => removeIdentityFile(f.name)}>
+                    <Icon name="trash" size={13} />
+                  </button>
+                </div>
+              </div>
+            {/each}
+          </div>
+
+          {#if identity.activeName}
+            <div class="group-head" style="display:flex; justify-content:space-between; align-items:center;">
+              <div style="display:flex; align-items:baseline; gap:8px;">
+                <span class="group-title">{t('settings.identityEditing', { name: identity.activeName })}</span>
+                {#if identityDirty}
+                  <span class="group-count" style="color:var(--status-warning, #e3b341); font-weight:600;">{t('settings.identityUnsaved')}</span>
+                {:else}
+                  <span class="group-count" style="color:var(--text-dim);">{t('settings.identitySaved')}</span>
+                {/if}
+              </div>
+              <button type="button" class="ctrl" style="color:var(--status-danger);" onclick={() => removeIdentityFile(identity.activeName)}>
+                <Icon name="trash" size={13} />
+                {t('settings.remove')}
+              </button>
+            </div>
+            <div class="settings-card card-form">
+              <textarea class="identity-input" placeholder={t('settings.identityPlaceholder')} bind:value={identity.draft}
+                aria-label={identity.activeName}></textarea>
+              <div style="display:flex; justify-content:flex-end;">
+                <button type="button" class="ctrl identity-save ctrl-primary" disabled={!identityDirty || identity.saving} onclick={saveIdentityFile}>
+                  {identity.saving ? t('settings.saving') : t('settings.save')}
+                </button>
               </div>
             </div>
-          </div>
+          {/if}
         </div>
 
         <div class="ag-tab-panel" class:on={mainTab === 'brain'}>
@@ -6763,39 +6718,6 @@
             onchange={() => saveProfileName(youName)} aria-label={t('settings.youName')} />
         </div>
       </div>
-
-      <h3 class="set-h3">{t('settings.youContext')}</h3>
-      <p class="muted set-sub">{t('settings.youContextHint')}</p>
-      <div class="settings-card">
-        <div class="set-row">
-          <div class="set-txt">
-            <div class="t"><span class="mono-dim you-file">{YOU_CONTEXT_FILE}</span></div>
-            <div class="d">{t('settings.identityDescContext')}</div>
-          </div>
-          {#if youContextExists}
-            <button type="button" class="ctrl" class:ctrl-primary={youContextOpen} onclick={() => (youContextOpen = !youContextOpen)}>
-              <Icon name="pencil" size={13} /> {t('settings.identityEditBtn')}
-            </button>
-          {:else}
-            <button type="button" class="ctrl" disabled={youContextBusy} onclick={createYouContext}>
-              <Icon name="plus" size={13} /> {t('settings.identityCreateBtn')}
-            </button>
-          {/if}
-        </div>
-        {#if youContextError}<div class="mset-error you-inline-error">{youContextError}</div>{/if}
-      </div>
-      {#if youContextOpen && youContextExists}
-        <div class="settings-card card-form">
-          <textarea class="identity-input you-context" placeholder={t('identity.tplContext')} bind:value={youContext}
-            aria-label={t('settings.youContext')}></textarea>
-          <div class="you-save">
-            <span class="mono-dim">{YOU_CONTEXT_FILE}</span>
-            <button type="button" class="ctrl ctrl-primary" disabled={!youContextDirty || youContextBusy} onclick={saveYouContext}>
-              {youContextBusy ? t('settings.saving') : t('settings.save')}
-            </button>
-          </div>
-        </div>
-      {/if}
 
       <!-- The session review writes USER.md, so its switch sits with the
            file it writes — moved from การเรียนรู้ 14 ก.ย. 2026. -->
