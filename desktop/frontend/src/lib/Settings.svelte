@@ -400,6 +400,7 @@
           if (!shells.some((s) => s.path === defaultShell)) defaultShell = shells[0]?.path ?? ''
         })(),
         (async () => { preparedOn = await PreparedReplyOn() })(),
+        (async () => { learningOn = await LearningEnabled() })(),
         loadAttention(),
         loadMCP(),
         loadSpeech(),
@@ -2694,6 +2695,10 @@
   const YOU_CONTEXT_FILE = 'context.md'
   let youContext = $state('')
   let youContextSaved = $state('')
+  let youContextExists = $state(false)
+  // The editor is a row until asked for (owner, 14 ก.ย. 2026: "กด + ก่อนค่อย
+  // แสดง ไม่กด ก็ไม่แสดง") — the same shape คำสั่งประจำตัว had for this file.
+  let youContextOpen = $state(false)
   let youContextBusy = $state(false)
   let youContextError = $state('')
   const youContextDirty = $derived(youContext !== youContextSaved)
@@ -2704,6 +2709,7 @@
       // template is offered as a placeholder, and the first save creates it.
       const files = await ListIdentityFiles()
       const has = (files ?? []).some((f: { name: string }) => f.name === YOU_CONTEXT_FILE)
+      youContextExists = has
       const text = has ? await ReadIdentityFile(YOU_CONTEXT_FILE) : ''
       youContext = text
       youContextSaved = text
@@ -2717,6 +2723,7 @@
       youContextError = ''
       await SaveIdentityFile(YOU_CONTEXT_FILE, youContext)
       youContextSaved = youContext
+      youContextExists = true
       // คำสั่งประจำตัว lists the files; a first save here must show up there.
       if (identity.loaded) await loadIdentityFiles()
     } catch (err) {
@@ -2724,6 +2731,13 @@
     } finally {
       youContextBusy = false
     }
+  }
+  // "+" writes the template and opens it, the way คำสั่งประจำตัว created a file;
+  // "เปิดแก้ไข" only opens.
+  async function createYouContext() {
+    youContext = t('identity.tplContext')
+    await saveYouContext()
+    if (!youContextError) youContextOpen = true
   }
   let youName = $state('')
   $effect(() => {
@@ -2781,7 +2795,6 @@
   let sessionReviewMsg = $state('')
   // Habits (the requests typed again and again) left for ห้องความสามารถ ›
   // ชุดคำสั่ง on 14 ก.ย. 2026; the one tab left is memory.
-  let learningSubTab = $state<'memory'>('memory')
   let pendingChanges = $state<engine.PendingChange[]>([])
   let decidedChanges = $state<engine.PendingChange[]>([])
   // The decided list is a record, not a queue: nothing is waiting on it and the
@@ -3256,7 +3269,6 @@
   // different ways.
 
   $effect(() => {
-    if (active === 'learning') void loadLearning()
     if (active === 'voice') void loadVoicePage()
     if (active === 'image') void loadImagePage()
     if (active === 'studio') void loadStudio()
@@ -3313,10 +3325,9 @@
       // that, and this page is not about a person in the team.
       { id: 'identity', label: t('settings.identity'), icon: 'fileText',
         terms: ['identity.md', 'thinking.md', 'skills.md'] },
-      // Next to identity, because they answer the same question from two
-      // sides: what the user told the agent, and what the agent worked out.
-      { id: 'learning', label: t('settings.learning'), icon: 'brain',
-        terms: [t('settings.learningPending'), t('settings.learningMemory')] },
+      // การเรียนรู้ left this menu 14 ก.ย. 2026: what it held has three homes now
+      // (เกี่ยวกับคุณ, ตัวหลัก, ห้องความสามารถ › ชุดคำสั่ง) and its one switch
+      // is under ทั่วไป with the other switches of the system.
       // ปรับสกิลอัตโนมัติ left this menu 14 ก.ย. 2026 for the สกิล heading of
       // ห้องความสามารถ (Capability.svelte): a queue of edits to a shelf skill
       // lives beside the shelf.
@@ -3538,7 +3549,7 @@
   // wrong one for a page that was merely forgotten. Found 14 ก.ย. 2026 when
   // the tool register's door to เสียง moved rooms and got a test that opens
   // it the way a user does.
-  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'you', 'identity', 'learning', 'issues', 'models', 'main', 'team', 'teams', 'agents', 'voice', 'image', 'studio', 'remote', 'account', 'usage', 'about', 'sponsor'])
+  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'you', 'identity', 'issues', 'models', 'main', 'team', 'teams', 'agents', 'voice', 'image', 'studio', 'remote', 'account', 'usage', 'about', 'sponsor'])
 
   function restoredSection(): string {
     try {
@@ -3565,20 +3576,7 @@
   // you arrived from one agent's card asking about that agent.
   // null, not '': the assistant's own scope IS the empty string, and a
   // default of '' marked its heading as "the one you came for" on every visit.
-  let memoryFocus = $state<string | null>(null)
 
-  // The learning page, landed on one scope. `scrollIntoView` rather than a
-  // filter: the reader came from a card about one agent and is owed that
-  // agent's lines, but hiding the others would make a page whose whole subject
-  // is "who learned what" answer for one worker and stay silent about the rest.
-  function openMemoryScope(scope: string) {
-    memoryFocus = scope
-    learningSubTab = 'memory'
-    openSection('learning')
-    requestAnimationFrame(() => {
-      document.querySelector(`[data-mem-scope="${CSS.escape(scope)}"]`)?.scrollIntoView({ block: 'center' })
-    })
-  }
 
   // The one scroller every section shares. Bound so a section change can put
   // the reader back at the top of it.
@@ -3707,7 +3705,7 @@
 {#snippet deskHead(g: MemoryGroup)}
   {@const meta = scopeMeta(g.scope)}
   {@const tone = capTone(g)}
-  <div class="mem-scope mem-tone-{meta.tone}" data-mem-scope={g.scope} class:mem-focus={g.scope === memoryFocus}>
+  <div class="mem-scope mem-tone-{meta.tone}" data-mem-scope={g.scope}>
     <span class="mem-scope-ic" class:face={!!meta.head}><ScopeMark {meta} size={14} face={30} /></span>
     <span class="mem-scope-name">{meta.label}</span>
     <span class="learn-aud">{meta.audience}</span>
@@ -5373,6 +5371,19 @@
             <span></span>
           </label>
         </div>
+        <!-- The one switch การเรียนรู้ had: whether Aetox records outcomes and
+             proposes anything at all, every scope at once. A system switch,
+             so it sits with the system's others (14 ก.ย. 2026). -->
+        <div class="set-row">
+          <div class="set-txt">
+            <div class="t">{t('settings.learningEnabled')}</div>
+            <div class="d">{t('settings.learningEnabledHint')}</div>
+          </div>
+          <label class="mswitch" aria-label={t('settings.learningEnabled')}>
+            <input type="checkbox" checked={learningOn} onchange={toggleLearning} />
+            <span></span>
+          </label>
+        </div>
       </div>
 
       <!-- เรียกให้หัน (desktop/attention.go). The words come from Go, the way
@@ -6528,7 +6539,7 @@
                     </button>
                   </div>
                 </div>
-                <div class="d">{headDesc(h) || '—'}</div>
+                <div class="d">{headDesc(h)}</div>
                 <div class="chips">
                   <span class="tag">{t('settings.mainMemoryLines', { n: headGroup(h).lines.length })}</span>
                   {#if headPending(h).length > 0}<span class="tag main-tag-warn">{t('settings.mainPendingN', { n: headPending(h).length })}</span>{/if}
@@ -6589,7 +6600,7 @@
             <div class="set-row">
               <div class="set-txt">
                 <div class="t">{t('settings.mainDeskRow')}</div>
-                <div class="d">{headDesc(h) || '—'}</div>
+                <div class="d">{headDesc(h)}</div>
               </div>
               <span class="mono-dim">modes/{h}.md</span>
             </div>
@@ -6621,7 +6632,7 @@
             <div class="set-row">
               <div class="set-txt">
                 <div class="t">{t('settings.mainBrainRow')}</div>
-                <div class="d">{cockpit.model.provider ? `${cockpit.model.provider} · ${cockpit.model.modelName}${cockpit.model.thinkLevel ? ` · ${cockpit.model.thinkLevel}` : ""}` : "—"} — {t("settings.mainBrainHint")}</div>
+                <div class="d">{cockpit.model.provider ? `${cockpit.model.provider} · ${cockpit.model.modelName}${cockpit.model.thinkLevel ? ` · ${cockpit.model.thinkLevel}` : ""}` : "ยังไม่ได้เลือก"} · {t("settings.mainBrainHint")}</div>
               </div>
               <button type="button" class="ctrl" onclick={() => openSection('models')}>{t('settings.modelSettings')} <Icon name="arrowRight" size={12} /></button>
             </div>
@@ -6741,17 +6752,36 @@
 
       <h3 class="set-h3">{t('settings.youContext')}</h3>
       <p class="muted set-sub">{t('settings.youContextHint')}</p>
-      <div class="settings-card card-form">
-        <textarea class="identity-input you-context" placeholder={t('identity.tplContext')} bind:value={youContext}
-          aria-label={t('settings.youContext')}></textarea>
-        {#if youContextError}<div class="mset-error">{youContextError}</div>{/if}
-        <div class="you-save">
-          <span class="mono-dim">{YOU_CONTEXT_FILE}</span>
-          <button type="button" class="ctrl ctrl-primary" disabled={!youContextDirty || youContextBusy} onclick={saveYouContext}>
-            {youContextBusy ? t('settings.saving') : t('settings.save')}
-          </button>
+      <div class="settings-card">
+        <div class="set-row">
+          <div class="set-txt">
+            <div class="t"><span class="mono-dim you-file">{YOU_CONTEXT_FILE}</span></div>
+            <div class="d">{t('settings.identityDescContext')}</div>
+          </div>
+          {#if youContextExists}
+            <button type="button" class="ctrl" class:ctrl-primary={youContextOpen} onclick={() => (youContextOpen = !youContextOpen)}>
+              <Icon name="pencil" size={13} /> {t('settings.identityEditBtn')}
+            </button>
+          {:else}
+            <button type="button" class="ctrl" disabled={youContextBusy} onclick={createYouContext}>
+              <Icon name="plus" size={13} /> {t('settings.identityCreateBtn')}
+            </button>
+          {/if}
         </div>
+        {#if youContextError}<div class="mset-error you-inline-error">{youContextError}</div>{/if}
       </div>
+      {#if youContextOpen && youContextExists}
+        <div class="settings-card card-form">
+          <textarea class="identity-input you-context" placeholder={t('identity.tplContext')} bind:value={youContext}
+            aria-label={t('settings.youContext')}></textarea>
+          <div class="you-save">
+            <span class="mono-dim">{YOU_CONTEXT_FILE}</span>
+            <button type="button" class="ctrl ctrl-primary" disabled={!youContextDirty || youContextBusy} onclick={saveYouContext}>
+              {youContextBusy ? t('settings.saving') : t('settings.save')}
+            </button>
+          </div>
+        </div>
+      {/if}
 
       <!-- The session review writes USER.md, so its switch sits with the
            file it writes — moved from การเรียนรู้ 14 ก.ย. 2026. -->
@@ -6835,77 +6865,6 @@
         <div class="settings-card">
           {#each youDecided as c (c.id)}{@render decidedRow(c)}{/each}
         </div>
-      {/if}
-
-    {:else if active === 'learning'}
-      <h2>{t('settings.learning')}</h2>
-      <p class="muted set-sub">{t('settings.learningDesc')}</p>
-
-      <div class="set-subtabs">
-        <button
-          type="button"
-          class="set-subtab"
-          class:active={learningSubTab === 'memory'}
-          onclick={() => (learningSubTab = 'memory')}
-        >
-          <Icon name="brain" size={14} />
-          <span>{t('settings.learningSubtabMemory')}</span>
-          {#if cockpit.pendingLearned > 0}
-            <span class="set-subtab-badge">{cockpit.pendingLearned}</span>
-          {/if}
-        </button>
-      </div>
-
-      {#if learningSubTab === 'memory'}
-        <!-- .set-row, like every other switch on this page. This card used to be
-             built from .mcp-row/.mcp-row-main, which have no CSS at all — so the
-             text sat flush against the card's border and the switch dropped to
-             its own line underneath. -->
-        <div class="settings-card">
-          <div class="set-row">
-            <div class="set-txt">
-              <div class="t">{t('settings.learningEnabled')}</div>
-              <div class="d">{t('settings.learningEnabledHint')}</div>
-            </div>
-            <label class="mswitch">
-              <input type="checkbox" checked={learningOn} onchange={toggleLearning} />
-              <span></span>
-            </label>
-          </div>
-        </div>
-
-      {#if learningError}<div class="mset-error">{learningError}</div>{/if}
-      <!-- What was here — the profile's file, the two desks' files with their
-           projects, the queue, the history, the folder — has homes now: the
-           person's on เกี่ยวกับคุณ, each head's on ตัวหลัก, a delegate's on its
-           own page (14 ก.ย. 2026). This page is Habits and the kill switch
-           until Habits moves to ห้องความสามารถ, and then it goes. -->
-      <div class="settings-card">
-        <div class="set-row">
-          <div class="set-txt">
-            <div class="t">{t('settings.learningUserSection')}</div>
-            <div class="d">{t('settings.learningMovedYou')}</div>
-          </div>
-          <button type="button" class="ctrl" onclick={() => openSection('you')}>{t('settings.you')} <Icon name="arrowRight" size={12} /></button>
-        </div>
-        <div class="set-row">
-          <div class="set-txt">
-            <div class="t">{t('settings.learningAssistantSection')}</div>
-            <div class="d">{t('settings.learningMovedMain')}</div>
-          </div>
-          <button type="button" class="ctrl" onclick={() => openSection('main')}>{t('settings.mainHeads')} <Icon name="arrowRight" size={12} /></button>
-        </div>
-        <div class="set-row">
-          <div class="set-txt">
-            <div class="t">{t('settings.memoryAgentsRow')}</div>
-            <div class="d">{t('settings.memoryAgentsHint')}</div>
-          </div>
-          <button type="button" class="ctrl" onclick={() => openSection('agents')}>
-            {t('settings.memoryAgentsGo')} <Icon name="arrowRight" size={12} />
-          </button>
-        </div>
-      </div>
-
       {/if}
 
     {:else if active === 'issues'}

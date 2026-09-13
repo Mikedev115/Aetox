@@ -15,7 +15,6 @@ const openSection = async (container: HTMLElement, label: string) => {
   await fireEvent.click(item)
 }
 
-const LEARNING = 'การเรียนรู้'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -42,8 +41,5 @@ describe('session review in settings', () => {
     expect(switches.length).toBe(1)
     await fireEvent.click(switches[0])
     expect(SetSessionReviewAuto).toHaveBeenCalledWith(true)
-    // And it is gone from การเรียนรู้.
-    await openSection(container, LEARNING)
-    expect(screen.queryByText(/ทบทวนเซสชันปัจจุบันเดี๋ยวนี้/)).toBeNull()
   })
 })
