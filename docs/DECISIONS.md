@@ -9012,3 +9012,27 @@ Position B, beside เอเจนเฉพาะทาง, over A (first row of
 4. A per-desk model default (สมอง) and the desk's tool kit / connections editable from การเข้าถึง — the "ใหม่" rows of the lab that touch the engine most.
 
 **Status:** `Direct`. Four commits on main this pass; the other session's half of the day is §265.
+
+---
+
+## 267. Decision — A Head's Page, Second Pass: Identity per Head, the Desk File on the Page, and Two Memory Layers (2026-09-14)
+
+**Trigger:** the owner opened ตัวหลัก (§266, the same morning) and read it row by row. Nine calls in an hour, each one sentence; this section is the shape they add up to, so the next person does not have to re-derive it from nine commit messages (`7f7a95ae`, `552540d3`, `2e520d23`, and the other session's `8a41f4b2`).
+
+### 267.1 What the page is now
+
+Two cards, half the page each, the head's face at 72px with its rank on the corner (§266 drew them at the roster's 240px cell with a bare `Mascot`; owner: *"มี 2 ตัว ทำตัวใหญ่กว่านี้ … ยศหายไปไหน"*). No memory count on a card (*"จำไว้ 0 บรรทัด เอาออก"*): a number nobody acts on from there. A head's page has **three tabs — ตัวตน · การเข้าถึง · ความจำ.** No อวตาร (*"มันมีอยู่แล้ว"*: the avatar page is the one place a look is chosen) and no สมอง (the other session, on the owner's word: the model is what the user picks on the chat's head).
+
+### 267.2 ตัวตน is the head's files, and the files are the head's
+
+- **The desk file, whole, on the page.** `modes/<head>.md` — frontmatter and direction — behind an เปิดแก้ไข row, with คืนค่าเริ่มต้น whenever the user's copy is in force, asked first through the room's confirm gate (*"เอา โต๊ะ ออก แล้วเอา modes/coding.md มาแสดงให้คนปรับแต่งได้ … คืนค่าเริ่มต้นได้เสมอ ก่อนคืนค่าให้ถามยืนยัน"*). A save is the same shadowing a hand-written `<DataRoot>/modes/<name>.md` always had (`mode.SaveFile`); restore removes that copy (`mode.Reset`, refused for a desk with no bundled file to go back to). Read when a session starts, so the page says an edit reaches the *next* chat.
+- **One identity folder per head.** `identity.md · thinking.md · context.md · skills.md` were one flat set both heads read (§11), then for a morning `context.md` was the person's, on เกี่ยวกับคุณ (§266.1). The owner's call reversed both: *"คำสั่งประจำตัวพวกนี้ผูกกับเอเจนหลัก … แยกกันทั้งสองตัว เอาไว้ที่ส่วนตัวตน"* and *"context.md ก็ด้วย ไม่ควรไปอยู่เกี่ยวกับคุณ มันควรผูกกับเอเจน"*. So `config.IdentityDir` is a root of two folders (`IdentityHeads`, `IdentityDirFor`), and **the rule for which set a session reads is one line, `config.IdentityHeadFor`:** the coding desk reads `coding/`; everything else — the assistant desk, a specialist's chair, the CLI with no desk — reads `assistant/`. It mirrors memory (coding is the one desk with its own file there too) and keeps §44.0: a chair is still Aetox. The flat set is copied into *both* folders on first use and then removed (`ensureIdentityDirFor`): the day the split lands, neither head reads a word less. คำสั่งประจำตัว left the menu; the "add a file" box did not come along (*"เอา เพิ่มไฟล์คำสั่งใหม่ ออก"*) — a hand-made file on disk is still listed, nothing on the page makes one.
+- **The editor is a row until asked for**, for every file on the tab — the rule the owner set for context.md the same morning, now the tab's.
+
+Withdraws §266.1's first row as far as `context.md` goes, and settles §266.4 (1) — not as the file-layout the lab sketched (a name per head, the role editable), but as the two folders and the desk file above.
+
+### 267.3 A head's memory is two layers, drawn as two
+
+Owner, on the coder's page: *"โค้ดควรมีความจำของตัวเอง แยกชั้นกับความจำในโปรเจกต์อีกที"*. §266 drew the coding head's own file as one card with the projects it hosts nested inside it (`.mem-sub`), which reads as one memory with sub-folders. Now **ความจำของโค้ด** is one card under its own title, and **ความจำในโปรเจกต์** is a second title beneath with one card per project — the same rows, the same adopt/move actions, an empty state that says so. The engine already kept them apart (`mode:coding` vs `project:*`, §184); the page had folded them back together.
+
+**Status:** `Direct`. Pinned by [mainHeads.test.ts](../desktop/frontend/src/test/mainHeads.test.ts) (two cards with the rank, no count; three tabs; per-head file lists that change when crossing heads; open/save/create to *this* head; the desk file whole, restore only after the dialog; context.md here and not on เกี่ยวกับคุณ; no คำสั่งประจำตัว row), [learningReview.test.ts](../desktop/frontend/src/test/learningReview.test.ts) (two titles, project cards not nested), [prompt_test.go](../internal/prompt/prompt_test.go) (each desk reads its own set, never the other's) and [identity_test.go](../internal/engine/identity_test.go) (the flat set reaches both heads once and is gone; AETOX.md still honoured; an unknown head refused).
