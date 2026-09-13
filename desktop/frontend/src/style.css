@@ -6591,6 +6591,27 @@ button.phase-head:hover { color:var(--text-muted); }
   grid-template-columns:repeat(auto-fill, minmax(min(240px, 100%), 1fr));
 }
 
+/* ตั้งค่า › ตัวหลัก (14 ก.ย. 2026). Two cards and never a third, so the grid is
+   two columns and each card gets half the page rather than the roster's
+   240px cell: the owner's word on the first cut was "มี 2 ตัว ทำตัวใหญ่กว่านี้".
+   The card is still .chair-card.agc — same border, same hover — with more
+   room inside it, a face at 72px, and the desk's sentence unclamped. */
+.main-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:16px; }
+@media (max-width: 720px) { .main-grid { grid-template-columns:minmax(0, 1fr); } }
+.main-card { padding:18px 20px; cursor:pointer; }
+.main-card .chair-body { gap:12px; }
+.main-card .chair-who { gap:14px; }
+.main-card .chair-name { font-size:var(--fs-xl); white-space:normal; }
+.main-card .d { font-size:var(--fs-md); color:var(--text-secondary); }
+.main-tag-warn { background:none; color:var(--status-warn); border-color:var(--status-warn); }
+/* The head's page: the face beside the name, the way the card had them. */
+.main-head { display:flex; align-items:center; gap:16px; margin:4px 0 14px; }
+.main-who { min-width:0; display:flex; flex-direction:column; gap:4px; }
+.main-name { font-size:var(--fs-xl); font-weight:600; color:var(--text-primary); display:flex; align-items:center; gap:8px; }
+.main-avatar-row { display:flex; align-items:center; gap:22px; padding:16px; }
+.main-avatar-txt { min-width:0; display:flex; flex-direction:column; gap:6px; }
+.main-avatar-txt p { margin:6px 0 0; }
+
 /* ═══ The เอเจน card, rebuilt 2026-08-31 ═══════════════════════════════════
    A modifier on .chair-card rather than a class family of its own, because
    VideoWork draws the same card for its own doors and must not move when this
