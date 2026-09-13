@@ -61,8 +61,7 @@
     ListImageEngines, SetImageEngine, SetImageModelName, ImageStatus,
     SetSpeechModelName, SetTTSModelName,
     InstallVoiceEngine,
-    UsageStats, ListPromptPresets, OpenPromptsFolder,
-    SavePromptPreset, DeletePromptPreset, PickPresetImage, RemovePresetImage,
+    UsageStats,
     ModelPriceSource,
     ListSubagentProfiles, ReadSubagentProfile, SaveSubagentProfile, SaveAgentProfile, PickAgentBrief, FetchAgentBrief,
     DeleteSubagentProfile, SetSubagentModel, OpenAgentsFolder, OpenAgentSkillsFolder, ListChairs,
@@ -72,8 +71,7 @@
     SignInMethods, SignInStatus, StartSignIn, CancelSignIn, ImportableSignIns,
     AppVersion, AppCredit, RecentDebugLog,
     LearningEnabled, SetLearningEnabled, ListPendingChanges, ListDecidedChanges, ListModes, ListIdentityFiles, ReadIdentityFile, SaveIdentityFile,
-    SessionReviewAuto, SetSessionReviewAuto, RunSessionReview, ListRecurringRequests, DismissRecurringRequest,
-    SynthesizeHabit,
+    SessionReviewAuto, SetSessionReviewAuto, RunSessionReview,
     PreparedReplyOn, SetPreparedReplyOn,
     ApprovePendingChange, ApprovePendingChangeTo, RejectPendingChange, LearnedEntries, LearnedScopeInfos, ConsolidateMemory, ApplyMemoryLines, SaveLearnedEntry, AddLearnedEntry, MoveLearnedEntry, OpenMemoryFolder,
     ForgetMemoryScope, AdoptMemoryScope, RecentProjects,
@@ -1643,110 +1641,8 @@
   })
 
   // ---------- Prompt presets ----------
-  type PresetRow = { name: string; description: string; body: string; path: string; builtin: boolean; image: string }
-  let presets = $state<PresetRow[]>([])
-  // null = the gallery. Anything else = the editor, on a copy of that preset.
-  let editing = $state<PresetRow | null>(null)
-  let draftName = $state('')
-  let draftBody = $state('')
-  let draftImage = $state('')
-  let presetBusy = $state('')
-  let presetError = $state('')
-
-  async function loadPresets() {
-    presets = await ListPromptPresets()
-  }
-
-  const presetDraftKey = () => JSON.stringify([draftName, draftBody, draftImage])
-  let presetSnapshot = ''
-
-  function openPreset(p: PresetRow) {
-    editing = p
-    draftName = p.name
-    draftBody = p.body
-    draftImage = p.image
-    presetError = ''
-    presetSnapshot = presetDraftKey()
-  }
-
-  const closePresetEditor = () =>
-    guardUnsaved(presetDraftKey() !== presetSnapshot, () => { editing = null })
-
-  // A blank 300px textarea tells you nothing about what belongs in it, so a new
-  // preset starts on the skeleton every good prompt shares (role and goal,
-  // hard constraints, where the arguments go) — edit-and-replace beats
-  // stare-at-nothing.
-  function newPreset() {
-    editing = { name: '', description: '', body: '', path: '', builtin: false, image: '' }
-    draftName = ''
-    draftBody = t('settings.promptStarter')
-    draftImage = ''
-    presetError = ''
-    presetSnapshot = presetDraftKey()
-  }
-
-  // Inserts at the caret, because $ARGUMENTS is the one token a preset cannot
-  // work without and the one nobody remembers how to spell.
-  let bodyEl = $state<HTMLTextAreaElement | null>(null)
-  function insertArguments() {
-    const el = bodyEl
-    if (!el) { draftBody += '$ARGUMENTS'; return }
-    const at = el.selectionStart ?? draftBody.length
-    draftBody = draftBody.slice(0, at) + '$ARGUMENTS' + draftBody.slice(el.selectionEnd ?? at)
-    requestAnimationFrame(() => {
-      el.focus()
-      el.setSelectionRange(at + 10, at + 10)
-    })
-  }
-
-  async function runPreset(label: string, fn: () => Promise<void>) {
-    presetBusy = label
-    presetError = ''
-    try {
-      await fn()
-    } catch (err) {
-      presetError = String(err)
-    } finally {
-      presetBusy = ''
-    }
-  }
-
-  const savePreset = () => runPreset('save', async () => {
-    await SavePromptPreset(draftName.trim(), draftBody)
-    await loadPresets()
-    editing = null
-  })
-
-  const deletePreset = () => askConfirm({
-    title: t('settings.confirmPromptTitle'),
-    message: t('settings.confirmPromptMessage'),
-    detail: '/' + draftName.trim(),
-    confirmLabel: t('settings.confirmDeleteAction'),
-    run: () => runPreset('delete', async () => {
-      await DeletePromptPreset(draftName.trim())
-      await loadPresets()
-      editing = null
-    }),
-  })
-
-  // A cover can only be attached to a preset that exists on disk, so an unsaved
-  // one is saved first — otherwise the image would have nothing to belong to.
-  const pickImage = () => runPreset('image', async () => {
-    const name = draftName.trim()
-    if (!name) { presetError = t('settings.promptNameFirst'); return }
-    if (!presets.some((p) => p.name === name && !p.builtin)) {
-      await SavePromptPreset(name, draftBody || ' ')
-    }
-    const dataUrl = await PickPresetImage(name)
-    if (dataUrl) draftImage = dataUrl
-    await loadPresets()
-  })
-
-  const dropImage = () => runPreset('image', async () => {
-    await RemovePresetImage(draftName.trim())
-    draftImage = ''
-    await loadPresets()
-  })
+  // Left this file 14 ก.ย. 2026 for ห้องความสามารถ › ชุดคำสั่ง
+  // (Capability.svelte), the editor and the gallery whole.
 
   // ---------- Sub-agents (ARCHITECTURE.md §44) ----------
   // Only sub-agents live here. The main agent is the assistant — one identity,
@@ -2788,9 +2684,6 @@
   })
 
   $effect(() => {
-    if (active === 'prompts') void loadPresets()
-  })
-  $effect(() => {
     if (active === 'identity') loadIdentityFiles()
   })
 
@@ -2886,11 +2779,9 @@
   let sessionReviewAutoOn = $state(false)
   let sessionReviewBusy = $state(false)
   let sessionReviewMsg = $state('')
-  let recurringRequests = $state<{ text: string; count: number; normalized: string }[]>([])
-  let learningSubTab = $state<'memory' | 'habits'>('memory')
-  let habitExpanded = $state<Record<string, boolean>>({})
-  let habitDismissBusy = $state<Record<string, boolean>>({})
-  let habitSynthesizeBusy = $state<Record<string, boolean>>({})
+  // Habits (the requests typed again and again) left for ห้องความสามารถ ›
+  // ชุดคำสั่ง on 14 ก.ย. 2026; the one tab left is memory.
+  let learningSubTab = $state<'memory'>('memory')
   let pendingChanges = $state<engine.PendingChange[]>([])
   let decidedChanges = $state<engine.PendingChange[]>([])
   // The decided list is a record, not a queue: nothing is waiting on it and the
@@ -2980,26 +2871,6 @@
     await startChatWith(consultPrompt(c))
   }
 
-  // The three extension pages — skills, MCP, ชุดคำสั่ง — all ask the same thing
-  // of the user, and it is the thing a settings page cannot ask: *what do you
-  // do?* Every road they offer today (a GitHub URL, a .zip, a server address, an
-  // empty editor) requires the user to already know what exists, which is the
-  // real reason the shelf looks bare on a fresh install. A button that starts a
-  // conversation is the only door that does not go stale.
-  //
-  // One function, three prompts, and the prompts live in the locale file because
-  // what is about to be said on the user's behalf should be readable by somebody
-  // who is not reading the code. Their VALUES are English in every locale (see
-  // the note there): the label is for the user, the sentence is for the model.
-  //
-  // onClose() first, exactly as consultIssue does: the new chat is the answer, so
-  // leaving the user on the settings page to discover it would be the wrong
-  // ending.
-  async function askAssistant(promptKey: 'settings.aiFindPresetPrompt') {
-    onClose()
-    await startChatWith(t(promptKey))
-  }
-
   // Reporting is the About page's door with this cluster written into the body:
   // same URL builder, same prefill, same "the user reads the whole thing on
   // GitHub and presses send themselves". A second door would be a second
@@ -3041,7 +2912,6 @@
       learningError = ''
       learningOn = await LearningEnabled()
       sessionReviewAutoOn = await SessionReviewAuto()
-      recurringRequests = (await ListRecurringRequests()) ?? []
       pendingChanges = await ListPendingChanges()
       decidedChanges = await ListDecidedChanges(20)
       const scopes = await LearnedScopeInfos()
@@ -3059,45 +2929,6 @@
     } catch (err) {
       learningError = String(err)
     }
-  }
-
-  async function dismissHabit(req: { text: string; count: number; normalized: string }) {
-    habitDismissBusy[req.normalized] = true
-    try {
-      learningError = ''
-      await DismissRecurringRequest(req.normalized, req.text)
-      recurringRequests = recurringRequests.filter((r) => r.normalized !== req.normalized)
-    } catch (err) {
-      learningError = String(err)
-    } finally {
-      habitDismissBusy[req.normalized] = false
-    }
-  }
-
-  async function synthesizeHabitNow(req: { text: string; count: number; normalized: string }) {
-    habitSynthesizeBusy[req.normalized] = true
-    try {
-      learningError = ''
-      await SynthesizeHabit('', req.text)
-      await loadLearning()
-    } catch (err) {
-      learningError = String(err)
-    } finally {
-      habitSynthesizeBusy[req.normalized] = false
-    }
-  }
-
-  function toggleHabitExpanded(norm: string) {
-    habitExpanded[norm] = !habitExpanded[norm]
-  }
-
-  function convertHabitToPrompt(req: { text: string; count: number; normalized: string }) {
-    openSection('prompts')
-    newPreset()
-    draftBody = req.text
-    const firstWords = req.text.trim().slice(0, 24).replace(/[\s\n\r]+/g, '-').replace(/[^\w\u0E00-\u0E7F-]/g, '').toLowerCase()
-    draftName = firstWords || 'habit-prompt'
-    presetSnapshot = presetDraftKey()
   }
 
   async function adoptScope(scope: string, rootPath: string) {
@@ -3550,7 +3381,10 @@
       // where the work happens rather than what the assistant can reach.
       { id: 'remote', label: t('settings.remote'), icon: 'server',
         terms: ['ssh', 'Linux', t('settings.remoteConnect'), t('settings.remoteAdd')] },
-      { id: 'prompts', label: t('settings.prompts'), icon: 'sparkles', terms: [t('settings.promptNew')] },
+      // ชุดคำสั่ง left this menu 14 ก.ย. 2026 for a heading of its own in
+      // ห้องความสามารถ (Capability.svelte): a preset is the one thing on that
+      // rail the user writes themselves, and it took the Habits tab of
+      // การเรียนรู้ with it as its second row.
     ]},
     { group: t('settings.groupAbout'), items: [
       // First in this group and nowhere near the model sign-ins: those decide
@@ -3704,7 +3538,7 @@
   // wrong one for a page that was merely forgotten. Found 14 ก.ย. 2026 when
   // the tool register's door to เสียง moved rooms and got a test that opens
   // it the way a user does.
-  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'you', 'identity', 'learning', 'issues', 'models', 'main', 'team', 'teams', 'agents', 'voice', 'image', 'studio', 'remote', 'prompts', 'account', 'usage', 'about', 'sponsor'])
+  const SECTION_IDS = new Set(['general', 'appearance', 'avatar', 'you', 'identity', 'learning', 'issues', 'models', 'main', 'team', 'teams', 'agents', 'voice', 'image', 'studio', 'remote', 'account', 'usage', 'about', 'sponsor'])
 
   function restoredSection(): string {
     try {
@@ -3799,33 +3633,6 @@
      where n8n or Windmill lives is written in this codebase — a guess would be
      wrong for everyone it was not written for — and the precedent is an MCP
      stdio server, which has always been a command in a config file. -->
-<!-- The offer that makes an extension page usable by somebody who does not
-     already know what exists.
-
-     Its own card at the top of the page rather than a third button in the row
-     with เปิดโฟลเดอร์ and รีเฟรช: those are janitorial, and no amount of colour
-     makes a hero out of the third item in a utility row. DESIGN.md §1 —
-     ยืมโครงได้ ห้ามยืมเครื่องประดับ — so this is the ordinary set-row shape and
-     the ordinary .ctrl-primary, with position and copy doing the work.
-
-     The button says what pressing it does (opens a chat), not what it hopes will
-     happen. Nothing is installed by pressing it. -->
-{#snippet aiFindCard(titleKey: TKey, descKey: TKey, promptKey: 'settings.aiFindPresetPrompt')}
-  <div class="settings-card">
-    <div class="set-row set-hero">
-      <span class="set-hero-ic"><Icon name="sparkles" size={18} /></span>
-      <div class="set-txt">
-        <div class="t">{t(titleKey)}</div>
-        <div class="d">{t(descKey)}</div>
-      </div>
-      <button class="ctrl ctrl-primary ctrl-icon" onclick={() => askAssistant(promptKey)}>
-        <Icon name="messageSquare" size={13} />
-        {t('settings.aiFind')}
-      </button>
-    </div>
-  </div>
-{/snippet}
-
 <!-- One memory file's heading (11 ก.ย.): whose it is, who reads it, the file,
      and how full it is. The meter is the part that was missing — a full
      profile was a fact only the tool knew, refusing proposals and skipping
@@ -6549,101 +6356,6 @@
         {@render profileListPane(kind)}
       {/if}
 
-    {:else if active === 'prompts'}
-      <h2>{t('settings.prompts')}</h2>
-      <p class="muted set-sub">{t('settings.promptsDesc')}</p>
-
-      {#if editing === null}
-        {@render aiFindCard('settings.aiFindPresetTitle', 'settings.aiFindPresetDesc', 'settings.aiFindPresetPrompt')}
-        <div class="pp-bar">
-          <button class="ctrl" onclick={() => loadPresets()}>{t('settings.refresh')}</button>
-          <button class="ctrl" onclick={() => OpenPromptsFolder()}>{t('settings.promptsFolder')}</button>
-        </div>
-        <div class="pp-grid">
-          <button class="pp-card pp-new" onclick={newPreset}>
-            <span class="pp-plus">+</span>
-            <span class="pp-newtxt">{t('settings.promptNew')}</span>
-          </button>
-          {#each presets as p (p.name)}
-            <button class="pp-card" onclick={() => openPreset(p)}>
-              <span class="pp-cover" style="--h:{coverHue(p.name)}">
-                {#if p.image}
-                  <img src={p.image} alt="" />
-                {:else}
-                  <span class="pp-mono">/{p.name}</span>
-                {/if}
-              </span>
-              <span class="pp-body">
-                <span class="pp-title">
-                  /{p.name}
-                  {#if p.builtin}<span class="badge on">{t('settings.promptBuiltin')}</span>{/if}
-                </span>
-                <span class="pp-desc">{p.description || '—'}</span>
-              </span>
-            </button>
-          {/each}
-        </div>
-        <p class="muted set-sub">{t('settings.promptsHint')}</p>
-      {:else}
-        <div class="pp-bar">
-          <button class="ctrl" onclick={closePresetEditor}><Icon name="arrowLeft" size={14} /> {t('settings.promptBack')}</button>
-          <div class="pp-bar-gap"></div>
-          {#if !editing.builtin && editing.name}
-            <button class="ctrl ctrl-danger" disabled={presetBusy !== ''} onclick={deletePreset}>
-              {t('settings.remove')}
-            </button>
-          {/if}
-          <button class="ctrl ctrl-primary" disabled={presetBusy !== '' || !draftName.trim() || !draftBody.trim()} onclick={savePreset}>
-            {presetBusy === 'save' ? t('settings.installing') : t('settings.promptSave')}
-          </button>
-        </div>
-
-        {#if editing.builtin}
-          <p class="muted set-sub">{t('settings.promptOverrideNote')}</p>
-        {/if}
-
-        <div class="settings-card">
-          <div class="card-form pp-edit">
-            <label class="pp-field">
-              <span class="eyebrow">{t('settings.promptName')}</span>
-              <input class="ctrl" bind:value={draftName} placeholder="landing" disabled={editing.name !== ''} />
-            </label>
-
-            <div class="pp-field">
-              <span class="eyebrow">{t('settings.promptCover')}</span>
-              <div class="pp-coveredit">
-                <span class="pp-cover lg" style="--h:{coverHue(draftName || 'x')}">
-                  {#if draftImage}<img src={draftImage} alt="" />{:else}<span class="pp-mono">/{draftName || '…'}</span>{/if}
-                </span>
-                <div class="pp-coverbtns">
-                  <button class="ctrl" disabled={presetBusy !== ''} onclick={pickImage}>{t('settings.promptPickImage')}</button>
-                  {#if draftImage}
-                    <button class="ctrl" disabled={presetBusy !== ''} onclick={dropImage}>{t('settings.promptDropImage')}</button>
-                  {/if}
-                  <div class="d muted">{t('settings.promptCoverHint')}</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="pp-field">
-              <div class="pp-bodyhead">
-                <span class="eyebrow eyebrow-grow">{t('settings.promptBody')}</span>
-                <button class="ctrl tiny" onclick={insertArguments}>+ $ARGUMENTS</button>
-              </div>
-              <textarea
-                class="ctrl pp-textarea"
-                bind:this={bodyEl}
-                bind:value={draftBody}
-                spellcheck="false"
-                placeholder={t('settings.promptBodyPlaceholder')}
-              ></textarea>
-              <div class="d muted">{t('settings.promptBodyHint')}</div>
-            </div>
-
-            {#if presetError}<div class="mset-error">{presetError}</div>{/if}
-          </div>
-        </div>
-      {/if}
     {:else if active === 'avatar'}
       <AvatarSettings />
     {:else if active === 'teams'}
@@ -7142,18 +6854,6 @@
             <span class="set-subtab-badge">{cockpit.pendingLearned}</span>
           {/if}
         </button>
-        <button
-          type="button"
-          class="set-subtab"
-          class:active={learningSubTab === 'habits'}
-          onclick={() => (learningSubTab = 'habits')}
-        >
-          <Icon name="sparkles" size={14} />
-          <span>{t('settings.learningSubtabHabits')}</span>
-          {#if recurringRequests.length > 0}
-            <span class="set-subtab-badge">{recurringRequests.length}</span>
-          {/if}
-        </button>
       </div>
 
       {#if learningSubTab === 'memory'}
@@ -7206,74 +6906,6 @@
         </div>
       </div>
 
-      {:else if learningSubTab === 'habits'}
-        <h3 class="set-h3">{t('settings.habitsTitle')}</h3>
-        <p class="muted set-sub">{t('settings.habitsDesc')}</p>
-        <div class="settings-card">
-          {#each recurringRequests as req (req.normalized)}
-            <div class="habit-card">
-              <div class="habit-head">
-                <span class="learn-scope">{t('settings.habitsCount', { count: String(req.count) })}</span>
-                <button
-                  type="button"
-                  class="icobtn tiny tip-l mem-forget"
-                  aria-label={t('settings.habitsDismiss')}
-                  data-tip={t('settings.habitsDismiss')}
-                  disabled={habitDismissBusy[req.normalized]}
-                  onclick={() => dismissHabit(req)}
-                >
-                  <Icon name="x" size={13} />
-                </button>
-              </div>
-              <div class="habit-body" class:clamped={!habitExpanded[req.normalized]}>
-                {req.text}
-              </div>
-              {#if req.text.length > 120 || req.text.includes('\n')}
-                <button
-                  type="button"
-                  class="habit-toggle"
-                  onclick={() => toggleHabitExpanded(req.normalized)}
-                >
-                  <Icon name={habitExpanded[req.normalized] ? 'chevronUp' : 'chevronDown'} size={12} />
-                  <span>{habitExpanded[req.normalized] ? t('settings.habitsShowLess') : t('settings.habitsShowMore')}</span>
-                </button>
-              {/if}
-              <div class="habit-foot">
-                <div class="habit-actions">
-                  <button
-                    type="button"
-                    class="ctrl tiny ctrl-primary"
-                    disabled={habitSynthesizeBusy[req.normalized]}
-                    onclick={() => synthesizeHabitNow(req)}
-                  >
-                    <Icon name="sparkles" size={13} />
-                    <span>{habitSynthesizeBusy[req.normalized] ? t('settings.habitsSynthesizing') : t('settings.habitsSynthesize')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="ctrl tiny"
-                    onclick={() => convertHabitToPrompt(req)}
-                  >
-                    <Icon name="terminal" size={13} />
-                    <span>{t('settings.habitsSavePrompt')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="ctrl tiny mem-forget"
-                    disabled={habitDismissBusy[req.normalized]}
-                    onclick={() => dismissHabit(req)}
-                  >
-                    <Icon name="trash" size={13} />
-                    <span>{t('settings.habitsDismiss')}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          {/each}
-          {#if recurringRequests.length === 0}
-            <div class="empty">{t('settings.habitsEmpty')}</div>
-          {/if}
-        </div>
       {/if}
 
     {:else if active === 'issues'}

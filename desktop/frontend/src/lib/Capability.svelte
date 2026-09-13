@@ -86,8 +86,32 @@
   // is on this rail; the register keeps its own row shape (.reg-entry, the
   // settings register's) because it is a register and not a roster.
   //
-  // The registers ตั้งค่า still holds (ชุดคำสั่ง, บัญชี) are the next
-  // headings, moved the same way.
+  // **ชุดคำสั่ง is the heading after เครื่องมือในตัว (14 ก.ย.), two rows,
+  // moved whole out of ตั้งค่า.** The one thing on the rail a user writes
+  // themselves that changes what the assistant does: a prompt preset is a
+  // file the user calls with /ชื่อ. It sits after the three registers of
+  // things that came with the app or were installed, and before the two
+  // reaches out of the app.
+  //
+  //   - **ชุดคำสั่งของคุณ** — the gallery of presets (bundled and the user's,
+  //     ~/.aetox/prompts), the editor on one of them, its cover, the folder,
+  //     and the card that asks the assistant to write one. ตั้งค่า › ชุดคำสั่ง.
+  //   - **คำสั่งที่สั่งบ่อย** — the requests the engine noticed being typed
+  //     again and again across sessions (internal/engine/habits.go), and what
+  //     to do with each: turn it into a preset (the editor one row up, opened
+  //     prefilled), have the optimizer draft a skill or a memory line from
+  //     it, or ignore it. It was the Habits tab of ตั้งค่า › การเรียนรู้,
+  //     because that room's engine detects them; but what a person DOES with
+  //     one is write a preset, and the queue of drafts for a thing lives with
+  //     the thing — the same call ปรับสกิลอัตโนมัติ made the same day.
+  //
+  // The rail's order is MCP · สกิล · เครื่องมือในตัว · ชุดคำสั่ง ·
+  // การใช้คอมพิวเตอร์ · การเชื่อมต่อ: the last two are reaches out of the app
+  // and belong in meaning next to MCP, but were put at the end so the four
+  // rows a person already knew did not move.
+  //
+  // The register ตั้งค่า still holds (บัญชี) is the next heading, moved the
+  // same way.
   //
   // **This room is the ONE place an MCP server is handled.** Rebuilt 12 ก.ย.
   // 2026 after the owner read the previous version against the other rooms
@@ -162,6 +186,8 @@
     OpenComputerApps, AllowComputerApp, ProgramIcon, BrowseForComputerApp,
     Connections, ConnectAccount, SetConnectionTargets, VerifyConnection, DisconnectAccount,
     SetConnectionStartCommand, StartConnectionServer, CheckConnectionServer,
+    ListPromptPresets, OpenPromptsFolder, SavePromptPreset, DeletePromptPreset, PickPresetImage, RemovePresetImage,
+    ListRecurringRequests, DismissRecurringRequest, SynthesizeHabit,
   } from '../../wailsjs/go/main/App'
   import { config, type engine } from '../../wailsjs/go/models'
   import { BrowserOpenURL, EventsOn } from '../../wailsjs/runtime/runtime'
@@ -250,12 +276,13 @@
   // The rail. Opens on ของคุณ when there is anything in it, on ห้องสมุด when
   // there is not: the room's founding point was that an empty register
   // announces nothing, and a full one is what a person came back for.
-  type Page = 'mine' | 'desks' | 'agents' | 'shelf' | 'skills' | 'skagents' | 'skshelf' | 'sktune' | 'tools' | 'computer' | 'connections'
-  // Five headings, one per kind of thing; a new kind is a new heading, never
-  // a tab. The MCP group has four rows, the skill group four, and the tool,
-  // computer and connection groups one each — see the note at the top
-  // for why the skill rail has no placement page per side, why its fourth
-  // row is the tune-up queue rather than one, and why the last three are
+  type Page = 'mine' | 'desks' | 'agents' | 'shelf' | 'skills' | 'skagents' | 'skshelf' | 'sktune' | 'tools' | 'prompts' | 'habits' | 'computer' | 'connections'
+  // Six headings, one per kind of thing; a new kind is a new heading, never
+  // a tab. The MCP group has four rows, the skill group four, the prompt
+  // group two, and the tool, computer and connection groups one each —
+  // see the note at the top for why the skill rail has no placement page per
+  // side, why its fourth row is the tune-up queue rather than one, why the
+  // habits queue is the prompt group's second row, and why the rest are
   // headings of one row.
   type Row = { id: Page; labelKey: TKey; icon: IconName }
   const RAIL: { labelKey: TKey; rows: Row[] }[] = [
@@ -273,6 +300,10 @@
     ] },
     { labelKey: 'capability.navGroupTools', rows: [
       { id: 'tools', labelKey: 'capability.navTools', icon: 'wrench' },
+    ] },
+    { labelKey: 'settings.prompts', rows: [
+      { id: 'prompts', labelKey: 'capability.navPrompts', icon: 'sparkles' },
+      { id: 'habits', labelKey: 'capability.navHabits', icon: 'refreshCw' },
     ] },
     { labelKey: 'settings.computer', rows: [
       { id: 'computer', labelKey: 'capability.navComputer', icon: 'monitor' },
@@ -297,6 +328,8 @@
     if (p === 'sktune') void loadSkillTune()
     if (p === 'computer') void loadComputer()
     if (p === 'connections') void loadConnections()
+    if (p === 'prompts') void loadPresets()
+    if (p === 'habits') void loadHabits()
   }
   // A window per long grid (pageWindow.svelte.ts): the DOM this room asks
   // for at once, rationed. 494 bundled skills is 13,700 nodes in one frame
@@ -720,6 +753,195 @@
     } finally {
       connBusy = ''
     }
+  }
+
+  // ---------- One gate for a loss that has no dialog of its own ----------
+  // The preset editor has two (leaving unsaved work, deleting a file), and a
+  // ConfirmDialog per question is how the room ends up drawing five of them.
+  // ตั้งค่า's askConfirm, the same shape.
+  type PendingConfirm = { title: string; message: string; detail?: string; confirmLabel: string; run: () => void }
+  let pendingConfirm = $state<PendingConfirm | null>(null)
+  const askConfirm = (req: PendingConfirm) => { pendingConfirm = req }
+  function runPendingConfirm() {
+    const req = pendingConfirm
+    pendingConfirm = null
+    req?.run()
+  }
+  // Leaving a full-page editor with unsaved work is the same class of loss as
+  // a delete — the work is gone and nothing says so — so it goes through the
+  // same gate. Dirty is measured against a snapshot taken when the editor
+  // opened.
+  function guardUnsaved(dirty: boolean, leave: () => void) {
+    if (!dirty) { leave(); return }
+    askConfirm({
+      title: t('settings.unsavedTitle'),
+      message: t('settings.unsavedMessage'),
+      confirmLabel: t('settings.unsavedAction'),
+      run: leave,
+    })
+  }
+
+  // ---------- Prompt presets ----------
+  // Moved whole from ตั้งค่า › ชุดคำสั่ง (14 ก.ย. 2026).
+  type PresetRow = { name: string; description: string; body: string; path: string; builtin: boolean; image: string }
+  let presets = $state<PresetRow[]>([])
+  // null = the gallery. Anything else = the editor, on a copy of that preset.
+  let editing = $state<PresetRow | null>(null)
+  let draftName = $state('')
+  let draftBody = $state('')
+  let draftImage = $state('')
+  let presetBusy = $state('')
+  let presetError = $state('')
+  async function loadPresets() {
+    presets = (await ListPromptPresets()) ?? []
+  }
+  const presetDraftKey = () => JSON.stringify([draftName, draftBody, draftImage])
+  let presetSnapshot = ''
+  function openPreset(p: PresetRow) {
+    editing = p
+    draftName = p.name
+    draftBody = p.body
+    draftImage = p.image
+    presetError = ''
+    presetSnapshot = presetDraftKey()
+  }
+  const closePresetEditor = () =>
+    guardUnsaved(presetDraftKey() !== presetSnapshot, () => { editing = null })
+  // A blank 300px textarea tells you nothing about what belongs in it, so a new
+  // preset starts on the skeleton every good prompt shares (role and goal,
+  // hard constraints, where the arguments go) — edit-and-replace beats
+  // stare-at-nothing. `body` and `name` let another row open it prefilled.
+  function newPreset(body = t('settings.promptStarter'), name = '') {
+    editing = { name: '', description: '', body: '', path: '', builtin: false, image: '' }
+    draftName = name
+    draftBody = body
+    draftImage = ''
+    presetError = ''
+    presetSnapshot = presetDraftKey()
+  }
+  // Inserts at the caret, because $ARGUMENTS is the one token a preset cannot
+  // work without and the one nobody remembers how to spell.
+  let bodyEl = $state<HTMLTextAreaElement | null>(null)
+  function insertArguments() {
+    const el = bodyEl
+    if (!el) { draftBody += '$ARGUMENTS'; return }
+    const at = el.selectionStart ?? draftBody.length
+    draftBody = draftBody.slice(0, at) + '$ARGUMENTS' + draftBody.slice(el.selectionEnd ?? at)
+    requestAnimationFrame(() => {
+      el.focus()
+      el.setSelectionRange(at + 10, at + 10)
+    })
+  }
+  async function runPreset(label: string, fn: () => Promise<void>) {
+    presetBusy = label
+    presetError = ''
+    try {
+      await fn()
+    } catch (err) {
+      presetError = String(err)
+    } finally {
+      presetBusy = ''
+    }
+  }
+  const savePreset = () => runPreset('save', async () => {
+    await SavePromptPreset(draftName.trim(), draftBody)
+    await loadPresets()
+    editing = null
+  })
+  const deletePreset = () => askConfirm({
+    title: t('settings.confirmPromptTitle'),
+    message: t('settings.confirmPromptMessage'),
+    detail: '/' + draftName.trim(),
+    confirmLabel: t('settings.confirmDeleteAction'),
+    run: () => runPreset('delete', async () => {
+      await DeletePromptPreset(draftName.trim())
+      await loadPresets()
+      editing = null
+    }),
+  })
+  // A cover can only be attached to a preset that exists on disk, so an unsaved
+  // one is saved first — otherwise the image would have nothing to belong to.
+  const pickImage = () => runPreset('image', async () => {
+    const name = draftName.trim()
+    if (!name) { presetError = t('settings.promptNameFirst'); return }
+    if (!presets.some((p) => p.name === name && !p.builtin)) {
+      await SavePromptPreset(name, draftBody || ' ')
+    }
+    const dataUrl = await PickPresetImage(name)
+    if (dataUrl) draftImage = dataUrl
+    await loadPresets()
+  })
+  const dropImage = () => runPreset('image', async () => {
+    await RemovePresetImage(draftName.trim())
+    draftImage = ''
+    await loadPresets()
+  })
+  // The offer that makes the gallery usable by somebody who does not already
+  // know what exists: every road it offers (an empty editor, a folder)
+  // requires the user to already know what to write, which is why the shelf
+  // looks bare on a fresh install. A button that starts a conversation is the
+  // only door that does not go stale. The sentence lives in the locale file
+  // so what is said on the user's behalf is readable outside the code; its
+  // VALUE is English in every locale — the label is for the user, the
+  // sentence is for the model. onClose() first: the new chat is the answer.
+  async function askForPreset() {
+    onClose()
+    await startChatWith(t('settings.aiFindPresetPrompt'))
+  }
+
+  // ---------- Habits: requests the engine saw typed again and again ----------
+  // Moved whole from the Habits tab of ตั้งค่า › การเรียนรู้ (14 ก.ย. 2026).
+  type Habit = { text: string; count: number; normalized: string }
+  let recurringRequests = $state<Habit[]>([])
+  let habitExpanded = $state<Record<string, boolean>>({})
+  let habitDismissBusy = $state<Record<string, boolean>>({})
+  let habitSynthesizeBusy = $state<Record<string, boolean>>({})
+  let habitError = $state('')
+  let habitMsg = $state('')
+  async function loadHabits() {
+    try {
+      habitError = ''
+      recurringRequests = (await ListRecurringRequests()) ?? []
+    } catch (err) {
+      habitError = String(err)
+    }
+  }
+  async function dismissHabit(req: Habit) {
+    habitDismissBusy[req.normalized] = true
+    try {
+      habitError = ''
+      await DismissRecurringRequest(req.normalized, req.text)
+      recurringRequests = recurringRequests.filter((r) => r.normalized !== req.normalized)
+    } catch (err) {
+      habitError = String(err)
+    } finally {
+      habitDismissBusy[req.normalized] = false
+    }
+  }
+  // The optimizer drafts a skill or a memory line from the cluster; the draft
+  // lands in the learning queue (a PendingChange), not here — so the page says
+  // where it went rather than reloading a list that does not show it.
+  async function synthesizeHabitNow(req: Habit) {
+    habitSynthesizeBusy[req.normalized] = true
+    habitMsg = ''
+    try {
+      habitError = ''
+      await SynthesizeHabit('', req.text)
+      habitMsg = t('settings.habitsSynthesizeSuccess')
+      await loadHabits()
+    } catch (err) {
+      habitError = String(err)
+    } finally {
+      habitSynthesizeBusy[req.normalized] = false
+    }
+  }
+  const toggleHabitExpanded = (norm: string) => { habitExpanded[norm] = !habitExpanded[norm] }
+  // The row one up, opened on a new preset whose body is the request: the
+  // thing a person does with a habit is stop typing it.
+  function convertHabitToPrompt(req: Habit) {
+    const firstWords = req.text.trim().slice(0, 24).replace(/[\s\n\r]+/g, '-').replace(/[^\w\u0E00-\u0E7F-]/g, '').toLowerCase()
+    goPage('prompts')
+    newPreset(req.text, firstWords || 'habit-prompt')
   }
 
   onMount(async () => {
@@ -1864,6 +2086,202 @@
         {/if}
       {/if}
 
+      <!-- ================= ชุดคำสั่งของคุณ ================= -->
+      <!-- Moved whole from ตั้งค่า › ชุดคำสั่ง (14 ก.ย. 2026): the gallery,
+           the editor on one card, and the card at the top that asks the
+           assistant to write one. -->
+      {#if page === 'prompts'}
+        <h2>{t('settings.prompts')}</h2>
+        <p class="muted set-sub">{t('settings.promptsDesc')}</p>
+
+        {#if editing === null}
+          <!-- Its own card at the top of the page rather than a third button in
+               the row with เปิดโฟลเดอร์ and รีเฟรช: those are janitorial, and no
+               amount of colour makes a hero out of the third item in a utility
+               row. DESIGN.md §1 — ยืมโครงได้ ห้ามยืมเครื่องประดับ — so this is
+               the ordinary set-row shape and the ordinary .ctrl-primary, with
+               position and copy doing the work. The button says what pressing
+               it does (opens a chat), not what it hopes will happen. -->
+          <div class="settings-card">
+            <div class="set-row set-hero">
+              <span class="set-hero-ic"><Icon name="sparkles" size={18} /></span>
+              <div class="set-txt">
+                <div class="t">{t('settings.aiFindPresetTitle')}</div>
+                <div class="d">{t('settings.aiFindPresetDesc')}</div>
+              </div>
+              <button class="ctrl ctrl-primary ctrl-icon" onclick={askForPreset}>
+                <Icon name="messageSquare" size={13} />
+                {t('settings.aiFind')}
+              </button>
+            </div>
+          </div>
+          <div class="pp-bar">
+            <button class="ctrl" onclick={() => loadPresets()}>{t('settings.refresh')}</button>
+            <button class="ctrl" onclick={() => OpenPromptsFolder()}>{t('settings.promptsFolder')}</button>
+          </div>
+          <div class="pp-grid">
+            <button class="pp-card pp-new" onclick={() => newPreset()}>
+              <span class="pp-plus">+</span>
+              <span class="pp-newtxt">{t('settings.promptNew')}</span>
+            </button>
+            {#each presets as p (p.name)}
+              <button class="pp-card" onclick={() => openPreset(p)}>
+                <span class="pp-cover" style="--h:{coverHue(p.name)}">
+                  {#if p.image}
+                    <img src={p.image} alt="" />
+                  {:else}
+                    <span class="pp-mono">/{p.name}</span>
+                  {/if}
+                </span>
+                <span class="pp-body">
+                  <span class="pp-title">
+                    /{p.name}
+                    {#if p.builtin}<span class="badge on">{t('settings.promptBuiltin')}</span>{/if}
+                  </span>
+                  <span class="pp-desc">{p.description || '—'}</span>
+                </span>
+              </button>
+            {/each}
+          </div>
+          <p class="muted set-sub">{t('settings.promptsHint')}</p>
+        {:else}
+          <div class="pp-bar">
+            <button class="ctrl" onclick={closePresetEditor}><Icon name="arrowLeft" size={14} /> {t('settings.promptBack')}</button>
+            <div class="pp-bar-gap"></div>
+            {#if !editing.builtin && editing.name}
+              <button class="ctrl ctrl-danger" disabled={presetBusy !== ''} onclick={deletePreset}>
+                {t('settings.remove')}
+              </button>
+            {/if}
+            <button class="ctrl ctrl-primary" disabled={presetBusy !== '' || !draftName.trim() || !draftBody.trim()} onclick={savePreset}>
+              {presetBusy === 'save' ? t('settings.installing') : t('settings.promptSave')}
+            </button>
+          </div>
+
+          {#if editing.builtin}
+            <p class="muted set-sub">{t('settings.promptOverrideNote')}</p>
+          {/if}
+
+          <div class="settings-card">
+            <div class="card-form pp-edit">
+              <label class="pp-field">
+                <span class="eyebrow">{t('settings.promptName')}</span>
+                <input class="ctrl" bind:value={draftName} placeholder="landing" disabled={editing.name !== ''} />
+              </label>
+
+              <div class="pp-field">
+                <span class="eyebrow">{t('settings.promptCover')}</span>
+                <div class="pp-coveredit">
+                  <span class="pp-cover lg" style="--h:{coverHue(draftName || 'x')}">
+                    {#if draftImage}<img src={draftImage} alt="" />{:else}<span class="pp-mono">/{draftName || '…'}</span>{/if}
+                  </span>
+                  <div class="pp-coverbtns">
+                    <button class="ctrl" disabled={presetBusy !== ''} onclick={pickImage}>{t('settings.promptPickImage')}</button>
+                    {#if draftImage}
+                      <button class="ctrl" disabled={presetBusy !== ''} onclick={dropImage}>{t('settings.promptDropImage')}</button>
+                    {/if}
+                    <div class="d muted">{t('settings.promptCoverHint')}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pp-field">
+                <div class="pp-bodyhead">
+                  <span class="eyebrow eyebrow-grow">{t('settings.promptBody')}</span>
+                  <button class="ctrl tiny" onclick={insertArguments}>+ $ARGUMENTS</button>
+                </div>
+                <textarea
+                  class="ctrl pp-textarea"
+                  bind:this={bodyEl}
+                  bind:value={draftBody}
+                  spellcheck="false"
+                  placeholder={t('settings.promptBodyPlaceholder')}
+                ></textarea>
+                <div class="d muted">{t('settings.promptBodyHint')}</div>
+              </div>
+
+              {#if presetError}<div class="mset-error">{presetError}</div>{/if}
+            </div>
+          </div>
+        {/if}
+      {/if}
+
+      <!-- ================= คำสั่งที่สั่งบ่อย ================= -->
+      <!-- Moved whole from the Habits tab of ตั้งค่า › การเรียนรู้ (14 ก.ย.
+           2026). One card per cluster the engine noticed; its three verbs are
+           the three things a person can do about a request they keep typing. -->
+      {#if page === 'habits'}
+        <h2>{t('settings.habitsTitle')}</h2>
+        <p class="muted set-sub">{t('settings.habitsDesc')}</p>
+        {#if habitError}<div class="mset-error">{habitError}</div>{/if}
+        {#if habitMsg}<p class="muted set-sub">{habitMsg}</p>{/if}
+        <div class="settings-card">
+          {#each recurringRequests as req (req.normalized)}
+            <div class="habit-card">
+              <div class="habit-head">
+                <span class="learn-scope">{t('settings.habitsCount', { count: String(req.count) })}</span>
+                <button
+                  type="button"
+                  class="icobtn tiny tip-l mem-forget"
+                  aria-label={t('settings.habitsDismiss')}
+                  data-tip={t('settings.habitsDismiss')}
+                  disabled={habitDismissBusy[req.normalized]}
+                  onclick={() => dismissHabit(req)}
+                >
+                  <Icon name="x" size={13} />
+                </button>
+              </div>
+              <div class="habit-body" class:clamped={!habitExpanded[req.normalized]}>
+                {req.text}
+              </div>
+              {#if req.text.length > 120 || req.text.includes('\n')}
+                <button
+                  type="button"
+                  class="habit-toggle"
+                  onclick={() => toggleHabitExpanded(req.normalized)}
+                >
+                  <Icon name={habitExpanded[req.normalized] ? 'chevronUp' : 'chevronDown'} size={12} />
+                  <span>{habitExpanded[req.normalized] ? t('settings.habitsShowLess') : t('settings.habitsShowMore')}</span>
+                </button>
+              {/if}
+              <div class="habit-foot">
+                <div class="habit-actions">
+                  <button
+                    type="button"
+                    class="ctrl tiny ctrl-primary"
+                    disabled={habitSynthesizeBusy[req.normalized]}
+                    onclick={() => synthesizeHabitNow(req)}
+                  >
+                    <Icon name="sparkles" size={13} />
+                    <span>{habitSynthesizeBusy[req.normalized] ? t('settings.habitsSynthesizing') : t('settings.habitsSynthesize')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="ctrl tiny"
+                    onclick={() => convertHabitToPrompt(req)}
+                  >
+                    <Icon name="terminal" size={13} />
+                    <span>{t('settings.habitsSavePrompt')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="ctrl tiny mem-forget"
+                    disabled={habitDismissBusy[req.normalized]}
+                    onclick={() => dismissHabit(req)}
+                  >
+                    <Icon name="trash" size={13} />
+                    <span>{t('settings.habitsDismiss')}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          {/each}
+          {#if recurringRequests.length === 0}
+            <div class="empty">{t('settings.habitsEmpty')}</div>
+          {/if}
+        </div>
+      {/if}
+
       <!-- ================= การใช้คอมพิวเตอร์ ================= -->
       <!-- Moved whole from ตั้งค่า › การใช้คอมพิวเตอร์ (14 ก.ย. 2026). Rows are
            REACHES, not apps (direction doc §4.2). A row is here because a
@@ -2606,6 +3024,17 @@
     confirmLabel={t('settings.ghDisconnect')}
     onConfirm={disconnectConfirmed}
     onCancel={() => (confirmConn = null)}
+  />
+{/if}
+{#if pendingConfirm}
+  {@const req = pendingConfirm}
+  <ConfirmDialog
+    title={req.title}
+    message={req.message}
+    detail={req.detail ?? ''}
+    confirmLabel={req.confirmLabel}
+    onConfirm={runPendingConfirm}
+    onCancel={() => (pendingConfirm = null)}
   />
 {/if}
 
