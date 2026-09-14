@@ -7847,6 +7847,7 @@ button.phase-head:hover { color:var(--text-muted); }
 .follow-row { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
 .follow-row .ctrl { display:inline-flex; align-items:center; gap:6px; }
 .settings-page .key-input { flex:1; min-width:0; }
+.settings-page .chair-name-edit { flex:1; display:flex; gap:8px; min-width:0; }
 
 /* Button hierarchy. .ctrl alone used to be every button, input, select and file
    label on the page, so "Save" and "Remove" and "Back" carried identical weight

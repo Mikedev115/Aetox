@@ -6638,8 +6638,15 @@
                 <div class="t">{t('settings.mainHeadName')}</div>
                 <div class="d">{t('settings.mainHeadNameHint', { desk: headLabel(h) })}</div>
               </div>
-              <input class="ctrl key-input" placeholder="Aetox" bind:value={headNameDraft}
-                onchange={() => saveHeadName(h)} aria-label={t('settings.mainHeadName')} />
+              <!-- A button, not save-on-blur (owner, 14 ก.ย. 2026: "ควรจะมี กดบันทึก
+                   ด้วยปุ่ม"): the name reaches every open chat's prompt the
+                   moment it lands, so landing is a deliberate press. -->
+              <div class="chair-name-edit">
+                <input class="ctrl key-input" placeholder="Aetox" bind:value={headNameDraft}
+                  onkeydown={(e) => { if (e.key === 'Enter') saveHeadName(h) }} aria-label={t('settings.mainHeadName')} />
+                <button type="button" class="ctrl ctrl-primary" disabled={headNameDraft.trim() === (headNames[h] ?? '')}
+                  onclick={() => saveHeadName(h)}>{t('settings.save')}</button>
+              </div>
             </div>
           </div>
           <h3 class="set-h3">{t('settings.mainDeskFile')}</h3>
