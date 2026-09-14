@@ -139,7 +139,7 @@ func (s *browserSkill) ToolDefinition() model.ToolDefinition {
 		"wait":    "`wait` (text, seconds?) — wait until that text appears.",
 		"back":    "`back` — return to the previous page in this tab.",
 		"scroll":  "`scroll` (to: down|up|top|bottom, screens) — move the page N screens; add ref or x,y and it is a real mouse wheel over that point instead, for canvas and virtualised apps.",
-		"capture": "`capture` (full?, marks?) — a picture of the page; full=true photographs the whole document instead of the visible part, marks=true draws each element's ref onto it so you can click by number instead of by pixel.",
+		"capture": "`capture` (full?, marks?) — a picture of the page, only for what `read` cannot show (a chart, a canvas, a map, a layout you doubt); never to check that a click or type landed, the answer already says. full=true photographs the whole document instead of the visible part, marks=true draws each element's ref onto it so you can click by number instead of by pixel.",
 		"tabs":    "`tabs` (act: list|select|close, id) — your own tabs.",
 		"dialog":  "`dialog` (accept, text?) — answer this page's next alert/confirm/prompt.",
 		"console": "`console` — what this page logged, threw, or had blocked since it loaded.",
