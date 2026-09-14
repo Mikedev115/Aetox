@@ -545,9 +545,9 @@ func (e *localEngine) connect(ctx context.Context, p *engineProcess) error {
 
 // elsewhere reports whether the engine's disk is another machine's: a host
 // over ssh always; an engine attached by hand (AETOX_ENGINE_ADDR) when its
-// hello says another OS — first, because WSL answers with the Windows
-// machine's own hostname (seen on the owner's PC, 14 ก.ย. 2026) — or, on the
-// same OS, another hostname. A child of this process never is.
+// hello says another OS — first, because two machines can share a name:
+// the owner's WSL and his Windows are both "Mikedev" (14 ก.ย. 2026) — or, on
+// the same OS, another hostname. A child of this process never is.
 func (e *localEngine) elsewhere() bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()

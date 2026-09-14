@@ -278,7 +278,8 @@ func TestAnAttachedEngineIsElsewhereOnlyWhenItsHelloNamesAnotherMachine(t *testi
 	if runtime.GOOS != "linux" && !a.engineOnHost() {
 		t.Error("an engine on another OS, with no hostname to give, was taken for this machine")
 	}
-	// WSL answers with THIS machine's hostname: the OS decides before the name.
+	// Two machines with one name (the owner's WSL and Windows are both
+	// "Mikedev"): the OS decides before the name.
 	a.engine.hello = rpc.HelloResult{OS: "linux", Hostname: here}
 	if runtime.GOOS != "linux" && !a.engineOnHost() {
 		t.Error("a WSL engine wearing this machine's hostname was taken for this machine")
