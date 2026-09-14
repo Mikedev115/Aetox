@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Mikedev115/Aetox/internal/skill"
 )
 
 // ask_user must reject calls that would render an unanswerable prompt.
@@ -208,6 +210,71 @@ func TestApproveToolCallCancelDenies(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("cancel did not unblock the approval")
+	}
+}
+
+// A question nobody answers ends on its own after askPatience, and what the
+// model reads asks it to close the turn — not to wait, not to re-ask, not to
+// choose for the user. The slot is freed so the user's eventual reply is a
+// normal message and not a stale click into a dead channel.
+func TestAskUserUnansweredAsksTheModelToClose(t *testing.T) {
+	old := askPatience
+	askPatience = 30 * time.Millisecond
+	defer func() { askPatience = old }()
+
+	app := &Engine{}
+	s := &askUserSkill{app: app, conv: app.cur()}
+	type result struct {
+		out skill.Output
+		err error
+	}
+	done := make(chan result, 1)
+	go func() {
+		out, err := s.ExecuteTool(context.Background(), map[string]any{
+			"question": "deploy now or wait?",
+			"options":  []any{"deploy", "wait"},
+		})
+		done <- result{out, err}
+	}()
+	select {
+	case r := <-done:
+		if r.err != nil {
+			t.Fatalf("patience running out is not a tool error, got %v", r.err)
+		}
+		if r.out.Success {
+			t.Fatal("an unanswered question must not read as answered")
+		}
+		for _, want := range []string{"NO ANSWER", "Do NOT call ask_user again", "deploy now or wait?", "deploy / wait", "Then stop"} {
+			if !strings.Contains(r.out.Content, want) {
+				t.Errorf("receipt lacks %q:\n%s", want, r.out.Content)
+			}
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("patience never ran out")
+	}
+	if app.cur().askCh != nil {
+		t.Fatal("ask slot must be cleared after patience runs out")
+	}
+}
+
+// The permission question keeps the same patience, and says so in the error
+// the model reads — a plain denial would send it looking for another way to
+// run the command.
+func TestApproveToolCallUnansweredIsNotADenial(t *testing.T) {
+	old := askPatience
+	askPatience = 30 * time.Millisecond
+	defer func() { askPatience = old }()
+
+	app := &Engine{}
+	ok, err := app.approveToolCall(app.cur(), context.Background(), "shell rm -rf build", "")
+	if ok {
+		t.Fatal("no answer must not approve")
+	}
+	if err == nil || !strings.Contains(err.Error(), "NO ANSWER") || !strings.Contains(err.Error(), "rm -rf build") {
+		t.Fatalf("the model must be told nobody answered, got %v", err)
+	}
+	if app.cur().askCh != nil {
+		t.Fatal("ask slot must be cleared after patience runs out")
 	}
 }
 

@@ -19,6 +19,9 @@ func main() {
 	// Every child this app ever spawns (MCP servers, shells, git, npx chains)
 	// must die with it — even on force-kill. See ARCHITECTURE.md §24.5.
 	proc.KillTreeOnExit()
+	// Whatever Wails or the standard logger would have said to a stdout this
+	// build does not have, said to our log instead (wails_log.go).
+	routeStrayLogs()
 
 	// Create an instance of the app structure
 	app := NewApp()
@@ -49,6 +52,7 @@ func main() {
 		// too late for a turn to say how it ended.
 		OnBeforeClose: app.beforeClose,
 		OnShutdown:    app.shutdown,
+		Logger:        wailsLog{},
 		Bind: []interface{}{
 			app,
 		},

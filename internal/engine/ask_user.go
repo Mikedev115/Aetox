@@ -172,6 +172,38 @@ func (s *askUserSkill) Execute(ctx context.Context, input skill.Input) (skill.Ou
 	return s.ask(ctx, strings.TrimSpace(question), nil)
 }
 
+// askPatience is how long a question waits for a person before the turn is
+// asked to close on its own. Until 14 ก.ย. 2026 there was no limit: the tool is
+// in noDeadlineTools (internal/turn/executor.go), so a question nobody
+// answered was a turn that sat open forever — and that afternoon's incident
+// report had exactly that shape: the worker finished, the main assistant
+// asked, the person had gone to eat, and the last line of the engine log was
+// the ask_user call with no result. Whatever closed the app that day did it to
+// a turn that had been waiting with nothing written down. The owner's
+// answer: *"หากผู้ใช้ไม่ยอมตอบ ask_user ให้มันขอหยุดแต่โดยดี"*.
+//
+// So the wait ends, and the model is handed the tool's answer — not the
+// person's — and asked to close: say what is finished, restate the question,
+// stop. The person's reply, when it comes, is a normal message and starts the
+// next turn. Half an hour is a meal, not a nap: long enough that the flash and
+// the toast (desktop/attention.go) have had their chance, short enough that a
+// turn does not hold its context and its unsaved transcript open all night.
+// Var so tests can shrink it.
+var askPatience = 30 * time.Minute
+
+// unansweredReceipt is what the model reads when askPatience ran out. It
+// names the question and options again so the closing note can, and says
+// plainly not to wait a second time — a model that re-asks would wait another
+// half hour for this same line.
+func unansweredReceipt(question string, options []string) string {
+	return fmt.Sprintf(
+		"NO ANSWER — the user has not answered in %s; they are away from the screen. "+
+			"Do NOT call ask_user again this turn (it would only wait another %s and return this same line), and do not pick an option on their behalf. "+
+			"Close the turn on your own now: write a short note that says what is finished, what is waiting on this question, and repeat the question with its options in one line so it can be answered by typing — question: %q, options: %s. Then stop. "+
+			"Their reply, whenever it comes, will arrive as the next message.",
+		askPatience, askPatience, question, strings.Join(options, " / "))
+}
+
 func (s *askUserSkill) ask(ctx context.Context, question string, options []string) (skill.Output, error) {
 	start := time.Now()
 	fail := func(err error) (skill.Output, error) {
@@ -198,6 +230,16 @@ func (s *askUserSkill) ask(ctx context.Context, question string, options []strin
 	defer s.app.endUserQuestion(s.conv)
 
 	select {
+	case <-time.After(askPatience):
+		// Not fail(): nothing broke, so no error for the loop to count. The
+		// row is red all the same (Success false), because "no answer" is the
+		// truth about this call and a green row would read as answered.
+		msg := unansweredReceipt(question, options)
+		return skill.Output{
+			Name: "ask_user", Command: "ask_user " + question, Success: false,
+			Content: msg, RawOutput: msg,
+			DurationMs: time.Since(start).Milliseconds(),
+		}, nil
 	case answer := <-answerCh:
 		receipt := fmt.Sprintf("user chose: %s", answer)
 		return skill.Output{
@@ -241,6 +283,16 @@ func (a *Engine) approveToolCall(conv *conversation, ctx context.Context, comman
 	}
 	defer a.endUserQuestion(conv)
 	select {
+	case <-time.After(askPatience):
+		// The same patience as ask_user, for the same reason: a permission
+		// nobody is there to grant is not a denial, and it is not a wait
+		// either. An error rather than a plain false, because "blocked by
+		// user" is the wrong story — it makes the model try another road, and
+		// the person who could open this one has left the room.
+		return false, fmt.Errorf(
+			"NO ANSWER — the user has not answered the permission question for `%s` in %s; they are away from the screen. "+
+				"Do not run it another way, do not ask again this turn. Close the turn: say what is finished, what is waiting on this permission, and stop. Their reply will arrive as the next message.",
+			command, askPatience)
 	case answer := <-ch:
 		return answer == approvalAllow, nil
 	case <-ctx.Done():

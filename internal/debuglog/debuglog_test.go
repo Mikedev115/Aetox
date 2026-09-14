@@ -3,6 +3,7 @@ package debuglog
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -115,5 +116,50 @@ func TestRedactIgnoresValuesTooShortToBeSecrets(t *testing.T) {
 	raw, _ := os.ReadFile(filepath.Join(dir, "log.txt"))
 	if !strings.Contains(string(raw), "locale is th") {
 		t.Errorf("a two-character value was treated as a secret:\n%s", raw)
+	}
+}
+
+// A panic nobody recovers must leave its trace in crash-<prefix>-*.txt, and
+// the empty file a clean run leaves behind must be swept by the next start.
+// The dying is done by a child copy of this test binary: a panic in the test
+// process itself would end the run, which is the problem being pinned.
+func TestUnrecoveredPanicWritesTheCrashFile(t *testing.T) {
+	dir := t.TempDir()
+	if os.Getenv("DEBUGLOG_CRASH_CHILD") == "1" {
+		InitAs(os.Getenv("DEBUGLOG_CRASH_DIR"), "child")
+		go func() { panic("boom from a goroutine nobody watched") }()
+		time.Sleep(5 * time.Second)
+		t.Fatal("the child was meant to die of the panic")
+	}
+	// A stale empty from a "previous run", to be swept.
+	logs := filepath.Join(dir, "logs")
+	if err := os.MkdirAll(logs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stale := filepath.Join(logs, "crash-child-20000101-000000.txt")
+	if err := os.WriteFile(stale, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=^TestUnrecoveredPanicWritesTheCrashFile$")
+	cmd.Env = append(os.Environ(), "DEBUGLOG_CRASH_CHILD=1", "DEBUGLOG_CRASH_DIR="+dir)
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("the child must exit non-zero from the panic; output:\n%s", out)
+	}
+
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Errorf("the empty crash file from the earlier run must be swept, stat err = %v", err)
+	}
+	files, _ := filepath.Glob(filepath.Join(logs, "crash-child-*.txt"))
+	if len(files) != 1 {
+		t.Fatalf("want exactly one crash file, got %v", files)
+	}
+	trace, err := os.ReadFile(files[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(trace), "boom from a goroutine nobody watched") || !strings.Contains(string(trace), "goroutine ") {
+		t.Fatalf("crash file must carry the panic and its stack, got:\n%s", trace)
 	}
 }

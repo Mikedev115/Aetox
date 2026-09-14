@@ -7,8 +7,10 @@ package main
 // the app had lived inside the window: a dot on a row in the sidebar, a card in
 // one chat's transcript. A person in another program, or with the window
 // minimised, or reading a different chat, was told nothing — and `ask_user`
-// waits with no deadline (internal/turn/executor.go, noDeadlineTools), so a
-// question nobody was told about is a turn that sits forever.
+// waited with no deadline (internal/turn/executor.go, noDeadlineTools), so a
+// question nobody was told about was a turn that sat forever. Since 14 ก.ย. it
+// sits for askPatience (internal/engine/ask_user.go) and then asks the model to
+// close the turn; these signals are what make that half hour usually enough.
 //
 // Owner again, 13 ก.ย., a day after the first two signals shipped: *"เวลาเราทิ้ง
 // ให้มันทำงานมันไม่มีแจ้งเตือนครับ คนไม่รู้"*. A taskbar button flashing and two
