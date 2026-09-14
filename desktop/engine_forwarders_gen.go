@@ -223,6 +223,10 @@ func (a *App) ConsolidateMemory(scope string) (engine.MemoryConsolidation, error
 	return a.api.ConsolidateMemory(scope)
 }
 
+func (a *App) ContinueInNewSession(sessionID string, points []string) (string, error) {
+	return a.api.ContinueInNewSession(sessionID, points)
+}
+
 func (a *App) CopySkillToAgent(agent string, name string) error {
 	return a.api.CopySkillToAgent(agent, name)
 }
@@ -317,6 +321,10 @@ func (a *App) DismissRecurringRequest(normalized string, sampleText string) erro
 
 func (a *App) DismissTaskChip(id string) {
 	a.api.DismissTaskChip(id)
+}
+
+func (a *App) DraftHandoff(sessionID string) ([]string, error) {
+	return a.api.DraftHandoff(sessionID)
 }
 
 func (a *App) EnabledProviders() []string {

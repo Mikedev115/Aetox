@@ -2035,6 +2035,20 @@ export namespace engine {
 	        this.truncated = source["truncated"];
 	    }
 	}
+	export class SessionOrigin {
+	    id: string;
+	    title: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SessionOrigin(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.title = source["title"];
+	    }
+	}
 	export class SessionMessage {
 	    id?: number;
 	    role: string;
@@ -2047,6 +2061,7 @@ export namespace engine {
 	    active?: number;
 	    parts?: turn.TurnPart[];
 	    errorText?: string;
+	    origin?: SessionOrigin;
 	
 	    static createFrom(source: any = {}) {
 	        return new SessionMessage(source);
@@ -2065,6 +2080,7 @@ export namespace engine {
 	        this.active = source["active"];
 	        this.parts = this.convertValues(source["parts"], turn.TurnPart);
 	        this.errorText = source["errorText"];
+	        this.origin = this.convertValues(source["origin"], SessionOrigin);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -2095,6 +2111,7 @@ export namespace engine {
 	    space?: string;
 	    projectKey?: string;
 	    projectName?: string;
+	    continuedFrom?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SessionMeta(source);
@@ -2111,8 +2128,10 @@ export namespace engine {
 	        this.space = source["space"];
 	        this.projectKey = source["projectKey"];
 	        this.projectName = source["projectName"];
+	        this.continuedFrom = source["continuedFrom"];
 	    }
 	}
+	
 	export class SessionSpend {
 	    in: number;
 	    out: number;

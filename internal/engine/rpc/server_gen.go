@@ -286,6 +286,14 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		}
 		r0, err := e.ConsolidateMemory(p0)
 		return r0, err, true
+	case "ContinueInNewSession":
+		var p0 string
+		var p1 []string
+		if err := decodeParams(params, &p0, &p1); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.ContinueInNewSession(p0, p1)
+		return r0, err, true
 	case "CopySkillToAgent":
 		var p0 string
 		var p1 string
@@ -426,6 +434,13 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		}
 		e.DismissTaskChip(p0)
 		return nil, nil, true
+	case "DraftHandoff":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.DraftHandoff(p0)
+		return r0, err, true
 	case "EnabledProviders":
 		return e.EnabledProviders(), nil, true
 	case "EnginesFor":

@@ -122,8 +122,13 @@ func renderChatMarkdown(e chatExport) string {
 	b.WriteString(fmt.Sprintf("ส่งออกจาก Aetox — %s\n", exportTimeLabel(time.Now().Format(time.RFC3339))))
 	for _, m := range e.Messages {
 		who := "Aetox"
-		if m.Role == "user" {
+		switch m.Role {
+		case "user":
 			who = "คุณ"
+		case handoffRole:
+			// The points a continued chat opened on (§282): said by neither
+			// side, so headed as what it is.
+			who = "ต่อจากแชทก่อนหน้า"
 		}
 		b.WriteString("\n## " + who)
 		if label := exportTimeLabel(m.Time); label != "" {
@@ -239,7 +244,9 @@ func (a *Engine) ImportSessionFrom(path string) (string, error) {
 	}
 	var messages []chatExportMessage
 	for _, m := range e.Messages {
-		if m.Role == "user" || m.Role == "agent" {
+		// A handoff row (§282) comes along as the opening it was; the link
+		// to its origin does not, since that chat is not in the file.
+		if m.Role == "user" || m.Role == "agent" || m.Role == handoffRole {
 			messages = append(messages, m)
 		}
 	}

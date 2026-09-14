@@ -390,6 +390,10 @@ export function ConsolidateMemory(arg1) {
   return window['go']['main']['App']['ConsolidateMemory'](arg1);
 }
 
+export function ContinueInNewSession(arg1, arg2) {
+  return window['go']['main']['App']['ContinueInNewSession'](arg1, arg2);
+}
+
 export function CopySkillToAgent(arg1, arg2) {
   return window['go']['main']['App']['CopySkillToAgent'](arg1, arg2);
 }
@@ -496,6 +500,10 @@ export function DismissRecurringRequest(arg1, arg2) {
 
 export function DismissTaskChip(arg1) {
   return window['go']['main']['App']['DismissTaskChip'](arg1);
+}
+
+export function DraftHandoff(arg1) {
+  return window['go']['main']['App']['DraftHandoff'](arg1);
 }
 
 export function EnabledProviders() {

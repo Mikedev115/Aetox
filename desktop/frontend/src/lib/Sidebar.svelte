@@ -654,6 +654,13 @@
          inch of empty space to its right. A list whose rows cannot say what
          they are is not a history. -->
     <span class="sess-line">
+      {#if s.continuedFrom}
+        <!-- A sequel (§282) wears its origin's title; the mark is what keeps
+             two rows with one title from reading as a chat listed twice. -->
+        <span class="session-sequel" role="img" title={t('sidebar.chatContinued')} aria-label={t('sidebar.chatContinued')}>
+          <Icon name="messageSquareShare" size={11} />
+        </span>
+      {/if}
       <span class="t">{s.title}</span>
       <!-- One dot, two states, and the row's whole report on the work in it.
            Green while a turn is running, amber once one has finished in a chat

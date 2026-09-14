@@ -57,7 +57,8 @@
     retryFailedTurn, editFailedTurn, regenerateReply, switchVariant, resendEdited, rateReply,
     setActiveView, newSessionAt, openCapabilityAt, setStance,
     sendUserMessage, liveThinkSecs,
-    preparedText, nextPrepared, clearPrepared, startPlanRun, stopPlanRun, pausePlanRun, resumePlanRun } from './stores/cockpit.svelte'
+    preparedText, nextPrepared, clearPrepared, startPlanRun, stopPlanRun, pausePlanRun, resumePlanRun,
+    draftHandoff, confirmHandoff, cancelHandoff, toggleHandoffPoint, selectSession } from './stores/cockpit.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import MemoryCard from './MemoryCard.svelte'
   import CodeDiff from './CodeDiff.svelte'
@@ -2075,6 +2076,19 @@
   // transcript whose middle has been replaced.
   const lastIndex = $derived(messages.length - 1)
   const canRerun = $derived(!awaitingReply && !cockpit.ask)
+
+  // "สรุปแล้วไปเริ่มแชทใหม่" (§282). The card is the chat's own: drawn only
+  // under the conversation it was drafted for, so a list about one chat never
+  // sits under another (the arriveAt rule, one more time).
+  const handoff = $derived(cockpit.handoff?.session === cockpit.openSession ? cockpit.handoff : null)
+  const handoffPicked = $derived(handoff ? handoff.picked.filter(Boolean).length : 0)
+  /** The handoff row's text is a markdown list; the card draws it as one. */
+  function handoffPoints(text: string): string[] {
+    return text.split('\n').map((l) => l.replace(/^\s*[-*•]\s*/, '').trim()).filter(Boolean)
+  }
+  function openOrigin(origin: { id: string; title: string }) {
+    void selectSession({ id: origin.id, title: origin.title, ago: '' })
+  }
   // Editing the question re-runs the exchange, which only works when there is a
   // recorded exchange to replace.
   const canEditLast = $derived(
@@ -4506,6 +4520,29 @@
         </div>
       {/if}
       {#each messages as m, i}
+        {#if m.role === 'handoff'}
+          <!-- The one row a continued chat starts with (§282): the points the
+               user chose to carry over, and the chat they came from. A card,
+               not a bubble of either side — nobody said this here. -->
+          <div class="msg bot handoff-row">
+            <div class="bubble handoff-card">
+              <div class="handoff-head">
+                <Icon name="messageSquareShare" size={13} />
+                <span>{t('chat.handoffFrom')}</span>
+                {#if m.origin}
+                  <button type="button" class="handoff-origin" onclick={() => openOrigin(m.origin!)}>
+                    {m.origin.title || t('chat.handoffOriginGone')}
+                  </button>
+                {/if}
+              </div>
+              <ul class="handoff-points">
+                {#each handoffPoints(m.text) as p}
+                  <li>{p}</li>
+                {/each}
+              </ul>
+            </div>
+          </div>
+        {:else}
         <!-- Every bubble here is a turn's own question or its answer, and it is
              drawn where the array puts it. A message typed INTO a running turn
              is not one of these: it is a piece of that turn and it is drawn
@@ -4790,6 +4827,16 @@
                   aria-label={t('chat.regenerate')} data-tip={t('chat.regenerate')}
                   onclick={askRegenerate}
                 ><Icon name="refreshCw" size={13} /></button>
+                <!-- สรุปแล้วไปเริ่มแชทใหม่ (§282): under the last reply, where
+                     the person is when a chat has gone on long enough. Same
+                     gate as ตอบใหม่ — a turn in flight, a question pending —
+                     plus a draft already being written. -->
+                <button
+                  type="button" class="msg-act icobtn tiny handoff-btn"
+                  disabled={!canRerun || !!handoff?.busy}
+                  aria-label={t('chat.handoff')} data-tip={t('chat.handoff')}
+                  onclick={draftHandoff}
+                ><Icon name="messageSquareShare" size={13} /></button>
               {/if}
               {#if m.role === 'user' && m.text && editingIndex !== i}
                 <!-- Copying your own message is the one action that is always
@@ -4843,7 +4890,60 @@
             </div>
           </div>
         </div>
+        {/if}
       {/each}
+
+      {#if handoff}
+        <!-- The picking step of สรุปแล้วไปเริ่มแชทใหม่ (§282). The same card
+             ask_user draws, because it is the same gesture — Aetox offering a
+             list and the person choosing — except every row is a checkbox
+             and all of them start ticked: the one-click path is "take it
+             all", and unticking is for the person who knows the chat was
+             long. -->
+        <div class="msg bot handoff-pick">
+          <div class="bubble">
+            <div class="ask-panel">
+              {#if handoff.busy && handoff.points.length === 0}
+                <div class="ask-q handoff-wait">
+                  <Icon name="loaderCircle" size={13} />
+                  <span>{t('chat.handoffDrafting')}</span>
+                </div>
+              {:else if handoff.error && handoff.points.length === 0}
+                <div class="ask-q handoff-error">{t('chat.handoffFailed', { err: handoff.error })}</div>
+                <div class="handoff-actions">
+                  <button type="button" class="handoff-go" onclick={draftHandoff}>{t('chat.handoffRetry')}</button>
+                  <button type="button" class="handoff-cancel" onclick={cancelHandoff}>{t('chat.handoffCancel')}</button>
+                </div>
+              {:else}
+                <div class="ask-q">{t('chat.handoffPick')}</div>
+                <div class="ask-opts">
+                  {#each handoff.points as p, i}
+                    <label class="ask-opt handoff-point" class:off={!handoff.picked[i]}>
+                      <input
+                        type="checkbox" class="handoff-tick"
+                        checked={handoff.picked[i]} disabled={handoff.busy}
+                        onchange={() => toggleHandoffPoint(i)}
+                      />
+                      <span class="ask-label">{p}</span>
+                    </label>
+                  {/each}
+                </div>
+                {#if handoff.error}
+                  <div class="handoff-error">{handoff.error}</div>
+                {/if}
+                <div class="handoff-actions">
+                  <button
+                    type="button" class="handoff-go"
+                    disabled={handoff.busy || handoffPicked === 0}
+                    onclick={confirmHandoff}
+                  >{handoff.busy ? t('chat.handoffOpening') : t('chat.handoffGo', { n: String(handoffPicked) })}</button>
+                  <button type="button" class="handoff-cancel" disabled={handoff.busy} onclick={cancelHandoff}>{t('chat.handoffCancel')}</button>
+                </div>
+              {/if}
+            </div>
+          </div>
+        </div>
+      {/if}
 
       {#if guideOpen}
         <!-- Same card as ask_user: a lettered list Aetox is offering, not chips

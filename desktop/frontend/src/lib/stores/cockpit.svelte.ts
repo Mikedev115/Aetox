@@ -11,7 +11,7 @@ import {
   SwitchProvider, SwitchThinkLevel, SwitchApprovalMode, SetProviderWireFormat,
   SwitchModel, CancelPendingModel, SetAPIKey, SetProviderBaseURL, ProjectTree, ReadFile,
   BrowseFolder, BrowseFolderAt, BrowseRoot, StopBrowsing, SpaceFolderPath,
-  ListSessions, LoadSession, NewSession, NewSessionAt, NewChairSessionAt, NewTeamSession, NewSessionInSpace, CurrentSpace, SessionsInSpace, Spaces, SessionMode, SessionAgent, SessionTeam, SessionPlan, SessionPlanReports, StartPlanRun, StopPlanRun, SavePlanText, PausePlanRun, ResumePlanRun, SetPlanStepStop, CurrentSessionID, SearchSessions, DeleteSession,
+  ListSessions, LoadSession, NewSession, NewSessionAt, DraftHandoff, ContinueInNewSession, NewChairSessionAt, NewTeamSession, NewSessionInSpace, CurrentSpace, SessionsInSpace, Spaces, SessionMode, SessionAgent, SessionTeam, SessionPlan, SessionPlanReports, StartPlanRun, StopPlanRun, SavePlanText, PausePlanRun, ResumePlanRun, SetPlanStepStop, CurrentSessionID, SearchSessions, DeleteSession,
   SessionTranscript, TurnInFlight,
   SaveChatImage, SaveChatImageData, SaveChatFile, ReadImageDataURL, CancelTurn, BrowserGetText, RecentProjects,
   ListSessionsForDoor, SearchSessionsForDoor, LoadSessionAnyProject, ClearProjectFocus, ForgetProject, HistoryFault,
@@ -32,6 +32,7 @@ import {
 } from '../../../wailsjs/go/main/App'
 import type { engine } from '../../../wailsjs/go/models'
 import { t } from '../i18n.svelte'
+import { errText } from '../errText'
 import { markOpenedLinks } from '../toolFace'
 import { shell, setShell, shellForDesk, deskForShell, deskFilterFor, homeForShell, SHELLS, type ShellName } from '../shell.svelte'
 import { workbench, switchWorkbenchSession, adoptWorkbenchSession, removeWorkbenchState } from './workbench.svelte'
@@ -319,7 +320,7 @@ function draftRow(current: string, rows: Session[], projectName?: string): Sessi
 export async function refreshSessions(): Promise<void> {
   const [metas, current] = await Promise.all([ListSessions(), CurrentSessionID()])
   cockpit.sessions = draftRow(current, metas.map((m) => ({
-    id: m.id, title: m.title, ago: agoLabel(m.updatedAt), updatedAt: m.updatedAt, active: m.id === onScreenSession(current), mode: m.mode, agent: m.agent,
+    id: m.id, title: m.title, ago: agoLabel(m.updatedAt), updatedAt: m.updatedAt, active: m.id === onScreenSession(current), mode: m.mode, agent: m.agent, continuedFrom: m.continuedFrom,
   })))
   // Keeps the workbench layout keyed to the chat ON SCREEN — restores it on
   // app start, migrates it when the engine re-keys the chat.
@@ -345,7 +346,7 @@ export async function searchSessions(query: string): Promise<void> {
   if (!query.trim()) return refreshSessions()
   const [hits, current] = await Promise.all([SearchSessions(query), CurrentSessionID()])
   cockpit.sessions = hits.map((m) => ({
-    id: m.id, title: m.title, ago: agoLabel(m.updatedAt), updatedAt: m.updatedAt, active: m.id === onScreenSession(current), snippet: m.snippet, mode: m.mode, agent: m.agent, space: m.space,
+    id: m.id, title: m.title, ago: agoLabel(m.updatedAt), updatedAt: m.updatedAt, active: m.id === onScreenSession(current), snippet: m.snippet, mode: m.mode, agent: m.agent, space: m.space, continuedFrom: m.continuedFrom,
   }))
 }
 
@@ -377,7 +378,7 @@ export async function refreshGlobalHistory(): Promise<void> {
   // because a draft chat has no row to read it off — and it is what files the
   // placeholder under the right heading in the sidebar's project groups.
   cockpit.history = draftRow(current, metas.map((m) => ({
-    id: m.id, title: m.title, ago: agoLabel(m.updatedAt), updatedAt: m.updatedAt, active: m.id === onScreenSession(current), projectName: m.projectName, mode: m.mode, agent: m.agent,
+    id: m.id, title: m.title, ago: agoLabel(m.updatedAt), updatedAt: m.updatedAt, active: m.id === onScreenSession(current), projectName: m.projectName, mode: m.mode, agent: m.agent, continuedFrom: m.continuedFrom,
   })), cockpit.project.name)
   // Asked only when the list came back with nothing, which is the one moment
   // the answer changes anything: a list with rows in it is proof the store
@@ -492,10 +493,11 @@ export function restoreTranscript(messages: engine.SessionMessage[] | null | und
 
 function restoreAttachments(m: engine.SessionMessage): ChatMessage {
   const out: ChatMessage = {
-    role: m.role === 'agent' ? 'agent' : 'user',
+    role: m.role === 'agent' ? 'agent' : m.role === 'handoff' ? 'handoff' : 'user',
     text: m.text,
     time: m.time,
     id: m.id || undefined,
+    origin: m.origin ? { id: m.origin.id, title: m.origin.title } : undefined,
     rating: (m.rating as ChatMessage['rating']) || undefined,
     reasoning: m.reasoning || undefined,
     thinkSecs: m.thinkSecs || undefined,
@@ -513,7 +515,7 @@ function restoreAttachments(m: engine.SessionMessage): ChatMessage {
     producedFiles: filesFromParts(m.parts as TurnPart[] | undefined),
     proposals: proposalsFromParts(m.parts as TurnPart[] | undefined),
   }
-  if (out.role === 'agent') return out
+  if (out.role !== 'user') return out
   return Object.assign(out, foldOutAttachments(out.text))
 }
 
@@ -4025,6 +4027,63 @@ function arriveAt(id: string): boolean {
   return false
 }
 
+/** "สรุปแล้วไปเริ่มแชทใหม่" (§282), step one: ask the engine for the open
+ * chat as a list of points and put the card up with every point ticked.
+ *
+ * The card is keyed by the chat it was drawn for, and the answer is dropped if
+ * the user has opened another chat by the time it lands — a list about one
+ * conversation must never be offered under a different one. One slot, not
+ * one per chat: a draft costs a model call, but two drafts in flight at once
+ * is not a state a person gets into on purpose. */
+export async function draftHandoff(): Promise<void> {
+  const session = cockpit.openSession
+  if (!session || cockpit.awaitingReply || cockpit.handoff?.busy) return
+  cockpit.handoff = { session, points: [], picked: [], busy: true, error: '' }
+  try {
+    const points = (await DraftHandoff(session)) ?? []
+    if (cockpit.handoff?.session !== session) return
+    cockpit.handoff = { session, points, picked: points.map(() => true), busy: false, error: '' }
+  } catch (err) {
+    if (cockpit.handoff?.session !== session) return
+    cockpit.handoff = { session, points: [], picked: [], busy: false, error: errText(err) }
+  }
+}
+
+export function toggleHandoffPoint(i: number): void {
+  const h = cockpit.handoff
+  if (!h || h.busy || i < 0 || i >= h.picked.length) return
+  h.picked[i] = !h.picked[i]
+}
+
+export function cancelHandoff(): void {
+  if (cockpit.handoff?.busy) return
+  cockpit.handoff = null
+}
+
+/** Step two: open the new chat on the ticked points and land in it. The chat
+ * being left is left as it is — every turn was already stored — and the new
+ * one arrives through the same door as any reopened session, so the transcript
+ * on screen is the row the engine wrote, not a copy this side made up. */
+export async function confirmHandoff(): Promise<void> {
+  const h = cockpit.handoff
+  if (!h || h.busy) return
+  const points = h.points.filter((_, i) => h.picked[i])
+  if (points.length === 0) return
+  h.busy = true
+  h.error = ''
+  let id = ''
+  try {
+    id = await ContinueInNewSession(h.session, points)
+  } catch (err) {
+    h.busy = false
+    h.error = errText(err)
+    return
+  }
+  cockpit.handoff = null
+  cockpit.sessionError = ''
+  await selectSession({ id, title: '', ago: '' })
+}
+
 /** Switch to a stored session — the transcript loads back and the agent's memory is restored. */
 export async function selectSession(session: Session): Promise<void> {
   const messages = await LoadSession(session.id)
@@ -4223,7 +4282,7 @@ export async function refreshSpaceHistory(): Promise<void> {
   // the exact thing §90 built this list to stop.
   cockpit.spaceHistory = draftRow(current, (metas ?? []).map((m) => ({
     id: m.id, title: m.title, ago: agoLabel(m.updatedAt), updatedAt: m.updatedAt,
-    active: m.id === onScreenSession(current), mode: m.mode, agent: m.agent,
+    active: m.id === onScreenSession(current), mode: m.mode, agent: m.agent, continuedFrom: m.continuedFrom,
   })))
 }
 
