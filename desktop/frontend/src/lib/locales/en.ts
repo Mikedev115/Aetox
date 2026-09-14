@@ -1612,7 +1612,7 @@ export const en: Record<keyof typeof th, string> = {
   'settings.mainHeadBadge': 'main',
   'settings.mainSecMemory': 'Memory',
   'settings.mainHeadName': 'Name',
-  'settings.mainHeadNameHint': 'What this one calls itself, the first word of every prompt. Blank means Aetox (the desk is still {desk})',
+  'settings.mainHeadNameHint': 'Your {desk}'s name',
   'settings.mainSecMcp': 'MCP',
   'settings.mainSecSkills': 'Skills',
   'settings.mainMcpTitle': 'MCP servers {name} carries',
