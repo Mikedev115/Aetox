@@ -651,6 +651,23 @@
   // นิดนึงได้ไหม"): before it, a call that came back in half a second was
   // on screen for a single frame.
   const LANDING_HOLD_MS = 480
+  // The stretches the app is holding open between rounds: quiet, not over,
+  // and drawn as the one live list they were a round ago. Read by phaseBlock
+  // as part of `working`, which is what keeps the rows in the live box rather
+  // than handing them to a fold that would then leave, on the outro, the
+  // frame the next call arrived.
+  let holding = $state<Record<string, boolean>>({})
+  // Where each round of a held stretch begins, as indices into its own rows.
+  // A round is one batch of calls the model issued together, and it is the
+  // unit the screen draws: a batch is a parallel card ("รันขนานกัน N งาน"),
+  // a single call is a row. With the rounds of one stretch kept on screen
+  // together, they have to stay separate boxes or the second batch merges into
+  // the first and the head claims ten calls ran at once that ran three at a
+  // time. Written by the effect at the one moment a round is known to have
+  // started: the stretch was quiet and is running again. `quietCount` is the
+  // count it was quiet at, read back at that moment.
+  let rounds = $state<Record<string, number[]>>({})
+  const quietCount = new Map<string, number>()
 
   // Seeded while the phase is still LIVE, not when it closes, and that is the
   // whole trick: the state has to be true BEFORE the fold draws for the first
@@ -664,51 +681,85 @@
   $effect(() => {
     const first = !drawnOnce
     drawnOnce = true
-    for (const ph of livePhases) {
+    livePhases.forEach((ph, i) => {
       const key = phaseKey(ph, '')
       const tools = ownTools(ph.steps)
-      if (!key || !tools.length) continue
+      if (!key || !tools.length) return
       const running = tools.some((s) => s.state === 'run')
+      const closed = phaseClosedAt(i)
       if (!seededPhases.has(key)) {
         seededPhases.add(key)
-        // Seen for the first time on the first frame AND already finished: this
-        // is a remount over work that ended while we were on another page. Note
-        // it as known and leave it closed — see `drawnOnce`.
-        if (!first || running) {
+        // Seen for the first time on the first frame AND already over: this is
+        // a remount over work that ended while we were on another page. Note
+        // it as known and leave it closed — see `drawnOnce`. A stretch that is
+        // merely quiet on that frame is not over: its ending is still ahead,
+        // so it is adopted like any other.
+        if (!first || running || !closed) {
           openRows[key] = true
           landing[key] = true
         }
       }
-      // THE LAST CALL COMING BACK IS THE SIGNAL, not the next sentence
-      // arriving (owner, 7 ก.ย.: "พอมันรัน tool เสร็จ ถึงตัวสุดท้าย ก่อนจะพูด
-      // ประโยคถัดไป มันก็พับลงอย่างนุ่มนวล"). Waiting for the sentence put the
-      // fold a whole round behind the thing it is about — the model can think
-      // for a minute between the two, and the rows sat there finished for all
-      // of it. Quiet is the honest end of a stretch of work; the sentence is
-      // just the next thing to read.
-      if (running) {
+      // THE STRETCH CLOSING IS THE SIGNAL — the model's next sentence, the
+      // user cutting in, or the turn ending — and not its last call coming
+      // back. The last call was the signal from 7 ก.ย. ("ถึงตัวสุดท้าย ก่อนจะ
+      // พูดประโยคถัดไป มันก็พับลง"), and it is right for a stretch that IS
+      // over. It cannot tell that stretch from a tool loop: call, result,
+      // think, call, result, think — twenty rounds with no sentence between
+      // them, every one of which went quiet, folded, and was opened again by
+      // the round after it (owner, 14 ก.ย.: "รำคาญมาก พับเปิดพับเปิดวนอยู่ได้
+      // ... มันไม่ควรพับถ้าโมเดลไม่ได้จบลูบรัน tool"). At the moment a result
+      // lands nobody can know which of the two it is; only the model's next
+      // output says, and that is what this waits for. The cost is the one the
+      // 7 ก.ย. rule was bought to avoid — the finished rows stay up while the
+      // model thinks about what to say — and it is the honest cost: the work
+      // is not over until it stops.
+      if (running || !closed) {
         armed.delete(key)
-        // A new round in a stretch the app still owns gets the same ending the
-        // first one got. Nothing re-armed this before, so from the second round
-        // on the rows were simply gone the frame the last result landed — no
-        // beat, no movement, which is the other half of what the owner saw on
-        // 11 ก.ย.
+        // Every round of a stretch the app still owns stays on screen, each
+        // in the box it ran in. Nothing folds between rounds, so there is
+        // nothing to put away and `folded` is never advanced here — the round
+        // boundary is recorded instead.
         if (!readerOwns.has(key)) {
           openRows[key] = true
           landing[key] = true
         }
+        holding[key] = true
+        const n = ownCountOf(key) ?? 0
+        if (running) {
+          const q = quietCount.get(key)
+          quietCount.delete(key)
+          if (q !== undefined && q > 0 && q < n) {
+            const list = rounds[key] ?? []
+            if (list[list.length - 1] !== q) rounds[key] = [...list, q]
+          }
+        } else {
+          quietCount.set(key, n)
+        }
       } else {
-        // A stretch the reader owns never folds itself, so a round ending here
-        // is the only chance to bound it: without this its next batch would draw
-        // the batch before it again.
+        quietCount.delete(key)
+        delete holding[key]
+        // A stretch the reader owns never folds itself, so its closing is the
+        // only chance to bound it: without this its next batch would draw the
+        // batch before it again.
         if (readerOwns.has(key)) {
           const n = ownCountOf(key)
           if (n !== null) folded[key] = n
         }
         settlePhase(key)
       }
-    }
+    })
   })
+
+  // Whether the stretch at index i of the live list is over: something the
+  // reader can see came after it. A sentence, a message the user typed in, or
+  // a later stretch's own call — each of those means the model moved on. A
+  // trailing thinking-only phase (phasesOf's "thought about, nothing said
+  // yet") is none of these: the model is still deciding, and this stretch may
+  // yet get another round.
+  function phaseClosedAt(i: number): boolean {
+    return livePhases.slice(i + 1).some((p) => !!p.say || !!p.asked || ownTools(p.steps).length > 0)
+  }
+
 
   // Shuts one phase, a beat after it stopped being the stretch the turn is in.
   //
@@ -761,6 +812,9 @@
   // The turn ended, so the stretch it was in closed with it — the one phase the
   // effect above always leaves open, and the only one still to settle.
   function settleLanded(now = false) {
+    // The turn ending closes every stretch it held open at once.
+    holding = {}
+    quietCount.clear()
     for (const key of seededPhases) settlePhase(key, now)
     seededPhases.clear()
   }
@@ -3782,6 +3836,18 @@
   </div>
 {/snippet}
 
+<!-- One stretch's rows, a box per round (see `rounds`). `from` is where this
+     slice starts in the stretch's own list, so the boundaries — recorded
+     against the whole list — can be read against the slice. A slice with no
+     boundary inside it is one box, which is every phase's first round and
+     every stretch read back from the store. -->
+{#snippet roundBoxes(steps: ToolStep[], from: number, bounds: number[], live: boolean, windowed: boolean)}
+  {@const cuts = bounds.map((b) => b - from).filter((b) => b > 0 && b < steps.length)}
+  {#each [0, ...cuts] as start, i (start)}
+    {@render toolTimeline(steps.slice(start, cuts[i] ?? steps.length), live, windowed)}
+  {/each}
+{/snippet}
+
 <!-- `windowed` is the live list's cap, and only the live list's: a turn in
      flight keeps every call it has made on screen (nothing folds mid-turn any
      more), so without it the block grows for as long as the model keeps
@@ -3923,13 +3989,14 @@
        on its twenty-seventh call. -->
   {@const runOwn = own.filter((s) => s.state === 'run')}
   {@const doneOwn = own.filter((s) => s.state !== 'run')}
-  <!-- A STRETCH OF WORK FOLDS WHEN ITS LAST CALL COMES BACK, and not before.
-       While any of them is out, the whole list is on screen and outside the
-       fold — every call it has made, at the height the owner dialled, inside a
-       window that scrolls (the same thing .reasoning-body.live is, which is
-       what he compared it to: "เหมือนช่องคิดอ่ะ"). The header over it is a line
-       and not a control, because a list with something moving in it must never
-       be one click from being hidden.
+  <!-- A STRETCH OF WORK FOLDS WHEN IT IS OVER, and not before. While it is
+       going — a call out, or quiet between two rounds of one tool loop
+       (`holding`, see the effect above) — the whole list is on screen and
+       outside the fold — every call it has made, at the height the owner
+       dialled, inside a window that scrolls (the same thing .reasoning-body.live
+       is, which is what he compared it to: "เหมือนช่องคิดอ่ะ"). The header over
+       it is a line and not a control, because a list with something moving in
+       it must never be one click from being hidden.
 
        The rule was "fold what has finished" once, per row, and it folded a call
        away in the frame its result landed: a skill that answered in half a
@@ -3941,11 +4008,16 @@
        movement a round late — a model can think for a minute between its last
        result and its next word, and the finished rows sat there for all of it.
 
-       The stretch going quiet is the honest end of it, and it is the one the
-       owner has been describing all along: "พอมันรัน tool เสร็จ ถึงตัวสุดท้าย
-       ก่อนจะพูดประโยคถัดไป มันก็พับลงอย่างนุ่มนวล". A DELEGATION still folds at
-       none of these moments (shownSubs), which has never been in question. -->
-  {@const working = unfolded || (live && runOwn.length > 0)}
+       Then "fold when the stretch goes quiet" (7 ก.ย.: "พอมันรัน tool เสร็จ
+       ถึงตัวสุดท้าย ก่อนจะพูดประโยคถัดไป มันก็พับลงอย่างนุ่มนวล"), which was
+       right for a stretch that was over and could not tell one from a tool
+       loop: every round of a twenty-round loop went quiet, folded, and was
+       re-opened by the next (14 ก.ย.: "พับเปิดพับเปิดวนอยู่ได้"). So it is the
+       sentence — or the user, or the turn's end — after all, and the rows
+       staying up while the model thinks is the price of not guessing. A
+       DELEGATION still folds at none of these moments (shownSubs), which has
+       never been in question. -->
+  {@const working = unfolded || (live && (runOwn.length > 0 || holding[key]))}
   <!-- While a call is out the box holds the ROUND it belongs to: this stretch's
        own rows from the last fold onward, not every call the stretch has ever
        made. A delegate's card is the exception it has always been — `unfolded`
@@ -3972,6 +4044,7 @@
        Once the reader owns the fold — a click, or a phase the app never adopted —
        it is the whole stretch, because that is what opening a receipt asks for. -->
   {@const foldedRows = landing[key] ? own.slice(folded[key] ?? 0) : own}
+  {@const bounds = rounds[key] ?? []}
   <div class="phase">
     <!-- The user, cutting in. Above everything else in the phase because it is
          what started the phase: they typed, the model thought, and then it
@@ -4085,7 +4158,7 @@
            click, a stretch that starts working again after it folded — gets the
            movement. -->
       <div class="phase-fold" in:settle={{ duration: landing[key] ? 0 : SETTLE_MS, gap: 8 }} out:settle={{ gap: 8 }}>
-        {@render toolTimeline(foldedRows, live, landing[key] ?? false)}
+        {@render roundBoxes(foldedRows, own.length - foldedRows.length, bounds, live, landing[key] ?? false)}
       </div>
     {/if}
     <!-- Delegations first, as they have always been drawn: a sub-agent is the
@@ -4096,7 +4169,7 @@
       {@render subagentTimeline(shownSubs, live)}
     {/if}
     {#if shownOwn.length}
-      {@render toolTimeline(shownOwn, live, live)}
+      {@render roundBoxes(shownOwn, own.length - shownOwn.length, unfolded ? [] : bounds, live, live)}
     {/if}
     <!-- Last in the phase and outside every fold above it: the pictures this
          stretch of work produced, at the size a picture deserves. -->

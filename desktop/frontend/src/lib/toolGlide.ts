@@ -45,7 +45,19 @@ export function toolGlide(node: HTMLElement, on = true) {
   let shown = false
   const place = () => {
     frame = 0
-    const running = node.querySelectorAll<HTMLElement>('.tool-step.run')
+    // Rows inside a parallel card are not the bar's to mark. They sit in a
+    // window of their own (.parallel-hits, capped and scrolling), and this
+    // bar is placed by offsetTop against the BOX: a straggler on the ninth
+    // row of a ten-call batch put the bar four hundred pixels under a
+    // window two hundred tall, and an absolutely positioned child still
+    // counts toward the box's scroll height — so the box grew a blank floor
+    // and rode to it, and the reader saw the card's foot over nothing
+    // (owner, 14 ก.ย.: "ตอนมันรัน tool ยาวๆ ตอนแรกปกติ หลังๆ หายโล่งเลย").
+    // The card's rows keep the per-row block instead (style.css, the
+    // `:not(.parallel-hit)` on the glide-on rule), which is what they wear
+    // when several of them run at once anyway.
+    const running = [...node.querySelectorAll<HTMLElement>('.tool-step.run')]
+      .filter((r) => !r.classList.contains('parallel-hit'))
     // Off only for the one case the bar genuinely cannot serve: two rows live
     // at once. With NONE live it stays ON, which looks like a class describing
     // a state that is not true and is in fact the whole fix (owner, 26 ส.ค.:
