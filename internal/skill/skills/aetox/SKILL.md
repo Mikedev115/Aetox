@@ -133,6 +133,8 @@ somebody who has never used the app, are its.
 | `aetox-web-templates` | the contract a page has to pass, not markup to paste — its section library was removed on 5 ก.ย. 2569 because encoding the average holds a capable model at the average. Never paste deck markup into a page or the reverse |
 | `aetox-frontend-design` | deciding a look (direction, type pairing, plan → critique → build) |
 | `aetox-ui-design` | building the decided look (theming, layout, motion, WCAG, native) |
+| `aetox-motion` | a page that must move beyond one entrance: scroll-driven, a timeline, a pinned section. CSS first, Web Animations second, GSAP third, and the rest state is the finished page |
+| `aetox-web-3d` | a canvas, a shader or a three.js scene on a page: four roads lowest first, and no GPU is still a page |
 | `aetox-shadcn` | any project with a components.json |
 | `aetox-radix-to-base` | only the Radix→Base migration |
 | `aetox-ux-review` | judging a finished UI, not making one |

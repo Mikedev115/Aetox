@@ -48,11 +48,24 @@ in that order:
 3. Read back what you wrote. A token file that disagrees with the guidelines is
    the failure this order exists to prevent, and it is silent.
 
-## Subcommands
+## When the brand changes
 
-| Subcommand | Description | Reference |
-|------------|-------------|-----------|
-| `update` | Update brand identity and sync to all design systems | `references/update.md` |
+`references/update.md` is the procedure: gather the theme, colours and type
+in chat, then write the guidelines file and the two token files in the order
+above. There is no command to run; it is a checklist you follow.
+
+## The bar for anything written in the brand's name
+
+- Read the guidelines whole first. Every sentence of voice traces to a line
+  in it, and a piece that cannot name its line is off-brand however good it
+  reads.
+- The two checklists in `references/` are run, not remembered, and the
+  report says which items were checked and which could not be (a colour
+  read from an image, a tone the guidelines do not cover).
+- Logo use follows `references/logo-usage-rules.md` to the pixel: clear
+  space, minimum size, the approved colourways and nothing else.
+- Same bar whichever model writes: a brand with one voice is the whole
+  point, and the voice does not get to vary with the model on duty.
 
 ## References
 
@@ -75,8 +88,3 @@ in that order:
 |----------|---------|
 | `templates/brand-guidelines-starter.md` | Complete starter template for new brands |
 
-## Routing
-
-1. Parse subcommand from `$ARGUMENTS` (first word)
-2. Load corresponding `references/{subcommand}.md`
-3. Execute with remaining arguments
