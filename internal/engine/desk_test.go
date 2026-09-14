@@ -125,7 +125,13 @@ func TestALegacySessionKeepsTheFullDeskAndTheSamePrompt(t *testing.T) {
 	// And the prompt is what prompt.Build alone produces. Compared against the
 	// package rather than a golden string, so it stays true as the prompt itself
 	// changes and only fails when a *desk* has added something to it.
-	want := prompt.Build(prompt.SurfaceDesktop, prompt.Scope{Root: a.cur().cfg.SandboxRoot, Open: true})
+	// Team rides along since 4ce9238c: the fixture seeds ผู้ช่วยในคอมพิวเตอร์ the
+	// way a real door does, and the line naming it is the roster's, not a
+	// desk's — the thing this test guards against is a DESK adding to the
+	// prompt, so the roster is handed to both sides alike.
+	want := prompt.BuildForDesk(prompt.SurfaceDesktop,
+		prompt.Scope{Root: a.cur().cfg.SandboxRoot, Open: true},
+		prompt.Desk{Team: a.teamRoster(a.cur()).Name})
 	messages := a.cur().agent.ContextMessages()
 	if len(messages) == 0 {
 		t.Fatal("no system prompt")
