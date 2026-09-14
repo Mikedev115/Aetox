@@ -546,7 +546,7 @@ func (p *OpenAICompatibleProvider) Complete(ctx context.Context, req Request) (R
 		Messages:    convertMessagesToOpenAI(req.Messages),
 		Temperature: req.Temperature,
 		Tools:       req.Tools,
-		ToolChoice:  req.ToolChoice,
+		ToolChoice:  wireToolChoice(req.ToolChoice),
 	}
 	p.setOutputCap(&payload.MaxTokens, &payload.MaxCompletionTokens, req.MaxTokens)
 	if p.usesDeepSeekThinking() {
@@ -614,6 +614,9 @@ func (p *OpenAICompatibleProvider) Complete(ctx context.Context, req Request) (R
 		payload.Tools = nil
 		payload.ToolChoice = ""
 	}
+	if p.dropToolChoice(model) {
+		payload.ToolChoice = ""
+	}
 
 	send := func() (*http.Response, error) {
 		body, err := json.Marshal(payload)
@@ -665,6 +668,19 @@ func (p *OpenAICompatibleProvider) Complete(ctx context.Context, req Request) (R
 	if temperatureRefused(httpResp.StatusCode, responseBody) && payload.Temperature != 0 {
 		p.rememberTemperatureRefusal(model)
 		payload.Temperature = 0
+		if httpResp, err = send(); err != nil {
+			return Response{}, err
+		}
+		responseBody, err = io.ReadAll(httpResp.Body)
+		httpResp.Body.Close()
+		if err != nil {
+			return Response{}, err
+		}
+	}
+
+	if toolChoiceRefused(httpResp.StatusCode, responseBody) && payload.ToolChoice != "" {
+		p.rememberToolChoiceRefusal(model)
+		payload.ToolChoice = ""
 		if httpResp, err = send(); err != nil {
 			return Response{}, err
 		}
@@ -788,7 +804,7 @@ func (p *OpenAICompatibleProvider) StreamComplete(ctx context.Context, req Reque
 		Messages:      convertMessagesToOpenAI(req.Messages),
 		Temperature:   req.Temperature,
 		Tools:         req.Tools,
-		ToolChoice:    req.ToolChoice,
+		ToolChoice:    wireToolChoice(req.ToolChoice),
 		Stream:        true,
 		StreamOptions: &streamOptions{IncludeUsage: true},
 	}
@@ -859,6 +875,9 @@ func (p *OpenAICompatibleProvider) StreamComplete(ctx context.Context, req Reque
 		payload.Tools = nil
 		payload.ToolChoice = ""
 	}
+	if p.dropToolChoice(model) {
+		payload.ToolChoice = ""
+	}
 
 	send := func() (*http.Response, error) {
 		body, err := json.Marshal(payload)
@@ -891,8 +910,10 @@ func (p *OpenAICompatibleProvider) StreamComplete(ctx context.Context, req Reque
 		httpResp.Body.Close()
 		hasReasoning := payload.Reasoning != nil || payload.ReasoningEffort != "" || payload.IncludeReasoning != nil || payload.Thinking != nil || payload.ReasoningSplit != nil
 		hasTools := len(payload.Tools) > 0
+		hasToolChoice := payload.ToolChoice != ""
 		if !documentPartRefused(httpResp.StatusCode, responseBody, sentDocuments) &&
 			(!temperatureRefused(httpResp.StatusCode, responseBody) || payload.Temperature == 0) &&
+			(!toolChoiceRefused(httpResp.StatusCode, responseBody) || !hasToolChoice) &&
 			(!reasoningRefused(httpResp.StatusCode, responseBody) || !hasReasoning) &&
 			(!toolRefused(httpResp.StatusCode, responseBody) || !hasTools) {
 			return Response{}, p.statusError(ctx, httpResp, responseBody)
@@ -906,6 +927,9 @@ func (p *OpenAICompatibleProvider) StreamComplete(ctx context.Context, req Reque
 		} else if temperatureRefused(httpResp.StatusCode, responseBody) && payload.Temperature != 0 {
 			p.rememberTemperatureRefusal(model)
 			payload.Temperature = 0
+		} else if toolChoiceRefused(httpResp.StatusCode, responseBody) && hasToolChoice {
+			p.rememberToolChoiceRefusal(model)
+			payload.ToolChoice = ""
 		} else if reasoningRefused(httpResp.StatusCode, responseBody) && hasReasoning {
 			p.rememberReasoningRefusal(model)
 			payload.Reasoning = nil
@@ -1299,6 +1323,52 @@ func (p *OpenAICompatibleProvider) dropReasoning(modelID string) bool {
 
 func (p *OpenAICompatibleProvider) rememberReasoningRefusal(modelID string) {
 	refusedReasoning.Store(p.provider+"/"+modelID, struct{}{})
+}
+
+// wireToolChoice is what tool_choice says on the wire. "auto" is the spec's
+// own default whenever tools are present, so writing it out changes nothing a
+// server does with the request — except give it a field to refuse.
+//
+// opencode-go / muse-spark-1.3-contributor was the case (reported 2026-09-15,
+// two days, two networks): every turn with tools answered 400
+// "Thinking mode does not support this tool_choice", and it was not the
+// effort — the ladder below had already replayed the turn without
+// reasoning_effort and got the same sentence back. The model is in thinking
+// mode whether or not an effort is sent, and behind that gateway thinking mode
+// takes no tool_choice at all, "auto" included. opencode's own client never
+// sends the field, which is why the same model on the same plan worked there.
+func wireToolChoice(choice string) string {
+	if strings.EqualFold(strings.TrimSpace(choice), "auto") {
+		return ""
+	}
+	return choice
+}
+
+// toolChoiceRefused is the 400 that names the field. It is asked BEFORE
+// reasoningRefused on purpose: the sentence that names tool_choice also says
+// "thinking", and read in the other order the reasoning rung would eat it,
+// drop an effort that was never the problem, and replay into the same 400.
+//
+// A "required" choice (the commit-message and review callers) folds to a free
+// one on such a model rather than ending the turn; those callers already cope
+// with a model that answers in prose.
+func toolChoiceRefused(status int, body []byte) bool {
+	if status != http.StatusBadRequest {
+		return false
+	}
+	said := strings.ToLower(string(body))
+	return strings.Contains(said, "tool_choice") || strings.Contains(said, "tool choice")
+}
+
+var refusedToolChoice sync.Map
+
+func (p *OpenAICompatibleProvider) dropToolChoice(modelID string) bool {
+	_, seen := refusedToolChoice.Load(p.provider + "/" + modelID)
+	return seen
+}
+
+func (p *OpenAICompatibleProvider) rememberToolChoiceRefusal(modelID string) {
+	refusedToolChoice.Store(p.provider+"/"+modelID, struct{}{})
 }
 
 func toolRefused(status int, body []byte) bool {
