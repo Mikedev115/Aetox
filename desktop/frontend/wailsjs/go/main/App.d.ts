@@ -330,6 +330,8 @@ export function HandedOverFile(arg1:string):Promise<string>;
 
 export function HasAPIKey(arg1:string):Promise<boolean>;
 
+export function HeadName(arg1:string):Promise<string>;
+
 export function HistoryFault():Promise<engine.StoreFault>;
 
 export function HomeDir():Promise<string>;
@@ -787,6 +789,8 @@ export function SetConnectionStartCommand(arg1:string,arg2:string):Promise<void>
 export function SetConnectionTargets(arg1:string,arg2:Array<string>):Promise<void>;
 
 export function SetDelegateOff(arg1:string,arg2:boolean):Promise<engine.DelegateSettings>;
+
+export function SetHeadName(arg1:string,arg2:string):Promise<void>;
 
 export function SetImageEngine(arg1:string):Promise<void>;
 

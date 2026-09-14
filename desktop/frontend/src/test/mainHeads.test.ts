@@ -10,7 +10,7 @@ import Settings from '../lib/Settings.svelte'
 import {
   ListModes, LearnedScopeInfos, LearnedEntries, ListPendingChanges,
   ListIdentityFiles, ReadIdentityFile, SaveIdentityFile, ReadDeskFile, SaveDeskFile, ResetDeskFile,
-  ListMCPServers, SetMCPServerTargets, ListExternalSkills, DeskStarters, SaveDeskStarters,
+  ListMCPServers, SetMCPServerTargets, ListExternalSkills, DeskStarters, SaveDeskStarters, HeadName, SetHeadName,
 } from './mocks/wailsApp'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 
@@ -283,5 +283,28 @@ describe('ตัวตน', () => {
     expect(container.textContent).not.toContain('context.md')
     // And there is no คำสั่งประจำตัว page any more.
     expect(Array.from(container.querySelectorAll('.settings-nav-item')).some((n) => n.textContent?.trim() === 'คำสั่งประจำตัว')).toBe(false)
+  })
+})
+
+// The head's name is a field, not a line in a file (owner, 14 ก.ย. 2026:
+// "ชื่อควรจะเป็นชื่อที่เปลี่ยนได้"): written on change through SetHeadName,
+// worn by the card and the page title, with the desk's word as the badge.
+describe('the name', () => {
+  it('is edited on ตัวตน, saved on change, and worn by the card', async () => {
+    vi.mocked(HeadName).mockImplementation(async (h: string) => (h === 'coding' ? 'Dev' : ''))
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'ตัวหลัก')
+    await waitFor(() => expect(cards(container).length).toBe(2))
+    await waitFor(() => expect(cards(container)[1].querySelector('.chair-name')?.textContent).toContain('Dev'))
+    expect(cards(container)[1].querySelector('.chair-name .badge')?.textContent).toBe('โค้ด')
+    expect(cards(container)[0].querySelector('.chair-name .badge')).toBeNull()
+
+    await fireEvent.click(cards(container)[0].querySelector('.icobtn')!)
+    const box = await waitFor(() => container.querySelector('.ag-tab-panel.on input[aria-label="ชื่อ"]') as HTMLInputElement)
+    expect(box.value).toBe('')
+    await fireEvent.input(box, { target: { value: ' Nova ' } })
+    await fireEvent.change(box)
+    await waitFor(() => expect(SetHeadName).toHaveBeenCalledWith('assistant', 'Nova'))
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('ตั้งค่า Nova'))
   })
 })

@@ -1469,3 +1469,20 @@ func TestTeamLayerNamesTheRosterOnlyOnATeamSession(t *testing.T) {
 		t.Fatalf("a chair chat names its desk as if it were one: %s", chair)
 	}
 }
+
+// The head's name is the prompt's first word (14 ก.ย. 2026): set on ตัวหลัก ›
+// ตัวตน, carried in Scope.Assistant, spelled once by identityFor. Blank is the
+// shipped name, so every caller that never heard of the field is unchanged.
+func TestTheHeadsNameOpensThePrompt(t *testing.T) {
+	root := t.TempDir()
+	if got := Build(SurfaceDesktop, Scope{Root: root, Open: true}); !strings.HasPrefix(got, "You are Aetox, ") {
+		t.Fatalf("no name = the shipped one, got %q", got[:40])
+	}
+	got := Build(SurfaceDesktop, Scope{Root: root, Open: true, Assistant: "  Nova  "})
+	if !strings.HasPrefix(got, "You are Nova, an adaptive assistant") {
+		t.Fatalf("the chosen name must open the prompt, got %q", got[:60])
+	}
+	if identityFor(strings.Repeat("x", 80))[:52] != "You are "+strings.Repeat("x", 40)+", an" {
+		t.Fatal("a name is bounded like the user's")
+	}
+}

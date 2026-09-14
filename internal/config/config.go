@@ -249,6 +249,12 @@ type ModelPreference struct {
 	// different bucket from the built app's, so it had to be typed again on
 	// every switch.
 	UserName string `json:"user_name,omitempty"`
+	// HeadNames is what each main head calls itself — the assistant's and the
+	// coder's — keyed by desk name (IdentityHeads). Empty or missing means
+	// Aetox, the shipped name. Set on ตัวหลัก › ตัวตน (14 ก.ย. 2026, owner:
+	// "ชื่อควรจะเป็นชื่อที่เปลี่ยนได้"); read into prompt.identity by way of
+	// bootstrap, the same road UserName takes.
+	HeadNames map[string]string `json:"head_names,omitempty"`
 	// LastDesk is the desk the window was last at, so relaunching lands where
 	// the user left off instead of at whatever the product's entrance happens
 	// to be. Same reason UILocale is here: a choice made in the UI that the

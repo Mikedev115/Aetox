@@ -4665,6 +4665,9 @@ func (a *Engine) applyConfig(conv *conversation, cfg config.Config) {
 		// which is when this runs — and never mid-conversation, because the
 		// prompt is the cached prefix (prompt/README.md, reload timing).
 		UserName: a.UserName(),
+		// The head's own name, by the desk this chat sits at (config.IdentityHeadFor:
+		// the coding desk has a head of its own, everything else is the assistant's).
+		AssistantName: a.HeadName(config.IdentityHeadFor(conv.desk.DeskName())),
 		Approve: func(ctx context.Context, command, reason string) (bool, error) {
 			return a.approveToolCall(conv, ctx, command, reason)
 		},
@@ -4906,6 +4909,43 @@ func (a *Engine) resolveConfig(opts config.ConfigOptions) config.Config {
 func (a *Engine) UserName() string {
 	pref, _, _ := config.LoadModelPreference()
 	return pref.UserName
+}
+
+// HeadName / SetHeadName are what a main head calls itself (config.
+// ModelPreference.HeadNames), set on ตัวหลัก › ตัวตน. "" means Aetox. The
+// same road as UserName: the preference file, and the chat on screen rebuilt
+// so the next turn opens with the new name — one cache miss, on the owner's
+// word (14 ก.ย. 2026: "ชื่อควรจะเป็นชื่อที่เปลี่ยนได้").
+func (a *Engine) HeadName(head string) string {
+	pref, _, err := config.LoadModelPreference()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(pref.HeadNames[strings.TrimSpace(head)])
+}
+
+func (a *Engine) SetHeadName(head, name string) error {
+	head = strings.TrimSpace(head)
+	if _, err := config.IdentityDirFor(head); err != nil {
+		return err
+	}
+	if err := config.UpdateModelPreference(func(pref *config.ModelPreference) error {
+		if pref.HeadNames == nil {
+			pref.HeadNames = map[string]string{}
+		}
+		if n := strings.TrimSpace(name); n == "" {
+			delete(pref.HeadNames, head)
+		} else {
+			pref.HeadNames[head] = n
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if conv := a.cur(); conv != nil && conv.chat != nil {
+		a.applyConfig(conv, conv.cfg)
+	}
+	return nil
 }
 
 func (a *Engine) SetUserName(name string) error {

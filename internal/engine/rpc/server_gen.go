@@ -547,6 +547,12 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		return e.HandedOverFile(p0), nil, true
+	case "HeadName":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		return e.HeadName(p0), nil, true
 	case "HistoryFault":
 		return e.HistoryFault(), nil, true
 	case "HomeDir":
@@ -1498,6 +1504,13 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		return e.SetDelegateOff(p0, p1), nil, true
+	case "SetHeadName":
+		var p0 string
+		var p1 string
+		if err := decodeParams(params, &p0, &p1); err != nil {
+			return nil, err, true
+		}
+		return nil, e.SetHeadName(p0, p1), true
 	case "SetImageEngine":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {

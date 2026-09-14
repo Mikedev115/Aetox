@@ -678,6 +678,14 @@ func (c *Client) HandedOverFile(fileURL string) string {
 	return out0
 }
 
+func (c *Client) HeadName(head string) string {
+	var out0 string
+	if err := c.call("HeadName", []any{head}, &out0); err != nil {
+		c.failed("HeadName", err)
+	}
+	return out0
+}
+
 func (c *Client) HistoryFault() engine.StoreFault {
 	var out0 engine.StoreFault
 	if err := c.call("HistoryFault", nil, &out0); err != nil {
@@ -1906,6 +1914,10 @@ func (c *Client) SetDelegateOff(kind string, off bool) engine.DelegateSettings {
 		c.failed("SetDelegateOff", err)
 	}
 	return out0
+}
+
+func (c *Client) SetHeadName(head string, name string) error {
+	return c.call("SetHeadName", []any{head, name}, nil)
 }
 
 func (c *Client) SetImageEngine(id string) error {
