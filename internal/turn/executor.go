@@ -253,6 +253,15 @@ type LimitWait struct {
 	// ResetAt is when the provider said the limit lifts; the hold ends a
 	// little after it, not on it (see cognitive.askAgainAfterLimit).
 	ResetAt time.Time
+	// Overloaded marks the other hold on this row: the provider said, in its
+	// own stream, that it is overloaded, and the turn is backing off for a few
+	// seconds before asking again (cognitive.askAgainAfterOverload) — Attempt
+	// of Of. ResetAt is then when the next ask goes out. The row reads
+	// differently, because "hit its limit" would send the user to check a
+	// plan that is fine.
+	Overloaded bool
+	Attempt    int
+	Of         int
 }
 
 // RoundEvent is one completed round of the model⇄tool loop.
