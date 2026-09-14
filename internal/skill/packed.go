@@ -348,11 +348,12 @@ var packs = map[string]*pack{
 	// same language server, other side of every gate, because it writes.
 	"codebase": {
 		tool:    "codebase",
-		actions: []string{"errors", "symbol", "map"},
+		actions: []string{"errors", "symbol", "map", "design"},
 		names: map[string]string{
 			"errors": "diagnostics",
 			"symbol": "symbol",
 			"map":    "repo_map",
+			"design": "design_check",
 		},
 	},
 	// Pull requests (pr_pack.go). The first pack that straddles the read/write

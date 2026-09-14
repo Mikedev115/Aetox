@@ -130,7 +130,7 @@ var planKeeps = map[string]bool{
 	// about a thousand tokens, which is the single most useful thing a plan can
 	// be built on and was missing here only because it landed after this list
 	// was written.
-	"diagnostics": true, "symbol": true, "repo_map": true,
+	"diagnostics": true, "symbol": true, "repo_map": true, "design_check": true,
 	"github": true, "github_search": true, "github_read_file": true,
 	"github_list_files": true, "github_repo_summary": true,
 	// Pull requests, the reading half only. This is the first pack วางแผน

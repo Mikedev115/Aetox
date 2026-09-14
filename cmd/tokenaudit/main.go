@@ -136,7 +136,7 @@ func trialReport(db *sql.DB, window string) {
 	// symbol's own baseline is the finding that started this: 0 calls ever.
 	rows, err := db.Query(`
 	  SELECT tool, count(*), sum(CASE WHEN ok=1 THEN 1 ELSE 0 END), avg(duration_ms)
-	  FROM tool_runs WHERE tool IN ('repo_map','symbol','rename','diagnostics') AND ` + window + `
+	  FROM tool_runs WHERE tool IN ('repo_map','symbol','rename','diagnostics','design_check') AND ` + window + `
 	  GROUP BY tool ORDER BY count(*) DESC`)
 	if err != nil {
 		fmt.Println("  unavailable:", err)

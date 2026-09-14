@@ -360,6 +360,9 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 		// Checked on a symbol, not a filename: a map that listed files without
 		// parsing anything would still contain "main.go" and prove nothing.
 		"repo_map": {args: map[string]any{}, check: outputContains("func main")},
+		// Checked on a finding, not on the header: a check that read the
+		// sheet and matched nothing would still say "UI files read".
+		"design_check": {args: map[string]any{"path": "slop.css"}, check: outputContains("dark-glow")},
 		"write": {
 			args:  map[string]any{"path": "written.txt", "content": "from the tool\n"},
 			check: fileContains("written.txt", "from the tool"),
@@ -1041,6 +1044,8 @@ func writeToolFixtures(t *testing.T, root string) {
 	write("victim.txt", "delete me\n")
 	write("main.go", "package main\n\nfunc main() {}\n")
 	write("renameme.go", "package main\n\nfunc helper() int { return 1 }\n\nvar _ = helper\n")
+	// One tell for design_check: the zero-offset coloured glow.
+	write("slop.css", ".node { box-shadow: 0 0 12px #6366f1; }\n")
 	write(filepath.Join("sub", "inner.txt"), "alpha inside\n")
 	// A deck. The whole of what makes an .html one is a <section class="slide">
 	// (docs/architecture/html-deck-2026-08-19.md), and the anatomy inside it is

@@ -110,6 +110,17 @@ Run this checklist against the output. Any "yes" in the left column is a tell to
 - [ ] Invented precise stats or anonymous quotes? → real data or cut.
 - [ ] Is the layout the default skeleton / all symmetric grids? → weight, don't mirror.
 - [ ] Could these exact tokens be pasted onto any other product unchanged? → not distinctive.
+- [ ] **Browser surfaces still on defaults?** Text selection colour, the caret, scrollbars,
+      focus rings, underline offset, tabular numerals in data columns: the parts you did
+      not draw ship with the browser's own look, which belongs to no design system. Theme
+      them from the palette. (The cheapest signal that a page was built rather than
+      assembled, and the one most reliably skipped — impeccable's craft floor.)
+- [ ] **Run the mechanical check.** On the coding desk, `codebase` with `action: design`
+      on the files you touched reads the file for the tells no eye needs: gradient text,
+      the zero-offset glow, the side stripe, the purple-blue gradient, the overused font,
+      bounce easing, a transition on width/height, an image with no source, an emoji as
+      an icon. A finding is a pattern, not a verdict; a choice you made on purpose gets
+      `design-allow <rule>` in a comment and stays.
 - [ ] Did you reflexively reach for warm cream/dark paper + a terracotta/clay/ember accent +
       a high-contrast serif (Fraunces/Playfair) + a corner page-counter + a "colored last
       word" headline? → that's the *second-order* slop (this skill's own overused escape
