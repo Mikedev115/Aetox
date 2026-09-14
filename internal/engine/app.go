@@ -348,6 +348,34 @@ func (a *Engine) emitAgentStatus(conv *conversation, status string) {
 	a.emitEvent("agent:status", SessionEvent[string]{SessionID: conv.id, Data: status})
 }
 
+// LimitWait is what the "waiting for the limit to lift" row is drawn from.
+//
+// Secs rather than an instant: the engine may be on another machine (§248)
+// with a clock of its own, and a countdown that starts from "this many seconds
+// from when you received this" is right on both.
+type LimitWait struct {
+	Waiting  bool   `json:"waiting"`
+	Provider string `json:"provider"`
+	Secs     int    `json:"secs"`
+}
+
+// emitLimitWait relays the turn's rate-limit hold (cognitive.askAgainAfterLimit)
+// to the frontend, which counts the seconds down itself and clears the row on
+// the Waiting:false that follows — or when the turn ends, whichever is first.
+func (a *Engine) emitLimitWait(conv *conversation, w turn.LimitWait) {
+	secs := 0
+	if w.Waiting {
+		secs = int(time.Until(w.ResetAt).Seconds())
+		if secs < 0 {
+			secs = 0
+		}
+	}
+	a.emitEvent("limit:waiting", SessionEvent[LimitWait]{
+		SessionID: conv.id,
+		Data:      LimitWait{Waiting: w.Waiting, Provider: w.Provider, Secs: secs},
+	})
+}
+
 // chatChunk is one write to the live answer bubble.
 //
 // Replace makes the payload the bubble's whole content instead of an addition,
@@ -4726,7 +4754,11 @@ func (a *Engine) applyConfig(conv *conversation, cfg config.Config) {
 		OnStatus:         func(status string) { a.emitAgentStatus(conv, status) },
 		OnContentPreview: func(chunk string) { a.previewAnswer(conv, chunk) },
 		OnContentReset:   func() { a.discardAnswerPreview(conv) },
-		OnUsage:          func(u model.Usage) { a.recordTokenUsage(conv, u) },
+		// Wired here and nowhere else on purpose: this is what lets a turn
+		// wait out a spent plan window instead of ending (turn.LimitWait), and
+		// the window is the only screen that can draw the countdown.
+		OnLimitWait: func(w turn.LimitWait) { a.emitLimitWait(conv, w) },
+		OnUsage:     func(u model.Usage) { a.recordTokenUsage(conv, u) },
 	})
 	if bootErr == nil {
 		// Fallback outlives a successful boot: the engine is up, but on the

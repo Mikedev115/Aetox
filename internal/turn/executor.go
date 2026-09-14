@@ -231,6 +231,25 @@ type TurnOptions struct {
 	// and once more immediately before the reply is delivered — so the preview
 	// is always empty when the real answer lands, and it cannot be doubled.
 	OnContentReset func()
+	// OnLimitWait, if set, hears when the turn is held open for a provider's
+	// rate limit to lift, and when the hold ends. Setting it is also what
+	// PERMITS the hold: a wait nobody can see is a hang, so an agent whose
+	// options carry no listener does not wait at all and ends the turn with
+	// the provider's sentence as it always has. That is deliberately what a
+	// delegate gets — its rounds are not on screen — and what a terminal
+	// gets until one wires a countdown of its own.
+	OnLimitWait func(LimitWait)
+}
+
+// LimitWait is a turn held open for a provider's rate limit to lift.
+type LimitWait struct {
+	// Waiting is true when the hold begins and false when it ends — on the
+	// reset, or on Stop, which ends the turn anyway.
+	Waiting  bool
+	Provider string
+	// ResetAt is when the provider said the limit lifts; the hold ends a
+	// little after it, not on it (see cognitive.askAgainAfterLimit).
+	ResetAt time.Time
 }
 
 // RoundEvent is one completed round of the model⇄tool loop.

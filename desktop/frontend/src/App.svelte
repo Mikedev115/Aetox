@@ -25,7 +25,7 @@
     cockpit, sendUserMessage, loadRealState, openFile,
     switchProvider, switchThinkLevel,
     switchModel, cancelPendingModel, applyModelRowChanged, submitAPIKey, setActiveView, restoreActiveView, closeFile, applyAgentStatus, applyToolEvent,
-    applyAgentChunk, applyReasoningChunk, applyModelLoading, applyPlanUpdate, applyPlanReport, applyStanceUpdate, attachImageFromPath, attachFileFromPath, fileKind,
+    applyAgentChunk, applyReasoningChunk, applyModelLoading, applyLimitWait, applyPlanUpdate, applyPlanReport, applyStanceUpdate, attachImageFromPath, attachFileFromPath, fileKind,
     applyAskUser, applyAskDone, applyDriving, applyTodos, applyMissedInterjections, applyTaskChips, applyUsageRound,
     applyPreparedReplies,
     applyPendingLearned, refreshPendingLearned, refreshPendingIssues, applyAgentDone, isOverlayView, closeOverlay,
@@ -243,6 +243,9 @@
     // status string: agentStatus is blanked the moment anything concrete is on
     // screen, and this wait is the one where nothing concrete exists yet.
     const offModelLoading = EventsOn('model:loading', applyModelLoading)
+    // The provider's plan window is spent and the turn is waiting for it to
+    // refill (§269). Hours, not seconds: the row has to say so and count.
+    const offLimitWait = EventsOn('limit:waiting', applyLimitWait)
     // A switch the user queued mid-turn, landing at the turn boundary. The one
     // engine change no click of theirs immediately precedes, so it is the one
     // the model row cannot learn about any other way.
@@ -379,6 +382,7 @@
       offBusyDone()
       offAgentReasoning()
       offModelLoading()
+      offLimitWait()
       offModelSwitched()
       offModelPending()
       offAskUser()
@@ -615,6 +619,7 @@
         streamingText={cockpit.streamingText}
         reasoningText={cockpit.reasoningText}
         modelLoading={cockpit.modelLoading}
+        limitWait={cockpit.limitWait}
         onSend={(text, to) => sendUserMessage(text, false, to)}
         onSwitchProvider={switchProvider}
         onSwitchThinkLevel={switchThinkLevel}

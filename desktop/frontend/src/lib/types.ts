@@ -901,6 +901,15 @@ export interface ModelLoading {
   secs: number
 }
 
+/** The turn is held open for a provider's rate limit to lift (engine
+ *  LimitWait). The engine sends the seconds left once; the row counts them
+ *  down itself, so a remote engine's clock never has to agree with ours. */
+export interface LimitWait {
+  waiting: boolean
+  provider: string
+  secs: number
+}
+
 /** One chat's live turn state, held while the window is showing another chat.
  *
  * The same fields CockpitState carries for the chat on screen — that is the
@@ -916,6 +925,10 @@ export interface ParkedTurn {
   streamingText: string
   reasoningText: string
   modelLoading: ModelLoading | null
+  /** Optional only so older fixtures need not spell it; parked and restored
+   *  like modelLoading, and for the same reason: a countdown left on cockpit
+   *  would follow the user into a chat that is not waiting for anything. */
+  limitWait?: LimitWait | null
   ask: { question: string; options: string[] } | null
   /** The window the agent is driving right now (computer tool), null when it is not driving one.
    *  Parked with the rest of the live state: the takeover belongs to a turn, and a
@@ -1181,6 +1194,9 @@ export interface CockpitState {
   /** The local runtime is loading this turn's model into memory — a wait that
    *  looks exactly like a hung app until something says so. null otherwise. */
   modelLoading: ModelLoading | null
+  /** The turn is waiting for the provider's plan window to refill — hours, not
+   *  seconds, so it has to be on screen with a countdown. null otherwise. */
+  limitWait: LimitWait | null
   /** Images staged in the composer, not yet sent — in the order they were
    *  attached. A list, not a slot: attaching a second picture used to replace
    *  the first, so one question could only ever carry one. */
@@ -1339,6 +1355,7 @@ export function emptyCockpitState(): CockpitState {
     streamingText: '',
     reasoningText: '',
     modelLoading: null,
+    limitWait: null,
     ask: null,
     driving: null,
     todos: [],

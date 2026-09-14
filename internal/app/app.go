@@ -65,6 +65,7 @@ type App struct {
 	statusReporter     func(string)
 	contentPreview     func(string)
 	contentReset       func()
+	limitWait          func(turn.LimitWait)
 	toolActionListener func(turn.ToolEvent)
 	toolRunListener    func(turn.ToolRun)
 	approve            turn.ApprovalPromptFunc
@@ -138,6 +139,11 @@ type Options struct {
 	// two is a bug — see turn.TurnOptions.
 	OnContentPreview func(string)
 	OnContentReset   func()
+	// OnLimitWait, if set, lets a turn wait out a provider's rate limit and
+	// hears the countdown — session-level for the same reason the preview pair
+	// is: whether a wait can be shown is a property of the front end. Leaving
+	// it nil keeps the old ending (turn.TurnOptions.OnLimitWait).
+	OnLimitWait func(turn.LimitWait)
 	// Approve, if set, replaces the console y/N prompt for tool-call approval.
 	// A GUI host must set this: the default ConfirmApproval reads os.Stdin,
 	// which a windowsgui build does not have — the read fails instantly and
@@ -193,6 +199,7 @@ func NewApp(opts Options) (*App, error) {
 		toolRunListener:    opts.OnToolRun,
 		contentPreview:     opts.OnContentPreview,
 		contentReset:       opts.OnContentReset,
+		limitWait:          opts.OnLimitWait,
 	}
 	a.approve = opts.Approve
 	if a.approve == nil {
@@ -214,6 +221,7 @@ func NewApp(opts Options) (*App, error) {
 			ThinkLevel:     a.thinkLevel,
 			OnContent:      a.contentPreview,
 			OnContentReset: a.contentReset,
+			OnLimitWait:    a.limitWait,
 		},
 	})
 	return a, nil
@@ -239,6 +247,7 @@ func (a *App) wireStatusReporter() {
 			ThinkLevel:     a.thinkLevel,
 			OnContent:      a.contentPreview,
 			OnContentReset: a.contentReset,
+			OnLimitWait:    a.limitWait,
 		},
 	})
 }
@@ -521,6 +530,7 @@ func (a *App) switchModel(ctx context.Context) error {
 			ThinkLevel:     a.thinkLevel,
 			OnContent:      a.contentPreview,
 			OnContentReset: a.contentReset,
+			OnLimitWait:    a.limitWait,
 		},
 	})
 	return nil

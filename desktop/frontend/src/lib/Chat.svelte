@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { BackgroundTask, ChatMessage, TaskState, ModelStatus, ToolStep, TimelineNode, ContextBreakdown, ModelLoading, TurnSpend, Plan } from './types'
+  import type { BackgroundTask, ChatMessage, TaskState, ModelStatus, ToolStep, TimelineNode, ContextBreakdown, ModelLoading, LimitWait, TurnSpend, Plan } from './types'
   import { groupSteps, isDelegation } from './types'
   import { phasesOf, type TurnPhase } from './turnPhases'
   import { pacedStream, pacedText } from './streamPace'
@@ -73,6 +73,7 @@
   let {
     messages, task, model, awaitingReply, agentStatus, toolSteps, streamingText, reasoningText,
     modelLoading = null,
+    limitWait = null,
     onSend, onSwitchProvider, onSwitchThinkLevel, onSwitchModel, onCancelPendingModel, onSubmitAPIKey,
   }: {
     messages: ChatMessage[]
@@ -85,6 +86,8 @@
     reasoningText: string
     /** A local runtime reading this turn's weights off disk, or null. */
     modelLoading?: ModelLoading | null
+    /** The turn is waiting for the provider's plan window to refill, or null. */
+    limitWait?: LimitWait | null
     onSend: (text: string, to?: string) => void
     onSwitchProvider: (provider: string) => Promise<void>
     onSwitchThinkLevel: (level: string) => Promise<void>
@@ -95,6 +98,29 @@
   } = $props()
 
   let providers = $state<string[]>([])
+
+  // The countdown on the limit-wait row. The engine says how many seconds are
+  // left once, when the wait begins; the clock runs here, off a deadline fixed
+  // at receipt, so a remote engine's clock and ours never have to agree and no
+  // event has to arrive every second for hours.
+  let limitLeft = $state(0)
+  $effect(() => {
+    if (!limitWait) { limitLeft = 0; return }
+    const deadline = Date.now() + limitWait.secs * 1000
+    const tick = () => { limitLeft = Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  })
+  /** h:mm:ss above an hour, m:ss below — a wait of hours read as a clock, not
+   *  as "7,382 seconds". */
+  function clockLeft(secs: number): string {
+    const h = Math.floor(secs / 3600)
+    const m = Math.floor((secs % 3600) / 60)
+    const s = secs % 60
+    const mm = h > 0 ? String(m).padStart(2, '0') : String(m)
+    return `${h > 0 ? h + ':' : ''}${mm}:${String(s).padStart(2, '0')}`
+  }
   let thinkLevels = $state<string[]>([])
   let models = $state<string[]>([])
   // Whether the list above is "not fetched yet" or "fetched and empty". The row
@@ -4859,6 +4885,18 @@
                  resident or not and count nothing in between, so the seconds
                  are measured and there is no percentage to be honest about
                  (desktop/model_load.go). -->
+            <!-- The wait that is not a wait for the model: the provider's plan
+                 window is spent and the turn is holding on for it to refill
+                 (§269). Hours, so the row names the provider and counts down —
+                 a spinner alone here reads as "hung", which is the thing the
+                 owner asked to never see again. Stop ends it like any turn. -->
+            {#if limitWait}
+              <div class="typing-row limit-wait">
+                <span class="limit-wait-mark"><Icon name="clock" size={13} /></span>
+                <span class="limit-wait-text">{t('chat.limitWait', { provider: limitWait.provider })}</span>
+                <span class="limit-wait-left">{t('chat.limitWaitLeft', { left: clockLeft(limitLeft) })}</span>
+              </div>
+            {/if}
             {#if modelLoading}
               <div class="typing-row model-load">
                 <span class="model-load-mark"><Icon name="loaderCircle" size={13} /></span>

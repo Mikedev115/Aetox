@@ -9069,6 +9069,32 @@ The second loop, whole: `bootstrapModelWithStatus`, `switchProvider` (the CLI's 
 
 **Status:** `Direct`. Proven by hand on a scratch data root: the built-in provider's fallback answer through the whole road; DeepSeek at โต๊ะโค้ด writing and reading back a file in 5.7 s with `⚙ change write hello.txt` / `⚙ read hello.txt` on stderr and only the answer on stdout; `echo goal | aetox` as the message; `--approval ask` refused on a closed stdin. `go test ./cmd/aetox/` green; `go vet` on `cmd/aetox`, `desktop`, `internal/signer` clean.
 
+## 269. Decision — A Spent Plan Window Is Waited Out, On Screen, and the Turn Carries On Where It Was (2026-09-14)
+
+**Trigger:** the owner runs Codex on a plan that meters five hours at a time. When the window is spent mid-run the turn ended red — *"the plus plan's limit is used up. It resets in 2 hours."* — and everything the run had done (the tool results, the plan's progress, the eighteen rounds of มุ่งเป้า) was his to rebuild by hand two hours later. Owner: *"สำหรับบัญชี Codex มีลิมิต 5 ชม. … อยากให้มันมีระบบ แบบ รีโหลด หรือ ออโต้ ตอน มันหมดก็ขึ้นรอ รอมันมาก็ทำงานต่อได้เลย"*.
+
+### 269.1 The fact, typed, from the provider; the decision, from the turn
+
+A 429 has always been *worded* with its reset — `responses.go` read `resets_in_seconds` into a sentence in August — and prose is not something a loop can sleep on. It is now also **carried as a time**: `model.RateLimitError{Provider, ResetAt, Err}`, with `Err` the unchanged sentence so a caller that will not wait shows exactly what it always has.
+
+**Two providers, on purpose.** The first cut typed every wire's `Retry-After` too — a Claude sign-in, DeepSeek, any custom host — and the owner scoped it back the same hour: *"เอาแค่ Codex พอครับ … แค่ 2 เจ้ามั้ง"*. The wait is for a plan metered by the hour, and two rows in the catalog are that: **Codex** states its reset on the refusing reply itself — the body's `resets_in_seconds`, or the `x-codex-*` window sitting at zero with a reset stated when the body says nothing — and **opencode-go** ($12 per 5 hours) states it nowhere on the wire, so a 429 there is answered by asking `GET /usage` through the provider's own client and `applyAuth` (`opencodeGoLimitReset`: the earliest reset among the windows the gateway marks `rate-limited`, a window with room skipped so the five-hour reset is never answered with the weekly one). Every other host keeps the sentence it had; a bare `Retry-After` is not a plan.
+
+The provider does not wait. Whether a turn may be held open for three hours is a question about who is watching it, and only the turn's caller knows that. So the wait is the third `askAgainAfter…` in `cognitive.Agent`, beside the dropped socket and the empty stream, with the same bookkeeping in both loops: the failed round never reached the context, the preview is taken back, `i--` because a wait is not a round of work — **the run resumes on the round it was on, tool results and all, rather than restarting.** The transport's own retry (`retryTransport.maxWait`, 20 s) is untouched and unrelated: that one is *slow down*, this one is *the plan is spent until four*.
+
+### 269.2 The three refusals, and why each
+
+- **No listener, no wait.** `turn.TurnOptions.OnLimitWait` is the countdown, and setting it is what *permits* the hold: a wait nobody can see is a hang. The desktop wires it (`engine.emitLimitWait` → `limit:waiting`); a delegate does not (its rounds are not on screen — a `task` call that sat silent for two hours would be the old bug with a longer fuse); the console does not yet. Each of those ends with the provider's sentence, as before.
+- **Six hours, not forever.** `maxLimitWait` covers the five-hour window with room for the backend's rounding. A weekly or monthly window says *"resets in 4 days"*, and a turn kept open four days is not waiting, it is a chat nobody can use — those end with the sentence, which already says how long.
+- **Three waits a turn.** A long run can honestly spend a second window after the first refills; a provider that keeps naming a reset that never frees the account must not hold a turn forever.
+
+Stop during the wait ends the turn as Stop (`context.Canceled`), for the reason the drop comment gives: the desktop tells a cancelled turn from a failed one by the error, and would otherwise draw a retry box over a button the user chose to press.
+
+### 269.3 The row
+
+Above the thinking phrase, where the local model-load row sits (§-modelLoading), a clock rather than a spinner: *"codex ถึงลิมิตแล้ว รอรีเซ็ตแล้วจะทำต่อเอง · อีก 2:13:05"*. The engine states the seconds left **once**, when the hold begins (`Secs`, not an instant — the engine may be on another machine with a clock of its own, §248), and the row counts down from a deadline fixed at receipt; no event every second for hours. `waiting:false` takes it down when the run resumes, and the end of the turn takes it down regardless. Parked and restored with the rest of the live state (`limitWait: 'parked-live'` in the register), because a countdown left on `cockpit` would follow the user into a chat that is not waiting for anything.
+
+**Status:** `Direct`. Pinned by [limit_wait_test.go](../internal/cognitive/limit_wait_test.go) (resumes with the tool results; no listener → no wait; past the ceiling → the sentence; Stop is Stop; the tool-less route waits too), [rate_limit_test.go](../internal/model/rate_limit_test.go) (Codex from the body and from the headers; opencode-go from `/usage`, with the turn's own credential; a 429 with no dated window, and any other host, is not a fact) and [limitWait.test.ts](../desktop/frontend/src/test/limitWait.test.ts) (the clock, the provider, up then down). Open: the console (§268) has no countdown yet and so does not wait; opencode-go's 429 body has not been captured, so its wait rests on `/usage` alone, and a `/usage` that is down means the old sentence.
+
 ## 270. Decision — Three Layers for the Assistant Head: Who It Is, How It Thinks, What the Desk Does (2026-09-14)
 
 **Trigger:** the owner read the assistant head's `identity.md` / `thinking.md` (`18301e24`, `8eb391b2`) and the desk file (`027f7e75`) together and set the rule for which line lives where: *"modes/assistant.md คือสิ่งที่มันจะทำชั้นนี้ · identity.md คือตัวตนพื้นฐานของมัน · thinking.md คือวิธีคิดพื้นฐานของมัน แบบ ทัศนคติ หรือ ตอนเจอปัญหา หรือต้องตัดสินใจ"*. Then a two-line identity (*"ประมาณนี้พอ"*) and three new lines for the desk file. §269 is the other session's, uncommitted at the time of writing.

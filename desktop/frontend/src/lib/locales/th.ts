@@ -207,6 +207,8 @@ export const th = {
   'chat.modelLoading': 'กำลังโหลดโมเดล…',
   'chat.modelLoadingNamed': 'กำลังโหลด {model}…',
   'chat.modelLoadingFor': '{secs} วินาที',
+  'chat.limitWait': '{provider} ถึงลิมิตแล้ว รอรีเซ็ตแล้วจะทำต่อเอง',
+  'chat.limitWaitLeft': 'อีก {left}',
   // กล่องที่กางใต้แถวแก้ไฟล์ในโต๊ะโค้ด บอกว่าแก้บรรทัดไหนไปเป็นอะไร ในรูปแบบเดียวกับ git
   // diffMore คือการบอกตรง ๆ ว่าตัดตรงไหน diff ยาว ๆ ถูกจำกัดตั้งแต่ตอนสร้าง
   // และ diff ที่ถูกตัดแล้วไม่บอก จะอ่านเหมือนว่านั่นคือทั้งหมด
