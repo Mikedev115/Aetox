@@ -234,6 +234,9 @@ func TestLiveTheTeamsNameHiresTheTeam(t *testing.T) {
 			hired = append(hired, call.Agent)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("tool_runs rows: %v", err)
+	}
 	t.Logf("hired: %v — reply: %s", hired, reply.Text)
 	if len(hired) == 0 {
 		t.Fatalf("asked for the team by name, the model hired nobody: %s", reply.Text)
