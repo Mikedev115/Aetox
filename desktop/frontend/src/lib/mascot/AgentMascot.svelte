@@ -24,6 +24,7 @@
   import Mascot from './Mascot.svelte'
   import { hueOf } from './agentLook'
   import { poseOfFaceState, type FaceState } from './presence'
+  import type { PoseId } from './poses'
 
   let {
     name,
@@ -37,6 +38,9 @@
     top = undefined,
     face = undefined,
     still = undefined,
+    pose = undefined,
+    hop = false,
+    look = false,
   }: {
     name: string
     /** The agent's `icon:` — worn on both ears. Blank or unknown = the logo. */
@@ -56,10 +60,16 @@
     /** Force no motion (a roster tile) or allow it (the one being faced).
      *  Unset = still unless the state is alive. */
     still?: boolean
+    /** A pose over the state's — the moment of a reaction (Settings' hero). */
+    pose?: PoseId
+    /** One small hop — set for the moment of a reaction. */
+    hop?: boolean
+    /** Follow the pointer — for the one being faced, never a roster. */
+    look?: boolean
   } = $props()
 
-  const pose = $derived(poseOfFaceState(state))
+  const shown = $derived(pose ?? poseOfFaceState(state))
   const frozen = $derived(still ?? !(state === 'think' || state === 'work'))
 </script>
 
-<Mascot {name} role="assistant" {icon} hue={hueOf(hue)} {accent} {shell} {top} {face} {pose} {size} {off} still={frozen} />
+<Mascot {name} role="assistant" {icon} hue={hueOf(hue)} {accent} {shell} {top} {face} pose={shown} {size} {off} still={frozen} {hop} {look} />

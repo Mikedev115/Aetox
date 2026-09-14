@@ -302,7 +302,9 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 /* ---------- sidebar ---------- */
 /* Dense navigation surface — steps the whole panel down from the 15.5px body
    size; children size in relative terms from here. */
-.side { grid-area:side; background:var(--surface-panel); display:flex; flex-direction:column; overflow:hidden; font-size:var(--fs-sm); line-height:1.45; }
+.side { grid-area:side; position:relative; background:var(--surface-panel); display:flex; flex-direction:column; overflow:hidden; font-size:var(--fs-sm); line-height:1.45; }
+/* the footer menu's ground, dark while it is open (Sidebar.svelte) */
+.side-scrim { position:absolute; inset:0; z-index:15; background:rgba(0,0,0,.4); }
 /* Sections stack top-down at natural height (Claude-style) and the whole
    column scrolls as one; only the footer stays pinned outside the scroller. */
 .side-sections { flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; }
@@ -1180,6 +1182,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   border-radius:999px; color:var(--text-muted); font-size:var(--fs-sm);
 }
 .starter-more:hover { color:var(--text-secondary); background:var(--surface-row-hover); }
+.starter-actions { display:flex; align-items:center; justify-content:center; gap:4px; }
 @media (prefers-reduced-motion: reduce) {
   .starter-card { animation-name:starter-fade; animation-duration:.12s; animation-delay:0s; }
   @keyframes starter-fade { from { opacity:0; } to { opacity:1; } }
@@ -1286,7 +1289,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .limit-wait { gap:8px; }
 .limit-wait-mark { display:inline-flex; color:var(--text-muted); }
 .limit-wait-text { color:var(--text-muted); font-size:var(--fs-md); }
-.limit-wait-left { color:var(--text); font-size:var(--fs-sm); font-variant-numeric:tabular-nums; }
+.limit-wait-left { color:var(--text-primary); font-size:var(--fs-sm); font-variant-numeric:tabular-nums; }
 
 /* "thought for 34s" and "used 24 tools" sit on one line above the reply; both
    open their own body below, collapsed by default. */
@@ -3861,6 +3864,11 @@ button.phase-head:hover { color:var(--text-muted); }
 /* Who will read it, under the heading: the sentence the label never said. */
 .memcard-aud { padding:4px 14px 0; font-size:var(--fs-xs); color:var(--text-muted); }
 .memcard-foot .mem-move { flex:none; }
+/* The proposal card sits at the END of the answer that asked it, so a menu
+   that drops down from its footer lands past the bottom of .chat and is cut
+   off there (owner, 14 ก.ย.: one target visible, the rest under the composer).
+   Up, over the card's own body, it always has room. */
+.memcard-foot .mem-menu { top:auto; bottom:calc(100% + 4px); box-shadow:0 -6px 30px rgba(0,0,0,.45); }
 .memcard-foot .memcard-no { display:inline-flex; align-items:center; gap:4px; }
 /* The line it would overwrite. Struck through, above what it becomes. */
 .memcard-was { padding:6px 14px 0; font-size:var(--fs-sm); color:var(--text-dim); text-decoration:line-through; word-break:break-word; }
@@ -5117,10 +5125,14 @@ button.phase-head:hover { color:var(--text-muted); }
 .insp-tabs .tab { padding:7px 10px; font-size:var(--fs-sm); }
 .plus-menu-wrap { position:relative; }
 .plus-btn { color:var(--text-secondary); font-size:var(--fs-xl); }
+/* One step above the surface it opens over, a stronger edge and a heavier
+   shadow: a menu on --surface-panel over a --surface-panel sidebar was two
+   equal greys and a hairline, and the owner could not tell which was which
+   (14 ก.ย. 2026, chosen from four on scratch/caplab/menu.html). */
 .plus-menu {
   position:absolute; top:calc(100% + 6px); left:0; z-index:20; min-width:230px;
-  border:1px solid var(--border-subtle); border-radius:var(--r-md); background:var(--surface-panel);
-  box-shadow:var(--shadow-menu); padding:4px; display:flex; flex-direction:column; gap:1px;
+  border:1px solid var(--border-strong); border-radius:var(--r-md); background:var(--surface-raised);
+  box-shadow:0 18px 48px rgba(0,0,0,.6), 0 2px 8px rgba(0,0,0,.4); padding:4px; display:flex; flex-direction:column; gap:1px;
 }
 .plus-menu-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:var(--r-sm); font-size:var(--fs-lg); }
 .plus-menu-item:hover { background:var(--surface-row-hover); }
@@ -6612,6 +6624,10 @@ button.phase-head:hover { color:var(--text-muted); }
   background:color-mix(in srgb, var(--interactive) 22%, transparent);
   color:var(--interactive);
 }
+/* A head's door wears its face, not a tile: no box behind the figure, room
+   for the rank on its corner. */
+.door-item .ic.face { width:42px; height:42px; background:none; }
+.door-item.on .ic.face { background:none; }
 .door-item .txt { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
 .door-item .t { font-size:var(--fs-md); font-weight:600; line-height:1.25; color:#ffffff; }
 .door-item .d { font-size:var(--fs-xs); color:var(--text-muted); line-height:1.45; white-space:nowrap; }
@@ -6654,9 +6670,31 @@ button.phase-head:hover { color:var(--text-muted); }
 .main-card .d { font-size:var(--fs-md); color:var(--text-secondary); }
 .main-tag-warn { background:none; color:var(--status-warn); border-color:var(--status-warn); }
 /* The head's page: the face beside the name, the way the card had them. */
-.main-head { display:flex; align-items:center; gap:16px; margin:4px 0 14px; }
-.main-who { min-width:0; display:flex; flex-direction:column; gap:4px; }
-.main-name { font-size:var(--fs-xl); font-weight:600; color:var(--text-primary); display:flex; align-items:center; gap:8px; }
+/* The head of every "this one's page" — ผู้ช่วย, โค้ด, a พนักงาน, a ลูกมือ
+   (Settings.svelte profileHero). One shape, three pages: the bar above with
+   the way back, the face with its rank, the name as the title, the line, then
+   the tab strip. The margins are the point: the old stack put a page heading,
+   a subtitle, the bar, a 64px face and the tabs inside ~200px, which the
+   owner read as cramped (14 ก.ย. 2026: "อึดอัดไปหน่อยข้างบน"). No heading
+   above the face any more, and room between each of the three bands. */
+/* No extra room above the bar — the page's own padding is the top. The room
+   is UNDER it: the face and the name sat right against the back button
+   (owner, 14 ก.ย. 2026: "หุ่น/ชื่อ กับปุ่มกลับ ชิดกันไป"). */
+.pf-bar { margin:0 0 56px; }
+.pf-hero { display:flex; align-items:center; gap:20px; margin:0 0 28px; }
+/* The face is a button — a poke gets a reaction (Settings pokeHero) — drawn
+   as nothing but the face: no box, no ground, a ring only for the keyboard. */
+.pf-face { flex:none; border:0; background:none; padding:0; margin:0; line-height:0; cursor:pointer; border-radius:50%; color:inherit; }
+.pf-face:focus-visible { outline:2px solid var(--focus-ring); outline-offset:4px; }
+.pf-who { min-width:0; display:flex; flex-direction:column; gap:6px; }
+.pf-name {
+  margin:0; font-size:var(--fs-3xl); font-weight:600; line-height:1.2; color:var(--text-primary);
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+}
+.pf-name .badge { font-weight:500; }
+.pf-desc { margin:0; font-size:var(--fs-lg); line-height:1.45; }
+.pf-desc.empty { color:var(--text-dim); font-style:italic; }
+.pf-hero + .ag-tabs-bar, .pf-hero + .mset-error + .ag-tabs-bar, .pf-hero + .set-sub + .ag-tabs-bar { margin-top:0; }
 .main-avatar-row { display:flex; align-items:center; gap:22px; padding:16px; }
 .main-avatar-txt { min-width:0; display:flex; flex-direction:column; gap:6px; }
 .main-avatar-txt p { margin:6px 0 0; }
@@ -7121,14 +7159,17 @@ button.phase-head:hover { color:var(--text-muted); }
 
 /* The agent editor's segmented tabs bar. Follows the same segmented control
    pattern as .cap-bar and .seg, letting users configure identity, brain, reach,
-   knowledge, and starters without a monolithic vertical scroll. */
+   knowledge, and starters without a monolithic vertical scroll.
+   Centred, and the strip itself wraps: a พนักงาน has seven tabs, and on a
+   narrow window the strip used to run past the right edge with ความจำ cut
+   off — read as "the sub-agent has no memory page" (owner, 14 ก.ย. 2026). */
 .ag-tabs-bar {
-  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap;
   padding-bottom:14px; border-bottom:1px solid var(--border-subtle);
   margin-top:14px; margin-bottom:16px;
 }
 .ag-tabs-bar .seg {
-  display:inline-flex; flex:none; gap:2px;
+  display:inline-flex; flex:none; flex-wrap:wrap; justify-content:center; max-width:100%; gap:2px;
   background:var(--surface-sunken); border:1px solid var(--border-subtle);
   border-radius:9px; padding:3px;
 }
@@ -9565,6 +9606,15 @@ button.ctrl, label.ctrl { display:inline-flex; align-items:center; justify-conte
    the projects above it, one step quieter, rather than .proj-add's dashed box
    — that box is the top of the workshop's whole panel, and borrowed into a
    list of quiet rows it would make the least important thing the loudest. */
+/* The rail's project row: the same left edge and height as the chat rows
+   and สร้างโปรเจกต์ under it (.sess-row, .space-new: 7px 8px), and the same
+   15px icon column, so the folder, the plus and the chats line up. The
+   workshop's row keeps its own padding — its fold column is its left edge. */
+.space-row .proj-group-head { padding:7px 4px 7px 8px; }
+.space-row .proj-group-head .ic { width:15px; display:flex; justify-content:center; flex:none; }
+.space-row { margin-bottom:2px; }
+/* A heading over a list is a heading, not the first row's cap: 6px under it. */
+.sess-day-head.sect { margin-bottom:6px; }
 .space-new {
   display:flex; align-items:center; gap:8px; width:100%; padding:7px 8px;
   border-radius:var(--r-sm); color:var(--text-dim); font-size:var(--fs-xs); cursor:pointer;

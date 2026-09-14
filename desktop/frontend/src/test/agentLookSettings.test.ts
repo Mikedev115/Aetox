@@ -69,7 +69,9 @@ describe('the agent look editor', () => {
     expect(cells.length).toBeGreaterThan(SHELL.length + ACCENT.length + TOP.length)
     for (const m of cells) expect(m.classList.contains('still')).toBe(true)
     // The one being faced may breathe.
-    expect(container.querySelector('.ag-avatar-stage > .mascot')?.classList.contains('still')).toBe(false)
+    // Inside its RankedFace since the rank went on the stage (14 ก.ย.), so a
+    // descendant, not a child.
+    expect(container.querySelector('.ag-avatar-stage .mascot')?.classList.contains('still')).toBe(false)
     // The look is not on ตัวตน any more: the name field is, the rows are not.
     await fireEvent.click(screen.getByRole('tab', { name: 'ตัวตน' }))
     expect(container.querySelector('#ag-panel-identity.on')).toBeTruthy()

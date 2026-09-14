@@ -140,8 +140,8 @@ describe('what the room must not have any more', () => {
   it('is a rail of six headings — four MCP pages, four skill pages, two prompt pages, and one page each for tools, computer, connections — and has no kind tabs', async () => {
     await open()
     expect(rail().map((x) => x.textContent?.trim())).toEqual([
-      'MCP server ของคุณ', 'ตั้งค่า MCP ฝั่งผู้ช่วยและโค้ด', 'ตั้งค่า MCP สำหรับเอเจนเฉพาะทาง', 'ห้องสมุด MCP',
-      'สกิลของคุณ', 'ตั้งค่าสกิลสำหรับเอเจนเฉพาะทาง', 'ห้องสมุดสกิล', 'ปรับสกิลอัตโนมัติ',
+      'MCP server ของคุณ', 'ตั้งค่า MCP ฝั่งผู้ช่วยและโค้ด', 'ตั้งค่า MCP สำหรับพนักงานเฉพาะทาง', 'ห้องสมุด MCP',
+      'สกิลของคุณ', 'ตั้งค่าสกิลสำหรับพนักงานเฉพาะทาง', 'ห้องสมุดสกิล', 'ปรับสกิลอัตโนมัติ',
       'ทะเบียนเครื่องมือ',
       'ชุดคำสั่งของคุณ', 'คำสั่งที่สั่งบ่อย',
       'โปรแกรมที่ให้ควบคุม',
@@ -276,7 +276,7 @@ describe('สกิลของคุณ', () => {
   })
 })
 
-describe('ตั้งค่าสกิลสำหรับเอเจนเฉพาะทาง', () => {
+describe('ตั้งค่าสกิลสำหรับพนักงานเฉพาะทาง', () => {
   beforeEach(() => {
     vi.mocked(ListExternalSkills).mockResolvedValue(SHELF as any)
     vi.mocked(AgentSkills).mockImplementation(async (name: string) =>
@@ -286,7 +286,7 @@ describe('ตั้งค่าสกิลสำหรับเอเจนเ�
   })
   const openAgents = async () => {
     await open()
-    await railTo('ตั้งค่าสกิลสำหรับเอเจนเฉพาะทาง')
+    await railTo('ตั้งค่าสกิลสำหรับพนักงานเฉพาะทาง')
     await waitFor(() => expect(vi.mocked(AgentSkills)).toHaveBeenCalledWith('editor'))
   }
 
@@ -339,7 +339,7 @@ describe('arriving from the agent editor', () => {
   it("opens the MCP placement page on the agent's picker, and consumes the intent", async () => {
     cockpit.capabilityIntent = { page: 'agents', agent: 'editor' }
     await open([{ name: 'context7', command: ['npx'], disabled: false, status: 'connected', tools: 2, for: [] }])
-    await waitFor(() => expect(activePage()).toBe('ตั้งค่า MCP สำหรับเอเจนเฉพาะทาง'))
+    await waitFor(() => expect(activePage()).toBe('ตั้งค่า MCP สำหรับพนักงานเฉพาะทาง'))
     await waitFor(() => expect(document.getElementById('cap-pick-title')?.textContent).toContain('editor'))
     expect(cockpit.capabilityIntent).toBeNull()
   })
@@ -349,7 +349,7 @@ describe('arriving from the agent editor', () => {
     vi.mocked(AgentSkills).mockResolvedValue([] as any)
     cockpit.capabilityIntent = { page: 'skagents', agent: 'editor' }
     await open()
-    await waitFor(() => expect(activePage()).toBe('ตั้งค่าสกิลสำหรับเอเจนเฉพาะทาง'))
+    await waitFor(() => expect(activePage()).toBe('ตั้งค่าสกิลสำหรับพนักงานเฉพาะทาง'))
     await waitFor(() => expect(document.querySelector('.cap-sheet h3')?.textContent).toBe('สกิลของ editor'))
   })
 })
@@ -694,7 +694,7 @@ describe('placement: two pages, one picker', () => {
     vi.mocked(PlacementTargets).mockResolvedValue(TARGETS_WITH_OFFICE as any)
     vi.mocked(ListSubagentProfiles).mockResolvedValue(profiles as any)
     await open(rows)
-    await railTo(['ผู้ช่วย', 'โค้ด'].includes(who) ? 'ตั้งค่า MCP ฝั่งผู้ช่วย' : 'เอเจนเฉพาะ')
+    await railTo(['ผู้ช่วย', 'โค้ด'].includes(who) ? 'ตั้งค่า MCP ฝั่งผู้ช่วย' : 'พนักงานเฉพาะ')
     await fireEvent.click(card(who).querySelector('.cap-act')!)
     const dlg = await screen.findByRole('dialog')
     expect(within(dlg).getByText(`ให้ ${who} ใช้ตัวไหน`)).toBeTruthy()
@@ -737,12 +737,12 @@ describe('placement: two pages, one picker', () => {
   // The agents' page: a card per teammate saying what it is for, what it
   // holds, and what its own file says it needs and has not got. The rail
   // counts the teammates that cannot work yet.
-  it('ตั้งค่า MCP สำหรับเอเจนเฉพาะทาง is a card per agent with its needs, and its button opens the picker', async () => {
+  it('ตั้งค่า MCP สำหรับพนักงานเฉพาะทาง is a card per agent with its needs, and its button opens the picker', async () => {
     vi.mocked(ListSubagentProfiles).mockResolvedValue(
       [{ name: 'deepresearch', description: 'เอเจนหาข้อมูลเชิงลึก — ไล่หลายแหล่ง', needs: ['mcp:firecrawl'] }, { name: 'editor', description: 'เอเจนตัดต่อวิดีโอ — ดูฟุตเทจ', needs: ['mcp:kinocut'] }] as any)
     await open([server({ status: 'connected', tools: 25, tokens: 3200, for: ['assistant', 'agent:editor'] }), server({ name: 'kinocut', url: '', command: ['kino'], for: [] })])
-    expect(rail().find((x) => x.textContent?.includes('เอเจนเฉพาะ'))?.querySelector('.nav-count')?.textContent).toBe('2')
-    await railTo('เอเจนเฉพาะ')
+    expect(rail().find((x) => x.textContent?.includes('พนักงานเฉพาะ'))?.querySelector('.nav-count')?.textContent).toBe('2')
+    await railTo('พนักงานเฉพาะ')
     expect(screen.queryAllByRole('switch').length).toBe(0)
     const dr = card('deepresearch')
     expect(within(dr).getByText('หาข้อมูลเชิงลึก')).toBeTruthy() // the profile's role, before its dash, without "เอเจน"
