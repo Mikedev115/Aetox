@@ -164,9 +164,19 @@ const (
 // picks the file — `user` always lands in the profile, whatever desk this is
 // and whatever `where` says, because who somebody is cannot be true of one
 // project only.
+//
+// `self` came 14 ก.ย. 2026. With two words the assistant's own file could only
+// ever hold facts about the computer, and the owner, reading a day of
+// proposals, saw the shape that made: *"มันจดทุกอย่างลงเกี่ยวกับผม แต่ไม่ค่อยเห็น
+// มันจำอะไรเกี่ยวกับตัวเองเลย"*. What the work taught the assistant — an
+// approach that landed or failed with this person, a habit it now keeps —
+// had no word to be written under and so was never written. Same file as
+// `machine` (the head's own, §266 "the assistant's" layer): the split that
+// matters is user / not-user, and a third file would be a third page.
 const (
 	aboutUser    = "user"
 	aboutMachine = "machine"
+	aboutSelf    = "self"
 )
 
 func (t *MemoryTool) whereOptions() []string {
@@ -190,12 +200,12 @@ func (t *MemoryTool) whereDescription() string {
 	// It stopped saying "this user" on 6 ก.ย.: a fact about the user has its own
 	// file now and reaches it whatever this says, so leaving the word here would
 	// offer a destination that the same call has already overruled.
-	everywhere := "Only read when about is machine. everywhere for a fact that is true of this computer " +
+	everywhere := "Only read when about is self or machine. everywhere for a fact that is true of this computer " +
 		"whatever you are working on."
 	if t.ownMemory() {
 		// This desk's own file: what its work taught that holds in every
 		// repository, and that the assistant desk never pays for.
-		everywhere = "Only read when about is machine. this-desk for something this kind of work taught you " +
+		everywhere = "Only read when about is self or machine. this-desk for something this kind of work taught you " +
 			"that holds in every project — a tool this machine lacks, a convention you follow wherever " +
 			"you write code. Only sessions at this desk read it."
 	}
@@ -291,10 +301,12 @@ func (t *MemoryTool) ToolDefinition() model.ToolDefinition {
 	if !t.forWorker() {
 		schema["properties"].(map[string]any)["about"] = map[string]any{
 			"type": "string",
-			"enum": []string{aboutUser, aboutMachine},
+			"enum": []string{aboutUser, aboutMachine, aboutSelf},
 			"description": "Required. user for an enduring fact about the person you are talking to — who they are, " +
 				"what they are building, how they want to be worked with, what a request of theirs " +
-				"reliably turns out to mean. machine for a permanent, global hardware or system constraint " +
+				"reliably turns out to mean. self for what the work taught YOU — an approach that turned out " +
+				"right or wrong with this person, a rule you now keep, what you found out about your own tools here. " +
+				"machine for a permanent, global hardware or system constraint " +
 				"that holds across all projects (e.g. global proxy, strict OS limit). NEVER use machine for local directory paths, " +
 				"command output, or script workarounds.",
 		}
@@ -343,8 +355,12 @@ func (t *MemoryTool) definitionText() string {
 	}
 	return "Skills come first. Memory is a narrow exception for enduring facts that apply to EVERY session regardless of task. " +
 		"Worth keeping in USER.md (about: user): what they tell you about themselves — who they are, what they are building, " +
-		"how they want to be worked with. A fact the user states about themselves is already the evidence for it. " +
-		"Worth keeping in MEMORY.md (about: machine): only permanent, global environment constraints that will still be true next month " +
+		"how they want to be worked with. A fact the user states about themselves is already the evidence for it; " +
+		"their name is not one of them, it reaches you in the prompt already. " +
+		"Worth keeping in your own file (about: self): what this work taught you — an approach that landed or failed " +
+		"with this person, a habit you now keep, what you learned about your own tools here. That file is what makes " +
+		"you the same colleague next month; a session that only wrote about the user learned nothing itself. " +
+		"Also in your own file (about: machine): only permanent, global environment constraints that will still be true next month " +
 		"and would change what you do (e.g. hardware limits, global proxy). " +
 		"STRICTLY FORBIDDEN: Do NOT propose memories for transient errors, command failures, script debugging, date/locale formatting quirks, " +
 		"one-off workarounds, directory paths discovered during a task, or anything discoverable by running a command. " +
@@ -439,7 +455,10 @@ func (t *MemoryTool) ExecuteTool(_ context.Context, args map[string]any) (skill.
 			// Who somebody is cannot be true of one project only, so there is no
 			// destination left to choose.
 			scope = UserScope
-		case aboutMachine:
+		case aboutMachine, aboutSelf:
+			// Both land in the head's own file: what the computer is and what
+			// the work taught are the two things that are true of this
+			// assistant rather than of the person, and one file holds them.
 			switch strings.TrimSpace(stringArg(args, "where")) {
 			case whereEverywhere, whereDesk:
 				// The cross-project destination, whichever word this desk was
@@ -459,10 +478,10 @@ func (t *MemoryTool) ExecuteTool(_ context.Context, args map[string]any) (skill.
 			}
 		case "":
 			return fail(callfault.Newf(
-				"about is required — %q for a fact about the person you are talking to, %q for a fact about this computer or setup",
-				aboutUser, aboutMachine))
+				"about is required — %q for a fact about the person you are talking to, %q for what the work taught you, %q for a fact about this computer or setup",
+				aboutUser, aboutSelf, aboutMachine))
 		default:
-			return fail(callfault.Newf("about must be %q or %q", aboutUser, aboutMachine))
+			return fail(callfault.Newf("about must be %q, %q or %q", aboutUser, aboutSelf, aboutMachine))
 		}
 	}
 

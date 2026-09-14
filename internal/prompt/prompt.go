@@ -1847,6 +1847,13 @@ func workingIn(space Space) string {
 //
 // The name is whatever was typed, so it is flattened to one line and cut
 // short before it goes into a prompt it could otherwise break out of.
+//
+// The last sentence is the memory tool's: the first session with the name in
+// the prompt proposed "ผู้ใช้ชื่อไมค์" as a memory line (owner, 14 ก.ย.:
+// "มันรู้ชื่อของผู้ใช้อยู่แล้วจะจำทำไม"), because the tool's own text says a
+// fact the user states about themselves is already the evidence, and nothing
+// said this one was already kept. Said here, next to the name, rather than in
+// the tool's block: the block is read by a session with no name on file too.
 func person(name string) string {
 	name = strings.Join(strings.Fields(name), " ")
 	if name == "" {
@@ -1857,7 +1864,8 @@ func person(name string) string {
 	}
 	return "The person you are working with calls themselves \"" + name + "\". Use the name the way a " +
 		"colleague would, at a greeting or when handing something back, not in every sentence, and it is " +
-		"only what they typed as their name, so read nothing else about them from it.\n"
+		"only what they typed as their name, so read nothing else about them from it. It is already on " +
+		"file: never propose remembering their name.\n"
 }
 
 // team names the roster this chat hires from, once, for a session on one. A

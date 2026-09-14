@@ -65,8 +65,11 @@ describe('the list', () => {
     ] as any)
     cockpit.pendingLearned = 2
     const { container } = render(Settings, { onClose: () => {} })
-    const row = Array.from(container.querySelectorAll('.settings-nav-item')).find((el) => el.textContent?.includes('ตัวหลัก'))!
-    expect(row.querySelector('.nav-count')?.textContent?.trim()).toBe('2')
+    const rail = (name: string) => Array.from(container.querySelectorAll('.settings-nav-item')).find((el) => el.textContent?.includes(name))!
+    // Each item's count on the row that decides it — not the whole queue on
+    // ตัวหลัก, where the person's item would have had nothing to point at.
+    await waitFor(() => expect(rail('ตัวหลัก').querySelector('.nav-count')?.textContent?.trim()).toBe('1'))
+    expect(rail('เกี่ยวกับคุณ').querySelector('.nav-count')?.textContent?.trim()).toBe('1')
     await openSection(container, 'ตัวหลัก')
     await waitFor(() => expect(cards(container).length).toBe(2))
     await waitFor(() => expect(cards(container)[1].textContent).toContain('รออนุมัติ 1'))
