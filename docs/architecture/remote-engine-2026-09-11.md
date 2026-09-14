@@ -850,6 +850,14 @@ more doors, and the reverse shape behind every reveal. One road for each.
 | frontend | `engine.svelte.ts` `hostDirAsk`; `App.svelte` listens for `screen:pickdir`, shows `RemoteDirPicker` with the door's title and start, answers through `AnswerHostDir` — and on a host routes a drop anywhere but the composer through the desk's road (`openPathsInWorkbench`: a copy brought in, then opened) where it used to be a silent nothing; `RemoteDirPicker.svelte` takes `title` | `remoteEngine.test.ts`: the picker wears the door's title, names the host under it, opens where the door said |
 | `desktop/host_files_smoke_test.go` | `TestRemoteSmokeHostFiles` — the same doors on a REAL host over the REAL ssh (`AETOX_REMOTE_SMOKE=wsl AETOX_ENGINE_LINUX=…`): attach, inbox clear, the folder door through the event, the refusal, the fetched copy | run against `wsl` the day it was written: connect 1.1 s, a PNG attached through the tunnel in **33 ms**, the copy fetched and opened |
 
+Two more, the same day, from asking "where else": `hello` now carries the
+engine's hostname, and an engine attached by hand (`AETOX_ENGINE_ADDR`) counts
+as a host — for the doors and for `credentialMayRide` — when that name is not
+this machine's (`localEngine.elsewhere`; an older engine that gives no name is
+judged by its OS). And the attachment caps (20 MB a picture, 2 GB a file) are
+checked on the screen before the trip, in the engine's own words, so a 50 MB
+photo is refused here rather than after 50 MB have crossed the tunnel.
+
 What stayed as it was, and why: paste, the browser's shot, the mic —
 bytes that already crossed as data URLs; the exports — engine bytes to a
 dialog here, so they never had the problem; `OpenArtifact` and every

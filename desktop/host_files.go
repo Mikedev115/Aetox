@@ -39,17 +39,28 @@ import (
 )
 
 // engineOnHost reports whether the engine the window is on is another
-// machine's — the one case in which a path here is not a path there.
+// machine's — the one case in which a path here is not a path there. A host
+// over ssh, or an engine attached by hand that named another machine in
+// its hello (localEngine.elsewhere).
 func (a *App) engineOnHost() bool {
-	return a.engine != nil && a.engine.remoteNow()
+	return a.engine != nil && a.engine.elsewhere()
 }
 
-// hostLabel names the host, for the sentences below.
+// hostLabel names the host, for the sentences below: the Settings row's
+// name, or for an attached engine whatever it called itself.
 func (a *App) hostLabel() string {
 	if a.engine == nil {
 		return ""
 	}
-	return a.EngineStatus().Host
+	if h := a.EngineStatus().Host; h != "" {
+		return h
+	}
+	a.engine.mu.Lock()
+	defer a.engine.mu.Unlock()
+	if a.engine.hello.Hostname != "" {
+		return a.engine.hello.Hostname
+	}
+	return a.engine.hello.OS
 }
 
 // uploadWait bounds one file's trip up the tunnel. Generous: the cap on an
@@ -59,10 +70,23 @@ const uploadWait = 30 * time.Minute
 // onHost answers with a path the engine can read for a file on this
 // machine, and a done that clears what the trip left behind. At home the
 // path is the path and done is nothing; on a host the file goes up first.
-func (a *App) onHost(local string) (path string, done func(), err error) {
+//
+// maxBytes is the cap the binding at the far end will apply (0 for none):
+// checked here, before the trip, so a 50 MB photo is refused in the same
+// words as at home rather than after 50 MB have crossed the tunnel.
+func (a *App) onHost(local string, maxBytes int64) (path string, done func(), err error) {
 	local = strings.TrimSpace(local)
 	if local == "" || !a.engineOnHost() {
 		return local, func() {}, nil
+	}
+	if maxBytes > 0 {
+		info, err := os.Stat(local)
+		if err != nil {
+			return "", func() {}, fmt.Errorf("ส่งไฟล์ไปเครื่อง %s ไม่ได้: %w", a.hostLabel(), err)
+		}
+		if info.Size() > maxBytes {
+			return "", func() {}, fmt.Errorf("ไฟล์ใหญ่เกินไป (%d MB, สูงสุด %d MB)", info.Size()>>20, maxBytes>>20)
+		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), uploadWait)
 	defer cancel()
@@ -81,15 +105,22 @@ func (a *App) onHost(local string) (path string, done func(), err error) {
 }
 
 // withHostFile runs the engine's half with a path it can read, and clears
-// the trip afterwards.
-func (a *App) withHostFile(local string, bind func(hostPath string) (string, error)) (string, error) {
-	path, done, err := a.onHost(local)
+// the trip afterwards. maxBytes as for onHost.
+func (a *App) withHostFile(local string, maxBytes int64, bind func(hostPath string) (string, error)) (string, error) {
+	path, done, err := a.onHost(local, maxBytes)
 	if err != nil {
 		return "", err
 	}
 	defer done()
 	return bind(path)
 }
+
+// The caps the engine's two attachment doors apply (engine.SaveChatImage,
+// engine.SaveChatFile), repeated here so the refusal comes before the trip.
+const (
+	chatImageCap = 20 << 20
+	chatFileCap  = 2 << 30
+)
 
 // ---------------------------------------------------------------- attachments
 
@@ -98,12 +129,12 @@ func (a *App) withHostFile(local string, bind func(hostPath string) (string, err
 // host the engine would find nothing there. The screen owns the name so the
 // generator leaves it to this file (engine_forwarders_gen.go).
 func (a *App) SaveChatImage(sourcePath string) (string, error) {
-	return a.withHostFile(sourcePath, a.api.SaveChatImage)
+	return a.withHostFile(sourcePath, chatImageCap, a.api.SaveChatImage)
 }
 
 // SaveChatFile is the same for a clip or a document.
 func (a *App) SaveChatFile(sourcePath string) (string, error) {
-	return a.withHostFile(sourcePath, a.api.SaveChatFile)
+	return a.withHostFile(sourcePath, chatFileCap, a.api.SaveChatFile)
 }
 
 // AddSpaceContextFiles is the engine's, with every picked file — from the
@@ -125,7 +156,7 @@ func (a *App) AddSpaceContextFiles(name string, picked []string) ([]string, erro
 		}
 	}()
 	for _, p := range picked {
-		path, done, err := a.onHost(p)
+		path, done, err := a.onHost(p, 0)
 		if err != nil {
 			errs = append(errs, err)
 			continue

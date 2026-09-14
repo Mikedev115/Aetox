@@ -11,9 +11,12 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Mikedev115/Aetox/internal/engine/rpc"
 )
 
 // projectOpen opens a project in the test's engine, and answers its root.
@@ -249,5 +252,58 @@ func TestOnAHostAFileOpensAsAFetchedCopy(t *testing.T) {
 	// Outside the sandbox stays the engine's refusal, before any fetch.
 	if err := a.OpenFileExternally("../elsewhere.pdf"); err == nil {
 		t.Error("a path outside the project was fetched")
+	}
+}
+
+func TestAnAttachedEngineIsElsewhereOnlyWhenItsHelloNamesAnotherMachine(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	a, addr := newTestAppAt(t)
+	t.Setenv("AETOX_ENGINE_ADDR", "tcp:"+addr)
+	here, _ := os.Hostname()
+	a.engine = &localEngine{token: testToken, target: engineTarget{mode: modeLocal}, proc: &engineProcess{network: "tcp", address: addr}}
+
+	a.engine.hello = rpc.HelloResult{OS: runtime.GOOS, Hostname: here}
+	if a.engineOnHost() {
+		t.Error("an engine attached on this very machine was taken for another machine's")
+	}
+	a.engine.hello = rpc.HelloResult{OS: "linux", Hostname: "box"}
+	if !a.engineOnHost() {
+		t.Error("an engine that named another machine was taken for this one")
+	}
+	if a.hostLabel() != "box" {
+		t.Errorf("hostLabel = %q, want the name the engine gave", a.hostLabel())
+	}
+	// An older engine says no hostname: the OS decides.
+	a.engine.hello = rpc.HelloResult{OS: "linux"}
+	if runtime.GOOS != "linux" && !a.engineOnHost() {
+		t.Error("an engine on another OS, with no hostname to give, was taken for this machine")
+	}
+	// And without AETOX_ENGINE_ADDR the child is this machine's whatever it said.
+	t.Setenv("AETOX_ENGINE_ADDR", "")
+	if a.engineOnHost() {
+		t.Error("a child of this process was taken for another machine's")
+	}
+}
+
+func TestOnAHostAFileOverTheCapIsRefusedBeforeTheTrip(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	a, addr := newTestAppAt(t)
+	onAHost(a, addr)
+	projectOpen(t, a)
+	big := filepath.Join(t.TempDir(), "huge.png")
+	f, err := os.Create(big)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Truncate(chatImageCap + 1); err != nil { // sparse: no 20 MB written
+		t.Fatal(err)
+	}
+	f.Close()
+	_, err = a.SaveChatImage(big)
+	if err == nil || !strings.Contains(err.Error(), "ไฟล์ใหญ่เกินไป") {
+		t.Fatalf("SaveChatImage over the cap = %v, want the engine's own refusal", err)
+	}
+	if entries, _ := os.ReadDir(filepath.Join(os.Getenv("AETOX_DATA_ROOT"), "inbox")); len(entries) != 0 {
+		t.Error("the file crossed the wire before it was refused")
 	}
 }
