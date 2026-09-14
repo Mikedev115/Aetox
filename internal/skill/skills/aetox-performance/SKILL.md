@@ -78,6 +78,10 @@ rebuilt in the same turn: a reshape is a design change and goes through
   made.
 - A fix is not traded against correctness or clarity for a number nobody
   asked for.
+- When the number cannot be taken (the command refused, nothing to run
+  it with), the fix is proposed as a diff and not applied. "The change is
+  obviously right, the user can measure it" is the claim the noise rule
+  exists for; the baseline comes before the edit, not after.
 - The improvement is stated as before → after with the noise beside it. An
   estimate for a fix not yet made is a range from the measured baseline,
   never "much faster".
