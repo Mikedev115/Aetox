@@ -2,7 +2,7 @@
 // every *.md file in a head's folder is folded into that head's system prompt
 // regardless of which project is open (internal/prompt's "Personal
 // instructions" layer). Multiple files (identity.md, thinking.md, context.md,
-// skills.md), not one blob — independent of any single project's state.
+// context.md), not one blob — independent of any single project's state.
 //
 // One folder per head since 14 ก.ย. 2026 (§266): ผู้ช่วย and โค้ด each have
 // their own set, edited on that head's own page (ตั้งค่า › ตัวหลัก › ตัวตน).
@@ -87,7 +87,6 @@ export function identityTemplates(): { name: string; content: string }[] {
     { name: 'identity.md', content: t('identity.tplIdentity') },
     { name: 'thinking.md', content: t('identity.tplThinking') },
     { name: 'context.md', content: t('identity.tplContext') },
-    { name: 'skills.md', content: t('identity.tplSkills') },
   ]
 }
 

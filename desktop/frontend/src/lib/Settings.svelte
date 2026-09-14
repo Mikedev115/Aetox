@@ -158,8 +158,20 @@
     // context.md was on เกี่ยวกับคุณ for a morning (14 ก.ย.); the owner put
     // it back with the other three: "ไม่ควรไปอยู่เกี่ยวกับคุณ มันควรผูกกับเอเจน".
     { name: 'context.md', icon: 'fileText', descKey: 'settings.identityDescContext', tplKey: 'identity.tplContext' },
-    { name: 'skills.md', icon: 'zap', descKey: 'settings.identityDescSkills', tplKey: 'identity.tplSkills' },
+    // skills.md left the list 14 ก.ย. 2026 (owner: "ไม่มีประโยชน์ชัดเลยหน้านี้"):
+    // a fourth always-on file nobody could say the purpose of. A hand-made
+    // one on disk is still listed below, like any other.
   ]
+  // The template "+" writes is the head's own: the assistant's identity is a
+  // friend and a personal helper, the coder's an engineer beside you, and each
+  // thinks the way its desk works (owner, 14 ก.ย.: "identity.md หน้าผู้ช่วย คือ
+  // เป็นเพื่อน ผู้ช่วยส่วนตัว … กระชับ ไม่ต้องใส่เหตุผล"). Short on purpose: every
+  // line here is folded into every request.
+  const tplFor = (item: { name: string; tplKey: TKey }): string => {
+    if (identity.head === 'coding' && item.name === 'identity.md') return t('identity.tplIdentityCoding')
+    if (identity.head === 'coding' && item.name === 'thinking.md') return t('identity.tplThinkingCoding')
+    return t(item.tplKey)
+  }
   // Files a person made by hand (the old "เพิ่มไฟล์คำสั่งใหม่" box, gone on the
   // owner's word the same day): still listed while they exist, so a file on
   // disk is never invisible, but nothing here makes a new one.
@@ -3435,7 +3447,7 @@
       // with no page is a thing that looks unconfigurable. Beside เอเจนเฉพาะทาง
       // on purpose (owner: "B ดีสุด จำง่าย"): main, specialists, helpers, teams.
       { id: 'main', label: t('settings.mainHeads'), icon: 'userRound',
-        terms: [t('desk.assistant'), t('desk.coding'), t('settings.learningAssistantSection'), t('settings.identity'), 'MEMORY.md', 'modes/coding.md', 'identity.md', 'thinking.md', 'context.md', 'skills.md'] },
+        terms: [t('desk.assistant'), t('desk.coding'), t('settings.learningAssistantSection'), t('settings.identity'), 'MEMORY.md', 'modes/coding.md', 'identity.md', 'thinking.md', 'context.md'] },
       // The people you talk to, then the helpers the assistant runs, then the
       // teams that group the first kind. Configuring an agent lives here again
       // since 13 ก.ย. 2026: for a day (12 ก.ย., "เอาเอเจนออกจากหน้าตั้งค่า")
@@ -6620,7 +6632,7 @@
                       {t('settings.identityEditBtn')}
                     </button>
                   {:else}
-                    <button type="button" class="ctrl" onclick={() => createIdentityFile(item.name, t(item.tplKey))}>
+                    <button type="button" class="ctrl" onclick={() => createIdentityFile(item.name, tplFor(item))}>
                       <Icon name="plus" size={13} />
                       {t('settings.identityCreateBtn')}
                     </button>
