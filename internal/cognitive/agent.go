@@ -1801,6 +1801,37 @@ func (a *Agent) respondFromContext(ctx context.Context, opts turn.TurnOptions) (
 	return reply, nil
 }
 
+// MeasureFloor sends the request every message of this chat starts from — the
+// system prompt, the tool block, one word of user text, one token of answer —
+// and hands back what the provider counted for it, stamped with the guess for
+// the same bytes. That pair is the one row that makes a fresh chat's forecast
+// exact before anything has been said (engine.MeasureContextFloor).
+//
+// Nothing enters the history, the fill is not measured, and the reporter is
+// not told: this is the floor the conversation stands on, not the
+// conversation, and the caller writes the row itself so that it lands in the
+// usage table (it was paid for) without being announced as a round of a turn
+// nobody started.
+func (a *Agent) MeasureFloor(ctx context.Context, tools []model.ToolDefinition, opts turn.TurnOptions) (model.Usage, error) {
+	if a == nil || a.provider == nil {
+		return model.Usage{}, errors.New("agent provider is not initialized")
+	}
+	var msgs []model.Message
+	if all := a.context.Messages(); len(all) > 0 && all[0].Role == model.RoleSystem {
+		msgs = append(msgs, all[0])
+	}
+	msgs = append(msgs, model.Message{Role: model.RoleUser, Content: "ping"})
+	response, err := a.completeWithReconnect(ctx, a.buildRequest(msgs, 1, 0, tools, "", opts), opts)
+	if err != nil && !model.IsEmptyCompletion(err) {
+		return model.Usage{}, err
+	}
+	if response.Usage == nil || response.Usage.PromptTokens <= 0 {
+		return model.Usage{}, errors.New("the provider reported no prompt count")
+	}
+	response.Usage.Estimate = model.EstimatePrompt(msgs, tools)
+	return *response.Usage, nil
+}
+
 // RespondEphemeral answers a one-shot prompt over the current conversation
 // WITHOUT writing anything into history — the Claude Code/OpenCode pattern for
 // meta work (tool-run summaries, titles): the session transcript must never

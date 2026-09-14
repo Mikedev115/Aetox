@@ -17,6 +17,15 @@ import (
 // each tool-loop iteration — lands here. Failures only log: usage stats must
 // never break a chat turn.
 func (a *Engine) recordTokenUsage(conv *conversation, u model.Usage) {
+	a.storeTokenUsage(conv, u)
+	a.emitUsageRound(conv, u)
+}
+
+// storeTokenUsage is the insert alone. MeasureContextFloor writes its row
+// through here and announces it as a measurement, not as a round of the turn:
+// a usage:round on an idle chat would land in the composer's "this turn cost"
+// tally with no turn to belong to.
+func (a *Engine) storeTokenUsage(conv *conversation, u model.Usage) {
 	db, err := a.database()
 	if err != nil {
 		debuglog.Msg("usage: db unavailable: %v", err)
@@ -45,7 +54,6 @@ func (a *Engine) recordTokenUsage(conv *conversation, u model.Usage) {
 	if err != nil {
 		debuglog.Msg("usage: insert failed: %v", err)
 	}
-	a.emitUsageRound(conv, u)
 }
 
 // UsageRound is one model round's spend, sent to the UI as it happens.

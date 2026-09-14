@@ -1,10 +1,13 @@
 package engine
 
 import (
+	"context"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/Mikedev115/Aetox/internal/cognitive"
+	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/model"
 )
 
@@ -144,5 +147,86 @@ func TestGetContextBreakdownForecastsFromMeasuredRounds(t *testing.T) {
 	a.cur().cfg.ModelName = "deepseek-v4-pro"
 	if other := a.GetContextBreakdown(); other.CalibratedRounds != 0 || other.UsedTokens != guess {
 		t.Errorf("other model: CalibratedRounds=%d UsedTokens=%d, want 0 and the bare guess %d", other.CalibratedRounds, other.UsedTokens, guess)
+	}
+}
+
+// floorProvider is a tokenizer that packs the request at four fifths of the
+// chars/4 guess — the direction the real ones erred on 14 ก.ย. — and
+// remembers being asked.
+type floorProvider struct{ calls int }
+
+func (floorProvider) Name() string { return "floor-fake" }
+func (p *floorProvider) Complete(_ context.Context, req model.Request) (model.Response, error) {
+	p.calls++
+	counted := model.EstimatePrompt(req.Messages, req.Tools).Total() * 8 / 10
+	return model.Response{Usage: &model.Usage{PromptTokens: counted, CompletionTokens: 1}}, nil
+}
+
+// The owner's ask, end to end: a fresh chat on a model nobody has measured
+// spends one floor request on its own, the provider's count lands as the first
+// calibration row, the window is told, and the meter reads that number —
+// before a word has been said. And only once: the meter refreshes on every
+// keystroke and the request costs money.
+func TestFirstMeterOnAnUnmeasuredModelMeasuresTheFloorOnce(t *testing.T) {
+	isolateUserDirs(t)
+	var events []string
+	a := seed(&Engine{
+		ctx:   context.Background(),
+		cfg:   config.Config{ModelProvider: "noop", ModelName: "floor-fake-model", SandboxRoot: t.TempDir()},
+		dbDir: t.TempDir(),
+		emit:  func(ev string, _ ...any) { events = append(events, ev) },
+	}, newConversation())
+	t.Cleanup(func() {
+		if a.db != nil {
+			_ = a.db.Close()
+		}
+	})
+	a.applyConfig(a.cur(), a.cfg)
+	if a.cur().agent == nil {
+		t.Fatal("agent not built")
+	}
+	provider := &floorProvider{}
+	a.cur().agent.ReplaceModel(provider, "floor-fake-model")
+
+	first := a.GetContextBreakdown()
+	if first.Measured || first.CalibratedRounds != 0 {
+		t.Fatalf("first reading Measured=%v CalibratedRounds=%d; want the bare guess", first.Measured, first.CalibratedRounds)
+	}
+	// The measurement runs in the background; wait for its row.
+	deadline := time.Now().Add(5 * time.Second)
+	for provider.calls == 0 || a.promptCalibration("noop", "floor-fake-model").Rounds == 0 {
+		if time.Now().After(deadline) {
+			t.Fatalf("floor never measured: provider calls=%d", provider.calls)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	// Two more refreshes, as keystrokes would cause.
+	a.GetContextBreakdown()
+	after := a.GetContextBreakdown()
+	if provider.calls != 1 {
+		t.Errorf("provider asked %d times, want once per model per process", provider.calls)
+	}
+	if after.Measured {
+		t.Error("the chat has still sent nothing; Measured must stay false")
+	}
+	if after.CalibratedRounds != 1 {
+		t.Errorf("CalibratedRounds = %d, want the one floor row", after.CalibratedRounds)
+	}
+	// One row is one ratio, and the fresh chat IS the floor, so the forecast
+	// is what the provider counted for it, give or take the word "ping".
+	if want := float64(first.UsedTokens) * 0.8; !near(float64(after.UsedTokens), want, 3) {
+		t.Errorf("forecast = %d, want the provider's rate %.0f (bare guess was %d)", after.UsedTokens, want, first.UsedTokens)
+	}
+	measured := 0
+	for _, ev := range events {
+		switch ev {
+		case "context:measured":
+			measured++
+		case "usage:round":
+			t.Error("a floor measurement was announced as a round of a turn")
+		}
+	}
+	if measured != 1 {
+		t.Errorf("context:measured emitted %d times, want 1", measured)
 	}
 }

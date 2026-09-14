@@ -125,3 +125,50 @@ func TestUsageCarriesTheRequestEstimate(t *testing.T) {
 		t.Errorf("ephemeral round stamped %+v; its count describes a request the meter never draws", title)
 	}
 }
+
+// The floor measurement sends the system prompt and the tool block with one
+// word, asks for one token, and hands back the provider's count stamped with
+// the guess for the same bytes — without the conversation learning it
+// happened: nothing in the history, nothing told to the reporter.
+func TestMeasureFloorSendsTheFloorAndLeavesNoTrace(t *testing.T) {
+	provider := &toolLoopProvider{
+		responses: []model.Response{{Text: "", Usage: &model.Usage{PromptTokens: 1234, CompletionTokens: 1}}},
+	}
+	agent := NewAgent(AgentConfig{Provider: provider, Model: "test-model", SystemPrompt: "you are a test system prompt"})
+	agent.RestoreHistory([]model.Message{
+		{Role: model.RoleUser, Content: "earlier question"},
+		{Role: model.RoleAssistant, Content: "earlier answer"},
+	})
+	reported := 0
+	agent.SetUsageReporter(func(model.Usage) { reported++ })
+
+	tools := []model.ToolDefinition{{Type: "function", Function: model.ToolFunction{Name: "read", Parameters: []byte(`{"type":"object"}`)}}}
+	u, err := agent.MeasureFloor(context.Background(), tools, turn.TurnOptions{ThinkLevel: think.LevelLow})
+	if err != nil {
+		t.Fatalf("MeasureFloor: %v", err)
+	}
+	if u.PromptTokens != 1234 {
+		t.Errorf("PromptTokens = %d, want the provider's 1234", u.PromptTokens)
+	}
+	if u.Estimate.IsZero() || u.Estimate.Tools == 0 || u.Estimate.System == 0 {
+		t.Errorf("Estimate = %+v; want the floor guessed, tools included", u.Estimate)
+	}
+	if len(provider.requests) != 1 {
+		t.Fatalf("sent %d requests, want 1", len(provider.requests))
+	}
+	req := provider.requests[0]
+	// The floor, not the conversation: the system prompt and one word, and the
+	// earlier turns left out.
+	if len(req.Messages) != 2 || req.Messages[0].Role != model.RoleSystem || req.Messages[1].Content != "ping" {
+		t.Errorf("request messages = %+v; want [system, ping]", req.Messages)
+	}
+	if len(req.Tools) != 1 || req.MaxTokens != 1 {
+		t.Errorf("request tools=%d maxTokens=%d; want the tool block and one token", len(req.Tools), req.MaxTokens)
+	}
+	if n := len(agent.ContextMessages()); n != 3 {
+		t.Errorf("history has %d messages after the measurement, want the 3 it had", n)
+	}
+	if reported != 0 {
+		t.Errorf("reporter heard %d rounds; a measurement is not a round of any turn", reported)
+	}
+}

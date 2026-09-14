@@ -651,6 +651,10 @@ func (a *App) MarkVideoCheckSeen() {
 	a.api.MarkVideoCheckSeen()
 }
 
+func (a *App) MeasureContextFloor() (engine.ContextBreakdown, error) {
+	return a.api.MeasureContextFloor()
+}
+
 func (a *App) MemoryFolderPath() (string, error) {
 	return a.api.MemoryFolderPath()
 }

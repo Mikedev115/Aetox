@@ -1108,6 +1108,12 @@ func (c *Client) MarkVideoCheckSeen() {
 	}
 }
 
+func (c *Client) MeasureContextFloor() (engine.ContextBreakdown, error) {
+	var out0 engine.ContextBreakdown
+	err := c.call("MeasureContextFloor", nil, &out0)
+	return out0, err
+}
+
 func (c *Client) MemoryFolderPath() (string, error) {
 	var out0 string
 	err := c.call("MemoryFolderPath", nil, &out0)
