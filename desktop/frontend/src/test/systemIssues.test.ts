@@ -121,7 +121,10 @@ describe('problems and lessons are two rooms', () => {
 
     await waitFor(() => expect(vi.mocked(BrowserOpenURL)).toHaveBeenCalledTimes(1))
     const url = vi.mocked(BrowserOpenURL).mock.calls[0][0] as string
-    expect(url.length).toBeLessThanOrEqual(8000)
+    // 4000, not 8000: GitHub answers 500 "Whoops, something went wrong" from
+    // ~7,000 characters when signed in and loses the prefill on the sign-in
+    // bounce from ~4,500 when not (measured 2026-09-15; the v1.6.3 report).
+    expect(url.length).toBeLessThanOrEqual(4000)
 
     // Short is not enough on its own: the report still has to carry the problem.
     // A URL trimmed to nothing would pass a length check and be useless.

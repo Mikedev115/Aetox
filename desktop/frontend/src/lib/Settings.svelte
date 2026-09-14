@@ -3794,10 +3794,19 @@
   // window, no error, nothing (measured 2026-08-18: 4,251 raw characters became
   // a 35,659-character URL).
   //
-  // 8000 rather than anything near the OS ceiling: GitHub itself stops honouring
-  // very long prefill URLs well before Windows stops accepting them, and a
-  // report that opens with the body quietly cut is worse than a shorter log.
-  const ISSUE_URL_BUDGET = 8000
+  // Was 8000, which is over GitHub's own ceiling, not under it. Measured
+  // 2026-09-15 against issues/new with curl, URL length in characters:
+  //   signed in   : 6,934 opens · 7,012 answers 500 "Whoops, something went
+  //                 wrong" — the report from v1.6.3 portable, where a full log
+  //                 put the URL at ~8,000 every time.
+  //   signed out  : the sign-in bounce carries the URL again as return_to
+  //                 (encoded once more, so ~1.6x longer) and GitHub drops it
+  //                 above 4,534 — the user signs in and lands on an empty
+  //                 form, with no sign anything was lost.
+  //   above 8,000 : 414 / 502 from the edge.
+  // 4000 clears both, and the log is what gives: the cluster and the version
+  // are written first and the log is trimmed from its old end to fit.
+  const ISSUE_URL_BUDGET = 4000
 
   function issueURLFits(head: string[], log: string[]): boolean {
     const body = [...head, '', '<details><summary>x</summary>', '', '```', log.join('\n'), '```', '</details>'].join('\n')
