@@ -38,7 +38,7 @@ package engine
 // would know it worked, check it and put what came back under How it was
 // checked. From §236 to 14 ก.ย. 2026 it was a third gate, asked first and once,
 // and its answer was a second closing message written after the one the check
-// had just demoted (§289). A criterion the model wrote in an earlier turn and
+// had just demoted (§290). A criterion the model wrote in an earlier turn and
 // had approved is still not the model marking its own homework in this one;
 // it is simply answered where the answer is kept.
 //
@@ -254,7 +254,7 @@ func (a *Engine) goalCheck(sessionID string) func(string) string {
 		// demoted, verifying steps that were themselves the verification (the
 		// toy probe: three of eight rounds). The report's "How it was checked"
 		// is where that answer belongs, and a row is a thing the checker can
-		// count where a paragraph is not (§289).
+		// count where a paragraph is not (§290).
 		if !run.reported {
 			run.sentBack++
 			a.emitPlan(sessionID, *plan)
