@@ -719,7 +719,7 @@ func (a *Engine) LearnedScopeInfos() []MemoryScopeInfo {
 	add(learned.UserScope)
 	add(learned.MainScope)
 	for _, m := range mode.List() {
-		if m.MemoryRule() == mode.MemoryProject {
+		if m.MemoryRule() == mode.MemoryOwn {
 			projectDesks[m.DeskName()] = true
 			add(learned.ModeScope(m.DeskName()))
 		}
