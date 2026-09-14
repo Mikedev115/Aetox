@@ -784,6 +784,9 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 	case "MarkVideoCheckSeen":
 		e.MarkVideoCheckSeen()
 		return nil, nil, true
+	case "MeasureContextFloor":
+		r0, err := e.MeasureContextFloor()
+		return r0, err, true
 	case "MemoryFolderPath":
 		r0, err := e.MemoryFolderPath()
 		return r0, err, true

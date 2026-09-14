@@ -179,6 +179,7 @@ type API interface {
 	MachineInfo() machine.Info
 	MarkIssueReported(id int64) error
 	MarkVideoCheckSeen()
+	MeasureContextFloor() (ContextBreakdown, error)
 	MemoryFolderPath() (string, error)
 	MemoryScopeInfo(scope string) MemoryScopeInfo
 	MobileRemoteQR() string

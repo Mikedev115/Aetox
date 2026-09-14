@@ -98,6 +98,12 @@ type Engine struct {
 	terminalsMu sync.Mutex
 	terminals   map[string]*TerminalSession
 
+	// floorMu guards floorTried: which provider+model pairs this process has
+	// already sent a floor measurement for (measureFloorOnce), so a meter that
+	// refreshes on every keystroke cannot send it twice.
+	floorMu    sync.Mutex
+	floorTried map[string]bool
+
 	// quotasMu guards quotas, which the model clients write from whatever
 	// goroutine a turn is running on.
 	quotasMu sync.RWMutex
@@ -3360,6 +3366,14 @@ func (a *Engine) GetContextBreakdown() ContextBreakdown {
 			messages = real - system - tools
 		}
 		used = real
+	}
+
+	// A model with no round on record gets one now, in the background: the
+	// floor request, whose count comes back as the first calibration row and
+	// as a context:measured event the meter re-reads on. Only on a chat that
+	// has sent nothing — once it has, its own rounds are the record.
+	if !measured && calib.Rounds == 0 && len(msgs) > 0 {
+		a.measureFloorOnce(a.cur())
 	}
 
 	// After the correction above, never before: `tools` can still be scaled down

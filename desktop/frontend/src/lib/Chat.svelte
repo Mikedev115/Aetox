@@ -43,6 +43,7 @@
   import { hasSpend, spendLabel, spendTitle } from './spend'
   import { copyDrawing, saveDrawing } from './drawingExport'
   import { SavePicture } from '../../wailsjs/go/main/App'
+  import { EventsOn } from '../../wailsjs/runtime/runtime'
   import { renderMarkdown } from './markdown'
   import { filePath, fileURL } from './fileUrl'
   import { openUrlInWorkbench, openFileTab, openPlanTab, openArtifactsTab, setTabDragPayload, TAB_DRAG_MIME } from './stores/workbench.svelte'
@@ -1513,6 +1514,16 @@
     void messages.length
     if (awaitingReply) return
     refreshContext()
+  })
+  // And when the engine has just measured this chat's floor against the
+  // provider (MeasureContextFloor): the forecast on screen was chars/4 a
+  // moment ago and is the provider's own count now, on a chat where no turn
+  // will end to trigger the refresh above.
+  $effect(() => {
+    const off = EventsOn('context:measured', (session: string) => {
+      if (!session || session === cockpit.openSession) refreshContext()
+    })
+    return off
   })
   // Zero means the backend does not know this model's window and refuses to
   // invent one (App.contextWindowTokens). Everything below has to survive that

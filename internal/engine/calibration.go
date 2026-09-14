@@ -1,10 +1,16 @@
 package engine
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"strings"
+	"time"
 
+	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/model"
+	"github.com/Mikedev115/Aetox/internal/think"
+	"github.com/Mikedev115/Aetox/internal/turn"
 )
 
 // promptCalibration is what this model's tokenizer has been measured to make
@@ -146,4 +152,76 @@ func fitCalibration(sample []calibrationRow) promptCalibration {
 	c.Fixed = clamp((sfr*svv - svr*sfv) / det)
 	c.Var = clamp((svr*sff - sfr*sfv) / det)
 	return c
+}
+
+// floorTimeout bounds one floor measurement. Longer than the connection probe's
+// 15 s because this request is the whole fixed part — fourteen thousand tokens
+// on a local runtime is prompt processing measured in tens of seconds, and the
+// meter would rather wait than record nothing.
+const floorTimeout = 90 * time.Second
+
+// MeasureContextFloor sends the current chat's floor — system prompt and tool
+// block, one word, one token back — and records what the provider counted as
+// the first calibration row for this provider+model. The forecast that reads
+// it next is the provider's own number, not chars/4.
+//
+// Owner, 14 ก.ย. 2026, on being told the count only comes back after a message
+// is sent: "มันตรวจได้ครั้งแรกครับ ตรวจแล้วรู้เลยว่าค่ามันเท่าไหร่ แล้วก็เอาค่านั้นมาใช้
+// เป็นค่าเริ่มต้นเลย" — the connection test already spends a request; spend it
+// on the request that matters. This is that, done for the chat's own model
+// the first time its meter is drawn (measureFloorOnce), and callable on its
+// own.
+//
+// It costs what one message's fixed part costs, once per model, and on a
+// provider with a prompt cache it is not even lost: the same bytes go out with
+// the first real message a moment later, and hit.
+func (a *Engine) MeasureContextFloor() (ContextBreakdown, error) {
+	conv := a.cur()
+	if conv.agent == nil {
+		return a.GetContextBreakdown(), errors.New("no chat to measure")
+	}
+	var defs []model.ToolDefinition
+	if conv.registry != nil {
+		defs = a.deskTools().ToolDefinitions()
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), floorTimeout)
+	defer cancel()
+	// Thinking off, whatever the chat's dial says: the dial is a request
+	// parameter and moves no prompt token, and a one-token answer under a
+	// thinking budget is a request some providers refuse outright.
+	u, err := conv.agent.MeasureFloor(ctx, defs, turn.TurnOptions{ThinkLevel: think.LevelNone})
+	if err != nil {
+		return a.GetContextBreakdown(), err
+	}
+	a.storeTokenUsage(conv, u)
+	debuglog.Msg("context floor: %s/%s counted %d for a guess of %d (%d rows on record next)",
+		conv.cfg.ModelProvider, conv.cfg.ModelName, u.PromptTokens, u.Estimate.Total(), calibrationWindow)
+	a.emitEvent("context:measured", conv.id)
+	return a.GetContextBreakdown(), nil
+}
+
+// measureFloorOnce runs MeasureContextFloor in the background, once per
+// provider+model for the life of this process. Tried, not succeeded: a
+// provider that is down or unpaid fails the same way on every keystroke, and
+// the meter refreshes on every keystroke.
+func (a *Engine) measureFloorOnce(conv *conversation) {
+	key := model.NormalizeProvider(conv.cfg.ModelProvider) + "\x00" + strings.TrimSpace(conv.cfg.ModelName)
+	if strings.TrimSpace(conv.cfg.ModelName) == "" || conv.agent == nil {
+		return
+	}
+	a.floorMu.Lock()
+	if a.floorTried == nil {
+		a.floorTried = map[string]bool{}
+	}
+	tried := a.floorTried[key]
+	a.floorTried[key] = true
+	a.floorMu.Unlock()
+	if tried {
+		return
+	}
+	go func() {
+		if _, err := a.MeasureContextFloor(); err != nil {
+			debuglog.Msg("context floor: %s/%s not measured: %v", conv.cfg.ModelProvider, conv.cfg.ModelName, err)
+		}
+	}()
 }
