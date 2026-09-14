@@ -13,14 +13,10 @@ package main
 // as it is today.
 
 import (
-	"context"
-	"fmt"
-	"net/http"
-	"time"
-
 	"github.com/Mikedev115/Aetox/internal/engine"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/oauth"
+	"github.com/Mikedev115/Aetox/internal/signer"
 	"github.com/Mikedev115/Aetox/internal/skill"
 )
 
@@ -74,48 +70,11 @@ func (s appScreen) DefaultModel(provider, baseURL string) string {
 }
 
 func (s appScreen) Probe(provider, modelName, baseURL, wireFormat string) (string, error) {
-	return probeProvider(provider, modelName, baseURL, resolveAPIKeyForProvider(provider), wireFormat)
+	return signer.Probe(provider, modelName, baseURL, resolveAPIKeyForProvider(provider), wireFormat)
 }
 
 func (s appScreen) ModelResident(provider, baseURL, modelName string) bool {
 	return model.LocalModelResident(provider, baseURL, resolveAPIKeyForProvider(provider), modelName)
 }
 
-// probeProvider is the ping itself: a 1-token completion through the same
-// client chat uses, so endpoint, key and wire format are all proven at once.
-// The screen's own ping, so it may hold the key it is proving; the sign-in,
-// if any, is looked up here for the same reason the CLI does it — the model
-// layer reads no credential store (§248 A3).
-func probeProvider(canonical, modelName, baseURL, apiKey, wireFormat string) (string, error) {
-	p, err := model.NewProvider(model.ProviderOptions{
-		Provider:         canonical,
-		Model:            modelName,
-		APIKey:           apiKey,
-		BaseURL:          baseURL,
-		Timeout:          15 * time.Second,
-		WireFormat:       wireFormat,
-		TokenSource:      oauth.TokenSource(canonical),
-		Headers:          oauth.Headers(canonical),
-		SignedInEndpoint: oauth.Endpoint(canonical),
-	})
-	if err != nil {
-		return "", err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	start := time.Now()
-	_, err = p.Complete(ctx, model.Request{
-		Model:     modelName,
-		Messages:  []model.Message{{Role: model.RoleUser, Content: "ping"}},
-		MaxTokens: 1,
-	})
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s · %dms", modelName, time.Since(start).Milliseconds()), nil
-}
-
 var _ engine.Screen = appScreen{}
-
-// unused guard so the http import stays honest when the transport moves.
-var _ http.RoundTripper = (*signedTransport)(nil)

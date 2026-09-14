@@ -833,3 +833,15 @@ window went black after the switch — `WindowReloadApp` (navigate to the
 start URL) in the native webview; `WindowReload` (reload in place) is what
 a switch does now, and the top bar names the host so "where am I" has an
 answer on screen.
+
+### The console as a screen — 2026-09-14, beside the phases
+
+Not a phase of this plan, but the plan is why it was cheap: `cmd/aetox`
+stopped building an agent loop of its own and became the third screen —
+`engine.NewEngine(cliScreen)` in-process, `OpenProjectPath(cwd)`,
+`NewSessionAt(mode.Coding)`, `SendMessage` — with the signer lifted out of
+`desktop/provider_forward.go` into `internal/signer` so both screens sign
+the same way. In-process, deliberately: rule 2 above guards a screen with
+two roads, and the console has one; its `cliScreen` is the same interface
+the window serves over the wire, so `rpc.Dial` in place of `NewEngine` is
+the whole of a console on a remote engine. Record: DECISIONS §268.

@@ -1,66 +1,32 @@
 package main
 
+// aetox — the console screen of the engine (§248): the same engine the
+// desktop window runs, in this process, at the coding desk. `aetox chat
+// "goal"` is one turn and the answer on stdout; `aetox` alone is a line loop.
+//
+// This file is the command line — flags, the first-launch menu, the sign-in
+// subcommand — and nothing of the session; run.go is the session and
+// screen.go is what the engine sees of the terminal. The agent loop this
+// command used to build for itself (cognitive.NewAgent on a prompt of its
+// own, with its own registry and its own MCP wiring) is gone: it was a second
+// harness wearing the app's name, without the desk, the memory or the skills
+// the app has, and the only reason it survived was that nothing measured it.
+
 import (
-	"bufio"
-	"context"
 	"flag"
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
-	"time"
 
-	"github.com/Mikedev115/Aetox/internal/app"
-	"github.com/Mikedev115/Aetox/internal/bootstrap"
-	"github.com/Mikedev115/Aetox/internal/cognitive"
 	"github.com/Mikedev115/Aetox/internal/command"
 	"github.com/Mikedev115/Aetox/internal/config"
-	"github.com/Mikedev115/Aetox/internal/credentials"
-	"github.com/Mikedev115/Aetox/internal/debuglog"
-	"github.com/Mikedev115/Aetox/internal/mcp"
 	"github.com/Mikedev115/Aetox/internal/model"
-	"github.com/Mikedev115/Aetox/internal/oauth"
 	"github.com/Mikedev115/Aetox/internal/proc"
-	"github.com/Mikedev115/Aetox/internal/prompt"
 	"github.com/Mikedev115/Aetox/internal/safety"
-	"github.com/Mikedev115/Aetox/internal/skill"
-	"github.com/Mikedev115/Aetox/internal/subagent"
 	"github.com/Mikedev115/Aetox/internal/think"
 	"github.com/Mikedev115/Aetox/internal/version"
-
-	"golang.org/x/term"
 )
-
-var (
-	noBanner     bool
-	showVersion  bool
-	showHelp     bool
-	legacyYes    bool
-	approvalMode string
-	debugMode    bool
-	debugLogPath string
-)
-
-// toMCPServers translates persisted MCP config DTOs into mcp.Server values.
-// Must map every field desktop's twin maps (desktop/app.go) — a server the
-// user disabled or configured as remote in the GUI behaves the same here.
-func toMCPServers(cfgs []config.MCPServerConfig) []mcp.Server {
-	out := make([]mcp.Server, 0, len(cfgs))
-	for _, c := range cfgs {
-		out = append(out, mcp.Server{
-			Name:        c.Name,
-			Command:     c.Command,
-			Cwd:         c.Cwd,
-			Environment: c.Environment,
-			URL:         c.URL,
-			Headers:     c.Headers,
-			Timeout:     time.Duration(c.TimeoutMs) * time.Millisecond,
-			Disabled:    c.Disabled,
-		})
-	}
-	return out
-}
 
 func parseModelWithThink(raw string) (string, string, bool) {
 	value := strings.TrimSpace(raw)
@@ -102,75 +68,51 @@ func main() {
 	}
 
 	// Install the cached model table before anything asks what a model can do.
-	// Thinking depths, vision, documents and tool calling are all resolved from
-	// it, and with none installed every answer is "unknown" — which is how the
-	// CLI came to report no thinking level at all for a model that has one.
-	// Reads a file, never the network: the fetch is RefreshModelCatalog's job.
+	// The first-launch menu below reads thinking depths from it; the engine
+	// installs it again for itself at startup. Reads a file, never the network.
 	if root, err := config.DataRoot(); err == nil {
 		model.InstallCachedCatalog(root)
 	}
 
 	providerUsageHint := "model provider (" + strings.Join(model.SupportedProviders(), "|") + ")"
 
-	var rootPath string
-	var approvalTimeout int
-	var modelProvider string
-	var modelName string
-	var modelAPIKey string
-	var modelBaseURL string
-	var modelTimeout int
-	var modelContextTokens int
-	var thinkLevel string
+	var (
+		rootPath      string
+		modelProvider string
+		modelName     string
+		modelAPIKey   string
+		modelBaseURL  string
+		thinkLevel    string
+		approvalMode  string
+		legacyYes     bool
+		showVersion   bool
+		showHelp      bool
+	)
 
-	flag.StringVar(&rootPath, "root", "", "optional sandbox root directory (default: current directory)")
-	flag.IntVar(&approvalTimeout, "approval-timeout", 60, "reserved for future approval controls")
-	flag.StringVar(&modelProvider, "model-provider", "", providerUsageHint)
-	flag.StringVar(&modelName, "model-name", "", "model name or model(think-level)")
-	flag.StringVar(&modelAPIKey, "model-api-key", "", "model API key; fallback to provider env when empty")
-	flag.StringVar(&modelBaseURL, "model-base-url", "", "override base URL for model provider")
-	flag.IntVar(&modelTimeout, "model-timeout", 30, "model request timeout in seconds")
-	flag.IntVar(&modelContextTokens, "model-context-tokens", 0, "model context window token cap (0=auto/unknown)")
-	flag.StringVar(&thinkLevel, "think", "", "thinking level (model/provider specific; deepseek: off-think|high|max)")
-	flag.BoolVar(&noBanner, "no-banner", false, "disable startup banner in interactive mode")
-	flag.BoolVar(&showVersion, "version", false, "print version")
-	flag.BoolVar(&showHelp, "help", false, "print usage")
-	flag.BoolVar(&legacyYes, "yes", false, "reserved compatibility flag")
-	flag.StringVar(&approvalMode, "approval", "", "approval mode: ask, unsafe-only, or full-access (default: ask)")
-	flag.BoolVar(&debugMode, "debug", false, "write detailed debug log (always on by default)")
-	flag.StringVar(&debugLogPath, "debug-log", "", "custom path for debug log file (default: logs/aetox-<timestamp>.log)")
 	argsWithoutGlobal, argsForIntent, preParseErr := preparseGlobalFlags(os.Args[1:])
 	if preParseErr != nil {
 		fmt.Fprintf(os.Stderr, "invalid flags: %v\n", preParseErr)
 		os.Exit(2)
 	}
 
-	preParser := flag.NewFlagSet("aetox", flag.ContinueOnError)
-	preParser.SetOutput(io.Discard)
-	preParser.StringVar(&rootPath, "root", "", "optional sandbox root directory (default: current directory)")
-	preParser.IntVar(&approvalTimeout, "approval-timeout", 60, "reserved for future approval controls")
-	preParser.StringVar(&modelProvider, "model-provider", "", providerUsageHint)
-	preParser.StringVar(&modelName, "model-name", "", "model name or model(think-level)")
-	preParser.StringVar(&modelAPIKey, "model-api-key", "", "model API key; fallback to provider env when empty")
-	preParser.StringVar(&modelBaseURL, "model-base-url", "", "override base URL for model provider")
-	preParser.IntVar(&modelTimeout, "model-timeout", 30, "model request timeout in seconds")
-	preParser.IntVar(&modelContextTokens, "model-context-tokens", 0, "model context window token cap (0=auto/unknown)")
-	preParser.StringVar(&thinkLevel, "think", "", "thinking level (model/provider specific; deepseek: off-think|high|max)")
-	preParser.BoolVar(&noBanner, "no-banner", false, "disable startup banner in interactive mode")
-	preParser.BoolVar(&showVersion, "version", false, "print version")
-	preParser.BoolVar(&showHelp, "help", false, "print usage")
-	preParser.BoolVar(&legacyYes, "yes", false, "reserved compatibility flag")
-	preParser.StringVar(&approvalMode, "approval", "", "approval mode: ask, unsafe-only, or full-access (default: ask)")
-	preParser.BoolVar(&debugMode, "debug", false, "write detailed debug log")
-	preParser.StringVar(&debugLogPath, "debug-log", "", "debug log file path")
-	_ = preParser.Bool("h", false, "help alias")
-	_ = preParser.Bool("v", false, "version alias")
-	_ = preParser.Parse(argsWithoutGlobal)
+	flags := flag.NewFlagSet("aetox", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	flags.StringVar(&rootPath, "root", "", "project folder (default: current directory)")
+	flags.StringVar(&modelProvider, "model-provider", "", providerUsageHint)
+	flags.StringVar(&modelName, "model-name", "", "model name or model(think-level)")
+	flags.StringVar(&modelAPIKey, "model-api-key", "", "model API key; fallback to the store or the provider's env var when empty")
+	flags.StringVar(&modelBaseURL, "model-base-url", "", "override base URL for the model provider")
+	flags.StringVar(&thinkLevel, "think", "", "thinking level (model/provider specific)")
+	flags.StringVar(&approvalMode, "approval", "", "approval mode: ask, unsafe-only, or full-access")
+	flags.BoolVar(&legacyYes, "yes", false, "same as --approval full-access")
+	flags.BoolVar(&showVersion, "version", false, "print version")
+	flags.BoolVar(&showHelp, "help", false, "print usage")
+	_ = flags.Bool("h", false, "help alias")
+	_ = flags.Bool("v", false, "version alias")
+	_ = flags.Parse(argsWithoutGlobal)
 
 	providerExplicit := strings.TrimSpace(modelProvider) != ""
-	modelNameExplicit := strings.TrimSpace(modelName) != ""
-	baseURLExplicit := strings.TrimSpace(modelBaseURL) != ""
 	thinkLevelExplicit := strings.TrimSpace(thinkLevel) != ""
-	explicitModelConfig := providerExplicit || modelNameExplicit || baseURLExplicit
 	if thinkLevelExplicit {
 		parsedThinkLevel, err := think.ParseLevel(thinkLevel)
 		if err != nil {
@@ -194,835 +136,117 @@ func main() {
 		return
 	}
 
-	// always enable debug log; use --debug-log to override path
-	if strings.TrimSpace(debugLogPath) != "" {
-		_ = debuglog.Enable(debugLogPath)
-	} else {
-		debuglog.Init(".")
-	}
-	defer func() { _ = debuglog.Disable() }()
-
 	intent := command.ParseArgs(argsForIntent)
-	cfg := config.Load(config.ConfigOptions{
-		RootPath:           rootPath,
-		AutoApprove:        legacyYes,
-		ApprovalMode:       resolveInitialApprovalMode(approvalMode, legacyYes),
-		MaxRetries:         2,
-		MaxPlanRetries:     0,
-		ApprovalTimeout:    approvalTimeout,
-		ModelProvider:      modelProvider,
-		ModelName:          modelName,
-		ModelBaseURL:       modelBaseURL,
-		ModelTimeout:       modelTimeout,
-		ModelContextTokens: modelContextTokens,
-		ThinkLevel:         thinkLevel,
-	})
+	switch intent.Mode {
+	case command.ModeHelp:
+		printUsage()
+		return
+	case command.ModeVersion:
+		fmt.Printf("aetox version %s\n%s\n", version.Current, version.Credit)
+		return
+	case command.ModeInteractive, command.ModeOnce:
+	default:
+		printUsage()
+		os.Exit(2)
+	}
 
-	modelProvider = cfg.ModelProvider
-	modelName = cfg.ModelName
-	modelBaseURL = cfg.ModelBaseURL
 	// A key on the command line is for the provider on the command line, and
 	// for nothing picked later from a menu. Every other key comes from the
 	// store at the moment it is needed (keyFor) — config carries none (§248).
 	if strings.TrimSpace(modelAPIKey) != "" {
 		flagAPIKey, flagAPIKeyProvider = strings.TrimSpace(modelAPIKey), model.NormalizeProvider(modelProvider)
 	}
-	modelContextTokens = cfg.ModelContextTokens
-	thinkLevel = cfg.ThinkLevel
 
-	storedPreference, hasStoredPreference, prefErr := config.LoadModelPreference()
-	if prefErr != nil {
-		fmt.Fprintf(os.Stderr, "warning: cannot read model preference: %v\n", prefErr)
+	d := dials{
+		Root:     rootPath,
+		Provider: modelProvider,
+		Model:    modelName,
+		BaseURL:  modelBaseURL,
+		Think:    thinkLevel,
 	}
-	if !explicitModelConfig && !providerExplicit {
-		if hasStoredPreference {
-			if strings.TrimSpace(storedPreference.ModelProvider) != "" {
-				modelProvider = strings.TrimSpace(storedPreference.ModelProvider)
-				cfg.ModelProvider = modelProvider
-			}
-			if strings.TrimSpace(storedPreference.ModelName) != "" {
-				modelName = strings.TrimSpace(storedPreference.ModelName)
-				cfg.ModelName = modelName
-			}
-			if strings.TrimSpace(storedPreference.ModelBaseURL) != "" {
-				modelBaseURL = strings.TrimSpace(storedPreference.ModelBaseURL)
-				cfg.ModelBaseURL = modelBaseURL
-			}
-		}
-	}
-	if !thinkLevelExplicit && !modelNameHasThink && hasStoredPreference && strings.TrimSpace(storedPreference.ThinkLevel) != "" {
-		thinkLevel = string(think.NormalizeLevel(storedPreference.ThinkLevel))
-		cfg.ThinkLevel = thinkLevel
+	switch {
+	case strings.TrimSpace(approvalMode) != "":
+		d.Approval = string(safety.NormalizeApprovalMode(approvalMode))
+	case legacyYes:
+		d.Approval = string(safety.ApprovalFullAccess)
 	}
 
-	approvalExplicit := strings.TrimSpace(approvalMode) != ""
-	if !approvalExplicit && !legacyYes && hasStoredPreference && strings.TrimSpace(storedPreference.ApprovalMode) != "" {
-		cfg.ApprovalMode = string(safety.NormalizeApprovalMode(storedPreference.ApprovalMode))
-	}
-
-	if intent.Mode == command.ModeInteractive && isInteractive() && !explicitModelConfig && !hasStoredPreference {
-		selectedProvider, selectedModel, selectedAPIKey, selectedBaseURL, selectedThinkLevel, ok := promptModelSelection(cfg, !thinkLevelExplicit)
-		if ok {
-			modelProvider = selectedProvider
-			modelName = selectedModel
-			modelBaseURL = selectedBaseURL
-			if !thinkLevelExplicit {
-				thinkLevel = selectedThinkLevel
-			}
-			cfg.ModelProvider = selectedProvider
-			cfg.ModelName = selectedModel
-			cfg.ModelBaseURL = selectedBaseURL
-			rememberKey(selectedProvider, selectedAPIKey)
-			if !thinkLevelExplicit {
-				cfg.ThinkLevel = selectedThinkLevel
-			}
-			if saveErr := persistModelPreference(cfg); saveErr != nil {
-				fmt.Fprintf(os.Stderr, "warning: cannot save model preference: %v\n", saveErr)
-			}
-		}
-	}
-
-	cfg.ModelProvider = strings.TrimSpace(modelProvider)
-	cfg.ModelName = strings.TrimSpace(modelName)
-	cfg.ModelBaseURL = strings.TrimSpace(modelBaseURL)
-	cfg.ModelContextTokens = modelContextTokens
-
-	if strings.TrimSpace(cfg.ModelName) == "" &&
-		!strings.EqualFold(strings.TrimSpace(cfg.ModelProvider), "aetox") {
-		cfg.ModelName = model.ResolveDefaultModel(cfg.ModelProvider, cfg.ModelBaseURL, keyFor(cfg.ModelProvider))
-		modelName = cfg.ModelName
-	}
-	cfg.ThinkLevel = model.NormalizeThinkingLevel(cfg.ModelProvider, cfg.ModelName, thinkLevel)
-
-	currentConfig := cfg
-	// Same move the desktop makes at startup: agent files from before the homes
-	// split (2026-08-05) find their own folder before any roster is read.
-	if moved := subagent.Migrate(); len(moved) > 0 {
-		debuglog.Msg("subagent.Migrate moved: %s", strings.Join(moved, ", "))
-	}
-	bootstrapResult, _ := bootstrapModelWithStatus(cfg)
-
-	effectiveApprovalMode := safety.ApprovalMode(cfg.ApprovalMode)
-	if intent.Mode == command.ModeOnce {
-		effectiveApprovalMode = safety.ApprovalFullAccess
-	}
-	if bootstrapResult.Provider == nil {
-		fmt.Fprintf(os.Stderr, "runtime init failed: %v\n", bootstrapResult.Error)
-		os.Exit(1)
-	}
-	if bootstrapResult.Warning != "" {
-		fmt.Fprintf(os.Stderr, "warning: %s\n", bootstrapResult.Warning)
-		if bootstrapResult.Error != nil {
-			fmt.Fprintf(os.Stderr, "detail: %v\n", bootstrapResult.Error)
-		}
-	}
-
-	if err := persistModelPreference(currentConfig); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: cannot save model preference: %v\n", err)
-	}
-
-	agent := cognitive.NewAgent(cognitive.AgentConfig{
-		Provider:     bootstrapResult.Provider,
-		Model:        currentConfig.ModelName,
-		SystemPrompt: prompt.Build(prompt.SurfaceCLI, prompt.Scope{Root: cfg.SandboxRoot, User: storedPreference.UserName}),
-		MaxChars:     bootstrap.ContextChars(currentConfig),
-	})
-
-	permissions, permErr := config.LoadPermissions()
-	if permErr != nil {
-		fmt.Fprintf(os.Stderr, "warning: cannot load permissions.json: %v\n", permErr)
-	}
-
-	console := app.NewStdIO()
-	// Which shell runs the agent's commands — this machine's, or a WSL distro
-	// (/shell changes it). Read per call rather than resolved once here, so a
-	// change takes effect on the next command instead of the next launch.
-	shells := &config.ShellChoice{}
-	skillRegistry := skill.NewDefaultRegistry(skill.RegistryOptions{
-		SandboxRoot: cfg.SandboxRoot,
-		Shell:       func() proc.Backend { return shells.For(cfg.SandboxRoot) },
-	})
-	for _, discErr := range skill.RegisterDiscovered(skillRegistry, skill.DefaultDiscoveryPaths()) {
-		debuglog.Msg("skill discovery: %v", discErr)
-	}
-	mcpServers, mcpLoadErr := config.LoadMCPServers()
-	if mcpLoadErr != nil {
-		fmt.Fprintf(os.Stderr, "warning: cannot load mcp-servers.json: %v\n", mcpLoadErr)
-	}
-	mcpMgr := mcp.NewManager(toMCPServers(mcpServers))
-	// Bounded, not unlimited — see the matching comment in desktop/app.go's
-	// bootstrapFromConfig. A slow-to-resolve server (e.g. npx on a cold cache)
-	// used to block CLI startup for up to its own 30s timeout.
-	mcpCtx, mcpCancel := context.WithTimeout(context.Background(), 8*time.Second)
-	mcpRules, mcpErrs := mcpMgr.Register(mcpCtx, skillRegistry)
-	mcpCancel()
-	for _, mcpErr := range mcpErrs {
-		debuglog.Msg("mcp: %v", mcpErr)
-	}
-	// Prepend defaults so a user's explicit rule still wins (last-match-wins).
-	permissions.Rules = append(mcpRules, permissions.Rules...)
-	skillDispatcher := skill.NewDispatcher(skillRegistry)
-	aetoxApp, err := app.NewApp(app.Options{
-		Agent:        agent,
-		Console:      console,
-		Dispatcher:   skillDispatcher,
-		ShowBanner:   !noBanner,
-		ApprovalMode: effectiveApprovalMode,
-		Permissions:  permissions,
-		OnApprovalChange: func(mode safety.ApprovalMode) {
-			currentConfig.ApprovalMode = string(mode)
-			if saveErr := persistModelPreference(currentConfig); saveErr != nil {
-				fmt.Fprintf(os.Stderr, "warning: cannot save approval mode: %v\n", saveErr)
-			}
-		},
-		// /shell — the CLI's half of the desktop's composer chip. Same store,
-		// same per-project key, so a shell picked in one is what the other finds.
-		ShellRoot:   cfg.SandboxRoot,
-		ShellChoice: shells,
-		Title:       "Aetox CLI",
-		Version:     version.Current,
-		UserInfo:    resolveDisplayUser(),
-		ModelStatus: resolveModelStatus(config.Config{
-			ModelProvider: modelProvider,
-			ModelName:     currentConfig.ModelName,
-			ThinkLevel:    currentConfig.ThinkLevel,
-		}, bootstrapResult),
-		ModelContextTokens: currentConfig.ModelContextTokens,
-		ThinkLevel:         think.Level(currentConfig.ThinkLevel),
-		ModelSwitch: func(ctx context.Context) (app.ModelSwitchResult, error) {
-			return switchProvider(ctx, &currentConfig)
-		},
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "runtime init failed: %v\n", err)
-		os.Exit(1)
-	}
-
-	// `task` / `task_result` / `task_answer` — the same three desktop/app.go
-	// registers, so delegation works from the CLI too. They cannot live in
-	// skill.RegisterDefaults because they need turn+cognitive, which skill cannot
-	// import, so each host registers them itself.
-	//
-	// After NewApp on purpose: a delegate runs its own executor, and with a nil
-	// Approve turn treats every risky call as approved — so it borrows the
-	// console's prompt and the user's approval mode means the same thing inside a
-	// delegate as outside one. The dispatcher holds the registry by pointer, so
-	// registering after it was built is fine.
-	for _, tool := range subagent.NewTaskTools(subagent.TaskOptions{
-		Provider:     bootstrapResult.Provider,
-		Model:        currentConfig.ModelName,
-		Registry:     skillRegistry,
-		Permissions:  permissions,
-		ApprovalMode: effectiveApprovalMode,
-		Approve:      aetoxApp.ConfirmApproval,
-		MaxChars:     bootstrap.ContextChars(currentConfig),
-		ThinkLevel:   think.NormalizeLevel(currentConfig.ThinkLevel),
-	}) {
-		if regErr := skillRegistry.Register(tool, skill.SourceBuiltin); regErr != nil {
-			debuglog.Msg("%s registration skipped: %v", tool.Name(), regErr)
-		}
-	}
-
-	ctx := context.Background()
-	switch intent.Mode {
-	case command.ModeHelp:
-		printUsage()
-	case command.ModeVersion:
-		fmt.Printf("aetox version %s\n%s\n", version.Current, version.Credit)
-	case command.ModeInteractive:
-		if !isInteractive() {
-			printUsage()
-			os.Exit(2)
-		}
-		if err := aetoxApp.RunInteractive(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "interactive chat failed: %v\n", err)
-			os.Exit(1)
-		}
-	case command.ModeOnce:
-		response, err := aetoxApp.RunOnce(ctx, intent.Message)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Chat failed: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Println(response)
-	default:
-		printUsage()
-		os.Exit(2)
-	}
-}
-
-func resolveInitialApprovalMode(flagValue string, legacyYes bool) string {
-	if strings.TrimSpace(flagValue) != "" {
-		return string(safety.NormalizeApprovalMode(flagValue))
-	}
-	if legacyYes {
-		return string(safety.ApprovalFullAccess)
-	}
-	return string(safety.ApprovalAsk)
-}
-
-func switchProvider(ctx context.Context, cfg *config.Config) (app.ModelSwitchResult, error) {
-	if ctx == nil {
-		return app.ModelSwitchResult{}, nil
-	}
-
-	select {
-	case <-ctx.Done():
-		return app.ModelSwitchResult{}, ctx.Err()
-	default:
-	}
-
-	selectedProvider, selectedModel, selectedAPIKey, selectedBaseURL, selectedThinkLevel, ok := promptModelSelection(*cfg, true)
-	if !ok {
-		return app.ModelSwitchResult{}, nil
-	}
-
-	cfg.ModelProvider = strings.TrimSpace(selectedProvider)
-	cfg.ModelName = strings.TrimSpace(selectedModel)
-	cfg.ModelBaseURL = strings.TrimSpace(selectedBaseURL)
-	cfg.ThinkLevel = selectedThinkLevel
-	rememberKey(cfg.ModelProvider, selectedAPIKey)
-
-	if cfg.ModelName == "" && !strings.EqualFold(cfg.ModelProvider, "aetox") {
-		cfg.ModelName = model.ResolveDefaultModel(cfg.ModelProvider, cfg.ModelBaseURL, keyFor(cfg.ModelProvider))
-	}
-	cfg.ThinkLevel = model.NormalizeThinkingLevel(cfg.ModelProvider, cfg.ModelName, cfg.ThinkLevel)
-
-	fmt.Printf("เปลี่ยนโมเดลเป็น: %s...\n", formatModelModeLabel(cfg.ModelProvider, cfg.ModelName, cfg.ThinkLevel))
-	bootstrapResult, modelStatus := bootstrapModelWithStatus(*cfg)
-	if bootstrapResult.Provider == nil {
-		return app.ModelSwitchResult{}, bootstrapResult.Error
-	}
-	if bootstrapResult.Warning != "" {
-		fmt.Printf("warning: %s\n", bootstrapResult.Warning)
-		if bootstrapResult.Error != nil {
-			fmt.Printf("detail: %v\n", bootstrapResult.Error)
-		}
-	}
-
-	if err := persistModelPreference(*cfg); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: cannot save model preference: %v\n", err)
-	}
-	// The name the desktop's footer saved; the CLI has no field of its own
-	// for it and reads the shared preference file, like the model choice.
-	var userName string
-	if pref, _, err := config.LoadModelPreference(); err == nil {
-		userName = pref.UserName
-	}
-
-	return app.ModelSwitchResult{
-		Agent: cognitive.NewAgent(cognitive.AgentConfig{
-			Provider:     bootstrapResult.Provider,
-			Model:        cfg.ModelName,
-			SystemPrompt: prompt.Build(prompt.SurfaceCLI, prompt.Scope{Root: cfg.SandboxRoot, User: userName}),
-			MaxChars:     bootstrap.ContextChars(*cfg),
-		}),
-		ModelStatus:        modelStatus,
-		ModelContextTokens: cfg.ModelContextTokens,
-		ThinkLevel:         think.Level(cfg.ThinkLevel),
-		Changed:            true,
-	}, nil
-}
-
-func resolveDisplayUser() string {
-	if value := os.Getenv("AETOX_USER"); strings.TrimSpace(value) != "" {
-		return strings.TrimSpace(value)
-	}
-	if value := os.Getenv("USER"); strings.TrimSpace(value) != "" {
-		return strings.TrimSpace(value)
-	}
-	if value := os.Getenv("USERNAME"); strings.TrimSpace(value) != "" {
-		return strings.TrimSpace(value)
-	}
-	return "local user"
-}
-
-func formatModelModeLabel(providerName, modelName, thinkLevel string) string {
-	status := model.ResolveStatus(providerName, modelName, nil)
-	level := defaultThinkLevel(providerName, modelName, thinkLevel)
-	if level == "" {
-		return status
-	}
-	return fmt.Sprintf("%s(%s)", status, level)
-}
-
-func resolveModelStatus(cfg config.Config, bootstrapResult model.BootstrapResult) string {
-	_ = bootstrapResult
-	return formatModelModeLabel(cfg.ModelProvider, cfg.ModelName, cfg.ThinkLevel)
-}
-
-func bootstrapModelWithStatus(cfg config.Config) (model.BootstrapResult, string) {
-	timeout := time.Duration(cfg.ModelTimeoutSec) * time.Second
-	if timeout <= 0 {
-		timeout = 30 * time.Second
-	}
-	// A sign-in outranks the pasted key, and both are this host's to look up:
-	// the model layer reads no credential store of its own (§248 A3), and
-	// config carries no key (A4). The CLI is the one host that still hands a
-	// key straight to the provider, because it is the screen and the engine in
-	// one process — the desktop signs through a transport instead.
-	canonical := model.NormalizeProvider(cfg.ModelProvider)
-	result := model.BootstrapProvider(model.BootstrapOptions{
-		Provider:         cfg.ModelProvider,
-		Model:            cfg.ModelName,
-		APIKey:           keyFor(canonical),
-		BaseURL:          cfg.ModelBaseURL,
-		Timeout:          timeout,
-		TokenSource:      oauth.TokenSource(canonical),
-		TokenRefresh:     oauth.RefreshSource(canonical),
-		Headers:          oauth.Headers(canonical),
-		SignedInEndpoint: oauth.Endpoint(canonical),
-	})
-	return result, resolveModelStatus(cfg, result)
-}
-
-// flagAPIKey is --model-api-key, and flagAPIKeyProvider the provider it was
-// given for: a key typed on the command line belongs to that provider alone.
-var flagAPIKey, flagAPIKeyProvider string
-
-// keyFor is the key this CLI reaches a provider with: the command-line key
-// when it was given for this provider, else what the store or the provider's
-// environment variable holds (credentials.KeyFor).
-func keyFor(providerName string) string {
-	canonical := model.NormalizeProvider(providerName)
-	if flagAPIKey != "" && canonical == flagAPIKeyProvider {
-		return flagAPIKey
-	}
-	return credentials.KeyFor(canonical)
-}
-
-// rememberKey stores a key the user just typed for a provider, so the next
-// launch does not ask again. Empty is nothing to remember, not a deletion.
-func rememberKey(providerName, apiKey string) {
-	if strings.TrimSpace(apiKey) == "" {
-		return
-	}
-	if err := credentials.Set(providerName, apiKey); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: cannot save API key: %v\n", err)
-	}
-}
-
-// persistModelPreference writes the CLI's choice — provider, model, endpoint,
-// thinking level, approval mode — into the preference file the desktop reads
-// too, and touches nothing else in it.
-//
-// It used to build the file from scratch: a fresh struct with those five fields
-// and the API keys, saved over whatever was there. Every field only the file
-// remembered — the providers enabled in the desktop's picker, the model last
-// chosen on each provider, the user's name, the desk to open at — went with it,
-// on every CLI launch, because this runs at startup whether or not anything
-// changed. The desktop then re-wrote the fields it holds in memory on its next
-// save, which is why the file looked intact except for the provider list that
-// had "just disappeared" (owner, 5 ก.ย.; DECISIONS §225).
-func persistModelPreference(cfg config.Config) error {
-	provider := strings.TrimSpace(cfg.ModelProvider)
-	if provider == "" {
-		return nil
-	}
-	canonicalProvider := model.NormalizeProvider(provider)
-	modelName := strings.TrimSpace(cfg.ModelName)
-	modelBaseURL := strings.TrimSpace(cfg.ModelBaseURL)
-	if modelBaseURL == model.DefaultBaseURL(canonicalProvider) {
-		modelBaseURL = ""
-	}
-	return config.UpdateModelPreference(func(pref *config.ModelPreference) error {
-		pref.ModelProvider = canonicalProvider
-		pref.ModelName = modelName
-		pref.ModelBaseURL = modelBaseURL
-		pref.ThinkLevel = model.NormalizeThinkingLevel(canonicalProvider, modelName, cfg.ThinkLevel)
-		pref.ApprovalMode = string(safety.NormalizeApprovalMode(cfg.ApprovalMode))
-		return nil
-	})
-}
-
-func promptModelSelection(cfg config.Config, askThinkLevel bool) (string, string, string, string, string, bool) {
-	reader := bufio.NewReader(os.Stdin)
+	// First launch on a keyboard, nothing chosen anywhere yet: ask. A script
+	// gets the engine's fallback and the warning that names it.
 	_, hasStoredPreference, prefErr := config.LoadModelPreference()
 	if prefErr != nil {
 		fmt.Fprintf(os.Stderr, "warning: cannot read model preference: %v\n", prefErr)
 	}
-
-	providers := model.SupportedProviders()
-	providerOptions := make([]string, 0, len(providers))
-	for _, p := range providers {
-		label := p
-		if model.RequiresAPIKey(p) {
-			label = model.FormatProviderMenuLabel(p, keyFor(p) != "")
-		}
-		providerOptions = append(providerOptions, label)
-	}
-
-	// Straight through, not a loop. This was a `for` whose every path returned,
-	// so it read as "pick a provider, and come back here if that did not work"
-	// while never coming back at all. The way back does not exist to restore:
-	// pickModelForProvider returns a bare string with no room to say the user
-	// backed out, so offering the choice again would be a feature, not a fix.
-	// Removed rather than left promising something (staticcheck SA4004, §141).
-	idx, ok := pickFromMenu(reader, "No model provider configured. Select one.", providerOptions, 0, "Use ↑/↓ then Enter.")
-	if !ok {
-		defaultProvider := providers[0]
-		defaultModel := model.ResolveDefaultModel(defaultProvider, cfg.ModelBaseURL, keyFor(defaultProvider))
-		return defaultProvider, defaultModel, "", cfg.ModelBaseURL, defaultThinkLevel(defaultProvider, defaultModel, cfg.ThinkLevel), false
-	}
-	provider := providers[idx]
-	providerBaseURL := model.DefaultBaseURL(provider)
-	if strings.TrimSpace(cfg.ModelBaseURL) != "" {
-		providerBaseURL = strings.TrimSpace(cfg.ModelBaseURL)
-	}
-
-	key := keyFor(provider)
-
-	// Needing credentials and taking a pasted key are two different facts,
-	// and asking only the first one trapped anyone who picked Codex: it is
-	// a ChatGPT subscription reached at chatgpt.com, the only key a user
-	// could paste belongs to api.openai.com, and the loop below refuses an
-	// empty line — so the menu demanded, forever, a credential that does
-	// not exist. Sign-in is the way in; say so and carry on keyless.
-	switch {
-	case model.RequiresAPIKey(provider) && !model.AcceptsAPIKey(provider):
-		if oauth.Has(provider) {
-			fmt.Printf("Using the %s sign-in on this machine.\n", provider)
-		} else {
-			fmt.Printf("%s is a sign-in, not an API key. Run: aetox login %s\n", provider, provider)
-		}
-	case model.RequiresAPIKey(provider):
-		if key == "" {
-			if hasStoredPreference {
-				fmt.Printf("No cached API key for %s.\n", provider)
-			}
-			for {
-				fmt.Printf("API key for %s: ", provider)
-				key = strings.TrimSpace(readLine(reader))
-				if key != "" {
-					break
-				}
-				fmt.Println("Missing API key. Try again.")
-			}
-		} else {
-			fmt.Printf("Use existing API key for %s.\n", provider)
-		}
-	}
-
-	selectedModel := pickModelForProvider(reader, provider, cfg.ModelName, providerBaseURL, key)
-	selectedModel, selectedThinkLevel, parsedModelThink := parseModelWithThink(selectedModel)
-	if !parsedModelThink {
-		selectedThinkLevel = defaultThinkLevel(provider, selectedModel, cfg.ThinkLevel)
-		if askThinkLevel {
-			selectedThinkLevel = promptThinkLevelSelection(reader, provider, selectedModel, cfg.ThinkLevel)
-		}
-	}
-
-	fmt.Printf("Selected: %s\n\n", formatModelModeLabel(provider, selectedModel, selectedThinkLevel))
-
-	return provider, selectedModel, key, providerBaseURL, selectedThinkLevel, true
-}
-
-func defaultThinkLevel(provider, modelName, existing string) string {
-	return model.NormalizeThinkingLevel(provider, modelName, existing)
-}
-
-func promptThinkLevelSelection(reader *bufio.Reader, provider, modelName, existing string) string {
-	defaultLevel := defaultThinkLevel(provider, modelName, existing)
-	if reader == nil {
-		return defaultLevel
-	}
-
-	options := model.SupportedThinkingLevels(provider, modelName)
-	if len(options) == 0 {
-		return defaultLevel
-	}
-	defaultIndex := 0
-	for i, option := range options {
-		if option == defaultLevel {
-			defaultIndex = i
-			break
-		}
-	}
-
-	idx, ok := pickFromMenu(reader, "Choose thinking level", options, defaultIndex, "Use ↑/↓ then Enter.")
-	if !ok {
-		return defaultLevel
-	}
-	return options[idx]
-}
-
-func pickModelForProvider(reader *bufio.Reader, provider, existing, baseURL, apiKey string) string {
-	modelChoices, err := model.ModelChoicesWithEndpointAndAPIKey(provider, baseURL, apiKey)
-	if err != nil || len(modelChoices) == 0 {
-		modelChoices = model.ModelChoices(provider)
-	}
-	// Local providers carry no catalog default, so the first discovered model
-	// is the default — modelChoices is already in hand, no second round trip.
-	defaultModel := model.DefaultModel(provider)
-	if defaultModel == "" && len(modelChoices) > 0 {
-		defaultModel = modelChoices[0]
-	}
-	if existing != "" {
-		defaultModel = existing
-	}
-
-	if len(modelChoices) == 0 {
-		fmt.Printf("Model name for %s [%s] (or type custom): ", provider, defaultModel)
-		if model := strings.TrimSpace(readLine(reader)); model != "" {
-			return model
-		}
-		return defaultModel
-	}
-
-	options := append([]string{}, modelChoices...)
-	// If current model is not in advertised list, keep it as a selectable default.
-	if defaultModel != "" {
-		foundDefault := false
-		for _, m := range options {
-			if m == defaultModel {
-				foundDefault = true
-				break
+	if intent.Mode == command.ModeInteractive && isInteractive() && !providerExplicit && !hasStoredPreference {
+		provider, chosenModel, key, baseURL, chosenThink, ok := promptModelSelection(config.Config{
+			ModelName:    modelName,
+			ModelBaseURL: modelBaseURL,
+			ThinkLevel:   thinkLevel,
+		}, !thinkLevelExplicit)
+		if ok {
+			rememberKey(provider, key)
+			d.Provider, d.Model, d.BaseURL = provider, chosenModel, baseURL
+			if !thinkLevelExplicit {
+				d.Think = chosenThink
 			}
 		}
-		if !foundDefault {
-			options = append([]string{defaultModel}, options...)
-		}
-	}
-	options = append(options, "custom model ...")
-	defaultIndex := 0
-	for i, m := range options {
-		if i >= len(options)-1 {
-			break
-		}
-		if m == defaultModel {
-			defaultIndex = i
-			break
-		}
 	}
 
-	idx, ok := pickFromMenu(reader, fmt.Sprintf("Choose model for %s", provider), options, defaultIndex, "Use ↑/↓ then Enter.")
-	if !ok {
-		return defaultModel
+	c, err := startConsole(d, os.Stdin)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "runtime init failed: %v\n", err)
+		os.Exit(1)
 	}
+	defer c.close()
 
-	if idx == len(options)-1 {
-		fmt.Printf("Model name for %s [%s]: ", provider, defaultModel)
-		if model := strings.TrimSpace(readLine(reader)); model != "" {
-			return model
-		}
-		return defaultModel
-	}
-
-	return options[idx]
-}
-
-func pickFromMenu(reader *bufio.Reader, title string, options []string, defaultIndex int, hint string) (int, bool) {
-	if len(options) == 0 {
-		return 0, true
-	}
-	selected := defaultIndex
-	if selected < 0 || selected >= len(options) {
-		selected = 0
-	}
-	renderedLines := len(options) + 3
-	interactiveMode := isInteractive()
-	render := func() {
-		fmt.Println()
-		fmt.Println(title)
-		for i, option := range options {
-			prefix := "  "
-			if i == selected {
-				prefix = " >"
+	switch intent.Mode {
+	case command.ModeInteractive:
+		if !isInteractive() {
+			// `echo goal | aetox` — the terminal is the message.
+			text, ok := <-c.lines
+			if !ok || strings.TrimSpace(text) == "" {
+				printUsage()
+				os.Exit(2)
 			}
-			fmt.Printf("%s %s\n", prefix, option)
-		}
-		fmt.Println(hint)
-	}
-	redrawMenu := func() {
-		if !interactiveMode {
+			if err := c.turn(text); err != nil {
+				fmt.Fprintf(os.Stderr, "Chat failed: %v\n", err)
+				c.close()
+				os.Exit(1)
+			}
 			return
 		}
-		for i := 0; i < renderedLines; i++ {
-			fmt.Print("\033[2K\r\033[F")
+		if err := c.interactive(); err != nil {
+			fmt.Fprintf(os.Stderr, "interactive chat failed: %v\n", err)
+			c.close()
+			os.Exit(1)
+		}
+	case command.ModeOnce:
+		if err := c.turn(intent.Message); err != nil {
+			fmt.Fprintf(os.Stderr, "Chat failed: %v\n", err)
+			c.close()
+			os.Exit(1)
 		}
 	}
-	clearMenu := func() {
-		if !interactiveMode {
-			return
-		}
-		for i := 0; i < renderedLines+1; i++ {
-			fmt.Print("\033[2K\r\033[F")
-		}
-	}
-
-	if !isInteractive() {
-		fmt.Println(title)
-		for i, option := range options {
-			fmt.Printf("  %d) %s\n", i+1, option)
-		}
-		for {
-			fmt.Printf("Select [1-%d]: ", len(options))
-			input := strings.TrimSpace(readLine(reader))
-			if input == "" {
-				return selected, true
-			}
-			if input == "0" {
-				return selected, true
-			}
-			for i := range options {
-				if input == fmt.Sprint(i+1) {
-					return i, true
-				}
-			}
-			fmt.Println("Invalid selection.")
-		}
-	}
-
-	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
-	if err != nil {
-		// fallback: keep old behavior.
-		return selectMenuUsingNumbers(reader, title, options, selected)
-	}
-	defer func() {
-		_ = term.Restore(int(os.Stdin.Fd()), oldState)
-	}()
-
-	render()
-	for {
-		input, err := readSingleKey(reader)
-		if err != nil {
-			return selected, false
-		}
-		switch input {
-		case keyMenuUp:
-			selected--
-			if selected < 0 {
-				selected = len(options) - 1
-			}
-		case keyMenuDown:
-			selected++
-			if selected >= len(options) {
-				selected = 0
-			}
-		case keyMenuEnter:
-			clearMenu()
-			return selected, true
-		case keyMenuCancel:
-			clearMenu()
-			return selected, false
-		}
-		redrawMenu()
-		render()
-	}
-}
-
-const (
-	keyMenuUp = iota + 1
-	keyMenuDown
-	keyMenuEnter
-	keyMenuCancel
-)
-
-func readSingleKey(reader *bufio.Reader) (int, error) {
-	b, err := reader.ReadByte()
-	if err != nil {
-		return 0, err
-	}
-	switch b {
-	case 0x00:
-		next, err := reader.ReadByte()
-		if err != nil {
-			return 0, err
-		}
-		switch next {
-		case 'H':
-			return keyMenuUp, nil
-		case 'P':
-			return keyMenuDown, nil
-		default:
-			return 0, nil
-		}
-	case 0x1b:
-		next, err := reader.ReadByte()
-		if err != nil {
-			return 0, err
-		}
-		if next != '[' {
-			return 0, nil
-		}
-		next, err = reader.ReadByte()
-		if err != nil {
-			return 0, err
-		}
-		switch next {
-		case 'A':
-			return keyMenuUp, nil
-		case 'B':
-			return keyMenuDown, nil
-		default:
-			return 0, nil
-		}
-	case 0x0d, 0x0a:
-		return keyMenuEnter, nil
-	case 0x03:
-		return keyMenuCancel, nil
-	default:
-		return int(b), nil
-	}
-}
-
-func selectMenuUsingNumbers(reader *bufio.Reader, title string, options []string, selected int) (int, bool) {
-	for {
-		fmt.Println(title)
-		for i, option := range options {
-			prefix := "  "
-			if i == selected {
-				prefix = " >"
-			}
-			fmt.Printf("%s %s\n", prefix, option)
-		}
-		fmt.Printf("Select [1-%d, Enter=default]: ", len(options))
-		input := strings.TrimSpace(readLine(reader))
-		if input == "" {
-			return selected, true
-		}
-		if n, err := parseIndexSelection(input); err == nil {
-			if n < 0 || n >= len(options) {
-				fmt.Println("Invalid selection.")
-				continue
-			}
-			return n, true
-		}
-		fmt.Println("Invalid selection.")
-	}
-}
-
-func readLine(reader *bufio.Reader) string {
-	line, _ := reader.ReadString('\n')
-	return strings.TrimSpace(strings.TrimSuffix(line, "\r\n"))
-}
-
-func parseIndexSelection(input string) (int, error) {
-	value, err := strconv.Atoi(input)
-	if err != nil {
-		return 0, err
-	}
-	return value - 1, nil
 }
 
 func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  aetox [flags] [goal...]")
-	fmt.Println("  aetox chat \"goal\"       run one shot and exit")
+	fmt.Println("  aetox chat \"goal\"       run one turn at the coding desk, answer on stdout, exit")
 	fmt.Println("  aetox                    interactive mode")
+	fmt.Println("  aetox login <provider>   sign in (codex, copilot, ...)")
 	fmt.Println("  aetox help               show this help")
 	fmt.Println("Flags:")
 	fmt.Printf("  --model-provider: %s\n", strings.Join(model.SupportedProviders(), "|"))
-	fmt.Println("  --model-name <model[(think-level)]> optional; provider defaults are auto-selected when omitted")
-	fmt.Println("  --model-api-key <key>        fallback: provider env (OPENAI_API_KEY, DEEPSEEK_API_KEY, GROQ_API_KEY, etc.)")
-	fmt.Println("  --model-context-tokens <n>   override context window display (0=auto/unknown)")
-	fmt.Println("  --think <level>              model/provider specific thinking level (DeepSeek: off-think|high|max)")
-	fmt.Println("  --no-banner                 disable interactive banner")
-	fmt.Println("  --approval <mode>           approval mode: ask, unsafe-only, full-access (default: ask)")
-	fmt.Println("  --yes                       auto-approve safety prompts (legacy, prefer --approval full-access)")
-	fmt.Println("  --debug                     write detailed debug log to aetox-debug.log")
-	fmt.Println("  --debug-log <path>          custom debug log path (default: logs/aetox-<ts>.log)")
-	fmt.Println("  --version                   print version")
+	fmt.Println("  --model-name <model[(think-level)]> optional; the remembered choice when omitted")
+	fmt.Println("  --model-api-key <key>        fallback: the store, then the provider's env var")
+	fmt.Println("  --model-base-url <url>       custom endpoint for the provider")
+	fmt.Println("  --think <level>              thinking level (model/provider specific)")
+	fmt.Println("  --approval <mode>            ask, unsafe-only, full-access (default: the remembered choice)")
+	fmt.Println("  --yes                        same as --approval full-access")
+	fmt.Println("  --root <dir>                 project folder (default: current directory)")
+	fmt.Println("  --version                    print version")
+	fmt.Println("The session always sits at the coding desk; logs go to the app's data folder (AETOX_DATA_ROOT to move it).")
 }
 
 func isInteractive() bool {
@@ -1039,7 +263,7 @@ func preparseGlobalFlags(rawArgs []string) ([]string, []string, error) {
 
 	isValueFlag := func(arg string) bool {
 		switch arg {
-		case "--root", "--approval-timeout", "--model-provider", "--model-name", "--model-api-key", "--model-base-url", "--model-timeout", "--model-context-tokens", "--think", "--approval", "--debug-log":
+		case "--root", "--model-provider", "--model-name", "--model-api-key", "--model-base-url", "--think", "--approval":
 			return true
 		}
 		return false
@@ -1047,7 +271,7 @@ func preparseGlobalFlags(rawArgs []string) ([]string, []string, error) {
 
 	isBoolFlag := func(arg string) bool {
 		switch arg {
-		case "--yes", "--no-banner", "--version", "--help", "--debug", "-v", "-h":
+		case "--yes", "--version", "--help", "-v", "-h":
 			return true
 		}
 		return false

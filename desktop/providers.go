@@ -17,6 +17,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/engine"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/oauth"
+	"github.com/Mikedev115/Aetox/internal/signer"
 )
 
 // resolveAPIKeyForProvider is the screen's one door to a provider key: the
@@ -186,7 +187,7 @@ func (a *App) TestProviderConnection(providerName, modelName string) (string, er
 	if modelName == "" {
 		modelName = fallback
 	}
-	return probeProvider(canonical, modelName, baseURL, apiKey, wireFormat)
+	return signer.Probe(canonical, modelName, baseURL, apiKey, wireFormat)
 }
 
 // HasAPIKey reports whether a key-requiring provider already has resolvable
