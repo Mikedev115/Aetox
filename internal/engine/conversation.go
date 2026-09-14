@@ -113,6 +113,10 @@ type conversation struct {
 	// this is the one coordinate that may change mid-conversation, because a
 	// stance only ever subtracts from the desk.
 	stance mode.Stance
+	// continuedFrom is the chat this one carries points from (§282), "" for
+	// a chat that started from nothing. Written to the session row at birth
+	// and never changed: a chat either continues another or it does not.
+	continuedFrom string
 
 	// transcript is what has been said, as the store holds it. The turn that is
 	// running appends to the transcript of the conversation it was started in —

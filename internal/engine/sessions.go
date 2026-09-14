@@ -72,6 +72,17 @@ type SessionMessage struct {
 	// the wall) with the localized ending under it, and the ลองใหม่ chip fed by
 	// the question above.
 	ErrorText string `json:"errorText,omitempty"`
+	// Origin is set on a "handoff" row only (§282): the chat this one
+	// continues, so the card at the top of a continued chat can name it and
+	// open it. Read off the session's continued_from column, not stored on
+	// the row — the row holds the points, the session holds the link.
+	Origin *SessionOrigin `json:"origin,omitempty"`
+}
+
+// SessionOrigin names the chat a handoff row carries points from.
+type SessionOrigin struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
 }
 
 // SessionVariant is one of the answers a question received. Stored as JSON in
@@ -114,6 +125,11 @@ type SessionMeta struct {
 	Space       string `json:"space,omitempty"`
 	ProjectKey  string `json:"projectKey,omitempty"`
 	ProjectName string `json:"projectName,omitempty"`
+	// ContinuedFrom is the id of the chat this one carries points from
+	// (§282), "" for a chat that started from nothing. On every list, so the
+	// sidebar can mark a sequel — it wears its origin's title, and without
+	// the mark two rows with one title read as a duplicate.
+	ContinuedFrom string `json:"continuedFrom,omitempty"`
 }
 
 // heldOutsideAProject is the condition every general history list carries.
@@ -278,6 +294,38 @@ func lastAttachedName(text string) string {
 // answer under it is the honest record of what happened; a conversation that
 // vanishes is not. Returns false when there is nothing to write into, so the
 // caller can carry on rather than treat it as a failed turn.
+// upsertSessionRow writes a conversation's session row, or touches the one
+// it already has. One statement for its three writers — openTurn, appendTurn
+// and the handoff birth (§282) — because the column list has grown five
+// times and two copies of it had already drifted once in wording.
+//
+// Born with its coordinates and its origin, both untouched on conflict: a
+// session is born at a desk and stays there (§83), and a chat either
+// continues another or it does not. The dials are the exception and follow
+// the act of answering — what is recorded is what actually answered.
+func upsertSessionRow(db sqlExecQuerier, conv *conversation, title, now string) error {
+	_, err := db.Exec(`
+		INSERT INTO sessions(id, project_key, title, created_at, updated_at, mode, agent, space, stance, team,
+		                     provider, model, wire_format, think_level, approval_mode, continued_from)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+		ON CONFLICT(id) DO UPDATE SET
+			updated_at = excluded.updated_at,
+			-- The dials, unlike the coordinates above, are meant to be turned
+			-- mid-conversation, so the row follows them. mode/agent/space/
+			-- stance/continued_from are deliberately absent — a session is
+			-- born at a desk and stays there (§83).
+			provider = excluded.provider,
+			model = excluded.model,
+			wire_format = excluded.wire_format,
+			think_level = excluded.think_level,
+			approval_mode = excluded.approval_mode`,
+		conv.id, projectKey(conv.cfg.SandboxRoot), title, now, now,
+		conv.desk.DeskName(), conv.chair, conv.space, conv.stance.String(), conv.team,
+		conv.cfg.ModelProvider, conv.cfg.ModelName, conv.cfg.ModelWireFormat,
+		conv.cfg.ThinkLevel, conv.cfg.ApprovalMode, conv.continuedFrom)
+	return err
+}
+
 func (a *Engine) openTurn(conv *conversation, userMsg SessionMessage) bool {
 	db, err := a.database()
 	sessionID := conv.id
@@ -288,26 +336,7 @@ func (a *Engine) openTurn(conv *conversation, userMsg SessionMessage) bool {
 	// The session row is created here now, which is also where the desk, the
 	// agent and the project are recorded. Same rule as before: a session is
 	// born with all three and the ON CONFLICT branch touches none of them.
-	if _, err := db.Exec(`
-		INSERT INTO sessions(id, project_key, title, created_at, updated_at, mode, agent, space, stance, team,
-		                     provider, model, wire_format, think_level, approval_mode)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-		ON CONFLICT(id) DO UPDATE SET
-			updated_at = excluded.updated_at,
-			-- The dials, unlike the four coordinates above, are meant to be
-			-- turned mid-conversation, so the row follows them: what is
-			-- recorded is what actually answered, updated by the act of
-			-- answering. mode/agent/space/stance are deliberately absent — a
-			-- session is born at a desk and stays there (§83).
-			provider = excluded.provider,
-			model = excluded.model,
-			wire_format = excluded.wire_format,
-			think_level = excluded.think_level,
-			approval_mode = excluded.approval_mode`,
-		sessionID, projectKey(conv.cfg.SandboxRoot), sessionTitleFrom(userMsg.Text), now, now,
-		conv.desk.DeskName(), conv.chair, conv.space, conv.stance.String(), conv.team,
-		conv.cfg.ModelProvider, conv.cfg.ModelName, conv.cfg.ModelWireFormat,
-		conv.cfg.ThinkLevel, conv.cfg.ApprovalMode); err != nil {
+	if err := upsertSessionRow(db, conv, sessionTitleFrom(userMsg.Text), now); err != nil {
 		return false
 	}
 	if _, err := db.Exec(
@@ -339,26 +368,7 @@ func (a *Engine) appendTurn(conv *conversation, userMsg, agentMsg SessionMessage
 	// deliberately touches neither. A session is born at a desk, with whoever
 	// it was opened with, and stays there (§83); an UPDATE of either column
 	// would be the mid-session switch the whole design refuses.
-	_, _ = tx.Exec(`
-		INSERT INTO sessions(id, project_key, title, created_at, updated_at, mode, agent, space, stance, team,
-		                     provider, model, wire_format, think_level, approval_mode)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-		ON CONFLICT(id) DO UPDATE SET
-			updated_at = excluded.updated_at,
-			-- The dials, unlike the four coordinates above, are meant to be
-			-- turned mid-conversation, so the row follows them: what is
-			-- recorded is what actually answered, updated by the act of
-			-- answering. mode/agent/space/stance are deliberately absent — a
-			-- session is born at a desk and stays there (§83).
-			provider = excluded.provider,
-			model = excluded.model,
-			wire_format = excluded.wire_format,
-			think_level = excluded.think_level,
-			approval_mode = excluded.approval_mode`,
-		sessionID, projectKey(conv.cfg.SandboxRoot), sessionTitleFrom(userMsg.Text), now, now,
-		conv.desk.DeskName(), conv.chair, conv.space, conv.stance.String(), conv.team,
-		conv.cfg.ModelProvider, conv.cfg.ModelName, conv.cfg.ModelWireFormat,
-		conv.cfg.ThinkLevel, conv.cfg.ApprovalMode)
+	_ = upsertSessionRow(tx, conv, sessionTitleFrom(userMsg.Text), now)
 	// The question, unless openTurn already wrote it when it was asked —
 	// writing it twice would double every user message in the transcript.
 	//
@@ -526,18 +536,18 @@ func (a *Engine) ListSessionsAt(desk string) []SessionMeta {
 		return out
 	}
 	query := `
-		SELECT id, title, updated_at, mode, agent FROM sessions
+		SELECT id, title, updated_at, mode, agent, continued_from FROM sessions
 		WHERE project_key = ? AND ` + heldOutsideAProject + ` ORDER BY updated_at DESC LIMIT 200`
 	args := []any{projectKey(a.cur().cfg.SandboxRoot)}
 	if desk = strings.TrimSpace(desk); desk != "" {
 		query = `
-		SELECT id, title, updated_at, mode, agent FROM sessions
+		SELECT id, title, updated_at, mode, agent, continued_from FROM sessions
 		WHERE project_key = ? AND ` + heldOutsideAProject + ` AND mode = ? ORDER BY updated_at DESC LIMIT 200`
 		args = append(args, desk)
 	}
 	out, _ = queryAll(db, "sessions", query, args, func(rows *sql.Rows) (SessionMeta, error) {
 		var m SessionMeta
-		err := rows.Scan(&m.ID, &m.Title, &m.UpdatedAt, &m.Mode, &m.Agent)
+		err := rows.Scan(&m.ID, &m.Title, &m.UpdatedAt, &m.Mode, &m.Agent, &m.ContinuedFrom)
 		return m, err
 	})
 	return out
@@ -640,7 +650,7 @@ func (a *Engine) SearchSessions(query string) []SessionMeta {
 		  SELECT rowid AS mid, snippet(messages_fts, 0, '', '', '…', 10) AS snip
 		  FROM messages_fts WHERE messages_fts MATCH ?
 		)
-		SELECT s.id, s.title, s.updated_at, s.mode, s.agent, MIN(f.snip)
+		SELECT s.id, s.title, s.updated_at, s.mode, s.agent, s.continued_from, MIN(f.snip)
 		FROM f
 		JOIN messages m ON m.id = f.mid
 		JOIN sessions s ON s.id = m.session_id
@@ -650,7 +660,7 @@ func (a *Engine) SearchSessions(query string) []SessionMeta {
 		[]any{match, projectKey(a.cur().cfg.SandboxRoot)},
 		func(rows *sql.Rows) (SessionMeta, error) {
 			var m SessionMeta
-			err := rows.Scan(&m.ID, &m.Title, &m.UpdatedAt, &m.Mode, &m.Agent, &m.Snippet)
+			err := rows.Scan(&m.ID, &m.Title, &m.UpdatedAt, &m.Mode, &m.Agent, &m.ContinuedFrom, &m.Snippet)
 			return m, err
 		})
 	return out
@@ -819,13 +829,13 @@ func (a *Engine) ListSessionsForDoor(filter DeskFilter) []SessionMeta {
 	clause, args := filter.where("s.mode")
 	clause = "WHERE s." + heldOutsideAProject + andClause(clause)
 	out, _ = queryAll(db, "sessions for door", `
-		SELECT s.id, s.title, s.updated_at, s.mode, s.agent, s.project_key, COALESCE(p.name, s.project_key)
+		SELECT s.id, s.title, s.updated_at, s.mode, s.agent, s.continued_from, s.project_key, COALESCE(p.name, s.project_key)
 		FROM sessions s LEFT JOIN projects p ON p.project_key = s.project_key
 		`+clause+`
 		ORDER BY s.updated_at DESC LIMIT 200`, args,
 		func(rows *sql.Rows) (SessionMeta, error) {
 			var m SessionMeta
-			err := rows.Scan(&m.ID, &m.Title, &m.UpdatedAt, &m.Mode, &m.Agent, &m.ProjectKey, &m.ProjectName)
+			err := rows.Scan(&m.ID, &m.Title, &m.UpdatedAt, &m.Mode, &m.Agent, &m.ContinuedFrom, &m.ProjectKey, &m.ProjectName)
 			return m, err
 		})
 	return out
@@ -852,7 +862,7 @@ func (a *Engine) SearchSessionsForDoor(query string, filter DeskFilter) []Sessio
 		  SELECT rowid AS mid, snippet(messages_fts, 0, '', '', '…', 10) AS snip
 		  FROM messages_fts WHERE messages_fts MATCH ?
 		)
-		SELECT s.id, s.title, s.updated_at, s.mode, s.agent, s.space, s.project_key, COALESCE(p.name, s.project_key), MIN(f.snip)
+		SELECT s.id, s.title, s.updated_at, s.mode, s.agent, s.continued_from, s.space, s.project_key, COALESCE(p.name, s.project_key), MIN(f.snip)
 		FROM f
 		JOIN messages m ON m.id = f.mid
 		JOIN sessions s ON s.id = m.session_id
@@ -862,7 +872,7 @@ func (a *Engine) SearchSessionsForDoor(query string, filter DeskFilter) []Sessio
 		ORDER BY s.updated_at DESC LIMIT 50`, args,
 		func(rows *sql.Rows) (SessionMeta, error) {
 			var m SessionMeta
-			err := rows.Scan(&m.ID, &m.Title, &m.UpdatedAt, &m.Mode, &m.Agent, &m.Space, &m.ProjectKey, &m.ProjectName, &m.Snippet)
+			err := rows.Scan(&m.ID, &m.Title, &m.UpdatedAt, &m.Mode, &m.Agent, &m.ContinuedFrom, &m.Space, &m.ProjectKey, &m.ProjectName, &m.Snippet)
 			return m, err
 		})
 	return out
@@ -875,12 +885,12 @@ func (a *Engine) ListAllSessions() []SessionMeta {
 		return out
 	}
 	out, _ = queryAll(db, "all sessions", `
-		SELECT s.id, s.title, s.updated_at, s.mode, s.agent, s.project_key, COALESCE(p.name, s.project_key)
+		SELECT s.id, s.title, s.updated_at, s.mode, s.agent, s.continued_from, s.project_key, COALESCE(p.name, s.project_key)
 		FROM sessions s LEFT JOIN projects p ON p.project_key = s.project_key
 		ORDER BY s.updated_at DESC LIMIT 200`, nil,
 		func(rows *sql.Rows) (SessionMeta, error) {
 			var m SessionMeta
-			err := rows.Scan(&m.ID, &m.Title, &m.UpdatedAt, &m.Mode, &m.Agent, &m.ProjectKey, &m.ProjectName)
+			err := rows.Scan(&m.ID, &m.Title, &m.UpdatedAt, &m.Mode, &m.Agent, &m.ContinuedFrom, &m.ProjectKey, &m.ProjectName)
 			return m, err
 		})
 	return out
@@ -900,7 +910,7 @@ func (a *Engine) SearchAllSessions(query string) []SessionMeta {
 		  SELECT rowid AS mid, snippet(messages_fts, 0, '', '', '…', 10) AS snip
 		  FROM messages_fts WHERE messages_fts MATCH ?
 		)
-		SELECT s.id, s.title, s.updated_at, s.mode, s.agent, s.project_key, COALESCE(p.name, s.project_key), MIN(f.snip)
+		SELECT s.id, s.title, s.updated_at, s.mode, s.agent, s.continued_from, s.project_key, COALESCE(p.name, s.project_key), MIN(f.snip)
 		FROM f
 		JOIN messages m ON m.id = f.mid
 		JOIN sessions s ON s.id = m.session_id
@@ -909,7 +919,7 @@ func (a *Engine) SearchAllSessions(query string) []SessionMeta {
 		ORDER BY s.updated_at DESC LIMIT 50`, []any{match},
 		func(rows *sql.Rows) (SessionMeta, error) {
 			var m SessionMeta
-			err := rows.Scan(&m.ID, &m.Title, &m.UpdatedAt, &m.Mode, &m.Agent, &m.ProjectKey, &m.ProjectName, &m.Snippet)
+			err := rows.Scan(&m.ID, &m.Title, &m.UpdatedAt, &m.Mode, &m.Agent, &m.ContinuedFrom, &m.ProjectKey, &m.ProjectName, &m.Snippet)
 			return m, err
 		})
 	return out
@@ -1197,6 +1207,9 @@ func (a *Engine) readTranscript(id, key string) ([]SessionMessage, error) {
 		// A transcript that broke halfway is not a shorter conversation. This
 		// caller has somewhere to put the error, so it gets it.
 		return nil, err
+	}
+	if len(messages) > 0 && messages[0].Role == handoffRole {
+		messages[0].Origin = a.sessionOrigin(id)
 	}
 	return messages, nil
 }
@@ -1602,10 +1615,18 @@ func transcriptToModelMessages(messages []SessionMessage) []model.Message {
 			continue
 		}
 		role := model.RoleUser
-		if m.Role == "agent" {
+		content := m.Text
+		switch m.Role {
+		case "agent":
 			role = model.RoleAssistant
+		case handoffRole:
+			// The same framing a compaction summary wears in context
+			// (memory.Context.ReplaceWithSummary): prior context in the user's
+			// slot, marked as such so the model does not answer it as a
+			// question.
+			content = handoffFraming + m.Text
 		}
-		out = append(out, model.Message{Role: role, Content: m.Text})
+		out = append(out, model.Message{Role: role, Content: content})
 	}
 	return out
 }

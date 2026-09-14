@@ -212,6 +212,8 @@ export function Connections():Promise<Array<connect.Status>>;
 
 export function ConsolidateMemory(arg1:string):Promise<engine.MemoryConsolidation>;
 
+export function ContinueInNewSession(arg1:string,arg2:Array<string>):Promise<string>;
+
 export function CopySkillToAgent(arg1:string,arg2:string):Promise<void>;
 
 export function CreateCodeProject(arg1:string):Promise<string>;
@@ -265,6 +267,8 @@ export function DisconnectRemote():Promise<void>;
 export function DismissRecurringRequest(arg1:string,arg2:string):Promise<void>;
 
 export function DismissTaskChip(arg1:string):Promise<void>;
+
+export function DraftHandoff(arg1:string):Promise<Array<string>>;
 
 export function EnabledProviders():Promise<Array<string>>;
 

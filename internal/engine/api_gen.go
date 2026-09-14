@@ -72,6 +72,7 @@ type API interface {
 	ConnectAccount(id string, token string, baseURL string, targets []string) (connect.Account, error)
 	Connections() []connect.Status
 	ConsolidateMemory(scope string) (MemoryConsolidation, error)
+	ContinueInNewSession(sessionID string, points []string) (string, error)
 	CopySkillToAgent(agent string, name string) error
 	CreateCodeProject(name string) (string, error)
 	CreatePullRequest(title string, head string, base string, body string, draft bool) PRCreated
@@ -96,6 +97,7 @@ type API interface {
 	DisconnectAccount(id string) error
 	DismissRecurringRequest(normalized string, sampleText string) error
 	DismissTaskChip(id string)
+	DraftHandoff(sessionID string) ([]string, error)
 	EnabledProviders() []string
 	EnginesFor(family string, agent string) []connect.Status
 	ExternalEngineStatus(providerName string) cliagent.Status

@@ -362,6 +362,12 @@ func (c *Client) ConsolidateMemory(scope string) (engine.MemoryConsolidation, er
 	return out0, err
 }
 
+func (c *Client) ContinueInNewSession(sessionID string, points []string) (string, error) {
+	var out0 string
+	err := c.call("ContinueInNewSession", []any{sessionID, points}, &out0)
+	return out0, err
+}
+
 func (c *Client) CopySkillToAgent(agent string, name string) error {
 	return c.call("CopySkillToAgent", []any{agent, name}, nil)
 }
@@ -498,6 +504,12 @@ func (c *Client) DismissTaskChip(id string) {
 	if err := c.call("DismissTaskChip", []any{id}, nil); err != nil {
 		c.failed("DismissTaskChip", err)
 	}
+}
+
+func (c *Client) DraftHandoff(sessionID string) ([]string, error) {
+	var out0 []string
+	err := c.call("DraftHandoff", []any{sessionID}, &out0)
+	return out0, err
 }
 
 func (c *Client) EnabledProviders() []string {

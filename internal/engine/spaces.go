@@ -425,7 +425,7 @@ func (a *Engine) SessionsInSpace(name string) []SessionMeta {
 	// "ช่วยผม…" and the title alone cannot say which one wrote the post.
 	// Clipped in SQL rather than shipping whole answers for a list of 200.
 	out, _ = queryAll(db, "spaces: sessions", `
-		SELECT s.id, s.title, s.updated_at, s.mode, s.agent,
+		SELECT s.id, s.title, s.updated_at, s.mode, s.agent, s.continued_from,
 		       COALESCE((SELECT substr(m.text, 1, 200) FROM messages m
 		                 WHERE m.session_id = s.id AND m.role = 'agent'
 		                 ORDER BY m.id DESC LIMIT 1), '')
@@ -434,7 +434,7 @@ func (a *Engine) SessionsInSpace(name string) []SessionMeta {
 		[]any{projectKey(a.cur().cfg.SandboxRoot), folder},
 		func(rows *sql.Rows) (SessionMeta, error) {
 			var m SessionMeta
-			err := rows.Scan(&m.ID, &m.Title, &m.UpdatedAt, &m.Mode, &m.Agent, &m.Snippet)
+			err := rows.Scan(&m.ID, &m.Title, &m.UpdatedAt, &m.Mode, &m.Agent, &m.ContinuedFrom, &m.Snippet)
 			return m, err
 		})
 	return out

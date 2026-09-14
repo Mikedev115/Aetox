@@ -4800,6 +4800,41 @@ button.phase-head:hover { color:var(--text-muted); }
 .ask-own-send:hover:not(:disabled) { color:var(--accent); }
 .ask-own-send:disabled { opacity:.35; cursor:default; }
 
+/* สรุปแล้วไปเริ่มแชทใหม่ (§282). Two cards on the ask-panel vocabulary: the
+   picker, where every option row is a checkbox rather than a button, and the
+   handoff row a continued chat opens with. The picker's rows keep .ask-opt's
+   metrics and only lose the hover accent when unticked — a dimmed row is
+   "not coming along", still clickable. */
+.ask-opt.handoff-point { cursor:pointer; }
+.ask-opt.handoff-point.off { color:var(--text-muted); background:none; }
+.ask-opt.handoff-point.off .ask-label { text-decoration:line-through; text-decoration-color:var(--border-strong); }
+.handoff-tick { flex:none; width:16px; height:16px; margin:0 3px; accent-color:var(--accent); cursor:pointer; }
+.handoff-wait { display:flex; align-items:center; gap:8px; color:var(--text-secondary); }
+.handoff-wait svg { animation:tool-spin 1.2s linear infinite; }
+.handoff-error { margin-top:8px; font-size:var(--fs-sm); color:var(--status-danger); }
+.handoff-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
+.handoff-go, .handoff-cancel {
+  appearance:none; font:inherit; font-size:var(--fs-sm); padding:6px 14px; cursor:pointer;
+  border:1px solid var(--border-strong); border-radius:var(--r-sm);
+  background:var(--surface-sunken); color:var(--text-secondary);
+}
+.handoff-go { color:var(--text-on-interactive); background:var(--interactive); border-color:var(--interactive); font-weight:600; }
+.handoff-go:disabled, .handoff-cancel:disabled { opacity:.5; cursor:default; }
+/* The row at the top of a continued chat. Quieter than an answer: a border
+   and a heading, no avatar weight, because nobody in this chat said it. */
+.handoff-card { border:1px dashed var(--border-strong); background:var(--surface-sunken); }
+.handoff-head { display:flex; align-items:center; gap:6px; font-size:var(--fs-xs); color:var(--text-muted); margin-bottom:6px; }
+.handoff-origin {
+  appearance:none; background:none; border:0; padding:0; font:inherit; font-size:var(--fs-xs);
+  color:var(--accent); cursor:pointer; text-decoration:underline; text-underline-offset:2px;
+  max-width:60%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.handoff-points { margin:0; padding-left:18px; font-size:var(--fs-sm); color:var(--text-secondary); line-height:1.5; }
+.handoff-points li + li { margin-top:3px; }
+/* The sidebar's mark on a sequel: it wears its origin's title, and without
+   this two rows with one title read as a duplicate. */
+.session-sequel { flex:none; color:var(--text-dim); display:inline-flex; align-items:center; }
+
 /* todo_write: the model's task checklist. The rows are shared — the strip's
    แผน section draws them, and nothing else does. */
 .todo-item { display:flex; gap:8px; font-size:var(--fs-sm); color:var(--text-secondary); }

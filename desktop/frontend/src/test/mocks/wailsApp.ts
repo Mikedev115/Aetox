@@ -130,6 +130,10 @@ export const CurrentSessionID = str()
 export const DismissTaskChip = noop()
 export const DeleteIdentityFile = noop()
 export const DeleteSession = noop()
+// สรุปแล้วไปเริ่มแชทใหม่ (§282): the points the engine writes, and the id of
+// the chat it opens on the picked ones.
+export const DraftHandoff = arr()
+export const ContinueInNewSession = str()
 export const EnabledProviders = arr()
 export const CustomProviders = arr()
 export const AddCustomProvider = str()

@@ -56,6 +56,8 @@ export const ICONS = {
   keyboard: `<path d="M10 8h.01" /><path d="M12 12h.01" /><path d="M14 8h.01" /><path d="M16 12h.01" /><path d="M18 8h.01" /><path d="M6 8h.01" /><path d="M7 16h10" /><path d="M8 12h.01" /><rect width="20" height="16" x="2" y="4" rx="2" />`,
   layoutList: `<rect width="7" height="7" x="3" y="3" rx="1" /><rect width="7" height="7" x="3" y="14" rx="1" /><path d="M14 4h7" /><path d="M14 9h7" /><path d="M14 15h7" /><path d="M14 20h7" />`,
   loaderCircle: `<path d="M21 12a9 9 0 1 1-6.219-8.56" />`,
+  // The handoff button and card (§282): a chat with an arrow out of it.
+  messageSquareShare: `<path d="M12 3H4a2 2 0 0 0-2 2v16l4-4h14a2 2 0 0 0 2-2v-8" /><path d="M16 3h5v5" /><path d="m16 8 5-5" />`,
   messageSquare: `<path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />`,
   mic: `<path d="M12 19v3" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><rect x="9" y="2" width="6" height="13" rx="3" />`,
   monitor: `<rect width="20" height="14" x="2" y="3" rx="2" /><line x1="8" x2="16" y1="21" y2="21" /><line x1="12" x2="12" y1="17" y2="21" />`,

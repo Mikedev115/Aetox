@@ -77,6 +77,10 @@ export interface Session {
    *  until the first reply lands (owner, 26 ส.ค.). Replaced by the real row the
    *  moment the first turn is stored. */
   draft?: boolean
+  /** The chat this one carries points from (§282). A continued chat wears
+   *  its origin's title, so the row needs a mark or two rows read as one chat
+   *  listed twice. */
+  continuedFrom?: string
 }
 
 export interface RecentProject {
@@ -207,10 +211,27 @@ export interface ContextBreakdown {
   tools?: ContextTool[]
 }
 
+/** The handoff card's state: the points the model wrote, which are ticked,
+ *  and whether the engine is still writing or opening. `points` is empty
+ *  while `busy` is the draft in flight. */
+export interface HandoffDraft {
+  session: string
+  points: string[]
+  picked: boolean[]
+  busy: boolean
+  error: string
+}
+
 export interface ChatMessage {
-  role: 'user' | 'agent'
+  /** 'handoff' is the one row a continued chat starts with (§282): the
+   *  points the user chose to carry over, drawn as a card, never as a bubble
+   *  of either side. */
+  role: 'user' | 'agent' | 'handoff'
   text: string
   time: string
+  /** On a handoff row: the chat the points came from, so the card can name it
+   *  and open it. */
+  origin?: { id: string; title: string }
   /** The stored row this reply became. It is what a rating addresses, so a
    * bubble without one cannot be rated — which is the honest state for a turn
    * that failed and was persisted nowhere. */
@@ -1251,6 +1272,10 @@ export interface CockpitState {
   pendingFiles: PendingFile[]
   /** Question the model is blocked on (ask_user tool), null when none. */
   ask: { question: string; options: string[] } | null
+  /** The list "สรุปแล้วไปเริ่มแชทใหม่" is showing (§282), null when it is not.
+   *  Keyed by the chat it was drawn for: the card belongs to one conversation
+   *  and must not follow the user into another (the arriveAt rule). */
+  handoff: HandoffDraft | null
   /** The window the agent is driving right now (computer tool), null when it is not driving one.
    *  Parked with the rest of the live state: the takeover belongs to a turn, and a
    *  banner left on `cockpit` would follow the user into the next chat and claim
@@ -1363,6 +1388,7 @@ export function emptyCockpitState(): CockpitState {
     modelLoading: null,
     limitWait: null,
     ask: null,
+    handoff: null,
     driving: null,
     todos: [],
     taskChips: [],

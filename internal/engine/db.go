@@ -882,6 +882,30 @@ CREATE TABLE IF NOT EXISTS project_folders (
 		name:    "pre_team_rows_join_the_seed",
 		apply:   preTeamRowsJoinTheSeed,
 	},
+	{
+		version: 28,
+		name:    "session_remembers_what_it_continues",
+		apply: func(tx *sql.Tx) error {
+			// A chat opened by "สรุปแล้วไปเริ่มแชทใหม่" (§282) is born carrying
+			// the points of another chat, and the card at its top links back
+			// to that chat. The link is a column on the session rather than a
+			// field inside the handoff row's text, because the sidebar has to
+			// mark a continuation without opening it — two rows with the same
+			// title and no mark read as a duplicate, not a sequel.
+			//
+			// Empty is every chat that started from nothing, which is every
+			// chat before this migration.
+			//
+			// Guarded like v25: every step past 18 has to survive being
+			// replayed on a store that already ran it.
+			if has, err := hasColumn(tx, "sessions", "continued_from"); err != nil || has {
+				return err
+			}
+			_, err := tx.Exec(
+				`ALTER TABLE sessions ADD COLUMN continued_from TEXT NOT NULL DEFAULT ''`)
+			return err
+		},
+	},
 }
 
 // preTeamRowsJoinTheSeed puts every main chat that says no team on its
