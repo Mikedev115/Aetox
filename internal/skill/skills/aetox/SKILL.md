@@ -151,6 +151,14 @@ somebody who has never used the app, are its.
 | `aetox-deploy` | shipping moments: checklist, incident, postmortem, git flow |
 | `aetox-documentation` | docs written from the reader's side |
 | `aetox-discernment` | appending one second-look question after a high-stakes answer |
+| `aetox-brainstorm` | a feature or a change to how parts fit, before the first line of code: spike / bounded / architectural, and the yes |
+| `aetox-run-plan` | carrying out a written plan or tickets task by task, alone or through subagents, each task reviewed twice |
+| `aetox-parallel` | two or more independent problems, one subagent each, at once |
+| `aetox-worktree` | feature work that must not disturb the user's checkout |
+| `aetox-verify` | about to say it works, passes, builds or is fixed: the command first |
+| `aetox-review-feedback` | acting on review feedback: check each point against the code before doing it |
+| `aetox-finish-branch` | a finished branch: green suite, then merge / PR / leave it, the user's choice |
+| `aetox-skill-writing` | writing or changing a skill: description says when, body is short, tested before it ships |
 
 ## The team: เอเจน, ซับเอเจน, desks
 
