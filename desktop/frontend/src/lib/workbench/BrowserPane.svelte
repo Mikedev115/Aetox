@@ -8,6 +8,7 @@
   } from '../../../wailsjs/go/main/App'
   import { EventsOn } from '../../../wailsjs/runtime/runtime'
   import { isHostWebview } from '../hostWebview'
+  import { panelDrag } from '../panelDrag.svelte'
   import { t } from '../i18n.svelte'
   import BrowserStart from './BrowserStart.svelte'
 
@@ -28,6 +29,48 @@
   // See the covering probe below. False until measured otherwise.
   let covered = $state(false)
   let lastSent = '' // last URL we told the native side to load — breaks the meta-event feedback loop
+  // What the native side was last told about zoom and shape — plain `let`,
+  // not $state, because nothing on screen depends on them (see reflow). NaN
+  // and -1 so the first reflow after a page opens always sends both.
+  let sentZoom = NaN
+  let sentShape: readonly [number, number, number, number] = [-1, -1, -1, -1]
+  // The rectangle the native window was last placed at (device px), or null
+  // before the first placement. What a held drag measures itself against.
+  let sentRect: [number, number, number, number] | null = null
+
+  // Holding still while the user drags.
+  //
+  // The owner, 14 ก.ย.: "รอผู้ใช้ลากเสร็จแล้ว เบาเซอร์ค่อยตามไป ... ระหว่างลาก
+  // มันไม่ต้องตามทุกเฟรม". A page relaid out on every frame of a drag is the
+  // roughness he saw, and no amount of trimming the per-frame cost (§283) makes
+  // sixty relayouts a second look like one. So the pane does not follow a drag
+  // at all: it holds the window where it is, and glues it once when the drag
+  // ends. Two kinds of drag, told apart two ways — a panel handle says so
+  // (panelDrag, exact start and end), and the window's own edge does not, so
+  // it is read as a burst of resize events and ends when they go quiet.
+  //
+  // A held window can stick out of a pane that is shrinking, over the chat or
+  // the handle — so the moment its old rectangle no longer fits the pane's
+  // new one, it hides, and stays hidden until the drag ends (a window that
+  // blinked in and out as the pointer wobbled would be worse than either).
+  // A pane that is growing keeps its page in view, still, with the app's own
+  // colour in the gap.
+  const RESIZE_QUIET_MS = 150
+  let lastWindowResize = -Infinity
+  let settle: ReturnType<typeof setTimeout> | null = null
+  let hidingForDrag = $state(false)
+
+  function draggingNow(): boolean {
+    return panelDrag.active || performance.now() - lastWindowResize < RESIZE_QUIET_MS
+  }
+
+  /** The drag is still going: keep the window where it is, or hide it if it no longer fits. */
+  function hold(rect: [number, number, number, number]): void {
+    if (hidingForDrag || !sentRect) return
+    const [x, y, w, h] = rect
+    const [sx, sy, sw, sh] = sentRect
+    if (sx < x || sy < y || sx + sw > x + w || sy + sh > y + h) hidingForDrag = true
+  }
 
   /** Pane pixels reserved around the native window, in CSS px. See layout(). */
   const PANE_FRAME = 3
@@ -81,7 +124,7 @@
   //
   // And then a second fact, `covered`, because a box on screen can still have
   // something drawn over it — see the probe below.
-  const visible = $derived(active && opened && onScreen && !covered && !menuOpen && !dragging && !isOverlayView(cockpit.activeView))
+  const visible = $derived(active && opened && onScreen && !covered && !menuOpen && !dragging && !hidingForDrag && !isOverlayView(cockpit.activeView))
 
   // Device-size emulation without any emulation trickery: the tab IS a real
   // window, so shrink it to the device's aspect ratio (letterboxed in the pane,
@@ -137,17 +180,34 @@
     // away a fake phone.
     screen = { w, h, scale }
     if (!opened) return
+    if (draggingNow()) {
+      hold(rect)
+      return
+    }
+    hidingForDrag = false
+    sentRect = rect
     BrowserSetBounds(tab.id, ...rect)
-    BrowserSetZoom(tab.id, scale)
+    // Zoom and shape only when they changed. A splitter drag reflows every
+    // frame, and each of these is a Wails call, a hop onto the webview's
+    // thread and a call into the engine — for a zoom of 1 that was already 1
+    // and a rectangle that was already plain. Three round trips a frame for
+    // one rectangle is what made the page trail the pane.
+    if (scale !== sentZoom) {
+      sentZoom = scale
+      BrowserSetZoom(tab.id, scale)
+    }
     const vp = tab.viewport
     const px = window.devicePixelRatio
-    BrowserSetScreenShape(
-      tab.id,
+    const shape = [
       Math.round((vp?.radius ?? 0) * scale * px),
       Math.round((vp?.notchW ?? 0) * scale * px),
       Math.round((vp?.notchH ?? 0) * scale * px),
       Math.round((vp?.notchY ?? 0) * scale * px),
-    )
+    ] as const
+    if (shape.some((v, i) => v !== sentShape[i])) {
+      sentShape = shape
+      BrowserSetScreenShape(tab.id, ...shape)
+    }
   }
 
   // Open on first URL; navigate on later URL changes (typed in the address bar).
@@ -169,7 +229,8 @@
     })
     if (!opened) {
       opened = true
-      BrowserOpen(tab.id, url, fallback, ...layout(el).rect)
+      sentRect = layout(el).rect
+      BrowserOpen(tab.id, url, fallback, ...sentRect)
     } else {
       BrowserNavigate(tab.id, url, fallback)
     }
@@ -186,9 +247,12 @@
   })
 
   // Switching device preset resizes the window and rescales the page.
+  // untrack: reflow now reads panelDrag and hidingForDrag, and this effect is
+  // about the device, not the drag — tracked, it would re-glue a second time
+  // on every release, which the drag-hold test counts.
   $effect(() => {
     tab.viewport
-    reflow()
+    untrack(reflow)
   })
 
   $effect(() => {
@@ -201,11 +265,29 @@
     if (spectator || !el) return
     const ro = new ResizeObserver(reflow)
     ro.observe(el)
-    window.addEventListener('resize', reflow)
+    // A window resize is a burst of these; the pane treats the burst as one
+    // drag (draggingNow) and follows once it has been quiet for RESIZE_QUIET_MS.
+    const onWindowResize = () => {
+      lastWindowResize = performance.now()
+      if (settle) clearTimeout(settle)
+      settle = setTimeout(() => {
+        settle = null
+        reflow()
+      }, RESIZE_QUIET_MS + 10)
+    }
+    window.addEventListener('resize', onWindowResize)
     return () => {
       ro.disconnect()
-      window.removeEventListener('resize', reflow)
+      window.removeEventListener('resize', onWindowResize)
+      if (settle) clearTimeout(settle)
+      settle = null
     }
+  })
+
+  // A panel handle let go: follow, once.
+  $effect(() => {
+    if (panelDrag.active) return
+    untrack(reflow)
   })
 
   // Does this pane have a box on screen? The one measurement `visible` leans on.

@@ -39,6 +39,7 @@
   import { workbench, openPathsInWorkbench, filesChangedOnDisk } from './lib/stores/workbench.svelte'
   import { listenForUpdates } from './lib/selfUpdate.svelte'
   import { clampPanelWidth, fitPanelsToWindow, foldPanels } from './lib/panelSize'
+  import { panelDrag } from './lib/panelDrag.svelte'
   import { isShortcut } from './lib/shortcuts'
   import Icon from './lib/Icon.svelte'
   import { sidle } from './lib/fold'
@@ -516,6 +517,7 @@
       const handle = e.currentTarget as HTMLElement
       handle.setPointerCapture(e.pointerId)
       setDragging(true)
+      panelDrag.active = true // the native browser pane holds still until onEnd
       e.preventDefault()
       const onMove = (ev: PointerEvent) => {
         const size = clampSize(computeSize(ev), panel, otherPanel)
@@ -523,6 +525,7 @@
       }
       const onEnd = () => {
         setDragging(false)
+        panelDrag.active = false
         try { handle.releasePointerCapture(e.pointerId) } catch { /* already released */ }
         window.removeEventListener('pointermove', onMove)
         window.removeEventListener('pointerup', onEnd)

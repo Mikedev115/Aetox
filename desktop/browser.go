@@ -1343,6 +1343,10 @@ type browserTab struct {
 	wantURL   string
 	bounds    [4]int
 	hasBounds bool
+	// shape is the cut the window is given (BrowserSetScreenShape), kept for
+	// the same reason as bounds: the pane sends it once, when it changes, so a
+	// fresh engine has to be told by us. All zero is a plain rectangle.
+	shape [4]int
 	// detached: this tab is a window of its own now and no longer part of any
 	// desk. Guarded by wantMu with the two above because it is the same kind
 	// of fact — what this tab should be, as opposed to what its engine is.
@@ -1464,6 +1468,19 @@ func (t *browserTab) rememberBounds(x, y, w, h int) {
 	t.wantMu.Lock()
 	defer t.wantMu.Unlock()
 	t.bounds, t.hasBounds = [4]int{x, y, w, h}, true
+}
+
+func (t *browserTab) rememberShape(radius, notchW, notchH, notchY int) {
+	t.wantMu.Lock()
+	defer t.wantMu.Unlock()
+	t.shape = [4]int{radius, notchW, notchH, notchY}
+}
+
+// wantedShape is the cut a fresh engine's window should be given.
+func (t *browserTab) wantedShape() [4]int {
+	t.wantMu.Lock()
+	defer t.wantMu.Unlock()
+	return t.shape
 }
 
 // wanted is what a fresh engine should be given: the last page asked for and
@@ -2104,6 +2121,9 @@ func (h *browserHost) revive(id string, tab *browserTab) {
 	if tab.isHidden() {
 		view.setVisible(false)
 	}
+	if sh := tab.wantedShape(); sh != [4]int{} {
+		view.setShape(sh[0], sh[1], sh[2], sh[3])
+	}
 	tab.revived(url)
 	debuglog.Msg("browser tab %s: engine back", id)
 }
@@ -2487,7 +2507,10 @@ func (a *App) BrowserReload(id string)  { a.browserEval(id, "location.reload()")
 // 0.75 of a corner. Passing CSS pixels here and scaling on this side would put
 // that arithmetic in two places.
 func (a *App) BrowserSetScreenShape(id string, radius, notchW, notchH, notchY int) {
-	a.onTab(id, func(v tabView, _ *browserTab) { v.setShape(radius, notchW, notchH, notchY) })
+	a.onTab(id, func(v tabView, t *browserTab) {
+		t.rememberShape(radius, notchW, notchH, notchY)
+		v.setShape(radius, notchW, notchH, notchY)
+	})
 }
 
 func (a *App) BrowserOpenDevTools(id string) {
