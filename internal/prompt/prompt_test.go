@@ -1457,8 +1457,14 @@ func TestADeskWithItsOwnMemoryDoesNotReadTheSharedFile(t *testing.T) {
 // The team a chat hires from is told once, by name, with the desk beside it —
 // and a chat on no team, which is every CLI session, says nothing about one.
 func TestTeamLayerNamesTheRosterOnlyOnATeamSession(t *testing.T) {
-	if got := BuildForDesk(SurfaceDesktop, Scope{}, Desk{Name: "coding"}); strings.Contains(got, "on the team") {
-		t.Fatalf("a chat on no team still talks about one: %s", got)
+	if got := BuildForDesk(SurfaceDesktop, Scope{}, Desk{Name: "coding"}); strings.Contains(got, "on the team") || strings.Contains(got, "on no team") {
+		t.Fatalf("a host without teams (the CLI) is told about one: %s", got)
+	}
+	// A desktop chat set to ไม่ใช้ทีมช่วย IS told, in the same words as a
+	// team chat (14 ก.ย. 2026): the model used to promise a colleague first
+	// and learn there was none from `task`.
+	if got := BuildForDesk(SurfaceDesktop, Scope{}, Desk{Name: "coding", NoTeam: true}); !strings.Contains(got, "This chat is on no team") || !strings.Contains(got, "you are the ผู้ช่วย") {
+		t.Fatalf("a chat on no team is not told so: %s", got)
 	}
 	got := BuildForDesk(SurfaceDesktop, Scope{}, Desk{Name: "coding", Team: " ทีมเขียนและทดสอบแอพ "})
 	if !strings.Contains(got, "on the team «ทีมเขียนและทดสอบแอพ» at the coding desk") {

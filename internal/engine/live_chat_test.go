@@ -12,6 +12,7 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/cognitive"
 	"github.com/Mikedev115/Aetox/internal/command"
+	"github.com/Mikedev115/Aetox/internal/credentials"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/prompt"
 	"github.com/Mikedev115/Aetox/internal/safety"
@@ -153,7 +154,15 @@ func liveDeepSeekKey(t *testing.T) string {
 	}
 	key := strings.TrimSpace(pref.ProviderAPIKeys["deepseek"])
 	if key == "" {
-		t.Skip("no deepseek key configured")
+		// Since §248 A4 the preference file holds no keys; the store the
+		// desktop signs with does. Same key, same provider, never printed.
+		key = strings.TrimSpace(credentials.KeyFor("deepseek"))
+	}
+	if key == "" {
+		key = strings.TrimSpace(os.Getenv("DEEPSEEK_API_KEY"))
+	}
+	if key == "" {
+		t.Skip("no deepseek key configured (the app's store, or DEEPSEEK_API_KEY)")
 	}
 	return key
 }
