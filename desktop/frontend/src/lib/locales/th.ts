@@ -2015,6 +2015,8 @@ export const th = {
   'settings.agentStartersNone': 'ยังไม่มีของตัวเอง จะใช้การ์ดกลางสี่ใบแทน',
   'settings.agentStartersHeadline': 'คำถามหัวข้อ',
   'settings.agentStartersHeadlinePlaceholder': 'เช่น จะให้ทำเอกสารอะไรดี?',
+  'settings.agentStartersHeadlinesHint': 'มีหลายประโยคได้ เปิดแชทใหม่จะสุ่มมาหนึ่งประโยค พิมพ์ {ชื่อ} ตรงที่อยากให้ชื่อของคุณอยู่',
+  'settings.agentStartersHeadlineAdd': 'เพิ่มประโยค',
   'settings.agentStarterCard': 'การ์ดที่ {n}',
   'settings.agentStarterTitlePlaceholder': 'ข้อความบนการ์ด',
   'settings.agentStarterPromptPlaceholder': 'ประโยคที่จะไปอยู่ในช่องพิมพ์',

@@ -3824,6 +3824,7 @@ export namespace subagent {
 	}
 	export class StarterSet {
 	    headline?: string;
+	    headlines?: string[];
 	    cards: Starter[];
 	
 	    static createFrom(source: any = {}) {
@@ -3833,6 +3834,7 @@ export namespace subagent {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.headline = source["headline"];
+	        this.headlines = source["headlines"];
 	        this.cards = this.convertValues(source["cards"], Starter);
 	    }
 	

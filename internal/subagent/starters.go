@@ -53,8 +53,13 @@ type Starter struct {
 // optional — a file with only a heading is a worker that asks its own question
 // and leaves the cards to the window, which is a legitimate thing to want.
 type StarterSet struct {
-	Headline string    `json:"headline,omitempty"`
-	Cards    []Starter `json:"cards"`
+	Headline string `json:"headline,omitempty"`
+	// Headlines is every question the file holds, in file order; Headline is
+	// the first of them. More than one since 14 ก.ย. 2026 (owner: "อยากให้คำนี้
+	// เพิ่มได้หลายแบบหรือสุ่มได้"): the window opens with one of them at random,
+	// so an opening that reads the same every morning can be several.
+	Headlines []string  `json:"headlines,omitempty"`
+	Cards     []Starter `json:"cards"`
 }
 
 // maxStarters is the ceiling this package will return. Not a layout rule —
@@ -153,7 +158,21 @@ func SaveStarters(name, locale string, set StarterSet) error {
 // backslash into a file whose whole point is that it reads as ordinary
 // markdown, and refusing tells the user something they can act on.
 func serializeStarters(set StarterSet) (string, error) {
-	headline := strings.TrimSpace(set.Headline)
+	headlines := set.Headlines
+	if len(headlines) == 0 && strings.TrimSpace(set.Headline) != "" {
+		headlines = []string{set.Headline}
+	}
+	var heads []string
+	for _, h := range headlines {
+		h = strings.TrimSpace(h)
+		if h == "" {
+			continue
+		}
+		if strings.Contains(h, "\n") {
+			return "", fmt.Errorf("คำถาม %q มีขึ้นบรรทัดใหม่ ซึ่งใช้ในไฟล์นี้ไม่ได้", h)
+		}
+		heads = append(heads, h)
+	}
 	var lines []string
 	for _, c := range set.Cards {
 		title := strings.TrimSpace(c.Title)
@@ -177,15 +196,15 @@ func serializeStarters(set StarterSet) (string, error) {
 			lines = append(lines, "- "+title+" | "+prompt)
 		}
 	}
-	if headline == "" && len(lines) == 0 {
+	if len(heads) == 0 && len(lines) == 0 {
 		return "", nil
 	}
 	var b strings.Builder
-	if headline != "" {
-		b.WriteString("# " + headline + "\n")
-		if len(lines) > 0 {
-			b.WriteString("\n")
-		}
+	for _, h := range heads {
+		b.WriteString("# " + h + "\n")
+	}
+	if len(heads) > 0 && len(lines) > 0 {
+		b.WriteString("\n")
 	}
 	for _, line := range lines {
 		b.WriteString(line + "\n")
@@ -231,10 +250,13 @@ func parseStarters(raw string) StarterSet {
 		case line == "", strings.HasPrefix(line, "<!--"):
 			continue
 		case strings.HasPrefix(line, "#"):
-			// The first heading is the question. Later ones are the author
-			// organising their own file and are not a second question.
-			if set.Headline == "" {
-				set.Headline = strings.TrimSpace(strings.TrimLeft(line, "#"))
+			// Every heading is a question the window may open with; the first
+			// is also Headline, for every reader that wants just one.
+			if h := strings.TrimSpace(strings.TrimLeft(line, "#")); h != "" {
+				set.Headlines = append(set.Headlines, h)
+				if set.Headline == "" {
+					set.Headline = h
+				}
 			}
 			continue
 		}

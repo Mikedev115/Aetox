@@ -7171,9 +7171,9 @@ button.phase-head:hover { color:var(--text-muted); }
    clears the row instead of deleting it — same gesture, and the list cannot
    shrink to a pool too small to fill the grid. */
 .ag-starter-head { display:flex; align-items:center; gap:8px; }
-.ag-starter-drop { flex:none; display:inline-flex; padding:2px; border-radius:var(--r-sm); color:var(--text-dim); }
-.ag-starter-drop:hover { color:var(--text-primary); background:var(--surface-row-hover); }
-.ag-starter-add { display:inline-flex; align-items:center; justify-content:center; gap:7px; align-self:flex-start; }
+.ag-starter-drop, .ag-headline-drop { flex:none; display:inline-flex; padding:2px; border-radius:var(--r-sm); color:var(--text-dim); }
+.ag-starter-drop:hover, .ag-headline-drop:hover { color:var(--text-primary); background:var(--surface-row-hover); }
+.ag-starter-add, .ag-headline-add { display:inline-flex; align-items:center; justify-content:center; gap:7px; align-self:flex-start; }
 /* A direct chat's row is labelled with who — slightly brighter than the desk
    chip, because a name is a stronger fact than a place. */
 .sess-row .sess-desk.agent { color:var(--text-secondary); border-color:var(--border-default); }
