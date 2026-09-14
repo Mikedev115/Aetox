@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/learned"
 )
 
@@ -235,6 +236,23 @@ func mustWrite(t *testing.T, path, content string) {
 	}
 }
 
+// mustWriteIdentityMarker puts marker in a context.md under EVERY head's
+// identity folder, so a test about where the identity layer sits reaches the
+// prompt whichever head its desk reads. Which head that is has a test of its
+// own (TestBuildWithReportFoldsInIdentityFiles); these four wrote to the flat
+// identity/ folder that nothing has read since the per-head split (14 ก.ย.
+// 2026) and were red without testing anything.
+func mustWriteIdentityMarker(t *testing.T, dataRoot, marker string) {
+	t.Helper()
+	for _, head := range config.IdentityHeads {
+		dir := filepath.Join(dataRoot, "identity", head)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		mustWrite(t, filepath.Join(dir, "context.md"), marker)
+	}
+}
+
 // Without this the model answers "fix one line" by streaming the whole file
 // back through write — every line of it an output token, and a minute of
 // silence for the user each time.
@@ -427,11 +445,7 @@ func TestAFoldedFileIsNamedOnlyWhenTheUserNamedIt(t *testing.T) {
 	dataRoot := t.TempDir()
 	t.Setenv("AETOX_DATA_ROOT", dataRoot)
 
-	identityDir := filepath.Join(dataRoot, "identity")
-	if err := os.MkdirAll(identityDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	mustWrite(t, filepath.Join(identityDir, "context.md"), "IDENTITY-MARKER")
+	mustWriteIdentityMarker(t, dataRoot, "IDENTITY-MARKER")
 
 	root := t.TempDir()
 	mustWrite(t, filepath.Join(root, "AETOX.md"), "PROJECT-RULES-MARKER")
@@ -505,11 +519,7 @@ func TestAChairChatReadsNoMemoryButItsOwn(t *testing.T) {
 	dataRoot := t.TempDir()
 	t.Setenv("AETOX_DATA_ROOT", dataRoot)
 
-	identityDir := filepath.Join(dataRoot, "identity")
-	if err := os.MkdirAll(identityDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	mustWrite(t, filepath.Join(identityDir, "context.md"), "IDENTITY-MARKER")
+	mustWriteIdentityMarker(t, dataRoot, "IDENTITY-MARKER")
 
 	root := t.TempDir()
 	mustWrite(t, filepath.Join(root, "AETOX.md"), "PROJECT-RULES-MARKER")
@@ -619,11 +629,7 @@ func TestLearnedMemorySitsBetweenTheUsersRulesAndTheProjects(t *testing.T) {
 	dataRoot := t.TempDir()
 	t.Setenv("AETOX_DATA_ROOT", dataRoot)
 
-	identityDir := filepath.Join(dataRoot, "identity")
-	if err := os.MkdirAll(identityDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	mustWrite(t, filepath.Join(identityDir, "context.md"), "IDENTITY-MARKER")
+	mustWriteIdentityMarker(t, dataRoot, "IDENTITY-MARKER")
 	if err := learned.Apply(learned.MainScope, learned.OpAdd, "", "MEMORY-MARKER"); err != nil {
 		t.Fatalf("write memory: %v", err)
 	}
@@ -1258,11 +1264,7 @@ func TestTheProfileSitsBetweenWhatTheUserWroteAndWhatWasLearnedAboutTheMachine(t
 	dataRoot := t.TempDir()
 	t.Setenv("AETOX_DATA_ROOT", dataRoot)
 
-	identityDir := filepath.Join(dataRoot, "identity")
-	if err := os.MkdirAll(identityDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	mustWrite(t, filepath.Join(identityDir, "context.md"), "IDENTITY-MARKER")
+	mustWriteIdentityMarker(t, dataRoot, "IDENTITY-MARKER")
 	for scope, marker := range map[string]string{
 		learned.UserScope: "USER-PROFILE-MARKER",
 		learned.MainScope: "MAIN-MEMORY-MARKER",
