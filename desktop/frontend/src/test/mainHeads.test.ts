@@ -202,12 +202,12 @@ describe('ตัวตน', () => {
   })
 
   // One folder per head: the list is the head's own, and crossing to the
-  // other head reads the other folder. The four files are always offered;
+  // other head reads the other folder. The three files are always offered;
   // a hand-made file on disk is still listed; nothing here makes a new one.
   it("lists the desk file and this head's own four files, and reads the other head's when crossing", async () => {
     const { container } = await openHead(0)
     await waitFor(() => expect(ListIdentityFiles).toHaveBeenCalledWith('assistant'))
-    await waitFor(() => expect(rowNames(container)).toEqual(['modes/assistant.md', 'identity.md', 'thinking.md', 'context.md', 'skills.md', 'notes.md']))
+    await waitFor(() => expect(rowNames(container)).toEqual(['modes/assistant.md', 'identity.md', 'thinking.md', 'context.md', 'notes.md']))
     // context.md exists on this head, identity.md does not: one is opened, the other created.
     const rows = Array.from(panel(container).querySelectorAll('.set-row'))
     expect(rows.find((r) => r.textContent?.includes('context.md'))?.textContent).toContain('เปิดแก้ไข')
@@ -217,7 +217,7 @@ describe('ตัวตน', () => {
 
     await fireEvent.click(Array.from(container.querySelectorAll('.pp-bar .ctrl')).find((b) => b.textContent?.includes('ไปที่ โค้ด'))!)
     await waitFor(() => expect(ListIdentityFiles).toHaveBeenCalledWith('coding'))
-    await waitFor(() => expect(rowNames(container)).toEqual(['modes/coding.md', 'identity.md', 'thinking.md', 'context.md', 'skills.md']))
+    await waitFor(() => expect(rowNames(container)).toEqual(['modes/coding.md', 'identity.md', 'thinking.md', 'context.md']))
   })
 
   // The editor is a row until asked for; a save goes to THIS head's folder.

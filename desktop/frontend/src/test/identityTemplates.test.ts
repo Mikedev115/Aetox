@@ -25,8 +25,8 @@ describe('identity templates', () => {
     setLocale('en')
     const english = identityTemplates()
 
-    expect(thai).toHaveLength(4)
-    expect(english).toHaveLength(4)
+    expect(thai).toHaveLength(3)
+    expect(english).toHaveLength(3)
 
     for (const [i, tpl] of english.entries()) {
       expect(tpl.content).not.toMatch(/[ก-๙]/)
@@ -46,6 +46,7 @@ describe('identity templates', () => {
     const thai = names()
     setLocale('en')
     expect(names()).toEqual(thai)
-    expect(thai).toEqual(['identity.md', 'thinking.md', 'context.md', 'skills.md'])
+    // skills.md left 14 ก.ย. 2026 (owner: no clear use).
+    expect(thai).toEqual(['identity.md', 'thinking.md', 'context.md'])
   })
 })

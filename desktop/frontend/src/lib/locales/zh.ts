@@ -192,7 +192,6 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'identity.tplIdentity': '# 身份 / Identity\n\n- 该怎么称呼我：\n- 性格 / 语气：\n- 语言：以中文为主，可以夹英文\n',
   'identity.tplThinking': '# 思考准则 / Thinking discipline\n\n- 先有证据再下结论，不确定就说不确定。\n- 不知道就问，不要猜。\n- 只回答被问到的，不要多讲。\n',
   'identity.tplContext': '# 关于我 / About me\n\n- 我是谁、做什么工作：\n- 关于我值得知道的事：\n',
-  'identity.tplSkills': '# 常驻记忆 / Always-on notes\n\n- 希望它始终记住、跨所有项目的事：\n',
 
   // ---- 房间导航 ----
   'desk.navLabel': '房间',
