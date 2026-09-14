@@ -64,6 +64,7 @@ var (
 
 	gdi32                  = syscall.NewLazyDLL("gdi32.dll")
 	procCreateRoundRectRgn = gdi32.NewProc("CreateRoundRectRgn")
+	procCreateSolidBrush   = gdi32.NewProc("CreateSolidBrush")
 	procCombineRgn         = gdi32.NewProc("CombineRgn")
 	procDeleteObject       = gdi32.NewProc("DeleteObject")
 
@@ -75,12 +76,13 @@ var (
 )
 
 const (
-	wmApp      = 0x8000
-	wsChild    = 0x40000000
-	wsVisible  = 0x10000000
-	wsClipSibl = 0x04000000
-	wsPopup    = 0x80000000
-	swHide     = 0
+	wmApp          = 0x8000
+	wsChild        = 0x40000000
+	wsVisible      = 0x10000000
+	wsClipSibl     = 0x04000000
+	wsClipChildren = 0x02000000
+	wsPopup        = 0x80000000
+	swHide         = 0
 
 	// A window that is visible to the compositor and to nobody else: no taskbar
 	// button, never activated, never stealing focus. Paired with a position
@@ -174,6 +176,15 @@ type win32Tab struct {
 	// setBounds, because a region is measured from the window’s own top-left
 	// and is therefore wrong the moment the window changes size.
 	shapeRadius, shapeNotchW, shapeNotchH, shapeNotchY int
+	// shaped: a region is currently set on the window. The one fact that lets
+	// applyShape leave a plain rectangle alone — see there for why it must.
+	shaped bool
+	// The bounds last applied. A re-glue that asks for the rectangle the
+	// window already has is answered with a raise and nothing else: the
+	// pane's ResizeObserver and the window's resize event both fire for the
+	// same frame, and a second PutBounds for the same rect is a second page
+	// relayout for nothing.
+	lastX, lastY, lastW, lastH int
 	// hostThread and reportErr are the tripwire, not the plumbing: see
 	// requireHostThread.
 	hostThread uint32
@@ -342,7 +353,18 @@ func (t *win32Tab) applyShape() {
 		// and it has to be said out loud — a window keeps its old region when
 		// nobody replaces it, so switching from a phone to เต็มแผง without this
 		// leaves a desktop page with rounded corners and a bite out of the top.
+		//
+		// Said ONCE, though. SetWindowRgn with bRedraw invalidates and repaints
+		// the whole window whether or not the region changed, and until 14 ก.ย.
+		// this ran on every setBounds — twice per frame of a splitter drag
+		// (once from the move, once from the pane re-sending the shape), a
+		// forced repaint of a page that was mid-relayout. That was the
+		// stutter the owner saw when resizing.
+		if !t.shaped {
+			return
+		}
 		procSetWindowRgn.Call(t.hwnd, 0, 1)
+		t.shaped = false
 		return
 	}
 	// RECT, as GetClientRect fills it.
@@ -389,6 +411,7 @@ func (t *win32Tab) applyShape() {
 		}
 	}
 	procSetWindowRgn.Call(t.hwnd, rgn, 1)
+	t.shaped = true
 }
 
 func (t *win32Tab) setBounds(x, y, w, h int) {
@@ -400,6 +423,13 @@ func (t *win32Tab) setBounds(x, y, w, h int) {
 	if t.detached {
 		return
 	}
+	// Same rectangle: the raise is still owed (see hwndTop), the relayout is
+	// not. SWP_NOMOVE|SWP_NOSIZE makes it a Z-order change and nothing more.
+	if x == t.lastX && y == t.lastY && w == t.lastW && h == t.lastH && t.lastW > 0 {
+		procSetWindowPos.Call(t.hwnd, hwndTop, 0, 0, 0, 0, swpNoMove|swpNoSize|swpNoActivate)
+		return
+	}
+	t.lastX, t.lastY, t.lastW, t.lastH = x, y, w, h
 	procSetWindowPos.Call(t.hwnd, hwndTop, uintptr(x), uintptr(y), uintptr(w), uintptr(h), swpNoActivate)
 	t.applyShape()
 	t.chromium.Resize()
@@ -438,7 +468,7 @@ func (t *win32Tab) detach(title string, w, h int) {
 		return
 	}
 	procSetParent.Call(t.hwnd, 0)
-	procSetWindowLongPtrW.Call(t.hwnd, gwlStyle, uintptr(wsOverlappedWindow|wsVisible))
+	procSetWindowLongPtrW.Call(t.hwnd, gwlStyle, uintptr(wsOverlappedWindow|wsVisible|wsClipChildren))
 	// Named for the taskbar. A row of untitled windows is what alt-tab shows
 	// otherwise, and the whole point of detaching is that the user goes and
 	// finds this page later.
@@ -745,10 +775,17 @@ func (h *win32Host) run(att *startAttempt) {
 	})
 	className, _ := syscall.UTF16PtrFromString("AetoxBrowserHost")
 	h.class = className
+	// The brush is what the window shows between being created and the
+	// engine's first paint — ~700 ms of Embed on the first tab. Without one
+	// that is an unpainted rectangle over the app; with it, the app's own
+	// colour (desktop/main.go BackgroundColour, COLORREF is 0x00BBGGRR).
+	// Owned by the class for the life of the process, never deleted.
+	brush, _, _ := procCreateSolidBrush.Call(0x00160F0B)
 	wc := wndClassExW{
-		Size:      uint32(unsafe.Sizeof(wndClassExW{})),
-		WndProc:   wndProc,
-		ClassName: className,
+		Size:       uint32(unsafe.Sizeof(wndClassExW{})),
+		WndProc:    wndProc,
+		ClassName:  className,
+		Background: brush,
 	}
 	atom, _, regErr := procRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc)))
 	debuglog.Msg("browser.run: RegisterClassExW atom=%d err=%v", atom, regErr)
@@ -835,7 +872,20 @@ func (h *win32Host) openTab(id, url string, x, y, w, hgt int, cb tabCallbacks) t
 	// the compositor — DWM keeps a redirection surface for it, so it paints —
 	// and outside every monitor, so nobody sees it. WS_EX_TOOLWINDOW keeps it
 	// off the taskbar and WS_EX_NOACTIVATE keeps it from stealing focus.
-	style, exStyle, parent := uintptr(wsChild|wsVisible|wsClipSibl), uintptr(0), h.parent
+	// Born VISIBLE, and that is not negotiable: a WebView2 created into a
+	// hidden HWND does not start painting when the window is later shown —
+	// it waits for a bounds or visibility change it never gets, because the
+	// first re-glue asks for the rect it was created at. Tried on 14 ก.ย.,
+	// and the tab sat dark with "embed ok" in the log. The 700 ms between
+	// CreateWindowExW and Embed returning is covered by the class's
+	// background brush instead (see run): the app's own colour, not an
+	// unpainted rectangle.
+	//
+	// WS_CLIPCHILDREN goes with the brush: the engine's own HWND is a child of
+	// this one, and without the flag every resize would erase this window with
+	// the brush first and let the engine paint over it second — the classic
+	// flicker. Clipped, the brush only ever paints where the engine is not.
+	style, exStyle, parent := uintptr(wsChild|wsVisible|wsClipSibl|wsClipChildren), uintptr(0), h.parent
 	if id == offscreenTabID {
 		style, exStyle, parent = wsPopup|wsVisible, wsExToolWindow|wsExNoActivate, 0
 		x, y = -32000, -32000
@@ -944,6 +994,12 @@ func (h *win32Host) openTab(id, url string, x, y, w, hgt int, cb tabCallbacks) t
 		return nil
 	}
 	debuglog.Msg("browser.open(%s): embed ok, navigating", id)
+	// The engine's own default is white, and it shows from the moment the
+	// window is visible until the page's first paint — a white flash on a
+	// dark app for every open and every navigation between dark pages. The
+	// app's window colour (desktop/main.go BackgroundColour) instead, so the
+	// pane reads as "loading" rather than as a hole.
+	chromium.SetBackgroundColour(11, 15, 22, 255)
 	chromium.Resize()
 	view.setVisible(true)
 
