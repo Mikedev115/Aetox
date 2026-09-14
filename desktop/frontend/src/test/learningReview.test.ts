@@ -394,10 +394,15 @@ describe('the learning review page', () => {
     vi.mocked(ListPendingChanges).mockResolvedValue([proposal({ scope: 'explore' })] as any)
     vi.mocked(ListSubagentProfiles).mockResolvedValue([{ name: 'explore', description: 'ค้นไฟล์', prompt: 'role', builtin: true }] as any)
     vi.mocked(ReadSubagentProfile).mockResolvedValue('---\ndescription: ค้นไฟล์\n---\nYou search files.' as any)
-    const { container } = render(Settings, { onClose: () => {} })
+    const first = render(Settings, { onClose: () => {} })
+    const { container } = first
     await openHeadMemory(container, 'ผู้ช่วย')
     await waitFor(() => expect(container.querySelectorAll('.mem-scope-name').length).toBe(1))
     expect(container.querySelector('.learn-row')).toBeNull()
+    // An open Settings page takes an intent the moment it is set (the guide
+    // walks it between sections), so the first page leaves before the
+    // second is asked to open on one.
+    first.unmount()
 
     // The intent road opens an editor only through 'team'; a helper's page
     // is the same editor pane, so it serves to show where the queue landed.

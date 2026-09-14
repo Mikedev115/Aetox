@@ -106,6 +106,10 @@ export function AllowComputerApp(arg1) {
   return window['go']['main']['App']['AllowComputerApp'](arg1);
 }
 
+export function AnswerGuide(arg1, arg2) {
+  return window['go']['main']['App']['AnswerGuide'](arg1, arg2);
+}
+
 export function AnswerHostDir(arg1, arg2) {
   return window['go']['main']['App']['AnswerHostDir'](arg1, arg2);
 }
@@ -144,6 +148,10 @@ export function ArtifactPath(arg1) {
 
 export function ArtifactPreview(arg1) {
   return window['go']['main']['App']['ArtifactPreview'](arg1);
+}
+
+export function AskGuide(arg1, arg2) {
+  return window['go']['main']['App']['AskGuide'](arg1, arg2);
 }
 
 export function AttentionSignal() {
@@ -332,6 +340,10 @@ export function CloseAllBrowserTabs() {
 
 export function CloseCompanionWindow() {
   return window['go']['main']['App']['CloseCompanionWindow']();
+}
+
+export function CloseGuideSession(arg1) {
+  return window['go']['main']['App']['CloseGuideSession'](arg1);
 }
 
 export function CodeProjectsDir() {
@@ -926,6 +938,10 @@ export function NewChairSessionAt(arg1, arg2, arg3) {
   return window['go']['main']['App']['NewChairSessionAt'](arg1, arg2, arg3);
 }
 
+export function NewGuideSession(arg1) {
+  return window['go']['main']['App']['NewGuideSession'](arg1);
+}
+
 export function NewSession() {
   return window['go']['main']['App']['NewSession']();
 }
@@ -976,6 +992,10 @@ export function OpenExport(arg1) {
 
 export function OpenFileExternally(arg1) {
   return window['go']['main']['App']['OpenFileExternally'](arg1);
+}
+
+export function OpenGuideSession() {
+  return window['go']['main']['App']['OpenGuideSession']();
 }
 
 export function OpenMCPFolder() {
@@ -1468,6 +1488,10 @@ export function SearchSessionsForDoor(arg1, arg2) {
 
 export function SendMessage(arg1, arg2) {
   return window['go']['main']['App']['SendMessage'](arg1, arg2);
+}
+
+export function SendToGuide(arg1, arg2) {
+  return window['go']['main']['App']['SendToGuide'](arg1, arg2);
 }
 
 export function SessionAgent(arg1) {

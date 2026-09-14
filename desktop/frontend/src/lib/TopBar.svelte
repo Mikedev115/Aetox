@@ -161,7 +161,7 @@
   <!-- Left of the spacer, not centred in it: a centred title moves every time
        its own length changes, and it collides with the corner buttons on a
        narrow window. Against the toggle it has a fixed address. -->
-  <span class="topbar-title" data-guide="topbar.tab.chat" title={title || 'Chat'}>{title}</span>
+  {#if title}<span class="topbar-title" data-guide="topbar.tab.chat" title={title}>{title}</span>{/if}
   <!-- Where the engine is, when it is not here (§248 phase 3). The window
        looks the same on a host — that is the design — so this is the one
        line that says the code, the terminal and the chats on screen are

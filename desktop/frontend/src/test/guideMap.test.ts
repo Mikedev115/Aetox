@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { GUIDE_MAP } from '../lib/guide/map'
 import { openPage } from '../lib/guide/pages'
-import { cockpit, SETTINGS_SECTION_KEY } from '../lib/stores/cockpit.svelte'
+import { cockpit } from '../lib/stores/cockpit.svelte'
 import { th } from '../lib/locales/th'
 import { en } from '../lib/locales/en'
 import { zh } from '../lib/locales/zh'
@@ -129,59 +129,39 @@ describe('GUIDE_MAP and UI data-guide integrity', () => {
   })
 
   describe('openPage navigation', () => {
-    it('switches views and sections accurately', async () => {
-      // Create elements so querySelector finds them immediately
-      const teamEl = document.createElement('div')
-      teamEl.setAttribute('data-guide', 'team.name_input')
-      document.body.appendChild(teamEl)
-
-      const agentEl = document.createElement('div')
-      agentEl.setAttribute('data-guide', 'office.new_agent_btn')
-      document.body.appendChild(agentEl)
-
-      const studioEl = document.createElement('div')
-      studioEl.setAttribute('data-guide', 'studio.browser')
-      document.body.appendChild(studioEl)
-
-      // 1. Chat
+    it('reaches every kind of page through the app’s own setters, and a Settings page through its intent', async () => {
       await openPage({ view: 'chat' })
       expect(cockpit.activeView).toBe('chat')
 
-      // 2. Settings rail
       await openPage({ view: 'settings', rail: 'general' })
       expect(cockpit.activeView).toBe('settings')
-      expect(sessionStorage.getItem(SETTINGS_SECTION_KEY)).toBe('general')
+      expect(cockpit.settingsIntent).toEqual({ section: 'general' })
 
-      // 3. Capability page
+      // A head's page is the intent naming the head — Settings opens it.
+      await openPage({ view: 'settings', rail: 'main', head: 'coding' })
+      expect(cockpit.settingsIntent).toEqual({ section: 'main', head: 'coding' })
+
       await openPage({ view: 'capability', page: 'mcp' })
       expect(cockpit.activeView).toBe('capability')
 
-      // 4. Office view plain
       await openPage({ view: 'office' })
       expect(cockpit.activeView).toBe('office')
 
-      // 5. Office view with team selector
-      await openPage({ view: 'office' }, '[data-guide="team.name_input"]')
-      expect(cockpit.activeView).toBe('settings')
-      expect(sessionStorage.getItem(SETTINGS_SECTION_KEY)).toBe('teams')
-
-      // 6. Office view with new agent selector
-      await openPage({ view: 'office' }, '[data-guide="office.new_agent_btn"]')
-      expect(cockpit.activeView).toBe('settings')
-      expect(sessionStorage.getItem(SETTINGS_SECTION_KEY)).toBe('agents')
-
-      // 7. Artifacts plain
       await openPage({ view: 'artifacts' })
       expect(cockpit.activeView).toBe('artifacts')
+    })
 
-      // 8. Artifacts with studio selector
-      await openPage({ view: 'artifacts' }, '[data-guide="studio.browser"]')
-      expect(cockpit.activeView).toBe('settings')
-      expect(sessionStorage.getItem(SETTINGS_SECTION_KEY)).toBe('studio')
-
-      teamEl.remove()
-      agentEl.remove()
-      studioEl.remove()
+    it('waits for the element after a page change, and gives up in place', async () => {
+      const el = document.createElement('div')
+      el.setAttribute('data-guide', 'chat.send')
+      cockpit.activeView = 'settings'
+      setTimeout(() => document.body.appendChild(el), 150)
+      await openPage({ view: 'chat' }, '[data-guide="chat.send"]')
+      expect(document.body.contains(el)).toBe(true)
+      el.remove()
+      const t0 = Date.now()
+      await openPage({ view: 'chat' }, '[data-guide="chat.send"]')
+      expect(Date.now() - t0).toBeLessThan(1500)
     })
   })
 })

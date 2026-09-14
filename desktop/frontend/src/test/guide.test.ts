@@ -1,110 +1,112 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { render, fireEvent, waitFor } from '@testing-library/svelte'
+import { tick } from 'svelte'
 import { guide } from '../lib/guide/guideState.svelte'
 import { mapPick } from '../lib/guide/mapPick'
-import { GUIDE_MAP } from '../lib/guide/map'
 import { GUIDE_ROUTES } from '../lib/guide/routes'
+import Guide from '../lib/guide/Guide.svelte'
+import { cockpit } from '../lib/stores/cockpit.svelte'
 import { th } from '../lib/locales/th'
-import { en } from '../lib/locales/en'
 
-describe('Guide Store and MapPick (Phase 2)', () => {
-  beforeEach(() => {
-    guide.stop()
-    document.body.innerHTML = ''
-    vi.restoreAllMocks()
-  })
+// The guide on the desk (docs/architecture/ui-guide-2026-09-15.md §4): one
+// figure that walks to a mapped element, says the map's words, presses only
+// what the map marks safe, and — while it is open — turns a click on any
+// mapped element into a question about it.
 
-  it('starts guide mode and stops cleanly', () => {
+function mapped(id: string, rect?: Partial<DOMRect>): HTMLButtonElement {
+  const el = document.createElement('button')
+  el.setAttribute('data-guide', id)
+  if (rect) {
+    el.getBoundingClientRect = () => ({ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON() {}, ...rect }) as DOMRect
+  }
+  document.body.appendChild(el)
+  return el
+}
+
+beforeEach(async () => {
+  await guide.stop()
+  document.body.innerHTML = ''
+  localStorage.clear()
+  cockpit.activeView = 'chat'
+  cockpit.model.provider = ''
+  vi.restoreAllMocks()
+})
+
+describe('the guide store', () => {
+  it('opens on a route at its first stop and closes to nothing', async () => {
     expect(guide.on).toBe(false)
-    expect(guide.stopId).toBe(null)
-
-    guide.start('first')
+    await guide.start('first')
     expect(guide.on).toBe(true)
     expect(guide.route?.id).toBe('first')
-    expect(guide.stopId).toBe('sidebar.projects')
-
-    guide.stop()
+    expect(guide.stopId).toBe(GUIDE_ROUTES.first.stops[0])
+    expect(guide.brain).toBe('map')
+    await guide.stop()
     expect(guide.on).toBe(false)
-    expect(guide.route).toBe(null)
-    expect(guide.stopId).toBe(null)
+    expect(guide.route).toBeNull()
+    expect(guide.stopId).toBeNull()
+    expect(guide.transcript).toEqual([])
   })
 
-  it('navigates route forward and backward with wrap-around', () => {
-    guide.start('first')
-    expect(guide.stopId).toBe(GUIDE_ROUTES.first.stops[0])
-
+  it('steps a route both ways, wrapping, and remembers where it was left', async () => {
+    await guide.start('first')
+    const stops = GUIDE_ROUTES.first.stops
     guide.next()
-    expect(guide.stopId).toBe(GUIDE_ROUTES.first.stops[1])
-
+    await waitFor(() => expect(guide.stopId).toBe(stops[1]))
     guide.prev()
-    expect(guide.stopId).toBe(GUIDE_ROUTES.first.stops[0])
-
+    await waitFor(() => expect(guide.stopId).toBe(stops[0]))
     guide.prev()
-    const lastStop = GUIDE_ROUTES.first.stops[GUIDE_ROUTES.first.stops.length - 1]
-    expect(guide.stopId).toBe(lastStop)
+    await waitFor(() => expect(guide.stopId).toBe(stops[stops.length - 1]))
+    // The route's position is the one thing kept between openings.
+    expect(JSON.parse(localStorage.getItem('guideRoute')!)).toEqual({ id: 'first', at: stops.length - 1 })
+    await guide.stop()
+    await guide.start('first')
+    expect(guide.stopId).toBe(stops[stops.length - 1])
   })
 
-  it('refuses to press unsafe elements and does not trigger click()', () => {
-    const sendBtn = document.createElement('button')
-    sendBtn.setAttribute('data-guide', 'chat.send')
-    const clickSpy = vi.fn()
-    sendBtn.addEventListener('click', clickSpy)
-    document.body.appendChild(sendBtn)
-
-    guide.start(undefined, 'chat.send')
-    const result = guide.press()
-
-    expect(clickSpy).not.toHaveBeenCalled()
-    expect(result.ok).toBe(false)
-    expect(result.message).toBe(th['guide.safeRefusal'])
+  it('every walk bumps moveSeq once — a route step and a model point share one door', async () => {
+    await guide.start(undefined, 'topbar.door')
+    const before = guide.moveSeq
+    await guide.goTo('chat.send')
+    expect(guide.moveSeq).toBe(before + 1)
+    expect(guide.stopId).toBe('chat.send')
+    expect(guide.sentence).toBe('')
+    await guide.goTo('chat.send', 'a sentence of its own')
+    expect(guide.moveSeq).toBe(before + 2)
+    expect(guide.sentence).toBe('a sentence of its own')
   })
 
-  it('presses safe elements and triggers click()', () => {
-    const doorBtn = document.createElement('button')
-    doorBtn.setAttribute('data-guide', 'topbar.door')
-    const clickSpy = vi.fn()
-    doorBtn.addEventListener('click', clickSpy)
-    document.body.appendChild(doorBtn)
-
-    guide.start(undefined, 'topbar.door')
-    const result = guide.press()
-
-    expect(clickSpy).toHaveBeenCalledTimes(1)
-    expect(result.ok).toBe(true)
-    expect(result.message).toBe(th['guide.pressed'])
+  it('refuses to press what the map does not mark safe, and never clicks it', async () => {
+    const send = mapped('chat.send')
+    const clicked = vi.fn()
+    send.addEventListener('click', clicked)
+    await guide.start(undefined, 'chat.send')
+    const res = guide.press()
+    expect(clicked).not.toHaveBeenCalled()
+    expect(res.ok).toBe(false)
+    expect(res.message).toBe(th['guide.safeRefusal'])
+    // By id too — the model's press names its target.
+    expect(guide.press('chat.send').ok).toBe(false)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(clicked).not.toHaveBeenCalled()
   })
 
-  it('positions mascot and bubble on opposite sides based on target rect', () => {
-    const winW = 1200
-    const SIZE = 72
-
-    // Target on left side of screen
-    const targetLeft = { left: 100, right: 180, top: 200, height: 40, width: 80 }
-    const rightSideX = targetLeft.right + 16 // ~196px
-    const roomRight = rightSideX + SIZE + 24 < winW // true
-    const standsRightOfTarget = rightSideX > targetLeft.left // true
-    const roomR = rightSideX + SIZE + 12 + 340 <= winW
-    const flipLeftCase = standsRightOfTarget ? roomR : false
-
-    // Mascot stands on right of target (tx = 196), roomR is true -> flip = true (bubble on right)
-    expect(roomRight).toBe(true)
-    expect(flipLeftCase).toBe(true)
-
-    // Target on far right side of screen
-    const targetRight = { left: 1100, right: 1180, top: 200, height: 40, width: 80 }
-    const rightSideXFar = targetRight.right + 16 // 1196px
-    const roomRightFar = rightSideXFar + SIZE + 24 < winW // false (1292 > 1200)
-    const txFar = roomRightFar ? rightSideXFar : Math.max(8, targetRight.left - SIZE - 16) // 1100 - 88 = 1012px
-    const standsRightFar = txFar > targetRight.left // false (1012 < 1100)
-    const roomLFar = txFar - 12 - 340 >= 0 // true
-    const flipRightCase = standsRightFar ? false : !roomLFar
-
-    // Mascot stands on left of target (tx = 1012), bubble stays on left (flip = false)
-    expect(roomRightFar).toBe(false)
-    expect(standsRightFar).toBe(false)
-    expect(flipRightCase).toBe(false)
+  it('presses a safe element for the user, by the current stop or by id', async () => {
+    const door = mapped('topbar.door')
+    const clicked = vi.fn()
+    door.addEventListener('click', clicked)
+    await guide.start(undefined, 'topbar.door')
+    expect(guide.press()).toEqual({ ok: true, message: th['guide.pressed'] })
+    expect(guide.press('topbar.door').ok).toBe(true)
+    // The click lands after the click that asked for it has finished.
+    expect(clicked).not.toHaveBeenCalled()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(clicked).toHaveBeenCalledTimes(2)
+    expect(guide.press('sidebar.projects')).toEqual({ ok: false, message: th['guide.notOnScreen'] })
   })
+})
 
-  it('mapPick handles 10 representative queries in Thai', () => {
+describe('the map brain', () => {
+  it('answers ten Thai questions with the right stop', () => {
     const cases: [string, string][] = [
       ['ความจำอยู่ไหน', 'settings.head.tab.memory'],
       ['ปุ่มส่งคืออะไร', 'chat.send'],
@@ -115,16 +117,14 @@ describe('Guide Store and MapPick (Phase 2)', () => {
       ['ตั้งค่าอวตาร', 'settings.rail.avatar'],
       ['ดูประวัติ', 'sidebar.history'],
       ['ตั้งค่าเสียง', 'settings.rail.voice'],
-      ['รอบแรก', 'sidebar.projects'],
+      ['รอบแรก', GUIDE_ROUTES.first.stops[0]],
     ]
-
-    for (const [q, expectedId] of cases) {
-      const res = mapPick(q, { stopId: null, route: null })
-      expect(res.stopId, `Expected "${q}" to resolve to ${expectedId}`).toBe(expectedId)
+    for (const [q, id] of cases) {
+      expect(mapPick(q, { stopId: null, route: null }).stopId, q).toBe(id)
     }
   })
 
-  it('mapPick handles 10 representative queries in English', () => {
+  it('answers ten English questions with the right stop', () => {
     const cases: [string, string][] = [
       ['where is memory', 'settings.head.tab.memory'],
       ['what is send button', 'chat.send'],
@@ -135,72 +135,74 @@ describe('Guide Store and MapPick (Phase 2)', () => {
       ['avatar settings', 'settings.rail.avatar'],
       ['search history', 'sidebar.search'],
       ['voice settings', 'settings.rail.voice'],
-      ['tour', 'sidebar.projects'],
+      ['tour', GUIDE_ROUTES.first.stops[0]],
     ]
-
-    for (const [q, expectedId] of cases) {
-      const res = mapPick(q, { stopId: null, route: null })
-      expect(res.stopId, `Expected "${q}" to resolve to ${expectedId}`).toBe(expectedId)
+    for (const [q, id] of cases) {
+      expect(mapPick(q, { stopId: null, route: null }).stopId, q).toBe(id)
     }
   })
 
-  it('mapPick falls back to settings.rail.brain with hint for unknown queries', () => {
+  it('walks a route on "next" and explains the current stop on "what is this"', () => {
+    const next = mapPick('ต่อไป', { stopId: GUIDE_ROUTES.first.stops[0], route: { id: 'first', at: 0 } })
+    expect(next.stopId).toBe(GUIDE_ROUTES.first.stops[1])
+    expect(next.route).toEqual({ id: 'first', at: 1 })
+    const here = mapPick('นี่คืออะไร', { stopId: 'chat.send', route: null })
+    expect(here.stopId).toBe('chat.send')
+    expect(here.sentence).toContain(th['guide.chat.send.name'])
+  })
+
+  it('points at the model page when it does not understand — the one place a brain is connected', () => {
     const res = mapPick('สภาพอากาศวันนี้', { stopId: null, route: null })
     expect(res.stopId).toBe('settings.rail.brain')
-    expect(res.sentence).toContain(th['guide.unknownWithBrainHint'])
+    expect(res.sentence).toBe(th['guide.unknownWithBrainHint'])
+  })
+})
+
+describe('the guide on screen', () => {
+  it('stands beside the target with the bubble on the far side, and says the map\'s words', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    mapped('sidebar.projects', { left: 20, top: 300, right: 180, bottom: 340, width: 160, height: 40 })
+    await guide.start(undefined, 'sidebar.projects')
+    const { container } = render(Guide)
+    await waitFor(() => expect(container.querySelector('.guide-ring')).not.toBeNull())
+    const wrap = container.querySelector<HTMLElement>('.guide-mascot-wrap')!
+    // The target is at the left edge: the figure stands to its right, and the
+    // bubble opens to the figure's right — away from the target.
+    await waitFor(() => expect(wrap.style.transform).toContain('translate(196px'))
+    expect(wrap.classList.contains('flip')).toBe(true)
+    await waitFor(() => expect(container.querySelector('.say-body')?.textContent).toContain(th['guide.sidebar.projects.what'].slice(0, 8)), { timeout: 4000 })
+    expect(container.querySelector('.say-name')?.textContent).toBe(th['guide.sidebar.projects.name'])
+    expect(container.querySelector('.say-tag')?.textContent).toBe(th['guide.canPress'])
+    expect(container.querySelector('.say-map-badge')?.textContent).toBe(th['guide.fromMap'])
   })
 
-  it('hides companion when guide is active and restores it when guide closes', () => {
-    const companionOn = true
-
-    // When companion is on and guide is off: companion renders
-    const renderCompanionInitial = companionOn && !guide.on
-    expect(renderCompanionInitial).toBe(true)
-
-    // Guide opens: companion is suppressed
-    guide.start('first')
-    const renderCompanionWhileGuide = companionOn && !guide.on
-    expect(renderCompanionWhileGuide).toBe(false)
-
-    // Guide closes: companion returns
-    guide.stop()
-    const renderCompanionAfterClose = companionOn && !guide.on
-    expect(renderCompanionAfterClose).toBe(true)
+  it('turns a click on a mapped element into a question about it, and only while open', async () => {
+    const search = mapped('sidebar.search')
+    const clicked = vi.fn()
+    search.addEventListener('click', clicked)
+    await guide.start(undefined, 'sidebar.projects')
+    const { unmount } = render(Guide)
+    await tick()
+    await fireEvent.click(search)
+    expect(clicked).not.toHaveBeenCalled()
+    await waitFor(() => expect(guide.stopId).toBe('sidebar.search'))
+    // Esc closes the guide; a click then presses as it always did.
+    await fireEvent.keyDown(window, { key: 'Escape' })
+    await waitFor(() => expect(guide.on).toBe(false))
+    unmount()
+    await fireEvent.click(search)
+    expect(clicked).toHaveBeenCalledTimes(1)
   })
 
-  it('intercepts clicks on [data-guide] elements in capture phase only when guide is on', () => {
-    let guideIntercepted = false
-    const testBtn = document.createElement('button')
-    testBtn.setAttribute('data-guide', 'sidebar.search')
-    document.body.appendChild(testBtn)
-
-    const onCaptureClick = (e: MouseEvent) => {
-      if (!guide.on) return
-      const target = e.target as HTMLElement | null
-      const guideEl = target?.closest<HTMLElement>('[data-guide]')
-      if (guideEl) {
-        e.preventDefault()
-        e.stopPropagation()
-        guideIntercepted = true
-        guide.goTo(guideEl.getAttribute('data-guide')!)
-      }
-    }
-
-    document.addEventListener('click', onCaptureClick, true)
-
-    // When guide is off
-    guide.stop()
-    guideIntercepted = false
-    testBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
-    expect(guideIntercepted).toBe(false)
-
-    // When guide is on
-    guide.start()
-    guideIntercepted = false
-    testBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
-    expect(guideIntercepted).toBe(true)
-    expect(guide.stopId).toBe('sidebar.search')
-
-    document.removeEventListener('click', onCaptureClick, true)
+  it('says a model\'s answer where it stands, without walking', async () => {
+    mapped('topbar.door', { left: 500, top: 20, right: 600, bottom: 50, width: 100, height: 30 })
+    await guide.start(undefined, 'topbar.door')
+    const { container } = render(Guide)
+    await waitFor(() => expect(container.querySelector('.guide-ring')).not.toBeNull())
+    const moves = guide.moveSeq
+    guide.say('this is the door')
+    await waitFor(() => expect(container.querySelector('.say-body')?.textContent).toContain('this is the door'), { timeout: 3000 })
+    expect(guide.moveSeq).toBe(moves)
   })
 })

@@ -70,6 +70,8 @@ export function AgentsFolderPath():Promise<string>;
 
 export function AllowComputerApp(arg1:string):Promise<void>;
 
+export function AnswerGuide(arg1:string,arg2:string):Promise<void>;
+
 export function AnswerHostDir(arg1:string,arg2:string):Promise<void>;
 
 export function AnswerUserQuestion(arg1:string,arg2:string):Promise<void>;
@@ -89,6 +91,8 @@ export function ApprovePendingChangeTo(arg1:number,arg2:string):Promise<void>;
 export function ArtifactPath(arg1:string):Promise<string>;
 
 export function ArtifactPreview(arg1:string):Promise<engine.ArtifactPreview>;
+
+export function AskGuide(arg1:string,arg2:string):Promise<string>;
 
 export function AttentionSignal():Promise<Array<engine.BusyLayer>>;
 
@@ -183,6 +187,8 @@ export function ClearProjectFocus():Promise<engine.ProjectStatus>;
 export function CloseAllBrowserTabs():Promise<void>;
 
 export function CloseCompanionWindow():Promise<void>;
+
+export function CloseGuideSession(arg1:string):Promise<void>;
 
 export function CodeProjectsDir():Promise<string>;
 
@@ -480,6 +486,8 @@ export function NewChairSession(arg1:string):Promise<string>;
 
 export function NewChairSessionAt(arg1:string,arg2:string,arg3:string):Promise<string>;
 
+export function NewGuideSession(arg1:string):Promise<string>;
+
 export function NewSession():Promise<string>;
 
 export function NewSessionAt(arg1:string):Promise<string>;
@@ -505,6 +513,8 @@ export function OpenComputerApps():Promise<Array<main.ComputerAppRow>>;
 export function OpenExport(arg1:string):Promise<void>;
 
 export function OpenFileExternally(arg1:string):Promise<void>;
+
+export function OpenGuideSession():Promise<string>;
 
 export function OpenMCPFolder():Promise<void>;
 
@@ -751,6 +761,8 @@ export function SearchSessions(arg1:string):Promise<Array<engine.SessionMeta>>;
 export function SearchSessionsForDoor(arg1:string,arg2:engine.DeskFilter):Promise<Array<engine.SessionMeta>>;
 
 export function SendMessage(arg1:string,arg2:string):Promise<engine.TurnReply>;
+
+export function SendToGuide(arg1:string,arg2:string):Promise<engine.TurnReply>;
 
 export function SessionAgent(arg1:string):Promise<string>;
 

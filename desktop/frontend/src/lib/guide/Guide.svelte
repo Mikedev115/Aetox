@@ -1,19 +1,32 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte'
+  // The guide on screen: the companion's body with the fourth rank on its
+  // corner, walking to whatever the store's stopId names and saying the
+  // store's sentence beside it. Everything here reacts to guideState — the
+  // figure never decides where to go, only how to get there and where the
+  // bubble fits (on the side AWAY from the target, so the card never covers
+  // the button it is about; below the figure when it stands near the top).
+  //
+  // While the guide is open a click on any mapped element asks about it
+  // instead of pressing it (plan §4.4). The pill at the top says so, and
+  // Esc or × ends it; the guide's own controls are exempt (.guide-ui).
+  import { onMount, tick, untrack } from 'svelte'
   import Mascot from '../mascot/Mascot.svelte'
   import Icon from '../Icon.svelte'
   import { guide } from './guideState.svelte'
-  import { GUIDE_MAP } from './map'
-  import { GUIDE_ROUTES } from './routes'
+  import { GUIDE_MAP, guideText } from './map'
   import { companion } from '../mascot/companionSetting.svelte'
   import { speak, stopSpeechIf } from '../speech.svelte'
   import { t } from '../i18n.svelte'
+  import { handleGuideAsk } from './guideSession'
+  import { EventsOn } from '../../../wailsjs/runtime/runtime'
 
   const SIZE = 72
-  let x = $state(400)
-  let y = $state(300)
+  const BUBBLE = 350
+  let x = $state(0)
+  let y = $state(0)
+  let placed = $state(false)
   let turn = $state<number | undefined>(undefined)
-  let pose = $state<'idle' | 'walk' | 'presenting' | 'helping' | 'asking' | 'thinking' | 'answering'>('idle')
+  let pose = $state<'idle' | 'walk' | 'presenting' | 'helping' | 'asking' | 'thinking' | 'answering'>('asking')
   let flip = $state(false)
   let below = $state(false)
   let ring = $state<{ l: number; t: number; w: number; h: number } | null>(null)
@@ -23,18 +36,38 @@
   let seq = 0
 
   const stop = $derived(guide.stopId ? GUIDE_MAP.find((e) => e.id === guide.stopId) : null)
-  const stopName = $derived(guide.stopId ? t(`guide.${guide.stopId}.name` as any) : '')
-  const stopWhat = $derived(guide.stopId ? t(`guide.${guide.stopId}.what` as any) : '')
-  const stopWhy = $derived(guide.stopId ? t(`guide.${guide.stopId}.why` as any) : '')
+  const stopName = $derived(guide.stopId ? guideText(guide.stopId, 'name') : '')
+  const stopWhy = $derived(guide.stopId ? guideText(guide.stopId, 'why') : '')
 
   function sleep(ms: number) {
     return new Promise((r) => setTimeout(r, ms))
   }
 
+  function reduced(): boolean {
+    return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+  }
+
+  // The figure's resting place when it has nothing to point at: the lower
+  // right, clear of the composer, where the companion also tends to sit.
+  function home() {
+    x = Math.max(8, window.innerWidth - SIZE - 140)
+    y = Math.max(48, window.innerHeight - SIZE - 120)
+    placed = true
+  }
+
   async function say(text: string) {
     const my = ++seq
+    if (shown === text) {
+      typing = false
+      return
+    }
     shown = ''
     typing = true
+    if (reduced()) {
+      shown = text
+      typing = false
+      return
+    }
     for (const ch of text) {
       if (my !== seq) return
       shown += ch
@@ -43,83 +76,104 @@
     typing = false
   }
 
-  async function moveToTarget(stopId: string, customSentence?: string) {
+  function voice(text: string) {
+    if (companion.voice && text) speak('guide', text, () => {})
+  }
+
+  // Where to stand for a target rect, and which side the bubble goes.
+  function placeBeside(r: DOMRect) {
+    const winW = window.innerWidth
+    const winH = window.innerHeight
+    ring = { l: Math.max(0, r.left - 4), t: Math.max(0, r.top - 4), w: r.width + 8, h: r.height + 8 }
+    // Stand on the side of the target where the bubble also fits beyond the
+    // figure — right of it with the card opening right, else left of it with
+    // the card opening left — so the card is never over the button it is
+    // about. Only when neither fits does the card open back over the target.
+    const rightOf = r.right + 16
+    const leftOf = Math.max(8, r.left - SIZE - 16)
+    const fitsRight = rightOf + SIZE + 14 + BUBBLE <= winW
+    const fitsLeft = r.left - SIZE - 16 - 14 - BUBBLE >= 0
+    let tx: number
+    if (fitsRight) {
+      tx = rightOf
+      flip = true
+    } else if (fitsLeft) {
+      tx = leftOf
+      flip = false
+    } else {
+      tx = rightOf + SIZE + 24 < winW ? rightOf : leftOf
+      flip = tx - 14 - BUBBLE < 0
+    }
+    const ty = Math.min(winH - SIZE - 16, Math.max(48, r.top + r.height / 2 - SIZE / 2))
+    below = ty < 260
+    return { tx, ty }
+  }
+
+  async function moveToTarget(stopId: string, sentence: string) {
     seq++
     shown = ''
     typing = false
-    ring = null
     stopSpeechIf('guide')
-
     await tick()
-    // Short wait for any page route / DOM switch to render
-    await sleep(60)
-    await tick()
-
-    const el = document.querySelector<HTMLElement>('[data-guide=' + JSON.stringify(stopId) + ']')
-    const winW = window.innerWidth
-    const winH = window.innerHeight
-
-    let tx = winW / 2 - SIZE / 2
-    let ty = winH / 2 - SIZE / 2
-
+    let el = document.querySelector<HTMLElement>('[data-guide=' + JSON.stringify(stopId) + ']')
     if (el) {
+      // Instant, not smooth: a rect read while a smooth scroll is still on
+      // its way is the button's position halfway there, and the figure then
+      // stands beside where it was.
       try {
-        el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' })
       } catch {
-        // ignore scroll error
+        // not scrollable — it is where it is
       }
-      await sleep(100)
-      const r = el.getBoundingClientRect()
-      ring = {
-        l: Math.max(0, r.left - 4),
-        t: Math.max(0, r.top - 4),
-        w: r.width + 8,
-        h: r.height + 8,
-      }
-
-      const right = r.right + 16
-      const roomRight = right + SIZE + 24 < winW
-      tx = roomRight ? right : Math.max(8, r.left - SIZE - 16)
-      ty = Math.min(winH - SIZE - 16, Math.max(48, r.top + r.height / 2 - SIZE / 2))
+      await tick()
+      el = document.querySelector<HTMLElement>('[data-guide=' + JSON.stringify(stopId) + ']')
     }
-
+    let tx: number
+    let ty: number
+    if (el) {
+      ;({ tx, ty } = placeBeside(el.getBoundingClientRect()))
+    } else {
+      ring = null
+      home()
+      tx = x
+      ty = y
+    }
     const dx = tx - x
-    pose = 'walk'
-    turn = dx < 0 ? -70 : 70
+    if (placed && !reduced()) {
+      pose = 'walk'
+      turn = dx < 0 ? -70 : 70
+    }
     x = tx
     y = ty
-
-    const standsRight = ring ? tx > ring.l : false
-    const roomR = tx + SIZE + 12 + 340 <= winW
-    const roomL = tx - 12 - 340 >= 0
-    flip = standsRight ? roomR : !roomL
-    below = ty < 260
-
-    const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
-    const walkDuration = reduced ? 0 : Math.min(800, 250 + Math.abs(dx) * 0.8)
-    await sleep(walkDuration)
-
+    placed = true
+    await sleep(reduced() ? 0 : Math.min(800, 250 + Math.abs(dx) * 0.8))
     turn = undefined
-    const entry = GUIDE_MAP.find((e) => e.id === stopId)
-    pose = entry ? (entry.safe ? 'presenting' : 'helping') : 'thinking'
-
-    const sentence = customSentence || (stopId ? t(`guide.${stopId}.what` as any) : '')
-    if (sentence) {
-      void say(sentence)
-      if (companion.voice) {
-        speak('guide', sentence, () => {})
+    // The page may have settled under the walk — a section that finished
+    // loading, a list that grew. Stand beside where the target is NOW.
+    if (el && guide.stopId === stopId) {
+      const again = document.querySelector<HTMLElement>('[data-guide=' + JSON.stringify(stopId) + ']')
+      if (again) {
+        const r = again.getBoundingClientRect()
+        if (ring && (Math.abs(r.left - 4 - ring.l) > 2 || Math.abs(r.top - 4 - ring.t) > 2)) {
+          ;({ tx, ty } = placeBeside(r))
+          x = tx
+          y = ty
+        }
       }
     }
+    const entry = GUIDE_MAP.find((e) => e.id === stopId)
+    pose = !el ? 'thinking' : entry?.safe ? 'presenting' : 'helping'
+    const text = sentence || (el ? guideText(stopId, 'what') : t('guide.notOnScreen'))
+    void say(text)
+    voice(text)
   }
 
   async function handlePress() {
     stopSpeechIf('guide')
     const res = guide.press()
     if (res.message) {
-      await say(res.message)
-      if (companion.voice) {
-        speak('guide', res.message, () => {})
-      }
+      void say(res.message)
+      voice(res.message)
     }
   }
 
@@ -129,89 +183,108 @@
     if (!q) return
     askInput = ''
     stopSpeechIf('guide')
-    const answer = await guide.ask(q)
-    if (guide.stopId) {
-      await moveToTarget(guide.stopId, answer)
-    } else {
-      await say(answer)
-    }
-  }
-
-  function onNext() {
-    guide.next()
-  }
-
-  function onPrev() {
-    guide.prev()
+    pose = 'thinking'
+    await guide.ask(q)
   }
 
   function onClose() {
     stopSpeechIf('guide')
-    guide.stop()
+    void guide.stop()
   }
 
+  // A walk: the store bumped moveSeq after openPage settled the page.
   $effect(() => {
-    const sid = guide.stopId
-    if (guide.on && sid) {
-      void moveToTarget(sid)
+    const n = guide.moveSeq
+    if (!n || !guide.on) return
+    const id = guide.stopId
+    const sentence = guide.sentence
+    if (id) untrack(() => void moveToTarget(id, sentence))
+  })
+
+  // Words without a walk: the model's answer, the map's refusal, a press.
+  $effect(() => {
+    const n = guide.saySeq
+    if (!n || !guide.on) return
+    const text = guide.sentence
+    untrack(() => {
+      pose = 'answering'
+      void say(text)
+      voice(text)
+    })
+  })
+
+  // While the model works the figure thinks; its streamed words show as they come.
+  $effect(() => {
+    if (guide.asking) {
+      pose = 'thinking'
+      if (guide.streamingText) {
+        shown = guide.streamingText
+        typing = true
+      }
     }
   })
 
   onMount(() => {
     document.body.classList.add('guide-mode')
+    if (!placed) home()
 
     const onDocClick = (e: MouseEvent) => {
-      if (!guide.on) return
+      if (!guide.on || guide.pressing) return
       const target = e.target as HTMLElement | null
-      if (!target) return
-      if (target.closest('.guide-ui')) return
-
+      if (!target || target.closest('.guide-ui')) return
       const guideEl = target.closest<HTMLElement>('[data-guide]')
-      if (guideEl) {
-        const id = guideEl.getAttribute('data-guide')
-        if (id) {
-          e.preventDefault()
-          e.stopPropagation()
-          guide.goTo(id)
-        }
-      }
+      if (!guideEl) return
+      const id = guideEl.getAttribute('data-guide')
+      if (!id) return
+      e.preventDefault()
+      e.stopPropagation()
+      guide.explain(id)
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    const onResize = () => {
+      if (guide.stopId && guide.on) guide.moveSeq++
     }
 
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
+    const offGuide = EventsOn('screen:guide', (ask: any) => {
+      void handleGuideAsk(ask)
+    })
+    const offChunk = EventsOn('agent:chunk', (ev: any) => {
+      if (guide.sessionId && ev?.sessionId === guide.sessionId) {
+        guide.onChunk(ev?.data?.text || '', !!ev?.data?.replace)
       }
-    }
+    })
 
     document.addEventListener('click', onDocClick, true)
     window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('resize', onResize)
 
     return () => {
       document.body.classList.remove('guide-mode')
       document.removeEventListener('click', onDocClick, true)
       window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('resize', onResize)
+      offGuide()
+      offChunk()
       stopSpeechIf('guide')
     }
   })
 </script>
 
-<!-- Top Guide Mode Banner -->
-<div class="guide-banner guide-ui" role="region" aria-label="Guide banner">
-  <div class="guide-banner-inner">
-    <Icon name="compass" size={14} />
-    <span class="guide-banner-text">{t('guide.modeBanner')}</span>
-    <button type="button" class="guide-banner-close" onclick={onClose} aria-label="Close guide">
-      <Icon name="x" size={14} />
-    </button>
-  </div>
+<!-- The pill that says the window is in guide mode, and the one way out besides Esc -->
+<div class="guide-banner guide-ui" role="status">
+  <Icon name="compass" size={13} />
+  <span class="guide-banner-text">{t('guide.modeBanner')}</span>
+  <button type="button" class="guide-banner-close" onclick={onClose} aria-label={t('guide.close')}>
+    <Icon name="x" size={13} />
+  </button>
 </div>
 
-<!-- Target Ring Spotlight -->
 {#if ring}
   <div class="guide-ring" style="left:{ring.l}px;top:{ring.t}px;width:{ring.w}px;height:{ring.h}px"></div>
 {/if}
 
-<!-- Guide Mascot & Bubble -->
 <div
   class="guide-mascot-wrap guide-ui"
   class:flip
@@ -237,29 +310,25 @@
         <button type="button" class="ctrl mini" onclick={() => guide.declineOffer()}>{t('guide.offerNo')}</button>
       </div>
     </div>
-  {:else if shown || typing}
+  {:else if shown || typing || guide.asking}
     <div class="say">
       {#if stop}
         <div class="say-head">
           <span class="say-name">{stopName}</span>
-          <span class="say-tag" class:no={!stop.safe}>
-            {stop.safe ? t('guide.canPress') : t('guide.cannotPress')}
-          </span>
-          <span class="say-map-badge">{t('guide.fromMap')}</span>
+          <span class="say-tag" class:no={!stop.safe}>{stop.safe ? t('guide.canPress') : t('guide.cannotPress')}</span>
+          {#if guide.brain === 'map'}<span class="say-map-badge">{t('guide.fromMap')}</span>{/if}
         </div>
       {/if}
 
-      <div class="say-body">{shown}{#if typing}<span class="cur"></span>{/if}</div>
+      <div class="say-body">{shown}{#if typing || guide.asking}<span class="cur"></span>{/if}</div>
 
-      {#if stop && !typing && stopWhy}
+      {#if stop && !typing && !guide.asking && stopWhy}
         <div class="say-why">
-          <span class="k">{t('guide.whyTitle')}</span>
-          {stopWhy}
-          {#if stop.ref}<span class="ref">{stop.ref}</span>{/if}
+          <span class="k">{t('guide.whyTitle')}</span>{stopWhy}{#if stop.ref}<span class="ref">{stop.ref}</span>{/if}
         </div>
       {/if}
 
-      {#if !typing}
+      {#if !typing && !guide.asking}
         <div class="say-foot">
           {#if stop}
             <code class="id">{stop.id}</code>
@@ -268,16 +337,16 @@
             {/if}
           {/if}
           {#if guide.route}
-            <button type="button" class="ctrl mini" onclick={onPrev}>{t('guide.prev')}</button>
-            <button type="button" class="ctrl mini" onclick={onNext}>{t('guide.next')}</button>
+            <button type="button" class="ctrl mini" onclick={() => guide.prev()}>{t('guide.prev')}</button>
+            <button type="button" class="ctrl mini" onclick={() => guide.next()}>{t('guide.next')}</button>
           {/if}
         </div>
       {/if}
 
       <form class="say-ask" onsubmit={onAskSubmit}>
-        <input bind:value={askInput} placeholder={t('guide.askPlaceholder')} />
-        <button type="submit" class="ctrl mini"><Icon name="sendHorizontal" size={12} /></button>
-        <button type="button" class="ctrl mini close-btn" onclick={onClose} aria-label="Close"><Icon name="x" size={12} /></button>
+        <input id="guide-ask" bind:value={askInput} placeholder={t('guide.askPlaceholder')} disabled={guide.asking} />
+        <button type="submit" class="ctrl mini" aria-label={t('guide.ask')} disabled={guide.asking}><Icon name="sendHorizontal" size={12} /></button>
+        <button type="button" class="ctrl mini close-btn" onclick={onClose} aria-label={t('guide.close')}><Icon name="x" size={12} /></button>
       </form>
     </div>
   {/if}
@@ -291,34 +360,25 @@
     cursor: default !important;
   }
 
+  /* the pill: top centre, clear of the top bar's ends, where nothing sits */
   .guide-banner {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 34px;
-    background: var(--badge-amber-bg);
-    color: var(--badge-amber-text);
-    border-bottom: 1px solid var(--badge-amber-border);
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 10001;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
-    font-size: var(--fs-xs);
-    font-weight: 600;
-  }
-  .guide-banner-inner {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 8px;
-    width: 100%;
-    max-width: 1200px;
-    padding: 0 14px;
-  }
-  .guide-banner-text {
-    flex: 1;
-    text-align: center;
+    padding: 4px 6px 4px 12px;
+    border-radius: 999px;
+    background: var(--badge-amber-bg);
+    color: var(--badge-amber-text);
+    border: 1px solid var(--badge-amber-border);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    white-space: nowrap;
   }
   .guide-banner-close {
     border: 0;
@@ -327,11 +387,11 @@
     cursor: pointer;
     display: grid;
     place-items: center;
-    padding: 4px;
-    border-radius: var(--r-xs);
+    padding: 3px;
+    border-radius: 50%;
   }
   .guide-banner-close:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.12);
   }
 
   .guide-ring {

@@ -1323,7 +1323,7 @@ export interface CockpitState {
    * the team page's configure/create doors land in the shared profile editor
    * this way. Carries the *kind* because it came from the roster — Settings
    * must never re-derive it from a file. Consumed and cleared on arrival. */
-  settingsIntent: { section: string; agent?: string; createAgent?: boolean; tab?: string; team?: string; createTeam?: boolean; side?: string } | null
+  settingsIntent: { section: string; agent?: string; createAgent?: boolean; tab?: string; team?: string; createTeam?: boolean; side?: string; head?: 'assistant' | 'coding' } | null
   /** The same one-shot request for ห้องความสามารถ: which of its pages to open
    * on, and — for the two per-agent pages — whose sheet to open there. The
    * agent editor's doors use it, so "จัดสกิล" lands on that agent's sheet and

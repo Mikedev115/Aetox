@@ -455,11 +455,28 @@
   // running that one, and the editor needs only the row plus its own file.
   let intentPending = $state(cockpit.settingsIntent !== null)
   onMount(async () => {
+    await takeIntent()
+  })
+  // An intent set while the page is already open — the guide walking from
+  // one section to another (lib/guide/pages.ts) — is taken the same way. The
+  // page used to read it once, at mount, and a section written to the store
+  // after that was a page that did not move.
+  $effect(() => {
+    if (cockpit.settingsIntent && !intentPending) {
+      intentPending = true
+      void takeIntent()
+    }
+  })
+  async function takeIntent() {
     const intent = cockpit.settingsIntent
-    if (!intent) return
+    if (!intent) {
+      intentPending = false
+      return
+    }
     cockpit.settingsIntent = null
     try {
       openSection(intent.section)
+      if (intent.head) openHead(intent.head)
       if (intent.section !== 'team') return
       if (intent.createAgent) {
         newAgent('agent')
@@ -477,7 +494,7 @@
     } finally {
       intentPending = false
     }
-  })
+  }
 
   // ---------- About ----------
   // Kept out of bootSettings on purpose. The version is a constant the Go side

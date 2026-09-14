@@ -1,8 +1,18 @@
-import { GUIDE_MAP, type GuideEntry } from './map'
+// The guide's state: one figure, one stop, one sentence, and which brain is
+// answering. Everything the figure does on screen (Guide.svelte) is a reaction
+// to a field here, so the two doors into a move — a route step and a model's
+// `point` — cannot walk the figure twice.
+//
+// Two brains, one guide (docs/architecture/ui-guide-2026-09-15.md §0): the map
+// answers alone until a model session opens, and answers again the moment a
+// model turn fails. The person sees one figure that got better, never two.
+import { GUIDE_MAP } from './map'
 import { GUIDE_ROUTES, type GuideRouteId } from './routes'
 import { openPage } from './pages'
 import { mapPick } from './mapPick'
 import { t } from '../i18n.svelte'
+import { cockpit } from '../stores/cockpit.svelte'
+import { NewGuideSession, AskGuide, CloseGuideSession } from '../../../wailsjs/go/main/App'
 
 export type TranscriptItem = {
   who: 'user' | 'guide'
@@ -10,79 +20,197 @@ export type TranscriptItem = {
   stopId?: string
 }
 
+// Where a route was left, so opening the guide again offers the next stop
+// rather than the first. One key, one value — the only thing the guide keeps
+// between openings; the conversation itself is never kept (§0: no long-term
+// memory, no history).
+const ROUTE_KEY = 'guideRoute'
+
+// How long a model turn may take before the map answers instead. One
+// question, a few tool calls — but a small local model loads on its first
+// turn (qwen3:8b on Ollama: ~10 s before the first token here), and a brain
+// that is warming up is not a brain that is gone.
+const MODEL_WAIT_MS = 45000
+
 class GuideStore {
   on = $state(false)
   brain = $state<'map' | 'model'>('map')
   stopId = $state<string | null>(null)
   route = $state<{ id: GuideRouteId; at: number } | null>(null)
   transcript = $state<TranscriptItem[]>([])
-  speaking = $state(false)
   offering = $state(false)
+  sessionId = $state<string | null>(null)
+  /** A question is out to the model. */
+  asking = $state(false)
+  streamingText = $state('')
+  /** What the figure says at the current stop — '' means the map's `what`. */
+  sentence = $state('')
+  /** Bumped when the figure should walk to stopId and speak `sentence`. */
+  moveSeq = $state(0)
+  /** Bumped when the figure should speak `sentence` where it stands. */
+  saySeq = $state(0)
 
+  /** The figure appears with the one-time offer after the tour. */
   offerTour() {
     this.on = true
     this.offering = true
-    this.stopId = 'sidebar.projects'
-    this.goTo('sidebar.projects')
+    this.brain = 'map'
+    this.stopId = null
+    this.route = null
+    this.sentence = ''
   }
 
   acceptOffer() {
     this.offering = false
-    this.start('first')
+    void this.start('first')
   }
 
   declineOffer() {
     this.offering = false
-    this.stop()
+    void this.stop()
   }
 
-  start(routeId?: GuideRouteId, initialStopId?: string) {
+  /** Open the guide: on a route, at one stop, or at the route's first stop. */
+  async start(routeId?: GuideRouteId, initialStopId?: string) {
     this.on = true
     this.offering = false
     this.transcript = []
+    this.streamingText = ''
+    this.asking = false
+    this.openModel()
     if (routeId && GUIDE_ROUTES[routeId]) {
-      this.route = { id: routeId, at: 0 }
-      const firstStop = initialStopId ?? GUIDE_ROUTES[routeId].stops[0]
-      this.goTo(firstStop)
+      const remembered = readRoute()
+      const at = remembered?.id === routeId && !initialStopId ? remembered.at : 0
+      this.route = { id: routeId, at }
+      await this.goTo(initialStopId ?? GUIDE_ROUTES[routeId].stops[at])
     } else if (initialStopId) {
       this.route = null
-      this.goTo(initialStopId)
+      await this.goTo(initialStopId)
     } else {
+      // Opened to be asked: the figure appears where it rests and says so.
       this.route = null
-      this.stopId = 'sidebar.projects'
-      this.goTo('sidebar.projects')
+      this.stopId = null
+      this.say(t('guide.hello'))
     }
   }
 
-  stop() {
+  /** The model brain, opened beside the map and never waited for: the map
+   *  answers the first question while the session is still being built, and
+   *  a session that fails to open leaves the map in charge. A model is a
+   *  provider the chat already has — the guide has no dial of its own. */
+  private openModel() {
+    this.brain = 'map'
+    this.sessionId = null
+    if (!cockpit.model.provider) return
+    const index = GUIDE_MAP.map((e) => ({
+      id: e.id,
+      name: t(`guide.${e.id}.name` as any) || e.id,
+      safe: e.safe,
+    }))
+    NewGuideSession(JSON.stringify(index))
+      .then((sid) => {
+        if (!this.on || !sid) {
+          if (sid) void CloseGuideSession(sid).catch(() => {})
+          return
+        }
+        this.sessionId = sid
+        this.brain = 'model'
+      })
+      .catch(() => {
+        this.brain = 'map'
+      })
+  }
+
+  async stop() {
     this.on = false
     this.offering = false
     this.stopId = null
     this.route = null
     this.transcript = []
-  }
-
-  async goTo(id: string) {
-    this.stopId = id
-    const entry = GUIDE_MAP.find((e) => e.id === id)
-    if (entry) {
-      await openPage(entry.page)
+    this.streamingText = ''
+    this.asking = false
+    this.sentence = ''
+    const sid = this.sessionId
+    this.sessionId = null
+    if (sid) {
+      try {
+        await CloseGuideSession(sid)
+      } catch {
+        // a turn still running holds the row; the sweep on the next open
+        // takes it (engine openDatabase)
+      }
     }
   }
 
+  /** Walk to a stop and say `sentence` there ('' = the map's own words). */
+  async goTo(id: string, sentence = '') {
+    const entry = GUIDE_MAP.find((e) => e.id === id)
+    if (!entry) return
+    this.stopId = id
+    this.sentence = sentence
+    if (this.route) {
+      const i = GUIDE_ROUTES[this.route.id].stops.indexOf(id)
+      if (i >= 0) this.route = { id: this.route.id, at: i }
+      writeRoute(this.route)
+    }
+    await openPage(entry.page, '[data-guide=' + JSON.stringify(id) + ']')
+    if (this.stopId !== id) return // somewhere else was asked for meanwhile
+    this.moveSeq++
+  }
+
+  /** Say something where the figure stands. */
+  say(text: string) {
+    this.sentence = text
+    this.saySeq++
+  }
+
+  /** A click on any mapped element while the guide is open explains it (§4.4). */
+  explain(id: string) {
+    void this.goTo(id)
+  }
+
+  onChunk(text: string, replace: boolean) {
+    this.streamingText = replace ? text : this.streamingText + text
+  }
+
+  /** One question, answered by whichever brain is there. The model's answer
+   *  is spoken where the figure stands — its own `point` has already walked
+   *  it; the map's answer walks the figure itself. */
   async ask(question: string): Promise<string> {
     const q = question.trim()
     if (!q) return ''
     this.transcript.push({ who: 'user', text: q, stopId: this.stopId ?? undefined })
-
+    if (this.brain === 'model' && this.sessionId) {
+      const sid = this.sessionId
+      this.asking = true
+      this.streamingText = ''
+      try {
+        const answer = await Promise.race([
+          AskGuide(sid, q),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), MODEL_WAIT_MS)),
+        ])
+        this.asking = false
+        if (!this.on) return ''
+        const text = (answer || '').trim()
+        if (text) {
+          this.transcript.push({ who: 'guide', text, stopId: this.stopId ?? undefined })
+          this.say(text)
+          return text
+        }
+      } catch {
+        // the map takes over for this question and the rest of this opening
+        this.brain = 'map'
+      }
+      this.asking = false
+      this.streamingText = ''
+    }
     const result = mapPick(q, { stopId: this.stopId, route: this.route })
-    if (result.route !== undefined) {
-      this.route = result.route
-    }
+    if (result.route !== undefined) this.route = result.route
     if (result.stopId) {
-      await this.goTo(result.stopId)
+      await this.goTo(result.stopId, result.sentence)
+    } else {
+      this.say(result.sentence)
     }
-
     this.transcript.push({ who: 'guide', text: result.sentence, stopId: result.stopId ?? undefined })
     return result.sentence
   }
@@ -90,33 +218,70 @@ class GuideStore {
   next() {
     if (!this.route) return
     const r = GUIDE_ROUTES[this.route.id]
-    const nextAt = (this.route.at + 1) % r.stops.length
-    this.route = { id: this.route.id, at: nextAt }
-    const nextStop = r.stops[nextAt]
-    this.goTo(nextStop)
+    const at = (this.route.at + 1) % r.stops.length
+    this.route = { id: this.route.id, at }
+    void this.goTo(r.stops[at])
   }
 
   prev() {
     if (!this.route) return
     const r = GUIDE_ROUTES[this.route.id]
-    const prevAt = (this.route.at - 1 + r.stops.length) % r.stops.length
-    this.route = { id: this.route.id, at: prevAt }
-    const prevStop = r.stops[prevAt]
-    this.goTo(prevStop)
+    const at = (this.route.at - 1 + r.stops.length) % r.stops.length
+    this.route = { id: this.route.id, at }
+    void this.goTo(r.stops[at])
   }
 
-  press(): { ok: boolean; message: string } {
-    if (!this.stopId) return { ok: false, message: '' }
-    const entry = GUIDE_MAP.find((e) => e.id === this.stopId)
+  /** Press an element for the user. The map's `safe` flag is the gate, and it
+   *  is checked here — the one place that clicks — for both the bubble's button
+   *  and the model's `press` action. */
+  press(id: string | null = this.stopId): { ok: boolean; message: string } {
+    if (!id) return { ok: false, message: '' }
+    const entry = GUIDE_MAP.find((e) => e.id === id)
     if (!entry || !entry.safe) {
       return { ok: false, message: t('guide.safeRefusal') }
     }
-    const el = document.querySelector<HTMLElement>('[data-guide=' + JSON.stringify(this.stopId) + ']')
-    if (el) {
-      el.click()
-      return { ok: true, message: t('guide.pressed') }
+    const el = document.querySelector<HTMLElement>('[data-guide=' + JSON.stringify(id) + ']')
+    if (!el) return { ok: false, message: t('guide.notOnScreen') }
+    // After the click that asked for it has finished: a menu the press opens
+    // would otherwise be closed by that same click landing "outside" it. And
+    // marked as the guide's own, so the click-to-explain listener lets it
+    // through to the button (Guide.svelte).
+    setTimeout(() => {
+      this.pressing = true
+      try {
+        el.click()
+      } finally {
+        this.pressing = false
+      }
+    }, 0)
+    return { ok: true, message: t('guide.pressed') }
+  }
+
+  /** True while the guide itself is clicking a button for the user. */
+  pressing = false
+}
+
+function readRoute(): { id: GuideRouteId; at: number } | null {
+  try {
+    const raw = localStorage.getItem(ROUTE_KEY)
+    if (!raw) return null
+    const v = JSON.parse(raw)
+    if (v && typeof v.id === 'string' && GUIDE_ROUTES[v.id as GuideRouteId] && Number.isInteger(v.at)) {
+      const n = GUIDE_ROUTES[v.id as GuideRouteId].stops.length
+      return { id: v.id, at: Math.min(Math.max(0, v.at), n - 1) }
     }
-    return { ok: false, message: '' }
+  } catch {
+    // storage unavailable — the route starts over
+  }
+  return null
+}
+
+function writeRoute(r: { id: GuideRouteId; at: number } | null) {
+  try {
+    if (!r) localStorage.removeItem(ROUTE_KEY)
+    else localStorage.setItem(ROUTE_KEY, JSON.stringify(r))
+  } catch {
+    // storage unavailable — nothing to remember with
   }
 }
 

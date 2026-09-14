@@ -4599,7 +4599,7 @@
           <Icon name="bot" size={13} />
           <span>{teachPinned ? t('chat.tourLink') : t('settings.tourTitle')}</span>
         </button>
-        <button class="starter-more starter-tour" onclick={() => guide.start()}>
+        <button class="starter-more starter-tour" onclick={() => guide.start('first')}>
           <Icon name="compass" size={13} />
           <span>{t('chat.guideLink')}</span>
         </button>

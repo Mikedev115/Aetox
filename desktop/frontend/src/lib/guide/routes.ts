@@ -10,13 +10,19 @@ export const GUIDE_ROUTES: Record<GuideRouteId, GuideRoute> = {
   first: {
     id: 'first',
     name: 'รอบแรก',
+    // The tour's order (docs/FIRST-RUN-TOUR.md), at the real buttons: the two
+    // heads, where you talk, the brake, the menu that opens settings, the
+    // model, the heads' page, memory, and the room that grows what it can do.
+    // Every stop is on the assistant door, where a new person lands.
     stops: [
-      'sidebar.projects',
       'topbar.door',
       'composer.input',
       'chat.send',
+      'sidebar.footer',
       'settings.rail.brain',
       'settings.rail.heads',
+      'settings.head.tab.memory',
+      'sidebar.desk.capability',
     ],
   },
   brain: {

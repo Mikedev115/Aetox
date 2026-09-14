@@ -31,6 +31,7 @@
   import { COMMUNITY_URL } from './links'
   import { noteCapabilityRequest } from './capabilities.svelte'
   import Tour from './Tour.svelte'
+  import { guide } from './guide/guideState.svelte'
 
   // 0 language · 1 connect · 2 look · 3 approval · 4 done. Connecting comes
   // before the theme because it is the only step that decides whether the app
@@ -226,6 +227,13 @@
     // that does in front of them rather than four dealt at random.
     armTeachingCard()
     visible = false
+    // And the guide, once: the tour told the story, this offers the real
+    // thing — a walk to the buttons themselves (docs/architecture/ui-guide-
+    // 2026-09-15.md §4.6). Needs no model, so it comes before one is proven.
+    if (!localStorage.getItem('guideOffered')) {
+      localStorage.setItem('guideOffered', '1')
+      guide.offerTour()
+    }
   }
 
   function chooseLocale(code: Locale) {
