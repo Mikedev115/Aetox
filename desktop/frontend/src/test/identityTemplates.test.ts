@@ -30,15 +30,17 @@ describe('identity templates', () => {
 
     for (const [i, tpl] of english.entries()) {
       expect(tpl.content).not.toMatch(/[ก-๙]/)
-      expect(tpl.content).not.toBe(thai[i].content)
+      // identity.md and thinking.md are prompt text and ship in English in
+      // every locale (14 ก.ย. 2026); only context.md, the person's own notes,
+      // follows the language they picked.
+      if (tpl.name === 'context.md') expect(tpl.content).not.toBe(thai[i].content)
+      else expect(tpl.content).toBe(thai[i].content)
       // Still a markdown file with something to fill in, not an empty string
       // that would write a blank file into the user's folder.
       expect(tpl.content.startsWith('# ')).toBe(true)
       expect(tpl.content.trim().length).toBeGreaterThan(20)
     }
-    for (const tpl of thai) {
-      expect(tpl.content).toMatch(/[ก-๙]/)
-    }
+    expect(thai.find((tpl) => tpl.name === 'context.md')!.content).toMatch(/[ก-๙]/)
   })
 
   it('keep the same filenames in every language', () => {

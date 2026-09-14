@@ -67,7 +67,7 @@
     DeleteSubagentProfile, SetSubagentModel, OpenAgentsFolder, OpenAgentSkillsFolder, ListChairs,
     ListExternalSkills, CopySkillToAgent,
     AgentSkills, AgentNeeds, OpenAgentHome,
-    ChairStarters, SaveChairStarters, ChairStartersFile, DeskStarters, SaveDeskStarters,
+    ChairStarters, SaveChairStarters, ChairStartersFile, DeskStarters, SaveDeskStarters, HeadName, SetHeadName,
     SignInMethods, SignInStatus, StartSignIn, CancelSignIn, ImportableSignIns,
     AppVersion, AppCredit, RecentDebugLog,
     LearningEnabled, SetLearningEnabled, ListPendingChanges, ListDecidedChanges, ListModes, MemoryScopeInfo,
@@ -2824,6 +2824,30 @@
   }
   const headScope = (h: HeadId) => (h === 'assistant' ? MAIN_SCOPE : 'mode:coding')
   const headLabel = (h: HeadId) => { const k = deskLabelKey(h); return k ? t(k) : h }
+  // What the head calls itself (config.ModelPreference.HeadNames), "" for
+  // Aetox — its own field on ตัวตน (owner, 14 ก.ย. 2026: "ชื่อควรจะเป็นชื่อที่
+  // เปลี่ยนได้"). Written on change like the person's name, and it reaches the
+  // open chat's prompt at once (Engine.SetHeadName). The card and the page
+  // title wear it; the desk's word stays as the badge.
+  let headNames = $state<Record<HeadId, string>>({ assistant: '', coding: '' })
+  let headNameDraft = $state('')
+  const headShown = (h: HeadId) => headNames[h] || headLabel(h)
+  async function loadHeadNames() {
+    try {
+      const [a, c] = await Promise.all([HeadName('assistant'), HeadName('coding')])
+      headNames = { assistant: a ?? '', coding: c ?? '' }
+    } catch { /* the label stands in */ }
+  }
+  async function saveHeadName(h: HeadId) {
+    const next = headNameDraft.trim()
+    if (next === (headNames[h] ?? '')) return
+    try {
+      await SetHeadName(h, next)
+      headNames = { ...headNames, [h]: next }
+    } catch (err) {
+      learningError = String(err)
+    }
+  }
   const headDesc = (h: HeadId) => modes.find((m) => m.name === h)?.description ?? ''
   const headGroup = (h: HeadId) => memoryGroups.find((g) => g.scope === headScope(h)) ?? emptyGroup(headScope(h))
   // Every file a head answers for: its own, plus the projects when it is
@@ -2850,6 +2874,7 @@
   // not capability, so no desk is ever without one). Listed here so the page
   // answers "what does this one know" without a trip to the room.
   const openHead = (h: HeadId) => {
+    headNameDraft = headNames[h] ?? ''
     mainHead = h
     mainTab = 'identity'
     startersOwner = { kind: 'desk', head: h }
@@ -2865,6 +2890,7 @@
   $effect(() => {
     if (active === 'main') {
       void loadLearning()
+      void loadHeadNames()
       void loadModes()
     }
   })
@@ -6506,7 +6532,7 @@
               <div class="chair-body">
                 <div class="chair-who">
                   <RankedFace tier="head" size={72}><Mascot {...headOptions(h)} pose="idle" size={72} still /></RankedFace>
-                  <span class="chair-name">{headLabel(h)}</span>
+                  <span class="chair-name">{headShown(h)}{#if headNames[h]} <span class="badge on">{headLabel(h)}</span>{/if}</span>
                   <div class="ag-actions">
                     <button class="icobtn tiny tip-l" aria-label={t('settings.agentConfigure')} data-tip={t('settings.agentConfigure')}
                       onclick={(e) => { e.stopPropagation(); openHead(h) }}>
@@ -6531,7 +6557,7 @@
       {:else}
         {@const h = mainHead}
         {@const g = headGroup(h)}
-        <h2>{t('settings.mainEditTitle', { name: headLabel(h) })}</h2>
+        <h2>{t('settings.mainEditTitle', { name: headShown(h) })}</h2>
         <p class="muted set-sub">{t('settings.mainEditDesc')}</p>
         <div class="pp-bar">
           <button class="ctrl" onclick={() => (mainHead = null)}><Icon name="arrowLeft" size={14} /> {t('settings.agentBack')}</button>
@@ -6575,6 +6601,16 @@
              for; the "add a file" box did not come (owner: "เอา เพิ่มไฟล์
              คำสั่งใหม่ ออก"). -->
         <div class="ag-tab-panel" class:on={mainTab === 'identity'}>
+          <div class="settings-card">
+            <div class="set-row">
+              <div class="set-txt">
+                <div class="t">{t('settings.mainHeadName')}</div>
+                <div class="d">{t('settings.mainHeadNameHint', { desk: headLabel(h) })}</div>
+              </div>
+              <input class="ctrl key-input" placeholder="Aetox" bind:value={headNameDraft}
+                onchange={() => saveHeadName(h)} aria-label={t('settings.mainHeadName')} />
+            </div>
+          </div>
           <h3 class="set-h3">{t('settings.mainDeskFile')}</h3>
           <p class="muted set-sub">{t('settings.mainDeskFileHint')}</p>
           <div class="settings-card">

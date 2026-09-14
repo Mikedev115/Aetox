@@ -121,6 +121,7 @@ type API interface {
 	GitWorkingTree() ([]GitFileChange, error)
 	GuideTopics() []model.GuideTopic
 	HandedOverFile(fileURL string) string
+	HeadName(head string) string
 	HistoryFault() StoreFault
 	HomeDir() string
 	ImageStatus() string
@@ -302,6 +303,7 @@ type API interface {
 	SetConnectionStartCommand(id string, command string) error
 	SetConnectionTargets(id string, targets []string) error
 	SetDelegateOff(kind string, off bool) DelegateSettings
+	SetHeadName(head string, name string) error
 	SetImageEngine(id string) error
 	SetImageModelName(name string) error
 	SetLearningEnabled(on bool) error

@@ -331,6 +331,10 @@ type Scope struct {
 	// the model because it is the one fact about the person the model cannot
 	// see for itself — see person().
 	User string
+	// Assistant is what the head of this session calls itself, chosen on
+	// ตัวหลัก › ตัวตน; "" is the shipped name. It is the first word of the prompt
+	// (identityFor), so a renamed assistant is renamed everywhere at once.
+	Assistant string
 }
 
 // Space is the storefront door's โปรเจกต์: a named folder that groups chats and
@@ -386,7 +390,7 @@ func BuildForDesk(surface Surface, scope Scope, desk Desk) string {
 func BuildWithReport(surface Surface, scope Scope, desk Desk) (string, Loaded) {
 	sandboxRoot := scope.Root
 	var b strings.Builder
-	b.WriteString(identity())
+	b.WriteString(identityFor(scope.Assistant))
 	// Second, always — one rule, no branch on what kind of direction it is.
 	//
 	// It used to be written twelve sections down, which put a chair's brief at
@@ -752,7 +756,22 @@ func ledgerLine(s string) string {
 // anyway, because everything around it is in English while several tool
 // descriptions are in Thai, and one sentence is cheaper than that ambiguity.
 func identity() string {
-	return "You are Aetox, an adaptive assistant that learns and evolves alongside the user across sessions. Speak the user's language.\n"
+	return identityFor("")
+}
+
+// identityFor is identity() with the head's own name in the first word — the
+// one place the name is spelled, so a person who renames the assistant on
+// ตัวหลัก › ตัวตน renames it in every prompt at once. Trimmed and bounded the
+// way person() bounds the user's: a name is a word, not a paragraph.
+func identityFor(name string) string {
+	name = strings.Join(strings.Fields(name), " ")
+	if r := []rune(name); len(r) > 40 {
+		name = string(r[:40])
+	}
+	if name == "" {
+		name = "Aetox"
+	}
+	return "You are " + name + ", an adaptive assistant that learns and evolves alongside the user across sessions. Speak the user's language.\n"
 }
 
 // surface owns the whole of "where does what I write end up" — the question

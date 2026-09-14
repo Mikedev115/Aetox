@@ -423,6 +423,10 @@ func (a *App) HandedOverFile(fileURL string) string {
 	return a.api.HandedOverFile(fileURL)
 }
 
+func (a *App) HeadName(head string) string {
+	return a.api.HeadName(head)
+}
+
 func (a *App) HistoryFault() engine.StoreFault {
 	return a.api.HistoryFault()
 }
@@ -1145,6 +1149,10 @@ func (a *App) SetConnectionTargets(id string, targets []string) error {
 
 func (a *App) SetDelegateOff(kind string, off bool) engine.DelegateSettings {
 	return a.api.SetDelegateOff(kind, off)
+}
+
+func (a *App) SetHeadName(head string, name string) error {
+	return a.api.SetHeadName(head, name)
 }
 
 func (a *App) SetImageEngine(id string) error {

@@ -626,6 +626,10 @@ export function HasAPIKey(arg1) {
   return window['go']['main']['App']['HasAPIKey'](arg1);
 }
 
+export function HeadName(arg1) {
+  return window['go']['main']['App']['HeadName'](arg1);
+}
+
 export function HistoryFault() {
   return window['go']['main']['App']['HistoryFault']();
 }
@@ -1540,6 +1544,10 @@ export function SetConnectionTargets(arg1, arg2) {
 
 export function SetDelegateOff(arg1, arg2) {
   return window['go']['main']['App']['SetDelegateOff'](arg1, arg2);
+}
+
+export function SetHeadName(arg1, arg2) {
+  return window['go']['main']['App']['SetHeadName'](arg1, arg2);
 }
 
 export function SetImageEngine(arg1) {

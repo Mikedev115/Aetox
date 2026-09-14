@@ -146,6 +146,9 @@ type Options struct {
 	// rather than here, because a test's Engine must not pick up whoever owns
 	// the machine it runs on. "" is the ordinary case and adds nothing.
 	UserName string
+	// AssistantName is what this session's head calls itself (config.
+	// ModelPreference.HeadNames), "" for the shipped name.
+	AssistantName string
 
 	// Approve is the human approval gate, used by the App and by every
 	// sub-agent.
@@ -506,8 +509,9 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 		// One field, two readers: the prompt says a card can appear, the registry
 		// is what makes it appear. Both from opts.AskWorkspace, so the model is
 		// never told to expect a door this session has not got.
-		CanAsk: opts.AskWorkspace != nil,
-		User:   opts.UserName,
+		CanAsk:    opts.AskWorkspace != nil,
+		User:      opts.UserName,
+		Assistant: opts.AssistantName,
 		Space: prompt.Space{
 			Name:        opts.Space,
 			ContextPath: opts.SpaceContext.Path,
