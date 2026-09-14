@@ -886,6 +886,10 @@ export function MarkVideoCheckSeen() {
   return window['go']['main']['App']['MarkVideoCheckSeen']();
 }
 
+export function MeasureContextFloor() {
+  return window['go']['main']['App']['MeasureContextFloor']();
+}
+
 export function MemoryFolderPath() {
   return window['go']['main']['App']['MemoryFolderPath']();
 }
