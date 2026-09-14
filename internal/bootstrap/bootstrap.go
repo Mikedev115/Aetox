@@ -550,6 +550,7 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 	// hired from a roster has no roster of its own to be told about.
 	if opts.Team != nil {
 		desk.Team = opts.Team.Name
+		desk.NoTeam = opts.Team.Name == subagent.NoTeam
 	}
 	// Last, so it narrows whichever of the two desks above was built. A chair
 	// chat is an ordinary session with a person sitting in it, and gets the dial

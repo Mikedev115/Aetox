@@ -223,6 +223,11 @@ type Desk struct {
 	// question the app had already answered. A name, not the members: those
 	// stay where they are, in the tool that can reach them.
 	Team string
+	// NoTeam is a host that HAS teams handing this chat none (the picker's
+	// ไม่ใช้ทีมช่วย). Distinct from Team == "" because that is also the CLI and
+	// every test, where the roster is the full reach and "you are on no team"
+	// would be false. Only the desktop sets it (bootstrap, from subagent.Team).
+	NoTeam bool
 	// OwnMemory says this desk keeps its own memory (mode `memory: project`,
 	// 11 ก.ย.): it reads modes/<Name>.md and the focused project's file, and
 	// NOT the assistant's MEMORY.md. The profile (USER.md) is still folded —
@@ -1908,6 +1913,19 @@ func person(name string) string {
 func team(desk Desk) string {
 	name := strings.Join(strings.Fields(desk.Team), " ")
 	if name == "" {
+		// A chat the picker set to ไม่ใช้ทีมช่วย. This used to say nothing,
+		// on the argument that `task` explains it when a job is handed to
+		// somebody — but that is after the model has already promised the
+		// user a colleague it does not have (owner, 14 ก.ย. 2026: "จะมีพรอมต์
+		// บอกมันไหมว่าตอนนี้มันมีทีมกับตอนไม่มีทีม ผมว่าควรมี"). The ranks
+		// ride here too, for the same reason as below.
+		if desk.NoTeam {
+			return "This chat is on no team: there is no colleague (พนักงาน) to hand a whole job to, only " +
+				"your own hands (ลูกมือ) for a step of your own work. If the user wants a team's agents, they " +
+				"pick a team from the team menu, which opens a new chat on it — say so rather than promising " +
+				"one here. The user's words for the three ranks: you are the ผู้ช่วย, a team member is a " +
+				"พนักงาน (also เอเจน), your own hands are ลูกมือ.\n"
+		}
 		return ""
 	}
 	where := ""
