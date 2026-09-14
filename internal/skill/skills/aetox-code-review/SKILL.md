@@ -1,119 +1,79 @@
 ---
 name: aetox-code-review
-description: รีวิวโค้ดที่เปลี่ยน หา bug จริงก่อน merge, ความปลอดภัย (injection, auth, path traversal), ประสิทธิภาพ (N+1, ความซับซ้อน, index), ความถูกต้อง, edge case, concurrency, error handling รับ PR/diff/ไฟล์ ทริกด้วย "รีวิวก่อนเมิร์จ" หรือ "โค้ดนี้ปลอดภัยไหม"
-source: https://github.com/anthropics/knowledge-work-plugins (engineering/code-review)
-license: Apache-2.0
-copyright: Copyright Anthropic, PBC. Full terms in LICENSE
+before: reviewing a diff, a PR, a commit or a change before it is merged
+description: รีวิวโค้ดก่อน merge - อ่านโค้ดรอบจุดที่แก้และรันเทสต์ก่อนตัดสิน, ทุก finding มีหลักฐาน ไฟล์:บรรทัด ผลกระทบ ระดับ และทางแก้ที่เล็กที่สุด, ตอบ merge / fix first / discuss
+source: aetox-architect (Step 6 Assess, Operating Rules 1-2, 16-19), adapted for a single change
+license: MIT
+copyright: Copyright (c) 2026 Aetox Skills
 ---
 
-# /code-review
+# Aetox Code Review
 
+A review judges a change *in the system it lands in*, not the lines of the
+diff. The discipline is the architect's (`aetox-architect`), cut down to one
+change: understand before judging, evidence before opinion, the smallest safe
+correction, and nothing invented to look thorough.
 
-Review code changes with a structured lens on security, performance, correctness, and maintainability.
+## What is under review
 
-## Usage
+The diff, PR, commit or files the user named. Nothing named: `git diff HEAD`
+is the change, then the last commit if the tree is clean. Ask only when there
+is no diff to find.
 
-```
-/code-review <PR URL or file path>
-```
+## Understand before judging
 
-Review the provided code changes: @$1
+1. For every changed function, read its callers and the tests that cover it.
+   A change is safe or unsafe because of what reaches it, and the diff does
+   not show that.
+2. Read the project's own way of doing the same thing elsewhere: error
+   handling, naming, module layout, how data is reached. The change is judged
+   against the project's dominant pattern and the framework's documented
+   conventions, never against personal taste.
+3. Run it. Build and test the touched packages before the verdict. A verdict
+   with no run is `Inferred`, and says so.
+4. Scan by default: the changed code and one hop out. Read a whole module
+   only when the change crosses a boundary, and say that you did.
 
-If no specific file or URL is provided, ask what to review.
+## What to look for
 
-## How It Works
+- Correctness: empty and null input, error paths that swallow or drop,
+  off-by-one, concurrency, state that can now be reached twice.
+- Security: input that reaches a shell, a file path, the network or a query;
+  secrets in code; a check that moved and no longer guards what it did.
+- Convention drift: the change does one way what the project does another
+  way everywhere else.
+- Flow conflicts: a second source of truth for the same state, a layer
+  bypassed, a side effect crossing a boundary the structure claims to keep.
+- Performance only where the change sits on a hot path and the cost is
+  shown, not supposed.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      CODE REVIEW                                   │
-├─────────────────────────────────────────────────────────────────┤
-│  STANDALONE (always works)                                       │
-│  ✓ Paste a diff, PR URL, or point to files                      │
-│  ✓ Security audit (OWASP top 10, injection, auth)               │
-│  ✓ Performance review (N+1, memory leaks, complexity)           │
-│  ✓ Correctness (edge cases, error handling, race conditions)    │
-│  ✓ Style (naming, structure, readability)                        │
-│  ✓ Actionable suggestions with code examples                    │
-├─────────────────────────────────────────────────────────────────┤
-│  SUPERCHARGED (when you connect your tools)                      │
-│  + Source control: Pull PR diff automatically                    │
-│  + Project tracker: Link findings to tickets                     │
-│  + Knowledge base: Check against team coding standards           │
-└─────────────────────────────────────────────────────────────────┘
-```
+## The shape of a finding
 
-## Review Dimensions
+Every finding carries all five, or it is not a finding:
 
-### Security
-- SQL injection, XSS, CSRF
-- Authentication and authorization flaws
-- Secrets or credentials in code
-- Insecure deserialization
-- Path traversal
-- SSRF
+- Evidence: `file:line`, and what was observed there.
+- Impact: what it breaks, slows, or makes unsafe to change.
+- Severity: `Critical` (wrong, or contradicts the system's own flow) ·
+  `High` (harms change safety now) · `Medium` (taxes future work) · `Low`
+  (worth noting, not acting on).
+- Confidence: `Direct` or `Inferred`, with `Verify first` when someone should
+  confirm it before acting.
+- Direction: the smallest safe correction, proposed, not applied. The code
+  under review is not edited unless the user asks.
 
-### Performance
-- N+1 queries
-- Unnecessary memory allocations
-- Algorithmic complexity (O(n²) in hot paths)
-- Missing database indexes
-- Unbounded queries or loops
-- Resource leaks
+Not a finding: taste with no convention behind it; working code that is
+merely different from how you would write it; hypothetical scaling or "best
+practice" with no evidence of impact here; anything you cannot trace to a
+line. `None identified` is a complete answer and beats an invented one.
 
-### Correctness
-- Edge cases (empty input, null, overflow)
-- Race conditions and concurrency issues
-- Error handling and propagation
-- Off-by-one errors
-- Type safety
+## Report
 
-### Maintainability
-- Naming clarity
-- Single responsibility
-- Duplication
-- Test coverage
-- Documentation for non-obvious logic
+Ordered by reader priority, not by the order you worked in:
 
-## Output
+1. Verdict: **merge** · **fix first** · **discuss** - one line saying why.
+2. Critical and High findings, in the shape above.
+3. Medium and Low, briefly.
+4. What was run and what it said, failures included in their own words;
+   what was not checked and why.
 
-```markdown
-## Code Review: [PR title or file]
-
-### Summary
-[1-2 sentence overview of the changes and overall quality]
-
-### Critical Issues
-| # | File | Line | Issue | Severity |
-|---|------|------|-------|----------|
-| 1 | [file] | [line] | [description] | 🔴 Critical |
-
-### Suggestions
-| # | File | Line | Suggestion | Category |
-|---|------|------|------------|----------|
-| 1 | [file] | [line] | [description] | Performance |
-
-### What Looks Good
-- [Positive observations]
-
-### Verdict
-[Approve / Request Changes / Needs Discussion]
-```
-
-## If Connectors Available
-
-If **~~source control** is connected:
-- Pull the PR diff automatically from the URL
-- Check CI status and test results
-
-If **~~project tracker** is connected:
-- Link findings to related tickets
-- Verify the PR addresses the stated requirements
-
-If **~~knowledge base** is connected:
-- Check changes against team coding standards and style guides
-
-## Tips
-
-1. **Provide context**, "This is a hot path" or "This handles PII" helps me focus.
-2. **Specify concerns**, "Focus on security" narrows the review.
-3. **Include tests**, I'll check test coverage and quality too.
+Short. A review is read by someone about to press a button.
