@@ -9067,6 +9067,16 @@ The second loop, whole: `bootstrapModelWithStatus`, `switchProvider` (the CLI's 
 
 `internal/app`'s REPL half (`RunInteractive`, the banner, the status bar, the approval picker) now has no caller — the engine uses only `NewApp`/`RunOnce*`/`Console`. §6.1 of ARCHITECTURE.md described that mixing in July; the split it asked for is now a deletion, left for a pass of its own.
 
+### 268.5 "พร้อม" — what the owner meant, and what it added (later the same day)
+
+*"ไปทำให้ CLI มันพร้อมครับนี่คือหน้าที่คุณ ถ้าไม่ชัดเรื่องขอบเขตให้ถามผม"* — asked, three answers: ready to measure **and** ready for a person to use (not shipped; §30 stands); the benchmark runs Aetox *"ใช้ตาม Coding"* — the coding desk as it is, no bare mode, so H4 in the bench doc now says every harness runs as installed and the desk's own skills are part of what is measured; and `--report`.
+
+**`--report <file>`** ([report.go](../cmd/aetox/report.go)) appends one JSON line per turn: outcome (done · cancelled · failed), seconds, rounds (one `usage:round` each), tokens in/out/cached with `cacheReported`, cost with `priced` (false = a floor, not the bill — the engine's own rule, §-usage), every tool call in order with act/subject/parent, how many times the turn waited on the terminal, and the dials. That is the bench's second layer whole, read from the events the screen already sees, without opening `aetox.db`.
+
+**A one-shot refuses the fallback.** `aetox chat` with the built-in provider answering (a key missing, a local runtime down) used to print the fallback's "connect a model" text and exit 0 — an answer to a script, a lie to a benchmark. Now exit 2 with the engine's own warning, unless `--model-provider aetox` was asked for. The line loop still only warns, because a person can `/provider` out of it.
+
+**Ctrl-C on Windows** cuts the console read short with `ERROR_OPERATION_ABORTED` as well as raising the signal; the reader took that for the terminal closing and every later question answered itself with nothing. `readInterrupted` (main_windows.go) says read on. And a stdin that does close mid-turn no longer leaves the loop waiting on a nil channel. Tested on a real pseudo-console: banner, `/status`, a turn, `/think`, a file write, an approval answered by number, `/help`, `/exit`. The one thing no harness here could deliver was the Ctrl-C itself — ConPTY swallowed it, winpty mangled argv — so that path rests on a bare Go program under winpty receiving `os.Interrupt` from a console Ctrl-C, and on the owner pressing it once.
+
 **Status:** `Direct`. Proven by hand on a scratch data root: the built-in provider's fallback answer through the whole road; DeepSeek at โต๊ะโค้ด writing and reading back a file in 5.7 s with `⚙ change write hello.txt` / `⚙ read hello.txt` on stderr and only the answer on stdout; `echo goal | aetox` as the message; `--approval ask` refused on a closed stdin. `go test ./cmd/aetox/` green; `go vet` on `cmd/aetox`, `desktop`, `internal/signer` clean.
 
 ## 269. Decision — A Spent Plan Window Is Waited Out, On Screen, and the Turn Carries On Where It Was (2026-09-14)

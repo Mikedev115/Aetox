@@ -52,6 +52,8 @@ type cliScreen struct {
 	// asks carries a question the engine is waiting on to whoever reads the
 	// terminal (console.turn); buffered so Emit never waits on the reader.
 	asks chan askEvent
+	// turn is what this turn has cost so far, for --report (report.go).
+	turn tally
 }
 
 type askEvent struct {
@@ -61,7 +63,7 @@ type askEvent struct {
 }
 
 func newCLIScreen() *cliScreen {
-	return &cliScreen{out: os.Stdout, log: os.Stderr, asks: make(chan askEvent, 4), pendingCalls: map[string]string{}}
+	return &cliScreen{out: os.Stdout, log: os.Stderr, asks: make(chan askEvent, 4), pendingCalls: map[string]string{}, turn: newTally()}
 }
 
 // Emit is every engine event. The payload is the engine's own Go value,
@@ -126,6 +128,7 @@ func (s *cliScreen) Emit(event string, data any) {
 		defer s.mu.Unlock()
 		switch ev.Data.Action {
 		case "call":
+			s.turn.call(ev.Data.Ref, toolCall{Name: ev.Data.Name, Act: ev.Data.Act, Subject: ev.Data.Subject, Parent: ev.Data.Parent})
 			// A streamed call is announced twice — once by name when the
 			// provider names it, once more when its arguments have parsed
 			// and the subject is known. The window updates one row; a
@@ -156,6 +159,21 @@ func (s *cliScreen) Emit(event string, data any) {
 		defer s.mu.Unlock()
 		s.endLine()
 		fmt.Fprintf(s.log, "  … %s\n", ev.Data)
+	case "usage:round":
+		var ev struct {
+			In            int     `json:"in"`
+			Out           int     `json:"out"`
+			Cached        int     `json:"cached"`
+			CacheReported bool    `json:"cacheReported"`
+			Cost          float64 `json:"cost"`
+			Priced        bool    `json:"priced"`
+		}
+		if decode(data, &ev) != nil {
+			return
+		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.turn.round(ev.In, ev.Out, ev.Cached, ev.CacheReported, ev.Cost, ev.Priced)
 	case "ask:user":
 		var ev struct {
 			SessionID string `json:"sessionId"`
@@ -167,6 +185,9 @@ func (s *cliScreen) Emit(event string, data any) {
 		if decode(data, &ev) != nil {
 			return
 		}
+		s.mu.Lock()
+		s.turn.questions++
+		s.mu.Unlock()
 		select {
 		case s.asks <- askEvent{SessionID: ev.SessionID, Question: ev.Data.Question, Options: ev.Data.Options}:
 		default:
@@ -226,7 +247,7 @@ func (s *cliScreen) deliver(final string) {
 // finishTurn is the end of a turn as SendMessage reported it: the reply is
 // printed only when no chunk event delivered it already, and the turn's
 // bookkeeping is cleared for the next one.
-func (s *cliScreen) finishTurn(final string) {
+func (s *cliScreen) finishTurn(final string) tally {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.delivered {
@@ -237,6 +258,25 @@ func (s *cliScreen) finishTurn(final string) {
 	for k := range s.pendingCalls {
 		delete(s.pendingCalls, k)
 	}
+	t := s.turn
+	s.turn = newTally()
+	return t
+}
+
+// abandonTurn is finishTurn for a turn that ended without an answer: the
+// tally is handed back and the screen cleared, nothing printed.
+func (s *cliScreen) abandonTurn() tally {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.endLine()
+	s.delivered = false
+	s.preview.Reset()
+	for k := range s.pendingCalls {
+		delete(s.pendingCalls, k)
+	}
+	t := s.turn
+	s.turn = newTally()
+	return t
 }
 
 func decode(data any, into any) error {

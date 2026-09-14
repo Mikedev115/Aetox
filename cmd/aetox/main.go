@@ -84,6 +84,7 @@ func main() {
 		modelBaseURL  string
 		thinkLevel    string
 		approvalMode  string
+		reportPath    string
 		legacyYes     bool
 		showVersion   bool
 		showHelp      bool
@@ -104,6 +105,7 @@ func main() {
 	flags.StringVar(&modelBaseURL, "model-base-url", "", "override base URL for the model provider")
 	flags.StringVar(&thinkLevel, "think", "", "thinking level (model/provider specific)")
 	flags.StringVar(&approvalMode, "approval", "", "approval mode: ask, unsafe-only, or full-access")
+	flags.StringVar(&reportPath, "report", "", "append one JSON line per turn to this file (rounds, tokens, cost, seconds, tools)")
 	flags.BoolVar(&legacyYes, "yes", false, "same as --approval full-access")
 	flags.BoolVar(&showVersion, "version", false, "print version")
 	flags.BoolVar(&showHelp, "help", false, "print usage")
@@ -163,6 +165,7 @@ func main() {
 		Model:    modelName,
 		BaseURL:  modelBaseURL,
 		Think:    thinkLevel,
+		Report:   reportPath,
 	}
 	switch {
 	case strings.TrimSpace(approvalMode) != "":
@@ -198,6 +201,19 @@ func main() {
 		os.Exit(1)
 	}
 	defer c.close()
+
+	// One shot asked for an answer and the engine fell back to the built-in
+	// provider, which answers every question with "connect a model": that is
+	// a failure to a script, not an answer. In the line loop the warning was
+	// printed and the person can /provider their way out.
+	oneShot := intent.Mode == command.ModeOnce || !isInteractive()
+	if info := c.e.GetModelInfo(); info.Warning != "" && !oneShot {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", info.Warning)
+	} else if oneShot && info.Warning != "" && !strings.EqualFold(info.Provider, "aetox") {
+		fmt.Fprintf(os.Stderr, "no model is answering: %s\n", info.Warning)
+		c.close()
+		os.Exit(2)
+	}
 
 	switch intent.Mode {
 	case command.ModeInteractive:
@@ -245,6 +261,7 @@ func printUsage() {
 	fmt.Println("  --approval <mode>            ask, unsafe-only, full-access (default: the remembered choice)")
 	fmt.Println("  --yes                        same as --approval full-access")
 	fmt.Println("  --root <dir>                 project folder (default: current directory)")
+	fmt.Println("  --report <file>              append one JSON line per turn: rounds, tokens, cost, seconds, tools")
 	fmt.Println("  --version                    print version")
 	fmt.Println("The session always sits at the coding desk; logs go to the app's data folder (AETOX_DATA_ROOT to move it).")
 }
@@ -263,7 +280,7 @@ func preparseGlobalFlags(rawArgs []string) ([]string, []string, error) {
 
 	isValueFlag := func(arg string) bool {
 		switch arg {
-		case "--root", "--model-provider", "--model-name", "--model-api-key", "--model-base-url", "--think", "--approval":
+		case "--root", "--model-provider", "--model-name", "--model-api-key", "--model-base-url", "--think", "--approval", "--report":
 			return true
 		}
 		return false
