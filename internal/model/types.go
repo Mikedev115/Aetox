@@ -336,6 +336,13 @@ type Usage struct {
 
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
+
+	// Estimate is what Aetox guessed this request would cost before sending
+	// it, stamped by the agent on the rounds that sent the conversation and
+	// left zero on the ones that sent something else over it (a title, a
+	// probe). Not from the wire: it is the other half of the pair that lets
+	// PromptTokens calibrate the next guess (engine.promptCalibration).
+	Estimate PromptEstimate `json:"-"`
 }
 
 // UncachedPromptTokens is the input the provider actually had to evaluate.

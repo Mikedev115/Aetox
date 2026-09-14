@@ -29,11 +29,18 @@ func (a *Engine) recordTokenUsage(conv *conversation, u model.Usage) {
 	if u.CacheReported {
 		cached = u.CachedPromptTokens
 	}
+	// NULL again when the round sent something other than the conversation
+	// (no estimate was stamped): promptCalibration reads only rows where the
+	// guess and the count describe the same request.
+	var estFixed, estVar any
+	if !u.Estimate.IsZero() {
+		estFixed, estVar = u.Estimate.Fixed(), u.Estimate.Messages
+	}
 	_, err = db.Exec(
-		`INSERT INTO token_usage(session_id, model, provider, prompt_tokens, completion_tokens, cached_prompt_tokens, time)
-		 VALUES(?,?,?,?,?,?,?)`,
+		`INSERT INTO token_usage(session_id, model, provider, prompt_tokens, completion_tokens, cached_prompt_tokens, est_fixed_tokens, est_var_tokens, time)
+		 VALUES(?,?,?,?,?,?,?,?,?)`,
 		conv.id, conv.cfg.ModelName, model.NormalizeProvider(conv.cfg.ModelProvider),
-		u.PromptTokens, u.CompletionTokens, cached, time.Now().Format(time.RFC3339),
+		u.PromptTokens, u.CompletionTokens, cached, estFixed, estVar, time.Now().Format(time.RFC3339),
 	)
 	if err != nil {
 		debuglog.Msg("usage: insert failed: %v", err)
