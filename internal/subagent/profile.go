@@ -352,8 +352,8 @@ func applyHomeRules(p *Profile, agentHome bool) {
 		return
 	}
 	if p.Desk != "" {
-		p.Invalid = "ไฟล์นี้อยู่ในบ้านของซับเอเจน แต่ประกาศ desk: " + p.Desk +
-			" — ซับเอเจนไม่มีโต๊ะ ถ้าตั้งใจให้เป็นเอเจน ย้ายไฟล์ไปโฟลเดอร์ agents"
+		p.Invalid = "ไฟล์นี้อยู่ในบ้านของลูกมือ แต่ประกาศ desk: " + p.Desk +
+			" — ลูกมือไม่มีโต๊ะ ถ้าตั้งใจให้เป็นเอเจน ย้ายไฟล์ไปโฟลเดอร์ agents"
 		p.Desk = ""
 	}
 }
@@ -391,7 +391,7 @@ func limitHelperShadow(shadow *Profile, bundled Profile) {
 	shadow.Desk = ""
 	if len(tried) > 0 {
 		shadow.Notice = "ไฟล์นี้เขียน " + strings.Join(tried, ", ") +
-			" เอาไว้ แต่ซับเอเจนปรับได้แค่โมเดล คำสั่ง คำอธิบาย steps และอวตาร — เครื่องมือยังเป็นชุดของแอป"
+			" เอาไว้ แต่ลูกมือปรับได้แค่โมเดล คำสั่ง คำอธิบาย steps และอวตาร — เครื่องมือยังเป็นชุดของแอป"
 	}
 }
 
@@ -433,7 +433,7 @@ func resolve() ([]entry, []Conflict) {
 		}
 		if i, taken := byName[name]; taken {
 			if homeOf[name] != agentHome {
-				home := "ซับเอเจน"
+				home := "ลูกมือ"
 				if homeOf[name] {
 					home = "เอเจน"
 				}
@@ -476,7 +476,7 @@ func resolve() ([]entry, []Conflict) {
 				if i, taken := byName[name]; !taken || homeOf[name] || !entries[i].Builtin {
 					conflicts = append(conflicts, Conflict{
 						Name: name, Path: path,
-						Reason: "ซับเอเจนที่มากับแอปคือทั้งหมด เพิ่มตัวใหม่ไม่ได้ — ไฟล์นี้จึงไม่ถูกอ่าน ถ้าตั้งใจสร้างคนทำงานของคุณเอง สร้างเป็นเอเจนที่หน้าทีมเอเจน แล้วลบไฟล์นี้ทิ้งได้",
+						Reason: "ลูกมือที่มากับแอปคือทั้งหมด เพิ่มตัวใหม่ไม่ได้ — ไฟล์นี้จึงไม่ถูกอ่าน ถ้าตั้งใจสร้างคนทำงานของคุณเอง สร้างเป็นเอเจนที่หน้าทีมเอเจน แล้วลบไฟล์นี้ทิ้งได้",
 					})
 					continue
 				}

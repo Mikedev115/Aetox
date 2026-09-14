@@ -1415,7 +1415,7 @@ func resolveStation(desk, chair, team string) (*mode.Mode, string, error) {
 		return nil, "", fmt.Errorf("ไม่รู้จักเอเจน %q — ไฟล์โปรไฟล์ของเอเจนนี้อาจถูกลบไปแล้ว", chair)
 	}
 	if p.Desk == "" {
-		return nil, "", fmt.Errorf("%q เป็นซับเอเจน — คุยตรงได้เฉพาะเอเจน", chair)
+		return nil, "", fmt.Errorf("%q เป็นลูกมือ — คุยตรงได้เฉพาะเอเจน", chair)
 	}
 	if desk == mode.Office {
 		return m, chair, nil

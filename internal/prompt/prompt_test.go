@@ -1464,6 +1464,14 @@ func TestTeamLayerNamesTheRosterOnlyOnATeamSession(t *testing.T) {
 	if !strings.Contains(got, "on the team «ทีมเขียนและทดสอบแอพ» at the coding desk") {
 		t.Fatalf("the team and desk are not named together: %s", got)
 	}
+	// The three rank words ride on the same line (14 ก.ย. 2026): the seed team is
+	// named «ผู้ช่วยในคอมพิวเตอร์», and a model that does not know ผู้ช่วย is its
+	// own rank reads that as itself and hires a helper instead of the team.
+	for _, want := range []string{"you are the ผู้ช่วย", "พนักงาน", "ลูกมือ", "is that team, not you"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the team line never says %q: %s", want, got)
+		}
+	}
 	// A chair chat's desk.Name is the chair, and "at the doc desk" would be
 	// the wrong sentence — the team alone is told there.
 	chair := BuildForDesk(SurfaceDesktop, Scope{}, Desk{Name: "doc", Chair: true, Team: "ทีมเอกสาร"})

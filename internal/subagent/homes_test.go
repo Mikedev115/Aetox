@@ -242,7 +242,7 @@ func TestTheModelIsToldWhichWorkersAreAgentsAndWhichAreHelpers(t *testing.T) {
 	isolate(t)
 	choice := agentChoice(List())
 
-	for _, want := range []string{"AGENTS (เอเจน)", "HELPERS (ซับเอเจน)", "doc", "explore"} {
+	for _, want := range []string{"AGENTS (พนักงาน / เอเจน)", "HELPERS (ลูกมือ)", "doc", "explore"} {
 		if !strings.Contains(choice, want) {
 			t.Errorf("the agent parameter never mentions %q:\n%s", want, choice)
 		}

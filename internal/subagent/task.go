@@ -291,10 +291,10 @@ func (t *taskTool) reach(p Profile) (*mode.Mode, error) {
 	// worker, and the person is the one who can send it there. Turned away from
 	// a helper there is nobody to name: the step is its own to take, here.
 	if p.Desk != "" && t.opts.NoAgents {
-		return nil, fmt.Errorf("%s is an AGENT (เอเจน) — a colleague with a desk of its own — and this session does not hand whole jobs to one. Tell the person you are talking to that it belongs with %s. What you can hand out is a step of your own work, to a helper (ซับเอเจน)", p.Name, p.Name)
+		return nil, fmt.Errorf("%s is an AGENT (เอเจน — the user says พนักงาน) — a colleague with a desk of its own — and this session does not hand whole jobs to one. Tell the person you are talking to that it belongs with %s. What you can hand out is a step of your own work, to a helper (ลูกมือ)", p.Name, p.Name)
 	}
 	if p.Desk == "" && t.opts.NoHelpers {
-		return nil, fmt.Errorf("%s is a HELPER (ซับเอเจน) — your own hands in a second context — and this session does not use them. Do the step here, in this conversation", p.Name)
+		return nil, fmt.Errorf("%s is a HELPER (ลูกมือ) — your own hands in a second context — and this session does not use them. Do the step here, in this conversation", p.Name)
 	}
 	// A colleague is reached through the team, when there is one: membership
 	// decides who, the team's desk decides under what. Asked after the two
@@ -315,7 +315,7 @@ func (t *taskTool) reach(p Profile) (*mode.Mode, error) {
 			return nil, err
 		}
 		if t.opts.Team.Name == NoTeam {
-			return nil, fmt.Errorf("this chat hires from no team, so %s cannot be handed the job. Tell the person they can pick a team from the team menu (ทีมเอเจน), or do the work here", p.Name)
+			return nil, fmt.Errorf("this chat hires from no team, so %s cannot be handed the job. Tell the person they can pick a team from the team menu (ทีม), or do the work here", p.Name)
 		}
 		return nil, fmt.Errorf("%s is not on this session's team. Tell the person you are talking to that %s belongs to another team — they can open a chat on that team, or add %s to this one", p.Name, p.Name, p.Name)
 	}
@@ -419,6 +419,15 @@ func profileNames(profiles []Profile) []string {
 // The Thai terms ride along because this list is the only place the model
 // meets these workers, and a model that has to invent a word for them will.
 //
+// And they are the SCREEN's words. b2f8b810 renamed ซับเอเจน → ลูกมือ everywhere
+// the user looks and gave the three ranks names (ผู้ช่วย / พนักงาน / ลูกมือ), and
+// this string kept the old pair for a month — so a user who wrote "ลูกมือ" was
+// using a word the model had never been shown, and the model answered with
+// "ผู้ช่วย" for a helper, which on screen is the head itself (owner, 14 ก.ย.
+// 2026: "ศัพท์กับยศมีแค่ UI โมเดลไม่เคยเห็น ควรจะแก้"). The kind word for a
+// colleague stays เอเจน beside its rank, because the settings pages still say
+// both.
+//
 // What this deliberately does NOT say is what an agent hands back. It used to
 // promise "a finished file", and that one clause decided the answer before the
 // user's request had even been read: told that agents return files, the caller
@@ -464,10 +473,10 @@ func agentChoice(profiles []Profile) string {
 	}
 	out := "Which worker. The user writes @name for the same thing."
 	if len(agents) > 0 {
-		out += "\nAGENTS (เอเจน), a colleague who takes a whole job: " + strings.Join(agents, " | ")
+		out += "\nAGENTS (พนักงาน / เอเจน), a colleague who takes a whole job: " + strings.Join(agents, " | ")
 	}
 	if len(helpers) > 0 {
-		out += "\nHELPERS (ซับเอเจน), your own hands for one step of YOUR work: " + strings.Join(helpers, " | ")
+		out += "\nHELPERS (ลูกมือ), your own hands for one step of YOUR work: " + strings.Join(helpers, " | ")
 	}
 	return out
 }
@@ -481,11 +490,11 @@ func agentRoster(profiles []Profile) string {
 	}
 	out := "Who you can hand work to, in full."
 	if len(agents) > 0 {
-		out += "\nAGENTS (เอเจน) — a colleague who takes a whole job off your hands. Brief them like a coworker and use what comes back:\n  " +
+		out += "\nAGENTS (พนักงาน / เอเจน) — a colleague who takes a whole job off your hands. Brief them like a coworker and use what comes back:\n  " +
 			strings.Join(agents, "\n  ")
 	}
 	if len(helpers) > 0 {
-		out += "\nHELPERS (ซับเอเจน) — your own hands for one step of YOUR work, in a second context so it stays out of this one:\n  " +
+		out += "\nHELPERS (ลูกมือ) — your own hands for one step of YOUR work, in a second context so it stays out of this one:\n  " +
 			strings.Join(helpers, "\n  ")
 	}
 	return out

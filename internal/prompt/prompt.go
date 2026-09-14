@@ -1896,6 +1896,15 @@ func person(name string) string {
 // The desk rides along on a plain desk session and is left off a chair chat,
 // where desk.Name is the chair's own name and "at the doc desk" would be a
 // sentence about the wrong thing.
+//
+// The rank sentence is here because this is the only line that carries a
+// team's NAME, and the seed team's name is «ผู้ช่วยในคอมพิวเตอร์». The screen
+// has called the three levels ผู้ช่วย / พนักงาน / ลูกมือ since b2f8b810 and
+// the model was never told, so "ส่งงานให้ผู้ช่วยในคอมพิวเตอร์ ทดสอบทั้งหมด"
+// (owner, 14 ก.ย. 2026) read as "you, the ผู้ช่วย, test everything" and it
+// hired its own tester rather than anyone on the team. The two lower words are
+// also in `task`'s schema, beside the workers they name; the top one has no
+// tool to live in, so it is taught where the collision is.
 func team(desk Desk) string {
 	name := strings.Join(strings.Fields(desk.Team), " ")
 	if name == "" {
@@ -1907,7 +1916,9 @@ func team(desk Desk) string {
 	}
 	return "This chat is on the team «" + name + "»" + where + ": the colleagues you can hand a whole " +
 		"job to are that team's members, and when the user asks which team or desk this is, that is the " +
-		"answer — you do not need to verify it through a tool.\n"
+		"answer — you do not need to verify it through a tool. The user's words for the three ranks: you " +
+		"are the ผู้ช่วย, a team member is a พนักงาน (also เอเจน), your own hands are ลูกมือ — so ผู้ช่วย " +
+		"inside a team's name is that team, not you.\n"
 }
 
 // layer heads one folded file with what it is, and names the file only when the
