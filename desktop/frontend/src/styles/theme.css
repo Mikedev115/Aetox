@@ -96,6 +96,9 @@
   --badge-think-bg:var(--c-navy-think);
   --badge-think-text:var(--c-blue-200);
   --badge-think-border:var(--c-navy-think-border);
+  --badge-amber-bg:#2b1d0c;
+  --badge-amber-text:#e5a93c;
+  --badge-amber-border:#5c3d14;
   --chip-count-bg:var(--c-navy-badge);
   --chip-count-text:var(--c-sky-300);
   --chip-count-border:var(--c-navy-badge-border);
@@ -181,6 +184,7 @@
   --badge-cyan-bg:#d9f3f0; --badge-cyan-text:#179299; --badge-cyan-border:#a9dfe0;
   --badge-blue-bg:#e2ecff; --badge-blue-text:#1e66f5; --badge-blue-border:#c3d6f7;
   --badge-think-bg:#eae6ff; --badge-think-text:#7287fd; --badge-think-border:#d3ccf5;
+  --badge-amber-bg:#fbf0db; --badge-amber-text:#df8e1d; --badge-amber-border:#f3d79b;
   --chip-count-bg:#e2ecff; --chip-count-text:#1e66f5; --chip-count-border:#c3d6f7;
   --node-active-bg:#e2ecff; --node-active-text:#1e66f5; --node-active-ring:#b6ccf3;
   --diff-add-text:#40a02b; --diff-del-text:#d20f39; --diff-hunk-bg:#f0eafb; --diff-hunk-text:#8839ef;
@@ -273,6 +277,7 @@
   --badge-cyan-bg:#e1eef0; --badge-cyan-text:#286983; --badge-cyan-border:#bcdbe0;
   --badge-blue-bg:#e1eef0; --badge-blue-text:#56949f; --badge-blue-border:#bcdbe0;
   --badge-think-bg:#ece5f5; --badge-think-text:#907aa9; --badge-think-border:#d5c7e8;
+  --badge-amber-bg:#fbf0db; --badge-amber-text:#ea9d34; --badge-amber-border:#f3d79b;
   --chip-count-bg:#e1eef0; --chip-count-text:#286983; --chip-count-border:#bcdbe0;
   --node-active-bg:#e1eef0; --node-active-text:#286983; --node-active-ring:#bcdbe0;
   --diff-add-text:#4f7a3d; --diff-del-text:#b4637a; --diff-hunk-bg:#ece5f5; --diff-hunk-text:#907aa9;
@@ -321,6 +326,7 @@
   --badge-cyan-bg:#dde8e0; --badge-cyan-text:#427b58; --badge-cyan-border:#b9d4c2;
   --badge-blue-bg:#dbe9ec; --badge-blue-text:#076678; --badge-blue-border:#b3d4da;
   --badge-think-bg:#ece1ec; --badge-think-text:#8f3f71; --badge-think-border:#d7bfd6;
+  --badge-amber-bg:#fbf0db; --badge-amber-text:#b57614; --badge-amber-border:#f3d79b;
   --chip-count-bg:#dbe9ec; --chip-count-text:#076678; --chip-count-border:#b3d4da;
   --node-active-bg:#dbe9ec; --node-active-text:#076678; --node-active-ring:#b3d4da;
   --diff-add-text:#79740e; --diff-del-text:#9d0006; --diff-hunk-bg:#ece1ec; --diff-hunk-text:#8f3f71;
@@ -413,6 +419,7 @@
   --badge-cyan-bg:#dff1ef; --badge-cyan-text:#1e7d76; --badge-cyan-border:#b5dfdb;
   --badge-blue-bg:#dcebf7; --badge-blue-text:#268bd2; --badge-blue-border:#b7d8ef;
   --badge-think-bg:#e6e6f5; --badge-think-text:#6c71c4; --badge-think-border:#c9c9e8;
+  --badge-amber-bg:#fbf0db; --badge-amber-text:#b58900; --badge-amber-border:#f3d79b;
   --chip-count-bg:#dcebf7; --chip-count-text:#1e7d76; --chip-count-border:#b7d8ef;
   --node-active-bg:#dcebf7; --node-active-text:#268bd2; --node-active-ring:#b7d8ef;
   --diff-add-text:#657b00; --diff-del-text:#dc322f; --diff-hunk-bg:#e6e6f5; --diff-hunk-text:#6c71c4;

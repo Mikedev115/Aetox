@@ -12,10 +12,11 @@
   // stays one body (COMPANY.md §6), and this is a sticker on its corner.
   import type { Snippet } from 'svelte'
   import { t } from './i18n.svelte'
+  import Icon from './Icon.svelte'
 
-  let { tier, size, children }: { tier: 'head' | 'agent' | 'helper'; size: number; children: Snippet } = $props()
-  const bars = $derived(tier === 'head' ? 3 : tier === 'agent' ? 2 : 1)
-  const word = $derived(tier === 'head' ? t('rank.head') : tier === 'agent' ? t('rank.agent') : t('rank.helper'))
+  let { tier, size, children }: { tier: 'head' | 'agent' | 'helper' | 'guide'; size: number; children: Snippet } = $props()
+  const bars = $derived(tier === 'head' ? 3 : tier === 'agent' ? 2 : tier === 'helper' ? 1 : 0)
+  const word = $derived(tier === 'head' ? t('rank.head') : tier === 'agent' ? t('rank.agent') : tier === 'helper' ? t('rank.helper') : t('rank.guide'))
   // 16px on a 38px face, 28px on the editor's 168px stage, never a dot.
   const px = $derived(Math.round(Math.min(30, Math.max(14, size * 0.42))))
 </script>
@@ -23,7 +24,11 @@
 <span class="ranked" style="width:{size}px;height:{size}px">
   {@render children()}
   <span class="rank-corner rank-{tier}" style="--px:{px}px" title={word} aria-label={word} role="img">
-    <span class="rank-bars" aria-hidden="true">{#each Array(bars) as _, i (i)}<i></i>{/each}</span>
+    {#if tier === 'guide'}
+      <span class="rank-compass" aria-hidden="true"><Icon name="compass" size={Math.round(px * 0.72)} /></span>
+    {:else}
+      <span class="rank-bars" aria-hidden="true">{#each Array(bars) as _, i (i)}<i></i>{/each}</span>
+    {/if}
   </span>
 </span>
 
@@ -39,7 +44,9 @@
   }
   .rank-bars { display: inline-flex; gap: calc(var(--px) * .09); align-items: flex-end; height: calc(var(--px) * .4); }
   .rank-bars i { display: block; width: calc(var(--px) * .12); height: 100%; border-radius: 1px; background: currentColor; }
+  .rank-compass { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
   .rank-head { color: var(--badge-think-text); background: var(--badge-think-bg); outline: 1px solid var(--badge-think-border); }
   .rank-agent { color: var(--badge-cyan-text); background: var(--badge-cyan-bg); outline: 1px solid var(--badge-cyan-border); }
   .rank-helper { color: var(--text-muted); background: var(--surface-sunken); outline: 1px solid var(--border-subtle); }
+  .rank-guide { color: var(--badge-amber-text); background: var(--badge-amber-bg); outline: 1px solid var(--badge-amber-border); }
 </style>

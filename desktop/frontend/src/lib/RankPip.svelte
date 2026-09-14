@@ -15,17 +15,22 @@
   // face, never on the rig — the mascot stays one body (COMPANY.md §6).
   // A rank is the level's and is not a setting on anything.
   import { t } from './i18n.svelte'
+  import Icon from './Icon.svelte'
 
   // word=false is the bars alone — for a place where the word is already
   // written beside it, like the rail's row named พนักงาน (owner, 14 ก.ย.:
   // "ในหน้าเมนู ทำสัญลักษณ์ยศแปะไว้ด้วย"). The word stays as the tooltip.
-  let { tier, size = 'sm', word: showWord = true }: { tier: 'head' | 'agent' | 'helper'; size?: 'sm' | 'md'; word?: boolean } = $props()
-  const bars = $derived(tier === 'head' ? 3 : tier === 'agent' ? 2 : 1)
-  const word = $derived(tier === 'head' ? t('rank.head') : tier === 'agent' ? t('rank.agent') : t('rank.helper'))
+  let { tier, size = 'sm', word: showWord = true }: { tier: 'head' | 'agent' | 'helper' | 'guide'; size?: 'sm' | 'md'; word?: boolean } = $props()
+  const bars = $derived(tier === 'head' ? 3 : tier === 'agent' ? 2 : tier === 'helper' ? 1 : 0)
+  const word = $derived(tier === 'head' ? t('rank.head') : tier === 'agent' ? t('rank.agent') : tier === 'helper' ? t('rank.helper') : t('rank.guide'))
 </script>
 
 <span class="rank rank-{size} rank-{tier}" class:rank-bare={!showWord} title={word} aria-label={word} role="img">
-  <span class="rank-bars" aria-hidden="true">{#each Array(bars) as _, i (i)}<i></i>{/each}</span>
+  {#if tier === 'guide'}
+    <span class="rank-compass" aria-hidden="true"><Icon name="compass" size={size === 'md' ? 14 : 12} /></span>
+  {:else}
+    <span class="rank-bars" aria-hidden="true">{#each Array(bars) as _, i (i)}<i></i>{/each}</span>
+  {/if}
   {#if showWord}<span class="rank-word">{word}</span>{/if}
 </span>
 
@@ -40,9 +45,12 @@
   .rank-bars { display: inline-flex; gap: 2px; align-items: flex-end; height: .8em; }
   .rank-bars i { display: block; width: 3px; height: 100%; border-radius: 1px; background: currentColor; }
   .rank-md .rank-bars i { width: 3.5px; }
+  .rank-compass { display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
   /* the app's own badge tokens (palette.css): the head in the think badge's
-     colour, the specialist in cyan, the helper in the quiet sunken surface */
+     colour, the specialist in cyan, the helper in the quiet sunken surface,
+     the guide in amber */
   .rank-head { color: var(--badge-think-text); background: var(--badge-think-bg); border-color: var(--badge-think-border); }
   .rank-agent { color: var(--badge-cyan-text); background: var(--badge-cyan-bg); border-color: var(--badge-cyan-border); }
   .rank-helper { color: var(--text-muted); background: var(--surface-sunken); border-color: var(--border-subtle); }
+  .rank-guide { color: var(--badge-amber-text); background: var(--badge-amber-bg); border-color: var(--badge-amber-border); }
 </style>
