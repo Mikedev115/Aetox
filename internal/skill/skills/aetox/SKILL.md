@@ -36,7 +36,7 @@ Skills are the deliberate exception and do **not** live here — see below.
 | `<DataRoot>/memory` | `USER.md` (one file, every desk and every worker reads it), `MEMORY.md` (the ผู้ช่วย desk's own since 11 ก.ย. — the โค้ด desk no longer reads it), `modes/coding.md` (the โค้ด desk's cross-project lines), `projects/<name>-<hash>.md` (per project folder). Where a new line lands is the desk's architecture (§184, §247): ผู้ช่วย → `MEMORY.md`, โค้ด with a project focused → that project's file, โค้ด without one → `modes/coding.md`; every label on screen says which desk reads the file |
 | `<DataRoot>/modes` | user desk manifests; a file here overrides the bundled desk of the same name |
 | `<DataRoot>/agents` | one folder per เอเจน: `<name>/AGENT.md` + `<name>/MEMORY.md` + `<name>/STARTERS.md` + `<name>/skills/` + `<name>/mcp.json` |
-| `<DataRoot>/subagents` | ซับเอเจน. A user file under a **bundled** name is a shadow that may change the model (and provider), prompt, description, `steps` and look — never `tools`, `deny`, `needs` or `desk` (§255, 12 ก.ย.); a file under a new name is refused, see below |
+| `<DataRoot>/subagents` | ลูกมือ (the word the screen used to call ซับเอเจน; rank three of ผู้ช่วย / พนักงาน / ลูกมือ, §8b9c785b). A user file under a **bundled** name is a shadow that may change the model (and provider), prompt, description, `steps` and look — never `tools`, `deny`, `needs` or `desk` (§255, 12 ก.ย.); a file under a new name is refused, see below |
 | `<DataRoot>/teams/<name>/TEAM.md` | a team: `desk`, `description`, `members` (agent names). A team hires from one desk only; a chat hires from one team, or from none (§256). The app writes the seeded team `ผู้ช่วยในคอมพิวเตอร์` once, and after that it is an ordinary file — rename, trim or delete it and it stays deleted |
 | `<DataRoot>/project` | โปรเจกต์ of the storefront door |
 | `<DataRoot>/prompts` | user prompt presets |
@@ -165,17 +165,17 @@ somebody who has never used the app, are its.
 | `aetox-finish-branch` | a finished branch: green suite, then merge / PR / leave it, the user's choice |
 | `aetox-skill-writing` | writing or changing a skill: description says when, body is short, tested before it ships |
 
-## The team: เอเจน, ซับเอเจน, desks
+## The team: เอเจน (พนักงาน), ลูกมือ, desks
 
 All three are one markdown file with frontmatter, and **the file's home is its
 kind** — nothing inside decides which it is.
 
-- **เอเจน** — colleagues the user can see and chat with. Bundled ones compiled
+- **เอเจน** — on screen a พนักงาน (rank two), managed under ตั้งค่า › พนักงาน and ตั้งค่า › ทีม: colleagues the user can see and chat with. Bundled ones compiled
   in; the user's live in `<DataRoot>/agents/<name>/` and appear the moment the
   folder exists. Reached three ways: their own chat, `task`, or `@<name>`
   picked off the @ menu (typing the characters does nothing; only เอเจน are
   addressable — GUIDE.md, "Addressing").
-- **ซับเอเจน** — your own hands, never chatted with, and the *set* is closed:
+- **ลูกมือ** (ซับเอเจน in the files) — your own hands, never chatted with, and the *set* is closed:
   the bundled ones are all there are, and a user file under a new name in
   `<DataRoot>/subagents` is refused. Since 12 ก.ย. (§255) a file under a
   bundled name is a shadow and may tune that helper — model and provider,

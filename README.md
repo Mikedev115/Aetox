@@ -378,7 +378,7 @@ Agents are hired through **teams**. A team is a list of agents bound to one desk
 (`<DataRoot>/teams/<name>/TEAM.md`), each side of the app — ผู้ช่วย and โค้ด — has its own teams,
 and a chat hires from one team for its whole life, or from none. The app seeds one team,
 ผู้ช่วยในคอมพิวเตอร์, and after that it is an ordinary file you can rename, trim or delete. Teams
-are managed under ตั้งค่า › ทีมเอเจน; the chip beside the composer says who answers and which team
+are managed under ตั้งค่า › ทีม; the chip beside the composer says who answers and which team
 it hires from.
 
 Agents never call each other. The star has one centre; multi-step work is a conveyor through the
@@ -645,34 +645,38 @@ date-stamped, because the rule above does not have an exception for numbers we w
 
 </details>
 
-## Status — v1.6.3
+## Status — v1.7.0
 
-The core is in place. [Release notes](docs/release-notes/v1.6.3.md) ·
+The core is in place. [Release notes](docs/release-notes/v1.7.0.md) ·
 [roadmap](ROADMAP.md) · [architecture](ARCHITECTURE.md).
 
 Three things it does today that are worth knowing about:
 
-- **The window and the engine are two processes, and the engine can live on another machine.**
-  Everything that thinks, reads files, runs commands and talks to MCP servers is `aetox-engine`,
-  installed beside `aetox.exe` and spoken to over one socket — locally too, so the remote case
-  is the same code with a longer wire. Under ตั้งค่า › เครื่องระยะไกล you add a Linux host by its
-  `ssh` name; one click ships this release's engine over `ssh`, starts it, opens the tunnel and
-  reconnects if it drops. Your provider keys stay on the machine the window runs on: the engine
-  hands each request to the window to sign, and the window signs only for hosts it knows belong
-  to that provider.
-- **The assistant has a face, and it can sit on your desktop.** One robot mascot for the whole
-  company, drawn from code and dressed per agent; it greets you by name, wears a pose for what
-  is going on (listening, reading, a tool running, an error), sleeps on a pillow after five quiet
-  minutes and reads its finished answer aloud with the machine's own voice. ตั้งค่า › อวตาร lets
-  it out of the window onto the desktop — a per-pixel-transparent Win32 window paced to the
-  refresh of whichever monitor it is on, no second browser — and you can resize it between 64 and
-  240 px and drag it anywhere.
-- **Agents are hired through teams, and the `+` button is the one door into a message.** A team
-  is a list of agents on one desk; a chat hires from one team or from none, and the chip by the
-  composer says who answers and which team it draws on. Each agent, and now each sub-agent, can
-  name its own provider and model. The `+` menu holds files, `/` commands, `@` agents and open
-  tabs in one searchable list, and the window folds its side panels instead of refusing to shrink
-  below 1100 px.
+- **It introduces itself, and the company has three ranks.** Between picking a language and
+  connecting a model, a nine-scene tour (รู้จักกับ Aetox) shows the window's four rooms, the two
+  heads, how memory is proposed rather than written, where every byte stays, and how a team hands
+  work out — replayable from ตั้งค่า › เกี่ยวกับ. The heads (ผู้ช่วย and โค้ด) and every
+  พนักงาน and ลูกมือ share one profile page: a face with its rank on the corner, a name you can
+  change, three files that answer who it is / how it thinks / what the desk does, and a memory
+  file of its own — what the work taught *it*, kept apart from what it knows about you.
+- **The console is the third screen, and the dials move under a running turn.** `aetox chat`
+  sits at the coding desk on the same engine the window uses, with `--report` for one JSON line
+  per turn. The thinking level and the approval mode now change mid-turn — the next round of the
+  tool loop reads them, and so does every helper hired after the press. วางแผน hears one voice
+  (its prompt halved), and pressing the plan's button hands มุ่งเป้า one skill with the run's
+  first message instead of rebuilding the engine. A stretch of tool calls folds when it is over,
+  not each time it goes quiet.
+- **The shelf reads its own skills, and grew.** `internal/skilllint` and `aetox skill lint` read
+  a skill before a person judges it, and every skill the app drafts passes the same gate.
+  New on the shelf: `aetox-security` (an attack path at a line, or it is advice),
+  `aetox-performance` (a number at a line, past the noise), `aetox-orient`, the eight cores of
+  obra/superpowers, motion and web-3d, idea-to-architecture, a rewritten code review, and
+  `codebase design`, which spots the tells of UI written by habit. The capability room holds MCP ·
+  skills · built-in tools · computer use · connections · command sets, whole.
+
+**Next** — one provider chain that switches accounts when a plan window is spent · external
+agent programs as engines (§258) · a same-state RAM round for every app in the tour's last scene
+(the rows say which numbers are ours and which are public reports until then).
 
 ## Documentation
 
