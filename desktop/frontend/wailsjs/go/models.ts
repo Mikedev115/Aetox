@@ -587,6 +587,7 @@ export namespace engine {
 	    maxTokens: number;
 	    slices: ContextSlice[];
 	    measured: boolean;
+	    calibratedRounds?: number;
 	    cachedTokens: number;
 	    sweptItems?: number;
 	    sweptTokens?: number;
@@ -603,6 +604,7 @@ export namespace engine {
 	        this.maxTokens = source["maxTokens"];
 	        this.slices = this.convertValues(source["slices"], ContextSlice);
 	        this.measured = source["measured"];
+	        this.calibratedRounds = source["calibratedRounds"];
 	        this.cachedTokens = source["cachedTokens"];
 	        this.sweptItems = source["sweptItems"];
 	        this.sweptTokens = source["sweptTokens"];

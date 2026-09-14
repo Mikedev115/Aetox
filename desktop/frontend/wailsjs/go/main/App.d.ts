@@ -460,6 +460,8 @@ export function MarkIssueReported(arg1:number):Promise<void>;
 
 export function MarkVideoCheckSeen():Promise<void>;
 
+export function MeasureContextFloor():Promise<engine.ContextBreakdown>;
+
 export function MemoryFolderPath():Promise<string>;
 
 export function MemoryScopeInfo(arg1:string):Promise<engine.MemoryScopeInfo>;
