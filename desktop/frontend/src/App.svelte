@@ -13,6 +13,9 @@
   import Projects from './lib/Projects.svelte'
   import Capability from './lib/Capability.svelte'
   import Onboarding from './lib/Onboarding.svelte'
+  import Tour from './lib/Tour.svelte'
+  import Logo from './lib/Logo.svelte'
+  import { tourState } from './lib/tourState.svelte'
   import Updater from './lib/Updater.svelte'
   import EngineStatus from './lib/EngineStatus.svelte'
   import RemoteDirPicker from './lib/RemoteDirPicker.svelte'
@@ -694,6 +697,14 @@
 {/if}
 
 <Onboarding />
+<!-- ตั้งค่า › เกี่ยวกับ › ดูการแนะนำอีกครั้ง: the same tour the wizard plays, on
+     the wizard's own ground, over whatever is open. -->
+{#if tourState.open}
+  <div class="onboard">
+    <div class="brand-ground"><Logo size={520} animate={false} /></div>
+    <Tour onDone={() => (tourState.open = false)} />
+  </div>
+{/if}
 <!-- Outside every view, because the offer belongs to the app and not to a page:
      whichever room the user is standing in, that is where the notice has to
      find them. Renders nothing until there is something to say. -->

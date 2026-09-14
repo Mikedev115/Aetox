@@ -31,6 +31,7 @@
   import { errText } from './errText'
   import CompanionSwitch from './mascot/CompanionSwitch.svelte'
   import { profile, loadProfileName, saveProfileName } from './stores/profile.svelte'
+  import { openTour } from './tourState.svelte'
 
   let { onOpenSettings }: { onOpenSettings: () => void } = $props()
 
@@ -1219,6 +1220,14 @@
           </select>
         </div>
         <CompanionSwitch />
+        <div class="menu-sep"></div>
+        <!-- รู้จักกับ Aetox, beside the things that are about the app rather
+             than the chat (theme, language, the companion, the version): the
+             tour's everyday door (§279.2). The empty chat carries the other
+             one until the first message is sent. -->
+        <button class="plus-menu-item" onclick={() => { profileOpen = false; openTour() }}>
+          <span class="ic"><Icon name="bot" size={14} /></span> {t('settings.tourTitle')}
+        </button>
         <div class="menu-sep"></div>
         <!-- One row, one sentence: which Aetox this is, and the only thing
              worth knowing beside it. The second line appears only when there IS

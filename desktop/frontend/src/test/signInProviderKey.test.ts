@@ -75,6 +75,9 @@ describe('the connect step', () => {
   async function openConnect() {
     render(Onboarding)
     ;(await screen.findByText('ไทย')).click()
+    // Through รู้จักกับ Aetox (§279): skip to its last scene, then เริ่มใช้.
+    ;(await screen.findByText('ข้าม')).click()
+    ;(await screen.findByText('ไปตั้งค่า')).click()
     await waitFor(() => expect(screen.getByText('ต่อสมองให้ Aetox')).toBeTruthy())
   }
 
