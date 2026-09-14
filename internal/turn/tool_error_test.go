@@ -188,6 +188,41 @@ func TestAStoppedTurnClassifiesAsCancelNotAsALesson(t *testing.T) {
 	}
 }
 
+// The same Stop, reported as a sentence rather than an error. task_result
+// folds a collect's ctx.Err() into a Success:false output with a nil error on
+// purpose (the model reads a result, not a crash), which is the one shape the
+// error-value classifier cannot see. Three Stops on a delegate mid-collect
+// (7, 9 and 14 ก.ย.) raised the web_fetch card again, under task_result.
+func TestAStoppedCollectReportedAsTextClassifiesAsCancel(t *testing.T) {
+	stopped := skill.Output{Success: false, Content: "context canceled", Stderr: "context canceled"}
+	if got := classifyToolOutcome(stopped, nil); got != ErrorFromCancel {
+		t.Errorf("a soft cancellation classified as %q, want %q", got, ErrorFromCancel)
+	}
+	// With the outstanding list appended — task_result's fail() names what is
+	// still running on the lines below the reason.
+	listed := skill.Output{Success: false, Stderr: "context canceled\nstill running: task_2 (tester, 4 tool calls so far)"}
+	if got := classifyToolOutcome(listed, nil); got != ErrorFromCancel {
+		t.Errorf("a cancellation with the running list under it classified as %q, want %q", got, ErrorFromCancel)
+	}
+	// The delegate's own spelling, when the Stop landed on it rather than on
+	// the collecting turn (internal/subagent/task.go).
+	delegate := skill.Output{Success: false, Content: "sub-agent stopped: context canceled"}
+	if got := classifyToolOutcome(delegate, nil); got != ErrorFromCancel {
+		t.Errorf("a stopped delegate classified as %q, want %q", got, ErrorFromCancel)
+	}
+	// Cancel outranks the world mark here too, as it does among the errors.
+	both := skill.Output{Success: false, FromWorld: true, Content: "probe: context canceled"}
+	if got := classifyToolOutcome(both, nil); got != ErrorFromCancel {
+		t.Errorf("a canceled world report classified as %q, want %q", got, ErrorFromCancel)
+	}
+	// A sentence that merely mentions the word is not the sentinel: the suffix
+	// is the whole test, so a refusal that quotes it stays unmarked.
+	mention := skill.Output{Success: false, Content: "context canceled is not a valid task id"}
+	if got := classifyToolOutcome(mention, nil); got != "" {
+		t.Errorf("a mention of the sentinel classified as %q, want unmarked", got)
+	}
+}
+
 // A refusal about the call itself — the word the model forgot, the action the
 // tool does not have, the tool this seat does not hold — is marked by its
 // author and classified from the mark, never from the sentence. The problems

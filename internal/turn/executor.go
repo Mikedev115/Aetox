@@ -742,8 +742,7 @@ func classifyToolError(err error) string {
 	// function's own rule — with a suffix fallback because not every tool
 	// wraps ctx.Err() with %w, and Go's one spelling of the sentinel is what
 	// such a tool flattens into its string ("...: context canceled").
-	if err != nil && (errors.Is(err, context.Canceled) ||
-		strings.HasSuffix(err.Error(), context.Canceled.Error())) {
+	if err != nil && (errors.Is(err, context.Canceled) || saysCanceled(err.Error())) {
 		return ErrorFromCancel
 	}
 	if statereport.Is(err) {
@@ -787,10 +786,32 @@ func classifyToolOutcome(out skill.Output, err error) string {
 	if kind := classifyToolError(err); kind != "" {
 		return kind
 	}
-	if err == nil && !out.Success && out.FromWorld {
+	if err != nil || out.Success {
+		return ""
+	}
+	// The same cancel, arriving as text. task_result deliberately folds a
+	// collect's ctx.Err() into a Success:false output with a nil error, so the
+	// model reads "context canceled" as a result it can react to instead of a
+	// crash (internal/subagent/task_result.go) — and the classifier above,
+	// which only ever looked at the error VALUE, never saw it. Three Stops on
+	// a delegate mid-collect (7, 9 and 14 ก.ย. 2026) were enough for the
+	// summarizer to raise "task_result ล้มซ้ำด้วยเหตุเดียวกัน: context
+	// canceled" — the card ErrorFromCancel exists to prevent, back for the
+	// one tool that reports the sentinel as a sentence.
+	if saysCanceled(failureReason(out)) {
+		return ErrorFromCancel
+	}
+	if out.FromWorld {
 		return ErrorFromWorld
 	}
 	return ""
+}
+
+// saysCanceled is the suffix fallback both classifiers share: Go has one
+// spelling of context.Canceled, and a tool that flattened it into a string —
+// wrapped without %w, or folded into an output's reason — ends with it.
+func saysCanceled(reason string) bool {
+	return strings.HasSuffix(strings.TrimSpace(reason), context.Canceled.Error())
 }
 
 func (e *Executor) reportToolCall(ref, name, args string) {
