@@ -9068,3 +9068,17 @@ The second loop, whole: `bootstrapModelWithStatus`, `switchProvider` (the CLI's 
 `internal/app`'s REPL half (`RunInteractive`, the banner, the status bar, the approval picker) now has no caller — the engine uses only `NewApp`/`RunOnce*`/`Console`. §6.1 of ARCHITECTURE.md described that mixing in July; the split it asked for is now a deletion, left for a pass of its own.
 
 **Status:** `Direct`. Proven by hand on a scratch data root: the built-in provider's fallback answer through the whole road; DeepSeek at โต๊ะโค้ด writing and reading back a file in 5.7 s with `⚙ change write hello.txt` / `⚙ read hello.txt` on stderr and only the answer on stdout; `echo goal | aetox` as the message; `--approval ask` refused on a closed stdin. `go test ./cmd/aetox/` green; `go vet` on `cmd/aetox`, `desktop`, `internal/signer` clean.
+
+## 270. Decision — Three Layers for the Assistant Head: Who It Is, How It Thinks, What the Desk Does (2026-09-14)
+
+**Trigger:** the owner read the assistant head's `identity.md` / `thinking.md` (`18301e24`, `8eb391b2`) and the desk file (`027f7e75`) together and set the rule for which line lives where: *"modes/assistant.md คือสิ่งที่มันจะทำชั้นนี้ · identity.md คือตัวตนพื้นฐานของมัน · thinking.md คือวิธีคิดพื้นฐานของมัน แบบ ทัศนคติ หรือ ตอนเจอปัญหา หรือต้องตัดสินใจ"*. Then a two-line identity (*"ประมาณนี้พอ"*) and three new lines for the desk file. §269 is the other session's, uncommitted at the time of writing.
+
+### 270.1 The rule, and where each old line went
+
+- **identity.md — a trait, not a behaviour.** Two lines: a good-humoured friend and personal assistant who talks like someone who knows me; answers in my language. `Name: Aetox` left, because since `8eb391b2` the head's name is the first word of the prompt from ตัวหลัก › ตัวตน, and a second copy in the file would disagree the day the user renames the head. "No flattery, no apologising" is dropped, not moved: a friend does not grovel, the trait line already says it. "Remember what I tell you" was a behaviour → the desk file.
+- **thinking.md — attitude, a problem, a decision.** Kept: answer from what you can check; read for what I want; a dead end means another way. "When unsure, ask the one question" moved in from identity.md — it is a decision rule. "Act before explaining" shrank to its decision half (small jobs just get done, irreversible ones get asked first). "End with a short account" is dropped: it is output shape, and the desk file already says *say what happened afterwards in the same plain words*.
+- **modes/assistant.md — what this desk does.** Three owner lines, in English (prompt text, §267's rule), instruction-only (§267 / `027f7e75` style): the memory paragraph becomes *grow with the user* (remember details, notice routines, propose both); a hard explanation gets a picture — `image_make` draws one, the web finds one; thin or unclear knowledge means opening the browser and reading the source, and a garbled `web_fetch` gets the same — the line names the real difference between the two web tools on this desk. 169 → 221 words.
+
+The coding head's set is untouched; the owner asked for ฝั่งผู้ช่วย.
+
+**Status:** `Direct`. The three locale files carry the same English strings (en/th/zh, `8eb391b2`), so one replacement edits all three; `identityTemplates.test.ts` pins shape, not wording. The owner's own files at `%APPDATA%\aetox\identity\assistant\` were rewritten to the same text, in effect from the next chat.
