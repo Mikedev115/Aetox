@@ -165,6 +165,25 @@ func (g *goalRuns) get(sessionID string) *goalRun {
 
 func (g *goalRuns) running(sessionID string) bool { return g.get(sessionID) != nil }
 
+// stopGoalRun ends the run and detaches its checker from the same conversation.
+// The run is keyed by session, so cleanup must not use the window cursor when the
+// target conversation is not the one currently shown.
+func (a *Engine) stopGoalRun(sessionID string) {
+	sessionID = strings.TrimSpace(sessionID)
+	a.goalRunSet().stop(sessionID)
+
+	current := a.cur()
+	if current.id == sessionID {
+		if current.chat != nil {
+			current.chat.SetGoalCheck(nil)
+		}
+		return
+	}
+	if conv := a.convs.find(sessionID); conv != nil && conv.chat != nil {
+		conv.chat.SetGoalCheck(nil)
+	}
+}
+
 // goalCheck is the question the turn loop asks when it is about to end
 // (turn.TurnOptions.OnGoalCheck). It returns the verdict to keep working on, or
 // "" to let the turn finish.
@@ -473,10 +492,7 @@ func (a *Engine) StartPlanRun(sessionID string) PlanRunStart {
 // other thing.
 func (a *Engine) StopPlanRun(sessionID string) {
 	sessionID = strings.TrimSpace(sessionID)
-	a.goalRunSet().stop(sessionID)
-	if a.cur() != nil && a.cur().chat != nil {
-		a.cur().chat.SetGoalCheck(nil)
-	}
+	a.stopGoalRun(sessionID)
 	if plan, err := a.loadPlan(sessionID); err == nil && plan != nil {
 		a.emitPlan(sessionID, *plan)
 	}
