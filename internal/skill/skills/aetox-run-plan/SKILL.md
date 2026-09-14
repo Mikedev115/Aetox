@@ -1,84 +1,50 @@
 ---
 name: aetox-run-plan
-before: carrying out a written plan or a set of tickets task by task, alone or through subagents
-description: ตอนมีแผนหรือชุด ticket ที่เขียนไว้แล้ว และต้องลงมือทำทีละงานจนจบ ไม่ว่าจะทำเองหรือส่งให้ลูกมือ
-source: https://github.com/obra/superpowers (executing-plans, writing-plans, subagent-driven-development), adapted
-license: MIT
+description: พรอมต์ทำงานยาวของมุ่งเป้า: เอนจินส่งให้โมเดลเองตอนกด "ลงมือตามแผนนี้" เดินตาม steps ของแผนบนการ์ดจนครบและมีรายงาน แก้ไฟล์นี้เพื่อจูนพฤติกรรมตอนทำงานยาว
 copyright: Copyright (c) 2026 Aetox Skills
 ---
 
 # Aetox Run Plan
 
-A plan is run to the end, one task at a time, each task proven before the
-next begins. The plan is followed exactly; what it does not settle is asked
-about, not guessed.
+The user pressed the button on the plan card. That press is the whole brief:
+carry out the plan on the card, step by step, and this turn is not over when
+you feel done. It ends when the run's checker lets it go, which is when every
+step is marked done or failed and the closing report has been written.
 
-## Before the first task
+## Walking the steps
 
-1. Read the whole plan critically. A gap that stops a task, an instruction
-   you do not understand, a step that contradicts the code as it is: raise
-   it now, before any work, and wait for the answer.
-2. Confirm the workspace. Work on a branch or a worktree the user agreed to
-   (`aetox-worktree`); never start on the main branch without being told to.
-3. Turn the tasks into a visible checklist. One item per task, marked as it
-   moves.
+- The checklist is the plan's `steps`, as numbered. Work them in the plan's
+  order; steps that do not depend on each other may go in one reply, with
+  their marks. `plan` (read) shows them with their marks if you need to look.
+- Mark each step with `plan` (step) the moment it is finished, not in a batch
+  at the end. The card is the progress the user is watching. A mark is not a
+  round: send it in the same reply as the next step's first tool call, never
+  in a reply of its own.
+- A step that cannot be done as written is marked `failed` with the reason in
+  `note`. That settles it and the run moves on; leaving it open means the run
+  is never finished. A step that turns out wrong is a finding, not a blocker.
+- Do not rewrite the plan while carrying it out. If a step is missing something
+  that only running the work could show, do the obvious version and say so in
+  the step's note.
 
-## What a task must carry
+## What not to say
 
-A task is runnable by someone with no context, or it is not ready:
+- No progress in prose: no sentence before a tool call, no summary between
+  steps, no recap when you finish. Every sentence written here is re-sent
+  with every later round of this run; the card already says where you are.
+- Say something only when it changes what happens next: a step that failed
+  and why, or an assumption you had to take.
+- Do not stop to offer the next step, to ask whether to continue, or to check
+  whether the user is still there. The press was the answer. Stop for them
+  only where a step needs a call that is theirs (`ask_user`, once, with
+  options, then carry on) or where an action cannot be undone.
 
-- Files: exact paths to create, to modify (with the lines), and the test.
-- Interfaces: what it consumes from earlier tasks and what it produces for
-  later ones, as exact names and signatures.
-- Steps of one action each: write the failing test, run it and watch it
-  fail, write the least code that passes, run it, commit.
-- Verification: the command to run and the output that means done.
-- The plan's global constraints (versions, names, formats) apply to every
-  task without being repeated in it.
+## Finishing
 
-A task missing these is not started; the missing part is written first.
-
-## Running a task yourself
-
-Follow the steps as written. Run every verification the task names and read
-the output. Stop and ask when a step fails twice, a dependency is missing or
-an instruction is unclear; do not force through a blocker, and do not
-improve the plan silently while executing it.
-
-## Running a task through a subagent
-
-- A fresh subagent per task. Its brief is that task's text and the
-  interfaces it touches, plus the global constraints, and nothing else: no
-  session history, no summary of earlier tasks (a real dispatch was 42,000
-  characters of pasted history around 400 of task).
-- Exact values (numbers, strings, signatures) live in the brief, quoted
-  verbatim; never make a subagent read the whole plan.
-- One implementer at a time. Never two on code that may touch.
-- The implementer does not dispatch subagents of its own, and does not
-  review itself in place of the review below.
-- It reports one of four: done, done with concerns, needs context, blocked.
-  Concerns are read before moving on; missing context is supplied and the
-  task re-sent; blocked is assessed by you, never answered by "try again"
-  unchanged.
-
-## Review every task, twice
-
-After a task is reported done, a reviewer who did not write it gets the
-brief, the report and the diff of that task (from the commit recorded before
-dispatch, never `HEAD~1`), and returns two verdicts:
-
-1. Spec compliance: does the change do what the task said, with the exact
-   values the task named, and nothing the task did not ask for.
-2. Quality: would `aetox-code-review` merge it.
-
-Both are required. Findings go back to the implementer, one fix round at a
-time, each re-run and re-reviewed on the fix's own diff. After three rounds
-without closing, a fresh implementer on a stronger model; after five, stop
-and bring the open findings to the user. Never widen the next task to
-absorb what this one left open.
-
-## When all tasks are done
-
-One broad review of the whole branch against the spec, then
-`aetox-finish-branch`. Report what was run and what it said, the tasks
-completed, and anything left open with why.
+When the last step is marked, verify the plan's own "How you will know it
+worked" (actually run or read whatever settles it) and write the closing
+report with `plan` (report) under its three headings. What you ran and what it
+printed goes under "How it was checked"; what the user still has to look at
+with their own eyes goes there too. The user reads the report instead of your
+answer, so after it the answer is one line. Before any "it passes" in that
+report, `aetox-verify` is the rule: no claim without the command that proves it.

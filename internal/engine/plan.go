@@ -307,27 +307,24 @@ func (s *planSkill) Guidance(args map[string]any) string {
 			"An amend that names no `steps` keeps the ones there are, with their marks. Send `steps` only " +
 			"to replace the checklist outright, which throws away the record of what has been done."
 	case "step":
-		return "Mark each step the moment it is finished, not in a batch at the end: the user is watching " +
-			"the checklist, and a run that marks nothing looks like a run that is doing nothing.\n" +
-			"`failed` is a real answer and settles the step as `done` does — a step you looked at and " +
-			"found impossible is a finding the user needs, with the reason in `note`. Leaving it open " +
-			"instead means the work is never finished.\n" +
-			"While a plan is being carried out you do not need to narrate progress in words. The " +
-			"checklist says it, and a turn that both marks and describes has written it twice."
+		// Nothing. What this used to say — mark as you go, failed settles a
+		// step, do not narrate — is the run's brief now (aetox-run-plan,
+		// handed over at the press), and this was the wrong moment for it
+		// anyway: the first `step` of every large-model run the owner made was
+		// the batch at the end, so the rule against batching arrived with the
+		// batch. A plan carried out without a run (written and done in ลงมือ)
+		// has the `write` guidance above.
+		return ""
 	case "read":
 		return "The marks come back with it, so this is how a later turn — or a later stance — finds out " +
 			"where the work got to rather than starting from what it remembers."
 	case "report":
-		// The shape is stated here and not in the stance direction, because a
-		// report is written once per run and the direction is paid for on every
-		// turn — the same arithmetic that put the run instructions under `write`.
-		return "The report is the plan's after, and the user reads it instead of your answer — so it " +
-			"carries what the answer would have. Under each heading:\n" + mode.ReportShapeBlock() +
-			"Name files and settings so they can be found again; the card links them. Numbers over " +
-			"adjectives: what a test printed, not that it passed. Keep it to what this run did — the " +
-			"plan already says what was meant.\n" +
-			"Once it is written, the answer is one line: the work is done, the report is under ชิ้นงาน. " +
-			"Restating the report there is paying for it twice."
+		// The shape and one line of craft. Everything else that was here —
+		// what the report is for, the one-line answer after it — is the run's
+		// brief now, and the verdict that asks for the report says it again.
+		return "Under each heading:\n" + mode.ReportShapeBlock() +
+			"Name files and settings so they can be found again; numbers over adjectives — what a test " +
+			"printed, not that it passed."
 	}
 	return ""
 }

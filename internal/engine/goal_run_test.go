@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Mikedev115/Aetox/internal/mode"
+	"github.com/Mikedev115/Aetox/internal/skill"
 )
 
 func goalApp(t *testing.T) *planSkill {
@@ -85,21 +86,25 @@ func TestAFailedStepSettlesRatherThanLooping(t *testing.T) {
 	call(t, s, map[string]any{"action": "step", "n": 2, "state": "failed", "note": "the deadline is not reachable from here"})
 	call(t, s, map[string]any{"action": "step", "n": 3, "state": "done"})
 
-	// Gate one is satisfied, so what comes back is gate two — the plan's own
-	// finish condition — and not another list of steps.
+	// Gate one is satisfied, so what comes back is the report gate — carrying
+	// the plan's own finish condition — and not another list of steps.
 	verdict := s.app.goalCheck(id)("two done, one impossible")
 	if strings.Contains(verdict, "not marked done") {
 		t.Errorf("a failed step kept the run open:\n%s", verdict)
 	}
-	if !strings.Contains(verdict, "go test ./desktop/") {
-		t.Errorf("gate two did not hand back the plan's finish condition:\n%s", verdict)
+	if !strings.Contains(verdict, "go test ./desktop/") || !strings.Contains(verdict, "action: report") {
+		t.Errorf("the report gate did not hand back the plan's finish condition with the ask for the report:\n%s", verdict)
 	}
 }
 
-// GATE TWO fires once and then never again. A gate that can fire repeatedly on
-// prose is a gate that argues, and the ceiling — not this — is what handles a
-// run that genuinely cannot finish.
-func TestTheFinishConditionIsAskedOnce(t *testing.T) {
+// TWO GATES, NOT THREE. The finish condition is not a gate of its own any more:
+// it rides with the ask for the report, whose "How it was checked" is where
+// the answer belongs. From §236 to 14 ก.ย. it was asked first, once, as a prose
+// question — and the answer was a second closing message written after the one
+// the check had just demoted (§289). The report gate is mechanical — a row
+// exists or it does not — so it may repeat, and it carries the condition every
+// time: a row is what the checker counts, a paragraph is not.
+func TestTheFinishConditionRidesWithTheReportGate(t *testing.T) {
 	s := goalApp(t)
 	writeRunnablePlan(t, s)
 	id := s.sessionID()
@@ -109,21 +114,15 @@ func TestTheFinishConditionIsAskedOnce(t *testing.T) {
 	}
 
 	check := s.app.goalCheck(id)
-	if first := check("finished"); !strings.Contains(first, "go test ./desktop/") {
-		t.Fatalf("the finish condition was not asked at all:\n%s", first)
+	first := check("finished")
+	if !strings.Contains(first, "go test ./desktop/") || !strings.Contains(first, "action: report") {
+		t.Fatalf("the first verdict after the steps is not the report gate carrying the finish condition:\n%s", first)
 	}
-	// What comes next is GATE THREE, not the finish condition again: the
-	// closing report (plan_report.go). Mechanical like gate one, so it may
-	// repeat — a report exists or it does not — and it names the action.
-	second := check("I ran it, it passes")
-	if strings.Contains(second, "go test ./desktop/") {
-		t.Errorf("the finish condition was asked twice, so the run argues:\n%s", second)
+	if strings.Contains(first, "Every step of the plan is marked done. Before this turn ends") {
+		t.Errorf("the finish condition is still a gate of its own:\n%s", first)
 	}
-	if !strings.Contains(second, "action: report") {
-		t.Fatalf("the run was let go without its report:\n%s", second)
-	}
-	if third := check("done, I said"); !strings.Contains(third, "action: report") {
-		t.Errorf("the report gate gave up after one ask, and a run can end with nothing written down:\n%s", third)
+	if second := check("done, I said"); !strings.Contains(second, "action: report") {
+		t.Errorf("the report gate gave up after one ask, and a run can end with nothing written down:\n%s", second)
 	}
 	if s.app.goalRunSet().running(id) == false {
 		t.Fatal("the run ended before its report was written")
@@ -534,26 +533,84 @@ func TestStartingARunTellsTheWindowToSend(t *testing.T) {
 // The instructions live where this repo puts instructions: guidance, delivered
 // once with the first result and never again — not in a message that is re-sent
 // on every round.
-func TestTheStepInstructionsAreGuidanceRatherThanAMessage(t *testing.T) {
+func TestTheRunRulesAreTheBriefNotTheStepGuidance(t *testing.T) {
 	s := planApp(t)
-	g := s.Guidance(map[string]any{"action": "step"})
-	if !strings.Contains(g, "the moment it is finished") {
-		t.Errorf("nothing tells it to mark as it goes: %s", g)
+	// `step` teaches nothing once: what it said — mark as you go, failed
+	// settles, do not narrate — is the run's brief, handed over at the press
+	// (TestTheBriefRidesWithTheRunsFirstMessageOnly). Here it arrived with the
+	// first `step`, which on every large-model run the owner made was the
+	// batch at the end (§289).
+	if g := s.Guidance(map[string]any{"action": "step"}); g != "" {
+		t.Errorf("the step guidance still carries run rules, a second copy of the brief at the wrong moment: %s", g)
 	}
-	if !strings.Contains(g, "failed") {
-		t.Errorf("nothing tells it that failed is a real answer: %s", g)
-	}
-	if !strings.Contains(g, "narrate") {
-		t.Errorf("nothing tells it to stop describing progress: %s", g)
-	}
-	// And the write half says where the checklist goes, which is the mistake
-	// that made the first real plan of the day inert.
+	// The write half still says where the checklist goes, which is the
+	// mistake that made the first real plan of the day inert.
 	if w := s.Guidance(map[string]any{"action": "write"}); !strings.Contains(w, "`steps`") {
 		t.Errorf("the write guidance does not say where the checklist goes: %s", w)
+	}
+	// The report half is the shape and one line of craft, nothing about what
+	// a report is for — the brief and the verdict say that.
+	r := s.Guidance(map[string]any{"action": "report"})
+	for _, h := range mode.ReportHeadings() {
+		if !strings.Contains(r, h) {
+			t.Errorf("the report guidance lost the heading %q: %s", h, r)
+		}
+	}
+	if strings.Contains(r, "ชิ้นงาน") {
+		t.Errorf("the report guidance still explains what the report is for, which the brief already did: %s", r)
 	}
 	// Nothing to say once about an action whose signature says it all gets "".
 	if s.Guidance(map[string]any{"action": "sing"}) != "" {
 		t.Error("guidance is returned for an action that does not exist")
+	}
+}
+
+// THE BATON. The run's brief — the `aetox-run-plan` skill, whole — goes to the
+// model with the first message after the button was pressed, once, and never
+// to a conversation that is not running its plan. It is what the model reads
+// under the user's line; the transcript keeps the line (app.go: `sent` beside
+// `text`).
+func TestTheBriefRidesWithTheRunsFirstMessageOnly(t *testing.T) {
+	s := goalApp(t)
+	writeRunnablePlan(t, s)
+	id := s.sessionID()
+	if brief := s.app.runBriefFor(id); brief != "" {
+		t.Fatalf("a conversation that is not running its plan was handed the brief:\n%s", brief)
+	}
+	s.app.goalRunSet().start(id)
+	brief := s.app.runBriefFor(id)
+	for _, want := range []string{"the moment it is finished", "failed", "No progress in prose", "`plan` (report)"} {
+		if !strings.Contains(brief, want) {
+			t.Errorf("the brief does not say %q:\n%s", want, brief)
+		}
+	}
+	if strings.Contains(brief, "---\nname:") {
+		t.Errorf("the brief carries the skill's frontmatter:\n%s", brief)
+	}
+	if again := s.app.runBriefFor(id); again != "" {
+		t.Errorf("the brief was handed over twice — it is re-sent with every round already:\n%s", again)
+	}
+	// A new run is a new hand-over.
+	s.app.goalRunSet().stop(id)
+	s.app.goalRunSet().start(id)
+	if s.app.runBriefFor(id) == "" {
+		t.Error("a second run of the same conversation got no brief")
+	}
+}
+
+// The brief is a skill and not a before-line: the engine hands it over, so the
+// model is not also told to go and open it — and a run is not two rulebooks.
+func TestTheRunBriefIsHandedOverNotClaimed(t *testing.T) {
+	raw, err := skill.Body(runBriefSkill)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fields, _, err := skill.ParseFrontmatter(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fields["before"] != "" {
+		t.Errorf("%s claims a moment (%q) as well as being handed over at the press — two rulebooks for one run", runBriefSkill, fields["before"])
 	}
 }
 

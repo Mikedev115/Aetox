@@ -297,6 +297,13 @@ func probeTurn(t *testing.T, a *Engine, ask string, limit time.Duration) (TurnRe
 
 const toyBrief = "เพิ่มการหารให้เครื่องคิดเลขตัวนี้หน่อยครับ ให้ครบเหมือนตัวอื่น"
 
+// longBrief is the run-sized job: enough steps (about eight) that "marked as
+// it went" and "marked in one batch at the end" look different, and that a
+// sentence per round adds up to something the trace can count.
+const longBrief = "ทำให้เครื่องคิดเลขตัวนี้ครบชุดหน่อยครับ: เพิ่ม Div, Mod และ Pow พร้อมเทสต์ของแต่ละตัว, " +
+	"เพิ่ม cmd/calc/main.go เป็น CLI รับ `calc <op> <a> <b>` แล้วพิมพ์ผล (มีเทสต์ด้วย), " +
+	"และอัปเดต README ให้ตรงของจริงทั้งหมด"
+
 func TestLivePlanThenGoal(t *testing.T) {
 	sandbox := toyProject(t)
 	before := treeSnapshot(t, sandbox)
@@ -314,7 +321,7 @@ func TestLivePlanThenGoal(t *testing.T) {
 		t.Fatal(err)
 	}
 	u0 := lastUsageID(db)
-	reply, took := probeTurn(t, a, toyBrief, 12*time.Minute)
+	reply, took := probeTurn(t, a, longBrief, 12*time.Minute)
 	tr := trace(reply.Parts)
 	u := usageSince(t, db, u0)
 	t.Logf("PLAN TURN  %s  usage rounds=%d in=%d out=%d cached=%d\n  %s", took.Round(time.Second), u.rounds, u.in, u.out, u.cached, tr)
@@ -341,6 +348,12 @@ func TestLivePlanThenGoal(t *testing.T) {
 	if !started.Started {
 		t.Fatalf("run refused: %s", started.Refusal)
 	}
+	// AETOX_PROBE_NO_BRIEF=1 runs the baseline: the run as it was before the
+	// brief was handed over at the press, so the two can be read side by side.
+	if os.Getenv("AETOX_PROBE_NO_BRIEF") == "1" {
+		a.goalRunSet().get(sid).briefed = true
+		t.Log("BASELINE: brief withheld")
+	}
 	u1 := lastUsageID(db)
 	reply2, took2 := probeTurn(t, a, "ลงมือตามแผนนี้เลยครับ", 25*time.Minute)
 	tr2 := trace(reply2.Parts)
@@ -350,6 +363,14 @@ func TestLivePlanThenGoal(t *testing.T) {
 	running := a.goalRunSet().get(sid) != nil
 	t.Logf("GOAL RUN  %s  usage rounds=%d in=%d out=%d cached=%d  sentBack=%d stillRunning=%v\n  %s", took2.Round(time.Second), u.rounds, u.in, u.out, u.cached, tr2.demoted, running, tr2)
 	t.Logf("GOAL STEP SPREAD: %s", stepSpread(reply2.Parts, tr2))
+	opened := 0
+	for _, p := range reply2.Parts {
+		if p.Kind == turn.PartTool && p.Tool != nil && p.Tool.Name == "skill_view" {
+			opened++
+			t.Logf("  skill_view: %s", p.Tool.Subject)
+		}
+	}
+	t.Logf("GOAL SKILLS OPENED: %d", opened)
 	t.Logf("GOAL ASKED: %d — %s", len(asked), strings.Join(asked, " | "))
 	t.Logf("GOAL REPLY (%d chars): %s", len(reply2.Text), reply2.Text)
 	for i, p := range reply2.Parts {
