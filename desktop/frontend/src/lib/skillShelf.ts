@@ -150,37 +150,6 @@ export const SKILL_PRESETS: SkillPreset[] = [
     licence: 'MIT',
     verifiedAt: '2026-09-05',
   },
-
-  // Same provenance caveat as the entry above: the channel has videos on
-  // agentic engineering and on leaving vibe coding behind, and this is the
-  // best-known pack on that subject rather than a repository any of them was
-  // seen to name.
-  //
-  // Measured 2026-09-05: 14 skills, 51 files, 225 KB.
-  //
-  // Rule 1 needed real care here, because `test-driven-development` and
-  // `systematic-debugging` sit beside aetox-testing and aetox-debug and the
-  // overlap is genuine. What is not covered anywhere in Aetox is the half
-  // about running an agent: using-git-worktrees, dispatching-parallel-agents,
-  // subagent-driven-development, and verification-before-completion are about
-  // how an agent should carry work, not about the code it writes. Aetox has
-  // agents and desks and no written discipline for either.
-  {
-    name: 'obra/superpowers',
-    repo: 'https://github.com/obra/superpowers',
-    desc: 'A working method for agents: worktrees, parallel subagents, plans, and verifying before claiming done',
-    why: 'Aetox ships agents and a workbench and no written discipline for using them. This is that discipline — how to split work across worktrees, when to dispatch subagents in parallel, and the rule that nothing is finished until it has been verified rather than asserted. Its TDD and debugging skills do overlap aetox-testing and aetox-debug; the agent-workflow half has no counterpart here at all.',
-    installs: [
-      'brainstorming', 'dispatching-parallel-agents', 'executing-plans',
-      'finishing-a-development-branch', 'receiving-code-review', 'requesting-code-review',
-      'subagent-driven-development', 'systematic-debugging', 'test-driven-development',
-      'using-git-worktrees', 'using-superpowers', 'verification-before-completion',
-      'writing-plans', 'writing-skills',
-    ],
-    kb: 225,
-    licence: 'MIT',
-    verifiedAt: '2026-09-05',
-  },
 ]
 
 // Checked on 2026-09-05 and deliberately NOT on the shelf. Written down so the
@@ -207,6 +176,16 @@ export const SKILL_PRESETS: SkillPreset[] = [
 //   - anthropics/skills — 20 skills but 414 files and 10.4 MB, the same
 //     one-file-at-a-time problem as bug-hunter, and GitHub reports no licence
 //     for the repository.
+//   - obra/superpowers — was on the shelf from 2026-09-05 to 2026-09-14 for
+//     the half about running an agent (worktrees, parallel subagents, plans,
+//     verifying before claiming done). Rule 1 retired it: those cores are
+//     bundled now as aetox-brainstorm, aetox-run-plan, aetox-parallel,
+//     aetox-worktree, aetox-verify, aetox-review-feedback,
+//     aetox-finish-branch and aetox-skill-writing (DECISIONS §274), beside
+//     the aetox-debug and aetox-forge that already covered its debugging and
+//     TDD. Installing the pack on top would be fourteen second voices, and
+//     its using-superpowers entry skill is the shout-and-announce mechanism
+//     internal/prompt/prompt.go's reads() deliberately does not use.
 //   - Quality-Max/free-qa-skills — clean, small, and 9 stars on 2026-09-05.
 //     Not a reason to refuse it, only a reason not to be the one to put it in
 //     front of everybody yet.

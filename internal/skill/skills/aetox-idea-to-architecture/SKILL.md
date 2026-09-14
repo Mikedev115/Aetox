@@ -1,7 +1,7 @@
 ---
 name: aetox-idea-to-architecture
 before: designing or laying out a system, a product or a feature that has no code yet, from an idea or a goal
-description: ไอเดีย/ฟีเจอร์/เป้าหมายที่ยังไม่มีโค้ด - ถามสิ่งที่เปลี่ยนสถาปัตยกรรมก่อน แล้วออกข้อเสนอที่รีวิวได้: สมมติฐาน คำถามค้าง ความเสี่ยง ทางเลือก ขอบเขตโมดูล โน้ตส่งต่อ ทุกอย่างติดป้าย proposed; ระบบที่มีอยู่แล้วเป็นงานของ aetox-architect
+description: ตอนผู้ใช้มีไอเดีย ฟีเจอร์ หรือเป้าหมายที่ยังไม่มีโค้ดเลย และต้องการโครงสถาปัตยกรรมที่รีวิวได้; ระบบที่มีอยู่แล้วเป็นงานของ aetox-architect
 source: https://github.com/aetox-skills/idea-to-architecture-agent
 license: MIT
 copyright: Copyright (c) 2026 Aetox Skills

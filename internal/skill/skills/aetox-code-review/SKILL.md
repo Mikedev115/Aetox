@@ -1,7 +1,7 @@
 ---
 name: aetox-code-review
 before: reviewing a diff, a PR, a commit or a change before it is merged
-description: รีวิวโค้ดก่อน merge - อ่านโค้ดรอบจุดที่แก้และรันเทสต์ก่อนตัดสิน, ทุก finding มีหลักฐาน ไฟล์:บรรทัด ผลกระทบ ระดับ และทางแก้ที่เล็กที่สุด, ตอบ merge / fix first / discuss
+description: ตอนต้องรีวิว diff, PR, คอมมิต หรือการเปลี่ยนแปลงก่อน merge หรือถูกถามว่าโค้ดนี้ปลอดภัย/ถูกต้องไหม
 source: aetox-architect (Step 6 Assess, Operating Rules 1-2, 16-19), adapted for a single change
 license: MIT
 copyright: Copyright (c) 2026 Aetox Skills

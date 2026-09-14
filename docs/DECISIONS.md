@@ -9160,3 +9160,38 @@ Minutes later the SoC line came out again — owner: *"เดี๋ยวถ้�
 **The sibling that was only a mention.** `aetox-architect` routes a raw idea with no code to `$idea-to-architecture-agent` and, when that skill is missing, tells the user to install it, which in this app nobody can. The skill exists (aetox-skills/idea-to-architecture-agent, MIT, the same family as the architect's source) and is now bundled as `aetox-idea-to-architecture`, ported the way the architect was (`7a952aa1`): SKILL.md + docs/ + templates/, LF, no em dashes (`bf5d7e57`), Aetox frontmatter with a moment-first Thai description and a `before:`; examples/, adapters/, README and INSTALL left behind; both skills name each other by their bundled names. Question-first: it asks what changes boundaries, data, risk or cost before proposing, diverges before it converges, and every element it draws is marked proposed, never existing. 4,877 words across 13 files. The index in `aetox` lists it under the architect.
 
 **Status:** `Direct`. `go test ./internal/skill ./internal/prompt` green; 31 bundled skills, 7 with a `before:` claim (was 4 in the morning).
+
+## 274. Decision — obra/superpowers, Read Whole, Its Cores Bundled as Eight Skills, the Card Retired (2026-09-14)
+
+**Trigger:** *"obra/superpowers สกิลนี้มีอะไรบ้างไปศึกษาดูหน่อย"*, then *"เอามาศึกษาและทำเป็นสกิลของเราได้ไหม ทุกส่วนเลยแต่เจาะเอามาแค่ core สำคัญ … เทียบกับของเก่า ของเราอันไหนเราขาด อย่าให้ขาด"*. Cloned at v6.3.0 (2026-08-12, MIT, Jesse Vincent): fourteen skills, 3,377 lines, one session-start hook that injects `using-superpowers` whole. Read all fourteen against the shelf.
+
+### 274.1 The comparison, skill by skill
+
+| superpowers | words | what its core is | Aetox before today | verdict |
+|---|---|---|---|---|
+| using-superpowers | 480 | hook + "1% chance → you MUST", announce every use, twelve red-flag rationalisations | `capability()` + `reads()` + `before:` claims in prompt.go | **not ported**: the shout-and-announce mechanism is the one `reads()` measured and rejected on 6 ก.ย. |
+| brainstorming | 2,277 | classify spike / bounded / architectural out loud; design in chat; a yes before any code; "too simple" is not an exit | `aetox-grill` (a plan you already have), `aetox-idea-to-architecture` (no code at all) — nothing classified the request first | **ported** as `aetox-brainstorm`, with one adaptation: a job that changes no flow is off the ladder, because `coding.md` and thinking.md say a small job just gets done |
+| writing-plans | 1,048 | a task carries exact files, consumes/produces interfaces, one-action steps, the verifying command and its expected output, global constraints | `aetox-spec` → `aetox-slice` write tickets; the ticket shape did not require the verification command or the interfaces | **ported** into `aetox-run-plan` as "what a task must carry" |
+| executing-plans | 344 | review the plan critically first, follow steps exactly, stop when blocked, never start on main uninvited | nothing | **ported** into `aetox-run-plan` |
+| subagent-driven-development | 4,731 | fresh subagent per task, a brief not a history, no nested subagents, two verdicts per task (spec, quality), fix loop with escalation at 3 and a breaker at 5, one broad final review | `task` tool and teams, no written discipline | **ported** into `aetox-run-plan` (the scripts, templates and ledger left behind) |
+| dispatching-parallel-agents | 860 | one agent per independent problem, same turn, brief self-contained, integrate then run the suite | nothing | **ported** as `aetox-parallel` |
+| using-git-worktrees | 1,064 | detect isolation, ask consent, ignored folder, setup, green baseline before work | nothing | **ported** as `aetox-worktree` |
+| test-driven-development | 1,367 | red, watch it fail, green, refactor; rationalisations | `aetox-forge` (Pocock, at seams, vertical cycles) | covered; forge already verifies red "for the expected reason" |
+| systematic-debugging | 1,430 | four phases, three strikes, no fix before root cause | `aetox-debug` — the same four phases, already ported from this repository | covered |
+| verification-before-completion | 556 | no claim without the command run fresh; claim → what proves it table | `coding.md`'s Done paragraph, coding desk only | **ported** as `aetox-verify`, so the assistant desk and chairs have it too |
+| requesting-code-review | 419 | ask for review at milestones | `aetox-code-review` | covered by the review skill's own `before:` |
+| receiving-code-review | 894 | read all, restate, verify against the code, push back with reasons, one item at a time, no performative agreement | nothing | **ported** as `aetox-review-feedback` |
+| finishing-a-development-branch | 1,243 | green suite, detect worktree/base, exactly three options, the user chooses, cleanup after | `aetox-deploy` is release checklists, not this | **ported** as `aetox-finish-branch` |
+| writing-skills | 3,730 | description = when not what (measured: a summarising description is followed instead of the body); token efficiency; test skills with pressure scenarios | `aetox-skills` finds and installs; nothing on writing one | **ported** as `aetox-skill-writing`, with this app's shelf mechanics (100-character index line, `before:`) in place of theirs |
+
+Eight skills, 3,314 words in all against their 20,000; each says where it came from. Every adaptation is in the body, not hidden: the classification ladder's floor, `aetox-run-plan` folding three of theirs into one moment, the review verdict named as `aetox-code-review`'s.
+
+### 274.2 What their study corrected in today's own work
+
+writing-skills' finding, *a description that summarises the workflow is followed instead of the skill*, is measured, and §271's `aetox-code-review` description was exactly that shape. It and `aetox-idea-to-architecture`'s now say only the moment. The rule is in `aetox-skill-writing` for the next person.
+
+### 274.3 The card leaves the shelf
+
+`skillShelf.ts` rule 1: a pack earns a card by teaching a job the bundled skills do not cover. The superpowers card was there for the agent-carrying half; that half is bundled now, and installing the pack on top would be fourteen second voices plus the entry skill's mandate. It moved to the shelf's refusal list with that reason.
+
+**Status:** `Direct`. `go test ./internal/skill` green, svelte-check clean, capabilityRoom tests green. 39 bundled skills, 15 with a `before:` claim. `TestGitLayerStaysWithinItsBudget` is red on this tree because the git snapshot lists the other session's forty dirty files plus eight new folders (3,358 B against a 3,200 B ceiling); it is a tree-state test, not a code one. Nothing here is measured yet: the reach test in `aetox-skill-writing` is how it will be.
