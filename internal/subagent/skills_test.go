@@ -199,6 +199,39 @@ func TestASkillCannotImpersonateATool(t *testing.T) {
 	}
 }
 
+// The other collision, and it goes the other way. The shelf's copy of a skill
+// arrives through the desk's filter; the worker's own folder holds a copy of
+// the same skill because the user ticked it there on purpose (the settings
+// page copies it in, engine.CopySkillToAgent, and promises "the agent reads
+// its copy from then on"). Until 14 ก.ย. 2026 the shelf's copy won the name,
+// the promise was false, and a customer's log carried one "already registered
+// … refusing to overwrite" line per ticked skill per dispatch — which the
+// customer's incident report listed as a bug, and it was, just not the one it
+// looked like.
+func TestAWorkersOwnCopyOfAShelfSkillIsTheOneThatRuns(t *testing.T) {
+	isolate(t)
+	parent := skill.NewDefaultRegistry(skill.RegistryOptions{SandboxRoot: t.TempDir()})
+	shelf := skill.DiscoveredSkill{Name: "quotation", Description: "the shelf's copy"}
+	if err := parent.Register(shelf.AsSkill(), skill.SourceSkill); err != nil {
+		t.Fatal(err)
+	}
+	writeSkill(t, "doc", "quotation", "the worker's own copy, edited", "body")
+
+	child := FilterRegistry(parent, agent("doc"), nil)
+	got, ok := child.Get("quotation")
+	if !ok {
+		t.Fatal("the skill went missing altogether")
+	}
+	if got.Description() != "the worker's own copy, edited" {
+		t.Errorf("doc runs %q, want its own copy — the settings page promised it would", got.Description())
+	}
+	// The shelf itself is untouched: the copy is the worker's, not a rename
+	// of the original.
+	if s, _ := parent.Get("quotation"); s.Description() != "the shelf's copy" {
+		t.Error("shadowing a shelf skill in a worker changed the shelf")
+	}
+}
+
 // A worker with an empty home costs nothing and still runs. The shipped agents
 // have no folder on disk at all until the user edits one, so this is the normal
 // state rather than an edge.

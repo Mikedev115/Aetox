@@ -221,6 +221,34 @@ func (r *Registry) Register(skill Skill, source Source) error {
 	return nil
 }
 
+// Shadow puts skill under name in place of a SKILL.md already registered
+// there, and refuses — the same refusal as Register — when what is there is a
+// tool.
+//
+// The one caller is a worker's own shelf (subagent.attachOwnSkills): a folder
+// the user ticked into agents/<name>/skills holds a copy of a shelf skill by
+// design (engine.CopySkillToAgent, "the agent reads its copy from then on"),
+// and the shelf's own copy has already arrived through the desk's filter under
+// the same name. Register would keep the shelf's and drop the worker's, which
+// made that promise false and the log noisy — a customer's 14 ก.ย. 2026 log
+// carried one "already registered … refusing to overwrite" line per ticked
+// skill per dispatch, and read them as the worker being broken. A document
+// may replace a document; nothing may replace a tool, because a folder must
+// still not be able to answer to `shell`.
+func (r *Registry) Shadow(skill Skill, source Source) error {
+	if skill == nil || r == nil {
+		return nil
+	}
+	name := skill.Name()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if existing, ok := r.entries[name]; ok && existing.source != SourceSkill {
+		return fmt.Errorf("skill %q already registered (source=%s), refusing to overwrite with source=%s", name, existing.source, source)
+	}
+	r.entries[name] = registryEntry{skill: skill, source: source}
+	return nil
+}
+
 func (r *Registry) Get(name string) (Skill, bool) {
 	if r == nil {
 		return nil, false
