@@ -42,6 +42,17 @@ func TestOneSceneBecomesAClip(t *testing.T) {
 	// renderer and its browser live. And if this path is wrong on some machine,
 	// the checks underneath find nothing and the test skips — a wrong guess here
 	// cannot turn into a pass.
+	//
+	// **Opt-in, like every test that reaches installed software** (AETOX_LIVE,
+	// live_chat_test.go). On a machine with the renderer this test is a real
+	// render: 91 seconds of a 399-second package on 14 ก.ย. 2026, paid by every
+	// `go test ./internal/engine/` — the owner's, and every มุ่งเป้า run's
+	// closing check, which is how it was noticed (*"รันเทสทีไรโคตรนาน"*). The
+	// render belongs to the moment somebody changes the video road, not to
+	// every change of anything else in the package.
+	if os.Getenv("AETOX_LIVE") != "1" {
+		t.Skip("set AETOX_LIVE=1 to render a clip with the installed renderer (about 90 s)")
+	}
 	installed, err := os.UserConfigDir()
 	if err != nil {
 		t.Skip("no user config directory on this machine")

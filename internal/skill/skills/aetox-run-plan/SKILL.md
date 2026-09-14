@@ -26,6 +26,10 @@ step is marked done or failed and the closing report has been written.
 - Do not rewrite the plan while carrying it out. If a step is missing something
   that only running the work could show, do the obvious version and say so in
   the step's note.
+- Checking is sized to the step: what a step changed is checked when that step
+  is finished, with the test or command that covers that change. The whole is
+  checked once, at the end, when the plan says how. A check that proves
+  nothing about the step in hand is not part of the step.
 
 ## What not to say
 
