@@ -156,7 +156,20 @@ func liveDeepSeekKey(t *testing.T) string {
 	if key == "" {
 		// Since §248 A4 the preference file holds no keys; the store the
 		// desktop signs with does. Same key, same provider, never printed.
-		key = strings.TrimSpace(credentials.KeyFor("deepseek"))
+		//
+		// Read with AETOX_DATA_ROOT cleared for the length of the call:
+		// TestMain points it at a throwaway dir for the whole package, so
+		// credentials.Path() resolves there and the store is empty by
+		// construction — which is what "no deepseek key on this machine"
+		// (ed109c84) actually was. Restored before anything else runs; the
+		// store is only read.
+		if root := os.Getenv("AETOX_DATA_ROOT"); root != "" {
+			_ = os.Unsetenv("AETOX_DATA_ROOT")
+			key = strings.TrimSpace(credentials.KeyFor("deepseek"))
+			_ = os.Setenv("AETOX_DATA_ROOT", root)
+		} else {
+			key = strings.TrimSpace(credentials.KeyFor("deepseek"))
+		}
 	}
 	if key == "" {
 		key = strings.TrimSpace(os.Getenv("DEEPSEEK_API_KEY"))

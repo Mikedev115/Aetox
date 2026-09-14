@@ -500,27 +500,21 @@ func BuildWithReport(surface Surface, scope Scope, desk Desk) (string, Loaded) {
 	// the desktop's chat, false of a terminal, and a model told its terminal
 	// renders SVG hands the user a page of coordinates where the picture was
 	// meant to be. identity() has drawn this same line since it existed.
-	if surface == SurfaceDesktop {
+	// And not for a planning turn, whose answer is one line after the `plan`
+	// call — the card is the answer, and the card is drawn from the tool, not
+	// from markdown the model writes. Five thousand characters on how to draw
+	// SVG and lay out an HTML panel described a reply this turn never writes
+	// (14 ก.ย. 2026, the same measurement as reads() and clarify()).
+	if surface == SurfaceDesktop && !desk.Planning {
 		b.WriteString(drawing())
 		b.WriteString(panel())
-		// **Gated on carrying the tool, not on the stance.** It was
-		// `desk.Planning`, true only in วางแผน — while the `plan` tool is carried
-		// by every desk and every stance. So ลงมือ had the tool and nothing at
-		// all telling it that a plan belongs in it: asked for one there, the
-		// model typed a plan into its answer, the old fence renderer drew it as
-		// a card with no checklist and no button, and the owner read that as the
-		// feature having vanished (9 ก.ย.).
-		//
-		// planSkill.Guidance cannot cover it. Guidance rides the FIRST RESULT,
-		// and the failure is that there is never a first call — the one shape of
-		// mistake internal/skill/guidance.go's own note leaves to the signature.
-		// A signature says how to call a tool; it cannot say "and this is the
-		// thing you were about to write out by hand instead".
-		//
-		// The surface gate stays: in a terminal there is no card to draw into.
-		if desk.carries("plan") {
-			b.WriteString(planCard(desk))
-		}
+		// No plan paragraph here any more. "A plan goes in the plan tool, never
+		// in the reply" was planCard() from 9 ก.ย. to 14 ก.ย. 2026, gated on
+		// carrying the tool; it now opens the tool's own description
+		// (engine/plan.go), which is the one place a model deciding where a
+		// plan goes is already looking, is sent under every stance and every
+		// surface that carries the tool, and is not a second statement of the
+		// same rule beside วางแผน's direction.
 	}
 	// longform is about writing the answer to a file with `write`, narration is
 	// about the sentence before a tool round, clarify is about ask_user. Same
@@ -536,7 +530,13 @@ func BuildWithReport(surface Surface, scope Scope, desk Desk) (string, Loaded) {
 			b.WriteString(longform(desk))
 		}
 		b.WriteString(narration())
-		b.WriteString(clarify())
+		// วางแผน's own direction says when to ask, what to ask and how many
+		// times; this paragraph is the general rule for a turn that will build
+		// something, and beside the stance's it was a second voice on the same
+		// question (14 ก.ย. 2026 — three, counting the interview skill).
+		if !desk.Planning {
+			b.WriteString(clarify())
+		}
 		b.WriteString(evidence(desk))
 	}
 
@@ -1084,6 +1084,31 @@ func reads(desk Desk) string {
 	// changes behaviour: read it even for work you could do without it,
 	// because the skill is how this user wants that work done.
 	var b strings.Builder
+	var claimed []Read
+	for _, r := range claims {
+		if r.Before != "" && r.Skill != "" {
+			claimed = append(claimed, r)
+		}
+	}
+	// A planning turn gets the claims and not the index. The index is every
+	// skill on the shelf by name — 52 lines and 42% of the วางแผน prompt when
+	// this was measured (14 ก.ย. 2026) — and it is there so a turn that is
+	// about to DO something can find the document for that work. A plan does
+	// not do the work; what it reads before writing is what the before-lines
+	// name (the interview, the map of the system), and skills_list is still
+	// carried for anything else. The whole shelf stays in the prompt of the
+	// turn that will carry the plan out.
+	if desk.Planning {
+		if len(claimed) == 0 {
+			return ""
+		}
+		b.WriteString("Skills on this machine that name the work they are read before — read the one " +
+			"whose moment this is; skills_list has the whole shelf:\n")
+		for _, r := range claimed {
+			fmt.Fprintf(&b, "- before %s: skill_view %q\n", r.Before, r.Skill)
+		}
+		return b.String()
+	}
 	b.WriteString("Skills installed on this machine, one line each; skill_view opens the whole document " +
 		"and skills_list returns the same shelf with fuller descriptions. When the work in hand is " +
 		"what one of these covers, read it before starting — it is part of doing the work, not a " +
@@ -1097,12 +1122,6 @@ func reads(desk Desk) string {
 			fmt.Fprintf(&b, "- %s: %s\n", r.Skill, desc)
 		} else {
 			fmt.Fprintf(&b, "- %s\n", r.Skill)
-		}
-	}
-	var claimed []Read
-	for _, r := range claims {
-		if r.Before != "" && r.Skill != "" {
-			claimed = append(claimed, r)
 		}
 	}
 	if len(claimed) > 0 {
@@ -1320,59 +1339,6 @@ func panel() string {
 		"does not: a figure sharing a row with a full-width bar, left to shrink, wraps itself one digit " +
 		"per line. Keep it to what the answer needs; a panel is a way of saying " +
 		"something, and one built around a single fact is decoration.\n"
-}
-
-// planCard tells the model that a plan is a document this surface draws for it,
-// and that it therefore never types one out.
-//
-// **ONE PATH, and it took the owner's temper to see why that matters.** This
-// used to branch: the tool where the desk carried it, and the original ```plan
-// fence (§106.12) where it did not — kept on the reasoning that some surface
-// might draw cards without the tool. No such surface exists. The renderer that
-// draws a fence lives in the desktop's markdown.ts, and every desk on the
-// desktop carries `plan`. It was a branch for a case that cannot happen.
-//
-// What it cost was not bytes. Two ways for a plan to reach the screen produce
-// two cards that look alike and behave differently — one with a checklist and a
-// button, one inert — and the user cannot tell which they were handed. That is
-// the debt the owner named on 9 ก.ย.: *"มึงจะสร้างมาแยกทำไมว่ะ"*. The fix is not
-// to teach both paths; it is to stop having two.
-//
-// markdown.ts keeps its fence renderer, and that is not the second path coming
-// back: nothing asks for a fence any more, so it is a reader for transcripts
-// written before this — old messages would otherwise show a bare code block.
-//
-// **Four lines, because this now reaches every desktop session rather than only
-// วางแผน, and the budget guard said so within the minute.** What has to be here
-// is only the part that makes a FIRST CALL happen — everything about how to
-// work a plan well (what amend leaves alone, what a step is, not narrating
-// progress) is planSkill.Guidance, which rides that first result and is paid for
-// once. Guidance was always the right home for it; until this gate moved, the
-// call it rides never happened.
-//
-// **Only the wrapper is here. What a plan *is* stays in the stance** (§106.11,
-// mode.planShape): the headings are policy that holds on every surface,
-// and this layer is the one sentence that is true only where something can draw
-// a card. Splitting it the other way would put the shape in two places, which
-// is the debt §106.11 was written to avoid — and it would mean a terminal
-// session silently lost its headings along with its card.
-//
-// A fenced block rather than a marker tag, because the renderer already has
-// exactly this seam: markdown.ts intercepts a fence by its language and builds
-// chrome around it, which is how a code block gets its header and its copy
-// button. A plan is the same move with a different box, so the card costs a
-// branch rather than a parser.
-//
-// The sentence about not fencing anything inside is the one that fails silently
-// and therefore has to be stated. A ``` inside the plan closes the plan's own
-// fence, and what the user gets is a card holding the first third of a plan with
-// the rest spilled underneath it as loose prose — no error, and nothing about
-// the result points at the cause.
-func planCard(desk Desk) string {
-	return "A plan is an interactive card drawn for you. Put it in the `plan` tool (`write` " +
-		"first, `amend` after). Never write a plan into your reply as text or prose. The card " +
-		"holds the checklist the user can run with one click; a plan typed in an answer has " +
-		"neither and cannot be run.\n"
 }
 
 // drawing tells the model that the answer surface can render a picture, and

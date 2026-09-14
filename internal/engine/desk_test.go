@@ -236,7 +236,9 @@ func TestADeskAddsDirectionAndItsOwnMemory(t *testing.T) {
 
 	coding := boot("coding")
 	desk, _ := mode.Load("coding")
-	if !strings.Contains(coding, strings.TrimSpace(desk.Prompt)) {
+	// Direction(), not the raw body: the manifest carries an acting marker
+	// (mode.ActingMarker) that never reaches a prompt.
+	if !strings.Contains(coding, desk.Direction()) {
 		t.Errorf("the coding desk's direction is not in the prompt:\n%s", coding)
 	}
 	if !strings.Contains(coding, "You are Aetox") {

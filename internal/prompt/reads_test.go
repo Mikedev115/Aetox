@@ -140,3 +140,32 @@ func TestEveryDoorHearsTheSameShelf(t *testing.T) {
 		t.Error("a zero Desk no longer produces prompt.Build's prompt")
 	}
 }
+
+// A planning turn hears the claims and not the index. The index is every skill
+// by name — 42% of the วางแผน prompt when measured on 14 ก.ย. 2026 — and it is
+// there so a turn about to DO something can find its document; a plan reads
+// what the before-lines name and has skills_list for the rest.
+func TestAPlanningTurnHearsTheClaimsNotTheShelf(t *testing.T) {
+	useShelf(t,
+		Read{Skill: "aetox-grill", Description: "Interview a plan.", Before: "writing a plan whose scope is open"},
+		Read{Skill: "invoice", Description: "Draft an invoice."},
+	)
+	planning := Desk{Name: "coding", Planning: true, Carries: func(string) bool { return true }}
+	got := reads(planning)
+	if !strings.Contains(got, `before writing a plan whose scope is open: skill_view "aetox-grill"`) {
+		t.Errorf("the claim a plan acts on went missing:\n%s", got)
+	}
+	for _, index := range []string{"- invoice:", "- aetox-grill:", "Skills installed on this machine"} {
+		if strings.Contains(got, index) {
+			t.Errorf("a planning turn was handed the whole shelf (%q):\n%s", index, got)
+		}
+	}
+	if !strings.Contains(got, "skills_list") {
+		t.Errorf("a planning turn is not told where the rest of the shelf is:\n%s", got)
+	}
+
+	useShelf(t, Read{Skill: "invoice", Description: "Draft an invoice."})
+	if got := reads(planning); got != "" {
+		t.Errorf("no claims means nothing to say to a planning turn, got %q", got)
+	}
+}

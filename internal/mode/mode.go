@@ -521,11 +521,59 @@ func (m *Mode) DeskName() string {
 
 // Direction is the manifest body, nil-safe: what the base prompt gains from
 // this desk. Never who the assistant is — see the package doc and §44.0.
+//
+// The whole body, with the ActingMarker line taken out. What a stance that
+// only looks gets instead is LookingDirection — see the marker.
 func (m *Mode) Direction() string {
 	if m == nil {
 		return ""
 	}
-	return strings.TrimSpace(m.Prompt)
+	always, acting := splitActing(m.Prompt)
+	if acting == "" {
+		return always
+	}
+	return always + "\n\n" + acting
+}
+
+// ActingMarker is the one line a desk manifest may put in its body to say
+// "everything below is for a turn that changes things".
+//
+// It exists because a desk's direction is written for ลงมือ and sent under
+// every stance. Measured on the coding desk, 14 ก.ย. 2026: five of its eight
+// paragraphs are about changing, running and finishing — "a turn ends when
+// the work is done, not when a plan for it is written… do it now", "done means
+// proven by execution: you must run the tests" — and every one of them was
+// sent to วางแผน, the stance whose entire promise is that it changes nothing
+// and which has no shell to run anything with. The model was reading two
+// instructions that contradict and picking one; in the owner's runs it put
+// "run go test" into the plan as steps to satisfy the paragraph it could not
+// obey, and carried a plan out the moment it had written it.
+//
+// A marker in the manifest rather than a rule in Go, because the manifest is
+// the desk's own document and the owner edits it: the split has to be visible
+// where the paragraphs are, not inferred from their wording somewhere else.
+// One marker, not a per-paragraph tag, so the file reads top to bottom as
+// "always, then when acting". A body without the marker is sent whole under
+// every stance, exactly as before.
+const ActingMarker = "<!-- acting -->"
+
+// LookingDirection is the direction for a stance that looks and does not
+// change: the body above ActingMarker, or the whole body when there is none.
+func (m *Mode) LookingDirection() string {
+	if m == nil {
+		return ""
+	}
+	always, _ := splitActing(m.Prompt)
+	return always
+}
+
+func splitActing(body string) (always, acting string) {
+	body = strings.TrimSpace(body)
+	i := strings.Index(body, ActingMarker)
+	if i < 0 {
+		return body, ""
+	}
+	return strings.TrimSpace(body[:i]), strings.TrimSpace(body[i+len(ActingMarker):])
 }
 
 // parse reads one mode file. The filename is the name, always: a `name:` key
