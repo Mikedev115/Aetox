@@ -13,6 +13,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/learned"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/skill"
+	"github.com/Mikedev115/Aetox/internal/skilllint"
 )
 
 // HabitProposal represents an automated capability synthesized from repeated work.
@@ -43,7 +44,7 @@ Rules:
      Otherwise draft a new SKILL.md with YAML frontmatter:
      ---
      name: <slug>
-     description: <one line, under 80 characters, in the user's language: what the work is and when this applies — the only line the agent sees before opening the skill>
+     description: <one line, under 80 characters, in the user's language, naming the moment this applies (ตอน... / when...), not a summary of the steps — the only line the agent sees before opening the skill, and a description that summarises the work is followed instead of the skill>
      ---
      then the body. As short as the procedure allows, shaped to the work — headings only where the work has parts, not a fixed outline. The commands and checks the sessions actually used. Rules, not a story about the sessions: no dates, no quoted chat, no narration of what happened.
    - "user_profile": Extract ONLY immutable facts (e.g. role, tech stack, environment) and explicit permanent working rules. Write as a declarative fact about the user in their language. Strictly ignore ephemeral/one-off tasks, emotions, personality quirks, and guesses.
@@ -145,6 +146,17 @@ func (s appHabitSynthesizer) Synthesize(ctx context.Context, digest, hint string
 		return nil, fmt.Errorf("failed to parse habit proposal: %w", err)
 	}
 	return &prop, nil
+}
+
+// lintHabitDraft reads a proposal the way the shelf is read: a new skill as
+// a whole SKILL.md under its slug, a section for an installed skill as a
+// fragment (no frontmatter of its own to hold to).
+func lintHabitDraft(prop *HabitProposal) []skilllint.Finding {
+	if strings.TrimSpace(prop.Extends) != "" {
+		return skilllint.LintFragment(prop.Body)
+	}
+	slug := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(prop.SkillName), " ", "-"))
+	return skilllint.Lint(skilllint.Skill{Name: slug, Files: map[string]string{"SKILL.md": prop.Body}})
 }
 
 // installedSkillIndex is the shelf as one line per skill, name and description,
@@ -265,6 +277,24 @@ func (a *Engine) synthesizeHabitForSessions(ctx context.Context, synthesizer hab
 	}
 	if prop == nil || strings.TrimSpace(prop.Body) == "" {
 		return nil, nil
+	}
+	// A drafted skill is read by the same linter the bundled shelf passes
+	// (internal/skilllint) before anyone is asked to judge it. An error is a
+	// broken door, so the drafter gets one more go with the findings in its
+	// hint; what is still wrong after that travels on the card, in the
+	// reason, where the user decides — a proposal is never dropped for it.
+	if prop.Destination == "skill" {
+		findings := lintHabitDraft(prop)
+		if skilllint.HasErrors(findings) {
+			retry := hint + "\n\n[ตัวตรวจสกิลพบข้อผิดพลาดในร่างก่อนหน้า แก้แล้วเสนอใหม่:\n" + skilllint.Render(skilllint.AtLeast(findings, skilllint.Error)) + "]"
+			if again, err := synthesizer.Synthesize(ctx, digest, retry); err == nil && again != nil && strings.TrimSpace(again.Body) != "" && again.Destination == "skill" {
+				prop = again
+				findings = lintHabitDraft(prop)
+			}
+		}
+		if worth := skilllint.AtLeast(findings, skilllint.Warn); len(worth) > 0 {
+			prop.Reason = strings.TrimSpace(prop.Reason) + "\n\nตัวตรวจสกิล (aetox skill lint):\n" + strings.TrimSpace(skilllint.Render(worth))
+		}
 	}
 
 	var kind string

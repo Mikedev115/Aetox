@@ -347,3 +347,88 @@ func TestSynthesizeHabit_OnDemandSingleSession(t *testing.T) {
 		t.Errorf("expected Kind skill, got %s", prop.Kind)
 	}
 }
+
+// A drafted skill is read by internal/skilllint before anyone judges it. An
+// error sends the drafter back once with the findings in its hint; what is
+// still wrong after that rides on the card, in the reason, and the proposal
+// is queued anyway: the user is the judge, the linter is the note.
+func TestSynthesizeHabitForSessions_LintsTheDraftAndSaysSoOnTheCard(t *testing.T) {
+	a := newJobApp(t)
+	db, err := a.database()
+	if err != nil {
+		t.Fatalf("database: %v", err)
+	}
+	sess := "test-sess-lint"
+	_, _ = db.Exec(`INSERT INTO sessions (id, project_key, title, created_at, updated_at) VALUES (?, 'p1', 'Test', datetime('now'), datetime('now'))`, sess)
+	_, _ = db.Exec(`INSERT INTO messages (session_id, role, text, time) VALUES (?, 'user', 'เช็คไฟ GPU', datetime('now'))`, sess)
+
+	fake := &countingHabitSynthesizer{proposal: &HabitProposal{
+		Destination: "skill",
+		SkillName:   "gpu-monitor",
+		Title:       "GPU Power Monitor",
+		Body:        "---\nname: gpu-monitor\ndescription: ตอนผู้ใช้ถามกำลังไฟ GPU\n---\n\nParse subcommand from $ARGUMENTS, then run nvidia-smi.\n",
+		Reason:      "ผู้ใช้สั่งเช็คกำลังไฟบ่อย",
+	}}
+	change, err := a.synthesizeHabitForSessions(context.Background(), fake, []string{sess}, "กินไฟ gpu", "")
+	if err != nil {
+		t.Fatalf("synthesizeHabitForSessions failed: %v", err)
+	}
+	if change == nil {
+		t.Fatal("a draft with a lint error is still queued for the user to judge")
+	}
+	if fake.calls != 2 {
+		t.Fatalf("the drafter gets exactly one more go after an error, got %d calls", fake.calls)
+	}
+	if !strings.Contains(fake.hints[1], "dead-door") || !strings.Contains(fake.hints[1], "$ARGUMENTS") {
+		t.Fatalf("the retry hint carries the finding, got %q", fake.hints[1])
+	}
+	if !strings.Contains(change.Reason, "ตัวตรวจสกิล") || !strings.Contains(change.Reason, "dead-door") {
+		t.Fatalf("the card names what the linter found, got %q", change.Reason)
+	}
+	if !strings.Contains(change.Reason, "GPU Power Monitor") {
+		t.Fatalf("the title still leads the reason, got %q", change.Reason)
+	}
+}
+
+// A clean draft costs no second call and carries no note.
+func TestSynthesizeHabitForSessions_ACleanDraftIsNotRetried(t *testing.T) {
+	a := newJobApp(t)
+	db, err := a.database()
+	if err != nil {
+		t.Fatalf("database: %v", err)
+	}
+	sess := "test-sess-lint-clean"
+	_, _ = db.Exec(`INSERT INTO sessions (id, project_key, title, created_at, updated_at) VALUES (?, 'p1', 'Test', datetime('now'), datetime('now'))`, sess)
+	_, _ = db.Exec(`INSERT INTO messages (session_id, role, text, time) VALUES (?, 'user', 'เช็คไฟ GPU', datetime('now'))`, sess)
+
+	fake := &countingHabitSynthesizer{proposal: &HabitProposal{
+		Destination: "skill",
+		SkillName:   "gpu-monitor",
+		Title:       "GPU Power Monitor",
+		Body:        "---\nname: gpu-monitor\ndescription: ตอนผู้ใช้ถามกำลังไฟ GPU\n---\n\nRun `nvidia-smi --query-gpu=power.draw --format=csv`. A driver fault goes to `aetox-debug`.\n",
+		Reason:      "ผู้ใช้สั่งเช็คกำลังไฟบ่อย",
+	}}
+	change, err := a.synthesizeHabitForSessions(context.Background(), fake, []string{sess}, "กินไฟ gpu clean", "")
+	if err != nil || change == nil {
+		t.Fatalf("clean draft: change=%v err=%v", change, err)
+	}
+	if fake.calls != 1 {
+		t.Fatalf("a clean draft is drafted once, got %d calls", fake.calls)
+	}
+	if strings.Contains(change.Reason, "ตัวตรวจสกิล") {
+		t.Fatalf("a clean draft carries no linter note, got %q", change.Reason)
+	}
+}
+
+type countingHabitSynthesizer struct {
+	proposal *HabitProposal
+	calls    int
+	hints    []string
+}
+
+func (f *countingHabitSynthesizer) Synthesize(_ context.Context, _ string, hint string) (*HabitProposal, error) {
+	f.calls++
+	f.hints = append(f.hints, hint)
+	p := *f.proposal
+	return &p, nil
+}

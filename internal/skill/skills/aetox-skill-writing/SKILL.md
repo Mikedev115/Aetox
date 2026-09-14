@@ -37,7 +37,7 @@ body is never sent until the model opens it. So:
 - One idea per line; the model follows short lines more reliably than a
   paragraph carrying three.
 - Rules, not narration: nothing that makes the model announce it is using
-  the skill. A model told it MUST tells the user that it must, instead of
+  the skill. A model told it `MUST` tells the user that it must, instead of
   doing the work.
 - Name the moment to stop, and the moment to hand to another skill, by that
   skill's name.
@@ -46,7 +46,16 @@ body is never sent until the model opens it. So:
 
 ## Test before it ships
 
-A skill is tested the way its failure would show:
+First the shape, by machine: `aetox skill lint <folder>` reads the rules
+above that a program can read (a description whose first hundred characters
+name no moment, a hedge inside a rule line, a shouted `MUST`, a file the body
+names and does not ship, a `$ARGUMENTS` door this app does not have, CRLF,
+an unclosed fence). An error is a door the model will be refused at and
+does not ship; a warning is read and either fixed or kept on purpose with
+`<!-- lint-allow rule -->`. The app runs the same check on every skill it
+drafts itself and writes what it found on the proposal card.
+
+Then the behaviour, by running a model, which no linter replaces:
 
 - A rule skill: give a model the situation with the pressure that makes
   skipping tempting (time, sunk cost, "this one is simple") and see whether

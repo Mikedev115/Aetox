@@ -11,6 +11,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/skill"
+	"github.com/Mikedev115/Aetox/internal/skilllint"
 )
 
 // Stage three of the self-optimize loop: turning a flagged misfire into a
@@ -246,6 +247,12 @@ func (a *Engine) proposeSkillEdit(m skillMisfire, op, before, body, reason strin
 	}
 	if strings.TrimSpace(reason) == "" {
 		reason = fmt.Sprintf("โดน 👎/ตอบใหม่ %d ครั้ง จาก %d ที่ให้คะแนน", m.bad, m.bad+m.good)
+	}
+	// The replacement text is read by the shelf's linter (internal/skilllint)
+	// and what it finds rides on the card: the user judging the edit sees a
+	// hedge or a dead door named, instead of finding it after approving.
+	if worth := skilllint.AtLeast(skilllint.LintFragment(body), skilllint.Warn); len(worth) > 0 {
+		reason = strings.TrimSpace(reason) + "\n\nตัวตรวจสกิล (aetox skill lint):\n" + strings.TrimSpace(skilllint.Render(worth))
 	}
 	if _, err := db.Exec(
 		`INSERT INTO pending_changes(kind, scope, target, op, before, body, reason, evidence, source, state, created_at)
