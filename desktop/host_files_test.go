@@ -270,13 +270,18 @@ func TestAnAttachedEngineIsElsewhereOnlyWhenItsHelloNamesAnotherMachine(t *testi
 	if !a.engineOnHost() {
 		t.Error("an engine that named another machine was taken for this one")
 	}
-	if a.hostLabel() != "box" {
-		t.Errorf("hostLabel = %q, want the name the engine gave", a.hostLabel())
+	if a.hostLabel() != "box (linux)" {
+		t.Errorf("hostLabel = %q, want the name the engine gave with its OS", a.hostLabel())
 	}
 	// An older engine says no hostname: the OS decides.
 	a.engine.hello = rpc.HelloResult{OS: "linux"}
 	if runtime.GOOS != "linux" && !a.engineOnHost() {
 		t.Error("an engine on another OS, with no hostname to give, was taken for this machine")
+	}
+	// WSL answers with THIS machine's hostname: the OS decides before the name.
+	a.engine.hello = rpc.HelloResult{OS: "linux", Hostname: here}
+	if runtime.GOOS != "linux" && !a.engineOnHost() {
+		t.Error("a WSL engine wearing this machine's hostname was taken for this machine")
 	}
 	// And without AETOX_ENGINE_ADDR the child is this machine's whatever it said.
 	t.Setenv("AETOX_ENGINE_ADDR", "")

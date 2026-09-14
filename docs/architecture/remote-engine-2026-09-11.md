@@ -852,9 +852,14 @@ more doors, and the reverse shape behind every reveal. One road for each.
 
 Two more, the same day, from asking "where else": `hello` now carries the
 engine's hostname, and an engine attached by hand (`AETOX_ENGINE_ADDR`) counts
-as a host — for the doors and for `credentialMayRide` — when that name is not
-this machine's (`localEngine.elsewhere`; an older engine that gives no name is
-judged by its OS). And the attachment caps (20 MB a picture, 2 GB a file) are
+as a host — for the doors and for `credentialMayRide` — when its OS is not
+this machine's, or on the same OS when its name is not (`localEngine.elsewhere`).
+The OS is asked first because WSL answers with the Windows machine's own
+hostname: proven on the owner's PC the same day, the manual road end to end —
+the engine started by hand on `wsl`, `ssh -L` by hand, the window on
+`AETOX_ENGINE_ADDR` — `mode: attach`, a PNG attached in 13 ms and read back,
+the folder door through the picker, the reveal naming "Mikedev (linux)" (the
+OS after the name, since the name alone is this PC's). And the attachment caps (20 MB a picture, 2 GB a file) are
 checked on the screen before the trip, in the engine's own words, so a 50 MB
 photo is refused here rather than after 50 MB have crossed the tunnel.
 

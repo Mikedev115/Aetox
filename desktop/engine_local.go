@@ -545,8 +545,9 @@ func (e *localEngine) connect(ctx context.Context, p *engineProcess) error {
 
 // elsewhere reports whether the engine's disk is another machine's: a host
 // over ssh always; an engine attached by hand (AETOX_ENGINE_ADDR) when its
-// hello named another hostname — or, from an engine too old to say, another
-// OS. A child of this process never is.
+// hello says another OS — first, because WSL answers with the Windows
+// machine's own hostname (seen on the owner's PC, 14 ก.ย. 2026) — or, on the
+// same OS, another hostname. A child of this process never is.
 func (e *localEngine) elsewhere() bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -556,11 +557,14 @@ func (e *localEngine) elsewhere() bool {
 	if strings.TrimSpace(os.Getenv("AETOX_ENGINE_ADDR")) == "" {
 		return false
 	}
+	if e.hello.OS != "" && e.hello.OS != runtime.GOOS {
+		return true
+	}
 	if e.hello.Hostname != "" {
 		here, _ := os.Hostname()
 		return !strings.EqualFold(e.hello.Hostname, here)
 	}
-	return e.hello.OS != "" && e.hello.OS != runtime.GOOS
+	return false
 }
 
 // attach is spawn for an engine this window did not start: AETOX_ENGINE_ADDR
