@@ -16,7 +16,7 @@
   import Updater from './lib/Updater.svelte'
   import EngineStatus from './lib/EngineStatus.svelte'
   import RemoteDirPicker from './lib/RemoteDirPicker.svelte'
-  import { engine as engineStore } from './lib/stores/engine.svelte'
+  import { engine as engineStore, engineIsRemote, type HostDirAsk } from './lib/stores/engine.svelte'
   import CapabilityProgress from './lib/CapabilityProgress.svelte'
   import { listenCapabilities } from './lib/capabilities.svelte'
   import Workbench from './lib/workbench/Workbench.svelte'
@@ -33,7 +33,7 @@
   } from './lib/stores/cockpit.svelte'
   import { shell, shellHasChats } from './lib/shell.svelte'
   import { applyBusyEvent, clearBusyWork, watchBrowserWaits } from './lib/stores/busySignal.svelte'
-  import { RelativizePath, CloseAllBrowserTabs } from '../wailsjs/go/main/App'
+  import { RelativizePath, CloseAllBrowserTabs, AnswerHostDir } from '../wailsjs/go/main/App'
   import { OnFileDrop, OnFileDropOff, EventsOn } from '../wailsjs/runtime/runtime'
   import type { main } from '../wailsjs/go/models'
   import { workbench, openPathsInWorkbench, filesChangedOnDisk } from './lib/stores/workbench.svelte'
@@ -228,6 +228,12 @@
     const offEngine = EventsOn('engine:status', (st: main.EngineStatus) => {
       if (st.state === 'connected' && st.restarts > 0) void resyncAfterEngineRestart(st.restarts)
     })
+    // A door on the Go side needs a folder on the engine's host (§248 phase
+    // 4): the native dialog would browse this machine, so the picker is
+    // raised for it here and the pick goes back through AnswerHostDir.
+    const offPickDir = EventsOn('screen:pickdir', (ask: HostDirAsk) => {
+      engineStore.hostDirAsk = ask
+    })
     const offAgentChunk = EventsOn('agent:chunk', applyAgentChunk)
     // The ending for a turn this window has no promise for — a webview reload
     // killed the SendMessage promise, the engine kept working, and this event
@@ -341,6 +347,15 @@
         window.dispatchEvent(new CustomEvent('space-context-drop', { detail: paths }))
         return
       }
+      // With the engine on a host (§248 phase 4) a file dropped from this
+      // machine's Explorer is never inside the project there, so "open it
+      // where it lies" has no answer; the desk's road — a copy brought in,
+      // then opened — is the one that does, and a silent nothing was what
+      // this used to be.
+      if (!overComposer && engineIsRemote()) {
+        await openPathsInWorkbench(paths)
+        return
+      }
       for (const path of paths) {
         // Dropped on the composer, every one of them is an attachment — a clip
         // or a PDF included. They used to open as editor tabs instead, which is
@@ -368,6 +383,7 @@
 
     return () => {
       window.removeEventListener('reveal-inspector', onRevealInspector)
+      offPickDir()
       OnFileDropOff()
       offAgentStatus()
       offAgentTool()
@@ -690,6 +706,19 @@
     host={engineStore.status.host}
     onPick={(path) => { engineStore.pickerOpen = false; void openProject(path) }}
     onCancel={() => (engineStore.pickerOpen = false)}
+  />
+{/if}
+<!-- The same picker for a Go door's folder question (screen:pickdir): add
+     a workspace folder, where new projects go, browse, a studio shelf. The
+     answer — or "" for cancelled — goes back to the door waiting on it. -->
+{#if engineStore.hostDirAsk}
+  {@const ask = engineStore.hostDirAsk}
+  <RemoteDirPicker
+    host={engineStore.status.host}
+    title={ask.title}
+    start={ask.start}
+    onPick={(path) => { engineStore.hostDirAsk = null; void AnswerHostDir(ask.id, path) }}
+    onCancel={() => { engineStore.hostDirAsk = null; void AnswerHostDir(ask.id, '') }}
   />
 {/if}
 <!-- The assistant itself, sitting on the screen wherever the user put it —

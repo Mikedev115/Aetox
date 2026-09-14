@@ -106,6 +106,10 @@ export function AllowComputerApp(arg1) {
   return window['go']['main']['App']['AllowComputerApp'](arg1);
 }
 
+export function AnswerHostDir(arg1, arg2) {
+  return window['go']['main']['App']['AnswerHostDir'](arg1, arg2);
+}
+
 export function AnswerUserQuestion(arg1, arg2) {
   return window['go']['main']['App']['AnswerUserQuestion'](arg1, arg2);
 }

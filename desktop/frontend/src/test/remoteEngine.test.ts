@@ -33,6 +33,7 @@ beforeEach(() => {
   vi.mocked(DisconnectRemote).mockClear()
   vi.mocked(OpenProjectFolder).mockClear()
   vi.mocked(ListDir).mockClear()
+  vi.mocked(HomeDir).mockClear()
   vi.mocked(RemoteHosts).mockResolvedValue({ this: thisPC, active: '', hosts: [box], ssh: 'C:\\ssh.exe', sshError: '', engine: 'release' } as any)
   vi.mocked(engineStatus).mockResolvedValue(status({}))
 })
@@ -134,6 +135,19 @@ describe('RemoteDirPicker', () => {
     await fireEvent.input(input, { target: { value: '/srv' } })
     await fireEvent.keyDown(input, { key: 'Enter' })
     await waitFor(() => expect(ListDir).toHaveBeenCalledWith('/srv'))
+  })
+
+  it('wears the door\'s own title and starts where the door said', async () => {
+    // A Go door's folder question (screen:pickdir, §248 phase 4): the
+    // picker stands in for the native dialog, so it carries that dialog's
+    // title, names the host under it, and opens on the folder the door
+    // would have opened on.
+    vi.mocked(ListDir).mockResolvedValue({ path: '/srv/projects', parent: '/srv', entries: [], truncated: false } as any)
+    render(RemoteDirPicker, { props: { host: 'box', title: 'โฟลเดอร์ที่จะเก็บโปรเจกต์ใหม่', start: '/srv/projects', onPick: vi.fn(), onCancel: vi.fn() } })
+    await waitFor(() => expect(ListDir).toHaveBeenCalledWith('/srv/projects'))
+    expect(HomeDir).not.toHaveBeenCalled()
+    expect(screen.getByRole('heading', { name: 'โฟลเดอร์ที่จะเก็บโปรเจกต์ใหม่' })).toBeTruthy()
+    expect(screen.getByText('เลือกโฟลเดอร์บน box')).toBeTruthy()
   })
 })
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/engine"
+	"github.com/Mikedev115/Aetox/internal/engine/remote"
 	"github.com/Mikedev115/Aetox/internal/engine/rpc"
 )
 
@@ -22,6 +23,14 @@ const testToken = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abc
 // engine is shut down with the test, so the store it opened is closed
 // before the temp dirs go.
 func newTestApp(t *testing.T) *App {
+	t.Helper()
+	a, _ := newTestAppAt(t)
+	return a
+}
+
+// newTestAppAt is newTestApp with the listener's address, for a test that
+// wants the same engine to look like one on a host (onAHost).
+func newTestAppAt(t *testing.T) (*App, string) {
 	t.Helper()
 	a := &App{}
 	a.client = a.newClient()
@@ -45,7 +54,20 @@ func newTestApp(t *testing.T) *App {
 		defer cancel()
 		engine.Shutdown(srv.Engine(), ctx)
 	})
-	return a
+	return a, strings.TrimPrefix(hs.URL, "http://")
+}
+
+// onAHost makes the test's engine look like one on a host over ssh: the
+// supervisor in remote mode, its wire the loopback listener the engine is
+// really behind. Nothing else changes — which is the point: the doors must
+// tell the two apart by this alone.
+func onAHost(a *App, addr string) {
+	a.engine = &localEngine{
+		token:  testToken,
+		target: engineTarget{mode: modeRemote, host: remote.Host{Name: "wsl", Target: "wsl"}},
+		proc:   &engineProcess{network: "tcp", address: addr, remote: "wsl"},
+		status: EngineStatus{State: engineConnected, Mode: modeRemote, Host: "wsl"},
+	}
 }
 
 // engineWith is the real engine with one or two answers changed: what a

@@ -15,6 +15,7 @@ const strFn = (v: string) => vi.fn(async (..._args: any[]) => v)
 const noop = () => vi.fn(async (..._args: any[]) => undefined)
 
 export const AddMCPServer = noop()
+export const AnswerHostDir = noop()
 // Closed and signed out by default, because that is what a shipped build is
 // today: no id server is deployed, so the account page is not in the nav at
 // all. The tests that exercise the page turn `configured` on themselves.
