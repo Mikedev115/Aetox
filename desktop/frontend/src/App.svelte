@@ -16,7 +16,7 @@
   import Updater from './lib/Updater.svelte'
   import EngineStatus from './lib/EngineStatus.svelte'
   import RemoteDirPicker from './lib/RemoteDirPicker.svelte'
-  import { engine as engineStore, engineIsRemote, type HostDirAsk } from './lib/stores/engine.svelte'
+  import { engine as engineStore, engineIsRemote, answerHostDir, type HostDirAsk } from './lib/stores/engine.svelte'
   import CapabilityProgress from './lib/CapabilityProgress.svelte'
   import { listenCapabilities } from './lib/capabilities.svelte'
   import Workbench from './lib/workbench/Workbench.svelte'
@@ -33,7 +33,7 @@
   } from './lib/stores/cockpit.svelte'
   import { shell, shellHasChats } from './lib/shell.svelte'
   import { applyBusyEvent, clearBusyWork, watchBrowserWaits } from './lib/stores/busySignal.svelte'
-  import { RelativizePath, CloseAllBrowserTabs, AnswerHostDir } from '../wailsjs/go/main/App'
+  import { RelativizePath, CloseAllBrowserTabs } from '../wailsjs/go/main/App'
   import { OnFileDrop, OnFileDropOff, EventsOn } from '../wailsjs/runtime/runtime'
   import type { main } from '../wailsjs/go/models'
   import { workbench, openPathsInWorkbench, filesChangedOnDisk } from './lib/stores/workbench.svelte'
@@ -712,13 +712,12 @@
      a workspace folder, where new projects go, browse, a studio shelf. The
      answer — or "" for cancelled — goes back to the door waiting on it. -->
 {#if engineStore.hostDirAsk}
-  {@const ask = engineStore.hostDirAsk}
   <RemoteDirPicker
     host={engineStore.status.host}
-    title={ask.title}
-    start={ask.start}
-    onPick={(path) => { engineStore.hostDirAsk = null; void AnswerHostDir(ask.id, path) }}
-    onCancel={() => { engineStore.hostDirAsk = null; void AnswerHostDir(ask.id, '') }}
+    title={engineStore.hostDirAsk.title}
+    start={engineStore.hostDirAsk.start}
+    onPick={(path) => void answerHostDir(path)}
+    onCancel={() => void answerHostDir('')}
   />
 {/if}
 <!-- The assistant itself, sitting on the screen wherever the user put it —

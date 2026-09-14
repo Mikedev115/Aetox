@@ -38,7 +38,8 @@
   let showHidden = $state(false)
   let inputEl = $state<HTMLInputElement | null>(null)
 
-  async function go(p: string) {
+  /** Lists p; answers whether it could. */
+  async function go(p: string): Promise<boolean> {
     busy = true
     try {
       const l = await ListDir(p)
@@ -46,8 +47,10 @@
       path = l.path
       typed = l.path
       error = ''
+      return true
     } catch (err) {
       error = err instanceof Error ? err.message : String(err)
+      return false
     } finally {
       busy = false
     }
@@ -55,8 +58,13 @@
 
   onMount(() => {
     void (async () => {
-      const first = start || (await HomeDir().catch(() => ''))
-      await go(first)
+      // A start the door suggested may not exist yet on the host — the
+      // folder new projects go to, before the first one is made there. The
+      // native dialog opens somewhere sensible then, and so does this: the
+      // home, with the box empty rather than holding a path that failed.
+      if (!start || !(await go(start))) {
+        await go(await HomeDir().catch(() => ''))
+      }
       inputEl?.focus()
     })()
   })
