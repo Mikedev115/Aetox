@@ -2049,7 +2049,16 @@
   const STARTER_MAX = 24
   const blankStarter = () => ({ title: '', prompt: '', icon: '' })
   const blankStarters = () => Array.from({ length: STARTER_MIN }, blankStarter)
-  let startersHeadline = $state('')
+  // The questions, as a list: one row is the old single headline, more rows
+  // are the file's several headings, one drawn at random per opening (owner,
+  // 14 ก.ย. 2026: "อยากให้คำนี้เพิ่มได้หลายแบบหรือสุ่มได้"). Never fewer than one
+  // row on screen; blank rows are dropped on save.
+  let startersHeadlines = $state<string[]>([''])
+  const startersHeadlinesClean = () => startersHeadlines.map((h) => h.trim()).filter(Boolean)
+  const addHeadlineRow = () => { if (startersHeadlines.length < 12) startersHeadlines = [...startersHeadlines, ''] }
+  const removeHeadlineRow = (i: number) => {
+    startersHeadlines = startersHeadlines.length > 1 ? startersHeadlines.filter((_, k) => k !== i) : ['']
+  }
   let startersCards = $state(blankStarters())
   let startersFile = $state('')
   let startersBusy = $state(false)
@@ -2062,10 +2071,10 @@
   // it" shape as AGENT.md, said before the click instead of after.
   let startersInherited = $state(false)
 
-  const startersKey = () => JSON.stringify([startersHeadline.trim(), startersCards])
+  const startersKey = () => JSON.stringify([startersHeadlinesClean(), startersCards])
   const startersDirty = $derived(startersKey() !== startersSnapshot)
   const startersEmpty = $derived(
-    startersHeadline.trim() === '' && startersCards.every((c) => !c.title.trim() && !c.prompt.trim()),
+    startersHeadlinesClean().length === 0 && startersCards.every((c) => !c.title.trim() && !c.prompt.trim()),
   )
   // The filename, asked of the engine rather than assembled here: which of
   // STARTERS.md / STARTERS.<lang>.md is written follows the same rule the
@@ -2074,7 +2083,8 @@
   const agentStartersFile = $derived(startersFile)
 
   function fillStarters(set: subagent.StarterSet | null) {
-    startersHeadline = set?.headline ?? ''
+    const heads = (set?.headlines ?? []).filter(Boolean)
+    startersHeadlines = heads.length ? heads : [set?.headline ?? '']
     // The trailing space after a colon is put back by the reader and must not
     // come back through the form as an edit nobody made.
     const cards = (set?.cards ?? []).slice(0, STARTER_MAX).map((c) => ({
@@ -2123,7 +2133,8 @@
 
   const saveStarters = () => runStarters(async () => {
     await writeStarters(startersOwner, subagent.StarterSet.createFrom({
-      headline: startersHeadline.trim(),
+      headline: startersHeadlinesClean()[0] ?? '',
+      headlines: startersHeadlinesClean(),
       cards: startersCards
         .filter((c) => c.title.trim() && c.prompt.trim())
         .map((c) => ({ title: c.title.trim(), prompt: c.prompt.trim(), icon: c.icon.trim() })),
@@ -5332,10 +5343,26 @@
         <div class="d muted">{t('settings.agentStartersHint')}</div>
       </div>
 
-      <label class="pp-field">
-        <span class="eyebrow">{t('settings.agentStartersHeadline')}</span>
-        <input class="ctrl" bind:value={startersHeadline} placeholder={t('settings.agentStartersHeadlinePlaceholder')} />
-      </label>
+      <div class="pp-field">
+        <div class="ag-starter-head">
+          <span class="eyebrow eyebrow-grow">{t('settings.agentStartersHeadline')}</span>
+          <span class="d muted">{t('settings.agentStartersHeadlinesHint')}</span>
+        </div>
+        {#each startersHeadlines as _, i (i)}
+          <div class="ag-starter-row">
+            <input class="ctrl" bind:value={startersHeadlines[i]} placeholder={t('settings.agentStartersHeadlinePlaceholder')} aria-label={t('settings.agentStartersHeadline')} />
+            <button class="ag-headline-drop" title={t('settings.agentStarterRemove')} aria-label={t('settings.agentStarterRemove')} onclick={() => removeHeadlineRow(i)}>
+              <Icon name="x" size={13} />
+            </button>
+          </div>
+        {/each}
+        {#if startersHeadlines.length < 12}
+          <button class="ctrl ag-headline-add" onclick={addHeadlineRow}>
+            <Icon name="plus" size={13} />
+            <span>{t('settings.agentStartersHeadlineAdd')}</span>
+          </button>
+        {/if}
+      </div>
 
       {#each startersCards as card, i (i)}
         <div class="pp-field ag-starter">

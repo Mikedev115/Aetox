@@ -1797,9 +1797,21 @@
     if (/{(ชื่อ|name)}/.test(line)) return line.replace(/{(ชื่อ|name)}/g, who).replace(/^s+/, '')
     return who ? `${who} ${line}` : line
   }
+  // One of the file's questions, drawn when the opening arrives and held for
+  // the life of this empty chat — not re-rolled on every render, or the line
+  // would change under the reader's eyes as the name or the language loads.
+  const pickHeadline = (set: subagent.StarterSet | null): string => {
+    const heads = (set?.headlines ?? []).filter(Boolean)
+    if (heads.length > 1) return heads[Math.floor(Math.random() * heads.length)]
+    return heads[0] ?? set?.headline ?? ''
+  }
+  let chairLine = $state('')
+  let deskLine = $state('')
+  $effect(() => { chairLine = pickHeadline(chairOpening) })
+  $effect(() => { deskLine = pickHeadline(deskOpening) })
   const headline = $derived(
-    chairOpening?.headline
-      || (deskOpening?.headline ? withName(deskOpening.headline, profile.name) : '')
+    chairLine
+      || (deskLine ? withName(deskLine, profile.name) : '')
       || headlineFor(roomStarters, profile.name, t),
   )
 

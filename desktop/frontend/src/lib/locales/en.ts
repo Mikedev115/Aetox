@@ -1987,6 +1987,8 @@ Check your own work before answering; say so plainly if unsure.
   'settings.agentStartersNone': 'None of its own. The four ordinary cards are used instead.',
   'settings.agentStartersHeadline': 'Question at the top',
   'settings.agentStartersHeadlinePlaceholder': 'e.g. What should we write today?',
+  'settings.agentStartersHeadlinesHint': 'Several are fine; a new chat opens with one at random. Write {ชื่อ} where your name should go',
+  'settings.agentStartersHeadlineAdd': 'Add a question',
   'settings.agentStarterCard': 'Card {n}',
   'settings.agentStarterTitlePlaceholder': 'What the card says',
   'settings.agentStarterPromptPlaceholder': 'The sentence it puts in the composer',

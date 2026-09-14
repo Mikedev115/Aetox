@@ -374,3 +374,25 @@ describe('the card that teaches the app', () => {
     })
   })
 })
+
+// Several questions in the file: a new chat opens with one of them (14 ก.ย.
+// 2026, owner: "อยากให้คำนี้เพิ่มได้หลายแบบหรือสุ่มได้"), never with a line that
+// is not in the file, and the name still lands where {ชื่อ} is.
+describe('several questions', () => {
+  it('opens with one of the desk\'s questions, chosen once', async () => {
+    vi.mocked(DeskStarters).mockResolvedValue({
+      headline: 'หนึ่ง {ชื่อ}?', headlines: ['หนึ่ง {ชื่อ}?', 'สอง {ชื่อ}?', 'สาม {ชื่อ}?'], cards: [],
+    } as any)
+    profile.name = 'mike'
+    profile.loaded = true
+    cockpit.desk = 'assistant'
+    const { container } = render(Chat, chatProps)
+    const h = await waitFor(() => { const el = container.querySelector('.empty-state h2'); expect(el?.textContent).toMatch(/^(หนึ่ง|สอง|สาม) mike\?$/); return el! })
+    const first = h.textContent
+    // Re-rendering the same chat keeps the line it opened with.
+    await fireEvent.input(container.querySelector('textarea')!, { target: { value: 'x' } })
+    expect(container.querySelector('.empty-state h2')?.textContent).toBe(first)
+    profile.name = ''
+    profile.loaded = false
+  })
+})

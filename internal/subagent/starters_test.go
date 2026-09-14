@@ -372,3 +372,25 @@ func TestDeskStartersRoundTripAndClear(t *testing.T) {
 		t.Fatalf("an empty save removes the file, got %+v", got)
 	}
 }
+
+// Several questions in one file (14 ก.ย. 2026): every heading is one, the
+// first is still Headline, and a save writes them back in order.
+func TestSeveralHeadlinesRoundTrip(t *testing.T) {
+	set := parseStarters("# {ชื่อ} วันนี้จะเริ่มจากอะไรดี?\n# มีอะไรค้างจากเมื่อวานไหม\n\n- สรุป | สรุปโฟลเดอร์นี้: | folder\n")
+	if set.Headline != "{ชื่อ} วันนี้จะเริ่มจากอะไรดี?" || len(set.Headlines) != 2 || set.Headlines[1] != "มีอะไรค้างจากเมื่อวานไหม" {
+		t.Fatalf("parse: %+v", set)
+	}
+	out, err := serializeStarters(set)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "# {ชื่อ} วันนี้จะเริ่มจากอะไรดี?\n# มีอะไรค้างจากเมื่อวานไหม\n\n- สรุป | สรุปโฟลเดอร์นี้: | folder\n"
+	if out != want {
+		t.Fatalf("serialize:\n%s", out)
+	}
+	// A caller that only knows Headline still writes one heading.
+	out, _ = serializeStarters(StarterSet{Headline: "เริ่มเลย?"})
+	if out != "# เริ่มเลย?\n" {
+		t.Fatalf("single: %q", out)
+	}
+}
