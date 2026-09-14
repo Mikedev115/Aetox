@@ -320,7 +320,7 @@ func (p *OpenAICompatibleProvider) resendAfterRefresh(ctx context.Context, resp 
 //
 // Which of the two it is comes from outOfCredits, shared with the transport, so
 // the sentence shown and the decision to stop retrying can never disagree.
-func (p *OpenAICompatibleProvider) statusError(resp *http.Response, body []byte) error {
+func (p *OpenAICompatibleProvider) statusError(ctx context.Context, resp *http.Response, body []byte) error {
 	// The provider's own sentence wherever it has one, and the raw payload only
 	// when the body is shaped some other way. Each host words the instruction
 	// differently ("check your plan and billing details", "no resource package,
@@ -341,6 +341,20 @@ func (p *OpenAICompatibleProvider) statusError(resp *http.Response, body []byte)
 	case http.StatusTooManyRequests:
 		if outOfCredits(body) {
 			return outOfCreditsError(p.provider, resp.StatusCode, detail)
+		}
+		// opencode-go meters a plan by the same five-hour window Codex does
+		// (§269), and says nothing about it on the wire: no Retry-After, no
+		// x-ratelimit-* family (measured 2026-08-23). The reset lives on GET
+		// /usage, so a 429 there is answered by asking — the one extra round
+		// trip that turns "try again shortly" into a countdown the turn can
+		// wait out. Every other host keeps the sentence it always had.
+		if resetAt, ok := p.opencodeGoLimitReset(ctx); ok {
+			return &RateLimitError{
+				Provider: p.provider,
+				ResetAt:  resetAt,
+				Err: fmt.Errorf("%s: the plan's window is used up. It resets in %s.",
+					p.provider, humanizeDuration(time.Until(resetAt))),
+			}
 		}
 		if wait, stated := providerRetryAfter(resp); stated && wait > 0 {
 			return fmt.Errorf("%s is rate limiting this key. Try again in %s.", p.provider, humanizeDuration(wait))
@@ -693,7 +707,7 @@ func (p *OpenAICompatibleProvider) Complete(ctx context.Context, req Request) (R
 	}
 
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
-		return Response{}, p.statusError(httpResp, responseBody)
+		return Response{}, p.statusError(ctx, httpResp, responseBody)
 	}
 
 	var parsed struct {
@@ -881,7 +895,7 @@ func (p *OpenAICompatibleProvider) StreamComplete(ctx context.Context, req Reque
 			(!temperatureRefused(httpResp.StatusCode, responseBody) || payload.Temperature == 0) &&
 			(!reasoningRefused(httpResp.StatusCode, responseBody) || !hasReasoning) &&
 			(!toolRefused(httpResp.StatusCode, responseBody) || !hasTools) {
-			return Response{}, p.statusError(httpResp, responseBody)
+			return Response{}, p.statusError(ctx, httpResp, responseBody)
 		}
 		// Safe to replay: the refusal arrives before the first SSE frame, so
 		// nothing has been streamed to the user to take back.
@@ -910,7 +924,7 @@ func (p *OpenAICompatibleProvider) StreamComplete(ctx context.Context, req Reque
 		if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
 			retryBody, _ := io.ReadAll(httpResp.Body)
 			httpResp.Body.Close()
-			return Response{}, p.statusError(httpResp, retryBody)
+			return Response{}, p.statusError(ctx, httpResp, retryBody)
 		}
 	}
 	defer httpResp.Body.Close()

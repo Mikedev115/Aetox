@@ -206,6 +206,8 @@ export const en: Record<keyof typeof th, string> = {
   'chat.modelLoading': 'Loading model …',
   'chat.modelLoadingNamed': 'Loading {model} …',
   'chat.modelLoadingFor': '{secs}s',
+  'chat.limitWait': '{provider} hit its limit — waiting for the reset, then carrying on',
+  'chat.limitWaitLeft': '{left} left',
   // The fold-out under an edit on the โค้ด desk: the lines the agent actually
   // changed, in git's format. diffMore is the cut being honest about itself —
   // a long diff is capped where it is built, and a capped diff that says

@@ -99,7 +99,7 @@ const decided: Record<string, Kind> = {
   chat: 'parked-live', awaitingReply: 'parked-live', agentStatus: 'parked-live',
   toolSteps: 'parked-live', turnFiles: 'parked-live', turnProposals: 'parked-live',
   streamingText: 'parked-live', reasoningText: 'parked-live',
-  modelLoading: 'parked-live', ask: 'parked-live', todos: 'parked-live',
+  modelLoading: 'parked-live', limitWait: 'parked-live', ask: 'parked-live', todos: 'parked-live',
   turnSpend: 'parked-live', task: 'parked-live',
   // The takeover strip (computer tool). Parked rather than dropped, and the
   // two wrong answers are worth naming because both look right.

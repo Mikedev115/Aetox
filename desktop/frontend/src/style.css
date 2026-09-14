@@ -1279,6 +1279,14 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .model-load-mark { display:inline-flex; color:var(--text-muted); animation:tool-spin 1.2s linear infinite; }
 .model-load-text { color:var(--text-muted); font-size:var(--fs-md); }
 .model-load-secs { color:var(--text-dim); font-size:var(--fs-sm); font-variant-numeric:tabular-nums; }
+/* The plan-window wait (§269): same row as the model load, but a clock rather
+   than a spinner — nothing is loading, and a spinner for two hours is the
+   picture of a hung app. The count is the whole message, so it gets the
+   text colour and the tabular digits keep it from jittering every second. */
+.limit-wait { gap:8px; }
+.limit-wait-mark { display:inline-flex; color:var(--text-muted); }
+.limit-wait-text { color:var(--text-muted); font-size:var(--fs-md); }
+.limit-wait-left { color:var(--text); font-size:var(--fs-sm); font-variant-numeric:tabular-nums; }
 
 /* "thought for 34s" and "used 24 tools" sit on one line above the reply; both
    open their own body below, collapsed by default. */

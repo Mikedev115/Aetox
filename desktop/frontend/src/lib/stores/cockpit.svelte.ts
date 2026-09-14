@@ -3,7 +3,7 @@
 // incremental updates here — append a chat message, advance a timeline step) and
 // the UI reacts. Do not reassign `cockpit` itself; mutate its properties.
 
-import { emptyCockpitState, emptyTurnSpend, emptySessionSpend, type SessionSpend as SessionSpendTotals, type CockpitState, type ParkedTurn, type TreeNode, type Session, type ToolStep, type ToolEvent, type ChatMessage, type MessageVariant, type TurnPart, type PendingFile, type PendingImage, type ModelLoading, type StoreFault, type PreparedReply, type Plan, type PlanReport } from '../types'
+import { emptyCockpitState, emptyTurnSpend, emptySessionSpend, type SessionSpend as SessionSpendTotals, type CockpitState, type ParkedTurn, type TreeNode, type Session, type ToolStep, type ToolEvent, type ChatMessage, type MessageVariant, type TurnPart, type PendingFile, type PendingImage, type ModelLoading, type LimitWait, type StoreFault, type PreparedReply, type Plan, type PlanReport } from '../types'
 import type { CockpitSource } from '../services/cockpit'
 import { engine as engineStore, engineIsRemote } from './engine.svelte'
 import {
@@ -1003,6 +1003,7 @@ export async function applyAgentDone(status: { sessionId: string }): Promise<voi
   cockpit.streamingText = ''
   cockpit.reasoningText = ''
   cockpit.modelLoading = null
+  cockpit.limitWait = null
   cockpit.sessionError = ''
   // The chat on screen, which the guard above has just proved is the one whose
   // turn ended. It used to be CurrentSessionID() — the ENGINE's chat, which is
@@ -1126,7 +1127,7 @@ function blankParked(): ParkedTurn {
   return {
     chat: [], awaitingReply: true, agentStatus: '', toolSteps: [],
     turnFiles: [], turnProposals: [], streamingText: '', reasoningText: '',
-    modelLoading: null, ask: null, driving: null, todos: [], turnSpend: emptyTurnSpend(), queued: [],
+    modelLoading: null, limitWait: null, ask: null, driving: null, todos: [], turnSpend: emptyTurnSpend(), queued: [],
   }
 }
 
@@ -1205,6 +1206,7 @@ function parkLive(id: string): void {
     streamingText: cockpit.streamingText,
     reasoningText: cockpit.reasoningText,
     modelLoading: cockpit.modelLoading,
+    limitWait: cockpit.limitWait,
     ask: cockpit.ask,
     driving: cockpit.driving,
     todos: cockpit.todos,
@@ -1232,6 +1234,7 @@ function restoreLive(id: string): boolean {
   cockpit.streamingText = held.streamingText
   cockpit.reasoningText = held.reasoningText
   cockpit.modelLoading = held.modelLoading ?? null
+  cockpit.limitWait = held.limitWait ?? null
   cockpit.ask = held.ask
   cockpit.driving = held.driving ?? null
   cockpit.todos = held.todos
@@ -1278,6 +1281,7 @@ function clearLive(): void {
   cockpit.streamingText = ''
   cockpit.reasoningText = ''
   cockpit.modelLoading = null
+  cockpit.limitWait = null
   cockpit.ask = null
   // The takeover strip belongs to the chat that raised it. Cleared here so it
   // cannot follow the user into another conversation and claim their machine
@@ -1996,6 +2000,7 @@ async function runLiveTurn(call: (turn: LiveTurnRef) => Promise<void>): Promise<
   cockpit.streamingText = ''
   cockpit.reasoningText = ''
   cockpit.modelLoading = null
+  cockpit.limitWait = null
   // Whose turn this is: the chat on screen, because that is the only chat a
   // turn can be started from. Read from the window's own answer rather than
   // asked of the engine — it is synchronous, so there is no frame in which a
@@ -2123,6 +2128,9 @@ async function runLiveTurn(call: (turn: LiveTurnRef) => Promise<void>): Promise<
       // died before the watcher could send it would leave a spinner claiming a
       // model is still loading into a chat that has stopped.
       l.modelLoading = null
+      // Same reason, longer wait: a turn stopped mid-countdown must not leave
+      // a clock claiming the chat will resume at four.
+      l.limitWait = null
       // Cleared at both ends, like toolSteps. A turn that died with a question
       // still on screen left a card whose tool is no longer listening —
       // pressing an option answered nothing. The checklist is deliberately not
@@ -3051,6 +3059,17 @@ export function applyModelLoading(ev: SessionEvent<ModelLoading> | ModelLoading)
   if (payload === null) return
   const loading = payload && payload.loading ? payload : null
   writeLive(eventSession(ev), (l) => { l.modelLoading = loading })
+}
+
+/** The turn is waiting for a provider's rate limit to lift (engine
+ * emitLimitWait). Same shape as the model-loading row: `waiting: true` puts
+ * the countdown up, `waiting: false` takes it down, and the end of the turn
+ * takes it down regardless. */
+export function applyLimitWait(ev: SessionEvent<LimitWait> | LimitWait): void {
+  const payload = forLiveTurn(ev)
+  if (payload === null) return
+  const waiting = payload && payload.waiting ? payload : null
+  writeLive(eventSession(ev), (l) => { l.limitWait = waiting })
 }
 
 /**

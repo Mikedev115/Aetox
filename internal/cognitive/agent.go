@@ -121,7 +121,27 @@ const (
 	// gateway that is flapping rather than refusing, which is what a long run
 	// through a hosted model meets and what a short chat almost never does.
 	maxEmptyCompletionReplays = 4
+
+	// maxLimitWait is the longest a turn will hold itself open for a provider's
+	// rate limit to lift. Six hours covers the five-hour window Codex meters a
+	// plan by — the case this was built for, 14 ก.ย. 2026 — with room for the
+	// backend's own rounding. A weekly or monthly window says "resets in 4
+	// days", and a turn kept open for four days is not waiting, it is a chat
+	// nobody can use; those end with the sentence as they always did.
+	maxLimitWait = 6 * time.Hour
+
+	// maxLimitWaits caps how many resets one turn may sit through. A long run
+	// can legitimately spend a second window after the first refills, but a
+	// provider that keeps naming a reset that never frees the account must not
+	// be able to hold a turn forever.
+	maxLimitWaits = 3
 )
+
+// limitWaitSlack is added past the stated reset. resets_in_seconds is a whole
+// number the backend rounded, and a request sent on the exact second tends to
+// land a moment before the window actually refills. A var, not a const, so a
+// test can wait milliseconds instead of five seconds.
+var limitWaitSlack = 5 * time.Second
 
 // Small local models (Ollama-scale) sometimes reply with nothing at all,
 // typically right after a large tool result. One nudge usually revives them —
@@ -490,6 +510,7 @@ func (a *Agent) RespondWithTools(
 	overflowCompactions := 0
 	droppedConnections := 0
 	emptyCompletions := 0
+	limitWaits := 0
 	// Once. The pictures are gone after the first one, so a second rejection is
 	// about something else and must be allowed to end the turn rather than loop.
 	strippedImages := false
@@ -578,6 +599,21 @@ func (a *Agent) RespondWithTools(
 			}
 			if again {
 				emptyCompletions++
+				i--
+				continue
+			}
+			// The provider refused because the plan's window is spent, and
+			// said when it refills. Same bookkeeping as the two above — the
+			// failed round never reached the context, the preview is gone,
+			// and i-- because a wait is not a round of work — so the loop
+			// resumes exactly where it was, tool results and all, rather
+			// than ending red for the user to rebuild by hand.
+			again, endWith = askAgainAfterLimit(ctx, err, limitWaits, opts)
+			if endWith != nil {
+				return "", anyToolUsed, endWith
+			}
+			if again {
+				limitWaits++
 				i--
 				continue
 			}
@@ -1285,7 +1321,10 @@ func (a *Agent) compact(ctx context.Context) bool {
 		},
 		MaxTokens:   compactSummaryMaxTokens,
 		Temperature: 0.2,
-	})
+		// No listener, so no limit wait: a spent window fails compaction the
+		// way it always has ("compaction skipped"), and the round that
+		// follows is the one that waits, with the countdown on screen.
+	}, turn.TurnOptions{})
 	summary := ""
 	if response.Text != "" {
 		summary = strings.TrimSpace(response.Text)
@@ -1398,7 +1437,7 @@ func (a *Agent) executeToolCall(ctx context.Context, toolCall model.ToolCall, ex
 // ephemeral — never stored in context — so history stays clean either way.
 func (a *Agent) recoverEmptyReply(ctx context.Context, opts turn.TurnOptions) string {
 	msgs := append(a.context.Messages(), model.Message{Role: model.RoleUser, Content: emptyReplyNudge})
-	response, err := a.completeWithReconnect(ctx, a.buildRequest(msgs, 768, 0.2, nil, "", opts))
+	response, err := a.completeWithReconnect(ctx, a.buildRequest(msgs, 768, 0.2, nil, "", opts), opts)
 	if err != nil {
 		debuglog.Msg("empty-reply nudge failed: %v", err)
 		return emptyReplyFallback
@@ -1521,6 +1560,52 @@ func askAgainAfterEmpty(ctx context.Context, err error, spent int) (bool, error)
 	}
 }
 
+// askAgainAfterLimit is the third silence: the provider answered, on time,
+// with "not until four o'clock".
+//
+// Same three answers as askAgainAfterDrop. The pause here is not seconds but
+// hours, so unlike the other two it is a wait the user has to be able to see
+// and to end — which is why it is conditional on opts.OnLimitWait: that
+// listener is the countdown, and without one the hold would be a hang. Stop
+// during the wait ends the turn as Stop, for the reason the drop comment
+// gives.
+//
+// Declines, with (false, nil), when the error is not a rate limit, when it
+// named no reset, when the reset is further off than maxLimitWait, when the
+// turn has already waited maxLimitWaits times, or when nobody is listening.
+// In every one of those the caller falls through to the sentence the
+// provider wrote, which already says how long — "resets in 4 days" is the
+// right ending for a wait this will not do.
+func askAgainAfterLimit(ctx context.Context, err error, spent int, opts turn.TurnOptions) (bool, error) {
+	resetAt, ok := model.RateLimitResetAt(err)
+	if !ok || opts.OnLimitWait == nil || spent >= maxLimitWaits {
+		return false, nil
+	}
+	wait := time.Until(resetAt) + limitWaitSlack
+	if wait > maxLimitWait {
+		debuglog.Msg("rate limit lifts in %s, longer than the %s a turn will wait: %v", wait, maxLimitWait, err)
+		return false, nil
+	}
+	if wait < limitWaitSlack {
+		wait = limitWaitSlack
+	}
+	var limit *model.RateLimitError
+	errors.As(err, &limit)
+	debuglog.Msg("rate limit on %s, holding the turn until %s (%d/%d): %v",
+		limit.Provider, resetAt.Format(time.RFC3339), spent+1, maxLimitWaits, err)
+	opts.OnLimitWait(turn.LimitWait{Waiting: true, Provider: limit.Provider, ResetAt: resetAt})
+	// The end is reported on both exits. On Stop the turn ends and the window
+	// clears its live state anyway; saying so here as well means the row
+	// never depends on that.
+	defer opts.OnLimitWait(turn.LimitWait{Waiting: false, Provider: limit.Provider})
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	case <-time.After(wait):
+		return true, nil
+	}
+}
+
 // completeWithReconnect is provider.Complete with the rule above applied, and
 // it is what every completion in this file goes through bar one.
 //
@@ -1535,11 +1620,11 @@ func askAgainAfterEmpty(ctx context.Context, err error, spent int) (bool, error)
 // whether the turn even fits, and losing it to a blip is how a network failure
 // comes back to the user as "this conversation no longer fits the context
 // window" — the model blamed for the wifi, which §166 is the long version of.
-func (a *Agent) completeWithReconnect(ctx context.Context, req model.Request) (model.Response, error) {
-	// Two budgets, not one: a socket that keeps dying and a gateway that keeps
-	// answering with nothing are different failures, and neither should be able
-	// to spend the other's attempts.
-	for dropped, empties := 0, 0; ; {
+func (a *Agent) completeWithReconnect(ctx context.Context, req model.Request, opts turn.TurnOptions) (model.Response, error) {
+	// Three budgets, not one: a socket that keeps dying, a gateway that keeps
+	// answering with nothing and a plan whose window is spent are different
+	// failures, and none should be able to spend another's attempts.
+	for dropped, empties, limits := 0, 0, 0; ; {
 		response, err := a.provider.Complete(ctx, req)
 		if err == nil {
 			return response, nil
@@ -1560,6 +1645,14 @@ func (a *Agent) completeWithReconnect(ctx context.Context, req model.Request) (m
 			empties++
 			continue
 		}
+		again, endWith = askAgainAfterLimit(ctx, err, limits, opts)
+		if endWith != nil {
+			return model.Response{}, endWith
+		}
+		if again {
+			limits++
+			continue
+		}
 		return model.Response{}, err
 	}
 }
@@ -1568,7 +1661,7 @@ func (a *Agent) completeWithReconnect(ctx context.Context, req model.Request) (m
 // already be in history. Shared by Respond and the tool-loop fallback so the
 // fallback can't add the user message a second time.
 func (a *Agent) respondFromContext(ctx context.Context, opts turn.TurnOptions) (string, error) {
-	response, err := a.completeWithReconnect(ctx, a.buildRequest(a.context.Messages(), a.toolLoopMaxTokens(), 0.2, nil, "", opts))
+	response, err := a.completeWithReconnect(ctx, a.buildRequest(a.context.Messages(), a.toolLoopMaxTokens(), 0.2, nil, "", opts), opts)
 	if err != nil {
 		// An empty answer that outlasted its replays is not a failure to report
 		// — it is the empty reply the line below has always known how to
@@ -1611,7 +1704,7 @@ func (a *Agent) RespondEphemeral(ctx context.Context, prompt string, opts turn.T
 		return "", errors.New("input is empty")
 	}
 	msgs := append(a.context.Messages(), model.Message{Role: model.RoleUser, Content: prompt})
-	response, err := a.completeWithReconnect(ctx, a.buildRequest(msgs, 768, 0.2, nil, "", opts))
+	response, err := a.completeWithReconnect(ctx, a.buildRequest(msgs, 768, 0.2, nil, "", opts), opts)
 	if err != nil {
 		return "", err
 	}
@@ -1664,7 +1757,7 @@ func (a *Agent) RespondStream(ctx context.Context, userMessage string, onChunk f
 		// fallback to non-streaming when streaming path fails
 	}
 
-	response, err := a.completeWithReconnect(ctx, req)
+	response, err := a.completeWithReconnect(ctx, req, opts)
 	if err != nil {
 		return "", false, err
 	}

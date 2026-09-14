@@ -771,10 +771,26 @@ func (p *ResponsesProvider) statusError(resp *http.Response) error {
 			if plan == "" {
 				plan = "this"
 			}
-			return fmt.Errorf("%s: the %s plan's limit is used up. It resets in %s.",
-				p.provider, plan, humanizeDuration(time.Duration(limit.Error.ResetsInSeconds)*time.Second))
+			until := time.Duration(limit.Error.ResetsInSeconds) * time.Second
+			// Typed, not just worded: the reset is a fact the turn can act on
+			// (wait it out, RateLimitError), not only one to print.
+			return &RateLimitError{
+				Provider: p.provider,
+				ResetAt:  time.Now().Add(until),
+				Err: fmt.Errorf("%s: the %s plan's limit is used up. It resets in %s.",
+					p.provider, plan, humanizeDuration(until)),
+			}
 		}
-		return fmt.Errorf("%s plan limit reached. It resets on its own schedule. (429: %s)", p.provider, detail)
+		// The body said nothing about when, but the same reply carries the
+		// x-codex-* windows, and a window sitting at zero with a reset stated
+		// is the same fact by another route. The earliest such reset is when
+		// the next request could work; a window that is not spent is not the
+		// one refusing this turn and is skipped.
+		err := fmt.Errorf("%s plan limit reached. It resets on its own schedule. (429: %s)", p.provider, detail)
+		if resetAt, ok := spentWindowReset(readCodexQuotas(resp.Header, time.Now())); ok {
+			return &RateLimitError{Provider: p.provider, ResetAt: resetAt, Err: err}
+		}
+		return err
 	default:
 		// The 5xx family: the provider failed the request on its own side, and
 		// the status alone says so. Same sentence the other hosted clients give.
@@ -783,6 +799,21 @@ func (p *ResponsesProvider) statusError(resp *http.Response) error {
 		}
 		return fmt.Errorf("%s request failed with status %d: %s", p.provider, resp.StatusCode, detail)
 	}
+}
+
+// spentWindowReset is the earliest stated reset among the windows that are
+// used up. False when no window is both spent and dated.
+func spentWindowReset(quotas []Quota) (time.Time, bool) {
+	var earliest time.Time
+	for _, q := range quotas {
+		if q.RemainingPercent > 0 || !q.HasReset() {
+			continue
+		}
+		if earliest.IsZero() || q.ResetAt.Before(earliest) {
+			earliest = q.ResetAt
+		}
+	}
+	return earliest, !earliest.IsZero()
 }
 
 // ---------------------------------------------------------------------------

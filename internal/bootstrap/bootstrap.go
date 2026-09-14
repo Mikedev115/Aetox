@@ -244,6 +244,7 @@ type Options struct {
 	OnStatus         func(string)
 	OnContentPreview func(string)
 	OnContentReset   func()
+	OnLimitWait      func(turn.LimitWait)
 	OnUsage          func(model.Usage)
 
 	// Proposer is the approval door for anything an agent wants to learn. Only
@@ -847,6 +848,7 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 		// draft or a failure from being mistaken for the reply.
 		OnContentPreview: opts.OnContentPreview,
 		OnContentReset:   opts.OnContentReset,
+		OnLimitWait:      opts.OnLimitWait,
 		Approve:          opts.Approve,
 	})
 	if err != nil {
