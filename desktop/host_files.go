@@ -48,8 +48,8 @@ func (a *App) engineOnHost() bool {
 
 // hostLabel names the host, for the sentences below: the Settings row's
 // name, or for an attached engine what it called itself with its OS after
-// it — WSL calls itself by the Windows machine's own name, and "อยู่บนเครื่อง
-// Mikedev" on a PC named Mikedev reads as this machine (seen 14 ก.ย. 2026).
+// it — the owner's WSL and his Windows are both named "Mikedev", and
+// "อยู่บนเครื่อง Mikedev" on a PC named Mikedev reads as this machine.
 func (a *App) hostLabel() string {
 	if a.engine == nil {
 		return ""

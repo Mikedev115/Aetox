@@ -854,8 +854,8 @@ Two more, the same day, from asking "where else": `hello` now carries the
 engine's hostname, and an engine attached by hand (`AETOX_ENGINE_ADDR`) counts
 as a host — for the doors and for `credentialMayRide` — when its OS is not
 this machine's, or on the same OS when its name is not (`localEngine.elsewhere`).
-The OS is asked first because WSL answers with the Windows machine's own
-hostname: proven on the owner's PC the same day, the manual road end to end —
+The OS is asked first because two machines can share a name — the owner's
+WSL and his Windows are both "Mikedev": proven on his PC the same day, the manual road end to end —
 the engine started by hand on `wsl`, `ssh -L` by hand, the window on
 `AETOX_ENGINE_ADDR` — `mode: attach`, a PNG attached in 13 ms and read back,
 the folder door through the picker, the reveal naming "Mikedev (linux)" (the
