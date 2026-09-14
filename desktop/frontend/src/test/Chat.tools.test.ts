@@ -480,11 +480,14 @@ describe('tool timeline collapsing', () => {
     expect(container.querySelector('.tool-box.live-window')).toBeNull()
   })
 
-  // The last call coming back is the signal — not the next sentence, and not
-  // the end of the turn (owner, 7 ก.ย.: "พอมันรัน tool เสร็จ ถึงตัวสุดท้าย ก่อน
-  // จะพูดประโยคถัดไป มันก็พับลงอย่างนุ่มนวล"). The model has said nothing yet
-  // here and the turn is still running.
-  it('folds a stretch of work when its last call comes back, mid-turn', async () => {
+  // The stretch CLOSING is the signal — the model's next sentence, the user
+  // cutting in, or the turn ending — and not its last call coming back. The
+  // last call was the signal from 7 ก.ย. and it could not tell "over" from a
+  // tool loop: every round went quiet, folded, and was re-opened by the next
+  // (owner, 14 ก.ย.: "รำคาญมาก พับเปิดพับเปิดวนอยู่ได้ ... มันไม่ควรพับถ้าโมเดล
+  // ไม่ได้จบลูบรัน tool"). So a quiet stretch stays up, as the one live list it
+  // was, until the model says what comes next.
+  it('keeps a quiet stretch open until the model says something, then folds it', async () => {
     const working = [
       { label: 'read a.go', ref: 'call_a', state: 'done', startedAt: 0, secs: 1 },
       { label: 'read b.go', ref: 'call_b', state: 'run', startedAt: 0 },
@@ -494,17 +497,25 @@ describe('tool timeline collapsing', () => {
       messages: [{ role: 'user', text: 'go', time: '10:54' }] as any,
       toolSteps: working as any,
     })
-    // One list, no control, while a call is still out.
     expect(container.querySelector('button.phase-head')).toBeNull()
 
-    // The last one comes back. The model has said nothing yet and the turn is
-    // still running: this alone is the signal.
-    await rerender({
-      toolSteps: [working[0], { ...working[1], state: 'done', secs: 1 }],
-    } as any)
+    // The last one comes back. The model has said nothing yet: this alone
+    // is NOT the signal — the rows stay, on the live list, with a line over
+    // them and no control.
+    const done = [working[0], { ...working[1], state: 'done', secs: 1 }]
+    await rerender({ toolSteps: done } as any)
+    await new Promise((r) => setTimeout(r, 700))
+    await tick()
+    expect(container.querySelectorAll('.tool-step').length).toBe(2)
+    expect(container.querySelector('button.phase-head')).toBeNull()
+    expect(container.querySelector('.tool-box.live-window')).toBeTruthy()
 
-    // Nothing vanished in the frame the result landed: the rows are still
-    // there, still open, and the header has become the control.
+    // The sentence arrives: the stretch is over. Handed to the fold open —
+    // nothing vanishes in the frame it lands — and shut a beat later.
+    await rerender({
+      toolSteps: [...done, { kind: 'note', label: 'both files read', state: 'done', startedAt: 0 }],
+    } as any)
+    await tick()
     const head = () => container.querySelector('button.phase-head')
     expect(head()).toBeTruthy()
     expect(head()!.getAttribute('aria-expanded')).toBe('true')
@@ -546,6 +557,9 @@ describe('tool timeline collapsing', () => {
     const done = [
       { label: 'read a.go', ref: 'call_a', state: 'done', startedAt: 0, secs: 1 },
       { label: 'read b.go', ref: 'call_b', state: 'done', startedAt: 0, secs: 1 },
+      // The sentence after them is what makes the stretch OVER rather than
+      // quiet: a quiet one is still in flight and is held open (see below).
+      { kind: 'note', label: 'read both', state: 'done', startedAt: 0 },
     ]
     // A remount over a turn already in flight: the rows arrive finished.
     const { container } = render(Chat, {
@@ -578,9 +592,9 @@ describe('tool timeline collapsing', () => {
     await tick()
     expect(container.querySelector('button.phase-head')).toBeNull()
 
-    await rerender({
-      toolSteps: [{ label: 'read a.go', ref: 'call_a', state: 'done', startedAt: 0, secs: 1 }],
-    } as any)
+    const a = { label: 'read a.go', ref: 'call_a', state: 'done', startedAt: 0, secs: 1 }
+    await rerender({ toolSteps: [a] } as any)
+    await rerender({ toolSteps: [a, { kind: 'note', label: 'read it', state: 'done', startedAt: 0 }] } as any)
     const head = () => container.querySelector('button.phase-head')
     expect(head()?.getAttribute('aria-expanded')).toBe('true')
 
@@ -589,74 +603,103 @@ describe('tool timeline collapsing', () => {
     expect(head()?.getAttribute('aria-expanded')).toBe('false')
   })
 
-  // A sentence is what opens a phase, so two rounds of tools can arrive under
-  // one. The beat has to be spent asking again, not on the answer it had when
-  // it was armed.
-  it('calls off the fold when the same stretch starts working again', async () => {
-    const quiet = [{ label: 'read a.go', ref: 'call_a', state: 'done', startedAt: 0, secs: 1 }]
-    const { container, rerender } = render(Chat, {
+  // And the other half of that guard, the new way round: a stretch that is
+  // quiet on the first frame but not over is in flight, and is held open
+  // without any movement — not shut as a record and not played as a fold.
+  it('holds a quiet, unfinished stretch open on remount', async () => {
+    const { container } = render(Chat, {
       ...baseProps, awaitingReply: true,
       messages: [{ role: 'user', text: 'go', time: '10:54' }] as any,
-      toolSteps: quiet as any,
+      toolSteps: [{ label: 'read a.go', ref: 'call_a', state: 'done', startedAt: 0, secs: 1 }] as any,
     })
-    await rerender({
-      toolSteps: [...quiet, { label: 'read b.go', ref: 'call_b', state: 'run', startedAt: 0 }],
-    } as any)
-
     await new Promise((r) => setTimeout(r, 700))
     await tick()
-    expect(container.querySelectorAll('.tool-step').length).toBe(2)
+    expect(container.querySelectorAll('.tool-step').length).toBe(1)
     expect(container.querySelector('button.phase-head')).toBeNull()
   })
 
-  // Two rounds under ONE sentence, with nothing said between them — the ordinary
-  // shape of a long run, and the one that used to jump. Without a round being the
-  // unit the box holds, two separate things go wrong at once:
-  //
-  //  - the box drew every call the stretch had made, so a second batch grew it
-  //    back to a height it had already folded away and dropped it again;
-  //  - nothing re-armed the fold after the first one, so from the second round
-  //    on the rows were gone the frame the last result landed — no beat, no
-  //    movement, which the owner read as the same work running twice.
-  //
-  // Owner, 11 ก.ย., over exactly that: "พับเสร็จแล้วรันซ้ำจุดเดิม เลยขึ้นๆลงๆ".
-  it('gives every round in one stretch its own box, and its own fold', async () => {
+  // A sentence is what opens a phase, so many rounds of tools arrive under one
+  // — the ordinary shape of a long run: call, result, think, call, result. The
+  // per-round rule (11 ก.ย.: each round its own box and its own fold) made that
+  // loop fold and re-open once per round, twenty times in a twenty-round run
+  // (owner, 14 ก.ย.: "พับเปิดพับเปิดวนอยู่ได้"). One stretch is one list until
+  // the model moves on, and then it folds once.
+  it('keeps every round of one tool loop on one open list, and folds once', async () => {
     const a = { label: 'read a.go', ref: 'call_a', state: 'done', startedAt: 0, secs: 1 }
     const bRun = { label: 'read b.go', ref: 'call_b', state: 'run', startedAt: 0 }
     const b = { ...bRun, state: 'done', secs: 1 }
-    const rows = () => [...container.querySelectorAll('.tool-step')].map((el) => el.textContent ?? '')
+    const cRun = { label: 'run go test', ref: 'call_c', state: 'run', startedAt: 0 }
+    const c = { ...cRun, state: 'done', secs: 2 }
+    const rows = () => container.querySelectorAll('.tool-step').length
+    const head = () => container.querySelector('button.phase-head')
 
-    // Watched arriving, so the phase is the app's to fold.
     const { container, rerender } = render(Chat, {
       ...baseProps, awaitingReply: true,
       messages: [{ role: 'user', text: 'go', time: '10:54' }] as any,
       toolSteps: [{ ...a, state: 'run', secs: undefined }] as any,
     })
+    // Round one ends. Quiet, not over: nothing folds, nothing is a control.
     await rerender({ toolSteps: [a] } as any)
     await new Promise((r) => setTimeout(r, 700))
     await tick()
-    expect(container.querySelectorAll('.tool-step').length).toBe(0)
+    expect(rows()).toBe(1)
+    expect(head()).toBeNull()
 
-    // Round two, same sentence. What is on screen is that round: the row round
-    // one left behind is folded, not drawn a second time.
+    // Rounds two and three, same sentence: the list grows, and every row the
+    // stretch has made is still on it — no box that shrank and grew back.
     await rerender({ toolSteps: [a, bRun] } as any)
     await tick()
-    expect(rows().length).toBe(1)
-    // Matched without case: the row's verb is upper-cased in CSS, not in the DOM.
-    expect(rows()[0]).toMatch(/read b\.go/i)
-
-    // And it ends the way the first round did — handed to the fold open, then
-    // shut a beat later. Gone in one frame is the other half of the bug.
+    expect(rows()).toBe(2)
     await rerender({ toolSteps: [a, b] } as any)
+    await new Promise((r) => setTimeout(r, 700))
     await tick()
-    const head = () => container.querySelector('button.phase-head')
-    expect(head()?.getAttribute('aria-expanded')).toBe('true')
-    expect(rows().length).toBe(1)
+    expect(rows()).toBe(2)
+    expect(head()).toBeNull()
+    await rerender({ toolSteps: [a, b, cRun] } as any)
+    await tick()
+    expect(rows()).toBe(3)
+    expect(container.querySelector('.tool-box.live-window')).toBeTruthy()
+    // Each round in the box it ran in. Three single calls, one after the
+    // other, are three boxes of one row — not one box of three, which would
+    // draw them as a parallel card and say they ran together.
+    expect(container.querySelectorAll('.tool-steps.tool-box').length).toBe(3)
+    expect(container.querySelector('.parallel-card')).toBeNull()
 
+    // The model speaks: the stretch is over. One fold, of all three rows,
+    // handed over open and shut a beat later.
+    await rerender({
+      toolSteps: [a, b, c, { kind: 'note', label: 'tests pass', state: 'done', startedAt: 0 }],
+    } as any)
+    await tick()
+    expect(head()?.getAttribute('aria-expanded')).toBe('true')
+    expect(rows()).toBe(3)
     await new Promise((r) => setTimeout(r, 700))
     await tick()
     expect(head()?.getAttribute('aria-expanded')).toBe('false')
-    expect(container.querySelectorAll('.tool-step').length).toBe(0)
+    expect(rows()).toBe(0)
+  })
+
+  // The other shape of a loop: batches. Two calls issued together, then two
+  // more once both came back. Held on screen together they are two parallel
+  // cards of two, and never one card of four — "รันขนานกัน 4 งาน" would be a
+  // claim about the run that the run did not make.
+  it('keeps each batch of a held stretch as its own parallel card', async () => {
+    const run = (label: string, ref: string) => ({ label, ref, state: 'run', startedAt: 0 })
+    const done = (label: string, ref: string) => ({ label, ref, state: 'done', startedAt: 0, secs: 1 })
+    const { container, rerender } = render(Chat, {
+      ...baseProps, awaitingReply: true,
+      messages: [{ role: 'user', text: 'go', time: '10:54' }] as any,
+      toolSteps: [run('read a.go', 'a'), run('read b.go', 'b')] as any,
+    })
+    await rerender({ toolSteps: [done('read a.go', 'a'), done('read b.go', 'b')] } as any)
+    await tick()
+    await rerender({
+      toolSteps: [done('read a.go', 'a'), done('read b.go', 'b'), run('read c.go', 'c'), run('read d.go', 'd')],
+    } as any)
+    await tick()
+    const cards = [...container.querySelectorAll('.parallel-card .parallel-head .q')].map((el) => el.textContent?.trim())
+    expect(cards).toEqual(['Parallel execution of 2 tasks complete', 'Running in parallel · 2 tasks'])
+    expect(container.querySelectorAll('.tool-step').length).toBe(4)
   })
 
   // The frame the reply lands used to take the rows with it. They are drawn
@@ -857,17 +900,31 @@ describe('the block on the live tool row', () => {
     expect(list?.classList.contains('glide-on')).toBe(true)
   })
 
-  // Providers do issue parallel calls, and one bar cannot be in two places. The
-  // per-row block has to take over, which it only does with the class off.
-  it('falls back to per-row blocks when two calls run at once', async () => {
-    const { container } = render(Chat, {
+  // Providers do issue parallel calls, and those rows live in a parallel card
+  // — a window of their own that the bar, placed against the box, cannot
+  // mark: a straggler on the ninth row of a batch put the bar under the
+  // window and the box grew a blank floor to it (owner, 14 ก.ย.: "หลังๆ
+  // หายโล่งเลย"). So the bar never marks a card's row, whether two of them
+  // run or one: the card's rows keep the per-row block (style.css keeps it
+  // on `.parallel-hit` under `glide-on`), and the bar stays out.
+  it("leaves a parallel card's rows to their own blocks, even a lone straggler", async () => {
+    const { container, rerender } = render(Chat, {
       ...baseProps, awaitingReply: true,
       messages: [{ role: 'user', text: 'go', time: '10:54' }] as any,
       toolSteps: [step('browser_read', 'run'), step('web_fetch', 'run')],
     })
     await tick()
+    const bar = () => container.querySelector<HTMLElement>('.tool-steps .tool-glide')
+    expect(container.querySelectorAll('.parallel-hit.run').length).toBe(2)
+    expect(bar()?.style.opacity).toBe('0')
 
-    expect(container.querySelector('.tool-steps')?.classList.contains('glide-on')).toBe(false)
+    // One comes back; the other is the only thing running. Still the card's
+    // row, still not the bar's.
+    await rerender({ toolSteps: [step('browser_read', 'done'), step('web_fetch', 'run')] } as any)
+    await tick()
+    await new Promise((r) => requestAnimationFrame(() => r(null)))
+    expect(container.querySelectorAll('.parallel-hit.run').length).toBe(1)
+    expect(bar()?.style.opacity).toBe('0')
   })
 })
 

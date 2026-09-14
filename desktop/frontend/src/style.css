@@ -1373,7 +1373,9 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   content:''; position:absolute; inset:-1px -10px; z-index:-1;
   background:var(--surface-raised); border-radius:var(--r-sm);
 }
-.tool-steps.glide-on .tool-step.run::after { display:none; }
+/* A parallel card's rows keep their own block even under the bar: the bar
+   does not mark them (toolGlide.ts, the straggler on row nine). */
+.tool-steps.glide-on .tool-step.run:not(.parallel-hit)::after { display:none; }
 .tool-glide {
   inset:auto; left:-10px; right:-10px; top:0; opacity:0;
   transition:transform var(--swap-block) var(--ease-arrive),

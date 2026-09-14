@@ -1,11 +1,13 @@
 package lsp
 
 import (
+	"bufio"
 	"context"
+	"io"
 	"os"
-	"strconv"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -127,5 +129,79 @@ func TestParseReferencesCapsAndConverts(t *testing.T) {
 	}
 	if refs, _ := parseReferences([]byte("null")); refs != nil {
 		t.Error("a null answer is no references, not a panic")
+	}
+}
+
+// The doc comment above a Go declaration begins with the symbol's own name,
+// so "first occurrence" landed in prose for every documented function and the
+// server answered with nothing (codebase symbol app.go CancelTurn, 14 ก.ย.
+// 2026). The declaration must win; a comment is only ever the fallback.
+func TestFindIdentifierPrefersCodeOverComment(t *testing.T) {
+	src := strings.Join([]string{
+		"package engine",
+		"",
+		"// CancelTurn aborts the chat turn in flight (the tool loop is unbounded, so",
+		"// CancelTurn is the only way out).",
+		"func (a *Engine) CancelTurn() {",
+		"\ta.cancelTurn()",
+		"}",
+	}, "\n")
+	line, ch, ok := findIdentifier(src, "CancelTurn")
+	if !ok || line != 4 || ch != len("func (a *Engine) ") {
+		t.Fatalf("want the declaration at line 4, got line=%d ch=%d ok=%v", line, ch, ok)
+	}
+	// Nothing but comments mention it: still found, so a name that lives only
+	// in prose gets the old behaviour rather than "does not appear".
+	line, _, ok = findIdentifier("# only Frobnicate here\nx = 1\n", "Frobnicate")
+	if !ok || line != 0 {
+		t.Fatalf("comment-only occurrence must still be found, got line=%d ok=%v", line, ok)
+	}
+	// Standalone still holds on the code sweep.
+	if _, _, ok := findIdentifier("func Getter() {}\n", "Get"); ok {
+		t.Error(`"Get" must not land inside "Getter"`)
+	}
+}
+
+// A server that answers a request with a JSON-RPC error used to be read as an
+// empty success: readLoop unmarshalled `result` alone. The reason gopls gave
+// is the only diagnostic a user has when all three lookups fail, so it has to
+// reach the caller as an error.
+func TestCallSurfacesServerError(t *testing.T) {
+	pr, pw := io.Pipe()
+	// readLoop closes the conn when the pipe ends, and close() waits on the
+	// server process — so the fake gets a real, already-finished one.
+	cmd := exec.Command("go", "version")
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Skip("no go binary on PATH:", err)
+	}
+	cn := &conn{
+		cmd:     cmd,
+		stdin:   stdin,
+		stdout:  bufio.NewReader(pr),
+		diags:   map[string][]Diagnostic{},
+		updated: make(chan string, 1),
+		pending: map[int]chan reply{},
+	}
+	go cn.readLoop()
+	answer := make(chan reply, 1)
+	cn.mu.Lock()
+	cn.pending[7] = answer
+	cn.mu.Unlock()
+	body := `{"jsonrpc":"2.0","id":7,"error":{"code":-32602,"message":"no identifier found"}}`
+	go func() {
+		_, _ = pw.Write([]byte("Content-Length: " + strconv.Itoa(len(body)) + "\r\n\r\n" + body))
+		_ = pw.Close()
+	}()
+	select {
+	case r := <-answer:
+		if r.err == nil || !strings.Contains(r.err.Error(), "no identifier found") {
+			t.Fatalf("server error must come through, got %v", r.err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("reply never delivered")
 	}
 }

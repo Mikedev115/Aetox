@@ -196,7 +196,19 @@ type conn struct {
 	// arrive as notifications and need no id, which is why the handshake could
 	// get away without this; hover and definition are requests, and a request
 	// whose answer nobody is waiting for is just a slow no-op.
-	pending map[int]chan json.RawMessage
+	pending map[int]chan reply
+}
+
+// reply is one response to a request: the result, or the server's own
+// error. The error travels as a value rather than being dropped on the floor,
+// which it was — readLoop unmarshalled `result` alone, so a request gopls
+// refused ("no identifier found", "context deadline exceeded", a file it
+// would not open) reached the caller as an empty success, and symbol() then
+// summarised three of those as "the language server knows nothing about X".
+// The reason it knew nothing was the one thing never shown.
+type reply struct {
+	result json.RawMessage
+	err    error
 }
 
 func startConn(ctx context.Context, root string, spec server) (*conn, error) {
@@ -235,7 +247,7 @@ func startConn(ctx context.Context, root string, spec server) (*conn, error) {
 		stdout:  bufio.NewReader(stdout),
 		diags:   map[string][]Diagnostic{},
 		updated: make(chan string, 64),
-		pending: map[int]chan json.RawMessage{},
+		pending: map[int]chan reply{},
 	}
 	go cn.readLoop()
 
@@ -347,11 +359,31 @@ func (c *Client) Symbol(ctx context.Context, path, name string, timeout time.Dur
 // findIdentifier returns the 0-based line and character of the first standalone
 // occurrence of name. Standalone matters: searching for "Get" must not land
 // inside "Getter", which would resolve to a different symbol entirely.
+//
+// Lines that are comments are passed over on the first sweep and used only
+// when nothing else has the name. This is not a nicety: Go's doc convention
+// puts the symbol's own name in the sentence directly above its declaration,
+// so "the first occurrence" of every documented exported function was the
+// comment, and hover, definition and references asked at a position inside
+// prose all come back empty — `codebase symbol app.go CancelTurn` answered
+// "the language server knows nothing about CancelTurn" for a function that
+// was declared twelve lines below the spot it looked at (14 ก.ย. 2026).
 func findIdentifier(text, name string) (line, character int, ok bool) {
+	lines := strings.Split(text, "\n")
+	if l, c, found := findIdentifierIn(lines, name, true); found {
+		return l, c, true
+	}
+	return findIdentifierIn(lines, name, false)
+}
+
+func findIdentifierIn(lines []string, name string, skipComments bool) (line, character int, ok bool) {
 	isWord := func(r byte) bool {
 		return r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
 	}
-	for i, l := range strings.Split(text, "\n") {
+	for i, l := range lines {
+		if skipComments && isCommentLine(l) {
+			continue
+		}
 		from := 0
 		for {
 			at := strings.Index(l[from:], name)
@@ -369,6 +401,22 @@ func findIdentifier(text, name string) (line, character int, ok bool) {
 		}
 	}
 	return 0, 0, false
+}
+
+// isCommentLine is the cheap, language-blind test for "this whole line is
+// prose": the line markers of every language the server table knows (//, #,
+// -- for SQL/Lua/Haskell) plus the inside of a block comment as it is
+// conventionally laid out (/* ... and * ...). A trailing comment after code
+// is not caught, and need not be — the code before it is where the name
+// sits, and that is found first anyway.
+func isCommentLine(l string) bool {
+	s := strings.TrimSpace(l)
+	for _, p := range []string{"//", "#", "/*", "*", "--"} {
+		if strings.HasPrefix(s, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *conn) symbol(ctx context.Context, abs, languageID, name string, timeout time.Duration) (*SymbolInfo, error) {
@@ -404,11 +452,23 @@ func (c *conn) symbol(ctx context.Context, abs, languageID, name string, timeout
 	// Hover and definition are asked for separately and either may come back
 	// empty: a local variable has a type but no interesting declaration
 	// elsewhere, and a package name has a declaration but no hover text.
+	// Each refusal is kept, not just skipped: when all three come back empty
+	// the reason the server gave is the one useful thing left to say.
+	var refused []string
+	keep := func(method string, err error) {
+		if err != nil {
+			refused = append(refused, strings.TrimPrefix(method, "textDocument/")+": "+err.Error())
+		}
+	}
 	if raw, err := c.call(ctx, "textDocument/hover", position, timeout); err == nil {
 		info.Hover = parseHover(raw)
+	} else {
+		keep("textDocument/hover", err)
 	}
 	if raw, err := c.call(ctx, "textDocument/definition", position, timeout); err == nil {
 		info.DefPath, info.DefLine = parseDefinition(raw)
+	} else {
+		keep("textDocument/definition", err)
 	}
 	// The call-sites half (§ the owner's "รู้เลยว่าคลาสนี้ถูกเรียกที่ไหนบ้าง",
 	// 29 ส.ค.): the server has indexed every use already — this was the one
@@ -422,9 +482,15 @@ func (c *conn) symbol(ctx context.Context, abs, languageID, name string, timeout
 	}
 	if raw, err := c.call(ctx, "textDocument/references", refParams, timeout); err == nil {
 		info.Refs, info.RefsTruncated = parseReferences(raw)
+	} else {
+		keep("textDocument/references", err)
 	}
 	if info.Hover == "" && info.DefPath == "" && len(info.Refs) == 0 {
-		return nil, fmt.Errorf("the language server knows nothing about %q here", name)
+		if len(refused) > 0 {
+			return nil, fmt.Errorf("the language server knows nothing about %q at %s:%d (%s)",
+				name, filepath.Base(abs), line+1, strings.Join(refused, "; "))
+		}
+		return nil, fmt.Errorf("the language server knows nothing about %q at %s:%d", name, filepath.Base(abs), line+1)
 	}
 	return info, nil
 }
@@ -708,6 +774,10 @@ func (c *conn) readLoop() {
 			Method string          `json:"method"`
 			Params json.RawMessage `json:"params"`
 			Result json.RawMessage `json:"result"`
+			Error  *struct {
+				Code    int    `json:"code"`
+				Message string `json:"message"`
+			} `json:"error"`
 		}
 		if json.Unmarshal(payload, &msg) != nil {
 			continue
@@ -720,7 +790,11 @@ func (c *conn) readLoop() {
 			delete(c.pending, *msg.ID)
 			c.mu.Unlock()
 			if ok {
-				waiter <- msg.Result // buffered, so a caller that gave up cannot block this loop
+				r := reply{result: msg.Result}
+				if msg.Error != nil {
+					r.err = fmt.Errorf("%s (%d)", strings.TrimSpace(msg.Error.Message), msg.Error.Code)
+				}
+				waiter <- r // buffered, so a caller that gave up cannot block this loop
 			}
 			continue
 		}
@@ -831,11 +905,11 @@ func (c *conn) request(ctx context.Context, method string, params any) error {
 // call is request with the answer kept. Used for hover and definition, where
 // the reply is the whole point.
 func (c *conn) call(ctx context.Context, method string, params any, timeout time.Duration) (json.RawMessage, error) {
-	reply := make(chan json.RawMessage, 1)
+	answer := make(chan reply, 1)
 	c.mu.Lock()
 	c.nextID++
 	id := c.nextID
-	c.pending[id] = reply
+	c.pending[id] = answer
 	c.mu.Unlock()
 	// Registered before sending, never after: a fast server can answer before
 	// the sending goroutine gets back to the map.
@@ -848,8 +922,8 @@ func (c *conn) call(ctx context.Context, method string, params any, timeout time
 		return nil, err
 	}
 	select {
-	case result := <-reply:
-		return result, nil
+	case r := <-answer:
+		return r.result, r.err
 	case <-time.After(timeout):
 		c.mu.Lock()
 		delete(c.pending, id)
