@@ -63,7 +63,10 @@ var toolExecutionTimeout = 60 * time.Second
 // noDeadlineTools are exempt from the slow-tool guard above, for two different
 // reasons that both end the same way: waiting IS the work.
 //
-//   - ask_user blocks on a human answering.
+//   - ask_user blocks on a human answering. Not forever, since 14 ก.ย. 2026: the
+//     tool ends its own wait after askPatience (internal/engine/ask_user.go) and
+//     hands the model a "nobody answered, close the turn" result — that is the
+//     tool's patience, not this guard's, and it is measured in meals.
 //   - task starts a nested agent loop, and task_result waits for one. A delegate
 //     doing real work takes minutes; its own step cap (internal/subagent) is what
 //     bounds it, and by the time the parent collects, the waiting is time the

@@ -59,6 +59,10 @@ type App struct {
 	// exports is what the deck export wrote into Downloads this session
 	// (exports.go), so OpenExport can open it and nothing else.
 	exports exports
+	// hostDirs is the folder questions the remote picker is showing
+	// (host_files.go): a door that needs a folder on the engine's machine
+	// waits here for the window's answer.
+	hostDirs hostDirAsks
 
 	// The browser tab host (browser.go) and the machine lock
 	// (computer_guard.go): both act on this window's computer, which is why
@@ -164,6 +168,10 @@ func (a *App) startup(ctx context.Context) {
 // same grace the in-process engine took, across the wire, and bounded here
 // too so a wire that is down cannot hold the window open.
 func (a *App) beforeClose(ctx context.Context) (prevent bool) {
+	// Written before anything else, so a log whose last line is NOT this one
+	// is a process that died rather than one that was closed — the question
+	// the 14 ก.ย. 2026 incident report could not answer from its logs.
+	debuglog.Msg("desktop: closing — asked to (the X, Quit or a restart)")
 	if conn := a.client.Conn(); conn != nil {
 		wait, cancel := context.WithTimeout(ctx, 8*time.Second)
 		defer cancel()
@@ -173,6 +181,7 @@ func (a *App) beforeClose(ctx context.Context) (prevent bool) {
 }
 
 func (a *App) shutdown(context.Context) {
+	debuglog.Msg("desktop: shutdown — the window is gone")
 	// The figure on the desktop is a window of its own and would outlive
 	// this one for as long as the process does: taken in first.
 	a.CloseCompanionWindow()

@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -40,6 +41,68 @@ func InitAs(baseDir, prefix string) {
 	writer = f
 	timestamp("=== AETOX DEBUG LOG ===")
 	timestamp("file: " + path)
+	replayRecent(f)
+	timestamp(fmt.Sprintf("process: pid %d, parent %d, %s", os.Getpid(), os.Getppid(), exeName()))
+	if crash := catchCrashes(dir, prefix); crash != "" {
+		timestamp("crash output: " + crash)
+	}
+}
+
+// catchCrashes gives the Go runtime a file to write into when this process
+// dies of a panic it never recovered — the one death that leaves nothing
+// otherwise. A windowsgui build has no stderr, so a goroutine panic is an
+// exit code 2 with no window, no Windows Error Report, no dump and no last
+// line in this log: exactly the evidence the 14 ก.ย. 2026 incident report
+// had, and could not read anything from. The runtime writes only on a fatal
+// panic, so a clean exit leaves the file empty; the empties from earlier
+// runs are swept here at the next start, and a crash-*.txt that has bytes
+// in it is a stack trace of a real death. Answers the path, "" when the
+// runtime was given nothing.
+func catchCrashes(dir, prefix string) string {
+	stale, _ := filepath.Glob(filepath.Join(dir, "crash-"+prefix+"-*.txt"))
+	for _, p := range stale {
+		if st, err := os.Stat(p); err == nil && st.Size() == 0 {
+			_ = os.Remove(p)
+		}
+	}
+	path := filepath.Join(dir, "crash-"+prefix+"-"+time.Now().Format("20060102-150405")+".txt")
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return ""
+	}
+	if err := debug.SetCrashOutput(f, debug.CrashOptions{}); err != nil {
+		_ = f.Close()
+		_ = os.Remove(path)
+		return ""
+	}
+	// SetCrashOutput duplicated the handle; ours can go.
+	_ = f.Close()
+	return path
+}
+
+// replayRecent writes what the ring remembered from before the file existed
+// — a process says things while it is still building its window, and until
+// now the file began only at startup and those lines lived in memory alone.
+// Straight to the file, not through timestamp(): they carry their own stamps
+// and are already remembered.
+func replayRecent(f io.Writer) {
+	lines := Recent(recentCap)
+	if len(lines) == 0 {
+		return
+	}
+	fmt.Fprintln(f, "--- before this file opened ---")
+	for _, line := range lines {
+		fmt.Fprintln(f, line)
+	}
+	fmt.Fprintln(f, "--- from here on, live ---")
+}
+
+func exeName() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return "?"
+	}
+	return filepath.Base(exe)
 }
 
 func Enable(filepath string) error {
