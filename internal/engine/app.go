@@ -8,10 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"image"
-	_ "image/gif"  // imageTokens reads attachment headers for the context meter
-	_ "image/jpeg" // (same set loadPicture validates)
-	_ "image/png"
 	"io"
 	"mime"
 	"net/http"
@@ -3267,6 +3263,12 @@ type ContextBreakdown struct {
 	// round this session actually sent, or an estimate of what the next one
 	// will cost. False on a chat nobody has typed into yet.
 	Measured bool `json:"measured"`
+	// CalibratedRounds is how many past rounds of this model the estimate was
+	// corrected against — see promptCalibration. Zero means the figure is the
+	// bare chars/4 guess, which the UI says out loud, because that guess ran
+	// 24% high on the tool block the day this was added and the reaction to a
+	// forecast that later shrinks is "the meter is broken".
+	CalibratedRounds int `json:"calibratedRounds,omitempty"`
 	// CachedTokens is how much of the last round's input the provider served
 	// from its prompt cache, at a fraction of the full price. Without it the
 	// meter presents 12k as 12k paid, when most of it — the system prompt and
@@ -3299,59 +3301,41 @@ type ContextBreakdown struct {
 func (a *Engine) GetContextBreakdown() ContextBreakdown {
 	est := func(chars int) int { return (chars + 3) / 4 }
 
-	systemChars, msgChars, attachTokens := 0, 0, 0
+	var msgs []model.Message
 	if a.cur().agent != nil {
-		for i, m := range a.cur().agent.ContextMessages() {
-			// Everything a message carries, not just Content: reasoning rides
-			// back out on the wire for providers that take it (openai_compatible
-			// resends it with the history), and an attached screenshot was the
-			// single biggest thing this loop used to count as zero — a pasted
-			// image read as a free message while costing more than the text
-			// around it.
-			chars := len(m.Content) + len(m.ReasoningContent)
-			for _, tc := range m.ToolCalls {
-				chars += len(tc.Function.Arguments)
-			}
-			for _, img := range m.Images {
-				attachTokens += imageTokens(img)
-			}
-			// A document's real price is per page and nothing here can count
-			// pages cheaply, so this is a floor — roughly one page — rather
-			// than a guess dressed as a measurement. The measured total from
-			// the next round absorbs the true cost either way.
-			attachTokens += 1500 * len(m.Documents)
-			if i == 0 && m.Role == model.RoleSystem {
-				systemChars = chars
-			} else {
-				msgChars += chars
-			}
-		}
+		msgs = a.cur().agent.ContextMessages()
 	}
 
-	toolChars := 0
+	var defs []model.ToolDefinition
 	var toolRows []ContextTool
 	if a.cur().registry != nil {
 		// Through the desk's filter, not the whole registry: the tool block is
 		// what a narrower desk exists to shrink, and reporting the full pile
 		// here would tell the user the one number the choice was meant to change
 		// had not changed at all.
-		defs := a.deskTools().ToolDefinitions()
-		if b, err := json.Marshal(defs); err == nil {
-			toolChars = len(b)
-		}
+		defs = a.deskTools().ToolDefinitions()
 		toolRows = a.toolWeights(defs)
 	}
 
 	maxTokens := a.contextWindowTokens()
 
-	system, tools, messages := est(systemChars), est(toolChars), est(msgChars)+attachTokens
+	// The same guess the agent stamps on every round it sends (model.Usage
+	// .Estimate), so the calibration below compares like with like.
+	guess := model.EstimatePrompt(msgs, defs)
+
+	// chars/4 is an English rule of thumb, and this request is a Thai system
+	// prompt over a block of JSON — neither obeys it. But every round this
+	// model has ever answered was recorded beside the same guess, and the
+	// ratio between the two is a measurement. Applied before the "measured"
+	// branch, because the fixed slices it pins are these.
+	calib := a.promptCalibration(a.cur().cfg.ModelProvider, a.cur().cfg.ModelName)
+	system, tools, messages := calib.apply(guess)
 	used := system + tools + messages
 
-	// The provider counts tokens with its own tokenizer; chars/4 is an English
-	// rule of thumb that Thai does not obey. Every completed round already
-	// reports its real prompt size, so once this session has sent anything the
-	// total stops being a guess — the per-slice split stays estimated, because
-	// nobody reports that.
+	// The provider counts tokens with its own tokenizer. Every completed round
+	// already reports its real prompt size, so once this session has sent
+	// anything the total stops being a guess — the per-slice split stays
+	// calibrated-estimated, because nobody reports that.
 	//
 	// When the real count exceeds the estimate, the whole gap belongs to
 	// messages: the system prompt and the tool block are byte-for-byte the same
@@ -3359,9 +3343,10 @@ func (a *Engine) GetContextBreakdown() ContextBreakdown {
 	// version scaled all three slices by real/used, which made the tools bar
 	// climb round after round while not one byte of it changed — a meter
 	// steadily "proving" that Aetox's tool list eats the window. Only when the
-	// estimate overshoots reality (rare — the guess errs low for Thai and for
-	// JSON) is proportional scaling the honest split, because then there is no
-	// single slice the error can be pinned on.
+	// estimate overshoots reality is proportional scaling the honest split,
+	// because then there is no single slice the error can be pinned on. That
+	// case was not rare before the calibration: the raw guess runs high on the
+	// tool block's JSON (24% on 14 ก.ย. 2026) and low on Thai prose.
 	measured := false
 	real, cached := a.lastPromptUsage()
 	if real > 0 {
@@ -3412,38 +3397,15 @@ func (a *Engine) GetContextBreakdown() ContextBreakdown {
 		// has been sent at all, and a meter reading 10.1k on a chat the user has
 		// not typed into reads as a bill they have already run up — which is
 		// what it looked like, and why this field exists.
-		Measured:     measured,
-		CachedTokens: cached,
-		Slices:       slices,
-		SweptItems:   sweptItems,
-		SweptTokens:  est(sweptChars),
-		Summaries:    summaries,
-		Tools:        toolRows,
+		Measured:         measured,
+		CalibratedRounds: calib.Rounds,
+		CachedTokens:     cached,
+		Slices:           slices,
+		SweptItems:       sweptItems,
+		SweptTokens:      est(sweptChars),
+		Summaries:        summaries,
+		Tools:            toolRows,
 	}
-}
-
-// imageTokens estimates what one attached image adds to the next request.
-//
-// Not bytes/4: a vision model prices an image by its pixels, not its file
-// size, and the two disagree by an order of magnitude in both directions — a
-// 100KB screenshot costs ~1.3k tokens, which bytes/4 would call 25k. The
-// working rule is Anthropic's width×height/750, and providers downscale
-// anything past ~1.6k tokens, hence the cap. DecodeConfig reads only the
-// header, so this costs nothing per call.
-//
-// The flat fallback is for a format the header-read cannot parse (webp): the
-// size of a typical screenshot, chosen over zero because zero is the exact lie
-// this estimate exists to stop telling.
-func imageTokens(img model.Image) int {
-	cfg, _, err := image.DecodeConfig(bytes.NewReader(img.Data))
-	if err != nil || cfg.Width <= 0 || cfg.Height <= 0 {
-		return 1500
-	}
-	tok := (cfg.Width*cfg.Height + 749) / 750
-	if tok > 1600 {
-		tok = 1600
-	}
-	return tok
 }
 
 // toolWeights measures each tool definition on its own, so the block above can

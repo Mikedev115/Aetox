@@ -70,3 +70,58 @@ func TestUsageReporterFiresOnPlainRespond(t *testing.T) {
 		t.Fatalf("reporter = %+v, want one report of 5/2", got)
 	}
 }
+
+// Every round that sent the conversation carries the guess Aetox made for
+// that request beside the provider's count — the pair engine.promptCalibration
+// fits. A round that sent something else over the conversation (a title) is
+// left unstamped, because its count describes a different request.
+func TestUsageCarriesTheRequestEstimate(t *testing.T) {
+	provider := &toolLoopProvider{
+		responses: []model.Response{
+			{
+				ToolCalls: []model.ToolCall{{
+					ID: "call_1", Type: "function",
+					Function: model.FunctionCall{Name: "read", Arguments: `{"path":"a.txt"}`},
+				}},
+				Usage: &model.Usage{PromptTokens: 11, CompletionTokens: 3},
+			},
+			{Text: "done", Usage: &model.Usage{PromptTokens: 29, CompletionTokens: 7}},
+			{Text: "a title", Usage: &model.Usage{PromptTokens: 31, CompletionTokens: 2}},
+		},
+	}
+	agent := NewAgent(AgentConfig{Provider: provider, Model: "test-model", MaxToolCalls: 4, SystemPrompt: "you are a test system prompt"})
+
+	var got []model.Usage
+	agent.SetUsageReporter(func(u model.Usage) { got = append(got, u) })
+
+	tools := []model.ToolDefinition{{Type: "function", Function: model.ToolFunction{Name: "read", Parameters: []byte(`{"type":"object"}`)}}}
+	_, _, err := agent.RespondWithTools(
+		context.Background(), tools, "read a.txt",
+		func(_ context.Context, _ model.ToolCall) (string, []model.Image, error) { return "ok", nil, nil },
+		nil, turn.TurnOptions{ThinkLevel: think.LevelMedium},
+	)
+	if err != nil {
+		t.Fatalf("RespondWithTools: %v", err)
+	}
+	if _, err := agent.RespondEphemeral(context.Background(), "title this", turn.TurnOptions{}); err != nil {
+		t.Fatalf("RespondEphemeral: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("reporter fired %d times, want 3: %+v", len(got), got)
+	}
+	first, second, title := got[0].Estimate, got[1].Estimate, got[2].Estimate
+	if first.IsZero() || first.System == 0 || first.Tools == 0 || first.Messages == 0 {
+		t.Errorf("first round estimate = %+v; want system, tools and message parts all guessed", first)
+	}
+	// Same system prompt and tool block; the tool call and its result joined
+	// the conversation in between.
+	if second.System != first.System || second.Tools != first.Tools {
+		t.Errorf("fixed part moved between rounds: %+v -> %+v", first, second)
+	}
+	if second.Messages <= first.Messages {
+		t.Errorf("messages did not grow across the tool round: %d -> %d", first.Messages, second.Messages)
+	}
+	if !title.IsZero() {
+		t.Errorf("ephemeral round stamped %+v; its count describes a request the meter never draws", title)
+	}
+}

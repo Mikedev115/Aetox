@@ -750,8 +750,7 @@ func (a *Agent) RespondWithTools(
 			}
 			return "", false, err
 		}
-		a.recordUsage(response.Usage)
-		a.measureFill(response.Usage)
+		a.recordRound(response.Usage, modelTools)
 
 		// Two different things from here on, and they were one before an answer
 		// could arrive in pieces:
@@ -1288,8 +1287,23 @@ func (a *Agent) estimatedFill(chars int) int {
 	return est
 }
 
+// recordRound takes in the usage of a round that sent the conversation itself
+// — as opposed to something else over it (RespondEphemeral), which only
+// records. Three things, in an order that matters: the guess for the request
+// is stamped onto the usage first, because the reporter inside recordUsage is
+// what writes the pair down, and the fill is measured last against the same
+// context, which at this point still IS the request — the reply is added
+// after. tools is the block the request carried, nil when it carried none.
+func (a *Agent) recordRound(u *model.Usage, tools []model.ToolDefinition) {
+	if u != nil && a.context != nil {
+		u.Estimate = model.EstimatePrompt(a.context.Messages(), tools)
+	}
+	a.recordUsage(u)
+	a.measureFill(u)
+}
+
 // measureFill takes a conversation request's usage as the new measurement.
-// Called beside recordUsage on the paths that sent the conversation itself,
+// Called from recordRound on the paths that sent the conversation itself,
 // and not on the ones that sent something else over it.
 func (a *Agent) measureFill(u *model.Usage) {
 	if a == nil || a.context == nil || u == nil || u.PromptTokens <= 0 {
@@ -1776,8 +1790,7 @@ func (a *Agent) respondFromContext(ctx context.Context, opts turn.TurnOptions) (
 		reply = a.recoverEmptyReply(ctx, opts)
 	}
 	a.lastUsage = model.Usage{}
-	a.recordUsage(response.Usage)
-	a.measureFill(response.Usage)
+	a.recordRound(response.Usage, nil)
 
 	a.context.AddMessage(model.Message{
 		Role:             model.RoleAssistant,
@@ -1841,8 +1854,7 @@ func (a *Agent) RespondStream(ctx context.Context, userMessage string, onChunk f
 				streamed = false // nothing reached onChunk — caller must render the reply itself
 			}
 			a.lastUsage = model.Usage{}
-			a.recordUsage(response.Usage)
-			a.measureFill(response.Usage)
+			a.recordRound(response.Usage, nil)
 			a.context.AddMessage(model.Message{
 				Role:             model.RoleAssistant,
 				Content:          reply,
@@ -1864,8 +1876,7 @@ func (a *Agent) RespondStream(ctx context.Context, userMessage string, onChunk f
 		reply = a.recoverEmptyReply(ctx, opts)
 	}
 	a.lastUsage = model.Usage{}
-	a.recordUsage(response.Usage)
-	a.measureFill(response.Usage)
+	a.recordRound(response.Usage, nil)
 	a.context.AddMessage(model.Message{
 		Role:             model.RoleAssistant,
 		Content:          reply,

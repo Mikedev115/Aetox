@@ -5907,8 +5907,17 @@
                 {#if !ctx.measured}
                   <!-- Nothing has been sent yet. Without saying so, the tool
                        definitions read as tokens already spent rather than as
-                       the floor every message starts from. -->
-                  <div class="ctx-note">{t('chat.contextNotSent')}</div>
+                       the floor every message starts from. And whether the
+                       figure is chars/4 or corrected by this model's own past
+                       counts (calibratedRounds): the raw guess ran 24% high on
+                       the tool block, and a forecast the first reply then
+                       undercuts reads as a broken meter unless it said it was
+                       a guess. -->
+                  <div class="ctx-note">
+                    {(ctx.calibratedRounds ?? 0) > 0
+                      ? t('chat.contextNotSentCalibrated', { n: ctx.calibratedRounds ?? 0 })
+                      : t('chat.contextNotSent')}
+                  </div>
                 {:else if ctxKnown && ctxPct > 100}
                   <!-- The provider accepted more than the window we believe in,
                        so one of the two is wrong and it is almost certainly the

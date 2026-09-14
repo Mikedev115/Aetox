@@ -195,6 +195,11 @@ export interface ContextBreakdown {
    *  a forecast of the first request — showing that as "used" made a fresh chat
    *  look like a bill already run up. */
   measured: boolean
+  /** How many past rounds of this model the forecast was corrected against.
+   *  0 (or absent) means the figure is the bare chars/4 guess — which ran 24%
+   *  high on the tool block, so the note says which it is rather than let the
+   *  first real count make the forecast look like it lied. */
+  calibratedRounds?: number
   /** How much of the last round's input the provider served from its prompt
    *  cache, at a fraction of full price. 0 when nothing hit or the provider
    *  does no cache accounting — the note is only shown when there is one. */

@@ -906,6 +906,33 @@ CREATE TABLE IF NOT EXISTS project_folders (
 			return err
 		},
 	},
+	{
+		version: 29,
+		name:    "usage_rows_keep_their_guess",
+		apply: func(tx *sql.Tx) error {
+			// Beside what the provider counted, what Aetox guessed the same
+			// request would cost — the fixed part (system prompt + tool block)
+			// and the conversation, in chars/4 tokens. The pair is what lets a
+			// fresh chat's forecast be corrected by every round this model has
+			// already answered (engine.promptCalibration) instead of shrinking
+			// on first contact with the real count.
+			//
+			// NULL is a round that sent something other than the conversation
+			// (a title request) or was written before this step; either way no
+			// guess to compare, and the fit skips it.
+			//
+			// Guarded like v25 and v28.
+			if has, err := hasColumn(tx, "token_usage", "est_fixed_tokens"); err != nil || has {
+				return err
+			}
+			for _, col := range []string{"est_fixed_tokens", "est_var_tokens"} {
+				if _, err := tx.Exec(`ALTER TABLE token_usage ADD COLUMN ` + col + ` INTEGER`); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	},
 }
 
 // preTeamRowsJoinTheSeed puts every main chat that says no team on its
