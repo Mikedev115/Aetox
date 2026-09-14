@@ -23,6 +23,7 @@
   import RankedFace from './RankedFace.svelte'
   import type { PoseId } from './mascot/poses'
   import ScopeMark from './ScopeMark.svelte'
+  import { guide } from './guide/guideState.svelte'
   import AvatarSettings from './mascot/AvatarSettings.svelte'
   import TeamSettings from './TeamSettings.svelte'
   import { avatarText } from './mascot/avatarText'
@@ -7841,7 +7842,10 @@
             <div class="t">{t('settings.tourTitle')}</div>
             <div class="d">{t('settings.tourDesc')}</div>
           </div>
-          <button data-guide="settings.about.tour_btn" class="ctrl" onclick={() => { openTour(); onClose() }}>{t('settings.tourAction')}</button>
+          <div style="display:flex;gap:6px">
+            <button class="ctrl" onclick={() => { onClose(); guide.start('first') }}>{t('account.guide')}</button>
+            <button data-guide="settings.about.tour_btn" class="ctrl" onclick={() => { openTour(); onClose() }}>{t('settings.tourAction')}</button>
+          </div>
         </div>
         <div class="set-row">
           <div class="set-txt">

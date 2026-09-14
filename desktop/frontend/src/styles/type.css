@@ -79,6 +79,7 @@
      which is exactly what motionTokens.test.ts exists to refuse. */
   --dur-scene:500ms;        /* one element of a scene moving */
   --dur-scene-slow:850ms;   /* a scene settling, a card turning over */
+  --dur-walk:800ms;         /* the guide walking across the screen */
   /* The working light coming up and going down. Asymmetric on purpose, and
      the asymmetry is the whole point: work STARTS at a moment, so the light
      should be there by the time the eye arrives, and it stops between beats

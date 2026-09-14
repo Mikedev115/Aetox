@@ -4,6 +4,8 @@
   import Chat from './lib/Chat.svelte'
   import Companion from './lib/mascot/Companion.svelte'
   import { companion } from './lib/mascot/companionSetting.svelte'
+  import Guide from './lib/guide/Guide.svelte'
+  import { guide } from './lib/guide/guideState.svelte'
   import FileEditor from './lib/FileEditor.svelte'
   import Settings from './lib/Settings.svelte'
   import Office from './lib/Office.svelte'
@@ -702,7 +704,13 @@
 {#if tourState.open}
   <div class="onboard">
     <div class="brand-ground"><Logo size={520} animate={false} /></div>
-    <Tour onDone={() => (tourState.open = false)} />
+    <Tour onDone={() => {
+      tourState.open = false
+      if (!localStorage.getItem('guideOffered')) {
+        localStorage.setItem('guideOffered', '1')
+        guide.offerTour()
+      }
+    }} />
   </div>
 {/if}
 <!-- Outside every view, because the offer belongs to the app and not to a page:
@@ -736,6 +744,10 @@
 {/if}
 <!-- The assistant itself, sitting on the screen wherever the user put it —
      app-level for the same reason: it is not a page's, it is the company's. -->
-{#if companion.on}
+{#if companion.on && !guide.on}
   <Companion />
+{/if}
+
+{#if guide.on}
+  <Guide />
 {/if}

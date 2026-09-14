@@ -9,6 +9,7 @@
     sessionAsking,
     newChairSession, openSpace,
   } from './stores/cockpit.svelte'
+  import { guide } from './guide/guideState.svelte'
   import type { Session, SpaceRow } from './types'
   import {
     ListModes, ProviderAccountFor,
@@ -1256,6 +1257,9 @@
              one until the first message is sent. -->
         <button class="plus-menu-item" data-guide="account.tour" onclick={() => { profileOpen = false; openTour() }}>
           <span class="ic"><Icon name="bot" size={14} /></span> {t('settings.tourTitle')}
+        </button>
+        <button class="plus-menu-item" onclick={() => { profileOpen = false; guide.start() }}>
+          <span class="ic"><Icon name="compass" size={14} /></span> {t('account.guide')}
         </button>
         <div class="menu-sep"></div>
         <!-- One row, one sentence: which Aetox this is, and the only thing

@@ -116,7 +116,7 @@ export const GUIDE_MAP: GuideEntry[] = [
   { id: 'settings.head.tab.mcp', page: { view: 'settings', rail: 'main' }, safe: true, ref: '§22', synonyms: ['แท็บ MCP ประจำหัว', 'head mcp tab'] },
   { id: 'settings.head.tab.skills', page: { view: 'settings', rail: 'main' }, safe: true, ref: '§22', synonyms: ['แท็บสกิลประจำหัว', 'head skills tab'] },
   { id: 'settings.head.tab.dialogue', page: { view: 'settings', rail: 'main' }, safe: true, ref: '§266', synonyms: ['แท็บเปิดบทสนทนา', 'dialogue starters tab'] },
-  { id: 'settings.head.tab.memory', page: { view: 'settings', rail: 'main' }, safe: true, ref: '§279', synonyms: ['แท็บความจำ', 'head memory tab'] },
+  { id: 'settings.head.tab.memory', page: { view: 'settings', rail: 'main' }, safe: true, ref: '§279', synonyms: ['แท็บความจำ', 'head memory tab', 'ความจำ', 'memory'] },
   { id: 'settings.head.tab.tools', page: { view: 'settings', rail: 'main' }, safe: true, ref: '§27', synonyms: ['แท็บเครื่องมือ', 'head tools tab'] },
   { id: 'settings.head.save', page: { view: 'settings', rail: 'main' }, safe: false, ref: '§266', synonyms: ['บันทึกหัว', 'save head profile'] },
   { id: 'settings.head.reset', page: { view: 'settings', rail: 'main' }, safe: false, ref: '§266', synonyms: ['รีเซ็ตหัว', 'reset head defaults'] },

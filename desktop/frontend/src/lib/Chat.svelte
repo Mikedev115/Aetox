@@ -23,6 +23,7 @@
   import StationPick from './StationPick.svelte'
   import type { FaceState } from './mascot/presence'
   import { voice } from './mascot/voice.svelte'
+  import { guide } from './guide/guideState.svelte'
   import { shell } from './shell.svelte'
   import {
     EnabledProviders, SupportedThinkLevels,
@@ -4597,6 +4598,10 @@
         <button class="starter-more starter-tour" data-guide="chat.tour" onclick={openTour}>
           <Icon name="bot" size={13} />
           <span>{teachPinned ? t('chat.tourLink') : t('settings.tourTitle')}</span>
+        </button>
+        <button class="starter-more starter-tour" onclick={() => guide.start()}>
+          <Icon name="compass" size={13} />
+          <span>{t('chat.guideLink')}</span>
         </button>
       </div>
     </div>
