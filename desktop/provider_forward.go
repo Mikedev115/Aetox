@@ -4,37 +4,38 @@ package main
 //
 // The engine builds its provider clients without a key: bootstrap.Engine is
 // handed a model.Transport instead, and the wire clients then attach no
-// credential of their own. This file is that transport for the case where the
-// screen and the engine are one process — it signs each request from the
-// screen's own stores at the moment the request goes out, which is the same
-// moment applyAuth used to do it, and so a token that expires mid-session is
-// refreshed here per attempt exactly as before.
+// credential of their own. The transport itself — sign-in over key, refresh
+// once on a 401, the extra headers a provider's credential needs — lives in
+// internal/signer, shared with the console screen (cmd/aetox). What is this
+// window's alone is here: where its keys are (internal/credentials) and
+// whether a destination may carry one (credentialMayRide).
 //
-// Nothing about this is provisional. When the engine is a process of its own
-// the transport on ITS side becomes a proxy that carries the unsigned request
-// to the screen, and the screen's forwarder does what signedTransport does
-// below: resolve a sign-in or a key for the provider named, put it on the
-// request, send it. The engine never learns what was put on.
+// When the engine is a process of its own the transport on ITS side becomes
+// a proxy that carries the unsigned request to the screen, and the screen's
+// forwarder does what the signer does: resolve a sign-in or a key for the
+// provider named, put it on the request, send it. The engine never learns
+// what was put on.
 
 import (
-	"fmt"
 	"net"
-	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/oauth"
+	"github.com/Mikedev115/Aetox/internal/signer"
 )
 
 // providerTransport is the credential for provider, in the given wire format,
 // as a model.Transport for bootstrap.Options.ProviderTransport.
 func (a *App) providerTransport(canonical, wireFormat string) model.Transport {
-	header, prefix := model.AuthScheme(canonical, wireFormat)
-	return func(network http.RoundTripper) http.RoundTripper {
-		return &signedTransport{provider: canonical, header: header, prefix: prefix, network: network, mayRide: a.credentialMayRide}
-	}
+	return signer.Transport(signer.Options{
+		Provider:   canonical,
+		WireFormat: wireFormat,
+		Key:        resolveAPIKeyForProvider,
+		MayRide:    a.credentialMayRide,
+	})
 }
 
 // credentialMayRide reports whether a credential for provider may be put on
@@ -82,76 +83,4 @@ func (a *App) credentialMayRide(provider string, u *url.URL) bool {
 	}
 	debuglog.Msg("provider: %s asked for a credential on %s://%s, which the screen does not know for it — sent unsigned", provider, u.Scheme, u.Host)
 	return false
-}
-
-// signedTransport signs one provider's requests and hands them to the network.
-//
-// A sign-in (internal/oauth) outranks a pasted key for the same provider: the
-// user did the more deliberate thing, and the two would otherwise disagree
-// silently. Both are read per request rather than at construction — the token
-// because it expires, the key because the settings page can change it under a
-// running chat and the next request should carry the new one.
-type signedTransport struct {
-	provider string
-	// header and prefix are how this wire format carries a key
-	// (model.AuthScheme); an empty header is a wire format with no key.
-	header, prefix string
-	network        http.RoundTripper
-	// mayRide says whether this request's destination may carry the
-	// credential at all (credentialMayRide); nil means always.
-	mayRide func(provider string, u *url.URL) bool
-}
-
-func (t *signedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// Cloned rather than edited: the caller still owns the request it handed
-	// us, and a RoundTripper that modifies one is a documented mistake. Clone
-	// carries Body and GetBody across, which is what the retry above needs.
-	req = req.Clone(req.Context())
-	if t.mayRide != nil && !t.mayRide(t.provider, req.URL) {
-		return t.network.RoundTrip(req)
-	}
-	// Extra headers the provider's credentials require — Copilot refuses a
-	// request that does not identify an editor client, the ChatGPT backend
-	// routes on an account id. Not a credential themselves, and wanted on
-	// the key path as much as the sign-in path, as the factory always sent them.
-	for name, value := range oauth.Headers(t.provider) {
-		req.Header.Set(name, value)
-	}
-	if source := oauth.TokenSource(t.provider); source != nil {
-		token, err := source(req.Context())
-		if err != nil {
-			return nil, fmt.Errorf("%s sign-in: %w", t.provider, err)
-		}
-		req.Header.Set("Authorization", "Bearer "+token)
-		resp, err := t.network.RoundTrip(req)
-		if err != nil || resp.StatusCode != http.StatusUnauthorized || req.GetBody == nil {
-			return resp, err
-		}
-		// The provider's 401 outranks the expiry the store recorded — the
-		// ChatGPT backend has answered token_expired to a token whose claim
-		// said a week remained. Renew once and send the same request again;
-		// this is the signer's job, not the wire client's, because on this
-		// path the wire client holds no token to renew (§248 A3). A renewal
-		// that fails leaves the original 401 to be reported: that one means
-		// sign in again.
-		token, rerr := oauth.Refresh(req.Context(), t.provider)
-		if rerr != nil {
-			return resp, nil
-		}
-		body, berr := req.GetBody()
-		if berr != nil {
-			return resp, nil
-		}
-		resp.Body.Close()
-		req = req.Clone(req.Context())
-		req.Body = body
-		req.Header.Set("Authorization", "Bearer "+token)
-		return t.network.RoundTrip(req)
-	}
-	if t.header != "" {
-		if key := resolveAPIKeyForProvider(t.provider); key != "" {
-			req.Header.Set(t.header, t.prefix+key)
-		}
-	}
-	return t.network.RoundTrip(req)
 }

@@ -2,9 +2,6 @@ package main
 
 import (
 	"testing"
-
-	"github.com/Mikedev115/Aetox/internal/config"
-	"github.com/Mikedev115/Aetox/internal/model"
 )
 
 func TestPreparseGlobalFlagsIncludesThink(t *testing.T) {
@@ -57,13 +54,7 @@ func TestPreparseGlobalFlagsAcceptsOffThink(t *testing.T) {
 // no think suffix — it used to print one from whatever the config happened to
 // hold, which is a level nothing would ever send.
 func TestResolveModelStatusOmitsThinkWhenTheProviderHasNoDial(t *testing.T) {
-	status := resolveModelStatus(config.Config{
-		ModelProvider: "noop",
-		ModelName:     "noop",
-		ThinkLevel:    "high",
-	}, model.BootstrapResult{
-		Provider: model.NewNoopProvider("noop"),
-	})
+	status := formatModelModeLabel("noop", "noop", "high")
 	// ModelProvider "noop" is a backward-compat alias — ResolveStatus
 	// normalizes it to the current canonical name "aetox".
 	want := "aetox/noop"
@@ -73,13 +64,7 @@ func TestResolveModelStatusOmitsThinkWhenTheProviderHasNoDial(t *testing.T) {
 }
 
 func TestResolveModelStatusOmitsThinkEvenWhenTheConfigSaysOff(t *testing.T) {
-	status := resolveModelStatus(config.Config{
-		ModelProvider: "noop",
-		ModelName:     "noop",
-		ThinkLevel:    "off",
-	}, model.BootstrapResult{
-		Provider: model.NewNoopProvider("noop"),
-	})
+	status := formatModelModeLabel("noop", "noop", "off")
 	want := "aetox/noop"
 	if status != want {
 		t.Fatalf("want %q got %q", want, status)
