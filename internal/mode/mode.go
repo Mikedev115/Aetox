@@ -64,25 +64,40 @@ const Coding = "coding"
 //     behaviour that existed before desks declared one — which is why it is
 //     also what an empty or unrecognised value means: a manifest that says
 //     nothing gets what every manifest got.
-//   - MemoryProject: an unqualified line lands in the focused project's own
-//     file, because this desk's work is settling things — and "we decided X
-//     here" carried into another repository is not knowledge, it is a rumour
-//     (§116). With no project focused it falls back to MemoryShared, since
-//     ProjectScope of nothing is the shared file by construction.
+//   - MemoryOwn: the desk keeps memory of its own — modes/<desk>.md for what
+//     it learns across repositories, and the focused project's file for what
+//     was settled there — and does not read MEMORY.md at all (§247). An
+//     unqualified remembered line lands in the project's file, because this
+//     desk's work is settling things, and "we decided X here" carried into
+//     another repository is not knowledge, it is a rumour (§116). With no
+//     project focused it lands in the desk's own file.
+//
+// The word was `project` until 14 ก.ย. 2026, from the first half of that
+// description; once the desk stopped reading the shared file the word read
+// as "project memory only", which is the opposite of what it grants (owner:
+// "memory: project แล้วไม่มีส่วนตัวหรอ"). `project` is still accepted, so a
+// user's hand-edited manifest keeps its architecture.
 const (
-	MemoryShared  = "shared"
-	MemoryProject = "project"
+	MemoryShared = "shared"
+	MemoryOwn    = "own"
+
+	memoryOwnLegacy = "project"
 )
 
 // MemoryRule reports this desk's memory architecture, nil-safe and never an
 // unknown word: the legacy full desk (nil) and any manifest value that is not
-// MemoryProject both mean MemoryShared, so a half-written user manifest
-// degrades to the oldest behaviour rather than to a junk destination.
+// MemoryOwn (or its old spelling) both mean MemoryShared, so a half-written
+// user manifest degrades to the oldest behaviour rather than to a junk
+// destination.
 func (m *Mode) MemoryRule() string {
-	if m == nil || m.Memory != MemoryProject {
+	if m == nil {
 		return MemoryShared
 	}
-	return MemoryProject
+	switch m.Memory {
+	case MemoryOwn, memoryOwnLegacy:
+		return MemoryOwn
+	}
+	return MemoryShared
 }
 
 // Default is the desk a window opens at when nothing has been remembered yet —

@@ -605,7 +605,7 @@ func TestEachDeskDeclaresItsMemoryArchitecture(t *testing.T) {
 	}
 	for name, want := range map[string]string{
 		"assistant":   MemoryShared,
-		"coding":      MemoryProject,
+		"coding":      MemoryOwn,
 		"specialized": MemoryShared,
 	} {
 		m := byName[name]
@@ -624,5 +624,12 @@ func TestEachDeskDeclaresItsMemoryArchitecture(t *testing.T) {
 	odd := parse("odd", "---\nmemory: somewhere-else\n---\nbody")
 	if got := odd.MemoryRule(); got != MemoryShared {
 		t.Errorf("an unrecognised memory rule read as %q, want %q", got, MemoryShared)
+	}
+	// The value was spelled `project` until 14 ก.ย. 2026. A user's hand-edited
+	// manifest that still says so keeps its own memory: the rename must not
+	// silently hand a desk the assistant's file.
+	legacy := parse("legacy", "---\nmemory: project\n---\nbody")
+	if got := legacy.MemoryRule(); got != MemoryOwn {
+		t.Errorf("the old spelling read as %q, want %q", got, MemoryOwn)
 	}
 }

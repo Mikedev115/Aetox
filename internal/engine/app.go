@@ -4554,7 +4554,7 @@ func (a *Engine) sessionSkills(conv *conversation, sandboxRoot string) []skill.S
 		&learned.MemoryTool{
 			Scope:        learned.MainScope,
 			Project:      a.focusedProjectRoot(sandboxRoot),
-			ProjectFirst: conv.desk.MemoryRule() == mode.MemoryProject,
+			ProjectFirst: conv.desk.MemoryRule() == mode.MemoryOwn,
 			// With ProjectFirst, this is what gives โต๊ะโค้ด a file of its
 			// own (modes/coding.md) instead of the assistant's MEMORY.md —
 			// the same rule bootstrap.deskFor reads to stop it folding that

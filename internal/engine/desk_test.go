@@ -191,7 +191,7 @@ func TestEachDeskSendsOnlyItsOwnTools(t *testing.T) {
 // a desk scope at all.
 //
 // Since 11 ก.ย. that boundary runs both ways: the shared file is the
-// ASSISTANT's, and a desk that keeps its own memory (coding, `memory: project`)
+// ASSISTANT's, and a desk that keeps its own memory (coding, `memory: own`)
 // no longer reads it. What the profile does — ride everywhere — is exactly
 // what MEMORY.md was measured NOT to deserve: every line it held on the
 // owner's machine was the assistant's, billed to every coding session.

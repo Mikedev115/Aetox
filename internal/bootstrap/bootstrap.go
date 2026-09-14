@@ -340,7 +340,7 @@ func deskFor(m *mode.Mode, direction string, r reach) prompt.Desk {
 		// One reading of the manifest's memory rule for both halves: the desk
 		// that WRITES its own file (learned.MemoryTool.Desk, desktop/app.go)
 		// is the desk that stops READING the assistant's.
-		OwnMemory: m.MemoryRule() == mode.MemoryProject,
+		OwnMemory: m.MemoryRule() == mode.MemoryOwn,
 	}
 }
 
