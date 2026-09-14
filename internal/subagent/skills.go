@@ -78,10 +78,13 @@ func attachOwnSkills(filtered *skill.Registry, p Profile, doors []string) {
 	}
 	own, errs := OwnSkills(p.Name)
 	for _, s := range own {
-		// A collision keeps what is already there. The worker's tools were
-		// filtered by the rules above this line; a file dropped in a folder must
-		// not be able to take a built-in tool's name and answer in its place.
-		if regErr := filtered.Register(s.AsSkill(), skill.SourceSkill); regErr != nil {
+		// A collision with a TOOL keeps what is already there. The worker's
+		// tools were filtered by the rules above this line; a file dropped in a
+		// folder must not be able to take a built-in tool's name and answer in
+		// its place. A collision with a shelf SKILL goes the other way: the
+		// worker's own folder is the copy the user made on purpose
+		// (engine.CopySkillToAgent) and is the one that runs — Shadow says why.
+		if regErr := filtered.Shadow(s.AsSkill(), skill.SourceSkill); regErr != nil {
 			debuglog.Msg("skill %q for %s not loaded: %v", s.Name, p.Name, regErr)
 		}
 	}
