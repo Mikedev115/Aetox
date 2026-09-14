@@ -345,6 +345,19 @@ func (c *conversations) show(conv *conversation) {
 	}
 }
 
+// hold files conv under its id without making it the one on screen — the
+// guide's conversation (guide.go), which is asked questions by id and never
+// looked at. Nothing else needs this: a chat is filed by show when the window
+// opens it, and stays filed while its turn runs after the window has left.
+func (c *conversations) hold(conv *conversation) {
+	if conv.id == "" {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.byID[conv.id] = conv
+}
+
 // cur is the conversation the window is looking at.
 //
 // Named short because it appears everywhere a binding legitimately means "the

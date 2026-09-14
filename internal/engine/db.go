@@ -1182,6 +1182,11 @@ func (a *Engine) openDatabase() (*sql.DB, error) {
 		_ = db.Close()
 		return nil, err
 	}
+	// Ephemeral guide sessions left behind by a previous run or crash: clean them up on open.
+	_, _ = db.Exec(`DELETE FROM messages WHERE session_id IN (SELECT id FROM sessions WHERE mode = 'guide')`)
+	_, _ = db.Exec(`DELETE FROM tool_runs WHERE session_id IN (SELECT id FROM sessions WHERE mode = 'guide')`)
+	_, _ = db.Exec(`DELETE FROM jobs WHERE session_id IN (SELECT id FROM sessions WHERE mode = 'guide')`)
+	_, _ = db.Exec(`DELETE FROM sessions WHERE mode = 'guide'`)
 	return db, nil
 }
 

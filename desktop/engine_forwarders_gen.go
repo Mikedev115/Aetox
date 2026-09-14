@@ -711,6 +711,10 @@ func (a *App) NoteProviderQuotas(providerName string, quotas []model.Quota) {
 	a.api.NoteProviderQuotas(providerName, quotas)
 }
 
+func (a *App) OpenGuideSession() (string, error) {
+	return a.api.OpenGuideSession()
+}
+
 func (a *App) OpenProjectPath(root string) (engine.ProjectStatus, error) {
 	return a.api.OpenProjectPath(root)
 }
@@ -1073,6 +1077,10 @@ func (a *App) SearchSessionsForDoor(query string, filter engine.DeskFilter) []en
 
 func (a *App) SendMessage(text string, to string) (engine.TurnReply, error) {
 	return a.api.SendMessage(text, to)
+}
+
+func (a *App) SendToGuide(id string, text string) (engine.TurnReply, error) {
+	return a.api.SendToGuide(id, text)
 }
 
 func (a *App) SessionAgent(id string) string {

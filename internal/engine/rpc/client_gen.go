@@ -310,6 +310,10 @@ func (c *Client) ClearProjectFocus() (engine.ProjectStatus, error) {
 	return out0, err
 }
 
+func (c *Client) CloseGuideSession(id string) error {
+	return c.call("CloseGuideSession", []any{id}, nil)
+}
+
 func (c *Client) CodeProjectsDir() string {
 	var out0 string
 	if err := c.call("CodeProjectsDir", nil, &out0); err != nil {
@@ -1206,6 +1210,12 @@ func (c *Client) NoteProviderQuotas(providerName string, quotas []model.Quota) {
 	}
 }
 
+func (c *Client) OpenGuideSession() (string, error) {
+	var out0 string
+	err := c.call("OpenGuideSession", nil, &out0)
+	return out0, err
+}
+
 func (c *Client) OpenProjectPath(root string) (engine.ProjectStatus, error) {
 	var out0 engine.ProjectStatus
 	err := c.call("OpenProjectPath", []any{root}, &out0)
@@ -1795,6 +1805,12 @@ func (c *Client) SearchSessionsForDoor(query string, filter engine.DeskFilter) [
 func (c *Client) SendMessage(text string, to string) (engine.TurnReply, error) {
 	var out0 engine.TurnReply
 	err := c.call("SendMessage", []any{text, to}, &out0)
+	return out0, err
+}
+
+func (c *Client) SendToGuide(id string, text string) (engine.TurnReply, error) {
+	var out0 engine.TurnReply
+	err := c.call("SendToGuide", []any{id, text}, &out0)
 	return out0, err
 }
 

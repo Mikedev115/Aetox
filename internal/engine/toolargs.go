@@ -13,12 +13,13 @@ import (
 	"github.com/Mikedev115/Aetox/internal/skill"
 )
 
-// The names the window's two packs register under, as the engine knows them:
-// the tool event stamp (recordToolAction) and the computer switch
-// (workbenchSkills) judge by name, never by type.
+// The names the window's packs register under, as the engine knows them: the
+// tool event stamp (recordToolAction), the computer switch and the guide's
+// desk (workbenchSkills) judge by name, never by type.
 const (
 	browserToolName  = "browser"
 	computerToolName = "computer"
+	guideToolName    = "guide"
 )
 
 var (

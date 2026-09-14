@@ -39,6 +39,8 @@ func (s appScreen) WindowTools(sess engine.Session) []skill.Skill {
 		// Driving programs on this machine (computer_tool.go). Offered always;
 		// whether a session gets it is the engine's switch, not the window's.
 		newComputerSkill(s.app, sess),
+		// The guide walking the UI (guide_tool.go). Desk guide gets it exclusively.
+		newGuideSkill(s.app, sess),
 	}
 }
 

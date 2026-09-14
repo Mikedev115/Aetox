@@ -537,7 +537,7 @@ func (a *Engine) ListSessionsAt(desk string) []SessionMeta {
 	}
 	query := `
 		SELECT id, title, updated_at, mode, agent, continued_from FROM sessions
-		WHERE project_key = ? AND ` + heldOutsideAProject + ` ORDER BY updated_at DESC LIMIT 200`
+		WHERE project_key = ? AND ` + heldOutsideAProject + ` AND mode != 'guide' ORDER BY updated_at DESC LIMIT 200`
 	args := []any{projectKey(a.cur().cfg.SandboxRoot)}
 	if desk = strings.TrimSpace(desk); desk != "" {
 		query = `
@@ -750,7 +750,7 @@ func (a *Engine) RecentProjects() []ProjectMeta {
 	out, _ = queryAll(db, "projects", `
 		SELECT p.project_key, p.name, p.root_path, p.opened_at,
 		       COALESCE((SELECT s.title FROM sessions s
-		                 WHERE s.project_key = p.project_key
+		                 WHERE s.project_key = p.project_key AND s.mode != 'guide'
 		                 ORDER BY s.updated_at DESC LIMIT 1), '')
 		FROM projects p
 		ORDER BY p.opened_at DESC LIMIT 50`, nil,
@@ -797,7 +797,7 @@ func (f DeskFilter) where(column string) (string, []any) {
 		// would be none, which is never what a door means — a door with no
 		// desks listed is a bug upstream, and emptying the user's history to
 		// report it is the wrong way round.
-		return "", nil
+		return column + " != 'guide'", nil
 	}
 	args := make([]any, 0, len(desks))
 	placeholders := make([]string, 0, len(desks))
@@ -808,6 +808,7 @@ func (f DeskFilter) where(column string) (string, []any) {
 	op := "IN"
 	if f.Exclude {
 		op = "NOT IN"
+		return column + " " + op + " (" + strings.Join(placeholders, ",") + ") AND " + column + " != 'guide'", args
 	}
 	return column + " " + op + " (" + strings.Join(placeholders, ",") + ")", args
 }
@@ -887,6 +888,7 @@ func (a *Engine) ListAllSessions() []SessionMeta {
 	out, _ = queryAll(db, "all sessions", `
 		SELECT s.id, s.title, s.updated_at, s.mode, s.agent, s.continued_from, s.project_key, COALESCE(p.name, s.project_key)
 		FROM sessions s LEFT JOIN projects p ON p.project_key = s.project_key
+		WHERE s.mode != 'guide'
 		ORDER BY s.updated_at DESC LIMIT 200`, nil,
 		func(rows *sql.Rows) (SessionMeta, error) {
 			var m SessionMeta
@@ -915,6 +917,7 @@ func (a *Engine) SearchAllSessions(query string) []SessionMeta {
 		JOIN messages m ON m.id = f.mid
 		JOIN sessions s ON s.id = m.session_id
 		LEFT JOIN projects p ON p.project_key = s.project_key
+		WHERE s.mode != 'guide'
 		GROUP BY s.id
 		ORDER BY s.updated_at DESC LIMIT 50`, []any{match},
 		func(rows *sql.Rows) (SessionMeta, error) {

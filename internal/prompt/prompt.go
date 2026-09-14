@@ -239,6 +239,14 @@ type Desk struct {
 	// them on every request. What the coding desk learns across repositories
 	// gets its own file for the same reason in the other direction.
 	OwnMemory bool
+	// Nobody says this desk is no head's (mode.MemoryNone — the UI guide's):
+	// the prompt is its direction, the surface and the person's name, and
+	// nothing else — no identity files, no memory of any scope, no project
+	// rules, no git, no tool lessons. The guide knows the app through one
+	// tool and a map, and everything the assistant is told about itself would
+	// be told to the wrong speaker; the acceptance line the plan set for it is
+	// a prompt under 6k tokens, which the full fold is not.
+	Nobody bool
 }
 
 // Ledger is what the queue says about the memory scopes a session writes to.
@@ -410,6 +418,16 @@ func BuildWithReport(surface Surface, scope Scope, desk Desk) (string, Loaded) {
 	// everything they did before.
 	if direction := strings.TrimSpace(desk.Direction); direction != "" {
 		b.WriteString("\n" + direction + "\n\n")
+	}
+	// A desk that is nobody's head stops here: the direction is the whole
+	// identity, and the rest of this file is either the assistant's own (its
+	// files, its memory) or lessons for tools it does not carry.
+	if desk.Nobody {
+		var bare strings.Builder
+		bare.WriteString(strings.TrimSpace(desk.Direction) + "\n\n")
+		bare.WriteString(surfaceLayer(surface))
+		bare.WriteString(person(scope.User))
+		return strings.TrimRight(bare.String(), "\n"), Loaded{}
 	}
 	// Directly after the desk's direction, and after on purpose (§106.4). The
 	// two answer the same question at two scales — what is this session, then

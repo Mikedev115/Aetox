@@ -57,6 +57,14 @@ const Office = "specialized"
 // packages is a name nobody can rename.
 const Coding = "coding"
 
+// Guide is the desk the UI guide talks from (docs/architecture/ui-guide-
+// 2026-09-15.md): a session nobody opens from a picker, holding one tool —
+// the window's `guide` pack — and nothing of any head's: no identity files,
+// no memory, no shelf. List() leaves it out so a desk picker, a placement
+// toggle or a memory room never offers it; Load still finds it, which is how
+// engine.OpenGuideSession seats a session there.
+const Guide = "guide"
+
 // The two memory architectures a desk can declare (Mode.Memory, §184).
 //
 //   - MemoryShared: an unqualified remembered line lands in MEMORY.md, the
@@ -80,6 +88,10 @@ const Coding = "coding"
 const (
 	MemoryShared = "shared"
 	MemoryOwn    = "own"
+	// MemoryNone is a desk that is nobody's head: it keeps no memory, reads
+	// none, and reads no identity files either (prompt.Desk.Nobody). The
+	// guide's; a user manifest may say it too, and gets the same bare prompt.
+	MemoryNone = "none"
 
 	memoryOwnLegacy = "project"
 )
@@ -96,6 +108,8 @@ func (m *Mode) MemoryRule() string {
 	switch m.Memory {
 	case MemoryOwn, memoryOwnLegacy:
 		return MemoryOwn
+	case MemoryNone:
+		return MemoryNone
 	}
 	return MemoryShared
 }
@@ -219,6 +233,9 @@ func List() []Mode {
 	var order []string
 
 	for _, name := range bundledNames() {
+		if name == Guide {
+			continue
+		}
 		raw, err := bundledModes.ReadFile("modes/" + name + ".md")
 		if err != nil {
 			continue
@@ -390,7 +407,9 @@ func (m *Mode) Carries(name string, source skill.Source) bool {
 	case skill.SourceMCP:
 		return m.CarriesMCP(name)
 	case skill.SourceSkill:
-		return true
+		// A desk that is nobody's head reads no shelf: a skill is a way of
+		// working, and the guide has one job the map already describes.
+		return m.MemoryRule() != MemoryNone
 	}
 	// A connection's tools are judged before the desk's own lists get a say:
 	// `categories:` groups tools by what they do, and no grouping can express

@@ -1508,3 +1508,33 @@ func TestTheHeadsNameOpensThePrompt(t *testing.T) {
 		t.Fatal("a name is bounded like the user's")
 	}
 }
+
+// A desk that is nobody's head (Desk.Nobody — the UI guide's) gets its
+// direction, the surface and the person's name, and none of the assistant's:
+// no identity line, no tool lessons, no memory, no project rules. The plan's
+// acceptance line for the guide is a prompt under 6k tokens, and the full
+// fold is not that.
+func TestNobodyDeskGetsABarePrompt(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "AETOX.md"), []byte("# project rules\nnever"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	direction := "You are the guide of this app."
+	text, loaded := BuildWithReport(SurfaceDesktop, Scope{Root: dir, User: "Mike"}, Desk{Name: "guide", Direction: direction, Nobody: true})
+	if !strings.HasPrefix(text, direction) {
+		t.Errorf("a nobody desk's prompt does not open with its direction:\n%s", text[:min(len(text), 200)])
+	}
+	if strings.Contains(text, "project rules") {
+		t.Error("a nobody desk was told the project's rules")
+	}
+	if !strings.Contains(text, "Mike") {
+		t.Error("a nobody desk was not told who it is talking to")
+	}
+	if loaded.ProjectPath != "" || loaded.MemoryPath != "" || len(loaded.UserGlobalPaths) != 0 {
+		t.Errorf("a nobody desk folded files: %+v", loaded)
+	}
+	full, _ := BuildWithReport(SurfaceDesktop, Scope{Root: dir, User: "Mike"}, Desk{Name: "guide", Direction: direction})
+	if len(text) >= len(full)/2 {
+		t.Errorf("the bare prompt is %d bytes against %d for the full fold — not bare", len(text), len(full))
+	}
+}

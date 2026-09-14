@@ -64,6 +64,7 @@ type API interface {
 	ChairStartersFile(locale string) string
 	CheckConnectionServer(id string) (bool, error)
 	ClearProjectFocus() (ProjectStatus, error)
+	CloseGuideSession(id string) error
 	CodeProjectsDir() string
 	CommandHistory() []string
 	CompleteMCPSignIn(serverName string) error
@@ -194,6 +195,7 @@ type API interface {
 	NewSessionInSpace(name string) (string, error)
 	NewTeamSession(desk string, team string) (string, error)
 	NoteProviderQuotas(providerName string, quotas []model.Quota)
+	OpenGuideSession() (string, error)
 	OpenProjectPath(root string) (ProjectStatus, error)
 	PageMarksOn() bool
 	PairedDevices() []RemoteDevice
@@ -287,6 +289,7 @@ type API interface {
 	SearchSessions(query string) []SessionMeta
 	SearchSessionsForDoor(query string, filter DeskFilter) []SessionMeta
 	SendMessage(text string, to string) (TurnReply, error)
+	SendToGuide(id string, text string) (TurnReply, error)
 	SessionAgent(id string) string
 	SessionEdits(sessionID string) EditPage
 	SessionExportBytes(id string, format string) (ExportFile, error)

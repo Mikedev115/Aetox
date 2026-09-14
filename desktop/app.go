@@ -64,6 +64,11 @@ type App struct {
 	// waits here for the window's answer.
 	hostDirs hostDirAsks
 
+	// guideAsks is the actions waiting for AnswerGuide from the window (guide_tool.go)
+	guideAsks      guideAsks
+	guideIndices   sync.Map
+	guideSnapshots sync.Map
+
 	// The browser tab host (browser.go) and the machine lock
 	// (computer_guard.go): both act on this window's computer, which is why
 	// they are the screen's and not the engine's.

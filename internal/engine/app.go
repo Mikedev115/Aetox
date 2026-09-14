@@ -2476,7 +2476,14 @@ func (a *Engine) SendMessage(text, to string) (TurnReply, error) {
 	// user may be looking at something else, and every row this writes, every
 	// event it emits and every message it appends belongs to the chat that
 	// asked — which is this object, held, not a cursor read again later.
-	conv := a.cur()
+	return a.sendMessageIn(a.cur(), text, to)
+}
+
+// sendMessageIn is SendMessage on a conversation the caller already holds —
+// the chat on screen for SendMessage itself, the guide's for SendToGuide
+// (guide.go). One body, so a turn asked of a held conversation runs exactly
+// the turn the chat runs.
+func (a *Engine) sendMessageIn(conv *conversation, text, to string) (TurnReply, error) {
 	sessionID := conv.id
 	if err := a.beginTurn(sessionID); err != nil {
 		return TurnReply{}, err
@@ -4479,6 +4486,20 @@ func (a *Engine) teamRoster(conv *conversation) *subagent.Team {
 // proposal ever made in a project against the previous one — the exact failure
 // the per-project scope exists to prevent (§116). A parameter cannot go stale.
 func (a *Engine) workbenchSkills(conv *conversation, sandboxRoot string) []skill.Skill {
+	// The guide's desk carries one tool, the window's own, and nothing of the
+	// engine's: no memory tool, no video, no desk pack. Not a `categories:`
+	// question — those lists trim what a desk is offered, and the guide must
+	// not be offered the rest at all (the same argument the computer tool
+	// makes below, one desk wide).
+	if conv != nil && conv.desk != nil && conv.desk.DeskName() == mode.Guide {
+		for _, tool := range a.screenOf().WindowTools(conv) {
+			if tool.Name() == guideToolName {
+				return []skill.Skill{tool}
+			}
+		}
+		return nil
+	}
+
 	skills := a.sessionSkills(conv, sandboxRoot)
 	// The cutting room's door, and the one conditional tool here. Registered
 	// only where the editor's own server is placed (video_desk.go says why:
@@ -4509,6 +4530,10 @@ func (a *Engine) workbenchSkills(conv *conversation, sandboxRoot string) []skill
 	drive := a.computerControlOn()
 	for _, tool := range a.screenOf().WindowTools(conv) {
 		if tool.Name() == computerToolName && !drive {
+			continue
+		}
+		// The guide's pack goes to the guide's desk alone (above).
+		if tool.Name() == guideToolName {
 			continue
 		}
 		skills = append(skills, tool)

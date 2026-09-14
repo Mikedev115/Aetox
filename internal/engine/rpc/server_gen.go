@@ -247,6 +247,12 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 	case "ClearProjectFocus":
 		r0, err := e.ClearProjectFocus()
 		return r0, err, true
+	case "CloseGuideSession":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		return nil, e.CloseGuideSession(p0), true
 	case "CodeProjectsDir":
 		return e.CodeProjectsDir(), nil, true
 	case "CommandHistory":
@@ -861,6 +867,9 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		}
 		e.NoteProviderQuotas(p0, p1)
 		return nil, nil, true
+	case "OpenGuideSession":
+		r0, err := e.OpenGuideSession()
+		return r0, err, true
 	case "OpenProjectPath":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {
@@ -1402,6 +1411,14 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		r0, err := e.SendMessage(p0, p1)
+		return r0, err, true
+	case "SendToGuide":
+		var p0 string
+		var p1 string
+		if err := decodeParams(params, &p0, &p1); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.SendToGuide(p0, p1)
 		return r0, err, true
 	case "SessionAgent":
 		var p0 string

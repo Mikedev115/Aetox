@@ -633,3 +633,27 @@ func TestEachDeskDeclaresItsMemoryArchitecture(t *testing.T) {
 		t.Errorf("the old spelling read as %q, want %q", got, MemoryOwn)
 	}
 }
+
+// The guide's desk is nobody's to open from a picker: List leaves it out so
+// no door, placement toggle or memory room offers it, while Load — the
+// engine's own way in — still finds it, bare of memory and shelf.
+func TestGuideDeskIsLoadableButNeverListed(t *testing.T) {
+	for _, m := range List() {
+		if m.DeskName() == Guide {
+			t.Fatal("List offers the guide's desk")
+		}
+	}
+	m, ok := Load(Guide)
+	if !ok || m == nil {
+		t.Fatal("Load cannot find the guide's desk")
+	}
+	if m.MemoryRule() != MemoryNone {
+		t.Errorf("guide memory rule = %q, want %q", m.MemoryRule(), MemoryNone)
+	}
+	if m.Carries("any-skill", skill.SourceSkill) {
+		t.Error("the guide's desk reads the shelf")
+	}
+	if !m.AllowsTool("guide") {
+		t.Error("the guide's desk does not carry its own tool")
+	}
+}

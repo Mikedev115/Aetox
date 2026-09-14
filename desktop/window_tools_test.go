@@ -272,8 +272,8 @@ func assertReachable(t *testing.T, d *skill.Dispatcher, name string, args map[st
 func TestWindowToolDefinitionsAreWellFormed(t *testing.T) {
 	app := newTestApp(t)
 	tools := (appScreen{app}).WindowTools(stubSession{root: t.TempDir()})
-	if len(tools) != 2 {
-		t.Fatalf("the window lends %d tools, want the browser and the machine", len(tools))
+	if len(tools) != 3 {
+		t.Fatalf("the window lends %d tools, want the browser, the machine and the guide", len(tools))
 	}
 
 	seen := map[string]bool{}
