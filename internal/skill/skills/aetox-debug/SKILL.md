@@ -111,3 +111,6 @@ harder bugs the phases above open onto:
   shows the shape).
 - `references/find-polluter.sh`, a runnable bisector for the "passes alone, fails
   in the suite" bug: it finds the test that pollutes shared state.
+
+A symptom that is "slow" rather than "wrong" is `aetox-performance`'s: it
+starts from the number and its noise, not from a hypothesis.
