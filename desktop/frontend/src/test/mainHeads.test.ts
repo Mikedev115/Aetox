@@ -294,10 +294,10 @@ describe('ตัวตน', () => {
 })
 
 // The head's name is a field, not a line in a file (owner, 14 ก.ย. 2026:
-// "ชื่อควรจะเป็นชื่อที่เปลี่ยนได้"): written on change through SetHeadName,
+// "ชื่อควรจะเป็นชื่อที่เปลี่ยนได้"): written by its own button through SetHeadName,
 // worn by the card and the page title, with the desk's word as the badge.
 describe('the name', () => {
-  it('is edited on ตัวตน, saved on change, and worn by the card', async () => {
+  it('is edited on ตัวตน, saved by its button, and worn by the card', async () => {
     vi.mocked(HeadName).mockImplementation(async (h: string) => (h === 'coding' ? 'Dev' : ''))
     const { container } = render(Settings, { onClose: () => {} })
     await openSection(container, 'ตัวหลัก')
@@ -309,8 +309,11 @@ describe('the name', () => {
     await fireEvent.click(cards(container)[0].querySelector('.icobtn')!)
     const box = await waitFor(() => container.querySelector('.ag-tab-panel.on input[aria-label="ชื่อ"]') as HTMLInputElement)
     expect(box.value).toBe('')
+    const save = box.parentElement!.querySelector('button') as HTMLButtonElement
+    expect(save.disabled).toBe(true)
     await fireEvent.input(box, { target: { value: ' Nova ' } })
-    await fireEvent.change(box)
+    expect(save.disabled).toBe(false)
+    await fireEvent.click(save)
     await waitFor(() => expect(SetHeadName).toHaveBeenCalledWith('assistant', 'Nova'))
     await waitFor(() => expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('ตั้งค่า Nova'))
   })
