@@ -86,7 +86,9 @@ export function identityTemplates(): { name: string; content: string }[] {
   return [
     { name: 'identity.md', content: t('identity.tplIdentity') },
     { name: 'thinking.md', content: t('identity.tplThinking') },
-    { name: 'context.md', content: t('identity.tplContext') },
+    // Blank on purpose: the person's own words about themselves, not a
+    // scaffold (owner, 14 ก.ย. 2026: "ควรจะโล่งเป็นค่าเริ่มต้น").
+    { name: 'context.md', content: '' },
   ]
 }
 

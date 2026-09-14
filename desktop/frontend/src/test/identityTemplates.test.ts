@@ -19,7 +19,7 @@ const names = () => identityTemplates().map((t) => t.name)
 afterEach(() => setLocale('th'))
 
 describe('identity templates', () => {
-  it('are written in the language the user picked', () => {
+  it('ship identity and thinking in English everywhere, and context.md blank', () => {
     setLocale('th')
     const thai = identityTemplates()
     setLocale('en')
@@ -31,16 +31,18 @@ describe('identity templates', () => {
     for (const [i, tpl] of english.entries()) {
       expect(tpl.content).not.toMatch(/[ก-๙]/)
       // identity.md and thinking.md are prompt text and ship in English in
-      // every locale (14 ก.ย. 2026); only context.md, the person's own notes,
-      // follows the language they picked.
-      if (tpl.name === 'context.md') expect(tpl.content).not.toBe(thai[i].content)
-      else expect(tpl.content).toBe(thai[i].content)
-      // Still a markdown file with something to fill in, not an empty string
-      // that would write a blank file into the user's folder.
-      expect(tpl.content.startsWith('# ')).toBe(true)
-      expect(tpl.content.trim().length).toBeGreaterThan(20)
+      // every locale (14 ก.ย. 2026). context.md is the person's own words about
+      // themselves and starts blank in every locale (owner, the same day:
+      // "ควรจะโล่งเป็นค่าเริ่มต้น") — the engine folds nothing from an empty file,
+      // so the blank costs no prompt.
+      expect(tpl.content).toBe(thai[i].content)
+      if (tpl.name === 'context.md') {
+        expect(tpl.content).toBe('')
+      } else {
+        expect(tpl.content.startsWith('# ')).toBe(true)
+        expect(tpl.content.trim().length).toBeGreaterThan(20)
+      }
     }
-    expect(thai.find((tpl) => tpl.name === 'context.md')!.content).toMatch(/[ก-๙]/)
   })
 
   it('keep the same filenames in every language', () => {
