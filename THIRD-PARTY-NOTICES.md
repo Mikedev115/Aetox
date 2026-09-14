@@ -71,6 +71,18 @@ The MIT licence permits these modifications and requires the copyright notice
 and permission notice to be kept, which they are. The patches are documented
 rather than silent so that the difference from upstream can be read.
 
+### Ported rule sets
+
+Logic written again in Go from another project's source, rather than a copy
+of its files:
+
+| Path | Upstream | Licence | What was taken, what was changed |
+|:---|:---|:---|:---|
+| `internal/designlint/` | [impeccable](https://github.com/pbakaus/impeccable) v4.1.0, the detector's regex matchers and CSS scans (`crates/detect`, `crates/core`) | Apache-2.0, © Paul Bakaus and contributors | Ten of its rules — `gradient-text`, `dark-glow`, `side-tab`, `border-accent-on-rounded`, `overused-font`, `bounce-easing`, `layout-transition`, `broken-image`, `repeating-stripes-gradient`, `codex-grid-background` — ported by hand with their ids and thresholds, reduced to what a source file proves without a browser. Changed: `ai-color-palette` reads hues from CSS colours where the original reads Tailwind classes; `tiny-text` reads the declaration where the original reads the computed size; `glyph-icon` is the craft floor's ban made mechanical and is not in the original detector; `design-allow` replaces `impeccable-disable`. The package comment names the same. |
+
+Apache-2.0 asks that changes be marked and the attribution kept; both are in
+the package's own comments as well as here.
+
 ---
 
 ## Frontend packages

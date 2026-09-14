@@ -106,8 +106,12 @@ var overweight = map[string]int{
 	// both on 2026-08-29. Over their 184-token ceilings because three acts with
 	// three different shapes cannot introduce themselves in fewer words - and
 	// under what the entries they replaced cost together, which is the number
-	// that was worth having.
-	"codebase":    263,
+	// that was worth having. 263 to 320 on 2026-09-14 when `design` joined as
+	// the fourth act (design_check.go): one line naming the nine tells it
+	// reads, because a model that does not know what the check finds does
+	// not call it - the map's two weeks at one call proved that - and still
+	// under the 422 the three standalone entries cost before the pack.
+	"codebase":    320,
 	"media_read":  231,
 	// `pr` arrived packed (pr_pack.go) rather than as five tools, so there is
 	// no before to compare it against - five standalone entries carrying these

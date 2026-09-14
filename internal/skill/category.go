@@ -211,7 +211,8 @@ var toolCategories = map[string]string{
 	// Code and not files, deliberately: the assistant desk holds no project
 	// root, and a repo map of "wherever the session stands" would be a wrong
 	// answer ranked confidently (docs/aider-study/EXECUTION.md).
-	"repo_map": CategoryCode,
+	"repo_map":     CategoryCode,
+	"design_check": CategoryCode,
 	// The tool the model is offered, and the four action names it gates on
 	// inside (github_pack.go) — listed for the same reason the shell and
 	// browser action names are.

@@ -6,7 +6,9 @@ package skill
 // for one act at three scales: is this file broken, what is this name and who
 // uses it, what shape is this project. None of them changes anything; all three
 // answer a question the model would otherwise answer by reading files and
-// guessing.
+// guessing. `design_check` joined on 14 ก.ย. 2569 as the fourth: does this UI
+// carry the tells of a page assembled by habit — the same act, the same gates,
+// the one question the language server cannot answer.
 //
 // Named `codebase` rather than `code` on purpose. `code` is already a
 // *category* (category.go), the word a desk manifest writes in `categories:` to
@@ -16,7 +18,7 @@ package skill
 //
 // Gates, the same check every pack here is held to (search_pack.go):
 //
-//   - `planKeeps` (internal/mode/stance.go) holds all three, so วางแผน keeps
+//   - `planKeeps` (internal/mode/stance.go) holds all four, so วางแผน keeps
 //     the pack whole - which is the point: a plan is built by looking.
 //   - `parallelToolCalls` (internal/cognitive/agent.go) allows none of them, so
 //     the pack does not straddle that line either. They start language servers
@@ -90,6 +92,8 @@ func (s *codebaseSkill) inner(action string) (Tool, error) {
 		return &symbolSkill{root: s.root, outputSubdir: s.outputSubdir}, nil
 	case "map":
 		return &repoMapSkill{root: s.root, open: s.open}, nil
+	case "design":
+		return &designCheckSkill{root: s.root, open: s.open}, nil
 	}
 	return nil, fmt.Errorf("codebase action %q has no implementation", action)
 }
@@ -101,6 +105,7 @@ func (s *codebaseSkill) ToolDefinition() model.ToolDefinition {
 		"errors": "`errors` (path), compile and type errors from the language server (gopls, tsserver, ...). A file, or a folder to check everything supported inside it; \".\" is the whole project. '(no problems)' means clean, and it says so when no server is installed for that language.",
 		"symbol": "`symbol` (path, name), what an identifier is: signature, doc, where it is declared, and every place that references it. Exact where a search guesses.",
 		"map":    "`map` (path?), the project's shape: files ranked by incoming references, with their symbols and line numbers.",
+		"design": "`design` (path?), the mechanical design tells in UI source, by rule and line: gradient text, glow, side stripe, the AI palette, overused font, bounce easing, layout transition, broken image, emoji as icon.",
 	}
 	var actions strings.Builder
 	for _, a := range allowed {
@@ -114,7 +119,7 @@ func (s *codebaseSkill) ToolDefinition() model.ToolDefinition {
 		},
 		"path": map[string]any{
 			"type":        "string",
-			"description": "The file for errors and symbol; the folder for map, which defaults to the whole project.",
+			"description": "The file for errors and symbol; the folder for map and design, which default to the whole project.",
 		},
 	}
 	if slices.Contains(allowed, "symbol") {

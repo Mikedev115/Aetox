@@ -66,6 +66,10 @@ func main() {
 	if handled, code := runAuthCommand(os.Args[1:]); handled {
 		os.Exit(code)
 	}
+	// `aetox design` likewise: a linter run, not a session (design.go).
+	if handled, code := runDesignCommand(os.Args[1:]); handled {
+		os.Exit(code)
+	}
 
 	// Install the cached model table before anything asks what a model can do.
 	// The first-launch menu below reads thinking depths from it; the engine
