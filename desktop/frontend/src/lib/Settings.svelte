@@ -151,13 +151,16 @@
     name: string
     icon: IconName
     descKey: TKey
-    tplKey: TKey
+    // null: the + button makes the file blank. context.md is the person's own
+    // words about themselves (owner, 14 ก.ย.: "ควรจะโล่งเป็นค่าเริ่มต้น") — a
+    // scaffold of bullets there is someone else's idea of what to say.
+    tplKey: TKey | null
   }[] = [
     { name: 'identity.md', icon: 'sparkles', descKey: 'settings.identityDescIdentity', tplKey: 'identity.tplIdentity' },
     { name: 'thinking.md', icon: 'brain', descKey: 'settings.identityDescThinking', tplKey: 'identity.tplThinking' },
     // context.md was on เกี่ยวกับคุณ for a morning (14 ก.ย.); the owner put
     // it back with the other three: "ไม่ควรไปอยู่เกี่ยวกับคุณ มันควรผูกกับเอเจน".
-    { name: 'context.md', icon: 'fileText', descKey: 'settings.identityDescContext', tplKey: 'identity.tplContext' },
+    { name: 'context.md', icon: 'fileText', descKey: 'settings.identityDescContext', tplKey: null },
     // skills.md left the list 14 ก.ย. 2026 (owner: "ไม่มีประโยชน์ชัดเลยหน้านี้"):
     // a fourth always-on file nobody could say the purpose of. A hand-made
     // one on disk is still listed below, like any other.
@@ -167,7 +170,8 @@
   // thinks the way its desk works (owner, 14 ก.ย.: "identity.md หน้าผู้ช่วย คือ
   // เป็นเพื่อน ผู้ช่วยส่วนตัว … กระชับ ไม่ต้องใส่เหตุผล"). Short on purpose: every
   // line here is folded into every request.
-  const tplFor = (item: { name: string; tplKey: TKey }): string => {
+  const tplFor = (item: { name: string; tplKey: TKey | null }): string => {
+    if (item.tplKey === null) return ''
     if (identity.head === 'coding' && item.name === 'identity.md') return t('identity.tplIdentityCoding')
     if (identity.head === 'coding' && item.name === 'thinking.md') return t('identity.tplThinkingCoding')
     return t(item.tplKey)
@@ -6646,7 +6650,7 @@
                 <div class="t"><span class="mono-dim you-file">modes/{h}.md</span>
                   {#if deskFile?.overrides}<span class="badge on">{t('settings.mainDeskOverrides')}</span>{/if}
                 </div>
-                <div class="d">{headDesc(h)}</div>
+                <div class="d">{t('settings.mainDeskWhat', { name: headLabel(h) })}</div>
               </div>
               <div class="set-ctrl" style="display:flex; align-items:center; gap:8px;">
                 {#if deskFile?.overrides}
@@ -6686,7 +6690,7 @@
                   <div class="t"><span class="mono-dim you-file">{item.name}</span>
                     {#if isActive}<span class="badge on">{t('settings.identityEditingNow')}</span>{/if}
                   </div>
-                  <div class="d">{t(item.descKey)}</div>
+                  <div class="d">{t(item.descKey, { name: headLabel(h) })}</div>
                 </div>
                 <div class="set-ctrl">
                   {#if exists}

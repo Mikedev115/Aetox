@@ -85,8 +85,15 @@ describe('a head\'s page', () => {
     expect(tabs(container).map((t) => t.textContent?.trim())).toEqual(['ตัวตน', 'ตั้งค่า MCP', 'สกิล', 'เปิดบทสนทนา', 'ความจำ'])
     expect(container.querySelector('.main-head .rank-corner.rank-head')).toBeTruthy()
     expect(container.querySelector('.main-head .mascot')).toBeTruthy()
-    // The desk file's line on the first tab, and where the persona still is.
-    expect(container.querySelector('.ag-tab-panel.on')?.textContent).toContain('ทำได้ทุกอย่างบนเครื่อง')
+    // The first tab reads as the three questions (DECISIONS §270.3), naming the
+    // head: the desk row is the job, not the head's description again (the
+    // hero has that).
+    const firstTab = container.querySelector('.ag-tab-panel.on')?.textContent ?? ''
+    expect(firstTab).toContain('หน้าที่หลัก: ผู้ช่วยทำอะไร')
+    expect(firstTab).toContain('ตัวตนของผู้ช่วย')
+    expect(firstTab).toContain('ท่าทีของผู้ช่วย')
+    expect(firstTab).not.toContain('มัน')
+    expect(firstTab).not.toContain('ไฟล์โต๊ะ')
     expect(container.querySelector('.ag-tab-panel.on')?.textContent).toContain('modes/assistant.md')
 
     await fireEvent.click(Array.from(container.querySelectorAll('.pp-bar .ctrl')).find((b) => b.textContent?.includes('ไปที่ โค้ด'))!)
@@ -267,7 +274,7 @@ describe('ตัวตน', () => {
     const reset = await waitFor(() => Array.from(panel(container).querySelectorAll('.ctrl')).find((b) => b.textContent?.includes('คืนค่าเริ่มต้น'))!)
     await fireEvent.click(reset)
     expect(ResetDeskFile).not.toHaveBeenCalled()
-    await waitFor(() => expect(screen.getByText('คืนไฟล์โต๊ะเป็นค่าเริ่มต้นของแอป?')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('คืนหน้าที่เป็นค่าเริ่มต้นของแอป?')).toBeTruthy())
     const confirm = Array.from(document.querySelectorAll('.confirm-actions button, .modal button')).find((b) => b.textContent?.trim() === 'คืนค่าเริ่มต้น') as HTMLButtonElement
     await fireEvent.click(confirm)
     await waitFor(() => expect(ResetDeskFile).toHaveBeenCalledWith('coding'))

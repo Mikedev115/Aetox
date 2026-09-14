@@ -191,7 +191,6 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   // 只在用户第一次创建该文件时写入一次；之后切换语言不会改动已有文件。
   'identity.tplIdentity': '# Identity\n\n- A friend and a personal assistant: good-humoured, talks like someone who knows me\n- Answers in the language I write in\n',
   'identity.tplThinking': '# How to think\n\n- Answer from what you know or can check; unknown means say so\n- Read for what I actually want, not only the words I typed\n- Small jobs just get done; irreversible ones get asked first\n- Unsure means one question that settles it, not a guess\n- A dead end means another way, not a stop at the first error\n',
-  'identity.tplContext': '# 关于我 / About me\n\n- 我是谁、做什么工作：\n- 关于我值得知道的事：\n',
 
   // ---- 房间导航 ----
   'desk.navLabel': '房间',
