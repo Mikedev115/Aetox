@@ -31,15 +31,31 @@ package engine
 // `plan step` on work it did not do — a deliberate false statement in a tool
 // call, which is a far higher bar than a confident closing sentence.
 //
-// The second gate is the finish condition, which is prose and does need
-// judgement. It is handed back to the model ONCE per run, as the plan's own
-// words: you said this is how we would know it worked — say how you verified it.
-// A criterion the model wrote in an earlier turn and had approved is not the
-// same thing as a model marking its own homework in this one.
+// The second gate is the closing report (plan_report.go, §249): a row exists
+// or it does not, so it is as mechanical as the first and may repeat. The
+// plan's own finish condition — the prose that does need judgement — rides
+// with that ask rather than being a gate of its own: you said this is how we
+// would know it worked, check it and put what came back under How it was
+// checked. From §236 to 14 ก.ย. 2026 it was a third gate, asked first and once,
+// and its answer was a second closing message written after the one the check
+// had just demoted (§289). A criterion the model wrote in an earlier turn and
+// had approved is still not the model marking its own homework in this one;
+// it is simply answered where the answer is kept.
 //
-// Once, and then never again, because a gate that can fire repeatedly on prose
-// is a gate that argues. The ceiling is what handles a run that genuinely cannot
-// finish, and it is the one part that must not be left to judgement.
+// There is no gate that argues, and — by the owner's word, 14 ก.ย. — no ceiling
+// either: what ends a run that cannot finish is the user's Stop.
+//
+// ## What the model is told, and when
+//
+// At the press. The first message of the run carries the `aetox-run-plan`
+// skill whole under the user's line (runBriefFor, app.go) — walk the steps,
+// mark each as it is finished, no progress in prose, `failed` settles a step,
+// do not stop to offer the next one, finish with the report. A skill and not a
+// Go string so the owner tunes a run by editing a document; handed over and
+// not claimed by a before-line so a run has one rulebook, not two. Until
+// 14 ก.ย. the press sent nothing but the user's line and the rules rode with
+// the first `plan step` result, which on every large-model run the owner had
+// made was the batch of marks after the work was done.
 //
 // ## What it does not do
 //
@@ -59,6 +75,7 @@ import (
 	"time"
 
 	"github.com/Mikedev115/Aetox/internal/mode"
+	"github.com/Mikedev115/Aetox/internal/skill"
 )
 
 // goalRun is one conversation carrying out its plan.
@@ -69,9 +86,6 @@ import (
 // be a window offering to stop something that is not happening.
 type goalRun struct {
 	sessionID string
-	// finishAsked records that the second gate has fired. Once per run — see the
-	// note above about a gate that argues.
-	finishAsked bool
 	// sentBack counts the verdicts issued, for the card's own run bar and for
 	// nothing else — the ceiling is MaxToolCalls and is not this. It is the one
 	// part of this mode the user cannot otherwise see: the gates fire between
@@ -82,7 +96,7 @@ type goalRun struct {
 	// clock; pushing one from here would be an event stream that says nothing.
 	startedAt string
 	// reported records that this ROUND has its closing report (plan_report.go)
-	// — set by `plan report`, read by gate three, and cleared when a paused run
+	// — set by `plan report`, read by the report gate, and cleared when a paused run
 	// is resumed, because ไปต่อ starts a new round and a new round owes a
 	// report of its own. reportAsked is the once-per-hold companion for a
 	// paused run: a hold asks for a short report once and then lets the turn
@@ -90,6 +104,9 @@ type goalRun struct {
 	// argue from.
 	reported    bool
 	reportAsked bool
+	// briefed records that the run's brief has gone to the model — with the
+	// first message of the run, once (runBriefFor).
+	briefed bool
 	// paused is why the run is holding, and "" when it is not.
 	//
 	// **Pausing is not stopping, and the difference is where it takes effect.**
@@ -188,7 +205,7 @@ func (a *Engine) goalCheck(sessionID string) func(string) string {
 				run.reportAsked = true
 				run.sentBack++
 				a.emitPlan(sessionID, *plan)
-				return reportVerdict(run.paused)
+				return reportVerdict(run.paused, "")
 			}
 			a.emitPlan(sessionID, *plan)
 			return ""
@@ -215,7 +232,7 @@ func (a *Engine) goalCheck(sessionID string) func(string) string {
 					run.reportAsked = true
 					run.sentBack++
 					a.emitPlan(sessionID, *plan)
-					return reportVerdict(run.paused)
+					return reportVerdict(run.paused, "")
 				}
 				a.emitPlan(sessionID, *plan)
 				return ""
@@ -225,28 +242,23 @@ func (a *Engine) goalCheck(sessionID string) func(string) string {
 			return unfinishedVerdict(left)
 		}
 
-		// GATE TWO, the finish condition, once.
-		if !run.finishAsked {
-			run.finishAsked = true
-			if cond := sectionBody(plan.Sections, finishHeading); cond != "" {
-				run.sentBack++
-				a.emitPlan(sessionID, *plan)
-				return "Every step of the plan is marked done. Before this turn ends, the plan's own " +
-					"finish condition has to be met, and these are its words:\n\n" + cond + "\n\n" +
-					"Check it — actually run or read whatever settles it — and say in one or two lines " +
-					"what you checked and what came back. If it does not hold, the work is not finished: " +
-					"mark the step that has to be redone and carry on. Do not restate the plan."
-			}
-		}
-
-		// GATE THREE, the report. Mechanical like gate one — a row exists or it
-		// does not — and repeated for the same reason: the steps and the finish
-		// are settled, and the one thing standing between this run and the
-		// person who will read about it is a report that has not been written.
+		// GATE TWO, the report. Mechanical like gate one — a row exists or it
+		// does not — and repeated for the same reason: the steps are settled,
+		// and the one thing standing between this run and the person who will
+		// read about it is a report that has not been written.
+		//
+		// The plan's finish condition rides with this verdict rather than
+		// being a gate of its own. From §236 to 14 ก.ย. it was asked first, once,
+		// as a question the model answered in prose — and the answer was a
+		// second closing message, written after the one the check had just
+		// demoted, verifying steps that were themselves the verification (the
+		// toy probe: three of eight rounds). The report's "How it was checked"
+		// is where that answer belongs, and a row is a thing the checker can
+		// count where a paragraph is not (§289).
 		if !run.reported {
 			run.sentBack++
 			a.emitPlan(sessionID, *plan)
-			return reportVerdict("")
+			return reportVerdict("", sectionBody(plan.Sections, finishHeading))
 		}
 
 		// Done. The run ends with the turn, so the card stops saying it is
@@ -265,17 +277,63 @@ func (a *Engine) goalCheck(sessionID string) func(string) string {
 // held is the pause reason when the run is holding rather than finished, and
 // changes what the report is for: not "the work is done" but "this is where it
 // got to".
-func reportVerdict(held string) string {
+func reportVerdict(held, finish string) string {
 	if held != "" {
 		return "The run is holding (" + held + "). Before this turn ends, write a short closing report " +
 			"for this round with `plan` (action: report): what was done so far, how it was checked, and " +
 			"what is left. Then stop — do not carry on with the next step."
 	}
-	return "Every step is settled and the finish condition is answered. One thing remains before this " +
-		"turn ends: the closing report, with `plan` (action: report) — what was done, how it was " +
-		"checked, what is left. The user reads that instead of your answer, so write it there and " +
-		"keep the answer to a line."
+	out := "Every step is settled. One thing remains before this turn ends: the closing report, with " +
+		"`plan` (action: report) — what was done, how it was checked, what is left."
+	if finish = strings.TrimSpace(finish); finish != "" {
+		out += " The plan said it would be known to have worked when: " + finish + " — check that, " +
+			"actually run or read whatever settles it, and put what came back under How it was checked; " +
+			"if it does not hold, mark the step that has to be redone and carry on instead."
+	}
+	return out + " The user reads the report instead of your answer, so write it there and keep the " +
+		"answer to a line."
 }
+
+// runBriefFor is the baton: the run's brief, once, for the first message the
+// model sees after the button was pressed — "" for every other message and for
+// a conversation that is not running its plan.
+//
+// The brief is the `aetox-run-plan` skill's body, read from the shelf the way
+// skill_view would read it (the user's copy on disk wins over the bundled one),
+// so tuning how a run behaves is editing a skill and not a Go string. It is
+// appended to the text the model receives and not to the row the transcript
+// keeps: the chat shows the user's line, the model reads the brief under it.
+//
+// Handed over here and not as a prompt layer, on the owner's word (14 ก.ย.):
+// *"แค่เติมเข้าไประหว่างทำงานเฉยๆ"* — the same agent goes on with its context,
+// nothing is rebuilt, and the brief is in the cached prefix from its second
+// round on like any other message. The cost against a system-prompt layer is
+// that the layers a run would rather not hear (a sentence before every tool
+// call, "one offer, then stop") stay in the prompt above it; the brief says
+// the opposite and says it later, which is the position that wins (§106.4).
+func (a *Engine) runBriefFor(sessionID string) string {
+	run := a.goalRunSet().get(sessionID)
+	if run == nil || run.briefed {
+		return ""
+	}
+	raw, err := skill.Body(runBriefSkill)
+	if err != nil {
+		return ""
+	}
+	_, body, err := skill.ParseFrontmatter(raw)
+	if err != nil {
+		body = raw
+	}
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return ""
+	}
+	run.briefed = true
+	return body
+}
+
+// runBriefSkill is the skill whose body is the run's brief.
+const runBriefSkill = "aetox-run-plan"
 
 // unfinishedVerdict is what a run that is not done is told.
 //

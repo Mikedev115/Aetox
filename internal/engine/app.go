@@ -2642,6 +2642,12 @@ func (a *Engine) runTurn(conv *conversation, text, to string) (SessionMessage, S
 			}
 		}
 	}
+	// The baton. The first message of a มุ่งเป้า run carries the run's brief
+	// to the model — the `aetox-run-plan` skill, whole — under the user's own
+	// line, which is all the transcript keeps (goal_run.go: runBrief).
+	if brief := a.runBriefFor(conv.id); brief != "" {
+		sent = sent + "\n\n" + brief
+	}
 	result, err := conv.chat.RunOnceStreamWithAttachments(ctx, sent, images, documents, func(chunk string) {
 		// The authoritative delivery: replaces whatever the live preview holds,
 		// so the answer lands exactly once no matter what streamed before it.
