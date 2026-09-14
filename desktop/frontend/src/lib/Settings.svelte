@@ -6657,7 +6657,7 @@
                 <div class="t"><span class="mono-dim you-file">modes/{h}.md</span>
                   {#if deskFile?.overrides}<span class="badge on">{t('settings.mainDeskOverrides')}</span>{/if}
                 </div>
-                <div class="d">{t('settings.mainDeskWhat', { name: headLabel(h) })}</div>
+                <div class="d">{t('settings.mainDeskWhat')}</div>
               </div>
               <div class="set-ctrl" style="display:flex; align-items:center; gap:8px;">
                 {#if deskFile?.overrides}

@@ -1628,7 +1628,7 @@ export const th = {
   'settings.mainDeskFileHint': 'งานหลักของโต๊ะนี้ แก้ได้ทั้งไฟล์ และคืนค่าเริ่มต้นของแอปได้เสมอ',
   'settings.mainDeskEditHint': 'บันทึกแล้วมีผลกับแชทใหม่ที่เปิดบนโต๊ะนี้ แชทที่เปิดอยู่ยังใช้ของเดิม',
   'settings.mainDeskApplies': 'บันทึกแล้ว มีผลกับแชทใหม่ที่เปิดบนโต๊ะนี้',
-  'settings.mainDeskWhat': 'หน้าที่หลัก: {name}ทำอะไร',
+  'settings.mainDeskWhat': 'หน้าที่หลัก',
   'settings.mainDeskOverrides': 'แก้ไว้เอง',
   'settings.mainDeskReset': 'คืนค่าเริ่มต้น',
   'settings.mainDeskResetTitle': 'คืนหน้าที่เป็นค่าเริ่มต้นของแอป?',

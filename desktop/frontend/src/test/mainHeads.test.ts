@@ -89,7 +89,7 @@ describe('a head\'s page', () => {
     // head: the desk row is the job, not the head's description again (the
     // hero has that).
     const firstTab = container.querySelector('.ag-tab-panel.on')?.textContent ?? ''
-    expect(firstTab).toContain('หน้าที่หลัก: ผู้ช่วยทำอะไร')
+    expect(firstTab).toContain('หน้าที่หลัก')
     expect(firstTab).toContain('ตัวตนของผู้ช่วย')
     expect(firstTab).toContain('ท่าทีของผู้ช่วย')
     expect(firstTab).not.toContain('มัน')
