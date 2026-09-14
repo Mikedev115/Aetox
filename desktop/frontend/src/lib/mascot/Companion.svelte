@@ -35,6 +35,7 @@
   import { profile } from '../stores/profile.svelte'
   import { startersFor, headlineFor } from '../starters'
   import { t, i18n } from '../i18n.svelte'
+  import { nativeRects, keepOut } from '../workbench/nativeRects.svelte'
 
   /** The figure's size, logical px — the user's, dragged at the corner of
    *  the hover frame (companionSetting.svelte.ts size). */
@@ -122,11 +123,17 @@
     // Bottom-right, above the composer — the corner the eye rests in last.
     return { x: window.innerWidth - SIZE - 28, y: window.innerHeight - SIZE - 118 }
   }
+  // Inside the window, and clear of every native child window in it. A
+  // browser tab is a real window glued over its pane and composites over the
+  // whole DOM, this layer included — the figure cannot be drawn on top of it,
+  // so it stands beside it instead: pushed out the short way, and refused the
+  // rectangle while dragged (workbench/nativeRects).
   function clamp(p: { x: number; y: number }): { x: number; y: number } {
-    return {
+    const inside = {
       x: Math.max(MARGIN, Math.min(window.innerWidth - SIZE - MARGIN, p.x)),
       y: Math.max(MARGIN, Math.min(window.innerHeight - SIZE - MARGIN, p.y)),
     }
+    return keepOut(inside, SIZE, { w: window.innerWidth, h: window.innerHeight }, MARGIN)
   }
   function onDown(e: PointerEvent): void {
     if (e.button !== 0) return
@@ -399,6 +406,14 @@
     }
     window.addEventListener('resize', keep)
     return () => window.removeEventListener('resize', keep)
+  })
+
+  // A native window arrived, moved or grew over the spot: step aside. Not
+  // remembered — the user's spot is the one they dragged to, and this is a
+  // detour.
+  $effect(() => {
+    nativeRects.all
+    pos = clamp(untrack(() => pos))
   })
   // Near the left edge the bubble has no room on the left; it flips over.
   const flip = $derived(pos.x < 300)

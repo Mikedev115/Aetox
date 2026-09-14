@@ -10,6 +10,7 @@ import { speech, stopSpeech } from '../lib/speech.svelte'
 import { StartSpeech } from './mocks/wailsApp'
 import { profile } from '../lib/stores/profile.svelte'
 import { t } from '../lib/i18n.svelte'
+import { nativeRects, setNativeRect, keepOut, overlaps } from '../lib/workbench/nativeRects.svelte'
 
 // The assistant sitting on the screen: what it does is read off the cockpit's
 // live turn, what it says is what the model said — plus the one line of ours,
@@ -232,6 +233,74 @@ describe('the companion', () => {
     const saved = JSON.parse(localStorage.getItem('companionPos') ?? '{}')
     expect(saved.x).toBeGreaterThanOrEqual(8)
     expect(saved.y).toBeGreaterThanOrEqual(8)
+  })
+
+  // A browser tab is a native window over its pane, and a native window is
+  // drawn over every DOM layer — this one included. The figure cannot be put
+  // on top of it (owner, 15 ก.ย. 2026: the pane over the avatar, "ไม่ปกติ"),
+  // so it steps aside when the pane arrives, will not be dragged under it,
+  // and keeps the user's own spot for when the pane goes.
+  it('stands clear of a native browser window, and comes back when it goes', async () => {
+    // jsdom's window is 1024×768. The figure at its default size, top-right.
+    localStorage.setItem('companionPos', JSON.stringify({ x: 800, y: 100 }))
+    const { container } = render(Companion)
+    await waitFor(() => expect(mascot(container)).toBeTruthy())
+    const at = () => {
+      const m = /translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/.exec((container.querySelector('.companion') as HTMLElement).style.transform)!
+      return { x: Number(m[1]), y: Number(m[2]) }
+    }
+    expect(at()).toEqual({ x: 800, y: 100 })
+
+    // The pane opens over the right half of the window.
+    const pane = { x: 600, y: 60, w: 416, h: 700 }
+    setNativeRect('tab-1', pane)
+    await tick()
+    let p = at()
+    expect(overlaps(p, SIZE_DEFAULT, pane, 0)).toBe(false)
+    // The short way out was left, not up: above the pane there is no room.
+    expect(p.x + SIZE_DEFAULT).toBeLessThanOrEqual(pane.x)
+    // A detour, not a new home.
+    expect(JSON.parse(localStorage.getItem('companionPos')!)).toEqual({ x: 800, y: 100 })
+
+    // Dragged towards the pane, it stops at its edge.
+    const grab = container.querySelector('.grab')!
+    ;(grab as any).setPointerCapture = () => {}
+    await fireEvent.pointerDown(grab, { clientX: p.x + 20, clientY: p.y + 20, pointerId: 1, button: 0 })
+    await fireEvent.pointerMove(grab, { clientX: 900, clientY: 300, pointerId: 1 })
+    await fireEvent.pointerUp(grab, { pointerId: 1 })
+    await tick()
+    p = at()
+    expect(overlaps(p, SIZE_DEFAULT, pane, 0)).toBe(false)
+
+    // The pane gone, the register is empty and the figure is free again.
+    setNativeRect('tab-1', null)
+    await tick()
+    expect(nativeRects.all).toEqual([])
+    await fireEvent.pointerDown(grab, { clientX: p.x + 20, clientY: p.y + 20, pointerId: 2, button: 0 })
+    await fireEvent.pointerMove(grab, { clientX: 900, clientY: 300, pointerId: 2 })
+    await fireEvent.pointerUp(grab, { pointerId: 2 })
+    expect(overlaps(at(), SIZE_DEFAULT, pane, 0)).toBe(true)
+  })
+})
+
+describe('keepOut', () => {
+  const win = { w: 1000, h: 800 }
+  it('leaves a clear box alone', () => {
+    expect(keepOut({ x: 10, y: 10 }, 100, win, 8, [{ x: 500, y: 0, w: 500, h: 800 }])).toEqual({ x: 10, y: 10 })
+  })
+  it('takes the shortest way out that fits the window', () => {
+    // Overlapping the left edge of a right-hand pane: left is 1 px, up does not fit.
+    expect(keepOut({ x: 450, y: 300 }, 100, win, 8, [{ x: 500, y: 0, w: 500, h: 800 }])).toEqual({ x: 392, y: 300 })
+    // Just under a top strip: up would leave the window, so down.
+    expect(keepOut({ x: 100, y: 50 }, 100, win, 8, [{ x: 0, y: 0, w: 1000, h: 120 }])).toEqual({ x: 100, y: 128 })
+  })
+  it('stays put when there is nowhere to go', () => {
+    expect(keepOut({ x: 300, y: 300 }, 100, win, 8, [{ x: 0, y: 0, w: 1000, h: 800 }])).toEqual({ x: 300, y: 300 })
+  })
+  it('clears a second rect the first push landed in', () => {
+    const rects = [{ x: 500, y: 0, w: 500, h: 800 }, { x: 350, y: 0, w: 150, h: 800 }]
+    const p = keepOut({ x: 450, y: 300 }, 100, win, 8, rects)
+    expect(rects.some((r) => overlaps(p, 100, r, 8))).toBe(false)
   })
 })
 

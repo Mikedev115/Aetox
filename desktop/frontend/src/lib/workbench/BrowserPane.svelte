@@ -8,6 +8,7 @@
   } from '../../../wailsjs/go/main/App'
   import { EventsOn } from '../../../wailsjs/runtime/runtime'
   import { isHostWebview } from '../hostWebview'
+  import { setNativeRect, type NativeRect } from './nativeRects.svelte'
   import { panelDrag } from '../panelDrag.svelte'
   import { t } from '../i18n.svelte'
   import BrowserStart from './BrowserStart.svelte'
@@ -37,6 +38,10 @@
   // The rectangle the native window was last placed at (device px), or null
   // before the first placement. What a held drag measures itself against.
   let sentRect: [number, number, number, number] | null = null
+  // The same rectangle in CSS px, for the register the companion reads
+  // (nativeRects): a DOM overlay cannot be drawn over the native window, so
+  // it has to be told where not to stand.
+  let glued = $state<NativeRect | null>(null)
 
   // Holding still while the user drags.
   //
@@ -132,7 +137,7 @@
   // CSS viewport then measures exactly the device's w×h — real browser zoom, so
   // its media queries fire the way they would on the device. No preset = fill
   // the pane at zoom 1.
-  function layout(el: HTMLElement): { rect: [number, number, number, number]; scale: number; w: number; h: number } {
+  function layout(el: HTMLElement): { rect: [number, number, number, number]; css: NativeRect; scale: number; w: number; h: number } {
     const box = el.getBoundingClientRect()
     // A few pixels of the pane kept back from the native window, all the way
     // round. ไฟบอกสถานะ's border light is drawn by the app, and the app
@@ -159,17 +164,18 @@
     const scale = vp ? Math.min(1, room.width / vp.w, room.height / vp.h) : 1
     const w = vp ? vp.w * scale : r.width
     const h = vp ? vp.h * scale : r.height
+    const css: NativeRect = { x: r.x + (r.width - w) / 2, y: r.y + (r.height - h) / 2, w, h }
     const rect: [number, number, number, number] = [
-      Math.round((r.x + (r.width - w) / 2) * s), Math.round((r.y + (r.height - h) / 2) * s),
+      Math.round(css.x * s), Math.round(css.y * s),
       Math.round(w * s), Math.round(h * s),
     ]
-    return { rect, scale, w, h }
+    return { rect, css, scale, w, h }
   }
 
   /** Re-glue the native window to the pane (and re-apply the emulation zoom). */
   function reflow(): void {
     if (spectator || !host) return
-    const { rect, scale, w, h } = layout(host)
+    const { rect, css, scale, w, h } = layout(host)
     // Measured before the `opened` gate, because a tab with no page yet has no
     // native window and still has to show the phone — picking a device has to
     // do something visible, or the menu reads as dead.
@@ -186,6 +192,7 @@
     }
     hidingForDrag = false
     sentRect = rect
+    glued = css
     BrowserSetBounds(tab.id, ...rect)
     // Zoom and shape only when they changed. A splitter drag reflows every
     // frame, and each of these is a Wails call, a hop onto the webview's
@@ -257,6 +264,12 @@
 
   $effect(() => {
     if (opened) BrowserSetVisible(tab.id, visible)
+  })
+
+  // Tell the register where the native window is — while it is shown, and
+  // only then: hidden for a drag or under a sheet, it covers nothing.
+  $effect(() => {
+    setNativeRect(tab.id, opened && visible ? glued : null)
   })
 
   // Keep the native window glued to this pane's rect.
@@ -428,6 +441,7 @@
   // and under the ones nobody has thought of yet.
   onDestroy(() => {
     off()
+    setNativeRect(tab.id, null)
     if (!spectator && opened) BrowserSetVisible(tab.id, false)
   })
 </script>
