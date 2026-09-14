@@ -71,6 +71,7 @@
   import { startersFor, dealStarters, headlineFor, STARTER_SLOTS, TEACH_STARTER_KEY } from './starters'
   import { profile, loadProfileName } from './stores/profile.svelte'
   import { teachingCardPinned, clearTeachingCard } from './firstRun'
+  import { openTour } from './tourState.svelte'
 
   let {
     messages, task, model, awaitingReply, agentStatus, toolSteps, streamingText, reasoningText,
@@ -4582,11 +4583,21 @@
         {/each}
       </div>
       {#if canReroll}
-        <button class="starter-more" onclick={() => reroll++}>
-          <Icon name="refreshCw" size={13} />
-          <span>{t('start.more')}</span>
+          <button class="starter-more" onclick={() => reroll++}>
+            <Icon name="refreshCw" size={13} />
+            <span>{t('start.more')}</span>
+          </button>
+        {/if}
+        <!-- The tour's door on the one screen a person who does not know the
+             app is standing on. Quiet, beside the re-deal, always there: the
+             sidebar's copy is behind a collapsed rail half the time (owner,
+             14 ก.ย., pointing at this screen: "หายไปไหนแล้ว"). Until the first
+             message it also says why — the wizard just finished. -->
+        <button class="starter-more starter-tour" onclick={openTour}>
+          <Icon name="bot" size={13} />
+          <span>{teachPinned ? t('chat.tourLink') : t('settings.tourTitle')}</span>
         </button>
-      {/if}
+      </div>
     </div>
   {:else}
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->

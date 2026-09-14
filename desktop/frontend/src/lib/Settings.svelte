@@ -37,6 +37,7 @@
   import { coverHue } from './coverHue'
   import { armFirstRunReplay } from './firstRun'
   import { scopeLabel, scopeMeta, USER_SCOPE, MAIN_SCOPE } from './memoryScope'
+  import { openTour } from './tourState.svelte'
   import { setShell } from './shell.svelte'
   import { attention, loadAttention, toggleAttention } from './stores/attention.svelte'
   import type { IconName } from './icons'
@@ -7663,6 +7664,15 @@
     {:else if active === 'about'}
       <h2>{t('settings.about')}</h2>
       <div class="settings-card">
+        <!-- The tour's own door, first on the page it names ("ดูการแนะนำนี้อีกได้ที่
+             ตั้งค่า › เกี่ยวกับ"): closes settings so it plays over the app. -->
+        <div class="set-row">
+          <div class="set-txt">
+            <div class="t">{t('settings.tourTitle')}</div>
+            <div class="d">{t('settings.tourDesc')}</div>
+          </div>
+          <button class="ctrl" onclick={() => { openTour(); onClose() }}>{t('settings.tourAction')}</button>
+        </div>
         <div class="set-row">
           <div class="set-txt">
             <div class="t">{t('settings.aboutVersion')}</div>

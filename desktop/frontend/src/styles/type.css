@@ -72,6 +72,13 @@
   --dur-hold-success:850ms; /* "it worked" is read before the screen moves on */
   --dur-ground:700ms;       /* the watermark behind an empty room */
   --dur-hold-done:1600ms;   /* a finished setup stands still before it leaves */
+  /* รู้จักกับ Aetox (Tour.svelte, DECISIONS §279) is a film, and a film's
+     elements move at a film's pace: a node growing in, a card turning, a panel
+     sliding into place take half a second and a scene settling takes most of
+     one. Named here rather than written as .5s twenty times in the tour block,
+     which is exactly what motionTokens.test.ts exists to refuse. */
+  --dur-scene:500ms;        /* one element of a scene moving */
+  --dur-scene-slow:850ms;   /* a scene settling, a card turning over */
   /* The working light coming up and going down. Asymmetric on purpose, and
      the asymmetry is the whole point: work STARTS at a moment, so the light
      should be there by the time the eye arrives, and it stops between beats

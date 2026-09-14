@@ -30,12 +30,18 @@
   import { durationMs } from './motion'
   import { COMMUNITY_URL } from './links'
   import { noteCapabilityRequest } from './capabilities.svelte'
+  import Tour from './Tour.svelte'
 
   // 0 language · 1 connect · 2 look · 3 approval · 4 done. Connecting comes
   // before the theme because it is the only step that decides whether the app
   // can do anything; picking colours first delays the point by a screen.
   let step = $state(0)
   let visible = $state(false)
+  // รู้จักกับ Aetox sits between the language and the connect step: the
+  // connect step asks a question a new user cannot answer yet (a key, an
+  // account, a local model), and the tour is what tells them a small local
+  // model is a real choice here (DECISIONS §279).
+  let tour = $state(false)
   let errorMsg = $state('')
 
   // acceptsKey is not the negation of requiresKey. Codex requires credentials
@@ -224,6 +230,10 @@
 
   function chooseLocale(code: Locale) {
     setLocale(code)
+    tour = true
+  }
+  function tourDone() {
+    tour = false
     step = 1
   }
 
@@ -358,6 +368,9 @@
     <!-- Aetox's own ground, the same one an empty chat stands on. -->
     <div class="brand-ground"><Logo size={520} animate={false} /></div>
 
+    {#if tour}
+      <Tour onDone={tourDone} flow="setup" />
+    {:else}
     <!-- keyed on step so every screen animates in rather than swapping -->
     {#key step}
       <div class="ob-screen">
@@ -568,12 +581,14 @@
         {/if}
       </div>
     {/key}
+    {/if}
 
     <!-- Where you are, without a number: five steps is still few enough to
          draw. The capability step is in the list even on a machine that
          skips it — the run is four screens long there, and a row of dots
          that changes length between installs reads as a bug rather than
          as a shorter setup. -->
+    {#if !tour}
     <div class="ob-dots">
       {#each [0, 1, 2, 3, 4] as i}<i class:on={step === i} class:past={step > i}></i>{/each}
     </div>
@@ -586,6 +601,7 @@
       <div class="ob-community">
         <button class="ob-link" onclick={() => BrowserOpenURL(COMMUNITY_URL)}>{t('onboard.community')}</button>
       </div>
+    {/if}
     {/if}
   </div>
 {/if}

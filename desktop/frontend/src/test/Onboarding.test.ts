@@ -15,6 +15,13 @@ beforeEach(() => {
   vi.mocked(AcceptsAPIKey).mockResolvedValue(true)
 })
 
+// Since DECISIONS §279 the language choice opens รู้จักกับ Aetox before the
+// connect step; ข้าม lands on its last scene, and เริ่มใช้ there is the door on.
+async function passTour() {
+  ;(await screen.findByText('ข้าม')).click()
+  ;(await screen.findByText('ไปตั้งค่า')).click()
+}
+
 describe('Onboarding', () => {
   it('shows the wizard on a fresh machine (no key, no flag)', async () => {
     const { container } = render(Onboarding)
@@ -65,6 +72,10 @@ describe('Onboarding', () => {
 
     render(Onboarding)
     ;(await screen.findByText('ไทย')).click()
+    // The tour first: its own dots, none of the wizard's.
+    await waitFor(() => expect(document.querySelectorAll('.tour-dot').length).toBe(9))
+    expect(document.querySelector('.ob-dots')).toBeNull()
+    await passTour()
     await waitFor(() => expect(screen.getByText('ต่อสมองให้ Aetox')).toBeTruthy())
 
     ;(await screen.findByText('รันโมเดลภายในเครื่อง Local 100%')).click()
@@ -94,6 +105,7 @@ describe('Onboarding', () => {
     vi.mocked(RequiresAPIKey).mockImplementation(async (n: string) => n !== 'ollama')
     render(Onboarding)
     ;(await screen.findByText('ไทย')).click()
+    await passTour()
     ;(await screen.findByText('รันโมเดลภายในเครื่อง Local 100%')).click()
     const ollama = await waitFor(() => {
       const el = [...document.querySelectorAll('.ob-cell')]
