@@ -225,13 +225,26 @@ func totalChars(messages []model.Message) int {
 
 // imagesKept is how many pictures stay in the conversation as pictures.
 //
-// Two, because two is what a comparison needs: the shot just taken and the one
-// it is being compared against. Past that a screenshot's worth is in what was
+// One: the shot just taken. It is looked at on the round it arrives and its
+// bytes leave on the next one. Past that a screenshot's worth is in what was
 // said about it, and that is in the transcript already — the bytes are only
 // paying to be sent again. Nothing is lost that cannot be got back: the file is
 // still on disk and the tool result that made it still names the path, which is
 // the same route a model with no vision has always used.
-const imagesKept = 2
+//
+// It was two until 14 ก.ย. 2026, for comparison — the shot just taken and the
+// one before it. The owner's call, and the arithmetic is his: a 1280×720
+// capture is ~1,228 tokens (Image.CharCost), the kept ones are the NEWEST
+// messages and therefore sit past whatever the prompt cache already covers, so
+// they are paid at full price on every round. A browser job spends thirty-odd
+// rounds; the second picture was costing ~37,000 tokens a session to hold a
+// comparison the model rarely asked for.
+//
+// One is the floor, not a dial to keep turning: forgetOldImages runs while the
+// request is being assembled, so a zero here would strip the picture the model
+// just asked to look at before it was ever sent, and the screenshot tool would
+// return nothing but a caption.
+const imagesKept = 1
 
 // imageForgotten is said where the picture used to be.
 //

@@ -90,8 +90,8 @@ func TestUnreadablePictureIsNotFree(t *testing.T) {
 	}
 }
 
-// Old screenshots stop being pictures. The newest two stay, because two is what
-// a before-and-after comparison needs.
+// Old screenshots stop being pictures. The newest one stays — the shot just
+// taken, which is the one the model asked to look at.
 func TestOldToolPicturesAreForgotten(t *testing.T) {
 	c := NewContext("system", 0, 1_000_000)
 	for i := 0; i < 5; i++ {
@@ -115,9 +115,8 @@ func TestOldToolPicturesAreForgotten(t *testing.T) {
 		t.Errorf("%d messages say their picture is gone, want %d — a caption promising a picture that is not there is a lie", notes, 5-imagesKept)
 	}
 
-	// The newest two are the ones kept. Forgetting the picture just taken to
-	// keep the one from nineteen actions ago would be worse than not forgetting
-	// at all.
+	// The newest is the one kept. Forgetting the picture just taken to keep the
+	// one from nineteen actions ago would be worse than not forgetting at all.
 	for i, m := range msgs[len(msgs)-imagesKept:] {
 		if len(m.Images) == 0 {
 			t.Errorf("message %d from the end lost its picture, want the newest %d kept", imagesKept-i, imagesKept)
@@ -208,5 +207,53 @@ func TestForgetRejectedImagesEmptiesTheConversation(t *testing.T) {
 	// Nothing left to drop, so nothing is claimed and no note is doubled.
 	if again := c.ForgetRejectedImages(); again != 0 {
 		t.Fatalf("second sweep dropped %d, want 0", again)
+	}
+}
+
+// The rule the owner asked for, stated as behaviour rather than as a constant
+// (14 ก.ย. 2026: "อ่านเสร็จก็ดรอปทิ้งไปจบๆ ประหยัดดี"): a screenshot is looked at
+// on the round it arrives and its bytes are gone on the next one.
+//
+// The first half is the floor under imagesKept and the reason it cannot go to
+// zero — forgetting runs while the request is assembled, so a picture that does
+// not survive its own round is a picture the model never saw. The second half
+// is the saving: a browser job takes a shot most rounds, and without this the
+// bytes are re-sent for the rest of the session at full price.
+func TestAScreenshotIsSeenOnceThenWeighsNothing(t *testing.T) {
+	c := NewContext("system", 0, 1_000_000)
+
+	c.AddMessage(toolShot(t, 1280, 720))
+	shot := c.Messages()
+	if len(shot[len(shot)-1].Images) == 0 {
+		t.Fatal("the picture just taken was forgotten before the model could look at it")
+	}
+	costWhileLooking := totalChars(shot)
+
+	// The next round: the model said something, and another shot was taken.
+	c.Add(model.RoleAssistant, "clicked the button")
+	c.AddMessage(toolShot(t, 1280, 720))
+
+	msgs := c.Messages()
+	carrying := 0
+	for _, m := range msgs {
+		if len(m.Images) > 0 {
+			carrying++
+		}
+	}
+	if carrying != 1 {
+		t.Fatalf("%d messages still carry pictures after a second shot, want only the newest", carrying)
+	}
+
+	// And the conversation is not meaningfully heavier for having taken two:
+	// the older one's bytes left as the new one arrived. It does grow a little
+	// — a caption, a line of narration, and the note saying the picture is gone
+	// — so the bar is "nowhere near a second picture" rather than "not at all".
+	onePicture := model.Image{MediaType: "image/png"}.CharCost()
+	if onePicture == 0 {
+		onePicture = 1280 * 720 / 750 * 4
+	}
+	if grew := totalChars(msgs) - costWhileLooking; grew > onePicture/4 {
+		t.Fatalf("holding two screenshots cost %d more characters than holding one (a picture is ~%d); the older bytes did not leave",
+			grew, onePicture)
 	}
 }
