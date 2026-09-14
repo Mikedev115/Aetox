@@ -3423,6 +3423,12 @@
     { group: t('settings.groupModels'), items: [
       { id: 'models', label: t('settings.modelSettings'), icon: 'brain',
         terms: [t('settings.providers'), t('settings.apiKeyLabel'), t('settings.baseUrl'), t('settings.signInLabel'), t('settings.modelList')] },
+    ]},
+    // The company, as its own group (owner, 14 ก.ย. 2026: "ตัวหลักถึงลูกมือ
+    // ควรจะแยกหัวข้อเป็นของตัวเองเลย"): the four rows that are people — the
+    // heads, the staff, the hands, the teams they form — under one heading,
+    // apart from the model they run on. The order is the ranks' order.
+    { group: t('settings.groupAgents'), items: [
       // ตัวหลัก (14 ก.ย. 2026): the two heads a person actually talks to, each
       // with a page of its own in the shape every agent already has — the
       // feedback that started this was "ไม่รู้ว่าตัวหลักปรับแต่งได้", and a thing
