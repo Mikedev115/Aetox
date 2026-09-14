@@ -51,6 +51,13 @@ func (f *taskFixture) toolEvents() []turn.ToolEvent {
 
 func newTaskFixture(t *testing.T, mainModel string) *taskFixture {
 	t.Helper()
+	return newTaskFixtureWith(t, mainModel, nil)
+}
+
+// newTaskFixtureWith is the same fixture with one hook on the task options
+// before the tools are built, for the tests that need a different gate.
+func newTaskFixtureWith(t *testing.T, mainModel string, tune func(*TaskOptions)) *taskFixture {
+	t.Helper()
 	isolate(t)
 	f := &taskFixture{root: t.TempDir()}
 	for name, body := range map[string]string{
@@ -71,7 +78,7 @@ func newTaskFixture(t *testing.T, mainModel string) *taskFixture {
 	}
 
 	f.delegations = NewDelegations()
-	for _, tool := range NewTaskTools(TaskOptions{
+	taskOpts := TaskOptions{
 		Provider:     provider,
 		Model:        mainModel,
 		Registry:     f.registry,
@@ -83,7 +90,11 @@ func newTaskFixture(t *testing.T, mainModel string) *taskFixture {
 			f.usage = append(f.usage, u)
 			f.mu.Unlock()
 		},
-	}) {
+	}
+	if tune != nil {
+		tune(&taskOpts)
+	}
+	for _, tool := range NewTaskTools(taskOpts) {
 		if err := f.registry.Register(tool, skill.SourceBuiltin); err != nil {
 			t.Fatalf("register %s: %v", tool.Name(), err)
 		}
