@@ -150,6 +150,7 @@ somebody who has never used the app, are its.
 | `aetox-forge` | test-driven implementation (TDD Red-Green-Refactor) per ticket with clean context boundaries |
 | `aetox-debug` | any bug: root cause before remedy, one hypothesis at a time |
 | `aetox-code-review` | reviewing a change before merge |
+| `aetox-security` | auditing a system, a codebase, a change or a config for security, or asked whether it can be attacked; findings are attack paths at a line, advice is labelled advice |
 | `aetox-testing` | deciding what to test and the discipline of writing them |
 | `aetox-deploy` | shipping moments: checklist, incident, postmortem, git flow |
 | `aetox-documentation` | docs written from the reader's side |

@@ -40,6 +40,9 @@ is no diff to find.
   off-by-one, concurrency, state that can now be reached twice.
 - Security: input that reaches a shell, a file path, the network or a query;
   secrets in code; a check that moved and no longer guards what it did.
+  When the change touches auth, secrets, crypto or a permission check, or
+  the question is "can this be attacked", the security section of the
+  report is `aetox-security`'s.
 - Convention drift: the change does one way what the project does another
   way everywhere else.
 - Flow conflicts: a second source of truth for the same state, a layer
