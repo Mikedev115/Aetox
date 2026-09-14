@@ -525,6 +525,17 @@ func ResolvedEnabledProviders(enabled []string, activeProvider string) []string 
 		if _, ok := seen[p]; ok {
 			continue
 		}
+		// A name the catalog no longer has is a row that was retired under
+		// the user's feet — Antigravity (§242) stayed in enabled_providers
+		// after its provider was deleted, and the picker went on drawing it
+		// with a letter for an icon, three releases later. The file is left
+		// as written (the next save rewrites it from this list anyway); this
+		// is the one place every reader of that list passes through. Custom
+		// rows are in the catalog by the time this runs: every caller loads
+		// the preference first, and the load registers them.
+		if _, known := model.LookupProviderInfo(p); !known {
+			continue
+		}
 		seen[p] = struct{}{}
 		out = append(out, p)
 	}

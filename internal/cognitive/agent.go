@@ -2004,8 +2004,15 @@ func (a *Agent) buildRequest(messages []model.Message, maxTokens int, temperatur
 		// Only meaningful when tools are on the table — see the field's doc.
 		OnToolCallProgress: a.onToolCallProgress,
 	}
-	profile := a.ResolveThinkProfile(opts.ThinkLevel)
-	if effort := profile.ReasoningEffort(); effort != "" {
+	// The dial as it stands at this round, not as it stood when the turn
+	// opened — see turn.TurnOptions.ThinkLevelNow.
+	level := opts.EffectiveThinkLevel()
+	profile := a.ResolveThinkProfile(level)
+	effort := profile.ReasoningEffort()
+	// One line per request, because this is the fact a mid-turn press has to
+	// be checked against: the round after it should read differently here.
+	debuglog.Msg("think level %q -> effort %q", level, effort)
+	if effort != "" {
 		req.Reasoning = &model.ReasoningConfig{Effort: effort}
 	}
 	// Some providers carry the thinking switch in a `thinking` block rather than
@@ -2014,7 +2021,7 @@ func (a *Agent) buildRequest(messages []model.Message, maxTokens int, temperatur
 	// name here, so the second provider of that shape would have needed another
 	// branch in this function.
 	if a.provider != nil {
-		if blockType, ok := model.ThinkingBlockType(a.provider.Name(), a.model, string(opts.ThinkLevel)); ok {
+		if blockType, ok := model.ThinkingBlockType(a.provider.Name(), a.model, string(level)); ok {
 			req.Thinking = &model.ThinkingConfig{Type: blockType}
 		}
 	}

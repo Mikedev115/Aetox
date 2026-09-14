@@ -645,6 +645,17 @@ func (a *App) ApprovalMode() safety.ApprovalMode {
 	return a.approvalMode
 }
 
+// SetThinkLevel moves the depth dial, including for a turn that is already
+// running: the tool loop asks the executor's dial on every round it builds.
+// The field on this side is what the next executor is born with (switchModel,
+// wireStatusReporter rebuild from it), the call is for the one running now.
+func (a *App) SetThinkLevel(level think.Level) {
+	a.thinkLevel = think.NormalizeLevel(string(level))
+	if a.turnExecutor != nil {
+		a.turnExecutor.SetThinkLevel(a.thinkLevel)
+	}
+}
+
 // SetGoalCheck installs the question asked when a turn is about to end, or
 // clears it with nil — มุ่งเป้า (turn.Executor.SetGoalCheck).
 //

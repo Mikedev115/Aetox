@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Mikedev115/Aetox/internal/provider"
 	"github.com/Mikedev115/Aetox/internal/safety"
 )
 
@@ -154,6 +155,21 @@ func TestResolvedEnabledProvidersShowsAetoxByDefault(t *testing.T) {
 	got = ResolvedEnabledProviders(nil, "noop")
 	if len(got) != 1 || got[0] != "aetox" {
 		t.Fatalf("ResolvedEnabledProviders(nil, noop) = %v, want [aetox] (noop normalizes to aetox)", got)
+	}
+}
+
+// A provider retired from the catalog does not outlive itself in the file.
+// Antigravity (§242) was deleted in v1.5.25 and the owner's enabled_providers
+// still named it three releases on, so the picker drew a row with a letter
+// for an icon that nothing behind it could answer. The user's own rows are not
+// that case: they are in the catalog the moment the file loads.
+func TestResolvedEnabledProvidersDropsARetiredProvider(t *testing.T) {
+	provider.SetCustom([]provider.Custom{{ID: "my-box", BaseURL: "http://127.0.0.1:1"}})
+	t.Cleanup(func() { provider.SetCustom(nil) })
+	got := ResolvedEnabledProviders([]string{"zai", "antigravity", "my-box", "codex"}, "codex")
+	want := []string{"zai", "my-box", "codex"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("ResolvedEnabledProviders = %v, want %v — the retired row must go, the user's own must stay", got, want)
 	}
 }
 
