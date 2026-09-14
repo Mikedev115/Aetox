@@ -243,6 +243,28 @@ func TestStoppingTheRunLetsTheTurnFinish(t *testing.T) {
 	}
 }
 
+func TestCancelTurnStopsTheGoalRunInTheCurrentChat(t *testing.T) {
+	s := goalApp(t)
+	writeRunnablePlan(t, s)
+	current := s.sessionID()
+	other := newSessionID()
+	s.app.goalRunSet().start(current)
+	s.app.goalRunSet().start(other)
+	check := s.app.goalCheck(current)
+
+	s.app.CancelTurn()
+
+	if verdict := check("the cancelled run must not gate the next turn"); verdict != "" {
+		t.Fatalf("CancelTurn left the goal checker active: %s", verdict)
+	}
+	if s.app.goalRunSet().running(current) {
+		t.Fatal("CancelTurn left the current goal run active")
+	}
+	if !s.app.goalRunSet().running(other) {
+		t.Fatal("CancelTurn stopped a goal run belonging to another chat")
+	}
+}
+
 // An amend that does not mention the steps must not wipe the marks a run has
 // already made — the same mistake `amend` exists to stop it making with the
 // sections, and a worse one: it would lose the record of work that happened.

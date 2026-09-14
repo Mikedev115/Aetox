@@ -2890,6 +2890,9 @@ func (a *Engine) CancelTurn() {
 	// The chat on screen is the one the button belongs to. A turn in another
 	// conversation is not what the user pressed Stop on, and ending it from
 	// here would be the button reaching into a window they cannot see.
+	// Stop also ends a goal run in this chat; otherwise its checker remains
+	// attached and gates the next ordinary message on unfinished steps.
+	a.stopGoalRun(a.cur().id)
 	if live := a.turns[a.cur().id]; live != nil {
 		if live.cancel != nil {
 			live.cancel()
