@@ -44,7 +44,19 @@ Try to do a lot of this planning and iteration in your thinking, and only show i
 
 ## Restraint and self-critique
 
-Spend your boldness in one place. Let the signature element be the one memorable thing, keep everything around it quiet and disciplined, and cut any decoration that does not serve the brief. Not taking a risk can be a risk itself! Build to a quality floor without announcing it: responsive down to mobile, visible keyboard focus, reduced motion respected. Critique your own work as you build, taking screenshots if your environment supports it – a picture is worth 1000 tokens. Consider Chanel's advice: before leaving the house, take a look in the mirror and remove one accessory. Human creators have memory and always try to do something new, so if you have a space to quickly jot down notes about what you've tried, it can help you in future passes.
+Spend your boldness in one place. Let the signature element be the one memorable thing, keep everything around it quiet and disciplined, and cut any decoration that does not serve the brief. Not taking a risk can be a risk itself! Consider Chanel's advice: before leaving the house, take a look in the mirror and remove one accessory. Human creators have memory and always try to do something new, so if you have a space to quickly jot down notes about what you've tried, it can help you in future passes.
+
+## Done means
+
+The look is yours. The bar under it is not, and it is the same bar whichever model reads this:
+
+- Looked at, not imagined. `browser` capture of the finished page at a desktop width and at 360 px, in light and in dark. Four pictures, read for what is wrong, then one pass of fixes. "I cannot see it from here" is answered by that tool; a page nobody looked at is a draft.
+- Text contrast 4.5:1 and controls 3:1 against their own ground, in both themes, measured on the tokens (the `dataviz` skill's validator or a contrast check by hand), not judged by eye.
+- Every interactive element reachable by keyboard with a visible focus ring; every image with `width`, `height` and an `alt` that says what it shows or is empty on purpose.
+- `prefers-reduced-motion` honoured and the rest state is the finished page: a viewer with motion off sees everything a viewer with motion on sees.
+- Real content, hostile content: the longest name, the empty state, the error, the 200-word paragraph. Lorem and a happy path prove nothing.
+- The `aetox-anti-slop` self-audit run, its mechanical grep included, and the tokens answering "why this, not the default?" for type, colour and layout.
+- The plan's signature element present in the page. A page that lost it on the way to code shipped the template after all.
 
 ## More on writing in design
 

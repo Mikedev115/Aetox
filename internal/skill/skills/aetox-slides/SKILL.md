@@ -446,7 +446,7 @@ shape that tends to come with navigation attached.
    thing this room makes obvious.
 2. Find and download the pictures, `aetox-design` has the recipe
    (search the page, not the file; `web_fetch` lists the image URLs it found;
-   `shell` downloads the bytes) and the rule about licences.
+   `media_fetch` downloads and checks the bytes) and the rule about licences.
 3. `write` the `.html`; the receipt says where it landed. Reference the pictures
    relatively.
 

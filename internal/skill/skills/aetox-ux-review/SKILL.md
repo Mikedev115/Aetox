@@ -33,5 +33,25 @@ Pick the lens by what you are asking:
   first-time user through a specific task to find where learnability breaks.
 
 Run the narrowest lens that answers the question; reach for a second only when
-the first surfaces something it cannot judge. Adapted from mastepanoski's
-claude-skills (MIT), the six audits kept whole, one file each.
+the first surfaces something it cannot judge.
+
+## What a finding is
+
+Same bar whichever model is auditing:
+
+- Each finding names the screen or step, the heuristic or criterion it
+  fails, the evidence (a `browser` capture, or the exact element and text),
+  who it hurts, and the fix. A finding without evidence is an opinion and is
+  cut before the report.
+- Ranked by severity, blockers first: cannot complete the task, cannot
+  perceive or operate it, then friction, then polish. The count of findings
+  is never the headline; the worst one is.
+- WCAG 2.2 AA is the floor under every lens, not a lens you may skip. A
+  visual review that praises the type on a page with 3:1 body text has
+  reviewed the wrong thing first.
+- The report ends with what to do first, in order, and what was not
+  reviewed. A clean report on a partial audit says which parts were not
+  looked at.
+
+Adapted from mastepanoski's claude-skills (MIT), the six audits kept whole,
+one file each.

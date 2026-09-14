@@ -128,6 +128,31 @@ logo, see `aetox-brand/references/logo-usage-rules.md`.
 
 *(แนวคิดจาก [anthropics/skills, frontend-design](https://github.com/anthropics/skills/tree/main/skills/frontend-design), Apache-2.0)*
 
+## What a drawn asset owes, before it is handed over
+
+The style is yours. The bar is not, and it is the same bar whichever model
+draws:
+
+- **A mark reads at 16 px and at 1024 px.** Both rendered and looked at
+  (`browser` capture of the SVG, or the SVG placed in a one-slide page at
+  both sizes). Detail that vanishes at 16 px is detail the mark does not
+  have; a mark that only works large is a poster.
+- **On light and on dark**, and a one-colour version, with `currentColor`
+  or a named fill so the user can recolour it. Clear space stated as a
+  fraction of the mark's height.
+- **An icon set is one set.** One grid (24 or 20), one stroke width, one
+  corner radius, optical alignment checked side by side in one row, not
+  each icon in its own file. Two icons that look drawn by two hands are.
+- **A banner's text sits inside the platform's safe area** from
+  `references/banner-sizes-and-styles.md`, at the size that platform
+  crops to, and the file is the exact pixel size the table gives.
+- **Type is real type.** A wordmark set in a font names the font and its
+  licence, or is converted to paths so the SVG does not fall back on a
+  machine without it.
+- **Named as the user will find it**, and the SVG is tidy: no editor
+  metadata, no unused `<defs>`, ids that say what they are. It is a
+  source file, not an export.
+
 ## What is here
 
 Knowledge, not commands. Open one with `skill_view` and a path.

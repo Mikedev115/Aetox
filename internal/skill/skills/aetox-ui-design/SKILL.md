@@ -42,5 +42,28 @@ average, while a rule it has to satisfy does not.
 - `references/react-native-design.md`, React Native styling, navigation and
   Reanimated animations, cross-platform.
 
+## The bar, whichever guide you opened
+
+The look was decided elsewhere; what leaves this skill is code, and code has
+numbers. Same bar for every model:
+
+- WCAG 2.2 AA in the file, not in intent: text 4.5:1, large text and UI
+  parts 3:1, targets 24 px or more with spacing, focus visible on everything
+  focusable, no meaning carried by colour alone, `prefers-reduced-motion`
+  respected, and the keyboard path through every flow walked once.
+- Both themes from tokens, every colour defined in the bare `:root` before
+  any media or `[data-theme]` block redefines it. A colour whose only
+  definition sits in one theme block is the classic unreadable page.
+- Responsive by the component, not by the page: container queries and
+  fluid type where the guide names them; a `@media` only where the layout
+  changes shape. Read at 360 px and at 1440 px.
+- States are designed, not implied: loading, empty, error, disabled, long
+  content, in the same component, before it is called finished.
+- Looked at. `browser` capture at both widths and both themes; the console
+  clean. A component that was only read in the source was not seen.
+- The guide is read whole before the first line, not searched for the
+  one snippet that looks right; the rule you skipped is the one the page
+  breaks on.
+
 Adapted from wshobson/agents' ui-design plugin (MIT), nine skills folded into
 one door, each kept whole with its references appended.
