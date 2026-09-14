@@ -9107,4 +9107,10 @@ Above the thinking phrase, where the local model-load row sits (§-modelLoading)
 
 The coding head's set is untouched; the owner asked for ฝั่งผู้ช่วย.
 
+### 270.2 The coding head, same standard
+
+Owner, on reading 270.1: *"หน้าโค้ดก็มาตรฐานเดียวกันนะ"*. Same three questions. identity.md: an engineer beside you — straight-talking, writes the code with me, never explains what the code already says (the one tone line worth keeping, and it was not in `coding.md`); answers in my language. `Name: Aetox` left for the same reason. thinking.md keeps what `modes/coding.md` does not already say word for word — read before editing and read more when unsure; root cause, never the symptom; smallest change then prove it by running; every claim points at a file and a line — and drops "work across parts gets its shape proposed first" and "report what the tests said", both of which are `coding.md`'s own paragraphs (§264, measured; not softened, not doubled). `zh.ts` never carried the coding keys and falls through to English.
+
+Owner's own question, answered plainly: *"ยุ่งยากไปไหม สุดท้ายมันก็อ่านรวมกันเหมือนเดิม"* — yes, the model reads one prompt and the split changes nothing it sees. The split is for the two humans: the desk file ships with the app and comes back on คืนค่าเริ่มต้น; identity.md / thinking.md are the person's, per head, and ride with that head into every desk, chair and the CLI. Three files is the price of "my lines survive an update and his lines survive my edits", not a claim that the model cares. And the name: it is not in any file on purpose — ตัวหลัก › ตัวตน › ชื่อ, shipped as Aetox, is the first word of every prompt (`identityFor`), so one field renames the head everywhere.
+
 **Status:** `Direct`. The three locale files carry the same English strings (en/th/zh, `8eb391b2`), so one replacement edits all three; `identityTemplates.test.ts` pins shape, not wording. The owner's own files at `%APPDATA%\aetox\identity\assistant\` were rewritten to the same text, in effect from the next chat.
