@@ -101,7 +101,7 @@ func TestAFailedStepSettlesRatherThanLooping(t *testing.T) {
 // it rides with the ask for the report, whose "How it was checked" is where
 // the answer belongs. From §236 to 14 ก.ย. it was asked first, once, as a prose
 // question — and the answer was a second closing message written after the one
-// the check had just demoted (§289). The report gate is mechanical — a row
+// the check had just demoted (§290). The report gate is mechanical — a row
 // exists or it does not — so it may repeat, and it carries the condition every
 // time: a row is what the checker counts, a paragraph is not.
 func TestTheFinishConditionRidesWithTheReportGate(t *testing.T) {
@@ -539,7 +539,7 @@ func TestTheRunRulesAreTheBriefNotTheStepGuidance(t *testing.T) {
 	// settles, do not narrate — is the run's brief, handed over at the press
 	// (TestTheBriefRidesWithTheRunsFirstMessageOnly). Here it arrived with the
 	// first `step`, which on every large-model run the owner made was the
-	// batch at the end (§289).
+	// batch at the end (§290).
 	if g := s.Guidance(map[string]any{"action": "step"}); g != "" {
 		t.Errorf("the step guidance still carries run rules, a second copy of the brief at the wrong moment: %s", g)
 	}
