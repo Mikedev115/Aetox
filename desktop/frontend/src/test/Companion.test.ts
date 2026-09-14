@@ -468,6 +468,11 @@ describe('what it says out loud', () => {
     // past the ceiling it stops; back past the floor it stops there too
     await fireEvent.pointerMove(grip, { clientX: 2000, clientY: 100, pointerId: 2 })
     expect(companion.size).toBe(SIZE_MAX)
+    // and at the ceiling it still carries no blur filter: a filter under a
+    // body that sways is redone every frame (14 ก.ย. 2026, the avatar
+    // stuttering over a long chat)
+    await tick()
+    expect(box().querySelector('filter')).toBeNull()
     await fireEvent.pointerMove(grip, { clientX: -2000, clientY: -2000, pointerId: 2 })
     expect(companion.size).toBe(SIZE_MIN)
     await fireEvent.pointerUp(grip, { pointerId: 2 })

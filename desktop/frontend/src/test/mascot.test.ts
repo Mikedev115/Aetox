@@ -182,6 +182,10 @@ describe('mascot drawing', () => {
       expect((big.match(/<filter\b/g) ?? []).length, id).toBe(1)
       expect(big).toContain('feGaussianBlur')
     }
+    // A figure that moves may refuse the filter at any size: the companion
+    // sways every frame and can be dragged to 240px (14 ก.ย. 2026, the
+    // avatar stuttering over a long chat).
+    expect(drawn({ size: 240, glow: false })).not.toContain('<filter')
   })
 
   // The user's own markup never reaches the SVG: a badge is looked up, not

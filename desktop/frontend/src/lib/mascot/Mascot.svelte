@@ -42,6 +42,7 @@
     hop = false,
     still = false,
     snap = false,
+    glow = undefined,
   }: {
     name?: string
     /** A ROLE row id (roles.ts) — the template the slots start from. */
@@ -74,7 +75,7 @@
   // named an accent, which a persona handed to it would (a hue in degrees
   // still wins over both, as in rig.ts).
   const m = $derived(
-    resolveMascot({ ...roleOptions(role, icon, { accent, shell, top, badge, badgeR, face, prop }), hue: hue ?? (name && !accent ? coverHue(name) : undefined), pose, size }),
+    resolveMascot({ ...roleOptions(role, icon, { accent, shell, top, badge, badgeR, face, prop }), hue: hue ?? (name && !accent ? coverHue(name) : undefined), pose, size, glow }),
   )
   const inner = $derived(mascotSVG(m))
   const rest = $derived(turn ?? m.pose.turn)

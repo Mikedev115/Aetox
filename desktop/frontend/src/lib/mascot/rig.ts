@@ -50,6 +50,11 @@ export type MascotOptions = {
   pose?: PoseId | string
   /** Pixels the mascot will be drawn at; below 48 the drawing drops detail. */
   size?: number
+  /** The blur filter under the screen light, otherwise on from GLOW_MIN_PX.
+   *  `false` for a figure that moves whatever its size: the blur is redone
+   *  every frame under a swaying body, and the companion can be dragged to
+   *  240px. */
+  glow?: boolean
 }
 
 export type Mascot = {
@@ -79,8 +84,9 @@ export type Mascot = {
 export const DETAIL_MIN_PX = 48
 /** The size from which the screen light gets a real glow filter. High on
  *  purpose: a blur under a moving group is recomputed every frame, so the
- *  companion (104px, swaying) makes do with the gradient halo and only a
- *  big still-ish preview pays for the filter. */
+ *  companion (swaying, and draggable up to 240px) makes do with the gradient
+ *  halo — it says `glow: false` outright — and only a big still-ish preview
+ *  pays for the filter. */
 export const GLOW_MIN_PX = 160
 
 /** The brand's own hue — the blue of the UI's accent. The assistant's default
@@ -112,7 +118,7 @@ export function resolveMascot(o: MascotOptions = {}): Mascot {
     ground: pose.ground ? row(PANEL, pose.ground, 'charger') : null,
     mark: pose.mark ? (MARK[pose.mark] ?? null) : null,
     detail: (o.size ?? 38) >= DETAIL_MIN_PX,
-    glow: (o.size ?? 38) >= GLOW_MIN_PX,
+    glow: o.glow ?? (o.size ?? 38) >= GLOW_MIN_PX,
   }
 }
 

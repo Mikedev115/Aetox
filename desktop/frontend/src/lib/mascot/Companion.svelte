@@ -674,7 +674,7 @@
   <button class="mute" class:off={!companion.voice} type="button" title={companion.voice ? 'ปิดเสียง' : 'เปิดเสียง'} aria-label={companion.voice ? 'ปิดเสียง' : 'เปิดเสียง'} aria-pressed={!companion.voice} onclick={() => setCompanionVoice(!companion.voice)}><Icon name={companion.voice ? 'volume2' : 'volumeX'} size={11} /></button>
   <!-- A handle, not a control: it has nothing to activate, only somewhere to be. -->
   <div class="grab" role="presentation" onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp}>
-    <Mascot {...look} {pose} turn={dragging ? heading : undefined} snap={dragging} size={SIZE} sway {hop} />
+    <Mascot {...look} {pose} turn={dragging ? heading : undefined} snap={dragging} size={SIZE} sway {hop} glow={false} />
   </div>
 </div>
 {/if}
@@ -683,8 +683,16 @@
   /* Above the full-window pages (settings, office, gallery sit at 50) — it is
      on the screen, not on a page — and below menus, the palette and dialogs
      (55–70), which are the things a person is actually doing. */
-  .companion { position: fixed; left: 0; top: 0; z-index: 52; touch-action: none; user-select: none; }
-  .grab { cursor: grab; position: relative; }
+  /* Its own compositor layers, on purpose. The figure is SVG animated by CSS,
+     which Chromium paints on the main thread every frame; body is
+     overflow:hidden so `fixed` alone earns no layer, and without one each
+     frame of the sway re-rastered the root tiles under the figure — the
+     chat's text and code behind it — which is why a long chat made the
+     avatar stutter (owner, 14 ก.ย. 2026). `will-change` lifts the companion
+     off the page, and `.grab` off the bubble, so the answer's tail typing
+     into .say does not repaint the figure either. */
+  .companion { position: fixed; left: 0; top: 0; z-index: 52; touch-action: none; user-select: none; will-change: transform; }
+  .grab { cursor: grab; position: relative; will-change: transform; }
   .dragging .grab { cursor: grabbing; }
   /* the hover frame and its × — present only while the pointer is near */
   .frame { position: absolute; inset: -6px; border: 1px dashed var(--border-subtle); border-radius: 14px; opacity: 0; transition: opacity .15s; pointer-events: none; }
