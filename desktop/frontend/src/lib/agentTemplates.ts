@@ -1,5 +1,6 @@
 // Starter briefs for the agent editor's role field (§256.5) — the third road
-// in beside a file and a link. A template is a shape with blanks, not an
+// in beside a file and a link; since §284 the first row of the template sheet
+// (agentGallery.ts), above the roles. A template is a shape with blanks, not an
 // agent: every line in brackets is a question the person answers, and the
 // Save guard still refuses an empty field, so a template pasted and left
 // alone is at least a brief that says what it is missing.
