@@ -1,5 +1,6 @@
 ---
 name: aetox-architect
+before: mapping or documenting a system that already exists, or judging a change that reaches across several modules
 description: อ่านระบบที่มีอยู่จริงแล้วกางออกมาเป็นเอกสารสถาปัตยกรรม - เดินเก้าขั้นจากรับโจทย์ ไปสำรวจของจริง ถามสิ่งที่ยังไม่รู้ วาดแผนที่โมดูลกับการไหลของข้อมูล ประเมินหนี้ทางเทคนิคกับความเสี่ยง แล้วเขียนเป็นแม่แบบเอกสาร ใช้ตอนต้องเข้าใจโค้ดเบสก่อนลงมือ ตรวจระบบปัจจุบัน ส่งงานต่อให้คนอื่น หรือทานแผนที่เสนอมากับหลักฐานในระบบจริง
 source: https://github.com/Mikedev115 (senior-architect-agent)
 license: MIT
@@ -39,7 +40,7 @@ proposed, unknown, or awaiting approval.
 Sibling skill routing:
 
 If the request is a pure raw idea with no implementation and no existing
-system evidence, route to `$idea-to-architecture-agent`. If that sibling skill
+system evidence, route to `aetox-idea-to-architecture`. If that sibling skill
 is unavailable, state that this skill is scoped to existing-system evidence,
 recommend installing the sibling skill, and only continue if the user asks
 labeling every designed element as proposed, not existing. Do not make this
