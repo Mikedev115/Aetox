@@ -40,6 +40,8 @@ type dials struct {
 	BaseURL  string
 	Think    string
 	Approval string
+	// Report is the file one JSON line per turn is appended to; "" for none.
+	Report string
 }
 
 type console struct {
@@ -54,6 +56,7 @@ type console struct {
 	// the answer or the program.
 	running atomic.Bool
 	cancel  context.CancelFunc
+	report  string
 }
 
 type turnResult struct {
@@ -85,7 +88,7 @@ func startConsole(d dials, in io.Reader) (*console, error) {
 	engine.UseConsole(e, aetoxapp.Discard{})
 	ctx, cancel := context.WithCancel(context.Background())
 	engine.Startup(e, ctx)
-	c := &console{e: e, screen: screen, lines: readLines(in), cancel: cancel}
+	c := &console{e: e, screen: screen, lines: readLines(in), cancel: cancel, report: strings.TrimSpace(d.Report)}
 
 	if _, err := e.OpenProjectPath(root); err != nil {
 		c.close()
@@ -124,9 +127,6 @@ func startConsole(d dials, in io.Reader) (*console, error) {
 			c.close()
 			return nil, err
 		}
-	}
-	if info := e.GetModelInfo(); info.Warning != "" {
-		fmt.Fprintf(os.Stderr, "warning: %s\n", info.Warning)
 	}
 	return c, nil
 }
@@ -182,6 +182,7 @@ func (c *console) status() string {
 func (c *console) turn(text string) error {
 	c.running.Store(true)
 	defer c.running.Store(false)
+	started := time.Now()
 	done := make(chan turnResult, 1)
 	go func() {
 		reply, err := c.e.SendMessage(text, "")
@@ -196,9 +197,10 @@ func (c *console) turn(text string) error {
 		select {
 		case r := <-done:
 			if r.err != nil {
+				c.record(text, "", c.screen.abandonTurn(), started, r.err)
 				return r.err
 			}
-			c.screen.finishTurn(r.reply.Text)
+			c.record(text, r.reply.Text, c.screen.finishTurn(r.reply.Text), started, nil)
 			return nil
 		case ask := <-c.screen.asks:
 			c.screen.breakPreview()
@@ -234,6 +236,45 @@ func (c *console) turn(text string) error {
 			}
 			answer(line)
 		}
+	}
+}
+
+// record appends the turn to the report file, when there is one.
+func (c *console) record(message, answer string, t tally, started time.Time, err error) {
+	if c.report == "" {
+		return
+	}
+	info := c.e.GetModelInfo()
+	r := turnReport{
+		Started:   stamp(started),
+		Seconds:   time.Since(started).Seconds(),
+		Outcome:   "done",
+		Provider:  info.Provider,
+		Model:     info.ModelName,
+		Think:     info.ThinkLevel,
+		Approval:  info.ApprovalMode,
+		Desk:      mode.Coding,
+		Root:      c.e.GetProjectStatus().Path,
+		Session:   c.e.CurrentSessionID(),
+		Message:   message,
+		Answer:    answer,
+		Rounds:    t.rounds,
+		Tokens:    t.tokens,
+		Cost:      t.cost,
+		Tools:     t.tools,
+		Questions: t.questions,
+	}
+	if r.Tools == nil {
+		r.Tools = []toolCall{}
+	}
+	switch {
+	case errors.Is(err, context.Canceled):
+		r.Outcome, r.Error = "cancelled", err.Error()
+	case err != nil:
+		r.Outcome, r.Error = "failed", err.Error()
+	}
+	if werr := appendReport(c.report, r); werr != nil {
+		fmt.Fprintf(os.Stderr, "warning: cannot write report %s: %v\n", c.report, werr)
 	}
 }
 
