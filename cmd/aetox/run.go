@@ -143,9 +143,15 @@ func readLines(in io.Reader) chan string {
 			if line != "" {
 				lines <- strings.TrimRight(line, "\r\n")
 			}
-			if err != nil {
-				return
+			if err == nil {
+				continue
 			}
+			// Ctrl-C during an answer cuts the console read short as well
+			// as raising the signal; the terminal is still there, so read on.
+			if readInterrupted(err) {
+				continue
+			}
+			return
 		}
 	}()
 	return lines
@@ -253,6 +259,11 @@ func (c *console) interactive() error {
 	}()
 
 	for {
+		// stdin went away mid-turn (turn sets lines to nil): a select on a
+		// nil channel would wait forever for a line that cannot come.
+		if c.lines == nil {
+			return nil
+		}
 		fmt.Fprint(os.Stderr, "\n› ")
 		select {
 		case <-quit:
