@@ -357,6 +357,12 @@ type LimitWait struct {
 	Waiting  bool   `json:"waiting"`
 	Provider string `json:"provider"`
 	Secs     int    `json:"secs"`
+	// Overloaded, Attempt and Of are the same row's other tenant: a few
+	// seconds' backoff after the provider said it is overloaded
+	// (turn.LimitWait.Overloaded), not a spent plan window.
+	Overloaded bool `json:"overloaded"`
+	Attempt    int  `json:"attempt"`
+	Of         int  `json:"of"`
 }
 
 // emitLimitWait relays the turn's rate-limit hold (cognitive.askAgainAfterLimit)
@@ -372,7 +378,10 @@ func (a *Engine) emitLimitWait(conv *conversation, w turn.LimitWait) {
 	}
 	a.emitEvent("limit:waiting", SessionEvent[LimitWait]{
 		SessionID: conv.id,
-		Data:      LimitWait{Waiting: w.Waiting, Provider: w.Provider, Secs: secs},
+		Data: LimitWait{
+			Waiting: w.Waiting, Provider: w.Provider, Secs: secs,
+			Overloaded: w.Overloaded, Attempt: w.Attempt, Of: w.Of,
+		},
 	})
 }
 

@@ -448,6 +448,7 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
   'chat.modelLoadingFor': '{secs} 秒',
   'chat.limitWait': '{provider} 已达用量上限，等待重置后自动继续',
   'chat.limitWaitLeft': '还剩 {left}',
+  'chat.overloadWait': '{provider} 表示服务器过载，稍后自动重试（{attempt}/{of}）',
   'workbench.prTab': 'Pull requests',
   'prPane.count': '{count} 个进行中',
   'prPane.countClosed': '{count} 个已关闭',

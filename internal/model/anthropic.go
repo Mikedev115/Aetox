@@ -854,7 +854,14 @@ func (p *AnthropicProvider) StreamComplete(ctx context.Context, req Request, onC
 			}
 		case "error":
 			if event.Error != nil {
-				return Response{}, fmt.Errorf("anthropic error: %s", event.Error.Message)
+				err := fmt.Errorf("anthropic error: %s", event.Error.Message)
+				// overloaded_error (their 529, arriving after the headers) is
+				// the provider shedding load, and typed so the turn asks again
+				// instead of ending — see ProviderOverloadedError.
+				if overloadedInStream(event.Error.Type, event.Error.Message) {
+					return Response{}, &ProviderOverloadedError{Provider: p.Name(), Err: err}
+				}
+				return Response{}, err
 			}
 			return Response{}, fmt.Errorf("anthropic stream error")
 		}

@@ -427,7 +427,10 @@ type responsesEvent struct {
 		Message string `json:"message"`
 		Code    string `json:"code"`
 	} `json:"error"`
+	// Message and Code at the top level: the plain `error` event on this wire
+	// carries them there, beside the type, rather than under an `error` key.
 	Message string `json:"message"`
+	Code    string `json:"code"`
 }
 
 type responsesUsage struct {
@@ -668,10 +671,16 @@ func (p *ResponsesProvider) StreamComplete(ctx context.Context, req Request, onC
 
 		case "response.failed", "response.incomplete":
 			streamErr = fmt.Errorf("%s: %s", p.provider, responsesErrorText(event))
+			// A failure is typed when the backend's own words say it is
+			// momentary; an incomplete is a truncation and never is, whatever
+			// the words — see ProviderOverloadedError.
+			if event.Type == "response.failed" {
+				streamErr = p.typedStreamError(event, streamErr)
+			}
 			return true, nil
 
 		case "error":
-			streamErr = fmt.Errorf("%s: %s", p.provider, responsesErrorText(event))
+			streamErr = p.typedStreamError(event, fmt.Errorf("%s: %s", p.provider, responsesErrorText(event)))
 			return true, nil
 
 		default:
@@ -727,6 +736,28 @@ func (p *ResponsesProvider) StreamComplete(ctx context.Context, req Request, onC
 		ToolCalls:        toolCalls,
 		Usage:            normalizeUsage(usage),
 	}, nil
+}
+
+// typedStreamError marks err as the provider shedding load when the event
+// says so, and returns it unchanged otherwise. The sentence is the same either
+// way; what changes is whether cognitive.Agent asks again.
+func (p *ResponsesProvider) typedStreamError(event responsesEvent, err error) error {
+	if !overloadedInStream(responsesErrorCode(event), responsesErrorText(event)) {
+		return err
+	}
+	return &ProviderOverloadedError{Provider: p.provider, Err: err}
+}
+
+// responsesErrorCode reads the code from whichever of the three places this
+// wire puts it — the same three responsesErrorText reads the message from.
+func responsesErrorCode(event responsesEvent) string {
+	if event.Error != nil && event.Error.Code != "" {
+		return event.Error.Code
+	}
+	if event.Response != nil && event.Response.Error != nil && event.Response.Error.Code != "" {
+		return event.Response.Error.Code
+	}
+	return event.Code
 }
 
 func responsesErrorText(event responsesEvent) string {

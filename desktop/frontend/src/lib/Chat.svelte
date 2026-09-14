@@ -4905,7 +4905,9 @@
             {#if limitWait}
               <div class="typing-row limit-wait">
                 <span class="limit-wait-mark"><Icon name="clock" size={13} /></span>
-                <span class="limit-wait-text">{t('chat.limitWait', { provider: limitWait.provider })}</span>
+                <span class="limit-wait-text">{limitWait.overloaded
+                  ? t('chat.overloadWait', { provider: limitWait.provider, attempt: limitWait.attempt ?? 1, of: limitWait.of ?? 1 })
+                  : t('chat.limitWait', { provider: limitWait.provider })}</span>
                 <span class="limit-wait-left">{t('chat.limitWaitLeft', { left: clockLeft(limitLeft) })}</span>
               </div>
             {/if}

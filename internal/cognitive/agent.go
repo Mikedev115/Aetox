@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"strings"
 	"sync"
 	"time"
@@ -135,7 +136,28 @@ const (
 	// provider that keeps naming a reset that never frees the account must not
 	// be able to hold a turn forever.
 	maxLimitWaits = 3
+
+	// maxOverloadRetries caps how many times one round is asked again after
+	// the provider said, inside its own stream, that it is overloaded
+	// (model.ProviderOverloadedError). Three, on a backoff that adds up to
+	// about twenty seconds with jitter: long enough to outlast the shedding a
+	// hosted backend does for a few seconds at a time — the shape the
+	// customer's log showed on 14 ก.ย. 2026, four hits an hour and every one
+	// gone a minute later — and short enough that a backend which is
+	// genuinely down for the afternoon ends the turn with its own sentence
+	// rather than holding it.
+	maxOverloadRetries = 3
 )
+
+// overloadBackoff is the wait before each of the maxOverloadRetries asks,
+// before jitter. Longer than the drop's one-second-per-attempt because the
+// two failures are opposite in kind: a cut socket is usually clear by the time
+// the next request is built, while a backend that says "overloaded" is saying
+// so to everybody at once, and asking it again in one second is the retry
+// storm every one of those clients is about to make. The jitter (up to half
+// the base, overloadWait) is what keeps this client's retry from landing in
+// the same instant as theirs.
+var overloadBackoff = []time.Duration{2 * time.Second, 5 * time.Second, 10 * time.Second}
 
 // limitWaitSlack is added past the stated reset. resets_in_seconds is a whole
 // number the backend rounded, and a request sent on the exact second tends to
@@ -511,6 +533,7 @@ func (a *Agent) RespondWithTools(
 	droppedConnections := 0
 	emptyCompletions := 0
 	limitWaits := 0
+	overloads := 0
 	// Once. The pictures are gone after the first one, so a second rejection is
 	// about something else and must be allowed to end the turn rather than loop.
 	strippedImages := false
@@ -614,6 +637,20 @@ func (a *Agent) RespondWithTools(
 			}
 			if again {
 				limitWaits++
+				i--
+				continue
+			}
+			// The provider answered, on time, and said it is overloaded — in
+			// its stream, after the headers, where the transport's own retry
+			// cannot see it. Same bookkeeping again, and the same three
+			// reasons: nothing of the failed round reached the context, the
+			// preview is gone, and a backoff is not a round of work.
+			again, endWith = askAgainAfterOverload(ctx, err, overloads, opts)
+			if endWith != nil {
+				return "", anyToolUsed, endWith
+			}
+			if again {
+				overloads++
 				i--
 				continue
 			}
@@ -1606,6 +1643,58 @@ func askAgainAfterLimit(ctx context.Context, err error, spent int, opts turn.Tur
 	}
 }
 
+// askAgainAfterOverload is the fourth: the provider answered, on time, and
+// said "not now" in its own stream (model.ProviderOverloadedError — the
+// Responses wire's server_error, Anthropic's overloaded_error), after the
+// headers had made the request a 200 and put it past the transport's retry.
+//
+// Unlike the rate-limit wait it does not need a listener: the backoff is
+// seconds, not hours, and the worker nobody is watching — the case this was
+// written for — is exactly the one that must not end on it. When there is a
+// listener, the hold is reported on the same row as the rate-limit wait, with
+// Overloaded set so the row can say which of the two it is.
+//
+// Declines, with (false, nil), when the error is not an overload or when the
+// round has already been asked maxOverloadRetries times; the caller then
+// falls through to the provider's own sentence, which said "try again later"
+// and now means it.
+func askAgainAfterOverload(ctx context.Context, err error, spent int, opts turn.TurnOptions) (bool, error) {
+	if !model.IsProviderOverloaded(err) || spent >= maxOverloadRetries {
+		return false, nil
+	}
+	provider := model.OverloadedProvider(err)
+	wait := overloadWait(spent)
+	debuglog.Msg("%s says it is overloaded, asking again in %s (%d/%d): %v",
+		provider, wait.Round(100*time.Millisecond), spent+1, maxOverloadRetries, err)
+	if opts.OnLimitWait != nil {
+		opts.OnLimitWait(turn.LimitWait{
+			Waiting: true, Provider: provider, ResetAt: time.Now().Add(wait),
+			Overloaded: true, Attempt: spent + 1, Of: maxOverloadRetries,
+		})
+		defer opts.OnLimitWait(turn.LimitWait{Provider: provider, Overloaded: true})
+	}
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	case <-time.After(wait):
+		return true, nil
+	}
+}
+
+// overloadWait is the backoff before ask spent+1: the base for that attempt
+// plus a jitter of up to half of it, clamped to the last base past the end of
+// the table so a bigger budget could only ever wait longer, never panic.
+func overloadWait(spent int) time.Duration {
+	if spent < 0 {
+		spent = 0
+	}
+	if spent >= len(overloadBackoff) {
+		spent = len(overloadBackoff) - 1
+	}
+	base := overloadBackoff[spent]
+	return base + time.Duration(rand.Int64N(int64(base/2)+1))
+}
+
 // completeWithReconnect is provider.Complete with the rule above applied, and
 // it is what every completion in this file goes through bar one.
 //
@@ -1624,7 +1713,7 @@ func (a *Agent) completeWithReconnect(ctx context.Context, req model.Request, op
 	// Three budgets, not one: a socket that keeps dying, a gateway that keeps
 	// answering with nothing and a plan whose window is spent are different
 	// failures, and none should be able to spend another's attempts.
-	for dropped, empties, limits := 0, 0, 0; ; {
+	for dropped, empties, limits, overloads := 0, 0, 0, 0; ; {
 		response, err := a.provider.Complete(ctx, req)
 		if err == nil {
 			return response, nil
@@ -1651,6 +1740,14 @@ func (a *Agent) completeWithReconnect(ctx context.Context, req model.Request, op
 		}
 		if again {
 			limits++
+			continue
+		}
+		again, endWith = askAgainAfterOverload(ctx, err, overloads, opts)
+		if endWith != nil {
+			return model.Response{}, endWith
+		}
+		if again {
+			overloads++
 			continue
 		}
 		return model.Response{}, err

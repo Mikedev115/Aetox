@@ -908,6 +908,12 @@ export interface LimitWait {
   waiting: boolean
   provider: string
   secs: number
+  /** The row's other tenant: a few seconds' backoff after the provider said it
+   *  is overloaded (attempt of of), not a spent plan window. Same row, different
+   *  sentence — "hit its limit" would send the user to check a plan that is fine. */
+  overloaded?: boolean
+  attempt?: number
+  of?: number
 }
 
 /** One chat's live turn state, held while the window is showing another chat.
