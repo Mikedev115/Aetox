@@ -1624,7 +1624,7 @@ export const en: Record<keyof typeof th, string> = {
   'settings.mainDeskFileHint': 'What this desk is for. Edit the whole file; the app\'s default is always one click back.',
   'settings.mainDeskEditHint': 'A save reaches the next chat opened at this desk; chats already open keep what they had',
   'settings.mainDeskApplies': 'Saved — applies to the next chat opened at this desk',
-  'settings.mainDeskWhat': 'The main job: what {name} does',
+  'settings.mainDeskWhat': 'The main job',
   'settings.mainDeskOverrides': 'edited',
   'settings.mainDeskReset': 'Restore default',
   'settings.mainDeskResetTitle': 'Restore the job to the app\'s default?',
