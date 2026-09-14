@@ -146,7 +146,7 @@
 </script>
 
 <div class="page-shell">
-  <header class="page-head">
+  <header class="page-head" data-guide="office.header">
     <button class="settings-back" onclick={onClose}><Icon name="arrowLeft" size={14} /> {t('settings.backToApp')}</button>
     <div class="page-title">
       <h2>{t('desk.office')}</h2>
@@ -162,7 +162,7 @@
       <div class="sec-head">
         <div class="eyebrow section-label">{t('office.roster')}</div>
         <span class="ag-reach"></span>
-        <button class="ctrl" onclick={() => openSettingsAt('team')}><Icon name="settings" size={13} /> {t('office.configure')} <Icon name="arrowRight" size={13} /></button>
+        <button class="ctrl" data-guide="office.team_tab" onclick={() => openSettingsAt('team')}><Icon name="settings" size={13} /> {t('office.configure')} <Icon name="arrowRight" size={13} /></button>
       </div>
 
       <!-- A face, not an inventory. The tool chips were six per card and five
@@ -180,7 +180,7 @@
       <div class="office-grid">
         {#each gated ? chairs : [] as c (c.name)}
           {@const locked = gates[c.name]?.blocked ?? false}
-          <div class="chair-card agc" class:locked>
+          <div class="chair-card agc" class:locked data-guide="office.member_card">
             <div class="chair-body">
               <div class="chair-who">
                 <!-- The rank on the face's corner (RankedFace): a roster is
@@ -215,7 +215,7 @@
                  specialist. Named with the agent, not "this agent", because
                  that is what walking in is — and the row cannot overflow. -->
             <div class="chair-foot">
-              <button class="chair-talk" onclick={() => talkTo(c)}>
+              <button class="chair-talk" data-guide="office.chat_btn" onclick={() => talkTo(c)}>
                 <Icon name="messageSquare" size={14} />
                 <span class="t">{t('office.chatWith', { name: c.name })}</span>
               </button>

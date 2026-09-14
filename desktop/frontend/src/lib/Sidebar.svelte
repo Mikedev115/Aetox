@@ -811,24 +811,39 @@
        feature rather than a finished plan. Which rooms appear is the door's
        business (§86): the workshop draws none of the office's, and vice versa. -->
   <nav class="desk-nav" aria-label={t('desk.navLabel')}>
+    {#snippet deskBtnInner(entry: NavEntry, walking: boolean)}
+      <span class="ic">{#if walking}<span class="walk-spin"><Icon name="loaderCircle" size={15} /></span>{:else}<Icon name={entry.icon} size={15} />{/if}</span>
+      <span class="t">{t(entry.labelKey)}</span>
+      {#if entry.id === 'capability' && toolCount > 0}<span class="room-count">{toolCount}</span>{/if}
+      {#if entry.kind === 'soon'}<span class="soon-tag">{t('desk.soon')}</span>{/if}
+    {/snippet}
     {#each rooms as entry (entry.id)}
       {@const walking = entry.kind === 'desk' && cockpit.walkingTo === entry.id}
-      <button
-        type="button" class="desk-btn"
-        class:active={navActive(entry)}
-        class:walking
-        class:soon={entry.kind === 'soon'}
-        disabled={entry.kind === 'soon'}
-        title={entry.kind === 'soon' ? t('desk.soon') : (deskBlurbs[entry.id] || t(entry.blurbKey))}
-        onclick={() => onNavClick(entry)}
-      >
-        <!-- The same spinner the door wears (TopBar): the row and the door
-             are two views of one walk and must agree. -->
-        <span class="ic">{#if walking}<span class="walk-spin"><Icon name="loaderCircle" size={15} /></span>{:else}<Icon name={entry.icon} size={15} />{/if}</span>
-        <span class="t">{t(entry.labelKey)}</span>
-        {#if entry.id === 'capability' && toolCount > 0}<span class="room-count">{toolCount}</span>{/if}
-        {#if entry.kind === 'soon'}<span class="soon-tag">{t('desk.soon')}</span>{/if}
-      </button>
+      {#if entry.id === 'assistant'}
+        <button type="button" class="desk-btn" data-guide="sidebar.desk.assistant" class:active={navActive(entry)} class:walking class:soon={entry.kind === 'soon'} disabled={entry.kind === 'soon'} title={entry.kind === 'soon' ? t('desk.soon') : (deskBlurbs[entry.id] || t(entry.blurbKey))} onclick={() => onNavClick(entry)}>
+          {@render deskBtnInner(entry, walking)}
+        </button>
+      {:else if entry.id === 'coding'}
+        <button type="button" class="desk-btn" data-guide="sidebar.desk.coding" class:active={navActive(entry)} class:walking class:soon={entry.kind === 'soon'} disabled={entry.kind === 'soon'} title={entry.kind === 'soon' ? t('desk.soon') : (deskBlurbs[entry.id] || t(entry.blurbKey))} onclick={() => onNavClick(entry)}>
+          {@render deskBtnInner(entry, walking)}
+        </button>
+      {:else if entry.id === 'capability'}
+        <button type="button" class="desk-btn" data-guide="sidebar.desk.capability" class:active={navActive(entry)} class:walking class:soon={entry.kind === 'soon'} disabled={entry.kind === 'soon'} title={entry.kind === 'soon' ? t('desk.soon') : (deskBlurbs[entry.id] || t(entry.blurbKey))} onclick={() => onNavClick(entry)}>
+          {@render deskBtnInner(entry, walking)}
+        </button>
+      {:else if entry.id === 'office'}
+        <button type="button" class="desk-btn" data-guide="sidebar.desk.office" class:active={navActive(entry)} class:walking class:soon={entry.kind === 'soon'} disabled={entry.kind === 'soon'} title={entry.kind === 'soon' ? t('desk.soon') : (deskBlurbs[entry.id] || t(entry.blurbKey))} onclick={() => onNavClick(entry)}>
+          {@render deskBtnInner(entry, walking)}
+        </button>
+      {:else if entry.id === 'artifacts'}
+        <button type="button" class="desk-btn" data-guide="sidebar.desk.artifacts" class:active={navActive(entry)} class:walking class:soon={entry.kind === 'soon'} disabled={entry.kind === 'soon'} title={entry.kind === 'soon' ? t('desk.soon') : (deskBlurbs[entry.id] || t(entry.blurbKey))} onclick={() => onNavClick(entry)}>
+          {@render deskBtnInner(entry, walking)}
+        </button>
+      {:else}
+        <button type="button" class="desk-btn" class:active={navActive(entry)} class:walking class:soon={entry.kind === 'soon'} disabled={entry.kind === 'soon'} title={entry.kind === 'soon' ? t('desk.soon') : (deskBlurbs[entry.id] || t(entry.blurbKey))} onclick={() => onNavClick(entry)}>
+          {@render deskBtnInner(entry, walking)}
+        </button>
+      {/if}
     {/each}
   </nav>
 
@@ -842,14 +857,16 @@
     <span class="side-search">
       <span class="ic"><Icon name="search" size={14} /></span>
       <input placeholder={t('sidebar.searchHistory')} aria-label={t('sidebar.searchHistory')}
-        bind:value={historyQuery} oninput={onHistorySearchInput} />
+        bind:value={historyQuery} oninput={onHistorySearchInput} data-guide="sidebar.search" />
     </span>
     <button
       type="button" class="icobtn tip-r" aria-label={t('sidebar.importSession')}
+      data-guide="sidebar.import_chat"
       data-tip={t('sidebar.importSession')} onclick={() => void importChat()}
     ><Icon name="upload" size={15} /></button>
     <button
       type="button" class="icobtn tip-r" aria-label={t('sidebar.newSession')}
+      data-guide="sidebar.new_session"
       data-tip="{t('sidebar.newSession')} · {shortcutLabel('newSession')}" onclick={newSession}
     ><Icon name="pencil" size={15} /></button>
   </div>
@@ -876,7 +893,7 @@
 
   {#if showChats}
   <div class="side-sections">
-  <div class="side-panel">
+  <div class="side-panel" data-guide="sidebar.history">
     {#if showProjects}
       <div class="scroll">
         <!-- No new-session button here: it is on the header row now, where it
@@ -887,32 +904,32 @@
              folder and the first chat in it are one Enter away (owner,
              14 ก.ย. 2026). It used to be one dashed "เพิ่มโปรเจกต์" row, which
              read as a project itself, and there was no way to make one here. -->
-        <div class="proj-sect">
+        <div class="proj-sect" data-guide="sidebar.projects">
           <span class="proj-sect-t">{t('sidebar.projects')}</span>
           <span class="proj-sect-acts">
-            <button type="button" class="proj-sect-btn tip-r" data-tip={t('sidebar.openExisting')}
+            <button type="button" class="proj-sect-btn tip-r" data-guide="sidebar.open_folder" data-tip={t('sidebar.openExisting')}
               aria-label={t('sidebar.openExisting')} onclick={openFolder}><Icon name="folder" size={13} /></button>
-            <button type="button" class="proj-sect-btn tip-r" class:on={creatingProject} data-tip={t('sidebar.createProject')}
+            <button type="button" class="proj-sect-btn tip-r" data-guide="sidebar.create_project" class:on={creatingProject} data-tip={t('sidebar.createProject')}
               aria-label={t('sidebar.createProject')} aria-expanded={creatingProject} onclick={openCreateProject}><Icon name="plus" size={13} /></button>
           </span>
         </div>
         {#if creatingProject}
           <form class="proj-create" onsubmit={(e) => { e.preventDefault(); void createProject() }}>
             <!-- svelte-ignore a11y_autofocus -->
-            <input class="proj-create-name" autofocus bind:value={projectDraftName}
+            <input class="proj-create-name" data-guide="sidebar.create_project_name" autofocus bind:value={projectDraftName}
               placeholder={t('sidebar.createProjectName')} aria-label={t('sidebar.createProjectName')}
               onkeydown={(e) => { if (e.key === 'Escape') closeCreateProject() }} />
             <div class="proj-create-where" title={codeProjectsDir}>
               <span class="ic"><Icon name="folder" size={11} /></span>
               <span class="p">{codeProjectsDir}{codeProjectsDir ? (codeProjectsDir.includes('\\') ? '\\' : '/') : ''}<b>{projectDraftName.trim() || t('sidebar.createProjectName')}</b></span>
-              <button type="button" class="proj-create-move" onclick={pickCodeProjectsDir}>{t('sidebar.createProjectMove')}</button>
+              <button type="button" class="proj-create-move" data-guide="sidebar.create_project_move" onclick={pickCodeProjectsDir}>{t('sidebar.createProjectMove')}</button>
             </div>
             {#if projectCreateError}<div class="proj-create-err">{projectCreateError}</div>{/if}
             <div class="proj-create-acts">
-              <button type="submit" class="proj-create-go" disabled={projectCreateBusy || !projectDraftName.trim()}>
+              <button type="submit" class="proj-create-go" data-guide="sidebar.create_project_submit" disabled={projectCreateBusy || !projectDraftName.trim()}>
                 {projectCreateBusy ? t('settings.saving') : t('sidebar.createAndChat')}
               </button>
-              <button type="button" class="proj-create-no" onclick={closeCreateProject}>{t('settings.cancel')}</button>
+              <button type="button" class="proj-create-no" data-guide="sidebar.create_project_cancel" onclick={closeCreateProject}>{t('settings.cancel')}</button>
             </div>
           </form>
         {/if}
@@ -1144,7 +1161,7 @@
     <div class="side-scrim" transition:fade={{ duration: 140 }}></div>
   {/if}
   <div class="side-footer-wrap">
-    <button type="button" class="side-footer" onclick={() => { profileOpen = !profileOpen; if (profileOpen) { loadAccount(); loadAetoxAccount(); refreshUpdate() } }}>
+    <button type="button" class="side-footer" data-guide="sidebar.footer" onclick={() => { profileOpen = !profileOpen; if (profileOpen) { loadAccount(); loadAetoxAccount(); refreshUpdate() } }}>
       <span class="avatar">{avatarInitial}</span>
       <!-- The name you chose wins; the account name stands in when you never
            chose one, so a signed-in sidebar stops asking for something it
@@ -1181,7 +1198,7 @@
               onblur={saveName}
             />
           {:else}
-            <button type="button" class="name-text" class:unset={!profile.name} title={t('sidebar.editName')} onclick={editName}>
+            <button type="button" class="name-text" data-guide="account.name" class:unset={!profile.name} title={t('sidebar.editName')} onclick={editName}>
               {profile.name || t('sidebar.setYourName')}
             </button>
           {/if}
@@ -1217,7 +1234,7 @@
         <div class="menu-sep"></div>
         <div class="plus-menu-item">
           <span class="ic"><Icon name="palette" size={14} /></span> {t('settings.themeTitle')}
-          <select class="lang-select" value={theme.name} onchange={(e) => applyTheme(e.currentTarget.value as ThemeName)}>
+          <select class="lang-select" data-guide="account.theme" value={theme.name} onchange={(e) => applyTheme(e.currentTarget.value as ThemeName)}>
             {#each THEMES as th (th.value)}
               <option value={th.value}>{th.label}</option>
             {/each}
@@ -1225,7 +1242,7 @@
         </div>
         <div class="plus-menu-item">
           <span class="ic"><Icon name="globe" size={14} /></span> {t('settings.languageTitle')}
-          <select class="lang-select" value={i18n.locale} onchange={(e) => setLocale(e.currentTarget.value as Locale)}>
+          <select class="lang-select" data-guide="account.language" value={i18n.locale} onchange={(e) => setLocale(e.currentTarget.value as Locale)}>
             {#each Object.entries(localeNames) as [code, name]}
               <option value={code}>{name}</option>
             {/each}
@@ -1237,7 +1254,7 @@
              than the chat (theme, language, the companion, the version): the
              tour's everyday door (§279.2). The empty chat carries the other
              one until the first message is sent. -->
-        <button class="plus-menu-item" onclick={() => { profileOpen = false; openTour() }}>
+        <button class="plus-menu-item" data-guide="account.tour" onclick={() => { profileOpen = false; openTour() }}>
           <span class="ic"><Icon name="bot" size={14} /></span> {t('settings.tourTitle')}
         </button>
         <div class="menu-sep"></div>
@@ -1250,7 +1267,7 @@
             <span class="ic"><Icon name="package" size={14} /></span>
             <span class="ver-name">Aetox {updater.current ? 'v' + updater.current : '—'}</span>
             <button
-              class="ver-check" onclick={checkUpdateNow}
+              class="ver-check" data-guide="account.update_check" onclick={checkUpdateNow}
               disabled={updater.checking || updateBusy}
             >
               {updater.checking ? t('update.checking') : t('update.check')}
@@ -1309,7 +1326,7 @@
             {/if}
           {:else if updater.checkError}
             <!-- Offline, rate-limited, a proxy in the way. Muted and in one
-                 line: a check that could not run is not a broken app. -->
+             line: a check that could not run is not a broken app. -->
             <div class="ver-news"><span class="ver-note">{t('update.checkFailed')}</span></div>
           {:else if updater.status?.disabled}
             <div class="ver-news">
@@ -1328,7 +1345,7 @@
         <div class="menu-sep"></div>
         <!-- Parked 2026-08-14, see MobileRemote.svelte: the entry point comes
              back when the phone surface has been designed, not before. -->
-        <button class="plus-menu-item" onclick={() => { profileOpen = false; onOpenSettings() }}>
+        <button class="plus-menu-item" data-guide="account.settings" onclick={() => { profileOpen = false; onOpenSettings() }}>
           <span class="ic"><Icon name="settings" size={14} /></span> {t('sidebar.settings')} <span class="kbd">{shortcutLabel('settings')}</span>
         </button>
       </div>

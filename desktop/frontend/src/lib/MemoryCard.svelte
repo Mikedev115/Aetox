@@ -133,7 +133,7 @@
 </script>
 
 {#if change && pending}
-  <div class="memcard">
+  <div class="memcard" data-guide="memory.card">
     <div class="memcard-head">
       <span class="ic"><Icon name={askIcon} size={15} /></span>
       <span class="memcard-kind">{asking}</span>
@@ -141,9 +141,9 @@
            question being decided: a line true everywhere costs every session,
            and one true only here costs nothing anywhere else. -->
       {#if isSkill}
-        <span class="memcard-scope">{scope}</span>
+        <span class="memcard-scope" data-guide="memory.card.scope">{scope}</span>
       {:else}
-        <span class="memcard-scope learn-scope mem-tone-{meta.tone}"><ScopeMark {meta} size={11} face={16} /> {meta.label}</span>
+        <span class="memcard-scope learn-scope mem-tone-{meta.tone}" data-guide="memory.card.scope"><ScopeMark {meta} size={11} face={16} /> {meta.label}</span>
       {/if}
     </div>
     {#if !isSkill}
@@ -167,7 +167,7 @@
       <span class="memcard-note">{t('chat.memoryNextChat')}</span>
       {#if canRedirect}
         <div class="mem-move">
-          <button type="button" class="memcard-no" disabled={busy} aria-expanded={elsewhere}
+          <button data-guide="memory.card.edit" type="button" class="memcard-no" disabled={busy} aria-expanded={elsewhere}
             onclick={openElsewhere}>{t('settings.learningKeepElsewhere')} <Icon name="chevronDown" size={11} /></button>
           {#if elsewhere}
             <div class="mem-menu" role="menu">
@@ -182,9 +182,9 @@
           {/if}
         </div>
       {/if}
-      <button type="button" class="memcard-no" disabled={busy}
+      <button data-guide="memory.card.reject" type="button" class="memcard-no" disabled={busy}
         onclick={() => decide(false)}>{t('settings.learningReject')}</button>
-      <button type="button" class="memcard-yes" disabled={busy}
+      <button data-guide="memory.card.accept" type="button" class="memcard-yes" disabled={busy}
         onclick={() => decide(true)}>{t('settings.learningApprove')}</button>
     </div>
   </div>

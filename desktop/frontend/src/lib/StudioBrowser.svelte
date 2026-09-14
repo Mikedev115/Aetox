@@ -251,18 +251,18 @@
   const last = $derived(result ? Math.min(result.page * 60, result.total) : 0)
 </script>
 
-<section class="sb" aria-label={t('settings.studioBrowse')}>
+<section class="sb" data-guide="studio.browser" aria-label={t('settings.studioBrowse')}>
   <div class="sb-bar">
     <label class="sb-search">
       <Icon name="search" size={14} />
-      <input type="search" placeholder={t('settings.studioSearch')} value={text} oninput={(e) => onType(e.currentTarget.value)} />
+      <input type="search" data-guide="studio.search" placeholder={t('settings.studioSearch')} value={text} oninput={(e) => onType(e.currentTarget.value)} />
     </label>
     {#if libraryPick && result?.rows[0]}
       <!-- Opened from one shelf's card: say so, and let it go back to all. -->
       <span class="sb-scope">{t('settings.studioScope', { name: result.rows[0].library })}<button class="linklike" onclick={onClearLibrary}>{t('settings.studioScopeAll')}</button></span>
     {/if}
     {#if result && result.categories.length > 1}
-      <select class="ctrl sb-cat" value={category} onchange={(e) => { category = e.currentTarget.value; page = 1 }}>
+      <select class="ctrl sb-cat" data-guide="studio.filter_tab" value={category} onchange={(e) => { category = e.currentTarget.value; page = 1 }}>
         <option value="">{t('settings.studioAllFolders')}</option>
         {#each result.categories as c (c.name)}<option value={c.name}>{c.name} · {c.count.toLocaleString()}</option>{/each}
       </select>
@@ -299,7 +299,7 @@
          square: forty-eight blank tiles are a page of nothing. -->
     <div class="sb-grid" class:busy={loading} class:sounds={result.rows.length > 0 && result.rows.every((r) => AUDIO.has(r.ext))} aria-busy={loading}>
       {#each result.rows as row (row.id)}
-        <article class="sb-tile" class:sound={AUDIO.has(row.ext)} class:playing={playing === row.id} class:alpha={row.alpha} class:hidden-row={row.hidden} class:menu-open={menuFor === row.id} class:playable={row.playable && !AUDIO.has(row.ext)} use:onScreen onmouseenter={() => hoverIn(row)} onmouseleave={hoverOut}>
+        <article class="sb-tile" data-guide="studio.preview_item" class:sound={AUDIO.has(row.ext)} class:playing={playing === row.id} class:alpha={row.alpha} class:hidden-row={row.hidden} class:menu-open={menuFor === row.id} class:playable={row.playable && !AUDIO.has(row.ext)} use:onScreen onmouseenter={() => hoverIn(row)} onmouseleave={hoverOut}>
           <div class="sb-media">
             {#if AUDIO.has(row.ext)}
               <button class="sb-play" onclick={() => toggle(row)} aria-label={playing === row.id ? t('settings.studioStop') : t('settings.studioPlay')}>
@@ -348,7 +348,7 @@
               {#if row.hidden}
                 <button role="menuitem" onclick={() => setHidden(row, false)}><Icon name="eye" size={13} /> {t('settings.studioUnhide')}</button>
               {:else}
-                <button role="menuitem" onclick={() => setHidden(row, true)}><Icon name="x" size={13} /> {t('settings.studioHide')}</button>
+                <button role="menuitem" data-guide="studio.delete_btn" onclick={() => setHidden(row, true)}><Icon name="x" size={13} /> {t('settings.studioHide')}</button>
               {/if}
               <button role="menuitem" onclick={() => { void RevealStudioAsset(row.id); closeMenu() }}><Icon name="folderOpen" size={13} /> {t('settings.studioReveal')}</button>
             </div>

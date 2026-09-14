@@ -289,7 +289,7 @@
   <!-- which head is on the stage -->
   <div class="who" role="tablist" aria-label={text.mainNote}>
     {#each HEADS as h (h)}
-      <button type="button" class="who-card" class:on={editing === h} role="tab" aria-selected={editing === h} onclick={() => (editing = h)}>
+      <button data-guide="settings.avatar.role_select" type="button" class="who-card" class:on={editing === h} role="tab" aria-selected={editing === h} onclick={() => (editing = h)}>
         <span class="who-face"><RankedFace tier="head" size={72}><Mascot {...headOptions(h)} size={72} still /></RankedFace></span>
         <span class="who-txt">
           <span class="who-name">{text.heads[h].name}</span>
@@ -311,7 +311,7 @@
 
     <!-- left: top light, body -->
     <div class="col left">
-      <div class="panel p-top" bind:this={panelEl.top}>
+      <div data-guide="settings.avatar.top_select" class="panel p-top" bind:this={panelEl.top}>
         <h3>{text.top}</h3>
         <p class="hint">{text.parts.top}</p>
         <div class="cells">
@@ -322,7 +322,7 @@
           {/each}
         </div>
       </div>
-      <div class="panel p-shell" bind:this={panelEl.shell}>
+      <div data-guide="settings.avatar.shell_select" class="panel p-shell" bind:this={panelEl.shell}>
         <h3>{text.shell}</h3>
         <p class="hint">{text.parts.shell}</p>
         <div class="cells">
@@ -345,7 +345,7 @@
 
     <!-- right: accent, resting face -->
     <div class="col right">
-      <div class="panel p-accent" bind:this={panelEl.accent}>
+      <div data-guide="settings.avatar.accent_select" class="panel p-accent" bind:this={panelEl.accent}>
         <h3>{text.hue}</h3>
         <p class="hint">{text.parts.hue}</p>
         <div class="cells">
@@ -356,7 +356,7 @@
           {/each}
         </div>
       </div>
-      <div class="panel p-face" bind:this={panelEl.face}>
+      <div data-guide="settings.avatar.face_select" class="panel p-face" bind:this={panelEl.face}>
         <h3>{text.face}</h3>
         <p class="hint">{text.parts.face}</p>
         <div class="cells">
@@ -371,7 +371,7 @@
   </div>
 
   <!-- every pose the rig has, to see the look move -->
-  <div class="poses" role="tablist" aria-label={text.preview}>
+  <div data-guide="settings.avatar.prop_select" class="poses" role="tablist" aria-label={text.preview}>
     {#each POSES as p (p)}
       <button type="button" class="chip" class:on={previewPose === p} role="tab" aria-selected={previewPose === p} onclick={() => (previewPose = p)}>
         {text.poses[p] ?? p}
@@ -392,7 +392,7 @@
           </div>
           <div class="acts">
             <button type="button" class="chip pri" disabled={worn === i} onclick={() => usePersona(i, editing)}>{text.use}</button>
-            <button type="button" class="chip" disabled={worn === i} onclick={() => savePersona(i, editing)}>{text.save}</button>
+            <button data-guide="settings.avatar.save" type="button" class="chip" disabled={worn === i} onclick={() => savePersona(i, editing)}>{text.save}</button>
             <button type="button" class="chip" onclick={() => removePersona(i)}>{text.remove}</button>
           </div>
         </div>

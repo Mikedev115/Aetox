@@ -340,7 +340,7 @@
         <div class="eyebrow">{t('office.teamName')}</div>
         {#if editing.isNew}<div class="muted set-hint">{t('office.teamNameHint')}</div>{/if}
         <!-- svelte-ignore a11y_autofocus -->
-        <input class="ctrl key-input" type="text" bind:value={editing.name} disabled={!editing.isNew}
+        <input class="ctrl key-input" data-guide="team.name_input" type="text" bind:value={editing.name} disabled={!editing.isNew}
           placeholder={t('office.teamNamePlaceholder')} spellcheck="false" autofocus={editing.isNew} />
       </div>
       <div class="mset-field">
@@ -350,7 +350,7 @@
       <div class="mset-field">
         <div class="eyebrow">{t('office.teamPick')} <span class="team-picked">{editing.members.length}</span></div>
         <div class="muted set-hint">{t('office.teamPickHint')}</div>
-        <div class="conn-targets">
+        <div class="conn-targets" data-guide="team.lead_select">
           {#each chairs as c (c.name)}
             {@const on = editing.members.includes(c.name)}
             <button type="button" class="conn-chip agent" class:on aria-pressed={on}
@@ -360,7 +360,7 @@
             </button>
           {/each}
           {#if onNewAgent}
-            <button type="button" class="conn-chip team-add-agent" title={t('settings.teamAddAgentTip')} onclick={goNewAgent}>
+            <button type="button" class="conn-chip team-add-agent" data-guide="team.add_member_btn" title={t('settings.teamAddAgentTip')} onclick={goNewAgent}>
               <Icon name="plus" size={13} /> {t('settings.teamAddAgent')}
             </button>
           {/if}
@@ -368,11 +368,11 @@
       </div>
       {#if editError}<div class="mset-error">{editError}</div>{/if}
       <div class="mset-keyrow team-actions">
-        <button class="ctrl ctrl-primary" onclick={saveTeam} disabled={busy !== '' || !editing.name.trim()}>{t('office.teamSave')}</button>
+        <button class="ctrl ctrl-primary" data-guide="team.save_btn" onclick={saveTeam} disabled={busy !== '' || !editing.name.trim()}>{t('office.teamSave')}</button>
         <button class="ctrl" onclick={() => { editing = null }} disabled={busy !== ''}>{t('office.teamCancel')}</button>
         <div class="pp-bar-gap"></div>
         {#if !editing.isNew}
-          <button class="ctrl ctrl-danger" disabled={busy !== ''} onclick={() => editing && deleteTeam(editing.name, editing.path)}>{t('office.teamDelete')}</button>
+          <button class="ctrl ctrl-danger" data-guide="team.delete_btn" disabled={busy !== ''} onclick={() => editing && deleteTeam(editing.name, editing.path)}>{t('office.teamDelete')}</button>
         {/if}
       </div>
 

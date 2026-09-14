@@ -4570,11 +4570,11 @@
         <Logo size={520} animate={false} />
         <Mascot {...headOptions(headOf(cockpit.desk))} pose="idle" size={520} still />
       </div>
-      <h2>{headline}</h2>
+      <h2 data-guide="chat.empty_headline">{headline}</h2>
       <!-- Keyed by title so a re-deal replaces the cards rather than rewriting
            the text inside four cards that never moved — which is what makes the
            swap read as a new hand instead of a flicker. -->
-      <div class="starter-grid">
+      <div class="starter-grid" data-guide="chat.starter">
         {#each starters as s, i (s.title)}
           <button class="starter-card" style="--i:{i}" onclick={() => pickStarter(s.prompt)}>
             <span class="ic"><Icon name={s.icon} size={18} /></span>
@@ -4584,7 +4584,7 @@
       </div>
       <div class="starter-actions">
         {#if canReroll}
-          <button class="starter-more" onclick={() => reroll++}>
+          <button class="starter-more" data-guide="chat.starter_more" onclick={() => reroll++}>
             <Icon name="refreshCw" size={13} />
             <span>{t('start.more')}</span>
           </button>
@@ -4594,7 +4594,7 @@
              sidebar's copy is behind a collapsed rail half the time (owner,
              14 ก.ย., pointing at this screen: "หายไปไหนแล้ว"). Until the first
              message it also says why — the wizard just finished. -->
-        <button class="starter-more starter-tour" onclick={openTour}>
+        <button class="starter-more starter-tour" data-guide="chat.tour" onclick={openTour}>
           <Icon name="bot" size={13} />
           <span>{teachPinned ? t('chat.tourLink') : t('settings.tourTitle')}</span>
         </button>
@@ -5781,6 +5781,7 @@
           <div class="ghost" bind:this={ghostEl} aria-hidden="true">{ghost}</div>
         {/if}
         <textarea
+          data-guide="composer.input"
           class="input"
           rows="1"
           placeholder={ghost
@@ -5836,6 +5837,7 @@
             />
           {/if}
           <button
+            data-guide="composer.attach"
             class="icobtn plus tip-l" class:active={!!palette}
             aria-label={t('chat.plusTip')} data-tip="{t('chat.plusTip')} · {shortcutLabel('palette')}"
             aria-expanded={!!palette}
@@ -5849,6 +5851,7 @@
              it then surfaces the engine's own reason and where to fix it,
              which a hidden button cannot say. -->
         <button
+          data-guide="composer.mic"
           class="icobtn mic" class:rec={micState === 'rec'}
           aria-label={micState === 'rec' ? t('chat.micStop') : t('chat.micStart')}
           data-tip={micState === 'rec' ? t('chat.micStop') : t('chat.micStart')}
@@ -5904,6 +5907,7 @@
                somewhere by pressing one time too many, and what this dial
                changes is whether the assistant can touch the machine. -->
           <button
+            data-guide="composer.stance"
             type="button" class="stance-chip" class:on={!!cockpit.stance}
             data-stance={cockpit.stance}
             title={t('stance.title')} aria-label={t('stance.title')}
@@ -6223,7 +6227,7 @@
                      level — gpt-5-pro, MiniMax M2.x, which cannot stop thinking
                      — drew a dropdown that did nothing when opened. -->
                 {#if thinkLevels.length > 1}
-                  <div class="mm-row">
+                  <div class="mm-row" data-guide="composer.think">
                     <span class="lbl">{t('chat.thinkLevel')}</span>
                     {@render upSelect('thinkLevel', thinkLevels.map((lvl) => ({ value: lvl, label: lvl })), model.thinkLevel, handleThinkChange)}
                   </div>
@@ -6244,6 +6248,7 @@
                  than as three separate facts, and the mode is named in words
                  in the menu this chip opens, which is also where it changes. -->
             <button
+              data-guide="composer.model"
               type="button" class="model-chip"
               title={model.modelName || model.provider}
               onclick={(e) => { e.stopPropagation(); const open = !modelMenuOpen; closeComposerMenus(); modelMenuOpen = open; if (open) { refreshThinkLevels(); EnabledProviders().then((p) => (providers = p)) } }}
@@ -6253,7 +6258,7 @@
               <!-- Same test as the menu row below, on purpose. Keyed off
                    model.thinkLevel instead, a model with exactly one real level
                    drew a badge for a setting the menu offers no way to change. -->
-              {#if thinkLevels.length > 1 && model.thinkLevel}<span class="lvl">{model.thinkLevel}</span>{/if}
+              {#if thinkLevels.length > 1 && model.thinkLevel}<span class="lvl" data-guide="composer.think">{model.thinkLevel}</span>{/if}
               <!-- A switch is waiting. Said with a mark and not with the name:
                    this chip's one job is to say what is answering RIGHT NOW,
                    and another model's name sitting on it would read as that. -->
@@ -6277,15 +6282,15 @@
                composer, and an interjection typed here would land in a
                conversation the user is not looking at. -->
           {#if draft.trim()}
-            <button class="send stop secondary" aria-label={t('chat.stopTurn')} onclick={cancelTurn}><Icon name="square" size={12} /></button>
-            <button class="send ready" aria-label={t('chat.sendIntoTurn')} title={t('chat.sendIntoTurn')} onclick={submit}>
+            <button data-guide="chat.send" class="send stop secondary" aria-label={t('chat.stopTurn')} onclick={cancelTurn}><Icon name="square" size={12} /></button>
+            <button data-guide="chat.send" class="send ready" aria-label={t('chat.sendIntoTurn')} title={t('chat.sendIntoTurn')} onclick={submit}>
               <Icon name="sendHorizontal" size={15} />
             </button>
           {:else}
-            <button class="send stop" aria-label={t('chat.stopTurn')} onclick={cancelTurn}><Icon name="square" size={13} /></button>
+            <button data-guide="chat.send" class="send stop" aria-label={t('chat.stopTurn')} onclick={cancelTurn}><Icon name="square" size={13} /></button>
           {/if}
         {:else}
-          <button class="send" class:ready={canSend} aria-label="Send" onclick={submit}><Icon name="sendHorizontal" size={15} /></button>
+          <button data-guide="chat.send" class="send" class:ready={canSend} aria-label="Send" onclick={submit}><Icon name="sendHorizontal" size={15} /></button>
         {/if}
       </div>
     </div>

@@ -473,9 +473,9 @@
      explain, and a label reading "ทั่วไป" is a line you read and get nothing
      back from. -->
 {#snippet tabChoices()}
-  <button class="plus-menu-item" disabled={shells.length === 0} onclick={openDefaultTerminal}><span class="ic"><Icon name="keyboard" size={14} /></span> {t('workbench.terminalMenu')}</button>
-  <button class="plus-menu-item" onclick={() => pick(openBrowserTab)}><span class="ic"><Icon name="globe" size={14} /></span> {t('workbench.browserMenu')} <span class="kbd">{shortcutLabel('browserTab')}</span></button>
-  <button class="plus-menu-item" onclick={() => pick(openFilesTab)}><span class="ic"><Icon name="copy" size={14} /></span> {t('workbench.filesTab')} <span class="kbd">{shortcutLabel('filesTab')}</span></button>
+  <button class="plus-menu-item" data-guide="topbar.tab.terminal" disabled={shells.length === 0} onclick={openDefaultTerminal}><span class="ic"><Icon name="keyboard" size={14} /></span> {t('workbench.terminalMenu')}</button>
+  <button class="plus-menu-item" data-guide="topbar.tab.browser" onclick={() => pick(openBrowserTab)}><span class="ic"><Icon name="globe" size={14} /></span> {t('workbench.browserMenu')} <span class="kbd">{shortcutLabel('browserTab')}</span></button>
+  <button class="plus-menu-item" data-guide="topbar.tab.editor" onclick={() => pick(openFilesTab)}><span class="ic"><Icon name="copy" size={14} /></span> {t('workbench.filesTab')} <span class="kbd">{shortcutLabel('filesTab')}</span></button>
   <button class="plus-menu-item" onclick={() => pick(openDecksTab)}><span class="ic"><Icon name="layoutList" size={14} /></span> {t('workbench.decksTab')}</button>
   <button class="plus-menu-item" onclick={() => pick(openArtifactsTab)}><span class="ic"><Icon name="package" size={14} /></span> {t('workbench.artifactsTab')}</button>
   {#if cockpit.plan}
@@ -483,7 +483,7 @@
   {/if}
   {#if cockpit.desk === 'coding'}
     <div class="plus-menu-head">{t('workbench.codeGroup')}</div>
-    <button class="plus-menu-item" onclick={() => pick(openGitTab)}>
+    <button class="plus-menu-item" data-guide="topbar.tab.diff" onclick={() => pick(openGitTab)}>
       <span class="ic"><Icon name="gitBranch" size={14} /></span>
       <span>{t('workbench.gitTab')}</span>
       {#if codeStatus.gitChangedCount > 0}
@@ -515,7 +515,7 @@
      interactive elements. Keyboard users reach every one of these by the +
      menu, Ctrl+T / Ctrl+P, and the chat's file cards. -->
 <div class="wb" class:busy-glow={busyGlow} ondragover={onDeskDragOver} ondragleave={onDeskDragLeave} ondrop={onDeskDrop}>
-  <div class="insp-tabs">
+  <div class="insp-tabs" data-guide="topbar.tabs">
     <!-- The hairline half of จุดบนแท็บที่กำลังใช้: a lit line along the
          strip's own border, saying the row above it is where to look. Absolute
          so it lies ON the border rather than pushing it down — a strip that

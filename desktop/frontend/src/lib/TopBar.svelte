@@ -101,9 +101,22 @@
 
 <svelte:window onclick={doorOpen ? closeOnOutsideClick : undefined} />
 
+{#snippet doorItemInner(s: (typeof SHELLS)[number], walking: boolean)}
+  <span class="ic" class:face={!!s.desk}>
+    {#if walking}<span class="walk-spin"><Icon name="loaderCircle" size={15} /></span>
+    {:else if s.desk}<RankedFace tier="head" size={38}><Mascot {...headOptions(headOf(s.desk))} pose="idle" size={38} still /></RankedFace>
+    {:else}<Icon name={s.icon} size={15} />{/if}
+  </span>
+  <span class="txt">
+    <span class="t">{t(s.labelKey)}</span>
+    <span class="d">{walking ? t('shell.opening') : t(s.blurbKey)}</span>
+  </span>
+  {#if shell.name === s.name && !walking}<span class="tick"><Icon name="check" size={13} /></span>{/if}
+{/snippet}
+
 <div class="brand">
   <button
-    type="button" class="brand-btn" aria-haspopup="menu" aria-expanded={doorOpen}
+    type="button" class="brand-btn" data-guide="topbar.door" aria-haspopup="menu" aria-expanded={doorOpen}
     aria-label={t('shell.switch')} onclick={() => (doorOpen = !doorOpen)}
   >
     <Wordmark height={20} />
@@ -119,22 +132,19 @@
            that disappoints (shell.svelte's `offered`). -->
       {#each offeredShells() as s (s.name)}
         {@const walking = going?.name === s.name}
-        <button type="button" class="door-item" class:on={shell.name === s.name} role="menuitem" onclick={() => pick(s.name)}>
-          <!-- A door is a head's: the face that answers behind it, with its
-               rank, instead of a glyph standing in for it (owner, 14 ก.ย.
-               2026: "ตรงนี้ควรจะเปลี่ยนเป็นอวตารได้แล้ว"). The glyph stays
-               for a door with no desk of its own. -->
-          <span class="ic" class:face={!!s.desk}>
-            {#if walking}<span class="walk-spin"><Icon name="loaderCircle" size={15} /></span>
-            {:else if s.desk}<RankedFace tier="head" size={38}><Mascot {...headOptions(headOf(s.desk))} pose="idle" size={38} still /></RankedFace>
-            {:else}<Icon name={s.icon} size={15} />{/if}
-          </span>
-          <span class="txt">
-            <span class="t">{t(s.labelKey)}</span>
-            <span class="d">{walking ? t('shell.opening') : t(s.blurbKey)}</span>
-          </span>
-          {#if shell.name === s.name && !walking}<span class="tick"><Icon name="check" size={13} /></span>{/if}
-        </button>
+        {#if s.name === 'assistant'}
+          <button type="button" class="door-item" data-guide="topbar.door.assistant" class:on={shell.name === s.name} role="menuitem" onclick={() => pick(s.name)}>
+            {@render doorItemInner(s, walking)}
+          </button>
+        {:else if s.name === 'code'}
+          <button type="button" class="door-item" data-guide="topbar.door.coding" class:on={shell.name === s.name} role="menuitem" onclick={() => pick(s.name)}>
+            {@render doorItemInner(s, walking)}
+          </button>
+        {:else}
+          <button type="button" class="door-item" class:on={shell.name === s.name} role="menuitem" onclick={() => pick(s.name)}>
+            {@render doorItemInner(s, walking)}
+          </button>
+        {/if}
       {/each}
     </div>
   {/if}
@@ -142,15 +152,16 @@
 
 <div class="topbar">
   <button
-    class="icobtn tip-l" aria-label={sidebarCollapsed ? t('topbar.showSidebar') : t('topbar.hideSidebar')}
+    class="icobtn tip-l" data-guide="topbar.sidebar_btn" aria-label={sidebarCollapsed ? t('topbar.showSidebar') : t('topbar.hideSidebar')}
     data-tip="{t('topbar.toggleSidebarTip')} · {shortcutLabel('toggleSidebar')}" onclick={onToggleSidebar}
   >
     {@render panelIcon(!sidebarCollapsed, false)}
   </button>
+  <span class="topbar-space" data-guide="topbar.space" style={cockpit.space ? '' : 'display:none'}>{cockpit.space || ''}</span>
   <!-- Left of the spacer, not centred in it: a centred title moves every time
        its own length changes, and it collides with the corner buttons on a
        narrow window. Against the toggle it has a fixed address. -->
-  {#if title}<span class="topbar-title" title={title}>{title}</span>{/if}
+  <span class="topbar-title" data-guide="topbar.tab.chat" title={title || 'Chat'}>{title}</span>
   <!-- Where the engine is, when it is not here (§248 phase 3). The window
        looks the same on a host — that is the design — so this is the one
        line that says the code, the terminal and the chats on screen are
@@ -199,7 +210,7 @@
       data-tip="{t('sidebar.newSession')} · {shortcutLabel('newSession')}" onclick={newSession}
     ><Icon name="plus" size={15} /></button>
     <button
-      class="icobtn tip-r" aria-label={inspectorCollapsed ? t('topbar.showPanel') : t('topbar.hidePanel')}
+      class="icobtn tip-r" data-guide="topbar.inspector_btn" aria-label={inspectorCollapsed ? t('topbar.showPanel') : t('topbar.hidePanel')}
       data-tip="{t('topbar.toggleInspectorTip')} · {shortcutLabel('toggleInspector')}" onclick={onToggleInspector}
     >
       {@render panelIcon(!inspectorCollapsed, true)}

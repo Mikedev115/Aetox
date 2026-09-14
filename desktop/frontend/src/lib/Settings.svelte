@@ -4083,12 +4083,14 @@
     {#if isEditing(g.scope, i)}
       <!-- svelte-ignore a11y_autofocus -->
       <textarea
+        data-guide="settings.you.about_input"
         class="mem-input" rows="2" autofocus
         bind:value={memoryDraft}
         onkeydown={(e) => onMemoryKeydown(e, g.scope, i)}
       ></textarea>
       <div class="mem-actions">
         <button
+          data-guide="settings.you.save"
           type="button" class="ctrl ctrl-primary"
           disabled={memorySaving || !memoryDraft.trim()}
           onclick={() => commitMemory(g.scope, i, memoryDraft)}
@@ -4400,7 +4402,7 @@
            ให้ชัดหน่อย … พื้นหลังสีเดียวกับสร้างทีม"). It took the slot of the
            "ไปหน้าเอเจนเฉพาะทาง" button, which the sentence above already says
            and the rail's row already offers. -->
-      <button class="ctrl ctrl-primary" onclick={() => newAgent(kind)}><Icon name="plus" size={14} /> {t('settings.teamNew')}</button>
+      <button class="ctrl ctrl-primary" data-guide="office.new_agent_btn" onclick={() => newAgent(kind)}><Icon name="plus" size={14} /> {t('settings.teamNew')}</button>
     </div>
   {/if}
   {#if agentError}<div class="mset-error">{agentError}</div>{/if}
@@ -4540,8 +4542,8 @@
      heading-plus-subtitle-plus-bar-plus-face stack was what made the top
      feel tight (owner: "อึดอัดไปหน่อยข้างบน"). -->
 {#snippet profileHero(tier: 'head' | 'agent' | 'helper', name: string, badge: string, desc: string, head: HeadId | null = null)}
-  <div class="pf-hero" data-tier={tier}>
-    <button type="button" class="pf-face" onclick={pokeHero} title={t('settings.heroPoke')} aria-label={t('settings.heroPoke')}>
+  <div data-guide="settings.head.hero" class="pf-hero" data-tier={tier}>
+    <button data-guide="settings.head.rank" type="button" class="pf-face" onclick={pokeHero} title={t('settings.heroPoke')} aria-label={t('settings.heroPoke')}>
       <RankedFace {tier} size={80}>
         {#if tier === 'head' && head}
           <Mascot {...headOptions(head)} pose={heroPose ?? 'idle'} size={80} hop={heroHop} look />
@@ -4566,11 +4568,11 @@
       <button class="ctrl" onclick={closeAgentEditor}><Icon name="arrowLeft" size={14} /> {t('settings.agentBack')}</button>
       <div class="pp-bar-gap"></div>
       {#if !agentEditing.builtin && agentEditing.name}
-        <button class="ctrl ctrl-danger" disabled={agentBusy !== ''} onclick={deleteAgent}>
+        <button data-guide="settings.head.delete" class="ctrl ctrl-danger" disabled={agentBusy !== ''} onclick={deleteAgent}>
           {agentEditing.overrides ? t('settings.agentRevert') : t('settings.remove')}
         </button>
       {/if}
-      <button class="ctrl ctrl-primary" disabled={agentBusy !== '' || !agentDraftName.trim() || !agentDraftPrompt.trim()} onclick={saveAgent}>
+      <button data-guide="settings.head.save" class="ctrl ctrl-primary" disabled={agentBusy !== '' || !agentDraftName.trim() || !agentDraftPrompt.trim()} onclick={saveAgent}>
         {agentBusy === 'save' ? t('settings.saving') : t('settings.promptSave')}
       </button>
     </div>
@@ -4627,6 +4629,7 @@
         </button>
         {#if agentEditKind === 'agent'}
           <button
+            data-guide="settings.head.tab.tools"
             type="button" role="tab" id="ag-tab-reach" aria-controls="ag-panel-reach"
             aria-selected={agentTab === 'reach'}
             class:on={agentTab === 'reach'} onclick={() => (agentTab = 'reach')}
@@ -5671,39 +5674,79 @@
   </div>
 {/snippet}
 
+{#snippet railItemContent(it: { id: string; label: string; icon: any })}
+  <span class="ic"><Icon name={it.icon} /></span> {it.label}
+  <!-- The rank's bars on the three rows that are levels of the company
+       (owner, 14 ก.ย. 2026: "ในหน้าเมนู ทำสัญลักษณ์ยศแปะไว้ด้วย"): the
+       same emblem the faces wear, so the rail reads as the roster. -->
+  {#if it.id === 'main' || it.id === 'team' || it.id === 'agents'}
+    <span class="nav-rank"><RankPip tier={it.id === 'main' ? 'head' : it.id === 'team' ? 'agent' : 'helper'} word={false} /></span>
+  {/if}
+  <!-- The queue's count, on the row where each item is decided
+       (railPending): ตัวหลัก for the heads' and the projects', เกี่ยวกับคุณ
+       for the person's, พนักงาน / ลูกมือ for a delegate's. Until 14 ก.ย.
+       2026 the whole number sat on ตัวหลัก and pointed at nothing. -->
+  {#if (it.id === 'main' || it.id === 'you' || it.id === 'team' || it.id === 'agents') && railPending[it.id] > 0}
+    <span class="nav-count" title={t('settings.learningWaiting', { count: String(railPending[it.id]) })}>
+      {railPending[it.id]}
+    </span>
+  {/if}
+  <!-- The same mark, and only here: the gear in the sidebar stays the
+       learning queue's alone. A problem is worth finding when you come
+       looking and is not worth being pulled out of a chat for. -->
+  {#if it.id === 'issues' && cockpit.pendingIssues > 0}
+    <span class="nav-count" title={t('settings.issuesWaiting', { count: String(cockpit.pendingIssues) })}>
+      {cockpit.pendingIssues}
+    </span>
+  {/if}
+{/snippet}
+
 <div class="settings-page">
   <aside class="settings-nav">
-    <button class="settings-back" onclick={onClose}><Icon name="arrowLeft" size={14} /> {t('settings.backToApp')}</button>
-    <input class="settings-search" placeholder={t('settings.searchPlaceholder')} bind:value={query} />
+    <button data-guide="settings.back" class="settings-back" onclick={onClose}><Icon name="arrowLeft" size={14} /> {t('settings.backToApp')}</button>
+    <input data-guide="settings.search" class="settings-search" placeholder={t('settings.searchPlaceholder')} bind:value={query} />
     {#each filteredSections as g}
       <div class="settings-group-label eyebrow">{g.group}</div>
       {#each g.items as it}
-        <button class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>
-          <span class="ic"><Icon name={it.icon} /></span> {it.label}
-          <!-- The rank's bars on the three rows that are levels of the company
-               (owner, 14 ก.ย. 2026: "ในหน้าเมนู ทำสัญลักษณ์ยศแปะไว้ด้วย"): the
-               same emblem the faces wear, so the rail reads as the roster. -->
-          {#if it.id === 'main' || it.id === 'team' || it.id === 'agents'}
-            <span class="nav-rank"><RankPip tier={it.id === 'main' ? 'head' : it.id === 'team' ? 'agent' : 'helper'} word={false} /></span>
-          {/if}
-          <!-- The queue's count, on the row where each item is decided
-               (railPending): ตัวหลัก for the heads' and the projects', เกี่ยวกับคุณ
-               for the person's, พนักงาน / ลูกมือ for a delegate's. Until 14 ก.ย.
-               2026 the whole number sat on ตัวหลัก and pointed at nothing. -->
-          {#if (it.id === 'main' || it.id === 'you' || it.id === 'team' || it.id === 'agents') && railPending[it.id] > 0}
-            <span class="nav-count" title={t('settings.learningWaiting', { count: String(railPending[it.id]) })}>
-              {railPending[it.id]}
-            </span>
-          {/if}
-          <!-- The same mark, and only here: the gear in the sidebar stays the
-               learning queue's alone. A problem is worth finding when you come
-               looking and is not worth being pulled out of a chat for. -->
-          {#if it.id === 'issues' && cockpit.pendingIssues > 0}
-            <span class="nav-count" title={t('settings.issuesWaiting', { count: String(cockpit.pendingIssues) })}>
-              {cockpit.pendingIssues}
-            </span>
-          {/if}
-        </button>
+        {#if it.id === 'general'}
+          <button data-guide="settings.rail.general" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'appearance'}
+          <button data-guide="settings.rail.appearance" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'avatar'}
+          <button data-guide="settings.rail.avatar" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'you'}
+          <button data-guide="settings.rail.you" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'issues'}
+          <button data-guide="settings.rail.issues" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'models'}
+          <button data-guide="settings.rail.brain" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'main'}
+          <button data-guide="settings.rail.heads" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'teams'}
+          <button data-guide="settings.rail.teams" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'team'}
+          <button data-guide="settings.rail.agents" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'agents'}
+          <button data-guide="settings.rail.hands" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'voice'}
+          <button data-guide="settings.rail.voice" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'image'}
+          <button data-guide="settings.rail.image" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'studio'}
+          <button data-guide="settings.rail.studio" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'remote'}
+          <button data-guide="settings.rail.remote" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'account'}
+          <button data-guide="settings.rail.account" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'usage'}
+          <button data-guide="settings.rail.usage" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'about'}
+          <button data-guide="settings.rail.about" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else if it.id === 'sponsor'}
+          <button data-guide="settings.rail.sponsor" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {:else}
+          <button class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+        {/if}
       {/each}
     {/each}
     {#if noSearchResults}
@@ -5857,7 +5900,7 @@
             <div class="t">{t('settings.languageTitle')}</div>
             <div class="d">{t('settings.languageDesc')}</div>
           </div>
-          <select class="ctrl" value={i18n.locale} onchange={(e) => setLocale(e.currentTarget.value as Locale)}>
+          <select data-guide="settings.general.language" class="ctrl" value={i18n.locale} onchange={(e) => setLocale(e.currentTarget.value as Locale)}>
             {#each Object.entries(localeNames) as [code, name]}
               <option value={code}>{name}</option>
             {/each}
@@ -5868,7 +5911,7 @@
             <div class="t">{t('settings.themeTitle')}</div>
             <div class="d">{t('settings.themeDesc')}</div>
           </div>
-          <select class="ctrl" value={theme.name} onchange={(e) => applyTheme(e.currentTarget.value as ThemeName)}>
+          <select data-guide="settings.general.theme" class="ctrl" value={theme.name} onchange={(e) => applyTheme(e.currentTarget.value as ThemeName)}>
             {#each THEMES as th}
               <option value={th.value}>{th.label}</option>
             {/each}
@@ -5899,7 +5942,7 @@
             <div class="t">{t('settings.typeScaleTitle')}</div>
             <div class="d">{t('settings.typeScaleDesc')}</div>
           </div>
-          <div class="seg-ctrl">
+          <div data-guide="settings.general.font_scale" class="seg-ctrl">
             {#each TYPE_SCALES as s (s.value)}
               <button
                 type="button" class="seg-btn" class:selected={typeScale.name === s.value}
@@ -6021,19 +6064,55 @@
               <!-- Closing the add form here, on the click, and not inside
                    selectProvider: the boot also selects a row, and a form
                    opened while the page was still loading must survive it. -->
-              <button class="mset-prov" class:selected={selected === p.name} onclick={() => { customDraftOpen = false; selectProvider(p.name) }}>
-                <ProviderMark name={p.name} size={15} />
-                <span class="mset-prov-name">{p.name}</span>
-                <!-- Green only once the engine has said so. Unknown and not
-                     ready look different from each other and neither looks
-                     like ready. -->
-                <span
-                  class="dot" class:green={p.ready === true} class:unknown={p.ready === null}
-                  title={p.ready === null
-                    ? t('settings.providerChecking')
-                    : p.ready ? t('settings.providerReady') : t('settings.providerNotReady')}
-                ></span>
-              </button>
+              {#if p.name === 'ollama'}
+                <button data-guide="settings.brain.provider.ollama" class="mset-prov" class:selected={selected === p.name} onclick={() => { customDraftOpen = false; selectProvider(p.name) }}>
+                  <ProviderMark name={p.name} size={15} />
+                  <span class="mset-prov-name">{p.name}</span>
+                  <span class="dot" class:green={p.ready === true} class:unknown={p.ready === null} title={p.ready === null ? t('settings.providerChecking') : p.ready ? t('settings.providerReady') : t('settings.providerNotReady')}></span>
+                </button>
+              {:else if p.name === 'openai'}
+                <button data-guide="settings.brain.provider.openai" class="mset-prov" class:selected={selected === p.name} onclick={() => { customDraftOpen = false; selectProvider(p.name) }}>
+                  <ProviderMark name={p.name} size={15} />
+                  <span class="mset-prov-name">{p.name}</span>
+                  <span class="dot" class:green={p.ready === true} class:unknown={p.ready === null} title={p.ready === null ? t('settings.providerChecking') : p.ready ? t('settings.providerReady') : t('settings.providerNotReady')}></span>
+                </button>
+              {:else if p.name === 'anthropic'}
+                <button data-guide="settings.brain.provider.anthropic" class="mset-prov" class:selected={selected === p.name} onclick={() => { customDraftOpen = false; selectProvider(p.name) }}>
+                  <ProviderMark name={p.name} size={15} />
+                  <span class="mset-prov-name">{p.name}</span>
+                  <span class="dot" class:green={p.ready === true} class:unknown={p.ready === null} title={p.ready === null ? t('settings.providerChecking') : p.ready ? t('settings.providerReady') : t('settings.providerNotReady')}></span>
+                </button>
+              {:else if p.name === 'deepseek'}
+                <button data-guide="settings.brain.provider.deepseek" class="mset-prov" class:selected={selected === p.name} onclick={() => { customDraftOpen = false; selectProvider(p.name) }}>
+                  <ProviderMark name={p.name} size={15} />
+                  <span class="mset-prov-name">{p.name}</span>
+                  <span class="dot" class:green={p.ready === true} class:unknown={p.ready === null} title={p.ready === null ? t('settings.providerChecking') : p.ready ? t('settings.providerReady') : t('settings.providerNotReady')}></span>
+                </button>
+              {:else if p.name === 'google'}
+                <button data-guide="settings.brain.provider.google" class="mset-prov" class:selected={selected === p.name} onclick={() => { customDraftOpen = false; selectProvider(p.name) }}>
+                  <ProviderMark name={p.name} size={15} />
+                  <span class="mset-prov-name">{p.name}</span>
+                  <span class="dot" class:green={p.ready === true} class:unknown={p.ready === null} title={p.ready === null ? t('settings.providerChecking') : p.ready ? t('settings.providerReady') : t('settings.providerNotReady')}></span>
+                </button>
+              {:else if p.name === 'groq'}
+                <button data-guide="settings.brain.provider.groq" class="mset-prov" class:selected={selected === p.name} onclick={() => { customDraftOpen = false; selectProvider(p.name) }}>
+                  <ProviderMark name={p.name} size={15} />
+                  <span class="mset-prov-name">{p.name}</span>
+                  <span class="dot" class:green={p.ready === true} class:unknown={p.ready === null} title={p.ready === null ? t('settings.providerChecking') : p.ready ? t('settings.providerReady') : t('settings.providerNotReady')}></span>
+                </button>
+              {:else if p.name === 'openrouter'}
+                <button data-guide="settings.brain.provider.openrouter" class="mset-prov" class:selected={selected === p.name} onclick={() => { customDraftOpen = false; selectProvider(p.name) }}>
+                  <ProviderMark name={p.name} size={15} />
+                  <span class="mset-prov-name">{p.name}</span>
+                  <span class="dot" class:green={p.ready === true} class:unknown={p.ready === null} title={p.ready === null ? t('settings.providerChecking') : p.ready ? t('settings.providerReady') : t('settings.providerNotReady')}></span>
+                </button>
+              {:else}
+                <button class="mset-prov" class:selected={selected === p.name} onclick={() => { customDraftOpen = false; selectProvider(p.name) }}>
+                  <ProviderMark name={p.name} size={15} />
+                  <span class="mset-prov-name">{p.name}</span>
+                  <span class="dot" class:green={p.ready === true} class:unknown={p.ready === null} title={p.ready === null ? t('settings.providerChecking') : p.ready ? t('settings.providerReady') : t('settings.providerNotReady')}></span>
+                </button>
+              {/if}
               {#if customNames.has(p.name)}
                 <button class="icobtn tiny" disabled={busy === 'disable:' + p.name}
                   aria-label={t('settings.remove')} onclick={() => removeCustomProvider(p.name)}><Icon name="x" size={13} /></button>
@@ -6044,7 +6123,7 @@
             </div>
           {/each}
 
-          <button class="mset-prov mset-add-toggle" onclick={() => (showAddProvider = !showAddProvider)}>
+          <button data-guide="settings.brain.add_provider" class="mset-prov mset-add-toggle" onclick={() => (showAddProvider = !showAddProvider)}>
             <Icon name="plus" size={14} /> {t('settings.addProvider')}
           </button>
           {#if showAddProvider}
@@ -6119,7 +6198,7 @@
               <button class="ctrl" disabled={busy !== ''} onclick={() => (customDraftOpen = false)}>{t('settings.cancel')}</button>
             </div>
           {:else if selectedRow}
-            <div class="mset-head">
+            <div data-guide="settings.brain.hero" class="mset-head">
               <ProviderMark name={selected} size={22} />
               <span class="mset-name">{selected}</span>
               {#if customNames.has(selected)}
@@ -6342,6 +6421,7 @@
                       <span class="mprice dim">—</span>
                     {/if}
                     <button
+                      data-guide="settings.brain.test_connection"
                       class="icobtn tiny" title={t('settings.testConnection')} aria-label={t('settings.testConnection')}
                       disabled={connTesting[m]} onclick={() => testConnection(m)}
                     >{#if connTesting[m]}…{:else}<Icon name="plugZap" size={14} />{/if}</button>
@@ -6414,7 +6494,7 @@
             <div class="t">{t('settings.audioInput')}</div>
             <div class="d">{audioDevices.labelled ? t('settings.audioInputDesc') : t('settings.audioNamesHidden')}</div>
           </div>
-          <select class="ctrl" value={audioDevices.micId} onchange={(e) => setMicId(e.currentTarget.value)}>
+          <select data-guide="settings.voice.device_select" class="ctrl" value={audioDevices.micId} onchange={(e) => setMicId(e.currentTarget.value)}>
             <option value="">{t('settings.audioDefault')}</option>
             {#each audioDevices.mics as d (d.id)}<option value={d.id}>{d.label}</option>{/each}
           </select>
@@ -6432,7 +6512,7 @@
             {/if}
             {@render voiceInstall('stt', activeSttEngine, speechStatus)}
           </div>
-          <select class="ctrl" disabled={voicePageBusy} value={sttPick} onchange={(e) => pickSttEngine(e.currentTarget.value)}>
+          <select data-guide="settings.voice.switch" class="ctrl" disabled={voicePageBusy} value={sttPick} onchange={(e) => pickSttEngine(e.currentTarget.value)}>
             {#each sttEngines as eng (eng.id)}<option value={eng.id}>{eng.label}</option>{/each}
           </select>
         </div>
@@ -6558,7 +6638,7 @@
           </div>
           <!-- ลองฟัง runs the exact path the chat's ฟัง button takes, so what
                it proves is what the user will get. -->
-          <button class="ctrl" disabled={voicePageBusy || !!ttsStatus} onclick={previewTts}>
+          <button data-guide="settings.voice.test_play" class="ctrl" disabled={voicePageBusy || !!ttsStatus} onclick={previewTts}>
             {ttsPreviewing ? t('settings.ttsPreviewStop') : t('settings.ttsPreview')}
           </button>
           <select class="ctrl" disabled={voicePageBusy || ttsVoicesList.length === 0} value={ttsVoicePick} onchange={(e) => pickTtsVoice(e.currentTarget.value)}>
@@ -6842,7 +6922,7 @@
         <div class="pp-bar pf-bar">
           <button class="ctrl" onclick={() => (mainHead = null)}><Icon name="arrowLeft" size={14} /> {t('settings.agentBack')}</button>
           <div class="pp-bar-gap"></div>
-          <button class="ctrl" onclick={() => openHead(h === 'assistant' ? 'coding' : 'assistant')}>
+          <button data-guide="settings.head.switch_desk" class="ctrl" onclick={() => openHead(h === 'assistant' ? 'coding' : 'assistant')}>
             {t('settings.mainGoOther', { name: headLabel(h === 'assistant' ? 'coding' : 'assistant') })} <Icon name="arrowRight" size={12} />
           </button>
         </div>
@@ -6858,11 +6938,28 @@
               ['opening', 'messageSquare', t('settings.agentSecOpening')],
               ['memory', 'brain', t('settings.mainSecMemory')],
             ] as [id, icon, label] (id)}
-              <button type="button" role="tab" aria-selected={mainTab === id} class:on={mainTab === id}
-                onclick={() => (mainTab = id as MainTab)}>
-                <Icon name={icon as IconName} size={14} /><span>{label}</span>
-                {#if id === 'memory' && headPending(h).length > 0}<span class="ag-count ag-count-warn">{headPending(h).length}</span>{/if}
-              </button>
+              {#if id === 'identity'}
+                <button data-guide="settings.head.tab.identity" type="button" role="tab" aria-selected={mainTab === id} class:on={mainTab === id} onclick={() => (mainTab = id as MainTab)}>
+                  <Icon name={icon as IconName} size={14} /><span>{label}</span>
+                </button>
+              {:else if id === 'mcp'}
+                <button data-guide="settings.head.tab.mcp" type="button" role="tab" aria-selected={mainTab === id} class:on={mainTab === id} onclick={() => (mainTab = id as MainTab)}>
+                  <Icon name={icon as IconName} size={14} /><span>{label}</span>
+                </button>
+              {:else if id === 'skills'}
+                <button data-guide="settings.head.tab.skills" type="button" role="tab" aria-selected={mainTab === id} class:on={mainTab === id} onclick={() => (mainTab = id as MainTab)}>
+                  <Icon name={icon as IconName} size={14} /><span>{label}</span>
+                </button>
+              {:else if id === 'opening'}
+                <button data-guide="settings.head.tab.dialogue" type="button" role="tab" aria-selected={mainTab === id} class:on={mainTab === id} onclick={() => (mainTab = id as MainTab)}>
+                  <Icon name={icon as IconName} size={14} /><span>{label}</span>
+                </button>
+              {:else if id === 'memory'}
+                <button data-guide="settings.head.tab.memory" type="button" role="tab" aria-selected={mainTab === id} class:on={mainTab === id} onclick={() => (mainTab = id as MainTab)}>
+                  <Icon name={icon as IconName} size={14} /><span>{label}</span>
+                  {#if headPending(h).length > 0}<span class="ag-count ag-count-warn">{headPending(h).length}</span>{/if}
+                </button>
+              {/if}
             {/each}
           </div>
         </div>
@@ -6886,7 +6983,7 @@
               <div class="chair-name-edit">
                 <input class="ctrl key-input" placeholder="Aetox" bind:value={headNameDraft}
                   onkeydown={(e) => { if (e.key === 'Enter') saveHeadName(h) }} aria-label={t('settings.mainHeadName')} />
-                <button type="button" class="ctrl ctrl-primary" disabled={headNameDraft.trim() === (headNames[h] ?? '')}
+                <button data-guide="settings.head.save" type="button" class="ctrl ctrl-primary" disabled={headNameDraft.trim() === (headNames[h] ?? '')}
                   onclick={() => saveHeadName(h)}>{t('settings.save')}</button>
               </div>
             </div>
@@ -6903,7 +7000,7 @@
               </div>
               <div class="set-ctrl" style="display:flex; align-items:center; gap:8px;">
                 {#if deskFile?.overrides}
-                  <button type="button" class="ctrl" disabled={deskBusy} onclick={() => askResetDeskFile(h)}>
+                  <button data-guide="settings.head.reset" type="button" class="ctrl" disabled={deskBusy} onclick={() => askResetDeskFile(h)}>
                     <Icon name="rotateCw" size={13} /> {t('settings.mainDeskReset')}
                   </button>
                 {/if}
@@ -7203,7 +7300,7 @@
           </div>
           <!-- The footer's own store, written the footer's own way (on
                change, fire-and-forget): one name, two doors. -->
-          <input class="ctrl key-input" placeholder={t('settings.youNamePlaceholder')} bind:value={youName}
+          <input data-guide="settings.you.name_input" class="ctrl key-input" placeholder={t('settings.youNamePlaceholder')} bind:value={youName}
             onchange={() => saveProfileName(youName)} aria-label={t('settings.youName')} />
         </div>
       </div>
@@ -7265,7 +7362,7 @@
           </button>
         </div>
       {/if}
-      <div class="settings-card mem-desk">
+      <div data-guide="settings.you.about_input" class="settings-card mem-desk">
         {@render deskHead(userMemoryGroup)}
         {#if moveError?.scope === USER_SCOPE}
           <div class="mem-move-error"><Icon name="alertTriangle" size={13} /><span>{moveError.text}</span></div>
@@ -7744,12 +7841,12 @@
             <div class="t">{t('settings.tourTitle')}</div>
             <div class="d">{t('settings.tourDesc')}</div>
           </div>
-          <button class="ctrl" onclick={() => { openTour(); onClose() }}>{t('settings.tourAction')}</button>
+          <button data-guide="settings.about.tour_btn" class="ctrl" onclick={() => { openTour(); onClose() }}>{t('settings.tourAction')}</button>
         </div>
         <div class="set-row">
           <div class="set-txt">
             <div class="t">{t('settings.aboutVersion')}</div>
-            <div class="d">
+            <div data-guide="settings.about.version_info" class="d">
               {appVersion ? 'v' + appVersion : '—'}
               {#if updateStatus}
                 · {t(CHANNEL_LABELS[updateStatus.channel] ?? 'settings.aboutChannelUnknown')}
@@ -7759,7 +7856,7 @@
               {/if}
             </div>
           </div>
-          <button class="ctrl" disabled={updateChecking} onclick={checkNow}>
+          <button data-guide="settings.about.update_btn" class="ctrl" disabled={updateChecking} onclick={checkNow}>
             {updateChecking ? t('settings.aboutChecking') : t('settings.aboutCheck')}
           </button>
         </div>
@@ -7843,7 +7940,7 @@
             <div class="t">{t('settings.aboutReleaseNotes')}</div>
             <div class="d">{RELEASES_URL}</div>
           </div>
-          <button class="ctrl" onclick={() => BrowserOpenURL(RELEASES_URL)}>{t('settings.aboutOpenRelease')}</button>
+          <button data-guide="settings.about.github_btn" class="ctrl" onclick={() => BrowserOpenURL(RELEASES_URL)}>{t('settings.aboutOpenRelease')}</button>
         </div>
 
         <!-- Three ways to follow along, as one row rather than three.
@@ -7934,7 +8031,7 @@
              It comes from version.Credit through AppCredit rather than being
              written out here: a literal was a second place naming the licence,
              and on 2026-08-19 it named the old one (§148). -->
-        <div class="set-row">
+        <div data-guide="settings.about.license_btn" class="set-row">
           <div class="set-txt">
             <div class="t">Aetox</div>
             <div class="d">{appCredit}</div>

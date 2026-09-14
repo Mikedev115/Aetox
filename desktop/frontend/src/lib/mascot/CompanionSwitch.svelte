@@ -17,7 +17,7 @@
   const label = $derived(LABEL[i18n.locale] ?? LABEL.en)
 </script>
 
-<div class="plus-menu-item companion-row">
+<div class="plus-menu-item companion-row" data-guide="account.companion">
   <span class="ic"><Icon name="bot" size={14} /></span>
   {label}
   <label class="mswitch">

@@ -1491,16 +1491,52 @@
     {#each RAIL as grp (grp.labelKey)}
       <div class="settings-group-label eyebrow">{t(grp.labelKey)}</div>
       {#each grp.rows as pg (pg.id)}
-        <button class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
-          <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
-          {#if pg.id === 'mine' && notReady.length > 0}
-            <span class="nav-count" title={t('capability.navNotReady', { n: String(notReady.length) })}>{notReady.length}</span>
-          {:else if pg.id === 'agents' && agentsInNeed.length > 0}
-            <span class="nav-count" title={t('capability.navNeeds', { n: String(agentsInNeed.length) })}>{agentsInNeed.length}</span>
-          {:else if pg.id === 'skills' && skillIssues.length > 0}
-            <span class="nav-count" title={t('settings.skillIssues', { n: skillIssues.length })}>{skillIssues.length}</span>
-          {/if}
-        </button>
+        {#snippet navButton(dg: string | null)}
+          <button data-guide={dg} class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
+            <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
+            {#if pg.id === 'mine' && notReady.length > 0}
+              <span class="nav-count" title={t('capability.navNotReady', { n: String(notReady.length) })}>{notReady.length}</span>
+            {:else if pg.id === 'agents' && agentsInNeed.length > 0}
+              <span class="nav-count" title={t('capability.navNeeds', { n: String(agentsInNeed.length) })}>{agentsInNeed.length}</span>
+            {:else if pg.id === 'skills' && skillIssues.length > 0}
+              <span class="nav-count" title={t('settings.skillIssues', { n: skillIssues.length })}>{skillIssues.length}</span>
+            {/if}
+          </button>
+        {/snippet}
+        {#if pg.id === 'mine'}
+          <button data-guide="capability.rail.mcp" class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
+            <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
+            {#if notReady.length > 0}<span class="nav-count" title={t('capability.navNotReady', { n: String(notReady.length) })}>{notReady.length}</span>{/if}
+          </button>
+        {:else if pg.id === 'skills'}
+          <button data-guide="capability.rail.skills" class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
+            <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
+            {#if skillIssues.length > 0}<span class="nav-count" title={t('settings.skillIssues', { n: skillIssues.length })}>{skillIssues.length}</span>{/if}
+          </button>
+        {:else if pg.id === 'tools'}
+          <button data-guide="capability.rail.builtins" class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
+            <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
+          </button>
+        {:else if pg.id === 'computer'}
+          <button data-guide="capability.rail.computer" class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
+            <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
+          </button>
+        {:else if pg.id === 'connections'}
+          <button data-guide="capability.rail.connections" class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
+            <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
+          </button>
+        {:else if pg.id === 'prompts'}
+          <button data-guide="capability.rail.prompts" class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
+            <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
+          </button>
+        {:else}
+          <button class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
+            <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
+            {#if pg.id === 'agents' && agentsInNeed.length > 0}
+              <span class="nav-count" title={t('capability.navNeeds', { n: String(agentsInNeed.length) })}>{agentsInNeed.length}</span>
+            {/if}
+          </button>
+        {/if}
       {/each}
     {/each}
   </aside>
@@ -1667,11 +1703,15 @@
               {/if}
             </p>
             {#if idle.length + failed.length > 0}
-              <button class="ctrl" disabled={busy !== ''} onclick={testAll}>
+              <button data-guide="capability.mcp.refresh_btn" class="ctrl" disabled={busy !== ''} onclick={testAll}>
                 <Icon name="refreshCw" size={13} /> {busy.startsWith('testall:') ? t('capability.testingAll', { name: busy.slice(8) }) : t('capability.testAll')}
               </button>
+            {:else}
+              <button data-guide="capability.mcp.refresh_btn" class="ctrl" disabled={busy !== ''} onclick={testAll}>
+                <Icon name="refreshCw" size={13} /> {t('capability.testAll')}
+              </button>
             {/if}
-            <button class="ctrl" disabled={busy !== ''} onclick={addServer}><Icon name="plus" size={13} /> {t('capability.addServer')}</button>
+            <button data-guide="capability.mcp.add_btn" class="ctrl" disabled={busy !== ''} onclick={addServer}><Icon name="plus" size={13} /> {t('capability.addServer')}</button>
           </div>
 
           <!-- A server just added from the library: registered, and nobody
@@ -1742,7 +1782,7 @@
         <h2>{t('capability.navShelf')}</h2>
         <p class="muted set-sub">{t('capability.mcpShelfNote')}</p>
         {#if groupsPresent.length > 1}
-          <div class="feed-filter cap-filter">
+          <div data-guide="capability.mcp.search" class="feed-filter cap-filter">
             <button class="pill" class:on={shelfFilter === ''} onclick={() => setShelfFilter('')}>{t('capability.libAll')}</button>
             {#each groupsPresent as g (g)}
               <button class="pill" class:on={shelfFilter === g} onclick={() => setShelfFilter(g)}>{t(('capability.group_' + g) as TKey)}</button>
@@ -1775,7 +1815,7 @@
               <button class="linklike" onclick={reopenSignIn}>{t('settings.signInOpenPage')}</button>
               <button class="ctrl" onclick={() => abandonSignIn(p)}>{t('settings.signInCancel')}</button>
             {:else}
-              <button class="ctrl ctrl-primary cap-act" disabled={busy !== ''} onclick={() => add(p)}>
+              <button data-guide="capability.mcp.install_action" class="ctrl ctrl-primary cap-act" disabled={busy !== ''} onclick={() => add(p)}>
                 <Icon name="plus" size={14} />
                 <span class="t">{busy === p.name ? t('capability.adding') : t('capability.add')}</span>
               </button>
@@ -1845,7 +1885,7 @@
         <h2>{t('capability.navSkills')}</h2>
         <p class="muted set-sub">{t('capability.skillsLede')}</p>
         {#if loaded}
-          <div class="sec-head">
+          <div data-guide="capability.skills.search" class="sec-head">
             <p class="ag-reach cap-line">
               <b>{t('settings.skillCount', { n: String(skills.length) })}</b>
               <span class="sep">·</span><span class="w idle">{t('capability.skillLineBundled', { n: String(shelfBundled.length) })}</span>
@@ -1853,8 +1893,8 @@
               {#if skillIssues.length > 0}<span class="sep">·</span><span class="w bad">{t('capability.skillLineIssues', { n: String(skillIssues.length) })}</span>{/if}
             </p>
             <button class="ctrl" disabled={busy !== ''} onclick={refreshSkills}><Icon name="refreshCw" size={13} /> {busy === 'refresh-skills' ? t('settings.refreshing') : t('settings.refresh')}</button>
-            <button class="ctrl" onclick={() => OpenSkillsFolder()}><Icon name="folderOpen" size={13} /> {t('settings.skillsFolder')}</button>
-            <button class="ctrl ctrl-primary" onclick={() => (skillInstall = true)}><Icon name="plus" size={13} /> {t('capability.skillInstallTitle')}</button>
+            <button data-guide="capability.skills.folder_btn" class="ctrl" onclick={() => OpenSkillsFolder()}><Icon name="folderOpen" size={13} /> {t('settings.skillsFolder')}</button>
+            <button data-guide="capability.skills.add_btn" class="ctrl ctrl-primary" onclick={() => (skillInstall = true)}><Icon name="plus" size={13} /> {t('capability.skillInstallTitle')}</button>
           </div>
           <!-- Files in the right folder that still did not appear: a broken
                SKILL.md looks exactly like a folder nobody is scanning. -->
@@ -2060,7 +2100,7 @@
             <!-- Heading outside the card, not boxed in with the rows: the
                  card is the list, and a title sealed inside its own border
                  reads as one more entry in it. -->
-            <div class="group-head">
+            <div class="group-head" data-guide="capability.builtins.filter">
               <!-- Template literal, not concatenation: TOOL_CATEGORIES is a
                    literal union, so this resolves to a real message key and a
                    category added without its label becomes a compile error. -->
@@ -2123,7 +2163,7 @@
             <button class="ctrl" onclick={() => OpenPromptsFolder()}>{t('settings.promptsFolder')}</button>
           </div>
           <div class="pp-grid">
-            <button class="pp-card pp-new" onclick={() => newPreset()}>
+            <button class="pp-card pp-new" data-guide="capability.prompts.new_btn" onclick={() => newPreset()}>
               <span class="pp-plus">+</span>
               <span class="pp-newtxt">{t('settings.promptNew')}</span>
             </button>
@@ -2304,7 +2344,7 @@
               <span class="t">{t('settings.computerAnyApp')}</span>
               <span class="d">{t('settings.computerAnyAppDesc')}</span>
             </span>
-            <label class="mswitch">
+            <label class="mswitch" data-guide="capability.computer.toggle">
               <input type="checkbox" checked={computerOn} onchange={toggleComputer} />
               <span></span>
             </label>
@@ -2315,7 +2355,7 @@
                  owner's rule (9 ก.ย.): "แล้วต้องเลือกด้วยดิ จะให้ตัวไหนควบคุม".
                  A card raised while an agent waits is answered in a hurry; a
                  list read with nothing waiting is a decision. -->
-            <div class="set-row">
+            <div class="set-row" data-guide="capability.computer.apps_list">
               <span class="set-txt">
                 <span class="t">{t('settings.computerPick')}</span>
                 <span class="d">{t('settings.computerPickDesc')}</span>
@@ -2519,7 +2559,7 @@
                    connected service has nothing here: disconnecting is not a
                    thing to do by accident on a list. -->
               {#if row.source !== 'connection' && !open}
-                <button class="ctrl" onclick={() => (connOpen = row.id)}>
+                <button class="ctrl" data-guide="capability.connections.add_btn" onclick={() => (connOpen = row.id)}>
                   {t('settings.ghConnect')}
                 </button>
               {/if}

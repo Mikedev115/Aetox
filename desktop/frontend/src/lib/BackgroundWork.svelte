@@ -188,7 +188,7 @@
 </script>
 
 {#if shown.length > 0 || shownRuns.length > 0}
-  <div class="bgw">
+  <div class="bgw" data-guide="background.panel">
     <!-- Declared jobs first: a run is the frame the loose rows below it are
          exceptions to, and reading the exceptions first makes the group look
          like an afterthought. -->
@@ -207,7 +207,7 @@
             >
               <Icon name={runOpen(run) ? 'chevronDown' : 'chevronRight'} size={14} />
             </button>
-            <span class="bgw-mark" class:run={run.running} class:ok={!run.running}>
+            <span class="bgw-mark" data-guide="background.filter_running" class:run={run.running} class:ok={!run.running}>
               <Icon name={run.running ? 'loaderCircle' : 'check'} size={15} />
             </span>
             <b class="bgw-agent">{run.name}</b>
@@ -350,7 +350,7 @@
            delegation starting or being collected, which is worth easing; the
            running→done swap within it is the same row changing its mind, and
            folding that would read as one card leaving and another arriving. -->
-      <div class="bgw-item" transition:fold>
+      <div class="bgw-item" transition:fold data-guide="background.task_item">
       {#if task.state === 'running'}
         <!-- The state class the turn timeline's card carries too: the running
              beam is styled on `.run`, and these two are deliberately one card
@@ -389,6 +389,7 @@
                  would be shouting it. -->
             <button
               class="bgw-stop" type="button"
+              data-guide="background.task_stop"
               title={t('bgw.stopTask', { agent: task.agent })}
               aria-label={t('bgw.stopTask', { agent: task.agent })}
               onclick={() => onStop(task.id)}
@@ -477,7 +478,7 @@
              end spends another turn and invites it to start the job again.
              What is left is a receipt, and the counts on it are the point of
              one: how far it had got, and what it had already cost. -->
-        <div class="bgw-card is-done" class:is-stopped={task.state === 'stopped'}>
+        <div class="bgw-card is-done" data-guide="background.filter_done" class:is-stopped={task.state === 'stopped'}>
           <div class="bgw-top">
             <span class="bgw-face"><AgentMascot name={task.agent} size={34} state={task.state === 'failed' ? 'err' : task.state === 'stopped' ? '' : 'done'} /></span>
             <div class="bgw-said">
@@ -523,6 +524,7 @@
         </button>
         <button
           class="bgw-stop" type="button"
+          data-guide="background.clear_btn"
           title={t('bgw.stopQueue')}
           aria-label={t('bgw.stopQueue')}
           onclick={onStopQueue}

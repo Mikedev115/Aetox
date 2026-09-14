@@ -48,7 +48,7 @@
           <div class="t">{t('settings.studioAddOwn')}</div>
           <div class="d">{t('settings.studioAddOwnDesc')}</div>
         </div>
-        <button class="ctrl ctrl-primary" disabled={scanning} onclick={() => { onAddFolder(); onClose() }}><Icon name="plus" size={14} /> {t('settings.studioAdd')}</button>
+        <button class="ctrl ctrl-primary" data-guide="studio.import_btn" disabled={scanning} onclick={() => { onAddFolder(); onClose() }}><Icon name="plus" size={14} /> {t('settings.studioAdd')}</button>
       </div>
     </section>
 
