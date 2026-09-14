@@ -127,7 +127,7 @@ func (a *App) ImportSession() (string, error) {
 	if err != nil || path == "" {
 		return "", err
 	}
-	return a.withHostFile(path, a.api.ImportSessionFrom)
+	return a.withHostFile(path, 0, a.api.ImportSessionFrom)
 }
 
 // PickPresetImage opens the native picker and, if the user chose a file,
@@ -143,7 +143,7 @@ func (a *App) PickPresetImage(name string) (string, error) {
 	if err != nil || strings.TrimSpace(path) == "" {
 		return "", err
 	}
-	return a.withHostFile(path, func(p string) (string, error) { return a.api.SetPresetImageFrom(name, p) })
+	return a.withHostFile(path, 0, func(p string) (string, error) { return a.api.SetPresetImageFrom(name, p) })
 }
 
 // InstallSkillFromZip asks for a skill archive and installs it.
@@ -162,7 +162,7 @@ func (a *App) InstallSkillFromZip() (string, error) {
 	if err != nil || strings.TrimSpace(path) == "" {
 		return "", err
 	}
-	return a.withHostFile(path, a.api.InstallSkillsFromZipAt)
+	return a.withHostFile(path, 0, a.api.InstallSkillsFromZipAt)
 }
 
 // AddSpaceContext asks for files and copies them into a project's context

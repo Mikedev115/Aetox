@@ -74,6 +74,10 @@ type HelloResult struct {
 	OS       string `json:"os"`
 	Arch     string `json:"arch"`
 	PID      int    `json:"pid"`
+	// Hostname is the machine the engine runs on — what a screen attached by
+	// hand (AETOX_ENGINE_ADDR) compares with its own to learn whether a path
+	// here is a path there (desktop/host_files.go). Empty from an older engine.
+	Hostname string `json:"hostname,omitempty"`
 }
 
 // ToolCallParams is one call on a window tool.
@@ -169,6 +173,7 @@ func (s *Server) hello(_ context.Context, _ string, params json.RawMessage) (any
 		OS:       runtime.GOOS,
 		Arch:     runtime.GOARCH,
 		PID:      os.Getpid(),
+		Hostname: hostname(),
 	}, nil
 }
 
@@ -302,3 +307,12 @@ var (
 	_ skill.Packed = (*screenTool)(nil)
 	_ skill.Guided = (*screenTool)(nil)
 )
+
+// hostname is this machine's name, "" when it has none to give.
+func hostname() string {
+	h, err := os.Hostname()
+	if err != nil {
+		return ""
+	}
+	return h
+}

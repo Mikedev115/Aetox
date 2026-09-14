@@ -53,9 +53,10 @@ func (a *App) providerTransport(canonical, wireFormat string) model.Transport {
 // this machine, which is what a host's "localhost" means once the request
 // is sent from here. Anywhere else the request goes out bare and fails at
 // the far end with the provider's own words, rather than carrying the key
-// to whoever asked.
+// to whoever asked. An engine attached by hand (AETOX_ENGINE_ADDR) that
+// named another machine in its hello is on a host too (elsewhere).
 func (a *App) credentialMayRide(provider string, u *url.URL) bool {
-	if a.engine == nil || !a.engine.remoteNow() {
+	if a.engine == nil || !a.engine.elsewhere() {
 		return true
 	}
 	if u == nil {

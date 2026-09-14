@@ -99,6 +99,10 @@ type localEngine struct {
 	// since the last connection, which is the window's cue to reload.
 	target   engineTarget
 	switched bool
+	// hello is what the engine said of itself when this wire was opened —
+	// its OS and hostname are how an attached engine (AETOX_ENGINE_ADDR) is
+	// told apart from one on this machine (elsewhere).
+	hello rpc.HelloResult
 }
 
 // engineTarget is where the next engine is.
@@ -159,15 +163,6 @@ func (e *localEngine) endpoint() (network, address, token string, ok bool) {
 		return "", "", "", false
 	}
 	return e.proc.network, e.proc.address, e.token, true
-}
-
-// remoteNow reports whether the engine the window is on is another
-// machine's — the one case in which the screen's signer checks where a
-// credential is going (credentialMayRide).
-func (e *localEngine) remoteNow() bool {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return e.target.mode == modeRemote
 }
 
 // EngineStatus is the chip's binding: the state now, for a frontend that
@@ -537,10 +532,35 @@ func (e *localEngine) connect(ctx context.Context, p *engineProcess) error {
 	hctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	screen := appScreen{e.app}
-	_, err := e.client.Hello(hctx, version.Current, screen.WindowTools(nil), []string{
+	res, err := e.client.Hello(hctx, version.Current, screen.WindowTools(nil), []string{
 		rpc.FeatureDialogs, rpc.FeatureFileManager, rpc.FeatureWindowTools, rpc.FeatureProviderProxy,
 	})
+	if err == nil {
+		e.mu.Lock()
+		e.hello = res
+		e.mu.Unlock()
+	}
 	return err
+}
+
+// elsewhere reports whether the engine's disk is another machine's: a host
+// over ssh always; an engine attached by hand (AETOX_ENGINE_ADDR) when its
+// hello named another hostname — or, from an engine too old to say, another
+// OS. A child of this process never is.
+func (e *localEngine) elsewhere() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.target.mode == modeRemote {
+		return true
+	}
+	if strings.TrimSpace(os.Getenv("AETOX_ENGINE_ADDR")) == "" {
+		return false
+	}
+	if e.hello.Hostname != "" {
+		here, _ := os.Hostname()
+		return !strings.EqualFold(e.hello.Hostname, here)
+	}
+	return e.hello.OS != "" && e.hello.OS != runtime.GOOS
 }
 
 // attach is spawn for an engine this window did not start: AETOX_ENGINE_ADDR
