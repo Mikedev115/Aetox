@@ -1612,7 +1612,7 @@ export const en: Record<keyof typeof th, string> = {
   'settings.mainHeadBadge': 'main',
   'settings.mainSecMemory': 'Memory',
   'settings.mainHeadName': 'Name',
-  'settings.mainHeadNameHint': 'Your {desk}'s name',
+  'settings.mainHeadNameHint': 'Your {desk}\'s name',
   'settings.mainSecMcp': 'MCP',
   'settings.mainSecSkills': 'Skills',
   'settings.mainMcpTitle': 'MCP servers {name} carries',
