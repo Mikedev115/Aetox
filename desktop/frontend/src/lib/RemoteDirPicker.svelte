@@ -17,11 +17,15 @@
   let {
     host,
     start = '',
+    title = '',
     onPick,
     onCancel,
   }: {
     host: string
     start?: string
+    /** The dialog's own title when a Go door raised the picker in place of
+     *  the native dialog (screen:pickdir); the default names the host. */
+    title?: string
     onPick: (path: string) => void
     onCancel: () => void
   } = $props()
@@ -84,7 +88,8 @@
 >
   <button class="confirm-backdrop" aria-label={t('settings.cancel')} onclick={onCancel}></button>
   <div class="confirm-card picker-card">
-    <h3 id="picker-title" class="confirm-title">{t('picker.title', { host })}</h3>
+    <h3 id="picker-title" class="confirm-title">{title || t('picker.title', { host })}</h3>
+    {#if title}<p class="muted picker-host">{t('picker.title', { host })}</p>{/if}
     <div class="picker-path">
       <button class="ctrl picker-up" disabled={!listing?.parent || busy} onclick={() => listing?.parent && go(listing.parent)} aria-label={t('picker.up')} title={t('picker.up')}>
         <Icon name="cornerLeftUp" size={14} />
@@ -124,3 +129,9 @@
     </div>
   </div>
 </div>
+
+<style>
+  /* Under a door's own title, the host the folder is on — the line the
+     default title carries on its own. */
+  .picker-host { margin: -6px 0 6px; font-size: var(--fs-sm); }
+</style>

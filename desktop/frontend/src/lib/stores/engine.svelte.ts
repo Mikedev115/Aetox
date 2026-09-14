@@ -18,7 +18,14 @@ export const engine = $state({
   heard: false,
   /** The remote folder picker is up (RemoteDirPicker.svelte). */
   pickerOpen: false,
+  /** A door on the Go side is waiting for a folder on the host (§248 phase
+   *  4, host_files.go): the picker is up for it, titled as the dialog would
+   *  have been, and AnswerHostDir carries the pick back by this id. */
+  hostDirAsk: null as HostDirAsk | null,
 })
+
+/** One folder question from the screen's Go side — the screen:pickdir event. */
+export type HostDirAsk = { id: string; title: string; start: string }
 
 export function applyEngineStatus(st: main.EngineStatus): void {
   engine.heard = true
@@ -46,4 +53,5 @@ export function resetEngineStore(): void {
   } as main.EngineStatus
   engine.heard = false
   engine.pickerOpen = false
+  engine.hostDirAsk = null
 }

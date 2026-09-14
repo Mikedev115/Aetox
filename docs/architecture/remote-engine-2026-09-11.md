@@ -410,11 +410,11 @@ one before. The top bar wears the host's name as a badge while the engine is
 there, because the window otherwise looks exactly as it does at home. A switch is not a restart — it does not count toward the three
 a minute — but a tunnel that drops does, and is redialed without touching
 the engine (the next spawn's probe finds it running). *The picker* is
-`RemoteDirPicker.svelte` on `ListDir`/`HomeDir`; only the project door
-(`openFolder`) uses it in v1 — the other native dialogs (add a workspace
-folder, browse a folder, import a file) still open this machine's disks
-when the engine is on a host, and hand it a path it cannot read; phase 4's
-`/file/attach` is the door for those. The manual road stays:
+`RemoteDirPicker.svelte` on `ListDir`/`HomeDir`; the project door
+(`openFolder`) raises it from the frontend, and since phase 4 every other
+folder door raises it from the Go side (`screen:pickdir`, §10 phase 4) —
+the file dialogs stay this machine's and what they pick goes up the wire
+(`/upload/`). The manual road stays:
 `AETOX_ENGINE_ADDR` + `AETOX_ENGINE_TOKEN[_FILE]` attach the window to an
 engine somebody else started (`engine_local.go`'s `attach`), for a host the
 Settings page cannot describe. The fake host that pins all of this on
@@ -805,12 +805,12 @@ is what the first session's "tunnel exit 0" was — a WSL fact, not ours.
 
 **Not done, on purpose.** The streamlocal spike (§5 step 4) — the TCP road is
 built and the socket road is an improvement to make on a host that can prove
-it. `Setpgid` for a local Linux child — still no local child on Linux. A
+it. `Setpgid` for a local Linux child — still no local child on Linux. ~~A
 window on a host still opens this machine's dialogs for every door but the
 project's (§5 as built); `revealInFileManager` and `OpenExport` still answer
-with a host path. The three-a-minute rule counts tunnel drops: a flaky
-network reaches `failed` after three and asks for a press. `--idle-exit` on
-the host is 30 m fixed.
+with a host path.~~ — phase 4, below. The three-a-minute rule counts tunnel
+drops: a flaky network reaches `failed` after three and asks for a press.
+`--idle-exit` on the host is 30 m fixed.
 
 **The first real host — 2026-09-12, later the same day.** The owner has no
 Linux machine, so WSL (Ubuntu 26.04, systemd, `openssh-server` on port 2222,
@@ -833,6 +833,33 @@ window went black after the switch — `WindowReloadApp` (navigate to the
 start URL) in the native webview; `WindowReload` (reload in place) is what
 a switch does now, and the top bar names the host so "where am I" has an
 answer on screen.
+
+### Phase 4 — 2026-09-14, on `main`
+
+The window's doors with the engine on a host. Trigger: a user's report,
+*"ควบคุมเครื่องระยะไกลอัปโหลดรูปไม่ได้"* — the paperclip's dialog answered
+with `C:\Users\…\photo.png`, `SaveChatImage` ran on the Linux engine, and
+`os.Stat` said no such file. The survey found the same shape behind nine
+more doors, and the reverse shape behind every reveal. One road for each.
+
+| piece | what it is | pinned by |
+|---|---|---|
+| `internal/engine/rpc/upload.go` | `PUT /upload/?name=` on the engine's listener, behind the token like `/file/`: the body streams into `<DataRoot>/inbox/<id>/<name>` and the answer is that path — a path on the engine's disk, which then goes to the binding the dialog was always going to call. `DELETE /upload/<id>` clears it; `sweepInbox` at server start takes landings older than a day. The screen's half: `UploadFile`, `Discard`; and `FetchFile` (file.go) for the one reveal that can cross | `upload_test.go`: lands under the inbox with the file's own name and bytes, goes on Discard; 401 without the token, 400 without a name, folders in a name dropped; a body that ends early leaves nothing; the sweep takes the old and keeps the fresh |
+| `desktop/host_files.go` | `onHost(local)` — at home the path as it is, on a host the trip up and a `done` that discards; `SaveChatImage`, `SaveChatFile`, `AddSpaceContextFiles` are the screen's now (the generator skips them) and take the trip in front of the engine's own; `pickHostDir(title, start)` — the native dialog at home, on a host the `screen:pickdir` event and a wait for `AnswerHostDir` (the door blocks the way the engine's own questions do; a window that never answers is let go after 10 min, as a dismissed dialog); `errOnHost` — a reveal names the host and the path; `openHostFileCopy` — "open with its program" fetches through `/file/` into a temp folder here and opens the copy | `host_files_test.go`: the attachment reaches the project on the host with its extension and the inbox is empty after; at home no trip; a missing file names the host; context files go up together and the missing one is named without stopping the others; a folder door raises the event with a title, takes the answer, does not hang on a dismiss or on an answer nobody waits for; a reveal refuses with host and path and opens nothing; a file opens as a copy with its own name and bytes, and a path outside the sandbox is the engine's refusal before any fetch |
+| `desktop/screen_doors.go` | `ImportSession`, `PickPresetImage`, `InstallSkillFromZip`, `AddSpaceContext` through `withHostFile`; `AddWorkspaceFolder`, `PickCodeProjectsDir`, `BrowseFolder`, `AddStudioLibrary` through `pickHostDir`; `reveal` refuses on a host; `OpenFileExternally` fetches | the twins table (`screen_doors_test.go`) unchanged — every door still has its engine half |
+| frontend | `engine.svelte.ts` `hostDirAsk`; `App.svelte` listens for `screen:pickdir`, shows `RemoteDirPicker` with the door's title and start, answers through `AnswerHostDir` — and on a host routes a drop anywhere but the composer through the desk's road (`openPathsInWorkbench`: a copy brought in, then opened) where it used to be a silent nothing; `RemoteDirPicker.svelte` takes `title` | `remoteEngine.test.ts`: the picker wears the door's title, names the host under it, opens where the door said |
+| `desktop/host_files_smoke_test.go` | `TestRemoteSmokeHostFiles` — the same doors on a REAL host over the REAL ssh (`AETOX_REMOTE_SMOKE=wsl AETOX_ENGINE_LINUX=…`): attach, inbox clear, the folder door through the event, the refusal, the fetched copy | run against `wsl` the day it was written: connect 1.1 s, a PNG attached through the tunnel in **33 ms**, the copy fetched and opened |
+
+What stayed as it was, and why: paste, the browser's shot, the mic —
+bytes that already crossed as data URLs; the exports — engine bytes to a
+dialog here, so they never had the problem; `OpenArtifact` and every
+*folder* reveal — a folder cannot be carried, the error names it and the
+terminal pane is on that machine already. What a person on a host still
+notices: a 2 GB clip is written twice there (the inbox, then the project);
+the second copy is the engine's own `saveChatAttachment` and a rename would
+save it — not done, because the inbox is under DataRoot and the project can
+be on another filesystem, and a copy that always works beat a rename that
+sometimes does.
 
 ### The console as a screen — 2026-09-14, beside the phases
 

@@ -70,6 +70,8 @@ export function AgentsFolderPath():Promise<string>;
 
 export function AllowComputerApp(arg1:string):Promise<void>;
 
+export function AnswerHostDir(arg1:string,arg2:string):Promise<void>;
+
 export function AnswerUserQuestion(arg1:string,arg2:string):Promise<void>;
 
 export function AnyTurnRunning():Promise<boolean>;

@@ -43,10 +43,6 @@ func (a *App) AddMCPServer(name string, command []string) error {
 	return a.api.AddMCPServer(name, command)
 }
 
-func (a *App) AddSpaceContextFiles(name string, picked []string) ([]string, error) {
-	return a.api.AddSpaceContextFiles(name, picked)
-}
-
 func (a *App) AddStudioLibraryAt(dir string) (bool, error) {
 	return a.api.AddStudioLibraryAt(dir)
 }
@@ -1009,14 +1005,6 @@ func (a *App) SaveBrowserShot(png []byte, marked bool) (string, error) {
 
 func (a *App) SaveChairStarters(name string, locale string, set subagent.StarterSet) error {
 	return a.api.SaveChairStarters(name, locale, set)
-}
-
-func (a *App) SaveChatFile(sourcePath string) (string, error) {
-	return a.api.SaveChatFile(sourcePath)
-}
-
-func (a *App) SaveChatImage(sourcePath string) (string, error) {
-	return a.api.SaveChatImage(sourcePath)
 }
 
 func (a *App) SaveChatImageData(dataURL string) (string, error) {

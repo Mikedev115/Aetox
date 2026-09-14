@@ -46,6 +46,7 @@ func NewServer(token string, build func(engine.Screen) *engine.Engine) *Server {
 	s.dataRoot, _ = config.DataRoot()
 	s.files = engine.FileHandler(s.engine, FilePath)
 	s.shelf = engine.ShelfHandler(s.engine, ShelfPath)
+	sweepInbox(s.dataRoot)
 	s.Handle(MethodHello, s.hello)
 	// The provider stream's two notifications land on the peer's streams.
 	s.OnNotification(MethodProviderChunk, func(_ string, params json.RawMessage) { s.peer.streams.chunk(params) })
@@ -75,12 +76,14 @@ func (s *Server) OnNotification(method string, n Notifier) {
 }
 
 // Handler is the HTTP side of the listener: the WebSocket upgrade at
-// RPCPath, and the open project's files at FilePath, behind the same token.
+// RPCPath, and behind the same token the open project's files at FilePath,
+// the shelf, and the screen's uploads (upload.go).
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc(RPCPath, s.accept)
 	mux.Handle(FilePath, s.guarded(s.files))
 	mux.Handle(ShelfPath, s.guarded(s.shelf))
+	mux.Handle(UploadPath, s.guarded(http.HandlerFunc(s.upload)))
 	return mux
 }
 

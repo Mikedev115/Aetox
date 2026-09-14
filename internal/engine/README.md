@@ -58,7 +58,9 @@ stale one fails the build.
 **The wire itself** is [rpc/](rpc/): `Conn`, `Client`, `Server`,
 `ScreenPeer`, the provider proxy (a model call leaves here unsigned and is
 signed on the screen), the window-tool stubs (`hello` announces them,
-`screen.tool` runs them), `/file/`. The design doc §4 has the message shapes
+`screen.tool` runs them), `/file/`, and `/upload/` — a file from the
+screen's machine landed in the engine's inbox so a dialog's pick can reach a
+binding when the engine is on a host (phase 4). The design doc §4 has the message shapes
 and §10 what was measured: about 60 µs a round trip, 62 frames of events per
 test turn.
 

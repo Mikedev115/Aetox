@@ -18,9 +18,13 @@ package main
 // (a folder to browse, a project to add), and to be bytes moving between two
 // machines everywhere else (an export, an attachment).
 //
-// The reveal doors stay, in remote mode, the one thing this file cannot do: a
-// folder on the engine's host cannot be opened in this machine's file manager.
-// That will be a named error shown as it is, not a button that vanishes.
+// With the engine on a host (§248 phase 4, host_files.go) the halves meet
+// differently: a file picked here goes up the wire before its binding is
+// called (onHost), a folder is picked THERE through the window's remote
+// picker (pickHostDir), and a reveal — the one thing this file cannot do
+// across two machines — answers with a named error carrying the path, not
+// a button that vanishes. A file "opened with its program" is the exception:
+// a copy is fetched and that is opened, and said to be a copy.
 
 import (
 	"os"
@@ -123,7 +127,7 @@ func (a *App) ImportSession() (string, error) {
 	if err != nil || path == "" {
 		return "", err
 	}
-	return a.api.ImportSessionFrom(path)
+	return a.withHostFile(path, a.api.ImportSessionFrom)
 }
 
 // PickPresetImage opens the native picker and, if the user chose a file,
@@ -139,7 +143,7 @@ func (a *App) PickPresetImage(name string) (string, error) {
 	if err != nil || strings.TrimSpace(path) == "" {
 		return "", err
 	}
-	return a.api.SetPresetImageFrom(name, path)
+	return a.withHostFile(path, func(p string) (string, error) { return a.api.SetPresetImageFrom(name, p) })
 }
 
 // InstallSkillFromZip asks for a skill archive and installs it.
@@ -158,7 +162,7 @@ func (a *App) InstallSkillFromZip() (string, error) {
 	if err != nil || strings.TrimSpace(path) == "" {
 		return "", err
 	}
-	return a.api.InstallSkillsFromZipAt(path)
+	return a.withHostFile(path, a.api.InstallSkillsFromZipAt)
 }
 
 // AddSpaceContext asks for files and copies them into a project's context
@@ -170,7 +174,7 @@ func (a *App) AddSpaceContext(name string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return a.api.AddSpaceContextFiles(name, picked)
+	return a.AddSpaceContextFiles(name, picked) // the screen's: the trip up, on a host
 }
 
 // AddWorkspaceFolder asks the user for a folder and gives it the same rights
@@ -180,9 +184,7 @@ func (a *App) AddWorkspaceFolder() ([]engine.WorkspaceFolder, error) {
 		// Refused before the dialog, with the reason AddWorkspaceFolderAt gives.
 		return a.api.AddWorkspaceFolderAt("")
 	}
-	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
-		Title: "เพิ่มโฟลเดอร์เข้าโปรเจกต์นี้",
-	})
+	dir, err := a.pickHostDir("เพิ่มโฟลเดอร์เข้าโปรเจกต์นี้", "")
 	if err != nil {
 		return a.api.WorkspaceFolders(), err
 	}
@@ -213,10 +215,7 @@ func (a *App) OpenProjectFolder() (engine.ProjectStatus, error) {
 // with the folder now in force — the one chosen, or the one already set when
 // the dialog was dismissed.
 func (a *App) PickCodeProjectsDir() (string, error) {
-	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
-		Title:            "โฟลเดอร์ที่จะเก็บโปรเจกต์ใหม่",
-		DefaultDirectory: a.api.CodeProjectsDir(),
-	})
+	dir, err := a.pickHostDir("โฟลเดอร์ที่จะเก็บโปรเจกต์ใหม่", a.api.CodeProjectsDir())
 	if err != nil {
 		return a.api.CodeProjectsDir(), err
 	}
@@ -237,9 +236,7 @@ func (a *App) BrowseFolder() (string, error) {
 		// Refused before the dialog, with the reason BrowseFolderAt gives.
 		return a.api.BrowseFolderAt("")
 	}
-	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
-		Title: "Browse a folder",
-	})
+	dir, err := a.pickHostDir("Browse a folder", "")
 	if err != nil {
 		return "", err
 	}
@@ -250,9 +247,7 @@ func (a *App) BrowseFolder() (string, error) {
 // starts cataloguing it (studio_library.go). Returns false when the dialog was
 // dismissed or a scan is already running — cancelling is not a failure.
 func (a *App) AddStudioLibrary() (bool, error) {
-	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
-		Title: "เพิ่มโฟลเดอร์วัตถุดิบเข้าคลังสตูดิโอ",
-	})
+	dir, err := a.pickHostDir("เพิ่มโฟลเดอร์วัตถุดิบเข้าคลังสตูดิโอ", "")
 	if err != nil {
 		return false, err
 	}
@@ -266,9 +261,14 @@ func (a *App) AddStudioLibrary() (bool, error) {
 
 // reveal opens a path the engine answered with in this machine's file manager
 // (or its default program, for a file): one implementation, on every platform.
+// With the engine on a host the path is there and the file manager is here,
+// and the door says so (errOnHost) — every caller shows the error it gets.
 func (a *App) reveal(path string, err error) error {
 	if err != nil {
 		return err
+	}
+	if a.engineOnHost() {
+		return a.errOnHost(path)
 	}
 	return a.revealInFileManager(path)
 }
@@ -338,8 +338,17 @@ func (a *App) OpenSpeechModelDir(dir string) error { return a.reveal(a.api.Speec
 // every other produced file in this app does.
 func (a *App) OpenExport(path string) error { return a.reveal(a.exportPath(path)) }
 
-// OpenFileExternally opens a file of the open project with its default program.
+// OpenFileExternally opens a file of the open project with its default
+// program. On a host the file is fetched first and a copy is what opens
+// (openHostFileCopy) — the one reveal that can cross the wire, because a
+// file, unlike a folder, can be carried.
 func (a *App) OpenFileExternally(relPath string) error {
+	if a.engineOnHost() {
+		if _, err := a.api.ProjectFilePath(relPath); err != nil {
+			return err // the engine's own refusal — outside the sandbox, not there
+		}
+		return a.openHostFileCopy(relPath)
+	}
 	return a.reveal(a.api.ProjectFilePath(relPath))
 }
 

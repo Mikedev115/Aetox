@@ -14,9 +14,14 @@ package rpc
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -111,4 +116,46 @@ func FileProxy(endpoint Endpoint, next http.Handler) http.Handler {
 		}
 		proxy.ServeHTTP(w, r)
 	})
+}
+
+// FetchFile is the screen's own read of one project file through the
+// engine's /file/ door — the panes' road, taken by Go: a copy of a file
+// that is on the engine's machine, written to local on this one
+// (host_files.go's "open with its program" when the engine is on a host).
+func FetchFile(ctx context.Context, endpoint Endpoint, relPath, local string) error {
+	network, address, token, ok := endpoint()
+	if !ok {
+		return errNoEngine
+	}
+	// Escaped a segment at a time, the way the webview's own fetch of
+	// /aetox-file/<rel> arrives: a space or a Thai name in the path is a
+	// file, not a different URL.
+	segments := strings.Split(strings.TrimPrefix(filepath.ToSlash(relPath), "/"), "/")
+	for i, seg := range segments {
+		segments[i] = url.PathEscape(seg)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://engine"+FilePath+strings.Join(segments, "/"), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := uploadClient(network, address).Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
+		return fmt.Errorf("%s: %s", resp.Status, strings.TrimSpace(string(msg)))
+	}
+	f, err := os.OpenFile(local, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(f, resp.Body); err != nil {
+		f.Close()
+		os.Remove(local)
+		return err
+	}
+	return f.Close()
 }
