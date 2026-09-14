@@ -28,6 +28,35 @@ func run(t *testing.T, tool *MemoryTool, args map[string]any) (string, error) {
 	return out.Content, err
 }
 
+// What the work taught the assistant is written under its own word and lands
+// in the head's own file, beside what the computer is — never in the person's
+// (§266's layers; owner, 14 ก.ย. 2026: "ไม่ค่อยเห็นมันจำอะไรเกี่ยวกับตัวเองเลย").
+// At a desk with its own memory that file is the desk's, the same as machine.
+func TestSelfLandsInTheHeadsOwnFile(t *testing.T) {
+	isolate(t)
+	rec := &recorder{}
+	tool := &MemoryTool{Scope: MainScope, Proposer: rec}
+	if _, err := run(t, tool, map[string]any{"about": "self", "text": "ไมค์ชอบให้สรุปสั้นก่อนแล้วค่อยลงรายละเอียด ตอบยาวทีไรโดนตัดทุกที", "why": "สามรอบแล้ว"}); err != nil {
+		t.Fatalf("self: %v", err)
+	}
+	if rec.got[0].Scope != MainScope {
+		t.Fatalf("scope = %q; what the assistant learned is the assistant's file, not the user's", rec.got[0].Scope)
+	}
+	desk := &MemoryTool{Scope: MainScope, Desk: "coding", ProjectFirst: true, Proposer: rec}
+	if _, err := run(t, desk, map[string]any{"about": "self", "text": "x"}); err != nil {
+		t.Fatalf("self at a desk: %v", err)
+	}
+	if rec.got[1].Scope != ModeScope("coding") {
+		t.Fatalf("scope = %q; at โต๊ะโค้ด the assistant's file is the desk's own", rec.got[1].Scope)
+	}
+	if _, err := run(t, tool, map[string]any{"about": "me", "text": "x"}); err == nil {
+		t.Fatal("an invented about must be refused, not routed")
+	}
+	if def := tool.definitionText(); !strings.Contains(def, "about: self") || !strings.Contains(def, "their name is not one of them") {
+		t.Fatalf("the text the model reads must offer self and rule the name out: %s", def)
+	}
+}
+
 // The tool proposes; it never writes. This is the guarantee the whole approval
 // design rests on, so it is asserted against the disk rather than against the
 // proposal list.

@@ -9004,7 +9004,7 @@ Position B, beside เอเจนเฉพาะทาง, over A (first row of
 ### 266.3 Things decided along the way
 
 - **One row of markup for a proposal, two pages.** The approve/refuse row and the history row became snippets (`pendingRow`, `decidedRow`) drawn on เกี่ยวกับคุณ, on each head, and on a delegate's page — filtered by scope, never copied.
-- **The rail's count** (`cockpit.pendingLearned`) moved from การเรียนรู้ to ตัวหลัก. The engine counts one number; most of it is decided there.
+- **The rail's count** (`cockpit.pendingLearned`) moved from การเรียนรู้ to ตัวหลัก. The engine counts one number; most of it is decided there. *(Superseded the same day, §273: the count is split by where each item is decided.)*
 - **"—" is out** of every Thai string written today, on the owner's word; the dash the app drew for a missing description is gone too.
 - **Hooks** got a page in the morning (908ed2dd) and lost it in the afternoon (4341edb0, the other session, on the owner's word after seeing "0 hook"): a page most users would open empty is a rail row that costs more explaining than it is worth. `internal/hook` and `hooks.json` stay as they were.
 
@@ -9164,6 +9164,22 @@ Minutes later the SoC line came out again — owner: *"เดี๋ยวถ้�
 **The sibling that was only a mention.** `aetox-architect` routes a raw idea with no code to `$idea-to-architecture-agent` and, when that skill is missing, tells the user to install it, which in this app nobody can. The skill exists (aetox-skills/idea-to-architecture-agent, MIT, the same family as the architect's source) and is now bundled as `aetox-idea-to-architecture`, ported the way the architect was (`7a952aa1`): SKILL.md + docs/ + templates/, LF, no em dashes (`bf5d7e57`), Aetox frontmatter with a moment-first Thai description and a `before:`; examples/, adapters/, README and INSTALL left behind; both skills name each other by their bundled names. Question-first: it asks what changes boundaries, data, risk or cost before proposing, diverges before it converges, and every element it draws is marked proposed, never existing. 4,877 words across 13 files. The index in `aetox` lists it under the architect.
 
 **Status:** `Direct`. `go test ./internal/skill ./internal/prompt` green; 31 bundled skills, 7 with a `before:` claim (was 4 in the morning).
+
+---
+
+## 273. Decision — The Queue's Count Sits Where Each Item Is Decided, the Name on File Is Not a Memory, and the Assistant Gets a Word for What It Learned (2026-09-14)
+
+Three things the owner saw in one afternoon of using the memory built on the 14th, each a small change with the same shape: a mechanism was true and the words around it said something else.
+
+**A "1" that pointed at nothing.** §266.3 put the whole queue's count on ตัวหลัก ("most of it is decided there"). The first real item was the person's, decided on เกี่ยวกับคุณ, and the rail said *ตัวหลัก 1* over a page with nothing on it (owner: *"ขึ้น 1 แจ้งตลอด แต่ไม่บอกว่าที่ไหน UX มีปัญหาแล้ว"*). Now `railPending` in Settings.svelte splits the list by the scope's audience — the person's on เกี่ยวกับคุณ, a delegate's on พนักงาน (a chair) or ลูกมือ, everything else on ตัวหลัก — and the list is re-read whenever the engine's count moves, not only when a section opens. The engine's number stays the truth: what the list has not placed yet stays on ตัวหลัก. The gear in the sidebar is unchanged; it only ever said "somewhere in settings".
+
+**A name it already had.** The first session with `person()` in its prompt proposed *ผู้ใช้ชื่อไมค์* as a memory line — the tool's text says a fact the user states about themselves is already the evidence, and nothing said this one was already kept (owner: *"มันรู้ชื่อของผู้ใช้อยู่แล้วจะจำทำไม"*). The sentence rides with the name in `person()`, and the tool's block says the name is not one of the facts it is for. Words only; a mechanical match on a typed name against a free sentence would refuse the wrong lines.
+
+**Nothing about itself.** `about` had two words, `user` and `machine`, and `machine` was "only permanent, global environment constraints". So the assistant's own file could hold what the computer is and nothing the work taught it, and the owner read a day of proposals as *"มันจดทุกอย่างลงเกี่ยวกับผม แต่ไม่ค่อยเห็นมันจำอะไรเกี่ยวกับตัวเองเลย"*. A third word, `self` — an approach that landed or failed with this person, a rule it now keeps, what it found out about its own tools — lands in the same file as `machine` (MEMORY.md, or modes/coding.md at โต๊ะโค้ด): the split the pages draw is user / not-user, and a third file would be a third page. Whether the model now uses it is the next thing to measure, the way §184's `where` was measured.
+
+**Status:** `Direct`. Pinned by `TestSelfLandsInTheHeadsOwnFile`, the name clause in `TestPersonLayerNamesTheUserOnlyWhenTheyTypedOne`, and the rail split in mainHeads.test.ts.
+
+---
 
 ## 274. Decision — obra/superpowers, Read Whole, Its Cores Bundled as Eight Skills, the Card Retired (2026-09-14)
 

@@ -2932,6 +2932,41 @@
   const headScopes = (h: HeadId): string[] =>
     [headScope(h), ...(projectsHost === headScope(h) ? projectGroups.map((g) => g.scope) : [])]
   const headPending = (h: HeadId) => pendingChanges.filter((c) => headScopes(h).includes(c.scope))
+  // Where each waiting proposal is DECIDED, so the rail's count sits on the row
+  // that opens it. The engine hands over one number, and for a day it sat
+  // whole on ตัวหลัก: a "1" there with nothing on the page to match, because
+  // the item was the person's and lived on เกี่ยวกับคุณ (owner, 14 ก.ย.:
+  // "ขึ้น 1 แจ้งตลอด แต่ไม่บอกว่าที่ไหน"). Split by the scope's audience —
+  // the person's, a delegate's (พนักงาน if it holds a chair, ลูกมือ
+  // otherwise), everything else the heads'. The engine's number stays the
+  // truth: anything it counts that the list has not placed yet (the list is a
+  // call away at mount) stays on ตัวหลัก rather than vanishing.
+  const railPending = $derived.by(() => {
+    const n = { main: 0, you: 0, team: 0, agents: 0 }
+    for (const c of pendingChanges) {
+      const tone = scopeMeta(c.scope).tone
+      if (tone === 'user') n.you++
+      else if (tone === 'agent') n[chairNames.has(c.scope.trim()) ? 'team' : 'agents']++
+      else n.main++
+    }
+    n.main = Math.max(n.main, cockpit.pendingLearned - n.you - n.team - n.agents)
+    return n
+  })
+  // The list behind that split, kept level with the engine's count: the count
+  // moves on learning:changed, and a rail that only re-read the list when a
+  // section opened would put a new item on the wrong row until then.
+  $effect(() => {
+    void cockpit.pendingLearned
+    void (async () => {
+      try {
+        const rows = await ListPendingChanges()
+        pendingChanges = rows
+        if (chairNames.size === 0 && rows.some((c) => scopeMeta(c.scope).tone === 'agent')) {
+          chairNames = new Set((await ListChairs()).map((c) => c.name))
+        }
+      } catch { /* the engine is not up: the row keeps the count it has */ }
+    })()
+  })
   const headDecided = (h: HeadId) => decidedChanges.filter((c) => headScopes(h).includes(c.scope))
   // A delegate's proposals: its scope is its bare name (memoryScope.ts).
   const agentPendingFor = (name: string) => pendingChanges.filter((c) => c.kind !== 'skill' && c.scope === name.trim())
@@ -5571,12 +5606,13 @@
           {#if it.id === 'main' || it.id === 'team' || it.id === 'agents'}
             <span class="nav-rank"><RankPip tier={it.id === 'main' ? 'head' : it.id === 'team' ? 'agent' : 'helper'} word={false} /></span>
           {/if}
-          <!-- The queue's count on ตัวหลัก, where most of it is decided since
-               14 ก.ย. 2026 (the person's share is on เกี่ยวกับคุณ, a delegate's on
-               its page); the engine counts them as one number. -->
-          {#if it.id === 'main' && cockpit.pendingLearned > 0}
-            <span class="nav-count" title={t('settings.learningWaiting', { count: String(cockpit.pendingLearned) })}>
-              {cockpit.pendingLearned}
+          <!-- The queue's count, on the row where each item is decided
+               (railPending): ตัวหลัก for the heads' and the projects', เกี่ยวกับคุณ
+               for the person's, พนักงาน / ลูกมือ for a delegate's. Until 14 ก.ย.
+               2026 the whole number sat on ตัวหลัก and pointed at nothing. -->
+          {#if (it.id === 'main' || it.id === 'you' || it.id === 'team' || it.id === 'agents') && railPending[it.id] > 0}
+            <span class="nav-count" title={t('settings.learningWaiting', { count: String(railPending[it.id]) })}>
+              {railPending[it.id]}
             </span>
           {/if}
           <!-- The same mark, and only here: the gear in the sidebar stays the

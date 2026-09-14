@@ -67,6 +67,12 @@ func TestPersonLayerNamesTheUserOnlyWhenTheyTypedOne(t *testing.T) {
 	if strings.Count(got, "mike") != 1 {
 		t.Fatalf("the name should be told once, got %d", strings.Count(got, "mike"))
 	}
+	// A name on file is not a memory to propose (the first session with one
+	// proposed "ผู้ใช้ชื่อไมค์"): the sentence rides with the name, and only
+	// with it.
+	if !strings.Contains(got, "never propose remembering their name") {
+		t.Fatalf("the name must be marked as already kept: %s", got)
+	}
 	long := Build(SurfaceDesktop, Scope{User: strings.Repeat("ก", 80)})
 	if strings.Contains(long, strings.Repeat("ก", 41)) {
 		t.Fatalf("a typed name is capped before it becomes a paragraph")
