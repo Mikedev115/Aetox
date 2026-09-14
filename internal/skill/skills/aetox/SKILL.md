@@ -140,6 +140,7 @@ somebody who has never used the app, are its.
 | `aetox-th-locale` | Thai data with one correct answer: BE/CE years, ID checksum, PromptPay, postcodes, VAT/WHT, PDPA |
 | `aetox-translate` | translation that is expensive to get wrong; not one-liners |
 | `aetox-architect` | reading an existing system and writing it up |
+| `aetox-idea-to-architecture` | a system or feature that has no code yet: the proposal, every part marked proposed |
 | `aetox-grill` | grilling and stress-testing a plan, design tree rounds, ADRs, and domain modeling |
 | `aetox-spec` | synthesizing grilled architectures and conversations into formal specifications, contracts, and RFCs |
 | `aetox-slice` | slicing specifications into vertical tracer-bullet tasks, DAG dependencies, and context-sized tickets |
