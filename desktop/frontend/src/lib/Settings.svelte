@@ -10,6 +10,7 @@
   import { typeScale, applyTypeScale, TYPE_SCALES, type TypeScaleName } from './typeScale.svelte'
   import { i18n, t, setLocale, localeNames, type Locale, type TKey } from './i18n.svelte'
   import { AGENT_TEMPLATES, templateBody } from './agentTemplates'
+  import { GALLERY_GROUPS, GALLERY_ROLES, GALLERY_SKIP_KEY, galleryBody, galleryMatches } from './agentGallery'
   import { audioDevices, refreshAudioDevices, setMicId, setSpeakerId, applySpeaker } from './audioDevices.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import RemoteEngine from './RemoteEngine.svelte'
@@ -1883,6 +1884,61 @@
     const tp = AGENT_TEMPLATES.find((x) => x.id === id)
     if (tp) placeBrief(templateBody(tp, i18n.locale))
   }
+  // The gallery (§284, owner 14 ก.ย.: "ตอนเปิดหน้าสร้างเอเจนใหม่ให้แสดงเทมเพลต
+  // ก่อน … แล้วให้กดกาได้ว่าฉันไม่ต้องการเทมเพลต"). A NEW agent's editor opens
+  // on it in place of the form — the four shapes and the forty-two roles,
+  // grouped — unless the person ticked the box, which is kept in this
+  // browser and not in any file: it is a preference about this screen, not
+  // about any agent. The เทมเพลต button under the role field opens the same
+  // sheet later, for anyone, so the tick costs nothing but the first look.
+  //
+  // `first` is which way out the sheet offers: opened on a new agent, the
+  // way out is "no template, start blank"; opened from the button over a
+  // form that already has words, it is "back to the form". Same sheet, one
+  // label that tells the truth about what leaving does.
+  let agentGallery = $state(false)
+  let agentGalleryFirst = $state(false)
+  let agentGalleryQuery = $state('')
+  let agentGallerySkip = $state(false)
+  let agentGalleryBusy = $state('')
+  function readGallerySkip(): boolean {
+    try { return localStorage.getItem(GALLERY_SKIP_KEY) === '1' } catch { return false }
+  }
+  function setGallerySkip(on: boolean) {
+    agentGallerySkip = on
+    try { on ? localStorage.setItem(GALLERY_SKIP_KEY, '1') : localStorage.removeItem(GALLERY_SKIP_KEY) } catch { /* private window */ }
+  }
+  function openGallery(first: boolean) {
+    agentGalleryFirst = first
+    agentGalleryQuery = ''
+    agentFillError = ''
+    agentGallerySkip = readGallerySkip()
+    agentGallery = true
+  }
+  // A shape lands the brief only (blanks to fill, no description to give);
+  // a role lands the brief, the card's line as the description, and its id
+  // as the name when there is none yet — three fields from one press, all
+  // of them still the draft's to change before Save.
+  function pickShape(id: string) {
+    fillFromTemplate(id)
+    agentGallery = false
+  }
+  async function pickRole(id: string) {
+    const r = GALLERY_ROLES.find((x) => x.id === id)
+    if (!r || agentGalleryBusy) return
+    agentGalleryBusy = id
+    try {
+      const body = await galleryBody(id)
+      if (!agentDraftName.trim()) agentDraftName = id
+      if (!agentDraftDescription.trim()) agentDraftDescription = r.desc
+      placeBrief(body)
+      agentGallery = false
+    } catch {
+      agentFillError = t('settings.galleryLoadFail')
+    } finally {
+      agentGalleryBusy = ''
+    }
+  }
   // The role is the whole of what an agent is, and for a bundled one that is a
   // hundred lines of prose — opening the editor to change a model meant
   // scrolling past all of it to reach anything else on the page. So it is a
@@ -2433,6 +2489,7 @@
     // the state belongs to this reading of the page, not to the file.
     agentBodyOpen = false
     agentTab = 'identity'
+    agentGallery = false
     agentEditing = a
     // A row opened from this page answers from the roster the page already
     // asked for (ListChairs) — never from the file's own fields.
@@ -2481,6 +2538,11 @@
     if (!mcpLoaded) void loadMCP() // the tick lists need the register and the shelf
     if (!shelfLoaded) void loadShelf()
     agentSnapshot = agentDraftKey()
+    // The sheet before the form (§284) — for an AGENT only. A helper is a
+    // delegate the assistant hands work to, and none of the shelf's roles
+    // are written for that seat.
+    if (kind === 'agent' && !readGallerySkip()) openGallery(true)
+    else agentGallery = false
   }
 
   // Leaving the editor. A ซับเอเจน's editor closes onto its own list; an
@@ -4416,6 +4478,9 @@
     {/if}
     {#if agentError}<div class="mset-error">{agentError}</div>{/if}
 
+    {#if agentGallery}
+      {@render agentGallerySheet()}
+    {:else}
     <!-- Five groups organised as a clean segmented tab bar (sub-tabs)
          instead of a monolithic vertical scroller. Each tab covers one topic:
          identity, brain, reach, knowledge, and starters. -->
@@ -4536,11 +4601,7 @@
                  twice; it is a menu, not a value. -->
             <div class="ag-fill">
               <button type="button" class="ctrl" onclick={fillFromFile} disabled={agentFillBusy}><Icon name="folderOpen" size={13} /> {t('settings.agentFillFile')}</button>
-              <select class="ctrl ag-fill-tpl" aria-label={t('settings.agentFillTemplate')} value="" disabled={agentFillBusy}
-                onchange={(e) => { fillFromTemplate(e.currentTarget.value); e.currentTarget.value = '' }}>
-                <option value="" disabled>{t('settings.agentFillTemplate')}</option>
-                {#each AGENT_TEMPLATES as tp (tp.id)}<option value={tp.id}>{t(tp.title)}</option>{/each}
-              </select>
+              <button type="button" class="ctrl ag-fill-tpl" onclick={() => openGallery(false)} disabled={agentFillBusy}><Icon name="layoutList" size={13} /> {t('settings.agentFillTemplate')}</button>
               <input class="ctrl key-input ag-fill-link" type="text" bind:value={agentFillLink} spellcheck="false"
                 placeholder={t('settings.agentFillLinkPlaceholder')} disabled={agentFillBusy}
                 onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); fillFromLink() } }} />
@@ -4992,7 +5053,78 @@
         {/if}
       </div>
     {/if}
+    {/if}
   {/if}
+{/snippet}
+
+<!-- The template sheet (§284). Shapes first — they are the ones a person
+     fills rather than edits, and the smallest — then the roles in their
+     groups. The search box narrows the roles only; four shapes need no
+     search. The way out is one button whose label says what leaving does
+     (see agentGalleryFirst), and the tick beside it is the only thing on
+     this sheet that outlives the press. -->
+{#snippet agentGallerySheet()}
+  {@const q = agentGalleryQuery.trim()}
+  <div class="settings-card ag-gallery" data-testid="agent-gallery">
+    <div class="card-form">
+      <div class="ag-gallery-head">
+        <div>
+          <div class="ag-gallery-title">{t('settings.galleryTitle')}</div>
+          <div class="d muted">{t('settings.galleryLead')}</div>
+        </div>
+        <input class="ctrl key-input ag-gallery-search" type="search" bind:value={agentGalleryQuery}
+          placeholder={t('settings.gallerySearch')} aria-label={t('settings.gallerySearch')} spellcheck="false" />
+      </div>
+      {#if agentFillError}<div class="mset-error">{agentFillError}</div>{/if}
+
+      {#if !q}
+        <div class="ag-gallery-group">
+          <h4 class="ag-gallery-group-title">{t('settings.galleryGroupShape')}</h4>
+          <div class="ag-gallery-grid shapes">
+            {#each AGENT_TEMPLATES as tp (tp.id)}
+              <button type="button" class="ag-gallery-card shape" onclick={() => pickShape(tp.id)}>
+                <span class="ag-gallery-card-title">{t(tp.title)}</span>
+              </button>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      {#each GALLERY_GROUPS as g (g.id)}
+        {@const roles = GALLERY_ROLES.filter((r) => r.group === g.id && galleryMatches(r, q))}
+        {#if roles.length}
+          <div class="ag-gallery-group">
+            <h4 class="ag-gallery-group-title">{t(g.title)}</h4>
+            <div class="ag-gallery-grid">
+              {#each roles as r (r.id)}
+                <button type="button" class="ag-gallery-card" class:busy={agentGalleryBusy === r.id}
+                  disabled={agentGalleryBusy !== ''} onclick={() => pickRole(r.id)}>
+                  <span class="ag-gallery-card-title">{r.title}</span>
+                  <span class="ag-gallery-card-desc">{r.desc}</span>
+                  <span class="ag-gallery-card-meta">{t('settings.galleryWords', { n: (Math.round(r.words / 100) * 100).toLocaleString('en') })}</span>
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      {/each}
+      {#if q && !GALLERY_ROLES.some((r) => galleryMatches(r, q))}
+        <div class="d muted">{t('settings.galleryNone')}</div>
+      {/if}
+
+      <div class="ag-gallery-foot">
+        <button type="button" class="ctrl" onclick={() => (agentGallery = false)}>
+          {agentGalleryFirst ? t('settings.galleryBlank') : t('settings.galleryBack')}
+        </button>
+        <label class="ag-gallery-skip">
+          <input type="checkbox" checked={agentGallerySkip} onchange={(e) => setGallerySkip(e.currentTarget.checked)} />
+          <span>{t('settings.gallerySkip')}</span>
+        </label>
+        <span class="ag-gallery-foot-gap"></span>
+        <span class="d muted">{t('settings.galleryEnglishNote')} · {t('settings.galleryCredit')}</span>
+      </div>
+    </div>
+  </div>
 {/snippet}
 
 <!-- The servers pointed at this one agent. A box of its own, beside เครื่องมือ

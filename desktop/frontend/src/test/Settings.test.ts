@@ -32,6 +32,7 @@ const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-$
 
 beforeEach(() => {
   cockpit.settingsIntent = null
+  localStorage.removeItem('agentGallerySkip') // a tick one test sets must not skip the sheet for the next (§284)
   // The voice-device test hands jsdom a navigator with mediaDevices on it;
   // without this every test after it inherits one.
   vi.unstubAllGlobals()
@@ -728,13 +729,17 @@ describe('Settings pages', () => {
     expect(cockpit.activeView).toBe('settings')
   })
 
-  it('opens a blank agent form when the team page asks to create one', async () => {
+  it('opens the editor when the team page asks to create one — on the template sheet, and past it on the form', async () => {
     cockpit.settingsIntent = { section: 'team', createAgent: true }
 
     render(Settings, { onClose: () => {} })
 
-    await waitFor(() => expect(screen.getByRole('tablist', { name: 'ตั้งค่าพนักงาน' })).toBeTruthy())
+    // A new agent opens on the sheet (§284); the form and its tab strip are
+    // one press past it.
+    await waitFor(() => expect(screen.getByText('เริ่มจากเทมเพลตไหม')).toBeTruthy())
     expect(cockpit.settingsIntent).toBeNull()
+    await fireEvent.click(screen.getByText('ไม่ใช้เทมเพลต เริ่มจากว่าง'))
+    await waitFor(() => expect(screen.getByRole('tablist', { name: 'ตั้งค่าพนักงาน' })).toBeTruthy())
   })
 
   // The split (owner's call, 2026-08-05): agents live on the team page, and
@@ -974,6 +979,7 @@ describe('Settings pages', () => {
   // the ticks through the room's own calls once the file exists. The two tabs
   // are drawn on a new agent — a strip missing two tabs read as unfinished.
   it('a new agent ticks MCP servers and shelf skills, and Save places and copies them', async () => {
+    localStorage.setItem('agentGallerySkip', '1') // straight to the form (§284)
     vi.mocked(ListMCPServers).mockResolvedValue([
       { name: 'context7', command: ['npx'], disabled: false, status: 'connected', tools: 2, for: ['assistant'] },
       { name: 'exa', url: 'https://mcp.exa.ai/mcp', disabled: true, status: 'disabled', tools: 0 },
@@ -1273,6 +1279,7 @@ describe('Settings pages', () => {
   })
 
   it('a new agent opens with guidance in the role field, not a raw frontmatter skeleton', async () => {
+    localStorage.setItem('agentGallerySkip', '1') // straight to the form (§284)
     cockpit.settingsIntent = { section: 'team', createAgent: true }
     const { container } = render(Settings, { onClose: () => {} })
     await waitFor(() => expect(container.querySelector('.ag-body')).toBeTruthy())
@@ -2147,6 +2154,7 @@ describe('Settings › ทีมเอเจน', () => {
 // that fails says so under the row instead of silently doing nothing.
 describe("the role field's roads in", () => {
   const newAgent = async () => {
+    localStorage.setItem('agentGallerySkip', '1') // these tests start on the form, not the sheet (§284)
     cockpit.settingsIntent = { section: 'team', createAgent: true }
     const r = render(Settings, { onClose: () => {} })
     await waitFor(() => expect(r.container.querySelector('.ag-fill')).toBeTruthy())
@@ -2156,12 +2164,14 @@ describe("the role field's roads in", () => {
 
   it('a template fills the empty field with a brief that has blanks to answer', async () => {
     const { container } = await newAgent()
-    const tpl = container.querySelector('.ag-fill-tpl') as HTMLSelectElement
-    expect(Array.from(tpl.options).map((o) => o.textContent)).toContain('ตอบลูกค้า / ฝ่ายขาย')
-    await fireEvent.change(tpl, { target: { value: 'support' } })
+    // Since §284 the เทมเพลต button opens the gallery sheet; a shape on it is
+    // the old menu entry. Picked off the sheet, the sheet closes onto the form.
+    await fireEvent.click(container.querySelector('.ag-fill-tpl') as HTMLButtonElement)
+    await waitFor(() => expect(screen.getByText('ตอบลูกค้า / ฝ่ายขาย')).toBeTruthy())
+    await fireEvent.click(screen.getByText('ตอบลูกค้า / ฝ่ายขาย'))
     await waitFor(() => expect(body(container).value).toContain('# บทบาท'))
     expect(body(container).value).toContain('[ชื่อร้าน]')
-    expect(tpl.value).toBe('') // a menu, not a value — the same template can be picked again
+    expect(container.querySelector('[data-testid="agent-gallery"]')).toBeNull()
   })
 
   it('a file the engine read lands as the brief; a dismissed picker changes nothing', async () => {
@@ -2194,10 +2204,89 @@ describe("the role field's roads in", () => {
   it('a field with words in it asks before a template replaces them', async () => {
     const { container } = await newAgent()
     await fireEvent.input(body(container), { target: { value: 'ร่างที่พิมพ์เอง' } })
-    await fireEvent.change(container.querySelector('.ag-fill-tpl') as HTMLSelectElement, { target: { value: 'reviewer' } })
+    await fireEvent.click(container.querySelector('.ag-fill-tpl') as HTMLButtonElement)
+    await waitFor(() => expect(screen.getByText('ผู้ตรวจงาน')).toBeTruthy())
+    await fireEvent.click(screen.getByText('ผู้ตรวจงาน'))
     await waitFor(() => expect(screen.getByText('แทนที่บทบาทเดิม?')).toBeTruthy())
     expect(body(container).value).toBe('ร่างที่พิมพ์เอง')
     await fireEvent.click(screen.getByText('แทนที่', { selector: '.confirm-go' }))
     await waitFor(() => expect(body(container).value).toContain('รายการตรวจ'))
+  })
+})
+
+// The template sheet a new agent opens on (§284, owner 14 ก.ย.: "ตอนเปิดหน้า
+// สร้างเอเจนใหม่ให้แสดงเทมเพลตก่อน … แล้วให้กดกาได้ว่าฉันไม่ต้องการเทมเพลต").
+// What is pinned: a new AGENT opens on the sheet and not the form; a role
+// picked off it lands three fields and closes it; the way out with nothing
+// picked is the empty form; the tick is remembered in this browser and skips
+// the sheet next time, while the เทมเพลต button still opens it.
+describe('the template sheet before a new agent', () => {
+  beforeEach(() => { localStorage.removeItem('agentGallerySkip') })
+  const sheet = (c: HTMLElement) => c.querySelector('[data-testid="agent-gallery"]')
+  const body = (c: HTMLElement) => c.querySelector('.ag-body') as HTMLTextAreaElement
+  const openNew = async () => {
+    cockpit.settingsIntent = { section: 'team', createAgent: true }
+    const r = render(Settings, { onClose: () => {} })
+    await waitFor(() => expect(sheet(r.container)).toBeTruthy())
+    return r
+  }
+
+  it('opens on the sheet: shapes, then the roles in their groups, and no form yet', async () => {
+    const { container } = await openNew()
+    expect(container.querySelector('.ag-body')).toBeNull()
+    expect(screen.getByText('เริ่มจากเทมเพลตไหม')).toBeTruthy()
+    expect(screen.getByText('โครงเปล่า — เติมช่องว่างเอง')).toBeTruthy()
+    expect(screen.getByText('ตอบลูกค้า / ฝ่ายขาย')).toBeTruthy()
+    expect(screen.getByText('การตลาดและคอนเทนต์')).toBeTruthy()
+    expect(screen.getByText('Customer Service')).toBeTruthy()
+    expect(container.querySelectorAll('.ag-gallery-card:not(.shape)').length).toBe(42)
+  })
+
+  it('a role picked lands name, description and brief, and the sheet closes onto the form', async () => {
+    const { container } = await openNew()
+    await fireEvent.click(screen.getByText('Code Reviewer', { selector: '.ag-gallery-card-title' }))
+    await waitFor(() => expect(sheet(container)).toBeNull())
+    await waitFor(() => expect(body(container).value).toContain('Code Reviewer'))
+    const name = container.querySelector('.pp-edit input.ctrl') as HTMLInputElement
+    expect(name.value).toBe('code-reviewer')
+    expect(screen.getByDisplayValue('Reviews for correctness, security and performance — not style preferences')).toBeTruthy()
+    // Nothing of the source's frontmatter, and no "remember" section the
+    // agent cannot honour — MEMORY.md is where it remembers.
+    expect(body(container).value.startsWith('---')).toBe(false)
+    expect(body(container).value).not.toMatch(/## .*Learning & Memory/)
+  })
+
+  it('search narrows the roles and hides the shapes; no match says so', async () => {
+    const { container } = await openNew()
+    const q = container.querySelector('.ag-gallery-search') as HTMLInputElement
+    await fireEvent.input(q, { target: { value: 'tiktok' } })
+    await waitFor(() => expect(container.querySelectorAll('.ag-gallery-card:not(.shape)').length).toBe(1))
+    expect(screen.queryByText('โครงเปล่า — เติมช่องว่างเอง')).toBeNull()
+    await fireEvent.input(q, { target: { value: 'zzzz' } })
+    await waitFor(() => expect(screen.getByText('ไม่มีบทบาทที่ตรงกับคำนี้')).toBeTruthy())
+  })
+
+  it('the way out with nothing picked is the empty form', async () => {
+    const { container } = await openNew()
+    await fireEvent.click(screen.getByText('ไม่ใช้เทมเพลต เริ่มจากว่าง'))
+    await waitFor(() => expect(body(container)).toBeTruthy())
+    expect(body(container).value).toBe('')
+    expect(sheet(container)).toBeNull()
+  })
+
+  it('the tick is remembered: the next new agent opens on the form, and the button still opens the sheet', async () => {
+    const first = await openNew()
+    await fireEvent.click(first.container.querySelector('.ag-gallery-skip input') as HTMLInputElement)
+    expect(localStorage.getItem('agentGallerySkip')).toBe('1')
+    first.unmount()
+    cockpit.settingsIntent = { section: 'team', createAgent: true }
+    const { container } = render(Settings, { onClose: () => {} })
+    await waitFor(() => expect(body(container)).toBeTruthy())
+    expect(sheet(container)).toBeNull()
+    await fireEvent.click(container.querySelector('.ag-fill-tpl') as HTMLButtonElement)
+    await waitFor(() => expect(sheet(container)).toBeTruthy())
+    // Opened over a form, the way out reads as going back, not as choosing blank.
+    expect(screen.getByText('กลับไปที่ฟอร์ม')).toBeTruthy()
+    expect((container.querySelector('.ag-gallery-skip input') as HTMLInputElement).checked).toBe(true)
   })
 })

@@ -1950,6 +1950,27 @@ export const th = {
   'settings.agentTplSupport': 'ตอบลูกค้า / ฝ่ายขาย',
   'settings.agentTplReviewer': 'ผู้ตรวจงาน',
   'settings.agentTplWriter': 'นักเขียนตามสไตล์',
+  // The gallery a new agent opens on (§284): shapes with blanks and whole
+  // roles, grouped; the tick is the person's, kept in this browser.
+  'settings.galleryTitle': 'เริ่มจากเทมเพลตไหม',
+  'settings.galleryLead': 'เลือกบทบาทที่ใกล้เคียง แล้วแก้ให้เป็นของคุณ หรือเริ่มจากหน้าว่างก็ได้',
+  'settings.gallerySearch': 'ค้นหาบทบาท…',
+  'settings.galleryNone': 'ไม่มีบทบาทที่ตรงกับคำนี้',
+  'settings.galleryGroupShape': 'โครงเปล่า — เติมช่องว่างเอง',
+  'settings.galleryGroupCode': 'โค้ดและระบบ',
+  'settings.galleryGroupMarketing': 'การตลาดและคอนเทนต์',
+  'settings.galleryGroupSales': 'ขายและดูแลลูกค้า',
+  'settings.galleryGroupOps': 'การเงินและบริหาร',
+  'settings.galleryGroupProduct': 'ผลิตภัณฑ์และดีไซน์',
+  'settings.galleryGroupQuality': 'ตรวจงานและความปลอดภัย',
+  'settings.galleryGroupMisc': 'เฉพาะทาง',
+  'settings.galleryWords': '~{n} คำ',
+  'settings.galleryEnglishNote': 'บทบาทเป็นภาษาอังกฤษ แก้ได้ในช่องบทบาท',
+  'settings.galleryBlank': 'ไม่ใช้เทมเพลต เริ่มจากว่าง',
+  'settings.galleryBack': 'กลับไปที่ฟอร์ม',
+  'settings.gallerySkip': 'ไม่ต้องแสดงตอนสร้างเอเจนใหม่',
+  'settings.galleryCredit': 'บทบาทจาก agency-agents (MIT)',
+  'settings.galleryLoadFail': 'โหลดบทบาทนี้ไม่ได้',
   // The role is shown as a preview until asked for. The count is in the label
   // because "how much is hidden" is what decides whether to open it.
   'settings.agentBodyMore': 'ดูทั้งหมด ({n} บรรทัด)',

@@ -9402,10 +9402,46 @@ button.phase-head:hover { color:var(--text-muted); }
 }
 .ag-bodyhead { display:flex; align-items:baseline; gap:10px; }
 /* The role field's roads in (§256.5): one row of house controls under the
-   hint — a file, a template menu, a link and its fetch button. */
+   hint — a file, the template button (opens the §284 sheet), a link and its
+   fetch button. */
 .ag-fill { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:8px; }
 .ag-fill .ag-fill-tpl { max-width:200px; }
 .ag-fill .ag-fill-link { flex:1 1 240px; min-width:0; }
+/* The template sheet a new agent opens on (§284): a card of groups, each a
+   grid of pressable cards in the starter-card idiom — same border, same
+   hover — but denser, because forty-six of them are scanned, not dealt.
+   The shapes are shorter cards (a title only): they have no line because
+   they have no content yet. */
+.ag-gallery .card-form { display:flex; flex-direction:column; gap:18px; }
+.ag-gallery-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.ag-gallery-title { font-size:var(--fs-xl); font-weight:600; color:var(--text-primary); margin-bottom:4px; }
+.ag-gallery-search { flex:0 1 260px; min-width:180px; }
+.ag-gallery-group { display:flex; flex-direction:column; gap:10px; }
+/* Headings you can find from across the sheet (owner, 14 ก.ย.: "หัวข้อควรจะ
+   ใหญ่ ๆ ชัด ๆ"): the group is a real heading, not an eyebrow, and the card's
+   title is the role's trade name in the reading size, primary ink. */
+.ag-gallery-group-title { margin:6px 0 0; font-size:var(--fs-lg); font-weight:600; color:var(--text-primary); }
+.ag-gallery-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px; }
+.ag-gallery-card {
+  display:flex; flex-direction:column; align-items:flex-start; gap:5px; padding:12px 14px; min-height:0;
+  border:1px solid var(--border-subtle); border-radius:var(--r-md); background:var(--surface-app); text-align:left;
+  font:inherit; color:inherit; cursor:pointer;
+  transition:border-color var(--dur-tint) ease, background var(--dur-tint) ease;
+}
+.ag-gallery-card:hover { border-color:var(--border-strong); background:var(--surface-row-hover); }
+.ag-gallery-card:focus-visible { outline:2px solid var(--focus-ring); outline-offset:1px; }
+.ag-gallery-card:disabled { cursor:default; opacity:.7; }
+.ag-gallery-card.busy { border-color:var(--interactive); }
+.ag-gallery-card.shape { justify-content:center; }
+/* Four shapes, four across: on the three-column grid the fourth sat alone on a second row. */
+.ag-gallery-grid.shapes { grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); }
+.ag-gallery-card-title { font-size:var(--fs-md); font-weight:600; color:var(--text-primary); line-height:1.35; }
+.ag-gallery-card-desc { font-size:var(--fs-sm); color:var(--text-secondary); line-height:1.45; }
+.ag-gallery-card-meta { font-size:var(--fs-2xs); color:var(--text-dim); font-variant-numeric:tabular-nums; margin-top:auto; padding-top:2px; }
+.ag-gallery-foot { display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding-top:6px; border-top:1px solid var(--border-subtle); }
+.ag-gallery-foot-gap { flex:1; }
+.ag-gallery-skip { display:inline-flex; align-items:center; gap:7px; font-size:var(--fs-sm); color:var(--text-secondary); cursor:pointer; }
+.ag-gallery-skip input { accent-color:var(--interactive); }
 /* Wears the interactive colour rather than a border: a borderless control in
    neutral ink reads as body text on this palette (see the .ctrl-danger note),
    but one carrying the link colour reads as the link it is. */
