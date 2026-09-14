@@ -9654,3 +9654,35 @@ The behaviour asked for arrived: marks from the first call, no narration, nothin
 **Found beside it, fixed.** `readLoop` unmarshalled a response's `result` alone and dropped its `error`, so a request the server refused reached the caller as an empty success; the reason gopls gave was the one thing never shown. The pending channel now carries `reply{result, err}`, and `symbol()` keeps each refusal and names them — with the file and line it asked at — when all three come back empty. Pinned: `TestFindIdentifierPrefersCodeOverComment`, `TestCallSurfacesServerError`.
 
 **Noted, not touched.** The crash file beside the log (`crash-aetox-20260914-230314.txt`) is 0 bytes; nothing in this § is about it.
+
+## 292. Decision — The Wire Carries No Default; a 400 Is Answered by the Field It Names; the Figure Steps Aside for a Native Window (2026-09-15)
+
+Three reports in one morning, three small rules. Written up together because each is the same shape: something the app did on every turn that nobody had ever needed, found only at the one place it broke.
+
+### `tool_choice:"auto"` stays off the wire
+
+**Trigger** (a user's report, relayed by the owner with *"อย่าฟังมันหมดนะ แค่รับเรื่องปัญหาก็พอ"*): opencode-go / muse-spark-1.3-contributor, two days, two networks — think xhigh → 400 `[invalid_request_error] Thinking mode does not support this tool_choice`, think minimal → 500, and the same model on the same plan fine from opencode's own client. The reporter's diagnosis pointed at `reasoning_effort` (the catalog states no toggle, so no `off`, so an effort on every request).
+
+**Why that diagnosis cannot be right, from the code.** The OpenAI-compatible ladder (openai_compatible.go, both paths) already answers a 400 that says "thinking" by dropping every reasoning field and sending once more, and what the user sees is the *replay's* error. The replay carried no `reasoning_effort` and got the same sentence back — and `rememberReasoningRefusal` then kept the effort off for the rest of the process, which is how two days of failures happened with the effort already gone. The sentence itself is DeepSeek-stack's ([deepseek-ai/DeepSeek-V3#1376](https://github.com/deepseek-ai/DeepSeek-V3/issues/1376)): a model that is in thinking mode whether or not an effort is sent, refusing the `tool_choice` field. Aetox wrote `tool_choice:"auto"` on every tool turn; opencode's client never writes the field. That is the whole difference.
+
+**Rule.** `"auto"` is the spec's own default whenever `tools` is present, so writing it changes nothing a server does — except hand it a field to refuse. `wireToolChoice` leaves it out on every OpenAI-compatible row; `"required"` and a named function are real constraints and still travel. And a new rung, `toolChoiceRefused`: a 400 that names `tool_choice` drops that field, remembers it per model, and replays — asked *before* `reasoningRefused`, because the sentence that names tool_choice also says "thinking", and read in the old order the reasoning rung ate it, dropped an effort that was never the problem, and replayed into the same 400. The `"required"` callers (commit message, review, consolidation) fold to a free choice on such a model rather than ending the turn.
+
+**Not done, said plainly.** No live proof against opencode-go — no key in the session, and the owner's own try answered 403 `This model collects data used to improve its quality and requires explicit opt in` (the `-contributor` tier is a per-workspace consent at opencode.ai/workspace/…/go; the reporter had given it, the owner had not). The 500 at `minimal` is not explained by any of this and may be an effort value the upstream does not take; it is measured after the opt-in or not at all. Pinned without the network: `TestAutoToolChoiceStaysOffTheWire`, `TestARefusedToolChoiceIsReplayedWithoutIt` (the replay keeps `reasoning_effort` and drops `tool_choice`).
+
+### The issue URL was over GitHub's ceiling, not under it
+
+**Trigger** (v1.6.3 portable, Windows 10): แจ้งปัญหา in Settings › เกี่ยวกับ opened GitHub at 500 "Whoops, something went wrong".
+
+**Measured** 2026-09-15 with curl against `issues/new?body=`, URL length in characters: signed in, 6,934 opens and 7,012 is the 500; signed out, the sign-in bounce carries the URL again as `return_to` (encoded once more, ~1.6× longer) and GitHub *drops it* above 4,534 — the user signs in and lands on an empty form with no sign anything was lost; above ~8,000 the edge answers 414/502. The budget since 18 ส.ค. was 8,000 — chosen against Windows' 32,767 command-line cap and "well under" a GitHub limit nobody had measured. A full debug log put every report at the budget, so every report from a signed-in user was a Whoops.
+
+**Rule.** `ISSUE_URL_BUDGET = 4000`, which clears both ceilings; the log is what gives (trimmed from its old end, the cluster and the version written first). The test that pinned 8,000 now pins 4,000 with the two numbers beside it.
+
+### The figure steps aside for a native window
+
+**Trigger** (owner, a screenshot: the browser pane over the avatar): *"ตัวแสดงผลเบราเซอร์ มันทับ อวตาร ครับ ซึ่งไม่ปกติ"*.
+
+**Why z-index cannot fix it.** A browser tab is a Win32 window glued over its pane (BrowserPane → `BrowserSetBounds`), and the compositor draws a native child over every DOM layer without asking the DOM anything. The companion at `z-index: 52` is under it by construction; nothing in CSS puts it on top. The pane's own `covered` probe answers the opposite question — is DOM over the pane's *centre* — and is right to hide the tab for a sheet, wrong for a figure at the corner.
+
+**Rule.** The figure cannot be over the tab, so it stands beside it. `workbench/nativeRects` is a register of native rectangles on screen (CSS px): the pane writes its rect while the tab is shown and clears it when hidden or gone. `keepOut` finds the nearest spot clear of every rect — the four ways out of each rect it overlaps that still fit the window, a way clear of *all* rects beating one that only trades rects, shortest first; a figure with nowhere to go (a tab filling the window) stays put. `Companion.clamp` runs through it, so the figure steps aside when a tab arrives, grows or moves, and refuses the rectangle while dragged. The detour is not remembered: the user's spot is the one they dragged to, and the figure is free again when the tab goes. Pinned in Companion.test.ts (steps aside, will not be dragged under, free again) and four `keepOut` cases.
+
+**Not done.** The desktop-body companion (§ of 13 ก.ย., a layered top-level window) is unaffected either way — it is above the app window, tab included — and the bubble's extent left of the figure is not counted in the box; a bubble under a tab's edge is a smaller wrong than a figure under it.
