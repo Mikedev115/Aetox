@@ -195,24 +195,26 @@ func TestADeskWithoutAPaneIsNotToldItHasOne(t *testing.T) {
 	}
 }
 
-// A PLAN NEVER REACHES THE SCREEN TWO WAYS.
+// A PLAN NEVER REACHES THE SCREEN TWO WAYS — and the prompt is not where that
+// is said.
 //
-// The instruction used to be gated on the วางแผน stance while the `plan` tool is
-// carried by every desk and every stance. In ลงมือ the model therefore had the
-// tool and nothing telling it a plan belongs in it, so it typed one into its
-// answer and the old fence renderer drew an inert card — the same shape as the
-// real one, with no checklist and no button. Two paths to one thing, and the
-// user cannot tell which they were handed.
-func TestThePlanInstructionFollowsTheToolNotTheStance(t *testing.T) {
-	// No planning stance, and the tool is on the desk — which is ลงมือ, where
-	// the card came back inert.
+// The instruction was gated on the วางแผน stance while the `plan` tool is
+// carried by every desk and every stance; in ลงมือ the model typed a plan into
+// its answer and the old fence renderer drew an inert card. From 9 ก.ย. 2026 a
+// paragraph in this prompt followed the tool instead. Since 14 ก.ย. the tool's
+// own description opens with the rule (engine/plan.go, pinned by
+// TestThePlanToolSaysWhereAPlanGoes there): one sentence, read by every session
+// that can see the tool, and no second copy here beside the stance's own
+// direction. This pins the prompt side — nothing in it restates the rule.
+func TestThePlanInstructionLivesOnTheToolNotInThePrompt(t *testing.T) {
 	acting := deskAt("", "", false)
-	got := BuildForDesk(SurfaceDesktop, Scope{Root: t.TempDir()}, acting)
-	if !strings.Contains(got, "`plan` tool") {
-		t.Error("a session carrying the plan tool is never told that a plan belongs in it")
-	}
-	if !strings.Contains(got, "Never write a plan into your reply") {
-		t.Error("nothing forbids typing the plan out, which is what produced the inert card")
+	planning := deskAt("", "", false)
+	planning.Planning = true
+	for _, d := range []Desk{acting, planning} {
+		got := BuildForDesk(SurfaceDesktop, Scope{Root: t.TempDir()}, d)
+		if strings.Contains(got, "interactive card") || strings.Contains(got, "Never write a plan into your reply") {
+			t.Error("the prompt restates where a plan goes; the tool's description already says it")
+		}
 	}
 }
 
@@ -237,7 +239,23 @@ func TestADeskWithoutTheToolIsToldNothingAboutPlans(t *testing.T) {
 	d := deskAt("", "", false)
 	d.Carries = func(name string) bool { return name != "plan" }
 	got := BuildForDesk(SurfaceDesktop, Scope{Root: t.TempDir()}, d)
-	if strings.Contains(got, "`plan` tool") || strings.Contains(got, "fenced block tagged") {
+	if strings.Contains(got, "interactive card") || strings.Contains(got, "fenced block tagged") {
 		t.Error("a desk with no plan tool was told how to produce a plan anyway")
+	}
+}
+
+// วางแผน's direction says when to ask and how many times. The general "ask one
+// question before creating something" paragraph beside it was a second voice
+// on the same question (three, with the interview skill), so a planning turn
+// does not hear it; every other turn still does.
+func TestAPlanningTurnIsNotToldTwiceWhenToAsk(t *testing.T) {
+	acting := deskAt("", "", false)
+	planning := deskAt("", "Planning.", false)
+	planning.Planning = true
+	if got := BuildForDesk(SurfaceDesktop, Scope{Root: t.TempDir()}, planning); strings.Contains(got, clarify()) {
+		t.Error("a planning turn was handed the general ask-first paragraph beside its own asking rule")
+	}
+	if got := BuildForDesk(SurfaceDesktop, Scope{Root: t.TempDir()}, acting); !strings.Contains(got, clarify()) {
+		t.Error("an acting turn lost the ask-first paragraph")
 	}
 }

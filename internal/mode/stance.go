@@ -142,21 +142,26 @@ var planKeeps = map[string]bool{
 	// Reading the automations that exist, never starting or changing one.
 	"n8n_workflow_list": true, "n8n_workflow_read": true,
 	"windmill_workspace_list": true, "windmill_flow_list": true, "windmill_flow_read": true,
-	// How the assistant runs itself while planning. `todo_write` writes nothing
-	// to the machine — it is the plan taking shape where the user can watch it,
-	// which is this mode's own output. `calc` runs a script in a sandbox that
-	// cannot reach a file or the network (see its note in category.go). `memory`
-	// is deliberately absent: it proposes something for the user to approve
-	// later, and a mode that changes nothing should not be leaving anything
-	// behind to be decided.
-	"ask_user": true, "todo_write": true, "calc": true, "time": true,
+	// How the assistant runs itself while planning. `calc` runs a script in a
+	// sandbox that cannot reach a file or the network (see its note in
+	// category.go). `memory` is deliberately absent: it proposes something for
+	// the user to approve later, and a mode that changes nothing should not be
+	// leaving anything behind to be decided.
+	//
+	// `todo_write` was here until 14 ก.ย. 2026 on the reasoning that it writes
+	// nothing to the machine — true, and beside the point once the plan had
+	// `steps` of its own (§235). Two checklists for one job, and only one of
+	// them is the row the ลงมือ button reads: steps filed under todo_write are
+	// steps the plan does not have, and the button refuses a plan with none.
+	// One place to write the checklist, so it cannot be written in the other.
+	"ask_user": true, "calc": true, "time": true,
 	// The plan itself (desktop/plan.go), all three actions, and the whole pack
 	// by name so `Carries` answers for it in one word.
 	//
 	// **Two of them write, and that is not a hole in this stance's promise.**
 	// วางแผน says it changes nothing on the user's machine, and a plan is a row
-	// in the app's own database — the same ground `todo_write` stands on two
-	// lines up. `memory` is the tool that shows where the real line is: it is
+	// in the app's own database. `memory` is the tool that shows where the real
+	// line is: it is
 	// withheld even though it only PROPOSES, because what it proposes is a
 	// change to something the user will live with afterwards. A plan is this
 	// stance's own output, so refusing to let it write one would be refusing the
@@ -571,6 +576,11 @@ func (s Stance) Direction() string {
 		// back to where it came from: the skill, read when the brief is open
 		// (the `before:` line in aetox-grill/SKILL.md names that moment), paid
 		// for on the turn that needs it and on no other.
+		//
+		// And the amend rule is one sentence, since 14 ก.ย.: WHICH sections to
+		// send and what "the rest stands" means is planSkill.Guidance for
+		// `amend`, delivered with the first amend and never again — the same
+		// paragraph here was the same words paid for on every request.
 		return "This turn is planning work: look at anything, change nothing. Reading, searching, " +
 			"fetching and inspecting are available; writing, editing, running commands and handing work " +
 			"over are not — the user asked for the plan first.\n\n" +
@@ -592,10 +602,8 @@ func (s Stance) Direction() string {
 			"plan is ready — no greeting, no summary, no offer to start. The user turned this dial " +
 			"deliberately and turning it back is one press; that is about permission only, a question about " +
 			"the work is wanted, early.\n\n" +
-			"IF A PLAN ALREADY EXISTS IN THIS CONVERSATION, THIS TURN AMENDS IT: `plan` with action `amend`, " +
-			"only the sections or steps the user's words actually change, the rest left standing. What you " +
-			"have already read in this conversation you have already read — do not open it again to write " +
-			"down what it says a second time."
+			"A plan already in this conversation is amended (`plan` action `amend`), never written again; " +
+			"what this conversation has already read is already read."
 	}
 	if s != StanceConsult {
 		return ""

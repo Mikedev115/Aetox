@@ -118,9 +118,6 @@ func logLayerSizes(t *testing.T, prompt string) {
 		{"batchWork", batchWork()},
 		{"computing", computing()},
 		{"panel", panel()},
-		// The desk here carries everything (deskAt's default), so this measures
-		// the `plan` tool half — the one a desktop session actually pays for.
-		{"planCard", planCard(desk)},
 		{"drawing", drawing()},
 		{"longform", longform(desk)},
 		{"narration", narration()},

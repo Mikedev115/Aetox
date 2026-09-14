@@ -189,15 +189,29 @@ func (s *planSkill) ToolDefinition() model.ToolDefinition {
 	// plan IS belongs to the stance's own direction, which the model already has
 	// whenever these tools are on the desk, and repeating it here would be the
 	// shape written down in a second place — the debt §106.11 exists to avoid.
+	//
+	// One sentence of judgment is here all the same, and it is the one the
+	// signature cannot carry: WHERE a plan goes. Asked for "a plan", "a plan
+	// card", "a draft" in ลงมือ, the model has this tool and nothing telling it
+	// the plan belongs in it, and it typed one into the reply — the owner's
+	// 11 ก.ย. 19:20 turn was an HTML panel of 3,400 characters where a plan
+	// row should have been. Guidance cannot say it (there is never a first
+	// call), and a prompt paragraph said it from 9 ก.ย. to 14 ก.ย. as a second
+	// copy beside วางแผน's direction; the description is read by exactly the
+	// sessions that can see the tool, once, and by nobody else.
+	//
+	// The headings are NOT listed here as prose. They are the `heading` enum
+	// of the schema below, and วางแผน's direction states them with what goes
+	// under each; a third spelling was the duplication the owner counted on
+	// 14 ก.ย. ("หัวข้อแผนเขียน 2 ที่").
 	var b strings.Builder
-	b.WriteString("This conversation's plan, kept as one document rather than retyped. Actions:\n")
+	b.WriteString("This conversation's plan — a plan, a plan card, a draft of one — goes here and is drawn " +
+		"as a card the user can run; never typed into the reply. Kept as one document rather than retyped. Actions:\n")
 	b.WriteString("`write` (title, sections, steps) — initial plan only. Replaces any plan already here.\n")
 	b.WriteString("`amend` (sections, note?, steps?) — update an existing plan. Change only the sections/steps you name. Everything else stands, so do not re-send it.\n")
 	b.WriteString("`read` — the plan as it stands now.\n")
 	b.WriteString("`step` (n, state: doing|done|failed, note?) — mark one step as you carry it out.\n")
 	b.WriteString("`report` (sections) — the closing report, once the steps are settled. One per run.\n")
-	b.WriteString("Plan headings, in this order: " + strings.Join(headings, " / ") + "\n")
-	b.WriteString("Report headings: " + strings.Join(mode.ReportHeadings(), " / ") + "\n")
 
 	section := map[string]any{
 		"type": "object",

@@ -95,7 +95,7 @@ func TestPlanKeepsWhatOnlyLooksAndDropsWhatChanges(t *testing.T) {
 	for _, name := range []string{
 		"read", "list", "glob", "grep", "web_search", "web_fetch",
 		"pdf_read", "image_ocr", "diagnostics", "symbol", "github",
-		"n8n_workflow_read", "todo_write", "ask_user", "calc", "skills_list",
+		"n8n_workflow_read", "ask_user", "calc", "skills_list",
 	} {
 		if !s.AllowsTool(name) {
 			t.Errorf("วางแผน dropped %q — it only reads, and a plan written without looking is a guess", name)
@@ -107,6 +107,9 @@ func TestPlanKeepsWhatOnlyLooksAndDropsWhatChanges(t *testing.T) {
 		"doc_write", "sheet_write",
 		"n8n_workflow_create", "n8n_server_start", "windmill_flow_update",
 		"task", "plugin_install", "memory", "browser",
+		// The plan's own `steps` is the checklist; a second one the button
+		// cannot read is a place to file steps the plan then does not have.
+		"todo_write",
 	} {
 		if s.AllowsTool(name) {
 			t.Errorf("วางแผน kept %q — the whole promise of this stance is that it changes nothing", name)
@@ -215,7 +218,7 @@ func TestPlanAsksAboutTheWorkBeforeItReads(t *testing.T) {
 // plus the reading that produced it.
 func TestPlanAmendsThePlanItAlreadyHas(t *testing.T) {
 	d := strings.ToLower(StancePlan.Direction())
-	for _, want := range []string{"amends it", "already read"} {
+	for _, want := range []string{"is amended", "already read"} {
 		if !strings.Contains(d, want) {
 			t.Errorf("the plan direction says nothing about %q — a revision costs a whole rewrite without it", want)
 		}
@@ -241,5 +244,51 @@ func TestThePlanSaysHowItWillBeKnownToHaveWorked(t *testing.T) {
 		if !strings.Contains(d, h) {
 			t.Errorf("heading %q is in the shape and not in the prompt", h)
 		}
+	}
+}
+
+// A desk's direction is written for ลงมือ. The coding desk marks where its
+// acting half begins, and a stance that only looks gets the half above the
+// marker: "do it now" and "you must run the tests" are instructions a turn with
+// no shell and no write cannot obey, and beside วางแผน's own direction they
+// were two voices for one turn (14 ก.ย. 2026).
+func TestTheCodingDeskSplitsItsActingHalfForALookingStance(t *testing.T) {
+	m, ok := Load(Coding)
+	if !ok || m == nil {
+		t.Fatal("no coding desk")
+	}
+	whole := m.Direction()
+	looking := m.LookingDirection()
+	if strings.Contains(whole, ActingMarker) || strings.Contains(looking, ActingMarker) {
+		t.Error("the marker line itself reached a prompt")
+	}
+	for _, acting := range []string{
+		"A turn ends when the work is done",
+		"Done means proven by execution",
+		"before touching any code",
+	} {
+		if !strings.Contains(whole, acting) {
+			t.Errorf("ลงมือ lost %q", acting)
+		}
+		if strings.Contains(looking, acting) {
+			t.Errorf("a looking stance was told %q", acting)
+		}
+	}
+	for _, always := range []string{"This session is coding work", "Make minimal, surgical changes"} {
+		if !strings.Contains(looking, always) {
+			t.Errorf("the looking half lost %q, which holds under every stance", always)
+		}
+	}
+	if len(looking) >= len(whole) {
+		t.Errorf("the looking half (%d) is not shorter than the whole (%d)", len(looking), len(whole))
+	}
+}
+
+// A manifest with no marker is sent whole under every stance — the assistant
+// desk today, and any desk the user writes.
+func TestADeskWithoutTheMarkerIsSentWholeToALookingStance(t *testing.T) {
+	m := parse("plain", "---\ndescription: x\n---\n\nOne.\n\nTwo.\n")
+	if m.Direction() != m.LookingDirection() || m.Direction() != "One.\n\nTwo." {
+		t.Errorf("Direction %q / LookingDirection %q", m.Direction(), m.LookingDirection())
 	}
 }

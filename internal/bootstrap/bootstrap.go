@@ -524,7 +524,17 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 	// provider caches, and a prompt that changed mid-conversation would spend
 	// more on cache misses than either layer saves (internal/learned).
 	handover := canDelegate(cfg, opts.Mode, opts.Chair, opts.Team)
-	desk := deskFor(opts.Mode, opts.Mode.Direction(), handover)
+	// A desk's direction is written for ลงมือ. Under any other stance the
+	// paragraphs below its acting marker — do it now, run the tests, do not
+	// stop at the fix — describe a turn this one is not, and the model reading
+	// them beside the stance's own direction has to pick which to disobey
+	// (mode.ActingMarker has the measurement). The cut is made here, on the
+	// mode, because withStance below holds only the assembled string.
+	direction := opts.Mode.Direction()
+	if opts.Stance != mode.StanceAct {
+		direction = opts.Mode.LookingDirection()
+	}
+	desk := deskFor(opts.Mode, direction, handover)
 	desk.DrivesMachine = handedOver(opts.ExtraSkills, "computer")
 	if opts.Chair != nil {
 		// A chair chat runs on the chair's own prompt — profile plus what it
