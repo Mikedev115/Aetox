@@ -5,7 +5,7 @@
 // a host must open folders THERE — through the remote picker — not with
 // the native dialog that browses these disks.
 
-import { EngineStatus as engineStatusBinding } from '../../../wailsjs/go/main/App'
+import { EngineStatus as engineStatusBinding, AnswerHostDir } from '../../../wailsjs/go/main/App'
 import type { main } from '../../../wailsjs/go/models'
 
 export type EngineMode = 'local' | 'remote' | 'attach'
@@ -26,6 +26,22 @@ export const engine = $state({
 
 /** One folder question from the screen's Go side — the screen:pickdir event. */
 export type HostDirAsk = { id: string; title: string; start: string }
+
+/** Answer the open folder question — a path, or '' for cancelled — and take
+ *  the picker down. The id is read BEFORE the ask is cleared: the picker's
+ *  own `{@const ask}` is a derived read, and clearing first left it null by
+ *  the time the binding was called (seen live, 14 ก.ย. 2026). */
+export async function answerHostDir(path: string): Promise<void> {
+  const ask = engine.hostDirAsk
+  if (!ask) return
+  engine.hostDirAsk = null
+  try {
+    await AnswerHostDir(ask.id, path)
+  } catch {
+    // The door on the Go side lets the question go after its own wait; a
+    // binding that failed here is the wire's to report.
+  }
+}
 
 export function applyEngineStatus(st: main.EngineStatus): void {
   engine.heard = true

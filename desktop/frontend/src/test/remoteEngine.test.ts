@@ -7,9 +7,9 @@ import TopBar from '../lib/TopBar.svelte'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import {
   RemoteHosts, SaveRemoteHost, ConnectRemote, DisconnectRemote, ListDir, HomeDir,
-  OpenProjectFolder, EngineStatus as engineStatus,
+  OpenProjectFolder, EngineStatus as engineStatus, AnswerHostDir,
 } from './mocks/wailsApp'
-import { engine, resetEngineStore, applyEngineStatus } from '../lib/stores/engine.svelte'
+import { engine, resetEngineStore, applyEngineStatus, answerHostDir } from '../lib/stores/engine.svelte'
 import { openFolder, cockpit } from '../lib/stores/cockpit.svelte'
 
 // The engine on another machine (§248 phase 3): the Settings section that
@@ -148,6 +148,32 @@ describe('RemoteDirPicker', () => {
     expect(HomeDir).not.toHaveBeenCalled()
     expect(screen.getByRole('heading', { name: 'โฟลเดอร์ที่จะเก็บโปรเจกต์ใหม่' })).toBeTruthy()
     expect(screen.getByText('เลือกโฟลเดอร์บน box')).toBeTruthy()
+  })
+
+  it('falls back to the home when the start the door suggested is not there', async () => {
+    vi.mocked(HomeDir).mockResolvedValue('/home/u')
+    vi.mocked(ListDir).mockImplementation(async (p: string) => {
+      if (p === '/home/u/aetox-projects') throw new Error('เปิดโฟลเดอร์นี้ไม่ได้')
+      return { path: '/home/u', parent: '/home', entries: [], truncated: false } as any
+    })
+    render(RemoteDirPicker, { props: { host: 'box', title: 'x', start: '/home/u/aetox-projects', onPick: vi.fn(), onCancel: vi.fn() } })
+    await waitFor(() => expect(ListDir).toHaveBeenCalledWith('/home/u'))
+    await waitFor(() => expect((screen.getByLabelText('ที่อยู่โฟลเดอร์') as HTMLInputElement).value).toBe('/home/u'))
+    expect(screen.queryByText('เปิดโฟลเดอร์นี้ไม่ได้')).toBeNull()
+  })
+
+  it('answers the door by the id it was asked with, then takes the picker down', async () => {
+    // The order matters and was wrong once: cleared first, the derived
+    // read of the ask was null by the time the binding needed its id, and
+    // the door on the Go side waited on nobody.
+    engine.hostDirAsk = { id: '7', title: 'x', start: '' }
+    await answerHostDir('/srv/one')
+    expect(AnswerHostDir).toHaveBeenCalledWith('7', '/srv/one')
+    expect(engine.hostDirAsk).toBeNull()
+    // A second answer with no question open is nothing.
+    vi.mocked(AnswerHostDir).mockClear()
+    await answerHostDir('')
+    expect(AnswerHostDir).not.toHaveBeenCalled()
   })
 })
 
