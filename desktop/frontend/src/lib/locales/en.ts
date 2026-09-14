@@ -886,6 +886,7 @@ export const en: Record<keyof typeof th, string> = {
   'settings.searchPlaceholder': 'Search settings…',
   'settings.groupPersonal': 'Personal',
   'settings.groupModels': 'AI models',
+  'settings.groupAgents': 'Agents',
   'settings.groupTools': 'Tools',
   'settings.groupAbout': 'About',
   // The Aetox account. It gates nothing in the app today, and the copy says so

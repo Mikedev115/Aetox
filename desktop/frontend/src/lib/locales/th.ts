@@ -884,6 +884,7 @@ export const th = {
   'settings.searchPlaceholder': 'ค้นหาการตั้งค่า…',
   'settings.groupPersonal': 'ส่วนบุคคล',
   'settings.groupModels': 'โมเดล AI',
+  'settings.groupAgents': 'เอเจน',
   'settings.groupTools': 'เครื่องมือ',
   'settings.groupAbout': 'เกี่ยวกับ',
   // บัญชี Aetox ยังไม่ได้กั้นอะไรในแอปเลย และข้อความก็พูดแบบนั้นตรง ๆ
