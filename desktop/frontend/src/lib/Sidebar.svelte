@@ -28,6 +28,7 @@
   } from './selfUpdate.svelte'
   import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
   import Icon from './Icon.svelte'
+  import { fade } from 'svelte/transition'
   import { errText } from './errText'
   import CompanionSwitch from './mascot/CompanionSwitch.svelte'
   import { profile, loadProfileName, saveProfileName } from './stores/profile.svelte'
@@ -760,7 +761,11 @@
      start looking like two apps. -->
 {#snippet spaceRow(p: SpaceRow)}
   {@const here = cockpit.space === p.name}
-  <div class="proj-group-row">
+  <!-- .space-row on top of the shared classes: the rail's row has no fold
+       column in front of the folder, so without its own left padding the
+       icon sat on the column's edge while สร้างโปรเจกต์ and every chat row
+       below started 8px in (owner, 14 ก.ย. 2026: "มันชิดกันไป"). -->
+  <div class="proj-group-row space-row">
     <button type="button" class="proj-group-head" class:active={here} onclick={() => openSpace(p.name)}>
       <!-- folderOpen for the one you are standing in. The app's own way of
            saying "this is the one", already used on the workshop's rows, so
@@ -1131,6 +1136,13 @@
   </div>
   {/if}
 
+  <!-- The menu's ground goes dark while it is open, so the sheet reads as a
+       sheet: both were --surface-panel, and one hairline between two equal
+       greys was the whole difference (owner, 14 ก.ย.: "แยกกับข้างหลังไม่ออก").
+       Sidebar-only, and a click on it closes the menu like any outside click. -->
+  {#if profileOpen}
+    <div class="side-scrim" transition:fade={{ duration: 140 }}></div>
+  {/if}
   <div class="side-footer-wrap">
     <button type="button" class="side-footer" onclick={() => { profileOpen = !profileOpen; if (profileOpen) { loadAccount(); loadAetoxAccount(); refreshUpdate() } }}>
       <span class="avatar">{avatarInitial}</span>

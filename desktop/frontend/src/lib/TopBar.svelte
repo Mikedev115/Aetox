@@ -5,6 +5,9 @@
   import { shortcutLabel } from './shortcuts'
   import Wordmark from './Wordmark.svelte'
   import Icon from './Icon.svelte'
+  import Mascot from './mascot/Mascot.svelte'
+  import RankedFace from './RankedFace.svelte'
+  import { headOf, headOptions } from './mascot/avatarPrefs.svelte'
   import SessionStrip from './SessionStrip.svelte'
   import { openArtifactsTab } from './stores/workbench.svelte'
   import { codeStatus } from './stores/codeStatus.svelte'
@@ -117,7 +120,15 @@
       {#each offeredShells() as s (s.name)}
         {@const walking = going?.name === s.name}
         <button type="button" class="door-item" class:on={shell.name === s.name} role="menuitem" onclick={() => pick(s.name)}>
-          <span class="ic">{#if walking}<span class="walk-spin"><Icon name="loaderCircle" size={15} /></span>{:else}<Icon name={s.icon} size={15} />{/if}</span>
+          <!-- A door is a head's: the face that answers behind it, with its
+               rank, instead of a glyph standing in for it (owner, 14 ก.ย.
+               2026: "ตรงนี้ควรจะเปลี่ยนเป็นอวตารได้แล้ว"). The glyph stays
+               for a door with no desk of its own. -->
+          <span class="ic" class:face={!!s.desk}>
+            {#if walking}<span class="walk-spin"><Icon name="loaderCircle" size={15} /></span>
+            {:else if s.desk}<RankedFace tier="head" size={38}><Mascot {...headOptions(headOf(s.desk))} pose="idle" size={38} still /></RankedFace>
+            {:else}<Icon name={s.icon} size={15} />{/if}
+          </span>
           <span class="txt">
             <span class="t">{t(s.labelKey)}</span>
             <span class="d">{walking ? t('shell.opening') : t(s.blurbKey)}</span>

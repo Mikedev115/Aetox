@@ -21,6 +21,7 @@
   import { HEADS, headOptions, type HeadId } from './mascot/avatarPrefs.svelte'
   import RankPip from './RankPip.svelte'
   import RankedFace from './RankedFace.svelte'
+  import type { PoseId } from './mascot/poses'
   import ScopeMark from './ScopeMark.svelte'
   import AvatarSettings from './mascot/AvatarSettings.svelte'
   import TeamSettings from './TeamSettings.svelte'
@@ -2227,14 +2228,28 @@
     }
   }
 
-  async function loadAgentReach(name: string) {
+  // The delegate's own memory file and its meter, on their own because a
+  // ลูกมือ has the ความจำ tab too (fddd0b15) and none of the reach: with the
+  // load inside loadAgentReach, its tab opened on a page that never asked
+  // for the file (owner, 14 ก.ย. 2026: "ทำไมโล่งแบบนี้").
+  function loadAgentMemory(name: string): Promise<void> {
     agentReachFor = name
+    agentMemory = []
+    agentMemoryReady = false
+    void loadAgentMemInfo(name)
+    return LearnedEntries(name).then((memory) => {
+      if (agentReachFor !== name) return
+      agentMemory = memory
+      agentMemoryReady = true
+    })
+  }
+
+  async function loadAgentReach(name: string) {
+    const memoryP = loadAgentMemory(name)
     agentSkills = []
     agentNeeds = []
-    agentMemory = []
     agentStarters = null
     agentSkillsReady = false
-    agentMemoryReady = false
     // The MCP register is the source for "which servers is this agent on", and
     // it is already loaded for its own page. Asked for here too, because the
     // editor can be the first page opened in a session.
@@ -2243,12 +2258,6 @@
       agentSkills = skills
       agentSkillsReady = true
     })
-    const memoryP = LearnedEntries(name).then((memory) => {
-      if (agentReachFor !== name) return
-      agentMemory = memory
-      agentMemoryReady = true
-    })
-    void loadAgentMemInfo(name)
     startersOwner = { kind: 'chair', name }
     const [needs, starters, file] = await Promise.all([
       AgentNeeds(name),
@@ -2500,6 +2509,7 @@
     // after the fields are in, and not awaited by the editor: a slow disk scan
     // must not hold up the form the user came to type in.
     if (agentEditKind === 'agent') void loadAgentReach(a.name)
+    else void loadAgentMemory(a.name)
   })
 
   function newAgent(kind: 'agent' | 'helper' = 'helper') {
@@ -2971,6 +2981,29 @@
   const headDecided = (h: HeadId) => decidedChanges.filter((c) => headScopes(h).includes(c.scope))
   // A delegate's proposals: its scope is its bare name (memoryScope.ts).
   const agentPendingFor = (name: string) => pendingChanges.filter((c) => c.kind !== 'skill' && c.scope === name.trim())
+
+  // The face at the head of a profile page is alive, not a tile: it breathes,
+  // follows the pointer, and a click gets the companion's reaction — one of
+  // the same four, with the same hop, then back (owner, 14 ก.ย. 2026: "ทำให้
+  // มันกดเล่นได้ด้วยนะ ไม่ใช่ยืนนิ่ง"). One face per page, so the roster rule
+  // (still, MASCOT.md §3.7) does not apply here.
+  const HERO_REACTIONS: PoseId[] = ['greeting', 'cheer', 'helping', 'wink']
+  const HERO_REACT_MS = 1600
+  let heroPose = $state<PoseId | undefined>(undefined)
+  let heroHop = $state(false)
+  let heroTimer: ReturnType<typeof setTimeout> | undefined
+  function pokeHero() {
+    const next = HERO_REACTIONS[Math.floor(Math.random() * HERO_REACTIONS.length)]
+    heroPose = next === heroPose ? HERO_REACTIONS[(HERO_REACTIONS.indexOf(next) + 1) % HERO_REACTIONS.length] : next
+    heroHop = false
+    requestAnimationFrame(() => (heroHop = true))
+    clearTimeout(heroTimer)
+    heroTimer = setTimeout(() => {
+      heroPose = undefined
+      heroHop = false
+    }, HERO_REACT_MS)
+  }
+  $effect(() => () => clearTimeout(heroTimer))
   // A desk's switch on a server: the desk's id in that server's `for:` list,
   // written through the room's one writer (SetMCPServerTargets) the way the
   // agent box does — the room's picker and this switch are one call, not two
@@ -4488,15 +4521,39 @@
   {/if}
 {/snippet}
 
+<!-- The one head every "this one's page" wears — ผู้ช่วย and โค้ด (the head
+     page), a พนักงาน, a ลูกมือ (agentEditorPane). Owner, 14 ก.ย. 2026: "ทั้ง 3
+     หน้านี้ต้อง UI มาตรฐานเดียวกัน แค่แต่ละหน้าอาจจะมีเมนูไม่เหมือนกัน". So the
+     shape is fixed here and the pages differ only in what the bar above
+     carries and which tabs follow: the face at one size with its rank on the
+     corner, the name as the page's title with its badge, one line of what it
+     does. There is no h2 above it any more — the name IS the title, and the
+     heading-plus-subtitle-plus-bar-plus-face stack was what made the top
+     feel tight (owner: "อึดอัดไปหน่อยข้างบน"). -->
+{#snippet profileHero(tier: 'head' | 'agent' | 'helper', name: string, badge: string, desc: string, head: HeadId | null = null)}
+  <div class="pf-hero" data-tier={tier}>
+    <button type="button" class="pf-face" onclick={pokeHero} title={t('settings.heroPoke')} aria-label={t('settings.heroPoke')}>
+      <RankedFace {tier} size={80}>
+        {#if tier === 'head' && head}
+          <Mascot {...headOptions(head)} pose={heroPose ?? 'idle'} size={80} hop={heroHop} look />
+        {:else}
+          <AgentMascot name={facePreviewName} {...draftFace} size={80} still={false} pose={heroPose} hop={heroHop} look />
+        {/if}
+      </RankedFace>
+    </button>
+    <div class="pf-who">
+      <h2 class="pf-name">{name} <span class="badge on">{badge}</span></h2>
+      <p class="pf-desc muted" class:empty={!desc}>{desc || t('settings.agentDescriptionPlaceholder')}</p>
+    </div>
+  </div>
+{/snippet}
+
 <!-- One editor for both kinds. Which kind it is holding was decided by the
      door it was opened through (agentEditKind), never by reading the file —
      that is the same rule the storage layer lives by, carried up. -->
 {#snippet agentEditorPane()}
   {#if agentEditing !== null}
-    <h2>{agentEditKind === 'agent' ? t('settings.editAgentTitle') : t('settings.subagents')}</h2>
-    <p class="muted set-sub">{agentEditKind === 'agent' ? t('settings.editAgentDesc') : t('settings.subagentsDesc')}</p>
-
-    <div class="pp-bar">
+    <div class="pp-bar pf-bar">
       <button class="ctrl" onclick={closeAgentEditor}><Icon name="arrowLeft" size={14} /> {t('settings.agentBack')}</button>
       <div class="pp-bar-gap"></div>
       {#if !agentEditing.builtin && agentEditing.name}
@@ -4508,6 +4565,17 @@
         {agentBusy === 'save' ? t('settings.saving') : t('settings.promptSave')}
       </button>
     </div>
+
+    <!-- The draft, not the file: the name and the line under it follow what
+         is typed on ตัวตน, and the face follows อวตาร, so the head of the page
+         is what the card will be once saved. A new one is headed by the
+         placeholder name until it has one. -->
+    {@render profileHero(
+      agentEditKind === 'agent' ? 'agent' : 'helper',
+      agentDraftName.trim() || t('settings.agentNewName'),
+      agentEditKind === 'agent' ? t('rank.agent') : t('rank.helper'),
+      agentDraftDescription.trim(),
+    )}
 
     {#if agentEditing.builtin}
       <p class="muted set-sub">{t('settings.agentOverrideNote')}</p>
@@ -4555,7 +4623,7 @@
             class:on={agentTab === 'reach'} onclick={() => (agentTab = 'reach')}
           >
             <Icon name="plug" size={14} />
-            <span>{t('settings.agentSecReach')}</span>
+            <span>{t('settings.mainSecMcp')}</span>
             {#if unmetAgentNeeds > 0}
               <span class="ag-count ag-count-warn">{unmetAgentNeeds}</span>
             {/if}
@@ -4571,7 +4639,7 @@
               class:on={agentTab === 'knowledge'} onclick={() => (agentTab = 'knowledge')}
             >
               <Icon name="puzzle" size={14} />
-              <span>{t('settings.agentSecKnowledge')}</span>
+              <span>{t('settings.mainSecSkills')}</span>
             </button>
             <button
               type="button" role="tab" id="ag-tab-opening" aria-controls="ag-panel-opening"
@@ -5069,16 +5137,6 @@
         {@render agentSkillsBox()}
       </div>
 
-      <!-- ── ความจำ ── this agent's own file, the head page's block. -->
-      <div role="tabpanel" id="ag-panel-memory" aria-labelledby="ag-tab-memory"
-        class="ag-tab-panel" class:on={agentTab === 'memory'}>
-        {#if agentEditing.name}
-          {@render agentMemoryBox()}
-        {:else}
-          {@render saveFirstCard('brain', t('settings.agentMemorySaveFirst'))}
-        {/if}
-      </div>
-
       <!-- ── เปิดบทสนทนา ── conversation starter cards. -->
       <div role="tabpanel" id="ag-panel-opening" aria-labelledby="ag-tab-opening"
         class="ag-tab-panel" class:on={agentTab === 'opening'}>
@@ -5089,6 +5147,18 @@
         {/if}
       </div>
     {/if}
+
+    <!-- ── ความจำ ── this profile's own file, the head page's block. Outside
+         the agent-only block above: a ลูกมือ has the tab (fddd0b15), so it has
+         the panel. -->
+    <div role="tabpanel" id="ag-panel-memory" aria-labelledby="ag-tab-memory"
+      class="ag-tab-panel" class:on={agentTab === 'memory'}>
+      {#if agentEditing.name}
+        {@render agentMemoryBox()}
+      {:else}
+        {@render saveFirstCard('brain', t('settings.agentMemorySaveFirst'))}
+      {/if}
+    </div>
     {/if}
   {/if}
 {/snippet}
@@ -6757,24 +6827,18 @@
       {:else}
         {@const h = mainHead}
         {@const g = headGroup(h)}
-        <h2>{t('settings.mainEditTitle', { name: headShown(h) })}</h2>
-        <p class="muted set-sub">{t('settings.mainEditDesc')}</p>
-        <div class="pp-bar">
+        <!-- The same shell as a พนักงาน's or a ลูกมือ's page (profileHero):
+             the bar, the head, the tabs. Only the bar's right side and the
+             tab set are this page's own. -->
+        <div class="pp-bar pf-bar">
           <button class="ctrl" onclick={() => (mainHead = null)}><Icon name="arrowLeft" size={14} /> {t('settings.agentBack')}</button>
           <div class="pp-bar-gap"></div>
           <button class="ctrl" onclick={() => openHead(h === 'assistant' ? 'coding' : 'assistant')}>
             {t('settings.mainGoOther', { name: headLabel(h === 'assistant' ? 'coding' : 'assistant') })} <Icon name="arrowRight" size={12} />
           </button>
         </div>
+        {@render profileHero('head', headShown(h), t('settings.mainHeadBadge'), headDesc(h), h)}
         {#if learningError}<div class="mset-error">{learningError}</div>{/if}
-
-        <div class="main-head">
-          <RankedFace tier="head" size={64}><Mascot {...headOptions(h)} pose="idle" size={64} still /></RankedFace>
-          <div class="main-who">
-            <div class="main-name">{headLabel(h)} <span class="badge on">{t('settings.mainHeadBadge')}</span></div>
-            <div class="d muted">{headDesc(h)}</div>
-          </div>
-        </div>
 
         <div class="ag-tabs-bar">
           <div class="seg" role="tablist" aria-label={t('settings.mainEditTitle', { name: headLabel(h) })}>

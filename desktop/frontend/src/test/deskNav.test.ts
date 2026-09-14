@@ -44,7 +44,7 @@ describe('the rooms behind each door', () => {
     // here and say so out loud.
     //
     // ระบบออโตเมชั่น was in this list until 30 ส.ค. See the test below.
-    for (const label of ['ผู้ช่วย', 'โปรเจกต์', 'เอเจนเฉพาะทาง', 'ผลงาน']) {
+    for (const label of ['ผู้ช่วย', 'โปรเจกต์', 'พนักงานเฉพาะทาง', 'ผลงาน']) {
       expect(deskButton(label)).toBeTruthy()
       expect(deskButton(label).disabled).toBe(false)
       expect(deskButton(label).textContent).not.toContain('เร็ว ๆ นี้')
@@ -59,7 +59,7 @@ describe('the rooms behind each door', () => {
     render(Sidebar, { onOpenSettings: () => {} })
 
     expect(deskButton('โค้ด')).toBeTruthy()
-    for (const hidden of ['ผู้ช่วย', 'โปรเจกต์', 'เอเจนเฉพาะทาง', 'ห้องทำงาน', 'ผลงาน']) {
+    for (const hidden of ['ผู้ช่วย', 'โปรเจกต์', 'พนักงานเฉพาะทาง', 'ห้องทำงาน', 'ผลงาน']) {
       expect(() => deskButton(hidden)).toThrow()
     }
   })
@@ -73,7 +73,7 @@ describe('the rooms behind each door', () => {
     render(Sidebar, { onOpenSettings: () => {} })
 
     expect(deskButton('ห้องทำงาน').disabled).toBe(false)
-    for (const hidden of ['ผู้ช่วย', 'โปรเจกต์', 'เอเจนเฉพาะทาง', 'ผลงาน', 'โค้ด']) {
+    for (const hidden of ['ผู้ช่วย', 'โปรเจกต์', 'พนักงานเฉพาะทาง', 'ผลงาน', 'โค้ด']) {
       expect(() => deskButton(hidden)).toThrow()
     }
   })
@@ -108,13 +108,15 @@ describe('the rooms behind each door', () => {
   it('gives each door one list and no tab back to the other', () => {
     const { unmount } = render(Sidebar, { onOpenSettings: () => {} })
     expect(document.querySelector('.side-tabs')).toBeNull()
-    expect(screen.queryByText('เพิ่มโปรเจกต์')).toBeNull()
+    // The project heading's own buttons (open a folder, make one) are the
+    // workshop's; the dashed "เพิ่มโปรเจกต์" row they replaced is gone (4e5af154).
+    expect(screen.queryByLabelText('สร้างโปรเจกต์ใหม่')).toBeNull()
     unmount()
 
     setShell('code')
     render(Sidebar, { onOpenSettings: () => {} })
     expect(document.querySelector('.side-tabs')).toBeNull()
-    expect(screen.queryByText('เพิ่มโปรเจกต์')).toBeTruthy()
+    expect(screen.queryByLabelText('สร้างโปรเจกต์ใหม่')).toBeTruthy()
   })
 
   it('opens a session at the desk that was clicked', async () => {
@@ -147,7 +149,7 @@ describe('the rooms behind each door', () => {
     await fireEvent.click(deskButton('ผลงาน'))
     expect(cockpit.activeView).toBe('artifacts')
 
-    await fireEvent.click(deskButton('เอเจนเฉพาะทาง'))
+    await fireEvent.click(deskButton('พนักงานเฉพาะทาง'))
     expect(cockpit.activeView).toBe('office')
     expect(vi.mocked(NewSessionAt)).not.toHaveBeenCalled()
   })

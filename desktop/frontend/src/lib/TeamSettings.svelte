@@ -34,6 +34,7 @@
   import Icon from './Icon.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
+  import RankedFace from './RankedFace.svelte'
   import { lookOf } from './mascot/agentLook'
 
   // The one door out of this page: to the agent editor, for an agent that
@@ -408,7 +409,9 @@
           {#each tm.members as c (c.name)}
             {@const reach = reachOf(tm, c.name)}
             <div class="team-member" class:off={!!reach && !(reach.on && !reach.off)}>
-              <AgentMascot name={c.name} {...lookOf(c)} size={28} />
+              <!-- A member is a พนักงาน: the rank on the face's corner, as
+                   on every other face (owner, 14 ก.ย.: "ในนี้ควรจะใส่ยศด้วย"). -->
+              <RankedFace tier="agent" size={40}><AgentMascot name={c.name} {...lookOf(c)} size={40} /></RankedFace>
               <div class="team-member-txt">
                 <div class="t">{c.name}</div>
                 {#if c.description}<div class="d">{c.description}</div>{/if}

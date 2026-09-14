@@ -38,7 +38,7 @@ describe('Agent Memory in Settings', () => {
     await waitFor(() => expect(screen.getByRole('tablist', { name: 'ตั้งค่าพนักงาน' })).toBeTruthy())
 
     // Switch to knowledge tab
-    const tab = await screen.findByRole('tab', { name: /สกิลเฉพาะสำหรับเอเจน/ })
+    const tab = await screen.findByRole('tab', { name: /^สกิล$/ })
     await fireEvent.click(tab)
 
     // In agent editor pane: check memory box empty message
@@ -67,7 +67,7 @@ describe('Agent Memory in Settings', () => {
     await waitFor(() => expect(screen.getByRole('tablist', { name: 'ตั้งค่าพนักงาน' })).toBeTruthy())
 
     // Switch to knowledge tab
-    const tab = await screen.findByRole('tab', { name: /สกิลเฉพาะสำหรับเอเจน/ })
+    const tab = await screen.findByRole('tab', { name: /^สกิล$/ })
     await fireEvent.click(tab)
 
     const addBtn = await screen.findByRole('button', { name: /เพิ่มความจำ/ })
@@ -99,7 +99,7 @@ describe('Agent Memory in Settings', () => {
     await waitFor(() => expect(screen.getByRole('tablist', { name: 'ตั้งค่าพนักงาน' })).toBeTruthy())
 
     // Switch to knowledge tab
-    const tab = await screen.findByRole('tab', { name: /สกิลเฉพาะสำหรับเอเจน/ })
+    const tab = await screen.findByRole('tab', { name: /^สกิล$/ })
     await fireEvent.click(tab)
 
     await waitFor(() => {
@@ -126,7 +126,7 @@ describe('Agent Memory in Settings', () => {
     cockpit.settingsIntent = { section: 'team', agent: 'deck' }
     const { container } = render(Settings, { onClose: () => {} })
     await waitFor(() => expect(screen.getByRole('tablist', { name: 'ตั้งค่าพนักงาน' })).toBeTruthy())
-    await fireEvent.click(await screen.findByRole('tab', { name: /สกิลเฉพาะสำหรับเอเจน/ }))
+    await fireEvent.click(await screen.findByRole('tab', { name: /^สกิล$/ }))
     const head = await waitFor(() => { const h = container.querySelector('.mem-desk .mem-scope[data-mem-scope="deck"]'); expect(h).toBeTruthy(); return h! })
     expect(head.querySelector('.mem-scope-name')?.textContent?.trim()).toBe('deck')
     expect(head.querySelector('.mem-badge-file')?.textContent).toBe('agents/deck/MEMORY.md')
@@ -134,5 +134,32 @@ describe('Agent Memory in Settings', () => {
     await waitFor(() => expect(head.querySelector('.mem-cap-num')?.textContent).toContain('1,200 / 8,192'))
     expect(screen.getByText('ความจำของdeck')).toBeTruthy()
     expect(container.querySelectorAll('.mem-desk .mem-row').length).toBe(1)
+  })
+
+  // A ลูกมือ has the tab too (fddd0b15) — and the panel behind it. It sat
+  // inside the agent-only block, so the tab opened on a page that had never
+  // asked for the file (owner, 14 ก.ย. 2026: "ทำไมโล่งแบบนี้").
+  it("draws a helper's memory behind its ความจำ tab, loaded on open", async () => {
+    vi.mocked(ListSubagentProfiles).mockResolvedValue([
+      { name: 'deck', description: 'ทำสไลด์', prompt: 'role', builtin: true, desk: 'specialized' },
+      { name: 'explore', description: 'ค้นไฟล์', prompt: 'role', builtin: true },
+    ] as any)
+    vi.mocked(LearnedEntries).mockResolvedValue(['ไฟล์ทดสอบอยู่ใน src/test'])
+    vi.mocked(MemoryScopeInfo).mockResolvedValue({ scope: 'explore', bytes: 40, maxBytes: 8192, full: false } as any)
+    const { container } = render(Settings, { onClose: () => {} })
+    // Through the ลูกมือ page's cog — the helper door; an intent naming an
+    // agent opens through the agent door and would make it a พนักงาน.
+    const items = Array.from(container.querySelectorAll('.settings-nav-item'))
+    await fireEvent.click(items.find((el) => el.textContent?.trim() === 'ลูกมือ')!)
+    await waitFor(() => expect(screen.getByText('ค้นไฟล์')).toBeTruthy())
+    await fireEvent.click(container.querySelector('.office-grid button[aria-label="ตั้งค่า"]')!)
+    await waitFor(() => expect(container.querySelector('#ag-panel-identity')).toBeTruthy())
+    expect(screen.queryByRole('tab', { name: /^สกิล$/ })).toBeNull() // a helper has no reach tabs
+    await fireEvent.click(await screen.findByRole('tab', { name: /^ความจำ$/ }))
+    await waitFor(() => expect(LearnedEntries).toHaveBeenCalledWith('explore'))
+    const head = await waitFor(() => { const h = container.querySelector('.mem-desk .mem-scope[data-mem-scope="explore"]'); expect(h).toBeTruthy(); return h! })
+    expect(head.querySelector('.mem-badge-file')?.textContent).toBe('agents/explore/MEMORY.md')
+    expect(container.querySelectorAll('.mem-desk .mem-row').length).toBe(1)
+    expect(container.querySelector('#ag-panel-memory')?.classList.contains('on')).toBe(true)
   })
 })

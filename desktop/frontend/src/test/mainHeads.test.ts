@@ -84,10 +84,10 @@ describe('a head\'s page', () => {
     await openSection(container, 'ตัวหลัก')
     await waitFor(() => expect(cards(container).length).toBe(2))
     await fireEvent.click(cards(container)[0].querySelector('.icobtn')!)
-    await waitFor(() => expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('ตั้งค่า ผู้ช่วย'))
+    await waitFor(() => expect(container.querySelector('.pf-hero .pf-name')?.textContent?.trim()).toBe('ผู้ช่วย ตัวหลัก'))
     expect(tabs(container).map((t) => t.textContent?.trim())).toEqual(['ตัวตน', 'ตั้งค่า MCP', 'สกิล', 'เปิดบทสนทนา', 'ความจำ'])
-    expect(container.querySelector('.main-head .rank-corner.rank-head')).toBeTruthy()
-    expect(container.querySelector('.main-head .mascot')).toBeTruthy()
+    expect(container.querySelector('.pf-hero .rank-corner.rank-head')).toBeTruthy()
+    expect(container.querySelector('.pf-hero .mascot')).toBeTruthy()
     // The first tab reads as the three questions (DECISIONS §270.3), naming the
     // head: the desk row is the job, not the head's description again (the
     // hero has that).
@@ -100,7 +100,7 @@ describe('a head\'s page', () => {
     expect(container.querySelector('.ag-tab-panel.on')?.textContent).toContain('modes/assistant.md')
 
     await fireEvent.click(Array.from(container.querySelectorAll('.pp-bar .ctrl')).find((b) => b.textContent?.includes('ไปที่ โค้ด'))!)
-    await waitFor(() => expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('ตั้งค่า โค้ด'))
+    await waitFor(() => expect(container.querySelector('.pf-hero .pf-name')?.textContent?.trim()).toBe('โค้ด ตัวหลัก'))
     expect(container.querySelector('.ag-tab-panel.on')?.textContent).toContain('modes/coding.md')
 
     await fireEvent.click(Array.from(container.querySelectorAll('.pp-bar .ctrl'))[0])
@@ -318,6 +318,7 @@ describe('the name', () => {
     expect(save.disabled).toBe(false)
     await fireEvent.click(save)
     await waitFor(() => expect(SetHeadName).toHaveBeenCalledWith('assistant', 'Nova'))
-    await waitFor(() => expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('ตั้งค่า Nova'))
+    // The hero is the page's title now (profileHero): the name, then the badge.
+    await waitFor(() => expect(container.querySelector('.pf-hero .pf-name')?.textContent?.trim()).toBe('Nova ตัวหลัก'))
   })
 })

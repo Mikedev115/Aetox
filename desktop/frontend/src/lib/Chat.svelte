@@ -4582,7 +4582,8 @@
           </button>
         {/each}
       </div>
-      {#if canReroll}
+      <div class="starter-actions">
+        {#if canReroll}
           <button class="starter-more" onclick={() => reroll++}>
             <Icon name="refreshCw" size={13} />
             <span>{t('start.more')}</span>

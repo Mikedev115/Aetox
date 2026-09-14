@@ -24,6 +24,7 @@
   import Icon from './Icon.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
   import Mascot from './mascot/Mascot.svelte'
+  import RankedFace from './RankedFace.svelte'
   import { headOf, headOptions } from './mascot/avatarPrefs.svelte'
   import { lookOf } from './mascot/agentLook'
   import { avatarText } from './mascot/avatarText'
@@ -177,7 +178,9 @@
       <button type="button" class="focus-item" class:on={!cockpit.chair} onclick={pickAssistant}>
         <!-- The desk's head, as its own face (14 ก.ย. 2026) — the same one
              on the wall and the floating figure, not a desk glyph. -->
-        <span class="ic"><Mascot {...headOptions(head)} size={16} still /></span> {headName}
+        <!-- With its rank, like every face (owner, 14 ก.ย.: "ยศ ควรแสดง") —
+             26px so the corner emblem has a face to sit on. -->
+        <span class="ic"><RankedFace tier="head" size={26}><Mascot {...headOptions(head)} size={26} still /></RankedFace></span> {headName}
       </button>
       {#if members.length > 0}<div class="menu-sep"></div>{/if}
       {#each members as c (c.name)}
@@ -189,7 +192,7 @@
         <div class="agent-row" class:on={cockpit.chair === c.name}>
           <button type="button" class="focus-item" class:locked
             title={locked ? t('lock.body') : c.description} onclick={() => pickChair(c)}>
-            <AgentMascot name={c.name} {...lookOf(c)} size={20} /><span class="t">{c.name}</span>
+            <RankedFace tier="agent" size={26}><AgentMascot name={c.name} {...lookOf(c)} size={26} /></RankedFace><span class="t">{c.name}</span>
             {#if locked}<span class="focus-locked"><Icon name="wrench" size={12} /></span>{/if}
           </button>
         </div>
@@ -205,9 +208,11 @@
   <button type="button" class="focus-chip focus-btn" aria-expanded={open === 'who'} title={t('chat.pickWho')}
     onclick={() => toggle('who')}>
     <span class="ic">
-      {#if cockpit.chair && chairCard}<AgentMascot name={chairCard.name} {...lookOf(chairCard)} size={14} />
+      <!-- The chip's face carries its rank too (owner, 14 ก.ย.: "ทำไมไม่แสดง")
+           — 22px, the smallest face the corner emblem still sits on. -->
+      {#if cockpit.chair && chairCard}<RankedFace tier="agent" size={22}><AgentMascot name={chairCard.name} {...lookOf(chairCard)} size={22} /></RankedFace>
       {:else if cockpit.chair}<Icon name="bot" size={13} />
-      {:else}<Mascot {...headOptions(head)} size={15} still />{/if}
+      {:else}<RankedFace tier="head" size={22}><Mascot {...headOptions(head)} size={22} still /></RankedFace>{/if}
     </span>
     <span class="t">{cockpit.chair || headName}</span>
     <span class="caret"><Icon name={open === 'who' ? 'chevronUp' : 'chevronDown'} size={12} /></span>

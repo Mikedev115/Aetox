@@ -647,7 +647,7 @@ describe('Settings pages', () => {
     const labels = Array.from(container.querySelectorAll('.settings-nav-item')).map((el) => el.textContent?.trim())
     expect(labels).toContain('พนักงาน')
     expect(labels).toContain('ลูกมือ')
-    expect(labels).toContain('ทีมเอเจน')
+    expect(labels).toContain('ทีม')
 
     await openSection(container, 'พนักงาน')
     await waitFor(() => expect(screen.getByRole('heading', { name: 'พนักงาน' })).toBeTruthy())
@@ -658,7 +658,7 @@ describe('Settings pages', () => {
     // "พื้นหลังสีเดียวกับสร้างทีม"); the door to the roster page is the rail's.
     const hire = screen.getByText('เพิ่มพนักงาน').closest('button')!
     expect(hire.classList.contains('ctrl-primary')).toBe(true)
-    expect(screen.queryByText(/ไปหน้าเอเจนเฉพาะทาง/)).toBeNull()
+    expect(screen.queryByText(/ไปหน้าพนักงานเฉพาะทาง/)).toBeNull()
   })
 
   // Closing an agent's editor walks back to where it was opened from. An
@@ -965,7 +965,7 @@ describe('Settings pages', () => {
     await fireEvent.click(rowOf('firecrawl').querySelector('input')!)
     await waitFor(() => expect(vi.mocked(SetMCPServerTargets)).toHaveBeenCalledWith('firecrawl', ['assistant', 'agent:deck']))
 
-    await fireEvent.click(screen.getByRole('button', { name: /ตั้งค่าสกิลสำหรับเอเจนเฉพาะทาง/ }))
+    await fireEvent.click(screen.getByRole('button', { name: /ตั้งค่าสกิลสำหรับพนักงานเฉพาะทาง/ }))
     expect(cockpit.capabilityIntent).toEqual({ page: 'skagents', agent: 'deck' })
     expect(cockpit.activeView).toBe('capability')
     cockpit.activeView = 'settings'
@@ -1003,7 +1003,7 @@ describe('Settings pages', () => {
     await fireEvent.click(screen.getByText('context7').closest('.ag-reachrow')!.querySelector('input')!)
     expect(vi.mocked(SetMCPServerTargets)).not.toHaveBeenCalled() // a tick, not a write
 
-    await fireEvent.click(screen.getByRole('tab', { name: /สกิลเฉพาะสำหรับเอเจน/ }))
+    await fireEvent.click(screen.getByRole('tab', { name: /^สกิล$/ }))
     await waitFor(() => expect(screen.getByText('gridgeist')).toBeTruthy())
     expect(screen.getByRole('button', { name: /สกิลของคุณ/ })).toBeTruthy()
     await fireEvent.click(screen.getByText('gridgeist').closest('.ag-reachrow')!.querySelector('input')!)
@@ -2139,9 +2139,9 @@ describe('Settings › ทีมเอเจน', () => {
     const model = labels.indexOf('การตั้งค่าโมเดล')
     // ตัวหลัก joined the group 14 ก.ย. 2026, first after the model page: the
     // two the user talks to, then the specialists, the helpers, the teams.
-    expect(labels.slice(model, model + 5)).toEqual(['การตั้งค่าโมเดล', 'ตัวหลัก', 'พนักงาน', 'ลูกมือ', 'ทีมเอเจน'])
-    await openSection(container, 'ทีมเอเจน')
-    await waitFor(() => expect(screen.getByText('ทีมเอเจน', { selector: 'h2' })).toBeTruthy())
+    expect(labels.slice(model, model + 5)).toEqual(['การตั้งค่าโมเดล', 'ตัวหลัก', 'พนักงาน', 'ลูกมือ', 'ทีม'])
+    await openSection(container, 'ทีม')
+    await waitFor(() => expect(screen.getByText('ทีม', { selector: 'h2' })).toBeTruthy())
     // The door is drawn more than once on purpose (teamSettings.test.ts).
     expect(screen.getAllByText('สร้างทีม').length).toBeGreaterThan(0)
   })
