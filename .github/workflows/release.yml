@@ -46,7 +46,24 @@ jobs:
       - name: Install wails (pinned to go.mod) and NSIS
         run: |
           $v = go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2
-          go install "github.com/wailsapp/wails/v2/cmd/wails@$v"
+          # The same shape as the NSIS half below, and learned the same way.
+          # v1.7.1's first run (2026-09-15): `go install` died verifying a
+          # module against sum.golang.org ("stream error ... INTERNAL_ERROR"),
+          # pwsh carried on past the native exit code, NSIS installed fine,
+          # and the failure surfaced two steps later as "The term 'wails' is
+          # not recognized" from a build step that never had the tool. Retry
+          # the transient half, then prove the file is on disk.
+          $wails = Join-Path (go env GOPATH) "bin\wails.exe"
+          foreach ($attempt in 1..3) {
+            if (Test-Path $wails) { break }
+            Write-Host "installing wails $v (attempt $attempt of 3)"
+            go install "github.com/wailsapp/wails/v2/cmd/wails@$v"
+            if (Test-Path $wails) { break }
+            if ($attempt -lt 3) { Start-Sleep -Seconds 20 }
+          }
+          if (-not (Test-Path $wails)) {
+            throw "wails did not install: $wails is missing after 3 attempts."
+          }
 
           # choco can exit 0 having installed NOTHING. On 2026-08-20 the
           # community feed answered 503, choco printed "Chocolatey installed
