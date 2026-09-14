@@ -742,6 +742,8 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 	if opts.Team != nil {
 		agentsOn, workersOff = cfg.DelegationFor(opts.Mode.DeskName(), opts.Team.Name)
 	}
+	// Assigned once chatApp exists below; the delegate tools read it late.
+	var liveGate *aetoxapp.App
 	taskOpts := subagent.TaskOptions{
 		Provider:    bootstrapResult.Provider,
 		Model:       cfg.ModelName,
@@ -788,6 +790,18 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 		},
 		Permissions:  permissions,
 		ApprovalMode: approvalMode,
+		// The gate as the user has it NOW, not as it was at this line. chatApp
+		// is built below, after the tools it feeds are registered (NewApp
+		// snapshots the dispatcher), so the closure reads it late; until it
+		// exists, the static mode above is the truth anyway. Without this a
+		// dropdown press moved the parent's executor and nothing else, and a
+		// delegate hired a moment later ran under the mode of the boot.
+		CurrentApprovalMode: func() safety.ApprovalMode {
+			if liveGate == nil {
+				return approvalMode
+			}
+			return liveGate.ApprovalMode()
+		},
 		Approve:      opts.Approve,
 		OnToolAction: opts.OnToolAction,
 		OnToolRun:    opts.OnToolRun,
@@ -865,6 +879,7 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 	if err != nil {
 		return Result{Status: status + " (init failed: " + err.Error() + ")"}, err
 	}
+	liveGate = chatApp
 	// bootstrapResult.Error survives a successful return on purpose: the
 	// engine is up, but on the aetox fallback rather than the provider the
 	// caller asked for, and only this error says why.

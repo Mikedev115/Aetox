@@ -119,7 +119,17 @@ type TaskOptions struct {
 	Team         *Team
 	Permissions  safety.PermissionConfig
 	ApprovalMode safety.ApprovalMode
-	Approve      turn.ApprovalPromptFunc
+	// CurrentApprovalMode, when set, is read at every dispatch and wins over
+	// ApprovalMode. The static field is the mode the session was born with; a
+	// mid-chat switch (the desktop dropdown, the CLI's /approval) moves the
+	// parent executor's gate and used to leave this value where bootstrap put
+	// it, so a delegate hired after the switch ran unasked at the old mode. A
+	// model whose shell had just been refused under unsafe-only sent a helper
+	// to run the same command at full access, and said so in its answer
+	// (2026-09-14). Nil keeps the old reading, for tests and hosts that never
+	// switch.
+	CurrentApprovalMode func() safety.ApprovalMode
+	Approve             turn.ApprovalPromptFunc
 	// OnToolAction is the parent's live tool feed. Every event a delegate causes
 	// is stamped with the `task` call's own id before it goes down this channel,
 	// so the UI can tell whose work it is.
@@ -232,6 +242,15 @@ type Reply struct {
 // Still a slice: the host registers what it is handed without knowing how many
 // there are, and a signature that changed every time this family did would make
 // packing a change to bootstrap.
+// approvalModeNow is the gate a delegate is born under: the live reading when
+// the host supplies one, else the mode the options were built with.
+func (t *taskTool) approvalModeNow() safety.ApprovalMode {
+	if t.opts.CurrentApprovalMode != nil {
+		return t.opts.CurrentApprovalMode()
+	}
+	return t.opts.ApprovalMode
+}
+
 func NewTaskTools(opts TaskOptions) []skill.Skill {
 	// Nothing, rather than a tool that refuses. A `task` that exists and says no
 	// would still cost its 710 tokens in every request to say it, which is the
@@ -861,7 +880,7 @@ func (t *taskTool) begin(ctx context.Context, args map[string]any, out **running
 			Agent:        child,
 			Dispatcher:   skill.NewDispatcher(childRegistry),
 			Approve:      t.opts.Approve,
-			ApprovalMode: t.opts.ApprovalMode,
+			ApprovalMode: t.approvalModeNow(),
 			Permissions:  permissions,
 			OnToolAction: relay,
 			OnToolRun:    relayRun,

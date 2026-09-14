@@ -637,6 +637,14 @@ func (a *App) SetApprovalMode(mode safety.ApprovalMode) {
 	}
 }
 
+// ApprovalMode is the gate as it stands now, after every SetApprovalMode. The
+// sub-agent tools read it at each dispatch (bootstrap wires the closure), so a
+// delegate hired after the dropdown moved runs under the mode the user can see
+// and not the one the session was born with.
+func (a *App) ApprovalMode() safety.ApprovalMode {
+	return a.approvalMode
+}
+
 // SetGoalCheck installs the question asked when a turn is about to end, or
 // clears it with nil — มุ่งเป้า (turn.Executor.SetGoalCheck).
 //
