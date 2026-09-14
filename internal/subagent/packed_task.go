@@ -131,7 +131,7 @@ func (d *delegationTool) Description() string {
 	// that somebody else did it. Checking your own change is not cheaper in a
 	// second context — it is more honest in one, because the context that made
 	// the change is the one least able to see what is wrong with it.
-	return "Sub-agents: hand a self-contained job to one, collect it, answer one that got stuck, " +
+	return "Delegation (มอบงาน): hand a self-contained job to a colleague (พนักงาน) or a helper (ลูกมือ), collect it, answer one that got stuck, " +
 		"and declare a run when the work takes more than one wave. See `action`. " +
 		"WHEN TO USE: work that would otherwise pour a lot into this conversation — a hunt through many " +
 		"files for something you cannot name yet, one mechanical change repeated across many places — and " +

@@ -48,7 +48,7 @@ func Save(name, body string) error {
 		return errors.New("เนื้อหาว่างเปล่า")
 	}
 	if !slices.Contains(bundledNames(bundledHelperDir, false), name) {
-		return errors.New("ซับเอเจนที่มากับแอปคือทั้งหมด เพิ่มตัวใหม่ไม่ได้ — ถ้าต้องการคนทำงานแบบของคุณเอง สร้างเป็นเอเจนที่หน้าทีมเอเจน")
+		return errors.New("ลูกมือที่มากับแอปคือทั้งหมด เพิ่มตัวใหม่ไม่ได้ — ถ้าต้องการคนทำงานแบบของคุณเอง สร้างเป็นเอเจนที่หน้าทีมเอเจน")
 	}
 	dir, err := Dir()
 	if err != nil {
@@ -86,7 +86,7 @@ func SaveAgent(name, body string) error {
 			continue
 		}
 		if p.Desk == "" {
-			return errors.New("ชื่อ " + name + " เป็นของซับเอเจนอยู่แล้ว — ความจำและประวัติงานผูกกับชื่อ ต้องตั้งชื่ออื่น")
+			return errors.New("ชื่อ " + name + " เป็นของลูกมืออยู่แล้ว — ความจำและประวัติงานผูกกับชื่อ ต้องตั้งชื่ออื่น")
 		}
 		break
 	}
