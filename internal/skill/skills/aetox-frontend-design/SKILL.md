@@ -50,7 +50,7 @@ Spend your boldness in one place. Let the signature element be the one memorable
 
 The look is yours. The bar under it is not, and it is the same bar whichever model reads this:
 
-- Looked at, not imagined. `browser` capture of the finished page at a desktop width and at 360 px, in light and in dark. Four pictures, read for what is wrong, then one pass of fixes. "I cannot see it from here" is answered by that tool; a page nobody looked at is a draft.
+- Looked at, not imagined. `browser` capture of the finished page at a desktop width and at 360 px, in light and in dark. Four pictures, read for what is wrong, then one pass of fixes. "I cannot see it from here" is answered by that tool; a page nobody looked at is a draft. Taken once, when the page is finished, at reduced scale where the tool offers it: every picture stays in the context for the rest of the turn and is paid for on every round after, so a capture per edit is the 22-screenshot deck `aetox-design-system` took back.
 - Text contrast 4.5:1 and controls 3:1 against their own ground, in both themes, measured on the tokens (the `dataviz` skill's validator or a contrast check by hand), not judged by eye.
 - Every interactive element reachable by keyboard with a visible focus ring; every image with `width`, `height` and an `alt` that says what it shows or is empty on purpose.
 - `prefers-reduced-motion` honoured and the rest state is the finished page: a viewer with motion off sees everything a viewer with motion on sees.

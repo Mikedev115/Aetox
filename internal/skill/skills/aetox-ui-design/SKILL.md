@@ -60,7 +60,10 @@ numbers. Same bar for every model:
 - States are designed, not implied: loading, empty, error, disabled, long
   content, in the same component, before it is called finished.
 - Looked at. `browser` capture at both widths and both themes; the console
-  clean. A component that was only read in the source was not seen.
+  clean. A component that was only read in the source was not seen. Once,
+  at the end, at reduced scale: a picture stays in the context and is paid
+  for on every round after it, so text checks (`read`, the console) carry
+  the iterations and the pictures close them.
 - The guide is read whole before the first line, not searched for the
   one snippet that looks right; the rule you skipped is the one the page
   breaks on.
