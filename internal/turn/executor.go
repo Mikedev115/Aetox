@@ -167,6 +167,14 @@ type Agent interface {
 
 type TurnOptions struct {
 	ThinkLevel think.Level
+	// ThinkLevelNow, if set, is the level to ask for on the request being built
+	// RIGHT NOW rather than the one the turn started with. The tool loop builds
+	// a fresh request every round, and the depth dial is one field on it — so
+	// a person who turns thinking up under a running turn is asking about the
+	// next round, not the next question. The executor installs its live dial
+	// here per execute; ThinkLevel above stays what a caller with no dial gets.
+	// Read through EffectiveThinkLevel, never directly.
+	ThinkLevelNow func() think.Level
 	// Images ride with this turn's user message and this turn's only — they are
 	// set per Execute call, never on the executor, so an attachment cannot leak
 	// into the next question. Empty unless the caller both had an image and
@@ -244,6 +252,17 @@ type TurnOptions struct {
 	OnLimitWait func(LimitWait)
 }
 
+// EffectiveThinkLevel is the depth to ask for on a request built now: the live
+// dial when the executor installed one, the turn's opening level otherwise.
+// The one reader of the level on the request path (cognitive.Agent.buildRequest)
+// goes through here, so a dial moved mid-turn reaches the very next round.
+func (o TurnOptions) EffectiveThinkLevel() think.Level {
+	if o.ThinkLevelNow != nil {
+		return o.ThinkLevelNow()
+	}
+	return o.ThinkLevel
+}
+
 // LimitWait is a turn held open for a provider's rate limit to lift.
 type LimitWait struct {
 	// Waiting is true when the hold begins and false when it ends — on the
@@ -306,7 +325,14 @@ type Executor struct {
 	// stopped while a turn is in flight. An atomic rather than a field on
 	// turnOptions, because that struct is copied per turn on the caller's
 	// goroutine and read on the loop's.
-	goalCheck      atomic.Pointer[func(string) string]
+	goalCheck atomic.Pointer[func(string) string]
+	// thinkLevel is the depth dial, live for the same reason approvalMode is.
+	// It used to travel only as turnOptions.ThinkLevel, fixed when the turn's
+	// copy of the options was taken, so moving it under a running turn parked
+	// a whole engine rebuild for the boundary — over a request field the tool
+	// loop rebuilds every round anyway. Nil means "the level the executor was
+	// built with"; a stored value is a press that happened since.
+	thinkLevel     atomic.Pointer[think.Level]
 	permissions    safety.PermissionConfig
 	summaryTimeout time.Duration
 	summaryLimit   int
@@ -438,6 +464,24 @@ func (e *Executor) currentApprovalMode() safety.ApprovalMode {
 		return *mode
 	}
 	return safety.ApprovalAsk
+}
+
+// SetThinkLevel moves the depth dial for the turn that is running and every
+// one after it. Safe from another goroutine, like SetApprovalMode and for the
+// same reason: the press is on the UI thread, the round it has to reach is
+// being built on the loop's.
+func (e *Executor) SetThinkLevel(level think.Level) {
+	level = think.NormalizeLevel(string(level))
+	e.thinkLevel.Store(&level)
+}
+
+// currentThinkLevel is the dial as it stands: the last press, or the level the
+// executor was built with when nobody has pressed it.
+func (e *Executor) currentThinkLevel() think.Level {
+	if level := e.thinkLevel.Load(); level != nil {
+		return *level
+	}
+	return e.turnOptions.ThinkLevel
 }
 
 // MaxToolDeadline is the longest a single tool call may run, whatever it asks
@@ -1031,7 +1075,7 @@ func (e *Executor) reportToolRun(run ToolRun) {
 }
 
 func (e *Executor) conversationThinkingStatus() string {
-	if e.turnOptions.ThinkLevel == think.LevelNoThinking {
+	if e.currentThinkLevel() == think.LevelNoThinking {
 		return "กำลังประมวลผลคำตอบ..."
 	}
 	return "กำลังคิดคำตอบ..."
@@ -1088,6 +1132,13 @@ func (e *Executor) execute(
 	if line == "" {
 		return Result{}, errors.New("empty input")
 	}
+	// The depth dial, read live: the level this turn opens on is whatever the
+	// dial says now, and every round after the first asks the dial again
+	// (TurnOptions.ThinkLevelNow) rather than the copy taken here. Both
+	// Execute doors land in this function, which is why it is set here and
+	// not in each of them.
+	turnOptions.ThinkLevel = e.currentThinkLevel()
+	turnOptions.ThinkLevelNow = e.currentThinkLevel
 
 	defer debuglog.Block("Turn: " + truncate(line, 120))()
 

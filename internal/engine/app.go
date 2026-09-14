@@ -40,6 +40,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/skill"
 	"github.com/Mikedev115/Aetox/internal/snapshot"
 	"github.com/Mikedev115/Aetox/internal/subagent"
+	"github.com/Mikedev115/Aetox/internal/think"
 	"github.com/Mikedev115/Aetox/internal/turn"
 	"github.com/Mikedev115/Aetox/internal/version"
 )
@@ -3177,18 +3178,14 @@ func pendingModelOf(conv *conversation) *PendingModel {
 		return nil
 	}
 	next, cur := *conv.pendingCfg, conv.cfg
-	nextWire := effectiveWireFormat(next.ModelProvider, next.ModelWireFormat)
-	if model.NormalizeProvider(next.ModelProvider) == model.NormalizeProvider(cur.ModelProvider) &&
-		next.ModelName == cur.ModelName &&
-		next.ThinkLevel == cur.ThinkLevel &&
-		nextWire == effectiveWireFormat(cur.ModelProvider, cur.ModelWireFormat) {
+	if sameModelDials(next, cur) && next.ThinkLevel == cur.ThinkLevel {
 		return nil
 	}
 	return &PendingModel{
 		Provider:   next.ModelProvider,
 		ModelName:  next.ModelName,
 		ThinkLevel: next.ThinkLevel,
-		WireFormat: nextWire,
+		WireFormat: effectiveWireFormat(next.ModelProvider, next.ModelWireFormat),
 		Check:      conv.pendingCheck,
 		Note:       conv.pendingNote,
 	}
@@ -4262,11 +4259,50 @@ func (a *Engine) SetProviderWireFormat(format string) (ModelInfo, error) {
 }
 
 // SwitchThinkLevel changes the reasoning depth for the current provider/model.
+//
+// Live, like SwitchApprovalMode below and for the same reason. The level is
+// one field on the request the tool loop rebuilds every round
+// (cognitive.Agent.buildRequest), so nothing about it needs a new engine — and
+// a person who turns it up under a running turn is asking about the next
+// round, not the next question. §232 parked this dial with the other three
+// because it travelled through applyConfig with them; the owner read the
+// "รอบถัดไปจะใช้" row over a model that had not moved as the app refusing a
+// dial it had no reason to refuse (14 ก.ย. 2026: "ปกติมันมีการรันใหม่ทุก call
+// อยู่แล้วไม่ใช่หรอ มันควรจะปรับระดับคิดได้ระหว่างทางเลย").
+//
+// Still parked, and only this: a level asked of a model that is itself
+// queued. dialBase hands the queued config back, so the level was normalized
+// for THAT model and belongs with it — it lands when the model does. A park
+// that moved no model dial (an MCP toggle, a sign-in) is not that case; the
+// level goes live and is written onto the park too, or endTurn's rebuild would
+// carry the old one back.
 func (a *Engine) SwitchThinkLevel(level string) (ModelInfo, error) {
-	next := a.dialBase(a.cur())
+	conv := a.cur()
+	next := a.dialBase(conv)
 	next.ThinkLevel = model.NormalizeThinkingLevel(next.ModelProvider, next.ModelName, level)
-	a.applyConfig(a.cur(), next)
-	return a.dialResult(a.cur())
+	if conv.chat == nil || !sameModelDials(next, conv.cfg) {
+		a.applyConfig(conv, next)
+		return a.dialResult(conv)
+	}
+	a.turnMu.Lock()
+	conv.cfg.ThinkLevel = next.ThinkLevel
+	if conv.pendingCfg != nil {
+		conv.pendingCfg.ThinkLevel = next.ThinkLevel
+	}
+	a.turnMu.Unlock()
+	a.cfg.ThinkLevel = next.ThinkLevel
+	conv.chat.SetThinkLevel(think.NormalizeLevel(next.ThinkLevel))
+	persistModelPreference(a.cfg)
+	return a.dialResult(conv)
+}
+
+// sameModelDials reports whether two configs name the same engine — provider,
+// model and wire format — leaving the depth dial out, which is the one field
+// of the four a running turn can take without a rebuild.
+func sameModelDials(next, cur config.Config) bool {
+	return model.NormalizeProvider(next.ModelProvider) == model.NormalizeProvider(cur.ModelProvider) &&
+		next.ModelName == cur.ModelName &&
+		effectiveWireFormat(next.ModelProvider, next.ModelWireFormat) == effectiveWireFormat(cur.ModelProvider, cur.ModelWireFormat)
 }
 
 // SwitchApprovalMode changes the safety approval mode the engine runs with.
@@ -4287,6 +4323,15 @@ func (a *Engine) SwitchApprovalMode(mode string) (ModelInfo, error) {
 	// (see the note above), so it says both itself.
 	a.cur().cfg.ApprovalMode = string(normalized)
 	a.cfg.ApprovalMode = string(normalized)
+	// And the park, when there is one. A config waiting in conv.pendingCfg
+	// was copied before this press, and endTurn rebuilds from it whole — so a
+	// model queued first and full access pressed second landed at the boundary
+	// with the gate back where it was, on the very turn the press was for.
+	a.turnMu.Lock()
+	if a.cur().pendingCfg != nil {
+		a.cur().pendingCfg.ApprovalMode = string(normalized)
+	}
+	a.turnMu.Unlock()
 	if a.cur().chat != nil {
 		a.cur().chat.SetApprovalMode(normalized)
 	}
