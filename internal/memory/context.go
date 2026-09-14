@@ -207,6 +207,18 @@ func totalChars(messages []model.Message) int {
 		for _, picture := range message.Images {
 			total += picture.CharCost()
 		}
+		// The model's own thinking, replayed on every later request
+		// (model.Message.ReasoningItems). Counted because it is SENT: one
+		// encrypted block measured 1,420 characters, and a browser session
+		// spends thirty-odd tool rounds, so leaving it out hides ~10k tokens
+		// from the budget that the provider is charging for and the window is
+		// holding. That is the same shape of wrong as the 32,000-token meter
+		// drawn over a 43,434-token request (see model.ContextWindowTokens):
+		// a number that is not merely imprecise but pointing the wrong way,
+		// because it makes the trim stop early exactly when it should not.
+		for _, item := range message.ReasoningItems {
+			total += len(item.Raw)
+		}
 	}
 	return total
 }
