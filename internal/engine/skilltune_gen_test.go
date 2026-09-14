@@ -184,3 +184,34 @@ func TestARefusedSkillEditIsNotRedraftedUntilSomethingNewHappens(t *testing.T) {
 		t.Fatalf("a different edit should be queued, got %d rows", len(rows))
 	}
 }
+
+// The drafted edit is read by internal/skilllint on its way to the queue, and
+// what the linter finds is written into the reason the user reads on the
+// card: a hedge inside a rule line, here, is named before approval, not
+// discovered on the shelf after it.
+func TestADraftedEditCarriesTheLintersNoteOnItsCard(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("HOME", home)
+	a := newJobApp(t)
+	for i := int64(1); i <= 3; i++ {
+		skillJob(t, a, i, "aetox-slides", outcomeBad)
+	}
+	f := &fakeDrafter{op: "add", body: "- Try to keep the title under two lines.", reason: "เพราะโดน 👎 ซ้ำ"}
+	a.generateSkillRefinements(context.Background(), f)
+
+	db, err := a.database()
+	if err != nil {
+		t.Fatalf("database: %v", err)
+	}
+	var reason string
+	if err := db.QueryRow(`SELECT reason FROM pending_changes WHERE kind = ? AND scope = 'aetox-slides'`, kindSkill).Scan(&reason); err != nil {
+		t.Fatalf("no proposal queued: %v", err)
+	}
+	if !strings.Contains(reason, "ตัวตรวจสกิล") || !strings.Contains(reason, "hedge") {
+		t.Fatalf("the card does not carry the linter's finding: %q", reason)
+	}
+	if !strings.HasPrefix(reason, "เพราะโดน 👎 ซ้ำ") {
+		t.Fatalf("the drafter's own reason still leads: %q", reason)
+	}
+}

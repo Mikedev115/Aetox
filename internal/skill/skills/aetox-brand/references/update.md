@@ -1,10 +1,8 @@
-Update brand colors, typography, and style - automatically syncs to all design system files.
-
-<args>$ARGUMENTS</args>
+Update brand colors, typography, and style, then carry the change into the design system files by hand, in the order SKILL.md gives.
 
 ## Overview
 
-This command systematically updates:
+This procedure updates, by hand and in this order:
 1. `docs/brand-guidelines.md` - Human-readable brand doc
 2. `assets/design-tokens.json` - Token source of truth
 3. `assets/design-tokens.css` - Generated CSS variables

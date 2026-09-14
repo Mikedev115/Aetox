@@ -70,6 +70,10 @@ func main() {
 	if handled, code := runDesignCommand(os.Args[1:]); handled {
 		os.Exit(code)
 	}
+	// `aetox skill lint` too: the shelf's writing rules as a check (skilllint.go).
+	if handled, code := runSkillLintCommand(os.Args[1:]); handled {
+		os.Exit(code)
+	}
 
 	// Install the cached model table before anything asks what a model can do.
 	// The first-launch menu below reads thinking depths from it; the engine
