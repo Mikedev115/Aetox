@@ -75,34 +75,49 @@ func languageOf(path string) language {
 	return langNone
 }
 
-func parse(lang language, rel string, src []byte, goModule string) ([]Symbol, []string) {
+// parse returns a file's symbols, the reference targets its imports point
+// at, and — for Go only — the exported names it defines, which is what a
+// symbol-level target (`dir#Name`, parseGo) resolves against.
+func parse(lang language, rel string, src []byte, goModule string) (symbols []Symbol, targets, defs []string) {
 	switch lang {
 	case langGo:
 		return parseGo(rel, src, goModule)
 	case langScript:
-		return parseScript(rel, src)
+		symbols, targets = parseScript(rel, src)
 	case langPython:
-		return parsePython(rel, src)
+		symbols, targets = parsePython(rel, src)
 	case langMarkdown:
-		return parseMarkdown(src), nil
+		symbols = parseMarkdown(src)
 	case langJVM, langRust, langPHP, langRuby, langSwift, langC:
-		return scanDeclarations(src, declRules[lang]), nil
+		symbols = scanDeclarations(src, declRules[lang])
 	}
-	return nil, nil
+	return symbols, targets, nil
 }
 
 // parseGo uses the real AST — it is free, and Go is the language this map will
 // be judged on first. Symbols are top-level funcs and type specs, rendered as
 // the source line they start on: the line already IS the signature the way its
 // author wrote it, and re-printing from the AST could only differ from it.
-// Var/const groups are left out — constants are churn, and what other files
-// call is funcs and types.
-func parseGo(rel string, src []byte, goModule string) ([]Symbol, []string) {
+// Var/const groups are left out of the SYMBOLS — constants are churn, and what
+// other files call is funcs and types — but their exported names are in the
+// DEFS, because `pkg.DefaultBudget` is still a reference this file owns.
+//
+// Targets come at two grains. A Go import names a package, and for a year the
+// map credited every file of that package equally and let the file with the
+// most symbols speak for it — which on this repository ranked
+// openai_compatible.go and n8n_tools.go, the two biggest files, over types.go
+// and skill.go, the two that 220 and 167 files actually use (14 ก.ย. 2569,
+// measured with a symbol-level prototype). So beside the package target
+// (`internal/model`, the fallback) every `model.Name` selector the file writes
+// becomes a symbol target (`internal/model#Name`) that resolution lands on
+// the file defining Name. The package target is spent only when none of the
+// symbol targets resolve — a blank import, a name the scan does not know.
+func parseGo(rel string, src []byte, goModule string) ([]Symbol, []string, []string) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, rel, src, parser.SkipObjectResolution)
 	if f == nil {
 		_ = err // a partial AST still lists what parsed; nothing here is fatal
-		return nil, nil
+		return nil, nil, nil
 	}
 	lines := strings.Split(string(src), "\n")
 	lineAt := func(pos token.Pos) (int, string, bool) {
@@ -113,28 +128,41 @@ func parseGo(rel string, src []byte, goModule string) ([]Symbol, []string) {
 		return line, signatureLine(lines[line-1]), true
 	}
 	var symbols []Symbol
+	var defs []string
 	for _, decl := range f.Decls {
 		switch d := decl.(type) {
 		case *ast.FuncDecl:
 			if line, text, ok := lineAt(d.Pos()); ok {
 				symbols = append(symbols, Symbol{Line: line, Text: text, Public: d.Name.IsExported()})
 			}
-		case *ast.GenDecl:
-			if d.Tok != token.TYPE {
-				continue
+			// A method is reached through its receiver's type, and the type's
+			// file already earns that credit; only a plain function is a name
+			// another file can write after the package dot.
+			if d.Recv == nil && d.Name.IsExported() {
+				defs = append(defs, d.Name.Name)
 			}
-			// Spec position, not decl position: inside a `type (...)` group the
-			// decl line says only "type (" while each spec line is a signature.
+		case *ast.GenDecl:
 			for _, spec := range d.Specs {
-				ts, ok := spec.(*ast.TypeSpec)
-				if !ok {
-					continue
-				}
-				if line, text, ok := lineAt(ts.Pos()); ok {
-					if !strings.HasPrefix(text, "type ") {
-						text = "type " + text
+				switch sp := spec.(type) {
+				case *ast.ValueSpec:
+					for _, n := range sp.Names {
+						if n.IsExported() {
+							defs = append(defs, n.Name)
+						}
 					}
-					symbols = append(symbols, Symbol{Line: line, Text: text, Public: ts.Name.IsExported()})
+				case *ast.TypeSpec:
+					if sp.Name.IsExported() {
+						defs = append(defs, sp.Name.Name)
+					}
+					// Spec position, not decl position: inside a `type (...)`
+					// group the decl line says only "type (" while each spec
+					// line is a signature.
+					if line, text, ok := lineAt(sp.Pos()); ok {
+						if !strings.HasPrefix(text, "type ") {
+							text = "type " + text
+						}
+						symbols = append(symbols, Symbol{Line: line, Text: text, Public: sp.Name.IsExported()})
+					}
 				}
 			}
 		}
@@ -142,18 +170,60 @@ func parseGo(rel string, src []byte, goModule string) ([]Symbol, []string) {
 	var targets []string
 	if goModule != "" {
 		prefix := goModule + "/"
+		// The name the file writes before the dot: the import's alias when it
+		// gave one, else the last path element — right for every package whose
+		// name matches its directory, which is the convention, and a miss for
+		// the odd one out only costs that file the package-level fallback.
+		byAlias := make(map[string]string)
 		for _, imp := range f.Imports {
 			p, err := strconv.Unquote(imp.Path.Value)
 			if err != nil {
 				continue
 			}
-			if rest, ok := strings.CutPrefix(p, prefix); ok {
-				targets = append(targets, rest)
+			rest, ok := strings.CutPrefix(p, prefix)
+			if !ok {
+				continue
+			}
+			targets = append(targets, rest)
+			alias := rest[strings.LastIndex(rest, "/")+1:]
+			if imp.Name != nil {
+				alias = imp.Name.Name
+			}
+			if alias != "_" && alias != "." {
+				byAlias[alias] = rest
 			}
 		}
+		if len(byAlias) > 0 {
+			seen := make(map[string]bool)
+			ast.Inspect(f, func(n ast.Node) bool {
+				sel, ok := n.(*ast.SelectorExpr)
+				if !ok {
+					return true
+				}
+				id, ok := sel.X.(*ast.Ident)
+				if !ok {
+					return true
+				}
+				dir, ok := byAlias[id.Name]
+				if !ok {
+					return true
+				}
+				key := dir + symbolSep + sel.Sel.Name
+				if !seen[key] {
+					seen[key] = true
+					targets = append(targets, key)
+				}
+				return true
+			})
+		}
 	}
-	return symbols, targets
+	return symbols, targets, defs
 }
+
+// symbolSep joins a package directory and an exported name into one target
+// key. `#` because it cannot appear in a Go import path or identifier, so a
+// key with one in it is a symbol target and never a directory.
+const symbolSep = "#"
 
 // The script shapes worth a map line: declared functions and classes,
 // arrow/function assignments, and the type-level names other files import.

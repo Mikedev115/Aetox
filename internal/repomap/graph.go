@@ -68,34 +68,17 @@ func Graph(ctx context.Context, opts Options, maxNodes int) ([]Node, []Edge, int
 	// — and it is exactly the arrow-tail a graph exists to draw. Counted here
 	// so selection can keep it.
 	spokesperson := goSpokespersons(a)
-
-	// Resolving one import target can cost a scan of every mapped file: when
-	// the target names nothing in the tree — "fmt", "react", any dependency —
-	// resolveTargetFile falls through to a suffix search over the whole map.
-	// That was paid once per EDGE and the whole pass was then run TWICE, once
-	// to count out-degree and again to draw the lines, so a project importing
-	// "context" from fifty files searched all 2,363 of them fifty times over,
-	// twice. Memoised per DISTINCT target and shared by both passes: 2.4s to
-	// under a second on this repository, with the same edges out the far end.
-	resolved := make(map[string]string)
-	resolve := func(target string) string {
-		if to, ok := resolved[target]; ok {
-			return to
+	endpoint := func(l link) string {
+		if !l.pkg {
+			return l.to
 		}
-		to := ""
-		if f, ok := resolveTargetFile(a.byRel, target); ok {
-			to = f.rel
-		} else if rep, ok := spokesperson[target]; ok {
-			to = rep
-		}
-		resolved[target] = to
-		return to
+		return spokesperson[l.to]
 	}
 
 	outDeg := make(map[string]int)
-	for _, e := range a.edges {
-		if resolve(e.target) != "" {
-			outDeg[e.from]++
+	for _, l := range a.links {
+		if endpoint(l) != "" {
+			outDeg[l.from]++
 		}
 	}
 
@@ -119,24 +102,27 @@ func Graph(ctx context.Context, opts Options, maxNodes int) ([]Node, []Edge, int
 		})
 	}
 
-	edges := resolveEdges(a, index, resolve)
+	edges := resolveEdges(a, index, endpoint)
 	return nodes, edges, a.total, nil
 }
 
-// resolveEdges turns the walk's raw import records into drawn lines between
-// kept nodes. Script and Python targets resolve to a file directly; a Go
-// target names a package directory, and the line lands on that package's
-// fullest file — a spokesperson, chosen deterministically, because fanning one
-// import out to every file of the package would draw edges nobody wrote.
-func resolveEdges(a *analysis, index map[string]int, resolve func(string) string) []Edge {
+// resolveEdges turns the analysis's links into drawn lines between kept
+// nodes. A link already names a file — the one a script or Python import
+// wrote, or the Go file that declares the name the importer used — so the
+// line lands where the reference actually goes. Only a Go import that
+// resolved to no symbol still names a package directory, and that line lands
+// on the package's fullest file — a spokesperson, chosen deterministically,
+// because fanning one import out to every file of the package would draw
+// edges nobody wrote.
+func resolveEdges(a *analysis, index map[string]int, endpoint func(link) string) []Edge {
 	var edges []Edge
 	seen := make(map[[2]int]bool)
-	for _, e := range a.edges {
-		to := resolve(e.target)
-		if to == "" || to == e.from {
+	for _, l := range a.links {
+		to := endpoint(l)
+		if to == "" || to == l.from {
 			continue
 		}
-		fi, ok := index[e.from]
+		fi, ok := index[l.from]
 		if !ok {
 			continue
 		}
@@ -162,7 +148,7 @@ func resolveEdges(a *analysis, index map[string]int, resolve func(string) string
 
 // goSpokespersons picks, per directory, the non-test Go file with the most
 // symbols (ties to the shorter then earlier path) — where a package-level
-// import edge lands.
+// import edge lands when none of the importer's selectors resolved to a file.
 func goSpokespersons(a *analysis) map[string]string {
 	best := make(map[string]*file)
 	for _, f := range a.files {
