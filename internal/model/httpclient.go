@@ -432,8 +432,11 @@ func retryableTransportError(ctx context.Context, err error) bool {
 	if errors.As(err, &opErr) {
 		return true
 	}
-	// The connection closed before the response headers arrived.
-	return errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
+	// The connection closed before the response headers arrived — or the pipe
+	// carrying it was torn down from outside (io.ErrClosedPipe), which reads
+	// exactly like a dropped connection to the caller: no answer, no 4xx to
+	// explain it, worth the same two extra tries.
+	return errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.ErrClosedPipe)
 }
 
 // retryableStatus lists the answers that mean "not now, try again".

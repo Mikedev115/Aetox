@@ -344,6 +344,7 @@ func TestRetryableTransportErrorRefusesPermanentFailures(t *testing.T) {
 		&net.OpError{Op: "dial", Err: errors.New("connection refused")},
 		io.EOF,
 		io.ErrUnexpectedEOF,
+		io.ErrClosedPipe,
 	}
 	for _, err := range transient {
 		if !retryableTransportError(context.Background(), err) {
