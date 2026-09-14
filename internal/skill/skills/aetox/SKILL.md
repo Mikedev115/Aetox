@@ -151,6 +151,7 @@ somebody who has never used the app, are its.
 | `aetox-debug` | any bug: root cause before remedy, one hypothesis at a time |
 | `aetox-code-review` | reviewing a change before merge |
 | `aetox-security` | auditing a system, a codebase, a change or a config for security, or asked whether it can be attacked; findings are attack paths at a line, advice is labelled advice |
+| `aetox-performance` | something is slow, or finding and fixing a bottleneck (build, startup, screen, query, data load): the number and its noise first, profile before reading, one change at a time, and when the loading's shape is the cost, say so |
 | `aetox-testing` | deciding what to test and the discipline of writing them |
 | `aetox-deploy` | shipping moments: checklist, incident, postmortem, git flow |
 | `aetox-documentation` | docs written from the reader's side |
