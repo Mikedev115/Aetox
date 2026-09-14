@@ -1616,7 +1616,7 @@ export const th = {
   'settings.mainHeadBadge': 'ตัวหลัก',
   'settings.mainSecMemory': 'ความจำ',
   'settings.mainHeadName': 'ชื่อ',
-  'settings.mainHeadNameHint': 'ชื่อที่ตัวนี้ใช้เรียกตัวเอง เป็นคำแรกของพรอมต์ทุกข้อความ เว้นว่าง = Aetox (โต๊ะยังชื่อ{desk})',
+  'settings.mainHeadNameHint': 'ชื่อของ{desk}ของคุณ',
   'settings.mainSecMcp': 'ตั้งค่า MCP',
   'settings.mainSecSkills': 'สกิล',
   'settings.mainMcpTitle': 'MCP ที่{name}ถืออยู่',
