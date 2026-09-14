@@ -92,21 +92,38 @@ const maxSymbolsPerFile = 8
 type file struct {
 	rel     string
 	symbols []Symbol
-	// refs counts incoming references from OTHER files. For Go it is shared by
-	// every file of a referenced package, because Go imports name packages and
-	// splitting the credit would rank a package's files against each other on
-	// nothing.
+	// defs are the exported names this file declares, Go only — what a
+	// `dir#Name` target resolves against. Nil for every other language, whose
+	// imports already name a file.
+	defs []string
+	// refs counts the OTHER, non-test files that reference this one. For Go
+	// that is the files whose `pkg.Name` selectors land on a name declared
+	// here; a file that imports the package and writes no resolvable selector
+	// (a blank import, a name the scan missed) credits every file of the
+	// package instead, the way the first version credited all of them.
 	refs int
 }
 
 // rawEdge is one import as the walk saw it: which file wrote it, and the
 // target key it wrote (a rel file path for script imports, a rel package
-// directory for Go, a module path for Python). Kept raw because resolution
-// needs the finished file list, and because Build and Graph resolve to
-// different shapes — counts for the one, lines for the other.
+// directory or `dir#Name` for Go, a module path for Python). Kept raw because
+// resolution needs the finished file list.
 type rawEdge struct {
 	from   string
 	target string
+}
+
+// link is one resolved reference: from a file to a file, or — when a Go
+// import resolved to no symbol — from a file to a package directory, which
+// rank spreads over the package and Graph draws to its spokesperson. One
+// resolution serves both faces (resolve below), so the count on a node and
+// the lines drawn to it can never come from two different readings of the
+// same import.
+type link struct {
+	from string
+	to   string
+	// pkg marks `to` as a directory, not a file.
+	pkg bool
 }
 
 // analysis is everything one walk of the tree learned, shared by the model's
@@ -117,6 +134,7 @@ type analysis struct {
 	files  []*file
 	byRel  map[string]*file
 	edges  []rawEdge
+	links  []link
 	total  int
 	capped bool
 }
@@ -131,6 +149,7 @@ func analyze(ctx context.Context, opts Options) (*analysis, error) {
 	}
 
 	goModule := readGoModule(root)
+	ignoredAnywhere, ignoredAtRoot := readGitignoreDirs(root)
 	a := &analysis{byRel: make(map[string]*file)}
 
 	stopped := false
@@ -149,7 +168,14 @@ func analyze(ctx context.Context, opts Options) (*analysis, error) {
 			return nil
 		}
 		if d.IsDir() {
-			if name := d.Name(); path != root && (strings.HasPrefix(name, ".") || opts.Ignore[name]) {
+			if path == root {
+				return nil
+			}
+			name := d.Name()
+			if strings.HasPrefix(name, ".") || opts.Ignore[name] || ignoredAnywhere[name] {
+				return filepath.SkipDir
+			}
+			if ignoredAtRoot[name] && filepath.Dir(path) == root {
 				return filepath.SkipDir
 			}
 			return nil
@@ -176,8 +202,8 @@ func analyze(ctx context.Context, opts Options) (*analysis, error) {
 			return nil
 		}
 		rel = filepath.ToSlash(rel)
-		symbols, targets := parse(lang, rel, src, goModule)
-		f := &file{rel: rel, symbols: symbols}
+		symbols, targets, defs := parse(lang, rel, src, goModule)
+		f := &file{rel: rel, symbols: symbols, defs: defs}
 		a.files = append(a.files, f)
 		a.byRel[rel] = f
 		for _, t := range targets {
@@ -194,17 +220,122 @@ func analyze(ctx context.Context, opts Options) (*analysis, error) {
 		}
 		a.capped = true
 	}
+	a.resolve()
 	return a, nil
+}
+
+// resolve turns the walk's raw edges into links, once, for both faces.
+//
+// Per importing file, the symbol targets go first: each `dir#Name` that a
+// file of dir declares becomes a link to that file, and a package whose
+// symbols resolved at all is done — its bare package target is dropped, so a
+// file using only `model.Request` credits types.go and nothing else in
+// internal/model. A bare target left over resolves the way it always did: to
+// the file a script or Python import names, else to the package directory.
+//
+// Resolving one bare target can cost a scan of every mapped file (a
+// dependency name falls through resolveTargetFile to a suffix search), and a
+// project importing "context" from fifty files once paid that fifty times
+// over, twice. Memoised per distinct target.
+func (a *analysis) resolve() {
+	// A name declared by several files of one package is a build-tagged
+	// pair (hide_windows.go / hide_other.go both declare HideConsole), and
+	// the importer means whichever one its platform builds — so each earns
+	// the reference rather than the alphabetically first.
+	defs := make(map[string]map[string][]*file)
+	for _, f := range a.files {
+		if len(f.defs) == 0 || strings.HasSuffix(f.rel, "_test.go") {
+			continue
+		}
+		dir := filepath.ToSlash(filepath.Dir(f.rel))
+		byName := defs[dir]
+		if byName == nil {
+			byName = make(map[string][]*file)
+			defs[dir] = byName
+		}
+		for _, name := range f.defs {
+			byName[name] = append(byName[name], f)
+		}
+	}
+
+	resolved := make(map[string]string)
+	bare := func(target string) string {
+		if to, ok := resolved[target]; ok {
+			return to
+		}
+		to := ""
+		if f, ok := resolveTargetFile(a.byRel, target); ok {
+			to = f.rel
+		}
+		resolved[target] = to
+		return to
+	}
+
+	seen := make(map[link]bool)
+	add := func(l link) {
+		if l.from == l.to || seen[l] {
+			return
+		}
+		seen[l] = true
+		a.links = append(a.links, l)
+	}
+	// Two passes over the same edges, in file order: symbols first so the
+	// bare pass knows which packages are already spoken for. The walk emits a
+	// file's edges together, so "already spoken for" is per file.
+	hit := make(map[[2]string]bool)
+	for _, e := range a.edges {
+		dir, name, ok := strings.Cut(e.target, symbolSep)
+		if !ok {
+			continue
+		}
+		for _, f := range defs[dir][name] {
+			hit[[2]string{e.from, dir}] = true
+			add(link{from: e.from, to: f.rel})
+		}
+	}
+	for _, e := range a.edges {
+		if strings.Contains(e.target, symbolSep) || hit[[2]string{e.from, e.target}] {
+			continue
+		}
+		if to := bare(e.target); to != "" {
+			add(link{from: e.from, to: to})
+			continue
+		}
+		add(link{from: e.from, to: e.target, pkg: true})
+	}
 }
 
 // rank counts incoming references and sorts files most-load-bearing first —
 // the shared ordering both faces of the map present.
+//
+// Test files reference nothing here. A mock that every test imports is the
+// most-imported file of a frontend and the least load-bearing one — the
+// first real frontend this walk met ranked test/mocks/wailsApp.ts second in
+// the project — and the map's question is what the PRODUCT leans on. The
+// graph still draws a test's imports (Graph), because a picture of what
+// imports what is a different question.
 func (a *analysis) rank() {
-	refs := make(map[string]int)
-	for _, e := range a.edges {
-		refs[e.target]++
+	goFilesOf := make(map[string][]*file)
+	for _, f := range a.files {
+		if strings.HasSuffix(f.rel, ".go") && !strings.HasSuffix(f.rel, "_test.go") {
+			dir := filepath.ToSlash(filepath.Dir(f.rel))
+			goFilesOf[dir] = append(goFilesOf[dir], f)
+		}
 	}
-	resolveRefs(a.files, a.byRel, refs)
+	for _, l := range a.links {
+		if isTestFile(l.from) {
+			continue
+		}
+		if l.pkg {
+			for _, f := range goFilesOf[l.to] {
+				f.refs++
+			}
+			continue
+		}
+		if f, ok := a.byRel[l.to]; ok {
+			f.refs++
+		}
+	}
 	// Most-referenced first, then the file with more to say, then path so two
 	// runs of the same tree render the same map — a map that reorders itself
 	// between calls reads like the project changed when it did not.
@@ -239,32 +370,29 @@ func Build(ctx context.Context, opts Options) (string, error) {
 // exist, most common first. Mirrors languageOf's script list.
 var scriptExts = []string{".ts", ".tsx", ".js", ".jsx", ".mjs", ".svelte", ".vue"}
 
-// resolveRefs turns target keys into per-file counts. A script import resolves
-// to a file — written with its extension, without one, or as a directory with
-// an index file; a Go import named a package directory, so its count goes to
-// every .go file in that directory (tests excluded — nothing imports a
-// _test.go, and crediting one would rank test scaffolding as load-bearing).
-func resolveRefs(files []*file, byRel map[string]*file, refs map[string]int) {
-	perDir := make(map[string]int)
-	for target, n := range refs {
-		if f, ok := resolveTargetFile(byRel, target); ok {
-			f.refs += n
-			continue
-		}
-		perDir[target] += n
+// isTestFile recognises the test and mock files of the languages the walk
+// parses, by the names their tools require or their communities settled on:
+// Go's `_test.go`, `*.test.ts` / `*.spec.ts` and the folders a test runner
+// walks, pytest's `test_*.py` / `*_test.py` / conftest.
+func isTestFile(rel string) bool {
+	if strings.HasSuffix(rel, "_test.go") {
+		return true
 	}
-	if len(perDir) == 0 {
-		return
+	base := rel[strings.LastIndex(rel, "/")+1:]
+	if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+		return true
 	}
-	for _, f := range files {
-		if !strings.HasSuffix(f.rel, ".go") || strings.HasSuffix(f.rel, "_test.go") {
-			continue
-		}
-		dir := filepath.ToSlash(filepath.Dir(f.rel))
-		if n, ok := perDir[dir]; ok {
-			f.refs += n
+	if strings.HasSuffix(base, ".py") &&
+		(strings.HasPrefix(base, "test_") || strings.HasSuffix(base, "_test.py") || base == "conftest.py") {
+		return true
+	}
+	for _, seg := range strings.Split(rel, "/") {
+		switch seg {
+		case "test", "tests", "__tests__", "mocks", "__mocks__", "e2e", "testdata", "spec":
+			return true
 		}
 	}
+	return false
 }
 
 // resolveTargetFile finds the file an import target names, trying the exact
@@ -412,6 +540,46 @@ func publicFirst(symbols []Symbol, cap int) []Symbol {
 	}
 	sort.Slice(kept, func(i, j int) bool { return kept[i].Line < kept[j].Line })
 	return kept
+}
+
+// readGitignoreDirs reads the plain directory lines of root's .gitignore —
+// `name/`, `/name/`, `/name`, `name` with no wildcard and no inner slash —
+// into two sets: names ignored at any depth and names ignored at the root
+// only. A folder git ignores is by definition not the project: a build
+// output, a virtualenv, a second checkout parked beside the first. The walk
+// that met a Python venv the ignore list did not know (105 seconds, and the
+// model paid twice) had the answer in the repository's own .gitignore all
+// along; and this repository's map spent one of its ten files on a gitignored
+// copy of itself. Not a gitignore matcher: patterns with wildcards, inner
+// slashes, negations or file targets are left to the tools that need them,
+// because a directory name is the whole of what the walk can act on.
+func readGitignoreDirs(root string) (anywhere, atRoot map[string]bool) {
+	anywhere = make(map[string]bool)
+	atRoot = make(map[string]bool)
+	src, err := os.ReadFile(filepath.Join(root, ".gitignore"))
+	if err != nil {
+		return anywhere, atRoot
+	}
+	for _, line := range strings.Split(string(src), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "!") {
+			continue
+		}
+		if strings.ContainsAny(line, "*?[]") {
+			continue
+		}
+		rooted := strings.HasPrefix(line, "/")
+		name := strings.Trim(line, "/")
+		if name == "" || strings.Contains(name, "/") {
+			continue
+		}
+		if rooted {
+			atRoot[name] = true
+		} else {
+			anywhere[name] = true
+		}
+	}
+	return anywhere, atRoot
 }
 
 // readGoModule returns the module path from root's go.mod, or "" — outside a

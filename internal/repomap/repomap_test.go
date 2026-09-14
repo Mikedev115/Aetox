@@ -295,3 +295,176 @@ func TestBuildResolvesAliasImports(t *testing.T) {
 		t.Errorf("@/ imports should credit db.ts twice:\n%s", out)
 	}
 }
+
+// A Go import names a package, and a package is several files: the credit
+// has to land on the file whose name the importer actually wrote, or the
+// map ranks a package's biggest file over its most-used one — on this
+// repository that was openai_compatible.go over types.go, n8n_tools.go over
+// skill.go, for a year. The bare package target is spent only when no
+// selector resolved (a blank import).
+func TestBuildCreditsTheGoFileWhoseSymbolIsUsed(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		path := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("go.mod", "module example.com/demo\n\ngo 1.22\n")
+	write("pkg/core/types.go", "package core\n\ntype Request struct{}\n")
+	// The bigger file of the package, which the old tie-break would have
+	// chosen to speak for it.
+	write("pkg/core/big.go", "package core\n\ntype A struct{}\ntype B struct{}\ntype C struct{}\nfunc Big() {}\n")
+	write("pkg/util/hide_windows.go", "package util\n\nfunc Hide() {}\n")
+	write("pkg/util/hide_other.go", "package util\n\nfunc Hide() {}\n")
+	write("a.go", "package main\n\nimport \"example.com/demo/pkg/core\"\n\nfunc main() { var _ core.Request }\n")
+	write("b.go", "package main\n\nimport \"example.com/demo/pkg/core\"\n\nfunc b() { var _ core.Request }\n")
+	write("c.go", "package main\n\nimport _ \"example.com/demo/pkg/core\"\n")
+	write("d.go", "package main\n\nimport \"example.com/demo/pkg/util\"\n\nfunc d() { util.Hide() }\n")
+
+	nodes, edges, _, err := Graph(context.Background(), Options{Root: root}, AllNodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	refs := make(map[string]int)
+	index := make(map[string]int)
+	for i, n := range nodes {
+		refs[n.Path] = n.Refs
+		index[n.Path] = i
+	}
+	// a.go and b.go use core.Request → types.go; c.go's blank import falls
+	// back to the package and credits both files once.
+	if refs["pkg/core/types.go"] != 3 {
+		t.Errorf("types.go: got %d refs, want 3 (two selectors + one blank-import fallback): %+v", refs["pkg/core/types.go"], nodes)
+	}
+	if refs["pkg/core/big.go"] != 1 {
+		t.Errorf("big.go: got %d refs, want 1 (only the blank-import fallback): %+v", refs["pkg/core/big.go"], nodes)
+	}
+	if nodes[0].Path != "pkg/core/types.go" {
+		t.Errorf("the used file must lead the map, not the biggest: %+v", nodes[:2])
+	}
+	// A build-tagged pair declaring the same name: each earns the reference.
+	if refs["pkg/util/hide_windows.go"] != 1 || refs["pkg/util/hide_other.go"] != 1 {
+		t.Errorf("both declarers of Hide should be credited: %+v", nodes)
+	}
+	has := func(from, to string) bool {
+		for _, e := range edges {
+			if e.From == index[from] && e.To == index[to] {
+				return true
+			}
+		}
+		return false
+	}
+	if !has("a.go", "pkg/core/types.go") {
+		t.Errorf("the graph's line should land on the file declaring the name: %+v", edges)
+	}
+	if has("a.go", "pkg/core/big.go") {
+		t.Errorf("a.go never used big.go; no line should be drawn to it: %+v", edges)
+	}
+}
+
+// Test files import what they test and what mocks it, which is not what the
+// product leans on: the first real frontend this walk met ranked
+// test/mocks/wailsApp.ts second in the project on 122 test importers.
+func TestBuildDoesNotCountTestImporters(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		path := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("go.mod", "module example.com/demo\n\ngo 1.22\n")
+	write("lib/store.ts", "export function load() {}\n")
+	write("test/mocks/app.ts", "export const mock = () => 1\n")
+	write("test/store.test.ts", "import { load } from '../lib/store'\nimport { mock } from './mocks/app'\n")
+	write("test/other.test.ts", "import { mock } from './mocks/app'\n")
+	write("App.svelte", "<script>\nimport { load } from './lib/store'\n</script>\n")
+	write("pkg/core/core.go", "package core\n\nfunc Answer() int { return 42 }\n")
+	write("pkg/core/core_test.go", "package core_test\n\nimport \"example.com/demo/pkg/core\"\n\nfunc use() { core.Answer() }\n")
+
+	out, err := Build(context.Background(), Options{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "lib/store.ts  (referenced by 1)") {
+		t.Errorf("store.ts has one product importer (App.svelte); the test import must not count:\n%s", out)
+	}
+	if strings.Contains(out, "test/mocks/app.ts  (referenced by") {
+		t.Errorf("a mock imported only by tests has no incoming references:\n%s", out)
+	}
+	if strings.Contains(out, "pkg/core/core.go  (referenced by") {
+		t.Errorf("a _test.go importer must not credit the package:\n%s", out)
+	}
+	// The graph still draws the test's imports — a picture of what imports
+	// what is a different question from what the product leans on.
+	nodes, edges, _, err := Graph(context.Background(), Options{Root: root}, AllNodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	index := make(map[string]int)
+	for i, n := range nodes {
+		index[n.Path] = i
+	}
+	drawn := false
+	for _, e := range edges {
+		if e.From == index["test/store.test.ts"] && e.To == index["lib/store.ts"] {
+			drawn = true
+		}
+	}
+	if !drawn {
+		t.Errorf("the graph should still draw the test's import: %+v", edges)
+	}
+}
+
+// A folder the repository's own .gitignore names is not the project: a
+// build output, a virtualenv, a second checkout parked beside the first —
+// this repository's map spent one of its ten files on a gitignored copy of
+// itself, and the copy's imports inflated the original's counts.
+func TestBuildSkipsGitignoredDirs(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		path := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(".gitignore", "# comment\n/copy/\nvenv\n*.log\n!keep\nsrc/gen/\n")
+	write("main.ts", "export function main() {}\n")
+	write("copy/main.ts", "export function copied() {}\n")
+	write("deep/venv/lib.py", "def venv_only(): pass\n")
+	write("deep/copy/nested.ts", "export function nestedCopy() {}\n")
+	write("src/gen/out.ts", "export function generated() {}\n")
+
+	out, err := Build(context.Background(), Options{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, gone := range []string{"copy/main.ts", "deep/venv/lib.py"} {
+		if strings.Contains(out, gone) {
+			t.Errorf("%s is gitignored and must not be mapped:\n%s", gone, out)
+		}
+	}
+	// `/copy/` is anchored to the root: a nested folder of the same name is
+	// not what the line says.
+	if !strings.Contains(out, "deep/copy/nested.ts") {
+		t.Errorf("a root-anchored pattern must not skip a nested folder of the same name:\n%s", out)
+	}
+	// A pattern with an inner slash is left to the tools that need a real
+	// matcher; the walk acts only on directory names.
+	if !strings.Contains(out, "src/gen/out.ts") {
+		t.Errorf("src/gen/ is not a plain directory name and is not acted on:\n%s", out)
+	}
+}
