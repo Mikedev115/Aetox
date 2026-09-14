@@ -87,7 +87,9 @@ The ones a page breaks on:
   never "it is fine on my machine".
 - **Proven at three points.** Screenshots at the start, the middle and the
   end of every pinned or scrubbed range, plus the reduced-motion page. A
-  scrub that was only seen at one scroll position was not seen.
+  scrub that was only seen at one scroll position was not seen. Taken once,
+  at the end, at reduced scale; `ScrollTrigger.getAll()` progress and
+  computed styles are text and carry the iterations before that.
 - **Say what was measured.** Frame time under throttle, the count of active
   tweens and triggers at the heaviest scroll position, in the file header,
   next to the reason for the road. A header without them is the header of a

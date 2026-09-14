@@ -130,7 +130,10 @@ why, and a change of road mid-build is fine when it is said out loud.
 Before saying it works: the canvas is not blank (pixels vary), draw calls
 and frame time at the heaviest moment under 4x CPU throttle, the `?nogl=1`
 page, the `prefers-reduced-motion: reduce` page, and a narrow viewport.
-Five screenshots or it is a guess, and a guess does not ship. The numbers
+Five screenshots or it is a guess, and a guess does not ship. Five, taken
+once at the end, at reduced scale; the numbers (`renderer.info`, frame
+times, the pixel check) are text and carry every iteration before that.
+The numbers
 go in the file header next to the road and its reason (STANDARD.md ข้อ 6);
 a header without them is the header of a page that was not measured.
 `aetox-verify` before the sentence "it runs".
