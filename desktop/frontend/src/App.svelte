@@ -550,7 +550,14 @@
   const startInspectorResize = startResize(panels.inspector, (e) => window.innerWidth - e.clientX, (v) => (draggingInspector = v))
 
   function onKeydown(e: KeyboardEvent) {
-    if (isShortcut(e, 'toggleInspector')) {
+    // F1 before everything: the guide is what a person reaches for when they
+    // do not know what else to press, so it answers from any page, with any
+    // field focused, and closes on a second press.
+    if (isShortcut(e, 'guide')) {
+      e.preventDefault()
+      if (guide.on) void guide.stop()
+      else void guide.start()
+    } else if (isShortcut(e, 'toggleInspector')) {
       e.preventDefault()
       toggleInspector()
     } else if (isShortcut(e, 'toggleSidebar')) {
@@ -563,7 +570,11 @@
     // rooms Escape closes and when the native browser window has to hide behind
     // one (BrowserPane). Two copies drift the day a room is added, and the copy
     // that forgets is the one whose failure lands somewhere else entirely.
-    } else if (e.key === 'Escape' && isOverlayView(cockpit.activeView)) {
+    // Not while the guide is open: Escape is the guide's own way out
+    // (Guide.svelte), and both handlers sit on window — without this, one press
+    // closed the guide AND walked the user out of the page it had just brought
+    // them to.
+    } else if (e.key === 'Escape' && !guide.on && isOverlayView(cockpit.activeView)) {
       // Ctrl+, opened it; Escape is the other half nobody had. Anything layered
       // over Settings — the confirm dialog, the command palette — stops the key
       // before it reaches window, so this only ever fires on a bare page. The

@@ -796,6 +796,14 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    min-width:0 lets the control take the squeeze instead of the panel. */
 .profile-menu .plus-menu-item { min-width:0; }
 .profile-menu .plus-menu-item > .ic { flex:none; }
+/* The key that opens this row, at its far end — the sidebar's own new-chat
+   button already advertises its chord in a tooltip; a row people are meant to
+   learn by heart says it on the row. Pushed right by margin rather than by a
+   spacer element, and allowed to shrink away before the label does. */
+.profile-menu .plus-menu-item > .menu-key {
+  margin-left:auto; flex:none; font-size:var(--fs-2xs); color:var(--text-dim);
+  border:1px solid var(--border-subtle); border-radius:var(--r-xs); padding:0 5px; line-height:1.5;
+}
 .profile-head { display:flex; align-items:center; gap:10px; padding:8px 10px 12px; }
 .profile-head .avatar.lg { width:32px; height:32px; font-size:var(--fs-lg); }
 .profile-head .name-input {

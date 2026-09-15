@@ -25,6 +25,7 @@ export type ShortcutId =
   | 'filesTab'
   | 'pickElement'
   | 'drawOnPage'
+  | 'guide'
 
 type Chord = {
   ctrl?: boolean
@@ -51,6 +52,12 @@ const CHORDS: Record<ShortcutId, Chord> = {
   // letter that means nothing.
   pickElement: { ctrl: true, shift: true, code: 'KeyS', key: 's', display: 'S' },
   drawOnPage: { ctrl: true, shift: true, code: 'KeyD', key: 'd', display: 'D' },
+  // The one chord with no modifier, and the one the paragraph above cannot
+  // break: a function key reports 'F1' as both code and key on every layout,
+  // Thai included. F1 has meant "help" on this platform for thirty years, the
+  // app binds no other F-key, and the person who needs the guide most is the
+  // one who should not have to learn a chord to reach it. Esc closes it.
+  guide: { code: 'F1', key: 'f1', display: 'F1' },
 }
 
 /**

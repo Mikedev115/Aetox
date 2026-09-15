@@ -33,6 +33,10 @@ export function guideText(id: string, field: 'name' | 'what' | 'why'): string {
 }
 
 export const GUIDE_MAP: GuideEntry[] = [
+  // ── The guide's own doors (§293) ───────────────────────────────────────────
+  { id: 'account.guide', page: { view: 'chat' }, safe: true, ref: '§293', synonyms: ['ปรึกษาไกด์', 'ถามไกด์', 'ไกด์', 'guide', 'help', 'ช่วยเหลือ', 'F1'] },
+  { id: 'settings.about.guide_btn', page: { view: 'settings', rail: 'about' }, safe: true, ref: '§293', synonyms: ['ปรึกษาไกด์ในตั้งค่า', 'guide button settings', 'about guide'] },
+
   // ── Area 1: Sidebar ────────────────────────────────────────────────────────
   { id: 'sidebar.projects', page: { view: 'chat' }, safe: true, ref: '§90', synonyms: ['โปรเจกต์', 'projects', 'folder', 'โฟลเดอร์'] },
   { id: 'sidebar.open_folder', page: { view: 'chat' }, safe: false, synonyms: ['เปิดโฟลเดอร์', 'open folder', 'browse'] },

@@ -1,3 +1,21 @@
+// The guide's routes: a walk is a list of map ids, in order. Nothing else.
+//
+// THIS FILE IS THE TIMELINE, and it is meant to be edited. To change what the
+// guide shows and in what order, reorder these strings — no other file needs
+// to know. The rules that keep an edit safe:
+//
+//   1. Every id must exist in map.ts (guideMap.test.ts fails otherwise), and
+//      the guide can only stand beside something that is ON SCREEN when it
+//      gets there — `page` in the map row is what takes it to the right page,
+//      so a stop whose element only exists after a click needs the click's own
+//      id before it.
+//   2. Stops on one page, then the next page — every page change costs the
+//      walk a beat while the page settles (pages.ts waits for the element).
+//   3. What the figure SAYS at a stop is not here: it is the map's `what`,
+//      from docs/GUIDE-MAP.md through the locales. Change the words there.
+//   4. A route's position is remembered per route id (guideState ROUTE_KEY),
+//      so renaming a route id starts everyone at its first stop again.
+
 export type GuideRouteId = 'first' | 'brain' | 'team'
 
 export type GuideRoute = {

@@ -21,9 +21,18 @@ function findSvelteFiles(dir: string): string[] {
   return files
 }
 
+// The invariant is that the three copies of the map agree — the ids in the
+// .svelte files, the rows in map.ts, and the rows in docs/GUIDE-MAP.md — not
+// that there are a particular number of them. A hard count is a test that has
+// to be edited every time a button is mapped, which trains whoever is mapping
+// buttons to edit the test without reading it. The floor stays, so the map
+// cannot quietly empty out.
+const MAP_FLOOR = 150
+
 describe('GUIDE_MAP and UI data-guide integrity', () => {
-  it('has exactly 155 entries defined in GUIDE_MAP', () => {
-    expect(GUIDE_MAP.length).toBe(155)
+  it('carries no duplicate ids, and does not shrink below the floor', () => {
+    expect(GUIDE_MAP.length).toBeGreaterThanOrEqual(MAP_FLOOR)
+    expect(new Set(GUIDE_MAP.map((e) => e.id)).size).toBe(GUIDE_MAP.length)
   })
 
   it('every data-guide attribute in .svelte matches GUIDE_MAP 1:1', () => {
@@ -47,7 +56,7 @@ describe('GUIDE_MAP and UI data-guide integrity', () => {
 
     expect(missingInSvelte, `GUIDE_MAP entries missing in .svelte: ${missingInSvelte.join(', ')}`).toEqual([])
     expect(extraInSvelte, `Extra data-guide tags in .svelte not in GUIDE_MAP: ${extraInSvelte.join(', ')}`).toEqual([])
-    expect(foundTags.size).toBe(155)
+    expect(foundTags.size).toBe(mapIds.size)
   })
 
   it('every entry has guide.<id>.name and guide.<id>.what in all 3 locales (th, en, zh)', () => {
@@ -109,7 +118,6 @@ describe('GUIDE_MAP and UI data-guide integrity', () => {
     }
 
     const mapIds = GUIDE_MAP.map((e) => e.id)
-    expect(docIds.length).toBe(155)
     expect(docIds).toEqual(mapIds)
   })
 

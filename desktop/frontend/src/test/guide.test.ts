@@ -4,6 +4,8 @@ import { tick } from 'svelte'
 import { guide } from '../lib/guide/guideState.svelte'
 import { mapPick } from '../lib/guide/mapPick'
 import { GUIDE_ROUTES } from '../lib/guide/routes'
+import { GUIDE_MAP } from '../lib/guide/map'
+import { isShortcut, shortcutLabel } from '../lib/shortcuts'
 import Guide from '../lib/guide/Guide.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import { th } from '../lib/locales/th'
@@ -204,5 +206,28 @@ describe('the guide on screen', () => {
     guide.say('this is the door')
     await waitFor(() => expect(container.querySelector('.say-body')?.textContent).toContain('this is the door'), { timeout: 3000 })
     expect(guide.moveSeq).toBe(moves)
+  })
+})
+
+describe('the doors into the guide', () => {
+  it('F1 opens it from anywhere and closes it again, and no other chord answers to it', () => {
+    const f1 = (over: Partial<KeyboardEventInit> = {}) =>
+      new KeyboardEvent('keydown', { key: 'F1', code: 'F1', ...over })
+    expect(isShortcut(f1(), 'guide')).toBe(true)
+    // A function key carries no layout risk — the reason shortcuts.ts warns
+    // about letters — but a modifier still has to disqualify it.
+    expect(isShortcut(f1({ ctrlKey: true }), 'guide')).toBe(false)
+    expect(isShortcut(f1({ shiftKey: true }), 'guide')).toBe(false)
+    expect(isShortcut(new KeyboardEvent('keydown', { key: 'F2', code: 'F2' }), 'guide')).toBe(false)
+    expect(shortcutLabel('guide')).toBe('F1')
+  })
+
+  it('every door the tour has, the guide has beside it', () => {
+    // The map is what the guide knows, so its own doors are in it: a door the
+    // map does not carry is one the guide cannot explain when asked about it.
+    for (const id of ['account.guide', 'settings.about.guide_btn']) {
+      expect(GUIDE_MAP.find((e) => e.id === id), id).toBeTruthy()
+      expect(th[`guide.${id}.name` as keyof typeof th], id).toBeTruthy()
+    }
   })
 })

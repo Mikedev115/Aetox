@@ -1258,8 +1258,13 @@
         <button class="plus-menu-item" data-guide="account.tour" onclick={() => { profileOpen = false; openTour() }}>
           <span class="ic"><Icon name="bot" size={14} /></span> {t('settings.tourTitle')}
         </button>
-        <button class="plus-menu-item" onclick={() => { profileOpen = false; guide.start() }}>
+        <!-- Beside the tour on purpose (owner, 15 ก.ย. 2026): the tour tells the
+             story once, the guide answers whatever is still unclear, any day.
+             No route here — this door opens it to be ASKED. -->
+        <button class="plus-menu-item" data-guide="account.guide" title={t('account.guideTip')}
+                onclick={() => { profileOpen = false; guide.start() }}>
           <span class="ic"><Icon name="compass" size={14} /></span> {t('account.guide')}
+          <span class="menu-key">{shortcutLabel('guide')}</span>
         </button>
         <div class="menu-sep"></div>
         <!-- One row, one sentence: which Aetox this is, and the only thing

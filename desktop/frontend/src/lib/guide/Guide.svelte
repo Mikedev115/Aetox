@@ -110,6 +110,11 @@
   }
 
   async function moveToTarget(stopId: string, sentence: string) {
+    // A walk takes up to a second, and an answer can land inside it — the
+    // model's own `point` walks the figure and the reply arrives after. The
+    // walk must not then speak over the newer words, so it remembers what had
+    // been said when it set off and stays quiet if that moved.
+    const saidAtStart = guide.saySeq
     seq++
     shown = ''
     typing = false
@@ -163,6 +168,7 @@
     }
     const entry = GUIDE_MAP.find((e) => e.id === stopId)
     pose = !el ? 'thinking' : entry?.safe ? 'presenting' : 'helping'
+    if (guide.saySeq !== saidAtStart) return
     const text = sentence || (el ? guideText(stopId, 'what') : t('guide.notOnScreen'))
     void say(text)
     voice(text)
