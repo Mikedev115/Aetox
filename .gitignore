@@ -104,5 +104,6 @@ store-upload/
 .vscode/
 
 # Local worktrees or test checkouts
+/.worktrees/
 /aetox-head2/
 
