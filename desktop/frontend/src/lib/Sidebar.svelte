@@ -1337,6 +1337,18 @@
             <!-- Offline, rate-limited, a proxy in the way. Muted and in one
              line: a check that could not run is not a broken app. -->
             <div class="ver-news"><span class="ver-note">{t('update.checkFailed')}</span></div>
+          {:else if updater.status?.channel === 'store'}
+            <!-- Arrives as `disabled` (the Store owns updates, so the check
+                 never runs) but must not read as "off": the Store does it,
+                 and the button goes there rather than to a release page. -->
+            <div class="ver-news">
+              <span class="ver-note">{t('update.storeManaged')}</span>
+              {#if updater.status.url}
+                <button class="ver-go" onclick={() => BrowserOpenURL(updater.status?.url ?? '')}>
+                  {t('update.openStore')}
+                </button>
+              {/if}
+            </div>
           {:else if updater.status?.disabled}
             <div class="ver-news">
               <span class="ver-note">{t('update.checkOff')}</span>

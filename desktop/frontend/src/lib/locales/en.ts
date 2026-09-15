@@ -977,6 +977,9 @@ export const en: Record<keyof typeof th, string> = {
   'settings.aboutCheckFailedHint': 'Nothing is broken, Aetox works exactly as before. Try again later.',
   'settings.aboutCheckOff': 'The update check is switched off',
   'settings.aboutCheckOffHint': '{env} is set in this environment',
+  'settings.aboutStoreUpdates': 'Installed from the Microsoft Store — Windows keeps it up to date',
+  'settings.aboutStoreUpdatesHint': 'The app never downloads a release itself. If the latest version has not arrived, close Aetox and open Microsoft Store › Library › Get updates',
+  'settings.aboutOpenStore': 'Open in Microsoft Store',
   'settings.sponsor': 'Sponsor',
   'settings.sponsorIntro': 'Aetox is built by one person, with no company behind it',
   'settings.sponsorDesc': 'Every baht goes to servers, API credits for testing, and the time spent writing the code',
@@ -2520,6 +2523,8 @@ Check your own work before answering; say so plainly if unsure.
   // leaves the button armed.
   'update.checkFailed': 'Could not check just now. Try again anytime.',
   'update.checkOff': 'Update checking is off',
+  'update.storeManaged': 'Updated by the Microsoft Store',
+  'update.openStore': 'Open Store',
   'update.upToDate': 'You are on the latest version',
   'update.downloadingPct': 'Downloading {pct}%',
 

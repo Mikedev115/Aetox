@@ -98,6 +98,29 @@ describe('About: the update door', () => {
     expect(fb).not.toContain('terminal resize replayed the screen')
   })
 
+  // A Store install answers `disabled` — internal/update never reaches
+  // github.com from one, Windows owns those updates — and until 15 ก.ย. 2026
+  // this page rendered that as "switched off by AETOX_DISABLE_UPDATE_CHECK".
+  // A user read it as "cannot update through Microsoft" and reported it. The
+  // truth is the Store does it, and the only door left is the Store page.
+  it('sends a Store install to the Store, and never says the check is off', async () => {
+    vi.mocked(CheckForUpdate).mockResolvedValue(status({
+      channel: 'store', disabled: true, available: false, latest: '', canAuto: false,
+      url: 'https://apps.microsoft.com/detail/9N4KKBRRSCZZ',
+    }) as never)
+    const { container } = render(Settings, { onClose: () => {} })
+    await openAbout(container)
+
+    expect(await screen.findByText('รุ่นนี้ติดตั้งจาก Microsoft Store — Windows อัปเดตให้เอง')).toBeTruthy()
+    expect(screen.queryByText('การตรวจหาการอัปเดตถูกปิดไว้')).toBeNull()
+    expect(screen.queryByText(/AETOX_DISABLE_UPDATE_CHECK/)).toBeNull()
+    expect(screen.queryByText('ดาวน์โหลดอัปเดต')).toBeNull()
+
+    await fireEvent.click(screen.getByText('เปิดใน Microsoft Store'))
+    expect(vi.mocked(BrowserOpenURL)).toHaveBeenCalledWith('https://apps.microsoft.com/detail/9N4KKBRRSCZZ')
+    expect(vi.mocked(StageUpdate)).not.toHaveBeenCalled()
+  })
+
   it('says what failed and re-arms the button, instead of a dead click', async () => {
     vi.mocked(CheckForUpdate).mockResolvedValue(status({}) as never)
     vi.mocked(StageUpdate).mockRejectedValue(

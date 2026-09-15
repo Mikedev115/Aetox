@@ -7893,6 +7893,23 @@
               <div class="d">{t('settings.aboutCheckFailedHint')}</div>
             </div>
           </div>
+        {:else if updateStatus?.channel === 'store'}
+          <!-- Before the switched-off case, because it arrives as one
+               (internal/update refuses to reach github.com from a Store
+               install — Windows owns those updates) and the sentence below
+               would blame an env var nobody set. A Store user who reads
+               "switched off" concludes Aetox cannot be updated through
+               Microsoft (report, 15 ก.ย. 2026); what is true is that the
+               Store does it, and the one door left is the Store's own page. -->
+          <div class="set-row">
+            <div class="set-txt">
+              <div class="t">{t('settings.aboutStoreUpdates')}</div>
+              <div class="d">{t('settings.aboutStoreUpdatesHint')}</div>
+            </div>
+            {#if updateStatus.url}
+              <button class="ctrl" onclick={() => BrowserOpenURL(updateStatus.url)}>{t('settings.aboutOpenStore')}</button>
+            {/if}
+          </div>
         {:else if updateStatus?.disabled}
           <div class="set-row">
             <div class="set-txt">

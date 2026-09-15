@@ -14,6 +14,7 @@ import {
   AppVersion, CheckForUpdate, StageUpdate, RestartToUpdate, ProviderAccountFor,
   CurrentSessionID, SessionMode,
 } from './mocks/wailsApp'
+import { BrowserOpenURL } from './mocks/wailsRuntime'
 import { updater } from '../lib/selfUpdate.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import { setShell } from '../lib/shell.svelte'
@@ -134,14 +135,33 @@ describe('the version row in the profile menu', () => {
   })
 
   // A Store install cannot update itself and must never be sent to the GitHub
-  // releases page — the files there install a SECOND copy beside it.
-  it('says so when checking is switched off, and keeps the channel’s own page', async () => {
+  // releases page — the files there install a SECOND copy beside it. It
+  // arrives as `disabled`, and until 15 ก.ย. 2026 this row said exactly that:
+  // ปิดการตรวจอัปเดตไว้. A Store user read it as "cannot update through
+  // Microsoft" and reported it. The Store does the updating; say so, and
+  // make the one button go there.
+  it('tells a Store install the Store updates it, and opens the Store page', async () => {
     vi.mocked(CheckForUpdate).mockResolvedValue(
       status({ available: false, disabled: true, latest: '', channel: 'store',
         url: 'https://apps.microsoft.com/detail/9N4KKBRRSCZZ' }) as never)
     const container = await openMenu()
 
-    await waitFor(() => expect(text(container, '.ver-note')).toBe('ปิดการตรวจอัปเดตไว้'))
+    await waitFor(() => expect(text(container, '.ver-note')).toBe('Microsoft Store อัปเดตให้เอง'))
     expect(container.querySelector('.ver-new')).toBeNull()
+
+    await fireEvent.click(container.querySelector('.ver-go') as HTMLElement)
+    expect(vi.mocked(BrowserOpenURL)).toHaveBeenCalledWith('https://apps.microsoft.com/detail/9N4KKBRRSCZZ')
+    expect(vi.mocked(StageUpdate)).not.toHaveBeenCalled()
+  })
+
+  // The switched-off sentence is still the right one when it is true — the
+  // env var, not a channel, is what turned the check off.
+  it('says the check is off when the user switched it off', async () => {
+    vi.mocked(CheckForUpdate).mockResolvedValue(
+      status({ available: false, disabled: true, latest: '', channel: 'portable', url: '' }) as never)
+    const container = await openMenu()
+
+    await waitFor(() => expect(text(container, '.ver-note')).toBe('ปิดการตรวจอัปเดตไว้'))
+    expect(container.querySelector('.ver-go')).toBeNull()
   })
 })

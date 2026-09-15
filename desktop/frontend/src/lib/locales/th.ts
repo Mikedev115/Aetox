@@ -979,6 +979,9 @@ export const th = {
  'settings.aboutCheckFailedHint': 'ไม่มีอะไรเสียหาย Aetox ใช้งานได้ตามปกติ ลองใหม่ทีหลังได้',
   'settings.aboutCheckOff': 'การตรวจหาการอัปเดตถูกปิดไว้',
   'settings.aboutCheckOffHint': 'ตัวแปรสภาพแวดล้อม {env} ถูกตั้งไว้ในเครื่องนี้',
+  'settings.aboutStoreUpdates': 'รุ่นนี้ติดตั้งจาก Microsoft Store — Windows อัปเดตให้เอง',
+  'settings.aboutStoreUpdatesHint': 'แอปจะไม่ดาวน์โหลดรุ่นใหม่เอง ถ้ายังไม่ได้รุ่นล่าสุด ปิด Aetox แล้วไปที่ Microsoft Store › ไลบรารี › รับการอัปเดต',
+  'settings.aboutOpenStore': 'เปิดใน Microsoft Store',
   'settings.sponsor': 'สนับสนุนโปรเจกต์',
   'settings.sponsorIntro': 'Aetox พัฒนาโดยคนเดียว ไม่มีบริษัทหนุนหลัง',
   'settings.sponsorDesc': 'ทุกบาททุกเหรียญไปที่ค่าเซิร์ฟเวอร์ ค่า API สำหรับเทสต์ และเวลาที่ใช้เขียนโค้ด',
@@ -2566,6 +2569,8 @@ export const th = {
   // ตรวจไม่ได้ ไม่ใช่แอปพัง เลยพูดสั้นๆ แล้วปล่อยให้กดใหม่ได้
   'update.checkFailed': 'ตอนนี้ตรวจไม่ได้ ลองใหม่อีกครั้งได้',
   'update.checkOff': 'ปิดการตรวจอัปเดตไว้',
+  'update.storeManaged': 'Microsoft Store อัปเดตให้เอง',
+  'update.openStore': 'เปิด Store',
   'update.upToDate': 'ใช้เวอร์ชันล่าสุดอยู่แล้ว',
   'update.downloadingPct': 'กำลังดาวน์โหลด {pct}%',
 
