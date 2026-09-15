@@ -50,3 +50,20 @@ export function currentRoom(): string | null {
 export function isHere(page: PageId): boolean {
   return currentPage() === page
 }
+
+/**
+ * Is that mapped element on screen and pressable right now?
+ *
+ * The same question `currentPage` asks, one element down: not "which page" but
+ * "is this thing there". One definition, because the walk (path.ts), the store
+ * and the figure all have to agree on what "on screen" means — an element that
+ * is in the document but laid out at nothing is not something a person can
+ * press, and a guide standing beside it is standing beside nothing.
+ */
+export function onScreen(id: string): boolean {
+  if (typeof document === 'undefined') return false
+  const el = document.querySelector<HTMLElement>('[data-guide=' + JSON.stringify(id) + ']')
+  if (!el) return false
+  const r = el.getBoundingClientRect()
+  return r.width > 0 && r.height > 0
+}

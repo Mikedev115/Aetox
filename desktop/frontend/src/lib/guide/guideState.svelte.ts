@@ -11,7 +11,8 @@ import { GUIDE_ROUTES, type GuideRouteId } from './routes'
 import { openPage } from './pages'
 import { mapPick } from './mapPick'
 import { greetingFor } from './greeting'
-import { currentPage } from './where'
+import type { PageId } from '../rooms'
+import { currentPage, onScreen } from './where'
 import { guidePrefs } from './guidePrefs.svelte'
 import { nextStepTo, stepsTo } from './path'
 import { t } from '../i18n.svelte'
@@ -61,6 +62,16 @@ class GuideStore {
   heading = $state<string | null>(null)
   /** How many presses are left, for saying so. */
   stepsLeft = $state(0)
+  /** The page the guide believes it is standing on, kept current by the sign
+   *  watcher (placeWatch.ts). Read off the screen, never told by the app. */
+  place = $state<PageId | null>(null)
+
+  /** A move of the guide's OWN is in flight — a page it is opening itself, or
+   *  the moment after a press it asked for. The screen changing under one of
+   *  those is its own doing, so `placeChanged` sits still rather than reacting
+   *  to its own footsteps (and, worse, cancelling the travel it is in the
+   *  middle of). A counter and not a flag: two can overlap. */
+  private moving = 0
 
   /** The figure appears with the one-time offer after the tour. */
   offerTour() {
@@ -103,7 +114,8 @@ class GuideStore {
       // with a face (greeting.ts).
       this.route = null
       this.stopId = null
-      this.say(greetingFor(currentPage()))
+      this.place = currentPage()
+      this.say(greetingFor(this.place))
     }
   }
 
@@ -146,6 +158,7 @@ class GuideStore {
     this.awaiting = null
     this.heading = null
     this.stepsLeft = 0
+    this.place = null
     const sid = this.sessionId
     this.sessionId = null
     if (sid) {
@@ -190,7 +203,13 @@ class GuideStore {
     this.stepsLeft = 0
     this.stopId = id
     this.sentence = sentence
-    await openPage(entry.page, '[data-guide=' + JSON.stringify(id) + ']', entry.head)
+    this.moving++
+    try {
+      await openPage(entry.page, '[data-guide=' + JSON.stringify(id) + ']', entry.head)
+    } finally {
+      this.moving--
+    }
+    this.place = currentPage()
     if (this.stopId !== id) return // somewhere else was asked for meanwhile
     this.moveSeq++
   }
@@ -207,10 +226,49 @@ class GuideStore {
   advance(id: string) {
     if (!this.heading || id !== this.awaiting) return
     const heading = this.heading
-    // After the page has had a moment to answer the press.
+    // After the page has had a moment to answer the press — and held as a move
+    // of the guide's own for that moment, so the sign watcher does not also
+    // react to the page this very press is opening.
+    this.moving++
     setTimeout(() => {
+      this.moving--
       if (this.on && this.heading === heading) void this.goTo(heading)
     }, 220)
+  }
+
+  /**
+   * The screen moved — a room opened, a section changed, a page went away.
+   *
+   * Three answers, and which one it gives is the whole behaviour:
+   *
+   *  - Leading somebody → ask the way again. `nextStepTo` reads the DOM, so
+   *    asking from the new screen is all it takes: somebody who wandered off
+   *    is led onward from where they now are, and somebody who arrived by
+   *    their own route is simply told they are there.
+   *  - Standing beside something that is no longer on screen → stop pointing
+   *    at it and greet the new place. This is the thing the owner kept seeing:
+   *    a bubble still naming a button from the page before.
+   *  - Anything else → say nothing. A guide that announces every page you open
+   *    is a guide you close; it only speaks when what it last said stopped
+   *    being true.
+   */
+  placeChanged(page: PageId | null) {
+    this.place = page
+    if (!this.on || this.offering || this.moving > 0) return
+    if (this.heading) {
+      void this.goTo(this.heading)
+      return
+    }
+    if (this.stopId && !onScreen(this.stopId)) {
+      this.stopId = null
+      this.sentence = ''
+      this.awaiting = null
+      this.stepsLeft = 0
+      // Off the route too: it was a walk through a page that is no longer in
+      // front of us, and next()/prev() from there would teleport.
+      this.route = null
+      this.say(greetingFor(page))
+    }
   }
 
   /** Say something where the figure stands. */

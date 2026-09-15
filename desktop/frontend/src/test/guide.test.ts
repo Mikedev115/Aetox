@@ -10,6 +10,7 @@ import { GUIDE_MAP } from '../lib/guide/map'
 import { isShortcut, shortcutLabel } from '../lib/shortcuts'
 import { restingSpot } from '../lib/guide/walk'
 import { greetingFor, offeredWalks } from '../lib/guide/greeting'
+import { watchPlace } from '../lib/guide/placeWatch'
 import Guide from '../lib/guide/Guide.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import { th } from '../lib/locales/th'
@@ -408,5 +409,118 @@ describe('every door into the guide opens the same way', () => {
     }
     walk(src)
     expect(offenders, `these open a walk without asking first:\n${offenders.join('\n')}`).toEqual([])
+  })
+})
+
+describe('the screen moving under it', () => {
+  // The guide reads where it is off the page's own sign and nothing else, so
+  // the test moves signs around rather than calling any app setter. What it is
+  // pinning: an open guide must never be left talking about a page the person
+  // has already left (owner, 15 ก.ย. 2026: *"เวลากดไปหน้าต่างๆขณะไกด์ มันยัง
+  // ค้างแบบนี้อยู่ คือมันควรรู้ตัวด้วยสิว่าตอนนี้อยู่หน้าไหน"*).
+
+  it('asks the way again from wherever the person has got to', async () => {
+    mapped('sidebar.footer', { width: 200, height: 40 })
+    await guide.start(undefined, 'settings.rail.brain')
+    expect(guide.awaiting).toBe('sidebar.footer')
+
+    // They opened the menu themselves, by their own route. The door the guide
+    // was pointing at has gone with it.
+    document.body.innerHTML = ''
+    mapped('account.settings', { width: 180, height: 32 })
+    guide.placeChanged('chat')
+
+    await waitFor(() => expect(guide.awaiting).toBe('account.settings'))
+    expect(guide.heading).toBe('settings.rail.brain')
+  })
+
+  it('stops pointing at a button that is no longer there, and greets the new page', async () => {
+    mapped('chat.send', { width: 36, height: 36 })
+    await guide.start(undefined, 'chat.send')
+    guide.route = { id: 'first', at: 0 }
+    const said = guide.saySeq
+
+    document.body.innerHTML = '' // the page they were on is gone
+    guide.placeChanged('settings.models')
+
+    expect(guide.stopId).toBeNull()
+    expect(guide.awaiting).toBeNull()
+    expect(guide.route).toBeNull() // a walk through a page nobody is on any more
+    expect(guide.place).toBe('settings.models')
+    expect(guide.saySeq).toBe(said + 1)
+    expect(guide.sentence).toBe(greetingFor('settings.models'))
+  })
+
+  it('says nothing when what it is standing beside is still there', async () => {
+    mapped('chat.send', { width: 36, height: 36 })
+    await guide.start(undefined, 'chat.send')
+    const said = guide.saySeq
+    const moved = guide.moveSeq
+
+    guide.placeChanged('chat') // a panel opened somewhere; the button is fine
+
+    expect(guide.stopId).toBe('chat.send')
+    expect(guide.saySeq).toBe(said)
+    expect(guide.moveSeq).toBe(moved)
+  })
+
+  it('does not react to its own footsteps — one press is one walk', async () => {
+    mapped('sidebar.footer', { width: 200, height: 40 })
+    await guide.start(undefined, 'settings.rail.brain')
+    const moved = guide.moveSeq
+
+    // The press it asked for lands, which is exactly what changes the page.
+    // Both the press and the sign would send it walking; only one may.
+    document.body.innerHTML = ''
+    mapped('account.settings', { width: 180, height: 32 })
+    guide.advance('sidebar.footer')
+    guide.placeChanged('chat')
+
+    await waitFor(() => expect(guide.awaiting).toBe('account.settings'), { timeout: 2000 })
+    await new Promise((r) => setTimeout(r, 120))
+    expect(guide.moveSeq).toBe(moved + 1)
+  })
+})
+
+describe('the sign watcher', () => {
+  const sign = (page: string) => {
+    const el = document.createElement('div')
+    el.setAttribute('data-guide-place', page)
+    el.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 800, bottom: 600, width: 800, height: 600, x: 0, y: 0, toJSON() {} }) as DOMRect
+    document.body.appendChild(el)
+    return el
+  }
+  const settle = () => new Promise((r) => setTimeout(r, 260))
+
+  it('speaks up when the page changes, and stays quiet when it has not', async () => {
+    const here = sign('chat')
+    const seen: (string | null)[] = []
+    const off = watchPlace((p) => seen.push(p))
+
+    here.setAttribute('data-guide-place', 'settings.models')
+    await settle()
+    expect(seen).toEqual(['settings.models'])
+
+    // Busy pages mutate constantly — a chat streaming, a list growing. None of
+    // that is a change of place, and none of it may reach the guide.
+    for (let i = 0; i < 20; i++) document.body.appendChild(document.createElement('span'))
+    await settle()
+    expect(seen).toEqual(['settings.models'])
+
+    off()
+    here.setAttribute('data-guide-place', 'office')
+    await settle()
+    expect(seen).toEqual(['settings.models']) // stopped means stopped
+  })
+
+  it('says null when the last sign goes away', async () => {
+    sign('chat')
+    const seen: (string | null)[] = []
+    const off = watchPlace((p) => seen.push(p))
+    document.body.innerHTML = ''
+    await settle()
+    expect(seen).toEqual([null])
+    off()
   })
 })

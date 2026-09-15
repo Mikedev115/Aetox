@@ -18,15 +18,10 @@
 
 import { GUIDE_MAP } from './map'
 import { roomOf, type PageId } from '../rooms'
-
-/** On screen and pressable right now. */
-function visible(id: string): boolean {
-  if (typeof document === 'undefined') return false
-  const el = document.querySelector<HTMLElement>('[data-guide=' + JSON.stringify(id) + ']')
-  if (!el) return false
-  const r = el.getBoundingClientRect()
-  return r.width > 0 && r.height > 0
-}
+// "On screen right now" is where.ts's answer, asked of an element rather than
+// a page. Shared rather than re-implemented: the walk and the store disagreeing
+// about whether a button is there is how a guide points at a ghost.
+import { onScreen as visible } from './where'
 
 /**
  * The doors into each room, outermost first — the presses a person makes to

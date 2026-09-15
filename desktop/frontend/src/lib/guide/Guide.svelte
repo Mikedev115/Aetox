@@ -21,6 +21,7 @@
   import { speak, stopSpeechIf } from '../speech.svelte'
   import { t } from '../i18n.svelte'
   import { handleGuideAsk } from './guideSession'
+  import { watchPlace } from './placeWatch'
   import { EventsOn } from '../../../wailsjs/runtime/runtime'
 
   // Placed on the FIRST frame, not moved into place after it. x and y used to
@@ -198,6 +199,32 @@
     if (id) untrack(() => void moveToTarget(id, sentence))
   })
 
+  // Nothing to stand beside any more: no ring, and the figure walks back to its
+  // corner. The store drops stopId when the page it was pointing at is gone
+  // (guideState.placeChanged), and a highlight box left drawn around where a
+  // button used to be is the guide insisting on a screen that has moved on.
+  async function stepBack() {
+    ring = null
+    const to = restingSpot({ width: window.innerWidth, height: window.innerHeight })
+    const dx = to.x - x
+    if (Math.abs(dx) < 2 && Math.abs(to.y - y) < 2) return // already there
+    // The words are left alone on purpose: whatever cleared the stop says
+    // something in the same breath, and the walk back must not race it.
+    if (!reduced()) {
+      pose = 'walk'
+      turn = walkTurn(dx)
+    }
+    x = to.x
+    y = to.y
+    await sleep(walkMs(dx, reduced()))
+    turn = undefined
+    if (pose === 'walk') pose = 'asking'
+  }
+
+  $effect(() => {
+    if (guide.on && !guide.stopId) untrack(() => void stepBack())
+  })
+
   // Words without a walk: the model's answer, the map's refusal, a press.
   $effect(() => {
     const n = guide.saySeq
@@ -262,6 +289,11 @@
       if (guide.stopId && guide.on) guide.moveSeq++
     }
 
+    // The guide's one sense of place: the signs on the pages, watched rather
+    // than asked about, so using the app under an open guide moves the guide
+    // too (placeWatch.ts).
+    const offPlace = watchPlace((page) => guide.placeChanged(page))
+
     const offGuide = EventsOn('screen:guide', (ask: any) => {
       void handleGuideAsk(ask)
     })
@@ -280,6 +312,7 @@
       document.removeEventListener('click', onDocClick, true)
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('resize', onResize)
+      offPlace()
       offGuide()
       offChunk()
       stopSpeechIf('guide')
