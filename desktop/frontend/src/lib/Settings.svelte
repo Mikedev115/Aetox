@@ -1,3 +1,9 @@
+<script lang="ts" module>
+  // Bumped by every Settings that mounts; the highest is the live one. Module
+  // scope, so it is shared by every instance and reset by nothing.
+  let settingsMounts = 0
+</script>
+
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import { theme, applyTheme, THEMES, type ThemeName } from './theme.svelte'
@@ -92,6 +98,7 @@
   import { COMMUNITY_URL, PAGE_URL, YOUTUBE_URL } from './links'
   import promptPayQR from '../assets/images/promptpay-qr.png'
   import { config, engine, main, subagent, type mode } from '../../wailsjs/go/models'
+  import type { SettingsSection } from './rooms'
   import { cockpit, openCapabilityAt, startChatWith, newChairSession, setActiveView, switchProvider, switchModel, submitAPIKey, switchApprovalMode, switchWireFormat, setProviderBaseURL, retryActiveProvider, completeSignIn, signOutProvider, importSignIn, SETTINGS_SECTION_KEY } from './stores/cockpit.svelte'
   import {
     identity, loadIdentityFiles, openIdentityFile, saveIdentityFile,
@@ -454,6 +461,13 @@
   // not loadAgents()' three in a row — the $effect on `active` is already
   // running that one, and the editor needs only the row plus its own file.
   let intentPending = $state(cockpit.settingsIntent !== null)
+  // Which Settings is the one on screen. In the app there is only ever one,
+  // but a page that reacts to an intent AFTER mounting (below) must say which
+  // instance it is talking about, or the answer is "whichever won the race" —
+  // in the tests, that is an earlier render nobody unmounted, and the sheet
+  // opens on a page that is no longer being looked at.
+  const mine = ++settingsMounts
+  const onScreen = () => mine === settingsMounts
   onMount(async () => {
     await takeIntent()
   })
@@ -462,7 +476,7 @@
   // page used to read it once, at mount, and a section written to the store
   // after that was a page that did not move.
   $effect(() => {
-    if (cockpit.settingsIntent && !intentPending) {
+    if (cockpit.settingsIntent && !intentPending && onScreen()) {
       intentPending = true
       void takeIntent()
     }
@@ -3583,7 +3597,11 @@
   // most likely things anyone types into a settings search — found nothing,
   // even though the Appearance page has five font controls on it. The terms are
   // the page's own setting titles, so they translate with everything else.
-  type NavItem = { id: string; label: string; icon: IconName; terms: string[] }
+  // id typed, not a bare string: the rail's ids are named from outside this
+  // file (the guide's map, every openSettingsAt caller), and lib/rooms.ts is
+  // where they are agreed — a section added here without a line there is a
+  // compile error, which is the point.
+  type NavItem = { id: SettingsSection; label: string; icon: IconName; terms: string[] }
   const sections: { group: string; items: NavItem[] }[] = $derived([
     { group: t('settings.groupPersonal'), items: [
       { id: 'general', label: t('settings.general'), icon: 'slidersHorizontal',
@@ -3881,7 +3899,7 @@
   // the reader back at the top of it.
   let contentEl = $state<HTMLDivElement | null>(null)
 
-  function openSection(id: string) {
+  function openSection(id: SettingsSection) {
     // เอเจนเฉพาะทาง and ลูกมือ share one editor pane (agentEditorPane). With an
     // editor open on one, the rail row of the other changed `active` and
     // nothing else — the pane stayed, and the click read as nothing (owner,

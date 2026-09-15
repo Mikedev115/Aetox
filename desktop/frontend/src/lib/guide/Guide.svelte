@@ -14,14 +14,13 @@
   import Icon from '../Icon.svelte'
   import { guide } from './guideState.svelte'
   import { GUIDE_MAP, guideText } from './map'
+  import { SIZE, standBeside, restingSpot, walkTurn, walkMs } from './walk'
   import { companion } from '../mascot/companionSetting.svelte'
   import { speak, stopSpeechIf } from '../speech.svelte'
   import { t } from '../i18n.svelte'
   import { handleGuideAsk } from './guideSession'
   import { EventsOn } from '../../../wailsjs/runtime/runtime'
 
-  const SIZE = 72
-  const BUBBLE = 350
   let x = $state(0)
   let y = $state(0)
   let placed = $state(false)
@@ -47,11 +46,8 @@
     return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
   }
 
-  // The figure's resting place when it has nothing to point at: the lower
-  // right, clear of the composer, where the companion also tends to sit.
   function home() {
-    x = Math.max(8, window.innerWidth - SIZE - 140)
-    y = Math.max(48, window.innerHeight - SIZE - 120)
+    ;({ x, y } = restingSpot({ width: window.innerWidth, height: window.innerHeight }))
     placed = true
   }
 
@@ -80,33 +76,13 @@
     if (companion.voice && text) speak('guide', text, () => {})
   }
 
-  // Where to stand for a target rect, and which side the bubble goes.
+  // Where to stand for a target rect: walk.ts decides, this only records it.
   function placeBeside(r: DOMRect) {
-    const winW = window.innerWidth
-    const winH = window.innerHeight
-    ring = { l: Math.max(0, r.left - 4), t: Math.max(0, r.top - 4), w: r.width + 8, h: r.height + 8 }
-    // Stand on the side of the target where the bubble also fits beyond the
-    // figure — right of it with the card opening right, else left of it with
-    // the card opening left — so the card is never over the button it is
-    // about. Only when neither fits does the card open back over the target.
-    const rightOf = r.right + 16
-    const leftOf = Math.max(8, r.left - SIZE - 16)
-    const fitsRight = rightOf + SIZE + 14 + BUBBLE <= winW
-    const fitsLeft = r.left - SIZE - 16 - 14 - BUBBLE >= 0
-    let tx: number
-    if (fitsRight) {
-      tx = rightOf
-      flip = true
-    } else if (fitsLeft) {
-      tx = leftOf
-      flip = false
-    } else {
-      tx = rightOf + SIZE + 24 < winW ? rightOf : leftOf
-      flip = tx - 14 - BUBBLE < 0
-    }
-    const ty = Math.min(winH - SIZE - 16, Math.max(48, r.top + r.height / 2 - SIZE / 2))
-    below = ty < 260
-    return { tx, ty }
+    const st = standBeside(r, { width: window.innerWidth, height: window.innerHeight })
+    ring = st.ring
+    flip = st.flip
+    below = st.below
+    return { tx: st.x, ty: st.y }
   }
 
   async function moveToTarget(stopId: string, sentence: string) {
@@ -146,12 +122,12 @@
     const dx = tx - x
     if (placed && !reduced()) {
       pose = 'walk'
-      turn = dx < 0 ? -70 : 70
+      turn = walkTurn(dx)
     }
     x = tx
     y = ty
     placed = true
-    await sleep(reduced() ? 0 : Math.min(800, 250 + Math.abs(dx) * 0.8))
+    await sleep(walkMs(dx, reduced()))
     turn = undefined
     // The page may have settled under the walk — a section that finished
     // loading, a list that grew. Stand beside where the target is NOW.

@@ -191,6 +191,7 @@
   } from '../../wailsjs/go/main/App'
   import { config, type engine } from '../../wailsjs/go/models'
   import { BrowserOpenURL, EventsOn } from '../../wailsjs/runtime/runtime'
+  import type { CapabilityPage } from './rooms'
   import { cockpit, openSettingsAt, startChatWith } from './stores/cockpit.svelte'
   import { t, type TKey } from './i18n.svelte'
   import Icon from './Icon.svelte'
@@ -277,7 +278,9 @@
   // The rail. Opens on ของคุณ when there is anything in it, on ห้องสมุด when
   // there is not: the room's founding point was that an empty register
   // announces nothing, and a full one is what a person came back for.
-  type Page = 'mine' | 'desks' | 'agents' | 'shelf' | 'skills' | 'skagents' | 'skshelf' | 'sktune' | 'tools' | 'prompts' | 'habits' | 'computer' | 'connections'
+  // The rail's ids live in lib/rooms.ts, where every caller that sends
+  // somebody to one of these pages can see them — see that file for why.
+  type Page = CapabilityPage
   // Six headings, one per kind of thing; a new kind is a new heading, never
   // a tab. The MCP group has four rows, the skill group four, the prompt
   // group two, and the tool, computer and connection groups one each —

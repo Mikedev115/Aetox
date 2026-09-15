@@ -1,5 +1,6 @@
 import { AnswerGuide } from '../../../wailsjs/go/main/App'
 import { GUIDE_MAP, guideText, type GuidePage } from './map'
+import { isCapabilityPage, isSettingsSection } from '../rooms'
 import { openPage } from './pages'
 import { guide } from './guideState.svelte'
 import { cockpit } from '../stores/cockpit.svelte'
@@ -37,9 +38,12 @@ export function pageFrom(arg: string): GuidePage | null {
   if (s === 'chat') return { view: 'chat' }
   if (s === 'office') return { view: 'office' }
   if (s === 'artifacts') return { view: 'artifacts' }
+  // The model names this page, so the name is checked against the rooms' own
+  // lists rather than trusted: an id that is not real would open the room on
+  // whatever page was last shown and read to the model as success.
   const m = /^(settings|capability)\.([a-z_]+)$/.exec(s)
-  if (m && m[1] === 'settings') return { view: 'settings', rail: m[2] }
-  if (m && m[1] === 'capability') return { view: 'capability', page: m[2] }
+  if (m && m[1] === 'settings' && isSettingsSection(m[2])) return { view: 'settings', rail: m[2] }
+  if (m && m[1] === 'capability' && isCapabilityPage(m[2])) return { view: 'capability', page: m[2] }
   return null
 }
 

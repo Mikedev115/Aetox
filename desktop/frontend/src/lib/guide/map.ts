@@ -6,11 +6,12 @@
 // (lib/locales/{th,en,zh}.ts under guide.<id>.name, guide.<id>.what, guide.<id>.why).
 
 import { t } from '../i18n.svelte'
+import type { CapabilityPage, SettingsSection } from '../rooms'
 
 export type GuidePage =
   | { view: 'chat' }
-  | { view: 'settings'; rail: string; tab?: string; head?: 'assistant' | 'coding' }
-  | { view: 'capability'; page: string }
+  | { view: 'settings'; rail: SettingsSection; tab?: string; head?: 'assistant' | 'coding' }
+  | { view: 'capability'; page: CapabilityPage }
   | { view: 'office' }
   | { view: 'artifacts' }
 
@@ -51,7 +52,7 @@ export const GUIDE_MAP: GuideEntry[] = [
   { id: 'sidebar.history', page: { view: 'chat' }, safe: true, synonyms: ['ประวัติ', 'history', 'past chats'] },
   { id: 'sidebar.desk.assistant', page: { view: 'chat' }, safe: true, ref: '§86', synonyms: ['โต๊ะผู้ช่วย', 'assistant desk', 'ผู้ช่วย'] },
   { id: 'sidebar.desk.coding', page: { view: 'chat' }, safe: true, ref: '§86', synonyms: ['โต๊ะโค้ด', 'coding desk', 'โค้ด'] },
-  { id: 'sidebar.desk.capability', page: { view: 'capability', page: 'mcp' }, safe: true, ref: '§265', synonyms: ['ความสามารถ', 'capability', 'tools room'] },
+  { id: 'sidebar.desk.capability', page: { view: 'capability', page: 'mine' }, safe: true, ref: '§265', synonyms: ['ความสามารถ', 'capability', 'tools room'] },
   { id: 'sidebar.desk.office', page: { view: 'office' }, safe: true, ref: '§85', synonyms: ['ออฟฟิศ', 'office', 'ทีม', 'team'] },
   { id: 'sidebar.desk.artifacts', page: { view: 'artifacts' }, safe: true, synonyms: ['คลังผลงาน', 'artifacts', 'ผลงาน'] },
   { id: 'sidebar.footer', page: { view: 'chat' }, safe: true, ref: '§255', synonyms: ['เมนูบัญชี', 'profile menu', 'account menu', 'footer'] },
@@ -171,20 +172,20 @@ export const GUIDE_MAP: GuideEntry[] = [
   { id: 'settings.about.license_btn', page: { view: 'settings', rail: 'about' }, safe: true, synonyms: ['สัญญาอนุญาต', 'license'] },
 
   // ── Area 10: Capability Room ───────────────────────────────────────────────
-  { id: 'capability.rail.mcp', page: { view: 'capability', page: 'mcp' }, safe: true, ref: '§253', synonyms: ['mcp server', 'หน้า mcp'] },
+  { id: 'capability.rail.mcp', page: { view: 'capability', page: 'mine' }, safe: true, ref: '§253', synonyms: ['mcp server', 'หน้า mcp'] },
   { id: 'capability.rail.skills', page: { view: 'capability', page: 'skills' }, safe: true, ref: '§265', synonyms: ['สกิลของคุณ', 'skills list'] },
-  { id: 'capability.rail.builtins', page: { view: 'capability', page: 'builtins' }, safe: true, ref: '§265', synonyms: ['เครื่องมือในตัว', 'builtin tools'] },
+  { id: 'capability.rail.builtins', page: { view: 'capability', page: 'tools' }, safe: true, ref: '§265', synonyms: ['เครื่องมือในตัว', 'builtin tools'] },
   { id: 'capability.rail.computer', page: { view: 'capability', page: 'computer' }, safe: true, ref: '§265', synonyms: ['การใช้คอมพิวเตอร์', 'computer use'] },
   { id: 'capability.rail.connections', page: { view: 'capability', page: 'connections' }, safe: true, ref: '§265', synonyms: ['การเชื่อมต่อ', 'external connections'] },
   { id: 'capability.rail.prompts', page: { view: 'capability', page: 'prompts' }, safe: true, synonyms: ['ชุดคำสั่ง', 'prompt presets'] },
-  { id: 'capability.mcp.search', page: { view: 'capability', page: 'mcp' }, safe: true, synonyms: ['ค้นหา mcp', 'search mcp'] },
-  { id: 'capability.mcp.add_btn', page: { view: 'capability', page: 'mcp' }, safe: true, synonyms: ['เพิ่ม mcp', 'add mcp server'] },
-  { id: 'capability.mcp.install_action', page: { view: 'capability', page: 'mcp' }, safe: false, synonyms: ['ติดตั้ง mcp', 'install mcp'] },
-  { id: 'capability.mcp.refresh_btn', page: { view: 'capability', page: 'mcp' }, safe: false, synonyms: ['รีเฟรช mcp', 'refresh mcp'] },
+  { id: 'capability.mcp.search', page: { view: 'capability', page: 'mine' }, safe: true, synonyms: ['ค้นหา mcp', 'search mcp'] },
+  { id: 'capability.mcp.add_btn', page: { view: 'capability', page: 'mine' }, safe: true, synonyms: ['เพิ่ม mcp', 'add mcp server'] },
+  { id: 'capability.mcp.install_action', page: { view: 'capability', page: 'mine' }, safe: false, synonyms: ['ติดตั้ง mcp', 'install mcp'] },
+  { id: 'capability.mcp.refresh_btn', page: { view: 'capability', page: 'mine' }, safe: false, synonyms: ['รีเฟรช mcp', 'refresh mcp'] },
   { id: 'capability.skills.search', page: { view: 'capability', page: 'skills' }, safe: true, synonyms: ['ค้นหาสกิล', 'search skills'] },
   { id: 'capability.skills.add_btn', page: { view: 'capability', page: 'skills' }, safe: true, synonyms: ['เพิ่มสกิล', 'add skill'] },
   { id: 'capability.skills.folder_btn', page: { view: 'capability', page: 'skills' }, safe: false, synonyms: ['เปิดโฟลเดอร์สกิล', 'skills folder'] },
-  { id: 'capability.builtins.filter', page: { view: 'capability', page: 'builtins' }, safe: true, synonyms: ['กรองเครื่องมือ', 'filter builtin tools'] },
+  { id: 'capability.builtins.filter', page: { view: 'capability', page: 'tools' }, safe: true, synonyms: ['กรองเครื่องมือ', 'filter builtin tools'] },
   { id: 'capability.computer.toggle', page: { view: 'capability', page: 'computer' }, safe: false, synonyms: ['สวิตช์ใช้คอมพิวเตอร์', 'toggle computer use'] },
   { id: 'capability.computer.apps_list', page: { view: 'capability', page: 'computer' }, safe: true, synonyms: ['รายการโปรแกรม', 'allowed apps'] },
   { id: 'capability.connections.add_btn', page: { view: 'capability', page: 'connections' }, safe: true, synonyms: ['เพิ่มการเชื่อมต่อ', 'add connection'] },

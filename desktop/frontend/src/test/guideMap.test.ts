@@ -149,7 +149,7 @@ describe('GUIDE_MAP and UI data-guide integrity', () => {
       await openPage({ view: 'settings', rail: 'main', head: 'coding' })
       expect(cockpit.settingsIntent).toEqual({ section: 'main', head: 'coding' })
 
-      await openPage({ view: 'capability', page: 'mcp' })
+      await openPage({ view: 'capability', page: 'mine' })
       expect(cockpit.activeView).toBe('capability')
 
       await openPage({ view: 'office' })
