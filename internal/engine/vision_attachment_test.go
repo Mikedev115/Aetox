@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Mikedev115/Aetox/internal/cognitive"
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/model"
 )
@@ -150,5 +151,68 @@ func TestClipHintStaysUngatedOnlyWhileNoClipChannelExists(t *testing.T) {
 				"\"read it with video_ocr / audio_transcribe\" hint must be capability-gated like the image "+
 				"hint is — see cockpit.svelte.ts sendUserMessage and visionAttachments in app.go", f.Name)
 		}
+	}
+}
+
+// A message typed INTO a running turn gets its attachments resolved exactly as
+// a new turn's does.
+//
+// It did not, and the shape of the failure is why this test is here rather than
+// in a comment: the picture was saved, the path was correct, the model could
+// see, every piece worked — and the model was handed the OCR line anyway,
+// because the only code that turns a path into bytes sat on the other branch.
+// So it went looking for an OCR library, found none installed, and the owner
+// watched a sighted model fail to read five screenshots (15 ก.ย. 2026:
+// *"ทำไมโมเดลนี้มันอ่านภาพไม่ได้"*). Nothing was logged, nothing errored.
+func TestInterjectionCarriesThePictureIntoTheRunningTurn(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir()) // no user presets to expand against
+	app, _ := newVisionApp(t, "openai", "gpt-4o")
+	app.cur().agent = cognitive.NewAgent(cognitive.AgentConfig{
+		Provider: model.NewNoopProvider("aetox-tools:test"),
+		Model:    "aetox-tools:test",
+	})
+
+	if err := app.Interject("นี่ครับ ยอดเท่าไหร่" + composerLine); err != nil {
+		t.Fatalf("Interject: %v", err)
+	}
+
+	got := app.cur().agent.DrainInterjections()
+	if len(got) != 1 {
+		t.Fatalf("the running turn was handed %d message(s), want 1", len(got))
+	}
+	if len(got[0].Images) != 1 {
+		t.Fatalf("images carried into the turn = %d, want 1 — the picture was dropped", len(got[0].Images))
+	}
+	// And the line is rewritten for the same reason it is on a new turn: a model
+	// holding the picture must not also be told to go and OCR it.
+	if strings.Contains(got[0].Text, "image_ocr") {
+		t.Errorf("the OCR instruction survived beside the attached picture: %q", got[0].Text)
+	}
+	if !strings.Contains(got[0].Text, "included below") {
+		t.Errorf("the marker was not rewritten: %q", got[0].Text)
+	}
+}
+
+// The blind model keeps the path it can actually use. Same rule as a new turn,
+// asked on this branch too: OCR is not a lesser path, it is the only path for a
+// model with no eyes.
+func TestInterjectionLeavesTheOCRLineForABlindModel(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	app, _ := newVisionApp(t, "ollama", "qwen3:8b")
+	app.cur().agent = cognitive.NewAgent(cognitive.AgentConfig{
+		Provider: model.NewNoopProvider("aetox-tools:test"),
+		Model:    "aetox-tools:test",
+	})
+
+	if err := app.Interject("อ่านให้หน่อย" + composerLine); err != nil {
+		t.Fatalf("Interject: %v", err)
+	}
+
+	got := app.cur().agent.DrainInterjections()
+	if len(got) != 1 || len(got[0].Images) != 0 {
+		t.Fatalf("a blind model was sent %d image(s)", len(got[0].Images))
+	}
+	if !strings.Contains(got[0].Text, "image_ocr") {
+		t.Errorf("the OCR line it needs was taken away: %q", got[0].Text)
 	}
 }

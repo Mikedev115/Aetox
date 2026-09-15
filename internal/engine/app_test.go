@@ -995,7 +995,7 @@ func TestInterjectHandsTheTextToTheRunningAgent(t *testing.T) {
 		t.Fatalf("blank Interject returned an error: %v", err)
 	}
 	got := agent.DrainInterjections()
-	if len(got) != 1 || got[0] != "ใส่สีน้ำเงินด้วยนะ" {
+	if len(got) != 1 || got[0].Text != "ใส่สีน้ำเงินด้วยนะ" {
 		t.Fatalf("agent received %v", got)
 	}
 

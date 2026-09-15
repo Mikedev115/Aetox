@@ -1309,14 +1309,14 @@ func TestACancelledTurnLeavesTheInterjectionForTheHost(t *testing.T) {
 		t.Errorf("the loop ran another round after Stop: %d requests", len(provider.requests))
 	}
 	left := agent.DrainInterjections()
-	if len(left) != 1 || !strings.Contains(left[0], "Stop") {
+	if len(left) != 1 || !strings.Contains(left[0].Text, "Stop") {
 		t.Fatalf("the message was swallowed instead of handed back: %v", left)
 	}
 	// And the note is NOT baked in by Interject — it is added where the message
 	// joins the context, so what the host gets back is the user's own text, fit to
 	// re-send as its own turn.
-	if strings.Contains(left[0], "[system]") {
-		t.Errorf("the mid-work note leaked into what the host takes back: %q", left[0])
+	if strings.Contains(left[0].Text, "[system]") {
+		t.Errorf("the mid-work note leaked into what the host takes back: %q", left[0].Text)
 	}
 }
 
@@ -1592,5 +1592,52 @@ func TestRespondWithToolsClosesTheRowOfARefusedCall(t *testing.T) {
 	// Keyed by ref, but the label is what a reader sees on the row.
 	if subjects[0] != "promo.html" {
 		t.Errorf("the row should still name its file, got %q", subjects[0])
+	}
+}
+
+// The picture rides into the round with the words it came with.
+//
+// InterjectWith is where a mid-turn attachment enters the context, and the one
+// thing that must be true of it is that the next request carries the bytes —
+// not a path, not a note about a path. Pinned on the REQUEST rather than on the
+// buffer because the buffer was never the broken half: the message reached the
+// loop intact and the loop dropped everything but the text on its way into the
+// context (15 ก.ย. 2026).
+func TestInterjectedPictureReachesTheNextRequest(t *testing.T) {
+	provider := &toolLoopProvider{
+		responses: []model.Response{
+			{ToolCalls: []model.ToolCall{{ID: "c1", Type: "function", Function: model.FunctionCall{Name: "read", Arguments: `{}`}}}},
+			{Text: "อ่านสลิปแล้วครับ"},
+		},
+	}
+	agent := NewAgent(AgentConfig{Provider: provider, Model: "test-model", SystemPrompt: "sys"})
+
+	shot := model.Image{MediaType: "image/png", Data: []byte{0x89, 'P', 'N', 'G'}}
+	_, _, err := agent.RespondWithTools(
+		context.Background(),
+		[]model.ToolDefinition{{Type: "function", Function: model.ToolFunction{Name: "read", Parameters: []byte(`{"type":"object"}`)}}},
+		"ดูยอดให้หน่อย",
+		func(_ context.Context, _ model.ToolCall) (string, []model.Image, error) {
+			agent.InterjectWith(Interjection{Text: "นี่สลิปครับ", Images: []model.Image{shot}})
+			return "file contents", nil, nil
+		},
+		nil,
+		turn.TurnOptions{},
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(provider.requests) != 2 {
+		t.Fatalf("expected two rounds, got %d", len(provider.requests))
+	}
+
+	var carried int
+	for _, m := range provider.requests[1].Messages {
+		if m.Role == model.RoleUser && strings.Contains(m.Content, "นี่สลิปครับ") {
+			carried = len(m.Images)
+		}
+	}
+	if carried != 1 {
+		t.Fatalf("images on the interjected message in round 2 = %d, want 1", carried)
 	}
 }

@@ -189,6 +189,19 @@ const emptyReplyFallback = "เกินขีดจำกัดของโม�
 // model is told what is true and left to decide, never pre-judged.
 const interjectionNote = "[system] The user sent this WHILE you were working on the task above — they did not wait for you to finish. Judge which kind it is and act accordingly: small enough to fold into what you are doing right now (a colour, a name, a correction) — do it now; a change to the job in hand — adjust course and carry on; something separate or larger — finish what you are already doing first, then do it, and say that is what you are doing. Only drop the current work if the message plainly tells you to stop. Either way, acknowledge it in your final answer.\n\n"
 
+// message is how an interjection joins the context: the mid-work note in front
+// of the user's own words, and everything that rode with it kept. One builder
+// for the two places that fold one in, so a third attachment kind cannot be
+// carried in one of them and dropped in the other.
+func (in Interjection) message() model.Message {
+	return model.Message{
+		Role:      model.RoleUser,
+		Content:   interjectionNote + in.Text,
+		Images:    in.Images,
+		Documents: in.Documents,
+	}
+}
+
 // maxDSMLNudges caps corrective retries when the model leaks tool-call markup
 // as text (see model.ContainsLeakedDSML). Each retry is one extra round-trip,
 // so keep it small; past the cap we stop rather than surface raw markup.
@@ -388,7 +401,24 @@ type Agent struct {
 	// running. Guarded because they arrive from the UI's goroutine while the
 	// tool loop is inside a provider call on another.
 	interjectMu  sync.Mutex
-	interjection []string
+	interjection []Interjection
+}
+
+// Interjection is a message typed into a running turn, WITH whatever came
+// attached to it.
+//
+// It was a bare string until 15 ก.ย. 2026, and the pictures were the bug: the
+// attachments are resolved on the way into a NEW turn (engine.visionAttachments)
+// and there was no equivalent on the way into a running one, so five payment
+// slips dropped into a working turn reached the model as five file paths and a
+// line telling it to go and OCR them. The owner met it as *"ทำไมโมเดลนี้มัน
+// อ่านภาพไม่ได้"* — of a model that reads images perfectly well, on a machine
+// with no OCR installed, which is the worst shape this failure can take: it
+// looks like the model's limitation and it is ours.
+type Interjection struct {
+	Text      string
+	Images    []model.Image
+	Documents []model.Document
 }
 
 // Interject hands the running turn a message the user typed while it was still
@@ -402,21 +432,28 @@ type Agent struct {
 // by whoever runs next, and the host takes back what was left over
 // (DrainInterjections) so a message can never be silently swallowed.
 func (a *Agent) Interject(text string) {
+	a.InterjectWith(Interjection{Text: text})
+}
+
+// InterjectWith is Interject for a message that came with attachments. The
+// caller resolves them — whether this model can look at a picture at all is the
+// host's question, asked the same way for a new turn and for this one.
+func (a *Agent) InterjectWith(in Interjection) {
 	if a == nil {
 		return
 	}
-	if text = strings.TrimSpace(text); text == "" {
+	if in.Text = strings.TrimSpace(in.Text); in.Text == "" {
 		return
 	}
 	a.interjectMu.Lock()
-	a.interjection = append(a.interjection, text)
+	a.interjection = append(a.interjection, in)
 	a.interjectMu.Unlock()
 }
 
 // DrainInterjections empties the buffer and returns what was in it. The tool loop
 // calls it every round; the host calls it once more after a turn returns, to catch
 // anything that arrived in the moment between the last round and the reply.
-func (a *Agent) DrainInterjections() []string {
+func (a *Agent) DrainInterjections() []Interjection {
 	if a == nil {
 		return nil
 	}
@@ -562,16 +599,17 @@ func (a *Agent) RespondWithTools(
 		// request is built, so the model sees it on this round rather than after
 		// the turn ends. Consecutive user messages are merged by the providers
 		// that require alternating roles (see convertMessagesToAnthropic).
-		for _, text := range a.DrainInterjections() {
-			debuglog.Msg("interjection folded in before round %d (%d chars)", i+1, len(text))
+		for _, in := range a.DrainInterjections() {
+			debuglog.Msg("interjection folded in before round %d (%d chars, %d image(s), %d document(s))",
+				i+1, len(in.Text), len(in.Images), len(in.Documents))
 			// Into the turn's sequence before it goes into the context, so the
 			// record and the model see it at the same point. The note is not
 			// carried across: it is an instruction to the model about how to
 			// treat what follows, and the user asked their question without it.
 			if opts.OnAsked != nil {
-				opts.OnAsked(text)
+				opts.OnAsked(in.Text)
 			}
-			a.context.Add(model.RoleUser, interjectionNote+text)
+			a.context.AddMessage(in.message())
 		}
 		// Recomputed here, not before the loop: each round adds its own tool
 		// results to the input, so the room left for output shrinks as it runs.
@@ -882,15 +920,15 @@ func (a *Agent) RespondWithTools(
 				if opts.OnRound != nil {
 					opts.OnRound(turn.RoundEvent{Text: content, Demoted: true})
 				}
-				for _, text := range pending {
-					debuglog.Msg("interjection kept the turn alive (%d chars)", len(text))
+				for _, in := range pending {
+					debuglog.Msg("interjection kept the turn alive (%d chars, %d image(s))", len(in.Text), len(in.Images))
 					// After the demoted round above, never before it: the model
 					// finished that answer and THEN the user typed over it, and
 					// the sequence is the only place that order is written down.
 					if opts.OnAsked != nil {
-						opts.OnAsked(text)
+						opts.OnAsked(in.Text)
 					}
-					a.context.Add(model.RoleUser, interjectionNote+text)
+					a.context.AddMessage(in.message())
 				}
 				continue
 			}

@@ -25,6 +25,7 @@ import (
 
 	aetoxapp "github.com/Mikedev115/Aetox/internal/app"
 	"github.com/Mikedev115/Aetox/internal/bootstrap"
+	"github.com/Mikedev115/Aetox/internal/cognitive"
 	"github.com/Mikedev115/Aetox/internal/command"
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/connect"
@@ -2674,7 +2675,15 @@ func (a *Engine) runTurn(conv *conversation, text, to string) (SessionMessage, S
 	// arriving here. Hand it back to the UI instead of swallowing it — this is the
 	// one case the composer's old queue still exists for.
 	if missed := conv.agent.DrainInterjections(); len(missed) > 0 {
-		a.emitEvent("agent:interjection-missed", SessionEvent[[]string]{SessionID: conv.id, Data: missed})
+		// Handed back as the text alone: the window re-sends it as a fresh turn,
+		// and the attachment lines are still in that text — so the new turn
+		// resolves the pictures again from the path, the same way it would for
+		// anything typed at an idle composer.
+		texts := make([]string, 0, len(missed))
+		for _, in := range missed {
+			texts = append(texts, in.Text)
+		}
+		a.emitEvent("agent:interjection-missed", SessionEvent[[]string]{SessionID: conv.id, Data: texts})
 	}
 	now := time.Now().Format("15:04")
 	thinkSecs := 0
@@ -2860,7 +2869,15 @@ func (a *Engine) Interject(text string) error {
 	if strings.TrimSpace(text) == "" {
 		return nil
 	}
-	a.cur().agent.Interject(text)
+	// The same two questions a new turn asks of what was attached, asked here
+	// too — because the answer cannot depend on whether the model happened to be
+	// busy when the user pressed send. Without this a picture dropped into a
+	// running turn reached the model as a path and an instruction to OCR it,
+	// which is exactly what it looks like when a sighted model "cannot read
+	// images" (owner, 15 ก.ย. 2026).
+	sent, images := a.visionAttachments(text)
+	sent, documents := a.documentAttachments(sent)
+	a.cur().agent.InterjectWith(cognitive.Interjection{Text: sent, Images: images, Documents: documents})
 	return nil
 }
 
