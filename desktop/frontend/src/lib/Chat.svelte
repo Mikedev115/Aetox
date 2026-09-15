@@ -2,6 +2,7 @@
   import type { BackgroundTask, ChatMessage, TaskState, ModelStatus, ToolStep, TimelineNode, ContextBreakdown, ModelLoading, LimitWait, TurnSpend, Plan } from './types'
   import { groupSteps, isDelegation } from './types'
   import { phasesOf, type TurnPhase } from './turnPhases'
+  import { BottomStick } from './chatBottom.svelte'
   import { pacedStream, pacedText } from './streamPace'
   import { toolGlide } from './toolGlide'
   import { toolWindow } from './toolWindow'
@@ -14,7 +15,7 @@
   import BackgroundWork from './BackgroundWork.svelte'
   import Palette from './Palette.svelte'
   import Logo from './Logo.svelte'
-  import { onMount, tick } from 'svelte'
+  import { onMount, tick, untrack } from 'svelte'
   import { cubicOut } from 'svelte/easing'
   import Mascot from './mascot/Mascot.svelte'
   import { headOf, headOptions } from './mascot/avatarPrefs.svelte'
@@ -1950,29 +1951,36 @@
     draft = prompt
   }
 
-  // Pinned auto-scroll (Claude Code/OpenCode behavior): while the user is at
-  // the bottom, every new message / stream chunk / reasoning chunk / tool step
-  // keeps the view pinned there. Scrolling up unpins so reading is never
-  // hijacked; scrolling back down re-pins.
+  // Following the newest line — the rules, the letting go and the way back all
+  // live in chatBottom.svelte.ts. Here it is wired to the two elements it
+  // measures and to the moments that re-arm it.
   let chatEl = $state<HTMLDivElement | null>(null)
-  let pinnedToBottom = $state(true)
-  let lastChatScrollTop = 0
+  let chatInnerEl = $state<HTMLDivElement | null>(null)
+  const stick = new BottomStick()
+  const pinnedToBottom = $derived(stick.following)
   function onChatScroll() {
-    const el = chatEl
-    if (!el) return
-    const fromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-    // Any upward movement unpins, however small. The pin itself only ever
-    // scrolls DOWN, so up can only be the user — and it must not be judged by
-    // the 80px band below: a touchpad scrolls a few px per event, which never
-    // cleared 80px before the next stream chunk snapped the view back to the
-    // bottom. That loop read as "can't scroll up while it's replying".
-    // The fromBottom guard covers the one non-user way scrollTop can drop:
-    // the transcript shrinking (undo, session switch) clamps it — but a clamp
-    // lands AT the bottom, and a real upward scroll never does.
-    if (el.scrollTop < lastChatScrollTop - 1 && fromBottom > 2) pinnedToBottom = false
-    else if (fromBottom < 80) pinnedToBottom = true
-    lastChatScrollTop = el.scrollTop
+    stick.onScroll()
   }
+
+  // Re-wired whenever either element is replaced, and unwired with the
+  // component: the observer is what notices a height moving under the scroller
+  // (a picture loading, a stretch of tool rows folding) with no store change to
+  // announce it.
+  $effect(() => {
+    const el = chatEl
+    const inner = chatInnerEl
+    if (!el) return
+    return stick.attach(el, inner)
+  })
+
+  // A chat opens at its newest line. Nothing about where the PREVIOUS chat was
+  // scrolled to is a fact about this one — state riding across a session switch
+  // is how somebody opens a chat and finds it stopped halfway up its own
+  // history, following nothing.
+  $effect(() => {
+    void cockpit.openSession
+    untrack(() => stick.follow())
+  })
   $effect(() => {
     // every live-updating piece of the transcript re-triggers this
     void messages.length
@@ -1995,9 +2003,7 @@
   // moments. Pinned to the effect alone, the view would sit one buffered line
   // above the letters still being let out.
   function stickToBottom() {
-    const el = chatEl
-    if (!el || !pinnedToBottom) return
-    el.scrollTop = el.scrollHeight
+    stick.paint()
   }
 
   // While it runs, the thinking is a WINDOW onto the reasoning rather than all
@@ -2269,6 +2275,10 @@
     if (!draft.trim() && !cockpit.pendingImages.length && !cockpit.pendingContexts.length && !cockpit.pendingFiles.length) return
     // The pin is for a user who has not asked for anything yet. They just did.
     if (teachPinned) { clearTeachingCard(); teachPinned = false }
+    // Sending says where you want to be looking. Every message, not only one
+    // typed into a running turn — but that is the one that hurt: it is drawn
+    // inside the turn, and a reader who had scrolled up never saw it land.
+    stick.follow()
     onSend(draft, addressed)
     draft = ''
     // The choice belongs to the message that carried it. The next one starts
@@ -4616,7 +4626,7 @@
     <!-- The page says where it is (lib/rooms.ts PLACE_ATTR) — the guide
          reads the sign rather than asking the app which view is up. -->
     <div class="chat" data-guide-place="chat" bind:this={chatEl} onscroll={onChatScroll} onclick={onChatClick}>
-    <div class="chat-inner">
+    <div class="chat-inner" bind:this={chatInnerEl}>
       <!-- A session the engine refused to open. It says why — the folder moved,
            the desk file is gone — and until this existed it said it to nobody:
            the click just did nothing, which reads as a broken row rather than a
@@ -5320,7 +5330,7 @@
     {#if !pinnedToBottom && messages.length > 0}
       <button
         class="scroll-bottom" aria-label={t('chat.scrollToBottom')}
-        onclick={() => { if (chatEl) chatEl.scrollTop = chatEl.scrollHeight }}
+        onclick={() => stick.follow()}
       ><Icon name="arrowDown" size={14} /></button>
     {/if}
     {#if needsApiKey}

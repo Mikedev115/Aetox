@@ -98,3 +98,55 @@ describe('chat scroll pinning', () => {
     expect(unpinned(container)).toBe(false)
   })
 })
+
+// The default is the newest line. Letting go of it is the reader's to do, and
+// nothing else's — but three things put them back, because each is somebody
+// saying where they want to be looking (owner, 15 ก.ย. 2026: *"แชทมันควรจะพา
+// มาอยู่ล่างสุดโดยอัตโนมัติสิ ไม่ใช่ล็อคนะ … ค่าเริ่มต้นอ่ะ ควรจะอยู่ล่างสิ"*).
+describe('coming back to the bottom', () => {
+  const scrollUp = async (el: HTMLDivElement) => {
+    el.scrollTop = 600
+    await fireEvent.scroll(el)
+    el.scrollTop = 200
+    await fireEvent.scroll(el)
+    await tick()
+  }
+
+  it('sending a message follows again — including one typed into a running turn', async () => {
+    const { container } = render(Chat, { ...baseProps, awaitingReply: true })
+    const el = chatWithGeometry(container, 1000, 400)
+    await scrollUp(el)
+    expect(unpinned(container)).toBe(true)
+
+    const box = container.querySelector('textarea.input') as HTMLTextAreaElement
+    await fireEvent.input(box, { target: { value: 'เพิ่มอันนี้ด้วย' } })
+    await fireEvent.keyDown(box, { key: 'Enter' })
+    await tick()
+
+    expect(unpinned(container)).toBe(false)
+    expect(el.scrollTop).toBe(1000)
+  })
+
+  it('opening another chat starts at its newest line, not where the last one was left', async () => {
+    cockpit.openSession = 'one'
+    const { container } = render(Chat, baseProps)
+    const el = chatWithGeometry(container, 1000, 400)
+    await scrollUp(el)
+    expect(unpinned(container)).toBe(true)
+
+    cockpit.openSession = 'two'
+    await tick()
+    expect(unpinned(container)).toBe(false)
+  })
+
+  it('the jump button both scrolls and re-arms, so the next chunk keeps it there', async () => {
+    const { container } = render(Chat, baseProps)
+    const el = chatWithGeometry(container, 1000, 400)
+    await scrollUp(el)
+
+    await fireEvent.click(container.querySelector('.scroll-bottom') as HTMLElement)
+    await tick()
+    expect(unpinned(container)).toBe(false)
+    expect(el.scrollTop).toBe(1000)
+  })
+})
