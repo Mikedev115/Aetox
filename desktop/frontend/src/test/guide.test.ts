@@ -9,6 +9,7 @@ import { GUIDE_ROUTES } from '../lib/guide/routes'
 import { GUIDE_MAP } from '../lib/guide/map'
 import { isShortcut, shortcutLabel } from '../lib/shortcuts'
 import { restingSpot } from '../lib/guide/walk'
+import { guidePrefs, setGuidePref } from '../lib/guide/guidePrefs.svelte'
 import { greetingFor, offeredWalks } from '../lib/guide/greeting'
 import { watchPlace } from '../lib/guide/placeWatch'
 import Guide from '../lib/guide/Guide.svelte'
@@ -522,5 +523,84 @@ describe('the sign watcher', () => {
     await settle()
     expect(seen).toEqual([null])
     off()
+  })
+})
+
+// A guide you can pick up and put somewhere else.
+//
+// The line the drag must not cross: it decides where the figure WAITS, never
+// where it goes. Walking to the thing it is explaining is the whole job
+// (owner, 15 ก.ย. 2026: *"อยากให้ลากได้ครับ … แต่พอถึงเวลาอธิบายมันควรจะเดิน
+// ไปเดินมาได้ เพราะมันคือไกด์"*).
+describe('moving it by hand', () => {
+  const grab = async (el: HTMLElement, from: [number, number], to: [number, number]) => {
+    ;(el as any).setPointerCapture = () => {}
+    await fireEvent.pointerDown(el, { button: 0, clientX: from[0], clientY: from[1] })
+    await fireEvent.pointerMove(el, { clientX: to[0], clientY: to[1] })
+    await fireEvent.pointerUp(el, {})
+    await tick()
+  }
+  const spotOf = (c: HTMLElement) => {
+    const m = c.querySelector<HTMLElement>('.guide-mascot-wrap')!.style.transform.match(/translate\((-?\d+)px,\s*(-?\d+)px\)/)
+    return { x: Number(m![1]), y: Number(m![2]) }
+  }
+
+  beforeEach(() => {
+    setGuidePref('spot', null)
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1240)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(860)
+  })
+
+  it('goes where it is put, and waits there the next time it is opened', async () => {
+    await guide.start()
+    const { container, unmount } = render(Guide)
+    const figure = container.querySelector<HTMLElement>('.ranked-guide')!
+    const before = spotOf(container)
+
+    await grab(figure, [before.x + 20, before.y + 20], [before.x + 20 - 300, before.y + 20 - 200])
+
+    const after = spotOf(container)
+    expect(after.x).toBe(before.x - 300)
+    expect(after.y).toBe(before.y - 200)
+    expect(guidePrefs.spot).toEqual(after)
+
+    // Opened again tomorrow: the same spot, on the first frame, with no walk
+    // across the window to get there.
+    unmount()
+    const second = render(Guide)
+    expect(spotOf(second.container)).toEqual(after)
+    second.unmount()
+  })
+
+  it('a press that does not move it is not a drag — the frame buttons still work', async () => {
+    await guide.start()
+    const { container } = render(Guide)
+    const figure = container.querySelector<HTMLElement>('.ranked-guide')!
+    const before = spotOf(container)
+
+    await grab(figure, [before.x + 10, before.y + 10], [before.x + 12, before.y + 11]) // 2px: a click
+
+    expect(spotOf(container)).toEqual(before)
+    expect(guidePrefs.spot).toBeNull()
+  })
+
+  it('still walks to what it explains, and comes back to where it was put', async () => {
+    const button = mapped('chat.send', { left: 500, top: 300, width: 36, height: 36 })
+    await guide.start()
+    const { container } = render(Guide)
+    const figure = container.querySelector<HTMLElement>('.ranked-guide')!
+    const before = spotOf(container)
+    await grab(figure, [before.x, before.y], [before.x - 400, before.y - 100])
+    const parked = spotOf(container)
+
+    // Asked about something: it leaves the parking spot for the target.
+    guide.explain('chat.send')
+    await waitFor(() => expect(spotOf(container).x).not.toBe(parked.x), { timeout: 2000 })
+
+    // And when the thing it was standing beside is gone, home is where the
+    // hand left it — never the corner it would have picked for itself.
+    button.remove()
+    guide.placeChanged('settings.models')
+    await waitFor(() => expect(spotOf(container)).toEqual(parked), { timeout: 2000 })
   })
 })

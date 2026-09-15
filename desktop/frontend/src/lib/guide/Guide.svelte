@@ -17,7 +17,7 @@
   import GuidePanel from './GuidePanel.svelte'
   import { guidePrefs, setGuidePref } from './guidePrefs.svelte'
   import { GUIDE_MAP, guideText } from './map'
-  import { SIZE, standBeside, restingSpot, walkTurn, walkMs } from './walk'
+  import { SIZE, standBeside, restingSpot, insideWindow, walkTurn, walkMs } from './walk'
   import { speak, stopSpeechIf } from '../speech.svelte'
   import { t } from '../i18n.svelte'
   import { handleGuideAsk } from './guideSession'
@@ -31,9 +31,7 @@
   // (owner, 15 ก.ย. 2026: "กดไกด์แล้วเหมือนมันลอยออกมาจากตรงไหนไม่รู้").
   // It now appears where it belongs and fades in on the spot; walking is for
   // going somewhere, not for arriving.
-  const first = typeof window === 'undefined'
-    ? { x: 0, y: 0 }
-    : restingSpot({ width: window.innerWidth, height: window.innerHeight })
+  const first = typeof window === 'undefined' ? { x: 0, y: 0 } : homeSpot()
   let x = $state(first.x)
   let y = $state(first.y)
   let placed = $state(typeof window !== 'undefined')
@@ -61,8 +59,23 @@
     return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
   }
 
+  function viewport() {
+    return { width: window.innerWidth, height: window.innerHeight }
+  }
+
+  // Where it waits when it has nothing to point at: the spot the user dragged
+  // it to, if they have ever moved it, and otherwise the corner walk.ts picks.
+  // One answer, asked by all three places that need it — the first frame, the
+  // walk that finds no target, and the step back after a stop goes away — so a
+  // figure that was moved cannot walk home to somewhere else.
+  function homeSpot(): { x: number; y: number } {
+    const win = viewport()
+    const own = guidePrefs.spot
+    return own ? insideWindow(own, win) : restingSpot(win)
+  }
+
   function home() {
-    ;({ x, y } = restingSpot({ width: window.innerWidth, height: window.innerHeight }))
+    ;({ x, y } = homeSpot())
     placed = true
   }
 
@@ -100,6 +113,57 @@
     return { tx: st.x, ty: st.y }
   }
 
+  // Dragging the figure.
+  //
+  // It is a guide, so it walks to whatever it is explaining and stands beside
+  // it — that is its job and a drag must never take it away. What a drag
+  // decides is the OTHER place: where it waits when there is nothing to point
+  // at. So the hand sets `home`, and the walk still owns every journey
+  // (owner, 15 ก.ย. 2026: *"อยากให้ลากได้ครับ … แต่พอถึงเวลาอธิบายมันควรจะ
+  // เดินไปเดินมาได้ เพราะมันคือไกด์"*).
+  //
+  // The threshold is what keeps the three little buttons on the frame usable:
+  // under it the press was a click and nothing moved at all.
+  const CLICK_PX = 4
+  let dragging = $state(false)
+  /** Bumped when a hand takes hold. A walk in flight compares it and gives up
+   *  its finishing correction — the hand outranks a journey that was decided
+   *  before it started. */
+  let grabbed = 0
+  let drag: { dx: number; dy: number; x0: number; y0: number; moved: boolean } | null = null
+
+  function onGrab(e: PointerEvent) {
+    if (e.button !== 0) return
+    drag = { dx: e.clientX - x, dy: e.clientY - y, x0: e.clientX, y0: e.clientY, moved: false }
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  }
+
+  function onDrag(e: PointerEvent) {
+    if (!drag) return
+    if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < CLICK_PX) return
+    if (!drag.moved) {
+      drag.moved = true
+      dragging = true
+      grabbed++
+      // Whatever it was doing, it is being carried now: no walk pose, no turn.
+      turn = undefined
+      if (pose === 'walk') pose = 'idle'
+    }
+    ;({ x, y } = insideWindow({ x: e.clientX - drag.dx, y: e.clientY - drag.dy }, viewport()))
+    placed = true
+  }
+
+  function onDrop() {
+    if (!drag) return
+    const moved = drag.moved
+    drag = null
+    if (!moved) return // a click on the figure, which is not a control
+    dragging = false
+    pose = 'asking'
+    // Remembered, because the whole point of moving it is that it stays moved.
+    setGuidePref('spot', { x, y })
+  }
+
   async function moveToTarget(stopId: string, sentence: string) {
     // A walk takes up to a second, and an answer can land inside it — the
     // model's own `point` walks the figure and the reply arrives after. The
@@ -134,6 +198,7 @@
       tx = x
       ty = y
     }
+    const heldAt = grabbed
     const dx = tx - x
     if (placed && !reduced()) {
       pose = 'walk'
@@ -146,7 +211,7 @@
     turn = undefined
     // The page may have settled under the walk — a section that finished
     // loading, a list that grew. Stand beside where the target is NOW.
-    if (el && guide.stopId === stopId) {
+    if (el && guide.stopId === stopId && grabbed === heldAt && !dragging) {
       const again = document.querySelector<HTMLElement>('[data-guide=' + JSON.stringify(stopId) + ']')
       if (again) {
         const r = again.getBoundingClientRect()
@@ -205,7 +270,7 @@
   // button used to be is the guide insisting on a screen that has moved on.
   async function stepBack() {
     ring = null
-    const to = restingSpot({ width: window.innerWidth, height: window.innerHeight })
+    const to = homeSpot()
     const dx = to.x - x
     if (Math.abs(dx) < 2 && Math.abs(to.y - y) < 2) return // already there
     // The words are left alone on purpose: whatever cleared the stop says
@@ -338,11 +403,27 @@
   class:flip
   class:below
   class:walking={pose === 'walk'}
+  class:dragging
   style="transform:translate({x}px,{y}px)"
 >
-  <span class="ranked-guide" style="width:{SIZE}px;height:{SIZE}px">
+  <!-- The figure is the handle. Not the whole wrap: the bubble is under the
+       same roof and text in it has to stay selectable, and the three frame
+       buttons have to stay pressable — which the 4px threshold in onDrag is
+       what protects. -->
+  <span
+    class="ranked-guide"
+    style="width:{SIZE}px;height:{SIZE}px"
+    role="img"
+    aria-label={t('rank.guide')}
+    onpointerdown={onGrab}
+    onpointermove={onDrag}
+    onpointerup={onDrop}
+    onpointercancel={onDrop}
+  >
     <Mascot role="assistant" accent="amber" top="bar" face="happy" prop="none" shell="pastel" {pose} {turn} size={SIZE} sway />
-    <span class="rank-corner rank-guide" title={t('rank.guide')} role="img" aria-label={t('rank.guide')}>
+    <!-- Decoration on the figure now that the figure itself is named: two
+         nested things both announcing "ไกด์" is one more than a reader needs. -->
+    <span class="rank-corner rank-guide" title={t('rank.guide')} aria-hidden="true">
       <Icon name="compass" size={14} />
     </span>
   </span>
@@ -517,6 +598,15 @@
   .guide-mascot-wrap.walking {
     transition-timing-function: cubic-bezier(.35, .05, .3, 1);
   }
+  /* Under a hand there is no easing at all: the walk's 800ms transition would
+     drag the figure along behind the pointer, which reads as lag rather than
+     as weight. The transition comes back on release, for the next journey. */
+  .guide-mascot-wrap.dragging {
+    transition: none;
+  }
+  .guide-mascot-wrap.dragging .ranked-guide {
+    cursor: grabbing;
+  }
 
   @keyframes guide-arrive {
     from { opacity: 0; }
@@ -544,6 +634,11 @@
     position: relative;
     display: inline-block;
     line-height: 0;
+    cursor: grab;
+    /* The pointer stream is the whole mechanism, and on a touch screen the
+       browser hands the gesture to the scroller instead unless this says not
+       to. */
+    touch-action: none;
   }
   .ranked-guide :global(.mascot) {
     display: block;

@@ -96,6 +96,23 @@ export function restingSpot(win: Viewport): { x: number; y: number } {
   }
 }
 
+/**
+ * Keep a spot the USER chose inside the window.
+ *
+ * The same edges `restingSpot` respects, applied to a place a hand put the
+ * figure rather than a place this file picked. Two reasons it has to be here
+ * and not in the drag handler: a window that was resized since the spot was
+ * saved would otherwise open the guide off screen, and the top bar is out of
+ * bounds for the same reason it is out of bounds for everything else — the
+ * figure standing over it covers controls it cannot itself replace.
+ */
+export function insideWindow(p: { x: number; y: number }, win: Viewport): { x: number; y: number } {
+  return {
+    x: Math.max(EDGE, Math.min(win.width - SIZE - EDGE, p.x)),
+    y: Math.max(TOP_SAFE, Math.min(win.height - SIZE - EDGE, p.y)),
+  }
+}
+
 /** Which way the head turns for a walk of `dx` — the rig's own walk angles. */
 export function walkTurn(dx: number): number {
   return dx < 0 ? -70 : 70

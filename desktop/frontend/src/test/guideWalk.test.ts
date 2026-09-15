@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-import { SIZE, BUBBLE, standBeside, restingSpot, walkTurn, walkMs, type Rect } from '../lib/guide/walk'
+import { SIZE, BUBBLE, standBeside, restingSpot, insideWindow, walkTurn, walkMs, type Rect } from '../lib/guide/walk'
 import { GUIDE_MAP } from '../lib/guide/map'
 import { CAPABILITY_PAGES, SETTINGS_SECTIONS, PAGE_IDS } from '../lib/rooms'
 
@@ -137,5 +137,26 @@ describe('the map may only name pages the rooms actually have', () => {
     const navIds = [...navBlock.matchAll(/\{ id: '([a-z_]+)', label: [^\n]*?icon: /g)].map((m) => m[1])
     expect(navIds.length, 'the sections regex found nothing — Settings.svelte changed shape').toBeGreaterThan(10)
     for (const id of navIds) expect(SETTINGS_SECTIONS, `settings section "${id}"`).toContain(id)
+  })
+})
+
+// A spot a HAND chose, kept inside the window. The rules are walk.ts's own —
+// the same edges it respects when it picks a corner itself — because a window
+// resized since the spot was saved would otherwise open the guide off screen.
+describe('a spot the user picked', () => {
+  const win = { width: 1400, height: 900 }
+
+  it('keeps it where it was put when it already fits', () => {
+    expect(insideWindow({ x: 400, y: 300 }, win)).toEqual({ x: 400, y: 300 })
+  })
+
+  it('pulls it back inside a window that has since shrunk', () => {
+    const p = insideWindow({ x: 1390, y: 890 }, { width: 700, height: 500 })
+    expect(p.x).toBeLessThanOrEqual(700 - SIZE)
+    expect(p.y).toBeLessThanOrEqual(500 - SIZE)
+  })
+
+  it('never stands on the top bar, however high it was dropped', () => {
+    expect(insideWindow({ x: 200, y: -80 }, win).y).toBeGreaterThanOrEqual(40)
   })
 })

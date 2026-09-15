@@ -30,9 +30,16 @@ export type GuidePrefs = {
   lang: 'auto' | Locale
   /** Read answers aloud, through the window's one player. */
   voice: boolean
+  /** Where the user dragged the figure to, or null for the corner it picks
+   *  itself. A setting and not a memory, by the same test as everything else
+   *  here: it is a choice about the tool, made on purpose, and a figure that
+   *  wanders back to the corner every time you open it is one you move every
+   *  time you open it (owner, 15 ก.ย. 2026: *"อยากให้ลากได้ครับ"*). Cleared by
+   *  the panel's reset, along with the rest. */
+  spot: { x: number; y: number } | null
 }
 
-const DEFAULTS: GuidePrefs = { provider: '', model: '', think: 'low', lang: 'auto', voice: false }
+const DEFAULTS: GuidePrefs = { provider: '', model: '', think: 'low', lang: 'auto', voice: false, spot: null }
 
 function load(): GuidePrefs {
   try {
@@ -48,6 +55,12 @@ function load(): GuidePrefs {
       think: v.think === 'medium' || v.think === 'high' || v.think === 'low' ? v.think : DEFAULTS.think,
       lang: typeof v.lang === 'string' ? (v.lang as GuidePrefs['lang']) : DEFAULTS.lang,
       voice: typeof v.voice === 'boolean' ? v.voice : DEFAULTS.voice,
+      // Both numbers or nothing: half a spot is not a spot, and a NaN here
+      // would put the figure somewhere no clamp can bring it back from.
+      spot:
+        v.spot && typeof v.spot.x === 'number' && typeof v.spot.y === 'number' && Number.isFinite(v.spot.x) && Number.isFinite(v.spot.y)
+          ? { x: v.spot.x, y: v.spot.y }
+          : DEFAULTS.spot,
     }
   } catch {
     return { ...DEFAULTS }
