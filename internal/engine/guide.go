@@ -30,7 +30,14 @@ var errNoGuide = errors.New("ไม่มีไกด์เปิดอยู่
 // OpenGuideSession seats a conversation at the guide desk and files it, not
 // shown, and answers with its id. The window keeps the id and asks through
 // SendToGuide; the chat on screen is untouched.
-func (a *Engine) OpenGuideSession() (string, error) {
+//
+// provider, model and think are the guide's OWN settings, empty for "whatever
+// the chat is using" — which is the ordinary case and the one that keeps
+// working when the user changes provider somewhere else. A guide pinned to a
+// small local model while the chat talks to a paid one is the point of the
+// override: this job is a closed vocabulary over a map, and it is the first
+// thing in the app that a 8B model does well enough to ship.
+func (a *Engine) OpenGuideSession(provider, model, think string) (string, error) {
 	m, _, err := resolveStation(mode.Guide, "", "")
 	if err != nil {
 		return "", err
@@ -39,7 +46,19 @@ func (a *Engine) OpenGuideSession() (string, error) {
 	conv.id = newSessionID()
 	conv.desk = m
 	a.cur() // builds the manager on a zero Engine, as every door does
-	a.applyConfig(conv, a.cfg)
+	cfg := a.cfg
+	// Field by field, so an override of one dial does not silently reset the
+	// others to a zero value the provider cannot answer to.
+	if p := strings.TrimSpace(provider); p != "" {
+		cfg.ModelProvider = p
+		// A model belongs to its provider: carrying the chat's model name onto
+		// a different provider asks for a model that does not exist there.
+		cfg.ModelName = strings.TrimSpace(model)
+	}
+	if t := strings.TrimSpace(think); t != "" {
+		cfg.ThinkLevel = t
+	}
+	a.applyConfig(conv, cfg)
 	a.convs.hold(conv)
 	return conv.id, nil
 }

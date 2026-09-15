@@ -14,9 +14,10 @@
   import Icon from '../Icon.svelte'
   import { guide } from './guideState.svelte'
   import { offeredWalks } from './greeting'
+  import GuidePanel from './GuidePanel.svelte'
+  import { guidePrefs, setGuidePref } from './guidePrefs.svelte'
   import { GUIDE_MAP, guideText } from './map'
   import { SIZE, standBeside, restingSpot, walkTurn, walkMs } from './walk'
-  import { companion } from '../mascot/companionSetting.svelte'
   import { speak, stopSpeechIf } from '../speech.svelte'
   import { t } from '../i18n.svelte'
   import { handleGuideAsk } from './guideSession'
@@ -33,6 +34,8 @@
   let shown = $state('')
   let typing = $state(false)
   let askInput = $state('')
+  /** Which face of the bubble is showing. */
+  let face = $state<'talk' | 'settings'>('talk')
   let seq = 0
 
   const stop = $derived(guide.stopId ? GUIDE_MAP.find((e) => e.id === guide.stopId) : null)
@@ -74,7 +77,7 @@
   }
 
   function voice(text: string) {
-    if (companion.voice && text) speak('guide', text, () => {})
+    if (guidePrefs.voice && text) speak('guide', text, () => {})
   }
 
   // Where to stand for a target rect: walk.ts decides, this only records it.
@@ -172,6 +175,7 @@
 
   function onClose() {
     stopSpeechIf('guide')
+    face = 'talk'
     void guide.stop()
   }
 
@@ -300,7 +304,32 @@
     </span>
   </span>
 
-  {#if guide.offering}
+  <!-- The frame the companion wears, for the same reasons: a figure you can
+       dismiss, silence, or open the settings of, without hunting for where
+       those live (owner, 15 ก.ย. 2026: "ให้มันมีขอบเหมือนผู้ช่วยด้วยดิ แบบกด
+       ปิดได้ ปิดเสียงได้ เพิ่มปุ่มฟันเฟือง"). -->
+  <span class="guide-frame"></span>
+  <button type="button" class="g-btn g-gear" class:on={face === 'settings'}
+          title={t('guide.set.title')} aria-label={t('guide.set.title')}
+          onclick={() => (face = face === 'settings' ? 'talk' : 'settings')}>
+    <Icon name="settings" size={11} />
+  </button>
+  <button type="button" class="g-btn g-mute" class:off={!guidePrefs.voice}
+          title={guidePrefs.voice ? t('guide.set.voiceOff') : t('guide.set.voiceOn')}
+          aria-label={guidePrefs.voice ? t('guide.set.voiceOff') : t('guide.set.voiceOn')}
+          aria-pressed={!guidePrefs.voice}
+          onclick={() => { setGuidePref('voice', !guidePrefs.voice); if (!guidePrefs.voice) stopSpeechIf('guide') }}>
+    <Icon name={guidePrefs.voice ? 'volume2' : 'volumeX'} size={11} />
+  </button>
+  <button type="button" class="g-btn g-hide" title={t('guide.close')} aria-label={t('guide.close')} onclick={onClose}>
+    <Icon name="x" size={11} />
+  </button>
+
+  {#if face === 'settings'}
+    <div class="say say-panel">
+      <GuidePanel onClose={() => (face = 'talk')} onPick={(id) => { face = 'talk'; void guide.goTo(id) }} />
+    </div>
+  {:else if guide.offering}
     <div class="say">
       <div class="say-head">
         <span class="say-name">{t('rank.guide')}</span>
@@ -475,6 +504,29 @@
     outline: 1px solid var(--badge-amber-border);
   }
 
+  /* The frame and its three buttons — the companion's own affordance, at the
+     guide's size. Visible on hover or focus, and the mute stays lit when it is
+     off so a silent figure says it is silent. */
+  .guide-frame {
+    position: absolute; inset: -6px; border: 1px dashed var(--border-subtle);
+    border-radius: 14px; opacity: 0; transition: opacity .15s; pointer-events: none;
+  }
+  .g-btn {
+    position: absolute; width: 20px; height: 20px; border-radius: 50%;
+    border: 1px solid var(--border-subtle); background: var(--surface-raised);
+    color: var(--text-muted); display: grid; place-items: center; padding: 0;
+    cursor: pointer; opacity: 0; transition: opacity .15s, color .15s;
+  }
+  .g-btn:hover { color: var(--text-primary); }
+  .g-hide { top: -10px; right: -10px; }
+  .g-mute { top: -10px; left: -10px; }
+  .g-gear { bottom: -10px; left: -10px; }
+  .g-gear.on { opacity: 1; color: var(--badge-amber-text); border-color: var(--badge-amber-border); }
+  .g-mute.off { opacity: 1; }
+  .guide-mascot-wrap:hover .guide-frame,
+  .guide-mascot-wrap:hover .g-btn,
+  .g-btn:focus-visible { opacity: 1; }
+
   .say {
     position: absolute;
     right: calc(100% + 14px);
@@ -534,6 +586,9 @@
       transform: none;
     }
   }
+
+  /* The settings face is taller and scrolls rather than growing off screen. */
+  .say-panel { max-height: min(62vh, 460px); overflow-y: auto; }
 
   .say-head {
     display: flex;

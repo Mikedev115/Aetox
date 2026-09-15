@@ -65,8 +65,8 @@ func (a *App) AnswerGuide(id, resultJSON string) {
 // window's index of the map against its id, which is what the tool's
 // description lists. The index comes from the window because the names are
 // in the UI's language and the window is where that is known.
-func (a *App) NewGuideSession(indexJSON string) (string, error) {
-	id, err := a.api.OpenGuideSession()
+func (a *App) NewGuideSession(indexJSON, provider, model, think string) (string, error) {
+	id, err := a.api.OpenGuideSession(provider, model, think)
 	if err != nil {
 		return "", err
 	}

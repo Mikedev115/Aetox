@@ -12,6 +12,7 @@ import { openPage } from './pages'
 import { mapPick } from './mapPick'
 import { greetingFor } from './greeting'
 import { currentPage } from './where'
+import { guidePrefs } from './guidePrefs.svelte'
 import { nextStepTo, stepsTo } from './path'
 import { t } from '../i18n.svelte'
 import { cockpit } from '../stores/cockpit.svelte'
@@ -113,13 +114,13 @@ class GuideStore {
   private openModel() {
     this.brain = 'map'
     this.sessionId = null
-    if (!cockpit.model.provider) return
+    if (!cockpit.model.provider && !guidePrefs.provider) return
     const index = GUIDE_MAP.map((e) => ({
       id: e.id,
       name: t(`guide.${e.id}.name` as any) || e.id,
       safe: e.safe,
     }))
-    NewGuideSession(JSON.stringify(index))
+    NewGuideSession(JSON.stringify(index), guidePrefs.provider, guidePrefs.model, guidePrefs.think)
       .then((sid) => {
         if (!this.on || !sid) {
           if (sid) void CloseGuideSession(sid).catch(() => {})

@@ -1210,9 +1210,9 @@ func (c *Client) NoteProviderQuotas(providerName string, quotas []model.Quota) {
 	}
 }
 
-func (c *Client) OpenGuideSession() (string, error) {
+func (c *Client) OpenGuideSession(provider string, model string, think string) (string, error) {
 	var out0 string
-	err := c.call("OpenGuideSession", nil, &out0)
+	err := c.call("OpenGuideSession", []any{provider, model, think}, &out0)
 	return out0, err
 }
 

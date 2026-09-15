@@ -938,8 +938,8 @@ export function NewChairSessionAt(arg1, arg2, arg3) {
   return window['go']['main']['App']['NewChairSessionAt'](arg1, arg2, arg3);
 }
 
-export function NewGuideSession(arg1) {
-  return window['go']['main']['App']['NewGuideSession'](arg1);
+export function NewGuideSession(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['NewGuideSession'](arg1, arg2, arg3, arg4);
 }
 
 export function NewSession() {
@@ -994,8 +994,8 @@ export function OpenFileExternally(arg1) {
   return window['go']['main']['App']['OpenFileExternally'](arg1);
 }
 
-export function OpenGuideSession() {
-  return window['go']['main']['App']['OpenGuideSession']();
+export function OpenGuideSession(arg1, arg2, arg3) {
+  return window['go']['main']['App']['OpenGuideSession'](arg1, arg2, arg3);
 }
 
 export function OpenMCPFolder() {

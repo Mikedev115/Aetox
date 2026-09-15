@@ -195,7 +195,7 @@ type API interface {
 	NewSessionInSpace(name string) (string, error)
 	NewTeamSession(desk string, team string) (string, error)
 	NoteProviderQuotas(providerName string, quotas []model.Quota)
-	OpenGuideSession() (string, error)
+	OpenGuideSession(provider string, model string, think string) (string, error)
 	OpenProjectPath(root string) (ProjectStatus, error)
 	PageMarksOn() bool
 	PairedDevices() []RemoteDevice

@@ -868,7 +868,13 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		e.NoteProviderQuotas(p0, p1)
 		return nil, nil, true
 	case "OpenGuideSession":
-		r0, err := e.OpenGuideSession()
+		var p0 string
+		var p1 string
+		var p2 string
+		if err := decodeParams(params, &p0, &p1, &p2); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.OpenGuideSession(p0, p1, p2)
 		return r0, err, true
 	case "OpenProjectPath":
 		var p0 string

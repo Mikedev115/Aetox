@@ -486,7 +486,7 @@ export function NewChairSession(arg1:string):Promise<string>;
 
 export function NewChairSessionAt(arg1:string,arg2:string,arg3:string):Promise<string>;
 
-export function NewGuideSession(arg1:string):Promise<string>;
+export function NewGuideSession(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
 
 export function NewSession():Promise<string>;
 
@@ -514,7 +514,7 @@ export function OpenExport(arg1:string):Promise<void>;
 
 export function OpenFileExternally(arg1:string):Promise<void>;
 
-export function OpenGuideSession():Promise<string>;
+export function OpenGuideSession(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function OpenMCPFolder():Promise<void>;
 

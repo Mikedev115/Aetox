@@ -110,7 +110,7 @@ func TestGuideSessionsAreExcludedFromHistoryAndLists(t *testing.T) {
 func TestGuideSessionIsHeldBesideTheChatNotShown(t *testing.T) {
 	a := bootDeskApp(t, "assistant")
 	before := a.cur()
-	id, err := a.OpenGuideSession()
+	id, err := a.OpenGuideSession("", "", "")
 	if err != nil {
 		t.Fatalf("OpenGuideSession: %v", err)
 	}

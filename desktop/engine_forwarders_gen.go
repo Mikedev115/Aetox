@@ -711,8 +711,8 @@ func (a *App) NoteProviderQuotas(providerName string, quotas []model.Quota) {
 	a.api.NoteProviderQuotas(providerName, quotas)
 }
 
-func (a *App) OpenGuideSession() (string, error) {
-	return a.api.OpenGuideSession()
+func (a *App) OpenGuideSession(provider string, model string, think string) (string, error) {
+	return a.api.OpenGuideSession(provider, model, think)
 }
 
 func (a *App) OpenProjectPath(root string) (engine.ProjectStatus, error) {
