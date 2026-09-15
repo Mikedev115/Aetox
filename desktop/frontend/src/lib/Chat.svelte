@@ -2109,6 +2109,7 @@
     const text = askDraft.trim()
     if (!text) return
     askDraft = ''
+    stick.follow()
     answerAsk(text)
   }
 
@@ -2267,6 +2268,7 @@
     // While the model is blocked on ask_user, typed text is the free-text answer.
     if (cockpit.ask) {
       if (draft.trim()) {
+        stick.follow() // answering is the same statement: show me what happens next
         answerAsk(draft)
         draft = ''
       }
