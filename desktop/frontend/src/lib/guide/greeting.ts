@@ -12,12 +12,12 @@
 // them, and tuning them should not mean opening the component.
 
 import { t } from '../i18n.svelte'
+import { roomOf, type PageId } from '../rooms'
 import { GUIDE_MAP } from './map'
 import { GUIDE_ROUTES, type GuideRouteId } from './routes'
 
-/** `cockpit.activeView` → the locale key naming that room. A view with no
- *  row here is not an error: the guide falls back to the room-less greeting,
- *  which is still a question. */
+/** Room → the locale key naming it. A room with no row here is not an error:
+ *  the guide falls back to the room-less greeting, which is still a question. */
 const ROOM_KEY: Record<string, string> = {
   chat: 'guide.room.chat',
   settings: 'guide.room.settings',
@@ -56,8 +56,8 @@ export function explainableOnScreen(): number {
  *
  * Always a question. That is the whole point of it.
  */
-export function greetingFor(view: string, count = explainableOnScreen()): string {
-  const roomKey = ROOM_KEY[view]
+export function greetingFor(page: PageId | null, count = explainableOnScreen()): string {
+  const roomKey = page ? ROOM_KEY[roomOf(page)] : undefined
   if (!roomKey) return t('guide.greetPlain' as never)
   const room = t(roomKey as never)
   if (count > 0) return t('guide.greetRoomCount' as never, { room, n: String(count) })

@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { SIZE, BUBBLE, standBeside, restingSpot, walkTurn, walkMs, type Rect } from '../lib/guide/walk'
 import { GUIDE_MAP } from '../lib/guide/map'
-import { CAPABILITY_PAGES, SETTINGS_SECTIONS } from '../lib/rooms'
+import { CAPABILITY_PAGES, SETTINGS_SECTIONS, PAGE_IDS } from '../lib/rooms'
 
 // The gait (walk.ts) is arithmetic over rectangles, so it is tested as
 // arithmetic — the rules it enforces are the ones a screenshot cannot pin:
@@ -87,14 +87,39 @@ describe('where the figure stands', () => {
 describe('the map may only name pages the rooms actually have', () => {
   const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, '..', rel), 'utf-8')
 
-  it('every page a map row points at exists in its room', () => {
+  it('every place a map row names is a real place', () => {
     for (const e of GUIDE_MAP) {
-      if (e.page.view === 'capability') {
-        expect(CAPABILITY_PAGES, `${e.id} points at capability page`).toContain(e.page.page)
-      } else if (e.page.view === 'settings') {
-        expect(SETTINGS_SECTIONS, `${e.id} points at settings section`).toContain(e.page.rail)
+      expect(PAGE_IDS, `${e.id} names place "${e.page}"`).toContain(e.page)
+    }
+  })
+
+  // The other half of the same contract: a place the map sends people to has
+  // to be able to say it has arrived, or the guide waits for a sign that never
+  // comes and falls back to "not on screen".
+  it('every place the map names wears a sign somewhere in the UI', () => {
+    const src = path.resolve(__dirname, '..')
+    const signed = new Set<string>()
+    const walk = (dir: string) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, e.name)
+        if (e.isDirectory()) walk(full)
+        else if (e.name.endsWith('.svelte')) {
+          const text = fs.readFileSync(full, 'utf-8')
+          for (const m of text.matchAll(/data-guide-place="([^"]+)"/g)) {
+            // A sign built from a variable — "settings.{active}" — covers
+            // every id with that prefix; the rail's own ids are checked
+            // against rooms.ts separately.
+            const v = m[1]
+            if (v.includes('{')) signed.add(v.slice(0, v.indexOf('{')))
+            else signed.add(v)
+          }
+        }
       }
     }
+    walk(src)
+    const covered = (id: string) => [...signed].some((s) => (s.endsWith('.') ? id.startsWith(s) : s === id))
+    const orphans = [...new Set(GUIDE_MAP.map((e) => e.page))].filter((p) => !covered(p))
+    expect(orphans, `places the map names but nothing signs: ${orphans.join(', ')}`).toEqual([])
   })
 
   it('rooms.ts still lists what the rooms draw', () => {

@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import fs from 'node:fs'
+import path from 'node:path'
 import { render, fireEvent, waitFor } from '@testing-library/svelte'
 import { tick } from 'svelte'
 import { guide } from '../lib/guide/guideState.svelte'
@@ -70,6 +72,9 @@ describe('the guide store', () => {
   })
 
   it('every walk bumps moveSeq once — a route step and a model point share one door', async () => {
+    // Both stops on screen, so neither walk is a search for a missing target.
+    mapped('topbar.door', { width: 120, height: 32 })
+    mapped('chat.send', { width: 36, height: 36 })
     await guide.start(undefined, 'topbar.door')
     const before = guide.moveSeq
     await guide.goTo('chat.send')
@@ -257,19 +262,23 @@ describe('what it says when it arrives', () => {
     expect(inChat).toMatch(/[?？]|ไหม|หรือเปล่า/)
 
     document.body.innerHTML = ''
-    const bare = greetingFor('settings')
+    const bare = greetingFor('settings.models')
     expect(bare).toContain(th['guide.room.settings'])
     expect(bare).not.toContain('0') // never promises what it cannot point at
   })
 
   it('still asks when it does not know the room', () => {
-    const unknown = greetingFor('some-new-room-nobody-mapped')
+    const unknown = greetingFor(null)
     expect(unknown).toBe(th['guide.greetPlain'])
     expect(unknown).toMatch(/[?？]|ไหม/)
   })
 
-  it('greets by room when opened to be asked, rather than walking a route', async () => {
-    cockpit.activeView = 'settings'
+  it('greets by the room the SIGN names, rather than walking a route', async () => {
+    // The page says where it is; the guide reads that, not the app's store.
+    const page = document.createElement('div')
+    page.setAttribute('data-guide-place', 'settings.models')
+    page.getBoundingClientRect = () => ({ width: 800, height: 600 }) as DOMRect
+    document.body.appendChild(page)
     await guide.start()
     expect(guide.route).toBeNull()
     expect(guide.stopId).toBeNull()
@@ -346,5 +355,32 @@ describe('being led there, one press at a time', () => {
     expect(walks.map((w) => w.id)).toEqual(Object.keys(GUIDE_ROUTES))
     for (const w of walks) expect(w.label.trim().length).toBeGreaterThan(0)
     expect(walks.find((w) => w.id === 'first')?.label).toBe(th['guide.walk.first'])
+  })
+})
+
+describe('every door into the guide opens the same way', () => {
+  // A door that dives straight into a walk drops somebody into the middle of a
+  // tour they never chose — which is what the owner kept seeing as "เด้ง"
+  // (15 ก.ย. 2026). The greeting asks first and offers the walks as buttons;
+  // only pressing one of those buttons starts a walk.
+  it('no component starts a route directly — the walk buttons are the only way in', () => {
+    const src = path.resolve(__dirname, '..')
+    const offenders: string[] = []
+    const walk = (dir: string) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, e.name)
+        if (e.isDirectory()) walk(full)
+        else if (/\.(svelte|ts)$/.test(e.name) && !full.includes(`${path.sep}test${path.sep}`)) {
+          // Guide.svelte itself is where the offered buttons live, and the
+          // tour's accept is an explicit yes to a walk that was named.
+          if (e.name === 'Guide.svelte' || e.name === 'guideState.svelte.ts') continue
+          for (const m of fs.readFileSync(full, 'utf-8').matchAll(/guide\.start\(\s*['"]/g)) {
+            offenders.push(`${path.relative(src, full)} — ${m[0]}`)
+          }
+        }
+      }
+    }
+    walk(src)
+    expect(offenders, `these open a walk without asking first:\n${offenders.join('\n')}`).toEqual([])
   })
 })

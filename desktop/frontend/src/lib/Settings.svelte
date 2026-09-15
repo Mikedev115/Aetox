@@ -5790,7 +5790,11 @@
     {/if}
   </aside>
 
-  <div class="settings-content" bind:this={contentEl}>
+  <!-- The page says where it is, so the guide never has to ask the app
+       (lib/rooms.ts PLACE_ATTR, lib/guide/where.ts). It names the OPEN
+       section, not just "settings" — "which page of settings" is exactly
+       what the guide could not tell before. -->
+  <div class="settings-content" data-guide-place="settings.{active}" bind:this={contentEl}>
     <div class="settings-inner" style:--content-max={active === 'usage' ? '960px' : null}>
     {#if bootError}
       <!-- The whole page used to be one unguarded await chain, so a backend

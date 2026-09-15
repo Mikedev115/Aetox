@@ -52,3 +52,54 @@ export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]
 export function isSettingsSection(s: string): s is SettingsSection {
   return (SETTINGS_SECTIONS as readonly string[]).includes(s)
 }
+
+
+// ---------------------------------------------------------------- places
+
+/**
+ * Rooms that are not made of sections — one screen, one id.
+ */
+export const ROOM_IDS = ['chat', 'office', 'artifacts', 'projects', 'videowork', 'lines'] as const
+
+/**
+ * **The name of a place in this app**, and the app's one vocabulary for it.
+ *
+ * Four things speak it and none of them keeps its own list: the sign a page
+ * stamps on itself (`data-guide-place`), the `page` on every row of the
+ * guide's map, the door chains that lead from one place to another
+ * (guide/path.ts), and the adapter that opens one outright (guide/pages.ts).
+ *
+ * That is the whole point of having it. The guide used to ask the app where it
+ * was — `cockpit.activeView` — which answers "settings" and cannot say *which*
+ * settings page, and which ties a feature that should float above the UI to
+ * one store's internals. A place that names itself answers both: the guide
+ * reads the sign, and knows nothing about how the room is built (owner,
+ * 15 ก.ย. 2026: *"อาจจะต้องทำเหมือนป้ายไว้ ถ้าไม่มีป้ายมันก็ไม่รู้ว่าตอนนี้อยู่หน้าไหน
+ * … ไกด์ไม่ผูกกับหน้าไหนเลย"*, and *"ระบบแมพของเราเอามาใช้กับตรงนี้ได้ไหม"* — yes,
+ * and this is where the two meet).
+ */
+export type PageId =
+  | (typeof ROOM_IDS)[number]
+  | `settings.${SettingsSection}`
+  | `capability.${CapabilityPage}`
+
+export const PAGE_IDS: readonly PageId[] = [
+  ...ROOM_IDS,
+  ...SETTINGS_SECTIONS.map((s) => `settings.${s}` as const),
+  ...CAPABILITY_PAGES.map((p) => `capability.${p}` as const),
+]
+
+export function isPageId(s: string): s is PageId {
+  return (PAGE_IDS as readonly string[]).includes(s)
+}
+
+/** The room half of a place: `settings.models` → `settings`, `chat` → `chat`. */
+export function roomOf(page: PageId): string {
+  const dot = page.indexOf('.')
+  return dot < 0 ? page : page.slice(0, dot)
+}
+
+/** The attribute a page stamps on itself so the guide can read where it is.
+ *  One spelling, written down once — a second copy of this string is a bug
+ *  nothing would report. */
+export const PLACE_ATTR = 'data-guide-place'

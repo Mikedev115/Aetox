@@ -272,7 +272,7 @@
 
 <svelte:window onclick={() => (menuOpen = false)} />
 
-<div class="page-shell">
+<div class="page-shell" data-guide-place="projects">
   <!-- The title is the level you are on. Inside a project the room's own name
        and blurb would be the second and third heading in a row saying nothing
        about the project you opened — so the project takes the title, and the

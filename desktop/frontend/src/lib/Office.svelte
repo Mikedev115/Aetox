@@ -145,7 +145,7 @@
 
 </script>
 
-<div class="page-shell">
+<div class="page-shell" data-guide-place="office">
   <header class="page-head" data-guide="office.header">
     <button class="settings-back" onclick={onClose}><Icon name="arrowLeft" size={14} /> {t('settings.backToApp')}</button>
     <div class="page-title">

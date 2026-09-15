@@ -4599,7 +4599,12 @@
           <Icon name="bot" size={13} />
           <span>{teachPinned ? t('chat.tourLink') : t('settings.tourTitle')}</span>
         </button>
-        <button class="starter-more starter-tour" onclick={() => guide.start('first')}>
+        <!-- Every door into the guide opens the same way: it asks what you
+             need and offers the walks as buttons. This one used to dive
+             straight into the first walk, which is the thing the owner kept
+             seeing as "เด้ง" — arriving mid-tour without having chosen one. -->
+        <button class="starter-more starter-tour" data-guide="chat.guide" title={t('account.guideTip')}
+                onclick={() => guide.start()}>
           <Icon name="compass" size={13} />
           <span>{t('chat.guideLink')}</span>
         </button>
@@ -4608,7 +4613,9 @@
   {:else}
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
     <!-- delegated click target is the <a> tags rendered inside .markdown-body, already interactive -->
-    <div class="chat" bind:this={chatEl} onscroll={onChatScroll} onclick={onChatClick}>
+    <!-- The page says where it is (lib/rooms.ts PLACE_ATTR) — the guide
+         reads the sign rather than asking the app which view is up. -->
+    <div class="chat" data-guide-place="chat" bind:this={chatEl} onscroll={onChatScroll} onclick={onChatClick}>
     <div class="chat-inner">
       <!-- A session the engine refused to open. It says why — the folder moved,
            the desk file is gone — and until this existed it said it to nobody:

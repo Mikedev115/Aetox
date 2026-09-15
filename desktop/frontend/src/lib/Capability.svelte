@@ -1544,7 +1544,8 @@
     {/each}
   </aside>
 
-  <div class="settings-content">
+  <!-- Says which page of the room is open — see Settings.svelte. -->
+  <div class="settings-content" data-guide-place="capability.{page}">
     <div class="settings-inner wide">
       {#if error && !sheet && !pickFor}<div class="mset-error cap-error">{error}</div>{/if}
 

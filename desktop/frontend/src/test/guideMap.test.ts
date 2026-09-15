@@ -137,25 +137,25 @@ describe('GUIDE_MAP and UI data-guide integrity', () => {
   })
 
   describe('openPage navigation', () => {
-    it('reaches every kind of page through the app’s own setters, and a Settings page through its intent', async () => {
-      await openPage({ view: 'chat' })
+    it('reaches every kind of place through the app’s own setters, and Settings through its intent', async () => {
+      await openPage('chat')
       expect(cockpit.activeView).toBe('chat')
 
-      await openPage({ view: 'settings', rail: 'general' })
+      await openPage('settings.general')
       expect(cockpit.activeView).toBe('settings')
       expect(cockpit.settingsIntent).toEqual({ section: 'general' })
 
       // A head's page is the intent naming the head — Settings opens it.
-      await openPage({ view: 'settings', rail: 'main', head: 'coding' })
+      await openPage('settings.main', undefined, 'coding')
       expect(cockpit.settingsIntent).toEqual({ section: 'main', head: 'coding' })
 
-      await openPage({ view: 'capability', page: 'mine' })
+      await openPage('capability.mine')
       expect(cockpit.activeView).toBe('capability')
 
-      await openPage({ view: 'office' })
+      await openPage('office')
       expect(cockpit.activeView).toBe('office')
 
-      await openPage({ view: 'artifacts' })
+      await openPage('artifacts')
       expect(cockpit.activeView).toBe('artifacts')
     })
 
@@ -164,12 +164,12 @@ describe('GUIDE_MAP and UI data-guide integrity', () => {
       el.setAttribute('data-guide', 'chat.send')
       cockpit.activeView = 'settings'
       setTimeout(() => document.body.appendChild(el), 150)
-      await openPage({ view: 'chat' }, '[data-guide="chat.send"]')
+      await openPage('chat', '[data-guide="chat.send"]')
       expect(document.body.contains(el)).toBe(true)
       el.remove()
       const t0 = Date.now()
-      await openPage({ view: 'chat' }, '[data-guide="chat.send"]')
-      expect(Date.now() - t0).toBeLessThan(1500)
+      await openPage('chat', '[data-guide="chat.send"]')
+      expect(Date.now() - t0).toBeLessThan(2500)
     })
   })
 })

@@ -16,7 +16,8 @@
 // It also means this file needs no notion of "where we are". There is no walk
 // state to get out of step with the DOM: the DOM is the state.
 
-import { GUIDE_MAP, type GuidePage } from './map'
+import { GUIDE_MAP } from './map'
+import { roomOf, type PageId } from '../rooms'
 
 /** On screen and pressable right now. */
 function visible(id: string): boolean {
@@ -35,7 +36,7 @@ function visible(id: string): boolean {
  * buttons in Settings is not how you reach Settings. The rail row for the
  * exact section is appended by `railDoorFor` below, read off the map itself.
  */
-const ROOM_DOORS: Record<GuidePage['view'], string[]> = {
+const ROOM_DOORS: Record<string, string[]> = {
   chat: [],
   // The gear lives inside the account menu, so the menu is pressed first.
   settings: ['sidebar.footer', 'account.settings'],
@@ -50,14 +51,8 @@ const ROOM_DOORS: Record<GuidePage['view'], string[]> = {
  * same one. So a section that gets a new rail id, or moves, needs no edit —
  * and a section with no mapped rail button simply has no rail step.
  */
-function railDoorFor(page: GuidePage): string | null {
-  const sameRoom = GUIDE_MAP.filter((e) => {
-    if (e.page.view !== page.view) return false
-    if (page.view === 'settings' && e.page.view === 'settings') return e.page.rail === page.rail
-    if (page.view === 'capability' && e.page.view === 'capability') return e.page.page === page.page
-    return false
-  })
-  return sameRoom.find((e) => /\.rail\./.test(e.id))?.id ?? null
+function railDoorFor(page: PageId): string | null {
+  return GUIDE_MAP.find((e) => e.page === page && /\.rail\./.test(e.id))?.id ?? null
 }
 
 /**
@@ -75,7 +70,7 @@ export function nextStepTo(targetId: string): string | null {
   const target = GUIDE_MAP.find((e) => e.id === targetId)
   if (!target) return null
 
-  const chain = [...ROOM_DOORS[target.page.view]]
+  const chain = [...(ROOM_DOORS[roomOf(target.page)] ?? [])]
   const rail = railDoorFor(target.page)
   if (rail && rail !== targetId) chain.push(rail)
 
@@ -102,7 +97,7 @@ export function stepsTo(targetId: string): string[] {
   if (visible(targetId)) return []
   const target = GUIDE_MAP.find((e) => e.id === targetId)
   if (!target) return []
-  const chain = [...ROOM_DOORS[target.page.view]]
+  const chain = [...(ROOM_DOORS[roomOf(target.page)] ?? [])]
   const rail = railDoorFor(target.page)
   if (rail && rail !== targetId) chain.push(rail)
   return chain.filter((s) => s !== targetId)

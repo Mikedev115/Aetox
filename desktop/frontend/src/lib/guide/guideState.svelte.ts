@@ -11,6 +11,7 @@ import { GUIDE_ROUTES, type GuideRouteId } from './routes'
 import { openPage } from './pages'
 import { mapPick } from './mapPick'
 import { greetingFor } from './greeting'
+import { currentPage } from './where'
 import { nextStepTo, stepsTo } from './path'
 import { t } from '../i18n.svelte'
 import { cockpit } from '../stores/cockpit.svelte'
@@ -101,7 +102,7 @@ class GuideStore {
       // with a face (greeting.ts).
       this.route = null
       this.stopId = null
-      this.say(greetingFor(String(cockpit.activeView)))
+      this.say(greetingFor(currentPage()))
     }
   }
 
@@ -188,7 +189,7 @@ class GuideStore {
     this.stepsLeft = 0
     this.stopId = id
     this.sentence = sentence
-    await openPage(entry.page, '[data-guide=' + JSON.stringify(id) + ']')
+    await openPage(entry.page, '[data-guide=' + JSON.stringify(id) + ']', entry.head)
     if (this.stopId !== id) return // somewhere else was asked for meanwhile
     this.moveSeq++
   }

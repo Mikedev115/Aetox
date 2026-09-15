@@ -143,12 +143,14 @@ describe('the window answering the guide tool', () => {
     expect(cockpit.settingsIntent).toEqual({ section: 'models' })
   })
 
-  it('names pages the way the tool description says', () => {
-    expect(pageFrom('chat')).toEqual({ view: 'chat' })
-    expect(pageFrom('settings.models')).toEqual({ view: 'settings', rail: 'models' })
-    expect(pageFrom('capability.skills')).toEqual({ view: 'capability', page: 'skills' })
-    expect(pageFrom('office')).toEqual({ view: 'office' })
-    expect(pageFrom('settings.rail.brain')).toEqual({ view: 'settings', rail: 'models' })
+  it('names places in the app’s one vocabulary, and refuses anything else', () => {
+    expect(pageFrom('chat')).toBe('chat')
+    expect(pageFrom('settings.models')).toBe('settings.models')
+    expect(pageFrom('capability.skills')).toBe('capability.skills')
+    expect(pageFrom('office')).toBe('office')
+    // A map id is accepted too — the place it lives in is meant.
+    expect(pageFrom('settings.rail.brain')).toBe('settings.models')
     expect(pageFrom('nope')).toBeNull()
+    expect(pageFrom('settings.nosuchsection')).toBeNull()
   })
 })

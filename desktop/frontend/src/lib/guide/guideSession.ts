@@ -1,7 +1,8 @@
 import { AnswerGuide } from '../../../wailsjs/go/main/App'
 import { GUIDE_MAP, guideText, type GuidePage } from './map'
-import { isCapabilityPage, isSettingsSection } from '../rooms'
+import { isPageId } from '../rooms'
 import { openPage } from './pages'
+import { currentPage } from './where'
 import { guide } from './guideState.svelte'
 import { cockpit } from '../stores/cockpit.svelte'
 import { t } from '../i18n.svelte'
@@ -28,23 +29,13 @@ export function getVisibleGuideElements(): { id: string; name: string; safe: boo
   return out
 }
 
-/** The page a `goto` names: chat · settings.<rail> · capability.<page> ·
- *  office · artifacts — or a map id, whose own page is meant. */
+/** The place a `goto` names — a PageId, or the id of anything on the map,
+ *  whose own place is meant. Checked, because the model supplies it. */
 export function pageFrom(arg: string): GuidePage | null {
   const s = arg.trim()
   if (!s) return null
-  const byId = GUIDE_MAP.find((e) => e.id === s)
-  if (byId) return byId.page
-  if (s === 'chat') return { view: 'chat' }
-  if (s === 'office') return { view: 'office' }
-  if (s === 'artifacts') return { view: 'artifacts' }
-  // The model names this page, so the name is checked against the rooms' own
-  // lists rather than trusted: an id that is not real would open the room on
-  // whatever page was last shown and read to the model as success.
-  const m = /^(settings|capability)\.([a-z_]+)$/.exec(s)
-  if (m && m[1] === 'settings' && isSettingsSection(m[2])) return { view: 'settings', rail: m[2] }
-  if (m && m[1] === 'capability' && isCapabilityPage(m[2])) return { view: 'capability', page: m[2] }
-  return null
+  if (isPageId(s)) return s
+  return GUIDE_MAP.find((e) => e.id === s)?.page ?? null
 }
 
 export async function handleGuideAsk(ask: { id: string; action: string; args?: Record<string, any> }) {
@@ -54,7 +45,7 @@ export async function handleGuideAsk(ask: { id: string; action: string; args?: R
       case 'where': {
         const visible = getVisibleGuideElements()
         const res = {
-          page: String(cockpit.activeView),
+          page: currentPage() ?? String(cockpit.activeView),
           guideAt: guide.stopId ?? '',
           visible,
         }
@@ -71,7 +62,7 @@ export async function handleGuideAsk(ask: { id: string; action: string; args?: R
           why: guideText(targetId, 'why'),
           ref: entry?.ref || '',
           safe: entry?.safe ?? false,
-          page: entry?.page ? JSON.stringify(entry.page) : '',
+          page: entry?.page ?? '',
         }
         await AnswerGuide(id, JSON.stringify(res))
         break
@@ -83,7 +74,7 @@ export async function handleGuideAsk(ask: { id: string; action: string; args?: R
           break
         }
         await guide.goTo(targetId)
-        await AnswerGuide(id, JSON.stringify({ ok: true, page: String(cockpit.activeView) }))
+        await AnswerGuide(id, JSON.stringify({ ok: true, page: currentPage() ?? String(cockpit.activeView) }))
         break
       }
       case 'goto': {
@@ -93,7 +84,7 @@ export async function handleGuideAsk(ask: { id: string; action: string; args?: R
           break
         }
         await openPage(page)
-        await AnswerGuide(id, JSON.stringify({ ok: true, page: String(cockpit.activeView) }))
+        await AnswerGuide(id, JSON.stringify({ ok: true, page: currentPage() ?? String(cockpit.activeView) }))
         break
       }
       case 'press': {
