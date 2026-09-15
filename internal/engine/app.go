@@ -2333,6 +2333,11 @@ func (a *Engine) endTurn(sessionID string) {
 	if restance && parked == nil && parkedConv != nil {
 		a.applyConfig(parkedConv, parkedConv.cfg)
 	}
+	// What the model now remembers, written down before anything can let go
+	// of it: this is what the chat is handed back when it is next opened, in
+	// this process or the next one (context_store.go). After the rebuilds
+	// above, so a parked switch's fresh engine is the one that is recorded.
+	a.storeContext(parkedConv)
 	a.emitEvent("agent:done", TurnStatus{Running: false, SessionID: sessionID})
 	// The work was what kept this chat's engine alive while the user was
 	// elsewhere. With the work over and the chat still off screen, there is
@@ -4889,7 +4894,7 @@ func (a *Engine) applyConfig(conv *conversation, cfg config.Config) {
 		if len(priorContext) > 1 {
 			conv.agent.RestoreHistory(priorContext[1:])
 		} else if len(conv.transcript) > 0 {
-			conv.agent.RestoreHistory(transcriptToModelMessages(conv.transcript))
+			conv.agent.RestoreHistory(a.historyFor(conv.id, conv.transcript))
 		}
 	}
 	persistModelPreference(cfg)

@@ -1161,7 +1161,12 @@ func (a *Engine) LoadSession(id string) ([]SessionMessage, error) {
 		// Never for a live one. Its memory is ahead of the transcript, not
 		// behind it, and replaying rows over the top would be the one act this
 		// whole change exists to stop.
-		conv.agent.RestoreHistory(transcriptToModelMessages(messages))
+		//
+		// What it is given is the memory written at this chat's last turn
+		// when the store still has one that matches the transcript — tool
+		// calls, results and summaries included — and the text transcript
+		// only when it does not (context_store.go).
+		conv.agent.RestoreHistory(a.historyFor(id, messages))
 	}
 	a.showConversation(conv)
 	if outgoingID != "" {
@@ -1527,6 +1532,11 @@ func (a *Engine) DeleteSession(id string) error {
 	// back later — and "delete this conversation" has to mean it everywhere, not
 	// everywhere the feature existed when the button was written.
 	if _, err := tx.Exec(`DELETE FROM jobs WHERE session_id = ?`, id); err != nil {
+		return err
+	}
+	// And the model's memory of it, which holds every tool result verbatim —
+	// the one row that would keep more of a deleted chat than the chat itself.
+	if err := forgetContext(tx, id); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`DELETE FROM sessions WHERE id = ?`, id); err != nil {

@@ -933,6 +933,19 @@ CREATE TABLE IF NOT EXISTS project_folders (
 			return nil
 		},
 	},
+	{
+		version: 30,
+		name:    "session_remembers_what_its_model_saw",
+		apply: func(tx *sql.Tx) error {
+			// The engine's own memory of a chat — tool calls, results,
+			// compaction summaries — written at the end of every turn so a
+			// reopened chat is handed back what its model actually saw,
+			// not a transcript of what was said (context_store.go).
+			// IF NOT EXISTS in the schema, so replaying is a no-op.
+			_, err := tx.Exec(contextStoreSchema)
+			return err
+		},
+	},
 }
 
 // preTeamRowsJoinTheSeed puts every main chat that says no team on its
@@ -1186,6 +1199,7 @@ func (a *Engine) openDatabase() (*sql.DB, error) {
 	_, _ = db.Exec(`DELETE FROM messages WHERE session_id IN (SELECT id FROM sessions WHERE mode = 'guide')`)
 	_, _ = db.Exec(`DELETE FROM tool_runs WHERE session_id IN (SELECT id FROM sessions WHERE mode = 'guide')`)
 	_, _ = db.Exec(`DELETE FROM jobs WHERE session_id IN (SELECT id FROM sessions WHERE mode = 'guide')`)
+	_, _ = db.Exec(`DELETE FROM session_context WHERE session_id IN (SELECT id FROM sessions WHERE mode = 'guide')`)
 	_, _ = db.Exec(`DELETE FROM sessions WHERE mode = 'guide'`)
 	return db, nil
 }
