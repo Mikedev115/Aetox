@@ -9783,3 +9783,42 @@ Five tests in `context_store_test.go`: the memory comes back with the tool resul
 ### 296.3 What this does not fix, and why it is named here
 
 The provider's cache has its own clock. A chat reopened after DeepSeek has evicted its prefix misses once — that round is theirs to bill and ours to accept — and hits from the next round on, because the prefix is now the same one. Before this change the miss was every reopen and the model did the work twice; after it, one miss and no rework. The system prompt is rebuilt per bootstrap and is the other half of the prefix; anything that makes it differ between two bootstraps of the same chat is the same cost by another road, and is not this section's.
+
+## 297. Decision — The Window's Own Browser Dying Is Not the App Dying, and the Other Exits That Wore the Same Face (2026-09-16)
+
+### 297.1 What the owner asked for
+
+Owner, 16 ก.ย. 2026, after the desktop's own log had simply stopped once more: *"เว็บวิวที่เราใช้ของวินโด้บางทีมันเออเร่อ มันทำให้โปรแกรมปิดตัวลงเลยครับ เราทำให้แค่เบราว์เซอร์ที่มีปัญหาปิดตัวได้ไหม แต่โปรแกรมไม่ปิด ได้ไหม ... และมีอะไรอีกที่ชอบทำให้มันปิดตัว"*. §26 answered this for a browser **tab** (a dead engine is a tab to revive, §227); the window itself was left fatal on purpose — the patch note said *"the default handler (used by the wails main window, which never calls SetErrorCallback) keeps exiting, so main-window behavior is unchanged"*. This is that sentence being paid for.
+
+### 297.2 Four ways the webview took the app with it
+
+Read out of the sources rather than inferred, all four on the main window's Chromium, which installs no callback of its own:
+
+1. **Microsoft's own recovery event was answered with an exit.** Wails v2.15.0, `internal/frontend/desktop/windows/frontend.go`, `ProcessFailedCallback`: on `COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED` it shows a message box and calls `os.Exit(-1)` on the whole process. The runtime's own guidance in that same `switch` is *"the app has to recreate a new WebView to recover from this failure"*.
+2. **`errorCallback` exited by itself.** `os.Exit(1)` whenever no custom callback was installed — the main window again. Every `ExecJS`, resize or focus call that landed between the browser process dying and the event arriving went through here and ended the app.
+3. **`log.Fatal` in `WebResourceRequested`.** Wails registers that filter for `*`, so one request whose `GetRequest` failed was `os.Exit(1)`.
+4. **Nothing was written down.** Upstream writes 2 and 3 with `fmt.Printf`/`fmt.Println`, and a windowsgui build has no stdout. So the death left no line anywhere: no crash file (an exit is not a panic), no Windows Error Report, no Event 1000 — the shape of the 14 ก.ย. report whose log stopped mid-sentence.
+
+### 297.3 The fix
+
+`third_party/go-webview2/pkg/edge/revive.go`, through the same vendored fork §26 opened: `BrowserProcessExitedHook` is asked before the owner's callback, for a Chromium that installs none (the main window only — a tab owns its own recovery), and `Chromium.Revive` rebuilds the view with the `Embed` that built it the first time, puts back every resource filter and the last navigation (both now recorded as they are set), resizes, and hides/shows the fresh controller (WebView2Feedback#1077). The dead proxies are not released — the process that served them is gone — they are overwritten when the new controller completes. `runLater` defers the asking past the event handler's return, on a `SetTimer` with its own procedure, registered **once** for the life of the process (§295's table of 2000 is why). And the two exits above are gone: `everUp` (set when a controller first came up) retires `os.Exit` in `errorCallback`, and `WebResourceRequested` reports through `errorCallback` instead of `log.Fatal`. The frame is closed too — this fork uses the standard logger, which `desktop/wails_log.go` routes into the app's log.
+
+The host half is `desktop/webview_revive_windows.go`: it is what knows the settings Wails put on the old webview's `ICoreWebView2Settings` (context menus and devtools only in a dev build, no zoom control, pinch zoom on, no status bar, no browser accelerator keys) and the `BackgroundColour` from `main.go`, so the moment before the page paints is the app's dark ground rather than a white flash. A revival that fails says so and lets Wails have the event — a window with no view in it is worse than the dialog.
+
+### 297.4 Proof, on the running app
+
+A scratch desktop built with the tags a real build uses (`go build -tags "desktop,production"`) beside a freshly built engine, with its own `AETOX_DATA_ROOT`. `go build ./desktop` alone produces a binary that refuses to run at all — a dialog reading *"Wails applications will not build without the correct build tags"* — which is worth writing down once, because it looks exactly like the bug being chased. The main window's browser process (the `msedgewebview2` whose parent is the app and whose command line carries no `--type=`) was killed from another shell **twice**. Both times the app stayed:
+
+```
+[02:09:32.329] webview: the main window's browser process exited (revival 1); rebuilding the view
+[02:09:32.330] log: [WebView2] Environment created successfully
+[02:09:33.232] webview: revived in 903ms
+[02:09:57.785] webview: revived in 2.662s
+[02:14:27.243] webview: revived in 1.553s
+```
+
+The window came back carrying the app's own UI (sidebar, welcome screen, its cards), the process answered as responsive, and the engine beside it was the same child process before and after — the turn in flight never learned anything happened. Gates: `go build ./...` clean, `go vet ./desktop/...` clean, `go test ./desktop/` ok (98 s), and `third_party/go-webview2/pkg/edge/aetox_patch_test.go` passes — `TestErrorAfterTheViewIsUpDoesNotExit` takes the whole test process down when the `everUp` guard is removed, which is how a test about `os.Exit` proves it has teeth.
+
+### 297.5 What is not fixed, and where it would go
+
+**A panic is still a death.** The Go runtime now writes the stack to `<DataRoot>/logs/crash-*.txt` (`debuglog`), so it is no longer evidence-free, but recovering inside the WndProc callback and inside a turn's own goroutines is a change of its own and is not this one. **Wails' own `log.Fatal`s** — a setting it could not put during `setupChromium`, a binding it could not serialise — still exit; they run before the first navigation and no hook of the fork's sits between them and the exit. That is §227's phase 3a (patching Wails itself, §48's deferred step) and not a vendored-fork edit. **A renderer** process exiting or going unresponsive is Wails' own case and is already answered (the error page, then `Show`). And the revived page is a **fresh load**: what survives is what the engine holds — sessions, the transcript and the memory written at the end of every turn (§296) — not DOM state that only ever lived in the window.

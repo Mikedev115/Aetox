@@ -41,6 +41,11 @@ var (
 	User32SetWindowLongPtrW  = user32.NewProc("SetWindowLongPtrW")
 	User32AdjustWindowRect   = user32.NewProc("AdjustWindowRect")
 	User32SetWindowPos       = user32.NewProc("SetWindowPos")
+	// AETOX PATCH: a timer with its own procedure is how pkg/edge runs a
+	// closure on the UI thread later without owning the window's procedure
+	// (revive.go).
+	User32SetTimer  = user32.NewProc("SetTimer")
+	User32KillTimer = user32.NewProc("KillTimer")
 )
 
 const (

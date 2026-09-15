@@ -26,8 +26,10 @@ callback; the `os.Exit` fired regardless.
 1. `SetErrorCallback` sets `customErrorCallback = true`.
 2. `errorCallback` skips `os.Exit(1)` when a custom callback is installed —
    that callback owns recovery (Aetox logs it and lets the one tab fail).
-   The default handler (used by the wails main window, which never calls
-   SetErrorCallback) keeps exiting, so main-window behavior is unchanged.
+   The default handler keeps exiting, and at the time of this patch that was
+   read as "main-window behavior is unchanged" — the wails main window never
+   calls `SetErrorCallback`, so it kept the exit. The sixth patch below is
+   what that cost, and what closed it.
 3. `CreateCoreWebView2ControllerCompleted` early-returns on failure instead of
    nil-dereferencing `controller` (upstream relied on the now-removed exit),
    sets `inited` to unblock `Embed`'s message loop, and flags `embedFailed`.
@@ -133,9 +135,77 @@ view and creates a new one under the same tab.
   `errorCallback`, because the code that closes a tab already knows the engine
   may be gone and must not have that fact re-reported as a fresh complaint.
 
+## A sixth patch: bringing a window's browser back
+
+`pkg/edge/revive.go` (and `User32SetTimer` / `User32KillTimer` in
+`internal/w32/w32.go`) add `Chromium.Revive`, the hook that decides when it is
+called, and the two lines in `chromium.go` that feed it.
+
+WebView2 runs the page in processes of its own, and the browser process among
+them can end for reasons that have nothing to do with the app: out of memory, a
+GPU driver reset, an antivirus quarantining the runtime mid-run, Task Manager.
+The engine then raises `ProcessFailed` with
+`COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED`, the controller and
+webview behind the window are dead for good, and Microsoft's guidance is to
+build a new one. Upstream's Wails host answers that event with a message box and
+`os.Exit(-1)` **on the whole process** — every turn in flight and every unsaved
+state gone with a dialog nobody asked for. The browser *tabs* had their own
+answer (DECISIONS §227, and this file's fifth patch); the window itself did not.
+
+- `BrowserProcessExitedHook` is asked first, on the UI thread but after the
+event handler has returned, and only for a Chromium whose owner installed no
+error callback of its own — that is the Wails main window. A tab that installs
+one owns its own recovery, as before. A hook that takes the event keeps it from
+the owner's `ProcessFailedCallback`, so the message box and the exit never
+happen.
+- `Revive` is the same `Embed` that built the view at startup, on the same
+window, followed by everything this package recorded being put back on the new
+view: every resource filter (`AddWebResourceRequestedFilter` now records as it
+adds) and the last navigation (`Navigate` now records as it navigates). The
+settings the owner put on the old webview's `ICoreWebView2Settings` lived on the
+object that died, so putting them again is the hook's job — only the owner knows
+them (`desktop/webview_revive_windows.go`).
+- The dead proxies are **not** released. The process that served them is gone,
+and a `Release` on one is a call into nothing; `Embed` overwrites them when the
+new controller completes. A call that lands on one meanwhile comes back as an
+HRESULT and goes through `errorCallback`, which is why that path had to stop
+exiting first.
+- `runLater` runs the hook past the handler's return, as the WebView2 samples
+do, so the new view is not built inside the old one's event dispatch. It is a
+`SetTimer` with its own procedure rather than a `WndProc` hook, because this
+package does not own the window. **One callback for the life of the process:**
+`syscall.NewCallback` takes a slot from a table of 2000 the runtime never frees
+(DECISIONS §295), so the procedure is registered once under `sync.Once` and
+finds its closure by timer id.
+
+Two more exits in this file went with it, both the same class — a webview
+complaint ending the app:
+
+- `errorCallback` no longer exits once a view has come up (`everUp`, set by
+  `CreateCoreWebView2ControllerCompleted`). The Wails main window installs no
+  callback, so before this every `ExecJS` that landed between its browser
+  process dying and the `ProcessFailed` event arriving took the app with it.
+  Before a view has ever come up the exit stands: a WebView2 that cannot be
+  built is a window that cannot open.
+- `WebResourceRequested` routes a failed `GetRequest` through `errorCallback`
+  instead of `log.Fatal`ing. Wails registers that filter for `*`, so one
+  unreadable request was `os.Exit(1)` on the whole app.
+
+The frame that hid all of this: a windowsgui build has no stdout. Upstream
+writes those complaints with `fmt.Printf`/`fmt.Println` and exits, so on an
+installed machine the app simply vanished — no crash file (an exit is not a
+panic), no Windows Error Report, no Event 1000, and no last line anywhere. This
+fork now uses the standard logger (`log.Printf`), which the host routes into its
+own log (`desktop/wails_log.go`), so the last line before an exit names it.
+
 ## Upgrading go-webview2
 
-Re-copy the module, then re-apply the four `AETOX PATCH` blocks in
-`chromium.go`, the `GetIsSuccess` binding, the two capture files, the two
-DevTools files and `aetox_lifecycle.go`. Keep the version in this note and the
-root `go.mod` require in sync.
+Re-copy the module, then re-apply the `AETOX PATCH` blocks in `chromium.go`
+(the error path, `everUp`, the recording in `Navigate` and
+`AddWebResourceRequestedFilter`, the `ProcessFailed` stop, and
+`log.Printf` in place of `fmt.Printf` in `globalErrorHandler`), `revive.go`,
+the `SetTimer`/`KillTimer` pair in `internal/w32/w32.go`, the `GetIsSuccess`
+binding, the two capture files, the two DevTools files and
+`aetox_lifecycle.go`. Keep the version in this note and the root `go.mod`
+require in sync. `pkg/edge/aetox_patch_test.go` is the patch's own proof: it
+fails loudly — by taking the test process with it — if the exit comes back.

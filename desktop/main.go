@@ -25,6 +25,9 @@ func main() {
 
 	// Create an instance of the app structure
 	app := NewApp()
+	// The main window's browser process dying rebuilds the view instead of
+	// ending the process (webview_revive_windows.go).
+	installWebviewRevival(app)
 
 	// Create application with options
 	err := wails.Run(&options.App{

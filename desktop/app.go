@@ -40,6 +40,9 @@ type App struct {
 	// ctx is the window's lifetime — what the Wails runtime is called with:
 	// dialogs, window sizing, Quit. Nil until startup has run.
 	ctx context.Context
+	// webviewRevivals counts the times the main window's browser process
+	// died and the view was built again (webview_revive_windows.go).
+	webviewRevivals int64
 	// openDir stands in for openInFileManager, the one door out to the OS file
 	// manager, so a test can watch a reveal happen without a window appearing
 	// on somebody's desk.

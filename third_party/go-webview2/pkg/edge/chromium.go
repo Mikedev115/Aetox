@@ -28,13 +28,15 @@ func globalErrorHandler(err error) {
 		return
 	}
 
-	fmt.Printf("[WebView2 Error] %v\n", err)
+	// AETOX PATCH: the standard logger, not stdout — a windowsgui build has
+	// no stdout, and the host routes the standard logger into its own log.
+	log.Printf("[WebView2 Error] %v", err)
 
 	stackBuf := make([]uintptr, 64)
 	stackSize := runtime.Callers(2, stackBuf)
 	frames := runtime.CallersFrames(stackBuf[:stackSize])
 
-	fmt.Println("\nStack trace:")
+	log.Println("Stack trace:")
 	stackIndex := 1
 	for {
 		frame, more := frames.Next()
@@ -101,6 +103,16 @@ type Chromium struct {
 	// low memory, ...) into a whole-app crash. See third_party/go-webview2 note
 	// and ARCHITECTURE.md §26.
 	customErrorCallback bool
+	// AETOX PATCH (revive.go): everUp is set the first time a controller came
+	// up behind this window. From then on an error is a runtime complaint —
+	// a call on a webview whose browser process has just died, most often —
+	// and never a reason to end the process. Before it, upstream's exit
+	// stands: a WebView2 that cannot be built is a window that cannot open.
+	everUp bool
+	// What Revive has to put back on a new webview, recorded as it was put on
+	// the old one: the last URL navigated to and every resource filter added.
+	lastNavigate    string
+	resourceFilters []resourceFilter
 
 	shuttingDown bool
 
@@ -161,7 +173,13 @@ func (e *Chromium) errorCallback(err error) {
 	// AETOX PATCH: only the default handler exits the process; a caller-
 	// installed callback is trusted to handle the error itself (e.g. log it and
 	// let that one tab fail) so a single webview's error can't kill the app.
-	if !e.customErrorCallback {
+	//
+	// AETOX PATCH (revive.go): and not once the view has been up. The Wails
+	// main window installs no callback, and every ExecJS that lands between
+	// its browser process dying and the ProcessFailed event arriving used to
+	// come through here and exit the app with one line on stdout that a
+	// windowsgui build has nowhere to put.
+	if !e.customErrorCallback && !e.everUp {
 		os.Exit(1)
 	}
 }
@@ -275,6 +293,7 @@ func (e *Chromium) Resize() {
 }
 
 func (e *Chromium) Navigate(url string) {
+	e.lastNavigate = url // AETOX PATCH: what Revive navigates the new view to
 	err := e.webview.Navigate(url)
 	if err != nil {
 		e.errorCallback(err)
@@ -416,6 +435,7 @@ func (e *Chromium) CreateCoreWebView2ControllerCompleted(res uintptr, controller
 		e.errorCallback(err)
 	}
 
+	e.everUp = true // AETOX PATCH: see errorCallback
 	atomic.StoreUintptr(&e.inited, 1)
 
 	return 0
@@ -512,7 +532,15 @@ func (e *Chromium) PermissionRequested(_ *ICoreWebView2, args *iCoreWebView2Perm
 func (e *Chromium) WebResourceRequested(sender *ICoreWebView2, args *ICoreWebView2WebResourceRequestedEventArgs) uintptr {
 	req, err := args.GetRequest()
 	if err != nil {
-		log.Fatal(err)
+		// AETOX PATCH: upstream log.Fatal'd here — os.Exit(1) on the whole
+		// process because one request could not be read off its event. That
+		// is the same class as every other call in this file and it answers
+		// the same way now (errorCallback): once the view has been up, a
+		// webview complaint is logged, not fatal. Without a request there is
+		// nothing to serve, so the resource goes unanswered rather than the
+		// app going away.
+		e.errorCallback(err)
+		return 0
 	}
 	defer req.Release()
 
@@ -523,6 +551,7 @@ func (e *Chromium) WebResourceRequested(sender *ICoreWebView2, args *ICoreWebVie
 }
 
 func (e *Chromium) AddWebResourceRequestedFilter(filter string, ctx COREWEBVIEW2_WEB_RESOURCE_CONTEXT) {
+	e.resourceFilters = append(e.resourceFilters, resourceFilter{filter, ctx}) // AETOX PATCH: see Revive
 	err := e.webview.AddWebResourceRequestedFilter(filter, ctx)
 	if err != nil {
 		e.errorCallback(err)
@@ -584,6 +613,12 @@ func (e *Chromium) NavigationCompleted(sender *ICoreWebView2, args *ICoreWebView
 }
 
 func (e *Chromium) ProcessFailed(sender *ICoreWebView2, args *ICoreWebView2ProcessFailedEventArgs) uintptr {
+	// AETOX PATCH: a host that can revive a window's browser is asked before
+	// the owner's callback hears that it died — the owner's answer (Wails, main
+	// window) is a message box and os.Exit(-1). See revive.go.
+	if e.offerRevival(args) {
+		return 0
+	}
 	if e.ProcessFailedCallback != nil {
 		e.ProcessFailedCallback(sender, args)
 	}
