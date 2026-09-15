@@ -11,6 +11,7 @@ import { GUIDE_ROUTES, type GuideRouteId } from './routes'
 import { openPage } from './pages'
 import { mapPick } from './mapPick'
 import { greetingFor } from './greeting'
+import { nextStepTo, stepsTo } from './path'
 import { t } from '../i18n.svelte'
 import { cockpit } from '../stores/cockpit.svelte'
 import { NewGuideSession, AskGuide, CloseGuideSession } from '../../../wailsjs/go/main/App'
@@ -51,6 +52,13 @@ class GuideStore {
   moveSeq = $state(0)
   /** Bumped when the figure should speak `sentence` where it stands. */
   saySeq = $state(0)
+  /** While leading someone to a stop they cannot see yet: the id they are
+   *  being asked to press, and where that is leading. Null when the guide is
+   *  simply standing beside something and explaining it. */
+  awaiting = $state<string | null>(null)
+  heading = $state<string | null>(null)
+  /** How many presses are left, for saying so. */
+  stepsLeft = $state(0)
 
   /** The figure appears with the one-time offer after the tour. */
   offerTour() {
@@ -133,6 +141,9 @@ class GuideStore {
     this.streamingText = ''
     this.asking = false
     this.sentence = ''
+    this.awaiting = null
+    this.heading = null
+    this.stepsLeft = 0
     const sid = this.sessionId
     this.sessionId = null
     if (sid) {
@@ -145,19 +156,59 @@ class GuideStore {
     }
   }
 
-  /** Walk to a stop and say `sentence` there ('' = the map's own words). */
+  /**
+   * Go to a stop — by leading, not by teleporting.
+   *
+   * If the target is not on screen, the guide points at the button that leads
+   * toward it and waits for the person to press it (`awaiting`). Each press
+   * asks the question again, so the screen moving under the walk is expected
+   * rather than a problem. Only when nothing visible leads there does it fall
+   * back to opening the page outright — arriving unexplained beats not
+   * arriving (path.ts).
+   */
   async goTo(id: string, sentence = '') {
     const entry = GUIDE_MAP.find((e) => e.id === id)
     if (!entry) return
-    this.stopId = id
-    this.sentence = sentence
     if (this.route) {
       const i = GUIDE_ROUTES[this.route.id].stops.indexOf(id)
       if (i >= 0) this.route = { id: this.route.id, at: i }
     }
+    const step = nextStepTo(id)
+    if (step) {
+      this.heading = id
+      this.awaiting = step
+      this.stepsLeft = stepsTo(id).length
+      this.stopId = step
+      this.sentence = sentence || ''
+      this.moveSeq++
+      return
+    }
+    this.awaiting = null
+    this.heading = null
+    this.stepsLeft = 0
+    this.stopId = id
+    this.sentence = sentence
     await openPage(entry.page, '[data-guide=' + JSON.stringify(id) + ']')
     if (this.stopId !== id) return // somewhere else was asked for meanwhile
     this.moveSeq++
+  }
+
+  /**
+   * An ordinary press, while the guide happens to be up.
+   *
+   * It comments on exactly one thing: the button it just asked somebody to
+   * press. That is the walk moving on. Every other press is a person using
+   * their own app, and the guide says nothing about it — a guide that
+   * announces each click is a guide people close (owner, 15 ก.ย. 2026:
+   * *"เวลาผู้ใช้กดเองควรจะกดได้เลย"*).
+   */
+  advance(id: string) {
+    if (!this.heading || id !== this.awaiting) return
+    const heading = this.heading
+    // After the page has had a moment to answer the press.
+    setTimeout(() => {
+      if (this.on && this.heading === heading) void this.goTo(heading)
+    }, 220)
   }
 
   /** Say something where the figure stands. */
@@ -166,10 +217,13 @@ class GuideStore {
     this.saySeq++
   }
 
-  /** A click on any mapped element while the guide is open ALSO explains it.
-   *  The click itself is never taken away — see the listener in Guide.svelte
-   *  for why holding the app still was the wrong trade. */
+  /** "What is this?" — Shift+click, the deliberate ask. It abandons a walk in
+   *  progress on purpose: the person has pointed at something else, and being
+   *  dragged back to where the guide was heading is not guidance. */
   explain(id: string) {
+    this.heading = null
+    this.awaiting = null
+    this.stepsLeft = 0
     void this.goTo(id)
   }
 

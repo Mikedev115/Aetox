@@ -13,6 +13,7 @@
   import Mascot from '../mascot/Mascot.svelte'
   import Icon from '../Icon.svelte'
   import { guide } from './guideState.svelte'
+  import { offeredWalks } from './greeting'
   import { GUIDE_MAP, guideText } from './map'
   import { SIZE, standBeside, restingSpot, walkTurn, walkMs } from './walk'
   import { companion } from '../mascot/companionSetting.svelte'
@@ -210,22 +211,35 @@
     document.body.classList.add('guide-mode')
     if (!placed) home()
 
-    // The guide listens; it does not intercept. An open guide used to swallow
-    // the click — preventDefault + stopPropagation — so the app went read-only
-    // while it was up, and a person who opened it to understand a button could
-    // no longer press that button (owner, 15 ก.ย. 2026: "เวลาไกด์ทำงานไม่ควร
-    // ทำให้ผู้ใช้กดไม่ได้สิ แต่เวลาผู้ใช้กดมันแค่อธิบายก็พอ"). Now the press
-    // happens as it always would and the explanation arrives beside it, which
-    // is also the only way to explain a button by what it DID.
+    // Two gestures, and the difference between them is the whole rule:
     //
-    // Passive and in the bubble phase: nothing here can cancel or reorder the
-    // page's own handling, by construction rather than by care.
+    //   click        — using the app. The guide does not touch the event at
+    //                  all; it only notices when the press is the one it just
+    //                  asked for, and moves the walk on.
+    //   Shift+click  — asking about the thing. THAT one is taken: somebody
+    //                  holding Shift wants to know what the button is, not to
+    //                  set it off, and sending a message to find out what the
+    //                  send button does is a poor trade.
+    //
+    // An open guide used to swallow every click, which made the app read-only
+    // while it was up (owner, 15 ก.ย. 2026: "เวลาผู้ใช้กดเองควรจะกดได้เลย …
+    // หรือเราทำให้ แบบ กดชิฟแล้วคลิก จะเป็นการถามไกด์ก็ได้ว่าปุ่มนี้คืออะไร").
+    // Capture phase, because suppressing an action has to happen before the
+    // element's own handler — but the plain-click path returns without
+    // touching the event, so an ordinary press is exactly as it was.
     const onDocClick = (e: MouseEvent) => {
       if (!guide.on || guide.pressing) return
       const target = e.target as HTMLElement | null
       if (!target || target.closest('.guide-ui')) return
       const id = target.closest<HTMLElement>('[data-guide]')?.getAttribute('data-guide')
-      if (id) guide.explain(id)
+      if (!id) return
+      if (e.shiftKey) {
+        e.preventDefault()
+        e.stopPropagation()
+        guide.explain(id)
+      } else {
+        guide.advance(id)
+      }
     }
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -243,13 +257,13 @@
       }
     })
 
-    document.addEventListener('click', onDocClick, { passive: true })
+    document.addEventListener('click', onDocClick, true)
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('resize', onResize)
 
     return () => {
       document.body.classList.remove('guide-mode')
-      document.removeEventListener('click', onDocClick)
+      document.removeEventListener('click', onDocClick, true)
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('resize', onResize)
       offGuide()
@@ -308,6 +322,25 @@
       {/if}
 
       <div class="say-body">{shown}{#if typing || guide.asking}<span class="cur"></span>{/if}</div>
+
+      <!-- Being led: what to press, and how far there is to go. The button is
+           offered too, for somebody who would rather be taken than walk. -->
+      {#if guide.awaiting && !typing}
+        <div class="say-step">
+          <Icon name="pointer" size={13} />
+          <span>{t('guide.stepPress')}</span>
+          {#if guide.stepsLeft > 1}<span class="say-step-left">{t('guide.stepLeft', { n: String(guide.stepsLeft) })}</span>{/if}
+        </div>
+      {/if}
+
+      <!-- A question with no visible answers is a search box: name the walks. -->
+      {#if !guide.stopId && !typing && !guide.asking}
+        <div class="say-walks">
+          {#each offeredWalks() as w (w.id)}
+            <button type="button" class="ctrl mini" onclick={() => guide.start(w.id)}>{w.label}</button>
+          {/each}
+        </div>
+      {/if}
 
       {#if stop && !typing && !guide.asking && stopWhy}
         <div class="say-why">
@@ -551,6 +584,34 @@
     font-size: 0.85em;
     opacity: 0.8;
     margin-left: 4px;
+  }
+
+  /* Being led somewhere: the instruction reads as an instruction, in the
+     guide's own colour, and sits above the map's explanation rather than
+     inside it — one is what to do now, the other is what the thing is. */
+  .say-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 6px 9px;
+    border-radius: 9px;
+    background: var(--badge-amber-bg);
+    color: var(--badge-amber-text);
+    border: 1px solid var(--badge-amber-border);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+  }
+  .say-step-left {
+    margin-left: auto;
+    font-weight: 500;
+    opacity: 0.75;
+  }
+  .say-walks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
   }
 
   .say-foot {

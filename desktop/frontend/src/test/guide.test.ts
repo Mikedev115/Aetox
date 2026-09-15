@@ -6,7 +6,7 @@ import { mapPick } from '../lib/guide/mapPick'
 import { GUIDE_ROUTES } from '../lib/guide/routes'
 import { GUIDE_MAP } from '../lib/guide/map'
 import { isShortcut, shortcutLabel } from '../lib/shortcuts'
-import { greetingFor } from '../lib/guide/greeting'
+import { greetingFor, offeredWalks } from '../lib/guide/greeting'
 import Guide from '../lib/guide/Guide.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import { th } from '../lib/locales/th'
@@ -183,24 +183,31 @@ describe('the guide on screen', () => {
     expect(container.querySelector('.say-map-badge')?.textContent).toBe(th['guide.fromMap'])
   })
 
-  it('explains a clicked element without taking the click away', async () => {
-    const search = mapped('sidebar.search')
+  it('leaves a plain click alone, and answers a Shift+click', async () => {
+    const search = mapped('sidebar.search', { width: 100, height: 20 })
     const clicked = vi.fn()
     search.addEventListener('click', clicked)
     await guide.start(undefined, 'sidebar.projects')
     const { unmount } = render(Guide)
     await tick()
+
+    // A plain press is the person using their own app. The button works and
+    // the guide says nothing about it.
     await fireEvent.click(search)
-    // The app stays usable while the guide is up: the button did its job, and
-    // the guide walked over to say what that job was.
+    expect(clicked).toHaveBeenCalledTimes(1)
+    expect(guide.stopId).toBe('sidebar.projects')
+
+    // Shift+click is the ask: the guide answers, and the button does NOT fire
+    // — finding out what Send does should not send anything.
+    await fireEvent.click(search, { shiftKey: true })
     expect(clicked).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(guide.stopId).toBe('sidebar.search'))
-    // Esc closes the guide; a click then presses as it always did.
+
     await fireEvent.keyDown(window, { key: 'Escape' })
     await waitFor(() => expect(guide.on).toBe(false))
     unmount()
-    await fireEvent.click(search)
-    expect(clicked).toHaveBeenCalledTimes(2)
+    await fireEvent.click(search, { shiftKey: true })
+    expect(clicked).toHaveBeenCalledTimes(2) // closed: even Shift is just a click
   })
 
   it('says a model\'s answer where it stands, without walking', async () => {
@@ -267,5 +274,77 @@ describe('what it says when it arrives', () => {
     expect(guide.route).toBeNull()
     expect(guide.stopId).toBeNull()
     expect(guide.sentence).toContain(th['guide.room.settings'])
+  })
+})
+
+describe('being led there, one press at a time', () => {
+  // The screen is what path.ts reads, so the test builds screens: the sidebar
+  // as it looks on the chat page, then what a press reveals.
+  const onChat = () => {
+    document.body.innerHTML = ''
+    mapped('sidebar.footer', { width: 200, height: 40 })
+    mapped('chat.send', { width: 36, height: 36 })
+  }
+
+  it('points at the door instead of teleporting to a page you cannot see', async () => {
+    onChat()
+    await guide.start(undefined, 'settings.rail.brain')
+    // Not standing at the target — standing at the button that leads there.
+    expect(guide.stopId).toBe('sidebar.footer')
+    expect(guide.awaiting).toBe('sidebar.footer')
+    expect(guide.heading).toBe('settings.rail.brain')
+    expect(guide.stepsLeft).toBeGreaterThan(1)
+  })
+
+  it('moves on when the awaited button is pressed, and re-reads the screen each time', async () => {
+    onChat()
+    await guide.start(undefined, 'settings.rail.brain')
+    expect(guide.awaiting).toBe('sidebar.footer')
+
+    // Pressing it opens the menu — which is what makes the gear reachable.
+    mapped('account.settings', { width: 180, height: 32 })
+    guide.advance('sidebar.footer')
+    await waitFor(() => expect(guide.awaiting).toBe('account.settings'), { timeout: 2000 })
+    expect(guide.heading).toBe('settings.rail.brain')
+
+    // Pressing THAT opens Settings, where the target itself is on screen.
+    mapped('settings.rail.brain', { width: 220, height: 40 })
+    guide.advance('account.settings')
+    await waitFor(() => expect(guide.awaiting).toBeNull(), { timeout: 2000 })
+    expect(guide.stopId).toBe('settings.rail.brain')
+    expect(guide.heading).toBeNull()
+  })
+
+  it('ignores presses it did not ask for, and keeps heading where it was', async () => {
+    onChat()
+    await guide.start(undefined, 'settings.rail.brain')
+    guide.advance('chat.send') // the person did something else entirely
+    await new Promise((r) => setTimeout(r, 30))
+    expect(guide.awaiting).toBe('sidebar.footer')
+    expect(guide.heading).toBe('settings.rail.brain')
+  })
+
+  it('gives up the walk when asked about something else', async () => {
+    onChat()
+    await guide.start(undefined, 'settings.rail.brain')
+    expect(guide.heading).toBe('settings.rail.brain')
+    guide.explain('chat.send') // Shift+click elsewhere
+    await waitFor(() => expect(guide.stopId).toBe('chat.send'))
+    expect(guide.heading).toBeNull()
+    expect(guide.awaiting).toBeNull()
+  })
+
+  it('walks straight to anything already on screen', async () => {
+    onChat()
+    await guide.start(undefined, 'chat.send')
+    expect(guide.stopId).toBe('chat.send')
+    expect(guide.awaiting).toBeNull()
+  })
+
+  it('offers named walks to press, taken from the routes themselves', () => {
+    const walks = offeredWalks()
+    expect(walks.map((w) => w.id)).toEqual(Object.keys(GUIDE_ROUTES))
+    for (const w of walks) expect(w.label.trim().length).toBeGreaterThan(0)
+    expect(walks.find((w) => w.id === 'first')?.label).toBe(th['guide.walk.first'])
   })
 })

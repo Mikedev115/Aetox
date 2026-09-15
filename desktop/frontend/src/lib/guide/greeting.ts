@@ -13,6 +13,7 @@
 
 import { t } from '../i18n.svelte'
 import { GUIDE_MAP } from './map'
+import { GUIDE_ROUTES, type GuideRouteId } from './routes'
 
 /** `cockpit.activeView` → the locale key naming that room. A view with no
  *  row here is not an error: the guide falls back to the room-less greeting,
@@ -61,4 +62,25 @@ export function greetingFor(view: string, count = explainableOnScreen()): string
   const room = t(roomKey as never)
   if (count > 0) return t('guide.greetRoomCount' as never, { room, n: String(count) })
   return t('guide.greetRoom' as never, { room })
+}
+
+
+/**
+ * What the guide offers to show, as buttons under the greeting.
+ *
+ * A question with no visible answers is a search box: somebody who does not
+ * know the app also does not know what to ask it. Naming the walks turns
+ * "มีอะไรให้ช่วยไหม" into something a person can answer by pointing (owner,
+ * 15 ก.ย. 2026: *"มีปุ่มให้เลือกไกด์ทีละส่วน"*).
+ *
+ * Read off GUIDE_ROUTES, so a route added there is offered here without a
+ * second list to keep. The label is a locale key per route id; a route with
+ * no key falls back to its own name, which is better than an empty button.
+ */
+export function offeredWalks(): { id: GuideRouteId; label: string }[] {
+  return (Object.keys(GUIDE_ROUTES) as GuideRouteId[]).map((id) => {
+    const key = `guide.walk.${id}`
+    const label = t(key as never)
+    return { id, label: label === key ? GUIDE_ROUTES[id].name : label }
+  })
 }
