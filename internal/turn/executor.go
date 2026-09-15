@@ -1474,6 +1474,7 @@ func (e *Executor) executeAgentToolLoop(
 			Artifacts:  output.Artifacts,
 			ProposalID: output.ProposalID,
 			Answer:     output.Answer,
+			Task:       output.Task,
 		}
 		if !success {
 			if execErr != nil {
@@ -1516,6 +1517,7 @@ func (e *Executor) executeAgentToolLoop(
 			Agent:      agent,
 			Brief:      brief,
 			AgentKind:  e.kindOf(isTask, agent),
+			Task:       output.Task,
 			Delegation: &isTask,
 			OK:         success,
 			Error:      ev.Error,

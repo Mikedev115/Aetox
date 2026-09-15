@@ -10,7 +10,7 @@ import { tick } from 'svelte'
 import Chat from '../lib/Chat.svelte'
 import { cockpit, applyUsageRound } from '../lib/stores/cockpit.svelte'
 import { emptyTurnSpend } from '../lib/types'
-import { GetContextBreakdown, EnabledProviders, ListModelsForProvider } from './mocks/wailsApp'
+import { GetContextBreakdown, CompactSession, EnabledProviders, ListModelsForProvider } from './mocks/wailsApp'
 
 const breakdown = (measured: boolean, used: number, cachedTokens = 0, tools?: any[]) => ({
   usedTokens: used,
@@ -293,5 +293,32 @@ describe('the context meter while a turn is running', () => {
     await tick()
 
     expect(GetContextBreakdown.mock.calls.length).toBeGreaterThan(before)
+  })
+
+  it('does not offer Compact context button when below 30%', async () => {
+    GetContextBreakdown.mockResolvedValue(good as any)
+    render(Chat, props())
+    const meter = await screen.findByRole('button', { name: /Context window|หน้าต่างคอนเท็กซ์/ })
+    meter.click()
+
+    expect(screen.queryByRole('button', { name: /Compact context|บีบอัดคอนเท็กซ์/ })).toBeNull()
+  })
+
+  it('offers Compact context button at or above 30% and updates on click', async () => {
+    GetContextBreakdown.mockResolvedValue(breakdown(true, 320000) as any)
+    CompactSession.mockResolvedValue(breakdown(true, 250000) as any)
+    cockpit.openSession = 'sess_compact'
+
+    render(Chat, props())
+    const meter = await screen.findByRole('button', { name: /Context window|หน้าต่างคอนเท็กซ์/ })
+    meter.click()
+
+    const compactBtn = await screen.findByRole('button', { name: /Compact context|บีบอัดคอนเท็กซ์/ })
+    expect(compactBtn).toBeTruthy()
+    compactBtn.click()
+
+    await tick()
+    expect(CompactSession).toHaveBeenCalledWith('sess_compact')
+    expect(await screen.findByText(/250.0k \/ 1000.0k/)).toBeTruthy()
   })
 })

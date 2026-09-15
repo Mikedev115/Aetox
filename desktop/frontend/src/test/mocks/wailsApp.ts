@@ -143,6 +143,7 @@ export const CustomProviders = arr()
 export const AddCustomProvider = str()
 export const RemoveCustomProvider = arr()
 export const GetContextBreakdown = vi.fn(async () => ({}))
+export const CompactSession = vi.fn(async (_id: string) => ({}))
 // A chat that has spent nothing. Tests that care set their own; the rest get
 // the shape rather than an undefined the store would then read fields off.
 export const SessionSpend = vi.fn(async (_id: string) => ({

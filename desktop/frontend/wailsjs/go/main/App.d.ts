@@ -194,6 +194,8 @@ export function CodeProjectsDir():Promise<string>;
 
 export function CommandHistory():Promise<Array<string>>;
 
+export function CompactSession(arg1:string):Promise<engine.ContextBreakdown>;
+
 export function CompanionSpriteKeys(arg1:string):Promise<Array<string>>;
 
 export function CompanionSprites(arg1:string,arg2:Array<main.CompanionFrame>):Promise<void>;

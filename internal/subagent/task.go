@@ -967,6 +967,7 @@ func (t *taskTool) begin(ctx context.Context, args map[string]any, out **running
 		RawOutput:  started_,
 		Success:    true,
 		DurationMs: time.Since(started).Milliseconds(),
+		Task:       task.id,
 	}, nil
 }
 

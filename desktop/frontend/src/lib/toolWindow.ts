@@ -98,32 +98,71 @@ export function toolWindow(node: HTMLElement, opts: boolean | WindowOpts = true)
    *  means to an eye. Retargeting mid-ride is correct and deliberate — another
    *  batch landing while this one is still travelling should extend the
    *  journey, not queue a second one behind it. */
+  let lastTarget = -1
   const rideDown = () => {
     const to = node.scrollHeight - node.clientHeight
     const from = node.scrollTop
     const gap = to - from
-    if (ride) { cancelAnimationFrame(ride); ride = 0 }
-    if (gap <= 0) return
-    if (motionStill() || gap < RIDE_MIN_PX) {
-      node.scrollTop = to
-      lastTop = node.scrollTop
+    if (gap <= 0) {
+      if (ride) { cancelAnimationFrame(ride); ride = 0 }
+      lastTarget = -1
       return
     }
+    if (motionStill() || gap < RIDE_MIN_PX) {
+      if (ride) { cancelAnimationFrame(ride); ride = 0 }
+      node.scrollTop = to
+      lastTop = node.scrollTop
+      lastTarget = to
+      return
+    }
+    // If already riding towards the exact same floor, let it glide smoothly without stutter
+    if (ride && Math.abs(to - lastTarget) < 3) {
+      return
+    }
+    lastTarget = to
+    if (ride) { cancelAnimationFrame(ride); ride = 0 }
     const start = performance.now()
     const step = (now: number) => {
       const t = Math.min((now - start) / RIDE_MS, 1)
       const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
       node.scrollTop = from + gap * e
       lastTop = node.scrollTop
-      ride = t < 1 ? requestAnimationFrame(step) : 0
+      if (t < 1) {
+        ride = requestAnimationFrame(step)
+      } else {
+        ride = 0
+        lastTarget = -1
+      }
     }
     ride = requestAnimationFrame(step)
   }
 
+  const onWheel = (e: WheelEvent) => {
+    if (e.deltaY < 0) {
+      if (ride) {
+        cancelAnimationFrame(ride)
+        ride = 0
+      }
+      lastTarget = -1
+      pinned = false
+    }
+  }
+  node.addEventListener('wheel', onWheel, { passive: true })
+
   const onScroll = () => {
-    // Our own ride fires these too, and treating them as the reader's would
-    // have the ride cancel and restart itself on every frame of the ride.
-    if (ride) { lastTop = node.scrollTop; return }
+    // If the reader scrolls up while our own ride is running, cancel the ride
+    // immediately and unpin so the user's gesture wins.
+    if (ride) {
+      if (node.scrollTop < lastTop - 1) {
+        cancelAnimationFrame(ride)
+        ride = 0
+        lastTarget = -1
+        pinned = false
+      } else {
+        lastTop = node.scrollTop
+        return
+      }
+    }
     const fromBottom = node.scrollHeight - node.scrollTop - node.clientHeight
     if (node.scrollTop < lastTop - 1 && fromBottom > 2) pinned = false
     // Never re-pins a list that does not follow: reaching the bottom of a
@@ -150,7 +189,9 @@ export function toolWindow(node: HTMLElement, opts: boolean | WindowOpts = true)
   const watch = () => {
     if (rows) return
     rows = new MutationObserver(schedule)
-    rows.observe(node, { childList: true, subtree: true, characterData: true })
+    // Note: Do NOT observe characterData — second timer ticks (e.g. 1s -> 2s)
+    // do not change container layout height and would thrash the smooth scroll every second.
+    rows.observe(node, { childList: true, subtree: true })
     size = new ResizeObserver(schedule)
     size.observe(node)
   }
@@ -187,6 +228,7 @@ export function toolWindow(node: HTMLElement, opts: boolean | WindowOpts = true)
       schedule()
     },
     destroy() {
+      node.removeEventListener('wheel', onWheel)
       node.removeEventListener('scroll', onScroll)
       unwatch()
       if (frame) cancelAnimationFrame(frame)

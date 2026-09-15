@@ -7,6 +7,7 @@ import { isDelegation } from '../lib/types'
 import { setLocale } from '../lib/i18n.svelte'
 import { GuideTopics, SwitchApprovalMode, SupportedThinkLevels, BackgroundTasks } from './mocks/wailsApp'
 import { workbench } from '../lib/stores/workbench.svelte'
+import * as workbenchStore from '../lib/stores/workbench.svelte'
 
 const baseProps = {
   task: { title: '', steps: [] } as any,
@@ -1666,3 +1667,285 @@ describe('a message typed into a running turn', () => {
       .some((r) => r.textContent?.includes('I meant the program'))).toBe(false)
   })
 })
+
+describe('inline terminal drawer for shell commands', () => {
+  it('renders a foldable shell row and auto-expands the terminal drawer while running', async () => {
+    const { container } = render(Chat, {
+      ...baseProps,
+      awaitingReply: true,
+      messages: [{ role: 'user', text: 'run test', time: '10:00' }] as any,
+      streamingText: 'กำลังรันเทสต์...',
+      toolSteps: [
+        {
+          label: 'shell go test ./...',
+          name: 'shell',
+          subject: 'go test ./...',
+          state: 'run',
+          startedAt: Date.now() - 5000,
+        },
+      ] as any,
+    })
+
+    const toolStep = container.querySelector('.tool-step.f-shell') as HTMLElement
+    expect(toolStep).not.toBeNull()
+    expect(toolStep.classList.contains('foldable')).toBe(true)
+    expect(toolStep.getAttribute('aria-expanded')).toBe('true')
+    expect(toolStep.querySelector('.fold-caret')).not.toBeNull()
+
+    // Terminal drawer is rendered
+    const drawer = container.querySelector('.tool-terminal') as HTMLElement
+    expect(drawer).not.toBeNull()
+    expect(drawer.querySelector('.prompt-glyph')?.textContent).toBe('$')
+    expect(drawer.querySelector('.cmd-text')?.textContent).toBe('go test ./...')
+    expect(drawer.querySelector('.terminal-live-status')).not.toBeNull()
+
+    // Clicking the row collapses the terminal drawer
+    await fireEvent.click(toolStep)
+    await tick()
+
+    expect(toolStep.getAttribute('aria-expanded')).toBe('false')
+    expect(container.querySelector('.tool-terminal')).toBeNull()
+
+    // Clicking again re-expands it
+    await fireEvent.click(toolStep)
+    await tick()
+
+    expect(toolStep.getAttribute('aria-expanded')).toBe('true')
+    expect(container.querySelector('.tool-terminal')).not.toBeNull()
+  })
+
+  it('renders terminal drawer on error and displays error log', async () => {
+    const { container } = render(Chat, {
+      ...baseProps,
+      messages: [{
+        role: 'agent',
+        text: 'failed',
+        time: '10:01',
+        parts: [{ kind: 'text', text: 'failed' }],
+        steps: [
+          {
+            label: 'shell run failure',
+            name: 'shell',
+            subject: 'dispatcher kill test',
+            state: 'err',
+            error: 'exit status 1: test timed out',
+            startedAt: 0,
+            secs: 84,
+          },
+        ],
+      }] as any,
+    })
+
+    // Open tool list by clicking phase head
+    const phaseHead = container.querySelector('.phase-head') as HTMLElement
+    expect(phaseHead).not.toBeNull()
+    await fireEvent.click(phaseHead)
+    await tick()
+
+    const toolStep = container.querySelector('.tool-step.f-shell') as HTMLElement
+    expect(toolStep).not.toBeNull()
+    expect(toolStep.classList.contains('err')).toBe(true)
+    expect(toolStep.getAttribute('aria-expanded')).toBe('true')
+
+    const errLog = container.querySelector('.tool-terminal .err-log')
+    expect(errLog).not.toBeNull()
+    expect(errLog?.textContent).toContain('exit status 1: test timed out')
+  })
+
+  it('auto-collapses completed diff when next tool starts running, keeping active focus on current tool', async () => {
+    cockpit.desk = 'coding'
+    const step1 = {
+      label: 'write src/math.ts',
+      name: 'write',
+      subject: 'src/math.ts',
+      ref: 'call_1',
+      state: 'run',
+      startedAt: Date.now() - 3000,
+      diff: '@@ -1,1 +1,2 @@\n-const x = 1\n+const x = 2\n+const y = 3',
+    }
+    const { container, rerender } = render(Chat, {
+      ...baseProps,
+      awaitingReply: true,
+      messages: [{ role: 'user', text: 'edit code and test', time: '10:00' }] as any,
+      toolSteps: [step1] as any,
+    })
+    await tick()
+
+    // Step 1 is running and latest -> diff is open
+    let step1Row = container.querySelector('.tool-step.foldable') as HTMLElement
+    expect(step1Row).not.toBeNull()
+    expect(step1Row.getAttribute('aria-expanded')).toBe('true')
+    expect(container.querySelector('.tool-diff')).not.toBeNull()
+
+    // Step 1 completes
+    const step1Done = { ...step1, state: 'done', secs: 1 }
+    await rerender({ toolSteps: [step1Done] } as any)
+    await new Promise((r) => setTimeout(r, 700))
+    await tick()
+
+    // Step 2 (shell test) starts running in a new round
+    const step2Run = {
+      label: 'shell npm test',
+      name: 'shell',
+      subject: 'npm test',
+      ref: 'call_2',
+      state: 'run',
+      startedAt: Date.now(),
+    }
+    await rerender({ toolSteps: [step1Done, step2Run] } as any)
+    await tick()
+
+    // Step 1 is no longer latest -> auto-collapsed!
+    const foldableRows = container.querySelectorAll('.tool-step.foldable')
+    expect(foldableRows.length).toBe(2)
+
+    const step1Updated = foldableRows[0] as HTMLElement
+    expect(step1Updated.getAttribute('aria-expanded')).toBe('false')
+
+    // Step 2 is latest & running -> terminal drawer is open!
+    const step2Row = foldableRows[1] as HTMLElement
+    expect(step2Row.getAttribute('aria-expanded')).toBe('true')
+    expect(container.querySelector('.tool-terminal')).not.toBeNull()
+
+    // Clicking step 1 manually expands its diff again
+    await fireEvent.click(step1Updated)
+    await tick()
+    expect(step1Updated.getAttribute('aria-expanded')).toBe('true')
+    expect(container.querySelector('.tool-diff')).not.toBeNull()
+  })
+
+  it('opens Git tab when clicking git-badge on a tool row without toggling diff', async () => {
+    cockpit.desk = 'coding'
+    const openGitSpy = vi.spyOn(workbenchStore, 'openGitTab').mockImplementation(() => {})
+
+    const { container } = render(Chat, {
+      ...baseProps,
+      messages: [{
+        role: 'agent',
+        text: 'modified file',
+        time: '10:55',
+        steps: [{
+          name: 'change:edit',
+          label: 'edit src/style.css',
+          subject: 'src/style.css',
+          git: 'M',
+          diff: '@@ -1 +1 @@\n-old\n+new',
+          state: 'done',
+          startedAt: 0,
+          secs: 1,
+        }],
+      }] as any,
+    })
+    await tick()
+
+    const toggle = container.querySelector('.meta-row .reasoning-toggle') as HTMLElement
+    expect(toggle).not.toBeNull()
+    await fireEvent.click(toggle)
+    await tick()
+
+    const badge = container.querySelector('.git-badge.g-M') as HTMLElement
+    expect(badge).not.toBeNull()
+    expect(badge.textContent).toBe('M')
+    expect(badge.getAttribute('role')).toBe('button')
+    expect(badge.getAttribute('title')).toContain('Git')
+
+    const diffRow = container.querySelector('.tool-step.foldable') as HTMLElement
+    expect(diffRow).not.toBeNull()
+    const initialExpanded = diffRow.getAttribute('aria-expanded')
+
+    // Click git badge: should call openGitTab and stop propagation
+    await fireEvent.click(badge)
+    expect(openGitSpy).toHaveBeenCalledTimes(1)
+    // Row expansion should NOT have been inverted
+    expect(diffRow.getAttribute('aria-expanded')).toBe(initialExpanded)
+
+    // Keyboard support: pressing Enter on badge also calls openGitTab
+    await fireEvent.keyDown(badge, { key: 'Enter' })
+    expect(openGitSpy).toHaveBeenCalledTimes(2)
+
+    openGitSpy.mockRestore()
+  })
+
+  it('opens file in workbench when clicking a read-file tool row', async () => {
+    cockpit.desk = 'coding'
+    const openFileSpy = vi.spyOn(workbenchStore, 'openFileTab').mockImplementation(async () => {})
+
+    const { container } = render(Chat, {
+      ...baseProps,
+      messages: [{
+        role: 'agent',
+        text: 'read file contents',
+        time: '10:56',
+        steps: [{
+          name: 'read',
+          label: 'read src/style.css',
+          subject: 'src/style.css',
+          range: '1-73',
+          count: 73,
+          state: 'done',
+          startedAt: 0,
+          secs: 1,
+        }],
+      }] as any,
+    })
+    await tick()
+
+    const toggle = container.querySelector('.meta-row .reasoning-toggle') as HTMLElement
+    await fireEvent.click(toggle)
+    await tick()
+
+    const fileRow = container.querySelector('.tool-step.file-row') as HTMLElement
+    expect(fileRow).not.toBeNull()
+    expect(fileRow.getAttribute('role')).toBe('button')
+    expect(fileRow.textContent).toContain('1-73')
+
+    // Clicking anywhere on read file row opens the file in Workbench
+    await fireEvent.click(fileRow)
+    expect(openFileSpy).toHaveBeenCalledWith('src/style.css', 'style.css')
+
+    // Pressing Enter on file row also opens it
+    await fireEvent.keyDown(fileRow, { key: 'Enter' })
+    expect(openFileSpy).toHaveBeenCalledTimes(2)
+
+    openFileSpy.mockRestore()
+  })
+
+  it('opens file in workbench when clicking a clickable file subject link', async () => {
+    cockpit.desk = 'coding'
+    const openFileSpy = vi.spyOn(workbenchStore, 'openFileTab').mockImplementation(async () => {})
+
+    const { container } = render(Chat, {
+      ...baseProps,
+      messages: [{
+        role: 'agent',
+        text: 'edit file',
+        time: '10:57',
+        steps: [{
+          name: 'change:edit',
+          label: 'edit internal/turn/executor.go',
+          subject: 'internal/turn/executor.go',
+          diff: '@@ -1 +1 @@\n-old\n+new',
+          state: 'done',
+          startedAt: 0,
+          secs: 1,
+        }],
+      }] as any,
+    })
+    await tick()
+
+    const toggle = container.querySelector('.meta-row .reasoning-toggle') as HTMLElement
+    await fireEvent.click(toggle)
+    await tick()
+
+    const subjLink = container.querySelector('.subj.is-file') as HTMLElement
+    expect(subjLink).not.toBeNull()
+    expect(subjLink.getAttribute('role')).toBe('button')
+
+    // Clicking file subject directly opens it in Workbench without toggling diff
+    await fireEvent.click(subjLink)
+    expect(openFileSpy).toHaveBeenCalledWith('internal/turn/executor.go', 'executor.go')
+
+    openFileSpy.mockRestore()
+  })
+})
+

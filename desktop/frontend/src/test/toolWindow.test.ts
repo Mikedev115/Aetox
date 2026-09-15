@@ -47,4 +47,25 @@ describe('toolWindow', () => {
     win.update(true)
     expect(node.scrollTop).toBe(600)
   })
+
+  it('unpins when scrolling up via wheel event so user is not dragged down', () => {
+    mockDimensions(node, { clientHeight: 200, scrollHeight: 800 })
+    node.scrollTop = 0
+
+    const win = toolWindow(node, { on: true, follow: true })
+    expect(node.scrollTop).toBe(600)
+
+    // User scrolls up with wheel
+    node.dispatchEvent(new WheelEvent('wheel', { deltaY: -100 }))
+
+    // Simulate user scrolled up to 300
+    node.scrollTop = 300
+    node.dispatchEvent(new Event('scroll'))
+
+    // Trigger update/mutation
+    win.update(true)
+
+    // Should stay at 300 because it is unpinned!
+    expect(node.scrollTop).toBe(300)
+  })
 })

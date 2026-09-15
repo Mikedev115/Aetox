@@ -257,6 +257,13 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		return e.CodeProjectsDir(), nil, true
 	case "CommandHistory":
 		return e.CommandHistory(), nil, true
+	case "CompactSession":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.CompactSession(p0)
+		return r0, err, true
 	case "CompleteMCPSignIn":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {

@@ -29,7 +29,7 @@
   import {
     EnabledProviders, SupportedThinkLevels,
     ListModelsForProvider, PriceModels, ModelPriceSource, RequiresAPIKey, AcceptsAPIKey, HasAPIKey, PickAttachments,
-    GetContextBreakdown, GuideTopics, RunChatCommand, RunChatScript, ListTeams, ChairStarters, DeskStarters, CurrentSessionID,
+    GetContextBreakdown, CompactSession, GuideTopics, RunChatCommand, RunChatScript, ListTeams, ChairStarters, DeskStarters, CurrentSessionID,
     Shells, CurrentShell, SetShell, EnginesFor, UseEngine, VerifyConnection,
     GitBranches, GitSwitchBranch, GitCreateBranch, GetProjectStatus,
     TranscribeMicAudio,
@@ -48,7 +48,7 @@
   import { EventsOn } from '../../wailsjs/runtime/runtime'
   import { renderMarkdown } from './markdown'
   import { filePath, fileURL } from './fileUrl'
-  import { openUrlInWorkbench, openFileTab, openPlanTab, openArtifactsTab, setTabDragPayload, TAB_DRAG_MIME } from './stores/workbench.svelte'
+  import { openUrlInWorkbench, openFileTab, openPlanTab, openArtifactsTab, openGitTab, setTabDragPayload, TAB_DRAG_MIME } from './stores/workbench.svelte'
   import {
     cockpit, attachImageFromPath, attachImageFromClipboard, clearPendingImage, attachTabContext, clearPendingContext,
     attachFileFromPath, clearPendingFile, fileKind, attachmentPreview,
@@ -404,7 +404,9 @@
   //
   // `live` is the exception that keeps this honest. A `task` call that just
   // landed has a row a poll or two before the register has been fetched, and
-  // for that one window the row IS the better answer.
+  // for that one window the delegation IS running — `task` returns the instant
+  // the worker is spawned, so the row itself completes immediately ('done') and
+  // must not trick the card into prematurely showing finished with a green tick.
   function cardState(node: TimelineNode, live = false): ToolStep['state'] {
     const task = registerTask(node)
     if (!task) return stranded(node, live) ? 'err' : node.step.state
@@ -1566,6 +1568,24 @@
     // turn was over (owner, 7 ก.ย.: "มันหายไปไหนตอนทำงาน").
     if (next && next.usedTokens > 0) ctx = next
   }
+  let compacting = $state(false)
+  async function triggerCompact() {
+    if (compacting || awaitingReply) return
+    const session = cockpit.openSession
+    compacting = true
+    try {
+      const next = await CompactSession(session ?? '')
+      if (next && next.usedTokens > 0) {
+        ctx = next
+      } else {
+        await refreshContext()
+      }
+    } catch (err) {
+      // keep last good state if compact error
+    } finally {
+      compacting = false
+    }
+  }
   // Refresh on mount and after every completed turn (message count settles).
   $effect(() => {
     void messages.length
@@ -1765,6 +1785,61 @@
   let openDiffs = $state<Record<string, boolean>>({})
   function diffKey(s: ToolStep): string {
     return s.ref || `${s.label}:${s.diff?.length ?? 0}`
+  }
+  let openTerminals = $state<Record<string, boolean>>({})
+  const stepKeys = new WeakMap<ToolStep, string>()
+  let nextStepId = 0
+  function stepStableKey(s: ToolStep): string {
+    if (s.ref) return s.ref
+    let k = stepKeys.get(s)
+    if (!k) {
+      k = `step-${++nextStepId}-${s.startedAt || 0}`
+      stepKeys.set(s, k)
+    }
+    return k
+  }
+  function terminalKey(s: ToolStep): string {
+    return stepStableKey(s)
+  }
+
+  function isReadFile(s: ToolStep): boolean {
+    if (s.name === 'read' || s.name === 'view_file' || s.act === 'read') return true
+    const fam = toolFamily(s)
+    if (fam === 'read') {
+      const act = s.act || ''
+      if (act === 'grep' || act === 'glob' || act === 'list' || act === 'symbol' || act === 'repo_map' || act === 'diagnostics') {
+        return false
+      }
+      if (s.range || s.label.startsWith('read') || s.label.startsWith('view_file')) return true
+      const subj = s.subject || ''
+      if (subj && (subj.includes('/') || subj.includes('\\') || /\.[a-zA-Z0-9_-]+$/.test(subj))) {
+        return true
+      }
+    }
+    return false
+  }
+
+  function isFileSubject(s: ToolStep, subj: string): boolean {
+    if (!subj) return false
+    if (isReadFile(s)) return true
+    const fam = toolFamily(s)
+    if (fam === 'write') return true
+    if (s.name === 'write' || s.name === 'edit' || s.name === 'read' || s.name === 'view_file') return true
+    return subj.includes('/') || subj.includes('\\') || /\.[a-zA-Z0-9_-]+$/.test(subj)
+  }
+  let copiedCmd = $state<string | null>(null)
+  let copyTimeout: number | undefined
+  function copyCommand(text: string) {
+    if (!text) return
+    navigator.clipboard?.writeText(text).then(() => {
+      copiedCmd = text
+      if (copyTimeout) clearTimeout(copyTimeout)
+      copyTimeout = window.setTimeout(() => { copiedCmd = null }, 1500)
+    }).catch(() => {})
+  }
+  function isTerminalTool(s: ToolStep): boolean {
+    const fam = toolFamily(s)
+    return fam === 'shell' || s.name === 'shell' || s.name === 'desk_terminal' || s.name === 'shell_output'
   }
   // Seconds on a delegation card: counted off the register's own start while the
   // worker is going, its real total once it stops, and only then the `task`
@@ -3476,7 +3551,60 @@
   </div>
 {/snippet}
 
-{#snippet toolRow(s: ToolStep, live: boolean)}
+{#snippet terminalDrawer(s: ToolStep, live: boolean)}
+  {@const cmd = s.subject || s.label}
+  <div class="tool-terminal">
+    <div class="tool-terminal-header">
+      <div class="tool-terminal-prompt">
+        <span class="prompt-glyph">$</span>
+        <span class="cmd-text" title={cmd}>{cmd}</span>
+      </div>
+      {#if cmd}
+        <span
+          role="button"
+          tabindex="0"
+          class="terminal-copy-btn"
+          title={copiedCmd === cmd ? t('chat.copied') : t('chat.copyCommand')}
+          onclick={(e) => { e.stopPropagation(); copyCommand(cmd) }}
+          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); copyCommand(cmd) } }}
+        >
+          <Icon name={copiedCmd === cmd ? 'check' : 'copy'} size={11} />
+          {#if copiedCmd === cmd}
+            <span class="copied-lbl">{t('chat.copied')}</span>
+          {/if}
+        </span>
+      {/if}
+    </div>
+    <div class="tool-terminal-body">
+      {#if s.state === 'run'}
+        <div class="terminal-live-status">
+          <span class="term-status-dot"></span>
+          <span class="term-status-msg">{t('chat.commandRunning')}</span>
+        </div>
+      {:else if s.state === 'err'}
+        <div class="terminal-err-status">
+          <div class="err-head">
+            <span class="err-icon"><Icon name="x" size={11} /></span>
+            <span>{t('chat.commandFailed')}</span>
+          </div>
+          {#if s.error}
+            <pre class="err-log">{s.error}</pre>
+          {/if}
+        </div>
+      {:else}
+        <div class="terminal-done-status">
+          <span class="done-icon"><Icon name="check" size={11} /></span>
+          <span class="done-msg">{t('chat.commandSuccess')}</span>
+          {#if s.secs}
+            <span class="done-secs">({s.secs}s)</span>
+          {/if}
+        </div>
+      {/if}
+    </div>
+  </div>
+{/snippet}
+
+{#snippet toolRow(s: ToolStep, live: boolean, isLatest = false)}
   {#if s.kind === 'note'}
     <!-- The model's own words for what it is doing, in the position of the
          work it announces (§59). Plain text, not a status row. -->
@@ -3512,25 +3640,62 @@
   <!-- Coerced, not left as undefined: Svelte drops an attribute whose value
        is undefined, and a disclosure button with no aria-expanded at all reads
        to a screen reader as something that does not open. -->
-  {@const shown = !!(foldable && (openDiffs[key] ?? true))}
+  {@const defaultDiffOpen = (s.state === 'run' || s.state === 'err' || isLatest)}
+  {@const shown = !!(foldable && (openDiffs[key] ?? defaultDiffOpen))}
+  {@const isTerm = !foldable && isTerminalTool(s)}
+  {@const termKey = terminalKey(s)}
+  {@const defaultTermOpen = (s.state === 'run' || s.state === 'err' || isLatest)}
+  {@const termShown = !!(isTerm && (openTerminals[termKey] ?? defaultTermOpen))}
+  {@const rowSubject = toolSubject(s)}
+  {@const rowParts = splitSubject(rowSubject)}
+  {@const isRead = isReadFile(s)}
   <!-- A row with a diff behind it is a real button; every other row is the div
        it has always been. Not one element wearing a role: a control that
        sometimes responds teaches the user to stop trying it, and the
        difference has to be there for a keyboard and a screen reader too. -->
   {#if foldable}
-    <button
-      type="button"
+    <div
+      role="button"
+      tabindex="0"
       class="tool-step f-{fam} h-{slot} {s.state} foldable"
       aria-expanded={shown}
       title={t('chat.diffToggle')}
       onclick={() => (openDiffs[key] = !shown)}
+      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDiffs[key] = !shown } }}
     >
       {@render stepFace(s, live)}
       <span class="fold-caret"><Icon name={shown ? 'chevronUp' : 'chevronDown'} size={12} /></span>
-    </button>
+    </div>
     {#if shown}
       <div class="tool-diff"><CodeDiff diff={s.diff ?? ''} /></div>
     {/if}
+  {:else if isTerm}
+    <div
+      role="button"
+      tabindex="0"
+      class="tool-step f-{fam} h-{slot} {s.state} foldable"
+      aria-expanded={termShown}
+      title={t('chat.cmdToggle')}
+      onclick={() => (openTerminals[termKey] = !termShown)}
+      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTerminals[termKey] = !termShown } }}
+    >
+      {@render stepFace(s, live)}
+      <span class="fold-caret"><Icon name={termShown ? 'chevronUp' : 'chevronDown'} size={12} /></span>
+    </div>
+    {#if termShown}
+      {@render terminalDrawer(s, live)}
+    {/if}
+  {:else if isRead && rowSubject}
+    <div
+      role="button"
+      tabindex="0"
+      class="tool-step f-{fam} h-{slot} {s.state} file-row"
+      title={t('chat.openInEditor') + ': ' + rowSubject}
+      onclick={() => void openFileTab(rowSubject, rowParts.tail)}
+      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void openFileTab(rowSubject, rowParts.tail) } }}
+    >
+      {@render stepFace(s, live)}
+    </div>
   {:else}
     <!-- The failure reason rides in the tooltip, not in the row. Printed
          inline it was a full-width red sentence, and a tool that fails three
@@ -3702,12 +3867,32 @@
   {/if}
   <span class="verb">{verbKey ? t(verbKey) : toolFallbackVerb(s)}</span>
   {#if subject}
+    {@const canOpen = isFileSubject(s, subject)}
     <!-- The subject in mono, cut where the path stops locating and starts
          naming. `internal/skill/` is scaffolding the eye should skip; the file
          name at the end is the thing the row is about. One ink for both made
          every row a sixty-character scan for its last eight. -->
-    <span class="subj" title={subject}
-      >{#if parts.head}<span class="path">{parts.head}</span>{/if}{parts.tail}</span>
+    {#if canOpen}
+      <span
+        role="button"
+        tabindex="0"
+        class="subj is-file"
+        title={t('chat.openInEditor') + ': ' + subject}
+        onclick={(e) => {
+          e.stopPropagation()
+          void openFileTab(subject, parts.tail)
+        }}
+        onkeydown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            e.stopPropagation()
+            void openFileTab(subject, parts.tail)
+          }
+        }}>{#if parts.head}<span class="path">{parts.head}</span>{/if}{parts.tail}</span>
+    {:else}
+      <span class="subj" title={subject}
+        >{#if parts.head}<span class="path">{parts.head}</span>{/if}{parts.tail}</span>
+    {/if}
   {/if}
   {#if s.answer}
     <!-- The other half of an exchange. `subject` above is the question the model
@@ -3741,8 +3926,24 @@
     {#if s.git}
       <!-- The file's git letter, the vocabulary every editor already taught:
            M modified, U untracked, A added, D deleted. Only when there is one —
-           a clean file wears nothing. -->
-      <span class="git-badge g-{s.git}">{s.git}</span>
+           a clean file wears nothing. Click to open Git working tree in Workbench. -->
+      <span
+        role="button"
+        tabindex="0"
+        class="git-badge g-{s.git}"
+        title={t('chat.gitBadgeTitle', { status: s.git })}
+        aria-label={t('chat.gitBadgeTitle', { status: s.git })}
+        onclick={(e) => {
+          e.stopPropagation()
+          openGitTab()
+        }}
+        onkeydown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            e.stopPropagation()
+            openGitTab()
+          }
+        }}>{s.git}</span>
     {/if}
     {#if s.problems}
       <!-- The self-check found the file broken after this change. The mark that
@@ -3857,8 +4058,9 @@
      every stretch read back from the store. -->
 {#snippet roundBoxes(steps: ToolStep[], from: number, bounds: number[], live: boolean, windowed: boolean)}
   {@const cuts = bounds.map((b) => b - from).filter((b) => b > 0 && b < steps.length)}
+  {@const latestTool = steps.filter((s) => !s.kind).at(-1)}
   {#each [0, ...cuts] as start, i (start)}
-    {@render toolTimeline(steps.slice(start, cuts[i] ?? steps.length), live, windowed)}
+    {@render toolTimeline(steps.slice(start, cuts[i] ?? steps.length), live, windowed, latestTool)}
   {/each}
 {/snippet}
 
@@ -3868,8 +4070,9 @@
      working. Opened tomorrow the same list is the whole record, at whatever
      height it needs — the cap is about a thing in motion, which is the same
      line .reasoning-body.live draws. -->
-{#snippet toolTimeline(steps: ToolStep[], live: boolean, windowed: boolean)}
+{#snippet toolTimeline(steps: ToolStep[], live: boolean, windowed: boolean, latestTool?: ToolStep)}
   {@const realTools = steps.filter((s) => !s.kind)}
+  {@const latest = latestTool ?? realTools.at(-1)}
   <!-- toolGlide adds the block that travels to whichever row is live, and
        toolArrive deals a batch of new rows out one after another. Both are
        handed `live` rather than left to discover there is nothing to do: a
@@ -3886,12 +4089,12 @@
   >
     {#if realTools.length > 1}
       {#each steps.filter((s) => s.kind) as meta}
-        {@render toolRow(meta, live)}
+        {@render toolRow(meta, live, false)}
       {/each}
       {@render parallelCard(realTools, live)}
     {:else}
       {#each steps as s}
-        {@render toolRow(s, live)}
+        {@render toolRow(s, live, s === latest)}
       {/each}
     {/if}
   </div>
@@ -6056,6 +6259,18 @@
                        full rate every round — which is where "Aetox eats
                        tokens" comes from. -->
                   <div class="ctx-note">{t('chat.contextCached', { cached: fmtTokens(ctx.cachedTokens) })}</div>
+                {/if}
+                {#if (ctxKnown ? ctxPct >= 30 : (ctx?.usedTokens ?? 0) >= 30000)}
+                  <button
+                    type="button"
+                    class="ctx-compact-btn"
+                    disabled={compacting || awaitingReply}
+                    aria-label={t('chat.compactContext')}
+                    onclick={triggerCompact}
+                  >
+                    <Icon name="scissors" size={12} />
+                    <span>{compacting ? t('chat.compacting') : t('chat.compactContext')}</span>
+                  </button>
                 {/if}
                 <!-- What the turn has actually spent, under what the next
                      request will weigh. Two different facts that share a unit,

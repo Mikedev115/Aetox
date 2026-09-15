@@ -669,6 +669,7 @@ function stepsFromParts(parts?: TurnPart[]): ToolStep[] | undefined {
       agent: tool.agent || undefined,
       brief: tool.brief || undefined,
       agentKind: tool.agentKind || undefined,
+      task: tool.task || undefined,
       delegation: tool.delegation,
       startedAt: 0,
     })
@@ -3348,20 +3349,22 @@ function listFor(live: ParkedTurn, ev: ToolEvent): ToolStep[] {
  * either way, so stamping the one in the message updates what is on screen.
  */
 function joinDelegationToRegister(home: ParkedTurn, ev: ToolEvent): void {
-  if (!ev.parent || !ev.task) return
+  if (!ev.task) return
+  const targetRef = ev.parent || ev.ref
+  if (!targetRef) return
   // A delegation running inside this turn is a delegation the register knows
   // about, and until this the poll was armed only by a *background* event or by
   // the turn ending — so for the whole time a delegate worked inside its turn,
   // the list its card reads was empty and the card fell back to the row it was
   // written to ignore. The clock froze exactly where it had before.
   if (!bgPollTimer) void refreshBackgroundTasks()
-  const live = home.toolSteps.find((s) => s.ref === ev.parent)
+  const live = home.toolSteps.find((s) => s.ref === targetRef)
   if (live) {
     live.task ||= ev.task
     return
   }
   for (let i = home.chat.length - 1; i >= 0; i--) {
-    const row = home.chat[i].steps?.find((s) => s.ref === ev.parent)
+    const row = home.chat[i].steps?.find((s) => s.ref === targetRef)
     if (row) {
       row.task ||= ev.task
       return
@@ -3509,6 +3512,10 @@ export function applyToolEvent(stamped: SessionEvent<ToolEvent> | ToolEvent): vo
   if (ev.subject) step.subject = ev.subject
   if (ev.name) step.name = ev.name
   if (ev.act) step.act = ev.act
+  if (ev.task) {
+    step.task = ev.task
+    if (!bgPollTimer) void refreshBackgroundTasks()
+  }
   step.state = ev.ok ? 'done' : 'err'
   step.secs = Math.round((Date.now() - step.startedAt) / 1000)
   step.error = ev.ok ? undefined : ev.error

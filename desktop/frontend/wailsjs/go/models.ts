@@ -3944,6 +3944,7 @@ export namespace turn {
 	    agent?: string;
 	    brief?: string;
 	    agentKind?: string;
+	    task?: string;
 	    delegation?: boolean;
 	    children?: TurnPart[];
 	    ok: boolean;
@@ -3973,6 +3974,7 @@ export namespace turn {
 	        this.agent = source["agent"];
 	        this.brief = source["brief"];
 	        this.agentKind = source["agentKind"];
+	        this.task = source["task"];
 	        this.delegation = source["delegation"];
 	        this.children = this.convertValues(source["children"], TurnPart);
 	        this.ok = source["ok"];

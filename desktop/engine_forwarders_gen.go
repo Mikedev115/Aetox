@@ -199,6 +199,10 @@ func (a *App) CommandHistory() []string {
 	return a.api.CommandHistory()
 }
 
+func (a *App) CompactSession(sessionID string) (engine.ContextBreakdown, error) {
+	return a.api.CompactSession(sessionID)
+}
+
 func (a *App) CompleteMCPSignIn(serverName string) error {
 	return a.api.CompleteMCPSignIn(serverName)
 }

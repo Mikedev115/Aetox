@@ -359,6 +359,8 @@ export interface ToolPartInfo {
    *  (ซับเอเจน). Stamped by the engine — the kind is decided by which home
    *  the profile file lives in, which only the engine can see. */
   agentKind?: string
+  /** The registered delegation handle ID ("task_1"). */
+  task?: string
   /** Whether this `task` row hired anybody. Written down with the turn, so a
    *  reopened session draws the same blocks the live one did. */
   delegation?: boolean
@@ -1224,6 +1226,8 @@ export interface CockpitState {
   streamingText: string
   /** Model's reasoning/thinking tokens streamed so far this turn, from agent:reasoning events. '' when idle or the provider doesn't stream reasoning. */
   reasoningText: string
+  /** Text staged to carry into the chat composer, e.g. from Guide or prompt transfers. */
+  composerText?: string
   /** The local runtime is loading this turn's model into memory — a wait that
    *  looks exactly like a hung app until something says so. null otherwise. */
   modelLoading: ModelLoading | null
@@ -1391,6 +1395,7 @@ export function emptyCockpitState(): CockpitState {
     sessionSpend: emptySessionSpend(),
     streamingText: '',
     reasoningText: '',
+    composerText: '',
     modelLoading: null,
     limitWait: null,
     ask: null,

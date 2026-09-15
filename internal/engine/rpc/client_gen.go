@@ -330,6 +330,12 @@ func (c *Client) CommandHistory() []string {
 	return out0
 }
 
+func (c *Client) CompactSession(sessionID string) (engine.ContextBreakdown, error) {
+	var out0 engine.ContextBreakdown
+	err := c.call("CompactSession", []any{sessionID}, &out0)
+	return out0, err
+}
+
 func (c *Client) CompleteMCPSignIn(serverName string) error {
 	return c.call("CompleteMCPSignIn", []any{serverName}, nil)
 }

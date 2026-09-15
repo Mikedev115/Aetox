@@ -67,6 +67,7 @@ type API interface {
 	CloseGuideSession(id string) error
 	CodeProjectsDir() string
 	CommandHistory() []string
+	CompactSession(sessionID string) (ContextBreakdown, error)
 	CompleteMCPSignIn(serverName string) error
 	CompressArtifacts(paths []string) (CompressReport, error)
 	ComputerControlChanged()

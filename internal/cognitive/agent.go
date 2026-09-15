@@ -60,14 +60,14 @@ const (
 	compactKeepRecent        = 6
 	compactSummaryMaxTokens  = 2048
 
-	// The micro sweep (Claude Code-style micro-compact) runs earlier, at 60%:
-	// old re-obtainable tool outputs are cleared in one batch, which often
-	// keeps the session from reaching 80% at all — a sweep costs nothing where
-	// a summary costs a model call and loses detail. One batch at a threshold
-	// rather than every turn, because each sweep breaks the provider's prompt
-	// cache from the first cleared message onward: pay that once per crossing,
-	// not per round (docs/aider-study/EXECUTION.md ระดับ 3).
-	microCompactThresholdFraction = 0.6
+	// The micro sweep (Claude Code-style micro-compact) runs earlier, at 40%:
+	// old re-obtainable tool outputs are cleared in one batch (tuned for Hermes
+	// ethos where current tools are re-run to inspect live code, so past tool outputs
+	// become obsolete sooner). One batch at a threshold rather than every turn,
+	// because each sweep breaks the provider's prompt cache from the first cleared
+	// message onward: pay that once per crossing, not per round
+	// (docs/aider-study/EXECUTION.md ระดับ 3).
+	microCompactThresholdFraction = 0.4
 
 	// How many times one turn may answer a provider's "too long" by summarizing
 	// and trying again.
@@ -1391,6 +1391,20 @@ func (a *Agent) compactNow(ctx context.Context) bool {
 		return false
 	}
 	return a.compact(ctx)
+}
+
+// CompactContext forces an on-demand micro-sweep of old tool outputs, followed
+// by summarization of older history if eligible. Returns swept count and whether
+// summarization occurred.
+func (a *Agent) CompactContext(ctx context.Context) (swept int, summarized bool, err error) {
+	if a == nil || a.context == nil {
+		return 0, false, nil
+	}
+	swept, _ = a.context.MicroCompact(compactKeepRecent, sweepableToolOutputs)
+	if a.provider != nil {
+		summarized = a.compact(ctx)
+	}
+	return swept, summarized, nil
 }
 
 // compact is the summarization itself, with no opinion about whether it should

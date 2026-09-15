@@ -109,6 +109,10 @@ type ToolPart struct {
 	Agent     string `json:"agent,omitempty"`
 	Brief     string `json:"brief,omitempty"`
 	AgentKind string `json:"agentKind,omitempty"`
+	// Task is the delegation's registered handle ID ("task_1"), preserved so a
+	// reopened session can join the card to its register record and avoid
+	// falling back to a misleading done state.
+	Task string `json:"task,omitempty"`
 	// Delegation is ToolEvent.Delegation written down: whether this `task` row
 	// hired anybody, or was one of the four actions that do not. A reopened
 	// session reads only the parts, so leaving it off the transcript would fix

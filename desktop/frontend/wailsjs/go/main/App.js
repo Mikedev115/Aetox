@@ -354,6 +354,10 @@ export function CommandHistory() {
   return window['go']['main']['App']['CommandHistory']();
 }
 
+export function CompactSession(arg1) {
+  return window['go']['main']['App']['CompactSession'](arg1);
+}
+
 export function CompanionSpriteKeys(arg1) {
   return window['go']['main']['App']['CompanionSpriteKeys'](arg1);
 }
