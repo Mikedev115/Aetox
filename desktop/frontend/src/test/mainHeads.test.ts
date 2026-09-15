@@ -92,16 +92,15 @@ describe('a head\'s page', () => {
     // head: the desk row is the job, not the head's description again (the
     // hero has that).
     const firstTab = container.querySelector('.ag-tab-panel.on')?.textContent ?? ''
-    expect(firstTab).toContain('หน้าที่หลัก')
-    expect(firstTab).toContain('ตัวตนของผู้ช่วย')
-    expect(firstTab).toContain('ท่าทีของผู้ช่วย')
-    expect(firstTab).not.toContain('มัน')
-    expect(firstTab).not.toContain('ไฟล์โต๊ะ')
-    expect(container.querySelector('.ag-tab-panel.on')?.textContent).toContain('modes/assistant.md')
+    expect(firstTab).toContain('นิสัยและตัวตน')
+    expect(firstTab).toContain('พื้นฐาน (มาตรฐาน)')
+    expect(firstTab).toContain('กำหนดเอง (Custom)')
+    expect(firstTab).not.toContain('หน้าที่หลัก')
+    expect(firstTab).not.toContain('modes/assistant.md')
 
     await fireEvent.click(Array.from(container.querySelectorAll('.pp-bar .ctrl')).find((b) => b.textContent?.includes('ไปที่ โค้ด'))!)
     await waitFor(() => expect(container.querySelector('.pf-hero .pf-name')?.textContent?.trim()).toBe('โค้ด ตัวหลัก'))
-    expect(container.querySelector('.ag-tab-panel.on')?.textContent).toContain('modes/coding.md')
+    expect(container.querySelector('.ag-tab-panel.on')?.textContent).not.toContain('modes/coding.md')
 
     await fireEvent.click(Array.from(container.querySelectorAll('.pp-bar .ctrl'))[0])
     await waitFor(() => expect(cards(container).length).toBe(2))
@@ -193,12 +192,14 @@ describe('a head\'s page', () => {
 // 2026: "คำสั่งประจำตัวพวกนี้ผูกกับเอเจนหลัก … แยกกันทั้งสองตัว เอาไว้ที่ส่วนตัวตน",
 // "เอา โต๊ะ ออก แล้วเอา modes/coding.md มาแสดงให้คนปรับแต่งได้ … คืนค่าเริ่มต้นได้เสมอ
 // ก่อนคืนค่าให้ถามยืนยัน", "เอา เพิ่มไฟล์คำสั่งใหม่ ออก".
-const openHead = async (which: 0 | 1) => {
+const openHead = async (which: 0 | 1, persona: 'default' | 'custom' = 'custom') => {
+  localStorage.setItem('aetox_persona_assistant', persona)
+  localStorage.setItem('aetox_persona_coding', persona)
   const r = render(Settings, { onClose: () => {} })
   await openSection(r.container, 'ตัวหลัก')
   await waitFor(() => expect(cards(r.container).length).toBe(2))
   await fireEvent.click(cards(r.container)[which].querySelector('.icobtn')!)
-  await waitFor(() => expect(r.container.querySelector('.ag-tab-panel.on')?.textContent).toContain('modes/'))
+  await waitFor(() => expect(r.container.querySelector('.ag-tab-panel.on')?.textContent).toContain('นิสัยและตัวตน'))
   return r
 }
 const panel = (c: HTMLElement) => c.querySelector('.ag-tab-panel.on') as HTMLElement
@@ -212,31 +213,34 @@ describe('ตัวตน', () => {
   })
 
   // One folder per head: the list is the head's own, and crossing to the
-  // other head reads the other folder. The three files are always offered;
-  // a hand-made file on disk is still listed; nothing here makes a new one.
-  it("lists the desk file and this head's own four files, and reads the other head's when crossing", async () => {
-    const { container } = await openHead(0)
+  // other head reads the other folder. The persona templates are offered in custom mode;
+  // context.md is a dedicated card accessible outside the preset.
+  it("lists this head's own files in custom mode, and reads the other head's when crossing", async () => {
+    const { container } = await openHead(0, 'custom')
     await waitFor(() => expect(ListIdentityFiles).toHaveBeenCalledWith('assistant'))
-    await waitFor(() => expect(rowNames(container)).toEqual(['modes/assistant.md', 'identity.md', 'thinking.md', 'context.md', 'notes.md']))
-    // context.md exists on this head, identity.md does not: one is opened, the other created.
+    await waitFor(() => expect(rowNames(container)).toEqual(['identity.md', 'thinking.md', 'notes.md']))
+    // Dedicated context.md card is visible with its scope badge and content.
+    expect(panel(container).querySelector('.mem-badge-file')?.textContent).toBe('context.md')
+    await waitFor(() => expect(panel(container).textContent).toContain('ทำ Aetox อยู่'))
+
+    // identity.md does not exist on assistant, so it offers "สร้างไฟล์".
     const rows = Array.from(panel(container).querySelectorAll('.set-row'))
-    expect(rows.find((r) => r.textContent?.includes('context.md'))?.textContent).toContain('เปิดแก้ไข')
     expect(rows.find((r) => r.textContent?.includes('identity.md'))?.textContent).toContain('สร้างไฟล์')
     expect(container.querySelector('.identity-newfile-input')).toBeNull()
     expect(panel(container).textContent).not.toContain('เพิ่มไฟล์คำสั่งใหม่')
 
     await fireEvent.click(Array.from(container.querySelectorAll('.pp-bar .ctrl')).find((b) => b.textContent?.includes('ไปที่ โค้ด'))!)
     await waitFor(() => expect(ListIdentityFiles).toHaveBeenCalledWith('coding'))
-    await waitFor(() => expect(rowNames(container)).toEqual(['modes/coding.md', 'identity.md', 'thinking.md', 'context.md']))
+    await waitFor(() => expect(rowNames(container)).toEqual(['identity.md', 'thinking.md']))
   })
 
-  // The editor is a row until asked for; a save goes to THIS head's folder.
+  // The context card opens full markdown editor and saves to THIS head's folder.
   it('opens a file behind its row and saves it to this head', async () => {
-    const { container } = await openHead(0)
-    await waitFor(() => expect(rowNames(container)).toContain('context.md'))
+    const { container } = await openHead(0, 'custom')
+    await waitFor(() => expect(panel(container).textContent).toContain('context.md'))
     expect(container.querySelector('textarea[aria-label="context.md"]')).toBeNull()
-    const row = Array.from(panel(container).querySelectorAll('.set-row')).find((r) => r.textContent?.includes('context.md'))!
-    await fireEvent.click(row.querySelector('.ctrl')!)
+    const editBtn = Array.from(panel(container).querySelectorAll('.ctrl')).find((b) => b.textContent?.includes('เปิดแก้ไขทั้งไฟล์'))!
+    await fireEvent.click(editBtn)
     const box = await waitFor(() => container.querySelector('textarea[aria-label="context.md"]') as HTMLTextAreaElement)
     expect(ReadIdentityFile).toHaveBeenCalledWith('assistant', 'context.md')
     await waitFor(() => expect(box.value).toContain('ทำ Aetox อยู่'))
@@ -247,7 +251,7 @@ describe('ตัวตน', () => {
 
   // "+" writes the template into this head's folder and opens it.
   it('creates a missing file from its template, for this head', async () => {
-    const { container } = await openHead(1)
+    const { container } = await openHead(1, 'custom')
     await waitFor(() => expect(rowNames(container)).toContain('thinking.md'))
     const row = Array.from(panel(container).querySelectorAll('.set-row')).find((r) => r.textContent?.includes('thinking.md'))!
     await fireEvent.click(row.querySelector('.ctrl')!)
@@ -255,39 +259,34 @@ describe('ตัวตน', () => {
     await waitFor(() => expect(container.querySelector('textarea[aria-label="thinking.md"]')).toBeTruthy())
   })
 
-  // The desk file: the whole text behind its row, a save through the
-  // binding, and the way back to the bundled file — asked first.
-  it('edits the desk file whole, and restores the default only after asking', async () => {
-    const { container } = await openHead(1)
-    await waitFor(() => expect(ReadDeskFile).toHaveBeenCalledWith('coding'))
-    // Not overridden yet: nothing to restore.
-    expect(Array.from(panel(container).querySelectorAll('.ctrl')).some((b) => b.textContent?.includes('คืนค่าเริ่มต้น'))).toBe(false)
-    const deskRow = Array.from(panel(container).querySelectorAll('.set-row')).find((r) => r.textContent?.includes('modes/coding.md'))!
-    await fireEvent.click(deskRow.querySelector('.ctrl')!)
-    const box = await waitFor(() => container.querySelector('textarea[aria-label="modes/coding.md"]') as HTMLTextAreaElement)
-    expect(box.value).toContain('This session is coding work.')
-    const edited = box.value + '\n\nAlways run the tests.'
-    await fireEvent.input(box, { target: { value: edited } })
-    vi.mocked(ReadDeskFile).mockResolvedValue({ name: 'coding', text: edited, overrides: true } as any)
-    await fireEvent.click(Array.from(container.querySelectorAll('.you-save .ctrl-primary'))[0])
-    await waitFor(() => expect(SaveDeskFile).toHaveBeenCalledWith('coding', expect.stringContaining('Always run the tests.')))
-    await waitFor(() => expect(panel(container).textContent).toContain('แก้ไว้เอง'))
+  // Persona presets: default shows summary without custom files list;
+  // switching to custom reveals the files list and editor.
+  // Dedicated context card is visible in both presets.
+  it('switches between default preset and custom preset', async () => {
+    const { container } = await openHead(1, 'default')
+    expect(panel(container).textContent).toContain('พื้นฐาน (มาตรฐาน)')
+    expect(panel(container).textContent).toContain('กำลังใช้งาน')
+    // In default preset, the custom files list is hidden.
+    expect(rowNames(container).length).toBe(0)
+    // But context.md dedicated card is still present.
+    expect(panel(container).textContent).toContain('context.md')
 
-    // Now overridden: the way back is offered, and it asks before acting.
-    const reset = await waitFor(() => Array.from(panel(container).querySelectorAll('.ctrl')).find((b) => b.textContent?.includes('คืนค่าเริ่มต้น'))!)
-    await fireEvent.click(reset)
-    expect(ResetDeskFile).not.toHaveBeenCalled()
-    await waitFor(() => expect(screen.getByText('คืนหน้าที่เป็นค่าเริ่มต้นของแอป?')).toBeTruthy())
-    const confirm = Array.from(document.querySelectorAll('.confirm-actions button, .modal button')).find((b) => b.textContent?.trim() === 'คืนค่าเริ่มต้น') as HTMLButtonElement
-    await fireEvent.click(confirm)
-    await waitFor(() => expect(ResetDeskFile).toHaveBeenCalledWith('coding'))
+    // Click on custom preset to switch.
+    const customRow = Array.from(panel(container).querySelectorAll('.set-row')).find((r) => r.textContent?.includes('กำหนดเอง (Custom)'))!
+    await fireEvent.click(customRow.querySelector('.ctrl')!)
+    await waitFor(() => expect(rowNames(container)).toEqual(['identity.md', 'thinking.md']))
+
+    // Switch back to default preset.
+    const defaultRow = Array.from(panel(container).querySelectorAll('.set-row')).find((r) => r.textContent?.includes('พื้นฐาน (มาตรฐาน)'))!
+    await fireEvent.click(defaultRow.querySelector('.ctrl')!)
+    await waitFor(() => expect(rowNames(container).length).toBe(0))
   })
 
   // context.md is the head's, not the person's: on this tab and nowhere on
   // เกี่ยวกับคุณ (it sat there for a morning).
   it('keeps context.md here and off เกี่ยวกับคุณ', async () => {
     const { container } = await openHead(0)
-    await waitFor(() => expect(rowNames(container)).toContain('context.md'))
+    await waitFor(() => expect(panel(container).textContent).toContain('context.md'))
     await openSection(container, 'เกี่ยวกับคุณ')
     await waitFor(() => expect(screen.getByText('ชื่อของคุณ')).toBeTruthy())
     expect(container.textContent).not.toContain('context.md')
