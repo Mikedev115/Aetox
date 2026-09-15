@@ -210,17 +210,22 @@
     document.body.classList.add('guide-mode')
     if (!placed) home()
 
+    // The guide listens; it does not intercept. An open guide used to swallow
+    // the click — preventDefault + stopPropagation — so the app went read-only
+    // while it was up, and a person who opened it to understand a button could
+    // no longer press that button (owner, 15 ก.ย. 2026: "เวลาไกด์ทำงานไม่ควร
+    // ทำให้ผู้ใช้กดไม่ได้สิ แต่เวลาผู้ใช้กดมันแค่อธิบายก็พอ"). Now the press
+    // happens as it always would and the explanation arrives beside it, which
+    // is also the only way to explain a button by what it DID.
+    //
+    // Passive and in the bubble phase: nothing here can cancel or reorder the
+    // page's own handling, by construction rather than by care.
     const onDocClick = (e: MouseEvent) => {
       if (!guide.on || guide.pressing) return
       const target = e.target as HTMLElement | null
       if (!target || target.closest('.guide-ui')) return
-      const guideEl = target.closest<HTMLElement>('[data-guide]')
-      if (!guideEl) return
-      const id = guideEl.getAttribute('data-guide')
-      if (!id) return
-      e.preventDefault()
-      e.stopPropagation()
-      guide.explain(id)
+      const id = target.closest<HTMLElement>('[data-guide]')?.getAttribute('data-guide')
+      if (id) guide.explain(id)
     }
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -238,13 +243,13 @@
       }
     })
 
-    document.addEventListener('click', onDocClick, true)
+    document.addEventListener('click', onDocClick, { passive: true })
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('resize', onResize)
 
     return () => {
       document.body.classList.remove('guide-mode')
-      document.removeEventListener('click', onDocClick, true)
+      document.removeEventListener('click', onDocClick)
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('resize', onResize)
       offGuide()
@@ -335,12 +340,8 @@
 </div>
 
 <style>
-  :global(body.guide-mode) {
-    cursor: help !important;
-  }
-  :global(body.guide-mode .guide-ui, body.guide-mode .guide-ui *) {
-    cursor: default !important;
-  }
+  /* No cursor override: the app is fully usable while the guide is up, and a
+     help cursor over a button that really does press would be a lie. */
 
   /* the pill: top centre, clear of the top bar's ends, where nothing sits */
   .guide-banner {

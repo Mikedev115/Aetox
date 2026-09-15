@@ -6,6 +6,7 @@ import { mapPick } from '../lib/guide/mapPick'
 import { GUIDE_ROUTES } from '../lib/guide/routes'
 import { GUIDE_MAP } from '../lib/guide/map'
 import { isShortcut, shortcutLabel } from '../lib/shortcuts'
+import { greetingFor } from '../lib/guide/greeting'
 import Guide from '../lib/guide/Guide.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import { th } from '../lib/locales/th'
@@ -179,7 +180,7 @@ describe('the guide on screen', () => {
     expect(container.querySelector('.say-map-badge')?.textContent).toBe(th['guide.fromMap'])
   })
 
-  it('turns a click on a mapped element into a question about it, and only while open', async () => {
+  it('explains a clicked element without taking the click away', async () => {
     const search = mapped('sidebar.search')
     const clicked = vi.fn()
     search.addEventListener('click', clicked)
@@ -187,14 +188,16 @@ describe('the guide on screen', () => {
     const { unmount } = render(Guide)
     await tick()
     await fireEvent.click(search)
-    expect(clicked).not.toHaveBeenCalled()
+    // The app stays usable while the guide is up: the button did its job, and
+    // the guide walked over to say what that job was.
+    expect(clicked).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(guide.stopId).toBe('sidebar.search'))
     // Esc closes the guide; a click then presses as it always did.
     await fireEvent.keyDown(window, { key: 'Escape' })
     await waitFor(() => expect(guide.on).toBe(false))
     unmount()
     await fireEvent.click(search)
-    expect(clicked).toHaveBeenCalledTimes(1)
+    expect(clicked).toHaveBeenCalledTimes(2)
   })
 
   it('says a model\'s answer where it stands, without walking', async () => {
@@ -229,5 +232,37 @@ describe('the doors into the guide', () => {
       expect(GUIDE_MAP.find((e) => e.id === id), id).toBeTruthy()
       expect(th[`guide.${id}.name` as keyof typeof th], id).toBeTruthy()
     }
+  })
+})
+
+describe('what it says when it arrives', () => {
+  it('names the room it finds you in and asks what is unclear', () => {
+    // jsdom gives every element a zero rect unless one is stubbed, and
+    // explainableOnScreen counts only what has size — so the stub IS the test.
+    mapped('chat.send', { width: 36, height: 36 })
+    mapped('topbar.door', { width: 120, height: 32 })
+    const inChat = greetingFor('chat')
+    expect(inChat).toContain(th['guide.room.chat'])
+    expect(inChat).toContain('2') // the two mapped things on screen
+    expect(inChat).toMatch(/[?？]|ไหม|หรือเปล่า/)
+
+    document.body.innerHTML = ''
+    const bare = greetingFor('settings')
+    expect(bare).toContain(th['guide.room.settings'])
+    expect(bare).not.toContain('0') // never promises what it cannot point at
+  })
+
+  it('still asks when it does not know the room', () => {
+    const unknown = greetingFor('some-new-room-nobody-mapped')
+    expect(unknown).toBe(th['guide.greetPlain'])
+    expect(unknown).toMatch(/[?？]|ไหม/)
+  })
+
+  it('greets by room when opened to be asked, rather than walking a route', async () => {
+    cockpit.activeView = 'settings'
+    await guide.start()
+    expect(guide.route).toBeNull()
+    expect(guide.stopId).toBeNull()
+    expect(guide.sentence).toContain(th['guide.room.settings'])
   })
 })

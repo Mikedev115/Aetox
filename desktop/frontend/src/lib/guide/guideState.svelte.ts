@@ -10,6 +10,7 @@ import { GUIDE_MAP } from './map'
 import { GUIDE_ROUTES, type GuideRouteId } from './routes'
 import { openPage } from './pages'
 import { mapPick } from './mapPick'
+import { greetingFor } from './greeting'
 import { t } from '../i18n.svelte'
 import { cockpit } from '../stores/cockpit.svelte'
 import { NewGuideSession, AskGuide, CloseGuideSession } from '../../../wailsjs/go/main/App'
@@ -87,10 +88,12 @@ class GuideStore {
       this.route = null
       await this.goTo(initialStopId)
     } else {
-      // Opened to be asked: the figure appears where it rests and says so.
+      // Opened to be asked. It greets by the room the user is standing in and
+      // asks what is unclear there — somebody coming to look, not a search box
+      // with a face (greeting.ts).
       this.route = null
       this.stopId = null
-      this.say(t('guide.hello'))
+      this.say(greetingFor(String(cockpit.activeView)))
     }
   }
 
@@ -164,7 +167,9 @@ class GuideStore {
     this.saySeq++
   }
 
-  /** A click on any mapped element while the guide is open explains it (§4.4). */
+  /** A click on any mapped element while the guide is open ALSO explains it.
+   *  The click itself is never taken away — see the listener in Guide.svelte
+   *  for why holding the app still was the wrong trade. */
   explain(id: string) {
     void this.goTo(id)
   }
