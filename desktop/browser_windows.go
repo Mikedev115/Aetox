@@ -707,22 +707,21 @@ func await(att *startAttempt) error {
 func findOwnMainWindow() uintptr {
 	self := uint32(os.Getpid())
 	var found uintptr
-	cb := syscall.NewCallback(func(hwnd, _ uintptr) uintptr {
+	enumWindows(func(hwnd uintptr) bool {
 		var pid uint32
 		procGetWindowThreadProcessID.Call(hwnd, uintptr(unsafe.Pointer(&pid)))
 		if pid != self {
-			return 1 // keep enumerating
+			return true // keep enumerating
 		}
 		if vis, _, _ := procIsWindowVisible.Call(hwnd); vis == 0 {
-			return 1
+			return true
 		}
 		if ex, _, _ := procGetWindowLongPtrW.Call(hwnd, uintptr(gwlExStyle)); ex&wsExToolWindow != 0 {
-			return 1
+			return true
 		}
 		found = hwnd
-		return 0 // stop
+		return false // stop
 	})
-	procEnumWindows.Call(cb, 0)
 	return found
 }
 

@@ -85,26 +85,26 @@ func reachListWindows() ([]reachTarget, error) {
 	self := int32(os.Getpid())
 	var out []reachTarget
 
-	cb := syscall.NewCallback(func(hwnd, _ uintptr) uintptr {
+	r, err := enumWindows(func(hwnd uintptr) bool {
 		if vis, _, _ := procIsWindowVisible.Call(hwnd); vis == 0 {
-			return 1
+			return true
 		}
 		// Owned windows and tool windows are palettes, tooltips and dropdowns —
 		// parts of another window rather than windows a person switches to.
 		if owner, _, _ := procGetWindow.Call(hwnd, gwOwner); owner != 0 {
-			return 1
+			return true
 		}
 		if ex, _, _ := procGetWindowLongPtrW.Call(hwnd, uintptr(gwlExStyle)); ex&wsExToolWindow2 != 0 {
-			return 1
+			return true
 		}
 		title := windowTitle(hwnd)
 		if title == "" {
-			return 1
+			return true
 		}
 		var pid uint32
 		procGetWindowThreadProcessID.Call(hwnd, uintptr(unsafe.Pointer(&pid)))
 		if pid == 0 {
-			return 1
+			return true
 		}
 		out = append(out, reachTarget{
 			HWND:  hwnd,
@@ -112,9 +112,9 @@ func reachListWindows() ([]reachTarget, error) {
 			Exe:   processImage(pid),
 			Title: title,
 		})
-		return 1
+		return true
 	})
-	if r, _, err := procEnumWindows.Call(cb, 0); r == 0 && len(out) == 0 {
+	if r == 0 && len(out) == 0 {
 		return nil, win32Error{call: "EnumWindows", code: errnoOf(err)}
 	}
 	// Aetox's own windows never appear. Not merely refused when aimed at —
