@@ -15,6 +15,32 @@
 
 ---
 
+## หนึ่งรุ่น = สองไฟล์ exe เสมอ
+
+ตั้งแต่ §248 (13 ก.ย. 2026) โปรแกรมบน Windows คือสองไฟล์ที่อยู่ข้างกัน:
+`aetox.exe` (หน้าต่าง) และ `aetox-engine.exe` (สมอง — โมเดล เครื่องมือ ฐานข้อมูล)
+ทั้งคู่บิ้วจาก **คอมมิตเดียวกัน ถือเลขรุ่นเดียวกัน** และคุยกันผ่านซ็อกเก็ตที่ไม่สัญญาว่า
+รุ่นต่างกันจะเข้าใจกัน — ดังนั้น **ไม่มีทางอัปแค่ไฟล์เดียว** และคุณไม่ต้องอัปแยกเอง:
+
+| ช่องทาง | ใครวางสองไฟล์ |
+|---|---|
+| ตัวติดตั้ง (NSIS) | ตัวติดตั้งวางทั้งคู่ใต้ Program Files ในครั้งเดียว |
+| แบบพกพา (zip) | zip มีทั้งคู่ และตัวอัปเดตในแอปสลับ **ทั้งคู่** ด้วยการ rename ทีละไฟล์ ([internal/update/apply.go](../internal/update/apply.go) `swapPortable`) — แอปที่รันอยู่ยังเป็นรุ่นเก่าจนเปิดใหม่ แล้วค่อยเป็นรุ่นใหม่พร้อมกัน |
+| Microsoft Store (.msix) | แพ็กเกจเดียวมีทั้งคู่ Windows สลับทั้งแพ็กเกจ |
+| Scoop | manifest ชี้ zip เดียวกัน |
+
+สิ่งที่ workflow ตรวจให้ก่อนจะปล่อย: `aetox-engine.exe` ต้องมี version block ที่บอก
+`Aetox <ver>` ตรงกับ `aetox.exe` (ขั้น "the .syso did not link" ใน release.yml ตั้งแต่ 1.7.2)
+และ `checksums.txt` มีแฮชของ **แต่ละ exe แยกบรรทัด** ไม่ใช่แค่ของ zip — เพื่อให้ไฟล์ที่ผู้ใช้
+กู้คืนจาก Defender ตรวจกับบรรทัดที่เซ็นแล้วได้
+
+เอนจินสำหรับเครื่องระยะไกล (`aetox-engine-linux-amd64` / `-arm64`) เป็นไฟล์ที่สามและสี่
+ของรุ่นเดียวกัน แต่ **ไม่ได้อยู่ในแพ็กเกจ** — แอปดึงจากหน้า release ตาม tag ของรุ่นตัวเอง
+ตอนที่ผู้ใช้ตั้งเครื่องระยะไกล ([internal/update/engine.go](../internal/update/engine.go))
+ถ้ารุ่นถูกลบหรือ asset สองตัวนี้หาย ฟีเจอร์เครื่องระยะไกลของรุ่นนั้นจะตายทั้งที่แอปยังใช้ได้
+
+---
+
 ## ลำดับ
 
 ### 1. ทรีต้องเขียวก่อน ไม่ใช่หลัง
@@ -121,6 +147,27 @@ gh release download v<ver> -p checksums.txt -D /tmp/rel
 ข้อที่พลาดมาแล้วสองรอบคือ **ถ้าขนาดเปลี่ยน ต้องหารตัวคูณ "เล็กกว่า X กี่เท่า" ใหม่ทุกตัว**
 ไม่ใช่แก้แค่ตัวตั้ง
 
+### 10. ส่งสอง exe ให้ Defender ตรวจ — ก่อนผู้ใช้จะเป็นคนเจอ
+
+ทำได้ทันทีที่ workflow เขียว (ไม่ต้องรอข้อ 6–9) แต่ต้องทำ **ทุกรุ่น** เพราะคำตัดสินของ
+Defender ผูกกับแฮชของไฟล์ รุ่นถัดไปคือไฟล์ใหม่ที่โมเดลตัดสินใหม่ได้ โดนมาแล้วสองครั้ง:
+ตัวติดตั้ง (`Program:Win32/Wacapew.C!ml`, 20 ส.ค. 2026) และ `aetox-engine.exe` ของ 1.7.1
+(`Trojan:Script/Wacatac.C!ml`, 15 ก.ย. 2026 — กักกลางเซสชันของผู้ใช้ รายการ provider ว่างทั้งแอป)
+ครั้งหลังไมโครซอฟท์ตอบว่าตรวจผิดภายในวันเดียว แต่ผู้ใช้เป็นคนพบก่อน
+
+1. เปิด https://www.microsoft.com/wdsi/filesubmission ด้วยบัญชี Microsoft ของเจ้าของ เลือก
+   **Software developer**
+2. ส่ง `aetox-windows-amd64-portable.zip` ของรุ่นจริงจากหน้า release (มีทั้ง `aetox.exe` และ
+   `aetox-engine.exe`) และ `aetox-amd64-installer.exe` — ระบุว่า Incorrect detection
+   และแปะลิงก์ release กับ README หัวข้อ Windows Defender
+3. จด Submission ID ไว้ใน `docs/release-notes/v<ver>.md` (บรรทัดเดียว) — เวลามีคนแจ้งว่า
+   "provider ไม่แสดง / ไม่พบ aetox-engine.exe" จะได้ตอบด้วย ID แทนการเริ่มใหม่
+
+ถ้าไมโครซอฟท์ตอบว่าถอด detection แล้วแต่ยังมีคนโดนอยู่ — เครื่องนั้นแคชคำตัดสินเดิมไว้
+ให้เขารัน (cmd แบบผู้ดูแล ใน `C:\Program Files\Windows Defender`)
+`MpCmdRun.exe -removedefinitions -dynamicsignatures` แล้ว `MpCmdRun.exe -SignatureUpdate`
+จากนั้นกู้คืนไฟล์จาก Protection history ตามที่ README เขียนไว้
+
 ---
 
 ## เช็กลิสต์สั้น
@@ -135,3 +182,4 @@ gh release download v<ver> -p checksums.txt -D /tmp/rel
 - [ ] **อัป `.msix` ขึ้น Partner Center**
 - [ ] เติม scoop `hash` จาก `checksums.txt` ของรุ่นจริง
 - [ ] วัดขนาดใหม่ และหารตัวคูณใหม่ถ้าขนาดเปลี่ยน
+- [ ] ส่ง zip + installer เข้า WDSI (Software developer) และจด Submission ID ลง release notes
