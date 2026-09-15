@@ -8,6 +8,7 @@ import { mapPick } from '../lib/guide/mapPick'
 import { GUIDE_ROUTES } from '../lib/guide/routes'
 import { GUIDE_MAP } from '../lib/guide/map'
 import { isShortcut, shortcutLabel } from '../lib/shortcuts'
+import { restingSpot } from '../lib/guide/walk'
 import { greetingFor, offeredWalks } from '../lib/guide/greeting'
 import Guide from '../lib/guide/Guide.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
@@ -224,6 +225,31 @@ describe('the guide on screen', () => {
     guide.say('this is the door')
     await waitFor(() => expect(container.querySelector('.say-body')?.textContent).toContain('this is the door'), { timeout: 3000 })
     expect(guide.moveSeq).toBe(moves)
+  })
+})
+
+describe('arriving', () => {
+  it('is already at its resting spot on the very first frame', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1240)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(860)
+    await guide.start()
+    const { container } = render(Guide)
+    // Not (0,0): the figure used to render in the corner and then ride the
+    // 800ms walk transition across the window, which reads as sliding in from
+    // nowhere every time it opens.
+    const wrap = container.querySelector<HTMLElement>('.guide-mascot-wrap')!
+    const home = restingSpot({ width: 1240, height: 860 })
+    expect(wrap.style.transform.replace(/\s+/g, '')).toBe(`translate(${home.x}px,${home.y}px)`)
+  })
+
+  it('fades in without animating the transform that says where it stands', () => {
+    // An entrance keyframe touching `transform` would override the inline one
+    // and snap the figure to the corner — the bug it was meant to replace.
+    const css = fs.readFileSync(path.resolve(__dirname, '../lib/guide/Guide.svelte'), 'utf-8')
+    const frames = css.slice(css.indexOf('@keyframes guide-arrive'))
+    const block = frames.slice(0, frames.indexOf('}', frames.indexOf('{')) + 1)
+    expect(block).toContain('opacity')
+    expect(block).not.toContain('transform')
   })
 })
 

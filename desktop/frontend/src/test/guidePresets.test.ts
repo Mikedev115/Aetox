@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { GUIDE_PRESETS, presetLabelKey } from '../lib/guide/presets'
 import { GUIDE_MAP } from '../lib/guide/map'
 import { guidePrefs, setGuidePref, resetGuidePrefs } from '../lib/guide/guidePrefs.svelte'
@@ -47,8 +47,9 @@ describe('the guide\'s own settings', () => {
 
   it('refuses junk out of storage rather than putting it on a request', async () => {
     localStorage.setItem('guidePrefs', JSON.stringify({ provider: 'ollama', think: 'ludicrous', lang: 7 }))
-    // Re-import with a fresh module registry so load() runs again.
-    const fresh = await import('../lib/guide/guidePrefs.svelte?fresh=1')
+    // A fresh module registry, so the file's own load() runs against that blob.
+    vi.resetModules()
+    const fresh = await import('../lib/guide/guidePrefs.svelte')
     expect(fresh.guidePrefs.provider).toBe('ollama')
     expect(fresh.guidePrefs.think).toBe('low') // not the stored nonsense
     expect(fresh.guidePrefs.lang).toBe('auto')

@@ -23,9 +23,19 @@
   import { handleGuideAsk } from './guideSession'
   import { EventsOn } from '../../../wailsjs/runtime/runtime'
 
-  let x = $state(0)
-  let y = $state(0)
-  let placed = $state(false)
+  // Placed on the FIRST frame, not moved into place after it. x and y used to
+  // start at 0, so the figure rendered in the top-left corner and then rode the
+  // 800ms walk transition across the whole window to its resting spot — which
+  // reads as a thing sliding in from nowhere, every single time it is opened
+  // (owner, 15 ก.ย. 2026: "กดไกด์แล้วเหมือนมันลอยออกมาจากตรงไหนไม่รู้").
+  // It now appears where it belongs and fades in on the spot; walking is for
+  // going somewhere, not for arriving.
+  const first = typeof window === 'undefined'
+    ? { x: 0, y: 0 }
+    : restingSpot({ width: window.innerWidth, height: window.innerHeight })
+  let x = $state(first.x)
+  let y = $state(first.y)
+  let placed = $state(typeof window !== 'undefined')
   let turn = $state<number | undefined>(undefined)
   let pose = $state<'idle' | 'walk' | 'presenting' | 'helping' | 'asking' | 'thinking' | 'answering'>('asking')
   let flip = $state(false)
@@ -462,10 +472,24 @@
     z-index: 10000;
     transition: transform var(--dur-walk, 800ms) cubic-bezier(.4, .1, .2, 1);
     will-change: transform;
+    /* Arriving is a fade on the spot, never a journey: the figure is already
+       where it should be on its first frame, so nothing about the entrance
+       needs to move it. OPACITY ONLY here — this element's transform is the
+       inline one that says where it stands, and an animation touching
+       transform would override it and snap the figure to the corner, which is
+       the exact bug this replaced. The scale belongs to the child. */
+    animation: guide-arrive var(--dur-arrive, 300ms) ease-out;
     pointer-events: auto;
   }
   .guide-mascot-wrap.walking {
     transition-timing-function: cubic-bezier(.35, .05, .3, 1);
+  }
+
+  @keyframes guide-arrive {
+    from { opacity: 0; }
+  }
+  @keyframes guide-arrive-pop {
+    from { transform: scale(.88); }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -475,10 +499,15 @@
     }
     .guide-mascot-wrap {
       transition: none;
+      animation: none;
+    }
+    .ranked-guide {
+      animation: none;
     }
   }
 
   .ranked-guide {
+    animation: guide-arrive-pop var(--dur-arrive, 300ms) cubic-bezier(.2, .9, .3, 1.2);
     position: relative;
     display: inline-block;
     line-height: 0;
