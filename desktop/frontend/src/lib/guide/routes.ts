@@ -13,8 +13,9 @@
 //      walk a beat while the page settles (pages.ts waits for the element).
 //   3. What the figure SAYS at a stop is not here: it is the map's `what`,
 //      from docs/GUIDE-MAP.md through the locales. Change the words there.
-//   4. A route's position is remembered per route id (guideState ROUTE_KEY),
-//      so renaming a route id starts everyone at its first stop again.
+//   4. A walk always begins at stop 1. Nothing is remembered between openings
+//      — the guide keeps no state at all — so the first stop is the one every
+//      person who asks to be shown around will see.
 
 export type GuideRouteId = 'first' | 'brain' | 'team'
 

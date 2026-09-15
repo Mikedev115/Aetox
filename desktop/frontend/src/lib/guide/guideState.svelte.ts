@@ -21,11 +21,12 @@ export type TranscriptItem = {
   stopId?: string
 }
 
-// Where a route was left, so opening the guide again offers the next stop
-// rather than the first. One key, one value — the only thing the guide keeps
-// between openings; the conversation itself is never kept (§0: no long-term
-// memory, no history).
-const ROUTE_KEY = 'guideRoute'
+// The guide keeps NOTHING between openings — not the conversation, not where
+// a walk was left. It used to remember the latter, and that was a mistake with
+// a name: pressing "พาเดินดู" resumed at the stop a previous walk ended on, so
+// the owner pressed it and landed on the MCP page with no idea why (15 ก.ย.
+// 2026). Somebody asking to be shown around means from the beginning; a resume
+// worth having is one the guide OFFERS, not one it imposes.
 
 // How long a model turn may take before the map answers instead. One
 // question, a few tool calls — but a small local model loads on its first
@@ -80,10 +81,9 @@ class GuideStore {
     this.asking = false
     this.openModel()
     if (routeId && GUIDE_ROUTES[routeId]) {
-      const remembered = readRoute()
-      const at = remembered?.id === routeId && !initialStopId ? remembered.at : 0
-      this.route = { id: routeId, at }
-      await this.goTo(initialStopId ?? GUIDE_ROUTES[routeId].stops[at])
+      // Always the first stop. See the note on the missing ROUTE_KEY above.
+      this.route = { id: routeId, at: 0 }
+      await this.goTo(initialStopId ?? GUIDE_ROUTES[routeId].stops[0])
     } else if (initialStopId) {
       this.route = null
       await this.goTo(initialStopId)
@@ -154,7 +154,6 @@ class GuideStore {
     if (this.route) {
       const i = GUIDE_ROUTES[this.route.id].stops.indexOf(id)
       if (i >= 0) this.route = { id: this.route.id, at: i }
-      writeRoute(this.route)
     }
     await openPage(entry.page, '[data-guide=' + JSON.stringify(id) + ']')
     if (this.stopId !== id) return // somewhere else was asked for meanwhile
@@ -264,30 +263,6 @@ class GuideStore {
 
   /** True while the guide itself is clicking a button for the user. */
   pressing = false
-}
-
-function readRoute(): { id: GuideRouteId; at: number } | null {
-  try {
-    const raw = localStorage.getItem(ROUTE_KEY)
-    if (!raw) return null
-    const v = JSON.parse(raw)
-    if (v && typeof v.id === 'string' && GUIDE_ROUTES[v.id as GuideRouteId] && Number.isInteger(v.at)) {
-      const n = GUIDE_ROUTES[v.id as GuideRouteId].stops.length
-      return { id: v.id, at: Math.min(Math.max(0, v.at), n - 1) }
-    }
-  } catch {
-    // storage unavailable — the route starts over
-  }
-  return null
-}
-
-function writeRoute(r: { id: GuideRouteId; at: number } | null) {
-  try {
-    if (!r) localStorage.removeItem(ROUTE_KEY)
-    else localStorage.setItem(ROUTE_KEY, JSON.stringify(r))
-  } catch {
-    // storage unavailable — nothing to remember with
-  }
 }
 
 export const guide = new GuideStore()

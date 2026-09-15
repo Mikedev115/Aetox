@@ -59,11 +59,14 @@ describe('the guide store', () => {
     await waitFor(() => expect(guide.stopId).toBe(stops[0]))
     guide.prev()
     await waitFor(() => expect(guide.stopId).toBe(stops[stops.length - 1]))
-    // The route's position is the one thing kept between openings.
-    expect(JSON.parse(localStorage.getItem('guideRoute')!)).toEqual({ id: 'first', at: stops.length - 1 })
+    // Nothing is kept: asking to be shown around starts at the beginning,
+    // however far a previous walk got. Resuming silently is how somebody
+    // presses "show me around" and lands on the MCP page (15 ก.ย. 2026).
+    expect(localStorage.getItem('guideRoute')).toBeNull()
     await guide.stop()
     await guide.start('first')
-    expect(guide.stopId).toBe(stops[stops.length - 1])
+    expect(guide.stopId).toBe(stops[0])
+    expect(guide.route).toEqual({ id: 'first', at: 0 })
   })
 
   it('every walk bumps moveSeq once — a route step and a model point share one door', async () => {
