@@ -259,16 +259,40 @@ class GuideStore {
       void this.goTo(this.heading)
       return
     }
-    if (this.stopId && !onScreen(this.stopId)) {
-      this.stopId = null
-      this.sentence = ''
-      this.awaiting = null
-      this.stepsLeft = 0
-      // Off the route too: it was a walk through a page that is no longer in
-      // front of us, and next()/prev() from there would teleport.
-      this.route = null
-      this.say(greetingFor(page))
+    if (this.stopId && !onScreen(this.stopId)) this.lostTarget()
+  }
+
+  /**
+   * What it was standing beside stopped being on screen.
+   *
+   * Reached two ways, and the second is why this is its own door: the page
+   * changed under it (above), or the BUTTON went away while the page stayed —
+   * a menu closing, a card collapsing, a row filtered out. No sign moves for
+   * that second kind, so nothing but the box itself can report it (follow.ts).
+   */
+  lostTarget() {
+    if (!this.on || this.moving > 0) return
+    // Being led is not the same as standing: the door it was pointing at
+    // disappearing usually means the person pressed it, so ask the way again
+    // rather than giving up on where they were going.
+    if (this.heading) {
+      void this.goTo(this.heading)
+      return
     }
+    if (!this.stopId) return
+    this.stopId = null
+    this.sentence = ''
+    this.awaiting = null
+    this.stepsLeft = 0
+    // Off the route too: it was a walk through a page that is no longer in
+    // front of us, and next()/prev() from there would teleport.
+    this.route = null
+    // The screen first, the last known place second. The box can go before the
+    // sign watcher's beat has passed, and a fresh reading of the DOM beats a
+    // value from 150ms ago — but a document with nothing signed at all answers
+    // null, and there `place` is the better of the two.
+    this.place = currentPage() ?? this.place
+    this.say(greetingFor(this.place))
   }
 
   /** Say something where the figure stands. */

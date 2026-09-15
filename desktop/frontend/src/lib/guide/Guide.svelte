@@ -17,7 +17,8 @@
   import GuidePanel from './GuidePanel.svelte'
   import { guidePrefs, setGuidePref } from './guidePrefs.svelte'
   import { GUIDE_MAP, guideText } from './map'
-  import { SIZE, standBeside, restingSpot, insideWindow, walkTurn, walkMs } from './walk'
+  import { SIZE, standBeside, restingSpot, insideWindow, walkTurn, walkMs, type Rect } from './walk'
+  import { watchBox } from './follow'
   import { speak, stopSpeechIf } from '../speech.svelte'
   import { t } from '../i18n.svelte'
   import { handleGuideAsk } from './guideSession'
@@ -105,7 +106,7 @@
   }
 
   // Where to stand for a target rect: walk.ts decides, this only records it.
-  function placeBeside(r: DOMRect) {
+  function placeBeside(r: Rect) {
     const st = standBeside(r, { width: window.innerWidth, height: window.innerHeight })
     ring = st.ring
     flip = st.flip
@@ -288,6 +289,35 @@
 
   $effect(() => {
     if (guide.on && !guide.stopId) untrack(() => void stepBack())
+  })
+
+  // Once it has arrived, it STAYS on the thing it is pointing at.
+  //
+  // Arriving measures the target once, and a page that has just opened is
+  // where boxes move most — a card finishing its load, a font swapping, an
+  // image arriving above the button. A second later the ring was a rectangle
+  // around empty space on a page the guide really had reached, which is what
+  // "ทำไมเวลากดเปลี่ยนหน้ามันยังไม่รู้ตัว" looked like from the outside
+  // (owner, 15 ก.ย. 2026). Re-runs on every walk, so it is always watching the
+  // element the figure is actually beside.
+  $effect(() => {
+    const id = guide.stopId
+    void guide.moveSeq
+    if (!id || !guide.on) return
+    const el = document.querySelector<HTMLElement>('[data-guide=' + JSON.stringify(id) + ']')
+    if (!el) return
+    return watchBox(
+      el,
+      (box) => {
+        // The hand outranks the measurement: somebody holding the figure is
+        // not asking it to chase a button.
+        if (dragging) return
+        const { tx, ty } = placeBeside(box)
+        x = tx
+        y = ty
+      },
+      () => guide.lostTarget(),
+    )
   })
 
   // Words without a walk: the model's answer, the map's refusal, a press.

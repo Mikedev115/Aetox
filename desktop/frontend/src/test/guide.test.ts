@@ -604,3 +604,41 @@ describe('moving it by hand', () => {
     await waitFor(() => expect(spotOf(container)).toEqual(parked), { timeout: 2000 })
   })
 })
+
+// Arriving is one measurement; staying is a watch. The page a guide has just
+// opened is exactly where boxes keep moving afterwards.
+describe('staying on what it points at', () => {
+  const rect = (el: HTMLElement, left: number, top: number, width = 36, height = 36) => {
+    el.getBoundingClientRect = () =>
+      ({ left, top, right: left + width, bottom: top + height, width, height, x: left, y: top, toJSON() {} }) as DOMRect
+  }
+  const ringTop = (c: HTMLElement) => c.querySelector<HTMLElement>('.guide-ring')?.style.top ?? ''
+
+  it('follows the button when it moves after the page has settled', async () => {
+    const button = mapped('chat.send', { left: 500, top: 300, width: 36, height: 36 })
+    await guide.start(undefined, 'chat.send')
+    const { container } = render(Guide)
+    await waitFor(() => expect(ringTop(container)).toBe('296px'), { timeout: 2000 })
+
+    // A card above it finished loading and pushed it down the page.
+    rect(button, 500, 700)
+    document.dispatchEvent(new Event('scroll'))
+
+    await waitFor(() => expect(ringTop(container)).toBe('696px'), { timeout: 2000 })
+  })
+
+  it('lets go when the button disappears without the page changing', async () => {
+    const button = mapped('chat.send', { left: 500, top: 300, width: 36, height: 36 })
+    await guide.start(undefined, 'chat.send')
+    const { container } = render(Guide)
+    await waitFor(() => expect(guide.stopId).toBe('chat.send'))
+
+    // A menu closing, a card collapsing: no sign moves for this, so only the
+    // box itself can report it.
+    button.remove()
+    document.dispatchEvent(new Event('scroll'))
+
+    await waitFor(() => expect(guide.stopId).toBeNull(), { timeout: 2000 })
+    expect(container.querySelector('.guide-ring')).toBeNull()
+  })
+})
