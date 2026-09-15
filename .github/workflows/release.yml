@@ -102,8 +102,28 @@ jobs:
       # The engine is a binary of its own beside the app (§248 phase 2). Built
       # first, into the folder the installer and the packages read from, so
       # wails build's NSIS step finds it (project.nsi lists it).
+      #
+      # Named before it is built: wails build gives aetox.exe a version block,
+      # manifest and icon from wails.json; a plain go build gives the engine
+      # nothing, and an anonymous stripped exe that spawns powershell.exe is
+      # what Defender's cloud classifier quarantined as Wacatac.C!ml on
+      # 2026-09-15 (§294). enginewinres writes the .syso the linker picks up
+      # for windows/amd64 only, from the same wails.json and
+      # internal/version.Current — the Linux engines below never see it.
+      - name: Name the engine (version block, manifest, icon)
+        run: go run ./cmd/enginewinres
+
       - name: Build the engine
         run: go build -trimpath -ldflags "-s -w" -o desktop/build/bin/aetox-engine.exe ./cmd/aetox-engine
+
+      - name: The engine carries its name
+        run: |
+          $vi = (Get-Item desktop/build/bin/aetox-engine.exe).VersionInfo
+          $version = "$env:GITHUB_REF_NAME".TrimStart("v")
+          if ($vi.CompanyName -ne "Aetox" -or $vi.ProductVersion -ne $version) {
+            throw "aetox-engine.exe has CompanyName '$($vi.CompanyName)' ProductVersion '$($vi.ProductVersion)' — expected Aetox $version; the .syso did not link"
+          }
+          "aetox-engine.exe: $($vi.CompanyName) $($vi.ProductName) $($vi.ProductVersion)"
 
       # The engine for a Linux host (§248 phase 3, decision 4): not in the
       # Windows packages, fetched by the app from this release when a host
@@ -244,12 +264,22 @@ jobs:
           path: aetox-windows-amd64.msix
           if-no-files-found: error
 
+      # The two Windows exes are listed on their own as well as inside the
+      # zip and the installer: they are the files that end up on disk in
+      # Program Files, and the files an antivirus names. When one is
+      # quarantined (§294) the person holding the machine can now compare the
+      # restored file against a signed line instead of taking the developer's
+      # word — the report that reached us on 2026-09-15 could not, and said
+      # so. The updater looks lines up by name, so the extra lines cost it
+      # nothing.
       - name: Package portable zip + checksums
         run: |
           Compress-Archive -Path desktop/build/bin/aetox.exe,desktop/build/bin/aetox-engine.exe -DestinationPath aetox-windows-amd64-portable.zip
           $files = @(
             "desktop/build/bin/aetox-amd64-installer.exe",
             "aetox-windows-amd64-portable.zip",
+            "desktop/build/bin/aetox.exe",
+            "desktop/build/bin/aetox-engine.exe",
             "aetox-engine-linux-amd64",
             "aetox-engine-linux-arm64"
           )

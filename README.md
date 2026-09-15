@@ -179,6 +179,18 @@ proceeding.
 A verdict cleared with Microsoft applies to one file, and the next release is a different file, so
 it can come back until code signing exists. The portable zip is the way past it in the meantime.
 
+**The app opens but every provider list is empty, and the engine card says `ไม่พบ aetox-engine.exe`.**
+The same verdict, aimed at the second file in the install folder: on 2026-09-15 Defender's cloud
+model quarantined `aetox-engine.exe` from v1.7.1 as `Trojan:Script/Wacatac.C!ml`, five hours into a
+session, on a file that had not changed (`Trojan:Script/…` is the family Defender uses for an
+unsigned executable that starts shells — the engine does, on your behalf, which is its job). The app
+cannot answer anything without its engine, so the lists go blank. Open **Windows Security →
+Protection history**, find the entry, **Restore** and then **Allow on device** — Restore alone puts
+the file back for the next scan to take again — then press *เริ่มใหม่* on the engine card, or
+reinstall. Since v1.7.2 the engine carries a version block, manifest and icon like `aetox.exe`,
+`checksums.txt` lists the hash of each exe on its own so a restored file can be checked against a
+signed line, and that card names the likely cause instead of just the missing file.
+
 Releases *are* signed: an ed25519 public key is compiled into the binary and the updater verifies
 the signature over `checksums.txt` before it trusts a single hash. An empty or wrong key refuses
 the update rather than falling back.

@@ -655,12 +655,34 @@ func engineCommand() (bin, dir string, prefix []string, err error) {
 	if _, statErr := os.Stat(beside); statErr == nil {
 		return beside, "", nil, nil
 	}
-	if root := moduleRootAbove(filepath.Dir(exe)); root != "" {
+	root := moduleRootAbove(filepath.Dir(exe))
+	if root != "" {
 		if goBin, lookErr := exec.LookPath("go"); lookErr == nil {
 			return goBin, root, []string{"run", "./cmd/aetox-engine"}, nil
 		}
 	}
-	return "", "", nil, fmt.Errorf("ไม่พบ %s ข้างโปรแกรม (%s)", name, filepath.Dir(exe))
+	return "", "", nil, missingEngine(name, filepath.Dir(exe), root == "")
+}
+
+// missingEngine is the chip's sentence when the engine binary is not where
+// the app is. In a packaged install that file arrived with the app — the
+// installer and the zip both carry it — so its absence has one likely
+// cause, and the sentence names it: an antivirus put it in quarantine.
+// That is what happened on 2026-09-15 (Defender, Trojan:Script/Wacatac.C!ml
+// on the v1.7.1 engine, §294), and the person on that machine read "ไม่พบ
+// aetox-engine.exe" for ten minutes without a way to act on it. The path
+// to Protection history and the two verbs there are the way to act; a
+// reinstall is the other. A development tree without `go` on PATH keeps
+// the bare sentence, since nothing was quarantined there.
+func missingEngine(name, dir string, packaged bool) error {
+	if !packaged {
+		return fmt.Errorf("ไม่พบ %s ข้างโปรแกรม (%s)", name, dir)
+	}
+	where := "โปรแกรมป้องกันไวรัส"
+	if runtime.GOOS == "windows" {
+		where = "Windows Security › Protection history"
+	}
+	return fmt.Errorf("ไม่พบ %s ข้างโปรแกรม (%s) — ไฟล์นี้ติดตั้งมาพร้อมกัน จึงน่าจะถูกโปรแกรมป้องกันไวรัสกักไว้: เปิด %s ถ้าเห็น %s ให้กด Restore แล้ว Allow on device จากนั้นกดเริ่มใหม่ หรือติดตั้ง Aetox ซ้ำ", name, dir, where, name)
 }
 
 // moduleRootAbove walks up from dir to the folder holding this module's
