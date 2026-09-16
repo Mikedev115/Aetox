@@ -387,7 +387,7 @@ func (a *App) GitCommitFileDiff(hash string, path string) string {
 	return a.api.GitCommitFileDiff(hash, path)
 }
 
-func (a *App) GitCommitFiles(message string, files []string) error {
+func (a *App) GitCommitFiles(message string, files []string) (engine.GitCommitResult, error) {
 	return a.api.GitCommitFiles(message, files)
 }
 

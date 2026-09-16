@@ -6266,9 +6266,23 @@ button.phase-head:hover { color:var(--text-muted); }
   cursor: default;
 }
 .gp-alert {
-  padding: 4px 8px;
+  padding: 6px 8px;
   border-radius: var(--r-xs);
   font-size: var(--fs-2xs);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gp-alert-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.gp-alert-msg {
+  flex: 1;
+  word-break: break-word;
 }
 .gp-alert.err {
   background: color-mix(in srgb, var(--status-danger) 15%, transparent);
@@ -6284,6 +6298,40 @@ button.phase-head:hover { color:var(--text-muted); }
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--text-secondary);
   border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.gp-alert-assistant-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  border-radius: var(--r-xs);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  align-self: flex-start;
+  transition: all var(--dur-tint) ease;
+}
+.gp-alert-assistant-btn:hover {
+  filter: brightness(1.1);
+}
+.gp-alert.err .gp-alert-assistant-btn {
+  background: color-mix(in srgb, var(--status-danger) 18%, var(--surface-raised));
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--status-danger) 35%, transparent);
+}
+.gp-alert.err .gp-alert-assistant-btn:hover {
+  background: color-mix(in srgb, var(--status-danger) 28%, var(--surface-raised));
+}
+.gp-alert.success .gp-alert-assistant-btn {
+  background: color-mix(in srgb, var(--status-success) 18%, var(--surface-raised));
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--status-success) 35%, transparent);
+}
+.gp-alert.success .gp-alert-assistant-btn:hover {
+  background: color-mix(in srgb, var(--status-success) 28%, var(--surface-raised));
 }
 
 /* Smart Split Loading & Progress */

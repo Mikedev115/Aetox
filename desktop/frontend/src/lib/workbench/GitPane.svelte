@@ -23,6 +23,10 @@
     GitSuggestCommitMessage,
     GitSuggestSplitCommits,
     GitSplitCancel,
+    GitBranches,
+    GitSwitchBranch,
+    GitCreateBranch,
+    GetProjectStatus,
   } from '../../../wailsjs/go/main/App'
   import { EventsOn } from '../../../wailsjs/runtime/runtime'
   import { engine } from '../../../wailsjs/go/models'
@@ -60,7 +64,7 @@
   let selectedFiles = $state<Record<string, boolean>>({})
   let generatingMessage = $state(false)
   let committing = $state(false)
-  let alert = $state<{ type: 'err' | 'success'; text: string } | null>(null)
+  let alert = $state<{ type: 'err' | 'success' | 'info'; text: string; showAskAssistant?: boolean } | null>(null)
 
   // Smart split: one card per proposed commit. The engine answers with the
   // groups at once — titles and files, messages still empty — and writes the
@@ -83,7 +87,8 @@
     // 'writing': the model is on it, text arriving. 'model': the model wrote
     // it. 'fallback': nobody did — the message is a placeholder and `reason`
     // says why, on the card, so it is never mistaken for the model's.
-    state: 'writing' | 'model' | 'fallback'
+    // 'committed': successfully committed.
+    state: 'writing' | 'model' | 'fallback' | 'committed'
     reason?: string
   }
   let splitCards = $state<SplitCard[]>([])
@@ -91,6 +96,69 @@
   const writingAny = $derived(splitCards.some((c) => c.state === 'writing'))
   let committingGroupId = $state<number | null>(null)
   let committingAll = $state(false)
+  let committingProgressText = $state('')
+
+  // Branch dropdown state in GitPane
+  let branchMenuOpen = $state(false)
+  let branches = $state<engine.GitBranch[]>([])
+  let branchQuery = $state('')
+  let branchBusy = $state('')
+  let branchError = $state('')
+  let branchInput = $state<HTMLInputElement | null>(null)
+
+  const shownBranches = $derived(
+    branches.filter((b) => b.name.toLowerCase().includes(branchQuery.trim().toLowerCase())),
+  )
+  const newBranchName = $derived(branchQuery.trim())
+  const branchNameTaken = $derived(branches.some((b) => b.name === newBranchName))
+  const canCreateBranch = $derived(
+    newBranchName !== '' && !newBranchName.startsWith('-') && !branchNameTaken,
+  )
+
+  function startBranchCreate() {
+    if (newBranchName === '') {
+      branchInput?.focus()
+      return
+    }
+    if (canCreateBranch) void pickBranch(newBranchName, true)
+  }
+
+  async function toggleBranchMenu() {
+    branchMenuOpen = !branchMenuOpen
+    if (!branchMenuOpen) return
+    branchQuery = ''
+    branchError = ''
+    try {
+      branches = (await GitBranches()) ?? []
+    } catch {
+      branches = []
+    }
+  }
+
+  async function pickBranch(name: string, create: boolean) {
+    if (branchBusy) return
+    branchBusy = name
+    branchError = ''
+    try {
+      await (create ? GitCreateBranch(name) : GitSwitchBranch(name))
+      branchMenuOpen = false
+    } catch (err) {
+      branchError = String(err)
+      branches = (await GitBranches().catch(() => [])) ?? []
+    } finally {
+      branchBusy = ''
+      Object.assign(cockpit.project, await GetProjectStatus())
+      await refresh()
+    }
+  }
+
+  function closeBranchMenuOnOutside(e: MouseEvent) {
+    if (!branchMenuOpen) return
+    const el = e.target as HTMLElement | null
+    if (el && !el.closest('.gp-branch-pick')) {
+      branchMenuOpen = false
+    }
+  }
 
   // Events that arrive before the groups do — the goroutine starts the
   // moment the engine returns, and its first chunk can beat the promise to
@@ -162,6 +230,12 @@
       })
       .join('\n')
     const prompt = t('git.askAssistantPrompt', { files: fileList })
+    setActiveView('chat')
+    void sendUserMessage(prompt)
+  }
+
+  function handleAskAssistantAboutGitError() {
+    const prompt = t('git.askAssistantGitPrompt')
     setActiveView('chat')
     void sendUserMessage(prompt)
   }
@@ -351,13 +425,30 @@
     committing = true
     alert = null
     try {
-      await GitCommitFiles(trimmed, chosen)
-      noteCommitLanded()
-      manualMessage = ''
-      alert = { type: 'success', text: t('git.commitSuccess') }
-      setTimeout(() => { if (alert?.type === 'success') alert = null }, 4000)
+      const res = await GitCommitFiles(trimmed, chosen)
+      if (res && res.outcome === 'committed') {
+        noteCommitLanded()
+        manualMessage = ''
+        if (res.warning) {
+          alert = {
+            type: 'success',
+            text: `${t('git.commitSuccessWithWarning')}: ${res.warning}`,
+            showAskAssistant: true,
+          }
+        } else {
+          alert = { type: 'success', text: t('git.commitSuccess') }
+          setTimeout(() => { if (alert?.type === 'success' && !alert.showAskAssistant) alert = null }, 4000)
+        }
+      } else {
+        alert = { type: 'info', text: t('git.noChangesToCommit') }
+        setTimeout(() => { if (alert?.type === 'info') alert = null }, 4000)
+      }
     } catch (err: any) {
-      alert = { type: 'err', text: t('git.commitFailed', { error: String(err?.message ?? err) }) }
+      alert = {
+        type: 'err',
+        text: t('git.commitFailed', { error: String(err?.message ?? err) }),
+        showAskAssistant: true,
+      }
     } finally {
       committing = false
       await refresh()
@@ -367,7 +458,6 @@
   async function handleAnalyzeSplit() {
     analyzingSplit = true
     alert = null
-    splitCards = []
     earlySplitEvents = []
     try {
       const groups = (await GitSuggestSplitCommits()) ?? []
@@ -417,12 +507,30 @@
     committingGroupId = card.id
     alert = null
     try {
-      await GitCommitFiles(msg, chosen)
-      noteCommitLanded()
-      alert = { type: 'success', text: `${card.title}: ${t('git.commitSuccess')}` }
-      setTimeout(() => { if (alert?.type === 'success') alert = null }, 4000)
+      const res = await GitCommitFiles(msg, chosen)
+      if (res && res.outcome === 'committed') {
+        card.state = 'committed'
+        noteCommitLanded()
+        if (res.warning) {
+          alert = {
+            type: 'success',
+            text: `${card.title}: ${t('git.commitSuccessWithWarning')}: ${res.warning}`,
+            showAskAssistant: true,
+          }
+        } else {
+          alert = { type: 'success', text: `${card.title}: ${t('git.commitSuccess')}` }
+          setTimeout(() => { if (alert?.type === 'success' && !alert.showAskAssistant) alert = null }, 4000)
+        }
+      } else {
+        alert = { type: 'info', text: `${card.title}: ${t('git.noChangesToCommit')}` }
+        setTimeout(() => { if (alert?.type === 'info') alert = null }, 4000)
+      }
     } catch (err: any) {
-      alert = { type: 'err', text: t('git.commitFailed', { error: String(err?.message ?? err) }) }
+      alert = {
+        type: 'err',
+        text: t('git.commitFailed', { error: String(err?.message ?? err) }),
+        showAskAssistant: true,
+      }
     } finally {
       committingGroupId = null
       await refresh()
@@ -433,23 +541,53 @@
     if (splitCards.length === 0) return
     committingAll = true
     alert = null
+    let landedAny = false
+    const warnings: string[] = []
     try {
-      for (const card of splitCards) {
+      const total = splitCards.length
+      for (let i = 0; i < splitCards.length; i++) {
+        const card = splitCards[i]
         const msg = card.message.trim()
         const chosen = card.files.filter((p) => card.pick[p] === true)
         if (chosen.length > 0 && msg) {
           committingGroupId = card.id
-          await GitCommitFiles(msg, chosen)
-          noteCommitLanded()
+          committingProgressText = t('git.committingGroup', { current: i + 1, total })
+          const res = await GitCommitFiles(msg, chosen)
+          if (res && res.outcome === 'committed') {
+            card.state = 'committed'
+            noteCommitLanded()
+            landedAny = true
+            if (res.warning) {
+              warnings.push(res.warning)
+            }
+          }
         }
       }
-      alert = { type: 'success', text: t('git.commitSuccess') }
-      setTimeout(() => { if (alert?.type === 'success') alert = null }, 4000)
+      if (landedAny) {
+        if (warnings.length > 0) {
+          alert = {
+            type: 'success',
+            text: `${t('git.commitSuccessWithWarning')}: ${warnings.join('; ')}`,
+            showAskAssistant: true,
+          }
+        } else {
+          alert = { type: 'success', text: t('git.commitSuccess') }
+          setTimeout(() => { if (alert?.type === 'success' && !alert.showAskAssistant) alert = null }, 4000)
+        }
+      } else {
+        alert = { type: 'info', text: t('git.noChangesToCommit') }
+        setTimeout(() => { if (alert?.type === 'info') alert = null }, 4000)
+      }
     } catch (err: any) {
-      alert = { type: 'err', text: t('git.commitFailed', { error: String(err?.message ?? err) }) }
+      alert = {
+        type: 'err',
+        text: t('git.commitFailed', { error: String(err?.message ?? err) }),
+        showAskAssistant: true,
+      }
     } finally {
       committingGroupId = null
       committingAll = false
+      committingProgressText = ''
       await refresh()
     }
   }
@@ -465,11 +603,77 @@
   }
 </script>
 
+<svelte:window onclick={closeBranchMenuOnOutside} />
+
 <div class="gitpane">
   <div class="gp-head">
     <span class="gp-where">
-      <Icon name="gitBranch" size={13} />
-      {#if branch}<b>{branch}</b>{/if}
+      <div class="gp-branch-pick">
+        {#if branchMenuOpen}
+          <div class="branch-menu">
+            <div class="branch-search">
+              <Icon name="search" size={13} />
+              <!-- svelte-ignore a11y_autofocus -->
+              <input
+                type="text" bind:value={branchQuery} bind:this={branchInput} autofocus
+                placeholder={t('branch.searchOrNew')} aria-label={t('branch.searchOrNew')}
+                onkeydown={(e) => {
+                  if (e.key === 'Escape') { branchMenuOpen = false; return }
+                  if (e.key !== 'Enter') return
+                  if (shownBranches.length === 1) void pickBranch(shownBranches[0].name, false)
+                  else if (canCreateBranch) void pickBranch(branchQuery.trim(), true)
+                }}
+              />
+            </div>
+            {#if branchError}
+              <div class="branch-error">{branchError}</div>
+            {/if}
+            <div class="branch-list">
+              {#each shownBranches as b (b.name)}
+                <button
+                  type="button" class="branch-item" class:on={b.current}
+                  disabled={!!branchBusy}
+                  onclick={() => void pickBranch(b.name, false)}
+                >
+                  <span class="ic"><Icon name="gitBranch" size={13} /></span>
+                  <span class="nm">{b.name}</span>
+                  {#if b.current}<span class="tick"><Icon name="check" size={13} /></span>{/if}
+                </button>
+              {/each}
+              {#if shownBranches.length === 0 && newBranchName !== ''}
+                <div class="branch-none">{t('branch.none')}</div>
+              {/if}
+            </div>
+            <button
+              type="button" class="branch-item create"
+              disabled={!!branchBusy || (newBranchName !== '' && !canCreateBranch)}
+              title={branchNameTaken ? t('branch.exists') : undefined}
+              onclick={startBranchCreate}
+            >
+              <span class="ic"><Icon name="plus" size={13} /></span>
+              <span class="nm">
+                {#if newBranchName === ''}{t('branch.createNew')}
+                {:else}{t('branch.create')} “{newBranchName}”{/if}
+              </span>
+            </button>
+          </div>
+        {/if}
+        <button
+          type="button"
+          class="gp-branch-btn"
+          title={t('branch.title')}
+          aria-label={t('branch.title')}
+          onclick={(e) => { e.stopPropagation(); void toggleBranchMenu() }}
+        >
+          {#if branchBusy}
+            <i class="gp-ring"></i>
+          {:else}
+            <Icon name="gitBranch" size={12} />
+          {/if}
+          <b>{branch || '—'}</b>
+          <span class="caret"><Icon name={branchMenuOpen ? 'chevronUp' : 'chevronDown'} size={10} /></span>
+        </button>
+      </div>
       <span class="gp-arrow">→</span>
       <span>{t('git.workingTree')}</span>
     </span>
@@ -553,10 +757,23 @@
 
       {#if alert}
         <div class="gp-alert {alert.type}">
-          {alert.text}
-          {#if alert.type === 'success'}
-            <!-- The commit just made is the newest row of the other room. -->
-            <button type="button" class="gp-alert-link" onclick={openGitLogTab}>{t('git.viewTimeline')} →</button>
+          <div class="gp-alert-main">
+            <span class="gp-alert-msg">{alert.text}</span>
+            {#if alert.type === 'success'}
+              <!-- The commit just made is the newest row of the other room. -->
+              <button type="button" class="gp-alert-link" onclick={openGitLogTab}>{t('git.viewTimeline')} →</button>
+            {/if}
+          </div>
+          {#if alert.showAskAssistant}
+            <button
+              type="button"
+              class="gp-alert-assistant-btn"
+              onclick={handleAskAssistantAboutGitError}
+              title={t('git.askAssistantGit')}
+            >
+              <Icon name="sparkles" size={12} />
+              <span>{t('git.askAssistantGit')}</span>
+            </button>
           {/if}
         </div>
       {/if}
@@ -571,9 +788,26 @@
               disabled={analyzingSplit}
               onclick={handleAnalyzeSplit}
             >
-              <Icon name="sparkles" size={13} />
-              <span>{analyzingSplit ? t('git.analyzingSplit') : t('git.smartSplit')}</span>
+              {#if analyzingSplit}
+                <i class="gp-ring"></i>
+                <span>{t('git.analyzingSplit')}</span>
+              {:else}
+                <Icon name="sparkles" size={13} />
+                <span>{t('git.smartSplit')}</span>
+              {/if}
             </button>
+            {#if analyzingSplit}
+              <div class="gp-split-skel-list">
+                <div class="gp-split-skel-card">
+                  <div class="gp-skel"><i class="w1"></i></div>
+                  <div class="gp-skel"><i class="w2"></i><i class="w3"></i></div>
+                </div>
+                <div class="gp-split-skel-card">
+                  <div class="gp-skel"><i class="w2"></i></div>
+                  <div class="gp-skel"><i class="w3"></i><i class="w1"></i></div>
+                </div>
+              </div>
+            {/if}
           {:else}
             <div class="gp-split-top">
               <span class="gp-title">{t('git.splitGroups', { n: splitCards.length })}</span>
@@ -591,8 +825,13 @@
                     onclick={handleAnalyzeSplit}
                     title={t('git.splitRedo')}
                   >
-                    <Icon name="sparkles" size={11} />
-                    <span>{t('git.splitRedo')}</span>
+                    {#if analyzingSplit}
+                      <i class="gp-ring"></i>
+                      <span>{t('git.analyzingSplit')}</span>
+                    {:else}
+                      <Icon name="sparkles" size={11} />
+                      <span>{t('git.splitRedo')}</span>
+                    {/if}
                   </button>
                 {/if}
                 <button
@@ -601,15 +840,29 @@
                   disabled={committingAll || committingGroupId !== null || writingAny}
                   onclick={handleCommitAllGroups}
                 >
-                  <Icon name="check" size={12} />
-                  <span>{t('git.commitAllGroups', { n: splitCards.length })}</span>
+                  {#if committingAll}
+                    <i class="gp-ring"></i>
+                    <span>{committingProgressText || t('git.committing')}</span>
+                  {:else}
+                    <Icon name="check" size={12} />
+                    <span>{t('git.commitAllGroups', { n: splitCards.length })}</span>
+                  {/if}
                 </button>
               </span>
             </div>
 
+            {#if analyzingSplit}
+              <div class="gp-split-skel-list">
+                <div class="gp-split-skel-card">
+                  <div class="gp-skel"><i class="w1"></i></div>
+                  <div class="gp-skel"><i class="w2"></i><i class="w3"></i></div>
+                </div>
+              </div>
+            {/if}
+
             <div class="gp-split-cards">
               {#each splitCards as card (card.id)}
-                <div class="gp-split-card" class:writing={card.state === 'writing'}>
+                <div class="gp-split-card" class:writing={card.state === 'writing'} class:committed={card.state === 'committed'}>
                   <div class="gp-split-card-head">
                     <span class="gp-split-title">
                       <Icon name="package" size={12} />
@@ -629,7 +882,7 @@
                   <textarea
                     class="gp-split-msg-input"
                     rows={messageRows(card.message)}
-                    readonly={card.state === 'writing'}
+                    readonly={card.state === 'writing' || card.state === 'committed'}
                     bind:value={card.message}
                     placeholder={card.state === 'writing' ? t('git.splitWriting') : t('git.commitPlaceholder')}
                   ></textarea>
@@ -651,6 +904,7 @@
                         <input
                           type="checkbox"
                           checked={card.pick[fp] === true}
+                          disabled={card.state === 'committed'}
                           onchange={(e) => {
                             card.pick[fp] = (e.currentTarget as HTMLInputElement).checked
                           }}
@@ -668,15 +922,27 @@
                   </div>
 
                   <div class="gp-split-card-foot">
-                    <button
-                      type="button"
-                      class="gp-split-commit-btn"
-                      disabled={committingGroupId === card.id || committingAll || card.state === 'writing'}
-                      onclick={() => handleCommitGroup(card)}
-                    >
-                      <Icon name="check" size={11} />
-                      <span>{committingGroupId === card.id ? t('git.committing') : t('git.commitGroup')}</span>
-                    </button>
+                    {#if card.state === 'committed'}
+                      <span class="gp-split-done-chip">
+                        <Icon name="check" size={12} />
+                        <span>{t('git.commitSuccess')}</span>
+                      </span>
+                    {:else}
+                      <button
+                        type="button"
+                        class="gp-split-commit-btn"
+                        disabled={committingGroupId === card.id || committingAll || card.state === 'writing'}
+                        onclick={() => handleCommitGroup(card)}
+                      >
+                        {#if committingGroupId === card.id}
+                          <i class="gp-ring"></i>
+                          <span>{t('git.committing')}</span>
+                        {:else}
+                          <Icon name="check" size={11} />
+                          <span>{t('git.commitGroup')}</span>
+                        {/if}
+                      </button>
+                    {/if}
                   </div>
                 </div>
               {/each}
@@ -706,8 +972,13 @@
               onclick={handleGenerateMessage}
               title={t('git.generate')}
             >
-              <Icon name="sparkles" size={11} />
-              <span>{generatingMessage ? t('git.generating') : t('git.generate')}</span>
+              {#if generatingMessage}
+                <i class="gp-ring"></i>
+                <span>{t('git.generating')}</span>
+              {:else}
+                <Icon name="sparkles" size={11} />
+                <span>{t('git.generate')}</span>
+              {/if}
             </button>
           </div>
 
@@ -717,12 +988,15 @@
             disabled={committing || selectedCount === 0 || !manualMessage.trim()}
             onclick={handleManualCommit}
           >
-            <Icon name="check" size={13} />
-            <span>
-              {committing
-                ? t('git.committing')
-                : t('git.commitSelected', { n: selectedCount })}
-            </span>
+            {#if committing}
+              <i class="gp-ring"></i>
+              <span>{t('git.committing')}</span>
+            {:else}
+              <Icon name="check" size={13} />
+              <span>
+                {t('git.commitSelected', { n: selectedCount })}
+              </span>
+            {/if}
           </button>
         </div>
       {/if}

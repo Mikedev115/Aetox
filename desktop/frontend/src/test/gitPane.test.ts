@@ -15,6 +15,10 @@ import {
   GitSuggestCommitMessage,
   GitSuggestSplitCommits,
   GitSplitCancel,
+  GitBranches,
+  GitSwitchBranch,
+  GitCreateBranch,
+  SendMessage,
 } from './mocks/wailsApp'
 import { EventsOn } from './mocks/wailsRuntime'
 
@@ -29,9 +33,11 @@ beforeEach(() => {
   vi.clearAllMocks()
   setLocale('en')
   cockpit.project.branch = 'main'
+  cockpit.activeView = 'code'
+  cockpit.chat = []
   vi.mocked(GitWorkingTree).mockResolvedValue(CHANGED as any)
   vi.mocked(GitFileDiff).mockResolvedValue(DIFF as any)
-  vi.mocked(GitCommitFiles).mockResolvedValue(undefined as any)
+  vi.mocked(GitCommitFiles).mockResolvedValue({ outcome: 'committed', hash: 'abc1234' } as any)
   vi.mocked(GitSuggestCommitMessage).mockResolvedValue('feat: generated commit message' as any)
   vi.mocked(GitSuggestSplitCommits).mockResolvedValue([] as any)
 })
@@ -462,6 +468,310 @@ describe('GitPane', () => {
     expect(askBtn).not.toBeNull()
     await fireEvent.click(askBtn)
     expect(cockpit.activeView).toBe('chat')
+  })
+
+  it('supports interactive branch picker to switch and create branches', async () => {
+    vi.mocked(GitBranches).mockResolvedValue([
+      { name: 'main', current: true },
+      { name: 'feature/auth', current: false },
+    ] as any)
+
+    const { container } = render(GitPane)
+    const branchBtn = container.querySelector('.gp-branch-btn') as HTMLButtonElement
+    expect(branchBtn).not.toBeNull()
+    expect(branchBtn.textContent).toContain('main')
+
+    // Click branch button to open menu
+    await fireEvent.click(branchBtn)
+    await waitFor(() => expect(container.querySelector('.branch-menu')).not.toBeNull())
+
+    // Switch branch
+    const branchItems = container.querySelectorAll('.branch-item')
+    expect(branchItems.length).toBeGreaterThanOrEqual(2)
+    await fireEvent.click(branchItems[1])
+    expect(GitSwitchBranch).toHaveBeenCalledWith('feature/auth')
+
+    // Open again to create new branch
+    await fireEvent.click(branchBtn)
+    await waitFor(() => expect(container.querySelector('.branch-menu')).not.toBeNull())
+    const input = container.querySelector('.branch-search input') as HTMLInputElement
+    await fireEvent.input(input, { target: { value: 'feature/new-card' } })
+
+    const createBtn = container.querySelector('.branch-item.create') as HTMLButtonElement
+    expect(createBtn).not.toBeNull()
+    await fireEvent.click(createBtn)
+    expect(GitCreateBranch).toHaveBeenCalledWith('feature/new-card')
+  })
+
+  it('renders skeleton cards when AI is analyzing smart split', async () => {
+    let resolvePromise: (v: any) => void
+    const pending = new Promise((res) => { resolvePromise = res })
+    vi.mocked(GitSuggestSplitCommits).mockReturnValue(pending as any)
+
+    const { container } = render(GitPane)
+    await waitFor(() => expect(container.querySelector('.gp-split-section')).not.toBeNull())
+
+    const splitBtn = container.querySelector('.gp-split-section .gp-commit-btn') as HTMLButtonElement
+    await fireEvent.click(splitBtn)
+
+    // Skeleton list should be rendered while analyzing
+    await waitFor(() => expect(container.querySelector('.gp-split-skel-list')).not.toBeNull())
+    expect(container.querySelector('.gp-ring')).not.toBeNull()
+
+    // Resolve promise
+    resolvePromise!([])
+    await waitFor(() => expect(container.querySelector('.gp-split-skel-list')).toBeNull())
+  })
+
+  it('handles no_changes outcome in manual commit gracefully without advancing timeline or success', async () => {
+    vi.mocked(GitCommitFiles).mockResolvedValue({ outcome: 'no_changes' } as any)
+
+    const { container, getByText } = render(GitPane)
+    await waitFor(() => expect(container.querySelector('.gp-commit-area')).not.toBeNull())
+
+    // Switch to manual mode
+    const tabs = container.querySelectorAll('.gp-mode-tab')
+    await fireEvent.click(tabs[1] as HTMLElement)
+
+    const textarea = container.querySelector('.gp-msg-input') as HTMLTextAreaElement
+    await fireEvent.input(textarea, { target: { value: 'feat: no changes commit' } })
+
+    const commitBtn = container.querySelector('.gp-manual-box .gp-commit-btn') as HTMLButtonElement
+    await fireEvent.click(commitBtn)
+
+    // Should display neutral noChangesToCommit message
+    await waitFor(() => expect(container.querySelector('.gp-alert.info')).not.toBeNull())
+    expect(getByText('No changes to commit')).toBeTruthy()
+    // Should NOT have timeline link
+    expect(container.querySelector('.gp-alert-link')).toBeNull()
+    // Should NOT clear textarea
+    expect(textarea.value).toBe('feat: no changes commit')
+  })
+
+  it('handles no_changes outcome in single group commit without marking card as committed', async () => {
+    vi.mocked(GitSuggestSplitCommits).mockResolvedValue([
+      {
+        title: 'docs: update readme',
+        message: 'docs: update readme',
+        files: ['ARCHITECTURE.md'],
+      },
+    ] as any)
+    vi.mocked(GitCommitFiles).mockResolvedValue({ outcome: 'no_changes' } as any)
+
+    const { container, getByText } = render(GitPane)
+    await waitFor(() => expect(container.querySelector('.gp-split-section')).not.toBeNull())
+
+    // Click analyze
+    const splitBtn = container.querySelector('.gp-split-section .gp-commit-btn') as HTMLButtonElement
+    await fireEvent.click(splitBtn)
+
+    await waitFor(() => expect(container.querySelectorAll('.gp-split-card').length).toBe(1))
+
+    // Commit this group
+    const commitGroupBtn = container.querySelector('.gp-split-commit-btn') as HTMLButtonElement
+    await fireEvent.click(commitGroupBtn)
+
+    // Alert should indicate no changes
+    await waitFor(() => expect(container.querySelector('.gp-alert.info')).not.toBeNull())
+    expect(getByText('docs: update readme: No changes to commit')).toBeTruthy()
+
+    // Card should NOT be marked committed
+    const card = container.querySelector('.gp-split-card')
+    expect(card?.classList.contains('committed')).toBe(false)
+  })
+
+  it('handles no_changes outcome in commit all groups without advancing counter or marking cards committed', async () => {
+    vi.mocked(GitSuggestSplitCommits).mockResolvedValue([
+      {
+        title: 'group 1',
+        message: 'group 1 msg',
+        files: ['internal/skill/hunk.go'],
+      },
+      {
+        title: 'group 2',
+        message: 'group 2 msg',
+        files: ['ARCHITECTURE.md'],
+      },
+    ] as any)
+    vi.mocked(GitCommitFiles).mockResolvedValue({ outcome: 'no_changes' } as any)
+
+    const { container, getByText } = render(GitPane)
+    await waitFor(() => expect(container.querySelector('.gp-split-section')).not.toBeNull())
+
+    // Click analyze
+    const splitBtn = container.querySelector('.gp-split-section .gp-commit-btn') as HTMLButtonElement
+    await fireEvent.click(splitBtn)
+
+    await waitFor(() => expect(container.querySelectorAll('.gp-split-card').length).toBe(2))
+
+    // Click Commit All
+    const commitAllBtn = container.querySelector('.gp-split-all-btn') as HTMLButtonElement
+    await fireEvent.click(commitAllBtn)
+
+    // Should show noChangesToCommit alert
+    await waitFor(() => expect(container.querySelector('.gp-alert.info')).not.toBeNull())
+    expect(getByText('No changes to commit')).toBeTruthy()
+
+    // Neither card should be marked committed
+    const cards = container.querySelectorAll('.gp-split-card')
+    expect(cards[0].classList.contains('committed')).toBe(false)
+    expect(cards[1].classList.contains('committed')).toBe(false)
+  })
+
+  it('displays warning and ask assistant button when GitCommitFiles succeeds with warning', async () => {
+    vi.mocked(GitCommitFiles).mockResolvedValue({
+      outcome: 'committed',
+      hash: 'b1dbd00e',
+      warning: 'exit status 1: post-commit hook failed',
+    } as any)
+
+    const { container } = render(GitPane)
+    await waitFor(() => expect(container.querySelector('.gp-commit-area')).not.toBeNull())
+
+    // Switch to manual mode
+    const tabs = container.querySelectorAll('.gp-mode-tab')
+    await fireEvent.click(tabs[1] as HTMLElement)
+
+    const textarea = container.querySelector('.gp-msg-input') as HTMLTextAreaElement
+    await fireEvent.input(textarea, { target: { value: 'feat: test commit with warning' } })
+
+    const commitBtn = container.querySelector('.gp-manual-box .gp-commit-btn') as HTMLButtonElement
+    await fireEvent.click(commitBtn)
+
+    // Alert should be success and include the warning text
+    await waitFor(() => expect(container.querySelector('.gp-alert.success')).not.toBeNull())
+    const alert = container.querySelector('.gp-alert.success') as HTMLElement
+    expect(alert.textContent).toContain('exit status 1: post-commit hook failed')
+
+    // Ask assistant button must be rendered
+    const askBtn = alert.querySelector('.gp-alert-assistant-btn') as HTMLButtonElement
+    expect(askBtn).not.toBeNull()
+
+    // Click ask assistant button
+    await fireEvent.click(askBtn)
+    expect(cockpit.activeView).toBe('chat')
+    const userMsg = cockpit.chat.find((m) => m.role === 'user')
+    expect(userMsg).toBeDefined()
+    expect(userMsg?.text).toContain('git log -1')
+    expect(userMsg?.text).toContain('git status --porcelain')
+    expect(userMsg?.text).toContain('Do NOT make duplicate commits')
+    expect(userMsg?.text).toContain('Do NOT automatically retry')
+    expect(userMsg?.text).toContain('Do NOT modify, checkout, or reset the repository')
+    expect(vi.mocked(SendMessage)).toHaveBeenCalled()
+  })
+
+  it('displays error and ask assistant button when GitCommitFiles fails with process error', async () => {
+    vi.mocked(GitCommitFiles).mockRejectedValue(new Error('exit status 1: pre-commit hook rejected'))
+
+    const { container } = render(GitPane)
+    await waitFor(() => expect(container.querySelector('.gp-commit-area')).not.toBeNull())
+
+    // Switch to manual mode
+    const tabs = container.querySelectorAll('.gp-mode-tab')
+    await fireEvent.click(tabs[1] as HTMLElement)
+
+    const textarea = container.querySelector('.gp-msg-input') as HTMLTextAreaElement
+    await fireEvent.input(textarea, { target: { value: 'feat: will fail commit' } })
+
+    const commitBtn = container.querySelector('.gp-manual-box .gp-commit-btn') as HTMLButtonElement
+    await fireEvent.click(commitBtn)
+
+    // Alert should be error
+    await waitFor(() => expect(container.querySelector('.gp-alert.err')).not.toBeNull())
+    const alert = container.querySelector('.gp-alert.err') as HTMLElement
+    expect(alert.textContent).toContain('exit status 1: pre-commit hook rejected')
+
+    // Ask assistant button must be rendered
+    const askBtn = alert.querySelector('.gp-alert-assistant-btn') as HTMLButtonElement
+    expect(askBtn).not.toBeNull()
+
+    // Click ask assistant button
+    await fireEvent.click(askBtn)
+    expect(cockpit.activeView).toBe('chat')
+    const userMsg = cockpit.chat.find((m) => m.role === 'user')
+    expect(userMsg).toBeDefined()
+    expect(userMsg?.text).toContain('git log -1')
+    expect(userMsg?.text).toContain('CRITICAL INSTRUCTIONS')
+    expect(vi.mocked(SendMessage)).toHaveBeenCalled()
+  })
+
+  it('does not display ask assistant button on normal successful commit', async () => {
+    vi.mocked(GitCommitFiles).mockResolvedValue({ outcome: 'committed', hash: 'abc1234' } as any)
+
+    const { container } = render(GitPane)
+    await waitFor(() => expect(container.querySelector('.gp-commit-area')).not.toBeNull())
+
+    // Switch to manual mode
+    const tabs = container.querySelectorAll('.gp-mode-tab')
+    await fireEvent.click(tabs[1] as HTMLElement)
+
+    const textarea = container.querySelector('.gp-msg-input') as HTMLTextAreaElement
+    await fireEvent.input(textarea, { target: { value: 'feat: normal commit' } })
+
+    const commitBtn = container.querySelector('.gp-manual-box .gp-commit-btn') as HTMLButtonElement
+    await fireEvent.click(commitBtn)
+
+    await waitFor(() => expect(container.querySelector('.gp-alert.success')).not.toBeNull())
+    const alert = container.querySelector('.gp-alert.success') as HTMLElement
+    // Assistant button must NOT be present
+    expect(alert.querySelector('.gp-alert-assistant-btn')).toBeNull()
+  })
+
+  it('does not display ask assistant button on validation errors or no_changes', async () => {
+    const { container } = render(GitPane)
+    await waitFor(() => expect(container.querySelector('.gp-commit-area')).not.toBeNull())
+
+    // Switch to manual mode
+    const tabs = container.querySelectorAll('.gp-mode-tab')
+    await fireEvent.click(tabs[1] as HTMLElement)
+
+    // Validation error: empty message
+    const commitBtn = container.querySelector('.gp-manual-box .gp-commit-btn') as HTMLButtonElement
+    const textarea = container.querySelector('.gp-msg-input') as HTMLTextAreaElement
+    await fireEvent.input(textarea, { target: { value: '   ' } })
+    await fireEvent.click(commitBtn)
+
+    // Alert error for empty message
+    await waitFor(() => expect(container.querySelector('.gp-alert.err')).not.toBeNull())
+    expect(container.querySelector('.gp-alert-assistant-btn')).toBeNull()
+
+    // No changes outcome
+    vi.mocked(GitCommitFiles).mockResolvedValue({ outcome: 'no_changes' } as any)
+    await fireEvent.input(textarea, { target: { value: 'some msg' } })
+    await fireEvent.click(commitBtn)
+
+    await waitFor(() => expect(container.querySelector('.gp-alert.info')).not.toBeNull())
+    expect(container.querySelector('.gp-alert-assistant-btn')).toBeNull()
+  })
+
+  it('displays warning and ask assistant button in smart split group commit', async () => {
+    vi.mocked(GitSuggestSplitCommits).mockResolvedValue([
+      {
+        title: 'skill: hunk updates',
+        message: 'feat(skill): update hunk parser',
+        files: ['internal/skill/hunk.go'],
+      },
+    ] as any)
+    vi.mocked(GitCommitFiles).mockResolvedValue({
+      outcome: 'committed',
+      hash: 'deadbeef',
+      warning: 'exit status 1: post-commit notification failed',
+    } as any)
+
+    const { container } = render(GitPane)
+    await waitFor(() => expect(container.querySelector('.gp-split-section')).not.toBeNull())
+
+    const splitBtn = container.querySelector('.gp-split-section .gp-commit-btn') as HTMLButtonElement
+    await fireEvent.click(splitBtn)
+    await waitFor(() => expect(container.querySelectorAll('.gp-split-card').length).toBe(1))
+
+    const commitGroupBtn = container.querySelector('.gp-split-commit-btn') as HTMLButtonElement
+    await fireEvent.click(commitGroupBtn)
+
+    await waitFor(() => expect(container.querySelector('.gp-alert.success')).not.toBeNull())
+    const alert = container.querySelector('.gp-alert.success') as HTMLElement
+    expect(alert.textContent).toContain('exit status 1: post-commit notification failed')
+    expect(alert.querySelector('.gp-alert-assistant-btn')).not.toBeNull()
   })
 })
 

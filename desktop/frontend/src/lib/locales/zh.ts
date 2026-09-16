@@ -1744,7 +1744,10 @@ export const zh: Partial<Record<keyof typeof th, string>> = {
 
   // Git Workbench & Commit
   'git.commitSuccess': '提交成功',
+  'git.commitSuccessWithWarning': '提交已成功创建，但 Git 进程返回了异常',
   'git.commitFailed': '提交失败：{error}',
   'git.noChangesToCommit': '没有可提交的更改',
+  'git.askAssistantGit': '让智能体排查 Git 问题',
+  'git.askAssistantGitPrompt': '请协助排查当前项目的 Git 问题：\n1. 使用 `git log -1` 确认最新的 HEAD\n2. 使用 `git status --porcelain` 检查工作区状态\n3. 检查与 Git 操作相关的 debug 日志\n4. 先行总结确认提交是否已经实际生效\n\n重要限制要求：\n- 严禁重复提交\n- 严禁自动重试提交\n- 未经用户明确许可，严禁修改、回滚或 reset 仓库',
   'git.committingGroup': '正在提交第 {current}/{total} 组...',
 }

@@ -114,7 +114,7 @@ type API interface {
 	GitChangedFiles() []ChangedFile
 	GitCommitChanges(hash string) []GitFileChange
 	GitCommitFileDiff(hash string, path string) string
-	GitCommitFiles(message string, files []string) error
+	GitCommitFiles(message string, files []string) (GitCommitResult, error)
 	GitCreateBranch(name string) (string, error)
 	GitFileDiff(path string) string
 	GitLog(before string, limit int) GitLogPage

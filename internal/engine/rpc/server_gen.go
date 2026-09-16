@@ -523,7 +523,8 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		if err := decodeParams(params, &p0, &p1); err != nil {
 			return nil, err, true
 		}
-		return nil, e.GitCommitFiles(p0, p1), true
+		r0, err := e.GitCommitFiles(p0, p1)
+		return r0, err, true
 	case "GitCreateBranch":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {

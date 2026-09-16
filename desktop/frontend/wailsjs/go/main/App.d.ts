@@ -318,7 +318,7 @@ export function GitCommitChanges(arg1:string):Promise<Array<engine.GitFileChange
 
 export function GitCommitFileDiff(arg1:string,arg2:string):Promise<string>;
 
-export function GitCommitFiles(arg1:string,arg2:Array<string>):Promise<void>;
+export function GitCommitFiles(arg1:string,arg2:Array<string>):Promise<engine.GitCommitResult>;
 
 export function GitCreateBranch(arg1:string):Promise<string>;
 

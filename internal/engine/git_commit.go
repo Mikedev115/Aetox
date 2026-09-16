@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/proc"
 )
@@ -42,50 +44,273 @@ const (
 	gitSplitEventDone    = "git:split:done"
 )
 
+// GitCommitOutcome represents the result status of a commit operation.
+type GitCommitOutcome string
+
+const (
+	GitCommitOutcomeCommitted GitCommitOutcome = "committed"
+	GitCommitOutcomeNoChanges GitCommitOutcome = "no_changes"
+)
+
+// GitCommitResult contains the outcome of a commit operation, the commit hash if committed,
+// and an optional warning if the commit succeeded despite a process abnormality.
+type GitCommitResult struct {
+	Outcome GitCommitOutcome `json:"outcome"`
+	Hash    string           `json:"hash,omitempty"`
+	Warning string           `json:"warning,omitempty"`
+}
+
+var gitBin = "git"
+
+func gitCmdErr(ctx context.Context, subcmd string, err error, out []byte) error {
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("git %s timed out after 30s: %w", subcmd, ctx.Err())
+	}
+	if ctx.Err() == context.Canceled {
+		return fmt.Errorf("git %s canceled: %w", subcmd, ctx.Err())
+	}
+	outStr := strings.TrimSpace(string(out))
+	if outStr != "" {
+		return fmt.Errorf("git %s: %s", subcmd, outStr)
+	}
+	return fmt.Errorf("git %s: %w", subcmd, err)
+}
+
+// logGitCommitAnomaly logs safe diagnostic information about Git errors without revealing
+// sensitive paths, commit messages, raw stdout/stderr, environment variables, or credentials.
+func logGitCommitAnomaly(subcmd string, err error, outLen int, ctx context.Context, headBefore, headAfter string) {
+	var exitCode int = -1
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		exitCode = exitErr.ExitCode()
+	}
+	ctxState := "normal"
+	if ctx.Err() == context.DeadlineExceeded {
+		ctxState = "deadline exceeded"
+	} else if ctx.Err() == context.Canceled {
+		ctxState = "canceled"
+	}
+	hb := headBefore
+	if hb == "" {
+		hb = "none"
+	}
+	ha := headAfter
+	if ha == "" {
+		ha = "none"
+	}
+	debuglog.Msg("git %s error: type=%T text=%q exitCode=%d ctx=%s bytes=%d headBefore=%s headAfter=%s",
+		subcmd, err, err.Error(), exitCode, ctxState, outLen, hb, ha)
+}
+
+// parsePorcelainZ parses git status --porcelain -z output into changed paths and untracked paths.
+func parsePorcelainZ(raw []byte) (changed []string, untracked []string) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	parts := strings.Split(string(raw), "\x00")
+	for i := 0; i < len(parts); i++ {
+		p := parts[i]
+		if len(p) < 3 {
+			continue
+		}
+		status := p[:2]
+		filePath := p[3:]
+		if filePath == "" {
+			continue
+		}
+		changed = append(changed, filePath)
+		if status == "??" || status == "? " {
+			untracked = append(untracked, filePath)
+		}
+		// In -z format, renamed or copied entries are followed by the original path in the next slot.
+		if (status[0] == 'R' || status[0] == 'C') && i+1 < len(parts) {
+			origPath := parts[i+1]
+			if origPath != "" {
+				changed = append(changed, origPath)
+			}
+			i++
+		}
+	}
+	return changed, untracked
+}
+
 // GitCommitFiles stages and commits the given files with the specified message.
 // If files is empty, it commits all changed files in the working tree.
-func (a *Engine) GitCommitFiles(message string, files []string) error {
+// Pre-existing staged changes outside the requested files are preserved.
+func (a *Engine) GitCommitFiles(message string, files []string) (GitCommitResult, error) {
 	trimmed := strings.TrimSpace(message)
 	if trimmed == "" {
-		return errors.New("commit message cannot be empty")
+		return GitCommitResult{}, errors.New("commit message cannot be empty")
 	}
 	root, ok := a.gitRoot()
 	if !ok {
-		return errors.New("no git repository focused")
+		return GitCommitResult{}, errors.New("no git repository focused")
 	}
 
-	ctx, cancel := a.gitContext()
+	ctx, cancel := context.WithTimeout(a.engineCtx(), 30*time.Second)
 	defer cancel()
 
+	gitRun := func(args ...string) ([]byte, error) {
+		cmd := exec.CommandContext(ctx, gitBin, append([]string{"-C", root, "-c", "core.quotepath=false"}, args...)...)
+		proc.HideConsole(cmd)
+		proc.KillOnCancel(cmd)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			if len(args) > 0 && args[0] != "commit" {
+				logGitCommitAnomaly(args[0], err, len(out), ctx, "", "")
+			}
+			return out, gitCmdErr(ctx, args[0], err, out)
+		}
+		return out, nil
+	}
+
 	if len(files) == 0 {
+		// Check if there are any changes in working tree or index
+		statusOut, err := gitRun("status", "--porcelain", "-z")
+		if err != nil {
+			return GitCommitResult{}, err
+		}
+		if len(statusOut) == 0 {
+			return GitCommitResult{Outcome: GitCommitOutcomeNoChanges}, nil
+		}
+
 		// Stage everything
-		if _, err := gitOut(ctx, root, "add", "-A"); err != nil {
-			return fmt.Errorf("git add -A: %w", err)
-		}
-	} else {
-		// Reset any previously staged changes so only the requested files are committed
-		if _, err := gitOut(ctx, root, "rev-parse", "--verify", "HEAD"); err == nil {
-			_, _ = gitOut(ctx, root, "reset", "HEAD")
+		if _, err := gitRun("add", "-A"); err != nil {
+			return GitCommitResult{}, err
 		}
 
-		addArgs := append([]string{"add", "--"}, files...)
-		if _, err := gitOut(ctx, root, addArgs...); err != nil {
-			return fmt.Errorf("git add: %w", err)
+		// Verify cached diff before committing
+		diffOut, err := gitRun("diff", "--cached", "--name-only")
+		if err != nil {
+			return GitCommitResult{}, err
 		}
+		if strings.TrimSpace(string(diffOut)) == "" {
+			return GitCommitResult{Outcome: GitCommitOutcomeNoChanges}, nil
+		}
+
+		headBeforeRaw, _ := gitOut(ctx, root, "rev-parse", "--verify", "HEAD")
+		headBefore := strings.TrimSpace(headBeforeRaw)
+
+		out, err := gitRun("commit", "-m", trimmed)
+		if err != nil {
+			if ctx.Err() == context.DeadlineExceeded || ctx.Err() == context.Canceled {
+				logGitCommitAnomaly("commit", err, len(out), ctx, headBefore, "")
+				return GitCommitResult{}, err
+			}
+
+			headAfterRaw, errAfter := gitOut(ctx, root, "rev-parse", "--verify", "HEAD")
+			headAfter := strings.TrimSpace(headAfterRaw)
+			logGitCommitAnomaly("commit", err, len(out), ctx, headBefore, headAfter)
+
+			if errAfter == nil && headAfter != "" && headAfter != headBefore {
+				// The commit succeeded in the repository despite process error
+				return GitCommitResult{
+					Outcome: GitCommitOutcomeCommitted,
+					Hash:    headAfter,
+					Warning: "git process reported abnormality after commit",
+				}, nil
+			}
+
+			outStr := strings.TrimSpace(string(out))
+			if strings.Contains(outStr, "nothing to commit") || strings.Contains(outStr, "no changes added to commit") {
+				return GitCommitResult{Outcome: GitCommitOutcomeNoChanges}, nil
+			}
+			return GitCommitResult{}, err
+		}
+
+		hashRaw, _ := gitOut(ctx, root, "rev-parse", "HEAD")
+		return GitCommitResult{
+			Outcome: GitCommitOutcomeCommitted,
+			Hash:    strings.TrimSpace(hashRaw),
+		}, nil
 	}
 
-	cmd := exec.CommandContext(ctx, "git", "-C", root, "-c", "core.quotepath=false", "commit", "-m", trimmed)
-	proc.HideConsole(cmd)
-	proc.KillOnCancel(cmd)
-	out, err := cmd.CombinedOutput()
+	// Normalize paths for git pathspec
+	normFiles := make([]string, 0, len(files))
+	seen := make(map[string]bool, len(files))
+	for _, f := range files {
+		f = filepath.ToSlash(strings.TrimSpace(f))
+		if f != "" && !seen[f] {
+			seen[f] = true
+			normFiles = append(normFiles, f)
+		}
+	}
+	if len(normFiles) == 0 {
+		return GitCommitResult{Outcome: GitCommitOutcomeNoChanges}, nil
+	}
+
+	// Check status for these specific files
+	statusArgs := append([]string{"status", "--porcelain", "-z", "--"}, normFiles...)
+	statusOut, err := gitRun(statusArgs...)
 	if err != nil {
-		outStr := strings.TrimSpace(string(out))
-		if outStr != "" {
-			return fmt.Errorf("git commit: %s", outStr)
-		}
-		return fmt.Errorf("git commit: %w", err)
+		return GitCommitResult{}, err
 	}
-	return nil
+	if len(statusOut) == 0 {
+		return GitCommitResult{Outcome: GitCommitOutcomeNoChanges}, nil
+	}
+
+	changed, untracked := parsePorcelainZ(statusOut)
+	if len(changed) == 0 {
+		return GitCommitResult{Outcome: GitCommitOutcomeNoChanges}, nil
+	}
+
+	// Untracked files must be known to git before running git commit --only.
+	// Stage only the untracked files in the selection without touching other files.
+	var addedUntracked []string
+	if len(untracked) > 0 {
+		addArgs := append([]string{"add", "--"}, untracked...)
+		if _, err := gitRun(addArgs...); err != nil {
+			return GitCommitResult{}, err
+		}
+		addedUntracked = untracked
+	}
+
+	headBeforeRaw, _ := gitOut(ctx, root, "rev-parse", "--verify", "HEAD")
+	headBefore := strings.TrimSpace(headBeforeRaw)
+
+	// Commit selected files using --only so existing staging outside changed files is untouched
+	commitArgs := append([]string{"commit", "-m", trimmed, "--only", "--"}, changed...)
+	out, err := gitRun(commitArgs...)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded || ctx.Err() == context.Canceled {
+			if len(addedUntracked) > 0 {
+				rmArgs := append([]string{"rm", "--cached", "--quiet", "--"}, addedUntracked...)
+				_, _ = gitRun(rmArgs...)
+			}
+			logGitCommitAnomaly("commit", err, len(out), ctx, headBefore, "")
+			return GitCommitResult{}, err
+		}
+
+		headAfterRaw, errAfter := gitOut(ctx, root, "rev-parse", "--verify", "HEAD")
+		headAfter := strings.TrimSpace(headAfterRaw)
+		logGitCommitAnomaly("commit", err, len(out), ctx, headBefore, headAfter)
+
+		if errAfter == nil && headAfter != "" && headAfter != headBefore {
+			// Commit actually succeeded! Keep untracked files committed without unstaging.
+			return GitCommitResult{
+				Outcome: GitCommitOutcomeCommitted,
+				Hash:    headAfter,
+				Warning: "git process reported abnormality after commit",
+			}, nil
+		}
+
+		// If commit failed, unstage any untracked files we added so we restore the previous index state
+		if len(addedUntracked) > 0 {
+			rmArgs := append([]string{"rm", "--cached", "--quiet", "--"}, addedUntracked...)
+			_, _ = gitRun(rmArgs...)
+		}
+		outStr := strings.TrimSpace(string(out))
+		if strings.Contains(outStr, "nothing to commit") || strings.Contains(outStr, "no changes added to commit") {
+			return GitCommitResult{Outcome: GitCommitOutcomeNoChanges}, nil
+		}
+		return GitCommitResult{}, err
+	}
+
+	hashRaw, _ := gitOut(ctx, root, "rev-parse", "HEAD")
+	return GitCommitResult{
+		Outcome: GitCommitOutcomeCommitted,
+		Hash:    strings.TrimSpace(hashRaw),
+	}, nil
 }
 
 // GitSuggestCommitMessage has the active model write the message for one

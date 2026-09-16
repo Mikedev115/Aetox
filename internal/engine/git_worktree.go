@@ -295,7 +295,7 @@ func (a *Engine) gitContext() (context.Context, context.CancelFunc) {
 }
 
 func gitOut(ctx context.Context, root string, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", root, "-c", "core.quotepath=false"}, args...)...)
+	cmd := exec.CommandContext(ctx, gitBin, append([]string{"-C", root, "-c", "core.quotepath=false"}, args...)...)
 	proc.HideConsole(cmd)
 	proc.KillOnCancel(cmd)
 	raw, err := cmd.Output()

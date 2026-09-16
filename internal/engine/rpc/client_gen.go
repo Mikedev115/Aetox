@@ -628,8 +628,10 @@ func (c *Client) GitCommitFileDiff(hash string, path string) string {
 	return out0
 }
 
-func (c *Client) GitCommitFiles(message string, files []string) error {
-	return c.call("GitCommitFiles", []any{message, files}, nil)
+func (c *Client) GitCommitFiles(message string, files []string) (engine.GitCommitResult, error) {
+	var out0 engine.GitCommitResult
+	err := c.call("GitCommitFiles", []any{message, files}, &out0)
+	return out0, err
 }
 
 func (c *Client) GitCreateBranch(name string) (string, error) {
