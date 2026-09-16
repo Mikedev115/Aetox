@@ -207,6 +207,7 @@ var toolCategories = map[string]string{
 	"codebase":    CategoryCode,
 	"diagnostics": CategoryCode,
 	"symbol":      CategoryCode,
+	"impact":      CategoryCode,
 	"rename":      CategoryCode,
 	// Code and not files, deliberately: the assistant desk holds no project
 	// root, and a repo map of "wherever the session stands" would be a wrong

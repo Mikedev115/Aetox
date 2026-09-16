@@ -108,3 +108,9 @@ func TestPlanCanSeeTheRepoMap(t *testing.T) {
 		t.Error("วางแผน cannot read the repo map, which is the cheapest thing a plan can stand on")
 	}
 }
+
+func TestPlanCanSeeImpact(t *testing.T) {
+	if !StancePlan.AllowsTool("impact") {
+		t.Error("วางแผน cannot read symbol impact, which answers what is affected before making changes")
+	}
+}

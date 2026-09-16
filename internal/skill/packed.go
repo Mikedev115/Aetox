@@ -348,10 +348,11 @@ var packs = map[string]*pack{
 	// same language server, other side of every gate, because it writes.
 	"codebase": {
 		tool:    "codebase",
-		actions: []string{"errors", "symbol", "map", "design"},
+		actions: []string{"errors", "symbol", "impact", "map", "design"},
 		names: map[string]string{
 			"errors": "diagnostics",
 			"symbol": "symbol",
+			"impact": "impact",
 			"map":    "repo_map",
 			"design": "design_check",
 		},

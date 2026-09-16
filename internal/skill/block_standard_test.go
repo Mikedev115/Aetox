@@ -107,11 +107,10 @@ var overweight = map[string]int{
 	// three different shapes cannot introduce themselves in fewer words - and
 	// under what the entries they replaced cost together, which is the number
 	// that was worth having. 263 to 320 on 2026-09-14 when `design` joined as
-	// the fourth act (design_check.go): one line naming the nine tells it
-	// reads, because a model that does not know what the check finds does
-	// not call it - the map's two weeks at one call proved that - and still
-	// under the 422 the three standalone entries cost before the pack.
-	"codebase":    320,
+	// the fourth act (design_check.go), and 320 to 362 on 2026-09-16 when `impact`
+	// joined as the fifth act (impact.go): pre-change blast radius answering what is
+	// impacted and what to test, still under the 422 the three standalone entries cost.
+	"codebase":    362,
 	"media_read":  231,
 	// `pr` arrived packed (pr_pack.go) rather than as five tools, so there is
 	// no before to compare it against - five standalone entries carrying these

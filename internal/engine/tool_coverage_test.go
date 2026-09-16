@@ -626,6 +626,12 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 			available: haveBinary("gopls"),
 			why:       "no gopls",
 		},
+		"impact": {
+			args:      map[string]any{"path": "main.go", "name": "main"},
+			available: haveBinary("gopls"),
+			why:       "no gopls",
+			check:     outputContains("Impact:"),
+		},
 		"rename": {
 			args:      map[string]any{"path": "renameme.go", "name": "helper", "new_name": "assist"},
 			available: haveBinary("gopls"),

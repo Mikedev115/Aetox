@@ -78,40 +78,73 @@ func (s *symbolSkill) Execute(ctx context.Context, input Input) (Output, error) 
 	return s.ExecuteTool(ctx, map[string]any{"path": args[0], "name": strings.Join(args[1:], " ")})
 }
 
-func (s *symbolSkill) ExecuteTool(ctx context.Context, args map[string]any) (Output, error) {
+type resolvedSymbol struct {
+	path    string
+	name    string
+	command string
+	start   time.Time
+	info    *lsp.SymbolInfo
+}
+
+func resolveSymbolTarget(ctx context.Context, root string, outputSubdir func() string, toolName string, args map[string]any) (*resolvedSymbol, *Output, error) {
 	start := time.Now()
 	path, _ := args["path"].(string)
 	name, _ := args["name"].(string)
 	path, name = strings.TrimSpace(path), strings.TrimSpace(name)
 	if path == "" || name == "" {
 		err := errors.New("path and name are required")
-		return newToolOutput("symbol", "symbol", "", start, false, err), err
+		out := newToolOutput(toolName, toolName, "", start, false, err)
+		return nil, &out, err
 	}
-	path = PlacedPath(s.root, s.outputSubdir, path)
-	command := "symbol " + path + " " + name
+	path = PlacedPath(root, outputSubdir, path)
+	command := toolName + " " + path + " " + name
 
-	if _, err := resolveSandboxPath(s.root, path); err != nil {
-		return newToolOutput("symbol", command, "", start, false, err), err
+	if _, err := resolveSandboxPath(root, path); err != nil {
+		out := newToolOutput(toolName, command, "", start, false, err)
+		return nil, &out, err
 	}
 	// The same three distinct answers diagnostics gives, for the same reason:
 	// "no server for this language" and "the server could not be run" must not
 	// be reported as "this symbol does not exist".
 	if !lsp.Configured(path) {
-		return newToolOutput("symbol", command,
-			"(no language server exists for this file type, not checked)", start, false, nil), nil
+		out := newToolOutput(toolName, command,
+			"(no language server exists for this file type, not checked)", start, false, nil)
+		return nil, &out, nil
 	}
 	if !lsp.Available(ctx, path) {
-		return newToolOutput("symbol", command,
-			"(language server for this file type is not installed and could not be installed, NOT checked)", start, false, nil), nil
+		out := newToolOutput(toolName, command,
+			"(language server for this file type is not installed and could not be installed, NOT checked)", start, false, nil)
+		return nil, &out, nil
 	}
 
-	info, err := lsp.Shared(s.root).Symbol(ctx, path, name, diagnosticsTimeout)
+	info, err := lsp.Shared(root).Symbol(ctx, path, name, diagnosticsTimeout)
 	if err != nil {
-		return newToolOutput("symbol", command, "", start, false, err), err
+		out := newToolOutput(toolName, command, "", start, false, err)
+		return nil, &out, err
 	}
 	if info == nil {
-		return newToolOutput("symbol", command, "(nothing known about this symbol)", start, false, nil), nil
+		out := newToolOutput(toolName, command, "(nothing known about this symbol)", start, false, nil)
+		return nil, &out, nil
 	}
+	return &resolvedSymbol{
+		path:    path,
+		name:    name,
+		command: command,
+		start:   start,
+		info:    info,
+	}, nil, nil
+}
+
+func (s *symbolSkill) ExecuteTool(ctx context.Context, args map[string]any) (Output, error) {
+	res, early, err := resolveSymbolTarget(ctx, s.root, s.outputSubdir, "symbol", args)
+	if early != nil {
+		return *early, err
+	}
+	start := res.start
+	path := res.path
+	name := res.name
+	command := res.command
+	info := res.info
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s, used at %s:%d\n", name, path, info.Occurrence)

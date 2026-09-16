@@ -90,6 +90,8 @@ func (s *codebaseSkill) inner(action string) (Tool, error) {
 		return &diagnosticsSkill{root: s.root, outputSubdir: s.outputSubdir}, nil
 	case "symbol":
 		return &symbolSkill{root: s.root, outputSubdir: s.outputSubdir}, nil
+	case "impact":
+		return &impactSkill{root: s.root, outputSubdir: s.outputSubdir}, nil
 	case "map":
 		return &repoMapSkill{root: s.root, open: s.open}, nil
 	case "design":
@@ -104,6 +106,7 @@ func (s *codebaseSkill) ToolDefinition() model.ToolDefinition {
 	lines := map[string]string{
 		"errors": "`errors` (path), compile and type errors from the language server (gopls, tsserver, ...). A file, or a folder to check everything supported inside it; \".\" is the whole project. '(no problems)' means clean, and it says so when no server is installed for that language.",
 		"symbol": "`symbol` (path, name), what an identifier is: signature, doc, where it is declared, and every place that references it. Exact where a search guesses.",
+		"impact": "`impact` (path, name), blast radius: declaration, references by role (production/tests/other), boundaries, and related narrow checks.",
 		"map":    "`map` (path?), the project's shape: files ranked by incoming references, with their symbols and line numbers.",
 		"design": "`design` (path?), the mechanical design tells in UI source, by rule and line: gradient text, glow, side stripe, the AI palette, overused font, bounce easing, layout transition, broken image, emoji as icon.",
 	}
@@ -119,13 +122,13 @@ func (s *codebaseSkill) ToolDefinition() model.ToolDefinition {
 		},
 		"path": map[string]any{
 			"type":        "string",
-			"description": "The file for errors and symbol; the folder for map and design, which default to the whole project.",
+			"description": "The file for errors, symbol, impact; the folder for map and design, which default to the whole project.",
 		},
 	}
-	if slices.Contains(allowed, "symbol") {
+	if slices.Contains(allowed, "symbol") || slices.Contains(allowed, "impact") {
 		properties["name"] = map[string]any{
 			"type":        "string",
-			"description": "action=symbol: the identifier to look up, exactly as written.",
+			"description": "action=symbol/impact: the identifier to look up, exactly as written.",
 		}
 	}
 
