@@ -395,6 +395,27 @@
     return { destroy: () => window.removeEventListener('resize', fit) }
   }
 
+  let tabsScrollEl = $state<HTMLDivElement | null>(null)
+
+  function onTabWheel(e: WheelEvent) {
+    if (e.deltaY !== 0 && !e.shiftKey && tabsScrollEl) {
+      tabsScrollEl.scrollLeft += e.deltaY
+      e.preventDefault()
+    }
+  }
+
+  $effect(() => {
+    const activeId = workbench.activeId
+    if (activeId && tabsScrollEl) {
+      requestAnimationFrame(() => {
+        const activeEl = tabsScrollEl?.querySelector('.tab.active') as HTMLElement | null
+        if (activeEl) {
+          activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+        }
+      })
+    }
+  })
+
   function closeMenuOnOutsideClick(e: MouseEvent) {
     const el = e.target as HTMLElement
     if (!el.closest('.plus-menu-wrap')) menuOpen = false
@@ -522,35 +543,37 @@
          grew a pixel when the agent started working would move every tab, and
          resize the native browser window underneath. -->
     {#if busyDot}<span class="busy-strip-line" aria-hidden="true"></span>{/if}
-    {#each workbench.tabs as tab (tab.id)}
-      <button
-        class="tab" class:active={workbench.activeId === tab.id} title={tab.name} onclick={() => activateTab(tab.id)}
-        draggable={canDrag(tab)}
-        ondragstart={(e) => onTabDragStart(e, tab)}
-        transition:sidle
-      >
-        <span class="ic"><Icon name={tabIcon[tab.kind] ?? 'fileText'} size={13} /></span>
-        <span class="label">{tab.name}</span>
-        {#if tab.kind === 'git' && codeStatus.gitChangedCount > 0}
-          <span class="tab-badge git">{codeStatus.gitChangedCount}</span>
-        {:else if tab.kind === 'pr' && codeStatus.openPRCount > 0}
-          <span class="tab-badge pr">{codeStatus.openPRCount}</span>
-        {/if}
-        <!-- Breathing on the one tab the agent is working. tab.id is the id the
-             engine minted (web-agent-N) and busyWork.tab is that same id come
-             back on the tool event, so this is an identity check and not a
-             guess. Empty tab means the engine could not say which — no dot
-             anywhere, and the border light carries the message alone. -->
-        {#if busyDot && busyWork.tab && tab.id === busyWork.tab}
-          <span class="busy-tab-dot" aria-hidden="true"></span>
-        {/if}
-        <span
-          class="tab-close" role="button" tabindex="0" aria-label={t('workbench.close', { name: tab.name })}
-          onclick={(e) => { e.stopPropagation(); closeTab(tab) }}
-          onkeydown={(e) => e.key === 'Enter' && closeTab(tab)}
-        ><Icon name="x" size={12} /></span>
-      </button>
-    {/each}
+    <div class="insp-tabs-scroll" bind:this={tabsScrollEl} onwheel={onTabWheel}>
+      {#each workbench.tabs as tab (tab.id)}
+        <button
+          class="tab" class:active={workbench.activeId === tab.id} title={tab.name} onclick={() => activateTab(tab.id)}
+          draggable={canDrag(tab)}
+          ondragstart={(e) => onTabDragStart(e, tab)}
+          transition:sidle
+        >
+          <span class="ic"><Icon name={tabIcon[tab.kind] ?? 'fileText'} size={13} /></span>
+          <span class="label">{tab.name}</span>
+          {#if tab.kind === 'git' && codeStatus.gitChangedCount > 0}
+            <span class="tab-badge git">{codeStatus.gitChangedCount}</span>
+          {:else if tab.kind === 'pr' && codeStatus.openPRCount > 0}
+            <span class="tab-badge pr">{codeStatus.openPRCount}</span>
+          {/if}
+          <!-- Breathing on the one tab the agent is working. tab.id is the id the
+               engine minted (web-agent-N) and busyWork.tab is that same id come
+               back on the tool event, so this is an identity check and not a
+               guess. Empty tab means the engine could not say which — no dot
+               anywhere, and the border light carries the message alone. -->
+          {#if busyDot && busyWork.tab && tab.id === busyWork.tab}
+            <span class="busy-tab-dot" aria-hidden="true"></span>
+          {/if}
+          <span
+            class="tab-close" role="button" tabindex="0" aria-label={t('workbench.close', { name: tab.name })}
+            onclick={(e) => { e.stopPropagation(); closeTab(tab) }}
+            onkeydown={(e) => e.key === 'Enter' && closeTab(tab)}
+          ><Icon name="x" size={12} /></span>
+        </button>
+      {/each}
+    </div>
     <div class="plus-menu-wrap">
       <button class="icobtn tiny plus-btn" aria-label={t('workbench.addTab')} data-tip={t('workbench.addTab')} onclick={() => (menuOpen = !menuOpen)}>
         <Icon name="plus" size={14} />
