@@ -148,8 +148,7 @@ func analyze(ctx context.Context, opts Options) (*analysis, error) {
 		return nil, fmt.Errorf("not a folder to map: %s", opts.Root)
 	}
 
-	goModule := readGoModule(root)
-	ignoredAnywhere, ignoredAtRoot := readGitignoreDirs(root)
+	goModule, rootPrefix, ignoredAnywhere, ignoredAtRoot := projectRoot(root)
 	a := &analysis{byRel: make(map[string]*file)}
 
 	stopped := false
@@ -202,7 +201,7 @@ func analyze(ctx context.Context, opts Options) (*analysis, error) {
 			return nil
 		}
 		rel = filepath.ToSlash(rel)
-		symbols, targets, defs := parse(lang, rel, src, goModule)
+		symbols, targets, defs := parse(lang, rel, src, goModule, rootPrefix)
 		f := &file{rel: rel, symbols: symbols, defs: defs}
 		a.files = append(a.files, f)
 		a.byRel[rel] = f
@@ -542,23 +541,75 @@ func publicFirst(symbols []Symbol, cap int) []Symbol {
 	return kept
 }
 
-// readGitignoreDirs reads the plain directory lines of root's .gitignore —
-// `name/`, `/name/`, `/name`, `name` with no wildcard and no inner slash —
-// into two sets: names ignored at any depth and names ignored at the root
-// only. A folder git ignores is by definition not the project: a build
-// output, a virtualenv, a second checkout parked beside the first. The walk
-// that met a Python venv the ignore list did not know (105 seconds, and the
-// model paid twice) had the answer in the repository's own .gitignore all
-// along; and this repository's map spent one of its ten files on a gitignored
-// copy of itself. Not a gitignore matcher: patterns with wildcards, inner
-// slashes, negations or file targets are left to the tools that need them,
-// because a directory name is the whole of what the walk can act on.
-func readGitignoreDirs(root string) (anywhere, atRoot map[string]bool) {
-	anywhere = make(map[string]bool)
-	atRoot = make(map[string]bool)
-	src, err := os.ReadFile(filepath.Join(root, ".gitignore"))
+// projectRoot finds the nearest ancestor with go.mod (the module boundary)
+// and returns:
+//   - goModule: the module path, or "" outside a Go module.
+//   - rootPrefix: relative slash-separated path from the module root down to root ("" if root is the module root or outside a Go module).
+//   - ignoredAnywhere: directory names git-ignored at any depth (combining root's .gitignore and ancestor .gitignores up to the module root).
+//   - ignoredAtRoot: directory names git-ignored at the mapped root only (from root's own .gitignore).
+//
+// An ancestor's .gitignore is consulted for anywhere-ignores only: an ancestor's
+// `/output` means output at that ancestor's root, not at root/output.
+func projectRoot(root string) (goModule, rootPrefix string, ignoredAnywhere, ignoredAtRoot map[string]bool) {
+	ignoredAnywhere = make(map[string]bool)
+	ignoredAtRoot = make(map[string]bool)
+	parseGitignoreFile(filepath.Join(root, ".gitignore"), ignoredAnywhere, ignoredAtRoot)
+
+	var modDir string
+	var ancestors []string
+	dir := root
+	for {
+		if mod := readGoModFile(filepath.Join(dir, "go.mod")); mod != "" {
+			modDir = dir
+			goModule = mod
+			break
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir { // reached filesystem root
+			break
+		}
+		ancestors = append(ancestors, parent)
+		dir = parent
+	}
+
+	if modDir == "" {
+		return "", "", ignoredAnywhere, ignoredAtRoot
+	}
+
+	if modDir != root {
+		if rel, err := filepath.Rel(modDir, root); err == nil && rel != "." {
+			rootPrefix = filepath.ToSlash(rel)
+		}
+	}
+
+	for _, anc := range ancestors {
+		parseGitignoreFile(filepath.Join(anc, ".gitignore"), ignoredAnywhere, nil)
+		if anc == modDir {
+			break
+		}
+	}
+
+	return goModule, rootPrefix, ignoredAnywhere, ignoredAtRoot
+}
+
+func readGoModFile(path string) string {
+	src, err := os.ReadFile(path)
 	if err != nil {
-		return anywhere, atRoot
+		return ""
+	}
+	for _, line := range strings.Split(string(src), "\n") {
+		line = strings.TrimSpace(line)
+		if rest, ok := strings.CutPrefix(line, "module "); ok {
+			return strings.TrimSpace(rest)
+		}
+	}
+	return ""
+}
+
+func parseGitignoreFile(path string, anywhere, atRoot map[string]bool) {
+	src, err := os.ReadFile(path)
+	if err != nil {
+		return
 	}
 	for _, line := range strings.Split(string(src), "\n") {
 		line = strings.TrimSpace(line)
@@ -574,27 +625,14 @@ func readGitignoreDirs(root string) (anywhere, atRoot map[string]bool) {
 			continue
 		}
 		if rooted {
-			atRoot[name] = true
+			if atRoot != nil {
+				atRoot[name] = true
+			}
 		} else {
-			anywhere[name] = true
+			if anywhere != nil {
+				anywhere[name] = true
+			}
 		}
 	}
-	return anywhere, atRoot
 }
 
-// readGoModule returns the module path from root's go.mod, or "" — outside a
-// Go module every Go import is external and contributes no edge, which is the
-// correct reading, not a degraded one.
-func readGoModule(root string) string {
-	src, err := os.ReadFile(filepath.Join(root, "go.mod"))
-	if err != nil {
-		return ""
-	}
-	for _, line := range strings.Split(string(src), "\n") {
-		line = strings.TrimSpace(line)
-		if rest, ok := strings.CutPrefix(line, "module "); ok {
-			return strings.TrimSpace(rest)
-		}
-	}
-	return ""
-}

@@ -78,10 +78,10 @@ func languageOf(path string) language {
 // parse returns a file's symbols, the reference targets its imports point
 // at, and — for Go only — the exported names it defines, which is what a
 // symbol-level target (`dir#Name`, parseGo) resolves against.
-func parse(lang language, rel string, src []byte, goModule string) (symbols []Symbol, targets, defs []string) {
+func parse(lang language, rel string, src []byte, goModule, rootPrefix string) (symbols []Symbol, targets, defs []string) {
 	switch lang {
 	case langGo:
-		return parseGo(rel, src, goModule)
+		return parseGo(rel, src, goModule, rootPrefix)
 	case langScript:
 		symbols, targets = parseScript(rel, src)
 	case langPython:
@@ -112,7 +112,7 @@ func parse(lang language, rel string, src []byte, goModule string) (symbols []Sy
 // becomes a symbol target (`internal/model#Name`) that resolution lands on
 // the file defining Name. The package target is spent only when none of the
 // symbol targets resolve — a blank import, a name the scan does not know.
-func parseGo(rel string, src []byte, goModule string) ([]Symbol, []string, []string) {
+func parseGo(rel string, src []byte, goModule, rootPrefix string) ([]Symbol, []string, []string) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, rel, src, parser.SkipObjectResolution)
 	if f == nil {
@@ -180,17 +180,34 @@ func parseGo(rel string, src []byte, goModule string) ([]Symbol, []string, []str
 			if err != nil {
 				continue
 			}
-			rest, ok := strings.CutPrefix(p, prefix)
-			if !ok {
+			var rest string
+			if p == goModule {
+				rest = "."
+			} else if r, ok := strings.CutPrefix(p, prefix); ok {
+				rest = r
+			} else {
 				continue
 			}
-			targets = append(targets, rest)
-			alias := rest[strings.LastIndex(rest, "/")+1:]
+
+			target := rest
+			if rootPrefix != "" {
+				if rest == rootPrefix {
+					target = "."
+				} else if relTarget, ok := strings.CutPrefix(rest, rootPrefix+"/"); ok {
+					target = relTarget
+				} else {
+					continue // escaped the mapped root: not an edge this map can see
+				}
+			}
+
+			targets = append(targets, target)
+			cleanPath := strings.TrimRight(p, "/")
+			alias := cleanPath[strings.LastIndex(cleanPath, "/")+1:]
 			if imp.Name != nil {
 				alias = imp.Name.Name
 			}
 			if alias != "_" && alias != "." {
-				byAlias[alias] = rest
+				byAlias[alias] = target
 			}
 		}
 		if len(byAlias) > 0 {

@@ -468,3 +468,151 @@ func TestBuildSkipsGitignoredDirs(t *testing.T) {
 		t.Errorf("src/gen/ is not a plain directory name and is not acted on:\n%s", out)
 	}
 }
+
+// When mapping a subfolder of a Go module, repomap must discover the ancestor
+// go.mod, trim the rootPrefix so imports within the subtree resolve cleanly,
+// and drop edges that point outside the mapped subtree.
+func TestSubfolderGraphResolvesGoImports(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		path := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("go.mod", "module example.com/demo\n\ngo 1.22\n")
+	write("pkg/core/core.go", "package core\n\ntype Request struct{}\n")
+	write("pkg/app/app.go", "package app\n\nimport \"example.com/demo/pkg/core\"\n\nfunc Use() { var r core.Request; _ = r }\n")
+	write("other/thing.go", "package other\n\nfunc Thing() {}\n")
+
+	nodes, edges, total, err := Graph(context.Background(), Options{Root: filepath.Join(root, "pkg")}, AllNodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 2 {
+		t.Errorf("expected 2 mapped files in pkg, got %d", total)
+	}
+
+	byPath := make(map[string]Node)
+	index := make(map[string]int)
+	for i, n := range nodes {
+		byPath[n.Path] = n
+		index[n.Path] = i
+	}
+
+	coreNode, ok := byPath["core/core.go"]
+	if !ok {
+		t.Fatalf("core/core.go missing from graph: %+v", nodes)
+	}
+	if coreNode.Refs != 1 {
+		t.Errorf("core/core.go should have 1 incoming ref, got %d", coreNode.Refs)
+	}
+
+	if _, ok := byPath["other/thing.go"]; ok {
+		t.Errorf("other/thing.go is outside pkg and must not be in graph")
+	}
+
+	hasEdge := false
+	for _, e := range edges {
+		if e.From == index["app/app.go"] && e.To == index["core/core.go"] {
+			hasEdge = true
+		}
+	}
+	if !hasEdge {
+		t.Errorf("expected edge from app/app.go to core/core.go, got: %+v", edges)
+	}
+
+	out, err := Build(context.Background(), Options{Root: filepath.Join(root, "pkg")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "core/core.go  (referenced by 1)") {
+		t.Errorf("Build output must show core/core.go with (referenced by 1):\n%s", out)
+	}
+	coreIdx := strings.Index(out, "core/core.go")
+	appIdx := strings.Index(out, "app/app.go")
+	if coreIdx < 0 || appIdx < 0 || coreIdx > appIdx {
+		t.Errorf("core/core.go should rank above app/app.go:\n%s", out)
+	}
+}
+
+func TestDeepSubfolderMapping(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		path := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("go.mod", "module example.com/demo\n\ngo 1.22\n")
+	write("internal/model/types.go", "package model\n\ntype Config struct{}\n")
+	write("internal/model/sub/sub.go", "package sub\n\nimport \"example.com/demo/internal/model\"\n\nfunc Build() model.Config { return model.Config{} }\n")
+	write("internal/turn/executor.go", "package turn\n\nimport \"example.com/demo/internal/model\"\n\nfunc Exec() model.Config { return model.Config{} }\n")
+
+	nodes, edges, _, err := Graph(context.Background(), Options{Root: filepath.Join(root, "internal", "model")}, AllNodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPath := make(map[string]Node)
+	index := make(map[string]int)
+	for i, n := range nodes {
+		byPath[n.Path] = n
+		index[n.Path] = i
+	}
+	if n, ok := byPath["types.go"]; !ok || n.Refs != 1 {
+		t.Errorf("types.go should have 1 ref from sub/sub.go, got node: %+v", n)
+	}
+	hasEdge := false
+	for _, e := range edges {
+		if e.From == index["sub/sub.go"] && e.To == index["types.go"] {
+			hasEdge = true
+		}
+	}
+	if !hasEdge {
+		t.Errorf("expected edge from sub/sub.go to types.go, got: %+v", edges)
+	}
+}
+
+func TestSubfolderGitignoreInheritance(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		path := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("go.mod", "module example.com/demo\n\ngo 1.22\n")
+	write(".gitignore", "venv\n/output\n")
+	write("pkg/good.go", "package pkg\nfunc Good() {}\n")
+	write("pkg/venv/bad.go", "package venv\nfunc Bad() {}\n")
+	write("pkg/output/keep.go", "package output\nfunc Keep() {}\n")
+	write("pkg/.gitignore", "/localout\n")
+	write("pkg/localout/skip.go", "package localout\nfunc Skip() {}\n")
+
+	out, err := Build(context.Background(), Options{Root: filepath.Join(root, "pkg")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "venv/bad.go") {
+		t.Errorf("pkg/venv should be ignored by ancestor .gitignore anywhere rule:\n%s", out)
+	}
+	if !strings.Contains(out, "output/keep.go") {
+		t.Errorf("pkg/output should NOT be ignored because ancestor /output was atRoot only:\n%s", out)
+	}
+	if strings.Contains(out, "localout/skip.go") {
+		t.Errorf("pkg/localout should be ignored by pkg/.gitignore atRoot rule:\n%s", out)
+	}
+}
+
