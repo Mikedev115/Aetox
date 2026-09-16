@@ -190,6 +190,8 @@ describe('provider account line', () => {
     expect(rings.length).toBe(2)
     expect(container.textContent).toContain('82%')
     expect(container.textContent).toContain('64%')
+    expect(container.textContent).toContain('รีเซ็ตอีก 4 ชม.')
+    expect(container.textContent).toContain('รีเซ็ตอีก 4 วัน')
     const row = container.querySelector('.acct-compact-row')
     expect(row?.getAttribute('title')).toContain('เหลือ 82%')
   })

@@ -101,7 +101,9 @@
           <div class="acct-compact-row" title={quotaTitle(q)}>
             <span class="acct-window">{tk('account.window.' + q.window)}</span>
             <div class="acct-compact-right">
-              <span class="acct-pct">{Math.round(q.remainingPercent)}%</span>
+              <span class="acct-pct">
+                {Math.round(q.remainingPercent)}%{#if untilText(q.resetAt)}<span class="acct-reset"> · {untilText(q.resetAt)}</span>{/if}
+              </span>
               <svg class="acct-ring" width="13" height="13" viewBox="0 0 20 20" aria-hidden="true">
                 <circle class="acct-ring-bg" cx="10" cy="10" r="7.5" fill="none" stroke-width="2.8" />
                 <circle
