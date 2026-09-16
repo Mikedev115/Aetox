@@ -94,7 +94,7 @@ func TestPlanKeepsWhatOnlyLooksAndDropsWhatChanges(t *testing.T) {
 	s := StancePlan
 	for _, name := range []string{
 		"read", "list", "glob", "grep", "web_search", "web_fetch",
-		"pdf_read", "image_ocr", "diagnostics", "symbol", "repo_map", "trace", "github",
+		"pdf_read", "image_ocr", "diagnostics", "symbol", "impact", "repo_map", "trace", "github",
 		"n8n_workflow_read", "ask_user", "calc", "skills_list",
 	} {
 		if !s.AllowsTool(name) {
@@ -278,6 +278,12 @@ func TestTheCodingDeskSplitsItsActingHalfForALookingStance(t *testing.T) {
 		if !strings.Contains(looking, always) {
 			t.Errorf("the looking half lost %q, which holds under every stance", always)
 		}
+	}
+	if !strings.Contains(whole, "Stop expanding once the relevant boundary and blast radius are supported by evidence") {
+		t.Error("the coding desk does not state when broad investigation should stop")
+	}
+	if strings.Contains(whole, "completely confident") {
+		t.Error("the coding desk still asks for an unbounded confidence threshold")
 	}
 	if len(looking) >= len(whole) {
 		t.Errorf("the looking half (%d) is not shorter than the whole (%d)", len(looking), len(whole))

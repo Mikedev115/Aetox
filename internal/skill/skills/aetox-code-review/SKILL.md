@@ -22,17 +22,25 @@ is no diff to find.
 
 ## Understand before judging
 
-1. For every changed function, read its callers and the tests that cover it.
-   A change is safe or unsafe because of what reaches it, and the diff does
-   not show that.
+1. For each changed symbol whose contract or behavior may reach other code,
+   use `codebase` with `action: impact` first. It identifies production
+   callers, tests and generated or RPC surfaces; read only the referenced
+   ranges needed to judge the change. When a language server cannot resolve
+   the file, use targeted search and state that the caller set is inferred.
+   If the verdict depends on how a changed entry point reaches another layer,
+   use `action: trace` to prove that path, especially across generated, RPC,
+   or frontend/backend boundaries. Do not trace every changed symbol.
 2. Read the project's own way of doing the same thing elsewhere: error
    handling, naming, module layout, how data is reached. The change is judged
    against the project's dominant pattern and the framework's documented
    conventions, never against personal taste.
 3. Run it. Build and test the touched packages before the verdict. A verdict
    with no run is `Inferred`, and says so.
-4. Scan by default: the changed code and one hop out. Read a whole module
-   only when the change crosses a boundary, and say that you did.
+4. Scan by default: the changed code and one evidence-backed hop out. If the
+   change crosses a boundary or the area is unfamiliar, use `codebase` with
+   `action: map` on the relevant folder; do not turn that trigger into a
+   whole-module read. Open complete files only when they are small or the
+   review genuinely depends on the whole file, and say so.
 
 ## What to look for
 

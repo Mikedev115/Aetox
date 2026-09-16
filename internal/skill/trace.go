@@ -1,12 +1,12 @@
 package skill
 
-// The trace tool: internal/codeindex behind the sandbox, the fifth act of the
+// The trace tool: internal/codeindex behind the sandbox, the sixth act of the
 // `codebase` pack. `errors` asks whether this file is broken, `symbol` what a
-// name is and who uses it, `map` what shape the project has, `design` whether
-// this UI was assembled by habit — and trace asks what a name CONNECTS to and
-// which source line proves each hop.
+// name is and who uses it, `impact` what changing it can disturb, `map` what
+// shape the project has, `design` whether this UI was assembled by habit — and
+// trace asks what a name CONNECTS to and which source line proves each hop.
 //
-// It exists for the one relationship the other four cannot see: a frontend call
+// It exists for the one relationship the other five cannot see: a frontend call
 // goes through a generated Wails binding into a Go method, and neither the
 // language server nor the import map crosses a file nobody wrote by hand. What
 // it returns is evidence, never a summary: every hop carries its path, line,

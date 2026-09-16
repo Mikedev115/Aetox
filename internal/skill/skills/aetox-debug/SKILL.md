@@ -1,6 +1,6 @@
 ---
 name: aetox-debug
-description: วินัยแก้บั๊กที่ห้ามแก้จนกว่าจะรู้ต้นเหตุจริง - อ่าน error เต็ม ยืนยันซ้ำได้ ตั้งสมมติฐานเป็นประโยค ทดสอบทีละตัวแปร พลาดครบ 3 ครั้งแล้วให้หยุดถามสถาปัตยกรรมแทนแก้ต่อ อ่านตัวนี้ก่อนแก้บั๊ก/test ล้ม/พฤติกรรมที่ไม่คาดคิด ก่อนเสนอทางแก้ใดๆ
+description: ตอนแก้บั๊ก test ล้ม หรือพฤติกรรมไม่คาดคิด ก่อนเสนอทางแก้ ให้หาต้นเหตุจากหลักฐาน ทดสอบทีละสมมติฐาน และหยุดทบทวนสถาปัตยกรรมเมื่อแก้พลาดสามครั้ง
 source: https://github.com/obra/superpowers
 license: MIT
 copyright: Copyright (c) 2026 Aetox Skills
@@ -26,13 +26,17 @@ more data rather than start guessing. Check what changed recently: diffs,
 commits, dependencies, config. For anything that crosses a boundary (a build
 step, an API call, a signing pipeline), instrument every boundary before
 theorizing, log what goes in and out of each layer, run once, read the
-evidence, and only then decide which layer is actually broken.
+evidence, and only then decide which layer is actually broken. When the path
+already exists in source, use `codebase` with `action: trace` first to prove
+the hops across generated, RPC, or frontend/backend boundaries; instrument
+only what remains unknown, and do not call trace for a purely local failure.
 
 **2. Find the working pattern.** Locate a working example elsewhere in the
-same codebase that resembles the broken thing, and read all of it, not a
-skim of a reference that assumes a difference "can't matter." List what the
-broken piece actually depends on (config, environment, assumptions) before
-touching it.
+same codebase that resembles the broken thing. Read the complete relevant
+unit and the config, environment or dependency pieces that could explain the
+difference. Do not expand into the whole file or module unless the comparison
+depends on it. List what the broken piece actually depends on before touching
+it.
 
 **3. One hypothesis, one test.** Write the hypothesis as a sentence, "I
 think X is the cause because Y", vague theories don't count. Test it with
@@ -80,8 +84,8 @@ Each of these, heard in your own reasoning, means stop and go back to phase
 - "Skip the test, I'll check it by hand"
 - "It's probably X" (without having traced to X)
 - "I don't fully understand this but it might work"
-- "The reference does it differently, I'll adapt it" (without reading all
-  of the reference first)
+- "The reference does it differently, I'll adapt it" (without reading the
+  complete relevant unit and its dependencies first)
 - Naming several possible fixes before tracing what the data actually does
 - "One more attempt", after two have already failed
 

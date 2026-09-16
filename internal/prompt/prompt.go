@@ -496,7 +496,7 @@ func BuildWithReport(surface Surface, scope Scope, desk Desk) (string, Loaded) {
 		// changing in the work and now in the prompt, and a stance that can
 		// look but not change gets the half that applies to it. See
 		// findingThings for the measurement that split them.
-		if desk.carries("grep") {
+		if desk.carries("repo_map") || desk.carries("grep") {
 			b.WriteString(findingThings(desk))
 		}
 		if desk.carries("edit") || desk.carries("write") {
@@ -1203,12 +1203,32 @@ func fileEditing(desk Desk) string {
 // Gated on grep alone. Every desk has it today, and a stance that took search
 // away would be handed a paragraph of moves it cannot make.
 func findingThings(desk Desk) string {
-	s := "Find the place before you open it. grep with a glob answers where something lives for a fraction " +
-		"of what the file costs, and asking it for a few lines of context often answers the question " +
-		"outright, with no read at all.\n" +
+	var s string
+	if desk.carries("repo_map") {
+		s = "For unfamiliar code, start with codebase action=map once; it ranks load-bearing files and symbol lines. " +
+			"If cut, remap only the relevant folder. Skip it when the exact place or a current map is known.\n"
+		if desk.carries("symbol") {
+			s += "Use codebase action=symbol to identify a code name. "
+		}
+		if desk.carries("impact") {
+			s += "Use codebase action=impact before changing a symbol when callers, tests, or generated boundaries matter. "
+		}
+		if desk.carries("trace") {
+			s += "Use codebase action=trace only for paths across generated/RPC or frontend/backend boundaries; never automatically after map. "
+		}
+		if desk.carries("grep") {
+			s += "Use grep for literal text, messages, config keys, and other things a language server does not name."
+		}
+		s = strings.TrimSpace(s) + "\n"
+	} else {
+		s = "Find the place before you open it. grep with a glob answers where something lives for a fraction " +
+			"of what the file costs, and asking it for a few lines of context often answers the question " +
+			"outright, with no read at all.\n"
+	}
+	s +=
 		"When you do read, read the part you came for: pass offset and limit around what the search found. " +
-		"Opening a large file end to end is the most expensive call you have, and those bytes do not leave " +
-		"the conversation, they are re-sent on every round that follows.\n"
+			"Opening a large file end to end is the most expensive call you have, and those bytes do not leave " +
+			"the conversation, they are re-sent on every round that follows.\n"
 	if desk.carries("shell") {
 		// The move that has no tool of its own, and the one this session's own
 		// history shows going unused: `shell` was used as a ranged reader 135

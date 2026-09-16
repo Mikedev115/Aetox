@@ -18,13 +18,18 @@ never mixed in one list, because the reader is deciding whether to ship.
 **One change** (a diff, PR, commit): read the diff for anything that
 touches auth, secrets, crypto, validation, a path, a shell, a query, the
 network, or a permission check. Then one hop out: who calls the changed
-code, and what reaches each new input. For every guard the diff removes or
-loosens, `git log -S` on the removed line; a removed check is often the fix
-for a bug that is about to come back. A refactor is high risk until the
-callers show it changed nothing.
+code, and what reaches each new input. Use `codebase` with `action: impact`
+for changed symbols before opening callers or tests; use targeted search only
+when the language server cannot resolve the code. For every guard the diff
+removes or loosens, `git log -S` on the removed line; a removed check is often
+the fix for a bug that is about to come back. A refactor is high risk until
+the callers show it changed nothing.
 
-**A system** (a folder, a service, an app): do not read everything. Map
-first, in this order:
+**A system** (a folder, a service, an app): do not read everything. Start
+with `codebase` action `map` at the requested scope. If it is cut, map the
+relevant subfolder instead of repeating the whole-project map. The map ranks
+navigation candidates; it does not prove a trust boundary. Build the security
+map in this order:
 
 1. Entry points: HTTP handlers, CLI arguments, files read, messages
    consumed, tool calls the model can make, uploads.
@@ -35,8 +40,13 @@ first, in this order:
 4. Secrets: where they are stored, loaded, logged.
 
 Then walk each path from an entry point to a privileged operation. Depth
-follows size: under 20 files, read them; up to 200, entry points and one
-hop; larger, the critical paths only. The report names what was not read.
+follows risk and size: in a small system, cover every such path without
+automatically opening every file; up to 200 files, inspect entry points and
+one evidence-backed hop; larger, inspect only the critical paths. Read ranges
+around the evidence first. Use `codebase` with `action: trace` when a critical
+path crosses generated, RPC, or frontend/backend boundaries; its hops are
+evidence, not proof that validation is sufficient. Do not trace paths that
+targeted source reads already establish. The report names what was not read.
 
 ## Before judging
 

@@ -8,7 +8,10 @@ package skill
 // answer a question the model would otherwise answer by reading files and
 // guessing. `design_check` joined on 14 ก.ย. 2569 as the fourth: does this UI
 // carry the tells of a page assembled by habit — the same act, the same gates,
-// the one question the language server cannot answer.
+// the one question the language server cannot answer. `impact` joined as the
+// fifth: the symbol references split into production, tests and boundaries,
+// with the narrow checks that evidence supports. `trace` is the sixth: it
+// proves how two places connect, including across a generated Wails boundary.
 //
 // Named `codebase` rather than `code` on purpose. `code` is already a
 // *category* (category.go), the word a desk manifest writes in `categories:` to
@@ -18,7 +21,7 @@ package skill
 //
 // Gates, the same check every pack here is held to (search_pack.go):
 //
-//   - `planKeeps` (internal/mode/stance.go) holds all four, so วางแผน keeps
+//   - `planKeeps` (internal/mode/stance.go) holds all six, so วางแผน keeps
 //     the pack whole - which is the point: a plan is built by looking.
 //   - `parallelToolCalls` (internal/cognitive/agent.go) allows none of them, so
 //     the pack does not straddle that line either. They start language servers
@@ -56,7 +59,7 @@ type codebaseSkill struct {
 func (*codebaseSkill) Name() string { return "codebase" }
 
 func (*codebaseSkill) Description() string {
-	return "ถามตัวโค้ดเกี่ยวกับตัวเอง, ไฟล์นี้พังไหม ชื่อนี้คืออะไรใครใช้บ้าง และโปรเจกต์นี้รูปร่างแบบไหน"
+	return "ถามตัวโค้ดเรื่องข้อผิดพลาด สัญลักษณ์ ผลกระทบ โครงสร้าง และเส้นทางข้ามขอบเขต"
 }
 
 func (s *codebaseSkill) allowedActions() []string {

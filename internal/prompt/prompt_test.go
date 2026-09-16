@@ -1131,8 +1131,20 @@ func TestADeskThatOnlyReadsIsStillToldHowToRead(t *testing.T) {
 			Carries: func(name string) bool { return name != "shell" && name != "write" && name != "edit" }}, false},
 	} {
 		got := BuildForDesk(SurfaceDesktop, Scope{Root: t.TempDir()}, tc.desk)
-		if !strings.Contains(got, "Find the place before you open it") {
-			t.Errorf("desk %q is never told to search before opening:\n%s", tc.name, got)
+		if !strings.Contains(got, "start with codebase action=map once") {
+			t.Errorf("desk %q is never told to map before broad code exploration:\n%s", tc.name, got)
+		}
+		if !strings.Contains(got, "action=impact before changing a symbol") {
+			t.Errorf("desk %q is never told to inspect blast radius before changing a symbol:\n%s", tc.name, got)
+		}
+		if !strings.Contains(got, "action=trace only for paths across") {
+			t.Errorf("desk %q is never told when trace is worth its indexing cost:\n%s", tc.name, got)
+		}
+		if !strings.Contains(got, "never automatically after map") {
+			t.Errorf("desk %q may turn trace into an unconditional second orientation step:\n%s", tc.name, got)
+		}
+		if !strings.Contains(got, "Use grep for literal text") {
+			t.Errorf("desk %q lost the distinction between code navigation and text search:\n%s", tc.name, got)
 		}
 		if !strings.Contains(got, "Opening a large file end to end") {
 			t.Errorf("desk %q is never told what a whole-file read costs", tc.name)
@@ -1145,6 +1157,46 @@ func TestADeskThatOnlyReadsIsStillToldHowToRead(t *testing.T) {
 		// a move it cannot make.
 		if hasEdit := strings.Contains(got, "Do NOT re-send the whole file through write"); hasEdit != tc.wantFix {
 			t.Errorf("desk %q: editing guidance present = %v, want %v", tc.name, hasEdit, tc.wantFix)
+		}
+	}
+}
+
+// The assistant desk can search files but carries no developer tools. The
+// navigation paragraph follows capability, not the presence of a project path:
+// telling that desk to call codebase would be a prompt/tool-block contradiction.
+func TestMapFirstGuidanceRequiresTheCodebaseCapability(t *testing.T) {
+	got := BuildForDesk(SurfaceDesktop, Scope{Root: t.TempDir()}, Desk{
+		Name:      "assistant",
+		Direction: "General work.",
+		Carries: func(name string) bool {
+			return name == "grep" || name == "read"
+		},
+	})
+	if strings.Contains(got, "codebase action=map") {
+		t.Errorf("a desk without codebase was told to call it:\n%s", got)
+	}
+	if !strings.Contains(got, "Find the place before you open it") {
+		t.Errorf("the non-code desk lost its search-before-read guidance:\n%s", got)
+	}
+}
+
+// A custom desk can carry one packed-codebase action without the others.
+// Guidance must follow that narrowed surface instead of naming tools the model
+// cannot call, and map must not depend on grep being present.
+func TestMapFirstGuidanceFollowsNarrowedActions(t *testing.T) {
+	got := BuildForDesk(SurfaceDesktop, Scope{Root: t.TempDir()}, Desk{
+		Name:      "map-only",
+		Direction: "Inspect project shape.",
+		Carries: func(name string) bool {
+			return name == "repo_map" || name == "read"
+		},
+	})
+	if !strings.Contains(got, "start with codebase action=map once") {
+		t.Errorf("a map-only desk lost the navigation contract:\n%s", got)
+	}
+	for _, unavailable := range []string{"action=symbol", "action=impact", "action=trace", "Use grep for literal text"} {
+		if strings.Contains(got, unavailable) {
+			t.Errorf("a map-only desk was told to use unavailable %q:\n%s", unavailable, got)
 		}
 	}
 }
