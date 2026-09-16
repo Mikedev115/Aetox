@@ -109,8 +109,10 @@ type file struct {
 // directory or `dir#Name` for Go, a module path for Python). Kept raw because
 // resolution needs the finished file list.
 type rawEdge struct {
-	from   string
-	target string
+	from     string
+	target   string
+	line     int
+	strength string
 }
 
 // link is one resolved reference: from a file to a file, or — when a Go
@@ -119,9 +121,21 @@ type rawEdge struct {
 // resolution serves both faces (resolve below), so the count on a node and
 // the lines drawn to it can never come from two different readings of the
 // same import.
-type link struct {
+// linkKey is what "one file references another" means: the pair, and whether
+// the destination is a package directory rather than a file. Not the link
+// itself — a link now carries the line and strength of ONE written reference,
+// and two of them are still one dependency.
+type linkKey struct {
 	from string
 	to   string
+	pkg  bool
+}
+
+type link struct {
+	from     string
+	to       string
+	line     int
+	strength string
 	// pkg marks `to` as a directory, not a file.
 	pkg bool
 }
@@ -205,8 +219,13 @@ func analyze(ctx context.Context, opts Options) (*analysis, error) {
 		f := &file{rel: rel, symbols: symbols, defs: defs}
 		a.files = append(a.files, f)
 		a.byRel[rel] = f
-		for _, t := range targets {
-			a.edges = append(a.edges, rawEdge{from: rel, target: t})
+		for _, target := range targets {
+			a.edges = append(a.edges, rawEdge{
+				from:     rel,
+				target:   target.key,
+				line:     target.line,
+				strength: target.strength,
+			})
 		}
 		return nil
 	})
@@ -289,7 +308,12 @@ func (a *analysis) resolve() {
 		}
 		for _, f := range defs[dir][name] {
 			hit[[2]string{e.from, dir}] = true
-			add(link{from: e.from, to: f.rel})
+			// A `dir#Name` target landed on the file that DECLARES the name, so
+			// the link is as resolved as this map gets — whatever the parse
+			// could say about a package path it had not looked up yet. The
+			// strength a bare target keeps is decided below, where how it landed
+			// is known.
+			add(link{from: e.from, to: f.rel, line: e.line, strength: "resolved"})
 		}
 	}
 	for _, e := range a.edges {
@@ -297,10 +321,13 @@ func (a *analysis) resolve() {
 			continue
 		}
 		if to := bare(e.target); to != "" {
-			add(link{from: e.from, to: to})
+			add(link{from: e.from, to: to, line: e.line, strength: e.strength})
 			continue
 		}
-		add(link{from: e.from, to: e.target, pkg: true})
+		// Nothing declared the name and no file answered the path: the line is
+		// drawn to the package directory, which is this map's own convention for
+		// "this import, spread over the package" — a guess, and labelled one.
+		add(link{from: e.from, to: e.target, line: e.line, strength: "heuristic", pkg: true})
 	}
 }
 
@@ -321,10 +348,23 @@ func (a *analysis) rank() {
 			goFilesOf[dir] = append(goFilesOf[dir], f)
 		}
 	}
+	// One credit per importing FILE, not per written reference. Several
+	// references from one file to one target are one file depending on another
+	// (the field's own contract), and a file naming two symbols of one package
+	// is one importer, not two. What each written line proves belongs to the
+	// evidence list (Facts), and the two must not be the same count: ranking by
+	// reference count would let a file that writes `config.Config` and
+	// `config.ConfigOptions` outrank one more of the project depends on.
+	credited := make(map[linkKey]bool)
 	for _, l := range a.links {
 		if isTestFile(l.from) {
 			continue
 		}
+		key := linkKey{from: l.from, to: l.to, pkg: l.pkg}
+		if credited[key] {
+			continue
+		}
+		credited[key] = true
 		if l.pkg {
 			for _, f := range goFilesOf[l.to] {
 				f.refs++

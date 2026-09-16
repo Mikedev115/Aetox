@@ -348,12 +348,16 @@ var packs = map[string]*pack{
 	// same language server, other side of every gate, because it writes.
 	"codebase": {
 		tool:    "codebase",
-		actions: []string{"errors", "symbol", "impact", "map", "design"},
+		actions: []string{"errors", "symbol", "impact", "map", "trace", "design"},
 		names: map[string]string{
 			"errors": "diagnostics",
 			"symbol": "symbol",
 			"impact": "impact",
 			"map":    "repo_map",
+			// The one action here that crosses a generated boundary: a frontend
+			// call to the Go method that answers it, with the source line for
+			// every hop (trace.go).
+			"trace":  "trace",
 			"design": "design_check",
 		},
 	},

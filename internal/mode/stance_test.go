@@ -94,7 +94,7 @@ func TestPlanKeepsWhatOnlyLooksAndDropsWhatChanges(t *testing.T) {
 	s := StancePlan
 	for _, name := range []string{
 		"read", "list", "glob", "grep", "web_search", "web_fetch",
-		"pdf_read", "image_ocr", "diagnostics", "symbol", "github",
+		"pdf_read", "image_ocr", "diagnostics", "symbol", "repo_map", "trace", "github",
 		"n8n_workflow_read", "ask_user", "calc", "skills_list",
 	} {
 		if !s.AllowsTool(name) {

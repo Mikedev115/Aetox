@@ -94,6 +94,8 @@ func (s *codebaseSkill) inner(action string) (Tool, error) {
 		return &impactSkill{root: s.root, outputSubdir: s.outputSubdir}, nil
 	case "map":
 		return &repoMapSkill{root: s.root, open: s.open}, nil
+	case "trace":
+		return &traceSkill{root: s.root, open: s.open}, nil
 	case "design":
 		return &designCheckSkill{root: s.root, open: s.open}, nil
 	}
@@ -104,11 +106,12 @@ func (s *codebaseSkill) ToolDefinition() model.ToolDefinition {
 	allowed := s.allowedActions()
 
 	lines := map[string]string{
-		"errors": "`errors` (path), compile and type errors from the language server (gopls, tsserver, ...). A file, or a folder to check everything supported inside it; \".\" is the whole project. '(no problems)' means clean, and it says so when no server is installed for that language.",
+		"errors": "`errors` (path), compile and type errors from the language server (gopls, tsserver, ...). A file, or a folder to check everything supported inside it; \".\" is the whole project. '(no problems)' means clean.",
 		"symbol": "`symbol` (path, name), what an identifier is: signature, doc, where it is declared, and every place that references it. Exact where a search guesses.",
 		"impact": "`impact` (path, name), blast radius: declaration, references by role (production/tests/other), boundaries, and related narrow checks.",
 		"map":    "`map` (path?), the project's shape: files ranked by incoming references, with their symbols and line numbers.",
 		"design": "`design` (path?), the mechanical design tells in UI source, by rule and line: gradient text, glow, side stripe, the AI palette, overused font, bounce easing, layout transition, broken image, emoji as icon.",
+		"trace":  "`trace` (path, name, direction?, depth?, targetPath?, targetName?), what a name connects to: file:line, relation and strength on every hop, across a generated Wails binding from a frontend call to the Go method.",
 	}
 	var actions strings.Builder
 	for _, a := range allowed {
@@ -122,13 +125,32 @@ func (s *codebaseSkill) ToolDefinition() model.ToolDefinition {
 		},
 		"path": map[string]any{
 			"type":        "string",
-			"description": "The file for errors, symbol, impact; the folder for map and design, which default to the whole project.",
+			"description": "The file for errors, symbol, impact and trace; the folder for map and design, which default to the whole project.",
 		},
 	}
-	if slices.Contains(allowed, "symbol") || slices.Contains(allowed, "impact") {
+	if slices.Contains(allowed, "symbol") || slices.Contains(allowed, "impact") || slices.Contains(allowed, "trace") {
 		properties["name"] = map[string]any{
 			"type":        "string",
-			"description": "action=symbol/impact: the identifier to look up, exactly as written.",
+			"description": "action=symbol/impact: the identifier to look up, exactly as written. action=trace: the identifier to start from.",
+		}
+	}
+	if slices.Contains(allowed, "trace") {
+		properties["direction"] = map[string]any{
+			"type":        "string",
+			"enum":        []string{"callees", "callers", "between"},
+			"description": "walk direction, default callees.",
+		}
+		properties["depth"] = map[string]any{
+			"type":        "integer",
+			"description": "hops to follow, default 3.",
+		}
+		properties["targetPath"] = map[string]any{
+			"type":        "string",
+			"description": "direction=between: file to reach.",
+		}
+		properties["targetName"] = map[string]any{
+			"type":        "string",
+			"description": "direction=between: name to reach in targetPath.",
 		}
 	}
 

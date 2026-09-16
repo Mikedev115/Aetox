@@ -632,6 +632,17 @@ func toolCases(t *testing.T, root string, dispatcher *skill.Dispatcher) map[stri
 			why:       "no gopls",
 			check:     outputContains("Impact:"),
 		},
+		// No language server is needed: the walk is the project's own imports
+		// and generated bindings. The fixture holds no relationship between
+		// two files, so what this proves is that the call reaches the tool and
+		// comes back with a structured answer rather than a hang; the evidence
+		// itself — a frontend call through a generated binding into a Go
+		// method, with file:line on both hops — is pinned in
+		// internal/skill/trace_test.go, where a fixture for it exists.
+		"trace": {
+			args:  map[string]any{"path": "main.go", "name": "main", "direction": "callees"},
+			check: outputContains("outcome="),
+		},
 		"rename": {
 			args:      map[string]any{"path": "renameme.go", "name": "helper", "new_name": "assist"},
 			available: haveBinary("gopls"),

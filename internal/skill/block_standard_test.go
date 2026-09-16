@@ -57,7 +57,9 @@ const (
 // `browser` (766) and `task` (1,568), the two largest in the whole block, are
 // not here because they are registered by the desktop and this package cannot
 // see them. They are covered by the same standard and pinned separately in
-// desktop/tool_budget_test.go.
+// internal/engine/tool_budget_test.go — `desktop/` here until 131a0c6d moved
+// the engine into a package of its own, which left this pointing at a file
+// that no longer exists.
 //
 // The size it was. Shrinking is always allowed; growing is not. Delete a line when
 // its tool comes under the ceiling — that is the migration, one tool at a time,
@@ -84,8 +86,8 @@ var overweight = map[string]int{
 	//
 	// grep was 392 until 2026-08-27 (mode prose to Guidance) and 326 until
 	// 2026-08-29 (`type` and `multiline` added, paid for by more prose moving).
-	"search":      474,
-	"github":      390,
+	"search": 474,
+	"github": 390,
 	// `change` is what `write`, `edit`, `edits` and `delete` became on
 	// 2026-08-29 (change_pack.go), and the arithmetic is why it was worth
 	// building: 141 + 234 + 243 + 159 = 777 tokens of every block that can
@@ -100,40 +102,92 @@ var overweight = map[string]int{
 	// The ratchet bites the same way: this may shrink and may not grow, and the
 	// four lines it replaced are gone rather than left to rot - a pin on a tool
 	// that is no longer registered is never checked and never fails.
-	"change":      599,
+	"change": 599,
 	// `codebase` is diagnostics + symbol + repo_map (167 + 180 + 75 = 422 to
 	// 263) and `media_read` is the three senses (100 + 143 + 136 = 379 to 231),
 	// both on 2026-08-29. Over their 184-token ceilings because three acts with
 	// three different shapes cannot introduce themselves in fewer words - and
 	// under what the entries they replaced cost together, which is the number
 	// that was worth having. 263 to 320 on 2026-09-14 when `design` joined as
-	// the fourth act (design_check.go), and 320 to 362 on 2026-09-16 when `impact`
-	// joined as the fifth act (impact.go): pre-change blast radius answering what is
-	// impacted and what to test, still under the 422 the three standalone entries cost.
-	"codebase":    362,
-	"media_read":  231,
+	// the fourth act (design_check.go): one line naming the nine tells it
+	// reads, because a model that does not know what the check finds does
+	// not call it - the map's two weeks at one call proved that - and still
+	// under the 422 the three standalone entries cost before the pack.
+	//
+	// 320 to 477 on 2026-09-15 when `trace` joined as the fifth act. Measured
+	// inside the pack with `Packed.Narrow` on 16 ก.ย., the act's own addition is
+	// 146 tokens - the four-act entry is 317 and the five-act one 463 - and it is
+	// almost all structure rather than
+	// prose: a three-direction walk needs an enum, a hop count and a target to
+	// reach, and `additionalProperties:false` means an undeclared argument is
+	// a refused call. What could move to Guidance() did - when to reach for it,
+	// that depth is a fan-out, that a partial answer is a budget and not a
+	// silence - and the action line itself is one sentence. Still under the
+	// 422 the three standalone entries cost before the pack, with a fourth and
+	// fifth act on top of it that would each have been a tool of their own.
+	//
+	// The pair "179 (four acts) / 324 (five acts)" stood here until 16 ก.ย. and
+	// both numbers are real - measured on the wrong packs. `Packed.Narrow` takes
+	// PERMISSION names, and `errors` is `diagnostics` while `map` is `repo_map`,
+	// so a list of action names matches only `symbol` and `trace`: 179 is the
+	// symbol-only entry and 324 is symbol+trace. The trap is worth knowing
+	// because `narrow`'s silence rule (packed.go) hands back the WHOLE pack when
+	// nothing matches, so the mistake arrives as a smaller number, never as an
+	// error. And 320 reconciles with today's 317 without a mystery: +12 for the
+	// words `path` and `name` grew to mention `trace` when it joined, -15 for the
+	// `errors` sentence that left the block on the 16th.
+	//
+	// 477 to 463 on 2026-09-16, and the pin was 3 tokens stale before anything
+	// was touched: fdec8404 shortened the depth line from "default 2 (between:
+	// 3)" to "default 3" and left the pin where it was, so the ratchet had
+	// stopped measuring the entry it names.
+	//
+	// What the line bought is the one thing this act exists for - that it
+	// crosses a generated Wails binding from a frontend call to the Go method.
+	// That sentence was already written, in the inner ToolDefinition of
+	// trace.go, which no registry returns and therefore no model has ever read;
+	// the question is whether a model that does not know the crossing exists
+	// calls it at all.
+	//
+	// Paid for inside the pack, twice over. The four `action=trace:` prefixes on
+	// properties only `trace` declares (-54), where no other act can be the
+	// referent; and the last sentence of the `errors` line (-62), which is
+	// judgment by guidance.go's own standard and is delivered once now, from
+	// diagnostics.go, with the result most likely to be "(no problems)".
+	//
+	// The first draft paid with the `path` clause "which default to the whole
+	// project" instead, and a reviewer was right that this was a loss and not a
+	// saving: `(path?)` says the argument is optional and never says what happens
+	// without it, and the act's own inner definitions that DO say it are the ones
+	// no model reads. The clause is back, and the errors sentence pays for both.
+	//
+	// `impact` now joins that same pack as the sixth act. It adds pre-change
+	// blast-radius evidence without changing trace's role: trace answers how a
+	// path crosses boundaries; impact answers what editing a symbol can disturb.
+	"codebase":   520,
+	"media_read": 231,
 	// `pr` arrived packed (pr_pack.go) rather than as five tools, so there is
 	// no before to compare it against - five standalone entries carrying these
 	// same signatures would have been well past a thousand. Over the 240-token
 	// ceiling because five acts with five different argument sets cannot say
 	// what to pass them in fewer words; the judgment (push before you open,
 	// a comment is public and cannot be edited from here) is in Guidance().
-	"pr":          432,
+	"pr": 432,
 
 	"sheet_write": 368,
 	// Not registered since 2026-08-19 (defaults.go), so nothing reaches it
 	// today. The pin stays because the file does: it is the size this tool
 	// comes back at, and coming back over the standard should have to be
 	// noticed rather than inherited.
-	"notebook_edit":    317,
-	"web_fetch":        215,
-	"web_search":       198,
-	"read":             185,
-	"git":              176,
-	"calc":             137,
-	"skill_view":       122,
-	"pdf_read":         96,
-	"skills_list":      86,
+	"notebook_edit": 317,
+	"web_fetch":     215,
+	"web_search":    198,
+	"read":          185,
+	"git":           176,
+	"calc":          137,
+	"skill_view":    122,
+	"pdf_read":      96,
+	"skills_list":   86,
 }
 
 func TestToolBlockEntriesCarryOnlyExistenceAndSignature(t *testing.T) {
@@ -147,7 +201,7 @@ func TestToolBlockEntriesCarryOnlyExistenceAndSignature(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: definition does not marshal: %v", name, err)
 		}
-		tokens := len(payload) / 4 // the same rough rate desktop/tool_budget_test.go uses
+		tokens := len(payload) / 4 // the same rough rate internal/engine/tool_budget_test.go uses
 
 		ceiling := blockCeiling
 		if calls := PackedCalls(name); len(calls) > 0 {

@@ -62,6 +62,17 @@ func (*diagnosticsSkill) ToolDefinition() model.ToolDefinition {
 	}
 }
 
+// Guidance is delivered once, with this act's first result — the moment the
+// distinction matters, because the first result is the most likely to be
+// "(no problems)". It rode in the block until 16 ก.ย., and it is the room it
+// freed that paid for the sentence the `trace` line needed: what a reader needs
+// ONCE belongs here by the standard in guidance.go, and a signature does not.
+func (*diagnosticsSkill) Guidance(map[string]any) string {
+	return "It says so when no server is installed for that language, and \"(no language " +
+		"server exists for this file type, not checked)\" when it never looked. Neither one is " +
+		"a clean file, and an unchecked file read as clean is worse than no answer."
+}
+
 func (s *diagnosticsSkill) Execute(ctx context.Context, input Input) (Output, error) {
 	args := stringSlice(input["args"])
 	if len(args) == 0 {

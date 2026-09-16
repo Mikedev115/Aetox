@@ -75,10 +75,19 @@ func languageOf(path string) language {
 	return langNone
 }
 
+// importTarget is one dependency written in source. Line is the evidence
+// anchor; strength distinguishes exact relative imports from alias/package
+// resolution that needs repository conventions to land on a file.
+type importTarget struct {
+	key      string
+	line     int
+	strength string
+}
+
 // parse returns a file's symbols, the reference targets its imports point
 // at, and — for Go only — the exported names it defines, which is what a
 // symbol-level target (`dir#Name`, parseGo) resolves against.
-func parse(lang language, rel string, src []byte, goModule, rootPrefix string) (symbols []Symbol, targets, defs []string) {
+func parse(lang language, rel string, src []byte, goModule, rootPrefix string) (symbols []Symbol, targets []importTarget, defs []string) {
 	switch lang {
 	case langGo:
 		return parseGo(rel, src, goModule, rootPrefix)
@@ -112,7 +121,7 @@ func parse(lang language, rel string, src []byte, goModule, rootPrefix string) (
 // becomes a symbol target (`internal/model#Name`) that resolution lands on
 // the file defining Name. The package target is spent only when none of the
 // symbol targets resolve — a blank import, a name the scan does not know.
-func parseGo(rel string, src []byte, goModule, rootPrefix string) ([]Symbol, []string, []string) {
+func parseGo(rel string, src []byte, goModule, rootPrefix string) ([]Symbol, []importTarget, []string) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, rel, src, parser.SkipObjectResolution)
 	if f == nil {
@@ -167,7 +176,7 @@ func parseGo(rel string, src []byte, goModule, rootPrefix string) ([]Symbol, []s
 			}
 		}
 	}
-	var targets []string
+	var targets []importTarget
 	if goModule != "" {
 		prefix := goModule + "/"
 		// The name the file writes before the dot: the import's alias when it
@@ -188,7 +197,6 @@ func parseGo(rel string, src []byte, goModule, rootPrefix string) ([]Symbol, []s
 			} else {
 				continue
 			}
-
 			target := rest
 			if rootPrefix != "" {
 				if rest == rootPrefix {
@@ -200,7 +208,11 @@ func parseGo(rel string, src []byte, goModule, rootPrefix string) ([]Symbol, []s
 				}
 			}
 
-			targets = append(targets, target)
+			targets = append(targets, importTarget{
+				key:      target,
+				line:     fset.Position(imp.Pos()).Line,
+				strength: "heuristic",
+			})
 			cleanPath := strings.TrimRight(p, "/")
 			alias := cleanPath[strings.LastIndex(cleanPath, "/")+1:]
 			if imp.Name != nil {
@@ -228,7 +240,11 @@ func parseGo(rel string, src []byte, goModule, rootPrefix string) ([]Symbol, []s
 				key := dir + symbolSep + sel.Sel.Name
 				if !seen[key] {
 					seen[key] = true
-					targets = append(targets, key)
+					targets = append(targets, importTarget{
+						key:      key,
+						line:     fset.Position(sel.Pos()).Line,
+						strength: "heuristic",
+					})
 				}
 				return true
 			})
@@ -261,9 +277,9 @@ var (
 	scriptAliasImportRe = regexp.MustCompile(`(?:from\s+|require\(|import\()['"][@~]/([^'"]+)['"]`)
 )
 
-func parseScript(rel string, src []byte) ([]Symbol, []string) {
+func parseScript(rel string, src []byte) ([]Symbol, []importTarget) {
 	var symbols []Symbol
-	var targets []string
+	var targets []importTarget
 	dir := filepath.ToSlash(filepath.Dir(rel))
 	for i, line := range strings.Split(string(src), "\n") {
 		if scriptDefRe.MatchString(line) || scriptConstRe.MatchString(line) || scriptTypeRe.MatchString(line) {
@@ -272,11 +288,15 @@ func parseScript(rel string, src []byte) ([]Symbol, []string) {
 		}
 		for _, m := range scriptImportRe.FindAllStringSubmatch(line, -1) {
 			if t := resolveScriptImport(dir, m[1]); t != "" {
-				targets = append(targets, t)
+				targets = append(targets, importTarget{key: t, line: i + 1, strength: "syntactic"})
 			}
 		}
 		for _, m := range scriptAliasImportRe.FindAllStringSubmatch(line, -1) {
-			targets = append(targets, filepath.ToSlash(filepath.Clean(m[1])))
+			targets = append(targets, importTarget{
+				key:      filepath.ToSlash(filepath.Clean(m[1])),
+				line:     i + 1,
+				strength: "heuristic",
+			})
 		}
 	}
 	return symbols, targets
@@ -305,9 +325,9 @@ var (
 	mdHeadingRe    = regexp.MustCompile(`^#{1,4}\s+\S`)
 )
 
-func parsePython(rel string, src []byte) ([]Symbol, []string) {
+func parsePython(rel string, src []byte) ([]Symbol, []importTarget) {
 	var symbols []Symbol
-	var targets []string
+	var targets []importTarget
 	dir := filepath.ToSlash(filepath.Dir(rel))
 	for i, line := range strings.Split(string(src), "\n") {
 		// Top level only: an indented def is implementation, and a map that
@@ -323,7 +343,11 @@ func parsePython(rel string, src []byte) ([]Symbol, []string) {
 				dots, module = m[3], m[4]
 			}
 			if t := resolvePythonImport(dir, dots, module); t != "" {
-				targets = append(targets, t)
+				strength := "heuristic"
+				if dots != "" {
+					strength = "syntactic"
+				}
+				targets = append(targets, importTarget{key: t, line: i + 1, strength: strength})
 			}
 		}
 	}

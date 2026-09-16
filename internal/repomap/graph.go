@@ -43,8 +43,27 @@ type Node struct {
 // and a renderer joining strings to find its endpoints is doing this
 // package's job with worse tools.
 type Edge struct {
-	From int `json:"from"`
-	To   int `json:"to"`
+	From         int    `json:"from"`
+	To           int    `json:"to"`
+	Kind         string `json:"kind"`
+	Strength     string `json:"strength"`
+	EvidenceLine int    `json:"evidenceLine"`
+	Producer     string `json:"producer"`
+}
+
+// Location is one evidence anchor in a structural fact.
+type Location struct {
+	Path string `json:"path"`
+	Line int    `json:"line"`
+}
+
+// Fact is one evidence-backed file relationship found by the structural walk.
+type Fact struct {
+	From     Location `json:"from"`
+	To       Location `json:"to"`
+	Kind     string   `json:"kind"`
+	Strength string   `json:"strength"`
+	Producer string   `json:"producer"`
 }
 
 // Graph analyzes root and returns the top maxNodes files with the import
@@ -106,6 +125,70 @@ func Graph(ctx context.Context, opts Options, maxNodes int) ([]Node, []Edge, int
 	return nodes, edges, a.total, nil
 }
 
+// FactVersion is the version of this analyzer's reading, and a cache stores it
+// beside the facts because the facts cannot say it themselves.
+//
+// Bump it for any change to what this package decides: which targets the parse
+// records, how they resolve, what strength they get. A cached fact carries the
+// content stamps of the two files it joins and nothing about the code that
+// decided it existed, so without this a fact written by an older build is
+// served as fresh — and a number measured against that cache cannot be told
+// apart from a number measured against the build that wrote it.
+const FactVersion = "1"
+
+// Facts returns every resolved structural relationship with the line that
+// proves it, the files the walk saw, and whether the walk was cut short. Unlike
+// Graph it has no display ceiling and does not rank or render anything.
+//
+// The file list is returned because a producer that stores these facts in a
+// cache needs to know which sources it is responsible for: a file whose
+// imports were all removed produces no facts at all, and "no facts" is not the
+// same statement as "this file is not part of the project". The capped flag is
+// returned for the same reason `Graph` renders "(walk capped)": a deadline or
+// the file ceiling means the list is partial, and a caller that stores it must
+// not call the result complete.
+func Facts(ctx context.Context, opts Options) ([]Fact, []string, bool, error) {
+	a, err := analyze(ctx, opts)
+	if err != nil {
+		return nil, nil, false, err
+	}
+	spokesperson := goSpokespersons(a)
+	facts := make([]Fact, 0, len(a.links))
+	for _, link := range a.links {
+		to := link.to
+		if link.pkg {
+			to = spokesperson[link.to]
+		}
+		if to == "" || to == link.from {
+			continue
+		}
+		facts = append(facts, Fact{
+			From: Location{Path: link.from, Line: link.line},
+			// No line: an import names a file, and the line that proves it is the
+			// importer's own. Inventing line 1 for the target would print a
+			// number nobody read beside the numbers that were.
+			To:       Location{Path: to},
+			Kind:     "import",
+			Strength: link.strength,
+			Producer: "repomap",
+		})
+	}
+	sort.Slice(facts, func(i, j int) bool {
+		if facts[i].From.Path != facts[j].From.Path {
+			return facts[i].From.Path < facts[j].From.Path
+		}
+		if facts[i].To.Path != facts[j].To.Path {
+			return facts[i].To.Path < facts[j].To.Path
+		}
+		return facts[i].From.Line < facts[j].From.Line
+	})
+	files := make([]string, 0, len(a.files))
+	for _, f := range a.files {
+		files = append(files, f.rel)
+	}
+	return facts, files, a.capped, nil
+}
+
 // resolveEdges turns the analysis's links into drawn lines between kept
 // nodes. A link already names a file — the one a script or Python import
 // wrote, or the Go file that declares the name the importer used — so the
@@ -135,7 +218,14 @@ func resolveEdges(a *analysis, index map[string]int, endpoint func(link) string)
 			continue
 		}
 		seen[key] = true
-		edges = append(edges, Edge{From: fi, To: ti})
+		edges = append(edges, Edge{
+			From:         fi,
+			To:           ti,
+			Kind:         "import",
+			Strength:     l.strength,
+			EvidenceLine: l.line,
+			Producer:     "repomap",
+		})
 	}
 	sort.Slice(edges, func(i, j int) bool {
 		if edges[i].From != edges[j].From {

@@ -59,3 +59,21 @@ func TestDiagnosticsRejectsEscape(t *testing.T) {
 		t.Fatal("a path outside the sandbox must be refused")
 	}
 }
+
+// The last sentence of the `errors` line in codebase_pack.go moved to Guidance on
+// 16 ก.ย. to pay for what the `trace` line needed, and it was the only statement
+// a model ever read about what a clean answer is NOT — the copy that repeats it is
+// diagnostics.go's own inner ToolDefinition, which no registry returns. Guidance
+// is delivered once, with the first result, which is the result most likely to be
+// "(no problems)". Pinned so the next edit to the pack cannot drop it in silence.
+func TestTheErrorsActStillSaysWhatAnUncheckedFileIsNot(t *testing.T) {
+	guidance := (&codebaseSkill{}).Guidance(map[string]any{"action": "errors"})
+	if guidance == "" {
+		t.Fatal("the `errors` act teaches nothing, so nothing says what \"(no problems)\" is not")
+	}
+	for _, want := range []string{"no server is installed", "not checked"} {
+		if !strings.Contains(guidance, want) {
+			t.Errorf("the guidance never mentions %q: %q", want, guidance)
+		}
+	}
+}

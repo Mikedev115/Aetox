@@ -271,6 +271,131 @@ func TestGraphSharesRankingAndResolvesEdges(t *testing.T) {
 // The aliased imports every Next/Vite project actually writes: `@/lib/db`
 // resolves by suffix, same walk as Python absolutes — without it a frontend
 // draws as dots with no lines, which is how the gap was found.
+func TestGraphEdgesCarrySourceEvidence(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		path := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("lib/util.ts", "export function work(): void {}\n")
+	write("app.ts", "// heading\nimport { work } from './lib/util'\nwork()\n")
+
+	nodes, edges, _, err := Graph(context.Background(), Options{Root: root}, AllNodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(edges) != 1 {
+		t.Fatalf("edges = %+v, want one import", edges)
+	}
+	edge := edges[0]
+	if nodes[edge.From].Path != "app.ts" || nodes[edge.To].Path != "lib/util.ts" {
+		t.Fatalf("edge endpoints = %+v through %+v", edge, nodes)
+	}
+	if edge.Kind != "import" || edge.Strength != "syntactic" || edge.EvidenceLine != 2 || edge.Producer != "repomap" {
+		t.Fatalf("edge evidence = %+v", edge)
+	}
+
+	facts, files, capped, err := Facts(context.Background(), Options{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(facts) != 1 || facts[0].From.Path != "app.ts" || facts[0].From.Line != 2 || facts[0].To.Path != "lib/util.ts" {
+		t.Fatalf("facts = %+v", facts)
+	}
+	// The target anchor is the file, not a line nobody read.
+	if facts[0].To.Line != 0 {
+		t.Errorf("an import proves the importer's line, not the target's: %+v", facts[0].To)
+	}
+	if capped || len(files) != 2 {
+		t.Errorf("files = %v capped = %v, want both files the walk saw", files, capped)
+	}
+}
+
+// One file that writes two references to the same target is ONE file depending
+// on it. Counting written references instead would let a file naming two
+// symbols of one package outrank a file the project genuinely leans on — and
+// it would move every number and the whole order of the map, which is a
+// display tool the project is measuring the adoption of.
+func TestRefsCountImportingFilesNotWrittenReferences(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		path := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("lib/util.ts", "export const a = 1\nexport const b = 2\n")
+	write("app.ts", "import { a } from './lib/util'\nimport { b } from './lib/util'\n")
+	write("other.ts", "import { a } from './lib/util'\n")
+
+	nodes, _, _, err := Graph(context.Background(), Options{Root: root}, AllNodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	refs := make(map[string]int)
+	for _, n := range nodes {
+		refs[n.Path] = n.Refs
+	}
+	if refs["lib/util.ts"] != 2 {
+		t.Errorf("util.ts has 2 importing files, not 3 written references: %+v", nodes)
+	}
+	// The evidence list keeps every written reference, which is the half that
+	// is meant to: two lines in app.ts are two pieces of evidence.
+	facts, _, _, err := Facts(context.Background(), Options{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(facts) != 3 {
+		t.Errorf("facts = %+v, want all three written references", facts)
+	}
+}
+
+// Strength is decided where the evidence is, not where the syntax was read: a
+// `dir#Name` target that resolved to a file declaring the name is resolved,
+// while a package directory is the map's own convention and says so.
+func TestStructuralStrengthSaysHowTheTargetWasEstablished(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		path := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("go.mod", "module example.com/demo\n\ngo 1.22\n")
+	write("pkg/core/core.go", "package core\n\ntype Request struct{}\n")
+	write("main.go", "package main\n\nimport \"example.com/demo/pkg/core\"\n\nfunc main() { var _ core.Request }\n")
+	write("blank.go", "package main\n\nimport _ \"example.com/demo/pkg/core\"\n")
+
+	facts, _, _, err := Facts(context.Background(), Options{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	byFrom := make(map[string]Fact)
+	for _, fact := range facts {
+		byFrom[fact.From.Path] = fact
+	}
+	if got := byFrom["main.go"].Strength; got != "resolved" {
+		t.Errorf("a selector that resolved to the declaring file is resolved, got %q", got)
+	}
+	if got := byFrom["blank.go"].Strength; got != "heuristic" {
+		t.Errorf("a blank import landing on a package directory is a convention, got %q", got)
+	}
+}
+
 func TestBuildResolvesAliasImports(t *testing.T) {
 	root := t.TempDir()
 	write := func(rel, content string) {
