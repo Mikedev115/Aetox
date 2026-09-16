@@ -143,6 +143,11 @@ type Output struct {
 	// neither the question nor the answer anywhere on it (owner, 7 ก.ย.:
 	// *"ควรจะดูย้อนหลังได้ว่า ถามอะไรและเราตอบอะไร"*).
 	Answer string
+	// Task is the delegation's handle ID (e.g. "task_1"), returned when `task`
+	// starts a sub-agent. Relayed on the result ToolEvent so the frontend can
+	// join the delegation card to the register immediately without waiting for
+	// the first sub-agent tool call.
+	Task string
 }
 
 // LineDelta counts how a replacement changed a file, for Output's stats.

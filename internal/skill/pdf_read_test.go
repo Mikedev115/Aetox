@@ -245,7 +245,7 @@ func TestPDFReadMissingBinaryGivesActionableError(t *testing.T) {
 	if runtime.GOOS == "darwin" {
 		t.Skip("darwin tries a real `brew install` on this path — not running a package install from a test")
 	}
-	if _, err := exec.LookPath("pdftotext"); err == nil {
+	if _, err := exec.LookPath("pdftotext"); err == nil || bundledBinary("poppler", "pdftotext") != "pdftotext" {
 		t.Skip("pdftotext is installed on this machine — not exercising the missing-binary path")
 	}
 
