@@ -3,30 +3,27 @@
   //
   // One row in the menu the owner pointed at (12 ก.ย.: "หน้าตั้งค่า เพิ่มในส่วนนี้
   // ด้วยนะ จะได้กดได้และเลือกได้"), drawn with the app's standard switch
-  // (.mswitch — a real checkbox in a label, the same one ทีมเอเจน uses).
-  //
-  // The label is spelled here rather than in locales/*.ts because those files
-  // are mid-change in another session today; the three strings move there the
-  // moment they are free (see companionSetting.svelte.ts for the same reason on the
-  // setting's storage).
+  // (.mswitch — a real checkbox in a label, the same one ทีมเอเจน uses). The
+  // short explanation is part of the row now: "ผู้ช่วยบนจอ" says what it is,
+  // while the second line says what switching it on will actually put there.
   import Icon from '../Icon.svelte'
-  import { i18n } from '../i18n.svelte'
+  import { t } from '../i18n.svelte'
   import { companion, setCompanionOn } from './companionSetting.svelte'
-
-  const LABEL: Record<string, string> = { th: 'ผู้ช่วยบนจอ', en: 'Assistant on screen', zh: '桌面助手' }
-  const label = $derived(LABEL[i18n.locale] ?? LABEL.en)
 </script>
 
-<div class="plus-menu-item companion-row" data-guide="account.companion">
+<div class="plus-menu-item profile-card-row companion-row" data-guide="account.companion">
   <span class="ic"><Icon name="bot" size={14} /></span>
-  {label}
+  <span class="profile-item-copy">
+    <span class="profile-item-label">{t('account.companion')}</span>
+    <span class="profile-item-desc">{t('account.companionDesc')}</span>
+  </span>
   <label class="mswitch">
-    <input type="checkbox" checked={companion.on} aria-label={label} onchange={(e) => setCompanionOn(e.currentTarget.checked)} />
+    <input type="checkbox" checked={companion.on} aria-label={t('account.companion')} onchange={(e) => setCompanionOn(e.currentTarget.checked)} />
     <span></span>
   </label>
 </div>
 
 <style>
-  .companion-row { display: flex; align-items: center; gap: 8px; }
+  .companion-row { display: flex; align-items: center; }
   .companion-row .mswitch { margin-left: auto; }
 </style>

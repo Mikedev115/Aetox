@@ -1681,6 +1681,14 @@ describe('Settings resilience and state', () => {
     expect(container.querySelectorAll('.settings-nav-item').length).toBe(0)
     expect(container.querySelector('.settings-nav-empty')).toBeTruthy()
   })
+
+  it('focuses the rail search with the shortcut printed on the control', async () => {
+    const { container } = render(Settings, { onClose: () => {} })
+    const search = container.querySelector('.settings-search') as HTMLInputElement
+
+    await fireEvent.keyDown(window, { key: 'k', ctrlKey: true })
+    expect(document.activeElement).toBe(search)
+  })
 })
 
 describe('Settings nav', () => {

@@ -155,6 +155,24 @@ describe('what the room must not have any more', () => {
     expect(document.querySelector('.cap-person')).toBeNull()
   })
 
+  it('uses the shared searchable card rail', async () => {
+    const { container } = await open()
+    expect(container.querySelectorAll('.settings-nav-list').length).toBe(6)
+
+    const search = container.querySelector('.settings-search') as HTMLInputElement
+    await fireEvent.input(search, { target: { value: 'สกิล' } })
+    expect(rail().map((x) => x.textContent?.trim())).toEqual([
+      'สกิลของคุณ', 'ตั้งค่าสกิลสำหรับพนักงานเฉพาะทาง', 'ห้องสมุดสกิล', 'ปรับสกิลอัตโนมัติ',
+    ])
+
+    await fireEvent.input(search, { target: { value: 'zzzznope' } })
+    expect(rail()).toHaveLength(0)
+    expect(container.querySelector('.settings-nav-empty')?.textContent).toContain('zzzznope')
+
+    await fireEvent.keyDown(window, { key: 'k', ctrlKey: true })
+    expect(document.activeElement).toBe(search)
+  })
+
   it('opens on the library with nothing connected, and on yours once there is something', async () => {
     await open()
     expect(activePage()).toBe('ห้องสมุด MCP')

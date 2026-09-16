@@ -3939,6 +3939,17 @@
   // is still there to read.
   let active = $state(cockpit.settingsIntent?.section ?? restoredSection())
   let query = $state('')
+  let searchEl = $state<HTMLInputElement | null>(null)
+
+  // The shortcut is printed inside the field, so it must be a real control and
+  // not decorative copy. Settings replaces the normal workspace while it is
+  // mounted, which makes Ctrl/Cmd+K unambiguous here: it belongs to this rail.
+  function focusSettingsSearch(e: KeyboardEvent) {
+    if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'k') return
+    e.preventDefault()
+    searchEl?.focus()
+    searchEl?.select()
+  }
 
   // Which memory group the learning page should take the reader to. Set only
   // by a door that names one — the page itself lists every scope and marks
@@ -5764,7 +5775,8 @@
 {/snippet}
 
 {#snippet railItemContent(it: { id: string; label: string; icon: any })}
-  <span class="ic"><Icon name={it.icon} /></span> {it.label}
+  <span class="ic"><Icon name={it.icon} /></span>
+  <span class="settings-nav-label">{it.label}</span>
   <!-- The rank's bars on the three rows that are levels of the company
        (owner, 14 ก.ย. 2026: "ในหน้าเมนู ทำสัญลักษณ์ยศแปะไว้ด้วย"): the
        same emblem the faces wear, so the rail reads as the roster. -->
@@ -5790,57 +5802,74 @@
   {/if}
 {/snippet}
 
+<svelte:window onkeydown={focusSettingsSearch} />
+
 <div class="settings-page">
   <aside class="settings-nav">
-    <button data-guide="settings.back" class="settings-back" onclick={onClose}><Icon name="arrowLeft" size={14} /> {t('settings.backToApp')}</button>
-    <input data-guide="settings.search" class="settings-search" placeholder={t('settings.searchPlaceholder')} bind:value={query} />
-    {#each filteredSections as g}
-      <div class="settings-group-label eyebrow">{g.group}</div>
-      {#each g.items as it}
-        {#if it.id === 'general'}
-          <button data-guide="settings.rail.general" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'appearance'}
-          <button data-guide="settings.rail.appearance" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'avatar'}
-          <button data-guide="settings.rail.avatar" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'you'}
-          <button data-guide="settings.rail.you" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'issues'}
-          <button data-guide="settings.rail.issues" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'models'}
-          <button data-guide="settings.rail.brain" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'main'}
-          <button data-guide="settings.rail.heads" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'teams'}
-          <button data-guide="settings.rail.teams" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'team'}
-          <button data-guide="settings.rail.agents" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'agents'}
-          <button data-guide="settings.rail.hands" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'voice'}
-          <button data-guide="settings.rail.voice" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'image'}
-          <button data-guide="settings.rail.image" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'studio'}
-          <button data-guide="settings.rail.studio" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'remote'}
-          <button data-guide="settings.rail.remote" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'account'}
-          <button data-guide="settings.rail.account" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'usage'}
-          <button data-guide="settings.rail.usage" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'about'}
-          <button data-guide="settings.rail.about" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else if it.id === 'sponsor'}
-          <button data-guide="settings.rail.sponsor" class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {:else}
-          <button class="settings-nav-item" class:active={active === it.id} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
-        {/if}
+    <div class="settings-nav-head">
+      <button data-guide="settings.back" class="settings-back" onclick={onClose}>
+        <span class="settings-back-icon"><Icon name="arrowLeft" size={15} /></span>
+        <span>{t('settings.backToApp')}</span>
+      </button>
+      <label data-guide="settings.search" class="settings-search-shell">
+        <Icon name="search" size={15} />
+        <input class="settings-search" type="search" aria-label={t('settings.searchPlaceholder')} placeholder={t('settings.searchPlaceholder')} bind:this={searchEl} bind:value={query} />
+        <kbd>Ctrl K</kbd>
+      </label>
+    </div>
+    <div class="settings-nav-groups">
+      {#each filteredSections as g}
+        <section class="settings-nav-group" aria-label={g.group}>
+          <div class="settings-group-label eyebrow">{g.group}</div>
+          <div class="settings-nav-list">
+            {#each g.items as it}
+              {#if it.id === 'general'}
+                <button data-guide="settings.rail.general" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'appearance'}
+                <button data-guide="settings.rail.appearance" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'avatar'}
+                <button data-guide="settings.rail.avatar" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'you'}
+                <button data-guide="settings.rail.you" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'issues'}
+                <button data-guide="settings.rail.issues" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'models'}
+                <button data-guide="settings.rail.brain" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'main'}
+                <button data-guide="settings.rail.heads" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'teams'}
+                <button data-guide="settings.rail.teams" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'team'}
+                <button data-guide="settings.rail.agents" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'agents'}
+                <button data-guide="settings.rail.hands" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'voice'}
+                <button data-guide="settings.rail.voice" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'image'}
+                <button data-guide="settings.rail.image" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'studio'}
+                <button data-guide="settings.rail.studio" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'remote'}
+                <button data-guide="settings.rail.remote" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'account'}
+                <button data-guide="settings.rail.account" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'usage'}
+                <button data-guide="settings.rail.usage" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'about'}
+                <button data-guide="settings.rail.about" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else if it.id === 'sponsor'}
+                <button data-guide="settings.rail.sponsor" class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {:else}
+                <button class="settings-nav-item" class:active={active === it.id} aria-current={active === it.id ? 'page' : undefined} onclick={() => openSection(it.id)}>{@render railItemContent(it)}</button>
+              {/if}
+            {/each}
+          </div>
+        </section>
       {/each}
-    {/each}
-    {#if noSearchResults}
-      <div class="settings-nav-empty">{t('settings.searchNoResults', { q: query.trim() })}</div>
-    {/if}
+      {#if noSearchResults}
+        <div class="settings-nav-empty">{t('settings.searchNoResults', { q: query.trim() })}</div>
+      {/if}
+    </div>
   </aside>
 
   <!-- The page says where it is, so the guide never has to ask the app

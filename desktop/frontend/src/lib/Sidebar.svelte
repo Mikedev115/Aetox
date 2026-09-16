@@ -100,8 +100,6 @@
     }
   }
   let nameDraft = $state('')
-  const avatarInitial = $derived((profile.name[0] ?? 'A').toUpperCase())
-
   onMount(() => { void loadProfileName() })
 
   function editName() {
@@ -1162,12 +1160,16 @@
     <div class="side-scrim" transition:fade={{ duration: 140 }}></div>
   {/if}
   <div class="side-footer-wrap">
-    <button type="button" class="side-footer" data-guide="sidebar.footer" onclick={() => { profileOpen = !profileOpen; if (profileOpen) { loadAccount(); loadAetoxAccount(); refreshUpdate() } }}>
-      <span class="avatar">{avatarInitial}</span>
+    <button
+      type="button" class="side-footer" data-guide="sidebar.footer"
+      aria-haspopup="menu" aria-expanded={profileOpen}
+      onclick={() => { profileOpen = !profileOpen; if (profileOpen) { loadAccount(); loadAetoxAccount(); refreshUpdate() } }}
+    >
       <!-- The name you chose wins; the account name stands in when you never
            chose one, so a signed-in sidebar stops asking for something it
            already knows. -->
       <span class="label">{profile.name || aetox?.display || t('sidebar.setYourName')}</span>
+      <span class="side-footer-caret" class:open={profileOpen}><Icon name="chevronUp" size={14} /></span>
     </button>
     <!-- The gear goes straight to settings — its own button, beside the footer
          rather than inside it, because that is what the owner pressed it for
@@ -1188,7 +1190,6 @@
     {#if profileOpen}
       <div class="plus-menu profile-menu up">
         <div class="profile-head">
-          <span class="avatar lg">{avatarInitial}</span>
           {#if editingName}
             <input
               class="name-input" bind:value={nameDraft}
@@ -1199,14 +1200,17 @@
               onblur={saveName}
             />
           {:else}
-            <button type="button" class="name-text" data-guide="account.name" class:unset={!profile.name} title={t('sidebar.editName')} onclick={editName}>
-              {profile.name || t('sidebar.setYourName')}
+            <button type="button" class="profile-name" data-guide="account.name" title={t('sidebar.editName')} onclick={editName}>
+              <span class="name-text" class:unset={!profile.name}>{profile.name || t('sidebar.setYourName')}</span>
+              <span class="profile-name-hint">{t('account.profileEditHint')}</span>
+            </button>
+            <button type="button" class="profile-edit" title={t('sidebar.editName')} aria-label={t('sidebar.editName')} onclick={editName}>
+              <Icon name="pencil" size={14} />
             </button>
           {/if}
         </div>
-        <div class="menu-sep"></div>
         {#if aetox?.signed_in}
-          <div class="acct-menu">
+          <div class="acct-menu profile-account-card">
             <div class="acct-menu-row">
               <span class="acct-menu-name">
                 <span class="acct-dot" class:on={aetoxOnline}
@@ -1219,61 +1223,78 @@
             </div>
           </div>
         {:else if aetox?.configured}
-          <button class="plus-menu-item" onclick={() => { profileOpen = false; onOpenSettings() }}>
+          <button class="plus-menu-item profile-account-card profile-sign-in" onclick={() => { profileOpen = false; onOpenSettings() }}>
             <span class="ic"><Icon name="circleUser" size={14} /></span> {t('sidebar.accountSignIn')}
+            <Icon name="chevronRight" size={14} />
           </button>
         {/if}
         {#if account}
-          <div class="menu-sep"></div>
-          <div class="acct-menu">
+          <div class="acct-menu profile-account-card">
             <div class="acct-menu-row">
-              <span class="acct-menu-name">{account.provider}</span>
-              <ProviderAccount {account} compact showBlank />
+              <span class="acct-menu-name profile-provider-name"><span class="acct-dot on"></span>{account.provider}</span>
+              <ProviderAccount {account} compact showBlank onaccountchanged={(fresh) => { account = fresh }} />
             </div>
           </div>
         {/if}
-        <div class="menu-sep"></div>
-        <div class="plus-menu-item">
-          <span class="ic"><Icon name="palette" size={14} /></span> {t('settings.themeTitle')}
-          <select class="lang-select" data-guide="account.theme" value={theme.name} onchange={(e) => applyTheme(e.currentTarget.value as ThemeName)}>
-            {#each THEMES as th (th.value)}
-              <option value={th.value}>{th.label}</option>
-            {/each}
-          </select>
-        </div>
-        <div class="plus-menu-item">
-          <span class="ic"><Icon name="globe" size={14} /></span> {t('settings.languageTitle')}
-          <select class="lang-select" data-guide="account.language" value={i18n.locale} onchange={(e) => setLocale(e.currentTarget.value as Locale)}>
-            {#each Object.entries(localeNames) as [code, name]}
-              <option value={code}>{name}</option>
-            {/each}
-          </select>
-        </div>
-        <CompanionSwitch />
-        <div class="menu-sep"></div>
-        <!-- รู้จักกับ Aetox, beside the things that are about the app rather
-             than the chat (theme, language, the companion, the version): the
-             tour's everyday door (§279.2). The empty chat carries the other
-             one until the first message is sent. -->
-        <button class="plus-menu-item" data-guide="account.tour" onclick={() => { profileOpen = false; openTour() }}>
-          <span class="ic"><Icon name="bot" size={14} /></span> {t('settings.tourTitle')}
-        </button>
-        <!-- Beside the tour on purpose (owner, 15 ก.ย. 2026): the tour tells the
-             story once, the guide answers whatever is still unclear, any day.
-             No route here — this door opens it to be ASKED. -->
-        <button class="plus-menu-item" data-guide="account.guide" title={t('account.guideTip')}
-                onclick={() => { profileOpen = false; guide.start() }}>
-          <span class="ic"><Icon name="compass" size={14} /></span> {t('account.guide')}
-          <span class="menu-key">{shortcutLabel('guide')}</span>
-        </button>
-        <div class="menu-sep"></div>
+        <section class="profile-section">
+          <h2 class="profile-section-title">{t('account.sectionDisplay')}</h2>
+          <div class="profile-card">
+            <div class="plus-menu-item profile-card-row">
+              <span class="ic"><Icon name="palette" size={14} /></span>
+              <span class="profile-item-label">{t('settings.themeTitle')}</span>
+              <select class="lang-select" data-guide="account.theme" value={theme.name} onchange={(e) => applyTheme(e.currentTarget.value as ThemeName)}>
+                {#each THEMES as th (th.value)}
+                  <option value={th.value}>{th.label}</option>
+                {/each}
+              </select>
+            </div>
+            <div class="plus-menu-item profile-card-row">
+              <span class="ic"><Icon name="globe" size={14} /></span>
+              <span class="profile-item-label">{t('settings.languageTitle')}</span>
+              <select class="lang-select" data-guide="account.language" value={i18n.locale} onchange={(e) => setLocale(e.currentTarget.value as Locale)}>
+                {#each Object.entries(localeNames) as [code, name]}
+                  <option value={code}>{name}</option>
+                {/each}
+              </select>
+            </div>
+            <CompanionSwitch />
+          </div>
+        </section>
+
+        <section class="profile-section">
+          <h2 class="profile-section-title">{t('account.sectionHelp')}</h2>
+          <div class="profile-card">
+            <!-- รู้จักกับ Aetox, beside the guide on purpose: the tour tells the
+                 story once and the guide answers whatever remains unclear. -->
+            <button class="plus-menu-item profile-card-row profile-help-row" data-guide="account.tour" onclick={() => { profileOpen = false; openTour() }}>
+              <span class="ic"><Icon name="bot" size={14} /></span>
+              <span class="profile-item-copy">
+                <span class="profile-item-label">{t('settings.tourTitle')}</span>
+                <span class="profile-item-desc">{t('account.tourDesc')}</span>
+              </span>
+              <Icon name="chevronRight" size={14} />
+            </button>
+            <button class="plus-menu-item profile-card-row profile-help-row" data-guide="account.guide" title={t('account.guideTip')}
+                    onclick={() => { profileOpen = false; guide.start() }}>
+              <span class="ic"><Icon name="compass" size={14} /></span>
+              <span class="profile-item-copy">
+                <span class="profile-item-label">{t('account.guide')}</span>
+                <span class="profile-item-desc">{t('account.guideDesc')}</span>
+              </span>
+              <span class="menu-key">{shortcutLabel('guide')}</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="profile-section">
+          <h2 class="profile-section-title">{t('account.sectionAbout')}</h2>
         <!-- One row, one sentence: which Aetox this is, and the only thing
              worth knowing beside it. The second line appears only when there IS
              something to say — an up-to-date app has no news, and a row that
              reports "no news" every day teaches people to stop reading it. -->
         <div class="ver-menu">
           <div class="ver-row">
-            <span class="ic"><Icon name="package" size={14} /></span>
+            <span class="ver-mark"><Icon name="package" size={14} /></span>
             <span class="ver-name">Aetox {updater.current ? 'v' + updater.current : '—'}</span>
             <button
               class="ver-check" data-guide="account.update_check" onclick={checkUpdateNow}
@@ -1362,12 +1383,14 @@
             <div class="ver-news"><span class="ver-note">{t('update.upToDate')}</span></div>
           {/if}
         </div>
+        </section>
 
-        <div class="menu-sep"></div>
         <!-- Parked 2026-08-14, see MobileRemote.svelte: the entry point comes
              back when the phone surface has been designed, not before. -->
-        <button class="plus-menu-item" data-guide="account.settings" onclick={() => { profileOpen = false; onOpenSettings() }}>
-          <span class="ic"><Icon name="settings" size={14} /></span> {t('sidebar.settings')} <span class="kbd">{shortcutLabel('settings')}</span>
+        <button class="plus-menu-item profile-settings" data-guide="account.settings" onclick={() => { profileOpen = false; onOpenSettings() }}>
+          <span class="ic"><Icon name="settings" size={14} /></span>
+          <span class="profile-item-label">{t('sidebar.settings')}</span>
+          <span class="kbd">{shortcutLabel('settings')}</span>
         </button>
       </div>
     {/if}

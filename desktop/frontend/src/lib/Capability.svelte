@@ -316,6 +316,37 @@
       { id: 'connections', labelKey: 'capability.navConnections', icon: 'globe' },
     ] },
   ]
+  const RAIL_GUIDE: Partial<Record<Page, string>> = {
+    mine: 'capability.rail.mcp',
+    skills: 'capability.rail.skills',
+    tools: 'capability.rail.builtins',
+    computer: 'capability.rail.computer',
+    connections: 'capability.rail.connections',
+    prompts: 'capability.rail.prompts',
+  }
+  let railQuery = $state('')
+  let railSearchEl = $state<HTMLInputElement | null>(null)
+  const filteredRail = $derived.by(() => {
+    const q = railQuery.trim().toLowerCase()
+    if (!q) return RAIL
+    return RAIL
+      .map((group) => {
+        const groupMatches = t(group.labelKey).toLowerCase().includes(q)
+        return {
+          ...group,
+          rows: groupMatches ? group.rows : group.rows.filter((row) => t(row.labelKey).toLowerCase().includes(q)),
+        }
+      })
+      .filter((group) => group.rows.length > 0)
+  })
+  const noRailResults = $derived(railQuery.trim() !== '' && filteredRail.length === 0)
+
+  function focusRailSearch(e: KeyboardEvent) {
+    if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'k') return
+    e.preventDefault()
+    railSearchEl?.focus()
+    railSearchEl?.select()
+  }
   let page = $state<Page>('shelf')
   let pageSettled = false
   const goPage = (p: Page) => {
@@ -1482,6 +1513,8 @@
   }
 </script>
 
+<svelte:window onkeydown={focusRailSearch} />
+
 <div class="settings-page cap-page">
   <!-- The rail: ตั้งค่า's own (.settings-nav), because the owner asked for
        "หน้าต่างย่อย เหมือนหน้าตั้งค่า" (13 ก.ย.) and DESIGN.md §1 lets a room
@@ -1489,59 +1522,42 @@
        still holds (บัญชี สกิล เครื่องมือในตัว) move here whole when they
        move; they are not drawn as rows that point elsewhere (§3). -->
   <aside class="settings-nav">
-    <button class="settings-back" onclick={onClose}><Icon name="arrowLeft" size={14} /> {t('settings.backToApp')}</button>
-    <div class="cap-rail-title">{t('desk.capability')}</div>
-    {#each RAIL as grp (grp.labelKey)}
-      <div class="settings-group-label eyebrow">{t(grp.labelKey)}</div>
-      {#each grp.rows as pg (pg.id)}
-        {#snippet navButton(dg: string | null)}
-          <button data-guide={dg} class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
-            <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
-            {#if pg.id === 'mine' && notReady.length > 0}
-              <span class="nav-count" title={t('capability.navNotReady', { n: String(notReady.length) })}>{notReady.length}</span>
-            {:else if pg.id === 'agents' && agentsInNeed.length > 0}
-              <span class="nav-count" title={t('capability.navNeeds', { n: String(agentsInNeed.length) })}>{agentsInNeed.length}</span>
-            {:else if pg.id === 'skills' && skillIssues.length > 0}
-              <span class="nav-count" title={t('settings.skillIssues', { n: skillIssues.length })}>{skillIssues.length}</span>
-            {/if}
-          </button>
-        {/snippet}
-        {#if pg.id === 'mine'}
-          <button data-guide="capability.rail.mcp" class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
-            <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
-            {#if notReady.length > 0}<span class="nav-count" title={t('capability.navNotReady', { n: String(notReady.length) })}>{notReady.length}</span>{/if}
-          </button>
-        {:else if pg.id === 'skills'}
-          <button data-guide="capability.rail.skills" class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
-            <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
-            {#if skillIssues.length > 0}<span class="nav-count" title={t('settings.skillIssues', { n: skillIssues.length })}>{skillIssues.length}</span>{/if}
-          </button>
-        {:else if pg.id === 'tools'}
-          <button data-guide="capability.rail.builtins" class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
-            <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
-          </button>
-        {:else if pg.id === 'computer'}
-          <button data-guide="capability.rail.computer" class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
-            <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
-          </button>
-        {:else if pg.id === 'connections'}
-          <button data-guide="capability.rail.connections" class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
-            <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
-          </button>
-        {:else if pg.id === 'prompts'}
-          <button data-guide="capability.rail.prompts" class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
-            <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
-          </button>
-        {:else}
-          <button class="settings-nav-item" class:active={page === pg.id} onclick={() => goPage(pg.id)}>
-            <span class="ic"><Icon name={pg.icon} /></span> {t(pg.labelKey)}
-            {#if pg.id === 'agents' && agentsInNeed.length > 0}
-              <span class="nav-count" title={t('capability.navNeeds', { n: String(agentsInNeed.length) })}>{agentsInNeed.length}</span>
-            {/if}
-          </button>
-        {/if}
+    <div class="settings-nav-head">
+      <button class="settings-back" onclick={onClose}>
+        <span class="settings-back-icon"><Icon name="arrowLeft" size={15} /></span>
+        <span>{t('settings.backToApp')}</span>
+      </button>
+      <label class="settings-search-shell">
+        <Icon name="search" size={15} />
+        <input class="settings-search" type="search" aria-label={t('capability.searchPlaceholder')} placeholder={t('capability.searchPlaceholder')} bind:this={railSearchEl} bind:value={railQuery} />
+        <kbd>Ctrl K</kbd>
+      </label>
+    </div>
+    <div class="settings-nav-groups">
+      {#each filteredRail as grp (grp.labelKey)}
+        <section class="settings-nav-group" aria-label={t(grp.labelKey)}>
+          <div class="settings-group-label eyebrow">{t(grp.labelKey)}</div>
+          <div class="settings-nav-list">
+            {#each grp.rows as pg (pg.id)}
+              <button data-guide={RAIL_GUIDE[pg.id]} class="settings-nav-item" class:active={page === pg.id} aria-current={page === pg.id ? 'page' : undefined} onclick={() => goPage(pg.id)}>
+                <span class="ic"><Icon name={pg.icon} /></span>
+                <span class="settings-nav-label">{t(pg.labelKey)}</span>
+                {#if pg.id === 'mine' && notReady.length > 0}
+                  <span class="nav-count" title={t('capability.navNotReady', { n: String(notReady.length) })}>{notReady.length}</span>
+                {:else if pg.id === 'agents' && agentsInNeed.length > 0}
+                  <span class="nav-count" title={t('capability.navNeeds', { n: String(agentsInNeed.length) })}>{agentsInNeed.length}</span>
+                {:else if pg.id === 'skills' && skillIssues.length > 0}
+                  <span class="nav-count" title={t('settings.skillIssues', { n: skillIssues.length })}>{skillIssues.length}</span>
+                {/if}
+              </button>
+            {/each}
+          </div>
+        </section>
       {/each}
-    {/each}
+      {#if noRailResults}
+        <div class="settings-nav-empty">{t('capability.searchNoResults', { q: railQuery.trim() })}</div>
+      {/if}
+    </div>
   </aside>
 
   <!-- Says which page of the room is open — see Settings.svelte. -->
@@ -3111,11 +3127,6 @@
 
 <style>
   .cap-error { margin-bottom: 14px; }
-  /* The rail's title, under the back button, where ตั้งค่า puts its search
-     box: this rail has three rows and nothing to search. */
-  .cap-rail-title { padding: 10px 10px 0; font-size: var(--fs-xl, 17px); font-weight: 600; color: var(--text-primary); }
-  .cap-page .settings-nav .settings-group-label:first-of-type { padding-top: 22px; }
-  .cap-page .settings-nav .settings-nav-item + .settings-group-label { margin-top: 18px; }
   .cap-filter { margin: -4px 0 12px; }
   .cap-sec { margin-top: 36px; }
   /* The brand tile on a card: style.css paints .cap-mark.logo on
