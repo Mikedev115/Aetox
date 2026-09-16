@@ -16,14 +16,18 @@
   import { offeredWalks } from './greeting'
   import GuidePanel from './GuidePanel.svelte'
   import { guidePrefs, setGuidePref } from './guidePrefs.svelte'
-  import { GUIDE_MAP, guideText } from './map'
-  import { SIZE, standBeside, restingSpot, insideWindow, walkTurn, walkMs, type Rect } from './walk'
+  import { GUIDE_MAP, guideText, GUIDE_CATALOG, type ConceptCatalogEntry } from './map'
+  import { SIZE, BUBBLE, standBeside, standBesideReal, restingSpot, insideWindow, walkTurn, walkMs, GEOMETRY, type Rect } from './walk'
   import { watchBox } from './follow'
   import { speak, stopSpeechIf } from '../speech.svelte'
   import { t } from '../i18n.svelte'
   import { handleGuideAsk } from './guideSession'
   import { watchPlace } from './placeWatch'
+  import { renderMarkdown } from '../markdown'
+  import { cockpit } from '../stores/cockpit.svelte'
+  import { stashDraft } from '../composerDraft'
   import { EventsOn } from '../../../wailsjs/runtime/runtime'
+  import { CurrentSessionID } from '../../../wailsjs/go/main/App'
 
   // Placed on the FIRST frame, not moved into place after it. x and y used to
   // start at 0, so the figure rendered in the top-left corner and then rode the
@@ -40,6 +44,64 @@
   let pose = $state<'idle' | 'walk' | 'presenting' | 'helping' | 'asking' | 'thinking' | 'answering'>('asking')
   let flip = $state(false)
   let below = $state(false)
+  let placementMode = $state<'side' | 'docked'>('side')
+  let sayEl = $state<HTMLElement | null>(null)
+  let showConcept = $state(false)
+
+  // Responsive flip and below: ensures the bubble NEVER runs off screen
+  const effectiveFlip = $derived.by(() => {
+    if (placementMode === 'docked') return false
+    const winW = typeof window !== 'undefined' ? window.innerWidth : 1200
+    const leftSpace = x - GEOMETRY.GAP_BUBBLE
+    const rightSpace = winW - (x + SIZE + GEOMETRY.GAP_BUBBLE)
+    if (leftSpace < BUBBLE && rightSpace >= leftSpace) return true
+    if (rightSpace < BUBBLE && leftSpace > rightSpace) return false
+    return flip
+  })
+
+  const effectiveBelow = $derived.by(() => {
+    if (placementMode === 'docked') return false
+    const winH = typeof window !== 'undefined' ? window.innerHeight : 800
+    if (y < GEOMETRY.BUBBLE_DROP) return true
+    if (y > winH - GEOMETRY.BUBBLE_DROP) return false
+    return below
+  })
+
+  let chatStreamEl = $state<HTMLElement | null>(null)
+  function scrollToBottom() {
+    tick().then(() => {
+      if (chatStreamEl) {
+        chatStreamEl.scrollTop = chatStreamEl.scrollHeight
+      }
+    })
+  }
+
+  $effect(() => {
+    if (guide.transcript.length || guide.streamingText) {
+      scrollToBottom()
+    }
+  })
+
+  async function openInAssistantChat() {
+    const lastUserMsg = [...guide.transcript].reverse().find((m) => m.who === 'user')?.text
+    const textToCarry = askInput.trim() || lastUserMsg || ''
+    onClose()
+    cockpit.activeView = 'chat'
+    cockpit.desk = 'assistant'
+    if (textToCarry) {
+      try {
+        const id = (await CurrentSessionID()) ?? ''
+        if (id) stashDraft(id, textToCarry)
+      } catch {
+        // fallback
+      }
+    }
+  }
+
+  function clearTranscript() {
+    guide.transcript = []
+  }
+
   let ring = $state<{ l: number; t: number; w: number; h: number } | null>(null)
   let shown = $state('')
   let typing = $state(false)
@@ -51,6 +113,10 @@
   const stop = $derived(guide.stopId ? GUIDE_MAP.find((e) => e.id === guide.stopId) : null)
   const stopName = $derived(guide.stopId ? guideText(guide.stopId, 'name') : '')
   const stopWhy = $derived(guide.stopId ? guideText(guide.stopId, 'why') : '')
+  const relatedConcept = $derived.by(() => {
+    if (!guide.stopId) return null
+    return GUIDE_CATALOG.find((e): e is ConceptCatalogEntry => e.kind === 'concept' && e.relatedTargets.includes(guide.stopId!)) ?? null
+  })
 
   function sleep(ms: number) {
     return new Promise((r) => setTimeout(r, ms))
@@ -107,10 +173,12 @@
 
   // Where to stand for a target rect: walk.ts decides, this only records it.
   function placeBeside(r: Rect) {
-    const st = standBeside(r, { width: window.innerWidth, height: window.innerHeight })
+    const bubbleSize = sayEl ? { width: sayEl.offsetWidth, height: sayEl.offsetHeight } : { width: BUBBLE, height: 200 }
+    const st = standBesideReal(r, bubbleSize, { width: window.innerWidth, height: window.innerHeight })
     ring = st.ring
     flip = st.flip
     below = st.below
+    placementMode = st.mode
     return { tx: st.x, ty: st.y }
   }
 
@@ -247,7 +315,10 @@
     askInput = ''
     stopSpeechIf('guide')
     pose = 'thinking'
+    scrollToBottom()
     await guide.ask(q)
+    pose = 'asking'
+    scrollToBottom()
   }
 
   function onClose() {
@@ -430,8 +501,9 @@
 
 <div
   class="guide-mascot-wrap guide-ui"
-  class:flip
-  class:below
+  class:flip={effectiveFlip}
+  class:below={effectiveBelow}
+  class:docked={placementMode === 'docked'}
   class:walking={pose === 'walk'}
   class:dragging
   style="transform:translate({x}px,{y}px)"
@@ -486,7 +558,14 @@
   {:else if guide.offering}
     <div class="say">
       <div class="say-head">
-        <span class="say-name">{t('rank.guide')}</span>
+        <div class="say-head-main">
+          <span class="say-name">{t('rank.guide')}</span>
+        </div>
+        <div class="say-head-tools">
+          <button type="button" class="say-head-btn close" onclick={onClose} aria-label={t('guide.close')}>
+            <Icon name="x" size={12} />
+          </button>
+        </div>
       </div>
       <div class="say-body">{t('guide.offerPrompt')}</div>
       <div class="say-foot">
@@ -494,62 +573,125 @@
         <button type="button" class="ctrl mini" onclick={() => guide.declineOffer()}>{t('guide.offerNo')}</button>
       </div>
     </div>
-  {:else if shown || typing || guide.asking}
-    <div class="say">
-      {#if stop}
-        <div class="say-head">
-          <span class="say-name">{stopName}</span>
-          <span class="say-tag" class:no={!stop.safe}>{stop.safe ? t('guide.canPress') : t('guide.cannotPress')}</span>
-          {#if guide.brain === 'map'}<span class="say-map-badge">{t('guide.fromMap')}</span>{/if}
-        </div>
-      {/if}
-
-      <div class="say-body">{shown}{#if typing || guide.asking}<span class="cur"></span>{/if}</div>
-
-      <!-- Being led: what to press, and how far there is to go. The button is
-           offered too, for somebody who would rather be taken than walk. -->
-      {#if guide.awaiting && !typing}
-        <div class="say-step">
-          <Icon name="pointer" size={13} />
-          <span>{t('guide.stepPress')}</span>
-          {#if guide.stepsLeft > 1}<span class="say-step-left">{t('guide.stepLeft', { n: String(guide.stepsLeft) })}</span>{/if}
-        </div>
-      {/if}
-
-      <!-- A question with no visible answers is a search box: name the walks. -->
-      {#if !guide.stopId && !typing && !guide.asking}
-        <div class="say-walks">
-          {#each offeredWalks() as w (w.id)}
-            <button type="button" class="ctrl mini" onclick={() => guide.start(w.id)}>{w.label}</button>
-          {/each}
-        </div>
-      {/if}
-
-      {#if stop && !typing && !guide.asking && stopWhy}
-        <div class="say-why">
-          <span class="k">{t('guide.whyTitle')}</span>{stopWhy}{#if stop.ref}<span class="ref">{stop.ref}</span>{/if}
-        </div>
-      {/if}
-
-      {#if !typing && !guide.asking}
-        <div class="say-foot">
+  {:else if shown || typing || guide.asking || guide.transcript.length > 0}
+    <div class="say" bind:this={sayEl}>
+      <div class="say-head">
+        <div class="say-head-main">
+          <span class="say-name">{stopName || t('rank.guide')}</span>
           {#if stop}
-            <code class="id">{stop.id}</code>
-            {#if stop.safe}
-              <button type="button" class="ctrl mini primary" onclick={handlePress}>{t('guide.pressForMe')}</button>
-            {/if}
-          {/if}
-          {#if guide.route}
-            <button type="button" class="ctrl mini" onclick={() => guide.prev()}>{t('guide.prev')}</button>
-            <button type="button" class="ctrl mini" onclick={() => guide.next()}>{t('guide.next')}</button>
+            <span class="say-tag" class:no={!stop.safe}>{stop.safe ? t('guide.canPress') : t('guide.cannotPress')}</span>
+            {#if guide.brain === 'map'}<span class="say-map-badge">{t('guide.fromMap')}</span>{/if}
           {/if}
         </div>
+        <div class="say-head-tools">
+          {#if guide.transcript.length > 0}
+            <button type="button" class="say-head-btn" title={t('guide.clearChat')} aria-label={t('guide.clearChat')} onclick={clearTranscript}>
+              <Icon name="rotateCw" size={11} />
+            </button>
+          {/if}
+          <button type="button" class="say-head-btn" title={t('guide.openInAssistant')} aria-label={t('guide.openInAssistant')} onclick={openInAssistantChat}>
+            <Icon name="sparkles" size={11} />
+          </button>
+          <button type="button" class="say-head-btn close" onclick={onClose} aria-label={t('guide.close')}>
+            <Icon name="x" size={12} />
+          </button>
+        </div>
+      </div>
+
+      {#if guide.transcript.length > 0}
+        <div class="say-chat-stream" bind:this={chatStreamEl}>
+          {#each guide.transcript as msg, i}
+            <div class="say-chat-msg {msg.who}">
+              {#if msg.who === 'user'}
+                <div class="say-bubble user">{msg.text}</div>
+              {:else}
+                <div class="say-bubble guide markdown-body">
+                  {@html renderMarkdown(msg.text)}
+                </div>
+              {/if}
+            </div>
+          {/each}
+          {#if guide.asking && guide.streamingText}
+            <div class="say-chat-msg guide">
+              <div class="say-bubble guide markdown-body">
+                {@html renderMarkdown(guide.streamingText)}<span class="cur"></span>
+              </div>
+            </div>
+          {:else if guide.asking}
+            <div class="say-chat-msg guide">
+              <div class="say-bubble guide thinking">
+                <span class="cur"></span>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {:else}
+        <div class="say-body markdown-body">
+          {@html renderMarkdown(shown)}{#if typing || guide.asking}<span class="cur"></span>{/if}
+        </div>
+
+        <!-- Being led: what to press, and how far there is to go. The button is
+             offered too, for somebody who would rather be taken than walk. -->
+        {#if guide.awaiting && !typing}
+          <div class="say-step">
+            <Icon name="pointer" size={13} />
+            <span>{t('guide.stepPress')}</span>
+            {#if guide.stepsLeft > 1}<span class="say-step-left">{t('guide.stepLeft', { n: String(guide.stepsLeft) })}</span>{/if}
+          </div>
+        {/if}
+
+        <!-- A question with no visible answers is a search box: name the walks. -->
+        {#if !guide.stopId && !typing && !guide.asking}
+          <div class="say-walks">
+            {#each offeredWalks() as w (w.id)}
+              <button type="button" class="ctrl mini" onclick={() => guide.start(w.id)}>{w.label}</button>
+            {/each}
+          </div>
+        {/if}
+
+        {#if stop && !typing && !guide.asking && stopWhy}
+          <div class="say-why">
+            <span class="k">{t('guide.whyTitle')}</span>{stopWhy}{#if stop.ref}<span class="ref">{stop.ref}</span>{/if}
+          </div>
+        {/if}
+
+        {#if relatedConcept && !typing && !guide.asking}
+          <div class="say-concept-box">
+            <button type="button" class="ctrl mini concept-toggle" onclick={() => (showConcept = !showConcept)}>
+              💡 {guideText(relatedConcept.id, 'name')}
+            </button>
+            {#if showConcept}
+              <div class="say-concept-body">
+                {guideText(relatedConcept.id, 'what')}
+                {#if guideText(relatedConcept.id, 'why')}
+                  <div class="say-concept-why">{guideText(relatedConcept.id, 'why')}</div>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/if}
+
+        {#if !typing && !guide.asking}
+          <div class="say-foot">
+            {#if stop}
+              <code class="id">{stop.id}</code>
+              {#if stop.safe}
+                <button type="button" class="ctrl mini primary" onclick={handlePress}>{t('guide.pressForMe')}</button>
+              {/if}
+            {/if}
+            {#if guide.route}
+              <button type="button" class="ctrl mini" onclick={() => guide.prev()}>{t('guide.prev')}</button>
+              <button type="button" class="ctrl mini" onclick={() => guide.next()}>{t('guide.next')}</button>
+            {/if}
+          </div>
+        {/if}
       {/if}
 
       <form class="say-ask" onsubmit={onAskSubmit}>
         <input id="guide-ask" bind:value={askInput} placeholder={t('guide.askPlaceholder')} disabled={guide.asking} />
-        <button type="submit" class="ctrl mini" aria-label={t('guide.ask')} disabled={guide.asking}><Icon name="sendHorizontal" size={12} /></button>
-        <button type="button" class="ctrl mini close-btn" onclick={onClose} aria-label={t('guide.close')}><Icon name="x" size={12} /></button>
+        <button type="submit" class="ctrl mini primary" aria-label={t('guide.ask')} disabled={guide.asking || !askInput.trim()}>
+          <Icon name="sendHorizontal" size={12} />
+        </button>
       </form>
     </div>
   {/if}
@@ -718,8 +860,8 @@
     position: absolute;
     right: calc(100% + 14px);
     bottom: 24px;
-    width: 350px;
-    max-width: 350px;
+    width: var(--guide-bubble-width, 350px);
+    max-width: min(var(--guide-bubble-width, 350px), calc(100vw - 32px));
     background: var(--surface-raised);
     color: var(--text-primary);
     border: 1px solid var(--border-subtle);
@@ -729,6 +871,9 @@
     line-height: 1.45;
     box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
     animation: say-in var(--dur-tint, 120ms) ease-out;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
   }
   .say::after {
     content: '';
@@ -763,6 +908,43 @@
     bottom: auto;
     top: 22px;
   }
+  .docked .say {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    top: auto;
+    width: auto;
+    max-width: calc(100vw - 24px);
+    border-radius: 16px;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
+    z-index: 10000;
+  }
+  .docked .say::after {
+    display: none;
+  }
+  .say-concept-box {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border-subtle);
+  }
+  .concept-toggle {
+    background: var(--surface-sunken);
+    font-size: 0.85em;
+  }
+  .say-concept-body {
+    margin-top: 4px;
+    font-size: var(--fs-2xs);
+    background: var(--surface-sunken);
+    padding: 6px 8px;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+  .say-concept-why {
+    margin-top: 4px;
+    color: var(--badge-amber-text);
+  }
   @keyframes say-in {
     from {
       opacity: 0;
@@ -780,8 +962,40 @@
   .say-head {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
+  }
+  .say-head-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+  }
+  .say-head-tools {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .say-head-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    padding: 3px;
+    transition: all .15s;
+  }
+  .say-head-btn:hover {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+    border-color: var(--border-subtle);
+  }
+  .say-head-btn.close:hover {
+    color: var(--accent-error, #f87171);
   }
   .say-name {
     font-weight: 700;
@@ -805,8 +1019,58 @@
     color: var(--text-dim);
   }
 
+  /* Chat conversation stream */
+  .say-chat-stream {
+    max-height: 280px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 2px 0 6px;
+    margin-bottom: 6px;
+    overscroll-behavior: contain;
+  }
+  .say-chat-msg {
+    display: flex;
+    flex-direction: column;
+    max-width: 100%;
+  }
+  .say-chat-msg.user {
+    align-items: flex-end;
+  }
+  .say-chat-msg.guide {
+    align-items: flex-start;
+  }
+  .say-bubble.user {
+    background: var(--surface-sunken);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px 12px 2px 12px;
+    padding: 6px 10px;
+    font-size: var(--fs-xs);
+    max-width: 88%;
+    word-break: break-word;
+  }
+  .say-bubble.guide {
+    background: transparent;
+    color: var(--text-primary);
+    padding: 2px 0;
+    font-size: var(--fs-xs);
+    line-height: 1.5;
+    max-width: 100%;
+  }
+  .say-bubble.guide.markdown-body :global(p),
+  .say-body.markdown-body :global(p) {
+    margin: 0 0 0.5em;
+  }
+  .say-bubble.guide.markdown-body :global(p:last-child),
+  .say-body.markdown-body :global(p:last-child) {
+    margin-bottom: 0;
+  }
   .say-body {
     margin-bottom: 6px;
+    max-height: 280px;
+    overflow-y: auto;
   }
 
   .say-why {

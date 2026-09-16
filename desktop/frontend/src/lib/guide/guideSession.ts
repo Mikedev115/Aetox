@@ -7,26 +7,10 @@ import { guide } from './guideState.svelte'
 import { cockpit } from '../stores/cockpit.svelte'
 import { t } from '../i18n.svelte'
 
+import { guideCore } from './core'
+
 export function getVisibleGuideElements(): { id: string; name: string; safe: boolean }[] {
-  if (typeof document === 'undefined') return []
-  const nodes = document.querySelectorAll<HTMLElement>('[data-guide]')
-  const out: { id: string; name: string; safe: boolean }[] = []
-  const seen = new Set<string>()
-  for (const el of nodes) {
-    const id = el.getAttribute('data-guide')
-    if (!id || seen.has(id)) continue
-    seen.add(id)
-    const rect = el.getBoundingClientRect()
-    if (rect.width > 0 && rect.height > 0) {
-      const entry = GUIDE_MAP.find((e) => e.id === id)
-      out.push({
-        id,
-        name: t(`guide.${id}.name` as any) || id,
-        safe: entry?.safe ?? false,
-      })
-    }
-  }
-  return out
+  return guideCore.where().visible
 }
 
 /** The place a `goto` names — a PageId, or the id of anything on the map,
@@ -43,9 +27,9 @@ export async function handleGuideAsk(ask: { id: string; action: string; args?: R
   try {
     switch (action.toLowerCase().trim()) {
       case 'where': {
-        const visible = getVisibleGuideElements()
+        const { page, visible } = guideCore.where()
         const res = {
-          page: currentPage() ?? String(cockpit.activeView),
+          page: page ?? currentPage() ?? String(cockpit.activeView),
           guideAt: guide.stopId ?? '',
           visible,
         }
@@ -54,14 +38,15 @@ export async function handleGuideAsk(ask: { id: string; action: string; args?: R
       }
       case 'describe': {
         const targetId = String(args.id || '')
+        const fact = guideCore.describe(targetId)
         const entry = GUIDE_MAP.find((e) => e.id === targetId)
         const res = {
           id: targetId,
-          name: guideText(targetId, 'name') || targetId,
-          what: guideText(targetId, 'what'),
-          why: guideText(targetId, 'why'),
-          ref: entry?.ref || '',
-          safe: entry?.safe ?? false,
+          name: fact?.name || guideText(targetId, 'name') || targetId,
+          what: fact?.what || guideText(targetId, 'what'),
+          why: fact?.why || guideText(targetId, 'why'),
+          ref: fact?.ref || entry?.ref || '',
+          safe: fact?.safe ?? entry?.safe ?? false,
           page: entry?.page ?? '',
         }
         await AnswerGuide(id, JSON.stringify(res))

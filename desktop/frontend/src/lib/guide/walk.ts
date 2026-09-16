@@ -3,34 +3,36 @@
 // the gait can be tuned and argued about on its own, and every rule below has
 // a test instead of a screenshot.
 //
-// This file answers one question: given a thing to point at and a window to
-// stand in, where does the figure go. It does NOT decide *what* to point at
-// (routes.ts), *how to reach the page it is on* (pages.ts), or what is said
-// there (the map's words). Those three were one lump inside Guide.svelte
-// until 15 ก.ย. 2026; splitting them is what lets any one of them be changed
-// without reading the other two.
+// Powered by the unified Geometry Policy (./geometry.ts) as the single source of truth.
+
+import {
+  GEOMETRY,
+  calculatePlacement,
+  type Rect,
+  type Viewport,
+  type Size,
+  type PlacementMode,
+  type PlacementResult,
+} from './geometry'
+export { GEOMETRY, calculatePlacement }
+export type { Rect, Viewport, Size, PlacementMode, PlacementResult }
 
 /** The figure's box. 72 is the companion's own size on screen. */
-export const SIZE = 72
+export const SIZE = GEOMETRY.FIGURE_SIZE
 
-/** The bubble's width — `.say` in Guide.svelte is `width: 350px`. The two
- *  numbers have to agree: this one decides which SIDE the bubble opens on,
- *  that one decides how wide it actually is, and a disagreement puts a card
- *  half off the screen. Changing the width means changing both. */
-export const BUBBLE = 350
+/** The bubble's width — `.say` in Guide.svelte is `width: 350px`. */
+export const BUBBLE = GEOMETRY.BUBBLE_DEFAULT_WIDTH
 
 /** Clear of the target, and clear of the window's edges. */
-const GAP = 16
-const BUBBLE_GAP = 14
-const EDGE = 8
+const GAP = GEOMETRY.GAP_TARGET
+const BUBBLE_GAP = GEOMETRY.GAP_BUBBLE
+const EDGE = GEOMETRY.EDGE_PADDING
 /** Below this the bubble would run off the top, so it hangs under the figure
  *  instead. Roughly the bubble's own tallest ordinary height. */
-const BUBBLE_DROP = 260
+const BUBBLE_DROP = GEOMETRY.BUBBLE_DROP
 /** The top bar's own height plus the guide's pill — never stand over it. */
-const TOP_SAFE = 48
+const TOP_SAFE = GEOMETRY.TOP_SAFE
 
-export type Rect = { left: number; top: number; right: number; bottom: number; width: number; height: number }
-export type Viewport = { width: number; height: number }
 
 export type Stance = {
   /** Where the figure's box goes, in window coordinates. */
@@ -49,11 +51,7 @@ export type Stance = {
  *
  * The rule that matters: the card must never cover the button it is about.
  * So the side is chosen by where the BUBBLE fits, not by where the figure
- * fits — standing right of the target is only useful if the card can then
- * open further right. When neither side has room for the card (a target in a
- * narrow window), the figure takes whichever side it fits on and the card
- * opens back over the target, because a card half outside the window is worse
- * than a card overlapping what it describes.
+ * fits.
  */
 export function standBeside(target: Rect, win: Viewport): Stance {
   const rightOf = target.right + GAP
@@ -85,6 +83,13 @@ export function standBeside(target: Rect, win: Viewport): Stance {
 }
 
 /**
+ * Enhanced placement calculation supporting real-measured bubble size and docked callout fallback.
+ */
+export function standBesideReal(target: Rect, bubbleSize: Size, win: Viewport): PlacementResult {
+  return calculatePlacement(target, bubbleSize, win)
+}
+
+/**
  * Where the figure waits when it has nothing to point at — the lower right,
  * clear of the composer, the corner the companion also favours. Far enough in
  * that the bubble, which opens leftward from here, stays on screen.
@@ -98,13 +103,6 @@ export function restingSpot(win: Viewport): { x: number; y: number } {
 
 /**
  * Keep a spot the USER chose inside the window.
- *
- * The same edges `restingSpot` respects, applied to a place a hand put the
- * figure rather than a place this file picked. Two reasons it has to be here
- * and not in the drag handler: a window that was resized since the spot was
- * saved would otherwise open the guide off screen, and the top bar is out of
- * bounds for the same reason it is out of bounds for everything else — the
- * figure standing over it covers controls it cannot itself replace.
  */
 export function insideWindow(p: { x: number; y: number }, win: Viewport): { x: number; y: number } {
   return {
@@ -119,14 +117,7 @@ export function walkTurn(dx: number): number {
 }
 
 /**
- * How long the walk takes. Distance-proportional with a floor, so a short hop
- * still reads as a step and a walk across the window never drags: the eye has
- * to be able to follow it to the target, which is the only reason the figure
- * walks instead of appearing.
- *
- * `reduced` is prefers-reduced-motion: no walk at all, the figure is simply
- * there — motion is the thing that setting is about, and the guide has no
- * business insisting on it.
+ * How long the walk takes. Distance-proportional with a floor.
  */
 export function walkMs(dx: number, reduced: boolean): number {
   if (reduced) return 0

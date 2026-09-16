@@ -642,3 +642,43 @@ describe('staying on what it points at', () => {
     expect(container.querySelector('.guide-ring')).toBeNull()
   })
 })
+
+describe('avatar chat display and assistant standard quality', () => {
+  it('automatically flips to the right when parked near the left window boundary', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1240)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(860)
+    setGuidePref('spot', { x: 120, y: 300 })
+    await guide.start()
+    const { container } = render(Guide)
+    const wrap = container.querySelector<HTMLElement>('.guide-mascot-wrap')!
+    expect(wrap.classList.contains('flip')).toBe(true)
+  })
+
+  it('renders conversational dialogue with markdown in chat stream', async () => {
+    await guide.start()
+    const { container } = render(Guide)
+    guide.transcript = [
+      { who: 'user', text: 'ปุ่มนี้ทำอะไร' },
+      { who: 'guide', text: '**ปุ่มส่งข้อความ** สำหรับส่งงานให้ *ผู้ช่วย*' },
+    ]
+    await waitFor(() => expect(container.querySelector('.say-chat-stream')).not.toBeNull())
+    expect(container.querySelector('.say-bubble.user')?.textContent).toContain('ปุ่มนี้ทำอะไร')
+    const guideBubble = container.querySelector('.say-bubble.guide')
+    expect(guideBubble?.innerHTML).toContain('<strong>')
+    expect(guideBubble?.innerHTML).toContain('<em>')
+  })
+
+  it('supports opening question in assistant chat pane', async () => {
+    await guide.start()
+    const { container } = render(Guide)
+    guide.transcript = [{ who: 'user', text: 'ช่วยวิเคราะห์โค้ดหน่อย' }]
+    await tick()
+    const openBtn = container.querySelector<HTMLButtonElement>('button[title="คุยต่อในแชทผู้ช่วย"]')
+    expect(openBtn).not.toBeNull()
+    await fireEvent.click(openBtn!)
+    expect(guide.on).toBe(false)
+    expect(cockpit.activeView).toBe('chat')
+    expect(cockpit.desk).toBe('assistant')
+  })
+})
+

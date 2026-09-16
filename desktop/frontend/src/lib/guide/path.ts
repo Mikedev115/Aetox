@@ -17,11 +17,10 @@
 // state to get out of step with the DOM: the DOM is the state.
 
 import { GUIDE_MAP } from './map'
+import { CATALOG_TARGETS } from './catalog/data'
 import { roomOf, type PageId } from '../rooms'
-// "On screen right now" is where.ts's answer, asked of an element rather than
-// a page. Shared rather than re-implemented: the walk and the store disagreeing
-// about whether a button is there is how a guide points at a ghost.
 import { onScreen as visible } from './where'
+import { t } from '../i18n.svelte'
 
 /**
  * The doors into each room, outermost first — the presses a person makes to
@@ -51,30 +50,70 @@ function railDoorFor(page: PageId): string | null {
 }
 
 /**
+ * Check semantic DOM preconditions for a target without coupling to component stores.
+ */
+export function checkPrecondition(targetId: string): { ok: boolean; reason?: string } {
+  const entry = CATALOG_TARGETS.find((e) => e.id === targetId)
+  if (!entry?.navigation?.condition) return { ok: true }
+  if (typeof document === 'undefined') return { ok: true }
+
+  const cond = entry.navigation.condition
+  if (cond.selector) {
+    const el = document.querySelector(cond.selector)
+    if (!el) {
+      return {
+        ok: false,
+        reason: cond.notOnScreenMessageKey ? t(cond.notOnScreenMessageKey as any) : undefined,
+      }
+    }
+    if (cond.attr && cond.value !== undefined) {
+      if (el.getAttribute(cond.attr) !== cond.value) {
+        return {
+          ok: false,
+          reason: cond.notOnScreenMessageKey ? t(cond.notOnScreenMessageKey as any) : undefined,
+        }
+      }
+    }
+  }
+
+  return { ok: true }
+}
+
+/**
  * The next thing to press on the way to `targetId`, or null when the target
  * itself is reachable (press it, or simply stand beside it and explain).
  *
+ * Evaluates in-page flow preconditions (via) as well as room/rail doors.
  * Returns only ids that are visible right now, so what the guide points at is
- * always something the person can actually put a finger on. When nothing on
- * the way is visible — a room reached from a screen the map does not cover —
- * it answers null and the caller falls back to opening the page outright,
- * because arriving unexplained still beats not arriving.
+ * always something the person can actually put a finger on.
  */
 export function nextStepTo(targetId: string): string | null {
   if (visible(targetId)) return null
-  const target = GUIDE_MAP.find((e) => e.id === targetId)
+  const catalogEntry = CATALOG_TARGETS.find((e) => e.id === targetId)
+  const target = catalogEntry || GUIDE_MAP.find((e) => e.id === targetId)
   if (!target) return null
 
+  // 1. Check in-page navigation preconditions (via)
+  // If a precondition button is visible on screen right now, that is the next press!
+  if (catalogEntry?.navigation?.via) {
+    for (const viaId of catalogEntry.navigation.via) {
+      if (viaId === targetId) break
+      if (visible(viaId)) return viaId
+    }
+  }
+
+  // 2. Inter-room doors and rail doors
   const chain = [...(ROOM_DOORS[roomOf(target.page)] ?? [])]
   const rail = railDoorFor(target.page)
   if (rail && rail !== targetId) chain.push(rail)
 
-  // The DEEPEST visible door, not the first. The chain is ordered
-  // outermost-inward, and pressing one does not make it disappear — the
-  // account menu's own button is still on screen once the menu is open. Taking
-  // the first visible one would therefore point at it again forever, and the
-  // second press would close what the first press opened. The deepest one that
-  // is on screen is the furthest the person has already got.
+  if (catalogEntry?.navigation?.via) {
+    for (const viaId of catalogEntry.navigation.via) {
+      if (!chain.includes(viaId) && viaId !== targetId) chain.push(viaId)
+    }
+  }
+
+  // The DEEPEST visible door, not the first.
   let next: string | null = null
   for (const step of chain) {
     if (step === targetId) break
@@ -90,10 +129,19 @@ export function nextStepTo(targetId: string): string | null {
  */
 export function stepsTo(targetId: string): string[] {
   if (visible(targetId)) return []
-  const target = GUIDE_MAP.find((e) => e.id === targetId)
+  const catalogEntry = CATALOG_TARGETS.find((e) => e.id === targetId)
+  const target = catalogEntry || GUIDE_MAP.find((e) => e.id === targetId)
   if (!target) return []
+
   const chain = [...(ROOM_DOORS[roomOf(target.page)] ?? [])]
   const rail = railDoorFor(target.page)
   if (rail && rail !== targetId) chain.push(rail)
+
+  if (catalogEntry?.navigation?.via) {
+    for (const viaId of catalogEntry.navigation.via) {
+      if (!chain.includes(viaId) && viaId !== targetId) chain.push(viaId)
+    }
+  }
+
   return chain.filter((s) => s !== targetId)
 }

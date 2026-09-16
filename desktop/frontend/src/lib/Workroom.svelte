@@ -22,7 +22,7 @@
   import Icon from './Icon.svelte'
 </script>
 
-<div class="page-shell in-main">
+<div class="page-shell in-main" data-guide-place="lines">
   <header class="page-head">
     <div class="page-title">
       <h2>{t('desk.lines')}</h2>

@@ -102,7 +102,6 @@
 | `settings.head.tab.memory` | แท็บความจำหัว | ดูและจัดการสิ่งที่หัวนี้จดจำไว้ในไฟล์หน่วยความจำ |  |  | true | settings |
 | `settings.head.tab.tools` | แท็บเครื่องมือ | ดูรายชื่อเครื่องมือที่เปิดให้หัวนี้ใช้งาน |  |  | true | settings |
 | `settings.head.save` | บันทึกการตั้งค่าหัว | บันทึกการเปลี่ยนแปลงคำสั่งและตัวตนลงดิสก์ |  |  | false | settings |
-| `settings.head.reset` | คืนค่าเริ่มต้นหัว | รีเซ็ตคำสั่งและตัวตนกลับเป็นค่ามาตรฐานจากโรงงาน |  |  | false | settings |
 | `settings.head.delete` | ลบเอเจนนี้ | ลบเอเจนเฉพาะทางนี้ออกจากระบบ |  |  | false | settings |
 | `settings.brain.hero` | หัวข้อต่อสมอง | ข้อมูลการเลือกทางเชื่อมโมเดล |  |  | true | settings |
 | `settings.brain.provider.ollama` | โมเดลในเครื่อง | เชื่อมต่อกับ Ollama หรือ LM Studio ที่รันอยู่ในเครื่องของคุณ |  |  | true | settings |

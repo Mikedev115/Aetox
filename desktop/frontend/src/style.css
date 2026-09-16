@@ -1038,7 +1038,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    given its own contrast rather than inheriting the label's. Muted while the
    tab is asleep, accent while it is the one you are standing in — the same
    accent as the underline, so the two marks say one thing and not two. */
-.tab .ic { color:var(--text-muted); transition:color var(--dur-tint) ease; }
+.tab .ic { color:var(--text-muted); transition:color var(--dur-tint) ease; flex-shrink:0; }
 .tab:hover .ic { color:var(--text-secondary); }
 .tab.active .ic { color:var(--accent); }
 .tab .label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -1212,25 +1212,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    .msg.user keeps the cap on the row, which is what it always had — the row was
    only ever widened so a full-width rule could reach the edge. */
 .msg.user { align-self:flex-end; max-width:min(80%, 620px); }
-/* The answer's own measure, capped 30 ส.ค. Measured in the running app first:
-   at a 1400px window the chat column is 1097px and an assistant paragraph ran
-   1020px wide — 157 characters a line at 15.5px, where comfortable reading is
-   45–75 and even generous UI guidance stops near 90. On a wider monitor it only
-   gets worse, because nothing was holding it.
-   The asymmetry above is what gave it away: the user's own line, which is
-   usually short, has been capped at 620px for as long as it existed, while the
-   long text on the screen — the reply — was capped at nothing.
-   Set on the prose children rather than on .bubble, so the things that
-   genuinely want the room keep it: code blocks, tables, images, diagrams and
-   the cards a turn draws all sit outside this list and still span the column.
-   In `ch` rather than px so the cap follows the reader's font size, which is a
-   setting they can change (chatFont.svelte.ts).
-   60 and not the 70–75 the English-language guidance names, because `ch` is the
-   width of "0" — 9.78px in this face at 15.5px — while a Thai glyph averages
-   6.5px, measured on a real answer in the app. 74ch let 111 Thai characters
-   onto a line; 60ch lands at about 90 Thai and 75 English, which is the top of
-   the comfortable band in both. Thai also has no spaces for the eye to rest on,
-   so it earns the tighter end rather than the looser one. */
+/* The answer's prose expands across the reading column. */
 .msg:not(.user) .bubble .markdown-body > p,
 .msg:not(.user) .bubble .markdown-body > ul,
 .msg:not(.user) .bubble .markdown-body > ol,
@@ -1240,7 +1222,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .msg:not(.user) .bubble .markdown-body > h3,
 .msg:not(.user) .bubble .markdown-body > h4,
 .msg:not(.user) .bubble .markdown-body > h5,
-.msg:not(.user) .bubble .markdown-body > h6 { max-width:60ch; }
+.msg:not(.user) .bubble .markdown-body > h6 { max-width:100%; }
 .msg.user > .bubble { flex:0 1 auto; }
 .bubble { border-radius:var(--r-lg); padding:11px 14px; min-width:0; overflow-wrap:break-word; word-break:break-word; }
 .msg.user .bubble { background:var(--surface-raised); border:1px solid var(--border-default); border-top-right-radius:4px; }
@@ -1435,7 +1417,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 .tool-box .tool-step.run::after { inset:0; border-radius:0; }
 /* The diff and the search card belong to the row above them, so they keep the
    row's own gutter rather than the box's edge. */
-.tool-box .tool-diff, .tool-box .search-card { margin-left:10px; margin-right:10px; }
+.tool-box .tool-diff, .tool-box .search-card, .tool-box .tool-terminal { margin-left:10px; margin-right:10px; }
 
 /* The live one is a window, for the reason the thinking panel is one.
  *
@@ -1450,9 +1432,22 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
  * reach the rows above. */
 .tool-box.live-window {
   max-height:190px; overflow-y:auto; overscroll-behavior:contain;
-  scrollbar-width:none;
+  scrollbar-width:thin;
+  scrollbar-color:transparent transparent;
+  transition:scrollbar-color 0.2s ease;
 }
-.tool-box.live-window::-webkit-scrollbar { width:0; height:0; }
+.tool-box.live-window:hover {
+  scrollbar-color:var(--border-subtle) transparent;
+}
+.tool-box.live-window::-webkit-scrollbar { width:4px; height:4px; }
+.tool-box.live-window::-webkit-scrollbar-thumb {
+  background:transparent;
+  border-radius:2px;
+  transition:background 0.2s ease;
+}
+.tool-box.live-window:hover::-webkit-scrollbar-thumb {
+  background:var(--border-subtle);
+}
 /* Masked at the end that HAS something past it, and only there. Masked at the
    bottom while the list is pinned to it, the fade would be dimming the row that
    is running — the one row on the box that must stay legible. */
@@ -1621,12 +1616,65 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    file, so it stays in the muted ink the row's own seconds use. */
 .tool-step .tool-stat.got { color:var(--text-muted); }
 /* The file's git letter, in the palette every editor taught: modified amber,
-   new green, deleted red. A letter, not a word — the vocabulary is borrowed
-   precisely so it needs no translation. */
-.tool-step .git-badge { flex:0 0 auto; font-size:10px; font-weight:600; font-variant-numeric:tabular-nums; opacity:.9; }
-.tool-step .git-badge.g-M, .tool-step .git-badge.g-R, .tool-step .git-badge.g-T { color:var(--status-warning, #d29922); }
-.tool-step .git-badge.g-U, .tool-step .git-badge.g-A, .tool-step .git-badge.g-C { color:var(--status-success); }
-.tool-step .git-badge.g-D { color:var(--status-danger); }
+   new green, deleted red. Clickable pill to open the Git working tree in Workbench. */
+.tool-step .git-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  padding: 1px 5px;
+  min-width: 16px;
+  border-radius: var(--r-xs, 4px);
+  background: var(--surface-alt, rgba(255,255,255,0.05));
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--t-fast, 0.15s) ease, border-color var(--t-fast, 0.15s) ease, transform var(--t-fast, 0.15s) ease, box-shadow var(--t-fast, 0.15s) ease;
+  opacity: .9;
+}
+.tool-step .git-badge:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+.tool-step .git-badge:active {
+  transform: translateY(0) scale(0.96);
+}
+.tool-step .git-badge:focus-visible {
+  outline: 2px solid var(--accent, #6366f1);
+  outline-offset: 1px;
+}
+.tool-step .git-badge.g-M, .tool-step .git-badge.g-R, .tool-step .git-badge.g-T {
+  color: var(--status-warning, #d29922);
+  background: color-mix(in srgb, var(--status-warning, #d29922) 12%, transparent);
+  border-color: color-mix(in srgb, var(--status-warning, #d29922) 25%, transparent);
+}
+.tool-step .git-badge.g-M:hover, .tool-step .git-badge.g-R:hover, .tool-step .git-badge.g-T:hover {
+  background: color-mix(in srgb, var(--status-warning, #d29922) 24%, transparent);
+  border-color: color-mix(in srgb, var(--status-warning, #d29922) 55%, transparent);
+}
+.tool-step .git-badge.g-U, .tool-step .git-badge.g-A, .tool-step .git-badge.g-C {
+  color: var(--status-success);
+  background: color-mix(in srgb, var(--status-success) 12%, transparent);
+  border-color: color-mix(in srgb, var(--status-success) 25%, transparent);
+}
+.tool-step .git-badge.g-U:hover, .tool-step .git-badge.g-A:hover, .tool-step .git-badge.g-C:hover {
+  background: color-mix(in srgb, var(--status-success) 24%, transparent);
+  border-color: color-mix(in srgb, var(--status-success) 55%, transparent);
+}
+.tool-step .git-badge.g-D {
+  color: var(--status-danger);
+  background: color-mix(in srgb, var(--status-danger) 12%, transparent);
+  border-color: color-mix(in srgb, var(--status-danger) 25%, transparent);
+}
+.tool-step .git-badge.g-D:hover {
+  background: color-mix(in srgb, var(--status-danger) 24%, transparent);
+  border-color: color-mix(in srgb, var(--status-danger) 55%, transparent);
+}
 /* The self-check's "!N": an edit that left the file broken. Red and bold on
    purpose — of everything on a tool row this is the one fact that changes
    what the reader does next. */
@@ -1639,6 +1687,27 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   background:none; border:0; cursor:pointer; border-radius:var(--r-sm);
 }
 .tool-step.foldable:hover .subj { color:var(--text-primary); }
+
+/* Clickable file rows (reading/opening a file) & file subjects */
+.tool-step.file-row {
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  transition: background var(--t-fast, 0.15s) ease;
+}
+.tool-step.file-row:hover {
+  background: var(--surface-hover, rgba(255, 255, 255, 0.05));
+}
+.tool-step.file-row:hover .subj,
+.subj.is-file:hover {
+  color: var(--accent-bright, var(--text-primary));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.subj.is-file {
+  cursor: pointer;
+  transition: color var(--t-fast, 0.15s) ease;
+}
 
 /* What a search found, under the row that ran it (ข้อ 02).
  *
@@ -4740,6 +4809,19 @@ button.phase-head:hover { color:var(--text-muted); }
 .ctx-note.ctx-tools-note {
   margin:2px 0 2px 16px; padding-top:0; border-top:0; color:var(--text-dim);
 }
+.ctx-compact-btn {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  width:100%; padding:6px 10px; margin-top:4px;
+  background:var(--surface-raised); border:1px solid var(--border-subtle); border-radius:var(--r-sm);
+  font-size:var(--fs-xs); font-weight:500; color:var(--text-secondary); cursor:pointer;
+  transition:all var(--t-fast);
+}
+.ctx-compact-btn:hover:not(:disabled) {
+  background:var(--surface-sunken); border-color:var(--border-default); color:var(--text-primary);
+}
+.ctx-compact-btn:disabled {
+  opacity:0.45; cursor:not-allowed;
+}
 .composer .send:not(.ready):hover { color:#ffffff; border-color:rgba(255,255,255,0.26); box-shadow:0 0 0 2px rgba(255,255,255,0.06); }
 .composer .send.stop { color:var(--danger, #e5534b); background:var(--surface-raised); border-color:var(--border-default); box-shadow:none; }
 .composer .send.stop:hover { border-color:var(--danger, #e5534b); }
@@ -5125,13 +5207,50 @@ button.phase-head:hover { color:var(--text-muted); }
 
 /* ---------- inspector ---------- */
 .inspector { grid-area:inspector; background:var(--surface-panel); display:flex; flex-direction:column; overflow:hidden; }
-/* no overflow-x here: it would clip the absolutely-positioned .plus-menu dropdown */
 /* Sunken, like .tabs in the main column: the strip has to be a different
    ground from the pane under it, or the raised chip on the live tab has
-   nothing to stand on and we are back to words floating on the panel. */
-.insp-tabs { display:flex; align-items:center; gap:2px; padding:0 14px; border-bottom:1px solid var(--border-default); background:var(--surface-sunken); min-width:0; }
-.insp-tabs .tab { padding:7px 10px; font-size:var(--fs-sm); }
-.plus-menu-wrap { position:relative; }
+   nothing to stand on and we are back to words floating on the panel.
+   .insp-tabs wraps a horizontally scrollable rack (.insp-tabs-scroll) and a
+   pinned + button (.plus-menu-wrap). The outer container has no overflow
+   clipping so .plus-menu dropdown can open and shift freely without clipping. */
+.insp-tabs {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px 0 10px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-sunken);
+  min-width: 0;
+}
+.insp-tabs-scroll {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1 1 0%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.insp-tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+.insp-tabs .tab {
+  padding: 6px 10px;
+  font-size: var(--fs-sm);
+  flex: 0 0 auto;
+  max-width: 160px;
+  min-width: 0;
+}
+.insp-tabs .tab .ic { flex-shrink: 0; }
+.plus-menu-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
 .plus-btn { color:var(--text-secondary); font-size:var(--fs-xl); }
 /* One step above the surface it opens over, a stronger edge and a heavier
    shadow: a menu on --surface-panel over a --surface-panel sidebar was two
@@ -5184,6 +5303,8 @@ button.phase-head:hover { color:var(--text-muted); }
   border-radius: 999px;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .tab-badge.git {
   color: var(--status-warning, #eab308);
@@ -6159,6 +6280,76 @@ button.phase-head:hover { color:var(--text-muted); }
   color: var(--status-success);
   border: 1px solid color-mix(in srgb, var(--status-success) 30%, transparent);
 }
+.gp-alert.info {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text-secondary);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* Smart Split Loading & Progress */
+.gp-split-analyzing-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.gp-split-skel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gp-split-skel-card {
+  padding: 10px 12px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--r-md);
+  background: var(--surface-app);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gp-split-done-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-2xs);
+  color: var(--status-success);
+  font-weight: 500;
+  padding: 3px 6px;
+}
+
+/* Branch Picker in GitPane */
+.gp-branch-pick {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.gp-branch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  padding: 1px 7px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--dur-tint) ease;
+}
+.gp-branch-btn:hover {
+  background: var(--surface-raised);
+  border-color: var(--border-strong);
+}
+.gp-branch-btn .caret {
+  display: inline-flex;
+  color: var(--text-dim);
+}
+.gp-branch-pick .branch-menu {
+  top: calc(100% + 6px);
+  bottom: auto;
+  left: 0;
+  z-index: 100;
+}
 
 /* Dangerous / Sensitive File Warning Banner & Row Badge */
 .gp-danger-banner {
@@ -6299,6 +6490,161 @@ button.phase-head:hover { color:var(--text-muted); }
 .tool-diff {
   margin:1px 0 7px 7px; padding-left:11px;
   border-left:1px solid var(--border-strong);
+  animation: tool-drawer-in 0.18s ease-out;
+}
+
+/* ---------- inline terminal drawer (คำสั่ง shell & desk_terminal) ---------- */
+.tool-terminal {
+  margin: 2px 0 8px 7px;
+  padding: 8px 12px;
+  background: var(--surface-code, var(--surface-sunken));
+  border: 1px solid var(--border-subtle);
+  border-left: 2px solid var(--status-modified);
+  border-radius: var(--r-sm);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  animation: tool-fade-in 0.15s ease-out;
+  contain: paint;
+}
+@keyframes tool-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.tool-box .tool-terminal {
+  margin: 4px 10px 8px 10px;
+}
+.tool-terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.tool-terminal-prompt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+.tool-terminal-prompt .prompt-glyph {
+  color: var(--status-modified);
+  font-weight: 700;
+  user-select: none;
+  font-size: 11px;
+}
+.tool-terminal-prompt .cmd-text {
+  color: var(--text-primary);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: text;
+}
+.terminal-copy-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-xs);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.terminal-copy-btn:hover {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+.terminal-copy-btn .copied-lbl {
+  color: var(--status-success);
+  font-weight: 500;
+}
+.tool-terminal-body {
+  padding-top: 6px;
+}
+.terminal-live-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--status-modified);
+  font-size: 12px;
+}
+.terminal-live-status .term-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-modified);
+  box-shadow: 0 0 6px var(--status-modified);
+  animation: term-dot-pulse 1.4s ease-in-out infinite alternate;
+  will-change: opacity;
+}
+@keyframes term-dot-pulse {
+  0% { opacity: 0.35; }
+  100% { opacity: 1; }
+}
+.terminal-live-status .term-live-secs {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.terminal-err-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.terminal-err-status .err-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--status-danger);
+  font-weight: 600;
+  font-size: 12px;
+}
+.terminal-err-status .err-head .err-icon {
+  display: inline-flex;
+}
+.tool-terminal .err-log {
+  margin: 4px 0 0 0;
+  padding: 6px 8px;
+  background: color-mix(in srgb, var(--status-danger) 8%, var(--surface-code, #0d1117));
+  border: 1px solid color-mix(in srgb, var(--status-danger) 25%, transparent);
+  border-radius: var(--r-xs);
+  color: var(--text-primary);
+  max-height: 160px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.terminal-done-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.terminal-done-status .done-icon {
+  display: inline-flex;
+  color: var(--status-success);
+}
+.terminal-done-status .done-secs {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+@keyframes tool-drawer-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tool-diff, .tool-terminal { animation: none; }
 }
 
 /* ---------- file change review card (โหมดโค้ด) ----------
