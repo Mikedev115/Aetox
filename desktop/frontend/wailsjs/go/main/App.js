@@ -1898,6 +1898,10 @@ export function SwitchVariant(arg1) {
   return window['go']['main']['App']['SwitchVariant'](arg1);
 }
 
+export function SyncResponsesModelFacts(arg1) {
+  return window['go']['main']['App']['SyncResponsesModelFacts'](arg1);
+}
+
 export function SynthesizeHabit(arg1, arg2) {
   return window['go']['main']['App']['SynthesizeHabit'](arg1, arg2);
 }

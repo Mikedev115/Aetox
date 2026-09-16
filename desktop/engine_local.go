@@ -38,6 +38,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	"github.com/Mikedev115/Aetox/internal/engine/remote"
 	"github.com/Mikedev115/Aetox/internal/engine/rpc"
+	"github.com/Mikedev115/Aetox/internal/model"
 	"github.com/Mikedev115/Aetox/internal/proc"
 	"github.com/Mikedev115/Aetox/internal/version"
 )
@@ -539,6 +540,17 @@ func (e *localEngine) connect(ctx context.Context, p *engineProcess) error {
 		e.mu.Lock()
 		e.hello = res
 		e.mu.Unlock()
+		// Push the screen's cached ChatGPT/Codex model capabilities across to
+		// the engine. On a local child this is a harmless re-read of the same
+		// file; on a remote host (§248 phase 3) this is what gives the Linux
+		// engine the ladder the client already fetched, bridging §261.3's gap.
+		if localRoot, err := config.DataRoot(); err == nil && localRoot != "" {
+			if rows, err := model.LoadResponsesModelFacts(localRoot); err == nil && len(rows) > 0 {
+				go func() {
+					_ = e.client.SyncResponsesModelFacts(rows)
+				}()
+			}
+		}
 	}
 	return err
 }

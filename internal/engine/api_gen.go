@@ -374,6 +374,7 @@ type API interface {
 	SwitchProvider(provider string) (ModelInfo, error)
 	SwitchThinkLevel(level string) (ModelInfo, error)
 	SwitchVariant(index int) (RegenerateResult, error)
+	SyncResponsesModelFacts(rows []model.ResponsesModelFacts) error
 	SynthesizeHabit(sessionID string, hint string) (int64, error)
 	TeamsFolderPath() (string, error)
 	TerminalAttach(sessionID string) string

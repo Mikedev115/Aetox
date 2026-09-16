@@ -1895,6 +1895,12 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		}
 		r0, err := e.SwitchVariant(p0)
 		return r0, err, true
+	case "SyncResponsesModelFacts":
+		var p0 []model.ResponsesModelFacts
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		return nil, e.SyncResponsesModelFacts(p0), true
 	case "SynthesizeHabit":
 		var p0 string
 		var p1 string

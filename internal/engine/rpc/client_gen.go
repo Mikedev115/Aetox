@@ -2344,6 +2344,10 @@ func (c *Client) SwitchVariant(index int) (engine.RegenerateResult, error) {
 	return out0, err
 }
 
+func (c *Client) SyncResponsesModelFacts(rows []model.ResponsesModelFacts) error {
+	return c.call("SyncResponsesModelFacts", []any{rows}, nil)
+}
+
 func (c *Client) SynthesizeHabit(sessionID string, hint string) (int64, error) {
 	var out0 int64
 	err := c.call("SynthesizeHabit", []any{sessionID, hint}, &out0)

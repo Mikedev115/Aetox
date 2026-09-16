@@ -3561,6 +3561,23 @@ export namespace model {
 	        this.question = source["question"];
 	    }
 	}
+	
+	export class ResponsesModelFacts {
+	    slug: string;
+	    reasoning_levels?: string[];
+	    default_reasoning_level?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ResponsesModelFacts(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.slug = source["slug"];
+	        this.reasoning_levels = source["reasoning_levels"];
+	        this.default_reasoning_level = source["default_reasoning_level"];
+	    }
+	}
 
 }
 

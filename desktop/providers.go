@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/Mikedev115/Aetox/internal/cliagent"
+	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/credentials"
 	"github.com/Mikedev115/Aetox/internal/engine"
 	"github.com/Mikedev115/Aetox/internal/model"
@@ -105,6 +106,15 @@ func (a *App) ListModelsForProvider(providerName string) []string {
 	baseURL := a.api.ProviderBaseURL(canonical)
 	apiKey := resolveAPIKeyForProvider(canonical)
 	if choices, err := model.ModelChoicesWithEndpointAndAPIKey(canonical, baseURL, apiKey); err == nil && len(choices) > 0 {
+		if canonical == "codex" {
+			if localRoot, err := config.DataRoot(); err == nil && localRoot != "" {
+				if rows, err := model.LoadResponsesModelFacts(localRoot); err == nil && len(rows) > 0 {
+					go func() {
+						_ = a.api.SyncResponsesModelFacts(rows)
+					}()
+				}
+			}
+		}
 		return choices
 	}
 	if choices := a.api.CatalogModelChoices(canonical); len(choices) > 0 {

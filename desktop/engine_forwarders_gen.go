@@ -1419,6 +1419,10 @@ func (a *App) SwitchVariant(index int) (engine.RegenerateResult, error) {
 	return a.api.SwitchVariant(index)
 }
 
+func (a *App) SyncResponsesModelFacts(rows []model.ResponsesModelFacts) error {
+	return a.api.SyncResponsesModelFacts(rows)
+}
+
 func (a *App) SynthesizeHabit(sessionID string, hint string) (int64, error) {
 	return a.api.SynthesizeHabit(sessionID, hint)
 }

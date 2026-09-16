@@ -966,6 +966,8 @@ export function SwitchThinkLevel(arg1:string):Promise<engine.ModelInfo>;
 
 export function SwitchVariant(arg1:number):Promise<engine.RegenerateResult>;
 
+export function SyncResponsesModelFacts(arg1:Array<model.ResponsesModelFacts>):Promise<void>;
+
 export function SynthesizeHabit(arg1:string,arg2:string):Promise<number>;
 
 export function TTSStatus():Promise<string>;

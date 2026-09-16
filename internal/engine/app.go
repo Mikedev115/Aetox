@@ -3841,6 +3841,21 @@ func (a *Engine) CatalogModelChoices(canonical string) []string {
 	return a.catalogModelChoices(canonical)
 }
 
+// SyncResponsesModelFacts installs the ChatGPT backend's per-model statement
+// into memory and saves it beside model-catalog.json under this engine's
+// DataRoot. This bridges §261.3's remote engine gap: the statement is fetched
+// by the screen process, and this sends it across the wire to the engine process.
+func (a *Engine) SyncResponsesModelFacts(rows []model.ResponsesModelFacts) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	model.SetResponsesModelFacts(rows)
+	if root, err := config.DataRoot(); err == nil && root != "" {
+		_ = model.SaveResponsesModelFacts(root, rows)
+	}
+	return nil
+}
+
 func (a *Engine) catalogModelChoices(canonical string) []string {
 	catalog := a.modelCatalog()
 	if catalog == nil {
