@@ -1,6 +1,6 @@
 # go-webview2 — local fork (Aetox patch)
 
-Vendored copy of `github.com/wailsapp/go-webview2 v1.0.22`, wired via a
+Vendored copy of `github.com/wailsapp/go-webview2 v1.0.23`, wired via a
 `replace` in the root `go.mod`. Same pattern as `third_party/conpty`.
 
 ## Why
@@ -198,12 +198,39 @@ panic), no Windows Error Report, no Event 1000, and no last line anywhere. This
 fork now uses the standard logger (`log.Printf`), which the host routes into its
 own log (`desktop/wails_log.go`), so the last line before an exit names it.
 
+## A seventh patch: a tab follows the monitor it is on
+
+`pkg/edge/chromium.go` keeps raw-pixel bounds but enables WebView2's native
+monitor-scale detection. Those settings are independent: raw bounds mean the
+controller's rectangle is measured in physical pixels, while
+`RasterizationScale` tells Chromium how densely to paint the content inside
+that rectangle.
+
+Upstream disables scale detection when it selects raw bounds, which is only
+correct for a host that updates `RasterizationScale` itself. Aetox never did.
+On the owner's mixed-DPI desk (175% laptop display and 100% external display),
+the main Wails view followed a cross-monitor move but the separately embedded
+browser tab kept its old raster scale. Windows resampled that stale surface;
+the result was soft, colour-fringed web text, especially visible around Thai
+vowels and tone marks, while files rendered in the main view stayed crisp.
+
+WebView2 now owns monitor and text-scale changes for each tab. Raw bounds still
+prevent a scale change from altering the child window's physical size. The
+`TestControllerUsesRawBoundsAndTracksMonitorScale` fake-vtable test pins both
+halves and checks the actual COM argument.
+
+The v1.0.23 upstream boolean-ABI fix is part of the vendored baseline in both
+`pkg/edge` and `pkg/webview2`: `PutShouldDetectMonitorScaleChanges` passes a
+Win32 `BOOL` as integer 0/1, not a pointer to Go's one-byte `bool`. Without
+that fix the setting was undefined at the COM boundary.
+
 ## Upgrading go-webview2
 
 Re-copy the module, then re-apply the `AETOX PATCH` blocks in `chromium.go`
 (the error path, `everUp`, the recording in `Navigate` and
 `AddWebResourceRequestedFilter`, the `ProcessFailed` stop, and
-`log.Printf` in place of `fmt.Printf` in `globalErrorHandler`), `revive.go`,
+`log.Printf` in place of `fmt.Printf` in `globalErrorHandler`, plus native
+monitor-scale detection in `configureController3`), `revive.go`,
 the `SetTimer`/`KillTimer` pair in `internal/w32/w32.go`, the `GetIsSuccess`
 binding, the two capture files, the two DevTools files and
 `aetox_lifecycle.go`. Keep the version in this note and the root `go.mod`

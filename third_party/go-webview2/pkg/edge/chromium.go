@@ -386,18 +386,7 @@ func (e *Chromium) CreateCoreWebView2ControllerCompleted(res uintptr, controller
 	controller.vtbl.AddRef.Call(uintptr(unsafe.Pointer(controller)))
 	e.controller = controller
 
-	// Try to get ICoreWebView2Controller3 interface for better performance
-	if controller3 := e.controller.GetICoreWebView2Controller3(); controller3 != nil {
-		// Use raw pixels mode for better performance during resize
-		if err := controller3.PutBoundsMode(COREWEBVIEW2_BOUNDS_MODE_USE_RAW_PIXELS); err != nil {
-			e.errorCallback(err)
-		}
-
-		// Disable monitor scale changes since we're using raw pixels
-		if err := controller3.PutShouldDetectMonitorScaleChanges(false); err != nil {
-			e.errorCallback(err)
-		}
-	}
+	e.configureController3(e.controller.GetICoreWebView2Controller3())
 	var token _EventRegistrationToken
 	e.webview, err = e.controller.GetCoreWebView2()
 	if err != nil {
@@ -439,6 +428,33 @@ func (e *Chromium) CreateCoreWebView2ControllerCompleted(res uintptr, controller
 	atomic.StoreUintptr(&e.inited, 1)
 
 	return 0
+}
+
+// configureController3 keeps the window rectangle and the page raster in the
+// two coordinate systems they actually use.
+//
+// Aetox measures an embedded tab in physical pixels, so raw-pixel bounds are
+// intentional. That setting says nothing about RasterizationScale, though.
+// Turning monitor-scale detection off makes the host responsible for updating
+// that property itself; this host never did. After the app moved between the
+// owner's 175% and 100% displays, the main Wails view followed the new monitor
+// while the tab kept the old raster. DWM then resampled the page, which is the
+// coloured fringe most visible around Thai vowels and tone marks.
+//
+// AETOX PATCH: leave WebView2 in charge of monitor and text-scale changes.
+// Raw bounds keep the child HWND the requested physical size while an updated
+// RasterizationScale makes Chromium repaint its content at the monitor's real
+// scale. The two properties are independent by WebView2's contract.
+func (e *Chromium) configureController3(controller3 *ICoreWebView2Controller3) {
+	if controller3 == nil {
+		return
+	}
+	if err := controller3.PutBoundsMode(COREWEBVIEW2_BOUNDS_MODE_USE_RAW_PIXELS); err != nil {
+		e.errorCallback(err)
+	}
+	if err := controller3.PutShouldDetectMonitorScaleChanges(true); err != nil {
+		e.errorCallback(err)
+	}
 }
 
 func (e *Chromium) ContainsFullScreenElementChanged(sender *ICoreWebView2, args *ICoreWebView2ContainsFullScreenElementChangedEventArgs) uintptr {

@@ -59,3 +59,41 @@ func TestReviveWithoutAWindowOrAHookAnswersFalse(t *testing.T) {
 		t.Error("offerRevival answered true with a hook but no window to revive")
 	}
 }
+
+// A tab's bounds are already physical pixels, but its raster still has to
+// follow the monitor. These are independent WebView2 settings: switching the
+// first to raw pixels is not permission to freeze the second. On a mixed-DPI
+// desk that freeze resamples the whole page after a window move, showing strong
+// colour fringes around Thai combining marks while the app's own file view is
+// crisp.
+//
+// This fake vtable exercises the real COM-call boundary too. In v1.0.22 the
+// BOOL setter passed a pointer instead of 0/1, so merely asserting that the
+// caller supplied `true` would not have proved what WebView2 actually received.
+func TestControllerUsesRawBoundsAndTracksMonitorScale(t *testing.T) {
+	var boundsCalled, scaleCalled bool
+	var boundsMode, detectScale uintptr
+	controller3 := &ICoreWebView2Controller3{Vtbl: &ICoreWebView2Controller3Vtbl{
+		PutBoundsMode: NewComProc(func(_ uintptr, mode uintptr) uintptr {
+			boundsCalled = true
+			boundsMode = mode
+			return 0
+		}),
+		PutShouldDetectMonitorScaleChanges: NewComProc(func(_ uintptr, enabled uintptr) uintptr {
+			scaleCalled = true
+			detectScale = enabled
+			return 0
+		}),
+	}}
+
+	e := NewChromium()
+	e.SetErrorCallback(func(err error) { t.Fatalf("configuring controller: %v", err) })
+	e.configureController3(controller3)
+
+	if !boundsCalled || boundsMode != uintptr(COREWEBVIEW2_BOUNDS_MODE_USE_RAW_PIXELS) {
+		t.Errorf("bounds mode call = (%v, %d), want raw pixels", boundsCalled, boundsMode)
+	}
+	if !scaleCalled || detectScale != 1 {
+		t.Errorf("monitor-scale call = (%v, %d), want BOOL TRUE by value", scaleCalled, detectScale)
+	}
+}

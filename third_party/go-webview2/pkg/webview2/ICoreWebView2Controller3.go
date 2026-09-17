@@ -84,10 +84,14 @@ func (i *ICoreWebView2Controller3) GetShouldDetectMonitorScaleChanges() (bool, e
 }
 
 func (i *ICoreWebView2Controller3) PutShouldDetectMonitorScaleChanges(value bool) error {
+	var intValue uintptr
+	if value {
+		intValue = 1
+	}
 
 	hr, _, _ := i.Vtbl.PutShouldDetectMonitorScaleChanges.Call(
 		uintptr(unsafe.Pointer(i)),
-		uintptr(unsafe.Pointer(&value)),
+		intValue,
 	)
 	if windows.Handle(hr) != windows.S_OK {
 		return syscall.Errno(hr)
