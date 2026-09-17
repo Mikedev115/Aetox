@@ -111,7 +111,7 @@ const defaultSteps = StepsUnlimited
 const stepsUnlimitedKeyword = "unlimited"
 
 // forcedDenials are refused to every sub-agent whatever its profile says:
-// `task`/`task_result`/`task_answer` because depth 1 is enforced by absence
+// `task`/`task_result`/`task_answer`/`task_message` because depth 1 is enforced by absence
 // rather than a counter — every half has to go, or a delegate could collect work
 // it was never allowed to start, or answer a question meant for the main agent;
 // `task_plan` for the same reason one step earlier — a delegate that could
@@ -124,7 +124,7 @@ const stepsUnlimitedKeyword = "unlimited"
 // (ask.go) — which is not listed here because it is never in the parent's
 // registry to filter out; it is injected into each child's own.
 var forcedDenials = []string{
-	"task", "task_result", "task_answer", "task_plan", "help", "ask_user", "todo_write",
+	"task", "task_result", "task_answer", "task_message", "task_plan", "help", "ask_user", "todo_write",
 	// The desk surface, for the same reason ask_user is here and not a
 	// different one (owner, 31 ส.ค.). `desk` and `desk_terminal` do not read
 	// or change anything - their whole output is *what the person is looking

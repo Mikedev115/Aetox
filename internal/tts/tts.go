@@ -97,7 +97,6 @@ var catalog = []Descriptor{
 		ID:      "windows",
 		Label:   "Windows (เสียงในเครื่อง)",
 		Install: "เสียงมากับ Windows อยู่แล้ว เพิ่มภาษาอื่นได้ที่ Settings > Time & language > Speech > Manage voices",
-		Default: true,
 	},
 	{
 		ID:       "piper",
@@ -106,8 +105,9 @@ var catalog = []Descriptor{
 		Install:  "โหลด release จาก https://github.com/rhasspy/piper วางที่ <DataRoot>\\tools\\piper และโหลดไฟล์เสียง .onnx จาก https://huggingface.co/rhasspy/piper-voices ไว้ที่ <DataRoot>\\models\\piper",
 	},
 	{
-		ID:    "edge",
-		Label: "Microsoft Edge (คลาวด์, ฟรี)",
+		ID:      "edge",
+		Label:   "Microsoft Edge (คลาวด์, ฟรี)",
+		Default: true,
 		// No Binaries and no InstallCommand: Aetox speaks the service's own
 		// protocol (edge.go), so there is nothing to install.
 		Install: "ไม่ต้องติดตั้งอะไร แค่ต่อเน็ต — เสียง Neural ของ Microsoft Edge รวมเสียงไทย Premwadee/Niwat ฟรี ไม่ใช้ key แต่ข้อความจะถูกส่งไปสังเคราะห์บนคลาวด์ของ Microsoft",

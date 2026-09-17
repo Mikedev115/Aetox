@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"slices"
 	"strings"
 	"testing"
@@ -23,6 +24,9 @@ type fakeMCPServer struct {
 	registerCalls        int
 	tokenCalls           int
 	refreshCalls         int
+	clientSecret         string
+	resourceScopes       []string
+	authorizationScopes  []string
 	// issuedRefresh, when set, is returned as refresh_token from the
 	// authorization_code exchange, so TestFinishAndThenRefresh can drive a
 	// refresh afterward without a second server.
@@ -39,27 +43,62 @@ func newFakeMCPServer(t *testing.T, withDCR bool) *fakeMCPServer {
 		w.WriteHeader(http.StatusUnauthorized)
 	})
 	mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
+		meta := map[string]any{
 			"authorization_servers": []string{f.srv.URL},
-		})
+		}
+		if len(f.resourceScopes) > 0 {
+			meta["scopes_supported"] = f.resourceScopes
+		}
+		_ = json.NewEncoder(w).Encode(meta)
 	})
 	mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
 		meta := map[string]any{
 			"authorization_endpoint": f.srv.URL + "/authorize",
 			"token_endpoint":         f.srv.URL + "/token",
 		}
+		if f.clientSecret != "" {
+			meta["token_endpoint_auth_methods_supported"] = []string{"client_secret_post"}
+		} else {
+			meta["token_endpoint_auth_methods_supported"] = []string{"none"}
+		}
 		if withDCR {
 			meta["registration_endpoint"] = f.srv.URL + "/register"
+		}
+		if len(f.authorizationScopes) > 0 {
+			meta["scopes_supported"] = f.authorizationScopes
 		}
 		_ = json.NewEncoder(w).Encode(meta)
 	})
 	mux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
 		f.registerCalls++
-		_ = json.NewEncoder(w).Encode(map[string]any{"client_id": "client_abc"})
+		var in struct {
+			TokenEndpointAuthMethod string `json:"token_endpoint_auth_method"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		wantMethod := "none"
+		if f.clientSecret != "" {
+			wantMethod = "client_secret_post"
+		}
+		if in.TokenEndpointAuthMethod != wantMethod {
+			http.Error(w, "wrong token endpoint auth method", http.StatusBadRequest)
+			return
+		}
+		out := map[string]any{"client_id": "client_abc", "token_endpoint_auth_method": wantMethod}
+		if f.clientSecret != "" {
+			out["client_secret"] = f.clientSecret
+		}
+		_ = json.NewEncoder(w).Encode(out)
 	})
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			t.Fatalf("token endpoint: parse form: %v", err)
+		}
+		if f.clientSecret != "" && r.Form.Get("client_secret") != f.clientSecret {
+			http.Error(w, `{"message":"Required parameter: client_secret"}`, http.StatusUnprocessableEntity)
+			return
 		}
 		switch r.Form.Get("grant_type") {
 		case "authorization_code":
@@ -196,9 +235,38 @@ func TestStartMCPOAuthRefusesWithoutDynamicRegistration(t *testing.T) {
 	}
 }
 
+func TestStartMCPOAuthRequestsRefreshWithoutExtraIdentityScopes(t *testing.T) {
+	isolateStore(t)
+	f := newFakeMCPServer(t, true)
+	// This is Vercel's published shape: the protected resource needs openid,
+	// while the authorization server additionally offers offline_access (and
+	// broader identity scopes the MCP resource did not ask for).
+	f.resourceScopes = []string{"openid"}
+	f.authorizationScopes = []string{"openid", "email", "profile", "offline_access"}
+
+	pending, err := StartMCPOAuth(context.Background(), "vercel", f.srv.URL+"/mcp")
+	if err != nil {
+		t.Fatalf("StartMCPOAuth: %v", err)
+	}
+	t.Cleanup(pending.Cancel)
+
+	parsed, err := url.Parse(pending.URL)
+	if err != nil {
+		t.Fatalf("parse authorization URL: %v", err)
+	}
+	got := strings.Fields(parsed.Query().Get("scope"))
+	want := []string{"openid", "offline_access"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("scope = %v; want %v (without email/profile)", got, want)
+	}
+}
+
 func TestStartThenFinishMCPOAuthStoresCredential(t *testing.T) {
 	isolateStore(t)
 	f := newFakeMCPServer(t, true)
+	// Supabase's DCR returns a secret even though the desktop asked for a
+	// public client, then requires that secret at the token endpoint.
+	f.clientSecret = "secret_abc"
 
 	pending, err := StartMCPOAuth(context.Background(), "test-server", f.srv.URL+"/mcp")
 	if err != nil {
@@ -236,7 +304,7 @@ func TestStartThenFinishMCPOAuthStoresCredential(t *testing.T) {
 	if cred.Type != "oauth" || cred.Access != "at_1" || cred.Refresh != "rt_1" {
 		t.Fatalf("stored credential = %+v; want the tokens the fake server issued", cred)
 	}
-	if cred.TokenEndpoint != f.srv.URL+"/token" || cred.ClientID != "client_abc" {
+	if cred.TokenEndpoint != f.srv.URL+"/token" || cred.ClientID != "client_abc" || cred.ClientSecret != "secret_abc" || cred.ClientAuthMethod != "client_secret_post" {
 		t.Fatalf("stored credential is missing what a later refresh needs: %+v", cred)
 	}
 	if cred.ExpiresAt == 0 {
@@ -273,12 +341,15 @@ func TestFinishMCPOAuthRejectsMismatchedState(t *testing.T) {
 func TestRefreshMCPOAuthRenewsAndPersists(t *testing.T) {
 	isolateStore(t)
 	f := newFakeMCPServer(t, true)
+	f.clientSecret = "secret_abc"
 
 	stale := Credential{
 		Type: "oauth", Access: "at_stale", Refresh: "rt_1",
-		ExpiresAt:     time.Now().Add(-time.Minute).UnixMilli(),
-		TokenEndpoint: f.srv.URL + "/token",
-		ClientID:      "client_abc",
+		ExpiresAt:        time.Now().Add(-time.Minute).UnixMilli(),
+		TokenEndpoint:    f.srv.URL + "/token",
+		ClientID:         "client_abc",
+		ClientSecret:     "secret_abc",
+		ClientAuthMethod: "client_secret_post",
 	}
 	if err := Set("test-server", stale); err != nil {
 		t.Fatalf("Set: %v", err)

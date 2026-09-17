@@ -153,4 +153,44 @@ func TestGuideSkillToolDefinitionIncludesMapIndex(t *testing.T) {
 	if !strings.Contains(desc, "- settings.rail.brain (ต่อสมอง) [safe]") {
 		t.Errorf("ToolDefinition missing settings.rail.brain index entry:\n%s", desc)
 	}
+	if !strings.Contains(desc, "tour {id|query}") || !strings.Contains(desc, "runtime owns every stop") {
+		t.Errorf("ToolDefinition does not hand prepared tours to the runtime:\n%s", desc)
+	}
+}
+
+func TestGuideSkillFindAndRouteActions(t *testing.T) {
+	app := &App{}
+	sess := &fakeSession{id: "sess-guide-actions"}
+	s := newGuideSkill(app, sess)
+
+	app.emit = func(event string, data ...any) {
+		if event == "screen:guide" && len(data) > 0 {
+			ask, ok := data[0].(guideAskEvent)
+			if !ok {
+				return
+			}
+			if ask.Action == "find" {
+				go app.AnswerGuide(ask.ID, `{"stopId":"settings.rail.brain","confidence":100,"isExact":true}`)
+			} else if ask.Action == "route" {
+				go app.AnswerGuide(ask.ID, `{"targetId":"settings.rail.brain","reachable":true,"nextStepId":"settings.rail.brain"}`)
+			}
+		}
+	}
+
+	ctx := context.Background()
+	outFind, err := s.Execute(ctx, skill.Input{"action": "find", "query": "ต่อสมอง"})
+	if err != nil {
+		t.Fatalf("find action failed: %v", err)
+	}
+	if !strings.Contains(outFind.Content, "settings.rail.brain") {
+		t.Errorf("find output = %q, want settings.rail.brain", outFind.Content)
+	}
+
+	outRoute, err := s.Execute(ctx, skill.Input{"action": "route", "id": "settings.rail.brain"})
+	if err != nil {
+		t.Fatalf("route action failed: %v", err)
+	}
+	if !strings.Contains(outRoute.Content, "reachable") {
+		t.Errorf("route output = %q, want reachable", outRoute.Content)
+	}
 }

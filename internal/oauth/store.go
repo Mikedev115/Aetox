@@ -42,15 +42,20 @@ type Credential struct {
 	Endpoint string `json:"endpoint,omitempty"`
 	// Label is what the user sees in Settings ("GitHub Copilot · mike").
 	Label string `json:"label,omitempty"`
-	// TokenEndpoint and ClientID are set only for a credential StartMCPOAuth
-	// minted (mcpauth.go): a generic sign-in discovers a different
+	// TokenEndpoint and the three Client* fields are set only for a credential
+	// StartMCPOAuth minted (mcpauth.go): a generic sign-in discovers a different
 	// authorization server per MCP server rather than the one fixed endpoint
 	// every other flow in this package is written against, so the endpoint
-	// and the client id this account registered under have to travel with
-	// the credential itself — refreshMCPOAuth has nothing else to read them
-	// from. Empty for every other provider.
-	TokenEndpoint string `json:"token_endpoint,omitempty"`
-	ClientID      string `json:"client_id,omitempty"`
+	// and the client credentials this account registered under have to travel
+	// with the credential itself — refreshMCPOAuth has nothing else to read them
+	// from. Some DCR servers return no secret (a public client); others, including
+	// Supabase, require the returned secret at both exchange and refresh. Empty
+	// for public clients and every other provider. The whole store is protected
+	// at rest below, so this secret has the same protection as the tokens.
+	TokenEndpoint    string `json:"token_endpoint,omitempty"`
+	ClientID         string `json:"client_id,omitempty"`
+	ClientSecret     string `json:"client_secret,omitempty"`
+	ClientAuthMethod string `json:"client_auth_method,omitempty"`
 }
 
 // expiryGrace refreshes a token slightly before it dies. Some providers hand

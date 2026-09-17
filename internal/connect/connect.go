@@ -27,6 +27,7 @@ import (
 
 	"github.com/Mikedev115/Aetox/internal/automation/n8n"
 	"github.com/Mikedev115/Aetox/internal/automation/windmill"
+	"github.com/Mikedev115/Aetox/internal/botbridge"
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/debuglog"
 	gh "github.com/Mikedev115/Aetox/internal/github"
@@ -104,6 +105,10 @@ type Status struct {
 	// them: a chip drawn unticked over a grant that is really in force is the
 	// page telling the user something that is not true.
 	DefaultAgents []string `json:"default_agents,omitempty"`
+	// System means the credential belongs to Aetox's built-in integration,
+	// not to a desk or an agent. Tool manifests still decide who can see each
+	// tool; the account itself has no second placement gate.
+	System bool `json:"system,omitempty"`
 	// NeedsBaseURL says this service has no address of its own — the user runs
 	// it, and only the user knows where. The page has to know before it draws
 	// the form, which is why it is a field rather than something inferred from
@@ -123,6 +128,21 @@ type Status struct {
 	// Never filled by List/StatusOf — those must not touch the network — and
 	// only by the deliberate check the page runs.
 	Reachable bool `json:"reachable,omitempty"`
+	// Channel is a conversational doorway, not a tool handed to a desk.  Its
+	// token starts a bot listener and its pairing code chooses the one external
+	// chat/channel allowed to operate the local agent.
+	Channel     bool   `json:"channel,omitempty"`
+	PairingCode string `json:"pairing_code,omitempty"`
+	Paired      bool   `json:"paired,omitempty"`
+	// ChannelDesk, ChannelAssistant and ChannelModel are filled by Engine,
+	// which owns the actual route and runtime configuration. Keeping them on
+	// the returned status lets the page state a fact it got from the same code
+	// that creates the conversation instead of hard-coding "assistant" in the
+	// frontend and eventually drifting away from reality.
+	ChannelDesk      string `json:"channel_desk,omitempty"`
+	ChannelAssistant string `json:"channel_assistant,omitempty"`
+	ChannelProvider  string `json:"channel_provider,omitempty"`
+	ChannelModel     string `json:"channel_model,omitempty"`
 }
 
 // Provider is one connectable service.
@@ -205,6 +225,15 @@ type Provider struct {
 	// thing the placement rules were written to prevent. Narrowing it to the
 	// agent alone is one click on this page, and it is the user's click.
 	DefaultAgents []string
+	// System connections are credentials for a built-in integration. They are
+	// available wherever that integration's normal manifest permits its tools,
+	// so storing another MCP-shaped `for:` list would create two authorities.
+	System bool
+	// Channel marks Telegram/Discord-style ingress.  These have no tool
+	// placement because the account is a doorway into Aetox, not reach Aetox
+	// lends to a model.
+	Channel bool
+	pairing func() (code string, paired bool)
 
 	connect func(context.Context, string) (Account, error)
 	// verify re-checks whatever credential is in play and says whose it is.
@@ -224,6 +253,7 @@ var catalog = []Provider{
 		ID:       "github",
 		Label:    "GitHub",
 		Kind:     KindToken,
+		System:   true,
 		TokenURL: "https://github.com/settings/tokens/new?scopes=repo,read:org&description=Aetox",
 		// plugin_install is here on purpose. It reaches GitHub like the rest,
 		// so a desk with the connection switched off should not keep one tool
@@ -245,8 +275,6 @@ var catalog = []Provider{
 			"pr",
 			"pr_list", "pr_read", "pr_checks", "pr_create", "pr_comment",
 		},
-		// The agent whose whole trade this is. See Provider.DefaultAgents.
-		DefaultAgents: []string{"github"},
 		connect: func(ctx context.Context, token string) (Account, error) {
 			account, err := gh.Connect(ctx, token)
 			return Account{Login: account.Login, Name: account.Name, Scopes: account.Scopes}, err
@@ -260,6 +288,56 @@ var catalog = []Provider{
 			return s.Connected, s.Login, string(s.Source), s.EnvOverride
 		},
 		disconnect: gh.Disconnect,
+	},
+	{
+		ID:       botbridge.Telegram,
+		Label:    "Telegram",
+		Kind:     KindToken,
+		TokenURL: "https://t.me/BotFather",
+		Channel:  true,
+		connect: func(ctx context.Context, token string) (Account, error) {
+			account, err := botbridge.Connect(ctx, botbridge.Telegram, token)
+			return Account{Login: account.Login, Name: account.Name}, err
+		},
+		verify: func(ctx context.Context) (Account, error) {
+			account, err := botbridge.Verify(ctx, botbridge.Telegram)
+			return Account{Login: account.Login, Name: account.Name}, err
+		},
+		status: func() (bool, string, string, bool) {
+			s := botbridge.CurrentStatus(botbridge.Telegram)
+			source := ""
+			if s.Connected {
+				source = "connection"
+			}
+			return s.Connected, s.Login, source, false
+		},
+		disconnect: func() error { return botbridge.Disconnect(botbridge.Telegram) },
+		pairing:    func() (string, bool) { return botbridge.Pairing(botbridge.Telegram) },
+	},
+	{
+		ID:       botbridge.Discord,
+		Label:    "Discord",
+		Kind:     KindToken,
+		TokenURL: "https://discord.com/developers/applications",
+		Channel:  true,
+		connect: func(ctx context.Context, token string) (Account, error) {
+			account, err := botbridge.Connect(ctx, botbridge.Discord, token)
+			return Account{Login: account.Login, Name: account.Name}, err
+		},
+		verify: func(ctx context.Context) (Account, error) {
+			account, err := botbridge.Verify(ctx, botbridge.Discord)
+			return Account{Login: account.Login, Name: account.Name}, err
+		},
+		status: func() (bool, string, string, bool) {
+			s := botbridge.CurrentStatus(botbridge.Discord)
+			source := ""
+			if s.Connected {
+				source = "connection"
+			}
+			return s.Connected, s.Login, source, false
+		},
+		disconnect: func() error { return botbridge.Disconnect(botbridge.Discord) },
+		pairing:    func() (string, bool) { return botbridge.Pairing(botbridge.Discord) },
 	},
 	{
 		// The automation room's first engine (§92.3). It is in this catalog and
@@ -378,6 +456,44 @@ func AgentDefaults() map[string][]string {
 	return out
 }
 
+// SystemIDs lists credentials that belong to built-in integrations rather
+// than to one desk or agent. The list is catalog-derived so every resolver
+// sees the same fact the settings page reports.
+func SystemIDs() []string {
+	out := []string{}
+	for _, p := range catalog {
+		if p.System {
+			out = append(out, p.ID)
+		}
+	}
+	return out
+}
+
+// ConnectionsForDesk resolves the placeable connections for a desk and then
+// adds the system credentials. A stale pre-system placement cannot narrow a
+// system account because it is no longer an authority.
+func ConnectionsForDesk(desk string) []string {
+	return union(config.ConnectionsForDesk(desk, IDs()), SystemIDs())
+}
+
+// ConnectionsForAgent is the agent equivalent of ConnectionsForDesk. Profile
+// allow/deny rules still filter the resulting tools in subagent.FilterRegistry.
+func ConnectionsForAgent(agent string) []string {
+	return union(config.ConnectionsForAgent(agent, IDs(), AgentDefaults()), SystemIDs())
+}
+
+func union(lists ...[]string) []string {
+	out := []string{}
+	for _, list := range lists {
+		for _, id := range list {
+			if !slices.Contains(out, id) {
+				out = append(out, id)
+			}
+		}
+	}
+	return out
+}
+
 // Find returns one provider by id.
 func Find(id string) (Provider, bool) {
 	id = strings.TrimSpace(id)
@@ -412,6 +528,13 @@ func StatusOf(id string) (Status, bool) {
 func statusOf(p Provider) Status {
 	connected, login, source, envOverride := p.status()
 	targets, configured := config.ConnectionTargets(p.ID)
+	if p.System || p.Channel {
+		// Old releases may have stored a placement for this provider. It is
+		// intentionally ignored instead of displayed as a control that no
+		// longer governs anything. A channel routes into the assistant and has
+		// no tool audience; a system credential follows built-in manifests.
+		targets, configured = nil, false
+	}
 	if targets == nil {
 		targets = []string{}
 	}
@@ -427,15 +550,20 @@ func statusOf(p Provider) Status {
 			tokenURL = baseURL + p.TokenPath
 		}
 	}
-	return Status{
+	row := Status{
 		ID: p.ID, Label: p.Label, Kind: p.Kind, TokenURL: tokenURL,
 		Connected: connected, Login: login, Source: source, EnvOverride: envOverride,
 		For: targets, Configured: configured, Tools: p.Tools, Family: string(p.Family),
 		HomeAgent:     p.HomeAgent,
 		DefaultAgents: p.DefaultAgents,
+		System:        p.System,
 		NeedsBaseURL:  p.NeedsBaseURL, BaseURL: baseURL, BaseURLHint: p.BaseURLHint,
-		StartCommand: startCommand,
+		StartCommand: startCommand, Channel: p.Channel,
 	}
+	if p.pairing != nil && connected {
+		row.PairingCode, row.Paired = p.pairing()
+	}
+	return row
 }
 
 // SetStartCommand records how to bring a self-hosted service up.
@@ -547,8 +675,10 @@ func Connect(ctx context.Context, id, token, baseURL string, targets []string) (
 			return Account{}, err
 		}
 	}
-	if err := config.SetConnectionTargets(p.ID, p.lockTargets(targets)); err != nil {
-		return Account{}, err
+	if !p.System && !p.Channel {
+		if err := config.SetConnectionTargets(p.ID, p.lockTargets(targets)); err != nil {
+			return Account{}, err
+		}
 	}
 	return p.connect(ctx, token)
 }
@@ -599,6 +729,9 @@ func SetTargets(id string, targets []string) error {
 	p, ok := Find(id)
 	if !ok {
 		return fmt.Errorf("unknown connection: %q", id)
+	}
+	if p.System || p.Channel {
+		return fmt.Errorf("%s เชื่อมกับระบบและไม่ต้องเลือกผู้ใช้", p.Label)
 	}
 	return config.SetConnectionTargets(p.ID, p.lockTargets(targets))
 }

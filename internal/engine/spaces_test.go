@@ -65,6 +65,57 @@ func TestCreatingAProjectMakesTheFolderAndItsContextFolder(t *testing.T) {
 	}
 }
 
+func TestProjectDescriptionLivesWithTheFolder(t *testing.T) {
+	a := spaceApp(t)
+	space, err := a.CreateSpace("เปิดร้านกาแฟ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := a.UpdateSpaceDescription(space.Name, "รวมแผนร้าน เมนู และงานเปิดตัว")
+	if err != nil {
+		t.Fatalf("UpdateSpaceDescription: %v", err)
+	}
+	if updated.Description != "รวมแผนร้าน เมนู และงานเปิดตัว" {
+		t.Fatalf("description = %q", updated.Description)
+	}
+	if _, err := os.Stat(filepath.Join(space.Path, spaceMetaFile)); err != nil {
+		t.Fatalf("metadata did not travel with the folder: %v", err)
+	}
+	listed := a.Spaces()
+	if len(listed) != 1 || listed[0].Description != updated.Description {
+		t.Fatalf("Spaces() lost the description: %#v", listed)
+	}
+}
+
+func TestProjectPictureReplacesAndRemovesTheMonogramFallback(t *testing.T) {
+	a := spaceApp(t)
+	space, err := a.CreateSpace("มีรูป")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := filepath.Join(t.TempDir(), "portrait.png")
+	if err := os.WriteFile(source, []byte("small-png-fixture"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	image, err := a.SetSpaceImageFrom(space.Name, source)
+	if err != nil {
+		t.Fatalf("SetSpaceImageFrom: %v", err)
+	}
+	if !strings.HasPrefix(image, "data:image/png;base64,") {
+		t.Fatalf("image = %.40q, want an inline PNG", image)
+	}
+	listed := a.Spaces()
+	if len(listed) != 1 || listed[0].Image != image {
+		t.Fatalf("Spaces() lost the picture: %#v", listed)
+	}
+	if err := a.RemoveSpaceImage(space.Name); err != nil {
+		t.Fatalf("RemoveSpaceImage: %v", err)
+	}
+	if got := a.Spaces()[0].Image; got != "" {
+		t.Fatalf("removed image still returned as %.40q", got)
+	}
+}
+
 // The disk is the only record that a project exists, so a folder made in
 // Explorer is a project and nothing has to be told about it.
 func TestAFolderMadeByHandIsAProject(t *testing.T) {

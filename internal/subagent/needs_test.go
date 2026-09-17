@@ -81,21 +81,17 @@ func TestAnUnconnectedAccountIsReportedAsUnconnected(t *testing.T) {
 	}
 }
 
-// Connected but not switched on for this agent is the one unmet state that is a
-// deliberate choice, and the only one a click can undo.
-func TestConnectedButUnplacedIsFixable(t *testing.T) {
+// GitHub is a system credential now: a placement written by an old build is
+// ignored, and a connected account satisfies an agent that declares the need.
+func TestConnectedSystemConnectionIgnoresOldPlacement(t *testing.T) {
 	needsRoot(t)
 	connectGitHub(t)
 	if err := config.SetConnectionTargets("github", []string{"coding"}); err != nil {
 		t.Fatalf("SetConnectionTargets: %v", err)
 	}
 
-	unmet := UnmetNeeds(githubAgent("connection:github"))
-	if len(unmet) != 1 || unmet[0].Reason != ReasonUnplaced {
-		t.Fatalf("unmet = %+v, want one unplaced", unmet)
-	}
-	if !unmet[0].Fixable() {
-		t.Fatal("a placement Aetox can write was not reported as fixable")
+	if unmet := UnmetNeeds(githubAgent("connection:github")); len(unmet) != 0 {
+		t.Fatalf("unmet = %+v, want none for a connected system account", unmet)
 	}
 }
 

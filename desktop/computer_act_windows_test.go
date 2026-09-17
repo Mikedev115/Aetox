@@ -137,3 +137,29 @@ func TestTheInputStructIsTheSizeWindowsExpects(t *testing.T) {
 			got, win32INPUTSizeOnAMD64)
 	}
 }
+
+func TestTheMouseInputStructIsTheSizeWindowsExpects(t *testing.T) {
+	const win32INPUTSizeOnAMD64 = 40
+	if got := sizeOfMouseInput(); got != win32INPUTSizeOnAMD64 {
+		t.Fatalf("mouseInput is %d bytes, but Windows reads INPUT as %d on this architecture",
+			got, win32INPUTSizeOnAMD64)
+	}
+}
+
+func TestMouseEventsCarryTheirKindAndSignedWheelDelta(t *testing.T) {
+	down := newComputerMouseInput(mouseLeftDown, 0)
+	if down.typ != inputMouse || down.dwFlags != mouseLeftDown {
+		t.Fatalf("left-down event has the wrong INPUT shape: %+v", down)
+	}
+
+	// mouseData is unsigned in Win32, but WHEEL_DELTA is a signed 32-bit value
+	// stored in those bits. This exact conversion is what makes -1 scroll down
+	// instead of becoming a huge positive scroll.
+	signed := int32(-wheelDelta)
+	want := uint32(signed)
+	wheel := newComputerMouseInput(computerMouseWheel, want)
+	if wheel.dwFlags != computerMouseWheel || wheel.mouseData != want {
+		t.Fatalf("wheel event = flags %#x data %#x, want flags %#x data %#x",
+			wheel.dwFlags, wheel.mouseData, computerMouseWheel, want)
+	}
+}

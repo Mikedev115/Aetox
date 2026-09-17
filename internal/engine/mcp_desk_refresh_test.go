@@ -23,8 +23,15 @@ func TestTickingADeskOnAServerReachesTheOpenSession(t *testing.T) {
 	if err := a.SaveMCPServer("", config.MCPServerConfig{Name: "canva", URL: "https://example.invalid/mcp"}); err != nil {
 		t.Fatalf("save: %v", err)
 	}
+	manager := a.mcp
+	if manager == nil {
+		t.Fatal("save left no MCP manager")
+	}
 	if err := a.SetMCPServerTargets("canva", []string{"assistant"}); err != nil {
 		t.Fatalf("place on the desk: %v", err)
+	}
+	if a.mcp != manager {
+		t.Fatal("placement change replaced the MCP manager; routing-only changes must not close live servers")
 	}
 	if !a.cur().desk.AllowsServer("canva") {
 		t.Fatalf("the open session's desk does not carry the server just ticked onto it: MCP=%v", a.cur().desk.MCP)
@@ -34,6 +41,9 @@ func TestTickingADeskOnAServerReachesTheOpenSession(t *testing.T) {
 	// server switched off goes on answering until the next launch.
 	if err := a.SetMCPServerTargets("canva", nil); err != nil {
 		t.Fatalf("take off the desk: %v", err)
+	}
+	if a.mcp != manager {
+		t.Fatal("taking a server off a desk replaced the MCP manager")
 	}
 	if a.cur().desk.AllowsServer("canva") {
 		t.Fatalf("the open session's desk still carries a server taken off it: MCP=%v", a.cur().desk.MCP)

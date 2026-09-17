@@ -150,9 +150,10 @@ type TaskOptions struct {
 	OnChildParts func(parentRef string, parts []turn.TurnPart)
 	// OnUsage is the parent's usage reporter — a delegate's tokens are the user's
 	// tokens, so they land in the same stats with no extra plumbing.
-	OnUsage    func(model.Usage)
-	MaxChars   int
-	ThinkLevel think.Level
+	OnUsage     func(model.Usage)
+	MaxChars    int
+	ThinkLevel  think.Level
+	ServiceTier string
 	// Proposer is the approval door a delegate's `memory` tool writes to. Nil
 	// means delegates get no memory tool at all rather than a broken one — a
 	// front end with no store (the CLI) should not hand out a tool whose whole
@@ -177,7 +178,7 @@ type TaskOptions struct {
 	// and for the tests, which assert on the brief rather than on the frame
 	// around it.
 	BuildPrompt func(direction string) string
-	// Delegations is the register the three tools share. Passed in rather than
+	// Delegations is the register all five task actions share. Passed in rather than
 	// made here so the host can keep a handle on it — a delegate now outlives
 	// the turn that started it (runner.go), which leaves Stop as the one thing
 	// that ends one early, and Stop is a fact only the host has.
@@ -186,6 +187,11 @@ type TaskOptions struct {
 	// Stop button to wire: the CLI, whose Ctrl+C takes the whole process, and
 	// every test.
 	Delegations *Delegations
+	// ParentInterjection wakes a collect that is blocking the main agent when
+	// the user types into the running turn. The text remains in the main
+	// agent's normal interjection queue; collect only yields control so the main
+	// agent can read it and decide whether it belongs with a worker.
+	ParentInterjection <-chan struct{}
 	// EnsureServers brings up the MCP servers a worker needs, for the ones the
 	// startup connect deliberately skipped: a server no desk carries waits for
 	// the agent that does (mcp.Server.Deferred).
@@ -233,11 +239,11 @@ type Reply struct {
 	Agent string
 }
 
-// NewTaskTools builds delegation: one tool named `task`, four actions inside it
-// (packed_task.go), all sharing one runner because they are four parts of one
+// NewTaskTools builds delegation: one tool named `task`, five actions inside it
+// (packed_task.go), all sharing one runner because they are five parts of one
 // mechanism. Register it into the same registry passed in opts.Registry;
 // FilterRegistry drops it from every child, so depth stays 1 structurally rather
-// than by a counter — and packed, that is now one name to drop instead of four.
+// than by a counter — and packed, that is now one name to drop instead of five.
 //
 // Still a slice: the host registers what it is handed without knowing how many
 // there are, and a signature that changed every time this family did would make
@@ -270,8 +276,9 @@ func NewTaskTools(opts TaskOptions) []skill.Skill {
 	}
 	return []skill.Skill{&delegationTool{
 		start:   &taskTool{opts: opts, runner: shared},
-		collect: &taskResultTool{runner: shared},
+		collect: &taskResultTool{runner: shared, parentInterjection: opts.ParentInterjection},
 		answer:  &taskAnswerTool{runner: shared},
+		message: &taskMessageTool{runner: shared},
 		plan:    &taskPlanTool{runner: shared},
 	}}
 }
@@ -592,7 +599,7 @@ func (t *taskTool) Answer(ctx context.Context, taskID, answer string) (Reply, er
 // not have two answers: a finished run loses its receipt, and an unfinished one
 // says what it is waiting for and that the next message is the way to say it.
 func (t *taskTool) redeem(ctx context.Context, id, agent string, started time.Time) (Reply, error) {
-	collected, ask, err := t.runner.collect(ctx, id)
+	collected, ask, _, err := t.runner.collect(ctx, id, nil)
 	if err != nil {
 		out, _ := t.fail(agent, started, err.Error())
 		return Reply{Output: out, Agent: agent}, nil
@@ -817,6 +824,7 @@ func (t *taskTool) begin(ctx context.Context, args map[string]any, out **running
 
 	task := t.runner.start(delegation{
 		profile: profile.Name, label: label, model: childModel, run: runID, phase: phase,
+		steer: child.Interject,
 	}, func(runCtx context.Context, self *runningTask) skill.Output {
 		defer debuglog.Block("task: " + profile.Name + " — " + truncate(label, 60))()
 
@@ -884,13 +892,46 @@ func (t *taskTool) begin(ctx context.Context, args map[string]any, out **running
 			Permissions:  permissions,
 			OnToolAction: relay,
 			OnToolRun:    relayRun,
-			TurnOptions:  turn.TurnOptions{ThinkLevel: childThink},
+			TurnOptions:  turn.TurnOptions{ThinkLevel: childThink, ServiceTier: t.opts.ServiceTier},
 		})
 
 		// An explicit Intent is load-bearing: without one the executor parses the
 		// brief, and a brief that happens to start with a tool name ("read every
 		// test file and…") would run as a single explicit tool call, not a turn.
-		result, runErr := exec.Execute(runCtx, brief, command.Intent{Raw: brief, Kind: command.KindConversation}, nil, nil, nil)
+		//
+		// A message that lands in the hairline gap after the child's final drain
+		// but before Execute returns must not disappear into an agent that is
+		// about to be published as finished. message() and this boundary share
+		// self.mu: either the current turn sees the update, this boundary starts a
+		// continuation turn with it, or message() is refused because the result is
+		// already final.
+		input := brief
+		var result turn.Result
+		var runErr error
+		var allParts []turn.TurnPart
+		for {
+			result, runErr = exec.Execute(runCtx, input, command.Intent{Raw: input, Kind: command.KindConversation}, nil, nil, nil)
+			allParts = append(allParts, result.Parts...)
+			if runCtx.Err() != nil || runErr != nil {
+				self.mu.Lock()
+				self.accepting = false
+				self.mu.Unlock()
+				break
+			}
+
+			self.mu.Lock()
+			self.accepting = false
+			pending := child.DrainInterjections()
+			if len(pending) > 0 {
+				self.accepting = true
+			}
+			self.mu.Unlock()
+			if len(pending) == 0 {
+				break
+			}
+			input = workerContinuation(pending)
+		}
+		result.Parts = allParts
 		elapsed := time.Since(self.startedAt())
 		// Handed over whatever the ending was. A delegate that failed halfway
 		// did the work up to the wall, and that half is the part a person
@@ -969,6 +1010,18 @@ func (t *taskTool) begin(ctx context.Context, args map[string]any, out **running
 		DurationMs: time.Since(started).Milliseconds(),
 		Task:       task.id,
 	}, nil
+}
+
+// workerContinuation turns updates caught at the task's finishing boundary into
+// an ordinary next turn. They have already been selected by the main agent as
+// relevant to this worker; the child still decides how they affect the job.
+func workerContinuation(pending []cognitive.Interjection) string {
+	var b strings.Builder
+	b.WriteString("The main agent sent these updates while you were working. Continue the same delegated job and apply them in order. Keep completed work unless an update changes it:\n")
+	for i, in := range pending {
+		fmt.Fprintf(&b, "\n%d. %s", i+1, strings.TrimSpace(in.Text))
+	}
+	return b.String()
 }
 
 // failure is the shape a background run reports a refusal in: a failed result the

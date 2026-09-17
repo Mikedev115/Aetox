@@ -99,8 +99,8 @@ func TestTheModelIsToldWhichTeamItIsOnAndWhenItIsOnNone(t *testing.T) {
 	if !strings.Contains(agentsHalf, "doc") || strings.Contains(helpersHalf, "doc") {
 		t.Errorf("doc is filed among the helpers:\n%s", roster)
 	}
-	if !strings.Contains(helpersHalf, "tester") {
-		t.Errorf("tester is not filed as a helper:\n%s", roster)
+	if !strings.Contains(helpersHalf, "general") {
+		t.Errorf("general is not filed as a helper:\n%s", roster)
 	}
 
 	if _, err := a.NewTeamSession(mode.Default, subagent.NoTeam); err != nil {

@@ -11,6 +11,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/engine"
 	"github.com/Mikedev115/Aetox/internal/engine/remote"
 	"github.com/Mikedev115/Aetox/internal/engine/rpc"
+	"github.com/Mikedev115/Aetox/internal/model"
 )
 
 const testToken = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -47,7 +48,9 @@ func newTestAppAt(t *testing.T) (*App, string) {
 		hs.Close()
 		t.Fatalf("hello: %v", err)
 	}
+	a.installQuotaObserver()
 	t.Cleanup(func() {
+		model.SetQuotaObserver(nil)
 		a.client.Close()
 		hs.Close()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

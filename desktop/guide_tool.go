@@ -132,19 +132,23 @@ const guideToolName = "guide"
 func (*guideSkill) Name() string { return guideToolName }
 
 func (*guideSkill) Description() string {
-	return "Guide the user across the Aetox UI: where, describe, point, goto, press"
+	return "Guide the user across the Aetox UI using prepared tours and the deterministic screen map"
 }
 
 func (s *guideSkill) ToolDefinition() model.ToolDefinition {
-	desc := `Walk the Aetox window: the app's own buttons, pages and panels, known to you through a map of ids. One tool, five actions.
+	desc := `Walk and explain the Aetox window: buttons, pages, architectural concepts, and workflows.
 
-- where: the page on screen, where you stand (guideAt), and the ids visible right now. After the first call only what CHANGED comes back; pass full=true to see everything again.
-- describe {id}: the map's entry for one id — name, what it is, why it was designed that way (with the decision it cites), whether it is safe to press, and the page it lives on. The why is the only source of a why: never invent one.
-- point {id}: walk to that element and stand beside it, on whatever page it is on. End a turn with at most ONE point or goto.
-- goto {page}: open a page. page is one of: chat · settings.<rail> (the rail ids the index lists under settings.rail.*, e.g. settings.brain) · capability.<page> (mcp, skills, builtins, computer, connections, prompts) · office · artifacts.
-- press {id}: press an element the map marks safe (opening, switching, expanding). Anything else is refused by the window — say so and point at it for the user to press.
+- find {query}: search UI targets, architectural concepts, and routes matching intent without dumping the full catalog.
+- describe {id}: get grounded facts for an id — name, what it is, why it was designed that way (citing § decisions), safe policy, and page location.
+- tours: list the prepared tours owned by the app core.
+- tour {id|query}: start one prepared tour. Use this whenever the user asks for a tour or to be shown how Aetox works. The runtime owns every stop and advances one verified press at a time; never invent or recite the route yourself.
+- route {id}: get deterministic navigation steps, preconditions, and next button to press.
+- point {id}: walk to that element and stand beside it, on whatever page it is on.
+- press {id}: press an element the catalog marks safe. Unsafe actions are refused by the window.
+- where: the page on screen, where you stand (guideAt), and the ids visible right now.
+- goto {page}: start guiding toward a page (chat, settings.<rail>, capability.<page>, office, artifacts) through visible buttons.
 
-Answer in the user's language, in plain words, two short sentences. Do not narrate these actions.`
+The app core owns navigation and tours. Your job is to choose the matching tour or answer a page-specific question, never to carry a sequence of steps in prose. Answer in the user's language, in plain words, two short sentences. When the user's goal is not yet clear, end with one concrete choice question about what they want to do on the current page. Never repeat a sentence or narrate these actions.`
 
 	sessionID := ""
 	if s.session != nil {
@@ -181,11 +185,12 @@ Answer in the user's language, in plain words, two short sentences. Do not narra
 		"properties": map[string]any{
 			"action": map[string]any{
 				"type": "string",
-				"enum": []string{"where", "describe", "point", "goto", "press"},
+				"enum": []string{"find", "describe", "tours", "tour", "route", "point", "press", "where", "goto"},
 			},
-			"id":   map[string]any{"type": "string"},
-			"page": map[string]any{"type": "string"},
-			"full": map[string]any{"type": "boolean"},
+			"id":    map[string]any{"type": "string"},
+			"query": map[string]any{"type": "string"},
+			"page":  map[string]any{"type": "string"},
+			"full":  map[string]any{"type": "boolean"},
 		},
 		"required": []string{"action"},
 	})

@@ -74,18 +74,21 @@ Four rules worth keeping straight, all pinned by [starters_test.go](starters_tes
 
 ## How one runs — and why it does not block
 
-**One tool, four actions**, built by `NewTaskTools` and sharing one runner ([runner.go](runner.go)). Packed since 2026-08-16 ([packed_task.go](packed_task.go), §99): outside the tool block it is `task`, inside every gate still judges the per-action name through `skill.Unpack`.
+**One tool, five actions**, built by `NewTaskTools` and sharing one runner ([runner.go](runner.go)). Packed since 2026-08-16 ([packed_task.go](packed_task.go), §99): outside the tool block it is `task`, inside every gate still judges the per-action name through `skill.Unpack`.
 
 - **`start`** ([task.go](task.go)) — the default action — starts a delegate and **returns a handle immediately**, so the model goes on with its turn.
 - **`collect`** ([task_result.go](task_result.go)) redeems the handle, waiting only if that delegate has not finished. It takes several ids at once.
 - **`answer`** ([ask.go](ask.go)) replies to a delegate that got stuck and asked.
+- **`message`** ([message.go](message.go)) sends a relevant update to a delegate that is still working, without restarting it or discarding its context. It does not answer `ask_main`; that remains `answer`'s job.
 - **`plan`** ([task_plan.go](task_plan.go)) declares a **run**: a name, a brief for the user, and the phases the work goes through in order ([run.go](run.go)). It starts nothing. What it buys is the phase that has *not* happened yet — declared before the findings exist, a checking round left undone sits at zero on the user's card instead of being invisible. There is no token ceiling on a run (owner, 16 ส.ค.); the card shows the spend and Stop ends it.
 
-Packing was not tidiness. The block was at 10,004 of its 10,100-token budget with 2,277 of them spent on these four, and `plan` did not fit — the family now costs 1,568 with an action more in it. The prose the model reads lives in `packed_task.go` alone; the four implementations describe nothing.
+Packing was not tidiness. The block was at 10,004 of its 10,100-token budget with 2,277 of them spent on the original actions, and `plan` did not fit. Keeping `message` inside the same packed tool adds one action instead of another full tool definition. The prose the model reads lives in `packed_task.go` alone; the five implementations describe nothing.
 
 One start does: pick the profile → decide which desk the job runs at (`ceilingFor`) → `FilterRegistry` for the child's tools → a fresh `cognitive.Agent` on the profile's brief and cap → a full turn through the real `turn.Executor`, in a goroutine → the collector gets the final text plus `[task <name>: N tool calls, X.Ys]`, and nothing else. Tool events are stamped with the `task` call's id (`turn.CallID`) so the UI shows them as the delegate's work.
 
 Because starting never waits, N delegates started before the first collect run at the same time — parallelism is a property of the pair, not a separate mechanism. Four in flight is the cap.
+
+If the user types while the parent is blocked in `collect`, the main agent's interjection signal makes collect yield without cancelling or redeeming the worker. On the next round the main agent reads the message and decides whether to call `message` for that worker or keep the message to itself. A message accepted at the child's final boundary starts one continuation turn, so it cannot disappear between the child's last drain and the result being published.
 
 **A delegate's life is the session's, not the turn's** (§105). The turn that started it ending is not an event it hears about: an uncollected delegate keeps working and can be collected in a later turn by the same id, and a question it parked on can be answered then too. The register lives in `Delegations`, which the **host** owns (`NewDelegations`, handed in through `TaskOptions`) for one reason — the only thing that ends a delegate early is the user pressing Stop, and that is a fact no code in this package can observe. `StopAll` is that door. The same argument [shell_background.go](../skill/shell_background.go) already made about commands: work that dies with the answer that started it was never background work.
 

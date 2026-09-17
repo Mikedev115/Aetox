@@ -8,6 +8,7 @@ package main
 // ask it the questions the executor will ask.
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Mikedev115/Aetox/internal/config"
@@ -20,7 +21,7 @@ func TestOneYesCoversTheProgramNotTheVerb(t *testing.T) {
 	// The four names the executor judges a `computer` call by (skill.Unpack
 	// turns the pack call into one of these). A user who said "yes, drive
 	// Notepad" said it once, not once per verb.
-	for _, tool := range []string{"computer_read", "computer_click", "computer_type", "computer_capture"} {
+	for _, tool := range []string{"computer_read", "computer_click", "computer_click_at", "computer_scroll", "computer_drag", "computer_type", "computer_capture"} {
 		action, matched := cfg.Resolve(tool, []string{"notepad", "ref=3"})
 		if !matched {
 			t.Errorf("%s on notepad matched no rule; the user would be asked again", tool)
@@ -39,13 +40,16 @@ func TestAYesForOneProgramIsNotAYesForAnother(t *testing.T) {
 	}
 }
 
-func TestTheRuleIsKeyedOnTheProgramNotItsPath(t *testing.T) {
-	// A program moved or launched from a different folder is the same program,
-	// and a grant that forgets that re-asks for something already decided.
+func TestAProgramWithTheSameFilenameAtAnotherPathDoesNotInheritTheGrant(t *testing.T) {
+	// Filename-only grants let an unrelated executable call itself notepad.exe
+	// and inherit Notepad's reach. The path is fingerprinted into the identity.
 	a := reachRuleFor(`C:\Windows\System32\notepad.exe`)
 	b := reachRuleFor(`C:\Program Files\WindowsApps\Notepad\Notepad.EXE`)
-	if a.Pattern != b.Pattern {
-		t.Errorf("two paths to one program made two rules: %q vs %q", a.Pattern, b.Pattern)
+	if a.Pattern == b.Pattern {
+		t.Errorf("two executables with the same filename made one grant: %q", a.Pattern)
+	}
+	if !strings.HasPrefix(a.Pattern, "notepad@") || !strings.HasSuffix(a.Pattern, "*") {
+		t.Errorf("path-backed identity has an unexpected shape: %q", a.Pattern)
 	}
 }
 
@@ -65,15 +69,19 @@ func TestTheGrantIsWrittenDownAndCanBeTakenBack(t *testing.T) {
 		t.Fatal("a program is granted before anyone was asked")
 	}
 
+	const notepadPath = `C:\Windows\System32\notepad.exe`
 	if err := config.UpdatePermissions(func(cfg *safety.PermissionConfig) error {
-		cfg.Rules = append(cfg.Rules, reachRuleFor("notepad.exe"))
+		cfg.Rules = append(cfg.Rules, reachRuleFor(notepadPath))
 		return nil
 	}); err != nil {
 		t.Fatalf("writing the grant failed: %v", err)
 	}
 
-	if !reachGranted(`C:\Windows\notepad.exe`) {
+	if !reachGranted(notepadPath) {
 		t.Error("the grant did not take effect")
+	}
+	if reachGranted(`C:\Temp\notepad.exe`) {
+		t.Error("a different notepad.exe inherited the grant")
 	}
 	got := app.GrantedComputerApps()
 	if len(got) != 1 || got[0] != "notepad" {
@@ -83,7 +91,7 @@ func TestTheGrantIsWrittenDownAndCanBeTakenBack(t *testing.T) {
 	if err := app.RevokeComputerApp("notepad"); err != nil {
 		t.Fatalf("revoking failed: %v", err)
 	}
-	if reachGranted("notepad.exe") {
+	if reachGranted(notepadPath) {
 		t.Error("the program is still granted after being revoked")
 	}
 	if got := app.GrantedComputerApps(); len(got) != 0 {
@@ -96,7 +104,9 @@ func TestRevokingOneProgramLeavesEveryOtherRuleAlone(t *testing.T) {
 
 	mine := safety.PermissionRule{Tool: "shell", Pattern: "git *", Action: safety.PermissionAllow}
 	if err := config.UpdatePermissions(func(cfg *safety.PermissionConfig) error {
-		cfg.Rules = append(cfg.Rules, mine, reachRuleFor("notepad.exe"), reachRuleFor("calc.exe"))
+		cfg.Rules = append(cfg.Rules, mine,
+			reachRuleFor(`C:\Windows\System32\notepad.exe`),
+			reachRuleFor(`C:\Windows\System32\calc.exe`))
 		return nil
 	}); err != nil {
 		t.Fatalf("writing failed: %v", err)
@@ -116,9 +126,9 @@ func TestRevokingOneProgramLeavesEveryOtherRuleAlone(t *testing.T) {
 		switch {
 		case r.Tool == "shell":
 			sawShell = true
-		case r.Pattern == "calc*":
+		case grantedComputerName(r.Pattern) == "calc":
 			sawCalc = true
-		case r.Pattern == "notepad*":
+		case grantedComputerName(r.Pattern) == "notepad":
 			sawNotepad = true
 		}
 	}

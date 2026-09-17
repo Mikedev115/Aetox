@@ -168,14 +168,17 @@ var toolCategories = map[string]string{
 	// All four spellings listed, the same reason the browser's are: a desk or a
 	// profile narrows with the action names, and an unlisted one falls to
 	// CategoryAgent, which every desk carries — quietly widening the narrower.
-	"computer":         CategoryShell,
-	"computer_apps":    CategoryShell,
-	"computer_read":    CategoryShell,
-	"computer_capture": CategoryShell,
-	"computer_focus":   CategoryShell,
-	"computer_click":   CategoryShell,
-	"computer_type":    CategoryShell,
-	"computer_close":   CategoryShell,
+	"computer":          CategoryShell,
+	"computer_apps":     CategoryShell,
+	"computer_read":     CategoryShell,
+	"computer_capture":  CategoryShell,
+	"computer_focus":    CategoryShell,
+	"computer_click":    CategoryShell,
+	"computer_click_at": CategoryShell,
+	"computer_scroll":   CategoryShell,
+	"computer_drag":     CategoryShell,
+	"computer_type":     CategoryShell,
+	"computer_close":    CategoryShell,
 
 	// Putting things in front of the user on their own desk, and seeing what is
 	// there. Filed under agent rather than files: these do not read or change a
@@ -237,13 +240,14 @@ var toolCategories = map[string]string{
 
 	// How the assistant runs itself: delegating, asking, remembering, and
 	// reaching the documents and history it is not carrying.
-	"task":        CategoryAgent,
-	"task_result": CategoryAgent,
-	"task_answer": CategoryAgent,
-	"task_plan":   CategoryAgent,
-	"ask_main":    CategoryAgent,
-	"ask_user":    CategoryAgent,
-	"todo_write":  CategoryAgent,
+	"task":         CategoryAgent,
+	"task_result":  CategoryAgent,
+	"task_answer":  CategoryAgent,
+	"task_message": CategoryAgent,
+	"task_plan":    CategoryAgent,
+	"ask_main":     CategoryAgent,
+	"ask_user":     CategoryAgent,
+	"todo_write":   CategoryAgent,
 	// The conversation's plan (desktop/plan.go). CategoryAgent, next to
 	// `todo_write`, and for the same reason: it writes to the app's own store so
 	// the user can watch the work take shape, and it touches nothing on their

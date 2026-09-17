@@ -528,6 +528,8 @@ export function OpenProjectPath(arg1:string):Promise<engine.ProjectStatus>;
 
 export function OpenPromptsFolder():Promise<void>;
 
+export function OpenSession(arg1:string,arg2:engine.DeskFilter,arg3:boolean):Promise<engine.SessionOpenState>;
+
 export function OpenSkillsFolder():Promise<void>;
 
 export function OpenSpaceFolder(arg1:string):Promise<void>;
@@ -565,6 +567,8 @@ export function PickAttachments(arg1:string):Promise<Array<string>>;
 export function PickCodeProjectsDir():Promise<string>;
 
 export function PickPresetImage(arg1:string):Promise<string>;
+
+export function PickSpaceImage(arg1:string):Promise<string>;
 
 export function PictureBytes(arg1:string):Promise<engine.ExportFile>;
 
@@ -636,6 +640,8 @@ export function RefreshModelFacts():Promise<void>;
 
 export function RefreshSkills():Promise<void>;
 
+export function RefreshTTSVoices():Promise<Array<main.TTSVoiceInfo>>;
+
 export function RegenerateReply(arg1:boolean):Promise<engine.RegenerateResult>;
 
 export function RejectPendingChange(arg1:number):Promise<void>;
@@ -661,6 +667,8 @@ export function RemoveMCPServer(arg1:string):Promise<void>;
 export function RemovePresetImage(arg1:string):Promise<void>;
 
 export function RemoveSpaceContext(arg1:string,arg2:string):Promise<Array<string>>;
+
+export function RemoveSpaceImage(arg1:string):Promise<void>;
 
 export function RemoveStudioLibrary(arg1:string):Promise<Array<engine.StudioLibraryView>>;
 
@@ -766,6 +774,8 @@ export function SendMessage(arg1:string,arg2:string):Promise<engine.TurnReply>;
 
 export function SendToGuide(arg1:string,arg2:string):Promise<engine.TurnReply>;
 
+export function ServiceTiersFor(arg1:string,arg2:string):Promise<Array<model.ServiceTier>>;
+
 export function SessionAgent(arg1:string):Promise<string>;
 
 export function SessionEdits(arg1:string):Promise<engine.EditPage>;
@@ -839,6 +849,8 @@ export function SetSessionReviewAuto(arg1:boolean):Promise<void>;
 export function SetShell(arg1:string):Promise<void>;
 
 export function SetSkillTuneAuto(arg1:boolean):Promise<void>;
+
+export function SetSpaceImageFrom(arg1:string,arg2:string):Promise<string>;
 
 export function SetSpeechEngine(arg1:string):Promise<void>;
 
@@ -962,6 +974,8 @@ export function SwitchModel(arg1:string):Promise<engine.ModelInfo>;
 
 export function SwitchProvider(arg1:string):Promise<engine.ModelInfo>;
 
+export function SwitchServiceTier(arg1:string):Promise<engine.ModelInfo>;
+
 export function SwitchThinkLevel(arg1:string):Promise<engine.ModelInfo>;
 
 export function SwitchVariant(arg1:number):Promise<engine.RegenerateResult>;
@@ -1005,6 +1019,10 @@ export function TurnInFlight():Promise<engine.TurnStatus>;
 export function TurnRating(arg1:number):Promise<string>;
 
 export function UndoLastTurn():Promise<engine.UndoResult>;
+
+export function UpdateProjectMeta(arg1:string,arg2:string,arg3:string):Promise<engine.ProjectMeta>;
+
+export function UpdateSpaceDescription(arg1:string,arg2:string):Promise<engine.Space>;
 
 export function UsageStats():Promise<engine.UsageStats>;
 

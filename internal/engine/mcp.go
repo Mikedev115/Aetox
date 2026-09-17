@@ -186,8 +186,12 @@ func (a *Engine) PlacementTargets() []PlacementTarget {
 	return out
 }
 
-// SetMCPServerTargets replaces one server's `for` list and rebuilds the engine,
-// so a toggle takes effect on the next turn rather than the next launch.
+// SetMCPServerTargets replaces one server's `for` list and rebuilds the active
+// conversation, so a toggle takes effect on the next turn rather than the next
+// launch. The MCP manager itself stays alive: placement changes only who may
+// see a server, not how that server connects. Closing every MCP session here
+// made the UI wait on an unrelated remote server's shutdown after the new
+// placement was already saved, leaving every placement button visibly stuck.
 //
 // Separate from SaveMCPServer for the same reason ToggleMCPServer is: switching
 // where a server shows up is one click on a row, and routing it through the
@@ -217,7 +221,7 @@ func (a *Engine) SetMCPServerTargets(name string, targets []string) error {
 		if err := config.SaveMCPServers(servers); err != nil {
 			return err
 		}
-		a.rebuildMCP()
+		a.rebuildCurrentConversation()
 		return nil
 	}
 	return fmt.Errorf("server %q not found", name)
@@ -475,7 +479,7 @@ func (a *Engine) rebuildMCP() {
 		_ = a.mcp.Close()
 		a.mcp = nil
 	}
-	a.applyConfig(a.cur(), a.cfg)
+	a.rebuildCurrentConversation()
 }
 
 func trimArgs(args []string) []string {

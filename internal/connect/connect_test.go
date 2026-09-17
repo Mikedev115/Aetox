@@ -25,8 +25,11 @@ func TestEveryCatalogEntryIsUsable(t *testing.T) {
 		if p.connect == nil || p.verify == nil || p.status == nil || p.disconnect == nil {
 			t.Fatalf("%s does not implement all four verbs", p.ID)
 		}
-		if len(p.Tools) == 0 {
+		if len(p.Tools) == 0 && !p.Channel {
 			t.Fatalf("%s contributes no tools — nothing would change when it is switched off", p.ID)
+		}
+		if p.Channel && (len(p.Tools) != 0 || p.pairing == nil) {
+			t.Fatalf("%s channel must have a pairing gate and no desk tools", p.ID)
 		}
 		// Asking for a pasted token without saying where to get one leaves the
 		// user searching a website they may never have opened. A self-hosted
@@ -173,25 +176,29 @@ func TestUnplacedConnectionReportsItselfAsUnconfigured(t *testing.T) {
 	}
 }
 
-func TestSetTargetsIsReportedBackByList(t *testing.T) {
+func TestSystemConnectionHasNoPlacementGate(t *testing.T) {
 	isolate(t)
 
-	if err := SetTargets("github", []string{"coding"}); err != nil {
-		t.Fatalf("SetTargets: %v", err)
+	// A placement written by an older release is stale data now. It must not
+	// reappear in the UI or narrow the built-in integration.
+	if err := config.SetConnectionTargets("github", []string{"coding"}); err != nil {
+		t.Fatalf("seed old placement: %v", err)
 	}
 	row, ok := StatusOf("github")
 	if !ok {
 		t.Fatal("github vanished from the catalog")
 	}
-	if !row.Configured || len(row.For) != 1 || row.For[0] != "coding" {
-		t.Fatalf("row = %+v, want a placement of exactly [coding]", row)
+	if !row.System || row.Configured || len(row.For) != 0 {
+		t.Fatalf("row = %+v, want a system connection with no placement", row)
 	}
-	// And the desks agree with the page.
-	if !Allows("github_search", config.ConnectionsForDesk("coding", IDs())) {
-		t.Fatal("the coding desk cannot see a tool the page says it holds")
+	if err := SetTargets("github", []string{"assistant"}); err == nil {
+		t.Fatal("SetTargets accepted a placement for a system connection")
 	}
-	if Allows("github_search", config.ConnectionsForDesk("assistant", IDs())) {
-		t.Fatal("the assistant desk sees a tool the page says it does not hold")
+	if !Allows("github_search", ConnectionsForDesk("coding")) {
+		t.Fatal("the built-in GitHub integration was narrowed by stale placement")
+	}
+	if !Allows("github_search", ConnectionsForAgent("github")) {
+		t.Fatal("the system connection did not reach an agent whose profile permits its tools")
 	}
 }
 
@@ -200,13 +207,13 @@ func TestSetTargetsIsReportedBackByList(t *testing.T) {
 func TestDisconnectKeepsThePlacement(t *testing.T) {
 	isolate(t)
 
-	if err := SetTargets("github", []string{"coding"}); err != nil {
+	if err := SetTargets("n8n", []string{"agent:automation"}); err != nil {
 		t.Fatalf("SetTargets: %v", err)
 	}
-	if err := Disconnect("github"); err != nil {
+	if err := Disconnect("n8n"); err != nil {
 		t.Fatalf("Disconnect: %v", err)
 	}
-	row, _ := StatusOf("github")
+	row, _ := StatusOf("n8n")
 	if !row.Configured || len(row.For) != 1 {
 		t.Fatalf("placement after disconnect = %+v, want it kept", row.For)
 	}
@@ -282,12 +289,10 @@ func TestHomeAgentLocksPlacementToTheAgent(t *testing.T) {
 	if row.HomeAgent != "automation" {
 		t.Fatalf("HomeAgent = %q, want automation", row.HomeAgent)
 	}
-	// And an unlocked connection keeps the full vocabulary.
-	if err := SetTargets("github", []string{"coding"}); err != nil {
-		t.Fatalf("SetTargets github: %v", err)
-	}
-	if gh, _ := StatusOf("github"); len(gh.For) != 1 || gh.For[0] != "coding" {
-		t.Fatalf("github For = %v — the lock is leaking onto unlocked connections", gh.For)
+	// A system connection is a different case: it has no placement at all,
+	// rather than inheriting the home-agent lock.
+	if gh, _ := StatusOf("github"); !gh.System || gh.Configured || len(gh.For) != 0 {
+		t.Fatalf("github = %+v — system state was confused with a home lock", gh)
 	}
 }
 

@@ -205,7 +205,7 @@ func (*grepSkill) Guidance(map[string]any) string {
 		"Pass show=content once you know which file you mean, or ask for context lines and content is selected for you. " +
 		"Context goes up to 50 lines either side, which is a whole function seen in place: a wide window on one match " +
 		"is very often cheaper and better than opening the file it lives in. Narrow the pattern, then widen the window.\n" +
-		"A path list costs roughly a sixth of the same search in content, so mapping first and reading second is the cheap order.\n" +
+		"A path list costs roughly a sixth of the same search in content, so paths first and content second is the cheap order.\n" +
 		"The result cap is 200 entries and limit only tightens it. A capped result names the offset to resume from, " +
 		"so a search that hit the ceiling is paged rather than re-invented as a narrower pattern.\n" +
 		"Matching lines are clipped at 200 characters, so a hit in generated code shows where it is and not what it says. " +

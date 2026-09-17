@@ -69,6 +69,19 @@ type reachRefs struct {
 	read   bool
 	total  int
 	nodes  []reachNode
+
+	// A coordinate action is allowed only against the exact window image that
+	// supplied its coordinates. This is deliberately separate from the UIA ref
+	// table: a read can coexist with a capture, but any action expires both.
+	captureSeq uint64
+	capture    reachCaptureRef
+}
+
+type reachCaptureRef struct {
+	ID            string
+	HWND          uintptr
+	Title         string
+	Width, Height int
 }
 
 func (r *reachRefs) remember(hwnd uintptr, title, filter string, total int, nodes []reachNode) {
@@ -85,6 +98,55 @@ func (r *reachRefs) forget() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.hwnd, r.title, r.filter, r.total, r.read, r.nodes = 0, "", "", 0, false, nil
+	r.capture = reachCaptureRef{}
+}
+
+// rememberCapture mints the short-lived observation token coordinate actions
+// must present. It is scoped to this chat's computerSkill and therefore needs
+// no global identity or persistence.
+func (r *reachRefs) rememberCapture(hwnd uintptr, title string, width, height int) string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.captureSeq++
+	r.capture = reachCaptureRef{
+		ID: fmt.Sprintf("shot-%d", r.captureSeq), HWND: hwnd, Title: title,
+		Width: width, Height: height,
+	}
+	return r.capture.ID
+}
+
+func (r *reachRefs) captured(id string) (reachCaptureRef, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	want := strings.TrimSpace(id)
+	switch {
+	case want == "":
+		return reachCaptureRef{}, refuse(
+			"ไม่ได้ส่งรหัส snapshot สำหรับพิกัดนี้",
+			"ใช้ `capture` ก่อน แล้วส่งรหัส snapshot ที่ได้กลับมากับการคลิก เลื่อน หรือลาก")
+	case r.capture.ID == "":
+		return reachCaptureRef{}, refuse(
+			"ยังไม่มี snapshot ที่ใช้เล็งพิกัดได้ หรือ snapshot เดิมหมดอายุแล้ว",
+			"ใช้ `capture` ใหม่ แล้วใช้พิกัดจากภาพรอบนั้น")
+	case want != r.capture.ID:
+		return reachCaptureRef{}, refuse(
+			fmt.Sprintf("snapshot %q ไม่ใช่ภาพล่าสุดของแชตนี้", want),
+			"ใช้ `capture` ใหม่ แล้วใช้รหัส snapshot ล่าสุดเท่านั้น")
+	}
+	return r.capture, nil
+}
+
+func validateCapturedPoint(x, y, width, height int) error {
+	if width <= 0 || height <= 0 {
+		return refuse("snapshot นี้ไม่มีขนาดภาพที่ใช้เล็งได้", "ใช้ `capture` ใหม่")
+	}
+	if x < 0 || y < 0 || x >= width || y >= height {
+		return refuse(
+			fmt.Sprintf("พิกัด (%d,%d) อยู่นอกภาพขนาด %dx%d", x, y, width, height),
+			"ใช้พิกัด x=0..ความกว้าง-1 และ y=0..ความสูง-1 จากภาพ snapshot")
+	}
+	return nil
 }
 
 // lookup answers a ref, or says why it cannot.

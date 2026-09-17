@@ -63,6 +63,31 @@ func TestThinkLevelMovesUnderItsOwnTurnWithoutQueueing(t *testing.T) {
 	}
 }
 
+func TestCodexFastModeMovesUnderItsOwnTurnWithoutQueueing(t *testing.T) {
+	a := newTestApp(t, t.TempDir())
+	conv := dialledChat(t, a)
+	chatBehind(t, conv)
+
+	if err := a.beginTurn(conv.id); err != nil {
+		t.Fatalf("beginTurn() = %v", err)
+	}
+	info, err := a.SwitchServiceTier("priority")
+	if err != nil {
+		t.Fatalf("SwitchServiceTier mid-turn = %v", err)
+	}
+	if conv.cfg.ServiceTier != "priority" || info.ServiceTier != "priority" {
+		t.Fatalf("service tier: cfg=%q info=%q, want priority", conv.cfg.ServiceTier, info.ServiceTier)
+	}
+	if info.Pending != nil {
+		t.Fatalf("Pending = %+v, want no model switch queued", info.Pending)
+	}
+
+	a.endTurn(conv.id)
+	if conv.cfg.ServiceTier != "priority" {
+		t.Fatalf("service tier after endTurn = %q, want priority", conv.cfg.ServiceTier)
+	}
+}
+
 // A level asked of a model that is itself queued belongs to that model — it
 // was normalized for it — and lands with it, exactly as §232 had it.
 func TestThinkLevelOnAQueuedModelStaysWithTheQueue(t *testing.T) {

@@ -13,14 +13,34 @@ import (
 // gpt-5.5 stops at xhigh, and a hidden row (codex-auto-review) rides along.
 const codexModelsBody = `{"models":[
  {"slug":"gpt-5.6-sol","visibility":"list","default_reasoning_level":"low",
+  "service_tiers":[{"id":"priority","name":"Fast","description":"1.5x speed, increased usage"}],
   "supported_reasoning_levels":[{"effort":"low"},{"effort":"medium"},{"effort":"high"},{"effort":"xhigh"},{"effort":"max"},{"effort":"ultra"}]},
  {"slug":"gpt-5.6-luna","visibility":"list","default_reasoning_level":"medium",
+  "service_tiers":[{"id":"priority","name":"Fast","description":"1.5x speed, increased usage"}],
   "supported_reasoning_levels":[{"effort":"low"},{"effort":"medium"},{"effort":"high"},{"effort":"xhigh"},{"effort":"max"}]},
  {"slug":"gpt-5.5","visibility":"list","default_reasoning_level":"medium",
   "supported_reasoning_levels":[{"effort":"low"},{"effort":"medium"},{"effort":"high"},{"effort":"xhigh"}]},
  {"slug":"codex-auto-review","visibility":"hide","default_reasoning_level":"medium",
   "supported_reasoning_levels":[{"effort":"low"},{"effort":"medium"},{"effort":"high"},{"effort":"xhigh"},{"effort":"max"}]}
 ]}`
+
+func TestCodexServiceTiersComeFromTheBackendPerModel(t *testing.T) {
+	withCodexStatement(t)
+
+	tiers := SupportedServiceTiers("codex", "gpt-5.6-luna")
+	if len(tiers) != 1 || tiers[0].ID != "priority" || tiers[0].Name != "Fast" || !strings.Contains(tiers[0].Description, "1.5x") {
+		t.Fatalf("luna service tiers = %+v, want the backend's Fast 1.5x row", tiers)
+	}
+	if got := NormalizeServiceTier("codex", "gpt-5.6-luna", "fast"); got != "priority" {
+		t.Fatalf("fast alias = %q, want priority", got)
+	}
+	if got := NormalizeServiceTier("codex", "gpt-5.5", "priority"); got != "" {
+		t.Fatalf("unsupported gpt-5.5 tier = %q, want standard", got)
+	}
+	if got := NormalizeServiceTier("openai", "gpt-5.6-luna", "priority"); got != "" {
+		t.Fatalf("non-Codex tier = %q, want standard", got)
+	}
+}
 
 func withCodexStatement(t *testing.T) {
 	t.Helper()

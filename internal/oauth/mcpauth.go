@@ -58,23 +58,28 @@ const initializeProbe = `{"jsonrpc":"2.0","id":0,"method":"initialize","params":
 // protectedResourceMetadata is the RFC 9728 document at that pointer.
 type protectedResourceMetadata struct {
 	AuthorizationServers []string `json:"authorization_servers"`
+	ScopesSupported      []string `json:"scopes_supported"`
 }
 
 // authorizationServerMetadata is the RFC 8414 document the authorization
-// server itself publishes — only the three fields a sign-in needs.
+// server itself publishes — only the fields a sign-in needs.
 type authorizationServerMetadata struct {
 	AuthorizationEndpoint string `json:"authorization_endpoint"`
 	TokenEndpoint         string `json:"token_endpoint"`
 	// RegistrationEndpoint is RFC 7591's door. Its absence is not a discovery
 	// failure — it is the answer "this server does not support dynamic
 	// registration", and StartMCPOAuth reports it as such.
-	RegistrationEndpoint string `json:"registration_endpoint"`
+	RegistrationEndpoint              string   `json:"registration_endpoint"`
+	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported"`
+	ScopesSupported                   []string `json:"scopes_supported"`
 }
 
 type mcpOAuthMeta struct {
 	AuthorizationEndpoint string
 	TokenEndpoint         string
 	RegistrationEndpoint  string
+	ClientAuthMethod      string
+	Scopes                []string
 }
 
 // discoverMCPOAuth finds where an MCP server wants its OAuth conducted, from
@@ -87,7 +92,7 @@ func discoverMCPOAuth(ctx context.Context, resourceURL string) (*mcpOAuthMeta, e
 	if err != nil {
 		return nil, err
 	}
-	as, err := authorizationServerFor(ctx, resourceURL, metaURL)
+	as, resourceScopes, err := authorizationServerFor(ctx, resourceURL, metaURL)
 	if err != nil {
 		return nil, err
 	}
@@ -99,11 +104,67 @@ func discoverMCPOAuth(ctx context.Context, resourceURL string) (*mcpOAuthMeta, e
 	if asMeta.AuthorizationEndpoint == "" || asMeta.TokenEndpoint == "" {
 		return nil, fmt.Errorf("%s is missing an authorization or token endpoint", as)
 	}
+	authMethod, err := chooseMCPClientAuth(asMeta.TokenEndpointAuthMethodsSupported)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", as, err)
+	}
 	return &mcpOAuthMeta{
 		AuthorizationEndpoint: asMeta.AuthorizationEndpoint,
 		TokenEndpoint:         asMeta.TokenEndpoint,
 		RegistrationEndpoint:  asMeta.RegistrationEndpoint,
+		ClientAuthMethod:      authMethod,
+		Scopes:                selectMCPOAuthScopes(resourceScopes, asMeta.ScopesSupported),
 	}, nil
+}
+
+// selectMCPOAuthScopes asks only for scopes the protected resource itself
+// named. When that resource is OpenID-based and the authorization server
+// supports offline_access, include it so an hour-long access token is paired
+// with a refresh token instead of becoming an unrecoverable stale sign-in.
+//
+// Deliberately do not copy every scope from the authorization server: fields
+// such as email/profile are capabilities it can offer, not permissions this
+// MCP resource said it needs.
+func selectMCPOAuthScopes(resourceScopes, authorizationScopes []string) []string {
+	if len(resourceScopes) == 0 {
+		return nil
+	}
+	supported := make(map[string]bool, len(authorizationScopes))
+	for _, scope := range authorizationScopes {
+		supported[scope] = true
+	}
+	selected := make([]string, 0, len(resourceScopes)+1)
+	seen := map[string]bool{}
+	for _, scope := range resourceScopes {
+		scope = strings.TrimSpace(scope)
+		if scope == "" || seen[scope] || (len(supported) > 0 && !supported[scope]) {
+			continue
+		}
+		selected = append(selected, scope)
+		seen[scope] = true
+	}
+	if seen["openid"] && supported["offline_access"] {
+		selected = append(selected, "offline_access")
+	}
+	return selected
+}
+
+// chooseMCPClientAuth prefers a public client when the authorization server
+// supports one, then the form-body secret Supabase publishes, then HTTP Basic.
+// An omitted list predates this metadata field on several working servers and
+// retains the old public-client behaviour.
+func chooseMCPClientAuth(methods []string) (string, error) {
+	if len(methods) == 0 {
+		return "none", nil
+	}
+	for _, wanted := range []string{"none", "client_secret_post", "client_secret_basic"} {
+		for _, offered := range methods {
+			if offered == wanted {
+				return wanted, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no supported token endpoint authentication method in %v", methods)
 }
 
 // resourceMetadataURL gets the RFC 9728 resource-metadata URL a server names
@@ -156,7 +217,7 @@ func resourceMetadataURL(ctx context.Context, resourceURL string) (string, error
 // 2025-03-26 authorization spec described, which Atlassian still serves
 // (no protected-resource document anywhere, but a full RFC 8414 document at
 // its origin).
-func authorizationServerFor(ctx context.Context, resourceURL, metaURL string) (string, error) {
+func authorizationServerFor(ctx context.Context, resourceURL, metaURL string) (string, []string, error) {
 	candidates := []string{}
 	if metaURL != "" {
 		candidates = append(candidates, metaURL)
@@ -171,18 +232,18 @@ func authorizationServerFor(ctx context.Context, resourceURL, metaURL string) (s
 			continue
 		}
 		if len(resource.AuthorizationServers) == 0 {
-			return "", fmt.Errorf("%s named no authorization server", c)
+			return "", nil, fmt.Errorf("%s named no authorization server", c)
 		}
-		return resource.AuthorizationServers[0], nil
+		return resource.AuthorizationServers[0], resource.ScopesSupported, nil
 	}
 	if metaURL != "" {
-		return "", lastErr
+		return "", nil, lastErr
 	}
 	u, err := url.Parse(resourceURL)
 	if err != nil || u.Host == "" {
-		return "", fmt.Errorf("%s is not a URL an authorization server can be derived from", resourceURL)
+		return "", nil, fmt.Errorf("%s is not a URL an authorization server can be derived from", resourceURL)
 	}
-	return u.Scheme + "://" + u.Host, nil
+	return u.Scheme + "://" + u.Host, nil, nil
 }
 
 // protectedResourceCandidates lists where RFC 9728 §3.1 says a resource's
@@ -261,12 +322,21 @@ func getJSON(ctx context.Context, target string, out any) error {
 	return readJSON(resp, out)
 }
 
+// mcpClientRegistration is what a dynamic registration minted. Aetox prefers
+// a public PKCE client when the metadata offers one. Supabase and Figma do not,
+// and return a client_secret that their token endpoints require. Keeping the
+// optional secret leaves the public-client path unchanged for the other servers.
+type mcpClientRegistration struct {
+	ClientID                string `json:"client_id"`
+	ClientSecret            string `json:"client_secret"`
+	TokenEndpointAuthMethod string `json:"token_endpoint_auth_method"`
+}
+
 // registerMCPClient performs RFC 7591 dynamic client registration and returns
-// the client id the authorization server minted. Always a public client —
-// token_endpoint_auth_method "none" — because this is a PKCE flow run from a
-// desktop app with no way to keep a client secret, the same shape every
-// public MCP client registers as.
-func registerMCPClient(ctx context.Context, registrationEndpoint, redirectURI string) (string, error) {
+// the client credentials the authorization server minted. authMethod was
+// selected from the server's own metadata; a returned secret travels through
+// exchange and refresh because the selected method requires it.
+func registerMCPClient(ctx context.Context, registrationEndpoint, redirectURI, authMethod string) (mcpClientRegistration, error) {
 	body, err := json.Marshal(struct {
 		RedirectURIs            []string `json:"redirect_uris"`
 		TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`
@@ -275,17 +345,17 @@ func registerMCPClient(ctx context.Context, registrationEndpoint, redirectURI st
 		ClientName              string   `json:"client_name"`
 	}{
 		RedirectURIs:            []string{redirectURI},
-		TokenEndpointAuthMethod: "none",
+		TokenEndpointAuthMethod: authMethod,
 		GrantTypes:              []string{"authorization_code", "refresh_token"},
 		ResponseTypes:           []string{"code"},
 		ClientName:              "Aetox",
 	})
 	if err != nil {
-		return "", err
+		return mcpClientRegistration{}, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, registrationEndpoint, bytes.NewReader(body))
 	if err != nil {
-		return "", err
+		return mcpClientRegistration{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
@@ -293,18 +363,22 @@ func registerMCPClient(ctx context.Context, registrationEndpoint, redirectURI st
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return "", err
+		return mcpClientRegistration{}, err
 	}
-	var out struct {
-		ClientID string `json:"client_id"`
-	}
+	var out mcpClientRegistration
 	if err := readJSON(resp, &out); err != nil {
-		return "", fmt.Errorf("registering with %s: %w", registrationEndpoint, err)
+		return mcpClientRegistration{}, fmt.Errorf("registering with %s: %w", registrationEndpoint, err)
 	}
 	if out.ClientID == "" {
-		return "", fmt.Errorf("registering with %s: no client_id in response", registrationEndpoint)
+		return mcpClientRegistration{}, fmt.Errorf("registering with %s: no client_id in response", registrationEndpoint)
 	}
-	return out.ClientID, nil
+	if out.TokenEndpointAuthMethod == "" {
+		out.TokenEndpointAuthMethod = authMethod
+	}
+	if out.TokenEndpointAuthMethod != "none" && out.ClientSecret == "" {
+		return mcpClientRegistration{}, fmt.Errorf("registering with %s: %s selected but no client_secret in response", registrationEndpoint, out.TokenEndpointAuthMethod)
+	}
+	return out, nil
 }
 
 // StartMCPOAuth discovers, registers, and opens a browser sign-in for one MCP
@@ -324,7 +398,7 @@ func StartMCPOAuth(ctx context.Context, serverName, resourceURL string) (*Pendin
 	if err != nil {
 		return nil, err
 	}
-	clientID, err := registerMCPClient(ctx, meta.RegistrationEndpoint, lb.RedirectURI)
+	registration, err := registerMCPClient(ctx, meta.RegistrationEndpoint, lb.RedirectURI, meta.ClientAuthMethod)
 	if err != nil {
 		lb.Close()
 		return nil, err
@@ -342,20 +416,25 @@ func StartMCPOAuth(ctx context.Context, serverName, resourceURL string) (*Pendin
 
 	q := url.Values{}
 	q.Set("response_type", "code")
-	q.Set("client_id", clientID)
+	q.Set("client_id", registration.ClientID)
 	q.Set("redirect_uri", lb.RedirectURI)
 	q.Set("code_challenge", challenge)
 	q.Set("code_challenge_method", "S256")
 	q.Set("state", state)
+	if len(meta.Scopes) > 0 {
+		q.Set("scope", strings.Join(meta.Scopes, " "))
+	}
 
 	return &Pending{
-		URL:           meta.AuthorizationEndpoint + "?" + q.Encode(),
-		Verifier:      verifier,
-		State:         state,
-		provider:      serverName,
-		lb:            lb,
-		tokenEndpoint: meta.TokenEndpoint,
-		clientID:      clientID,
+		URL:              meta.AuthorizationEndpoint + "?" + q.Encode(),
+		Verifier:         verifier,
+		State:            state,
+		provider:         serverName,
+		lb:               lb,
+		tokenEndpoint:    meta.TokenEndpoint,
+		clientID:         registration.ClientID,
+		clientSecret:     registration.ClientSecret,
+		clientAuthMethod: registration.TokenEndpointAuthMethod,
 	}, nil
 }
 
@@ -383,21 +462,22 @@ func FinishMCPOAuth(ctx context.Context, pending *Pending) error {
 	form.Set("grant_type", "authorization_code")
 	form.Set("code", code)
 	form.Set("redirect_uri", pending.lb.RedirectURI)
-	form.Set("client_id", pending.clientID)
 	form.Set("code_verifier", pending.Verifier)
 
-	tokens, err := mcpOAuthToken(ctx, pending.tokenEndpoint, form)
+	tokens, err := mcpOAuthToken(ctx, pending.tokenEndpoint, form, pending.clientID, pending.clientSecret, pending.clientAuthMethod)
 	if err != nil {
 		return err
 	}
 	return Set(pending.provider, Credential{
-		Type:          "oauth",
-		Access:        tokens.AccessToken,
-		Refresh:       tokens.RefreshToken,
-		ExpiresAt:     tokens.expiresAt(),
-		TokenEndpoint: pending.tokenEndpoint,
-		ClientID:      pending.clientID,
-		Label:         pending.provider,
+		Type:             "oauth",
+		Access:           tokens.AccessToken,
+		Refresh:          tokens.RefreshToken,
+		ExpiresAt:        tokens.expiresAt(),
+		TokenEndpoint:    pending.tokenEndpoint,
+		ClientID:         pending.clientID,
+		ClientSecret:     pending.clientSecret,
+		ClientAuthMethod: pending.clientAuthMethod,
+		Label:            pending.provider,
 	})
 }
 
@@ -413,9 +493,8 @@ func refreshMCPOAuth(ctx context.Context, cred Credential) (Credential, error) {
 	form := url.Values{}
 	form.Set("grant_type", "refresh_token")
 	form.Set("refresh_token", cred.Refresh)
-	form.Set("client_id", cred.ClientID)
 
-	tokens, err := mcpOAuthToken(ctx, cred.TokenEndpoint, form)
+	tokens, err := mcpOAuthToken(ctx, cred.TokenEndpoint, form, cred.ClientID, cred.ClientSecret, cred.ClientAuthMethod)
 	if err != nil {
 		return Credential{}, err
 	}
@@ -430,7 +509,27 @@ func refreshMCPOAuth(ctx context.Context, cred Credential) (Credential, error) {
 	return next, nil
 }
 
-func mcpOAuthToken(ctx context.Context, tokenEndpoint string, form url.Values) (tokenResponse, error) {
+func mcpOAuthToken(ctx context.Context, tokenEndpoint string, form url.Values, clientID, clientSecret, authMethod string) (tokenResponse, error) {
+	// Credentials written before client_auth_method existed can still refresh.
+	// A stored secret implies the form-body method; no secret is the public path.
+	if authMethod == "" {
+		if clientSecret != "" {
+			authMethod = "client_secret_post"
+		} else {
+			authMethod = "none"
+		}
+	}
+	switch authMethod {
+	case "none":
+		form.Set("client_id", clientID)
+	case "client_secret_post":
+		form.Set("client_id", clientID)
+		form.Set("client_secret", clientSecret)
+	case "client_secret_basic":
+		// Applied to the request below; credentials do not belong in the body.
+	default:
+		return tokenResponse{}, fmt.Errorf("unsupported token endpoint authentication method %q", authMethod)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenEndpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return tokenResponse{}, err
@@ -438,6 +537,9 @@ func mcpOAuthToken(ctx context.Context, tokenEndpoint string, form url.Values) (
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", clientUserAgent)
+	if authMethod == "client_secret_basic" {
+		req.SetBasicAuth(clientID, clientSecret)
+	}
 
 	resp, err := httpClient.Do(req)
 	if err != nil {

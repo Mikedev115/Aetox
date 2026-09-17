@@ -6,8 +6,10 @@ rem internal/config.DataRoot. Production builds never set this and use the
 rem normal %AppData%\aetox default.
 set AETOX_DATA_ROOT=%~dp0.aetox-data
 rem The engine is a process beside the app (§248 phase 2). Built here so the
-rem dev binary finds it next to itself; without it the app falls back to
-rem `go run ./cmd/aetox-engine`, which works but compiles on every start.
+rem dev app can use this one explicit build. Plain `wails dev` intentionally
+rem leaves AETOX_ENGINE unset and runs the engine from current source instead,
+rem so a stale binary in build\bin can never shadow source changes.
 go build -o build\bin\aetox-engine.exe ..\cmd\aetox-engine
+set "AETOX_ENGINE=%~dp0build\bin\aetox-engine.exe"
 wails dev
 pause

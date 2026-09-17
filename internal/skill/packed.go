@@ -187,11 +187,12 @@ var packs = map[string]*pack{
 	"task": {
 		tool:     "task",
 		fallback: "start",
-		actions:  []string{"start", "collect", "answer", "plan"},
+		actions:  []string{"start", "collect", "answer", "message", "plan"},
 		names: map[string]string{
 			"start":   "task",
 			"collect": "task_result",
 			"answer":  "task_answer",
+			"message": "task_message",
 			"plan":    "task_plan",
 		},
 	},
@@ -215,13 +216,16 @@ var packs = map[string]*pack{
 	// browser_capture is held to.
 	"computer": {
 		tool:    "computer",
-		actions: []string{"list_apps", "read", "capture", "focus", "click", "type", "close"},
+		actions: []string{"list_apps", "read", "capture", "focus", "click", "click_at", "scroll", "drag", "type", "close"},
 		names: map[string]string{
 			"list_apps": "computer_apps",
 			"read":      "computer_read",
 			"capture":   "computer_capture",
 			"focus":     "computer_focus",
 			"click":     "computer_click",
+			"click_at":  "computer_click_at",
+			"scroll":    "computer_scroll",
+			"drag":      "computer_drag",
 			"type":      "computer_type",
 			"close":     "computer_close",
 		},

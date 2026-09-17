@@ -33,6 +33,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unsafe"
 )
 
 func liveComputerGate(t *testing.T) {
@@ -209,6 +210,60 @@ func TestLiveComputerPressesARealControl(t *testing.T) {
 		t.Fatalf("could not press %q: %s", button.Name, explainReach("click", err))
 	}
 	t.Logf("pressed %q through its own provider, with no cursor and no coordinate", button.Name)
+}
+
+// The coordinate fallback is exercised against a window this test created,
+// never against whatever happened to be under the pointer. Capture dimensions
+// are passed through exactly as the tool does, then the cursor location proves
+// click, wheel and drag all stayed inside that captured window. The application
+// may reposition the real cursor while handling a drag, so exact final pixels
+// are not an API promise; containment is the safety promise.
+func TestLiveComputerUsesCapturedCoordinates(t *testing.T) {
+	liveComputerGate(t)
+	target, stop := openOwnWindow(t)
+	defer stop()
+
+	if err := reachFocusWindow(target.HWND); err != nil {
+		t.Logf("Windows would not raise the window, carrying on: %s", explainReach("focus", err))
+	}
+	picture, err := reachCaptureWindow(target.HWND)
+	if err != nil {
+		t.Fatalf("could not capture the test window: %s", explainReach("capture", err))
+	}
+	config, err := decodePNGConfig(picture)
+	if err != nil {
+		t.Fatalf("the captured PNG has no dimensions: %v", err)
+	}
+	if config.Width < 80 || config.Height < 80 {
+		t.Skipf("test window is unexpectedly small: %dx%d", config.Width, config.Height)
+	}
+
+	// Stay well inside the frame. The test app owns this window and contains no
+	// user work; clicking its blank/content area is therefore safe.
+	x, y := config.Width/2, config.Height/2
+	if err := reachClickAt(target.HWND, x, y, config.Width, config.Height); err != nil {
+		t.Fatalf("coordinate click failed: %s", explainReach("click_at", err))
+	}
+	if err := reachScrollAt(target.HWND, x, y, -1, config.Width, config.Height); err != nil {
+		t.Fatalf("coordinate scroll failed: %s", explainReach("scroll", err))
+	}
+	toX, toY := x+12, y+12
+	if err := reachDragAt(target.HWND, x, y, toX, toY, 120, config.Width, config.Height); err != nil {
+		t.Fatalf("coordinate drag failed: %s", explainReach("drag", err))
+	}
+
+	var frame win32Rect
+	if ok, _, callErr := procGetWindowRect.Call(target.HWND, uintptr(unsafe.Pointer(&frame))); ok == 0 {
+		t.Fatalf("could not read test window frame: %v", callErr)
+	}
+	gotX, gotY, err := reachCursor()
+	if err != nil {
+		t.Fatalf("could not read cursor after drag: %v", err)
+	}
+	if gotX < int(frame.Left) || gotX >= int(frame.Right) || gotY < int(frame.Top) || gotY >= int(frame.Bottom) {
+		t.Fatalf("drag ended at screen (%d,%d), outside captured window frame %+v", gotX, gotY, frame)
+	}
+	t.Logf("clicked, scrolled and dragged inside a %dx%d captured window", config.Width, config.Height)
 }
 
 // A window that closes is the proof that `close` is a request rather than a

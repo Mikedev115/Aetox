@@ -148,6 +148,47 @@ func TestForgettingLeavesNoWindowBehind(t *testing.T) {
 	}
 }
 
+func TestCoordinateActionsRequireTheLatestCapture(t *testing.T) {
+	var r reachRefs
+	first := r.rememberCapture(100, "Canvas", 800, 600)
+	second := r.rememberCapture(100, "Canvas", 800, 600)
+	if first == second {
+		t.Fatalf("two captures minted the same snapshot id %q", first)
+	}
+	if _, err := r.captured(first); err == nil {
+		t.Fatal("an older snapshot still resolves after a newer capture")
+	}
+	got, err := r.captured(second)
+	if err != nil {
+		t.Fatalf("the latest snapshot was refused: %v", err)
+	}
+	if got.HWND != 100 || got.Width != 800 || got.Height != 600 {
+		t.Fatalf("capture metadata changed: %+v", got)
+	}
+}
+
+func TestAnyActionExpiresTheCoordinateSnapshot(t *testing.T) {
+	var r reachRefs
+	id := r.rememberCapture(100, "Canvas", 800, 600)
+	r.forget()
+	if _, err := r.captured(id); err == nil {
+		t.Fatal("a snapshot still resolves after refs were invalidated")
+	}
+}
+
+func TestCapturedPointsAreBoundedByTheImage(t *testing.T) {
+	for _, p := range []struct{ x, y int }{{0, 0}, {799, 599}, {400, 300}} {
+		if err := validateCapturedPoint(p.x, p.y, 800, 600); err != nil {
+			t.Errorf("valid point (%d,%d) was refused: %v", p.x, p.y, err)
+		}
+	}
+	for _, p := range []struct{ x, y int }{{-1, 0}, {0, -1}, {800, 0}, {0, 600}} {
+		if err := validateCapturedPoint(p.x, p.y, 800, 600); err == nil {
+			t.Errorf("out-of-image point (%d,%d) was accepted", p.x, p.y)
+		}
+	}
+}
+
 func TestAPasswordFieldIsShownAsPresentButItsContentsAreNot(t *testing.T) {
 	target := reachTarget{Exe: "app.exe", Title: "เข้าสู่ระบบ"}
 	nodes := []reachNode{

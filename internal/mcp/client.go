@@ -107,7 +107,7 @@ type Server struct {
 	// expires. Asked per request, the refresh happens inside the grace window
 	// the way it does for every model provider, and a rotated key in .env
 	// reaches the next call without a restart.
-	HeaderSource func() map[string]string
+	HeaderSource func() (map[string]string, error)
 	// EnvSource is the same for a local server's environment, asked at each
 	// spawn — which is more than once now that a dead session reconnects.
 	EnvSource func() map[string]string
@@ -374,8 +374,9 @@ func (c *Client) withSession(ctx context.Context, op func(*mcpsdk.ClientSession)
 // ToolCost is one tool as the room lists it: the server's own name for it and
 // the tokens its definition costs on every message it is carried in.
 type ToolCost struct {
-	Name   string `json:"name"`
-	Tokens int    `json:"tokens"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Tokens      int    `json:"tokens"`
 }
 
 // Tools lists the server's tools, connecting lazily. On connect failure it
@@ -403,7 +404,7 @@ func (c *Client) Tools(ctx context.Context) ([]*mcpsdk.Tool, error) {
 			n = len(b)
 		}
 		chars += n
-		list = append(list, ToolCost{Name: t.Name, Tokens: (n + 3) / 4})
+		list = append(list, ToolCost{Name: t.Name, Description: t.Description, Tokens: (n + 3) / 4})
 	}
 	c.mu.Lock()
 	c.toolCount = len(tools)
@@ -572,7 +573,7 @@ func (c *Client) releaseProcess() {
 // none. With a source, the headers are asked for per request — see
 // Server.HeaderSource — and the static map is only the fallback for a source
 // that answers nothing.
-func headerHTTPClient(headers map[string]string, source func() map[string]string) *http.Client {
+func headerHTTPClient(headers map[string]string, source func() (map[string]string, error)) *http.Client {
 	if len(headers) == 0 && source == nil {
 		return nil // transport falls back to http.DefaultClient
 	}
@@ -581,13 +582,17 @@ func headerHTTPClient(headers map[string]string, source func() map[string]string
 
 type headerRoundTripper struct {
 	headers map[string]string
-	source  func() map[string]string
+	source  func() (map[string]string, error)
 }
 
 func (h headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	headers := h.headers
 	if h.source != nil {
-		if live := h.source(); live != nil {
+		live, err := h.source()
+		if err != nil {
+			return nil, fmt.Errorf("resolving MCP request headers: %w", err)
+		}
+		if live != nil {
 			headers = live
 		}
 	}

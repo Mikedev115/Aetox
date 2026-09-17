@@ -13,7 +13,10 @@ import (
 // `task` handed out — waiting only if the delegate is not finished yet, which by
 // then is time the model chose to spend rather than time it was forced to.
 
-type taskResultTool struct{ runner *Delegations }
+type taskResultTool struct {
+	runner             *Delegations
+	parentInterjection <-chan struct{}
+}
 
 func (t *taskResultTool) Name() string { return "task_result" }
 func (t *taskResultTool) ExecuteTool(ctx context.Context, args map[string]any) (skill.Output, error) {
@@ -33,9 +36,12 @@ func (t *taskResultTool) ExecuteTool(ctx context.Context, args map[string]any) (
 	// One id: the result is the result, so hand it back as its own outcome — a
 	// failed delegation stays a failed tool call the model can react to.
 	if len(ids) == 1 {
-		task, ask, err := t.runner.collect(ctx, ids[0])
+		task, ask, interrupted, err := t.runner.collect(ctx, ids[0], t.parentInterjection)
 		if err != nil {
 			return t.fail(started, err.Error())
+		}
+		if interrupted {
+			return t.paused(started, ids), nil
 		}
 		if ask != nil {
 			return t.question(started, task, ask), nil
@@ -50,10 +56,13 @@ func (t *taskResultTool) ExecuteTool(ctx context.Context, args map[string]any) (
 	var b strings.Builder
 	anyOK := false
 	for _, id := range ids {
-		task, ask, err := t.runner.collect(ctx, id)
+		task, ask, interrupted, err := t.runner.collect(ctx, id, t.parentInterjection)
 		if err != nil {
 			fmt.Fprintf(&b, "--- %s ---\n%s\n", id, err.Error())
 			continue
+		}
+		if interrupted {
+			return t.paused(started, ids), nil
 		}
 		if ask != nil {
 			anyOK = true // a question is not a failure; it is work waiting on one answer
@@ -74,6 +83,24 @@ func (t *taskResultTool) ExecuteTool(ctx context.Context, args map[string]any) (
 		Success:    anyOK,
 		DurationMs: time.Since(started).Milliseconds(),
 	}, nil
+}
+
+// paused returns control to the main agent without changing any task state.
+// The normal agent loop reads the user's queued message immediately after this
+// tool result and can then choose message for a relevant worker or simply
+// collect again later.
+func (t *taskResultTool) paused(started time.Time, ids []string) skill.Output {
+	content := "COLLECT PAUSED — a new user message arrived while you were waiting. Read it on the next round and decide what it changes. " +
+		"If it is relevant to a running sub-agent, forward only the relevant details with task(action=message, task_id=..., message=...). " +
+		"Otherwise keep it with you and collect again later. Nothing was cancelled; still collect: " + strings.Join(ids, ", ")
+	return skill.Output{
+		Name:       t.Name(),
+		Command:    "task_result " + strings.Join(ids, ","),
+		Content:    content,
+		RawOutput:  content,
+		Success:    true,
+		DurationMs: time.Since(started).Milliseconds(),
+	}
 }
 
 // question is what the parent gets when it collects a delegate that is stuck.

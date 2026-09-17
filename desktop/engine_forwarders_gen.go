@@ -723,6 +723,10 @@ func (a *App) OpenProjectPath(root string) (engine.ProjectStatus, error) {
 	return a.api.OpenProjectPath(root)
 }
 
+func (a *App) OpenSession(id string, filter engine.DeskFilter, anyProject bool) (engine.SessionOpenState, error) {
+	return a.api.OpenSession(id, filter, anyProject)
+}
+
 func (a *App) PageMarksOn() bool {
 	return a.api.PageMarksOn()
 }
@@ -925,6 +929,10 @@ func (a *App) RemovePresetImage(name string) error {
 
 func (a *App) RemoveSpaceContext(name string, file string) ([]string, error) {
 	return a.api.RemoveSpaceContext(name, file)
+}
+
+func (a *App) RemoveSpaceImage(name string) error {
+	return a.api.RemoveSpaceImage(name)
 }
 
 func (a *App) RemoveStudioLibrary(id string) ([]engine.StudioLibraryView, error) {
@@ -1219,6 +1227,10 @@ func (a *App) SetSkillTuneAuto(on bool) error {
 	return a.api.SetSkillTuneAuto(on)
 }
 
+func (a *App) SetSpaceImageFrom(name string, sourcePath string) (string, error) {
+	return a.api.SetSpaceImageFrom(name, sourcePath)
+}
+
 func (a *App) SetSpeechEngine(id string) error {
 	return a.api.SetSpeechEngine(id)
 }
@@ -1411,6 +1423,10 @@ func (a *App) SwitchProvider(provider string) (engine.ModelInfo, error) {
 	return a.api.SwitchProvider(provider)
 }
 
+func (a *App) SwitchServiceTier(tier string) (engine.ModelInfo, error) {
+	return a.api.SwitchServiceTier(tier)
+}
+
 func (a *App) SwitchThinkLevel(level string) (engine.ModelInfo, error) {
 	return a.api.SwitchThinkLevel(level)
 }
@@ -1489,6 +1505,14 @@ func (a *App) TurnRating(messageID int64) string {
 
 func (a *App) UndoLastTurn() (engine.UndoResult, error) {
 	return a.api.UndoLastTurn()
+}
+
+func (a *App) UpdateProjectMeta(root string, name string, description string) (engine.ProjectMeta, error) {
+	return a.api.UpdateProjectMeta(root, name, description)
+}
+
+func (a *App) UpdateSpaceDescription(name string, description string) (engine.Space, error) {
+	return a.api.UpdateSpaceDescription(name, description)
 }
 
 func (a *App) UsageStats() (engine.UsageStats, error) {

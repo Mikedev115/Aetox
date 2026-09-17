@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -54,7 +55,7 @@ func MCPServers(cfgs []config.MCPServerConfig) []mcp.Server {
 			// answer, asked again on every request and every spawn. Only a
 			// map with a reference in it gets one — a pasted key is the same
 			// string every time and costs nothing to leave alone.
-			HeaderSource: secretSource(c.Headers),
+			HeaderSource: headerSecretSource(c.Headers),
 			EnvSource:    secretSource(c.Environment),
 		})
 	}
@@ -73,6 +74,17 @@ func secretSource(m map[string]string) func() map[string]string {
 		return nil
 	}
 	return func() map[string]string { return resolveSecretRefs(m) }
+}
+
+// headerSecretSource is the request-time form of secretSource. Unlike process
+// environment expansion it can return an error to the HTTP transport, so a
+// missing or unrenewable connection stops locally instead of putting an empty
+// Authorization header on the wire and disguising the cause as "Unauthorized".
+func headerSecretSource(m map[string]string) func() (map[string]string, error) {
+	if !HasSecretRef(m) {
+		return nil
+	}
+	return func() (map[string]string, error) { return resolveSecretRefsChecked(m) }
 }
 
 // agentsOnly reports that no desk carries this server — only named agents do —
@@ -150,8 +162,13 @@ func HasSecretRef(headers map[string]string) bool {
 // Values that hold no reference pass through untouched, so a key pasted in
 // directly keeps working — this is an option, not a migration.
 func resolveSecretRefs(in map[string]string) map[string]string {
+	out, _ := resolveSecretRefsChecked(in)
+	return out
+}
+
+func resolveSecretRefsChecked(in map[string]string) (map[string]string, error) {
 	if len(in) == 0 {
-		return in
+		return in, nil
 	}
 	// Bounded rather than context.Background() forever: this runs at connect
 	// time, on the same goroutine that is about to build the MCP client, and
@@ -160,6 +177,7 @@ func resolveSecretRefs(in map[string]string) map[string]string {
 	defer cancel()
 
 	out := make(map[string]string, len(in))
+	var resolveErr error
 	for k, v := range in {
 		out[k] = secretRef.ReplaceAllStringFunc(v, func(match string) string {
 			parts := secretRef.FindStringSubmatch(match)
@@ -180,6 +198,8 @@ func resolveSecretRefs(in map[string]string) map[string]string {
 				// forever the moment its access token's hour runs out.
 				if token, err := oauth.Token(ctx, parts[2]); err == nil {
 					value = token
+				} else if resolveErr == nil {
+					resolveErr = fmt.Errorf("resolving connection %q: %w", parts[2], err)
 				}
 			default:
 				value = os.Getenv(parts[2])
@@ -191,5 +211,5 @@ func resolveSecretRefs(in map[string]string) map[string]string {
 			return value
 		})
 	}
-	return out
+	return out, resolveErr
 }

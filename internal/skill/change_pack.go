@@ -29,7 +29,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -263,62 +262,5 @@ func (s *changeSkill) ExecuteTool(ctx context.Context, args map[string]any) (Out
 	if err != nil {
 		return newToolOutput("change", "change", "", start, false, err), err
 	}
-	out, err := inner.ExecuteTool(ctx, s.innerArgs(action, args))
-	if err == nil && out.Success {
-		if note := reviewNote(action, args); note != "" {
-			out.Content = strings.TrimRight(out.Content, "\n") + "\n\n" + note
-			out.RawOutput = out.Content
-		}
-	}
-	return out, err
-}
-
-// reviewNote rides back with a change that reached across files.
-//
-// The failure it answers was measured rather than guessed: across three long
-// sessions the assistant verified its own work every time — a compile check, a
-// grep for leftovers, the diagnostics that ride back on every edit — and never
-// once asked anybody else to look. That is not carelessness. Checking your own
-// change is cheap and right there, and nothing in front of the model said the
-// other thing was different in kind.
-//
-// It is: the context that wrote a change is the one least able to see what is
-// wrong with it, and no amount of self-checking fixes that. A second reader is
-// not a more careful version of the first, it is a different one.
-//
-// **Only a batch that touched more than one file.** A typo fixed in place needs
-// no second reader and a note on every edit is a note nobody reads by the third
-// one. Reaching across files is the cheapest honest signal that a change has a
-// shape somebody could be wrong about — and it is a property of the call, so
-// this needs no memory of what it has already said.
-//
-// It states a fact and names a door. It does not instruct: a tool result that
-// tells the model what to do next is a tool result arguing with the system
-// prompt, and the model is the one holding the context to judge from.
-func reviewNote(action string, args map[string]any) string {
-	if action != "batch" {
-		return ""
-	}
-	raw, _ := args["edits"].([]any)
-	paths := map[string]bool{}
-	fallback := strings.TrimSpace(stringArg(args["path"]))
-	for _, item := range raw {
-		edit, ok := item.(map[string]any)
-		if !ok {
-			continue
-		}
-		path := strings.TrimSpace(stringArg(edit["path"]))
-		if path == "" {
-			path = fallback
-		}
-		if path != "" {
-			paths[path] = true
-		}
-	}
-	if len(paths) < 2 {
-		return ""
-	}
-	return "[note] That change reached across " + strconv.Itoa(len(paths)) +
-		" files, and nothing has read it except the context that wrote it. " +
-		"`task` with agent=reviewer reads a change without having made it, and changes nothing itself."
+	return inner.ExecuteTool(ctx, s.innerArgs(action, args))
 }

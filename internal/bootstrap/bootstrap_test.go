@@ -47,8 +47,8 @@ func TestEngineRefusesANilApprover(t *testing.T) {
 // it from the app's own skill and command sets.
 //
 // It was three names until delegation was packed (§99, skill/packed.go): one
-// tool now, with start/collect/answer/plan inside it. So the assertion is that
-// the one name is there and that it still answers to all four, which is what the
+// tool now, with start/collect/answer/message/plan inside it. So the assertion is that
+// the one name is there and that it still answers to all five, which is what the
 // three-name check was really guarding.
 func TestEngineRegistersEveryTaskTool(t *testing.T) {
 	// Delegation ships OFF (owner, 18 ส.ค.), so this has to ask for it. That is
@@ -67,9 +67,9 @@ func TestEngineRegistersEveryTaskTool(t *testing.T) {
 	}
 	packed, ok := registered.(skill.Packed)
 	if !ok {
-		t.Fatal("task is registered but is not packed, so three of its four actions are unreachable")
+		t.Fatal("task is registered but is not packed, so four of its five actions are unreachable")
 	}
-	for _, want := range []string{"task", "task_result", "task_answer", "task_plan"} {
+	for _, want := range []string{"task", "task_result", "task_answer", "task_message", "task_plan"} {
 		if !slices.Contains(packed.Actions(), want) {
 			t.Errorf("%s is not one of task's actions: %v", want, packed.Actions())
 		}

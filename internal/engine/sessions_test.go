@@ -339,6 +339,67 @@ func TestLoadSessionRoundTrip(t *testing.T) {
 	}
 }
 
+func TestOpenSessionReturnsTheRestoredScreenStateInOneSnapshot(t *testing.T) {
+	a := newTestApp(t, t.TempDir())
+	a.appendTurn(a.cur(),
+		SessionMessage{Role: "user", Text: "remember this", Time: "10:00"},
+		SessionMessage{Role: "agent", Text: "ok", Time: "10:01"},
+	)
+	id := a.cur().id
+	a.startNewSession()
+
+	opened, err := a.OpenSession(id, DeskFilter{Desks: []string{"coding"}, Exclude: true}, false)
+	if err != nil {
+		t.Fatalf("OpenSession: %v", err)
+	}
+	if opened.CurrentID != id {
+		t.Fatalf("current id = %q, want %q", opened.CurrentID, id)
+	}
+	if len(opened.Messages) != 2 || opened.Messages[0].Text != "remember this" {
+		t.Fatalf("messages = %+v, want the restored transcript", opened.Messages)
+	}
+	if len(opened.Sessions) == 0 {
+		t.Fatal("the session list was not included in the open snapshot")
+	}
+	if len(opened.History) != 0 {
+		t.Fatalf("project-scoped open loaded %d global history rows, want none", len(opened.History))
+	}
+	if opened.UndoFiles == nil || opened.RestorePoints == nil || opened.ProjectFolders == nil {
+		t.Fatal("collection fields must be empty arrays, not null")
+	}
+}
+
+func TestTranscriptReadsTheNewestMainRatingWithTheMessages(t *testing.T) {
+	a := newTestApp(t, t.TempDir())
+	messageID := a.appendTurn(a.cur(),
+		SessionMessage{Role: "user", Text: "question", Time: "10:00"},
+		SessionMessage{Role: "agent", Text: "second answer", Time: "10:01"},
+	)
+	db, err := a.database()
+	if err != nil {
+		t.Fatalf("database: %v", err)
+	}
+	insert := func(agent, outcome string) {
+		t.Helper()
+		if _, err := db.Exec(
+			`INSERT INTO jobs(session_id, message_id, agent, outcome, time) VALUES(?,?,?,?,?)`,
+			a.cur().id, messageID, agent, outcome, "2026-09-17T10:00:00+07:00"); err != nil {
+			t.Fatalf("insert job: %v", err)
+		}
+	}
+	insert("", outcomeBad)
+	insert("", outcomeGood)      // newest main attempt is the answer on screen
+	insert("worker", outcomeBad) // a newer sub-agent job must not replace it
+
+	messages, err := a.SessionTranscript(a.cur().id)
+	if err != nil {
+		t.Fatalf("SessionTranscript: %v", err)
+	}
+	if len(messages) != 2 || messages[1].Rating != outcomeGood {
+		t.Fatalf("rating = %q in %+v, want newest main rating %q", messages[1].Rating, messages, outcomeGood)
+	}
+}
+
 func TestLoadSessionUnknownID(t *testing.T) {
 	a := newTestApp(t, t.TempDir())
 	if _, err := a.LoadSession("does-not-exist"); err == nil {

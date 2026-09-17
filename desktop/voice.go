@@ -49,6 +49,22 @@ func (a *App) ListTTSVoices() ([]TTSVoiceInfo, error) {
 	return out, err
 }
 
+// RefreshTTSVoices forgets the screen-side voice roster and enumerates it
+// again. Windows can add a language voice while Aetox is still open; without
+// this door the install button would lead somewhere useful, but the picker
+// would keep showing the pre-install cache until the whole app restarted.
+func (a *App) RefreshTTSVoices() ([]TTSVoiceInfo, error) {
+	cfg := a.api.VoiceSettings()
+	desc, ok := tts.Lookup(strings.TrimSpace(cfg.TTSEngine))
+	if !ok {
+		return nil, fmt.Errorf("ไม่รู้จัก engine เสียงอ่านชื่อ %q", cfg.TTSEngine)
+	}
+	a.ttsVoiceMu.Lock()
+	delete(a.ttsVoiceCache, desc.ID)
+	a.ttsVoiceMu.Unlock()
+	return a.ListTTSVoices()
+}
+
 // SetTTSVoice pins the voice replies are read with. Empty means "the engine
 // decides", which resolves through defaultTTSVoice below. Checked against
 // this machine's voices, then written down by the engine.

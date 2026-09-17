@@ -37,6 +37,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_key, updated
 CREATE TABLE IF NOT EXISTS projects (
   project_key TEXT PRIMARY KEY,
   name        TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
   root_path   TEXT NOT NULL,
   opened_at   TEXT NOT NULL
 );
@@ -943,6 +944,47 @@ CREATE TABLE IF NOT EXISTS project_folders (
 			// not a transcript of what was said (context_store.go).
 			// IF NOT EXISTS in the schema, so replaying is a no-op.
 			_, err := tx.Exec(contextStoreSchema)
+			return err
+		},
+	},
+	{
+		version: 31,
+		name:    "project_descriptions",
+		apply: func(tx *sql.Tx) error {
+			// A project card needs one user-owned sentence that is not inferred
+			// from a chat title. The existing name column is already preserved by
+			// touchProject on conflict, so it doubles as the editable display name;
+			// the folder's real name remains derivable from root_path.
+			if has, err := hasColumn(tx, "projects", "description"); err != nil || has {
+				return err
+			}
+			_, err := tx.Exec(`ALTER TABLE projects ADD COLUMN description TEXT NOT NULL DEFAULT ''`)
+			return err
+		},
+	},
+	{
+		version: 32,
+		name:    "session_transport",
+		apply: func(tx *sql.Tx) error {
+			// Which external chat carries a conversation is a coordinate fixed at
+			// birth, like its desk. Empty preserves every existing Aetox session.
+			if has, err := hasColumn(tx, "sessions", "transport"); err != nil || has {
+				return err
+			}
+			_, err := tx.Exec(`ALTER TABLE sessions ADD COLUMN transport TEXT NOT NULL DEFAULT ''`)
+			return err
+		},
+	},
+	{
+		version: 33,
+		name:    "session_service_tier",
+		apply: func(tx *sql.Tx) error {
+			// Fast mode is a per-chat model dial, so reopening a conversation
+			// must restore the lane that conversation was using.
+			if has, err := hasColumn(tx, "sessions", "service_tier"); err != nil || has {
+				return err
+			}
+			_, err := tx.Exec(`ALTER TABLE sessions ADD COLUMN service_tier TEXT NOT NULL DEFAULT ''`)
 			return err
 		},
 	},

@@ -43,17 +43,23 @@ var (
 	procSendInput           = user32.NewProc("SendInput")
 	procMapVirtualKeyW      = user32.NewProc("MapVirtualKeyW")
 	procGetCursorPos        = user32.NewProc("GetCursorPos")
+	procSetCursorPos        = user32.NewProc("SetCursorPos")
 )
 
 // swRestore and wmClose are already declared in browser_windows.go, which owns
 // the package's Win32 constant block for the same reason it owns user32 itself.
 const (
+	inputMouse         = 0
 	inputKeyboard      = 1
 	keyEventKeyUp      = 0x0002
 	keyEventUnicode    = 0x0004
 	keyEventScanCode   = 0x0008
 	keyEventExtendedKy = 0x0001
 	mapVKToVSC         = 0
+	mouseLeftDown      = 0x0002
+	mouseLeftUp        = 0x0004
+	computerMouseWheel = 0x0800
+	wheelDelta         = 120
 )
 
 // keyboardInput is the full INPUT union, sized for x64 so a batch of them can
@@ -71,11 +77,22 @@ type keyboardInput struct {
 	_          [8]byte
 }
 
+type mouseInput struct {
+	typ        uint32
+	_          uint32 // union alignment on x64
+	dx, dy     int32
+	mouseData  uint32
+	dwFlags    uint32
+	time       uint32
+	dwExtraInf uintptr
+}
+
 // sizeOfKeyboardInput exists for its test. The struct's size is the stride
 // SendInput walks the array by, so a field too few or too many makes every
 // event after the first be read out of the middle of its neighbour — a failure
 // with no error and no symptom except keys that do not arrive.
 func sizeOfKeyboardInput() int { return int(unsafe.Sizeof(keyboardInput{})) }
+func sizeOfMouseInput() int    { return int(unsafe.Sizeof(mouseInput{})) }
 
 type winPoint struct{ X, Y int32 }
 
@@ -271,6 +288,135 @@ func reachClick(hwnd uintptr, runtimeID []int32) error {
 		}
 		return last
 	})
+}
+
+// windowPoint turns a point in the captured window image into a physical
+// screen point. Exact size agreement is the stale-observation check: moving a
+// window is harmless because its origin is read again, but resizing it changes
+// what a coordinate means and requires a fresh capture.
+func windowPoint(hwnd uintptr, x, y, capturedWidth, capturedHeight int) (int, int, error) {
+	var r win32Rect
+	if ok, _, err := procGetWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&r))); ok == 0 {
+		return 0, 0, win32Error{call: "GetWindowRect", code: errnoOf(err)}
+	}
+	w, h := int(r.Right-r.Left), int(r.Bottom-r.Top)
+	if w != capturedWidth || h != capturedHeight {
+		return 0, 0, refuse(
+			"หน้าต่างเปลี่ยนขนาดหลังจากถ่าย snapshot พิกัดเดิมจึงใช้ไม่ได้",
+			"ใช้ `capture` ใหม่แล้วเล็งจากภาพล่าสุด")
+	}
+	if err := validateCapturedPoint(x, y, w, h); err != nil {
+		return 0, 0, err
+	}
+	return int(r.Left) + x, int(r.Top) + y, nil
+}
+
+func setMousePoint(x, y int) error {
+	if ok, _, err := procSetCursorPos.Call(uintptr(x), uintptr(y)); ok == 0 {
+		return win32Error{call: "SetCursorPos", code: errnoOf(err)}
+	}
+	overlay.point(x, y)
+	return nil
+}
+
+func sendMouse(flags, data uint32) error {
+	event := newComputerMouseInput(flags, data)
+	sent, _, callErr := procSendInput.Call(1, uintptr(unsafe.Pointer(&event)), unsafe.Sizeof(event))
+	if sent != 1 {
+		code := errnoOf(callErr)
+		if code == 0 {
+			code = winAccessDenied
+		}
+		return win32Error{call: "SendInput(mouse)", code: code}
+	}
+	return nil
+}
+
+func newComputerMouseInput(flags, data uint32) mouseInput {
+	return mouseInput{typ: inputMouse, mouseData: data, dwFlags: flags}
+}
+
+func reachClickAt(hwnd uintptr, x, y, capturedWidth, capturedHeight int) error {
+	screenX, screenY, err := windowPoint(hwnd, x, y, capturedWidth, capturedHeight)
+	if err != nil {
+		return err
+	}
+	if err := setMousePoint(screenX, screenY); err != nil {
+		return err
+	}
+	if err := sendMouse(mouseLeftDown, 0); err != nil {
+		return err
+	}
+	// Never leave the user's mouse held down, including a partial SendInput
+	// failure. A second release is harmless; a missing one drags their next
+	// click across the desktop.
+	released := false
+	defer func() {
+		if !released {
+			_ = sendMouse(mouseLeftUp, 0)
+		}
+	}()
+	if err := sendMouse(mouseLeftUp, 0); err != nil {
+		return err
+	}
+	released = true
+	return nil
+}
+
+func reachScrollAt(hwnd uintptr, x, y, delta, capturedWidth, capturedHeight int) error {
+	screenX, screenY, err := windowPoint(hwnd, x, y, capturedWidth, capturedHeight)
+	if err != nil {
+		return err
+	}
+	if err := setMousePoint(screenX, screenY); err != nil {
+		return err
+	}
+	return sendMouse(computerMouseWheel, uint32(int32(delta*wheelDelta)))
+}
+
+func reachDragAt(hwnd uintptr, x, y, toX, toY, durationMS, capturedWidth, capturedHeight int) error {
+	fromScreenX, fromScreenY, err := windowPoint(hwnd, x, y, capturedWidth, capturedHeight)
+	if err != nil {
+		return err
+	}
+	toScreenX, toScreenY, err := windowPoint(hwnd, toX, toY, capturedWidth, capturedHeight)
+	if err != nil {
+		return err
+	}
+	if err := setMousePoint(fromScreenX, fromScreenY); err != nil {
+		return err
+	}
+	if err := sendMouse(mouseLeftDown, 0); err != nil {
+		return err
+	}
+	released := false
+	defer func() {
+		if !released {
+			_ = sendMouse(mouseLeftUp, 0)
+		}
+	}()
+
+	steps := durationMS / 20
+	if steps < 5 {
+		steps = 5
+	}
+	if steps > 100 {
+		steps = 100
+	}
+	pause := time.Duration(durationMS) * time.Millisecond / time.Duration(steps)
+	for i := 1; i <= steps; i++ {
+		nx := fromScreenX + (toScreenX-fromScreenX)*i/steps
+		ny := fromScreenY + (toScreenY-fromScreenY)*i/steps
+		if err := setMousePoint(nx, ny); err != nil {
+			return err
+		}
+		time.Sleep(pause)
+	}
+	if err := sendMouse(mouseLeftUp, 0); err != nil {
+		return err
+	}
+	released = true
+	return nil
 }
 
 // reachType puts text into one element through its Value pattern.

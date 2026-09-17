@@ -56,7 +56,7 @@ Skills are the deliberate exception and do **not** live here — see below.
 | `<DataRoot>/.env` | whatever the user put in it |
 | `<DataRoot>/shell-audit.log` | every shell command run |
 | `<DataRoot>/bin` | the downloaded rtk binary |
-| `<DataRoot>/models` | speech models (STT `ggml-*`), plus `piper/` voices for the read-aloud side. Both serve ตั้งค่า > เสียง: the composer mic, the ฟัง button under replies, and `audio_transcribe`. Local vendors are the default; the page also offers cloud rows (Edge, gTTS, OpenAI, Groq, Gemini, Mistral, ElevenLabs) that say outright what leaves the machine when picked |
+| `<DataRoot>/models` | speech models (STT `ggml-*`), plus `piper/` voices for the read-aloud side. Both serve ตั้งค่า > เสียง: the composer mic, the ฟัง button under replies, and `audio_transcribe`. STT defaults local; TTS defaults to Microsoft Edge (free, no key) while Windows stays available as the offline choice. Cloud rows say outright what leaves the machine |
 | `<DataRoot>/snapshots` | file snapshots |
 | `<DataRoot>/webview` | the in-app browser's profile |
 | `<DataRoot>/update-check.json` | update state |

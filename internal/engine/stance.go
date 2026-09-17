@@ -73,7 +73,7 @@ func (a *Engine) SetStance(name string) (string, error) {
 		return next.String(), nil
 	}
 	a.cur().stance = next
-	a.applyConfig(a.cur(), a.cfg)
+	a.rebuildCurrentConversation()
 	a.persistStance()
 	return next.String(), nil
 }

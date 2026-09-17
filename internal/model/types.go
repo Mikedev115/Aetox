@@ -252,10 +252,16 @@ type ToolCall struct {
 }
 
 type Request struct {
-	Model       string           `json:"-"`
-	Messages    []Message        `json:"messages"`
-	Temperature float64          `json:"temperature,omitempty"`
-	MaxTokens   int              `json:"max_tokens,omitempty"`
+	Model       string    `json:"-"`
+	Messages    []Message `json:"messages"`
+	Temperature float64   `json:"temperature,omitempty"`
+	MaxTokens   int       `json:"max_tokens,omitempty"`
+	// ServiceTier selects the provider's processing lane. Only the Responses
+	// runtime consumes it today; every other adapter ignores it. Empty means the
+	// provider's standard/default lane. The value is capability-checked again
+	// when the Responses payload is built, so a saved Codex Fast choice cannot
+	// leak onto another provider after a model switch.
+	ServiceTier string           `json:"-"`
 	Tools       []ToolDefinition `json:"tools,omitempty"`
 	ToolChoice  string           `json:"tool_choice,omitempty"`
 	Reasoning   *ReasoningConfig `json:"reasoning,omitempty"`

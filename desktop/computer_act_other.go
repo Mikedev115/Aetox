@@ -12,6 +12,12 @@ func reachCloseWindow(uintptr) error { return errReachUnsupported }
 
 func reachClick(uintptr, []int32) error { return errReachUnsupported }
 
+func reachClickAt(uintptr, int, int, int, int) error { return errReachUnsupported }
+
+func reachScrollAt(uintptr, int, int, int, int, int) error { return errReachUnsupported }
+
+func reachDragAt(uintptr, int, int, int, int, int, int, int) error { return errReachUnsupported }
+
 func reachType(uintptr, []int32, string) error { return errReachUnsupported }
 
 func reachReadBack(uintptr, []int32) (string, error) { return "", errReachUnsupported }

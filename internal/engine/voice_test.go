@@ -36,6 +36,12 @@ func TestListEnginesMarkTheDefaultWhenNothingIsPicked(t *testing.T) {
 			t.Errorf("%s: %d engines marked active, want exactly 1", name, active)
 		}
 	}
+
+	for _, row := range a.ListTTSEngines() {
+		if row.Active && row.ID != "edge" {
+			t.Errorf("untouched TTS picker activates %q, want Microsoft Edge", row.ID)
+		}
+	}
 }
 
 func TestSetSpeechEnginePersistsAndRejectsUnknown(t *testing.T) {

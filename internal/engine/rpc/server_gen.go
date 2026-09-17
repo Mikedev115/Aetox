@@ -891,6 +891,15 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		}
 		r0, err := e.OpenProjectPath(p0)
 		return r0, err, true
+	case "OpenSession":
+		var p0 string
+		var p1 engine.DeskFilter
+		var p2 bool
+		if err := decodeParams(params, &p0, &p1, &p2); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.OpenSession(p0, p1, p2)
+		return r0, err, true
 	case "PageMarksOn":
 		return e.PageMarksOn(), nil, true
 	case "PairedDevices":
@@ -1155,6 +1164,12 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		}
 		r0, err := e.RemoveSpaceContext(p0, p1)
 		return r0, err, true
+	case "RemoveSpaceImage":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		return nil, e.RemoveSpaceImage(p0), true
 	case "RemoveStudioLibrary":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {
@@ -1649,6 +1664,14 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 			return nil, err, true
 		}
 		return nil, e.SetSkillTuneAuto(p0), true
+	case "SetSpaceImageFrom":
+		var p0 string
+		var p1 string
+		if err := decodeParams(params, &p0, &p1); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.SetSpaceImageFrom(p0, p1)
+		return r0, err, true
 	case "SetSpeechEngine":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {
@@ -1882,6 +1905,13 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		}
 		r0, err := e.SwitchProvider(p0)
 		return r0, err, true
+	case "SwitchServiceTier":
+		var p0 string
+		if err := decodeParams(params, &p0); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.SwitchServiceTier(p0)
+		return r0, err, true
 	case "SwitchThinkLevel":
 		var p0 string
 		if err := decodeParams(params, &p0); err != nil {
@@ -1991,6 +2021,23 @@ func dispatch(e *engine.Engine, method string, params json.RawMessage) (result a
 		return e.TurnRating(p0), nil, true
 	case "UndoLastTurn":
 		r0, err := e.UndoLastTurn()
+		return r0, err, true
+	case "UpdateProjectMeta":
+		var p0 string
+		var p1 string
+		var p2 string
+		if err := decodeParams(params, &p0, &p1, &p2); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.UpdateProjectMeta(p0, p1, p2)
+		return r0, err, true
+	case "UpdateSpaceDescription":
+		var p0 string
+		var p1 string
+		if err := decodeParams(params, &p0, &p1); err != nil {
+			return nil, err, true
+		}
+		r0, err := e.UpdateSpaceDescription(p0, p1)
 		return r0, err, true
 	case "UsageStats":
 		r0, err := e.UsageStats()

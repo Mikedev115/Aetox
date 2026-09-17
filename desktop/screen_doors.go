@@ -146,6 +146,22 @@ func (a *App) PickPresetImage(name string) (string, error) {
 	return a.withHostFile(path, 0, func(p string) (string, error) { return a.api.SetPresetImageFrom(name, p) })
 }
 
+// PickSpaceImage opens the native picker for the picture shown on a project
+// card and header. The bytes live with the project on the engine's machine, so
+// a remote engine takes the same host-file trip as attachments and context.
+func (a *App) PickSpaceImage(name string) (string, error) {
+	path, err := wailsruntime.OpenFileDialog(a.ctx, wailsruntime.OpenDialogOptions{
+		Title: "เลือกรูปโปรเจกต์",
+		Filters: []wailsruntime.FileFilter{
+			{DisplayName: "Images (*.png, *.jpg, *.jpeg, *.webp, *.gif, *.bmp)", Pattern: "*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp"},
+		},
+	})
+	if err != nil || strings.TrimSpace(path) == "" {
+		return "", err
+	}
+	return a.withHostFile(path, 4<<20, func(p string) (string, error) { return a.api.SetSpaceImageFrom(name, p) })
+}
+
 // InstallSkillFromZip asks for a skill archive and installs it.
 //
 // The third road in, and the one that covers everything the other two do not: a

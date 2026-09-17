@@ -23,9 +23,13 @@ import (
 // and writing it down here is what stops the next person assuming it was an
 // oversight and going looking again.
 //
-// Empty since 2026-09-05: deepwiki, the one name that lived here, now carries a
-// mark traced from its own PNG (see the note in mcpMarks.ts).
-var noMark = map[string]string{}
+// deepwiki, the one name that used to live here, now carries a mark traced from
+// its own PNG (see the note in mcpMarks.ts). ai-quota publishes no brand mark in
+// its repository or npm package, checked when the live server was added on
+// 2026-09-17; the lettered tile is deliberate rather than an invented logo.
+var noMark = map[string]string{
+	"ai-quota": "the project publishes no brand mark",
+}
 
 func TestEveryShelfServerHasABrandMarkOrASayWhyNot(t *testing.T) {
 	const (

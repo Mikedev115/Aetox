@@ -8,6 +8,7 @@ package main
 // the engine remembers.
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Mikedev115/Aetox/internal/engine"
@@ -15,7 +16,11 @@ import (
 )
 
 func seedTTSVoices(a *App, voices ...tts.Voice) {
-	a.ttsVoiceCache = map[string][]tts.Voice{"windows": voices}
+	engineID := "windows"
+	if desc, ok := tts.Lookup(strings.TrimSpace(a.api.VoiceSettings().TTSEngine)); ok {
+		engineID = desc.ID
+	}
+	a.ttsVoiceCache = map[string][]tts.Voice{engineID: voices}
 }
 
 // voiceApp is a screen whose engine keeps its voice preferences in a temp
@@ -95,4 +100,30 @@ func TestTheVoicePickIsTheEnginesToRemember(t *testing.T) {
 		t.Errorf("VoiceSettings() = %+v, want the voice just picked", got)
 	}
 	var _ engine.VoiceSettings = a.api.VoiceSettings()
+}
+
+// Installing a Windows language happens outside Aetox while the app remains
+// open. Refresh must discard the old process cache, enumerate again exactly
+// once, and leave that fresh roster cached for the picker.
+func TestRefreshTTSVoicesForgetsTheInstalledVoiceCache(t *testing.T) {
+	a := voiceApp(t)
+	seedTTSVoices(a, tts.Voice{ID: "old", Lang: "en-US"})
+	eng := &fakeSpeaker{voices: []tts.Voice{{ID: "new-thai", Name: "Thai", Lang: "th-TH"}}}
+	prev := newTTSEngine
+	newTTSEngine = func(tts.Options) (tts.Engine, error) { return eng, nil }
+	t.Cleanup(func() { newTTSEngine = prev })
+
+	got, err := a.RefreshTTSVoices()
+	if err != nil {
+		t.Fatalf("RefreshTTSVoices: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != "new-thai" {
+		t.Fatalf("RefreshTTSVoices = %+v, want the newly installed roster", got)
+	}
+	// A later read comes from the refreshed cache, not a second enumeration.
+	eng.voices = []tts.Voice{{ID: "should-not-be-read", Lang: "en-US"}}
+	again, err := a.ListTTSVoices()
+	if err != nil || len(again) != 1 || again[0].ID != "new-thai" {
+		t.Fatalf("ListTTSVoices after refresh = %+v, %v", again, err)
+	}
 }

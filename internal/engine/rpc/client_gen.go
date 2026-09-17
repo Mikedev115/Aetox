@@ -1230,6 +1230,12 @@ func (c *Client) OpenProjectPath(root string) (engine.ProjectStatus, error) {
 	return out0, err
 }
 
+func (c *Client) OpenSession(id string, filter engine.DeskFilter, anyProject bool) (engine.SessionOpenState, error) {
+	var out0 engine.SessionOpenState
+	err := c.call("OpenSession", []any{id, filter, anyProject}, &out0)
+	return out0, err
+}
+
 func (c *Client) PageMarksOn() bool {
 	var out0 bool
 	if err := c.call("PageMarksOn", nil, &out0); err != nil {
@@ -1573,6 +1579,10 @@ func (c *Client) RemoveSpaceContext(name string, file string) ([]string, error) 
 	var out0 []string
 	err := c.call("RemoveSpaceContext", []any{name, file}, &out0)
 	return out0, err
+}
+
+func (c *Client) RemoveSpaceImage(name string) error {
+	return c.call("RemoveSpaceImage", []any{name}, nil)
 }
 
 func (c *Client) RemoveStudioLibrary(id string) ([]engine.StudioLibraryView, error) {
@@ -2024,6 +2034,12 @@ func (c *Client) SetSkillTuneAuto(on bool) error {
 	return c.call("SetSkillTuneAuto", []any{on}, nil)
 }
 
+func (c *Client) SetSpaceImageFrom(name string, sourcePath string) (string, error) {
+	var out0 string
+	err := c.call("SetSpaceImageFrom", []any{name, sourcePath}, &out0)
+	return out0, err
+}
+
 func (c *Client) SetSpeechEngine(id string) error {
 	return c.call("SetSpeechEngine", []any{id}, nil)
 }
@@ -2334,6 +2350,12 @@ func (c *Client) SwitchProvider(provider string) (engine.ModelInfo, error) {
 	return out0, err
 }
 
+func (c *Client) SwitchServiceTier(tier string) (engine.ModelInfo, error) {
+	var out0 engine.ModelInfo
+	err := c.call("SwitchServiceTier", []any{tier}, &out0)
+	return out0, err
+}
+
 func (c *Client) SwitchThinkLevel(level string) (engine.ModelInfo, error) {
 	var out0 engine.ModelInfo
 	err := c.call("SwitchThinkLevel", []any{level}, &out0)
@@ -2457,6 +2479,18 @@ func (c *Client) TurnRating(messageID int64) string {
 func (c *Client) UndoLastTurn() (engine.UndoResult, error) {
 	var out0 engine.UndoResult
 	err := c.call("UndoLastTurn", nil, &out0)
+	return out0, err
+}
+
+func (c *Client) UpdateProjectMeta(root string, name string, description string) (engine.ProjectMeta, error) {
+	var out0 engine.ProjectMeta
+	err := c.call("UpdateProjectMeta", []any{root, name, description}, &out0)
+	return out0, err
+}
+
+func (c *Client) UpdateSpaceDescription(name string, description string) (engine.Space, error) {
+	var out0 engine.Space
+	err := c.call("UpdateSpaceDescription", []any{name, description}, &out0)
 	return out0, err
 }
 

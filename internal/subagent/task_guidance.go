@@ -33,6 +33,8 @@ func (d *delegationTool) Guidance(args map[string]any) string {
 		return collectGuidance
 	case "answer":
 		return answerGuidance
+	case "message":
+		return messageGuidance
 	case "plan":
 		return planGuidance
 	}
@@ -58,6 +60,10 @@ const collectGuidance = "Several ids at once cost the time of the slowest, not t
 
 const answerGuidance = "It resumes with everything it had already done still in hand, so answering costs far less than starting the job again.\n" +
 	"Name the choice. The worker cannot see this conversation, so \"the first one\" means nothing to it."
+
+const messageGuidance = "Forward an update only when it changes this worker's job; unrelated user messages stay with you. " +
+	"Send the relevant facts in full because the worker cannot see the main conversation. " +
+	"If the worker is waiting on ask_main, use answer instead — message does not release a question."
 
 const planGuidance = "Declare the stages BEFORE starting any of them, including the ones that have not happened yet, then name a phase on every start.\n" +
 	"A phase declared and left empty sits at zero on the user's screen for the whole run, which is what makes a checking round you promised hard to skip quietly."

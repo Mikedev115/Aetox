@@ -68,7 +68,7 @@ func (*renameSkill) ToolDefinition() model.ToolDefinition {
 func (*renameSkill) Guidance(map[string]any) string {
 	return "Reach for this instead of edit all=true whenever the change IS a rename: " +
 		"the server changes every real use and never a string or a comment that happens to match. " +
-		"symbol (references) first tells you how big the blast radius is. " +
+		"codebase action=impact first shows the production, test and generated surfaces in the blast radius. " +
 		"Needs that language's server installed, same as diagnostics."
 }
 

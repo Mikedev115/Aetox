@@ -167,7 +167,8 @@ func (t reachTarget) Label() string {
 // split matters twice: reading is what the วางแผน stance keeps, and only these
 // take the screen lock and raise the takeover banner.
 var computerActingActions = map[string]bool{
-	"focus": true, "click": true, "type": true, "close": true,
+	"focus": true, "click": true, "click_at": true, "scroll": true,
+	"drag": true, "type": true, "close": true,
 }
 
 func computerIsActing(action string) bool {

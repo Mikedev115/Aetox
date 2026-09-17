@@ -63,10 +63,11 @@ func (a *Engine) SetImageEngine(id string) error {
 	if _, ok := imagegen.Lookup(id); !ok {
 		return fmt.Errorf("ไม่รู้จัก engine สร้างภาพชื่อ %q", id)
 	}
-	next := a.cfg
+	conv := a.cur()
+	next := a.dialBase(conv)
 	next.ImageEngine = id
 	next.ImageModelName = ""
-	a.applyConfig(a.cur(), next)
+	a.applyConfig(conv, next)
 	return nil
 }
 
@@ -77,9 +78,10 @@ func (a *Engine) SetImageModelName(name string) error {
 	if err := validateNamedModel(imageDescriptors(), a.cur().cfg.ImageEngine, name); err != nil {
 		return err
 	}
-	next := a.cfg
+	conv := a.cur()
+	next := a.dialBase(conv)
 	next.ImageModelName = name
-	a.applyConfig(a.cur(), next)
+	a.applyConfig(conv, next)
 	return nil
 }
 

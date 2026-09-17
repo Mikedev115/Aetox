@@ -206,10 +206,13 @@ func windowToolCases() map[string]toolCase {
 		// machine running it is a test suite that types into somebody's real
 		// work. What stays checked is that each is routed and each refuses in
 		// words.
-		"computer_focus": {args: map[string]any{"window": "Notepad"}, available: never, why: "would drive a real window"},
-		"computer_click": {args: map[string]any{"ref": 1}, available: never, why: "would drive a real window"},
-		"computer_type":  {args: map[string]any{"ref": 1, "text": "x"}, available: never, why: "would drive a real window"},
-		"computer_close": {args: map[string]any{"window": "Notepad"}, available: never, why: "would drive a real window"},
+		"computer_focus":    {args: map[string]any{"window": "Notepad"}, available: never, why: "would drive a real window"},
+		"computer_click":    {args: map[string]any{"ref": 1}, available: never, why: "would drive a real window"},
+		"computer_click_at": {args: map[string]any{"snapshot": "shot-1", "x": 1, "y": 1}, available: never, why: "would drive a real window"},
+		"computer_scroll":   {args: map[string]any{"snapshot": "shot-1", "x": 1, "y": 1, "delta_y": -1}, available: never, why: "would drive a real window"},
+		"computer_drag":     {args: map[string]any{"snapshot": "shot-1", "x": 1, "y": 1, "to_x": 2, "to_y": 2}, available: never, why: "would drive a real window"},
+		"computer_type":     {args: map[string]any{"ref": 1, "text": "x"}, available: never, why: "would drive a real window"},
+		"computer_close":    {args: map[string]any{"window": "Notepad"}, available: never, why: "would drive a real window"},
 	}
 }
 

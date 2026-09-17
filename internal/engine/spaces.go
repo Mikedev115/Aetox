@@ -2,7 +2,10 @@ package engine
 
 import (
 	"database/sql"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"mime"
 	"os"
 	"path/filepath"
 	"sort"
@@ -37,6 +40,8 @@ import (
 // which is a fact about the session and lives on the session's own row.
 type Space struct {
 	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	Image        string   `json:"image"` // project picture as a data URI, empty for the generated monogram
 	Path         string   `json:"path"`
 	ContextPath  string   `json:"contextPath"`
 	ContextFiles []string `json:"contextFiles"`
@@ -55,6 +60,24 @@ type Space struct {
 // so a space can grow other folders later without the context becoming "the
 // files that happen to not be in a subfolder".
 const contextDirName = "context"
+
+// Metadata is deliberately a small hidden file inside the project's own
+// folder. The folder remains the record that the project exists, while the
+// sentence the owner wrote travels with that folder when it is backed up or
+// moved. The picture sits beside it so neither is mistaken for assistant
+// context and offered to every chat.
+const (
+	spaceMetaFile            = ".aetox.json"
+	spaceImageBase           = ".aetox-cover"
+	maxSpaceImageBytes       = 4 << 20
+	maxSpaceDescriptionRunes = 240
+)
+
+var spaceImageExts = []string{".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
+
+type spaceMetadata struct {
+	Description string `json:"description,omitempty"`
+}
 
 // spacesRoot is <DataRoot>/project — the owner named this path, and it is
 // deliberately beside modes/, agents/ and subagents/ rather than inside the
@@ -175,6 +198,8 @@ func (a *Engine) describeSpace(path, name string, chats int) Space {
 		ContextModified: map[string]string{},
 		Chats:           chats,
 	}
+	space.Description = readSpaceMetadata(path).Description
+	space.Image = readSpaceImage(path)
 	if info, err := os.Stat(path); err == nil {
 		space.UpdatedAt = info.ModTime().Format(time.RFC3339)
 	}
@@ -192,6 +217,146 @@ func (a *Engine) describeSpace(path, name string, chats int) Space {
 		sort.Strings(space.ContextFiles)
 	}
 	return space
+}
+
+func readSpaceMetadata(path string) spaceMetadata {
+	var meta spaceMetadata
+	data, err := os.ReadFile(filepath.Join(path, spaceMetaFile))
+	if err == nil {
+		_ = json.Unmarshal(data, &meta)
+	}
+	meta.Description = strings.TrimSpace(meta.Description)
+	return meta
+}
+
+func writeSpaceMetadata(path string, meta spaceMetadata) error {
+	data, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	return os.WriteFile(filepath.Join(path, spaceMetaFile), data, 0o644)
+}
+
+func spaceImagePath(path string) (string, bool) {
+	for _, ext := range spaceImageExts {
+		candidate := filepath.Join(path, spaceImageBase+ext)
+		if info, err := os.Stat(candidate); err == nil && info.Mode().IsRegular() {
+			return candidate, true
+		}
+	}
+	return "", false
+}
+
+func readSpaceImage(path string) string {
+	imagePath, ok := spaceImagePath(path)
+	if !ok {
+		return ""
+	}
+	info, err := os.Stat(imagePath)
+	if err != nil || info.Size() > maxSpaceImageBytes {
+		return ""
+	}
+	data, err := os.ReadFile(imagePath)
+	if err != nil {
+		return ""
+	}
+	mimeType := mime.TypeByExtension(filepath.Ext(imagePath))
+	if mimeType == "" {
+		mimeType = "image/png"
+	}
+	return "data:" + mimeType + ";base64," + base64.StdEncoding.EncodeToString(data)
+}
+
+func touchSpaceFolder(path string) {
+	now := time.Now()
+	_ = os.Chtimes(path, now, now)
+}
+
+// UpdateSpaceDescription changes the one user-owned sentence shown on the
+// project card and header. It does not rename the folder or touch its chats.
+func (a *Engine) UpdateSpaceDescription(name, description string) (Space, error) {
+	path, err := spacePath(name)
+	if err != nil {
+		return Space{}, err
+	}
+	if info, err := os.Stat(path); err != nil || !info.IsDir() {
+		return Space{}, fmt.Errorf("ยังไม่มีโปรเจกต์ชื่อนี้")
+	}
+	description = strings.TrimSpace(description)
+	if len([]rune(description)) > maxSpaceDescriptionRunes {
+		return Space{}, fmt.Errorf("คำอธิบายยาวเกินไป (ไม่เกิน %d ตัวอักษร)", maxSpaceDescriptionRunes)
+	}
+	if err := writeSpaceMetadata(path, spaceMetadata{Description: description}); err != nil {
+		return Space{}, err
+	}
+	touchSpaceFolder(path)
+	return a.describeSpace(path, filepath.Base(path), a.spaceChatCounts()[filepath.Base(path)]), nil
+}
+
+// SetSpaceImageFrom copies a square project picture into the project's own
+// folder and returns the data URI the UI can paint immediately. The original
+// is never changed, and replacing a picture removes the previous format so a
+// stale .jpg cannot win over a newer .png on the next read.
+func (a *Engine) SetSpaceImageFrom(name, sourcePath string) (string, error) {
+	path, err := spacePath(name)
+	if err != nil {
+		return "", err
+	}
+	if info, err := os.Stat(path); err != nil || !info.IsDir() {
+		return "", fmt.Errorf("ยังไม่มีโปรเจกต์ชื่อนี้")
+	}
+	ext := strings.ToLower(filepath.Ext(strings.TrimSpace(sourcePath)))
+	allowed := false
+	for _, candidate := range spaceImageExts {
+		if ext == candidate {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		return "", fmt.Errorf("ไฟล์รูปต้องเป็นนามสกุล %s", strings.Join(spaceImageExts, " "))
+	}
+	data, err := os.ReadFile(sourcePath)
+	if err != nil {
+		return "", err
+	}
+	if len(data) > maxSpaceImageBytes {
+		return "", fmt.Errorf("รูปใหญ่เกิน %d MB — ย่อก่อนแล้วลองใหม่", maxSpaceImageBytes>>20)
+	}
+	target := filepath.Join(path, spaceImageBase+ext)
+	if err := os.WriteFile(target, data, 0o644); err != nil {
+		return "", err
+	}
+	// Write first so a failed replacement leaves the previous picture intact.
+	// Once the new bytes are safely present, remove every other supported
+	// extension; otherwise the deterministic reader could find an older format.
+	for _, candidateExt := range spaceImageExts {
+		candidate := filepath.Join(path, spaceImageBase+candidateExt)
+		if candidate == target {
+			continue
+		}
+		if err := os.Remove(candidate); err != nil && !os.IsNotExist(err) {
+			return "", err
+		}
+	}
+	touchSpaceFolder(path)
+	return readSpaceImage(path), nil
+}
+
+// RemoveSpaceImage restores the generated colour-and-monogram fallback.
+func (a *Engine) RemoveSpaceImage(name string) error {
+	path, err := spacePath(name)
+	if err != nil {
+		return err
+	}
+	if imagePath, ok := spaceImagePath(path); ok {
+		if err := os.Remove(imagePath); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	touchSpaceFolder(path)
+	return nil
 }
 
 // spaceChatCounts is one query for the whole page rather than one per row.
@@ -385,7 +550,7 @@ func (a *Engine) NewSessionInSpace(name string) (string, error) {
 	// NewSessionAt already did one, and it ran before this line — without a
 	// second the assistant would be told about the project one message late,
 	// which is the message where it matters most.
-	a.applyConfig(a.cur(), a.cfg)
+	a.rebuildCurrentConversation()
 	return id, nil
 }
 

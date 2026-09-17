@@ -450,3 +450,30 @@ func TestRetryTransportRetriesAQuotaThatNamesItsOwnWait(t *testing.T) {
 		t.Error("insufficient_quota stopped being read as an empty wallet")
 	}
 }
+
+// Codex plan limits (usage_limit_reached or hours-long reset) must not trigger
+// the transport's rapid 1s/2s retries.
+func TestCodexUsageLimitReachedStopsTransportRetriesImmediately(t *testing.T) {
+	var calls int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		w.Header().Set("x-codex-primary-reset-after-seconds", "7200")
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte(`{"error":{"type":"usage_limit_reached","plan_type":"plus","resets_in_seconds":7200}}`))
+	}))
+	defer server.Close()
+
+	client := newModelHTTPClient(5*time.Second, "", nil)
+	resp, err := client.Do(mustPost(t, server.URL))
+	if err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if got := atomic.LoadInt32(&calls); got != 1 {
+		t.Fatalf("calls = %d; want 1 (retryTransport must not retry a long plan-level limit)", got)
+	}
+	if !outOfCredits([]byte(`{"error":{"type":"usage_limit_reached"}}`)) {
+		t.Error("usage_limit_reached should be recognized as non-retryable quota limit")
+	}
+}

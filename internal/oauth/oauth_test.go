@@ -210,6 +210,35 @@ func TestStatusForNeverLeaksTokens(t *testing.T) {
 	}
 }
 
+func TestStatusForDoesNotCallExpiredUnrenewableOAuthSignedIn(t *testing.T) {
+	isolateStore(t)
+	if err := Set("vercel", Credential{
+		Type: "oauth", Access: "expired-access",
+		ExpiresAt: time.Now().Add(-time.Hour).UnixMilli(),
+		Label:     "vercel",
+	}); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	status := StatusFor("vercel")
+	if status.SignedIn {
+		t.Fatalf("StatusFor = %+v; an expired credential with no refresh path must ask for sign-in", status)
+	}
+}
+
+func TestStatusForKeepsRenewableOAuthSignedIn(t *testing.T) {
+	isolateStore(t)
+	if err := Set("vercel", Credential{
+		Type: "oauth", Access: "expired-access", Refresh: "refresh-token",
+		ExpiresAt:     time.Now().Add(-time.Hour).UnixMilli(),
+		TokenEndpoint: "https://example.com/token",
+	}); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	if status := StatusFor("vercel"); !status.SignedIn {
+		t.Fatalf("StatusFor = %+v; a credential that can refresh is still signed in", status)
+	}
+}
+
 // Credentials for the sign-ins Aetox no longer offers — Claude Pro/Max (§64),
 // Qwen (§65), Gemini Code Assist (§66) and Antigravity (§242) — may still sit in
 // an oauth.json written by an older version. They must read as signed out: never

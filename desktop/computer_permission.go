@@ -27,7 +27,9 @@ package main
 // the rule and never becomes a gate of its own.
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -48,23 +50,57 @@ const computerToolPrefix = "computer_*"
 func reachRuleFor(exePath string) safety.PermissionRule {
 	return safety.PermissionRule{
 		Tool:    computerToolPrefix,
-		Pattern: exeKey(exePath) + "*",
+		Pattern: reachIdentity(exePath) + "*",
 		Action:  safety.PermissionAllow,
 	}
 }
 
-// reachGranted reports whether the user has already said yes to this program.
-func reachGranted(exePath string) bool {
+// reachIdentity keeps a grant attached to the executable the user chose, not
+// merely to its filename. Without the path fingerprint, an unrelated program
+// renamed to notepad.exe inherits Notepad's grant. The path itself is not put
+// in permissions.json; the short hash is enough to separate identities without
+// turning the file into a catalogue of installed locations.
+func reachIdentity(exePath string) string {
 	key := exeKey(exePath)
 	if key == "" {
+		return ""
+	}
+	clean := filepath.Clean(strings.TrimSpace(exePath))
+	if !filepath.IsAbs(clean) {
+		return key // best available identity when Windows would not reveal a path
+	}
+	normalized := strings.ToLower(filepath.ToSlash(clean))
+	sum := sha256.Sum256([]byte(normalized))
+	return fmt.Sprintf("%s@%x", key, sum[:8])
+}
+
+func grantedComputerName(pattern string) string {
+	id := strings.TrimSuffix(strings.TrimSpace(pattern), "*")
+	if at := strings.IndexByte(id, '@'); at >= 0 {
+		id = id[:at]
+	}
+	return exeKey(id)
+}
+
+// reachGranted reports whether the user has already said yes to this program.
+func reachGranted(exePath string) bool {
+	id := reachIdentity(exePath)
+	if id == "" {
 		return false
 	}
 	cfg, err := config.LoadPermissions()
 	if err != nil {
 		return false
 	}
-	action, matched := cfg.Resolve("computer_read", []string{key})
-	return matched && action == safety.PermissionAllow
+	want := id + "*"
+	for i := len(cfg.Rules) - 1; i >= 0; i-- {
+		r := cfg.Rules[i]
+		if strings.EqualFold(strings.TrimSpace(r.Tool), computerToolPrefix) &&
+			strings.EqualFold(strings.TrimSpace(r.Pattern), want) {
+			return safety.NormalizePermissionAction(string(r.Action)) == safety.PermissionAllow
+		}
+	}
+	return false
 }
 
 // GrantedComputerApps lists the programs the user has said yes to, for the
@@ -84,7 +120,7 @@ func (a *App) GrantedComputerApps() []string {
 		if safety.NormalizePermissionAction(string(r.Action)) != safety.PermissionAllow {
 			continue
 		}
-		name := strings.TrimSuffix(strings.TrimSpace(r.Pattern), "*")
+		name := grantedComputerName(r.Pattern)
 		if name == "" || seen[name] {
 			continue
 		}
@@ -104,7 +140,7 @@ func (a *App) RevokeComputerApp(name string) error {
 		kept := cfg.Rules[:0]
 		for _, r := range cfg.Rules {
 			if strings.EqualFold(strings.TrimSpace(r.Tool), computerToolPrefix) &&
-				strings.TrimSuffix(strings.TrimSpace(r.Pattern), "*") == key {
+				grantedComputerName(r.Pattern) == key {
 				continue
 			}
 			kept = append(kept, r)
@@ -147,6 +183,7 @@ func requireReachApp(t reachTarget) error {
 // ComputerAppRow is one program the settings page can offer to allow: a window
 // the user has open right now, with what Aetox would be able to do to it.
 type ComputerAppRow struct {
+	ID      string `json:"id"`      // executable identity passed back when the user grants it
 	Name    string `json:"name"`    // the program key the grant is written against
 	Title   string `json:"title"`   // the window title the user is looking at
 	Allowed bool   `json:"allowed"` // already on the list
@@ -167,15 +204,17 @@ func (a *App) OpenComputerApps() []ComputerAppRow {
 	seen := map[string]bool{}
 	for _, w := range windows {
 		key := exeKey(w.Exe)
+		id := reachIdentity(w.Exe)
 		tier, note := appTier(w.Exe)
 		// Never-driven kinds are left out entirely rather than shown greyed:
 		// Aetox's own windows are the main case, and offering to allow one is
 		// offering something that will never be honoured.
-		if key == "" || tier == tierNever || seen[key] {
+		if key == "" || id == "" || tier == tierNever || seen[id] {
 			continue
 		}
-		seen[key] = true
+		seen[id] = true
 		row := ComputerAppRow{
+			ID:      w.Exe,
 			Name:    key,
 			Title:   w.Title,
 			Allowed: reachGranted(w.Exe),
@@ -199,18 +238,18 @@ func (a *App) OpenComputerApps() []ComputerAppRow {
 }
 
 // AllowComputerApp puts one program on the list.
-func (a *App) AllowComputerApp(name string) error {
-	key := exeKey(name)
+func (a *App) AllowComputerApp(exePath string) error {
+	key := exeKey(exePath)
 	if key == "" {
 		return fmt.Errorf("no program named")
 	}
 	// The tier is re-checked here rather than trusted from the row the user
 	// clicked: the page is a picture of a moment, and the rule is the rule.
-	if tier, note := appTier(key); tier == tierNever || tier == tierElsewhere {
+	if tier, note := appTier(exePath); tier == tierNever || tier == tierElsewhere {
 		return fmt.Errorf("%s", note)
 	}
 	if err := config.UpdatePermissions(func(cfg *safety.PermissionConfig) error {
-		rule := reachRuleFor(key)
+		rule := reachRuleFor(exePath)
 		for _, r := range cfg.Rules {
 			if strings.EqualFold(r.Tool, rule.Tool) && r.Pattern == rule.Pattern {
 				return nil
@@ -262,7 +301,7 @@ func (a *App) BrowseForComputerApp() (string, error) {
 		}
 		return "", fmt.Errorf("%s", note)
 	}
-	if err := a.AllowComputerApp(key); err != nil {
+	if err := a.AllowComputerApp(path); err != nil {
 		return "", err
 	}
 	return key, nil

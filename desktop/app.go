@@ -122,7 +122,16 @@ func NewApp() *App {
 	}
 	a.engine = newLocalEngine(a, a.client)
 	a.engine.token = token
+	a.installQuotaObserver()
 	return a
+}
+
+func (a *App) installQuotaObserver() {
+	model.SetQuotaObserver(func(providerName string, quotas []model.Quota) {
+		if a.api != nil {
+			a.api.NoteProviderQuotas(providerName, quotas)
+		}
+	})
 }
 
 // newClient is the wire's screen end, with this window's whole Screen

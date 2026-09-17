@@ -99,6 +99,32 @@ func TestResponsesBuildsTypedInputAndFlatTools(t *testing.T) {
 	}
 }
 
+func TestResponsesSendsCodexFastModeAsPriorityServiceTier(t *testing.T) {
+	SetResponsesModelFacts([]ResponsesModelFacts{{
+		Slug:         "gpt-5.6-luna",
+		ServiceTiers: []ServiceTier{{ID: "priority", Name: "Fast", Description: "1.5x speed, increased usage"}},
+	}})
+	t.Cleanup(func() { SetResponsesModelFacts(nil) })
+
+	payload, err := buildResponsesRequest("codex", "gpt-5.6-luna", Request{
+		Messages:    []Message{{Role: RoleUser, Content: "hello"}},
+		ServiceTier: "priority",
+	})
+	if err != nil {
+		t.Fatalf("buildResponsesRequest: %v", err)
+	}
+	if payload.ServiceTier != "priority" {
+		t.Fatalf("service tier = %q, want priority", payload.ServiceTier)
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !strings.Contains(string(raw), `"service_tier":"priority"`) {
+		t.Fatalf("payload = %s, want service_tier priority", raw)
+	}
+}
+
 func TestResponsesStreamAssemblesTextToolCallAndUsage(t *testing.T) {
 	body := sseLines(
 		`data: {"type":"response.created","response":{"model":"gpt-5.1-codex"}}`,

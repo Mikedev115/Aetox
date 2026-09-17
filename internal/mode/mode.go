@@ -620,7 +620,7 @@ func parse(name, raw string) Mode {
 		MCP: config.MCPServersForDesk(name),
 		// Read fresh here too, and for the same reason: switching a connection
 		// on in settings has to reach the next session without a restart.
-		Connections: config.ConnectionsForDesk(name, connect.IDs()),
+		Connections: connect.ConnectionsForDesk(name),
 		Chairs:      splitList(fields["chairs"]),
 		Dispatch:    splitList(fields["dispatch"]),
 		Memory:      strings.ToLower(strings.TrimSpace(fields["memory"])),

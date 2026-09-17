@@ -155,6 +155,12 @@ func TestFindPlainSkillsRootIsOneSkill(t *testing.T) {
 	if !slices.Contains(got[0].files, "references/api.md") {
 		t.Error("material beside the SKILL.md was not collected")
 	}
+	// Size is the complete installed folder, including the defining file. A
+	// prose-only skill is still not zero bytes, and the shelf shows this number
+	// before the user decides whether to install it.
+	if got[0].bytes != 230 {
+		t.Errorf("bytes = %d, want all 230 bytes including SKILL.md", got[0].bytes)
+	}
 }
 
 func TestFindPlainSkillsOneFolderDeepIsACollection(t *testing.T) {

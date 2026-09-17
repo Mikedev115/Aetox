@@ -34,6 +34,7 @@ import (
 	aetoxapp "github.com/Mikedev115/Aetox/internal/app"
 	"github.com/Mikedev115/Aetox/internal/cognitive"
 	"github.com/Mikedev115/Aetox/internal/mode"
+	"github.com/Mikedev115/Aetox/internal/prompt"
 	"github.com/Mikedev115/Aetox/internal/skill"
 	"github.com/Mikedev115/Aetox/internal/subagent"
 	"github.com/Mikedev115/Aetox/internal/turn"
@@ -113,6 +114,10 @@ type conversation struct {
 	// this is the one coordinate that may change mid-conversation, because a
 	// stance only ever subtracts from the desk.
 	stance mode.Stance
+	// transport is the external delivery context for this conversation. Empty
+	// for every normal Aetox chat; Telegram/Discord set it once at birth and it
+	// survives every model/config rebuild with the rest of the coordinates.
+	transport prompt.Transport
 	// continuedFrom is the chat this one carries points from (§282), "" for
 	// a chat that started from nothing. Written to the session row at birth
 	// and never changed: a chat either continues another or it does not.

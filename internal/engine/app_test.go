@@ -1174,9 +1174,28 @@ func TestAMissingFileIsReportedAsGoneNotAsAnOSError(t *testing.T) {
 	}
 }
 
-// A directory and a path outside the sandbox are both "nothing here to open" —
-// but neither of them is the file having been deleted, and saying so is the
-// whole of §133. Only a real miss may take the offer to open away.
+func TestProjectFilePathAllowsADirectory(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	root := t.TempDir()
+	dir := filepath.Join(root, "backend", "tests")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	a := seed(&Engine{cfg: config.Config{SandboxRoot: root}}, newConversation())
+
+	got, err := a.ProjectFilePath(filepath.Join("backend", "tests"))
+	if err != nil {
+		t.Fatalf("ProjectFilePath(directory): %v", err)
+	}
+	if got != dir {
+		t.Errorf("ProjectFilePath(directory) = %q, want %q", got, dir)
+	}
+}
+
+// FileStillThere only makes a definite claim about regular files. A directory
+// (which ProjectFilePath may still hand to the OS) and a path outside the
+// sandbox are both unknown here, but neither is a deleted file. Only a real
+// miss may take the offer to open away.
 func TestNotAllowedToLookIsNotTheSameAsGone(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 	root := t.TempDir()

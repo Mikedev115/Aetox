@@ -82,9 +82,10 @@ func (a *Engine) SetSpeechModel(path string) error {
 			return fmt.Errorf("%q เป็นโฟลเดอร์ ไม่ใช่ไฟล์โมเดล", path)
 		}
 	}
-	next := a.cfg
+	conv := a.cur()
+	next := a.dialBase(conv)
 	next.SpeechModelPath = path
-	a.applyConfig(a.cur(), next)
+	a.applyConfig(conv, next)
 	return nil
 }
 

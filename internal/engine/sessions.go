@@ -22,6 +22,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/config"
 	"github.com/Mikedev115/Aetox/internal/mode"
 	"github.com/Mikedev115/Aetox/internal/model"
+	"github.com/Mikedev115/Aetox/internal/prompt"
 	"github.com/Mikedev115/Aetox/internal/safety"
 	"github.com/Mikedev115/Aetox/internal/subagent"
 	"github.com/Mikedev115/Aetox/internal/turn"
@@ -83,6 +84,43 @@ type SessionMessage struct {
 type SessionOrigin struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
+}
+
+// SessionOpenState is the complete read-side snapshot the desktop needs after
+// moving the engine cursor to a stored conversation.
+//
+// LoadSession predates the sidebar, per-chat model dials, restore points and
+// cross-project history, so the window had to follow it with a ladder of IPC
+// calls to rediscover the state the engine had just restored. On a local Wails
+// bridge that was visible as a pause after the transcript appeared; over the
+// remote engine bridge it multiplied network latency by every row in that
+// ladder. OpenSession returns this snapshot in the same round-trip as the
+// transcript while the cursor is known to still name the conversation opened.
+type SessionOpenState struct {
+	Messages  []SessionMessage `json:"messages"`
+	CurrentID string           `json:"currentId"`
+	Project   ProjectStatus    `json:"project"`
+	Model     ModelInfo        `json:"model"`
+	Desk      string           `json:"desk"`
+	Agent     string           `json:"agent"`
+	Team      string           `json:"team"`
+	Space     string           `json:"space"`
+	// Transport is the external chat carrying this conversation (telegram or
+	// discord), or empty for a conversation held in Aetox itself. It belongs to
+	// the session rather than to individual bubbles: every turn in one session
+	// crosses the same boundary, and reopening it must put the same mark back.
+	Transport      string            `json:"transport"`
+	Stance         string            `json:"stance"`
+	Stances        []string          `json:"stances"`
+	SpaceSessions  []SessionMeta     `json:"spaceSessions"`
+	Sessions       []SessionMeta     `json:"sessions"`
+	History        []SessionMeta     `json:"history"`
+	HistoryFault   StoreFault        `json:"historyFault"`
+	Spaces         []Space           `json:"spaces"`
+	UndoFiles      []string          `json:"undoFiles"`
+	RestorePoints  []RestorePoint    `json:"restorePoints"`
+	ProjectFolders []WorkspaceFolder `json:"projectFolders"`
+	Projects       []ProjectMeta     `json:"projects"`
 }
 
 // SessionVariant is one of the answers a question received. Stored as JSON in
@@ -305,9 +343,9 @@ func lastAttachedName(text string) string {
 // the act of answering — what is recorded is what actually answered.
 func upsertSessionRow(db sqlExecQuerier, conv *conversation, title, now string) error {
 	_, err := db.Exec(`
-		INSERT INTO sessions(id, project_key, title, created_at, updated_at, mode, agent, space, stance, team,
-		                     provider, model, wire_format, think_level, approval_mode, continued_from)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+		INSERT INTO sessions(id, project_key, title, created_at, updated_at, mode, agent, space, stance, team, transport,
+		                     provider, model, wire_format, think_level, service_tier, approval_mode, continued_from)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(id) DO UPDATE SET
 			updated_at = excluded.updated_at,
 			-- The dials, unlike the coordinates above, are meant to be turned
@@ -318,11 +356,12 @@ func upsertSessionRow(db sqlExecQuerier, conv *conversation, title, now string) 
 			model = excluded.model,
 			wire_format = excluded.wire_format,
 			think_level = excluded.think_level,
+			service_tier = excluded.service_tier,
 			approval_mode = excluded.approval_mode`,
 		conv.id, projectKey(conv.cfg.SandboxRoot), title, now, now,
-		conv.desk.DeskName(), conv.chair, conv.space, conv.stance.String(), conv.team,
+		conv.desk.DeskName(), conv.chair, conv.space, conv.stance.String(), conv.team, string(conv.transport),
 		conv.cfg.ModelProvider, conv.cfg.ModelName, conv.cfg.ModelWireFormat,
-		conv.cfg.ThinkLevel, conv.cfg.ApprovalMode, conv.continuedFrom)
+		conv.cfg.ThinkLevel, conv.cfg.ServiceTier, conv.cfg.ApprovalMode, conv.continuedFrom)
 	return err
 }
 
@@ -668,11 +707,14 @@ func (a *Engine) SearchSessions(query string) []SessionMeta {
 
 // ProjectMeta is one row in the sidebar's project switcher.
 type ProjectMeta struct {
-	Key      string `json:"key"`
-	Name     string `json:"name"`
-	RootPath string `json:"rootPath"`
-	OpenedAt string `json:"openedAt"`
-	Snippet  string `json:"snippet,omitempty"` // most recent session title, if any
+	Key         string `json:"key"`
+	Name        string `json:"name"`
+	Folder      string `json:"folder"`
+	Description string `json:"description"`
+	RootPath    string `json:"rootPath"`
+	OpenedAt    string `json:"openedAt"`
+	Sessions    int    `json:"sessions"`
+	Snippet     string `json:"snippet,omitempty"` // most recent session title, if any
 }
 
 // touchProject records/refreshes a project's "last opened" time so it shows
@@ -739,8 +781,9 @@ func (a *Engine) ForgetProject(root string) (ProjectStatus, error) {
 	return a.currentProjectStatus(), nil
 }
 
-// RecentProjects lists every project ever opened, newest first, each paired
-// with its most recent session title (if any) for the sidebar subtitle.
+// RecentProjects lists the light project index only. It deliberately does not
+// load the projects' sessions: the sidebar opens one project first, then asks
+// ListSessions for that project alone.
 func (a *Engine) RecentProjects() []ProjectMeta {
 	out := []ProjectMeta{}
 	db, err := a.database()
@@ -748,7 +791,9 @@ func (a *Engine) RecentProjects() []ProjectMeta {
 		return out
 	}
 	out, _ = queryAll(db, "projects", `
-		SELECT p.project_key, p.name, p.root_path, p.opened_at,
+		SELECT p.project_key, p.name, p.description, p.root_path, p.opened_at,
+		       (SELECT COUNT(*) FROM sessions s
+		        WHERE s.project_key = p.project_key AND s.mode != 'guide'),
 		       COALESCE((SELECT s.title FROM sessions s
 		                 WHERE s.project_key = p.project_key AND s.mode != 'guide'
 		                 ORDER BY s.updated_at DESC LIMIT 1), '')
@@ -756,10 +801,44 @@ func (a *Engine) RecentProjects() []ProjectMeta {
 		ORDER BY p.opened_at DESC LIMIT 50`, nil,
 		func(rows *sql.Rows) (ProjectMeta, error) {
 			var m ProjectMeta
-			err := rows.Scan(&m.Key, &m.Name, &m.RootPath, &m.OpenedAt, &m.Snippet)
+			err := rows.Scan(&m.Key, &m.Name, &m.Description, &m.RootPath, &m.OpenedAt, &m.Sessions, &m.Snippet)
+			m.Folder = filepath.Base(filepath.Clean(m.RootPath))
 			return m, err
 		})
 	return out
+}
+
+// UpdateProjectMeta changes only how a remembered project is presented. The
+// folder is not renamed and no session is touched, so aliases and descriptions
+// are safe even while work is running inside the project.
+func (a *Engine) UpdateProjectMeta(root, name, description string) (ProjectMeta, error) {
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return ProjectMeta{}, fmt.Errorf("ไม่ได้บอกว่าโปรเจกต์ไหน")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = filepath.Base(filepath.Clean(root))
+	}
+	description = strings.TrimSpace(description)
+	db, err := a.database()
+	if err != nil {
+		return ProjectMeta{}, err
+	}
+	result, err := db.Exec(`UPDATE projects SET name = ?, description = ? WHERE project_key = ?`,
+		name, description, projectKey(root))
+	if err != nil {
+		return ProjectMeta{}, err
+	}
+	if n, _ := result.RowsAffected(); n == 0 {
+		return ProjectMeta{}, fmt.Errorf("ไม่พบโปรเจกต์นี้ในรายการ")
+	}
+	for _, project := range a.RecentProjects() {
+		if project.Key == projectKey(root) {
+			return project, nil
+		}
+	}
+	return ProjectMeta{}, fmt.Errorf("อ่านข้อมูลโปรเจกต์ที่เพิ่งบันทึกไม่ได้")
 }
 
 // ListAllSessions returns chat history across every project, newest first —
@@ -984,6 +1063,67 @@ func (a *Engine) LoadSessionAnyProject(id string) ([]SessionMessage, error) {
 	return a.LoadSession(id)
 }
 
+// OpenSession opens one conversation and returns every piece of read-side UI
+// state that used to be fetched in separate calls afterwards. anyProject is
+// true for the global history door and false for a list already scoped to the
+// focused project. The desk filter remains a frontend-owned decision: the
+// engine stores desks, while the window decides which desks belong behind a
+// product door.
+func (a *Engine) OpenSession(id string, filter DeskFilter, anyProject bool) (SessionOpenState, error) {
+	var (
+		messages []SessionMessage
+		err      error
+	)
+	if anyProject {
+		messages, err = a.LoadSessionAnyProject(id)
+	} else {
+		messages, err = a.LoadSession(id)
+	}
+	if err != nil {
+		return SessionOpenState{}, err
+	}
+
+	current := a.CurrentSessionID()
+	space := a.CurrentSpace()
+	// A project-scoped list already has everything the workshop needs in
+	// Sessions below. Only the global door is allowed to walk history across
+	// every project; keeping that query behind anyProject is the backend half of
+	// the project-first loading boundary.
+	history := []SessionMeta{}
+	if anyProject {
+		history = a.ListSessionsForDoor(filter)
+	}
+	state := SessionOpenState{
+		Messages:       messages,
+		CurrentID:      current,
+		Project:        a.GetProjectStatus(),
+		Model:          a.GetModelInfo(),
+		Desk:           a.SessionMode(current),
+		Agent:          a.SessionAgent(current),
+		Team:           a.SessionTeam(current),
+		Space:          space,
+		Transport:      string(a.cur().transport),
+		Stance:         a.Stance(),
+		Stances:        a.Stances(),
+		Sessions:       a.ListSessions(),
+		History:        history,
+		Spaces:         a.Spaces(),
+		UndoFiles:      a.PendingUndo(),
+		RestorePoints:  a.RestorePoints(),
+		ProjectFolders: a.WorkspaceFolders(),
+		Projects:       a.RecentProjects(),
+	}
+	if space != "" {
+		state.SpaceSessions = a.SessionsInSpace(space)
+	} else {
+		state.SpaceSessions = []SessionMeta{}
+	}
+	if len(history) == 0 {
+		state.HistoryFault = a.HistoryFault()
+	}
+	return state, nil
+}
+
 // LoadSession switches to a stored session: the UI gets the transcript back,
 // and the agent's context is rebuilt from it so the conversation continues
 // with memory intact.
@@ -1061,13 +1201,13 @@ func (a *Engine) LoadSession(id string) ([]SessionMessage, error) {
 		// app's default, and one that recorded its own dials gets them back.
 		conv.cfg = a.cfg
 	}
-	var desk, chair, space, key, stance, team string
-	var provider, modelName, wireFormat, thinkLevel, approval string
-	if db.QueryRow(`SELECT mode, agent, space, project_key, stance, team,
-	                       provider, model, wire_format, think_level, approval_mode
+	var desk, chair, space, key, stance, team, transport string
+	var provider, modelName, wireFormat, thinkLevel, serviceTier, approval string
+	if db.QueryRow(`SELECT mode, agent, space, project_key, stance, team, transport,
+	                       provider, model, wire_format, think_level, service_tier, approval_mode
 	                FROM sessions WHERE id = ?`, id).
-		Scan(&desk, &chair, &space, &key, &stance, &team,
-			&provider, &modelName, &wireFormat, &thinkLevel, &approval) == nil {
+		Scan(&desk, &chair, &space, &key, &stance, &team, &transport,
+			&provider, &modelName, &wireFormat, &thinkLevel, &serviceTier, &approval) == nil {
 		// Before setStation, which re-bootstraps when the desk changed: set here
 		// and the engine that comes out of it already knows how this session was
 		// being run, instead of being built at ลงมือ and corrected a line later.
@@ -1096,6 +1236,7 @@ func (a *Engine) LoadSession(id string) ([]SessionMessage, error) {
 			conv.stance = mode.NormalizeStance(stance)
 			conv.desk, conv.chair, conv.team = m, seat, strings.TrimSpace(team)
 			conv.space = a.resolvedSpace(space)
+			conv.transport = prompt.Transport(strings.TrimSpace(transport))
 			// The dials this chat was left on, restored the same way and for
 			// the same reason as the four coordinates above: a conversation's
 			// engine is a derivative that gets thrown away and rebuilt, so
@@ -1127,6 +1268,7 @@ func (a *Engine) LoadSession(id string) ([]SessionMessage, error) {
 			if thinkLevel != "" {
 				conv.cfg.ThinkLevel = thinkLevel
 			}
+			conv.cfg.ServiceTier = model.NormalizeServiceTier(conv.cfg.ModelProvider, conv.cfg.ModelName, serviceTier)
 			if approval != "" {
 				conv.cfg.ApprovalMode = approval
 			}
@@ -1188,12 +1330,18 @@ func (a *Engine) readTranscript(id, key string) ([]SessionMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	// a.TurnRating below issues its own QueryRow while this cursor is still
-	// open, which the unbounded default pool serves from a second connection.
-	// eachRow holds no lock across the callback, so the re-entrancy is safe.
+	// The newest main-agent job is joined as a scalar subquery. This used to call
+	// TurnRating once per row while the transcript cursor was open: a 700-message
+	// chat meant 701 SQL statements and a second pooled connection merely to
+	// paint thumbs. One indexed lookup per row inside this statement preserves
+	// the exact newest-attempt rule without the query round-trips.
 	messages := []SessionMessage{}
 	err = eachRow(db, "transcript", `
-		SELECT m.id, m.role, m.text, m.time, m.reasoning, m.think_secs, m.variants, m.variant_active, m.parts, m.error_text
+		SELECT m.id, m.role, m.text, m.time, m.reasoning, m.think_secs,
+		       m.variants, m.variant_active, m.parts, m.error_text,
+		       COALESCE((SELECT j.outcome FROM jobs j
+		                 WHERE j.message_id = m.id AND j.agent = ''
+		                 ORDER BY j.id DESC LIMIT 1), 'unknown')
 		FROM messages m
 		JOIN sessions s ON s.id = m.session_id
 		WHERE m.session_id = ? AND s.project_key = ?
@@ -1202,12 +1350,11 @@ func (a *Engine) readTranscript(id, key string) ([]SessionMessage, error) {
 		func(rows *sql.Rows) error {
 			var m SessionMessage
 			var variants, parts string
-			if err := rows.Scan(&m.ID, &m.Role, &m.Text, &m.Time, &m.Reasoning, &m.ThinkSecs, &variants, &m.Active, &parts, &m.ErrorText); err != nil {
+			if err := rows.Scan(&m.ID, &m.Role, &m.Text, &m.Time, &m.Reasoning, &m.ThinkSecs, &variants, &m.Active, &parts, &m.ErrorText, &m.Rating); err != nil {
 				return err
 			}
 			m.Variants = decodeVariants(variants)
 			m.Parts = decodeParts(parts)
-			m.Rating = a.TurnRating(m.ID)
 			messages = append(messages, m)
 			return nil
 		})
@@ -1373,7 +1520,7 @@ func (a *Engine) setStation(desk, chair, team string) error {
 		return err
 	}
 	a.cur().desk, a.cur().chair, a.cur().team = m, seat, team
-	a.applyConfig(a.cur(), a.cfg)
+	a.rebuildCurrentConversation()
 	rememberDesk(m.DeskName())
 	return nil
 }

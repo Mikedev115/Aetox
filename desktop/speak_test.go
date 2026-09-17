@@ -19,9 +19,11 @@ import (
 // calls. Real engines here mean starting PowerShell, which a test about queue
 // pacing has no business doing.
 type fakeSpeaker struct {
-	calls atomic.Int64
-	mime  string
-	fail  error
+	calls    atomic.Int64
+	mime     string
+	fail     error
+	voices   []tts.Voice
+	voiceErr error
 }
 
 func (*fakeSpeaker) ID() string { return "fake" }
@@ -33,7 +35,7 @@ func (f *fakeSpeaker) Mime() string {
 	return f.mime
 }
 
-func (*fakeSpeaker) Voices(context.Context) ([]tts.Voice, error) { return nil, nil }
+func (f *fakeSpeaker) Voices(context.Context) ([]tts.Voice, error) { return f.voices, f.voiceErr }
 
 func (f *fakeSpeaker) Synthesize(_ context.Context, text, outPath string) error {
 	f.calls.Add(1)

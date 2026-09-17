@@ -125,17 +125,12 @@ func (o *screenOverlay) hide() { o.send(overlayCmd{on: false}) }
 
 // point puts Aetox's own pointer on a control, in virtual-screen pixels.
 //
-// **The real mouse never moves.** That is the whole design and it is a better
-// answer than the one the owner asked for by name — Codex on macOS gives each
-// agent its own cursor context, which Windows has no equivalent of, and moving
-// the real one would take the pointer out of the user's hand mid-sentence. What
-// this draws instead is a second pointer, in the same light as the frame, at the
-// element being pressed: the user sees WHERE Aetox is working and keeps their
-// own mouse the whole time.
-//
-// It is also honest in a way a hijacked cursor could not be. Nothing here is
-// aimed by coordinate — Invoke and SetValue go through the control — so this
-// pointer is a report of what was pressed, not the mechanism that pressed it.
+// UIA actions do not move the real mouse: this draws a second pointer so the
+// user sees WHERE Invoke or SetValue is working and keeps their own mouse.
+// Coordinate fallback actions are the explicit exception — Windows has no
+// per-agent cursor context, so click_at/scroll/drag move the real pointer while
+// the overlay shows the same bounded point. Those actions require a fresh
+// snapshot and expire it immediately; see computer_refs.go.
 func (o *screenOverlay) point(x, y int) {
 	o.send(overlayCmd{on: true, aim: true, at: winPoint{X: int32(x), Y: int32(y)}})
 }

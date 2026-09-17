@@ -175,6 +175,12 @@ type TurnOptions struct {
 	// here per execute; ThinkLevel above stays what a caller with no dial gets.
 	// Read through EffectiveThinkLevel, never directly.
 	ThinkLevelNow func() think.Level
+	// ServiceTier is the provider processing lane the turn starts on. Empty is
+	// standard. ServiceTierNow mirrors ThinkLevelNow: a Fast-mode press while a
+	// tool loop is running applies to the next model round because every round
+	// builds a fresh request.
+	ServiceTier    string
+	ServiceTierNow func() string
 	// Images ride with this turn's user message and this turn's only — they are
 	// set per Execute call, never on the executor, so an attachment cannot leak
 	// into the next question. Empty unless the caller both had an image and
@@ -263,6 +269,14 @@ func (o TurnOptions) EffectiveThinkLevel() think.Level {
 	return o.ThinkLevel
 }
 
+// EffectiveServiceTier is the processing lane to put on a request built now.
+func (o TurnOptions) EffectiveServiceTier() string {
+	if o.ServiceTierNow != nil {
+		return o.ServiceTierNow()
+	}
+	return o.ServiceTier
+}
+
 // LimitWait is a turn held open for a provider's rate limit to lift.
 type LimitWait struct {
 	// Waiting is true when the hold begins and false when it ends — on the
@@ -333,6 +347,7 @@ type Executor struct {
 	// loop rebuilds every round anyway. Nil means "the level the executor was
 	// built with"; a stored value is a press that happened since.
 	thinkLevel     atomic.Pointer[think.Level]
+	serviceTier    atomic.Pointer[string]
 	permissions    safety.PermissionConfig
 	summaryTimeout time.Duration
 	summaryLimit   int
@@ -473,6 +488,21 @@ func (e *Executor) currentApprovalMode() safety.ApprovalMode {
 func (e *Executor) SetThinkLevel(level think.Level) {
 	level = think.NormalizeLevel(string(level))
 	e.thinkLevel.Store(&level)
+}
+
+// SetServiceTier moves the provider processing lane for the running turn and
+// every turn after it. The request adapter still validates the value against
+// the active provider/model before putting it on the wire.
+func (e *Executor) SetServiceTier(tier string) {
+	tier = strings.ToLower(strings.TrimSpace(tier))
+	e.serviceTier.Store(&tier)
+}
+
+func (e *Executor) currentServiceTier() string {
+	if tier := e.serviceTier.Load(); tier != nil {
+		return *tier
+	}
+	return e.turnOptions.ServiceTier
 }
 
 // currentThinkLevel is the dial as it stands: the last press, or the level the
@@ -1139,6 +1169,8 @@ func (e *Executor) execute(
 	// not in each of them.
 	turnOptions.ThinkLevel = e.currentThinkLevel()
 	turnOptions.ThinkLevelNow = e.currentThinkLevel
+	turnOptions.ServiceTier = e.currentServiceTier()
+	turnOptions.ServiceTierNow = e.currentServiceTier
 
 	defer debuglog.Block("Turn: " + truncate(line, 120))()
 
@@ -2054,7 +2086,8 @@ func toolCallToArgs(name string, args map[string]any) []string {
 			return []string{strings.TrimSpace(raw)}
 		}
 	case "computer_apps", "computer_read", "computer_capture",
-		"computer_focus", "computer_click", "computer_type", "computer_close":
+		"computer_focus", "computer_click", "computer_click_at", "computer_scroll",
+		"computer_drag", "computer_type", "computer_close":
 		// The window first, because that is what the permission is keyed on:
 		// a user's yes is per program (desktop/computer_permission.go), and the
 		// rule it writes matches on the first token. It is also what the

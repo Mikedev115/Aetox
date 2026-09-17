@@ -1022,6 +1022,10 @@ export function OpenPromptsFolder() {
   return window['go']['main']['App']['OpenPromptsFolder']();
 }
 
+export function OpenSession(arg1, arg2, arg3) {
+  return window['go']['main']['App']['OpenSession'](arg1, arg2, arg3);
+}
+
 export function OpenSkillsFolder() {
   return window['go']['main']['App']['OpenSkillsFolder']();
 }
@@ -1096,6 +1100,10 @@ export function PickCodeProjectsDir() {
 
 export function PickPresetImage(arg1) {
   return window['go']['main']['App']['PickPresetImage'](arg1);
+}
+
+export function PickSpaceImage(arg1) {
+  return window['go']['main']['App']['PickSpaceImage'](arg1);
 }
 
 export function PictureBytes(arg1) {
@@ -1238,6 +1246,10 @@ export function RefreshSkills() {
   return window['go']['main']['App']['RefreshSkills']();
 }
 
+export function RefreshTTSVoices() {
+  return window['go']['main']['App']['RefreshTTSVoices']();
+}
+
 export function RegenerateReply(arg1) {
   return window['go']['main']['App']['RegenerateReply'](arg1);
 }
@@ -1288,6 +1300,10 @@ export function RemovePresetImage(arg1) {
 
 export function RemoveSpaceContext(arg1, arg2) {
   return window['go']['main']['App']['RemoveSpaceContext'](arg1, arg2);
+}
+
+export function RemoveSpaceImage(arg1) {
+  return window['go']['main']['App']['RemoveSpaceImage'](arg1);
 }
 
 export function RemoveStudioLibrary(arg1) {
@@ -1498,6 +1514,10 @@ export function SendToGuide(arg1, arg2) {
   return window['go']['main']['App']['SendToGuide'](arg1, arg2);
 }
 
+export function ServiceTiersFor(arg1, arg2) {
+  return window['go']['main']['App']['ServiceTiersFor'](arg1, arg2);
+}
+
 export function SessionAgent(arg1) {
   return window['go']['main']['App']['SessionAgent'](arg1);
 }
@@ -1644,6 +1664,10 @@ export function SetShell(arg1) {
 
 export function SetSkillTuneAuto(arg1) {
   return window['go']['main']['App']['SetSkillTuneAuto'](arg1);
+}
+
+export function SetSpaceImageFrom(arg1, arg2) {
+  return window['go']['main']['App']['SetSpaceImageFrom'](arg1, arg2);
 }
 
 export function SetSpeechEngine(arg1) {
@@ -1890,6 +1914,10 @@ export function SwitchProvider(arg1) {
   return window['go']['main']['App']['SwitchProvider'](arg1);
 }
 
+export function SwitchServiceTier(arg1) {
+  return window['go']['main']['App']['SwitchServiceTier'](arg1);
+}
+
 export function SwitchThinkLevel(arg1) {
   return window['go']['main']['App']['SwitchThinkLevel'](arg1);
 }
@@ -1976,6 +2004,14 @@ export function TurnRating(arg1) {
 
 export function UndoLastTurn() {
   return window['go']['main']['App']['UndoLastTurn']();
+}
+
+export function UpdateProjectMeta(arg1, arg2, arg3) {
+  return window['go']['main']['App']['UpdateProjectMeta'](arg1, arg2, arg3);
+}
+
+export function UpdateSpaceDescription(arg1, arg2) {
+  return window['go']['main']['App']['UpdateSpaceDescription'](arg1, arg2);
 }
 
 export function UsageStats() {

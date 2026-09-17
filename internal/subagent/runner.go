@@ -2,9 +2,11 @@ package subagent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -142,6 +144,14 @@ type runningTask struct {
 	// only learns of a question when a collector comes asking, and the tray has
 	// to show "stuck, needs you" before anyone has thought to collect.
 	parked *pendingAsk
+	// steer hands an update to the child agent without restarting it. accepting
+	// closes the tiny boundary between the child's last model round and this
+	// task publishing its result: message() and the finish check in task.go use
+	// this same lock, so an accepted update is either read by the current turn
+	// or deliberately starts one continuation turn — never left in a dead
+	// agent's buffer.
+	steer     func(string)
+	accepting bool
 	// collected: somebody has redeemed the finished result at least once. The
 	// tray hides a collected row — the work is in the conversation now — and
 	// only collect can know this, because collecting IS the one door out.
@@ -337,10 +347,20 @@ func (r *runningTask) finished() bool {
 	}
 }
 
+// finishOutput publishes the result and closes steering before done is closed.
+// Callers waiting on done therefore never observe a task that still accepts a
+// message it cannot process.
+func (r *runningTask) finishOutput(out skill.Output) {
+	r.mu.Lock()
+	r.accepting = false
+	r.output = out
+	r.mu.Unlock()
+}
+
 // Delegations is this session's register of delegations — running, parked on a
-// question, and finished. One instance is shared by the `task`, `task_result`
-// and `task_answer` tools, because they are three halves of one mechanism and
-// sharing state beats looking each other up.
+// question, and finished. One instance is shared by every action in the packed
+// `task` tool, because they are parts of one mechanism and sharing state beats
+// looking each other up.
 //
 // It is exported so the host can own it, and the host has to own it for one
 // reason: Stop. A delegate's life is the session's, not the turn's (see start),
@@ -397,6 +417,7 @@ type delegation struct {
 	// that was started without a declared job around it.
 	run   string
 	phase string
+	steer func(string)
 }
 
 // start registers a delegation and launches work in the background. work must
@@ -437,7 +458,8 @@ func (r *Delegations) start(spec delegation, work func(context.Context, *running
 		run: spec.run, phase: spec.phase,
 		asked: now, started: now, queued: true,
 		ctx: childCtx, cancel: cancel, done: make(chan struct{}),
-		asks: make(chan *pendingAsk, 1),
+		asks:  make(chan *pendingAsk, 1),
+		steer: spec.steer, accepting: spec.steer != nil,
 	}
 	r.tasks[id] = task
 	r.mu.Unlock()
@@ -458,12 +480,12 @@ func (r *Delegations) start(spec delegation, work func(context.Context, *running
 		select {
 		case r.slots <- struct{}{}:
 		case <-childCtx.Done():
-			task.output = failure(task.id, spec.label, 0,
-				"sub-agent stopped while it was waiting for a free slot")
+			task.finishOutput(failure(task.id, spec.label, 0,
+				"sub-agent stopped while it was waiting for a free slot"))
 			return
 		}
 		task.beginRun()
-		task.output = work(childCtx, task)
+		task.finishOutput(work(childCtx, task))
 	}()
 	return task
 }
@@ -490,7 +512,7 @@ func (r *Delegations) release(task *runningTask) {
 // a delegate waiting on `ask_main` is blocked on the parent, so a parent that
 // blocked on it would leave both parked until Stop. Collecting an asking
 // delegate returns the question — again, if it is asked again — never a wait.
-func (r *Delegations) collect(ctx context.Context, id string) (*runningTask, *pendingAsk, error) {
+func (r *Delegations) collect(ctx context.Context, id string, wake <-chan struct{}) (*runningTask, *pendingAsk, bool, error) {
 	r.mu.Lock()
 	task, ok := r.tasks[id]
 	r.mu.Unlock()
@@ -498,7 +520,7 @@ func (r *Delegations) collect(ctx context.Context, id string) (*runningTask, *pe
 	// The caller appends what is outstanding — saying it here too gave the model
 	// the same list twice in one message.
 	if !ok {
-		return nil, nil, fmt.Errorf("no sub-agent has id %q", id)
+		return nil, nil, false, fmt.Errorf("no sub-agent has id %q", id)
 	}
 	// A delegate that is finished — or stopped, which it has not necessarily
 	// noticed yet — outranks a question it asked earlier. Stop frees a parked
@@ -510,24 +532,53 @@ func (r *Delegations) collect(ctx context.Context, id string) (*runningTask, *pe
 		select {
 		case <-task.done:
 			task.markCollected()
-			return task, nil, nil
+			return task, nil, false, nil
 		case <-ctx.Done():
-			return nil, nil, ctx.Err()
+			return nil, nil, false, ctx.Err()
 		}
 	}
 	if p := task.currentAsk(); p != nil {
-		return task, p, nil
+		return task, p, false, nil
 	}
 	select {
 	case <-task.done:
 		task.markCollected()
-		return task, nil, nil
+		return task, nil, false, nil
 	case p := <-task.asks:
 		task.setAsk(p)
-		return task, p, nil
+		return task, p, false, nil
+	case <-wake:
+		return task, nil, true, nil
 	case <-ctx.Done():
-		return nil, nil, ctx.Err()
+		return nil, nil, false, ctx.Err()
 	}
+}
+
+// message sends a relevant update to a running delegate. It is intentionally
+// different from answer: answer releases ask_main, while message is soft input
+// the child considers at its next model boundary.
+func (r *Delegations) message(id, text string) error {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return errors.New("message is required — say what changed for the sub-agent")
+	}
+	r.mu.Lock()
+	task, ok := r.tasks[id]
+	r.mu.Unlock()
+	if !ok {
+		return fmt.Errorf("no sub-agent has id %q", id)
+	}
+
+	task.mu.Lock()
+	defer task.mu.Unlock()
+	if task.parked != nil || task.pending != nil {
+		return fmt.Errorf("sub-agent %s is waiting on ask_main — use task(action=answer) to answer its question", id)
+	}
+	if task.ctx.Err() != nil || !task.accepting || task.steer == nil {
+		return fmt.Errorf("sub-agent %s has already finished or stopped — collect it with task(action=collect)", id)
+	}
+	task.steer(text)
+	return nil
 }
 
 // answer releases a parked delegate. Refusing an unasked task is deliberate: a

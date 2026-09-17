@@ -20,6 +20,7 @@ func TestEveryScreenDoorHasItsEngineTwin(t *testing.T) {
 		"SavePicture":         "PictureBytes",
 		"ImportSession":       "ImportSessionFrom",
 		"PickPresetImage":     "SetPresetImageFrom",
+		"PickSpaceImage":      "SetSpaceImageFrom",
 		"InstallSkillFromZip": "InstallSkillsFromZipAt",
 		"AddSpaceContext":     "AddSpaceContextFiles",
 		"AddWorkspaceFolder":  "AddWorkspaceFolderAt",

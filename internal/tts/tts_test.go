@@ -17,6 +17,9 @@ func TestCatalogDefaultFirst(t *testing.T) {
 	if !got[0].Default {
 		t.Errorf("first catalog entry %q is not the default", got[0].ID)
 	}
+	if got[0].ID != "edge" {
+		t.Errorf("first catalog entry = %q, want Microsoft Edge as the shipped TTS default", got[0].ID)
+	}
 	// A picker rendered from this list shows Install as the user's next step —
 	// an entry without one is a dead end on screen.
 	for _, d := range got {
@@ -30,7 +33,7 @@ func TestCatalogDefaultFirst(t *testing.T) {
 }
 
 func TestLookup(t *testing.T) {
-	if d, ok := Lookup(""); !ok || !d.Default {
+	if d, ok := Lookup(""); !ok || !d.Default || d.ID != "edge" {
 		t.Errorf("empty id should resolve to the default engine, got %+v ok=%v", d, ok)
 	}
 	if d, ok := Lookup(" Windows "); !ok || d.ID != "windows" {
@@ -53,12 +56,22 @@ func TestNewUnknownEngineNamesTheSupported(t *testing.T) {
 	}
 }
 
+func TestNewDefaultEngineIsMicrosoftEdge(t *testing.T) {
+	eng, err := New(Options{})
+	if err != nil {
+		t.Fatalf("the shipped TTS default must work without local setup: %v", err)
+	}
+	if eng.ID() != "edge" {
+		t.Fatalf("default engine = %q, want edge", eng.ID())
+	}
+}
+
 func TestNewWindowsEngineOffWindows(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("this case only exists off Windows")
 	}
-	if _, err := New(Options{}); err == nil {
-		t.Fatal("the windows engine must refuse to build on a non-Windows machine")
+	if _, err := New(Options{Engine: "windows"}); err == nil {
+		t.Fatal("the explicitly selected windows engine must refuse to build off Windows")
 	}
 }
 

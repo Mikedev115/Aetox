@@ -25,8 +25,8 @@ func TestMicroCompactFiresMidTurnAndTheLoopSurvives(t *testing.T) {
 			ToolCalls: []model.ToolCall{{
 				ID: "call_" + strings.Repeat("x", i+1), Type: "function",
 				// A different path each round, or the doom-loop guard (rightly)
-			// stops the turn at five identical calls before the sweep line.
-			Function: model.FunctionCall{Name: "read", Arguments: `{"path":"big` + strings.Repeat("g", i) + `.txt"}`},
+				// stops the turn at five identical calls before the sweep line.
+				Function: model.FunctionCall{Name: "read", Arguments: `{"path":"big` + strings.Repeat("g", i) + `.txt"}`},
 			}},
 		})
 	}
@@ -82,5 +82,17 @@ func TestMicroCompactFiresMidTurnAndTheLoopSurvives(t *testing.T) {
 	items, chars, _ := agent.MaintenanceStats()
 	if items != swept || chars <= 0 {
 		t.Fatalf("MaintenanceStats says %d/%d, context says %d swept", items, chars, swept)
+	}
+}
+
+// Packing changed the function name stored on tool messages from repo_map to
+// codebase. The output is still read-only and re-obtainable, so leaving only
+// the legacy name here would make every new map survive the micro sweep.
+func TestPackedCodebaseOutputRemainsSweepable(t *testing.T) {
+	if !sweepableToolOutputs["codebase"] {
+		t.Fatal("packed codebase output is not sweepable")
+	}
+	if !sweepableToolOutputs["repo_map"] {
+		t.Fatal("legacy repo_map output stopped being sweepable for existing conversations")
 	}
 }

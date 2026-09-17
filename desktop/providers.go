@@ -126,6 +126,14 @@ func (a *App) ListModelsForProvider(providerName string) []string {
 	return []string{}
 }
 
+// ServiceTiersFor returns the processing lanes advertised by the Codex model
+// catalog discovered on this machine. Keeping this next to model discovery
+// means the UI never has to guess which models support Fast mode or hard-code
+// a speed multiplier that can differ by model.
+func (a *App) ServiceTiersFor(providerName, modelName string) []model.ServiceTier {
+	return model.SupportedServiceTiers(providerName, modelName)
+}
+
 // ProviderAccountFor answers for one provider: the Settings card the user
 // opened, or the one provider actually in use for the profile menu.
 //

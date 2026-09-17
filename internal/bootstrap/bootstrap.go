@@ -67,6 +67,14 @@ type Options struct {
 	// SurfaceCLI.
 	Surface prompt.Surface
 
+	// Transport is an optional delivery layer for a conversation carried by an
+	// external chat such as Telegram or Discord. It changes neither identity nor
+	// capability; it only tells the main assistant where replies are delivered
+	// and which presentation affordances exist there. Empty leaves the ordinary
+	// system prompt byte-for-byte unchanged. Delegates do not inherit it: they
+	// return work to the main assistant, which is the one delivering the answer.
+	Transport prompt.Transport
+
 	// Console is handed to app.NewApp, which requires a non-nil one. Nil means
 	// app.NewStdIO(). A process with no terminal must pass DiscardConsole().
 	Console aetoxapp.Console
@@ -177,7 +185,6 @@ type Options struct {
 	// (skill.FileState). One per app, so the agent's tools and the window's own
 	// editor can see each other move. Nil disables the guard.
 	Files *skill.FileState
-
 	// OpenSandbox lifts the file-tool wall around cfg.SandboxRoot: any path on
 	// the machine works except the credential stores (skill/sandbox_open.go),
 	// and the system prompt says so. The desktop passes true exactly when no
@@ -575,10 +582,11 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 	if ledger, ok := opts.Proposer.(memoryLedger); ok {
 		desk.Ledger = ledger.Ledger
 	}
+	systemPrompt := prompt.WithTransport(prompt.BuildForDesk(surface, scope, desk), opts.Transport)
 	agent := cognitive.NewAgent(cognitive.AgentConfig{
 		Provider:     bootstrapResult.Provider,
 		Model:        cfg.ModelName,
-		SystemPrompt: prompt.BuildForDesk(surface, scope, desk),
+		SystemPrompt: systemPrompt,
 		// Scale the retained-history budget to the model's real window
 		// (0 → NewContext's 128k-char default). At 80% of this budget the
 		// agent summarizes older turns into one message (cognitive
@@ -702,7 +710,8 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 	// User rules stay last (last-match-wins) so explicit choices still win.
 	permissions.Rules = append(opts.Manager.PermissionRules(), permissions.Rules...)
 
-	// `task`, `task_result` and `task_answer` — the only way a sub-agent runs
+	// The packed `task` actions — the only way a sub-agent runs, is collected,
+	// receives an update, or resumes after asking the main agent
 	// (§44.4, §44.11: starting one never blocks the turn). Registered here
 	// rather than in skill.RegisterDefaults because they need turn+cognitive,
 	// which skill cannot import. They hold the live provider/registry/
@@ -746,11 +755,12 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 	// Assigned once chatApp exists below; the delegate tools read it late.
 	var liveGate *aetoxapp.App
 	taskOpts := subagent.TaskOptions{
-		Provider:    bootstrapResult.Provider,
-		Model:       cfg.ModelName,
-		ProviderFor: opts.ProviderFor,
-		Registry:    registry,
-		Delegations: delegations,
+		Provider:           bootstrapResult.Provider,
+		Model:              cfg.ModelName,
+		ProviderFor:        opts.ProviderFor,
+		Registry:           registry,
+		Delegations:        delegations,
+		ParentInterjection: agent.InterjectionSignal(),
 		// The desk decides the ceiling a delegate runs under and which chairs
 		// this desk may hand a job to. The registry stays whole: a cross-desk
 		// dispatch runs on the target desk's manifest, so the tool it needs has
@@ -810,6 +820,7 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 		OnUsage:      opts.OnUsage,
 		MaxChars:     maxChars,
 		ThinkLevel:   think.NormalizeLevel(thinkLevel),
+		ServiceTier:  model.NormalizeServiceTier(cfg.ModelProvider, cfg.ModelName, cfg.ServiceTier),
 		Proposer:     opts.Proposer,
 	}
 	for _, tool := range subagent.NewTaskTools(taskOpts) {
@@ -863,6 +874,7 @@ func Engine(cfg config.Config, opts Options) (Result, error) {
 		// honoured the setting correctly. The CLI passed it and was never
 		// affected, which is why the picker looked fine everywhere it was tested.
 		ThinkLevel:     think.NormalizeLevel(thinkLevel),
+		ServiceTier:    model.NormalizeServiceTier(cfg.ModelProvider, cfg.ModelName, cfg.ServiceTier),
 		ApprovalMode:   approvalMode,
 		Permissions:    permissions,
 		Hooks:          hooks,

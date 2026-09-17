@@ -271,6 +271,12 @@ type Engine struct {
 	remoteOnce sync.Once
 	remoteSrv  *remoteServer
 
+	// Telegram/Discord listeners and the private background conversation queue
+	// for each paired external endpoint.
+	botMu      sync.Mutex
+	botCancels map[string]context.CancelFunc
+	botInboxes map[string]*channelInbox
+
 	// capabilities guards the one capability download allowed to be in flight
 	// (capabilities.go). Its own lock, because one mutex covering two unrelated
 	// things is how an unrelated caller ends up waiting on a 150MB download.
@@ -793,8 +799,9 @@ func (a *Engine) FileStillThere(relPath string) string {
 	return FileHere
 }
 
-// ProjectFilePath is the absolute path of a file in the open project, checked
-// to exist — the engine's half of OpenFileExternally (screen_doors.go).
+// ProjectFilePath is the absolute path of a file or directory in the open
+// project, checked to exist — the engine's half of OpenFileExternally
+// (screen_doors.go).
 func (a *Engine) ProjectFilePath(relPath string) (string, error) {
 	root := strings.TrimSpace(a.cur().cfg.SandboxRoot)
 	if root == "" {
@@ -804,7 +811,7 @@ func (a *Engine) ProjectFilePath(relPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	info, err := os.Stat(full)
+	_, err = os.Stat(full)
 	if os.IsNotExist(err) {
 		// A file the agent produced can legitimately be gone: it can delete
 		// files, and session output folders age out. Raising the OS error here
@@ -818,9 +825,8 @@ func (a *Engine) ProjectFilePath(relPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if info.IsDir() {
-		return "", fmt.Errorf("%q is a directory", relPath)
-	}
+	// A directory is valid to return: OpenFileExternally routes through
+	// revealInFileManager, which opens the folder in the OS file manager.
 	return full, nil
 }
 
@@ -1795,6 +1801,7 @@ type ModelInfo struct {
 	Provider     string `json:"provider"`
 	ModelName    string `json:"modelName"`
 	ThinkLevel   string `json:"thinkLevel"`
+	ServiceTier  string `json:"serviceTier"`
 	ApprovalMode string `json:"approvalMode"`
 	ContextUsed  int    `json:"contextUsed"`
 	ContextMax   int    `json:"contextMax"`
@@ -1823,10 +1830,11 @@ type ModelInfo struct {
 // fields that are only meaningful together are four chances to answer that
 // wrongly.
 type PendingModel struct {
-	Provider   string `json:"provider"`
-	ModelName  string `json:"modelName"`
-	ThinkLevel string `json:"thinkLevel"`
-	WireFormat string `json:"wireFormat"`
+	Provider    string `json:"provider"`
+	ModelName   string `json:"modelName"`
+	ThinkLevel  string `json:"thinkLevel"`
+	ServiceTier string `json:"serviceTier"`
+	WireFormat  string `json:"wireFormat"`
 	// Check is the preflight's verdict on this switch — "" not attempted,
 	// "checking", "ready", "failed" — and Note the latency label or the
 	// provider's own failure message. The point of proving it while the old
@@ -1953,6 +1961,7 @@ func (a *Engine) startup(ctx context.Context) {
 	}
 	a.startNewSession()
 	a.openAtRememberedDesk()
+	a.startConnectedBots()
 	// Era cleanup: home itself was the unfocused root until 2026-07-26
 	// (§19.1), and attachments copied there never expired. No session writes
 	// there anymore, so this only ever drains the old pile.
@@ -3006,9 +3015,10 @@ func (a *Engine) GetModelInfo() ModelInfo {
 	pending := pendingModelOf(conv)
 	a.turnMu.Unlock()
 	return ModelInfo{
-		Provider:   a.cur().cfg.ModelProvider,
-		ModelName:  a.cur().cfg.ModelName,
-		ThinkLevel: a.cur().cfg.ThinkLevel,
+		Provider:    a.cur().cfg.ModelProvider,
+		ModelName:   a.cur().cfg.ModelName,
+		ThinkLevel:  a.cur().cfg.ThinkLevel,
+		ServiceTier: model.NormalizeServiceTier(a.cur().cfg.ModelProvider, a.cur().cfg.ModelName, a.cur().cfg.ServiceTier),
 		// Normalized, never raw: before startup() has built a config this is
 		// "", and the frontend CACHES what this reports (seedModelFromCache) —
 		// so one early call painted an empty approval dropdown on every launch
@@ -3193,6 +3203,18 @@ func (a *Engine) dialBase(conv *conversation) config.Config {
 	return conv.cfg
 }
 
+// rebuildCurrentConversation re-bootstraps the conversation on screen without
+// borrowing a.cfg. That config is the template for a new chat and can already
+// point at another project; using it here silently moves an existing chat's
+// tools away from its attachments and work tree.
+//
+// dialBase also preserves a change that is already parked behind a running
+// turn. Rebuilding from conv.cfg alone would replace that pending choice.
+func (a *Engine) rebuildCurrentConversation() {
+	conv := a.cur()
+	a.applyConfig(conv, a.dialBase(conv))
+}
+
 // pendingModelOf reports the queued switch on this conversation, or nil when
 // nothing a person would call a model switch is waiting. Callers hold turnMu:
 // pendingCfg is guarded by it, not free-standing.
@@ -3207,16 +3229,17 @@ func pendingModelOf(conv *conversation) *PendingModel {
 		return nil
 	}
 	next, cur := *conv.pendingCfg, conv.cfg
-	if sameModelDials(next, cur) && next.ThinkLevel == cur.ThinkLevel {
+	if sameModelDials(next, cur) && next.ThinkLevel == cur.ThinkLevel && next.ServiceTier == cur.ServiceTier {
 		return nil
 	}
 	return &PendingModel{
-		Provider:   next.ModelProvider,
-		ModelName:  next.ModelName,
-		ThinkLevel: next.ThinkLevel,
-		WireFormat: effectiveWireFormat(next.ModelProvider, next.ModelWireFormat),
-		Check:      conv.pendingCheck,
-		Note:       conv.pendingNote,
+		Provider:    next.ModelProvider,
+		ModelName:   next.ModelName,
+		ThinkLevel:  next.ThinkLevel,
+		ServiceTier: next.ServiceTier,
+		WireFormat:  effectiveWireFormat(next.ModelProvider, next.ModelWireFormat),
+		Check:       conv.pendingCheck,
+		Note:        conv.pendingNote,
 	}
 }
 
@@ -3344,7 +3367,7 @@ func (a *Engine) GetContextBreakdown() ContextBreakdown {
 
 	var msgs []model.Message
 	if a.cur().agent != nil {
-		msgs = a.cur().agent.ContextMessages()
+		msgs = a.cur().agent.ContextMessagesForEstimate()
 	}
 
 	var defs []model.ToolDefinition
@@ -3932,7 +3955,7 @@ func (a *Engine) ProviderQuotas(providerName string) ([]model.Quota, bool) {
 // turn's headers — OpenRouter beside its credits, the OpenCode Go plan at
 // /usage — which the screen fetched with the key. Same sink as the headers.
 func (a *Engine) NoteProviderQuotas(providerName string, quotas []model.Quota) {
-	if len(quotas) == 0 {
+	if quotas == nil {
 		return
 	}
 	canonical := model.NormalizeProvider(providerName)
@@ -4029,6 +4052,7 @@ func (a *Engine) SwitchModel(modelName string) (ModelInfo, error) {
 		next.ModelName = a.defaultModel(next.ModelProvider, next.ModelBaseURL)
 	}
 	next.ThinkLevel = model.NormalizeThinkingLevel(next.ModelProvider, next.ModelName, next.ThinkLevel)
+	next.ServiceTier = model.NormalizeServiceTier(next.ModelProvider, next.ModelName, next.ServiceTier)
 	// Filed under the provider it was chosen on, before the rebuild: this is
 	// what makes switching away and back come back here.
 	rememberModelForProvider(next.ModelProvider, next.ModelName)
@@ -4093,6 +4117,7 @@ func (a *Engine) SetProviderBaseURL(providerName, baseURL string) (ModelInfo, er
 		// guess about a server we have not spoken to yet — re-resolve it.
 		next.ModelName = a.defaultModel(canonical, next.ModelBaseURL)
 		next.ThinkLevel = model.NormalizeThinkingLevel(canonical, next.ModelName, next.ThinkLevel)
+		next.ServiceTier = model.NormalizeServiceTier(canonical, next.ModelName, next.ServiceTier)
 		a.applyConfig(a.cur(), next)
 	}
 	return a.modelSwitchResult()
@@ -4257,6 +4282,7 @@ func (a *Engine) RetryActiveProvider() ModelInfo {
 	if strings.TrimSpace(next.ModelName) == "" {
 		next.ModelName = a.defaultModel(next.ModelProvider, next.ModelBaseURL)
 		next.ThinkLevel = model.NormalizeThinkingLevel(next.ModelProvider, next.ModelName, next.ThinkLevel)
+		next.ServiceTier = model.NormalizeServiceTier(next.ModelProvider, next.ModelName, next.ServiceTier)
 	}
 	a.applyConfig(a.cur(), next)
 	return a.GetModelInfo()
@@ -4270,6 +4296,7 @@ func (a *Engine) SwitchProvider(provider string) (ModelInfo, error) {
 	next.ModelWireFormat = "" // reset to the new provider's default format
 	next.ModelName = a.resolveModelForProvider(next.ModelProvider, next.ModelBaseURL)
 	next.ThinkLevel = model.NormalizeThinkingLevel(next.ModelProvider, next.ModelName, "")
+	next.ServiceTier = ""
 	a.applyConfig(a.cur(), next)
 	return a.dialResult(a.cur())
 }
@@ -4336,6 +4363,34 @@ func (a *Engine) SwitchThinkLevel(level string) (ModelInfo, error) {
 	a.turnMu.Unlock()
 	a.cfg.ThinkLevel = next.ThinkLevel
 	conv.chat.SetThinkLevel(think.NormalizeLevel(next.ThinkLevel))
+	persistModelPreference(a.cfg)
+	return a.dialResult(conv)
+}
+
+// SwitchServiceTier changes the provider processing lane for the current
+// Codex model. Like reasoning depth, this is read again for every model call,
+// so a running tool loop can take the new lane on its next round without an
+// engine rebuild. Empty selects the normal lane.
+func (a *Engine) SwitchServiceTier(tier string) (ModelInfo, error) {
+	conv := a.cur()
+	next := a.dialBase(conv)
+	requested := strings.ToLower(strings.TrimSpace(tier))
+	next.ServiceTier = model.NormalizeServiceTier(next.ModelProvider, next.ModelName, requested)
+	if requested != "" && requested != "normal" && requested != "standard" && requested != "default" && requested != "auto" && next.ServiceTier == "" {
+		return a.GetModelInfo(), fmt.Errorf("service tier %q is not supported by %s", tier, next.ModelName)
+	}
+	if conv.chat == nil || !sameModelDials(next, conv.cfg) {
+		a.applyConfig(conv, next)
+		return a.dialResult(conv)
+	}
+	a.turnMu.Lock()
+	conv.cfg.ServiceTier = next.ServiceTier
+	if conv.pendingCfg != nil {
+		conv.pendingCfg.ServiceTier = next.ServiceTier
+	}
+	a.turnMu.Unlock()
+	a.cfg.ServiceTier = next.ServiceTier
+	conv.chat.SetServiceTier(next.ServiceTier)
 	persistModelPreference(a.cfg)
 	return a.dialResult(conv)
 }
@@ -4676,6 +4731,7 @@ func (a *Engine) sessionSkills(conv *conversation, sandboxRoot string) []skill.S
 // point at when the event fires. That is the sentence §134.4 wrote down as the
 // missing half of this work, and it is one parameter.
 func (a *Engine) applyConfig(conv *conversation, cfg config.Config) {
+	cfg.ServiceTier = model.NormalizeServiceTier(cfg.ModelProvider, cfg.ModelName, cfg.ServiceTier)
 	// Never under a turn in flight. endTurn wrote the reason down for the
 	// workspace case and it is true of every caller: this function swaps the
 	// agent, the registry and the dispatcher, kills the delegations register,
@@ -4762,7 +4818,10 @@ func (a *Engine) applyConfig(conv *conversation, cfg config.Config) {
 	// compiles cleanly and shows up only as the UI drawing the wrong text.
 	res, bootErr := bootstrap.Engine(cfg, bootstrap.Options{
 		Surface: prompt.SurfaceDesktop,
-		Console: a.consoleOf(),
+		// Empty for an ordinary window conversation. Bot conversations carry
+		// their own delivery layer without changing the shared main prompt.
+		Transport: conv.transport,
+		Console:   a.consoleOf(),
 		// The desk the open session was created at. Nil — the full desk — until
 		// a session says otherwise, which is what every session before §83 and
 		// every unfiltered path still gets.
@@ -4956,6 +5015,7 @@ func (a *Engine) resolveConfig(opts config.ConfigOptions) config.Config {
 		if v := strings.TrimSpace(pref.ThinkLevel); v != "" {
 			cfg.ThinkLevel = v
 		}
+		cfg.ServiceTier = strings.TrimSpace(pref.ServiceTier)
 		if v := strings.TrimSpace(pref.ApprovalMode); v != "" {
 			cfg.ApprovalMode = v
 		}
@@ -5021,6 +5081,7 @@ func (a *Engine) resolveConfig(opts config.ConfigOptions) config.Config {
 		cfg.ModelName = a.defaultModel(cfg.ModelProvider, cfg.ModelBaseURL)
 	}
 	cfg.ThinkLevel = model.NormalizeThinkingLevel(cfg.ModelProvider, cfg.ModelName, cfg.ThinkLevel)
+	cfg.ServiceTier = model.NormalizeServiceTier(cfg.ModelProvider, cfg.ModelName, cfg.ServiceTier)
 	// Outside the block above, because the install that needs this most is the
 	// one with no preference file at all — inside, it would only ever reach a
 	// machine that had already saved something.
@@ -5125,6 +5186,7 @@ func persistModelPreference(cfg config.Config) {
 		pref.SetBaseURLForProvider(canonicalProvider, baseURL)
 		pref.ModelWireFormat = strings.TrimSpace(cfg.ModelWireFormat)
 		pref.ThinkLevel = model.NormalizeThinkingLevel(canonicalProvider, pref.ModelName, cfg.ThinkLevel)
+		pref.ServiceTier = model.NormalizeServiceTier(canonicalProvider, pref.ModelName, cfg.ServiceTier)
 		pref.ApprovalMode = string(safety.NormalizeApprovalMode(cfg.ApprovalMode))
 		// Only overwrite when we actually have one: a model change must not wipe a
 		// language the user already picked.

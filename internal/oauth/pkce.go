@@ -35,13 +35,16 @@ type Pending struct {
 	// lb is the local listener waiting for a redirect, for the flows that get
 	// to choose their own redirect URI. Nil for device-code and paste flows.
 	lb *Loopback
-	// tokenEndpoint and clientID are set only by StartMCPOAuth (mcpauth.go):
-	// a generic flow discovers both at Start time rather than knowing them
+	// tokenEndpoint, clientID, clientSecret and clientAuthMethod are set only by
+	// StartMCPOAuth (mcpauth.go):
+	// a generic flow discovers them at Start time rather than knowing them
 	// ahead of like every other flow in this file, and Finish needs them
 	// again to exchange the code and to save alongside the credential for a
 	// later refresh.
-	tokenEndpoint string
-	clientID      string
+	tokenEndpoint    string
+	clientID         string
+	clientSecret     string
+	clientAuthMethod string
 }
 
 // Provider is the canonical id this sign-in will store under.

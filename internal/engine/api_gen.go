@@ -198,6 +198,7 @@ type API interface {
 	NoteProviderQuotas(providerName string, quotas []model.Quota)
 	OpenGuideSession(provider string, model string, think string) (string, error)
 	OpenProjectPath(root string) (ProjectStatus, error)
+	OpenSession(id string, filter DeskFilter, anyProject bool) (SessionOpenState, error)
 	PageMarksOn() bool
 	PairedDevices() []RemoteDevice
 	PausePlanRun(sessionID string)
@@ -249,6 +250,7 @@ type API interface {
 	RemoveMCPServer(name string) error
 	RemovePresetImage(name string) error
 	RemoveSpaceContext(name string, file string) ([]string, error)
+	RemoveSpaceImage(name string) error
 	RemoveStudioLibrary(id string) ([]StudioLibraryView, error)
 	RemoveWorkspaceFolder(path string) ([]WorkspaceFolder, error)
 	RequiresAPIKey(providerName string) bool
@@ -324,6 +326,7 @@ type API interface {
 	SetSessionReviewAuto(on bool) error
 	SetShell(setting string) error
 	SetSkillTuneAuto(on bool) error
+	SetSpaceImageFrom(name string, sourcePath string) (string, error)
 	SetSpeechEngine(id string) error
 	SetSpeechModel(path string) error
 	SetSpeechModelName(name string) error
@@ -372,6 +375,7 @@ type API interface {
 	SwitchApprovalMode(mode string) (ModelInfo, error)
 	SwitchModel(modelName string) (ModelInfo, error)
 	SwitchProvider(provider string) (ModelInfo, error)
+	SwitchServiceTier(tier string) (ModelInfo, error)
 	SwitchThinkLevel(level string) (ModelInfo, error)
 	SwitchVariant(index int) (RegenerateResult, error)
 	SyncResponsesModelFacts(rows []model.ResponsesModelFacts) error
@@ -392,6 +396,8 @@ type API interface {
 	TurnInFlight() TurnStatus
 	TurnRating(messageID int64) string
 	UndoLastTurn() (UndoResult, error)
+	UpdateProjectMeta(root string, name string, description string) (ProjectMeta, error)
+	UpdateSpaceDescription(name string, description string) (Space, error)
 	UsageStats() (UsageStats, error)
 	UseEngine(family string, agent string, id string) error
 	UserName() string

@@ -647,10 +647,11 @@ func exitWord(err error) string {
 	return err.Error()
 }
 
-// engineCommand is how to start the engine on this machine: the binary
-// beside this one, or — in a development tree, where nothing has been
-// packaged — `go run` on the source, so `wails dev` needs no extra step.
-// AETOX_ENGINE names a binary outright, for a build of the engine alone.
+// engineCommand is how to start the engine on this machine. AETOX_ENGINE
+// names a binary outright. Otherwise a development tree always uses `go run`
+// on the source, even when an old engine binary happens to be beside the Wails
+// dev executable. A packaged app has no module root and uses the binary beside
+// the app.
 func engineCommand() (bin, dir string, prefix []string, err error) {
 	if custom := strings.TrimSpace(os.Getenv("AETOX_ENGINE")); custom != "" {
 		return custom, "", nil, nil
@@ -659,19 +660,26 @@ func engineCommand() (bin, dir string, prefix []string, err error) {
 	if err != nil {
 		return "", "", nil, err
 	}
+	return engineCommandForExecutable(exe)
+}
+
+// engineCommandForExecutable keeps the dev-versus-packaged choice testable.
+// The existence of a go.mod above the executable is the boundary: Wails puts
+// its dev executable below this module, while installed builds live elsewhere.
+func engineCommandForExecutable(exe string) (bin, dir string, prefix []string, err error) {
 	name := "aetox-engine"
 	if runtime.GOOS == "windows" {
 		name += ".exe"
-	}
-	beside := filepath.Join(filepath.Dir(exe), name)
-	if _, statErr := os.Stat(beside); statErr == nil {
-		return beside, "", nil, nil
 	}
 	root := moduleRootAbove(filepath.Dir(exe))
 	if root != "" {
 		if goBin, lookErr := exec.LookPath("go"); lookErr == nil {
 			return goBin, root, []string{"run", "./cmd/aetox-engine"}, nil
 		}
+	}
+	beside := filepath.Join(filepath.Dir(exe), name)
+	if _, statErr := os.Stat(beside); statErr == nil {
+		return beside, "", nil, nil
 	}
 	return "", "", nil, missingEngine(name, filepath.Dir(exe), root == "")
 }

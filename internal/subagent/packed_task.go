@@ -11,7 +11,7 @@ import (
 	"github.com/Mikedev115/Aetox/internal/skill"
 )
 
-// Delegation as ONE name in the tool block, four rights inside it (§99).
+// Delegation as ONE name in the tool block, five rights inside it (§99).
 //
 // It was four names until 2026-08-16, and the fourth is why it stopped being
 // four: declaring a run (run.go) needed a tool, and there was no room for one —
@@ -31,6 +31,7 @@ type delegationTool struct {
 	start   *taskTool
 	collect *taskResultTool
 	answer  *taskAnswerTool
+	message *taskMessageTool
 	plan    *taskPlanTool
 	// actions this caller may use, nil for all of them. Set only by Narrow.
 	actions []string
@@ -41,7 +42,7 @@ func (*delegationTool) Name() string { return "task" }
 // allowedActions is the whole set unless Narrow said otherwise.
 func (d *delegationTool) allowedActions() []string {
 	if len(d.actions) == 0 {
-		out := make([]string, 0, 4)
+		out := make([]string, 0, 5)
 		for _, c := range skill.PackedCalls("task") {
 			out = append(out, c.Action)
 		}
@@ -90,14 +91,14 @@ func (d *delegationTool) Narrow(named []string) skill.Skill {
 //
 // No `task_plan` for the reason `todo_write` is also absent from a chair chat: a
 // run declared here would draw a second panel over the one the person is already
-// watching. Starting, collecting and answering are the whole of the mechanism
-// without it.
+// watching. Starting, collecting, messaging and answering are the whole of the
+// mechanism without it.
 func (d *delegationTool) forChair() skill.Skill {
 	start := *d.start
 	start.opts.NoAgents = true
 	withRoster := *d
 	withRoster.start = &start
-	return withRoster.Narrow([]string{"task", "task_result", "task_answer"})
+	return withRoster.Narrow([]string{"task", "task_result", "task_answer", "task_message"})
 }
 
 // Description is the one place the rules of delegating are written, and every
@@ -131,7 +132,7 @@ func (d *delegationTool) Description() string {
 	// that somebody else did it. Checking your own change is not cheaper in a
 	// second context — it is more honest in one, because the context that made
 	// the change is the one least able to see what is wrong with it.
-	return "Delegation (มอบงาน): hand a self-contained job to a colleague (พนักงาน) or a helper (ลูกมือ), collect it, answer one that got stuck, " +
+	return "Delegation (มอบงาน): hand a self-contained job to a colleague (พนักงาน) or a helper (ลูกมือ), collect it, send a relevant update while it works, answer one that got stuck, " +
 		"and declare a run when the work takes more than one wave. See `action`. " +
 		"WHEN TO USE: work that would otherwise pour a lot into this conversation — a hunt through many " +
 		"files for something you cannot name yet, one mechanical change repeated across many places — and " +
@@ -150,6 +151,7 @@ func (d *delegationTool) actionLines() string {
 		"start":   "`start` (prompt, description, agent) — hand over a job. The default action. Returns a task id and does NOT wait.",
 		"collect": "`collect` (task_id) — redeem an id, or several comma separated.",
 		"answer":  "`answer` (task_id, answer) — reply to one that came back as a question.",
+		"message": "`message` (task_id, message) — send a relevant update to one still working; omit it when the update does not change that job.",
 		"plan":    "`plan` (name, brief, phases) — declare a run before starting any of it. Starts nothing.",
 	}
 	var b strings.Builder
@@ -199,16 +201,22 @@ func (d *delegationTool) ToolDefinition() model.ToolDefinition {
 			}
 		}
 	}
-	if slices.Contains(allowed, "collect") || slices.Contains(allowed, "answer") {
+	if slices.Contains(allowed, "collect") || slices.Contains(allowed, "answer") || slices.Contains(allowed, "message") {
 		properties["task_id"] = map[string]any{
 			"type":        "string",
-			"description": "collect/answer: the id start returned, e.g. \"task_1\".",
+			"description": "collect/answer/message: the id start returned, e.g. \"task_1\".",
 		}
 	}
 	if slices.Contains(allowed, "answer") {
 		properties["answer"] = map[string]any{
 			"type":        "string",
 			"description": "answer: the decision, in full.",
+		}
+	}
+	if slices.Contains(allowed, "message") {
+		properties["message"] = map[string]any{
+			"type":        "string",
+			"description": "message: only the new information that changes this worker's job. The worker keeps its existing context.",
 		}
 	}
 	if slices.Contains(allowed, "plan") {
@@ -278,6 +286,8 @@ func (d *delegationTool) ExecuteTool(ctx context.Context, args map[string]any) (
 		return d.collect.ExecuteTool(ctx, args)
 	case "answer":
 		return d.answer.ExecuteTool(ctx, args)
+	case "message":
+		return d.message.ExecuteTool(ctx, args)
 	case "plan":
 		return d.plan.ExecuteTool(ctx, args)
 	default:

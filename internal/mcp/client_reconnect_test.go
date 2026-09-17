@@ -12,6 +12,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -22,6 +23,26 @@ import (
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+func TestHeaderResolutionErrorStopsBeforeTheNetwork(t *testing.T) {
+	requests := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(ts.Close)
+
+	client := headerHTTPClient(nil, func() (map[string]string, error) {
+		return nil, errors.New("sign-in expired and cannot be renewed")
+	})
+	_, err := client.Get(ts.URL)
+	if err == nil || !strings.Contains(err.Error(), "sign-in expired and cannot be renewed") {
+		t.Fatalf("GET error = %v; want the header-resolution cause", err)
+	}
+	if requests != 0 {
+		t.Fatalf("server received %d requests; a failed credential must not send an empty header", requests)
+	}
+}
 
 // gate is the token the server wants right now, changeable mid-test.
 type gate struct {
@@ -84,10 +105,10 @@ func TestARotatedHeaderReachesTheNextRequest(t *testing.T) {
 	c := New(Server{
 		Name: "gated", URL: ts.URL, Timeout: 10 * time.Second,
 		Headers: map[string]string{"Authorization": "Bearer stale-snapshot"},
-		HeaderSource: func() map[string]string {
+		HeaderSource: func() (map[string]string, error) {
 			mu.Lock()
 			defer mu.Unlock()
-			return map[string]string{"Authorization": "Bearer " + token}
+			return map[string]string{"Authorization": "Bearer " + token}, nil
 		},
 	})
 	t.Cleanup(func() { c.Close() })
@@ -135,10 +156,10 @@ func TestADeadSessionIsDroppedAndReconnected(t *testing.T) {
 	token := "live"
 	c := New(Server{
 		Name: "gated", URL: ts.URL, Timeout: 10 * time.Second,
-		HeaderSource: func() map[string]string {
+		HeaderSource: func() (map[string]string, error) {
 			mu.Lock()
 			defer mu.Unlock()
-			return map[string]string{"Authorization": "Bearer " + token}
+			return map[string]string{"Authorization": "Bearer " + token}, nil
 		},
 	})
 	t.Cleanup(func() { c.Close() })

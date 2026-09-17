@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	pvdr "github.com/Mikedev115/Aetox/internal/provider"
@@ -122,9 +123,14 @@ func StatusFor(provider string) Status {
 	if !ok {
 		return Status{Provider: canonical}
 	}
+	signedIn := true
+	if cred.Type != "api" && cred.Expired() {
+		_, hasProviderRefresher := refreshers[canonical]
+		signedIn = strings.TrimSpace(cred.Refresh) != "" && (hasProviderRefresher || cred.TokenEndpoint != "")
+	}
 	return Status{
 		Provider:  canonical,
-		SignedIn:  true,
+		SignedIn:  signedIn,
 		Label:     cred.Label,
 		Account:   cred.Account,
 		ExpiresAt: cred.ExpiresAt,

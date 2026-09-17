@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Mikedev115/Aetox/internal/botbridge"
 	"github.com/Mikedev115/Aetox/internal/connect"
 )
 
@@ -26,7 +27,18 @@ import (
 // Connections lists every connection this build knows, with its account state
 // and placement. Never a token.
 func (a *Engine) Connections() []connect.Status {
-	return connect.List()
+	rows := connect.List()
+	assistantName := a.connectedBotAssistantName()
+	for i := range rows {
+		if !rows[i].Channel {
+			continue
+		}
+		rows[i].ChannelDesk = connectedBotDesk
+		rows[i].ChannelAssistant = assistantName
+		rows[i].ChannelProvider = a.cfg.ModelProvider
+		rows[i].ChannelModel = a.cfg.ModelName
+	}
+	return rows
 }
 
 // EnginesFor reports the interchangeable services in one family — today only
@@ -80,7 +92,7 @@ func (a *Engine) UseEngine(family, agent, id string) error {
 	}
 	// The engine's tools are decided at build time, so the desks have to be
 	// rebuilt for the change to reach the next turn rather than the next launch.
-	a.applyConfig(a.cur(), a.cfg)
+	a.rebuildCurrentConversation()
 	return nil
 }
 
@@ -214,7 +226,10 @@ func (a *Engine) ConnectAccount(id, token, baseURL string, targets []string) (co
 	if err != nil {
 		return connect.Account{}, err
 	}
-	a.applyConfig(a.cur(), a.cfg)
+	a.rebuildCurrentConversation()
+	if id == botbridge.Telegram || id == botbridge.Discord {
+		a.restartBot(id)
+	}
 	return account, nil
 }
 
@@ -227,7 +242,7 @@ func (a *Engine) SetConnectionTargets(id string, targets []string) error {
 	if err := connect.SetTargets(id, targets); err != nil {
 		return err
 	}
-	a.applyConfig(a.cur(), a.cfg)
+	a.rebuildCurrentConversation()
 	return nil
 }
 
@@ -239,9 +254,15 @@ func (a *Engine) VerifyConnection(id string) (connect.Account, error) {
 // DisconnectAccount forgets the credential and keeps the placement, so
 // reconnecting does not ask the user where it belongs a second time.
 func (a *Engine) DisconnectAccount(id string) error {
+	if id == botbridge.Telegram || id == botbridge.Discord {
+		a.stopBot(id)
+	}
 	if err := connect.Disconnect(id); err != nil {
+		if id == botbridge.Telegram || id == botbridge.Discord {
+			a.restartBot(id)
+		}
 		return err
 	}
-	a.applyConfig(a.cur(), a.cfg)
+	a.rebuildCurrentConversation()
 	return nil
 }

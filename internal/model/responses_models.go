@@ -39,6 +39,70 @@ type ResponsesModelFacts struct {
 	ReasoningLevels []string `json:"reasoning_levels,omitempty"`
 	// DefaultReasoningLevel is what the backend runs when no effort is sent.
 	DefaultReasoningLevel string `json:"default_reasoning_level,omitempty"`
+	// ServiceTiers is the backend's per-model processing menu. It is deliberately
+	// stored beside the reasoning ladder rather than inferred from a model name:
+	// the same catalog currently calls Luna/Terra/Sol Fast 1.5x and Astra Fast
+	// 2x, and account or region availability can change independently.
+	ServiceTiers []ServiceTier `json:"service_tiers,omitempty"`
+}
+
+// ServiceTier is one processing lane advertised by the Codex model catalog.
+// ID is the request value (currently "priority" for Fast); Name and
+// Description are provider-owned display metadata.
+type ServiceTier struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+// SupportedServiceTiers returns the lanes the backend states for one Codex
+// model. An empty slice means no statement, not a guessed lack of support.
+func SupportedServiceTiers(provider, modelID string) []ServiceTier {
+	if NormalizeProvider(provider) != "codex" {
+		return []ServiceTier{}
+	}
+	facts, known := ResponsesModelFactsFor(modelID)
+	if !known || len(facts.ServiceTiers) == 0 {
+		return []ServiceTier{}
+	}
+	out := make([]ServiceTier, 0, len(facts.ServiceTiers))
+	for _, tier := range facts.ServiceTiers {
+		if tier.ID = strings.ToLower(strings.TrimSpace(tier.ID)); tier.ID != "" {
+			out = append(out, tier)
+		}
+	}
+	return out
+}
+
+// NormalizeServiceTier turns UI/config aliases into the exact wire value and
+// refuses a lane the fetched catalog does not advertise. Before the first
+// catalog fetch, a saved Codex Fast choice is preserved: absence of a statement
+// is not evidence that the account lost the feature, and the next discovery
+// will settle it. Every non-Codex provider always gets the standard lane.
+func NormalizeServiceTier(provider, modelID, tier string) string {
+	if NormalizeProvider(provider) != "codex" {
+		return ""
+	}
+	tier = strings.ToLower(strings.TrimSpace(tier))
+	switch tier {
+	case "", "auto", "default", "standard", "normal":
+		return ""
+	case "fast":
+		tier = "priority"
+	}
+	if tier != "priority" {
+		return ""
+	}
+	facts, known := ResponsesModelFactsFor(modelID)
+	if !known {
+		return tier
+	}
+	for _, supported := range facts.ServiceTiers {
+		if strings.EqualFold(strings.TrimSpace(supported.ID), tier) {
+			return tier
+		}
+	}
+	return ""
 }
 
 // responsesModelsFile sits beside model-catalog.json under the data root.

@@ -52,9 +52,10 @@ func (a *Engine) VoiceSettings() VoiceSettings {
 // screen's to check first (SetTTSVoice, desktop/voice.go) — the voices are
 // installed where the reading is heard. Empty means "the engine decides".
 func (a *Engine) RememberTTSVoice(id string) {
-	next := a.cfg
+	conv := a.cur()
+	next := a.dialBase(conv)
 	next.TTSVoice = strings.TrimSpace(id)
-	a.applyConfig(a.cur(), next)
+	a.applyConfig(conv, next)
 }
 
 // VoiceEngineInfo is one vendor row, shaped for either picker — the STT list
@@ -107,12 +108,13 @@ func (a *Engine) SetSpeechEngine(id string) error {
 	if _, ok := stt.Lookup(id); !ok {
 		return fmt.Errorf("ไม่รู้จัก engine ถอดเสียงชื่อ %q", id)
 	}
-	next := a.cfg
+	conv := a.cur()
+	next := a.dialBase(conv)
 	next.SpeechEngine = id
 	// A model name is one vendor's private vocabulary — same rule as the TTS
 	// voice on a vendor switch.
 	next.SpeechModelName = ""
-	a.applyConfig(a.cur(), next)
+	a.applyConfig(conv, next)
 	return nil
 }
 
@@ -130,11 +132,12 @@ func (a *Engine) SetTTSEngine(id string) error {
 	if _, ok := tts.Lookup(id); !ok {
 		return fmt.Errorf("ไม่รู้จัก engine เสียงอ่านชื่อ %q", id)
 	}
-	next := a.cfg
+	conv := a.cur()
+	next := a.dialBase(conv)
 	next.TTSEngine = id
 	next.TTSVoice = ""
 	next.TTSModelName = ""
-	a.applyConfig(a.cur(), next)
+	a.applyConfig(conv, next)
 	return nil
 }
 
@@ -147,9 +150,10 @@ func (a *Engine) SetSpeechModelName(name string) error {
 	if err := validateNamedModel(sttDescriptors(), a.cur().cfg.SpeechEngine, name); err != nil {
 		return err
 	}
-	next := a.cfg
+	conv := a.cur()
+	next := a.dialBase(conv)
 	next.SpeechModelName = name
-	a.applyConfig(a.cur(), next)
+	a.applyConfig(conv, next)
 	return nil
 }
 
@@ -158,9 +162,10 @@ func (a *Engine) SetTTSModelName(name string) error {
 	if err := validateNamedModel(ttsDescriptors(), a.cur().cfg.TTSEngine, name); err != nil {
 		return err
 	}
-	next := a.cfg
+	conv := a.cur()
+	next := a.dialBase(conv)
 	next.TTSModelName = name
-	a.applyConfig(a.cur(), next)
+	a.applyConfig(conv, next)
 	return nil
 }
 

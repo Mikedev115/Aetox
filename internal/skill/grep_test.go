@@ -478,7 +478,7 @@ func TestSearchToolsTeachOnFirstUse(t *testing.T) {
 		// Through the pack, and that is the assertion: guidance is keyed per
 		// action (guidance.go), so a session that greps is taught grep's and a
 		// session that only lists is taught nothing.
-		{"search", map[string]any{"action": "grep", "pattern": "package"}, "mapping first and reading second"},
+		{"search", map[string]any{"action": "grep", "pattern": "package"}, "paths first and content second"},
 		{"read", map[string]any{"path": "a.go"}, "Find the place before reading it"},
 	} {
 		first, ok, err := d.ExecuteTool(t.Context(), tc.tool, tc.args)

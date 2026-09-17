@@ -377,6 +377,8 @@ type Agent struct {
 	model     string
 	context   *memory.Context
 	lastUsage model.Usage
+	// turnStartedAt keeps retries and tool rounds on one consistent clock value.
+	turnStartedAt time.Time
 	// fill is what the provider last said this conversation's request weighed.
 	// Zero until the first reply, and again after the history is replaced
 	// wholesale (ClearContext, RestoreHistory), when nothing measured is still
@@ -400,8 +402,9 @@ type Agent struct {
 	// interjections are messages the user typed while a turn was already
 	// running. Guarded because they arrive from the UI's goroutine while the
 	// tool loop is inside a provider call on another.
-	interjectMu  sync.Mutex
-	interjection []Interjection
+	interjectMu     sync.Mutex
+	interjection    []Interjection
+	interjectSignal chan struct{}
 }
 
 // Interjection is a message typed into a running turn, WITH whatever came
@@ -447,7 +450,25 @@ func (a *Agent) InterjectWith(in Interjection) {
 	}
 	a.interjectMu.Lock()
 	a.interjection = append(a.interjection, in)
+	// One token means "there is at least one unread interjection", not one
+	// token per message. A buffered edge is enough to wake a blocking host tool
+	// (notably task collect) without ever making the UI goroutine wait.
+	select {
+	case a.interjectSignal <- struct{}{}:
+	default:
+	}
 	a.interjectMu.Unlock()
+}
+
+// InterjectionSignal wakes code that may otherwise block the agent inside a
+// tool call. The message itself stays in the normal interjection buffer and is
+// read by the agent at the top of its next round; this channel carries no text
+// and makes no decision about the message.
+func (a *Agent) InterjectionSignal() <-chan struct{} {
+	if a == nil {
+		return nil
+	}
+	return a.interjectSignal
 }
 
 // DrainInterjections empties the buffer and returns what was in it. The tool loop
@@ -459,6 +480,13 @@ func (a *Agent) DrainInterjections() []Interjection {
 	}
 	a.interjectMu.Lock()
 	defer a.interjectMu.Unlock()
+	// Clear the coalesced wake edge together with the queue it represents. The
+	// edge may already have been consumed by a blocking tool; either state is
+	// fine, and the non-blocking receive handles both.
+	select {
+	case <-a.interjectSignal:
+	default:
+	}
 	if len(a.interjection) == 0 {
 		return nil
 	}
@@ -523,11 +551,12 @@ func NewAgent(cfg AgentConfig) *Agent {
 		systemPrompt = "You are Aetox, a concise and helpful terminal assistant."
 	}
 	return &Agent{
-		provider:     cfg.Provider,
-		model:        cfg.Model,
-		lastUsage:    model.Usage{},
-		maxToolCalls: cfg.MaxToolCalls,
-		context:      memory.NewContext(systemPrompt, 0, cfg.MaxChars),
+		provider:        cfg.Provider,
+		model:           cfg.Model,
+		lastUsage:       model.Usage{},
+		maxToolCalls:    cfg.MaxToolCalls,
+		context:         memory.NewContext(systemPrompt, 0, cfg.MaxChars),
+		interjectSignal: make(chan struct{}, 1),
 	}
 }
 
@@ -554,6 +583,7 @@ func (a *Agent) RespondWithTools(
 	if msg == "" {
 		return "", false, errors.New("input is empty")
 	}
+	a.turnStartedAt = time.Now()
 	a.compactIfNeeded(ctx)
 	a.addUserTurn(msg, opts)
 
@@ -1334,7 +1364,7 @@ func (a *Agent) estimatedFill(chars int) int {
 // after. tools is the block the request carried, nil when it carried none.
 func (a *Agent) recordRound(u *model.Usage, tools []model.ToolDefinition) {
 	if u != nil && a.context != nil {
-		u.Estimate = model.EstimatePrompt(a.context.Messages(), tools)
+		u.Estimate = model.EstimatePrompt(withCurrentMachineTime(a.context.Messages(), a.turnStartedAt), tools)
 	}
 	a.recordUsage(u)
 	a.measureFill(u)
@@ -1354,12 +1384,14 @@ func (a *Agent) measureFill(u *model.Usage) {
 // sweepableToolOutputs is every tool whose old output the micro sweep may
 // clear: the parallel-safe read tools (same judgement — somebody wrote the
 // name down knowing the tool only reads and can be called again), plus the
-// re-viewable documents and the repo map. Absent on purpose: `shell` — a
+// re-viewable documents and the codebase pack. The legacy `repo_map` name is
+// kept for conversations created before the actions were packed. Absent on
+// purpose: `shell` — a
 // marker inviting the model to "run it again" on a command that mutated
 // something is an invitation to mutate it twice — and `browser`, whose output
 // is a page state that may no longer exist to re-fetch.
 var sweepableToolOutputs = func() map[string]bool {
-	m := map[string]bool{"skill_view": true, "skills_list": true, "repo_map": true}
+	m := map[string]bool{"skill_view": true, "skills_list": true, "codebase": true, "repo_map": true}
 	for name := range parallelToolCalls {
 		m[name] = true
 	}
@@ -1561,6 +1593,7 @@ func (a *Agent) Respond(ctx context.Context, userMessage string, opts turn.TurnO
 		return "", errors.New("input is empty")
 	}
 
+	a.turnStartedAt = time.Now()
 	a.compactIfNeeded(ctx)
 	a.addUserTurn(msg, opts)
 	return a.respondFromContext(ctx, opts)
@@ -1868,6 +1901,7 @@ func (a *Agent) MeasureFloor(ctx context.Context, tools []model.ToolDefinition, 
 	if a == nil || a.provider == nil {
 		return model.Usage{}, errors.New("agent provider is not initialized")
 	}
+	a.turnStartedAt = time.Now()
 	var msgs []model.Message
 	if all := a.context.Messages(); len(all) > 0 && all[0].Role == model.RoleSystem {
 		msgs = append(msgs, all[0])
@@ -1880,7 +1914,7 @@ func (a *Agent) MeasureFloor(ctx context.Context, tools []model.ToolDefinition, 
 	if response.Usage == nil || response.Usage.PromptTokens <= 0 {
 		return model.Usage{}, errors.New("the provider reported no prompt count")
 	}
-	response.Usage.Estimate = model.EstimatePrompt(msgs, tools)
+	response.Usage.Estimate = model.EstimatePrompt(withCurrentMachineTime(msgs, a.turnStartedAt), tools)
 	return *response.Usage, nil
 }
 
@@ -1896,6 +1930,7 @@ func (a *Agent) RespondEphemeral(ctx context.Context, prompt string, opts turn.T
 	if prompt == "" {
 		return "", errors.New("input is empty")
 	}
+	a.turnStartedAt = time.Now()
 	msgs := append(a.context.Messages(), model.Message{Role: model.RoleUser, Content: prompt})
 	response, err := a.completeWithReconnect(ctx, a.buildRequest(msgs, 768, 0.2, nil, "", opts), opts)
 	if err != nil {
@@ -1915,6 +1950,7 @@ func (a *Agent) RespondStream(ctx context.Context, userMessage string, onChunk f
 		return "", false, errors.New("input is empty")
 	}
 
+	a.turnStartedAt = time.Now()
 	a.compactIfNeeded(ctx)
 	a.context.Add(model.RoleUser, msg)
 
@@ -2041,16 +2077,33 @@ func (a *Agent) ContextMessages() []model.Message {
 	return a.context.Messages()
 }
 
+// ContextMessagesForEstimate returns the conversation exactly as the next
+// provider request will see it. The current-time line is request-only and is
+// deliberately not persisted in ContextMessages, but the context meter must
+// still count it or its fresh-chat floor calibration will be consistently
+// lower than the request it measures.
+func (a *Agent) ContextMessagesForEstimate() []model.Message {
+	if a == nil || a.context == nil {
+		return nil
+	}
+	return withCurrentMachineTime(a.context.Messages(), time.Now())
+}
+
 func (a *Agent) LastUsage() model.Usage {
 	return a.lastUsage
 }
 
 func (a *Agent) buildRequest(messages []model.Message, maxTokens int, temperature float64, tools []model.ToolDefinition, toolChoice string, opts turn.TurnOptions) model.Request {
+	now := a.turnStartedAt
+	if now.IsZero() {
+		now = time.Now()
+	}
 	req := model.Request{
 		Model:       a.model,
-		Messages:    messages,
+		Messages:    withCurrentMachineTime(messages, now),
 		MaxTokens:   maxTokens,
 		Temperature: temperature,
+		ServiceTier: opts.EffectiveServiceTier(),
 		Tools:       tools,
 		ToolChoice:  toolChoice,
 		// Only meaningful when tools are on the table — see the field's doc.
@@ -2078,6 +2131,25 @@ func (a *Agent) buildRequest(messages []model.Message, maxTokens int, temperatur
 		}
 	}
 	return req
+}
+
+// withCurrentMachineTime adds one short, per-turn clock line without storing a
+// timestamp in conversation history, where it would become stale.
+func withCurrentMachineTime(messages []model.Message, now time.Time) []model.Message {
+	stamped := append([]model.Message(nil), messages...)
+	line := "Local time: " + now.Format(time.RFC3339)
+	for i := range stamped {
+		if stamped[i].Role != model.RoleSystem {
+			continue
+		}
+		if content := strings.TrimSpace(stamped[i].Content); content != "" {
+			stamped[i].Content = content + "\n" + line
+		} else {
+			stamped[i].Content = line
+		}
+		return stamped
+	}
+	return append([]model.Message{{Role: model.RoleSystem, Content: line}}, stamped...)
 }
 
 // HistoryChars is the conversation budget this agent measures itself against —

@@ -545,6 +545,7 @@ var outOfCreditsMarkers = [][]byte{
 	[]byte("no resource package"),     // Z.ai's other half of that sentence
 	[]byte("please recharge"),         // Z.ai's instruction; billing, never pacing
 	[]byte("exceeded your current quota"),
+	[]byte("usage_limit_reached"),     // ChatGPT Codex subscription limit reached
 }
 
 // waitItOutMarkers are a body's own rebuttal: words that name a wait, which an
@@ -654,18 +655,27 @@ func humanizeDuration(d time.Duration) string {
 // different things from a 429: the transport wants a duration to sleep, and an
 // error message wants to know whether there is a real reset time worth quoting.
 func providerRetryAfter(resp *http.Response) (time.Duration, bool) {
-	header := resp.Header.Get("Retry-After")
-	if header == "" {
+	if resp == nil {
 		return 0, false
 	}
-	if seconds, err := strconv.Atoi(header); err == nil && seconds >= 0 {
-		return time.Duration(seconds) * time.Second, true
-	}
-	if when, err := http.ParseTime(header); err == nil {
-		if wait := time.Until(when); wait > 0 {
-			return wait, true
+	header := resp.Header.Get("Retry-After")
+	if header != "" {
+		if seconds, err := strconv.Atoi(header); err == nil && seconds >= 0 {
+			return time.Duration(seconds) * time.Second, true
 		}
-		return 0, true
+		if when, err := http.ParseTime(header); err == nil {
+			if wait := time.Until(when); wait > 0 {
+				return wait, true
+			}
+			return 0, true
+		}
+	}
+	for _, slot := range []string{"primary", "secondary"} {
+		if secsStr := strings.TrimSpace(resp.Header.Get("x-codex-" + slot + "-reset-after-seconds")); secsStr != "" {
+			if secs, err := strconv.ParseFloat(secsStr, 64); err == nil && secs > 0 {
+				return time.Duration(secs * float64(time.Second)), true
+			}
+		}
 	}
 	return 0, false
 }

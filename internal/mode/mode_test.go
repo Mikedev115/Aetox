@@ -456,7 +456,7 @@ func TestUnplacedConnectionLeavesEveryDeskAsItWas(t *testing.T) {
 	}
 }
 
-func TestDeskWithoutTheConnectionCannotSeeItsTools(t *testing.T) {
+func TestSystemConnectionIgnoresLegacyDeskPlacement(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 
 	if err := config.SetConnectionTargets("github", []string{"coding"}); err != nil {
@@ -469,12 +469,12 @@ func TestDeskWithoutTheConnectionCannotSeeItsTools(t *testing.T) {
 		t.Fatal("bundled desks missing")
 	}
 	if !coding.Carries("github_search", skill.SourceBuiltin) {
-		t.Fatal("the desk the account was placed on cannot see its tools")
+		t.Fatal("coding lost a GitHub tool its manifest normally carries")
 	}
 	// plugin_install, not github_search: the assistant desk never had the
 	// second one (it is `code`), so it would prove nothing about placement.
-	if assistant.Carries("plugin_install", skill.SourceBuiltin) {
-		t.Fatal("a desk the account was kept off still carries plugin_install")
+	if !assistant.Carries("plugin_install", skill.SourceBuiltin) {
+		t.Fatal("a stale placement narrowed a system connection")
 	}
 	// Tools that belong to no connection are untouched by any of this.
 	if !assistant.Carries("read", skill.SourceBuiltin) {
@@ -482,9 +482,9 @@ func TestDeskWithoutTheConnectionCannotSeeItsTools(t *testing.T) {
 	}
 }
 
-// `chairs:` widens what an agent may hold, not what the user attached. A
-// connection switched off is off for the room, the same as Deny.
-func TestConnectionCannotComeBackThroughChairs(t *testing.T) {
+// A system account has no placement gate. The desk/chair manifest is the one
+// authority deciding whether its built-in tools are present.
+func TestSystemConnectionStillFollowsChairManifest(t *testing.T) {
 	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
 
 	if err := config.SetConnectionTargets("github", []string{"coding"}); err != nil {
@@ -496,8 +496,8 @@ func TestConnectionCannotComeBackThroughChairs(t *testing.T) {
 	}
 	assistant.Chairs = append(assistant.Chairs, "plugin_install")
 
-	if assistant.CarriesForChair("plugin_install", skill.SourceBuiltin) {
-		t.Fatal("a chair reached an account the desk was kept off")
+	if !assistant.CarriesForChair("plugin_install", skill.SourceBuiltin) {
+		t.Fatal("the manifest named a built-in system tool but stale placement hid it")
 	}
 }
 

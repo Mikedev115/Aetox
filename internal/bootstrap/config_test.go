@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -165,6 +166,29 @@ func TestAConnectReferenceResolvesExpiredOAuthCredentialWithNoRefresherToEmpty(t
 	}})
 	if v := got[0].Headers["Authorization"]; v != "Bearer " {
 		t.Errorf("Authorization = %q, want the stale token dropped rather than sent", v)
+	}
+}
+
+func TestExpiredConnectionHeaderSourceReturnsTheRealError(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	if err := oauth.Set("vercel", oauth.Credential{
+		Type: "oauth", Access: "at_stale",
+		ExpiresAt: time.Now().Add(-time.Hour).UnixMilli(),
+	}); err != nil {
+		t.Fatalf("seed the connection store: %v", err)
+	}
+
+	got := MCPServers([]config.MCPServerConfig{{
+		Name:    "vercel",
+		URL:     "https://mcp.vercel.com",
+		Headers: map[string]string{"Authorization": "Bearer ${connect:vercel}"},
+	}})
+	if got[0].HeaderSource == nil {
+		t.Fatal("connect reference did not create a live header source")
+	}
+	_, err := got[0].HeaderSource()
+	if err == nil || !strings.Contains(err.Error(), "sign-in expired and cannot be renewed") {
+		t.Fatalf("HeaderSource error = %v; want the expired sign-in reason", err)
 	}
 }
 

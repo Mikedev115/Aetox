@@ -60,6 +60,7 @@ type App struct {
 	modelStatus        string
 	modelContextTokens int
 	thinkLevel         think.Level
+	serviceTier        string
 	skillNames         []string
 
 	statusReporter     func(string)
@@ -157,6 +158,7 @@ type Options struct {
 	ModelStatus        string
 	ModelContextTokens int
 	ThinkLevel         think.Level
+	ServiceTier        string
 	ModelSwitch        func(context.Context) (ModelSwitchResult, error)
 }
 
@@ -194,6 +196,7 @@ func NewApp(opts Options) (*App, error) {
 		modelStatus:        strings.TrimSpace(opts.ModelStatus),
 		modelContextTokens: opts.ModelContextTokens,
 		thinkLevel:         think.NormalizeLevel(string(opts.ThinkLevel)),
+		serviceTier:        strings.ToLower(strings.TrimSpace(opts.ServiceTier)),
 		skillNames:         skillNames,
 		toolActionListener: opts.OnToolAction,
 		toolRunListener:    opts.OnToolRun,
@@ -219,6 +222,7 @@ func NewApp(opts Options) (*App, error) {
 		StatusReporter: opts.StatusReporter,
 		TurnOptions: turn.TurnOptions{
 			ThinkLevel:     a.thinkLevel,
+			ServiceTier:    a.serviceTier,
 			OnContent:      a.contentPreview,
 			OnContentReset: a.contentReset,
 			OnLimitWait:    a.limitWait,
@@ -245,6 +249,7 @@ func (a *App) wireStatusReporter() {
 		DelegateKind:   subagent.KindOf,
 		TurnOptions: turn.TurnOptions{
 			ThinkLevel:     a.thinkLevel,
+			ServiceTier:    a.serviceTier,
 			OnContent:      a.contentPreview,
 			OnContentReset: a.contentReset,
 			OnLimitWait:    a.limitWait,
@@ -528,6 +533,7 @@ func (a *App) switchModel(ctx context.Context) error {
 		DelegateKind: subagent.KindOf,
 		TurnOptions: turn.TurnOptions{
 			ThinkLevel:     a.thinkLevel,
+			ServiceTier:    a.serviceTier,
 			OnContent:      a.contentPreview,
 			OnContentReset: a.contentReset,
 			OnLimitWait:    a.limitWait,
@@ -653,6 +659,15 @@ func (a *App) SetThinkLevel(level think.Level) {
 	a.thinkLevel = think.NormalizeLevel(string(level))
 	if a.turnExecutor != nil {
 		a.turnExecutor.SetThinkLevel(a.thinkLevel)
+	}
+}
+
+// SetServiceTier changes the provider processing lane, including for the next
+// round of a turn already running. Empty returns to the standard lane.
+func (a *App) SetServiceTier(tier string) {
+	a.serviceTier = strings.ToLower(strings.TrimSpace(tier))
+	if a.turnExecutor != nil {
+		a.turnExecutor.SetServiceTier(a.serviceTier)
 	}
 }
 

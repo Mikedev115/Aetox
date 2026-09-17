@@ -101,7 +101,8 @@ func (p *ResponsesProvider) SupportsReasoning() bool { return true }
 // ---------------------------------------------------------------------------
 
 type responsesRequest struct {
-	Model string `json:"model"`
+	Model       string `json:"model"`
+	ServiceTier string `json:"service_tier,omitempty"`
 	// Instructions is where the system prompt goes. There is no system item:
 	// a system message sent as input is accepted and ignored.
 	Instructions string           `json:"instructions,omitempty"`
@@ -209,6 +210,7 @@ func buildResponsesRequest(provider, model string, req Request) (responsesReques
 
 	out := responsesRequest{
 		Model:          model,
+		ServiceTier:    NormalizeServiceTier(provider, model, req.ServiceTier),
 		Instructions:   instructions,
 		Input:          input,
 		Tools:          convertToolsToResponses(req.Tools),
@@ -919,6 +921,7 @@ func DiscoverResponsesModels(ctx context.Context, providerName, baseURL string, 
 			SupportedReasoningLevels []struct {
 				Effort string `json:"effort"`
 			} `json:"supported_reasoning_levels"`
+			ServiceTiers []ServiceTier `json:"service_tiers"`
 		} `json:"models"`
 	}
 	if err := json.Unmarshal(body, &parsed); err != nil {
@@ -932,7 +935,11 @@ func DiscoverResponsesModels(ctx context.Context, providerName, baseURL string, 
 			continue
 		}
 		out = append(out, m.Slug)
-		row := ResponsesModelFacts{Slug: m.Slug, DefaultReasoningLevel: m.DefaultReasoningLevel}
+		row := ResponsesModelFacts{
+			Slug:                  m.Slug,
+			DefaultReasoningLevel: m.DefaultReasoningLevel,
+			ServiceTiers:          append([]ServiceTier(nil), m.ServiceTiers...),
+		}
 		for _, l := range m.SupportedReasoningLevels {
 			if l.Effort != "" {
 				row.ReasoningLevels = append(row.ReasoningLevels, l.Effort)

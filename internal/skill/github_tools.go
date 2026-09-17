@@ -362,7 +362,7 @@ type plainSkill struct {
 	name   string   // the folder it installs as
 	prefix string   // "" for a SKILL.md at the repo root
 	files  []string // repo-relative paths, SKILL.md first
-	bytes  int64
+	bytes  int64    // complete installed size, including SKILL.md
 }
 
 // notSkillMaterial are directory names that hold other people's code rather
@@ -485,6 +485,7 @@ func collectPlainSkill(blobs []githubTreeEntry, prefix, name string) plainSkill 
 			continue // dotfiles: .github workflows and the like are not skill material
 		}
 		if rel == skillFileName {
+			skill.bytes += e.Size
 			skill.files = append(skill.files, e.Path)
 			continue
 		}

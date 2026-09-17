@@ -27,6 +27,7 @@ type Config struct {
 	ApprovalTimeoutSec int
 	MaxOutputFiles     int
 	ThinkLevel         string
+	ServiceTier        string
 	ModelProvider      string
 	ModelName          string
 	// No key here, on purpose (§248 A4). A Config reaches bootstrap.Engine and
@@ -219,6 +220,7 @@ type ModelPreference struct {
 	ModelBaseURL    string `json:"base_url"`
 	ModelWireFormat string `json:"wire_format,omitempty"`
 	ThinkLevel      string `json:"think_level,omitempty"`
+	ServiceTier     string `json:"service_tier,omitempty"`
 	ApprovalMode    string `json:"approval_mode,omitempty"`
 	// UILocale sits next to ApprovalMode because it is the same kind of thing:
 	// a choice the user made in the UI that the engine needs on next start.
@@ -1268,6 +1270,10 @@ func sanitizePreference(pref ModelPreference) ModelPreference {
 	pref.ModelBaseURL = strings.TrimSpace(pref.ModelBaseURL)
 	if looksLikeAPIKey(pref.ModelBaseURL) {
 		pref.ModelBaseURL = ""
+	}
+	pref.ServiceTier = strings.ToLower(strings.TrimSpace(pref.ServiceTier))
+	if pref.ServiceTier == "fast" {
+		pref.ServiceTier = "priority"
 	}
 	return pref
 }

@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"net/http"
+	"testing"
+
+	"github.com/Mikedev115/Aetox/internal/model"
+)
 
 // A local runtime has no wallet and no window, and must not be reported as an
 // error just because there was nothing to fetch.
@@ -38,5 +43,25 @@ func TestSetAPIKeyFilesTheKeyAndTellsTheEngine(t *testing.T) {
 	}
 	if _, err := a.SetAPIKey("groq", "   "); err == nil {
 		t.Error("an empty key was accepted")
+	}
+}
+
+func TestDesktopNoteQuotasFeedsProviderAccount(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+	a := newTestApp(t)
+	h := make(http.Header)
+	h.Set("x-codex-primary-used-percent", "20")
+	h.Set("x-codex-primary-window-minutes", "300")
+	resp := &http.Response{
+		StatusCode: 200,
+		Header:     h,
+	}
+	model.NoteQuotas("codex", resp)
+	acct := a.ProviderAccountFor("codex")
+	if !acct.QuotaKnown {
+		t.Fatal("QuotaKnown = false after NoteQuotas on desktop side")
+	}
+	if len(acct.Quotas) != 1 || acct.Quotas[0].Window != "5h" || acct.Quotas[0].RemainingPercent != 80 {
+		t.Fatalf("unexpected quotas: %+v", acct.Quotas)
 	}
 }
