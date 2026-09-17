@@ -18,17 +18,25 @@ container, stop before execution.
 
 ## Load only what the task needs
 
-Select the references the task needs, then issue their independent
-`skill_view` calls together in one reply; do not spend a round waiting for one
-before opening the next. Always include `references/local-workflow.md`, plus:
+This document is the working contract and is enough when repository evidence
+already establishes the target, migration path and engine behavior. Do not
+open a reference merely because its category matches the task. Open one only
+when it resolves a question that remains after inspecting the project:
 
-- `references/migrations.md` for schema, ORM-model, migration, seed or
-  backfill changes.
-- `references/sql-safety.md` before constructing or executing SQL, including
-  SQL emitted by an ORM or migration generator.
+- `references/local-workflow.md` when the resolved target or safe rehearsal
+  path is still unclear.
+- `references/migrations.md` when ordering, compatibility, rollback, backfill
+  or idempotency is not established by the repository's migration system.
+- `references/sql-safety.md` when constructing or executing ad-hoc or generated
+  SQL whose parameter, identifier or mutation boundary is still unclear.
 - Exactly one engine note when that engine is present:
   `references/sqlite.md`, `references/postgres.md`, or
-  `references/mysql.md`.
+  `references/mysql.md`, and only when the decision depends on engine-specific
+  behavior.
+
+If several independent references are necessary, issue their `skill_view`
+calls together in one reply; do not spend a model round waiting for one before
+opening the next.
 
 If the repository uses another engine, derive its rules from that engine's
 official documentation and keep the workflow here: establish the target,
