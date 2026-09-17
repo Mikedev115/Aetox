@@ -153,8 +153,7 @@ if ($Harness -eq "aetox") {
 } else {
     $command = $codex
     $arguments = @(
-        "--ask-for-approval", "never",
-        "--sandbox", "workspace-write",
+        "--dangerously-bypass-approvals-and-sandbox",
         "--cd", $workspace,
         "exec",
         "--ephemeral",
@@ -162,7 +161,6 @@ if ($Harness -eq "aetox") {
         "--ignore-rules",
         "--model", "gpt-5.6-luna",
         "-c", 'model_reasoning_effort="low"',
-        "-c", 'sandbox_mode="workspace-write"',
         "--skip-git-repo-check",
         "--color", "never",
         "--output-last-message", $lastMessage,
