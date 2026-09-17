@@ -175,8 +175,7 @@ Row 1 is built (2026-09-09). Nothing else is. This table is where each row's sta
 | 1 | แอปใดก็ได้ | Windows UI Automation (`IUIAutomation` over COM) — element tree, invoke/value patterns | no (OS component) | `Direct` — built 2026-09-09, [DECISIONS.md §239](../DECISIONS.md); see §9 |
 | 2 | Google Chrome | extension + native messaging host, against the user's own profile | yes — extension | `Proposed` |
 | 3 | Microsoft Edge | same extension, store or sideload | yes — extension | `Proposed` |
-| 4 | Microsoft Excel | COM automation of a running workbook, or an add-in | to be decided | `Deferred` — `sheet_write` covers the file case today |
-| 5 | เบราว์เซอร์ของ Aetox | WebView2 in the workbench | no | `Direct` — **shipped, and stays where it is.** It belongs to the desk, not to this register |
+| 4 | เบราว์เซอร์ของ Aetox | WebView2 in the workbench | no | `Direct` — **shipped, and stays where it is.** It belongs to the desk, not to this register |
 
 macOS and Linux get no rows until PLATFORM-SUPPORT.md's phases reach them: UI
 Automation is a Windows API, and rows 2–3 need a different host per OS.
@@ -219,9 +218,10 @@ user did not choose to show us** and then acts on it.
   "badly" is how a reach becomes something the owner has to apologise for. The bet
   is that they stay two rows; if row 1 turns out to be good enough at a browser,
   row 2 becomes a nicety and this table changes.
-- **Excel (row 4).** Deferred with a reason: `sheet_write` already answers the
-  common ask, and a COM handle on a workbook the user has open and unsaved is a
-  data-loss surface, not a feature.
+- **Excel is not a dedicated reach.** The owner removed its placeholder row on
+  2026-09-17. `sheet_write` remains the file-producing path, while a running
+  Excel window is treated like any other explicitly granted Windows program by
+  row 1. There is no Excel add-in or COM-specific promise in this register.
 - **The section's Thai name.** `การใช้คอมพิวเตอร์` is borrowed from the rival
   because it is what a user will look for. If the house voice wants its own word,
   it changes here first.
@@ -288,10 +288,91 @@ it run: *"ขอแสงวิวับที่ทำไว้อ่ะมา�
 
 **§5's table, updated.** Row 1 is `Direct`. Rows 2–3 are unchanged and are drawn
 in Settings as *ต้องติดตั้งก่อน*, which is §4.2's rule about a row that stays
-visible and says why. Row 4 is unchanged and `Deferred`.
+visible and says why. The former Excel placeholder was removed on 2026-09-17.
 
 **§6, in code.** Each line is now a place rather than a promise: 6.1 is the
 untrusted-data preamble on every read and capture; 6.2 is `IsPassword`, refused
 in two places on purpose; 6.4 is a window capture rather than a screen one, and
 a `list_apps` that omits what it will not touch; 6.5 is a process-id check and a
 name check, because a second copy of Aetox is still Aetox.
+
+---
+
+## 10. Extension study — Codex comparison and Aetox decision (2026-09-17)
+
+The owner asked which extension would let Aetox control the computer and asked
+to compare Codex. Two different reaches must not be collapsed into one word:
+
+| Reach | What Codex demonstrates | What Aetox should ship |
+|---|---|---|
+| Windows applications | A Computer Use plugin exposes windows, accessibility text, bounded screenshots, clicks, keys, values, scrolling and dragging. It is a desktop runtime, **not a browser extension**. | Keep the shipped `IUIAutomation` reach. Add actions only where the existing permission and visible-driving rules can protect them. No extra extension is required. |
+| The user's signed-in Chromium browser | A separate Browser plugin can discover an `extension` browser, claim a user tab, use accessibility indexes, and fall back to Playwright-style locators. Its Windows bridge is a browser extension plus a registered Native Messaging host. | Build one **Aetox Browser Bridge** WebExtension and one Aetox native host. Package the same Manifest V3 source for Chrome and Edge first; Brave, Opera and Vivaldi can use the Chromium build later. |
+| A browser Aetox owns | Codex also distinguishes an in-app browser and CDP-backed browsers from extension-backed user tabs. | Keep the current WebView2 workbench browser. It is the no-install, isolated-profile path and does not replace the signed-in-browser bridge. |
+| OpenAI `computer` tool | The Responses API returns structured computer actions, but the application still provides the environment, executes actions, preserves state and returns screenshots. | Treat this as a possible model-side protocol, not an extension or a local reach. It cannot replace UI Automation or the browser bridge. |
+| MCP | MCP can expose UI actions as tools, but it is transport/tool vocabulary rather than screen or DOM access by itself. | Optional adapter later. Do not make MCP a prerequisite for local computer control. |
+
+### 10.1 One extension, two store packages
+
+Chrome and Edge do not need different implementations. They need separate store
+listings/identities around the same extension source, plus a native-host manifest
+that allow-lists those exact extension origins. The desktop installer owns the
+native host and its per-user registration; the extension never opens an
+unauthenticated localhost control port.
+
+The minimum bridge is:
+
+```
+Chromium tab
+  ↕ content script / accessibility snapshot / bounded screenshot
+Aetox Browser Bridge (Manifest V3)
+  ↕ nativeMessaging, explicit tab claim and short-lived session capability
+Aetox native host
+  ↕ existing computer/browser permission gates
+agent tool loop
+```
+
+The extension should expose fresh element indexes or refs, not raw arbitrary
+JavaScript as its public contract. A tab is claimed before reading or acting;
+indexes expire after a page change; password fields and browser-internal pages
+remain denied; every acting result returns a fresh observation. These are the
+same invariants already used by Aetox's own browser and Windows reach.
+
+### 10.2 Rejected substitutes
+
+- **Playwright/CDP alone:** good for a browser Aetox launches, but attaching to
+  the user's ordinary browser requires remote debugging at launch and changes
+  the security/profile story. It is not the default route into an already-open,
+  signed-in tab.
+- **PyAutoGUI alone:** useful as a screenshot/coordinate fallback, but weaker
+  than the shipped accessibility reach for aiming, permissions and recovery.
+- **An Excel add-in:** removed from scope. It duplicates the general Windows
+  reach, adds an Office-specific deployment surface, and promises more access to
+  live unsaved workbooks than the current product needs.
+
+So the installable work is deliberately small: **one Chromium browser bridge,
+published for Chrome and Edge, plus its native host**. General Windows control
+already exists without an extension.
+
+### 10.3 Native reach hardening shipped on 2026-09-17
+
+The Windows reach now has the three input primitives the comparison exposed as
+missing: `click_at`, `scroll` and `drag`. They are not arbitrary screen-input
+calls. A model must first call `capture`; that capture mints a chat-local
+snapshot id and records the exact window dimensions. Coordinate input accepts
+only that latest id, rejects points outside the captured image, re-checks the
+window dimensions immediately before input, and expires both snapshot and UIA
+refs after one action. Moving the window is safe because its current origin is
+read again; resizing it makes the snapshot stale and is refused.
+
+Program grants were hardened in the same pass. New grants are keyed to the
+executable's normalized absolute-path fingerprint rather than only its basename,
+so an unrelated executable named `notepad.exe` does not inherit the real
+Notepad's permission. The settings page still shows and revokes the familiar
+program name; the stored permission does not expose the installation path.
+
+The Chrome/Edge Browser Bridge remains `Proposed`, not silently half-enabled.
+It is complete only when the extension, signed store identities, per-user Native
+Messaging host registration, explicit tab claim, and end-to-end installed-build
+test ship together. Until that boundary is crossed, Settings continues to say
+that the browser extension is unavailable and the existing workbench browser is
+the supported web reach.

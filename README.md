@@ -115,6 +115,24 @@ both; the language switch is in Settings and in the first-run wizard. This READM
   the window, or let it out onto the desktop as a real Win32 window with no browser behind it —
   drag it to any monitor, resize it, and it keeps working while you do.
 
+## Use Aetox as a Telegram or Discord bot
+
+Open **Yours → Connections**, then choose Telegram or Discord:
+
+1. Telegram: create a bot with `@BotFather` and connect its bot token.
+2. Discord: create an app in the Discord Developer Portal, add a bot, and invite it with View
+   Channels, Send Messages, and Read Message History. Message Content Intent is not required.
+3. Aetox shows a one-time `/pair 123456` command after connecting. Send it from the Telegram chat
+   or Discord channel you want to authorize (mention the bot when pairing in a Discord server).
+
+This is another doorway to Aetox's real main assistant, not a separate bot assistant: it uses the
+Assistant desk's identity and tools, and a new conversation starts with the current default model. Each paired Telegram chat or Discord
+channel keeps its own conversation history instead of appending to the chat currently open in the
+desktop window. The bot accepts messages only from the paired conversation; every member of that
+conversation can use it. Mention it in Discord server channels; DMs work directly. Use `/new` to
+start with fresh context. Tokens and pairing data are encrypted at rest, and listeners run only
+while Aetox is running.
+
 ## Install
 
 Windows 10 or later, x64. **You do not need an API key to start** — a built-in `aetox` provider
@@ -394,12 +412,10 @@ are managed under ตั้งค่า › ทีม; the chip beside the compo
 it hires from.
 
 Agents never call each other. The star has one centre; multi-step work is a conveyor through the
-assistant, and the baton is a file path rather than the content. Separately, four **sub-agents**
-(`explore`, `general`, `reviewer`, `tester`) are internal helpers — a fixed set, not extensible,
+assistant, and the baton is a file path rather than the content. Separately, two **sub-agents**
+(`explore`, `general`) are internal helpers — a fixed set, not extensible,
 deliberately, though since 1.6.0 you may tune one: its model and provider, its prompt, its step
-ceiling and its look, never what it can reach. The last two **cannot write anything at all, on
-purpose**: a reviewer that fixes what it finds is a second author, and then nobody is left reading;
-a tester that repairs the test it just ran is a test nobody watched fail.
+ceiling and its look, never what it can reach.
 
 ## What it learns, and what you approve
 
