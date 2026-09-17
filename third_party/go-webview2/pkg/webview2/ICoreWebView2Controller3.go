@@ -4,6 +4,7 @@ package webview2
 
 import (
 	"golang.org/x/sys/windows"
+	"math"
 	"syscall"
 	"unsafe"
 )
@@ -59,7 +60,7 @@ func (i *ICoreWebView2Controller3) PutRasterizationScale(scale float64) error {
 
 	hr, _, _ := i.Vtbl.PutRasterizationScale.Call(
 		uintptr(unsafe.Pointer(i)),
-		uintptr(unsafe.Pointer(&scale)),
+		uintptr(math.Float64bits(scale)),
 	)
 	if windows.Handle(hr) != windows.S_OK {
 		return syscall.Errno(hr)

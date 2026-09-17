@@ -200,24 +200,29 @@ own log (`desktop/wails_log.go`), so the last line before an exit names it.
 
 ## A seventh patch: a tab follows the monitor it is on
 
-`pkg/edge/chromium.go` keeps raw-pixel bounds but enables WebView2's native
-monitor-scale detection. Those settings are independent: raw bounds mean the
-controller's rectangle is measured in physical pixels, while
-`RasterizationScale` tells Chromium how densely to paint the content inside
-that rectangle.
+`pkg/edge/chromium.go` keeps raw-pixel bounds and exposes an explicit
+`SetRasterizationScale`. Those settings are independent: raw bounds mean the
+controller's rectangle is measured in physical pixels, while rasterization
+scale tells Chromium how densely to paint the content and map input inside that
+rectangle.
 
 Upstream disables scale detection when it selects raw bounds, which is only
-correct for a host that updates `RasterizationScale` itself. Aetox never did.
+correct for a host that updates `RasterizationScale` itself. Aetox now does:
+`desktop/browser_windows.go` reads `GetDpiForWindow(tab HWND) / 96` when a tab
+opens, when its bounds are refreshed, and on `WM_DPICHANGED`. It also calls
+`NotifyParentWindowPositionChanged` before an otherwise-identical bounds update,
+because a child can cross monitors without moving relative to its parent.
 On the owner's mixed-DPI desk (175% laptop display and 100% external display),
 the main Wails view followed a cross-monitor move but the separately embedded
 browser tab kept its old raster scale. Windows resampled that stale surface;
 the result was soft, colour-fringed web text, especially visible around Thai
 vowels and tone marks, while files rendered in the main view stayed crisp.
 
-WebView2 now owns monitor and text-scale changes for each tab. Raw bounds still
-prevent a scale change from altering the child window's physical size. The
-`TestControllerUsesRawBoundsAndTracksMonitorScale` fake-vtable test pins both
-halves and checks the actual COM argument.
+The host now owns each tab's monitor scale; raw bounds prevent a scale change
+from altering the child window's physical size. The
+`TestControllerUsesRawBoundsAndHostRasterScale` fake-vtable test pins both
+halves and checks the actual COM arguments, including the IEEE-754 value passed
+to the `double` setter rather than a pointer to it.
 
 The v1.0.23 upstream boolean-ABI fix is part of the vendored baseline in both
 `pkg/edge` and `pkg/webview2`: `PutShouldDetectMonitorScaleChanges` passes a
@@ -229,8 +234,8 @@ that fix the setting was undefined at the COM boundary.
 Re-copy the module, then re-apply the `AETOX PATCH` blocks in `chromium.go`
 (the error path, `everUp`, the recording in `Navigate` and
 `AddWebResourceRequestedFilter`, the `ProcessFailed` stop, and
-`log.Printf` in place of `fmt.Printf` in `globalErrorHandler`, plus native
-monitor-scale detection in `configureController3`), `revive.go`,
+`log.Printf` in place of `fmt.Printf` in `globalErrorHandler`, plus explicit
+host-owned raster scale in `configureController3`), `revive.go`,
 the `SetTimer`/`KillTimer` pair in `internal/w32/w32.go`, the `GetIsSuccess`
 binding, the two capture files, the two DevTools files and
 `aetox_lifecycle.go`. Keep the version in this note and the root `go.mod`
