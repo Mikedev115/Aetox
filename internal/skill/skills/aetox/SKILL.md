@@ -141,6 +141,7 @@ somebody who has never used the app, are its.
 | `aetox-brand` | voice, messaging, logo rules, pre-publish checklists |
 | `aetox-th-locale` | Thai data with one correct answer: BE/CE years, ID checksum, PromptPay, postcodes, VAT/WHT, PDPA |
 | `aetox-translate` | translation that is expensive to get wrong; not one-liners |
+| `aetox-database` | local-first schema, ORM, SQL, migration, seed and backfill work: prove the target, rehearse on a disposable database, then verify the state |
 | `aetox-orient` | the first change in a project this conversation has not read, or picking one up after a break: what is already in context, then the map, the symbol, the lines — never the whole file |
 | `aetox-architect` | reading an existing system and writing it up |
 | `aetox-idea-to-architecture` | a system or feature that has no code yet: the proposal, every part marked proposed |

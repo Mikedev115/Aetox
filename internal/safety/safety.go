@@ -411,6 +411,15 @@ func AssessCommand(skillName string, args []string) Assessment {
 		}
 	}
 
+	if reason := databaseShellRiskReason(args[0], args[1:]); reason != "" {
+		return Assessment{
+			SkillName: skillName,
+			Risk:      RiskHigh,
+			Effects:   []Effect{EffectExecuteShell},
+			Reason:    reason,
+		}
+	}
+
 	if isShellHighRisk(args[0], args[1:]) {
 		return Assessment{
 			SkillName: skillName,
@@ -425,6 +434,175 @@ func AssessCommand(skillName string, args []string) Assessment {
 		Risk:      RiskLow,
 		Effects:   []Effect{EffectExecuteShell},
 	}
+}
+
+var mutatingSQL = regexp.MustCompile(`(?i)(^|[^a-z_])(alter|analyze|attach|call|cluster|comment|copy|create|delete|detach|do|drop|execute|grant|insert|load|lock|merge|optimize|refresh|reindex|rename|repair|replace|revoke|truncate|update|vacuum)([^a-z_]|$)`)
+
+// databaseShellRiskReason recognizes the database programs that can change
+// state outside the workspace. Shell itself is already approval-gated under
+// ask and unsafe-only; this classification gives the approval card the real
+// reason and keeps destructive database calls distinct from an ordinary
+// command in logs and tests.
+//
+// It deliberately does not promise to parse a shell language. A command hidden
+// inside powershell -Command, sh -c or a generated script is code in another
+// language and must remain governed by the shell permission as a whole. Direct
+// clients and the migration CLIs agents normally write are the useful,
+// deterministic seam here.
+func databaseShellRiskReason(cmd string, rest []string) string {
+	tokens := append([]string{cmd}, rest...)
+	normalized := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		normalized = append(normalized, shellExecutableName(token))
+	}
+	joined := strings.ToLower(strings.Join(tokens, " "))
+
+	for i, name := range normalized {
+		switch name {
+		case "psql", "mysql", "mariadb", "sqlite3", "sqlcmd":
+			args := tokens[i+1:]
+			if databaseClientIsInformational(args) {
+				continue
+			}
+			query := strings.Join(args, " ")
+			if mutatingSQL.MatchString(query) || databaseClientRunsFile(args) {
+				return "database command may change or destroy data or schema"
+			}
+			// A client with no inline read query opens an interactive session or
+			// consumes stdin. The safety layer cannot prove what it will execute.
+			if !databaseClientHasInlineRead(args) {
+				return "database client may execute statements not visible in this command"
+			}
+		case "mongosh", "mongo":
+			if strings.Contains(joined, "deleteone") || strings.Contains(joined, "deletemany") ||
+				strings.Contains(joined, "dropdatabase") || strings.Contains(joined, ".drop(") ||
+				strings.Contains(joined, "insertone") || strings.Contains(joined, "insertmany") ||
+				strings.Contains(joined, "replaceone") || strings.Contains(joined, "updateone") ||
+				strings.Contains(joined, "updatemany") {
+				return "database command may change or destroy data or schema"
+			}
+		case "redis-cli":
+			if redisMutation(tokens[i+1:]) {
+				return "database command may change or destroy data"
+			}
+		case "prisma":
+			if containsAnyPhrase(joined, "migrate deploy", "migrate dev", "migrate reset", "db push", "db execute", "db seed") {
+				return "database migration command may change or destroy data or schema"
+			}
+		case "supabase":
+			if containsAnyPhrase(joined, "db push", "db reset", "migration up") {
+				return "database migration command may change or destroy data or schema"
+			}
+		case "drizzle-kit":
+			if containsAnyPhrase(joined, " push", " migrate", " drop") {
+				return "database migration command may change or destroy data or schema"
+			}
+		case "alembic":
+			if containsAnyPhrase(joined, " upgrade", " downgrade", " stamp") {
+				return "database migration command may change or destroy data or schema"
+			}
+		case "atlas":
+			if containsAnyPhrase(joined, "migrate apply", "schema apply", "schema clean") {
+				return "database migration command may change or destroy data or schema"
+			}
+		case "flyway":
+			if containsAnyPhrase(joined, " migrate", " clean", " repair", " undo") {
+				return "database migration command may change or destroy data or schema"
+			}
+		case "liquibase":
+			if containsAnyPhrase(joined, " update", " rollback", " drop-all", " clear-checksums") {
+				return "database migration command may change or destroy data or schema"
+			}
+		case "manage.py":
+			if containsAnyPhrase(joined, " migrate", " flush", " loaddata") {
+				return "database migration command may change or destroy data or schema"
+			}
+		case "rails", "rake":
+			if containsAnyPhrase(joined, "db:migrate", "db:drop", "db:reset", "db:schema:load", "db:seed") {
+				return "database migration command may change or destroy data or schema"
+			}
+		case "migrate", "goose":
+			if containsAnyPhrase(joined, " up", " down", " drop", " force", " reset") {
+				return "database migration command may change or destroy data or schema"
+			}
+		}
+	}
+	return ""
+}
+
+func shellExecutableName(raw string) string {
+	name := strings.ToLower(strings.Trim(strings.TrimSpace(raw), "\"'`;|&()"))
+	name = strings.ReplaceAll(name, `\`, "/")
+	if at := strings.LastIndex(name, "/"); at >= 0 {
+		name = name[at+1:]
+	}
+	for _, suffix := range []string{".exe", ".cmd", ".bat"} {
+		name = strings.TrimSuffix(name, suffix)
+	}
+	return name
+}
+
+func databaseClientIsInformational(args []string) bool {
+	for _, arg := range args {
+		trimmed := strings.TrimSpace(arg)
+		switch strings.ToLower(trimmed) {
+		case "--help", "--version", "-?":
+			return true
+		}
+		// PostgreSQL uses uppercase -V for version. Lowercase -v is a real
+		// client option elsewhere, and -h commonly means host, so neither may
+		// be treated as proof that a command is informational.
+		if trimmed == "-V" {
+			return true
+		}
+	}
+	return false
+}
+
+func databaseClientRunsFile(args []string) bool {
+	for _, arg := range args {
+		normalized := strings.ToLower(strings.TrimSpace(arg))
+		if normalized == "-f" || normalized == "--file" || normalized == "-i" ||
+			normalized == "--init-command" || normalized == ".read" || normalized == "source" {
+			return true
+		}
+	}
+	return false
+}
+
+func databaseClientHasInlineRead(args []string) bool {
+	joined := strings.TrimSpace(strings.Join(args, " "))
+	if joined == "" {
+		return false
+	}
+	for _, flag := range []string{"-c ", "--command ", "-e ", "--execute ", "-q ", "--query "} {
+		if strings.Contains(strings.ToLower(joined), flag) && !mutatingSQL.MatchString(joined) {
+			return true
+		}
+	}
+	// sqlite3 accepts the query as its final positional argument.
+	return strings.Contains(strings.ToLower(joined), "select ") || strings.Contains(strings.ToLower(joined), "pragma ")
+}
+
+func redisMutation(args []string) bool {
+	for _, arg := range args {
+		switch strings.ToLower(strings.Trim(strings.TrimSpace(arg), `"'`)) {
+		case "append", "del", "expire", "flushall", "flushdb", "hdel", "hmset", "hset", "incr", "incrby",
+			"lpop", "lpush", "mset", "persist", "rename", "restore", "rpop", "rpush", "sadd", "set", "spop",
+			"srem", "unlink", "xadd", "xdel", "zadd", "zrem":
+			return true
+		}
+	}
+	return false
+}
+
+func containsAnyPhrase(text string, phrases ...string) bool {
+	for _, phrase := range phrases {
+		if strings.Contains(text, phrase) {
+			return true
+		}
+	}
+	return false
 }
 
 func isShellHighRisk(cmd string, rest []string) bool {

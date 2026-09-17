@@ -1,6 +1,9 @@
 package safety
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestShouldPrompt(t *testing.T) {
 	readOnly := Assessment{Risk: RiskLow, Effects: []Effect{EffectReadWorkspace}}
@@ -222,5 +225,44 @@ func TestShellGitIsJudgedLikeTheGitTool(t *testing.T) {
 	// package could not place.
 	if got := AssessCommand("shell", []string{"git", "filter-branch"}); got.Risk != RiskHigh {
 		t.Errorf("an unrecognised git verb = %v, want RiskHigh", got.Risk)
+	}
+}
+
+func TestDatabaseShellCommandsNameTheirRealRisk(t *testing.T) {
+	high := [][]string{
+		{"psql", "-c", "DROP TABLE users"},
+		{"psql", "-c", "CALL rebuild_search_index()"},
+		{"psql", "-h", "localhost"},
+		{"mysql", "-e", "DELETE FROM users"},
+		{"sqlite3", "app.db", ".read", "migration.sql"},
+		{"npx", "prisma", "migrate", "deploy"},
+		{"pnpm", "supabase", "db", "reset"},
+		{"alembic", "upgrade", "head"},
+		{"rails", "db:migrate"},
+		{"redis-cli", "FLUSHDB"},
+	}
+	for _, args := range high {
+		got := AssessCommand("shell", args)
+		if got.Risk != RiskHigh {
+			t.Errorf("shell %v = %v, want RiskHigh", args, got.Risk)
+		}
+		if !strings.Contains(got.Reason, "database") {
+			t.Errorf("shell %v reason = %q, want a database-specific reason", args, got.Reason)
+		}
+	}
+
+	low := [][]string{
+		{"psql", "-c", "SELECT id FROM users LIMIT 1"},
+		{"mysql", "-e", "SELECT 1"},
+		{"sqlite3", "app.db", "SELECT count(*) FROM users"},
+		{"npx", "prisma", "migrate", "status"},
+		{"redis-cli", "GET", "user:1"},
+		{"echo", "DROP TABLE is text here, not an executed query"},
+	}
+	for _, args := range low {
+		got := AssessCommand("shell", args)
+		if got.Risk != RiskLow {
+			t.Errorf("shell %v = %v (%q), want RiskLow", args, got.Risk, got.Reason)
+		}
 	}
 }
