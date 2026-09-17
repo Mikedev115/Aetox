@@ -42,6 +42,24 @@ func TestBundledDesksShipComplete(t *testing.T) {
 	}
 }
 
+// Database commands can mutate state outside the working tree, so the coding
+// desk states that safety boundary directly instead of relying only on the
+// model to pick one claim out of the full skill shelf. Keep the skill's own
+// before: claim too: other desks and the CLI prompt still route through it.
+func TestCodingDeskNamesTheDatabaseSafetyContract(t *testing.T) {
+	t.Setenv("AETOX_DATA_ROOT", t.TempDir())
+
+	m, ok := Load(Coding)
+	if !ok || m == nil {
+		t.Fatal("Load(coding) failed")
+	}
+	for _, want := range []string{"Before inspecting or changing", "`aetox-database`"} {
+		if !strings.Contains(m.Prompt, want) {
+			t.Errorf("coding desk lost the database safety boundary %q", want)
+		}
+	}
+}
+
 // A category name in a manifest that category.go does not know matches no
 // tool, ever — a typo would silently empty part of a desk. This is the same
 // tripwire TestEveryToolHasACategory is on the other side of: there, every

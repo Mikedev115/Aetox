@@ -86,9 +86,9 @@ type DiscoveredSkill struct {
 	Description string `json:"description"`
 	// Before is the work this skill must be read before, in the skill's own
 	// words (`before:` in its frontmatter), or empty for a skill that makes no
-	// such claim. It is the one thing about a skill the prompt states up
-	// front: "before X, read Y" is the sentence a model follows, and it used
-	// to be typed into a desk file per skill (§221). Now the skill says it.
+	// such claim. It is the source for the generic prompt's "before X, read Y";
+	// a desk may still restate a narrow safety boundary, but routing every skill
+	// must not depend on a hand-maintained desk list (§221).
 	Before string `json:"before,omitempty"`
 	Dir    string `json:"dir"`
 	// Bundled marks a skill that ships inside the binary (bundled_skills.go).

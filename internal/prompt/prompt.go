@@ -1068,9 +1068,11 @@ func shelfClaims() []Read {
 // — was ignored by a flash-class model on 2026-09-04: it wrote a coffee-shop
 // site from nothing with 61 bundled page templates one lookup away. The same
 // model reads `aetox-slides` before every deck, because assistant.md names
-// that moment. A desk file naming moments is a list somebody grows by hand,
-// one skill at a time (§221); so the skill names its own moment, and this
-// layer only reads the claims out. A desk without skill_view hears none of
+// that moment. Making every desk name every moment is a list somebody grows
+// by hand, one skill at a time (§221); so the skill names its own moment,
+// and this layer reads the claims out. A desk may repeat a narrow safety
+// boundary where skipping it can mutate state outside the working tree; that
+// exception does not replace this shelf. A desk without skill_view hears none of
 // them, because it could not act on them — which is the one thing the desk
 // still decides here, the claims themselves coming from the shelf above.
 func reads(desk Desk) string {
