@@ -149,14 +149,14 @@ if ($Harness -eq "aetox") {
     $command = $codex
     $arguments = @(
         "--ask-for-approval", "never",
+        "--sandbox", "workspace-write",
+        "--cd", $workspace,
         "exec",
         "--ephemeral",
         "--ignore-user-config",
         "--ignore-rules",
         "--model", "gpt-5.6-luna",
         "-c", 'model_reasoning_effort="low"',
-        "--sandbox", "workspace-write",
-        "--cd", $workspace,
         "--skip-git-repo-check",
         "--color", "never",
         "--output-last-message", $lastMessage,
