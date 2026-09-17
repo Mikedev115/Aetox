@@ -21,8 +21,8 @@ The first fixture is a controlled pilot for the database path added in
 - No follow-up message is sent.
 - The hidden scorer is copied in only after the harness exits.
 - Aetox is built from the recorded repository commit and runs with a fresh
-  `AETOX_DATA_ROOT`. Its Codex login is explicitly imported into that temporary
-  root, which is deleted after the run. `USERPROFILE` points at an empty
+  `AETOX_DATA_ROOT`. The existing encrypted Aetox Codex session is explicitly
+  copied into that temporary root, which is deleted after the run. `USERPROFILE` points at an empty
   per-run directory while Aetox runs so user-installed skills do not enter the
   measurement; bundled skills remain.
 - Codex runs `--ephemeral --ignore-user-config --ignore-rules`, without web
@@ -41,12 +41,13 @@ five-task/120-run publication bar remains unchanged.
 From the repository root:
 
 ```powershell
-.\scripts\harness-bench.ps1 -Harness aetox -Task sqlite-email-migration -Run 1 -ImportCodexSession
+.\scripts\harness-bench.ps1 -Harness aetox -Task sqlite-email-migration -Run 1 -UseExistingAetoxSession
 .\scripts\harness-bench.ps1 -Harness codex -Task sqlite-email-migration -Run 1
 ```
 
-`-ImportCodexSession` is intentionally explicit: Aetox adopts the already
-signed-in official Codex CLI session for that temporary benchmark profile. No
+`-UseExistingAetoxSession` is intentionally explicit: the runner copies only
+the encrypted `oauth.json` that Aetox already owns into the temporary profile.
+It does not import or rotate the official Codex CLI refresh token. No
 credential is copied into the repository or result directory.
 
 Artifacts land under `output/harness-bench/<run-id>/`:

@@ -34,6 +34,7 @@ def legacy_database(path: Path, rows: list[tuple[str, str]]) -> None:
             "INSERT INTO users(email, display_name) VALUES (?, ?)",
             rows,
         )
+        connection.commit()
 
 
 class HiddenDatabaseTests(unittest.TestCase):

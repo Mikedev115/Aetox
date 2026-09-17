@@ -13,7 +13,7 @@ param(
 
     [string]$ResultsRoot = "",
 
-    [switch]$ImportCodexSession
+    [switch]$UseExistingAetoxSession
 )
 
 $ErrorActionPreference = "Stop"
@@ -115,13 +115,18 @@ if ($Harness -eq "aetox") {
 
     $temporaryDataRoot = Join-Path ([IO.Path]::GetTempPath()) ("aetox-harness-" + [guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $temporaryDataRoot -Force | Out-Null
-    if (-not $ImportCodexSession) {
-        throw "Aetox benchmark requires -ImportCodexSession so the temporary profile can use the same ChatGPT account"
+    if (-not $UseExistingAetoxSession) {
+        throw "Aetox benchmark requires -UseExistingAetoxSession so the temporary profile can use the existing ChatGPT account"
     }
-    $import = Invoke-CapturedProcess -File $aetox -Arguments @("login", "codex", "--import") -WorkingDirectory $repoRoot -Environment @{ AETOX_DATA_ROOT = $temporaryDataRoot } -TimeoutMilliseconds 60000
-    Set-Content -LiteralPath (Join-Path $runRoot "auth-setup.txt") -Value ($import.Stdout + $import.Stderr) -Encoding UTF8
-    if ($import.ExitCode -ne 0) {
-        throw "importing the Codex session into the temporary Aetox profile failed"
+    $sourceOAuth = Join-Path $env:APPDATA "aetox\oauth.json"
+    if (-not (Test-Path -LiteralPath $sourceOAuth)) {
+        throw "the existing Aetox OAuth store was not found at $sourceOAuth"
+    }
+    Copy-Item -LiteralPath $sourceOAuth -Destination (Join-Path $temporaryDataRoot "oauth.json")
+    $auth = Invoke-CapturedProcess -File $aetox -Arguments @("auth") -WorkingDirectory $repoRoot -Environment @{ AETOX_DATA_ROOT = $temporaryDataRoot } -TimeoutMilliseconds 60000
+    Set-Content -LiteralPath (Join-Path $runRoot "auth-setup.txt") -Value ($auth.Stdout + $auth.Stderr) -Encoding UTF8
+    if ($auth.ExitCode -ne 0 -or $auth.Stdout -notmatch "codex\s+ChatGPT\s+signed in") {
+        throw "the copied Aetox session is not signed in to Codex"
     }
     $emptyProfile = Join-Path $runRoot "empty-user-profile"
     New-Item -ItemType Directory -Path $emptyProfile -Force | Out-Null
