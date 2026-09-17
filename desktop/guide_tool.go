@@ -145,7 +145,7 @@ func (s *guideSkill) ToolDefinition() model.ToolDefinition {
 - route {id}: get deterministic navigation steps, preconditions, and next button to press.
 - point {id}: walk to that element and stand beside it, on whatever page it is on.
 - press {id}: press an element the catalog marks safe. Unsafe actions are refused by the window.
-- where: the page on screen, where you stand (guideAt), and the ids visible right now.
+- where: the page and active workbench context on screen, where you stand (guideAt), and the ids visible right now.
 - goto {page}: start guiding toward a page (chat, settings.<rail>, capability.<page>, office, artifacts) through visible buttons.
 
 The app core owns navigation and tours. Your job is to choose the matching tour or answer a page-specific question, never to carry a sequence of steps in prose. Answer in the user's language, in plain words, two short sentences. When the user's goal is not yet clear, end with one concrete choice question about what they want to do on the current page. Never repeat a sentence or narrate these actions.`
@@ -206,6 +206,7 @@ func (s *guideSkill) Execute(ctx context.Context, input skill.Input) (skill.Outp
 
 type whereOutput struct {
 	Page    string         `json:"page"`
+	Context string         `json:"context"`
 	GuideAt string         `json:"guideAt"`
 	Visible []guideElement `json:"visible"`
 }
@@ -246,7 +247,7 @@ func (s *guideSkill) run(ctx context.Context, args map[string]any) (skill.Output
 		// Calculate diff if not full and previous snapshot exists
 		if !full && sessID != "" {
 			if prevVal, ok := s.app.guideSnapshots.Load(sessID); ok {
-				if prev, ok := prevVal.(whereOutput); ok && prev.Page == fullRes.Page {
+				if prev, ok := prevVal.(whereOutput); ok && prev.Page == fullRes.Page && prev.Context == fullRes.Context {
 					prevIDs := map[string]bool{}
 					for _, el := range prev.Visible {
 						prevIDs[el.ID] = true
@@ -260,6 +261,7 @@ func (s *guideSkill) run(ctx context.Context, args map[string]any) (skill.Output
 					s.app.guideSnapshots.Store(sessID, fullRes)
 					diffOut := whereOutput{
 						Page:    fullRes.Page,
+						Context: fullRes.Context,
 						GuideAt: fullRes.GuideAt,
 						Visible: diffVisible,
 					}

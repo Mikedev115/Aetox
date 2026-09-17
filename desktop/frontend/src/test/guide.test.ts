@@ -458,6 +458,37 @@ describe('desk-aware greeting', () => {
     expect(pageDetail('chat').what).toBe(th['guide.room.chat.assistant.what'])
     expect(greetingFor('chat', 4)).toContain('เลือกทีม')
   })
+
+  it('describes the active right-hand pane instead of repeating its parent desk', () => {
+    cockpit.desk = 'coding'
+    const git = greetingFor('chat', 24, 'workbench.git')
+    expect(git).toContain(th['guide.topbar.tab.diff.name'])
+    expect(git).toContain(th['guide.workbench.git.ask'])
+    expect(git).not.toContain(th['guide.room.chat.coding.name'])
+    expect(git).not.toContain('24')
+
+    cockpit.desk = 'assistant'
+    const terminal = greetingFor('chat', 24, 'workbench.terminal')
+    expect(terminal).toContain(th['guide.topbar.tab.terminal.name'])
+    expect(terminal).toContain(th['guide.workbench.terminal.ask'])
+    expect(terminal).not.toContain(th['guide.room.chat.assistant.name'])
+  })
+
+  it('does not offer the tab that is already in front', () => {
+    const page = document.createElement('div')
+    page.setAttribute('data-guide-place', 'chat')
+    page.getBoundingClientRect = () => ({ width: 900, height: 700 }) as DOMRect
+    const pane = document.createElement('div')
+    pane.setAttribute('data-guide-context', 'workbench.git')
+    pane.getBoundingClientRect = () => ({ width: 500, height: 700 }) as DOMRect
+    page.appendChild(pane)
+    document.body.appendChild(page)
+
+    const ids = contextualGuideStarts('chat', 'coding').map((choice) => choice.id)
+    expect(ids).not.toContain('topbar.tab.diff')
+    expect(ids).toContain('topbar.tab.terminal')
+    expect(ids).toContain('topbar.tab.git_log')
+  })
 })
 
 describe('the guide on screen', () => {
@@ -1100,6 +1131,29 @@ describe('the screen moving under it', () => {
     expect(guide.saySeq).toBe(said + 1)
     expect(guide.sentence).toContain(th['guide.room.chat.coding.name'])
     expect(guide.sentence).toContain(th['guide.room.chat.coding.what'])
+  })
+
+  it('introduces the pane reached from the right-hand tab instead of looping back to Code', async () => {
+    cockpit.desk = 'coding'
+    const page = document.createElement('div')
+    page.setAttribute('data-guide-place', 'chat')
+    page.setAttribute('data-guide-context', 'coding')
+    page.getBoundingClientRect = () => ({ width: 900, height: 700 }) as DOMRect
+    const pane = document.createElement('div')
+    pane.setAttribute('data-guide-context', 'workbench.terminal')
+    pane.getBoundingClientRect = () => ({ width: 500, height: 700 }) as DOMRect
+    page.appendChild(pane)
+    document.body.appendChild(page)
+    const target = mapped('topbar.tab.terminal', { width: 180, height: 32 })
+
+    await guide.start(undefined, 'topbar.tab.terminal')
+    target.remove()
+    guide.placeChanged('chat', true)
+
+    expect(guide.stopId).toBeNull()
+    expect(guide.sentence).toContain(th['guide.topbar.tab.terminal.name'])
+    expect(guide.sentence).toContain(th['guide.workbench.terminal.ask'])
+    expect(guide.sentence).not.toContain(th['guide.room.chat.coding.name'])
   })
 
   it('ends an Assistant-only tour when the desk switches to Code', async () => {

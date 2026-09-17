@@ -693,7 +693,11 @@
   {/if}
   {/if}
 
-  <div class="insp-body">
+  <!-- The guide reads the pane that is actually in front, not merely the
+       Assistant/Code desk behind it. Keeping this sign on the stable body
+       means a tab switch is one context change even though inactive panes
+       remain mounted with display:none. -->
+  <div class="insp-body" data-guide-context={`workbench.${activeTab?.kind ?? 'empty'}`}>
     {#if workbench.tabs.length === 0}
       <div class="insp-start">{@render tabChoices()}</div>
     {/if}

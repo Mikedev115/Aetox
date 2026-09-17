@@ -130,6 +130,10 @@ describe('the window answering the guide tool', () => {
   })
 
   it('where: the page and what is on it', async () => {
+    const context = document.createElement('div')
+    context.setAttribute('data-guide-context', 'workbench.git')
+    context.getBoundingClientRect = () => ({ width: 500, height: 700 }) as DOMRect
+    document.body.appendChild(context)
     const el = document.createElement('button')
     el.setAttribute('data-guide', 'chat.send')
     el.getBoundingClientRect = () => ({ width: 10, height: 10 }) as DOMRect
@@ -138,6 +142,7 @@ describe('the window answering the guide tool', () => {
     await handleGuideAsk({ id: 'w1', action: 'where', args: {} })
     const res = answered('w1')
     expect(res.page).toBe('chat')
+    expect(res.context).toBe('workbench.git')
     expect(res.guideAt).toBe('chat.send')
     expect(res.visible).toEqual([{ id: 'chat.send', name: th['guide.chat.send.name'], safe: false }])
   })

@@ -56,6 +56,7 @@ func TestGuideSkillWhereDiffsVisibleOnSamePage(t *testing.T) {
 
 	currentSnapshot := whereOutput{
 		Page:    "chat",
+		Context: "workbench.git",
 		GuideAt: "chat.send",
 		Visible: []guideElement{
 			{ID: "chat.send", Name: "Send", Safe: false},
@@ -99,6 +100,21 @@ func TestGuideSkillWhereDiffsVisibleOnSamePage(t *testing.T) {
 	}
 	if len(res2.Visible) != 0 {
 		t.Errorf("where 2 (diff) visible count = %d, want 0", len(res2.Visible))
+	}
+
+	// A pane switch is a new screen context even though the parent page is
+	// still chat, so the model needs the full visible set again.
+	currentSnapshot.Context = "workbench.terminal"
+	outContext, err := s.Execute(ctx, skill.Input{"action": "where"})
+	if err != nil {
+		t.Fatalf("where after context switch failed: %v", err)
+	}
+	var resContext whereOutput
+	if err := json.Unmarshal([]byte(outContext.Content), &resContext); err != nil {
+		t.Fatalf("unmarshal where after context switch: %v", err)
+	}
+	if resContext.Context != "workbench.terminal" || len(resContext.Visible) != 2 {
+		t.Errorf("where after context switch = context %q, %d visible; want workbench.terminal, 2", resContext.Context, len(resContext.Visible))
 	}
 
 	// 3. Third where call with full: true: should return full list

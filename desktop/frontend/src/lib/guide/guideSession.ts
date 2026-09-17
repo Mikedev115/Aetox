@@ -1,7 +1,7 @@
 import { AnswerGuide } from '../../../wailsjs/go/main/App'
 import { GUIDE_MAP, guideText, type GuidePage } from './map'
 import { isPageId } from '../rooms'
-import { currentPage } from './where'
+import { currentContext, currentPage } from './where'
 import { guide } from './guideState.svelte'
 import { cockpit } from '../stores/cockpit.svelte'
 import { t } from '../i18n.svelte'
@@ -30,6 +30,7 @@ export async function handleGuideAsk(ask: { id: string; action: string; args?: R
         const { page, visible } = guideCore.where()
         const res = {
           page: page ?? currentPage() ?? String(cockpit.activeView),
+          context: currentContext(),
           guideAt: guide.stopId ?? '',
           visible,
         }

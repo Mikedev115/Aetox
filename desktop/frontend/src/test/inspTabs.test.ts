@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, fireEvent } from '@testing-library/svelte'
 import { tick } from 'svelte'
 import Workbench from '../lib/workbench/Workbench.svelte'
-import { workbench } from '../lib/stores/workbench.svelte'
+import { activateTab, workbench } from '../lib/stores/workbench.svelte'
 import { codeStatus } from '../lib/stores/codeStatus.svelte'
 import { setLocale } from '../lib/i18n.svelte'
 
@@ -31,6 +31,24 @@ beforeEach(() => {
 })
 
 describe('inspector tab strip (.insp-tabs)', () => {
+  it('publishes the active pane as guide context on every tab switch', async () => {
+    workbench.tabs.push(
+      { id: 'git-1', kind: 'git', name: 'Git' } as any,
+      { id: 'term-1', kind: 'terminal', name: 'Terminal' } as any,
+    )
+    workbench.activeId = 'git-1'
+
+    const { container } = render(Workbench)
+    await tick()
+
+    const body = container.querySelector('.insp-body')
+    expect(body?.getAttribute('data-guide-context')).toBe('workbench.git')
+
+    activateTab('term-1')
+    await tick()
+    expect(body?.getAttribute('data-guide-context')).toBe('workbench.terminal')
+  })
+
   it('separates the tab scroll rack from the plus button so tabs never overlap it', async () => {
     workbench.tabs.push(
       { id: 'f-1', kind: 'file', name: 'eval.ts', path: 'src/eval.ts' } as any,

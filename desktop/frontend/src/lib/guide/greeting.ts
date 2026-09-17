@@ -11,11 +11,12 @@
 // guide opens with are tuned far more often than the machinery that shows
 // them, and tuning them should not mean opening the component.
 
-import { t } from '../i18n.svelte'
+import { t, type TKey } from '../i18n.svelte'
 import { roomOf, type PageId } from '../rooms'
 import { GUIDE_MAP, guideText } from './map'
 import { GUIDE_ROUTES, routeAllowedForDesk, type GuideDesk, type GuideRouteId } from './routes'
 import { cockpit } from '../stores/cockpit.svelte'
+import { currentContext } from './where'
 
 /** Room → the locale key naming it. A room with no row here is not an error:
  *  the guide falls back to the room-less greeting, which is still a question. */
@@ -68,6 +69,85 @@ const PAGE_NAME_KEY: Partial<Record<PageId, string>> = {
   'capability.connections': 'capability.navConnections',
 }
 
+/** The right workbench is a set of real working surfaces inside Chat. The
+ * page sign remains `chat`, while this context sign tells the guide which
+ * surface is in front. Most names and descriptions already belong to the map;
+ * the few panes without a mapped opener keep their copy here. */
+const WORKBENCH_DETAIL_KEYS: Record<string, { name: TKey; what: TKey; ask: TKey }> = {
+  empty: {
+    name: 'guide.workbench.empty.name',
+    what: 'guide.workbench.empty.what',
+    ask: 'guide.workbench.empty.ask',
+  },
+  terminal: {
+    name: 'guide.topbar.tab.terminal.name',
+    what: 'guide.topbar.tab.terminal.what',
+    ask: 'guide.workbench.terminal.ask',
+  },
+  browser: {
+    name: 'guide.topbar.tab.browser.name',
+    what: 'guide.topbar.tab.browser.what',
+    ask: 'guide.workbench.browser.ask',
+  },
+  files: {
+    name: 'guide.topbar.tab.editor.name',
+    what: 'guide.topbar.tab.editor.what',
+    ask: 'guide.workbench.files.ask',
+  },
+  file: {
+    name: 'guide.workbench.file.name',
+    what: 'guide.workbench.file.what',
+    ask: 'guide.workbench.file.ask',
+  },
+  decks: {
+    name: 'guide.topbar.tab.decks.name',
+    what: 'guide.topbar.tab.decks.what',
+    ask: 'guide.workbench.decks.ask',
+  },
+  git: {
+    name: 'guide.topbar.tab.diff.name',
+    what: 'guide.topbar.tab.diff.what',
+    ask: 'guide.workbench.git.ask',
+  },
+  gitlog: {
+    name: 'guide.topbar.tab.git_log.name',
+    what: 'guide.topbar.tab.git_log.what',
+    ask: 'guide.workbench.gitlog.ask',
+  },
+  repomap: {
+    name: 'guide.workbench.repo_map_view.name',
+    what: 'guide.workbench.repo_map_view.what',
+    ask: 'guide.workbench.repomap.ask',
+  },
+  pr: {
+    name: 'guide.topbar.tab.pr.name',
+    what: 'guide.topbar.tab.pr.what',
+    ask: 'guide.workbench.pr.ask',
+  },
+  cutroom: {
+    name: 'guide.workbench.cutroom.name',
+    what: 'guide.workbench.cutroom.what',
+    ask: 'guide.workbench.cutroom.ask',
+  },
+  plan: {
+    name: 'guide.workbench.plan.name',
+    what: 'guide.workbench.plan.what',
+    ask: 'guide.workbench.plan.ask',
+  },
+  artifacts: {
+    name: 'guide.topbar.tab.artifacts.name',
+    what: 'guide.topbar.tab.artifacts.what',
+    ask: 'guide.workbench.artifacts.ask',
+  },
+}
+
+function workbenchDetail(context: string): { name: string; what: string; use: string; ask: string } | null {
+  if (!context.startsWith('workbench.')) return null
+  const keys = WORKBENCH_DETAIL_KEYS[context.slice('workbench.'.length)]
+  if (!keys) return null
+  return { name: t(keys.name), what: t(keys.what), use: '', ask: t(keys.ask) }
+}
+
 /** A page-specific answer to “what do people normally come here to do?”. */
 function pageUse(page: PageId): string {
   const key = `guide.page.${page}.use`
@@ -99,8 +179,17 @@ export function explainableOnScreen(): number {
 
 /** Room / Section detail: localized name, purpose, common use, and one useful
  * question. The question is what turns a page description into guidance. */
-export function pageDetail(page: PageId | null): { name: string; what: string; use: string; ask: string } {
+export function pageDetail(page: PageId | null, context = currentContext()): { name: string; what: string; use: string; ask: string } {
   if (!page) return { name: '', what: '', use: '', ask: '' }
+
+  // A visible workbench pane is more specific than the Chat room containing
+  // it. Without this check Terminal, Git and Timeline all introduced
+  // themselves as the whole Code page and sent the guide back to the same
+  // generic explanation after every tab change.
+  if (page === 'chat') {
+    const pane = workbenchDetail(context)
+    if (pane) return pane
+  }
 
   // Chat is one room id but two deliberately different workbenches. Read the
   // live desk so the guide describes the screen the person is actually using:
@@ -180,21 +269,27 @@ export function pageDetail(page: PageId | null): { name: string; what: string; u
  *
  * Tells what this page is, what it has, and invites questions.
  */
-export function greetingFor(page: PageId | null, count = explainableOnScreen()): string {
+export function greetingFor(page: PageId | null, count = explainableOnScreen(), context = currentContext()): string {
   if (!page) return t('guide.greetPlain' as never)
-  const { name, what, use, ask } = pageDetail(page)
+  const { name, what, use, ask } = pageDetail(page, context)
   if (!name) return t('guide.greetPlain' as never)
   const whatStr = what ? `\n\n${what}` : ''
   const useStr = use ? `\n\n${use}` : ''
   const askStr = ask ? `\n\n${ask}` : ''
+  // The global control count belongs to a whole page. Showing it for one pane
+  // counted controls behind and beside that pane (the screenshot's misleading
+  // "24 points"), so a workbench introduction stays scoped and concise.
+  if (context.startsWith('workbench.')) {
+    return t('guide.greetRoom' as never, { room: name, what: whatStr, use: useStr, ask: askStr })
+  }
   if (count > 0) return t('guide.greetRoomCount' as never, { room: name, what: whatStr, use: useStr, ask: askStr, n: String(count) })
   return t('guide.greetRoom' as never, { room: name, what: whatStr, use: useStr, ask: askStr })
 }
 
 /** A compact page explanation used between two presses in an active walk. */
-export function arrivalFor(page: PageId | null): string {
+export function arrivalFor(page: PageId | null, context = currentContext()): string {
   if (!page) return ''
-  const { name, what, use, ask } = pageDetail(page)
+  const { name, what, use, ask } = pageDetail(page, context)
   if (!name) return ''
   return t('guide.arrivedPage' as never, {
     room: name,
@@ -225,12 +320,49 @@ export type GuideContextStart = {
   label: string
 }
 
+const WORKBENCH_TARGET_BY_KIND: Record<string, string> = {
+  terminal: 'topbar.tab.terminal',
+  browser: 'topbar.tab.browser',
+  files: 'topbar.tab.editor',
+  file: 'topbar.tab.editor',
+  decks: 'topbar.tab.decks',
+  artifacts: 'topbar.tab.artifacts',
+  git: 'topbar.tab.diff',
+  gitlog: 'topbar.tab.git_log',
+  pr: 'topbar.tab.pr',
+  repomap: 'workbench.repo_map',
+}
+
+function workbenchStarts(desk: 'assistant' | 'coding', context: string): GuideContextStart[] {
+  const choices: GuideContextStart[] = [
+    { id: 'topbar.tab.terminal', kind: 'target', label: t('guide.context.code.terminal' as never) },
+    { id: 'topbar.tab.editor', kind: 'target', label: t('guide.context.code.files' as never) },
+    { id: 'topbar.tab.browser', kind: 'target', label: t('guide.context.code.browser' as never) },
+    { id: 'topbar.tab.decks', kind: 'target', label: guideText('topbar.tab.decks', 'name') },
+    { id: 'topbar.tab.artifacts', kind: 'target', label: guideText('topbar.tab.artifacts', 'name') },
+  ]
+  if (desk === 'coding') {
+    choices.splice(2, 0,
+      { id: 'topbar.tab.diff', kind: 'target', label: t('guide.context.code.git' as never) },
+      { id: 'topbar.tab.git_log', kind: 'target', label: t('guide.context.code.timeline' as never) },
+      { id: 'topbar.tab.pr', kind: 'target', label: t('guide.context.code.pr' as never) },
+      { id: 'workbench.repo_map', kind: 'target', label: guideText('workbench.repo_map', 'name') },
+    )
+  }
+  const currentTarget = WORKBENCH_TARGET_BY_KIND[context.slice('workbench.'.length)]
+  return choices.filter((choice) => choice.id !== currentTarget && choice.label.trim())
+}
+
 /** The first choices belong to the screen the person is looking at. A coding
  * desk should not open with the same setup/about menu as every other room;
  * it should offer its own workbench, and hidden tools carry their mapped path
  * through the inspector and + menu. Other pages derive their choices from
  * that page's safe controls, excluding the shared navigation rail. */
 export function contextualGuideStarts(page: PageId | null, desk: 'assistant' | 'coding'): GuideContextStart[] {
+  const context = currentContext()
+  if (page === 'chat' && context.startsWith('workbench.')) {
+    return workbenchStarts(desk, context)
+  }
   if (page === 'chat' && desk === 'coding') {
     const choices: GuideContextStart[] = [
       { id: 'code_desk', kind: 'route', label: GUIDE_ROUTES.code_desk.name },
