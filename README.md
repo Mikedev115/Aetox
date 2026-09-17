@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/Mikedev115/Aetox/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/Mikedev115/Aetox?color=2f81f7"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-proprietary%20%C2%B7%20source%20available-blue"></a>
-  <img alt="Tests" src="https://img.shields.io/badge/tests-3%2C371%20Go%20%2B%201%2C747%20UI-brightgreen">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-3%2C648%20Go%20%2B%202%2C106%20UI-brightgreen">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2B-lightgrey">
 </p>
 
@@ -58,7 +58,7 @@ Aetox is a desktop application for Windows that runs an AI agent against your ow
 You describe what needs doing; it reads and writes real files, runs real commands in a real
 shell, and drives a real browser you can watch.
 
-It is two self-contained executables, 80.8 MB together — `aetox.exe`, the window, and since 1.6.0
+It is two self-contained executables, 83.4 MB together — `aetox.exe`, the window, and since 1.6.0
 `aetox-engine.exe`, the half that thinks and works, beside it. There is no runtime to install
 alongside them, no `node_modules`, no bundled copy of Chromium. It talks to whichever model you point it at —
 a hosted API, a subscription you already pay for, or a 9B/35B running in LM Studio or Ollama on
@@ -152,7 +152,7 @@ Prefer to click? [apps.microsoft.com/detail/9N4KKBRRSCZZ](https://apps.microsoft
 or paste `ms-windows-store://pdp/?productid=9N4KKBRRSCZZ` into Run (Win+R) to open the Store app
 straight away without the web page.
 
-**Installer** — [aetox-amd64-installer.exe](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe) (33.6 MB)
+**Installer** — [aetox-amd64-installer.exe](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe) (34.6 MB)
 
 Installs into Program Files with a Start menu entry. It carries its own files and nothing else:
 Tesseract, poppler, ffmpeg and the speech model are fetched later by the app itself, and only for a
@@ -507,12 +507,12 @@ A tool count is not a reason to use anything, which is why this is down here.
 
 **35 tools reach the model on a fresh install** — 34 from the engine and `browser`, which the
 window lends across the wire (§248); `computer` joins only once you switch it on. A default
-assistant session carries fewer, because a desk narrows the set. They cost about 10,300 tokens on
-every request before you have typed anything — the engine's 34 are about 9,500, against a ceiling
+assistant session carries fewer, because a desk narrows the set. They cost about 10,700 tokens on
+every request before you have typed anything — the engine's 34 are about 9,900, against a ceiling
 of 10,400 tokens and 48 tools that a test enforces on that block, and the browser's definition is
 another ~830. Twelve of them are **packed** — one name in the block, several verbs behind it —
 which is why the list got shorter in v1.5.15 without anything being taken away. Re-measured
-2026-09-13 on v1.6.1.
+2026-09-17 on v1.7.2.
 
 | Group | Tools |
 |:---|:---|
@@ -521,8 +521,8 @@ which is why the list got shorter in v1.5.15 without anything being taken away. 
 | **Handing back files** | `asset_find` `doc_write` `sheet_write` `video` *(new · check · render)* |
 | **Reading media** | `image_make` `media_read` *(image · video · audio)* `pdf_read` `video_project` |
 | **Web and automation** | `browser` *(open · read · click · type · wait · back · scroll · capture · tabs · dialog · console · network · hover · drag · key · upload)* `media_fetch` `web_fetch` `web_search` |
-| **Code work** | `codebase` *(errors · symbol · map)* `github` *(search · repo_summary · list_files · read_file)* `pr` *(list · read · checks · create · comment)* `rename` |
-| **How the assistant works** | `ask_user` `calc` `desk` *(open · list · close · focus)* `memory` `plan_mode` `plan` *(write · amend · read · step · report)* `plugin_install` `session_search` `skill_view` `skills_list` `task` *(start · collect · answer · plan)* `time` `todo_write` |
+| **Code work** | `codebase` *(errors · symbol · impact · map · trace · design)* `github` *(search · repo_summary · list_files · read_file)* `pr` *(list · read · checks · create · comment)* `rename` |
+| **How the assistant works** | `ask_user` `calc` `desk` *(open · list · close · focus)* `memory` `plan_mode` `plan` *(write · amend · read · step · report)* `plugin_install` `session_search` `skill_view` `skills_list` `task` *(start · collect · answer · message · plan)* `time` `todo_write` |
 
 That table is generated from the registry the model is actually handed
 (`go test ./internal/engine -run TestPrintReadmeToolTable -v`, plus the two the window lends),
@@ -599,17 +599,17 @@ has not passed them may not appear here or on the website.
 > The dangerous number is the flattering one, because nobody audits a figure that makes them look
 > good.
 
-**Aetox.** The two size rows and the two test counts were re-measured 2026-09-13 on v1.6.1;
+**Aetox.** The two size rows and the two test counts were re-measured 2026-09-17 on v1.7.2;
 assembling a turn is from 2026-08-13, and the ⁽ᵈ⁾ rows from 2026-07-27 on v0.9.2 — before the
 engine became a process of its own, so the process count in particular is one short of today.
 
 | | |
 |:---|---:|
-| What you download | 33.6 MB installer |
-| What ends up on disk | **80.8 MB**, two files — `aetox.exe` 49.2 MB + `aetox-engine.exe` 31.7 MB |
+| What you download | 34.6 MB installer |
+| What ends up on disk | **83.4 MB**, two files — `aetox.exe` 50.9 MB + `aetox-engine.exe` 32.5 MB |
 | Assembling a turn | 0.32 ms · 174.9 KB allocated |
-| Go tests | 3,371 across 56 packages, 0 failures |
-| Frontend tests | 1,747 across 175 files, 0 failures |
+| Go tests | 3,648 across 62 packages, 0 failures |
+| Frontend tests | 2,106 across 205 files, 0 failures |
 | First launch (cold) | 1.77 s ⁽ᵈ⁾ |
 | Every launch after | 0.53 s ⁽ᵈ⁾ |
 | RAM committed | 252 MB ⁽ᵈ⁾ |
@@ -622,7 +622,7 @@ rules on the day — which is the whole difference between an old number and a b
 Two things that number honestly. Assembling a turn was 0.12 ms and 96.2 KB when the block held 27
 tools; it is 0.32 ms and 174.9 KB now that it holds more. That is a real regression, and it is
 still three ten-thousandths of a second — the time you wait is the model thinking. And the disk
-figure went from 48.5 MB in one file to 80.8 MB in two: the engine is now its own executable, and
+figure went from 48.5 MB in one file to 83.4 MB in two: the engine is now its own executable, and
 the window still links the engine package for its types and forwarders, so the split added a
 binary without yet shrinking the first one. That is a real cost of §248 and it is written down as
 one. The Go suite is green on Windows; **CI on Linux and macOS is red** — 16 tests on 2026-09-13,
@@ -639,7 +639,7 @@ that they no longer hide the platform that is done.
 | First launch (cold) | 1.77 s | 2.12 s |
 | Every launch after | 0.53 s | 0.53 s |
 | RAM committed | 252 MB | 471 MB |
-| Disk | **80.8 MB** | 419 MB |
+| Disk | **83.4 MB** | 419 MB |
 
 Both columns except Aetox's disk figure were measured 2026-07-27 on the same machine under the same
 rules, and neither has been re-measured — Zed is no longer installed here. A tie on warm launch with
@@ -654,8 +654,8 @@ handed a second browser to store.
 <summary>How these were measured, and what does not qualify</summary>
 
 **Disk** — download [the portable zip](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-windows-amd64-portable.zip),
-unpack it, and add up the two files inside: `aetox.exe` 51,554,816 bytes and `aetox-engine.exe`
-33,197,568 bytes, 84,752,384 together. Anyone can reproduce it in a minute. It replaces the 48.5 MB
+unpack it, and add up the two files inside: `aetox.exe` 53,339,136 bytes and `aetox-engine.exe`
+34,120,192 bytes, 87,459,328 together. Anyone can reproduce it in a minute. It replaces the 48.5 MB
 single-file figure measured on 2026-08-25 on v1.5.7, which was correct then and is not now. Competitor sizes are measured after install from the install folder, never
 taken from a download page, and never from a folder holding user profiles or caches.
 

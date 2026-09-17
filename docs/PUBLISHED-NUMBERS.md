@@ -88,3 +88,9 @@
 และอยู่ในอีกรีโป (`lib/i18n/en.ts` + `th.ts` บรรทัดสถิติ/FAQ, `components/Weight.tsx` แถว Aetox
 กับ `KPI_VALUES`) — **แก้แล้วบ่ายวันเดียวกัน** (`aetox-landing` ab95a0f: 80.8 สองไฟล์ · 33.6 · 3,371/1,747 ·
 35 tools · 24 providers + dialog เพิ่ม codex/opencode zen/opencode go) และ deploy ผ่าน push ของรีโปนั้นเอง
+
+**อัปเดต 17 ก.ย. 2026 (v1.7.2)** — artifact ที่เผยแพร่จริงวัดได้ **83.4 MB สองไฟล์**
+(`aetox.exe` 50.9 + `aetox-engine.exe` 32.5) · ตัวติดตั้ง **34.6 MB** · zip 33.5 MB ·
+Go **3,648 ใน 62 แพ็กเกจ** / UI **2,106 ใน 205 ไฟล์** · เครื่องยนต์ 34 tools / ~9,886 tokens
+และ `browser` อีกราว 830 = **35 tools / ~10,700** บนเครื่องที่เพิ่งติดตั้ง ตัวเลขในรีโปนี้แก้แล้ว;
+`aetox-landing` เป็นอีกโปรเจกต์และยังต้องอัปเดต/ส่ง deploy แยกตามขั้นตอนข้างบน
