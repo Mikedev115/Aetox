@@ -86,12 +86,50 @@ Hidden scorer มี 6 tests:
 - ห้ามย้ายตัวเลขนี้ขึ้น `BENCHMARK.md` หรือหน้าเผยแพร่;
 - ยังไม่มีผล OpenCode/Crush/Aider และยังขาดอีกสี่ task shapes
 
+## Database skill routing tune
+
+หลัง scored pilot พบว่า `aetox-database` ถูกเปิดเพียง 1/3 รอบ จึงจูน routing โดยไม่เพิ่ม
+ตัวเดา intent จาก keyword/path ใน dispatcher:
+
+1. ย้าย `before:` claims ไว้ก่อน skill index และระบุว่าเป็น precondition กลาง;
+2. ให้ Coding desk ระบุ database safety boundary โดยตรง เพราะคำสั่งฐานข้อมูลอาจเปลี่ยน state
+   นอก working tree; มี test ผูกชื่อ contract ไว้เพื่อไม่ให้ rename แล้วขาดเงียบ;
+3. ทำ reference ของ `aetox-database` เป็น demand-driven แทนการบังคับอ่านสี่ไฟล์ทุกงาน;
+4. หรี่ claim ของ `aetox-brainstorm` ให้ตรงเฉพาะ decision ที่ brief ยังเปิด หลังพบว่าคำเดิม
+   จับงาน implementation ที่กำหนดครบแล้วทุกครั้ง
+
+ไม่เพิ่ม batch argument ให้ `skill_view`: schema ของ tool ถูกส่งทุกข้อความ จึงเป็น overhead ถาวร
+เพื่อแก้พฤติกรรมของสกิลเดียว และไม่เพิ่ม guard DSL สำหรับ path/command เพราะจะซ้ำกับระบบ permission
+พร้อมสร้างภาษา config อีกชุด
+
+รอบยืนยันสุดท้าย `r16`–`r18` ใช้ source commit
+`c9f7054b7a769721f972bcc7dd34e753be0c25d6`:
+
+| Metric | Baseline r8–r10 | Tuned r16–r18 |
+|---|---:|---:|
+| Hidden assertions | **18/18** | **18/18** |
+| Opened `aetox-database` before code work | 1/3 | **3/3** |
+| Unneeded database reference reads | ไม่สม่ำเสมอ | **0/3 runs** |
+| Unneeded `aetox-brainstorm` reads | 0/3 | **0/3** |
+| Median wall time | 127.274 s | **116.864 s** |
+| Median rounds | **19** | 20 |
+| Median tool calls | **18** | 19 |
+| Median input / cached / output tokens | 365,127 / 273,664 / 3,732 | 370,312 / 207,360 / 3,116 |
+
+Routing ดีขึ้นจาก 1/3 เป็น 3/3 โดยแลกหนึ่ง skill read ต่อรอบ ส่วนเวลาลด 10.410 วินาที
+แต่ตัวอย่างมีเพียงสามรอบของงานเดียว จึงถือเป็น regression signal ไม่ใช่ข้อสรุปว่าความเร็วดีขึ้นทั่วไป
+
+รอบระหว่างจูนเก็บไว้เป็นหลักฐานแต่ไม่รวมในตารางสุดท้าย: `r11` แสดงว่าการทำ generic prompt
+ให้แรงขึ้นอย่างเดียวยังไม่ route database skill; `r12` route ถูกแต่บังคับอ่าน reference สี่ไฟล์;
+`r13`–`r15` ตัด reference ส่วนเกินได้แต่เปิด brainstorm เกินขอบเขตทุกครั้ง
+
 ## Raw artifacts
 
 เก็บใน working tree ของเครื่องนี้ ไม่อยู่ในคอมมิต:
 
 - `output/harness-bench/aetox-sqlite-email-migration-r8/` ถึง `r10/`
 - `output/harness-bench/codex-sqlite-email-migration-r8/` ถึง `r10/`
+- `output/harness-bench/aetox-sqlite-email-migration-r11/` ถึง `r18/` สำหรับ routing tune
 
 แต่ละโฟลเดอร์มี `result.json`, transcript, last message, `changes.patch`, hidden-test output,
 changed-file list และ workspace สุดท้าย ห้ามย้าย `auth-setup.txt` เข้า Git เพราะเป็นข้อมูลสถานะ
